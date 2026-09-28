@@ -2,7 +2,8 @@
  * WorkbenchのAI依頼SurfaceとApplication Port。
  *
  * @responsibility 現在Sessionの依頼、状態、事実・共有分析・追加推論の表示を所有し、会話履歴やProvider実行を所有しない。
- * @trace ARCH-000015 ARCH-000010
+ * @trace ARCH-000015
+ * @trace ARCH-000010
  * @boundary Workbench Browserと外部AI実行Application Adapterの境界。
  * @effect 描画はEffect 0。開始・取消は注入されたApplicationへだけ委譲する。
  * @security Promptや結果をRepository、URL、logへ保存せず、秘密値を入力契約へ含めない。
@@ -114,7 +115,8 @@ export type WorkbenchCandidateReviewResult = Readonly<{
  * Workbench変更候補の操作結果。
  *
  * @responsibility 採用・破棄の完了、Effect状態、cleanupおよび回復要否を保持する。
- * @trace ARCH-000015 ARCH-000004
+ * @trace ARCH-000015
+ * @trace ARCH-000004
  * @shape 操作、状態、理由、候補・Receipt Identity、Effect・Recovery情報を持つ。
  * @invariant blockedを成功へ畳まず、Effect不明を明示する。
  * @boundary Coordinator ApplicationとWorkbenchの境界。
@@ -138,7 +140,8 @@ export type WorkbenchCandidateActionResult = Readonly<{
  * Workbench変更候補Application Port。
  *
  * @responsibility Effect 0の確認、明示採用および確認付き破棄を別操作として公開する。
- * @trace ARCH-000015 ARCH-000004
+ * @trace ARCH-000015
+ * @trace ARCH-000004
  * @shape review、adopt、discardの非同期操作を持つ。
  * @invariant confirmedなしで採用または破棄Effectを発行しない。
  * @boundary WorkbenchとCoordinator Applicationの境界。
@@ -161,7 +164,8 @@ export type WorkbenchCandidateApplication = Readonly<{
  * Workbench AI依頼Panelを現在Sessionの一件だけから描画する。
  *
  * @responsibility Profile選択、依頼入力、実行状態、結果区分および取消導線を一画面へ投影する。
- * @trace ARCH-000015 ARCH-000010
+ * @trace ARCH-000015
+ * @trace ARCH-000010
  * @input actionToken、Profile Surface、AI Application、現在Snapshot、Candidate Application、候補確認・操作結果およびnotice。
  * @returns Browserへ埋め込むHTML断片。
  * @precondition Profile SurfaceはAI Runtimeの検証済みCatalogを持つ。
@@ -253,7 +257,8 @@ function renderSnapshot(
  * 未採用Candidateの確認情報と独立した採用・破棄操作を描画する。
  *
  * @responsibility 候補Identity、変更Path、基準Revision、期限、操作確認および直近結果を一つのPanelへ表示する。
- * @trace ARCH-000015 ARCH-000004
+ * @trace ARCH-000015
+ * @trace ARCH-000004
  * @input candidateId、actionToken、Application有無、確認結果、直近操作結果。
  * @returns HTML断片を返す。
  * @precondition 表示値はApplicationの閉じた結果である。

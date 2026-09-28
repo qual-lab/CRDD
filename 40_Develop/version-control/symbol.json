@@ -18,32 +18,46 @@
       "symbolId": "version-control.change-publication",
       "kind": "file",
       "path": "src/change-publication.ts",
-      "archIds": ["ARCH-000009"]
+      "archIds": [
+        "ARCH-000009"
+      ]
     },
     {
       "symbolId": "version-control.git-change-publication-adapter",
       "kind": "file",
       "path": "src/git/change-publication-adapter.ts",
-      "archIds": ["ARCH-000009"]
+      "archIds": [
+        "ARCH-000009"
+      ]
     },
     {
       "symbolId": "version-control.repository-worktree-view",
       "kind": "file",
       "path": "src/repository-worktree-view.ts",
-      "archIds": ["ARCH-000002", "ARCH-000009"]
+      "archIds": [
+        "ARCH-000002",
+        "ARCH-000009"
+      ]
     },
     {
       "symbolId": "version-control.git-repository-worktree-view-adapter",
       "kind": "file",
       "path": "src/git/repository-worktree-view-adapter.ts",
-      "archIds": ["ARCH-000002", "ARCH-000009"]
+      "archIds": [
+        "ARCH-000002",
+        "ARCH-000009"
+      ]
     },
     {
       "symbolId": "version-control.test.integration.change-publication",
       "kind": "test-suite",
       "path": "tests/integration/change-publication.integration.test.ts",
-      "qaIds": ["QA-000007"],
-      "localTestIds": ["RFD-IT-014", "RFD-ST-015"],
+      "qaIds": [
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "RFD-IT-014"
+      ],
       "verifies": [
         "version-control.change-publication",
         "version-control.git-change-publication-adapter"
@@ -63,7 +77,9 @@
       "symbolId": "version-control.migration-closure",
       "kind": "file",
       "path": "src/migration-closure.ts",
-      "archIds": ["ARCH-000002"]
+      "archIds": [
+        "ARCH-000002"
+      ]
     },
     {
       "symbolId": "version-control.test.integration.repository-location",
@@ -101,8 +117,12 @@
       "symbolId": "version-control.test.integration.repository-worktree-view",
       "kind": "test-suite",
       "path": "tests/integration/repository-worktree-view.integration.test.ts",
-      "qaIds": ["QA-000007"],
-      "localTestIds": ["RFD-IT-008"],
+      "qaIds": [
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "RFD-IT-008"
+      ],
       "verifies": [
         "version-control.repository-worktree-view",
         "version-control.git-repository-worktree-view-adapter"
@@ -165,9 +185,15 @@
       "symbolId": "version-control.test.system.migration-system-closure",
       "kind": "test-suite",
       "path": "tests/system/migration-system-closure.contract.test.ts",
-      "qaIds": ["QA-000001"],
-      "localTestIds": ["RCM-ST-012"],
-      "verifies": ["version-control.migration-closure"]
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-ST-012"
+      ],
+      "verifies": [
+        "version-control.migration-closure"
+      ]
     },
     {
       "symbolId": "version-control.source.src.repository.identity.index",

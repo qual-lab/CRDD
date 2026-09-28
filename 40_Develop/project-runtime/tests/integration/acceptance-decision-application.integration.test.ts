@@ -40,7 +40,7 @@ const revision = "a".repeat(40);
  * @observation status、reasonおよびvalueを返す。
  * @oracle statusが`completed`で入力値が保持される。
  * @cleanup N/A: Process内の不変値だけを使用する。
- * @boundary PRL-IT-008=Direct Boundary: Test Adapter→Project Runtime Port
+ * @boundary PRL-IT-008=Direct Boundary: project-runtime Test Source→対象契約
  */
 function completed<T>(value: T): ProjectRuntimePortResult<T> {
   return Object.freeze({ status: "completed", reason: "completed", value });
@@ -56,7 +56,7 @@ function completed<T>(value: T): ProjectRuntimePortResult<T> {
  * @observation status、reasonおよび回復要否を返す。
  * @oracle statusが`blocked`でvalueが`null`となる。
  * @cleanup N/A: Process内の不変値だけを使用する。
- * @boundary PRL-IT-008=Direct Boundary: Test Adapter→Project Runtime Port
+ * @boundary PRL-IT-008=Direct Boundary: project-runtime Test Source→対象契約
  */
 function blocked<T>(reason: string): ProjectRuntimePortResult<T> {
   return Object.freeze({
@@ -78,7 +78,7 @@ function blocked<T>(reason: string): ProjectRuntimePortResult<T> {
  * @observation Objectiveが`integration_pending`の状態を返す。
  * @oracle Task完了だけではObjectiveまたはMilestoneが受入済みにならない。
  * @cleanup N/A: Process内の不変値だけを使用する。
- * @boundary PRL-IT-008=Direct Boundary: State Machine fixture
+ * @boundary PRL-IT-008=Direct Boundary: project-runtime Test Source→対象契約
  */
 function acceptancePendingState(): ProjectRuntimeState {
   const created = createProjectRuntimeState({
@@ -150,7 +150,7 @@ function acceptancePendingState(): ProjectRuntimeState {
  * @observation stateWrites、creates、finalizesおよびrecordsを公開する。
  * @oracle 未使用のQueue操作は停止し、Task／Provider操作を一切提供しない。
  * @cleanup N/A: Process内Mapだけを使用する。
- * @boundary PRL-IT-008=Direct Boundary: Acceptance Decision Application→Ports
+ * @boundary PRL-IT-008=Direct Boundary: project-runtime Test Source→対象契約
  */
 function harness(initial: ProjectRuntimeState) {
   let state = initial;
@@ -236,7 +236,7 @@ function harness(initial: ProjectRuntimeState) {
  * @observation Applicationへ渡せる完全な要求を返す。
  * @oracle SourceはSPEC-000002、対象はObjective、Authorityは認証済みPrincipalへ結合される。
  * @cleanup N/A: Process内の不変値だけを使用する。
- * @boundary PRL-IT-008=Direct Boundary: Public Request→Application
+ * @boundary PRL-IT-008=Direct Boundary: project-runtime Test Source→対象契約
  */
 function request(
   expectedGeneration: number,
@@ -267,7 +267,7 @@ function request(
  * @observation ApplicationのStore Portへ投入できる完全なRecordを返す。
  * @oracle Record ID、対象、世代、根拠およびPrincipalがinputと一致する。
  * @cleanup N/A: Process内の不変値だけを使用する。
- * @boundary PRL-IT-008=Direct Boundary: Recovery fixture→Acceptance Decision Store
+ * @boundary PRL-IT-008=Direct Boundary: project-runtime Test Source→対象契約
  */
 function preparedRecord(
   input: ProjectRuntimeAcceptanceDecisionRequest,
@@ -300,7 +300,7 @@ function preparedRecord(
  * @observation 結果、Record、State、各Effect件数を観測する。
  * @oracle Recordはfinalized、Objectiveはacceptedで、Task／Provider依存は存在しない。
  * @cleanup N/A: Process内Mapだけを使用する。
- * @boundary PRL-IT-008=Direct Boundary: SPEC入力→Acceptance Decision Port→Decision Store
+ * @boundary PRL-IT-008=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("SPEC-000002のexactな対象・世代・Authorityだけを一度記録する", () => {
   const fixture = harness(acceptancePendingState());
@@ -330,7 +330,7 @@ test("SPEC-000002のexactな対象・世代・Authorityだけを一度記録す�
  * @observation 理由code、State Write、Record CreateおよびFinalize件数を観測する。
  * @oracle 前三反例は全Effect 0、重複判断は最初の一件以外を追加しない。
  * @cleanup N/A: Process内Mapだけを使用する。
- * @boundary PRL-IT-008=Direct Boundary: SPEC入力→Acceptance Decision Port→Decision Store
+ * @boundary PRL-IT-008=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("Projection Source、古い世代、権限不一致および重複判断をEffect 0で拒否する", () => {
   for (const mutate of [
@@ -387,7 +387,7 @@ test("Projection Source、古い世代、権限不一致および重複判断を
  * @observation State Write、Record Create、Finalizeおよび最終Dispositionを観測する。
  * @oracle Recordを再作成せず、Stateを一度更新して既存Recordを`finalized`へ進める。
  * @cleanup N/A: Process内Mapだけを使用する。
- * @boundary PRL-IT-008=Recovery Boundary: Prepared Record→State Effect→Finalize
+ * @boundary PRL-IT-008=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("状態Effect前に停止した同一判断をexact再入場で一度だけ完了する", () => {
   const fixture = harness(acceptancePendingState());
@@ -420,7 +420,7 @@ test("状態Effect前に停止した同一判断をexact再入場で一度だけ
  * @observation State Write、Record Create、Finalizeおよび最終世代を観測する。
  * @oracle State Writeは0、Record Createは0、Finalizeだけが1となる。
  * @cleanup N/A: Process内Mapだけを使用する。
- * @boundary PRL-IT-008=Recovery Boundary: Applied State＋Prepared Record→Finalize
+ * @boundary PRL-IT-008=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("状態Effect後に停止した同一判断を再発行せず確定する", () => {
   const pending = acceptancePendingState();
@@ -456,7 +456,7 @@ test("状態Effect後に停止した同一判断を再発行せず確定する",
  * @observation 理由code、State Write、Record CreateおよびFinalize件数を観測する。
  * @oracle duplicateとして停止し、全Effectが0となる。
  * @cleanup N/A: Process内Mapだけを使用する。
- * @boundary PRL-IT-008=Recovery Boundary: Mismatched Request→Effect 0
+ * @boundary PRL-IT-008=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("別判断による準備Recordの横取りをEffect 0で拒否する", () => {
   const fixture = harness(acceptancePendingState());

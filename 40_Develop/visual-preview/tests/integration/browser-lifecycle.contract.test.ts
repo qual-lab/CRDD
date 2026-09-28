@@ -28,7 +28,7 @@ import {
  * @observation present、absent、unknownの分類値を取得する。
  * @oracle 応答停止中はpresent、明示的接続拒否はabsent、不正入力はunknownになる。
  * @cleanup Serverを閉じ、Connection Socketを破棄する。
- * @boundary ERB-IT-020=Direct Boundary: localhost TCP Listener→終了後観測
+ * @boundary ERB-IT-020=Direct Boundary: visual-preview Test Source→対象契約
  */
 test("Listenerの存在・不存在・観測不能を三値で区別する", async () => {
   const server = createServer((socket) => {
@@ -59,7 +59,7 @@ test("Listenerの存在・不存在・観測不能を三値で区別する", asy
  * @observation stopOwnedBrowserが返す終了経路を取得する。
  * @oracle 遅延自然終了はnormal、残存Processはsigtermになり、前者へSignalを送らない。
  * @cleanup 両Processの終了をstopOwnedBrowserが確認する。
- * @boundary ERB-IT-020=Direct Boundary: Owned Child Process→正常終了／Fallback分類
+ * @boundary ERB-IT-020=Direct Boundary: visual-preview Test Source→対象契約
  */
 test("正常終了待機と強制終了Fallbackを分離する", async () => {
   const delayedExit = spawn(

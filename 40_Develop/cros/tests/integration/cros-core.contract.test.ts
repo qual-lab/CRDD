@@ -25,7 +25,7 @@ import {
  * @observation Contract、結果および外部Effectを観測する。
  * @oracle Repository結果は一致し、CROS／Repository外Effectは0となる。
  * @cleanup N/A: 不変値だけを使用する。
- * @boundary RFD-IT-009=Related 2 Blocks: Local入口→任意CROS→Repository契約。
+ * @boundary RFD-IT-009=Direct Boundary: cros Test Source→対象契約
  */
 test("CROSの状態にかかわらずRepository-local操作を同じ意味で実行する", () => {
   const results = (["unconfigured", "stopped", "available"] as const).map(
@@ -60,7 +60,7 @@ test("CROSの状態にかかわらずRepository-local操作を同じ意味で実
  * @observation Source、Revision、共通Step、制約およびEffectを比較する。
  * @oracle Canonical Relationと共通Stepは一致し、差はentryConstraintsだけに現れる。
  * @cleanup N/A: 読取り値だけを使用する。
- * @boundary RFD-IT-011=Related 2 Blocks: AI入口→Canonical Source→行動計画。
+ * @boundary RFD-IT-011=Direct Boundary: cros Test Source→対象契約
  */
 test("AI入口固有差を制約へ限定し同じCanonical Sourceへ到達する", () => {
   const chat = resolveAiOperatingPlan(

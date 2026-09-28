@@ -21,11 +21,35 @@ export const WORKBENCH_AI_ADVICE_DISPATCH_RUNTIME_CONTRACT =
   "crdd-coordinator/workbench-ai-advice-dispatch-runtime";
 export const WORKBENCH_AI_ADVICE_DISPATCH_RUNTIME_CONTRACT_REVISION = 1;
 
+/**
+ * Workbench助言のProvider配送・取消境界で使用するWorkbenchAiAdviceProviderInputの構造を固定する。
+ *
+ * @responsibility Workbench助言のProvider配送・取消境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
+
 export type WorkbenchAiAdviceProviderInput = Readonly<{
   taskPacket: WorkbenchAiAdviceTaskPacket;
   catalogRevision: number;
   profile: ResolvedAiProfileIdentity;
 }>;
+
+/**
+ * Workbench助言のProvider配送・取消境界で使用するWorkbenchAiAdviceProviderOutcomeの構造を固定する。
+ *
+ * @responsibility Workbench助言のProvider配送・取消境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
 
 export type WorkbenchAiAdviceProviderOutcome = Readonly<{
   status: "completed" | "blocked" | "unknown";
@@ -35,10 +59,34 @@ export type WorkbenchAiAdviceProviderOutcome = Readonly<{
   cleanupConfirmed: boolean;
 }>;
 
+/**
+ * Workbench助言のProvider配送・取消境界で使用するWorkbenchAiAdviceProviderAdapterの構造を固定する。
+ *
+ * @responsibility Workbench助言のProvider配送・取消境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
+
 export type WorkbenchAiAdviceProviderAdapter = (
   input: WorkbenchAiAdviceProviderInput,
   cancellationSignal: AbortSignal,
 ) => Promise<WorkbenchAiAdviceProviderOutcome>;
+
+/**
+ * Workbench助言のProvider配送・取消境界で使用するSendGrantの構造を固定する。
+ *
+ * @responsibility Workbench助言のProvider配送・取消境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
 
 type SendGrant = Readonly<{
   taskHash: string;

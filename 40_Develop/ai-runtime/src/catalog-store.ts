@@ -3,7 +3,8 @@
  *
  * @packageDocumentation
  * @responsibility Repository単体設定とCROS設定を別Rootへ不変Snapshotとして保存し、同じCatalog Schemaで観測する。
- * @trace ARCH-000010 ARCH-000011
+ * @trace ARCH-000010
+ * @trace ARCH-000011
  * @boundary Runtime Data Root Resolver、FilesystemおよびAI Profile Catalog Store Portの境界。
  * @effect 採用時だけ検証済みRoot内へ不変Snapshot fileを公開する。
  * @security 秘密値、任意実行Pathおよび任意CLI引数をSchema検証で拒否し、Pathを公開結果へ含めない。
@@ -45,7 +46,8 @@ const SNAPSHOT_PATTERN = /^catalog-(\d{10})\.json$/u;
  * Repository-local設定RootへAI Profile Catalog Storeを構成する。
  *
  * @responsibility 検証済みRepository Rootから固定config領域だけを選びStoreへ渡す。
- * @trace ARCH-000010 ARCH-000011
+ * @trace ARCH-000010
+ * @trace ARCH-000011
  * @input workingDirectory: Repository内の開始Directory。
  * @returns readyなStoreまたはEffect 0のblocked結果。
  * @precondition workingDirectoryを検証済みRootと仮定しない。
@@ -70,7 +72,8 @@ export function createRepositoryAiProfileCatalogStore(
  * OS管理CROS設定RootへAI Profile Catalog Storeを構成する。
  *
  * @responsibility CROS Trust Domainごとの設定OwnerをRepository単体設定から物理分離する。
- * @trace ARCH-000010 ARCH-000011
+ * @trace ARCH-000010
+ * @trace ARCH-000011
  * @input input: 検証対象のCROS Runtime Root入力。
  * @returns readyなStoreまたはEffect 0のblocked結果。
  * @precondition inputのPath、PublisherおよびTrust Domainを信頼済みと仮定しない。

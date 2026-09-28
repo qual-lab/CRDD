@@ -24,7 +24,7 @@ import { evaluateRuntimeTrust } from "../../src/security/runtime-trust-evaluator
  * @observation 同一Artifact Identityを保持した入力を返す。
  * @oracle 呼出し側が軸別結果とPolicy判断を比較できる。
  * @cleanup N/A: Process内の値だけを生成する。
- * @boundary AIT-IT-001=Adjacent 1 Block: Artifact Observer→Trust Evaluator→Policy
+ * @boundary AIT-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 function input(overrides: Record<string, unknown> = {}) {
   return {
@@ -59,7 +59,7 @@ function input(overrides: Record<string, unknown> = {}) {
  * @observation 軸別結果、Policy revision、trust、理由およびAuthority非発行を観測する。
  * @oracle Policyが許可した公式・組織・Fork・Localだけtrustedになり、結果軸は保持される。
  * @cleanup N/A: 外部資源を作成しない。
- * @boundary AIT-IT-001=Adjacent 1 Block: Artifact Observer→Trust Evaluator→Policy
+ * @boundary AIT-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("公式、組織、Fork、Local開発を同じPolicy契約で評価する", () => {
   const official = evaluateRuntimeTrust(input());
@@ -136,7 +136,7 @@ test("公式、組織、Fork、Local開発を同じPolicy契約で評価する",
  * @observation trust、理由、軸別結果およびAuthority非発行を観測する。
  * @oracle unknownはunknown、準拠failはnot_trustedとなり、いずれもAuthorityを発行しない。
  * @cleanup N/A: 外部資源を作成しない。
- * @boundary AIT-IT-003=Direct Boundary: 検証材料Reader→Trust Evaluator
+ * @boundary AIT-IT-003=Direct Boundary: coordinator Test Source→対象契約
  */
 test("不明軸と単一軸Passをtrustedへ昇格しない", () => {
   const unknown = evaluateRuntimeTrust(

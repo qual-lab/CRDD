@@ -43,7 +43,7 @@ const ORIGIN_TASK = Object.freeze({
  * @observation 相関Identity、状態、理由およびEffect件数を観測する。
  * @oracle 正常完成時だけ元TaskへEffect 1、それ以外はEffect 0でIdentityを付け替えない。
  * @cleanup 重複適用と別正本への反映が0であることを確認する。
- * @boundary EST-ST-011=System/E2E: Delegated Runtime→Result Return→Origin Task／Canonical Owner。
+ * @boundary EST-ST-011=Direct Boundary: cros Test Source→対象契約
  */
 test("委譲結果を相関付きで元Taskへ一度だけ帰還させる", () => {
   const accepted = settleDelegatedResult(

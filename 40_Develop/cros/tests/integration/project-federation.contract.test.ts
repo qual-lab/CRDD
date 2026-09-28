@@ -32,7 +32,11 @@ import {
  * @effect N/A: 文字列を構築するだけである。
  * @failure N/A: 入力文字列をそのまま見出しへ利用する。
  * @invariant Sourceまたは状態を追加推測しない。
- * @boundary 試験FixtureとProject Context Readerの形式境界。
+ * @stimulus sceneMarkdownの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary PPR-IT-002=Direct Boundary: cros Test Source→対象契約
  * @security N/A: 合成した非秘密Fixtureだけを使う。
  * @concurrency N/A: 同期的な純粋変換である。
  */
@@ -52,7 +56,11 @@ function sceneMarkdown(title: string): string {
  * @effect N/A: 文字列解析だけを行う。
  * @failure 不正IdentityはProject Context Readerが拒否する。
  * @invariant Context外のSourceを追加しない。
- * @boundary 試験Fixture→Project Operation Reader。
+ * @stimulus contextの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary PPR-IT-002=Direct Boundary: cros Test Source→対象契約
  * @security N/A: 合成した非秘密Fixtureだけを使う。
  * @concurrency N/A: 同期的な純粋変換である。
  */
@@ -128,7 +136,7 @@ const exposures: readonly CrosExposure[] = [
  * @observation Project、Source Identity、状態および正本保持Flagを観測する。
  * @oracle MGMT Sourceは現れず、Context欠落Projectはpartialとして残る。
  * @cleanup N/A: 不変Fixtureだけを使用する。
- * @boundary PPR-IT-002=Direct Boundary: Session→Exposure→Federation→Portfolio
+ * @boundary PPR-IT-002=Direct Boundary: cros Test Source→対象契約
  */
 test("許可RepositoryだけをPortfolioへ統合し欠測をpartialで保つ", () => {
   const session = createCrosSession("session-dev", {
@@ -139,15 +147,15 @@ test("許可RepositoryだけをPortfolioへ統合し欠測をpartialで保つ", 
   });
   assert.ok(session);
 
-  const authorized = resolveAuthorizedRepositories(
+  const authorizedRepositories = resolveAuthorizedRepositories(
     session,
     exposures,
     repositories,
   );
-  const portfolio = createPortfolioProjection(authorized);
+  const portfolio = createPortfolioProjection(authorizedRepositories);
 
   assert.deepEqual(
-    authorized.map((repository) => repository.repositoryId),
+    authorizedRepositories.map((repository) => repository.repositoryId),
     ["PRJ-001-DEV", "PRJ-002-DEV"],
   );
   assert.deepEqual(

@@ -41,7 +41,9 @@ const MCP_PATH = "/mcp";
  * Shared Serverへ必要な運用設定とApplication依存を定義する。
  *
  * @responsibility 公開Origin、loopback Port、Credential、ExposureおよびRepository Applicationの入力境界を固定する。
- * @trace ARCH-000005 ARCH-000012 ARCH-000013
+ * @trace ARCH-000005
+ * @trace ARCH-000012
+ * @trace ARCH-000013
  * @shape HTTPS OriginとCROS／MCPの既存Application Portを持つ。
  * @invariant Bearer Secret、TLS秘密鍵または任意Filesystem Pathを設定値に持たない。
  * @boundary Server運用設定とProcess内Compositionの型境界。
@@ -64,7 +66,9 @@ export type CrosSharedServerInput = Readonly<{
  * 起動済みShared Serverの公開情報と終了操作を定義する。
  *
  * @responsibility 公開HTTPS Originと、同一Origin上のREST／MCP Pathおよび冪等終了を返す。
- * @trace ARCH-000005 ARCH-000012 ARCH-000013
+ * @trace ARCH-000005
+ * @trace ARCH-000012
+ * @trace ARCH-000013
  * @shape 公開URL、内部観測用URL、Pathおよびcloseを持つ。
  * @invariant 外部利用者へ内部REST／MCPの個別Portを配布しない。
  * @boundary Shared Server Processと起動元のLifecycle境界。
@@ -83,7 +87,9 @@ export type CrosSharedServerHandle = Readonly<{
  * CROS RESTとMCPを同一Originへ公開するloopback Gatewayを開始する。
  *
  * @responsibility 内部Transportを開始し、固定Routeだけを期待HTTPS Originから同一Gatewayへ中継する。
- * @trace ARCH-000005 ARCH-000012 ARCH-000013
+ * @trace ARCH-000005
+ * @trace ARCH-000012
+ * @trace ARCH-000013
  * @input 公開HTTPS Origin、任意loopback Port、Credential Registry、Exposure Snapshotおよび任意Application Adapterを受け取る。
  * @returns 公開Origin、Gateway観測URLおよび全Listenerをjoinするcloseを返す。
  * @precondition TLS終端は同一Host上または保護済みloopback経路からGatewayへ接続し、`x-forwarded-proto`と`x-forwarded-host`を上書きする。
@@ -135,9 +141,9 @@ export async function startCrosSharedServer(
 
   const sockets = new Set<Socket>();
   const proxyRequests = new Set<ReturnType<typeof createProxyRequest>>();
-  let closing = false;
+  let isClosing = false;
   const server = createServer((request, response) => {
-    if (closing) {
+    if (isClosing) {
       request.destroy();
       return;
     }
@@ -151,7 +157,7 @@ export async function startCrosSharedServer(
     );
   });
   server.on("connection", (socket) => {
-    if (closing) {
+    if (isClosing) {
       socket.destroy();
       return;
     }
@@ -183,7 +189,7 @@ export async function startCrosSharedServer(
   > | null = null;
   const close = () => {
     if (closePromise !== null) return closePromise;
-    closing = true;
+    isClosing = true;
     closePromise = (async () => {
       const serverClosed = new Promise<void>((resolve, reject) => {
         server.close((error) => (error ? reject(error) : resolve()));
@@ -275,7 +281,9 @@ function inspectPublicOrigin(value: string): URL {
  * 一つのGateway要求をTLS配置検証後に固定内部Routeへ中継する。
  *
  * @responsibility Forwarded情報、Origin、RouteおよびBody上限を検証してCROS RESTまたはMCPへ一回だけ送る。
- * @trace ARCH-000005 ARCH-000012 ARCH-000013
+ * @trace ARCH-000005
+ * @trace ARCH-000012
+ * @trace ARCH-000013
  * @input 外部Request／Response、期待公開Origin、内部Targetおよび追跡集合を受け取る。
  * @returns Response完了時に解決するPromiseを返す。
  * @precondition Gateway Listenerはloopbackに限定され、TLS終端がForwarded Headerを上書きする。
@@ -376,11 +384,12 @@ function hasExpectedTlsTermination(
  * 外部公開を許可するCROS REST Pathかを判定する。
  *
  * @responsibility 内部CROS Transportへ渡せるPathを固定Namespaceへ限定する。
- * @trace ARCH-000005 ARCH-000013
+ * @trace ARCH-000005
+ * @trace ARCH-000013
  * @input queryを除いたRequest Pathを受け取る。
  * @returns `/v1/`またはCROS Health Pathに属する場合だけtrueを返す。
  * @precondition pathはURLのPath部分である。
- * @postcondition任意Proxy Pathを受理しない。
+ * @postcondition 任意Proxy Pathを受理しない。
  * @effect N/A: 文字列を比較するだけである。
  * @failure N/A: 不一致はfalseで返す。
  * @invariant MCP PathをCROS RESTへ渡さない。
@@ -396,7 +405,9 @@ function isCrosPath(path: string): boolean {
  * 検証済み要求を一つの内部loopback Transportへ中継する。
  *
  * @responsibility Method、Path、限定HeaderおよびBodyを内部へ渡し、許可Response HeaderとBodyを返す。
- * @trace ARCH-000005 ARCH-000012 ARCH-000013
+ * @trace ARCH-000005
+ * @trace ARCH-000012
+ * @trace ARCH-000013
  * @input 外部Request／Response、固定Target URLおよび進行中Request集合を受け取る。
  * @returns 内部Responseまたは失敗Response完了時に解決するPromiseを返す。
  * @precondition targetはCompositionが開始したloopback Transportである。
@@ -458,7 +469,8 @@ function proxyRequest(
  * 内部Transportへ渡せるRequest Headerだけを選ぶ。
  *
  * @responsibility Protocol、Content Negotiation、Body長およびBearer認証に必要なHeaderを限定コピーする。
- * @trace ARCH-000012 ARCH-000013
+ * @trace ARCH-000012
+ * @trace ARCH-000013
  * @input 外部Request Headerを受け取る。
  * @returns 固定allowlistのHeader Objectを返す。
  * @precondition Header値を信頼済みと仮定しない。
@@ -494,7 +506,9 @@ function selectForwardHeaders(
  * 内部Responseから公開可能なHeaderだけをGateway Responseへコピーする。
  *
  * @responsibility Content表現、認証Challenge、許可Methodおよび安全Headerだけを外部へ戻す。
- * @trace ARCH-000005 ARCH-000012 ARCH-000013
+ * @trace ARCH-000005
+ * @trace ARCH-000012
+ * @trace ARCH-000013
  * @input 内部Response Headerと公開Responseを受け取る。
  * @returns N/A: Response Headerへ反映する。
  * @precondition responseは未完了である。

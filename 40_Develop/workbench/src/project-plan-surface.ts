@@ -3,7 +3,8 @@
  *
  * @packageDocumentation
  * @responsibility Current Release ProjectionをVersion、期限、Scope、依存および判断が読める画面へ変換する。
- * @trace ARCH-000005 ARCH-000012
+ * @trace ARCH-000005
+ * @trace ARCH-000012
  * @boundary Project Operation Release Read ModelとWorkbench Browser表示の境界。
  * @effect N/A: 検証済みRead ModelからHTMLを構築するだけである。
  * @security Repository外情報を取得せず、表示TextをHTML escapeする。
@@ -16,7 +17,8 @@ import type { WorkbenchOwnerArtifactCatalog } from "./owner-artifact-surface.ts"
  * Workbenchが観測したCurrent Release Projectionを定義する。
  *
  * @responsibility 利用可能、未構成および観測不能をProjection本体と同じ結果へ閉じる。
- * @trace ARCH-000005 ARCH-000012
+ * @trace ARCH-000005
+ * @trace ARCH-000012
  * @shape state、projectionおよびreasonを表す。
  * @invariant 未構成または観測不能を空の計画へ変換しない。
  * @boundary Repository Release ReaderとWorkbench Project Surfaceの型境界。
@@ -33,7 +35,8 @@ export type WorkbenchProjectPlanObservation = Readonly<{
  * Current Release Projectionを構造化Project Planとして描画する。
  *
  * @responsibility 計画の結論を先に示し、Scopeと依存を原文Relation付きで表示する。
- * @trace ARCH-000005 ARCH-000012
+ * @trace ARCH-000005
+ * @trace ARCH-000012
  * @input observationと同じRepositoryから構築したOwner Artifact Catalogを受け取る。
  * @returns Browserへ埋め込む安全なHTML断片を返す。
  * @precondition availableではprojectionが非nullである。

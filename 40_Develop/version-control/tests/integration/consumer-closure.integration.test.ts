@@ -28,7 +28,7 @@ const developRoot = path.join(repositoryRoot, "40_Develop");
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-004=Related 2 Blocks: 旧Consumer→新Contract→完成Gate
+ * @boundary RCM-IT-004=Direct Boundary: version-control Test Source→対象契約
  */
 function publicExportNames(source: string): readonly string[] {
   const names: string[] = [];
@@ -51,7 +51,7 @@ function publicExportNames(source: string): readonly string[] {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-004=Related 2 Blocks: 旧Consumer→新Contract→完成Gate
+ * @boundary RCM-IT-004=Direct Boundary: version-control Test Source→対象契約
  */
 function productionSources(root: string): readonly string[] {
   const foundFiles: string[] = [];
@@ -75,7 +75,7 @@ function productionSources(root: string): readonly string[] {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-004=Related 2 Blocks: 旧Consumer→新Contract→完成Gate
+ * @boundary RCM-IT-004=Direct Boundary: version-control Test Source→対象契約
  */
 test("Repository Locationの旧Ownerと重複した能力発行入口を残さない", () => {
   const sources = productionSources(developRoot).map((sourcePath) => ({
@@ -117,7 +117,7 @@ test("Repository Locationの旧Ownerと重複した能力発行入口を残さ�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-004=Related 2 Blocks: 旧Consumer→新Contract→完成Gate
+ * @boundary RCM-IT-004=Direct Boundary: version-control Test Source→対象契約
  */
 test("保護対象Runtimeは公開barrelやVersion Control内部実装を依存閉包へ取り込まない", () => {
   const protectedRoots = [
@@ -162,7 +162,7 @@ test("保護対象Runtimeは公開barrelやVersion Control内部実装を依存�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-004=Related 2 Blocks: 旧Consumer→新Contract→完成Gate
+ * @boundary RCM-IT-004=Direct Boundary: version-control Test Source→対象契約
  */
 test("Fixed SnapshotとFixed Revisionの既知Consumer集合が宣言と一致する", () => {
   const sources = productionSources(developRoot).map((sourcePath) => ({
@@ -181,7 +181,7 @@ test("Fixed SnapshotとFixed Revisionの既知Consumer集合が宣言と一致�
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary RCM-IT-004=Related 2 Blocks: 旧Consumer→新Contract→完成Gate
+   * @boundary RCM-IT-004=Direct Boundary: version-control Test Source→対象契約
    */
   const externalConsumers = (pattern: RegExp) =>
     sources
@@ -227,7 +227,7 @@ test("Fixed SnapshotとFixed Revisionの既知Consumer集合が宣言と一致�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-004=Related 2 Blocks: 旧Consumer→新Contract→完成Gate
+ * @boundary RCM-IT-004=Direct Boundary: version-control Test Source→対象契約
  */
 test("Repository Locationの公開ProjectionにGit固有語彙を出さない", () => {
   const projection = JSON.stringify(describeRepositoryLocationContract());
@@ -245,7 +245,7 @@ test("Repository Locationの公開ProjectionにGit固有語彙を出さない", 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-004=Related 2 Blocks: 旧Consumer→新Contract→完成Gate
+ * @boundary RCM-IT-004=Direct Boundary: version-control Test Source→対象契約
  */
 test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣言と一致する", () => {
   const sources = productionSources(developRoot).map((sourcePath) => ({
@@ -264,7 +264,7 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary RCM-IT-004=Related 2 Blocks: 旧Consumer→新Contract→完成Gate
+   * @boundary RCM-IT-004=Direct Boundary: version-control Test Source→対象契約
    */
   const consumers = (pattern: RegExp) =>
     sources
@@ -331,7 +331,7 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-004=Related 2 Blocks: 旧Consumer→新Contract→完成Gate
+ * @boundary RCM-IT-004=Direct Boundary: version-control Test Source→対象契約
  */
 test("Checkerは同じ基準版RootのVersion Control公開入口だけを使う", () => {
   const checkerSource = fs.readFileSync(
@@ -389,7 +389,7 @@ test("Checkerは同じ基準版RootのVersion Control公開入口だけを使う
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-004=Related 2 Blocks: 旧Consumer→新Contract→完成Gate
+ * @boundary RCM-IT-004=Direct Boundary: version-control Test Source→対象契約
  */
 test("Version Controlの公開SymbolはArchitectureの現行集合と完全一致する", () => {
   const source = fs.readFileSync(
@@ -466,7 +466,7 @@ test("Version Controlの公開SymbolはArchitectureの現行集合と完全一�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-004=Related 2 Blocks: 旧Consumer→新Contract→完成Gate
+ * @boundary RCM-IT-004=Direct Boundary: version-control Test Source→対象契約
  */
 test("Local Change Setと狭いVersion Control公開入口のConsumer集合が宣言と一致する", () => {
   const sources = [
@@ -533,7 +533,7 @@ test("Local Change Setと狭いVersion Control公開入口のConsumer集合が�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-004=Related 2 Blocks: 旧Consumer→新Contract→完成Gate
+ * @boundary RCM-IT-004=Direct Boundary: version-control Test Source→対象契約
  */
 test("既知ConsumerはGitを再解釈せずVersion Control公開契約だけを使う", () => {
   const consumerPaths = [
@@ -567,7 +567,7 @@ test("既知ConsumerはGitを再解釈せずVersion Control公開契約だけを
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-004=Related 2 Blocks: 旧Consumer→新Contract→完成Gate
+ * @boundary RCM-IT-004=Direct Boundary: version-control Test Source→対象契約
  */
 test("GitによるLocal Change Set観測能力はVersion Control Adapterだけが発行する", () => {
   const sources = productionSources(developRoot).map((sourcePath) => ({

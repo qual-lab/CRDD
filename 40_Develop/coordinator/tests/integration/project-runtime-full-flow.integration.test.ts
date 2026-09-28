@@ -59,7 +59,7 @@ const revision = "a".repeat(40);
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PPR-IT-001=Adjacent 1 Block: 複数Source Reader→Projector
+ * @boundary PPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 function resolveProjectRuntimeReplan(
   input: ProjectRuntimeReplanInput &
@@ -83,7 +83,7 @@ function resolveProjectRuntimeReplan(
  * @observation 二つのDecision Resultと最終Project Runtime Stateを観測する。
  * @oracle ObjectiveとMilestoneが明示判断なしにacceptedへ昇格しない。
  * @cleanup 親TestがRepository Rootを削除する。
- * @boundary PRL-IT-008=Direct Boundary: Acceptance Decision Application→State／Decision Store
+ * @boundary PRL-IT-008=Direct Boundary: coordinator Test Source→対象契約
  */
 function acceptIntegratedResult(
   input: Readonly<{
@@ -153,7 +153,7 @@ function acceptIntegratedResult(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PPR-IT-001=Adjacent 1 Block: 複数Source Reader→Projector
+ * @boundary PPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 function fixture(t: test.TestContext) {
   const root = fs.mkdtempSync(
@@ -274,7 +274,7 @@ function fixture(t: test.TestContext) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-IT-001=Adjacent 1 Block: 複数Source Reader→Projector
+ * @boundary PPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("public intake, bounded retry, progress and integration form one accepted flow", async (t) => {
   const context = fixture(t);
@@ -383,7 +383,7 @@ test("public intake, bounded retry, progress and integration form one accepted f
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-IT-001=Adjacent 1 Block: 複数Source Reader→Projector
+ * @boundary PPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("bounded parallel attempts are evaluated by one integrated accepted result", async (t) => {
   const root = fs.mkdtempSync(
@@ -620,7 +620,7 @@ test("bounded parallel attempts are evaluated by one integrated accepted result"
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-IT-001=Adjacent 1 Block: 複数Source Reader→Projector
+ * @boundary PPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("human decision is one-time and resumes only through a fresh bounded plan", async (t) => {
   const context = fixture(t);

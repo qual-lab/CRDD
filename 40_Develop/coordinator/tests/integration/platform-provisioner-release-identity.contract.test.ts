@@ -30,7 +30,7 @@ import {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AIT-IT-002=Related 2 Blocks: Manifest・実行集合・Native成果物→Trust判定
+ * @boundary AIT-IT-002=Direct Boundary: coordinator Test Source→対象契約
  */
 function objectId(type: "blob" | "tree", bytes: Buffer) {
   return createHash("sha1")
@@ -49,7 +49,7 @@ function objectId(type: "blob" | "tree", bytes: Buffer) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AIT-IT-002=Related 2 Blocks: Manifest・実行集合・Native成果物→Trust判定
+ * @boundary AIT-IT-002=Direct Boundary: coordinator Test Source→対象契約
  */
 function tree(entries: ReadonlyArray<readonly [string, string, Buffer]>) {
   const bytes = Buffer.concat(
@@ -71,7 +71,7 @@ function tree(entries: ReadonlyArray<readonly [string, string, Buffer]>) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AIT-IT-002=Related 2 Blocks: Manifest・実行集合・Native成果物→Trust判定
+ * @boundary AIT-IT-002=Direct Boundary: coordinator Test Source→対象契約
  */
 function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-release-tree-"));
@@ -154,7 +154,7 @@ function fixture() {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AIT-IT-002=Related 2 Blocks: Manifest・実行集合・Native成果物→Trust判定
+ * @boundary AIT-IT-002=Direct Boundary: coordinator Test Source→対象契約
  */
 test("配布Root全体をGit Treeへ再計算し後置manifestと管理metadataだけを除外する", () => {
   const value = fixture();
@@ -187,7 +187,7 @@ test("配布Root全体をGit Treeへ再計算し後置manifestと管理metadata�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AIT-IT-002=Related 2 Blocks: Manifest・実行集合・Native成果物→Trust判定
+ * @boundary AIT-IT-002=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Root .crddの追跡設定だけを含めRuntime状態を除外する", () => {
   const value = fixture();
@@ -229,7 +229,7 @@ test("Root .crddの追跡設定だけを含めRuntime状態を除外する", () 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AIT-IT-002=Related 2 Blocks: Manifest・実行集合・Native成果物→Trust判定
+ * @boundary AIT-IT-002=Direct Boundary: coordinator Test Source→対象契約
  */
 test("配布fileの変更、追加および不正Treeを拒否する", () => {
   const mutations: Array<(root: string) => void> = [
@@ -272,7 +272,7 @@ test("配布fileの変更、追加および不正Treeを拒否する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AIT-IT-002=Related 2 Blocks: Manifest・実行集合・Native成果物→Trust判定
+ * @boundary AIT-IT-002=Direct Boundary: coordinator Test Source→対象契約
  */
 test("配布TreeはRepository textのLF／CRLFを同一視しNative byte差を拒否する", () => {
   const value = fixture();
@@ -318,7 +318,7 @@ test("配布TreeはRepository textのLF／CRLFを同一視しNative byte差を�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AIT-IT-002=Related 2 Blocks: Manifest・実行集合・Native成果物→Trust判定
+ * @boundary AIT-IT-002=Direct Boundary: coordinator Test Source→対象契約
  */
 test("配布TreeはNULを含む非exe binaryを改行正規化しない", () => {
   const value = fixture();
@@ -347,7 +347,7 @@ test("配布TreeはNULを含む非exe binaryを改行正規化しない", () => 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AIT-IT-002=Related 2 Blocks: Manifest・実行集合・Native成果物→Trust判定
+ * @boundary AIT-IT-002=Direct Boundary: coordinator Test Source→対象契約
  */
 test("固定Platform Access成果物の欠落を署名対象Tree成立と誤認しない", () => {
   const value = fixture();
@@ -383,7 +383,7 @@ test("固定Platform Access成果物の欠落を署名対象Tree成立と誤認�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AIT-IT-002=Related 2 Blocks: Manifest・実行集合・Native成果物→Trust判定
+ * @boundary AIT-IT-002=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Release Identity contractはTree一致をEffectおよびrollbackから分離する", () => {
   const contract = describePlatformProvisionerReleaseIdentityContract();
@@ -417,7 +417,7 @@ test("Release Identity contractはTree一致をEffectおよびrollbackから分�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AIT-IT-002=Related 2 Blocks: Manifest・実行集合・Native成果物→Trust判定
+ * @boundary AIT-IT-002=Direct Boundary: coordinator Test Source→対象契約
  */
 test("配布Treeの読込競合はHashと権限を発行せず対象descriptorを閉じる", (t) => {
   for (const failure of [
@@ -440,7 +440,7 @@ test("配布Treeの読込競合はHashと権限を発行せず対象descriptor�
        * @observation 返却値、生成fixtureまたは観測値を取得する。
        * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
        * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-       * @boundary AIT-IT-002=Related 2 Blocks: Manifest・実行集合・Native成果物→Trust判定
+       * @boundary AIT-IT-002=Direct Boundary: coordinator Test Source→対象契約
        */
       const inspect = () =>
         inspectPlatformProvisionerReleaseIdentityCandidate(

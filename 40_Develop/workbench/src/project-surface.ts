@@ -102,7 +102,8 @@ export type WorkbenchProjectSurface = Readonly<{
  * 固定Current Release ProjectionをWorkbench向けに観測する。
  *
  * @responsibility Release Projectionの欠落、不正およびFilesystem失敗を別状態として保持する。
- * @trace ARCH-000005 ARCH-000012
+ * @trace ARCH-000005
+ * @trace ARCH-000012
  * @input repositoryRootに検証済みRepository Rootを受け取る。
  * @returns 構造化Projectionまたは理由付き状態を返す。
  * @precondition 固定Path以外を探索しない。
@@ -158,7 +159,8 @@ async function readProjectPlan(
  * 固定Current Quality ProjectionをWorkbench向けに観測する。
  *
  * @responsibility Quality Projectionの欠落、不正およびFilesystem失敗を別状態として保持する。
- * @trace ARCH-000005 ARCH-000012
+ * @trace ARCH-000005
+ * @trace ARCH-000012
  * @input repositoryRootに検証済みRepository Rootを受け取る。
  * @returns 構造化Quality Projectionまたは理由付き状態を返す。
  * @precondition 固定Path以外を探索しない。

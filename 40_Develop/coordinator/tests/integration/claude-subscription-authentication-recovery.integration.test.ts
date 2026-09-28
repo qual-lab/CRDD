@@ -40,7 +40,7 @@ const token = "b".repeat(64);
  * @observation NetworkまたはContainer用の固定stderrを返す。
  * @oracle 実装が受理するexact不存在形式と一致する。
  * @cleanup N/A: 外部資源を作成しない純粋fixtureである。
- * @boundary ERB-IT-017=Integration: Docker stderr fixture境界
+ * @boundary ERB-IT-017=Direct Boundary: coordinator Test Source→対象契約
  */
 function absenceError(purpose: string) {
   const resource = purpose.includes("network")
@@ -67,7 +67,7 @@ function absenceError(purpose: string) {
  * @observation JSON行を逐次解析し、対象Eventを観測する。
  * @oracle 対象Eventを返し、上限内に現れなければ失敗する。
  * @cleanup Timerを各poll後に解放する。
- * @boundary ERB-IT-017=Integration: 親子Process標準出力境界
+ * @boundary ERB-IT-017=Direct Boundary: coordinator Test Source→対象契約
  */
 async function waitForFixtureEvent(
   output: () => string,
@@ -100,7 +100,7 @@ async function waitForFixtureEvent(
  * @observation exit Codeとstderrを観測する。
  * @oracle 上限内の終了Codeを返し、起動失敗またはTimeoutを失敗とする。
  * @cleanup Timeoutを終了時に解除する。
- * @boundary ERB-IT-017=Integration: 親子Process lifecycle境界
+ * @boundary ERB-IT-017=Direct Boundary: coordinator Test Source→対象契約
  */
 async function waitForFixtureExit(
   child: ReturnType<typeof spawn>,
@@ -134,7 +134,7 @@ async function waitForFixtureExit(
  * @observation 子終了、active記録、親Lock取得、cleanup順序、settled記録を観測する。
  * @oracle 同じRecovery IDで旧資源を処置して新規Lifecycleを完了し、記録をsettledへ閉じる。
  * @cleanup 試験専用Rootをfinallyで削除する。
- * @boundary ERB-IT-017=Integration: 別Process・Filesystem・Named Pipe境界
+ * @boundary ERB-IT-017=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Windows Process Gate: Claude再認証はProcess喪失後に耐久Intentから再入場する", async () => {
   const root = path.resolve(
@@ -259,7 +259,7 @@ test("Windows Process Gate: Claude再認証はProcess喪失後に耐久Intentか
  * @observation Docker Adapter呼出し、公開Recovery ID、cleanupおよびEffect不明を観測する。
  * @oracle fresh ProcessはDocker Effect 0で停止し、同じRecovery IDと手動回復義務を保持する。
  * @cleanup 試験専用Rootをfinallyで削除する。
- * @boundary ERB-IT-017=Integration: 別Process・耐久Command世代Barrier
+ * @boundary ERB-IT-017=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Claude再認証は本番Command中のOwner喪失後にfresh Effectを発行しない", async () => {
   const inFlightHash = randomBytes(32).toString("hex");

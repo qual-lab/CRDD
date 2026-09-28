@@ -2,7 +2,8 @@
  * WorkbenchのAI Profile一覧Surface。
  *
  * @responsibility 設定済みProfileと利用可能性の四軸を、会話履歴や実行Authorityを所有せず表示する。
- * @trace ARCH-000012 ARCH-000010
+ * @trace ARCH-000012
+ * @trace ARCH-000010
  * @boundary AI Runtime Profile CatalogとWorkbench Browser表示の境界。
  * @effect N/A: 検証済みCatalogと観測値をHTMLへ投影するだけである。
  * @security Credential、Provider Home、Host Pathを表示しない。
@@ -30,7 +31,8 @@ export type WorkbenchAiProfileSurface = Readonly<{
  * 既定Catalogを未観測の実行状態から分離したWorkbench初期Surfaceとして返す。
  *
  * @responsibility Repository単体起動でも構成済みProfileを示し、Host・認証・Authorityを推測しない。
- * @trace ARCH-000012 ARCH-000010
+ * @trace ARCH-000012
+ * @trace ARCH-000010
  * @input N/A: 既定Catalogだけを使用する。
  * @returns Profileごとの四軸をunknownで保持したSurface。
  * @precondition 実行環境観測をまだ行っていない。
@@ -50,7 +52,8 @@ export function createDefaultWorkbenchAiProfileSurface(): WorkbenchAiProfileSurf
  * 検証済みCatalogを未観測の実行状態から分離したSurfaceへ変換する。
  *
  * @responsibility Owner別の採用済みCatalogを表示可能にし、実行環境の可用性を推測しない。
- * @trace ARCH-000012 ARCH-000010
+ * @trace ARCH-000012
+ * @trace ARCH-000010
  * @input catalog: AI Runtime Storeまたは既定値から得た検証済みCatalog。
  * @returns Profileごとの四軸をunknownで保持したSurface。
  * @precondition catalogはAI Runtimeの閉じたSchema検証を通過している。
@@ -87,7 +90,8 @@ export function createWorkbenchAiProfileSurface(
  * AI Profile一覧を安全なHTMLへ投影する。
  *
  * @responsibility Profile、Adapter、Model、既定推論強度、利用可能性を一行ずつ表示する。
- * @trace ARCH-000012 ARCH-000010
+ * @trace ARCH-000012
+ * @trace ARCH-000010
  * @input surface: Profile CatalogとProfile別の観測値。
  * @returns Workbench PanelのHTML断片。
  * @precondition catalogはAI Runtimeで検証済みである。
@@ -129,7 +133,8 @@ export function renderWorkbenchAiProfiles(
  * Owner別AI Profile限定管理入口をHTMLへ投影する。
  *
  * @responsibility 登録済みAdapter／Modelだけを使う作成・更新と、Profile単位の確認付き削除を表示する。
- * @trace ARCH-000012 ARCH-000010
+ * @trace ARCH-000012
+ * @trace ARCH-000010
  * @input snapshot: Owner別Catalog、ownerLabel: 表示Owner、actionToken: 起動単位Token、lastResult: 直前結果。
  * @returns Profile管理PanelのHTML断片。管理Snapshot未接続時は空文字列。
  * @precondition snapshotはRepositoryまたはCROSの一方のOwnerだけから取得される。
@@ -203,7 +208,8 @@ function checkboxes(name: string, values: readonly string[]): string {
  * 四つの利用可能性軸を短い表示Textへ変換する。
  *
  * @responsibility true、false、未観測を軸ごとに保持する。
- * @trace ARCH-000012 ARCH-000010
+ * @trace ARCH-000012
+ * @trace ARCH-000010
  * @input availability: 評価済み利用可能性。
  * @returns 四軸の固定順Text。
  * @precondition nullをunknownとして扱う。

@@ -34,7 +34,7 @@ import {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RFD-IT-005=Direct Boundary: Project Runtime Port→Version Control Adapter / RFD-IT-008=Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ * @boundary RFD-IT-005／RFD-IT-008=Direct Boundary: version-control Test Source→対象契約
  */
 function git(root: string, commandArguments: readonly string[]): string {
   return execFileSync("git", ["-C", root, ...commandArguments], {
@@ -53,7 +53,7 @@ function git(root: string, commandArguments: readonly string[]): string {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RFD-IT-008=Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ * @boundary RFD-IT-008=Direct Boundary: version-control Test Source→対象契約
  */
 test("実RepositoryのRevision・準備・作業・未登録変更を分離して観測する", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-vc-changes-"));
@@ -106,7 +106,7 @@ test("実RepositoryのRevision・準備・作業・未登録変更を分離し�
  * @observation 両結果の契約、変更集合、Adapter受領入力およびRepositoryの未Commit状態を観測する。
  * @oracle 両経路が同じPort契約と変更集合を返し、Git具象情報またはCommit SHAをCore結果へ漏らさない。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RFD-IT-005=Direct Boundary: Project Runtime Port→Version Control Adapter
+ * @boundary RFD-IT-005=Direct Boundary: version-control Test Source→対象契約
  */
 test("未Commit状態と差替Adapterで同じPort契約を利用できる", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-vc-port-"));
@@ -175,7 +175,7 @@ test("未Commit状態と差替Adapterで同じPort契約を利用できる", (t)
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RFD-IT-008=Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ * @boundary RFD-IT-008=Direct Boundary: version-control Test Source→対象契約
  */
 test("四つの観測のどこで失敗しても部分的な変更集合を公開しない", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-vc-failure-"));
@@ -222,7 +222,7 @@ test("四つの観測のどこで失敗しても部分的な変更集合を公�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RFD-IT-008=Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ * @boundary RFD-IT-008=Direct Boundary: version-control Test Source→対象契約
  */
 test("表現できないbackslashを含む名前を別Pathへ変換せず拒否する", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-vc-verbatim-path-"));

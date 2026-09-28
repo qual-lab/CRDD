@@ -1,8 +1,8 @@
 /**
  * AI Profile Catalogの閉じたSchema、解決、利用可能性を検証する。
  *
- * @responsibility 外部設定が任意実行構成や曖昧Profileを持ち込まないことを反証する。
  * @packageDocumentation
+ * @responsibility 外部設定が任意実行構成や曖昧Profileを持ち込まないことを反証する。
  * @trace RCM-UT-001
  * @trace RCM-UT-002
  * @level UT
@@ -32,7 +32,7 @@ import {
  * @observation 解決したProfile IDを観測する。
  * @oracle 同じ要求は既存の安定Profile IDへ一意に解決される。
  * @cleanup N/A: 外部資源を生成しない。
- * @boundary N/A: Process内の純粋なCatalog解決。
+ * @boundary RCM-UT-001=Direct Boundary: ai-runtime Test Source→対象契約
  */
 test("既定Catalogは既存CodexとClaude Profileを同じ結果へ解決する", () => {
   assert.ok(validateAiProfileCatalog(DEFAULT_AI_PROFILE_CATALOG));
@@ -70,7 +70,7 @@ test("既定Catalogは既存CodexとClaude Profileを同じ結果へ解決する
  * @observation Model、Providerおよび未登録時の結果を観測する。
  * @oracle 登録済みIDだけ同じCatalogのexact設定へ解決され、未登録IDはnullになる。
  * @cleanup N/A: 外部資源を生成しない。
- * @boundary N/A: Process内の純粋なCatalog解決。
+ * @boundary RCM-UT-001=Direct Boundary: ai-runtime Test Source→対象契約
  */
 test("選択済みProfile IDをexact実行設定へ解決する", () => {
   const resolved = resolveAiProfileById(
@@ -97,7 +97,7 @@ test("選択済みProfile IDをexact実行設定へ解決する", () => {
  * @observation Catalogの受理または拒否を観測する。
  * @oracle 一意な追加は受理し、曖昧な追加はEffect 0で拒否する。
  * @cleanup N/A: 外部資源を生成しない。
- * @boundary N/A: Process内の設定Schema境界。
+ * @boundary RCM-UT-002=Direct Boundary: ai-runtime Test Source→対象契約
  */
 test("登録Adapterの許可Modelなら追加Profileを受理し曖昧な重複を拒否する", () => {
   const added = structuredClone(DEFAULT_AI_PROFILE_CATALOG) as unknown as {
@@ -133,7 +133,7 @@ test("登録Adapterの許可Modelなら追加Profileを受理し曖昧な重複�
  * @observation Catalog検証結果を観測する。
  * @oracle 両候補を理由境界上で拒否し、未知Propertyを無視しない。
  * @cleanup N/A: 外部資源を生成しない。
- * @boundary N/A: 未信頼設定ObjectとAI Runtimeの境界。
+ * @boundary RCM-UT-002=Direct Boundary: ai-runtime Test Source→対象契約
  */
 test("秘密値や任意実行Pathを未知Propertyとして拒否する", () => {
   const candidate = structuredClone(
@@ -158,7 +158,7 @@ test("秘密値や任意実行Pathを未知Propertyとして拒否する", () =>
  * @observation statusとreason軸を観測する。
  * @oracle nullはunknown、falseが一つでもあればunavailableになる。
  * @cleanup N/A: 外部資源を生成しない。
- * @boundary N/A: Runtime観測値と表示状態の純粋な変換境界。
+ * @boundary RCM-UT-001=Direct Boundary: ai-runtime Test Source→対象契約
  */
 test("利用可能性は未観測と利用不可を区別する", () => {
   assert.deepEqual(
@@ -198,7 +198,7 @@ test("利用可能性は未観測と利用不可を区別する", () => {
  * @observation status、reason、revisionおよび現在Snapshotを観測する。
  * @oracle 不正と競合はEffect 0、妥当なCandidateだけがRevision 2になる。
  * @cleanup N/A: Process内の局所Registryだけを使用する。
- * @boundary N/A: Process内のCatalog採用境界。
+ * @boundary RCM-UT-002=Direct Boundary: ai-runtime Test Source→対象契約
  */
 test("Catalog採用は妥当なCandidateだけを改訂競合なしで現在値へ昇格する", () => {
   const registry = createAiProfileCatalogRegistry(DEFAULT_AI_PROFILE_CATALOG);
@@ -251,7 +251,7 @@ test("Catalog採用は妥当なCandidateだけを改訂競合なしで現在値�
  * @observation 各結果理由、RevisionおよびProfile集合を観測する。
  * @oracle 成功操作だけRevisionを進め、Adapter集合を変えず、未確認削除と競合をEffect 0で拒否する。
  * @cleanup N/A: Process内の局所Registryだけを使用する。
- * @boundary N/A: Profile管理CommandとCatalog RegistryのProcess内境界。
+ * @boundary RCM-UT-002=Direct Boundary: ai-runtime Test Source→対象契約
  */
 test("Profile限定管理は改訂競合と未確認削除をEffect 0で拒否する", () => {
   const registry = createAiProfileCatalogRegistry(DEFAULT_AI_PROFILE_CATALOG);

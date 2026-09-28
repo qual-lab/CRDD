@@ -36,7 +36,7 @@ const revision = "a".repeat(40);
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-011=Related 2 Blocks: Queue→Project Operation Lease→Scheduler Slot→Task開始
+ * @boundary PRL-IT-011=Direct Boundary: coordinator Test Source→対象契約
  */
 const hash = (value: string) =>
   createHash("sha256").update(value).digest("hex");
@@ -50,7 +50,7 @@ const hash = (value: string) =>
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-011=Related 2 Blocks: Queue→Project Operation Lease→Scheduler Slot→Task開始
+ * @boundary PRL-IT-011=Direct Boundary: coordinator Test Source→対象契約
  */
 test("interactive queue parks scheduled work without preempting an active owner", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-project-priority-"));
@@ -151,7 +151,7 @@ test("interactive queue parks scheduled work without preempting an active owner"
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-011=Related 2 Blocks: Queue→Project Operation Lease→Scheduler Slot→Task開始
+ * @boundary PRL-IT-011=Direct Boundary: coordinator Test Source→対象契約
  */
 test("scheduled work arriving after an interactive operation starts remains effect-free", (t) => {
   const root = fs.mkdtempSync(
@@ -255,7 +255,7 @@ test("scheduled work arriving after an interactive operation starts remains effe
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-011=Related 2 Blocks: Queue→Project Operation Lease→Scheduler Slot→Task開始
+ * @boundary PRL-IT-011=Direct Boundary: coordinator Test Source→対象契約
  */
 test("one Repository Binding cannot acquire two Project Operation leases", (t) => {
   const root = fs.mkdtempSync(
@@ -303,7 +303,7 @@ test("one Repository Binding cannot acquire two Project Operation leases", (t) =
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-011=Related 2 Blocks: Queue→Project Operation Lease→Scheduler Slot→Task開始
+ * @boundary PRL-IT-011=Direct Boundary: coordinator Test Source→対象契約
  */
 test("separate processes cannot both own one Repository Binding operation", async (t) => {
   const workingDirectory = fs.mkdtempSync(
@@ -341,7 +341,7 @@ test("separate processes cannot both own one Repository Binding operation", asyn
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary PRL-IT-011=Related 2 Blocks: Queue→Project Operation Lease→Scheduler Slot→Task開始
+   * @boundary PRL-IT-011=Direct Boundary: coordinator Test Source→対象契約
    */
   const operationRun = (projectId: string, queueId: string) => {
     const child = spawn(

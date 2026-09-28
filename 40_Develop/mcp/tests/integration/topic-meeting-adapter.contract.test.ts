@@ -1,4 +1,13 @@
-/** Topic／Meeting MCP CRUD契約を共通Applicationへ接続して検証する。 */
+/**
+ * mcp:integration:topic-meetingの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility mcp:integration:topic-meetingが宣言する検証責務と終了後条件を所有する。
+ * @trace CPR-IT-008
+ * @level IT
+ * @scope mcp、contract、node_process
+ * @boundary CPR-IT-008=Direct Boundary: mcp Test Source→対象契約
+ */
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -26,6 +35,18 @@ const META = Object.freeze({
   "io.modelcontextprotocol/clientCapabilities": Object.freeze({}),
 });
 
+/**
+ * call用の試験入力または観測処理を提供する。
+ *
+ * @responsibility call用の試験入力または観測処理を提供するの検証責務を所有する。
+ * @trace CPR-IT-008
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus callの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
+ * @boundary CPR-IT-008=Direct Boundary: mcp Test Source→対象契約
+ */
 function call(name: string, args: Readonly<Record<string, unknown>>) {
   return Object.freeze({
     jsonrpc: "2.0",
@@ -35,6 +56,18 @@ function call(name: string, args: Readonly<Record<string, unknown>>) {
   });
 }
 
+/**
+ * result用の試験入力または観測処理を提供する。
+ *
+ * @responsibility result用の試験入力または観測処理を提供するの検証責務を所有する。
+ * @trace CPR-IT-008
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus resultの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
+ * @boundary CPR-IT-008=Direct Boundary: mcp Test Source→対象契約
+ */
 function result(response: unknown) {
   return response as Readonly<{
     result: Readonly<{
@@ -47,14 +80,50 @@ function result(response: unknown) {
   }>;
 }
 
+/**
+ * topic用の試験入力または観測処理を提供する。
+ *
+ * @responsibility topic用の試験入力または観測処理を提供するの検証責務を所有する。
+ * @trace CPR-IT-008
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus topicの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
+ * @boundary CPR-IT-008=Direct Boundary: mcp Test Source→対象契約
+ */
 function topic(revision: number, state = "open") {
   return `# Topic MCP\n\n成果物種別: Topic\nTopic ID: \`TOPIC-000042\`\nProject ID: \`PRJ-001\`\n状態: \`${state}\`\n改訂: \`${revision}\`\n維持責任者: \`Project Operator\`\n\n## 1. 現在の論点\n\n### 結論\n\nMCP接続を検証する。\n\n## 3. 関係\n\n| 関係種別 | 対象ID／参照 | このTopicとの関係 |\n|---|---|---|\n| related | \`N/A: 関係なし\` | fixture |\n\n## 5. 終了・昇格\n\n| 項目 | 内容 |\n|---|---|\n| 処置 | \`N/A: open／waitingでは未処置\` |\n| 昇格先 | \`N/A: 未昇格\` |\n| 終了理由 | \`N/A: 未終了\` |\n| 残る影響 | \`N/A: 未終了\` |\n`;
 }
 
+/**
+ * meeting用の試験入力または観測処理を提供する。
+ *
+ * @responsibility meeting用の試験入力または観測処理を提供するの検証責務を所有する。
+ * @trace CPR-IT-008
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus meetingの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
+ * @boundary CPR-IT-008=Direct Boundary: mcp Test Source→対象契約
+ */
 function meeting() {
   return `# MCP Meeting\n\n成果物種別: Meeting\nMeeting ID: \`MTG-000042\`\nProject ID: \`PRJ-001\`\n状態: \`recorded\`\n開催日時: \`2026-09-27 10:00 JST\`\n改訂: \`1\`\n維持責任者: \`PM\`\n\n## 1. 目的と要約\n\n### 結論\n\nMCP Outcome処置を確認する。\n\n## 4. Outcome\n\n| Local ID | 種別 | 内容 | 状態 | Owner | 期限／再評価契機 | 追跡先 |\n|---|---|---|---|---|---|---|\n| \`OUT-001\` | Action | 確認する | \`pending\` | PM | 次回 | \`N/A: 未移管\` |\n\n## 5. Actionと移管\n\n| Outcome | 処置 | 追跡先 | 完了条件 | 結果 |\n|---|---|---|---|---|\n| \`OUT-001\` | | | | |\n\n## 6. Close・訂正\n\n| 項目 | 内容 |\n|---|---|\n| Close判定 | \`OPEN: Outcome処置後に評価する\` |\n| 未処置Outcome | \`OUT-001\` |\n| 訂正元／訂正先 | \`N/A: 訂正ではない\` |\n| 残る影響 | |\n`;
 }
 
+/**
+ * MCPからTopicを登録・一覧・取得・更新するを検証する。
+ *
+ * @responsibility MCPからTopicを登録・一覧・取得・更新するを検証するの検証責務を所有する。
+ * @trace CPR-IT-008
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus MCPからTopicを登録・一覧・取得・更新するの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
+ * @boundary CPR-IT-008=Direct Boundary: mcp Test Source→対象契約
+ */
 test("MCPからTopicを登録・一覧・取得・更新する", async () => {
   const root = mkdtempSync(path.join(tmpdir(), "crdd-mcp-topic-"));
   try {
@@ -103,6 +172,18 @@ test("MCPからTopicを登録・一覧・取得・更新する", async () => {
   }
 });
 
+/**
+ * MCPからMeeting Outcomeを処置してCloseするを検証する。
+ *
+ * @responsibility MCPからMeeting Outcomeを処置してCloseするを検証するの検証責務を所有する。
+ * @trace CPR-IT-008
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus MCPからMeeting Outcomeを処置してCloseするの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
+ * @boundary CPR-IT-008=Direct Boundary: mcp Test Source→対象契約
+ */
 test("MCPからMeeting Outcomeを処置してCloseする", async () => {
   const root = mkdtempSync(path.join(tmpdir(), "crdd-mcp-meeting-outcome-"));
   try {
@@ -143,6 +224,18 @@ test("MCPからMeeting Outcomeを処置してCloseする", async () => {
   }
 });
 
+/**
+ * MCPからTopicを実在CHGへ昇格接続するを検証する。
+ *
+ * @responsibility MCPからTopicを実在CHGへ昇格接続するを検証するの検証責務を所有する。
+ * @trace CPR-IT-008
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus MCPからTopicを実在CHGへ昇格接続するの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
+ * @boundary CPR-IT-008=Direct Boundary: mcp Test Source→対象契約
+ */
 test("MCPからTopicを実在CHGへ昇格接続する", async () => {
   const root = mkdtempSync(path.join(tmpdir(), "crdd-mcp-topic-promote-"));
   try {

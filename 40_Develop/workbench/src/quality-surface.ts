@@ -3,7 +3,8 @@
  *
  * @packageDocumentation
  * @responsibility Current Quality Projectionを現在状態、Coverage、Gap、次Gateおよび人間判断が読める画面へ変換する。
- * @trace ARCH-000005 ARCH-000012
+ * @trace ARCH-000005
+ * @trace ARCH-000012
  * @boundary Project Operation Quality Read ModelとWorkbench Browser表示の境界。
  * @effect N/A: 検証済みRead ModelからHTMLを構築するだけである。
  * @security Repository外情報を取得せず、表示TextをHTML escapeする。
@@ -16,7 +17,8 @@ import type { WorkbenchOwnerArtifactCatalog } from "./owner-artifact-surface.ts"
  * Workbenchが観測したCurrent Quality Projectionを定義する。
  *
  * @responsibility 利用可能、未構成および観測不能をQuality Projectionと同じ結果へ閉じる。
- * @trace ARCH-000005 ARCH-000012
+ * @trace ARCH-000005
+ * @trace ARCH-000012
  * @shape state、projectionおよびreasonを表す。
  * @invariant 未構成または観測不能をQuality Readyへ変換しない。
  * @boundary Repository Quality ReaderとWorkbench Project Surfaceの型境界。
@@ -33,7 +35,8 @@ export type WorkbenchQualityObservation = Readonly<{
  * Current Quality Projectionを構造化Quality Panelとして描画する。
  *
  * @responsibility 品質の結論、Coverage、Gap、Gateおよび判断を原文Relation付きで表示する。
- * @trace ARCH-000005 ARCH-000012
+ * @trace ARCH-000005
+ * @trace ARCH-000012
  * @input observationと同じRepositoryから構築したOwner Artifact Catalogを受け取る。
  * @returns Browserへ埋め込む安全なHTML断片を返す。
  * @precondition availableではprojectionが非nullである。

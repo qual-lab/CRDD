@@ -2010,7 +2010,8 @@ async function executePlan(
  * Workbench助言Provider出力をProcess Controllerの内部正規形へ変換する。
  *
  * @responsibility Provider Envelopeを除去し、助言JSONだけをcleanup後の内部結果へ保持する。
- * @trace ARCH-000010 ARCH-000015
+ * @trace ARCH-000010
+ * @trace ARCH-000015
  * @input provider: 実行Provider、stdout: 固定CLIの標準出力。
  * @returns confirmed時はadviceJsonを持つ内部正規形、失敗時は拒否理由。
  * @precondition workbench_advice PlanのProvider Processが終了している。

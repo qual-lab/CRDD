@@ -3,7 +3,8 @@
  *
  * @packageDocumentation
  * @responsibility 検証済みPrompt、Task Identity、ProfileおよびProvider Command Identityを一回消費Capabilityへ結合する。
- * @trace ARCH-000010 ARCH-000015
+ * @trace ARCH-000010
+ * @trace ARCH-000015
  * @boundary Workbench助言Executorと署名Provider Runtime lifecycleの間。
  * @effect Packet発行・消費・取消はProcess内の一時状態だけを変更し、Provider Effectを発行しない。
  * @security Repository内容や任意Commandを追加せず、受理済みPromptと固定Command Hashだけを搬送する。
@@ -43,7 +44,8 @@ const COMMAND_KEYS = Object.freeze([
  * 署名Runtimeへ一回搬送するWorkbench助言Packetを表す。
  *
  * @responsibility PromptとProvider Commandを同じTask・Projection・Profile・Operationへ固定する。
- * @trace ARCH-000010 ARCH-000015
+ * @trace ARCH-000010
+ * @trace ARCH-000015
  * @shape 固定Contract、Identity、Prompt、Command Hashおよび非共有境界からなる読取り専用値である。
  * @invariant Repository／Workspace共有、Tool、SessionおよびFallbackを許可しない。
  * @boundary Provider非依存Executorと署名Runtime Adapterの間。
@@ -73,7 +75,8 @@ export type WorkbenchAiAdviceRuntimePacket = Readonly<{
  * Workbench助言Runtime Packetの発行入力を表す。
  *
  * @responsibility 上位で検証済みのIdentity、PromptおよびProvider Commandを発行境界へ渡す。
- * @trace ARCH-000010 ARCH-000015
+ * @trace ARCH-000010
+ * @trace ARCH-000015
  * @shape Operation、Profile、Task、Projection、Promptおよび固定Commandからなる読取り専用値である。
  * @invariant Provider Commandとproviderは一致する。
  * @boundary Workbench助言計画と一回消費Packet発行の間。
@@ -90,11 +93,35 @@ export type WorkbenchAiAdviceRuntimePacketInput = Readonly<{
   providerCommand: WorkbenchAiAdviceProviderCommand;
 }>;
 
+/**
+ * Workbench助言Runtime Packetの一回消費境界で使用するPacketRecordの構造を固定する。
+ *
+ * @responsibility Workbench助言Runtime Packetの一回消費境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000010
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
+
 type PacketRecord = Readonly<{
   ownerCapability: object;
   useCapability: object;
   packet: WorkbenchAiAdviceRuntimePacket;
 }>;
+
+/**
+ * Workbench助言Runtime Packetの一回消費境界で使用するRuntimeStateの構造を固定する。
+ *
+ * @responsibility Workbench助言Runtime Packetの一回消費境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000010
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
 
 type RuntimeState = Readonly<{
   owners: WeakMap<object, PacketRecord>;
@@ -106,7 +133,8 @@ type RuntimeState = Readonly<{
  * Workbench助言Runtime Packet状態を生成する。
  *
  * @responsibility 所有Capabilityと一回消費Capabilityの対応を閉じたメモリ状態へ保持する。
- * @trace ARCH-000010 ARCH-000015
+ * @trace ARCH-000010
+ * @trace ARCH-000015
  * @input randomHex: Packet参照用の暗号学的乱数生成関数。
  * @returns 発行・消費・取消に使用するRuntime状態を返す。
  * @precondition randomHexは指定Byte数に対応する小文字16進文字列を返す。
@@ -134,7 +162,8 @@ const productionState = createState((bytes) =>
  * Workbench助言Runtime Packetを発行する。
  *
  * @responsibility 検証済み助言入力をCommand Hash付きの一回消費Packetへ固定する。
- * @trace ARCH-000010 ARCH-000015
+ * @trace ARCH-000010
+ * @trace ARCH-000015
  * @input input: 助言計画由来のOperation、Profile、Task、Projection、PromptおよびProvider Command。
  * @returns 発行成功時はPacket参照、所有Capability、利用Capabilityを返し、不正時はEffect 0でblockedを返す。
  * @precondition 上位ExecutorはProfile Catalogと実行計画の整合を確認済みである。
@@ -156,7 +185,8 @@ export function issueRuntimeOwnedWorkbenchAiAdvicePacket(
  * Workbench助言Runtime Packetを一回消費する。
  *
  * @responsibility 未消費の利用Capabilityと所有Capabilityが同じ記録を指す場合だけPacketを返す。
- * @trace ARCH-000010 ARCH-000015
+ * @trace ARCH-000010
+ * @trace ARCH-000015
  * @input useCapability: 一回消費Capability、ownerCapability: 発行側の所有Capability。
  * @returns 成立時はPacket、再利用・Identity不一致・未知Capabilityではnullを返す。
  * @precondition Capabilityは同じProcess内の発行結果から取得する。
@@ -179,7 +209,8 @@ export function consumeRuntimeOwnedWorkbenchAiAdvicePacket(
  * 未消費のWorkbench助言Runtime Packetを取り消す。
  *
  * @responsibility 発行側が保持する所有Capabilityで未使用Packetを失効させる。
- * @trace ARCH-000010 ARCH-000015
+ * @trace ARCH-000010
+ * @trace ARCH-000015
  * @input ownerCapability: 発行結果の所有Capability。
  * @returns 今回の取消が成立した場合だけtrueを返す。
  * @precondition Provider Effect開始後の取消は実行Lifecycleが所有する。
@@ -201,7 +232,8 @@ export function revokeRuntimeOwnedWorkbenchAiAdvicePacket(
  * Workbench助言Runtime Packetの公開契約を返す。
  *
  * @responsibility 一回消費、非共有境界、Prompt上限およびEffect 0を利用側へ示す。
- * @trace ARCH-000010 ARCH-000015
+ * @trace ARCH-000010
+ * @trace ARCH-000015
  * @input N/A: 固定契約だけを参照する。
  * @returns revision 1の固定契約を返す。
  * @precondition N/A: 呼出し条件を持たない。
@@ -231,7 +263,8 @@ export function describeWorkbenchAiAdviceRuntimePacketContract() {
  * 指定状態へWorkbench助言Runtime Packetを登録する。
  *
  * @responsibility 公開発行処理と試験可能な状態操作の共通実装を所有する。
- * @trace ARCH-000010 ARCH-000015
+ * @trace ARCH-000010
+ * @trace ARCH-000015
  * @input state: Packet Runtime状態、input: 発行候補。
  * @returns issuedまたはEffect 0のblocked結果を返す。
  * @precondition stateはcreateStateで生成されている。
@@ -333,7 +366,8 @@ function issue(
  * 指定状態からWorkbench助言Runtime Packetを一回消費する。
  *
  * @responsibility 所有・利用Capabilityの同一記録照合と不可逆な消費を共通実装する。
- * @trace ARCH-000010 ARCH-000015
+ * @trace ARCH-000010
+ * @trace ARCH-000015
  * @input state: Packet Runtime状態、useCapability: 利用Capability、ownerCapability: 所有Capability。
  * @returns 成立時はPacket、不成立時はnullを返す。
  * @precondition CapabilityはObject Identityで比較する。
@@ -369,7 +403,8 @@ function consume(
  * 指定状態の未消費Packetを失効させる。
  *
  * @responsibility 所有Capabilityによる未使用Packet取消を共通実装する。
- * @trace ARCH-000010 ARCH-000015
+ * @trace ARCH-000010
+ * @trace ARCH-000015
  * @input state: Packet Runtime状態、ownerCapability: 所有Capability。
  * @returns 今回削除した場合だけtrueを返す。
  * @precondition ownerCapabilityを信頼済みとは仮定しない。
@@ -394,7 +429,8 @@ function revoke(state: RuntimeState, ownerCapability: unknown) {
  * Workbench助言Runtime Packet発行入力を検証する。
  *
  * @responsibility Identity、上限およびProvider Commandの非共有条件を一括評価する。
- * @trace ARCH-000010 ARCH-000015
+ * @trace ARCH-000010
+ * @trace ARCH-000015
  * @input input: Packet発行候補。
  * @returns 固定条件をすべて満たす場合だけtrueを返す。
  * @precondition inputの型宣言だけを信頼せず実値を検査する。
@@ -432,7 +468,8 @@ function validInput(
  * Provider Commandをexactな不変Snapshotへ変換する。
  *
  * @responsibility 未知Property、getter、可変配列および可変Environment参照をPacketへ持ち込まない。
- * @trace ARCH-000010 ARCH-000015
+ * @trace ARCH-000010
+ * @trace ARCH-000015
  * @input command: Provider Command候補。
  * @returns exact Schemaを満たす不変Snapshot、不正時はnullを返す。
  * @precondition 型宣言やObject凍結状態を信頼しない。
@@ -480,7 +517,8 @@ function snapshotCommand(command: WorkbenchAiAdviceProviderCommand) {
  * 候補Objectが指定Keyだけをdata propertyとして持つか判定する。
  *
  * @responsibility custom prototype、余分Key、欠落Keyおよびgetterを拒否する。
- * @trace ARCH-000010 ARCH-000015
+ * @trace ARCH-000010
+ * @trace ARCH-000015
  * @input value: Object候補、keys: 許可Key集合。
  * @returns exactな通常Objectの場合だけtrueを返す。
  * @precondition keysは重複しない固定配列である。
@@ -504,12 +542,12 @@ function plainExactRecord<const Keys extends readonly string[]>(
   )
     return false;
   const descriptors = Object.getOwnPropertyDescriptors(value);
-  const actual = Object.keys(descriptors).sort();
-  const expected = [...keys].sort();
+  const actualKeys = Object.keys(descriptors).sort();
+  const expectedKeys = [...keys].sort();
   return (
-    actual.length === expected.length &&
-    actual.every((key, index) => key === expected[index]) &&
-    expected.every((key) => {
+    actualKeys.length === expectedKeys.length &&
+    actualKeys.every((key, index) => key === expectedKeys[index]) &&
+    expectedKeys.every((key) => {
       const descriptor = descriptors[key];
       return (
         descriptor !== undefined &&
@@ -526,7 +564,8 @@ function plainExactRecord<const Keys extends readonly string[]>(
  * Environment候補を通常文字列Recordとして判定する。
  *
  * @responsibility Environmentのprototype、data propertyおよび文字列値だけを許可する。
- * @trace ARCH-000010 ARCH-000015
+ * @trace ARCH-000010
+ * @trace ARCH-000015
  * @input value: Environment候補。
  * @returns 通常Objectの全enumerable data propertyが安全な文字列ならtrueを返す。
  * @precondition 任意のunknown値を受け取る。
@@ -561,7 +600,8 @@ function plainStringRecord(value: unknown): value is Record<string, string> {
  * Provider Commandの完全性Hashを生成する。
  *
  * @responsibility Provider実行に影響する全宣言値を決定論的SHA-256へ固定する。
- * @trace ARCH-000010 ARCH-000015
+ * @trace ARCH-000010
+ * @trace ARCH-000015
  * @input command: 検証対象のProvider Command。
  * @returns 小文字16進SHA-256、直列化不能時はnullを返す。
  * @precondition commandは上位計画から渡されるが完全性は未確定である。

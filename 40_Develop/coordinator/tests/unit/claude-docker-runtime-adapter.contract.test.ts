@@ -58,7 +58,7 @@ const MODEL_SELECTION = Object.freeze({
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 function createFixture(
   overrides: Partial<
@@ -198,7 +198,7 @@ function createFixture(
  * @observation operationMode、Packet Identity、CommandおよびWorkspace Mountを観測する。
  * @oracle workbench_adviceでありRepository／Workspaceを共有しない。
  * @cleanup Provider Effectを発行しないため外部資源はない。
- * @boundary PRL-UT-014=N/A: 局所Plan生成だけを検証する。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Workbench助言をRepository非共有のClaude Planへ固定する", () => {
   const providerCommand = planWorkbenchAiAdviceProviderCommand({
@@ -273,7 +273,7 @@ test("Workbench助言をRepository非共有のClaude Planへ固定する", () =>
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("説明可能な低推論選定を固定Docker command planへ一度だけ結合する", () => {
   const fixture = createFixture();
@@ -373,7 +373,7 @@ test("説明可能な低推論選定を固定Docker command planへ一度だけ�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("cancelはMount leaseを完了しprepared capabilityを再利用不能にする", () => {
   const fixture = createFixture();
@@ -409,7 +409,7 @@ test("cancelはMount leaseを完了しprepared capabilityを再利用不能に�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Task Packetをstdin専用入力と隔離workspace RO mountへ結合する", () => {
   const fixture = createFixture();
@@ -465,7 +465,7 @@ test("Task Packetをstdin専用入力と隔離workspace RO mountへ結合する"
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Executor Task PacketをacceptEditsと隔離workspace RW mountへ結合する", () => {
   const fixture = createFixture({
@@ -536,7 +536,7 @@ test("Executor Task PacketをacceptEditsと隔離workspace RW mountへ結合す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("検証済み作業量を固定argvへ接続し、過大・不明ならAuthority発行前にleaseを返す", () => {
   for (const readPathCount of [6, 12, 13, 0]) {
@@ -621,7 +621,7 @@ test("検証済み作業量を固定argvへ接続し、過大・不明ならAuth
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("期限切れprepared planはProvider EffectなしでMount leaseを回収する", () => {
   const fixture = createFixture();
@@ -652,7 +652,7 @@ test("期限切れprepared planはProvider EffectなしでMount leaseを回収�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Profile不一致または高コスト根拠不正ではplanを作らずleaseを回収する", () => {
   const fixture = createFixture({
@@ -683,7 +683,7 @@ test("Profile不一致または高コスト根拠不正ではplanを作らずlea
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Selection Grantのopaque use aliasをClaude adapterへ一回だけ接続する", () => {
   let randomValue = 40;
@@ -782,7 +782,7 @@ test("Selection Grantのopaque use aliasをClaude adapterへ一回だけ接続�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Selection GrantをconsumeできなければMount leaseだけ回収して停止する", () => {
   const fixture = createFixture({
@@ -812,7 +812,7 @@ test("Selection GrantをconsumeできなければMount leaseだけ回収して�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Provider Authorityを発行できなければMount leaseを返しPlanを作らない", () => {
   const fixture = createFixture({
@@ -849,7 +849,7 @@ test("Provider Authorityを発行できなければMount leaseを返しPlanを�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("不一致の発行済みProvider Authorityは失効してMount leaseを返す", () => {
   let revocations = 0;
@@ -892,7 +892,7 @@ test("不一致の発行済みProvider Authorityは失効してMount leaseを返
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("prepared取消はAuthority失効とMount解放の両方を要求する", () => {
   const fixture = createFixture({
@@ -927,7 +927,7 @@ test("prepared取消はAuthority失効とMount解放の両方を要求する", (
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("production adapterは未発行のCapabilityと未接続Selection Grantを拒否する", () => {
   const prepared = prepareRuntimeOwnedClaudeDockerCandidate({}, {}, {}, {});
@@ -949,7 +949,7 @@ test("production adapterは未発行のCapabilityと未接続Selection Grantを�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("公開契約はCoordinator選定とProvider fallbackを分離する", () => {
   const contract = describeClaudeDockerRuntimeAdapterContract();

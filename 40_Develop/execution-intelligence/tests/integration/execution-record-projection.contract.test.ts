@@ -31,7 +31,7 @@ import {
  * @observation 生成済みEventを呼出し元へ返す。
  * @oracle Event検査を通過する固定入力を返す。
  * @cleanup N/A: Helperは外部資源を作成しない。
- * @boundary PPR-IT-003=Direct Boundary、PPR-IT-004=Adjacent 1 Block。
+ * @boundary PPR-IT-003／PPR-IT-004=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 function event(
   projectId: string,
@@ -79,7 +79,7 @@ function event(
  * @observation facts、excluded state、reasonおよびeventIdを観測する。
  * @oracle 対象Eventだけをfactsへ含め、他をoutsideまたはunknownへ分ける。
  * @cleanup N/A: Testは外部資源を作成しない。
- * @boundary PPR-IT-003=Direct Boundary: Event Source→Projectorを結合する。
+ * @boundary PPR-IT-003=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 test("別Project・別Attempt・観測時点不明Eventを対象事実へ混在させない", () => {
   const valid = event("project-a", "attempt-a");
@@ -118,7 +118,7 @@ test("別Project・別Attempt・観測時点不明Eventを対象事実へ混在�
  * @observation facts、evaluation status、basisEventIdsおよびAuthorityを観測する。
  * @oracle Eventはfactsに残り、候補はproposalかつAuthorityなしで別fieldへ返る。
  * @cleanup N/A: Testは外部資源を作成しない。
- * @boundary PPR-IT-004=Adjacent 1 Block: 事実入力→Candidate分類→Projectorを結合する。
+ * @boundary PPR-IT-004=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 test("事実Eventと未採用評価候補を別field・別状態で返す", () => {
   const blocked = event("project-a", "attempt-a", "blocked");

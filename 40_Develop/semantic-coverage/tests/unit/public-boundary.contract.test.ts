@@ -26,7 +26,7 @@ import * as semanticCoverage from "../../src/index.ts";
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-014=N/A: Packageの公開`index.ts`と利用側importは外部実行境界を持たない。
+ * @boundary RCM-UT-014=Direct Boundary: semantic-coverage Test Source→対象契約
  */
 test("Semantic Coverageは宣言した公開Capabilityだけを公開する", () => {
   assert.deepEqual(Object.keys(semanticCoverage).sort(), [
@@ -53,7 +53,7 @@ test("Semantic Coverageは宣言した公開Capabilityだけを公開する", ()
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-014=N/A: Packageの公開`index.ts`と利用側importは外部実行境界を持たない。
+ * @boundary RCM-UT-014=Direct Boundary: semantic-coverage Test Source→対象契約
  */
 test("Semantic Coverage CLIはSubsystem公開入口だけを利用する", () => {
   const source = fs.readFileSync(
@@ -79,7 +79,7 @@ test("Semantic Coverage CLIはSubsystem公開入口だけを利用する", () =>
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-014=N/A: Packageの公開`index.ts`と利用側importは外部実行境界を持たない。
+ * @boundary RCM-UT-014=Direct Boundary: semantic-coverage Test Source→対象契約
  */
 test("Semantic Coverageの中立IssueはSurface固有語彙を含まない", () => {
   const outcome = semanticCoverage.compileSemanticIr(

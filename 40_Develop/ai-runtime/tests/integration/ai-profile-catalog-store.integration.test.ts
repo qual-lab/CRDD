@@ -35,7 +35,7 @@ const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
  * @observation Command終了状態を観測する。
  * @oracle 非0終了を試験失敗にする。
  * @cleanup 呼出し側がfixture全体を削除する。
- * @boundary Test Harness→Git CLI。
+ * @boundary RCM-IT-005=Direct Boundary: ai-runtime Test Source→対象契約
  */
 function initializeGitRepository(fixture: string): void {
   execFileSync("git", ["init", "--initial-branch=main"], {
@@ -55,7 +55,7 @@ function initializeGitRepository(fixture: string): void {
  * @observation 採用結果、再生成StoreのSnapshotおよび競合結果を観測する。
  * @oracle 各OwnerはRevision 1の固有値を保持し、古いRevisionからの再採用を拒否する。
  * @cleanup Repository-local試験Root全体を削除する。
- * @boundary RCM-IT-005=Direct Boundary: Runtime Root Resolver→Catalog Store→Filesystem
+ * @boundary RCM-IT-005=Direct Boundary: ai-runtime Test Source→対象契約
  */
 test("Repository単体とCROSは同じSchemaを別Ownerとして耐久保存する", async () => {
   const testsRoot = path.join(repositoryRoot, ".crdd", "tests");
@@ -136,7 +136,7 @@ test("Repository単体とCROSは同じSchemaを別Ownerとして耐久保存す�
  * @observation 拒否理由と現在Revisionを観測する。
  * @oracle catalog_invalidかつRevision 0のままである。
  * @cleanup Repository-local試験Root全体を削除する。
- * @boundary RCM-IT-005=Direct Boundary: Candidate Validation→Catalog Store→Filesystem
+ * @boundary RCM-IT-005=Direct Boundary: ai-runtime Test Source→対象契約
  */
 test("不正Catalogは耐久Snapshotを作成する前に拒否する", async () => {
   const testsRoot = path.join(repositoryRoot, ".crdd", "tests");
@@ -176,7 +176,7 @@ test("不正Catalogは耐久Snapshotを作成する前に拒否する", async ()
  * @effect N/A: 新しいPlain Dataを構築するだけである。
  * @failure N/A: 既定Catalogを固定入力とする。
  * @invariant 秘密値と実行Pathを追加しない。
- * @boundary Test FixtureとCatalog検証の境界。
+ * @boundary RCM-IT-005=Direct Boundary: ai-runtime Test Source→対象契約
  */
 function withCompatibilityReason(reason: string): unknown {
   return {

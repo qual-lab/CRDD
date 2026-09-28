@@ -1292,7 +1292,8 @@ export function prepareRuntimeOwnedClaudeDockerTaskCandidate(
  * Runtime所有のWorkbench読取り助言候補を実行前に準備する。
  *
  * @responsibility 一回消費PacketをRepository非共有のClaude実行Planへ結合する。
- * @trace ARCH-000010 ARCH-000015
+ * @trace ARCH-000010
+ * @trace ARCH-000015
  * @input 管理、Mount、Model Selection、Advice Packetの各Capability。
  * @returns 準備済み候補またはEffect 0のblocked結果。
  * @precondition Advice Packetは同じOperation、ProfileおよびProviderへ固定されている。

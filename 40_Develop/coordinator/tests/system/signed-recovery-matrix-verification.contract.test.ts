@@ -29,7 +29,7 @@ import {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-004=System/E2E: 公開入口→Runtime→耐久Store→回復再入場
+ * @boundary PRL-ST-004=Direct Boundary: coordinator Test Source→対象契約
  */
 test("署名Recovery Matrixは通常Task入力へFault注入面を追加しない", () => {
   const contract = describeSignedRecoveryMatrixContract();
@@ -69,7 +69,7 @@ test("署名Recovery Matrixは通常Task入力へFault注入面を追加しな�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-004=System/E2E: 公開入口→Runtime→耐久Store→回復再入場
+ * @boundary PRL-ST-004=Direct Boundary: coordinator Test Source→対象契約
  */
 test("公開CLIは引数なし以外を固定JSONでEffect前に拒否する", () => {
   const result = spawnSync(

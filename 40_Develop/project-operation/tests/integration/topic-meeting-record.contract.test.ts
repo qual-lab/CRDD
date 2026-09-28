@@ -13,7 +13,7 @@ import test from "node:test";
 
 import { parseMeetingMarkdown, parseTopicMarkdown } from "../../src/index.ts";
 
-const topicMarkdown = `# 認証方式の選択
+const TOPIC_MARKDOWN = `# 認証方式の選択
 
 成果物種別: Topic
 Topic ID: \`TOPIC-000042\`
@@ -65,10 +65,10 @@ Project ID: \`PRJ-001\`
  * @observation Identity、状態、改訂、要約、開催日時およびpending Outcome件数を観測する。
  * @oracle Topicはwaitingを保持し、recorded Meetingはpending Outcomeを1件として返す。
  * @cleanup N/A: 文字列解析だけである。
- * @boundary CPR-IT-008=Direct Boundary: Topic・Meeting Markdown→Project Operation Reader→Consumer Read Model
+ * @boundary CPR-IT-008=Direct Boundary: project-operation Test Source→対象契約
  */
 test("Topic現在状態とMeeting時点記録を分けて読む", () => {
-  assert.deepEqual(parseTopicMarkdown(topicMarkdown), {
+  assert.deepEqual(parseTopicMarkdown(TOPIC_MARKDOWN), {
     topicId: "TOPIC-000042",
     projectId: "PRJ-001",
     state: "waiting",
@@ -95,7 +95,7 @@ test("Topic現在状態とMeeting時点記録を分けて読む", () => {
  * @observation 拒否理由を観測する。
  * @oracle meeting_record_pending_outcomeで拒否し、完了Recordを返さない。
  * @cleanup N/A: 文字列解析だけである。
- * @boundary CPR-IT-008=Direct Boundary: Topic・Meeting Markdown→Project Operation Reader→Consumer Read Model
+ * @boundary CPR-IT-008=Direct Boundary: project-operation Test Source→対象契約
  */
 test("pending Outcomeを持つMeeting Closeを拒否する", () => {
   assert.throws(

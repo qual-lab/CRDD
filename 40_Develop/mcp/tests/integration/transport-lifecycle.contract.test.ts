@@ -33,7 +33,7 @@ const TOKEN = "integration-boundary-token-0123456789abcdef";
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary EST-IT-001=Direct Boundary: CLI／MCP Adapter→Application Contract
+ * @boundary EST-IT-001=Direct Boundary: mcp Test Source→対象契約
  */
 function dependencies(
   overrides: Partial<McpProjectRuntimeDependencies> = {},
@@ -60,7 +60,7 @@ function dependencies(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary EST-IT-001=Direct Boundary: CLI／MCP Adapter→Application Contract
+ * @boundary EST-IT-001=Direct Boundary: mcp Test Source→対象契約
  */
 function output() {
   let content = "";
@@ -83,7 +83,7 @@ function output() {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary EST-IT-001=Direct Boundary: CLI／MCP Adapter→Application Contract
+ * @boundary EST-IT-001=Direct Boundary: mcp Test Source→対象契約
  */
 test("stdio blockはparent EOFで進行要求を取消してjoin後に終了する", async () => {
   const input = new PassThrough();
@@ -108,7 +108,7 @@ test("stdio blockはparent EOFで進行要求を取消してjoin後に終了す�
            * @observation 返却値、生成fixtureまたは観測値を取得する。
            * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
            * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-           * @boundary EST-IT-001=Direct Boundary: CLI／MCP Adapter→Application Contract
+           * @boundary EST-IT-001=Direct Boundary: mcp Test Source→対象契約
            */
           const cancel = () => {
             wasCancelled = true;
@@ -182,7 +182,7 @@ test("stdio blockはparent EOFで進行要求を取消してjoin後に終了す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary EST-IT-002=Adjacent 1 Block: Transport stream→Adapter→Application入口
+ * @boundary EST-IT-002=Direct Boundary: mcp Test Source→対象契約
  */
 test("HTTP blockはidle接続とlistenerをcloseで回収し、再接続を拒否する", async () => {
   const server = await startMcpProjectRuntimeStreamableHttp(dependencies(), {

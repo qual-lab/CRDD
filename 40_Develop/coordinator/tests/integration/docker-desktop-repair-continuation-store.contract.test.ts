@@ -47,7 +47,7 @@ const identity = (value: string): DockerDesktopRepairDirectoryIdentity =>
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 function fixture() {
   const root = fs.mkdtempSync(
@@ -113,7 +113,7 @@ function fixture() {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("失敗起動後の複数Runtime領域は同じ復旧IDへ追記し、Effectごとの意図と結果を保持する", () => {
   const { root, boundary, operation } = fixture();
@@ -191,7 +191,7 @@ test("失敗起動後の複数Runtime領域は同じ復旧IDへ追記し、Effec
  * @observation 読取り結果、追記結果、初回作成結果およびContinuation Directory不存在を観測する。
  * @oracle 読取りはinvalid、追記と初回作成はnullとなりFilesystem Effect 0を維持する。
  * @cleanup Test本文が一時Runtime Stateを再帰削除する。
- * @boundary ERB-IT-012=Related 2 Blocks: Coordinator→Repair Record→Platform Adapter
+ * @boundary ERB-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("手組みHandoff Authorityでは旧Runtime／現在RuntimeのContinuationを受理しない", () => {
   const { root, boundary, operation } = fixture();
@@ -413,7 +413,7 @@ test("手組みHandoff Authorityでは旧Runtime／現在RuntimeのContinuation�
  * @observation Authority順序、同一Sessionの現在Release境界、旧段階の受理および現在tupleでの追記を観測する。
  * @oracle Record Storeが履歴と現在境界を検証したOperationだけが旧Continuationを受理し、sequence 7を更新後Releaseで追記する。
  * @cleanup Test本文が一時Runtime Stateを再帰削除する。
- * @boundary ERB-IT-012=Related 2 Blocks: Coordinator→Repair Record→Platform Adapter
+ * @boundary ERB-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("実Record Storeの署名済みHandoff chainと同一SessionのRelease更新から旧Continuationを検証して追記する", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-repair-chain-"));
@@ -530,7 +530,7 @@ test("実Record Storeの署名済みHandoff chainと同一SessionのRelease更�
      * @observation 対応するRelease tupleまたはnullを取得する。
      * @oracle 既知manifestだけが対応するRelease tupleへ解決され、未知manifestは拒否される。
      * @cleanup N/A: Test Helperは永続資源を作成しない。
-     * @boundary ERB-IT-012=Related 2 Blocks: Coordinator→Repair Record→Platform Adapter
+     * @boundary ERB-IT-012=Direct Boundary: coordinator Test Source→対象契約
      */
     const verifyHistory: DockerDesktopRepairHistoryVerifier = (value) => {
       const selected =
@@ -655,7 +655,7 @@ test("実Record Storeの署名済みHandoff chainと同一SessionのRelease更�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("継続記録の改ざん・余分な項目・途中欠落はvalidへ昇格しない", () => {
   for (const mutation of ["hash", "extra", "missing"] as const) {
@@ -701,7 +701,7 @@ test("継続記録の改ざん・余分な項目・途中欠落はvalidへ昇格
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("全Host Effectがconfirmedでなければrecoveredを記録しない", () => {
   const { root, boundary, operation } = fixture();

@@ -197,15 +197,15 @@ export function planCredentialAccessRecovery(
   } catch {
     return blockedPlan("credential_access_recovery_registry_unavailable");
   }
-  const active = snapshot.records.filter((record) => !record.revoked);
-  const revokeCredentialIds = active
+  const activeRecords = snapshot.records.filter((record) => !record.revoked);
+  const revokeCredentialIds = activeRecords
     .filter(
       (record) => input.mode === "full_access_reset" || record.systemAdmin,
     )
     .map((record) => record.credentialId)
     .sort();
   const revokeSet = new Set(revokeCredentialIds);
-  const preserveCredentialIds = active
+  const preserveCredentialIds = activeRecords
     .filter((record) => !revokeSet.has(record.credentialId))
     .map((record) => record.credentialId)
     .sort();
@@ -277,7 +277,7 @@ export function applyCredentialAccessRecovery(
     );
 
   const revokeSet = new Set(plan.revokeCredentialIds);
-  const revoked = snapshot.records.map((record) =>
+  const revokedRecords = snapshot.records.map((record) =>
     revokeSet.has(record.credentialId) && !record.revoked
       ? Object.freeze({
           ...record,
@@ -286,7 +286,7 @@ export function applyCredentialAccessRecovery(
         })
       : record,
   );
-  const candidate = createMemoryConnectionCredentialRegistry(revoked);
+  const candidate = createMemoryConnectionCredentialRegistry(revokedRecords);
   const issued = issueConnectionCredential(
     candidate,
     hostRecoveryActor(),
@@ -360,19 +360,21 @@ function sameRecoveryTargets(
   records: readonly ConnectionCredentialRecord[],
   plan: CredentialAccessRecoveryPlan,
 ): boolean {
-  const active = records.filter((record) => !record.revoked);
-  const revoke = active
+  const activeRecords = records.filter((record) => !record.revoked);
+  const recalculatedRevokeIds = activeRecords
     .filter((record) => plan.mode === "full_access_reset" || record.systemAdmin)
     .map((record) => record.credentialId)
     .sort();
-  const revokeSet = new Set(revoke);
-  const preserve = active
+  const revokeSet = new Set(recalculatedRevokeIds);
+  const recalculatedPreserveIds = activeRecords
     .filter((record) => !revokeSet.has(record.credentialId))
     .map((record) => record.credentialId)
     .sort();
   return (
-    JSON.stringify(revoke) === JSON.stringify(plan.revokeCredentialIds) &&
-    JSON.stringify(preserve) === JSON.stringify(plan.preserveCredentialIds)
+    JSON.stringify(recalculatedRevokeIds) ===
+      JSON.stringify(plan.revokeCredentialIds) &&
+    JSON.stringify(recalculatedPreserveIds) ===
+      JSON.stringify(plan.preserveCredentialIds)
   );
 }
 

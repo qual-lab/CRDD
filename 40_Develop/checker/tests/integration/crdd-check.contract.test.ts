@@ -47,7 +47,7 @@ const faultInjector = pathToFileURL(
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 test("Checker固有Moduleは40_Develop/checkerだけが所有する", () => {
   const expectedModules = [
@@ -92,7 +92,7 @@ test("Checker固有Moduleは40_Develop/checkerだけが所有する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Checker PipelineはMarkdownをArtifact Modelへ変換し固定順のRuleを実行する", () => {
   const registry = new RuleRegistry();
@@ -188,7 +188,7 @@ UX ID: UX-000001
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 test("Checker PipelineはSchema不整合とCanonical ID重複を共通Findingで返す", () => {
   const source = {
@@ -223,7 +223,7 @@ test("Checker PipelineはSchema不整合とCanonical ID重複を共通Findingで
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Artifact Domain IssueはChecker境界で明示変換し未知種別を拒否する", () => {
   assert.deepEqual(
@@ -276,7 +276,7 @@ test("Artifact Domain IssueはChecker境界で明示変換し未知種別を拒�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("主要工程ひな型は工程責務と構造表現を維持する", () => {
   const phaseTemplates = [
@@ -650,7 +650,7 @@ type CheckerReport = Readonly<{
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("品質固定構成は規則・公式文書・ひな型の番号付き名称と一致する", () => {
   const names = [
@@ -763,7 +763,7 @@ test("品質固定構成は規則・公式文書・ひな型の番号付き名�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-008=Direct Boundary: Repository入口・Package入口→同一Checker Core／Profile
+ * @boundary RCM-IT-008=Direct Boundary: checker Test Source→対象契約
  */
 test("checker packageのRepository検証はRepository rootを明示する", () => {
   const packageJson: unknown = JSON.parse(
@@ -798,7 +798,7 @@ test("checker packageのRepository検証はRepository rootを明示する", () =
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Checker packageのLintはWarningを検査失敗にする", () => {
   const packageJson: unknown = JSON.parse(
@@ -819,7 +819,7 @@ test("Checker packageのLintはWarningを検査失敗にする", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("CRDD所有packageの全回帰入口は静的検査後にだけ試験本体を開始する", () => {
   const packageRoots = [
@@ -898,7 +898,7 @@ test("CRDD所有packageの全回帰入口は静的検査後にだけ試験本体
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Biomeは.crdd内の入れ子設定を探索せず両所有sourceを検査する", () => {
   const root = fixture();
@@ -932,7 +932,7 @@ test("Biomeは.crdd内の入れ子設定を探索せず両所有sourceを検査�
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+   * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
    */
   const inspectLint = () =>
     spawnSync(process.execPath, [biome, "lint", ".", "--error-on-warnings"], {
@@ -964,7 +964,7 @@ type CheckerRun = SpawnSyncReturns<string> & { report: CheckerReport };
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 function record(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === "object" && !Array.isArray(value)
@@ -986,7 +986,7 @@ function record(value: unknown): Record<string, unknown> | null {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 function reportString(value: Record<string, unknown>, key: string): string {
   const candidate = value[key];
@@ -1005,7 +1005,7 @@ function reportString(value: Record<string, unknown>, key: string): string {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 function reportBoolean(value: Record<string, unknown>, key: string): boolean {
   const candidate = value[key];
@@ -1024,7 +1024,7 @@ function reportBoolean(value: Record<string, unknown>, key: string): boolean {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 function reportNullableBoolean(
   value: Record<string, unknown>,
@@ -1047,7 +1047,7 @@ function reportNullableBoolean(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 function reportNullableString(
   value: Record<string, unknown>,
@@ -1070,7 +1070,7 @@ function reportNullableString(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 function reportStringArray(
   value: Record<string, unknown>,
@@ -1100,7 +1100,7 @@ function reportStringArray(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 function reportNumberRecord(
   value: Record<string, unknown>,
@@ -1128,7 +1128,7 @@ function reportNumberRecord(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 function reportState(
   value: Record<string, unknown>,
@@ -1160,7 +1160,7 @@ function reportState(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 function reportFindings(value: Record<string, unknown>): CheckerFinding[] {
   const findings = value.findings;
@@ -1188,7 +1188,7 @@ function reportFindings(value: Record<string, unknown>): CheckerFinding[] {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 function reportReferences(
   value: Record<string, unknown>,
@@ -1236,7 +1236,7 @@ function reportReferences(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 function parseCheckerReport(source: string): CheckerReport {
   if (source === "") {
@@ -1323,7 +1323,7 @@ const requiredFolders = [
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-check-"));
@@ -1341,7 +1341,7 @@ function fixture() {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("工程基本図の必須列または閉じた処置語彙の欠落を拒否する", () => {
   const sourcePath = path.join(
@@ -1386,7 +1386,7 @@ test("工程基本図の必須列または閉じた処置語彙の欠落を拒�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Discoveryひな型から人間理解の確認契約を除去できない", () => {
   const sourcePath = path.join(
@@ -1425,7 +1425,7 @@ test("Discoveryひな型から人間理解の確認契約を除去できない",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("IA分析は全UX定義を一件ずつ覆う", () => {
   const root = iaReconstructionFixtureRoot();
@@ -1452,7 +1452,7 @@ test("IA分析は全UX定義を一件ずつ覆う", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("IA分析は同じUX定義を正式入力にする", () => {
   const root = iaReconstructionFixtureRoot();
@@ -1490,7 +1490,7 @@ test("IA分析は同じUX定義を正式入力にする", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("IA分析の実ひな型を埋めた成果物を受理する", () => {
   const root = iaReconstructionFixtureRoot();
@@ -1556,7 +1556,7 @@ test("IA分析の実ひな型を埋めた成果物を受理する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("IA分析の縮小見出しと三列契約の欠落を拒否する", () => {
   for (const mutate of [
@@ -1598,7 +1598,7 @@ test("IA分析の縮小見出しと三列契約の欠落を拒否する", () => 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("IA正本は成果物別の可視で評価済みChecklistを必要とする", () => {
   const cases: Array<[string, string]> = [
@@ -1642,7 +1642,7 @@ test("IA正本は成果物別の可視で評価済みChecklistを必要とする
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("IAひな型は未評価の正確なChecklist項目集合を持つ", () => {
   for (const mutate of [
@@ -1683,7 +1683,7 @@ test("IAひな型は未評価の正確なChecklist項目集合を持つ", () => 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("IAの後続関係表へArchitectureその他の直接Handoffを追加できない", () => {
   for (const relativePath of [
@@ -1724,7 +1724,7 @@ test("IAの後続関係表へArchitectureその他の直接Handoffを追加で�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 test("IA横断投影は全Canonical IA IDを一件ずつ処置する", () => {
   for (const replacement of [
@@ -1766,7 +1766,7 @@ test("IA横断投影は全Canonical IA IDを一件ずつ処置する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("IA分析Objectは全件を一意に処置する", () => {
   for (const mutate of [
@@ -1818,7 +1818,7 @@ test("IA分析Objectは全件を一意に処置する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 test("IA定義Mappingは実在する分析ObjectとCanonical Objectだけを使う", () => {
   for (const mutate of [
@@ -1877,7 +1877,7 @@ test("IA定義Mappingは実在する分析ObjectとCanonical Objectだけを使�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("REQ表示をDiscovery分析へ偽装接続できない", () => {
   const root = iaReconstructionFixtureRoot();
@@ -1906,7 +1906,7 @@ test("REQ表示をDiscovery分析へ偽装接続できない", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("IA台帳とIA定義Directoryは同じ集合を持つ", () => {
   const root = iaReconstructionFixtureRoot();
@@ -1931,7 +1931,7 @@ test("IA台帳とIA定義Directoryは同じ集合を持つ", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("IA分析の処置とIA定義の情報源はUXとIAの組で閉じる", () => {
   const root = iaReconstructionFixtureRoot();
@@ -1963,7 +1963,7 @@ test("IA分析の処置とIA定義の情報源はUXとIAの組で閉じる", () 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("IA台帳の入力UXも分析処置と定義情報源へ完全一致する", () => {
   const root = iaReconstructionFixtureRoot();
@@ -1993,7 +1993,7 @@ test("IA台帳の入力UXも分析処置と定義情報源へ完全一致する"
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("IA関係は分析処置節と定義情報源節の外へ移せない", () => {
   for (const target of ["analysis", "definition"] as const) {
@@ -2040,7 +2040,7 @@ test("IA関係は分析処置節と定義情報源節の外へ移せない", () 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("IA関係の重複行または対象節の重複を拒否する", () => {
   for (const mutate of [
@@ -2105,7 +2105,7 @@ test("IA関係の重複行または対象節の重複を拒否する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("非表示Markdownだけに置かれたIA台帳・処置・情報源を拒否する", () => {
   const cases: Array<{
@@ -2180,7 +2180,7 @@ test("非表示Markdownだけに置かれたIA台帳・処置・情報源を拒�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("表示されるIA構造が正しければ非表示の偽構造を関係として数えない", () => {
   const root = iaReconstructionFixtureRoot();
@@ -2235,7 +2235,7 @@ test("表示されるIA構造が正しければ非表示の偽構造を関係と
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("未閉鎖HTMLコメントだけに置かれたIA構造を成立根拠にしない", () => {
   const cases = [
@@ -2301,7 +2301,7 @@ test("未閉鎖HTMLコメントだけに置かれたIA構造を成立根拠に�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("コメントとコードフェンスの入れ子は後続の正式IA構造を隠さない", () => {
   for (const prefix of [
@@ -2342,7 +2342,7 @@ test("コメントとコードフェンスの入れ子は後続の正式IA構造
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UX要求分析Directoryの全欠落を拒否する", () => {
   const root = dispositionFixtureRoot();
@@ -2379,7 +2379,7 @@ test("UX要求分析Directoryの全欠落を拒否する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Discoveryひな型へ空の共通Evidence Rootを再導入できない", () => {
   const root = dispositionFixtureRoot();
@@ -2414,7 +2414,7 @@ test("Discoveryひな型へ空の共通Evidence Rootを再導入できない", (
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Discovery分析は工程と役割を識別できる成果物種別を宣言する", () => {
   const root = dispositionFixtureRoot();
@@ -2447,7 +2447,7 @@ test("Discovery分析は工程と役割を識別できる成果物種別を宣�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Discovery正本は可視で評価済みのChecklistを必要とする", () => {
   for (const checklist of [
@@ -2495,7 +2495,7 @@ test("Discovery正本は可視で評価済みのChecklistを必要とする", ()
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Discovery正本は理由付きのOPEN・FAIL・N/Aを受け付ける", () => {
   const root = dispositionFixtureRoot();
@@ -2533,7 +2533,7 @@ test("Discovery正本は理由付きのOPEN・FAIL・N/Aを受け付ける", () 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Discovery Checklistは末尾と成果物種別固有の項目集合を必要とする", () => {
   const invalidChecklists = [
@@ -2586,7 +2586,7 @@ test("Discovery Checklistは末尾と成果物種別固有の項目集合を必�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Discoveryひな型のChecklist項目を後続Sectionへ移せない", () => {
   for (const heading of [
@@ -2649,7 +2649,7 @@ test("Discoveryひな型のChecklist項目を後続Sectionへ移せない", () =
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UX正本は成果物別の可視で評価済みのChecklistを必要とする", () => {
   const root = dispositionFixtureRoot();
@@ -2708,7 +2708,7 @@ test("UX正本は成果物別の可視で評価済みのChecklistを必要とす
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UX Checklistは末尾と成果物種別固有の項目集合を必要とする", () => {
   for (const invalidChecklist of [
@@ -2752,7 +2752,7 @@ test("UX Checklistは末尾と成果物種別固有の項目集合を必要と�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UXひな型のChecklist項目を後続Sectionへ移せない", () => {
   for (const heading of ["## 補足", "   ### 字下げ", "補足\n---"]) {
@@ -2811,7 +2811,7 @@ test("UXひな型のChecklist項目を後続Sectionへ移せない", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UXの正本投影と七つのひな型を欠落させられない", () => {
   const root = dispositionFixtureRoot();
@@ -2870,7 +2870,7 @@ test("UXの正本投影と七つのひな型を欠落させられない", () => 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("横断UX成果物は全UX IDを重複なく投影する", () => {
   const root = dispositionFixtureRoot();
@@ -2909,7 +2909,7 @@ test("横断UX成果物は全UX IDを重複なく投影する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UXからIAを飛び越える旧Handoffを再導入できない", () => {
   const root = dispositionFixtureRoot();
@@ -2944,7 +2944,7 @@ test("UXからIAを飛び越える旧Handoffを再導入できない", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UXの正規Handoffへ言い換えた直接接続を追加できない", () => {
   for (const [relativePath, insertionPoint] of [
@@ -3006,7 +3006,7 @@ test("UXの正規Handoffへ言い換えた直接接続を追加できない", ()
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UXひな型へ空の共通Evidence Rootを再導入できない", () => {
   const root = dispositionFixtureRoot();
@@ -3038,7 +3038,7 @@ test("UXひな型へ空の共通Evidence Rootを再導入できない", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UXを主な関係領域に持たない採用要求もUX分析から省略できない", () => {
   const root = dispositionFixtureRoot();
@@ -3075,7 +3075,7 @@ test("UXを主な関係領域に持たない採用要求もUX分析から省略�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UX分析は探索記録だけでなく同じREQのDefinitionを正式入力にする", () => {
   const root = dispositionFixtureRoot();
@@ -3117,7 +3117,7 @@ test("UX分析は探索記録だけでなく同じREQのDefinitionを正式入�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UX分析は別REQのDefinitionを正式入力にできない", () => {
   const root = dispositionFixtureRoot();
@@ -3159,7 +3159,7 @@ test("UX分析は別REQのDefinitionを正式入力にできない", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UX分析の正式入力Headerは可視本文のHeader自身へ結合する", () => {
   const invalidVariants = [
@@ -3236,7 +3236,7 @@ test("UX分析の正式入力Headerは可視本文のHeader自身へ結合する
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UX分析は全CommonMark参照形式のSource Analysis参照でDefinitionを補完できない", () => {
   const variants = [
@@ -3332,7 +3332,7 @@ test("UX分析は全CommonMark参照形式のSource Analysis参照でDefinition�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UX分析の例示内にある探索Pathは正式入力へ昇格しない", () => {
   const root = dispositionFixtureRoot();
@@ -3374,7 +3374,7 @@ test("UX分析の例示内にある探索Pathは正式入力へ昇格しない",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UX分析の通常本文にあるentity付き一般語をPathと誤認しない", () => {
   const root = dispositionFixtureRoot();
@@ -3416,7 +3416,7 @@ test("UX分析の通常本文にあるentity付き一般語をPathと誤認し�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UX分析は絶対PathのSource Analysis参照でDefinitionを補完できない", () => {
   const root = dispositionFixtureRoot();
@@ -3465,7 +3465,7 @@ test("UX分析は絶対PathのSource Analysis参照でDefinitionを補完でき�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UX分析は正しいHeaderに任意参照形式の別REQ Definitionを追加できない", () => {
   const variants = [
@@ -3514,7 +3514,7 @@ test("UX分析は正しいHeaderに任意参照形式の別REQ Definitionを追�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("CheckerはUX定義の意味重複を機械的な不正と断定しない", () => {
   const root = dispositionFixtureRoot();
@@ -3554,7 +3554,7 @@ test("CheckerはUX定義の意味重複を機械的な不正と断定しない",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 test("UX定義はCanonicalまたはSuperseded以外の翻訳状態を拒否する", () => {
   const root = dispositionFixtureRoot();
@@ -3593,7 +3593,7 @@ test("UX定義はCanonicalまたはSuperseded以外の翻訳状態を拒否す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UX定義は状態Headerの重複を拒否する", () => {
   const root = dispositionFixtureRoot();
@@ -3632,7 +3632,7 @@ test("UX定義は状態Headerの重複を拒否する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("CheckerはDiscovery定義の意味重複を機械的な不正と断定しない", () => {
   const root = dispositionFixtureRoot();
@@ -3668,7 +3668,7 @@ test("CheckerはDiscovery定義の意味重複を機械的な不正と断定し�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UXのSame判断は要求固有の理由を必要とする", () => {
   const root = dispositionFixtureRoot();
@@ -3705,7 +3705,7 @@ test("UXのSame判断は要求固有の理由を必要とする", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UXのSame判断は4軸比較を揃えた構造を受け付ける", () => {
   const root = dispositionFixtureRoot();
@@ -3742,7 +3742,7 @@ test("UXのSame判断は4軸比較を揃えた構造を受け付ける", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UX統合図と正式関係表のNewとSameは完全一致する", () => {
   const root = dispositionFixtureRoot();
@@ -3779,7 +3779,7 @@ test("UX統合図と正式関係表のNewとSameは完全一致する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UX分析の責任境界表は正式な三列見出しを一件だけ持つ", () => {
   const root = dispositionFixtureRoot();
@@ -3817,7 +3817,7 @@ test("UX分析の責任境界表は正式な三列見出しを一件だけ持つ
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UX分析は責任境界節または責任表を重複できない", () => {
   const root = dispositionFixtureRoot();
@@ -3855,7 +3855,7 @@ test("UX分析は責任境界節または責任表を重複できない", () => 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UX統合の理由付きNot ApplicableをRelation不正にしない", () => {
   const root = dispositionFixtureRoot();
@@ -3884,7 +3884,7 @@ test("UX統合の理由付きNot ApplicableをRelation不正にしない", () =>
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("サービス提供の流れの作成と非該当を処置なしで済ませない", () => {
   const root = dispositionFixtureRoot();
@@ -3922,7 +3922,7 @@ test("サービス提供の流れの作成と非該当を処置なしで済ま�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("作成するサービス提供の流れは主体・時間関係・完了情報・失敗時の判断を閉じる", () => {
   const root = dispositionFixtureRoot();
@@ -3960,7 +3960,7 @@ test("作成するサービス提供の流れは主体・時間関係・完了�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("作成するサービス提供の流れは完了時に返る情報を省略できない", () => {
   const root = dispositionFixtureRoot();
@@ -3998,7 +3998,7 @@ test("作成するサービス提供の流れは完了時に返る情報を省�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UX台帳と要求分析のRelationが閉じていない状態を拒否する", () => {
   const root = dispositionFixtureRoot();
@@ -4035,7 +4035,7 @@ test("UX台帳と要求分析のRelationが閉じていない状態を拒否す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UX台帳と要求分析はID集合でなくREQとUXの組で閉じる", () => {
   const root = dispositionFixtureRoot();
@@ -4074,7 +4074,7 @@ test("UX台帳と要求分析はID集合でなくREQとUXの組で閉じる", ()
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 test("Canonical UX台帳の同一ID二重定義を拒否する", () => {
   const root = dispositionFixtureRoot();
@@ -4103,7 +4103,7 @@ test("Canonical UX台帳の同一ID二重定義を拒否する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Experience Mapと要求分析のJourney割当不一致を拒否する", () => {
   const root = dispositionFixtureRoot();
@@ -4142,7 +4142,7 @@ test("Experience Mapと要求分析のJourney割当不一致を拒否する", ()
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UI分析は全UX定義と全IA定義の構造・入力・関係を別々に閉じる", () => {
   const root = uiReconstructionFixtureRoot();
@@ -4175,7 +4175,7 @@ test("UI分析は全UX定義と全IA定義の構造・入力・関係を別々�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UI分析・定義とひな型は成果物別の可視Checklistを必要とする", () => {
   const root = uiReconstructionFixtureRoot();
@@ -4219,7 +4219,7 @@ test("UI分析・定義とひな型は成果物別の可視Checklistを必要と
  * @observation UI Detail固有の欠落Findingを観測する。
  * @oracle 各欠落に対応するFinding codeが返る。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: Repository内成果物検査であり外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UI Detailのひな型と現在成果物は欠落できない", () => {
   const templateRoot = uiReconstructionFixtureRoot();
@@ -4255,7 +4255,7 @@ test("UI Detailのひな型と現在成果物は欠落できない", () => {
  * @observation UI Detail Coverageの不正Findingを観測する。
  * @oracle ui-detail-current-coverage-invalidが返る。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: Repository内成果物検査であり外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("発行済みUI DetailをOPENへ戻せない", () => {
   const root = uiReconstructionFixtureRoot();
@@ -4285,7 +4285,7 @@ test("発行済みUI DetailをOPENへ戻せない", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UIからSPECへの引き渡しは可視Checklistを必要とする", () => {
   const root = uiReconstructionFixtureRoot();
@@ -4316,7 +4316,7 @@ test("UIからSPECへの引き渡しは可視Checklistを必要とする", () =>
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UX観点のUI分析はIAまたはREQを正式入力へ追加できない", () => {
   const root = uiReconstructionFixtureRoot();
@@ -4352,7 +4352,7 @@ test("UX観点のUI分析はIAまたはREQを正式入力へ追加できない",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("IA観点のUI分析はUXまたはREQを正式入力へ追加できない", () => {
   const root = uiReconstructionFixtureRoot();
@@ -4391,7 +4391,7 @@ test("IA観点のUI分析はUXまたはREQを正式入力へ追加できない",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("IA観点のUI分析が欠けると全数再構築を満たさない", () => {
   const root = uiReconstructionFixtureRoot();
@@ -4418,7 +4418,7 @@ test("IA観点のUI分析が欠けると全数再構築を満たさない", () =
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UI定義はUX観点とIA観点の両方を統合する", () => {
   const root = uiReconstructionFixtureRoot();
@@ -4454,7 +4454,7 @@ test("UI定義はUX観点とIA観点の両方を統合する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UI台帳・分析・定義のUXとIA対応は完全一致する", () => {
   const root = uiReconstructionFixtureRoot();
@@ -4488,7 +4488,7 @@ test("UI台帳・分析・定義のUXとIA対応は完全一致する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("SPEC分析はUX観点とIA観点を分けて全入力を閉じる", () => {
   const root = specReconstructionFixtureRoot();
@@ -4520,7 +4520,7 @@ test("SPEC分析はUX観点とIA観点を分けて全入力を閉じる", () => 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("SPEC分析・定義とひな型は成果物別の可視Checklistを必要とする", () => {
   const root = specReconstructionFixtureRoot();
@@ -4564,7 +4564,7 @@ test("SPEC分析・定義とひな型は成果物別の可視Checklistを必要�
  * @observation SPEC Detail Coverageの不正Findingを観測する。
  * @oracle spec-detail-current-coverage-invalidが各変形で返る。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: Repository内成果物検査であり外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("発行済みSPEC DetailからBHVまたはCoverageを欠落できない", () => {
   for (const [from, replacement] of [
@@ -4597,7 +4597,7 @@ test("発行済みSPEC DetailからBHVまたはCoverageを欠落できない", (
  * @observation 専用のRelationまたは下流Coverage Findingを観測する。
  * @oracle 各誤差し替えが対応するFinding codeで拒否される。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: Repository内成果物検査であり外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UI／SPEC Detail Relationは同数の誤差し替えを拒否する", () => {
   for (const [relativePath, from, replacement, expectedCode] of [
@@ -4674,7 +4674,7 @@ test("UI／SPEC Detail Relationは同数の誤差し替えを拒否する", () =
  * @observation UI／SPEC Detail対応状態のFindingを観測する。
  * @oracle Canonical SPEC Detailから導出した期待値との差により拒否される。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: Repository内成果物検査であり外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Screenと対応表の協調した誤BHV変更を拒否する", () => {
   const root = detailRelationClosureFixtureRoot();
@@ -4710,7 +4710,7 @@ test("Screenと対応表の協調した誤BHV変更を拒否する", () => {
  * @observation UI／SPEC Detail対応状態のFindingを観測する。
  * @oracle 生行数と一意tuple数の差により拒否される。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: Repository内成果物検査であり外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UI／SPEC Detail対応表の重複行を拒否する", () => {
   const root = detailRelationClosureFixtureRoot();
@@ -4744,7 +4744,7 @@ test("UI／SPEC Detail対応表の重複行を拒否する", () => {
  * @observation Detail Relation専用Findingを観測する。
  * @oracle Relation組合せと下流CoverageのFindingが0件である。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: Repository内成果物検査であり外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UI／SPEC Detail Relationの完全な閉包を受理する", () => {
   const result = runChecker(detailRelationClosureFixtureRoot());
@@ -4770,7 +4770,7 @@ test("UI／SPEC Detail Relationの完全な閉包を受理する", () => {
  * @observation Detail Relation専用Findingを観測する。
  * @oracle 複数の共通Owner集合と局所投影が一致すればFindingが0件である。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: Repository内成果物検査であり外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UI／SPEC Detail RelationのShared Owner閉包を受理する", () => {
   const root = detailRelationClosureFixtureRoot();
@@ -4808,7 +4808,7 @@ test("UI／SPEC Detail RelationのShared Owner閉包を受理する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UIとSPECの対応レビューは可視Checklistと全対応閉包を必要とする", () => {
   const checklistRoot = specReconstructionFixtureRoot();
@@ -4879,7 +4879,7 @@ test("UIとSPECの対応レビューは可視Checklistと全対応閉包を必�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UI定義は正式入力と分析根拠を同じ集合で保持する", () => {
   const root = uiReconstructionFixtureRoot();
@@ -4918,7 +4918,7 @@ test("UI定義は正式入力と分析根拠を同じ集合で保持する", () 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("SPEC定義は正式入力・分析根拠・対応UI受入条件を同じ集合で保持する", () => {
   for (const mutation of [
@@ -4963,7 +4963,7 @@ test("SPEC定義は正式入力・分析根拠・対応UI受入条件を同じ�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("SPEC RootのCoverage件数は現行集合と一致する", () => {
   const root = specReconstructionFixtureRoot();
@@ -4991,7 +4991,7 @@ test("SPEC RootのCoverage件数は現行集合と一致する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UI／SPEC対応Evidenceは共有集合・両側Anchor・固定改訂版を必要とする", () => {
   const mutations = [
@@ -5070,7 +5070,7 @@ test("UI／SPEC対応Evidenceは共有集合・両側Anchor・固定改訂版を
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UX観点のSPEC分析はIAまたはREQを正式入力へ追加できない", () => {
   const root = specReconstructionFixtureRoot();
@@ -5109,7 +5109,7 @@ test("UX観点のSPEC分析はIAまたはREQを正式入力へ追加できない
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("SPEC台帳・分析・定義の入力関係は完全一致する", () => {
   const root = specReconstructionFixtureRoot();
@@ -5143,7 +5143,7 @@ test("SPEC台帳・分析・定義の入力関係は完全一致する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UIとSPECのpairs_with関係は双方と台帳で完全一致する", () => {
   const root = specReconstructionFixtureRoot();
@@ -5177,7 +5177,7 @@ test("UIとSPECのpairs_with関係は双方と台帳で完全一致する", () =
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Architecture分析はUIとSPECを分けて全入力を閉じる", () => {
   const root = architectureReconstructionFixtureRoot();
@@ -5211,7 +5211,7 @@ test("Architecture分析はUIとSPECを分けて全入力を閉じる", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Architecture横断モデルは責務・境界・流れ・故障・配置をQualityへ引き渡す", () => {
   let root = architectureReconstructionFixtureRoot();
@@ -5358,7 +5358,7 @@ test("Architecture横断モデルは責務・境界・流れ・故障・配置�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Architecture詳細設計はARCH-IDとの多対多Relationと適用判断を閉じる", () => {
   let root = architectureReconstructionFixtureRoot();
@@ -5638,7 +5638,7 @@ test("Architecture詳細設計はARCH-IDとの多対多Relationと適用判断�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Architecture成果物は責務別の可視Checklistを必要とする", () => {
   for (const relativePath of [
@@ -5675,7 +5675,7 @@ test("Architecture成果物は責務別の可視Checklistを必要とする", ()
  * @observation 工程別のRelation欠落Findingを観測する。
  * @oracle Architecture定義、Architecture詳細、Quality分析、Quality統合の各欠落が拒否される。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: Repository内成果物検査であり外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("ArchitectureとQualityのひな型はUI／SPEC Detail Relationを保持する", () => {
   for (const [relativePath, removedText, expectedCode] of [
@@ -5745,7 +5745,7 @@ test("ArchitectureとQualityのひな型はUI／SPEC Detail Relationを保持す
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Architecture詳細設計は8種類のEngineering Concernを全数評価する", () => {
   const root = architectureReconstructionFixtureRoot();
@@ -5781,7 +5781,7 @@ test("Architecture詳細設計は8種類のEngineering Concernを全数評価す
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Architecture詳細設計のConcern根拠は実在節へ接続する", () => {
   const root = architectureReconstructionFixtureRoot();
@@ -5817,7 +5817,7 @@ test("Architecture詳細設計のConcern根拠は実在節へ接続する", () =
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Architecture詳細設計のImplementation Structureは全観点に判定理由を要求する", () => {
   const root = architectureReconstructionFixtureRoot();
@@ -5856,7 +5856,7 @@ test("Architecture詳細設計のImplementation Structureは全観点に判定�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Architecture候補は理由付きOPEN／FAILを保持でき、Readyでは拒否する", () => {
   const cases = [
@@ -5926,7 +5926,7 @@ test("Architecture候補は理由付きOPEN／FAILを保持でき、Readyでは�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Architecture分析の9観点表は完全な3列・閉じた判定語彙・根拠を要求する", () => {
   const mutations = [
@@ -5974,7 +5974,7 @@ test("Architecture分析の9観点表は完全な3列・閉じた判定語彙・
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Architecture定義の未確認表は入力集合と完全一致する5列を要求する", () => {
   const mutations = [
@@ -6027,7 +6027,7 @@ test("Architecture定義の未確認表は入力集合と完全一致する5列�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Architecture詳細設計のConcern OPEN／FAILは候補で保持しReadyで拒否する", () => {
   for (const decision of ["OPEN", "FAIL"] as const) {
@@ -6079,7 +6079,7 @@ test("Architecture詳細設計のConcern OPEN／FAILは候補で保持しReady�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Architecture分析・定義・詳細設計の意味構造欠落を拒否する", () => {
   const mutations = [
@@ -6121,7 +6121,7 @@ test("Architecture分析・定義・詳細設計の意味構造欠落を拒否�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("UI観点のArchitecture分析はSPECや上流工程を正式入力にできない", () => {
   const root = architectureReconstructionFixtureRoot();
@@ -6157,7 +6157,7 @@ test("UI観点のArchitecture分析はSPECや上流工程を正式入力にで�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Architecture台帳・分析・定義の責務関係は完全一致する", () => {
   const root = architectureReconstructionFixtureRoot();
@@ -6192,7 +6192,7 @@ test("Architecture台帳・分析・定義の責務関係は完全一致する",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Architecture台帳の入力関係も分析・定義と完全一致する", () => {
   const root = architectureReconstructionFixtureRoot();
@@ -6221,7 +6221,7 @@ test("Architecture台帳の入力関係も分析・定義と完全一致する",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Architecture定義は責務・入力別契約・品質・移行の構造を自己完結して持つ", () => {
   const root = architectureReconstructionFixtureRoot();
@@ -6260,7 +6260,7 @@ test("Architecture定義は責務・入力別契約・品質・移行の構造�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Architecture定義の説明用placeholderを完成契約として受理しない", () => {
   const root = architectureReconstructionFixtureRoot();
@@ -6299,7 +6299,7 @@ test("Architecture定義の説明用placeholderを完成契約として受理し
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 test("Architecture入力関係はCanonical入力節の外へ移しても成立しない", () => {
   const root = architectureReconstructionFixtureRoot();
@@ -6344,7 +6344,7 @@ test("Architecture入力関係はCanonical入力節の外へ移しても成立�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("同じ入力とArchitecture責務の重複関係を拒否する", () => {
   const root = architectureReconstructionFixtureRoot();
@@ -6383,7 +6383,7 @@ test("同じ入力とArchitecture責務の重複関係を拒否する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 test("Canonical定義に対応しない余分なArchitecture分析を拒否する", () => {
   const root = architectureReconstructionFixtureRoot();
@@ -6417,7 +6417,7 @@ test("Canonical定義に対応しない余分なArchitecture分析を拒否す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("SPEC処置の重複関係を拒否する", () => {
   const root = specReconstructionFixtureRoot();
@@ -6456,7 +6456,7 @@ test("SPEC処置の重複関係を拒否する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("対応UI節外のリンクをpairs_withとして数えない", () => {
   const root = specReconstructionFixtureRoot();
@@ -6490,7 +6490,7 @@ test("対応UI節外のリンクをpairs_withとして数えない", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("直接UIなしは理由・運用Feedback・人間確認を必須にする", () => {
   const root = specReconstructionFixtureRoot();
@@ -6529,7 +6529,7 @@ test("直接UIなしは理由・運用Feedback・人間確認を必須にする"
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("理由付きの直接UIなし契約を受理する", () => {
   const root = specReconstructionFixtureRoot();
@@ -6589,7 +6589,7 @@ test("理由付きの直接UIなし契約を受理する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("直接UIありとなしの同時宣言を拒否する", () => {
   const root = specReconstructionFixtureRoot();
@@ -6625,7 +6625,7 @@ test("直接UIありとなしの同時宣言を拒否する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("SPEC工程直下の共通Evidence箱を拒否する", () => {
   const root = specReconstructionFixtureRoot();
@@ -6660,7 +6660,7 @@ after(() => {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 function makeStructure(root: string): void {
   for (const folder of requiredFolders) {
@@ -6678,7 +6678,7 @@ function makeStructure(root: string): void {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 function write(file: string, content = ""): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -6815,7 +6815,7 @@ const uxDefinitionChecklistTestItems = [
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 function evaluatedChecklist(
   items: readonly string[],
@@ -6840,7 +6840,7 @@ function evaluatedChecklist(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 function checklistItemsFromTemplate(relativePath: string): string[] {
   return fs
@@ -6862,7 +6862,7 @@ function checklistItemsFromTemplate(relativePath: string): string[] {
  * @observation 評価済みChecklistの項目本文だけを取得する。
  * @oracle 新ひな型の項目集合を基準版成果物へ誤適用せず、両契約を別々に検証できる。
  * @cleanup N/A: 読取りだけで資源を作成しないため。
- * @boundary AUH-IT-002=N/A: Repository内の固定Fixture入力だけを読む。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 function checklistItemsFromEvaluatedArtifact(relativePath: string): string[] {
   return fs
@@ -6884,7 +6884,7 @@ function checklistItemsFromEvaluatedArtifact(relativePath: string): string[] {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 function discoveryDefinition(
   requirementId: string,
@@ -6904,7 +6904,7 @@ function discoveryDefinition(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 function iaAnalysis(uxId: string, iaId: string): string {
   return `# IA分析: 試験用\n\n成果物種別: IA分析\n分析対象: [${uxId}](../../../02_UX/Definitions/${uxId}/ux_definition.md)\n状態: 分析済み\n\n## 1. UXから受け取る意味\n\n| 観点 | この分析で受け取る内容 |\n|---|---|\n| 利用者 | 試験利用者 |\n| 場面 | 判断する時 |\n| 目的 | 対象を理解する |\n| 得たい結果 | 次の行動を選べる |\n| 重要場面 | 判断する直前 |\n| 避ける失敗 | 不明を正常と誤認する |\n| 守る品質 | 根拠を失わない |\n\n## 2. 情報候補と関係\n\n| 情報Object | 利用者にとっての意味 | 同一性と関係の基準 |\n|---|---|---|\n| 対象 | 判断対象 | 安定IDで識別する |\n| 根拠 | 判断を支える情報 | 対象と情報源へ結ぶ |\n\n\`\`\`text\n[O: 対象]\n   └─ 支えられる → [O: 根拠]\n\`\`\`\n\n図中の\`[O:]\`は情報Objectだけを表す。\n\n### Canonical化候補\n\n| 接続先 | 分析Object | Canonical Object | 処置 | 判断理由 |\n|---|---|---|---|---|\n| ${iaId} | 対象 | 対象 | Same | 同じ意味を保持する |\n| ${iaId} | 根拠 | 根拠 | Same | 同じ意味を保持する |\n\n## 3. 状態・可視性・導線・責任\n\n| 観点 | 分析結果 |\n|---|---|\n| 状態 | 未確認と確認済みを分ける |\n| 可視性 | 判断時に示す |\n| 導線 | 対象から根拠へ進む |\n| 責任 | 試験情報管理者が対象と根拠の同一性を保つ |\n| 時間的な意味 | 現在と不明を分ける |\n| 情報の優先度 | 判断対象を先に示す |\n| 情報のまとまり | 対象と根拠をまとめる |\n| 判断権限 | 試験承認者が意味と状態を確定し、利用者が次の行動を選ぶ |\n| 重要な失敗 | 不明を正常と誤認する |\n| 制約・対象外 | UIと実装を決めない |\n| 人間判断 | UXから継承する判断だけを保持する |\n| IAへ戻す条件 | 情報契約が不足した時 |\n| 検証意図 | 対象と根拠を区別できること |\n\n### 未確認事項と判断\n\n| 区分 | 内容 |\n|---|---|\n| UXから継承する確認事項 | 利用者が理解できるか |\n| 判断者 | 代表利用者 |\n| 現在判定 | 後続確認が必要 |\n| 未確認時の影響 | 定量条件を確定しない |\n| IAで追加した未確認事項 | なし |\n| IA固有の追加人間判断 | なし |\n\n## 4. 現実照合の参考情報（正式入力ではない）\n\nこの節は後続のReality Auditへ引き継ぐ参考情報であり、IA Candidateを導く正式入力ではない。\n\nなし。\n\n## 5. IA処置\n\n[${iaId}](../../Definitions/${iaId}/ia_definition.md)へ接続する。\n\n## 6. 後続工程が保持する意味\n\n| 接続先 | 保持する意味 |\n|---|---|\n| UI（UX＋IAの正式入力） | 情報の優先度を保持する |\n| SPEC（UX＋IAの正式入力） | 識別と状態を保持する |\n| Quality Analysis / IA（伴走） | 成立条件を保持する |\n\nArchitectureやSourceへ直接引き渡さない。\n\n## 7. 補足分析\n\nなし。\n\n${evaluatedChecklist(checklistItemsFromTemplate("template/03_IA/Analysis/UX-XXXXXX/ia_analysis.md"))}\n`;
@@ -6920,7 +6920,7 @@ function iaAnalysis(uxId: string, iaId: string): string {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 function iaDefinition(iaId: string, uxId: string): string {
   return `# ${iaId} 試験用情報\n\n成果物種別: IA定義\nIA ID: \`${iaId}\`\n\n## 意味と利用者成果\n\n利用者が情報を見分けられる。\n\n## 対象・識別・関係\n\n### 分析ObjectからCanonical Objectへの対応\n\n| Source Analysis Object | Canonical Object | 処置 | 判断理由 |\n|---|---|---|---|\n| ${uxId}: 対象 | 対象 | Same | 同じ意味を保持する |\n\n対象と関係を定義する。\n\n## 状態・可視性・時間的な意味\n\n状態と時間差を区別する。\n\n## 情報の優先度・まとまり・見つけ方・責任\n\n対象から根拠へ進める。\n\n### 責任と判断権限\n\n| 入力UX | 情報を作成・更新・提供する責任 | 意味・状態・次の行動を決める権限 |\n|---|---|---|\n| ${uxId} | 試験情報管理者が対象と根拠を正確に保つ | 試験承認者が意味と状態を確定し、利用者が次の行動を決める |\n\n## 失敗・制約・未確認事項\n\n不明を正常へ丸めず、実装を先取りしない。\n\n## 検証意図\n\n| 入力UX | 重要場面 | 避ける失敗 | 品質期待 |\n|---|---|---|---|\n| ${uxId} | 判断前 | 誤認 | 根拠を示す |\n\n### 人間判断・未確認事項・戻り条件\n\n| 入力UX | UXから継承する確認事項 | 判断者 | 現在判定 | 未確認時の影響 |\n|---|---|---|---|---|\n| ${uxId} | 理解できるか | 代表利用者 | 後続確認が必要 | 定量条件を確定しない |\n\n## 後続工程との関係\n\n| 接続先 | 保持する意味 |\n|---|---|\n| UI（UX＋IAの正式入力） | 情報の優先度を保持する |\n| SPEC（UX＋IAの正式入力） | 識別と状態を保持する |\n| Quality Analysis / IA（伴走） | 成立条件を保持する |\n\n## 情報源\n\n- [${uxId}のIA分析](../../Analysis/${uxId}/ia_analysis.md)\n\n## 補足分析\n\nなし。\n\n${evaluatedChecklist(checklistItemsFromTemplate("template/03_IA/Definitions/IA-XXXXXX/ia_definition.md"))}\n`;
@@ -6936,7 +6936,7 @@ function iaDefinition(iaId: string, uxId: string): string {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 function iaCrossArtifact(title: string, checklistTemplatePath: string): string {
   return `# ${title}\n\n## 4. IA定義への適用\n\n| IA定義 | 処置 | 横断投影での扱い |\n|---|---|---|\n| [IA-000001](Definitions/IA-000001/ia_definition.md) | 適用 | 試験用の横断投影へ接続 |\n\n${evaluatedChecklist(checklistItemsFromTemplate(checklistTemplatePath))}\n`;
@@ -6952,7 +6952,7 @@ function iaCrossArtifact(title: string, checklistTemplatePath: string): string {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 function iaReconstructionFixtureRoot(): string {
   const root = fixture();
@@ -7036,7 +7036,7 @@ function iaReconstructionFixtureRoot(): string {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 function completedChecklist(relativePath: string): string {
   const source = fs.readFileSync(
@@ -7061,7 +7061,7 @@ function completedChecklist(relativePath: string): string {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 function uxViewUiAnalysis(uxId: string, uiId: string): string {
   return `# ${uxId}のUI分析\n\n成果物種別: UI分析（UX観点）\n分析単位: \`${uxId}\`\n状態: Candidate\n\n## 1. 正式入力\n\n- UX定義: [${uxId} 試験用](../../../02_UX/Definitions/${uxId}/ux_definition.md)\n\n## 2. UIへ引き継ぐ利用者成果\n\n利用者が対象を理解する。\n\n## 3. 必要な認識・操作・Feedback\n\n対象、操作、Feedbackを示す。\n\n## 4. 状況による体験差\n\nこのUXに必要な状況だけを区別する。\n\n## 5. UI処置\n\n- [${uiId} 試験用](../../Definitions/${uiId}/ui_definition.md) — \`New\`。独立した利用者成果として扱う。\n\n## 6. IA観点との統合時に確認すること\n\n情報構造と利用者成果が矛盾しないことを確認する。\n\n${completedChecklist("template/04_UI/Analysis/UX-XXXXXX/ui_analysis.md")}`;
@@ -7077,7 +7077,7 @@ function uxViewUiAnalysis(uxId: string, uiId: string): string {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 function iaViewUiAnalysis(iaId: string, uiId: string): string {
   return `# ${iaId}のUI分析\n\n成果物種別: UI分析（IA観点）\n分析単位: \`${iaId}\`\n状態: Candidate\n\n## 1. 正式入力\n\n- IA定義: [${iaId} 試験用](../../../03_IA/Definitions/${iaId}/ia_definition.md)\n\n## 2. UIへ引き継ぐ情報構造\n\n対象、状態、関係を示す。\n\n## 3. 表示の優先順位とNavigation\n\n対象、状態、根拠の順に示す。\n\n## 4. 表示差と開示境界\n\n通常、停止、結果不明を区別する。\n\n## 5. UI処置\n\n- [${uiId} 試験用](../../Definitions/${uiId}/ui_definition.md) — \`New\`。独立した情報構造として扱う。\n\n## 6. UX観点との統合時に確認すること\n\n情報構造と利用者成果が矛盾しないことを確認する。\n\n${completedChecklist("template/04_UI/Analysis/IA-XXXXXX/ui_analysis.md")}`;
@@ -7093,7 +7093,7 @@ function iaViewUiAnalysis(iaId: string, uiId: string): string {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 function uiDefinition(uiId: string, uxId: string, iaId: string): string {
   return `# ${uiId} 試験用Interface\n\n成果物種別: UI定義\nUI ID: \`${uiId}\`\n状態: Candidate\n\n## 利用者成果\n\n対象を理解できる。\n\n## UX観点の分析結果\n\n| UX分析 | このUIで保持する利用者成果 |\n|---|---|\n| [${uxId}](../../Analysis/${uxId}/ui_analysis.md) | 対象を理解する |\n\n## IA観点の分析結果\n\n| IA分析 | このUIで保持する情報構造 |\n|---|---|\n| [${iaId}](../../Analysis/${iaId}/ui_analysis.md) | 対象と状態を見分ける |\n\n## 両観点の統合判断\n\n利用者成果を情報構造によって判断可能にする。\n\n## 表示面と情報の優先順位\n\n対象、状態、根拠、行動の順に示す。\n\n## 操作とFeedback\n\n主要操作と結果を示す。\n\n## 状態と表示差\n\n通常と停止を区別する。\n\n## 視覚表現とアクセシビリティ\n\n色以外でも区別する。\n\n## 制約\n\n正本を複製しない。\n\n## UI／SPEC対応レビューへ渡す項目\n\n同じUXとIAについて、UIの観測点とSPEC側の未確定事項を渡す。\n\n## 正式入力と変換根拠\n\n- 正式入力: [${uxId}](../../../02_UX/Definitions/${uxId}/ux_definition.md)\n- 正式入力: [${iaId}](../../../03_IA/Definitions/${iaId}/ia_definition.md)\n\n以下は正式入力をUIの責務へ変換した根拠であり、正式入力そのものではない。\n\n- [${uxId}のUI分析](../../Analysis/${uxId}/ui_analysis.md)\n- [${iaId}のUI分析](../../Analysis/${iaId}/ui_analysis.md)\n\n${completedChecklist("template/04_UI/Definitions/UI-XXXXXX/ui_definition.md")}`;
@@ -7109,7 +7109,7 @@ function uiDefinition(uiId: string, uxId: string, iaId: string): string {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 function uiReconstructionFixtureRoot(): string {
   const root = iaReconstructionFixtureRoot();
@@ -7217,7 +7217,7 @@ function uiReconstructionFixtureRoot(): string {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 function specReconstructionFixtureRoot(): string {
   const root = uiReconstructionFixtureRoot();
@@ -7433,7 +7433,7 @@ function specReconstructionFixtureRoot(): string {
  * @observation 呼出し元Test CaseがRelation tupleと下流Ownerを変形できるRootを返す。
  * @oracle 正しいfixtureではDetail Relation専用Findingが発生しない。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-002=N/A: Repository内fixture生成であり外部実行境界を持たない。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 function detailRelationClosureFixtureRoot(): string {
   const root = specReconstructionFixtureRoot();
@@ -7500,7 +7500,7 @@ function detailRelationClosureFixtureRoot(): string {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 function architectureReconstructionFixtureRoot(): string {
   const root = specReconstructionFixtureRoot();
@@ -7530,7 +7530,7 @@ Human Inputの判断者は不要である。再評価契機は上流契約が変
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+   * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
    */
   const withArchitectureAnalysisContracts = (source: string) =>
     source.replace(
@@ -7547,7 +7547,7 @@ Human Inputの判断者は不要である。再評価契機は上流契約が変
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+   * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
    */
   const withArchitectureDefinitionContracts = (source: string) =>
     source
@@ -7679,7 +7679,7 @@ Architecture固有の追加人間判断はない。入力契約が変わる場�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の閉包を要求する", () => {
   const root = architectureReconstructionFixtureRoot();
@@ -9090,7 +9090,7 @@ ${evaluatedChecklist(checklistItemsFromTemplate("template/07_Quality/Definitions
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 function dispositionFixtureRoot(hasFixedEvidence = false): string {
   const root = fixture();
@@ -9339,7 +9339,7 @@ function dispositionFixtureRoot(hasFixedEvidence = false): string {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 function initializeGit(root: string): void {
   const initialized = spawnSync("git", ["init", "--quiet", root], {
@@ -9358,7 +9358,7 @@ function initializeGit(root: string): void {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 function addGitlink(root: string, relativePath: string): void {
   const tree = spawnSync("git", ["-C", root, "mktree"], {
@@ -9410,7 +9410,7 @@ function addGitlink(root: string, relativePath: string): void {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 function runChecker(root: string, ...extraArguments: string[]): CheckerRun {
   const result = spawnSync(
@@ -9434,7 +9434,7 @@ function runChecker(root: string, ...extraArguments: string[]): CheckerRun {
  * @observation Project Context契約に関するFindingを観測する。
  * @oracle Project Context契約Findingが0件である。
  * @cleanup Test後にFixture Rootを削除する。
- * @boundary AUH-IT-003=N/A: Repository内Markdownの構造検査であり外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Repository Project Contextの固定構造を受理する", () => {
   const root = fixture();
@@ -9479,7 +9479,7 @@ test("Repository Project Contextの固定構造を受理する", () => {
  * @observation Project Context契約Findingを観測する。
  * @oracle 欠落した正式投影へproject-context-projection-contract-invalidを返す。
  * @cleanup Test後にFixture Rootを削除する。
- * @boundary AUH-IT-003=N/A: Repository内Markdownの構造検査であり外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Repository Project Contextの五場面欠落を拒否する", () => {
   const root = fixture();
@@ -9526,7 +9526,7 @@ test("Repository Project Contextの五場面欠落を拒否する", () => {
  * @observation Project ContextとManifestのIdentity照合Findingを観測する。
  * @oracle project-context-manifest-identity-mismatchを返す。
  * @cleanup Test後にFixture Rootを削除する。
- * @boundary AUH-IT-003=N/A: Repository内の二つの追跡成果物を比較し、外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Project ContextとRepository ManifestのIdentity競合を拒否する", () => {
   const root = fixture();
@@ -9573,7 +9573,7 @@ test("Project ContextとRepository ManifestのIdentity競合を拒否する", ()
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 test("Canonical案内文書の名称移行後に旧表題を残さない", () => {
   const root = dispositionFixtureRoot();
@@ -9605,7 +9605,7 @@ test("Canonical案内文書の名称移行後に旧表題を残さない", () =>
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Work Lifecycle契約は旧Evidence集約Pathの再導入を拒否する", () => {
   const root = dispositionFixtureRoot();
@@ -9634,7 +9634,7 @@ test("Work Lifecycle契約は旧Evidence集約Pathの再導入を拒否する", 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Work Lifecycle契約は全Change aggregateの案内欠落を拒否する", () => {
   const root = dispositionFixtureRoot();
@@ -9657,7 +9657,7 @@ test("Work Lifecycle契約は全Change aggregateの案内欠落を拒否する",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Change契約は影響ファイルの全数表示区画を要求する", () => {
   const root = dispositionFixtureRoot();
@@ -9686,7 +9686,7 @@ test("Change契約は影響ファイルの全数表示区画を要求する", ()
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Change契約は代表ファイルだけを示す旧表示を拒否する", () => {
   const root = dispositionFixtureRoot();
@@ -9719,7 +9719,7 @@ test("Change契約は代表ファイルだけを示す旧表示を拒否する",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Change契約は影響ファイルへ重複分類の親子階層を作らない", () => {
   const root = dispositionFixtureRoot();
@@ -9748,7 +9748,7 @@ test("Change契約は影響ファイルへ重複分類の親子階層を作ら�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("CHG-000080以降はPhase／Gateと固定前収束の必須評価を要求する", () => {
   const root = dispositionFixtureRoot();
@@ -9777,7 +9777,7 @@ test("CHG-000080以降はPhase／Gateと固定前収束の必須評価を要求�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Work Lifecycle契約はRelease Evidenceの案内欠落を拒否する", () => {
   const root = dispositionFixtureRoot();
@@ -9801,7 +9801,7 @@ test("Work Lifecycle契約はRelease Evidenceの案内欠落を拒否する", ()
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Change記録とWork Lifecycle Evidenceの通常リンク切れを検出する", () => {
   const root = dispositionFixtureRoot();
@@ -9844,7 +9844,7 @@ test("Change記録とWork Lifecycle Evidenceの通常リンク切れを検出す
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("固定履歴本文の旧リンクを移行表から解決し本文変更を要求しない", () => {
   const root = dispositionFixtureRoot(true);
@@ -9871,7 +9871,7 @@ test("固定履歴本文の旧リンクを移行表から解決し本文変更�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("固定履歴本文が移行表のHashから変化した場合は拒否する", () => {
   const root = dispositionFixtureRoot(true);
@@ -9908,7 +9908,7 @@ test("固定履歴本文が移行表のHashから変化した場合は拒否す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("移行表の重複・Root外Path・不正Hashを拒否する", () => {
   const firstEntry = (manifest: {
@@ -9964,7 +9964,7 @@ test("移行表の重複・Root外Path・不正Hashを拒否する", () => {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 function runWithEnv(
   root: string,
@@ -9992,7 +9992,7 @@ function runWithEnv(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 function runWithFault(
   root: string,
@@ -10027,7 +10027,7 @@ function runWithFault(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 function runRaw(...checkerArguments: string[]) {
   return spawnSync(process.execPath, [checker, ...checkerArguments], {
@@ -10045,7 +10045,7 @@ function runRaw(...checkerArguments: string[]) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("公式リポジトリではREADMEと正本文書の版を比較する", () => {
   const root = fixture();
@@ -10074,7 +10074,7 @@ for (const label of ["Version", "Status"]) {
        * @observation 結果、状態、Effectおよび終了後条件を観測する。
        * @oracle Test本文のassertionが期待条件を満たす。
        * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-       * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+       * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
        */
       test(`README先頭の版表示を照合する: ${label}/${version}/${suffix}`, () => {
         const root = currentChangelogFixture(
@@ -10124,7 +10124,7 @@ for (const body of [
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+   * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
    */
   test(`README先頭にない版を本文やfenceから補完しない: ${body.split("\n")[0]}`, () => {
     const root = currentChangelogFixture(
@@ -10147,7 +10147,7 @@ for (const body of [
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("READMEの太字でないVersion表示も現行版比較へ接続する", () => {
   const root = currentChangelogFixture(
@@ -10173,7 +10173,7 @@ test("READMEの太字でないVersion表示も現行版比較へ接続する", (
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 function currentChangelogFixture(
   englishLines: readonly string[],
@@ -10211,7 +10211,7 @@ function currentChangelogFixture(
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("公式CHANGELOGの現行移行注記に英日必須境界を要求する", () => {
   const root = fixture();
@@ -10265,7 +10265,7 @@ test("公式CHANGELOGの現行移行注記に英日必須境界を要求する",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("公式CHANGELOGの完全な英日移行注記を受け入れる", () => {
   const root = fixture();
@@ -10326,7 +10326,7 @@ for (const body of [
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+   * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
    */
   test(`標準ヘッダーはStableと本文例を分離する: ${body.split("\n")[0]}/${body.split("\n")[1]}`, () => {
     const root = currentChangelogFixture(
@@ -10358,7 +10358,7 @@ for (const body of [
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+   * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
    */
   test(`標準ヘッダーのCandidate基準版を本文から補完しない: ${body.split("\n")[0]}`, () => {
     const root = fixture();
@@ -10386,7 +10386,7 @@ for (const body of [
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("標準ヘッダーにないVersionとStatusを本文から補完しない", () => {
   const root = currentChangelogFixture(
@@ -10414,7 +10414,7 @@ for (const labelStyle of ["旧表現", "新表現"]) {
      * @observation 結果、状態、Effectおよび終了後条件を観測する。
      * @oracle Test本文のassertionが期待条件を満たす。
      * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-     * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+     * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
      */
     test(`移行注記の閉じた同義表現: ${labelStyle}/${placement}`, () => {
       const englishMarkers = [
@@ -10532,7 +10532,7 @@ for (const labelStyle of ["旧表現", "新表現"]) {
        * @observation 結果、状態、Effectおよび終了後条件を観測する。
        * @oracle Test本文のassertionが期待条件を満たす。
        * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-       * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+       * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
        */
       test(`移行注記の説明を単独で要求する: ${labelStyle}/${language}/${label}`, () => {
         for (const explanation of ["", " \t　 ", " 説明あり"]) {
@@ -10606,7 +10606,7 @@ for (const labelStyle of ["旧表現", "新表現"]) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Candidate文書ではReleased BaselineのCHANGELOGを検査する", () => {
   const root = fixture();
@@ -10670,7 +10670,7 @@ test("Candidate文書ではReleased BaselineのCHANGELOGを検査する", () => 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Candidate文書のReleased Baseline欠落を拒否する", () => {
   const root = fixture();
@@ -10697,7 +10697,7 @@ test("Candidate文書のReleased Baseline欠落を拒否する", () => {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
  */
 function stableReleaseClosureFixture() {
   const root = fixture();
@@ -10733,7 +10733,7 @@ function stableReleaseClosureFixture() {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Stable最終候補に残った現行MarkdownのCandidate表示を拒否する", () => {
   const root = stableReleaseClosureFixture();
@@ -10760,7 +10760,7 @@ test("Stable最終候補に残った現行MarkdownのCandidate表示を拒否す
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Stable最終候補のREADME版と英日Release見出しを相関検査する", () => {
   const root = stableReleaseClosureFixture();
@@ -10794,7 +10794,7 @@ test("Stable最終候補のREADME版と英日Release見出しを相関検査す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Stable最終候補では全CRDD正本の版と状態を閉包検査する", () => {
   const root = stableReleaseClosureFixture();
@@ -10821,7 +10821,7 @@ test("Stable最終候補では全CRDD正本の版と状態を閉包検査する"
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Change Traceは公式tag前にReleasedを名乗らず引渡し可能状態を保持する", () => {
   const root = stableReleaseClosureFixture();
@@ -10871,7 +10871,7 @@ test("Change Traceは公式tag前にReleasedを名乗らず引渡し可能状態
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("既存の公式tagが現在HEAD以外を指すStable状態を拒否する", () => {
   const root = stableReleaseClosureFixture();
@@ -10886,7 +10886,7 @@ test("既存の公式tagが現在HEAD以外を指すStable状態を拒否する"
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+   * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
    */
   const commit = (message: string) => {
     const added = spawnSync("git", ["-C", root, "add", "."], {
@@ -10938,7 +10938,7 @@ test("既存の公式tagが現在HEAD以外を指すStable状態を拒否する"
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("次版Candidateは公開済み基準版のtag不一致や候補残存として扱わない", () => {
   const root = stableReleaseClosureFixture();
@@ -10953,7 +10953,7 @@ test("次版Candidateは公開済み基準版のtag不一致や候補残存と�
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+   * @boundary AUH-IT-002=Direct Boundary: checker Test Source→対象契約
    */
   const commit = (message: string) => {
     const added = spawnSync("git", ["-C", root, "add", "."], {
@@ -11013,7 +11013,7 @@ for (const status of ["Draft", "Stable"]) {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+   * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
    */
   test(`${status}文書に残ったReleased Baselineを拒否する`, () => {
     const root = fixture();
@@ -11041,7 +11041,7 @@ for (const status of ["Draft", "Stable"]) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("公式CHANGELOGに日本語区分がない場合は現行リリース欠落を返す", () => {
   const root = fixture();
@@ -11077,7 +11077,7 @@ test("公式CHANGELOGに日本語区分がない場合は現行リリース欠�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("公式CHANGELOGの日本語区分に現行リリースがない場合は欠落を返す", () => {
   const root = fixture();
@@ -11116,7 +11116,7 @@ test("公式CHANGELOGの日本語区分に現行リリースがない場合は�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("移行不要の現行英日リリースには移行注記区分を要求しない", () => {
   const root = fixture();
@@ -11153,7 +11153,7 @@ test("移行不要の現行英日リリースには移行注記区分を要求�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("現行移行要否の欠落を判定不能として返す", () => {
   const root = currentChangelogFixture([], ["- `migration_required: false`"]);
@@ -11177,7 +11177,7 @@ test("現行移行要否の欠落を判定不能として返す", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("現行移行要否の不正値を判定不能として返す", () => {
   const root = currentChangelogFixture(
@@ -11202,7 +11202,7 @@ test("現行移行要否の不正値を判定不能として返す", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("現行移行要否の同値重複を判定不能として返す", () => {
   const root = currentChangelogFixture(
@@ -11227,7 +11227,7 @@ test("現行移行要否の同値重複を判定不能として返す", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("現行移行要否の競合宣言を判定不能として返す", () => {
   const root = currentChangelogFixture(
@@ -11252,7 +11252,7 @@ test("現行移行要否の競合宣言を判定不能として返す", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("現行英日移行要否の不一致を返す", () => {
   const root = currentChangelogFixture(
@@ -11277,7 +11277,7 @@ test("現行英日移行要否の不一致を返す", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("閉じたYAML fenceの現行移行宣言を受け入れる", () => {
   const englishCategories = [
@@ -11337,7 +11337,7 @@ test("閉じたYAML fenceの現行移行宣言を受け入れる", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("説明文中の移行語を宣言として扱わない", () => {
   const root = currentChangelogFixture(
@@ -11363,7 +11363,7 @@ test("説明文中の移行語を宣言として扱わない", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("非YAML fence内の移行宣言を判定データとして扱わない", () => {
   const root = currentChangelogFixture(
@@ -11389,7 +11389,7 @@ test("非YAML fence内の移行宣言を判定データとして扱わない", (
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("非YAML fence内の移行注記区分を成立根拠へ流用しない", () => {
   const fencedEnglishLines = [
@@ -11446,7 +11446,7 @@ test("非YAML fence内の移行注記区分を成立根拠へ流用しない", (
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("fence外の有効宣言と非YAML例示を重複扱いしない", () => {
   const exampleLines = ["```", "- `migration_required: true`", "```"];
@@ -11476,7 +11476,7 @@ test("fence外の有効宣言と非YAML例示を重複扱いしない", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("チルダと大文字YAML fenceの宣言を受け入れる", () => {
   const root = currentChangelogFixture(
@@ -11502,7 +11502,7 @@ test("チルダと大文字YAML fenceの宣言を受け入れる", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("長いbacktick fence内の短いbacktick列でfenceを閉じない", () => {
   const exampleLines = [
@@ -11535,7 +11535,7 @@ test("長いbacktick fence内の短いbacktick列でfenceを閉じない", () =>
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("閉じていない非YAML fence内の見出しや宣言を構造へ戻さない", () => {
   const root = currentChangelogFixture(
@@ -11562,7 +11562,7 @@ test("閉じていない非YAML fence内の見出しや宣言を構造へ戻さ�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("YAML fence内の言語見出しと現行Release見出しを構造として扱わない", () => {
   const root = currentChangelogFixture(
@@ -11595,7 +11595,7 @@ test("YAML fence内の言語見出しと現行Release見出しを構造として
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("同じ言語区分の重複を一部採用せずエラーにする", () => {
   const root = fixture();
@@ -11646,7 +11646,7 @@ test("同じ言語区分の重複を一部採用せずエラーにする", () =>
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("非YAML fence内の言語見出しと現行Release見出しを無視する", () => {
   const root = currentChangelogFixture(
@@ -11686,7 +11686,7 @@ test("非YAML fence内の言語見出しと現行Release見出しを無視する
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("現行リリース節の重複をエラーにする", () => {
   const root = currentChangelogFixture(
@@ -11717,7 +11717,7 @@ test("現行リリース節の重複をエラーにする", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("過去リリースの宣言を現行リリースへ流用しない", () => {
   const root = currentChangelogFixture([], []);
@@ -11740,7 +11740,7 @@ test("過去リリースの宣言を現行リリースへ流用しない", () =>
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("現行英日変更分類の不一致を返す", () => {
   const completeEnglishLines = [
@@ -11785,7 +11785,7 @@ test("現行英日変更分類の不一致を返す", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("移行が必要な現行節の変更分類欠落を判定不能として返す", () => {
   const englishCategories = [
@@ -11831,7 +11831,7 @@ test("移行が必要な現行節の変更分類欠落を判定不能として�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("移行が必要な現行節の変更分類重複を判定不能として返す", () => {
   const englishCategories = [
@@ -11879,7 +11879,7 @@ test("移行が必要な現行節の変更分類重複を判定不能として�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("閉じていないYAML宣言を判定不能として返す", () => {
   const root = currentChangelogFixture(
@@ -11906,7 +11906,7 @@ test("閉じていないYAML宣言を判定不能として返す", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Git管理された公式リポジトリではbaseline状態を非該当として返す", () => {
   const root = fixture();
@@ -11932,7 +11932,7 @@ test("Git管理された公式リポジトリではbaseline状態を非該当と
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("採用先の製品READMEはCRDD基準版と比較しない", () => {
   const root = fixture();
@@ -11954,7 +11954,7 @@ test("採用先の製品READMEはCRDD基準版と比較しない", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("採用先では公式CHANGELOG専用の移行宣言検査を発火しない", () => {
   const root = fixture();
@@ -11994,7 +11994,7 @@ test("採用先では公式CHANGELOG専用の移行宣言検査を発火しな�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("採用先のCRDD正本文書間の版不一致は検出する", () => {
   const root = fixture();
@@ -12020,7 +12020,7 @@ test("採用先のCRDD正本文書間の版不一致は検出する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("安定コンテキストIDを含むファイル名を拒否する", () => {
   const root = fixture();
@@ -12045,7 +12045,7 @@ test("安定コンテキストIDを含むファイル名を拒否する", () => 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("安定コンテキストIDへ手動改訂番号を結合した表記を拒否する", () => {
   const root = fixture();
@@ -12073,7 +12073,7 @@ test("安定コンテキストIDへ手動改訂番号を結合した表記を拒
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("範囲指定でも全体不変条件を確認し、部分確認を明示する", () => {
   const root = fixture();
@@ -12104,7 +12104,7 @@ test("範囲指定でも全体不変条件を確認し、部分確認を明示�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("全体確認は実行情報と件数を返す", () => {
   const root = fixture();
@@ -12131,7 +12131,7 @@ test("全体確認は実行情報と件数を返す", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("明示された安定コンテキストID定義の重複を検出する", () => {
   const root = fixture();
@@ -12157,7 +12157,7 @@ test("明示された安定コンテキストID定義の重複を検出する", 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("深いEvidence階層のMarkdownも内容を検査する", () => {
   const root = fixture();
@@ -12195,7 +12195,7 @@ test("深いEvidence階層のMarkdownも内容を検査する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("参照関係を重複回数付きで集約する", () => {
   const root = fixture();
@@ -12220,7 +12220,7 @@ test("参照関係を重複回数付きで集約する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("分岐網羅率の分母・分子・割合の不整合を検出する", () => {
   const root = fixture();
@@ -12252,7 +12252,7 @@ test("分岐網羅率の分母・分子・割合の不整合を検出する", ()
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("不正なCLI入力を終了コード2で拒否する", () => {
   const file = path.join(fixture(), "root.txt");
@@ -12278,7 +12278,7 @@ test("不正なCLI入力を終了コード2で拒否する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("適用先では無関係なtemplateフォルダより00_CRDDを優先する", () => {
   const root = fixture();
@@ -12301,7 +12301,7 @@ test("適用先では無関係なtemplateフォルダより00_CRDDを優先す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("同一ファイル内の安定コンテキストID重複定義を検出する", () => {
   const root = fixture();
@@ -12329,7 +12329,7 @@ test("同一ファイル内の安定コンテキストID重複定義を検出す
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("ルート外リンクを読み取らず未確認として返す", () => {
   const root = fixture();
@@ -12360,7 +12360,7 @@ test("ルート外リンクを読み取らず未確認として返す", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Git無視ファイルを除外し未追跡・非無視ファイルを確認する", () => {
   const root = fixture();
@@ -12395,7 +12395,7 @@ test("Git無視ファイルを除外し未追跡・非無視ファイルを確�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("英語の分岐網羅率と不正な測定値を検出する", () => {
   const root = fixture();
@@ -12426,7 +12426,7 @@ test("英語の分岐網羅率と不正な測定値を検出する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("コードフェンス内の疑似リンクと表を検査しない", () => {
   const root = fixture();
@@ -12456,7 +12456,7 @@ test("コードフェンス内の疑似リンクと表を検査しない", () =>
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("旧JSON配列と非JSONサマリーの互換性を維持する", () => {
   const root = fixture();
@@ -12484,7 +12484,7 @@ test("旧JSON配列と非JSONサマリーの互換性を維持する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("不正なURIエンコードを例外にせず警告する", () => {
   const root = fixture();
@@ -12509,7 +12509,7 @@ test("不正なURIエンコードを例外にせず警告する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("存在しない参照マップ対象を終了コード2で拒否する", () => {
   const root = fixture();
@@ -12535,7 +12535,7 @@ test("存在しない参照マップ対象を終了コード2で拒否する", (
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("リポジトリ内のディレクトリリンクを検査対象外と誤認しない", () => {
   const root = fixture();
@@ -12561,7 +12561,7 @@ test("リポジトリ内のディレクトリリンクを検査対象外と誤�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Git未導入と非Git対象のフォールバック理由を区別する", () => {
   const root = fixture();
@@ -12585,7 +12585,7 @@ test("Git未導入と非Git対象のフォールバック理由を区別する",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Git一覧取得失敗を生の標準エラーなしで分類する", () => {
   const root = fixture();
@@ -12611,7 +12611,7 @@ test("Git一覧取得失敗を生の標準エラーなしで分類する", () =>
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("gitlinkでない入れ子Gitリポジトリをサブモジュールと誤認しない", () => {
   const root = fixture();
@@ -12684,7 +12684,7 @@ test("gitlinkでない入れ子Gitリポジトリをサブモジュールと誤�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("未初期化の00_CRDDサブモジュールを成功扱いしない", () => {
   const root = fixture();
@@ -12734,7 +12734,7 @@ test("未初期化の00_CRDDサブモジュールを成功扱いしない", () =
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("00_CRDDのgitlinkとgitmodules宣言を別々に検証する", () => {
   const root = fixture();
@@ -12765,7 +12765,7 @@ test("00_CRDDのgitlinkとgitmodules宣言を別々に検証する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("worktreeと宣言がなくても親indexの00_CRDD gitlinkを検出する", () => {
   const root = fixture();
@@ -12804,7 +12804,7 @@ test("worktreeと宣言がなくても親indexの00_CRDD gitlinkを検出する"
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("gitlink位置の通常ディレクトリから親GitのHEADを読まない", () => {
   const root = fixture();
@@ -12852,7 +12852,7 @@ test("gitlink位置の通常ディレクトリから親GitのHEADを読まない
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("submodule節外のpathをgitmodules宣言と誤認しない", () => {
   const root = fixture();
@@ -12884,7 +12884,7 @@ test("submodule節外のpathをgitmodules宣言と誤認しない", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("gitmodulesのコメント開始をGit自身の解釈で判定する", () => {
   const root = fixture();
@@ -12917,7 +12917,7 @@ test("gitmodulesのコメント開始をGit自身の解釈で判定する", () =
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("gitmodulesの引用値に続く文字を切り捨てない", () => {
   const root = fixture();
@@ -12949,7 +12949,7 @@ test("gitmodulesの引用値に続く文字を切り捨てない", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("gitmodulesの空値・不正な引用符・行末コメントを安全に解釈する", () => {
   const root = fixture();
@@ -13002,7 +13002,7 @@ test("gitmodulesの空値・不正な引用符・行末コメントを安全に�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("gitmodules宣言だけの通常ディレクトリをgitlinkと誤認しない", () => {
   const root = fixture();
@@ -13040,7 +13040,7 @@ test("gitmodules宣言だけの通常ディレクトリをgitlinkと誤認しな
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("親indexのmodeを読めない場合はgitlink欠落と断定しない", () => {
   const source = fixture();
@@ -13118,7 +13118,7 @@ test("親indexのmodeを読めない場合はgitlink欠落と断定しない", (
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("競合中のgitlinkを確定Revisionとして扱わない", () => {
   const root = fixture();
@@ -13167,7 +13167,7 @@ test("競合中のgitlinkを確定Revisionとして扱わない", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("gitmodulesを検証できない場合は宣言欠落と断定しない", () => {
   const root = fixture();
@@ -13211,7 +13211,7 @@ test("gitmodulesを検証できない場合は宣言欠落と断定しない", (
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("git configの不正な出力をsubmodule宣言として採用しない", () => {
   const root = fixture();
@@ -13254,7 +13254,7 @@ test("git configの不正な出力をsubmodule宣言として採用しない", (
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("未初期化gitlink配下へのリンクを破損リンクと誤認しない", () => {
   const root = fixture();
@@ -13319,7 +13319,7 @@ test("未初期化gitlink配下へのリンクを破損リンクと誤認しな�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("index modeを読めなくても宣言済みsubmodule境界を破損リンクにしない", () => {
   const root = fixture();
@@ -13363,7 +13363,7 @@ test("index modeを読めなくても宣言済みsubmodule境界を破損リン�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("必須領域自体が未初期化gitlinkでも欠落と誤認しない", () => {
   const root = fixture();
@@ -13399,7 +13399,7 @@ test("必須領域自体が未初期化gitlinkでも欠落と誤認しない", (
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("シンボリックリンク経由のルート外参照を読み取らない", () => {
   const root = fixture();
@@ -13462,7 +13462,7 @@ test("シンボリックリンク経由のルート外参照を読み取らな�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("実物のGitサブモジュール内チェッカーから適用先を確認する", () => {
   const source = fixture();
@@ -13702,7 +13702,7 @@ test("実物のGitサブモジュール内チェッカーから適用先を確�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("構造上の欠落・旧配置・予約領域・中央集約をまとめて検出する", () => {
   const root = fixture();
@@ -13736,7 +13736,7 @@ test("構造上の欠落・旧配置・予約領域・中央集約をまとめ�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("外部リンクと山括弧リンクと公式ひな型の正本読替えを扱う", () => {
   const root = fixture();
@@ -13774,7 +13774,7 @@ test("外部リンクと山括弧リンクと公式ひな型の正本読替え�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("範囲指定を直接の参照元と参照先へ広げる", () => {
   const root = fixture();
@@ -13804,7 +13804,7 @@ test("範囲指定を直接の参照元と参照先へ広げる", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("正本文書ルートのジャンクションを拒否する", () => {
   const root = fixture();
@@ -13837,7 +13837,7 @@ test("正本文書ルートのジャンクションを拒否する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("範囲指定のルート外と存在しない対象を拒否する", () => {
   const root = fixture();
@@ -13865,7 +13865,7 @@ test("範囲指定のルート外と存在しない対象を拒否する", () =>
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("参照マップのルート外とGit対象外ファイルを拒否する", () => {
   const root = fixture();
@@ -13899,7 +13899,7 @@ test("参照マップのルート外とGit対象外ファイルを拒否する",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("公式ひな型ルートのジャンクションを拒否する", () => {
   const root = fixture();
@@ -13932,7 +13932,7 @@ test("公式ひな型ルートのジャンクションを拒否する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("非JSON出力に指摘と参照マップを表示する", () => {
   const root = fixture();
@@ -13960,7 +13960,7 @@ test("非JSON出力に指摘と参照マップを表示する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("checker root must be a real directory rather than a junction", () => {
   const realRoot = fixture();
@@ -13989,7 +13989,7 @@ test("checker root must be a real directory rather than a junction", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("a regular file at 00_CRDD is reported without traversal", () => {
   const root = fixture();
@@ -14015,7 +14015,7 @@ test("a regular file at 00_CRDD is reported without traversal", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("a regular file at the official template root is reported without traversal", () => {
   const root = fixture();
@@ -14042,7 +14042,7 @@ test("a regular file at the official template root is reported without traversal
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("a required CRDD structure entry must be a directory", () => {
   const root = fixture();
@@ -14070,7 +14070,7 @@ test("a required CRDD structure entry must be a directory", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("fallbackではgitdirが読めても親indexのgitlinkを検証済みにしない", () => {
   const root = fixture();
@@ -14117,7 +14117,7 @@ test("fallbackではgitdirが読めても親indexのgitlinkを検証済みにし
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("gitmodulesを読めないfallbackは例外終了せず未確認にする", () => {
   const root = fixture();
@@ -14151,7 +14151,7 @@ test("gitmodulesを読めないfallbackは例外終了せず未確認にする",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("fallback rejects an invalid submodule gitdir file", () => {
   const root = fixture();
@@ -14187,7 +14187,7 @@ test("fallback rejects an invalid submodule gitdir file", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("fallback rejects a linked submodule git marker", () => {
   const root = fixture();
@@ -14229,7 +14229,7 @@ test("fallback rejects a linked submodule git marker", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-008=Direct Boundary: Repository入口・Package入口→同一Checker Core／Profile
+ * @boundary RCM-IT-008=Direct Boundary: checker Test Source→対象契約
  */
 test("a generic repository does not require the CRDD template structure", () => {
   const root = fixture();
@@ -14250,7 +14250,7 @@ test("a generic repository does not require the CRDD template structure", () => 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("duplicate headings use the same suffixes as GitHub anchors", () => {
   const root = fixture();
@@ -14279,7 +14279,7 @@ test("duplicate headings use the same suffixes as GitHub anchors", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("heading anchors remove Japanese punctuation without removing Japanese text", () => {
   const root = fixture();
@@ -14305,7 +14305,7 @@ test("heading anchors remove Japanese punctuation without removing Japanese text
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("heading anchors preserve consecutive, leading, and trailing hyphens", () => {
   const root = fixture();
@@ -14338,7 +14338,7 @@ test("heading anchors preserve consecutive, leading, and trailing hyphens", () =
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("heading anchors use rendered Markdown text", () => {
   const root = fixture();
@@ -14367,7 +14367,7 @@ test("heading anchors use rendered Markdown text", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("heading anchors preserve literal underscores outside emphasis", () => {
   const root = fixture();
@@ -14438,7 +14438,7 @@ test("heading anchors preserve literal underscores outside emphasis", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("heading anchors use visible labels from common inline Markdown", () => {
   const root = fixture();
@@ -14485,7 +14485,7 @@ test("heading anchors use visible labels from common inline Markdown", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("duplicate heading suffixes avoid anchors generated by another heading", () => {
   const root = fixture();
@@ -14511,7 +14511,7 @@ test("duplicate heading suffixes avoid anchors generated by another heading", ()
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("an anchor-only Markdown link resolves to its source file", () => {
   const root = fixture();
@@ -14536,7 +14536,7 @@ test("an anchor-only Markdown link resolves to its source file", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("fallbackではGit metadataディレクトリだけで初期化済みにしない", () => {
   const root = fixture();
@@ -14573,7 +14573,7 @@ test("fallbackではGit metadataディレクトリだけで初期化済みにし
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("fallback rejects a gitdir reference outside the target root", () => {
   const root = fixture();
@@ -14604,7 +14604,7 @@ test("fallback rejects a gitdir reference outside the target root", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("fallback rejects a gitdir reference that is not a directory", () => {
   const root = fixture();
@@ -14639,7 +14639,7 @@ test("fallback rejects a gitdir reference that is not a directory", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("clean non-JSON summary output does not require a reference map", () => {
   const root = fixture();
@@ -14661,7 +14661,7 @@ test("clean non-JSON summary output does not require a reference map", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("unexpected filesystem metadata failures are not treated as missing files", () => {
   const root = fixture();
@@ -14692,7 +14692,7 @@ test("unexpected filesystem metadata failures are not treated as missing files",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("a structure root removed during inspection becomes a structured finding", () => {
   const root = fixture();
@@ -14719,7 +14719,7 @@ test("a structure root removed during inspection becomes a structured finding", 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("a special filesystem object cannot initialize a fallback baseline", () => {
   const root = fixture();
@@ -14752,7 +14752,7 @@ test("a special filesystem object cannot initialize a fallback baseline", () => 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("a special filesystem object is not accepted as a reference target", () => {
   const root = fixture();
@@ -14782,7 +14782,7 @@ test("a special filesystem object is not accepted as a reference target", () => 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-008=Direct Boundary: Repository入口・Package入口→同一Checker Core／Profile
+ * @boundary RCM-IT-008=Direct Boundary: checker Test Source→対象契約
  */
 test("Git repository discovery failures use the explicit fallback reason", () => {
   for (const fault of ["git-root-failed", "git-root-failed-no-stderr"]) {
@@ -14808,7 +14808,7 @@ test("Git repository discovery failures use the explicit fallback reason", () =>
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Git file discovery rejects outside, missing, and linked entries", () => {
   const root = fixture();
@@ -14856,7 +14856,7 @@ test("Git file discovery rejects outside, missing, and linked entries", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 test("symbolic-boundary helper fails closed when a target resolves outside", () => {
   const root = fixture();
@@ -14889,7 +14889,7 @@ test("symbolic-boundary helper fails closed when a target resolves outside", () 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("fallback rejects a gitdir directory reached through a junction", () => {
   const root = fixture();
@@ -14927,7 +14927,7 @@ test("fallback rejects a gitdir directory reached through a junction", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("empty heading anchors are ignored", () => {
   const root = fixture();
@@ -14952,7 +14952,7 @@ test("empty heading anchors are ignored", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("finding order falls back to the message when other keys are equal", () => {
   const root = fixture();
@@ -14982,7 +14982,7 @@ test("finding order falls back to the message when other keys are equal", () => 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("clean Git summary renders a null discovery failure as none", () => {
   const root = fixture();
@@ -15007,7 +15007,7 @@ test("clean Git summary renders a null discovery failure as none", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("fallback fails closed when the root disappears before directory walking", () => {
   const root = fixture();
@@ -15042,7 +15042,7 @@ test("fallback fails closed when the root disappears before directory walking", 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("reference maps omit external links", () => {
   const root = fixture();
@@ -15071,7 +15071,7 @@ test("reference maps omit external links", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("fallback reports a nested directory that disappears before recursion", () => {
   const root = fixture();
@@ -15105,7 +15105,7 @@ test("fallback reports a nested directory that disappears before recursion", () 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("fallback distinguishes nested metadata, type, and link races", () => {
   const cases = [
@@ -15146,7 +15146,7 @@ test("fallback distinguishes nested metadata, type, and link races", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("fallback distinguishes directory-list failures", () => {
   const cases = [
@@ -15185,7 +15185,7 @@ test("fallback distinguishes directory-list failures", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("fallback rejects a directory removed after its entries are read", () => {
   const root = fixture();
@@ -15217,7 +15217,7 @@ test("fallback rejects a directory removed after its entries are read", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("reference maps aggregate links for a directory target", () => {
   const root = fixture();
@@ -15243,7 +15243,7 @@ test("reference maps aggregate links for a directory target", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("child-process fault injection records a directory replacement", () => {
   const root = fixture();
@@ -15283,7 +15283,7 @@ test("child-process fault injection records a directory replacement", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("recognizable remediation tables validate a resolved row", () => {
   const root = fixture();
@@ -15314,7 +15314,7 @@ test("recognizable remediation tables validate a resolved row", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("recognizable remediation tables reject fixed and premature resolution", () => {
   const root = fixture();
@@ -15363,7 +15363,7 @@ test("recognizable remediation tables reject fixed and premature resolution", ()
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("recognizable remediation tables require restart information for blockers", () => {
   const root = fixture();
@@ -15398,7 +15398,7 @@ test("recognizable remediation tables require restart information for blockers",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("remediation tables support outer-pipe-free GFM and pipes inside cells", () => {
   const root = fixture();
@@ -15429,7 +15429,7 @@ test("remediation tables support outer-pipe-free GFM and pipes inside cells", ()
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("remediation tables report a missing state axis", () => {
   const root = fixture();
@@ -15464,7 +15464,7 @@ test("remediation tables report a missing state axis", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("resolved remediation rejects inconsistent progress and blocker axes", () => {
   const root = fixture();
@@ -15505,7 +15505,7 @@ test("resolved remediation rejects inconsistent progress and blocker axes", () =
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("generic review tables are not treated as remediation tables", () => {
   const root = fixture();
@@ -15536,7 +15536,7 @@ test("generic review tables are not treated as remediation tables", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("generic tables with two short state aliases are not remediation tables", () => {
   const root = fixture();
@@ -15567,7 +15567,7 @@ test("generic tables with two short state aliases are not remediation tables", (
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("explicit remediation context detects a missing state axis without auxiliary columns", () => {
   const root = fixture();
@@ -15602,7 +15602,7 @@ test("explicit remediation context detects a missing state axis without auxiliar
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 test("canonical English remediation headers are recognized", () => {
   const root = fixture();
@@ -15633,7 +15633,7 @@ test("canonical English remediation headers are recognized", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("branch coverage tables use one parser for GFM headers and rows", () => {
   const root = fixture();

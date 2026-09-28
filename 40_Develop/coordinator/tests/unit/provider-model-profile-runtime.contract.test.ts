@@ -28,7 +28,7 @@ import { DEFAULT_AI_PROFILE_CATALOG } from "../../../ai-runtime/src/index.ts";
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 function createRequest(overrides: Record<string, unknown> = {}) {
   return {
@@ -52,7 +52,7 @@ function createRequest(overrides: Record<string, unknown> = {}) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Codex SolとClaude Opusのpreferred／upper profileを固定解決する", () => {
   assert.deepEqual(resolveRuntimeOwnedProviderModelProfile(createRequest()), {
@@ -111,7 +111,7 @@ test("Codex SolとClaude Opusのpreferred／upper profileを固定解決する",
  * @observation Profile ID、ModelおよびProviderを観測する。
  * @oracle 追加Profileを一意に解決し、既定Resolverの固定Catalogは変更されない。
  * @cleanup N/A: 外部資源を生成しない。
- * @boundary PRL-UT-014=N/A: Process内のCatalog検証と解決。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("外部Catalogの追加Familyを固定列挙なしで解決する", () => {
   const candidate = structuredClone(DEFAULT_AI_PROFILE_CATALOG) as unknown as {
@@ -196,7 +196,7 @@ test("外部Catalogの追加Familyを固定列挙なしで解決する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("family差、fast、API課金、未知tierと余分keyを解決しない", () => {
   for (const request of [
@@ -220,7 +220,7 @@ test("family差、fast、API課金、未知tierと余分keyを解決しない", 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("accessorとProxyを実行せずProfile解決をfail closedにする", () => {
   let getterExecuted = false;
@@ -250,7 +250,7 @@ test("accessorとProxyを実行せずProfile解決をfail closedにする", () =
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("公開契約は通常速度、Subscription、同family内effort切替だけを許す", () => {
   const contract = describeProviderModelProfileRuntimeContract();

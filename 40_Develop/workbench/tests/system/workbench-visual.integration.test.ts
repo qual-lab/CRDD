@@ -44,7 +44,11 @@ const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
  * @effect Fixture Repositoryだけを読取り、初期化時だけIndexを更新する。
  * @failure 非0終了をSystem Test失敗として送出する。
  * @invariant 実CRDD RepositoryのIndexとWorktreeを変更しない。
- * @boundary Test Harnessと実Git CLIの境界。
+ * @stimulus gitの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
+ * @boundary ERB-ST-022=Direct Boundary: workbench Test Source→対象契約
  * @security shell、CredentialおよびRemote通信を使用しない。
  * @concurrency 同一Fixture内で直列実行する。
  */
@@ -68,7 +72,11 @@ function git(cwd: string, ...args: readonly string[]): string {
  * @effect N/A: 文字列を返すだけである。
  * @failure N/A: 固定文字列である。
  * @invariant Production正本へ保存しない。
- * @boundary System Test fixtureとProject Operation Parserの境界。
+ * @stimulus topicFixtureの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
+ * @boundary ERB-ST-022=Direct Boundary: workbench Test Source→対象契約
  * @security 秘密値または実利用者情報を含まない。
  * @concurrency N/A: 同期純粋処理である。
  */
@@ -88,7 +96,11 @@ function topicFixture(): string {
  * @effect N/A: 文字列を返すだけである。
  * @failure N/A: 固定文字列である。
  * @invariant Production正本へ保存しない。
- * @boundary System Test fixtureとProject Operation Parserの境界。
+ * @stimulus meetingFixtureの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
+ * @boundary ERB-ST-022=Direct Boundary: workbench Test Source→対象契約
  * @security 秘密値または実利用者情報を含まない。
  * @concurrency N/A: 同期純粋処理である。
  */
@@ -106,7 +118,7 @@ function meetingFixture(): string {
  * @observation 15 Target、Viewport、DPR、文字、操作対象、画像、Overflow、Focus順、Process、Profile、ListenerおよびGit状態を観測する。
  * @oracle 全Targetが可視で、閾値違反と資源残存がなく、RepositoryのCanonical状態を変更しない。
  * @cleanup Workbench Listener、Browser Process Tree、専用Profileおよび隔離Fixtureを削除する。
- * @boundary ERB-ST-022=System/E2E: Production Server→Actual Chrome→Rendered DOM→Cleanup Observation
+ * @boundary ERB-ST-022=Direct Boundary: workbench Test Source→対象契約
  */
 test("Workbench 15 Logical Screenを全表示Profileと実Browser Zoomで確認する", {
   skip: process.env.CRDD_WORKBENCH_VISUAL_E2E !== "1",

@@ -71,7 +71,7 @@ const admissionRecoveryTwo = `docker-task.${"d".repeat(64)}.${"e".repeat(64)}.${
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 function fixtureDockerRecoveryId(label: string) {
   const digest = createHash("sha256").update(label).digest("hex");
@@ -351,7 +351,7 @@ const executedTaskTraceCases = new Set<string>();
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 function assertExactTaskTraceExecutionCoverage(executed: ReadonlySet<string>) {
   assertRuntimeTraceExecutionCoverage(
@@ -371,7 +371,7 @@ function assertExactTaskTraceExecutionCoverage(executed: ReadonlySet<string>) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 function selectResourcePostconditions(
   snapshot: TraceSnapshot,
@@ -398,7 +398,7 @@ function selectResourcePostconditions(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 async function assertTerminalRuntimeTraceCase(
   caseId: string,
@@ -482,7 +482,7 @@ async function assertTerminalRuntimeTraceCase(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 async function assertLifecycleRuntimeTraceCases(
   caseIds: readonly string[],
@@ -555,7 +555,7 @@ async function assertLifecycleRuntimeTraceCases(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 function request(overrides: Record<string, unknown> = {}) {
   return {
@@ -587,7 +587,7 @@ function request(overrides: Record<string, unknown> = {}) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 function fixture(
   options: {
@@ -784,7 +784,7 @@ function fixture(
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+   * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
    */
   const currentResourceSnapshot = (state: string) => {
     const isRecoveryTerminal =
@@ -1727,7 +1727,7 @@ function fixture(
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-006=Related 2 Blocks: AIモデル構成→選定規則→実行前の選定結果
+ * @boundary ERB-IT-006=Direct Boundary: coordinator Test Source→対象契約
  */
 test("開発版の呼出し枠はExecutor・Reviewer・一回是正へ同じ入口から接続する", async () => {
   const reservations: string[] = [];
@@ -1777,7 +1777,7 @@ test("開発版の呼出し枠はExecutor・Reviewer・一回是正へ同じ入�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("呼出し予約拒否は準備・Provider開始前に停止し既存Operationを回収する", async () => {
   const harness = fixture({ beginInvocation: () => null });
@@ -1807,7 +1807,7 @@ test("呼出し予約拒否は準備・Provider開始前に停止し既存Operat
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Provider終了後の開発Identity再検証が失敗した場合は成功を公開しない", async () => {
   const harness = fixture({
@@ -1841,7 +1841,7 @@ test("Provider終了後の開発Identity再検証が失敗した場合は成功�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("呼出し予約後の準備失敗でも終了記録を一回だけ残す", async () => {
   let settlementCount = 0;
@@ -1875,7 +1875,7 @@ test("呼出し予約後の準備失敗でも終了記録を一回だけ残す",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("作業量超過は一般的な起動失敗へ潰さず分割理由を返し再試行しない", async () => {
   const harness = fixture({ prepareWorkloadSplit: true });
@@ -1927,7 +1927,7 @@ for (const [providerReason, publicReason] of [
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+   * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
    */
   test(`Provider準備の固定理由を一般失敗へ潰さない: ${publicReason}`, async () => {
     const harness = fixture({ prepareFailureReason: providerReason });
@@ -1954,7 +1954,7 @@ for (const [providerReason, publicReason] of [
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 function sha256Repository(t: TestContext) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-sha256-task-"));
@@ -1980,7 +1980,7 @@ function sha256Repository(t: TestContext) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 function mismatchedRepository(t: TestContext) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-mismatched-task-"));
@@ -2006,7 +2006,7 @@ function mismatchedRepository(t: TestContext) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 function junctionRefRepository(t: TestContext) {
   const root = fs.mkdtempSync(
@@ -2046,7 +2046,7 @@ function junctionRefRepository(t: TestContext) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("対象SHA-256 RepositoryはOperation／Grant／Store／Workspace／Processより前に専用停止する", async (t) => {
   const harness = fixture({
@@ -2078,7 +2078,7 @@ test("対象SHA-256 RepositoryはOperation／Grant／Store／Workspace／Process
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("宣言FormatとRevision幅の不一致は全Effect前にpreflight failureへ閉じる", async (t) => {
   const harness = fixture({
@@ -2109,7 +2109,7 @@ test("宣言FormatとRevision幅の不一致は全Effect前にpreflight failure�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("loose refの中間junctionは全Effect前にpreflight failureへ閉じる", async (t) => {
   const harness = fixture({
@@ -2140,7 +2140,7 @@ test("loose refの中間junctionは全Effect前にpreflight failureへ閉じる"
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("認証秘密を示すTask PathはOperationと外部送信前に安全な理由で停止する", async () => {
   const harness = fixture();
@@ -2171,7 +2171,7 @@ test("認証秘密を示すTask PathはOperationと外部送信前に安全な�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("読取投影の認証秘密はProvider Effect前に安全な理由で停止する", async () => {
   const harness = fixture({ workspaceSecretBlocked: true });
@@ -2200,7 +2200,7 @@ test("読取投影の認証秘密はProvider Effect前に安全な理由で停�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Executorが生成した認証秘密はReviewerへ渡さず安全な理由で停止する", async () => {
   const harness = fixture({ candidateSecretAtCapture: 1 });
@@ -2229,7 +2229,7 @@ test("Executorが生成した認証秘密はReviewerへ渡さず安全な理由�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("是正Executorが生成した認証秘密も再Reviewerへ渡さず停止する", async () => {
   const harness = fixture({
@@ -2268,7 +2268,7 @@ test("是正Executorが生成した認証秘密も再Reviewerへ渡さず停止�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Codex frontからClaude Executorと独立Codex Reviewerを隔離Candidateへ接続する", async () => {
   const traceCaseIds = [
@@ -2329,7 +2329,7 @@ test("Codex frontからClaude Executorと独立Codex Reviewerを隔離Candidate�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("検証済みProvider turn観測をcleanup後のTask結果へ伝播する", async () => {
   const harness = fixture({ providerTurnObservation: true });
@@ -2387,7 +2387,7 @@ test("検証済みProvider turn観測をcleanup後のTask結果へ伝播する",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Candidate結合済みReviewer投影を作れなければReviewer Effect前に停止する", async () => {
   const harness = fixture({ reviewerReadProjectionFails: true });
@@ -2417,7 +2417,7 @@ test("Candidate結合済みReviewer投影を作れなければReviewer Effect前
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("外周Candidate破棄が未確認ならturn観測だけを開発結果から除去する", () => {
   const projected = projectDevelopmentTaskResultAfterOuterCleanup(
@@ -2448,7 +2448,7 @@ test("外周Candidate破棄が未確認ならturn観測だけを開発結果か�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("lifecycle observer例外はRuntime状態・Authority・Effect・結果を変更しない", async () => {
   const baseline = fixture();
@@ -2487,7 +2487,7 @@ for (const scenario of [
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+   * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
    */
   test(`受動計測の時計・表示失敗でも${scenario}のTask結果とEffectは同じ`, async () => {
     const options: Parameters<typeof fixture>[0] =
@@ -2555,7 +2555,7 @@ for (const scenario of [
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("初期確認と既存許可再利用を入力要求ではない一回の表示と最終結果へ接続する", async () => {
   for (const mode of [
@@ -2595,7 +2595,7 @@ test("初期確認と既存許可再利用を入力要求ではない一回の�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("不明な許可方式または表示失敗を再利用と推定せずWorkspaceとProvider起動前に停止する", async () => {
   for (const options of [
@@ -2644,7 +2644,7 @@ test("不明な許可方式または表示失敗を再利用と推定せずWorks
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("許可状況の表示中に取消された場合もWorkspaceとProvider起動へ進まない", async () => {
   const harness = fixture({
@@ -2678,7 +2678,7 @@ test("許可状況の表示中に取消された場合もWorkspaceとProvider起
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("両Front×両Executorの4経路をEffect前Slateと独立Reviewerへ接続する", async () => {
   const cases = [
@@ -2728,7 +2728,7 @@ test("両Front×両Executorの4経路をEffect前Slateと独立Reviewerへ接続
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("実選定器へautoと明示制約の由来を保持し是正・Reviewerへ人間指定を捏造しない", async () => {
   const cases = [
@@ -2788,7 +2788,7 @@ test("実選定器へautoと明示制約の由来を保持し是正・Reviewer�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("再選定が事前Slateと異なる場合は当該Stageの起動前にSelectionを失効させる", async () => {
   for (const selectionMismatchAt of [1, 2, 3, 4]) {
@@ -2828,7 +2828,7 @@ test("再選定が事前Slateと異なる場合は当該Stageの起動前にSele
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("時間を要するProvider Home観測後に同一Selectionを更新してからEffectへ進む", async () => {
   const harness = fixture();
@@ -2859,7 +2859,7 @@ test("時間を要するProvider Home観測後に同一Selectionを更新して�
  * @observation Task結果理由、Provider Home観測回数、Mount Grant発行回数およびProvider Process Effect回数を観測する。
  * @oracle 初回失敗は観測1回・Grant 0・Process 0、再観測失敗は観測2回・Grant 1・Process 0で理由付きblockedになる。
  * @cleanup Task Runtimeが未消費SelectionおよびMount Grantを失効し、Provider Processを残さない。
- * @boundary ERB-IT-008=Direct Boundary: Provider Home設定→Directory検証→Process Gate
+ * @boundary ERB-IT-008=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Provider Homeの不正・不明分類は初回観測と再観測のどちらでもProvider起動前に停止する", async () => {
   const classifications = [
@@ -2909,7 +2909,7 @@ test("Provider Homeの不正・不明分類は初回観測と再観測のどち�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Selection更新の失敗・意味変更・旧Grant失効失敗はProvider Effect前に停止する", async () => {
   for (const [options, reason] of [
@@ -2951,7 +2951,7 @@ test("Selection更新の失敗・意味変更・旧Grant失効失敗はProvider 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("任意Executor制約はauto既定と分離して同じSlate・Selection Gateへ伝播する", async () => {
   for (const provider of ["codex", "claude"] as const) {
@@ -3026,7 +3026,7 @@ test("任意Executor制約はauto既定と分離して同じSlate・Selection Ga
  * @observation ExecutorとReviewerのSelection Requestを観測する。
  * @oracle Executorだけが明示Profile IDを保持し、Reviewerは独立選定を続ける。
  * @cleanup FixtureのRuntime cleanupが完了する。
- * @boundary PRL-IT-012=Related 2 Blocks: UI Application Port→Coordinator Selection Gate→Provider Authority
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("明示Profile IDをExecutor Selectionだけへ搬送する", async () => {
   const harness = fixture({
@@ -3069,7 +3069,7 @@ test("明示Profile IDをExecutor Selectionだけへ搬送する", async () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("同一Provider Reviewerは低リスクSlateが指定した別実行Contextだけを使う", async () => {
   for (const provider of ["codex", "claude"] as const) {
@@ -3112,7 +3112,7 @@ test("同一Provider Reviewerは低リスクSlateが指定した別実行Context
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("完遂可能なExecution SlateがなければExternal SendとExecutor Effect前に停止する", async () => {
   const harness = fixture({ slateUnavailable: true });
@@ -3141,7 +3141,7 @@ test("完遂可能なExecution SlateがなければExternal SendとExecutor Effe
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Docker回復記録はHost cleanup intentと不存在receiptの後だけfinalizeする", async () => {
   const harness = fixture({ hostCleanupWal: true });
@@ -3172,7 +3172,7 @@ test("Docker回復記録はHost cleanup intentと不存在receiptの後だけfin
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("清掃済みProvider失敗もHost cleanup後にDocker回復記録をfinalizeする", async () => {
   const harness = fixture({
@@ -3209,7 +3209,7 @@ test("清掃済みProvider失敗もHost cleanup後にDocker回復記録をfinali
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("finalizable Docker handoffは0／1／2件で同じcleanup DAGへ進む", async () => {
   const zero = fixture({ externalSendDenied: true, hostCleanupWal: true });
@@ -3263,7 +3263,7 @@ test("finalizable Docker handoffは0／1／2件で同じcleanup DAGへ進む", a
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("managed handoffとraw Docker IDの混在はHost cleanup前に全件保持する", async () => {
   const harness = fixture({
@@ -3295,7 +3295,7 @@ test("managed handoffとraw Docker IDの混在はHost cleanup前に全件保持�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("各Stageのraw Docker欠落・empty・foreignは表示補完前にcleanup Authorityを閉じる", async () => {
   const cases = [
@@ -3362,7 +3362,7 @@ test("各Stageのraw Docker欠落・empty・foreignは表示補完前にcleanup 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("複数Docker intentの途中失敗はHost cleanupへ進まず未解決集合を保持する", async () => {
   const harness = fixture({ hostCleanupWal: true, dockerIntentFailsAt: 2 });
@@ -3401,7 +3401,7 @@ test("複数Docker intentの途中失敗はHost cleanupへ進まず未解決集�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("先にfinalize済みのDocker IDを後続finalize失敗の未解決集合へ再混入しない", async () => {
   const harness = fixture({ hostCleanupWal: true, dockerFinalizeFailsAt: 2 });
@@ -3436,7 +3436,7 @@ test("先にfinalize済みのDocker IDを後続finalize失敗の未解決集合�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Host cleanup後のDocker receipt失敗は無効なHost IDを再公開しない", async () => {
   const harness = fixture({ hostCleanupWal: true, dockerReceiptFailsAt: 1 });
@@ -3468,7 +3468,7 @@ test("Host cleanup後のDocker receipt失敗は無効なHost IDを再公開し�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("全Docker handoff finalize後のCandidate永続化失敗はDocker IDを返さない", async () => {
   const harness = fixture({
@@ -3496,7 +3496,7 @@ test("全Docker handoff finalize後のCandidate永続化失敗はDocker IDを返
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Reviewerがchanges_requestedならCandidateを承認済みResultへ昇格せずExecutor診断を安全に返す", async () => {
   const harness = fixture({
@@ -3602,7 +3602,7 @@ test("Reviewerがchanges_requestedならCandidateを承認済みResultへ昇格�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Reviewer指摘を一回だけ同一Executorへ戻し、同一独立Reviewerの再承認へ接続する", async () => {
   const traceCaseIds = [
@@ -3643,7 +3643,7 @@ test("Reviewer指摘を一回だけ同一Executorへ戻し、同一独立Reviewe
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("是正ExecutorのchangedPathsはBaseから見た最終Candidate全体と一致しなければ未発行で停止する", async () => {
   const harness = fixture({
@@ -3676,7 +3676,7 @@ test("是正ExecutorのchangedPathsはBaseから見た最終Candidate全体と�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Reviewer由来Secret Pathは是正Executor Process前に安全な理由で停止する", async () => {
   const harness = fixture({
@@ -3714,7 +3714,7 @@ test("Reviewer由来Secret Pathは是正Executor Process前に安全な理由で
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("選定理由は各Provider Effectより前に安全なCoordinator eventへ出す", async () => {
   const harness = fixture();
@@ -3746,7 +3746,7 @@ test("選定理由は各Provider Effectより前に安全なCoordinator eventへ
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Candidate保存禁止Policyは外部送信とProvider Effect前に停止する", async () => {
   const harness = fixture({ candidatePersistenceAllowed: false });
@@ -3773,7 +3773,7 @@ test("Candidate保存禁止Policyは外部送信とProvider Effect前に停止�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Candidate Storeを安全に準備できなければ外部送信Authority前に停止する", async () => {
   const harness = fixture({ candidateStoreUnavailable: true });
@@ -3803,7 +3803,7 @@ test("Candidate Storeを安全に準備できなければ外部送信Authority�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("対話的External Send Grantが無ければWorkspaceとProvider Effect前に停止する", async () => {
   const harness = fixture({ externalSendDenied: true });
@@ -3828,7 +3828,7 @@ test("対話的External Send Grantが無ければWorkspaceとProvider Effect前�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("対話cleanup不明はProcess再起動を要求しOperation cleanupを独立して処置する", async () => {
   const reason =
@@ -3884,7 +3884,7 @@ test("対話cleanup不明はProcess再起動を要求しOperation cleanupを独�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("External Send拒否状態はTaskの理由・回復・Effect 0へ完全投影する", async () => {
   for (const status of [
@@ -3926,7 +3926,7 @@ test("External Send拒否状態はTaskの理由・回復・Effect 0へ完全投�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Executor自己申告と実Candidate差またはOperation cleanup不明を成功にしない", async () => {
   const mismatch = fixture({ executorChangedPaths: [] });
@@ -3967,7 +3967,7 @@ test("Executor自己申告と実Candidate差またはOperation cleanup不明を�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Host cleanup返却前の喪失通知は確認済み失敗と回収不明を区別し候補公開しない", async () => {
   for (const outcome of [
@@ -4030,7 +4030,7 @@ test("Host cleanup返却前の喪失通知は確認済み失敗と回収不明�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("回復保持処理も例外になったcleanup失敗は制御を失効しprocess再利用を禁止する", async () => {
   const harness = fixture({
@@ -4070,7 +4070,7 @@ test("回復保持処理も例外になったcleanup失敗は制御を失効しp
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Host Supervisor protocol失敗後の確認済みcleanupは成功公開も手動Recoveryも行わない", async () => {
   const harness = fixture({ cleanupProtocolFailure: true });
@@ -4103,7 +4103,7 @@ test("Host Supervisor protocol失敗後の確認済みcleanupは成功公開も�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Operation cleanupとCandidate discardが共に失敗してもdiscard専用Recovery IDを失わない", async () => {
   const harness = fixture({ cleanupThrows: true, discardFails: true });
@@ -4131,7 +4131,7 @@ test("Operation cleanupとCandidate discardが共に失敗してもdiscard専用
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Candidate publish失敗はexport不能なRecovery IDだけを返す", async () => {
   const harness = fixture({ publishFails: true });
@@ -4159,7 +4159,7 @@ test("Candidate publish失敗はexport不能なRecovery IDだけを返す", asyn
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Candidate publishとStore障害を同時に観測しても二つのRecovery IDを保持する", async () => {
   const harness = fixture({ publishNeedsStoreRecovery: true });
@@ -4191,7 +4191,7 @@ test("Candidate publishとStore障害を同時に観測しても二つのRecover
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("承認済みCandidateを永続化できない場合はIDを公開せずFail Closedする", async () => {
   const harness = fixture({ candidatePersistenceFails: true });
@@ -4216,7 +4216,7 @@ test("承認済みCandidateを永続化できない場合はIDを公開せずFai
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Candidate Store障害はCandidate IDと分離したStore Recovery IDを返す", async () => {
   const harness = fixture({ candidatePersistenceNeedsStoreRecovery: true });
@@ -4244,7 +4244,7 @@ test("Candidate Store障害はCandidate IDと分離したStore Recovery IDを返
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Candidate Storeだけのmanual recoveryはHostとDocker cleanupを保留しない", async () => {
   const harness = fixture({
@@ -4281,7 +4281,7 @@ test("Candidate Storeだけのmanual recoveryはHostとDocker cleanupを保留�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Candidate永続化の中間障害はcleanup後にRecovery IDで自動破棄する", async () => {
   const harness = fixture({ candidatePersistenceNeedsRecovery: true });
@@ -4308,7 +4308,7 @@ test("Candidate永続化の中間障害はcleanup後にRecovery IDで自動破�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("全Docker finalize後のCandidate publish例外へ削除済みDocker IDを再投影しない", async () => {
   const harness = fixture({ hostCleanupWal: true, publishThrows: true });
@@ -4333,7 +4333,7 @@ test("全Docker finalize後のCandidate publish例外へ削除済みDocker IDを
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("先行finalize済みIDはCandidate discard例外後のcatchへ残さない", async () => {
   const harness = fixture({
@@ -4362,7 +4362,7 @@ test("先行finalize済みIDはCandidate discard例外後のcatchへ残さない
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Provider completion rejectは取消を試みOperation RootをRecovery用に保持する", async () => {
   const harness = fixture({ completionRejectRole: "executor" });
@@ -4395,7 +4395,7 @@ test("Provider completion rejectは取消を試みOperation RootをRecovery用�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Provider start／completion cleanup不明はHostとDockerのRecovery IDを分離する", async () => {
   for (const [options, expectedIds] of [
@@ -4440,7 +4440,7 @@ test("Provider start／completion cleanup不明はHostとDockerのRecovery IDを
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Provider startがlower cleanup済みでも手動Recoveryとexact Docker IDを返す場合はHost rootを保持する", async () => {
   const harness = fixture({
@@ -4479,7 +4479,7 @@ test("Provider startがlower cleanup済みでも手動Recoveryとexact Docker ID
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("独立Reviewer実行中のCandidate差替えを承認済みResultへ昇格しない", async () => {
   const harness = fixture({ candidateVerificationFails: true });
@@ -4506,7 +4506,7 @@ test("独立Reviewer実行中のCandidate差替えを承認済みResultへ昇格
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("実行中取消はProvider完了後もCandidateを公開せずexactly onceに閉じる", async () => {
   const harness = fixture({ pauseRole: "executor", hostCleanupWal: true });
@@ -4560,7 +4560,7 @@ test("実行中取消はProvider完了後もCandidateを公開せずexactly once
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("不正なlower取消receiptも同じlive Operationでは同じcached rejectionへ閉じる", async () => {
   const harness = fixture({
@@ -4603,7 +4603,7 @@ test("不正なlower取消receiptも同じlive Operationでは同じcached rejec
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("never取消receiptはack上限後にcleanupを続けて不可逆poisonへ閉じる", async () => {
   const harness = fixture({
@@ -4645,7 +4645,7 @@ test("never取消receiptはack上限後にcleanupを続けて不可逆poisonへ�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("取消protocol failureと資源cleanup unknownは依存順を守り全actionable Recoveryを保持する", async () => {
   const harness = fixture({
@@ -4705,7 +4705,7 @@ test("取消protocol failureと資源cleanup unknownは依存順を守り全acti
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("ready後のHost Supervisor喪失は実行中Providerを取消して成功公開を拒否する", async () => {
   const harness = fixture({
@@ -4748,7 +4748,7 @@ test("ready後のHost Supervisor喪失は実行中Providerを取消して成功�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("ready後喪失のcleanup不明は取消より優先してexact Host Recoveryへ閉じる", async () => {
   const harness = fixture({
@@ -4791,7 +4791,7 @@ test("ready後喪失のcleanup不明は取消より優先してexact Host Recove
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Host confirmedとProvider cleanup unknownの合成は全actionable Recovery IDを保持する", async () => {
   const harness = fixture({
@@ -4830,7 +4830,7 @@ test("Host confirmedとProvider cleanup unknownの合成は全actionable Recover
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Candidate staged後のHost confirmed lossはpublishせずdiscardしてcleanup confirmedへ閉じる", async () => {
   const harness = fixture({
@@ -4866,7 +4866,7 @@ test("Candidate staged後のHost confirmed lossはpublishせずdiscardしてclea
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Host confirmedでもProvider取消終了不明ならunknownへ昇格してpoisonする", async () => {
   const harness = fixture({
@@ -4900,7 +4900,7 @@ test("Host confirmedでもProvider取消終了不明ならunknownへ昇格して
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("分類不能なopaque cleanup outcomeはcleanup unknownへ閉じる", async () => {
   const harness = fixture({ cleanupOutcomeUnverified: true });
@@ -4925,7 +4925,7 @@ test("分類不能なopaque cleanup outcomeはcleanup unknownへ閉じる", asyn
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Operation作成待機中の取消は最初の後続Effect前にcleanupへ閉じる", async () => {
   const harness = fixture({ pauseOperationCreation: true });
@@ -4970,7 +4970,7 @@ test("Operation作成待機中の取消は最初の後続Effect前にcleanupへ�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("外部送信承認中の取消は同じSignalへ伝播しWorkspace前に停止する", async () => {
   const harness = fixture({ pauseExternalAuthorization: true });
@@ -5010,7 +5010,7 @@ test("外部送信承認中の取消は同じSignalへ伝播しWorkspace前に�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Production入口はPackage Capability欠落を全Effect前に拒否する", () => {
   assert.throws(
@@ -5034,7 +5034,7 @@ test("Production入口はPackage Capability欠落を全Effect前に拒否する"
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("不正controlの取消はexact blockedかつEffect 0へ閉じる", async () => {
   const harness = fixture();
@@ -5056,7 +5056,7 @@ test("不正controlの取消はexact blockedかつEffect 0へ閉じる", async (
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Task producerはRunnerが安全に観測できるexact native completionを返す", async () => {
   const harness = fixture();
@@ -5088,7 +5088,7 @@ test("Task producerはRunnerが安全に観測できるexact native completion�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("別Runtimeのlive controlは両RuntimeのEffect 0でforeignへ閉じる", async () => {
   const source = fixture({ pauseRole: "executor" });
@@ -5145,7 +5145,7 @@ test("別Runtimeのlive controlは両RuntimeのEffect 0でforeignへ閉じる", 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("正常completion後の失効controlは追加Effect 0へ閉じる", async () => {
   const harness = fixture();
@@ -5190,7 +5190,7 @@ test("正常completion後の失効controlは追加Effect 0へ閉じる", async (
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("final poison観測例外でもControlを先に失効して保守的なResultへ閉じる", async () => {
   let controlCapability: object | null = null;
@@ -5237,7 +5237,7 @@ test("final poison観測例外でもControlを先に失効して保守的なResu
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Host drain解放例外でもControlとterminal observerをexactly onceへ閉じる", async () => {
   let terminalCount = 0;
@@ -5280,7 +5280,7 @@ test("Host drain解放例外でもControlとterminal observerをexactly onceへ�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("外周cleanup中の重複取消はliveな同じPromiseへ収束しcleanupを妨げない", async () => {
   const harness = fixture({ pauseOperationCleanup: true });
@@ -5310,7 +5310,7 @@ test("外周cleanup中の重複取消はliveな同じPromiseへ収束しcleanup�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定する", () => {
   const contract = describeCoordinatorTaskRuntimeContract();
@@ -5405,7 +5405,7 @@ test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Task terminal分類はcleanup・手動Recovery・再起動・actionable IDを直交させる", () => {
   type TerminalRecord = Parameters<
@@ -5505,7 +5505,7 @@ test("Task terminal分類はcleanup・手動Recovery・再起動・actionable ID
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件を分離する", async (t) => {
   await t.test("CASE-BLOCKED-ADMISSION", async () => {
@@ -6331,7 +6331,7 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Task Runtime契約は実Host active binding残存時にcleanupを拒否してexact Recoveryを返す", async () => {
   const owned = createOwnedOperationDirectories();
@@ -6436,7 +6436,7 @@ test("Task Runtime契約は実Host active binding残存時にcleanupを拒否し
  * @observation 各理由のexact inclusionを取得する。
  * @oracle 全理由が一件も代替理由へ欠落せずTask公開Registryに存在する。
  * @cleanup N/A: 不変Registryだけを読み取り、資源を作成しない。
- * @boundary CPR-IT-001=Direct Boundary: Docker Process Controller結果→Coordinator Task公開結果
+ * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Docker Process Controllerの公開失敗理由をTask公開Registryへ全数接続する", () => {
   const taskReasons = new Set<string>(coordinatorTaskPublicReasons);
@@ -6455,7 +6455,7 @@ test("Docker Process Controllerの公開失敗理由をTask公開Registryへ全�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Docker Recoveryの内部理由を共有allowlistでTask公開理由へ投影する", async () => {
   for (const [internalReason, publicReason, doesPreserveId] of [
@@ -6516,7 +6516,7 @@ test("Docker Recoveryの内部理由を共有allowlistでTask公開理由へ投�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("ConsoleまたはControl資源cellの一件差をCanonical Trace不一致として拒否する", () => {
   for (const [caseId, resource] of [
@@ -6546,7 +6546,7 @@ test("ConsoleまたはControl資源cellの一件差をCanonical Trace不一致�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Canonical Task Trace全caseはregistry存在だけでなく実scenarioから実行される", () => {
   assertExactTaskTraceExecutionCoverage(executedTaskTraceCases);

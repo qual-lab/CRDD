@@ -24,7 +24,7 @@ import { qualityChangeControl } from "../../src/index.ts";
  * @observation state、missingCheckIds、blockedCheckIdsを観測する。
  * @oracle 必須確認が揃わない限りunder_reviewとなり不足を保持する。
  * @cleanup N/A: Process、FilesystemまたはRelease Effectを発行しない。
- * @boundary System/E2E: Package公開入口から変更全体の現在Gateまでを通す。
+ * @boundary CQS-ST-005=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("必須確認が揃わない候補をRelease可能と表示しない", () => {
   const candidate = qualityChangeControl.fixQualityCandidate("revision-3", [
@@ -56,7 +56,7 @@ test("必須確認が揃わない候補をRelease可能と表示しない", () =
  * @observation verified、under_review、revision mismatchを観測する。
  * @oracle 完全集合だけverifiedとなり反例はRelease可能にならない。
  * @cleanup N/A: Release Effectを発行しない。
- * @boundary System/E2E: 変更全体→全必須監査→現在Gate。
+ * @boundary CQS-ST-008=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("全必須監査が同じ固定改訂版に属する場合だけGateを閉じる", () => {
   const requiredCheckIds = ["document", "conformance", "gap"];
@@ -97,7 +97,7 @@ test("全必須監査が同じ固定改訂版に属する場合だけGateを閉�
  * @observation revision、state、missingCheckIdsを観測する。
  * @oracle 新改訂版はunder_reviewへ戻り旧結果を一件も継承しない。
  * @cleanup N/A: Release Effectを発行しない。
- * @boundary System/E2E: 指摘→是正→新固定改訂版→現在Gate再構築。
+ * @boundary CQS-ST-009=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("是正後の新固定改訂版では全必須確認を再実行する", () => {
   const previous = qualityChangeControl.fixQualityCandidate("revision-2", [

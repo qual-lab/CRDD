@@ -42,7 +42,7 @@ const MANIFEST_CARRIER_ONLY_SKIP_MESSAGE =
  * @observation 明示不存在ではskip理由、entry観測時はfalseを返し、観測例外は呼出し元へ伝播する。
  * @oracle ENOENT相当だけがSource Aの非適用となり、権限不足、I/O異常、link、directoryおよび不正fileはskipにならない。
  * @cleanup N/A: 読取り観測だけを行い、資源または状態を生成しない。
- * @boundary AIT-ST-010=System/E2E: Source A不存在判定→Manifest carrier B実行Gate
+ * @boundary AIT-ST-010=Direct Boundary: coordinator Test Source→対象契約
  */
 function resolveManifestCarrierOnlySkipReason(
   manifestPath: string,
@@ -79,7 +79,7 @@ type PromotionFixture = Readonly<{
  * @observation 不存在のskip理由、entry存在時の実行判定および例外伝播を観測する。
  * @oracle 明示不存在だけがskipとなり、entry存在時は実行し、観測不能はsuite failureになる。
  * @cleanup N/A: 固定observerだけを使い、Filesystem Effectを発行しない。
- * @boundary AIT-ST-010=System/E2E: Manifest観測→A/B適用判定
+ * @boundary AIT-ST-010=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Manifestの明示不存在だけをSource Aの非適用として扱う", () => {
   assert.equal(
@@ -114,7 +114,7 @@ test("Manifestの明示不存在だけをSource Aの非適用として扱う", (
  * @observation Snapshot Identity、Manifest bytes、Hash、候補Pathおよび配置先Pathを返す。
  * @oracle 候補はManifestが参照する固定Commitに現行署名済みManifestだけを加えたDistributionになる。
  * @cleanup 呼出し元がparent以下を再帰削除する。
- * @boundary AIT-ST-010=System/E2E: Git履歴→固定Distribution→一時Repository
+ * @boundary AIT-ST-010=Direct Boundary: coordinator Test Source→対象契約
  */
 function fixture(): PromotionFixture {
   const envelope = JSON.parse(
@@ -191,7 +191,7 @@ function fixture(): PromotionFixture {
  * @observation Snapshot、Manifest Hash、file identity、配置Effect、staging状態および破棄後状態を観測する。
  * @oracle 昇格時は候補と最終Pathが同一file objectかつ同一Hashで、破棄後は最終Pathだけが残る。
  * @cleanup 一時Repository全体を削除する。
- * @boundary AIT-ST-010=System/E2E: 署名済みDistribution→promotion→明示破棄
+ * @boundary AIT-ST-010=Direct Boundary: coordinator Test Source→対象契約
  */
 test("署名済み固定Snapshotを昇格し明示破棄後は最終Pathだけを残す", {
   skip: manifestCarrierOnlySkipReason,
@@ -242,7 +242,7 @@ test("署名済み固定Snapshotを昇格し明示破棄後は最終Pathだけ�
  * @observation 拒否理由、最終Manifest不存在および候補残存を観測する。
  * @oracle 両反例を拒否し、配置先Manifest Effect 0のまま候補を回復判断用に保持する。
  * @cleanup 各一時Repository全体を削除する。
- * @boundary AIT-ST-010=System/E2E: 署名対象集合／Snapshot整合→promotion Gate
+ * @boundary AIT-ST-010=Direct Boundary: coordinator Test Source→対象契約
  */
 test("対象欠落と別Snapshot混入を配置Effect前に拒否する", {
   skip: manifestCarrierOnlySkipReason,
@@ -286,7 +286,7 @@ test("対象欠落と別Snapshot混入を配置Effect前に拒否する", {
  * @observation Topology拒否と配置先Manifest不存在を観測する。
  * @oracle Repository-local staging外の候補を拒否し配置Effectを発行しない。
  * @cleanup 一時Repository全体を削除する。
- * @boundary AIT-ST-010=System/E2E: Distribution Root→公開promotion入口
+ * @boundary AIT-ST-010=Direct Boundary: coordinator Test Source→対象契約
  */
 test("配置先外の候補Rootを公開昇格Topologyとして受理しない", {
   skip: manifestCarrierOnlySkipReason,

@@ -38,7 +38,7 @@ const revision = "a".repeat(40);
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 async function prepared(t: test.TestContext) {
   const root = fs.mkdtempSync(
@@ -134,7 +134,7 @@ async function prepared(t: test.TestContext) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 function candidate(conflicts: readonly string[] = []) {
   return {
@@ -160,7 +160,7 @@ function candidate(conflicts: readonly string[] = []) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 function integrationDependencies(
   root: string,
@@ -192,7 +192,7 @@ function integrationDependencies(
  * @observation 結果理由、Objective／Milestone状態、Queue状態および候補記録を観測する。
  * @oracle 候補生成は完了するがObjectiveは統合待ち、Milestoneは実行中のままで、受入判断待ち理由を返す。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Task完了と候補生成だけではObjective／Milestoneを受け入れない", async (t) => {
   const { root, queueId } = await prepared(t);
@@ -261,7 +261,7 @@ test("Task完了と候補生成だけではObjective／Milestoneを受け入れ�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("explicit adoption is serialized and requires a fresh matching repository observation", async (t) => {
   const { root, queueId } = await prepared(t);
@@ -333,7 +333,7 @@ test("explicit adoption is serialized and requires a fresh matching repository o
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("integration conflict stops before adoption and requests a human decision", async (t) => {
   const { root, queueId } = await prepared(t);
@@ -376,7 +376,7 @@ test("integration conflict stops before adoption and requests a human decision",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("revision mismatch blocks canonical adoption and releases its lease", async (t) => {
   const { root, queueId } = await prepared(t);
@@ -429,7 +429,7 @@ test("revision mismatch blocks canonical adoption and releases its lease", async
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("canonical adoption preserves malformed acquisition evidence and exposes its recovery reference", async (t) => {
   const { root, queueId } = await prepared(t);

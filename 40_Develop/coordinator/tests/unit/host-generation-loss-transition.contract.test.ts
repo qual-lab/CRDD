@@ -23,7 +23,7 @@ import { reduceHostGenerationLossTransition } from "../../src/core/host-generati
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Host generation loss reducerは検出・confirmed・unknownを単調に分離する", () => {
   assert.deepEqual(reduceHostGenerationLossTransition("failure_detected"), {

@@ -1,17 +1,30 @@
 /**
  * Workbench助言用ProviderコマンドのRepository非共有境界を検証する。
  *
+ * @packageDocumentation
  * @responsibility Codex／Claudeの固定配布物、exact Model、標準入力、ToolなしおよびSessionなしを検証する。
- * @trace ERB-UT-023 ERB-IT-004
+ * @trace ERB-UT-023
+ * @level UT
+ * @scope coordinator、contract、node_process
  * @boundary Catalog IdentityとProvider CLI計画の局所境界。
- * @effect 外部Provider、Process、Docker、FilesystemおよびNetworkを使用しない。
- * @security Prompt、Credential、Repository PathおよびWorkspaceを外部へ送信しない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
 
 import { planWorkbenchAiAdviceProviderCommand } from "../../src/security/workbench-ai-advice-provider-command.ts";
 
+/**
+ * Codex助言をToolなし・Repository非共有の標準入力計画へ固定するを検証する。
+ *
+ * @responsibility Codex助言をToolなし・Repository非共有の標準入力計画へ固定するを検証するの検証責務を所有する。
+ * @trace ERB-UT-023
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus Codex助言をToolなし・Repository非共有の標準入力計画へ固定するの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+ */
 test("Codex助言をToolなし・Repository非共有の標準入力計画へ固定する", () => {
   const plan = planWorkbenchAiAdviceProviderCommand({
     provider: "codex",
@@ -34,6 +47,18 @@ test("Codex助言をToolなし・Repository非共有の標準入力計画へ固�
   assert.equal(plan.sessionPersistenceAllowed, false);
 });
 
+/**
+ * Claude助言をSchema付き・Toolなしの標準入力計画へ固定するを検証する。
+ *
+ * @responsibility Claude助言をSchema付き・Toolなしの標準入力計画へ固定するを検証するの検証責務を所有する。
+ * @trace ERB-UT-023
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus Claude助言をSchema付き・Toolなしの標準入力計画へ固定するの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+ */
 test("Claude助言をSchema付き・Toolなしの標準入力計画へ固定する", () => {
   const plan = planWorkbenchAiAdviceProviderCommand({
     provider: "claude",
@@ -58,6 +83,18 @@ test("Claude助言をSchema付き・Toolなしの標準入力計画へ固定す�
   assert.equal(plan.sessionPersistenceAllowed, false);
 });
 
+/**
+ * ProviderコマンドにPrompt本文やWorkspace Pathを埋め込まないを検証する。
+ *
+ * @responsibility ProviderコマンドにPrompt本文やWorkspace Pathを埋め込まないを検証するの検証責務を所有する。
+ * @trace ERB-UT-023
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus ProviderコマンドにPrompt本文やWorkspace Pathを埋め込まないの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+ */
 test("ProviderコマンドにPrompt本文やWorkspace Pathを埋め込まない", () => {
   for (const plan of [
     planWorkbenchAiAdviceProviderCommand({

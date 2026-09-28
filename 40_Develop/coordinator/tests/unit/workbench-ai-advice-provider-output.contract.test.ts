@@ -1,11 +1,12 @@
 /**
  * Workbench助言のProvider出力抽出契約を検証する。
  *
+ * @packageDocumentation
  * @responsibility Codex JSONLとClaude Envelopeから助言JSONだけを抽出し、Tool Event・失敗・曖昧出力を拒否する。
- * @trace ERB-UT-023 ERB-IT-004
+ * @trace ERB-UT-023
+ * @level UT
+ * @scope coordinator、contract、node_process
  * @boundary Provider固有Transportと共通助言Normalizerの局所境界。
- * @effect 外部Provider、Process、FilesystemおよびNetworkを使用しない。
- * @security 生Provider metadata、Session ID、CommandおよびPathを公開しない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -24,6 +25,18 @@ const ADVICE = Object.freeze({
   nextOptions: Object.freeze([]),
 });
 
+/**
+ * Codex JSONLからToolなしの唯一の最終本文を抽出するを検証する。
+ *
+ * @responsibility Codex JSONLからToolなしの唯一の最終本文を抽出するを検証するの検証責務を所有する。
+ * @trace ERB-UT-023
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus Codex JSONLからToolなしの唯一の最終本文を抽出するの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+ */
 test("Codex JSONLからToolなしの唯一の最終本文を抽出する", () => {
   const raw = [
     JSON.stringify({ type: "thread.started", thread_id: "secret" }),
@@ -41,6 +54,18 @@ test("Codex JSONLからToolなしの唯一の最終本文を抽出する", () =>
   assert.equal(result.rawOutputReported, false);
 });
 
+/**
+ * CodexのCommand／File Change Eventを拒否するを検証する。
+ *
+ * @responsibility CodexのCommand／File Change Eventを拒否するを検証するの検証責務を所有する。
+ * @trace ERB-UT-023
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus CodexのCommand／File Change Eventを拒否するの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+ */
 test("CodexのCommand／File Change Eventを拒否する", () => {
   for (const itemType of ["command_execution", "file_change"]) {
     const raw = [
@@ -62,6 +87,18 @@ test("CodexのCommand／File Change Eventを拒否する", () => {
   }
 });
 
+/**
+ * Codexの失敗Turnと複数最終本文を拒否するを検証する。
+ *
+ * @responsibility Codexの失敗Turnと複数最終本文を拒否するを検証するの検証責務を所有する。
+ * @trace ERB-UT-023
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus Codexの失敗Turnと複数最終本文を拒否するの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+ */
 test("Codexの失敗Turnと複数最終本文を拒否する", () => {
   for (const raw of [
     [
@@ -87,6 +124,18 @@ test("Codexの失敗Turnと複数最終本文を拒否する", () => {
   }
 });
 
+/**
+ * Claude成功Envelopeからstructured_outputだけを抽出するを検証する。
+ *
+ * @responsibility Claude成功Envelopeからstructured_outputだけを抽出するを検証するの検証責務を所有する。
+ * @trace ERB-UT-023
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus Claude成功Envelopeからstructured_outputだけを抽出するの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+ */
 test("Claude成功Envelopeからstructured_outputだけを抽出する", () => {
   const result = extractWorkbenchAiAdviceProviderOutput(
     "claude",
@@ -108,6 +157,18 @@ test("Claude成功Envelopeからstructured_outputだけを抽出する", () => {
   assert.equal(result.rawOutputReported, false);
 });
 
+/**
+ * ClaudeのError、複数Turn、Cost不正および出力欠落を拒否するを検証する。
+ *
+ * @responsibility ClaudeのError、複数Turn、Cost不正および出力欠落を拒否するを検証するの検証責務を所有する。
+ * @trace ERB-UT-023
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus ClaudeのError、複数Turn、Cost不正および出力欠落を拒否するの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+ */
 test("ClaudeのError、複数Turn、Cost不正および出力欠落を拒否する", () => {
   for (const overrides of [
     { is_error: true },

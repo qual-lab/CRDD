@@ -1,4 +1,7 @@
-/** Topic／Meeting CRUDをMCPへ公開する固定Tool契約。 */
+/** Topic／Meeting CRUDをMCPへ公開する固定Tool契約。
+ * @responsibility Topic／Meeting MCP Protocol境界の公開Protocolと検証境界を所有する。
+ * @trace ARCH-000005
+ */
 
 export const MCP_TOPIC_LIST_TOOL = "crdd.list_topics" as const;
 export const MCP_TOPIC_GET_TOOL = "crdd.get_topic" as const;
@@ -29,14 +32,31 @@ export const MCP_TOPIC_MEETING_TOOLS = Object.freeze([
   MCP_MEETING_TREAT_OUTCOME_TOOL,
 ]);
 
-const text = Object.freeze({ type: "string" });
-const positiveInteger = Object.freeze({ type: "integer", minimum: 1 });
+const TEXT_SCHEMA = Object.freeze({ type: "string" });
+const POSITIVE_INTEGER_SCHEMA = Object.freeze({ type: "integer", minimum: 1 });
+
+/**
+ * Topic／Meeting MCP Protocol境界におけるtoolの処理境界を固定する。
+ *
+ * @responsibility Topic／Meeting MCP Protocol境界に必要な入力処理、失敗分類および結果生成を所有する。
+ * @trace ARCH-000005
+ * @input 宣言された引数だけを受け取る。
+ * @returns 宣言された結果型を返す。
+ * @precondition 呼出し元が型、IdentityおよびAuthorityの契約を満たす。
+ * @postcondition 成功時だけ検証済みの結果を返す。
+ * @effect 宣言または注入された依存以外へEffectを発行しない。
+ * @failure 不正入力、依存失敗または観測不能を成功へ畳まない。
+ * @invariant 入力のIdentity、AuthorityおよびScopeを暗黙に拡張しない。
+ * @boundary 呼出し元と本Moduleの局所責務境界。
+ * @security 秘密値と未許可情報を出力またはlogへ追加しない。
+ * @concurrency 共有状態は宣言された所有者とlifecycleに従う。
+ */
 
 function tool(
   name: (typeof MCP_TOPIC_MEETING_TOOLS)[number],
   title: string,
   description: string,
-  required: readonly string[],
+  requiredKeys: readonly string[],
   properties: Readonly<Record<string, unknown>>,
 ) {
   return Object.freeze({
@@ -46,7 +66,7 @@ function tool(
     inputSchema: Object.freeze({
       type: "object",
       additionalProperties: false,
-      required: Object.freeze([...required]),
+      required: Object.freeze([...requiredKeys]),
       properties: Object.freeze(properties),
     }),
   });
@@ -56,7 +76,8 @@ function tool(
  * Topic／Meeting CRUD Tool Definitionsを固定順で返す。
  *
  * @responsibility Repository単体の暗黙TargetとRemote CROSの明示Targetを同じTool意味のSchema差として生成する。
- * @trace ARCH-000005 ARCH-000013
+ * @trace ARCH-000005
+ * @trace ARCH-000013
  * @input repositoryTarget: Repository対象を入口で暗黙化するか、各Callで必須にするかを指定する。
  * @returns 固定順のTopic／Meeting Tool Definition集合。
  * @precondition requiredはCROS側がRequestごとにExposureを再検証する場合だけ使用する。
@@ -73,13 +94,14 @@ export function getMcpTopicMeetingToolDefinitions(
 ) {
   const target =
     repositoryTarget === "required"
-      ? Object.freeze({ repositoryId: text })
+      ? Object.freeze({ repositoryId: TEXT_SCHEMA })
       : Object.freeze({});
   /**
    * Target方式に応じたrequired Key集合を生成する。
    *
    * @responsibility Remote CROS時だけrepositoryIdを各Toolの必須入力へ追加する。
-   * @trace ARCH-000005 ARCH-000013
+   * @trace ARCH-000005
+   * @trace ARCH-000013
    * @input keys: Repository単体Toolが本来要求するKey集合。
    * @returns Target方式を反映した重複のないKey集合。
    * @precondition keysは各Tool固有の固定Keyである。
@@ -97,64 +119,64 @@ export function getMcpTopicMeetingToolDefinitions(
       : Object.freeze([...keys]);
   const page = Object.freeze({
     ...target,
-    cursor: text,
+    cursor: TEXT_SCHEMA,
     limit: Object.freeze({ type: "integer", minimum: 1, maximum: 100 }),
-    query: text,
+    query: TEXT_SCHEMA,
     states: Object.freeze({
       type: "array",
       maxItems: 4,
-      items: text,
+      items: TEXT_SCHEMA,
     }),
-    owner: text,
-    relation: text,
-    occurredFrom: text,
-    occurredTo: text,
+    owner: TEXT_SCHEMA,
+    relation: TEXT_SCHEMA,
+    occurredFrom: TEXT_SCHEMA,
+    occurredTo: TEXT_SCHEMA,
     pendingOnly: Object.freeze({ type: "boolean" }),
-    sort: text,
+    sort: TEXT_SCHEMA,
   });
-  const record = Object.freeze({ ...target, id: text });
-  const create = Object.freeze({ ...target, markdown: text });
+  const record = Object.freeze({ ...target, id: TEXT_SCHEMA });
+  const create = Object.freeze({ ...target, markdown: TEXT_SCHEMA });
   const update = Object.freeze({
     ...target,
-    id: text,
-    expectedRevision: positiveInteger,
-    markdown: text,
+    id: TEXT_SCHEMA,
+    expectedRevision: POSITIVE_INTEGER_SCHEMA,
+    markdown: TEXT_SCHEMA,
   });
   const remove = Object.freeze({
     ...target,
-    id: text,
-    expectedRevision: positiveInteger,
+    id: TEXT_SCHEMA,
+    expectedRevision: POSITIVE_INTEGER_SCHEMA,
     confirmed: Object.freeze({ type: "boolean" }),
     reason: Object.freeze({ type: "string", const: "mistaken_registration" }),
   });
   const treatOutcome = Object.freeze({
     ...target,
-    meetingId: text,
-    expectedRevision: positiveInteger,
-    outcomeId: text,
+    meetingId: TEXT_SCHEMA,
+    expectedRevision: POSITIVE_INTEGER_SCHEMA,
+    outcomeId: TEXT_SCHEMA,
     disposition: Object.freeze({
       type: "string",
       enum: Object.freeze(["completed", "transferred", "promoted", "rejected"]),
     }),
-    owner: text,
-    reviewTrigger: text,
+    owner: TEXT_SCHEMA,
+    reviewTrigger: TEXT_SCHEMA,
     targetKind: Object.freeze({
       type: "string",
       enum: Object.freeze(["topic", "change", "owner", "none"]),
     }),
-    targetReference: text,
-    treatment: text,
-    completionCondition: text,
-    result: text,
+    targetReference: TEXT_SCHEMA,
+    treatment: TEXT_SCHEMA,
+    completionCondition: TEXT_SCHEMA,
+    result: TEXT_SCHEMA,
     closeMeeting: Object.freeze({ type: "boolean" }),
   });
   const promoteTopic = Object.freeze({
     ...target,
-    topicId: text,
-    expectedRevision: positiveInteger,
-    changeId: text,
-    reason: text,
-    remainingResponsibility: text,
+    topicId: TEXT_SCHEMA,
+    expectedRevision: POSITIVE_INTEGER_SCHEMA,
+    changeId: TEXT_SCHEMA,
+    reason: TEXT_SCHEMA,
+    remainingResponsibility: TEXT_SCHEMA,
   });
   return Object.freeze([
     tool(

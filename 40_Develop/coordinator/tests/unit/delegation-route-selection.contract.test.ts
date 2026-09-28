@@ -27,7 +27,7 @@ import {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 function createRequest(
   frontProvider: "codex" | "claude",
@@ -75,7 +75,7 @@ const BOTH_ELIGIBLE = Object.freeze({
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Front Codexから具体実装をClaude Executorへ選ぶ②経路", () => {
   const selected = selectDelegationRouteCandidate(
@@ -100,7 +100,7 @@ test("Front Codexから具体実装をClaude Executorへ選ぶ②経路", () => 
  * @observation CandidateのrequestedProfileIdと不正形式の拒否を観測する。
  * @oracle 正しいIDは保持され、不正形式はProvider Effect前にblockedとなる。
  * @cleanup N/A: 外部資源を生成しない。
- * @boundary PRL-UT-014=N/A: Process内の入力検証と候補生成。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("明示Profile IDをProvider Effect前のRoute Candidateへ保持する", () => {
   const selected = selectDelegationRouteCandidate(
@@ -134,7 +134,7 @@ test("明示Profile IDをProvider Effect前のRoute Candidateへ保持する", (
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("移譲不要ならProvider eligibilityなしでFront Agentだけに保持する", () => {
   const selected = selectDelegationRouteCandidate(
@@ -164,7 +164,7 @@ test("移譲不要ならProvider eligibilityなしでFront Agentだけに保持�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Front Claudeから独立レビューをCodexへ選ぶ③経路", () => {
   const selected = selectDelegationRouteCandidate(
@@ -201,7 +201,7 @@ test("Front Claudeから独立レビューをCodexへ選ぶ③経路", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Codex向きの検証特性ならFront CodexからCodexへ委譲する①経路", () => {
   const selected = selectDelegationRouteCandidate(
@@ -232,7 +232,7 @@ test("Codex向きの検証特性ならFront CodexからCodexへ委譲する①�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Front Claudeから具体実装をCodexへ分散する③経路", () => {
   const selected = selectDelegationRouteCandidate(
@@ -258,7 +258,7 @@ test("Front Claudeから具体実装をCodexへ分散する③経路", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("明示Executor制約を優先し利用不能時に無言で変更しない", () => {
   const explicit = selectDelegationRouteCandidate(
@@ -297,7 +297,7 @@ test("明示Executor制約を優先し利用不能時に無言で変更しない
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("反対ProviderのSubscription quota不足時だけ同一Providerへ戻す", () => {
   const selected = selectDelegationRouteCandidate(createRequest("codex"), {
@@ -338,7 +338,7 @@ test("反対ProviderのSubscription quota不足時だけ同一Providerへ戻す"
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("反対Providerのeligibilityが不明なら同一Providerへ推測fallbackしない", () => {
   const selected = selectDelegationRouteCandidate(createRequest("codex"), {
@@ -365,7 +365,7 @@ test("反対Providerのeligibilityが不明なら同一Providerへ推測fallback
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("反対Providerに必要CapabilityがなければFront ClaudeからClaudeへ戻す④経路", () => {
   const selected = selectDelegationRouteCandidate(createRequest("claude"), {
@@ -397,7 +397,7 @@ test("反対Providerに必要CapabilityがなければFront ClaudeからClaude�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("独立Provider欠落、循環、深度超過と不正eligibilityをfail closedにする", () => {
   const noIndependent = selectDelegationRouteCandidate(
@@ -460,7 +460,7 @@ test("独立Provider欠落、循環、深度超過と不正eligibilityをfail cl
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("独立Reviewerはsubject Providerと独立性要求を必須にする", () => {
   assert.equal(
@@ -551,7 +551,7 @@ test("独立Reviewerはsubject Providerと独立性要求を必須にする", ()
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("公開契約は4経路とCoordinator Gateを固定する", () => {
   const contract = describeDelegationRouteSelectionContract();
@@ -600,7 +600,7 @@ test("公開契約は4経路とCoordinator Gateを固定する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Execution SlateはExecutor Effect前に別Provider Reviewerまで固定する", () => {
   const slate = selectDelegationExecutionSlateCandidate(
@@ -624,7 +624,7 @@ test("Execution SlateはExecutor Effect前に別Provider Reviewerまで固定す
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("低リスクLocal Taskだけ反対Provider不能時に別実行Contextの同一Provider Reviewerへ閉じる", () => {
   const observation = {

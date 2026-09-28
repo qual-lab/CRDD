@@ -3,7 +3,8 @@
  *
  * @packageDocumentation
  * @responsibility Candidate Storeの安全な確認投影と、Project Runtimeによる明示採用、確認付き破棄を分離して提供する。
- * @trace ARCH-000015 ARCH-000004
+ * @trace ARCH-000015
+ * @trace ARCH-000004
  * @boundary Workbench、Coordinator Candidate Store、Project RuntimeおよびCanonical Repositoryの境界。
  * @effect 確認はEffect 0。明示採用はProject Runtime経由でRepositoryを変更し、確認付き破棄は候補Storeを変更する。
  * @security Candidate IDをAuthorityとして扱わず、検証済みRepository Rootと現在操作の明示確認を必須にする。
@@ -77,7 +78,8 @@ export type WorkbenchCandidateReviewResult = Readonly<{
  * Workbench変更候補Applicationの操作結果を定義する。
  *
  * @responsibility 採用・破棄の完了、Effect状態、回復要否およびReceiptを同じSchemaで返す。
- * @trace ARCH-000015 ARCH-000004
+ * @trace ARCH-000015
+ * @trace ARCH-000004
  * @shape 操作、状態、理由、Candidate／Receipt Identity、Effect・cleanup・回復情報を持つ。
  * @invariant completedは対象操作のEffectが確定し、blockedを成功へ畳まない。
  * @boundary Coordinator ApplicationとWorkbenchの境界。
@@ -101,7 +103,8 @@ export type WorkbenchCandidateActionResult = Readonly<{
  * Workbench変更候補Application Portを定義する。
  *
  * @responsibility 確認、明示採用、確認付き破棄を別操作として公開する。
- * @trace ARCH-000015 ARCH-000004
+ * @trace ARCH-000015
+ * @trace ARCH-000004
  * @shape review、adopt、discardの非同期操作を持つ。
  * @invariant reviewはEffect 0であり、adoptとdiscardはconfirmedなしでEffectを発行しない。
  * @boundary WorkbenchとCoordinator Applicationの境界。
@@ -124,7 +127,8 @@ export type WorkbenchCandidateApplication = Readonly<{
  * 候補操作の停止結果を構築する。
  *
  * @responsibility Effect 0または観測不能の停止状態を固定Workbench Schemaへ収束する。
- * @trace ARCH-000015 ARCH-000004
+ * @trace ARCH-000015
+ * @trace ARCH-000004
  * @input operation、candidateId、reason、任意のEffect・回復情報。
  * @returns 凍結したblocked結果を返す。
  * @precondition reasonは固定語彙であり未信頼本文を含まない。
@@ -234,7 +238,8 @@ function inspectReview(
  * Project Runtime採用結果をWorkbench操作結果へ投影する。
  *
  * @responsibility Effect、cleanup、RecoveryおよびReceiptの意味を保ったままUI用Schemaへ変換する。
- * @trace ARCH-000015 ARCH-000004
+ * @trace ARCH-000015
+ * @trace ARCH-000004
  * @input value: Project Runtime採用結果。
  * @returns Workbench adopt結果を返す。
  * @precondition valueはProject Runtime公開Applicationから返された閉じた結果である。
@@ -267,7 +272,8 @@ function adoptionResult(
  * Repository単体Workbench向け変更候補Applicationを構築する。
  *
  * @responsibility 検証済みRootとProject IDへ候補確認、明示採用および確認付き破棄を結合する。
- * @trace ARCH-000015 ARCH-000004
+ * @trace ARCH-000015
+ * @trace ARCH-000004
  * @input repositoryRootCapability: Version Control発行Root、projectId: Project ContextのProject ID。
  * @returns WorkbenchCandidateApplicationを返す。
  * @precondition Root CapabilityとProject IDはRepository Project Contextを読取ったComposition Rootが供給する。
@@ -284,6 +290,22 @@ export function createRepositoryWorkbenchCandidateApplication(
   projectId: string,
 ): WorkbenchCandidateApplication {
   return Object.freeze({
+    /**
+     * Workbench変更候補の確認・採用・破棄境界におけるreviewの処理境界を固定する。
+     *
+     * @responsibility Workbench変更候補の確認・採用・破棄境界に必要な入力処理、失敗分類および結果生成を所有する。
+     * @trace ARCH-000015
+     * @input 宣言された引数だけを受け取る。
+     * @returns 宣言された結果型を返す。
+     * @precondition 呼出し元が型、IdentityおよびAuthorityの契約を満たす。
+     * @postcondition 成功時だけ検証済みの結果を返す。
+     * @effect 宣言または注入された依存以外へEffectを発行しない。
+     * @failure 不正入力、依存失敗または観測不能を成功へ畳まない。
+     * @invariant 入力のIdentity、AuthorityおよびScopeを暗黙に拡張しない。
+     * @boundary 呼出し元と本Moduleの局所責務境界。
+     * @security 秘密値と未許可情報を出力またはlogへ追加しない。
+     * @concurrency 共有状態は宣言された所有者とlifecycleに従う。
+     */
     async review(candidateId) {
       const repositoryRoot = resolveVerifiedRepositoryRoot(
         repositoryRootCapability,
@@ -303,6 +325,23 @@ export function createRepositoryWorkbenchCandidateApplication(
         readRuntimeOwnedCandidateBundle(candidateId),
       );
     },
+
+    /**
+     * Workbench変更候補の確認・採用・破棄境界におけるadoptの処理境界を固定する。
+     *
+     * @responsibility Workbench変更候補の確認・採用・破棄境界に必要な入力処理、失敗分類および結果生成を所有する。
+     * @trace ARCH-000015
+     * @input 宣言された引数だけを受け取る。
+     * @returns 宣言された結果型を返す。
+     * @precondition 呼出し元が型、IdentityおよびAuthorityの契約を満たす。
+     * @postcondition 成功時だけ検証済みの結果を返す。
+     * @effect 宣言または注入された依存以外へEffectを発行しない。
+     * @failure 不正入力、依存失敗または観測不能を成功へ畳まない。
+     * @invariant 入力のIdentity、AuthorityおよびScopeを暗黙に拡張しない。
+     * @boundary 呼出し元と本Moduleの局所責務境界。
+     * @security 秘密値と未許可情報を出力またはlogへ追加しない。
+     * @concurrency 共有状態は宣言された所有者とlifecycleに従う。
+     */
 
     async adopt(candidateId, confirmed) {
       if (!confirmed)
@@ -361,7 +400,8 @@ export function createRepositoryWorkbenchCandidateApplication(
        * Canonical Adoption Leaseの既存所有者を観測する。
        *
        * @responsibility Platform Adapterが提供する所有者観測をProject Runtime Lease Portへ限定して渡す。
-       * @trace ARCH-000004 ARCH-000015
+       * @trace ARCH-000004
+       * @trace ARCH-000015
        * @input owner: Process IDとGenerationを持つ既存Lease所有者。
        * @returns Platform観測結果、または観測不能結果を返す。
        * @precondition ownerはProject Runtime Lease Storeが返した閉じたIdentityである。
@@ -424,6 +464,23 @@ export function createRepositoryWorkbenchCandidateApplication(
         ),
       );
     },
+
+    /**
+     * Workbench変更候補の確認・採用・破棄境界におけるdiscardの処理境界を固定する。
+     *
+     * @responsibility Workbench変更候補の確認・採用・破棄境界に必要な入力処理、失敗分類および結果生成を所有する。
+     * @trace ARCH-000015
+     * @input 宣言された引数だけを受け取る。
+     * @returns 宣言された結果型を返す。
+     * @precondition 呼出し元が型、IdentityおよびAuthorityの契約を満たす。
+     * @postcondition 成功時だけ検証済みの結果を返す。
+     * @effect 宣言または注入された依存以外へEffectを発行しない。
+     * @failure 不正入力、依存失敗または観測不能を成功へ畳まない。
+     * @invariant 入力のIdentity、AuthorityおよびScopeを暗黙に拡張しない。
+     * @boundary 呼出し元と本Moduleの局所責務境界。
+     * @security 秘密値と未許可情報を出力またはlogへ追加しない。
+     * @concurrency 共有状態は宣言された所有者とlifecycleに従う。
+     */
 
     async discard(candidateId, confirmed) {
       if (!confirmed)

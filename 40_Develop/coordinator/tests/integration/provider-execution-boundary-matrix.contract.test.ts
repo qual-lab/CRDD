@@ -117,7 +117,7 @@ const REAL_ROUTE_CASES = Object.freeze([
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Codex／ClaudeのExecutor・Reviewer計画を同じProvider境界Matrixで固定する", () => {
   assert.equal(PLAN_CASES.length, 4);
@@ -190,7 +190,7 @@ test("Codex／ClaudeのExecutor・Reviewer計画を同じProvider境界Matrixで
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
+ * @boundary ERB-IT-004=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Provider境界の正常・拒否・異常・回収caseを実在試験へ全数対応させる", () => {
   assert.equal(
@@ -216,7 +216,7 @@ test("Provider境界の正常・拒否・異常・回収caseを実在試験へ�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
+ * @boundary ERB-IT-004=Direct Boundary: coordinator Test Source→対象契約
  */
 test("実Provider結合はCodex／ClaudeをExecutorとReviewerの双方で一回ずつ通す", () => {
   assert.deepEqual(REAL_ROUTE_CASES, [

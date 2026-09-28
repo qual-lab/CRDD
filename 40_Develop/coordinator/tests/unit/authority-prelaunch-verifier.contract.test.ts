@@ -40,7 +40,7 @@ import { canonicalJson } from "../support/test-support.ts";
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=Direct Boundary: coordinator Test Source→対象契約
  */
 function profile() {
   return {
@@ -73,7 +73,7 @@ function profile() {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=Direct Boundary: coordinator Test Source→対象契約
  */
 function fixture(grantOverrides = {}, policyOverrides = {}) {
   const rawProfile = profile();
@@ -163,7 +163,7 @@ const CONTEXT = Object.freeze({
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Runtime時計でGrantを起動直前に再確認する候補を作る", () => {
   const before = Date.now();
@@ -214,7 +214,7 @@ test("Runtime時計でGrantを起動直前に再確認する候補を作る", ()
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=Direct Boundary: coordinator Test Source→対象契約
  */
 test("呼出側時刻を受理せず固定Contextだけを使う", () => {
   const { rawProfile, bundle } = fixture();
@@ -252,7 +252,7 @@ test("呼出側時刻を受理せず固定Contextだけを使う", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Prelaunch contextはMount Grant参照の欠落とnamespace差を拒否する", () => {
   const { rawProfile, bundle } = fixture();
@@ -285,7 +285,7 @@ test("Prelaunch contextはMount Grant参照の欠落とnamespace差を拒否す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Prelaunchは静的要件を現在の動的Mount Grant refへ結合する", () => {
   const { rawProfile, bundle } = fixture();
@@ -314,7 +314,7 @@ test("Prelaunchは静的要件を現在の動的Mount Grant refへ結合する",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=Direct Boundary: coordinator Test Source→対象契約
  */
 test("失効GrantとTrust Policy不一致をCapabilityへ昇格させない", () => {
   const expired = fixture({
@@ -366,7 +366,7 @@ test("失効GrantとTrust Policy不一致をCapabilityへ昇格させない", ()
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Core候補はProvider起動やAuthority Capabilityを成立させない", () => {
   const contract = describeAuthorityPrelaunchVerifierContract();

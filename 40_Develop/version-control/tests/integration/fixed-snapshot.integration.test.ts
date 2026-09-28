@@ -36,7 +36,7 @@ import {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-003=Related 2 Blocks: Producer→Consumer→公開・署名・Release・Recovery
+ * @boundary RCM-IT-003=Direct Boundary: version-control Test Source→対象契約
  */
 function git(root: string, commandArguments: readonly string[]): string {
   return execFileSync("git", ["-C", root, ...commandArguments], {
@@ -55,7 +55,7 @@ function git(root: string, commandArguments: readonly string[]): string {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RFD-IT-008=Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ * @boundary RFD-IT-008=Direct Boundary: version-control Test Source→対象契約
  */
 test("固定RevisionのIdentity・本文・候補を同じSnapshotから復元する", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-vc-snapshot-"));
@@ -132,7 +132,7 @@ test("固定RevisionのIdentity・本文・候補を同じSnapshotから復元�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-003=Related 2 Blocks: Producer→Consumer→公開・署名・Release・Recovery
+ * @boundary RCM-IT-003=Direct Boundary: version-control Test Source→対象契約
  */
 test("不明Revision・Path逸脱・内容Policy拒否をEffect前に閉じる", (t) => {
   const root = fs.mkdtempSync(
@@ -199,7 +199,7 @@ test("不明Revision・Path逸脱・内容Policy拒否をEffect前に閉じる",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RFD-IT-008=Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ * @boundary RFD-IT-008=Direct Boundary: version-control Test Source→対象契約
  */
 test("Candidate出力はopaque Capabilityを要求し、部分生成を後始末する", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-vc-output-"));
@@ -273,7 +273,7 @@ test("Candidate出力はopaque Capabilityを要求し、部分生成を後始末
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RFD-IT-008=Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ * @boundary RFD-IT-008=Direct Boundary: version-control Test Source→対象契約
  */
 test("Candidate出力Capabilityは発行元Owner以外へ流用できない", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-vc-owner-root-"));
@@ -319,7 +319,7 @@ test("Candidate出力Capabilityは発行元Owner以外へ流用できない", (t
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RFD-IT-008=Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ * @boundary RFD-IT-008=Direct Boundary: version-control Test Source→対象契約
  */
 test("Candidate出力Capabilityは空で安定したDirectoryだけに発行する", (t) => {
   const workspace = fs.mkdtempSync(

@@ -49,7 +49,7 @@ const packageJson = JSON.parse(
  * @observation 実行Sourceの文字列を返す。
  * @oracle Source Header内だけにある試験名が結果へ残らない。
  * @cleanup N/A: Filesystem資源を取得しない純粋な文字列変換である。
- * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner
+ * @boundary CQS-IT-011=Direct Boundary: coordinator Test Source→対象契約
  */
 function executableTestSource(source: string): string {
   return source.replace(/\/\*[\s\S]*?\*\//gu, "");
@@ -65,7 +65,7 @@ function executableTestSource(source: string): string {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner
+ * @boundary CQS-IT-011=Direct Boundary: coordinator Test Source→対象契約
  */
 function discoverGateFiles(
   files: readonly string[],
@@ -88,7 +88,7 @@ function discoverGateFiles(
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner
+ * @boundary CQS-IT-011=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Portable試験とHost Windows試験は同じ10件の閉集合を重複なく所有する", () => {
   const scripts = packageJson.scripts ?? {};
@@ -150,7 +150,7 @@ test("Portable試験とHost Windows試験は同じ10件の閉集合を重複な�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner
+ * @boundary CQS-IT-011=Direct Boundary: coordinator Test Source→対象契約
  */
 test("未分類のHost Windows試験を別試験ファイルへ追加すると閉集合が不一致になる", () => {
   const files = [

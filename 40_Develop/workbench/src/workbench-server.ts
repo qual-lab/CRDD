@@ -3,7 +3,10 @@
  *
  * @packageDocumentation
  * @responsibility Direction AのWorkbench Shellと公式ロゴをloopback限定で配信する。
- * @trace ARCH-000005 ARCH-000012 ARCH-000015 ARCH-000017
+ * @trace ARCH-000005
+ * @trace ARCH-000012
+ * @trace ARCH-000015
+ * @trace ARCH-000017
  * @boundary BrowserとWorkbench Application Adapterのlocalhost HTTP境界。
  * @effect localhost Listenerを開始・終了し、承認済みBrand Assetを読取る。
  * @security 外部Bind、任意Filesystem参照、Force Pushおよび未確認公開を許可せず、Credential管理は検証済み管理Contextの注入時だけ許可する。
@@ -154,7 +157,9 @@ type TopicMeetingActionResult =
  * 許可済みPortfolioに明示Repositoryが含まれるか確認する。
  *
  * @responsibility Repository IDの指定だけをRemote操作Authorityとして扱わず、現在取得したPortfolio Sourceとの一致を確認する。
- * @trace ARCH-000005 ARCH-000012 ARCH-000013
+ * @trace ARCH-000005
+ * @trace ARCH-000012
+ * @trace ARCH-000013
  * @input portfolioに現在の許可済みPortfolio、repositoryIdに利用者が明示選択したRepository IDを受け取る。
  * @returns 現在のPortfolio Sourceに完全一致する場合だけtrueを返す。
  * @precondition N/A: 未取得Portfolioと空IDも受け付ける。
@@ -182,7 +187,9 @@ function isVisiblePortfolioRepository(
  * Remote MCP書込み結果をWorkbench表示契約へ検証縮約する。
  *
  * @responsibility 未信頼MCP結果の状態・理由・Effect件数・Relation PathだけをWorkbenchが利用できる閉じた結果へ変換する。
- * @trace ARCH-000006 ARCH-000012 ARCH-000013
+ * @trace ARCH-000006
+ * @trace ARCH-000012
+ * @trace ARCH-000013
  * @input valueにRemote MCPから返った未信頼値を受け取る。
  * @returns 検証済みのTopic／Meeting操作結果を返す。
  * @precondition N/A: 任意値を受け付ける。
@@ -1123,7 +1130,8 @@ function actionRequest(form: URLSearchParams): ChangePublicationRequest {
  * Browser FormをAI Profile限定Mutationへ変換する。
  *
  * @responsibility 固定Role、Tier、Reasoningと登録済みAdapter／Modelだけを管理Commandへ採用する。
- * @trace ARCH-000012 ARCH-000010
+ * @trace ARCH-000012
+ * @trace ARCH-000010
  * @input form: 上限確認済みForm、snapshot: 操作対象Ownerの現在Catalog Snapshot。
  * @returns 作成、更新または確認付き削除のMutation。
  * @precondition CSRF相当Tokenは呼出し側で照合済みである。

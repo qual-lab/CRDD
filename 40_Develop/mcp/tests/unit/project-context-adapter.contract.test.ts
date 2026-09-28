@@ -37,7 +37,7 @@ const META = Object.freeze({
  * @observation Adapterへ渡せるObjectを返す。
  * @oracle JSON-RPC、Metadata、Tool名および引数が固定位置に存在する。
  * @cleanup N/A: 外部資源を作成しない。
- * @boundary PPR-UT-006=N/A: Process内Fixture構築である。
+ * @boundary PPR-UT-006=Direct Boundary: mcp Test Source→対象契約
  */
 function call(name: string, args: Readonly<Record<string, unknown>>) {
   return Object.freeze({
@@ -58,9 +58,21 @@ function call(name: string, args: Readonly<Record<string, unknown>>) {
  * @observation Adapterが一覧・取得に使用するSnapshotを返す。
  * @oracle 非開示Repositoryを含まず、completeとpartialを区別する。
  * @cleanup N/A: 外部資源を作成しない。
- * @boundary PPR-UT-006=N/A: Process内Fixture構築である。
+ * @boundary PPR-UT-006=Direct Boundary: mcp Test Source→対象契約
  */
 function portfolio(): PortfolioProjection {
+  /**
+   * scene用の試験入力または観測処理を提供する。
+   *
+   * @responsibility scene用の試験入力または観測処理を提供するの検証責務を所有する。
+   * @trace PPR-UT-006
+   * @precondition 対象契約を再現できる固定入力と依存を用意する。
+   * @stimulus sceneの対象操作を実行する。
+   * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+   * @cleanup N/A: Process外資源を生成しない局所検証である。
+   * @boundary PPR-UT-006=Direct Boundary: mcp Test Source→対象契約
+   */
   const scene = (key: "current" | "risk" | "decision" | "reason" | "next") =>
     Object.freeze({
       key,
@@ -126,7 +138,7 @@ function portfolio(): PortfolioProjection {
  * @observation structuredContent内のProjectとSource Contextを取得する。
  * @oracle 五場面、Source状態および非正本宣言が入力どおり保持される。
  * @cleanup N/A: 外部資源を作成しない。
- * @boundary PPR-UT-006=N/A: Process内Adapterを直接検証する。
+ * @boundary PPR-UT-006=Direct Boundary: mcp Test Source→対象契約
  */
 test("Project Context MCP preserves the five canonical scenes", async () => {
   let reads = 0;
@@ -167,7 +179,7 @@ test("Project Context MCP preserves the five canonical scenes", async () => {
  * @observation structuredContent.projectsを取得する。
  * @oracle Project ID、状態、許可済みSource数だけを返す。
  * @cleanup N/A: 外部資源を作成しない。
- * @boundary PPR-UT-006=N/A: Process内Adapterを直接検証する。
+ * @boundary PPR-UT-006=Direct Boundary: mcp Test Source→対象契約
  */
 test("Project Context MCP lists only the supplied portfolio", async () => {
   const response = await handleMcpProjectContextRequest(
@@ -195,7 +207,7 @@ test("Project Context MCP lists only the supplied portfolio", async () => {
  * @observation 公開Tool名を取得する。
  * @oracle Project Context二ToolとProject Runtime三Toolが一度ずつ存在する。
  * @cleanup N/A: 外部資源を作成しない。
- * @boundary PPR-UT-006=N/A: Process内Compositionを直接検証する。
+ * @boundary PPR-UT-006=Direct Boundary: mcp Test Source→対象契約
  */
 test("MCP application publishes runtime and context tools without conflating them", async () => {
   const dependencies = {
@@ -233,7 +245,7 @@ test("MCP application publishes runtime and context tools without conflating the
  * @observation structuredContentのstatusとreasonを取得する。
  * @oracle Repository名、件数、Roleまたは非開示Sourceを応答へ含めない。
  * @cleanup N/A: 外部資源を作成しない。
- * @boundary PPR-UT-006=N/A: Process内Adapterを直接検証する。
+ * @boundary PPR-UT-006=Direct Boundary: mcp Test Source→対象契約
  */
 test("Project Context MCP does not disclose unavailable projects", async () => {
   const response = await handleMcpProjectContextRequest(

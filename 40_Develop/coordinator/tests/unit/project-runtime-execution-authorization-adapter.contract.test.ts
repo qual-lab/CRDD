@@ -33,7 +33,7 @@ const request = Object.freeze({
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("実行許可AdapterはRuntime package capabilityをTask Authorityと混同せず一回の発行へ閉じる", () => {
   const capability = Object.freeze({});
@@ -67,7 +67,7 @@ test("実行許可AdapterはRuntime package capabilityをTask Authorityと混同
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("不正な相関・発行失敗・失効不明は閉じた結果となり例外を漏らさない", () => {
   let issueCount = 0;

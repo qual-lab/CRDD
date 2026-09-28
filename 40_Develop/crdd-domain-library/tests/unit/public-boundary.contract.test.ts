@@ -30,7 +30,7 @@ import * as repository from "../../src/repository-observation/index.ts";
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-014=N/A: Packageの公開`index.ts`と利用側importは外部実行境界を持たない。
+ * @boundary RCM-UT-014=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 function exportedNames(relativePath: string): readonly string[] {
   const source = fs.readFileSync(
@@ -65,7 +65,7 @@ function exportedNames(relativePath: string): readonly string[] {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-014=N/A: Packageの公開`index.ts`と利用側importは外部実行境界を持たない。
+ * @boundary RCM-UT-014=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 function typescriptFiles(root: string): readonly string[] {
   const files: string[] = [];
@@ -88,7 +88,7 @@ function typescriptFiles(root: string): readonly string[] {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-014=N/A: Packageの公開`index.ts`と利用側importは外部実行境界を持たない。
+ * @boundary RCM-UT-014=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("Package RootはCapability別の公開入口だけを束ねる", () => {
   assert.deepEqual(Object.keys(domainLibrary).sort(), [
@@ -111,7 +111,7 @@ test("Package RootはCapability別の公開入口だけを束ねる", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-014=N/A: Packageの公開`index.ts`と利用側importは外部実行境界を持たない。
+ * @boundary RCM-UT-014=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("srcのDirectoryはCapability-firstかつ二階層以内に保つ", () => {
   const sourceRoot = path.resolve(
@@ -147,7 +147,7 @@ test("srcのDirectoryはCapability-firstかつ二階層以内に保つ", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-014=N/A: Packageの公開`index.ts`と利用側importは外部実行境界を持たない。
+ * @boundary RCM-UT-014=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("Artifactは解析、Schema検証、関係Graphの公開契約だけを公開する", () => {
   assert.deepEqual(Object.keys(artifact).sort(), [
@@ -237,7 +237,7 @@ UX ID: UX-000001
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ * @boundary RCM-UT-016=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("RelationはArtifact Graphと中立Issueだけを公開する", () => {
   assert.deepEqual(
@@ -285,7 +285,7 @@ test("RelationはArtifact Graphと中立Issueだけを公開する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-014=N/A: Packageの公開`index.ts`と利用側importは外部実行境界を持たない。
+ * @boundary RCM-UT-014=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("Reality Traceabilityは宣言済み公開入口だけを公開する", () => {
   assert.deepEqual(Object.keys(reality).sort(), [
@@ -321,7 +321,7 @@ test("Reality Traceabilityは宣言済み公開入口だけを公開する", () 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-014=N/A: Packageの公開`index.ts`と利用側importは外部実行境界を持たない。
+ * @boundary RCM-UT-014=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("Reality DiscoveryはRepository観測済みSnapshotだけからManifestを構成する", () => {
   const manifest = {
@@ -363,7 +363,7 @@ test("Reality DiscoveryはRepository観測済みSnapshotだけからManifestを�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-014=N/A: Packageの公開`index.ts`と利用側importは外部実行境界を持たない。
+ * @boundary RCM-UT-014=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("Reality Annotationは公開Discovery経由で検証しinternalを公開しない", () => {
   const manifest = {
@@ -410,7 +410,7 @@ test("Reality Annotationは公開Discovery経由で検証しinternalを公開し
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ * @boundary RCM-UT-016=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("共通Outcomeは中立な処理結果契約だけを公開する", () => {
   assert.deepEqual(exportedNames("../../src/outcome.ts"), [
@@ -432,7 +432,7 @@ test("共通Outcomeは中立な処理結果契約だけを公開する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-014=N/A: Packageの公開`index.ts`と利用側importは外部実行境界を持たない。
+ * @boundary RCM-UT-014=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("Domain Libraryの利用側は宣言済み公開indexだけを利用する", () => {
   const repositoryRoot = path.resolve(
@@ -471,7 +471,7 @@ test("Domain Libraryの利用側は宣言済み公開indexだけを利用する"
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ * @boundary RCM-UT-016=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("Reality Domain IssueはChecker語彙と絶対Pathを公開しない", () => {
   const invalidContract = reality.validateRealitySymbolManifest(
@@ -523,7 +523,7 @@ test("Reality Domain IssueはChecker語彙と絶対Pathを公開しない", () =
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-014=N/A: Packageの公開`index.ts`と利用側importは外部実行境界を持たない。
+ * @boundary RCM-UT-014=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("Repository観測はPort生成だけを実行入口として公開する", () => {
   assert.deepEqual(Object.keys(repository).sort(), [

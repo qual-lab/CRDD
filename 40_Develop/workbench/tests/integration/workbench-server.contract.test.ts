@@ -3,10 +3,15 @@
  *
  * @packageDocumentation
  * @responsibility Workbench Production Shellのloopback配信、公式ロゴ、固定RouteおよびListener清掃を直接境界で検証する。
+ * @trace CPR-IT-006
+ * @trace CPR-IT-008
  * @trace ERB-IT-021
+ * @trace ERP-IT-001
  * @trace PPR-IT-002
- * @trace RFD-IT-005
  * @trace RCM-IT-005
+ * @trace RFD-IT-005
+ * @trace RFD-IT-013
+ * @trace RFD-IT-014
  * @level IT
  * @scope workbench、localhost、official-logo、route-allowlist、cleanup
  * @boundary ERB-IT-021=Direct Boundary: Repository→Workbench Server→Browser相当Consumer
@@ -83,7 +88,7 @@ const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
  * @observation Status、Headerおよび本文bytesを取得する。
  * @oracle 呼出し側が配信・拒否・Security Headerを判定できる。
  * @cleanup Request SocketはResponse完了時に閉じる。
- * @boundary ERB-IT-021=Direct Boundary: Repository→Workbench Server→Browser相当Consumer
+ * @boundary ERB-IT-021=Direct Boundary: workbench Test Source→対象契約
  */
 async function requestRaw(
   baseUrl: string,
@@ -144,7 +149,11 @@ async function requestRaw(
  * @effect 試験Fixture Repositoryだけを変更する。
  * @failure 非0終了を試験失敗として送出する。
  * @invariant 実CRDD RepositoryへGit Effectを発行しない。
- * @boundary Test Harnessと実Git CLIの境界。
+ * @stimulus gitの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
+ * @boundary RFD-IT-014=Direct Boundary: workbench Test Source→対象契約
  * @security shellとCredentialを使わない。
  * @concurrency 同一Fixture内で直列実行する。
  */
@@ -166,7 +175,7 @@ function git(cwd: string, ...args: readonly string[]): string {
  * @observation Response内容、Content-Type、Security HeaderおよびHealth結果を観測する。
  * @oracle 公式Logo RouteとDirection A Shellだけをloopbackから取得でき、書込みMethodを拒否する。
  * @cleanup Workbench Handleを閉じる。
- * @boundary ERB-IT-021=Direct Boundary: Repository→Workbench Server→Browser相当Consumer
+ * @boundary ERB-IT-021=Direct Boundary: workbench Test Source→対象契約
  */
 test("Direction A Shellと公式ロゴをloopback限定で配信する", async () => {
   const handle = await startWorkbench({ workingDirectory: repositoryRoot });
@@ -305,7 +314,7 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
  * @observation 拒否Statusとclose後Connection失敗を観測する。
  * @oracle Allowlist外は404で内部Pathを返さず、close後はConnectionを受理しない。
  * @cleanup 冪等closeにより所有ListenerとConnectionを終了する。
- * @boundary ERB-IT-021=Direct Boundary: Repository→Workbench Server→Browser相当Consumer
+ * @boundary ERB-IT-021=Direct Boundary: workbench Test Source→対象契約
  */
 test("Allowlist外Routeを拒否し終了後Listenerを残さない", async () => {
   const handle = await startWorkbench({ workingDirectory: repositoryRoot });
@@ -337,7 +346,7 @@ test("Allowlist外Routeを拒否し終了後Listenerを残さない", async () =
  * @observation Project Identity、Source、状態およびFederation表示を観測する。
  * @oracle Projection内の値が表示され、単一Scoreや非開示Projectが追加されない。
  * @cleanup Workbench Handleを閉じる。
- * @boundary PPR-IT-002=Direct Boundary: CROS Portfolio Projection→Workbench Browser Surface
+ * @boundary PPR-IT-002=Direct Boundary: workbench Test Source→対象契約
  */
 test("許可済みPortfolioをSource Coverage付きで表示する", async () => {
   const surface = await readWorkbenchProjectSurface(repositoryRoot);
@@ -446,7 +455,7 @@ test("許可済みPortfolioをSource Coverage付きで表示する", async () =>
  * @observation HTTP結果、一覧Metadata、Registry Recordおよび一度表示Tokenを観測する。
  * @oracle Repository単体では未構成、管理接続時は操作可能で、生Tokenは一回だけ表示されRegistryへ保存されない。
  * @cleanup Workbench Handleを閉じる。
- * @boundary RFD-IT-013=Direct Boundary: Workbench Browser Form→CROS Credential Application→Registry
+ * @boundary RFD-IT-013=Direct Boundary: workbench Test Source→対象契約
  */
 test("管理接続時だけCredentialを管理し生Tokenを一度だけ表示する", async () => {
   const registry = createMemoryConnectionCredentialRegistry();
@@ -542,13 +551,12 @@ test("管理接続時だけCredentialを管理し生Tokenを一度だけ表示�
  *
  * @responsibility Browser一回入力、Workbench Process内だけの接続Credential、明示Refresh／DisconnectおよびRemote失敗表示を検証する。
  * @trace RFD-IT-013
- * @trace PPR-IT-002
  * @precondition loopback CROS Transportと有効Developer Credentialを用意する。
  * @stimulus Repository modeでWorkbenchを開始し、Browser Formで接続してCredential失効後にRefreshし、最後にDisconnectする。
  * @observation 接続表示、Portfolio、Token非表示、Refresh／Disconnect結果およびHealthを観測する。
  * @oracle 有効時だけRemote Projectionを表示し、失効後は直前値をCurrent扱いせずUnavailableへ遷移し、Disconnect後はRepository modeへ戻る。
  * @cleanup WorkbenchとCROS Transportを閉じる。
- * @boundary RFD-IT-013／PPR-IT-002=Related 2 Blocks: Workbench→Remote CROS→Credential／Exposure→Portfolio
+ * @boundary RFD-IT-013=Direct Boundary: workbench Test Source→対象契約
  */
 test("BrowserからRemote CROSへ接続し失効後は直前Projectionを表示しない", async () => {
   const registry = createMemoryConnectionCredentialRegistry();
@@ -767,13 +775,13 @@ test("BrowserからRemote CROSへ接続し失効後は直前Projectionを表示�
  * Remote Workbenchが明示選択RepositoryのTopicだけをMCP経由で表示・更新することを検証する。
  *
  * @responsibility Portfolio Source選択、Remote MCP読取り、Repository間Relation Navigationおよび書込みTarget固定を検証する。
- * @trace PPR-IT-002 RFD-IT-013 ERB-IT-021
+ * @trace PPR-IT-002
  * @precondition 同一ProjectのDEV／MGMT Repository、許可Credential、CROS PortfolioおよびMCP Serverを用意する。
  * @stimulus Repository未選択、DEV選択、Relation先詳細、DEV Topic更新および非開示Repository選択を要求する。
  * @observation Workbench HTML、Remote Canonical Markdownおよび非開示結果を観測する。
  * @oracle 未選択ではLocalへfallbackせず、選択Repositoryだけを表示・更新し、RelationはownerRepositoryIdを保持して遷移する。
  * @cleanup Workbench、CROS、MCPを閉じ、Fixtureを削除する。
- * @boundary Browser→Workbench→Remote MCP→CROS Grant→Project Operation Repository。
+ * @boundary PPR-IT-002=Direct Boundary: workbench Test Source→対象契約
  */
 test("Remote Workbenchは明示RepositoryのTopicをMCP経由で表示・更新する", async () => {
   const testRoot = path.join(repositoryRoot, ".crdd", "tests");
@@ -793,6 +801,18 @@ test("Remote Workbenchは明示RepositoryのTopicをMCP経由で表示・更新�
   });
   assert.equal(issued.status, "completed");
   if (issued.status !== "completed") return;
+  /**
+   * topic用の試験入力または観測処理を提供する。
+   *
+   * @responsibility topic用の試験入力または観測処理を提供するの検証責務を所有する。
+   * @trace CPR-IT-008
+   * @precondition 対象契約を再現できる固定入力と依存を用意する。
+   * @stimulus topicの対象操作を実行する。
+   * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
+   * @boundary CPR-IT-008=Direct Boundary: workbench Test Source→対象契約
+   */
   const topic = (id: string, title: string, relation = "") =>
     `# ${title}\n\n成果物種別: Topic\nTopic ID: \`${id}\`\nProject ID: \`PRJ-REMOTE\`\n状態: \`open\`\n改訂: \`1\`\n維持責任者: \`Project Operator\`\n\n## 1. 現在の論点\n\n### 結論\n\n${title}を扱う。\n${relation}`;
   await mkdir(path.join(devRoot, "22_Topics", "TOPIC-000101"), {
@@ -816,6 +836,26 @@ test("Remote Workbenchは明示RepositoryのTopicをMCP経由で表示・更新�
     "utf8",
   );
   const surface = await readWorkbenchProjectSurface(repositoryRoot);
+  /**
+   * snapshot用の試験入力または観測処理を提供する。
+   *
+   * @responsibility snapshot用の試験入力または観測処理を提供するの検証責務を所有する。
+   * @trace CPR-IT-006
+   * @trace CPR-IT-008
+   * @trace ERB-IT-021
+   * @trace ERP-IT-001
+   * @trace PPR-IT-002
+   * @trace RCM-IT-005
+   * @trace RFD-IT-005
+   * @trace RFD-IT-013
+   * @trace RFD-IT-014
+   * @precondition 対象契約を再現できる固定入力と依存を用意する。
+   * @stimulus snapshotの対象操作を実行する。
+   * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
+   * @boundary CPR-IT-006／CPR-IT-008／ERB-IT-021／ERP-IT-001／PPR-IT-002／RCM-IT-005／RFD-IT-005／RFD-IT-013／RFD-IT-014=Direct Boundary: workbench Test Source→対象契約
+   */
   const snapshot = () => ({
     revision: "workbench-remote-topic-1",
     exposures: [
@@ -954,13 +994,13 @@ test("Remote Workbenchは明示RepositoryのTopicをMCP経由で表示・更新�
  * Remote Topic／Meeting Action全種を対応するMCP Toolへ一意に写像することを検証する。
  *
  * @responsibility 登録、編集、削除、Topic昇格およびMeeting Outcome処置が明示Repository付きの一Tool Callへ閉じることを検証する。
- * @trace ERB-IT-021 CPR-IT-008
+ * @trace ERB-IT-021
  * @precondition 未信頼MCP境界を模したlocalhost Serverを用意する。
  * @stimulus Topic／Meetingの全Remote Action Variantを一回ずつ実行する。
  * @observation MCP Tool名、引数、Authorization HeaderおよびCall件数を観測する。
  * @oracle 各Actionが対応Toolへexactに写像され、同じRepository IDを保持し、自動RetryまたはLocal fallbackを発生させない。
  * @cleanup localhost Serverを閉じ、Listener不存在を確認する。
- * @boundary Workbench Remote Topic／Meeting Adapter→MCP HTTP境界。
+ * @boundary ERB-IT-021=Direct Boundary: workbench Test Source→対象契約
  */
 test("Remote Topic／Meeting全Actionを明示Repository付きMCP Toolへ写像する", async () => {
   const received: Array<{
@@ -1108,13 +1148,12 @@ test("Remote Topic／Meeting全Actionを明示Repository付きMCP Toolへ写像�
  *
  * @responsibility Repository OwnerとCROS Ownerを表示・更新経路で分離する。
  * @trace RFD-IT-013
- * @trace RCM-IT-005
  * @precondition AI Profile管理を持つCROS TransportとAdministrator Credentialを用意する。
  * @stimulus WorkbenchからRemote接続し、新しいCROS Profileを作成する。
  * @observation Owner表示、管理結果およびCROS Catalog revisionを観測する。
  * @oracle CROS configurationとして表示され、Remote Catalogだけが更新される。
  * @cleanup WorkbenchとCROS Transportを閉じる。
- * @boundary RFD-IT-013／RCM-IT-005=Related 2 Blocks: Browser→Workbench→Remote CROS→AI Profile Administration
+ * @boundary RFD-IT-013=Direct Boundary: workbench Test Source→対象契約
  */
 test("WorkbenchはsystemAdmin接続時だけCROS OwnerのAI Profileを管理する", async () => {
   const registry = createMemoryConnectionCredentialRegistry();
@@ -1204,7 +1243,7 @@ test("WorkbenchはsystemAdmin接続時だけCROS OwnerのAI Profileを管理す�
  * @observation HTTP結果、再描画したStaged状態および操作結果を観測する。
  * @oracle 不正TokenはEffect 0で拒否され、正しいTokenでは選択Pathだけが処置される。
  * @cleanup Workbenchを閉じ、Fixtureを再帰削除する。
- * @boundary RFD-IT-014=Related 2 Blocks: Browser Form→Workbench→Version Control Port→Git Adapter
+ * @boundary RFD-IT-014=Direct Boundary: workbench Test Source→対象契約
  */
 test("Token付きRepository操作で選択PathだけをStage・Commit・通常公開する", async () => {
   const testRoot = path.join(repositoryRoot, ".crdd", "tests");
@@ -1363,11 +1402,35 @@ test("Token付きRepository操作で選択PathだけをStage・Commit・通常�
   }
 });
 
+/**
+ * WorkbenchからTopicを登録・表示・編集・削除するを検証する。
+ *
+ * @responsibility WorkbenchからTopicを登録・表示・編集・削除するを検証するの検証責務を所有する。
+ * @trace CPR-IT-008
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus WorkbenchからTopicを登録・表示・編集・削除するの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
+ * @boundary CPR-IT-008=Direct Boundary: workbench Test Source→対象契約
+ */
 test("WorkbenchからTopicを登録・表示・編集・削除する", async () => {
   const testRoot = path.join(repositoryRoot, ".crdd", "tests");
   await mkdir(testRoot, { recursive: true });
   const fixture = await mkdtemp(path.join(testRoot, "workbench-topic-"));
   let handle: Awaited<ReturnType<typeof startWorkbench>> | null = null;
+  /**
+   * topic用の試験入力または観測処理を提供する。
+   *
+   * @responsibility topic用の試験入力または観測処理を提供するの検証責務を所有する。
+   * @trace CPR-IT-008
+   * @precondition 対象契約を再現できる固定入力と依存を用意する。
+   * @stimulus topicの対象操作を実行する。
+   * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
+   * @boundary CPR-IT-008=Direct Boundary: workbench Test Source→対象契約
+   */
   const topic = (revision: number, state = "open") =>
     `# Workbench Topic\n\n成果物種別: Topic\nTopic ID: \`TOPIC-000042\`\nProject ID: \`PRJ-001\`\n状態: \`${state}\`\n改訂: \`${revision}\`\n維持責任者: \`Project Operator\`\n\n## 1. 現在の論点\n\n### 結論\n\nWorkbench CRUDを確認する。\n\n## 3. 関係\n\n| 関係種別 | 対象ID／参照 | このTopicとの関係 |\n|---|---|---|\n| candidate | \`CHG-000010\` | 採用候補 |\n| related | \`TOPIC-999999\` | 欠落Relationの明示 |\n\n## 4. 次の行動\n\n| 行動 | Owner | 期限／再評価契機 | 完了条件 | 状態 |\n|---|---|---|---|---|\n| 確認する | PM | 次回 | 判断する | \`open\` |\n\n## 5. 終了・昇格\n\n| 項目 | 内容 |\n|---|---|\n| 処置 | \`N/A: open／waitingでは未処置\` |\n| 昇格先 | \`N/A: 未昇格\` |\n| 終了理由 | \`N/A: 未終了\` |\n| 残る影響 | \`N/A: 未終了\` |\n`;
   try {
@@ -1516,6 +1579,18 @@ test("WorkbenchからTopicを登録・表示・編集・削除する", async () 
   }
 });
 
+/**
+ * WorkbenchからMeeting Outcomeを処置してCloseするを検証する。
+ *
+ * @responsibility WorkbenchからMeeting Outcomeを処置してCloseするを検証するの検証責務を所有する。
+ * @trace CPR-IT-008
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus WorkbenchからMeeting Outcomeを処置してCloseするの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
+ * @boundary CPR-IT-008=Direct Boundary: workbench Test Source→対象契約
+ */
 test("WorkbenchからMeeting Outcomeを処置してCloseする", async () => {
   const testRoot = path.join(repositoryRoot, ".crdd", "tests");
   await mkdir(testRoot, { recursive: true });
@@ -1620,7 +1695,7 @@ test("WorkbenchからMeeting Outcomeを処置してCloseする", async () => {
  * @observation Application入力とBrowserへ返る四区分の結果を観測する。
  * @oracle 固定ProfileとProject Contextだけが搬送され、外部Textはescapeされ、事実と推論を混同しない。
  * @cleanup Workbench Handleを閉じる。
- * @boundary ERB-IT-021=Direct Boundary: Workbench Browser→AI Request Application Port
+ * @boundary ERB-IT-021=Direct Boundary: workbench Test Source→対象契約
  */
 test("WorkbenchのAI依頼を現在Sessionだけで開始し意味区分を表示する", async () => {
   let received: WorkbenchAiRequestCommand | null = null;
@@ -1919,13 +1994,13 @@ test("WorkbenchのAI依頼を現在Sessionだけで開始し意味区分を表�
  * WorkbenchがProject Runtimeの現在投影を独立した実行状況面へ表示することを検証する。
  *
  * @responsibility Objective／Task、判断待ち、Recoveryおよび次処置を未接続や空状態へ畳まない合否判定を所有する。
- * @trace ERB-IT-021 PPR-IT-002
+ * @trace ERB-IT-021
  * @precondition 決定論的なRuntime Activity Applicationを注入する。
  * @stimulus Workbench Shellを取得する。
  * @observation Runtime Activity Panelの状態、件数、判断および次処置を観測する。
  * @oracle 注入した現在投影だけが表示され、Project ContextからRuntime状態を推測しない。
  * @cleanup Workbench Handleを閉じる。
- * @boundary ERB-IT-021／PPR-IT-002=Related 2 Blocks: Workbench Browser→Runtime Activity Port→Project Runtime Projection
+ * @boundary ERB-IT-021=Direct Boundary: workbench Test Source→対象契約
  */
 test("WorkbenchはProject Runtimeの現在投影を実行状況として表示する", async () => {
   const application: WorkbenchRuntimeActivityApplication = Object.freeze({
@@ -1995,13 +2070,13 @@ test("WorkbenchはProject Runtimeの現在投影を実行状況として表示�
  * Repository Event StoreをProject限定かつ継続読込で表示できることを検証する。
  *
  * @responsibility Canonical Event Store、Project絞込み、新しい順、Cursorおよび重複なしの境界検証を所有する。
- * @trace ERP-IT-001 ERB-IT-021
+ * @trace ERP-IT-001
  * @precondition 隔離Repositoryへ対象Project 2件と別Project 1件のEventを保存する。
  * @stimulus limit 1で最初と次のPageを観測する。
  * @observation Event順序、Continuation、Project Identityおよび二Page間重複を観測する。
  * @oracle 対象Projectだけを新しい順で返し、Cursor後に同じEventを再掲しない。
  * @cleanup 隔離Repositoryを削除する。
- * @boundary ERP-IT-001／ERB-IT-021=Related 2 Blocks: Event Store→Workbench Runtime Activity Adapter
+ * @boundary ERP-IT-001=Direct Boundary: workbench Test Source→対象契約
  */
 test("WorkbenchはRepository EventをProject限定で継続読込する", async () => {
   const testRoot = path.join(repositoryRoot, ".crdd", "tests");
@@ -2014,6 +2089,18 @@ test("WorkbenchはRepository EventをProject限定で継続読込する", async 
     const verified = verifyExecutionIntelligenceRepositoryRoot(fixture);
     assert.equal(verified.status, "completed");
     if (verified.status !== "completed") return;
+    /**
+     * event用の試験入力または観測処理を提供する。
+     *
+     * @responsibility event用の試験入力または観測処理を提供するの検証責務を所有する。
+     * @trace ERP-IT-001
+     * @precondition 対象契約を再現できる固定入力と依存を用意する。
+     * @stimulus eventの対象操作を実行する。
+     * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+     * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+     * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
+     * @boundary ERP-IT-001=Direct Boundary: workbench Test Source→対象契約
+     */
     const event = (projectId: string, taskId: string, occurredAt: string) =>
       createTaskAttemptSettledEvent({
         occurredAt,
@@ -2110,7 +2197,7 @@ test("WorkbenchはRepository EventをProject限定で継続読込する", async 
  * @observation 追加Profile IDとModelをBrowser表示で観測する。
  * @oracle 採用済みPROFILE-300001を表示し、設定だけから実行可能と表示しない。
  * @cleanup Workbench Handleと隔離Repositoryを削除する。
- * @boundary RCM-IT-005=Direct Boundary: Repository Catalog Store→Workbench Surface
+ * @boundary RCM-IT-005=Direct Boundary: workbench Test Source→対象契約
  */
 test("WorkbenchはRepository Ownerの採用済みAI Profile Catalogを表示する", async () => {
   const testRoot = path.join(repositoryRoot, ".crdd", "tests");
@@ -2191,7 +2278,7 @@ test("WorkbenchはRepository Ownerの採用済みAI Profile Catalogを表示す�
  * @observation Browser表示、結果理由、Revisionおよび耐久Snapshotを観測する。
  * @oracle 作成と確認済み削除だけが反映され、未確認削除はEffect 0になる。
  * @cleanup Workbench Handleと隔離Repositoryを削除する。
- * @boundary RCM-IT-005=Direct Boundary: Browser→Workbench→Repository Catalog Store
+ * @boundary RCM-IT-005=Direct Boundary: workbench Test Source→対象契約
  */
 test("Workbenchは登録済みAdapterだけでAI Profileを作成し確認付きで削除する", async () => {
   const testRoot = path.join(repositoryRoot, ".crdd", "tests");

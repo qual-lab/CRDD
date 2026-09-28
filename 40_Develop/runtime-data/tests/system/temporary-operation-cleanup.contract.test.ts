@@ -35,7 +35,7 @@ const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
  * @observation 再開結果と新しいCapabilityを取得する。
  * @oracle 一致する参照だけがcompletedになる。
  * @cleanup 呼出し元Test Caseが再開後のOperationをsettleする。
- * @boundary RDL-ST-002=System/E2E: Tool相当Consumer→公開Runtime Data API
+ * @boundary RDL-ST-002=Direct Boundary: runtime-data Test Source→対象契約
  */
 function resume(
   capability: Parameters<typeof resumeTemporaryOperation>[0],
@@ -54,7 +54,7 @@ function resume(
  * @observation 各Operation Directoryの存在、清掃結果、回復参照および最終不存在を観測する。
  * @oracle 清掃可能な対象だけが直ちに不存在となり、回復対象は別Operationの清掃で削除されず、回復完了後に不存在となる。
  * @cleanup after hookが失敗時にも本Test固有Directoryだけを削除する。
- * @boundary RDL-ST-002=System/E2E: Tool相当Consumer→保持判定→Filesystem cleanup→不存在観測
+ * @boundary RDL-ST-002=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("終了理由ごとに対象だけを清掃し、回復対象は義務解消まで保持する", (t) => {
   const root = verifyRepositoryRoot(repositoryRoot);

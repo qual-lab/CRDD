@@ -54,11 +54,35 @@ const RUNTIME_ACTIVITY_PATH =
   /^\/v1\/projects\/([A-Za-z0-9][A-Za-z0-9._-]{0,127})\/runtime-activity$/u;
 const HEALTH_PATH = "/.well-known/cros-health";
 
+/**
+ * CROS Remote Transportの認証・公開境界で使用するCrosExposureSnapshotの構造を固定する。
+ *
+ * @responsibility CROS Remote Transportの認証・公開境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000005
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
+
 export type CrosExposureSnapshot = Readonly<{
   revision: string;
   exposures: readonly CrosExposure[];
   repositories: readonly CrosRepository[];
 }>;
+
+/**
+ * CROS Remote Transportの認証・公開境界で使用するCrosRemoteTransportHandleの構造を固定する。
+ *
+ * @responsibility CROS Remote Transportの認証・公開境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000005
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
 
 export type CrosRemoteTransportHandle = Readonly<{
   baseUrl: string;
@@ -69,7 +93,9 @@ export type CrosRemoteTransportHandle = Readonly<{
  * Remote Runtime Activityへ公開するEvent要約。
  *
  * @responsibility CROS境界で搬送できる非秘密の実行結果Propertyを固定する。
- * @trace ARCH-000005 ARCH-000007 ARCH-000013
+ * @trace ARCH-000005
+ * @trace ARCH-000007
+ * @trace ARCH-000013
  * @shape Event、Objective、Task、Attempt、時刻、結果および回復要否を表す。
  * @invariant 生Provider入出力、Credential、PathおよびRecovery Authorityを含まない。
  * @boundary Repository Runtime Activity ReaderとRemote Consumerの型境界。
@@ -92,7 +118,9 @@ export type CrosRemoteRuntimeEventProjection = Readonly<{
  * CROSがRemoteへ返すProject Runtime Activity観測。
  *
  * @responsibility 現在状態とEvent観測を独立させ、不完全性とContinuationを同じ結果へ閉じる。
- * @trace ARCH-000005 ARCH-000007 ARCH-000013
+ * @trace ARCH-000005
+ * @trace ARCH-000007
+ * @trace ARCH-000013
  * @shape 現在状態、Event状態、理由、投影、PageおよびContinuationを表す。
  * @invariant observedだけが現在投影を持ち、Event観測不能を空集合の意味へ変換しない。
  * @boundary CROS Runtime Activity Application PortとHTTP Responseの型境界。
@@ -113,7 +141,9 @@ export type CrosRemoteRuntimeActivityObservation = Readonly<{
  * 認証後に呼び出すRuntime Activity Reader。
  *
  * @responsibility Project IDと許可済みRepository集合をRemote公開可能な一観測へ変換する。
- * @trace ARCH-000005 ARCH-000007 ARCH-000013
+ * @trace ARCH-000005
+ * @trace ARCH-000007
+ * @trace ARCH-000013
  * @shape read操作だけを持つ読取り専用Portを表す。
  * @invariant CROSはGrant外RepositoryをReaderへ渡さない。
  * @boundary CROS Request Access ContextとRepository Runtime Adapterの境界。
@@ -386,7 +416,9 @@ export async function startCrosRemoteTransport(input: {
  * Remote Runtime Activity観測の閉じた構造を検証する。
  *
  * @responsibility Application ReaderまたはHTTP Responseの未信頼値を公開契約へ入る前に検証する。
- * @trace ARCH-000005 ARCH-000007 ARCH-000013
+ * @trace ARCH-000005
+ * @trace ARCH-000007
+ * @trace ARCH-000013
  * @input valueに観測候補を受け取る。
  * @returns 契約へ適合する場合trueを返す。
  * @precondition valueを信頼済み型と仮定しない。
@@ -443,7 +475,9 @@ function inspectRemoteRuntimeActivityObservation(
  * Remote Runtime Event要約を検証する。
  *
  * @responsibility Event要約のProperty、Identity、時刻、状態および真偽値を閉じたSchemaで検査する。
- * @trace ARCH-000005 ARCH-000007 ARCH-000013
+ * @trace ARCH-000005
+ * @trace ARCH-000007
+ * @trace ARCH-000013
  * @input valueにEvent要約候補を受け取る。
  * @returns 契約へ適合する場合trueを返す。
  * @precondition valueを信頼済みObjectと仮定しない。
@@ -461,7 +495,7 @@ function inspectRemoteRuntimeEventProjection(
   if (typeof value !== "object" || value === null || Array.isArray(value))
     return false;
   const record = value as Record<string, unknown>;
-  const expected = [
+  const expectedKeys = [
     "eventId",
     "occurredAt",
     "objectiveId",
@@ -473,7 +507,8 @@ function inspectRemoteRuntimeEventProjection(
     "manualRecoveryRequired",
   ].sort();
   return (
-    JSON.stringify(Object.keys(record).sort()) === JSON.stringify(expected) &&
+    JSON.stringify(Object.keys(record).sort()) ===
+      JSON.stringify(expectedKeys) &&
     typeof record.eventId === "string" &&
     /^execution-[0-9a-f]{64}$/u.test(record.eventId) &&
     typeof record.occurredAt === "string" &&
@@ -497,7 +532,8 @@ function inspectRemoteRuntimeEventProjection(
  * Remote管理Requestから閉じたAI Profile Mutationを読取る。
  *
  * @responsibility Body上限、JSON構造、操作別Propertyおよび削除確認をEffect前に検証する。
- * @trace ARCH-000010 ARCH-000013
+ * @trace ARCH-000010
+ * @trace ARCH-000013
  * @input request: 認証済みsystemAdminのHTTP Request。
  * @returns Profile限定管理Applicationへ渡すMutation。
  * @precondition AuthorizationとsystemAdminは呼出し側で確認済みである。
@@ -602,7 +638,9 @@ export async function readRemotePortfolio(
  * Remote CROSから許可済みProject Runtime Activityを取得する。
  *
  * @responsibility Workbench等のConsumerへBearer認証済みの現在状態とEvent Pageだけを返す。
- * @trace ARCH-000005 ARCH-000007 ARCH-000013
+ * @trace ARCH-000005
+ * @trace ARCH-000007
+ * @trace ARCH-000013
  * @input baseUrl、Bearer Token、Project ID、任意Cursor／limit／AbortSignalを受け取る。
  * @returns 検証済みCrosRemoteRuntimeActivityObservationを返す。
  * @precondition 外部HostではHTTPSを使用し、HTTPはloopback URLだけに限定する。
@@ -661,7 +699,8 @@ export async function readRemoteRuntimeActivity(
  * Remote CROSからsystemAdminに許可されたAI Profile Catalogを取得する。
  *
  * @responsibility Remote管理入口の未信頼Responseを閉じたCatalog Snapshotへ変換する。
- * @trace ARCH-000010 ARCH-000013
+ * @trace ARCH-000010
+ * @trace ARCH-000013
  * @input baseUrl、Bearer Tokenおよび任意AbortSignalを受け取る。
  * @returns 検証済みCROS Owner Catalog Snapshotを返す。
  * @precondition 外部HostではHTTPSを使用し、HTTPはloopback URLだけに限定する。
@@ -693,7 +732,8 @@ export async function readRemoteAiProfileCatalog(
  * Remote CROSのsystemAdmin管理境界へ閉じたAI Profile Mutationを送る。
  *
  * @responsibility Workbench等の管理操作をCROS Owner Catalogへ一度だけ搬送する。
- * @trace ARCH-000010 ARCH-000013
+ * @trace ARCH-000010
+ * @trace ARCH-000013
  * @input baseUrl、Bearer Token、Profile限定Mutationおよび任意AbortSignalを受け取る。
  * @returns 検証済み管理結果と現在Snapshotを返す。
  * @precondition MutationはAI Runtimeの閉じた型契約から構築済みである。
@@ -726,6 +766,18 @@ export async function executeRemoteAiProfileMutation(
   });
 }
 
+/**
+ * CROS Remote Transportの認証・公開境界で使用するRemoteAiProfileAdministrationResponseの構造を固定する。
+ *
+ * @responsibility CROS Remote Transportの認証・公開境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000005
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
+
 type RemoteAiProfileAdministrationResponse =
   | Readonly<{
       status: "available";
@@ -741,7 +793,8 @@ type RemoteAiProfileAdministrationResponse =
  * Remote AI Profile管理Responseを共通Transport契約で検証する。
  *
  * @responsibility GETとPOSTの認証、送信およびResponse Schema検証を一箇所へ閉じる。
- * @trace ARCH-000010 ARCH-000013
+ * @trace ARCH-000010
+ * @trace ARCH-000013
  * @input 接続情報、任意Mutationおよび任意AbortSignalを受け取る。
  * @returns availableまたは管理結果の検証済みResponseを返す。
  * @precondition mutation未指定はGET、指定時はPOSTとして扱う。
@@ -834,8 +887,9 @@ async function requestRemoteAiProfileAdministration(
  */
 function requireSafeBaseUrl(baseUrl: string): URL {
   const url = new URL(baseUrl);
-  const loopback = url.hostname === "127.0.0.1" || url.hostname === "localhost";
-  if (url.protocol !== "https:" && !(url.protocol === "http:" && loopback))
+  const isLoopback =
+    url.hostname === "127.0.0.1" || url.hostname === "localhost";
+  if (url.protocol !== "https:" && !(url.protocol === "http:" && isLoopback))
     throw new Error("cros_remote_transport_tls_required");
   url.pathname = url.pathname.endsWith("/") ? url.pathname : `${url.pathname}/`;
   url.search = "";

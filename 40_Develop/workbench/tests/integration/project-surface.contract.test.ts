@@ -3,8 +3,8 @@
  *
  * @packageDocumentation
  * @responsibility Workbenchが共通Project Context Readerを利用し、未構成Capabilityを0件へ畳まないことを検証する。
+ * @trace CPR-IT-008
  * @trace PPR-IT-019
- * @trace RFD-IT-005
  * @level IT
  * @scope workbench、project-context、topic、meeting、read-model
  * @boundary PPR-IT-019=Direct Boundary: Repository→Project Operation Reader→Workbench Project Surface
@@ -31,7 +31,7 @@ const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
  * @observation Identity、場面Key、Topic状態およびMeeting状態を観測する。
  * @oracle 五場面が同じ順序で返り、Topic／Meetingを0件またはavailableへ誤分類しない。
  * @cleanup N/A: 固定FileとMetadataの読取りだけである。
- * @boundary PPR-IT-019=Direct Boundary: Repository→Project Operation Reader→Workbench Project Surface
+ * @boundary PPR-IT-019=Direct Boundary: workbench Test Source→対象契約
  */
 test("共通Project Contextを読み未構成Capabilityを明示する", async () => {
   const surface = await readWorkbenchProjectSurface(repositoryRoot);
@@ -89,7 +89,7 @@ test("共通Project Contextを読み未構成Capabilityを明示する", async (
  * @observation Topic／Meetingの構成状態、Identity、状態およびpending Outcome数を観測する。
  * @oracle 両集合がavailableとなり、正本の値だけが一件ずつ返る。
  * @cleanup Repository-local試験領域をfinallyで再帰削除する。
- * @boundary CPR-IT-008=Direct Boundary: Topic／Meeting Markdown→Project Operation Reader→Workbench
+ * @boundary CPR-IT-008=Direct Boundary: workbench Test Source→対象契約
  */
 test("TopicとMeetingの正本を検証済み一覧へ投影する", async () => {
   const testRoot = path.join(repositoryRoot, ".crdd", "tests");

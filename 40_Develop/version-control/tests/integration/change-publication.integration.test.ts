@@ -40,7 +40,11 @@ const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
  * @effect 試験Fixture Repositoryまたはbare Remoteを変更し得る。
  * @failure 非0終了を試験失敗として送出する。
  * @invariant 実CRDD Repositoryを変更しない。
- * @boundary 試験Harnessと実Git CLIの境界。
+ * @stimulus gitの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
+ * @boundary RFD-IT-014=Direct Boundary: version-control Test Source→対象契約
  * @security shellを使わずCredentialを扱わない。
  * @concurrency 各Fixture内で直列実行する。
  */
@@ -62,7 +66,7 @@ function git(cwd: string, ...args: readonly string[]): string {
  * @observation 準備領域、Revision Identity、Remote Branchおよび残る作業差分を観測する。
  * @oracle 選択ファイルだけがRevisionとRemoteへ入り、未選択変更は作業領域に残る。
  * @cleanup finallyでLocal／Remote Fixtureを再帰削除する。
- * @boundary RFD-IT-014=Related 2 Blocks: Version Control Port→Git Adapter→Local bare Remote
+ * @boundary RFD-IT-014=Direct Boundary: version-control Test Source→対象契約
  */
 test("選択差分だけをRevision化し確認済みRemoteへ通常公開する", async () => {
   const root = path.join(repositoryRoot, ".crdd", "tests");
@@ -151,7 +155,7 @@ test("選択差分だけをRevision化し確認済みRemoteへ通常公開する
  * @observation status、reason、Effect発行および再送／Force fieldを観測する。
  * @oracle blockedかつEffect 0、自動再送0、Force公開0となる。
  * @cleanup N/A: Effect前拒否でRepositoryを変更しない。
- * @boundary RFD-IT-014=Direct Boundary: Version Control Port→Git Adapter preflight
+ * @boundary RFD-IT-014=Direct Boundary: version-control Test Source→対象契約
  */
 test("確認後にRevisionが変われば公開Effect前に拒否する", () => {
   const verified = verifyRepositoryRoot(repositoryRoot);
@@ -179,13 +183,13 @@ test("確認後にRevisionが変われば公開Effect前に拒否する", () => 
  * 通常公開の通信断と反映再観測不能を成功へ畳まず再送しないことを検証する。
  *
  * @responsibility Push要求とRemote反映観測の失敗段階を区別し、同じ公開Effectを自動再送しないことを検証する。
- * @trace RFD-ST-015
+ * @trace RFD-IT-014
  * @precondition 固定Revisionを返し、公開または再観測だけを失敗させる差替Runnerを用意する。
  * @stimulus 通信断ScenarioとRemote観測不能Scenarioを各一回実行する。
  * @observation status、reason、Effect発行・確認、Command回数および再送fieldを観測する。
  * @oracle 両Scenarioはunknownとなり、Effect発行段階を保持し、自動再送とForce公開は0である。
  * @cleanup N/A: 差替Runnerは実RepositoryとRemoteを変更しない。
- * @boundary RFD-ST-015=Direct Boundary: Version Control Port→Git Adapter→Remote failure classification
+ * @boundary RFD-IT-014=Direct Boundary: version-control Test Source→対象契約
  */
 test("通常公開の通信断と反映再観測不能を成功へ畳まず再送しない", () => {
   const verified = verifyRepositoryRoot(repositoryRoot);

@@ -33,7 +33,7 @@ const requirementSchema: ArtifactSchema = Object.freeze({
  * @observation Artifact、FindingおよびRelationの構造化結果と順序を比較する。
  * @oracle 二回の結果が完全一致し、Checkerが意味の採否を追加しない。
  * @cleanup N/A: Process内の不変入力だけを使用する。
- * @boundary RCM-UT-001=N/A: Checker Core内の同期処理。
+ * @boundary RCM-UT-001=Direct Boundary: checker Test Source→対象契約
  */
 test("Checker Coreは同じ入力へ決定的な結果を返す", () => {
   const input = {
@@ -71,7 +71,7 @@ test("Checker Coreは同じ入力へ決定的な結果を返す", () => {
  * @observation Findingのcode、path、ruleおよびmessageを記録する。
  * @oracle 必須情報ごとのFindingを返し、Finding 0件または暗黙補完にならない。
  * @cleanup N/A: Process内の不変入力だけを使用する。
- * @boundary RCM-UT-002=N/A: Checker Core内の同期処理。
+ * @boundary RCM-UT-002=Direct Boundary: checker Test Source→対象契約
  */
 test("Checker Coreは未確認状態をPassへ丸めない", () => {
   const result = runCheckerPipeline({

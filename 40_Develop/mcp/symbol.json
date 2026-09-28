@@ -21,13 +21,12 @@
       "qaIds": [
         "QA-000004",
         "QA-000005",
-        "QA-000006",
         "QA-000007"
       ],
       "localTestIds": [
+        "CPR-IT-008",
         "PPR-IT-002",
-        "RFD-IT-013",
-        "CPR-IT-008"
+        "RFD-IT-013"
       ],
       "verifies": [
         "mcp.source.src.adapters.application.adapter",
@@ -41,8 +40,14 @@
       "symbolId": "mcp.test.integration.cros-shared-server",
       "kind": "test-suite",
       "path": "tests/integration/cros-shared-server.integration.test.ts",
-      "qaIds": ["QA-000004", "QA-000007"],
-      "localTestIds": ["PPR-IT-002", "RFD-IT-013"],
+      "qaIds": [
+        "QA-000004",
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "PPR-IT-002",
+        "RFD-IT-013"
+      ],
       "verifies": [
         "mcp.source.src.composition.cros.project.context.application",
         "mcp.source.src.composition.cros.shared.server",
@@ -87,8 +92,14 @@
       "symbolId": "mcp.test.system.cros-shared-server-entry",
       "kind": "test-suite",
       "path": "tests/system/cros-shared-server-entry.integration.test.ts",
-      "qaIds": ["QA-000004", "QA-000007"],
-      "localTestIds": ["PPR-ST-005", "RFD-ST-004"],
+      "qaIds": [
+        "QA-000004",
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "PPR-ST-005",
+        "RFD-ST-004"
+      ],
       "verifies": [
         "mcp.source.src.composition.cros.shared.server",
         "mcp.source.src.transports.streamable.http.transport"
@@ -128,9 +139,9 @@
       ]
     },
     {
-      "symbolId": "mcp.test.unit.topic-meeting",
+      "symbolId": "mcp.test.integration.topic-meeting",
       "kind": "test-suite",
-      "path": "tests/unit/topic-meeting-adapter.contract.test.ts",
+      "path": "tests/integration/topic-meeting-adapter.contract.test.ts",
       "qaIds": [
         "QA-000005"
       ],
@@ -219,7 +230,11 @@
       "symbolId": "mcp.source.src.composition.cros.shared.server",
       "kind": "file",
       "path": "src/composition/cros-shared-server.ts",
-      "archIds": ["ARCH-000005", "ARCH-000012", "ARCH-000013"]
+      "archIds": [
+        "ARCH-000005",
+        "ARCH-000012",
+        "ARCH-000013"
+      ]
     },
     {
       "symbolId": "mcp.source.src.protocol.project.runtime.protocol",

@@ -26,7 +26,7 @@ import {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-006=N/A: Task判断Capabilityの発行規則は外部実行境界を持たない。
+ * @boundary PRL-UT-006=Direct Boundary: project-runtime Test Source→対象契約
  */
 function unavailable<T>(): ProjectRuntimePortResult<T> {
   return Object.freeze({
@@ -48,7 +48,7 @@ function unavailable<T>(): ProjectRuntimePortResult<T> {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-006=N/A: Task判断Capabilityの発行規則は外部実行境界を持たない。
+ * @boundary PRL-UT-006=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("判断Applicationは秘密値をStoreへ保存せず一回限りCapabilityを発行する", () => {
   let storedHash: string | null = null;

@@ -85,6 +85,18 @@ export type TopicPromotionCommandResult = Readonly<{
   filesystemEffectCount: 0 | 1;
 }>;
 
+/**
+ * Topic／Meetingの検索・更新Application境界で使用するTopicMeetingPageの構造を固定する。
+ *
+ * @responsibility Topic／Meetingの検索・更新Application境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000006
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
+
 export type TopicMeetingPage = Readonly<{
   status: "available" | "not_configured";
   records: readonly ProjectOperationRecord[];
@@ -130,6 +142,18 @@ export type TopicMeetingListQuery = Readonly<{
   pendingOnly?: boolean;
   sort?: "id_asc" | "title_asc" | "state_asc" | "occurred_desc";
 }>;
+
+/**
+ * Topic／Meetingの検索・更新Application境界で使用するTopicMeetingApplicationの構造を固定する。
+ *
+ * @responsibility Topic／Meetingの検索・更新Application境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000006
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
 
 export type TopicMeetingApplication = Readonly<{
   list(input: {
@@ -186,6 +210,23 @@ export type TopicMeetingApplication = Readonly<{
     closeMeeting: boolean;
   }): MeetingOutcomeCommandResult;
 }>;
+
+/**
+ * Topic／Meetingの検索・更新Application境界におけるidentityの処理境界を固定する。
+ *
+ * @responsibility Topic／Meetingの検索・更新Application境界に必要な入力処理、失敗分類および結果生成を所有する。
+ * @trace ARCH-000006
+ * @input 宣言された引数だけを受け取る。
+ * @returns 宣言された結果型を返す。
+ * @precondition 呼出し元が型、IdentityおよびAuthorityの契約を満たす。
+ * @postcondition 成功時だけ検証済みの結果を返す。
+ * @effect 宣言または注入された依存以外へEffectを発行しない。
+ * @failure 不正入力、依存失敗または観測不能を成功へ畳まない。
+ * @invariant 入力のIdentity、AuthorityおよびScopeを暗黙に拡張しない。
+ * @boundary 呼出し元と本Moduleの局所責務境界。
+ * @security 秘密値と未許可情報を出力またはlogへ追加しない。
+ * @concurrency 共有状態は宣言された所有者とlifecycleに従う。
+ */
 
 function identity(record: ProjectOperationRecord): string {
   return "topicId" in record ? record.topicId : record.meetingId;
@@ -250,11 +291,11 @@ function normalizeQuery(
   )
     throw new Error("project_operation_list_query_invalid");
   const sort = query?.sort ?? (kind === "meeting" ? "occurred_desc" : "id_asc");
-  const allowedSort =
+  const allowedSorts =
     kind === "topic"
       ? ["id_asc", "title_asc", "state_asc"]
       : ["id_asc", "title_asc", "state_asc", "occurred_desc"];
-  if (!allowedSort.includes(sort))
+  if (!allowedSorts.includes(sort))
     throw new Error("project_operation_list_query_invalid");
   return Object.freeze({
     ...(text ? { query: text } : {}),
@@ -352,6 +393,18 @@ function sortKey(record: ProjectOperationRecord, sort: string): string {
     return record.occurredAt;
   return identity(record);
 }
+
+/**
+ * Topic／Meetingの検索・更新Application境界で使用するCollectionCursorの構造を固定する。
+ *
+ * @responsibility Topic／Meetingの検索・更新Application境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000006
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
 
 type CollectionCursor = readonly [string, string, string, string];
 
@@ -477,7 +530,7 @@ export function createTopicMeetingApplication(
       const sort = normalized.sort ?? "id_asc";
       const signature = JSON.stringify(normalized);
       const result = repository.list(kind);
-      const filtered = result.records
+      const filteredRecords = result.records
         .filter((record) => {
           const document = repository.getDocument(kind, identity(record));
           return (
@@ -493,17 +546,19 @@ export function createTopicMeetingApplication(
             keyOrder || identity(left).localeCompare(identity(right));
           return sort === "occurred_desc" ? -stable : stable;
         });
-      let remaining = filtered;
+      let remainingRecords = filteredRecords;
       if (cursor !== undefined) {
         const legacy = new RegExp(
           `^${kind === "topic" ? "TOPIC" : "MTG"}-\\d{6}$`,
           "u",
         );
         if (legacy.test(cursor) && query === undefined) {
-          remaining = filtered.filter((record) => identity(record) > cursor);
+          remainingRecords = filteredRecords.filter(
+            (record) => identity(record) > cursor,
+          );
         } else {
           const decoded = decodeCursor(cursor, sort, signature);
-          remaining = filtered.filter((record) => {
+          remainingRecords = filteredRecords.filter((record) => {
             const keyOrder = sortKey(record, sort).localeCompare(decoded[1]);
             const stable =
               keyOrder || identity(record).localeCompare(decoded[2]);
@@ -511,12 +566,12 @@ export function createTopicMeetingApplication(
           });
         }
       }
-      const records = Object.freeze(remaining.slice(0, limit));
+      const records = Object.freeze(remainingRecords.slice(0, limit));
       return Object.freeze({
         status: result.status,
         records,
         nextCursor:
-          remaining.length > records.length && records.length > 0
+          remainingRecords.length > records.length && records.length > 0
             ? query === undefined && sort === "id_asc"
               ? identity(records.at(-1) as ProjectOperationRecord)
               : encodeCursor(
@@ -547,11 +602,13 @@ export function createTopicMeetingApplication(
             : relationId.startsWith("MTG-")
               ? ("meeting" as const)
               : ("change" as const);
-          const available = hasRelationTarget(relationKind, relationId);
+          const isAvailable = hasRelationTarget(relationKind, relationId);
           return Object.freeze({
             id: relationId,
             kind: relationKind,
-            state: available ? ("available" as const) : ("not_found" as const),
+            state: isAvailable
+              ? ("available" as const)
+              : ("not_found" as const),
           });
         }),
       );
@@ -620,7 +677,7 @@ export function createTopicMeetingApplication(
       if (current.record.revision !== input.expectedRevision)
         return blocked("record_revision_conflict");
 
-      const allowedTarget =
+      const isTargetAllowed =
         (input.disposition === "completed" ||
           input.disposition === "rejected") &&
         input.target.kind === "none"
@@ -630,7 +687,7 @@ export function createTopicMeetingApplication(
             ? true
             : input.disposition === "promoted" &&
               ["change", "owner"].includes(input.target.kind);
-      if (!allowedTarget) return blocked("meeting_outcome_target_invalid");
+      if (!isTargetAllowed) return blocked("meeting_outcome_target_invalid");
       if (input.target.kind === "topic") {
         const target = repository.get("topic", input.target.reference);
         if (target === null) return blocked("meeting_outcome_target_not_found");

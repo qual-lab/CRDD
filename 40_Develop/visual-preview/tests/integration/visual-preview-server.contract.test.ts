@@ -32,7 +32,7 @@ const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
  * @observation 作成したRepository相対Rootと清掃操作を返す。
  * @oracle 呼出し側が配信・拒否・清掃条件を判定できる。
  * @cleanup 返却したcleanupがFixture全体を削除する。
- * @boundary ERB-IT-018=Direct Boundary: Repository内Visual Root→localhost HTTP Listener→Browser相当Consumer
+ * @boundary ERB-IT-018=Direct Boundary: visual-preview Test Source→対象契約
  */
 function createFixture(): Readonly<{
   relativeRoot: string;
@@ -70,7 +70,7 @@ function createFixture(): Readonly<{
  * @observation Status、Headerおよび本文を取得する。
  * @oracle 呼出し側が許可・拒否と情報非開示を判定できる。
  * @cleanup Request SocketはResponse完了時に閉じる。
- * @boundary ERB-IT-018=Direct Boundary: Repository内Visual Root→localhost HTTP Listener→Browser相当Consumer
+ * @boundary ERB-IT-018=Direct Boundary: visual-preview Test Source→対象契約
  */
 async function requestRaw(
   baseUrl: string,
@@ -121,7 +121,7 @@ async function requestRaw(
  * @observation Status、Content、Content-Type、Security HeaderおよびHealth結果を観測する。
  * @oracle GETは内容を返し、HEADは本文0、HealthはPathを含まないready結果を返す。
  * @cleanup Handleを閉じ、Fixtureを削除する。
- * @boundary ERB-IT-018=Direct Boundary: Repository内Visual Root→localhost HTTP Listener→Browser相当Consumer
+ * @boundary ERB-IT-018=Direct Boundary: visual-preview Test Source→対象契約
  */
 test("通常FileだけをGET／HEADで配信し共通Security Headerを返す", async () => {
   const fixture = createFixture();
@@ -171,7 +171,7 @@ test("通常FileだけをGET／HEADで配信し共通Security Headerを返す", 
  * @observation Status、Allow Header、公開本文および終了後Connection失敗を観測する。
  * @oracle 禁止Pathは404、POSTは405、close後は新しいConnectionを受理しない。
  * @cleanup Handleを冪等に閉じ、Fixtureを削除する。
- * @boundary ERB-IT-018=Direct Boundary: Repository内Visual Root→localhost HTTP Listener→Browser相当Consumer
+ * @boundary ERB-IT-018=Direct Boundary: visual-preview Test Source→対象契約
  */
 test("越境・Link・Directory・書込みMethodを拒否して終了後Listenerを残さない", async () => {
   const fixture = createFixture();
@@ -213,7 +213,7 @@ test("越境・Link・Directory・書込みMethodを拒否して終了後Listene
  * @observation startVisualPreviewの拒否理由を観測する。
  * @oracle すべてListener Handleを返さずErrorになる。
  * @cleanup Fixtureを削除する。
- * @boundary ERB-IT-018=Direct Boundary: Repository内Visual Root→localhost HTTP Listener→Browser相当Consumer
+ * @boundary ERB-IT-018=Direct Boundary: visual-preview Test Source→対象契約
  */
 test("Repository外・Absolute・Link RootをListener開始前に拒否する", async () => {
   const fixture = createFixture();

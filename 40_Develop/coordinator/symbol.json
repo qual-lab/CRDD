@@ -162,12 +162,10 @@
       "kind": "test-suite",
       "path": "tests/integration/cli-options.contract.test.ts",
       "qaIds": [
-        "QA-000003",
-        "QA-000005"
+        "QA-000003"
       ],
       "localTestIds": [
-        "PRL-IT-012",
-        "CPR-IT-006"
+        "PRL-IT-012"
       ],
       "verifies": [
         "coordinator.source.src.core.cli.options",
@@ -1160,7 +1158,9 @@
       "qaIds": [
         "QA-000006"
       ],
-      "localTestIds": ["ERB-ST-011"],
+      "localTestIds": [
+        "ERB-ST-011"
+      ],
       "verifies": [
         "coordinator.source.src.security.docker.restart.continuation.record",
         "coordinator.source.src.security.docker.restart.handoff.record",
@@ -2257,8 +2257,7 @@
         "QA-000006"
       ],
       "localTestIds": [
-        "ERB-UT-023",
-        "ERB-IT-004"
+        "ERB-UT-023"
       ],
       "verifies": [
         "coordinator.source.src.security.workbench.ai.advice.execution.plan"
@@ -2272,8 +2271,7 @@
         "QA-000006"
       ],
       "localTestIds": [
-        "ERB-UT-023",
-        "ERB-IT-004"
+        "ERB-UT-023"
       ],
       "verifies": [
         "coordinator.source.src.security.workbench.ai.advice.provider.command"
@@ -2287,8 +2285,7 @@
         "QA-000006"
       ],
       "localTestIds": [
-        "ERB-UT-023",
-        "ERB-IT-004"
+        "ERB-UT-023"
       ],
       "verifies": [
         "coordinator.source.src.security.workbench.ai.advice.provider.output"
@@ -2302,8 +2299,7 @@
         "QA-000006"
       ],
       "localTestIds": [
-        "ERB-UT-023",
-        "ERB-IT-004"
+        "ERB-UT-023"
       ],
       "verifies": [
         "coordinator.source.src.security.workbench.ai.advice.provider.executor",
@@ -2318,8 +2314,7 @@
         "QA-000006"
       ],
       "localTestIds": [
-        "ERB-UT-023",
-        "ERB-IT-004"
+        "ERB-UT-023"
       ],
       "verifies": [
         "coordinator.source.src.security.workbench.ai.advice.production.runtime",
@@ -2334,8 +2329,7 @@
         "QA-000006"
       ],
       "localTestIds": [
-        "ERB-UT-023",
-        "ERB-IT-004"
+        "ERB-UT-023"
       ],
       "verifies": [
         "coordinator.source.src.security.workbench.ai.advice.runtime.packet"
@@ -2349,8 +2343,7 @@
         "QA-000006"
       ],
       "localTestIds": [
-        "ERB-UT-023",
-        "ERB-IT-004"
+        "ERB-UT-023"
       ],
       "verifies": [
         "coordinator.source.src.security.workbench.ai.change.candidate.runtime"

@@ -34,7 +34,7 @@ const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
  * @observation Identity、場面順、先行要約、列名および行を観測する。
  * @oracle 三Identityと五場面を取得し、Link URLや独自Identityを結果へ追加しない。
  * @cleanup N/A: 読取りだけであり資源を保持しない。
- * @boundary PPR-IT-019=Direct Boundary: PROJECT_CONTEXT.md→Project Operation Reader→Consumer Read Model
+ * @boundary PPR-IT-019=Direct Boundary: project-operation Test Source→対象契約
  */
 test("現行Project Contextを五場面のRead Modelへ変換する", async () => {
   const markdown = await readFile(
@@ -74,7 +74,7 @@ test("現行Project Contextを五場面のRead Modelへ変換する", async () =
  * @observation Error reasonを観測する。
  * @oracle 五場面を推測生成せずproject_context_scene_invalidで拒否する。
  * @cleanup N/A: 読取りだけであり資源を保持しない。
- * @boundary PPR-IT-019=Direct Boundary: PROJECT_CONTEXT.md→Project Operation Reader→Consumer Read Model
+ * @boundary PPR-IT-019=Direct Boundary: project-operation Test Source→対象契約
  */
 test("五場面が欠けたProject Contextを推測補完しない", () => {
   assert.throws(
@@ -105,7 +105,7 @@ Repository Role: \`development\`
  * @observation Baseline、対象Version、期限、Risk、Scope、依存および判断を観測する。
  * @oracle v0.21.0からv0.22.0への現在計画を取得し、正本URLや推測値を追加しない。
  * @cleanup N/A: 読取りだけであり資源を保持しない。
- * @boundary PPR-IT-019=Direct Boundary: Release Projection Markdown→Project Operation Reader→Consumer Read Model
+ * @boundary PPR-IT-019=Direct Boundary: project-operation Test Source→対象契約
  */
 test("現行Release ProjectionをProject Plan Read Modelへ変換する", async () => {
   const markdown = await readFile(
@@ -149,7 +149,7 @@ test("現行Release ProjectionをProject Plan Read Modelへ変換する", async 
  * @observation Error reasonを観測する。
  * @oracle Riskを推測せずrelease_projection_value_missingで拒否する。
  * @cleanup N/A: 読取りだけであり資源を保持しない。
- * @boundary PPR-IT-019=Direct Boundary: Release Projection Markdown→Project Operation Reader→Consumer Read Model
+ * @boundary PPR-IT-019=Direct Boundary: project-operation Test Source→対象契約
  */
 test("必須項目が欠けたRelease Projectionを推測補完しない", () => {
   assert.throws(
@@ -183,6 +183,18 @@ test("必須項目が欠けたRelease Projectionを推測補完しない", () =>
 });
 
 /** Current Quality Projectionを現在品質のRead Modelへ変換する。 */
+/**
+ * 現行Quality CenterをCurrent Quality Read Modelへ変換するを検証する。
+ *
+ * @responsibility 現行Quality CenterをCurrent Quality Read Modelへ変換するを検証するの検証責務を所有する。
+ * @trace PPR-IT-019
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus 現行Quality CenterをCurrent Quality Read Modelへ変換するの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary PPR-IT-019=Direct Boundary: project-operation Test Source→対象契約
+ */
 test("現行Quality CenterをCurrent Quality Read Modelへ変換する", async () => {
   const markdown = await readFile(
     path.join(repositoryRoot, "07_Quality", "01_Quality_Center.md"),

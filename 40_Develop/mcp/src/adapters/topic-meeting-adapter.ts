@@ -1,4 +1,7 @@
-/** Topic／Meeting共通ApplicationをMCP Tool Callへ接続する。 */
+/** Topic／Meeting共通ApplicationをMCP Tool Callへ接続する。
+ * @responsibility Topic／Meeting MCP Adapter境界の公開Protocolと検証境界を所有する。
+ * @trace ARCH-000005
+ */
 import { types as utilTypes } from "node:util";
 
 import type { TopicMeetingApplication } from "../../../project-operation/src/index.ts";
@@ -30,7 +33,8 @@ import {
  * Repository Identityから許可済みTopic／Meeting Applicationを解決するPort。
  *
  * @responsibility Remote Requestの明示Targetを現在SessionのContent AccessとRepository Bindingへ接続する。
- * @trace ARCH-000005 ARCH-000013
+ * @trace ARCH-000005
+ * @trace ARCH-000013
  * @shape repositoryIdを受け、許可済みApplicationまたは非開示拒否のnullを返す。
  * @invariant ID提示だけでApplicationを返さない。
  * @boundary MCP Topic／Meeting AdapterとCROS Repository Resolverの境界。
@@ -45,7 +49,8 @@ export type TopicMeetingApplicationResolver = (
  * CROS Tool Callの明示Repositoryを解決し、Repository単体契約へ縮約する。
  *
  * @responsibility repositoryIdをApplication Resolverへ一回渡し、許可済みCallだけからTarget Keyを除いて共通Adapterへ渡す。
- * @trace ARCH-000005 ARCH-000013
+ * @trace ARCH-000005
+ * @trace ARCH-000013
  * @input rawRequest: Remote MCP要求、resolveApplication: Request固定Resolver、signal: 取消Signal。
  * @returns 共通Topic／Meeting Adapterの応答、または非開示Protocol Error。
  * @precondition Resolverは現在Credential、Workspace、ExposureおよびRepository Revisionを同じSnapshotで検証する。
@@ -78,7 +83,7 @@ export async function handleMcpRoutedTopicMeetingRequest(
   const application = resolveApplication(args.repositoryId);
   if (application === null)
     return protocolError(request.id, -32602, "Invalid params");
-  const { repositoryId: _repositoryId, ...localArguments } = args;
+  const { repositoryId: ignoredRepositoryId, ...localArguments } = args;
   return handleMcpTopicMeetingRequest(
     Object.freeze({
       jsonrpc: "2.0",
@@ -94,6 +99,23 @@ export async function handleMcpRoutedTopicMeetingRequest(
   );
 }
 
+/**
+ * Topic／Meeting MCP Adapter境界におけるplainの処理境界を固定する。
+ *
+ * @responsibility Topic／Meeting MCP Adapter境界に必要な入力処理、失敗分類および結果生成を所有する。
+ * @trace ARCH-000005
+ * @input 宣言された引数だけを受け取る。
+ * @returns 宣言された結果型を返す。
+ * @precondition 呼出し元が型、IdentityおよびAuthorityの契約を満たす。
+ * @postcondition 成功時だけ検証済みの結果を返す。
+ * @effect 宣言または注入された依存以外へEffectを発行しない。
+ * @failure 不正入力、依存失敗または観測不能を成功へ畳まない。
+ * @invariant 入力のIdentity、AuthorityおよびScopeを暗黙に拡張しない。
+ * @boundary 呼出し元と本Moduleの局所責務境界。
+ * @security 秘密値と未許可情報を出力またはlogへ追加しない。
+ * @concurrency 共有状態は宣言された所有者とlifecycleに従う。
+ */
+
 function plain(value: unknown): value is Record<string, unknown> {
   return Boolean(
     value &&
@@ -107,19 +129,51 @@ function plain(value: unknown): value is Record<string, unknown> {
   );
 }
 
+/**
+ * Topic／Meeting MCP Adapter境界におけるexactKeysの処理境界を固定する。
+ *
+ * @responsibility Topic／Meeting MCP Adapter境界に必要な入力処理、失敗分類および結果生成を所有する。
+ * @trace ARCH-000005
+ * @input 宣言された引数だけを受け取る。
+ * @returns 宣言された結果型を返す。
+ * @precondition 呼出し元が型、IdentityおよびAuthorityの契約を満たす。
+ * @postcondition 成功時だけ検証済みの結果を返す。
+ * @effect 宣言または注入された依存以外へEffectを発行しない。
+ * @failure 不正入力、依存失敗または観測不能を成功へ畳まない。
+ * @invariant 入力のIdentity、AuthorityおよびScopeを暗黙に拡張しない。
+ * @boundary 呼出し元と本Moduleの局所責務境界。
+ * @security 秘密値と未許可情報を出力またはlogへ追加しない。
+ * @concurrency 共有状態は宣言された所有者とlifecycleに従う。
+ */
+
 function exactKeys(
   value: Record<string, unknown>,
-  required: readonly string[],
-  optional: readonly string[] = [],
+  requiredKeys: readonly string[],
+  optionalKeys: readonly string[] = [],
 ) {
-  const allowed = new Set([...required, ...optional]);
+  const allowed = new Set([...requiredKeys, ...optionalKeys]);
   return (
-    required.every((key) => Object.hasOwn(value, key)) &&
+    requiredKeys.every((key) => Object.hasOwn(value, key)) &&
     Object.keys(value).every((key) => allowed.has(key))
   );
 }
 
-/** Topic／Meeting Tool Callを検証し、共通Applicationへ一回だけ渡す。 */
+/**
+ * Topic／Meeting Tool Callを検証し、共通Applicationへ一回だけ渡す。
+ *
+ * @responsibility MCP Envelope、Tool名、引数Schemaおよび取消を検証して対応Application操作へ限定配送する。
+ * @trace ARCH-000005
+ * @input rawRequest: 未信頼MCP要求、application: 許可済みApplication、signal: 取消Signal。
+ * @returns MCP Protocolの完了またはError応答。
+ * @precondition applicationは現在RepositoryまたはRequest固定Resolverから解決済みである。
+ * @postcondition 一つのTool Callを高々一つのApplication操作へ渡す。
+ * @effect Create、Update、Delete、Promote、Outcome処置だけが対応Toolで発行され得る。
+ * @failure Envelope、Tool名、引数、取消またはApplication失敗をProtocol Errorへ閉じる。
+ * @invariant Tool間Fallbackと暗黙Repository選択を行わない。
+ * @boundary MCP Tool CallとProject Operation Applicationの境界。
+ * @security 追加Property、未許可Targetおよび未検証Markdownを受理しない。
+ * @concurrency 一CallのsignalとApplication Promiseを同じLifecycleで扱う。
+ */
 export async function handleMcpTopicMeetingRequest(
   rawRequest: unknown,
   application: TopicMeetingApplication,

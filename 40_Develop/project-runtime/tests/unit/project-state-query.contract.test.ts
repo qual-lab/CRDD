@@ -37,7 +37,7 @@ const request = Object.freeze({
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=Direct Boundary: project-runtime Test Source→対象契約
  */
 function runtimeState(): ProjectRuntimeState {
   const created = createProjectRuntimeState({
@@ -73,7 +73,7 @@ function runtimeState(): ProjectRuntimeState {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=Direct Boundary: project-runtime Test Source→対象契約
  */
 function reader(
   result: ReturnType<ProjectRuntimeStatePort["readState"]>,
@@ -91,7 +91,7 @@ function reader(
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("状態参照は閉じた要求だけを受け入れる", () => {
   assert.deepEqual(inspectProjectRuntimeStateQuery(request), request);
@@ -111,7 +111,7 @@ test("状態参照は閉じた要求だけを受け入れる", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("状態参照はProject Runtimeのcanonical投影だけを返す", () => {
   const result = queryProjectRuntimeState(
@@ -135,7 +135,7 @@ test("状態参照はProject Runtimeのcanonical投影だけを返す", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("状態不存在は失敗や成功推定ではなくabsent観測として返す", () => {
   const result = queryProjectRuntimeState(
@@ -157,7 +157,7 @@ test("状態不存在は失敗や成功推定ではなくabsent観測として�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("異なるRepository改訂版の状態を現在値として返さない", () => {
   const result = queryProjectRuntimeState(
@@ -184,7 +184,7 @@ test("異なるRepository改訂版の状態を現在値として返さない", (
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("観測不能と既存Recovery義務をEffect発行と混同しない", () => {
   const result = queryProjectRuntimeState(

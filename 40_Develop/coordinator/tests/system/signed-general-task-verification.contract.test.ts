@@ -3,10 +3,10 @@
  *
  * @packageDocumentation
  * @responsibility coordinator:system:signed-general-task-verificationが所有する検証責務を実行する。
- * @trace EST-ST-003
  * @trace ERB-ST-005
- * @trace PRL-ST-003
+ * @trace EST-ST-003
  * @trace PRL-ST-001
+ * @trace PRL-ST-003
  * @trace PRL-ST-004
  * @level ST
  * @scope signed、general、task、verification
@@ -76,7 +76,7 @@ const NONLITERAL_DYNAMIC_IMPORT = "<nonliteral-dynamic-import>";
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ * @boundary EST-ST-003=Direct Boundary: coordinator Test Source→対象契約
  */
 function importedModuleSpecifiers(source: string) {
   const scanner = createScanner(true, undefined, source);
@@ -143,7 +143,7 @@ function importedModuleSpecifiers(source: string) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ * @boundary EST-ST-003=Direct Boundary: coordinator Test Source→対象契約
  */
 function resolvesToForbiddenWindowsAsciiModule(
   importerPath: string,
@@ -171,7 +171,7 @@ function resolvesToForbiddenWindowsAsciiModule(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ * @boundary EST-ST-003=Direct Boundary: coordinator Test Source→対象契約
  */
 function release(overrides: Record<string, unknown> = {}) {
   return Object.freeze({
@@ -204,7 +204,7 @@ function release(overrides: Record<string, unknown> = {}) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ * @boundary EST-ST-003=Direct Boundary: coordinator Test Source→対象契約
  */
 function taskResult(overrides: Record<string, unknown> = {}) {
   return Object.freeze({
@@ -254,7 +254,7 @@ function taskResult(overrides: Record<string, unknown> = {}) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ * @boundary EST-ST-003=Direct Boundary: coordinator Test Source→対象契約
  */
 function candidate(content = EXPECTED_CONTENT) {
   const bytes = Buffer.from(content, "utf8");
@@ -293,7 +293,7 @@ function candidate(content = EXPECTED_CONTENT) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ * @boundary EST-ST-003=Direct Boundary: coordinator Test Source→対象契約
  */
 function dependencies(
   options: {
@@ -442,7 +442,7 @@ function dependencies(
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("固定公開Taskをprocess内で構成しShell搬送を契約から除外する", () => {
   const verificationFixture = fs.readFileSync(
@@ -607,7 +607,7 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("CLIは余分argvを単一JSONとexit 2でEffect前に拒否する", () => {
   const script = path.join(
@@ -642,7 +642,7 @@ test("CLIは余分argvを単一JSONとexit 2でEffect前に拒否する", () => 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("CLIのRoute grammarは引数なしと三つのexact profileだけを許可する", () => {
   const script = path.join(
@@ -685,7 +685,7 @@ test("CLIのRoute grammarは引数なしと三つのexact profileだけを許可
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ * @boundary EST-ST-003=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Node GateとPackage GateはTask前に拒否しavailability-only Console Effectを持たない", async () => {
   for (const fixture of [
@@ -713,7 +713,7 @@ test("Node GateとPackage GateはTask前に拒否しavailability-only Console Ef
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ * @boundary EST-ST-003=Direct Boundary: coordinator Test Source→対象契約
  */
 test("初回同意のConsole不成立はTask所有Gateの結果としてFail Closedに伝播する", async () => {
   const fixture = dependencies({
@@ -746,7 +746,7 @@ test("初回同意のConsole不成立はTask所有Gateの結果としてFail Clo
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("署名Release不成立時はTaskを開始しない", async () => {
   const fixture = dependencies({
@@ -777,7 +777,7 @@ test("署名Release不成立時はTaskを開始しない", async () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("SHA-256 CRDD Release Identityはv1能力外としてTask Effect前に明示拒否する", async () => {
   const fixture = dependencies({
@@ -813,7 +813,7 @@ test("SHA-256 CRDD Release Identityはv1能力外としてTask Effect前に明�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("固定基準byteのCRLF変換・欠落・読取失敗はProvider Effect前に停止する", async () => {
   for (const baseContent of [
@@ -856,7 +856,7 @@ test("固定基準byteのCRLF変換・欠落・読取失敗はProvider Effect前
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Claude実装、Codex独立Review、exact Candidate、discardを一つのPassへ結合する", async () => {
   const fixture = dependencies();
@@ -898,7 +898,7 @@ test("Claude実装、Codex独立Review、exact Candidate、discardを一つのPa
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("署名配布Sourceと作業対象Execution Revisionを分離し候補を後者へ結合する", async () => {
   const fixture = dependencies({
@@ -930,7 +930,7 @@ test("署名配布Sourceと作業対象Execution Revisionを分離し候補を�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("候補が作業対象Revisionでなく署名配布Sourceをbaseにした場合は破棄して拒否する", async () => {
   const fixture = dependencies({
@@ -969,7 +969,7 @@ test("候補が作業対象Revisionでなく署名配布Sourceをbaseにした�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("実行中にCanonical RepositoryのCommitが変化した場合は候補破棄後に拒否する", async () => {
   const fixture = dependencies({
@@ -1018,7 +1018,7 @@ test("実行中にCanonical RepositoryのCommitが変化した場合は候補破
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Task後の作業対象Revision観測不能は候補回収後も状態不明を保持する", async () => {
   const fixture = dependencies({
@@ -1060,7 +1060,7 @@ test("Task後の作業対象Revision観測不能は候補回収後も状態不�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("安全なTask拒否より作業対象Revision変化を優先して再試行可能にしない", async () => {
   const fixture = dependencies({
@@ -1110,7 +1110,7 @@ test("安全なTask拒否より作業対象Revision変化を優先して再試�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("候補破棄失敗と作業対象Revision観測不能を別軸で保持する", async () => {
   const fixture = dependencies({
@@ -1148,7 +1148,7 @@ test("候補破棄失敗と作業対象Revision観測不能を別軸で保持す
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("実行Repository RevisionをTask前に観測できなければProvider Effectを発行しない", async () => {
   const fixture = dependencies({
@@ -1178,7 +1178,7 @@ test("実行Repository RevisionをTask前に観測できなければProvider Eff
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("一回是正後の同じ独立Reviewer承認もexact Candidate成功として保持する", async () => {
   const fixture = dependencies({
@@ -1206,7 +1206,7 @@ test("一回是正後の同じ独立Reviewer承認もexact Candidate成功とし
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("安全な業務拒否は空Recoveryを曖昧化せず再実行可否を判定可能にする", async () => {
   const fixture = dependencies({
@@ -1280,7 +1280,7 @@ test("安全な業務拒否は空Recoveryを曖昧化せず再実行可否を判
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Reviewer投影の既知byte差をProvider本文なしで固定分類する", async () => {
   const missingLf = EXPECTED_CONTENT.trimEnd();
@@ -1328,7 +1328,7 @@ test("Reviewer投影の既知byte差をProvider本文なしで固定分類する
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Candidate整合性不成立はReviewer拒否へ畳まずSigned結果へ伝播する", async () => {
   const fixture = dependencies({
@@ -1361,7 +1361,7 @@ test("Candidate整合性不成立はReviewer拒否へ畳まずSigned結果へ伝
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("exact Candidate破棄後の内容不一致は候補Recoveryを残存扱いしない", async () => {
   const fixture = dependencies({ candidate: candidate("different\n") });
@@ -1400,7 +1400,7 @@ test("exact Candidate破棄後の内容不一致は候補Recoveryを残存扱い
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("公開fixtureの改行・終端・未置換差はbyteを出さず固定分類する", async () => {
   for (const [content, expectedMismatch] of [
@@ -1438,7 +1438,7 @@ test("公開fixtureの改行・終端・未置換差はbyteを出さず固定分
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Reviewer承認済みでもRunnerがbyte長・digestの不一致を独立拒否する", async () => {
   for (const [field, value, expectedMismatch] of [
@@ -1478,7 +1478,7 @@ test("Reviewer承認済みでもRunnerがbyte長・digestの不一致を独立�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("変更Pathの最終Authorityは複製Resultでなくexact Candidate Bundleに固定する", async () => {
   const fixture = dependencies({
@@ -1516,7 +1516,7 @@ test("変更Pathの最終Authorityは複製Resultでなくexact Candidate Bundle
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-ST-005=System/E2E: 公開入口→外部Runtime→結果・終了後診断
+ * @boundary ERB-ST-005=Direct Boundary: coordinator Test Source→対象契約
  */
 test("正常候補の契約差はProvider本文を出さず固定field名だけで診断する", async () => {
   const fixture = dependencies({
@@ -1554,7 +1554,7 @@ test("正常候補の契約差はProvider本文を出さず固定field名だけ�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("是正履歴の欠落または型差を成功へ昇格しない", async () => {
   for (const remediationPerformed of [undefined, null, "true", 1]) {
@@ -1581,7 +1581,7 @@ test("是正履歴の欠落または型差を成功へ昇格しない", async ()
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Claude Front、Codex実装、Claude独立Reviewを同じ署名Runner契約へ結合する", async () => {
   const fixture = dependencies({
@@ -1635,7 +1635,7 @@ test("Claude Front、Codex実装、Claude独立Reviewを同じ署名Runner契約
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("明示Codex制約の検証はCodex Executorと独立Claude Reviewへ固定する", async () => {
   const fixture = dependencies({
@@ -1672,7 +1672,7 @@ test("明示Codex制約の検証はCodex Executorと独立Claude Reviewへ固定
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("明示Claude制約の検証はClaude Executorと独立Codex Reviewへ固定する", async () => {
   const fixture = dependencies({
@@ -1709,7 +1709,7 @@ test("明示Claude制約の検証はClaude Executorと独立Codex Reviewへ固�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("関数境界も未知Route ProfileをEffect前に拒否する", async () => {
   const fixture = dependencies();
@@ -1737,7 +1737,7 @@ test("関数境界も未知Route ProfileをEffect前に拒否する", async () =
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-004=System/E2E: 公開入口→Runtime→耐久Store→回復再入場
+ * @boundary PRL-ST-004=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Route、cleanup、RecoveryまたはCandidate byte差をFail Closedにする", async () => {
   const cases = [
@@ -1790,7 +1790,7 @@ test("Route、cleanup、RecoveryまたはCandidate byte差をFail Closedにす�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("ReleaseとCandidate RevisionのIdentity欠落・差を拒否しCandidateをdiscardする", async () => {
   const exportedCandidate = candidate();
@@ -1842,7 +1842,7 @@ test("ReleaseとCandidate RevisionのIdentity欠落・差を拒否しCandidate�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Task開始後のrestart矛盾・結果不明は独立Processでpoisonし全入口を閉じる", () => {
   const scenarios = [
@@ -1987,7 +1987,7 @@ test("Task開始後のrestart矛盾・結果不明は独立Processでpoisonし�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("安全観測がexactな業務不適合は共有Processをpoisonしない", async () => {
   const fixture = dependencies({
@@ -2012,7 +2012,7 @@ test("安全観測がexactな業務不適合は共有Processをpoisonしない",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("取消、Candidate Store例外をPassへ流さない", async () => {
   const cancelled = dependencies({ cancellationRequested: true });
@@ -2048,7 +2048,7 @@ test("取消、Candidate Store例外をPassへ流さない", async () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("production grace内の遅延取消receiptを短い旧上限で誤poisonしない", async () => {
   for (const cancelDelayMs of [1_500, 4_900]) {
@@ -2081,7 +2081,7 @@ test("production grace内の遅延取消receiptを短い旧上限で誤poisonし
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-003=System/E2E: 公開入口→Runtime→Provider・Process→資源Observer
+ * @boundary PRL-ST-003=Direct Boundary: coordinator Test Source→対象契約
  */
 test("終了未観測receiptはexact cleanupだけで既知取消へ収束する", async () => {
   const receipt = Object.freeze({
@@ -2131,7 +2131,7 @@ test("終了未観測receiptはexact cleanupだけで既知取消へ収束する
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Candidate discard不成立は残存0とせず手動処置対象を返す", async () => {
   const fixture = dependencies({
@@ -2169,7 +2169,7 @@ test("Candidate discard不成立は残存0とせず手動処置対象を返す",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Taskとdiscardの複合Recoveryは全IDを保持し競合を明示する", async () => {
   const fixture = dependencies({
@@ -2228,7 +2228,7 @@ test("Taskとdiscardの複合Recoveryは全IDを保持し競合を明示する",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("SIGINT／SIGTERMはrequested latchだけをexact onceにしunbind後は不発火にする", async () => {
   const signals = new EventEmitter();
@@ -2264,7 +2264,7 @@ test("SIGINT／SIGTERMはrequested latchだけをexact onceにしunbind後は不
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("二本目Signal登録失敗は一本目をrollbackしlistenerを残さない", () => {
   const signals = new EventEmitter();
@@ -2296,7 +2296,7 @@ test("二本目Signal登録失敗は一本目をrollbackしlistenerを残さな�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("completion確定とunbindの間のsignal latchを成功へ取り逃がさない", () => {
   const probe = spawnSync(

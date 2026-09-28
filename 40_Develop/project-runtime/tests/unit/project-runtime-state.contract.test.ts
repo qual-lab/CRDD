@@ -43,7 +43,7 @@ const revision = "a".repeat(40);
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=Direct Boundary: project-runtime Test Source→対象契約
  */
 function task(
   id: string,
@@ -70,7 +70,7 @@ function task(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=Direct Boundary: project-runtime Test Source→対象契約
  */
 function stateFor(
   tasks: readonly ProjectTaskDefinition[],
@@ -106,7 +106,7 @@ function stateFor(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=Direct Boundary: project-runtime Test Source→対象契約
  */
 function start(
   state: ProjectRuntimeState,
@@ -154,7 +154,7 @@ describe("Project Runtime state contract", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   * @boundary PRL-UT-006=Direct Boundary: project-runtime Test Source→対象契約
    */
   it("Hostが有効なowner generationを供給しない場合は状態を作らない", () => {
     const state = createProjectRuntimeState({
@@ -185,7 +185,7 @@ describe("Project Runtime state contract", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   * @boundary PRL-UT-006=Direct Boundary: project-runtime Test Source→対象契約
    */
   it("受入条件の説明文をPathとして正規化しない", () => {
     const state = createProjectRuntimeState({
@@ -225,7 +225,7 @@ describe("Project Runtime state contract", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   * @boundary PRL-UT-006=Direct Boundary: project-runtime Test Source→対象契約
    */
   it("Task定義のRepository外Pathを状態へ取り込まない", () => {
     for (const pathValue of ["C:\\outside", "/outside", "../outside"]) {
@@ -257,7 +257,7 @@ describe("Project Runtime state contract", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   * @boundary PRL-UT-006=Direct Boundary: project-runtime Test Source→対象契約
    */
   it("7件の独立Taskから最大5件だけを選ぶ", () => {
     const state = stateFor(
@@ -282,7 +282,7 @@ describe("Project Runtime state contract", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   * @boundary PRL-UT-006=Direct Boundary: project-runtime Test Source→対象契約
    */
   it("Dependency完了後だけ後続Taskをreadyへ進める", () => {
     let state = stateFor([task("task-a"), task("task-b", ["task-a"])]);
@@ -313,7 +313,7 @@ describe("Project Runtime state contract", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   * @boundary PRL-UT-006=Direct Boundary: project-runtime Test Source→対象契約
    */
   it("同じPathまたはConflict keyのTaskを同時に選ばない", () => {
     const state = stateFor([
@@ -338,7 +338,7 @@ describe("Project Runtime state contract", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   * @boundary PRL-UT-006=Direct Boundary: project-runtime Test Source→対象契約
    */
   it("親Directoryと子Pathを競合として扱う", () => {
     const state = stateFor([
@@ -362,7 +362,7 @@ describe("Project Runtime state contract", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   * @boundary PRL-UT-006=Direct Boundary: project-runtime Test Source→対象契約
    */
   it("cleanup不明のTaskを空き枠へ補正しない", () => {
     let state = stateFor([task("task-a"), task("task-b")], 1);
@@ -392,7 +392,7 @@ describe("Project Runtime state contract", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=N/A: Task取消の上位状態投影は外部実行境界を持たない。
+   * @boundary PRL-UT-006=Direct Boundary: project-runtime Test Source→対象契約
    */
   it("取消済みTaskをObjectiveとMilestoneの取消へ同じ世代で投影する", () => {
     let state = stateFor([task("task-a")], 1);
@@ -426,7 +426,7 @@ describe("Project Runtime state contract", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   * @boundary PRL-UT-006=Direct Boundary: project-runtime Test Source→対象契約
    */
   it("Recovery中はcleanup後も競合予約を維持する", () => {
     let state = stateFor([
@@ -466,7 +466,7 @@ describe("Project Runtime state contract", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   * @boundary PRL-UT-006=Direct Boundary: project-runtime Test Source→対象契約
    */
   it("古い世代と別attemptの結果を反映しない", () => {
     const initial = stateFor([task("task-a")]);
@@ -496,7 +496,7 @@ describe("Project Runtime state contract", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   * @boundary PRL-UT-006=Direct Boundary: project-runtime Test Source→対象契約
    */
   it("cycleと欠落DependencyをEffect前に拒否する", () => {
     for (const tasks of [
@@ -534,7 +534,7 @@ describe("Project Runtime state contract", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-007=N/A: Objective／Milestone Acceptance Decision状態遷移は外部実行境界を持たない。
+   * @boundary PRL-UT-007=Direct Boundary: project-runtime Test Source→対象契約
    */
   it("Task完了だけではObjectiveまたはMilestoneを受け入れない", () => {
     let state = stateFor([task("task-a")]);
@@ -617,7 +617,7 @@ describe("Project Runtime state contract", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-007=N/A: Objective／Milestone Acceptance Decision状態遷移は外部実行境界を持たない。
+   * @boundary PRL-UT-007=Direct Boundary: project-runtime Test Source→対象契約
    */
   it("ObjectiveとMilestoneを別々の統合Evidenceで受け入れる", () => {
     let state = stateFor([task("task-a")]);
@@ -732,7 +732,7 @@ describe("Project Runtime state contract", () => {
    * @observation 理由code、状態同一性およびTask ID列を観測する。
    * @oracle 両入力を理由付きで拒否し、状態とTask集合を変更しない。
    * @cleanup N/A: Process内の不変値だけを使用する。
-   * @boundary PRL-UT-007=N/A: Objective／Milestone Acceptance Decision状態遷移は外部実行境界を持たない。
+   * @boundary PRL-UT-007=Direct Boundary: project-runtime Test Source→対象契約
    */
   it("Task完了だけではObjective受入またはMilestone判断を許可しない", () => {
     let state = stateFor([task("task-a")]);
@@ -791,7 +791,7 @@ describe("Project Runtime state contract", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   * @boundary PRL-UT-006=Direct Boundary: project-runtime Test Source→対象契約
    */
   it("依存されない失敗Taskの部分再計画は旧履歴を保持したまま最終受入へ到達する", () => {
     let state = stateFor([task("task-a")]);
@@ -880,7 +880,7 @@ describe("Project Runtime state contract", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   * @boundary PRL-UT-006=Direct Boundary: project-runtime Test Source→対象契約
    */
   it("生存する依存Taskを持つ失敗Taskの部分再計画は暗黙に依存を付け替えない", () => {
     let state = stateFor([task("task-a"), task("task-b", ["task-a"])]);
@@ -925,7 +925,7 @@ describe("Project Runtime state contract", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   * @boundary PRL-UT-006=Direct Boundary: project-runtime Test Source→対象契約
    */
   it("古い世代と統合待ち前の受入を拒否する", () => {
     const state = stateFor([task("task-a")]);
@@ -959,7 +959,7 @@ describe("Project Runtime state contract", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   * @boundary PRL-UT-006=Direct Boundary: project-runtime Test Source→対象契約
    */
   it("受入条件ごとのEvidenceが不足する場合は受入を拒否する", () => {
     const created = createProjectRuntimeState({
@@ -1015,7 +1015,7 @@ describe("Project Runtime state contract", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   * @boundary PRL-UT-006=Direct Boundary: project-runtime Test Source→対象契約
    */
   it("Recoveryを進捗や品質の成功へ補正しない", () => {
     let state = stateFor([task("task-a")]);
@@ -1054,7 +1054,7 @@ describe("Project Runtime state contract", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   * @boundary PRL-UT-006=Direct Boundary: project-runtime Test Source→対象契約
    */
   it("owner lossはAuthority発行前のstartingをEffect 0でreadyへ戻す", () => {
     const state = stateFor([task("task-a")]);
@@ -1088,7 +1088,7 @@ describe("Project Runtime state contract", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   * @boundary PRL-UT-006=Direct Boundary: project-runtime Test Source→対象契約
    */
   it("owner lossは開始済みTaskをexact Runtime Recoveryへ結合する", () => {
     const running = start(stateFor([task("task-a")]), "task-a");
@@ -1122,7 +1122,7 @@ describe("Project Runtime state contract", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   * @boundary PRL-UT-006=Direct Boundary: project-runtime Test Source→対象契約
    */
   it("handoff準備済みTaskは排他下の不存在確認後だけEffect 0でreadyへ戻す", () => {
     const initial = stateFor([task("task-a")]);
@@ -1168,7 +1168,7 @@ describe("Project Runtime state contract", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   * @boundary PRL-UT-006=Direct Boundary: project-runtime Test Source→対象契約
    */
   it("running Taskを不存在観測だけでreadyへ戻さない", () => {
     const running = start(stateFor([task("task-a")]), "task-a");
@@ -1197,7 +1197,7 @@ describe("Project Runtime state contract", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   * @boundary PRL-UT-006=Direct Boundary: project-runtime Test Source→対象契約
    */
   it("複数種のRecoveryを項目ごとの受領状態で保持する", () => {
     let state = start(stateFor([task("task-a")]), "task-a");
@@ -1290,7 +1290,7 @@ describe("Project Runtime state contract", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   * @boundary PRL-UT-006=Direct Boundary: project-runtime Test Source→対象契約
    */
   it("Process再起動済みでも外部Effect未解決のTaskをreadyへ戻さない", () => {
     let state = start(stateFor([task("task-a")]), "task-a");
@@ -1331,7 +1331,7 @@ describe("Project Runtime state contract", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   * @boundary PRL-UT-006=Direct Boundary: project-runtime Test Source→対象契約
    */
   it("Lockとstale resultの保持条件を説明する", () => {
     assert.deepEqual(describeProjectRuntimeStateContract(), {

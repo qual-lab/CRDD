@@ -34,7 +34,7 @@ const HUMAN_ACCEPTANCE_PATH =
  * @observation 終了Code、stdout、stderrを取得する。
  * @oracle 呼出し元がAuthority GateとEffect 0を判定できる形で返す。
  * @cleanup 子Processの同期終了後に追加資源を残さない。
- * @boundary CQS-ST-012／CQS-ST-013=System/E2E: Test Process→公開Verification CLI
+ * @boundary CQS-ST-012／CQS-ST-013／ERB-ST-015=Direct Boundary: verification-runner Test Source→対象契約
  */
 function invoke(argumentValues: readonly string[]) {
   const result = spawnSync(process.execPath, [runner, ...argumentValues], {
@@ -61,7 +61,7 @@ function invoke(argumentValues: readonly string[]) {
  * @observation Top-level JSONごとの構造化値を取得する。
  * @oracle 計画と統合結果を順序どおり別要素として返す。
  * @cleanup N/A: 入力文字列以外の資源を作成しない。
- * @boundary CQS-ST-012=System/E2E: 公開Verification CLI出力→Test Oracle
+ * @boundary CQS-ST-012／ERB-ST-015=Direct Boundary: verification-runner Test Source→対象契約
  */
 function parsePublicResults(stdout: string): Record<string, unknown>[] {
   return stdout
@@ -80,7 +80,7 @@ function parsePublicResults(stdout: string): Record<string, unknown>[] {
  * @observation 計画、段階順、開始・終了結果、未開始理由、公開状態、終了Codeおよびstderrを観測する。
  * @oracle 自動段階は完了し、UATはnot_run_due_to_human_input、全体はblocked、Exit 2となる。
  * @cleanup 子Processは同期終了し、一時資源、PT／LTおよび外部Effectを残さない。
- * @boundary CQS-ST-012=System/E2E: 公開Verification入口→全段階Runner→統合結果
+ * @boundary CQS-ST-012=Direct Boundary: verification-runner Test Source→対象契約
  */
 test("公開入口はUATを自動Passにせず全段階結果と人間入力待ちを返す", () => {
   const result = invoke([
@@ -133,7 +133,7 @@ test("公開入口はUATを自動Passにせず全段階結果と人間入力待�
  * @observation 各段階の開始・終了順、未開始理由、全体状態および終了Codeを観測する。
  * @oracle Static、UT、IT、STの完了後にUATだけが人間入力待ちとなり、未許可の上位Effectを発行しない。
  * @cleanup 子Processは同期終了し、一時資源、PT／LTおよび外部Effectを残さない。
- * @boundary ERB-ST-015=System/E2E: 局所Gate→直接境界→Lifecycle→公開Verification入口
+ * @boundary ERB-ST-015=Direct Boundary: verification-runner Test Source→対象契約
  */
 test("公開入口は下位成立順序を保ち人間入力待ちの上位境界を開始しない", () => {
   const result = invoke([
@@ -170,7 +170,7 @@ test("公開入口は下位成立順序を保ち人間入力待ちの上位境�
  * @observation Gate状態、拒否理由、欠落項目、Effect発行状態および終了Codeを観測する。
  * @oracle 全反例をnot_authorized、Effect 0、Exit 2で拒否する。
  * @cleanup 同期終了したCLI以外のProcessまたは一時資源を作成しない。
- * @boundary CQS-ST-013=System/E2E: 公開入口→Authority Gate→PT／LT Runner
+ * @boundary CQS-ST-013=Direct Boundary: verification-runner Test Source→対象契約
  */
 test("未許可と上限不足のPT／LT要求を公開入口でEffect前に拒否する", () => {
   const cases = [
@@ -208,7 +208,7 @@ test("未許可と上限不足のPT／LT要求を公開入口でEffect前に拒�
  * @observation 計画状態、Authority検証、実行方針、Effect状態および終了Codeを観測する。
  * @oracle planned_not_executable、plan-only、Effect 0を返しPT Runnerを開始しない。
  * @cleanup 同期終了したCLI以外のProcessまたは一時資源を作成しない。
- * @boundary CQS-ST-013=System/E2E: 公開入口→Authority Gate→PT／LT計画
+ * @boundary CQS-ST-013=Direct Boundary: verification-runner Test Source→対象契約
  */
 test("全Authority条件が揃ってもPT／LTをplan-onlyとして返す", () => {
   const result = invoke([

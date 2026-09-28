@@ -24,7 +24,7 @@ import {
  * @observation 構造結果、Revision、Owner Effect件数および残存資源数を観測する。
  * @oracle 全入口の結果が一致し、正常時だけ正本Effect 1、その他はEffect 0となる。
  * @cleanup 入口固有Storeと取消後残存資源が0であることを確認する。
- * @boundary EST-IT-010=Related 2 Blocks: Surface Adapter→Application Contract→Canonical Owner。
+ * @boundary EST-IT-010=Direct Boundary: cros Test Source→対象契約
  */
 test("四入口が同じApplication ContractとCanonical Ownerを使用する", () => {
   const surfaces = ["ts-api", "cli", "mcp", "workbench"] as const;

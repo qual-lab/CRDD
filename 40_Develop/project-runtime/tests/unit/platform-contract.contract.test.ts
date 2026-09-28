@@ -40,7 +40,7 @@ const resolvableBoundaries = Object.freeze(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
  */
 function canonicalOperations(
   boundary: ProjectRuntimePlatformBoundary,
@@ -63,7 +63,7 @@ function canonicalOperations(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
  */
 function syntheticAdapter(
   platformFamily: string,
@@ -111,7 +111,7 @@ function syntheticAdapter(
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("Platform契約は境界母集団・操作名対応・非fallbackを閉集合で公開する", () => {
   assert.deepEqual(describeProjectRuntimePlatformContract(), {
@@ -188,7 +188,7 @@ test("Platform契約は境界母集団・操作名対応・非fallbackを閉集�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("Platform Identity不明はfallbackなしのEffect 0で停止する", () => {
   const windows = syntheticAdapter("windows", resolvableBoundaries);
@@ -226,7 +226,7 @@ test("Platform Identity不明はfallbackなしのEffect 0で停止する", () =>
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("Adapter不在の既知Platformは別PlatformへfallbackせずEffect 0で停止する", () => {
   const windows = syntheticAdapter("windows", resolvableBoundaries);
@@ -252,7 +252,7 @@ test("Adapter不在の既知Platformは別PlatformへfallbackせずEffect 0で�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("必要境界の保証未成立はEffect 0で停止し未成立境界を返す", () => {
   const partial = syntheticAdapter("windows", [
@@ -281,7 +281,7 @@ test("必要境界の保証未成立はEffect 0で停止し未成立境界を返
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("lock_leaseはowner観測のexact operationと全保証が揃った場合だけ解決する", () => {
   const claimingLockLease = syntheticAdapter(
@@ -311,7 +311,7 @@ test("lock_leaseはowner観測のexact operationと全保証が揃った場合�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("宣言済み境界でも操作名がexact一致しない場合は保証未成立として停止する", () => {
   const missingOperation = syntheticAdapter(
@@ -376,7 +376,7 @@ test("宣言済み境界でも操作名がexact一致しない場合は保証未
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("同一Platformの複数Adapterは競合としてEffect 0で停止する", () => {
   const first = syntheticAdapter("windows", resolvableBoundaries);
@@ -405,7 +405,7 @@ test("同一Platformの複数Adapterは競合としてEffect 0で停止する", 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("不正なresolve要求は入力拒否としてEffect 0で停止する", () => {
   const windows = syntheticAdapter("windows", resolvableBoundaries);
@@ -441,7 +441,7 @@ test("不正なresolve要求は入力拒否としてEffect 0で停止する", ()
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("契約・改訂・Authority宣言が異なるAdapterへは解決しない", () => {
   const foreignContract: ProjectRuntimePlatformAdapter = Object.freeze({
@@ -536,7 +536,7 @@ test("契約・改訂・Authority宣言が異なるAdapterへは解決しない"
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("describeは候補ごとに一度だけ呼ばれ、解決は検証済みsnapshotだけを使う", () => {
   let describeCallCount = 0;
@@ -588,7 +588,7 @@ test("describeは候補ごとに一度だけ呼ばれ、解決は検証済みsna
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("解決結果は登録済みAdapterのexact一致だけを返す", () => {
   const windows = syntheticAdapter("windows", resolvableBoundaries);
@@ -624,7 +624,7 @@ test("解決結果は登録済みAdapterのexact一致だけを返す", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("解決後は検証済みoperation参照を固定し元Adapterの差替えを受けない", () => {
   /**
@@ -637,7 +637,7 @@ test("解決後は検証済みoperation参照を固定し元Adapterの差替え�
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+   * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
    */
   const original = () => Object.freeze({ status: "original" });
   /**
@@ -650,7 +650,7 @@ test("解決後は検証済みoperation参照を固定し元Adapterの差替え�
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+   * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
    */
   const replacement = () => Object.freeze({ status: "replacement" });
   const group: { resolveRepositoryRoot: () => Readonly<{ status: string }> } = {

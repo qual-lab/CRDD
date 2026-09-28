@@ -1,11 +1,12 @@
 /**
  * Workbench助言Production RuntimeのLifecycle契約を検証する。
  *
+ * @packageDocumentation
  * @responsibility 署名Capability、Identity伝播、Provider Effect、取消、Host／Docker cleanupおよび助言公開順序を検証する。
- * @trace ERB-UT-023 ERB-IT-004
+ * @trace ERB-UT-023
+ * @level UT
+ * @scope coordinator、contract、node_process
  * @boundary Coordinator RuntimeとFake Docker／Host境界。
- * @effect 外部Providerを使わずProcess内Fakeだけを実行する。
- * @security Credential、Repository PathおよびNetworkを使用しない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -43,6 +44,18 @@ if (prepared.status !== "prepared" || prepared.executionPlan === null)
   throw new Error("test_execution_plan_required");
 const plan = prepared.executionPlan;
 
+/**
+ * fixture用の試験入力または観測処理を提供する。
+ *
+ * @responsibility fixture用の試験入力または観測処理を提供するの検証責務を所有する。
+ * @trace ERB-UT-023
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus fixtureの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+ */
 function fixture(
   overrides: Partial<WorkbenchAiAdviceRuntimeDependencies> = {},
 ) {
@@ -195,6 +208,18 @@ function fixture(
   return Object.freeze({ dependencies, calls, adviceJson });
 }
 
+/**
+ * 署名確認からHost／Docker cleanup完了後にだけ助言JSONを返すを検証する。
+ *
+ * @responsibility 署名確認からHost／Docker cleanup完了後にだけ助言JSONを返すを検証するの検証責務を所有する。
+ * @trace ERB-UT-023
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus 署名確認からHost／Docker cleanup完了後にだけ助言JSONを返すの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+ */
 test("署名確認からHost／Docker cleanup完了後にだけ助言JSONを返す", async () => {
   const current = fixture();
   const runtime = createIsolatedWorkbenchAiAdviceRuntimeCandidate(
@@ -223,6 +248,18 @@ test("署名確認からHost／Docker cleanup完了後にだけ助言JSONを返�
   ]);
 });
 
+/**
+ * 署名Capability不成立はOperationとProvider Effectを発行しないを検証する。
+ *
+ * @responsibility 署名Capability不成立はOperationとProvider Effectを発行しないを検証するの検証責務を所有する。
+ * @trace ERB-UT-023
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus 署名Capability不成立はOperationとProvider Effectを発行しないの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+ */
 test("署名Capability不成立はOperationとProvider Effectを発行しない", async () => {
   const current = fixture({ consumeVerifiedPackage: () => false });
   const result = await createIsolatedWorkbenchAiAdviceRuntimeCandidate(
@@ -238,6 +275,18 @@ test("署名Capability不成立はOperationとProvider Effectを発行しない"
   assert.deepEqual(current.calls, []);
 });
 
+/**
+ * Host cleanup不成立後は助言を公開せず回復状態を保持するを検証する。
+ *
+ * @responsibility Host cleanup不成立後は助言を公開せず回復状態を保持するを検証するの検証責務を所有する。
+ * @trace ERB-UT-023
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus Host cleanup不成立後は助言を公開せず回復状態を保持するの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+ */
 test("Host cleanup不成立後は助言を公開せず回復状態を保持する", async () => {
   const current = fixture({ prepareDockerHostCleanup: () => null });
   const result = await createIsolatedWorkbenchAiAdviceRuntimeCandidate(

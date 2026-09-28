@@ -4,9 +4,9 @@
  * @packageDocumentation
  * @responsibility 明示Path、exact Profile、未採用Candidate結果およびEffect前拒否を検証する。
  * @trace ERB-UT-023
+ * @level UT
+ * @scope coordinator、contract、node_process
  * @boundary Workbench AI依頼→Project Runtime Single Task Adapter
- * @effect 固定Fake Task Runtimeだけを実行し、外部ProviderやRepository書込みを行わない。
- * @security Candidate IDを採用Authorityとして使用せず、許可Path外の入力を生成しない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -31,6 +31,18 @@ const profileStore = Object.freeze({
   },
 }) satisfies AiProfileCatalogStore;
 
+/**
+ * verifiedRoot用の試験入力または観測処理を提供する。
+ *
+ * @responsibility verifiedRoot用の試験入力または観測処理を提供するの検証責務を所有する。
+ * @trace ERB-UT-023
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus verifiedRootの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+ */
 function verifiedRoot() {
   const root = resolveVerifiedRepositoryRootFromWorkingDirectory(process.cwd());
   const verified = verifyRepositoryRoot(root);
@@ -40,6 +52,18 @@ function verifiedRoot() {
   return verified;
 }
 
+/**
+ * 明示Pathだけで未信頼・未採用Candidateを返すを検証する。
+ *
+ * @responsibility 明示Pathだけで未信頼・未採用Candidateを返すを検証するの検証責務を所有する。
+ * @trace ERB-UT-023
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus 明示Pathだけで未信頼・未採用Candidateを返すの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+ */
 test("明示Pathだけで未信頼・未採用Candidateを返す", async () => {
   const verified = verifiedRoot();
   let taskRequest: unknown;
@@ -109,6 +133,18 @@ test("明示Pathだけで未信頼・未採用Candidateを返す", async () => {
   );
 });
 
+/**
+ * 許可PathなしではTask Effectを発行しないを検証する。
+ *
+ * @responsibility 許可PathなしではTask Effectを発行しないを検証するの検証責務を所有する。
+ * @trace ERB-UT-023
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus 許可PathなしではTask Effectを発行しないの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+ */
 test("許可PathなしではTask Effectを発行しない", async () => {
   const verified = verifiedRoot();
   let startCount = 0;

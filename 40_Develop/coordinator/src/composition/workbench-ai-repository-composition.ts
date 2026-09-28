@@ -3,7 +3,8 @@
  *
  * @packageDocumentation
  * @responsibility 検証済みRepositoryの固定Project Contextを読取り助言Task Packetへ変換し、注入された送信境界へだけ渡す。
- * @trace ARCH-000015 ARCH-000009
+ * @trace ARCH-000015
+ * @trace ARCH-000009
  * @boundary Repository Project Context、Coordinator Mode Routerおよび外部送信Adapterの境界。
  * @effect 固定Project Contextを読取り、注入されたDispatchだけが外部Effectを発行し得る。
  * @security 任意Path、Symbolic Link、投影外参照、秘密情報および変更候補の暗黙実行を許可しない。
@@ -53,6 +54,18 @@ export type WorkbenchAiAdviceDispatchInput = Readonly<{
   externalSendConfirmed: boolean;
 }>;
 
+/**
+ * Repository単体Workbench AI実構成境界で使用するWorkbenchAiAdviceDispatchの構造を固定する。
+ *
+ * @responsibility Repository単体Workbench AI実構成境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
+
 export type WorkbenchAiAdviceDispatch = (
   input: WorkbenchAiAdviceDispatchInput,
   cancellationSignal: AbortSignal,
@@ -62,7 +75,8 @@ export type WorkbenchAiAdviceDispatch = (
  * Repository単体Workbench向けCoordinator AI Applicationを生成する。
  *
  * @responsibility 読取り助言の固定Projection生成とMode Router接続を所有し、変更候補は独立Executorへ保つ。
- * @trace ARCH-000015 ARCH-000009
+ * @trace ARCH-000015
+ * @trace ARCH-000009
  * @input repositoryRootCapability: 検証済みRoot、profileCatalogStore: 採用済みCatalog Store、dispatchReadOnlyAdvice: 読取り助言送信境界、startChangeCandidate: 変更候補Executor。
  * @returns Workbench互換の開始、観測、取消Applicationを返す。
  * @precondition Root CapabilityはVersion Control境界が発行し、各Dispatchは自身のAuthorityとcleanupを所有する。
@@ -127,7 +141,8 @@ export function createRepositoryWorkbenchAiRequestApplication(
  * 検証済みRepositoryから固定Project Context Task Packetを生成する。
  *
  * @responsibility Root再検証、固定参照、通常File、内容HashおよびTask Packet検査を一つの読取り境界へ閉じる。
- * @trace ARCH-000015 ARCH-000009
+ * @trace ARCH-000015
+ * @trace ARCH-000009
  * @input repositoryRootCapability、request、cancellationSignal。
  * @returns 検証済みTask Packet。不正、取消または観測不能時はnull。
  * @precondition requestはCoordinator Mode Routerの入力検査を通過している。

@@ -3,7 +3,8 @@
  *
  * @packageDocumentation
  * @responsibility 候補生成とは分離した明示Authority、排他Lease、現在Revision再観測、採用Receiptおよび回復結果を所有する。
- * @trace ARCH-000004 ARCH-000015
+ * @trace ARCH-000004
+ * @trace ARCH-000015
  * @boundary Project Runtime Applicationと候補・Lease・耐久記録Portの境界。
  * @effect 明示Authorityがあり全事前条件が成立した場合だけ候補採用と耐久記録を発行する。
  * @concurrency Canonical Adoption Leaseを一件だけ取得し、全終了経路で解放を試みる。
@@ -31,7 +32,8 @@ export const PROJECT_RUNTIME_CANDIDATE_ADOPTION_CONTRACT =
  * 採用対象となる既存候補の閉じたIdentityを定義する。
  *
  * @responsibility Candidate Storeの内容全体ではなく、採用時に再照合するIdentityと変更Pathだけを保持する。
- * @trace ARCH-000004 ARCH-000015
+ * @trace ARCH-000004
+ * @trace ARCH-000015
  * @shape Candidate ID、内容Hash、基準Revisionおよび変更Pathの閉集合を持つ。
  * @invariant 候補内容そのものや採用Authorityを含めない。
  * @boundary 候補Store投影とProject Runtime Applicationの境界。
@@ -49,7 +51,8 @@ export type ProjectRuntimeExistingCandidate = Readonly<{
  * 既存候補採用Applicationの入力を定義する。
  *
  * @responsibility Project、候補、許可Pathおよび一回の明示採用Authorityを同じ要求へ結合する。
- * @trace ARCH-000004 ARCH-000015
+ * @trace ARCH-000004
+ * @trace ARCH-000015
  * @shape 採用対象Project、候補、許可Pathおよび明示確認を持つ。
  * @invariant 候補生成時の外部送信確認を採用Authorityへ流用しない。
  * @boundary Workbench等の利用側とProject Runtime Applicationの境界。
@@ -67,7 +70,8 @@ export type ProjectRuntimeCandidateAdoptionInput = Readonly<{
  * 既存候補採用Applicationの依存Portを定義する。
  *
  * @responsibility 候補の現在観測・採用、Leaseおよび耐久記録だけをApplicationへ供給する。
- * @trace ARCH-000004 ARCH-000015
+ * @trace ARCH-000004
+ * @trace ARCH-000015
  * @shape Candidate Portの採用部分、Lease Port、Integration Record Portを持つ。
  * @invariant 候補生成PortやQueue／State Portを要求しない。
  * @boundary Project Runtime Applicationと外部Adapterの境界。
@@ -87,7 +91,8 @@ export type ProjectRuntimeCandidateAdoptionDependencies = Readonly<{
  * 既存候補採用結果を定義する。
  *
  * @responsibility Effectの未発行・確定・不明、回復要否およびReceiptを同じ結果で表す。
- * @trace ARCH-000004 ARCH-000015
+ * @trace ARCH-000004
+ * @trace ARCH-000015
  * @shape Contract、状態、理由、候補・Receipt Identity、Effect・cleanup・回復情報を持つ。
  * @invariant completedはReceiptとsettled Effectを持ち、blockedを成功へ畳まない。
  * @boundary Project Runtime Applicationと利用側の公開結果境界。
@@ -113,7 +118,8 @@ export type ProjectRuntimeCandidateAdoptionResult = Readonly<{
  * 安定Identityの形式を判定する。
  *
  * @responsibility Project、CandidateおよびReceipt Identityの字句境界を所有する。
- * @trace ARCH-000004 ARCH-000015
+ * @trace ARCH-000004
+ * @trace ARCH-000015
  * @input value: 未信頼値、maximum: 最大文字数。
  * @returns 許可形式ならtrueを返す。
  * @precondition N/A: 任意値を受け付ける。
@@ -138,7 +144,8 @@ function validId(value: unknown, maximum = 512): value is string {
  * Git Revision形式を判定する。
  *
  * @responsibility 採用基準Revisionの固定長Hash境界を所有する。
- * @trace ARCH-000004 ARCH-000015
+ * @trace ARCH-000004
+ * @trace ARCH-000015
  * @input value: 未信頼値、allowEmpty: 空配列を許可するか。
  * @returns 40〜64桁の小文字hexならtrueを返す。
  * @precondition N/A: 任意値を受け付ける。
@@ -158,7 +165,8 @@ function validRevision(value: unknown): value is string {
  * SHA-256 Hash形式を判定する。
  *
  * @responsibility Candidate内容Hashの字句境界を所有する。
- * @trace ARCH-000004 ARCH-000015
+ * @trace ARCH-000004
+ * @trace ARCH-000015
  * @input value: 未信頼値。
  * @returns 64桁の小文字hexならtrueを返す。
  * @precondition N/A: 任意値を受け付ける。
@@ -178,7 +186,8 @@ function validHash(value: unknown): value is string {
  * Repository相対Pathの閉配列を検証する。
  *
  * @responsibility Path配列の件数、重複およびRepository相対形式を所有する。
- * @trace ARCH-000004 ARCH-000015
+ * @trace ARCH-000004
+ * @trace ARCH-000015
  * @input value: 未信頼値。
  * @returns 検証済みの凍結Path配列、またはnullを返す。
  * @precondition N/A: 任意値を受け付け、allowEmpty省略時はfalseとする。
@@ -192,10 +201,13 @@ function validHash(value: unknown): value is string {
  */
 function inspectPaths(
   value: unknown,
-  allowEmpty = false,
+  isEmptyAllowed = false,
 ): readonly string[] | null {
   const snapshot = snapshotPlainArray(value, 1024);
-  if (snapshot.status !== "ok" || (!allowEmpty && snapshot.value.length === 0))
+  if (
+    snapshot.status !== "ok" ||
+    (!isEmptyAllowed && snapshot.value.length === 0)
+  )
     return null;
   const paths: string[] = [];
   for (const entry of snapshot.value) {
@@ -210,7 +222,8 @@ function inspectPaths(
  * 採用候補を検証する。
  *
  * @responsibility Candidate Store投影から採用に必要な最小Identityを閉じる。
- * @trace ARCH-000004 ARCH-000015
+ * @trace ARCH-000004
+ * @trace ARCH-000015
  * @input raw: 未信頼候補。
  * @returns 検証済み候補、またはnullを返す。
  * @precondition N/A: 任意値を受け付ける。
@@ -253,7 +266,8 @@ export function inspectProjectRuntimeExistingCandidate(
  * Candidate Portの停止結果を検証する。
  *
  * @responsibility 下位境界のEffect・cleanup・回復情報を欠落させず縮約する。
- * @trace ARCH-000004 ARCH-000015
+ * @trace ARCH-000004
+ * @trace ARCH-000015
  * @input raw: 未信頼Port結果。
  * @returns 検証済み停止情報、またはnullを返す。
  * @precondition N/A: 任意値を受け付ける。
@@ -303,7 +317,8 @@ function inspectBlocked(raw: unknown) {
  * Canonical Repository観測結果を検証する。
  *
  * @responsibility 現在Revision、変更対象のdirty状態および観測Pathを閉じる。
- * @trace ARCH-000004 ARCH-000015
+ * @trace ARCH-000004
+ * @trace ARCH-000015
  * @input raw: 未信頼観測結果。
  * @returns 検証済み観測、またはnullを返す。
  * @precondition N/A: 任意値を受け付ける。
@@ -344,7 +359,8 @@ function inspectRepository(raw: unknown) {
  * 採用Receiptを検証する。
  *
  * @responsibility 採用前後Revision、変更Path、cleanupおよびReceipt Identityを閉じる。
- * @trace ARCH-000004 ARCH-000015
+ * @trace ARCH-000004
+ * @trace ARCH-000015
  * @input raw: 未信頼採用結果。
  * @returns 検証済みReceipt、またはnullを返す。
  * @precondition N/A: 任意値を受け付ける。
@@ -392,7 +408,8 @@ function inspectReceipt(
  * 採用Applicationの公開結果を構築する。
  *
  * @responsibility 全結果分岐を一つの固定Schemaへ収束する。
- * @trace ARCH-000004 ARCH-000015
+ * @trace ARCH-000004
+ * @trace ARCH-000015
  * @input input: 採用入力、status: 状態、reason: 理由、options: Effect・回復情報。
  * @returns 凍結した採用結果を返す。
  * @precondition reasonは内部固定語彙である。
@@ -440,7 +457,8 @@ function result(
  * 既存変更候補を明示Authorityの下でCanonical Repositoryへ採用する。
  *
  * @responsibility Effect 0の事前検証、旧Lease所有者処置、排他Lease、現在Revision・Scope再観測、採用、耐久Receiptおよび解放を一つのLifecycleで所有する。
- * @trace ARCH-000004 ARCH-000015
+ * @trace ARCH-000004
+ * @trace ARCH-000015
  * @input dependencies: 候補・Lease・記録Port、input: Project・候補・許可Path・明示Authority。
  * @returns Effect状態とReceiptまたは停止理由を持つ採用結果を返す。
  * @precondition 候補はStoreから読み直したIdentity、allowedPathsは人間が現在確認した範囲である。
@@ -516,7 +534,7 @@ export async function adoptProjectRuntimeExistingCandidate(
 
   const lease = leaseResult.value;
   let finalResult: ProjectRuntimeCandidateAdoptionResult | null = null;
-  let adoptionAttempted = false;
+  let isAdoptionAttempted = false;
   try {
     const rawObservation = dependencies.candidate.observeCanonicalRepository();
     const observationBlocked = inspectBlocked(rawObservation);
@@ -551,7 +569,7 @@ export async function adoptProjectRuntimeExistingCandidate(
     else {
       let rawReceipt: unknown = null;
       try {
-        adoptionAttempted = true;
+        isAdoptionAttempted = true;
         rawReceipt = await dependencies.candidate.adoptCandidate(candidate);
       } catch {
         rawReceipt = null;
@@ -623,10 +641,10 @@ export async function adoptProjectRuntimeExistingCandidate(
       "blocked",
       "project_runtime_adoption_observation_unknown",
       {
-        effectIssued: adoptionAttempted,
-        effectStateUnknown: adoptionAttempted,
+        effectIssued: isAdoptionAttempted,
+        effectStateUnknown: isAdoptionAttempted,
         cleanupConfirmed: false,
-        manualRecoveryRequired: adoptionAttempted,
+        manualRecoveryRequired: isAdoptionAttempted,
       },
     );
   } finally {

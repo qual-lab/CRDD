@@ -1,11 +1,12 @@
 /**
  * Coordinator Workbench AI依頼Applicationの契約試験。
  *
+ * @packageDocumentation
  * @responsibility 依頼種別の分離、結果観測、取消、不正入力および未知Identityを検証する。
  * @trace ERB-UT-023
+ * @level UT
+ * @scope coordinator、contract、node_process
  * @boundary Workbench Application PortとCoordinator依頼種別別Executorの局所境界。
- * @effect 固定Fake Executorだけを実行し、外部AI Effectを発行しない。
- * @security Promptと結果を試験失敗出力へ複製しない。
  */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -35,6 +36,18 @@ import {
   WORKBENCH_AI_ADVICE_TASK_CONTRACT,
 } from "../../src/security/workbench-ai-advice-task.ts";
 
+/**
+ * request用の試験入力または観測処理を提供する。
+ *
+ * @responsibility request用の試験入力または観測処理を提供するの検証責務を所有する。
+ * @trace ERB-UT-023
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus requestの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+ */
 const request = (mode: "read_only_advice" | "change_candidate") =>
   Object.freeze({
     mode,
@@ -47,7 +60,7 @@ const request = (mode: "read_only_advice" | "change_candidate") =>
     externalSendConfirmed: true,
   });
 
-const completed = Object.freeze({
+const COMPLETED = Object.freeze({
   status: "completed" as const,
   reason: null,
   facts: Object.freeze([
@@ -77,17 +90,29 @@ const completed = Object.freeze({
   candidate: null,
 });
 
+/**
+ * 読取り助言と変更候補を対応Executorへ分離するを検証する。
+ *
+ * @responsibility 読取り助言と変更候補を対応Executorへ分離するを検証するの検証責務を所有する。
+ * @trace ERB-UT-023
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus 読取り助言と変更候補を対応Executorへ分離するの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+ */
 test("読取り助言と変更候補を対応Executorへ分離する", async () => {
-  const observed: CoordinatorAiRequestInput[] = [];
+  const observedSnapshots: CoordinatorAiRequestInput[] = [];
   const application = createCoordinatorWorkbenchAiRequestApplication({
     async startReadOnlyAdvice(input) {
-      observed.push(input);
-      return completed;
+      observedSnapshots.push(input);
+      return COMPLETED;
     },
     async startChangeCandidate(input) {
-      observed.push(input);
+      observedSnapshots.push(input);
       return Object.freeze({
-        ...completed,
+        ...COMPLETED,
         facts: Object.freeze([
           Object.freeze({
             text: "candidate",
@@ -105,7 +130,7 @@ test("読取り助言と変更候補を対応Executorへ分離する", async () 
   await new Promise((resolve) => setImmediate(resolve));
 
   assert.deepEqual(
-    observed.map((item) => item.mode),
+    observedSnapshots.map((item) => item.mode),
     ["read_only_advice", "change_candidate"],
   );
   const advice = await application.observe(adviceStart.requestId as string);
@@ -120,16 +145,28 @@ test("読取り助言と変更候補を対応Executorへ分離する", async () 
   ]);
 });
 
+/**
+ * 不正な依頼種別と余分なKeyをEffect前に拒否するを検証する。
+ *
+ * @responsibility 不正な依頼種別と余分なKeyをEffect前に拒否するを検証するの検証責務を所有する。
+ * @trace ERB-UT-023
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus 不正な依頼種別と余分なKeyをEffect前に拒否するの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+ */
 test("不正な依頼種別と余分なKeyをEffect前に拒否する", async () => {
   let executionCount = 0;
   const application = createCoordinatorWorkbenchAiRequestApplication({
     async startReadOnlyAdvice() {
       executionCount += 1;
-      return completed;
+      return COMPLETED;
     },
     async startChangeCandidate() {
       executionCount += 1;
-      return completed;
+      return COMPLETED;
     },
   });
 
@@ -146,8 +183,20 @@ test("不正な依頼種別と余分なKeyをEffect前に拒否する", async ()
   assert.equal(executionCount, 0);
 });
 
+/**
+ * 取消後の遅延完了でcancelledを上書きしないを検証する。
+ *
+ * @responsibility 取消後の遅延完了でcancelledを上書きしないを検証するの検証責務を所有する。
+ * @trace ERB-UT-023
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus 取消後の遅延完了でcancelledを上書きしないの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+ */
 test("取消後の遅延完了でcancelledを上書きしない", async () => {
-  let complete: ((value: typeof completed) => void) | undefined;
+  let complete: ((value: typeof COMPLETED) => void) | undefined;
   const application = createCoordinatorWorkbenchAiRequestApplication({
     startReadOnlyAdvice: (_input, signal) =>
       new Promise((resolve) => {
@@ -155,7 +204,7 @@ test("取消後の遅延完了でcancelledを上書きしない", async () => {
         complete = resolve;
       }),
     async startChangeCandidate() {
-      return completed;
+      return COMPLETED;
     },
   });
 
@@ -163,18 +212,30 @@ test("取消後の遅延完了でcancelledを上書きしない", async () => {
   const requestId = started.requestId as string;
   const cancelled = await application.cancel(requestId);
   assert.equal(cancelled.status, "cancelled");
-  complete?.(completed);
+  complete?.(COMPLETED);
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal((await application.observe(requestId)).status, "cancelled");
 });
 
+/**
+ * 未知Identityは他依頼のProfileとModeを開示しないを検証する。
+ *
+ * @responsibility 未知Identityは他依頼のProfileとModeを開示しないを検証するの検証責務を所有する。
+ * @trace ERB-UT-023
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus 未知Identityは他依頼のProfileとModeを開示しないの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+ */
 test("未知Identityは他依頼のProfileとModeを開示しない", async () => {
   const application = createCoordinatorWorkbenchAiRequestApplication({
     async startReadOnlyAdvice() {
-      return completed;
+      return COMPLETED;
     },
     async startChangeCandidate() {
-      return completed;
+      return COMPLETED;
     },
   });
 
@@ -185,9 +246,21 @@ test("未知Identityは他依頼のProfileとModeを開示しない", async () =
   assert.equal(unknown.mode, null);
 });
 
+/**
+ * 根拠参照を持たないExecutor結果を公開前に拒否するを検証する。
+ *
+ * @responsibility 根拠参照を持たないExecutor結果を公開前に拒否するを検証するの検証責務を所有する。
+ * @trace ERB-UT-023
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus 根拠参照を持たないExecutor結果を公開前に拒否するの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+ */
 test("根拠参照を持たないExecutor結果を公開前に拒否する", async () => {
   const invalidResult = Object.freeze({
-    ...completed,
+    ...COMPLETED,
     facts: Object.freeze([
       Object.freeze({ text: "根拠のない事実", references: Object.freeze([]) }),
     ]),
@@ -197,7 +270,7 @@ test("根拠参照を持たないExecutor結果を公開前に拒否する", asy
       return invalidResult;
     },
     async startChangeCandidate() {
-      return completed;
+      return COMPLETED;
     },
   });
 
@@ -212,6 +285,18 @@ test("根拠参照を持たないExecutor結果を公開前に拒否する", asy
   assert.deepEqual(result.nextOptions, []);
 });
 
+/**
+ * 読取り助言の単一JSONを許可済み根拠参照へ拘束するを検証する。
+ *
+ * @responsibility 読取り助言の単一JSONを許可済み根拠参照へ拘束するを検証するの検証責務を所有する。
+ * @trace ERB-UT-023
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus 読取り助言の単一JSONを許可済み根拠参照へ拘束するの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+ */
 test("読取り助言の単一JSONを許可済み根拠参照へ拘束する", () => {
   const raw = JSON.stringify({
     contract: WORKBENCH_AI_ADVICE_RESULT_CONTRACT,
@@ -238,6 +323,18 @@ test("読取り助言の単一JSONを許可済み根拠参照へ拘束する", (
   assert.equal(result.rawOutputReported, false);
 });
 
+/**
+ * 読取り投影外参照・根拠なし・曖昧JSONを拒否するを検証する。
+ *
+ * @responsibility 読取り投影外参照・根拠なし・曖昧JSONを拒否するを検証するの検証責務を所有する。
+ * @trace ERB-UT-023
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus 読取り投影外参照・根拠なし・曖昧JSONを拒否するの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+ */
 test("読取り投影外参照・根拠なし・曖昧JSONを拒否する", () => {
   const fixture = {
     contract: WORKBENCH_AI_ADVICE_RESULT_CONTRACT,
@@ -248,14 +345,14 @@ test("読取り投影外参照・根拠なし・曖昧JSONを拒否する", () =
     additionalInferences: [],
     nextOptions: [],
   };
-  const allowed = ["PROJECT_CONTEXT.md#current"];
+  const allowedResults = ["PROJECT_CONTEXT.md#current"];
   assert.equal(
     normalizeWorkbenchAiAdviceResult(
       JSON.stringify({
         ...fixture,
         facts: [{ text: "推測", references: ["SECRET.md#unknown"] }],
       }),
-      allowed,
+      allowedResults,
     ).status,
     "blocked",
   );
@@ -265,26 +362,38 @@ test("読取り投影外参照・根拠なし・曖昧JSONを拒否する", () =
         ...fixture,
         facts: [{ text: "根拠なし", references: [] }],
       }),
-      allowed,
+      allowedResults,
     ).status,
     "blocked",
   );
   assert.equal(
     normalizeWorkbenchAiAdviceResult(
       `${JSON.stringify(fixture)}${JSON.stringify(fixture)}`,
-      allowed,
+      allowedResults,
     ).status,
     "blocked",
   );
   assert.equal(
     normalizeWorkbenchAiAdviceResult(
       '{"contract":"crdd-coordinator/workbench-ai-advice-result","contract":"duplicate"}',
-      allowed,
+      allowedResults,
     ).status,
     "blocked",
   );
 });
 
+/**
+ * 読取り助言結果契約は上限と生出力非公開を固定するを検証する。
+ *
+ * @responsibility 読取り助言結果契約は上限と生出力非公開を固定するを検証するの検証責務を所有する。
+ * @trace ERB-UT-023
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus 読取り助言結果契約は上限と生出力非公開を固定するの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+ */
 test("読取り助言結果契約は上限と生出力非公開を固定する", () => {
   const contract = describeWorkbenchAiAdviceResultContract();
   assert.equal(contract.contractRevision, 1);
@@ -293,6 +402,18 @@ test("読取り助言結果契約は上限と生出力非公開を固定する",
   assert.equal(contract.rawOutputReported, false);
 });
 
+/**
+ * 許可済み投影からEffect 0の読取り助言Task Packetを作るを検証する。
+ *
+ * @responsibility 許可済み投影からEffect 0の読取り助言Task Packetを作るを検証するの検証責務を所有する。
+ * @trace ERB-UT-023
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus 許可済み投影からEffect 0の読取り助言Task Packetを作るの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+ */
 test("許可済み投影からEffect 0の読取り助言Task Packetを作る", () => {
   const content = "# Current Project\n\nStatus: At Risk\n";
   const prepared = prepareWorkbenchAiAdviceTask({
@@ -324,6 +445,18 @@ test("許可済み投影からEffect 0の読取り助言Task Packetを作る", (
   assert.equal(prepared.candidateCreated, false);
 });
 
+/**
+ * 改変投影・秘密Prompt・越境参照をTask Packet生成前に拒否するを検証する。
+ *
+ * @responsibility 改変投影・秘密Prompt・越境参照をTask Packet生成前に拒否するを検証するの検証責務を所有する。
+ * @trace ERB-UT-023
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus 改変投影・秘密Prompt・越境参照をTask Packet生成前に拒否するの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+ */
 test("改変投影・秘密Prompt・越境参照をTask Packet生成前に拒否する", () => {
   const content = "# Current Project";
   const hash = createHash("sha256").update(content).digest("hex");
@@ -367,6 +500,18 @@ test("改変投影・秘密Prompt・越境参照をTask Packet生成前に拒否
   );
 });
 
+/**
+ * 読取り助言Task契約は結果契約とEffect 0を固定するを検証する。
+ *
+ * @responsibility 読取り助言Task契約は結果契約とEffect 0を固定するを検証するの検証責務を所有する。
+ * @trace ERB-UT-023
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus 読取り助言Task契約は結果契約とEffect 0を固定するの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+ */
 test("読取り助言Task契約は結果契約とEffect 0を固定する", () => {
   const contract = describeWorkbenchAiAdviceTaskContract();
   assert.equal(contract.contractRevision, 1);
@@ -377,6 +522,18 @@ test("読取り助言Task契約は結果契約とEffect 0を固定する", () =>
   assert.equal(contract.rawProjectionReported, false);
 });
 
+/**
+ * Repository Project Contextを専用Task Packetへ固定してDispatchするを検証する。
+ *
+ * @responsibility Repository Project Contextを専用Task Packetへ固定してDispatchするを検証するの検証責務を所有する。
+ * @trace ERB-UT-023
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus Repository Project Contextを専用Task Packetへ固定してDispatchするの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+ */
 test("Repository Project Contextを専用Task Packetへ固定してDispatchする", async () => {
   const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
     process.cwd(),
@@ -415,11 +572,11 @@ test("Repository Project Contextを専用Task Packetへ固定してDispatchす�
         projectionHash: input.taskPacket.projectionHash,
         taskHash: input.taskPacket.taskHash,
       });
-      return completed;
+      return COMPLETED;
     },
     async () =>
       Object.freeze({
-        ...completed,
+        ...COMPLETED,
         facts: Object.freeze([
           Object.freeze({
             text: "change",
@@ -451,6 +608,18 @@ test("Repository Project Contextを専用Task Packetへ固定してDispatchす�
   assert.match(observedTask?.taskHash ?? "", /^[a-f0-9]{64}$/u);
 });
 
+/**
+ * 未登録または非Coordinator ProfileはDispatch前に拒否するを検証する。
+ *
+ * @responsibility 未登録または非Coordinator ProfileはDispatch前に拒否するを検証するの検証責務を所有する。
+ * @trace ERB-UT-023
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus 未登録または非Coordinator ProfileはDispatch前に拒否するの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+ */
 test("未登録または非Coordinator ProfileはDispatch前に拒否する", async () => {
   const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
     process.cwd(),
@@ -471,9 +640,9 @@ test("未登録または非Coordinator ProfileはDispatch前に拒否する", as
     store,
     async () => {
       dispatchCount += 1;
-      return completed;
+      return COMPLETED;
     },
-    async () => completed,
+    async () => COMPLETED,
   );
 
   for (const profileId of ["PROFILE-999999", "PROFILE-100003"]) {

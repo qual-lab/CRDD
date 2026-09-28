@@ -42,7 +42,7 @@ const META = Object.freeze({
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=Direct Boundary: mcp Test Source→対象契約
  */
 function request(method: string, params: unknown, id = 1) {
   return { jsonrpc: "2.0", id, method, params };
@@ -57,7 +57,7 @@ function request(method: string, params: unknown, id = 1) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=Direct Boundary: mcp Test Source→対象契約
  */
 function objective() {
   return {
@@ -86,7 +86,7 @@ function objective() {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: mcp Test Source→対象契約
  */
 test("MCP semantic operations require a runtime-observed client principal before effects", async () => {
   let effects = 0;
@@ -122,7 +122,7 @@ test("MCP semantic operations require a runtime-observed client principal before
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: mcp Test Source→対象契約
  */
 test("MCP envelope and authentication reject accessors and proxies without invoking them", async () => {
   let effects = 0;
@@ -219,7 +219,7 @@ test("MCP envelope and authentication reject accessors and proxies without invok
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=Direct Boundary: mcp Test Source→対象契約
  */
 function decision() {
   return {
@@ -242,7 +242,7 @@ function decision() {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=Direct Boundary: mcp Test Source→対象契約
  */
 function dependencies(
   overrides: Partial<McpProjectRuntimeDependencies> = {},
@@ -305,7 +305,7 @@ function dependencies(
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: mcp Test Source→対象契約
  */
 test("MCP discovery and tool list expose the three public operations", async () => {
   const discover = await handleMcpProjectRuntimeRequest(
@@ -339,7 +339,7 @@ test("MCP discovery and tool list expose the three public operations", async () 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: mcp Test Source→対象契約
  */
 test("MCP state tool returns the canonical read-only result", async () => {
   let authentication: unknown = null;
@@ -390,7 +390,7 @@ test("MCP state tool returns the canonical read-only result", async () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: mcp Test Source→対象契約
  */
 test("MCP Objective uses the common semantic entry and preserves cancellation", async () => {
   const controller = new AbortController();
@@ -440,7 +440,7 @@ test("MCP Objective uses the common semantic entry and preserves cancellation", 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: mcp Test Source→対象契約
  */
 test("MCP Decision uses a separate entry and never forwards comment to Objective", async () => {
   let calls = 0;
@@ -486,7 +486,7 @@ test("MCP Decision uses a separate entry and never forwards comment to Objective
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=Direct Boundary: mcp Test Source→対象契約
  */
 test("MCP rejects unknown fields, stale-shaped decisions, and multiline comments before effects", async () => {
   let effects = 0;
@@ -527,7 +527,7 @@ test("MCP rejects unknown fields, stale-shaped decisions, and multiline comments
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: mcp Test Source→対象契約
  */
 test("MCP fails closed when a semantic result is malformed", async () => {
   const response = await handleMcpProjectRuntimeRequest(
@@ -559,7 +559,7 @@ test("MCP fails closed when a semantic result is malformed", async () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: mcp Test Source→対象契約
  */
 test("MCPは内部Task fieldを公開結果へ透過しない", async () => {
   for (const extra of [
@@ -614,7 +614,7 @@ test("MCPは内部Task fieldを公開結果へ透過しない", async () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: mcp Test Source→対象契約
  */
 test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再構成する", async () => {
   const base = {
@@ -1054,7 +1054,7 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: mcp Test Source→対象契約
  */
 test("MCP Integration結果はblocked時のcleanupとmanual recoveryを相関検証する", async () => {
   for (const [cleanupConfirmed, manualRecoveryRequired] of [
@@ -1102,7 +1102,7 @@ test("MCP Integration結果はblocked時のcleanupとmanual recoveryを相関検
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: mcp Test Source→対象契約
  */
 test("MCP Integration結果はCanonical recoveryIdsを保持し不正な集合を拒否する", async () => {
   const recoveryId = `lease-acquisition-${"1".repeat(40)}`;
@@ -1252,7 +1252,7 @@ test("MCP Integration結果はCanonical recoveryIdsを保持し不正な集合�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: mcp Test Source→対象契約
  */
 test("MCPはdecision付きIntegration結果の基本形と境界拡張形をそのまま保持する", async () => {
   const decisionResult = {
@@ -1336,7 +1336,7 @@ test("MCPはdecision付きIntegration結果の基本形と境界拡張形をそ�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: mcp Test Source→対象契約
  */
 test("MCP DecisionはObjective専用fieldを拒否する", async () => {
   const response = await handleMcpProjectRuntimeRequest(
@@ -1377,7 +1377,7 @@ test("MCP DecisionはObjective専用fieldを拒否する", async () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: mcp Test Source→対象契約
  */
 test("MCP contract reports stateless transport and the exact public tools", () => {
   assert.deepEqual(describeMcpProjectRuntimeAdapterContract(), {
@@ -1404,7 +1404,7 @@ test("MCP contract reports stateless transport and the exact public tools", () =
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: mcp Test Source→対象契約
  */
 test("JSON-RPC error envelopeはProtocolだけが所有しTransportは再定義しない", () => {
   assert.deepEqual(protocolError(null, -32700, "Parse error"), {

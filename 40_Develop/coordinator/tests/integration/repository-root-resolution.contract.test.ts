@@ -33,7 +33,7 @@ const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RFD-IT-001=Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
+ * @boundary RFD-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("repository root resolution binds a package working directory to the project root", () => {
   assert.equal(
@@ -56,7 +56,7 @@ test("repository root resolution binds a package working directory to the projec
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RFD-IT-001=Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
+ * @boundary RFD-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("repository root resolution does not walk past an invalid nested Git boundary", (t) => {
   const outer = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-root-boundary-"));
@@ -81,7 +81,7 @@ test("repository root resolution does not walk past an invalid nested Git bounda
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RFD-IT-001=Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
+ * @boundary RFD-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("repository root resolution fails closed when no Git boundary exists", () => {
   // A temporary directory inside this checkout inherits its Git boundary.
@@ -108,7 +108,7 @@ test("repository root resolution fails closed when no Git boundary exists", () =
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RFD-IT-001=Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
+ * @boundary RFD-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("repository root resolution contract exposes no path", () => {
   const contract = describeRepositoryLocationContract();

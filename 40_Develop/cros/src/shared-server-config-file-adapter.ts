@@ -36,7 +36,8 @@ const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
  * 検証済みShared Server運用設定を定義する。
  *
  * @responsibility 公開Origin、Port、Exposure SnapshotおよびRepository Application Resolverを一つの観測へ閉じる。
- * @trace ARCH-000005 ARCH-000013
+ * @trace ARCH-000005
+ * @trace ARCH-000013
  * @shape Shared Server起動に必要な非秘密値と検証済みApplication Portを持つ。
  * @invariant Repository Rootを公開結果のPropertyとして返さない。
  * @boundary Config File AdapterとShared Server Compositionの型境界。
@@ -56,7 +57,8 @@ export type CrosSharedServerOperationalConfig = Readonly<{
  * OS管理CROS Config Rootの固定FileからShared Server運用設定を読取る。
  *
  * @responsibility Config Schema、Repository Root、Project Context Identity、重複およびWorkspace Exposureを起動前に完全検証する。
- * @trace ARCH-000005 ARCH-000013
+ * @trace ARCH-000005
+ * @trace ARCH-000013
  * @input Runtime Data契約のCrosRootInputを受け取る。
  * @returns 検証済みShared Server運用設定を返す。
  * @precondition ConfigはResolverが確定したRoot直下の`shared-server.json`に存在する。
@@ -273,7 +275,8 @@ function inspectHttpsOrigin(value: string): void {
  * Repository RootのProject Context正本を読取る。
  *
  * @responsibility 固定Filenameの通常FileだけをUTF-8として取得する。
- * @trace ARCH-000005 ARCH-000013
+ * @trace ARCH-000005
+ * @trace ARCH-000013
  * @input 検証済みRepository Rootを受け取る。
  * @returns PROJECT_CONTEXT.md全文を返す。
  * @precondition rootはexact Git Rootとして検証済みである。
@@ -343,10 +346,13 @@ function plain(value: unknown): value is Record<string, unknown> {
  * @security 未知Secret Fieldを黙って保持しない。
  * @concurrency N/A: 共有状態を持たない同期処理である。
  */
-function sameKeys(value: Record<string, unknown>, expected: string[]): boolean {
+function sameKeys(
+  value: Record<string, unknown>,
+  expectedKeys: string[],
+): boolean {
   return (
     JSON.stringify(Object.keys(value).sort()) ===
-    JSON.stringify([...expected].sort())
+    JSON.stringify([...expectedKeys].sort())
   );
 }
 

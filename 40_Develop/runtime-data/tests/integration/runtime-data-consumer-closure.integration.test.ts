@@ -92,7 +92,7 @@ type SourceSet = ReadonlyMap<string, string>;
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RDL-IT-001=Adjacent 1 Block: Repository Root・Runtime Root→Filesystem Writer
+ * @boundary RDL-IT-001=Direct Boundary: runtime-data Test Source→対象契約
  */
 function walk(directory: string): string[] {
   if (!fs.existsSync(directory)) return [];
@@ -116,7 +116,7 @@ function walk(directory: string): string[] {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RDL-IT-001=Adjacent 1 Block: Repository Root・Runtime Root→Filesystem Writer
+ * @boundary RDL-IT-001=Direct Boundary: runtime-data Test Source→対象契約
  */
 function consumerSources(): Map<string, string> {
   const result = new Map<string, string>();
@@ -160,7 +160,7 @@ function consumerSources(): Map<string, string> {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RDL-IT-001=Adjacent 1 Block: Repository Root・Runtime Root→Filesystem Writer
+ * @boundary RDL-IT-001=Direct Boundary: runtime-data Test Source→対象契約
  */
 function violations(sources: SourceSet): string[] {
   const findings: string[] = [];
@@ -316,7 +316,7 @@ function violations(sources: SourceSet): string[] {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RDL-IT-001=Adjacent 1 Block: Repository Root・Runtime Root→Filesystem Writer
+ * @boundary RDL-IT-001=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("本番Runtime Data Consumer集合は公開された名前付き境界だけを使う", () => {
   assert.deepEqual(violations(consumerSources()), []);
@@ -332,7 +332,7 @@ test("本番Runtime Data Consumer集合は公開された名前付き境界だ�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RDL-IT-001=Adjacent 1 Block: Repository Root・Runtime Root→Filesystem Writer
+ * @boundary RDL-IT-001=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("新規Componentのraw Root構築と名前付きPathの親再解釈を拒否する", () => {
   const sources = consumerSources();
@@ -364,7 +364,7 @@ test("新規Componentのraw Root構築と名前付きPathの親再解釈を拒�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RDL-IT-001=Adjacent 1 Block: Repository Root・Runtime Root→Filesystem Writer
+ * @boundary RDL-IT-001=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("内部Resolverの公開と予定外の保護署名Consumerを拒否する", () => {
   const sources = consumerSources();
@@ -395,7 +395,7 @@ test("内部Resolverの公開と予定外の保護署名Consumerを拒否する"
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RDL-IT-001=Adjacent 1 Block: Repository Root・Runtime Root→Filesystem Writer
+ * @boundary RDL-IT-001=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("配布Toolを含む利用側で旧Area名と未登録Top-level Areaを拒否する", () => {
   const sources = consumerSources();

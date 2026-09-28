@@ -48,7 +48,7 @@ const actualOperations = {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-011=N/A: 実行記録Readerは外部実行境界を持たない。
+ * @boundary PPR-UT-011=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 function rootBinding(root: string) {
   return {
@@ -68,7 +68,7 @@ function rootBinding(root: string) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-011=N/A: 実行記録Readerは外部実行境界を持たない。
+ * @boundary PPR-UT-011=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("Repository外PathをFilesystem観測前に拒否する", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-repository-root-"));
@@ -114,7 +114,7 @@ test("Repository外PathをFilesystem観測前に拒否する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-011=N/A: 実行記録Readerは外部実行境界を持たない。
+ * @boundary PPR-UT-011=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("中間linkと観測途中の変化をinvalidとunobservableへ分ける", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-repository-root-"));
@@ -176,7 +176,7 @@ test("中間linkと観測途中の変化をinvalidとunobservableへ分ける", 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-011=N/A: 実行記録Readerは外部実行境界を持たない。
+ * @boundary PPR-UT-011=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("観測不能なRepository Rootを不存在へ畳まない", () => {
   const root = "C:\\fixture\\unobservable-root";
@@ -208,7 +208,7 @@ test("観測不能なRepository Rootを不存在へ畳まない", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-011=N/A: 実行記録Readerは外部実行境界を持たない。
+ * @boundary PPR-UT-011=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("OS別に相対Rootと異なるFlavorのRoot BindingをFilesystem観測前に拒否する", () => {
   for (const [candidate, pathFlavor] of [
@@ -244,7 +244,7 @@ test("OS別に相対Rootと異なるFlavorのRoot BindingをFilesystem観測前�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-011=N/A: 実行記録Readerは外部実行境界を持たない。
+ * @boundary PPR-UT-011=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("Repository Root自身のlinkまたはjunctionを拒否する", () => {
   const root = "C:\\fixture\\repository-link";
@@ -283,7 +283,7 @@ test("Repository Root自身のlinkまたはjunctionを拒否する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-011=N/A: 実行記録Readerは外部実行境界を持たない。
+ * @boundary PPR-UT-011=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("Directory列挙は名前順とEntry種別を固定しlinkを通常Directoryへ畳まない", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-repository-root-"));
@@ -324,7 +324,7 @@ test("Directory列挙は名前順とEntry種別を固定しlinkを通常Director
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-011=N/A: 実行記録Readerは外部実行境界を持たない。
+ * @boundary PPR-UT-011=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("差替えで別File Handleを取得しても読まずにcloseする", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-repository-root-"));
@@ -376,7 +376,7 @@ test("差替えで別File Handleを取得しても読まずにcloseする", () =
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-011=N/A: 実行記録Readerは外部実行境界を持たない。
+ * @boundary PPR-UT-011=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("PlatformがOpened Handleの所在を証明できなければ読まずにcloseする", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-repository-root-"));

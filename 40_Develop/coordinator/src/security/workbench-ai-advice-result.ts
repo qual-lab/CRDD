@@ -19,7 +19,7 @@ const MAXIMUM_TEXT_BYTES = 8_192;
 const MAXIMUM_REFERENCE_BYTES = 512;
 const MAXIMUM_ITEMS_PER_SECTION = 64;
 const MAXIMUM_REFERENCES_PER_ITEM = 16;
-const RESULT_KEYS = [
+const resultKeys = [
   "contract",
   "contractRevision",
   "status",
@@ -28,12 +28,36 @@ const RESULT_KEYS = [
   "additionalInferences",
   "nextOptions",
 ] as const;
-const ITEM_KEYS = ["text", "references"] as const;
+const itemKeys = ["text", "references"] as const;
+
+/**
+ * Workbench助言結果の閉じたSchema検証境界で使用するWorkbenchAiAdviceResultItemの構造を固定する。
+ *
+ * @responsibility Workbench助言結果の閉じたSchema検証境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
 
 export type WorkbenchAiAdviceResultItem = Readonly<{
   text: string;
   references: readonly string[];
 }>;
+
+/**
+ * Workbench助言結果の閉じたSchema検証境界で使用するWorkbenchAiAdviceResultの構造を固定する。
+ *
+ * @responsibility Workbench助言結果の閉じたSchema検証境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
 
 export type WorkbenchAiAdviceResult = Readonly<{
   status: "completed";
@@ -73,7 +97,7 @@ export function normalizeWorkbenchAiAdviceResult(
     return blocked("workbench_ai_advice_result_input_invalid");
 
   const value = parseUnambiguousJsonDocument(raw);
-  if (!isExactRecord(value, RESULT_KEYS))
+  if (!isExactRecord(value, resultKeys))
     return blocked("workbench_ai_advice_result_schema_invalid");
   if (
     value.contract !== WORKBENCH_AI_ADVICE_RESULT_CONTRACT ||
@@ -146,21 +170,55 @@ export function describeWorkbenchAiAdviceResultContract() {
   });
 }
 
+/**
+ * Workbench助言結果の閉じたSchema検証境界におけるinspectAllowedReferencesの処理境界を固定する。
+ *
+ * @responsibility Workbench助言結果の閉じたSchema検証境界に必要な入力処理、失敗分類および結果生成を所有する。
+ * @trace ARCH-000015
+ * @input 宣言された引数だけを受け取る。
+ * @returns 宣言された結果型を返す。
+ * @precondition 呼出し元が型、IdentityおよびAuthorityの契約を満たす。
+ * @postcondition 成功時だけ検証済みの結果を返す。
+ * @effect 宣言または注入された依存以外へEffectを発行しない。
+ * @failure 不正入力、依存失敗または観測不能を成功へ畳まない。
+ * @invariant 入力のIdentity、AuthorityおよびScopeを暗黙に拡張しない。
+ * @boundary 呼出し元と本Moduleの局所責務境界。
+ * @security 秘密値と未許可情報を出力またはlogへ追加しない。
+ * @concurrency 共有状態は宣言された所有者とlifecycleに従う。
+ */
+
 function inspectAllowedReferences(
-  value: readonly string[],
+  values: readonly string[],
 ): ReadonlySet<string> | null {
   if (
-    !Array.isArray(value) ||
-    value.length === 0 ||
-    value.length > 1_024 ||
-    value.some(
+    !Array.isArray(values) ||
+    values.length === 0 ||
+    values.length > 1_024 ||
+    values.some(
       (reference) => !validString(reference, MAXIMUM_REFERENCE_BYTES),
     ) ||
-    new Set(value).size !== value.length
+    new Set(values).size !== values.length
   )
     return null;
-  return new Set(value);
+  return new Set(values);
 }
+
+/**
+ * Workbench助言結果の閉じたSchema検証境界におけるinspectItemsの処理境界を固定する。
+ *
+ * @responsibility Workbench助言結果の閉じたSchema検証境界に必要な入力処理、失敗分類および結果生成を所有する。
+ * @trace ARCH-000015
+ * @input 宣言された引数だけを受け取る。
+ * @returns 宣言された結果型を返す。
+ * @precondition 呼出し元が型、IdentityおよびAuthorityの契約を満たす。
+ * @postcondition 成功時だけ検証済みの結果を返す。
+ * @effect 宣言または注入された依存以外へEffectを発行しない。
+ * @failure 不正入力、依存失敗または観測不能を成功へ畳まない。
+ * @invariant 入力のIdentity、AuthorityおよびScopeを暗黙に拡張しない。
+ * @boundary 呼出し元と本Moduleの局所責務境界。
+ * @security 秘密値と未許可情報を出力またはlogへ追加しない。
+ * @concurrency 共有状態は宣言された所有者とlifecycleに従う。
+ */
 
 function inspectItems(
   value: unknown,
@@ -171,7 +229,7 @@ function inspectItems(
   const items: WorkbenchAiAdviceResultItem[] = [];
   for (const item of value) {
     if (
-      !isExactRecord(item, ITEM_KEYS) ||
+      !isExactRecord(item, itemKeys) ||
       !validString(item.text, MAXIMUM_TEXT_BYTES) ||
       !Array.isArray(item.references) ||
       item.references.length === 0 ||
@@ -194,6 +252,23 @@ function inspectItems(
   return Object.freeze(items);
 }
 
+/**
+ * Workbench助言結果の閉じたSchema検証境界におけるblockedの処理境界を固定する。
+ *
+ * @responsibility Workbench助言結果の閉じたSchema検証境界に必要な入力処理、失敗分類および結果生成を所有する。
+ * @trace ARCH-000015
+ * @input 宣言された引数だけを受け取る。
+ * @returns 宣言された結果型を返す。
+ * @precondition 呼出し元が型、IdentityおよびAuthorityの契約を満たす。
+ * @postcondition 成功時だけ検証済みの結果を返す。
+ * @effect 宣言または注入された依存以外へEffectを発行しない。
+ * @failure 不正入力、依存失敗または観測不能を成功へ畳まない。
+ * @invariant 入力のIdentity、AuthorityおよびScopeを暗黙に拡張しない。
+ * @boundary 呼出し元と本Moduleの局所責務境界。
+ * @security 秘密値と未許可情報を出力またはlogへ追加しない。
+ * @concurrency 共有状態は宣言された所有者とlifecycleに従う。
+ */
+
 function blocked(reason: string) {
   return Object.freeze({
     status: "blocked" as const,
@@ -202,6 +277,23 @@ function blocked(reason: string) {
     rawOutputReported: false as const,
   });
 }
+
+/**
+ * Workbench助言結果の閉じたSchema検証境界におけるvalidStringの処理境界を固定する。
+ *
+ * @responsibility Workbench助言結果の閉じたSchema検証境界に必要な入力処理、失敗分類および結果生成を所有する。
+ * @trace ARCH-000015
+ * @input 宣言された引数だけを受け取る。
+ * @returns 宣言された結果型を返す。
+ * @precondition 呼出し元が型、IdentityおよびAuthorityの契約を満たす。
+ * @postcondition 成功時だけ検証済みの結果を返す。
+ * @effect 宣言または注入された依存以外へEffectを発行しない。
+ * @failure 不正入力、依存失敗または観測不能を成功へ畳まない。
+ * @invariant 入力のIdentity、AuthorityおよびScopeを暗黙に拡張しない。
+ * @boundary 呼出し元と本Moduleの局所責務境界。
+ * @security 秘密値と未許可情報を出力またはlogへ追加しない。
+ * @concurrency 共有状態は宣言された所有者とlifecycleに従う。
+ */
 
 function validString(value: unknown, maximumBytes: number): value is string {
   return (
@@ -212,6 +304,23 @@ function validString(value: unknown, maximumBytes: number): value is string {
     Buffer.byteLength(value, "utf8") <= maximumBytes
   );
 }
+
+/**
+ * Workbench助言結果の閉じたSchema検証境界におけるisExactRecordの処理境界を固定する。
+ *
+ * @responsibility Workbench助言結果の閉じたSchema検証境界に必要な入力処理、失敗分類および結果生成を所有する。
+ * @trace ARCH-000015
+ * @input 宣言された引数だけを受け取る。
+ * @returns 宣言された結果型を返す。
+ * @precondition 呼出し元が型、IdentityおよびAuthorityの契約を満たす。
+ * @postcondition 成功時だけ検証済みの結果を返す。
+ * @effect 宣言または注入された依存以外へEffectを発行しない。
+ * @failure 不正入力、依存失敗または観測不能を成功へ畳まない。
+ * @invariant 入力のIdentity、AuthorityおよびScopeを暗黙に拡張しない。
+ * @boundary 呼出し元と本Moduleの局所責務境界。
+ * @security 秘密値と未許可情報を出力またはlogへ追加しない。
+ * @concurrency 共有状態は宣言された所有者とlifecycleに従う。
+ */
 
 function isExactRecord<const Keys extends readonly string[]>(
   value: unknown,

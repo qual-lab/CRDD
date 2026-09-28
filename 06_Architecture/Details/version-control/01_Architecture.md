@@ -132,6 +132,8 @@ Portの公開結果ではGit固有語彙を使わない。Git Adapterだけが�
 
 Release Identity、Runtime Execution Identity、署名対象集合およびRelease GateはVersion Controlの出力ではない。Release／SigningがFixed Revision IdentityとRuntime対象集合を入力に合成する。
 
+Git Adapterが本番RuntimeでGit CLIを起動する場合、その子Process境界はAdapter内部へ隔離するだけでは完了しない。署名Runtimeを構成する側は、実在する呼出し元、実行primitive、固定実行ファイルprefix、許可引数prefixおよび結果受領箇所をRuntime依存閉包へ全数登録し、配布物の静的観測と一致する場合だけ候補として扱う。Version Control側はGit操作の意味と失敗正規化を所有し、署名・Release Authorityは引き続き所有しない。
+
 ### 3.1 現行公開Symbol
 
 `40_Develop/version-control/src/index.ts`の現行公開面は次の集合に限定する。将来候補はここへ先取りせず、公開面を変更する場合は本表と契約試験を同じ変更で更新する。
@@ -244,6 +246,7 @@ Release／Signingを移行
 | Repository-local Ignore | 通常／冪等、write・fsync・close・rename・readback失敗、二つの実Processによる競合と再入場、通常／linked worktree、適用前後Identity |
 | Fixed Revision／Release利用側 | 通常作業は未Commitで成立し、署名／Releaseだけが固定Snapshot不足を拒否する。Release Identityは利用側が合成する |
 | Consumer Closure | 本番Sourceの直接Git CLI／内部構造依存、旧API import、未登録Consumerを拒否する |
+| 署名Runtime依存閉包 | 配布対象のGit Adapterにある子Process呼出しが、呼出し元・primitive・実行ファイル・引数・結果受領の登録集合と完全一致し、未登録または未使用の宣言を拒否する |
 | Port語彙 | 公開型へ`commit`、`tree`、`index`、`worktree`、`staged`等のGit固有語彙が現れない |
 
 実Gitとの結合試験は、呼出し、結果取得、取消／失敗、後始末までのLifecycleを対象にする。Mockだけから実Git境界の成立を推定しない。

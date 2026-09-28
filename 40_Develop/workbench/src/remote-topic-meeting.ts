@@ -3,7 +3,10 @@
  *
  * @packageDocumentation
  * @responsibility 明示Repositoryを持つMCP Callだけを発行し、一覧・本文・Relation・書込み結果をWorkbenchへ搬送する。
- * @trace ARCH-000005 ARCH-000006 ARCH-000012 ARCH-000013
+ * @trace ARCH-000005
+ * @trace ARCH-000006
+ * @trace ARCH-000012
+ * @trace ARCH-000013
  * @boundary WorkbenchとRemote CROS MCPのHTTP境界。
  * @effect Bearer認証付きHTTP Requestを発行し、書込みTool選択時だけ選択RepositoryへEffectを要求する。
  * @security CredentialをURL、本文、結果またはErrorへ複製せず、暗黙RepositoryやLocal fallbackを許可しない。
@@ -104,7 +107,9 @@ type McpToolResult = Readonly<{
  * Remote MCP Toolを一回呼び出す。
  *
  * @responsibility MCP HTTP HeaderとJSON-RPC Envelopeを固定し、Tool結果だけを未信頼値として返す。
- * @trace ARCH-000005 ARCH-000012 ARCH-000013
+ * @trace ARCH-000005
+ * @trace ARCH-000012
+ * @trace ARCH-000013
  * @input baseUrl、Bearer token、Tool名および引数を受け取る。
  * @returns 検証済みの最小Tool結果を返す。
  * @precondition baseUrlは利用者が明示したCROS Endpoint、tokenはProcess memory内の現在Credentialである。
@@ -207,7 +212,10 @@ function recordId(record: ProjectOperationRecord): string {
  * Remote Topic／Meeting詳細を取得する。
  *
  * @responsibility 明示Repositoryの一Record本文とFederated Relation状態を同じMCP応答から取得する。
- * @trace ARCH-000005 ARCH-000006 ARCH-000012 ARCH-000013
+ * @trace ARCH-000005
+ * @trace ARCH-000006
+ * @trace ARCH-000012
+ * @trace ARCH-000013
  * @input Endpoint、Credential、repositoryId、kind、idを受け取る。
  * @returns Recordが存在する場合DocumentとRelation、存在しない場合nullを返す。
  * @precondition repositoryIdはPortfolioで明示選択した許可候補である。
@@ -260,7 +268,10 @@ export async function readRemoteTopicMeetingDocument(
  * Remote Topic／Meeting一覧と表示に必要な本文Snapshotを取得する。
  *
  * @responsibility 一覧のPageと、そのPage内Recordだけの本文・Relationを一つの読取りSnapshotへ閉じる。
- * @trace ARCH-000005 ARCH-000006 ARCH-000012 ARCH-000013
+ * @trace ARCH-000005
+ * @trace ARCH-000006
+ * @trace ARCH-000012
+ * @trace ARCH-000013
  * @input Endpoint、Credential、明示Repository、kind、PaginationおよびQueryを受け取る。
  * @returns Pageと同期描画用Readerを返す。
  * @precondition repositoryIdは利用者がPortfolio Sourceから選択した値である。
@@ -337,7 +348,10 @@ export async function readRemoteTopicMeetingPage(input: {
  * Remote Topic／Meeting書込みActionを実行する。
  *
  * @responsibility Workbench Formの閉じたActionを一つのMCP Tool Callへ変換する。
- * @trace ARCH-000005 ARCH-000006 ARCH-000012 ARCH-000013
+ * @trace ARCH-000005
+ * @trace ARCH-000006
+ * @trace ARCH-000012
+ * @trace ARCH-000013
  * @input Endpoint、Credential、明示Repositoryおよび検証済みActionを受け取る。
  * @returns Project Operation公開結果をそのまま返す。
  * @precondition Form Tokenと入力形状はWorkbench Serverが検証済みである。

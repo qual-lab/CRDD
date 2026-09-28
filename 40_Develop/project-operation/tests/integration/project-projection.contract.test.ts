@@ -23,7 +23,7 @@ import { projectProjectOperationSources } from "../../src/index.ts";
  * @observation 全体状態、項目順、個別状態および公開されたSource情報を観測する。
  * @oracle 全体はpartial、各状態は保持され、restrictedのSource、Revision、時点および値はnullとなる。
  * @cleanup N/A: 不変値だけを使用し外部資源を作成しない。
- * @boundary PPR-IT-002=Direct Boundary: Source Reader→Project Management Projection。
+ * @boundary PPR-IT-002=Direct Boundary: project-operation Test Source→対象契約
  */
 test("不完全状態を保持し制限Sourceの詳細を公開しない", () => {
   const projection = projectProjectOperationSources("PRJ-001", "current", [

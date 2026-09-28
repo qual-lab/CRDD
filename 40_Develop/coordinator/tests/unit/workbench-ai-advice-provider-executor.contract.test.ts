@@ -1,11 +1,12 @@
 /**
  * Workbench助言Provider ExecutorのLifecycle契約を検証する。
  *
+ * @packageDocumentation
  * @responsibility Effect前拒否、exact計画伝播、取消、cleanup、出力抽出および例外Fail-closedを検証する。
- * @trace ERB-UT-023 ERB-IT-004
+ * @trace ERB-UT-023
+ * @level UT
+ * @scope coordinator、contract、node_process
  * @boundary Provider AdapterとFake Runtime Portの局所境界。
- * @effect 外部Providerを使わずProcess内Fake Runtimeだけを実行する。
- * @security Credential、Repository Pathおよび外部Networkを使用しない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -39,7 +40,7 @@ const prepared = prepareWorkbenchAiAdviceExecutionPlan(
 if (prepared.status !== "prepared" || prepared.executionPlan === null)
   throw new Error("test_execution_plan_required");
 const executionPlan = prepared.executionPlan;
-const advice = JSON.stringify({
+const ADVICE = JSON.stringify({
   contract: "crdd-coordinator/workbench-ai-advice-result",
   contractRevision: 1,
   status: "completed",
@@ -49,6 +50,18 @@ const advice = JSON.stringify({
   nextOptions: [],
 });
 
+/**
+ * exact計画とPromptを一回だけRuntimeへ渡して抽出済み助言JSONを受け取るを検証する。
+ *
+ * @responsibility exact計画とPromptを一回だけRuntimeへ渡して抽出済み助言JSONを受け取るを検証するの検証責務を所有する。
+ * @trace ERB-UT-023
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus exact計画とPromptを一回だけRuntimeへ渡して抽出済み助言JSONを受け取るの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+ */
 test("exact計画とPromptを一回だけRuntimeへ渡して抽出済み助言JSONを受け取る", async () => {
   let calls = 0;
   const executor = createWorkbenchAiAdviceProviderExecutor(async (plan) => {
@@ -57,7 +70,7 @@ test("exact計画とPromptを一回だけRuntimeへ渡して抽出済み助言JS
     return Object.freeze({
       status: "completed" as const,
       reason: null,
-      adviceJson: advice,
+      adviceJson: ADVICE,
       providerEffectIssued: true as const,
       cleanupConfirmed: true as const,
     });
@@ -67,12 +80,24 @@ test("exact計画とPromptを一回だけRuntimeへ渡して抽出済み助言JS
   assert.deepEqual(result, {
     status: "completed",
     reason: null,
-    rawOutput: advice,
+    rawOutput: ADVICE,
     providerEffectIssued: true,
     cleanupConfirmed: true,
   });
 });
 
+/**
+ * 事前取消はRuntime Effect 0で拒否するを検証する。
+ *
+ * @responsibility 事前取消はRuntime Effect 0で拒否するを検証するの検証責務を所有する。
+ * @trace ERB-UT-023
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus 事前取消はRuntime Effect 0で拒否するの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+ */
 test("事前取消はRuntime Effect 0で拒否する", async () => {
   let calls = 0;
   const executor = createWorkbenchAiAdviceProviderExecutor(async () => {
@@ -88,6 +113,18 @@ test("事前取消はRuntime Effect 0で拒否する", async () => {
   assert.equal(calls, 0);
 });
 
+/**
+ * Runtime拒否とcleanup未確認をcompletedへ昇格しないを検証する。
+ *
+ * @responsibility Runtime拒否とcleanup未確認をcompletedへ昇格しないを検証するの検証責務を所有する。
+ * @trace ERB-UT-023
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus Runtime拒否とcleanup未確認をcompletedへ昇格しないの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+ */
 test("Runtime拒否とcleanup未確認をcompletedへ昇格しない", async () => {
   const executor = createWorkbenchAiAdviceProviderExecutor(async () =>
     Object.freeze({
@@ -106,6 +143,18 @@ test("Runtime拒否とcleanup未確認をcompletedへ昇格しない", async () 
   assert.equal(result.rawOutput, null);
 });
 
+/**
+ * Runtime例外はEffect発行可能性とcleanup不明を保持するを検証する。
+ *
+ * @responsibility Runtime例外はEffect発行可能性とcleanup不明を保持するを検証するの検証責務を所有する。
+ * @trace ERB-UT-023
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus Runtime例外はEffect発行可能性とcleanup不明を保持するの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+ */
 test("Runtime例外はEffect発行可能性とcleanup不明を保持する", async () => {
   const executor = createWorkbenchAiAdviceProviderExecutor(async () => {
     throw new Error("provider failed");

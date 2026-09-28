@@ -3,7 +3,9 @@
  *
  * @packageDocumentation
  * @responsibility Project Runtimeの現在投影を、未接続・状態なし・観測不能と区別して表示する。
- * @trace ARCH-000004 ARCH-000007 ARCH-000012
+ * @trace ARCH-000004
+ * @trace ARCH-000007
+ * @trace ARCH-000012
  * @boundary Workbench BrowserとProject Runtime状態Query Adapterの境界。
  * @effect 描画はEffect 0。観測は注入されたApplicationへだけ委譲する。
  * @security Recovery Authority、Credential、Host Pathまたは非開示Task内容を入力契約へ含めない。
@@ -23,7 +25,8 @@ import { verifyRepositoryRoot } from "../../version-control/src/repository-locat
  * Workbenchが表示するProject Runtime現在投影の値契約。
  *
  * @responsibility 実行状況画面に必要なMilestone、Objective／Task、判断、Recoveryおよび次処置を閉じる。
- * @trace ARCH-000004 ARCH-000012
+ * @trace ARCH-000004
+ * @trace ARCH-000012
  * @shape Project Runtime公開投影の表示Propertyだけを表す。
  * @invariant Runtime正本、Authorityまたは状態遷移操作を所有しない。
  * @boundary Project Runtime State Query AdapterとWorkbench表示の型境界。
@@ -53,7 +56,8 @@ export type WorkbenchRuntimeActivityProjection = Readonly<{
  * Workbenchへ公開する一つの実行Event要約。
  *
  * @responsibility Execution Intelligence Eventから実行履歴画面に必要な非秘密情報だけを固定する。
- * @trace ARCH-000007 ARCH-000012
+ * @trace ARCH-000007
+ * @trace ARCH-000012
  * @shape Event、Objective、Task、Attempt、時刻、結果および回復要否を表す。
  * @invariant Event Storeの正本値を変更せず、Recovery Authorityまたは生Provider出力を含まない。
  * @boundary Execution Intelligence EventとWorkbench表示の型境界。
@@ -76,7 +80,8 @@ export type WorkbenchRuntimeEventProjection = Readonly<{
  * Runtime Eventページ要求。
  *
  * @responsibility Eventの取得上限と継続位置を一回の観測へ結合する。
- * @trace ARCH-000007 ARCH-000012
+ * @trace ARCH-000007
+ * @trace ARCH-000012
  * @shape cursorとlimitを表す。
  * @invariant limitは1件以上50件以下である。
  * @boundary Browser QueryとExecution Event投影の型境界。
@@ -92,7 +97,8 @@ export type WorkbenchRuntimeActivityPageRequest = Readonly<{
  * Runtime Activity一回分の観測結果を表す値契約。
  *
  * @responsibility observed、absent、unknownと理由・投影の相関をWorkbenchへ搬送する。
- * @trace ARCH-000004 ARCH-000012
+ * @trace ARCH-000004
+ * @trace ARCH-000012
  * @shape state、reasonおよびprojectionを表す。
  * @invariant observedだけが非null projectionを持つ想定であり、表示側でも不整合を成功へ畳まない。
  * @boundary Runtime Activity Application PortとBrowser表示の型境界。
@@ -113,7 +119,8 @@ export type WorkbenchRuntimeActivityObservation = Readonly<{
  * Runtime Activityの読取りApplication Port。
  *
  * @responsibility Project IDを現在のRuntime観測結果へ変換するConsumer境界を固定する。
- * @trace ARCH-000004 ARCH-000012
+ * @trace ARCH-000004
+ * @trace ARCH-000012
  * @shape observe操作だけを持つ読取り専用Portを表す。
  * @invariant WorkbenchへRuntime書込み、判断返却またはRecovery Authorityを公開しない。
  * @boundary WorkbenchとRepository／CROS Project Runtime Adapterの型境界。
@@ -134,7 +141,8 @@ const MAXIMUM_EVENT_LIMIT = 50;
  * Execution EventをWorkbench用の閉じた要約へ変換する。
  *
  * @responsibility Event StoreのCanonical Eventから表示許可Propertyだけを選択する。
- * @trace ARCH-000007 ARCH-000012
+ * @trace ARCH-000007
+ * @trace ARCH-000012
  * @input eventに検証済みExecution Intelligence Eventを受け取る。
  * @returns WorkbenchRuntimeEventProjectionを返す。
  * @precondition eventはExecution Intelligence境界で検証済みである。
@@ -166,7 +174,8 @@ function projectRuntimeEvent(
  * Event継続位置を閉じたCursorへ符号化する。
  *
  * @responsibility 並び順の最後の時刻とEvent IDを不透明Cursorへ変換する。
- * @trace ARCH-000007 ARCH-000012
+ * @trace ARCH-000007
+ * @trace ARCH-000012
  * @input eventに現在Pageの最後のEventを受け取る。
  * @returns URL安全なCursorを返す。
  * @precondition eventは現在Pageに含まれる検証済みEventである。
@@ -189,7 +198,8 @@ function encodeEventCursor(event: ExecutionIntelligenceEvent): string {
  * Event Cursorを検証して継続位置へ戻す。
  *
  * @responsibility 未信頼Query Cursorの型、長さおよび値形式をEffect前に検証する。
- * @trace ARCH-000007 ARCH-000012
+ * @trace ARCH-000007
+ * @trace ARCH-000012
  * @input cursorにBrowser Query由来の不透明値を受け取る。
  * @returns occurredAtとeventId、またはCursorなしを表すnullを返す。
  * @precondition cursorはundefinedまたは最大512文字の候補である。
@@ -229,7 +239,8 @@ function decodeEventCursor(
  * Repository Event StoreからProject限定の継続読込Pageを観測する。
  *
  * @responsibility Event Storeの観測不能、Project絞込み、安定並び順および取得上限を同じ結果へ閉じる。
- * @trace ARCH-000007 ARCH-000012
+ * @trace ARCH-000007
+ * @trace ARCH-000012
  * @input repositoryRoot、projectIdおよびPage要求を受け取る。
  * @returns Event観測状態、理由、PageおよびContinuationを返す。
  * @precondition repositoryRootは現在Workbenchの検証対象Rootである。
@@ -297,7 +308,8 @@ function observeRepositoryRuntimeEvents(
  * 検証済みRepositoryへ結合したRuntime Activity Applicationを構築する。
  *
  * @responsibility 現在のRepository RevisionとProject IDを既存Project Runtime State Queryへ接続する。
- * @trace ARCH-000004 ARCH-000012
+ * @trace ARCH-000004
+ * @trace ARCH-000012
  * @input repositoryRootにWorkbench起動時に検証したRepository Rootを受け取る。
  * @returns 読取り専用のWorkbenchRuntimeActivityApplicationを返す。
  * @precondition repositoryRootはVersion Control境界で再検証可能な絶対Pathである。
@@ -381,7 +393,8 @@ export function createRepositoryWorkbenchRuntimeActivityApplication(
  * Runtime Activityを現在の一投影から描画する。
  *
  * @responsibility Objective／Task、判断待ち、Recovery要否および次処置を同じ表示へ投影する。
- * @trace ARCH-000004 ARCH-000012
+ * @trace ARCH-000004
+ * @trace ARCH-000012
  * @input observationにApplication Adapterの現在観測を、undefinedに未接続を受け取る。
  * @returns Browserへ埋め込む安全なHTML断片を返す。
  * @precondition observedではprojectionが存在し、absent／unknownではnullである。

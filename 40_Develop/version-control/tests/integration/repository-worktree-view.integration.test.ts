@@ -32,10 +32,10 @@ import {
  * @observation stdoutをUTF-8 Textとして返す。
  * @oracle Exit 0以外をTest失敗として扱う。
  * @cleanup 呼出し元Testのafter hookがRepositoryを削除する。
- * @boundary RFD-IT-008=Direct Boundary: Version Control Port→Git Adapter
+ * @boundary RFD-IT-008=Direct Boundary: version-control Test Source→対象契約
  */
-function git(root: string, arguments_: readonly string[]): string {
-  return execFileSync("git", ["-C", root, ...arguments_], {
+function git(root: string, gitArguments: readonly string[]): string {
+  return execFileSync("git", ["-C", root, ...gitArguments], {
     encoding: "utf8",
     windowsHide: true,
   }).trim();
@@ -51,7 +51,7 @@ function git(root: string, arguments_: readonly string[]): string {
  * @observation Entry順序、変更Flag、Cursor、Patchおよび未追跡状態を観測する。
  * @oracle Directoryを全再帰展開せず、Prepared／Workingを混同せず、別Directory Cursorと越境Pathを拒否する。
  * @cleanup Test Repositoryを再帰削除する。
- * @boundary RFD-IT-008=Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ * @boundary RFD-IT-008=Direct Boundary: version-control Test Source→対象契約
  */
 test("Repository Treeを遅延展開し選択Fileの差分を区分して読む", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-vc-tree-"));

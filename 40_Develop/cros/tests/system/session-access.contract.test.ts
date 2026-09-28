@@ -61,7 +61,7 @@ const exposures: readonly CrosExposure[] = [
  * @observation Session Identity、Grant、解決結果およびclose後結果を観測する。
  * @oracle DEVだけavailableとなり、close後は同じ対象もrestrictedとなる。
  * @cleanup close後にSession Grantの利用可能性が残らない。
- * @boundary RFD-ST-003=System/E2E: Credential→Session Grant→Workspace→Repository。
+ * @boundary RFD-ST-003=Direct Boundary: cros Test Source→対象契約
  */
 test("許可Repositoryだけを解決し切断後にSession Grantを失効する", () => {
   const session = createCrosSession("session-1", {
@@ -91,7 +91,7 @@ test("許可Repositoryだけを解決し切断後にSession Grantを失効する
  * @observation 公開結果だけを観測する。
  * @oracle 結果はstatus=restrictedだけで、Repositoryの存在を開示しない。
  * @cleanup N/A: 読取りだけで外部資源を生成しない。
- * @boundary RFD-ST-004=System/E2E: Session Snapshot→Exposure Revision→Repository Revision。
+ * @boundary RFD-ST-004=Direct Boundary: cros Test Source→対象契約
  */
 test("古いExposure Revisionを非開示で拒否する", () => {
   const session = createCrosSession(
@@ -137,7 +137,7 @@ test("古いExposure Revisionを非開示で拒否する", () => {
  * @observation 公開結果のkey集合と状態を観測する。
  * @oracle 両結果はstatus=restrictedだけを返しRepository Identity・Path・存在を含めない。
  * @cleanup N/A: 読取りだけで対象Repository Effectを発行しない。
- * @boundary RFD-ST-004=System/E2E: Session→Workspace→Exposure→Repository Projection。
+ * @boundary RFD-ST-004=Direct Boundary: cros Test Source→対象契約
  */
 test("Grant外Repositoryを非開示で拒否し管理能力を閲覧権限へ昇格しない", () => {
   const developer = createCrosSession("session-dev", {

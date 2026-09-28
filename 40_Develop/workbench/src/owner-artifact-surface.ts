@@ -3,7 +3,9 @@
  *
  * @packageDocumentation
  * @responsibility Project Contextが明示するOwner Relationと固定Root Artifactを、Repository越境なしの読取りCatalogへ変換する。
- * @trace ARCH-000005 ARCH-000012 ARCH-000016
+ * @trace ARCH-000005
+ * @trace ARCH-000012
+ * @trace ARCH-000016
  * @boundary Repository MarkdownとWorkbench Owner Artifact表示の境界。
  * @effect 検証済みRepository内の宣言済みMarkdownだけを読取る。
  * @security 任意Path、外部URL、親参照、Symlink／Junction越境およびCatalog外Documentを拒否する。
@@ -22,7 +24,8 @@ const FIXED_OWNER_ARTIFACTS = Object.freeze([
  * Workbenchへ公開するOwner Artifact一件の値契約。
  *
  * @responsibility 検証済み相対Path、原文titleおよび表示分類を一つのRead Modelへ閉じる。
- * @trace ARCH-000012 ARCH-000016
+ * @trace ARCH-000012
+ * @trace ARCH-000016
  * @shape relativePath、titleおよびcategoryを表す。
  * @invariant categoryは正本の所有責務を変更せず、Workbench内の表示先だけを決める。
  * @boundary Repository ArtifactとWorkbench Catalogの型境界。
@@ -41,7 +44,8 @@ export type WorkbenchOwnerArtifact = Readonly<{
  * Workbench Owner Artifact Catalogの値契約。
  *
  * @responsibility Catalog全体の観測状態、検証済みArtifactおよび失敗理由を同じSnapshotへ閉じる。
- * @trace ARCH-000012 ARCH-000016
+ * @trace ARCH-000012
+ * @trace ARCH-000016
  * @shape state、artifactsおよびreasonを表す。
  * @invariant unknownでは部分Artifactを完全Catalogとして公開しない。
  * @boundary Repository観測とWorkbench表示Modelの型境界。
@@ -58,7 +62,9 @@ export type WorkbenchOwnerArtifactCatalog = Readonly<{
  * Owner Relationと固定Root Artifactから読取りCatalogを構築する。
  *
  * @responsibility Project Contextで明示されたMarkdown Relationだけを検証済みRepository Fileへ解決する。
- * @trace ARCH-000005 ARCH-000012 ARCH-000016
+ * @trace ARCH-000005
+ * @trace ARCH-000012
+ * @trace ARCH-000016
  * @input repositoryRootと検証済みProject Context Markdownを受け取る。
  * @returns Catalog状態、全件検証済みArtifactおよび観測不能理由を返す。
  * @precondition repositoryRootは検証済みVersion Control Rootである。
@@ -131,7 +137,8 @@ export async function readWorkbenchOwnerArtifactCatalog(
  * Catalogで許可済みのOwner Artifact本文を読取る。
  *
  * @responsibility Browser要求Pathを起動時Catalogへ照合してから同じRepository境界で原文を取得する。
- * @trace ARCH-000012 ARCH-000016
+ * @trace ARCH-000012
+ * @trace ARCH-000016
  * @input repositoryRoot、Catalogおよび要求された相対Pathを受け取る。
  * @returns 許可済みMarkdown本文、未許可または観測不能ではnullを返す。
  * @precondition catalogは同じrepositoryRootから作成されている。
@@ -164,7 +171,8 @@ export async function readWorkbenchOwnerArtifact(
  * 安定CHG IDから固定Canonical Pathの変更正本を読取る。
  *
  * @responsibility Topic／Meeting Relation Navigationを任意Path入力へ変えず、CHG正本へ接続する。
- * @trace ARCH-000012 ARCH-000016
+ * @trace ARCH-000012
+ * @trace ARCH-000016
  * @input repositoryRootと未信頼なCHG ID候補を受け取る。
  * @returns 同じRepository内の検証済みCHG Markdown、形式不正・欠落・観測失敗ではnullを返す。
  * @precondition repositoryRootは検証済みVersion Control Rootである。
@@ -191,7 +199,9 @@ export async function readWorkbenchChangeArtifact(
  * Owner Artifact CatalogをQualityおよびDocumentationへ投影する。
  *
  * @responsibility 固定Owner ArtifactとProject Context Relationを第二正本化せずQualityと参照先へ分けて表示する。
- * @trace ARCH-000005 ARCH-000012 ARCH-000016
+ * @trace ARCH-000005
+ * @trace ARCH-000012
+ * @trace ARCH-000016
  * @input catalogに起動時の検証済みOwner Artifact Snapshotを受け取る。
  * @returns Browserへ埋め込む安全なHTML断片を返す。
  * @precondition availableのartifactは全てRepository内通常Markdownである。
@@ -283,7 +293,8 @@ function extractMarkdownRelations(markdown: string): readonly Readonly<{
  * Repository内の通常Markdown Fileを上限付きで読取る。
  *
  * @responsibility 相対Path、通常File、実Path境界およびSizeを再検証して本文を取得する。
- * @trace ARCH-000012 ARCH-000016
+ * @trace ARCH-000012
+ * @trace ARCH-000016
  * @input repositoryRootとCatalog候補の相対Pathを受け取る。
  * @returns 検証済みMarkdown本文を返す。
  * @precondition repositoryRootは検証済みVersion Control Rootである。

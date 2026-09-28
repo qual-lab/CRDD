@@ -127,7 +127,7 @@ const REQUIRED_CLASS_HEADER_TAGS = Object.freeze([
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function collectCanonicalArchitectureIds(): ReadonlySet<string> {
   const definitionsRoot = path.join(
@@ -172,7 +172,7 @@ const canonicalArchitectureIds = collectCanonicalArchitectureIds();
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function collectCanonicalQualityLocalItems(): ReadonlyMap<string, string> {
   const definitionsRoot = path.join(
@@ -564,7 +564,7 @@ const projectConfigs = Object.freeze([
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function exportedNames(relativePath: string): readonly string[] {
   const source = fs.readFileSync(path.join(checkerRoot, relativePath), "utf8");
@@ -595,7 +595,7 @@ function exportedNames(relativePath: string): readonly string[] {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 test("Checker公開入口はArchitecture宣言済みSymbolだけを公開する", () => {
   assert.deepEqual(exportedNames("src/index.ts"), [
@@ -616,7 +616,7 @@ test("Checker公開入口はArchitecture宣言済みSymbolだけを公開する"
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 test("Checker公開Use Caseは工程別検査を所有せず現行Profileへ委譲する", () => {
   const applicationSource = fs.readFileSync(
@@ -812,7 +812,7 @@ type NamingViolation = Readonly<{
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function collectFiles(root: string): string[] {
   const files: string[] = [];
@@ -850,7 +850,7 @@ function collectFiles(root: string): string[] {
  * @observation Checker、CLI入口またはtemplate/toolsを参照するModule指定子を記録する。
  * @oracle Domain Libraryから上位Consumerへ向かう禁止依存が0件である。
  * @cleanup N/A: Repository Sourceを読取り専用で観測する。
- * @boundary RCM-IT-013=Direct Boundary: Domain Library→Consumer Source Graph
+ * @boundary RCM-IT-013=Direct Boundary: checker Test Source→対象契約
  */
 test("CRDD Domain LibraryはCheckerとCLIへ逆依存しない", () => {
   const domainSourceRoot = path.join(
@@ -891,7 +891,7 @@ test("CRDD Domain LibraryはCheckerとCLIへ逆依存しない", () => {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function collectPublicIndexFiles(): readonly string[] {
   return PUBLIC_INDEX_PROFILES.map((profile) =>
@@ -909,7 +909,7 @@ function collectPublicIndexFiles(): readonly string[] {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function assertPublicIndexContract(
   file: string,
@@ -979,7 +979,7 @@ function assertPublicIndexContract(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function assertSourceDirectoryPath(directory: string): void {
   const relativePath = path.relative(
@@ -1018,7 +1018,7 @@ function assertSourceDirectoryPath(directory: string): void {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function isPlatformAccessTarget(target: string): boolean {
   return (
@@ -1037,7 +1037,7 @@ function isPlatformAccessTarget(target: string): boolean {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function assertGeneratedTargetDirectory(target: string): void {
   const metadata = fs.lstatSync(target);
@@ -1055,7 +1055,7 @@ function assertGeneratedTargetDirectory(target: string): void {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function collectReferenceFiles(root: string): string[] {
   const files: string[] = [];
@@ -1094,7 +1094,7 @@ function collectReferenceFiles(root: string): string[] {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function countLiteral(source: string, literal: string): number {
   let count = 0;
@@ -1117,7 +1117,7 @@ function countLiteral(source: string, literal: string): number {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function collectRetiredReferenceCounts(): Map<string, number> {
   const counts = new Map<string, number>();
@@ -1144,7 +1144,7 @@ function collectRetiredReferenceCounts(): Map<string, number> {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function assertFileName(file: string): void {
   const name = path.basename(file);
@@ -1231,7 +1231,7 @@ function assertFileName(file: string): void {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function isContainedPath(candidate: string, root: string): boolean {
   const relative = path.relative(root, candidate);
@@ -1251,7 +1251,7 @@ function isContainedPath(candidate: string, root: string): boolean {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function resolveOwnedSource(file: string): string {
   const stats = fs.lstatSync(file);
@@ -1283,7 +1283,7 @@ function resolveOwnedSource(file: string): string {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function isOwnedProgramFile(
   file: string,
@@ -1306,7 +1306,7 @@ function isOwnedProgramFile(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function isNullish(type: Type): boolean {
   return Boolean(type.flags & (TypeFlags.Null | TypeFlags.Undefined));
@@ -1322,7 +1322,7 @@ function isNullish(type: Type): boolean {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function isAllowedBooleanName(name: string): boolean {
   if (STANDALONE_BOOLEAN_NAMES.has(name)) return true;
@@ -1352,7 +1352,7 @@ function isAllowedBooleanName(name: string): boolean {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function nonNullishTypes(type: Type): readonly Type[] {
   const types = type.isUnionType() ? type.getTypes() : [type];
@@ -1369,7 +1369,7 @@ function nonNullishTypes(type: Type): readonly Type[] {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function isBooleanType(type: Type): boolean {
   const types = nonNullishTypes(type);
@@ -1393,7 +1393,7 @@ function isBooleanType(type: Type): boolean {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function isArrayType(
   type: Type,
@@ -1428,7 +1428,7 @@ function isArrayType(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function isFunctionInitializer(initializer: Expression | undefined): boolean {
   return Boolean(
@@ -1456,7 +1456,7 @@ type FixedInitializerContext = Readonly<{
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function declarationSourcePath(
   identifier: Identifier,
@@ -1485,7 +1485,7 @@ function declarationSourcePath(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function isGlobalIntrinsic(
   identifier: Identifier,
@@ -1509,7 +1509,7 @@ function isGlobalIntrinsic(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function isImportedCreateHash(
   identifier: Identifier,
@@ -1533,7 +1533,7 @@ function isImportedCreateHash(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function isTypedArrayPrototypeSnapshot(
   expression: Expression,
@@ -1574,7 +1574,7 @@ function isTypedArrayPrototypeSnapshot(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function isGlobalPropertyAccess(
   expression: Expression,
@@ -1601,7 +1601,7 @@ function isGlobalPropertyAccess(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function isFixedAggregateMember(
   initializer: Expression | undefined,
@@ -1644,7 +1644,7 @@ function isFixedAggregateMember(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function resolvedSymbolId(
   identifier: Identifier,
@@ -1669,7 +1669,7 @@ function resolvedSymbolId(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function isNonEscapingDirectAggregate(
   declaration: VariableDeclaration,
@@ -1719,7 +1719,7 @@ function isNonEscapingDirectAggregate(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function directAggregateSeed(
   expression: Expression | undefined,
@@ -1755,7 +1755,7 @@ function directAggregateSeed(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function fixedFreezeSeed(
   expression: Expression,
@@ -1803,7 +1803,7 @@ function fixedFreezeSeed(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function literalPropertyName(node: Node): string | null {
   if (isIdentifier(node) || isStringLiteral(node)) return node.text;
@@ -1821,7 +1821,7 @@ function literalPropertyName(node: Node): string | null {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function canonicalArrayIndex(node: Expression | undefined): number | null {
   if (!node) return null;
@@ -1846,7 +1846,7 @@ function canonicalArrayIndex(node: Expression | undefined): number | null {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function primitiveReadType(type: Type): boolean {
   const types = type.isUnionType() ? type.getTypes() : [type];
@@ -1888,7 +1888,7 @@ function primitiveReadType(type: Type): boolean {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function isSafeAggregateReadBinaryOperator(kind: SyntaxKind): boolean {
   switch (kind) {
@@ -1931,7 +1931,7 @@ function isSafeAggregateReadBinaryOperator(kind: SyntaxKind): boolean {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function isExportedVariableDeclaration(
   declaration: VariableDeclaration,
@@ -1977,7 +1977,7 @@ function isExportedVariableDeclaration(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function aggregateReadUsageNode(accessNode: Node): Node | null {
   let usageNode = accessNode;
@@ -2027,7 +2027,7 @@ function aggregateReadUsageNode(accessNode: Node): Node | null {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function isAllowedAggregateReadContext(
   accessNode: Node,
@@ -2056,7 +2056,7 @@ function isAllowedAggregateReadContext(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function isSafeDirectAggregateRead(
   identifier: Identifier,
@@ -2169,7 +2169,7 @@ function isSafeDirectAggregateRead(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function isFixedModuleConstantReference(
   identifier: Identifier,
@@ -2241,7 +2241,7 @@ function isFixedModuleConstantReference(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function isOwnedFixedAggregateAccess(
   initializer: Expression,
@@ -2279,7 +2279,7 @@ function isOwnedFixedAggregateAccess(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function isFixedCreateHashDigest(
   initializer: Expression,
@@ -2324,7 +2324,7 @@ function isFixedCreateHashDigest(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function isFixedInitializer(
   initializer: Expression | undefined,
@@ -2478,7 +2478,7 @@ function isFixedInitializer(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function isModuleConstant(
   declaration: VariableDeclaration,
@@ -2524,7 +2524,7 @@ function isModuleConstant(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function identifierLocation(
   identifier: Identifier,
@@ -2555,7 +2555,7 @@ function identifierLocation(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function isUnusedUnderscoreParameter(
   identifier: Identifier,
@@ -2586,7 +2586,7 @@ function isUnusedUnderscoreParameter(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function inspectIdentifier(
   identifier: Identifier,
@@ -2652,7 +2652,7 @@ function inspectIdentifier(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function inspectBindingName(
   name: Node | undefined,
@@ -2681,7 +2681,7 @@ function inspectBindingName(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function isImplementationSourceFile(sourceFile: SourceFile): boolean {
   const normalized = path.normalize(sourceFile.fileName);
@@ -2706,7 +2706,7 @@ function isImplementationSourceFile(sourceFile: SourceFile): boolean {
  * @observation Summary、責務、Architecture Traceの欠落または不正を取得する。
  * @oracle 実在ArchitectureへのFile Headerが完全な場合だけ違反0になる。
  * @cleanup N/A: Source FileおよびRepositoryを変更しない。
- * @boundary RCM-IT-005=Direct Boundary: Production Source→Architecture Definition
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function inspectProductionFileHeader(
   sourceFile: SourceFile,
@@ -2763,7 +2763,7 @@ function inspectProductionFileHeader(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function responsibilityHeaderTagValue(
   header: string,
@@ -2786,7 +2786,7 @@ function responsibilityHeaderTagValue(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function inspectResponsibilityHeader(
   node: Node,
@@ -2916,7 +2916,7 @@ function inspectResponsibilityHeader(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function inspectSourceFile(
   sourceFile: SourceFile,
@@ -3021,7 +3021,7 @@ function inspectSourceFile(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function collectOwnedProjects(
   api: API,
@@ -3063,7 +3063,7 @@ function collectOwnedProjects(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function inspectProjects(projects: readonly Project[]): {
   sourceFiles: ReadonlyMap<string, SourceFile>;
@@ -3102,7 +3102,7 @@ function inspectProjects(projects: readonly Project[]): {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function collectOwnedTypeScriptPaths(files: readonly string[]): Set<string> {
   return new Set(
@@ -3127,7 +3127,7 @@ function collectOwnedTypeScriptPaths(files: readonly string[]): Set<string> {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function collectOwnedRustPaths(files: readonly string[]): Set<string> {
   return new Set(
@@ -3147,7 +3147,7 @@ function collectOwnedRustPaths(files: readonly string[]): Set<string> {
  * @observation Summary、固定tag、N/A理由およびArchitecture Traceの違反を取得する。
  * @oracle 全Production Rust FileとNamed Symbolが宣言種別に応じたHeaderを持つ場合だけ違反0になる。
  * @cleanup N/A: Rust sourceとRepositoryを変更しない。
- * @boundary RCM-IT-005=Direct Boundary: Rust Production Source→Architecture Definition
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function inspectRustProductionHeaders(
   rustSourceFile: string,
@@ -3316,7 +3316,7 @@ function inspectRustProductionHeaders(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function formatViolations(violations: readonly NamingViolation[]): string {
   return violations
@@ -3337,7 +3337,7 @@ function formatViolations(violations: readonly NamingViolation[]): string {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 test("内部実装のPathと型付きsource identifierは内部コーディング規約へ一致する", () => {
   const files = pathInspectionRoots.flatMap(collectFiles);
@@ -3432,7 +3432,7 @@ test("内部実装のPathと型付きsource identifierは内部コーディン�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 test("40_Develop配下のREADMEを拒否し、説明の正本分離を維持する", () => {
   assert.throws(
@@ -3457,7 +3457,7 @@ test("40_Develop配下のREADMEを拒否し、説明の正本分離を維持す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 test("Source Fileは曖昧な責務名と裸のtypesを使用しない", () => {
   for (const validName of [
@@ -3501,7 +3501,7 @@ test("Source Fileは曖昧な責務名と裸のtypesを使用しない", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 test("Production Named Symbolは責務Headerと実在ARCH-IDへ接続する", () => {
   const temporaryRoot = fs.mkdtempSync(
@@ -3732,7 +3732,7 @@ test("Production Named Symbolは責務Headerと実在ARCH-IDへ接続する", ()
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 test("公開indexは設計由来の説明と明示的なExport Allowlistを持つ", () => {
   const publicIndexes = collectPublicIndexFiles()
@@ -3879,7 +3879,7 @@ test("公開indexは設計由来の説明と明示的なExport Allowlistを持�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-015=Direct Boundary: Package Source→Repository Layout Contract
+ * @boundary RCM-IT-015=Direct Boundary: checker Test Source→対象契約
  */
 test("src配下は責務名を使い二階層以内に保つ", () => {
   assert.doesNotThrow(() =>
@@ -3928,7 +3928,7 @@ test("src配下は責務名を使い二階層以内に保つ", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 test("各Tool packageの再生成可能な依存DirectoryをGit対象から除外する", () => {
   const ignoreRules = fs
@@ -3950,7 +3950,7 @@ test("各Tool packageの再生成可能な依存DirectoryをGit対象から除�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 test("Checker試験の実行集合はnested配置を含む所有集合と完全一致する", () => {
   const temporaryRoot = fs.mkdtempSync(
@@ -4057,7 +4057,7 @@ test("Checker試験の実行集合はnested配置を含む所有集合と完全�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 test("Boolean predicateの文法は正本化した三つの閉集合だけを許可する", () => {
   for (const prefix of BOOLEAN_AUXILIARY_PREFIXES)
@@ -4088,7 +4088,7 @@ test("Boolean predicateの文法は正本化した三つの閉集合だけを許
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 test("Path classifierは不正folderと不正fileを別々に拒否する", () => {
   const temporaryRoot = fs.mkdtempSync(
@@ -4191,7 +4191,7 @@ test("Path classifierは不正folderと不正fileを別々に拒否する", () =
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 test("型付き命名classifierは構文境界の正負例を同じ規則で判定する", () => {
   const temporaryParent = path.join(
@@ -4910,7 +4910,7 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 test("旧checker実体は現行Treeに残らない", () => {
   assert.equal(
@@ -4937,7 +4937,7 @@ test("旧checker実体は現行Treeに残らない", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 test("廃止済みPathの参照は固定履歴と移行説明にだけ残る", () => {
   const actualReferenceCounts = [...collectRetiredReferenceCounts()];
@@ -4967,7 +4967,7 @@ test("廃止済みPathの参照は固定履歴と移行説明にだけ残る", (
  * @observation 最初に一致したtag値または未検出を返す。
  * @oracle 完全なtag名にだけ一致し、値を欠く行を受理しない。
  * @cleanup N/A: Repositoryまたは外部資源を変更しない。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function testHeaderTagValue(header: string, tag: string): string | null {
   const match = new RegExp(
@@ -4987,7 +4987,7 @@ function testHeaderTagValue(header: string, tag: string): string | null {
  * @observation 完全なtag名に一致する非空値を重複なく返す。
  * @oracle 同じ値の重複をRelation追加として数えず、安定した出現順を保つ。
  * @cleanup N/A: Repositoryまたは外部資源を変更しない。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function testHeaderTagValues(header: string, tag: string): readonly string[] {
   const pattern = new RegExp(
@@ -5013,7 +5013,7 @@ function testHeaderTagValues(header: string, tag: string): readonly string[] {
  * @observation TSDocまたはRustdoc Header文字列を返す。
  * @oracle 無関係なCodeまたは通常Commentを越えてHeaderを結合しない。
  * @cleanup N/A: 入力配列を変更しない。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function testHeaderBefore(lines: readonly string[], index: number): string {
   let cursor = index - 1;
@@ -5031,7 +5031,6 @@ function testHeaderBefore(lines: readonly string[], index: number): string {
   }
   return "";
 }
-
 /**
  * Test Headerの固定SchemaとTraceを検証する。
  *
@@ -5042,7 +5041,7 @@ function testHeaderBefore(lines: readonly string[], index: number): string {
  * @observation 欠落、不正形式、未知Traceまたは段階不一致をassertionとして取得する。
  * @oracle 全固定tagが非空で、Traceが実在し、期待段階と一致する。
  * @cleanup N/A: Repositoryまたは外部資源を変更しない。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 function assertTestHeader(
   header: string,
@@ -5111,7 +5110,7 @@ function assertTestHeader(
  * @observation Catalog件数、Test宣言、Header tag、Trace、段階およびSymbol Relationを取得する。
  * @oracle Test FileはCase／HelperのLocal Item和集合へ接続し、個別Test Caseは一つ、Named Helperは一つ以上の同段階Local Itemを持つ。
  * @cleanup N/A: 読取り専用検査でありRepositoryを変更しない。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 test("全Test SourceをQuality Local Itemへ責務単位で接続する", () => {
   const catalog = JSON.parse(

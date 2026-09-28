@@ -36,7 +36,7 @@ const PASSPHRASE = "artifact-signing-test-passphrase";
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AIT-IT-007=Related 2 Blocks: one-time Authorization→予約→鍵読取り→署名 / AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-007／AIT-IT-008=Direct Boundary: artifact-signing Test Source→対象契約
  */
 function fixture(t: test.TestContext) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-artifact-signing-"));
@@ -69,7 +69,7 @@ function fixture(t: test.TestContext) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: artifact-signing Test Source→対象契約
  */
 test("鍵参照を秘密入力前に固定し、任意byte列だけを署名する", (t) => {
   const { pair, privateKeyPath, prohibitedRoot } = fixture(t);
@@ -125,7 +125,7 @@ test("鍵参照を秘密入力前に固定し、任意byte列だけを署名す�
  * @observation 要求ごとの鍵読取り増分、成功・失敗件数、署名結果および再利用結果を観測する。
  * @oracle 競合の勝者は最大一件、敗者と再利用要求は鍵read 0・署名Effect 0であり、失敗後も未使用へ戻らない。
  * @cleanup Test終了時に秘密鍵fixtureを削除し、差し替えたreadSyncを必ず復元する。
- * @boundary AIT-IT-007=Related 2 Blocks: one-time Authorization→予約→鍵読取り→署名
+ * @boundary AIT-IT-007=Direct Boundary: artifact-signing Test Source→対象契約
  */
 test("競合要求と予約後失敗でAuthorizationを再利用不能にする", async (t) => {
   const { pair, privateKeyPath, prohibitedRoot } = fixture(t);
@@ -156,7 +156,7 @@ test("競合要求と予約後失敗でAuthorizationを再利用不能にする"
      * @observation 要求前後の鍵読取り回数、成功状態および失敗理由を記録する。
      * @oracle 呼出し元Test Caseが勝者一件と敗者の鍵read 0を判定できる形で返す。
      * @cleanup 呼出し元Test Caseが差し替えたreadSyncとfixtureを清掃する。
-     * @boundary AIT-IT-007=Related 2 Blocks: one-time Authorization→予約→鍵読取り→署名
+     * @boundary AIT-IT-007=Direct Boundary: artifact-signing Test Source→対象契約
      */
     const attempt = () => {
       const before = readCount;
@@ -246,7 +246,7 @@ test("競合要求と予約後失敗でAuthorizationを再利用不能にする"
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: artifact-signing Test Source→対象契約
  */
 test("CLIとenvに共通の鍵参照preflightが欠落、directory、repository内、差替えを拒否する", (t) => {
   const { root, privateKeyPath, prohibitedRoot } = fixture(t);
@@ -327,7 +327,7 @@ test("CLIとenvに共通の鍵参照preflightが欠落、directory、repository�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: artifact-signing Test Source→対象契約
  */
 test("preflightは秘密鍵byteを読まず、読取り途中の失敗では確保済みbyteを消去する", (t) => {
   const { pair, privateKeyPath, prohibitedRoot } = fixture(t);
@@ -431,7 +431,7 @@ test("preflightは秘密鍵byteを読まず、読取り途中の失敗では確�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: artifact-signing Test Source→対象契約
  */
 test("hidden inputはTTYを要求し、取消とEOFで端末状態を必ず復元する", async () => {
   /**
@@ -444,7 +444,7 @@ test("hidden inputはTTYを要求し、取消とEOFで端末状態を必ず復�
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+   * @boundary AIT-IT-008=Direct Boundary: artifact-signing Test Source→対象契約
    */
   function terminal(
     isInputTTY = true,
@@ -466,7 +466,7 @@ test("hidden inputはTTYを要求し、取消とEOFで端末状態を必ず復�
      * @observation 返却値、生成fixtureまたは観測値を取得する。
      * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
      * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-     * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+     * @boundary AIT-IT-008=Direct Boundary: artifact-signing Test Source→対象契約
      */
     const observe = (operation: string) => {
       calls.push(operation);
@@ -589,7 +589,7 @@ test("hidden inputはTTYを要求し、取消とEOFで端末状態を必ず復�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: artifact-signing Test Source→対象契約
  */
 test("env fileは鍵Pathの構文と一意性だけを解決し、鍵の存在確認を再定義しない", (t) => {
   const root = fs.mkdtempSync(

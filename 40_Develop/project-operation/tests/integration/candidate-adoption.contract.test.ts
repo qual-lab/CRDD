@@ -29,7 +29,7 @@ import {
  * @observation 不変の候補Snapshotを返す。
  * @oracle 置換しないfieldはcreatedかつOwner Revision 4の成立条件を満たす。
  * @cleanup N/A: 外部資源を作成しない。
- * @boundary CPR-IT-004／CPR-IT-006=Direct Boundary: Candidate Store→Authority Gate。
+ * @boundary CPR-IT-004／CPR-IT-006=Direct Boundary: project-operation Test Source→対象契約
  */
 function candidate(
   overrides: Partial<ProjectOperationCandidate> = {},
@@ -57,7 +57,7 @@ function candidate(
  * @observation 不変の判断入力を返す。
  * @oracle 置換しないfieldはOwner Revision 4への採用条件を満たす。
  * @cleanup N/A: 外部資源を作成しない。
- * @boundary CPR-IT-004／CPR-IT-006=Direct Boundary: Authority Gate→Owner Writer。
+ * @boundary CPR-IT-004／CPR-IT-006=Direct Boundary: project-operation Test Source→対象契約
  */
 function decision(
   overrides: Partial<ProjectOperationCandidateDecision> = {},
@@ -81,7 +81,7 @@ function decision(
  * @observation 状態、理由およびOwner Effect有無を観測する。
  * @oracle すべてblockedとなり、理由を区別し、Owner Effectは0となる。
  * @cleanup N/A: Domain結果だけを観測し外部Effectを発行しない。
- * @boundary CPR-IT-004=Direct Boundary: Candidate Store→Authority Gate→Owner Writer。
+ * @boundary CPR-IT-004=Direct Boundary: project-operation Test Source→対象契約
  */
 test("Authorityまたは候補Relation不足をEffect前で拒否する", () => {
   const unauthorized = applyProjectOperationCandidateDecision(
@@ -118,7 +118,7 @@ test("Authorityまたは候補Relation不足をEffect前で拒否する", () => 
  * @observation Candidate状態、次Revision、拒否理由およびOwner Effect有無を観測する。
  * @oracle 明示adoptだけがRevision 5とEffect 1になり、その他はEffect 0で、同じ媒体名も別Identityのまま扱う。
  * @cleanup N/A: 純粋値だけを使用する。
- * @boundary CPR-IT-006=Direct Boundary: Candidate Store→Authority Gate→Owner Writer。
+ * @boundary CPR-IT-006=Direct Boundary: project-operation Test Source→対象契約
  */
 test("明示採用だけを正本Effectへ変換し競合と媒体名推定を拒否する", () => {
   const adopted = applyProjectOperationCandidateDecision(

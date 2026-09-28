@@ -3,7 +3,9 @@
  *
  * @packageDocumentation
  * @responsibility 署名配布物の確認、Operation、Provider Home、Selection、Docker回復、取消およびcleanupを一つの助言Lifecycleへ閉じる。
- * @trace ARCH-000008 ARCH-000010 ARCH-000015
+ * @trace ARCH-000008
+ * @trace ARCH-000010
+ * @trace ARCH-000015
  * @boundary Workbench助言Executorと署名済みDocker Provider Runtimeの実境界。
  * @effect 明示確認済み依頼ごとに選択Providerを最大一回実行し、所有する一時資源を清掃する。
  * @security Repository／WorkspaceをProviderへ共有せず、抽出済み助言JSONだけを返す。
@@ -62,7 +64,30 @@ export const WORKBENCH_AI_ADVICE_PRODUCTION_RUNTIME_CONTRACT =
   "crdd-coordinator/workbench-ai-advice-production-runtime";
 export const WORKBENCH_AI_ADVICE_PRODUCTION_RUNTIME_CONTRACT_REVISION = 1;
 
+/**
+ * 署名済みWorkbench助言Production Runtime境界で使用するRuntimeRecordの構造を固定する。
+ *
+ * @responsibility 署名済みWorkbench助言Production Runtime境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
+
 type RuntimeRecord = Readonly<Record<string, unknown>>;
+/**
+ * 署名済みWorkbench助言Production Runtime境界で使用するOperationの構造を固定する。
+ *
+ * @responsibility 署名済みWorkbench助言Production Runtime境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
 type Operation = Readonly<{
   owned: object;
   mountCapability: object;
@@ -73,6 +98,18 @@ type Operation = Readonly<{
   hostGenerationLoss?: Promise<"cleanup_confirmed_failure" | "cleanup_unknown">;
   releaseHostGenerationDrain?: () => boolean;
 }>;
+
+/**
+ * 署名済みWorkbench助言Production Runtime境界で使用するWorkbenchAiAdviceRuntimeDependenciesの構造を固定する。
+ *
+ * @responsibility 署名済みWorkbench助言Production Runtime境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
 
 export type WorkbenchAiAdviceRuntimeDependencies = Readonly<{
   consumeVerifiedPackage: (capability: unknown) => boolean;
@@ -103,7 +140,8 @@ export type WorkbenchAiAdviceRuntimeDependencies = Readonly<{
  * 署名配布物Capabilityを依頼ごとに発行するProduction助言Runtimeを生成する。
  *
  * @responsibility 一回用の署名配布物CapabilityをRuntimeへ渡し、助言Lifecycleの外へ再利用可能なAuthorityを公開しない。
- * @trace ARCH-000010 ARCH-000015
+ * @trace ARCH-000010
+ * @trace ARCH-000015
  * @input issueVerifiedPackageCapability: 現在配布物を検証して一回用Capabilityを返す関数。
  * @returns Workbench Provider Executorへ注入できるRuntime Port。
  * @precondition 発行関数は秘密値を返さず、失敗時はnullを返す。
@@ -127,7 +165,24 @@ export function createRuntimeOwnedWorkbenchAiAdviceProductionRuntime(
     );
 }
 
-/** 試験専用の依存注入候補。Production Authorityを持たない。 */
+/**
+ * 試験専用の依存注入候補を生成する。
+ *
+ * @responsibility 注入済み依存を使うRuntimeと固定の非Authority package candidateを試験へ提供する。
+ * @trace ARCH-000008
+ * @trace ARCH-000010
+ * @trace ARCH-000015
+ * @input dependencies: 全外部境界を明示注入したRuntime依存。
+ * @returns runtime関数と試験専用package candidate。
+ * @precondition dependenciesは試験が所有し、Production Capabilityを含めない。
+ * @postcondition Candidate自体はProduction Authorityを持たない。
+ * @effect N/A: 候補生成時には外部Effectを発行しない。
+ * @failure N/A: 実行時失敗は返却Runtimeの閉じた結果へ収束する。
+ * @invariant Production署名Capabilityを偽装しない。
+ * @boundary Contract TestとWorkbench助言Runtime Coreの試験境界。
+ * @security 実Credential、Host PathまたはProvider Homeを組み込まない。
+ * @concurrency Runtime呼出しごとの依存Lifecycleは注入先が所有する。
+ */
 export function createIsolatedWorkbenchAiAdviceRuntimeCandidate(
   dependencies: WorkbenchAiAdviceRuntimeDependencies,
 ) {
@@ -136,6 +191,23 @@ export function createIsolatedWorkbenchAiAdviceRuntimeCandidate(
     run: createWorkbenchAiAdviceRuntime(dependencies),
   });
 }
+
+/**
+ * 署名済みWorkbench助言Production Runtime境界におけるcreateWorkbenchAiAdviceRuntimeの処理境界を固定する。
+ *
+ * @responsibility 署名済みWorkbench助言Production Runtime境界に必要な入力処理、失敗分類および結果生成を所有する。
+ * @trace ARCH-000008
+ * @input 宣言された引数だけを受け取る。
+ * @returns 宣言された結果型を返す。
+ * @precondition 呼出し元が型、IdentityおよびAuthorityの契約を満たす。
+ * @postcondition 成功時だけ検証済みの結果を返す。
+ * @effect 宣言または注入された依存以外へEffectを発行しない。
+ * @failure 不正入力、依存失敗または観測不能を成功へ畳まない。
+ * @invariant 入力のIdentity、AuthorityおよびScopeを暗黙に拡張しない。
+ * @boundary 呼出し元と本Moduleの局所責務境界。
+ * @security 秘密値と未許可情報を出力またはlogへ追加しない。
+ * @concurrency 共有状態は宣言された所有者とlifecycleに従う。
+ */
 
 function createWorkbenchAiAdviceRuntime(
   dependencies: WorkbenchAiAdviceRuntimeDependencies,
@@ -169,7 +241,7 @@ function createWorkbenchAiAdviceRuntime(
     let recoveryCapability: object | null = null;
     let recoveryFinalizationCapability: object | null = null;
     let providerEffectIssued = false;
-    let operationCleaned = false;
+    let isOperationCleaned = false;
     let hostGenerationFailed = false;
     let abortListener: (() => void) | null = null;
 
@@ -366,7 +438,7 @@ function createWorkbenchAiAdviceRuntime(
         throw new AdviceRuntimeError(
           "workbench_ai_advice_operation_cleanup_unconfirmed",
         );
-      operationCleaned = true;
+      isOperationCleaned = true;
       if (
         !dependencies.recordDockerHostCleanupReceipt(
           recoveryFinalizationCapability,
@@ -418,8 +490,8 @@ function createWorkbenchAiAdviceRuntime(
       if (recoveryCapability)
         dependencies.abandonDockerRecovery(recoveryCapability);
 
-      let cleanupConfirmed = operationCleaned;
-      if (operation && !operationCleaned && !providerEffectIssued) {
+      let cleanupConfirmed = isOperationCleaned;
+      if (operation && !isOperationCleaned && !providerEffectIssued) {
         try {
           const cleanup = dependencies.classifyOperationCleanup(
             await dependencies.cleanupOperation(operation.owned),
@@ -450,6 +522,21 @@ function createWorkbenchAiAdviceRuntime(
   };
 }
 
+/**
+ * 署名済みWorkbench助言Production Runtime境界で使用するAdviceRuntimeErrorのlifecycleを固定する。
+ *
+ * @responsibility 署名済みWorkbench助言Production Runtime境界に必要な入力処理、失敗分類および結果生成を所有する。
+ * @trace ARCH-000008
+ * @construction 明示された入力からだけ生成する。
+ * @lifecycle 生成元の処理範囲を越えてAuthorityまたは資源を保持しない。
+ * @effect 宣言または注入された依存以外へEffectを発行しない。
+ * @failure 不正入力、依存失敗または観測不能を成功へ畳まない。
+ * @invariant 入力のIdentity、AuthorityおよびScopeを暗黙に拡張しない。
+ * @boundary 呼出し元と本Moduleの局所責務境界。
+ * @security 秘密値と未許可情報を出力またはlogへ追加しない。
+ * @concurrency 共有状態は宣言された所有者とlifecycleに従う。
+ */
+
 class AdviceRuntimeError extends Error {
   readonly reason: string;
 
@@ -458,6 +545,23 @@ class AdviceRuntimeError extends Error {
     this.reason = reason;
   }
 }
+
+/**
+ * 署名済みWorkbench助言Production Runtime境界におけるselectionRequestの処理境界を固定する。
+ *
+ * @responsibility 署名済みWorkbench助言Production Runtime境界に必要な入力処理、失敗分類および結果生成を所有する。
+ * @trace ARCH-000008
+ * @input 宣言された引数だけを受け取る。
+ * @returns 宣言された結果型を返す。
+ * @precondition 呼出し元が型、IdentityおよびAuthorityの契約を満たす。
+ * @postcondition 成功時だけ検証済みの結果を返す。
+ * @effect 宣言または注入された依存以外へEffectを発行しない。
+ * @failure 不正入力、依存失敗または観測不能を成功へ畳まない。
+ * @invariant 入力のIdentity、AuthorityおよびScopeを暗黙に拡張しない。
+ * @boundary 呼出し元と本Moduleの局所責務境界。
+ * @security 秘密値と未許可情報を出力またはlogへ追加しない。
+ * @concurrency 共有状態は宣言された所有者とlifecycleに従う。
+ */
 
 function selectionRequest(
   plan: WorkbenchAiAdviceExecutionPlan,
@@ -487,6 +591,23 @@ function selectionRequest(
     delegationDepth: 0,
   });
 }
+
+/**
+ * 署名済みWorkbench助言Production Runtime境界におけるcreateProductionOperationの処理境界を固定する。
+ *
+ * @responsibility 署名済みWorkbench助言Production Runtime境界に必要な入力処理、失敗分類および結果生成を所有する。
+ * @trace ARCH-000008
+ * @input 宣言された引数だけを受け取る。
+ * @returns 宣言された結果型を返す。
+ * @precondition 呼出し元が型、IdentityおよびAuthorityの契約を満たす。
+ * @postcondition 成功時だけ検証済みの結果を返す。
+ * @effect 宣言または注入された依存以外へEffectを発行しない。
+ * @failure 不正入力、依存失敗または観測不能を成功へ畳まない。
+ * @invariant 入力のIdentity、AuthorityおよびScopeを暗黙に拡張しない。
+ * @boundary 呼出し元と本Moduleの局所責務境界。
+ * @security 秘密値と未許可情報を出力またはlogへ追加しない。
+ * @concurrency 共有状態は宣言された所有者とlifecycleに従う。
+ */
 
 async function createProductionOperation(): Promise<Operation> {
   let operation: Operation;
@@ -565,9 +686,43 @@ const productionDependencies: WorkbenchAiAdviceRuntimeDependencies =
     poisonAfterCleanupUnknown: poisonRuntimeProcessAfterCleanupUnknown,
   });
 
+/**
+ * 署名済みWorkbench助言Production Runtime境界におけるobjectValueの処理境界を固定する。
+ *
+ * @responsibility 署名済みWorkbench助言Production Runtime境界に必要な入力処理、失敗分類および結果生成を所有する。
+ * @trace ARCH-000008
+ * @input 宣言された引数だけを受け取る。
+ * @returns 宣言された結果型を返す。
+ * @precondition 呼出し元が型、IdentityおよびAuthorityの契約を満たす。
+ * @postcondition 成功時だけ検証済みの結果を返す。
+ * @effect 宣言または注入された依存以外へEffectを発行しない。
+ * @failure 不正入力、依存失敗または観測不能を成功へ畳まない。
+ * @invariant 入力のIdentity、AuthorityおよびScopeを暗黙に拡張しない。
+ * @boundary 呼出し元と本Moduleの局所責務境界。
+ * @security 秘密値と未許可情報を出力またはlogへ追加しない。
+ * @concurrency 共有状態は宣言された所有者とlifecycleに従う。
+ */
+
 function objectValue(value: unknown): object | null {
   return value !== null && typeof value === "object" ? value : null;
 }
+
+/**
+ * 署名済みWorkbench助言Production Runtime境界におけるrecordValueの処理境界を固定する。
+ *
+ * @responsibility 署名済みWorkbench助言Production Runtime境界に必要な入力処理、失敗分類および結果生成を所有する。
+ * @trace ARCH-000008
+ * @input 宣言された引数だけを受け取る。
+ * @returns 宣言された結果型を返す。
+ * @precondition 呼出し元が型、IdentityおよびAuthorityの契約を満たす。
+ * @postcondition 成功時だけ検証済みの結果を返す。
+ * @effect 宣言または注入された依存以外へEffectを発行しない。
+ * @failure 不正入力、依存失敗または観測不能を成功へ畳まない。
+ * @invariant 入力のIdentity、AuthorityおよびScopeを暗黙に拡張しない。
+ * @boundary 呼出し元と本Moduleの局所責務境界。
+ * @security 秘密値と未許可情報を出力またはlogへ追加しない。
+ * @concurrency 共有状態は宣言された所有者とlifecycleに従う。
+ */
 
 function recordValue(value: unknown): RuntimeRecord | null {
   return value !== null && typeof value === "object" && !Array.isArray(value)
@@ -575,9 +730,43 @@ function recordValue(value: unknown): RuntimeRecord | null {
     : null;
 }
 
+/**
+ * 署名済みWorkbench助言Production Runtime境界におけるstringValueの処理境界を固定する。
+ *
+ * @responsibility 署名済みWorkbench助言Production Runtime境界に必要な入力処理、失敗分類および結果生成を所有する。
+ * @trace ARCH-000008
+ * @input 宣言された引数だけを受け取る。
+ * @returns 宣言された結果型を返す。
+ * @precondition 呼出し元が型、IdentityおよびAuthorityの契約を満たす。
+ * @postcondition 成功時だけ検証済みの結果を返す。
+ * @effect 宣言または注入された依存以外へEffectを発行しない。
+ * @failure 不正入力、依存失敗または観測不能を成功へ畳まない。
+ * @invariant 入力のIdentity、AuthorityおよびScopeを暗黙に拡張しない。
+ * @boundary 呼出し元と本Moduleの局所責務境界。
+ * @security 秘密値と未許可情報を出力またはlogへ追加しない。
+ * @concurrency 共有状態は宣言された所有者とlifecycleに従う。
+ */
+
 function stringValue(value: unknown): string | null {
   return typeof value === "string" ? value : null;
 }
+
+/**
+ * 署名済みWorkbench助言Production Runtime境界におけるblockedの処理境界を固定する。
+ *
+ * @responsibility 署名済みWorkbench助言Production Runtime境界に必要な入力処理、失敗分類および結果生成を所有する。
+ * @trace ARCH-000008
+ * @input 宣言された引数だけを受け取る。
+ * @returns 宣言された結果型を返す。
+ * @precondition 呼出し元が型、IdentityおよびAuthorityの契約を満たす。
+ * @postcondition 成功時だけ検証済みの結果を返す。
+ * @effect 宣言または注入された依存以外へEffectを発行しない。
+ * @failure 不正入力、依存失敗または観測不能を成功へ畳まない。
+ * @invariant 入力のIdentity、AuthorityおよびScopeを暗黙に拡張しない。
+ * @boundary 呼出し元と本Moduleの局所責務境界。
+ * @security 秘密値と未許可情報を出力またはlogへ追加しない。
+ * @concurrency 共有状態は宣言された所有者とlifecycleに従う。
+ */
 
 function blocked(
   reason: string,

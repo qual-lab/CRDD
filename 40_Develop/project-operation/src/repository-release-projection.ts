@@ -66,6 +66,18 @@ export type RepositoryReleaseProjection = Readonly<{
   dependencies: readonly RepositoryReleaseDependency[];
 }>;
 
+/**
+ * Release正本からProject Planへ投影する境界で使用するMarkdownTableの構造を固定する。
+ *
+ * @responsibility Release正本からProject Planへ投影する境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000005
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
+
 type MarkdownTable = Readonly<{
   columns: readonly string[];
   rows: readonly (readonly string[])[];
@@ -117,27 +129,27 @@ function parseSectionTable(markdown: string, heading: string): MarkdownTable {
   const nextHeading = lines.findIndex(
     (line, index) => index > headingIndex && /^##\s+/u.test(line),
   );
-  const section = lines.slice(
+  const sectionLines = lines.slice(
     headingIndex + 1,
     nextHeading < 0 ? lines.length : nextHeading,
   );
-  const headerIndex = section.findIndex(
+  const headerIndex = sectionLines.findIndex(
     (line, index) =>
       /^\|.*\|$/u.test(line.trim()) &&
-      index + 1 < section.length &&
-      /^\|(?:\s*:?-+:?\s*\|)+$/u.test(section[index + 1]?.trim() ?? ""),
+      index + 1 < sectionLines.length &&
+      /^\|(?:\s*:?-+:?\s*\|)+$/u.test(sectionLines[index + 1]?.trim() ?? ""),
   );
   if (headerIndex < 0) throw new Error("release_projection_table_missing");
   const splitRow = (line: string): readonly string[] =>
     Object.freeze(line.trim().slice(1, -1).split("|").map(toDisplayText));
-  const columns = splitRow(section[headerIndex] ?? "");
+  const columns = splitRow(sectionLines[headerIndex] ?? "");
   const rows: (readonly string[])[] = [];
-  for (const line of section.slice(headerIndex + 2)) {
+  for (const line of sectionLines.slice(headerIndex + 2)) {
     if (!/^\|.*\|$/u.test(line.trim())) break;
-    const row = splitRow(line);
-    if (row.length !== columns.length)
+    const rowCells = splitRow(line);
+    if (rowCells.length !== columns.length)
       throw new Error("release_projection_table_column_mismatch");
-    rows.push(row);
+    rows.push(rowCells);
   }
   return Object.freeze({ columns, rows: Object.freeze(rows) });
 }
@@ -172,7 +184,9 @@ export function parseRepositoryReleaseProjectionMarkdown(
       ["項目", "現在状態", "次の処置／判断"].join("\0")
   )
     throw new Error("release_projection_columns_invalid");
-  const values = new Map(current.rows.map((row) => [row[0], row[1]]));
+  const values = new Map(
+    current.rows.map((rowCells) => [rowCells[0], rowCells[1]]),
+  );
   const required = (key: string): string => {
     const value = values.get(key);
     if (value === undefined || value.length === 0)
@@ -192,8 +206,12 @@ export function parseRepositoryReleaseProjectionMarkdown(
   if (
     scope.rows.length === 0 ||
     dependencies.rows.length === 0 ||
-    scope.rows.some((row) => row.some((value) => value.length === 0)) ||
-    dependencies.rows.some((row) => row.some((value) => value.length === 0))
+    scope.rows.some((rowCells) =>
+      rowCells.some((value) => value.length === 0),
+    ) ||
+    dependencies.rows.some((rowCells) =>
+      rowCells.some((value) => value.length === 0),
+    )
   )
     throw new Error("release_projection_row_invalid");
   return Object.freeze({
@@ -204,21 +222,21 @@ export function parseRepositoryReleaseProjectionMarkdown(
     releaseDecision: required("リリース判断"),
     scheduleRisk: required("日程リスク"),
     scope: Object.freeze(
-      scope.rows.map((row) =>
+      scope.rows.map((rowCells) =>
         Object.freeze({
-          stage: row[0] ?? "",
-          scope: row[1] ?? "",
-          state: row[2] ?? "",
-          owner: row[3] ?? "",
+          stage: rowCells[0] ?? "",
+          scope: rowCells[1] ?? "",
+          state: rowCells[2] ?? "",
+          owner: rowCells[3] ?? "",
         }),
       ),
     ),
     dependencies: Object.freeze(
-      dependencies.rows.map((row) =>
+      dependencies.rows.map((rowCells) =>
         Object.freeze({
-          item: row[0] ?? "",
-          state: row[1] ?? "",
-          next: row[2] ?? "",
+          item: rowCells[0] ?? "",
+          state: rowCells[1] ?? "",
+          next: rowCells[2] ?? "",
         }),
       ),
     ),

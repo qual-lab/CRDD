@@ -23,7 +23,7 @@ import { createOneShotAuthorizationState } from "../../src/one-shot-authorizatio
  * @observation 成功値、拒否理由および保護対象の利用回数を観測する。
  * @oracle 最初の要求だけが成功し、二回目は同じ理由で拒否される。
  * @cleanup N/A: WeakMap内のTokenはTest終了後に到達不能となる。
- * @boundary AIT-UT-012=N/A: Process内の同期状態遷移である。
+ * @boundary AIT-UT-012=Direct Boundary: artifact-signing Test Source→対象契約
  */
 test("Authorizationを一回だけ消費し再利用要求では保護対象を返さない", () => {
   const state = createOneShotAuthorizationState<object, () => string>(
@@ -51,7 +51,7 @@ test("Authorizationを一回だけ消費し再利用要求では保護対象を�
  * @observation 成功件数、失敗件数および保護対象の利用回数を観測する。
  * @oracle 成功一件、失敗一件となり、保護対象の利用回数は一回である。
  * @cleanup N/A: WeakMap内のTokenはTest終了後に到達不能となる。
- * @boundary AIT-UT-012=N/A: Process内の同期状態遷移である。
+ * @boundary AIT-UT-012=Direct Boundary: artifact-signing Test Source→対象契約
  */
 test("競合する消費要求の勝者を一件に限定する", async () => {
   const state = createOneShotAuthorizationState<object, () => void>(

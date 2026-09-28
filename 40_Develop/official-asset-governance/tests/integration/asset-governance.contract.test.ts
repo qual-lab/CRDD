@@ -44,7 +44,7 @@ import {
  * @observation candidate状態のRecordを返す。
  * @oracle 権利、用途および判断者は未確定のまま保持される。
  * @cleanup N/A: 外部資源を作成しない。
- * @boundary OAG-IT-005=Related 2 Blocks、OAG-IT-006／OAG-IT-007=Direct Boundary。
+ * @boundary OAG-IT-005／OAG-IT-006／OAG-IT-007=Direct Boundary: official-asset-governance Test Source→対象契約
  */
 function candidate(): OfficialAssetRecord {
   return Object.freeze({
@@ -72,7 +72,7 @@ function candidate(): OfficialAssetRecord {
  * @observation 不変の判断入力を返す。
  * @oracle 置換しないfieldは完全な採用条件を満たす。
  * @cleanup N/A: 外部資源を作成しない。
- * @boundary OAG-IT-006／OAG-IT-007=Direct Boundary。
+ * @boundary OAG-IT-006／OAG-IT-007=Direct Boundary: official-asset-governance Test Source→対象契約
  */
 function decision(
   overrides: Partial<OfficialAssetDecisionInput> = {},
@@ -101,7 +101,7 @@ function decision(
  * @observation 更新状態、Revision、用途、判断者および照合結果を観測する。
  * @oracle approved Revision 2となり、同じ用途・版・Releaseの収載だけがverifiedとなる。
  * @cleanup N/A: 外部公開、再配布およびFilesystem Effectを発行しない。
- * @boundary OAG-IT-005=Related 2 Blocks: Asset Record→Inclusion Relation→Official Repository。
+ * @boundary OAG-IT-005=Direct Boundary: official-asset-governance Test Source→対象契約
  */
 test("完全な判断の収載先から根拠へ戻れる", () => {
   const applied = applyOfficialAssetDecision(candidate(), decision());
@@ -135,7 +135,7 @@ test("完全な判断の収載先から根拠へ戻れる", () => {
  * @observation 更新状態、Record Revision、判断者およびStore Effect許可を観測する。
  * @oracle approved Revision 2となり、一回のStore Effectだけが許可される。
  * @cleanup N/A: Domain結果だけを観測しFilesystem Effectを発行しない。
- * @boundary OAG-IT-007=Direct Boundary: Decision Record→Official Asset Store。
+ * @boundary OAG-IT-007=Direct Boundary: official-asset-governance Test Source→対象契約
  */
 test("完全な判断だけが素材状態へ一回適用される", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-asset-store-"));
@@ -171,7 +171,7 @@ test("完全な判断だけが素材状態へ一回適用される", (t) => {
  * @observation 公開Revision、Effect状態、Recovery Identity、cleanup結果および再送Effectを観測する。
  * @oracle 初回はEffect済み・cleanup必要、cleanup後の再送はRevision競合かつ追加Effect 0となる。
  * @cleanup Worker prototypeを復元し、一時Directoryを削除する。
- * @boundary Decision Application→Filesystem Store Effect→Kernel cleanup再入場。
+ * @boundary OAG-IT-007=Direct Boundary: official-asset-governance Test Source→対象契約
  */
 test("Store Effect後のcleanup不明をexact ID付きで返す", async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-asset-cleanup-"));
@@ -246,7 +246,7 @@ test("Store Effect後のcleanup不明をexact ID付きで返す", async (t) => {
  * @observation 公開status、理由、Effect状態およびRecovery Identityを観測する。
  * @oracle blocked、storeEffectIssued falseおよび同じexact IDが返る。
  * @cleanup N/A: 固定Storeは外部Effectを持たない。
- * @boundary Store cleanup result→Official Asset公開結果。
+ * @boundary OAG-IT-007=Direct Boundary: official-asset-governance Test Source→対象契約
  */
 test("Store Effect 0後のcleanup不明をexact ID付きで返す", () => {
   const recoveryId = "filesystem-store-lock.asset-not-issued";
@@ -280,7 +280,7 @@ test("Store Effect 0後のcleanup不明をexact ID付きで返す", () => {
  * @observation 公開status、理由、Effect状態およびRecovery Identityを観測する。
  * @oracle blocked、storeEffectIssued nullおよび同じexact IDが返る。
  * @cleanup N/A: 固定Storeは外部Effectを持たない。
- * @boundary Store cleanup result→Official Asset公開結果。
+ * @boundary OAG-IT-007=Direct Boundary: official-asset-governance Test Source→対象契約
  */
 test("Store Effect不明後のcleanup不明をexact ID付きで返す", () => {
   const recoveryId = "filesystem-store-lock.asset-unknown";
@@ -315,7 +315,7 @@ test("Store Effect不明後のcleanup不明をexact ID付きで返す", () => {
  * @observation 理由code、現行RevisionおよびStore Effect許可を観測する。
  * @oracle input_invalid、Revision 1、Store Effect 0となる。
  * @cleanup N/A: 外部資源を作成しない。
- * @boundary OAG-IT-007=Direct Boundary: Decision Record→Official Asset Store。
+ * @boundary OAG-IT-007=Direct Boundary: official-asset-governance Test Source→対象契約
  */
 test("不完全な判断を収載Effect前で拒否する", () => {
   const result = applyOfficialAssetDecision(
@@ -340,7 +340,7 @@ test("不完全な判断を収載Effect前で拒否する", () => {
  * @observation 勝者状態、勝者Revision、敗者理由およびStore Effectを観測する。
  * @oracle 勝者approved Revision 2を保持し、敗者はrevision_conflictかつEffect 0となる。
  * @cleanup N/A: 純粋値だけを使用する。
- * @boundary OAG-IT-006=Direct Boundary: Concurrent Decision→Official Asset Store。
+ * @boundary OAG-IT-006=Direct Boundary: official-asset-governance Test Source→対象契約
  */
 test("競合する同一Revision判断は一方だけを確定する", async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-asset-conflict-"));
@@ -442,7 +442,7 @@ test("競合する同一Revision判断は一方だけを確定する", async (t)
  * @observation 理由、Recovery Identity、現行RevisionおよびStore Effectを観測する。
  * @oracle recovery_required、exact Recovery Identity、Revision 1、Effect 0となる。
  * @cleanup 一時Directoryを削除する。
- * @boundary Decision Application→Filesystem Store Lock→公開結果。
+ * @boundary OAG-IT-007=Direct Boundary: official-asset-governance Test Source→対象契約
  */
 test("残存Lockの回復義務をRevision競合へ畳まない", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-asset-recovery-"));
@@ -482,7 +482,7 @@ test("残存Lockの回復義務をRevision競合へ畳まない", (t) => {
  * @observation 公開理由、現行Revision、EffectおよびRecovery Identity不存在を観測する。
  * @oracle observation_unknown、Revision 1、Effect 0となりRecovery Identityを発行しない。
  * @cleanup 一時Directoryを削除する。
- * @boundary Decision Application→不完全Filesystem Lock→公開結果。
+ * @boundary OAG-IT-007=Direct Boundary: official-asset-governance Test Source→対象契約
  */
 test("不完全LockをRecovery Identity付き結果へ昇格しない", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-asset-unknown-"));
@@ -520,7 +520,7 @@ test("不完全LockをRecovery Identity付き結果へ昇格しない", (t) => {
  * @observation 照合状態と理由codeを観測する。
  * @oracle mismatchとなり、外部公開・再配布Effectは発行されない。
  * @cleanup N/A: 読取り済み値だけを比較する。
- * @boundary OAG-IT-005=Related 2 Blocks: Asset Record→Inclusion Relation→Official Repository。
+ * @boundary OAG-IT-005=Direct Boundary: official-asset-governance Test Source→対象契約
  */
 test("判断Relationが異なる用途を収載済みと扱わない", () => {
   const applied = applyOfficialAssetDecision(candidate(), decision());

@@ -31,7 +31,7 @@ const base = {
  * @observation classification、reasonおよび入力根拠を観測する。
  * @oracle currentとcurrent_revision_fresh_observationを返す。
  * @cleanup N/A: Testは外部資源を作成しない。
- * @boundary PPR-UT-013=N/A: 純粋比較規則は外部境界を持たない。
+ * @boundary PPR-UT-013=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 test("現行Revisionの新しい観測をcurrentへ分類する", () => {
   const result = classifyTemporalProvenance(base);
@@ -49,7 +49,7 @@ test("現行Revisionの新しい観測をcurrentへ分類する", () => {
  * @observation classificationとreasonを観測する。
  * @oracle historicalとdifferent_revision_observationを返す。
  * @cleanup N/A: Testは外部資源を作成しない。
- * @boundary PPR-UT-013=N/A: 純粋比較規則は外部境界を持たない。
+ * @boundary PPR-UT-013=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 test("異なるRevisionの観測を時刻順だけでcurrentへ昇格しない", () => {
   const result = classifyTemporalProvenance({
@@ -70,7 +70,7 @@ test("異なるRevisionの観測を時刻順だけでcurrentへ昇格しない",
  * @observation classificationとreasonを観測する。
  * @oracle staleとcurrent_revision_stale_observationを返す。
  * @cleanup N/A: Testは外部資源を作成しない。
- * @boundary PPR-UT-013=N/A: 純粋比較規則は外部境界を持たない。
+ * @boundary PPR-UT-013=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 test("現行Revisionでも鮮度境界より古い観測をstaleへ分類する", () => {
   const result = classifyTemporalProvenance({
@@ -91,7 +91,7 @@ test("現行Revisionでも鮮度境界より古い観測をstaleへ分類する"
  * @observation classificationとreasonを観測する。
  * @oracle unknownとobserved_at_after_evaluationを返す。
  * @cleanup N/A: Testは外部資源を作成しない。
- * @boundary PPR-UT-013=N/A: 純粋比較規則は外部境界を持たない。
+ * @boundary PPR-UT-013=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 test("評価時点より未来の逆行Clockをunknownへ保持する", () => {
   const result = classifyTemporalProvenance({
@@ -112,7 +112,7 @@ test("評価時点より未来の逆行Clockをunknownへ保持する", () => {
  * @observation classificationとreasonを観測する。
  * @oracle unknownとobserved_at_missingを返す。
  * @cleanup N/A: Testは外部資源を作成しない。
- * @boundary PPR-UT-013=N/A: 純粋比較規則は外部境界を持たない。
+ * @boundary PPR-UT-013=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 test("欠測時刻を既知の現行性へ畳まない", () => {
   const result = classifyTemporalProvenance({ ...base, observedAt: null });
@@ -130,7 +130,7 @@ test("欠測時刻を既知の現行性へ畳まない", () => {
  * @observation null拒否結果を観測する。
  * @oracle 両入力をnullで拒否する。
  * @cleanup N/A: Testは外部資源を作成しない。
- * @boundary PPR-UT-013=N/A: 純粋比較規則は外部境界を持たない。
+ * @boundary PPR-UT-013=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 test("不正な時刻と鮮度境界を契約不正として拒否する", () => {
   assert.equal(

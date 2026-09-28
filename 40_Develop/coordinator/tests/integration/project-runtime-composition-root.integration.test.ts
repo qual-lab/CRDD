@@ -3,9 +3,9 @@
  *
  * @packageDocumentation
  * @responsibility coordinator:integration:project-runtime-composition-rootが所有する検証責務を実行する。
+ * @trace PPR-IT-001
  * @trace PRL-IT-005
  * @trace PRL-IT-008
- * @trace PPR-IT-001
  * @level IT
  * @scope project、runtime、public、state、mcp
  * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
@@ -50,7 +50,7 @@ import {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Runtime Data失敗を公開Project Runtime結果まで意味変更せず投影する", () => {
   const error = new RepositoryRuntimeDataAreaBlockedError({
@@ -88,7 +88,7 @@ test("Runtime Data失敗を公開Project Runtime結果まで意味変更せず�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-IT-001=Adjacent 1 Block: 複数Source Reader→Projector
+ * @boundary PPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("development composition uses the explicitly supplied candidate integration boundary", async (t) => {
   const root = fs.mkdtempSync(
@@ -299,7 +299,7 @@ test("development composition uses the explicitly supplied candidate integration
    * @observation completed状態とPrincipal IDを返す。
    * @oracle 未認証または別Principalへ置き換えない。
    * @cleanup N/A: 認証状態を永続化しない。
-   * @boundary PRL-IT-008=Direct Boundary: Public Acceptance Entry→Authentication
+   * @boundary PRL-IT-008=Direct Boundary: coordinator Test Source→対象契約
    */
   const authenticate = () =>
     Object.freeze({
@@ -673,7 +673,7 @@ class ControlledDiagnosticStream extends Writable {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 test("回復診断を直列化しcallback成功だけを成功として扱う", async () => {
   const stream = new ControlledDiagnosticStream({ highWaterMark: 1 });
@@ -702,7 +702,7 @@ test("回復診断を直列化しcallback成功だけを成功として扱う", 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 test("実行Event発行診断は回復診断と別の閉じた識別子で出力する", async () => {
   const stream = new ControlledDiagnosticStream();
@@ -739,7 +739,7 @@ test("実行Event発行診断は回復診断と別の閉じた識別子で出力
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 test("回復診断の各終端を区別し失敗後の書込みを停止する", async (t) => {
   const cases = [
@@ -793,7 +793,7 @@ test("回復診断の各終端を区別し失敗後の書込みを停止する",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 test("回復診断timeout後の遅延callbackとerrorを二重完了にしない", async () => {
   const stream = new ControlledDiagnosticStream();
@@ -816,7 +816,7 @@ test("回復診断timeout後の遅延callbackとerrorを二重完了にしない
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 test("回復診断の同期throwと明示disposeを閉じた結果へ変換する", async () => {
   class ThrowingDiagnosticStream extends Writable {

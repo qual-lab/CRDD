@@ -3,6 +3,7 @@
  *
  * @packageDocumentation
  * @responsibility 既存候補の明示Authority、Lease、Revision／Scope再確認、Receiptおよび失敗後条件を検証する。
+ * @trace CPR-UT-009
  * @trace PRL-UT-006
  * @level UT
  * @scope project-runtime、candidate-adoption、application
@@ -32,7 +33,11 @@ const candidateHash = "d".repeat(64);
  * @effect N/A: Test局所Objectだけを構築する。
  * @failure N/A: 独自の失敗分岐を持たない。
  * @invariant 各Fixtureの回数Counterを他Testと共有しない。
- * @boundary TestとProject Runtime PortのFake境界。
+ * @stimulus fixtureの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary PRL-UT-006=Direct Boundary: project-runtime Test Source→対象契約
  * @security 秘密値や実Repositoryを扱わない。
  * @concurrency N/A: Testごとに独立した同期Fixtureである。
  */
@@ -46,6 +51,19 @@ function fixture(
   const calls = { reconcile: 0, acquire: 0, adopt: 0, record: 0, release: 0 };
   const completed = <T>(reason: string, value: T) =>
     Object.freeze({ status: "completed" as const, reason, value });
+  /**
+   * blocked用の試験入力または観測処理を提供する。
+   *
+   * @responsibility blocked用の試験入力または観測処理を提供するの検証責務を所有する。
+   * @trace CPR-UT-009
+   * @trace PRL-UT-006
+   * @precondition 対象契約を再現できる固定入力と依存を用意する。
+   * @stimulus blockedの対象操作を実行する。
+   * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+   * @cleanup N/A: Process外資源を生成しない局所検証である。
+   * @boundary CPR-UT-009／PRL-UT-006=Direct Boundary: project-runtime Test Source→対象契約
+   */
   const blocked = (reason: string) =>
     Object.freeze({
       status: "blocked" as const,
@@ -139,7 +157,7 @@ const input = Object.freeze({
  * @observation 結果理由と全Port呼出し回数を観測する。
  * @oracle authorization_requiredで停止し、Lease・採用・記録を呼ばない。
  * @cleanup N/A: 外部資源を作成しない。
- * @boundary PRL-UT-006=N/A: Fake Port内で完結する。
+ * @boundary PRL-UT-006=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("明示Authorityなしでは全外部Effect前に停止する", async () => {
   const current = fixture();
@@ -172,7 +190,7 @@ test("明示Authorityなしでは全外部Effect前に停止する", async () =>
  * @observation 結果、Receiptおよび各Port呼出し回数を観測する。
  * @oracle completed、settled Effect、耐久記録一回、Lease解放一回となる。
  * @cleanup Fake Leaseのrelease呼出しを確認する。
- * @boundary PRL-UT-006=N/A: Fake Port内で完結する。
+ * @boundary PRL-UT-006=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("採用成功時はLeaseとReceiptを完結する", async () => {
   const current = fixture();
@@ -205,7 +223,7 @@ test("採用成功時はLeaseとReceiptを完結する", async () => {
  * @observation 採用呼出し回数、Effect状態およびLease解放を観測する。
  * @oracle revision_or_scope_mismatch、Effect 0、採用0回、解放1回となる。
  * @cleanup Fake Leaseのrelease呼出しを確認する。
- * @boundary PRL-UT-006=N/A: Fake Port内で完結する。
+ * @boundary PRL-UT-006=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("現在Scopeがdirtyなら採用Effect前で停止する", async () => {
   const current = fixture({ dirty: true });
@@ -233,7 +251,7 @@ test("現在Scopeがdirtyなら採用Effect前で停止する", async () => {
  * @observation Effect状態、cleanup、回復要否およびLease解放を観測する。
  * @oracle effectStateUnknownかつmanualRecoveryRequiredとなり、記録せずLeaseを解放する。
  * @cleanup Fake Leaseのrelease呼出しを確認する。
- * @boundary PRL-UT-006=N/A: Fake Port内で完結する。
+ * @boundary PRL-UT-006=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("採用後のReceipt不正はEffect不明として返す", async () => {
   const current = fixture({ receiptInvalid: true });
@@ -260,7 +278,7 @@ test("採用後のReceipt不正はEffect不明として返す", async () => {
  * @observation 最終状態、Effect、cleanupおよび回復要否を観測する。
  * @oracle lease_release_unknown、effectStateUnknown、manualRecoveryRequiredとなる。
  * @cleanup N/A: 解放不明をそのまま観測するFault試験である。
- * @boundary PRL-UT-006=N/A: Fake Port内で完結する。
+ * @boundary PRL-UT-006=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("Lease解放不明は手動回復へ閉じる", async () => {
   const current = fixture({ releaseBlocked: true });

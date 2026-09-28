@@ -7,144 +7,235 @@
       "symbolId": "cros.public-api",
       "kind": "module",
       "path": "src/index.ts",
-      "archIds": ["ARCH-000010"]
+      "archIds": [
+        "ARCH-000010"
+      ]
     },
     {
       "symbolId": "cros.runtime",
       "kind": "file",
       "path": "src/runtime.ts",
-      "archIds": ["ARCH-000009", "ARCH-000015"]
+      "archIds": [
+        "ARCH-000009",
+        "ARCH-000015"
+      ]
     },
     {
       "symbolId": "cros.tool-registry",
       "kind": "file",
       "path": "src/tool-registry.ts",
-      "archIds": ["ARCH-000010"]
+      "archIds": [
+        "ARCH-000010"
+      ]
     },
     {
       "symbolId": "cros.application-contract",
       "kind": "file",
       "path": "src/application-contract.ts",
-      "archIds": ["ARCH-000010", "ARCH-000015"]
+      "archIds": [
+        "ARCH-000010",
+        "ARCH-000015"
+      ]
     },
     {
       "symbolId": "cros.project-federation",
       "kind": "file",
       "path": "src/project-federation.ts",
-      "archIds": ["ARCH-000005", "ARCH-000013"]
+      "archIds": [
+        "ARCH-000005",
+        "ARCH-000013"
+      ]
     },
     {
       "symbolId": "cros.remote-transport",
       "kind": "file",
       "path": "src/remote-transport.ts",
-      "archIds": ["ARCH-000005", "ARCH-000007", "ARCH-000013"]
+      "archIds": [
+        "ARCH-000005",
+        "ARCH-000007",
+        "ARCH-000013"
+      ]
     },
     {
       "symbolId": "cros.shared-server-config-file-adapter",
       "kind": "file",
       "path": "src/shared-server-config-file-adapter.ts",
-      "archIds": ["ARCH-000005", "ARCH-000011", "ARCH-000013"]
+      "archIds": [
+        "ARCH-000005",
+        "ARCH-000011",
+        "ARCH-000013"
+      ]
     },
     {
       "symbolId": "cros.connection-credential",
       "kind": "file",
       "path": "src/connection-credential.ts",
-      "archIds": ["ARCH-000013"]
+      "archIds": [
+        "ARCH-000013"
+      ]
     },
     {
       "symbolId": "cros.credential-registry-file-adapter",
       "kind": "file",
       "path": "src/credential-registry-file-adapter.ts",
-      "archIds": ["ARCH-000011", "ARCH-000013"]
+      "archIds": [
+        "ARCH-000011",
+        "ARCH-000013"
+      ]
     },
     {
       "symbolId": "cros.credential-access-recovery",
       "kind": "file",
       "path": "src/credential-access-recovery.ts",
-      "archIds": ["ARCH-000013"]
+      "archIds": [
+        "ARCH-000013"
+      ]
     },
     {
       "symbolId": "cros.credential-access-recovery-file-adapter",
       "kind": "file",
       "path": "src/credential-access-recovery-file-adapter.ts",
-      "archIds": ["ARCH-000011", "ARCH-000013"]
+      "archIds": [
+        "ARCH-000011",
+        "ARCH-000013"
+      ]
     },
     {
       "symbolId": "cros.credential-access-recovery-cli",
       "kind": "file",
       "path": "src/credential-access-recovery-cli.ts",
-      "archIds": ["ARCH-000013"]
+      "archIds": [
+        "ARCH-000013"
+      ]
     },
     {
       "symbolId": "cros.test.integration.core",
       "kind": "test-suite",
       "path": "tests/integration/cros-core.contract.test.ts",
-      "qaIds": ["QA-000007"],
-      "localTestIds": ["RFD-IT-009", "RFD-IT-011"],
-      "verifies": ["cros.runtime"]
+      "qaIds": [
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "RFD-IT-009",
+        "RFD-IT-011"
+      ],
+      "verifies": [
+        "cros.runtime"
+      ]
     },
     {
       "symbolId": "cros.test.integration.project-federation",
       "kind": "test-suite",
       "path": "tests/integration/project-federation.contract.test.ts",
-      "qaIds": ["QA-000004"],
-      "localTestIds": ["PPR-IT-002"],
-      "verifies": ["cros.project-federation"]
+      "qaIds": [
+        "QA-000004"
+      ],
+      "localTestIds": [
+        "PPR-IT-002"
+      ],
+      "verifies": [
+        "cros.project-federation"
+      ]
     },
     {
       "symbolId": "cros.test.integration.remote-transport",
       "kind": "test-suite",
       "path": "tests/integration/remote-transport.contract.test.ts",
-      "qaIds": ["QA-000004", "QA-000007"],
-      "localTestIds": ["PPR-IT-002", "RFD-IT-013"],
-      "verifies": ["cros.remote-transport"]
+      "qaIds": [
+        "QA-000004",
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "PPR-IT-002",
+        "RFD-IT-013"
+      ],
+      "verifies": [
+        "cros.remote-transport"
+      ]
     },
     {
       "symbolId": "cros.test.integration.shared-server-config",
       "kind": "test-suite",
       "path": "tests/integration/shared-server-config-file-adapter.contract.test.ts",
-      "qaIds": ["QA-000004", "QA-000007"],
-      "localTestIds": ["PPR-IT-002", "RFD-IT-013"],
-      "verifies": ["cros.shared-server-config-file-adapter"]
+      "qaIds": [
+        "QA-000004",
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "PPR-IT-002",
+        "RFD-IT-013"
+      ],
+      "verifies": [
+        "cros.shared-server-config-file-adapter"
+      ]
     },
     {
       "symbolId": "cros.test.integration.tool-registry",
       "kind": "test-suite",
       "path": "tests/integration/tool-registry.contract.test.ts",
-      "qaIds": ["QA-000001"],
-      "localTestIds": ["RCM-IT-010"],
-      "verifies": ["cros.tool-registry"]
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-IT-010"
+      ],
+      "verifies": [
+        "cros.tool-registry"
+      ]
     },
     {
       "symbolId": "cros.test.system.session-access",
       "kind": "test-suite",
       "path": "tests/system/session-access.contract.test.ts",
-      "qaIds": ["QA-000007"],
-      "localTestIds": ["RFD-ST-003", "RFD-ST-004"],
-      "verifies": ["cros.runtime"]
+      "qaIds": [
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "RFD-ST-003",
+        "RFD-ST-004"
+      ],
+      "verifies": [
+        "cros.runtime"
+      ]
     },
     {
       "symbolId": "cros.test.integration.connection-credential",
       "kind": "test-suite",
       "path": "tests/integration/connection-credential.contract.test.ts",
-      "qaIds": ["QA-000007"],
-      "localTestIds": ["RFD-IT-013"],
-      "verifies": ["cros.connection-credential"]
+      "qaIds": [
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "RFD-IT-013"
+      ],
+      "verifies": [
+        "cros.connection-credential"
+      ]
     },
     {
       "symbolId": "cros.test.integration.credential-registry-file-adapter",
       "kind": "test-suite",
       "path": "tests/integration/credential-registry-file-adapter.contract.test.ts",
-      "qaIds": ["QA-000007"],
-      "localTestIds": ["RFD-IT-013"],
-      "verifies": ["cros.credential-registry-file-adapter"]
+      "qaIds": [
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "RFD-IT-013"
+      ],
+      "verifies": [
+        "cros.credential-registry-file-adapter"
+      ]
     },
     {
       "symbolId": "cros.test.integration.credential-access-recovery-file-adapter",
       "kind": "test-suite",
       "path": "tests/integration/credential-access-recovery-file-adapter.contract.test.ts",
-      "qaIds": ["QA-000007"],
-      "localTestIds": ["RFD-IT-013", "RFD-ST-016"],
+      "qaIds": [
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "RFD-IT-013"
+      ],
       "verifies": [
         "cros.credential-access-recovery",
         "cros.credential-access-recovery-file-adapter",
@@ -155,25 +246,45 @@
       "symbolId": "cros.test.system.context-handoff",
       "kind": "test-suite",
       "path": "tests/system/context-handoff.contract.test.ts",
-      "qaIds": ["QA-000006", "QA-000007"],
-      "localTestIds": ["ERB-ST-013", "RFD-ST-010"],
-      "verifies": ["cros.runtime"]
+      "qaIds": [
+        "QA-000006",
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "ERB-ST-013",
+        "RFD-ST-010"
+      ],
+      "verifies": [
+        "cros.runtime"
+      ]
     },
     {
       "symbolId": "cros.test.integration.surface-contract",
       "kind": "test-suite",
       "path": "tests/integration/surface-contract.contract.test.ts",
-      "qaIds": ["QA-000009"],
-      "localTestIds": ["EST-IT-010"],
-      "verifies": ["cros.application-contract"]
+      "qaIds": [
+        "QA-000009"
+      ],
+      "localTestIds": [
+        "EST-IT-010"
+      ],
+      "verifies": [
+        "cros.application-contract"
+      ]
     },
     {
       "symbolId": "cros.test.system.result-return",
       "kind": "test-suite",
       "path": "tests/system/result-return.contract.test.ts",
-      "qaIds": ["QA-000009"],
-      "localTestIds": ["EST-ST-011"],
-      "verifies": ["cros.application-contract"]
+      "qaIds": [
+        "QA-000009"
+      ],
+      "localTestIds": [
+        "EST-ST-011"
+      ],
+      "verifies": [
+        "cros.application-contract"
+      ]
     }
   ]
 }

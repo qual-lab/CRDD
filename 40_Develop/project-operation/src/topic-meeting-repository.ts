@@ -30,12 +30,58 @@ import {
   type TopicRecord,
 } from "./topic-meeting.ts";
 
+/**
+ * Topic／Meeting Markdown正本のRepository境界で使用するProjectOperationRecordKindの構造を固定する。
+ *
+ * @responsibility Topic／Meeting Markdown正本のRepository境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000006
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
+
 export type ProjectOperationRecordKind = "topic" | "meeting";
+/**
+ * Topic／Meeting Markdown正本のRepository境界で使用するProjectOperationRecordの構造を固定する。
+ *
+ * @responsibility Topic／Meeting Markdown正本のRepository境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000006
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
 export type ProjectOperationRecord = TopicRecord | MeetingRecord;
+/**
+ * Topic／Meeting Markdown正本のRepository境界で使用するTopicMeetingDocumentの構造を固定する。
+ *
+ * @responsibility Topic／Meeting Markdown正本のRepository境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000006
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
 export type TopicMeetingDocument = Readonly<{
   record: ProjectOperationRecord;
   markdown: string;
 }>;
+
+/**
+ * Topic／Meeting Markdown正本のRepository境界で使用するTopicMeetingListResultの構造を固定する。
+ *
+ * @responsibility Topic／Meeting Markdown正本のRepository境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000006
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
 
 export type TopicMeetingListResult = Readonly<
   | {
@@ -44,6 +90,18 @@ export type TopicMeetingListResult = Readonly<
     }
   | { status: "not_configured"; records: readonly ProjectOperationRecord[] }
 >;
+
+/**
+ * Topic／Meeting Markdown正本のRepository境界で使用するTopicMeetingWriteResultの構造を固定する。
+ *
+ * @responsibility Topic／Meeting Markdown正本のRepository境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000006
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
 
 export type TopicMeetingWriteResult = Readonly<{
   status: "completed" | "blocked";
@@ -62,6 +120,18 @@ export type TopicMeetingWriteResult = Readonly<{
   relationPaths: readonly string[];
   filesystemEffectCount: 0 | 1;
 }>;
+
+/**
+ * Topic／Meeting Markdown正本のRepository境界で使用するTopicMeetingRepositoryの構造を固定する。
+ *
+ * @responsibility Topic／Meeting Markdown正本のRepository境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000006
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
 
 export type TopicMeetingRepository = Readonly<{
   get(
@@ -100,12 +170,27 @@ export type TopicMeetingRepository = Readonly<{
   }): TopicMeetingWriteResult;
 }>;
 
-const kindContract = Object.freeze({
+const KIND_CONTRACT = Object.freeze({
   topic: Object.freeze({ directory: "22_Topics", prefix: "TOPIC" }),
   meeting: Object.freeze({ directory: "23_Meetings", prefix: "MTG" }),
 });
 
-/** Topic／Meeting MarkdownをKind固有Recordへ検証変換する。 */
+/**
+ * Topic／Meeting MarkdownをKind固有Recordへ検証変換する。
+ *
+ * @responsibility 入力Kindに対応する固定Parserだけを選び、検証済みRecordへ変換する。
+ * @trace ARCH-000006
+ * @input kind: Record種別、markdown: 検証対象の正本文字列。
+ * @returns Kindに対応する検証済みTopicまたはMeeting Record。
+ * @precondition kindは閉じたRecord種別である。
+ * @postcondition Parserの全検証を通過したRecordだけを返す。
+ * @effect N/A: 入力文字列の解析だけを行う。
+ * @failure Markdown不正は選択したParserの例外として呼出し元へ返す。
+ * @invariant TopicをMeetingとして、またはMeetingをTopicとして解釈しない。
+ * @boundary 未信頼MarkdownとProject Operation Recordの境界。
+ * @security Markdown内の命令やLinkを実行しない。
+ * @concurrency N/A: 共有状態を持たない同期処理である。
+ */
 function parseRecord(
   kind: ProjectOperationRecordKind,
   markdown: string,
@@ -115,12 +200,42 @@ function parseRecord(
     : parseMeetingMarkdown(markdown);
 }
 
-/** Recordの安定IDをKindに依存せず取得する。 */
+/**
+ * Recordの安定IDをKindに依存せず取得する。
+ *
+ * @responsibility Topic／Meetingの識別Property差をRepository内部の単一IDへ縮約する。
+ * @trace ARCH-000006
+ * @input record: 検証済みTopicまたはMeeting Record。
+ * @returns Recordが所有する安定ID。
+ * @precondition recordはProjectOperationRecordの閉じたUnionである。
+ * @postcondition TopicはtopicId、MeetingはmeetingIdを返す。
+ * @effect N/A: Propertyを読むだけである。
+ * @failure N/A: 閉じた型入力だけを扱う。
+ * @invariant ID文字列を変換しない。
+ * @boundary Record型差とRepository共通処理の内部境界。
+ * @security ID以外のRecord内容を公開しない。
+ * @concurrency N/A: 共有状態を持たない同期処理である。
+ */
 function recordId(record: ProjectOperationRecord): string {
   return "topicId" in record ? record.topicId : record.meetingId;
 }
 
-/** Repository内MarkdownをSymlink非追跡で列挙する。 */
+/**
+ * Repository内MarkdownをSymlink非追跡で列挙する。
+ *
+ * @responsibility 許可Root配下の通常Directoryだけを再帰し、Markdown Pathを決定論的に集める。
+ * @trace ARCH-000006
+ * @input root: 許可済みRepository Root、current: 現在探索中のDirectory。
+ * @returns 発見したMarkdownの絶対Path集合。
+ * @precondition rootとcurrentは検証済みRepository Root配下にある。
+ * @postcondition Symlink、管理領域およびMarkdown以外を結果へ含めない。
+ * @effect N/A: Filesystemを読取るだけである。
+ * @failure Filesystem観測失敗は例外として呼出し元へ返す。
+ * @invariant 再帰中にroot外へ移動しない。
+ * @boundary Repository FilesystemとTopic／Meeting Indexの境界。
+ * @security Symlinkを追跡せず、`.git`、`.crdd`、`node_modules`を探索しない。
+ * @concurrency Filesystem Snapshotの変化は上位の安定読取り検証へ委ねる。
+ */
 function walkMarkdown(root: string, current = root): string[] {
   const results: string[] = [];
   for (const entry of readdirSync(current, { withFileTypes: true })) {
@@ -158,7 +273,7 @@ export function createTopicMeetingRepository(
     throw new Error("project_operation_repository_root_invalid");
 
   const location = (kind: ProjectOperationRecordKind, id: string) => {
-    const contract = kindContract[kind];
+    const contract = KIND_CONTRACT[kind];
     if (!new RegExp(`^${contract.prefix}-\\d{6}$`, "u").test(id))
       throw new Error("project_operation_record_id_invalid");
     const directory = path.resolve(root, contract.directory, id);
@@ -264,7 +379,7 @@ export function createTopicMeetingRepository(
     get: read,
     getDocument: readDocument,
     list: (kind) => {
-      const contract = kindContract[kind];
+      const contract = KIND_CONTRACT[kind];
       const rootDirectory = path.join(root, contract.directory);
       if (!existsSync(rootDirectory))
         return Object.freeze({

@@ -44,7 +44,7 @@ const repositoryRoot = path.resolve(checkerRoot, "../..");
  * @observation 返された真偽値を観測する。
  * @oracle skip例だけtrueとなる。
  * @cleanup N/A: 外部資源を作成しない。
- * @boundary PPR-UT-017=N/A: 文字列判定だけで完結する。
+ * @boundary PPR-UT-017=Direct Boundary: checker Test Source→対象契約
  */
 test("skipされたTest Placeholderを観測済みEvidenceとして扱わない", () => {
   assert.equal(
@@ -78,7 +78,7 @@ test("skipされたTest Placeholderを観測済みEvidenceとして扱わない"
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-017=N/A: Semantic Relation集合は外部実行境界を持たない。
+ * @boundary PPR-UT-017=Direct Boundary: checker Test Source→対象契約
  */
 test("Reality Domain IssueはChecker境界で明示変換し未知種別を拒否する", () => {
   assert.deepEqual(
@@ -130,7 +130,7 @@ test("Reality Domain IssueはChecker境界で明示変換し未知種別を拒�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-017=N/A: Semantic Relation集合は外部実行境界を持たない。
+ * @boundary PPR-UT-017=Direct Boundary: checker Test Source→対象契約
  */
 test("Subsystem-local symbol.jsonからGlobal Symbol Graphを構築する", () => {
   const verified = verifyRepositoryRoot(repositoryRoot);
@@ -198,7 +198,7 @@ test("Subsystem-local symbol.jsonからGlobal Symbol Graphを構築する", () =
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-017=N/A: Semantic Relation集合は外部実行境界を持たない。
+ * @boundary PPR-UT-017=Direct Boundary: checker Test Source→対象契約
  */
 test("Symbol Manifestは未知Property・危険Path・Test relation欠落を拒否する", () => {
   const validation = validateRealitySymbolManifest(
@@ -236,7 +236,7 @@ test("Symbol Manifestは未知Property・危険Path・Test relation欠落を拒�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-017=N/A: Semantic Relation集合は外部実行境界を持たない。
+ * @boundary PPR-UT-017=Direct Boundary: checker Test Source→対象契約
  */
 test("Implementation SymbolへQualityとverifiesの責務を混在させない", () => {
   const validation = validateRealitySymbolManifest(
@@ -275,7 +275,7 @@ test("Implementation SymbolへQualityとverifiesの責務を混在させない",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-017=N/A: Semantic Relation集合は外部実行境界を持たない。
+ * @boundary PPR-UT-017=Direct Boundary: checker Test Source→対象契約
  */
 test("Global Symbol Graphは重複・未知Canonical ID・未解決verifiesを拒否する", () => {
   const manifest: LoadedRealitySymbolManifest = {
@@ -353,7 +353,7 @@ test("Global Symbol Graphは重複・未知Canonical ID・未解決verifiesを�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-017=N/A: Semantic Relation集合は外部実行境界を持たない。
+ * @boundary PPR-UT-017=Direct Boundary: checker Test Source→対象契約
  */
 test("Global Symbol GraphはQA定義に存在しないLocal Test IDを拒否する", () => {
   const manifest: LoadedRealitySymbolManifest = {
@@ -415,7 +415,7 @@ test("Global Symbol GraphはQA定義に存在しないLocal Test IDを拒否す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-017=N/A: Semantic Relation集合は外部実行境界を持たない。
+ * @boundary PPR-UT-017=Direct Boundary: checker Test Source→対象契約
  */
 test("共通JSON SchemaはManifestとSymbolの閉じたContractを公開する", () => {
   const schema = JSON.parse(
@@ -475,7 +475,7 @@ test("共通JSON SchemaはManifestとSymbolの閉じたContractを公開する",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-017=N/A: Semantic Relation集合は外部実行境界を持たない。
+ * @boundary PPR-UT-017=Direct Boundary: checker Test Source→対象契約
  */
 test("Test SymbolはTest Catalogのexact pathとownerへ閉じる", () => {
   const manifest: LoadedRealitySymbolManifest = {
@@ -544,7 +544,7 @@ test("Test SymbolはTest Catalogのexact pathとownerへ閉じる", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-017=N/A: Semantic Relation集合は外部実行境界を持たない。
+ * @boundary PPR-UT-017=Direct Boundary: checker Test Source→対象契約
  */
 test("Global Symbol GraphはDiscoveryまたはCatalog Findingがあれば部分発行しない", () => {
   const manifest: LoadedRealitySymbolManifest = {
@@ -612,7 +612,7 @@ test("Global Symbol GraphはDiscoveryまたはCatalog Findingがあれば部分�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-017=N/A: Semantic Relation集合は外部実行境界を持たない。
+ * @boundary PPR-UT-017=Direct Boundary: checker Test Source→対象契約
  */
 test("Test Catalog Adapterは同一Pathの重複登録を拒否する", () => {
   const result = readRegisteredRealityTestsFromRepository({
@@ -650,7 +650,7 @@ test("Test Catalog Adapterは同一Pathの重複登録を拒否する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-017=N/A: Semantic Relation集合は外部実行境界を持たない。
+ * @boundary PPR-UT-017=Direct Boundary: checker Test Source→対象契約
  */
 test("Test Catalogはlink境界を越えて読まない", () => {
   const result = readRegisteredRealityTestsFromRepository({

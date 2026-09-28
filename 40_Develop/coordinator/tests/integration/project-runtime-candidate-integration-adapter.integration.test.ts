@@ -31,7 +31,7 @@ import { gitFixedSnapshotAdapter } from "../../../version-control/src/git/fixed-
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("real candidate bundles are merged and explicitly adopted into the bound repository", async (t) => {
   const repository = fs.mkdtempSync(

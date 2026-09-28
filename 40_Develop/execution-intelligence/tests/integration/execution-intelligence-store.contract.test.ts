@@ -44,7 +44,7 @@ import {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-001=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 function fixture(t: test.TestContext) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-execution-store-"));
@@ -63,7 +63,7 @@ function fixture(t: test.TestContext) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-001=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 function verifiedRoot(root: string): VerifiedExecutionRepositoryRoot {
   const observed = verifyExecutionIntelligenceRepositoryRoot(root);
@@ -82,7 +82,7 @@ function verifiedRoot(root: string): VerifiedExecutionRepositoryRoot {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-001=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 function eventForTask(taskId: string) {
   return createTaskAttemptSettledEvent({
@@ -140,7 +140,7 @@ function eventForTask(taskId: string) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-001=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 function event() {
   return eventForTask("task-a");
@@ -156,7 +156,7 @@ function event() {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-001=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 function operationDirectory(root: string) {
   return path.join(root, ".crdd", "execution", "operation-a");
@@ -172,7 +172,7 @@ function operationDirectory(root: string) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-001=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 function eventDirectory(root: string) {
   return path.join(operationDirectory(root), "events");
@@ -188,7 +188,7 @@ function eventDirectory(root: string) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERP-IT-002=Direct Boundary: 複数Writer→同一Store
+ * @boundary ERP-IT-002=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 test("Runtime Data Ignore失敗の意味を最終Publicationまで保持する", (t) => {
   const root = fixture(t);
@@ -233,7 +233,7 @@ test("Runtime Data Ignore失敗の意味を最終Publicationまで保持する",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERP-IT-002=Direct Boundary: 複数Writer→同一Store
+ * @boundary ERP-IT-002=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 test("Runtime Data Effect不明はcleanup済みでもRead／Writeで手動回復を保持する", (t) => {
   const root = fixture(t);
@@ -248,7 +248,7 @@ test("Runtime Data Effect不明はcleanup済みでもRead／Writeで手動回復
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+   * @boundary ERP-IT-001=Direct Boundary: execution-intelligence Test Source→対象契約
    */
   const blockedArea = (() =>
     Object.freeze({
@@ -302,7 +302,7 @@ test("Runtime Data Effect不明はcleanup済みでもRead／Writeで手動回復
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-001=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 test("an embedded TypeScript application can record and read through one public recorder", (t) => {
   const root = fixture(t);
@@ -336,7 +336,7 @@ test("an embedded TypeScript application can record and read through one public 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERP-IT-002=Direct Boundary: 複数Writer→同一Store
+ * @boundary ERP-IT-002=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 test("Recorderはtop-level Accessorを実行せずStore Effect 0で拒否する", (t) => {
   const root = fixture(t);
@@ -371,7 +371,7 @@ test("Recorderはtop-level Accessorを実行せずStore Effect 0で拒否する"
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERP-IT-002=Direct Boundary: 複数Writer→同一Store
+ * @boundary ERP-IT-002=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 test("Recorderは生成後のStore例外を入力不正やEffect 0へ偽装しない", (t) => {
   const root = fixture(t);
@@ -407,7 +407,7 @@ test("Recorderは生成後のStore例外を入力不正やEffect 0へ偽装し�
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-001=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 function runWriter(root: string, reason: string) {
   return new Promise<Readonly<{ exitCode: number | null; result: unknown }>>(
@@ -448,7 +448,7 @@ function runWriter(root: string, reason: string) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERP-IT-002=Direct Boundary: 複数Writer→同一Store
+ * @boundary ERP-IT-002=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 test("writes immutable events under repository-local .crdd and reads a summary", (t) => {
   const root = fixture(t);
@@ -484,7 +484,7 @@ test("writes immutable events under repository-local .crdd and reads a summary",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERP-IT-003=Adjacent 1 Block: Writer→Filesystem publish→Reader
+ * @boundary ERP-IT-003=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 test("rejects conflicting content for the same exact identity", (t) => {
   const root = fixture(t);
@@ -514,7 +514,7 @@ test("rejects conflicting content for the same exact identity", (t) => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERP-IT-002=Direct Boundary: 複数Writer→同一Store
+ * @boundary ERP-IT-002=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 test("Accessorを含むEventは永続化前に拒否してStoreを作らない", (t) => {
   const root = fixture(t);
@@ -548,7 +548,7 @@ test("Accessorを含むEventは永続化前に拒否してStoreを作らない",
  * @observation 構造化された拒否理由、Effect状態およびRepository-local Storeの不存在を観測する。
  * @oracle `execution_event_invalid`で拒否し、生出力を返却せずStore Effect 0となる。
  * @cleanup Test終了時に一時Repositoryを削除する。
- * @boundary ERP-IT-005=Adjacent 1 Block: Event入口→Policy→Store
+ * @boundary ERP-IT-005=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 test("許可外のProvider生出力をStore Effect前に拒否する", (t) => {
   const root = fixture(t);
@@ -578,7 +578,7 @@ test("許可外のProvider生出力をStore Effect前に拒否する", (t) => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERP-IT-002=Direct Boundary: 複数Writer→同一Store
+ * @boundary ERP-IT-002=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 test("fails closed when stored content is corrupt", (t) => {
   const root = fixture(t);
@@ -617,7 +617,7 @@ test("fails closed when stored content is corrupt", (t) => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERP-IT-002=Direct Boundary: 複数Writer→同一Store
+ * @boundary ERP-IT-002=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 test("does not replace a non-directory repository-local boundary", (t) => {
   const root = fixture(t);
@@ -640,7 +640,7 @@ test("does not replace a non-directory repository-local boundary", (t) => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERP-IT-002=Direct Boundary: 複数Writer→同一Store
+ * @boundary ERP-IT-002=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 test("does not hide an unknown residual file from the store result", (t) => {
   const root = fixture(t);
@@ -678,7 +678,7 @@ test("does not hide an unknown residual file from the store result", (t) => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERP-IT-002=Direct Boundary: 複数Writer→同一Store
+ * @boundary ERP-IT-002=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 test("物理保持削除を公開せず自己申告のEvidenceでEventを変更しない", async (t) => {
   const root = fixture(t);
@@ -714,7 +714,7 @@ test("物理保持削除を公開せず自己申告のEvidenceでEventを変更�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERP-IT-002=Direct Boundary: 複数Writer→同一Store
+ * @boundary ERP-IT-002=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 test("Repository RootはexactなVCS worktreeだけを実行時能力にする", (t) => {
   const root = fixture(t);
@@ -770,7 +770,7 @@ test("Repository RootはexactなVCS worktreeだけを実行時能力にする", 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERP-IT-002=Direct Boundary: 複数Writer→同一Store
+ * @boundary ERP-IT-002=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 test("能力発行後にGit境界が失効した場合はStore Effect 0で拒否する", (t) => {
   for (const replacement of [
@@ -805,7 +805,7 @@ test("能力発行後にGit境界が失効した場合はStore Effect 0で拒否
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERP-IT-002=Direct Boundary: 複数Writer→同一Store
+ * @boundary ERP-IT-002=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 test("並行Processの同一Eventは冪等で、異なる内容は上書きしない", async (t) => {
   const sameRoot = fixture(t);
@@ -859,7 +859,7 @@ test("並行Processの同一Eventは冪等で、異なる内容は上書きし�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERP-IT-002=Direct Boundary: 複数Writer→同一Store
+ * @boundary ERP-IT-002=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 test("通常Repository・linked worktree・submoduleのexact Rootを区別する", (t) => {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-execution-layout-"));
@@ -969,7 +969,7 @@ for (const fault of [
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary ERP-IT-002=Direct Boundary: 複数Writer→同一Store
+   * @boundary ERP-IT-002=Direct Boundary: execution-intelligence Test Source→対象契約
    */
   test(`Storeの${fault}失敗を成功へ丸めず資源を回収する`, (t) => {
     const root = fixture(t);
@@ -1043,7 +1043,7 @@ for (const fault of [
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERP-IT-002=Direct Boundary: 複数Writer→同一Store
+ * @boundary ERP-IT-002=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 test("一時fileの回収不明はexactな残存Identityを返す", (t) => {
   const root = fixture(t);
@@ -1076,7 +1076,7 @@ test("一時fileの回収不明はexactな残存Identityを返す", (t) => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-001=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 test("所有不明の残存Lockを自動奪取しない", (t) => {
   const root = fixture(t);
@@ -1108,7 +1108,7 @@ test("所有不明の残存Lockを自動奪取しない", (t) => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-001=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 test("Lock所有者の初期化失敗は回収済みとして閉じる", (t) => {
   const root = fixture(t);
@@ -1142,7 +1142,7 @@ test("Lock所有者の初期化失敗は回収済みとして閉じる", (t) => 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-001=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 test("Lock所有者の初期化と回収が失敗した場合は残存Lockを返す", (t) => {
   const root = fixture(t);
@@ -1187,7 +1187,7 @@ test("Lock所有者の初期化と回収が失敗した場合は残存Lockを返
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-001=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 test("Lock解放不明はEvent成立と残存Lockを分けて返す", (t) => {
   const root = fixture(t);
@@ -1220,7 +1220,7 @@ test("Lock解放不明はEvent成立と残存Lockを分けて返す", (t) => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERP-IT-002=Direct Boundary: 複数Writer→同一Store
+ * @boundary ERP-IT-002=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 test("Repository Rootへのlink経由は実行時能力にしない", (t) => {
   const root = fixture(t);

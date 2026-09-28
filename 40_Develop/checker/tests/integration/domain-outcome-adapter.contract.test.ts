@@ -32,7 +32,7 @@ const issue = {
  * @observation 変換前後の状態、result、Finding、uncheckedおよびexitCodeを観測する。
  * @oracle completeだけが成功し、非complete状態は元の状態を保持して失敗する。
  * @cleanup N/A: Process内の不変fixtureだけを使用する。
- * @boundary RCM-IT-011=Direct Boundary: Domain結果からChecker結果への変換境界。
+ * @boundary RCM-IT-011=Direct Boundary: checker Test Source→対象契約
  */
 test("Domain Outcomeの全状態をChecker結果へ意味を保って変換する", () => {
   const complete = mapDomainOutcomeToCheckerResult(
@@ -74,7 +74,7 @@ test("Domain Outcomeの全状態をChecker結果へ意味を保って変換す�
  * @observation 例外理由と変換結果の不存在を観測する。
  * @oracle completeとissueの併存、必須field欠落、禁止fieldおよび未知kindをすべて拒否する。
  * @cleanup N/A: Process内の不変fixtureだけを使用する。
- * @boundary RCM-IT-011=Direct Boundary: 未信頼Domain結果をCheckerへ受け入れる境界。
+ * @boundary RCM-IT-011=Direct Boundary: checker Test Source→対象契約
  */
 test("不正相関、未知Issue kind、必須field欠落および禁止fieldを拒否する", () => {
   assert.throws(

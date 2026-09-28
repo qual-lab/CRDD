@@ -65,7 +65,7 @@ const PROJECT_RUNTIME_OBJECTIVE_PLAN = Object.freeze({
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("Objective Planは許可Path内の閉じた値だけを受理する", () => {
   const request = inspectProjectRuntimeObjectiveRequest(objectiveRequest);
@@ -101,7 +101,7 @@ test("Objective Planは許可Path内の閉じた値だけを受理する", () =>
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-006=N/A: Task Authority縮小規則は外部実行境界を持たない。
+ * @boundary PRL-UT-006=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("Task実行集合はProject RuntimeがTask範囲へAuthority bindingを縮小する", () => {
   const created = createProjectRuntimeState({
@@ -161,7 +161,7 @@ test("Task実行集合はProject RuntimeがTask範囲へAuthority bindingを縮�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-006=N/A: Objective結果の状態契約は外部実行境界を持たない。
+ * @boundary PRL-UT-006=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("Objective結果は入力Identityと終了条件を同じ公開契約へ固定する", () => {
   const request = inspectProjectRuntimeObjectiveRequest(objectiveRequest);

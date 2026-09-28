@@ -39,7 +39,7 @@ const lifecycleDependencies = Object.freeze({
  * @observation NetworkまたはContainer用の固定stderrを返す。
  * @oracle 実装が受理するexact不存在形式と一致する。
  * @cleanup N/A: 外部資源を作成しない純粋fixtureである。
- * @boundary ERB-UT-016=Unit: Docker stderr fixture境界
+ * @boundary ERB-UT-016=Direct Boundary: coordinator Test Source→対象契約
  */
 function absenceError(purpose: string) {
   const resource = purpose.includes("network")
@@ -66,7 +66,7 @@ function absenceError(purpose: string) {
  * @observation 所有観測ではsuffix行、それ以外では空文字列を返す。
  * @oracle 所有確認用途以外へ所有Labelを混入しない。
  * @cleanup N/A: 外部資源を作成しない純粋fixtureである。
- * @boundary ERB-UT-016=Unit: Docker所有Label fixture境界
+ * @boundary ERB-UT-016=Direct Boundary: coordinator Test Source→対象契約
  */
 function ownershipOutput(purpose: string) {
   return purpose.startsWith("observe_") ? `${AUTHENTICATION_SUFFIX}\n` : "";
@@ -82,7 +82,7 @@ function ownershipOutput(purpose: string) {
  * @observation 非表示、一度だけ、結果まで再入力しないという三条件を観測する。
  * @oracle 三条件が同じ案内に存在し、秘密code値やProvider出力を補間しない。
  * @cleanup N/A: 固定文字列の検査で外部資源を作らない。
- * @boundary ERB-UT-016=Unit: Human-only入力案内境界
+ * @boundary ERB-UT-016=Direct Boundary: coordinator Test Source→対象契約
  */
 test("再認証は秘密codeの非表示と一回入力を事前案内する", () => {
   assert.match(
@@ -109,7 +109,7 @@ test("再認証は秘密codeの非表示と一回入力を事前案内する", (
  * @observation Docker argv、Image digest、mountおよびCommand順序を観測する。
  * @oracle Repository/Workspace mountがなく、loginとnetwork-none probeが存在する。
  * @cleanup N/A: 純粋Plan生成で外部資源を作らない。
- * @boundary ERB-UT-016=Unit: Docker argv生成境界
+ * @boundary ERB-UT-016=Direct Boundary: coordinator Test Source→対象契約
  */
 test("再認証Planは専用Provider Home以外をmountしない", () => {
   const plan = createClaudeSubscriptionAuthenticationPlan(
@@ -144,7 +144,7 @@ test("再認証Planは専用Provider Home以外をmountしない", () => {
  * @observation 公開結果と全Commandの実行を観測する。
  * @oracle completed、認証確認、cleanup確認、Repository非接続になる。
  * @cleanup fixtureのcleanup Commandも注入境界で観測する。
- * @boundary ERB-UT-016=Unit: 認証Lifecycle完了境界
+ * @boundary ERB-UT-016=Direct Boundary: coordinator Test Source→対象契約
  */
 test("再認証は事後Probeとcleanupの両方で完了する", async () => {
   const purposes: string[] = [];
@@ -207,7 +207,7 @@ test("再認証は事後Probeとcleanupの両方で完了する", async () => {
  * @observation 失敗理由、後続login非実行、全cleanup Commandを観測する。
  * @oracle blockedとなり、login Effectを開始せずcleanupを完了する。
  * @cleanup fixtureのcleanup Commandも注入境界で観測する。
- * @boundary ERB-UT-016=Unit: 部分失敗・回収境界
+ * @boundary ERB-UT-016=Direct Boundary: coordinator Test Source→対象契約
  */
 test("再認証は途中失敗後にloginを開始せずcleanupする", async () => {
   const purposes: string[] = [];
@@ -253,7 +253,7 @@ test("再認証は途中失敗後にloginを開始せずcleanupする", async ()
  * @observation cleanup確認と公開結果を観測する。
  * @oracle 認証済みでもcleanup未確認としてblockedになる。
  * @cleanup fixtureは外部資源を作らない。
- * @boundary ERB-UT-016=Unit: Docker不存在観測境界
+ * @boundary ERB-UT-016=Direct Boundary: coordinator Test Source→対象契約
  */
 test("再認証はDocker観測失敗を資源不存在として受理しない", async () => {
   const result = await authenticateClaudeSubscription(
@@ -304,7 +304,7 @@ test("再認証はDocker観測失敗を資源不存在として受理しない",
  * @observation cleanup確認と公開結果を観測する。
  * @oracle 明示stderrがあっても任意stdoutを伴う結果はcleanup未確認になる。
  * @cleanup fixtureは外部資源を作らない。
- * @boundary ERB-UT-016=Unit: Docker不存在stdout境界
+ * @boundary ERB-UT-016=Direct Boundary: coordinator Test Source→対象契約
  */
 test("再認証は空配列以外のstdoutを資源不存在として受理しない", async () => {
   const result = await authenticateClaudeSubscription(
@@ -348,7 +348,7 @@ test("再認証は空配列以外のstdoutを資源不存在として受理し�
  * @observation Proxy削除Commandと公開結果を観測する。
  * @oracle 非所有Proxyへ削除Effectを発行せずblockedになる。
  * @cleanup fixtureは外部資源を作らない。
- * @boundary ERB-UT-016=Unit: Docker資源所有権判定境界
+ * @boundary ERB-UT-016=Direct Boundary: coordinator Test Source→対象契約
  */
 test("再認証は同名の非所有Docker資源を削除しない", async () => {
   const purposes: string[] = [];
@@ -398,7 +398,7 @@ test("再認証は同名の非所有Docker資源を削除しない", async () =>
  * @observation 後続Command、cleanup、Recovery結果を観測する。
  * @oracle loginと競合cleanupを発行せず同じRecovery IDを保持する。
  * @cleanup Lock喪失後のcleanup Effectは発行しない。
- * @boundary ERB-UT-016=Unit: Provider Home Lock生存判定境界
+ * @boundary ERB-UT-016=Direct Boundary: coordinator Test Source→対象契約
  */
 test("再認証はProvider Home Lock喪失後のEffectを停止する", async () => {
   const purposes: string[] = [];
@@ -444,7 +444,7 @@ test("再認証はProvider Home Lock喪失後のEffectを停止する", async ()
  * @observation 戻り理由、経過時間および子Process close後の結果を観測する。
  * @oracle Lock喪失を返し、監視周期前に成功せず、子Process close後だけ完了する。
  * @cleanup 実行境界が子Processへ終了要求を発行してcloseを待つ。
- * @boundary ERB-UT-016=Unit: 実行中Process Authority監視境界
+ * @boundary ERB-UT-016=Direct Boundary: coordinator Test Source→対象契約
  */
 test("再認証Docker Commandは実行中Lock喪失後に子Process closeを待つ", async () => {
   let isLive = true;
@@ -482,7 +482,7 @@ test("再認証Docker Commandは実行中Lock喪失後に子Process closeを待�
  * @observation cleanup、手動回復、Effect不明およびRecovery IDを観測する。
  * @oracle cleanupConfirmed=falseで同じRecovery IDと回復義務を保持する。
  * @cleanup Docker Effectを発行しない。
- * @boundary ERB-UT-016=Unit: Recovery inventory不明境界
+ * @boundary ERB-UT-016=Direct Boundary: coordinator Test Source→対象契約
  */
 test("再認証は回復在庫不明をcleanup完了へ畳まない", async () => {
   let runCount = 0;
@@ -523,7 +523,7 @@ test("再認証は回復在庫不明をcleanup完了へ畳まない", async () =
  * @observation cleanup、手動回復、Effect不明およびRecovery IDを観測する。
  * @oracle cleanupConfirmed=falseで同じRecovery IDを保持し、新しい認証Commandを発行しない。
  * @cleanup 所有資源の不存在確認まで完了し、追加Docker Effectを発行しない。
- * @boundary ERB-UT-016=Unit: Recovery再入場境界
+ * @boundary ERB-UT-016=Direct Boundary: coordinator Test Source→対象契約
  */
 test("再認証は回復後の再入場失敗をcleanup完了へ畳まない", async () => {
   let beginCount = 0;
@@ -576,7 +576,7 @@ test("再認証は回復後の再入場失敗をcleanup完了へ畳まない", a
  * @observation settlement呼出し回数、cleanup結果およびRecovery IDを観測する。
  * @oracle completeRecoveryを呼ばずactive記録と同じRecovery IDを保持する。
  * @cleanup Lock喪失後は追加Docker Effectを発行しない。
- * @boundary ERB-UT-016=Unit: cleanup完了からsettlementへのAuthority境界
+ * @boundary ERB-UT-016=Direct Boundary: coordinator Test Source→対象契約
  */
 test("再認証は最終不存在確認後のLock喪失でsettledを書かない", async () => {
   let isLive = true;
@@ -637,7 +637,7 @@ test("再認証は最終不存在確認後のLock喪失でsettledを書かない
  * @observation Docker Adapter呼出し回数と公開結果を観測する。
  * @oracle Docker Effect 0のblockedになる。
  * @cleanup fixtureは外部資源を作らない。
- * @boundary ERB-UT-016=Unit: Provider Home並行書込み境界
+ * @boundary ERB-UT-016=Direct Boundary: coordinator Test Source→対象契約
  */
 test("再認証は同じProvider Homeの後発操作をEffect前に拒否する", async () => {
   let runCount = 0;
@@ -673,7 +673,7 @@ test("再認証は同じProvider Homeの後発操作をEffect前に拒否する"
  * @observation 旧資源cleanup、記録settlement、新規Effectの順序を観測する。
  * @oracle 旧資源不存在を確認してから同じIdentityで新規認証を実行する。
  * @cleanup fixtureのcleanup Commandも注入境界で観測する。
- * @boundary ERB-UT-016=Unit: Process loss後のRecovery再入場境界
+ * @boundary ERB-UT-016=Direct Boundary: coordinator Test Source→対象契約
  */
 test("再認証は耐久Intentから旧資源を回収してfresh Processで再入場する", async () => {
   const purposes: string[] = [];

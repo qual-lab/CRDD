@@ -28,7 +28,7 @@ import {
   type RequestAccessContext,
 } from "../../src/index.ts";
 
-const administrator: RequestAccessContext = Object.freeze({
+const ADMINISTRATOR: RequestAccessContext = Object.freeze({
   credentialId: "bootstrap-admin",
   profile: "administrator",
   workspaceIds: Object.freeze([]),
@@ -52,7 +52,7 @@ const administrator: RequestAccessContext = Object.freeze({
  * @effect 試験Process内counterだけを更新する。
  * @failure N/A: 正のbyte数に対して必ずBufferを返す。
  * @invariant 同じ試験実行では同じ順序のbyte列を返す。
- * @boundary 試験とCredential暗号乱数Portの境界。
+ * @boundary RFD-IT-013=Direct Boundary: cros Test Source→対象契約
  * @security 本番Secret生成には使用しない。
  * @concurrency node:testの直列実行内でだけ使用する。
  */
@@ -81,7 +81,7 @@ function createDeterministicRandom(): CredentialRandomBytes {
  * @effect N/A: 呼出しごとにtrueを返すだけである。
  * @failure N/A: 失敗を注入しない。
  * @invariant Token、saltおよびVerifierを受理しない型契約を維持する。
- * @boundary 試験とRecovery Recorder Portの境界。
+ * @boundary RFD-IT-013=Direct Boundary: cros Test Source→対象契約
  * @security 本番Evidenceとして使用しない。
  * @concurrency 共有状態を持たない。
  */
@@ -102,7 +102,7 @@ function createRecoveryRecorder(): CredentialAccessRecoveryRecorder {
  * @observation workspaceIdsとsystemAdminを観測する。
  * @oracle AdministratorはContent Grantなし、Managementは二Workspace、DeveloperはDevelopmentだけを持つ。
  * @cleanup N/A: 外部資源を生成しない。
- * @boundary RFD-IT-013=Direct Boundary: Profile選択→明示Grant。
+ * @boundary RFD-IT-013=Direct Boundary: cros Test Source→対象契約
  */
 test("三Profileを明示Grantへ変換し権限階層を作らない", () => {
   assert.deepEqual(resolveCredentialProfileDefaults("administrator"), {
@@ -129,13 +129,13 @@ test("三Profileを明示Grantへ変換し権限階層を作らない", () => {
  * @observation 発行結果、保存RecordおよびAccess Contextを観測する。
  * @oracle RegistryへTokenを保存せずDevelopment／Management Grantだけを返す。
  * @cleanup Memory Registryを試験終了時に破棄する。
- * @boundary RFD-IT-013=Direct Boundary: 管理Access→Registry→Bearer認証→Workspace Grant。
+ * @boundary RFD-IT-013=Direct Boundary: cros Test Source→対象契約
  */
 test("Secretを一度だけ返し現在RecordからAccess Contextを生成する", () => {
   const registry = createMemoryConnectionCredentialRegistry();
   const issued = issueConnectionCredential(
     registry,
-    administrator,
+    ADMINISTRATOR,
     { profile: "management" },
     createDeterministicRandom(),
   );
@@ -171,7 +171,7 @@ test("Secretを一度だけ返し現在RecordからAccess Contextを生成する
  * @observation 公開reason、Access Context、Record件数を観測する。
  * @oracle 不正Tokenは詳細非開示、非管理発行はblocked、Registryは空のままとなる。
  * @cleanup Memory Registryを試験終了時に破棄する。
- * @boundary RFD-IT-013=Direct Boundary: Remote入力／管理入力→Credential Application。
+ * @boundary RFD-IT-013=Direct Boundary: cros Test Source→対象契約
  */
 test("不正Tokenと非管理発行を情報非開示かつEffect 0で拒否する", () => {
   const registry = createMemoryConnectionCredentialRegistry();
@@ -206,13 +206,13 @@ test("不正Tokenと非管理発行を情報非開示かつEffect 0で拒否す�
  * @observation Registry revision、Record状態および認証結果を観測する。
  * @oracle 失効前はavailable、失効後はrevokedとなり、他のStore Effectを要求しない。
  * @cleanup Memory Registryを試験終了時に破棄する。
- * @boundary RFD-IT-013=Direct Boundary: 管理失効→現在Record→次Request認証。
+ * @boundary RFD-IT-013=Direct Boundary: cros Test Source→対象契約
  */
 test("失効を次Requestから反映する", () => {
   const registry = createMemoryConnectionCredentialRegistry();
   const issued = issueConnectionCredential(
     registry,
-    administrator,
+    ADMINISTRATOR,
     { profile: "developer" },
     createDeterministicRandom(),
   );
@@ -224,7 +224,7 @@ test("失効を次Requestから反映する", () => {
   assert.deepEqual(
     revokeConnectionCredential(
       registry,
-      { ...administrator, credentialRegistryRevision: 1 },
+      { ...ADMINISTRATOR, credentialRegistryRevision: 1 },
       issued.record.credentialId,
     ),
     {
@@ -250,21 +250,21 @@ test("失効を次Requestから反映する", () => {
  * @observation 旧・新Tokenの認証結果、Record集合および明示Grantを観測する。
  * @oracle 旧Tokenはrevoked、新Tokenは同じ明示Grantでavailable、Registryには二Recordが残る。
  * @cleanup Memory Registryを試験終了時に破棄する。
- * @boundary RFD-IT-013=Direct Boundary: 管理ローテーション→Registry→次Request認証。
+ * @boundary RFD-IT-013=Direct Boundary: cros Test Source→対象契約
  */
 test("旧失効と新発行を一つのRegistry更新でローテーションする", () => {
   const registry = createMemoryConnectionCredentialRegistry();
   const random = createDeterministicRandom();
   const issued = issueConnectionCredential(
     registry,
-    administrator,
+    ADMINISTRATOR,
     { profile: "management" },
     random,
   );
   if (issued.status !== "completed") assert.fail("credential must be issued");
   const rotated = rotateConnectionCredential(
     registry,
-    { ...administrator, credentialRegistryRevision: 1 },
+    { ...ADMINISTRATOR, credentialRegistryRevision: 1 },
     issued.record.credentialId,
     random,
   );
@@ -293,19 +293,19 @@ test("旧失効と新発行を一つのRegistry更新でローテーションす
  * @observation Metadata field、Registry revisionおよび更新後Access Contextを観測する。
  * @oracle 一覧に認証材料がなく、Profileはdeveloperのまま、実効Grantだけが明示更新される。
  * @cleanup Memory Registryを試験終了時に破棄する。
- * @boundary RFD-IT-013=Direct Boundary: 管理一覧／編集→Registry→次Request認証。
+ * @boundary RFD-IT-013=Direct Boundary: cros Test Source→対象契約
  */
 test("管理Metadataだけを表示し明示Grant更新を次Requestへ反映する", () => {
   const registry = createMemoryConnectionCredentialRegistry();
   const issued = issueConnectionCredential(
     registry,
-    administrator,
+    ADMINISTRATOR,
     { profile: "developer" },
     createDeterministicRandom(),
   );
   if (issued.status !== "completed") assert.fail("credential must be issued");
   const listed = listConnectionCredentials(registry, {
-    ...administrator,
+    ...ADMINISTRATOR,
     credentialRegistryRevision: 1,
   });
   assert.equal(listed.status, "available");
@@ -315,7 +315,7 @@ test("管理Metadataだけを表示し明示Grant更新を次Requestへ反映す
   assert.deepEqual(
     updateConnectionCredentialAccess(
       registry,
-      { ...administrator, credentialRegistryRevision: 1 },
+      { ...ADMINISTRATOR, credentialRegistryRevision: 1 },
       issued.record.credentialId,
       { workspaceIds: ["management"], systemAdmin: false },
     ),
@@ -346,7 +346,7 @@ test("管理Metadataだけを表示し明示Grant更新を次Requestへ反映す
  * @observation status、reason、revisionおよびcredentialsを観測する。
  * @oracle blocked、revision=null、空の公開配列となり、実件数を主張しない。
  * @cleanup Memory Registryを試験終了時に破棄する。
- * @boundary RFD-IT-013=Direct Boundary: 非管理Request→Credential Registry読取り。
+ * @boundary RFD-IT-013=Direct Boundary: cros Test Source→対象契約
  */
 test("非管理CredentialへCredential Identityと件数を開示しない", () => {
   const registry = createMemoryConnectionCredentialRegistry();
@@ -377,7 +377,7 @@ test("非管理CredentialへCredential Identityと件数を開示しない", () 
  * @observation 結果reasonと公開Record／Tokenを観測する。
  * @oracle registry_conflictかつRecord／Tokenなしで終了する。
  * @cleanup N/A: Registry Effectは発生しない。
- * @boundary RFD-IT-013=Direct Boundary: Credential Application→競合Registry Adapter。
+ * @boundary RFD-IT-013=Direct Boundary: cros Test Source→対象契約
  */
 test("Registry競合を自動再試行せずTokenを公開しない", () => {
   const conflicting: ConnectionCredentialRegistry = {
@@ -387,7 +387,7 @@ test("Registry競合を自動再試行せずTokenを公開しない", () => {
   assert.deepEqual(
     issueConnectionCredential(
       conflicting,
-      administrator,
+      ADMINISTRATOR,
       { profile: "developer" },
       createDeterministicRandom(),
     ),
@@ -410,20 +410,20 @@ test("Registry競合を自動再試行せずTokenを公開しない", () => {
  * @observation 失効対象、保持対象、Registry revision、旧・新Tokenの認証結果を観測する。
  * @oracle 旧Administratorだけが失効し、Developerは維持され、新AdministratorはworkspaceIdsを持たない。
  * @cleanup Memory Registryを試験終了時に破棄する。
- * @boundary RFD-IT-013=Direct Boundary: Host Authority→Recovery Plan→Credential Registry→再入場。
+ * @boundary RFD-IT-013=Direct Boundary: cros Test Source→対象契約
  */
 test("Administrator Recoveryを一revisionで適用し通常Credentialを保持する", () => {
   const registry = createMemoryConnectionCredentialRegistry();
   const random = createDeterministicRandom();
   const oldAdmin = issueConnectionCredential(
     registry,
-    administrator,
+    ADMINISTRATOR,
     { profile: "administrator" },
     random,
   );
   const developer = issueConnectionCredential(
     registry,
-    { ...administrator, credentialRegistryRevision: 1 },
+    { ...ADMINISTRATOR, credentialRegistryRevision: 1 },
     { profile: "developer" },
     random,
   );
@@ -483,14 +483,14 @@ test("Administrator Recoveryを一revisionで適用し通常Credentialを保持�
  * @observation 各結果、Registry revision、旧Tokenおよび新Tokenの認証結果を観測する。
  * @oracle 未確認時はEffect 0、確認後は旧Credential失効と新Administrator発行が一revisionで成立する。
  * @cleanup Memory Registryを試験終了時に破棄する。
- * @boundary RFD-IT-013=Direct Boundary: Human Confirmation→Full Access Reset→再入場。
+ * @boundary RFD-IT-013=Direct Boundary: cros Test Source→対象契約
  */
 test("Full Access Resetを明示確認後だけ適用する", () => {
   const registry = createMemoryConnectionCredentialRegistry();
   const random = createDeterministicRandom();
   const management = issueConnectionCredential(
     registry,
-    administrator,
+    ADMINISTRATOR,
     { profile: "management" },
     random,
   );
@@ -547,7 +547,7 @@ test("Full Access Resetを明示確認後だけ適用する", () => {
  * @observation blocked reason、Registry revisionおよびRecord件数を観測する。
  * @oracle plan_staleで停止し、Recoveryによる追加revisionやTokenを作らない。
  * @cleanup Memory Registryを試験終了時に破棄する。
- * @boundary RFD-IT-013=Direct Boundary: Recovery Plan Revision→並行Registry更新→適用拒否。
+ * @boundary RFD-IT-013=Direct Boundary: cros Test Source→対象契約
  */
 test("古いRecovery計画をEffect 0で拒否する", () => {
   const registry = createMemoryConnectionCredentialRegistry();
@@ -564,7 +564,7 @@ test("古いRecovery計画をEffect 0で拒否する", () => {
   if (planned.status !== "ready") assert.fail("recovery plan must be ready");
   issueConnectionCredential(
     registry,
-    administrator,
+    ADMINISTRATOR,
     { profile: "developer" },
     random,
   );

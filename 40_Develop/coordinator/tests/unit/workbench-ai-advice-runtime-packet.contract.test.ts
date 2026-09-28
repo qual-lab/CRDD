@@ -1,18 +1,12 @@
 /**
  * Workbench助言Runtime Packetの一回消費と非共有境界を検証する。
  *
+ * @packageDocumentation
  * @responsibility 正常発行、再利用拒否、取消および不正Command拒否を決定論的に確認する。
- * @trace PRL-UT-001
- * @input テスト内で構築した固定Identity、PromptおよびProvider Command。
- * @returns Node Test RunnerへAssertion結果を返す。
- * @precondition Provider Process、NetworkおよびFilesystem Effectを使用しない。
- * @postcondition 同じuseCapabilityからPacketを二回取得できない。
- * @effect Process内のテスト対象WeakMapだけを変更する。
- * @failure 契約違反をAssertion Failureとして報告する。
- * @invariant 外部Providerへ送信しない。
+ * @trace ERB-UT-023
+ * @level UT
+ * @scope coordinator、contract、node_process
  * @boundary Unit TestとPacket Runtimeの公開APIの間。
- * @security PromptまたはCapabilityをTest出力へ表示しない。
- * @concurrency 各Testは新しく発行したCapabilityだけを使用する。
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
@@ -26,14 +20,26 @@ import {
   revokeRuntimeOwnedWorkbenchAiAdvicePacket,
 } from "../../src/security/workbench-ai-advice-runtime-packet.ts";
 
-const SHA = "a".repeat(64);
+const sha = "a".repeat(64);
 
+/**
+ * input用の試験入力または観測処理を提供する。
+ *
+ * @responsibility input用の試験入力または観測処理を提供するの検証責務を所有する。
+ * @trace ERB-UT-023
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus inputの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+ */
 function input() {
   return {
     operationId: "OP-000001",
     profileId: "PROFILE-000001",
     provider: "codex" as const,
-    taskHash: SHA,
+    taskHash: sha,
     projectionHash: "b".repeat(64),
     providerPrompt: "Read the bounded projection and return structured advice.",
     providerCommand: planWorkbenchAiAdviceProviderCommand({
@@ -45,6 +51,18 @@ function input() {
 }
 
 describe("workbench ai advice runtime packet", () => {
+  /**
+   * issues and consumes an exact packet only onceを検証する。
+   *
+   * @responsibility issues and consumes an exact packet only onceを検証するの検証責務を所有する。
+   * @trace ERB-UT-023
+   * @precondition 対象契約を再現できる固定入力と依存を用意する。
+   * @stimulus issues and consumes an exact packet only onceの対象操作を実行する。
+   * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+   * @cleanup N/A: Process外資源を生成しない局所検証である。
+   * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+   */
   it("issues and consumes an exact packet only once", () => {
     const issued = issueRuntimeOwnedWorkbenchAiAdvicePacket(input());
     assert.equal(issued.status, "issued");
@@ -73,6 +91,18 @@ describe("workbench ai advice runtime packet", () => {
     );
   });
 
+  /**
+   * does not consume a packet with a different owner capabilityを検証する。
+   *
+   * @responsibility does not consume a packet with a different owner capabilityを検証するの検証責務を所有する。
+   * @trace ERB-UT-023
+   * @precondition 対象契約を再現できる固定入力と依存を用意する。
+   * @stimulus does not consume a packet with a different owner capabilityの対象操作を実行する。
+   * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+   * @cleanup N/A: Process外資源を生成しない局所検証である。
+   * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+   */
   it("does not consume a packet with a different owner capability", () => {
     const issued = issueRuntimeOwnedWorkbenchAiAdvicePacket(input());
     assert.equal(issued.status, "issued");
@@ -89,6 +119,18 @@ describe("workbench ai advice runtime packet", () => {
     );
   });
 
+  /**
+   * revokes an unused packet without issuing an external effectを検証する。
+   *
+   * @responsibility revokes an unused packet without issuing an external effectを検証するの検証責務を所有する。
+   * @trace ERB-UT-023
+   * @precondition 対象契約を再現できる固定入力と依存を用意する。
+   * @stimulus revokes an unused packet without issuing an external effectの対象操作を実行する。
+   * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+   * @cleanup N/A: Process外資源を生成しない局所検証である。
+   * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+   */
   it("revokes an unused packet without issuing an external effect", () => {
     const issued = issueRuntimeOwnedWorkbenchAiAdvicePacket(input());
     assert.equal(issued.status, "issued");
@@ -109,6 +151,18 @@ describe("workbench ai advice runtime packet", () => {
     );
   });
 
+  /**
+   * rejects a command that requests a workspace mountを検証する。
+   *
+   * @responsibility rejects a command that requests a workspace mountを検証するの検証責務を所有する。
+   * @trace ERB-UT-023
+   * @precondition 対象契約を再現できる固定入力と依存を用意する。
+   * @stimulus rejects a command that requests a workspace mountの対象操作を実行する。
+   * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+   * @cleanup N/A: Process外資源を生成しない局所検証である。
+   * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+   */
   it("rejects a command that requests a workspace mount", () => {
     const current = input();
     const result = issueRuntimeOwnedWorkbenchAiAdvicePacket({
@@ -124,6 +178,18 @@ describe("workbench ai advice runtime packet", () => {
     assert.equal(result.useCapability, null);
   });
 
+  /**
+   * snapshots mutable command input before returning the capabilityを検証する。
+   *
+   * @responsibility snapshots mutable command input before returning the capabilityを検証するの検証責務を所有する。
+   * @trace ERB-UT-023
+   * @precondition 対象契約を再現できる固定入力と依存を用意する。
+   * @stimulus snapshots mutable command input before returning the capabilityの対象操作を実行する。
+   * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+   * @cleanup N/A: Process外資源を生成しない局所検証である。
+   * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+   */
   it("snapshots mutable command input before returning the capability", () => {
     const current = input();
     const argv = [...current.providerCommand.argv];
@@ -159,6 +225,18 @@ describe("workbench ai advice runtime packet", () => {
     );
   });
 
+  /**
+   * publishes a closed non-sharing contractを検証する。
+   *
+   * @responsibility publishes a closed non-sharing contractを検証するの検証責務を所有する。
+   * @trace ERB-UT-023
+   * @precondition 対象契約を再現できる固定入力と依存を用意する。
+   * @stimulus publishes a closed non-sharing contractの対象操作を実行する。
+   * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+   * @cleanup N/A: Process外資源を生成しない局所検証である。
+   * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+   */
   it("publishes a closed non-sharing contract", () => {
     assert.deepEqual(describeWorkbenchAiAdviceRuntimePacketContract(), {
       contract: "crdd-coordinator/workbench-ai-advice-runtime-packet",

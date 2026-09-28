@@ -26,7 +26,7 @@ import {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RDL-UT-005=N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
+ * @boundary RDL-UT-005=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("Repository ManifestはIdentityと宣言だけを受理する", () => {
   const manifest = inspectRepositoryManifest({
@@ -57,7 +57,7 @@ test("Repository ManifestはIdentityと宣言だけを受理する", () => {
  * @observation Manifestの受理または拒否結果を観測する。
  * @oracle v1、欠落および同値Identityをすべて拒否する。
  * @cleanup N/A: 永続資源を作成しない。
- * @boundary RDL-UT-005=N/A: Plain Dataの契約検査であり外部実行境界を持たない。
+ * @boundary RDL-UT-005=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("Repository ManifestはProject IDとRepository IDの混同を拒否する", () => {
   const base = {
@@ -108,7 +108,7 @@ test("Repository ManifestはProject IDとRepository IDの混同を拒否する",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RDL-UT-005=N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
+ * @boundary RDL-UT-005=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("Trust PolicyはTrust Domainを明示し個別Authorityを所有しない", () => {
   const policy = inspectCrosTrustPolicy({
@@ -137,7 +137,7 @@ test("Trust PolicyはTrust Domainを明示し個別Authorityを所有しない",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RDL-UT-005=N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
+ * @boundary RDL-UT-005=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("Schemaは重複配列と暗黙default Trust Domainを拒否する", () => {
   assert.equal(

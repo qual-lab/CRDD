@@ -59,7 +59,8 @@ function printHelp(): void {
  * Process EnvironmentからCROS Runtime Root入力を構成する。
  *
  * @responsibility Trust DomainとOS Known FolderだけをRuntime Data Resolverへ渡す。
- * @trace ARCH-000011 ARCH-000013
+ * @trace ARCH-000011
+ * @trace ARCH-000013
  * @input Process environment key/value集合を受け取る。
  * @returns 検証候補Root入力またはnullを返す。
  * @precondition CROS_TRUST_DOMAIN_IDとOS Known Folderが設定されている。
@@ -149,7 +150,9 @@ function waitForStopBoundary(): Promise<"SIGINT" | "SIGTERM" | "parent_eof"> {
  * CROS Shared Server公開入口を実行する。
  *
  * @responsibility 引数、Runtime Root、運用設定、Credential初期化状態、Gateway起動および終了時cleanupを順序付ける。
- * @trace ARCH-000005 ARCH-000012 ARCH-000013
+ * @trace ARCH-000005
+ * @trace ARCH-000012
+ * @trace ARCH-000013
  * @input Process引数、Environment、FilesystemおよびSignalを受け取る。
  * @returns CLI終了値0、2または64を返す。
  * @precondition TLS終端と固定OS ConfigがHost Operatorにより準備済みである。

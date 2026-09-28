@@ -28,7 +28,7 @@ import {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 function withTemporaryRoot(runTest: (temporaryRoot: string) => void): void {
   const temporaryRoot = fs.mkdtempSync(
@@ -51,7 +51,7 @@ function withTemporaryRoot(runTest: (temporaryRoot: string) => void): void {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("coverage runは実crate直下のtargetへ専用Directoryを作る", () => {
   withTemporaryRoot((temporaryRoot) => {
@@ -75,7 +75,7 @@ test("coverage runは実crate直下のtargetへ専用Directoryを作る", () => 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("coverage runはtargetのfileとjunctionを変更せず拒否する", () => {
   withTemporaryRoot((temporaryRoot) => {
@@ -114,7 +114,7 @@ test("coverage runはtargetのfileとjunctionを変更せず拒否する", () =>
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("coverage runはcrate Rootのjunctionを拒否する", () => {
   withTemporaryRoot((temporaryRoot) => {
@@ -136,7 +136,7 @@ test("coverage runはcrate Rootのjunctionを拒否する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("coverage runはtargetまたはrun Directoryの同名置換を拒否する", () => {
   withTemporaryRoot((temporaryRoot) => {

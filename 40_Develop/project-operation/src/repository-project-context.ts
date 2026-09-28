@@ -79,7 +79,7 @@ export type RepositoryProjectContext = Readonly<{
   scenes: readonly RepositoryProjectContextScene[];
 }>;
 
-const sceneDefinitions = Object.freeze([
+const SCENE_DEFINITIONS = Object.freeze([
   Object.freeze({ key: "current", heading: "## 1. 今どうなっているか" }),
   Object.freeze({
     key: "risk",
@@ -151,10 +151,10 @@ function parseFirstTable(
   const rows: (readonly string[])[] = [];
   for (const line of lines.slice(headerIndex + 2)) {
     if (!/^\|.*\|$/u.test(line.trim())) break;
-    const row = splitRow(line);
-    if (row.length !== columns.length)
+    const rowCells = splitRow(line);
+    if (rowCells.length !== columns.length)
       throw new Error("project_context_table_column_mismatch");
-    rows.push(row);
+    rows.push(rowCells);
   }
   return Object.freeze({ columns, rows: Object.freeze(rows) });
 }
@@ -189,8 +189,8 @@ export function parseRepositoryProjectContextMarkdown(
     if (!value) throw new Error("project_context_identity_invalid");
     return value;
   };
-  const headingIndexes = sceneDefinitions.map(({ heading }) =>
-    lines.indexOf(heading),
+  const headingIndexes: readonly number[] = SCENE_DEFINITIONS.map(
+    ({ heading }) => lines.indexOf(heading),
   );
   if (
     headingIndexes.some((index) => index < 0) ||
@@ -200,27 +200,29 @@ export function parseRepositoryProjectContextMarkdown(
     )
   )
     throw new Error("project_context_scene_invalid");
-  const scenes = sceneDefinitions.map((definition, position) => {
-    const start = (headingIndexes[position] ?? -1) + 1;
-    const end = headingIndexes[position + 1] ?? lines.length;
-    const sceneLines = lines.slice(start, end);
-    const summaryHeading = sceneLines.findIndex(
-      (line) => line === "### 結論" || line === "### 保存済みの次候補",
-    );
-    const summary =
-      summaryHeading >= 0 && sceneLines[summaryHeading] === "### 結論"
-        ? toDisplayText(
-            sceneLines.slice(summaryHeading + 1).find((line) => line.trim()) ??
-              "",
-          ) || null
-        : null;
-    return Object.freeze({
-      key: definition.key,
-      title: definition.heading.replace(/^## \d+\. /u, ""),
-      summary,
-      table: parseFirstTable(sceneLines),
+  const scenes: readonly RepositoryProjectContextScene[] =
+    SCENE_DEFINITIONS.map((definition, position) => {
+      const start: number = (headingIndexes[position] ?? -1) + 1;
+      const end: number = headingIndexes[position + 1] ?? lines.length;
+      const sceneLines = lines.slice(start, end);
+      const summaryHeading = sceneLines.findIndex(
+        (line) => line === "### 結論" || line === "### 保存済みの次候補",
+      );
+      const summary =
+        summaryHeading >= 0 && sceneLines[summaryHeading] === "### 結論"
+          ? toDisplayText(
+              sceneLines
+                .slice(summaryHeading + 1)
+                .find((line) => line.trim()) ?? "",
+            ) || null
+          : null;
+      return Object.freeze({
+        key: definition.key,
+        title: definition.heading.replace(/^## \d+\. /u, ""),
+        summary,
+        table: parseFirstTable(sceneLines),
+      });
     });
-  });
   return Object.freeze({
     projectId: readIdentity("Project ID"),
     repositoryId: readIdentity("Repository ID"),

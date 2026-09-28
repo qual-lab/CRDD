@@ -3,8 +3,8 @@
  *
  * @packageDocumentation
  * @responsibility provenance付き最小PackageとSource／Destination間の安全な再開を検証する。
- * @trace RFD-ST-010
  * @trace ERB-ST-013
+ * @trace RFD-ST-010
  * @level ST
  * @scope cros、context-package、provenance、handoff、recovery
  * @boundary RFD-ST-010／ERB-ST-013=System/E2E。
@@ -26,7 +26,7 @@ import {
  * @observation 項目、Source、Revision、Scope、状態および正本属性を観測する。
  * @oracle Scope外を含めず、制限値をnull、競合をconflictingのまま保ち、正本化しない。
  * @cleanup Packageは不変値として消費し外部Storeへ残さない。
- * @boundary RFD-ST-010=Related 2 Blocks: Projection→Package→Consumer。
+ * @boundary RFD-ST-010=Direct Boundary: cros Test Source→対象契約
  */
 test("許可された最小Contextだけをprovenance付きでConsumerへ渡す", () => {
   const pack = createContextPackage(
@@ -87,7 +87,7 @@ test("許可された最小Contextだけをprovenance付きでConsumerへ渡す"
  * @observation Source状態、Handoff Identity、Destination状態、理由およびEffectを観測する。
  * @oracle 正常時は同じIdentityで再開し、Authority追加はEffect 0、Sourceはinactiveのままとなる。
  * @cleanup Source二重実行0、拒否時Destination Effect 0を確認する。
- * @boundary ERB-ST-013=System/E2E: Source Runtime→Handoff→Destination Runtime。
+ * @boundary ERB-ST-013=Direct Boundary: cros Test Source→対象契約
  */
 test("切断後に同じIdentityで再開しAuthority差をEffect前で拒否する", () => {
   const handoff = createHandoff(

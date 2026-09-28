@@ -39,7 +39,7 @@ const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RDL-IT-003=Related 2 Blocks: Cleanup Planner→Filesystem Observer→Recovery Store
+ * @boundary RDL-IT-003=Direct Boundary: runtime-data Test Source→対象契約
  */
 function resumeWithNextIdentity(
   capability: Parameters<typeof resumeTemporaryOperation>[0],
@@ -59,7 +59,7 @@ function resumeWithNextIdentity(
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RDL-IT-004=Adjacent 1 Block: Runtime Data API→Path Policy→Filesystem
+ * @boundary RDL-IT-004=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("tmp Operationは正常・失敗・取消・Timeoutで不存在まで確認する", () => {
   const root = verifyRepositoryRoot(repositoryRoot);
@@ -103,7 +103,7 @@ test("tmp Operationは正常・失敗・取消・Timeoutで不存在まで確認
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RDL-IT-004=Adjacent 1 Block: Runtime Data API→Path Policy→Filesystem
+ * @boundary RDL-IT-004=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("親Process喪失はexact Recovery参照を返し物理残存を削除しない", () => {
   const root = verifyRepositoryRoot(repositoryRoot);
@@ -153,7 +153,7 @@ test("親Process喪失はexact Recovery参照を返し物理残存を削除し�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RDL-IT-003=Related 2 Blocks: Cleanup Planner→Filesystem Observer→Recovery Store
+ * @boundary RDL-IT-003=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("再入場はexact Recovery Identity以外をEffect前に拒否する", () => {
   const root = verifyRepositoryRoot(repositoryRoot);
@@ -194,7 +194,7 @@ test("再入場はexact Recovery Identity以外をEffect前に拒否する", () 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RDL-IT-004=Adjacent 1 Block: Runtime Data API→Path Policy→Filesystem
+ * @boundary RDL-IT-004=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("Evidence未昇格ではtmpを削除しない", (t) => {
   const root = verifyRepositoryRoot(repositoryRoot);
@@ -287,7 +287,7 @@ test("Evidence未昇格ではtmpを削除しない", (t) => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RDL-IT-004=Adjacent 1 Block: Runtime Data API→Path Policy→Filesystem
+ * @boundary RDL-IT-004=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("cleanup失敗は耐久状態へ遷移しexact参照で一度だけ再入場できる", () => {
   const root = verifyRepositoryRoot(repositoryRoot);
@@ -342,7 +342,7 @@ test("cleanup失敗は耐久状態へ遷移しexact参照で一度だけ再入�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RDL-IT-004=Adjacent 1 Block: Runtime Data API→Path Policy→Filesystem
+ * @boundary RDL-IT-004=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("Lock cleanup失敗はreleased Lockを残し再入場時に安全に回収する", () => {
   const root = verifyRepositoryRoot(repositoryRoot);
@@ -394,7 +394,7 @@ test("Lock cleanup失敗はreleased Lockを残し再入場時に安全に回収�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RDL-IT-004=Adjacent 1 Block: Runtime Data API→Path Policy→Filesystem
+ * @boundary RDL-IT-004=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("初回Capability返却前に終了したpreparing世代は既知参照から回復できる", () => {
   const root = verifyRepositoryRoot(repositoryRoot);
@@ -440,7 +440,7 @@ test("初回Capability返却前に終了したpreparing世代は既知参照か�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RDL-IT-004=Adjacent 1 Block: Runtime Data API→Path Policy→Filesystem
+ * @boundary RDL-IT-004=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("Canonical公開前に終了した初回stagingは既知参照から回復できる", () => {
   const root = verifyRepositoryRoot(repositoryRoot);
@@ -485,7 +485,7 @@ test("Canonical公開前に終了した初回stagingは既知参照から回復�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RDL-IT-004=Adjacent 1 Block: Runtime Data API→Path Policy→Filesystem
+ * @boundary RDL-IT-004=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("Canonical公開直後のProcess死は同一fileの初回staging aliasまで回収する", () => {
   const root = verifyRepositoryRoot(repositoryRoot);
@@ -541,7 +541,7 @@ test("Canonical公開直後のProcess死は同一fileの初回staging aliasま�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RDL-IT-004=Adjacent 1 Block: Runtime Data API→Path Policy→Filesystem
+ * @boundary RDL-IT-004=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("初回staging書込み中のProcess死はexact stagingだけを不存在へ戻す", () => {
   const root = verifyRepositoryRoot(repositoryRoot);
@@ -599,7 +599,7 @@ test("初回staging書込み中のProcess死はexact stagingだけを不存在�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RDL-IT-004=Adjacent 1 Block: Runtime Data API→Path Policy→Filesystem
+ * @boundary RDL-IT-004=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("Lock公開前のProcess死はcaller-known Identityで再入場できる", () => {
   const root = verifyRepositoryRoot(repositoryRoot);
@@ -653,7 +653,7 @@ test("Lock公開前のProcess死はcaller-known Identityで再入場できる", 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RDL-IT-004=Adjacent 1 Block: Runtime Data API→Path Policy→Filesystem
+ * @boundary RDL-IT-004=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("Lock公開直後のProcess死はCanonicalとstagingの両方を再入場で回収する", () => {
   const root = verifyRepositoryRoot(repositoryRoot);
@@ -707,7 +707,7 @@ test("Lock公開直後のProcess死はCanonicalとstagingの両方を再入場�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RDL-IT-004=Adjacent 1 Block: Runtime Data API→Path Policy→Filesystem
+ * @boundary RDL-IT-004=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("Lock staging書込み中のProcess死も同じ次世代Identityで回収する", () => {
   const root = verifyRepositoryRoot(repositoryRoot);
@@ -761,7 +761,7 @@ test("Lock staging書込み中のProcess死も同じ次世代Identityで回収�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RDL-IT-004=Adjacent 1 Block: Runtime Data API→Path Policy→Filesystem
+ * @boundary RDL-IT-004=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("返却済み新世代の実Process死後も使用済み旧参照を拒否する", () => {
   const root = verifyRepositoryRoot(repositoryRoot);
@@ -818,7 +818,7 @@ test("返却済み新世代の実Process死後も使用済み旧参照を拒否�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RDL-IT-004=Adjacent 1 Block: Runtime Data API→Path Policy→Filesystem
+ * @boundary RDL-IT-004=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("新世代公開後・Capability返却前のProcess死でも次世代参照を再構成できる", () => {
   const root = verifyRepositoryRoot(repositoryRoot);
@@ -877,7 +877,7 @@ test("新世代公開後・Capability返却前のProcess死でも次世代参照
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RDL-IT-004=Adjacent 1 Block: Runtime Data API→Path Policy→Filesystem
+ * @boundary RDL-IT-004=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("使用済みの旧世代Recovery参照は後続の親喪失後も再利用できない", () => {
   const root = verifyRepositoryRoot(repositoryRoot);
@@ -937,7 +937,7 @@ test("使用済みの旧世代Recovery参照は後続の親喪失後も再利用
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RDL-IT-004=Adjacent 1 Block: Runtime Data API→Path Policy→Filesystem
+ * @boundary RDL-IT-004=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("active中の再入場・stale Capability・不正な終端値を拒否する", () => {
   const root = verifyRepositoryRoot(repositoryRoot);
@@ -990,7 +990,7 @@ test("active中の再入場・stale Capability・不正な終端値を拒否す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RDL-IT-004=Adjacent 1 Block: Runtime Data API→Path Policy→Filesystem
+ * @boundary RDL-IT-004=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("既存Operationとの衝突では既存内容を削除せず内部Pathも返さない", () => {
   const root = verifyRepositoryRoot(repositoryRoot);

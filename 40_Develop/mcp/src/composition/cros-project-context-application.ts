@@ -32,6 +32,18 @@ import type {
 import { handleMcpApplicationRequest } from "../adapters/application-adapter.ts";
 import type { McpAuthenticatedRequestHandlerResolver } from "../transports/request-handler.ts";
 
+/**
+ * CROS許可済みProject ContextのMCP Compositionで使用するAuthorizedTopicMeetingApplicationの構造を固定する。
+ *
+ * @responsibility CROS許可済みProject ContextのMCP Compositionが受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000005
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
+
 type AuthorizedTopicMeetingApplication = Readonly<{
   repository: CrosRepository;
   application: TopicMeetingApplication;
@@ -41,7 +53,9 @@ type AuthorizedTopicMeetingApplication = Readonly<{
  * 一つのOwner Repository Applicationへ、許可済みProject内Relation解決を合成する。
  *
  * @responsibility Source本文を複製せず、Relation対象を現在Principalが参照できるOwner Repositoryへ解決する。
- * @trace ARCH-000005 ARCH-000006 ARCH-000013
+ * @trace ARCH-000005
+ * @trace ARCH-000006
+ * @trace ARCH-000013
  * @input sourceに操作対象、authorizedに同じProjectの許可済みApplication集合を受け取る。
  * @returns 書込みはSourceへ限定し、Relation読取りだけをFederationしたApplicationを返す。
  * @precondition authorizedは同じSession、Exposure SnapshotおよびLogical Projectから構築済みである。
@@ -55,7 +69,7 @@ type AuthorizedTopicMeetingApplication = Readonly<{
  */
 function federateTopicMeetingRelations(
   source: AuthorizedTopicMeetingApplication,
-  authorized: readonly AuthorizedTopicMeetingApplication[],
+  authorizedApplications: readonly AuthorizedTopicMeetingApplication[],
 ): TopicMeetingApplication {
   return Object.freeze({
     ...source.application,
@@ -65,7 +79,7 @@ function federateTopicMeetingRelations(
     ): readonly TopicMeetingRelation[] =>
       Object.freeze(
         source.application.relations(kind, id).map((relation) => {
-          const owners = authorized.filter((candidate) =>
+          const owners = authorizedApplications.filter((candidate) =>
             candidate.application.hasRelationTarget(relation.kind, relation.id),
           );
           if (owners.length === 1)

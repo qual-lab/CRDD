@@ -468,7 +468,7 @@ export function applyMeetingOutcomeTreatment(
   const current = parseMeetingMarkdown(markdown);
   const lines = markdown.replace(/\r\n?/gu, "\n").split("\n");
   const outcome = tableRange(lines, "## 4. Outcome", "| Local ID |");
-  let outcomeFound = false;
+  let isOutcomeFound = false;
   for (let index = outcome.start; index < outcome.end; index += 1) {
     const cells = tableCells(lines[index] ?? "");
     if (cells[0]?.replaceAll("`", "") !== treatment.outcomeId) continue;
@@ -479,13 +479,13 @@ export function applyMeetingOutcomeTreatment(
     cells[5] = treatment.reviewTrigger;
     cells[6] = `\`${treatment.targetReference}\``;
     lines[index] = `| ${cells.join(" | ")} |`;
-    outcomeFound = true;
+    isOutcomeFound = true;
   }
-  if (!outcomeFound)
+  if (!isOutcomeFound)
     throw new Error("project_operation_meeting_outcome_not_found");
 
   const action = tableRange(lines, "## 5. Actionと移管", "| Outcome |");
-  let actionFound = false;
+  let isActionFound = false;
   for (let index = action.start; index < action.end; index += 1) {
     const cells = tableCells(lines[index] ?? "");
     if (cells[0]?.replaceAll("`", "") !== treatment.outcomeId) continue;
@@ -496,9 +496,9 @@ export function applyMeetingOutcomeTreatment(
     cells[3] = treatment.completionCondition;
     cells[4] = treatment.result;
     lines[index] = `| ${cells.join(" | ")} |`;
-    actionFound = true;
+    isActionFound = true;
   }
-  if (!actionFound)
+  if (!isActionFound)
     throw new Error("project_operation_meeting_action_not_found");
 
   const nextPending = countPendingOutcomes(lines);
@@ -529,8 +529,8 @@ export function applyMeetingOutcomeTreatment(
           : lines
               .slice(outcome.start, outcome.end)
               .map(tableCells)
-              .filter((candidate) => candidate[3]?.includes("`pending`"))
-              .map((candidate) => candidate[0])
+              .filter((outcomeCells) => outcomeCells[3]?.includes("`pending`"))
+              .map((outcomeCells) => outcomeCells[0])
               .join("、");
     lines[index] = `| ${cells.join(" | ")} |`;
   }

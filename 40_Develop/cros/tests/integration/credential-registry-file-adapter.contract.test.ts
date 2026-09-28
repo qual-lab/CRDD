@@ -23,7 +23,7 @@ import {
   type RequestAccessContext,
 } from "../../src/index.ts";
 
-const administrator: RequestAccessContext = Object.freeze({
+const ADMINISTRATOR: RequestAccessContext = Object.freeze({
   credentialId: "bootstrap-admin",
   profile: "administrator",
   workspaceIds: Object.freeze([]),
@@ -43,7 +43,11 @@ const administrator: RequestAccessContext = Object.freeze({
  * @effect 試験Process内counterだけを更新する。
  * @failure N/A: 正のbyte数に必ず応答する。
  * @invariant 同じ呼出し順では同じbyte列になる。
- * @boundary 試験とCredential乱数Portの境界。
+ * @stimulus deterministicRandomの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
+ * @boundary RFD-IT-013=Direct Boundary: cros Test Source→対象契約
  * @security 本番Secretを生成しない。
  * @concurrency 一つの試験内で直列利用する。
  */
@@ -66,7 +70,7 @@ function deterministicRandom(): CredentialRandomBytes {
  * @observation Snapshot file、保存本文、Registry revisionおよび認証結果を観測する。
  * @oracle revision 1を再読取りでき、保存本文に生Tokenがなく、同じTokenがavailableになる。
  * @cleanup 試験用OS一時Rootを再帰削除する。
- * @boundary RFD-IT-013=Direct Boundary: Application→Runtime Root→Filesystem→再構成Application。
+ * @boundary RFD-IT-013=Direct Boundary: cros Test Source→対象契約
  */
 test("不変Snapshotを別Adapterから再観測し生Tokenを保存しない", () => {
   const root = mkdtempSync(path.join(tmpdir(), "crdd-cros-registry-"));
@@ -83,7 +87,7 @@ test("不変Snapshotを別Adapterから再観測し生Tokenを保存しない", 
     if (first.status !== "ready") assert.fail("file adapter must be ready");
     const issued = issueConnectionCredential(
       first.registry,
-      administrator,
+      ADMINISTRATOR,
       { profile: "developer" },
       deterministicRandom(),
     );
@@ -128,7 +132,7 @@ test("不変Snapshotを別Adapterから再観測し生Tokenを保存しない", 
  * @observation boolean結果と最終revisionを観測する。
  * @oracle 最初だけtrue、二つ目はfalse、最終revisionは1となる。
  * @cleanup 試験用OS一時Rootを再帰削除する。
- * @boundary RFD-IT-013=Direct Boundary: 並行Writer→排他的Filesystem publish。
+ * @boundary RFD-IT-013=Direct Boundary: cros Test Source→対象契約
  */
 test("同じ次revisionの二重publishを競合として拒否する", () => {
   const root = mkdtempSync(path.join(tmpdir(), "crdd-cros-registry-conflict-"));
@@ -162,7 +166,7 @@ test("同じ次revisionの二重publishを競合として拒否する", () => {
  * @observation status、reasonおよびregistryを観測する。
  * @oracle blocked、固定reason、registry=nullとなる。
  * @cleanup N/A: Filesystem Effectは発生しない。
- * @boundary RFD-IT-013=Direct Boundary: 外部構成→Runtime Data Resolver。
+ * @boundary RFD-IT-013=Direct Boundary: cros Test Source→対象契約
  */
 test("不正Runtime RootをEffect 0で拒否する", () => {
   assert.deepEqual(

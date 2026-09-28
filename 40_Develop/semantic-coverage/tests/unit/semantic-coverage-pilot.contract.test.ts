@@ -72,7 +72,7 @@ const discovery = {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-016=N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ * @boundary PPR-UT-016=Direct Boundary: semantic-coverage Test Source→対象契約
  */
 function validateRealitySymbolManifest(value: unknown, manifestPath: string) {
   const outcome = validateDomainRealitySymbolManifest(value, manifestPath);
@@ -96,7 +96,7 @@ function validateRealitySymbolManifest(value: unknown, manifestPath: string) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-016=N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ * @boundary PPR-UT-016=Direct Boundary: semantic-coverage Test Source→対象契約
  */
 function createLegacyRuntimeInventories(_repositoryRoot: string) {
   return createInventories(capability);
@@ -112,7 +112,7 @@ function createLegacyRuntimeInventories(_repositoryRoot: string) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-016=N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ * @boundary PPR-UT-016=Direct Boundary: semantic-coverage Test Source→対象契約
  */
 function compileSemanticIrPilot(
   _repositoryRoot: string,
@@ -137,7 +137,7 @@ function compileSemanticIrPilot(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-016=N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ * @boundary PPR-UT-016=Direct Boundary: semantic-coverage Test Source→対象契約
  */
 function compileQualitySemanticRelations(
   _repositoryRoot: string,
@@ -161,7 +161,7 @@ function compileQualitySemanticRelations(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-016=N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ * @boundary PPR-UT-016=Direct Boundary: semantic-coverage Test Source→対象契約
  */
 function discoverRealitySymbolManifests(_repositoryRoot: string) {
   return discovery;
@@ -185,7 +185,7 @@ const qualitySources = [
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-016=N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ * @boundary PPR-UT-016=Direct Boundary: semantic-coverage Test Source→対象契約
  */
 test("Semantic Domain IssueはChecker境界で明示変換し未知種別を拒否する", () => {
   assert.deepEqual(
@@ -236,7 +236,7 @@ test("Semantic Domain IssueはChecker境界で明示変換し未知種別を拒�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-017=N/A: Semantic Relation集合は外部実行境界を持たない。
+ * @boundary PPR-UT-017=Direct Boundary: semantic-coverage Test Source→対象契約
  */
 test("旧Runtime JSONをRelation Owner別に分解してPilot Gapを観測する", () => {
   const result = createLegacyRuntimeInventories(repositoryRoot);
@@ -342,7 +342,7 @@ test("旧Runtime JSONをRelation Owner別に分解してPilot Gapを観測する
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-016=N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ * @boundary PPR-UT-016=Direct Boundary: semantic-coverage Test Source→対象契約
  */
 test("旧Runtime JSONの未知root propertyはInventoryを発行せず拒否する", () => {
   const filesystemRepository =
@@ -389,7 +389,7 @@ test("旧Runtime JSONの未知root propertyはInventoryを発行せず拒否す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-016=N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ * @boundary PPR-UT-016=Direct Boundary: semantic-coverage Test Source→対象契約
  */
 test("Pilot Inventoryは同じRepository入力から同じ結果を生成する", () => {
   const first = createLegacyRuntimeInventories(repositoryRoot);
@@ -407,7 +407,7 @@ test("Pilot Inventoryは同じRepository入力から同じ結果を生成する"
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-016=N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ * @boundary PPR-UT-016=Direct Boundary: semantic-coverage Test Source→対象契約
  */
 test("CoordinatorとProject Runtimeの可視表からPilot IRを決定論的に生成する", () => {
   const pilots = [
@@ -452,7 +452,7 @@ test("CoordinatorとProject Runtimeの可視表からPilot IRを決定論的に�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-016=N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ * @boundary PPR-UT-016=Direct Boundary: semantic-coverage Test Source→対象契約
  */
 test("Pilot IRは自由文推測をせず構造欠落を拒否する", () => {
   const missingTable = compileSemanticIrPilot(
@@ -477,7 +477,7 @@ test("Pilot IRは自由文推測をせず構造欠落を拒否する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-016=N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ * @boundary PPR-UT-016=Direct Boundary: semantic-coverage Test Source→対象契約
  */
 test("Pilot Semantic Keyを実装Symbol側のimplementsから解決する", () => {
   const semanticIrs = [
@@ -563,7 +563,7 @@ test("Pilot Semantic Keyを実装Symbol側のimplementsから解決する", () =
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-016=N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ * @boundary PPR-UT-016=Direct Boundary: semantic-coverage Test Source→対象契約
  */
 test("Test SymbolはQA-IDとLocal IDの完全一致だけを意味へ接続する", () => {
   const coordinatorIr = compileSemanticIrPilot(
@@ -653,7 +653,7 @@ test("Test SymbolはQA-IDとLocal IDの完全一致だけを意味へ接続す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-016=N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ * @boundary PPR-UT-016=Direct Boundary: semantic-coverage Test Source→対象契約
  */
 test("同じLocal IDが複数QAに存在するTest Symbolは曖昧として拒否する", () => {
   const coordinatorIr = compileSemanticIrPilot(
@@ -740,7 +740,7 @@ test("同じLocal IDが複数QAに存在するTest Symbolは曖昧として拒�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-017=N/A: Semantic Relation集合は外部実行境界を持たない。
+ * @boundary PPR-UT-017=Direct Boundary: semantic-coverage Test Source→対象契約
  */
 test("Quality Local Itemが全Pilot Semantic Keyの正方向Relationを所有する", () => {
   const semanticIrs = [
@@ -778,7 +778,7 @@ test("Quality Local Itemが全Pilot Semantic Keyの正方向Relationを所有す
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-016=N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ * @boundary PPR-UT-016=Direct Boundary: semantic-coverage Test Source→対象契約
  */
 test("Test Symbolはimplementsを所有できない", () => {
   const validation = validateRealitySymbolManifest(

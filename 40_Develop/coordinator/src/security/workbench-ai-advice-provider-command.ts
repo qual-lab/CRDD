@@ -3,7 +3,8 @@
  *
  * @packageDocumentation
  * @responsibility Catalogで確定したModelと推論強度を、署名Runtime内の固定Provider配布物へ接続する。
- * @trace ARCH-000010 ARCH-000015
+ * @trace ARCH-000010
+ * @trace ARCH-000015
  * @boundary Provider非依存の助言実行計画とCodex／Claude CLIの間。
  * @effect N/A: コマンド候補を生成するだけでProcessやNetworkを操作しない。
  * @security Promptは標準入力だけで搬送し、Repository、Workspace、Tool、SessionおよびFallbackを許可しない。
@@ -16,7 +17,7 @@ export const WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT =
   "crdd-coordinator/workbench-ai-advice-provider-command";
 export const WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT_REVISION = 1;
 
-const ADVICE_RESULT_SCHEMA = Object.freeze({
+const adviceResultSchema = Object.freeze({
   type: "object",
   properties: Object.freeze({
     contract: Object.freeze({
@@ -41,11 +42,35 @@ const ADVICE_RESULT_SCHEMA = Object.freeze({
   additionalProperties: false,
 });
 
+/**
+ * Workbench助言のProvider Command境界で使用するWorkbenchAiAdviceProviderCommandInputの構造を固定する。
+ *
+ * @responsibility Workbench助言のProvider Command境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000010
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
+
 export type WorkbenchAiAdviceProviderCommandInput = Readonly<{
   provider: "codex" | "claude";
   exactModelId: string;
   reasoningEffort: AiReasoningEffort;
 }>;
+
+/**
+ * Workbench助言のProvider Command境界で使用するWorkbenchAiAdviceProviderCommandの構造を固定する。
+ *
+ * @responsibility Workbench助言のProvider Command境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000010
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
 
 export type WorkbenchAiAdviceProviderCommand = Readonly<{
   contract: typeof WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT;
@@ -70,7 +95,8 @@ export type WorkbenchAiAdviceProviderCommand = Readonly<{
  * Workbench助言用の固定Providerコマンドを導出する。
  *
  * @responsibility Providerごとの固定配布物、CLI引数、環境置換および出力搬送を閉じた計画にする。
- * @trace ARCH-000010 ARCH-000015
+ * @trace ARCH-000010
+ * @trace ARCH-000015
  * @input input: Catalog検証済みProvider、exact Model、推論強度。
  * @returns Repository非共有のProviderコマンド計画。
  * @precondition 呼出し側がProfile Catalogとの完全一致を確認済みである。
@@ -94,7 +120,8 @@ export function planWorkbenchAiAdviceProviderCommand(
  * Codex向け助言コマンドを生成する。
  *
  * @responsibility 固定Codex配布物へToolなし・標準入力・JSONL出力の一回助言を割り当てる。
- * @trace ARCH-000010 ARCH-000015
+ * @trace ARCH-000010
+ * @trace ARCH-000015
  * @input input: Codex Profile Identity。
  * @returns Codex助言コマンド計画。
  * @precondition input.providerはcodexである。
@@ -180,7 +207,8 @@ function planCodexAdviceCommand(
  * Claude向け助言コマンドを生成する。
  *
  * @responsibility 固定Claude配布物へToolなし・標準入力・Schema付きJSON出力の一回助言を割り当てる。
- * @trace ARCH-000010 ARCH-000015
+ * @trace ARCH-000010
+ * @trace ARCH-000015
  * @input input: Claude Profile Identity。
  * @returns Claude助言コマンド計画。
  * @precondition input.providerはclaudeである。
@@ -213,7 +241,7 @@ function planClaudeAdviceCommand(
       '{"mcpServers":{}}',
       "--no-chrome",
       "--json-schema",
-      JSON.stringify(ADVICE_RESULT_SCHEMA),
+      JSON.stringify(adviceResultSchema),
       "-p",
       "--output-format",
       "json",

@@ -9,7 +9,7 @@
 
 | 項目 | 記載内容 |
 |---|---|
-| 現在の変更状態 | Phase 4 Gateを通過し、Phase 5のProduction Closureを進行中。Current Release／Quality Projection、起点Section付きOwner Relation検索、Runtime ActivityのEvent／Remote投影、Topic／Meeting Collection／Detail／同一Repository Relation遷移／実在CHGへのTopic昇格／許可済みRepository間Owner解決、Repository Tree／DiffおよびProject Portfolioの検索・継続読込・Source別Detailを構造化画面へ接続した。読取り助言は署名配布物、Operation世代、Provider Home、Selection、Docker回復およびHost cleanupを所有するProduction Runtimeまで接続した。変更候補は未信頼・未採用Candidate IDとして返し、Storeから再読取りした安全なMetadataの確認、操作ごとの明示確認、Project Runtime Lease、Revision・dirty・Scope再観測、Receiptと耐久記録を通る別の採用操作へ接続した。採用してもCommit／Pushは行わない。Shared Serverは固定OS設定、検証済みRepository／Exposure、REST／MCP同一HTTPS Origin、Host限定Credential Recoveryおよび終了後資源0まで接続済みである。現在はCovered 13件、Partial 2件、Missing 0件であり、残る実Provider E2EとProduction Closureを順に閉じる |
+| 現在の変更状態 | Phase 4 Gateを通過し、Phase 5のProduction Closureを進行中。Current Release／Quality Projection、起点Section付きOwner Relation検索、Runtime ActivityのEvent／Remote投影、Topic／Meeting Collection／Detail／同一Repository Relation遷移／実在CHGへのTopic昇格／許可済みRepository間Owner解決、Repository Tree／DiffおよびProject Portfolioの検索・継続読込・Source別Detailを構造化画面へ接続した。読取り助言は署名配布物、Operation世代、Provider Home、Selection、Docker回復およびHost cleanupを所有するProduction Runtimeまで接続した。変更候補は未信頼・未採用Candidate IDとして返し、Storeから再読取りした安全なMetadataの確認、操作ごとの明示確認、Project Runtime Lease、Revision・dirty・Scope再観測、Receiptと耐久記録を通る別の採用操作へ接続した。採用してもCommit／Pushは行わない。Shared Serverは固定OS設定、検証済みRepository／Exposure、REST／MCP同一HTTPS Origin、Host限定Credential Recoveryおよび終了後資源0まで接続済みである。Production Closure中に、配布対象となったVersion ControlのGit Adapter 5呼出しが署名Runtime依存閉包へ未登録であることをPortable試験が検出したため、実在する呼出し元・primitive・実行ファイル・引数・結果受領を閉集合へ追加し、局所契約試験143件で反証した。現在はCovered 13件、Partial 2件、Missing 0件であり、残る実Provider E2EとProduction Closureを順に閉じる |
 | 対象改訂版 | `v0.22.0` |
 | 成立済み | G1〜G5のScreen Architecture、Direction A、5画面のSecondary展開、Production Shell、公式ロゴ、Project Context共通Reader、Topic／Meeting Record ReaderとRepository CRUD Core、共通Applicationの検索・絞込み・安定並び順・Query拘束Cursor、WorkbenchのTopic／Meeting独立Detail、Workbench／Repository単体MCPのTopic／Meeting CRUDと同一Repository内Meeting Outcome処置、Remote CROSのCredential／Workspace／Exposure／Repository Revision再検証付きTopic／Meeting Routing、同じSessionとExposure Snapshotに限定したRepository間Owner Relation解決、Workbenchの許可済みPortfolio Source明示選択・Remote Topic／Meeting MCP読書き・Owner Repository付きRelation遷移・Local fallback禁止、許可済みPortfolio Federation、Repository mode／CROS federation表示、Project Portfolioの検索・状態絞込み・20件単位Query拘束継続読込・Source別五場面Detail・欠測保持、作業ツリー読取り、選択Stage／Unstage／Commit／確認済み通常Push、拒否・通信断・結果不明・再観測、Role別Credential Core、Token非保存、永続Registry、Workbench Credential管理Surface、Bearer Remote Transport、Workbench Remote接続／更新／切断、Project Runtime状態Toolの非曖昧化、CROS CredentialによるRemote Project Context MCP、Host限定Access Recovery、AI Profileの閉じた共通Schema・一意解決・四軸Availability・Owner別耐久Snapshot・改訂競合付き採用Core・Repository／CROS WorkbenchのProfile限定管理・`systemAdmin`以外へのCatalog非開示・Coordinator／Workbench Consumer接続、Workbenchの現在Session限定AI依頼Port、読取り助言／変更候補の明示、開始／観測／取消、事実／共有済み分析／追加推論／次の選択肢の分離表示、Coordinatorの依頼種別別Mode Router・現在Process内観測・取消・未知状態非推測、読取り助言の利用者依頼・Profile・内容Hash付き許可済み投影をEffect 0で固定する専用Task Packet、許可参照へ拘束した専用Result Parser、Workbench選択Profile IDのCoordinator Task Request→Route Candidate→Executor Selection Grantへのexact搬送とReviewerへの非伝播、Runtime ActivityのRepository実構成、Execution Intelligence EventのProject限定継続読込、Remote CROSのCredential／Exposure再検証付きActivity投影、未接続／absent／unknown／observedの分離表示 |
 | 未成立 | 15画面Reality AuditのAI関連Partial 2件（Missing 0件）、読取り助言／変更候補の実Provider E2E、および最終Production Closure。Shared ServerのREST／MCP同一HTTPS Origin、外部TLS終端契約、固定OS設定、Credential Bootstrap／Recoveryおよび終了後資源0は成立済み。`ERB-ST-022`のVisual Gateは観測済み |
@@ -79,6 +79,8 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 - [`40_Develop/verification-runner/tests/unit/test-catalog.contract.test.ts`](../../../40_Develop/verification-runner/tests/unit/test-catalog.contract.test.ts)
 - [`40_Develop/ai-runtime`](../../../40_Develop/ai-runtime)
 - [`40_Develop/coordinator/src/security/provider-model-profile-runtime.ts`](../../../40_Develop/coordinator/src/security/provider-model-profile-runtime.ts)
+- [`40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts`](../../../40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts)
+- [`40_Develop/coordinator/scripts/check-runtime-capability-graph.ts`](../../../40_Develop/coordinator/scripts/check-runtime-capability-graph.ts)
 - [`40_Develop/coordinator/tests/unit/provider-model-profile-runtime.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/provider-model-profile-runtime.contract.test.ts)
 - [`40_Develop/coordinator/src/security/workbench-ai-advice-execution-plan.ts`](../../../40_Develop/coordinator/src/security/workbench-ai-advice-execution-plan.ts)
 - [`40_Develop/coordinator/src/security/workbench-ai-advice-provider-command.ts`](../../../40_Develop/coordinator/src/security/workbench-ai-advice-provider-command.ts)
@@ -141,7 +143,7 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 - [`40_Develop/mcp/src/index.ts`](../../../40_Develop/mcp/src/index.ts)
 - [`40_Develop/mcp/symbol.json`](../../../40_Develop/mcp/symbol.json)
 - [`40_Develop/mcp/tests/unit/project-context-adapter.contract.test.ts`](../../../40_Develop/mcp/tests/unit/project-context-adapter.contract.test.ts)
-- [`40_Develop/mcp/tests/unit/topic-meeting-adapter.contract.test.ts`](../../../40_Develop/mcp/tests/unit/topic-meeting-adapter.contract.test.ts)
+- [`40_Develop/mcp/tests/integration/topic-meeting-adapter.contract.test.ts`](../../../40_Develop/mcp/tests/integration/topic-meeting-adapter.contract.test.ts)
 - [`40_Develop/mcp/tests/integration/cros-project-context-mcp.integration.test.ts`](../../../40_Develop/mcp/tests/integration/cros-project-context-mcp.integration.test.ts)
 - [`40_Develop/mcp/tests/system/stdio-transport.integration.test.ts`](../../../40_Develop/mcp/tests/system/stdio-transport.integration.test.ts)
 - [`40_Develop/mcp/tests/system/streamable-http-transport.integration.test.ts`](../../../40_Develop/mcp/tests/system/streamable-http-transport.integration.test.ts)
@@ -301,6 +303,7 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 - 追加 / 削除した工程・検証と理由: Visual Previewの成立を流用せず、Workbench固有の`ERB-IT-021`と`ERB-ST-022`へ分離した
 - 経路不足から生じた指摘事項: 初回Mobile smokeでNavigationが一行横Scrollになったため、320px相当では3列折返しへ是正した
 - 最終的に有効だった検証: 固定Route IT、15画面×3表示Profile×3 Zoomの実Browser Visual Gate、Repository Checker
+- Production Closureで追加した検証: 署名Runtime配布観測がVersion Controlの5つのGit子Process呼出しを未登録として拒否することを確認し、閉集合登録後にPlatform Provisioner／署名Manifestの局所契約試験143件をPassした
 
 ## 正本コンテキストの更新
 

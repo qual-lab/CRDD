@@ -163,9 +163,9 @@ export function createPortfolioProjection(
       repositoryRole: identitiesMatch ? context.repositoryRole : null,
       context: identitiesMatch ? context : null,
     });
-    const existing = projects.get(repository.projectId) ?? [];
-    existing.push(source);
-    projects.set(repository.projectId, existing);
+    const existingSources = projects.get(repository.projectId) ?? [];
+    existingSources.push(source);
+    projects.set(repository.projectId, existingSources);
   }
   const projectedProjects = [...projects.entries()]
     .sort(([left], [right]) => left.localeCompare(right))

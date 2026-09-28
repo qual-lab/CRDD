@@ -48,7 +48,7 @@ const EXACT_EXECUTION = Object.freeze({
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-003=System/E2E: 公開入口→Runtime→Provider・Process→資源Observer
+ * @boundary PRL-ST-003=Direct Boundary: coordinator Test Source→対象契約
  */
 test("取消verificationは固定image・network none・固定SIGTERM handlerだけを構成する", () => {
   const args = dockerCreateArgumentsForCancellationVerificationFixture(MOUNTS);
@@ -79,7 +79,7 @@ test("取消verificationは固定image・network none・固定SIGTERM handlerだ
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-003=System/E2E: 公開入口→Runtime→Provider・Process→資源Observer
+ * @boundary PRL-ST-003=Direct Boundary: coordinator Test Source→対象契約
  */
 test("plain cancellation観測はcandidateに留まりrepository実行なしでverifiedにならない", () => {
   const result = normalizeDynamicFakeProviderCancellationForFixture(
@@ -110,7 +110,7 @@ test("plain cancellation観測はcandidateに留まりrepository実行なしでv
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-003=System/E2E: 公開入口→Runtime→Provider・Process→資源Observer
+ * @boundary PRL-ST-003=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Host attach process ownerは全固定異常scenarioで終了要求exact 1回とcloseを確認する", async () => {
   assert.deepEqual(OWNED_ATTACH_TERMINATION_FIXTURE_SCENARIOS, [
@@ -144,7 +144,7 @@ test("Host attach process ownerは全固定異常scenarioで終了要求exact 1�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-003=System/E2E: 公開入口→Runtime→Provider・Process→資源Observer
+ * @boundary PRL-ST-003=Direct Boundary: coordinator Test Source→対象契約
  */
 test("取消観測は要求・grace・ack・終了envelopeの差をfail closedにする", () => {
   assert.equal(

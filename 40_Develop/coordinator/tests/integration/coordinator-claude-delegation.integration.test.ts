@@ -26,7 +26,7 @@ import { createIsolatedProviderAuthorityRuntimeCandidate } from "../../src/secur
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-005=Related 2 Blocks: Task Authority→Provider Authority Gate→Provider Effect
+ * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Codex frontから選定理由付きClaude委譲をcleanup済みResultまで接続する", async () => {
   const managementCapability = Object.freeze({});
@@ -181,7 +181,7 @@ test("Codex frontから選定理由付きClaude委譲をcleanup済みResultま�
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary PRL-IT-005=Related 2 Blocks: Task Authority→Provider Authority Gate→Provider Effect
+   * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
    */
   const completeMount = (active: unknown, management: unknown) => {
     assert.equal(active, activeMountCapability);

@@ -3,7 +3,8 @@
  *
  * @packageDocumentation
  * @responsibility 検証済みRepository内のPath一覧と差分を、Git固有出力を漏らさない読取り契約へ変換する。
- * @trace ARCH-000002 ARCH-000009
+ * @trace ARCH-000002
+ * @trace ARCH-000009
  * @boundary Version Control AdapterとWorkbench等のConsumerの境界。
  * @effect RepositoryとVersion Control Metadataを読取るだけである。
  * @security 任意Path、絶対Path、親参照およびRepository外Contentを拒否する。
@@ -12,6 +13,18 @@ import {
   resolveVerifiedRepositoryRoot,
   type VerifiedRepositoryRoot,
 } from "./repository-location.ts";
+
+/**
+ * Repository Tree／Diffの読取り契約で使用するRepositoryWorktreeEntryの構造を固定する。
+ *
+ * @responsibility Repository Tree／Diffの読取り契約が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000002
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
 
 export type RepositoryWorktreeEntry = Readonly<{
   path: string;
@@ -22,11 +35,35 @@ export type RepositoryWorktreeEntry = Readonly<{
   unregistered: boolean;
 }>;
 
+/**
+ * Repository Tree／Diffの読取り契約で使用するRepositoryWorktreeTreePageの構造を固定する。
+ *
+ * @responsibility Repository Tree／Diffの読取り契約が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000002
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
+
 export type RepositoryWorktreeTreePage = Readonly<{
   directory: string;
   entries: readonly RepositoryWorktreeEntry[];
   nextCursor: string | null;
 }>;
+
+/**
+ * Repository Tree／Diffの読取り契約で使用するRepositoryWorktreeFileDiffの構造を固定する。
+ *
+ * @responsibility Repository Tree／Diffの読取り契約が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000002
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
 
 export type RepositoryWorktreeFileDiff = Readonly<{
   path: string;
@@ -36,6 +73,18 @@ export type RepositoryWorktreeFileDiff = Readonly<{
   workingTruncated: boolean;
   unregistered: boolean;
 }>;
+
+/**
+ * Repository Tree／Diffの読取り契約で使用するRepositoryWorktreeViewObservationの構造を固定する。
+ *
+ * @responsibility Repository Tree／Diffの読取り契約が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000002
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
 
 export type RepositoryWorktreeViewObservation = Readonly<{
   paths: readonly string[];
@@ -47,9 +96,33 @@ export type RepositoryWorktreeViewObservation = Readonly<{
   }>;
 }>;
 
+/**
+ * Repository Tree／Diffの読取り契約で使用するRepositoryWorktreeViewAdapterの構造を固定する。
+ *
+ * @responsibility Repository Tree／Diffの読取り契約が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000002
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
+
 export type RepositoryWorktreeViewAdapter = (
   repositoryRoot: string,
 ) => RepositoryWorktreeViewObservation;
+
+/**
+ * Repository Tree／Diffの読取り契約で使用するChangePathSetsの構造を固定する。
+ *
+ * @responsibility Repository Tree／Diffの読取り契約が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000002
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
 
 type ChangePathSets = Readonly<{
   prepared: ReadonlySet<string>;
@@ -57,13 +130,28 @@ type ChangePathSets = Readonly<{
   unregistered: ReadonlySet<string>;
 }>;
 
-/** Repository相対Pathの公開契約を検証する。 */
-function validateRelativePath(value: unknown, allowRoot: boolean): string {
+/**
+ * Repository相対Pathの公開契約を検証する。
+ *
+ * @responsibility 絶対Path、親遡及、制御文字および空Segmentを拒否し、区切りを正規化する。
+ * @trace ARCH-000002
+ * @input value: 未信頼Path候補、isRootAllowed: 空文字Rootを許可するか。
+ * @returns 検証済みRepository相対Path。
+ * @precondition N/A: 任意値を受け付ける。
+ * @postcondition 返却値は`/`区切りで末尾Slashを持たない。
+ * @effect N/A: 文字列検証だけを行う。
+ * @failure 契約外Pathは固定Errorで拒否する。
+ * @invariant Root許可を子Pathの緩和へ流用しない。
+ * @boundary 未信頼入力とRepository Worktree ViewのPath境界。
+ * @security Root外参照と制御文字を拒否する。
+ * @concurrency N/A: 共有状態を持たない同期処理である。
+ */
+function validateRelativePath(value: unknown, isRootAllowed: boolean): string {
   if (typeof value !== "string")
     throw new Error("repository_worktree_path_invalid");
   const normalized = value.replaceAll("\\", "/");
   if (
-    (!allowRoot && normalized.length === 0) ||
+    (!isRootAllowed && normalized.length === 0) ||
     normalized.length > 4_096 ||
     normalized.startsWith("/") ||
     /^[A-Za-z]:/u.test(normalized) ||
@@ -73,7 +161,7 @@ function validateRelativePath(value: unknown, allowRoot: boolean): string {
         (segment) =>
           segment === "." ||
           segment === ".." ||
-          (!allowRoot && segment.length === 0),
+          (!isRootAllowed && segment.length === 0),
       ) ||
     /[\u0000-\u001f\u007f]/u.test(normalized)
   )
@@ -81,7 +169,22 @@ function validateRelativePath(value: unknown, allowRoot: boolean): string {
   return normalized.replace(/\/$/u, "");
 }
 
-/** Tree CursorをDirectoryへ拘束して復号する。 */
+/**
+ * Tree CursorをDirectoryへ拘束して復号する。
+ *
+ * @responsibility Cursorの形、Directory BindingおよびPath契約を一度に検証する。
+ * @trace ARCH-000002
+ * @input value: 未信頼Cursor、directory: 現在の一覧Directory。
+ * @returns 検証済みの直前Path、または初回を表すnull。
+ * @precondition directoryは検証済みRepository相対Pathである。
+ * @postcondition 非null結果は同じdirectoryへ結合したRepository相対Pathである。
+ * @effect N/A: Cursorを復号・検証するだけである。
+ * @failure 不正Encoding、Schema、DirectoryまたはPathを固定Errorで拒否する。
+ * @invariant 別DirectoryのCursorを再利用しない。
+ * @boundary Client CursorとWorktree Paginationの境界。
+ * @security Cursorから任意Pathへの移動を許可しない。
+ * @concurrency N/A: 共有状態を持たない同期処理である。
+ */
 function decodeCursor(value: unknown, directory: string): string | null {
   if (value === undefined || value === null || value === "") return null;
   if (typeof value !== "string" || value.length > 8_192)
@@ -103,7 +206,22 @@ function decodeCursor(value: unknown, directory: string): string | null {
   }
 }
 
-/** Path集合から指定Directoryの直下要素だけを導出する。 */
+/**
+ * Path集合から指定Directoryの直下要素だけを導出する。
+ *
+ * @responsibility Flat Path集合と変更集合を一段のTree Entryへ決定論的に投影する。
+ * @trace ARCH-000002
+ * @input paths: 観測Path集合、directory: 対象Directory、changes: 変更区分集合。
+ * @returns 対象Directory直下の一意なWorktree Entry集合。
+ * @precondition 全PathとdirectoryはRepository相対Pathとして検証済みである。
+ * @postcondition EntryはPath順で一意になり、子孫を直下Directoryへ畳む。
+ * @effect N/A: 入力集合を変更しない。
+ * @failure N/A: 検証済み入力だけを扱う。
+ * @invariant Prepared、Working、Unregisteredの区分を失わない。
+ * @boundary Git観測のFlat Path集合とWorkbench Tree表示の境界。
+ * @security Host絶対Pathを生成または公開しない。
+ * @concurrency N/A: 共有状態を持たない同期処理である。
+ */
 function immediateEntries(
   paths: readonly string[],
   directory: string,
@@ -192,17 +310,21 @@ export function observeRepositoryWorktreeTree(
     working: new Set(changes.workingChanges),
     unregistered: new Set(changes.unregisteredPaths),
   });
-  const after =
+  const remainingEntries =
     cursor === null ? entries : entries.filter((entry) => entry.path > cursor);
-  const page = after.slice(0, limit);
+  const pageEntries = remainingEntries.slice(0, limit);
   const nextCursor =
-    after.length > limit
+    remainingEntries.length > limit
       ? Buffer.from(
-          JSON.stringify([directory, page.at(-1)?.path]),
+          JSON.stringify([directory, pageEntries.at(-1)?.path]),
           "utf8",
         ).toString("base64url")
       : null;
-  return Object.freeze({ directory, entries: Object.freeze(page), nextCursor });
+  return Object.freeze({
+    directory,
+    entries: Object.freeze(pageEntries),
+    nextCursor,
+  });
 }
 
 /**

@@ -54,7 +54,7 @@ const revision = "a".repeat(40);
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 function decisionApplicationDependencies(root: string) {
   return {
@@ -72,7 +72,7 @@ function decisionApplicationDependencies(root: string) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 const hash = (value: string) =>
   createHash("sha256").update(value).digest("hex");
@@ -96,7 +96,7 @@ type BoundExecutionInput = Parameters<
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 function runProjectRuntimeOperation(
   dependencies: BoundExecutionDependencies,
@@ -130,7 +130,7 @@ function runProjectRuntimeOperation(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 function resolveProjectRuntimeReplan(
   input: ProjectRuntimeReplanInput &
@@ -153,7 +153,7 @@ function resolveProjectRuntimeReplan(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 function fixture(t: test.TestContext) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-project-replan-"));
@@ -217,7 +217,7 @@ function fixture(t: test.TestContext) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 async function failTask(root: string) {
   return runProjectRuntimeOperation(
@@ -270,7 +270,7 @@ async function failTask(root: string) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 test("bounded partial replan supersedes the failed task and returns the queue to ready", async (t) => {
   const { root, input } = fixture(t);
@@ -315,7 +315,7 @@ test("bounded partial replan supersedes the failed task and returns the queue to
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 test("再計画分類は各形の余剰field・Accessor・ProxyをEffect前に拒否する", async (t) => {
   const { root, input } = fixture(t);
@@ -387,7 +387,7 @@ test("再計画分類は各形の余剰field・Accessor・ProxyをEffect前に�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 test("maintaining the plan creates a fresh attempt and enforces the retry limit", async (t) => {
   const { root, input } = fixture(t);
@@ -436,7 +436,7 @@ test("maintaining the plan creates a fresh attempt and enforces the retry limit"
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 test("human decision capability is one-time, principal-bound and finalized after Project readback", async (t) => {
   const { root, input } = fixture(t);
@@ -539,7 +539,7 @@ test("human decision capability is one-time, principal-bound and finalized after
  * @observation 拒否理由、Decision Record状態、Project世代および正常適用後の重複結果を観測する。
  * @oracle 不一致入力はRecordとProjectを変更せず、exact入力だけが一度完了し、再送はalready_consumedとなる。
  * @cleanup Test ContextがRepository fixtureを削除し、Decision Record以外の外部Effectを発行しない。
- * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Human Decisionは対象・Revision・世代・Authorityが一致する要求だけを一度記録する", async (t) => {
   const { root, input } = fixture(t);
@@ -637,7 +637,7 @@ test("Human Decisionは対象・Revision・世代・Authorityが一致する要�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 test("prepared human decision is reconciled from durable Project state without replaying authority", async (t) => {
   const { root, input } = fixture(t);
@@ -739,7 +739,7 @@ test("prepared human decision is reconciled from durable Project state without r
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 test("explicit replacement invalidates the former capability before issuing one fresh capability", async (t) => {
   const { root, input } = fixture(t);
@@ -836,7 +836,7 @@ test("explicit replacement invalidates the former capability before issuing one 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 test("parent lifecycle invalidation requires a fresh changed generation", async (t) => {
   const { root, input } = fixture(t);
@@ -915,7 +915,7 @@ test("parent lifecycle invalidation requires a fresh changed generation", async 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 test("issuance and expiry uncertainty persist an exact independent recovery intent", async (t) => {
   const { root, input } = fixture(t);

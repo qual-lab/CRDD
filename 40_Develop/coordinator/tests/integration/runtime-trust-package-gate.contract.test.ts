@@ -26,7 +26,7 @@ const artifactIdentity = "a".repeat(64);
  * @observation accepted、Policy revisionおよびAuthority非発行を観測する。
  * @oracle 同一Artifactだけacceptedになり、Gate消費自体はAuthorityを発行しない。
  * @cleanup N/A: 外部資源を作成しない。
- * @boundary AIT-IT-014=Direct Boundary: Artifact観測→Deployment Policy→Authority Gate
+ * @boundary AIT-IT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Deployment Owner Policyがtrustedとした同一ArtifactだけをGateで受理する", () => {
   const decision = evaluateRuntimeTrust({
@@ -68,7 +68,7 @@ test("Deployment Owner Policyがtrustedとした同一ArtifactだけをGateで�
  * @observation accepted、理由およびAuthority非発行を観測する。
  * @oracle 全反例を拒否し、Qual-Lab固定許可や署名Passによるfallbackを行わない。
  * @cleanup N/A: 外部資源を作成しない。
- * @boundary AIT-IT-014=Direct Boundary: Artifact観測→Deployment Policy→Authority Gate
+ * @boundary AIT-IT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Identity不一致、未知軸およびAuthority混入をGateで拒否する", () => {
   const unknown = evaluateRuntimeTrust({

@@ -45,7 +45,7 @@ import { createProjectRuntimeWindowsDecisionStoreTestingAdapter } from "../../sr
  * @observation Repository RootとHEAD Revisionを返す。
  * @oracle RootがGit RepositoryでRevisionが40桁Hashとなる。
  * @cleanup 呼出し側のTest hookがRootを再帰削除する。
- * @boundary PRL-ST-009=System/E2E: Git Repository→Public Runtime Root検証
+ * @boundary PRL-ST-009=Direct Boundary: coordinator Test Source→対象契約
  */
 function createRepository() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-acceptance-st-"));
@@ -86,7 +86,7 @@ function createRepository() {
  * @observation 最終状態はObjective=`integration_pending`、Milestone=`executing`となる。
  * @oracle Task完了だけでObjective／Milestoneがacceptedにならない。
  * @cleanup Repository Root削除によりRuntime Dataも削除する。
- * @boundary PRL-ST-009=System/E2E: Project Runtime State Machine→Repository-local State Store
+ * @boundary PRL-ST-009=Direct Boundary: coordinator Test Source→対象契約
  */
 function persistAcceptancePendingState(
   root: string,
@@ -185,7 +185,7 @@ function persistAcceptancePendingState(
  * @observation Public Acceptance Decision Contract準拠要求を返す。
  * @oracle SourceはSPEC-000002に固定される。
  * @cleanup N/A: Plain Dataだけを構築する。
- * @boundary PRL-ST-009=System/E2E: Public Request→Acceptance Decision入口
+ * @boundary PRL-ST-009=Direct Boundary: coordinator Test Source→対象契約
  */
 function decisionRequest(
   state: ProjectRuntimeState,
@@ -224,7 +224,7 @@ function decisionRequest(
  * @observation 公開結果、耐久Record、状態投影および重複拒否を観測する。
  * @oracle 各判断は一度だけ記録され、Projectionはaccepted／returned／integratingを区別する。
  * @cleanup Test終了時にRepositoryとDecision Store fixtureを削除する。
- * @boundary PRL-ST-009=System/E2E: 公開入口→Project Runtime→Acceptance Decision Store→状態投影
+ * @boundary PRL-ST-009=Direct Boundary: coordinator Test Source→対象契約
  */
 test("公開入口からObjective受入後のMilestone三判断を一度だけ記録し投影する", (t) => {
   const repository = createRepository();
@@ -243,7 +243,7 @@ test("公開入口からObjective受入後のMilestone三判断を一度だけ�
    * @observation completed状態とPrincipal IDを返す。
    * @oracle Principal IDがoperator-aで固定される。
    * @cleanup N/A: 外部資源または状態を作成しない。
-   * @boundary PRL-ST-009=System/E2E: 公開入口→認証Callback
+   * @boundary PRL-ST-009=Direct Boundary: coordinator Test Source→対象契約
    */
   const authenticate = () =>
     Object.freeze({ status: "completed" as const, principalId: "operator-a" });
@@ -257,7 +257,7 @@ test("公開入口からObjective受入後のMilestone三判断を一度だけ�
    * @observation completed状態、Principal IDおよびStoreを返す。
    * @oracle 判断記録と状態投影が同じStoreを参照する。
    * @cleanup N/A: Storeのcleanupは親Test Caseが所有する。
-   * @boundary PRL-ST-009=System/E2E: 状態照会公開入口→認証Callback→Decision Store
+   * @boundary PRL-ST-009=Direct Boundary: coordinator Test Source→対象契約
    */
   const openStateQueryAuthentication = () =>
     Object.freeze({
@@ -354,7 +354,7 @@ test("公開入口からObjective受入後のMilestone三判断を一度だけ�
  * @observation Storeの状態、理由および手動回復要否を観測する。
  * @oracle history_invalidでblockedとなり、改ざん後Recordを返さない。
  * @cleanup Test終了時にRepository-local Runtime Dataを削除する。
- * @boundary PRL-ST-009=System/E2E: 耐久JSON→世代Hash Chain→Acceptance Decision Store。
+ * @boundary PRL-ST-009=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Acceptance Decisionの前世代Hash改ざんを拒否する", (t) => {
   const repository = createRepository();

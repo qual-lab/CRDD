@@ -17,6 +17,18 @@ import test from "node:test";
 import { createTopicMeetingRepository } from "../../src/index.ts";
 
 /** Topic Fixtureを指定Revisionで構築する。 */
+/**
+ * topic用の試験入力または観測処理を提供する。
+ *
+ * @responsibility topic用の試験入力または観測処理を提供するの検証責務を所有する。
+ * @trace CPR-IT-008
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus topicの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
+ * @boundary CPR-IT-008=Direct Boundary: project-operation Test Source→対象契約
+ */
 function topic(revision: number, state = "open") {
   return `# 認証方式の選択
 
@@ -36,6 +48,18 @@ Project ID: \`PRJ-001\`
 }
 
 /** Meeting Fixtureを指定Revisionで構築する。 */
+/**
+ * meeting用の試験入力または観測処理を提供する。
+ *
+ * @responsibility meeting用の試験入力または観測処理を提供するの検証責務を所有する。
+ * @trace CPR-IT-008
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus meetingの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
+ * @boundary CPR-IT-008=Direct Boundary: project-operation Test Source→対象契約
+ */
 function meeting(revision: number) {
   return `# Weekly Sync
 
@@ -71,7 +95,7 @@ Project ID: \`PRJ-001\`
  * @observation 結果、改訂およびFilesystem Effect件数を観測する。
  * @oracle 各正本は固定Pathへ一件だけ存在し、競合更新はEffect 0となる。
  * @cleanup 検証用Rootを削除する。
- * @boundary Application CRUD→Repository Filesystem。
+ * @boundary CPR-IT-008=Direct Boundary: project-operation Test Source→対象契約
  */
 test("TopicとMeetingの登録・編集・一覧・取得を同じ契約で処理する", () => {
   const root = mkdtempSync(path.join(tmpdir(), "crdd-topic-meeting-"));
@@ -109,7 +133,7 @@ test("TopicとMeetingの登録・編集・一覧・取得を同じ契約で処�
  * @observation 拒否理由、Relation Path、Effect件数および残存Recordを観測する。
  * @oracle Relation中はEffect 0で、解消後の誤登録理由＋明示確認だけが対象Topicを削除する。
  * @cleanup 検証用Rootを削除する。
- * @boundary Delete Command→Relation Scan→Repository Filesystem。
+ * @boundary CPR-IT-008=Direct Boundary: project-operation Test Source→対象契約
  */
 test("Relation解消と明示確認なしに物理削除しない", () => {
   const root = mkdtempSync(path.join(tmpdir(), "crdd-topic-delete-"));

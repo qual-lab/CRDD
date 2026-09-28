@@ -45,7 +45,7 @@ const fixturePrivateKeys = new WeakMap<object, KeyObject>();
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 function frame(payload: Record<string, unknown>) {
   const canonical = canonicalizeProvisioningJsonValueCandidate(payload);
@@ -70,7 +70,7 @@ function frame(payload: Record<string, unknown>) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 function fixture() {
   const release = generateKeyPairSync("ed25519");
@@ -192,7 +192,7 @@ function fixture() {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 test("削除済み旧manifest revisionをGateへ昇格しない", () => {
   const value = fixture();
@@ -251,7 +251,7 @@ test("削除済み旧manifest revisionをGateへ昇格しない", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 test("CRDD bundle and manifest observations match but remain non-authoritative", () => {
   const result = evaluatePlatformProvisionerPackageGateCandidate(fixture());
@@ -282,7 +282,7 @@ test("CRDD bundle and manifest observations match but remain non-authoritative",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Runtime Execution Identity、content、配布観測とpermissionの不一致をfail closedにする", () => {
   const mutations: Array<(value: ReturnType<typeof fixture>) => void> = [
@@ -325,7 +325,7 @@ test("Runtime Execution Identity、content、配布観測とpermissionの不一�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 test("package gate cannot treat caller CRDD observations as Effect authorization", () => {
   const contract = describePlatformProvisionerPackageGateContract();

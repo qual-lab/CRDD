@@ -50,7 +50,7 @@ const OBSERVATION: ProjectRuntimeTaskAttemptObservation = Object.freeze({
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-011=N/A: 実行記録Readerは外部実行境界を持たない。
+ * @boundary PPR-UT-011=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("実行観測PortはProject Runtimeの意味だけをAdapterへ渡す", () => {
   const receivedObservations: ProjectRuntimeTaskAttemptObservation[] = [];
@@ -85,7 +85,7 @@ test("実行観測PortはProject Runtimeの意味だけをAdapterへ渡す", () 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-011=N/A: 実行記録Readerは外部実行境界を持たない。
+ * @boundary PPR-UT-011=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("観測未設定と観測不能を成功へ丸めない", () => {
   const observedPublications: ProjectRuntimeExecutionObservationPublication[] =

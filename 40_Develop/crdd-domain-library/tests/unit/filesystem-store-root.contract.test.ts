@@ -33,7 +33,7 @@ import {
  * @observation 戻りPathと拒否例外を観測する。
  * @oracle 正常PathだけがRoot配下へ解決され、他はすべて拒否される。
  * @cleanup 一時DirectoryとJunctionを削除する。
- * @boundary Filesystem Root Capability→Resolved Store Path。
+ * @boundary RFD-UT-006=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("Root外・絶対Path・Link親を拒否する", (t) => {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-store-root-"));
@@ -74,7 +74,7 @@ test("Root外・絶対Path・Link親を拒否する", (t) => {
  * @observation 理由、Recovery Identity、削除Effectおよび再取得結果を観測する。
  * @oracle exact IdentityとOwner不存在確認が揃った場合だけ回復し、その後一度だけ取得できる。
  * @cleanup 一時Directoryを削除する。
- * @boundary Runtime Recovery Authority→Filesystem Lock。
+ * @boundary RFD-UT-006=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("残存Lockをexact Recovery Identityでだけ回復する", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-store-lock-"));
@@ -136,7 +136,7 @@ test("残存Lockをexact Recovery Identityでだけ回復する", (t) => {
  * @observation cleanup unknown結果、Recovery Obligation Record、後続Effectおよび最終不存在を観測する。
  * @oracle 解放不明ではexact ID付き義務が残り後続Effect 0、同じIDの再回復後だけ取得可能となる。
  * @cleanup Worker prototypeを復元し、一時Directoryを削除する。
- * @boundary Recovery Authority→Worker解放不明→耐久Recovery Obligation→再入場。
+ * @boundary RFD-UT-006=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("Kernel Lock解放不明でもexact回復義務を耐久保持する", async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-store-cleanup-"));
@@ -237,7 +237,7 @@ test("Kernel Lock解放不明でもexact回復義務を耐久保持する", asyn
  * @observation Operation回数、構造化結果、Lock／Obligation Record、後続Effectおよび最終不存在を観測する。
  * @oracle Operationは一回だけ完了し、cleanup解消前は後続Effect 0、同じIDのcleanup後だけ新取得できる。
  * @cleanup Worker prototypeを復元し、一時Directoryを削除する。
- * @boundary Store Operation→Worker解放不明→耐久Recovery Obligation→cleanup再入場。
+ * @boundary RFD-UT-006=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("通常Operation後の解放不明を同じIDでcleanup再入場する", async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-store-effect-"));
@@ -334,7 +334,7 @@ test("通常Operation後の解放不明を同じIDでcleanup再入場する", as
  * @observation 公開理由、Recovery IDおよびOperation Effectを観測する。
  * @oracle 両経路とも同じexact ID付きrecovery_requiredとなり、Operation Effectは0である。
  * @cleanup Worker prototypeを復元し、一時Directoryを削除する。
- * @boundary 耐久Recovery Record→観測者Kernel解放不明→公開Recovery結果。
+ * @boundary RFD-UT-006=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("確定済みRecovery IDを観測者cleanup不明でも保持する", (t) => {
   const originalPostMessage = Worker.prototype.postMessage;
@@ -390,7 +390,7 @@ test("確定済みRecovery IDを観測者cleanup不明でも保持する", (t) =
  * @observation Proof発行状態と拒否理由を観測する。
  * @oracle Root Bはowner_presentで停止し、Root A用のProcess-local Authorityを流用しない。
  * @cleanup Worker prototypeを復元し、両一時Directoryを削除する。
- * @boundary Root A cleanup Authority→Root B Filesystem Store境界。
+ * @boundary RFD-UT-006=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("cleanup再入場Authorityを別Rootへ流用しない", (t) => {
   const rootA = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-store-scope-a-"));
@@ -450,7 +450,7 @@ test("cleanup再入場Authorityを別Rootへ流用しない", (t) => {
  * @observation 操作完了後のLock Recordを再読する。
  * @oracle 旧Ownerのfinallyは別世代Recordを削除しない。
  * @cleanup 一時Directoryを削除する。
- * @boundary Store Lock Owner→Filesystem Lock世代。
+ * @boundary RFD-UT-006=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("旧Ownerは差し替わった別世代Lockを削除しない", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-store-generation-"));
@@ -488,7 +488,7 @@ test("旧Ownerは差し替わった別世代Lockを削除しない", (t) => {
  * @observation Owner状態、Proof発行、削除Effectおよび再取得結果を観測する。
  * @oracle 稼働中はEffect 0、終了後の同じ世代だけ回復完了となる。
  * @cleanup 子Processと一時Directoryを必ず終了・削除する。
- * @boundary 別Node Process→OS Process観測→Filesystem Lock Recovery。
+ * @boundary RFD-UT-006=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("別Processの終了確認後だけ残存Lockを回復する", async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-store-process-"));
@@ -572,7 +572,7 @@ test("別Processの終了確認後だけ残存Lockを回復する", async (t) =>
  * @observation 競合理由と親Operation Effectを観測する。
  * @oracle alias表記もunavailableとなり、親Operation Effectは0である。
  * @cleanup 子Processを終了し、一時Directoryを削除する。
- * @boundary 別Node Process→Path正規化→OS Kernel Lock。
+ * @boundary RFD-UT-006=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("Path aliasを別ProcessのKernel Lock迂回に使えない", async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-store-alias-"));
@@ -624,7 +624,7 @@ test("Path aliasを別ProcessのKernel Lock迂回に使えない", async (t) => 
  * @observation 拒否理由とOperation Effectを観測する。
  * @oracle 全件がobservation_unknownとなり、Operationは実行されずRecovery IDも発行されない。
  * @cleanup 各Recordと一時Directoryを削除する。
- * @boundary 不完全Filesystem Record→Store Lock公開結果。
+ * @boundary RFD-UT-006=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("不完全なLock RecordはRecovery Identityを発行しない", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-store-invalid-"));
@@ -671,7 +671,7 @@ test("不完全なLock RecordはRecovery Identityを発行しない", (t) => {
  * @observation 回復結果、後続OwnerのLock Recordおよび全Process終了を観測する。
  * @oracle 回復完了は最大一件で、後続Owner保持中の新世代Recordが旧Recoveryで削除されない。
  * @cleanup 後続Ownerを解放し、全Processと一時Directoryを回収する。
- * @boundary 複数Node Process→OS Kernel Lock→Filesystem Lock世代。
+ * @boundary RFD-UT-006=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("二回復者と後続OwnerをKernel Lockで直列化する", async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-store-race-"));

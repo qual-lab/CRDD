@@ -30,7 +30,7 @@ import {
  * @observation state、missing、finding、blockedを観測する。
  * @oracle 同じ改訂版の全必須確認だけがverifiedとなる。
  * @cleanup N/A: 外部資源を作成しない。
- * @boundary Related 2 Blocks: 固定候補と独立確認結果から現在Gateを統合する。
+ * @boundary CQS-IT-008=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("同じ固定改訂版の全必須確認だけをverifiedへ統合する", () => {
   const candidate = fixQualityCandidate("revision-2", [
@@ -57,7 +57,7 @@ test("同じ固定改訂版の全必須確認だけをverifiedへ統合する", 
  * @observation stateとmissingCheckIdsを観測する。
  * @oracle under_reviewとなり元の必須確認集合と欠落Identityを保持する。
  * @cleanup N/A: 外部資源を作成しない。
- * @boundary Quality確認集合と全体Gateの統合境界。
+ * @boundary CQS-IT-003=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("欠落した必須確認を全体Passへ畳まない", () => {
   const sourceCheckIds = ["document-audit", "gap-audit"];
@@ -82,7 +82,7 @@ test("欠落した必須確認を全体Passへ畳まない", () => {
  * @observation 送出するreason codeを観測する。
  * @oracle check_result_revision_mismatchとして拒否する。
  * @cleanup N/A: 外部資源を作成しない。
- * @boundary 改訂版別確認結果と現在Gateの境界。
+ * @boundary CQS-IT-002=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("別改訂版の古いPassを現在Gateへ混入させない", () => {
   const candidate = fixQualityCandidate("revision-2", ["document-audit"]);
@@ -109,7 +109,7 @@ test("別改訂版の古いPassを現在Gateへ混入させない", () => {
  * @observation state、findingCheckIds、blockedCheckIdsを観測する。
  * @oracle findingはchanges_required、blockedはunder_reviewとなる。
  * @cleanup N/A: 外部資源を作成しない。
- * @boundary 独立確認状態と現在Gate状態の変換境界。
+ * @boundary CQS-IT-004=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("指摘と確認不能を合格から分離する", () => {
   const candidate = fixQualityCandidate("revision-2", ["document-audit"]);
@@ -145,7 +145,7 @@ test("指摘と確認不能を合格から分離する", () => {
  * @observation revision、requiredCheckIds、missingCheckIds、stateを観測する。
  * @oracle 旧Passを持たず全必須確認がmissingのunder_reviewへ戻る。
  * @cleanup N/A: 外部資源を作成しない。
- * @boundary 是正後の新固定候補と再レビュー開始の境界。
+ * @boundary CQS-IT-009=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("是正後は必須確認集合を維持して旧結果を流用しない", () => {
   const previous = fixQualityCandidate("revision-1", [

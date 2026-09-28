@@ -3,7 +3,8 @@
  *
  * @packageDocumentation
  * @responsibility Catalogで固定されたProvider、Model、推論強度とTask Identityを、Repository非共有の一回実行計画へ変換する。
- * @trace ARCH-000010 ARCH-000015
+ * @trace ARCH-000010
+ * @trace ARCH-000015
  * @boundary Workbench Provider AdapterとProvider固有Executorの間。
  * @effect N/A: 実行計画を生成するだけでProvider Effectを発行しない。
  * @security Promptは標準入力だけで搬送し、Repository、Workspace、Tool、Session、API Key fallbackを許可しない。
@@ -34,6 +35,18 @@ const EXECUTION_INPUT_KEYS = Object.freeze([
   "taskHash",
 ]);
 
+/**
+ * Workbench助言の固定Provider実行計画で使用するWorkbenchAiProviderExecutionInputの構造を固定する。
+ *
+ * @responsibility Workbench助言の固定Provider実行計画が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000010
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
+
 export type WorkbenchAiProviderExecutionInput = Readonly<{
   catalogRevision: number;
   provider: "codex" | "claude";
@@ -45,6 +58,18 @@ export type WorkbenchAiProviderExecutionInput = Readonly<{
   reasoningEffort: AiReasoningEffort;
   offering: "chatgpt_subscription_oauth" | "claude_max";
 }>;
+
+/**
+ * Workbench助言の固定Provider実行計画で使用するWorkbenchAiAdviceExecutionPlanの構造を固定する。
+ *
+ * @responsibility Workbench助言の固定Provider実行計画が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000010
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
 
 export type WorkbenchAiAdviceExecutionPlan = Readonly<{
   contract: typeof WORKBENCH_AI_ADVICE_EXECUTION_PLAN_CONTRACT;
@@ -69,6 +94,18 @@ export type WorkbenchAiAdviceExecutionPlan = Readonly<{
   providerCommand: WorkbenchAiAdviceProviderCommand;
 }>;
 
+/**
+ * Workbench助言の固定Provider実行計画で使用するWorkbenchAiAdviceExecutionPlanPreparationの構造を固定する。
+ *
+ * @responsibility Workbench助言の固定Provider実行計画が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000010
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
+
 export type WorkbenchAiAdviceExecutionPlanPreparation = Readonly<
   | {
       status: "prepared";
@@ -86,7 +123,8 @@ export type WorkbenchAiAdviceExecutionPlanPreparation = Readonly<
  * Workbench読取り助言の固定実行計画を生成する。
  *
  * @responsibility Catalogと完全一致する実行IdentityだけをRepository非共有・標準入力搬送の計画へ変換する。
- * @trace ARCH-000010 ARCH-000015
+ * @trace ARCH-000010
+ * @trace ARCH-000015
  * @input input: Provider Adapterが生成した閉じた実行入力、catalog: 採用済みAI Profile Catalog。
  * @returns 検証済み実行計画、またはEffect前の拒否結果。
  * @precondition catalogは呼出し側が指定する改訂に対応する候補である。
@@ -161,7 +199,8 @@ export function prepareWorkbenchAiAdviceExecutionPlan(
  * Workbench助言実行計画の拒否結果を生成する。
  *
  * @responsibility すべての計画不整合をEffect 0の同一公開結果へ閉じる。
- * @trace ARCH-000010 ARCH-000015
+ * @trace ARCH-000010
+ * @trace ARCH-000015
  * @input N/A: 固定拒否結果だけを生成する。
  * @returns 実行計画を含まないblocked結果。
  * @precondition N/A: 呼出し条件を持たない。

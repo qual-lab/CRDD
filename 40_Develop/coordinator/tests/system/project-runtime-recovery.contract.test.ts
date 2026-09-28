@@ -46,7 +46,7 @@ type TestObjectiveDependencies = Omit<ObjectiveDependencies, "execution"> &
  * @observation Public結果と耐久状態を呼出し側へ返す。
  * @oracle Runtimeが発行・失効を所有するAuthorizationだけで実行される。
  * @cleanup 呼出し側のTestContextが一時Repositoryを清掃する。
- * @boundary PRL-ST-004=System/E2E: Public Objective→Durable Runtime→Recovery→Retry
+ * @boundary PRL-ST-004=Direct Boundary: coordinator Test Source→対象契約
  */
 function runProjectRuntimeObjective(
   dependencies: TestObjectiveDependencies,
@@ -79,7 +79,7 @@ function runProjectRuntimeObjective(
  * @observation 検証済みRoot Pathを返す。
  * @oracle 各Test Runが固有Rootを持つ。
  * @cleanup Test終了時にRoot全体を削除する。
- * @boundary PRL-ST-004=System/E2E: Public Objective→Durable Runtime→Recovery→Retry
+ * @boundary PRL-ST-004=Direct Boundary: coordinator Test Source→対象契約
  */
 function root(t: test.TestContext) {
   const value = fs.mkdtempSync(
@@ -100,7 +100,7 @@ function root(t: test.TestContext) {
  * @observation Public Objective要求を返す。
  * @oracle 再入場間でRequest、Project、Milestone、Revisionが同一になる。
  * @cleanup N/A: Process内の値だけを生成する。
- * @boundary PRL-ST-004=System/E2E: Public Objective→Durable Runtime→Recovery→Retry
+ * @boundary PRL-ST-004=Direct Boundary: coordinator Test Source→対象契約
  */
 function request(overrides: Record<string, unknown> = {}) {
   return {
@@ -130,7 +130,7 @@ function request(overrides: Record<string, unknown> = {}) {
  * @observation settledかつcleanup済みの結果を返す。
  * @oracle 入力Identityを変更せず回復義務を残さない。
  * @cleanup N/A: Process内の値だけを生成する。
- * @boundary PRL-ST-004=System/E2E: Public Objective→Durable Runtime→Recovery→Retry
+ * @boundary PRL-ST-004=Direct Boundary: coordinator Test Source→対象契約
  */
 async function completed(input: {
   attemptId: string;
@@ -167,7 +167,7 @@ async function completed(input: {
  * @observation Generation付きの更新結果を確認する。
  * @oracle 別IdentityやGeneration不一致を使わず一つの義務だけをsettleする。
  * @cleanup N/A: 生成した耐久状態はTest Rootのcleanup対象である。
- * @boundary PRL-ST-004=System/E2E: Public Objective→Durable Runtime→Recovery→Retry
+ * @boundary PRL-ST-004=Direct Boundary: coordinator Test Source→対象契約
  */
 function settleRuntimeProcessAsFreshProcess(workingDirectory: string) {
   const observed = readProjectRuntimeState(
@@ -238,7 +238,7 @@ function settleRuntimeProcessAsFreshProcess(workingDirectory: string) {
  * @observation Public結果、回復呼出し、acknowledgement回数、attempt回数、retryCountおよび耐久義務を観測する。
  * @oracle 不明状態では再実行せず、同じIdentityのsettlement後だけ一回retryして完了する。
  * @cleanup Test Rootと全耐久状態をTest終了時に削除する。
- * @boundary PRL-ST-004=System/E2E: Public Objective→Durable Runtime→Recovery→Retry
+ * @boundary PRL-ST-004=Direct Boundary: coordinator Test Source→対象契約
  */
 test("外部Effect不明後もexact Recovery Identityで再入場してretryする", async (t) => {
   const workingDirectory = root(t);

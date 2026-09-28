@@ -74,7 +74,7 @@ const declaredConsumerIds = declaration.consumerIds;
  * @observation Consumer集合、契約、Snapshot、未処置および混入件数を観測する。
  * @oracle 正常集合だけcompleteとなり、各反例は旧利用・混在・不足を特定してblockedとなる。
  * @cleanup 読取り専用判定のため移行Effectと残存資源は0である。
- * @boundary RCM-ST-012=System/E2E: 変更元→全Consumer→公開・署名・Release・Recovery。
+ * @boundary RCM-ST-012=Direct Boundary: version-control Test Source→対象契約
  */
 test("全Consumerを同じ固定Snapshotと新契約でSystem Closureする", () => {
   const complete = inspectMigrationSystemClosure(

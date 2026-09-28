@@ -479,7 +479,8 @@ export function resolveAiProfile(
  * 選択済みProfile IDを実行に必要なexact設定へ解決する。
  *
  * @responsibility 利用者が選んだ安定Profile IDを、同じCatalog Snapshot内のAdapter・Model・Reasoning設定へ結合する。
- * @trace ARCH-000010 ARCH-000015
+ * @trace ARCH-000010
+ * @trace ARCH-000015
  * @input catalog: 検証済みCatalog、profileId: 選択済みProfile ID。
  * @returns 一意なProfile Identity。未登録、重複またはAdapter不整合時はnull。
  * @precondition catalogはvalidateAiProfileCatalogで検証済みである。

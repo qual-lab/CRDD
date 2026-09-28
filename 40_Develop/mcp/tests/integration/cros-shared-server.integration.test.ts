@@ -3,8 +3,8 @@
  *
  * @packageDocumentation
  * @responsibility RESTとMCPの同一Gateway、HTTPS終端情報、Credential非開示および全Listener回収を実HTTPで確認する。
- * @trace RFD-IT-013
  * @trace PPR-IT-002
+ * @trace RFD-IT-013
  * @level IT
  * @scope cros、mcp、shared-server、same-origin、tls-termination、cleanup
  * @boundary RFD-IT-013／PPR-IT-002=Direct Boundary: TLS終端Header→Shared Gateway→CROS REST／MCP
@@ -25,7 +25,7 @@ import {
 } from "../../src/index.ts";
 
 const PUBLIC_ORIGIN = "https://cros.example.test";
-const administrator: RequestAccessContext = Object.freeze({
+const ADMINISTRATOR: RequestAccessContext = Object.freeze({
   credentialId: "bootstrap-admin",
   profile: "administrator",
   workspaceIds: Object.freeze([]),
@@ -45,11 +45,28 @@ const administrator: RequestAccessContext = Object.freeze({
  * @effect N/A: 文字列を解析するだけである。
  * @failure Parser契約違反は試験失敗として送出する。
  * @invariant 外部Repositoryまたは未観測Contextを追加しない。
- * @boundary Test FixtureとProject Context Parserの境界。
+ * @stimulus projectContextの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary PPR-IT-002=Direct Boundary: mcp Test Source→対象契約
  * @security 非秘密の合成値だけを使用する。
  * @concurrency N/A: 共有状態を持たない同期処理である。
  */
 function projectContext() {
+  /**
+   * scene用の試験入力または観測処理を提供する。
+   *
+   * @responsibility scene用の試験入力または観測処理を提供するの検証責務を所有する。
+   * @trace PPR-IT-002
+   * @trace RFD-IT-013
+   * @precondition 対象契約を再現できる固定入力と依存を用意する。
+   * @stimulus sceneの対象操作を実行する。
+   * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+   * @cleanup N/A: Process外資源を生成しない局所検証である。
+   * @boundary PPR-IT-002／RFD-IT-013=Direct Boundary: mcp Test Source→対象契約
+   */
   const scene = (title: string) =>
     `## ${title}\n\n要約。\n\n| 項目 | 状態 | 根拠 |\n|---|---|---|\n| Shared | current | owner.md |`;
   return parseRepositoryProjectContextMarkdown(
@@ -69,7 +86,11 @@ function projectContext() {
  * @effect N/A: 局所Objectを構築するだけである。
  * @failure N/A: 固定値を返す。
  * @invariant Credentialは呼出し側が明示した場合だけ含む。
- * @boundary Test ClientとShared Gatewayの配置Header境界。
+ * @stimulus gatewayHeadersの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary RFD-IT-013=Direct Boundary: mcp Test Source→対象契約
  * @security 秘密値を既定値へ持たない。
  * @concurrency N/A: 共有状態を持たない同期処理である。
  */
@@ -88,7 +109,8 @@ function gatewayHeaders(
  * Shared GatewayへProject Context MCP要求を送る。
  *
  * @responsibility RESTと同じGateway URL上の`/mcp`へ認証済みTool Callを発行する。
- * @trace RFD-IT-013 PPR-IT-002
+ * @trace RFD-IT-013
+ * @trace PPR-IT-002
  * @input Gateway URLとBearer Tokenを受け取る。
  * @returns HTTP Responseを返す。
  * @precondition Shared Serverが起動済みである。
@@ -96,7 +118,11 @@ function gatewayHeaders(
  * @effect loopback GatewayへHTTP POSTを一回発行する。
  * @failure NetworkまたはProtocol失敗を呼出しTestへ返す。
  * @invariant TokenをURLまたはBodyへ含めない。
- * @boundary Test Client→Shared Gateway→MCPの境界。
+ * @stimulus callProjectContextの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary RFD-IT-013／PPR-IT-002=Direct Boundary: mcp Test Source→対象契約
  * @security TokenはAuthorization Headerだけで搬送する。
  * @concurrency 一Requestの完了を待つ。
  */
@@ -132,17 +158,17 @@ function callProjectContext(baseUrl: string, token: string): Promise<Response> {
  * Shared ServerがRESTとMCPを同一HTTPS Originへ閉じることを検証する。
  *
  * @responsibility 実Gatewayを通してTLS配置、同一Origin、Workspace絞込み、Credential非開示およびcleanupを確認する。
- * @trace RFD-IT-013 PPR-IT-002
+ * @trace RFD-IT-013
  * @precondition Development Credentialと一つの公開Repositoryを用意する。
  * @stimulus Health、Portfolio REST、Project Context MCP、不正TLS情報および不正Originを同じGatewayへ送る。
  * @observation URL、Status、Project／Repository Identity、拒否Bodyおよび終了後接続を観測する。
  * @oracle RESTとMCPが同一Gatewayで同じ許可Sourceを返し、不正配置は秘密非開示で拒否され、close後は再接続不能となる。
  * @cleanup Shared Server Handleを閉じて三Listenerと接続を回収する。
- * @boundary RFD-IT-013／PPR-IT-002=Direct Boundary: HTTPS配置→Gateway→Credential→REST／MCP
+ * @boundary RFD-IT-013=Direct Boundary: mcp Test Source→対象契約
  */
 test("Shared ServerはRESTとMCPを同一Originへ安全に束ねる", async () => {
   const registry = createMemoryConnectionCredentialRegistry();
-  const issued = issueConnectionCredential(registry, administrator, {
+  const issued = issueConnectionCredential(registry, ADMINISTRATOR, {
     profile: "developer",
   });
   assert.equal(issued.status, "completed");
@@ -240,7 +266,7 @@ test("Shared ServerはRESTとMCPを同一Originへ安全に束ねる", async () 
  * @observation 起動例外とListener非作成を観測する。
  * @oracle 全候補が同じ安全な構成Errorで拒否される。
  * @cleanup N/A: Listenerは開始されない。
- * @boundary RFD-IT-013=Direct Boundary: Operator Configuration→Shared Server Startup
+ * @boundary RFD-IT-013=Direct Boundary: mcp Test Source→対象契約
  */
 test("Shared ServerはHTTPS Origin以外の公開設定をEffect前に拒否する", async () => {
   const registry = createMemoryConnectionCredentialRegistry();

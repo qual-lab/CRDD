@@ -49,7 +49,17 @@ export type McpProjectRuntimeHttpOptions = Readonly<{
   allowedOrigins?: readonly string[];
 }>;
 
-/** Request単位認証を行うStreamable HTTPの非秘密構成。 */
+/**
+ * Request単位認証を行うStreamable HTTPの非秘密構成を定義する。
+ *
+ * @responsibility Listener Portと許可OriginだけをTransport構成として保持する。
+ * @trace ARCH-000012
+ * @shape portと任意のallowedOriginsを持つ閉じた構成型である。
+ * @invariant Bearer TokenやCredentialを構成へ保持しない。
+ * @boundary Shared Server Compositionと認証済みMCP HTTP Transportの型境界。
+ * @security 秘密値をPropertyとして許可しない。
+ * @compatibility Consumerは宣言済みPropertyだけを指定する。
+ */
 export type McpAuthenticatedHttpOptions = Readonly<{
   port: number;
   allowedOrigins?: readonly string[];

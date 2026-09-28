@@ -29,7 +29,7 @@ import { publishSemanticCoverageBundleWithHooks } from "../../src/infrastructure
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-IT-018=Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
+ * @boundary PPR-IT-018=Direct Boundary: semantic-coverage Test Source→対象契約
  */
 test("Semantic Bundle公開前の失敗は既存Snapshotを置換しない", () => {
   const repositoryRoot = path.resolve(
@@ -93,7 +93,7 @@ test("Semantic Bundle公開前の失敗は既存Snapshotを置換しない", () 
  * @observation 公開結果、既存対象、Root外対象および一時file残存を観測する。
  * @oracle Root内のregular fileだけが完全内容へ置換され、Root外とLinkは変更されず拒否される。
  * @cleanup 作成したRepository-local fixtureとRoot外fixtureを必ず削除する。
- * @boundary RDL-IT-007=Direct Boundary: Semantic Bundle Publisher→Filesystem
+ * @boundary RDL-IT-007=Direct Boundary: semantic-coverage Test Source→対象契約
  */
 test("Root外とLink出力を拒否し失敗後に一時成果物を残さない", () => {
   const repositoryRoot = path.resolve(

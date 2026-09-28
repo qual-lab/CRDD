@@ -3,8 +3,8 @@
  *
  * @packageDocumentation
  * @responsibility RequestごとのCredential検証、Workspace非開示、Registry revision分離およびToken非報告をHTTP境界で検証する。
- * @trace RFD-IT-013
  * @trace PPR-IT-002
+ * @trace RFD-IT-013
  * @level IT
  * @scope cros、bearer、http、portfolio、non-disclosure
  * @boundary RFD-IT-013／PPR-IT-002=Direct Boundary: HTTP→Credential→Exposure→Portfolio
@@ -29,7 +29,7 @@ import {
   type RequestAccessContext,
 } from "../../src/index.ts";
 
-const administrator: RequestAccessContext = Object.freeze({
+const ADMINISTRATOR: RequestAccessContext = Object.freeze({
   credentialId: "bootstrap-admin",
   profile: "administrator",
   workspaceIds: Object.freeze([]),
@@ -49,11 +49,28 @@ const administrator: RequestAccessContext = Object.freeze({
  * @effect N/A: 文字列解析だけを行う。
  * @failure 不正形式はParser例外として試験を失敗させる。
  * @invariant 外部Repositoryまたは未観測値を追加しない。
- * @boundary Test Fixture→Project Context Parser。
+ * @stimulus contextの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary PPR-IT-002=Direct Boundary: cros Test Source→対象契約
  * @security 合成した非秘密Fixtureだけを使用する。
  * @concurrency N/A: 同期的な純粋関数である。
  */
 function context(repositoryId: string, repositoryRole: string) {
+  /**
+   * scene用の試験入力または観測処理を提供する。
+   *
+   * @responsibility scene用の試験入力または観測処理を提供するの検証責務を所有する。
+   * @trace PPR-IT-002
+   * @trace RFD-IT-013
+   * @precondition 対象契約を再現できる固定入力と依存を用意する。
+   * @stimulus sceneの対象操作を実行する。
+   * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+   * @cleanup N/A: Process外資源を生成しない局所検証である。
+   * @boundary PPR-IT-002／RFD-IT-013=Direct Boundary: cros Test Source→対象契約
+   */
   const scene = (title: string) =>
     `## ${title}\n\n要約。\n\n| 項目 | 状態 | 根拠 |\n|---|---|---|\n| Sample | current | owner.md |`;
   return parseRepositoryProjectContextMarkdown(
@@ -73,7 +90,11 @@ function context(repositoryId: string, repositoryRole: string) {
  * @effect HTTP GETまたはPOSTを一回発行する。
  * @failure Network失敗を試験失敗として送出する。
  * @invariant Tokenをlogへ出力しない。
- * @boundary Test Client→CROS HTTP Server。
+ * @stimulus rawRequestの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary RFD-IT-013=Direct Boundary: cros Test Source→対象契約
  * @security Response Bodyだけを観測しCredential Storeを作らない。
  * @concurrency 一Requestだけを所有する。
  */
@@ -127,17 +148,16 @@ async function rawRequest(
  *
  * @responsibility Credential RegistryとExposure Registryのrevisionを分けた実HTTP経路を検証する。
  * @trace RFD-IT-013
- * @trace PPR-IT-002
  * @precondition Developer Credential、DEV／MGMT Repositoryおよび別revisionのExposure Snapshotを用意する。
  * @stimulus 有効Tokenと無効TokenでPortfolio Routeを要求し、外部平文URLもClientへ与える。
  * @observation Project Source、HTTP拒否、Token非報告およびListener終了を観測する。
  * @oracle DEVだけを返し、MGMTを非開示とし、認証失敗と外部HTTPをEffect前に拒否する。
  * @cleanup Transport Handleを閉じる。
- * @boundary RFD-IT-013／PPR-IT-002=Direct Boundary: Bearer HTTP→Credential→Exposure→Portfolio
+ * @boundary RFD-IT-013=Direct Boundary: cros Test Source→対象契約
  */
 test("Bearer認証から許可済みPortfolioだけを取得する", async () => {
   const registry = createMemoryConnectionCredentialRegistry();
-  const issued = issueConnectionCredential(registry, administrator, {
+  const issued = issueConnectionCredential(registry, ADMINISTRATOR, {
     profile: "developer",
   });
   assert.equal(issued.status, "completed");
@@ -205,17 +225,17 @@ test("Bearer認証から許可済みPortfolioだけを取得する", async () =>
  * Remote Runtime Activityが許可済みRepositoryだけをReaderへ渡すことを検証する。
  *
  * @responsibility Content Grant、Project Identity、現在状態、Event Pageおよび非開示を同じHTTP経路で検証する。
- * @trace RFD-IT-013 PPR-IT-002
+ * @trace RFD-IT-013
  * @precondition DEVだけにGrantされたCredential、DEV／MGMT Repositoryおよび決定論的Readerを用意する。
  * @stimulus 対象Projectと未許可ProjectのRuntime Activity Routeを要求する。
  * @observation Reader入力、Response状態、Event、Continuationおよび拒否Bodyを観測する。
  * @oracle ReaderにはDEV Repositoryだけが渡り、未許可Projectの存在とMGMT Identityを開示しない。
  * @cleanup Transport Handleを閉じる。
- * @boundary RFD-IT-013／PPR-IT-002=Direct Boundary: Bearer HTTP→Exposure→Runtime Activity Reader
+ * @boundary RFD-IT-013=Direct Boundary: cros Test Source→対象契約
  */
 test("Remote Runtime Activityは許可済みRepositoryだけを投影する", async () => {
   const registry = createMemoryConnectionCredentialRegistry();
-  const issued = issueConnectionCredential(registry, administrator, {
+  const issued = issueConnectionCredential(registry, ADMINISTRATOR, {
     profile: "developer",
   });
   assert.equal(issued.status, "completed");
@@ -365,20 +385,19 @@ test("Remote Runtime Activityは許可済みRepositoryだけを投影する", as
  *
  * @responsibility Content GrantとSystem Administration Capabilityを分離し、Profile管理情報を非管理Credentialへ開示しない。
  * @trace RFD-IT-013
- * @trace PPR-IT-002
  * @precondition Administrator／Developer Credentialと既定AI Profile Catalogを用意する。
  * @stimulus 両Credentialで管理Routeを参照し、AdministratorからProfile作成を要求する。
  * @observation HTTP Status、非開示Body、Catalog revisionおよび作成Profileを観測する。
  * @oracle DeveloperはProfile件数を得ず、Administratorの閉じたMutationだけがCatalogを更新する。
  * @cleanup Transport Handleを閉じる。
- * @boundary RFD-IT-013／PPR-IT-002=Direct Boundary: Bearer HTTP→systemAdmin→AI Profile Administration
+ * @boundary RFD-IT-013=Direct Boundary: cros Test Source→対象契約
  */
 test("systemAdminだけがRemote AI Profileを参照・変更する", async () => {
   const registry = createMemoryConnectionCredentialRegistry();
-  const admin = issueConnectionCredential(registry, administrator, {
+  const admin = issueConnectionCredential(registry, ADMINISTRATOR, {
     profile: "administrator",
   });
-  const developer = issueConnectionCredential(registry, administrator, {
+  const developer = issueConnectionCredential(registry, ADMINISTRATOR, {
     profile: "developer",
   });
   assert.equal(admin.status, "completed");

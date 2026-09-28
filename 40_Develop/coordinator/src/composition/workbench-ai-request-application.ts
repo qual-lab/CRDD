@@ -3,14 +3,39 @@
  *
  * @packageDocumentation
  * @responsibility 読取り助言と変更候補を分離し、現在Process内の依頼状態、観測および取消を所有する。
- * @trace ARCH-000015 ARCH-000010
+ * @trace ARCH-000015
+ * @trace ARCH-000010
  * @boundary Workbench Application PortとCoordinatorの依頼種別別実行Adapterの境界。
  * @effect 注入された実行Adapterだけが外部Effectを発行し得る。本Moduleは依頼状態と取消Signalだけを変更する。
  * @security Promptと結果を永続化またはlog出力せず、依頼種別とProfile IDを暗黙に読み替えない。
  */
 import { randomUUID } from "node:crypto";
 
+/**
+ * Workbench AI依頼の開始・観測・取消境界で使用するCoordinatorAiRequestModeの構造を固定する。
+ *
+ * @responsibility Workbench AI依頼の開始・観測・取消境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
+
 export type CoordinatorAiRequestMode = "read_only_advice" | "change_candidate";
+
+/**
+ * Workbench AI依頼の開始・観測・取消境界で使用するCoordinatorAiRequestInputの構造を固定する。
+ *
+ * @responsibility Workbench AI依頼の開始・観測・取消境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
 
 export type CoordinatorAiRequestInput = Readonly<{
   mode: CoordinatorAiRequestMode;
@@ -21,10 +46,34 @@ export type CoordinatorAiRequestInput = Readonly<{
   externalSendConfirmed: boolean;
 }>;
 
+/**
+ * Workbench AI依頼の開始・観測・取消境界で使用するCoordinatorAiResultItemの構造を固定する。
+ *
+ * @responsibility Workbench AI依頼の開始・観測・取消境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
+
 export type CoordinatorAiResultItem = Readonly<{
   text: string;
   references: readonly string[];
 }>;
+
+/**
+ * Workbench AI依頼の開始・観測・取消境界で使用するCoordinatorAiRequestResultの構造を固定する。
+ *
+ * @responsibility Workbench AI依頼の開始・観測・取消境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
 
 export type CoordinatorAiRequestResult = Readonly<{
   status: "completed" | "blocked" | "unknown";
@@ -38,6 +87,18 @@ export type CoordinatorAiRequestResult = Readonly<{
     disposition: "untrusted_not_adopted";
   }> | null;
 }>;
+
+/**
+ * Workbench AI依頼の開始・観測・取消境界で使用するCoordinatorAiRequestSnapshotの構造を固定する。
+ *
+ * @responsibility Workbench AI依頼の開始・観測・取消境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
 
 export type CoordinatorAiRequestSnapshot = Readonly<{
   requestId: string;
@@ -61,10 +122,34 @@ export type CoordinatorAiRequestSnapshot = Readonly<{
   }> | null;
 }>;
 
+/**
+ * Workbench AI依頼の開始・観測・取消境界で使用するCoordinatorAiRequestExecutorの構造を固定する。
+ *
+ * @responsibility Workbench AI依頼の開始・観測・取消境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
+
 export type CoordinatorAiRequestExecutor = (
   request: CoordinatorAiRequestInput,
   cancellationSignal: AbortSignal,
 ) => Promise<CoordinatorAiRequestResult>;
+
+/**
+ * Workbench AI依頼の開始・観測・取消境界で使用するMutableRequestの構造を固定する。
+ *
+ * @responsibility Workbench AI依頼の開始・観測・取消境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
 
 type MutableRequest = {
   readonly requestId: string;
@@ -98,7 +183,8 @@ const RESULT_ITEM_KEYS = new Set(["text", "references"]);
  * Coordinatorの現在Process限定AI依頼Applicationを生成する。
  *
  * @responsibility 依頼種別を対応Executorへ一度だけ配送し、開始、観測、取消を同じRequest IDへ結合する。
- * @trace ARCH-000015 ARCH-000010
+ * @trace ARCH-000015
+ * @trace ARCH-000010
  * @input dependencies: 読取り助言Executorと変更候補Executor。
  * @returns Workbench互換のstart、observe、cancel Application。
  * @precondition 各Executorは自身のAuthority、外部送信、結果相関およびcleanupを所有する。
@@ -119,6 +205,22 @@ export function createCoordinatorWorkbenchAiRequestApplication(
   const requests = new Map<string, MutableRequest>();
 
   return Object.freeze({
+    /**
+     * Workbench AI依頼の開始・観測・取消境界におけるstartの処理境界を固定する。
+     *
+     * @responsibility Workbench AI依頼の開始・観測・取消境界に必要な入力処理、失敗分類および結果生成を所有する。
+     * @trace ARCH-000015
+     * @input 宣言された引数だけを受け取る。
+     * @returns 宣言された結果型を返す。
+     * @precondition 呼出し元が型、IdentityおよびAuthorityの契約を満たす。
+     * @postcondition 成功時だけ検証済みの結果を返す。
+     * @effect 宣言または注入された依存以外へEffectを発行しない。
+     * @failure 不正入力、依存失敗または観測不能を成功へ畳まない。
+     * @invariant 入力のIdentity、AuthorityおよびScopeを暗黙に拡張しない。
+     * @boundary 呼出し元と本Moduleの局所責務境界。
+     * @security 秘密値と未許可情報を出力またはlogへ追加しない。
+     * @concurrency 共有状態は宣言された所有者とlifecycleに従う。
+     */
     async start(rawRequest: unknown) {
       const request = inspectRequest(rawRequest);
       if (request === null)
@@ -150,10 +252,44 @@ export function createCoordinatorWorkbenchAiRequestApplication(
       });
     },
 
+    /**
+     * Workbench AI依頼の開始・観測・取消境界におけるobserveの処理境界を固定する。
+     *
+     * @responsibility Workbench AI依頼の開始・観測・取消境界に必要な入力処理、失敗分類および結果生成を所有する。
+     * @trace ARCH-000015
+     * @input 宣言された引数だけを受け取る。
+     * @returns 宣言された結果型を返す。
+     * @precondition 呼出し元が型、IdentityおよびAuthorityの契約を満たす。
+     * @postcondition 成功時だけ検証済みの結果を返す。
+     * @effect 宣言または注入された依存以外へEffectを発行しない。
+     * @failure 不正入力、依存失敗または観測不能を成功へ畳まない。
+     * @invariant 入力のIdentity、AuthorityおよびScopeを暗黙に拡張しない。
+     * @boundary 呼出し元と本Moduleの局所責務境界。
+     * @security 秘密値と未許可情報を出力またはlogへ追加しない。
+     * @concurrency 共有状態は宣言された所有者とlifecycleに従う。
+     */
+
     async observe(requestId: string) {
       const record = requests.get(requestId);
       return record?.snapshot ?? unknownSnapshot(requestId);
     },
+
+    /**
+     * Workbench AI依頼の開始・観測・取消境界におけるcancelの処理境界を固定する。
+     *
+     * @responsibility Workbench AI依頼の開始・観測・取消境界に必要な入力処理、失敗分類および結果生成を所有する。
+     * @trace ARCH-000015
+     * @input 宣言された引数だけを受け取る。
+     * @returns 宣言された結果型を返す。
+     * @precondition 呼出し元が型、IdentityおよびAuthorityの契約を満たす。
+     * @postcondition 成功時だけ検証済みの結果を返す。
+     * @effect 宣言または注入された依存以外へEffectを発行しない。
+     * @failure 不正入力、依存失敗または観測不能を成功へ畳まない。
+     * @invariant 入力のIdentity、AuthorityおよびScopeを暗黙に拡張しない。
+     * @boundary 呼出し元と本Moduleの局所責務境界。
+     * @security 秘密値と未許可情報を出力またはlogへ追加しない。
+     * @concurrency 共有状態は宣言された所有者とlifecycleに従う。
+     */
 
     async cancel(requestId: string) {
       const record = requests.get(requestId);
@@ -288,6 +424,23 @@ function inspectResult(value: unknown): CoordinatorAiRequestResult | null {
   });
 }
 
+/**
+ * Workbench AI依頼の開始・観測・取消境界におけるinspectCandidateの処理境界を固定する。
+ *
+ * @responsibility Workbench AI依頼の開始・観測・取消境界に必要な入力処理、失敗分類および結果生成を所有する。
+ * @trace ARCH-000015
+ * @input 宣言された引数だけを受け取る。
+ * @returns 宣言された結果型を返す。
+ * @precondition 呼出し元が型、IdentityおよびAuthorityの契約を満たす。
+ * @postcondition 成功時だけ検証済みの結果を返す。
+ * @effect 宣言または注入された依存以外へEffectを発行しない。
+ * @failure 不正入力、依存失敗または観測不能を成功へ畳まない。
+ * @invariant 入力のIdentity、AuthorityおよびScopeを暗黙に拡張しない。
+ * @boundary 呼出し元と本Moduleの局所責務境界。
+ * @security 秘密値と未許可情報を出力またはlogへ追加しない。
+ * @concurrency 共有状態は宣言された所有者とlifecycleに従う。
+ */
+
 function inspectCandidate(
   value: unknown,
 ): CoordinatorAiRequestResult["candidate"] | undefined {
@@ -325,7 +478,7 @@ function inspectResultItems(
   value: unknown,
 ): readonly CoordinatorAiResultItem[] | null {
   if (!Array.isArray(value) || value.length > 64) return null;
-  const inspected: CoordinatorAiResultItem[] = [];
+  const inspectedItems: CoordinatorAiResultItem[] = [];
   for (const item of value) {
     if (!isPlainExactRecord(item, RESULT_ITEM_KEYS)) return null;
     if (
@@ -344,21 +497,22 @@ function inspectResultItems(
       new Set(item.references).size !== item.references.length
     )
       return null;
-    inspected.push(
+    inspectedItems.push(
       Object.freeze({
         text: item.text,
         references: Object.freeze([...item.references] as string[]),
       }),
     );
   }
-  return Object.freeze(inspected);
+  return Object.freeze(inspectedItems);
 }
 
 /**
  * 外部入力を閉じたAI依頼へ変換する。
  *
  * @responsibility 許可Key、依頼種別、Profile ID、PromptおよびContext参照を検証する。
- * @trace ARCH-000015 ARCH-000010
+ * @trace ARCH-000015
+ * @trace ARCH-000010
  * @input value: Workbenchから受けた未知入力。
  * @returns 正規化済み依頼。不正時はnull。
  * @precondition valueを信頼済みObjectと仮定しない。

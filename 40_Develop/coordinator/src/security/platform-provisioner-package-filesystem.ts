@@ -2080,6 +2080,41 @@ const runtimeExternalProcessCallsites = Object.freeze(
       ["verifyRecoveryDockerCli", "(", ")"],
     ],
     [
+      "40_Develop/version-control/src/git/local-change-set-adapter.ts",
+      "createGitLocalChangeSetAdapter",
+      "spawnSync",
+      ["git"],
+      ["commandArguments"],
+    ],
+    [
+      "40_Develop/version-control/src/git/checker-repository-observation-adapter.ts",
+      "runGitCommand",
+      "spawnSync",
+      ["git"],
+      ["[", "-C", ",", "root", ",", ".", ".", ".", "commandArguments"],
+    ],
+    [
+      "40_Develop/version-control/src/git/checker-repository-observation-adapter.ts",
+      "observeDeclaredNestedRepositoryPaths",
+      "spawnSync",
+      ["git"],
+      ["[", "config"],
+    ],
+    [
+      "40_Develop/version-control/src/git/change-publication-adapter.ts",
+      "runGit",
+      "spawnSync",
+      ["git"],
+      ["args"],
+    ],
+    [
+      "40_Develop/version-control/src/git/repository-worktree-view-adapter.ts",
+      "executeGit",
+      "spawnSync",
+      ["git"],
+      ["gitArguments"],
+    ],
+    [
       "scripts/check-dynamic-fake-provider-coverage.ts",
       "inspectOnce",
       "spawnSync",
@@ -2243,6 +2278,56 @@ const exactExternalProcessCalls = Object.freeze(
       1,
       "8fd4a361488670b0d0a0235e494eaa2ee17b45f1d975dfb63214746fbefceb61",
       "ccf17e27db593206dfdef29cdaf962949c035e6ecac0a27be77388121f0bf076",
+      "result",
+    ],
+    [
+      "runtime",
+      "40_Develop/version-control/src/git/local-change-set-adapter.ts",
+      "createGitLocalChangeSetAdapter",
+      "spawnSync",
+      1,
+      "32041587e2a7386fd240e4a48d0f7d6930de5e5be3bd33b08ad209104f533cb3",
+      "9eb9b3fdd9b359b39f1ecf786b5cf46c94612cb08680d8daf165c501f0412fd3",
+      null,
+    ],
+    [
+      "runtime",
+      "40_Develop/version-control/src/git/repository-worktree-view-adapter.ts",
+      "executeGit",
+      "spawnSync",
+      1,
+      "0c5711cf209829c83552ff6798d2f7bb535eeb7a215eca0ef9debb1940ca5e98",
+      "653f839e1b63062c6ba3c097c66cce9f3632322cce54d82cd587856e591e07f9",
+      "result",
+    ],
+    [
+      "runtime",
+      "40_Develop/version-control/src/git/change-publication-adapter.ts",
+      "runGit",
+      "spawnSync",
+      1,
+      "561d4a9ba230e1a3870e92340f712e49c9c8e425de23031579ea20a6c033d7c4",
+      "f9544717ed00c056b5755e8c91f7621a8a6da48927d76fd9cc539cce5c07d090",
+      null,
+    ],
+    [
+      "runtime",
+      "40_Develop/version-control/src/git/checker-repository-observation-adapter.ts",
+      "runGitCommand",
+      "spawnSync",
+      1,
+      "338646e617127c4d017c617df01bf11d1d1c4efb7252d91d881941716aee9df8",
+      "997c44810e2ca2d53ff95f65cb512c66166a0d6c75ca8aba25ce2aeb2906d2aa",
+      null,
+    ],
+    [
+      "runtime",
+      "40_Develop/version-control/src/git/checker-repository-observation-adapter.ts",
+      "observeDeclaredNestedRepositoryPaths",
+      "spawnSync",
+      1,
+      "b09cf0ed5fc60ec8a1e609732902af2be830aa786befda6ae8a49e188d84fa78",
+      "28527b792a60b4b669a9140e96644aaea1e2da64c73c539e952d4ea3a76945d3",
       "result",
     ],
     [
@@ -3058,6 +3143,11 @@ const exactExecutableProvenance = Object.freeze(
     ...[
       "src/security/docker-owned-process.ts\0terminateAndWait",
       "scripts/verify-signed-recovery-matrix.ts\0verifyParentLossThenRecover",
+      "40_Develop/version-control/src/git/local-change-set-adapter.ts\0createGitLocalChangeSetAdapter",
+      "40_Develop/version-control/src/git/checker-repository-observation-adapter.ts\0runGitCommand",
+      "40_Develop/version-control/src/git/checker-repository-observation-adapter.ts\0observeDeclaredNestedRepositoryPaths",
+      "40_Develop/version-control/src/git/change-publication-adapter.ts\0runGit",
+      "40_Develop/version-control/src/git/repository-worktree-view-adapter.ts\0executeGit",
     ].map(
       (identity) =>
         [
@@ -5633,7 +5723,7 @@ function assertExactCapabilityGraphSourceUniverse(
   const expectedTokens = exactExternalProcessCalls.filter(
     (callsite) => callsite.graph === graph,
   );
-  const expectedCount = graph === "runtime" ? 18 : 6;
+  const expectedCount = graph === "runtime" ? 23 : 6;
   const stableIdentities = expectedTokens.map(
     (callsite) =>
       `${callsite.source}\u0000${callsite.containingFunction}\u0000${callsite.primitive}\u0000${callsite.occurrence}`,
@@ -5649,7 +5739,7 @@ function assertExactCapabilityGraphSourceUniverse(
     (flow) => `${flow.graph}\u0000${flow.source}\u0000${flow.functionName}`,
   );
   if (
-    exactExternalProcessCalls.length !== 24 ||
+    exactExternalProcessCalls.length !== 29 ||
     exactExecutableProvenance.size !== exactExternalProcessCalls.length ||
     exactExternalProcessCalls.some(
       (callsite) =>

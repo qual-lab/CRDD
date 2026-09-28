@@ -35,7 +35,7 @@ const repositoryRevision = "a".repeat(40);
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("Execution Portは既存Single Task結果契約を意味変更せず所有する", () => {
   assert.equal(
@@ -55,7 +55,7 @@ test("Execution Portは既存Single Task結果契約を意味変更せず所有�
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
  */
 function objectiveRequest() {
   return {
@@ -84,7 +84,7 @@ function objectiveRequest() {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
  */
 function integrationResult() {
   return {
@@ -113,7 +113,7 @@ function integrationResult() {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
  */
 function decisionRequest() {
   return {
@@ -138,7 +138,7 @@ function decisionRequest() {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("Objective要求は閉じた公開契約へsnapshotする", () => {
   assert.equal(
@@ -163,7 +163,7 @@ test("Objective要求は閉じた公開契約へsnapshotする", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("Objective要求は未知field・accessor・ProxyをEffect前に拒否する", () => {
   assert.equal(
@@ -219,7 +219,7 @@ test("Objective要求は未知field・accessor・ProxyをEffect前に拒否す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("Objective要求はRepository外を指すPath表現をEffect前に拒否する", () => {
   for (const pathValue of [
@@ -256,7 +256,7 @@ test("Objective要求はRepository外を指すPath表現をEffect前に拒否す
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("判断要求はTransportに依存しない閉じた公開契約へsnapshotする", () => {
   assert.equal(
@@ -281,7 +281,7 @@ test("判断要求はTransportに依存しない閉じた公開契約へsnapshot
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("判断Store RecordはProject Runtimeの閉じた意味契約で検証する", () => {
   const record = {
@@ -344,7 +344,7 @@ test("判断Store RecordはProject Runtimeの閉じた意味契約で検証す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("判断要求は未知field・改行comment・不正世代をEffect前に拒否する", () => {
   assert.equal(
@@ -377,7 +377,7 @@ test("判断要求は未知field・改行comment・不正世代をEffect前に�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("統合結果は正常完了とRecovery付き停止を区別する", () => {
   const completed = inspectProjectRuntimeIntegrationResult(integrationResult());
@@ -437,7 +437,7 @@ test("統合結果は正常完了とRecovery付き停止を区別する", () => 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
  */
 test("統合結果は成功とRecoveryの矛盾・重複・未知fieldを拒否する", () => {
   const recoveryId = "runtime-process.recovery-1";

@@ -27,7 +27,7 @@ import {
  * @observation Revision、Observed At、到着順、分類および理由を観測する。
  * @oracle 到着順に依存せずcurrent、historical、stale、unknownを理由付きで返す。
  * @cleanup N/A: Testは外部資源を作成しない。
- * @boundary PPR-IT-010=Related 2 Blocks: Clock Source→記録→Projectorを結合する。
+ * @boundary PPR-IT-010=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 test("Clock差と到着順から古いRevisionをcurrentへ昇格しない", () => {
   let clockCalls = 0;
@@ -109,7 +109,7 @@ test("Clock差と到着順から古いRevisionをcurrentへ昇格しない", () 
  * @observation null拒否結果を観測する。
  * @oracle Clock失敗と重複Identityを分類済み結果として返さない。
  * @cleanup N/A: Testは外部資源を作成しない。
- * @boundary PPR-IT-010=Related 2 Blocks: Clock Source→記録→Projectorを結合する。
+ * @boundary PPR-IT-010=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 test("Clock失敗と重複IdentityをProjection成立へ畳まない", () => {
   const input = {
@@ -154,7 +154,7 @@ test("Clock失敗と重複IdentityをProjection成立へ畳まない", () => {
  * @observation state、observedAtまたはreasonを観測する。
  * @oracle unknownをnot_observedや空値へ畳まず入力分類を保持する。
  * @cleanup N/A: Testは外部資源を作成しない。
- * @boundary PPR-IT-012=Adjacent 1 Block: Record Reader→Projectorを結合する。
+ * @boundary PPR-IT-012=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 test("Reader状態を同じ分類と根拠でProjectionへ搬送する", () => {
   assert.deepEqual(
@@ -190,7 +190,7 @@ test("Reader状態を同じ分類と根拠でProjectionへ搬送する", () => {
  * @observation null拒否結果を観測する。
  * @oracle いずれもobservedまたはnot_observedへ変換しない。
  * @cleanup N/A: Testは外部資源を作成しない。
- * @boundary PPR-IT-012=Adjacent 1 Block: Record Reader→Projectorを結合する。
+ * @boundary PPR-IT-012=Direct Boundary: execution-intelligence Test Source→対象契約
  */
 test("Reader例外と空値反例を正常Projectionへ畳まない", () => {
   assert.equal(

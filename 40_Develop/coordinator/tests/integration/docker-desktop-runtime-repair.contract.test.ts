@@ -77,7 +77,7 @@ const RUN_IDENTITY = Object.freeze({ dev: "1", ino: "2", birthtimeNs: "3" });
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 function snapshotDirectoryBytes(root: string) {
   const result = new Map<string, string>();
@@ -91,7 +91,7 @@ function snapshotDirectoryBytes(root: string) {
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+   * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
    */
   const visit = (directory: string) => {
     for (const name of fs.readdirSync(directory).sort()) {
@@ -119,7 +119,7 @@ function snapshotDirectoryBytes(root: string) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Docker停止時の空行またはJSON nullはCLI失敗とpipe不存在の両方がある場合だけ受理する", () => {
   const base = {
@@ -208,7 +208,7 @@ test("Docker停止時の空行またはJSON nullはCLI失敗とpipe不存在の�
  * @observation 観測回数、待機時間および最終状態を取得する。
  * @oracle 一時Timeoutは再観測され、全体期限超過と取消は別の状態へ収束する。
  * @cleanup N/A: 外部資源を作成しない。
- * @boundary ERB-IT-014=Related 2 Blocks: Engine Observer→待機制御
+ * @boundary ERB-IT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Docker初回起動中のCLI TimeoutはHost操作を再発行せず期限内で再観測する", async () => {
   let now = 0;
@@ -281,7 +281,7 @@ test("Docker初回起動中のCLI TimeoutはHost操作を再発行せず期限�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("実子Processの空行・JSON null・非zero終了を停止判定へ搬送する", () => {
   for (const stdout of ["\n", "\r\n", "null\n", "null\r\n", "unexpected\n"]) {
@@ -315,7 +315,7 @@ test("実子Processの空行・JSON null・非zero終了を停止判定へ搬送
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Docker runtime directoryのlock観測は特定socket名に依存せず、境界変化を拒否する", () => {
   const entries = [
@@ -452,7 +452,7 @@ const boundary: PreparedBoundary = Object.freeze({
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 function session(
   options: {
@@ -509,7 +509,7 @@ function session(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 function fixture(overrides: Partial<RepairDependencies> = {}) {
   const calls: string[] = [];
@@ -683,7 +683,7 @@ function fixture(overrides: Partial<RepairDependencies> = {}) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 function persistActualRepairRecord(
   currentBoundary: PreparedBoundary,
@@ -733,7 +733,7 @@ function persistActualRepairRecord(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 function persistActualProcessEffect(
   currentBoundary: PreparedBoundary,
@@ -807,7 +807,7 @@ function persistActualProcessEffect(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 function operationFixture(
   stage: DockerDesktopRepairOperation["stage"],
@@ -869,7 +869,7 @@ function operationFixture(
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("履歴引継ぎrouteは不正・履歴なし・終了済み・同一Session・新Sessionを排他的に分類する", () => {
   const original = operationFixture("prepared");
@@ -975,7 +975,7 @@ test("履歴引継ぎrouteは不正・履歴なし・終了済み・同一Sessio
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("履歴引継ぎ結果は元chain不変fieldと許可されたSession差分を全数検証する", () => {
   const before = operationFixture("prepared");
@@ -1205,7 +1205,7 @@ test("履歴引継ぎ結果は元chain不変fieldと許可されたSession差分
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Canonical履歴分類は全modeと非plain・余分field・疎配列・nested Proxyを一つのOwnerで閉じる", () => {
   const original = operationFixture("prepared");
@@ -1375,7 +1375,7 @@ test("Canonical履歴分類は全modeと非plain・余分field・疎配列・nes
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-012=Related 2 Blocks: Coordinator→Repair Record→Platform Adapter
+ * @boundary ERB-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("引継ぎ済みの全旧stageはHost操作を再発行せず、現在観測と明示終了だけへ接続する", async () => {
   for (const stage of DOCKER_DESKTOP_REPAIR_STAGES) {
@@ -1413,7 +1413,7 @@ test("引継ぎ済みの全旧stageはHost操作を再発行せず、現在観�
      * @observation 返却値、生成fixtureまたは観測値を取得する。
      * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
      * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-     * @boundary ERB-IT-012=Related 2 Blocks: Coordinator→Repair Record→Platform Adapter
+     * @boundary ERB-IT-012=Direct Boundary: coordinator Test Source→対象契約
      */
     const rejectHost = () => {
       hostCalls += 1;
@@ -1501,7 +1501,7 @@ test("引継ぎ済みの全旧stageはHost操作を再発行せず、現在観�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("履歴終了の異常境界は新規修復許可を出さず、既存Host操作を発行しない", async () => {
   for (const failure of [
@@ -1628,7 +1628,7 @@ test("履歴終了の異常境界は新規修復許可を出さず、既存Host�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("既知のruntime directory lockを持つ引継ぎ済み履歴は証拠を閉じ、新修復を許可する", async () => {
   const original = operationFixture("prepared", {
@@ -1726,7 +1726,7 @@ test("既知のruntime directory lockを持つ引継ぎ済み履歴は証拠を�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Host Effect非発行を証明できる引継ぎ済み履歴は現在の故障推定なしで閉じる", async () => {
   const original = operationFixture("prepared", {
@@ -1827,7 +1827,7 @@ test("Host Effect非発行を証明できる引継ぎ済み履歴は現在の故
  * @observation 終了状態、Evidence保持状態、closure書込み件数およびHost Effect件数を観測する。
  * @oracle historical_closed_retained、stale=retained、closure 1件、Host Effect 0件となる。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Host Effect非発行履歴はexactな旧stale Evidenceを削除せず閉じる", async () => {
   const original = operationFixture("prepared", {
@@ -1933,7 +1933,7 @@ test("Host Effect非発行履歴はexactな旧stale Evidenceを削除せず閉�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("旧runが新しい既知障害世代へ置換済みでも旧stale Evidenceを保持して新修復を許可する", async () => {
   const replacementRunIdentity = Object.freeze({
@@ -2042,7 +2042,7 @@ test("旧runが新しい既知障害世代へ置換済みでも旧stale Evidence
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("履歴引継ぎの保存不明は同じIDを返し、過去操作を再実行しない", async () => {
   const operation = operationFixture("renamed", {
@@ -2099,7 +2099,7 @@ test("履歴引継ぎの保存不明は同じIDを返し、過去操作を再実
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("旧Sessionで終了済みの修復は現在Dockerを観測せずEffect 0で引継ぎと終了を完了する", async () => {
   const original = operationFixture("closed_retained", {
@@ -2188,7 +2188,7 @@ test("旧Sessionで終了済みの修復は現在Dockerを観測せずEffect 0�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("実Runtime利用側は実Storeのadoptionから再ログオンhandoffとclosureまで同じ履歴を収束する", async (t) => {
   const root = fs.mkdtempSync(
@@ -2260,7 +2260,7 @@ test("実Runtime利用側は実Storeのadoptionから再ログオンhandoffとcl
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+   * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
    */
   const verifyHistory: DockerDesktopRepairHistoryVerifier = (value) => {
     const selected =
@@ -2347,7 +2347,7 @@ test("実Runtime利用側は実Storeのadoptionから再ログオンhandoffとcl
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+   * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
    */
   const createFailureCandidate = () => {
     const candidate = createDockerDesktopRepairOperation(
@@ -2632,7 +2632,7 @@ test("実Runtime利用側は実Storeのadoptionから再ログオンhandoffとcl
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Docker Desktop修復Runtimeの設計Traceを全実行する", () => {
   assertRuntimeTraceExecutionCoverage(
@@ -2652,7 +2652,7 @@ test("Docker Desktop修復Runtimeの設計Traceを全実行する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("既知障害だけを順序付きで処置し明示closeを要求する", async () => {
   const state = fixture();
@@ -2725,7 +2725,7 @@ test("既知障害だけを順序付きで処置し明示closeを要求する", 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Engine ready・unknown・socket根拠なしではDocker Host Effectを発行しない", async () => {
   for (const scenario of [
@@ -2781,7 +2781,7 @@ test("Engine ready・unknown・socket根拠なしではDocker Host Effectを発�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("intent耐久化後のEngine回復・不明はHost関数を呼ばずsettlementへ閉じる", async () => {
   for (const afterIntent of ["ready", "unknown"] as const) {
@@ -2823,7 +2823,7 @@ test("intent耐久化後のEngine回復・不明はHost関数を呼ばずsettlem
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("自然回復settlement後のEngine再停止をpendingへ永続化しない", async () => {
   let observations = 0;
@@ -2860,7 +2860,7 @@ test("自然回復settlement後のEngine再停止をpendingへ永続化しない
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("最終artifact await中のEngine回復はfresh行列で公式shutdown Effect 0にする", async () => {
   let verifyCalls = 0;
@@ -2909,7 +2909,7 @@ test("最終artifact await中のEngine回復はfresh行列で公式shutdown Effe
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Effect別fresh行列はWSL／rename直前のProcess再出現をEffect 0へ閉じる", async () => {
   let inspections = 0;
@@ -3013,7 +3013,7 @@ test("Effect別fresh行列はWSL／rename直前のProcess再出現をEffect 0へ
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("64 retained operationでは新規operation directory／recordを作らない", async () => {
   const retained = operationFixture("closed_retained", {
@@ -3062,7 +3062,7 @@ test("64 retained operationでは新規operation directory／recordを作らな�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("復旧記録の残枠不足では次のHost Effectを発行しない", async () => {
   let terminationCalls = 0;
@@ -3124,7 +3124,7 @@ test("復旧記録の残枠不足では次のHost Effectを発行しない", asy
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("境界・lock不成立とhelper cleanup不明を区別する", async () => {
   const boundaryResult =
@@ -3168,7 +3168,7 @@ test("境界・lock不成立とhelper cleanup不明を区別する", async () =>
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("記録・process inventory・rename・restartの不明を成功へ昇格しない", async () => {
   const scenarios: readonly [Partial<RepairDependencies>, string][] = [
@@ -3246,7 +3246,7 @@ test("記録・process inventory・rename・restartの不明を成功へ昇格�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("K/Nとrun path unknownは後続WSL／launcher Effectを発行しない", async () => {
   const unknownTermination = fixture({
@@ -3294,7 +3294,7 @@ test("K/Nとrun path unknownは後続WSL／launcher Effectを発行しない", a
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("helper解放不明は回復後も成功へ昇格しない", async () => {
   const result = await repairWindowsDockerDesktopRuntimeUsingDependencies(
@@ -3322,7 +3322,7 @@ test("helper解放不明は回復後も成功へ昇格しない", async () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("repairはhelper解放後のpackage世代変更をpending成功へ投影しない", async () => {
   let released = false;
@@ -3410,7 +3410,7 @@ test("repairはhelper解放後のpackage世代変更をpending成功へ投影し
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("helper解放後のboundary例外は取得済みrepair Evidenceを保持して正規化する", async () => {
   let released = false;
@@ -3498,7 +3498,7 @@ test("helper解放後のboundary例外は取得済みrepair Evidenceを保持し
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("prepared再開は過去Process EffectをEffect 0へ誤投影しない", async () => {
   const ledger: DockerDesktopRepairLedgerSnapshot = Object.freeze({
@@ -3563,7 +3563,7 @@ test("prepared再開は過去Process EffectをEffect 0へ誤投影しない", as
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("preparedの既知Effect自然回復も観測Recordとpending stageを分離する", async () => {
   const operation = operationFixture("prepared", {
@@ -3619,7 +3619,7 @@ test("preparedの既知Effect自然回復も観測Recordとpending stageを分�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("preparedはsettlement済みshutdown／K／WSLを再発行せず次の状態へ進む", async () => {
   for (const actions of [
@@ -3686,7 +3686,7 @@ test("preparedはsettlement済みshutdown／K／WSLを再発行せず次の状�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("renamed再開でEngineが既に回復済みならlauncherを二重起動しない", async () => {
   const recoveredRunIdentity = Object.freeze({
@@ -3771,7 +3771,7 @@ test("renamed再開でEngineが既に回復済みならlauncherを二重起動�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle 単一領域の再起動判定へ戻らず、Continuation能力不足としてEffect 0で停止する。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("現行の非履歴Operationも失敗起動Continuation能力を要求する", async () => {
   const operationDirectory = fs.mkdtempSync(
@@ -3856,7 +3856,7 @@ test("現行の非履歴Operationも失敗起動Continuation能力を要求す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("processes_stopped再開は既知issuedを保持してno-stale pendingへ進む", async () => {
   const ledger: DockerDesktopRepairLedgerSnapshot = Object.freeze({
@@ -3926,7 +3926,7 @@ test("processes_stopped再開は既知issuedを保持してno-stale pendingへ�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("processes_stopped再開はProcess不明または置換runをpendingへ昇格しない", async () => {
   const ledger: DockerDesktopRepairLedgerSnapshot = Object.freeze({
@@ -4003,7 +4003,7 @@ test("processes_stopped再開はProcess不明または置換runをpendingへ昇�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("rename Effect後settlement前の再開はexact staleをadoptし再renameしない", async () => {
   const ledger: DockerDesktopRepairLedgerSnapshot = Object.freeze({
@@ -4068,7 +4068,7 @@ test("rename Effect後settlement前の再開はexact staleをadoptし再rename�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("rename adoptionのfresh snapshot変化をsettlement stageへ永続化しない", async () => {
   const operation = operationFixture("processes_stopped", {
@@ -4123,7 +4123,7 @@ test("rename adoptionのfresh snapshot変化をsettlement stageへ永続化し�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("processes_stopped再開は実rev4 Storeでも単調にpersistできる", async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-repair-resume-"));
@@ -4272,7 +4272,7 @@ test("processes_stopped再開は実rev4 Storeでも単調にpersistできる", a
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+   * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
    */
   const actualIdentityAt = (target: string) => {
     try {
@@ -4385,7 +4385,7 @@ test("processes_stopped再開は実rev4 Storeでも単調にpersistできる", a
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("全5 Host Effectのwriter ack不明とdurable intent crashを実rev4 Storeで分離する", async (t) => {
   const actions = [
@@ -4421,7 +4421,7 @@ test("全5 Host Effectのwriter ack不明とdurable intent crashを実rev4 Store
        * @observation 返却値、生成fixtureまたは観測値を取得する。
        * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
        * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-       * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+       * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
        */
       const identityAt = (target: string) => {
         try {
@@ -4459,7 +4459,7 @@ test("全5 Host Effectのwriter ack不明とdurable intent crashを実rev4 Store
        * @observation 返却値、生成fixtureまたは観測値を取得する。
        * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
        * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-       * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+       * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
        */
       const count = (name: string) =>
         calls.set(name, (calls.get(name) ?? 0) + 1);
@@ -4638,7 +4638,7 @@ test("全5 Host Effectのwriter ack不明とdurable intent crashを実rev4 Store
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("official shutdown未確認のactual Store再開は全後続Host Effectを0にする", async (t) => {
   for (const observed of [
@@ -4766,7 +4766,7 @@ test("official shutdown未確認のactual Store再開は全後続Host Effectを0
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("実rev4 StoreのK/Aはshutdown・native Host call 0で保存失敗後も再観測してWSLへ進む", async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-repair-ka-"));
@@ -4786,7 +4786,7 @@ test("実rev4 StoreのK/Aはshutdown・native Host call 0で保存失敗後も�
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+   * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
    */
   const identityAt = (target: string) => {
     try {
@@ -4944,7 +4944,7 @@ test("実rev4 StoreのK/Aはshutdown・native Host call 0で保存失敗後も�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("preparedからの自然復旧は実rev4 Storeへ観測Recordとstage Recordを分離する", async (t) => {
   const root = fs.mkdtempSync(
@@ -4966,7 +4966,7 @@ test("preparedからの自然復旧は実rev4 Storeへ観測Recordとstage Recor
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+   * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
    */
   const identityAt = (target: string) => {
     try {
@@ -5070,7 +5070,7 @@ test("preparedからの自然復旧は実rev4 Storeへ観測Recordとstage Recor
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("過去Effect不明かつstaleなしは専用close後も履歴不明を保持する", async () => {
   const ledger: DockerDesktopRepairLedgerSnapshot = Object.freeze({
@@ -5144,7 +5144,7 @@ test("過去Effect不明かつstaleなしは専用close後も履歴不明を保�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("非同期境界中の取消後はsettlement Evidence以外の新Host Effectを発行しない", async () => {
   let cancel: () => void = () => undefined;
@@ -5200,7 +5200,7 @@ test("非同期境界中の取消後はsettlement Evidence以外の新Host Effec
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("helper喪失をawait中に検出した後はprocess terminationへ進まない", async () => {
   let helperFailure: () => void = () => undefined;
@@ -5243,7 +5243,7 @@ test("helper喪失をawait中に検出した後はprocess terminationへ進ま�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("cleanup settlementはpackage再計算後のhelper喪失をRecord Effect 0へ閉じる", async () => {
   let isLive = true;
@@ -5292,7 +5292,7 @@ test("cleanup settlementはpackage再計算後のhelper喪失をRecord Effect 0�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("package tupleがawait中に変化した場合は直後Effectを発行しない", async () => {
   let isPackageChanged = false;
@@ -5331,7 +5331,7 @@ test("package tupleがawait中に変化した場合は直後Effectを発行し�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("後続Process Effect不明を以前のconfirmedで隠さない", async () => {
   const result = await repairWindowsDockerDesktopRuntimeUsingDependencies(
@@ -5357,7 +5357,7 @@ test("後続Process Effect不明を以前のconfirmedで隠さない", async () 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("WSL未確認とEngine再起動失敗は成功へ昇格しない", async () => {
   const wsl = await repairWindowsDockerDesktopRuntimeUsingDependencies(
@@ -5400,7 +5400,7 @@ test("WSL未確認とEngine再起動失敗は成功へ昇格しない", async ()
  * @observation 構造化結果のengineStartupDurationMsを取得する。
  * @oracle 同一実行で起動した場合だけ実測値を返し、起動を観測していない場合は推測しない。
  * @cleanup fixtureが作成した一時資源を各Test終了時に清掃する。
- * @boundary ERB-IT-014=Related 2 Blocks: 修復制御→Engine待機結果
+ * @boundary ERB-IT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("同一実行でEngine起動を確認した場合だけ起動所要時間を参考値として返す", async () => {
   let now = 1_000;
@@ -5435,7 +5435,7 @@ test("同一実行でEngine起動を確認した場合だけ起動所要時間�
  * @observation 結果理由と追加Host Effectを観測する。
  * @oracle 通常の単一領域再開へ戻らず、失敗起動Continuationの事前条件判定へ到達する。
  * @cleanup N/A: Test Fixtureは実Host資源を変更しない。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("現行署名版が新規作成した修復も失敗起動Continuationへ接続する", async () => {
   const setup = fixture({
@@ -5487,7 +5487,7 @@ test("現行署名版が新規作成した修復も失敗起動Continuationへ�
  * @observation Repair ID、Continuation Effect、退避先、Desktop起動回数、Engine状態および最終状態を観測する。
  * @oracle 二つのrenameと一つのrelaunchが順序付きで各一回だけconfirmedになり、recovered_pending_closeへ到達する。
  * @cleanup Test専用一時Rootをfinallyで削除する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("現行署名版が新規作成した修復を複数Runtime領域の段階処置で完了する", async () => {
   const root = fs.mkdtempSync(
@@ -5526,7 +5526,7 @@ test("現行署名版が新規作成した修復を複数Runtime領域の段階�
      * @observation Directory Identityまたは不存在を返す。
      * @oracle 実在する通常DirectoryだけがIdentityを持つ。
      * @cleanup 呼出し元Test Caseが一時Rootを削除する。
-     * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+     * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
      */
     const identityAt = (target: string) => {
       try {
@@ -5732,7 +5732,7 @@ test("現行署名版が新規作成した修復を複数Runtime領域の段階�
  * @observation Repair ID、Desktop起動回数、二領域の退避、Engine状態および最終状態を観測する。
  * @oracle 同じInvocation内で初回起動と一回のContinuation再起動が行われ、recovered_pending_closeへ到達する。
  * @cleanup Test専用一時Rootをfinallyで削除する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("初回起動失敗から同じ実行内で複数Runtime領域を修復する", async () => {
   const root = fs.mkdtempSync(
@@ -5757,7 +5757,7 @@ test("初回起動失敗から同じ実行内で複数Runtime領域を修復す�
      * @observation directory種別、link有無、device、inodeおよび生成時刻を取得する。
      * @oracle 通常Directoryの完全なIdentityだけを返し、欠落・link・不完全なIdentityはnullへ閉じる。
      * @cleanup N/A: 読取り専用の観測であり資源を作成しない。
-     * @boundary ERB-IT-001=Direct Boundary: Test fixture→Filesystem metadata
+     * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
      */
     const identityAt = (target: string) => {
       try {
@@ -5941,7 +5941,7 @@ test("初回起動失敗から同じ実行内で複数Runtime領域を修復す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("署名版更新後も同じ復旧IDで失敗起動世代とSecrets Engineを段階退避して回復する", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-docker-regions-"));
@@ -5963,7 +5963,7 @@ test("署名版更新後も同じ復旧IDで失敗起動世代とSecrets Engine�
      * @observation 返却値、生成fixtureまたは観測値を取得する。
      * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
      * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-     * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+     * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
      */
     const directoryIdentity = (target: string) => {
       try {
@@ -6167,7 +6167,7 @@ test("署名版更新後も同じ復旧IDで失敗起動世代とSecrets Engine�
      * @observation 対応するRelease Identityまたはnullを取得する。
      * @oracle 既知manifestだけが対応するRelease Identityへ解決される。
      * @cleanup N/A: Test Helperは永続資源を作成しない。
-     * @boundary ERB-IT-012=Related 2 Blocks: Coordinator→Repair Record→Platform Adapter
+     * @boundary ERB-IT-012=Direct Boundary: coordinator Test Source→対象契約
      */
     const verifyHistory: DockerDesktopRepairHistoryVerifier = (value) => {
       const selected =
@@ -6243,7 +6243,7 @@ test("署名版更新後も同じ復旧IDで失敗起動世代とSecrets Engine�
      * @observation 返却値、生成fixtureまたは観測値を取得する。
      * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
      * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-     * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+     * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
      */
     const observePath = (target: string) => {
       const observed = directoryIdentity(target);
@@ -6620,7 +6620,7 @@ test("署名版更新後も同じ復旧IDで失敗起動世代とSecrets Engine�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("terminal再表示はstale exact identityと解放後package世代を再確認する", async () => {
   const ledger: DockerDesktopRepairLedgerSnapshot = Object.freeze({
@@ -6726,7 +6726,7 @@ test("terminal再表示はstale exact identityと解放後package世代を再確
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Contractは自動fallback・全WSL停止・削除・PID killを許可しない", () => {
   const contract = describeDockerDesktopRuntimeRepairContract();
@@ -6778,7 +6778,7 @@ test("Contractは自動fallback・全WSL停止・削除・PID killを許可し�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("人間表示はtri-stateと明示closeを示しPathを報告しない", () => {
   const repairId = `docker-desktop-repair.${"a".repeat(32)}`;

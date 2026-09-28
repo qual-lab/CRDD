@@ -277,7 +277,7 @@ function parseRecord(value: unknown): ConnectionCredentialRecord {
   if (!isPlainRecord(value))
     throw new Error("connection_credential_registry_schema_invalid");
   const keys = Object.keys(value).sort();
-  const expected = [
+  const expectedKeys = [
     "credentialId",
     "profile",
     "revision",
@@ -288,7 +288,7 @@ function parseRecord(value: unknown): ConnectionCredentialRecord {
     "tokenVersion",
     "workspaceIds",
   ].sort();
-  if (JSON.stringify(keys) !== JSON.stringify(expected))
+  if (JSON.stringify(keys) !== JSON.stringify(expectedKeys))
     throw new Error("connection_credential_registry_schema_invalid");
   if (
     typeof value.credentialId !== "string" ||

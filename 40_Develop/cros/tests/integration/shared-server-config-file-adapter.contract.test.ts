@@ -3,8 +3,8 @@
  *
  * @packageDocumentation
  * @responsibility OS管理Configから検証済みRepository Project ContextだけをShared Server Snapshotへ接続できることを確認する。
- * @trace RFD-IT-013
  * @trace PPR-IT-002
+ * @trace RFD-IT-013
  * @level IT
  * @scope cros、shared-server、config、repository-binding、exposure
  * @boundary RFD-IT-013／PPR-IT-002=Direct Boundary: OS Config→Git Root→Project Context→Exposure Snapshot
@@ -34,7 +34,11 @@ import { readCrosSharedServerOperationalConfig } from "../../src/index.ts";
  * @effect N/A: Objectを構築するだけである。
  * @failure 未対応Platformでは試験を失敗させる。
  * @invariant Repository RootをRuntime Rootと混同しない。
- * @boundary Test FixtureとRuntime Data Resolverの境界。
+ * @stimulus runtimeInputの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
+ * @boundary RFD-IT-013=Direct Boundary: cros Test Source→対象契約
  * @security 合成した一時Pathだけを使用する。
  * @concurrency N/A: 共有状態を持たない同期処理である。
  */
@@ -72,13 +76,30 @@ function runtimeInput(base: string): CrosRootInput {
  * @effect Directory、Git MetadataおよびMarkdown Fileを作成する。
  * @failure GitまたはFilesystem失敗を試験失敗として送出する。
  * @invariant Commit作成を成立条件にしない。
- * @boundary Test Fixtureと実Git／Filesystem境界。
+ * @stimulus createRepositoryの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
+ * @boundary PPR-IT-002=Direct Boundary: cros Test Source→対象契約
  * @security 一時Directory外へ書き込まない。
  * @concurrency 一Repositoryを同期作成する。
  */
 function createRepository(root: string): void {
   mkdirSync(root, { recursive: true });
   execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
+  /**
+   * scene用の試験入力または観測処理を提供する。
+   *
+   * @responsibility scene用の試験入力または観測処理を提供するの検証責務を所有する。
+   * @trace PPR-IT-002
+   * @trace RFD-IT-013
+   * @precondition 対象契約を再現できる固定入力と依存を用意する。
+   * @stimulus sceneの対象操作を実行する。
+   * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
+   * @boundary PPR-IT-002／RFD-IT-013=Direct Boundary: cros Test Source→対象契約
+   */
   const scene = (title: string) =>
     `## ${title}\n\n要約。\n\n| 項目 | 状態 | 根拠 |\n|---|---|---|\n| Shared | current | owner.md |`;
   writeFileSync(
@@ -92,13 +113,13 @@ function createRepository(root: string): void {
  * 固定OS ConfigからRepository ExposureとApplicationを構成できることを検証する。
  *
  * @responsibility 任意Path入力なしにHTTPS設定、exact Root、Project Context、Workspace ExposureおよびTopic／Meeting Applicationを接続する。
- * @trace RFD-IT-013 PPR-IT-002
+ * @trace RFD-IT-013
  * @precondition 一時Runtime Root、未Commit Git Repositoryおよび閉じたConfig JSONを用意する。
  * @stimulus File Adapterから運用設定を一回読取る。
  * @observation 公開Origin、Port、Snapshot revision、Binding、ExposureおよびApplication解決を観測する。
  * @oracle ConfigとProject ContextのIdentityだけが公開Snapshotへ入り、RepositoryはCommitなしでも利用できる。
  * @cleanup 一時Runtime／Repository Rootを再帰削除する。
- * @boundary RFD-IT-013／PPR-IT-002=Direct Boundary: Fixed Config→Verified Git Root→Project Context→Exposure
+ * @boundary RFD-IT-013=Direct Boundary: cros Test Source→対象契約
  */
 test("OS管理Configから検証済みShared Server Snapshotを構成する", () => {
   const base = mkdtempSync(path.join(tmpdir(), "crdd-shared-config-"));
@@ -158,7 +179,7 @@ test("OS管理Configから検証済みShared Server Snapshotを構成する", ()
  * @observation 閉じたSchema／Root Errorを観測する。
  * @oracle どちらもExposure Snapshotを返さず拒否される。
  * @cleanup 一時Rootを再帰削除する。
- * @boundary RFD-IT-013=Direct Boundary: Untrusted Config→Startup Validation
+ * @boundary RFD-IT-013=Direct Boundary: cros Test Source→対象契約
  */
 test("Shared Server Configは平文OriginとRepository Subdirectoryを拒否する", () => {
   const base = mkdtempSync(path.join(tmpdir(), "crdd-shared-invalid-"));
@@ -173,6 +194,19 @@ test("Shared Server Configは平文OriginとRepository Subdirectoryを拒否す�
     if (runtimeRoots === null) return;
     mkdirSync(runtimeRoots.config, { recursive: true });
     const file = path.join(runtimeRoots.config, "shared-server.json");
+    /**
+     * writeConfig用の試験入力または観測処理を提供する。
+     *
+     * @responsibility writeConfig用の試験入力または観測処理を提供するの検証責務を所有する。
+     * @trace PPR-IT-002
+     * @trace RFD-IT-013
+     * @precondition 対象契約を再現できる固定入力と依存を用意する。
+     * @stimulus writeConfigの対象操作を実行する。
+     * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+     * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+     * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
+     * @boundary PPR-IT-002／RFD-IT-013=Direct Boundary: cros Test Source→対象契約
+     */
     const writeConfig = (publicOrigin: string, repository: string) =>
       writeFileSync(
         file,

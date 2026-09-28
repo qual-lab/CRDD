@@ -38,7 +38,7 @@ const runner = path.join(verificationRunnerRoot, "bin", "regression-runner.ts");
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner
+ * @boundary CQS-IT-011=Direct Boundary: verification-runner Test Source→対象契約
  */
 function invokeRunner(runnerArguments: readonly string[]) {
   return spawnSync(process.execPath, [runner, ...runnerArguments], {
@@ -58,7 +58,7 @@ function invokeRunner(runnerArguments: readonly string[]) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-IT-013=Direct Boundary: 検証要求→人間許可→Runner
+ * @boundary CQS-IT-013=Direct Boundary: verification-runner Test Source→対象契約
  */
 test("PT／LTは全Authority条件が揃う前に試験Processを開始しない", () => {
   const result = invokeRunner([
@@ -87,7 +87,7 @@ test("PT／LTは全Authority条件が揃う前に試験Processを開始しない
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-IT-013=Direct Boundary: 検証要求→人間許可→Runner
+ * @boundary CQS-IT-013=Direct Boundary: verification-runner Test Source→対象契約
  */
 test("Credit 0を含む明示AuthorityはPTの計画だけを許可する", () => {
   const result = invokeRunner([
@@ -135,7 +135,7 @@ test("Credit 0を含む明示AuthorityはPTの計画だけを許可する", () =
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-IT-013=Direct Boundary: 検証要求→人間許可→Runner
+ * @boundary CQS-IT-013=Direct Boundary: verification-runner Test Source→対象契約
  */
 test("明示AuthorityがあってもPT／LTは上限強制実装まで計画だけとする", () => {
   const result = invokeRunner([
@@ -180,7 +180,7 @@ test("明示AuthorityがあってもPT／LTは上限強制実装まで計画だ�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner
+ * @boundary CQS-IT-011=Direct Boundary: verification-runner Test Source→対象契約
  */
 test("通常回帰はUT／IT／STだけを実行可能集合へ選ぶ", () => {
   const result = invokeRunner([
@@ -214,7 +214,7 @@ test("通常回帰はUT／IT／STだけを実行可能集合へ選ぶ", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner
+ * @boundary CQS-IT-011=Direct Boundary: verification-runner Test Source→対象契約
  */
 test("外部Provider試験を含む変更でもEffect 0の計画表示は停止しない", () => {
   const changedPath =
@@ -258,7 +258,7 @@ test("外部Provider試験を含む変更でもEffect 0の計画表示は停止�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-007=Adjacent 1 Block: 開発試験runner→子Process→fixture
+ * @boundary RCM-IT-007=Direct Boundary: verification-runner Test Source→対象契約
  */
 test("Windows実Process試験は専用実行Profileを計画へ明示する", () => {
   const result = invokeRunner([
@@ -295,7 +295,7 @@ test("Windows実Process試験は専用実行Profileを計画へ明示する", ()
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-007=Adjacent 1 Block: 開発試験runner→子Process→fixture
+ * @boundary RCM-IT-007=Direct Boundary: verification-runner Test Source→対象契約
  */
 test("Windows実Process試験は専用実行Authorityなしに試験Processを開始しない", {
   skip: process.platform !== "win32",
@@ -325,7 +325,7 @@ test("Windows実Process試験は専用実行Authorityなしに試験Processを�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner
+ * @boundary CQS-IT-011=Direct Boundary: verification-runner Test Source→対象契約
  */
 test("Tool配下MarkdownもCheckerとRepository静的検査へ接続する", () => {
   for (const changedPath of [
@@ -366,7 +366,7 @@ test("Tool配下MarkdownもCheckerとRepository静的検査へ接続する", () 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner
+ * @boundary CQS-IT-011=Direct Boundary: verification-runner Test Source→対象契約
  */
 test("共通component変更は利用側契約と利用側静的検査を同じ計画へ含める", () => {
   const result = invokeRunner([
@@ -402,7 +402,7 @@ test("共通component変更は利用側契約と利用側静的検査を同じ�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner
+ * @boundary CQS-IT-011=Direct Boundary: verification-runner Test Source→対象契約
  */
 test("利用側静的検査はunit限定でも残し、利用側ITは実行しない", () => {
   const result = invokeRunner([
@@ -444,7 +444,7 @@ test("利用側静的検査はunit限定でも残し、利用側ITは実行し�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner
+ * @boundary CQS-IT-011=Direct Boundary: verification-runner Test Source→対象契約
  */
 test("実行知の静的検査はCoordinatorのtoolchainを参照しない", () => {
   const source = fs.readFileSync(
@@ -494,7 +494,7 @@ const selectedRegressionEntriesWithHumanAcceptance = [
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary CQS-IT-012=Related 2 Blocks: Verification Runner→段階実行→結果集約
+ * @boundary CQS-IT-012=Direct Boundary: verification-runner Test Source→対象契約
  */
 function executeInjectedPlan(
   failedStep: string | null = null,
@@ -537,7 +537,7 @@ function executeInjectedPlan(
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-IT-012=Related 2 Blocks: Verification Runner→段階実行→結果集約
+ * @boundary CQS-IT-012=Direct Boundary: verification-runner Test Source→対象契約
  */
 test("実配線は表示した同じ計画を静的確認からWindows GateとSTまで順序実行する", () => {
   const { observedSteps, plans, results } = executeInjectedPlan();
@@ -576,7 +576,7 @@ test("実配線は表示した同じ計画を静的確認からWindows GateとST
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-IT-012=Related 2 Blocks: Verification Runner→段階実行→結果集約
+ * @boundary CQS-IT-012=Direct Boundary: verification-runner Test Source→対象契約
  */
 test("同じ計画の各工程失敗は後続levelとWindows Gateを開始しない", () => {
   for (const failedStep of [
@@ -608,7 +608,7 @@ test("同じ計画の各工程失敗は後続levelとWindows Gateを開始しな
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-IT-012=Related 2 Blocks: Verification Runner→段階実行→結果集約
+ * @boundary CQS-IT-012=Direct Boundary: verification-runner Test Source→対象契約
  */
 test("Windows Gate不要時は表示計画にも実行記録にも現れない", () => {
   const { plans, observedSteps, results } = executeInjectedPlan(null, false);
@@ -633,7 +633,7 @@ test("Windows Gate不要時は表示計画にも実行記録にも現れない",
  * @observation 実行した段階、UATの未実行理由、各段階の終了状態を観測する。
  * @oracle UAT以外だけを順序実行し、UATをnot_run_due_to_human_inputとして保持する。
  * @cleanup 外部Process、一時資源および人間入力を発行しない。
- * @boundary CQS-IT-012=Related 2 Blocks: Verification Runner→段階実行→結果集約
+ * @boundary CQS-IT-012=Direct Boundary: verification-runner Test Source→対象契約
  */
 test("UATを含む固定計画は自動段階を実行し、人間入力待ちを未実行理由付きで保持する", () => {
   const { observedSteps, plans, results } = executeInjectedPlan(
@@ -679,7 +679,7 @@ test("UATを含む固定計画は自動段階を実行し、人間入力待ち�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner
+ * @boundary CQS-IT-011=Direct Boundary: verification-runner Test Source→対象契約
  */
 test("明示変更PathはRepository内の正規化相対Pathだけを受理する", () => {
   for (const changedPath of [
@@ -709,7 +709,7 @@ test("明示変更PathはRepository内の正規化相対Pathだけを受理す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner
+ * @boundary CQS-IT-011=Direct Boundary: verification-runner Test Source→対象契約
  */
 test("Git変更集合はcommit・index・worktree・未追跡とrename両側を合成する", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-regression-git-"));
@@ -723,7 +723,7 @@ test("Git変更集合はcommit・index・worktree・未追跡とrename両側を�
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner
+   * @boundary CQS-IT-011=Direct Boundary: verification-runner Test Source→対象契約
    */
   const git = (...gitArguments: string[]) =>
     execFileSync("git", gitArguments, { cwd: root, stdio: "pipe" });

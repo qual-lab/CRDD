@@ -206,10 +206,12 @@
       "kind": "test-suite",
       "path": "tests/unit/candidate-adoption-application.contract.test.ts",
       "qaIds": [
+        "QA-000003",
         "QA-000005"
       ],
       "localTestIds": [
-        "CPR-UT-009"
+        "CPR-UT-009",
+        "PRL-UT-006"
       ],
       "verifies": [
         "project-runtime.candidate-adoption-application"

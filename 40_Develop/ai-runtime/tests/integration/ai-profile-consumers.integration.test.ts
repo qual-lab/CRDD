@@ -1,8 +1,8 @@
 /**
  * AI Profile CatalogからCoordinator解決とWorkbench表示までの接続を検証する。
  *
- * @responsibility 同じProfile Identityと未観測状態がConsumer間で再解釈されないことを反証する。
  * @packageDocumentation
+ * @responsibility 同じProfile Identityと未観測状態がConsumer間で再解釈されないことを反証する。
  * @trace RCM-IT-005
  * @level IT
  * @scope ai-profile、coordinator、workbench
@@ -28,7 +28,7 @@ import { DEFAULT_AI_PROFILE_CATALOG } from "../../src/index.ts";
  * @observation Coordinator結果とHTMLに現れるProfile ID、Model、利用可能性を観測する。
  * @oracle PROFILE-100003とgpt-5.5が両Consumerで一致し、未観測はunknownである。
  * @cleanup N/A: 外部資源を生成しない。
- * @boundary RCM-IT-005=Direct Boundary: AI Runtime Catalog→Coordinator／Workbench Consumer
+ * @boundary RCM-IT-005=Direct Boundary: ai-runtime Test Source→対象契約
  */
 test("CoordinatorとWorkbenchは同じProfile Identityを再解釈せず利用する", () => {
   const resolved = resolveRuntimeOwnedProviderModelProfile({

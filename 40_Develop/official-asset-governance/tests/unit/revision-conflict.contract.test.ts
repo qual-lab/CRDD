@@ -27,7 +27,7 @@ import {
  * @observation 有効な候補Recordを返す。
  * @oracle candidateかつrecordRevision 4のRecordになる。
  * @cleanup N/A: 外部資源を作成しない。
- * @boundary N/A: Process内fixtureだけを構築する。
+ * @boundary OAG-UT-008=Direct Boundary: official-asset-governance Test Source→対象契約
  */
 function candidate(): OfficialAssetRecord {
   return Object.freeze({
@@ -54,7 +54,7 @@ function candidate(): OfficialAssetRecord {
  * @observation 判断入力を返す。
  * @oracle 権利根拠、用途、判断者および対象版がすべて埋まる。
  * @cleanup N/A: 外部資源を作成しない。
- * @boundary N/A: Process内fixtureだけを構築する。
+ * @boundary OAG-UT-008=Direct Boundary: official-asset-governance Test Source→対象契約
  */
 function decision(expectedRecordRevision: number): OfficialAssetDecisionInput {
   return Object.freeze({
@@ -80,7 +80,7 @@ function decision(expectedRecordRevision: number): OfficialAssetDecisionInput {
  * @observation 勝者Revision、敗者理由およびStore Effect許可を観測する。
  * @oracle 第一判断だけがRevision 5へ進み、第二判断はrevision_conflictかつEffect 0となる。
  * @cleanup N/A: 純粋値だけを使用する。
- * @boundary N/A: Domain単位境界から外部Effectを発行しない。
+ * @boundary OAG-UT-008=Direct Boundary: official-asset-governance Test Source→対象契約
  */
 test("古いRevisionの判断は勝者状態を上書きしない", () => {
   const first = applyOfficialAssetDecision(candidate(), decision(4));

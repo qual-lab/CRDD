@@ -1,4 +1,13 @@
-/** Topic／Meeting共通ApplicationのPaginationとCRUD委譲を検証する。 */
+/**
+ * project-operation:integration:topic-meeting-applicationの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility project-operation:integration:topic-meeting-applicationが宣言する検証責務と終了後条件を所有する。
+ * @trace CPR-IT-008
+ * @level IT
+ * @scope project-operation、contract、local_component_boundary
+ * @boundary CPR-IT-008=Direct Boundary: project-operation Test Source→対象契約
+ */
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -10,6 +19,18 @@ import {
   createTopicMeetingRepository,
 } from "../../src/index.ts";
 
+/**
+ * topic用の試験入力または観測処理を提供する。
+ *
+ * @responsibility topic用の試験入力または観測処理を提供するの検証責務を所有する。
+ * @trace CPR-IT-008
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus topicの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
+ * @boundary CPR-IT-008=Direct Boundary: project-operation Test Source→対象契約
+ */
 function topic(
   id: string,
   input: Readonly<{
@@ -22,6 +43,18 @@ function topic(
   return `# ${input.title ?? id}\n\n成果物種別: Topic\nTopic ID: \`${id}\`\nProject ID: \`PRJ-001\`\n状態: \`${input.state ?? "open"}\`\n改訂: \`1\`\n維持責任者: \`${input.owner ?? "Project Operator"}\`\n\n## 1. 現在の論点\n\n### 結論\n\n${id}を確認する。\n\n## 3. 関係\n\n| 関係種別 | 対象ID／参照 | このTopicとの関係 |\n|---|---|---|\n| related | \`${input.relation ?? "N/A: 関係なし"}\` | fixture |\n\n## 4. 次の行動\n\n| 行動 | Owner | 期限／再評価契機 | 完了条件 | 状態 |\n|---|---|---|---|---|\n| 確認する | PM | 次回 | 判断する | \`open\` |\n\n## 5. 終了・昇格\n\n| 項目 | 内容 |\n|---|---|\n| 処置 | \`N/A: open／waitingでは未処置\` |\n| 昇格先 | \`N/A: 未昇格\` |\n| 終了理由 | \`N/A: 未終了\` |\n| 残る影響 | \`N/A: 未終了\` |\n`;
 }
 
+/**
+ * meeting用の試験入力または観測処理を提供する。
+ *
+ * @responsibility meeting用の試験入力または観測処理を提供するの検証責務を所有する。
+ * @trace CPR-IT-008
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus meetingの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
+ * @boundary CPR-IT-008=Direct Boundary: project-operation Test Source→対象契約
+ */
 function meeting(
   outcomes: readonly string[] = ["OUT-001"],
   input: Readonly<{ id?: string; occurredAt?: string }> = {},
@@ -72,6 +105,18 @@ ${actionRows}
 `;
 }
 
+/**
+ * ID CursorでTopic一覧を欠落なく分割するを検証する。
+ *
+ * @responsibility ID CursorでTopic一覧を欠落なく分割するを検証するの検証責務を所有する。
+ * @trace CPR-IT-008
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus ID CursorでTopic一覧を欠落なく分割するの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
+ * @boundary CPR-IT-008=Direct Boundary: project-operation Test Source→対象契約
+ */
 test("ID CursorでTopic一覧を欠落なく分割する", () => {
   const root = mkdtempSync(path.join(tmpdir(), "crdd-topic-page-"));
   try {
@@ -104,6 +149,18 @@ test("ID CursorでTopic一覧を欠落なく分割する", () => {
   }
 });
 
+/**
+ * TopicとMeetingを検索・絞込み・並び順付きCursorで取得するを検証する。
+ *
+ * @responsibility TopicとMeetingを検索・絞込み・並び順付きCursorで取得するを検証するの検証責務を所有する。
+ * @trace CPR-IT-008
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus TopicとMeetingを検索・絞込み・並び順付きCursorで取得するの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
+ * @boundary CPR-IT-008=Direct Boundary: project-operation Test Source→対象契約
+ */
 test("TopicとMeetingを検索・絞込み・並び順付きCursorで取得する", () => {
   const root = mkdtempSync(path.join(tmpdir(), "crdd-topic-filter-"));
   try {
@@ -205,6 +262,18 @@ test("TopicとMeetingを検索・絞込み・並び順付きCursorで取得す�
   }
 });
 
+/**
+ * Topic／Meeting／CHG Relationを安定IDと存在状態へ解決するを検証する。
+ *
+ * @responsibility Topic／Meeting／CHG Relationを安定IDと存在状態へ解決するを検証するの検証責務を所有する。
+ * @trace CPR-IT-008
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus Topic／Meeting／CHG Relationを安定IDと存在状態へ解決するの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
+ * @boundary CPR-IT-008=Direct Boundary: project-operation Test Source→対象契約
+ */
 test("Topic／Meeting／CHG Relationを安定IDと存在状態へ解決する", () => {
   const root = mkdtempSync(path.join(tmpdir(), "crdd-topic-relations-"));
   try {
@@ -242,6 +311,18 @@ test("Topic／Meeting／CHG Relationを安定IDと存在状態へ解決する", 
   }
 });
 
+/**
+ * Topicを実在CHGへ昇格し状態・Relation・改訂を同時更新するを検証する。
+ *
+ * @responsibility Topicを実在CHGへ昇格し状態・Relation・改訂を同時更新するを検証するの検証責務を所有する。
+ * @trace CPR-IT-008
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus Topicを実在CHGへ昇格し状態・Relation・改訂を同時更新するの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
+ * @boundary CPR-IT-008=Direct Boundary: project-operation Test Source→対象契約
+ */
 test("Topicを実在CHGへ昇格し状態・Relation・改訂を同時更新する", () => {
   const root = mkdtempSync(path.join(tmpdir(), "crdd-topic-promote-"));
   try {
@@ -295,6 +376,18 @@ test("Topicを実在CHGへ昇格し状態・Relation・改訂を同時更新す�
   }
 });
 
+/**
+ * Meeting OutcomeをTopicへ移管し全件処置後にCloseするを検証する。
+ *
+ * @responsibility Meeting OutcomeをTopicへ移管し全件処置後にCloseするを検証するの検証責務を所有する。
+ * @trace CPR-IT-008
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus Meeting OutcomeをTopicへ移管し全件処置後にCloseするの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
+ * @boundary CPR-IT-008=Direct Boundary: project-operation Test Source→対象契約
+ */
 test("Meeting OutcomeをTopicへ移管し全件処置後にCloseする", () => {
   const root = mkdtempSync(path.join(tmpdir(), "crdd-meeting-outcome-"));
   try {
@@ -333,6 +426,18 @@ test("Meeting OutcomeをTopicへ移管し全件処置後にCloseする", () => {
   }
 });
 
+/**
+ * Outcome移管先不存在と未処置Outcomeを残すCloseをEffect 0で拒否するを検証する。
+ *
+ * @responsibility Outcome移管先不存在と未処置Outcomeを残すCloseをEffect 0で拒否するを検証するの検証責務を所有する。
+ * @trace CPR-IT-008
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus Outcome移管先不存在と未処置Outcomeを残すCloseをEffect 0で拒否するの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
+ * @boundary CPR-IT-008=Direct Boundary: project-operation Test Source→対象契約
+ */
 test("Outcome移管先不存在と未処置Outcomeを残すCloseをEffect 0で拒否する", () => {
   const root = mkdtempSync(path.join(tmpdir(), "crdd-meeting-outcome-block-"));
   try {

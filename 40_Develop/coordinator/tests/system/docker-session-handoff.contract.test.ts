@@ -44,7 +44,7 @@ const binding = Object.freeze({
  * @observation chain順序、Runtime Identity、phase、回復義務および拒否時Effect件数を観測する。
  * @oracle 正常chainだけsettledとなり、不正・不明chainはEffect 0で同じ回復義務を保持する。
  * @cleanup 正常完了後に旧Session所有資源と旧Host Effectの再発行が0であることを確認する。
- * @boundary ERB-ST-011=System/E2E: repair／restart→handoff chain→別Session／Runtime→closure。
+ * @boundary ERB-ST-011=Direct Boundary: coordinator Test Source→対象契約
  */
 test("別Runtimeへ同じDocker回復義務をhandoffし不正chainを拒否する", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-docker-handoff-"));
@@ -60,7 +60,7 @@ test("別Runtimeへ同じDocker回復義務をhandoffし不正chainを拒否す�
    * @observation Workerが返したPID、Effect、資源数およびclosure状態を取得する。
    * @oracle Workerが正常終了し、JSON結果が期待する観測契約へ変換できる。
    * @cleanup Workerは同期終了し、生成Fileは親Testのafter hookが一括清掃する。
-   * @boundary ERB-ST-011=System/E2E: 親Test→別Node Process→耐久引継ぎFile→構造化結果。
+   * @boundary ERB-ST-011=Direct Boundary: coordinator Test Source→対象契約
    */
   const runWorker = (command: string, workerBinding: typeof binding) =>
     JSON.parse(

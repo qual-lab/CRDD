@@ -3,7 +3,8 @@
  *
  * @packageDocumentation
  * @responsibility 標準入力送信、取消、cleanup確認およびRuntime抽出済み助言JSONの受理を一つの助言実行Lifecycleへ閉じる。
- * @trace ARCH-000010 ARCH-000015
+ * @trace ARCH-000010
+ * @trace ARCH-000015
  * @boundary Workbench Provider Adapterと署名Provider Runtime lifecycleの間。
  * @effect 注入されたRuntime Portを通じて選択Providerを最大一回実行する。
  * @security Repository非共有の検証済みCommand PlanとPromptだけをRuntime Portへ渡し、生Provider出力を公開しない。
@@ -14,6 +15,18 @@ import type { WorkbenchAiAdviceExecutionPlan } from "./workbench-ai-advice-execu
 export const WORKBENCH_AI_ADVICE_PROVIDER_EXECUTOR_CONTRACT =
   "crdd-coordinator/workbench-ai-advice-provider-executor";
 export const WORKBENCH_AI_ADVICE_PROVIDER_EXECUTOR_CONTRACT_REVISION = 1;
+
+/**
+ * Workbench助言Provider ExecutorのRuntime接続境界で使用するWorkbenchAiAdviceRuntimeResultの構造を固定する。
+ *
+ * @responsibility Workbench助言Provider ExecutorのRuntime接続境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000010
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
 
 export type WorkbenchAiAdviceRuntimeResult = Readonly<
   | {
@@ -32,6 +45,18 @@ export type WorkbenchAiAdviceRuntimeResult = Readonly<
     }
 >;
 
+/**
+ * Workbench助言Provider ExecutorのRuntime接続境界で使用するWorkbenchAiAdviceRuntimePortの構造を固定する。
+ *
+ * @responsibility Workbench助言Provider ExecutorのRuntime接続境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000010
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
+
 export type WorkbenchAiAdviceRuntimePort = (
   executionPlan: WorkbenchAiAdviceExecutionPlan,
   cancellationSignal: AbortSignal,
@@ -41,7 +66,8 @@ export type WorkbenchAiAdviceRuntimePort = (
  * Workbench助言用Provider Executorを生成する。
  *
  * @responsibility 検証済み計画だけをRuntimeへ渡し、cleanup後にRuntimeが抽出した共通助言JSONだけを受理する。
- * @trace ARCH-000010 ARCH-000015
+ * @trace ARCH-000010
+ * @trace ARCH-000015
  * @input runtime: 署名Provider Runtime lifecycleを所有するPort。
  * @returns Provider Adapterへ注入できるExecutor。
  * @precondition runtimeはProcess、Network、取消およびcleanupを所有する。
@@ -101,7 +127,8 @@ export function createWorkbenchAiAdviceProviderExecutor(
  * 実行計画が助言専用の非共有境界を維持するか判定する。
  *
  * @responsibility 外部Effect直前に上位計画とProvider CommandのIdentity・禁止条件を再照合する。
- * @trace ARCH-000010 ARCH-000015
+ * @trace ARCH-000010
+ * @trace ARCH-000015
  * @input plan: Workbench助言実行計画。
  * @returns Effect発行可能な閉じた計画の場合だけtrue。
  * @precondition planはProvider Adapterから渡されるが信頼済みと仮定しない。
@@ -137,7 +164,8 @@ function safePlan(plan: WorkbenchAiAdviceExecutionPlan) {
  * Provider Executorの拒否結果を生成する。
  *
  * @responsibility Effect発行とcleanup状態を失わず、生出力なしの公開結果へ閉じる。
- * @trace ARCH-000010 ARCH-000015
+ * @trace ARCH-000010
+ * @trace ARCH-000015
  * @input reason: 拒否理由、providerEffectIssued: Effect発行有無、cleanupConfirmed: cleanup確認結果。
  * @returns rawOutputを含まないblocked結果。
  * @precondition reasonは秘密値やProvider本文を含まない。

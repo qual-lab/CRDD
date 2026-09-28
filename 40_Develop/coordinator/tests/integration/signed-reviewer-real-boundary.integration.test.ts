@@ -26,7 +26,7 @@ const isExplicitlyEnabled =
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: coordinator Test Source→対象契約
  */
 test("署名済み候補で実Codex／Claude Reviewer境界を4経路E2E前に結合確認する", {
   skip: !isExplicitlyEnabled,

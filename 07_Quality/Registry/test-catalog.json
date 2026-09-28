@@ -3967,10 +3967,10 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "mcp:unit:topic-meeting",
+      "id": "mcp:integration:topic-meeting",
       "owner": "mcp",
-      "path": "40_Develop/mcp/tests/unit/topic-meeting-adapter.contract.test.ts",
-      "level": "unit",
+      "path": "40_Develop/mcp/tests/integration/topic-meeting-adapter.contract.test.ts",
+      "level": "integration",
       "kind": "contract",
       "semanticTags": [
         "mcp",

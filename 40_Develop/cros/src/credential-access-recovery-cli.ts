@@ -106,6 +106,7 @@ export async function runCredentialAccessRecoveryCli(
  */
 function publicResult(result: CredentialAccessRecoveryResult): unknown {
   if (result.status === "completed") return result;
-  const { token: _token, ...publicFields } = result;
+  const { token: ignoredToken, ...publicFields } = result;
+  void ignoredToken;
   return publicFields;
 }

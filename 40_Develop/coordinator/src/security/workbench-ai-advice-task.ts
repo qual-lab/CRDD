@@ -30,8 +30,8 @@ const PROFILE_ID_PATTERN = /^PROFILE-\d{6,}$/u;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
 const REFERENCE_PATTERN =
   /^(?!\/)(?!.*(?:^|\/)\.\.(?:\/|$))(?!.*\\)[^\0#\r\n]+(?:#[^\0#\r\n]+)?$/u;
-const INPUT_KEYS = ["profileId", "prompt", "projection"] as const;
-const PROJECTION_KEYS = ["reference", "content", "sha256"] as const;
+const inputKeys = ["profileId", "prompt", "projection"] as const;
+const projectionKeys = ["reference", "content", "sha256"] as const;
 
 /**
  * 読取り助言へ渡す一つの許可済み投影を表す。
@@ -107,7 +107,7 @@ export type WorkbenchAiAdviceTaskPacket = Readonly<{
  * @concurrency N/A: 共有状態を持たない同期処理である。
  */
 export function prepareWorkbenchAiAdviceTask(input: unknown) {
-  if (!isExactRecord(input, INPUT_KEYS))
+  if (!isExactRecord(input, inputKeys))
     return blocked("workbench_ai_advice_task_schema_invalid");
   if (
     typeof input.profileId !== "string" ||
@@ -120,11 +120,11 @@ export function prepareWorkbenchAiAdviceTask(input: unknown) {
   )
     return blocked("workbench_ai_advice_task_input_invalid");
 
-  const projection: WorkbenchAiAdviceProjectionItem[] = [];
+  const projectionItems: WorkbenchAiAdviceProjectionItem[] = [];
   let projectionBytes = 0;
   for (const candidate of input.projection) {
     if (
-      !isExactRecord(candidate, PROJECTION_KEYS) ||
+      !isExactRecord(candidate, projectionKeys) ||
       !validReference(candidate.reference) ||
       !validProjectionContent(
         candidate.content,
@@ -142,7 +142,7 @@ export function prepareWorkbenchAiAdviceTask(input: unknown) {
       containsRecognizedSecretMaterial(candidate.reference, candidate.content)
     )
       return blocked("workbench_ai_advice_projection_invalid");
-    projection.push(
+    projectionItems.push(
       Object.freeze({
         reference: candidate.reference,
         content: candidate.content,
@@ -150,16 +150,16 @@ export function prepareWorkbenchAiAdviceTask(input: unknown) {
       }),
     );
   }
-  const allowedReferences = projection.map((item) => item.reference);
+  const allowedReferences = projectionItems.map((item) => item.reference);
   if (new Set(allowedReferences).size !== allowedReferences.length)
     return blocked("workbench_ai_advice_projection_duplicate");
 
-  const frozenProjection = Object.freeze(projection);
-  const projectionHash = sha256(JSON.stringify(frozenProjection));
+  const frozenProjectionItems = Object.freeze(projectionItems);
+  const projectionHash = sha256(JSON.stringify(frozenProjectionItems));
   const providerPrompt = buildProviderPrompt(
     input.profileId,
     input.prompt,
-    frozenProjection,
+    frozenProjectionItems,
   );
   const taskHash = sha256(
     JSON.stringify({
@@ -179,7 +179,7 @@ export function prepareWorkbenchAiAdviceTask(input: unknown) {
       contractRevision: WORKBENCH_AI_ADVICE_TASK_CONTRACT_REVISION,
       profileId: input.profileId,
       prompt: input.prompt,
-      projection: frozenProjection,
+      projection: frozenProjectionItems,
       allowedReferences: Object.freeze(allowedReferences),
       projectionHash,
       taskHash,
@@ -243,7 +243,7 @@ export function describeWorkbenchAiAdviceTaskContract() {
 function buildProviderPrompt(
   profileId: string,
   prompt: string,
-  projection: readonly WorkbenchAiAdviceProjectionItem[],
+  projectionItems: readonly WorkbenchAiAdviceProjectionItem[],
 ) {
   return [
     "You are producing read-only project advice from an explicitly bounded projection.",
@@ -255,7 +255,7 @@ function buildProviderPrompt(
     `Selected profile: ${profileId}`,
     `User request: ${prompt}`,
     "Allowed projection (one JSON object per line):",
-    ...projection.map((item) => JSON.stringify(item)),
+    ...projectionItems.map((item) => JSON.stringify(item)),
   ].join("\n");
 }
 

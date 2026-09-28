@@ -26,7 +26,7 @@ import {
  * @observation 状態、implementationId、出力、Effectおよび残存資源数を観測する。
  * @oracle 四Surfaceは同じ実装Identityと結果を返し、未許可・利用不能はEffect 0となる。
  * @cleanup Abort済み要求を含む全結果でresidualResources=0を確認する。
- * @boundary RCM-IT-010=Related 2 Blocks: Surface→Registry→共有実装。
+ * @boundary RCM-IT-010=Direct Boundary: cros Test Source→対象契約
  */
 test("Tool状態を分離し四入口を同じ共有実装へ接続する", async () => {
   const registeredTools: readonly RegisteredTool[] = [
@@ -128,7 +128,7 @@ test("Tool状態を分離し四入口を同じ共有実装へ接続する", asyn
  * @observation 取消結果のEffect状態、残存資源および回復要否を観測する。
  * @oracle issued、unknown、recoveryRequired=trueが保持される。
  * @cleanup 回復義務を結果へ返し、清掃完了を推定しない。
- * @boundary RCM-IT-010=Related 2 Blocks: 共有実装→取消競合→Registry結果。
+ * @boundary RCM-IT-010=Direct Boundary: cros Test Source→対象契約
  */
 test("Effect発行後の取消と清掃観測不能を保持する", async () => {
   const controller = new AbortController();
