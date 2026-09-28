@@ -81,7 +81,9 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 - [`40_Develop/coordinator/src/security/provider-model-profile-runtime.ts`](../../../40_Develop/coordinator/src/security/provider-model-profile-runtime.ts)
 - [`40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts`](../../../40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts)
 - [`40_Develop/coordinator/src/security/docker-desktop-repair-native-process-lifecycle.ts`](../../../40_Develop/coordinator/src/security/docker-desktop-repair-native-process-lifecycle.ts)
+- [`40_Develop/coordinator/src/security/docker-desktop-runtime-repair.ts`](../../../40_Develop/coordinator/src/security/docker-desktop-runtime-repair.ts)
 - [`40_Develop/coordinator/tests/integration/docker-desktop-native-helper.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/docker-desktop-native-helper.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/docker-desktop-runtime-repair.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/docker-desktop-runtime-repair.contract.test.ts)
 - [`40_Develop/coordinator/scripts/check-runtime-capability-graph.ts`](../../../40_Develop/coordinator/scripts/check-runtime-capability-graph.ts)
 - [`40_Develop/coordinator/tests/unit/provider-model-profile-runtime.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/provider-model-profile-runtime.contract.test.ts)
 - [`40_Develop/coordinator/src/security/workbench-ai-advice-execution-plan.ts`](../../../40_Develop/coordinator/src/security/workbench-ai-advice-execution-plan.ts)
@@ -257,7 +259,7 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 
 | Finding／契機 | 同じIntentと判断した理由 | 追加Phase／範囲 | Gate・完了条件への影響 | 追加確認／人間判断 | 処置 |
 |---|---|---|---|---|---|
-| 署名済み実境界で障害修復Protocolの公式停止が常に未発行になった | Workbench AI実Provider E2Eを成立させるDocker境界のProduction Closureであり、同じIntent内の実境界Gapである | Phase 5へ障害修復Native HelperのProtocol接続是正を追加 | TypeScript AdapterとNative許可集合の一致、局所契約試験、署名済み修復、Host Windows回帰を追加 | 既存の修復ID・耐久記録・Trust・削除禁止を維持し、新しいEffectを推測しない | 対応中 |
+| 署名済み実境界で障害修復Protocolが意図的に返す公式停止の未発行を上位Runtimeが失敗扱いした | Workbench AI実Provider E2Eを成立させるDocker境界のProduction Closureであり、同じIntent内の実境界Gapである | Phase 5へ障害修復の`not_issued`受理契約是正を追加 | Repairでは公式停止を発行せず、上位Runtimeが`false / not_issued`だけを正常分岐として受理する局所契約試験、署名済み修復、Host Windows回帰を追加 | 既存の修復ID・耐久記録・Trust・削除禁止を維持し、`true / unknown`を成功へ補正しない | 対応中 |
 
 ### 途中見直しの記録
 
@@ -306,7 +308,7 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 - 経路不足から生じた指摘事項: 初回Mobile smokeでNavigationが一行横Scrollになったため、320px相当では3列折返しへ是正した
 - 最終的に有効だった検証: 固定Route IT、15画面×3表示Profile×3 Zoomの実Browser Visual Gate、Repository Checker
 - Production Closureで追加した検証: 署名Runtime配布観測がVersion Controlの5つのGit子Process呼出しを未登録として拒否することを確認し、閉集合登録後にPlatform Provisioner／署名Manifestの局所契約試験143件をPassした
-- 署名済みDocker障害修復で、Nativeの`CRDDDR05`が許可する`S`をTypeScript Adapterだけが再起動専用として拒否していた実境界不一致を検出した。Adapterの許可集合をNative契約へ一致させ、`repair`／`restart`双方の`S`応答を局所契約試験で反証する。署名済み再実行、Host Windows回帰および実Provider E2Eが完了するまでPhase 5は閉じない
+- 署名済みDocker障害修復で、Repair Protocolが公式停止`S`を意図的に発行せず`false / not_issued`を返す一方、上位Runtimeが`true / confirmed`だけを正常としていた実境界不一致を検出した。Repairは`K`、Docker WSL停止およびrun世代退避を所有する既存境界を維持し、上位Runtimeは意図的な未発行だけを受理する。`true / unknown`は引き続き停止し、署名済み再実行、Host Windows回帰および実Provider E2Eが完了するまでPhase 5は閉じない
 
 ## 正本コンテキストの更新
 

@@ -17,46 +17,72 @@ import { describeDockerDesktopCurrentArtifactTrustContract } from "../../src/sec
 import { describeDockerDesktopRepairNativeHelperContract } from "../../src/security/docker-desktop-repair-native-process.ts";
 import { createDockerDesktopRepairNativeHelperLifecycle } from "../../src/security/docker-desktop-repair-native-process-lifecycle.ts";
 
-for (const protocol of ["repair", "restart"] as const) {
-  for (const status of ["N", "T", "P", "X"] as const) {
-    /**
-     * ${protocol} S distinguishes command outcome ${status} from Docker completionを検証する。
-     *
-     * @responsibility ${protocol} S distinguishes command outcome ${status} from Docker completionの合否判定を所有する。
-     * @trace ERB-IT-001
-     * @precondition Test Fileが構築するfixtureと入力を使用する。
-     * @stimulus ${protocol} S distinguishes command outcome ${status} from Docker completionの対象操作を実行する。
-     * @observation 結果、状態、Effectおよび終了後条件を観測する。
-     * @oracle Test本文のassertionが期待条件を満たす。
-     * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-     * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
-     */
-    test(`${protocol} S distinguishes command outcome ${status} from Docker completion`, async () => {
-      const magic = protocol === "repair" ? "CRDDDR05" : "CRDDDS01";
-      const source = `const frame=s=>Buffer.concat([Buffer.from("${magic}"),Buffer.from(s),Buffer.alloc(32,0xaa)]);process.stdout.write(frame("R"));process.stdin.on("data",c=>{const k=c.toString();if(k==="S")process.stdout.write(frame("${status}"));else if(k==="Q"){process.stdout.write(frame("C"));setTimeout(()=>process.exit(0),25)}else process.exit(3)});`;
-      const child = spawn(process.execPath, ["-e", source], {
-        shell: false,
-        windowsHide: true,
-        stdio: ["pipe", "pipe", "pipe"],
-      });
-      const created = createDockerDesktopRepairNativeHelperLifecycle(
-        child,
-        "a".repeat(64),
-        protocol,
-      );
-      assert.equal(await created.waitForInitial(), "R");
-      assert.equal(
-        await created.session.stopDesktop(),
-        status === "N"
-          ? "not_issued"
-          : status === "T"
-            ? "command_completed"
-            : "outcome_unknown",
-      );
-      assert.equal((await created.session.release()).cleanup, "confirmed");
+for (const status of ["N", "T", "P", "X"] as const) {
+  /**
+   * restart S distinguishes command outcome ${status} from Docker completionを検証する。
+   *
+   * @responsibility restart S distinguishes command outcome ${status} from Docker completionの合否判定を所有する。
+   * @trace ERB-IT-001
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus restart S distinguishes command outcome ${status} from Docker completionの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
+   */
+  test(`restart S distinguishes command outcome ${status} from Docker completion`, async () => {
+    const source = `const frame=s=>Buffer.concat([Buffer.from("CRDDDS01"),Buffer.from(s),Buffer.alloc(32,0xaa)]);process.stdout.write(frame("R"));process.stdin.on("data",c=>{const k=c.toString();if(k==="S")process.stdout.write(frame("${status}"));else if(k==="Q"){process.stdout.write(frame("C"));setTimeout(()=>process.exit(0),25)}else process.exit(3)});`;
+    const child = spawn(process.execPath, ["-e", source], {
+      shell: false,
+      windowsHide: true,
+      stdio: ["pipe", "pipe", "pipe"],
     });
-  }
+    const created = createDockerDesktopRepairNativeHelperLifecycle(
+      child,
+      "a".repeat(64),
+      "restart",
+    );
+    assert.equal(await created.waitForInitial(), "R");
+    assert.equal(
+      await created.session.stopDesktop(),
+      status === "N"
+        ? "not_issued"
+        : status === "T"
+          ? "command_completed"
+          : "outcome_unknown",
+    );
+    assert.equal((await created.session.release()).cleanup, "confirmed");
+  });
 }
+
+/**
+ * repairは公式停止を発行せず残存Process終了へ責務を渡すことを検証する。
+ *
+ * @responsibility repair Protocolで`S`をNative Helperへ送らず、意図的な未発行を返す境界を検証する。
+ * @trace ERB-IT-001
+ * @precondition repair ProtocolのNative Helper Sessionが確立している。
+ * @stimulus stopDesktopを呼び出す。
+ * @observation 返却値とNative Helperへ送信されたCommandを観測する。
+ * @oracle `not_issued`を返し、Helperが`Q`以外のCommandを受信しない。
+ * @cleanup releaseが子Processを回収する。
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("repairは公式停止を発行せず残存Process終了へ責務を渡す", async () => {
+  const source = `const frame=s=>Buffer.concat([Buffer.from("CRDDDR05"),Buffer.from(s),Buffer.alloc(32,0xaa)]);process.stdout.write(frame("R"));process.stdin.on("data",c=>{const k=c.toString();if(k==="Q"){process.stdout.write(frame("C"));setTimeout(()=>process.exit(0),25)}else process.exit(3)});`;
+  const child = spawn(process.execPath, ["-e", source], {
+    shell: false,
+    windowsHide: true,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  const created = createDockerDesktopRepairNativeHelperLifecycle(
+    child,
+    "a".repeat(64),
+    "repair",
+  );
+  assert.equal(await created.waitForInitial(), "R");
+  assert.equal(await created.session.stopDesktop(), "not_issued");
+  assert.equal((await created.session.release()).cleanup, "confirmed");
+});
 
 for (const status of ["A", "V", "U"] as const) {
   /**

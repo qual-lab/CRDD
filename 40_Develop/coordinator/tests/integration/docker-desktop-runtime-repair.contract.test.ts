@@ -5322,6 +5322,43 @@ test("package tupleがawait中に変化した場合は直後Effectを発行し�
 });
 
 /**
+ * Repairの公式停止未発行を受理して残存Process終了へ進むことを検証する。
+ *
+ * @responsibility Repair Protocolが意図的に返す`false / not_issued`をEffect不明と混同せず、既存の修復Lifecycleを継続する境界を検証する。
+ * @trace ERB-IT-001
+ * @precondition 既知socket障害があり、公式停止AdapterはRepairとしてEffectを発行しない。
+ * @stimulus Docker Desktop修復Runtimeを実行する。
+ * @observation 公式停止のsettlement、残存Process終了、WSL停止、run世代退避、再起動および最終結果を観測する。
+ * @oracle `false / not_issued`の後に修復が継続し、`recovered_pending_close`へ到達する。
+ * @cleanup FixtureがProcess・Filesystem Effectを決定論的な局所状態へ閉じる。
+ * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("Repairの公式停止未発行を受理して残存Process終了へ進む", async () => {
+  const state = fixture({
+    officialShutdown: () => {
+      state.calls.push("shutdown");
+      return Object.freeze({
+        issued: false,
+        confirmation: "not_issued" as const,
+      });
+    },
+  });
+  const result = await repairWindowsDockerDesktopRuntimeUsingDependencies(
+    state.dependencies,
+  );
+  assert.equal(
+    result.status,
+    "recovered_pending_close",
+    JSON.stringify(result),
+  );
+  assert.equal(result.reason, "docker_desktop_runtime_recovered_pending_close");
+  assert.equal(state.calls.includes("shutdown"), true);
+  assert.equal(state.calls.includes("wsl"), true);
+  assert.equal(state.calls.includes("rename"), true);
+  assert.equal(state.calls.includes("start"), true);
+});
+
+/**
  * 後続Process Effect不明を以前のconfirmedで隠さないを検証する。
  *
  * @responsibility 後続Process Effect不明を以前のconfirmedで隠さないの合否判定を所有する。

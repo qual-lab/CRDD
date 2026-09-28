@@ -5360,10 +5360,11 @@ async function executeRepair(
             return { status, reason, ledger, operation };
           }
           operation = shutdownSettlement;
-          if (
-            shutdown.issued !== true ||
-            shutdown.confirmation !== "confirmed"
-          ) {
+          const isConfirmedShutdown =
+            shutdown.issued === true && shutdown.confirmation === "confirmed";
+          const isIntentionalRepairNoOp =
+            shutdown.issued === false && shutdown.confirmation === "not_issued";
+          if (!isConfirmedShutdown && !isIntentionalRepairNoOp) {
             if (shutdown.confirmation === "unknown") markUnknown(ledger);
             reason = "docker_desktop_official_shutdown_unconfirmed";
             return { status, reason, ledger, operation };

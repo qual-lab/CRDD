@@ -405,6 +405,7 @@ export function createDockerDesktopRepairNativeHelperLifecycle(
       return "unknown";
     },
     stopDesktop: async () => {
+      if (protocol !== "restart") return "not_issued";
       const status = await command("S");
       if (status === "N") return "not_issued";
       if (status === "T") return "command_completed";
