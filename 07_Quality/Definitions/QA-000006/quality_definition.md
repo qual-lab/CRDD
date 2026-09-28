@@ -115,6 +115,17 @@ Quality ID: `QA-000006`
 
 `ERB-IT-021`のNode実行閉包ケースでは、Workbench CLI入口とRuntime value import／re-export／literal dynamic import Graphを固定入力とし、type-only参照を実行依存へ数えず再帰走査する。到達Source、外部module specifier、`.tsx`および`client/`到達を観測し、Serverへ到達する一方でBrowser描画Module、`.tsx`、`client/`および`react`／`react/*`への到達が0であることをOracleとする。Evidenceには固定Tree、入口、到達Source集合Hash、外部module集合、除外したtype-only宣言数、禁止到達件数およびOracle判定を保存し、Source本文と絶対Pathは保存しない。
 
+`ERB-IT-021`のBrowser Bundle配布閉包ケースでは、`40_Develop/workbench/dist/client/assets/workbench-client.js`を固定Pathとし、次の段階を分けて確認する。
+
+| 段階 | 条件・操作 | 観測 | Oracle | 現在状態 |
+|---|---|---|---|---|
+| 1. Build／Git追跡 | Vite Buildを実行し、固定Pathの生成物とGit追跡集合を確認する | Build結果、固定Pathの存在、`git ls-files`の収載、追跡Bundle差分 | Build成功、固定Pathが通常Fileとして存在し、同じPathがGit追跡対象であり、再Build後に意図しない差分がない | Pass |
+| 2. Source Commit収載 | 固定候補CommitのTreeを確認する | Commit、Tree、固定PathのBlob | 固定Pathが署名前のSource Commitへ収載されている | Pending — Commit後に確認 |
+| 3. 署名Tree収載 | Source Commitから作成した配布Treeと署名結果を確認する | Source Commit、署名Tree、固定Path、Asset Hash | 署名TreeにSource Commitと同一の固定Bundleが存在し、署名後の未追跡追加を必要としない | Pending — 再署名後に確認 |
+| 4. 配布Runtime直接起動 | Build Toolchainを持ち込まず、署名stagingからWorkbench CLIを起動する | Runtime import Graph、HTTP起動、Shell／Asset応答、終了後Listener | Node RuntimeがReact／Viteへ依存せず、固定Bundleを配信して直接起動でき、終了後Listenerが残らない | Pending — 署名候補の直接起動で確認 |
+
+Evidenceには各段階のCommit／Tree、固定Path、Asset Hash、Git追跡判定、Runtime外部module集合、HTTP応答、終了後状態およびOracle判定を保存する。Source本文、絶対PathおよびBundle本文全量は保存しない。前段Passから後段成立を推定せず、旧署名候補を新しい配布閉包の根拠へ流用しない。
+
 初回起動期限後にDocker Processが残存する実環境反例では、`ERB-ST-009`は停止前のEngine Probe TimeoutをEngine停止と同一視せず、既知2領域のexact lockとProcess集合を継続入口で確認する。同じRepair ID内で停止意図を耐久化し、停止Effectを一回だけ発行して、Engine既知停止とProcess不存在をfreshに確認した後にだけ二領域退避へ進む。既に不存在なら停止Effectは`not_issued`で閉じる。Engine状態不明、部分停止、観測不能、取消またはIdentity不一致ではrenameと再起動を0件にし、条件別理由と同じ回復義務を保持する。旧形式の3 Effect継続記録は、成立済み段階を再発行せず現行の4 Effectモデルへ読取り投影できることも検証する。
 
 `ERB-ST-022`の機械観測部分は、[Phase 5 Workbench実Browser Visual Gate](../../../99_Roadmap/Changes/CHG-000082/Evidence/260928-1028_phase5-workbench-actual-browser-visual.md)で15画面、3表示Profile、3 Zoomの27条件を不適合0・許容例外0で完了し、[純粋CSR移行](../../../99_Roadmap/Changes/CHG-000082/Evidence/260928-1745_phase5-workbench-pure-csr.md)で全画面DOMのBrowser React所有への移行後も同じ27条件を再観測した。人間UAT、実Provider E2EまたはShared Server配置の成立へは読み替えない。

@@ -351,7 +351,7 @@ v0.22では、旧Snapshotで未完成としていたShared Serverについて、
 | Hybrid | 12 | 自動部分と人間判断・実境界部分を分離し、自動部分だけのPassを全体成立へ畳まない |
 | Manual | 10 | skipまたは自動Test SymbolをEvidenceにせず、参加条件、入力、判断、未判断範囲およびEvidenceを固定して実施する |
 
-Automated Gapを閉じ、Manual／Hybrid項目の実施条件と現在Releaseへの影響を固定した。v0.21の署名候補で得た回帰、Windows Process Gate、Recovery Matrixおよび4経路E2Eは履歴Evidenceとして維持し、v0.22の現在候補へ流用しない。v0.22の未署名固定TreeではCoordinator 2,110件中2,105 Pass・失敗0・明示Skip 5、Workbench 20／20 Pass、Checker 375／375 Passである。Skip 5件は明示実環境試験であり、未実施をPassまたはEvidenceへ畳まない。現在候補の再署名、署名候補の直接起動、Codex／Claude実Provider E2Eおよび必要な四経路E2Eが完了するまでQuality Readyへ昇格しない。Reality Auditは未実装Capabilityや未実行の手動評価を自分で補完せず、対応するQuality Mappingから再評価する。
+Automated Gapを閉じ、Manual／Hybrid項目の実施条件と現在Releaseへの影響を固定した。v0.21の署名候補で得た回帰、Windows Process Gate、Recovery Matrixおよび4経路E2Eは履歴Evidenceとして維持し、v0.22の現在候補へ流用しない。v0.22の未署名固定TreeではCoordinator 2,110件中2,105 Pass・失敗0・明示Skip 5、Workbench 21／21 Pass、Checker 375／375 Passである。Workbench 21件には、Vite生成済みBrowser BundleがGit追跡集合と署名配布Treeへ含まれる契約を追加した。Skip 5件は明示実環境試験であり、未実施をPassまたはEvidenceへ畳まない。現在候補の再署名、署名候補の直接起動、Codex／Claude実Provider E2Eおよび必要な四経路E2Eが完了するまでQuality Readyへ昇格しない。Reality Auditは未実装Capabilityや未実行の手動評価を自分で補完せず、対応するQuality Mappingから再評価する。
 
 ### 13.3 Hybrid項目の実施条件
 

@@ -360,7 +360,7 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
     assert.equal(model.surface.quality.projection?.unobserved, "28 / 39");
     assert.match(
       model.surface.quality.projection?.nextGate ?? "",
-      /Blocking Finding 0/u,
+      /署名候補直接起動.*実Provider.*四経路E2E/u,
     );
     assert.ok(model.surface.ownerArtifacts.artifacts.length > 0);
 

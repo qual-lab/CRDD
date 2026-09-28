@@ -143,7 +143,7 @@ React／TypeScript Source ── Vite ── fixed Browser Bundle
 - Local Serverはloopbackだけで待ち受け、任意Interfaceへ公開しない。
 - Repository単体利用はCROS Credentialを要求しない。
 - Remote CROS利用時だけ、既存CredentialとSession Grantを接続へ渡す。
-- Browser BundleはViteで生成する派生物であり正本にしない。Build不能、Asset欠落またはallowlist外Asset要求では起動または配信を拒否する。
+- Browser BundleはViteで生成する派生物であり、React／TypeScript Sourceとは別の設計正本にしない。一方、署名配布物がBuild Toolchainなしで直接起動できるよう、固定Path `40_Develop/workbench/dist/client/assets/workbench-client.js` の生成結果をSource Commitと署名対象Treeへ収載する。Build不能、追跡集合外、Asset欠落またはallowlist外Asset要求では候補固定、起動または配信を拒否する。
 - Node Serverは空のDocument Shell、固定AssetおよびJSON Read Modelだけを配信し、Browser Clientが全画面DOMをClient-side Reactで構築する。JSONはCredential verifier、Remote接続Bearer、Private Key、Host Pathおよび永続Authorityを含まず、同一Originの明示POST用のProcess限定Action TokenとCredential操作直後の一回表示Tokenだけを用途限定Fieldで扱う。SSR、Hydration、Raw HTML Fragmentおよび既存DOMの再読取りは行わない。
 - React要素を生成するPanelと共通表示ComponentはBrowser Clientだけがvalue importする。Node CLI／Serverから到達するRuntime依存GraphはApplication、Read Model生成、Authority、HTTPおよび固定Asset配信だけを含み、React／React DOMまたはBrowser描画Moduleへ到達しない。型参照はRuntime依存として扱わないが、value import／再Export／dynamic importは配布候補固定前に閉集合で検査する。
 - Browserを閉じたことだけでServer終了を推定しない。明示shutdownまたはOwner Process終了でlistenerと進行中requestを回収する。

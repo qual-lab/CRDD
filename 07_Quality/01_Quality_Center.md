@@ -15,7 +15,7 @@
 | 観測済み | 11 / 39 | v0.22移管範囲のうち、Production Workbenchの実Browser Visual GateまでEvidenceへ接続済み |
 | 未観測 | 28 / 39 | 局所試験またはRelationだけで観測済みへ変更しない |
 | 既知Gap | Phase 5 Release Verification進行中 | Shared Server境界、Workbench Visual、AI画面、Node依存閉包およびCatalog Revision 0の局所反証は成立した。現在候補の再署名、署名候補の直接起動、Codex／Claude実Provider E2Eおよび同一Release Identityでの必要な四経路E2Eは未実施 |
-| 次Gate | 現在候補のCommit、再署名、署名候補直接起動、実Provider／四経路E2E | [CHG-000082](../99_Roadmap/Changes/CHG-000082/change.md) |
+| 次Gate | 現在Treeの独立確認、現在候補のCommit、再署名、署名候補直接起動、実Provider／四経路E2E | [CHG-000082](../99_Roadmap/Changes/CHG-000082/change.md) |
 | 現在人間判断 | N/A: 現在の実装・検証継続を止める判断事項はない | 新しいRisk受容または対象範囲変更が生じた場合だけ再提示する |
 
 ## 設計集合
@@ -46,9 +46,9 @@ Quality設計は13定義、169 Local Itemまで拡張した。Test Symbol Relati
 |---|---|---|
 | Designed | Canonical | 実装済みまたは試験可能とは主張しない |
 | Implemented | 部分照合 | 未実装CapabilityをRelation追加だけで成立へ変えない |
-| Executed | v0.22現在候補の自動回帰と独立確認を実行済み／署名実境界は未実施 | Coordinatorは2,110件中2,105 Pass・失敗0・明示Skip 5、Workbenchは20／20 Pass、Checkerは375／375 Pass。Skip 5は明示実環境試験でありPassへ算入しない。v0.21の署名Recovery Matrixと4経路E2Eは履歴Baselineであり、v0.22現在候補の成立根拠へ流用しない |
-| Passed | 自動回帰と独立確認はPass／Quality Readyは未成立 | 現在候補の再署名、直接起動、Codex／Claude実Provider E2Eおよび必要な四経路E2Eは未実施。履歴Baselineのv0.21 Source A、carrier BおよびRuntime Execution Identityをv0.22候補へ読み替えない |
-| Evidence | 現在候補の局所／全回帰Evidence収集済み／Release Verification Evidenceは未収集 | [Phase 5 純粋CSR Runtime閉包検証](../99_Roadmap/Changes/CHG-000082/Evidence/260928-2354_phase5-pure-csr-runtime-closure.md)に固定Tree、全回帰、Node閉包、Catalog反証および3監査Passを保存した。再署名後の直接起動、実Provider／四経路E2EのEvidenceは存在すると推定しない |
+| Executed | v0.22現在候補の自動回帰を実行済み／現在Treeの独立確認と署名実境界は未完了 | Coordinatorは2,110件中2,105 Pass・失敗0・明示Skip 5、Workbenchは21／21 Pass、Checkerは375／375 Pass。Skip 5は明示実環境試験でありPassへ算入しない。Workbench 21件にはBrowser BundleのBuild／Git追跡契約を含むが、署名Tree収載と直接起動のPassを意味しない。v0.21の署名Recovery Matrixと4経路E2Eは履歴Baselineであり、v0.22現在候補の成立根拠へ流用しない |
+| Passed | 自動回帰はPass／独立確認とQuality Readyは未成立 | Browser Bundle収載修正後の現在Treeは独立確認中である。現在候補のCommit、再署名、直接起動、Codex／Claude実Provider E2Eおよび必要な四経路E2Eは未実施。履歴Baselineのv0.21 Source A、carrier BおよびRuntime Execution Identityをv0.22候補へ読み替えない |
+| Evidence | 現在候補の局所／全回帰Evidence収集済み／Release Verification Evidenceは未収集 | [Phase 5 純粋CSR Runtime閉包検証](../99_Roadmap/Changes/CHG-000082/Evidence/260928-2354_phase5-pure-csr-runtime-closure.md)に前候補の固定Tree、全回帰、Node閉包、Catalog反証および3監査Passを保存し、[Phase 5 署名CSR配布閉包](../99_Roadmap/Changes/CHG-000082/Evidence/260929-0025_phase5-signed-csr-distribution-closure.md)にBrowser Bundle収載Gap、Build／Git追跡契約およびWorkbench 21／21を保存した。再署名後の署名Tree収載、直接起動、実Provider／四経路E2EのEvidenceは存在すると推定しない |
 | Reality Audit | Pending — 現在結果固定済み／残存Evidence待ち | v0.21履歴Baselineの最終署名結果だけを`AIT-ST-010`と`ERB-IT-014`の限定範囲へ接続した。v0.22現在候補は、再署名、署名候補の直接起動、Codex／Claude実Provider E2Eおよび必要な四経路E2EのEvidence待ちである。`RCM-ST-012`、`ERB-ST-009`、`ERB-ST-011`その他の未観測義務を、v0.21の4経路成功やDocker Engine利用可能という非発火からPassへ変更しない |
 
 Coordinator／Project Runtimeの17意味Pilotに加えて全Subsystemへ照合範囲を広げた。skip、fixture自己再現および外部実境界の自己申告を観測済みから除外し、v0.21対象では108件観測済み、22件未観測である。Quality Readyへ昇格せず、PT／LTは人間の明示許可がないため実行しない。

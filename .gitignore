@@ -12,5 +12,6 @@
 # Tool package dependencies are restored from their lockfiles.
 **/node_modules/
 
-# Browser bundles are deterministic build outputs restored from package sources.
-/40_Develop/workbench/dist/
+# Workbench Browser bundle is a deterministic generated Release artifact.
+# The fixed production bundle is tracked so signed distributions can launch
+# without restoring the build toolchain or importing React into the Node graph.

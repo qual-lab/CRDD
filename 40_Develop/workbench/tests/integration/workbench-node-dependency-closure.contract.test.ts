@@ -9,7 +9,8 @@
  * @boundary ERB-IT-021=Direct Boundary: Workbench Node Entrypoint→Local TypeScript Dependency Graph
  */
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { existsSync, lstatSync, readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
@@ -155,4 +156,48 @@ test("Workbench Node RuntimeはBrowser React value依存へ到達しない", () 
     [...external].some((specifier) => /^react(?:\/|$)/u.test(specifier)),
     false,
   );
+});
+
+/**
+ * Workbench Browser BundleのBuild結果がGit Indexと一致することを検証する。
+ *
+ * @responsibility Vite生成物が固定Pathの通常Fileであり、Git Indexの追跡Blobと同一であることを保証する。
+ * @trace ERB-IT-021
+ * @precondition Workbench Buildが固定PathへBrowser Bundleを生成済みである。
+ * @stimulus BundleのFile種別、Git Index EntryおよびWorking Tree Blobを観測する。
+ * @observation 固定Asset Path、Index mode、Index Blob IDおよびWorking Tree Blob IDを取得する。
+ * @oracle dist/client/assets/workbench-client.jsが通常Fileであり、Git Indexの通常Blobと同一である。
+ * @cleanup N/A: FilesystemとGit Indexを読取るだけである。
+ * @boundary ERB-IT-021=Direct Boundary: Vite Build Artifact→Git Index
+ */
+test("Workbench Browser BundleのBuild結果はGit Indexと一致する", () => {
+  const relativeAsset =
+    "40_Develop/workbench/dist/client/assets/workbench-client.js";
+  const assetPath = path.join(repositoryRoot, ...relativeAsset.split("/"));
+  assert.equal(existsSync(assetPath), true);
+  const assetStatus = lstatSync(assetPath);
+  assert.equal(assetStatus.isSymbolicLink(), false);
+  assert.equal(assetStatus.isFile(), true);
+  const indexEntry = execFileSync(
+    "git",
+    [
+      "-C",
+      repositoryRoot,
+      "ls-files",
+      "--stage",
+      "--error-unmatch",
+      "--",
+      relativeAsset,
+    ],
+    { encoding: "utf8", windowsHide: true },
+  ).trim();
+  const match = /^(100644) ([0-9a-f]{40,64}) 0\t(.+)$/u.exec(indexEntry);
+  assert.notEqual(match, null);
+  assert.equal(match?.[3], relativeAsset);
+  const workingBlob = execFileSync(
+    "git",
+    ["-C", repositoryRoot, "hash-object", "--no-filters", "--", assetPath],
+    { encoding: "utf8", windowsHide: true },
+  ).trim();
+  assert.equal(workingBlob, match?.[2]);
 });
