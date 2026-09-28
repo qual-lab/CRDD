@@ -35,9 +35,39 @@
     {
       "symbolId": "workbench.presentation.browser-client",
       "kind": "file",
-      "path": "client/entry-client.ts",
+      "path": "client/entry-client.tsx",
       "archIds": [
         "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "workbench.presentation.browser-application",
+      "kind": "file",
+      "path": "client/workbench-app.tsx",
+      "archIds": [
+        "ARCH-000005",
+        "ARCH-000012",
+        "ARCH-000013",
+        "ARCH-000017"
+      ]
+    },
+    {
+      "symbolId": "workbench.presentation.client-model",
+      "kind": "file",
+      "path": "src/presentation/workbench-client-model.ts",
+      "archIds": [
+        "ARCH-000005",
+        "ARCH-000012",
+        "ARCH-000013"
+      ]
+    },
+    {
+      "symbolId": "workbench.presentation.components",
+      "kind": "file",
+      "path": "src/presentation/workbench-components.ts",
+      "archIds": [
+        "ARCH-000012",
+        "ARCH-000017"
       ]
     },
     {
@@ -157,6 +187,8 @@
       ],
       "verifies": [
         "workbench.server",
+        "workbench.presentation.react-shell",
+        "workbench.presentation.client-model",
         "workbench.application.credential-administration",
         "workbench.application.ai-profile-surface",
         "workbench.application.ai-request",
@@ -196,6 +228,11 @@
       ],
       "verifies": [
         "workbench.server",
+        "workbench.presentation.react-shell",
+        "workbench.presentation.browser-client",
+        "workbench.presentation.browser-application",
+        "workbench.presentation.client-model",
+        "workbench.presentation.components",
         "visual-preview.application.local-web-visual-verifier"
       ]
     }

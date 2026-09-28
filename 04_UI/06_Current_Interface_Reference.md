@@ -1,19 +1,19 @@
-# 現行CLI・MCP・Workbench候補の操作・表示参照
+# 現行CLI・MCP・Workbenchの操作・表示参照
 
-状態: Stable（v0.21.0）
+状態: v0.21.0 Stable + v0.22.0 Candidate Projection
 担当責任者: Qual-Lab
-最終更新日: 2026-09-06
+最終更新日: 2026-09-28
 工程規則: [UI](../25_UI.md)、[UIと仕様の対応レビュー](../24_UI_Behavior_Specification.md)
 
 ## 基本図の処置
 
 | 基本図 | 対象 | 目的 | 処置 | 現行図／一意な参照／理由 | 投影元改訂版 | 現在状態 | 未確認範囲 | 次の処置・再評価契機 |
 |---|---|---|---|---|---|---|---|---|
-| 論理画面／領域構成図 | CROS Workbench候補 | Project概要、Source Coverage、操作領域の配置 | 作成 | [Project Operation／CROS Workbench](#9-v022-project-operationcros-workbench) | v0.22 Candidate | 概念図 | 具体的な画面構成は未確定 | Group BのUIで利用者検証可能な構成へ更新する |
+| 論理画面／領域構成図 | CROS Workbench | Project概要、Source Coverage、操作領域の配置 | 既存参照 | [UI Detail](Details/01_UI_Detail.md)と[Workbench Screen Architecture](Details/02_Workbench_Screen_Architecture.md) | v0.22 Candidate | 15画面を実装・実Browser観測済み | 人間UATとAI関連2画面の実Provider成立 | UATまたはScreen Contract変更時に再評価する |
 | 画面／操作Flow | Agent Handoff | 対話、構築、判断待ち、再開の操作順序 | 作成不能 | [Agent Handoffの表示](#91-agent-handoffの表示)は判断待ちの単一表示例であり、操作順序のFlowではない | v0.22 Candidate | 未作成 | 対話から構築、判断待ち、再開までの操作遷移 | Group BのUIで作成し、SPECと共同確認する |
 | 表示状態／Variant図 | Project Runtime結果 | 完了、停止、回復、判断待ちの表示差 | 作成不能 | [Project Runtimeの状態表示](#8-project-runtimeの状態表示)は表示原則であり、状態Variantの対応図ではない | v0.22 Candidate | 未作成 | 状態ごとの表示差、優先度、操作可能性 | Group BのUIで作成する |
-| 主要Component関係図 | CROS Workbench | 表示Componentと責務境界の関係 | 作成不能 | WorkbenchのComponent境界はGroup BのIA／UIで未確定 | v0.22 Candidate | 未作成 | Component、状態Owner、操作Port | Group BのUI出口で再評価する |
-| UI／SPEC対応図 | 現行Tool操作 | 表示・入力と振る舞い契約の対応 | 作成 | [UIと振る舞い仕様の対応](#6-uiと振る舞い仕様の対応) | v0.20.1 Baseline＋v0.22 Candidate | 現行 | Workbench部分は未対応 | Group BのUI／SPEC共同レビューで更新する |
+| 主要Component関係図 | CROS Workbench | 表示Componentと責務境界の関係 | 既存参照 | [Workbench Screen Architecture](Details/02_Workbench_Screen_Architecture.md)、[Workbench Architecture](../06_Architecture/Details/workbench/01_Architecture.md)および[Workbench視覚基準](Details/Visual/workbench-hero/visual-baseline.md) | v0.22 Candidate | Browser ReactとNode Authorityを分離済み | 人間UATと実Provider境界 | 責務境界または画面構成変更時に再評価する |
+| UI／SPEC対応図 | 現行Tool操作 | 表示・入力と振る舞い契約の対応 | 既存参照 | [Workbench UI／SPEC Detail対応](../05_SPEC/Details/02_UI_SPEC_Detail_Correspondence.md)。本書の[概観](#6-uiと振る舞い仕様の対応)は補助投影 | v0.22 Candidate | Workbench実装とHTTP／Browser試験へ接続済み | AI関連2画面の実Provider E2E | 対応またはBehavior変更時に共同レビューする |
 
 ## 1. 対象と読み方
 

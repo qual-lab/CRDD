@@ -20,6 +20,12 @@ import { inspectProjectRuntimeStateQueryResult } from "../../project-runtime/src
 import { observeChangePublicationTarget } from "../../version-control/src/change-publication.ts";
 import { gitChangePublicationTargetObservationAdapter } from "../../version-control/src/git/change-publication-adapter.ts";
 import { verifyRepositoryRoot } from "../../version-control/src/repository-location.ts";
+import { createElement, type ReactElement, type ReactNode } from "react";
+
+import {
+  EmptyState,
+  WorkbenchPanel,
+} from "./presentation/workbench-components.ts";
 
 /**
  * Workbenchが表示するProject Runtime現在投影の値契約。
@@ -396,75 +402,200 @@ export function createRepositoryWorkbenchRuntimeActivityApplication(
  * @trace ARCH-000004
  * @trace ARCH-000012
  * @input observationにApplication Adapterの現在観測を、undefinedに未接続を受け取る。
- * @returns Browserへ埋め込む安全なHTML断片を返す。
+ * @returns Browserが描画するReact要素を返す。
  * @precondition observedではprojectionが存在し、absent／unknownではnullである。
  * @postcondition 未接続、状態なし、観測不能および観測済みを異なる表示にする。
- * @effect N/A: HTML文字列の構築だけを行う。
+ * @effect N/A: React要素の構築だけを行う。
  * @failure 不整合な観測は観測不能として表示し、空または成功へ畳まない。
  * @invariant Workbench独自のTask、状態遷移、判断またはRecovery Identityを生成しない。
  * @boundary Runtime Activity Read ModelとBrowser表示の境界。
- * @security 全表示値をescapeし、内部PathまたはAuthorityを表示しない。
+ * @security ReactのText escapingを使用し、内部PathまたはAuthorityを表示しない。
  * @concurrency 一回の観測Snapshotだけを同期描画する。
  */
 export function renderWorkbenchRuntimeActivity(
   observation: WorkbenchRuntimeActivityObservation | undefined,
-): string {
+): ReactElement {
   if (observation === undefined)
-    return '<article class="panel wide" id="runtime-activity"><header><div><p class="eyebrow">Runtime activity</p><h2>実行状況</h2></div><span>Not connected</span></header><p class="empty-state">Project Runtime状態Queryが未接続です。実行中Objectiveがないとは判断しません。</p></article>';
-  const eventItems = observation.events
-    .map(
-      (event) =>
-        `<li><strong>${escapeHtml(event.taskId)}</strong><p>${escapeHtml(event.status)} / ${escapeHtml(event.reason)}</p><small>${escapeHtml(event.occurredAt)} · ${escapeHtml(event.objectiveId)} · ${escapeHtml(event.attemptId)} · cleanup ${event.cleanupConfirmed ? "confirmed" : "unconfirmed"}${event.manualRecoveryRequired ? " · recovery required" : ""}</small></li>`,
-    )
-    .join("");
-  const eventHistory = `<section><h3>Event履歴</h3>${observation.eventState === "unknown" ? `<p class="empty-state">Event Storeを完全に観測できません。0件とは判断しません。理由: ${escapeHtml(observation.eventReason)}</p>` : eventItems.length === 0 ? '<p class="empty-state">このProjectのEventは0件です。</p>' : `<ul>${eventItems}</ul>`}${observation.eventContinuation === null ? "" : `<p><a href="/?runtimeCursor=${encodeURIComponent(observation.eventContinuation)}#runtime-activity">以前のEventを読む</a></p>`}</section>`;
+    return createElement(
+      WorkbenchPanel,
+      {
+        id: "runtime-activity",
+        eyebrow: "Runtime activity",
+        title: "実行状況",
+        status: "Not connected",
+      },
+      createElement(
+        EmptyState,
+        null,
+        "Project Runtime状態Queryが未接続です。実行中Objectiveがないとは判断しません。",
+      ),
+    );
+  const eventHistory: ReactNode = createElement(
+    "section",
+    null,
+    createElement("h3", null, "Event履歴"),
+    observation.eventState === "unknown"
+      ? createElement(
+          EmptyState,
+          null,
+          `Event Storeを完全に観測できません。0件とは判断しません。理由: ${observation.eventReason}`,
+        )
+      : observation.events.length === 0
+        ? createElement(EmptyState, null, "このProjectのEventは0件です。")
+        : createElement(
+            "ul",
+            null,
+            ...observation.events.map((event) =>
+              createElement(
+                "li",
+                { key: event.eventId },
+                createElement("strong", null, event.taskId),
+                createElement("p", null, `${event.status} / ${event.reason}`),
+                createElement(
+                  "small",
+                  null,
+                  `${event.occurredAt} · ${event.objectiveId} · ${event.attemptId} · cleanup ${event.cleanupConfirmed ? "confirmed" : "unconfirmed"}${event.manualRecoveryRequired ? " · recovery required" : ""}`,
+                ),
+              ),
+            ),
+          ),
+    observation.eventContinuation === null
+      ? null
+      : createElement(
+          "p",
+          null,
+          createElement(
+            "a",
+            {
+              href: `/?runtimeCursor=${encodeURIComponent(observation.eventContinuation)}#runtime-activity`,
+            },
+            "以前のEventを読む",
+          ),
+        ),
+  );
   if (observation.state === "absent")
-    return `<article class="panel wide" id="runtime-activity"><header><div><p class="eyebrow">Runtime activity</p><h2>実行状況</h2></div><span>Absent</span></header><p class="empty-state">現在のProject Runtime状態はありません。理由: ${escapeHtml(observation.reason)}</p>${eventHistory}</article>`;
+    return createElement(
+      WorkbenchPanel,
+      {
+        id: "runtime-activity",
+        eyebrow: "Runtime activity",
+        title: "実行状況",
+        status: "Absent",
+      },
+      createElement(
+        EmptyState,
+        null,
+        `現在のProject Runtime状態はありません。理由: ${observation.reason}`,
+      ),
+      eventHistory,
+    );
   if (observation.state !== "observed" || observation.projection === null)
-    return `<article class="panel wide" id="runtime-activity"><header><div><p class="eyebrow">Runtime activity</p><h2>実行状況</h2></div><span>Unknown</span></header><p class="empty-state">Project Runtimeの現在状態を完全に観測できません。直前値をCurrentとして表示しません。理由: ${escapeHtml(observation.reason)}</p>${eventHistory}</article>`;
+    return createElement(
+      WorkbenchPanel,
+      {
+        id: "runtime-activity",
+        eyebrow: "Runtime activity",
+        title: "実行状況",
+        status: "Unknown",
+      },
+      createElement(
+        EmptyState,
+        null,
+        `Project Runtimeの現在状態を完全に観測できません。直前値をCurrentとして表示しません。理由: ${observation.reason}`,
+      ),
+      eventHistory,
+    );
 
   const projection = observation.projection;
-  const countRows = (kind: string, counts: Readonly<Record<string, number>>) =>
-    Object.entries(counts)
-      .map(
-        ([state, count]) =>
-          `<tr><td>${escapeHtml(kind)}</td><td>${escapeHtml(state)}</td><td>${count}</td></tr>`,
-      )
-      .join("");
-  const summaries = projection.objectiveTaskSummaries
-    .map(
-      (summary) =>
-        `<li><strong>${escapeHtml(summary.objectiveId)}</strong><p>${escapeHtml(summary.objectiveState)}</p><small>${escapeHtml(
-          Object.entries(summary.taskCounts)
-            .map(([state, count]) => `${state}: ${count}`)
-            .join(" / "),
-        )}</small></li>`,
-    )
-    .join("");
-  return `<article class="panel wide" id="runtime-activity"><header><div><p class="eyebrow">Runtime activity</p><h2>実行状況</h2></div><span>Generation ${projection.generation}</span></header><p class="scene-summary">Milestone ${escapeHtml(projection.milestoneId)} / ${escapeHtml(projection.milestoneState)}。次の処置は ${escapeHtml(projection.nextAction)} です。</p><dl><div><dt>進捗</dt><dd>${escapeHtml(projection.workProgress)}</dd></div><div><dt>品質状態</dt><dd>${escapeHtml(projection.qualityState)}</dd></div><div><dt>人間判断</dt><dd>${projection.humanDecisionRequired ? "必要" : "不要"}</dd></div><div><dt>回復</dt><dd>${projection.recoveryRequired ? "必要" : "不要"}</dd></div></dl><div class="table-scroll"><table><thead><tr><th>対象</th><th>状態</th><th>件数</th></tr></thead><tbody>${countRows("Objective", projection.objectiveCounts)}${countRows("Task", projection.taskCounts)}</tbody></table></div>${summaries.length === 0 ? '<p class="empty-state">Objective要約は0件です。</p>' : `<ul>${summaries}</ul>`}${eventHistory}</article>`;
-}
-
-/**
- * Runtime由来TextをHTMLとして安全に符号化する。
- *
- * @responsibility 外部Runtime由来TextをMarkupとして解釈させない。
- * @trace ARCH-000012
- * @input valueに表示文字列を受け取る。
- * @returns HTML特殊文字を符号化した文字列を返す。
- * @precondition valueを信頼済みHTMLと仮定しない。
- * @postcondition ampersand、angle bracket、quoteを生で残さない。
- * @effect N/A: 文字列変換だけを行う。
- * @failure N/A: 全文字列を決定論的に変換する。
- * @invariant 表示文字の順序を変えない。
- * @boundary Runtime Read ModelとBrowser DOMの境界。
- * @security Script、ElementおよびAttribute注入を防ぐ。
- * @concurrency N/A: 共有状態を持たない同期処理である。
- */
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
+  const countRows = [
+    ["Objective", projection.objectiveCounts],
+    ["Task", projection.taskCounts],
+  ] as const;
+  return createElement(
+    WorkbenchPanel,
+    {
+      id: "runtime-activity",
+      eyebrow: "Runtime activity",
+      title: "実行状況",
+      status: `Generation ${projection.generation}`,
+    },
+    createElement(
+      "p",
+      { className: "scene-summary" },
+      `Milestone ${projection.milestoneId} / ${projection.milestoneState}。次の処置は ${projection.nextAction} です。`,
+    ),
+    createElement(
+      "dl",
+      null,
+      ...[
+        ["進捗", projection.workProgress],
+        ["品質状態", projection.qualityState],
+        ["人間判断", projection.humanDecisionRequired ? "必要" : "不要"],
+        ["回復", projection.recoveryRequired ? "必要" : "不要"],
+      ].map(([label, value]) =>
+        createElement(
+          "div",
+          { key: label },
+          createElement("dt", null, label),
+          createElement("dd", null, value),
+        ),
+      ),
+    ),
+    createElement(
+      "div",
+      { className: "table-scroll" },
+      createElement(
+        "table",
+        null,
+        createElement(
+          "thead",
+          null,
+          createElement(
+            "tr",
+            null,
+            createElement("th", null, "対象"),
+            createElement("th", null, "状態"),
+            createElement("th", null, "件数"),
+          ),
+        ),
+        createElement(
+          "tbody",
+          null,
+          ...countRows.flatMap(([kind, counts]) =>
+            Object.entries(counts).map(([state, count]) =>
+              createElement(
+                "tr",
+                { key: `${kind}-${state}` },
+                createElement("td", null, kind),
+                createElement("td", null, state),
+                createElement("td", null, count),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+    projection.objectiveTaskSummaries.length === 0
+      ? createElement(EmptyState, null, "Objective要約は0件です。")
+      : createElement(
+          "ul",
+          null,
+          ...projection.objectiveTaskSummaries.map((summary) =>
+            createElement(
+              "li",
+              { key: summary.objectiveId },
+              createElement("strong", null, summary.objectiveId),
+              createElement("p", null, summary.objectiveState),
+              createElement(
+                "small",
+                null,
+                Object.entries(summary.taskCounts)
+                  .map(([state, count]) => `${state}: ${count}`)
+                  .join(" / "),
+              ),
+            ),
+          ),
+        ),
+    eventHistory,
+  );
 }

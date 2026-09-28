@@ -6,9 +6,11 @@
  * @trace ARCH-000005
  * @trace ARCH-000012
  * @boundary Project Operation Quality Read ModelとWorkbench Browser表示の境界。
- * @effect N/A: 検証済みRead ModelからHTMLを構築するだけである。
- * @security Repository外情報を取得せず、表示TextをHTML escapeする。
+ * @effect N/A: 検証済みRead ModelからReact要素を構築するだけである。
+ * @security Repository外情報を取得せず、表示TextはReactのText escapingを使用する。
  */
+import { createElement, type ReactElement } from "react";
+
 import type { RepositoryQualityProjection } from "../../project-operation/src/index.ts";
 
 import type { WorkbenchOwnerArtifactCatalog } from "./owner-artifact-surface.ts";
@@ -38,20 +40,20 @@ export type WorkbenchQualityObservation = Readonly<{
  * @trace ARCH-000005
  * @trace ARCH-000012
  * @input observationと同じRepositoryから構築したOwner Artifact Catalogを受け取る。
- * @returns Browserへ埋め込む安全なHTML断片を返す。
+ * @returns Browserが描画するReact要素を返す。
  * @precondition availableではprojectionが非nullである。
  * @postcondition 状態、対象、観測済み／未観測、Gap、Gateおよび人間判断を一Panelで確認できる。
- * @effect N/A: HTML文字列の構築だけを行う。
+ * @effect N/A: React要素の構築だけを行う。
  * @failure 未構成と観測不能を別の表示で保持する。
  * @invariant Quality CenterにないPass、Evidenceまたは判断を推測しない。
  * @boundary Quality Read ModelとBrowser DOMの境界。
- * @security 全表示Textをescapeし、原文LinkはCatalog内固定Pathだけから生成する。
+ * @security 全表示TextにReactのText escapingを使用し、原文LinkはCatalog内固定Pathだけから生成する。
  * @concurrency N/A: 共有状態を持たない同期処理である。
  */
 export function renderWorkbenchQuality(
   observation: WorkbenchQualityObservation,
   ownerArtifacts: WorkbenchOwnerArtifactCatalog,
-): string {
+): ReactElement {
   if (observation.state !== "available" || observation.projection === null) {
     const label =
       observation.state === "not_configured" ? "Not configured" : "Unknown";
@@ -59,40 +61,121 @@ export function renderWorkbenchQuality(
       observation.state === "not_configured"
         ? "Current Quality Projectionがまだ構成されていません。"
         : "Current Quality Projectionを完全に観測できません。Quality Readyとして扱いません。";
-    return `<article class="panel wide" id="quality"><header><div><p class="eyebrow">Current quality projection</p><h2>Quality and Evidence</h2></div><span>${label}</span></header><p class="empty-state">${message}</p></article>`;
+    return createElement(
+      "article",
+      { className: "panel wide", id: "quality" },
+      createElement(
+        "header",
+        null,
+        createElement(
+          "div",
+          null,
+          createElement(
+            "p",
+            { className: "eyebrow" },
+            "Current quality projection",
+          ),
+          createElement("h2", null, "Quality and Evidence"),
+        ),
+        createElement("span", null, label),
+      ),
+      createElement("p", { className: "empty-state" }, message),
+    );
   }
   const projection = observation.projection;
   const source = ownerArtifacts.artifacts.find(
     (artifact) => artifact.category === "quality",
   );
-  const sourceLink =
+  const rows = [
+    ["既知Gap", projection.knownGap, projection.rationale.既知Gap ?? ""],
+    ["次Gate", projection.nextGate, projection.rationale.次Gate ?? ""],
+    [
+      "人間判断",
+      projection.humanDecision,
+      projection.rationale.現在人間判断 ?? "",
+    ],
+  ] as const;
+  return createElement(
+    "article",
+    { className: "panel wide quality-projection-panel", id: "quality" },
+    createElement(
+      "header",
+      null,
+      createElement(
+        "div",
+        null,
+        createElement(
+          "p",
+          { className: "eyebrow" },
+          "Current quality projection",
+        ),
+        createElement("h2", null, "Quality and Evidence"),
+      ),
+      createElement("span", null, projection.target),
+    ),
+    createElement(
+      "p",
+      { className: "scene-summary" },
+      createElement("strong", null, projection.overallState),
+      `。観測済み ${projection.observed}、未観測 ${projection.unobserved}です。局所成立を全体のQuality Readyへ畳みません。`,
+    ),
+    createElement(
+      "div",
+      { className: "quality-facts" },
+      createElement(
+        "div",
+        null,
+        createElement("span", null, "Observed"),
+        createElement("strong", null, projection.observed),
+      ),
+      createElement(
+        "div",
+        null,
+        createElement("span", null, "Unobserved"),
+        createElement("strong", null, projection.unobserved),
+      ),
+    ),
+    createElement(
+      "div",
+      { className: "table-scroll" },
+      createElement(
+        "table",
+        null,
+        createElement(
+          "thead",
+          null,
+          createElement(
+            "tr",
+            null,
+            ...["観点", "現在状態", "根拠・次の処置"].map((value) =>
+              createElement("th", { key: value }, value),
+            ),
+          ),
+        ),
+        createElement(
+          "tbody",
+          null,
+          ...rows.map((row) =>
+            createElement(
+              "tr",
+              { key: row[0] },
+              ...row.map((value, index) =>
+                createElement("td", { key: `${row[0]}-${index}` }, value),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
     source === undefined
-      ? ""
-      : `<a class="page-link" href="/owner-artifact?path=${encodeURIComponent(source.relativePath)}">Quality Centerを開く</a>`;
-  return `<article class="panel wide quality-projection-panel" id="quality"><header><div><p class="eyebrow">Current quality projection</p><h2>Quality and Evidence</h2></div><span>${escapeHtml(projection.target)}</span></header><p class="scene-summary"><strong>${escapeHtml(projection.overallState)}</strong>。観測済み ${escapeHtml(projection.observed)}、未観測 ${escapeHtml(projection.unobserved)}です。局所成立を全体のQuality Readyへ畳みません。</p><div class="quality-facts"><div><span>Observed</span><strong>${escapeHtml(projection.observed)}</strong></div><div><span>Unobserved</span><strong>${escapeHtml(projection.unobserved)}</strong></div></div><div class="table-scroll"><table><thead><tr><th>観点</th><th>現在状態</th><th>根拠・次の処置</th></tr></thead><tbody><tr><td>既知Gap</td><td>${escapeHtml(projection.knownGap)}</td><td>${escapeHtml(projection.rationale.既知Gap ?? "")}</td></tr><tr><td>次Gate</td><td>${escapeHtml(projection.nextGate)}</td><td>${escapeHtml(projection.rationale.次Gate ?? "")}</td></tr><tr><td>人間判断</td><td>${escapeHtml(projection.humanDecision)}</td><td>${escapeHtml(projection.rationale.現在人間判断 ?? "")}</td></tr></tbody></table></div>${sourceLink}</article>`;
-}
-
-/**
- * Quality表示TextをHTMLとして安全に符号化する。
- *
- * @responsibility Repository由来TextをMarkupとして解釈させない。
- * @trace ARCH-000012
- * @input valueに表示文字列を受け取る。
- * @returns HTML特殊文字を符号化した文字列を返す。
- * @precondition valueを信頼済みHTMLと仮定しない。
- * @postcondition ampersand、angle bracketおよびquoteを生で残さない。
- * @effect N/A: 文字列変換だけを行う。
- * @failure N/A: 全文字列を決定論的に変換する。
- * @invariant 表示文字の順序を変えない。
- * @boundary Repository TextとBrowser DOMの境界。
- * @security Script、ElementおよびAttribute注入を防ぐ。
- * @concurrency N/A: 共有状態を持たない同期処理である。
- */
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
+      ? null
+      : createElement(
+          "a",
+          {
+            className: "page-link",
+            href: `/owner-artifact?path=${encodeURIComponent(source.relativePath)}`,
+          },
+          "Quality Centerを開く",
+        ),
+  );
 }

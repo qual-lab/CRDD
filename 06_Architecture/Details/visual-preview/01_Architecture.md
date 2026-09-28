@@ -32,8 +32,8 @@
 | Concern | Result | Rationale | Evidence／Related ID |
 |---|---|---|---|
 | Concurrency | PASS | Request間で可変業務状態を共有せず、Connection集合だけをclose時の資源回収に用いる。 | [§5](#5-lifecycle) |
-| Timing | PASS | 長時間処理やRetryを所有せず、Browser確認中は明示終了までListenerを維持する。 | [§5](#5-lifecycle) |
-| Resource Lifecycle | PASS | Listenerと受理済みConnectionを開始Handleが所有し、closeで終了する。 | [§5](#5-lifecycle) |
+| Timing | PASS | 必須画面TargetのReact commitは最大10秒、対象確定後の画像は最大5秒待つ。Browser正常終了後のTree猶予は5秒、限定Fallback後の最終不存在確認は最大30秒とし、終了処理とTree観測の所要時間を記録する。 | [§5](#5-lifecycle) |
+| Resource Lifecycle | PASS | Listenerと受理済みConnectionを開始Handleが所有する。BrowserはWindowsのCreationDateまたはLinuxのprocfs開始tickを含む世代Identityで終了要求直前のTreeを固定し、親の正常終了だけでなく残存子Processの限定Fallbackと最終不存在まで確認する。安全な世代Identityを取得できない環境ではSignal Effect 0で失敗する。 | [§5](#5-lifecycle) |
 | External Boundary | PASS | Repository Filesystemとlocalhost HTTPを直接境界として分離する。 | [§4](#4-flow) |
 | Failure／Recovery | PASS | Root不正はNetwork Effect 0、Request不正は情報非開示の404／405へ閉じる。 | [§7](#7-失敗と終了後条件) |
 | State／Consistency | PASS | Bind完了前にreadyを返さず、close完了後にclosedを返す。 | [§5](#5-lifecycle) |
@@ -54,8 +54,8 @@
 | 導出キー | 設計項目種別 | 対象 | 正常条件 | 反証する失敗 | 主な試験段階 | 外部境界の段階 | 観測 | 終了後条件 | 未確認 |
 |---|---|---|---|---|---|---|---|---|---|
 | `visual-preview.local-read-only-preview` | Boundary／Resource Lifecycle | Repository内Visual Root→localhost Listener→Browser相当Consumer | Linkでない許可Rootの通常FileだけをGET／HEADで返す | 外部Bind、Path越境、Link追跡、Directory一覧、書込みMethod受理、close後Listener残存 | IT | Direct Boundary | Status、Header、本文、拒否理由、Health、close後Connection | Listener 0、Connection 0、Repository書込み0 | 実BrowserのZoom／Breakpoint評価はUI Visual Gateで確認 |
-| `visual-preview.browser-lifecycle-observation` | Boundary／Resource Lifecycle | localhost Listener／所有Browser Process→終了後観測 | Listenerの存在・不存在・観測不能と、Browserの正常終了・SIGTERM・SIGKILL・観測不能を分離する | 応答停止やtimeoutを不存在へ畳む、正常終了待機前のSignal、強制終了を正常終了と表示する | IT | Direct Boundary | TCP接続結果、Process終了Event、送信Signal、終了経路 | 接続拒否だけを不存在とし、実際の終了経路を一意に返す。観測不能をPassにしない | 実Browser全体の表示品質と資源0はSystem/E2Eで確認 |
-| `visual-preview.actual-browser-zoom` | Boundary／Visual Verification／Resource Lifecycle | localhost Preview→専用Chrome Profile→Rendered DOM観測 | 指定した全画面・全倍率で実Zoomと画像読込を観測し、横Overflow、文字下限、操作対象およびFocus順を評価する | CSS狭幅の代替利用、倍率未反映、画像404、部分画面だけの確認、通常Profile利用、一時Profile・Process Tree・DevTools・Listener残存、timeoutを不存在へ畳む誤判定 | ST | System/E2E | DPR、実効Viewport、Scroll幅、Computed Font Size、操作対象寸法、`tabindex`、画像数・読込成功・失敗、正常終了受理、実終了経路、強制終了Fallback、Process Tree、DevTools、Profile、Preview Listener | Browser Process Tree 0、DevTools Listener 0、専用Profile 0、Preview Listener 0、Repository書込み0。Listenerは接続拒否だけを不存在とし、timeoutまたは分類不能は観測不能としてPassにしない | N/A: 固定Visual Gateを機械観測できる。審美判断はHuman Authorityが所有する |
+| `visual-preview.browser-lifecycle-observation` | Boundary／Resource Lifecycle | localhost Listener／所有Browser Process→終了後観測 | Listenerの存在・不存在・観測不能と、Browserの正常終了・SIGTERM・SIGKILL・残存子Process限定Fallback・観測不能を分離する | 応答停止やtimeoutを不存在へ畳む、正常終了待機前のSignal、終了要求前に生成された子Processの見落とし、OS列挙順を親子順とみなす、親終了だけでTree 0とする、PID一致だけで別Processを終了する、強制終了を正常終了と表示する、一段のcleanup失敗で後続清掃を省略する | IT／ST | Direct Boundary／System E2E | TCP接続結果、Process終了Event、exactな世代Identity、親子Graph深度、送信Signal、終了経路、Fallback有無、終了処理・Tree観測所要時間 | 接続拒否だけを不存在とする。終了要求直前に所有Treeを再取得し、正常終了猶予後も残る同じ世代IdentityだけをGraphの深い子孫から親の順に限定処置して最終不存在を確認する。Process観測、終了要求、DevTools確認およびProfile削除は、一段の失敗後も可能な後続段をすべて試行してErrorを集約する。観測不能をPassにしない | 実Browser全体の表示品質と資源0はSystem/E2Eで確認 |
+| `visual-preview.actual-browser-zoom` | Boundary／Visual Verification／Resource Lifecycle | localhost Preview→専用Chrome Profile→Rendered DOM観測 | 指定した全画面・全倍率でReact描画後の画像確定と実Zoomを観測し、横Overflow、文字下限、操作対象およびFocus順を評価する | CSS狭幅の代替利用、倍率未反映、画像404、読込み途中の失敗扱い、部分画面だけの確認、通常Profile利用、一時Profile・Process Tree・DevTools・Listener残存、timeoutを不存在へ畳む誤判定 | ST | System/E2E | DPR、実効Viewport、Scroll幅、Computed Font Size、操作対象寸法、`tabindex`、画像数・読込成功・失敗、正常終了受理、実終了経路、子Process限定Fallback、終了所要時間、Process Tree、DevTools、Profile、Preview Listener | Browser Process Tree 0、DevTools Listener 0、専用Profile 0、Preview Listener 0、Repository書込み0。Listenerは接続拒否だけを不存在とし、timeoutまたは分類不能は観測不能としてPassにしない | N/A: 固定Visual Gateを機械観測できる。審美判断はHuman Authorityが所有する |
 
 ## 現行実装との照合
 
@@ -97,8 +97,8 @@ template/tools/
 | CLI | `--root`、`--port` | ready／closed／blockedのJSON | Absolute Path表示、Browser起動 |
 | HTTP | GET／HEADとRoot内File Path | Fileまたは固定拒否結果 | POST、一覧、CORS、Credential |
 | Health | 固定Path | Contract、ready、host、read-only | Root Path、Repository Identity |
-| Zoom検証 | Root、HTML一覧、倍率一覧、Window寸法、任意Chrome Path | 実倍率、実効Viewport、画像、文字・操作対象・Overflow・Focusおよび資源別cleanupの構造化結果 | Human Direction、通常Browser Profile、Browser拡張、外部Network |
-| 起動済みlocalhost Application検証 | loopback HTTPのBase URL、画面Target、表示Profile、倍率、任意Chrome Path | Target別の実倍率、実効Viewport、画像、文字・操作対象・Overflow・FocusおよびBrowser資源cleanupの構造化結果 | Application Serverの起動・停止、外部URL、通常Browser Profile、外部Network |
+| Zoom検証 | Root、HTML一覧、倍率一覧、Window寸法、任意Chrome Path | 実倍率、実効Viewport、画像、文字・操作対象・Overflow・Focus、終了経路、限定Fallback、終了所要時間および資源別cleanupの構造化結果 | Human Direction、通常Browser Profile、Browser拡張、外部Network |
+| 起動済みlocalhost Application検証 | loopback HTTPのBase URL、画面Target、表示Profile、倍率、任意Chrome Path | Target別の実倍率、実効Viewport、画像、文字・操作対象・Overflow・Focus、終了経路、限定Fallback、終了所要時間およびBrowser資源cleanupの構造化結果 | Application Serverの起動・停止、外部URL、通常Browser Profile、外部Network |
 
 ### 公開Export Allowlist
 
@@ -136,12 +136,22 @@ template/tools/
           ▼
 [Rendered DOMをDevToolsで観測]
           │
+          ├ 必須Target未確定 ─→ [React commitを最大10秒待機]
+          ├ Target確定後の画像未確定 → [最大5秒待機]
+          │
           ├ 閾値未達 ─────────→ [failed]
           ▼
-[正常終了を要求し、Process Tree・DevTools・Profile・Preview Listenerを個別観測]
+[終了要求直前の所有Treeを世代Identityで固定]
+          │
+          ▼
+[正常終了を要求]
+          │
+          ├ Tree残存 ─────────→ [exact Identity限定Fallback]
+          ▼
+[Process Tree・DevTools・Profile・Preview Listenerを個別観測]
 ```
 
-起動済みApplicationを検証する場合は、Application側がServer lifecycleを所有し、Visual Previewは検証済みのloopback Base URLだけを受け取る。画面Target、表示Profile、倍率の有限集合を全数処置し、条件ごとのBrowser ProcessはPIDと生成時刻を組み合わせたexact Identityで終了後に再観測する。Application Listenerの不存在確認は呼出側が行い、Visual Previewが他SubsystemのServerを暗黙停止しない。
+起動済みApplicationを検証する場合は、Application側がServer lifecycleを所有し、Visual Previewは検証済みのloopback Base URLだけを受け取る。画面Target、表示Profile、倍率の有限集合を全数処置し、条件ごとのBrowser ProcessはWindowsではPIDとCreationDate、LinuxではPIDとprocfs開始tickを組み合わせたexactな世代Identityで終了後に再観測する。安全な世代Identityを得られない他のPOSIX環境では残存ProcessへSignalを発行せず、観測不能として失敗する。Application Listenerの不存在確認は呼出側が行い、Visual Previewが他SubsystemのServerを暗黙停止しない。
 
 ## 5. Lifecycle
 
@@ -152,7 +162,7 @@ template/tools/
 | closing | close開始後 | 新しい業務操作なし | 所有Connectionを終了する |
 | closed | Server close完了後 | 冪等なclose | Listener 0、Connection 0 |
 | measuring | 専用Profile作成後 | 対象URLの表示と読取り観測 | 同じ条件のProcessとProfileを所有する |
-| measured | 一条件の観測と終了後確認完了後 | 結果集約、次条件開始 | 前条件のProcess Tree 0、DevTools Listener 0、Profile 0 |
+| measured | 一条件の観測と終了後確認完了後 | 結果集約、次条件開始 | 正常終了猶予、必要時のexact Identity限定Fallback、最終不存在確認を終え、前条件のProcess Tree 0、DevTools Listener 0、Profile 0 |
 
 CLIはSIGINT／SIGTERMの競合を一回のcloseへ畳む。Library Handleのcloseも冪等とする。
 
@@ -179,10 +189,12 @@ CLIはSIGINT／SIGTERMの競合を一回のcloseへ畳む。Library Handleのclo
 | File読取り失敗 | 固定失敗または接続終了 | 別FileへのFallback 0 |
 | close | Listenerと所有Connectionを終了 | Listener 0、Connection 0 |
 | Browser起動・Navigation失敗 | 同じ条件を成功へ畳まずblocked | 所有Browser Process Tree 0、DevTools Listener 0、専用Profile 0 |
-| 画像読込失敗 | `complete`と自然幅・高さを観測しfailed | alt文字や壊れた画像表示を成功へ畳まない |
+| 必須画面Target未確定 | 固定DOM IDがReact commitされるまで最大10秒待ち、未確定ならfailed | Server Shellや描画途中DOMを完成画面へ読み替えない |
+| 画像読込失敗 | 必須画面Target確定後に取得した画像ごとに`load`／`error`確定を最大5秒待ち、`complete`と自然幅・高さを観測してfailed | Reactが後から追加した画像を見落とさず、読込み途中を失敗へ誤分類せず、alt文字や壊れた画像表示も成功へ畳まない |
 | Navigation中のContext破棄 | 同じURL・期限内だけ再観測 | 別URLへのFallback 0、重複Profile残存0 |
 | Zoom未反映・Visual閾値未達 | 測定値と理由をfailedで返す | 他条件のPassによる上書き0 |
 | cleanup不能 | 全体をPASSにしない | 対象Identityを不明なまま不存在へ畳まない |
+| 親Browser終了後の子Process残存 | 正常終了後5秒の猶予を置き、生成時刻を含む同一Identityだけへ子孫から終了要求し、最大30秒で最終不存在を確認する | PIDだけで別Processを終了せず、最終残存または観測不能をPASSへ畳まない |
 
 ## 8. Implementation Structure
 
@@ -193,7 +205,7 @@ CLIはSIGINT／SIGTERMの競合を一回のcloseへ畳む。Library Handleのclo
 | Creation／Selection | Required | Root検証後だけListenerを作り、条件ごとの専用ProfileだけでBrowserを起動する。 | Root Resolver→Server Bind→専用Profile→Chrome | 不明時Effect 0、通常Profile非利用 | Root／Browser選択変更はSecurityへ波及 | `visual-preview.local-read-only-preview`、`visual-preview.actual-browser-zoom` |
 | State-dependent Behavior | Required | ready前、ready、measuring、measured、closing、closedで操作可能性が異なる。 | Handle／Measurement Lifecycle | ready前にURLを返さず、観測前に条件をPassへしない | 状態追加はclose／cleanup試験へ波及 | `visual-preview.local-read-only-preview`、`visual-preview.actual-browser-zoom` |
 | Composition／Recursion | N/A | 再帰的なSubsystem合成を行わない。 | 単一Listener | 上位完成を所有しない | N/A | `visual-preview.local-read-only-preview` |
-| Lifecycle Ownership | Required | Listener、Connection、Browser Process Tree、DevToolsおよび専用Profileを確実に回収する必要がある。 | Preview Handleと条件別Measurementが各資源Owner | close後Listener／Connection 0、条件後Process Tree／DevTools／Profile 0 | 取消経路変更はIT／STへ波及 | `visual-preview.local-read-only-preview`、`visual-preview.actual-browser-zoom` |
+| Lifecycle Ownership | Required | Listener、Connection、Browser Process Tree、DevToolsおよび専用Profileを確実に回収する必要がある。 | Preview Handleと条件別Measurementが各資源Owner。Browser Treeは終了要求直前にOS固有のexactな世代Identityで固定する | close後Listener／Connection 0。正常終了猶予後も残る同一世代Identityだけを限定処置し、条件後Process Tree／DevTools／Profile 0と所要時間を確認する。一段が失敗しても後続cleanupを試行し、Errorを集約する | 取消・期限・Process Identity変更はIT／STへ波及 | `visual-preview.local-read-only-preview`、`visual-preview.browser-lifecycle-observation`、`visual-preview.actual-browser-zoom` |
 | External Boundary | Required | Filesystem、HTTP、Chromium Profile、Browser ProcessおよびDevToolsを扱う。 | Root検証、HTTP Method、Response Header、専用Profile→Headless Chrome→DevTools測定 | 要求とFile Effectを分け、通常Profile非利用、実DPR一致、全条件処置を維持する | 境界変更はSecurity、IT、ST、Visual Gateへ波及 | `visual-preview.local-read-only-preview`、`visual-preview.actual-browser-zoom` |
 
 ## Checklist

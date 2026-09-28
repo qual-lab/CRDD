@@ -115,14 +115,14 @@ function meetingFixture(): string {
  * @trace ERB-ST-022
  * @precondition `CRDD_WORKBENCH_VISUAL_E2E=1`で明示実行し、対応済みChromeを利用できる。
  * @stimulus Workbench Production Serverを起動し、3 Page×3 Profile×3 Zoomを専用Browser Profileで表示する。
- * @observation 15 Target、Viewport、DPR、文字、操作対象、画像、Overflow、Focus順、Process、Profile、ListenerおよびGit状態を観測する。
+ * @observation 15 Target、Viewport、DPR、文字、操作対象、画像、Overflow、Focus順、Process、終了所要時間、Profile、ListenerおよびGit状態を観測する。
  * @oracle 全Targetが可視で、閾値違反と資源残存がなく、RepositoryのCanonical状態を変更しない。
  * @cleanup Workbench Listener、Browser Process Tree、専用Profileおよび隔離Fixtureを削除する。
  * @boundary ERB-ST-022=Direct Boundary: workbench Test Source→対象契約
  */
 test("Workbench 15 Logical Screenを全表示Profileと実Browser Zoomで確認する", {
   skip: process.env.CRDD_WORKBENCH_VISUAL_E2E !== "1",
-}, async () => {
+}, async (context) => {
   const testRoot = path.join(repositoryRoot, ".crdd", "tests");
   await mkdir(testRoot, { recursive: true });
   const fixture = await mkdtemp(
@@ -268,9 +268,46 @@ test("Workbench 15 Logical Screenを全表示Profileと実Browser Zoomで確認�
             measurement.minimumInteractiveWidthKind,
             measurement.minimumInteractiveHeightKind,
           ],
+          browserShutdownElapsedMilliseconds:
+            measurement.browserShutdownElapsedMilliseconds,
+          browserProcessTreeExitObservationElapsedMilliseconds:
+            measurement.browserProcessTreeExitObservationElapsedMilliseconds,
+          browserDescendantTerminationRequired:
+            measurement.browserDescendantTerminationRequired,
         })),
     ),
   );
+  assert.equal(
+    result.measurements.every(
+      (measurement) =>
+        Number.isInteger(measurement.browserShutdownElapsedMilliseconds) &&
+        measurement.browserShutdownElapsedMilliseconds >= 0 &&
+        Number.isInteger(
+          measurement.browserProcessTreeExitObservationElapsedMilliseconds,
+        ) &&
+        measurement.browserProcessTreeExitObservationElapsedMilliseconds >= 0,
+    ),
+    true,
+  );
   assert.equal(result.browserCleanupConfirmed, true);
   assert.equal(result.temporaryRootRemoved, true);
+  context.diagnostic(
+    JSON.stringify({
+      contract: "crdd/workbench-visual-cleanup-timing/v1",
+      maximumBrowserShutdownElapsedMilliseconds: Math.max(
+        ...result.measurements.map(
+          (measurement) => measurement.browserShutdownElapsedMilliseconds,
+        ),
+      ),
+      maximumProcessTreeObservationElapsedMilliseconds: Math.max(
+        ...result.measurements.map(
+          (measurement) =>
+            measurement.browserProcessTreeExitObservationElapsedMilliseconds,
+        ),
+      ),
+      descendantTerminationFallbackCount: result.measurements.filter(
+        (measurement) => measurement.browserDescendantTerminationRequired,
+      ).length,
+    }),
+  );
 });

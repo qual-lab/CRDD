@@ -60,7 +60,7 @@
 | `workbench.interface-boundary` | Interface／Security | Browser→localhost Server→Consumer Port | loopbackと既存Authority内だけで要求を搬送する | 外部Bind、内部型露出、Grant越境 | IT | Direct Boundary | bind address、request、Grant、response | listener 0、秘密再表示0 | localhost、Credential管理、Bearer Remote Transport、Browser接続入口、および外部TLS終端から同一Origin Gatewayへの境界を観測済み |
 | `workbench.view-state` | State／Consistency | Projection→View Model→DOM | partial、restricted、unknownを区別する | unknownをempty／completeへ畳む | UAT | User Acceptance | state、coverage、source、表示 | staleな成功表示0 | Topic／Meeting未構成、Remote失効、Git観測不能、AI未接続、Runtime absent／unknown、Owner Artifact unknownをProduction DOMで分離済み。人間受入は未完了 |
 | `workbench.interaction-sequence` | Sequence／Effect | 操作→要求→受理→Effect→結果→回復 | 各段階を区別し結果不明時に暗黙再送しない | request発行を完了と表示する | IT／ST | Direct Boundary／System E2E | request identity、effect state、result | 重複Effect 0 | Repository Work、Topic／Meeting、Credential、接続、AI Profile、現在Session AI Port、署名済み読取り助言Production Runtimeおよび変更候補の確認・採用・破棄境界を局所観測済み。実Provider E2Eは未確認 |
-| `workbench.resource-flow` | Data Flow／Lifecycle | listener、request、session、child process | shutdown後に所有資源が残らない | Browser closeだけでcleanup完了とする | IT／ST | Direct Boundary／System E2E | handle、exact process identity、listener、temporary resource | 所有資源0 | localhost ServerのListener／Connection cleanupに加え、15画面の実Browser Process、専用ProfileおよびWorkbench Listenerの終了後不存在を観測済み。読取り助言Runtimeの実Provider E2Eは未確認 |
+| `workbench.resource-flow` | Data Flow／Lifecycle | listener、request、session、child process | shutdown後に所有資源が残らない | Browser closeだけでcleanup完了とする | IT／ST | Direct Boundary／System E2E | handle、OS固有のexactな世代Identity、listener、temporary resource | 所有資源0 | localhost ServerのListener／Connection cleanupに加え、15画面の実Browser Process、専用ProfileおよびWorkbench Listenerの終了後不存在を観測済み。Visual Runnerは終了要求直前にTreeを再取得し、正常終了後5秒の猶予、同一世代Identityの残存子Processだけへの限定Fallback、最終30秒の不存在確認を順に行う。一段のcleanup失敗後も後続段を試行し、終了処理とTree観測の所要時間を記録する。実Browser 27条件は全件成功し、局所ITでは親終了後に残る子ProcessへFallbackを実発行して最終0件を確認した。読取り助言Runtimeの実Provider E2Eは未確認 |
 | `workbench.failure-recovery` | Failure／Recovery | conflict、partial、unknown、provider failure | 入力と確認済み結果を保ち安全に再入場できる | 自動再実行、無断上書き、事実損失 | ST | System/E2E | retained input、result classification、next action | 未承認Effect 0 | Push結果不明は観測済み。他のOperation／Providerは未確認 |
 | `workbench.mode-variation` | Variation／Common Contract | Repository単体／Local CROS／Remote CROS | 可用能力差を示し同じ結果意味を保つ | Modeごとに状態語彙やAuthorityが変わる | IT | Direct Boundary | mode、capability、result schema | 未許可Source読取り0 | Browserからの接続・更新・切断、Remote Portfolio取得、許可済みSource選択、Remote Topic／Meetingの一覧・詳細・書込み・Relation遷移、失効後Unavailable、およびREST／MCP同一HTTPS Origin契約を観測済み |
 | `workbench.screen-composition` | UI Composition／Visual | Direction Aの15 Screenと公式ロゴ | 公式ロゴを左上に表示し各Profileで主要Flowを利用できる | 代替Logo、横Overflow、Focus不能、情報階層崩壊 | ST | System/E2E | image load、DOM、zoom、viewport、keyboard | Browser資源0 | [実Browser Visual Gate](../../../99_Roadmap/Changes/CHG-000082/Evidence/260928-1028_phase5-workbench-actual-browser-visual.md)で15画面、Desktop／Tablet／Mobile、100%／200%／400%の27条件を全数観測済み。人間UATは未完了 |
@@ -95,12 +95,13 @@ CROS Workbenchは、Project Context、Topic、Meeting、Quality、正本Relation
 
 ```text
 Browser
-└ Workbench React UI
+└ Workbench Client-side React UI
    ├ React Application Shell
    ├ Screen Router
    ├ View Model Renderer
    └ Interaction Adapter
             │ localhost HTTP／将来Remote HTTP
+            │ fixed Document Shell + safe JSON Read Model + Action POST
             ▼
    Workbench Application Adapter
       ├ Project Operation／CROS Port
@@ -116,7 +117,7 @@ Browser
 
 | Component | 所有する責務 | 所有しない責務 |
 |---|---|---|
-| React Application Shell | Global Navigation、現在Project、表示領域、左上の公式ロゴ、Server描画とBrowser Hydrationの同一Component | Project状態、認証判定、Git状態 |
+| React Application Shell | Global Navigation、現在Project、表示領域、左上の公式ロゴおよび全画面DOMのClient-side描画 | Project状態、認証判定、Git状態 |
 | Vite Build Adapter | Browser Clientの依存解決、最小化および固定配布Asset生成 | Runtime Authority、Server Routing、業務状態、Secret注入 |
 | Screen Router | SCRと選択ContextのNavigation | Business Lifecycle、正本Relationの生成 |
 | View Model Renderer | 公開結果をVisual Stateへ変換 | 欠測、制限、結果不明の推測補完 |
@@ -143,7 +144,7 @@ React／TypeScript Source ── Vite ── fixed Browser Bundle
 - Repository単体利用はCROS Credentialを要求しない。
 - Remote CROS利用時だけ、既存CredentialとSession Grantを接続へ渡す。
 - Browser BundleはViteで生成する派生物であり正本にしない。Build不能、Asset欠落またはallowlist外Asset要求では起動または配信を拒否する。
-- Node Serverが初期HTMLをReactでServer描画し、Browser Clientが同じComponentをHydrationする。移行中の既存画面FragmentはServer生成・escape済みの内部境界だけで受け取り、利用者入力をRaw HTMLとして受け取らない。
+- Node Serverは空のDocument Shell、固定AssetおよびJSON Read Modelだけを配信し、Browser Clientが全画面DOMをClient-side Reactで構築する。JSONはCredential verifier、Remote接続Bearer、Private Key、Host Pathおよび永続Authorityを含まず、同一Originの明示POST用のProcess限定Action TokenとCredential操作直後の一回表示Tokenだけを用途限定Fieldで扱う。SSR、Hydration、Raw HTML Fragmentおよび既存DOMの再読取りは行わない。
 - Browserを閉じたことだけでServer終了を推定しない。明示shutdownまたはOwner Process終了でlistenerと進行中requestを回収する。
 - Next.js／Server Action、Desktop wrapper、OS tray、auto update、installerは`N/A`: 現在の利用者成果に必要な根拠がなく、Node側の既存Authority境界と責務が重複する。
 
@@ -209,6 +210,7 @@ WorkbenchはCurrent Projectionを独自Databaseへ複製しない。将来Cache�
 | Owner Artifact欠落／越境／過大 | Project ContextとCatalog観測理由 | 部分Catalog公開、任意Path探索 | Catalog全体をunknownとしOwner側を確認する |
 | Logo／CSS取得失敗 | Application request状態 | 代替Brandの創作 | Asset経路診断、再取得 |
 | React Client Bundle欠落／不一致 | Server起動前のBuild結果 | HTMLだけを完全なReact移行として表示、任意Asset配信 | Vite Buildを再実行し、固定Assetの存在とHTTP契約を再確認 |
+| JSON Read Model取得失敗／不正 | 固定Document Shellと取得失敗理由 | 空画面、直前値またはBrowser推測での補完 | 同じRoute条件で再取得し、Server側Owner Artifact／Adapterを診断する |
 
 ## Implementation Structure
 
@@ -218,7 +220,7 @@ WorkbenchはCurrent Projectionを独自Databaseへ複製しない。将来Cache�
 | Common Contract | Required | 複数入口で同じView StateとInteraction Resultを使う。 | 共通View Model／Result Contract | Surface固有語彙をDomain結果へ逆流させない。 | 契約変更は全Adapterと画面へ波及する。 | `workbench.component-boundary`<br>`workbench.view-state` |
 | Creation／Selection | Required | Project、Mode、Connection、AI Profileを明示選択する。 | Selection Service／Screen Context | 利用不能対象を暗黙選択しない。 | 選択規則変更はNavigationとAuthorityへ波及する。 | `workbench.mode-variation` |
 | State-dependent Behavior | Required | loading、partial、unknown、Effect前後で許可操作が異なる。 | View State Machine／Interaction State | unknown時に成功や再実行を既定にしない。 | 状態追加は全Screenと試験へ波及する。 | `workbench.view-state`<br>`workbench.interaction-sequence` |
-| Composition／Recursion | Required | 15 Screenと反復PartからProduct固有Patternを発見する。 | React Shell、SCR／PRT Composition、後段CMP昇格 | Heroを先に抽象化せず反復根拠から昇格する。移行中のServer Fragmentを恒久Component境界として固定しない。 | React ComponentまたはCMP追加時はScreen Coverageを再評価する。 | `workbench.screen-composition` |
+| Composition／Recursion | Required | 15 Screenと反復PartからProduct固有Patternを発見する。 | React Shell、SCR／PRT Composition、後段CMP昇格 | Heroを先に抽象化せず反復根拠から昇格する。Server FragmentをComponent境界として持たず、Browser ReactがCompositionを所有する。 | React ComponentまたはCMP追加時はScreen Coverageを再評価する。 | `workbench.screen-composition` |
 | Lifecycle Ownership | Required | Server、request、session、child processを所有する。 | Runtime Owner／Shutdown Coordinator | 終了後に所有資源を残さない。 | lifecycle変更はIT／STへ波及する。 | `workbench.resource-flow` |
 | External Boundary | Required | Git、Remote CROS、AI Provider、Filesystemを扱う。 | 境界別Port／Adapter | 一境界の成功を他境界へ流用しない。 | 境界追加はAuthorityとE2Eへ波及する。 | `workbench.interface-boundary`<br>`workbench.failure-recovery` |
 
@@ -226,7 +228,7 @@ WorkbenchはCurrent Projectionを独自Databaseへ複製しない。将来Cache�
 
 | 対象 | 現在状態 | 分類 | 処置 |
 |---|---|---|---|
-| Production Workbench package | `40_Develop/workbench`にReact Application Shell、Vite Browser Build、localhost Node Server、Project Surface、Repository Work、Topic／Meeting CRUDとMeeting Outcome処置、Credential管理Surface、Remote接続入力、Portfolioの検索・状態絞込み・Query拘束継続読込・Project別Source表示、Owner分離したRepository／CROS AI Profile管理、選択Profile IDと依頼種別付きの現在Session AI依頼Port、変更候補の確認・採用・破棄SurfaceおよびRuntime Activity Portが存在する。React移行はShellのServer描画／Hydrationまで成立し、既存15画面本体はServer Rendererを互換境界として内包する段階である。この互換境界は全画面Component化済みとは扱わないが、v0.22の成立条件を満たす。Repository単体Compositionは読取り助言を署名済み`workbench_advice` Runtimeへ、変更候補を明示許可Path付きの署名済みProject Runtime Single Taskへ接続する。候補はStoreから再読取りした安全なMetadataを表示し、別確認とProject Runtime Leaseを通った場合だけ採用する。Commit／Pushは行わない | Partial | React移行後の実Browser Visualは再確認済み。残るCodex／Claudeの実Provider E2Eを閉じる。画面単位のReact Component移行は新設・変更画面から段階適用する保守方針であり、v0.22のRelease阻害条件にしない |
+| Production Workbench package | `40_Develop/workbench`にClient-side React Application Shell、Vite Browser Build、localhost Node Server、固定Document Shell、用途限定Token以外の秘密・Authorityを含まないJSON Read Model、Project Surface、Repository Work、Topic／Meeting CRUDとMeeting Outcome処置、Credential管理Surface、Remote接続入力、Portfolioの検索・状態絞込み・Query拘束継続読込・Project別Source表示、Owner分離したRepository／CROS AI Profile管理、選択Profile IDと依頼種別付きの現在Session AI依頼Port、変更候補の確認・採用・破棄SurfaceおよびRuntime Activity Portが存在する。全画面DOMはBrowser側React Componentだけが所有し、Node Serverは認証・Authority・Repository Effect・JSON生成・固定Asset配信だけを所有する。SSR、Hydration、Raw HTML FragmentおよびDOM再読取りは存在しない。Repository単体Compositionは読取り助言を署名済み`workbench_advice` Runtimeへ、変更候補を明示許可Path付きの署名済みProject Runtime Single Taskへ接続する。候補はStoreから再読取りした安全なMetadataを表示し、別確認とProject Runtime Leaseを通った場合だけ採用する。Commit／Pushは行わない | Partial | CSRの型・Lint・Build、HTTP／JSON契約試験、15画面の実Browser Visual再確認および独立レビューは成立した。残るCodex／Claudeの実Provider E2Eを閉じるまで全体完了へ昇格しない |
 | Runtime Activity | Repository単体では現在RevisionとProject IDを既存Project Runtime State QueryおよびExecution Intelligence Storeへ接続する。Remote CROSではRequestごとにCredentialとExposureを再検証し、許可済みRepositoryだけをRuntime Activity Readerへ渡す。現在状態とEvent観測不能を独立表示し、Project限定Eventを新しい順・Cursor付きで継続読込する | Covered | Repository EventのProject分離・順序・Continuation、Remote CROSのGrant分離、Credential失効後の直前値非表示を結合試験で確認した。Runtime正本、Event正本またはRecovery AuthorityはWorkbenchへ移さない |
 | Project Plan | 固定Current Release Projectionを共通ReaderでVersion、期限、Risk、Scope、依存および判断へ変換し、Roadmap詳細と同じOwner Artifact Routeへ接続する | Covered | Projection構造を第二正本化せず、Roadmap／CHG更新時の同時更新契約を維持する |
 | Quality | 固定Current Quality Projectionを共通Readerで状態、Coverage、Gap、次Gateおよび人間判断へ変換し、Quality Center原文へ接続する | Covered | Quality Center更新時のProjection整合を維持し、Evidence自体をWorkbenchへ複製しない |
@@ -242,7 +244,7 @@ WorkbenchはCurrent Projectionを独自Databaseへ複製しない。将来Cache�
 
 - localhostだけにbindし、任意Interfaceへ公開しない。
 - 公開入口から公式ロゴを含むDirection A Shellを表示できる。
-- React Server RenderingとBrowser Hydrationが同じShellを生成し、Vite Bundleを同一Originの固定Pathだけから取得できる。
+- Node Serverが固定Document Shellと用途限定Token以外の秘密・Authorityを含まないJSON Read Modelを同一Originで返し、Vite Bundleから起動したClient-side Reactだけが全画面DOMを生成する。Action Tokenは認証・業務Authorityを単独で付与せず、Credential生Tokenは明示管理操作直後の最初のJSON応答だけで一回表示する。
 - Local／Remoteの入口差でApplication意味、状態語彙、失敗分類を変えない。
 - 欠測、非開示、部分成功、結果不明を完全・空・失敗へ畳まない。
 - Effectを伴う操作ではAuthority、要求、受理、Effect、結果、終了後状態を分ける。

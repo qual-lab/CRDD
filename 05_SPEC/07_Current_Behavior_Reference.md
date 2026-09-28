@@ -1,8 +1,8 @@
 # 現行振る舞い参照
 
-Status: Stable (v0.21.0)
+Status: v0.21.0 Stable + v0.22.0 Candidate Projection
 Owner: Qual-Lab
-Last Updated: 2026-09-06
+Last Updated: 2026-09-28
 
 ## 基本図の処置
 
@@ -10,9 +10,9 @@ Last Updated: 2026-09-06
 |---|---|---|---|---|---|---|---|---|
 | Use Case／振る舞いFlow | 公開Task | 入力、受理、実行、結果、取消の主分岐 | 作成不能 | [公開Taskの入力・結果・取消](#公開taskの入力結果取消)は入力例と規則であり、端から端のFlowではない | v0.22 Candidate | 未作成 | 入力から取消・結果までの順序と分岐 | Group BのSPECでWorkbench対象と合わせて作成する |
 | 状態遷移表／状態遷移図 | Task、候補、取消、回復 | 状態と許可される遷移の固定 | 作成不能 | 結果意味表と取消規則はあるが、状態と許可遷移を一つに固定する表または図ではない | v0.22 Candidate | 未作成 | 状態、遷移条件、禁止遷移、終端状態 | Group BのSPECで対象状態を確定して作成する |
-| Actor／System間Sequence図 | 一般Task | Actor、Runtime、Provider、Reviewerの順序 | 既存参照 | [Coordinator一般Taskの主シーケンス](../06_Architecture/Details/coordinator/01_Architecture.md#3-一般taskの主シーケンス) | v0.20.1 Stable | 現行 | Workbench経路は未設計 | Group BのSPECで必要なSequenceを作成する |
+| Actor／System間Sequence図 | 一般TaskとWorkbench | Actor、Browser、Node Runtime、Provider、Reviewerの順序 | 既存参照 | [Coordinator一般Taskの主シーケンス](../06_Architecture/Details/coordinator/01_Architecture.md#3-一般taskの主シーケンス)と[Workbench Architecture](../06_Architecture/Details/workbench/01_Architecture.md) | v0.22 Candidate | WorkbenchのCSR Read・POST・AI依頼経路を実装済み | 実Provider E2E | 実Provider閉包またはSequence変更時に再評価する |
 | Error／Effect分岐図 | 診断・回復 | Effect前停止と回復義務の分岐 | 作成不能 | [診断・回復の公開境界](#診断回復の公開境界)は条件説明であり、ErrorとEffectの分岐図ではない | v0.22 Candidate | 未作成 | Effect前後の失敗、結果、回復義務の分岐 | Group BのSPECで操作対象と合わせて作成する |
-| UI／SPEC対応図 | 現行Tool操作 | UI表示・操作と本仕様の対応 | 既存参照 | [UIと振る舞い仕様の対応](../04_UI/06_Current_Interface_Reference.md#6-uiと振る舞い仕様の対応) | v0.20.1 Stable＋v0.22 Candidate | 現行 | Workbench部分は未対応 | Group Bの共同レビューで更新する |
+| UI／SPEC対応図 | 現行Tool操作 | UI表示・操作と本仕様の対応 | 既存参照 | [Workbench UI／SPEC Detail対応](Details/02_UI_SPEC_Detail_Correspondence.md)。[UI側の概観](../04_UI/06_Current_Interface_Reference.md#6-uiと振る舞い仕様の対応)は補助投影 | v0.22 Candidate | Workbench実装とHTTP／Browser試験へ接続済み | AI関連2画面の実Provider E2E | 対応またはBehavior変更時に共同レビューする |
 
 ## 対象と読み方
 

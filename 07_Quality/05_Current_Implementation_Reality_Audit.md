@@ -329,9 +329,9 @@ v0.22では、旧Snapshotで未完成としていたShared Serverについて、
 | CROS Workspace／Repository境界 | `RFD-ST-003`、`RFD-ST-004`、`RFD-IT-009`、`RFD-ST-010`、`RFD-IT-011`、`RFD-ST-016` | `RFD-ST-004`、`RFD-IT-009`、`RFD-IT-011`はPrototype Relationとして保持。`RFD-ST-003`、`RFD-ST-010`、`RFD-ST-016`は未観測。いずれも新Capability完成へ数えない | v0.22 |
 | CROS Tool／Handoff境界 | `RCM-IT-010`、`ERB-IT-010`、`ERB-ST-013` | `RCM-IT-010`、`ERB-ST-013`は既存Capabilityの非後退Relationとして保持。`ERB-IT-010`は未観測 | v0.22 |
 | Visual Preview境界 | `ERB-IT-018` | 局所IT Relationと実Browserでの利用実績は保持するが、独立した完成Evidence未固定のため未観測を維持する | v0.22 |
-| Browser Lifecycle観測 | `ERB-IT-020` | Listener三値観測と正常終了／Fallback分離を直接境界契約試験で観測済みとして保持する | v0.22 |
+| Browser Lifecycle観測 | `ERB-IT-020` | Listener三値観測、正常終了／Fallback分離、親終了後に残る子Processへのexactな世代Identity限定Fallback、Identity不一致／未検証時のEffect 0、Graph深度順、最終Tree 0およびcleanup前段失敗後の後続段実行・Error集約を直接境界契約試験で観測済みとして保持する | v0.22 |
 | 実Browser Zoom | `ERB-ST-019` | 5画面×3 Zoomの実Browser Evidenceを観測済みとして保持する | v0.22 |
-| Workbench Production Shell | `ERB-UT-023`、`ERB-IT-021`、`ERB-ST-022` | `ERB-UT-023`はAI依頼種別Router、`ERB-IT-021`はlocalhost直接境界Evidence、`ERB-ST-022`は15画面×3表示Profile×3 Zoomの実Browser Visual Gateと終了後資源を観測済み | v0.22 |
+| Workbench Production Shell | `ERB-UT-023`、`ERB-IT-021`、`ERB-ST-022` | `ERB-UT-023`はAI依頼種別Router、`ERB-IT-021`はlocalhost直接境界Evidence、`ERB-ST-022`は15画面×3表示Profile×3 ZoomをReact commit後に観測し、画像確定待ち、終了所要時間および終了後不存在を確認済み。残存子Process限定Fallback自体は`ERB-IT-020`で実発行し、STの通常終了結果から推定しない | v0.22 |
 | Workbench変更公開 | `RFD-IT-014`、`RFD-ST-015` | Token付きWorkbench HTTP→Version Control→実Git／bare Remoteに加え、実Browserでの確認対象表示、通信断、結果不明、再観測不能および人間判断への復帰を観測済み | v0.22 |
 | Workbench／四Surface／結果帰還 | `EST-IT-010`、`EST-ST-011` | Prototype Relationとして保持するが、実CLI／MCP／Workbench共有Ownerの完成へ数えない | v0.22 |
 | Project Operation基本境界 | `PPR-IT-002`、`CPR-IT-004`、`CPR-IT-006`、`CPR-IT-008`、`CPR-UT-009` | `PPR-IT-002`の許可済みFederation→Workbench表示、`CPR-IT-008`のTopic／Meeting Record Readerおよび`CPR-UT-009`の候補採用Application境界は観測済み。`CPR-IT-006`はWorkbench／Coordinator結合Relationを持つが、実Provider候補からの採用E2Eまでは全体完成へ数えない | v0.22 |

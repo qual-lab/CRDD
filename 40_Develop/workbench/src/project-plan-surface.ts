@@ -6,9 +6,11 @@
  * @trace ARCH-000005
  * @trace ARCH-000012
  * @boundary Project Operation Release Read ModelとWorkbench Browser表示の境界。
- * @effect N/A: 検証済みRead ModelからHTMLを構築するだけである。
- * @security Repository外情報を取得せず、表示TextをHTML escapeする。
+ * @effect N/A: 検証済みRead ModelからReact要素を構築するだけである。
+ * @security Repository外情報を取得せず、表示TextはReactのText escapingを使用する。
  */
+import { createElement, type ReactElement } from "react";
+
 import type { RepositoryReleaseProjection } from "../../project-operation/src/index.ts";
 
 import type { WorkbenchOwnerArtifactCatalog } from "./owner-artifact-surface.ts";
@@ -38,20 +40,20 @@ export type WorkbenchProjectPlanObservation = Readonly<{
  * @trace ARCH-000005
  * @trace ARCH-000012
  * @input observationと同じRepositoryから構築したOwner Artifact Catalogを受け取る。
- * @returns Browserへ埋め込む安全なHTML断片を返す。
+ * @returns Browserが描画するReact要素を返す。
  * @precondition availableではprojectionが非nullである。
  * @postcondition Baseline、対象Version、期限、Risk、Scopeおよび依存を一つのPanelで確認できる。
- * @effect N/A: HTML文字列の構築だけを行う。
+ * @effect N/A: React要素の構築だけを行う。
  * @failure 未構成と観測不能を別の表示で保持する。
  * @invariant RoadmapにないMilestone、判断または期限を推測しない。
  * @boundary Project Plan Read ModelとBrowser DOMの境界。
- * @security 全表示Textをescapeし、原文LinkはCatalog内固定Pathだけから生成する。
+ * @security 全表示TextにReactのText escapingを使用し、原文LinkはCatalog内固定Pathだけから生成する。
  * @concurrency N/A: 共有状態を持たない同期処理である。
  */
 export function renderWorkbenchProjectPlan(
   observation: WorkbenchProjectPlanObservation,
   ownerArtifacts: WorkbenchOwnerArtifactCatalog,
-): string {
+): ReactElement {
   if (observation.state !== "available" || observation.projection === null) {
     const label =
       observation.state === "not_configured" ? "Not configured" : "Unknown";
@@ -59,7 +61,26 @@ export function renderWorkbenchProjectPlan(
       observation.state === "not_configured"
         ? "Current Release Projectionがまだ構成されていません。"
         : "Current Release Projectionを完全に観測できません。空の計画として扱いません。";
-    return `<article class="panel wide" id="project-plan"><header><div><p class="eyebrow">Current release projection</p><h2>Project Plan</h2></div><span>${label}</span></header><p class="empty-state">${message}</p></article>`;
+    return createElement(
+      "article",
+      { className: "panel wide", id: "project-plan" },
+      createElement(
+        "header",
+        null,
+        createElement(
+          "div",
+          null,
+          createElement(
+            "p",
+            { className: "eyebrow" },
+            "Current release projection",
+          ),
+          createElement("h2", null, "Project Plan"),
+        ),
+        createElement("span", null, label),
+      ),
+      createElement("p", { className: "empty-state" }, message),
+    );
   }
   const projection = observation.projection;
   const source = ownerArtifacts.artifacts.find(
@@ -68,32 +89,138 @@ export function renderWorkbenchProjectPlan(
   const detail = ownerArtifacts.artifacts.find(
     (artifact) => artifact.category === "project_plan",
   );
-  const link = (path: string, label: string) =>
-    `<a class="page-link" href="/owner-artifact?path=${encodeURIComponent(path)}">${escapeHtml(label)}</a>`;
-  return `<article class="panel wide project-plan-panel" id="project-plan"><header><div><p class="eyebrow">Current release projection</p><h2>Project Plan</h2></div><span>${escapeHtml(projection.targetVersion)} / ${escapeHtml(projection.targetReleaseDate ?? "期限未設定")}</span></header><p class="scene-summary"><strong>${escapeHtml(projection.publishedBaseline)} → ${escapeHtml(projection.targetVersion)}</strong>。現在は${escapeHtml(projection.workState)}で、リリース判断は${escapeHtml(projection.releaseDecision)}です。日程リスク: <strong>${escapeHtml(projection.scheduleRisk)}</strong></p><div class="plan-facts"><div><span>Target date</span><strong>${escapeHtml(projection.targetReleaseDate ?? "未設定")}</strong></div><div><span>Schedule risk</span><strong>${escapeHtml(projection.scheduleRisk)}</strong></div></div><h3>Scope and milestones</h3><div class="table-scroll"><table><thead><tr><th>段階</th><th>範囲</th><th>現在状態</th><th>正本</th></tr></thead><tbody>${projection.scope.map((item) => `<tr><td>${escapeHtml(item.stage)}</td><td>${escapeHtml(item.scope)}</td><td>${escapeHtml(item.state)}</td><td>${escapeHtml(item.owner)}</td></tr>`).join("")}</tbody></table></div><h3>Dependencies and decisions</h3><div class="table-scroll"><table><thead><tr><th>項目</th><th>現在状態</th><th>次の処置／判断</th></tr></thead><tbody>${projection.dependencies.map((item) => `<tr><td>${escapeHtml(item.item)}</td><td>${escapeHtml(item.state)}</td><td>${escapeHtml(item.next)}</td></tr>`).join("")}</tbody></table></div><div class="plan-links">${source === undefined ? "" : link(source.relativePath, "Current Release Projectionを開く")}${detail === undefined ? "" : link(detail.relativePath, "Roadmap詳細を開く")}</div></article>`;
-}
-
-/**
- * Project Plan表示TextをHTMLとして安全に符号化する。
- *
- * @responsibility Repository由来TextをMarkupとして解釈させない。
- * @trace ARCH-000012
- * @input valueに表示文字列を受け取る。
- * @returns HTML特殊文字を符号化した文字列を返す。
- * @precondition valueを信頼済みHTMLと仮定しない。
- * @postcondition ampersand、angle bracketおよびquoteを生で残さない。
- * @effect N/A: 文字列変換だけを行う。
- * @failure N/A: 全文字列を決定論的に変換する。
- * @invariant 表示文字の順序を変えない。
- * @boundary Repository TextとBrowser DOMの境界。
- * @security Script、ElementおよびAttribute注入を防ぐ。
- * @concurrency N/A: 共有状態を持たない同期処理である。
- */
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
+  const link = (artifact: typeof source, label: string): ReactElement | null =>
+    artifact === undefined
+      ? null
+      : createElement(
+          "a",
+          {
+            className: "page-link",
+            href: `/owner-artifact?path=${encodeURIComponent(artifact.relativePath)}`,
+          },
+          label,
+        );
+  return createElement(
+    "article",
+    { className: "panel wide project-plan-panel", id: "project-plan" },
+    createElement(
+      "header",
+      null,
+      createElement(
+        "div",
+        null,
+        createElement(
+          "p",
+          { className: "eyebrow" },
+          "Current release projection",
+        ),
+        createElement("h2", null, "Project Plan"),
+      ),
+      createElement(
+        "span",
+        null,
+        `${projection.targetVersion} / ${projection.targetReleaseDate ?? "期限未設定"}`,
+      ),
+    ),
+    createElement(
+      "p",
+      { className: "scene-summary" },
+      createElement(
+        "strong",
+        null,
+        `${projection.publishedBaseline} → ${projection.targetVersion}`,
+      ),
+      `。現在は${projection.workState}で、リリース判断は${projection.releaseDecision}です。日程リスク: `,
+      createElement("strong", null, projection.scheduleRisk),
+    ),
+    createElement(
+      "div",
+      { className: "plan-facts" },
+      createElement(
+        "div",
+        null,
+        createElement("span", null, "Target date"),
+        createElement("strong", null, projection.targetReleaseDate ?? "未設定"),
+      ),
+      createElement(
+        "div",
+        null,
+        createElement("span", null, "Schedule risk"),
+        createElement("strong", null, projection.scheduleRisk),
+      ),
+    ),
+    createElement("h3", null, "Scope and milestones"),
+    createElement(
+      "div",
+      { className: "table-scroll" },
+      createElement(
+        "table",
+        null,
+        createElement(
+          "thead",
+          null,
+          createElement(
+            "tr",
+            null,
+            ...["段階", "範囲", "現在状態", "正本"].map((value) =>
+              createElement("th", { key: value }, value),
+            ),
+          ),
+        ),
+        createElement(
+          "tbody",
+          null,
+          ...projection.scope.map((item, index) =>
+            createElement(
+              "tr",
+              { key: `${item.stage}-${index}` },
+              createElement("td", null, item.stage),
+              createElement("td", null, item.scope),
+              createElement("td", null, item.state),
+              createElement("td", null, item.owner),
+            ),
+          ),
+        ),
+      ),
+    ),
+    createElement("h3", null, "Dependencies and decisions"),
+    createElement(
+      "div",
+      { className: "table-scroll" },
+      createElement(
+        "table",
+        null,
+        createElement(
+          "thead",
+          null,
+          createElement(
+            "tr",
+            null,
+            ...["項目", "現在状態", "次の処置／判断"].map((value) =>
+              createElement("th", { key: value }, value),
+            ),
+          ),
+        ),
+        createElement(
+          "tbody",
+          null,
+          ...projection.dependencies.map((item, index) =>
+            createElement(
+              "tr",
+              { key: `${item.item}-${index}` },
+              createElement("td", null, item.item),
+              createElement("td", null, item.state),
+              createElement("td", null, item.next),
+            ),
+          ),
+        ),
+      ),
+    ),
+    createElement(
+      "div",
+      { className: "plan-links" },
+      link(source, "Current Release Projectionを開く"),
+      link(detail, "Roadmap詳細を開く"),
+    ),
+  );
 }

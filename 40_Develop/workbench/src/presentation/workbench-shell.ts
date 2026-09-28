@@ -6,18 +6,18 @@
  * @trace ARCH-000012
  * @boundary Workbench View ModelとBrowser DOMの表示境界。
  * @effect N/A: React要素を構築するだけである。
- * @security 既存HTML領域はServerが生成したescape済みFragmentだけを受け取る。
+ * @security React要素とTextだけを受け取り、HTML文字列を解釈しない。
  */
 import { createElement, type ReactElement, type ReactNode } from "react";
 
 /**
  * Workbench Shellが表示するServer確定済み値を表す。
  *
- * @responsibility React Shellへ渡せる表示専用値と移行中のServer生成Fragmentを固定する。
+ * @responsibility Client-side React Shellへ渡せる表示専用値と画面要素を固定する。
  * @trace ARCH-000012
  * @input N/A: 型宣言でありRuntime入力を受け取らない。
  * @returns N/A: 型宣言でありRuntime出力を返さない。
- * @precondition FragmentはWorkbench Server自身が生成したescape済みHTMLである。
+ * @precondition contentとrefreshはClient Modelから構築したReact要素である。
  * @postcondition Browser AuthorityやCredentialを表すFieldを持たない。
  * @effect N/A: 型宣言である。
  * @failure N/A: 型宣言である。
@@ -36,8 +36,8 @@ export type WorkbenchShellProps = Readonly<{
   meetingsLabel: string;
   meetingsDetail: string;
   logoPath: string;
-  refreshHtml: string;
-  contentHtml: string;
+  refresh: ReactNode;
+  content: ReactNode;
   activeSection?: string;
   clientReady?: boolean;
 }>;
@@ -95,17 +95,17 @@ function SummaryCard({
 /**
  * Direction AのWorkbench Application Shellを描画する。
  *
- * @responsibility ServerとBrowserで同じReact Treeを使い、Brand、Navigation、Summaryおよび画面配置を一致させる。
+ * @responsibility Browser上の唯一のReact TreeでBrand、Navigation、Summaryおよび画面配置を一致させる。
  * @trace ARCH-000012
- * @input propsにServer確定済み表示値とServer生成Fragmentを受け取る。
+ * @input propsにJSON Read Modelから得た表示値とReact画面要素を受け取る。
  * @returns Workbench ShellのReact要素を返す。
- * @precondition contentHtmlとrefreshHtmlはWorkbench Serverが生成した内部Fragmentである。
+ * @precondition contentとrefreshはBrowser Clientが構築したReact要素である。
  * @postcondition 既存のSection ID、Form、Tokenおよび15画面DOMを保持したShellを返す。
  * @effect N/A: React要素を構築するだけである。
  * @failure N/A: Component内で外部I/Oを実行しない。
  * @invariant React Presentationは業務状態、Authorityまたは操作結果を生成しない。
- * @boundary Workbench Server View ModelとBrowser DOMの境界。
- * @security 任意の利用者HTMLを受け取らず、内部Fragment以外はTextとして描画する。
+ * @boundary Workbench JSON Read ModelとBrowser DOMの境界。
+ * @security 任意のHTML文字列を受け取らず、動的値はReactのText escapingで描画する。
  * @concurrency N/A: Renderingは入力Propsに対して決定論的である。
  */
 export function WorkbenchShell(props: WorkbenchShellProps): ReactElement {
@@ -173,6 +173,11 @@ export function WorkbenchShell(props: WorkbenchShellProps): ReactElement {
           { className: "connection-label" },
           props.connectionLabel,
         ),
+        createElement("span", {
+          "aria-hidden": true,
+          "data-workbench-client-root": "true",
+          hidden: true,
+        }),
       ),
     ),
     createElement(
@@ -197,11 +202,11 @@ export function WorkbenchShell(props: WorkbenchShellProps): ReactElement {
             `${props.repositoryId} / ${props.repositoryRole} の固定Project Contextから、今の状況、判断待ち、理由、次に取る一手を確認します。`,
           ),
         ),
-        createElement("div", {
-          "data-workbench-refresh": "true",
-          // biome-ignore lint/security/noDangerouslySetInnerHtml: Server自身がescape済み固定Formを生成する段階移行境界であり、利用者HTMLを受け取らない。
-          dangerouslySetInnerHTML: { __html: props.refreshHtml },
-        }),
+        createElement(
+          "div",
+          { "data-workbench-refresh": "true" },
+          props.refresh,
+        ),
       ),
       createElement(
         "section",
@@ -227,12 +232,14 @@ export function WorkbenchShell(props: WorkbenchShellProps): ReactElement {
           detail: props.meetingsDetail,
         }),
       ),
-      createElement("section", {
-        className: "workspace-grid",
-        "data-workbench-content": "true",
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: 既存15画面のServer Rendererを保持する段階移行境界であり、各Rendererが動的Textをescapeする。
-        dangerouslySetInnerHTML: { __html: props.contentHtml },
-      }),
+      createElement(
+        "section",
+        {
+          className: "workspace-grid",
+          "data-workbench-content": "true",
+        },
+        props.content,
+      ),
     ),
   );
 }

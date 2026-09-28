@@ -20,12 +20,10 @@ import {
 } from "node:http";
 import type { Socket } from "node:net";
 import path from "node:path";
-import { renderToString } from "react-dom/server";
 
 import {
   createTopicMeetingApplication,
   createTopicMeetingRepository,
-  type ProjectOperationRecordKind,
   type MeetingOutcomeCommandResult,
   type TopicMeetingListQuery,
   type TopicMeetingPage,
@@ -34,6 +32,7 @@ import {
 } from "../../project-operation/src/index.ts";
 import {
   executeRemoteAiProfileMutation,
+  listConnectionCredentials,
   readRemoteAiProfileCatalog,
   readRemotePortfolio,
   readRemoteRuntimeActivity,
@@ -62,7 +61,6 @@ import {
   type CredentialAdministration,
   type CredentialAdministrationResult,
   executeCredentialAdministrationAction,
-  renderCredentialAdministration,
 } from "./credential-administration.ts";
 import {
   createAiProfileCatalogAdministration,
@@ -78,31 +76,24 @@ import {
 import {
   createDefaultWorkbenchAiProfileSurface,
   createWorkbenchAiProfileSurface,
-  renderWorkbenchAiProfileAdministration,
-  renderWorkbenchAiProfiles,
   type WorkbenchAiProfileSurface,
 } from "./ai-profile-surface.ts";
-import {
-  renderWorkbenchAiRequest,
-  type WorkbenchAiRequestApplication,
-  type WorkbenchAiRequestSnapshot,
-  type WorkbenchCandidateActionResult,
-  type WorkbenchCandidateApplication,
-  type WorkbenchCandidateReviewResult,
+import type {
+  WorkbenchAiRequestApplication,
+  WorkbenchAiRequestSnapshot,
+  WorkbenchCandidateActionResult,
+  WorkbenchCandidateApplication,
+  WorkbenchCandidateReviewResult,
 } from "./ai-request.ts";
 import {
   createRepositoryWorkbenchRuntimeActivityApplication,
-  renderWorkbenchRuntimeActivity,
   type WorkbenchRuntimeActivityApplication,
   type WorkbenchRuntimeActivityObservation,
 } from "./runtime-activity.ts";
 import {
   readWorkbenchChangeArtifact,
   readWorkbenchOwnerArtifact,
-  renderWorkbenchOwnerArtifacts,
 } from "./owner-artifact-surface.ts";
-import { renderWorkbenchProjectPlan } from "./project-plan-surface.ts";
-import { renderWorkbenchQuality } from "./quality-surface.ts";
 import {
   executeRemoteTopicMeetingAction,
   readRemoteTopicMeetingDocument,
@@ -110,7 +101,13 @@ import {
   type RemoteTopicMeetingAction,
   type WorkbenchTopicMeetingDocumentReader,
 } from "./remote-topic-meeting.ts";
-import { WorkbenchShell } from "./presentation/workbench-shell.ts";
+import type {
+  WorkbenchClientModel,
+  WorkbenchCredentialAdministrationView,
+  WorkbenchMainViewModel,
+  WorkbenchRecordDocumentView,
+  WorkbenchTopicMeetingResultView,
+} from "./presentation/workbench-client-model.ts";
 
 const HOST = "127.0.0.1";
 const CONTRACT = "crdd/workbench/v1";
@@ -241,617 +238,6 @@ export type WorkbenchHandle = Readonly<{
 }>;
 
 /**
- * Workbenchへ表示するTextをHTMLとして安全に符号化する。
- *
- * @responsibility Project Context由来TextをMarkupやScriptとして解釈させない。
- * @trace ARCH-000012
- * @input valueにProject Context由来の表示Textを受け取る。
- * @returns HTML特殊文字をEntityへ変換したTextを返す。
- * @precondition valueは実行可能Markupとして扱わない文字列である。
- * @postcondition ampersand、angle bracket、quoteを生で残さない。
- * @effect N/A: 文字列を変換するだけである。
- * @failure N/A: 全文字列を決定論的に変換する。
- * @invariant 表示文字の意味順序を変えない。
- * @boundary Project Context Read ModelとBrowser HTMLの境界。
- * @security Script、ElementまたはAttributeの注入を防ぐ。
- * @concurrency N/A: 同期的な純粋変換である。
- */
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
-/**
- * Project Contextの一場面をWorkbench Panelへ投影する。
- *
- * @responsibility 要約と構造化表を同じ場面内に保ち、表の欠測を別の値で補完しない。
- * @trace ARCH-000012
- * @input sceneにProject Operation Readerが返した一場面を受け取る。
- * @returns Workbench Panelの安全なHTML断片を返す。
- * @precondition sceneは固定Project Context Readerで検証済みである。
- * @postcondition Headerと全行を入力順で表示する。
- * @effect N/A: HTML文字列を構築するだけである。
- * @failure N/A: 空行集合は空のtbodyとして表示する。
- * @invariant 独自のProject Context IDや判断を追加しない。
- * @boundary Project Operation SceneとWorkbench Browser表示の境界。
- * @security 全ての表示TextをescapeHtmlへ通す。
- * @concurrency N/A: 同期的な純粋変換である。
- */
-function renderScene(
-  scene: WorkbenchProjectSurface["context"]["scenes"][number],
-): string {
-  const header = scene.table.columns
-    .map((column) => `<th scope="col">${escapeHtml(column)}</th>`)
-    .join("");
-  const rows = scene.table.rows
-    .map(
-      (row) =>
-        `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`,
-    )
-    .join("");
-  return `<article class="panel context-scene" id="${scene.key}"><header><div><p class="eyebrow">Project context</p><h2>${escapeHtml(scene.title)}</h2></div><span>${scene.table.rows.length} items</span></header>${scene.summary === null ? "" : `<p class="scene-summary">${escapeHtml(scene.summary)}</p>`}<div class="table-scroll"><table><thead><tr>${header}</tr></thead><tbody>${rows}</tbody></table></div></article>`;
-}
-
-/**
- * Topic一覧をWorkbench Panelへ投影する。
- *
- * @responsibility Topicの構成状態と検証済み一覧を区別して表示する。
- * @trace ARCH-000012
- * @input collectionにProject Operation Readerを通過したTopic集合を受け取る。
- * @returns Topic Panelの安全なHTML断片を返す。
- * @precondition unknownではitemsが空である。
- * @postcondition 未構成、観測不能、構成済み0件および実Recordを異なる表示にする。
- * @effect N/A: HTML文字列を構築するだけである。
- * @failure N/A: 観測失敗はcollection状態として表示する。
- * @invariant Topicの状態や要約を推測しない。
- * @boundary Topic Read ModelとWorkbench Browser表示の境界。
- * @security 全ての表示TextをescapeHtmlへ通す。
- * @concurrency N/A: 同期的な純粋変換である。
- */
-function renderTopicMeetingResult(
-  result: TopicMeetingActionResult | null,
-  kind: ProjectOperationRecordKind,
-): string {
-  if (
-    result === null ||
-    (result.record !== null &&
-      ("topicId" in result.record ? "topic" : "meeting") !== kind)
-  )
-    return "";
-  const relations =
-    result.relationPaths.length === 0
-      ? ""
-      : `<ul>${result.relationPaths.map((entry) => `<li><code>${escapeHtml(entry)}</code></li>`).join("")}</ul>`;
-  return `<div class="operation-result" data-status="${result.status}"><strong>${escapeHtml(result.reason)}</strong>${relations}</div>`;
-}
-
-function renderCreateRecord(
-  kind: ProjectOperationRecordKind,
-  actionToken: string,
-  repositoryId?: string,
-): string {
-  return `<details class="record-editor"><summary>${kind === "topic" ? "Topic" : "Meeting"}を登録</summary><form method="post" action="/topic-meeting/action"><input type="hidden" name="actionToken" value="${escapeHtml(actionToken)}">${repositoryId === undefined ? "" : `<input type="hidden" name="repositoryId" value="${escapeHtml(repositoryId)}">`}<input type="hidden" name="kind" value="${kind}"><input type="hidden" name="operation" value="create"><label>Canonical Markdown<textarea required name="markdown" rows="14"></textarea></label><button type="submit">登録</button></form></details>`;
-}
-
-function renderRecordActions(
-  kind: ProjectOperationRecordKind,
-  id: string,
-  revision: number,
-  markdown: string,
-  actionToken: string,
-  repositoryId?: string,
-): string {
-  const target =
-    repositoryId === undefined
-      ? ""
-      : `<input type="hidden" name="repositoryId" value="${escapeHtml(repositoryId)}">`;
-  const outcome =
-    kind === "meeting"
-      ? `<form method="post" action="/topic-meeting/action"><input type="hidden" name="actionToken" value="${escapeHtml(actionToken)}">${target}<input type="hidden" name="kind" value="meeting"><input type="hidden" name="operation" value="treat-outcome"><input type="hidden" name="id" value="${escapeHtml(id)}"><input type="hidden" name="expectedRevision" value="${revision}"><h4>Outcomeを処置</h4><label>Outcome ID<input required name="outcomeId" pattern="OUT-[0-9]{3,}"></label><label>処置<select required name="disposition"><option value="completed">完了</option><option value="transferred">移管</option><option value="promoted">昇格</option><option value="rejected">理由付き不採用</option></select></label><label>Owner<input required name="owner"></label><label>期限／再評価契機<input required name="reviewTrigger"></label><label>追跡先の種別<select required name="targetKind"><option value="none">なし</option><option value="topic">Topic</option><option value="change">CHG</option><option value="owner">責任主体／所有正本</option></select></label><label>追跡先<input required name="targetReference" value="N/A: 完了"></label><label>処置<input required name="treatment"></label><label>完了条件<input required name="completionCondition"></label><label>結果<input required name="result"></label><label class="confirm"><input type="checkbox" name="closeMeeting" value="true">この処置後にpending Outcomeが0件ならMeetingを閉じる</label><button type="submit">Outcomeを処置</button></form>`
-      : "";
-  const promotion =
-    kind === "topic"
-      ? `<form method="post" action="/topic-meeting/action"><input type="hidden" name="actionToken" value="${escapeHtml(actionToken)}">${target}<input type="hidden" name="kind" value="topic"><input type="hidden" name="operation" value="promote-topic"><input type="hidden" name="id" value="${escapeHtml(id)}"><input type="hidden" name="expectedRevision" value="${revision}"><h4>採用済み変更へ接続</h4><label>既存CHG ID<input required name="changeId" pattern="CHG-[0-9]{6}"></label><label>採用理由<input required name="reason"></label><label>Topicに残る責務<input required name="remainingResponsibility"></label><button type="submit">実在CHGを確認して昇格</button></form>`
-      : "";
-  return `<details class="record-editor"><summary>処置・編集・削除</summary>${outcome}${promotion}<form method="post" action="/topic-meeting/action"><input type="hidden" name="actionToken" value="${escapeHtml(actionToken)}">${target}<input type="hidden" name="kind" value="${kind}"><input type="hidden" name="operation" value="update"><input type="hidden" name="id" value="${escapeHtml(id)}"><input type="hidden" name="expectedRevision" value="${revision}"><label>Canonical Markdown<textarea required name="markdown" rows="14">${escapeHtml(markdown)}</textarea></label><button type="submit">更新</button></form><form method="post" action="/topic-meeting/action"><input type="hidden" name="actionToken" value="${escapeHtml(actionToken)}">${target}<input type="hidden" name="kind" value="${kind}"><input type="hidden" name="operation" value="delete"><input type="hidden" name="id" value="${escapeHtml(id)}"><input type="hidden" name="expectedRevision" value="${revision}"><label class="confirm"><input required type="checkbox" name="confirmed" value="true">Relation影響を確認し、誤登録Recordだけを削除します</label><button type="submit">削除影響を確認して実行</button></form></details>`;
-}
-
-function renderTopics(
-  collection: WorkbenchProjectSurface["topics"],
-  page: TopicMeetingPage,
-  application: WorkbenchTopicMeetingDocumentReader,
-  actionToken: string,
-  result: TopicMeetingActionResult | null,
-  query: TopicMeetingListQuery,
-  repositoryId?: string,
-): string {
-  const nextParameters = new URLSearchParams();
-  if (query.query !== undefined) nextParameters.set("topicQuery", query.query);
-  if (query.states?.[0] !== undefined)
-    nextParameters.set("topicState", query.states[0]);
-  if (query.owner !== undefined) nextParameters.set("topicOwner", query.owner);
-  if (query.relation !== undefined)
-    nextParameters.set("topicRelation", query.relation);
-  if (query.sort !== undefined) nextParameters.set("topicSort", query.sort);
-  if (page.nextCursor !== null)
-    nextParameters.set("topicCursor", page.nextCursor);
-  if (repositoryId !== undefined)
-    nextParameters.set("repositoryId", repositoryId);
-  const controls = `<form class="collection-controls" method="get" action="/">${repositoryId === undefined ? "" : `<input type="hidden" name="repositoryId" value="${escapeHtml(repositoryId)}">`}<label>検索<input name="topicQuery" value="${escapeHtml(query.query ?? "")}" placeholder="ID・名称・要約"></label><label>状態<select name="topicState"><option value="">すべて</option>${["open", "waiting", "promoted", "closed"].map((state) => `<option value="${state}"${query.states?.includes(state) ? " selected" : ""}>${state}</option>`).join("")}</select></label><label>Owner<input name="topicOwner" value="${escapeHtml(query.owner ?? "")}"></label><label>Relation<input name="topicRelation" value="${escapeHtml(query.relation ?? "")}" placeholder="CHG-000001"></label><label>並び順<select name="topicSort"><option value="id_asc"${query.sort === "id_asc" ? " selected" : ""}>ID順</option><option value="title_asc"${query.sort === "title_asc" ? " selected" : ""}>名称順</option><option value="state_asc"${query.sort === "state_asc" ? " selected" : ""}>状態順</option></select></label><button type="submit">絞り込む</button></form>`;
-  const content =
-    collection.state === "not_configured"
-      ? '<p class="empty-state">22_Topicsは未構成です。0件として扱いません。</p>'
-      : collection.state === "unknown"
-        ? '<p class="empty-state">Topic正本を完全に観測できません。部分一覧は表示しません。</p>'
-        : page.records.length === 0
-          ? '<p class="empty-state">構成済みです。現在のTopicは0件です。</p>'
-          : `<ul>${page.records
-              .map((record) => {
-                if (!("topicId" in record)) return "";
-                const document = application.getDocument(
-                  "topic",
-                  record.topicId,
-                );
-                const target =
-                  repositoryId === undefined
-                    ? ""
-                    : `&repositoryId=${encodeURIComponent(repositoryId)}`;
-                return `<li><strong><a href="/topic?id=${encodeURIComponent(record.topicId)}${target}">${escapeHtml(record.topicId)} — ${escapeHtml(record.title)}</a></strong><p>${escapeHtml(record.summary)}</p><small>${escapeHtml(record.state)} / ${escapeHtml(record.owner)}</small>${document === null ? "" : renderRecordActions("topic", record.topicId, record.revision, document.markdown, actionToken, repositoryId)}</li>`;
-              })
-              .join(
-                "",
-              )}</ul>${page.nextCursor === null ? "" : `<a class="page-link" href="/?${nextParameters.toString()}#topics">次のTopic</a>`}`;
-  return `<article class="panel wide" id="topics"><header><div><p class="eyebrow">Topics</p><h2>継続して扱う論点</h2></div><span>${collection.state === "available" ? `${page.records.length} items` : collection.state === "not_configured" ? "Not configured" : "Unknown"}</span></header>${controls}${renderTopicMeetingResult(result, "topic")}${content}${renderCreateRecord("topic", actionToken, repositoryId)}</article>`;
-}
-
-/**
- * Meeting一覧をWorkbench Panelへ投影する。
- *
- * @responsibility Meetingの構成状態と検証済み一覧を区別して表示する。
- * @trace ARCH-000012
- * @input collectionにProject Operation Readerを通過したMeeting集合を受け取る。
- * @returns Meeting Panelの安全なHTML断片を返す。
- * @precondition unknownではitemsが空である。
- * @postcondition 未構成、観測不能、構成済み0件および実Recordを異なる表示にする。
- * @effect N/A: HTML文字列を構築するだけである。
- * @failure N/A: 観測失敗はcollection状態として表示する。
- * @invariant MeetingのOutcomeや現在状態を後から推測しない。
- * @boundary Meeting Read ModelとWorkbench Browser表示の境界。
- * @security 全ての表示TextをescapeHtmlへ通す。
- * @concurrency N/A: 同期的な純粋変換である。
- */
-function renderMeetings(
-  collection: WorkbenchProjectSurface["meetings"],
-  page: TopicMeetingPage,
-  application: WorkbenchTopicMeetingDocumentReader,
-  actionToken: string,
-  result: TopicMeetingActionResult | null,
-  query: TopicMeetingListQuery,
-  repositoryId?: string,
-): string {
-  const nextParameters = new URLSearchParams();
-  if (query.query !== undefined)
-    nextParameters.set("meetingQuery", query.query);
-  if (query.states?.[0] !== undefined)
-    nextParameters.set("meetingState", query.states[0]);
-  if (query.relation !== undefined)
-    nextParameters.set("meetingRelation", query.relation);
-  if (query.occurredFrom !== undefined)
-    nextParameters.set("meetingFrom", query.occurredFrom);
-  if (query.occurredTo !== undefined)
-    nextParameters.set("meetingTo", query.occurredTo);
-  if (query.pendingOnly === true) nextParameters.set("meetingPending", "true");
-  if (query.sort !== undefined) nextParameters.set("meetingSort", query.sort);
-  if (page.nextCursor !== null)
-    nextParameters.set("meetingCursor", page.nextCursor);
-  if (repositoryId !== undefined)
-    nextParameters.set("repositoryId", repositoryId);
-  const controls = `<form class="collection-controls" method="get" action="/">${repositoryId === undefined ? "" : `<input type="hidden" name="repositoryId" value="${escapeHtml(repositoryId)}">`}<label>検索<input name="meetingQuery" value="${escapeHtml(query.query ?? "")}" placeholder="ID・名称・要約"></label><label>状態<select name="meetingState"><option value="">すべて</option>${["recorded", "closed", "corrected"].map((state) => `<option value="${state}"${query.states?.includes(state) ? " selected" : ""}>${state}</option>`).join("")}</select></label><label>開始日<input type="date" name="meetingFrom" value="${escapeHtml(query.occurredFrom ?? "")}"></label><label>終了日<input type="date" name="meetingTo" value="${escapeHtml(query.occurredTo ?? "")}"></label><label>Relation<input name="meetingRelation" value="${escapeHtml(query.relation ?? "")}" placeholder="TOPIC-000001"></label><label class="confirm"><input type="checkbox" name="meetingPending" value="true"${query.pendingOnly === true ? " checked" : ""}>未処置Outcomeあり</label><label>並び順<select name="meetingSort"><option value="occurred_desc"${query.sort === "occurred_desc" ? " selected" : ""}>新しい順</option><option value="id_asc"${query.sort === "id_asc" ? " selected" : ""}>ID順</option><option value="title_asc"${query.sort === "title_asc" ? " selected" : ""}>名称順</option></select></label><button type="submit">絞り込む</button></form>`;
-  const content =
-    collection.state === "not_configured"
-      ? '<p class="empty-state">23_Meetingsは未構成です。0件として扱いません。</p>'
-      : collection.state === "unknown"
-        ? '<p class="empty-state">Meeting正本を完全に観測できません。部分一覧は表示しません。</p>'
-        : page.records.length === 0
-          ? '<p class="empty-state">構成済みです。現在のMeetingは0件です。</p>'
-          : `<ul>${page.records
-              .map((record) => {
-                if (!("meetingId" in record)) return "";
-                const document = application.getDocument(
-                  "meeting",
-                  record.meetingId,
-                );
-                const target =
-                  repositoryId === undefined
-                    ? ""
-                    : `&repositoryId=${encodeURIComponent(repositoryId)}`;
-                return `<li><strong><a href="/meeting?id=${encodeURIComponent(record.meetingId)}${target}">${escapeHtml(record.meetingId)} — ${escapeHtml(record.title)}</a></strong><p>${escapeHtml(record.summary)}</p><small>${escapeHtml(record.state)} / ${escapeHtml(record.occurredAt)} / pending ${record.pendingOutcomeCount}</small>${document === null ? "" : renderRecordActions("meeting", record.meetingId, record.revision, document.markdown, actionToken, repositoryId)}</li>`;
-              })
-              .join(
-                "",
-              )}</ul>${page.nextCursor === null ? "" : `<a class="page-link" href="/?${nextParameters.toString()}#meetings">次のMeeting</a>`}`;
-  return `<article class="panel wide" id="meetings"><header><div><p class="eyebrow">Meetings</p><h2>会議と処置状態</h2></div><span>${collection.state === "available" ? `${page.records.length} items` : collection.state === "not_configured" ? "Not configured" : "Unknown"}</span></header>${controls}${renderTopicMeetingResult(result, "meeting")}${content}${renderCreateRecord("meeting", actionToken, repositoryId)}</article>`;
-}
-
-/**
- * TopicまたはMeetingのCanonical Detailを独立画面へ投影する。
- *
- * @responsibility 一覧で省略したMetadata、現在要約、Canonical Markdownおよび許可済み処置を一つの詳細境界へ閉じる。
- * @trace ARCH-000012
- * @input kindに固定Record種別、applicationに検証済みProject Operation入口、idに安定ID、actionTokenにlocalhost操作Tokenを受け取る。
- * @returns Recordが存在する場合は安全な完全HTML、存在しない場合はnullを返す。
- * @precondition idはProject Operation RepositoryのKind固有ID検証を通過する。
- * @postcondition DetailはCanonical Recordと同じRevisionのMarkdownだけを表示する。
- * @effect N/A: 検証済みRead ModelをHTMLへ変換するだけである。
- * @failure Recordが存在しない場合はnullを返し、別Projectや別Kindを推測しない。
- * @invariant Detail画面を新しい正本にせず、編集操作は既存Project Operation Applicationへ戻す。
- * @boundary Topic／Meeting Canonical MarkdownとWorkbench Browser Detailの境界。
- * @security 表示値とMarkdownをescapeし、任意Pathを解決しない。
- * @concurrency Detail取得時点のRevisionを更新・削除の期待Revisionとして固定する。
- */
-function renderTopicMeetingDetail(
-  kind: ProjectOperationRecordKind,
-  application: WorkbenchTopicMeetingDocumentReader,
-  id: string,
-  actionToken: string,
-  repositoryId?: string,
-): string | null {
-  const document = application.getDocument(kind, id);
-  if (document === null) return null;
-  const { record, markdown } = document;
-  const identity = "topicId" in record ? record.topicId : record.meetingId;
-  const occurredAt = "occurredAt" in record ? record.occurredAt : null;
-  const pendingOutcomeCount =
-    "pendingOutcomeCount" in record ? record.pendingOutcomeCount : null;
-  const relations = application.relations(kind, id);
-  const relationList =
-    relations.length === 0
-      ? '<p class="empty-state">明示Relationはありません。</p>'
-      : `<ul class="relation-list">${relations
-          .map((relation) => {
-            if (relation.state !== "available")
-              return `<li><code>${escapeHtml(relation.id)}</code><span>${relation.state === "conflicting" ? "参照先が競合" : relation.state === "unavailable" ? "参照可否を確認できません" : "参照先なし"}</span></li>`;
-            const owner = relation.ownerRepositoryId ?? repositoryId;
-            const target =
-              owner === undefined
-                ? ""
-                : `&repositoryId=${encodeURIComponent(owner)}`;
-            const href =
-              relation.kind === "topic"
-                ? `/topic?id=${encodeURIComponent(relation.id)}${target}`
-                : relation.kind === "meeting"
-                  ? `/meeting?id=${encodeURIComponent(relation.id)}${target}`
-                  : `/change?id=${encodeURIComponent(relation.id)}`;
-            return `<li><a href="${href}"><code>${escapeHtml(relation.id)}</code></a><span>${escapeHtml(relation.kind)}</span></li>`;
-          })
-          .join("")}</ul>`;
-  const back = `${repositoryId === undefined ? "/" : `/?repositoryId=${encodeURIComponent(repositoryId)}`}${kind === "topic" ? "#topics" : "#meetings"}`;
-  return `<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(identity)} — CROS Workbench</title><link rel="stylesheet" href="/workbench.css"></head><body><main class="record-detail" id="${kind}-detail"><a class="page-link" href="${back}">← ${kind === "topic" ? "Topics" : "Meetings"}へ戻る</a><article class="panel"><header><div><p class="eyebrow">${kind === "topic" ? "Topic detail" : "Meeting detail"}</p><h1>${escapeHtml(record.title)}</h1></div><span>${escapeHtml(record.state)}</span></header><dl class="detail-metadata"><div><dt>ID</dt><dd><code>${escapeHtml(identity)}</code></dd></div><div><dt>Project</dt><dd>${escapeHtml(record.projectId)}</dd></div>${repositoryId === undefined ? "" : `<div><dt>Repository</dt><dd>${escapeHtml(repositoryId)}</dd></div>`}<div><dt>Owner</dt><dd>${escapeHtml(record.owner)}</dd></div><div><dt>Revision</dt><dd>${record.revision}</dd></div>${occurredAt === null ? "" : `<div><dt>開催日時</dt><dd>${escapeHtml(occurredAt)}</dd></div>`}${pendingOutcomeCount === null ? "" : `<div><dt>未処置Outcome</dt><dd>${pendingOutcomeCount}</dd></div>`}</dl><section><h2>現在要約</h2><p>${escapeHtml(record.summary)}</p></section><section><h2>Relation</h2>${relationList}</section><section><h2>Canonical Markdown</h2><pre class="canonical-markdown">${escapeHtml(markdown)}</pre></section>${renderRecordActions(kind, identity, record.revision, markdown, actionToken, repositoryId)}</article></main></body></html>`;
-}
-
-/**
- * CROS PortfolioまたはRepository単体のProject入口を描画する。
- *
- * @responsibility Repository単体利用と許可済みFederation結果を同じ入口で区別して表示する。
- * @trace ARCH-000005
- * @input portfolioにCROSの許可済みProjection、contextに現在RepositoryのProject Contextを受け取る。
- * @returns Project選択Panelの安全なHTML断片を返す。
- * @precondition portfolioがある場合はCROS Federation公開契約を通過している。
- * @postcondition Repository単体では現在Projectだけ、FederationではProjection内Projectだけを表示する。
- * @effect N/A: HTML文字列を構築するだけである。
- * @failure N/A: CROS未接続はRepository modeとして明示する。
- * @invariant 非開示Project、期待Repositoryまたは単一Health Scoreを生成しない。
- * @boundary CROS Portfolio Projection／Repository Project ContextとWorkbench Browser表示の境界。
- * @security 全ての表示TextをescapeHtmlへ通し、Projection外Identityを補完しない。
- * @concurrency N/A: 起動時に固定したSnapshotを同期描画する。
- */
-type PortfolioCursor = readonly [string, string, string];
-
-/**
- * Portfolio一覧の継続位置を現在の検索条件へ結合する。
- *
- * @responsibility 検索語、状態Filterおよび最後のProject IDを不透明Cursorへ結合する。
- * @trace ARCH-000012
- * @input query、stateおよびlastProjectIdに検証済み一覧条件と最後のProject IDを受け取る。
- * @returns URL安全なPortfolio Cursorを返す。
- * @precondition lastProjectIdは現在Pageの最後に表示した許可済みProjectである。
- * @postcondition 別の検索条件では再利用できないCursorを返す。
- * @effect N/A: 固定JSONを符号化するだけである。
- * @failure N/A: 検証済み値だけを入力とする。
- * @invariant Repository Path、Credentialまたは非開示ProjectをCursorへ含めない。
- * @boundary 許可済みPortfolio ProjectionとBrowser Queryの境界。
- * @security 公開済みProject IDと現在の検索条件だけを含む。
- * @concurrency N/A: 共有状態を持たない同期処理である。
- */
-function encodePortfolioCursor(
-  query: string,
-  state: string,
-  lastProjectId: string,
-): string {
-  return Buffer.from(
-    JSON.stringify([query, state, lastProjectId]),
-    "utf8",
-  ).toString("base64url");
-}
-
-/**
- * Portfolio Cursorを現在の検索条件に対して検証する。
- *
- * @responsibility 未信頼Cursorの構造、長さおよび検索条件一致をEffect前に検証する。
- * @trace ARCH-000012
- * @input cursorにBrowser由来文字列、queryとstateに現在の正規化済み検索条件を受け取る。
- * @returns 検証済みCursor、Cursorなしを表すnull、または不正を表すundefinedを返す。
- * @precondition cursorは未信頼Query Parameterである。
- * @postcondition 現在の検索条件へだけ利用できる三要素Cursorを返す。
- * @effect N/A: 文字列を解析するだけである。
- * @failure 不正または別条件のCursorをundefinedとして拒否する。
- * @invariant Cursor変更から条件またはProjectを推測・補完しない。
- * @boundary Browser Queryと許可済みPortfolio Projectionの境界。
- * @security CursorをPathまたは任意Objectとして解釈しない。
- * @concurrency N/A: 共有状態を持たない同期処理である。
- */
-function decodePortfolioCursor(
-  cursor: string,
-  query: string,
-  state: string,
-): PortfolioCursor | null | undefined {
-  if (cursor.length === 0) return null;
-  if (cursor.length > 1_024) return undefined;
-  let value: unknown;
-  try {
-    value = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8"));
-  } catch {
-    return undefined;
-  }
-  if (
-    !Array.isArray(value) ||
-    value.length !== 3 ||
-    !value.every((entry) => typeof entry === "string")
-  )
-    return undefined;
-  const decoded = value as string[];
-  if (
-    decoded[0] !== query ||
-    decoded[1] !== state ||
-    decoded[2] === undefined ||
-    decoded[2].length === 0
-  )
-    return undefined;
-  return Object.freeze(decoded) as PortfolioCursor;
-}
-
-function renderPortfolio(
-  portfolio: PortfolioProjection | undefined,
-  context: WorkbenchProjectSurface["context"],
-  connectionState: WorkbenchConnectionState,
-  query: string,
-  state: string,
-  cursor: string,
-): string {
-  if (connectionState === "cros_unavailable")
-    return '<article class="panel wide" id="portfolio"><header><div><p class="eyebrow">Project portfolio</p><h2>Projectを選ぶ</h2></div><span>Remote unavailable</span></header><p class="empty-state">Remote CROSの現在Projectionを取得できません。直前のPortfolioをCurrentとして表示せず、接続を確認して明示Refreshしてください。</p></article>';
-  if (portfolio === undefined)
-    return `<article class="panel wide" id="portfolio"><header><div><p class="eyebrow">Project portfolio</p><h2>Projectを選ぶ</h2></div><span>Repository mode</span></header><ul><li><strong>${escapeHtml(context.projectId)}</strong><p>${escapeHtml(context.repositoryId)} / ${escapeHtml(context.repositoryRole)}</p><small>現在のRepository Contextだけを表示</small></li></ul></article>`;
-  const normalizedQuery = query.trim().toLocaleLowerCase("ja-JP");
-  const normalizedState = ["complete", "partial", "conflicting"].includes(state)
-    ? state
-    : "";
-  const filtered = portfolio.projects
-    .filter(
-      (project) =>
-        (normalizedQuery.length === 0 ||
-          project.projectId
-            .toLocaleLowerCase("ja-JP")
-            .includes(normalizedQuery)) &&
-        (normalizedState.length === 0 || project.state === normalizedState),
-    )
-    .toSorted((left, right) => left.projectId.localeCompare(right.projectId));
-  const decodedCursor = decodePortfolioCursor(
-    cursor,
-    normalizedQuery,
-    normalizedState,
-  );
-  if (decodedCursor === undefined)
-    return `<article class="panel wide" id="portfolio"><header><div><p class="eyebrow">Project portfolio</p><h2>Projectを選ぶ</h2></div><span>CROS federation</span></header><p class="empty-state">検索条件と継続位置が一致しません。Project一覧から検索し直してください。</p><p><a class="page-link" href="/#portfolio">Project一覧へ戻る</a></p></article>`;
-  const lastProjectId = decodedCursor?.[2];
-  const remaining =
-    lastProjectId === undefined
-      ? filtered
-      : filtered.filter((project) => project.projectId > lastProjectId);
-  const projects = remaining.slice(0, 20);
-  const next =
-    remaining.length > projects.length ? projects.at(-1)?.projectId : undefined;
-  const nextParameters = new URLSearchParams();
-  if (query.length > 0) nextParameters.set("portfolioQuery", query);
-  if (normalizedState.length > 0)
-    nextParameters.set("portfolioState", normalizedState);
-  if (next !== undefined)
-    nextParameters.set(
-      "portfolioCursor",
-      encodePortfolioCursor(normalizedQuery, normalizedState, next),
-    );
-  const controls = `<form class="collection-controls" method="get" action="/"><label>Project検索<input name="portfolioQuery" value="${escapeHtml(query)}"></label><label>状態<select name="portfolioState"><option value="">すべて</option>${["complete", "partial", "conflicting"].map((candidate) => `<option value="${candidate}"${normalizedState === candidate ? " selected" : ""}>${candidate}</option>`).join("")}</select></label><button type="submit">絞り込む</button></form>`;
-  const content =
-    projects.length === 0
-      ? '<p class="empty-state">現在の接続資格から表示できるProjectはありません。非開示Projectの存在や件数は表示しません。</p>'
-      : `<ul>${projects
-          .map(
-            (project) =>
-              `<li><strong><a href="/project?id=${encodeURIComponent(project.projectId)}">${escapeHtml(project.projectId)}</a></strong><p>${project.sources.map((source) => `${escapeHtml(source.repositoryId)}: ${escapeHtml(source.state)}`).join(" / ")}</p><small>${escapeHtml(project.state)} / ${project.sources.length} visible sources</small></li>`,
-          )
-          .join(
-            "",
-          )}</ul>${next === undefined ? "" : `<a class="page-link" href="/?${nextParameters.toString()}#portfolio">次のProject</a>`}`;
-  return `<article class="panel wide" id="portfolio"><header><div><p class="eyebrow">Project portfolio</p><h2>Projectを選ぶ</h2></div><span>CROS federation</span></header>${controls}${content}</article>`;
-}
-
-/** 許可済みPortfolioの一ProjectをSource別の五場面へ投影する。 */
-function renderFederatedProjectDetail(
-  portfolio: PortfolioProjection,
-  projectId: string,
-): string | null {
-  const project = portfolio.projects.find(
-    (candidate) => candidate.projectId === projectId,
-  );
-  if (project === undefined) return null;
-  const sources = project.sources
-    .map((source) => {
-      const context = source.context;
-      const detail =
-        context === null
-          ? '<p class="empty-state">このSourceのProject Contextは利用できません。</p>'
-          : context.scenes.map(renderScene).join("");
-      return `<section class="portfolio-source"><header><div><p class="eyebrow">Repository source</p><h2>${escapeHtml(source.repositoryId)}</h2></div><span>${escapeHtml(source.state)}</span></header><p>${source.repositoryRole === null ? "Role unavailable" : escapeHtml(source.repositoryRole)} / revision ${escapeHtml(source.revision)}</p><p><a class="page-link" href="/?repositoryId=${encodeURIComponent(source.repositoryId)}#topics">このRepositoryのTopic／Meetingを開く</a></p>${detail}</section>`;
-    })
-    .join("");
-  return `<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(project.projectId)} — CROS Workbench</title><link rel="stylesheet" href="/workbench.css"></head><body><main class="record-detail"><a class="page-link" href="/#portfolio">← Project Portfolioへ戻る</a><article class="panel"><header><div><p class="eyebrow">Federated project</p><h1>${escapeHtml(project.projectId)}</h1></div><span>${escapeHtml(project.state)}</span></header><p>許可済みRepository Sourceごとの五場面を表示します。Source間の欠測・競合を一つの完全状態へ統合しません。</p></article>${sources}</main></body></html>`;
-}
-
-/**
- * Remote CROS接続の入力と現在状態をWorkbenchへ描画する。
- *
- * @responsibility Repository単体利用を維持しながら、明示操作でだけRemote CROSへ接続・更新・切断できる入口を提供する。
- * @trace ARCH-000012
- * @input connectionStateに現在状態、remoteConnectionにProcess内接続、noticeに直前操作結果、actionTokenにlocalhost操作Tokenを受け取る。
- * @returns Credentialを再表示しないRemote Connection PanelのHTML断片を返す。
- * @precondition remoteConnectionのtokenはWorkbench Process外へ投影してはならない。
- * @postcondition Token fieldは常に空で描画し、接続済みの場合だけEndpointと更新・切断操作を表示する。
- * @effect N/A: HTML文字列を構築するだけである。
- * @failure N/A: 未接続および失敗状態も明示表示へ変換する。
- * @invariant Credential、Bearer Headerおよび以前入力したTokenをHTMLへ含めない。
- * @boundary Browser FormとWorkbench Remote Connection状態の境界。
- * @security Tokenはpassword fieldからPOSTされる一回入力であり、Responseへ反射しない。
- * @concurrency N/A: 現在のProcess内Snapshotを同期描画する。
- */
-function renderRemoteConnection(
-  connectionState: WorkbenchConnectionState,
-  remoteConnection: WorkbenchRemoteConnection | undefined,
-  notice: WorkbenchConnectionNotice | null,
-  actionToken: string,
-): string {
-  const stateLabel =
-    connectionState === "repository"
-      ? "Repository mode"
-      : connectionState === "cros_available"
-        ? "Connected"
-        : "Unavailable";
-  const noticeHtml =
-    notice === null
-      ? ""
-      : `<p class="operation-result" data-status="${notice.status}">${escapeHtml(notice.message)}</p>`;
-  const current =
-    remoteConnection === undefined
-      ? '<p class="empty-state">CredentialなしでRepository単体利用を継続できます。Remote CROSを使う場合だけ、管理者から受け取ったEndpointとCredentialを入力してください。</p>'
-      : `<dl><div><dt>Endpoint</dt><dd><code>${escapeHtml(remoteConnection.baseUrl)}</code></dd></div><div><dt>Credential</dt><dd>Process memory only</dd></div></dl><div class="connection-actions"><form method="post" action="/connection/action"><input type="hidden" name="actionToken" value="${escapeHtml(actionToken)}"><button name="operation" value="refresh" type="submit">Refresh projection</button></form><form method="post" action="/connection/action"><input type="hidden" name="actionToken" value="${escapeHtml(actionToken)}"><button name="operation" value="disconnect" type="submit">Disconnect</button></form></div>`;
-  return `<article class="panel wide" id="connection"><header><div><p class="eyebrow">Remote CROS</p><h2>接続</h2></div><span>${stateLabel}</span></header>${noticeHtml}${current}<form class="remote-connection-form" method="post" action="/connection/action" autocomplete="off"><input type="hidden" name="actionToken" value="${escapeHtml(actionToken)}"><input type="hidden" name="operation" value="connect"><label>Endpoint<input required type="url" name="baseUrl" placeholder="https://cros.example" autocomplete="off"></label><label>Credential<input required type="password" name="token" autocomplete="off" spellcheck="false"></label><p>Credentialは接続中のWorkbench Process内だけで保持し、Repository、HTML、URL、logへ保存しません。</p><button type="submit">Connect</button></form></article>`;
-}
-
-/**
- * Local Change SetをWorkbench Repository Panelへ投影する。
- *
- * @responsibility Staged、WorkingおよびUntrackedの区別を保持し、観測不能をCleanと表示しない。
- * @trace ARCH-000002
- * @input repositoryにVersion Control公開契約から得た作業ツリーSnapshotを受け取る。
- * @returns Repository Panelの安全なHTML断片を返す。
- * @precondition availableではchangeSetが存在する。
- * @postcondition 各変更区分を別々に表示し、PathをHTMLとして解釈しない。
- * @effect N/A: HTML文字列を構築するだけである。
- * @failure N/A: 観測失敗はunknown表示へ閉じる。
- * @invariant 変更0件と観測不能を区別する。
- * @boundary Version Control Read ModelとWorkbench Browser表示の境界。
- * @security 全PathをescapeHtmlへ通し、Repository Rootを表示しない。
- * @concurrency N/A: 起動時Snapshotを同期描画する。
- */
-function renderRepository(
-  repository: WorkbenchProjectSurface["repository"],
-  actionToken: string,
-  lastResult: ChangePublicationResult | null,
-  worktreeView: Readonly<{
-    state: "available" | "unknown";
-    tree: RepositoryWorktreeTreePage | null;
-    diff: RepositoryWorktreeFileDiff | null;
-  }>,
-): string {
-  const resultNotice =
-    lastResult === null
-      ? ""
-      : `<p class="operation-result" data-status="${escapeHtml(lastResult.status)}"><strong>${escapeHtml(lastResult.status)}</strong> ${escapeHtml(lastResult.reason)}</p>`;
-  if (repository.state === "unknown" || repository.changeSet === null)
-    return `<article class="panel wide" id="repository"><header><div><p class="eyebrow">Repository</p><h2>作業ツリー</h2></div><span>Unknown</span></header>${resultNotice}<p class="empty-state">Gitの現在状態を完全に観測できません。Cleanとして扱いません。直前の操作結果と現在状態を同一視せず、再観測してから次の操作を判断してください。</p></article>`;
-  const groups = [
-    ["Staged", "unprepare", repository.changeSet.preparedChanges],
-    ["Working", "prepare", repository.changeSet.workingChanges],
-    ["Untracked", "prepare", repository.changeSet.unregisteredPaths],
-  ] as const;
-  const changeCount = groups.reduce(
-    (total, [, , paths]) => total + paths.length,
-    0,
-  );
-  const target = repository.publicationTarget;
-  const publicationForm =
-    target?.status === "available" &&
-    target.destination !== null &&
-    target.branch !== null &&
-    target.revisionIdentity !== null
-      ? `<form method="post" action="/repository/action"><input type="hidden" name="actionToken" value="${escapeHtml(actionToken)}"><input type="hidden" name="operation" value="publish_revision"><input type="hidden" name="destination" value="${escapeHtml(target.destination)}"><input type="hidden" name="branch" value="${escapeHtml(target.branch)}"><input type="hidden" name="revisionIdentity" value="${escapeHtml(target.revisionIdentity)}"><dl class="publication-target"><div><dt>Remote</dt><dd>${escapeHtml(target.destination)}</dd></div><div><dt>Branch</dt><dd>${escapeHtml(target.branch)}</dd></div><div><dt>Commit</dt><dd><code>${escapeHtml(target.revisionIdentity)}</code></dd></div></dl><label class="confirm"><input required type="checkbox" name="humanConfirmed" value="true">表示したRemote・Branch・Commitを確認しました</label><button type="submit">Normal push</button></form>`
-      : `<section class="publication-unavailable"><h3>Normal push</h3><p class="empty-state">公開先を確認できません（${escapeHtml(target?.reason ?? "publication_target_observation_failed")}）。RemoteやBranchを推測して公開しません。</p></section>`;
-  const treeView =
-    worktreeView.state === "unknown" || worktreeView.tree === null
-      ? '<section class="repository-browser"><h3>Repository Tree／Diff</h3><p class="empty-state">TreeまたはDiffを完全に観測できません。空Repositoryとして扱いません。</p></section>'
-      : (() => {
-          const tree = worktreeView.tree;
-          const parent = tree.directory.includes("/")
-            ? tree.directory.slice(0, tree.directory.lastIndexOf("/"))
-            : "";
-          const navigation =
-            tree.directory.length === 0
-              ? "<strong>Repository root</strong>"
-              : `<a href="/?treeDirectory=${encodeURIComponent(parent)}#repository">← ${parent.length === 0 ? "Repository root" : escapeHtml(parent)}</a><strong>${escapeHtml(tree.directory)}</strong>`;
-          const entries =
-            tree.entries.length === 0
-              ? '<p class="empty-state">このDirectoryの表示対象は0件です。</p>'
-              : `<ul class="repository-tree">${tree.entries
-                  .map((entry) => {
-                    const flags = [
-                      entry.prepared ? "staged" : "",
-                      entry.working ? "working" : "",
-                      entry.unregistered ? "untracked" : "",
-                    ].filter(Boolean);
-                    const href =
-                      entry.kind === "directory"
-                        ? `/?treeDirectory=${encodeURIComponent(entry.path)}#repository`
-                        : `/?treeDirectory=${encodeURIComponent(tree.directory)}&diffPath=${encodeURIComponent(entry.path)}#repository`;
-                    return `<li><a href="${href}"><span aria-hidden="true">${entry.kind === "directory" ? "▸" : "·"}</span><code>${escapeHtml(entry.name)}</code></a><small>${flags.length === 0 ? "unchanged" : flags.join(" / ")}</small></li>`;
-                  })
-                  .join("")}</ul>`;
-          const continuation =
-            tree.nextCursor === null
-              ? ""
-              : `<a class="page-link" href="/?treeDirectory=${encodeURIComponent(tree.directory)}&treeCursor=${encodeURIComponent(tree.nextCursor)}#repository">次のEntry</a>`;
-          const diff = worktreeView.diff;
-          const diffView =
-            diff === null
-              ? '<p class="empty-state">Fileを選択するとPrepared／Working差分を表示します。</p>'
-              : `<section class="repository-diff"><h4><code>${escapeHtml(diff.path)}</code></h4>${diff.unregistered ? '<p class="empty-state">未追跡Fileの内容は自動読取りしません。Stage後にPrepared差分として確認してください。</p>' : ""}<h5>Prepared</h5><pre>${escapeHtml(diff.preparedPatch || "差分なし")}</pre>${diff.preparedTruncated ? "<small>表示上限で切り詰めました。</small>" : ""}<h5>Working</h5><pre>${escapeHtml(diff.workingPatch || "差分なし")}</pre>${diff.workingTruncated ? "<small>表示上限で切り詰めました。</small>" : ""}</section>`;
-          return `<section class="repository-browser"><h3>Repository Tree／Diff</h3><nav class="repository-breadcrumb">${navigation}</nav>${entries}${continuation}${diffView}</section>`;
-        })();
-  const content =
-    changeCount === 0
-      ? '<p class="empty-state">現在の作業ツリーに未反映の変更はありません。</p>'
-      : groups
-          .map(
-            ([label, operation, paths]) =>
-              `<section class="repository-group"><h3>${label} <span>${paths.length}</span></h3>${paths.length === 0 ? '<p class="empty-state">0 files</p>' : `<ul>${paths.map((entry) => `<li><code>${escapeHtml(entry)}</code><form method="post" action="/repository/action"><input type="hidden" name="actionToken" value="${escapeHtml(actionToken)}"><input type="hidden" name="operation" value="${operation}"><input type="hidden" name="path" value="${escapeHtml(entry)}"><button type="submit">${operation === "prepare" ? "Stage" : "Unstage"}</button></form></li>`).join("")}</ul>`}</section>`,
-          )
-          .join("");
-  return `<article class="panel wide" id="repository"><header><div><p class="eyebrow">Repository</p><h2>作業ツリー</h2></div><span>${changeCount} changes</span></header>${resultNotice}${treeView}${content}<div class="repository-actions"><form method="post" action="/repository/action"><input type="hidden" name="actionToken" value="${escapeHtml(actionToken)}"><input type="hidden" name="operation" value="create_revision"><label>Commit message<input required maxlength="4096" name="message"></label><button type="submit">Commit staged changes</button></form>${publicationForm}</div></article>`;
-}
-
-/**
  * 操作後の再観測失敗を、完了済みEffectの失敗へ書き換えず表示用Snapshotへ反映する。
  *
  * @responsibility 直前SnapshotのProject Contextを保持し、Repository部分だけを観測不能へ落とす。
@@ -881,23 +267,172 @@ function withUnknownRepositoryObservation(
   });
 }
 
-/**
- * Workbench Production Shellを現在のProject Surfaceから描画する。
- *
- * @responsibility 公式ShellへRepository Identity、五場面およびCapability未構成状態を投影する。
- * @trace ARCH-000012
- * @input surfaceに同じRepository Snapshotから構築したRead Modelを受け取る。
- * @returns Browserへ配信する完全HTMLを返す。
- * @precondition surfaceはProject Operation Readerと固定Capability観測を通過している。
- * @postcondition 五場面を全て表示し、Topic／Meeting未構成を0件と表示しない。
- * @effect N/A: HTML文字列を構築するだけである。
- * @failure N/A: Reader失敗時は本関数へ到達しない。
- * @invariant Project Contextの事実・共有分析・Owner Relationを独自値へ置換しない。
- * @boundary Workbench Read Modelとlocalhost Browser Surfaceの境界。
- * @security 表示Textをescapeし、Role外Contextを生成しない。
- * @concurrency N/A: 起動時に固定したSnapshotを同期描画する。
- */
-function renderShell(
+type PortfolioCursor = readonly [string, string, string];
+
+/** 許可済みPortfolioを現在の検索条件と継続位置で最大20件へ閉じる。 */
+function createPortfolioPage(
+  portfolio: PortfolioProjection | undefined,
+  query: Readonly<{ query: string; state: string; cursor: string }>,
+): Readonly<{
+  portfolio: PortfolioProjection | null;
+  nextCursor: string | null;
+  cursorInvalid: boolean;
+}> {
+  if (portfolio === undefined)
+    return Object.freeze({
+      portfolio: null,
+      nextCursor: null,
+      cursorInvalid: false,
+    });
+  const normalizedQuery = query.query.toLocaleLowerCase("ja-JP");
+  const filtered = portfolio.projects.filter(
+    (project) =>
+      (normalizedQuery.length === 0 ||
+        project.projectId
+          .toLocaleLowerCase("ja-JP")
+          .includes(normalizedQuery)) &&
+      (query.state.length === 0 || project.state === query.state),
+  );
+  let cursor: PortfolioCursor | null = null;
+  let cursorInvalid = false;
+  if (query.cursor.length > 0) {
+    try {
+      const value: unknown = JSON.parse(
+        Buffer.from(query.cursor, "base64url").toString("utf8"),
+      );
+      if (
+        !Array.isArray(value) ||
+        value.length !== 3 ||
+        !value.every((entry) => typeof entry === "string")
+      )
+        cursorInvalid = true;
+      else {
+        const decoded = value as string[];
+        if (
+          decoded[0] !== query.query ||
+          decoded[1] !== query.state ||
+          decoded[2] === undefined ||
+          decoded[2].length === 0
+        )
+          cursorInvalid = true;
+        else cursor = Object.freeze(decoded) as PortfolioCursor;
+      }
+    } catch {
+      cursorInvalid = true;
+    }
+  }
+  const start =
+    cursor === null
+      ? 0
+      : filtered.findIndex((project) => project.projectId === cursor?.[2]) + 1;
+  if (cursor !== null && start === 0) cursorInvalid = true;
+  const projects = cursorInvalid ? [] : filtered.slice(start, start + 20);
+  const last = projects.at(-1);
+  const nextCursor =
+    !cursorInvalid &&
+    last !== undefined &&
+    start + projects.length < filtered.length
+      ? Buffer.from(
+          JSON.stringify([query.query, query.state, last.projectId]),
+          "utf8",
+        ).toString("base64url")
+      : null;
+  return Object.freeze({
+    portfolio: Object.freeze({
+      ...portfolio,
+      projects: Object.freeze(projects),
+    }),
+    nextCursor,
+    cursorInvalid,
+  });
+}
+
+/** Credential RegistryからBrowserへ公開可能なMetadataだけを抽出する。 */
+function createCredentialAdministrationView(
+  administration: CredentialAdministration | undefined,
+  result: CredentialAdministrationResult | null,
+): WorkbenchCredentialAdministrationView {
+  if (administration === undefined)
+    return Object.freeze({
+      state: "not_configured",
+      credentials: Object.freeze([]),
+      result,
+    });
+  const listed = listConnectionCredentials(
+    administration.registry,
+    administration.access,
+  );
+  if (listed.status === "blocked")
+    return Object.freeze({
+      state: "unavailable",
+      credentials: Object.freeze([]),
+      result,
+    });
+  return Object.freeze({
+    state: "available",
+    credentials: Object.freeze(
+      listed.credentials.map((credential) =>
+        Object.freeze({
+          credentialId: credential.credentialId,
+          profile: credential.profile,
+          workspaceIds: Object.freeze([...credential.workspaceIds]),
+          systemAdmin: credential.systemAdmin,
+          revoked: credential.revoked,
+        }),
+      ),
+    ),
+    result,
+  });
+}
+
+/** 現在Pageに含まれるTopic／Meeting本文を安全なBrowser Viewへ閉じる。 */
+function createRecordDocumentViews(
+  topicPage: TopicMeetingPage,
+  meetingPage: TopicMeetingPage,
+  reader: WorkbenchTopicMeetingDocumentReader,
+): readonly WorkbenchRecordDocumentView[] {
+  const values: WorkbenchRecordDocumentView[] = [];
+  for (const [kind, page] of [
+    ["topic", topicPage],
+    ["meeting", meetingPage],
+  ] as const) {
+    for (const record of page.records) {
+      const id = "topicId" in record ? record.topicId : record.meetingId;
+      const document = reader.getDocument(kind, id);
+      if (document === null) continue;
+      values.push(
+        Object.freeze({
+          kind,
+          id,
+          document,
+          relations: Object.freeze([...reader.relations(kind, id)]),
+        }),
+      );
+    }
+  }
+  return Object.freeze(values);
+}
+
+/** Topic／Meeting操作結果を非秘密の表示値へ縮小する。 */
+function createTopicMeetingResultView(
+  result: TopicMeetingActionResult | null,
+): WorkbenchTopicMeetingResultView | null {
+  if (result === null) return null;
+  return Object.freeze({
+    status: result.status,
+    reason: result.reason,
+    relationPaths: Object.freeze([...result.relationPaths]),
+    recordKind:
+      result.record === null
+        ? null
+        : "topicId" in result.record
+          ? "topic"
+          : "meeting",
+  });
+}
+
+/** Workbench Node AuthorityからBrowserへ渡すJSON Read Modelを構築する。 */
+function createWorkbenchMainViewModel(
   surface: WorkbenchProjectSurface,
   portfolio: PortfolioProjection | undefined,
   actionToken: string,
@@ -928,83 +463,76 @@ function renderShell(
   runtimeActivity: WorkbenchRuntimeActivityObservation | undefined,
   documentQuery: string,
   portfolioQuery: Readonly<{ query: string; state: string; cursor: string }>,
-  worktreeView: Readonly<{
+  worktree: Readonly<{
     state: "available" | "unknown";
     tree: RepositoryWorktreeTreePage | null;
     diff: RepositoryWorktreeFileDiff | null;
   }>,
   selectedRepositoryId?: string,
-): string {
-  const { context } = surface;
-  const capabilityLabel = (
-    collection:
-      | WorkbenchProjectSurface["topics"]
-      | WorkbenchProjectSurface["meetings"],
-  ): string =>
-    collection.state === "available"
-      ? `${collection.items.length} items`
-      : collection.state === "not_configured"
-        ? "Not configured"
-        : "Unknown";
-  const connectionLabel =
-    connectionState === "repository"
-      ? credentialAdministration === undefined
-        ? "Repository mode"
-        : "CROS administration"
-      : connectionState === "cros_available"
-        ? "Remote CROS connected"
-        : "Remote CROS unavailable";
-  const topicsDetail =
-    selectedRepositoryId === undefined
-      ? "未構成と0件を区別します"
-      : selectedRepositoryId;
-  const meetingsDetail = topicsDetail;
-  const refreshHtml =
-    remoteConnection !== undefined
-      ? `<form method="post" action="/connection/action"><input type="hidden" name="actionToken" value="${escapeHtml(actionToken)}"><button name="operation" value="refresh" type="submit">Refresh projection</button></form>`
-      : '<button type="button" disabled>Refresh projection</button>';
-  const contentHtml = `${renderPortfolio(portfolio, context, connectionState, portfolioQuery.query, portfolioQuery.state, portfolioQuery.cursor)}
-        ${context.scenes.map(renderScene).join("")}
-        ${renderTopics(topicCollection, topicPage, topicMeeting, actionToken, topicMeetingResult, topicQuery, selectedRepositoryId)}
-        ${renderMeetings(meetingCollection, meetingPage, topicMeeting, actionToken, topicMeetingResult, meetingQuery, selectedRepositoryId)}
-        ${renderWorkbenchProjectPlan(surface.plan, surface.ownerArtifacts)}
-        ${renderWorkbenchQuality(surface.quality, surface.ownerArtifacts)}
-        ${renderWorkbenchOwnerArtifacts(surface.ownerArtifacts, documentQuery)}
-        ${renderWorkbenchRuntimeActivity(runtimeActivity)}
-        ${renderRepository(surface.repository, actionToken, lastResult, worktreeView)}
-        ${renderRemoteConnection(connectionState, remoteConnection, connectionNotice, actionToken)}
-        ${renderCredentialAdministration(credentialAdministration, actionToken, credentialResult)}
-        ${renderWorkbenchAiProfiles(aiProfiles)}
-        ${renderWorkbenchAiProfileAdministration(aiProfileAdministrationSnapshot, aiProfileAdministrationOwner, actionToken, aiProfileAdministrationResult)}
-        ${renderWorkbenchAiRequest(actionToken, aiProfiles, aiRequestApplication, aiRequestSnapshot, candidateApplication, candidateReview, candidateAction, aiRequestNotice)}`;
-  const shell = renderToString(
-    WorkbenchShell({
-      projectId: context.projectId,
-      repositoryId: context.repositoryId,
-      repositoryRole: context.repositoryRole,
-      connectionLabel,
-      topicsLabel: capabilityLabel(topicCollection),
-      topicsDetail,
-      meetingsLabel: capabilityLabel(meetingCollection),
-      meetingsDetail,
-      logoPath: LOGO_PATH,
-      refreshHtml,
-      contentHtml,
+): WorkbenchMainViewModel {
+  const portfolioPage = createPortfolioPage(portfolio, portfolioQuery);
+  return Object.freeze({
+    contract: "crdd/workbench/client-model/v1",
+    view: "main",
+    actionToken,
+    logoPath: LOGO_PATH,
+    surface,
+    portfolio: portfolioPage.portfolio,
+    portfolioPage: Object.freeze({
+      nextCursor: portfolioPage.nextCursor,
+      cursorInvalid: portfolioPage.cursorInvalid,
     }),
-  );
-  return `<!doctype html>
-<html lang="ja">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>CROS Workbench</title>
-  <link rel="stylesheet" href="/workbench.css">
-</head>
-<body>
-  <div data-workbench-react-root>${shell}</div>
-  <script type="module" src="${CLIENT_ASSET_PATH}"></script>
-</body>
-</html>`;
+    connection: Object.freeze({
+      state: connectionState,
+      endpoint: remoteConnection?.baseUrl ?? null,
+      notice: connectionNotice,
+    }),
+    topic: Object.freeze({
+      collection: topicCollection,
+      page: topicPage,
+      query: topicQuery,
+    }),
+    meeting: Object.freeze({
+      collection: meetingCollection,
+      page: meetingPage,
+      query: meetingQuery,
+    }),
+    recordDocuments: createRecordDocumentViews(
+      topicPage,
+      meetingPage,
+      topicMeeting,
+    ),
+    topicMeetingResult: createTopicMeetingResultView(topicMeetingResult),
+    selectedRepositoryId: selectedRepositoryId ?? null,
+    repositoryResult: lastResult,
+    worktree,
+    credentials: createCredentialAdministrationView(
+      credentialAdministration,
+      credentialResult,
+    ),
+    aiProfiles,
+    aiProfileAdministration: Object.freeze({
+      snapshot: aiProfileAdministrationSnapshot ?? null,
+      owner: aiProfileAdministrationOwner,
+      result: aiProfileAdministrationResult,
+    }),
+    aiRequest: Object.freeze({
+      configured: aiRequestApplication !== undefined,
+      candidateConfigured: candidateApplication !== undefined,
+      snapshot: aiRequestSnapshot,
+      candidateReview,
+      candidateAction,
+      notice: aiRequestNotice,
+    }),
+    runtimeActivity: runtimeActivity ?? null,
+    documentQuery,
+    portfolioQuery,
+  });
+}
+
+/** CSR Rootと固定Asset参照だけを持つDocument Shellを返す。 */
+function renderClientDocument(): string {
+  return `<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>CROS Workbench</title><link rel="stylesheet" href="/workbench.css"></head><body><div data-workbench-react-root="true" aria-live="polite"><p class="empty-state">Workbenchを読み込んでいます。</p></div><script type="module" src="${CLIENT_ASSET_PATH}"></script></body></html>`;
 }
 
 const shellCss = `:root{font-family:"Noto Sans CJK JP","Noto Sans JP","Yu Gothic UI",sans-serif;color:#18232d;background:#f2f3ef;font-synthesis:none;--ink:#18232d;--muted:#667078;--line:#d7dad3;--paper:#fbfbf8;--accent:#255c50;--accent-soft:#dfe9e4}*{box-sizing:border-box}body{margin:0;min-width:320px;background:linear-gradient(135deg,#f6f7f3,#ecefe9);font-size:15px}.app-shell{min-height:100vh;display:grid;grid-template-columns:220px minmax(0,1fr);grid-template-rows:68px minmax(0,1fr)}.topbar{grid-column:1/-1;display:flex;align-items:center;gap:28px;padding:0 24px;background:#fcfcf9;border-bottom:1px solid var(--line)}.brand{display:flex;align-items:center;gap:10px;min-width:196px;color:var(--ink);text-decoration:none}.brand img{border-radius:9px;object-fit:cover}.brand span{display:grid;line-height:1.05}.brand small{color:var(--muted);font-size:12px;letter-spacing:.08em;text-transform:uppercase}.project-switcher{display:grid;gap:2px;padding-left:20px;border-left:1px solid var(--line)}.project-switcher span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}.connection{margin-left:auto;color:var(--muted);display:flex;align-items:center;gap:8px}.status-dot{width:9px;height:9px;border-radius:50%;background:#5a8e72}.sidebar{padding:22px 14px;border-right:1px solid var(--line);background:#f7f8f4}.sidebar nav{display:grid;gap:6px}.sidebar a{padding:11px 14px;border-radius:8px;color:#4f5960;text-decoration:none;font-weight:600}.sidebar a.active{background:var(--accent-soft);color:var(--accent)}main{min-width:0;padding:36px;overflow:auto}.page-heading{display:flex;justify-content:space-between;gap:24px;align-items:flex-start}.page-heading h1{font-size:clamp(28px,3vw,40px);line-height:1.15;margin:3px 0 8px}.page-heading p{margin:0;color:var(--muted);max-width:720px;line-height:1.7}.eyebrow{font-size:12px!important;text-transform:uppercase;letter-spacing:.1em;color:var(--accent)!important;font-weight:700}.page-heading button,.panel button{min-height:40px;padding:0 16px;border:1px solid var(--line);border-radius:8px;background:var(--accent);color:#fff;font-weight:700}.panel button:disabled{background:#b9bfba;color:#f4f5f2}.page-heading button{background:#e8eae5;color:#7c8485}.summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:30px 0}.summary-grid article,.panel{background:var(--paper);border:1px solid var(--line);border-radius:12px;box-shadow:0 6px 22px rgba(24,35,45,.045)}.summary-grid article{display:grid;gap:7px;padding:18px}.summary-grid span,.summary-grid small{color:var(--muted)}.summary-grid strong{font-size:22px}.workspace-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.panel{padding:22px}.panel.wide,.context-scene{grid-column:1/-1}.panel header{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;border-bottom:1px solid var(--line);padding-bottom:14px}.panel h2{margin:2px 0;font-size:20px}.panel header>span{color:var(--muted);font-size:13px}.scene-summary{line-height:1.75;color:#38444c}.table-scroll{overflow:auto;margin-top:16px;border:1px solid var(--line);border-radius:9px}table{width:100%;border-collapse:collapse;min-width:680px;background:#fff}th,td{text-align:left;vertical-align:top;padding:12px 14px;border-bottom:1px solid var(--line);line-height:1.55}th{font-size:12px;letter-spacing:.04em;color:var(--muted);background:#f4f6f1}tbody tr:last-child td{border-bottom:0}.panel ul{list-style:none;padding:0;margin:0}.panel li{padding:16px 0;border-bottom:1px solid var(--line)}.panel li:last-child{border-bottom:0}.panel li p{margin:5px 0 0;color:var(--muted);line-height:1.6}.repository-group li{display:flex;justify-content:space-between;align-items:center;gap:16px}.repository-actions{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:20px}.repository-actions form,.credential-issue,.remote-connection-form{display:grid;gap:10px;padding:16px;border:1px solid var(--line);border-radius:9px}.repository-actions label,.credential-issue label,.remote-connection-form label,#credential-administration td form label{display:grid;gap:5px;font-weight:600}.repository-actions input,.credential-issue select,.remote-connection-form input,#credential-administration td input{min-height:40px;padding:8px 10px;border:1px solid var(--line);border-radius:7px;font:inherit}.repository-actions .confirm,#credential-administration .confirm{grid-template-columns:auto 1fr;align-items:center}.repository-actions .confirm input,#credential-administration .confirm input{min-height:0}.operation-result{padding:12px;border-radius:8px;background:var(--accent-soft)}.credential-issue,.remote-connection-form{grid-template-columns:minmax(180px,1fr) minmax(180px,1fr) minmax(180px,2fr) auto;align-items:end;margin-top:18px}.credential-issue p,.remote-connection-form p{margin:0;color:var(--muted);line-height:1.55}.one-time-token{display:grid;gap:8px;margin-top:12px}.one-time-token code{display:block;overflow-wrap:anywhere;padding:12px;background:#fff;border:1px solid var(--line);border-radius:7px;user-select:all}#credential-administration td form{display:grid;gap:7px;min-width:220px}.connection-actions{display:flex;gap:10px;margin-top:16px}.panel dl{margin:0}.panel dl div{display:flex;justify-content:space-between;gap:16px;padding:14px 0;border-bottom:1px solid var(--line)}.panel dd{margin:0;font-weight:700}.empty-state{margin:18px 0 0;padding:22px;border:1px dashed #bfc5bc;border-radius:9px;color:var(--muted);line-height:1.7;background:#f7f8f4}.record-editor{margin-top:14px;border:1px solid var(--line);border-radius:9px;padding:12px}.record-editor summary{cursor:pointer;font-weight:700}.record-editor form{display:grid;gap:10px;margin-top:12px}.record-editor label{display:grid;gap:6px}.record-editor textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:7px;font:13px/1.5 ui-monospace,monospace}.record-editor .confirm{grid-template-columns:auto 1fr;align-items:start}.collection-controls{display:grid;grid-template-columns:repeat(3,minmax(150px,1fr));gap:10px;margin:16px 0;padding:14px;border:1px solid var(--line);border-radius:9px}.collection-controls label{display:grid;gap:5px;font-weight:600}.collection-controls input,.collection-controls select{min-height:40px;padding:8px 10px;border:1px solid var(--line);border-radius:7px;font:inherit}.collection-controls .confirm{grid-template-columns:auto 1fr;align-items:center}.collection-controls .confirm input{min-height:0}.page-link{display:inline-block;margin-top:14px;color:var(--accent);font-weight:700}@media(max-width:900px){.app-shell{grid-template-columns:1fr;grid-template-rows:68px auto 1fr}.sidebar{border-right:0;border-bottom:1px solid var(--line);padding:10px 18px}.sidebar nav{grid-template-columns:repeat(8,minmax(108px,1fr));overflow:auto}.summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}main{padding:28px 22px}.credential-issue,.remote-connection-form,.collection-controls{grid-template-columns:1fr}}@media(max-width:600px){.topbar{padding:0 14px;gap:12px}.brand{min-width:0}.brand small,.project-switcher span{display:none}.project-switcher{padding-left:12px}.connection{font-size:0}.sidebar{padding:8px 12px}.sidebar nav{grid-template-columns:repeat(3,minmax(0,1fr));overflow:visible}.sidebar a{text-align:center;padding:10px 5px;font-size:13px}.summary-grid,.workspace-grid,.repository-actions{grid-template-columns:1fr}.panel.wide,.context-scene{grid-column:auto}.page-heading{display:grid}.page-heading button{width:100%}main{padding:24px 16px}.summary-grid{margin:22px 0}}`;
@@ -1812,7 +1340,11 @@ export async function startWorkbench(
       }
       let body: string | Buffer;
       let contentType: string;
-      if (requestPath === "/" || requestPath === "/index.html") {
+      if (
+        requestPath === "/" ||
+        requestPath === "/index.html" ||
+        requestPath === "/api/workbench-view"
+      ) {
         if (aiRequestApplication !== undefined && currentAiRequestId !== null) {
           try {
             aiRequestSnapshot =
@@ -2086,7 +1618,7 @@ export async function startWorkbench(
             });
           }
         }
-        body = renderShell(
+        const clientModel = createWorkbenchMainViewModel(
           projectSurface,
           portfolio,
           actionToken,
@@ -2126,75 +1658,100 @@ export async function startWorkbench(
           worktreeView,
           selectedRepositoryId,
         );
-        if (method === "GET") {
+        let responseModel: WorkbenchClientModel = clientModel;
+        const clientRoute = requestUrl.searchParams.get("route") ?? "/";
+        if (clientRoute === "/project") {
+          const projectId = requestUrl.searchParams.get("id") ?? "";
+          const project = portfolio?.projects.find(
+            (candidate) => candidate.projectId === projectId,
+          );
+          if (project === undefined) {
+            setCommonHeaders(response);
+            response.statusCode = 404;
+            response.end(method === "HEAD" ? undefined : "not_found\n");
+            return;
+          }
+          responseModel = Object.freeze({
+            contract: "crdd/workbench/client-model/v1",
+            view: "project-detail",
+            logoPath: LOGO_PATH,
+            project,
+          });
+        } else if (clientRoute === "/topic" || clientRoute === "/meeting") {
+          const kind = clientRoute === "/topic" ? "topic" : "meeting";
+          const id = requestUrl.searchParams.get("id") ?? "";
+          const expectedPattern =
+            kind === "topic" ? /^TOPIC-\d{6}$/u : /^MTG-\d{6}$/u;
+          const repositoryId = requestUrl.searchParams.get("repositoryId");
+          let recordView: WorkbenchRecordDocumentView | null = null;
+          if (expectedPattern.test(id)) {
+            if (remoteConnection === undefined) {
+              const document = topicMeeting.getDocument(kind, id);
+              if (document !== null)
+                recordView = Object.freeze({
+                  kind,
+                  id,
+                  document,
+                  relations: Object.freeze([
+                    ...topicMeeting.relations(kind, id),
+                  ]),
+                });
+            } else if (
+              repositoryId !== null &&
+              isVisiblePortfolioRepository(portfolio, repositoryId)
+            ) {
+              const remote = await readRemoteTopicMeetingDocument(
+                remoteConnection.mcpBaseUrl ?? remoteConnection.baseUrl,
+                remoteConnection.token,
+                repositoryId,
+                kind,
+                id,
+              ).catch(() => null);
+              if (remote !== null)
+                recordView = Object.freeze({
+                  kind,
+                  id,
+                  document: remote.document,
+                  relations: Object.freeze([...remote.relations]),
+                });
+            }
+          }
+          if (recordView === null) {
+            setCommonHeaders(response);
+            response.statusCode = 404;
+            response.end(method === "HEAD" ? undefined : "not_found\n");
+            return;
+          }
+          responseModel = Object.freeze({
+            contract: "crdd/workbench/client-model/v1",
+            view: "record-detail",
+            logoPath: LOGO_PATH,
+            actionToken,
+            repositoryId,
+            record: recordView,
+          });
+        }
+        body =
+          requestPath === "/api/workbench-view"
+            ? JSON.stringify(responseModel)
+            : renderClientDocument();
+        if (method === "GET" && requestPath === "/api/workbench-view") {
           credentialResult = null;
           connectionNotice = null;
           topicMeetingResult = null;
           aiProfileAdministrationResult = null;
           aiRequestNotice = null;
         }
-        contentType = "text/html; charset=utf-8";
-      } else if (requestPath === "/project") {
-        const projectId = requestUrl.searchParams.get("id") ?? "";
-        const detail =
-          portfolio === undefined
-            ? null
-            : renderFederatedProjectDetail(portfolio, projectId);
-        if (detail === null) {
-          setCommonHeaders(response);
-          response.statusCode = 404;
-          response.end(method === "HEAD" ? undefined : "not_found\n");
-          return;
-        }
-        body = detail;
-        contentType = "text/html; charset=utf-8";
-      } else if (requestPath === "/topic" || requestPath === "/meeting") {
-        const kind = requestPath === "/topic" ? "topic" : "meeting";
-        const id = requestUrl.searchParams.get("id") ?? "";
-        const repositoryId = requestUrl.searchParams.get("repositoryId") ?? "";
-        const expectedPattern =
-          kind === "topic" ? /^TOPIC-\d{6}$/u : /^MTG-\d{6}$/u;
-        let detail: string | null = null;
-        if (expectedPattern.test(id)) {
-          if (remoteConnection === undefined) {
-            detail = renderTopicMeetingDetail(
-              kind,
-              topicMeeting,
-              id,
-              actionToken,
-            );
-          } else if (isVisiblePortfolioRepository(portfolio, repositoryId)) {
-            const remote = await readRemoteTopicMeetingDocument(
-              remoteConnection.mcpBaseUrl ?? remoteConnection.baseUrl,
-              remoteConnection.token,
-              repositoryId,
-              kind,
-              id,
-            ).catch(() => null);
-            if (remote !== null) {
-              const reader: WorkbenchTopicMeetingDocumentReader = Object.freeze(
-                {
-                  getDocument: () => remote.document,
-                  relations: () => remote.relations,
-                },
-              );
-              detail = renderTopicMeetingDetail(
-                kind,
-                reader,
-                id,
-                actionToken,
-                repositoryId,
-              );
-            }
-          }
-        }
-        if (detail === null) {
-          setCommonHeaders(response);
-          response.statusCode = 404;
-          response.end(method === "HEAD" ? undefined : "not_found\n");
-          return;
-        }
-        body = detail;
+        contentType =
+          requestPath === "/api/workbench-view"
+            ? "application/json; charset=utf-8"
+            : "text/html; charset=utf-8";
+      } else if (
+        requestPath === "/project" ||
+        requestPath === "/topic" ||
+        requestPath === "/meeting"
+      ) {
+        body = renderClientDocument();
         contentType = "text/html; charset=utf-8";
       } else if (requestPath === "/change") {
         const changeId = requestUrl.searchParams.get("id") ?? "";

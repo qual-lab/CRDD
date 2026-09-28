@@ -7,7 +7,7 @@
 import { execFile, spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { createConnection } from "node:net";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -22,6 +22,8 @@ import {
 } from "./preview-server.ts";
 
 const CONTRACT = "crdd/visual-browser-zoom-verification/v1" as const;
+const BROWSER_PROCESS_TREE_GRACE_MILLISECONDS = 5_000;
+const BROWSER_PROCESS_TREE_EXIT_TIMEOUT_MILLISECONDS = 30_000;
 const execFileAsync = promisify(execFile);
 
 /**
@@ -154,7 +156,10 @@ export type BrowserZoomMeasurement = Readonly<{
   normalBrowserCloseAccepted: boolean;
   browserCloseMode: BrowserCloseMode;
   forcedBrowserCloseRequired: boolean;
+  browserDescendantTerminationRequired: boolean;
+  browserShutdownElapsedMilliseconds: number;
   browserProcessTreeExitConfirmed: boolean;
+  browserProcessTreeExitObservationElapsedMilliseconds: number;
   browserDevToolsUnavailableAfterClose: boolean;
   profileCleanupConfirmed: boolean;
   passed: boolean;
@@ -300,10 +305,11 @@ type RawBrowserMeasurement = Readonly<{
  * @security 公開結果へPIDを含めない。
  * @compatibility Windows CIMとPOSIX psの結果を同じ形へ正規化する。
  */
-type ProcessPair = Readonly<{
+export type ProcessPair = Readonly<{
   pid: number;
   parentPid: number;
   identity: string;
+  terminationIdentityVerified: boolean;
 }>;
 
 /**
@@ -318,7 +324,44 @@ type ProcessPair = Readonly<{
  * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
  */
 
-type OwnedProcessIdentity = Readonly<{ pid: number; identity: string }>;
+export type OwnedProcessIdentity = Readonly<{
+  pid: number;
+  identity: string;
+  terminationIdentityVerified: boolean;
+  depth: number;
+}>;
+
+/**
+ * 残存所有Processの限定終了処理が利用する依存を定義する。
+ *
+ * @responsibility 現在Process観測と終了Signalを分離し、安全反例を実Effectなしで検証可能にする。
+ * @trace ARCH-000003
+ * @shape Process Snapshot Readerと単一PID Terminatorで構成する。
+ * @invariant Production既定値はOS Process一覧とNode.js Process APIだけを使用する。
+ * @boundary 世代Identity判定とOS Process Effectの境界。
+ * @security 試験以外のConsumerへ任意Process選択Authorityを公開入口から提供しない。
+ * @compatibility visual-preview package内の直接境界試験だけが差し替える。
+ */
+export type OwnedProcessTerminationDependencies = Readonly<{
+  readCurrentProcesses: () => Promise<readonly ProcessPair[]>;
+  terminateProcess: (pid: number) => void;
+}>;
+
+/**
+ * 所有Process Treeの終了後観測結果を定義する。
+ *
+ * @responsibility 不存在確認の成否と観測所要時間を一つの結果として保持する。
+ * @trace ARCH-000003
+ * @shape confirmedとelapsedMillisecondsで構成する。
+ * @invariant PID、Process PathまたはCommand Lineを含まない。
+ * @boundary OS Process Table観測からVisual検証結果への境界。
+ * @security Process Identityを公開結果へ複製しない。
+ * @compatibility Browser cleanup診断の内部契約として扱う。
+ */
+type ProcessTreeExitObservation = Readonly<{
+  confirmed: boolean;
+  elapsedMilliseconds: number;
+}>;
 
 /**
  * 実行中Processの親子関係を取得する。
@@ -327,9 +370,9 @@ type OwnedProcessIdentity = Readonly<{ pid: number; identity: string }>;
  * @trace ARCH-000003
  * @input N/A: 現在のOS Process一覧を使用する。
  * @returns PIDと親PIDの組を返す。
- * @precondition PowerShellまたはpsが現在の実行環境で利用可能である。
+ * @precondition WindowsではPowerShell、Linuxではprocfs、その他POSIXではpsが利用可能である。
  * @postcondition Command出力のPath、引数または秘密値を保持しない。
- * @effect OS Process一覧を読取る外部Commandを一回実行する。
+ * @effect Windowsまたはその他POSIXでは外部Commandを一回実行し、Linuxではprocfsを読取る。
  * @failure Process一覧を決定論的に取得できない場合はErrorを投げる。
  * @invariant PIDと親PID以外を結果へ含めない。
  * @boundary Node.js ProcessとOS Process観測境界。
@@ -374,10 +417,56 @@ async function readProcessPairs(): Promise<readonly ProcessPair[]> {
                 pid,
                 parentPid,
                 identity: `${pid}:${creationDate}`,
+                terminationIdentityVerified: true,
               }),
             ]
           : [];
       }),
+    );
+  }
+  if (process.platform === "linux") {
+    const entries = await readdir("/proc", { withFileTypes: true });
+    const pairs = await Promise.all(
+      entries
+        .filter((entry) => entry.isDirectory() && /^\d+$/u.test(entry.name))
+        .map(async (entry): Promise<ProcessPair | undefined> => {
+          try {
+            const stat = await readFile(`/proc/${entry.name}/stat`, "utf8");
+            const firstSpace = stat.indexOf(" ");
+            const closingParenthesis = stat.lastIndexOf(")");
+            if (firstSpace < 1 || closingParenthesis < firstSpace)
+              return undefined;
+            const pid = Number(stat.slice(0, firstSpace));
+            const fields = stat
+              .slice(closingParenthesis + 2)
+              .trim()
+              .split(/\s+/u);
+            const parentPid = Number(fields[1]);
+            const startTime = fields[19];
+            return Number.isInteger(pid) &&
+              Number.isInteger(parentPid) &&
+              typeof startTime === "string" &&
+              /^\d+$/u.test(startTime)
+              ? Object.freeze({
+                  pid,
+                  parentPid,
+                  identity: `${pid}:${startTime}`,
+                  terminationIdentityVerified: true,
+                })
+              : undefined;
+          } catch (error) {
+            if (
+              error instanceof Error &&
+              "code" in error &&
+              (error.code === "ENOENT" || error.code === "ESRCH")
+            )
+              return undefined;
+            throw error;
+          }
+        }),
+    );
+    return Object.freeze(
+      pairs.filter((pair): pair is ProcessPair => pair !== undefined),
     );
   }
   const { stdout } = await execFileAsync("ps", ["-A", "-o", "pid=,ppid="], {
@@ -394,6 +483,7 @@ async function readProcessPairs(): Promise<readonly ProcessPair[]> {
                 pid: pid as number,
                 parentPid: parentPid as number,
                 identity: String(pid),
+                terminationIdentityVerified: false,
               }),
             ]
           : [],
@@ -417,25 +507,34 @@ async function readProcessPairs(): Promise<readonly ProcessPair[]> {
  * @security PIDを公開結果へ含めない。
  * @concurrency Snapshot後に新設された子孫はDevTools停止とProfile削除でも補完確認する。
  */
-async function collectOwnedProcessIds(
+export async function collectOwnedProcessIds(
   rootPid: number,
 ): Promise<readonly OwnedProcessIdentity[]> {
   const pairs = await readProcessPairs();
-  const owned = new Set<number>([rootPid]);
+  const depths = new Map<number, number>([[rootPid, 0]]);
   let hasChanged = true;
   while (hasChanged) {
     hasChanged = false;
     for (const pair of pairs) {
-      if (owned.has(pair.parentPid) && !owned.has(pair.pid)) {
-        owned.add(pair.pid);
+      const parentDepth = depths.get(pair.parentPid);
+      if (parentDepth !== undefined && !depths.has(pair.pid)) {
+        depths.set(pair.pid, parentDepth + 1);
         hasChanged = true;
       }
     }
   }
   return Object.freeze(
     pairs
-      .filter((pair) => owned.has(pair.pid))
-      .map((pair) => Object.freeze({ pid: pair.pid, identity: pair.identity })),
+      .filter((pair) => depths.has(pair.pid))
+      .map((pair) =>
+        Object.freeze({
+          pid: pair.pid,
+          identity: pair.identity,
+          terminationIdentityVerified: pair.terminationIdentityVerified,
+          depth: depths.get(pair.pid) as number,
+        }),
+      )
+      .sort((left, right) => left.depth - right.depth || left.pid - right.pid),
   );
 }
 
@@ -474,11 +573,11 @@ function processExists(pid: number): boolean {
  * @responsibility Browser親子Processの終了後0件を明示的に確認する。
  * @trace ARCH-000003
  * @input processIdsに終了前に固定した所有Process PID一覧を受け取る。
- * @returns 全PID不存在ならtrue、期限内に残ればfalseを返す。
+ * @returns 全PID不存在の確認結果と観測所要時間を返す。
  * @precondition processIdsは同じBrowser操作から導出されている。
  * @postcondition Processへ変更Signalを発行しない。
- * @effect OS Process存在確認を最大10秒間再実行する。
- * @failure 観測不能はfalseとして成功へ畳まない。
+ * @effect OS Process存在確認を最大30秒間再実行する。
+ * @failure 観測不能はconfirmed=falseとして成功へ畳まない。
  * @invariant 名前一致の別Browserを対象にしない。
  * @boundary Browser Process Treeの終了後観測境界。
  * @security PIDを外部へ公開しない。
@@ -486,13 +585,20 @@ function processExists(pid: number): boolean {
  */
 async function waitForProcessTreeExit(
   processIds: readonly OwnedProcessIdentity[],
-): Promise<boolean> {
-  const deadline = Date.now() + 10_000;
+  timeoutMilliseconds: number,
+): Promise<ProcessTreeExitObservation> {
+  const startedAt = Date.now();
+  const createObservation = (confirmed: boolean): ProcessTreeExitObservation =>
+    Object.freeze({
+      confirmed,
+      elapsedMilliseconds: Math.max(0, Date.now() - startedAt),
+    });
+  const deadline = startedAt + timeoutMilliseconds;
   while (Date.now() < deadline) {
     if (
       processIds.every((processIdentity) => !processExists(processIdentity.pid))
     )
-      return true;
+      return createObservation(true);
     const currentIdentities = new Set(
       (await readProcessPairs()).map((processPair) => processPair.identity),
     );
@@ -501,15 +607,241 @@ async function waitForProcessTreeExit(
         (processIdentity) => !currentIdentities.has(processIdentity.identity),
       )
     )
-      return true;
+      return createObservation(true);
     await wait(500);
   }
   const currentIdentities = new Set(
     (await readProcessPairs()).map((processPair) => processPair.identity),
   );
-  return processIds.every(
-    (processIdentity) => !currentIdentities.has(processIdentity.identity),
+  return createObservation(
+    processIds.every(
+      (processIdentity) => !currentIdentities.has(processIdentity.identity),
+    ),
   );
+}
+
+/**
+ * 正常終了後も残る所有Browser子Processだけへ終了を要求する。
+ *
+ * @responsibility Windowsで親Process終了が子Process Tree回収を保証しない場合の限定Fallbackを所有する。
+ * @trace ARCH-000003
+ * @input processIdsにBrowser開始後に固定した所有Process Identity一覧を受け取る。
+ * @returns 同じIdentityを再確認して終了要求を発行したProcess数を返す。
+ * @precondition processIdsは同じBrowser操作から親子Relationで導出されている。
+ * @postcondition 一致した残存Processにだけ一回ずつ終了要求を発行する。
+ * @effect 現在のProcess一覧を再観測し、Identity一致したProcessへSIGTERMを送る。
+ * @failure Process一覧を観測できない、または一致Processへの終了要求に失敗した場合はErrorを投げる。
+ * @invariant PID一致だけでは操作せず、生成時刻を含むIdentity一致を必須とする。
+ * @boundary Browser所有Process TreeとOS Process APIの境界。
+ * @security 別操作、通常Profileまたは利用者所有Browserを終了しない。
+ * @concurrency 子孫から親の順に処置し、処置直前のIdentity Snapshotだけを使用する。
+ */
+export async function terminateRemainingOwnedBrowserProcesses(
+  processIds: readonly OwnedProcessIdentity[],
+  dependencies: OwnedProcessTerminationDependencies = Object.freeze({
+    readCurrentProcesses: readProcessPairs,
+    terminateProcess: (pid) => process.kill(pid, "SIGTERM"),
+  }),
+): Promise<number> {
+  const currentProcessesByIdentity = new Map(
+    (await dependencies.readCurrentProcesses()).map((processPair) => [
+      processPair.identity,
+      processPair,
+    ]),
+  );
+  const remainingProcesses = [...processIds]
+    .sort((left, right) => right.depth - left.depth || right.pid - left.pid)
+    .flatMap((processIdentity) => {
+      const currentProcess = currentProcessesByIdentity.get(
+        processIdentity.identity,
+      );
+      return currentProcess === undefined
+        ? []
+        : [{ captured: processIdentity, current: currentProcess }];
+    });
+  if (
+    remainingProcesses.some(
+      ({ captured, current }) =>
+        !captured.terminationIdentityVerified ||
+        !current.terminationIdentityVerified,
+    )
+  )
+    throw new Error("visual_zoom_owned_process_identity_unverified");
+  let terminationRequestCount = 0;
+  for (const { current } of remainingProcesses) {
+    try {
+      dependencies.terminateProcess(current.pid);
+      terminationRequestCount += 1;
+    } catch (error) {
+      if (error instanceof Error && "code" in error && error.code === "ESRCH")
+        continue;
+      throw error;
+    }
+  }
+  return terminationRequestCount;
+}
+
+/**
+ * 所有Browser Process Treeの終了処理結果を定義する。
+ *
+ * @responsibility 正常終了受理、実終了経路、限定Fallback、最終不存在および途中Errorを分離する。
+ * @trace ARCH-000003
+ * @shape 終了観測値と全段cleanup後に集約したErrorで構成する。
+ * @invariant 一段の失敗で後続cleanupを省略しない。
+ * @boundary Browser正常終了要求、OS Process操作および呼出し側の結果判定境界。
+ * @security PID、Process PathまたはCommand Lineを公開結果へ含めない。
+ * @compatibility visual-preview内部試験から直接反証できる安定契約として扱う。
+ */
+export type OwnedBrowserProcessCleanupResult = Readonly<{
+  normalCloseAccepted: boolean;
+  closeMode: BrowserCloseMode;
+  descendantTerminationRequired: boolean;
+  processTreeExitConfirmed: boolean;
+  processTreeExitObservationElapsedMilliseconds: number;
+  shutdownElapsedMilliseconds: number;
+  cleanupErrors: readonly unknown[];
+}>;
+
+/**
+ * Browser終了直前の所有Treeを固定し、正常終了と限定Fallbackを順に実行する。
+ *
+ * @responsibility 終了直前に生成済みの全子孫を世代Identity付きで固定し、全cleanup段をbest effortで完了する。
+ * @trace ARCH-000003
+ * @input childに本操作が起動したBrowser、requestNormalCloseにBrowser固有の正常終了要求を受け取る。
+ * @returns 終了経路、Fallback有無、最終不存在および全段実行後のError一覧を返す。
+ * @precondition childは利用者の通常Browserではなく本検証操作専用Processである。
+ * @postcondition Snapshot、正常終了、親Process停止、残存子孫処置および最終観測を可能な範囲ですべて試行する。
+ * @effect exactな世代Identityを確認できた所有Processだけへ必要時に終了Signalを送る。
+ * @failure Identity観測不能、停止失敗または最終残存をcleanupErrorsとfalse観測で返す。
+ * @invariant 名前、PathまたはPIDだけで操作対象を広げない。
+ * @boundary DevTools Browser.close、Node.js ChildProcessおよびOS Process Treeの終了境界。
+ * @security Identityを確認できないPlatformではFallback Effect 0で失敗する。
+ * @concurrency 終了要求直前のSnapshotを使用し、各cleanup段のErrorを集約して後続段を継続する。
+ */
+export async function closeOwnedBrowserProcessTree(
+  child: ChildProcess,
+  requestNormalClose: () => Promise<void>,
+): Promise<OwnedBrowserProcessCleanupResult> {
+  const startedAt = Date.now();
+  const cleanupErrors: unknown[] = [];
+  let ownedProcessIds: readonly OwnedProcessIdentity[] = [];
+  let isNormalCloseAccepted = false;
+  let closeMode: BrowserCloseMode = "unknown";
+  let descendantTerminationRequired = false;
+  let processTreeExitConfirmed = false;
+  let processTreeExitObservationElapsedMilliseconds = 0;
+  try {
+    if (child.pid === undefined)
+      throw new Error("visual_zoom_browser_pid_unavailable");
+    ownedProcessIds = await collectOwnedProcessIds(child.pid);
+    if (ownedProcessIds.length === 0)
+      throw new Error("visual_zoom_owned_process_tree_unobserved");
+  } catch (error) {
+    cleanupErrors.push(error);
+  }
+  try {
+    await requestNormalClose();
+    isNormalCloseAccepted = true;
+  } catch {
+    isNormalCloseAccepted = false;
+  }
+  try {
+    closeMode = await stopOwnedBrowser(child);
+  } catch (error) {
+    cleanupErrors.push(error);
+  }
+  if (ownedProcessIds.length > 0) {
+    try {
+      const gracefulObservation = await waitForProcessTreeExit(
+        ownedProcessIds,
+        BROWSER_PROCESS_TREE_GRACE_MILLISECONDS,
+      );
+      processTreeExitObservationElapsedMilliseconds +=
+        gracefulObservation.elapsedMilliseconds;
+      processTreeExitConfirmed = gracefulObservation.confirmed;
+    } catch (error) {
+      cleanupErrors.push(error);
+    }
+    if (!processTreeExitConfirmed) {
+      try {
+        descendantTerminationRequired =
+          (await terminateRemainingOwnedBrowserProcesses(ownedProcessIds)) > 0;
+      } catch (error) {
+        cleanupErrors.push(error);
+      }
+      try {
+        const finalObservation = await waitForProcessTreeExit(
+          ownedProcessIds,
+          BROWSER_PROCESS_TREE_EXIT_TIMEOUT_MILLISECONDS,
+        );
+        processTreeExitObservationElapsedMilliseconds +=
+          finalObservation.elapsedMilliseconds;
+        processTreeExitConfirmed = finalObservation.confirmed;
+      } catch (error) {
+        cleanupErrors.push(error);
+      }
+    }
+  }
+  return Object.freeze({
+    normalCloseAccepted: isNormalCloseAccepted,
+    closeMode,
+    descendantTerminationRequired,
+    processTreeExitConfirmed,
+    processTreeExitObservationElapsedMilliseconds,
+    shutdownElapsedMilliseconds: Math.max(0, Date.now() - startedAt),
+    cleanupErrors: Object.freeze([...cleanupErrors]),
+  });
+}
+
+/**
+ * Visual計測終了時に必ず試行するcleanup段を定義する。
+ *
+ * @responsibility Process、DevToolsおよびProfileの清掃責務を固定順序で明示する。
+ * @trace ARCH-000003
+ * @shape 三つの非同期cleanup関数で構成する。
+ * @invariant 前段の失敗は後続段の実行可否を変更しない。
+ * @boundary 条件別Visual計測と資源別cleanupの境界。
+ * @security cleanup対象は各関数が既に所有確認した資源に限る。
+ * @compatibility 新しい所有資源を追加する場合は本契約とERB-IT-020を同時更新する。
+ */
+export type VisualCleanupStages = Readonly<{
+  closeProcessTree: () => Promise<void>;
+  confirmDevToolsClosed: () => Promise<void>;
+  removeProfile: () => Promise<void>;
+}>;
+
+/**
+ * Visual計測のcleanup各段を独立して試行し、全Errorを返す。
+ *
+ * @responsibility 一段の例外で後続cleanupが省略されることを防ぐ。
+ * @trace ARCH-000003
+ * @input stagesにProcess、DevTools、Profileの用途限定cleanup関数を受け取る。
+ * @returns 全段実行後に捕捉したError一覧を実行順で返す。
+ * @precondition 各関数は同じVisual計測操作が所有する資源だけを対象とする。
+ * @postcondition 三段を各一回試行し、Errorを成功へ畳まない。
+ * @effect 渡されたcleanup関数をProcess、DevTools、Profileの順に一回ずつ実行する。
+ * @failure 個別Errorは集約して返し、関数自身は途中でthrowしない。
+ * @invariant cleanup段の順序と実行数を入力Errorで変更しない。
+ * @boundary 資源別cleanupと計測全体の失敗判定境界。
+ * @security 新しいAuthorityまたは対象Identityを生成しない。
+ * @concurrency cleanup段は同じ操作内で直列実行する。
+ */
+export async function runVisualCleanupStages(
+  stages: VisualCleanupStages,
+): Promise<readonly unknown[]> {
+  const errors: unknown[] = [];
+  for (const stage of [
+    stages.closeProcessTree,
+    stages.confirmDevToolsClosed,
+    stages.removeProfile,
+  ]) {
+    try {
+      await stage();
+    } catch (error) {
+      errors.push(error);
+    }
+  }
+  return Object.freeze([...errors]);
 }
 
 /**
@@ -1024,8 +1356,32 @@ function createMeasurementExpression(targetIds: readonly string[]): string {
     await new Promise((resolve) => window.addEventListener("load", resolve, { once: true }));
   }
   await document.fonts.ready;
-  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   const requiredTargetIds = ${JSON.stringify(targetIds)};
+  const targetDeadline = Date.now() + 10_000;
+  while (requiredTargetIds.some((id) => document.getElementById(id) === null) && Date.now() < targetDeadline) {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  const initialImages = [...document.querySelectorAll("img")];
+  await Promise.all(initialImages.map((image) => {
+    if (image.complete) return Promise.resolve();
+    return new Promise((resolve) => {
+      let settled = false;
+      const settle = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        image.removeEventListener("load", settle);
+        image.removeEventListener("error", settle);
+        resolve();
+      };
+      const timeout = setTimeout(settle, 5_000);
+      image.addEventListener("load", settle, { once: true });
+      image.addEventListener("error", settle, { once: true });
+      if (image.complete) settle();
+    });
+  }));
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   const isVisible = (element) => {
     const style = getComputedStyle(element);
     const rect = element.getBoundingClientRect();
@@ -1147,19 +1503,20 @@ async function measureDocumentAtZoom(
   let devTools:
     | Readonly<{ port: number; browserWebSocketPath: string }>
     | undefined;
-  let ownedProcessIds: readonly OwnedProcessIdentity[] = [];
   let raw: RawBrowserMeasurement | undefined;
   let failures: string[] = [];
+  let operationError: unknown;
+  const cleanupErrors: unknown[] = [];
   let isNormalBrowserCloseAccepted = false;
   let browserCloseMode: BrowserCloseMode = "unknown";
+  let browserDescendantTerminationRequired = false;
+  let browserShutdownElapsedMilliseconds = 0;
   let browserProcessTreeExitConfirmed = false;
+  let browserProcessTreeExitObservationElapsedMilliseconds = 0;
   let isBrowserDevToolsUnavailableAfterClose = false;
   let profileCleanupConfirmed = false;
   try {
     devTools = await waitForDevTools(profileRoot, child);
-    if (child.pid === undefined)
-      throw new Error("visual_zoom_browser_pid_unavailable");
-    ownedProcessIds = await collectOwnedProcessIds(child.pid);
     let rawValue: unknown;
     const evaluationDeadline = Date.now() + 10_000;
     while (rawValue === undefined && Date.now() < evaluationDeadline) {
@@ -1216,28 +1573,66 @@ async function measureDocumentAtZoom(
       failures.push("required_screen_target_missing");
     if (raw.hiddenTargetIds.length > 0)
       failures.push("required_screen_target_hidden");
+  } catch (error) {
+    operationError = error;
   } finally {
-    if (devTools !== undefined) {
-      try {
-        await requestBrowserClose(devTools.port, devTools.browserWebSocketPath);
-        isNormalBrowserCloseAccepted = true;
-      } catch {}
+    const cleanupObservation: {
+      process: OwnedBrowserProcessCleanupResult | undefined;
+    } = { process: undefined };
+    cleanupErrors.push(
+      ...(await runVisualCleanupStages({
+        closeProcessTree: async () => {
+          cleanupObservation.process = await closeOwnedBrowserProcessTree(
+            child,
+            async () => {
+              if (devTools === undefined)
+                throw new Error("visual_zoom_devtools_unavailable_for_close");
+              await requestBrowserClose(
+                devTools.port,
+                devTools.browserWebSocketPath,
+              );
+            },
+          );
+        },
+        confirmDevToolsClosed: async () => {
+          isBrowserDevToolsUnavailableAfterClose =
+            devTools !== undefined &&
+            (await confirmDevToolsUnavailable(devTools.port)) === "absent";
+        },
+        removeProfile: async () => {
+          await rm(profileRoot, {
+            recursive: true,
+            force: true,
+            maxRetries: 10,
+            retryDelay: 200,
+          });
+          profileCleanupConfirmed = !existsSync(profileRoot);
+        },
+      })),
+    );
+    const processCleanup = cleanupObservation.process;
+    if (processCleanup !== undefined) {
+      isNormalBrowserCloseAccepted = processCleanup.normalCloseAccepted;
+      browserCloseMode = processCleanup.closeMode;
+      browserDescendantTerminationRequired =
+        processCleanup.descendantTerminationRequired;
+      browserShutdownElapsedMilliseconds =
+        processCleanup.shutdownElapsedMilliseconds;
+      browserProcessTreeExitConfirmed = processCleanup.processTreeExitConfirmed;
+      browserProcessTreeExitObservationElapsedMilliseconds =
+        processCleanup.processTreeExitObservationElapsedMilliseconds;
+      cleanupErrors.push(...processCleanup.cleanupErrors);
     }
-    browserCloseMode = await stopOwnedBrowser(child);
-    browserProcessTreeExitConfirmed =
-      ownedProcessIds.length > 0 &&
-      (await waitForProcessTreeExit(ownedProcessIds));
-    isBrowserDevToolsUnavailableAfterClose =
-      devTools !== undefined &&
-      (await confirmDevToolsUnavailable(devTools.port)) === "absent";
-    await rm(profileRoot, {
-      recursive: true,
-      force: true,
-      maxRetries: 10,
-      retryDelay: 200,
-    });
-    profileCleanupConfirmed = !existsSync(profileRoot);
   }
+  const executionErrors = [
+    ...(operationError === undefined ? [] : [operationError]),
+    ...cleanupErrors,
+  ];
+  if (executionErrors.length > 0)
+    throw new AggregateError(
+      executionErrors,
+      "visual_zoom_measurement_or_cleanup_failed",
+    );
   if (raw === undefined) throw new Error("visual_zoom_measurement_unavailable");
   if (!browserProcessTreeExitConfirmed)
     failures.push("browser_process_tree_remaining_or_unobserved");
@@ -1279,8 +1674,13 @@ async function measureDocumentAtZoom(
     normalBrowserCloseAccepted: isNormalBrowserCloseAccepted,
     browserCloseMode,
     forcedBrowserCloseRequired:
-      browserCloseMode === "sigterm" || browserCloseMode === "sigkill",
+      browserCloseMode === "sigterm" ||
+      browserCloseMode === "sigkill" ||
+      browserDescendantTerminationRequired,
+    browserDescendantTerminationRequired,
+    browserShutdownElapsedMilliseconds,
     browserProcessTreeExitConfirmed,
+    browserProcessTreeExitObservationElapsedMilliseconds,
     browserDevToolsUnavailableAfterClose:
       isBrowserDevToolsUnavailableAfterClose,
     profileCleanupConfirmed,

@@ -30,6 +30,10 @@ import {
 import { createServer, request as httpRequest } from "node:http";
 import path from "node:path";
 import test from "node:test";
+import {
+  inspectWorkbenchClientModel,
+  type WorkbenchClientModel,
+} from "../../src/presentation/workbench-client-model.ts";
 
 import {
   DEFAULT_AI_PROFILE_CATALOG,
@@ -79,6 +83,73 @@ const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
 );
 
 /**
+ * Browser JSON境界が不正Discriminantと必須構造欠落を拒否することを検証する。
+ *
+ * @responsibility TypeScript castだけで不正JSONを成功画面へ通さないことを反証する。
+ * @trace ERB-IT-021
+ * @precondition Client Model InspectorがProduction入口と同じ実装である。
+ * @stimulus 不正contract、未知viewおよびmain必須構造欠落を入力する。
+ * @observation 送出される固定Errorを観測する。
+ * @oracle 全入力がworkbench_client_model_invalidで拒否される。
+ * @cleanup N/A: 外部資源を使用しない。
+ * @boundary ERB-IT-021=Direct Boundary: JSON unknown value→Client Model Inspector
+ */
+test("Workbench Clientは契約不正JSONを描画前に拒否する", () => {
+  for (const value of [
+    null,
+    { contract: "invalid", view: "main" },
+    { contract: "crdd/workbench/client-model/v1", view: "unknown" },
+    { contract: "crdd/workbench/client-model/v1", view: "main" },
+    {
+      contract: "crdd/workbench/client-model/v1",
+      view: "main",
+      actionToken: "action-token",
+      logoPath: "/assets/crdd-brand-icon.jpg",
+      surface: {},
+      connection: {},
+      topic: {},
+      meeting: {},
+      credentials: {},
+      aiRequest: {},
+    },
+    {
+      contract: "crdd/workbench/client-model/v1",
+      view: "project-detail",
+      logoPath: "/assets/crdd-brand-icon.jpg",
+      project: { projectId: "PRJ-001", state: "complete", sources: {} },
+    },
+    {
+      contract: "crdd/workbench/client-model/v1",
+      view: "record-detail",
+      logoPath: "/assets/crdd-brand-icon.jpg",
+      actionToken: "action-token",
+      repositoryId: null,
+      record: {
+        kind: "topic",
+        id: "TOPIC-000001",
+        document: {
+          markdown: "# Topic",
+          record: {
+            topicId: "TOPIC-000001",
+            projectId: "PRJ-001",
+            state: "unknown",
+            revision: 1,
+            owner: "Owner",
+            title: "Topic",
+            summary: "Summary",
+          },
+        },
+        relations: [],
+      },
+    },
+  ])
+    assert.throws(
+      () => inspectWorkbenchClientModel(value),
+      /workbench_client_model_invalid/u,
+    );
+});
+
+/**
  * WorkbenchへRaw HTTP Requestを送信する。
  *
  * @responsibility 固定Routeと拒否RouteのResponseをURL正規化前のRequest Targetで観測する。
@@ -90,7 +161,7 @@ const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
  * @cleanup Request SocketはResponse完了時に閉じる。
  * @boundary ERB-IT-021=Direct Boundary: workbench Test Source→対象契約
  */
-async function requestRaw(
+async function requestTransport(
   baseUrl: string,
   requestPath: string,
   method = "GET",
@@ -138,6 +209,87 @@ async function requestRaw(
 }
 
 /**
+ * UI Routeと同じQueryから、Browserへ公開されるJSON Read Modelを直接取得する。
+ *
+ * @responsibility CSRが受け取るJSON Read ModelをHTTP境界から取得する。
+ * @trace ERB-IT-021
+ * @precondition baseUrlが起動済みWorkbenchを指す。
+ * @stimulus UI RouteをJSON API Routeへ変換してGETする。
+ * @observation StatusとJSON本文を取得する。
+ * @oracle HTTP 200のWorkbenchClientModelを返す。
+ * @cleanup Request SocketはResponse完了時に閉じる。
+ * @boundary ERB-IT-021=Direct Boundary: Browser Route Query→JSON Read Model API
+ */
+async function requestClientModel(
+  baseUrl: string,
+  requestPath = "/",
+): Promise<WorkbenchClientModel> {
+  const requested = new URL(requestPath, baseUrl);
+  const parameters = new URLSearchParams(requested.search);
+  parameters.set(
+    "route",
+    requested.pathname === "/index.html" ? "/" : requested.pathname,
+  );
+  const response = await requestTransport(
+    baseUrl,
+    `/api/workbench-view?${parameters.toString()}`,
+  );
+  assert.equal(response.status, 200);
+  return inspectWorkbenchClientModel(
+    JSON.parse(response.body.toString("utf8")),
+  );
+}
+
+/**
+ * Main Workbench JSON契約を取得し、別Viewへの誤配送を拒否する。
+ *
+ * @responsibility Main View試験へ判別済みのJSON Read Modelだけを渡す。
+ * @trace ERB-IT-021
+ * @precondition requestClientModelがWorkbenchClientModelを返す。
+ * @stimulus 指定RouteのJSON Read Modelを取得する。
+ * @observation view Discriminantを確認する。
+ * @oracle main以外を固定Errorで拒否し、main Modelを返す。
+ * @cleanup N/A: requestClientModelの資源契約を継承する。
+ * @boundary ERB-IT-021=Direct Boundary: WorkbenchClientModel→Main View Model
+ */
+async function requestMainModel(
+  baseUrl: string,
+  requestPath = "/",
+): Promise<Extract<WorkbenchClientModel, { view: "main" }>> {
+  const model = await requestClientModel(baseUrl, requestPath);
+  assert.equal(model.view, "main");
+  if (model.view !== "main") throw new Error("workbench_main_model_required");
+  return model;
+}
+
+/**
+ * HTTP Responseを加工せず取得する。
+ *
+ * @responsibility Header、Statusおよび生本文を必要とする契約試験へResponseを渡す。
+ * @trace ERB-IT-021
+ * @precondition baseUrlが起動済みWorkbenchを指す。
+ * @stimulus 指定method、pathおよび任意bodyを送信する。
+ * @observation HTTP Responseを変換せず取得する。
+ * @oracle 呼出し側が配信Headerと拒否本文を判定できる。
+ * @cleanup Request SocketはResponse完了時に閉じる。
+ * @boundary ERB-IT-021=Direct Boundary: Raw HTTP Request→Raw HTTP Response
+ */
+async function requestRaw(
+  baseUrl: string,
+  requestPath: string,
+  method = "GET",
+  body?: string,
+): Promise<
+  Readonly<{
+    status: number;
+    headers: NodeJS.Dict<string | string[]>;
+    body: Buffer;
+  }>
+> {
+  return await requestTransport(baseUrl, requestPath, method, body);
+}
+
+/**
  * Workbench試験Fixture内でGit Commandを実行する。
  *
  * @responsibility Production HTTP境界試験に必要なRepository初期状態だけを構築する。
@@ -182,45 +334,473 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
   try {
     assert.match(handle.baseUrl, /^http:\/\/127\.0\.0\.1:\d+$/u);
     const shell = await requestRaw(handle.baseUrl, "/");
+    const model = await requestClientModel(handle.baseUrl);
+    assert.equal(model.view, "main");
+    if (model.view !== "main") return;
+    const serializedModel = JSON.stringify(model);
     assert.equal(shell.status, 200);
     assert.match(shell.body.toString("utf8"), /CROS Workbench/u);
-    assert.match(shell.body.toString("utf8"), /AI Profiles/u);
-    assert.match(shell.body.toString("utf8"), /PROFILE-100003/u);
+    assert.ok(
+      model.aiProfiles.catalog.profiles.some(
+        (profile) => profile.profileId === "PROFILE-100003",
+      ),
+    );
+    assert.equal(model.logoPath, "/assets/crdd-brand-icon.jpg");
+    assert.equal(model.surface.context.repositoryId, "qual-lab.crdd-standard");
+    assert.match(serializedModel, /今どうなっているか/u);
+    assert.match(serializedModel, /何が危ない、または止まっているか/u);
+    assert.notEqual(model.runtimeActivity, undefined);
+    assert.equal(model.surface.plan.projection?.targetVersion, "v0.22.0");
+    assert.equal(
+      model.surface.plan.projection?.targetReleaseDate,
+      "2026-10-03",
+    );
+    assert.match(serializedModel, /Group B/u);
+    assert.match(serializedModel, /日程リスク/u);
+    assert.equal(model.surface.quality.projection?.unobserved, "28 / 39");
     assert.match(
-      shell.body.toString("utf8"),
-      /Configuredは実行可能を意味しません/u,
+      model.surface.quality.projection?.nextGate ?? "",
+      /Blocking Finding 0/u,
     );
-    assert.match(
-      shell.body.toString("utf8"),
-      /\/assets\/crdd-brand-icon\.jpg/u,
+    assert.ok(model.surface.ownerArtifacts.artifacts.length > 0);
+
+    const invalidQuality = structuredClone(model) as unknown as {
+      surface: {
+        quality: {
+          projection: { rationale: Record<string, unknown> } | null;
+        };
+      };
+    };
+    assert.notEqual(invalidQuality.surface.quality.projection, null);
+    if (invalidQuality.surface.quality.projection !== null) {
+      invalidQuality.surface.quality.projection.rationale.既知Gap = {
+        unsafe: true,
+      };
+    }
+    assert.throws(
+      () => inspectWorkbenchClientModel(invalidQuality),
+      /workbench_client_model_invalid/u,
     );
-    assert.match(shell.body.toString("utf8"), /Project Workspace/u);
-    assert.match(shell.body.toString("utf8"), /qual-lab\.crdd-standard/u);
-    assert.match(shell.body.toString("utf8"), /今どうなっているか/u);
-    assert.match(
-      shell.body.toString("utf8"),
-      /何が危ない、または止まっているか/u,
+
+    const invalidPlan = structuredClone(model) as unknown as {
+      surface: {
+        plan: {
+          projection: { scope: unknown[] } | null;
+        };
+      };
+    };
+    assert.notEqual(invalidPlan.surface.plan.projection, null);
+    if (invalidPlan.surface.plan.projection !== null) {
+      invalidPlan.surface.plan.projection.scope = [
+        { item: { unsafe: true }, disposition: "in_scope", rationale: "x" },
+      ];
+    }
+    assert.throws(
+      () => inspectWorkbenchClientModel(invalidPlan),
+      /workbench_client_model_invalid/u,
     );
-    assert.match(shell.body.toString("utf8"), /Not configured/u);
-    assert.match(shell.body.toString("utf8"), /Staged/u);
-    assert.match(shell.body.toString("utf8"), /Working/u);
-    assert.match(shell.body.toString("utf8"), /Untracked/u);
-    assert.doesNotMatch(
-      shell.body.toString("utf8"),
-      /Project Runtime状態Queryが未接続/u,
+
+    const invalidPlanReason = structuredClone(model) as unknown as {
+      surface: { plan: { reason: unknown } };
+    };
+    invalidPlanReason.surface.plan.reason = { unsafe: true };
+    assert.throws(
+      () => inspectWorkbenchClientModel(invalidPlanReason),
+      /workbench_client_model_invalid/u,
     );
-    assert.match(shell.body.toString("utf8"), /id="runtime-activity"/u);
-    assert.match(shell.body.toString("utf8"), /Project Plan/u);
-    assert.match(shell.body.toString("utf8"), /v0\.22\.0/u);
-    assert.match(shell.body.toString("utf8"), /2026-10-03/u);
-    assert.match(shell.body.toString("utf8"), /Group B/u);
-    assert.match(shell.body.toString("utf8"), /日程リスク/u);
-    assert.match(shell.body.toString("utf8"), /Quality and Evidence/u);
-    assert.match(shell.body.toString("utf8"), /28 \/ 39/u);
-    assert.match(shell.body.toString("utf8"), /Blocking Finding 0/u);
-    assert.match(shell.body.toString("utf8"), /Documentation and Relations/u);
-    assert.match(shell.body.toString("utf8"), /TitleまたはPathで検索/u);
-    assert.match(shell.body.toString("utf8"), /Project Context:/u);
+
+    for (const invalidSceneKeys of [
+      ["current", "risk", "decision", "reason"],
+      ["current", "risk", "decision", "reason", "reason"],
+      ["risk", "current", "decision", "reason", "next"],
+    ]) {
+      const invalidScenes = structuredClone(model) as unknown as {
+        surface: {
+          context: {
+            scenes: Array<Record<string, unknown>>;
+          };
+        };
+      };
+      invalidScenes.surface.context.scenes = invalidSceneKeys.map(
+        (key, index) => ({
+          ...invalidScenes.surface.context.scenes[index],
+          key,
+        }),
+      );
+      assert.throws(
+        () => inspectWorkbenchClientModel(invalidScenes),
+        /workbench_client_model_invalid/u,
+      );
+    }
+
+    const invalidOperationRecord = structuredClone(model) as unknown as {
+      topic: { page: { records: unknown[] } };
+    };
+    invalidOperationRecord.topic.page.records = [
+      {
+        kind: "meeting",
+        topicId: "TOPIC-UNSAFE",
+        meetingId: "MTG-000001",
+        projectId: "PRJ-001",
+        state: "recorded",
+        occurredAt: "2026-09-28T00:00:00Z",
+        revision: 1,
+        owner: "Qual-Lab",
+        title: "境界混同",
+        summary: "MeetingへTopic Identityを混在させる。",
+        pendingOutcomeCount: 0,
+      },
+    ];
+    assert.throws(
+      () => inspectWorkbenchClientModel(invalidOperationRecord),
+      /workbench_client_model_invalid/u,
+    );
+
+    const invalidRecordIdentity = structuredClone(model) as unknown as {
+      recordDocuments: unknown[];
+    };
+    invalidRecordIdentity.recordDocuments = [
+      {
+        kind: "topic",
+        id: "TOPIC-000001",
+        document: {
+          markdown: "# Topic",
+          record: {
+            topicId: "TOPIC-000002",
+            projectId: "PRJ-001",
+            state: "open",
+            revision: 1,
+            owner: "Qual-Lab",
+            title: "Identity不一致",
+            summary: "外側と内側のIdentityを変える。",
+          },
+        },
+        relations: [],
+      },
+    ];
+    assert.throws(
+      () => inspectWorkbenchClientModel(invalidRecordIdentity),
+      /workbench_client_model_invalid/u,
+    );
+
+    const invalidFederation = structuredClone(model) as unknown as {
+      portfolio: unknown;
+    };
+    invalidFederation.portfolio = {
+      retainedAsSourceOfTruth: false,
+      projects: [
+        {
+          projectId: model.surface.context.projectId,
+          state: "complete",
+          sources: [
+            {
+              repositoryId: "missing.repository",
+              revision: "1",
+              state: "missing",
+              repositoryRole: null,
+              context: null,
+            },
+          ],
+        },
+      ],
+    };
+    assert.throws(
+      () => inspectWorkbenchClientModel(invalidFederation),
+      /workbench_client_model_invalid/u,
+    );
+
+    const validFederatedProject = {
+      retainedAsSourceOfTruth: false,
+      projects: [
+        {
+          projectId: model.surface.context.projectId,
+          state: "complete",
+          sources: [
+            {
+              repositoryId: model.surface.context.repositoryId,
+              revision: "1",
+              state: "complete",
+              repositoryRole: model.surface.context.repositoryRole,
+              context: model.surface.context,
+            },
+          ],
+        },
+      ],
+    };
+    const mismatchedProjectContext = structuredClone(validFederatedProject);
+    const projectContextSource = mismatchedProjectContext.projects
+      .at(0)
+      ?.sources.at(0);
+    assert.ok(projectContextSource);
+    projectContextSource.context = {
+      ...model.surface.context,
+      projectId: "PRJ-OTHER",
+    };
+    const mismatchedRepositoryContext = structuredClone(validFederatedProject);
+    const repositoryContextSource = mismatchedRepositoryContext.projects
+      .at(0)
+      ?.sources.at(0);
+    assert.ok(repositoryContextSource);
+    repositoryContextSource.context = {
+      ...model.surface.context,
+      repositoryId: "other.repository",
+    };
+    const mismatchedRoleContext = structuredClone(validFederatedProject);
+    const roleContextSource = mismatchedRoleContext.projects
+      .at(0)
+      ?.sources.at(0);
+    assert.ok(roleContextSource);
+    roleContextSource.repositoryRole = "management";
+    const unorderedSources = {
+      retainedAsSourceOfTruth: false,
+      projects: [
+        {
+          projectId: model.surface.context.projectId,
+          state: "partial",
+          sources: [
+            {
+              repositoryId: "z.repository",
+              revision: "1",
+              state: "missing",
+              repositoryRole: null,
+              context: null,
+            },
+            {
+              repositoryId: "a.repository",
+              revision: "1",
+              state: "missing",
+              repositoryRole: null,
+              context: null,
+            },
+          ],
+        },
+      ],
+    };
+    const duplicateSources = structuredClone(unorderedSources);
+    const duplicateSource = duplicateSources.projects.at(0)?.sources.at(1);
+    assert.ok(duplicateSource);
+    duplicateSource.repositoryId = "z.repository";
+    const contextOnMissingSource = {
+      retainedAsSourceOfTruth: false,
+      projects: [
+        {
+          projectId: model.surface.context.projectId,
+          state: "partial",
+          sources: [
+            {
+              repositoryId: model.surface.context.repositoryId,
+              revision: "1",
+              state: "missing",
+              repositoryRole: model.surface.context.repositoryRole,
+              context: model.surface.context,
+            },
+          ],
+        },
+      ],
+    };
+    for (const invalidPortfolio of [
+      mismatchedProjectContext,
+      mismatchedRepositoryContext,
+      mismatchedRoleContext,
+      unorderedSources,
+      duplicateSources,
+      contextOnMissingSource,
+    ]) {
+      const invalidPortfolioModel = structuredClone(model) as unknown as {
+        portfolio: unknown;
+      };
+      invalidPortfolioModel.portfolio = invalidPortfolio;
+      assert.throws(
+        () => inspectWorkbenchClientModel(invalidPortfolioModel),
+        /workbench_client_model_invalid/u,
+      );
+    }
+
+    const invalidQualityState = structuredClone(model) as unknown as {
+      surface: {
+        quality: {
+          state: string;
+          projection: unknown;
+          reason: unknown;
+        };
+      };
+    };
+    invalidQualityState.surface.quality.state = "unknown";
+    invalidQualityState.surface.quality.reason = "observation_failed";
+    assert.throws(
+      () => inspectWorkbenchClientModel(invalidQualityState),
+      /workbench_client_model_invalid/u,
+    );
+
+    const invalidOwnerState = structuredClone(model) as unknown as {
+      surface: {
+        ownerArtifacts: { state: string; reason: unknown };
+      };
+    };
+    invalidOwnerState.surface.ownerArtifacts.state = "unknown";
+    invalidOwnerState.surface.ownerArtifacts.reason =
+      "owner_artifact_observation_failed";
+    assert.throws(
+      () => inspectWorkbenchClientModel(invalidOwnerState),
+      /workbench_client_model_invalid/u,
+    );
+
+    const invalidRepositoryState = structuredClone(model) as unknown as {
+      surface: {
+        repository: { state: string; reason: unknown };
+      };
+    };
+    invalidRepositoryState.surface.repository.state = "unknown";
+    invalidRepositoryState.surface.repository.reason = "observation_failed";
+    assert.throws(
+      () => inspectWorkbenchClientModel(invalidRepositoryState),
+      /workbench_client_model_invalid/u,
+    );
+
+    const invalidCollectionState = structuredClone(model) as unknown as {
+      surface: {
+        topics: { state: string; items: unknown[]; reason: unknown };
+      };
+    };
+    invalidCollectionState.surface.topics = {
+      state: "unknown",
+      items: [
+        {
+          topicId: "TOPIC-000001",
+          projectId: "PRJ-001",
+          state: "open",
+          revision: 1,
+          owner: "Qual-Lab",
+          title: "観測不能",
+          summary: "未知状態にPayloadを混在させる。",
+        },
+      ],
+      reason: null,
+    };
+    assert.throws(
+      () => inspectWorkbenchClientModel(invalidCollectionState),
+      /workbench_client_model_invalid/u,
+    );
+
+    const invalidWorktree = structuredClone(model) as unknown as {
+      worktree: { diff: unknown };
+    };
+    invalidWorktree.worktree.diff = {
+      path: { unsafe: true },
+      status: "modified",
+      staged: false,
+      binary: false,
+      oldPath: null,
+      patch: "diff",
+      truncated: false,
+      reason: null,
+    };
+    assert.throws(
+      () => inspectWorkbenchClientModel(invalidWorktree),
+      /workbench_client_model_invalid/u,
+    );
+
+    const invalidRuntime = structuredClone(model) as unknown as {
+      runtimeActivity: Record<string, unknown> | null;
+    };
+    invalidRuntime.runtimeActivity = {
+      state: "available",
+      reason: "observed",
+      eventState: "observed",
+      eventReason: "observed",
+      eventContinuation: null,
+      projection: null,
+      events: [
+        {
+          eventId: "EVT-1",
+          occurredAt: "2026-09-28T00:00:00Z",
+          objectiveId: "OBJ-1",
+          taskId: "TASK-1",
+          attemptId: "ATTEMPT-1",
+          status: "completed",
+          reason: { unsafe: true },
+          cleanupConfirmed: true,
+          manualRecoveryRequired: false,
+        },
+      ],
+    };
+    assert.throws(
+      () => inspectWorkbenchClientModel(invalidRuntime),
+      /workbench_client_model_invalid/u,
+    );
+
+    const runtimeProjection = {
+      projectId: "PRJ-001",
+      milestoneId: "MILESTONE-1",
+      generation: 1,
+      milestoneState: "active",
+      objectiveCounts: {},
+      taskCounts: {},
+      objectiveTaskSummaries: [],
+      workProgress: "進行中",
+      qualityState: "観測済み",
+      humanDecisionRequired: false,
+      recoveryRequired: false,
+      nextAction: "継続",
+    };
+    const observedWithoutProjection = structuredClone(model) as unknown as {
+      runtimeActivity: Record<string, unknown> | null;
+    };
+    observedWithoutProjection.runtimeActivity = {
+      state: "observed",
+      reason: "observed",
+      projection: null,
+      eventState: "observed",
+      eventReason: "execution_events_observed",
+      events: [],
+      eventContinuation: null,
+    };
+    const absentWithProjection = structuredClone(model) as unknown as {
+      runtimeActivity: Record<string, unknown> | null;
+    };
+    absentWithProjection.runtimeActivity = {
+      state: "absent",
+      reason: "not_found",
+      projection: runtimeProjection,
+      eventState: "observed",
+      eventReason: "execution_events_observed",
+      events: [],
+      eventContinuation: null,
+    };
+    const unknownEventsWithPayload = structuredClone(model) as unknown as {
+      runtimeActivity: Record<string, unknown> | null;
+    };
+    unknownEventsWithPayload.runtimeActivity = {
+      state: "unknown",
+      reason: "observation_failed",
+      projection: null,
+      eventState: "unknown",
+      eventReason: "observation_failed",
+      events: [
+        {
+          eventId: "EVT-1",
+          occurredAt: "2026-09-28T00:00:00Z",
+          objectiveId: "OBJ-1",
+          taskId: "TASK-1",
+          attemptId: "ATTEMPT-1",
+          status: "completed",
+          reason: "completed",
+          cleanupConfirmed: true,
+          manualRecoveryRequired: false,
+        },
+      ],
+      eventContinuation: "cursor",
+    };
+    for (const invalidRuntimeCorrelation of [
+      observedWithoutProjection,
+      absentWithProjection,
+      unknownEventsWithPayload,
+    ])
+      assert.throws(
+        () => inspectWorkbenchClientModel(invalidRuntimeCorrelation),
+        /workbench_client_model_invalid/u,
+      );
+
     assert.match(shell.body.toString("utf8"), /data-workbench-react-root/u);
     assert.match(
       shell.body.toString("utf8"),
@@ -245,7 +825,8 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
       client.headers["content-type"],
       "text/javascript; charset=utf-8",
     );
-    assert.match(client.body.toString("utf8"), /hydrateRoot/u);
+    assert.match(client.body.toString("utf8"), /createRoot/u);
+    assert.doesNotMatch(client.body.toString("utf8"), /hydrateRoot/u);
 
     const unlistedClientAsset = await requestRaw(
       handle.baseUrl,
@@ -276,16 +857,19 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
     );
     assert.match(roadmap.body.toString("utf8"), /^# CRDD Roadmap/mu);
 
-    const filteredDocuments = await requestRaw(
+    const filteredDocuments = await requestClientModel(
       handle.baseUrl,
       "/?documentQuery=Roadmap",
     );
-    assert.equal(filteredDocuments.status, 200);
-    assert.match(filteredDocuments.body.toString("utf8"), /01_Roadmap\.md/u);
-    assert.doesNotMatch(
-      filteredDocuments.body.toString("utf8"),
-      /owner-artifact\?path=01_Principles\.md/u,
-    );
+    assert.equal(filteredDocuments.view, "main");
+    if (filteredDocuments.view === "main") {
+      assert.equal(filteredDocuments.documentQuery, "Roadmap");
+      assert.ok(
+        filteredDocuments.surface.ownerArtifacts.artifacts.some(
+          (artifact) => artifact.relativePath === "99_Roadmap/01_Roadmap.md",
+        ),
+      );
+    }
 
     const releaseProjection = await requestRaw(
       handle.baseUrl,
@@ -382,19 +966,19 @@ test("許可済みPortfolioをSource Coverage付きで表示する", async () =>
       projects: [
         {
           projectId: surface.context.projectId,
-          state: "partial",
+          state: "partial" as const,
           sources: [
             {
               repositoryId: surface.context.repositoryId,
               revision: "test-revision",
-              state: "complete",
+              state: "complete" as const,
               repositoryRole: surface.context.repositoryRole,
               context: surface.context,
             },
             {
               repositoryId: "visible-missing-source",
               revision: "test-missing",
-              state: "missing",
+              state: "missing" as const,
               repositoryRole: null,
               context: null,
             },
@@ -402,7 +986,7 @@ test("許可済みPortfolioをSource Coverage付きで表示する", async () =>
         },
         ...Array.from({ length: 21 }, (_, index) => ({
           projectId: `PRJ-${String(100000 + index)}`,
-          state: "complete" as const,
+          state: "partial" as const,
           sources: [
             {
               repositoryId: `visible-source-${String(index + 1).padStart(2, "0")}`,
@@ -413,57 +997,61 @@ test("許可済みPortfolioをSource Coverage付きで表示する", async () =>
             },
           ],
         })),
-      ],
+      ].sort((left, right) => left.projectId.localeCompare(right.projectId)),
       retainedAsSourceOfTruth: false,
     },
   });
   try {
-    const shell = await requestRaw(handle.baseUrl, "/");
-    const body = shell.body.toString("utf8");
-    assert.match(body, /CROS federation/u);
-    assert.match(body, /次のProject/u);
-    const filtered = await requestRaw(
+    const model = await requestClientModel(handle.baseUrl);
+    assert.equal(model.view, "main");
+    if (model.view !== "main") return;
+    assert.notEqual(model.portfolio, null);
+    assert.notEqual(model.portfolioPage.nextCursor, null);
+    const filtered = await requestClientModel(
       handle.baseUrl,
       `/?portfolioQuery=${encodeURIComponent(surface.context.projectId)}&portfolioState=partial`,
     );
-    const filteredBody = filtered.body.toString("utf8");
-    assert.match(filteredBody, /value="partial" selected/u);
-    assert.match(filteredBody, /visible-missing-source: missing/u);
-    assert.match(filteredBody, /partial \/ 2 visible sources/u);
-    assert.match(
-      filteredBody,
-      new RegExp(
-        `href="/project\\?id=${surface.context.projectId.replaceAll("-", "-")}"`,
-        "u",
-      ),
+    assert.equal(filtered.view, "main");
+    if (filtered.view !== "main") return;
+    assert.deepEqual(
+      filtered.portfolio?.projects.map((project) => project.projectId),
+      [surface.context.projectId],
     );
+    assert.equal(filtered.portfolio?.projects[0]?.state, "partial");
+    assert.equal(filtered.portfolio?.projects[0]?.sources.length, 2);
+    assert.equal(
+      filtered.portfolio?.projects[0]?.sources[1]?.repositoryId,
+      "visible-missing-source",
+    );
+    assert.equal(filtered.portfolio?.projects[0]?.sources[1]?.state, "missing");
     const mismatchedCursor = Buffer.from(
       JSON.stringify(["different-query", "partial", surface.context.projectId]),
       "utf8",
     ).toString("base64url");
-    const rejectedCursor = await requestRaw(
+    const rejectedCursor = await requestClientModel(
       handle.baseUrl,
       `/?portfolioQuery=${encodeURIComponent(surface.context.projectId)}&portfolioState=partial&portfolioCursor=${encodeURIComponent(mismatchedCursor)}`,
     );
-    assert.match(
-      rejectedCursor.body.toString("utf8"),
-      /検索条件と継続位置が一致しません/u,
-    );
-    const detail = await requestRaw(
+    assert.equal(rejectedCursor.view, "main");
+    if (rejectedCursor.view === "main")
+      assert.equal(rejectedCursor.portfolioPage.cursorInvalid, true);
+    const detail = await requestClientModel(
       handle.baseUrl,
       `/project?id=${encodeURIComponent(surface.context.projectId)}`,
     );
-    assert.equal(detail.status, 200);
-    assert.match(detail.body.toString("utf8"), /Federated project/u);
-    assert.match(detail.body.toString("utf8"), /Repository source/u);
-    assert.match(detail.body.toString("utf8"), /今どうなっているか/u);
-    assert.match(
-      detail.body.toString("utf8"),
-      /Project Contextは利用できません/u,
-    );
+    assert.equal(detail.view, "project-detail");
+    if (detail.view === "project-detail") {
+      assert.equal(detail.project.projectId, surface.context.projectId);
+      assert.equal(detail.project.sources.length, 2);
+      assert.equal(
+        detail.project.sources[0]?.context?.scenes[0]?.title,
+        "今どうなっているか",
+      );
+      assert.equal(detail.project.sources[1]?.context, null);
+    }
     const undisclosed = await requestRaw(
       handle.baseUrl,
-      "/project?id=PRJ-UNDISCLOSED",
+      "/api/workbench-view?route=%2Fproject&id=PRJ-UNDISCLOSED",
     );
     assert.equal(undisclosed.status, 404);
   } finally {
@@ -496,9 +1084,10 @@ test("管理接続時だけCredentialを管理し生Tokenを一度だけ表示�
     workingDirectory: repositoryRoot,
   });
   try {
-    const shell = await requestRaw(repositoryOnly.baseUrl, "/");
-    assert.match(shell.body.toString("utf8"), /接続資格/u);
-    assert.match(shell.body.toString("utf8"), /Credentialは不要/u);
+    const shell = await requestClientModel(repositoryOnly.baseUrl);
+    assert.equal(shell.view, "main");
+    if (shell.view === "main")
+      assert.equal(shell.credentials.state, "not_configured");
     const unavailable = await requestRaw(
       repositoryOnly.baseUrl,
       "/connection-credentials/action",
@@ -516,12 +1105,11 @@ test("管理接続時だけCredentialを管理し生Tokenを一度だけ表示�
     credentialAdministration: { registry, access },
   });
   try {
-    const initial = await requestRaw(handle.baseUrl, "/");
-    const token = /name="actionToken" value="([A-Za-z0-9_-]+)"/u.exec(
-      initial.body.toString("utf8"),
-    )?.[1];
-    assert.ok(token);
-    assert.match(initial.body.toString("utf8"), /CROS administration/u);
+    const initial = await requestClientModel(handle.baseUrl);
+    assert.equal(initial.view, "main");
+    if (initial.view !== "main") return;
+    const token = initial.actionToken;
+    assert.equal(initial.credentials.state, "available");
 
     const issued = await requestRaw(
       handle.baseUrl,
@@ -534,20 +1122,28 @@ test("管理接続時だけCredentialを管理し生Tokenを一度だけ表示�
       }).toString(),
     );
     assert.equal(issued.status, 303);
-    const firstDisplay = await requestRaw(handle.baseUrl, "/");
-    const firstBody = firstDisplay.body.toString("utf8");
-    const bearer = /cros\.v1\.[a-f0-9]{24}\.[A-Za-z0-9_-]+/u.exec(
-      firstBody,
-    )?.[0];
+    const redirectedShell = await requestRaw(handle.baseUrl, "/");
+    assert.equal(redirectedShell.status, 200);
+    const firstDisplay = await requestClientModel(handle.baseUrl);
+    assert.equal(firstDisplay.view, "main");
+    if (firstDisplay.view !== "main") return;
+    const bearer = firstDisplay.credentials.result?.token ?? undefined;
     assert.ok(bearer);
-    assert.match(firstBody, /connection_credential_issued/u);
-    assert.match(firstBody, /development/u);
+    assert.equal(
+      firstDisplay.credentials.result?.reason,
+      "connection_credential_issued",
+    );
+    assert.deepEqual(firstDisplay.credentials.credentials[0]?.workspaceIds, [
+      "development",
+    ]);
     const snapshot = registry.inspect();
     assert.equal(snapshot.records.length, 1);
     assert.doesNotMatch(JSON.stringify(snapshot), new RegExp(bearer, "u"));
 
-    const secondDisplay = await requestRaw(handle.baseUrl, "/");
-    assert.doesNotMatch(secondDisplay.body.toString("utf8"), /cros\.v1\./u);
+    const secondDisplay = await requestClientModel(handle.baseUrl);
+    assert.equal(secondDisplay.view, "main");
+    if (secondDisplay.view === "main")
+      assert.equal(secondDisplay.credentials.result, null);
     const credentialId = snapshot.records[0]?.credentialId;
     assert.ok(credentialId);
     const revoked = await requestRaw(
@@ -561,12 +1157,15 @@ test("管理接続時だけCredentialを管理し生Tokenを一度だけ表示�
       }).toString(),
     );
     assert.equal(revoked.status, 303);
-    const afterRevoke = await requestRaw(handle.baseUrl, "/");
-    assert.match(afterRevoke.body.toString("utf8"), /Revoked/u);
-    assert.match(
-      afterRevoke.body.toString("utf8"),
-      /connection_credential_revoked/u,
-    );
+    const afterRevoke = await requestClientModel(handle.baseUrl);
+    assert.equal(afterRevoke.view, "main");
+    if (afterRevoke.view === "main") {
+      assert.equal(afterRevoke.credentials.credentials[0]?.revoked, true);
+      assert.equal(
+        afterRevoke.credentials.result?.reason,
+        "connection_credential_revoked",
+      );
+    }
   } finally {
     await handle.close();
   }
@@ -703,14 +1302,11 @@ test("BrowserからRemote CROSへ接続し失効後は直前Projectionを表示�
     workingDirectory: repositoryRoot,
   });
   try {
-    const initial = await requestRaw(handle.baseUrl, "/");
-    const initialBody = initial.body.toString("utf8");
-    assert.match(initialBody, /Repository mode/u);
-    assert.match(initialBody, /type="password" name="token"/u);
-    const actionToken = /name="actionToken" value="([A-Za-z0-9_-]+)"/u.exec(
-      initialBody,
-    )?.[1];
-    assert.ok(actionToken);
+    const initial = await requestClientModel(handle.baseUrl);
+    assert.equal(initial.view, "main");
+    if (initial.view !== "main") return;
+    assert.equal(initial.connection.state, "repository");
+    const actionToken = initial.actionToken;
 
     const connection = await requestRaw(
       handle.baseUrl,
@@ -724,15 +1320,24 @@ test("BrowserからRemote CROSへ接続し失効後は直前Projectionを表示�
       }).toString(),
     );
     assert.equal(connection.status, 303);
-    const connected = await requestRaw(handle.baseUrl, "/");
-    const body = connected.body.toString("utf8");
-    assert.match(body, /Remote CROS connected/u);
-    assert.match(body, /CROS federation/u);
-    assert.match(body, /Process memory only/u);
-    assert.match(body, /REMOTE-MILESTONE/u);
-    assert.match(body, /task-from-remote-cros/u);
-    assert.match(body, /remote_task_completed/u);
-    assert.doesNotMatch(body, /cros\.v1\./u);
+    const connected = await requestClientModel(handle.baseUrl);
+    assert.equal(connected.view, "main");
+    if (connected.view !== "main") return;
+    assert.equal(connected.connection.state, "cros_available");
+    assert.notEqual(connected.portfolio, null);
+    assert.equal(
+      connected.runtimeActivity?.projection?.milestoneId,
+      "REMOTE-MILESTONE",
+    );
+    assert.equal(
+      connected.runtimeActivity?.events[0]?.taskId,
+      "task-from-remote-cros",
+    );
+    assert.equal(
+      connected.runtimeActivity?.events[0]?.reason,
+      "remote_task_completed",
+    );
+    assert.doesNotMatch(JSON.stringify(connected), /cros\.v1\./u);
 
     const revoked = revokeConnectionCredential(
       registry,
@@ -750,17 +1355,13 @@ test("BrowserからRemote CROSへ接続し失効後は直前Projectionを表示�
       }).toString(),
     );
     assert.equal(refreshed.status, 303);
-    const unavailable = await requestRaw(handle.baseUrl, "/");
-    assert.match(unavailable.body.toString("utf8"), /Remote CROS unavailable/u);
-    assert.match(
-      unavailable.body.toString("utf8"),
-      /直前のPortfolioをCurrentとして表示せず/u,
-    );
-    assert.doesNotMatch(unavailable.body.toString("utf8"), /CROS federation/u);
-    assert.doesNotMatch(
-      unavailable.body.toString("utf8"),
-      /task-from-remote-cros/u,
-    );
+    const unavailable = await requestClientModel(handle.baseUrl);
+    assert.equal(unavailable.view, "main");
+    if (unavailable.view !== "main") return;
+    assert.equal(unavailable.connection.state, "cros_unavailable");
+    assert.equal(unavailable.portfolio, null);
+    assert.equal(unavailable.runtimeActivity?.state, "unknown");
+    assert.doesNotMatch(JSON.stringify(unavailable), /task-from-remote-cros/u);
 
     const health = await requestRaw(
       handle.baseUrl,
@@ -785,12 +1386,10 @@ test("BrowserからRemote CROSへ接続し失効後は直前Projectionを表示�
       }).toString(),
     );
     assert.equal(disconnected.status, 303);
-    const repositoryMode = await requestRaw(handle.baseUrl, "/");
-    assert.match(repositoryMode.body.toString("utf8"), /Repository mode/u);
-    assert.doesNotMatch(
-      repositoryMode.body.toString("utf8"),
-      /Process memory only/u,
-    );
+    const repositoryMode = await requestClientModel(handle.baseUrl);
+    assert.equal(repositoryMode.view, "main");
+    if (repositoryMode.view === "main")
+      assert.equal(repositoryMode.connection.state, "repository");
   } finally {
     await handle.close();
     await remote.close();
@@ -949,32 +1548,29 @@ test("Remote Workbenchは明示RepositoryのTopicをMCP経由で表示・更新�
     },
   });
   try {
-    const unselected = await requestRaw(handle.baseUrl, "/");
-    assert.doesNotMatch(unselected.body.toString("utf8"), /Remote DEV Topic/u);
-    assert.match(
-      unselected.body.toString("utf8"),
-      /Topic正本を完全に観測できません/u,
-    );
-    const selected = await requestRaw(
+    const unselected = await requestMainModel(handle.baseUrl);
+    assert.equal(unselected.topic.page.status, "not_configured");
+    assert.doesNotMatch(JSON.stringify(unselected.topic), /Remote DEV Topic/u);
+    const selected = await requestMainModel(
       handle.baseUrl,
       "/?repositoryId=REMOTE-DEV#topics",
     );
-    const selectedBody = selected.body.toString("utf8");
-    assert.match(selectedBody, /Remote DEV Topic/u);
-    assert.doesNotMatch(selectedBody, /Remote MGMT Topic/u);
-    assert.match(selectedBody, /name="repositoryId" value="REMOTE-DEV"/u);
-    const actionToken = /name="actionToken" value="([A-Za-z0-9_-]+)"/u.exec(
-      selectedBody,
-    )?.[1];
-    assert.ok(actionToken);
-    const detail = await requestRaw(
+    assert.equal(selected.selectedRepositoryId, "REMOTE-DEV");
+    assert.match(JSON.stringify(selected.topic), /Remote DEV Topic/u);
+    assert.doesNotMatch(JSON.stringify(selected.topic), /Remote MGMT Topic/u);
+    const actionToken = selected.actionToken;
+    const detail = await requestClientModel(
       handle.baseUrl,
       "/topic?id=TOPIC-000101&repositoryId=REMOTE-DEV",
     );
-    assert.match(
-      detail.body.toString("utf8"),
-      /topic\?id=TOPIC-000201&repositoryId=REMOTE-MGMT/u,
-    );
+    assert.equal(detail.view, "record-detail");
+    if (detail.view === "record-detail") {
+      assert.equal(detail.record.relations[0]?.id, "TOPIC-000201");
+      assert.equal(
+        detail.record.relations[0]?.ownerRepositoryId,
+        "REMOTE-MGMT",
+      );
+    }
     const updatedMarkdown = topic("TOPIC-000101", "Remote DEV Updated").replace(
       "改訂: `1`",
       "改訂: `2`",
@@ -1001,12 +1597,12 @@ test("Remote Workbenchは明示RepositoryのTopicをMCP経由で表示・更新�
       ),
       /Remote DEV Updated/u,
     );
-    const hidden = await requestRaw(
+    const hidden = await requestMainModel(
       handle.baseUrl,
       "/?repositoryId=REMOTE-HIDDEN#topics",
     );
-    assert.doesNotMatch(hidden.body.toString("utf8"), /REMOTE-HIDDEN/u);
-    assert.doesNotMatch(hidden.body.toString("utf8"), /Remote DEV Updated/u);
+    assert.notEqual(hidden.selectedRepositoryId, "REMOTE-HIDDEN");
+    assert.doesNotMatch(JSON.stringify(hidden.topic), /Remote DEV Updated/u);
   } finally {
     await handle.close();
     await mcp.close();
@@ -1210,11 +1806,8 @@ test("WorkbenchはsystemAdmin接続時だけCROS OwnerのAI Profileを管理す�
   });
   const handle = await startWorkbench({ workingDirectory: repositoryRoot });
   try {
-    const initial = await requestRaw(handle.baseUrl, "/");
-    const actionToken = /name="actionToken" value="([A-Za-z0-9_-]+)"/u.exec(
-      initial.body.toString("utf8"),
-    )?.[1];
-    assert.ok(actionToken);
+    const initial = await requestMainModel(handle.baseUrl);
+    const actionToken = initial.actionToken;
     const connected = await requestRaw(
       handle.baseUrl,
       "/connection/action",
@@ -1227,8 +1820,8 @@ test("WorkbenchはsystemAdmin接続時だけCROS OwnerのAI Profileを管理す�
       }).toString(),
     );
     assert.equal(connected.status, 303);
-    const shell = await requestRaw(handle.baseUrl, "/");
-    assert.match(shell.body.toString("utf8"), /CROS configuration/u);
+    const shell = await requestMainModel(handle.baseUrl);
+    assert.equal(shell.aiProfileAdministration.owner, "CROS");
 
     const form = new URLSearchParams({
       actionToken,
@@ -1249,9 +1842,16 @@ test("WorkbenchはsystemAdmin接続時だけCROS OwnerのAI Profileを管理す�
       form.toString(),
     );
     assert.equal(created.status, 303);
-    const after = await requestRaw(handle.baseUrl, "/");
-    assert.match(after.body.toString("utf8"), /profile_created/u);
-    assert.match(after.body.toString("utf8"), /PROFILE-300002/u);
+    const after = await requestMainModel(handle.baseUrl);
+    assert.equal(
+      after.aiProfileAdministration.result?.reason,
+      "profile_created",
+    );
+    assert.ok(
+      after.aiProfileAdministration.snapshot?.catalog.profiles.some(
+        (profile) => profile.profileId === "PROFILE-300002",
+      ),
+    );
     assert.equal(profileRegistry.snapshot().revision, 2);
   } finally {
     await handle.close();
@@ -1314,26 +1914,21 @@ test("Token付きRepository操作で選択PathだけをStage・Commit・通常�
     await writeFile(path.join(fixture, "work.txt"), "changed\n", "utf8");
 
     handle = await startWorkbench({ workingDirectory: fixture });
-    const initial = await requestRaw(handle.baseUrl, "/");
-    const token = /name="actionToken" value="([A-Za-z0-9_-]+)"/u.exec(
-      initial.body.toString("utf8"),
-    )?.[1];
-    assert.ok(token);
-    assert.match(initial.body.toString("utf8"), /Repository Tree／Diff/u);
-    assert.match(initial.body.toString("utf8"), /work\.txt/u);
-    const diff = await requestRaw(handle.baseUrl, "/?diffPath=work.txt");
-    assert.equal(diff.status, 200);
-    assert.match(diff.body.toString("utf8"), /\+changed/u);
-    assert.match(diff.body.toString("utf8"), /Working/u);
-    const invalidTree = await requestRaw(
+    const initial = await requestMainModel(handle.baseUrl);
+    const token = initial.actionToken;
+    assert.ok(
+      initial.worktree.tree?.entries.some((entry) => entry.path === "work.txt"),
+    );
+    const diff = await requestMainModel(handle.baseUrl, "/?diffPath=work.txt");
+    assert.match(diff.worktree.diff?.workingPatch ?? "", /\+changed/u);
+    assert.ok(
+      diff.surface.repository.changeSet?.workingChanges.includes("work.txt"),
+    );
+    const invalidTree = await requestMainModel(
       handle.baseUrl,
       "/?treeDirectory=..%2Foutside",
     );
-    assert.equal(invalidTree.status, 200);
-    assert.match(
-      invalidTree.body.toString("utf8"),
-      /TreeまたはDiffを完全に観測できません/u,
-    );
+    assert.equal(invalidTree.worktree.state, "unknown");
     const rejected = await requestRaw(
       handle.baseUrl,
       "/repository/action",
@@ -1353,8 +1948,10 @@ test("Token付きRepository操作で選択PathだけをStage・Commit・通常�
       }).toString(),
     );
     assert.equal(staged.status, 303);
-    const afterStage = await requestRaw(handle.baseUrl, "/");
-    assert.match(afterStage.body.toString("utf8"), /Staged <span>1<\/span>/u);
+    const afterStage = await requestMainModel(handle.baseUrl);
+    assert.deepEqual(afterStage.surface.repository.changeSet?.preparedChanges, [
+      "work.txt",
+    ]);
 
     const committed = await requestRaw(
       handle.baseUrl,
@@ -1367,8 +1964,8 @@ test("Token付きRepository操作で選択PathだけをStage・Commit・通常�
       }).toString(),
     );
     assert.equal(committed.status, 303);
-    const afterCommit = await requestRaw(handle.baseUrl, "/");
-    assert.match(afterCommit.body.toString("utf8"), /revision_created/u);
+    const afterCommit = await requestMainModel(handle.baseUrl);
+    assert.equal(afterCommit.repositoryResult?.reason, "revision_created");
     const revisionIdentity = git(fixture, "rev-parse", "HEAD");
     const published = await requestRaw(
       handle.baseUrl,
@@ -1384,10 +1981,10 @@ test("Token付きRepository操作で選択PathだけをStage・Commit・通常�
       }).toString(),
     );
     assert.equal(published.status, 303);
-    const afterPublication = await requestRaw(handle.baseUrl, "/");
-    assert.match(
-      afterPublication.body.toString("utf8"),
-      /publication_confirmed/u,
+    const afterPublication = await requestMainModel(handle.baseUrl);
+    assert.equal(
+      afterPublication.repositoryResult?.reason,
+      "publication_confirmed",
     );
     assert.equal(git(remote, "rev-parse", "refs/heads/main"), revisionIdentity);
 
@@ -1412,15 +2009,12 @@ test("Token付きRepository操作で選択PathだけをStage・Commit・通常�
       git(fixture, "diff", "--cached", "--name-only"),
       "after-publication.txt",
     );
-    const afterRefreshFailure = await requestRaw(handle.baseUrl, "/");
-    assert.match(
-      afterRefreshFailure.body.toString("utf8"),
-      /prepare_completed/u,
+    const afterRefreshFailure = await requestMainModel(handle.baseUrl);
+    assert.equal(
+      afterRefreshFailure.repositoryResult?.reason,
+      "prepare_completed",
     );
-    assert.match(
-      afterRefreshFailure.body.toString("utf8"),
-      /Gitの現在状態を完全に観測できません/u,
-    );
+    assert.equal(afterRefreshFailure.surface.repository.state, "unknown");
   } finally {
     if (handle !== null) await handle.close();
     await rm(fixture, { recursive: true, force: true });
@@ -1494,11 +2088,8 @@ test("WorkbenchからTopicを登録・表示・編集・削除する", async () 
     );
     git(fixture, "init", "--initial-branch=main");
     handle = await startWorkbench({ workingDirectory: fixture });
-    const initial = await requestRaw(handle.baseUrl, "/");
-    const token = /name="actionToken" value="([A-Za-z0-9_-]+)"/u.exec(
-      initial.body.toString("utf8"),
-    )?.[1];
-    assert.ok(token);
+    const initial = await requestMainModel(handle.baseUrl);
+    const token = initial.actionToken;
     const create = await requestRaw(
       handle.baseUrl,
       "/topic-meeting/action",
@@ -1511,30 +2102,36 @@ test("WorkbenchからTopicを登録・表示・編集・削除する", async () 
       }).toString(),
     );
     assert.equal(create.status, 303);
-    const created = await requestRaw(handle.baseUrl, "/");
-    assert.match(created.body.toString("utf8"), /TOPIC-000042/u);
-    assert.match(created.body.toString("utf8"), /Workbench CRUDを確認/u);
+    const created = await requestMainModel(handle.baseUrl);
     assert.match(
-      created.body.toString("utf8"),
-      /href="\/topic\?id=TOPIC-000042"/u,
+      JSON.stringify(created.topic.page.records[0]),
+      /"topicId":"TOPIC-000042"/u,
     );
-    const filtered = await requestRaw(
+    assert.equal(
+      created.topic.page.records[0]?.summary,
+      "Workbench CRUDを確認する。",
+    );
+    assert.equal(created.recordDocuments[0]?.id, "TOPIC-000042");
+    const filtered = await requestMainModel(
       handle.baseUrl,
       "/?topicQuery=Workbench&topicState=open&topicOwner=Project%20Operator&topicSort=title_asc",
     );
-    assert.equal(filtered.status, 200);
-    assert.match(filtered.body.toString("utf8"), /value="Workbench"/u);
-    assert.match(filtered.body.toString("utf8"), /TOPIC-000042/u);
-    const detail = await requestRaw(handle.baseUrl, "/topic?id=TOPIC-000042");
-    assert.equal(detail.status, 200);
-    assert.match(detail.body.toString("utf8"), /Topic detail/u);
-    assert.match(detail.body.toString("utf8"), /Canonical Markdown/u);
+    assert.equal(filtered.topic.query.query, "Workbench");
     assert.match(
-      detail.body.toString("utf8"),
-      /href="\/change\?id=CHG-000010"/u,
+      JSON.stringify(filtered.topic.page.records[0]),
+      /"topicId":"TOPIC-000042"/u,
     );
-    assert.match(detail.body.toString("utf8"), /参照先なし/u);
-    assert.match(detail.body.toString("utf8"), /expectedRevision/u);
+    const detail = await requestClientModel(
+      handle.baseUrl,
+      "/topic?id=TOPIC-000042",
+    );
+    assert.equal(detail.view, "record-detail");
+    if (detail.view === "record-detail") {
+      assert.equal(detail.record.id, "TOPIC-000042");
+      assert.equal(detail.record.relations[0]?.id, "CHG-000010");
+      assert.equal(detail.record.relations[0]?.state, "available");
+      assert.match(detail.record.document.markdown, /Workbench CRUD/u);
+    }
     const change = await requestRaw(handle.baseUrl, "/change?id=CHG-000010");
     assert.equal(change.status, 200);
     assert.match(change.body.toString("utf8"), /Workbench Relation Change/u);
@@ -1545,7 +2142,7 @@ test("WorkbenchからTopicを登録・表示・編集・削除する", async () 
     assert.equal(missingChange.status, 404);
     const missingDetail = await requestRaw(
       handle.baseUrl,
-      "/topic?id=TOPIC-999999",
+      "/api/workbench-view?route=%2Ftopic&id=TOPIC-999999",
     );
     assert.equal(missingDetail.status, 404);
     const update = await requestRaw(
@@ -1562,8 +2159,8 @@ test("WorkbenchからTopicを登録・表示・編集・削除する", async () 
       }).toString(),
     );
     assert.equal(update.status, 303);
-    const updated = await requestRaw(handle.baseUrl, "/");
-    assert.match(updated.body.toString("utf8"), /waiting/u);
+    const updated = await requestMainModel(handle.baseUrl);
+    assert.equal(updated.topic.page.records[0]?.state, "waiting");
     const promote = await requestRaw(
       handle.baseUrl,
       "/topic-meeting/action",
@@ -1580,9 +2177,19 @@ test("WorkbenchからTopicを登録・表示・編集・削除する", async () 
       }).toString(),
     );
     assert.equal(promote.status, 303);
-    const promoted = await requestRaw(handle.baseUrl, "/topic?id=TOPIC-000042");
-    assert.match(promoted.body.toString("utf8"), /promoted/u);
-    assert.match(promoted.body.toString("utf8"), /CHG-000010/u);
+    const promoted = await requestClientModel(
+      handle.baseUrl,
+      "/topic?id=TOPIC-000042",
+    );
+    assert.equal(promoted.view, "record-detail");
+    if (promoted.view === "record-detail") {
+      assert.equal(promoted.record.document.record.state, "promoted");
+      assert.ok(
+        promoted.record.relations.some(
+          (relation) => relation.id === "CHG-000010",
+        ),
+      );
+    }
     const remove = await requestRaw(
       handle.baseUrl,
       "/topic-meeting/action",
@@ -1597,8 +2204,12 @@ test("WorkbenchからTopicを登録・表示・編集・削除する", async () 
       }).toString(),
     );
     assert.equal(remove.status, 303);
-    const deleted = await requestRaw(handle.baseUrl, "/");
-    assert.doesNotMatch(deleted.body.toString("utf8"), /TOPIC-000042/u);
+    const deleted = await requestMainModel(handle.baseUrl);
+    assert.ok(
+      deleted.topic.page.records.every(
+        (record) => !("topicId" in record) || record.topicId !== "TOPIC-000042",
+      ),
+    );
   } finally {
     await handle?.close();
     await rm(fixture, { recursive: true, force: true });
@@ -1650,11 +2261,8 @@ test("WorkbenchからMeeting Outcomeを処置してCloseする", async () => {
     );
     git(fixture, "init", "--initial-branch=main");
     handle = await startWorkbench({ workingDirectory: fixture });
-    const initial = await requestRaw(handle.baseUrl, "/");
-    const token = /name="actionToken" value="([A-Za-z0-9_-]+)"/u.exec(
-      initial.body.toString("utf8"),
-    )?.[1];
-    assert.ok(token);
+    const initial = await requestMainModel(handle.baseUrl);
+    const token = initial.actionToken;
     const create = await requestRaw(
       handle.baseUrl,
       "/topic-meeting/action",
@@ -1690,21 +2298,40 @@ test("WorkbenchからMeeting Outcomeを処置してCloseする", async () => {
       }).toString(),
     );
     assert.equal(treat.status, 303);
-    const completed = await requestRaw(handle.baseUrl, "/");
-    assert.match(completed.body.toString("utf8"), /meeting_outcome_treated/u);
-    assert.match(completed.body.toString("utf8"), /closed/u);
-    assert.match(completed.body.toString("utf8"), /pending 0/u);
-    const filtered = await requestRaw(
+    const completed = await requestMainModel(handle.baseUrl);
+    assert.equal(
+      completed.topicMeetingResult?.reason,
+      "meeting_outcome_treated",
+    );
+    assert.equal(completed.meeting.page.records[0]?.state, "closed");
+    assert.match(
+      JSON.stringify(completed.meeting.page.records[0]),
+      /"pendingOutcomeCount":0/u,
+    );
+    const filtered = await requestMainModel(
       handle.baseUrl,
       "/?meetingFrom=2026-09-27&meetingTo=2026-09-27&meetingState=closed&meetingSort=occurred_desc",
     );
-    assert.equal(filtered.status, 200);
-    assert.match(filtered.body.toString("utf8"), /MTG-000042/u);
-    assert.match(filtered.body.toString("utf8"), /value="2026-09-27"/u);
-    const detail = await requestRaw(handle.baseUrl, "/meeting?id=MTG-000042");
-    assert.equal(detail.status, 200);
-    assert.match(detail.body.toString("utf8"), /Meeting detail/u);
-    assert.match(detail.body.toString("utf8"), /未処置Outcome/u);
+    assert.equal(filtered.meeting.query.occurredFrom, "2026-09-27");
+    assert.match(
+      JSON.stringify(filtered.meeting.page.records[0]),
+      /"meetingId":"MTG-000042"/u,
+    );
+    const detail = await requestClientModel(
+      handle.baseUrl,
+      "/meeting?id=MTG-000042",
+    );
+    assert.equal(detail.view, "record-detail");
+    if (
+      detail.view === "record-detail" &&
+      "pendingOutcomeCount" in detail.record.document.record
+    ) {
+      assert.equal(detail.record.document.record.pendingOutcomeCount, 0);
+      assert.equal(
+        detail.record.document.record.occurredAt,
+        "2026-09-27 10:00 JST",
+      );
+    }
   } finally {
     await handle?.close();
     await rm(fixture, { recursive: true, force: true });
@@ -1855,12 +2482,9 @@ test("WorkbenchのAI依頼を現在Sessionだけで開始し意味区分を表�
     candidateApplication,
   });
   try {
-    const initial = await requestRaw(handle.baseUrl, "/");
-    const token = /name="actionToken" value="([A-Za-z0-9_-]+)"/u.exec(
-      initial.body.toString("utf8"),
-    )?.[1];
-    assert.ok(token);
-    assert.match(initial.body.toString("utf8"), /Current session only/u);
+    const initial = await requestMainModel(handle.baseUrl);
+    const token = initial.actionToken;
+    assert.equal(initial.aiRequest.snapshot, null);
 
     const rejectedWithoutConfirmation = await requestRaw(
       handle.baseUrl,
@@ -1900,17 +2524,24 @@ test("WorkbenchのAI依頼を現在Sessionだけで開始し意味区分を表�
       externalSendConfirmed: true,
     });
 
-    const completed = await requestRaw(handle.baseUrl, "/");
-    const html = completed.body.toString("utf8");
-    assert.match(html, /completed/u);
-    assert.match(html, /確認できた事実/u);
-    assert.match(html, /共有済み分析/u);
-    assert.match(html, /追加推論/u);
-    assert.match(html, /次の選択肢/u);
-    assert.match(html, /&lt;fact&gt;/u);
-    assert.match(html, /根拠:/u);
-    assert.match(html, /PROJECT_CONTEXT\.md#1/u);
-    assert.doesNotMatch(html, /<fact>/u);
+    const completed = await requestMainModel(handle.baseUrl);
+    assert.equal(completed.aiRequest.snapshot?.status, "completed");
+    assert.equal(completed.aiRequest.snapshot?.facts[0]?.text, "<fact>");
+    assert.deepEqual(completed.aiRequest.snapshot?.facts[0]?.references, [
+      "PROJECT_CONTEXT.md#1",
+    ]);
+    assert.equal(
+      completed.aiRequest.snapshot?.sharedAnalysis[0]?.text,
+      "共有済み",
+    );
+    assert.equal(
+      completed.aiRequest.snapshot?.additionalInferences[0]?.text,
+      "追加推論",
+    );
+    assert.equal(
+      completed.aiRequest.snapshot?.nextOptions[0]?.text,
+      "次の一手",
+    );
 
     const candidateStarted = await requestRaw(
       handle.baseUrl,
@@ -1935,13 +2566,20 @@ test("WorkbenchのAI依頼を現在Sessionだけで開始し意味区分を表�
       allowedPaths: ["40_Develop/workbench/src", "04_UI/Details"],
       externalSendConfirmed: true,
     });
-    const candidateCompleted = await requestRaw(handle.baseUrl, "/");
-    const candidateHtml = candidateCompleted.body.toString("utf8");
-    assert.match(candidateHtml, /未信頼・未採用/u);
-    assert.match(candidateHtml, /candidate\.[0-9a-f]{64}\.[0-9a-f]{64}/u);
-    assert.match(candidateHtml, /40_Develop\/workbench\/src\/ai-request\.ts/u);
-    assert.match(candidateHtml, /候補を採用/u);
-    assert.match(candidateHtml, /候補を破棄/u);
+    const candidateCompleted = await requestMainModel(handle.baseUrl);
+    assert.equal(
+      candidateCompleted.aiRequest.snapshot?.candidate?.disposition,
+      "untrusted_not_adopted",
+    );
+    assert.equal(
+      candidateCompleted.aiRequest.snapshot?.candidate?.candidateId,
+      candidateId,
+    );
+    assert.ok(
+      candidateCompleted.aiRequest.candidateReview?.candidate?.changedPaths.includes(
+        "40_Develop/workbench/src/ai-request.ts",
+      ),
+    );
 
     const adoptWithoutConfirmation = await requestRaw(
       handle.baseUrl,
@@ -1989,11 +2627,15 @@ test("WorkbenchのAI依頼を現在Sessionだけで開始し意味区分を表�
       operation: "adopt",
       confirmed: true,
     });
-    const adoptedHtml = (await requestRaw(handle.baseUrl, "/")).body.toString(
-      "utf8",
+    const adoptedModel = await requestMainModel(handle.baseUrl);
+    assert.equal(
+      adoptedModel.aiRequest.candidateAction?.reason,
+      "workbench_candidate_adopted",
     );
-    assert.match(adoptedHtml, /workbench_candidate_adopted/u);
-    assert.match(adoptedHtml, /receipt-000001/u);
+    assert.equal(
+      adoptedModel.aiRequest.candidateAction?.receiptId,
+      "receipt-000001",
+    );
 
     const discarded = await requestRaw(
       handle.baseUrl,
@@ -2077,16 +2719,25 @@ test("WorkbenchはProject Runtimeの現在投影を実行状況として表示�
     runtimeActivityApplication: application,
   });
   try {
-    const shell = await requestRaw(handle.baseUrl, "/");
-    const html = shell.body.toString("utf8");
-    assert.match(html, /Runtime activity/u);
-    assert.match(html, /MILESTONE-000001/u);
-    assert.match(html, /OBJ-000003/u);
-    assert.match(html, /human_decision/u);
-    assert.match(html, /TASK-000004/u);
-    assert.match(html, /task_completed/u);
-    assert.match(html, /人間判断<\/dt><dd>必要/u);
-    assert.doesNotMatch(html, /Project Runtime状態Queryが未接続/u);
+    const model = await requestMainModel(handle.baseUrl);
+    assert.equal(
+      model.runtimeActivity?.projection?.milestoneId,
+      "MILESTONE-000001",
+    );
+    assert.equal(
+      model.runtimeActivity?.projection?.objectiveTaskSummaries[0]?.objectiveId,
+      "OBJ-000003",
+    );
+    assert.equal(
+      model.runtimeActivity?.projection?.nextAction,
+      "human_decision",
+    );
+    assert.equal(
+      model.runtimeActivity?.projection?.humanDecisionRequired,
+      true,
+    );
+    assert.equal(model.runtimeActivity?.events[0]?.taskId, "TASK-000004");
+    assert.equal(model.runtimeActivity?.events[0]?.reason, "task_completed");
   } finally {
     await handle.close();
   }
@@ -2283,11 +2934,17 @@ test("WorkbenchはRepository Ownerの採用済みAI Profile Catalogを表示す�
     assert.equal(adoption.status, "adopted");
 
     handle = await startWorkbench({ workingDirectory: fixture });
-    const shell = await requestRaw(handle.baseUrl, "/");
-    const html = shell.body.toString("utf8");
-    assert.match(html, /PROFILE-300001/u);
-    assert.match(html, /gpt-6-astra/u);
-    assert.match(html, /unknown/u);
+    const model = await requestMainModel(handle.baseUrl);
+    const profile = model.aiProfiles.catalog.profiles.find(
+      (entry) => entry.profileId === "PROFILE-300001",
+    );
+    assert.equal(profile?.exactModelId, "gpt-6-astra");
+    assert.equal(
+      model.aiProfiles.observations.find(
+        (entry) => entry.profileId === "PROFILE-300001",
+      )?.availability.hostAvailable,
+      null,
+    );
   } finally {
     await handle?.close();
     await rm(fixture, { recursive: true, force: true });
@@ -2338,12 +2995,9 @@ test("Workbenchは登録済みAdapterだけでAI Profileを作成し確認付き
     );
     git(fixture, "init", "--initial-branch=main");
     handle = await startWorkbench({ workingDirectory: fixture });
-    const initial = await requestRaw(handle.baseUrl, "/");
-    const token = /name="actionToken" value="([A-Za-z0-9_-]+)"/u.exec(
-      initial.body.toString("utf8"),
-    )?.[1];
-    assert.ok(token);
-    assert.match(initial.body.toString("utf8"), /AI Profile管理/u);
+    const initial = await requestMainModel(handle.baseUrl);
+    const token = initial.actionToken;
+    assert.equal(initial.aiProfileAdministration.owner, "Repository");
 
     const createForm = new URLSearchParams({
       actionToken: token,
@@ -2364,10 +3018,17 @@ test("Workbenchは登録済みAdapterだけでAI Profileを作成し確認付き
       createForm.toString(),
     );
     assert.equal(created.status, 303);
-    const afterCreate = await requestRaw(handle.baseUrl, "/");
-    assert.match(afterCreate.body.toString("utf8"), /profile_created/u);
-    assert.match(afterCreate.body.toString("utf8"), /PROFILE-300001/u);
-    assert.match(afterCreate.body.toString("utf8"), /revision 1/u);
+    const afterCreate = await requestMainModel(handle.baseUrl);
+    assert.equal(
+      afterCreate.aiProfileAdministration.result?.reason,
+      "profile_created",
+    );
+    assert.equal(afterCreate.aiProfileAdministration.snapshot?.revision, 1);
+    assert.ok(
+      afterCreate.aiProfiles.catalog.profiles.some(
+        (profile) => profile.profileId === "PROFILE-300001",
+      ),
+    );
 
     const unconfirmed = await requestRaw(
       handle.baseUrl,
@@ -2381,12 +3042,16 @@ test("Workbenchは登録済みAdapterだけでAI Profileを作成し確認付き
       }).toString(),
     );
     assert.equal(unconfirmed.status, 303);
-    const afterUnconfirmed = await requestRaw(handle.baseUrl, "/");
-    assert.match(
-      afterUnconfirmed.body.toString("utf8"),
-      /profile_delete_confirmation_required/u,
+    const afterUnconfirmed = await requestMainModel(handle.baseUrl);
+    assert.equal(
+      afterUnconfirmed.aiProfileAdministration.result?.reason,
+      "profile_delete_confirmation_required",
     );
-    assert.match(afterUnconfirmed.body.toString("utf8"), /PROFILE-300001/u);
+    assert.ok(
+      afterUnconfirmed.aiProfiles.catalog.profiles.some(
+        (profile) => profile.profileId === "PROFILE-300001",
+      ),
+    );
 
     const confirmed = await requestRaw(
       handle.baseUrl,
@@ -2401,9 +3066,12 @@ test("Workbenchは登録済みAdapterだけでAI Profileを作成し確認付き
       }).toString(),
     );
     assert.equal(confirmed.status, 303);
-    const afterDelete = await requestRaw(handle.baseUrl, "/");
-    assert.match(afterDelete.body.toString("utf8"), /profile_deleted/u);
-    assert.match(afterDelete.body.toString("utf8"), /revision 2/u);
+    const afterDelete = await requestMainModel(handle.baseUrl);
+    assert.equal(
+      afterDelete.aiProfileAdministration.result?.reason,
+      "profile_deleted",
+    );
+    assert.equal(afterDelete.aiProfileAdministration.snapshot?.revision, 2);
     const reopened = createRepositoryAiProfileCatalogStore(fixture);
     assert.equal(reopened.status, "ready");
     assert.ok(reopened.store);

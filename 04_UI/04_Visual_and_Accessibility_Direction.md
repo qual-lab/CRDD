@@ -49,10 +49,10 @@ UI契約のCanonical化と、実際の表示面を用いた視覚評価を分け
 |---|---|---|---|---|---|---|
 | CLI／Terminal | 一部確認済み | [現行Interface参照](06_Current_Interface_Reference.md)と既存の署名・回復・E2E画面 | 行順、折返し、文字化け、直接入力、終了後読取りは実経路ごとの追加確認が必要 | Qual-Labと実利用者 | 対象CLIのPrototypeまたは実経路確認時 | `OPEN`。対象経路の評価が終わるまで完全なUI工程Exitを主張しない |
 | MCPの構造化結果／要約 | 契約定義済み・実利用未確認 | UI定義の状態語、情報優先度および開示境界 | MCP Clientごとの表示差で重要状態が埋没する可能性がある | Qual-LabとMCP利用者 | MCP Clientでの実利用確認時 | `OPEN`。構造化結果の契約は利用できるが、人間向け表示の完成は未主張 |
-| Workbench | 未実装・未評価 | v0.22のUI定義と最小構成候補 | 配置、密度、Keyboard、読上げ、Component外観、最終配色を判断できない | Qual-Labと対象利用者 | Prototypeと実画面を用いた視覚批評時 | `OPEN`。WorkbenchのUI工程Exitを妨げる |
-| ブランド素材 | 利用条件確認済み・適用先未確定 | [公式素材のUI定義](Definitions/UI-000019/ui_definition.md)と[現行素材](assets/brand/) | 素材の存在だけでは最終配色、TypographyまたはComponent外観を決められない | Qual-Lab | Prototypeへ適用する時 | `OPEN`。素材契約は利用できるが意匠完成を意味しない |
+| Workbench | 実装・機械評価済み、人間UAT未完了 | [Workbench Architecture](../06_Architecture/Details/workbench/01_Architecture.md)、[実Browser Visual Gate](../99_Roadmap/Changes/CHG-000082/Evidence/260928-1028_phase5-workbench-actual-browser-visual.md)および[純粋CSR移行](../99_Roadmap/Changes/CHG-000082/Evidence/260928-1745_phase5-workbench-pure-csr.md) | 15画面と3表示Profile×3 Zoomは観測済み。最終的な利用者の受入とAI関連2画面の実Provider成立は未確定 | Qual-Labと対象利用者 | 人間UAT、実Provider E2Eまたは表示契約変更時 | `OPEN`。機械Visual Gateは成立済みだが人間UAT未完了 |
+| ブランド素材 | Workbenchへ適用・機械評価済み | [公式素材のUI定義](Definitions/UI-000019/ui_definition.md)、[現行素材](assets/brand/)、[Workbench視覚基準](Details/Visual/workbench-hero/visual-baseline.md)および[純粋CSR移行](../99_Roadmap/Changes/CHG-000082/Evidence/260928-1745_phase5-workbench-pure-csr.md) | 公式ロゴ、Direction AおよびNoto Sans CJKをProduction Workbenchへ適用済み。人間UATとAI関連2画面の実Provider成立は未確定 | Qual-Labと対象利用者 | 人間UAT、ブランド契約または表示基準変更時 | `OPEN`。Production適用と機械Visual Gateは成立済みだが、人間の意匠受入は未完了 |
 
-v0.22の最小Workbenchは論理構造と状態契約を先に固定する。最終配色、Typography、Component外観およびGUI Frameworkは未決であり、Prototypeと実画面を用いた視覚批評後に人間が判断する。
+v0.22の最小Workbenchは論理構造と状態契約を固定し、Direction A、Noto Sans CJK、公式ロゴ、React＋Viteの純粋CSRをProductionへ適用した。これらは現在の機械評価済み基準であり、人間UATまたはAI関連2画面の実Provider成立を意味しない。配色、Typography、Component外観またはFrameworkを変更する場合は、視覚基準と全表示Profileを再評価する。
 
 ## 補足分析
 

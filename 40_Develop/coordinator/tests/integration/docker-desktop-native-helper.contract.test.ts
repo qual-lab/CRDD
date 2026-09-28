@@ -308,15 +308,10 @@ test("Native終了待機はCoordinatorの応答期限より短い全体期限へ
   assert.ok(nativeBudget);
   assert.ok(commandBudget);
   const nativeBudgetMs = Number((nativeBudget[1] ?? "").replaceAll("_", ""));
-  const commandBudgetMs = Number(
-    (commandBudget[1] ?? "").replaceAll("_", ""),
-  );
+  const commandBudgetMs = Number((commandBudget[1] ?? "").replaceAll("_", ""));
   assert.equal(nativeBudgetMs > 0, true);
   assert.equal(nativeBudgetMs < commandBudgetMs, true);
-  assert.match(
-    nativeSource,
-    /termination_started\.elapsed\(\)\.as_millis\(\)/,
-  );
+  assert.match(nativeSource, /termination_started\.elapsed\(\)\.as_millis\(\)/);
   assert.match(nativeSource, /\.min\(PROCESS_WAIT_MS\)/);
 });
 

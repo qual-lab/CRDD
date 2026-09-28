@@ -12,7 +12,7 @@
 | 現在の変更状態 | Phase 4 Gateを通過し、Phase 5のProduction Closureを進行中。Current Release／Quality Projection、起点Section付きOwner Relation検索、Runtime ActivityのEvent／Remote投影、Topic／Meeting Collection／Detail／同一Repository Relation遷移／実在CHGへのTopic昇格／許可済みRepository間Owner解決、Repository Tree／DiffおよびProject Portfolioの検索・継続読込・Source別Detailを構造化画面へ接続した。読取り助言は署名配布物、Operation世代、Provider Home、Selection、Docker回復およびHost cleanupを所有するProduction Runtimeまで接続した。変更候補は未信頼・未採用Candidate IDとして返し、Storeから再読取りした安全なMetadataの確認、操作ごとの明示確認、Project Runtime Lease、Revision・dirty・Scope再観測、Receiptと耐久記録を通る別の採用操作へ接続した。採用してもCommit／Pushは行わない。Shared Serverは固定OS設定、検証済みRepository／Exposure、REST／MCP同一HTTPS Origin、Host限定Credential Recoveryおよび終了後資源0まで接続済みである。Production Closure中に、配布対象となったVersion ControlのGit Adapter 5呼出しが署名Runtime依存閉包へ未登録であることをPortable試験が検出したため、実在する呼出し元・primitive・実行ファイル・引数・結果受領を閉集合へ追加し、局所契約試験143件で反証した。現在はCovered 13件、Partial 2件、Missing 0件であり、残る実Provider E2EとProduction Closureを順に閉じる |
 | 対象改訂版 | `v0.22.0` |
 | 成立済み | G1〜G5のScreen Architecture、Direction A、5画面のSecondary展開、Production Shell、公式ロゴ、Project Context共通Reader、Topic／Meeting Record ReaderとRepository CRUD Core、共通Applicationの検索・絞込み・安定並び順・Query拘束Cursor、WorkbenchのTopic／Meeting独立Detail、Workbench／Repository単体MCPのTopic／Meeting CRUDと同一Repository内Meeting Outcome処置、Remote CROSのCredential／Workspace／Exposure／Repository Revision再検証付きTopic／Meeting Routing、同じSessionとExposure Snapshotに限定したRepository間Owner Relation解決、Workbenchの許可済みPortfolio Source明示選択・Remote Topic／Meeting MCP読書き・Owner Repository付きRelation遷移・Local fallback禁止、許可済みPortfolio Federation、Repository mode／CROS federation表示、Project Portfolioの検索・状態絞込み・20件単位Query拘束継続読込・Source別五場面Detail・欠測保持、作業ツリー読取り、選択Stage／Unstage／Commit／確認済み通常Push、拒否・通信断・結果不明・再観測、Role別Credential Core、Token非保存、永続Registry、Workbench Credential管理Surface、Bearer Remote Transport、Workbench Remote接続／更新／切断、Project Runtime状態Toolの非曖昧化、CROS CredentialによるRemote Project Context MCP、Host限定Access Recovery、AI Profileの閉じた共通Schema・一意解決・四軸Availability・Owner別耐久Snapshot・改訂競合付き採用Core・Repository／CROS WorkbenchのProfile限定管理・`systemAdmin`以外へのCatalog非開示・Coordinator／Workbench Consumer接続、Workbenchの現在Session限定AI依頼Port、読取り助言／変更候補の明示、開始／観測／取消、事実／共有済み分析／追加推論／次の選択肢の分離表示、Coordinatorの依頼種別別Mode Router・現在Process内観測・取消・未知状態非推測、読取り助言の利用者依頼・Profile・内容Hash付き許可済み投影をEffect 0で固定する専用Task Packet、許可参照へ拘束した専用Result Parser、Workbench選択Profile IDのCoordinator Task Request→Route Candidate→Executor Selection Grantへのexact搬送とReviewerへの非伝播、Runtime ActivityのRepository実構成、Execution Intelligence EventのProject限定継続読込、Remote CROSのCredential／Exposure再検証付きActivity投影、未接続／absent／unknown／observedの分離表示 |
-| 未成立 | 15画面Reality AuditのAI関連Partial 2件（Missing 0件）、読取り助言／変更候補の実Provider E2E、および最終Production Closure。Shared ServerのREST／MCP同一HTTPS Origin、外部TLS終端契約、固定OS設定、Credential Bootstrap／Recoveryおよび終了後資源0は成立済み。`ERB-ST-022`のVisual Gateは観測済み |
+| 未成立 | 15画面Reality AuditのAI関連Partial 2件（Missing 0件）、読取り助言／変更候補の実Provider E2E、および最終Production Closure。Shared ServerのREST／MCP同一HTTPS Origin、外部TLS終端契約、固定OS設定、Credential Bootstrap／Recoveryおよび終了後資源0は成立済み。`ERB-ST-022`はReact commit後の27表示条件、画像確定待ち、終了所要時間および終了後不存在を再現可能に観測済み。残存子Process限定Fallbackは`ERB-IT-020`で実発行し、世代Identity不一致／未検証時のEffect 0、Graph深度順、cleanup失敗後の後続段実行・Error集約および最終Tree 0も確認済み |
 | Phase／Gate適用判断 | `Applicable`: 画面Shell、読取り投影、書込みEffect、Remote接続を分けて成立確認する必要がある |
 | 現在Phase | `Phase 5 — Production Closure` |
 | 現在Gate | `Passed: Phase 4`: User Accountを追加せず、Role Credentialから許可範囲だけのSessionを作り、Repository単体／Remote CROS、Repository／CROS Profile Ownerおよび非管理者へのCatalog非開示を分離した |
@@ -58,12 +58,17 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 - [`99_Roadmap/Changes/CHG-000082/change.md`](./change.md)
 - [`99_Roadmap/02_Changes.md`](../../02_Changes.md)
 - [`06_Architecture/07_Detail_Architecture_Map.md`](../../../06_Architecture/07_Detail_Architecture_Map.md)
+- [`06_Architecture/99_Coding_Standards.md`](../../../06_Architecture/99_Coding_Standards.md)
 - [`06_Architecture/Details/workbench/01_Architecture.md`](../../../06_Architecture/Details/workbench/01_Architecture.md)
+- [`06_Architecture/Details/visual-preview/01_Architecture.md`](../../../06_Architecture/Details/visual-preview/01_Architecture.md)
 - [`06_Architecture/Details/ai-runtime/01_Architecture.md`](../../../06_Architecture/Details/ai-runtime/01_Architecture.md)
 - [`06_Architecture/Definitions/ARCH-000010/architecture_definition.md`](../../../06_Architecture/Definitions/ARCH-000010/architecture_definition.md)
 - [`06_Architecture/Details/mcp/01_Architecture.md`](../../../06_Architecture/Details/mcp/01_Architecture.md)
 - [`06_Architecture/Details/project-operation/01_Architecture.md`](../../../06_Architecture/Details/project-operation/01_Architecture.md)
 - [`06_Architecture/Details/version-control/01_Architecture.md`](../../../06_Architecture/Details/version-control/01_Architecture.md)
+- [`04_UI/04_Visual_and_Accessibility_Direction.md`](../../../04_UI/04_Visual_and_Accessibility_Direction.md)
+- [`04_UI/06_Current_Interface_Reference.md`](../../../04_UI/06_Current_Interface_Reference.md)
+- [`05_SPEC/07_Current_Behavior_Reference.md`](../../../05_SPEC/07_Current_Behavior_Reference.md)
 - [`07_Quality/01_Quality_Center.md`](../../../07_Quality/01_Quality_Center.md)
 - [`07_Quality/04_Quality_Integration.md`](../../../07_Quality/04_Quality_Integration.md)
 - [`07_Quality/05_Current_Implementation_Reality_Audit.md`](../../../07_Quality/05_Current_Implementation_Reality_Audit.md)
@@ -77,7 +82,9 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 - [`07_Quality/Registry/test-catalog.json`](../../../07_Quality/Registry/test-catalog.json)
 - [`40_Develop/verification-runner/src/catalog/test-catalog.ts`](../../../40_Develop/verification-runner/src/catalog/test-catalog.ts)
 - [`40_Develop/verification-runner/tests/unit/test-catalog.contract.test.ts`](../../../40_Develop/verification-runner/tests/unit/test-catalog.contract.test.ts)
+- [`40_Develop/checker/tests/integration/tools-naming.contract.test.ts`](../../../40_Develop/checker/tests/integration/tools-naming.contract.test.ts)
 - [`40_Develop/ai-runtime`](../../../40_Develop/ai-runtime)
+- [`40_Develop/ai-runtime/tests/integration/ai-profile-consumers.integration.test.ts`](../../../40_Develop/ai-runtime/tests/integration/ai-profile-consumers.integration.test.ts)
 - [`40_Develop/coordinator/src/security/provider-model-profile-runtime.ts`](../../../40_Develop/coordinator/src/security/provider-model-profile-runtime.ts)
 - [`40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts`](../../../40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts)
 - [`40_Develop/coordinator/src/security/docker-desktop-repair-native-process-lifecycle.ts`](../../../40_Develop/coordinator/src/security/docker-desktop-repair-native-process-lifecycle.ts)
@@ -108,12 +115,19 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 - [`40_Develop/workbench/tsconfig.json`](../../../40_Develop/workbench/tsconfig.json)
 - [`40_Develop/workbench/vite.config.ts`](../../../40_Develop/workbench/vite.config.ts)
 - [`40_Develop/workbench/symbol.json`](../../../40_Develop/workbench/symbol.json)
-- [`40_Develop/workbench/client/entry-client.ts`](../../../40_Develop/workbench/client/entry-client.ts)
+- `40_Develop/workbench/client/entry-client.ts`（削除）
+- [`40_Develop/workbench/client/entry-client.tsx`](../../../40_Develop/workbench/client/entry-client.tsx)
+- [`40_Develop/workbench/client/workbench-app.tsx`](../../../40_Develop/workbench/client/workbench-app.tsx)
+- [`40_Develop/workbench/src/presentation/workbench-client-model.ts`](../../../40_Develop/workbench/src/presentation/workbench-client-model.ts)
+- [`40_Develop/workbench/src/presentation/workbench-components.ts`](../../../40_Develop/workbench/src/presentation/workbench-components.ts)
 - [`40_Develop/workbench/bin/workbench.ts`](../../../40_Develop/workbench/bin/workbench.ts)
 - [`40_Develop/workbench/src/index.ts`](../../../40_Develop/workbench/src/index.ts)
 - [`40_Develop/workbench/src/ai-profile-surface.ts`](../../../40_Develop/workbench/src/ai-profile-surface.ts)
+- [`40_Develop/workbench/src/ai-request.ts`](../../../40_Develop/workbench/src/ai-request.ts)
 - [`40_Develop/workbench/src/credential-administration.ts`](../../../40_Develop/workbench/src/credential-administration.ts)
+- [`40_Develop/workbench/src/project-plan-surface.ts`](../../../40_Develop/workbench/src/project-plan-surface.ts)
 - [`40_Develop/workbench/src/project-surface.ts`](../../../40_Develop/workbench/src/project-surface.ts)
+- [`40_Develop/workbench/src/quality-surface.ts`](../../../40_Develop/workbench/src/quality-surface.ts)
 - [`40_Develop/workbench/src/remote-topic-meeting.ts`](../../../40_Develop/workbench/src/remote-topic-meeting.ts)
 - [`40_Develop/workbench/src/runtime-activity.ts`](../../../40_Develop/workbench/src/runtime-activity.ts)
 - [`40_Develop/workbench/src/owner-artifact-surface.ts`](../../../40_Develop/workbench/src/owner-artifact-surface.ts)
@@ -121,6 +135,10 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 - [`40_Develop/workbench/src/presentation/workbench-shell.ts`](../../../40_Develop/workbench/src/presentation/workbench-shell.ts)
 - [`40_Develop/workbench/tests/integration/project-surface.contract.test.ts`](../../../40_Develop/workbench/tests/integration/project-surface.contract.test.ts)
 - [`40_Develop/workbench/tests/integration/workbench-server.contract.test.ts`](../../../40_Develop/workbench/tests/integration/workbench-server.contract.test.ts)
+- [`40_Develop/workbench/tests/system/workbench-visual.integration.test.ts`](../../../40_Develop/workbench/tests/system/workbench-visual.integration.test.ts)
+- [`40_Develop/visual-preview/src/browser-zoom-verifier.ts`](../../../40_Develop/visual-preview/src/browser-zoom-verifier.ts)
+- [`40_Develop/visual-preview/tests/integration/browser-lifecycle.contract.test.ts`](../../../40_Develop/visual-preview/tests/integration/browser-lifecycle.contract.test.ts)
+- [`99_Roadmap/Changes/CHG-000082/Evidence/260928-1745_phase5-workbench-pure-csr.md`](./Evidence/260928-1745_phase5-workbench-pure-csr.md)
 - [`40_Develop/cros/src/project-federation.ts`](../../../40_Develop/cros/src/project-federation.ts)
 - [`40_Develop/cros/src/connection-credential.ts`](../../../40_Develop/cros/src/connection-credential.ts)
 - [`40_Develop/cros/src/credential-access-recovery.ts`](../../../40_Develop/cros/src/credential-access-recovery.ts)
@@ -263,7 +281,8 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 | Finding／契機 | 同じIntentと判断した理由 | 追加Phase／範囲 | Gate・完了条件への影響 | 追加確認／人間判断 | 処置 |
 |---|---|---|---|---|---|
 | 署名済み実境界で障害修復Protocolが意図的に返す公式停止の未発行を上位Runtimeが失敗扱いした | Workbench AI実Provider E2Eを成立させるDocker境界のProduction Closureであり、同じIntent内の実境界Gapである | Phase 5へ障害修復の`not_issued`受理契約是正を追加 | Repairでは公式停止を発行せず、上位Runtimeが`false / not_issued`だけを正常分岐として受理する局所契約試験、署名済み修復、Host Windows回帰を追加 | 既存の修復ID・耐久記録・Trust・削除禁止を維持し、`true / unknown`を成功へ補正しない | 対応中 |
-| Workbenchの将来展開を踏まえ、表示層をReact＋Viteへ固定する人間判断を得た | Project Context、Topic／Meeting、Repository、AIおよびShared Serverを一つのWorkbenchへ展開する同じProduction Intentであり、別Capabilityではない | Phase 5へReact Shell、Vite Build、固定Asset配信および既存15画面の段階移行境界を追加 | Node側のAuthorityとHTTP操作契約を維持し、React SSR／Hydration、CSP、allowlist、既存IT、実Browser Visualを再確認する。全画面Component化前を移行完了と表示しない | React＋Vite採用は本対話で確認済み。Next.js、Electron、業務AuthorityのClient移動は対象外 | 対応中 |
+| Workbenchの将来展開を踏まえ、表示層をReact＋Viteへ固定する人間判断を得た | Project Context、Topic／Meeting、Repository、AIおよびShared Serverを一つのWorkbenchへ展開する同じProduction Intentであり、別Capabilityではない | Phase 5へVite Browser Build、固定Asset配信および既存15画面のReact移行を追加 | Node側のAuthorityとHTTP操作契約を維持し、CSR、JSON Read Model、CSP、allowlist、既存IT、実Browser Visualを再確認する。全画面Component化前を移行完了と表示しない | React＋Vite採用は本対話で確認済み。Next.js、Electron、業務AuthorityのClient移動は対象外 | 実装・直接検証・独立レビュー済み。Phase 5全体の実Provider E2Eは継続 |
+| 段階移行境界やSSRとの二重管理を残さず、既存15画面本体をClient-side React Componentへ移行する人間判断を得た | React＋ViteをWorkbenchのProduction表示基盤として固定する同じIntentの完結条件であり、新しい利用者Capabilityではない | Phase 5へ全画面CSR、JSON Read Model境界、Raw HTML Fragment廃止、SSR／Hydration廃止およびBrowser DOM再読取り廃止を追加 | 既存15画面、Form、Action Token、権限、Server Effect、同一Origin／CSP、3表示Profile×3 Zoomを不変条件として再検証する。旧署名候補は移行前Evidenceとしてのみ保持し、移行後に新しい固定候補を作る | 本対話でスコープ拡大とSSR不採用を確認済み。Clientへの業務Authority移動、Next.js、Electronは引き続き対象外 | 実装・直接検証・独立レビュー済み。Phase 5全体の実Provider E2Eは継続 |
 
 ### 途中見直しの記録
 
@@ -302,9 +321,10 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 - 追加結果参照: [Phase 5 `workbench_advice` Docker境界](./Evidence/260928-0600_phase5-workbench-advice-docker-boundary.md)
 - 追加結果参照: [Phase 5 読取り助言Production Runtime](./Evidence/260928-0635_phase5-workbench-advice-production-runtime.md)、[Phase 5 Workbench変更候補Production Runtime](./Evidence/260928-0715_phase5-workbench-change-candidate-runtime.md)、[Phase 5 AI二画面の現在Reality Audit](./Evidence/260928-0725_phase5-ai-screen-reality-audit.md)、[Phase 5 AI Runtime Package Closure](./Evidence/260928-0750_phase5-ai-runtime-package-closure.md)、[Phase 5 変更候補の採否境界](./Evidence/260928-0911_phase5-candidate-disposition.md)
 - 追加結果参照: [Phase 5 Workbench実Browser Visual Gate](./Evidence/260928-1028_phase5-workbench-actual-browser-visual.md)
-- 追加結果参照: [Phase 5 React＋Vite Shell移行](./Evidence/260928-1535_phase5-react-vite-shell-migration.md)
+- 追加結果参照: [Phase 5 React＋Vite Shell移行](./Evidence/260928-1535_phase5-react-vite-shell-migration.md)（SSR／Hydrationを使用していた移行途中の履歴Evidence。現行表示構造は後続の純粋CSR Evidenceが置き換える）
 - 追加結果参照: [Phase 5 Docker Process終了全体期限](./Evidence/260928-1543_phase5-docker-process-termination-budget.md)
-- Quality Center: `RFD-IT-014`と`RFD-ST-015`を、Workbench→Version Control→実Git／bare Remote、実Browser確認、故障分類および再観測のEvidenceとして観測済みにした。`ERB-ST-022`も15画面、Desktop／Tablet／Mobile、100%／200%／400%の27条件と終了後資源0のEvidenceへ接続した
+- 追加結果参照: [Phase 5 Workbench純粋CSR移行](./Evidence/260928-1745_phase5-workbench-pure-csr.md)
+- Quality Center: `RFD-IT-014`と`RFD-ST-015`を、Workbench→Version Control→実Git／bare Remote、実Browser確認、故障分類および再観測のEvidenceとして観測済みにした。`ERB-ST-022`も15画面、Desktop／Tablet／Mobile、100%／200%／400%の27条件、React commit後の画像確定待ち、終了所要時間および終了後不存在Evidenceへ接続した。`ERB-IT-020`は残存子Processへの世代Identity限定Fallback実発行とIdentity不一致時のEffect 0へ接続した
 
 ## 実際の影響 / 逸脱
 

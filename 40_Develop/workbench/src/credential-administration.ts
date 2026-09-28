@@ -20,6 +20,13 @@ import {
   type RequestAccessContext,
   updateConnectionCredentialAccess,
 } from "../../cros/src/index.ts";
+import { createElement, type ReactElement } from "react";
+
+import {
+  ActionTokenInput,
+  EmptyState,
+  WorkbenchPanel,
+} from "./presentation/workbench-components.ts";
 
 export type CredentialAdministration = Readonly<{
   registry: ConnectionCredentialRegistry;
@@ -103,45 +110,227 @@ export function executeCredentialAdministrationAction(
 }
 
 /**
- * Credential管理Panelを安全なHTMLへ投影する。
+ * Credential管理Panelを安全なReact要素へ投影する。
  *
  * @responsibility 管理可否、Credential Metadata、明示Grantおよび一度表示Tokenを区別して表示する。
  * @trace ARCH-000013
  * @input administration、操作Tokenおよび直前の一時結果を受け取る。
- * @returns Credential管理PanelのHTML断片を返す。
+ * @returns Credential管理PanelのReact要素を返す。
  * @precondition administrationのAccess Contextは起動前に認証済みである。
  * @postcondition 未構成時はRepository単体利用を維持し、構成時もVerifierとsaltを表示しない。
- * @effect N/A: Registry Snapshotを読みHTML文字列を構築するだけである。
+ * @effect N/A: Registry SnapshotからReact要素を構築するだけである。
  * @failure Registry一覧を取得できない場合は管理不可として表示する。
  * @invariant Credential件数とIdentityはsystemAdmin=trueのAccess Contextにだけ表示する。
  * @boundary CROS Credential Metadata→Workbench Browser表示。
- * @security 全表示値をescapeし、生Tokenはresultに存在する一回だけ表示する。
+ * @security ReactのText escapingを使用し、生Tokenはresultに存在する一回だけ表示する。
  * @concurrency 一回の一覧Snapshotだけを同じPanelへ使用する。
  */
 export function renderCredentialAdministration(
   administration: CredentialAdministration | undefined,
   actionToken: string,
   result: CredentialAdministrationResult | null,
-): string {
+): ReactElement {
   if (administration === undefined)
-    return '<article class="panel wide" id="credential-administration"><header><div><p class="eyebrow">CROS administration</p><h2>接続資格の管理</h2></div><span>Not configured</span></header><p class="empty-state">Repository単体利用ではCredentialは不要です。Remote CROSの管理接続が構成された場合だけ、ここにCredential管理を表示します。</p></article>';
+    return createElement(
+      WorkbenchPanel,
+      {
+        id: "credential-administration",
+        eyebrow: "CROS administration",
+        title: "接続資格の管理",
+        status: "Not configured",
+      },
+      createElement(
+        EmptyState,
+        null,
+        "Repository単体利用ではCredentialは不要です。Remote CROSの管理接続が構成された場合だけ、ここにCredential管理を表示します。",
+      ),
+    );
   const listed = listConnectionCredentials(
     administration.registry,
     administration.access,
   );
   if (listed.status === "blocked")
-    return '<article class="panel wide" id="credential-administration"><header><div><p class="eyebrow">CROS administration</p><h2>接続資格の管理</h2></div><span>Unavailable</span></header><p class="empty-state">現在の接続資格にはCredential管理Capabilityがありません。Credentialの存在や件数は表示しません。</p></article>';
+    return createElement(
+      WorkbenchPanel,
+      {
+        id: "credential-administration",
+        eyebrow: "CROS administration",
+        title: "接続資格の管理",
+        status: "Unavailable",
+      },
+      createElement(
+        EmptyState,
+        null,
+        "現在の接続資格にはCredential管理Capabilityがありません。Credentialの存在や件数は表示しません。",
+      ),
+    );
   const notice =
     result === null
-      ? ""
-      : `<section class="operation-result" data-status="${escapeHtml(result.status)}"><strong>${escapeHtml(result.status)}</strong> ${escapeHtml(result.reason)}${result.token === null ? "" : `<div class="one-time-token"><span>このTokenは今回だけ表示されます。今すぐ安全な方法で利用者へ渡してください。</span><code>${escapeHtml(result.token)}</code></div>`}</section>`;
-  const rows = listed.credentials
-    .map(
-      (credential) =>
-        `<tr><td><code>${escapeHtml(credential.credentialId)}</code></td><td>${escapeHtml(credential.profile)}</td><td>${credential.workspaceIds.length === 0 ? "N/A" : credential.workspaceIds.map(escapeHtml).join("<br>")}</td><td>${credential.systemAdmin ? "Yes" : "No"}</td><td>${credential.revoked ? "Revoked" : "Active"}</td><td><form method="post" action="/connection-credentials/action"><input type="hidden" name="actionToken" value="${escapeHtml(actionToken)}"><input type="hidden" name="credentialId" value="${escapeHtml(credential.credentialId)}"><label>Workspaces<input name="workspaceIds" value="${escapeHtml(credential.workspaceIds.join(", "))}"></label><label class="confirm"><input type="checkbox" name="systemAdmin" value="true"${credential.systemAdmin ? " checked" : ""}>System admin</label><button name="operation" value="update_access" type="submit">Update</button><button name="operation" value="rotate" type="submit"${credential.revoked ? " disabled" : ""}>Rotate</button><button name="operation" value="revoke" type="submit"${credential.revoked ? " disabled" : ""}>Revoke</button></form></td></tr>`,
-    )
-    .join("");
-  return `<article class="panel wide" id="credential-administration"><header><div><p class="eyebrow">CROS administration</p><h2>接続資格の管理</h2></div><span>${listed.credentials.length} credentials</span></header>${notice}<form class="credential-issue" method="post" action="/connection-credentials/action"><input type="hidden" name="actionToken" value="${escapeHtml(actionToken)}"><input type="hidden" name="operation" value="issue"><label>Profile<select name="profile"><option value="developer">Developer</option><option value="management">Management</option><option value="administrator">Administrator</option></select></label><p>Profileは発行時の初期値です。実効権限は保存されたWorkspace GrantとSystem Adminで決まります。</p><button type="submit">Issue credential</button></form><div class="table-scroll"><table><thead><tr><th>Credential</th><th>Profile</th><th>Workspaces</th><th>Admin</th><th>Status</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table></div></article>`;
+      ? null
+      : createElement(
+          "section",
+          { className: "operation-result", "data-status": result.status },
+          createElement("strong", null, result.status),
+          ` ${result.reason}`,
+          result.token === null
+            ? null
+            : createElement(
+                "div",
+                { className: "one-time-token" },
+                createElement(
+                  "span",
+                  null,
+                  "このTokenは今回だけ表示されます。今すぐ安全な方法で利用者へ渡してください。",
+                ),
+                createElement("code", null, result.token),
+              ),
+        );
+  const credentialRows = listed.credentials.map((credential) => {
+    const actions = createElement(
+      "form",
+      { method: "post", action: "/connection-credentials/action" },
+      createElement(ActionTokenInput, { value: actionToken }),
+      createElement("input", {
+        type: "hidden",
+        name: "credentialId",
+        value: credential.credentialId,
+      }),
+      createElement(
+        "label",
+        null,
+        "Workspaces",
+        createElement("input", {
+          name: "workspaceIds",
+          defaultValue: credential.workspaceIds.join(", "),
+        }),
+      ),
+      createElement(
+        "label",
+        { className: "confirm" },
+        createElement("input", {
+          type: "checkbox",
+          name: "systemAdmin",
+          value: "true",
+          defaultChecked: credential.systemAdmin,
+        }),
+        "System admin",
+      ),
+      createElement(
+        "button",
+        { name: "operation", value: "update_access", type: "submit" },
+        "Update",
+      ),
+      createElement(
+        "button",
+        {
+          name: "operation",
+          value: "rotate",
+          type: "submit",
+          disabled: credential.revoked,
+        },
+        "Rotate",
+      ),
+      createElement(
+        "button",
+        {
+          name: "operation",
+          value: "revoke",
+          type: "submit",
+          disabled: credential.revoked,
+        },
+        "Revoke",
+      ),
+    );
+    return createElement(
+      "tr",
+      { key: credential.credentialId },
+      createElement(
+        "td",
+        null,
+        createElement("code", null, credential.credentialId),
+      ),
+      createElement("td", null, credential.profile),
+      createElement(
+        "td",
+        null,
+        credential.workspaceIds.length === 0
+          ? "N/A"
+          : credential.workspaceIds.map((workspaceId) =>
+              createElement("div", { key: workspaceId }, workspaceId),
+            ),
+      ),
+      createElement("td", null, credential.systemAdmin ? "Yes" : "No"),
+      createElement("td", null, credential.revoked ? "Revoked" : "Active"),
+      createElement("td", null, actions),
+    );
+  });
+  return createElement(
+    WorkbenchPanel,
+    {
+      id: "credential-administration",
+      eyebrow: "CROS administration",
+      title: "接続資格の管理",
+      status: `${listed.credentials.length} credentials`,
+    },
+    notice,
+    createElement(
+      "form",
+      {
+        className: "credential-issue",
+        method: "post",
+        action: "/connection-credentials/action",
+      },
+      createElement(ActionTokenInput, { value: actionToken }),
+      createElement("input", {
+        type: "hidden",
+        name: "operation",
+        value: "issue",
+      }),
+      createElement(
+        "label",
+        null,
+        "Profile",
+        createElement(
+          "select",
+          { name: "profile" },
+          createElement("option", { value: "developer" }, "Developer"),
+          createElement("option", { value: "management" }, "Management"),
+          createElement("option", { value: "administrator" }, "Administrator"),
+        ),
+      ),
+      createElement(
+        "p",
+        null,
+        "Profileは発行時の初期値です。実効権限は保存されたWorkspace GrantとSystem Adminで決まります。",
+      ),
+      createElement("button", { type: "submit" }, "Issue credential"),
+    ),
+    createElement(
+      "div",
+      { className: "table-scroll" },
+      createElement(
+        "table",
+        null,
+        createElement(
+          "thead",
+          null,
+          createElement(
+            "tr",
+            null,
+            ...[
+              "Credential",
+              "Profile",
+              "Workspaces",
+              "Admin",
+              "Status",
+              "Actions",
+            ].map((value) => createElement("th", { key: value }, value)),
+          ),
+        ),
+        createElement("tbody", null, ...credentialRows),
+      ),
+    ),
+  );
 }
 
 /**
@@ -197,29 +386,4 @@ function publicResult(
     reason: result.reason,
     token: "token" in result ? result.token : null,
   });
-}
-
-/**
- * Credential管理表示TextをHTMLとして安全に符号化する。
- *
- * @responsibility Registry由来Textと一度表示TokenをMarkupとして解釈させない。
- * @trace ARCH-000013
- * @input valueに表示Textを受け取る。
- * @returns HTML特殊文字をEntityへ変換したTextを返す。
- * @precondition valueは実行可能Markupとして扱わない文字列である。
- * @postcondition ampersand、angle bracket、quoteを生で残さない。
- * @effect N/A: 文字列を変換するだけである。
- * @failure N/A: 全文字列を決定論的に変換する。
- * @invariant 表示文字の意味順序を変えない。
- * @boundary Credential MetadataとBrowser HTMLの境界。
- * @security Script、ElementまたはAttributeの注入を防ぐ。
- * @concurrency N/A: 同期的な純粋変換である。
- */
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
 }

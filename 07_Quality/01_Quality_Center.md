@@ -14,7 +14,7 @@
 | 現在対象 | v0.22.0 | Project Operation、Workbench、CROS、複数Repository、AI Runtimeを段階的に照合する |
 | 観測済み | 11 / 39 | v0.22移管範囲のうち、Production Workbenchの実Browser Visual GateまでEvidenceへ接続済み |
 | 未観測 | 28 / 39 | 局所試験またはRelationだけで観測済みへ変更しない |
-| 既知Gap | Phase 5 Reality Audit進行中 | Shared Serverの固定設定、同一HTTPS Origin、TLS終端契約および終了後資源0は成立した。残る実Provider境界、AI関連2画面および最終Production E2Eを処置する |
+| 既知Gap | Phase 5 Reality Audit進行中 | Shared Serverの固定設定、同一HTTPS Origin、TLS終端契約および終了後資源0は成立した。Workbench Visualはcold相当と連続実行の各27表示条件、画像確定待ち、終了所要時間および終了後不存在を観測済み。残る実Provider境界、AI関連2画面および最終Production E2Eを処置する |
 | 次Gate | Blocking Finding 0、全回帰、実Browser、実Provider境界および独立レビュー | [CHG-000082](../99_Roadmap/Changes/CHG-000082/change.md) |
 | 現在人間判断 | N/A: 現在の実装・検証継続を止める判断事項はない | 新しいRisk受容または対象範囲変更が生じた場合だけ再提示する |
 

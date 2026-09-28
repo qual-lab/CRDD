@@ -12,6 +12,12 @@
  */
 import { lstat, readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
+import { createElement, type ReactElement } from "react";
+
+import {
+  EmptyState,
+  WorkbenchPanel,
+} from "./presentation/workbench-components.ts";
 
 const MAX_ARTIFACT_BYTES = 512 * 1_024;
 const FIXED_OWNER_ARTIFACTS = Object.freeze([
@@ -203,27 +209,36 @@ export async function readWorkbenchChangeArtifact(
  * @trace ARCH-000012
  * @trace ARCH-000016
  * @input catalogに起動時の検証済みOwner Artifact Snapshotを受け取る。
- * @returns Browserへ埋め込む安全なHTML断片を返す。
+ * @returns Browserが描画するReact要素を返す。
  * @precondition availableのartifactは全てRepository内通常Markdownである。
  * @postcondition Quality、Roadmap詳細およびRelationを同じ原文Routeへ接続する。
- * @effect N/A: HTML文字列の構築だけを行う。
+ * @effect N/A: React要素の構築だけを行う。
  * @failure unknownは空一覧へ畳まず、二つの面を観測不能として表示する。
  * @invariant Artifact内容、IdentityまたはRelationをWorkbenchへ複製しない。
  * @boundary Owner Artifact CatalogとBrowser表示の境界。
- * @security titleとPathをescapeし、URLはCatalog内Pathだけから生成する。
+ * @security titleとPathはReactのText escapingを使用し、URLはCatalog内Pathだけから生成する。
  * @concurrency 起動時Catalog一件だけを同期描画する。
  */
 export function renderWorkbenchOwnerArtifacts(
   catalog: WorkbenchOwnerArtifactCatalog,
   query = "",
-): string {
+): ReactElement {
   if (catalog.state !== "available") {
-    const unavailable = (id: string, title: string) =>
-      `<article class="panel wide" id="${id}"><header><div><p class="eyebrow">Owner artifact</p><h2>${title}</h2></div><span>Unknown</span></header><p class="empty-state">Owner Artifactを完全に観測できません。空または該当なしとして扱いません。</p></article>`;
-    return unavailable("documentation", "Documentation and Relations");
+    return createElement(
+      WorkbenchPanel,
+      {
+        id: "documentation",
+        eyebrow: "Owner artifact",
+        title: "Documentation and Relations",
+        status: "Unknown",
+      },
+      createElement(
+        EmptyState,
+        null,
+        "Owner Artifactを完全に観測できません。空または該当なしとして扱いません。",
+      ),
+    );
   }
-  const link = (artifact: WorkbenchOwnerArtifact) =>
-    `<a href="/owner-artifact?path=${encodeURIComponent(artifact.relativePath)}"><strong>${escapeHtml(artifact.title)}</strong><small><code>${escapeHtml(artifact.relativePath)}</code></small><small>${artifact.origin === "fixed" ? "Fixed owner entry" : `Project Context: ${escapeHtml(artifact.sourceSection ?? "Section unknown")}`}</small></a>`;
   const normalizedQuery = query.trim().toLocaleLowerCase("ja");
   const relationSources = catalog.artifacts.filter(
     (artifact) =>
@@ -235,7 +250,74 @@ export function renderWorkbenchOwnerArtifacts(
       artifact.title.toLocaleLowerCase("ja").includes(normalizedQuery) ||
       artifact.relativePath.toLocaleLowerCase("ja").includes(normalizedQuery),
   );
-  return `<article class="panel wide owner-artifact-panel" id="documentation"><header><div><p class="eyebrow">Owner relations</p><h2>Documentation and Relations</h2></div><span>${relations.length} / ${relationSources.length} sources</span></header><p class="scene-summary">Project Contextが現在明示するOwner RelationとProject Planの詳細正本だけを表示します。検索は起動時に検証済みのCatalog内だけで行い、Repository全体を探索しません。</p><form class="document-search" method="get" action="/"><label>TitleまたはPathで検索<input type="search" name="documentQuery" value="${escapeHtml(query)}" maxlength="200"></label><button type="submit">Search</button></form>${relations.length === 0 ? `<p class="empty-state">${normalizedQuery.length === 0 ? "現在のOwner Relationは0件です。" : "検索条件に一致する検証済みOwner Relationはありません。"}</p>` : `<ul class="owner-artifact-list">${relations.map((artifact) => `<li>${link(artifact)}</li>`).join("")}</ul>`}</article>`;
+  return createElement(
+    WorkbenchPanel,
+    {
+      id: "documentation",
+      eyebrow: "Owner relations",
+      title: "Documentation and Relations",
+      status: `${relations.length} / ${relationSources.length} sources`,
+      className: "owner-artifact-panel",
+    },
+    createElement(
+      "p",
+      { className: "scene-summary" },
+      "Project Contextが現在明示するOwner RelationとProject Planの詳細正本だけを表示します。検索は起動時に検証済みのCatalog内だけで行い、Repository全体を探索しません。",
+    ),
+    createElement(
+      "form",
+      { className: "document-search", method: "get", action: "/" },
+      createElement(
+        "label",
+        null,
+        "TitleまたはPathで検索",
+        createElement("input", {
+          type: "search",
+          name: "documentQuery",
+          defaultValue: query,
+          maxLength: 200,
+        }),
+      ),
+      createElement("button", { type: "submit" }, "Search"),
+    ),
+    relations.length === 0
+      ? createElement(
+          EmptyState,
+          null,
+          normalizedQuery.length === 0
+            ? "現在のOwner Relationは0件です。"
+            : "検索条件に一致する検証済みOwner Relationはありません。",
+        )
+      : createElement(
+          "ul",
+          { className: "owner-artifact-list" },
+          ...relations.map((artifact) =>
+            createElement(
+              "li",
+              { key: artifact.relativePath },
+              createElement(
+                "a",
+                {
+                  href: `/owner-artifact?path=${encodeURIComponent(artifact.relativePath)}`,
+                },
+                createElement("strong", null, artifact.title),
+                createElement(
+                  "small",
+                  null,
+                  createElement("code", null, artifact.relativePath),
+                ),
+                createElement(
+                  "small",
+                  null,
+                  artifact.origin === "fixed"
+                    ? "Fixed owner entry"
+                    : `Project Context: ${artifact.sourceSection ?? "Section unknown"}`,
+                ),
+              ),
+            ),
+          ),
+        ),
+  );
 }
 
 /**
@@ -354,7 +436,7 @@ async function readVerifiedOwnerArtifact(
  * @failure H1欠落をPath表示へ安全に縮退する。
  * @invariant H2以下をtitleとして採用しない。
  * @boundary Markdown本文とWorkbench表示名の境界。
- * @security titleをHTMLとして信頼せず、描画時にescapeする。
+ * @security titleをHTMLとして信頼せず、ReactのText escapingを使用する。
  * @concurrency N/A: 共有状態を持たない同期処理である。
  */
 function extractTitle(markdown: string, relativePath: string): string {
@@ -364,29 +446,4 @@ function extractTitle(markdown: string, relativePath: string): string {
     ?.replace(/^#\s+/u, "")
     .trim();
   return title === undefined || title.length === 0 ? relativePath : title;
-}
-
-/**
- * Owner Artifact表示TextをHTMLとして安全に符号化する。
- *
- * @responsibility Repository由来TextをMarkupとして解釈させない。
- * @trace ARCH-000012
- * @input valueに表示文字列を受け取る。
- * @returns HTML特殊文字を符号化した文字列を返す。
- * @precondition valueを信頼済みHTMLと仮定しない。
- * @postcondition ampersand、angle bracket、quoteを生で残さない。
- * @effect N/A: 文字列変換だけを行う。
- * @failure N/A: 全文字列を決定論的に変換する。
- * @invariant 表示文字の順序を変えない。
- * @boundary Repository TextとBrowser DOMの境界。
- * @security Script、ElementおよびAttribute注入を防ぐ。
- * @concurrency N/A: 共有状態を持たない同期処理である。
- */
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
 }

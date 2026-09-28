@@ -713,8 +713,9 @@ const STANDALONE_COLLECTIVE_NAME = /^evidence$/u;
 const TEST_FILE =
   /^([a-z0-9]+(?:-[a-z0-9]+)*)\.(unit|contract|integration|boundary|golden|current)\.test\.ts$/u;
 const TYPESCRIPT_FILE = /^[a-z0-9]+(?:-[a-z0-9]+)*\.ts$/u;
-const AMBIGUOUS_SOURCE_FILE = /(?:^|-)(?:utils?|helper|common|manager)\.ts$/u;
-const BARE_TYPES_SOURCE_FILE = /^types\.ts$/u;
+const TYPESCRIPT_REACT_FILE = /^[a-z0-9]+(?:-[a-z0-9]+)*\.tsx$/u;
+const AMBIGUOUS_SOURCE_FILE = /(?:^|-)(?:utils?|helper|common|manager)\.tsx?$/u;
+const BARE_TYPES_SOURCE_FILE = /^types\.tsx?$/u;
 const RUST_FILE = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*\.rs$/u;
 const MARKDOWN_FILE = /^[a-z0-9]+(?:-[a-z0-9]+)*\.md$/u;
 const JSON_FILE = /^[a-z0-9]+(?:-[a-z0-9]+)*\.json$/u;
@@ -735,6 +736,7 @@ const RESERVED_FILE_NAMES = new Set([
   "tsconfig.json",
   "tsconfig.strict.json",
   "tsconfig.tests.json",
+  "vite.config.ts",
 ]);
 const RETIRED_CHECKER_MJS = `crdd${"_"}check.mjs`;
 const RETIRED_CHECKER_TS = `crdd${"_"}check.ts`;
@@ -817,7 +819,10 @@ type NamingViolation = Readonly<{
 function collectFiles(root: string): string[] {
   const files: string[] = [];
   for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
-    if (entry.name === "node_modules") continue;
+    if (entry.name === "node_modules" || entry.name === "dist") {
+      assertGeneratedTargetDirectory(path.join(root, entry.name));
+      continue;
+    }
     const target = path.join(root, entry.name);
     if (isPlatformAccessTarget(target)) {
       assertGeneratedTargetDirectory(target);
@@ -1179,6 +1184,24 @@ function assertFileName(file: string): void {
       name,
       BARE_TYPES_SOURCE_FILE,
       `TypeScript type collection must include its responsibility: ${file}`,
+    );
+    return;
+  }
+  if (name.endsWith(".tsx")) {
+    assert.match(
+      name,
+      TYPESCRIPT_REACT_FILE,
+      `TypeScript React filename: ${file}`,
+    );
+    assert.doesNotMatch(
+      name,
+      AMBIGUOUS_SOURCE_FILE,
+      `TypeScript React filename must express its owned responsibility: ${file}`,
+    );
+    assert.doesNotMatch(
+      name,
+      BARE_TYPES_SOURCE_FILE,
+      `TypeScript React type collection must include its responsibility: ${file}`,
     );
     return;
   }

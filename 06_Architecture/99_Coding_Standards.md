@@ -35,7 +35,7 @@ TypeScript／Rustの実行境界、Biome、型検査、Node.jsおよびRust tool
 
 ### 2.1. 実装言語と実行境界
 
-CRDD公式Repositoryが所有する内部Scriptは`.ts`を標準とし、Node.js 24.12 LTS以上のネイティブTypeScript型除去で実行する。Runtime依存として`tsx`、`ts-node`、Babel、Bundlerまたは専用の変換packageを要求しない。実行コードはESM、Node.js組込み機能および`import type`を基本とする。型検査は`noEmit`のTypeScript compiler確認としてRuntime実行から分離し、型検査の成功だけを実行成功、準拠またはリリース可否へ昇格しない。
+CRDD公式Repositoryが所有する内部Scriptは`.ts`を標準とし、Node.js 24.12 LTS以上のネイティブTypeScript型除去で実行する。Runtime依存として`tsx`、`ts-node`、Babelまたは専用の変換packageを要求しない。実行コードはESM、Node.js組込み機能および`import type`を基本とする。Browser React ComponentだけはJSX構文を所有するSourceへ`.tsx`を使用し、宣言済みのBrowser Build境界でBundlerを利用できる。Node.js実行入口、Domain、Application、Adapter、CLIまたは試験をBundler前提へ変更しない。型検査は`noEmit`のTypeScript compiler確認としてRuntime実行から分離し、型検査の成功だけを実行成功、準拠またはリリース可否へ昇格しない。
 
 ネイティブ実行で型除去できない`enum`、Runtime namespace、parameter property、decorator、path aliasまたはcompiler変換を前提とする構文を内部Scriptへ導入しない。
 
@@ -93,6 +93,7 @@ Toolの既定書込みRootは現在のリポジトリ内に限定する。現在
 |---|---|---|
 | フォルダ | ASCII `kebab-case` | `checker/`, `test-fixtures/` |
 | TypeScriptファイル | ASCII `kebab-case` | `crdd-check.ts`, `fault-injector.ts` |
+| Browser React Componentファイル | ASCII `kebab-case` + `.tsx` | `entry-client.tsx`, `workbench-app.tsx` |
 | Rust moduleファイル | ASCII `snake_case` | `protocol.rs`, `windows.rs` |
 | Markdownファイル | ASCII `kebab-case` | `coding-standards.md`, `threat-model.md` |
 | 通常のJSONファイル | ASCII `kebab-case` | `provider-profile.json` |
@@ -175,6 +176,7 @@ Package Rootへ任意の`.ts` Sourceを平置きしてはならない（MUST NOT
 
 - 任意のpackage rootにある`package.json`と`package-lock.json`
 - TypeScript設定の`tsconfig.json`、`tsconfig.strict.json`、`tsconfig.tests.json`
+- Browser UI package rootにあるVite設定`vite.config.ts`
 - Rust crate rootの`Cargo.toml`、`Cargo.lock`、`rust-toolchain.toml`、Cargo build scriptの`build.rs`および`.gitignore`
 - Rust executable入口の`src/main.rs`
 - Git設定の`.gitignore`
@@ -506,7 +508,7 @@ Rust等の言語またはFrameworkの標準配置を維持する場合は、物�
 - Rust sourceは固定toolchainの`rustfmt --check`、rustc、Clippy Warning拒否、`cargo test --locked`、locked buildおよび固定`llvm-tools-preview`によるcoverageで検査する。stable toolchainがbranch mappingを生成せず分母0を返す場合は率へ換算せず`Not Available`とし、region／function／line実測とセキュリティ判断上の検証義務を別の確認として記録する。coverage runnerは実Directoryとして検証したcrate直下の`target`へrun固有Directoryを作り、既存treeを削除または再利用しない。
 - CheckerとCoordinatorのprivate packageが所有する`lint`は、Repository rootのBiome設定を`--error-on-warnings`付きで実行し、Warningが1件以上ある場合は各packageの`check`を失敗させる。Infoはこの継続Gateの失敗条件ではなく、固定版ごとの検証結果として区別する。
 - Checker packageの命名contract testは、ファイル／フォルダの検査母集団を`40_Develop/**`と`template/tools/**`の全Pathとし、未知のsubfolderまたは後続packageも同じ規則へ含める。型付き識別子の検査母集団は、固定TypeScript 7.0.2でCRDD所有の全TypeScript packageが宣言する`tsconfig*.json`から取得する。現在の対象はartifact-signing、checker、coordinator、crdd-domain-library、cros、execution-intelligence、mcp、official-asset-governance、project-operation、project-runtime、runtime-data、semantic-coverage、verification-runnerおよびversion-controlである。実Pathで重複を除いたproject source集合と両Path配下のTypeScript実ファイル集合を完全一致させ、固定件数を母集団Identityの代用にせず、未所属source、project外実体、symbolic link、取得不能または未分類構文を成功扱いにしない。各packageの再生成可能な依存Directoryである`node_modules`はRepository Rootの`.gitignore`で全階層を既定除外し、lockfileだけを追跡する。Checker試験runnerはpackage root以下の`.test.ts`をnested folderまで安全に再帰列挙し、正規化したrelative Pathのordinal順で実行する。root外解決、重複または大文字小文字だけが異なるPath、symbolic link／junction、未対応entryを拒否し、`node_modules`はexact名かつ実Directoryと確認できた場合だけ除外する。runner列挙集合と`40_Develop/checker/tsconfig.json`が所有するChecker試験集合を件数ではなくPathの完全一致で検査し、0件、欠落または余剰を成功扱いにしない。Rust sourceは`40_Develop/platform-access/src/**`と`40_Develop/platform-access/tests/**`の閉集合として別に扱い、固定件数ではなく許可Rootへの包含と空集合拒否を確認し、TypeScript projectへ算入しない。型から完全判定できない動詞句、責務名および自然言語上の妥当性は独立reviewで確認し、機械検査だけを規約全体の完全証明としない。
-- 同じ命名contract testは、曖昧なSource File名、裸の`types.ts`、公開`index.ts`のPackage Headerおよび無名Barrel Exportも全母集団へ検査する。公開Header本文の意味、`@trace`が示す設計との一致、条件付きtagの十分性および非公開Symbolの公開漏れは、機械検査の成功だけで成立済みとせず独立reviewで確認する。
+- 同じ命名contract testは、曖昧なSource File名、裸の`types.ts`、公開`index.ts`のPackage Headerおよび無名Barrel Exportも全母集団へ検査する。Git管理から除外した再生成可能な依存Directory `node_modules`とBrowser Build出力Directory `dist`はSource母集団へ含めず、Sourceと生成JavaScriptを二重検査しない。公開Header本文の意味、`@trace`が示す設計との一致、条件付きtagの十分性および非公開Symbolの公開漏れは、機械検査の成功だけで成立済みとせず独立reviewで確認する。
 - `template/tools/**`の実行入口は、その入口を実装する責務の型検査Projectへexactに一度だけ所属させる。Checker入口`template/tools/crdd-check.ts`は`40_Develop/checker/tsconfig.json`が所有する。Coordinator入口`template/tools/crdd-coordinator.ts`とMCP入口`template/tools/crdd-mcp.ts`は、配布対象を増やさない`40_Develop/checker/template-tools-tsconfig.json`が所有し、通常のChecker source projectへ混在させない。新しい入口を追加する場合は、実体の追加と同じ変更で所有Projectを明示し、未所属または複数Projectへの重複所属を許可しない。
 - Runtime実行Identityへ含めるDirectoryには、実行時に読み取る設定、Policy、Schema、Native成果物その他の実依存だけを置く。設計対応、試験台帳、Coverage、監査入力その他の検証専用投影は`07_Quality`へ置き、実行時Directoryへ混在させない。配布Toolであることだけを理由にCoordinatorのRuntime実行Identityへ含めず、公開入口または正式な署名・検証入口から到達する依存閉包で判定する。誤配置を是正して実行集合が変わる場合は、その一回のIdentity変更を検証し、以後の文書・検証投影更新がRuntime再署名を発火しないことを確認する。
 - 型検査、Lint、Formatter、Coordinator試験、Checker試験およびRepository全体Checkerを別の合否軸として維持する。
