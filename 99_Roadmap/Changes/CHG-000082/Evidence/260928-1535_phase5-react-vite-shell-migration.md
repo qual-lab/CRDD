@@ -49,7 +49,7 @@ Node Workbench Server
 
 ## 残る処置
 
-- 画面本体を意味単位でReact Componentへ段階移行する。
+- 新設・変更する画面は意味単位のReact Componentとして実装し、既存画面本体は変更時に段階移行する。この移行は保守方針であり、v0.22のRelease阻害条件にはしない。
 - React移行後の独立レビューと不足／影響監査を実施する。
 - 実Provider E2EとAI関連2画面のProduction Closureは、既存のPhase 5残件として維持する。
 
