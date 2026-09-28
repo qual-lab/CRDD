@@ -136,7 +136,7 @@ async function waitForFixtureExit(
  * @cleanup 試験専用Rootをfinallyで削除する。
  * @boundary ERB-IT-017=Integration: 別Process・Filesystem・Named Pipe境界
  */
-test("Claude再認証はProcess喪失後に耐久Intentから再入場する", async () => {
+test("Windows Process Gate: Claude再認証はProcess喪失後に耐久Intentから再入場する", async () => {
   const root = path.resolve(
     "..",
     "..",

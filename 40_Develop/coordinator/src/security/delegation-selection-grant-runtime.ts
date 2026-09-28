@@ -103,6 +103,7 @@ type ResolvedModelProfile = Readonly<{
  */
 type ModelProfileRequest = Readonly<{
   provider: Provider;
+  profileId?: string;
   family: string;
   role: string;
   modelTier: string;
@@ -340,8 +341,11 @@ function isResolvedProfileValid(
   return (
     profile.provider === route.executorProvider &&
     PROFILE_ID.test(profile.profileId) &&
+    (route.requestedProfileId === null ||
+      profile.profileId === route.requestedProfileId) &&
     EXACT_MODEL_ID.test(profile.exactModelId) &&
-    profile.family === route.modelSelection.familyPreference &&
+    (route.requestedProfileId !== null ||
+      profile.family === route.modelSelection.familyPreference) &&
     profile.selectionRole === route.modelSelectionBasis.role &&
     profile.modelTier === route.modelSelection.modelTier &&
     profile.speedMode === "normal" &&
@@ -475,6 +479,9 @@ function issueSelectionGrant(
   const profile = state.resolveModelProfile(
     Object.freeze({
       provider: route.executorProvider,
+      ...(route.requestedProfileId === null
+        ? {}
+        : { profileId: route.requestedProfileId }),
       family: route.modelSelection.familyPreference ?? "",
       role: route.modelSelectionBasis.role,
       modelTier: route.modelSelection.modelTier ?? "",

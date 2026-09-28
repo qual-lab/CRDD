@@ -124,13 +124,13 @@ export function renderCredentialAdministration(
   result: CredentialAdministrationResult | null,
 ): string {
   if (administration === undefined)
-    return '<article class="panel wide" id="connection"><header><div><p class="eyebrow">CROS connection</p><h2>接続資格</h2></div><span>Not configured</span></header><p class="empty-state">Repository単体利用ではCredentialは不要です。Remote CROSの管理接続が構成された場合だけ、ここにCredential管理を表示します。</p></article>';
+    return '<article class="panel wide" id="credential-administration"><header><div><p class="eyebrow">CROS administration</p><h2>接続資格の管理</h2></div><span>Not configured</span></header><p class="empty-state">Repository単体利用ではCredentialは不要です。Remote CROSの管理接続が構成された場合だけ、ここにCredential管理を表示します。</p></article>';
   const listed = listConnectionCredentials(
     administration.registry,
     administration.access,
   );
   if (listed.status === "blocked")
-    return '<article class="panel wide" id="connection"><header><div><p class="eyebrow">CROS connection</p><h2>接続資格</h2></div><span>Unavailable</span></header><p class="empty-state">現在の接続資格にはCredential管理Capabilityがありません。Credentialの存在や件数は表示しません。</p></article>';
+    return '<article class="panel wide" id="credential-administration"><header><div><p class="eyebrow">CROS administration</p><h2>接続資格の管理</h2></div><span>Unavailable</span></header><p class="empty-state">現在の接続資格にはCredential管理Capabilityがありません。Credentialの存在や件数は表示しません。</p></article>';
   const notice =
     result === null
       ? ""
@@ -141,7 +141,7 @@ export function renderCredentialAdministration(
         `<tr><td><code>${escapeHtml(credential.credentialId)}</code></td><td>${escapeHtml(credential.profile)}</td><td>${credential.workspaceIds.length === 0 ? "N/A" : credential.workspaceIds.map(escapeHtml).join("<br>")}</td><td>${credential.systemAdmin ? "Yes" : "No"}</td><td>${credential.revoked ? "Revoked" : "Active"}</td><td><form method="post" action="/connection-credentials/action"><input type="hidden" name="actionToken" value="${escapeHtml(actionToken)}"><input type="hidden" name="credentialId" value="${escapeHtml(credential.credentialId)}"><label>Workspaces<input name="workspaceIds" value="${escapeHtml(credential.workspaceIds.join(", "))}"></label><label class="confirm"><input type="checkbox" name="systemAdmin" value="true"${credential.systemAdmin ? " checked" : ""}>System admin</label><button name="operation" value="update_access" type="submit">Update</button><button name="operation" value="rotate" type="submit"${credential.revoked ? " disabled" : ""}>Rotate</button><button name="operation" value="revoke" type="submit"${credential.revoked ? " disabled" : ""}>Revoke</button></form></td></tr>`,
     )
     .join("");
-  return `<article class="panel wide" id="connection"><header><div><p class="eyebrow">CROS connection</p><h2>接続資格</h2></div><span>${listed.credentials.length} credentials</span></header>${notice}<form class="credential-issue" method="post" action="/connection-credentials/action"><input type="hidden" name="actionToken" value="${escapeHtml(actionToken)}"><input type="hidden" name="operation" value="issue"><label>Profile<select name="profile"><option value="developer">Developer</option><option value="management">Management</option><option value="administrator">Administrator</option></select></label><p>Profileは発行時の初期値です。実効権限は保存されたWorkspace GrantとSystem Adminで決まります。</p><button type="submit">Issue credential</button></form><div class="table-scroll"><table><thead><tr><th>Credential</th><th>Profile</th><th>Workspaces</th><th>Admin</th><th>Status</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table></div></article>`;
+  return `<article class="panel wide" id="credential-administration"><header><div><p class="eyebrow">CROS administration</p><h2>接続資格の管理</h2></div><span>${listed.credentials.length} credentials</span></header>${notice}<form class="credential-issue" method="post" action="/connection-credentials/action"><input type="hidden" name="actionToken" value="${escapeHtml(actionToken)}"><input type="hidden" name="operation" value="issue"><label>Profile<select name="profile"><option value="developer">Developer</option><option value="management">Management</option><option value="administrator">Administrator</option></select></label><p>Profileは発行時の初期値です。実効権限は保存されたWorkspace GrantとSystem Adminで決まります。</p><button type="submit">Issue credential</button></form><div class="table-scroll"><table><thead><tr><th>Credential</th><th>Profile</th><th>Workspaces</th><th>Admin</th><th>Status</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table></div></article>`;
 }
 
 /**

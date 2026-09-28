@@ -29,10 +29,14 @@ import {
 } from "./provider-home-mount-grant-runtime.ts";
 import { selectProviderModelCandidate } from "./provider-model-selection-runtime.ts";
 import { consumeRuntimeOwnedProviderTaskPacket } from "./provider-task-packet-runtime.ts";
+import {
+  consumeRuntimeOwnedWorkbenchAiAdvicePacket,
+  type WorkbenchAiAdviceRuntimePacket,
+} from "./workbench-ai-advice-runtime-packet.ts";
 
 export const CODEX_DOCKER_RUNTIME_ADAPTER_CONTRACT =
   "crdd-coordinator/codex-docker-runtime-adapter";
-export const CODEX_DOCKER_RUNTIME_ADAPTER_CONTRACT_REVISION = 7;
+export const CODEX_DOCKER_RUNTIME_ADAPTER_CONTRACT_REVISION = 8;
 
 const PREPARED_LIFETIME_MS = 30_000;
 const PROVIDER_HOME_DESTINATION = "/provider-home";
@@ -125,10 +129,13 @@ type PreparedPlan = Readonly<{
   selectedEffort: "low" | "medium" | "high";
   selectedModelTier: string;
   selectionNotice: string;
-  operationMode: "boolean_probe" | "isolated_task";
+  operationMode: "boolean_probe" | "isolated_task" | "workbench_advice";
   taskRole: "executor" | "reviewer" | null;
   taskPacketRef: string | null;
   taskPacketHash: string | null;
+  advicePacketRef: string | null;
+  advicePacketHash: string | null;
+  adviceCommandHash: string | null;
   providerInput: string | null;
   workspaceSourcePath: string | null;
   workspaceMountMode: "read_write" | "read_only" | null;
@@ -240,6 +247,10 @@ type RuntimeState = Readonly<{
     useCapability: unknown,
     managementCapability: unknown,
   ) => ConsumedTaskPacket | null;
+  consumeAdvicePacket?: (
+    useCapability: unknown,
+    ownerCapability: unknown,
+  ) => WorkbenchAiAdviceRuntimePacket | null;
   issueProviderAuthority: (
     managementCapability: unknown,
     activeMountCapability: unknown,
@@ -296,6 +307,7 @@ const productionState = createRuntimeState({
   verifyExecutorSeccompProfile: resolveFixedCodexExecutorSeccompProfile,
   consumeModelSelection: consumeRuntimeOwnedDelegationSelectionGrant,
   consumeTaskPacket: consumeRuntimeOwnedProviderTaskPacket,
+  consumeAdvicePacket: consumeRuntimeOwnedWorkbenchAiAdvicePacket,
   issueProviderAuthority: issueRuntimeOwnedProviderAuthority,
   revokeProviderAuthority: revokeRuntimeOwnedProviderAuthority,
 });
@@ -527,6 +539,7 @@ function buildPlan(
   preparedWallClockMs: number,
   preparedMonotonicMs: number,
   taskPacket: ConsumedTaskPacket | null,
+  advicePacket: WorkbenchAiAdviceRuntimePacket | null,
   recoveryCorrelationId: string | null,
 ) {
   const codex = taskPacket
@@ -560,11 +573,24 @@ function buildPlan(
     ) ||
     codex.status !== "candidate" ||
     !normalizeExactModelId(consumedModelSelection.model) ||
-    consumedModelSelection.model !== codex.exactModel ||
+    consumedModelSelection.model !==
+      (advicePacket?.providerCommand.exactModelId ?? codex.exactModel) ||
     codex.provider !== "codex" ||
+    (taskPacket !== null && advicePacket !== null) ||
     (taskPacket !== null &&
       (taskPacket.operationId !== binding.operationId ||
         taskPacket.promptTransport !== "provider_stdin_only")) ||
+    (advicePacket !== null &&
+      (advicePacket.operationId !== binding.operationId ||
+        advicePacket.profileId !== activation.grant.profileId ||
+        advicePacket.provider !== "codex" ||
+        advicePacket.providerCommand.provider !== "codex" ||
+        advicePacket.providerCommand.reasoningEffort !==
+          consumedModelSelection.effort ||
+        advicePacket.repositoryMounted !== false ||
+        advicePacket.workspaceMounted !== false ||
+        advicePacket.toolsAllowed !== false ||
+        advicePacket.sessionPersistenceAllowed !== false)) ||
     codex.distributionBinding.fixedDigestImageRequired !== true ||
     egress.providerNetworkInternal !== true ||
     egress.providerDirectExternalNetwork !== false ||
@@ -572,7 +598,9 @@ function buildPlan(
   ) {
     return null;
   }
-  const fixedEnvironmentEntries = buildExactFixedEnvironment(codex.environment);
+  const fixedEnvironmentEntries = buildExactFixedEnvironment(
+    advicePacket?.providerCommand.environment ?? codex.environment,
+  );
   const executorSeccompProfile =
     taskPacket?.taskRole === "executor"
       ? (
@@ -623,7 +651,9 @@ function buildPlan(
     return null;
   }
   const ownershipLabel = `crdd.coordinator.runtime=${suffix}`;
-  const providerImageDigest = codex.distributionBinding.fixedImageDigest;
+  const providerImageDigest =
+    advicePacket?.providerCommand.fixedImageDigest ??
+    codex.distributionBinding.fixedImageDigest;
   const proxyImageDigest = egress.verificationAdapter.imageDigest;
   const proxyUrl = `http://crdd:${proxyToken}@proxy:${egress.containerPort}`;
   const providerEnvironmentEntries = [
@@ -719,7 +749,7 @@ function buildPlan(
     ]),
     createCommand("create_provider", [
       "create",
-      ...(taskPacket ? ["--interactive"] : []),
+      ...(taskPacket || advicePacket ? ["--interactive"] : []),
       "--pull=never",
       "--network",
       internalNetworkName,
@@ -750,13 +780,13 @@ function buildPlan(
           ]
         : []),
       providerImageDigest,
-      ...codex.argv,
+      ...(advicePacket?.providerCommand.argv ?? codex.argv),
     ]),
     createCommand("start_proxy", ["start", proxyContainerName]),
     createCommand("start_provider_attached", [
       "start",
       "--attach",
-      ...(taskPacket ? ["--interactive"] : []),
+      ...(taskPacket || advicePacket ? ["--interactive"] : []),
       providerContainerName,
     ]),
   ]);
@@ -788,11 +818,18 @@ function buildPlan(
     selectedEffort: selection.effort,
     selectedModelTier: selection.modelTier,
     selectionNotice: consumedModelSelection.selectionNotice,
-    operationMode: taskPacket ? "isolated_task" : "boolean_probe",
+    operationMode: taskPacket
+      ? "isolated_task"
+      : advicePacket
+        ? "workbench_advice"
+        : "boolean_probe",
     taskRole: taskPacket?.taskRole ?? null,
     taskPacketRef: taskPacket?.taskPacketRef ?? null,
     taskPacketHash: taskPacket?.taskPacketHash ?? null,
-    providerInput: taskPacket?.prompt ?? null,
+    advicePacketRef: advicePacket?.packetRef ?? null,
+    advicePacketHash: advicePacket?.packetHash ?? null,
+    adviceCommandHash: advicePacket?.commandHash ?? null,
+    providerInput: taskPacket?.prompt ?? advicePacket?.providerPrompt ?? null,
     workspaceSourcePath: taskPacket ? binding.mounts.workspace : null,
     workspaceMountMode: taskPacket
       ? taskPacket.taskRole === "executor"
@@ -827,7 +864,15 @@ function prepare(
   selectionUseCapability: unknown,
   taskPacketUseCapability: unknown = null,
   recoveryCorrelationId: unknown = null,
+  advicePacketUseCapability: unknown = null,
+  advicePacketOwnerCapability: unknown = null,
 ) {
+  if (
+    (advicePacketUseCapability === null) !==
+      (advicePacketOwnerCapability === null) ||
+    (taskPacketUseCapability !== null && advicePacketUseCapability !== null)
+  )
+    return createBlockedResult("codex_docker_runtime_input_mode_ambiguous");
   if (
     recoveryCorrelationId !== null &&
     (typeof recoveryCorrelationId !== "string" ||
@@ -890,6 +935,17 @@ function prepare(
       state.completeMount(activeMountCapability, managementCapability);
       return createBlockedResult("codex_docker_runtime_task_packet_invalid");
     }
+    const advicePacket =
+      advicePacketUseCapability === null
+        ? null
+        : (state.consumeAdvicePacket?.(
+            advicePacketUseCapability,
+            advicePacketOwnerCapability,
+          ) ?? null);
+    if (advicePacketUseCapability !== null && !advicePacket) {
+      state.completeMount(activeMountCapability, managementCapability);
+      return createBlockedResult("codex_docker_runtime_advice_packet_invalid");
+    }
     const providerHomeSourcePath = state.borrowMountSource(
       activeMountCapability,
       managementCapability,
@@ -911,6 +967,7 @@ function prepare(
             preparedWallClockMs,
             preparedMonotonicMs,
             taskPacket,
+            advicePacket,
             recoveryCorrelationId,
           )
         : null;
@@ -1237,6 +1294,47 @@ export function prepareRuntimeOwnedCodexDockerTaskCandidate(
 }
 
 /**
+ * Runtime所有のWorkbench読取り助言候補を実行前に準備する。
+ *
+ * @responsibility 一回消費PacketをRepository非共有のCodex実行Planへ結合する。
+ * @trace ARCH-000010 ARCH-000015
+ * @input 管理、Mount、Model Selection、Advice Packetの各Capability。
+ * @returns 準備済み候補またはEffect 0のblocked結果。
+ * @precondition Advice Packetは同じOperation、ProfileおよびProviderへ固定されている。
+ * @postcondition preparedの場合だけworkbench_advice Planを一回消費できる。
+ * @effect Provider Effectは発行せず、Provider Home Leaseと短期Authorityだけを準備する。
+ * @failure Capability、IdentityまたはCommand不一致をEffect前に拒否する。
+ * @invariant Repository／WorkspaceをMountしない。
+ * @boundary Workbench助言Packetと署名Codex Docker Runtimeの間。
+ * @security Packet所有Capabilityと利用Capabilityの両方を要求する。
+ * @concurrency 準備結果は一回消費Capabilityで直列化する。
+ */
+export function prepareRuntimeOwnedCodexDockerAdviceCandidate(
+  managementCapability: unknown,
+  mountCapability: unknown,
+  mountAuthorizationCapability: unknown,
+  selectionUseCapability: unknown,
+  advicePacketUseCapability: unknown,
+  advicePacketOwnerCapability: unknown,
+) {
+  return performSafely(
+    "codex_docker_runtime_advice_preparation_failed_closed",
+    () =>
+      prepare(
+        productionState,
+        managementCapability,
+        mountCapability,
+        mountAuthorizationCapability,
+        selectionUseCapability,
+        null,
+        null,
+        advicePacketUseCapability,
+        advicePacketOwnerCapability,
+      ),
+  );
+}
+
+/**
  * Runtime 所有 Codex Docker 候補を取り消す。
  *
  * @responsibility Runtime 所有 Codex Docker 候補の取消条件、終了状態、残存Effectの境界を所有する。
@@ -1346,6 +1444,29 @@ export function createIsolatedCodexDockerRuntimeAdapterCandidate(
           taskPacketUseCapability,
         ),
       ),
+    prepareAdvice: (
+      managementCapability: unknown,
+      mountCapability: unknown,
+      mountAuthorizationCapability: unknown,
+      selectionUseCapability: unknown,
+      advicePacketUseCapability: unknown,
+      advicePacketOwnerCapability: unknown,
+    ) =>
+      performSafely(
+        "codex_docker_runtime_advice_preparation_failed_closed",
+        () =>
+          prepare(
+            state,
+            managementCapability,
+            mountCapability,
+            mountAuthorizationCapability,
+            selectionUseCapability,
+            null,
+            null,
+            advicePacketUseCapability,
+            advicePacketOwnerCapability,
+          ),
+      ),
     cancel: (preparedCapability: unknown, managementCapability: unknown) =>
       performSafely("codex_docker_runtime_cancellation_failed_closed", () =>
         cancel(state, preparedCapability, managementCapability),
@@ -1434,6 +1555,8 @@ export function describeCodexDockerRuntimeAdapterContract() {
     isolatedWorkspace:
       "runtime_owned_exact_commit_executor_read_write_reviewer_read_only",
     taskPacket: "opaque_single_use_prompt_to_provider_stdin_only",
+    workbenchAdvice:
+      "opaque_single_use_packet_provider_stdin_only_without_repository_or_workspace_mount",
     shellInvocation: false,
     pathLookup: false,
     commandPlanReported: false,

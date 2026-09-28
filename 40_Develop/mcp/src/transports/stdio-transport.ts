@@ -12,6 +12,7 @@ import {
 } from "../adapters/project-runtime-adapter.ts";
 import { protocolError } from "../protocol/project-runtime-protocol.ts";
 import { parseUnambiguousJsonDocument } from "../protocol/unambiguous-json-document.ts";
+import type { McpRequestHandler } from "./request-handler.ts";
 
 export const MCP_PROJECT_RUNTIME_STDIO_CONTRACT =
   "crdd-mcp/stdio-transport/v1" as const;
@@ -58,8 +59,8 @@ function write(output: Writable, value: unknown) {
  * @security N/A: runMcpProjectRuntimeStdioはAuthority、秘密値または信頼判断を扱わない。
  * @concurrency runMcpProjectRuntimeStdioは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
-export async function runMcpProjectRuntimeStdio(
-  dependencies: McpProjectRuntimeDependencies,
+async function runMcpStdioWithHandler(
+  handler: McpRequestHandler,
   input: Readable,
   output: Writable,
 ) {
@@ -132,11 +133,7 @@ export async function runMcpProjectRuntimeStdio(
       queuedBytes -= Buffer.byteLength(line, "utf8");
       const request = parseUnambiguousJsonDocument(line);
       const response = request
-        ? await handleMcpProjectRuntimeRequest(
-            request,
-            dependencies,
-            controller.signal,
-          )
+        ? await handler(request, controller.signal)
         : protocolError(null, -32700, "Parse error");
       if ("result" in response && response.result) {
         const result = response.result as Readonly<{
@@ -180,6 +177,59 @@ export async function runMcpProjectRuntimeStdio(
     cleanupConfirmed: semanticCleanupConfirmed,
     manualRecoveryRequired: semanticManualRecoveryRequired,
   });
+}
+
+/**
+ * Application Handlerを使用してMCP stdioを実行する。
+ *
+ * @responsibility stdio Lifecycleを特定のMCP Capabilityから分離して実行する。
+ * @trace ARCH-000012
+ * @input handler、inputおよびoutputを受け取る。
+ * @returns Transportの終了結果を返す。
+ * @precondition handlerは一Requestを一応答へ収束させる。
+ * @postcondition EOFまたは失敗時に進行中Requestを取消してListenerを除去する。
+ * @effect stdioを読取り、応答を書き込む。
+ * @failure Parse、入出力またはHandler失敗をblockedへ閉じる。
+ * @invariant TransportはTool固有の意味処理を持たない。
+ * @boundary stdioとMCP Application Handlerの境界。
+ * @security stdioのProcess所有者が接続Authorityを所有する。
+ * @concurrency 一つの入力Queueを順序保持して処理する。
+ */
+export async function runMcpStdio(
+  handler: McpRequestHandler,
+  input: Readable,
+  output: Writable,
+) {
+  return runMcpStdioWithHandler(handler, input, output);
+}
+
+/**
+ * Project Runtime互換入口でMCP stdioを実行する。
+ *
+ * @responsibility 既存利用側をProject Runtime Adapterへ接続する互換入口を維持する。
+ * @trace ARCH-000012
+ * @input dependencies、inputおよびoutputを受け取る。
+ * @returns Transportの終了結果を返す。
+ * @precondition dependenciesはProject Runtime公開契約を満たす。
+ * @postcondition 全RequestをProject Runtime Adapterへだけ渡す。
+ * @effect stdioを読取り、応答を書き込む。
+ * @failure TransportまたはAdapter失敗をblockedへ閉じる。
+ * @invariant 既存公開関数の意味を変更しない。
+ * @boundary stdioとProject Runtime Adapterの互換境界。
+ * @security Project Runtime Adapterの認証契約を維持する。
+ * @concurrency 一つの入力Queueを順序保持して処理する。
+ */
+export async function runMcpProjectRuntimeStdio(
+  dependencies: McpProjectRuntimeDependencies,
+  input: Readable,
+  output: Writable,
+) {
+  return runMcpStdioWithHandler(
+    (request, signal) =>
+      handleMcpProjectRuntimeRequest(request, dependencies, signal),
+    input,
+    output,
+  );
 }
 
 /**

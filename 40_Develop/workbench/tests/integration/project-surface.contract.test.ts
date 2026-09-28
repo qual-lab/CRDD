@@ -44,6 +44,35 @@ test("共通Project Contextを読み未構成Capabilityを明示する", async (
   assert.equal(surface.topics.state, "not_configured");
   assert.deepEqual(surface.topics.items, []);
   assert.equal(surface.meetings.state, "not_configured");
+  assert.equal(surface.ownerArtifacts.state, "available");
+  assert.equal(surface.plan.state, "available");
+  assert.equal(surface.plan.projection?.targetVersion, "v0.22.0");
+  assert.equal(surface.plan.projection?.targetReleaseDate, "2026-10-03");
+  assert.equal(surface.quality.state, "available");
+  assert.equal(surface.quality.projection?.target, "v0.22.0");
+  assert.equal(surface.quality.projection?.unobserved, "28 / 39");
+  assert.ok(
+    surface.ownerArtifacts.artifacts.some(
+      (artifact) => artifact.relativePath === "99_Roadmap/01_Roadmap.md",
+    ),
+  );
+  assert.ok(
+    surface.ownerArtifacts.artifacts.some(
+      (artifact) => artifact.relativePath === "99_Roadmap/03_Releases.md",
+    ),
+  );
+  assert.ok(
+    surface.ownerArtifacts.artifacts.some(
+      (artifact) => artifact.relativePath === "07_Quality/01_Quality_Center.md",
+    ),
+  );
+  assert.ok(
+    surface.ownerArtifacts.artifacts.some(
+      (artifact) =>
+        artifact.origin === "project_context" &&
+        artifact.sourceSection === "1. 今どうなっているか",
+    ),
+  );
   assert.deepEqual(surface.meetings.items, []);
   assert.equal(surface.repository.state, "available");
   assert.equal(surface.repository.changeSet?.observationComplete, true);
@@ -98,6 +127,8 @@ test("TopicとMeetingの正本を検証済み一覧へ投影する", async () =>
     assert.equal(surface.meetings.state, "available");
     assert.equal(surface.meetings.items[0]?.meetingId, "MTG-000042");
     assert.equal(surface.meetings.items[0]?.pendingOutcomeCount, 1);
+    assert.equal(surface.plan.state, "not_configured");
+    assert.equal(surface.quality.state, "not_configured");
     assert.equal(surface.repository.state, "unknown");
     assert.equal(surface.repository.changeSet, null);
   } finally {

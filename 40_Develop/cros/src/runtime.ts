@@ -59,7 +59,7 @@ export type CrosExposure = Readonly<{
  *
  * @responsibility 検証済みCredential GrantとSession lifecycleを同じIdentityへ結合する。
  * @trace ARCH-000013
- * @shape Session ID、Credential ID、Workspace集合、管理能力およびactive状態を表す。
+ * @shape Session ID、Credential ID、Workspace集合、Exposure Registry revision、管理能力およびactive状態を表す。
  * @invariant close後はRepositoryを解決しない。
  * @boundary AuthenticationとWorkspace Resolutionの境界。
  * @security Credential Secretを保持せず、Workspace Grantだけを持つ。
@@ -69,7 +69,7 @@ export type CrosSession = Readonly<{
   sessionId: string;
   credentialId: string;
   workspaceIds: readonly string[];
-  registryRevision: string;
+  exposureRegistryRevision: string;
   systemAdmin: boolean;
   active: boolean;
 }>;
@@ -152,12 +152,12 @@ export type CrosHandoff = Readonly<{
 export function createCrosSession(
   sessionId: string,
   credential: CrosCredential,
-  registryRevision = "registry-1",
+  exposureRegistryRevision = "registry-1",
 ): CrosSession | null {
   if (
     !sessionId ||
     !credential.credentialId ||
-    !registryRevision ||
+    !exposureRegistryRevision ||
     credential.revoked
   )
     return null;
@@ -165,7 +165,7 @@ export function createCrosSession(
     sessionId,
     credentialId: credential.credentialId,
     workspaceIds: Object.freeze([...new Set(credential.workspaceIds)]),
-    registryRevision,
+    exposureRegistryRevision,
     systemAdmin: credential.systemAdmin,
     active: true,
   });
@@ -220,7 +220,7 @@ export function resolveRepository(
     (entry) =>
       entry.active &&
       entry.repositoryId === requestedRepositoryId &&
-      entry.registryRevision === session.registryRevision &&
+      entry.registryRevision === session.exposureRegistryRevision &&
       session.workspaceIds.includes(entry.workspaceId),
   );
   const repository = isExposed
@@ -231,7 +231,7 @@ export function resolveRepository(
         (entry) =>
           entry.active &&
           entry.repositoryId === repository.repositoryId &&
-          entry.registryRevision === session.registryRevision &&
+          entry.registryRevision === session.exposureRegistryRevision &&
           entry.repositoryRevision === repository.revision &&
           session.workspaceIds.includes(entry.workspaceId),
       )

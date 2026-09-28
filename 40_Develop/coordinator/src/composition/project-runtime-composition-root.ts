@@ -1369,7 +1369,10 @@ export function runProjectRuntimePublicStateQuery(
 ) {
   try {
     return executeProjectRuntimePublicStateQuery(
-      openRuntimeOwnedWindowsProjectDecisionStore,
+      () =>
+        openRuntimeOwnedWindowsProjectDecisionStore({
+          initializeIfMissing: false,
+        }),
       rawRequest,
       workingDirectory,
       authenticationContext,

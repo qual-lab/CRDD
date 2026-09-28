@@ -63,6 +63,7 @@ test("全Toolの結合ブロックはArchitecture、Lifecycle、実在ITへ閉�
   assert.deepEqual(
     [...new Set(catalog.integrationBlocks.map((entry) => entry.owner))].sort(),
     [
+      "ai-runtime",
       "artifact-signing",
       "checker",
       "coordinator",
@@ -79,6 +80,7 @@ test("全Toolの結合ブロックはArchitecture、Lifecycle、実在ITへ閉�
       "verification-runner",
       "version-control",
       "visual-preview",
+      "workbench",
     ],
   );
   for (const block of catalog.integrationBlocks) {
@@ -656,7 +658,7 @@ test("実行Profileは閉集合かつ重複なしでなければならない", (
 });
 
 /**
- * Windows実Process Gateの3 fileと実行Profileをexactに照合するを検証する。
+ * Windows実Process Gateと実行Profileをexactに照合するを検証する。
  *
  * @responsibility Windows実Process Gateの3 fileと実行Profileをexactに照合するの合否判定を所有する。
  * @trace CQS-UT-010
@@ -667,12 +669,13 @@ test("実行Profileは閉集合かつ重複なしでなければならない", (
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary CQS-UT-010=N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
  */
-test("Windows実Process Gateの3 fileと実行Profileをexactに照合する", () => {
-  const gatePaths = [
-    "40_Develop/coordinator/tests/integration/coordinator-task-process.integration.test.ts",
-    "40_Develop/coordinator/tests/integration/docker-owned-process.integration.test.ts",
-    "40_Develop/coordinator/tests/integration/docker-process-controller.contract.test.ts",
-  ];
+test("Windows実Process Gateと実行Profileをexactに照合する", () => {
+  const gatePaths = catalog.tests
+    .filter((entry) =>
+      entry.executionProfiles?.includes("windows_process_control"),
+    )
+    .map((entry) => entry.path);
+  assert.ok(gatePaths.length > 0);
   for (const gatePath of gatePaths) {
     const invalid = {
       ...catalog,
@@ -714,6 +717,38 @@ test("Windows実Process Gateの3 fileと実行Profileをexactに照合する", (
   assert.ok(
     inspectTestCatalog(repositoryRoot, invalid).includes(
       `windows_process_profile_unexpected:${ordinaryEntry.path}`,
+    ),
+  );
+});
+
+/**
+ * Host Windows接頭辞を持つ条件付き実Process試験もWindows実Process Gateとして検出することを検証する。
+ *
+ * @responsibility 現行のHost Windows命名を旧Windows Process Gate命名と同じ実行Profile契約へ接続する。
+ * @trace CQS-UT-010
+ * @precondition 一時RepositoryへHost Windows接頭辞を持つ試験と対応する台帳項目を配置する。
+ * @stimulus 試験台帳の決定論的検査を実行する。
+ * @observation windows_process_profile_missingが返るかを観測する。
+ * @oracle windows_process_controlを外した場合だけ不足として拒否する。
+ * @cleanup 一時Repositoryを試験終了時に削除する。
+ * @boundary CQS-UT-010=N/A: 一時Filesystem内の台帳検査で完結する。
+ */
+test("Host Windows接頭辞をWindows実Process Gateとして検出する", () => {
+  const gateEntry = catalog.tests.find((entry) =>
+    entry.path.endsWith("docker-owned-process.integration.test.ts"),
+  );
+  assert.ok(gateEntry);
+  const invalid = {
+    ...catalog,
+    tests: catalog.tests.map((entry) =>
+      entry.path === gateEntry.path
+        ? { ...entry, executionProfiles: ["restricted_process"] }
+        : entry,
+    ),
+  };
+  assert.ok(
+    inspectTestCatalog(repositoryRoot, invalid).includes(
+      `windows_process_profile_missing:${gateEntry.path}`,
     ),
   );
 });

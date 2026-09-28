@@ -22,6 +22,7 @@ const REQUEST_KEYS = new Set([
   "delegationNeed",
   "delegationReason",
   "requestedExecutorProvider",
+  "requestedProfileId",
   "subjectProvider",
   "requiresIndependentProvider",
   "role",
@@ -57,6 +58,7 @@ const SAME_PROVIDER_FALLBACK_REASONS = new Set([
   "policy_blocked",
 ]);
 const REQUESTED_PROVIDERS = new Set(["auto", "codex", "claude"]);
+const PROFILE_ID = /^PROFILE-[0-9]{6,}$/u;
 const DELEGATION_NEEDS = new Set(["none", "beneficial", "required"]);
 const DELEGATION_REASONS = new Set([
   "front_can_complete_without_specialized_or_independent_child",
@@ -576,6 +578,10 @@ export function selectDelegationRouteCandidate(
     ) ||
     typeof request.requestedExecutorProvider !== "string" ||
     !REQUESTED_PROVIDERS.has(request.requestedExecutorProvider) ||
+    (request.requestedProfileId !== undefined &&
+      request.requestedProfileId !== null &&
+      (typeof request.requestedProfileId !== "string" ||
+        !PROFILE_ID.test(request.requestedProfileId))) ||
     (request.subjectProvider !== null &&
       !isProvider(request.subjectProvider)) ||
     !isBoolean(request.requiresIndependentProvider) ||
@@ -721,6 +727,10 @@ export function selectDelegationRouteCandidate(
     ),
     modelSelection,
     modelSelectionBasis,
+    requestedProfileId:
+      typeof request.requestedProfileId === "string"
+        ? request.requestedProfileId
+        : null,
     operationId: operationChain.operationId,
     parentOperationId: operationChain.parentOperationId,
     ancestorOperationIds: operationChain.ancestorOperationIds,

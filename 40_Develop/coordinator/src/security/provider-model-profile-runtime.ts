@@ -4,6 +4,12 @@
  * @responsibility Providerを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000010
  */
+import {
+  DEFAULT_AI_PROFILE_CATALOG,
+  resolveAiProfile,
+  validateAiProfileCatalog,
+} from "../../../ai-runtime/src/catalog.ts";
+import type { AiProfileCatalog } from "../../../ai-runtime/src/ai-profile-types.ts";
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 
 export const PROVIDER_MODEL_PROFILE_RUNTIME_CONTRACT =
@@ -11,6 +17,15 @@ export const PROVIDER_MODEL_PROFILE_RUNTIME_CONTRACT =
 export const PROVIDER_MODEL_PROFILE_RUNTIME_CONTRACT_REVISION = 2;
 
 const REQUEST_KEYS = new Set([
+  "provider",
+  "profileId",
+  "family",
+  "role",
+  "modelTier",
+  "speedMode",
+  "billingMode",
+]);
+const AUTOMATIC_REQUEST_KEYS = new Set([
   "provider",
   "family",
   "role",
@@ -25,85 +40,7 @@ const ROLES = new Set([
   "independent_reviewer",
   "result_integration",
 ]);
-
-/**
- * provider-model-profile-runtimeで使用するProviderの値契約を定義する。
- *
- * @responsibility ProviderのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000010
- * @shape Providerが表すProperty、識別子およびRelationを型として固定する。
- * @invariant Providerで宣言した値と責務の対応を維持する。
- * @boundary N/A: Providerの宣言は外部境界を開かない。
- * @security ProviderはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility Providerの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type Provider = "codex" | "claude";
-
-/**
- * Profileを一意に解決する。
- *
- * @responsibility Profileの候補集合、解決規則、曖昧時の拒否境界を所有する。
- * @trace ARCH-000010
- * @input provider: Provider、family: "sol" | "opus"、role: | "coordinator" | "executor" | "independent_reviewer" | "result_integration"、modelTier: "preferred" | "upper_allowed"
- * @returns resolveProfileの計算結果を返す。
- * @precondition 「provider: Provider、family: "sol" | "opus"、role: | "coordinator" | "executor" | "independent_reviewer" | "result_integration"、modelTier: "preferred" | "upper_allowed"」がresolveProfileの入力契約を満たす。
- * @postcondition resolveProfileの責務を完了した結果だけを返す。
- * @effect N/A: resolveProfileは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: resolveProfileは独自の失敗分岐を所有しない。
- * @invariant resolveProfileは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: resolveProfileはProcess内の同一Subsystemで完結する。
- * @security resolveProfileはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: resolveProfileは共有非同期状態を持たない同期処理である。
- */
-function resolveProfile(
-  provider: Provider,
-  family: "sol" | "opus",
-  role:
-    | "coordinator"
-    | "executor"
-    | "independent_reviewer"
-    | "result_integration",
-  modelTier: "preferred" | "upper_allowed",
-) {
-  const isUpperModelTier = modelTier === "upper_allowed";
-  if (provider === "codex" && family === "sol") {
-    const isIsolatedTaskRole =
-      role === "executor" || role === "independent_reviewer";
-    return Object.freeze({
-      provider,
-      profileId: isIsolatedTaskRole
-        ? isUpperModelTier
-          ? "PROFILE-100004"
-          : "PROFILE-100003"
-        : isUpperModelTier
-          ? "PROFILE-100002"
-          : "PROFILE-100001",
-      exactModelId: isIsolatedTaskRole ? "gpt-5.5" : "gpt-5.6-sol",
-      family,
-      selectionRole: role,
-      modelTier,
-      speedMode: "normal" as const,
-      billingMode: "subscription_oauth" as const,
-      compatibilityReason: isIsolatedTaskRole
-        ? ("gpt_5_6_code_mode_only_host_unavailable_in_fixed_linux_runtime" as const)
-        : null,
-    });
-  }
-  if (provider === "claude" && family === "opus") {
-    return Object.freeze({
-      provider,
-      profileId: isUpperModelTier ? "PROFILE-200002" : "PROFILE-200001",
-      exactModelId: "opus",
-      family,
-      selectionRole: role,
-      modelTier,
-      speedMode: "normal" as const,
-      billingMode: "subscription_oauth" as const,
-      compatibilityReason: null,
-    });
-  }
-  return null;
-}
+const PROFILE_ID = /^PROFILE-[0-9]{6,}$/u;
 
 /**
  * Runtime 所有 Provider Model Profileを一意に解決する。
@@ -122,11 +59,42 @@ function resolveProfile(
  * @concurrency N/A: resolveRuntimeOwnedProviderModelProfileは共有非同期状態を持たない同期処理である。
  */
 export function resolveRuntimeOwnedProviderModelProfile(rawRequest: unknown) {
-  const request = snapshotPlainRecord(rawRequest, REQUEST_KEYS);
+  return resolveRuntimeOwnedProviderModelProfileFromCatalog(
+    DEFAULT_AI_PROFILE_CATALOG,
+    rawRequest,
+  );
+}
+
+/**
+ * 検証済みCatalog SnapshotからRuntime所有Profileを一意に解決する。
+ *
+ * @responsibility 外部構成で追加したFamilyを中核の固定列挙へ戻さず、閉じたCatalog契約から解決する。
+ * @trace ARCH-000010
+ * @input rawCatalog: 採用候補または採用済みCatalog、rawRequest: Profile解決要求。
+ * @returns 既存Coordinator公開形の解決結果。拒否時はnull。
+ * @precondition rawCatalogとrawRequestを信頼済みObjectと仮定しない。
+ * @postcondition Profile、Adapter、Modelの参照整合と一意性を満たす結果だけを返す。
+ * @effect N/A: Snapshot検証とCatalog検索だけを行う。
+ * @failure 不正Catalog、未知値、余分Key、0件または複数一致をnullとして拒否する。
+ * @invariant Catalog選択だけでProvider実行Authorityを発行しない。
+ * @boundary AI Runtime CatalogとCoordinator選択Consumerの境界。
+ * @security 秘密値、任意実行Pathまたは任意引数をCatalogから受理しない。
+ * @concurrency N/A: 不変Snapshotを読む同期処理である。
+ */
+export function resolveRuntimeOwnedProviderModelProfileFromCatalog(
+  rawCatalog: unknown,
+  rawRequest: unknown,
+) {
+  const catalog: AiProfileCatalog | null = validateAiProfileCatalog(rawCatalog);
+  if (!catalog) return null;
+  const request =
+    snapshotPlainRecord(rawRequest, REQUEST_KEYS) ??
+    snapshotPlainRecord(rawRequest, AUTOMATIC_REQUEST_KEYS);
   if (
     !request ||
     (request.provider !== "codex" && request.provider !== "claude") ||
-    (request.family !== "sol" && request.family !== "opus") ||
+    typeof request.family !== "string" ||
+    request.family.length === 0 ||
     typeof request.role !== "string" ||
     !ROLES.has(request.role) ||
     !MODEL_TIERS.has(request.modelTier as string) ||
@@ -135,16 +103,75 @@ export function resolveRuntimeOwnedProviderModelProfile(rawRequest: unknown) {
   ) {
     return null;
   }
-  return resolveProfile(
-    request.provider,
-    request.family,
-    request.role as
+  if (
+    request.profileId !== undefined &&
+    (typeof request.profileId !== "string" ||
+      !PROFILE_ID.test(request.profileId))
+  )
+    return null;
+  if (typeof request.profileId === "string") {
+    const profile = catalog.profiles.find(
+      (candidate) => candidate.profileId === request.profileId,
+    );
+    const adapter = catalog.adapters.find(
+      (candidate) => candidate.adapterId === profile?.adapterId,
+    );
+    if (
+      profile === undefined ||
+      adapter === undefined ||
+      adapter.provider !== request.provider ||
+      !profile.selectionRoles.includes(
+        request.role as
+          | "coordinator"
+          | "executor"
+          | "independent_reviewer"
+          | "result_integration",
+      ) ||
+      !profile.modelTiers.includes(
+        request.modelTier as "preferred" | "upper_allowed",
+      )
+    )
+      return null;
+    return Object.freeze({
+      provider: adapter.provider,
+      profileId: profile.profileId,
+      exactModelId: profile.exactModelId,
+      family: profile.family,
+      selectionRole: request.role as
+        | "coordinator"
+        | "executor"
+        | "independent_reviewer"
+        | "result_integration",
+      modelTier: request.modelTier as "preferred" | "upper_allowed",
+      speedMode: profile.speedMode,
+      billingMode: profile.billingMode,
+      compatibilityReason: profile.compatibilityReason,
+    });
+  }
+  const resolved = resolveAiProfile(catalog, {
+    provider: request.provider,
+    family: request.family,
+    role: request.role as
       | "coordinator"
       | "executor"
       | "independent_reviewer"
       | "result_integration",
-    request.modelTier as "preferred" | "upper_allowed",
-  );
+    modelTier: request.modelTier as "preferred" | "upper_allowed",
+    speedMode: "normal",
+    billingMode: "subscription_oauth",
+  });
+  if (!resolved) return null;
+  return Object.freeze({
+    provider: resolved.provider,
+    profileId: resolved.profileId,
+    exactModelId: resolved.exactModelId,
+    family: resolved.family,
+    selectionRole: resolved.selectionRole,
+    modelTier: resolved.modelTier,
+    speedMode: resolved.speedMode,
+    billingMode: resolved.billingMode,
+    compatibilityReason: resolved.compatibilityReason,
+  });
 }
 
 /**

@@ -25,7 +25,7 @@ Screen ID: `SCR-000009`
 
 | PRT | 意味／責務 | 情報 | 操作 | State／Variant |
 |---|---|---|---|---|
-| `PRT-000009` | TopicとMeetingのLifecycleおよびOutcome処置を扱う。 | Topic現在状態、Meeting時点記録、Outcome、Action、Relation、削除影響、次行動 | 登録／編集／取得／一覧／終了／訂正／候補処置／削除 | active／closed／corrected／pending-outcome／deletion-review／unknown／restricted |
+| `PRT-000009` | TopicとMeetingのLifecycleおよびOutcome処置を扱う。Remote CROSでは許可済みPortfolioから対象Repositoryを明示選択する。 | 選択Repository、Topic現在状態、Meeting時点記録、Outcome、Action、Relation、Owner Repository、削除影響、次行動 | Repository選択／登録／編集／取得／一覧／終了／訂正／候補処置／削除 | active／closed／corrected／pending-outcome／deletion-review／repository-unselected／unknown／restricted |
 
 ## 3. InteractionとBHV対応
 
@@ -42,6 +42,9 @@ Screen ID: `SCR-000009`
 | blocked | 前提、権限または入力が不足 | 理由と影響範囲を示す | 修正／再確認 | readyへ戻る |
 | unknown／stale | 現在状態を断定できない | 正常・不存在と区別する | 再観測 | 根拠取得後に再判定 |
 | restricted | 開示または操作不可 | 許可範囲だけを示す | Authority確認 | Grant更新後に再評価 |
+| repository-unselected | Remote CROSへ接続したが対象Repositoryを選択していない | Topic／MeetingをLocal Repositoryから代替表示せず、現在のPortfolio Sourceから選択が必要だと示す | Repositoryを選ぶ | 選択後に同じRepository IDで一覧・詳細を取得 |
+
+Remote CROSではRepository IDを知っていることをAuthorityとして扱わない。現在表示できるPortfolio Sourceだけを選択候補とし、一覧・詳細・書込み・Relation遷移の間で選択Repositoryを保持する。Relation先が別Repositoryにある場合は、MCPが返したOwner Repositoryへ明示的に切り替える。
 
 ## 5. VisualとAccessibility
 

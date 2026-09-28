@@ -12,9 +12,13 @@ not_authorized→authorized→sent→returned→candidate→adoptedを別Authori
 | 区分 | 内容 |
 |---|---|
 | 状態Owner | External Information Boundary |
-| 所有する責務 | 目的限定の送信同意、最小化送信、同じ依頼への結果帰還、候補隔離、採否 |
+| 所有する責務 | 目的限定の送信同意、読取り助言／変更候補の分離、最小化送信、同じ依頼への結果帰還、候補隔離、採否 |
 | 所有しない責務 | 送信同意からの結果採用、外部AIへの決定権限移譲、所有正本の無断更新 |
 | 主な外部境界 | 外部AI／API／MCP、Candidate Store、所有正本、人間判断 |
+
+読取り助言は所有正本Effect 0の結果として帰還させる。変更候補は未信頼候補として隔離し、人間判断による採用と所有正本更新を別Authorityにする。入口、TransportまたはProfile変更を理由に依頼種別を暗黙変更しない。
+
+結果は、確認済み事実、共有済み分析、追加推論および次の選択肢を区分し、各項目を本文と一件以上の正本参照の組として帰還させる。読取り助言では、利用者依頼、選択Profileおよび許可済み読取り投影を内容Hash付きの専用Task Packetへ固定してから送信Authorityへ渡す。Packet生成は外部Effect 0であり、投影本文を指示またはAuthorityとして扱わない。結果境界は型宣言だけに依存せず閉じたSchemaを実行時検証し、根拠参照のない項目、余分なKeyまたは過大な値を部分採用しない。参照はProvenanceであり、Repository読取りAuthorityではない。
 
 ## 2. UI観点の入力
 

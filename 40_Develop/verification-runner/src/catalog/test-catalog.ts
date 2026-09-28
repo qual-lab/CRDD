@@ -61,6 +61,7 @@ export const integrationLifecycleProfiles = [
 export type TestCatalogEntry = Readonly<{
   id: string;
   owner:
+    | "ai-runtime"
     | "artifact-signing"
     | "checker"
     | "coordinator"
@@ -76,7 +77,8 @@ export type TestCatalogEntry = Readonly<{
     | "version-control"
     | "platform-access"
     | "verification-runner"
-    | "visual-preview";
+    | "visual-preview"
+    | "workbench";
   path: string;
   level: TestLevel;
   kind: (typeof testKinds)[number];
@@ -107,6 +109,7 @@ export type TestCatalog = Readonly<{
   regressionIsSelection: true;
   resourceIntensiveLevels: readonly ["performance", "longevity"];
   runnerProfiles: Readonly<{
+    "ai-runtime": "node_test";
     "artifact-signing": "node_test";
     checker: "node_test";
     coordinator: "node_test";
@@ -123,6 +126,7 @@ export type TestCatalog = Readonly<{
     "platform-access": "cargo_test";
     "verification-runner": "node_test";
     "visual-preview": "node_test";
+    workbench: "node_test";
   }>;
   integrationBlocks: readonly Readonly<{
     id: string;
@@ -156,6 +160,7 @@ const RESOURCE_INTENSIVE_LEVELS = new Set<TestLevel>([
   "longevity",
 ]);
 const RUNNER_SUPPORTED_OWNERS = new Set([
+  "ai-runtime",
   "artifact-signing",
   "checker",
   "coordinator",
@@ -172,8 +177,10 @@ const RUNNER_SUPPORTED_OWNERS = new Set([
   "platform-access",
   "verification-runner",
   "visual-preview",
+  "workbench",
 ]);
 const RUNNER_PROFILES = Object.freeze({
+  "ai-runtime": "node_test",
   "artifact-signing": "node_test",
   checker: "node_test",
   coordinator: "node_test",
@@ -190,6 +197,7 @@ const RUNNER_PROFILES = Object.freeze({
   "platform-access": "cargo_test",
   "verification-runner": "node_test",
   "visual-preview": "node_test",
+  workbench: "node_test",
 });
 const validExecutionProfiles = new Set(executionProfiles);
 const validIntegrationLifecycleProfiles = new Set(integrationLifecycleProfiles);
@@ -247,7 +255,7 @@ const ENTRY_KEYS = new Set([
 ]);
 const IGNORED_WALK_DIRECTORIES = new Set([".git", "node_modules", "target"]);
 const WINDOWS_PROCESS_GATE_DECLARATION =
-  /\btest\s*\(\s*[`"]Windows Process Gate:/u;
+  /\btest\s*\(\s*(?:[`"]Windows Process Gate:|[`"]Host Windows:|`Host Windows:)/u;
 
 /**
  * ordinalを決定する。
@@ -341,6 +349,7 @@ function walkFiles(root: string, directory: string): string[] {
  */
 export function discoverRepositoryTestFiles(repositoryRoot: string): string[] {
   const nodeTests = [
+    "ai-runtime",
     "artifact-signing",
     "checker",
     "coordinator",
@@ -356,6 +365,7 @@ export function discoverRepositoryTestFiles(repositoryRoot: string): string[] {
     "version-control",
     "verification-runner",
     "visual-preview",
+    "workbench",
   ].flatMap((owner) =>
     walkFiles(
       repositoryRoot,
@@ -414,7 +424,7 @@ function isTestLevel(value: unknown): value is TestLevel {
  */
 function expectedNodeLevel(entryPath: string): string | null {
   return (
-    /^40_Develop\/(?:artifact-signing|checker|coordinator|crdd-domain-library|cros|execution-intelligence|mcp|official-asset-governance|project-operation|project-runtime|runtime-data|semantic-coverage|verification-runner|version-control|visual-preview)\/tests\/([^/]+)\//u.exec(
+    /^40_Develop\/(?:ai-runtime|artifact-signing|checker|coordinator|crdd-domain-library|cros|execution-intelligence|mcp|official-asset-governance|project-operation|project-runtime|runtime-data|semantic-coverage|verification-runner|version-control|visual-preview|workbench)\/tests\/([^/]+)\//u.exec(
       entryPath,
     )?.[1] ?? null
   );
@@ -1038,6 +1048,7 @@ export function inspectResourceIntensiveTestAuthority(
  * @concurrency N/A: ownerForPathは共有非同期状態を持たない同期処理である。
  */
 function ownerForPath(changedPath: string): TestCatalogEntry["owner"] | null {
+  if (changedPath.startsWith("40_Develop/ai-runtime/")) return "ai-runtime";
   if (changedPath.startsWith("40_Develop/artifact-signing/"))
     return "artifact-signing";
   if (changedPath.startsWith("40_Develop/coordinator/")) return "coordinator";
@@ -1065,6 +1076,7 @@ function ownerForPath(changedPath: string): TestCatalogEntry["owner"] | null {
     return "version-control";
   if (changedPath.startsWith("40_Develop/platform-access/"))
     return "platform-access";
+  if (changedPath.startsWith("40_Develop/workbench/")) return "workbench";
   return null;
 }
 

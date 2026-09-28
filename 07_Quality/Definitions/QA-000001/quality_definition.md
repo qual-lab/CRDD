@@ -37,6 +37,7 @@ Quality ID: `QA-000001`
 
 | 詳細設計領域 | 受け取る成立条件 |
 |---|---|
+| [ai-runtime](../../../06_Architecture/Details/ai-runtime/01_Architecture.md) | 閉じたProfile Catalog、Owner別不変Snapshot、一意解決、四軸Availability、限定管理と拒否時Effect 0 |
 | [checker](../../../06_Architecture/Details/checker/01_Architecture.md) | 決定論的検査、必要図とRelationの機械確認、未確認の分離、意味判断の非所有 |
 | [contract-migration](../../../06_Architecture/Details/contract-migration/01_Architecture.md) | Producer、全Consumer、派生物、署名・Release経路の閉包 |
 | [crdd-domain-library](../../../06_Architecture/Details/crdd-domain-library/01_Architecture.md) | Capability別公開入口、禁止依存、Domain IssueとChecker Findingの分離、既知Consumerの閉包 |

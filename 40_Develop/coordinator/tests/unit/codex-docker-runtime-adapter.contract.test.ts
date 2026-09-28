@@ -18,8 +18,9 @@ import {
   describeCodexDockerRuntimeAdapterContract,
   prepareRuntimeOwnedCodexDockerCandidate,
 } from "../../src/security/codex-docker-runtime-adapter.ts";
-import { createIsolatedDockerEffectRuntimeCandidate } from "../../src/security/docker-effect-runtime.ts";
 import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../src/security/delegation-selection-grant-runtime.ts";
+import { createIsolatedDockerEffectRuntimeCandidate } from "../../src/security/docker-effect-runtime.ts";
+import { planWorkbenchAiAdviceProviderCommand } from "../../src/security/workbench-ai-advice-provider-command.ts";
 
 const MODEL_SELECTION = Object.freeze({
   selectionRecordId: "MODELSEL-12345678",
@@ -201,6 +202,84 @@ function createFixture(
     },
   };
 }
+
+/**
+ * Workbench助言をRepository非共有のCodex Planへ固定することを検証する。
+ *
+ * @responsibility 第3実行モードのIdentity、標準入力およびMount境界を判定する。
+ * @trace PRL-UT-014
+ * @precondition 固定Model Selectionと有効なAdvice Packetを使用する。
+ * @stimulus prepareAdviceを実行してPlanを一回消費する。
+ * @observation operationMode、Packet Identity、CommandおよびWorkspace Mountを観測する。
+ * @oracle workbench_adviceでありRepository／Workspaceを共有しない。
+ * @cleanup Provider Effectを発行しないため外部資源はない。
+ * @boundary PRL-UT-014=N/A: 局所Plan生成だけを検証する。
+ */
+test("Workbench助言をRepository非共有のCodex Planへ固定する", () => {
+  const providerCommand = planWorkbenchAiAdviceProviderCommand({
+    provider: "codex",
+    exactModelId: "gpt-5.5",
+    reasoningEffort: "low",
+  });
+  const fixture = createFixture(
+    {
+      consumeAdvicePacket: () =>
+        Object.freeze({
+          contract: "crdd-coordinator/workbench-ai-advice-runtime-packet",
+          contractRevision: 1,
+          packetRef: "ADVICEPKT-00112233445566778899AABBCCDDEEFF",
+          operationId: "OP-123456",
+          profileId: "PROFILE-100003",
+          provider: "codex" as const,
+          taskHash: "2".repeat(64),
+          projectionHash: "3".repeat(64),
+          commandHash: "4".repeat(64),
+          packetHash: "5".repeat(64),
+          providerCommand,
+          providerPrompt: "Give advice from the supplied projection.",
+          repositoryMounted: false as const,
+          workspaceMounted: false as const,
+          toolsAllowed: false as const,
+          sessionPersistenceAllowed: false as const,
+        }),
+    },
+    true,
+  );
+  const prepared = fixture.adapter.prepareAdvice(
+    fixture.managementCapability,
+    fixture.mountCapability,
+    fixture.mountAuthorizationCapability,
+    fixture.selectionUseCapability,
+    Object.freeze({}),
+    Object.freeze({}),
+  );
+  assert.equal(prepared.status, "prepared");
+  const plan = fixture.adapter.consumeForProcessController(
+    prepared.preparedCapability,
+    fixture.managementCapability,
+  );
+  assert.ok(plan);
+  assert.equal(plan.operationMode, "workbench_advice");
+  assert.equal(
+    plan.advicePacketRef,
+    "ADVICEPKT-00112233445566778899AABBCCDDEEFF",
+  );
+  assert.equal(plan.providerInput, "Give advice from the supplied projection.");
+  assert.equal(plan.workspaceSourcePath, null);
+  assert.equal(plan.workspaceMountMode, null);
+  const createProvider = plan.commands.find(
+    (command) => command.purpose === "create_provider",
+  );
+  assert.ok(createProvider);
+  assert.equal(
+    createProvider.argv.includes("C:\\crdd\\operation\\workspace"),
+    false,
+  );
+  assert.deepEqual(
+    createProvider.argv.slice(-providerCommand.argv.length),
+    providerCommand.argv,
+  );
+});
 
 /**
  * Codex Executorの正規seccomp commandをDocker Effect利用側も同じ意味で受理するを検証する。
@@ -682,6 +761,7 @@ test("Selection Grantのopaque use aliasをCodex adapterへ一回だけ接続す
     delegationNeed: "beneficial",
     delegationReason: "specialized_executor_benefit",
     requestedExecutorProvider: "auto",
+    requestedProfileId: null,
     subjectProvider: null,
     requiresIndependentProvider: false,
     role: "executor",
@@ -897,7 +977,7 @@ test("production adapterは未発行のCapabilityと未接続Selection Grantを�
  */
 test("公開契約はCoordinator選定とProvider fallbackを分離する", () => {
   const contract = describeCodexDockerRuntimeAdapterContract();
-  assert.equal(contract.contractRevision, 7);
+  assert.equal(contract.contractRevision, 8);
   assert.equal(
     contract.providerHomeCrossProcessLease,
     "docker_global_provider_home_identity_container_name_fail_closed",

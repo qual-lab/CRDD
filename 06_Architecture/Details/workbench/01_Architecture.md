@@ -56,14 +56,14 @@
 
 | 導出キー | 設計項目種別 | 対象 | 正常条件 | 反証する失敗 | 主な試験段階 | 外部境界の段階 | 観測 | 終了後条件 | 未確認 |
 |---|---|---|---|---|---|---|---|---|---|
-| `workbench.component-boundary` | Component／Responsibility | Browser UI→Workbench Adapter→公開Application Contract | UIが正本やAuthorityを所有せず同じ契約を利用する | Screenが独自状態や書込みを実装する | ST | System/E2E | import、request、result、Owner | 重複正本0、未所有Effect 0 | Production Source未実装 |
-| `workbench.interface-boundary` | Interface／Security | Browser→localhost Server→Consumer Port | loopbackと既存Authority内だけで要求を搬送する | 外部Bind、内部型露出、Grant越境 | IT | Direct Boundary | bind address、request、Grant、response | listener 0、秘密再表示0 | localhostとCredential管理は観測済み。Remote Transportは未実装 |
-| `workbench.view-state` | State／Consistency | Projection→View Model→DOM | partial、restricted、unknownを区別する | unknownをempty／completeへ畳む | UAT | User Acceptance | state、coverage、source、表示 | staleな成功表示0 | Production DOM未実装 |
-| `workbench.interaction-sequence` | Sequence／Effect | 操作→要求→受理→Effect→結果→回復 | 各段階を区別し結果不明時に暗黙再送しない | request発行を完了と表示する | IT／ST | Direct Boundary／System E2E | request identity、effect state、result | 重複Effect 0 | Repository Workは観測済み。Topic／MeetingとAI操作は未確認 |
-| `workbench.resource-flow` | Data Flow／Lifecycle | listener、request、session、child process | shutdown後に所有資源が残らない | Browser closeだけでcleanup完了とする | IT | Direct Boundary | handle、process、listener、temporary resource | 所有資源0 | Production Runtime未実装 |
+| `workbench.component-boundary` | Component／Responsibility | Browser UI→Workbench Adapter→公開Application Contract | UIが正本やAuthorityを所有せず同じ契約を利用する | Screenが独自状態や書込みを実装する | ST | System/E2E | import、request、result、Owner | 重複正本0、未所有Effect 0 | Project Context、Topic／Meeting、Version Control、Credential、AI Profile／Request、Runtime ActivityおよびOwner Artifact PortをProductionで観測済み。15画面のProduction DOMは実Browser Visual Gateで全数観測済み |
+| `workbench.interface-boundary` | Interface／Security | Browser→localhost Server→Consumer Port | loopbackと既存Authority内だけで要求を搬送する | 外部Bind、内部型露出、Grant越境 | IT | Direct Boundary | bind address、request、Grant、response | listener 0、秘密再表示0 | localhost、Credential管理、Bearer Remote Transport、Browser接続入口、および外部TLS終端から同一Origin Gatewayへの境界を観測済み |
+| `workbench.view-state` | State／Consistency | Projection→View Model→DOM | partial、restricted、unknownを区別する | unknownをempty／completeへ畳む | UAT | User Acceptance | state、coverage、source、表示 | staleな成功表示0 | Topic／Meeting未構成、Remote失効、Git観測不能、AI未接続、Runtime absent／unknown、Owner Artifact unknownをProduction DOMで分離済み。人間受入は未完了 |
+| `workbench.interaction-sequence` | Sequence／Effect | 操作→要求→受理→Effect→結果→回復 | 各段階を区別し結果不明時に暗黙再送しない | request発行を完了と表示する | IT／ST | Direct Boundary／System E2E | request identity、effect state、result | 重複Effect 0 | Repository Work、Topic／Meeting、Credential、接続、AI Profile、現在Session AI Port、署名済み読取り助言Production Runtimeおよび変更候補の確認・採用・破棄境界を局所観測済み。実Provider E2Eは未確認 |
+| `workbench.resource-flow` | Data Flow／Lifecycle | listener、request、session、child process | shutdown後に所有資源が残らない | Browser closeだけでcleanup完了とする | IT／ST | Direct Boundary／System E2E | handle、exact process identity、listener、temporary resource | 所有資源0 | localhost ServerのListener／Connection cleanupに加え、15画面の実Browser Process、専用ProfileおよびWorkbench Listenerの終了後不存在を観測済み。読取り助言Runtimeの実Provider E2Eは未確認 |
 | `workbench.failure-recovery` | Failure／Recovery | conflict、partial、unknown、provider failure | 入力と確認済み結果を保ち安全に再入場できる | 自動再実行、無断上書き、事実損失 | ST | System/E2E | retained input、result classification、next action | 未承認Effect 0 | Push結果不明は観測済み。他のOperation／Providerは未確認 |
-| `workbench.mode-variation` | Variation／Common Contract | Repository単体／Local CROS／Remote CROS | 可用能力差を示し同じ結果意味を保つ | Modeごとに状態語彙やAuthorityが変わる | IT | Direct Boundary | mode、capability、result schema | 未許可Source読取り0 | Remote実境界未実装 |
-| `workbench.screen-composition` | UI Composition／Visual | Direction Aの15 Screenと公式ロゴ | 公式ロゴを左上に表示し各Profileで主要Flowを利用できる | 代替Logo、横Overflow、Focus不能、情報階層崩壊 | ST | System/E2E | image load、DOM、zoom、viewport、keyboard | Browser資源0 | Production画面未実装 |
+| `workbench.mode-variation` | Variation／Common Contract | Repository単体／Local CROS／Remote CROS | 可用能力差を示し同じ結果意味を保つ | Modeごとに状態語彙やAuthorityが変わる | IT | Direct Boundary | mode、capability、result schema | 未許可Source読取り0 | Browserからの接続・更新・切断、Remote Portfolio取得、許可済みSource選択、Remote Topic／Meetingの一覧・詳細・書込み・Relation遷移、失効後Unavailable、およびREST／MCP同一HTTPS Origin契約を観測済み |
+| `workbench.screen-composition` | UI Composition／Visual | Direction Aの15 Screenと公式ロゴ | 公式ロゴを左上に表示し各Profileで主要Flowを利用できる | 代替Logo、横Overflow、Focus不能、情報階層崩壊 | ST | System/E2E | image load、DOM、zoom、viewport、keyboard | Browser資源0 | [実Browser Visual Gate](../../../99_Roadmap/Changes/CHG-000082/Evidence/260928-1028_phase5-workbench-actual-browser-visual.md)で15画面、Desktop／Tablet／Mobile、100%／200%／400%の27条件を全数観測済み。人間UATは未完了 |
 
 ## 現行実装との照合
 
@@ -87,7 +87,7 @@ CROS Workbenchは、Project Context、Topic、Meeting、Quality、正本Relation
 | ARCH-000010 | AI ProfileとTool Capabilityの表示・選択 | Provider能力、Model Registryの正本 |
 | ARCH-000012 | Local／Remote入口で同じApplication意味を使う | TransportによるAuthority生成 |
 | ARCH-000013 | Workspace Grant内の投影 | User Account、Repository内ACL、Role付替え |
-| ARCH-000015 | 外部AI依頼と結果帰還 | 外部送信許可、候補の自動採用 |
+| ARCH-000015 | 外部AI依頼、結果帰還と候補採否 | 外部送信許可、候補内容、Canonical Repositoryの無断更新 |
 | ARCH-000016 | 現在有効な意図と履歴への導線 | Git履歴やCHGの代替正本 |
 | ARCH-000017 | 公式ロゴの出所と用途 | 新しいBrand Assetの自己承認 |
 
@@ -106,6 +106,8 @@ Browser
       ├ Project Operation／CROS Port
       ├ Version Control Port
       ├ AI Runtime Port
+      ├ Project Runtime State Query Port
+      ├ Owner Artifact Read Port
       └ Official Asset Port
             │
             ▼
@@ -146,8 +148,13 @@ Browser ── Workbench Surface ── authenticated CROS Transport
 | Project／Portfolio Projection | Owner Artifact→CROS／Project Operation | 表示用Snapshotだけ | 再取得またはSession終了 |
 | Topic／Meeting編集入力 | 利用者＋Interaction Adapter | 送信完了まで保持 | 成功、取消、明示破棄 |
 | Git Tree／Diff／Stage状態 | Version Control Adapter | 観測結果とIdentityだけ | 再観測またはSession終了 |
-| AI依頼入力と現在結果 | 現在Session | Provider正本を複製しない範囲で一時保持 | 正式成果物へ反映、取消、Session終了 |
-| Credential Secret | CROS接続境界 | 発行または入力時以外は再表示しない | 安全なCredential Storeへ委譲後に破棄 |
+| AI依頼入力、依頼種別、現在結果と候補確認 | 現在Session | Provider正本や候補内容を複製せず、Candidate IDと安全な確認Metadataだけを一時保持 | 明示採用・確認付き破棄・保留、取消、Session終了 |
+| Runtime Activity投影 | Project Runtime | 一回の表示用Snapshotだけ | 再観測またはSession終了 |
+| Project Plan | Current Release Projection→Project Operation共通Reader | Version、期限、Risk、Scope、依存および判断の表示用Snapshot | 再観測またはSession終了。計画値はRoadmap／CHGが正本 |
+| Quality | Current Quality Projection→Project Operation共通Reader | 状態、Coverage、Gap、次Gateおよび人間判断の表示用Snapshot | 再観測またはSession終了。品質の各意味はQuality成果物が正本 |
+| Documentation | Roadmap詳細、Project Context Owner Relation | 検証済みPathとtitleだけ | 再観測またはSession終了。内容はOwner Artifactが正本 |
+| Credential Secret | CROS接続境界 | Workbench Process memoryだけ。入力後に再表示せず、URL、HTML、Repository、logへ保存しない | 明示切断またはProcess終了で破棄 |
+| Remote Topic／Meeting対象Repository | CROS Portfolio Projection | 現在Sessionの選択IDだけ。Source本文やGrantを複製しない | Portfolio再取得で対象外になった時、明示切替またはSession終了で破棄 |
 | 公式ロゴ | Official Asset Governance | 読取り専用Assetとして配信 | Server終了 |
 
 WorkbenchはCurrent Projectionを独自Databaseへ複製しない。将来Cacheを導入する場合も、Source Identity、Currentness、Coverage、失効条件を持つ派生物として別途設計する。
@@ -160,8 +167,15 @@ WorkbenchはCurrent Projectionを独自Databaseへ複製しない。将来Cache�
 | Topic／Meeting操作 | Identity、期待Revision、入力、操作種別 | success／conflict／partial／unknown | 既存Command／Candidate入口へ委譲する |
 | Repository観測 | 検証済みRoot、対象Path／Revision | Tree、Diff、Staged、Unstaged、Untracked、Conflict | 読取りのみ |
 | Stage／Commit／Push | 選択差分、Commit内容、確認済みRemote／Branch／Commit | 段階別結果、残る差分、unknown | 明示Authorityを既存Version Control Portへ渡す。Force Push 0 |
-| AI依頼 | 選択Context、Profile、利用者入力、外部送信判断 | 事実、保存済み分析、追加推論、Provider状態 | 送信許可を生成せず、候補を自動採用しない |
+| AI依頼 | 選択Context、Profile ID、依頼種別（読取り助言／変更候補）、利用者入力、変更候補時の明示許可Path、一依頼だけの外部送信確認 | 依頼種別、事実、保存済み分析、追加推論、次の選択肢、各項目の根拠参照、未採用Candidate ID、Provider状態 | Profile IDと依頼種別を読み替えずApplicationへ渡す。Workbenchは送信対象を明示して一回確認を要求し、未確認をEffect 0で拒否する。読取り助言は利用者入力と許可済み投影を内容Hash付き専用Task Packetへ固定し、Task Hash・Catalog Revision・exact Profile・Providerへ結合した確認をDispatchで一回だけ消費する。変更候補は明示されたRepository相対許可Pathとexact Executor Profileを署名済みProject Runtime Single Taskへ固定し、結果を`untrusted_not_adopted`として返す。読取り助言の確認を候補生成や採用Authorityへ再利用せず、候補の採用、CommitおよびPublishは別操作にする。根拠参照のない項目を部分表示せず、参照から任意Path読取りAuthorityを作らない |
+| AI変更候補の採否 | 現在AI結果のCandidate ID、Storeから再読取りした分類・期限・基準Revision・Candidate／Patch Hash・変更Path、操作ごとの明示確認 | available／blocked、採用Receipt、Effect・cleanup・Recovery状態 | 確認はEffect 0とし、採用・破棄・保留を別操作にする。採用はProject Runtimeの旧所有者処置、Canonical Adoption Lease、現在Revision・dirty・Scope再観測、候補Receiptと耐久記録を通った場合だけ行う。破棄は別の確認を必須にし、保留はRepository／Candidate Store Effect 0とする。採用してもCommitまたはPushを行わない |
+| Runtime Activity | Project ID、任意Event Cursor | observed／absent／unknown、Objective／Task件数、判断・Recovery・次処置、Project限定Event Page | 読取りのみ。Runtime正本、状態遷移またはRecovery Authorityを生成しない。EventはExecution Intelligence Storeから新しい順・上限付きで投影する |
+| Owner Artifact | 起動時Catalogに含まれる相対Markdown Path | Roadmap／Quality／Relation原文 | 読取りのみ。Catalog外Path、外部URL、親参照およびRepository越境を拒否する |
+| Project Plan | `99_Roadmap/03_Releases.md` | Baseline、対象Version、期限、Risk、Scope、依存、判断およびOwner Link | 読取りのみ。欠落や構造不正を空計画へ畳まず、Roadmapにない値を推測しない |
+| Quality | `07_Quality/01_Quality_Center.md` | 全体状態、対象、観測済み／未観測、Gap、次Gate、人間判断およびOwner Link | 読取りのみ。未観測をPassへ、進行中AuditをReadyへ畳まない |
+| AI Profile管理 | 現在接続OwnerのProfile候補、現在Revision、登録済みAdapter／Model | 採用済みProfile Snapshot、拒否理由 | RepositoryとCROSを混合せず、CROSは`systemAdmin`接続時だけ表示する。Adapterを新設せず、競合と未確認削除をEffect 0で拒否する |
 | Connection | Endpoint、Credential | Session、Grant内Projection、接続状態 | Remote時だけ。非開示対象を推測しない |
+| Remote Topic／Meeting | 現在Portfolioで選択したRepository ID、一覧条件、Identity、期待Revision、操作入力 | 一覧、詳細、Relation Owner、書込み結果 | RequestごとにMCPへ明示Repositoryを渡す。PortfolioにないIDを拒否し、Remote失敗時にLocalへfallbackしない |
 
 ## 7. Visualと公式素材
 
@@ -179,9 +193,13 @@ WorkbenchはCurrent Projectionを独自Databaseへ複製しない。将来Cache�
 | Projection partial／unavailable | 観測済み範囲、Source、Coverage | 完全状態への畳込み | 再投影、Owner Artifactへ移動 |
 | HTTP request切断 | Request Identity、Effect発行状態 | 結果不明の暗黙再送 | 状態再確認、安全な再入場 |
 | Topic／Meeting conflict | 入力、対象Identity、比較可能な差 | 最新値への無断上書き | 再読込、差分確認、取消 |
+| Remote Repository未選択／Grant外 | Remote接続状態と許可済みPortfolio | Local Repositoryの代替表示、ID知識によるAuthority生成、対象存在の推測 | 許可済みPortfolioから明示選択、Credential／Exposure再確認 |
 | Git観測不能 | Project Context、最後に確認したRevision | 空TreeやClean扱い | Repository再観測、外部Git Client |
 | Push結果不明 | Remote、Branch、Commit、相関情報 | 自動再Push、Force Push | Remote状態の再確認 |
-| AI Provider失敗 | 確認済み事実、保存済み分析、入力 | 推論を事実化、候補を採用 | 再試行、別Profile、元Screen |
+| AI Provider失敗 | 確認済み事実、保存済み分析、依頼種別、入力 | 推論を事実化、読取り助言を変更候補へ読み替える、候補を採用 | 同じIdentityと依頼種別で再観測、別Profile、元Screen |
+| AI候補のRevision／Scope競合 | Candidate ID、安全な確認Metadata、現在Revision、dirty Path、操作結果 | 古い候補の自動採用、確認済み範囲外の変更、暗黙再試行 | 候補を再生成するか、現在Repositoryとの差を確認して明示操作へ戻る |
+| Runtime状態未接続／観測不能 | Project Contextと観測理由 | Objective 0件、完了または直前値への畳込み | State Query Adapter接続、再観測 |
+| Owner Artifact欠落／越境／過大 | Project ContextとCatalog観測理由 | 部分Catalog公開、任意Path探索 | Catalog全体をunknownとしOwner側を確認する |
 | Logo／CSS取得失敗 | Application request状態 | 代替Brandの創作 | Asset経路診断、再取得 |
 
 ## Implementation Structure
@@ -200,11 +218,15 @@ WorkbenchはCurrent Projectionを独自Databaseへ複製しない。将来Cache�
 
 | 対象 | 現在状態 | 分類 | 処置 |
 |---|---|---|---|
-| Production Workbench package | `40_Develop/workbench`にlocalhost Shell、Project Surface、Repository Workおよび任意構成のCredential管理Surfaceが存在する | Partial | Phase 4でRemote Connection／AIを、後続PhaseでTopic／Meeting操作とProduction Closureを追加する |
+| Production Workbench package | `40_Develop/workbench`にlocalhost Shell、Project Surface、Repository Work、Topic／Meeting CRUDとMeeting Outcome処置、Credential管理Surface、Remote接続入力、Portfolioの検索・状態絞込み・Query拘束継続読込・Project別Source表示、Owner分離したRepository／CROS AI Profile管理、選択Profile IDと依頼種別付きの現在Session AI依頼Port、変更候補の確認・採用・破棄SurfaceおよびRuntime Activity Portが存在する。Repository単体Compositionは読取り助言を署名済み`workbench_advice` Runtimeへ、変更候補を明示許可Path付きの署名済みProject Runtime Single Taskへ接続する。候補はStoreから再読取りした安全なMetadataを表示し、別確認とProject Runtime Leaseを通った場合だけ採用する。Commit／Pushは行わない。15画面のProduction DOMは3表示Profile×3 Zoomで全数観測済みである | Partial | Codex／Claudeの実Provider E2Eを検証する。Visual Closureを同じ未確認へ戻さない |
+| Runtime Activity | Repository単体では現在RevisionとProject IDを既存Project Runtime State QueryおよびExecution Intelligence Storeへ接続する。Remote CROSではRequestごとにCredentialとExposureを再検証し、許可済みRepositoryだけをRuntime Activity Readerへ渡す。現在状態とEvent観測不能を独立表示し、Project限定Eventを新しい順・Cursor付きで継続読込する | Covered | Repository EventのProject分離・順序・Continuation、Remote CROSのGrant分離、Credential失効後の直前値非表示を結合試験で確認した。Runtime正本、Event正本またはRecovery AuthorityはWorkbenchへ移さない |
+| Project Plan | 固定Current Release Projectionを共通ReaderでVersion、期限、Risk、Scope、依存および判断へ変換し、Roadmap詳細と同じOwner Artifact Routeへ接続する | Covered | Projection構造を第二正本化せず、Roadmap／CHG更新時の同時更新契約を維持する |
+| Quality | 固定Current Quality Projectionを共通Readerで状態、Coverage、Gap、次Gateおよび人間判断へ変換し、Quality Center原文へ接続する | Covered | Quality Center更新時のProjection整合を維持し、Evidence自体をWorkbenchへ複製しない |
+| Documentation | Roadmap詳細とProject ContextのMarkdown Owner Relationを検証済みCatalogへし、title／PathのCatalog内検索、Project Context起点Section表示および原文Routeへ接続する | Covered | Current Projectionは一段Relationだけを扱い、再帰展開はしない。欠落・越境・観測失敗はCatalog全体をunknownとして部分成功へ畳まない |
 | Direction A HTML／CSS／PNG | UI DetailのVisual Fixture | Design Evidence | Production Sourceへ丸ごと移植せず、Visual BaselineとCompositionを実装入力にする |
-| CROS Application Contract | Portfolio Federationと検証済み管理ContextによるCredential管理をWorkbenchへ接続済み | Partial | Phase 4でBearer認証、Request Access ContextおよびRemote CROS Transportを接続する |
-| Project Operation | Project Context、Topic／Meeting Record ReaderをWorkbenchへ接続済み | Partial | CRUD、Outcome移管およびOwner Relation操作を接続する |
-| Version Control | Tree／Diff／Stage／Unstage／Commit／確認済み通常Pushを公開PortとGit Adapterへ接続済み | Covered | Phase 3 Evidenceを維持し、Force／暗黙再送を追加しない |
+| CROS Application Contract | Portfolio Federation、Credential管理、Bearer Remote Portfolio、`systemAdmin`限定AI Profile管理およびWorkbench接続／更新／切断を接続済み。許可済みPortfolio内だけを検索・状態絞込み・Query拘束Cursorで継続読込し、選択ProjectはRepository Sourceごとの五場面を欠測のまま表示する。Shared ServerはREST／MCP同一HTTPS Origin、固定OS設定、外部TLS終端契約および終了後Listener 0まで接続済み | Covered | N/A: 公開証明書の運用は配置先のTLS終端が所有する |
+| Project Operation | Project ContextとTopic／Meeting共通ApplicationをWorkbenchへ接続し、検索、状態・Owner・期間・Relation・未処置Outcomeによる絞込み、安定並び順、Query拘束Cursor、独立Detail、取得本文、登録、編集、Relation影響付き削除、Outcome全件処置後のMeeting Close、実在CHGへのTopic昇格接続および同一Repository内のTopic／Meeting／CHG Relation遷移を提供 | Partial | Cross-Repository Owner Relation操作を接続する |
+| Version Control | Directory単位の遅延Tree、Query拘束Continuation、選択FileのPrepared／Working Diffと切詰め表示、Stage／Unstage／Commit／確認済み通常Pushを公開PortとGit Adapterへ接続済み | Covered | 未追跡File内容を暗黙読取りせず、Force／暗黙再送を追加しない |
 | Official Logo | `04_UI/assets/brand`の承認済み画像をProduction Shellが配信する | Covered | 同じAsset Identityを維持する |
 | Desktop wrapper | 存在しない | N/A | 現在の成果に不要。OS統合要求が発生した時だけ再評価する |
 

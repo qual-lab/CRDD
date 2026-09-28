@@ -2674,7 +2674,7 @@ const exactAuditedSemanticGraphSha256 = Object.freeze(
     ],
     [
       "src/security/platform-provisioner-package-filesystem.ts\0inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate",
-      "af2eca911050ed4e40f486f87e565296a6d8b4fda40cc340f3266e9502c01d31",
+      "d770ea35761f8ecf4e18f60fd67b7e589ae5ab16fec826c9c89fd79f3530eb96",
     ],
     [
       "src/security/platform-provisioner-package-filesystem.ts\0inspectBundledCoordinatorPackageFilesystemCandidate",
@@ -2686,7 +2686,7 @@ const exactAuditedSemanticGraphSha256 = Object.freeze(
     ],
     [
       "src/security/platform-provisioner-package-filesystem.ts\0verifyOwnedBundledManifest",
-      "a3291727157f1e5d046b35475488179166924b28443341801bf3592f59e6d972",
+      "03ed5b094cdb10b255bfda52f52b52b36cec147b5e39bc2876c6526e32060e7b",
     ],
     [
       "src/security/platform-provisioner-package-filesystem.ts\0verifiedFixedPackageRecord",
@@ -2706,7 +2706,7 @@ const exactAuditedSemanticGraphSha256 = Object.freeze(
     ],
     [
       "src/security/platform-provisioner-package-filesystem.ts\0verifyInstalledCoordinatorPackageCandidate",
-      "e70c39fd3c7ddbe4f61c7244b4021ff5475862eb851a9fdeb98b8e463fcb3d5e",
+      "2041b5b83dde2ff403fb521b812ed39cdbea1396e707a7a0b225ba2ec2bf7410",
     ],
     [
       "src/security/platform-provisioner-package-filesystem.ts\0inspectVerifiedNativeDistributionCandidate",
@@ -6142,6 +6142,27 @@ const exactRuntimePackageCapabilityConsumers = Object.freeze(
       "call",
       1,
     ],
+    [
+      "src/security/workbench-ai-advice-production-runtime.ts",
+      "consumeRuntimeOwnedVerifiedCoordinatorPackageCapability",
+      "module",
+      "reference",
+      1,
+    ],
+    [
+      "src/security/workbench-ai-change-candidate-runtime.ts",
+      "issueRuntimeOwnedVerifiedCoordinatorPackageCapability",
+      "issueRuntimeCapability",
+      "call",
+      1,
+    ],
+    [
+      "src/security/workbench-ai-change-candidate-runtime.ts",
+      "revokeRuntimeOwnedVerifiedCoordinatorPackageCapability",
+      "createRuntimeOwnedWorkbenchAiChangeCandidateExecutor",
+      "reference",
+      1,
+    ],
   ].map(
     ([source, symbol, owner, use, occurrence]) =>
       Object.freeze({
@@ -6555,6 +6576,7 @@ function assertReleaseAssuranceConsumerClosure(
 function assertExactRuntimePackageCapabilityConsumerGraph(
   sources: Readonly<Record<string, string>>,
   scope: "repository" | "runtime_distribution",
+  profile: "current" | "v0.21" = "current",
 ) {
   assertRuntimePackageCapabilityHandoffClosure(sources);
   assertReleaseAssuranceConsumerClosure(sources);
@@ -6562,8 +6584,14 @@ function assertExactRuntimePackageCapabilityConsumerGraph(
     runtimePackageCapabilityConsumerGraphForVerification(sources);
   const expectedTokens = exactRuntimePackageCapabilityConsumers.filter(
     (consumer) =>
-      scope === "repository" ||
-      consumer.source !== "scripts/verify-project-runtime-real-providers.ts",
+      (scope === "repository" ||
+        consumer.source !==
+          "scripts/verify-project-runtime-real-providers.ts") &&
+      (profile === "current" ||
+        (consumer.source !==
+          "src/security/workbench-ai-advice-production-runtime.ts" &&
+          consumer.source !==
+            "src/security/workbench-ai-change-candidate-runtime.ts")),
   );
   const observedIdentities = observedTokens.map(
     runtimePackageCapabilityConsumerIdentity,
@@ -6691,71 +6719,86 @@ function assertPublicRuntimeObservationConsumerClosure(
     [
       "observeRuntimeDistribution",
       "inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate",
-      ["distributionRoot"],
+      [
+        ["distributionRoot"],
+        [
+          "sourceContract",
+          "=",
+          "=",
+          "=",
+          "v0.21",
+          "?",
+          "v0.21_source_contract",
+          ":",
+          "current_source_contract",
+        ],
+      ],
     ],
     [
       "observeRuntimeDistribution",
       "diagnoseRuntimeDistributionFilesystemForVerification",
-      ["distributionRoot"],
+      [["distributionRoot"]],
     ],
     [
       "observeRuntimeDistribution",
       "inspectBundledCoordinatorPackageFilesystemCandidate",
-      ["bundledDistributionRoot"],
+      [["bundledDistributionRoot"]],
     ],
     [
       "observeRuntimeDistribution",
       "inspectFixedDevelopmentCoordinatorPackageCandidate",
-      ["root", ".", "realPath"],
+      [["root", ".", "realPath"]],
     ],
     [
       "observeRuntimeDistribution",
       "inspectFixedDevelopmentCoordinatorPackageCandidate",
-      ["root", ".", "realPath"],
+      [["root", ".", "realPath"]],
     ],
     [
       "observeRuntimeDistribution",
       "verifyOwnedBundledManifest",
-      ["bundledDistributionRoot"],
+      [["bundledDistributionRoot"], ["signed_manifest_identity"]],
     ],
     [
       "observeRuntimeDistribution",
       "verifyInstalledCoordinatorPackageCandidate",
-      ["distributionRoot", ".", "realPath"],
+      [["distributionRoot", ".", "realPath"], ["signed_manifest_identity"]],
     ],
     [
       "verifyBundledCoordinatorPackageFromFixedManifestCandidate",
       "issueRuntimeOwnedVerifiedCoordinatorPackageCapability",
-      ["input"],
+      [["input"]],
     ],
     [
       "verifyBundledCoordinatorPackageFromFixedManifestCandidate",
       "consumeRuntimeOwnedVerifiedCoordinatorPackageCapability",
       [
-        "{",
-        "evaluationTime",
-        ":",
-        "new",
-        "Date",
-        "(",
-        ")",
-        ".",
-        "toISOString",
-        "(",
-        ")",
-        ",",
-        "}",
+        [
+          "{",
+          "evaluationTime",
+          ":",
+          "new",
+          "Date",
+          "(",
+          ")",
+          ".",
+          "toISOString",
+          "(",
+          ")",
+          ",",
+          "}",
+        ],
       ],
     ],
     [
       "verifyInstalledCoordinatorPackageCandidate",
       "inspectVerifiedNativeDistributionCandidate",
-      ["request"],
+      [["request"]],
     ],
     [
       "verifyInstalledCoordinatorPackageCandidate",
       "inspectVerifiedNativeDistributionCandidate",
-      ["request"],
+      [["request"]],
     ],
   ] as const);
   const remainingTokens = [...expected];
@@ -6787,21 +6830,36 @@ function assertPublicRuntimeObservationConsumerClosure(
       );
     }
     const matchingIndex = remainingTokens.findIndex(
-      ([expectedSymbol, expectedOwner, argument]) =>
+      ([expectedSymbol, expectedOwner, expectedArguments]) =>
         symbol === expectedSymbol &&
         owner === expectedOwner &&
-        ranges.length === 1 &&
-        exactExpressionMatches(tokens, ranges[0], argument),
+        ranges.length === expectedArguments.length &&
+        ranges.every((range, argumentIndex) =>
+          exactExpressionMatches(
+            tokens,
+            range,
+            expectedArguments[argumentIndex] ?? [],
+          ),
+        ),
     );
     if (matchingIndex < 0)
       throw new Error(
-        "platform_provisioner_runtime_dependency_public_consumer_unbound",
+        `platform_provisioner_runtime_dependency_public_consumer_unbound:${symbol}:${owner ?? "outside_named_function"}:${ranges
+          .map((range) =>
+            tokens
+              .slice(range.start, range.end)
+              .map((token) => token.value)
+              .join("~"),
+          )
+          .join("|")}`,
       );
     remainingTokens.splice(matchingIndex, 1);
   }
   if (remainingTokens.length !== 0)
     throw new Error(
-      "platform_provisioner_runtime_dependency_public_consumer_unbound",
+      `platform_provisioner_runtime_dependency_public_consumer_unbound:missing:${remainingTokens
+        .map(([symbol, owner]) => `${symbol}@${owner}`)
+        .join(",")}`,
     );
 }
 
@@ -8121,9 +8179,19 @@ function observePackage(packageRoot: string) {
 
 const RUNTIME_SIBLING_COMPONENTS = Object.freeze([
   Object.freeze({
+    sourcePrefix: "40_Develop/ai-runtime/src/",
+    packagePath: "40_Develop/ai-runtime/package.json",
+    packageName: "@qual-lab/crdd-ai-runtime",
+  }),
+  Object.freeze({
     sourcePrefix: "40_Develop/artifact-signing/src/",
     packagePath: "40_Develop/artifact-signing/package.json",
     packageName: "@qual-lab/crdd-artifact-signing",
+  }),
+  Object.freeze({
+    sourcePrefix: "40_Develop/cros/src/",
+    packagePath: "40_Develop/cros/package.json",
+    packageName: "@qual-lab/crdd-cros",
   }),
   Object.freeze({
     sourcePrefix: "40_Develop/mcp/src/",
@@ -8134,6 +8202,11 @@ const RUNTIME_SIBLING_COMPONENTS = Object.freeze([
     sourcePrefix: "40_Develop/project-runtime/src/",
     packagePath: "40_Develop/project-runtime/package.json",
     packageName: "@qual-lab/crdd-project-runtime",
+  }),
+  Object.freeze({
+    sourcePrefix: "40_Develop/project-operation/src/",
+    packagePath: "40_Develop/project-operation/package.json",
+    packageName: "@qual-lab/crdd-project-operation",
   }),
   Object.freeze({
     sourcePrefix: "40_Develop/execution-intelligence/src/",
@@ -8479,7 +8552,13 @@ function verifyRuntimeSiblingPackageMetadata(
  * @security observeRuntimeDistributionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: observeRuntimeDistributionは共有非同期状態を持たない同期処理である。
  */
-function observeRuntimeDistribution(distributionRootPath: string) {
+function observeRuntimeDistribution(
+  distributionRootPath: string,
+  policy:
+    | "current_source_contract"
+    | "v0.21_source_contract"
+    | "signed_manifest_identity" = "current_source_contract",
+) {
   const distributionRoot = directoryIdentity(distributionRootPath);
   const developRoot = directoryIdentity(
     path.join(distributionRoot.realPath, "40_Develop"),
@@ -8558,7 +8637,7 @@ function observeRuntimeDistribution(distributionRootPath: string) {
     for (const target of staticRelativeModuleTargets(
       relative,
       canonicalBytes,
-      true,
+      policy === "current_source_contract",
     )) {
       if (
         !isBundledRuntimeExecutionPath(
@@ -8578,26 +8657,32 @@ function observeRuntimeDistribution(distributionRootPath: string) {
     }
   }
 
-  const observedCapabilitySources = new Set(
-    [...observedFiles.keys()].map(coordinatorRelativeSourcePath),
-  );
-  assertExactCapabilityGraphSourceUniverse(
-    "runtime",
-    observedCapabilitySources,
-  );
-  assertExactRuntimePackageCapabilityConsumerGraph(
-    Object.freeze(
-      Object.fromEntries(
-        [...observedFiles.entries()]
-          .filter(([relativePath]) => relativePath.endsWith(".ts"))
-          .map(([relativePath, observed]) => [
-            coordinatorRelativeSourcePath(relativePath),
-            new TextDecoder("utf-8", { fatal: true }).decode(observed.bytes),
-          ]),
+  if (policy !== "signed_manifest_identity") {
+    const consumerProfile =
+      policy === "v0.21_source_contract" ? "v0.21" : "current";
+    const observedCapabilitySources = new Set(
+      [...observedFiles.keys()].map(coordinatorRelativeSourcePath),
+    );
+    if (consumerProfile === "current")
+      assertExactCapabilityGraphSourceUniverse(
+        "runtime",
+        observedCapabilitySources,
+      );
+    assertExactRuntimePackageCapabilityConsumerGraph(
+      Object.freeze(
+        Object.fromEntries(
+          [...observedFiles.entries()]
+            .filter(([relativePath]) => relativePath.endsWith(".ts"))
+            .map(([relativePath, observed]) => [
+              coordinatorRelativeSourcePath(relativePath),
+              new TextDecoder("utf-8", { fatal: true }).decode(observed.bytes),
+            ]),
+        ),
       ),
-    ),
-    "runtime_distribution",
-  );
+      "runtime_distribution",
+      consumerProfile,
+    );
+  }
 
   const packageJson = observedFiles.get("40_Develop/coordinator/package.json");
   const metadata = packageMetadata(packageJson?.bytes ?? null);
@@ -8749,18 +8834,25 @@ export function inspectPlatformProvisionerPackageFilesystemCandidate(
  */
 export function inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(
   distributionRoot: unknown,
+  sourceContract: unknown = "current",
 ) {
   try {
     if (
       typeof distributionRoot !== "string" ||
       distributionRoot.length === 0 ||
       !path.isAbsolute(distributionRoot) ||
-      path.normalize(distributionRoot) !== distributionRoot
+      path.normalize(distributionRoot) !== distributionRoot ||
+      (sourceContract !== "current" && sourceContract !== "v0.21")
     ) {
       return blocked("platform_provisioner_distribution_root_invalid");
     }
     return publicObservation(
-      observeRuntimeDistribution(distributionRoot),
+      observeRuntimeDistribution(
+        distributionRoot,
+        sourceContract === "v0.21"
+          ? "v0.21_source_contract"
+          : "current_source_contract",
+      ),
       false,
     );
   } catch {
@@ -8804,6 +8896,16 @@ export function diagnoseRuntimeDistributionFilesystemForVerification(
       reason: "platform_provisioner_distribution_observed" as const,
     });
   } catch (error) {
+    const nestedPlatformReason =
+      error instanceof Error
+        ? (error.message.match(/platform_provisioner_[a-z_]+/u)?.[0] ?? null)
+        : null;
+    const nestedContractReason =
+      error instanceof Error
+        ? (error.message.match(
+            /(?:consumer|capability|runtime)_[a-z_]+/u,
+          )?.[0] ?? null)
+        : null;
     const reason =
       error &&
       typeof error === "object" &&
@@ -8813,7 +8915,9 @@ export function diagnoseRuntimeDistributionFilesystemForVerification(
         : error instanceof Error &&
             /^platform_provisioner_[a-z_]+$/u.test(error.message)
           ? error.message
-          : "platform_provisioner_distribution_filesystem_invalid";
+          : (nestedPlatformReason ??
+            nestedContractReason ??
+            "platform_provisioner_distribution_filesystem_invalid");
     return Object.freeze({ status: "blocked" as const, reason });
   }
 }
@@ -9030,7 +9134,10 @@ function verifyOwnedBundledManifest(
   manifestEnvelope: unknown,
   evaluationTime: unknown,
 ) {
-  const observed = observeRuntimeDistribution(bundledDistributionRoot);
+  const observed = observeRuntimeDistribution(
+    bundledDistributionRoot,
+    "signed_manifest_identity",
+  );
   const policyIdentity = getPlatformProvisionerPolicyIdentity();
   const verification = verifyPlatformProvisionerManifestCandidate({
     manifestEnvelope,
@@ -9309,7 +9416,10 @@ export function verifyInstalledCoordinatorPackageCandidate(rawInput: unknown) {
       return blocked("platform_provisioner_installed_package_input_invalid");
     }
     const distributionRoot = directoryIdentity(input.distributionRoot);
-    const observed = observeRuntimeDistribution(distributionRoot.realPath);
+    const observed = observeRuntimeDistribution(
+      distributionRoot.realPath,
+      "signed_manifest_identity",
+    );
     const loaded = loadPlatformProvisionerManifestEnvelopeForVerification(
       distributionRoot.realPath,
     );

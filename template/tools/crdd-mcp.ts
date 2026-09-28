@@ -9,11 +9,21 @@
 
 import {
   closeMcpHttpOnProcessSignal,
+  handleMcpApplicationRequest,
   MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
-  runMcpProjectRuntimeStdio,
-  startMcpProjectRuntimeStreamableHttp,
+  runMcpStdio,
+  startMcpStreamableHttp,
+  type McpApplicationDependencies,
   type McpProjectRuntimeDependencies,
 } from "../../40_Develop/mcp/src/index.ts";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+import {
+  createTopicMeetingApplication,
+  createTopicMeetingRepository,
+  parseRepositoryProjectContextMarkdown,
+} from "../../40_Develop/project-operation/src/index.ts";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../40_Develop/version-control/src/repository-location.ts";
 import {
   isSupportedCoordinatorNodeRuntime,
   observeRuntimeOwnedProjectClientPrincipal,
@@ -71,7 +81,7 @@ function printHelp(): void {
  * @security Client認証を省略せず、認証結果を各操作へ渡す。
  * @concurrency 各要求のSignalと認証Contextを要求単位で保持する。
  */
-function dependencies(): McpProjectRuntimeDependencies {
+function projectRuntimeDependencies(): McpProjectRuntimeDependencies {
   return {
     authenticateClient: observeRuntimeOwnedProjectClientPrincipal,
     runObjective: (request, signal, authentication) =>
@@ -85,6 +95,81 @@ function dependencies(): McpProjectRuntimeDependencies {
       runProjectRuntimePublicDecision(request, process.cwd(), authentication),
     getProjectState: async (request, authentication) =>
       runProjectRuntimePublicStateQuery(request, process.cwd(), authentication),
+  };
+}
+
+/**
+ * 現在RepositoryのProject ContextをPortfolio Projectionとして読み取る。
+ *
+ * @responsibility Repository単体利用をCROS Federationと同じMCP結果形へ変換する。
+ * @trace ARCH-000005
+ * @trace ARCH-000012
+ * @input workingDirectoryに現在の作業Directoryを受け取る。
+ * @returns 一Repositoryだけを含むPortfolio Projectionを返す。
+ * @precondition workingDirectoryからVersion Control Rootを一意に検証できる。
+ * @postcondition PROJECT_CONTEXT.mdの五場面を補完せず一Sourceとして返す。
+ * @effect PROJECT_CONTEXT.mdを読取るが変更しない。
+ * @failure Root不明、File欠落またはFormat不正を呼出し元へ返す。
+ * @invariant Git Commit有無を成立条件にしない。
+ * @boundary Repository FilesystemとMCP Project Context Adapterの境界。
+ * @security Repository Role外のContextを推測しない。
+ * @concurrency 一回の呼出しで一つのFile Snapshotを解析する。
+ */
+async function readRepositoryPortfolio(workingDirectory: string) {
+  const repositoryRoot =
+    resolveVerifiedRepositoryRootFromWorkingDirectory(workingDirectory);
+  const context = parseRepositoryProjectContextMarkdown(
+    await readFile(path.join(repositoryRoot, "PROJECT_CONTEXT.md"), "utf8"),
+  );
+  return Object.freeze({
+    projects: Object.freeze([
+      Object.freeze({
+        projectId: context.projectId,
+        state: "complete" as const,
+        sources: Object.freeze([
+          Object.freeze({
+            repositoryId: context.repositoryId,
+            revision: "repository-current",
+            state: "complete" as const,
+            repositoryRole: context.repositoryRole,
+            context,
+          }),
+        ]),
+      }),
+    ]),
+    retainedAsSourceOfTruth: false as const,
+  });
+}
+
+/**
+ * MCP Application全体の依存を構成する。
+ *
+ * @responsibility Project RuntimeとRepository Project Contextの依存を分離して合成する。
+ * @trace ARCH-000005
+ * @trace ARCH-000012
+ * @input N/A: Processの現在Repositoryを使用する。
+ * @returns 合成MCP Applicationの依存集合を返す。
+ * @precondition Project Runtime公開入口とProject Context Readerが読込み済みである。
+ * @postcondition Runtime操作とContext読取りが別の専門依存に保持される。
+ * @effect N/A: 依存関数を構成するだけで操作を実行しない。
+ * @failure N/A: 局所Objectの構成に独自の失敗分岐を持たない。
+ * @invariant Project ContextをProject Runtime状態へ変換しない。
+ * @boundary MCP CLI Composition Rootと専門Adapter群の境界。
+ * @security Repository単体利用ではCredentialを要求せず、現在Repositoryだけを読む。
+ * @concurrency 各呼出しが独立したSnapshotを取得する。
+ */
+function applicationDependencies(): McpApplicationDependencies {
+  const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
+    process.cwd(),
+  );
+  return {
+    projectRuntime: projectRuntimeDependencies(),
+    projectContext: {
+      readPortfolio: () => readRepositoryPortfolio(process.cwd()),
+    },
+    topicMeeting: createTopicMeetingApplication(
+      createTopicMeetingRepository(repositoryRoot),
+    ),
   };
 }
 
@@ -117,8 +202,10 @@ async function main(): Promise<number> {
     return 0;
   }
   if (args.length === 1 && args[0] === "--stdio") {
-    const result = await runMcpProjectRuntimeStdio(
-      dependencies(),
+    const application = applicationDependencies();
+    const result = await runMcpStdio(
+      (request, signal) =>
+        handleMcpApplicationRequest(request, application, signal),
       process.stdin,
       process.stdout,
     );
@@ -139,10 +226,12 @@ async function main(): Promise<number> {
     return 64;
   }
 
-  const server = await startMcpProjectRuntimeStreamableHttp(dependencies(), {
-    port,
-    bearerToken,
-  });
+  const application = applicationDependencies();
+  const server = await startMcpStreamableHttp(
+    (request, signal) =>
+      handleMcpApplicationRequest(request, application, signal),
+    { port, bearerToken },
+  );
   process.stderr.write(
     `CRDD MCP is listening on http://${server.host}:${server.port}${server.endpoint}\n`,
   );

@@ -13,6 +13,8 @@ import path from "node:path";
 
 import {
   parseRepositoryProjectContextMarkdown,
+  parseRepositoryQualityProjectionMarkdown,
+  parseRepositoryReleaseProjectionMarkdown,
   parseMeetingMarkdown,
   parseTopicMarkdown,
   type MeetingRecord,
@@ -30,6 +32,12 @@ import {
   type ChangePublicationTargetObservation,
 } from "../../version-control/src/change-publication.ts";
 import { verifyRepositoryRoot } from "../../version-control/src/repository-location.ts";
+import {
+  readWorkbenchOwnerArtifactCatalog,
+  type WorkbenchOwnerArtifactCatalog,
+} from "./owner-artifact-surface.ts";
+import type { WorkbenchProjectPlanObservation } from "./project-plan-surface.ts";
+import type { WorkbenchQualityObservation } from "./quality-surface.ts";
 
 /**
  * Workbenchが表示するRepository Capability状態を定義する。
@@ -79,6 +87,9 @@ export type WorkbenchProjectSurface = Readonly<{
   context: RepositoryProjectContext;
   topics: WorkbenchRecordCollection<TopicRecord>;
   meetings: WorkbenchRecordCollection<MeetingRecord>;
+  plan: WorkbenchProjectPlanObservation;
+  quality: WorkbenchQualityObservation;
+  ownerArtifacts: WorkbenchOwnerArtifactCatalog;
   repository: Readonly<{
     state: "available" | "unknown";
     changeSet: LocalChangeSet | null;
@@ -86,6 +97,118 @@ export type WorkbenchProjectSurface = Readonly<{
     reason: "repository_root_invalid" | "observation_failed" | null;
   }>;
 }>;
+
+/**
+ * 固定Current Release ProjectionをWorkbench向けに観測する。
+ *
+ * @responsibility Release Projectionの欠落、不正およびFilesystem失敗を別状態として保持する。
+ * @trace ARCH-000005 ARCH-000012
+ * @input repositoryRootに検証済みRepository Rootを受け取る。
+ * @returns 構造化Projectionまたは理由付き状態を返す。
+ * @precondition 固定Path以外を探索しない。
+ * @postcondition availableではProject Operation共通Readerを通過したProjectionを返す。
+ * @effect 99_Roadmap/03_Releases.mdを一回読取る。
+ * @failure 欠落はnot_configured、構造不正はrelease_projection_invalid、その他はobservation_failedとする。
+ * @invariant 欠落項目を推測補完しない。
+ * @boundary Repository FilesystemとProject Operation Release Readerの直接境界。
+ * @security 固定Repository内Pathだけを読む。
+ * @concurrency 他のSurface観測と独立して実行できる。
+ */
+async function readProjectPlan(
+  repositoryRoot: string,
+): Promise<WorkbenchProjectPlanObservation> {
+  try {
+    const markdown = await readFile(
+      path.join(repositoryRoot, "99_Roadmap", "03_Releases.md"),
+      "utf8",
+    );
+    try {
+      return Object.freeze({
+        state: "available",
+        projection: parseRepositoryReleaseProjectionMarkdown(markdown),
+        reason: null,
+      });
+    } catch {
+      return Object.freeze({
+        state: "unknown",
+        projection: null,
+        reason: "release_projection_invalid",
+      });
+    }
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      "code" in error &&
+      (error as NodeJS.ErrnoException).code === "ENOENT"
+    )
+      return Object.freeze({
+        state: "not_configured",
+        projection: null,
+        reason: null,
+      });
+    return Object.freeze({
+      state: "unknown",
+      projection: null,
+      reason: "observation_failed",
+    });
+  }
+}
+
+/**
+ * 固定Current Quality ProjectionをWorkbench向けに観測する。
+ *
+ * @responsibility Quality Projectionの欠落、不正およびFilesystem失敗を別状態として保持する。
+ * @trace ARCH-000005 ARCH-000012
+ * @input repositoryRootに検証済みRepository Rootを受け取る。
+ * @returns 構造化Quality Projectionまたは理由付き状態を返す。
+ * @precondition 固定Path以外を探索しない。
+ * @postcondition availableではProject Operation共通Readerを通過したProjectionを返す。
+ * @effect 07_Quality/01_Quality_Center.mdを一回読取る。
+ * @failure 欠落はnot_configured、構造不正はquality_projection_invalid、その他はobservation_failedとする。
+ * @invariant 未観測、GapまたはGateを推測補完しない。
+ * @boundary Repository FilesystemとProject Operation Quality Readerの直接境界。
+ * @security 固定Repository内Pathだけを読む。
+ * @concurrency 他のSurface観測と独立して実行できる。
+ */
+async function readQuality(
+  repositoryRoot: string,
+): Promise<WorkbenchQualityObservation> {
+  try {
+    const markdown = await readFile(
+      path.join(repositoryRoot, "07_Quality", "01_Quality_Center.md"),
+      "utf8",
+    );
+    try {
+      return Object.freeze({
+        state: "available",
+        projection: parseRepositoryQualityProjectionMarkdown(markdown),
+        reason: null,
+      });
+    } catch {
+      return Object.freeze({
+        state: "unknown",
+        projection: null,
+        reason: "quality_projection_invalid",
+      });
+    }
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      "code" in error &&
+      (error as NodeJS.ErrnoException).code === "ENOENT"
+    )
+      return Object.freeze({
+        state: "not_configured",
+        projection: null,
+        reason: null,
+      });
+    return Object.freeze({
+      state: "unknown",
+      projection: null,
+      reason: "observation_failed",
+    });
+  }
+}
 
 /**
  * Workbench向けに現在のLocal Change Setを観測する。
@@ -240,7 +363,7 @@ export async function readWorkbenchProjectSurface(
   repositoryRoot: string,
 ): Promise<WorkbenchProjectSurface> {
   const repository = readRepositoryChangeSet(repositoryRoot);
-  const [markdown, topics, meetings] = await Promise.all([
+  const [markdown, topics, meetings, plan, quality] = await Promise.all([
     readFile(path.join(repositoryRoot, "PROJECT_CONTEXT.md"), "utf8"),
     readRecordCollection(
       path.join(repositoryRoot, "22_Topics"),
@@ -256,11 +379,20 @@ export async function readWorkbenchProjectSurface(
       parseMeetingMarkdown,
       (record) => record.meetingId,
     ),
+    readProjectPlan(repositoryRoot),
+    readQuality(repositoryRoot),
   ]);
+  const ownerArtifacts = await readWorkbenchOwnerArtifactCatalog(
+    repositoryRoot,
+    markdown,
+  );
   return Object.freeze({
     context: parseRepositoryProjectContextMarkdown(markdown),
     topics,
     meetings,
+    plan,
+    quality,
+    ownerArtifacts,
     repository,
   });
 }

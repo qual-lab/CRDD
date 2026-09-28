@@ -418,9 +418,12 @@ function currentSignedSourceIdentity() {
 function runtimeDistributionFixture(prefix: string) {
   const distributionRoot = uniqueReleaseCandidate(prefix);
   for (const component of [
+    "ai-runtime",
     "artifact-signing",
     "coordinator",
+    "cros",
     "mcp",
+    "project-operation",
     "project-runtime",
     "execution-intelligence",
     "runtime-data",
@@ -564,7 +567,7 @@ test("production署名sourceはTrust差替え、検証skipまたはtest hookを�
   assert.match(signerSource, /inspectRepositoryFixedSnapshot/u);
   assert.match(
     signerSource,
-    /inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate\(\s*distributionRoot,?\s*\)/u,
+    /inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate\(\s*distributionRoot,\s*options\.crddVersion === "v0\.21\.0" \? "v0\.21" : "current",?\s*\)/u,
   );
   assert.equal(
     signerSource.includes(
@@ -1573,7 +1576,7 @@ test("固定公開鍵に対応しない秘密鍵ではmanifestを生成しない
     const preflight = preflightReleaseManifest({
       distributionRoot,
       privateKeyPath,
-      crddVersion: "v0.20.0",
+      crddVersion: "v0.21.0",
       releaseSequence: 20,
       crddCommit,
       crddTree,

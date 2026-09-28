@@ -17,11 +17,11 @@ CRDDはv0.21.0を公開済みで、v0.22.0のDiscoveryを進めている。v0.22
 |---|---|---|---|
 | 現在事実 | 公開Baseline | v0.21.0 | Git tag `v0.21.0`、Commit `e9947d4f733c3c46b90ee9f78c70898d1920bae9` |
 | 現在事実 | v0.22.0 | Discovery進行中、目標Release日2026-10-03 | [Roadmap](99_Roadmap/01_Roadmap.md) |
-| 現在事実 | Project Context | Repository投影、Manifest v2 Identity照合およびMarkdown／Codex確認が成立。MCP以降の入口比較は未完了 | [REQ-000038](01_Discovery/Definitions/REQ-000038/requirement.md)、[入口比較](01_Discovery/Analysis/EXP-000029/consumer_comparison.md) |
+| 現在事実 | Project Context | Repository投影、Manifest v2 Identity照合、Markdown／Codex確認、Repository単体MCPおよびCROS Credentialで絞ったRemote Project Context MCPが成立 | [REQ-000038](01_Discovery/Definitions/REQ-000038/requirement.md)、[Repository MCP検証](99_Roadmap/Changes/CHG-000082/Evidence/260927-2014_phase4-project-context-mcp.md)、[Remote MCP検証](99_Roadmap/Changes/CHG-000082/Evidence/260927-2029_phase4-remote-project-context-mcp.md) |
 | 現在事実 | 情報入口 | Project ContextをOverviewとし、Topic、Meeting、Roadmap、Quality、DocumentationおよびRuntime Stateを各Ownerから読む能力地図を整理済み | [能力地図](01_Discovery/Analysis/EXP-000029/capability_map.md) |
-| 現在事実 | Topic／Meeting操作 | 登録・編集・削除・一覧・取得を要求採用。Relationを持つ誤登録も、影響表示と人間確認後に対象だけを削除する | [REQ-000039](01_Discovery/Definitions/REQ-000039/requirement.md) |
-| 現在事実 | Workbench | Repository Workを完了しConnection／AI Surfaceへ移行。Remote CROS向けCredential Core、不変Registryおよび任意構成のWorkbench管理Surfaceまで成立。Repository単体利用はCredential不要のまま維持し、Remote Transport、Host RecoveryとAI依頼は未完了 | [CHG-000082](99_Roadmap/Changes/CHG-000082/change.md)、[CROS Architecture](06_Architecture/Details/cros/01_Architecture.md) |
-| 現在事実 | 品質 | v0.21設計はReady、全体Quality Readyは未成立 | [Quality Center](07_Quality/01_Quality_Center.md) |
+| 現在事実 | Topic／Meeting操作 | Repository CRUD Coreと共通Applicationが成立し、WorkbenchおよびRepository単体MCPから登録・編集・Cursor一覧・取得・Relation影響付き削除を同じ契約で利用できる。同一Repository内ではOutcome表とAction移管表を同時更新し、全Outcome処置後だけMeetingを閉じられる。Remote CROSではRequestごとにCredential／Grant／Exposure／Bindingを再検証し、Workbenchが許可済みPortfolio Sourceを明示選択して同じ操作をMCP経由で行える。別RepositoryのRelationは同じSessionで許可された一意なOwnerへ遷移できるが、Relationを別Repository書込みAuthorityにはしない | [REQ-000039](01_Discovery/Definitions/REQ-000039/requirement.md)、[Remote Workbench検証](99_Roadmap/Changes/CHG-000082/Evidence/260928-0325_phase5-remote-workbench-topic-meeting.md) |
+| 現在事実 | Workbench | Phase 4 Gateを通過しProduction Closureを進行中。Current Release／Quality Projection、起点Section付きOwner Relation検索、Runtime ActivityのEvent／Remote投影、Topic／Meeting Collection／Detail／同一・Repository間Relation遷移／実在CHGへのTopic昇格、Remote CROSでの明示Repository選択とMCP読書き、Repository Tree／DiffおよびProject Portfolioの検索・20件単位継続読込・Source別五場面を構造化画面へ接続し、現在はCovered 13件、AI関連Partial 2件、Missing 0件である。15画面のProduction DOMはDesktop／Tablet／Mobileと100%／200%／400%の27条件で実Browser観測済みである。AI依頼は読取り助言／変更候補を明示し、Coordinator Mode Routerが別Executorへの配送・観測・取消と根拠参照付き結果の実行時検証を保持する。Repository単体Production CLIは検証済みRootの`PROJECT_CONTEXT.md`を内容Hash付き専用Task PacketへEffect 0で固定し、採用済みCatalogの同一改訂から選択ProfileのAdapter、Model、Reasoningを解決する。一依頼の外部送信確認、Provider別固定Adapter、Repository非共有Command Plan、Provider出力抽出、Executor Core、一回消費Packet、`workbench_advice` Docker Modeおよび変更候補Executorまで成立した。変更候補はStoreから再読取りしたMetadataの確認、操作ごとの明示確認、Project Runtime Lease、Revision・dirty・Scope再観測、Receiptと耐久記録を通る別操作で採用または破棄できる。採用してもCommit／Pushは行わない。Shared Serverは固定OS設定、検証済みRepository／Workspace Exposure、REST／MCP同一HTTPS Origin、外部TLS終端契約、Host限定Credential回復および終了後資源0まで成立した。未完了は実Provider E2EとAI関連2画面のClosureである | [CHG-000082](99_Roadmap/Changes/CHG-000082/change.md)、[実Browser Visual Gate](99_Roadmap/Changes/CHG-000082/Evidence/260928-1028_phase5-workbench-actual-browser-visual.md)、[Shared Server運用境界](99_Roadmap/Changes/CHG-000082/Evidence/260928-1114_phase5-shared-server-production-boundary.md) |
+| 現在事実 | 品質 | v0.22移管39 Local Itemのうち11件を観測済み、28件を未観測として保持。全体Quality Readyは未成立 | [Quality Center](07_Quality/01_Quality_Center.md) |
 
 ## 2. 何が危ない、または止まっているか
 
@@ -70,9 +70,7 @@ Workbenchを先に作るのではなく、どのConsumerでも同じProject理�
 | 候補 | 理由・成立条件 | Owner Relation |
 |---|---|---|
 | REQ-000037〜041をUX以降へ全数伝播する | 任意期限、Project Context、Topic／Meeting、WorkbenchおよびRemote CROSの利用者成果を設計へ渡すため | [Discovery台帳](01_Discovery/01_Product_Discovery.md) |
-| 同じProject ContextをMCPから読める最小境界を評価する | Markdown直接確認だけでなく、構造化Consumerでも意味を変えず取得できることを確認するため | [入口比較](01_Discovery/Analysis/EXP-000029/consumer_comparison.md)、[MCP Architecture](06_Architecture/Details/mcp/01_Architecture.md) |
-| Topic／Meetingの共通操作を具体化する | 単一RepositoryとDEV／MGMT分離の両方で、Owner Repositoryを越えず同じ契約を使えるようにするため | [REQ-000039](01_Discovery/Definitions/REQ-000039/requirement.md) |
-| WorkbenchのConnection／AI Surfaceへ進む | Repository WorkのGateが通過したため、Repository単体利用を維持しながら、Remote CROSだけにRole CredentialとSession Grantを接続する | [CHG-000082](99_Roadmap/Changes/CHG-000082/change.md)、[CROS Architecture](06_Architecture/Details/cros/01_Architecture.md) |
+| Workbenchの実Provider E2Eと残る画面Closureを行う | 15画面の実Browser Visual Gate、読取り助言／変更候補のProduction Runtimeおよび候補の別採否操作は成立した。残るAI関連Partial 2画面を実Codex／Claudeと最終Production Closureで再評価するため | [CHG-000082](99_Roadmap/Changes/CHG-000082/change.md)、[実Browser Visual Gate](99_Roadmap/Changes/CHG-000082/Evidence/260928-1028_phase5-workbench-actual-browser-visual.md) |
 | 次工程Gateでv0.22.0の日程Riskを再評価する | Scopeは確認済みだが、2026-10-03までの残作業と検証費用は工程進行に合わせて更新する必要があるため | [Roadmap](99_Roadmap/01_Roadmap.md)、[REQ-000037](01_Discovery/Definitions/REQ-000037/requirement.md) |
 
 ## Checklist

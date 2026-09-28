@@ -9,15 +9,16 @@
  * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
  */
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import test from "node:test";
-import type { OwnedCommandHandle } from "../../src/security/docker-owned-process.ts";
-
 import { createIsolatedClaudeDockerRuntimeAdapterCandidate } from "../../src/security/claude-docker-runtime-adapter.ts";
 import {
   createIsolatedDockerEffectRuntimeCandidate,
   describeDockerEffectRuntimeContract,
 } from "../../src/security/docker-effect-runtime.ts";
+import type { OwnedCommandHandle } from "../../src/security/docker-owned-process.ts";
+import { planWorkbenchAiAdviceProviderCommand } from "../../src/security/workbench-ai-advice-provider-command.ts";
 
 /**
  * createPlanFixtureのTest準備責務を実行する。
@@ -31,7 +32,10 @@ import {
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
  * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
  */
-function createPlanFixture(taskRole: "executor" | "reviewer" | null = null) {
+function createPlanFixture(
+  taskRole: "executor" | "reviewer" | null = null,
+  advice = false,
+) {
   const managementCapability = Object.freeze({});
   const mountCapability = Object.freeze({});
   const mountAuthorizationCapability = Object.freeze({});
@@ -120,6 +124,33 @@ function createPlanFixture(taskRole: "executor" | "reviewer" | null = null) {
         prompt: "Execute the exact isolated task.",
         promptTransport: "provider_stdin_only" as const,
       }),
+    consumeAdvicePacket: () => {
+      const providerCommand = planWorkbenchAiAdviceProviderCommand({
+        provider: "claude",
+        exactModelId: "opus",
+        reasoningEffort: "low",
+      });
+      return Object.freeze({
+        contract: "crdd-coordinator/workbench-ai-advice-runtime-packet",
+        contractRevision: 1,
+        packetRef: "ADVICEPKT-00112233445566778899AABBCCDDEEFF",
+        operationId: "OP-123456",
+        profileId: "PROFILE-200001",
+        provider: "claude" as const,
+        taskHash: "2".repeat(64),
+        projectionHash: "3".repeat(64),
+        commandHash: createHash("sha256")
+          .update(JSON.stringify(providerCommand), "utf8")
+          .digest("hex"),
+        packetHash: "5".repeat(64),
+        providerCommand,
+        providerPrompt: "Give advice from the supplied projection.",
+        repositoryMounted: false as const,
+        workspaceMounted: false as const,
+        toolsAllowed: false as const,
+        sessionPersistenceAllowed: false as const,
+      });
+    },
     issueProviderAuthority: () =>
       Object.freeze({
         status: "issued",
@@ -133,20 +164,29 @@ function createPlanFixture(taskRole: "executor" | "reviewer" | null = null) {
       }),
     revokeProviderAuthority: () => Object.freeze({ status: "revoked" }),
   });
-  const prepared = taskRole
-    ? adapter.prepareTask(
+  const prepared = advice
+    ? adapter.prepareAdvice(
         managementCapability,
         mountCapability,
         mountAuthorizationCapability,
         selectionUseCapability,
         Object.freeze({}),
+        Object.freeze({}),
       )
-    : adapter.prepare(
-        managementCapability,
-        mountCapability,
-        mountAuthorizationCapability,
-        selectionUseCapability,
-      );
+    : taskRole
+      ? adapter.prepareTask(
+          managementCapability,
+          mountCapability,
+          mountAuthorizationCapability,
+          selectionUseCapability,
+          Object.freeze({}),
+        )
+      : adapter.prepare(
+          managementCapability,
+          mountCapability,
+          mountAuthorizationCapability,
+          selectionUseCapability,
+        );
   assert.equal(prepared.status, "prepared");
   const plan = adapter.consumeForProcessController(
     prepared.preparedCapability,
@@ -171,6 +211,7 @@ function createPlanFixture(taskRole: "executor" | "reviewer" | null = null) {
 function createEffectFixture(
   options: Readonly<{
     taskRole?: "executor" | "reviewer";
+    advice?: boolean;
     configEntries?: readonly string[];
     outputForInvocation?: (
       argv: readonly string[],
@@ -191,6 +232,7 @@ function createEffectFixture(
 ) {
   const { plan, managementCapability } = createPlanFixture(
     options.taskRole ?? null,
+    options.advice ?? false,
   );
   const invocations: Array<{
     executable: string;
@@ -500,6 +542,45 @@ test("Task本文はprovider startのstdinだけへ渡しDocker argvへ含めな�
   assert.equal(invocation.stdin, "Execute the exact isolated task.");
   assert.equal(invocation.argv.includes(invocation.stdin ?? ""), false);
   assert.equal(invocation.argv.includes("--interactive"), true);
+});
+
+/**
+ * Workbench助言本文を非共有Providerのstdinだけへ渡すことを検証する。
+ *
+ * @responsibility Advice Packet由来PromptとRepository非共有Docker PlanのEffect直前一致を判定する。
+ * @trace ERB-IT-004
+ * @precondition Adapterが生成したworkbench_advice Planを使用する。
+ * @stimulus Provider start commandをDocker Effectへ渡す。
+ * @observation stdin、argv、Workspace Mount有無を観測する。
+ * @oracle Promptはstdinだけにあり、interactiveで、`/work` Mountを持たない。
+ * @cleanup fixtureの疑似Processはwaitで終了する。
+ * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
+ */
+test("Workbench助言本文を非共有Providerのstdinだけへ渡す", async () => {
+  const fixture = createEffectFixture({ advice: true });
+  const providerStart = fixture.plan.commands.find(
+    (command) => command.purpose === "start_provider_attached",
+  );
+  const providerCreate = fixture.plan.commands.find(
+    (command) => command.purpose === "create_provider",
+  );
+  assert.ok(providerStart);
+  assert.ok(providerCreate);
+  const handle = fixture.runtime.startCommand(
+    providerStart,
+    fixture.plan,
+    fixture.managementCapability,
+  );
+  assert.equal((await handle.wait(10_000))?.status, 0);
+  const invocation = fixture.invocations[0];
+  assert.ok(invocation);
+  assert.equal(invocation.stdin, "Give advice from the supplied projection.");
+  assert.equal(invocation.argv.includes(invocation.stdin ?? ""), false);
+  assert.equal(invocation.argv.includes("--interactive"), true);
+  assert.equal(
+    providerCreate.argv.some((value) => value.includes("dst=/work")),
+    false,
+  );
 });
 
 /**
@@ -978,7 +1059,7 @@ test("通常Effect cleanupは認証Probeの空・別・追加Networkを削除し
  */
 test("Docker Effect contractは発行者Trustと任意command禁止を公開する", () => {
   const contract = describeDockerEffectRuntimeContract();
-  assert.equal(contract.contractRevision, 9);
+  assert.equal(contract.contractRevision, 10);
   assert.equal(contract.dockerCli.exactVersionRequired, false);
   assert.equal(contract.dockerCli.exactHashRequiredAcrossOperations, false);
   assert.equal(
@@ -991,9 +1072,12 @@ test("Docker Effect contractは発行者Trustと任意command禁止を公開す�
   assert.equal(contract.environment, "runtime_owned_minimal_replacement");
   assert.equal(
     contract.commandPlan,
-    "exact_nine_command_subscription_preflight_provider_probe_or_isolated_task",
+    "exact_nine_command_subscription_preflight_provider_probe_isolated_task_or_workbench_advice",
   );
-  assert.equal(contract.taskInput, "runtime_owned_stdin_only_not_docker_argv");
+  assert.equal(
+    contract.taskInput,
+    "runtime_owned_task_or_advice_stdin_only_not_docker_argv",
+  );
   assert.equal(contract.callerCommandAllowed, false);
   assert.equal(contract.providerEffectAllowed, true);
 });

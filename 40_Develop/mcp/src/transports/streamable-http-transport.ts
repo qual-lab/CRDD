@@ -22,6 +22,10 @@ import {
   protocolError,
 } from "../protocol/project-runtime-protocol.ts";
 import { parseUnambiguousJsonDocument } from "../protocol/unambiguous-json-document.ts";
+import type {
+  McpAuthenticatedRequestHandlerResolver,
+  McpRequestHandler,
+} from "./request-handler.ts";
 
 export const MCP_PROJECT_RUNTIME_STREAMABLE_HTTP_CONTRACT =
   "crdd-mcp/streamable-http-transport/v1" as const;
@@ -42,6 +46,12 @@ const MAXIMUM_REQUEST_BYTES = 128 * 1024;
 export type McpProjectRuntimeHttpOptions = Readonly<{
   port: number;
   bearerToken: string;
+  allowedOrigins?: readonly string[];
+}>;
+
+/** Request単位認証を行うStreamable HTTPの非秘密構成。 */
+export type McpAuthenticatedHttpOptions = Readonly<{
+  port: number;
   allowedOrigins?: readonly string[];
 }>;
 
@@ -288,15 +298,14 @@ async function readBody(request: IncomingMessage) {
  * @security N/A: startMcpProjectRuntimeStreamableHttpはAuthority、秘密値または信頼判断を扱わない。
  * @concurrency startMcpProjectRuntimeStreamableHttpは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
-export async function startMcpProjectRuntimeStreamableHttp(
-  dependencies: McpProjectRuntimeDependencies,
-  options: McpProjectRuntimeHttpOptions,
+async function startMcpStreamableHttpWithHandler(
+  resolveHandler: McpAuthenticatedRequestHandlerResolver,
+  options: McpAuthenticatedHttpOptions,
 ) {
   if (
     !Number.isInteger(options.port) ||
     options.port < 0 ||
     options.port > 65_535 ||
-    !validToken(options.bearerToken) ||
     (options.allowedOrigins ?? []).some(
       (origin) =>
         typeof origin !== "string" ||
@@ -306,7 +315,6 @@ export async function startMcpProjectRuntimeStreamableHttp(
     )
   )
     throw new Error("project_runtime_mcp_http_configuration_invalid");
-  const expectedToken = Buffer.from(options.bearerToken, "utf8");
   const allowedOrigins = new Set(options.allowedOrigins ?? []);
   const active = new Set<Promise<void>>();
   const controllers = new Set<AbortController>();
@@ -353,7 +361,15 @@ export async function startMcpProjectRuntimeStreamableHttp(
           );
           return;
         }
-        if (!authorized(request.headers, expectedToken)) {
+        const authorization = request.headers.authorization;
+        const token =
+          typeof authorization === "string" &&
+          authorization.startsWith("Bearer ") &&
+          validToken(authorization.slice("Bearer ".length))
+            ? authorization.slice("Bearer ".length)
+            : null;
+        const handler = token === null ? null : await resolveHandler(token);
+        if (handler === null) {
           response.setHeader("www-authenticate", "Bearer");
           respondJson(
             response,
@@ -395,11 +411,7 @@ export async function startMcpProjectRuntimeStreamableHttp(
           );
           return;
         }
-        const result = await handleMcpProjectRuntimeRequest(
-          body,
-          dependencies,
-          controller.signal,
-        );
+        const result = await handler(body, controller.signal);
         if (!controller.signal.aborted)
           respondJson(
             response,
@@ -492,6 +504,92 @@ export async function startMcpProjectRuntimeStreamableHttp(
     endpoint: ENDPOINT,
     close,
   });
+}
+
+/**
+ * Application Handlerを使用してStreamable HTTPを開始する。
+ *
+ * @responsibility HTTP認証・Lifecycleを特定MCP Capabilityから分離する。
+ * @trace ARCH-000012
+ * @input handlerとHTTP optionsを受け取る。
+ * @returns 待受情報と終了操作を持つServer Handleを返す。
+ * @precondition handlerは一Requestを一応答へ収束させる。
+ * @postcondition 127.0.0.1だけで待受け、close時にRequestとSocketを回収する。
+ * @effect localhost listenerを開始し、HTTP応答を返す。
+ * @failure 構成、認証、ProtocolまたはLifecycle失敗を安全に拒否する。
+ * @invariant TransportはTool固有の意味処理を持たない。
+ * @boundary localhost HTTPとMCP Application Handlerの境界。
+ * @security Bearer認証成功後の要求だけをHandlerへ渡す。
+ * @concurrency Requestごとの取消とServer全体のjoinを管理する。
+ */
+export async function startMcpStreamableHttp(
+  handler: McpRequestHandler,
+  options: McpProjectRuntimeHttpOptions,
+) {
+  if (!validToken(options.bearerToken))
+    throw new Error("project_runtime_mcp_http_configuration_invalid");
+  const expectedToken = Buffer.from(options.bearerToken, "utf8");
+  return startMcpStreamableHttpWithHandler(
+    (token) =>
+      authorized({ authorization: `Bearer ${token}` }, expectedToken)
+        ? handler
+        : null,
+    options,
+  );
+}
+
+/**
+ * RequestごとにBearer Credentialを検証するStreamable HTTPを開始する。
+ *
+ * @responsibility 固定Transport TokenではなくApplication CredentialからRequest Handlerを解決する。
+ * @trace ARCH-000012
+ * @input resolverとloopback HTTP構成を受け取る。
+ * @returns 待受情報と終了操作を持つServer Handleを返す。
+ * @precondition resolverは認証失敗をnullで返し、Tokenを保存しない。
+ * @postcondition 認証成功Requestだけが解決済みHandlerへ渡る。
+ * @effect localhost listenerを開始し、HTTP応答を返す。
+ * @failure 不正構成、認証失敗またはProtocol失敗を安全なHTTP結果へ閉じる。
+ * @invariant TransportはWorkspace GrantまたはProject Contextを解釈しない。
+ * @boundary Bearer HTTPとApplication Credential Resolverの境界。
+ * @security 生Tokenを応答、Errorまたは共有状態へ保存しない。
+ * @concurrency Requestごとに独立してresolverを呼び出す。
+ */
+export async function startMcpAuthenticatedStreamableHttp(
+  resolver: McpAuthenticatedRequestHandlerResolver,
+  options: McpAuthenticatedHttpOptions,
+) {
+  return startMcpStreamableHttpWithHandler(resolver, options);
+}
+
+/**
+ * Project Runtime互換入口でStreamable HTTPを開始する。
+ *
+ * @responsibility 既存利用側をProject Runtime Adapterへ接続する互換入口を維持する。
+ * @trace ARCH-000012
+ * @input dependenciesとHTTP optionsを受け取る。
+ * @returns 待受情報と終了操作を持つServer Handleを返す。
+ * @precondition dependenciesはProject Runtime公開契約を満たす。
+ * @postcondition 全RequestをProject Runtime Adapterへだけ渡す。
+ * @effect localhost listenerを開始し、HTTP応答を返す。
+ * @failure TransportまたはAdapter失敗を安全に拒否する。
+ * @invariant 既存公開関数の意味を変更しない。
+ * @boundary localhost HTTPとProject Runtime Adapterの互換境界。
+ * @security HTTP認証とProject Runtime Client認証を両方維持する。
+ * @concurrency Requestごとの取消とServer全体のjoinを管理する。
+ */
+export async function startMcpProjectRuntimeStreamableHttp(
+  dependencies: McpProjectRuntimeDependencies,
+  options: McpProjectRuntimeHttpOptions,
+) {
+  if (!validToken(options.bearerToken))
+    throw new Error("project_runtime_mcp_http_configuration_invalid");
+  const expected = Buffer.from(options.bearerToken, "utf8");
+  return startMcpStreamableHttpWithHandler((token) => {
+    return authorized({ authorization: `Bearer ${token}` }, expected)
+      ? (request, signal) =>
+          handleMcpProjectRuntimeRequest(request, dependencies, signal)
+      : null;
+  }, options);
 }
 
 /**

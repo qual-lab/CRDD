@@ -3,20 +3,20 @@
 変更ID: `CHG-000082`
 状態（Status）: `In Progress`
 担当責任者: Qual-Lab
-最終更新日: 2026-09-27
+最終更新日: 2026-09-28
 
 ## 現在状態
 
 | 項目 | 記載内容 |
 |---|---|
-| 現在の変更状態 | Phase 4を進行中。固定三Credential Profileを権限階層にせず明示Grantへ変換し、生Token非保存のCredential Core、不変Registryおよび任意構成のWorkbench管理Surfaceを接続した |
+| 現在の変更状態 | Phase 4 Gateを通過し、Phase 5のProduction Closureを進行中。Current Release／Quality Projection、起点Section付きOwner Relation検索、Runtime ActivityのEvent／Remote投影、Topic／Meeting Collection／Detail／同一Repository Relation遷移／実在CHGへのTopic昇格／許可済みRepository間Owner解決、Repository Tree／DiffおよびProject Portfolioの検索・継続読込・Source別Detailを構造化画面へ接続した。読取り助言は署名配布物、Operation世代、Provider Home、Selection、Docker回復およびHost cleanupを所有するProduction Runtimeまで接続した。変更候補は未信頼・未採用Candidate IDとして返し、Storeから再読取りした安全なMetadataの確認、操作ごとの明示確認、Project Runtime Lease、Revision・dirty・Scope再観測、Receiptと耐久記録を通る別の採用操作へ接続した。採用してもCommit／Pushは行わない。Shared Serverは固定OS設定、検証済みRepository／Exposure、REST／MCP同一HTTPS Origin、Host限定Credential Recoveryおよび終了後資源0まで接続済みである。現在はCovered 13件、Partial 2件、Missing 0件であり、残る実Provider E2EとProduction Closureを順に閉じる |
 | 対象改訂版 | `v0.22.0` |
-| 成立済み | G1〜G5のScreen Architecture、Direction A、5画面のSecondary展開、Production Shell、公式ロゴ、Project Context共通Reader、Topic／Meeting Record Reader、許可済みPortfolio Federation、Repository mode／CROS federation表示、作業ツリー読取り、選択Stage／Unstage／Commit／確認済み通常Push、拒否・通信断・結果不明・再観測、Role別Credential Core、Token非保存、永続Registry、Workbench Credential管理Surface |
-| 未成立 | Topic／Meeting CRUDとOutcome移管、Owner Relation操作、Remote CROS Transport接続、全管理者喪失時のHost Recovery、AI依頼、`ERB-ST-022`を含むProduction Closure |
+| 成立済み | G1〜G5のScreen Architecture、Direction A、5画面のSecondary展開、Production Shell、公式ロゴ、Project Context共通Reader、Topic／Meeting Record ReaderとRepository CRUD Core、共通Applicationの検索・絞込み・安定並び順・Query拘束Cursor、WorkbenchのTopic／Meeting独立Detail、Workbench／Repository単体MCPのTopic／Meeting CRUDと同一Repository内Meeting Outcome処置、Remote CROSのCredential／Workspace／Exposure／Repository Revision再検証付きTopic／Meeting Routing、同じSessionとExposure Snapshotに限定したRepository間Owner Relation解決、Workbenchの許可済みPortfolio Source明示選択・Remote Topic／Meeting MCP読書き・Owner Repository付きRelation遷移・Local fallback禁止、許可済みPortfolio Federation、Repository mode／CROS federation表示、Project Portfolioの検索・状態絞込み・20件単位Query拘束継続読込・Source別五場面Detail・欠測保持、作業ツリー読取り、選択Stage／Unstage／Commit／確認済み通常Push、拒否・通信断・結果不明・再観測、Role別Credential Core、Token非保存、永続Registry、Workbench Credential管理Surface、Bearer Remote Transport、Workbench Remote接続／更新／切断、Project Runtime状態Toolの非曖昧化、CROS CredentialによるRemote Project Context MCP、Host限定Access Recovery、AI Profileの閉じた共通Schema・一意解決・四軸Availability・Owner別耐久Snapshot・改訂競合付き採用Core・Repository／CROS WorkbenchのProfile限定管理・`systemAdmin`以外へのCatalog非開示・Coordinator／Workbench Consumer接続、Workbenchの現在Session限定AI依頼Port、読取り助言／変更候補の明示、開始／観測／取消、事実／共有済み分析／追加推論／次の選択肢の分離表示、Coordinatorの依頼種別別Mode Router・現在Process内観測・取消・未知状態非推測、読取り助言の利用者依頼・Profile・内容Hash付き許可済み投影をEffect 0で固定する専用Task Packet、許可参照へ拘束した専用Result Parser、Workbench選択Profile IDのCoordinator Task Request→Route Candidate→Executor Selection Grantへのexact搬送とReviewerへの非伝播、Runtime ActivityのRepository実構成、Execution Intelligence EventのProject限定継続読込、Remote CROSのCredential／Exposure再検証付きActivity投影、未接続／absent／unknown／observedの分離表示 |
+| 未成立 | 15画面Reality AuditのAI関連Partial 2件（Missing 0件）、読取り助言／変更候補の実Provider E2E、および最終Production Closure。Shared ServerのREST／MCP同一HTTPS Origin、外部TLS終端契約、固定OS設定、Credential Bootstrap／Recoveryおよび終了後資源0は成立済み。`ERB-ST-022`のVisual Gateは観測済み |
 | Phase／Gate適用判断 | `Applicable`: 画面Shell、読取り投影、書込みEffect、Remote接続を分けて成立確認する必要がある |
-| 現在Phase | `Phase 4 — Connection／AI Surface` |
-| 現在Gate | `Passed: Phase 3`: Force Push 0、暗黙再送0、選択差分だけの処置、確認済み通常Pushおよび結果不明後の再観測を直接境界・故障注入・実Browserで確認した |
-| 次のGate | User Accountを追加せず、Role Credentialから許可範囲だけのSessionを作り、Repository単体利用とRemote CROS利用を分離する |
+| 現在Phase | `Phase 5 — Production Closure` |
+| 現在Gate | `Passed: Phase 4`: User Accountを追加せず、Role Credentialから許可範囲だけのSessionを作り、Repository単体／Remote CROS、Repository／CROS Profile Ownerおよび非管理者へのCatalog非開示を分離した |
+| 次のGate | 15画面のPartial／Missingを処置し、実Browser、全回帰、実Provider境界、Reality Auditおよび独立レビューでBlocking Findingを0件にする |
 
 ## 契機 / 起点
 
@@ -59,6 +59,9 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 - [`99_Roadmap/02_Changes.md`](../../02_Changes.md)
 - [`06_Architecture/07_Detail_Architecture_Map.md`](../../../06_Architecture/07_Detail_Architecture_Map.md)
 - [`06_Architecture/Details/workbench/01_Architecture.md`](../../../06_Architecture/Details/workbench/01_Architecture.md)
+- [`06_Architecture/Details/ai-runtime/01_Architecture.md`](../../../06_Architecture/Details/ai-runtime/01_Architecture.md)
+- [`06_Architecture/Definitions/ARCH-000010/architecture_definition.md`](../../../06_Architecture/Definitions/ARCH-000010/architecture_definition.md)
+- [`06_Architecture/Details/mcp/01_Architecture.md`](../../../06_Architecture/Details/mcp/01_Architecture.md)
 - [`06_Architecture/Details/project-operation/01_Architecture.md`](../../../06_Architecture/Details/project-operation/01_Architecture.md)
 - [`06_Architecture/Details/version-control/01_Architecture.md`](../../../06_Architecture/Details/version-control/01_Architecture.md)
 - [`07_Quality/01_Quality_Center.md`](../../../07_Quality/01_Quality_Center.md)
@@ -72,26 +75,87 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 - [`07_Quality/Analysis/SPEC/quality_analysis.md`](../../../07_Quality/Analysis/SPEC/quality_analysis.md)
 - [`07_Quality/Analysis/ARCH/quality_analysis.md`](../../../07_Quality/Analysis/ARCH/quality_analysis.md)
 - [`07_Quality/Registry/test-catalog.json`](../../../07_Quality/Registry/test-catalog.json)
+- [`40_Develop/verification-runner/src/catalog/test-catalog.ts`](../../../40_Develop/verification-runner/src/catalog/test-catalog.ts)
+- [`40_Develop/verification-runner/tests/unit/test-catalog.contract.test.ts`](../../../40_Develop/verification-runner/tests/unit/test-catalog.contract.test.ts)
+- [`40_Develop/ai-runtime`](../../../40_Develop/ai-runtime)
+- [`40_Develop/coordinator/src/security/provider-model-profile-runtime.ts`](../../../40_Develop/coordinator/src/security/provider-model-profile-runtime.ts)
+- [`40_Develop/coordinator/tests/unit/provider-model-profile-runtime.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/provider-model-profile-runtime.contract.test.ts)
+- [`40_Develop/coordinator/src/security/workbench-ai-advice-execution-plan.ts`](../../../40_Develop/coordinator/src/security/workbench-ai-advice-execution-plan.ts)
+- [`40_Develop/coordinator/src/security/workbench-ai-advice-provider-command.ts`](../../../40_Develop/coordinator/src/security/workbench-ai-advice-provider-command.ts)
+- [`40_Develop/coordinator/src/security/workbench-ai-advice-provider-output.ts`](../../../40_Develop/coordinator/src/security/workbench-ai-advice-provider-output.ts)
+- [`40_Develop/coordinator/src/security/workbench-ai-advice-provider-executor.ts`](../../../40_Develop/coordinator/src/security/workbench-ai-advice-provider-executor.ts)
+- [`40_Develop/coordinator/src/security/workbench-ai-advice-runtime-packet.ts`](../../../40_Develop/coordinator/src/security/workbench-ai-advice-runtime-packet.ts)
+- [`40_Develop/coordinator/tests/unit/workbench-ai-advice-execution-plan.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/workbench-ai-advice-execution-plan.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/workbench-ai-advice-provider-command.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/workbench-ai-advice-provider-command.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/workbench-ai-advice-provider-output.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/workbench-ai-advice-provider-output.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/workbench-ai-advice-provider-executor.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/workbench-ai-advice-provider-executor.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/workbench-ai-advice-runtime-packet.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/workbench-ai-advice-runtime-packet.contract.test.ts)
+- [`40_Develop/coordinator/src/security/workbench-ai-provider-adapter.ts`](../../../40_Develop/coordinator/src/security/workbench-ai-provider-adapter.ts)
+- [`40_Develop/coordinator/tests/unit/workbench-ai-provider-adapter.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/workbench-ai-provider-adapter.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/claude-subscription-authentication-recovery.integration.test.ts`](../../../40_Develop/coordinator/tests/integration/claude-subscription-authentication-recovery.integration.test.ts)
+- [`40_Develop/coordinator/tests/integration/coordinator-task-process.integration.test.ts`](../../../40_Develop/coordinator/tests/integration/coordinator-task-process.integration.test.ts)
+- [`40_Develop/coordinator/tests/integration/docker-owned-process.integration.test.ts`](../../../40_Develop/coordinator/tests/integration/docker-owned-process.integration.test.ts)
+- [`40_Develop/coordinator/tests/integration/docker-process-controller.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/docker-process-controller.contract.test.ts)
+- [`40_Develop/coordinator/src/composition/project-runtime-composition-root.ts`](../../../40_Develop/coordinator/src/composition/project-runtime-composition-root.ts)
 - [`40_Develop/workbench/package.json`](../../../40_Develop/workbench/package.json)
 - [`40_Develop/workbench/package-lock.json`](../../../40_Develop/workbench/package-lock.json)
 - [`40_Develop/workbench/tsconfig.json`](../../../40_Develop/workbench/tsconfig.json)
 - [`40_Develop/workbench/symbol.json`](../../../40_Develop/workbench/symbol.json)
 - [`40_Develop/workbench/bin/workbench.ts`](../../../40_Develop/workbench/bin/workbench.ts)
 - [`40_Develop/workbench/src/index.ts`](../../../40_Develop/workbench/src/index.ts)
+- [`40_Develop/workbench/src/ai-profile-surface.ts`](../../../40_Develop/workbench/src/ai-profile-surface.ts)
+- [`40_Develop/workbench/src/credential-administration.ts`](../../../40_Develop/workbench/src/credential-administration.ts)
 - [`40_Develop/workbench/src/project-surface.ts`](../../../40_Develop/workbench/src/project-surface.ts)
+- [`40_Develop/workbench/src/remote-topic-meeting.ts`](../../../40_Develop/workbench/src/remote-topic-meeting.ts)
+- [`40_Develop/workbench/src/runtime-activity.ts`](../../../40_Develop/workbench/src/runtime-activity.ts)
+- [`40_Develop/workbench/src/owner-artifact-surface.ts`](../../../40_Develop/workbench/src/owner-artifact-surface.ts)
 - [`40_Develop/workbench/src/workbench-server.ts`](../../../40_Develop/workbench/src/workbench-server.ts)
 - [`40_Develop/workbench/tests/integration/project-surface.contract.test.ts`](../../../40_Develop/workbench/tests/integration/project-surface.contract.test.ts)
 - [`40_Develop/workbench/tests/integration/workbench-server.contract.test.ts`](../../../40_Develop/workbench/tests/integration/workbench-server.contract.test.ts)
 - [`40_Develop/cros/src/project-federation.ts`](../../../40_Develop/cros/src/project-federation.ts)
+- [`40_Develop/cros/src/connection-credential.ts`](../../../40_Develop/cros/src/connection-credential.ts)
+- [`40_Develop/cros/src/credential-access-recovery.ts`](../../../40_Develop/cros/src/credential-access-recovery.ts)
+- [`40_Develop/cros/src/credential-access-recovery-file-adapter.ts`](../../../40_Develop/cros/src/credential-access-recovery-file-adapter.ts)
+- [`40_Develop/cros/src/credential-access-recovery-cli.ts`](../../../40_Develop/cros/src/credential-access-recovery-cli.ts)
+- [`40_Develop/cros/bin/cros-access-recovery.ts`](../../../40_Develop/cros/bin/cros-access-recovery.ts)
+- [`40_Develop/cros/src/remote-transport.ts`](../../../40_Develop/cros/src/remote-transport.ts)
+- [`40_Develop/cros/src/runtime.ts`](../../../40_Develop/cros/src/runtime.ts)
 - [`40_Develop/cros/src/index.ts`](../../../40_Develop/cros/src/index.ts)
+- [`40_Develop/cros/tests/integration/connection-credential.contract.test.ts`](../../../40_Develop/cros/tests/integration/connection-credential.contract.test.ts)
+- [`40_Develop/cros/tests/integration/credential-registry-file-adapter.contract.test.ts`](../../../40_Develop/cros/tests/integration/credential-registry-file-adapter.contract.test.ts)
+- [`40_Develop/cros/tests/integration/credential-access-recovery-file-adapter.contract.test.ts`](../../../40_Develop/cros/tests/integration/credential-access-recovery-file-adapter.contract.test.ts)
 - [`40_Develop/cros/tests/integration/project-federation.contract.test.ts`](../../../40_Develop/cros/tests/integration/project-federation.contract.test.ts)
+- [`40_Develop/cros/tests/integration/remote-transport.contract.test.ts`](../../../40_Develop/cros/tests/integration/remote-transport.contract.test.ts)
+- [`40_Develop/cros/tests/system/session-access.contract.test.ts`](../../../40_Develop/cros/tests/system/session-access.contract.test.ts)
 - [`40_Develop/cros/symbol.json`](../../../40_Develop/cros/symbol.json)
+- [`40_Develop/mcp/src/protocol/project-runtime-protocol.ts`](../../../40_Develop/mcp/src/protocol/project-runtime-protocol.ts)
+- [`40_Develop/mcp/src/protocol/project-context-protocol.ts`](../../../40_Develop/mcp/src/protocol/project-context-protocol.ts)
+- [`40_Develop/mcp/src/protocol/topic-meeting-protocol.ts`](../../../40_Develop/mcp/src/protocol/topic-meeting-protocol.ts)
+- [`40_Develop/mcp/src/adapters/application-adapter.ts`](../../../40_Develop/mcp/src/adapters/application-adapter.ts)
+- [`40_Develop/mcp/src/adapters/project-context-adapter.ts`](../../../40_Develop/mcp/src/adapters/project-context-adapter.ts)
+- [`40_Develop/mcp/src/adapters/topic-meeting-adapter.ts`](../../../40_Develop/mcp/src/adapters/topic-meeting-adapter.ts)
+- [`40_Develop/mcp/src/composition/cros-project-context-application.ts`](../../../40_Develop/mcp/src/composition/cros-project-context-application.ts)
+- [`40_Develop/mcp/src/transports/request-handler.ts`](../../../40_Develop/mcp/src/transports/request-handler.ts)
+- [`40_Develop/mcp/src/transports/stdio-transport.ts`](../../../40_Develop/mcp/src/transports/stdio-transport.ts)
+- [`40_Develop/mcp/src/transports/streamable-http-transport.ts`](../../../40_Develop/mcp/src/transports/streamable-http-transport.ts)
+- [`40_Develop/mcp/src/index.ts`](../../../40_Develop/mcp/src/index.ts)
+- [`40_Develop/mcp/symbol.json`](../../../40_Develop/mcp/symbol.json)
+- [`40_Develop/mcp/tests/unit/project-context-adapter.contract.test.ts`](../../../40_Develop/mcp/tests/unit/project-context-adapter.contract.test.ts)
+- [`40_Develop/mcp/tests/unit/topic-meeting-adapter.contract.test.ts`](../../../40_Develop/mcp/tests/unit/topic-meeting-adapter.contract.test.ts)
+- [`40_Develop/mcp/tests/integration/cros-project-context-mcp.integration.test.ts`](../../../40_Develop/mcp/tests/integration/cros-project-context-mcp.integration.test.ts)
+- [`40_Develop/mcp/tests/system/stdio-transport.integration.test.ts`](../../../40_Develop/mcp/tests/system/stdio-transport.integration.test.ts)
+- [`40_Develop/mcp/tests/system/streamable-http-transport.integration.test.ts`](../../../40_Develop/mcp/tests/system/streamable-http-transport.integration.test.ts)
+- [`template/tools/crdd-mcp.ts`](../../../template/tools/crdd-mcp.ts)
 - [`40_Develop/project-operation/src/index.ts`](../../../40_Develop/project-operation/src/index.ts)
 - [`40_Develop/project-operation/src/repository-project-context.ts`](../../../40_Develop/project-operation/src/repository-project-context.ts)
 - [`40_Develop/project-operation/src/topic-meeting.ts`](../../../40_Develop/project-operation/src/topic-meeting.ts)
+- [`40_Develop/project-operation/src/topic-meeting-repository.ts`](../../../40_Develop/project-operation/src/topic-meeting-repository.ts)
+- [`40_Develop/project-operation/src/topic-meeting-application.ts`](../../../40_Develop/project-operation/src/topic-meeting-application.ts)
 - [`40_Develop/project-operation/symbol.json`](../../../40_Develop/project-operation/symbol.json)
 - [`40_Develop/project-operation/tests/integration/repository-project-context.contract.test.ts`](../../../40_Develop/project-operation/tests/integration/repository-project-context.contract.test.ts)
 - [`40_Develop/project-operation/tests/integration/topic-meeting-record.contract.test.ts`](../../../40_Develop/project-operation/tests/integration/topic-meeting-record.contract.test.ts)
+- [`40_Develop/project-operation/tests/integration/topic-meeting-repository.contract.test.ts`](../../../40_Develop/project-operation/tests/integration/topic-meeting-repository.contract.test.ts)
+- [`40_Develop/project-operation/tests/integration/topic-meeting-application.contract.test.ts`](../../../40_Develop/project-operation/tests/integration/topic-meeting-application.contract.test.ts)
 - [`40_Develop/version-control/src/change-publication.ts`](../../../40_Develop/version-control/src/change-publication.ts)
 - [`40_Develop/version-control/src/git/change-publication-adapter.ts`](../../../40_Develop/version-control/src/git/change-publication-adapter.ts)
 - [`40_Develop/version-control/src/index.ts`](../../../40_Develop/version-control/src/index.ts)
@@ -107,6 +171,22 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 - [`Evidence/260927-1812_phase2-read-only-project-surface.md`](./Evidence/260927-1812_phase2-read-only-project-surface.md)
 - [`Evidence/260927-1836_phase3-change-publication-it.md`](./Evidence/260927-1836_phase3-change-publication-it.md)
 - [`Evidence/260927-1845_phase3-repository-work.md`](./Evidence/260927-1845_phase3-repository-work.md)
+- [`Evidence/260927-1921_phase4-credential-administration.md`](./Evidence/260927-1921_phase4-credential-administration.md)
+- [`Evidence/260927-1939_phase4-remote-transport.md`](./Evidence/260927-1939_phase4-remote-transport.md)
+- [`Evidence/260927-1945_phase4-workbench-remote-connection.md`](./Evidence/260927-1945_phase4-workbench-remote-connection.md)
+- [`Evidence/260927-1954_phase4-workbench-connection-surface.md`](./Evidence/260927-1954_phase4-workbench-connection-surface.md)
+- [`Evidence/260927-1959_mcp-runtime-state-tool-name.md`](./Evidence/260927-1959_mcp-runtime-state-tool-name.md)
+- [`Evidence/260927-2014_phase4-project-context-mcp.md`](./Evidence/260927-2014_phase4-project-context-mcp.md)
+- [`Evidence/260927-2022_phase4-test-catalog-closure.md`](./Evidence/260927-2022_phase4-test-catalog-closure.md)
+- [`Evidence/260927-2029_phase4-remote-project-context-mcp.md`](./Evidence/260927-2029_phase4-remote-project-context-mcp.md)
+- [`Evidence/260927-2037_topic-meeting-repository-crud.md`](./Evidence/260927-2037_topic-meeting-repository-crud.md)
+- [`Evidence/260927-2055_topic-meeting-workbench-mcp-crud.md`](./Evidence/260927-2055_topic-meeting-workbench-mcp-crud.md)
+- [`Evidence/260927-2120_meeting-outcome-treatment.md`](./Evidence/260927-2120_meeting-outcome-treatment.md)
+- [`Evidence/260927-2157_ai-profile-catalog.md`](./Evidence/260927-2157_ai-profile-catalog.md)
+- [`Evidence/260927-2257_phase5-screen-reality-audit.md`](./Evidence/260927-2257_phase5-screen-reality-audit.md)
+- [`Evidence/260927-2303_phase5-runtime-activity.md`](./Evidence/260927-2303_phase5-runtime-activity.md)
+- [`Evidence/260927-2309_phase5-owner-artifact-surface.md`](./Evidence/260927-2309_phase5-owner-artifact-surface.md)
+- [`Evidence/260927-2324_phase5-runtime-activity-composition.md`](./Evidence/260927-2324_phase5-runtime-activity-composition.md)
 
 </details>
 
@@ -140,7 +220,7 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 | 根拠の主張軸（観測基盤） | Applicable | DOM、HTTP、Application Contract、Git／Remote境界を分ける | Verification Design |
 | 根拠の主張軸（成果物Identity） | Applicable | UI／BHV／ARCH／QA／Source／Test／Evidenceを接続する | Reality Audit |
 | 根拠の主張軸（lifecycle） | Applicable | Server開始、要求、Effect、結果、shutdown、資源0を分ける | Host E2E |
-| 未解消の不一致 | OPEN | Production Skeletonは成立したが、既存Application Contractと実データの接続およびProduction全Profile STは未成立である | Phase 2とPhase 5で再評価する |
+| 未解消の不一致 | OPEN | Application Contract、実データ、Production全Profile STおよびShared Server運用境界は接続済み。残る不一致は、AI関連2画面の実Provider E2Eである | Phase 5で再評価する |
 
 ## 変更経路の計画
 
@@ -166,8 +246,8 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 | Phase 1: Production Skeleton | localhost ServerとBrowser Shellを成立させる | `40_Develop/workbench` | 静的確認、Server lifecycle、Browser smoke、公式ロゴ読込 | 公開入口からDirection A Shellを表示し、shutdown後資源0 | Passed |
 | Phase 2: Read-only Project Surface | Project／Portfolio／Topic／Meeting等を公開契約から表示する | Adapter、View Model、Screens | Contract／System／Accessibility | 欠測・制限・部分成功を保持して主要読取りFlowが成立 | Passed |
 | Phase 3: Repository Work | Tree／Diff／Stage／Commit／通常Pushを接続する | Version Control Adapter、確認Flow | Effect前後、失敗、結果不明、回復 | Force Push 0、暗黙再送0、選択差分だけを処置 | Passed |
-| Phase 4: Connection／AI Surface | Local／Remote接続、Role別Credential、AI依頼面を接続する | CROS／Runtime Adapter | Authority、Disclosure、Session lifecycle | User管理を追加せず、許可範囲だけで同じ契約を利用 | In Progress |
-| Phase 5: Production Closure | 15 Screen範囲、Visual、E2E、Reality Auditを閉じる | 全Production Surface | 全回帰、実Browser、独立レビュー | Blocking Finding 0、未観測を明示しRelease判断へ引渡し可能 | Planned |
+| Phase 4: Connection／AI Surface | Local／Remote接続、Role別Credential、AI依頼面を接続する | CROS／Runtime Adapter | Authority、Disclosure、Session lifecycle | User管理を追加せず、許可範囲だけで同じ契約を利用 | Passed |
+| Phase 5: Production Closure | 15 Screen範囲、Visual、E2E、Reality Auditを閉じる | 全Production Surface | 全回帰、実Browser、独立レビュー | Blocking Finding 0、未観測を明示しRelease判断へ引渡し可能 | In Progress |
 
 ### 途中拡張の記録
 
@@ -200,8 +280,19 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 
 - 検証義務: Workbench Architecture Detailの8導出キーを既存Quality目標へ接続し、Production境界を`ERB-IT-021`、Production DOMを`ERB-ST-022`へ分けた
 - 検証設計: localhost直接境界ITと実Browser System／E2Eを分離した
-- 結果参照: [Phase 1 Production Shell](./Evidence/260927-1733_phase1-production-shell.md)、[Phase 2 Project Context Reader](./Evidence/260927-1748_phase2-project-context-reader.md)、[Topic／Meeting Record Contract](./Evidence/260927-1759_topic-meeting-record-contract.md)、[Phase 2 Read-only Project Surface](./Evidence/260927-1812_phase2-read-only-project-surface.md)、[Phase 3 Change Publication IT](./Evidence/260927-1836_phase3-change-publication-it.md)、[Phase 3 Repository Work](./Evidence/260927-1845_phase3-repository-work.md)
-- Quality Center: `RFD-IT-014`と`RFD-ST-015`を、Workbench→Version Control→実Git／bare Remote、実Browser確認、故障分類および再観測のEvidenceとして観測済みにした。`ERB-ST-022`はProduction全Profileが未観測のため維持する
+- 結果参照: [Phase 1 Production Shell](./Evidence/260927-1733_phase1-production-shell.md)、[Phase 2 Project Context Reader](./Evidence/260927-1748_phase2-project-context-reader.md)、[Topic／Meeting Record Contract](./Evidence/260927-1759_topic-meeting-record-contract.md)、[Phase 2 Read-only Project Surface](./Evidence/260927-1812_phase2-read-only-project-surface.md)、[Phase 3 Change Publication IT](./Evidence/260927-1836_phase3-change-publication-it.md)、[Phase 3 Repository Work](./Evidence/260927-1845_phase3-repository-work.md)、[Phase 4 Project Context MCP](./Evidence/260927-2014_phase4-project-context-mcp.md)、[Phase 4 試験台帳の閉包確認](./Evidence/260927-2022_phase4-test-catalog-closure.md)、[Phase 4 AI Profile Catalog](./Evidence/260927-2157_ai-profile-catalog.md)、[Phase 4 Workbench AI依頼Port](./Evidence/260927-2210_workbench-ai-request-port.md)、[Phase 5 15画面Reality Audit](./Evidence/260927-2257_phase5-screen-reality-audit.md)、[Phase 5 Runtime Activity](./Evidence/260927-2303_phase5-runtime-activity.md)、[Phase 5 Owner Artifact Surface](./Evidence/260927-2309_phase5-owner-artifact-surface.md)、[Phase 5 Runtime Activity実構成](./Evidence/260927-2324_phase5-runtime-activity-composition.md)、[Phase 5 Project Plan構造化投影](./Evidence/260927-2337_phase5-project-plan-projection.md)、[Phase 5 Quality構造化投影](./Evidence/260927-2350_phase5-quality-projection.md)、[Phase 5 Documentation検索](./Evidence/260927-2352_phase5-documentation-search.md)、[Phase 5 Runtime Activity閉包](./Evidence/260928-0014_phase5-runtime-activity-closure.md)、[Phase 5 Topic／Meeting Collection／Detail](./Evidence/260928-0031_phase5-topic-meeting-collection-detail.md)、[Phase 5 Repository Tree／Diff](./Evidence/260928-0044_phase5-repository-tree-diff.md)、[Phase 5 Topic／Meeting Relation遷移](./Evidence/260928-0053_phase5-topic-meeting-relation-navigation.md)、[Phase 5 Topic→CHG昇格接続](./Evidence/260928-0105_phase5-topic-change-promotion.md)、[Phase 5 Project Portfolio遷移](./Evidence/260928-0115_phase5-project-portfolio-navigation.md)、[Phase 5 AI結果Provenance](./Evidence/260928-0207_phase5-ai-result-provenance.md)、[Phase 5 現在の15画面Reality Audit](./Evidence/260928-0243_phase5-current-screen-reality-audit.md)
+- 追加結果参照: [Phase 5 Remote CROS Topic／Meeting Routing](./Evidence/260928-0253_phase5-remote-topic-meeting-routing.md)
+- 追加結果参照: [Phase 5 Repository間Owner Relation](./Evidence/260928-0305_phase5-cross-repository-owner-relation.md)
+- 追加結果参照: [Phase 5 Remote Workbench Topic／Meeting](./Evidence/260928-0325_phase5-remote-workbench-topic-meeting.md)
+- 追加結果参照: [Phase 5 Workbench AI一回送信境界](./Evidence/260928-0415_phase5-workbench-ai-send-boundary.md)
+- 追加結果参照: [Phase 5 Workbench Provider Adapter](./Evidence/260928-0425_phase5-workbench-provider-adapter.md)
+- 追加結果参照: [Phase 5 署名Runtime閉包と助言Execution Plan](./Evidence/260928-0439_phase5-signed-runtime-closure-and-advice-plan.md)
+- 追加結果参照: [Phase 5 Provider Command／Output境界](./Evidence/260928-0500_phase5-provider-command-and-output-boundary.md)
+- 追加結果参照: [Phase 5 読取り助言Runtime Packet](./Evidence/260928-0530_phase5-advice-runtime-packet.md)
+- 追加結果参照: [Phase 5 `workbench_advice` Docker境界](./Evidence/260928-0600_phase5-workbench-advice-docker-boundary.md)
+- 追加結果参照: [Phase 5 読取り助言Production Runtime](./Evidence/260928-0635_phase5-workbench-advice-production-runtime.md)、[Phase 5 Workbench変更候補Production Runtime](./Evidence/260928-0715_phase5-workbench-change-candidate-runtime.md)、[Phase 5 AI二画面の現在Reality Audit](./Evidence/260928-0725_phase5-ai-screen-reality-audit.md)、[Phase 5 AI Runtime Package Closure](./Evidence/260928-0750_phase5-ai-runtime-package-closure.md)、[Phase 5 変更候補の採否境界](./Evidence/260928-0911_phase5-candidate-disposition.md)
+- 追加結果参照: [Phase 5 Workbench実Browser Visual Gate](./Evidence/260928-1028_phase5-workbench-actual-browser-visual.md)
+- Quality Center: `RFD-IT-014`と`RFD-ST-015`を、Workbench→Version Control→実Git／bare Remote、実Browser確認、故障分類および再観測のEvidenceとして観測済みにした。`ERB-ST-022`も15画面、Desktop／Tablet／Mobile、100%／200%／400%の27条件と終了後資源0のEvidenceへ接続した
 
 ## 実際の影響 / 逸脱
 
@@ -209,7 +300,7 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 - 計画との差: Desktop包装を追加せず、計画どおりlocalhost ServerとBrowser Shellだけを実装した
 - 追加 / 削除した工程・検証と理由: Visual Previewの成立を流用せず、Workbench固有の`ERB-IT-021`と`ERB-ST-022`へ分離した
 - 経路不足から生じた指摘事項: 初回Mobile smokeでNavigationが一行横Scrollになったため、320px相当では3列折返しへ是正した
-- 最終的に有効だった検証: 固定Route IT、実Browser smoke、Repository Checker
+- 最終的に有効だった検証: 固定Route IT、15画面×3表示Profile×3 Zoomの実Browser Visual Gate、Repository Checker
 
 ## 正本コンテキストの更新
 
@@ -228,8 +319,10 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 
 - localhost Web SurfaceがDesktop固有操作なしで必要な利用体験を満たすかはProduction Dogfoodで確認する。
 - 公式ロゴはRepository内の承認済みAssetを使用するが、配布Packageでの単一Ownerと収載方法はPhase 1で固定する。
-- Credential、Git Push、外部AI依頼は読取り面より強いAuthority／Effectを持つため、後続Phaseへ分離する。
+- WorkbenchのAI依頼Surfaceは選択Profile ID、読取り助言／変更候補、一依頼だけの外部送信確認を明示するApplication Portまで成立した。読取り助言は一般TaskのExecutor／Reviewerへ流用せず、Task Hash、Catalog Revision、exact Profile ID、Providerへ確認を結合して一回だけ消費する専用DispatchをProduction Compositionへ接続した。Effect前取消、Effect後取消競合、Provider例外、cleanup不明および不正結果は自動再送または成功へ畳まない。Provider Adapterはexact ProfileをCodex／Claudeの一方へだけ渡し、専用Execution PlanとProvider Command Planでstdin搬送、Repository／Workspace mountなし、Tool／Sessionなし、API Key／有料fallbackなしを固定する。Executor CoreはCodex JSONLのTool Eventを拒否し、Claude Envelopeから助言JSONだけを抽出して生metadataを公開しない。Executor Coreから署名Runtimeへ渡すOperation、Profile、Task／Projection Hash、PromptおよびCommand Hashは`ADVICEPKT-*`の一回消費Packetへ固定し、別Owner消費、再利用、取消後利用および共有境界拡張を拒否する。Production Runtimeは署名配布物Capability、Operation世代、Provider Home、Selection、Docker回復、Host cleanupおよび最終Recovery確定を所有し、両cleanup完了後だけ助言JSONを返す。実Provider E2Eは未実施である。
+- Coordinatorに現在Process限定Mode Routerを追加し、読取り助言／変更候補を別Executorへ一回だけ配送する契約、取消後の遅延完了保護および未知Identityの非推測を`ERB-UT-023`で確認した。Workbench Production Compositionは読取り助言の専用Dispatch、Provider別固定Adapter、署名済みProduction Runtimeに加え、変更候補の明示許可Path、exact Executor Profileおよび署名済みProject Runtime Single Taskを接続した。候補は未信頼・未採用Identityとして公開し、候補生成とは別の確認・採用・破棄操作を接続した。採用は現在候補との一致、明示確認、Project Runtime Lease、Revision・dirty・Scope再観測、Receiptと耐久記録を必須にし、Commit／Pushへ拡張しない。実Provider E2Eは未実施である。
+- AI結果は四区分の各項目を本文と一件以上の正本参照の組へ変更した。Coordinator Mode RouterはExecutor結果を閉じたSchemaで実行時検証し、専用Advice Result Parserは単一JSONを許可済み読取り投影のexact参照集合へ拘束する。根拠参照なし、投影外参照、重複Key、複数JSON、余分なKeyまたは過大値を部分公開せずblockedへ閉じる。Workbenchは参照を表示するが、参照から任意Path読取りAuthorityを生成しない。固定Provider Executorへの同契約接続は未成立である。
 
 ## 後続対応 / ロードマップ
 
-Phase 2を閉じ、Phase 3でTree／Diff読取りとChange Publication Portの局所実境界を成立させた。次は同PortをWorkbench Application Portへ接続し、利用者確認、拒否・失敗・結果不明、再観測および終了後TreeまでをProduction Surfaceで閉じる。
+Phase 4までの接続とPhase 5の13画面を閉じ、15画面すべてのProduction DOMを3表示Profile×3 Zoomの実Browserで観測した。読取り助言はProvider固有コマンド計画、出力抽出、Executor Core、一回消費Packet、Repository非共有の`workbench_advice` Docker ModeおよびOperation／Mount／Selection／Recovery／cleanupを編成するProduction Compositionまで成立した。変更候補も明示許可Pathとexact ProfileをProject Runtime Single Taskへ固定し、未採用候補として返した後、別の明示確認とProject Runtime Adoption Lifecycleで確認・採用・破棄できる。Shared Serverは固定OS設定から検証済みRepositoryとWorkspace Exposureを構成し、外部TLS終端の後段でREST／MCPを同じHTTPS Originへ投影し、親Process終了時にGateway／内部Listener／Socket／Proxy Requestを回収する公開入口まで成立した。次は署名済み実Provider E2E、残るAI関連2画面のReality Auditおよび最終Production Closureを順に閉じる。

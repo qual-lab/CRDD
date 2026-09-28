@@ -139,6 +139,30 @@ test("real candidate bundles are merged and explicitly adopted into the bound re
     repository,
     candidateStore,
   );
+  const bound = adapter.bindPublishedCandidate(published.candidateId);
+  assert.deepEqual(bound, {
+    candidateId: published.candidateId,
+    candidateHash: "c".repeat(64),
+    baseRevision: revision,
+    changedPaths: ["result.txt", "resultz.txt"],
+  });
+  assert.deepEqual(adapter.observeCanonicalRepository(), {
+    status: "observed",
+    repositoryRevision: revision,
+    dirty: false,
+    observedPaths: [],
+  });
+  const boundReceipt = (await adapter.adoptCandidate(bound as never)) as Record<
+    string,
+    unknown
+  >;
+  assert.equal(boundReceipt.status, "completed");
+  assert.equal(
+    fs.readFileSync(path.join(repository, "result.txt"), "utf8"),
+    "after\n",
+  );
+  fs.writeFileSync(path.join(repository, "result.txt"), "before\n");
+  fs.writeFileSync(path.join(repository, "resultz.txt"), "before-2\n");
   const candidate = (await adapter.createCandidate({
     state: state.state,
     taskCandidateIds: [published.candidateId],

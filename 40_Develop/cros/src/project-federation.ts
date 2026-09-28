@@ -106,7 +106,7 @@ export function resolveAuthorizedRepositories(
       .filter(
         (exposure) =>
           exposure.active &&
-          exposure.registryRevision === session.registryRevision &&
+          exposure.registryRevision === session.exposureRegistryRevision &&
           session.workspaceIds.includes(exposure.workspaceId) &&
           repositories.some(
             (repository) =>

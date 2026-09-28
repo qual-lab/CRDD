@@ -162,10 +162,12 @@
       "kind": "test-suite",
       "path": "tests/integration/cli-options.contract.test.ts",
       "qaIds": [
-        "QA-000003"
+        "QA-000003",
+        "QA-000005"
       ],
       "localTestIds": [
-        "PRL-IT-012"
+        "PRL-IT-012",
+        "CPR-IT-006"
       ],
       "verifies": [
         "coordinator.source.src.core.cli.options",
@@ -2231,6 +2233,158 @@
       ]
     },
     {
+      "symbolId": "coordinator.test.unit.workbench-ai-request-application",
+      "kind": "test-suite",
+      "path": "tests/unit/workbench-ai-request-application.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-023"
+      ],
+      "verifies": [
+        "coordinator.source.src.composition.workbench.ai.request.application",
+        "coordinator.source.src.composition.workbench.ai.repository.composition",
+        "coordinator.source.src.security.workbench.ai.advice.result",
+        "coordinator.source.src.security.workbench.ai.advice.task"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.workbench-ai-advice-execution-plan",
+      "kind": "test-suite",
+      "path": "tests/unit/workbench-ai-advice-execution-plan.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-023",
+        "ERB-IT-004"
+      ],
+      "verifies": [
+        "coordinator.source.src.security.workbench.ai.advice.execution.plan"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.workbench-ai-advice-provider-command",
+      "kind": "test-suite",
+      "path": "tests/unit/workbench-ai-advice-provider-command.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-023",
+        "ERB-IT-004"
+      ],
+      "verifies": [
+        "coordinator.source.src.security.workbench.ai.advice.provider.command"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.workbench-ai-advice-provider-output",
+      "kind": "test-suite",
+      "path": "tests/unit/workbench-ai-advice-provider-output.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-023",
+        "ERB-IT-004"
+      ],
+      "verifies": [
+        "coordinator.source.src.security.workbench.ai.advice.provider.output"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.workbench-ai-advice-provider-executor",
+      "kind": "test-suite",
+      "path": "tests/unit/workbench-ai-advice-provider-executor.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-023",
+        "ERB-IT-004"
+      ],
+      "verifies": [
+        "coordinator.source.src.security.workbench.ai.advice.provider.executor",
+        "coordinator.source.src.security.workbench.ai.advice.provider.output"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.workbench-ai-advice-production-runtime",
+      "kind": "test-suite",
+      "path": "tests/unit/workbench-ai-advice-production-runtime.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-023",
+        "ERB-IT-004"
+      ],
+      "verifies": [
+        "coordinator.source.src.security.workbench.ai.advice.production.runtime",
+        "coordinator.source.src.security.workbench.ai.advice.provider.executor"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.workbench-ai-advice-runtime-packet",
+      "kind": "test-suite",
+      "path": "tests/unit/workbench-ai-advice-runtime-packet.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-023",
+        "ERB-IT-004"
+      ],
+      "verifies": [
+        "coordinator.source.src.security.workbench.ai.advice.runtime.packet"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.workbench-ai-change-candidate-runtime",
+      "kind": "test-suite",
+      "path": "tests/unit/workbench-ai-change-candidate-runtime.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-023",
+        "ERB-IT-004"
+      ],
+      "verifies": [
+        "coordinator.source.src.security.workbench.ai.change.candidate.runtime"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.workbench-ai-advice-dispatch-runtime",
+      "kind": "test-suite",
+      "path": "tests/unit/workbench-ai-advice-dispatch-runtime.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-023"
+      ],
+      "verifies": [
+        "coordinator.source.src.security.workbench.ai.advice.dispatch.runtime"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.workbench-ai-provider-adapter",
+      "kind": "test-suite",
+      "path": "tests/unit/workbench-ai-provider-adapter.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-023"
+      ],
+      "verifies": [
+        "coordinator.source.src.security.workbench.ai.provider.adapter"
+      ]
+    },
+    {
       "symbolId": "coordinator.test.unit.provider-task-packet-runtime",
       "kind": "test-suite",
       "path": "tests/unit/provider-task-packet-runtime.contract.test.ts",
@@ -3070,6 +3224,134 @@
       "path": "src/composition/project-runtime-composition-root.ts",
       "archIds": [
         "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.composition.workbench.ai.request.application",
+      "kind": "file",
+      "path": "src/composition/workbench-ai-request-application.ts",
+      "archIds": [
+        "ARCH-000010",
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.composition.workbench.ai.repository.composition",
+      "kind": "file",
+      "path": "src/composition/workbench-ai-repository-composition.ts",
+      "archIds": [
+        "ARCH-000009",
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.composition.workbench.candidate.application",
+      "kind": "file",
+      "path": "src/composition/workbench-candidate-application.ts",
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000015"
+      ],
+      "implements": [
+        "project-runtime.candidate-adoption"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.workbench.ai.advice.result",
+      "kind": "file",
+      "path": "src/security/workbench-ai-advice-result.ts",
+      "archIds": [
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.workbench.ai.advice.execution.plan",
+      "kind": "file",
+      "path": "src/security/workbench-ai-advice-execution-plan.ts",
+      "archIds": [
+        "ARCH-000010",
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.workbench.ai.advice.provider.command",
+      "kind": "file",
+      "path": "src/security/workbench-ai-advice-provider-command.ts",
+      "archIds": [
+        "ARCH-000010",
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.workbench.ai.advice.provider.output",
+      "kind": "file",
+      "path": "src/security/workbench-ai-advice-provider-output.ts",
+      "archIds": [
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.workbench.ai.advice.provider.executor",
+      "kind": "file",
+      "path": "src/security/workbench-ai-advice-provider-executor.ts",
+      "archIds": [
+        "ARCH-000010",
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.workbench.ai.advice.production.runtime",
+      "kind": "file",
+      "path": "src/security/workbench-ai-advice-production-runtime.ts",
+      "archIds": [
+        "ARCH-000008",
+        "ARCH-000010",
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.workbench.ai.advice.runtime.packet",
+      "kind": "file",
+      "path": "src/security/workbench-ai-advice-runtime-packet.ts",
+      "archIds": [
+        "ARCH-000010",
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.workbench.ai.change.candidate.runtime",
+      "kind": "file",
+      "path": "src/security/workbench-ai-change-candidate-runtime.ts",
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000010",
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.workbench.ai.advice.dispatch.runtime",
+      "kind": "file",
+      "path": "src/security/workbench-ai-advice-dispatch-runtime.ts",
+      "archIds": [
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.workbench.ai.provider.adapter",
+      "kind": "file",
+      "path": "src/security/workbench-ai-provider-adapter.ts",
+      "archIds": [
+        "ARCH-000010",
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.workbench.ai.advice.task",
+      "kind": "file",
+      "path": "src/security/workbench-ai-advice-task.ts",
+      "archIds": [
+        "ARCH-000014",
+        "ARCH-000015"
       ]
     },
     {

@@ -38,6 +38,7 @@ function createRequest(
     delegationNeed: "beneficial",
     delegationReason: "specialized_executor_benefit",
     requestedExecutorProvider: "auto",
+    requestedProfileId: null,
     subjectProvider: null,
     requiresIndependentProvider: false,
     role: "executor",
@@ -87,6 +88,40 @@ test("Front Codexから具体実装をClaude Executorへ選ぶ②経路", () => 
   assert.equal(selected.modelSelection?.effort, "low");
   assert.match(selected.selectionNotice ?? "", /front=codex executor=claude/);
   assert.equal(selected.providerEffectAllowed, false);
+});
+
+/**
+ * 明示Profile IDをProvider Effect前のRoute Candidateへ保持する。
+ *
+ * @responsibility Workbench等で選択したProfile Identityを自動選択へ置換せずSelection Grantへ搬送する。
+ * @trace PRL-UT-014
+ * @precondition Codex Executorと登録形式を満たすProfile IDを明示する。
+ * @stimulus Route Candidate選定を実行する。
+ * @observation CandidateのrequestedProfileIdと不正形式の拒否を観測する。
+ * @oracle 正しいIDは保持され、不正形式はProvider Effect前にblockedとなる。
+ * @cleanup N/A: 外部資源を生成しない。
+ * @boundary PRL-UT-014=N/A: Process内の入力検証と候補生成。
+ */
+test("明示Profile IDをProvider Effect前のRoute Candidateへ保持する", () => {
+  const selected = selectDelegationRouteCandidate(
+    createRequest("codex", {
+      requestedExecutorProvider: "codex",
+      requestedProfileId: "PROFILE-100003",
+    }),
+    BOTH_ELIGIBLE,
+  );
+  assert.equal(selected.status, "candidate");
+  assert.equal(selected.executorProvider, "codex");
+  assert.equal(selected.requestedProfileId, "PROFILE-100003");
+
+  const rejected = selectDelegationRouteCandidate(
+    createRequest("codex", {
+      requestedExecutorProvider: "codex",
+      requestedProfileId: "profile-latest",
+    }),
+    BOTH_ELIGIBLE,
+  );
+  assert.equal(rejected.status, "blocked");
 });
 
 /**

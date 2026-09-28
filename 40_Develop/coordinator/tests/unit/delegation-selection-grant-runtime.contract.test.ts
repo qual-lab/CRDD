@@ -38,6 +38,7 @@ function createRequest(overrides: Record<string, unknown> = {}) {
     delegationNeed: "beneficial",
     delegationReason: "specialized_executor_benefit",
     requestedExecutorProvider: "auto",
+    requestedProfileId: null,
     subjectProvider: null,
     requiresIndependentProvider: false,
     role: "executor",
@@ -103,7 +104,8 @@ function createFixture(
       Object.freeze({
         provider: request.provider,
         profileId:
-          request.provider === "claude" ? "PROFILE-123456" : "PROFILE-654321",
+          request.profileId ??
+          (request.provider === "claude" ? "PROFILE-123456" : "PROFILE-654321"),
         exactModelId:
           request.provider === "claude"
             ? "claude-opus-test-profile"
@@ -180,6 +182,72 @@ test("4経路候補をOperationとProfileへ結合した一回限りSelection Gr
     fixture.runtime.consume(issued.useCapability, fixture.managementCapability),
     null,
   );
+});
+
+/**
+ * 明示Profile IDをSelection Grantへexactに結合する。
+ *
+ * @responsibility 利用者が選択したProfile Identityと実行AuthorityのProfileを一致させる。
+ * @trace PRL-UT-006
+ * @precondition Executor Providerと整合する登録済みProfile IDを要求する。
+ * @stimulus Selection Grantを発行する。
+ * @observation Resolver入力と発行済みGrantのProfile IDを観測する。
+ * @oracle 両方が明示IDと一致し、異なるProfileを返すResolverはfail closedとなる。
+ * @cleanup N/A: 外部資源を生成しない。
+ * @boundary PRL-UT-006=N/A: Provider Effect前のSelection Authority生成。
+ */
+test("明示Profile IDをSelection Grantへexactに結合する", () => {
+  let observedProfileId: string | undefined;
+  const fixture = createFixture({
+    resolveModelProfile: (request) => {
+      observedProfileId = request.profileId;
+      return Object.freeze({
+        provider: request.provider,
+        profileId: request.profileId ?? "PROFILE-654321",
+        exactModelId: "codex-explicit-profile",
+        family: request.family,
+        selectionRole: request.role,
+        modelTier: request.modelTier,
+        speedMode: "normal",
+        billingMode: "subscription_oauth",
+        compatibilityReason: null,
+      });
+    },
+  });
+  const issued = fixture.runtime.issue(
+    fixture.managementCapability,
+    createRequest({
+      requestedExecutorProvider: "codex",
+      requestedProfileId: "PROFILE-100003",
+    }),
+  );
+  assert.equal(issued.status, "issued");
+  assert.equal(observedProfileId, "PROFILE-100003");
+  assert.equal(issued.profileId, "PROFILE-100003");
+
+  const mismatchFixture = createFixture({
+    resolveModelProfile: (request) =>
+      Object.freeze({
+        provider: request.provider,
+        profileId: "PROFILE-999999",
+        exactModelId: "wrong-profile",
+        family: request.family,
+        selectionRole: request.role,
+        modelTier: request.modelTier,
+        speedMode: "normal",
+        billingMode: "subscription_oauth",
+        compatibilityReason: null,
+      }),
+  });
+  const mismatch = mismatchFixture.runtime.issue(
+    mismatchFixture.managementCapability,
+    createRequest({
+      requestedExecutorProvider: "codex",
+      requestedProfileId: "PROFILE-100003",
+    }),
+  );
+  assert.equal(mismatch.status, "blocked");
+  assert.equal(mismatch.reason, "delegation_selection_profile_invalid");
 });
 
 /**

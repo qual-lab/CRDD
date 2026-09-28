@@ -27,10 +27,48 @@ export {
   type RepositoryProjectContextTable,
 } from "./repository-project-context.ts";
 export {
+  parseRepositoryReleaseProjectionMarkdown,
+  type RepositoryReleaseDependency,
+  type RepositoryReleaseProjection,
+  type RepositoryReleaseScope,
+} from "./repository-release-projection.ts";
+export {
+  parseRepositoryQualityProjectionMarkdown,
+  type RepositoryQualityProjection,
+} from "./repository-quality-projection.ts";
+export {
   parseMeetingMarkdown,
   parseTopicMarkdown,
   type MeetingRecord,
   type MeetingState,
+  type TopicPromotion,
   type TopicRecord,
   type TopicState,
+} from "./topic-meeting.ts";
+export {
+  createTopicMeetingRepository,
+  type ProjectOperationRecord,
+  type ProjectOperationRecordKind,
+  type TopicMeetingListResult,
+  type TopicMeetingRepository,
+  type TopicMeetingDocument,
+  type TopicMeetingWriteResult,
+} from "./topic-meeting-repository.ts";
+export {
+  createTopicMeetingApplication,
+  type TopicMeetingApplication,
+  type TopicMeetingListQuery,
+  type TopicMeetingPage,
+  type TopicMeetingRelation,
+  type TopicPromotionCommandResult,
+} from "./topic-meeting-application.ts";
+export type {
+  MeetingOutcomeCommandResult,
+  MeetingOutcomeTarget,
+} from "./topic-meeting-application.ts";
+export {
+  applyMeetingOutcomeTreatment,
+  applyTopicPromotion,
+  type MeetingOutcomeDisposition,
+  type MeetingOutcomeTreatment,
 } from "./topic-meeting.ts";

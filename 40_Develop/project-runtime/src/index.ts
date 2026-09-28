@@ -48,6 +48,15 @@ export {
   integrateProjectRuntimeOperation,
 } from "./application/project-runtime-integration.ts";
 export {
+  PROJECT_RUNTIME_CANDIDATE_ADOPTION_CONTRACT,
+  adoptProjectRuntimeExistingCandidate,
+  inspectProjectRuntimeExistingCandidate,
+  type ProjectRuntimeCandidateAdoptionDependencies,
+  type ProjectRuntimeCandidateAdoptionInput,
+  type ProjectRuntimeCandidateAdoptionResult,
+  type ProjectRuntimeExistingCandidate,
+} from "./application/project-runtime-candidate-adoption.ts";
+export {
   invalidateProjectRuntimeHumanDecision,
   issueProjectRuntimeHumanDecision,
   projectRuntimeDecisionRecordId,

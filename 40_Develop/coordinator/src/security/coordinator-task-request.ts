@@ -26,6 +26,23 @@ type Provider = "codex" | "claude";
 const REQUEST_KEYS = new Set([
   "frontProvider",
   "requestedExecutorProvider",
+  "requestedProfileId",
+  "objective",
+  "acceptanceCriteria",
+  "allowedPaths",
+  "readPaths",
+  "workClass",
+  "planState",
+  "risk",
+  "difficulty",
+  "decisionImpact",
+  "isLocalCandidateOnly",
+  "hasUnresolvedDirection",
+  "requiresCrossContextAlignment",
+]);
+const AUTOMATIC_REQUEST_KEYS = new Set([
+  "frontProvider",
+  "requestedExecutorProvider",
   "objective",
   "acceptanceCriteria",
   "allowedPaths",
@@ -56,7 +73,9 @@ const REQUEST_KEYS = new Set([
  * @concurrency N/A: snapshotCoordinatorTaskRequestは共有非同期状態を持たない同期処理である。
  */
 export function snapshotCoordinatorTaskRequest(rawRequest: unknown) {
-  const request = snapshotPlainRecord(rawRequest, REQUEST_KEYS);
+  const request =
+    snapshotPlainRecord(rawRequest, REQUEST_KEYS) ??
+    snapshotPlainRecord(rawRequest, AUTOMATIC_REQUEST_KEYS);
   const acceptance = request
     ? snapshotPlainArray<string>(request.acceptanceCriteria, 16)
     : null;
@@ -74,6 +93,9 @@ export function snapshotCoordinatorTaskRequest(rawRequest: unknown) {
       request.requestedExecutorProvider !== "auto" &&
       request.requestedExecutorProvider !== "codex" &&
       request.requestedExecutorProvider !== "claude") ||
+    (request.requestedProfileId !== undefined &&
+      (typeof request.requestedProfileId !== "string" ||
+        !/^PROFILE-[0-9]{6,}$/u.test(request.requestedProfileId))) ||
     typeof request.objective !== "string" ||
     request.objective.length === 0 ||
     acceptance?.status !== "ok" ||
@@ -104,6 +126,10 @@ export function snapshotCoordinatorTaskRequest(rawRequest: unknown) {
       request.requestedExecutorProvider === "claude"
         ? request.requestedExecutorProvider
         : "auto",
+    requestedProfileId:
+      typeof request.requestedProfileId === "string"
+        ? request.requestedProfileId
+        : null,
     objective: request.objective,
     acceptanceCriteria: acceptance.value,
     allowedPaths: paths.value,

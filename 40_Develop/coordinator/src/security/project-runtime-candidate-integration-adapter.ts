@@ -9,6 +9,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type {
   ProjectRuntimeCandidatePort,
+  ProjectRuntimeExistingCandidate,
   ProjectRuntimeState,
 } from "../../../project-runtime/src/index.ts";
 
@@ -120,6 +121,25 @@ const productionCandidateStore: CandidateStore = Object.freeze({
   persist: persistRuntimeOwnedCandidateBundle,
   publish: publishRuntimeOwnedCandidateBundle,
 });
+
+/**
+ * 公開済み候補を採用Lifecycleへ結合できるCoordinator側Adapterを定義する。
+ *
+ * @responsibility Project Runtime Candidate Portに、既存のRuntime所有候補を内容Identity付きで現在採用対象へ固定する操作を加える。
+ * @trace ARCH-000015
+ * @shape Candidate PortとbindPublishedCandidateの積として定義する。
+ * @invariant bindはCanonical Repositoryを変更せず、採用Authorityも発行しない。
+ * @boundary Candidate StoreとProject Runtime既存候補採用Applicationの境界。
+ * @security Candidate IDをAuthorityとして扱わず、Store内のexact content hashを再検証する。
+ * @compatibility 既存Candidate Port利用側は追加操作へ依存しなくてよい。
+ */
+export type RuntimeOwnedPublishedCandidateAdoptionAdapter =
+  ProjectRuntimeCandidatePort &
+    Readonly<{
+      bindPublishedCandidate: (
+        candidateId: string,
+      ) => ProjectRuntimeExistingCandidate | null;
+    }>;
 
 /**
  * exportedを決定する。
@@ -750,10 +770,38 @@ export function createRuntimeOwnedProjectCandidateIntegrationAdapter(
   materializeSnapshot: typeof materializeFixedSnapshotCandidate = materializeFixedSnapshotCandidate,
   cleanupWorkspace: (workspace: string) => boolean = cleanupMaterializedBase,
   injectApplicationFault: CandidateApplicationFault = () => {},
-): ProjectRuntimeCandidatePort {
+): RuntimeOwnedPublishedCandidateAdoptionAdapter {
   const integrated = new Map<string, Bundle>();
   let pendingObservationBundle: Bundle | null = null;
   return Object.freeze({
+    /**
+     * 公開済み候補を現在の採用対象として固定する。
+     *
+     * @responsibility Runtime所有Candidate Storeからexact CandidateとBundleを再読取りし、後続のRepository観測・採用を同じBundleへ結合する。
+     * @trace ARCH-000015
+     * @input candidateId: Workbench等が保持する候補Identity。
+     * @returns 採用Applicationへ渡す最小Candidate Identity、またはnullを返す。
+     * @precondition candidateIdは現在のRuntime所有Storeに公開済みである。
+     * @postcondition 成功時はobserveCanonicalRepositoryとadoptCandidateが同じBundleを使用する。
+     * @effect N/A: Candidate Store読取りとProcess内Binding更新だけを行い、Canonical Repositoryを変更しない。
+     * @failure 不在、期限切れ、破損またはIdentity不一致をnullへ閉じる。
+     * @invariant 採用Authority、LeaseまたはRepository Effectを発行しない。
+     * @boundary Candidate StoreとProject Runtime Candidate Portの境界。
+     * @security Bundle内容を公開せず、変更PathとHash Identityだけを返す。
+     * @concurrency Adapter instance内の現在候補を後勝ちで置換するため、一採用操作ごとに専用instanceを使用する。
+     */
+    bindPublishedCandidate(candidateId: string) {
+      const source = exported(candidateStore, candidateId);
+      if (!source) return null;
+      pendingObservationBundle = source.bundle;
+      integrated.set(candidateId, source.bundle);
+      return Object.freeze({
+        candidateId,
+        candidateHash: source.bundle.contentManifestHash,
+        baseRevision: source.bundle.baseCommit,
+        changedPaths: Object.freeze([...source.bundle.changedPaths]),
+      });
+    },
     /**
      * 候補を構築する。
      *

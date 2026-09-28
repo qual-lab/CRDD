@@ -9,6 +9,18 @@
  * @security 管理能力をContent Accessへ昇格せず、非開示RepositoryのIdentityを公開しない。
  */
 export {
+  executeRemoteAiProfileMutation,
+  readRemoteAiProfileCatalog,
+  readRemotePortfolio,
+  readRemoteRuntimeActivity,
+  startCrosRemoteTransport,
+  type CrosExposureSnapshot,
+  type CrosRemoteRuntimeActivityObservation,
+  type CrosRemoteRuntimeEventProjection,
+  type CrosRemoteTransportHandle,
+  type CrosRuntimeActivityReader,
+} from "./remote-transport.ts";
+export {
   closeCrosSession,
   createContextPackage,
   createCrosSession,
@@ -77,3 +89,24 @@ export {
   createCredentialRegistryFileAdapter,
   type CredentialRegistryFileAdapterResult,
 } from "./credential-registry-file-adapter.ts";
+export {
+  applyCredentialAccessRecovery,
+  planCredentialAccessRecovery,
+  type CredentialAccessRecoveryMode,
+  type CredentialAccessRecoveryPlan,
+  type CredentialAccessRecoveryPlanResult,
+  type CredentialAccessRecoveryRecorder,
+  type CredentialAccessRecoveryResult,
+} from "./credential-access-recovery.ts";
+export {
+  createCredentialAccessRecoveryFileAdapter,
+  type CredentialAccessRecoveryFileAdapterResult,
+} from "./credential-access-recovery-file-adapter.ts";
+export {
+  runCredentialAccessRecoveryCli,
+  type CredentialAccessRecoveryCliIo,
+} from "./credential-access-recovery-cli.ts";
+export {
+  readCrosSharedServerOperationalConfig,
+  type CrosSharedServerOperationalConfig,
+} from "./shared-server-config-file-adapter.ts";

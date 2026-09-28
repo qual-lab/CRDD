@@ -150,6 +150,7 @@ test("Codex frontから選定理由付きClaude委譲をcleanup済みResultま�
     delegationNeed: "beneficial",
     delegationReason: "specialized_executor_benefit",
     requestedExecutorProvider: "auto",
+    requestedProfileId: null,
     subjectProvider: null,
     requiresIndependentProvider: false,
     role: "executor",

@@ -64,6 +64,14 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 
 現行Sourceと既存試験は本詳細設計の正式入力ではない。本設計候補を固定した後、成立済み能力を失わないよう`Covered`、`Partial`、`Missing`、`Legacy`または`Implementation Detail`へ分類する。
 
+| 実装領域 | 判定 | 現在の成立範囲 | 残るGap |
+|---|---|---|---|
+| `src/topic-meeting.ts` | Covered | Topic／Meetingの固定Metadata、状態、改訂、要約、Topic昇格時の状態・Relation・終了表の同時変換、Outcome／Action表の同時変換およびpending Outcome Close拒否 | Cross-Repository Relation解決はApplication外の別境界 |
+| `src/topic-meeting-repository.ts` | Covered | 固定Pathでの登録・編集・一覧・取得、期待改訂競合、同一Repository一時File置換、Relation影響表示、誤登録理由＋明示確認の対象限定削除 | Cross-Repository Relation Resolverは別境界 |
+| `src/topic-meeting-application.ts` | Covered | Workbench／MCPが共有するCRUD Command、ID Cursor Pagination、取得本文、削除確認、同一Repository内のMeeting Outcome処置、実在CHGへのTopic昇格接続、Topic／Meeting／CHG安定ID Relationの存在解決およびCROSがOwnerを解決するための対象存在確認を一つのApplication契約として提供 | 複数RepositoryのAuthority付きOwner解決はCROS Compositionが所有する |
+| `src/repository-release-projection.ts` | Covered | Current Release Projectionの固定三表をVersion、期限、Scope、依存および判断のRead Modelへ変換する | Roadmap／CHGの計画値そのものは所有しない |
+| `src/repository-quality-projection.ts` | Covered | Current Quality Projectionの固定表を状態、Coverage、Gap、Gateおよび人間判断のRead Modelへ変換する | Quality Definition、実行結果およびEvidenceそのものは所有しない |
+
 担当責任者: Qual-Lab
 最終更新日: 2026-09-12
 関連変更: [CHG-000067](../../../99_Roadmap/Changes/CHG-000067/change.md)
@@ -305,6 +313,8 @@ Topic状態は`open`、`waiting`、`promoted`、`closed`を固定値とする。
 
 Meeting OutcomeはMeeting内で一意なLocal Identityを持ち、少なくとも種別、内容、状態、Owner、期限または再評価契機、および追跡先を保持する。状態は`pending`、`completed`、`transferred`、`promoted`、`rejected`を固定値とする。Meetingを`closed`にする時、`pending` Outcomeが0件であり、未完了Actionは追跡先へ`transferred`されていなければならない。
 
+同一Repository内の処置Commandは、Outcome表、Actionと移管表、Close判定、未処置Outcome一覧、Meeting状態および改訂を一つの検証済み次版へ変換する。`transferred`は同一ProjectのTopicまたは明示した責任主体、`promoted`は実在CHGまたは所有正本を追跡先とする。対象不存在、Project不一致、改訂競合、表の欠落またはpending Outcomeを残したCloseでは、新しいFilesystem Effectを発行しない。別Repositoryへの移管はCROSが対象Repositoryの書込みAuthorityとRoutingを成立させるまで実行しない。
+
 Readerは固定Metadata、固定見出し、表構造および統制語彙を検査する。Directoryが存在しない場合は`not_configured`、Directoryは存在するが該当Itemがない場合だけ`empty`、読取り不能は`unknown`または`restricted`として区別する。不正な1件を黙って除外して残りを完全一覧として返さない。
 
 書込みは一時Fileへ完全内容を生成し、Identity、期待改訂およびRelationを再確認してから同一Repository内で置換する。物理削除は誤登録と人間の明示確認を必要とし、参照Relationが未処置ならEffect 0で拒否する。
@@ -381,6 +391,29 @@ Repository Project Context（固定Markdown）
 | 更新 | 意味のある状態変化で再投影する。微小な編集だけを理由に機械的な更新履歴を蓄積しない |
 
 CI、稼働環境、Deploy先、外部Serviceその他のLive状態はProject Contextの共通契約に含めない。それらを扱う必要がある製品は、固有の監視・運用正本で管理し、Project Contextからは必要な場合だけOwner Artifactへ参照する。
+
+### 7.2. Current Release Projection
+
+`99_Roadmap/03_Releases.md`は、RoadmapとCHGが所有する現在計画を、Human／AI／MCP／Workbenchが同じ固定形式で取得するためのCurrent Projectionである。Project Operationは本文を所有せず、固定三表を推測なしで構造化する共通Readerだけを提供する。
+
+| 固定Section | 取得する意味 | 欠落時の扱い |
+|---|---|---|
+| 現在状態 | 公開済みBaseline、対象Version、目標日、作業状態、リリース判断、日程Risk | Projection全体を不正として拒否する |
+| 現在Scope | 段階、範囲、現在状態、正本 | 空行・空Cellを既知のScopeへ補完しない |
+| 依存と判断 | 項目、現在状態、次の処置／判断 | 判断なしと未記載を同一視しない |
+
+Markdown Linkは表示文字だけを保持し、URLを新しいAuthorityとして扱わない。Consumerは同じ内部Modelから表示を作り、独自のVersion、期限、Milestoneまたは判断を保存しない。
+
+### 7.3. Current Quality Projection
+
+`07_Quality/01_Quality_Center.md`は、Quality正本群から導かれた現在状態を固定表で提供する。Project Operationの共通Readerは、全体状態、対象Release、観測済み／未観測、既知Gap、次Gateおよび現在の人間判断を構造化し、Evidenceや検証結果そのものを再定義しない。
+
+| 原則 | 契約 |
+|---|---|
+| 分母保持 | 観測済みと未観測は対象総数と同じ文字列で保持し、割合やPassへ変換しない |
+| Gap保持 | Reality Audit進行中、Blocked、OPENその他の現在状態を正常へ畳まない |
+| Gate保持 | 次Gateの条件をConsumer側で弱めず、Owner Artifactへ戻れるようにする |
+| 判断保持 | `N/A`、判断待ちおよびRisk受容を同一視しない |
 
 ## 8. 任意Repository構造
 

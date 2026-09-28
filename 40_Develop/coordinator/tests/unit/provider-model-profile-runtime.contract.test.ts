@@ -14,7 +14,9 @@ import test from "node:test";
 import {
   describeProviderModelProfileRuntimeContract,
   resolveRuntimeOwnedProviderModelProfile,
+  resolveRuntimeOwnedProviderModelProfileFromCatalog,
 } from "../../src/security/provider-model-profile-runtime.ts";
+import { DEFAULT_AI_PROFILE_CATALOG } from "../../../ai-runtime/src/index.ts";
 
 /**
  * createRequestのTest準備責務を実行する。
@@ -96,6 +98,91 @@ test("Codex SolとClaude Opusのpreferred／upper profileを固定解決する",
       }),
     )?.profileId,
     "PROFILE-200002",
+  );
+});
+
+/**
+ * 外部Catalogの追加Familyを固定列挙なしで解決する。
+ *
+ * @responsibility 登録済みAdapterの許可Model追加がCoordinator中核改修を要求しないことを検証する。
+ * @trace PRL-UT-014
+ * @precondition 既定Catalogを複製し、Codex Adapterが許可済みのgpt-6-astra Profileを追加する。
+ * @stimulus 追加Familyを指定してCatalog駆動Resolverを呼び出す。
+ * @observation Profile ID、ModelおよびProviderを観測する。
+ * @oracle 追加Profileを一意に解決し、既定Resolverの固定Catalogは変更されない。
+ * @cleanup N/A: 外部資源を生成しない。
+ * @boundary PRL-UT-014=N/A: Process内のCatalog検証と解決。
+ */
+test("外部Catalogの追加Familyを固定列挙なしで解決する", () => {
+  const candidate = structuredClone(DEFAULT_AI_PROFILE_CATALOG) as unknown as {
+    profiles: Record<string, unknown>[];
+  } & Record<string, unknown>;
+  candidate.profiles.push({
+    profileId: "PROFILE-300001",
+    adapterId: "codex-cli",
+    family: "astra",
+    exactModelId: "gpt-6-astra",
+    selectionRoles: ["executor"],
+    modelTiers: ["preferred"],
+    speedMode: "normal",
+    billingMode: "subscription_oauth",
+    defaultReasoningEffort: "high",
+    compatibilityReason: null,
+  });
+  assert.deepEqual(
+    resolveRuntimeOwnedProviderModelProfileFromCatalog(
+      candidate,
+      createRequest({ family: "astra" }),
+    ),
+    {
+      provider: "codex",
+      profileId: "PROFILE-300001",
+      exactModelId: "gpt-6-astra",
+      family: "astra",
+      selectionRole: "executor",
+      modelTier: "preferred",
+      speedMode: "normal",
+      billingMode: "subscription_oauth",
+      compatibilityReason: null,
+    },
+  );
+  assert.equal(
+    resolveRuntimeOwnedProviderModelProfileFromCatalog(
+      candidate,
+      createRequest({ profileId: "PROFILE-300001" }),
+    )?.profileId,
+    "PROFILE-300001",
+  );
+  assert.equal(
+    resolveRuntimeOwnedProviderModelProfileFromCatalog(
+      candidate,
+      createRequest({
+        profileId: "PROFILE-300001",
+        provider: "claude",
+      }),
+    ),
+    null,
+  );
+  assert.equal(
+    resolveRuntimeOwnedProviderModelProfileFromCatalog(
+      candidate,
+      createRequest({
+        profileId: "PROFILE-300001",
+        role: "reviewer",
+      }),
+    ),
+    null,
+  );
+  assert.equal(
+    resolveRuntimeOwnedProviderModelProfileFromCatalog(
+      candidate,
+      createRequest({ profileId: "PROFILE-999999" }),
+    ),
+    null,
+  );
+  assert.equal(
+    resolveRuntimeOwnedProviderModelProfile(createRequest({ family: "astra" })),
+    null,
   );
 });
 

@@ -9,7 +9,7 @@
  * @boundary EST-ST-012=System/E2E: MCP stdio入口→Application→応答stream
  */
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import path from "node:path";
 import { PassThrough, Readable, Writable } from "node:stream";
 import test from "node:test";
@@ -166,6 +166,99 @@ test("template toolsの公開入口はbounded MCP stdio processを提供する",
   const response = JSON.parse(result.stdout);
   assert.equal(response.id, "discover-1");
   assert.equal(response.result.resultType, "complete");
+});
+
+/**
+ * 配布MCP入口が現在RepositoryのProject Contextを五場面で返すことを検証する。
+ *
+ * @responsibility Repository単体利用でCredentialなしのProject Context取得を検証する。
+ * @trace EST-ST-012
+ * @precondition Repository Rootに現行PROJECT_CONTEXT.mdが存在する。
+ * @stimulus crdd-mcp --stdioへcrdd.get_project_contextを送る。
+ * @observation structuredContent内のProject、Sourceおよび五場面を取得する。
+ * @oracle qual-lab.crddの五場面が固定順で返り、Runtime状態DTOへ変換されない。
+ * @cleanup 子Processはstdin EOF後に終了し、一時資源を残さない。
+ * @boundary EST-ST-012=System/E2E: 配布CLI→stdio→Project Context Reader→応答stream
+ */
+test("template toolsの公開入口はRepository Project Contextを取得する", async () => {
+  const entry = fileURLToPath(
+    new URL("../../../../template/tools/crdd-mcp.ts", import.meta.url),
+  );
+  const request = JSON.stringify({
+    jsonrpc: "2.0",
+    id: "project-context-1",
+    method: "tools/call",
+    params: {
+      _meta: {
+        "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+        "io.modelcontextprotocol/clientCapabilities": {},
+      },
+      name: "crdd.get_project_context",
+      arguments: { projectId: "qual-lab.crdd" },
+    },
+  });
+  const child = spawn(process.execPath, [entry, "--stdio"], {
+    cwd: path.dirname(entry),
+    windowsHide: true,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  let stderr = "";
+  child.stderr.setEncoding("utf8");
+  child.stderr.on("data", (chunk) => {
+    stderr += String(chunk);
+  });
+  const response = await new Promise<{
+    result: {
+      structuredContent: {
+        project: {
+          projectId: string;
+          sources: readonly {
+            context: { scenes: readonly { key: string }[] };
+          }[];
+        };
+      };
+    };
+  }>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      child.kill();
+      reject(new Error("project_context_mcp_response_timeout"));
+    }, 10_000);
+    let stdout = "";
+    child.stdout.setEncoding("utf8");
+    child.stdout.on("data", (chunk) => {
+      stdout += String(chunk);
+      const newline = stdout.indexOf("\n");
+      if (newline < 0) return;
+      clearTimeout(timeout);
+      try {
+        resolve(JSON.parse(stdout.slice(0, newline)));
+      } catch (error) {
+        reject(error);
+      }
+    });
+    child.once("error", (error) => {
+      clearTimeout(timeout);
+      reject(error);
+    });
+    child.stdin.write(`${request}\n`);
+  });
+  child.stdin.end();
+  const status = await new Promise<number | null>((resolve) =>
+    child.once("close", resolve),
+  );
+  assert.equal(status, 0, stderr);
+  const project = response.result.structuredContent.project;
+  assert.equal(project.projectId, "qual-lab.crdd");
+  const source = project.sources[0];
+  assert.ok(source);
+  assert.deepEqual(
+    source.context.scenes.map((scene: Readonly<{ key: string }>) => scene.key),
+    ["current", "risk", "decision", "reason", "next"],
+  );
+  assert.equal(
+    Object.hasOwn(response.result.structuredContent, "requestId"),
+    false,
+  );
 });
 
 /**

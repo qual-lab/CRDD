@@ -614,6 +614,85 @@ const providerStartObservationTaskOutput = createProviderOutput({
 });
 
 /**
+ * Workbench助言出力をcleanup後の助言JSONへ縮約することを検証する。
+ *
+ * @responsibility 第3実行モードのPlan受理、Provider Envelope除去および終了後公開境界を判定する。
+ * @trace ERB-IT-002
+ * @precondition 有効なAdvice Packet IdentityとClaude一Turn出力を使用する。
+ * @stimulus Process Controllerでworkbench_advice Planを完了する。
+ * @observation completionのstatus、cleanupおよびnormalizedResultを観測する。
+ * @oracle 生Envelopeを含めずadviceJsonだけをcleanup確認後に返す。
+ * @cleanup fixtureが全資源不存在とMount解放を確認する。
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ */
+test("Workbench助言出力をcleanup後の助言JSONへ縮約する", async () => {
+  const advice = {
+    contract: "crdd-coordinator/workbench-ai-advice-result",
+    contractRevision: 1,
+    status: "completed",
+    facts: [
+      { text: "Current state is visible.", references: ["PROJECT_CONTEXT.md"] },
+    ],
+    sharedAnalysis: [],
+    additionalInferences: [],
+    nextOptions: [],
+  };
+  const fixture = createFixture(
+    {
+      startCommand: (command: { purpose: string }) => {
+        const isProvider = command.purpose === "start_provider_attached";
+        const isAuth =
+          command.purpose === "start_subscription_auth_probe_attached";
+        return Object.freeze({
+          started: async () => true,
+          wait: async () =>
+            Object.freeze({
+              status: 0,
+              signal: null,
+              stdout: isProvider
+                ? createProviderOutput({
+                    num_turns: 1,
+                    structured_output: advice,
+                  })
+                : isAuth
+                  ? createSubscriptionAuthOutput()
+                  : "",
+              stderr: "",
+              outputExceeded: false,
+            }),
+          terminateAndWait: async () => true,
+        });
+      },
+    },
+    {
+      operationMode: "workbench_advice",
+      taskRole: null,
+      taskPacketRef: null,
+      taskPacketHash: null,
+      advicePacketRef: "ADVICEPKT-00112233445566778899AABBCCDDEEFF",
+      advicePacketHash: "a".repeat(64),
+      adviceCommandHash: "b".repeat(64),
+      providerInput: "Give advice from the supplied projection.",
+      workspaceSourcePath: null,
+      workspaceMountMode: null,
+    },
+  );
+  const started = fixture.controller.start(
+    fixture.preparedCapability,
+    fixture.managementCapability,
+  );
+  assert.equal(started.status, "started");
+  const completion = await started.completion;
+  assert.equal(completion.status, "completed");
+  assert.deepEqual(completion.normalizedResult, {
+    contract: "crdd-coordinator/workbench-ai-advice-provider-output",
+    contractRevision: 1,
+    adviceJson: JSON.stringify(advice),
+  });
+  assert.equal(completion.cleanupConfirmed, true);
+});
+
+/**
  * Provider実ProcessのOS起動確認後だけRuntime所有の開始観測を公開するを検証する。
  *
  * @responsibility Provider実ProcessのOS起動確認後だけRuntime所有の開始観測を公開するの合否判定を所有する。
@@ -625,7 +704,7 @@ const providerStartObservationTaskOutput = createProviderOutput({
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
-test("Provider実ProcessのOS起動確認後だけRuntime所有の開始観測を公開する", async () => {
+test("Windows Process Gate: Provider実ProcessのOS起動確認後だけRuntime所有の開始観測を公開する", async () => {
   const notices: unknown[] = [];
   const fixture = createFixture(
     {
@@ -3577,14 +3656,14 @@ test("公開契約はtimeout、cancel、cleanup、Recoveryと秘密非出力を�
   assert.equal(contract.providerTimeoutMs, 300_000);
   assert.equal(contract.cancellationGraceMs, 5_000);
   assert.equal(contract.recoveryBeforeDockerEffect, true);
-  assert.equal(contract.contractRevision, 29);
+  assert.equal(contract.contractRevision, 30);
   assert.match(contract.subscriptionAuthentication, /required_before/u);
   assert.match(contract.subscriptionAuthentication, /stdout_stderr_shape/u);
   assert.match(contract.subscriptionOffering, /exact_match_required/u);
   assert.match(contract.providerAuthority, /consumed_before/u);
   assert.equal(
     contract.structuredResult,
-    "exact_provider_boolean_or_role_task_result_published_after_cleanup_only",
+    "exact_provider_boolean_role_task_or_workbench_advice_result_published_after_cleanup_only",
   );
   assert.equal(contract.rawOutputReported, false);
   assert.equal(contract.hostPathReported, false);

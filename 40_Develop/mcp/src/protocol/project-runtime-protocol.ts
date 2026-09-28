@@ -13,7 +13,8 @@ export const MCP_PROJECT_RUNTIME_PROTOCOL_VERSION = "2026-07-28" as const;
 export const MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL = "crdd.run_objective" as const;
 export const MCP_PROJECT_RUNTIME_DECISION_TOOL =
   "crdd.submit_decision" as const;
-export const MCP_PROJECT_RUNTIME_STATE_TOOL = "crdd.get_project_state" as const;
+export const MCP_PROJECT_RUNTIME_STATE_TOOL =
+  "crdd.get_project_runtime_state" as const;
 
 /**
  * project-runtime-protocolで使用するJson Rpc Idの値契約を定義する。
@@ -353,8 +354,8 @@ export function getMcpProjectRuntimeToolDefinitions() {
     ),
     tool(
       MCP_PROJECT_RUNTIME_STATE_TOOL,
-      "CRDD Projectの現在状態を取得",
-      "Project Runtimeの現在状態を、書込み権限を持たない投影として取得します。",
+      "CRDD Project Runtimeの実行状態を取得",
+      "Project Runtimeの実行状態を、Project Contextとは別の読取り専用投影として取得します。",
       {
         requestId: id,
         projectId: id,

@@ -19,15 +19,15 @@ import {
   cleanupRuntimeOwnedDockerResources,
   startRuntimeOwnedDockerCommand,
 } from "./docker-effect-runtime.ts";
+import {
+  DOCKER_PROCESS_CONTROLLER_PUBLIC_COMPLETION_REASONS,
+  type DockerProcessControllerPublicCompletionReason,
+} from "./docker-process-controller-result-reasons.ts";
 import { parseDockerTaskRecoveryId } from "./docker-recovery-identity.ts";
 import {
   publicDockerRecoveryStartReason,
   publicVerifiedDockerRecoveryId,
 } from "./docker-recovery-public-projection.ts";
-import {
-  DOCKER_PROCESS_CONTROLLER_PUBLIC_COMPLETION_REASONS,
-  type DockerProcessControllerPublicCompletionReason,
-} from "./docker-process-controller-result-reasons.ts";
 import {
   abandonRuntimeOwnedDockerRecovery,
   beginRuntimeOwnedDockerRecovery,
@@ -42,10 +42,11 @@ import { consumeRuntimeOwnedProviderAuthority } from "./provider-authority-runti
 import { completeRuntimeOwnedProviderHomeMount } from "./provider-home-mount-grant-runtime.ts";
 import { normalizeProviderTaskStructuredResult } from "./provider-task-structured-result.ts";
 import { verifyRuntimeOwnedRepositoryOperation } from "./repository-operation-runtime.ts";
+import { extractWorkbenchAiAdviceProviderOutput } from "./workbench-ai-advice-provider-output.ts";
 
 export const DOCKER_PROCESS_CONTROLLER_CONTRACT =
   "crdd-coordinator/docker-process-controller";
-export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 29;
+export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 30;
 
 const SETUP_TIMEOUT_MS = 10_000;
 const PROVIDER_TIMEOUT_MS = 300_000;
@@ -231,11 +232,14 @@ type PreparedPlan = Readonly<{
   selectedModel: string;
   selectedEffort: "low" | "medium" | "high";
   selectedModelTier: string;
-  operationMode: "boolean_probe" | "isolated_task";
+  operationMode: "boolean_probe" | "isolated_task" | "workbench_advice";
   taskRole: "executor" | "reviewer" | null;
   taskWorkload?: unknown;
   taskPacketRef: string | null;
   taskPacketHash: string | null;
+  advicePacketRef?: string | null;
+  advicePacketHash?: string | null;
+  adviceCommandHash?: string | null;
   providerInput: string | null;
   workspaceSourcePath: string | null;
   workspaceMountMode: "read_write" | "read_only" | null;
@@ -1331,6 +1335,7 @@ function createFinalResult(
  */
 function isPlanValid(plan: PreparedPlan) {
   const isTaskPlan = plan.operationMode === "isolated_task";
+  const isAdvicePlan = plan.operationMode === "workbench_advice";
   return (
     (plan.provider === "codex" || plan.provider === "claude") &&
     /^OP-[0-9]{6,}$/u.test(plan.operationId) &&
@@ -1347,7 +1352,7 @@ function isPlanValid(plan: PreparedPlan) {
     typeof plan.activeMountCapability === "object" &&
     plan.authorityUseCapability !== null &&
     typeof plan.authorityUseCapability === "object" &&
-    (plan.operationMode === "boolean_probe" || isTaskPlan) &&
+    (plan.operationMode === "boolean_probe" || isTaskPlan || isAdvicePlan) &&
     (isTaskPlan
       ? (plan.taskRole === "executor" || plan.taskRole === "reviewer") &&
         /^TASKPKT-[A-F0-9]{32}$/u.test(plan.taskPacketRef ?? "") &&
@@ -1358,12 +1363,26 @@ function isPlanValid(plan: PreparedPlan) {
         plan.workspaceSourcePath.length > 0 &&
         plan.workspaceMountMode ===
           (plan.taskRole === "executor" ? "read_write" : "read_only")
-      : plan.taskRole === null &&
-        plan.taskPacketRef === null &&
-        plan.taskPacketHash === null &&
-        plan.providerInput === null &&
-        plan.workspaceSourcePath === null &&
-        plan.workspaceMountMode === null) &&
+      : isAdvicePlan
+        ? plan.taskRole === null &&
+          plan.taskPacketRef === null &&
+          plan.taskPacketHash === null &&
+          /^ADVICEPKT-[A-F0-9]{32}$/u.test(plan.advicePacketRef ?? "") &&
+          /^[a-f0-9]{64}$/u.test(plan.advicePacketHash ?? "") &&
+          /^[a-f0-9]{64}$/u.test(plan.adviceCommandHash ?? "") &&
+          typeof plan.providerInput === "string" &&
+          plan.providerInput.length > 0 &&
+          plan.workspaceSourcePath === null &&
+          plan.workspaceMountMode === null
+        : plan.taskRole === null &&
+          plan.taskPacketRef === null &&
+          plan.taskPacketHash === null &&
+          (plan.advicePacketRef ?? null) === null &&
+          (plan.advicePacketHash ?? null) === null &&
+          (plan.adviceCommandHash ?? null) === null &&
+          plan.providerInput === null &&
+          plan.workspaceSourcePath === null &&
+          plan.workspaceMountMode === null) &&
     [
       plan.providerContainerName,
       plan.authContainerName,
@@ -1827,9 +1846,14 @@ async function executePlan(
                 execution.stdout,
                 plan.taskWorkload,
               )
-            : plan.provider === "codex"
-              ? normalizeCodexStructuredResult(execution.stdout)
-              : normalizeClaudeStructuredResult(execution.stdout);
+            : plan.operationMode === "workbench_advice"
+              ? normalizeWorkbenchAdviceProviderResult(
+                  plan.provider,
+                  execution.stdout,
+                )
+              : plan.provider === "codex"
+                ? normalizeCodexStructuredResult(execution.stdout)
+                : normalizeClaudeStructuredResult(execution.stdout);
         if (providerResult.status !== "confirmed") {
           requestedStatus = "blocked";
           reason =
@@ -1980,6 +2004,44 @@ async function executePlan(
     subscriptionAuthConfirmed: isSubscriptionAuthConfirmed,
     recoveryFinalizationCapability,
   });
+}
+
+/**
+ * Workbench助言Provider出力をProcess Controllerの内部正規形へ変換する。
+ *
+ * @responsibility Provider Envelopeを除去し、助言JSONだけをcleanup後の内部結果へ保持する。
+ * @trace ARCH-000010 ARCH-000015
+ * @input provider: 実行Provider、stdout: 固定CLIの標準出力。
+ * @returns confirmed時はadviceJsonを持つ内部正規形、失敗時は拒否理由。
+ * @precondition workbench_advice PlanのProvider Processが終了している。
+ * @postcondition 生Envelope、Session、CostおよびTool出力をnormalizedResultへ含めない。
+ * @effect N/A: 出力検証と値生成だけを行う。
+ * @failure Provider固有完了条件を満たさない出力をblockedへ閉じる。
+ * @invariant 参照許可集合による意味検証は上位Advice Executorが所有する。
+ * @boundary Provider CLI出力とCoordinator内部助言JSONの間。
+ * @security 生Provider出力を公開結果へ複製しない。
+ * @concurrency N/A: 共有状態を変更しない同期処理である。
+ */
+function normalizeWorkbenchAdviceProviderResult(
+  provider: "codex" | "claude",
+  stdout: string,
+) {
+  const extracted = extractWorkbenchAiAdviceProviderOutput(provider, stdout);
+  return extracted.status === "confirmed" && extracted.adviceJson !== null
+    ? Object.freeze({
+        status: "confirmed" as const,
+        reason: null,
+        normalizedResult: Object.freeze({
+          contract: "crdd-coordinator/workbench-ai-advice-provider-output",
+          contractRevision: 1,
+          adviceJson: extracted.adviceJson,
+        }),
+      })
+    : Object.freeze({
+        status: "blocked" as const,
+        reason: extracted.reason,
+        normalizedResult: null,
+      });
 }
 
 /**
@@ -2409,7 +2471,7 @@ export function describeDockerProcessControllerContract() {
       "owned_containers_and_networks_absent_then_mount_release_then_recovery_complete",
     cleanupFailure: "manual_recovery_required_fail_closed",
     structuredResult:
-      "exact_provider_boolean_or_role_task_result_published_after_cleanup_only",
+      "exact_provider_boolean_role_task_or_workbench_advice_result_published_after_cleanup_only",
     providerFailureClassification:
       "known_operational_nonzero_output_mapped_to_closed_public_reason_unknown_output_kept_generic",
     providerBoundaryDiagnostics:
@@ -2417,6 +2479,8 @@ export function describeDockerProcessControllerContract() {
     providerTextPublication: "validated_then_discarded_not_reported",
     credentialAbsenceVerification: "not_claimed",
     taskPrompt: "runtime_owned_stdin_only_not_reported",
+    workbenchAdvice:
+      "provider_envelope_removed_and_advice_json_published_after_cleanup_only",
     rawOutputReported: false,
     hostPathReported: false,
     proxyCredentialReported: false,

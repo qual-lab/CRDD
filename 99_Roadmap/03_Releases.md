@@ -2,7 +2,7 @@
 
 状態: Current Release Projection
 Owner: Qual-Lab
-Last Updated: 2026-09-24
+Last Updated: 2026-09-27
 Related:
 - [現在のCRDD](../00_Overview.md)
 - [CHANGELOG](../CHANGELOG.md)
@@ -15,12 +15,31 @@ Related:
 
 | 項目 | 現在値 | 正本 |
 |---|---|---|
-| 公開済みBaseline | `v0.20.1` | [現在のCRDD](../00_Overview.md)、[CHANGELOG](../CHANGELOG.md) |
-| 次の対象 | `v0.21.0` | [Roadmap](./01_Roadmap.md) |
-| 現在の作業状態 | v0.21.0 Stable最終候補。PR作成待ち | [Roadmap](./01_Roadmap.md) |
+| 公開済みBaseline | `v0.21.0` | [現在のCRDD](../00_Overview.md)、[CHANGELOG](../CHANGELOG.md) |
+| 次の対象 | `v0.22.0` | [Roadmap](./01_Roadmap.md) |
+| 目標リリース日 | `2026-10-03` | [Roadmap](./01_Roadmap.md#12-v0220--project運営複数repository) |
+| 現在の作業状態 | Project Operation／WorkbenchのProduction Closure進行中 | [CHG-000082](./Changes/CHG-000082/change.md) |
 | リリース判断 | 未実施 | [リリース規則](../13_Release.md) |
+| 日程リスク | 高い | [Project Context](../PROJECT_CONTEXT.md#2-何が危ないまたは止まっているか) |
 
-## 2. Evidence Navigation
+## 2. 現在Scope
+
+| 段階 | 範囲 | 現在状態 | 正本 |
+|---|---|---|---|
+| Group B | Project Context、Topic／Meeting、Workbench | Production Closure進行中 | [Roadmap](./01_Roadmap.md#group-b-project-operationとworkbench利用契約)、[CHG-000082](./Changes/CHG-000082/change.md) |
+| Group C | CROS Federation、Remote MCP、Role Credential | 基本接続成立・Production Closure進行中 | [Roadmap](./01_Roadmap.md#group-c-crosのfederation公開接続)、[CHG-000082](./Changes/CHG-000082/change.md) |
+| Group D | AI Runtime Profile、薄いSurface、限定実証 | Catalog／管理Core成立・実Provider接続未完了 | [Roadmap](./01_Roadmap.md#group-d-薄いsurfaceruntime設定限定実証)、[CHG-000082](./Changes/CHG-000082/change.md) |
+| Release Gate | v0.22統合E2E、独立レビュー、Release Readiness | 未開始 | [Roadmap](./01_Roadmap.md)、[リリース規則](../13_Release.md) |
+
+## 3. 依存と判断
+
+| 項目 | 現在状態 | 次の処置／判断 |
+|---|---|---|
+| 工程依存 | Group B → Group C → Group D → Release Gate | 部分成立を上位完成へ畳まず、Phase 5で残るProduction境界を順に閉じる |
+| 現在人間判断 | なし | WorkbenchのDirection A、v0.22 Scope、Role Credential方式は確認済み |
+| 後続判断 | Repository IDの正式固定 | Project Context契約固定時に維持または変更を判断する |
+
+## 4. Evidence Navigation
 
 | 証明対象 | 配置 |
 |---|---|
@@ -36,16 +55,25 @@ Related:
 | `v0.18.1` | [Runtime Identity](./Releases/v0.18.1/Evidence/260901_coordinator-v0181-runtime-identity.md) |
 | `v0.19.0` | [最終署名済みE2E](./Releases/v0.19.0/Evidence/260903_project-runtime-final-signed-e2e.md)、[機械結果](./Releases/v0.19.0/Evidence/260903_project-runtime-final-signed-e2e.json) |
 | `v0.20.0` | [公開Runtime・限定統合検証](./Releases/v0.20.0/Evidence/260906_v020-public-runtime-and-bounded-integration-verification.md) |
+| `v0.21.0` | [Release Readiness](./Releases/v0.21.0/Evidence/260924_release-readiness.md) |
 
 ### 次のRelease候補
 
 | Release | Evidence |
 |---|---|
-| `v0.21.0` | [Release準備記録](./Releases/v0.21.0/Evidence/260924_release-readiness.md) |
+| `v0.22.0` | 未作成。Release Gate開始前に存在を推測しない |
 
-## 3. 更新規則
+## 5. 更新規則
 
 - Change固有EvidenceをRelease配下へ複製しない。
 - Release固有Evidenceを単一CHGへ帰属させない。
 - Tagまたは公開完了前に`Released`を表示しない。
 - 公開状態が変わったときは、正本を更新してから本Projectionを再計算する。
+
+## Checklist
+
+- [x] 公開済みBaselineと次の対象を現在の正本から再投影した。
+- [x] 目標日、日程リスク、Scope、依存および判断を空欄へ畳んでいない。
+- [x] 完了していないRelease Evidenceを作成済みと表示していない。
+- [x] 各項目をRoadmap、CHG、Project ContextまたはRelease規則へ接続した。
+- [x] 本ProjectionをVersion、Scope、判断またはEvidenceの第二の正本にしていない。

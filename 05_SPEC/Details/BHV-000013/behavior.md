@@ -17,15 +17,15 @@ Behavior ID: `BHV-000013`
 | 観点 | 判定 | 契約／理由 |
 |---|---|---|
 | Trigger | Applicable | 登録・編集・取得・一覧・終了・訂正・削除、またはMeeting Outcome処置を選ぶ時 |
-| Precondition | Applicable | 対象Identity、Owner Repository、現在改訂版、Relation、操作Authorityを確認できる |
-| Authority | Applicable | 通常更新、候補採否、物理削除を分け、削除前に人間の明示確認を得る |
-| Input | Applicable | Topic／Meeting本文、記録時点、Relation、Decision／Action／候補、削除影響 |
+| Precondition | Applicable | 対象Identity、Owner Repository、現在改訂版、Relation、操作Authorityを確認できる。Remote CROSでは対象Repositoryを明示指定し、現在SessionのCredential、Workspace Grant、ExposureおよびRepository BindingをRequestごとに再確認する |
+| Authority | Applicable | 通常更新、候補採否、物理削除を分け、削除前に人間の明示確認を得る。Repository IDの指定だけではAuthorityを生成しない |
+| Input | Applicable | 対象Repository、Topic／Meeting本文、記録時点、Relation、Decision／Action／候補、削除影響。Repository単体では対象Repository入力を要求しない |
 | Validation | Applicable | 前提条件、Authority、対象Identity、入力完全性および現在性をEffect前に確認する |
 | State／Transition | Applicable | 継続／終了／撤回／訂正、候補処置、Action追跡、削除候補／確認待ち／削除済みを区別する |
 | Sequence | Applicable | Trigger→Precondition／Authority／Validation→State／Effect→Resultの順を保つ |
 | Effect | Applicable | Topic／Meeting、Relation、候補処置、Action状態を更新し得る。削除対象外は連鎖削除しない |
 | Output | Applicable | Owner、現在状態、時点記録、Relation、処置結果、終了後状態を返す |
-| Failure | Applicable | 競合・権限不足・部分成功・Relation不整合・結果不明を成功へ畳まない |
+| Failure | Applicable | Repository未選択、Grant／Exposure外、競合・権限不足・部分成功・Relation不整合・結果不明を成功へ畳まず、Remote失敗時にLocal Repositoryへfallbackしない |
 | Recovery | Applicable | 既知の本文・Relation・処置状態を返し、同じ対象を再観測する |
 
 ## 3. Behavior Flow

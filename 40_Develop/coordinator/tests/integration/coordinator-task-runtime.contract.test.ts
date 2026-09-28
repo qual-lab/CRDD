@@ -3017,6 +3017,49 @@ test("任意Executor制約はauto既定と分離して同じSlate・Selection Ga
 });
 
 /**
+ * 明示Profile IDをExecutor Selectionだけへ搬送する。
+ *
+ * @responsibility Workbench等の利用者選択をCoordinator内部で別Profileへ読み替えず、Reviewer選定へ誤伝播しない。
+ * @trace PRL-IT-012
+ * @precondition Codex Executorと整合するProfile IDをTask Requestへ指定する。
+ * @stimulus Coordinator Task Runtimeを完了まで実行する。
+ * @observation ExecutorとReviewerのSelection Requestを観測する。
+ * @oracle Executorだけが明示Profile IDを保持し、Reviewerは独立選定を続ける。
+ * @cleanup FixtureのRuntime cleanupが完了する。
+ * @boundary PRL-IT-012=Related 2 Blocks: UI Application Port→Coordinator Selection Gate→Provider Authority
+ */
+test("明示Profile IDをExecutor Selectionだけへ搬送する", async () => {
+  const harness = fixture({
+    slateExecutorProvider: "codex",
+    slateReviewerProvider: "claude",
+  });
+  const result = await harness.runtime.start(
+    request({
+      requestedExecutorProvider: "codex",
+      requestedProfileId: "PROFILE-100003",
+    }),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "completed");
+  assert.equal(
+    harness.selectionRequests[0]?.requestedProfileId,
+    "PROFILE-100003",
+  );
+  assert.equal(harness.selectionRequests[1]?.requestedProfileId, null);
+
+  const invalid = fixture();
+  const invalidResult = await invalid.runtime.start(
+    request({ requestedProfileId: "latest" }),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(invalidResult.status, "blocked");
+  assert.equal(invalidResult.reason, "coordinator_task_request_invalid");
+  assert.equal(invalid.selectionRequests.length, 0);
+});
+
+/**
  * 同一Provider Reviewerは低リスクSlateが指定した別実行Contextだけを使うを検証する。
  *
  * @responsibility 同一Provider Reviewerは低リスクSlateが指定した別実行Contextだけを使うの合否判定を所有する。

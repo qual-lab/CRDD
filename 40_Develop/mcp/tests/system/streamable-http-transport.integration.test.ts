@@ -242,7 +242,7 @@ test("localhost HTTPは認証済み状態参照を同じ公開契約へ搬送す
       method: "tools/call",
       params: {
         _meta: META,
-        name: "crdd.get_project_state",
+        name: "crdd.get_project_runtime_state",
         arguments: {
           requestId: "query-a",
           projectId: "project-a",
@@ -368,7 +368,7 @@ test("HTTPは認証・Origin・mirror header不一致をApplication前で拒否�
     method: "tools/call",
     params: {
       _meta: META,
-      name: "crdd.get_project_state",
+      name: "crdd.get_project_runtime_state",
       arguments: {
         requestId: "query-a",
         projectId: "project-a",
@@ -432,14 +432,17 @@ test("HTTPは不正UTF-8・重複key・容量超過を意味処理前に拒否�
     { port: 0, bearerToken: TOKEN },
   );
   const url = new URL(`http://${server.host}:${server.port}${server.endpoint}`);
-  const requestHeaders = headers("tools/call", "crdd.get_project_state");
+  const requestHeaders = headers(
+    "tools/call",
+    "crdd.get_project_runtime_state",
+  );
   try {
     assert.equal(
       await sendRaw(url, requestHeaders, Buffer.from([0xc3, 0x28])),
       400,
     );
     const duplicate = Buffer.from(
-      `{"jsonrpc":"2.0","id":1,"id":2,"method":"tools/call","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"${MCP_PROJECT_RUNTIME_PROTOCOL_VERSION}","io.modelcontextprotocol/clientCapabilities":{}},"name":"crdd.get_project_state","arguments":{}}}`,
+      `{"jsonrpc":"2.0","id":1,"id":2,"method":"tools/call","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"${MCP_PROJECT_RUNTIME_PROTOCOL_VERSION}","io.modelcontextprotocol/clientCapabilities":{}},"name":"crdd.get_project_runtime_state","arguments":{}}}`,
       "utf8",
     );
     assert.equal(await sendRaw(url, requestHeaders, duplicate), 400);

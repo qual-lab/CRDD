@@ -2,9 +2,21 @@
 
 状態: Quality Design Ready — Reality Audit Pending
 担当責任者: Qual-Lab
-最終更新日: 2026-09-24
+最終更新日: 2026-09-28
 
 現在注記: 最終署名照合は完了した。v0.21対象のHybrid 12件・Manual 10件はEvidence未収集のため、Quality Readyへ昇格しない。
+
+## Current Quality Projection
+
+| 項目 | 現在値 | 根拠・次の処置 |
+|---|---|---|
+| 全体状態 | Quality Design Ready — Reality Audit Pending | Quality Readyへ昇格しない |
+| 現在対象 | v0.22.0 | Project Operation、Workbench、CROS、複数Repository、AI Runtimeを段階的に照合する |
+| 観測済み | 11 / 39 | v0.22移管範囲のうち、Production Workbenchの実Browser Visual GateまでEvidenceへ接続済み |
+| 未観測 | 28 / 39 | 局所試験またはRelationだけで観測済みへ変更しない |
+| 既知Gap | Phase 5 Reality Audit進行中 | Shared Serverの固定設定、同一HTTPS Origin、TLS終端契約および終了後資源0は成立した。残る実Provider境界、AI関連2画面および最終Production E2Eを処置する |
+| 次Gate | Blocking Finding 0、全回帰、実Browser、実Provider境界および独立レビュー | [CHG-000082](../99_Roadmap/Changes/CHG-000082/change.md) |
+| 現在人間判断 | N/A: 現在の実装・検証継続を止める判断事項はない | 新しいRisk受容または対象範囲変更が生じた場合だけ再提示する |
 
 ## 設計集合
 
@@ -12,21 +24,21 @@
 |---|---:|
 | Canonical入力 | 167 |
 | Quality検証目標 | 13 |
-| Local Item数 | 167 |
+| Local Item数 | 169 |
 
 ## 結論
 
-Quality設計は13定義、167 Local Itemまで拡張した。Test Symbol Relationは129件に存在し、完成Evidenceへ算入できるのは115件、対象指示としてRelationを保持するが非完成・非Evidenceと判定するものは14件である。Relationを持たない38件のうち`ERB-ST-019`だけは実Browser Evidenceで観測済みであり、現在の観測済みは116件、未観測は51件（非完成Relation 14件、EvidenceのないRelationなし37件）である。このうちv0.21.0のRelease対象はGroup Aに属する130件で、108件が観測済み、22件が未観測（Hybrid 12件、Manual 10件）であり、機械化可能な既知Gapは0件である。Project Operation、Workbench、CROS、複数Repository、利用者所有TrustおよびVisual Previewに属する37件はv0.22.0へ移管し、`ERB-IT-020`、`ERB-ST-019`、`ERB-IT-021`、`PPR-IT-002`、`PPR-IT-019`、`CPR-IT-008`、`RFD-IT-014`、`RFD-ST-015`の8件を観測済み、`ERB-ST-022`を含む残り29件を未観測とする。局所成立を新Capability全体の完成Evidenceへ読み替えない。
+Quality設計は13定義、169 Local Itemまで拡張した。Test Symbol Relationは132件に存在し、完成Evidenceへ算入できるのは118件、対象指示としてRelationを保持するが非完成・非Evidenceと判定するものは14件である。Relationを持たない37件のうち`ERB-ST-019`だけは実Browser Evidenceで観測済みであり、現在の観測済みは119件、未観測は50件（非完成Relation 14件、EvidenceのないRelationなし36件）である。このうちv0.21.0のRelease対象はGroup Aに属する130件で、108件が観測済み、22件が未観測（Hybrid 12件、Manual 10件）であり、機械化可能な既知Gapは0件である。Project Operation、Workbench、CROS、複数Repository、利用者所有TrustおよびVisual Previewに属する39件はv0.22.0へ移管し、`ERB-IT-020`、`ERB-ST-019`、`ERB-IT-021`、`ERB-ST-022`、`ERB-UT-023`、`PPR-IT-002`、`PPR-IT-019`、`CPR-IT-008`、`CPR-UT-009`、`RFD-IT-014`、`RFD-ST-015`の11件を観測済み、残り28件を未観測とする。局所成立を新Capability全体の完成Evidenceへ読み替えない。
 
 | 対象 | 現在状態 | 根拠・次の処置 |
 |---|---|---|
 | Canonical入力 | REQ 41、UX 35、IA 23、UI 20、SPEC 30、ARCH 18を全件Mapping済み | [Quality Integration](04_Quality_Integration.md) |
 | UI／SPEC Detail | Covered: 20 SCR、20 PRT、32 Interaction、30 BHVを全数処置し、Source Definition由来の既存検証目標へ具体的観測条件として統合した | [UI／SPEC DetailのQuality分析](Analysis/Detail/quality_analysis.md) |
 | Quality Analysis | 6工程の全入力を、Source固有条件付きで13検証目標へ接続し独立レビュー済み | Reality Auditではこの設計集合を変更せず、現行実装との対応を照合する |
-| Quality Definitions | 13定義、167 Local ItemをCanonical化済み | Test Relationによる完成Evidence 115件と実Browser Evidence 1件を合わせて116件観測済み、51件未観測。v0.21対象130件は108件観測済み・22件未観測、v0.22移管37件は8件観測済み・29件未観測であり、各Release群と全体の母集合を混在させない |
+| Quality Definitions | 13定義、169 Local ItemをCanonical化済み | Test Relationによる完成Evidence 118件とRelation外の実Browser Evidence 1件を合わせて119件観測済み、50件未観測。v0.21対象130件は108件観測済み・22件未観測、v0.22移管39件は11件観測済み・28件未観測であり、各Release群と全体の母集合を混在させない |
 | Architecture詳細設計 | 18領域を適用判定済み | 実装OwnerのないCapability、現実との不一致およびTest未接続をReality Auditで処置する |
-| Checker | Repository構造検査と全契約試験が成立 | 1,880 file、1,092 Markdown、17,839 link、2,032 anchorをWarning 0で検査し、Checker契約試験375／375 Passを確認した。Repository検査のError 1件は、v0.22作業HEADが公開済みv0.21.0 tagと一致しないFeature Branch上の既知状態であり、v0.22のRelease候補固定時に再評価する |
-| Reality Audit | 現在結果固定済み — Hybrid／Manual Evidence Pending | skipのEvidence誤算入と実境界未観測を是正し、v0.21に残るHybrid 12件とManual 10件を未観測のまま固定した。最終署名E2Eは`AIT-ST-010`と`ERB-IT-014`の限定範囲へ接続し、残る義務を一括してPassへ変更していない。v0.22移管37件は同版で再開する |
+| Checker | Repository構造検査と全契約試験が成立 | 1,906 file、1,102 Markdown、17,893 link、2,032 anchorをWarning 0で検査した。Repository検査のError 1件は、v0.22作業HEADが公開済みv0.21.0 tagと一致しないFeature Branch上の既知状態であり、v0.22のRelease候補固定時に再評価する。Verification RunnerはWorkbenchを含むOwner、実行Profileおよび結合経路を全数照合し、40 Pass・失敗0・条件付きSkip 1である |
+| Reality Audit | 現在結果固定済み — Hybrid／Manual Evidence Pending | skipのEvidence誤算入と実境界未観測を是正し、v0.21に残るHybrid 12件とManual 10件を未観測のまま固定した。最終署名E2Eは`AIT-ST-010`と`ERB-IT-014`の限定範囲へ接続し、残る義務を一括してPassへ変更していない。v0.22移管39件は同版で再開する |
 
 ## 現在の品質投影
 

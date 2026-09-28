@@ -7,6 +7,7 @@
   "include": [],
   "files": [
     "../../template/tools/crdd-coordinator.ts",
+    "../../template/tools/crdd-cros-server.ts",
     "../../template/tools/crdd-mcp.ts",
     "../../template/tools/crdd-visual-preview.ts"
   ]

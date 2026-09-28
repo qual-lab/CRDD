@@ -34,6 +34,18 @@
       "archIds": ["ARCH-000005", "ARCH-000013"]
     },
     {
+      "symbolId": "cros.remote-transport",
+      "kind": "file",
+      "path": "src/remote-transport.ts",
+      "archIds": ["ARCH-000005", "ARCH-000007", "ARCH-000013"]
+    },
+    {
+      "symbolId": "cros.shared-server-config-file-adapter",
+      "kind": "file",
+      "path": "src/shared-server-config-file-adapter.ts",
+      "archIds": ["ARCH-000005", "ARCH-000011", "ARCH-000013"]
+    },
+    {
       "symbolId": "cros.connection-credential",
       "kind": "file",
       "path": "src/connection-credential.ts",
@@ -44,6 +56,24 @@
       "kind": "file",
       "path": "src/credential-registry-file-adapter.ts",
       "archIds": ["ARCH-000011", "ARCH-000013"]
+    },
+    {
+      "symbolId": "cros.credential-access-recovery",
+      "kind": "file",
+      "path": "src/credential-access-recovery.ts",
+      "archIds": ["ARCH-000013"]
+    },
+    {
+      "symbolId": "cros.credential-access-recovery-file-adapter",
+      "kind": "file",
+      "path": "src/credential-access-recovery-file-adapter.ts",
+      "archIds": ["ARCH-000011", "ARCH-000013"]
+    },
+    {
+      "symbolId": "cros.credential-access-recovery-cli",
+      "kind": "file",
+      "path": "src/credential-access-recovery-cli.ts",
+      "archIds": ["ARCH-000013"]
     },
     {
       "symbolId": "cros.test.integration.core",
@@ -60,6 +90,22 @@
       "qaIds": ["QA-000004"],
       "localTestIds": ["PPR-IT-002"],
       "verifies": ["cros.project-federation"]
+    },
+    {
+      "symbolId": "cros.test.integration.remote-transport",
+      "kind": "test-suite",
+      "path": "tests/integration/remote-transport.contract.test.ts",
+      "qaIds": ["QA-000004", "QA-000007"],
+      "localTestIds": ["PPR-IT-002", "RFD-IT-013"],
+      "verifies": ["cros.remote-transport"]
+    },
+    {
+      "symbolId": "cros.test.integration.shared-server-config",
+      "kind": "test-suite",
+      "path": "tests/integration/shared-server-config-file-adapter.contract.test.ts",
+      "qaIds": ["QA-000004", "QA-000007"],
+      "localTestIds": ["PPR-IT-002", "RFD-IT-013"],
+      "verifies": ["cros.shared-server-config-file-adapter"]
     },
     {
       "symbolId": "cros.test.integration.tool-registry",
@@ -92,6 +138,18 @@
       "qaIds": ["QA-000007"],
       "localTestIds": ["RFD-IT-013"],
       "verifies": ["cros.credential-registry-file-adapter"]
+    },
+    {
+      "symbolId": "cros.test.integration.credential-access-recovery-file-adapter",
+      "kind": "test-suite",
+      "path": "tests/integration/credential-access-recovery-file-adapter.contract.test.ts",
+      "qaIds": ["QA-000007"],
+      "localTestIds": ["RFD-IT-013", "RFD-ST-016"],
+      "verifies": [
+        "cros.credential-access-recovery",
+        "cros.credential-access-recovery-file-adapter",
+        "cros.credential-access-recovery-cli"
+      ]
     },
     {
       "symbolId": "cros.test.system.context-handoff",

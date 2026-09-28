@@ -22,9 +22,33 @@
       "archIds": ["ARCH-000005"]
     },
     {
+      "symbolId": "project-operation.domain.repository-release-projection",
+      "kind": "file",
+      "path": "src/repository-release-projection.ts",
+      "archIds": ["ARCH-000005"]
+    },
+    {
+      "symbolId": "project-operation.domain.repository-quality-projection",
+      "kind": "file",
+      "path": "src/repository-quality-projection.ts",
+      "archIds": ["ARCH-000005"]
+    },
+    {
       "symbolId": "project-operation.domain.topic-meeting-record",
       "kind": "file",
       "path": "src/topic-meeting.ts",
+      "archIds": ["ARCH-000006"]
+    },
+    {
+      "symbolId": "project-operation.repository.topic-meeting",
+      "kind": "file",
+      "path": "src/topic-meeting-repository.ts",
+      "archIds": ["ARCH-000006"]
+    },
+    {
+      "symbolId": "project-operation.application.topic-meeting",
+      "kind": "file",
+      "path": "src/topic-meeting-application.ts",
       "archIds": ["ARCH-000006"]
     },
     {
@@ -47,7 +71,11 @@
       "path": "tests/integration/repository-project-context.contract.test.ts",
       "qaIds": ["QA-000004"],
       "localTestIds": ["PPR-IT-019"],
-      "verifies": ["project-operation.domain.repository-project-context"]
+      "verifies": [
+        "project-operation.domain.repository-project-context",
+        "project-operation.domain.repository-release-projection",
+        "project-operation.domain.repository-quality-projection"
+      ]
     },
     {
       "symbolId": "project-operation.test.integration.topic-meeting-record",
@@ -56,6 +84,28 @@
       "qaIds": ["QA-000005"],
       "localTestIds": ["CPR-IT-008"],
       "verifies": ["project-operation.domain.topic-meeting-record"]
+    },
+    {
+      "symbolId": "project-operation.test.integration.topic-meeting-repository",
+      "kind": "test-suite",
+      "path": "tests/integration/topic-meeting-repository.contract.test.ts",
+      "qaIds": ["QA-000005"],
+      "localTestIds": ["CPR-IT-008"],
+      "verifies": [
+        "project-operation.domain.topic-meeting-record",
+        "project-operation.repository.topic-meeting"
+      ]
+    },
+    {
+      "symbolId": "project-operation.test.integration.topic-meeting-application",
+      "kind": "test-suite",
+      "path": "tests/integration/topic-meeting-application.contract.test.ts",
+      "qaIds": ["QA-000005"],
+      "localTestIds": ["CPR-IT-008"],
+      "verifies": [
+        "project-operation.application.topic-meeting",
+        "project-operation.repository.topic-meeting"
+      ]
     },
     {
       "symbolId": "project-operation.test.integration.candidate-adoption",

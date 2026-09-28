@@ -1,0 +1,16 @@
+{
+  "contract": "cros/shared-server-config/v1",
+  "revision": 1,
+  "public_origin": "https://cros.example.com",
+  "listen_port": 4242,
+  "repositories": [
+    {
+      "repository_root": "C:\\verified-repositories\\PRJ-001-DEV",
+      "workspace_ids": ["development"]
+    },
+    {
+      "repository_root": "C:\\verified-repositories\\PRJ-001-MGMT",
+      "workspace_ids": ["management"]
+    }
+  ]
+}

@@ -1688,6 +1688,10 @@ function selectionRequest(
       ? "independent_review_required"
       : "specialized_executor_benefit",
     requestedExecutorProvider: requestedProvider ?? "auto",
+    requestedProfileId:
+      role === "executor" && typeof request.requestedProfileId === "string"
+        ? request.requestedProfileId
+        : null,
     subjectProvider,
     requiresIndependentProvider:
       isIndependentReview && isRequiresIndependentProvider,

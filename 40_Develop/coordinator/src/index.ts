@@ -10,8 +10,8 @@
 export {
   executeProjectRuntimePublicAcceptanceDecision,
   executeProjectRuntimePublicStateQuery,
-  runProjectRuntimePublicAcceptanceDecision,
   observeRuntimeOwnedProjectClientPrincipal,
+  runProjectRuntimePublicAcceptanceDecision,
   runProjectRuntimePublicDecision,
   runProjectRuntimePublicObjective,
   runProjectRuntimePublicStateQuery,

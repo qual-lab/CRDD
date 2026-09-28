@@ -111,7 +111,7 @@ test("古いExposure Revisionを非開示で拒否する", () => {
   );
   assert.deepEqual(
     resolveRepository(
-      { ...session, registryRevision: "registry-1" },
+      { ...session, exposureRegistryRevision: "registry-1" },
       "REPO-DEV",
       [
         {

@@ -67,7 +67,7 @@ AreaごとのComposition、Information Density、Visual Hierarchy、Interaction�
 | 画面候補08 | Quality and Evidence | Project Work | 現在保証できること、Gap、未観測、根拠および次Gateを理解する | Project Workspace、Project Plan | 根拠、是正対象または次Gateを選んだ | UI-000014、UI-000015、UI-000020 |
 | 画面候補09 | Documentation and Relations | Project Work | 正本、関係、経緯および現在有効な意図を見つける | Project Workspace、各Relation | 対象正本を開いた、関係を辿った、または戻った | UI-000017、UI-000018、UI-000019 |
 | 画面候補10 | Runtime Activity | Project Work | 実行中Objective／Taskの状態、判断待ち、失敗および回復先を確認する | Project Workspace、AIへの依頼 | 判断を返した、回復へ進んだ、または監視を終えた | UI-000002、UI-000003、UI-000005、UI-000020 |
-| 画面候補11 | AIへの依頼 | Project Work | Project Contextと選択中の正本を基にCodexやClaude Code等へ質問・作業を依頼し、事実・共有分析・追加推論を区別して次へ進む | Project Workspace、各Detail、選択Context | 根拠を開いた、提案を判断した、正式成果物へ反映した、または現在Sessionを終えた | UI-000007、UI-000010、UI-000012、UI-000016 |
+| 画面候補11 | AIへの依頼 | Project Work | Project Contextと選択中の正本を基に、読取り助言または変更候補を明示してCodexやClaude Code等へ依頼し、事実・共有分析・追加推論を各項目の根拠参照付きで区別して次へ進む | Project Workspace、各Detail、選択Context | 根拠を開いた、提案を判断した、別Authorityで正式成果物へ反映した、または現在Sessionを終えた | UI-000007、UI-000010、UI-000012、UI-000016 |
 | 画面候補12 | Repository Worktree | Repository Work | Treeと差分を理解し、Stage／Unstage／Commit／通常Pushまで安全に進める | Project Workspace、Topic／Meeting／AIへの依頼 | CommitまたはPush結果を確認した、作業差分を残して戻った | UI-000006、UI-000015 |
 | 画面候補13 | Connection Setup | Configuration | CROS Endpointと渡されたRole別Credentialを登録し、許可範囲で接続する | 初回接続、接続切れ、接続先切替 | 接続した、再入力が必要と分かった、またはRepository単体利用へ戻った | UI-000008 |
 | 画面候補14 | Access Administration | Configuration | Role別Credentialを発行・失効・ローテーションし、回復が必要な状態を判断する | Administrator用Navigation | 通常管理を完了した、またはCLI限定Recoveryの案内へ移った | UI-000008、UI-000015 |
@@ -196,6 +196,10 @@ Provider失敗／利用不能:
 ```
 
 Workbenchが所有するのは、選択中Contextを既存AI Runtimeへ渡す依頼面と現在Sessionの表示である。Codex、Claude Code等のProvider側会話履歴をWorkbenchの正本へ複製しない。継続して共有すべき結果だけを、利用者の判断を経てTopic、Meeting、CHG、DecisionまたはProject Contextを所有する成果物へ反映する。
+
+依頼時には`状況確認・助言（読取りのみ）`と`変更候補（自動採用なし）`を明示する。前者は所有正本Effect 0、後者は候補返却までとし、所有正本への採用を同じ操作へ含めない。入口やProfileを変更しても依頼種別を暗黙に読み替えない。
+
+四つの結果区分は、項目ごとに本文と一件以上の正本参照を一体表示する。根拠のない本文を事実、共有分析、追加推論または次の選択肢として表示せず、結果契約違反をblockedとして示す。
 
 画面候補11は独立Screenへの確定を意味しない。G2では、Project Workspace内の常設Panel、必要時に開くSide Panel、複雑な依頼向けの独立表示および外部AIを開くContext付き入口を比較する。
 

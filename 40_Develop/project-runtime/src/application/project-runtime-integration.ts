@@ -9,7 +9,6 @@ import {
   type ProjectRuntimeState,
 } from "../core/project-runtime-state.ts";
 import type {
-  ProjectRuntimeCandidateAdoptionReceipt,
   ProjectRuntimeCandidatePort,
   ProjectRuntimeIntegrationCandidate,
 } from "../ports/candidate-port.ts";
@@ -24,6 +23,7 @@ import {
   normalizeRepositoryRelativePath,
   repositoryPathWithin,
 } from "../boundary/repository-relative-path.ts";
+import { adoptProjectRuntimeExistingCandidate } from "./project-runtime-candidate-adoption.ts";
 
 /**
  * project-runtime-integrationで使用するIntegration 入力の値契約を定義する。
@@ -85,26 +85,6 @@ function validId(value: unknown, maximum = 512): value is string {
     value.length <= maximum &&
     /^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(value)
   );
-}
-
-/**
- * Revisionが有効か判定する。
- *
- * @responsibility Revisionの有効条件、拒否条件、判定結果境界を所有する。
- * @trace ARCH-000004
- * @input value: unknown
- * @returns value is stringを返す。
- * @precondition 「value: unknown」がvalidRevisionの入力契約を満たす。
- * @postcondition validRevisionの責務を完了した結果だけを返す。
- * @effect N/A: validRevisionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: validRevisionは独自の失敗分岐を所有しない。
- * @invariant validRevisionは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: validRevisionはProcess内の同一Subsystemで完結する。
- * @security N/A: validRevisionはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: validRevisionは共有非同期状態を持たない同期処理である。
- */
-function validRevision(value: unknown): value is string {
-  return typeof value === "string" && /^[0-9a-f]{40,64}$/u.test(value);
 }
 
 /**
@@ -250,149 +230,6 @@ function inspectCandidate(
     conflicts,
     cleanupConfirmed: true,
   });
-}
-
-/**
- * Repositoryを観測する。
- *
- * @responsibility Repositoryの観測対象、取得根拠、観測不能結果の境界を所有する。
- * @trace ARCH-000004
- * @input raw: unknown
- * @returns inspectRepositoryの計算結果を返す。
- * @precondition 「raw: unknown」がinspectRepositoryの入力契約を満たす。
- * @postcondition inspectRepositoryの責務を完了した結果だけを返す。
- * @effect N/A: inspectRepositoryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: inspectRepositoryは独自の失敗分岐を所有しない。
- * @invariant inspectRepositoryは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: inspectRepositoryはProcess内の同一Subsystemで完結する。
- * @security N/A: inspectRepositoryはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: inspectRepositoryは共有非同期状態を持たない同期処理である。
- */
-function inspectRepository(raw: unknown) {
-  const value = snapshotPlainRecord(
-    raw,
-    new Set([
-      "status",
-      "repositoryRevision",
-      "dirty",
-      "observedPaths",
-    ] as const),
-  );
-  if (
-    value?.status !== "observed" ||
-    !validRevision(value.repositoryRevision) ||
-    typeof value.dirty !== "boolean"
-  )
-    return null;
-  const observedPaths = stringArray(value.observedPaths, validPath);
-  return observedPaths
-    ? Object.freeze({
-        repositoryRevision: value.repositoryRevision,
-        dirty: value.dirty,
-        observedPaths,
-      })
-    : null;
-}
-
-/**
- * 候補 Port Blockedを観測する。
- *
- * @responsibility 候補 Port Blockedの観測対象、取得根拠、観測不能結果の境界を所有する。
- * @trace ARCH-000004
- * @input raw: unknown
- * @returns inspectCandidatePortBlockedの計算結果を返す。
- * @precondition 「raw: unknown」がinspectCandidatePortBlockedの入力契約を満たす。
- * @postcondition inspectCandidatePortBlockedの責務を完了した結果だけを返す。
- * @effect N/A: inspectCandidatePortBlockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: inspectCandidatePortBlockedは独自の失敗分岐を所有しない。
- * @invariant inspectCandidatePortBlockedは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: inspectCandidatePortBlockedはProcess内の同一Subsystemで完結する。
- * @security N/A: inspectCandidatePortBlockedはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: inspectCandidatePortBlockedは共有非同期状態を持たない同期処理である。
- */
-function inspectCandidatePortBlocked(raw: unknown) {
-  const value = snapshotPlainRecord(
-    raw,
-    new Set([
-      "status",
-      "reason",
-      "effectIssued",
-      "effectStateUnknown",
-      "cleanupConfirmed",
-      "retryAllowed",
-      "recoveryReference",
-    ] as const),
-  );
-  if (
-    value?.status !== "blocked" ||
-    typeof value.reason !== "string" ||
-    typeof value.effectIssued !== "boolean" ||
-    typeof value.effectStateUnknown !== "boolean" ||
-    typeof value.cleanupConfirmed !== "boolean" ||
-    typeof value.retryAllowed !== "boolean" ||
-    (value.recoveryReference !== null &&
-      typeof value.recoveryReference !== "string")
-  )
-    return null;
-  return Object.freeze({
-    reason: value.reason,
-    effectIssued: value.effectIssued,
-    effectStateUnknown: value.effectStateUnknown,
-    cleanupConfirmed: value.cleanupConfirmed,
-    retryAllowed: value.retryAllowed,
-    recoveryReference: value.recoveryReference as string | null,
-  });
-}
-
-/**
- * Receiptを観測する。
- *
- * @responsibility Receiptの観測対象、取得根拠、観測不能結果の境界を所有する。
- * @trace ARCH-000004
- * @input raw: unknown
- * @returns ProjectRuntimeCandidateAdoptionReceipt | nullを返す。
- * @precondition 「raw: unknown」がinspectReceiptの入力契約を満たす。
- * @postcondition inspectReceiptの責務を完了した結果だけを返す。
- * @effect N/A: inspectReceiptは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: inspectReceiptは独自の失敗分岐を所有しない。
- * @invariant inspectReceiptは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: inspectReceiptはProcess内の同一Subsystemで完結する。
- * @security N/A: inspectReceiptはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: inspectReceiptは共有非同期状態を持たない同期処理である。
- */
-function inspectReceipt(
-  raw: unknown,
-): ProjectRuntimeCandidateAdoptionReceipt | null {
-  const value = snapshotPlainRecord(
-    raw,
-    new Set([
-      "status",
-      "receiptId",
-      "beforeRevision",
-      "afterRevision",
-      "changedPaths",
-      "cleanupConfirmed",
-    ] as const),
-  );
-  if (
-    value?.status !== "completed" ||
-    !validId(value.receiptId) ||
-    !validRevision(value.beforeRevision) ||
-    !validRevision(value.afterRevision) ||
-    value.cleanupConfirmed !== true
-  )
-    return null;
-  const changedPaths = stringArray(value.changedPaths, validPath);
-  return changedPaths
-    ? Object.freeze({
-        status: "completed",
-        receiptId: value.receiptId,
-        beforeRevision: value.beforeRevision,
-        afterRevision: value.afterRevision,
-        changedPaths,
-        cleanupConfirmed: true,
-      })
-    : null;
 }
 
 /**
@@ -629,159 +466,38 @@ export async function integrateProjectRuntimeOperation(
     );
   }
 
-  let receipt: ProjectRuntimeCandidateAdoptionReceipt | null = null;
+  let receiptId: string | null = null;
   if (input.adoptionAuthorized) {
-    if (typeof dependencies.candidate.observeLeaseOwner !== "function")
-      return response(
-        input,
-        "blocked",
-        "project_runtime_lease_owner_observation_unavailable",
-        state,
-        {
+    const adoption = await adoptProjectRuntimeExistingCandidate(
+      Object.freeze({
+        candidate: dependencies.candidate,
+        lease: dependencies.persistence.lease,
+        records: dependencies.records,
+      }),
+      Object.freeze({
+        projectId: input.projectId,
+        candidate: Object.freeze({
           candidateId: candidate.candidateId,
-          cleanupConfirmed: false,
-          manualRecoveryRequired: true,
-        },
-      );
-    const prepared = dependencies.persistence.lease.reconcileAdoptionOwnerLoss(
-      input.projectId,
-      dependencies.candidate.observeLeaseOwner,
+          candidateHash: candidate.candidateHash,
+          baseRevision: candidate.baseRevision,
+          changedPaths: candidate.changedPaths,
+        }),
+        allowedPaths: input.allowedPaths,
+        adoptionAuthorized: true,
+      }),
     );
-    if (prepared.status !== "completed")
-      return response(input, "blocked", prepared.reason, state, {
+    if (adoption.status !== "completed")
+      return response(input, "blocked", adoption.reason, state, {
         candidateId: candidate.candidateId,
-        cleanupConfirmed: !prepared.manualRecoveryRequired,
-        manualRecoveryRequired: prepared.manualRecoveryRequired,
-        ...(prepared.recoveryId === null
-          ? {}
-          : { recoveryIds: Object.freeze([prepared.recoveryId]) }),
+        receiptId: adoption.receiptId,
+        cleanupConfirmed: adoption.cleanupConfirmed,
+        manualRecoveryRequired: adoption.manualRecoveryRequired,
+        effectIssued: adoption.effectIssued,
+        effectStateUnknown: adoption.effectStateUnknown,
+        retryAllowed: adoption.retryAllowed,
+        recoveryIds: adoption.recoveryIds,
       });
-    const leaseResult = dependencies.persistence.lease.acquire(
-      input.projectId,
-      "canonical",
-      "canonical-adoption",
-    );
-    if (leaseResult.status !== "completed")
-      return response(input, "blocked", leaseResult.reason, state, {
-        candidateId: candidate.candidateId,
-        cleanupConfirmed: false,
-        manualRecoveryRequired: leaseResult.manualRecoveryRequired,
-      });
-    const lease = leaseResult.value;
-    let adoptionFailure: Readonly<{
-      reason: string;
-      cleanupConfirmed: boolean;
-      manualRecoveryRequired: boolean;
-      recoveryReference?: string | null;
-      effectIssued?: boolean;
-      effectStateUnknown?: boolean;
-      retryAllowed?: boolean;
-    }> | null = null;
-    try {
-      const rawObservation =
-        dependencies.candidate.observeCanonicalRepository();
-      const observationBlocked = inspectCandidatePortBlocked(rawObservation);
-      const observed = inspectRepository(rawObservation);
-      if (observationBlocked) {
-        adoptionFailure = Object.freeze({
-          reason: observationBlocked.reason,
-          cleanupConfirmed: observationBlocked.cleanupConfirmed,
-          effectIssued: observationBlocked.effectIssued,
-          effectStateUnknown: observationBlocked.effectStateUnknown,
-          retryAllowed: observationBlocked.retryAllowed,
-          manualRecoveryRequired:
-            observationBlocked.effectStateUnknown ||
-            !observationBlocked.cleanupConfirmed,
-          recoveryReference: observationBlocked.recoveryReference,
-        });
-      } else if (
-        !observed ||
-        observed.repositoryRevision !== candidate.baseRevision ||
-        observed.dirty ||
-        observed.observedPaths.some(
-          (observedPath) =>
-            !pathWithinAllowed(observedPath, input.allowedPaths),
-        )
-      ) {
-        adoptionFailure = Object.freeze({
-          reason: "project_runtime_adoption_revision_or_scope_mismatch",
-          cleanupConfirmed: true,
-          manualRecoveryRequired: false,
-        });
-      } else {
-        let rawReceipt: unknown;
-        try {
-          rawReceipt = await dependencies.candidate.adoptCandidate(candidate);
-        } catch {
-          rawReceipt = null;
-        }
-        const adoptionBlocked = inspectCandidatePortBlocked(rawReceipt);
-        receipt = inspectReceipt(rawReceipt);
-        if (adoptionBlocked) {
-          adoptionFailure = Object.freeze({
-            reason: adoptionBlocked.reason,
-            cleanupConfirmed: adoptionBlocked.cleanupConfirmed,
-            effectIssued: adoptionBlocked.effectIssued,
-            effectStateUnknown: adoptionBlocked.effectStateUnknown,
-            retryAllowed: adoptionBlocked.retryAllowed,
-            manualRecoveryRequired:
-              adoptionBlocked.effectStateUnknown ||
-              !adoptionBlocked.cleanupConfirmed,
-            recoveryReference: adoptionBlocked.recoveryReference,
-          });
-          receipt = null;
-        } else if (
-          !receipt ||
-          receipt.beforeRevision !== candidate.baseRevision ||
-          receipt.changedPaths.length !== candidate.changedPaths.length ||
-          !receipt.changedPaths.every((value) =>
-            candidate.changedPaths.includes(value),
-          )
-        ) {
-          adoptionFailure = Object.freeze({
-            reason: "project_runtime_adoption_receipt_invalid",
-            cleanupConfirmed: false,
-            manualRecoveryRequired: true,
-          });
-          receipt = null;
-        } else {
-          const recorded = dependencies.records.write({
-            kind: "adoption",
-            identity: receipt.receiptId,
-            value: receipt,
-          });
-          if (recorded.status !== "completed") throw new Error(recorded.reason);
-        }
-      }
-    } catch {
-      adoptionFailure = Object.freeze({
-        reason: "project_runtime_adoption_observation_unknown",
-        cleanupConfirmed: false,
-        manualRecoveryRequired: true,
-      });
-    } finally {
-      const released = lease.release();
-      if (released.status !== "completed") {
-        adoptionFailure = Object.freeze({
-          reason: "project_runtime_adoption_lease_release_unknown",
-          cleanupConfirmed: false,
-          manualRecoveryRequired: true,
-        });
-        receipt = null;
-      }
-    }
-    if (adoptionFailure)
-      return response(input, "blocked", adoptionFailure.reason, state, {
-        candidateId: candidate.candidateId,
-        cleanupConfirmed: adoptionFailure.cleanupConfirmed,
-        manualRecoveryRequired: adoptionFailure.manualRecoveryRequired,
-        effectIssued: adoptionFailure.effectIssued ?? false,
-        effectStateUnknown: adoptionFailure.effectStateUnknown ?? false,
-        retryAllowed: adoptionFailure.retryAllowed ?? false,
-        ...(adoptionFailure.recoveryReference
-          ? { recoveryIds: Object.freeze([adoptionFailure.recoveryReference]) }
-          : {}),
-      });
+    receiptId = adoption.receiptId;
   }
 
   const completedQueue = dependencies.persistence.state.updateQueue(
@@ -791,13 +507,13 @@ export async function integrateProjectRuntimeOperation(
       state: "completed",
       lease: null,
       resumeCondition: null,
-      resultReference: receipt?.receiptId ?? candidate.candidateId,
+      resultReference: receiptId ?? candidate.candidateId,
     },
   );
   if (completedQueue.status !== "completed")
     return response(input, "blocked", completedQueue.reason, state, {
       candidateId: candidate.candidateId,
-      receiptId: receipt?.receiptId ?? null,
+      receiptId,
       cleanupConfirmed: false,
       manualRecoveryRequired: true,
     });
@@ -808,7 +524,7 @@ export async function integrateProjectRuntimeOperation(
     state,
     {
       candidateId: candidate.candidateId,
-      receiptId: receipt?.receiptId ?? null,
+      receiptId,
     },
   );
 }

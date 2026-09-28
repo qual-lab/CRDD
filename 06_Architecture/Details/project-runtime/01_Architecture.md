@@ -57,6 +57,7 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | 導出キー | 設計項目種別 | 対象 | 正常条件 | 反証する失敗 | 主な試験段階 | 外部境界の段階 | 観測 | 終了後条件 | 未確認 |
 |---|---|---|---|---|---|---|---|---|---|
 | `project-runtime.task-lifecycle` | State Transition／Failure-Recovery | ObjectiveとTask identity | 許可された状態遷移 | 競合、親喪失、取消、Effect不明 | UT／IT | UT: Direct Boundary<br>IT: Adjacent 1 Block | state、owner、recovery ID | lease／resource 0または義務 | なし |
+| `project-runtime.candidate-adoption` | Interface／State Transition／Failure-Recovery | 公開済み候補のIdentity、Repository Revision、許可Pathおよび明示採用Authority | Candidate Storeから同じ候補を再読取りし、Adoption Lease取得後に現在Revision、dirty PathおよびScopeを再観測して、一致する内容だけを正本へ一度反映する。採用Receiptを耐久記録へ保存し、Leaseを解放する | 表示時Metadataの流用、別候補へのすり替え、確認なし採用、Revision競合、dirty Scope競合、許可外Path、部分反映、Lease残存、採用に伴うCommit／Push | UT／IT | UT: Direct Boundary<br>IT: Related 2 Blocks | Candidate ID、Authority、Lease、Revision、dirty Path、Scope、Receipt、反映結果 | 成功時はReceipt一件・Lease 0・Commit 0・Push 0。拒否時は正本Effect 0。settlement不明時は同じRecovery義務を保持 | 実Provider E2Eで生成した候補からの採用はPhase 5で確認する |
 | `project-runtime.acceptance-decision` | Interface／State Transition | 対象Identity、根拠Revision、Project運営者の明示判断 | 受入・差戻し・判断待ちを別状態で一度記録し、Objective受入済みだけがMilestone判断へ進む | ProjectionからのAuthority生成、SPEC-000006／000007からの到達、Task作成、Provider Effect、下位完了からの上位受入推定、Objective差戻し／判断待ちからのMilestone判断開始 | UT／IT | Direct Boundary | decision type、owner、source revision、effect count | 対象Decision Record一件またはEffect 0。Objective差戻し／判断待ちではMilestone判断Effect 0 | 物理StoreはDevelopmentで選択 |
 | `project-runtime.public-application` | Interface／Data Flow | 公開DTOとPort | Transport間で同じ意味 | Schemaずれ、内部Path依存 | UT／IT | Adjacent 1 Block | exact result contract | 内部Effectは所有Portだけ | なし |
 
@@ -149,7 +150,7 @@ CoreはI/Oを発行しない。ApplicationはPortの閉じた結果だけを解�
 | State Port | expected generation付きProject State／Queueの読取り・更新 | Repository-local Persistence Adapter |
 | Objective／Milestone Acceptance Decision Port | 対象Identity、根拠Revision、Project運営者の明示Authorityを検証し、受入・差戻し・判断待ちだけを一度記録する。読取りProjection、Task作成およびProvider Effectとは分離する | Repository-local Acceptance Decision Adapter |
 | Lease Port | Project Operation、State、Adoptionの取得・settlementを観測する | Platform／Persistence Adapter |
-| Candidate Port | Task候補の読取り、統合候補の構成、明示採用とrollback | Coordinator Candidate Adapter |
+| Candidate Port | Task候補の読取り、統合候補の構成、公開済み既存候補のIdentity固定、明示採用とrollback | Coordinator Candidate Adapter |
 | Decision Port | 一回限りCapabilityの発行、prepare、finalize、失効およびRecovery | Platform Decision Adapter |
 | Platform Observation Port | Repository Root、principal、owner、Process、cleanup、Recoveryの必要観測 | Platform Adapter |
 | Execution Intelligence Query Port | 許可された実行記録を読取り、observed／not_observed／unknown、時間的出所、事実と非Authority評価候補を分けて返す | 実行知Reader Adapter |

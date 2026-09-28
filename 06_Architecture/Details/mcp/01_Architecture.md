@@ -122,10 +122,17 @@ Transport（transports/）
        ├→ Protocol（protocol/）
        │    JSON文書・MCP envelope・method・error
        ↓
-Project Runtime Adapter（adapters/）
-  │ MCP要求と公開要求・結果の変換
-  ↓ 公開入口だけを利用
-Project Runtime【別package】
+Application Adapter（adapters/application-adapter.ts）
+  │ Tool一覧と専門AdapterへのRoutingだけを所有
+  ├→ Project Runtime Adapter
+  │    │ MCP要求と実行要求・結果の変換
+  │    ↓ 公開入口だけを利用
+  │  Project Runtime【別package】
+  │
+  └→ Project Context Adapter
+       │ 一覧・取得要求を許可済みPortfolioへ変換
+       ├→ Repository Project Context Reader【単一Repository】
+       └→ CROS Portfolio Projection【複数Repository】
 
 終了制御（transports/process-signal-*）
   → 受付停止・要求取消・Application終了待ち・Transport回収
@@ -134,13 +141,25 @@ Project Runtime【別package】
   → 各利用箇所の入力を固定。実行権限は発行しない
 ```
 
-`src/index.ts`が利用側への公開窓口となる。Coordinatorとの具体的な組合せはLauncherが所有し、MCP内部にProvider実行・Repository書込みのブロックを置かない。
+`src/index.ts`が利用側への公開窓口となる。Transportは`McpRequestHandler`だけへ依存し、Project RuntimeまたはProject Contextの意味処理を直接所有しない。Coordinator、Repository Project Context ReaderおよびCROS Portfolioとの具体的な組合せはLauncher／Server Composition Rootが所有し、MCP内部にProvider実行・Repository書込み・Workspace Grant判定のブロックを置かない。
 
 MCPはProject Runtime packageの公開入口だけへ依存する。Coordinator、Provider、Candidate Store、Windows Adapter、実行知StoreまたはProject Runtime内部Pathをimportしない。
 
 Project Runtimeの状態、Identity、Recovery、判断または結果fieldをMCP Schemaで独立再定義しない。MCP固有Envelopeは保持するが、そのpayloadはProject Runtimeのcanonicalな公開契約を一つの変換規則で投影する。公開契約変更時はMCP利用側試験を変更影響型runnerが必ず選択する。
 
-Project Contextを返す場合も同じ原則を適用する。MCPは現在地、Risk・停止要因、人間の判断待ち、理由・根拠および次の一手を一つの結果として搬送できるが、Repository内正本、共有分析および対話時の追加推論を混同しない。Repository Role外のContextを補完せず、項目別`Observed At`やLive環境状態をMCPだけの都合で追加しない。
+Project Contextを返す場合も同じ原則を適用する。`crdd.list_projects`は現在の接続から参照できるProject ID、統合状態および許可済みSource数だけを返し、`crdd.get_project_context`は指定ProjectのSource Coverageと各Repositoryが投影した五場面を返す。MCPは現在地、Risk・停止要因、人間の判断待ち、理由・根拠および次の一手を搬送するが、Repository内正本、共有分析および対話時の追加推論を混同しない。Repository Role外のContextを補完せず、項目別`Observed At`、Project Context固有IDまたはLive環境状態をMCPだけの都合で追加しない。
+
+Repository単体では、現在の検証済みRepository Rootにある`PROJECT_CONTEXT.md`を毎Requestで読み取り、一SourceのPortfolio Projectionへ変換する。この経路にCROS Credentialを要求しない。CROS利用時は、CredentialとWorkspace Exposureを処置済みのPortfolio Projectionを同じAdapterへ渡す。MCPは両経路のAuthorityを統合・拡張せず、入力Projectionに存在しないProjectを同じ`project_context_not_available`へ閉じる。
+
+Remote CROSではMCP専用の固定Bearerを別に発行しない。HTTP TransportはBearer文字列をRequest単位のHandler Resolverへ渡し、CROS Composition Rootが現在のConnection Credentialを検証する。検証済みWorkspace集合と同じ瞬間のExposure Snapshotから許可Portfolioを作り、そのRequest専用Handlerへ固定する。Credential Profile名、`systemAdmin`または前RequestのPortfolioからContent Accessを再構成しない。
+
+Project Runtimeの実行状態を返すToolは`crdd.get_project_runtime_state`とする。旧名`crdd.get_project_state`はProject全体のCurrent Projectionと誤認し得るため、v0.22の公開候補へ残さない。Project Contextは`crdd.list_projects`と`crdd.get_project_context`で取得し、Runtime DTOを再利用しない。
+
+Repository単体MCPでは、Topic／Meetingの一覧、取得、登録、編集、削除およびMeeting Outcome処置ToolをProject Operationの共通Application契約へ接続する。一覧は同契約の検索、状態、Owner、期間、Relation、未処置Outcome、並び順およびID Cursor Paginationをそのまま搬送する。削除は誤登録理由、期待Revision、Relation影響0件および明示確認をすべて満たす場合だけEffectを発行する。Outcome処置は完了・移管・昇格・理由付き不採用を区別し、全件処置済みの場合だけ同じCommandでMeetingを閉じられる。
+
+Remote CROSでは同じToolへ`repositoryId`を必須入力として追加する。CROS Composition RootはRequestごとの現在Credential、Workspace Grant、Exposure Registry revision、Repository revisionおよびBindingを再検証し、許可済みRepositoryの共通Applicationだけを返す。Adapterは`repositoryId`を除いたRepository単体契約へ縮約してから共通処理を一回呼ぶ。Grant外、Exposure外、改訂不一致またはBinding不在は、対象の存在・Role・Workspaceを開示しない同じ`Invalid params`へ閉じる。
+
+Remote CROSのTopic／Meeting取得結果は、本文に記録された安定ID Relationを同じLogical Projectの許可済みRepository集合で解決する。一意な対象だけにOwner Repository IDを付け、0件は`unavailable`、複数件は`conflicting`として返す。MCPはRelation先本文をSource Repositoryへ複製せず、Relation結果を別Repository書込みのAuthorityとして扱わない。
 
 ## 4. Authorityと情報境界
 
@@ -176,6 +195,19 @@ HTTP TransportはMCP `2026-07-28`へ固定し、一つの`/mcp` endpointでPOST�
 - `application/json`のfatal UTF-8かつ128 KiB以下の単一JSON-RPC文書だけを受理し、ClientはJSONとSSEの双方をAcceptに示す。
 - response切断は当該要求の取消であり、別要求またはProject全体の取消に拡張しない。Server終了はclosingへ一度だけ遷移し、`server.close()`で新規accept停止を開始してから、受信中body／request、Application、handler、残存socketの順に取消・回収し、Server終了と全Registryの空を確認した場合だけTransport cleanup完了を返す。公開LauncherがNode.jsの`SIGINT`／`SIGTERM` eventを受領した後は、最初のeventで同じ終了Promiseを開始し、Application取消とjoinを含む`server.close()`がsettleするまで両方のlistenerを保持する。重複eventを別終了へ展開せず、終了の成功・失敗が確定した後にだけlistenerを解除する。OSまたはConsoleからNode.js ProcessへのSignal配送自体はこの契約の成立範囲に含めず、対応環境ごとの実Process検証なしに利用者操作の成立を主張しない。
 - HTTP接続、Bearer tokenおよびheaderはTransport認証・相関情報であり、Project AuthorityまたはRecovery Authorityではない。
+
+### 5.2 Remote CROS Project Context MCP
+
+Remote CROSのProject Context MCPは、同じ`/mcp` Protocolを使うが認証Ownerが異なる。
+
+- Repository単体のlocalhost入口は起動時固定TokenをTransport認証へ使用し、CROS Credentialを要求しない。
+- Remote CROS入口はRequestごとにConnection Credential Registryを再確認し、失効・不正Tokenを一律401へ閉じる。
+- 認証成功後に現在のWorkspace Exposureを解決し、許可Repositoryだけを一RequestのPortfolioへ固定する。
+- `tools/list`も許可済みHandlerから返し、Remote Project Context入口でProject Runtime操作を暗黙公開しない。
+- v0.22の実装Listenerはloopback限定である。Shared Serverでは、同一Hostの外部TLS終端が確定したHTTPS公開Originを所有し、loopback限定Shared GatewayがRESTの`/v1/...`とMCPの`/mcp`を同じOriginへ投影する。
+- Shared Gatewayは`x-forwarded-proto=https`と設定済み公開Hostの完全一致を必須とし、Browser `Origin`がある場合も完全一致を要求する。内部REST／MCP Listenerを直接の公開入口として扱わない。
+- Bearer TokenはRequest Headerからだけ受け取り、CLI引数、環境変数、共有設定、Repositoryまたはlogへ保存しない。公開証明書の管理はTLS終端の運用責務であり、MCP Transportは証明書Authorityを所有しない。
+- Gateway停止は内部REST／MCP Listener、実行中Proxy RequestおよびSocketの回収までを一つの終了条件とし、親Processの標準入力終了でも同じcleanup経路を通る。
 
 ### ブロック状態遷移
 

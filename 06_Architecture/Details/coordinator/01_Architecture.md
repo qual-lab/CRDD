@@ -278,6 +278,32 @@ Grantは、Process-local atomic store、Runtime所有の壁時計と単調時計
 
 Mount Authorizationは、Provider Home Path、token、session、Credential、一般Runtime AuthorityまたはOperation Capabilityを含まない。実mount／unmount、Filesystem Effect、Provider spawnおよびcleanup確認が未成立なら、実行可能へ昇格してはならない（MUST NOT）。
 
+### 7.5 Workbench読取り助言の一回送信境界
+
+Workbenchの読取り助言は、一般Taskの`executor`または`reviewer`へ読み替えない。専用Task Packetと専用結果契約を使用し、次の順序を固定する。
+
+```text
+利用者の一回送信確認
+  ↓
+Task Hash + Catalog Revision + exact Profile + Provider
+  ↓ 一回消費
+Workbench AI Advice Dispatch
+  ↓
+Provider Adapter
+  ↓
+Effect／cleanupを独立観測
+  ↓
+許可済み参照へ拘束した結果正規化
+```
+
+- 確認は同じTaskだけに有効で、永続同意、別Task、別Profileまたは変更候補のAuthorityへ再利用しない。
+- Effect前の取消はProvider呼出し0で閉じる。Effect後の例外・取消・cleanup不明は自動再送せず`unknown`へ保つ。
+- `completed`は、Provider Effect発行、cleanup確認、単一JSONおよび許可済み参照だけを持つ結果がすべて確認できた場合に限る。
+- 現行Production CompositionはこのDispatch、Provider別の固定Adapter選択、読取り助言専用Execution Planまで接続する。Execution PlanはCatalog Revision、Provider、exact Profile／Model／推論強度、Task／Projection Hashを固定し、Promptを標準入力だけで搬送する。Repository／Workspace mount、Tool、Session保持、API Key／有料fallbackを許可しない。
+- Provider Command Planは固定配布物のCLI Path／Image Digestへexact Modelと推論強度を接続する。CodexはTool無効の標準入力とJSONL、ClaudeはTool無効の標準入力とJSON envelope／inline Schemaを用いる。Provider Executor Coreは事前取消、Runtime拒否、cleanup不明および例外を成功へ畳まず、CodexのCommand／File Change Eventを拒否し、Claudeの一Turn成功Envelopeから`structured_output`だけを共通Result Parserへ渡す。Session、Cost、Usage、生Eventおよび生Provider出力は公開しない。
+- Executor Coreと署名Runtime Adapterの間では、Operation、Profile、Task／Projection Hash、Provider PromptおよびProvider Command Hashを`ADVICEPKT-*`へ固定する一回消費Packetを使用する。PacketはRepository／Workspace共有、ToolおよびSessionを常に`false`とし、別Ownerによる消費、再利用および未使用取消後の利用を拒否する。Packet発行だけではProvider Effect Authorityを生成しない。
+- 署名Coordinatorの実Docker lifecycleへ`workbench_advice`専用Modeを接続する。Boolean ProbeまたはWorkspace付き一般Taskを流用せず、署名配布物Capability、Operation世代、Provider Home、Selection、限定Egress、取消、Docker Recovery、Host cleanupおよび最終Recovery確定を同じLifecycleで所有する。Task／Projection／Profile／Command Identityを一回消費Packetへ結合し、HostとDockerのcleanupが確定するまで助言JSONを公開してはならない（MUST NOT）。
+
 <a id="development-provider-measurement"></a>
 
 ## 8. Providerとモデル選定
@@ -306,6 +332,8 @@ CRDDはGit clone／submoduleだけでRuntimeを利用できる配布構造を採
 - Runtime実行Identity（Runtime Execution Identity）は、実行に影響する閉じた依存集合、Security Policyおよび固定Platform Access成果物を含み、「何の実行へAuthorityを与えるか」を示す。
 
 manifest revision 5は、Coordinatorのproduction distribution allowlistである`bin/**`、`src/**`、`runtime/**`、`policies/**`および`package.json`全体に加え、共通Launcherの正本が選ぶ署名・4経路・Recovery入口と、そこから静的に到達する選択済み`script`依存を自動走査する。2つの公開Launcherと、責務分離されたMCP、Project Runtimeおよび実行知（Execution Intelligence）は、公開入口からcanonicalな静的importで到達する許可済み`src/**`と、そのNode module解釈を決める各componentの`package.json`を同じ実行閉包へ含める。したがってallowlist内の未参照Coordinator production sourceはIdentityを変えるが、未到達の兄弟Component、文書、試験およびbuild-only sourceは変えない。到達した兄弟Component／Launcher／protocol source、または到達Componentのpackage名・版・`private`・module種別を含むmetadataはIdentityを変える。package metadataの欠落・不正と実行集合外importは拒否する。このcontent root、Root Protection／Key Storage Policy Hash、Platform Access成果物のPath・target・protocol・toolchain・byte長・SHA-256からRuntime実行Identityを決定論的に算出し、Ed25519署名へ結合する。
+
+兄弟Componentは名称やDirectoryの存在ではなく、Coordinatorの固定公開入口からの実際の静的依存だけで署名閉包へ入る。MCPが実行時に到達するAI Runtime Catalog Core、CROSおよびProject Operationは署名閉包へ含める一方、Workbench専用CompositionをCoordinator packageの公開入口から再公開しない。AI Runtimeは`catalog.ts`と`types.ts`の実行時に必要な最小境界を直接参照し、Store／管理SurfaceをCatalog利用だけで署名閉包へ引き込まない。将来Workbench Executorを追加する場合も、Sourceが存在することではなく署名済み入口からの実到達と利用Capabilityを基準に閉包を更新する。
 
 TypeScript依存は正規表現ではなく、コメント、文字列、template、正規表現literalおよび構文tokenを区別するFail Closedの字句解析で抽出する。静的import、再export、動的import、型専用bindingおよび値bindingは、前のsemicolonや改行位置から逆算せず、括弧と宣言の終端を先頭から対応付ける一つのmodule宣言解釈から導出する。許可するmodule指定は、Node.jsが実在を確認できる`node:`組込みmoduleと、閉じた実行集合内へ正規解決されるrelative pathだけである。bare package、絶対Path、`file:`／`data:` URL、escapeを含むspecifier、許可された一つの検証入口を除く非literalの動的import、解析不能なsource、実行集合外へ解決される依存を拒否する。`createRequire`、bare `require`または`process.getBuiltinModule`による保護moduleの再取得も許可しない。共通Launcherは入口表の各対象をliteral importとして所有し、入口表とliteral依存を双方向に照合する。
 
@@ -596,6 +624,8 @@ Docker Task Recoveryは元のRecovery IDと発行時Sessionの証拠を保持し
 ### Provider外部境界の診断接続
 
 ProviderとDockerの外部境界は、一般Architectureの[外部境界の診断可能性](../../../27_Architecture.md#外部境界の診断可能性)を次の二系列で実装する。
+
+Workbenchの読取り助言は一般Taskを偽装せず、`workbench_advice`を第3実行モードとして扱う。Runtime所有の一回消費PacketがOperation、Profile、Task／Projection Hash、Provider Command HashおよびPromptを結合し、Codex／Claude Adapter、Docker Effect、Process Controller、Recoveryが同じModeを保持する。Provider HomeとOperation一時領域だけをMountし、Repository／WorkspaceはMountしない。Provider出力は固定CLIの完了Envelopeを検証して助言JSONだけへ縮約し、全資源のcleanup後にのみ上位Executorへ返す。
 
 | 系列 | Coordinatorが保持する閉じた観測 | 保持しない内容 |
 | --- | --- | --- |

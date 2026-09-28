@@ -99,7 +99,7 @@ import {
 
 export const DOCKER_RECOVERY_RUNTIME_CONTRACT =
   "crdd-coordinator/docker-recovery-runtime";
-export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 27;
+export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 28;
 
 const HEX64 = /^[a-f0-9]{64}$/u;
 const COMPLETED_DOCKER_RECOVERY_RECEIPT =
@@ -151,7 +151,7 @@ type ProductionPlan = Readonly<{
   ownershipLabel: string;
   providerImageDigest: string;
   proxyImageDigest: string;
-  operationMode: "boolean_probe" | "isolated_task";
+  operationMode: "boolean_probe" | "isolated_task" | "workbench_advice";
   workspaceMountMode: "read_write" | "read_only" | null;
 }>;
 
@@ -899,7 +899,8 @@ function validProductionPlan(plan: ProductionPlan) {
     /^sha256:[a-f0-9]{64}$/u.test(plan.providerImageDigest) &&
     /^sha256:[a-f0-9]{64}$/u.test(plan.proxyImageDigest) &&
     (plan.operationMode === "boolean_probe" ||
-      plan.operationMode === "isolated_task") &&
+      plan.operationMode === "isolated_task" ||
+      plan.operationMode === "workbench_advice") &&
     (plan.workspaceMountMode === null ||
       plan.workspaceMountMode === "read_write" ||
       plan.workspaceMountMode === "read_only")
@@ -2690,7 +2691,8 @@ function validateDockerRecoveryBase(value: unknown, nonce: string) {
       (item) => typeof item === "string" && /^sha256:[a-f0-9]{64}$/u.test(item),
     ) &&
     (base.operationMode === "boolean_probe" ||
-      base.operationMode === "isolated_task") &&
+      base.operationMode === "isolated_task" ||
+      base.operationMode === "workbench_advice") &&
     (base.workspaceMountMode === null ||
       base.workspaceMountMode === "read_only" ||
       base.workspaceMountMode === "read_write") &&
@@ -4190,7 +4192,7 @@ export function recoverExactDockerResourceWithRunner(
   shouldBeInternal: boolean | null,
   purpose: string,
   expectedNetworks: readonly string[],
-  operationMode: "boolean_probe" | "isolated_task",
+  operationMode: "boolean_probe" | "isolated_task" | "workbench_advice",
   workspaceMountMode: "read_write" | "read_only" | null,
   options: Readonly<{
     allowAlreadyAbsent?: boolean;
@@ -4439,7 +4441,7 @@ export function recoverUnknownDockerCreateOutcomeWithRunner(
   shouldBeInternal: boolean | null,
   purpose: string,
   expectedNetworks: readonly string[],
-  operationMode: "boolean_probe" | "isolated_task",
+  operationMode: "boolean_probe" | "isolated_task" | "workbench_advice",
   workspaceMountMode: "read_write" | "read_only" | null,
 ) {
   const list = (...filters: readonly string[]) =>
@@ -4597,7 +4599,7 @@ function recoverExactDockerResource(
   shouldBeInternal: boolean | null,
   purpose: string,
   expectedNetworks: readonly string[],
-  operationMode: "boolean_probe" | "isolated_task",
+  operationMode: "boolean_probe" | "isolated_task" | "workbench_advice",
   workspaceMountMode: "read_write" | "read_only" | null,
 ) {
   return recoverExactDockerResourceWithRunner(
@@ -5403,7 +5405,8 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       !/^sha256:[a-f0-9]{64}$/u.test(images.provider ?? "") ||
       !/^sha256:[a-f0-9]{64}$/u.test(images.proxy ?? "") ||
       (operationMode !== "boolean_probe" &&
-        operationMode !== "isolated_task") ||
+        operationMode !== "isolated_task" &&
+        operationMode !== "workbench_advice") ||
       (workspaceMountMode !== null &&
         workspaceMountMode !== "read_write" &&
         workspaceMountMode !== "read_only") ||

@@ -16,6 +16,42 @@ export {
   type McpProjectRuntimeDependencies,
 } from "./adapters/project-runtime-adapter.ts";
 export {
+  handleMcpProjectContextRequest,
+  type McpProjectContextDependencies,
+} from "./adapters/project-context-adapter.ts";
+export {
+  handleMcpApplicationRequest,
+  type McpApplicationDependencies,
+} from "./adapters/application-adapter.ts";
+export { createCrosProjectContextMcpResolver } from "./composition/cros-project-context-application.ts";
+export {
+  startCrosSharedServer,
+  type CrosSharedServerHandle,
+  type CrosSharedServerInput,
+} from "./composition/cros-shared-server.ts";
+export {
+  getMcpProjectContextToolDefinitions,
+  MCP_PROJECT_CONTEXT_GET_TOOL,
+  MCP_PROJECT_CONTEXT_LIST_TOOL,
+} from "./protocol/project-context-protocol.ts";
+export {
+  getMcpTopicMeetingToolDefinitions,
+  MCP_MEETING_CREATE_TOOL,
+  MCP_MEETING_DELETE_TOOL,
+  MCP_MEETING_GET_TOOL,
+  MCP_MEETING_LIST_TOOL,
+  MCP_MEETING_TREAT_OUTCOME_TOOL,
+  MCP_MEETING_UPDATE_TOOL,
+  MCP_TOPIC_CREATE_TOOL,
+  MCP_TOPIC_DELETE_TOOL,
+  MCP_TOPIC_GET_TOOL,
+  MCP_TOPIC_LIST_TOOL,
+  MCP_TOPIC_MEETING_TOOLS,
+  MCP_TOPIC_PROMOTE_TOOL,
+  MCP_TOPIC_UPDATE_TOOL,
+} from "./protocol/topic-meeting-protocol.ts";
+export { handleMcpTopicMeetingRequest } from "./adapters/topic-meeting-adapter.ts";
+export {
   MCP_PROJECT_RUNTIME_DECISION_TOOL,
   MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL,
   MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
@@ -41,12 +77,16 @@ export {
 export {
   MCP_PROJECT_RUNTIME_STDIO_CONTRACT,
   describeMcpProjectRuntimeStdioContract,
+  runMcpStdio,
   runMcpProjectRuntimeStdio,
 } from "./transports/stdio-transport.ts";
 export {
   MCP_PROJECT_RUNTIME_STREAMABLE_HTTP_CONTRACT,
   describeMcpProjectRuntimeStreamableHttpContract,
+  startMcpAuthenticatedStreamableHttp,
+  startMcpStreamableHttp,
   startMcpProjectRuntimeStreamableHttp,
+  type McpAuthenticatedHttpOptions,
   type McpProjectRuntimeHttpOptions,
 } from "./transports/streamable-http-transport.ts";
 export {
@@ -54,3 +94,7 @@ export {
   type McpHttpServerCloseBoundary,
   type McpProcessSignalSource,
 } from "./transports/process-signal-shutdown.ts";
+export type {
+  McpAuthenticatedRequestHandlerResolver,
+  McpRequestHandler,
+} from "./transports/request-handler.ts";

@@ -36,6 +36,12 @@
       "qaIds": ["QA-000006"],
       "localTestIds": ["ERB-IT-020"],
       "verifies": ["visual-preview.browser-zoom-verifier"]
+    },
+    {
+    "symbolId": "visual-preview.application.local-web-visual-verifier",
+    "kind": "function",
+    "path": "src/browser-zoom-verifier.ts",
+    "archIds": ["ARCH-000003"]
     }
   ]
 }

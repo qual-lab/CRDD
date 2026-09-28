@@ -19,13 +19,13 @@ Behavior ID: `BHV-000011`
 | Trigger | Applicable | stdio MCPまたはlocalhost HTTPから同じ仕事を依頼する時 |
 | Precondition | Applicable | 公開Application契約へ適合する入力と利用可能なTransportがある |
 | Authority | Applicable | 呼出し元の既存Authorityだけを搬送する。TransportはAuthorityを追加しない |
-| Input | Applicable | 複数入口で同じ依頼・結果契約を保つに必要な対象Identity、入力値、出所および観測時点 |
+| Input | Applicable | 対象Identity、入力値、出所および依頼種別（読取り助言／変更候補） |
 | Validation | Applicable | 前提条件、Authority、対象Identity、入力完全性および現在性をEffect前に確認する |
-| State／Transition | Applicable | 通信方式を公開Application契約へ変換し、同じ入力・状態・結果・失敗分類を返す。 |
+| State／Transition | Applicable | 通信方式を公開Application契約へ変換し、依頼種別を維持した同じ入力・状態・結果・失敗分類を返す。 |
 | Sequence | Applicable | Trigger→Precondition／Authority／Validation→State／Effect→Resultの順を保つ |
-| Effect | Applicable | Transport自体は意味を変更しない。下流Effectは同じApplication契約で制御する。 |
-| Output | Applicable | 入口の違いでAuthorityや結果の意味が変わらない。 |
-| Failure | Applicable | Transport固有値を意味契約へ混入せず、未対応入口を成立済みと表示しない。 |
+| Effect | Applicable | Transport自体は意味を変更しない。読取り助言は所有正本Effect 0、変更候補は候補返却までとし、採用Effectは別Authorityで制御する。 |
+| Output | Applicable | 入口の違いでAuthorityや結果の意味が変わらず、各結果項目の本文と根拠参照の対応を保つ。 |
+| Failure | Applicable | Transport固有値を意味契約へ混入せず、依頼種別を欠落・読み替えず、根拠参照のない結果を部分表示せず、未対応入口を成立済みと表示しない。 |
 | Recovery | Applicable | 失敗理由と安全な戻り先を返す。 |
 
 ## 3. Behavior Flow
@@ -35,11 +35,11 @@ stdio MCPまたはlocalhost HTTPから同じ仕事を依頼する時
   ↓
 公開Application契約へ適合する入力と利用可能なTransportがある
   ↓
-Authority・対象Identity・入力を検証
+Authority・対象Identity・依頼種別・入力を検証
   ├─ 不足／不一致 → Effect 0で理由と戻り先
   └─ 成立
        ↓
-通信方式を公開Application契約へ変換し、同じ入力・状態・結果・失敗分類を返す。
+通信方式を公開Application契約へ変換し、依頼種別を維持した同じ入力・状態・結果・失敗分類を返す。
        ↓
 Success／Reject／Failure／Unknownを同じContextで返す
 ```
@@ -56,9 +56,9 @@ Success／Reject／Failure／Unknownを同じContextで返す
 
 | Condition | 観測可能な成立／不成立 | Qualityへの引き渡し |
 |---|---|---|
-| Normal | 入口の違いでAuthorityや結果の意味が変わらない。 | Source SPECと同じ正常義務へ統合 |
+| Normal | 入口の違いで依頼種別、Authority、結果区分または本文と根拠参照の対応が変わらない。 | Source SPECと同じ正常義務へ統合 |
 | Boundary | 対象、Authority、現在性または入力の境界を越えず、対象外へEffectを発行しない | 境界条件を独立観測する |
-| Failure | Transport固有値を意味契約へ混入せず、未対応入口を成立済みと表示しない。 | 失敗を成功・未実行・不存在へ畳まない |
+| Failure | Transport固有値を意味契約へ混入せず、依頼種別を欠落・読み替えせず、未対応入口を成立済みと表示しない。 | 失敗を成功・未実行・不存在へ畳まない |
 | Unknown | 不足を既定値で補完せず、対象を変更せず理由と再確認先を返す | 観測不能を正常値へ畳まず再観測可能にする |
 | Recovery | 失敗理由と安全な戻り先を返す。 | Recoveryが非該当の場合も安全な戻り先を確認する |
 

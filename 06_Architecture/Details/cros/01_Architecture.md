@@ -42,7 +42,7 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | Concurrency | PASS | Registry更新はrevision付き排他と不変publishを使い、Requestは開始時snapshotへ固定する。 | [§15](#15-registryとrequest-snapshot) |
 | Timing | PASS | Requestごとに現在Credentialと観測時点を評価し、旧値を再利用しない。 | [正本節](#7-connection-credentialとrequest-access-context) |
 | Resource Lifecycle | PASS | Credential、Request Context、Workspace snapshotと管理回復の終了条件を分ける。 | [§16](#16-credentialと管理回復) |
-| External Boundary | PASS | v0.22 Shared Profileを信頼済み運用者向けの一Process／複数Trust Domain論理分離に限定する。 | [§17](#17-shared-host配置境界) |
+| External Boundary | PASS | v0.22 Shared Profileを一Process／一Trust Domainに限定し、異なるTrust DomainはProcessとOS Runtime Rootを分ける。 | [§17](#17-shared-host配置境界) |
 | Failure／Recovery | PASS | 競合更新、Credential紛失、Registry破損を別経路で停止・回復する。 | [§15](#15-registryとrequest-snapshot)、[§16](#16-credentialと管理回復) |
 | State／Consistency | PASS | 登録、Binding、Exposure、利用可能性、解除を別状態にする。 | [§9](#9-登録exposure解除) |
 | Observability | PASS | Source Coverage、欠測、制限、競合、観測時点を返す。 | [§12](#12-失敗と安全な結果) |
@@ -71,11 +71,17 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 
 | 実装領域 | 判定 | 現在の成立範囲 | 残るGap |
 |---|---|---|---|
-| `src/project-federation.ts` | Partial | 許可済みRepository ProjectionのProject／Portfolio統合 | 永続Binding／Exposure RegistryとRemote入口 |
-| `src/connection-credential.ts` | Partial | 固定三Profile、明示Grant、Token非保存、発行・照合・失効・不可分ローテーション、競合拒否 | Bootstrap／Access Recovery、Remote Request接続 |
+| `src/project-federation.ts` | Covered | 許可済みRepository ProjectionのProject／Portfolio統合。固定運用設定から検証済みBinding／Exposure Snapshotを構成しRemote入口へ渡す | N/A: 動的Repository登録はv0.22のShared Server完成条件に含めない |
+| `src/connection-credential.ts` | Covered | 固定三Profile、明示Grant、Token非保存、発行・照合・失効・不可分ローテーション、競合拒否 | 有効期限はv0.22対象外 |
 | `src/credential-registry-file-adapter.ts` | Covered | OS管理Runtime Root、不変Revision Snapshot、完全検証、競合時Effect 0 | DB等の別Adapterは現在不要 |
-| Workbench Credential管理 | Partial | 管理Context注入時だけ一覧・発行・Grant更新・失効・ローテーションを公開し、生Tokenを一度表示する | Remote CROS認証から管理Contextを構成するTransport入口 |
-| `src/runtime.ts` | Partial | Session snapshot、Repository非開示、Context Package、Handoff | Bearer認証結果からのRemote Request接続と現在Registry再検証 |
+| `src/credential-access-recovery.ts` | Covered | Host Authority前提の計画、明示確認、管理Credential失効、Content GrantなしBootstrap発行を一Registry revisionで確定 | Remote入口からは呼び出さない |
+| `src/credential-access-recovery-file-adapter.ts` | Covered | 同じRecovery IDのprepare／settleを秘密非保持の不変EventとしてOS管理Runtime Rootへ保存 | Product Dataを記録しない |
+| `src/credential-access-recovery-cli.ts`／`bin/cros-access-recovery.ts` | Covered | Server停止後のHost対話入口、対象一覧表示、exact Recovery ID確認、一度表示Token | Process停止の自動強制は配置運用で保証する |
+| `src/remote-transport.ts` | Covered | loopback Bearer HTTP、Requestごとの現在Credential検証、許可Portfolio取得、`systemAdmin`限定AI Profile参照・変更、Project単位Runtime Activityの許可済みRepository限定Reader、非管理CredentialへのCatalog非開示、外部平文HTTP拒否、Credential／Exposure revision分離、Workbench起動時接続と明示Refresh | N/A: Shared Server公開は同一Hostの外部TLS終端とloopback Gatewayの分離契約で閉じた |
+| `src/shared-server-config-file-adapter.ts` | Covered | OS管理の固定設定Root、HTTPS公開Origin、検証済みGit Root、Project Context由来Identity、Workspace Exposure、Repository別Applicationの決定的構成 | N/A: Secret、証明書、任意設定Pathは本Adapterの責務外 |
+| MCP CROS Composition Root／Shared Gateway | Covered | Connection CredentialをRequestごとに検証し、許可PortfolioだけをProject Context MCP Handlerへ固定する。RESTとMCPを一つのHTTPS公開Originへ投影し、内部Listenerはloopbackに閉じる | N/A: 公開証明書の取得・更新は配置先のTLS終端が所有する |
+| Workbench Connection／Credential管理 | Covered | 管理Context注入時だけCredential管理を公開し、生Tokenを一度表示する。Remote接続時はCredentialをProcess内だけに保持して明示Refreshし、失効後は直前ProjectionをCurrent表示しない。`systemAdmin`接続時だけCROS OwnerのAI Profile管理を表示する | N/A: Client側のCredential永続保存はCROS／Workbenchが所有しない |
+| `src/runtime.ts` | Covered | Session snapshot、Repository非開示、Context Package、Handoff。Remote Portfolio、Project Context MCP、Topic／Meeting操作およびRuntime ActivityはBearer認証結果から現在Registry／Exposureを再検証する | N/A: 実Provider E2EはCoordinator／AI Runtimeの残存項目である |
 
 担当責任者: Qual-Lab
 最終更新日: 2026-09-27
@@ -139,6 +145,10 @@ Human／Customer
 Chat Agent／Coding Agentは固定製品名や固定AIモデルを意味せず、一つのTask中の責務である。同じAgentがTaskごとに異なる責務を担うことはできるが、Task RoleをContent Access Role、System Administration Capabilityまたは人間の決定権限へ昇格しない。
 
 MCPへ接続できることは、CRDD規則の認識または準拠の証明ではない。各Agentは、現在のProject、Repository、Task Role、目的および許可されたOperationに適用される規則を、正本Revisionと解決根拠付きで取得する。
+
+Remote Topic／Meeting操作では、Tool入力の明示`repositoryId`をAuthorityとして扱わない。RequestごとにCredentialを再認証し、同じExposure Snapshot上でWorkspace Grant、Exposure、Repository RevisionおよびBindingを検証できた対象だけをProject Operation ApplicationへRoutingする。拒否時はRepositoryの存在を開示せず、別RepositoryへのFallbackを行わない。
+
+Topic／Meeting詳細のRelation解決では、同じSessionとExposure Snapshotから得た同一Logical Projectの許可済みApplication集合だけを探索する。一意に見つかった対象は`ownerRepositoryId`付き`available`、許可範囲から確認できない対象は`unavailable`、複数Ownerで同じIdentityが見つかった場合は`conflicting`とする。`unavailable`からGrant外Repositoryの存在または不存在を推測せず、Relation解決から書込みAuthorityを生成しない。
 
 ## 2. Identityと責務
 
@@ -211,6 +221,55 @@ Workspace Repository Set
 Shared Serverでは、Server CredentialがRepositoryを取得できること、Filesystem上にRepositoryが存在すること、Pathを知っていること、およびProject RegistryへRelationがあることを、MCP利用者の閲覧Authorityとして扱わない。
 
 Workspace ExposureはCROS Application内の公開境界である。Host UserがRepository Poolを直接読める環境では、CROSを迂回した読取りまで防ぐHost Security Boundaryにはならない。共有利用者へHost ShellまたはFilesystem Accessを与える場合は、OS Principal、ACL、Container／Process分離またはCredential分離を別に成立させる。
+
+### 3.3. Shared Serverの公開配置
+
+Shared Serverは、公開TLSをCROS Process自身へ埋め込まず、同一Host上のTLS終端／Reverse Proxyとloopback限定Gatewayを組み合わせる。公開利用者から見えるOriginは一つであり、RESTとMCPは同じHTTPS Originの固定Pathへ配置する。
+
+```text
+Remote Client
+     │ HTTPS
+     ▼
+TLS Terminator / Reverse Proxy
+     │ x-forwarded-proto: https
+     │ x-forwarded-host: <configured public host>
+     ▼
+127.0.0.1 Shared Gateway
+     ├─ /v1/... → internal CROS REST listener
+     └─ /mcp    → internal MCP listener
+```
+
+Gatewayは`127.0.0.1`以外へBindせず、`x-forwarded-proto=https`と設定済み公開Hostの完全一致を必須とする。Browserが`Origin`を送る場合も設定済みHTTPS Originとの完全一致を必須とする。TLS終端は受信したForwarded Headerを転送せず、配置設定の確定値で上書きする。Gatewayは固定RouteとHeader許可一覧だけを使用し、任意のProxy Target、Cookie、Host HeaderまたはBearer値をlog／応答へ搬送しない。
+
+内部REST／MCP Listenerは公開Interfaceではない。Gateway停止時は外側Listener、内部Listener、実行中Proxy RequestおよびSocketを同じ終了操作で回収し、資源集合が空になったことを確認する。公開証明書の発行・更新、Port 443の所有およびHost Firewallは配置先運用の責務であり、CROS CredentialやRepository Contextの責務へ混ぜない。
+
+### 3.4. 固定運用設定とBootstrap
+
+Shared Server設定はOS管理のCROS設定Rootにある固定名`shared-server.json`だけを読む。CLI引数、環境変数またはRepository内Pathから任意設定ファイルを選択しない。
+
+| 設定 | 意味 | 制約 |
+|---|---|---|
+| `public_origin` | TLS終端後に利用者へ見せるOrigin | Path／Query／Fragment／userinfoを持たないHTTPS Origin |
+| `listen_port` | loopback Gatewayの待受Port | 1〜65535 |
+| `repositories[].repository_root` | Serverが利用するRepository | 絶対Pathかつ検証済みGit Root。subdirectoryやsymlinkを拒否 |
+| `repositories[].workspace_ids[]` | Repositoryを公開するWorkspace | 空でない一意な集合 |
+
+Repository IDとProject IDは設定へ複製せず、検証済みRootの固定`PROJECT_CONTEXT.md`から取得する。RevisionはProject Context内容Hashで固定し、未CommitでもProjectionを構成できる。設定にはToken、Token Hash、証明書または秘密鍵を含めない。Credential Registryは既存のOS管理Runtime Rootを正本とし、空Registryでは公開Serverを開始しない。
+
+```text
+初期構築／全喪失
+      │ Server停止
+      ▼
+Host限定 crdd-cros-access-recovery
+      │ exact確認・Token一度表示
+      ▼
+通常Credential Registry
+      │
+      ▼
+crdd-cros-server --serve
+```
+
+Host回復はProduct Dataを変更せず、Remote入口から呼び出せない。通常起動後のTokenはRequest Headerからだけ受け取り、argv、環境変数、設定、Repository、Promptまたはlogへ保存しない。
 
 ## 4. CredentialにWorkspace集合を結合する理由
 
@@ -514,6 +573,10 @@ Secret value -x Repository／.crdd／Prompt／Projection
 - `system_admin: true`のCredentialだけがWorkspace、ExposureおよびCredentialを管理でき、管理可否からContent Accessを生成しない。
 - Credential発行、Workspace集合設定、Request認証および失効を区別できる。
 - Secret値がRepository、`.crdd`、Prompt、logまたはProjectionへ入らない。
+- RESTとMCPが一つのHTTPS公開Originで利用でき、Gatewayと内部Listenerがloopback外へBindしない。
+- TLS終端Headerと任意のBrowser Originを設定済み公開Originへ完全一致させ、不一致ではRepositoryまたはCredentialの存在を開示しない。
+- OS管理の固定設定だけから検証済みRepository、Workspace ExposureおよびProject Context Identityを構成し、Secretや証明書を設定へ含めない。
+- Server終了時にGateway、内部Listener、SocketおよびProxy Requestの残存がない。
 - User Directory、Principal、汎用認証Adapter、認証Evidence、永続認証Session、独立Grant EntityまたはBootstrap専用CapabilityをCoreへ追加しない。
 - Registration、Project Binding、Workspace Exposure、UnexposeおよびUnbindが物理Repository削除と分離される。
 - `available`、`credential_required`、`restricted`、`unavailable`、`conflicting`および`unknown`を内容漏えいなしに投影できる。
@@ -575,17 +638,20 @@ Registry破損、Root未検証または排他取得不能では新Credentialを�
 
 ## 17. Shared Host配置境界
 
-v0.22のShared Profileは、同一運用主体が管理する一つのCROS Server Processが複数Trust Domainを論理的にrouteする構成を対象とする。各Trust Domainは別Runtime Root、別Registry、別Repository Poolを持ち、Requestは認証後に一つのTrust Domainへ固定する。
+v0.22のShared Profileは、一つのCROS Server Processを一つのTrust Domainへ固定する。Processは一つのOS管理Runtime Root、Credential Registry、Shared Server ConfigおよびRepository Poolだけを構成し、RequestからTrust Domainを選択・切替しない。
 
 ```text
-[CROS Server Process]
-   ├─ [Trust Domain A Root] ── Workspace／Credential／Repository Pool A
+[CROS Server Process A]
+   └─ [Trust Domain A Root] ── Workspace／Credential／Repository Pool A
+
+[CROS Server Process B]
    └─ [Trust Domain B Root] ── Workspace／Credential／Repository Pool B
 
-Request A ── authenticated domain A ──x── Domain B Root
+Process A ──x── Trust Domain B Root
+Process B ──x── Trust Domain A Root
 ```
 
-Workspace GrantはHost Shell、OS Accountまたは敵対的tenant間の強制隔離ではない。互いに信頼しないtenantを同じHost／Processへ収容する構成、Container／VMによる強分離、Linux system-wide配置はv0.22の保証外とし、必要な場合はProcessとOS Accountを分ける。対象外をWorkspaceだけで安全と表示しない。
+Workspace GrantはHost Shell、OS Accountまたは敵対的tenant間の強制隔離ではない。複数Trust Domainを一Processでrouteする構成、互いに信頼しないtenantを同じOS Accountへ収容する構成、Container／VMによる強分離、Linux system-wide配置はv0.22の保証外とする。複数Domainが必要ならProcess、Runtime Rootおよび必要に応じてOS Accountを分け、Workspaceだけで安全と表示しない。
 
 ## Implementation Structure
 

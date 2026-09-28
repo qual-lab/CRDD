@@ -109,6 +109,7 @@ Release／Signing ──────┘                 ▼
 |---|---|---|---|---|
 | Repository Location | 起点Directory | 検証済みの最寄り／exact Repository RootとRepository形態 | いいえ | Runtime Data、Execution Intelligence、Checker |
 | Local Change Set Observation | 検証済みRoot、必要な比較基準 | Revision差、準備済み差分、作業中差分、未登録Pathと観測状態 | いいえ | Checker、回帰選択、Workbench |
+| Repository Worktree View | 検証済みRoot、Directory、Cursor、選択File | Directory直下Entry、変更区分、Query拘束Continuation、Prepared／Working Patchと切詰め状態 | いいえ | Workbench |
 | Change Publication | 検証済みRoot、選択差分、Commit内容、確認済みRemote・Branch・送信Commit、人間Authority | Stage／Unstage、Commit、通常Pushの各結果と終了後状態 | いいえ | Workbench |
 | Fixed Snapshot Read | 検証済みRoot、明示Revision、対象Path | Revision／Snapshot Identity付きの固定内容または観測不能 | はい | 固定履歴、外部送信Policy、候補生成 |
 | Candidate Materialization | 固定Snapshot、許可Path、空で安定した出力Directoryから発行したopaque Capability | 隔離された候補と内容Identity。失敗時は部分生成の不存在またはcleanup観測不能 | はい | Coordinator、Project Runtime統合 |
@@ -142,12 +143,14 @@ Release Identity、Runtime Execution Identity、署名対象集合およびRelea
 | Fixed Revision Git Adapter | `gitFixedRevisionIdentityAdapter`、`gitRepositoryFormatAdapter`、`gitRepositoryRevisionAdapter` |
 | Fixed Snapshot Git Adapter | `gitFixedSnapshotAdapter`、`inspectRepositoryFixedSnapshot` |
 | Local Change Set Git Adapter | `gitLocalChangeSetAdapter` |
+| Repository Worktree View Git Adapter | `gitRepositoryWorktreeViewAdapter` |
 | Change Publication Git Adapter | `ChangePublicationCommandRunner`、`createGitChangePublicationAdapter`、`gitChangePublicationAdapter`、`createGitChangePublicationTargetObservationAdapter`、`gitChangePublicationTargetObservationAdapter` |
 | Migration System Closure | `MigrationConsumerObservation`、`inspectMigrationSystemClosure` |
 | Checker Repository Observation | `RepositoryEntryObservation`、`observeDeclaredNestedRepositoryPaths`、`observeNestedRepository`、`observeRepositoryEntries`、`readFixedSnapshotText`、`resolveRevisionIdentity` |
 | Repository Layout Git Adapter | `describeGitRepositoryLayoutAdapterContract`、`GIT_REPOSITORY_LAYOUT_ADAPTER_CONTRACT`、`GIT_REPOSITORY_LAYOUT_ADAPTER_CONTRACT_REVISION`、`inspectGitRepositoryLayoutCandidate` |
 | Repository-local Ignore Git Adapter | `gitRepositoryLocalIgnoreAdapter` |
 | Local Change Set | `changedPaths`、`LOCAL_CHANGE_SET_CONTRACT`、`LOCAL_CHANGE_SET_CONTRACT_REVISION`、`LocalChangeSet`、`LocalChangeSetAdapter`、`LocalChangeSetObservation`、`observeLocalChangeSet` |
+| Repository Worktree View | `RepositoryWorktreeEntry`、`RepositoryWorktreeFileDiff`、`RepositoryWorktreeTreePage`、`RepositoryWorktreeViewAdapter`、`RepositoryWorktreeViewObservation`、`observeRepositoryWorktreeFileDiff`、`observeRepositoryWorktreeTree` |
 | Change Publication | `ChangePublicationAdapter`、`ChangePublicationRequest`、`ChangePublicationResult`、`ChangePublicationTargetObservation`、`ChangePublicationTargetObservationAdapter`、`executeChangePublication`、`observeChangePublicationTarget` |
 | Repository-local Ignore | `REPOSITORY_LOCAL_IGNORE_CONTRACT`、`REPOSITORY_LOCAL_IGNORE_CONTRACT_REVISION`、`RepositoryLocalIgnoreAdapter`、`RepositoryLocalIgnoreAdapterResult`、`registerRepositoryLocalIgnore` |
 | Repository Location | `describeRepositoryLocationContract`、`REPOSITORY_LOCATION_CONTRACT`、`REPOSITORY_LOCATION_CONTRACT_REVISION`、`resolveVerifiedRepositoryRoot`、`resolveVerifiedRepositoryRootFromWorkingDirectory`、`VerifiedRepositoryRoot`、`verifyRepositoryRoot`、`verifyRepositoryRootFromWorkingDirectory` |

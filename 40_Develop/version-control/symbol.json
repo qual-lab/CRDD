@@ -27,6 +27,18 @@
       "archIds": ["ARCH-000009"]
     },
     {
+      "symbolId": "version-control.repository-worktree-view",
+      "kind": "file",
+      "path": "src/repository-worktree-view.ts",
+      "archIds": ["ARCH-000002", "ARCH-000009"]
+    },
+    {
+      "symbolId": "version-control.git-repository-worktree-view-adapter",
+      "kind": "file",
+      "path": "src/git/repository-worktree-view-adapter.ts",
+      "archIds": ["ARCH-000002", "ARCH-000009"]
+    },
+    {
       "symbolId": "version-control.test.integration.change-publication",
       "kind": "test-suite",
       "path": "tests/integration/change-publication.integration.test.ts",
@@ -83,6 +95,17 @@
         "version-control.source.src.git.local.change.set.adapter",
         "version-control.source.src.local.change.set",
         "version-control.source.src.repository.location"
+      ]
+    },
+    {
+      "symbolId": "version-control.test.integration.repository-worktree-view",
+      "kind": "test-suite",
+      "path": "tests/integration/repository-worktree-view.integration.test.ts",
+      "qaIds": ["QA-000007"],
+      "localTestIds": ["RFD-IT-008"],
+      "verifies": [
+        "version-control.repository-worktree-view",
+        "version-control.git-repository-worktree-view-adapter"
       ]
     },
     {

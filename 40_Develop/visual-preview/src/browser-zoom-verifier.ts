@@ -61,6 +61,59 @@ export type BrowserZoomVerificationRequest = Readonly<{
 }>;
 
 /**
+ * Web Applicationの表示Profileを定義する。
+ *
+ * @responsibility Desktop、Tablet、Mobile等の表示名と物理Window寸法を一体で固定する。
+ * @trace ARCH-000003
+ * @shape nameと正のwidth／heightで構成する。
+ * @invariant nameはEvidence上の識別だけに用い、Browser実行引数へ直接展開しない。
+ * @boundary Product固有Visual Gateと共通Browser検証器の境界。
+ * @security N/A: 秘密値またはAuthorityを含まない。
+ * @compatibility 新しいProfileは呼出し側が追加できる。
+ */
+export type BrowserVisualProfile = Readonly<{
+  name: string;
+  windowSize: BrowserWindowSize;
+}>;
+
+/**
+ * Web Application内で一緒に表示確認する画面Targetを定義する。
+ *
+ * @responsibility Page Pathと、そのPageで可視でなければならないLogical ScreenのDOM IDを固定する。
+ * @trace ARCH-000003
+ * @shape pageId、同一Origin相対Path、重複しないtargetIdsで構成する。
+ * @invariant Target IDは安定した製品側IDを参照し、CSS Selector一般を実行しない。
+ * @boundary Product固有Screen Inventoryと実DOM観測の境界。
+ * @security 外部Origin、Credential付きURLおよびScript式を許可しない。
+ * @compatibility 一Pageで複数Logical Screenを確認できる。
+ */
+export type LocalWebVisualTarget = Readonly<{
+  pageId: string;
+  pagePath: string;
+  targetIds: readonly string[];
+}>;
+
+/**
+ * 起動済みlocalhost Web ApplicationのVisual検証要求を定義する。
+ *
+ * @responsibility Server lifecycleをProduct側に残したまま、Target、ProfileおよびZoomの全組合せを固定する。
+ * @trace ARCH-000003
+ * @shape Repository Root、loopback Base URL、Target、Profile、Zoomおよび任意Browser Pathで構成する。
+ * @invariant 検証器はApplication Serverを開始・終了しない。
+ * @boundary Product Serverと共通Browser Process／DevTools検証の境界。
+ * @security localhost HTTPだけを許可し、通常Browser Profileを使用しない。
+ * @compatibility Product固有Serverを変更せず利用できる。
+ */
+export type LocalWebVisualVerificationRequest = Readonly<{
+  workingDirectory: string;
+  baseUrl: string;
+  targets: readonly LocalWebVisualTarget[];
+  profiles: readonly BrowserVisualProfile[];
+  zoomFactors: readonly number[];
+  browserExecutablePath?: string;
+}>;
+
+/**
  * 一つのDocument・Zoom倍率で得た実測値を定義する。
  *
  * @responsibility 合否判定に必要なBrowser実測値だけを保持する。
@@ -73,6 +126,10 @@ export type BrowserZoomVerificationRequest = Readonly<{
  */
 export type BrowserZoomMeasurement = Readonly<{
   documentPath: string;
+  profileName: string;
+  targetIds: readonly string[];
+  missingTargetIds: readonly string[];
+  hiddenTargetIds: readonly string[];
   requestedZoomFactor: number;
   observedDevicePixelRatio: number;
   innerWidth: number;
@@ -83,7 +140,12 @@ export type BrowserZoomMeasurement = Readonly<{
   minimumVisibleFontSize: number | null;
   minimumInteractiveWidth: number | null;
   minimumInteractiveHeight: number | null;
+  minimumInteractiveWidthKind: string | null;
+  minimumInteractiveHeightKind: string | null;
   positiveTabIndexCount: number;
+  focusableElementCount: number;
+  unfocusableInteractiveCount: number;
+  focusOrderValid: boolean;
   imageCount: number;
   loadedImageCount: number;
   failedImageCount: number;
@@ -149,6 +211,29 @@ export type BrowserZoomVerificationResult = Readonly<{
 }>;
 
 /**
+ * 起動済みlocalhost Web ApplicationのVisual検証結果を定義する。
+ *
+ * @responsibility 全Target×Profile×Zoomの測定値とBrowser資源清掃結果を返す。
+ * @trace ARCH-000003
+ * @shape contract、status、閾値、測定一覧および一時Root清掃結果で構成する。
+ * @invariant Application Listenerの終了確認はServer Ownerである呼出し側が行う。
+ * @boundary 共通Browser検証器からProduct固有System Gateへの結果境界。
+ * @security Absolute Path、PID、DOM本文およびProfile Pathを含まない。
+ * @compatibility contract v1として固定する。
+ */
+export type LocalWebVisualVerificationResult = Readonly<{
+  contract: "crdd/local-web-visual-verification/v1";
+  status: "passed" | "failed";
+  browser: "chrome";
+  minimumFontSize: 12;
+  minimumInteractiveSize: 32;
+  measurements: readonly BrowserZoomMeasurement[];
+  applicationListenerOwnedByCaller: true;
+  temporaryRootRemoved: boolean;
+  browserCleanupConfirmed: boolean;
+}>;
+
+/**
  * Chrome DevTools Protocolの応答を定義する。
  *
  * @responsibility Request IDと成功・失敗Payloadを型境界へ閉じる。
@@ -192,10 +277,16 @@ type RawBrowserMeasurement = Readonly<{
   minimumVisibleFontSize: number | null;
   minimumInteractiveWidth: number | null;
   minimumInteractiveHeight: number | null;
+  minimumInteractiveWidthKind: string | null;
+  minimumInteractiveHeightKind: string | null;
   positiveTabIndexCount: number;
+  focusableElementCount: number;
+  unfocusableInteractiveCount: number;
   imageCount: number;
   loadedImageCount: number;
   failedImageCount: number;
+  missingTargetIds: readonly string[];
+  hiddenTargetIds: readonly string[];
 }>;
 
 /**
@@ -209,7 +300,13 @@ type RawBrowserMeasurement = Readonly<{
  * @security 公開結果へPIDを含めない。
  * @compatibility Windows CIMとPOSIX psの結果を同じ形へ正規化する。
  */
-type ProcessPair = Readonly<{ pid: number; parentPid: number }>;
+type ProcessPair = Readonly<{
+  pid: number;
+  parentPid: number;
+  identity: string;
+}>;
+
+type OwnedProcessIdentity = Readonly<{ pid: number; identity: string }>;
 
 /**
  * 実行中Processの親子関係を取得する。
@@ -235,23 +332,38 @@ async function readProcessPairs(): Promise<readonly ProcessPair[]> {
         "-NoProfile",
         "-NonInteractive",
         "-Command",
-        "Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId | ConvertTo-Json -Compress",
+        "Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,CreationDate | ConvertTo-Json -Compress",
       ],
       { windowsHide: true, timeout: 10_000 },
     );
     const parsed = JSON.parse(stdout) as
-      | Readonly<{ ProcessId?: unknown; ParentProcessId?: unknown }>
+      | Readonly<{
+          ProcessId?: unknown;
+          ParentProcessId?: unknown;
+          CreationDate?: unknown;
+        }>
       | readonly Readonly<{
           ProcessId?: unknown;
           ParentProcessId?: unknown;
+          CreationDate?: unknown;
         }>[];
     const entries = Array.isArray(parsed) ? parsed : [parsed];
     return Object.freeze(
       entries.flatMap((entry) => {
         const pid = Number(entry.ProcessId);
         const parentPid = Number(entry.ParentProcessId);
-        return Number.isInteger(pid) && Number.isInteger(parentPid)
-          ? [Object.freeze({ pid, parentPid })]
+        const creationDate = entry.CreationDate;
+        return Number.isInteger(pid) &&
+          Number.isInteger(parentPid) &&
+          typeof creationDate === "string" &&
+          creationDate.length > 0
+          ? [
+              Object.freeze({
+                pid,
+                parentPid,
+                identity: `${pid}:${creationDate}`,
+              }),
+            ]
           : [];
       }),
     );
@@ -269,6 +381,7 @@ async function readProcessPairs(): Promise<readonly ProcessPair[]> {
               Object.freeze({
                 pid: pid as number,
                 parentPid: parentPid as number,
+                identity: String(pid),
               }),
             ]
           : [],
@@ -294,7 +407,7 @@ async function readProcessPairs(): Promise<readonly ProcessPair[]> {
  */
 async function collectOwnedProcessIds(
   rootPid: number,
-): Promise<readonly number[]> {
+): Promise<readonly OwnedProcessIdentity[]> {
   const pairs = await readProcessPairs();
   const owned = new Set<number>([rootPid]);
   let hasChanged = true;
@@ -307,7 +420,11 @@ async function collectOwnedProcessIds(
       }
     }
   }
-  return Object.freeze([...owned]);
+  return Object.freeze(
+    pairs
+      .filter((pair) => owned.has(pair.pid))
+      .map((pair) => Object.freeze({ pid: pair.pid, identity: pair.identity })),
+  );
 }
 
 /**
@@ -356,14 +473,31 @@ function processExists(pid: number): boolean {
  * @concurrency 全PIDが同じ観測回で不存在になるまで成功にしない。
  */
 async function waitForProcessTreeExit(
-  processIds: readonly number[],
+  processIds: readonly OwnedProcessIdentity[],
 ): Promise<boolean> {
   const deadline = Date.now() + 10_000;
   while (Date.now() < deadline) {
-    if (processIds.every((pid) => !processExists(pid))) return true;
-    await wait(100);
+    if (
+      processIds.every((processIdentity) => !processExists(processIdentity.pid))
+    )
+      return true;
+    const currentIdentities = new Set(
+      (await readProcessPairs()).map((processPair) => processPair.identity),
+    );
+    if (
+      processIds.every(
+        (processIdentity) => !currentIdentities.has(processIdentity.identity),
+      )
+    )
+      return true;
+    await wait(500);
   }
-  return processIds.every((pid) => !processExists(pid));
+  const currentIdentities = new Set(
+    (await readProcessPairs()).map((processPair) => processPair.identity),
+  );
+  return processIds.every(
+    (processIdentity) => !currentIdentities.has(processIdentity.identity),
+  );
 }
 
 /**
@@ -856,31 +990,66 @@ async function requestBrowserClose(
   });
 }
 
-const MEASUREMENT_EXPRESSION = `(async () => {
+/**
+ * Browser内で実行する表示計測式を構築する。
+ *
+ * @responsibility 固定DOM IDの可視性とVisual品質値だけを返す式を生成する。
+ * @trace ARCH-000003
+ * @input targetIdsにProduct側が要求する安定DOM IDを受け取る。
+ * @returns DOM本文を含まない自己実行JavaScript式を返す。
+ * @precondition targetIdsは英数字とhyphenだけで構成される。
+ * @postcondition IDはJSON文字列として埋め込み、Script断片として連結しない。
+ * @effect N/A: 文字列を生成するだけである。
+ * @failure N/A: 検証済みIDだけを決定論的に直列化する。
+ * @invariant DOM本文、入力値またはCredentialを収集しない。
+ * @boundary Node.js検証器とBrowser内JavaScriptの境界。
+ * @security 一般CSS Selectorまたは任意Scriptを入力として受け付けない。
+ * @concurrency N/A: 同期純粋処理である。
+ */
+function createMeasurementExpression(targetIds: readonly string[]): string {
+  return `(async () => {
   if (document.readyState !== "complete") {
     await new Promise((resolve) => window.addEventListener("load", resolve, { once: true }));
   }
   await document.fonts.ready;
   await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-  const visible = [...document.querySelectorAll("*")].filter((element) => {
+  const requiredTargetIds = ${JSON.stringify(targetIds)};
+  const isVisible = (element) => {
     const style = getComputedStyle(element);
     const rect = element.getBoundingClientRect();
     return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
+  };
+  const visible = [...document.querySelectorAll("*")].filter((element) => {
+    return isVisible(element);
   });
   const fontSizes = visible
-    .filter((element) => (element.textContent ?? "").trim().length > 0)
+    .filter((element) => [...element.childNodes].some((node) => node.nodeType === Node.TEXT_NODE && (node.textContent ?? "").trim().length > 0))
     .map((element) => Number.parseFloat(getComputedStyle(element).fontSize))
     .filter(Number.isFinite);
   const interactive = [...document.querySelectorAll("button, input, select, textarea, a[href], [role='button'], [tabindex]")]
-    .filter((element) => {
-      const style = getComputedStyle(element);
-      const rect = element.getBoundingClientRect();
-      return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
-    });
-  const widths = interactive.map((element) => element.getBoundingClientRect().width);
-  const heights = interactive.map((element) => element.getBoundingClientRect().height);
+    .filter((element) => isVisible(element) && !element.matches(":disabled"));
+  const interactionRect = (element) => {
+    if (element.matches("input[type='checkbox'], input[type='radio']")) {
+      const label = element.closest("label");
+      if (label !== null && isVisible(label)) return label.getBoundingClientRect();
+    }
+    return element.getBoundingClientRect();
+  };
+  const widths = interactive.map((element) => interactionRect(element).width);
+  const heights = interactive.map((element) => interactionRect(element).height);
+  const interactionKind = (element) => {
+    const type = element instanceof HTMLInputElement ? element.type : "none";
+    return element.tagName.toLowerCase() + ":" + type;
+  };
+  const minimumWidthIndex = widths.length === 0 ? -1 : widths.indexOf(Math.min(...widths));
+  const minimumHeightIndex = heights.length === 0 ? -1 : heights.indexOf(Math.min(...heights));
   const images = [...document.querySelectorAll("img")];
   const loadedImages = images.filter((image) => image.complete && image.naturalWidth > 0 && image.naturalHeight > 0);
+  const missingTargetIds = requiredTargetIds.filter((id) => document.getElementById(id) === null);
+  const hiddenTargetIds = requiredTargetIds.filter((id) => {
+    const element = document.getElementById(id);
+    return element !== null && !isVisible(element);
+  });
   return {
     devicePixelRatio: window.devicePixelRatio,
     innerWidth: window.innerWidth,
@@ -891,12 +1060,19 @@ const MEASUREMENT_EXPRESSION = `(async () => {
     minimumVisibleFontSize: fontSizes.length === 0 ? null : Math.min(...fontSizes),
     minimumInteractiveWidth: widths.length === 0 ? null : Math.min(...widths),
     minimumInteractiveHeight: heights.length === 0 ? null : Math.min(...heights),
+    minimumInteractiveWidthKind: minimumWidthIndex < 0 ? null : interactionKind(interactive[minimumWidthIndex]),
+    minimumInteractiveHeightKind: minimumHeightIndex < 0 ? null : interactionKind(interactive[minimumHeightIndex]),
     positiveTabIndexCount: visible.filter((element) => element.tabIndex > 0).length,
+    focusableElementCount: interactive.filter((element) => element.tabIndex >= 0).length,
+    unfocusableInteractiveCount: interactive.filter((element) => element.tabIndex < 0).length,
     imageCount: images.length,
     loadedImageCount: loadedImages.length,
     failedImageCount: images.length - loadedImages.length,
+    missingTargetIds,
+    hiddenTargetIds,
   };
 })()`;
+}
 
 /**
  * 一つのDocumentを指定Zoom倍率で実測する。
@@ -919,6 +1095,8 @@ async function measureDocumentAtZoom(
   profileRoot: string,
   url: string,
   documentPath: string,
+  profileName: string,
+  targetIds: readonly string[],
   zoomFactor: number,
   windowSize: BrowserWindowSize,
 ): Promise<BrowserZoomMeasurement> {
@@ -940,7 +1118,12 @@ async function measureDocumentAtZoom(
       "--no-first-run",
       "--no-default-browser-check",
       "--disable-background-networking",
+      "--disable-background-mode",
       "--disable-component-update",
+      "--disable-default-apps",
+      "--disable-extensions",
+      "--disable-breakpad",
+      "--disable-crash-reporter",
       "--disable-sync",
       "--metrics-recording-only",
       "--headless=new",
@@ -952,7 +1135,7 @@ async function measureDocumentAtZoom(
   let devTools:
     | Readonly<{ port: number; browserWebSocketPath: string }>
     | undefined;
-  let ownedProcessIds: readonly number[] = [];
+  let ownedProcessIds: readonly OwnedProcessIdentity[] = [];
   let raw: RawBrowserMeasurement | undefined;
   let failures: string[] = [];
   let isNormalBrowserCloseAccepted = false;
@@ -976,7 +1159,7 @@ async function measureDocumentAtZoom(
       try {
         rawValue = await evaluateInPage(
           pageWebSocketUrl,
-          MEASUREMENT_EXPRESSION,
+          createMeasurementExpression(targetIds),
         );
       } catch (error) {
         if (
@@ -1014,7 +1197,13 @@ async function measureDocumentAtZoom(
     )
       failures.push("interactive_height_below_32px");
     if (raw.positiveTabIndexCount > 0) failures.push("positive_tabindex");
+    if (raw.unfocusableInteractiveCount > 0)
+      failures.push("interactive_not_keyboard_focusable");
     if (raw.failedImageCount > 0) failures.push("image_load_failed");
+    if (raw.missingTargetIds.length > 0)
+      failures.push("required_screen_target_missing");
+    if (raw.hiddenTargetIds.length > 0)
+      failures.push("required_screen_target_hidden");
   } finally {
     if (devTools !== undefined) {
       try {
@@ -1049,6 +1238,10 @@ async function measureDocumentAtZoom(
   const isZoomObserved = Math.abs(raw.devicePixelRatio - zoomFactor) <= 0.05;
   return Object.freeze({
     documentPath,
+    profileName,
+    targetIds: Object.freeze([...targetIds]),
+    missingTargetIds: Object.freeze([...raw.missingTargetIds]),
+    hiddenTargetIds: Object.freeze([...raw.hiddenTargetIds]),
     requestedZoomFactor: zoomFactor,
     observedDevicePixelRatio: raw.devicePixelRatio,
     innerWidth: raw.innerWidth,
@@ -1059,7 +1252,13 @@ async function measureDocumentAtZoom(
     minimumVisibleFontSize: raw.minimumVisibleFontSize,
     minimumInteractiveWidth: raw.minimumInteractiveWidth,
     minimumInteractiveHeight: raw.minimumInteractiveHeight,
+    minimumInteractiveWidthKind: raw.minimumInteractiveWidthKind,
+    minimumInteractiveHeightKind: raw.minimumInteractiveHeightKind,
     positiveTabIndexCount: raw.positiveTabIndexCount,
+    focusableElementCount: raw.focusableElementCount,
+    unfocusableInteractiveCount: raw.unfocusableInteractiveCount,
+    focusOrderValid:
+      raw.positiveTabIndexCount === 0 && raw.unfocusableInteractiveCount === 0,
     imageCount: raw.imageCount,
     loadedImageCount: raw.loadedImageCount,
     failedImageCount: raw.failedImageCount,
@@ -1152,6 +1351,8 @@ export async function verifyBrowserZoom(
               .map(encodeURIComponent)
               .join("/")}`,
             documentPath,
+            "fixed-window",
+            Object.freeze([]),
             zoomFactor,
             request.windowSize,
           ),
@@ -1188,5 +1389,146 @@ export async function verifyBrowserZoom(
     previewListenerClosed: isPreviewListenerClosed,
     temporaryRootRemoved,
     cleanupConfirmed,
+  });
+}
+
+/**
+ * 起動済みlocalhost Web Applicationを全Target・Profile・Zoomで検証する。
+ *
+ * @responsibility Product Serverを所有せず、実Browser表示、Screen Target、Visual閾値およびBrowser資源清掃を全数確認する。
+ * @trace ARCH-000003
+ * @input requestにRepository Root、loopback Base URL、Target、Profile、Zoomおよび任意Browser Pathを受け取る。
+ * @returns 全測定とBrowser側清掃結果を返す。
+ * @precondition 呼出し側がProduction同等Serverを起動し、完了後にListenerを閉じて観測する。
+ * @postcondition Browser Process Treeと専用Profileを残さず、Application Listenerには触れない。
+ * @effect Repository-local一時ProfileとHeadless Chromeを順次開始・終了する。
+ * @failure 入力不正、外部Origin、Browser不在、観測不能または清掃不能を成功へ畳まない。
+ * @invariant 全Target×Profile×Zoomを一件ずつ実測する。
+ * @boundary Product localhost Server、Chromium Process、DevToolsおよび一時Filesystemの統合境界。
+ * @security loopback HTTPだけを許可し、通常Profile、外部NetworkまたはCredential付きURLを使用しない。
+ * @concurrency Browser Profile競合を避けるため測定を逐次実行する。
+ */
+export async function verifyLocalWebApplicationVisual(
+  request: LocalWebVisualVerificationRequest,
+): Promise<LocalWebVisualVerificationResult> {
+  let baseUrl: URL;
+  try {
+    baseUrl = new URL(request.baseUrl);
+  } catch {
+    throw new Error("local_web_visual_base_url_invalid");
+  }
+  if (
+    baseUrl.protocol !== "http:" ||
+    (baseUrl.hostname !== "127.0.0.1" && baseUrl.hostname !== "[::1]") ||
+    baseUrl.username.length > 0 ||
+    baseUrl.password.length > 0 ||
+    baseUrl.pathname !== "/" ||
+    baseUrl.search.length > 0 ||
+    baseUrl.hash.length > 0 ||
+    request.targets.length === 0 ||
+    request.profiles.length === 0 ||
+    request.zoomFactors.length === 0
+  )
+    throw new Error("local_web_visual_request_invalid");
+
+  const pageIds = new Set<string>();
+  for (const target of request.targets) {
+    if (
+      !/^[a-z0-9][a-z0-9-]*$/u.test(target.pageId) ||
+      pageIds.has(target.pageId) ||
+      !target.pagePath.startsWith("/") ||
+      target.pagePath.startsWith("//") ||
+      target.targetIds.length === 0 ||
+      new Set(target.targetIds).size !== target.targetIds.length ||
+      target.targetIds.some((id) => !/^[a-z0-9][a-z0-9-]*$/u.test(id))
+    )
+      throw new Error("local_web_visual_target_invalid");
+    pageIds.add(target.pageId);
+    const targetUrl = new URL(target.pagePath, baseUrl);
+    if (targetUrl.origin !== baseUrl.origin)
+      throw new Error("local_web_visual_target_origin_invalid");
+  }
+
+  const profileNames = new Set<string>();
+  for (const profile of request.profiles) {
+    if (
+      !/^[a-z0-9][a-z0-9-]*$/u.test(profile.name) ||
+      profileNames.has(profile.name) ||
+      !Number.isInteger(profile.windowSize.width) ||
+      !Number.isInteger(profile.windowSize.height) ||
+      profile.windowSize.width <= 0 ||
+      profile.windowSize.height <= 0
+    )
+      throw new Error("local_web_visual_profile_invalid");
+    profileNames.add(profile.name);
+  }
+  for (const zoomFactor of request.zoomFactors) toChromiumZoomLevel(zoomFactor);
+
+  const temporaryArea = requireReadyRepositoryRuntimeDataArea(
+    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+      request.workingDirectory,
+      "tmp",
+    ),
+    "local_web_visual_runtime_data_root_invalid",
+  );
+  const browserExecutablePath = resolveChromeExecutable(
+    request.browserExecutablePath,
+  );
+  const operationRoot = path.join(
+    temporaryArea.directory,
+    `local-web-visual-${randomUUID()}`,
+  );
+  await mkdir(operationRoot, { recursive: true });
+  const measurements: BrowserZoomMeasurement[] = [];
+  let temporaryRootRemoved = false;
+  try {
+    for (const target of request.targets) {
+      const targetUrl = new URL(target.pagePath, baseUrl);
+      for (const profile of request.profiles) {
+        for (const zoomFactor of request.zoomFactors) {
+          measurements.push(
+            await measureDocumentAtZoom(
+              browserExecutablePath,
+              path.join(operationRoot, randomUUID()),
+              targetUrl.href,
+              target.pageId,
+              profile.name,
+              target.targetIds,
+              zoomFactor,
+              profile.windowSize,
+            ),
+          );
+        }
+      }
+    }
+  } finally {
+    await rm(operationRoot, {
+      recursive: true,
+      force: true,
+      maxRetries: 10,
+      retryDelay: 200,
+    });
+    temporaryRootRemoved = !existsSync(operationRoot);
+  }
+  const browserCleanupConfirmed = measurements.every(
+    (measurement) =>
+      measurement.browserProcessTreeExitConfirmed &&
+      measurement.browserDevToolsUnavailableAfterClose &&
+      measurement.profileCleanupConfirmed,
+  );
+  const isPassed =
+    temporaryRootRemoved &&
+    browserCleanupConfirmed &&
+    measurements.every((measurement) => measurement.passed);
+  return Object.freeze({
+    contract: "crdd/local-web-visual-verification/v1" as const,
+    status: isPassed ? "passed" : "failed",
+    browser: "chrome" as const,
+    minimumFontSize: 12 as const,
+    minimumInteractiveSize: 32 as const,
+    measurements: Object.freeze(measurements),
+    applicationListenerOwnedByCaller: true as const,
+    temporaryRootRemoved,
+    browserCleanupConfirmed,
   });
 }

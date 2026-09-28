@@ -13,6 +13,51 @@ export type {
   CredentialAdministrationResult,
 } from "./credential-administration.ts";
 export {
+  createDefaultWorkbenchAiProfileSurface,
+  createWorkbenchAiProfileSurface,
+  renderWorkbenchAiProfileAdministration,
+  renderWorkbenchAiProfiles,
+  type WorkbenchAiProfileObservation,
+  type WorkbenchAiProfileSurface,
+} from "./ai-profile-surface.ts";
+export {
+  renderWorkbenchAiRequest,
+  type WorkbenchAiRequestApplication,
+  type WorkbenchAiRequestCommand,
+  type WorkbenchAiRequestMode,
+  type WorkbenchAiResultItem,
+  type WorkbenchAiRequestSnapshot,
+  type WorkbenchAiRequestStartResult,
+  type WorkbenchCandidateActionResult,
+  type WorkbenchCandidateApplication,
+  type WorkbenchCandidateReview,
+  type WorkbenchCandidateReviewResult,
+} from "./ai-request.ts";
+export {
+  createRepositoryWorkbenchRuntimeActivityApplication,
+  renderWorkbenchRuntimeActivity,
+  type WorkbenchRuntimeActivityApplication,
+  type WorkbenchRuntimeActivityObservation,
+  type WorkbenchRuntimeActivityPageRequest,
+  type WorkbenchRuntimeActivityProjection,
+  type WorkbenchRuntimeEventProjection,
+} from "./runtime-activity.ts";
+export {
+  readWorkbenchOwnerArtifact,
+  readWorkbenchOwnerArtifactCatalog,
+  renderWorkbenchOwnerArtifacts,
+  type WorkbenchOwnerArtifact,
+  type WorkbenchOwnerArtifactCatalog,
+} from "./owner-artifact-surface.ts";
+export {
+  renderWorkbenchProjectPlan,
+  type WorkbenchProjectPlanObservation,
+} from "./project-plan-surface.ts";
+export {
+  renderWorkbenchQuality,
+  type WorkbenchQualityObservation,
+} from "./quality-surface.ts";
+export {
   type WorkbenchHandle,
   type WorkbenchStartRequest,
   startWorkbench,

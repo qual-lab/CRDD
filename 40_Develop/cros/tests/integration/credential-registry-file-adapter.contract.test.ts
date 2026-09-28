@@ -28,7 +28,7 @@ const administrator: RequestAccessContext = Object.freeze({
   profile: "administrator",
   workspaceIds: Object.freeze([]),
   systemAdmin: true,
-  registryRevision: 0,
+  credentialRegistryRevision: 0,
 });
 
 /**

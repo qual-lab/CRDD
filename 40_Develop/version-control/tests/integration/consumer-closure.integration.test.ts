@@ -210,7 +210,10 @@ test("Fixed SnapshotとFixed Revisionの既知Consumer集合が宣言と一致�
     externalConsumers(
       /\b(?:observeFixedRevisionIdentity|gitFixedRevisionIdentityAdapter|observeRepositoryRevision|gitRepositoryRevisionAdapter)\b/u,
     ),
-    ["40_Develop/coordinator/src/security/repository-operation-runtime.ts"],
+    [
+      "40_Develop/coordinator/src/security/repository-operation-runtime.ts",
+      "40_Develop/coordinator/src/security/workbench-ai-change-candidate-runtime.ts",
+    ],
   );
 });
 
@@ -298,13 +301,15 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
       "40_Develop/coordinator/src/security/project-runtime-windows-platform-adapter.ts",
       "40_Develop/coordinator/src/security/repository-operation-runtime.ts",
       "40_Develop/coordinator/src/security/repository-workspace-runtime.ts",
+      "40_Develop/cros/src/shared-server-config-file-adapter.ts",
       "40_Develop/execution-intelligence/src/store/verified-repository-root.ts",
       "40_Develop/runtime-data/src/platform/runtime-data-path-resolver.ts",
       "40_Develop/semantic-coverage/bin/compile-semantic-coverage-pilot.ts",
       "40_Develop/verification-runner/src/execution/regression-execution.ts",
-      "40_Develop/visual-preview/src/browser-zoom-verifier.ts",
       "40_Develop/visual-preview/src/preview-server.ts",
+      "40_Develop/workbench/bin/workbench.ts",
       "40_Develop/workbench/src/project-surface.ts",
+      "40_Develop/workbench/src/runtime-activity.ts",
       "40_Develop/workbench/src/workbench-server.ts",
     ],
   );

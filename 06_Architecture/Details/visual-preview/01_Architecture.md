@@ -98,6 +98,7 @@ template/tools/
 | HTTP | GET／HEADとRoot内File Path | Fileまたは固定拒否結果 | POST、一覧、CORS、Credential |
 | Health | 固定Path | Contract、ready、host、read-only | Root Path、Repository Identity |
 | Zoom検証 | Root、HTML一覧、倍率一覧、Window寸法、任意Chrome Path | 実倍率、実効Viewport、画像、文字・操作対象・Overflow・Focusおよび資源別cleanupの構造化結果 | Human Direction、通常Browser Profile、Browser拡張、外部Network |
+| 起動済みlocalhost Application検証 | loopback HTTPのBase URL、画面Target、表示Profile、倍率、任意Chrome Path | Target別の実倍率、実効Viewport、画像、文字・操作対象・Overflow・FocusおよびBrowser資源cleanupの構造化結果 | Application Serverの起動・停止、外部URL、通常Browser Profile、外部Network |
 
 ### 公開Export Allowlist
 
@@ -139,6 +140,8 @@ template/tools/
           ▼
 [正常終了を要求し、Process Tree・DevTools・Profile・Preview Listenerを個別観測]
 ```
+
+起動済みApplicationを検証する場合は、Application側がServer lifecycleを所有し、Visual Previewは検証済みのloopback Base URLだけを受け取る。画面Target、表示Profile、倍率の有限集合を全数処置し、条件ごとのBrowser ProcessはPIDと生成時刻を組み合わせたexact Identityで終了後に再観測する。Application Listenerの不存在確認は呼出側が行い、Visual Previewが他SubsystemのServerを暗黙停止しない。
 
 ## 5. Lifecycle
 

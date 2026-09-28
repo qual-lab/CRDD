@@ -38,6 +38,7 @@ export {
   inspectRepositoryFixedSnapshot,
 } from "./git/fixed-snapshot-adapter.ts";
 export { gitLocalChangeSetAdapter } from "./git/local-change-set-adapter.ts";
+export { gitRepositoryWorktreeViewAdapter } from "./git/repository-worktree-view-adapter.ts";
 export {
   createGitChangePublicationAdapter,
   createGitChangePublicationTargetObservationAdapter,
@@ -106,3 +107,12 @@ export {
   type RepositoryRevisionAdapter,
   type RepositoryRevisionObservation,
 } from "./repository-revision.ts";
+export {
+  observeRepositoryWorktreeFileDiff,
+  observeRepositoryWorktreeTree,
+  type RepositoryWorktreeEntry,
+  type RepositoryWorktreeFileDiff,
+  type RepositoryWorktreeTreePage,
+  type RepositoryWorktreeViewAdapter,
+  type RepositoryWorktreeViewObservation,
+} from "./repository-worktree-view.ts";

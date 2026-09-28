@@ -24,6 +24,7 @@ Quality／Development
 
 | 詳細設計領域 | 対応Architecture定義 | 責務 | 状態 |
 |---|---|---|---|
+| [ai-runtime](Details/ai-runtime/01_Architecture.md) | ARCH-000010 | AI Profile Catalog、Adapter／Model分離、一意解決および利用可能性の四軸投影 | Candidate |
 | [artifact-signing](Details/artifact-signing/01_Architecture.md) | ARCH-000014 | 配布物の完全性、鍵Capability、Publisher証明 | Canonical |
 | [checker](Details/checker/01_Architecture.md) | ARCH-000001、ARCH-000002 | 決定論的構造検査と契約移行時の機械的集合検査 | Canonical |
 | [coordinator](Details/coordinator/01_Architecture.md) | ARCH-000004、ARCH-000008、ARCH-000010、ARCH-000014、ARCH-000015 | 実行編成、Provider境界、モデル選定、信頼済み実行、外部情報搬送 | Canonical |
@@ -58,7 +59,7 @@ Quality／Development
 | ARCH-000007 | [実行事実と評価候補の取得](Definitions/ARCH-000007/architecture_definition.md) | execution-intelligence、project-runtime |
 | ARCH-000008 | [実行境界の診断](Definitions/ARCH-000008/architecture_definition.md) | coordinator、platform-access、crdd-domain-library、semantic-coverage |
 | ARCH-000009 | [Repository境界とBinding](Definitions/ARCH-000009/architecture_definition.md) | version-control、runtime-data、cros、crdd-domain-library、workbench |
-| ARCH-000010 | [Tool CapabilityとAIモデル構成](Definitions/ARCH-000010/architecture_definition.md) | coordinator、cros、workbench |
+| ARCH-000010 | [Tool CapabilityとAIモデル構成](Definitions/ARCH-000010/architecture_definition.md) | ai-runtime、coordinator、cros、workbench |
 | ARCH-000011 | [Runtime Dataの配置・保持・清掃](Definitions/ARCH-000011/architecture_definition.md) | runtime-data、platform-access |
 | ARCH-000012 | [公開Transportの意味同一性](Definitions/ARCH-000012/architecture_definition.md) | mcp、project-runtime、workbench |
 | ARCH-000013 | [Workspace利用範囲とRepository Federation](Definitions/ARCH-000013/architecture_definition.md) | cros、mcp、runtime-data、workbench |

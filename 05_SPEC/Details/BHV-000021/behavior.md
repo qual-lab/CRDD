@@ -19,12 +19,12 @@ Behavior ID: `BHV-000021`
 | Trigger | Applicable | 情報を外部へ送る時 |
 | Precondition | Applicable | 送信先、目的、情報分類、対象範囲、同意の有効性を確認できる |
 | Authority | Applicable | 送信同意は許可範囲内の送信Effectだけを認め、結果受領や候補採用へ流用しない |
-| Input | Applicable | 外部送信の同意範囲を検証して送信するに必要な対象Identity、入力値、出所および観測時点 |
-| Validation | Applicable | 前提条件、Authority、対象Identity、入力完全性および現在性をEffect前に確認する |
+| Input | Applicable | 対象Identity、入力値、出所、送信目的、依頼種別（読取り助言／変更候補）および変更候補時の明示的なRepository相対許可Path |
+| Validation | Applicable | 前提条件、Authority、対象Identity、入力完全性、現在性および依頼種別と送信目的の整合をEffect前に確認する。読取り助言では参照名、内容、内容Hashからなる許可済み投影と利用者依頼を専用Task Packetへ固定し、改変、秘密情報、越境参照および投影外参照を拒否する。変更候補では許可Pathが空、重複、絶対Pathまたは親参照を含む場合にEffect 0で拒否する |
 | State／Transition | Applicable | 送信先、目的、情報分類、対象範囲、同意状態を検証し、許可された最小情報だけを送る。 |
 | Sequence | Applicable | Trigger→Precondition／Authority／Validation→State／Effect→Resultの順を保つ |
 | Effect | Applicable | 許可範囲の外部送信Effectを発行し、送信時の依頼識別情報と同意範囲を要求、Effectおよび結果へ結合する。 |
-| Output | Applicable | 送信前検査、要求発行、要求受理、外部Effect成立、結果観測および結果搬送を区別し、利用した同意範囲と同一の送信依頼識別情報を結果へ結合する。 |
+| Output | Applicable | 送信前検査、要求発行、要求受理、外部Effect成立、結果観測および結果搬送を区別し、利用した同意範囲、依頼種別、同一の送信依頼識別情報および結果項目ごとの根拠参照を結果へ結合する。変更候補の成功結果はCandidate IDと`untrusted_not_adopted`を結合し、採用済みと表示しない。 |
 | Failure | Applicable | 期限切れ・範囲変更・不明な同意ではEffect 0で停止する。 |
 | Recovery | Applicable | 失敗・観測不能時は新しいEffectを暗黙に発行せず、同じIdentityと未解消義務を保持して安全な再確認先を返す。 |
 
@@ -56,7 +56,7 @@ Success／Reject／Failure／Unknownを同じContextで返す
 
 | Condition | 観測可能な成立／不成立 | Qualityへの引き渡し |
 |---|---|---|
-| Normal | 送信前検査、要求発行、要求受理、外部Effect成立、結果観測および結果搬送を区別し、利用した同意範囲と同一の送信依頼識別情報を結果へ結合する。 | Source SPECと同じ正常義務へ統合 |
+| Normal | 送信前検査、要求発行、要求受理、外部Effect成立、結果観測および結果搬送を区別し、利用した同意範囲、同一の送信依頼識別情報および結果項目ごとの根拠参照を結果へ結合する。 | Source SPECと同じ正常義務へ統合 |
 | Boundary | 対象、Authority、現在性または入力の境界を越えず、対象外へEffectを発行しない | 境界条件を独立観測する |
 | Failure | 期限切れ・範囲変更・不明な同意ではEffect 0で停止する。 | 失敗を成功・未実行・不存在へ畳まない |
 | Unknown | 不足を既定値で補完せず、新しいEffectを発行せず現在状態と未解消義務を保持する | 観測不能を正常値へ畳まず再観測可能にする |

@@ -386,6 +386,7 @@ function prepareReleaseManifestCandidate(options: ManifestPreflightOptions) {
   const packageObservation =
     inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(
       distributionRoot,
+      options.crddVersion === "v0.21.0" ? "v0.21" : "current",
     );
   const platformAccessObservation =
     beginReleaseStagingManifestSession(distributionRoot);

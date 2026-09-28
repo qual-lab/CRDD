@@ -78,18 +78,18 @@ export type ConnectionCredentialMetadata = Readonly<{
  *
  * @responsibility 現在のCredential RecordからContent Grantと管理可否を秘密値なしで搬送する。
  * @trace ARCH-000013
- * @shape credentialId、Profile、workspaceIds、systemAdminおよびRegistry revision。
+ * @shape credentialId、Profile、workspaceIds、systemAdminおよびCredential Registry revision。
  * @invariant Profile名を実効権限の判定へ使用しない。
  * @boundary Bearer Credential VerifierとWorkspace Resolverの境界。
  * @security Token、saltおよびVerifierを含まない。
- * @compatibility Requestごとに現在Recordから再生成する。
+ * @compatibility Requestごとに現在Recordから再生成し、Exposure Registry revisionとは混同しない。
  */
 export type RequestAccessContext = Readonly<{
   credentialId: string;
   profile: ConnectionCredentialProfile;
   workspaceIds: readonly string[];
   systemAdmin: boolean;
-  registryRevision: number;
+  credentialRegistryRevision: number;
 }>;
 
 /**
@@ -591,7 +591,7 @@ export function authenticateConnectionCredential(
       profile: record.profile,
       workspaceIds: Object.freeze([...record.workspaceIds]),
       systemAdmin: record.systemAdmin,
-      registryRevision: snapshot.revision,
+      credentialRegistryRevision: snapshot.revision,
     }),
   });
 }

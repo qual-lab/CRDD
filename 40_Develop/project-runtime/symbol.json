@@ -66,6 +66,18 @@
       ]
     },
     {
+      "symbolId": "project-runtime.candidate-adoption-application",
+      "kind": "file",
+      "path": "src/application/project-runtime-candidate-adoption.ts",
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000015"
+      ],
+      "implements": [
+        "project-runtime.candidate-adoption"
+      ]
+    },
+    {
       "symbolId": "project-runtime.replanning-application",
       "kind": "file",
       "path": "src/application/project-runtime-replanning.ts",
@@ -187,6 +199,20 @@
       ],
       "verifies": [
         "project-runtime.integration-application"
+      ]
+    },
+    {
+      "symbolId": "project-runtime.test.unit.candidate-adoption-application",
+      "kind": "test-suite",
+      "path": "tests/unit/candidate-adoption-application.contract.test.ts",
+      "qaIds": [
+        "QA-000005"
+      ],
+      "localTestIds": [
+        "CPR-UT-009"
+      ],
+      "verifies": [
+        "project-runtime.candidate-adoption-application"
       ]
     },
     {

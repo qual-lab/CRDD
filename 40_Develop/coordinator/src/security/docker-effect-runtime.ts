@@ -32,10 +32,11 @@ import {
 import { inspectRuntimeOwnedDockerResourceReceipts } from "./docker-recovery-runtime.ts";
 import { describeEgressProxyTopology } from "./egress-proxy-policy.ts";
 import { borrowOwnedDockerExecutionPaths } from "./execution-environment.ts";
+import { planWorkbenchAiAdviceProviderCommand } from "./workbench-ai-advice-provider-command.ts";
 
 export const DOCKER_EFFECT_RUNTIME_CONTRACT =
   "crdd-coordinator/docker-effect-runtime";
-export const DOCKER_EFFECT_RUNTIME_CONTRACT_REVISION = 9;
+export const DOCKER_EFFECT_RUNTIME_CONTRACT_REVISION = 10;
 
 const DOCKER_ENGINE = "npipe:////./pipe/dockerDesktopLinuxEngine";
 const DOCKER_CONFIG_DIRECTORY = "docker-cli-config";
@@ -94,11 +95,14 @@ type PreparedPlan = Readonly<{
   selectedModel: string;
   selectedEffort: "low" | "medium" | "high";
   selectedModelTier: string;
-  operationMode: "boolean_probe" | "isolated_task";
+  operationMode: "boolean_probe" | "isolated_task" | "workbench_advice";
   taskRole: "executor" | "reviewer" | null;
   taskWorkload?: unknown;
   taskPacketRef: string | null;
   taskPacketHash: string | null;
+  advicePacketRef?: string | null;
+  advicePacketHash?: string | null;
+  adviceCommandHash?: string | null;
   providerInput: string | null;
   workspaceSourcePath: string | null;
   workspaceMountMode: "read_write" | "read_only" | null;
@@ -344,6 +348,14 @@ function expectedCommands(
   plan: PreparedPlan,
   tmpSourcePath: string,
 ): readonly Command[] | null {
+  const adviceCommand =
+    plan.operationMode === "workbench_advice"
+      ? planWorkbenchAiAdviceProviderCommand({
+          provider: plan.provider,
+          exactModelId: plan.selectedModel,
+          reasoningEffort: plan.selectedEffort,
+        })
+      : null;
   const providerPlan =
     plan.provider === "codex"
       ? plan.operationMode === "isolated_task"
@@ -374,7 +386,8 @@ function expectedCommands(
   if (
     providerPlan.status !== "candidate" ||
     egress.verificationAdapter.imageDigest !== plan.proxyImageDigest ||
-    providerPlan.distributionBinding.fixedImageDigest !==
+    (adviceCommand?.fixedImageDigest ??
+      providerPlan.distributionBinding.fixedImageDigest) !==
       plan.providerImageDigest
   ) {
     return null;
@@ -411,10 +424,9 @@ function expectedCommands(
           "NO_PROXY=",
         ]
       : []),
-    ...Object.entries(providerPlan.environment).flatMap(([name, value]) => [
-      "--env",
-      `${name}=${value}`,
-    ]),
+    ...Object.entries(
+      adviceCommand?.environment ?? providerPlan.environment,
+    ).flatMap(([name, value]) => ["--env", `${name}=${value}`]),
   ];
   const providerHomeMount = `type=bind,src=${plan.providerHomeSourcePath},dst=/provider-home,bind-propagation=rprivate`;
   const tmpMount = `type=bind,src=${tmpSourcePath},dst=/tmp,bind-propagation=rprivate`;
@@ -519,7 +531,9 @@ function expectedCommands(
     ["network", "connect", plan.egressNetworkName, plan.proxyContainerName],
     [
       "create",
-      ...(plan.operationMode === "isolated_task" ? ["--interactive"] : []),
+      ...(plan.operationMode === "isolated_task" || adviceCommand
+        ? ["--interactive"]
+        : []),
       "--pull=never",
       "--network",
       plan.internalNetworkName,
@@ -543,16 +557,18 @@ function expectedCommands(
       tmpMount,
       ...(workspaceMount ? ["--mount", workspaceMount] : []),
       plan.providerImageDigest,
-      ...(plan.provider === "claude"
+      ...(plan.provider === "claude" && !adviceCommand
         ? ["--model", plan.selectedModel, "--effort", plan.selectedEffort]
         : []),
-      ...providerPlan.argv,
+      ...(adviceCommand?.argv ?? providerPlan.argv),
     ],
     ["start", plan.proxyContainerName],
     [
       "start",
       "--attach",
-      ...(plan.operationMode === "isolated_task" ? ["--interactive"] : []),
+      ...(plan.operationMode === "isolated_task" || adviceCommand
+        ? ["--interactive"]
+        : []),
       plan.providerContainerName,
     ],
   ];
@@ -594,7 +610,26 @@ function expectedCommands(
  * @concurrency N/A: validatePlanは共有非同期状態を持たない同期処理である。
  */
 function validatePlan(plan: PreparedPlan, tmpSourcePath: string) {
+  const isAdvicePlan = plan.operationMode === "workbench_advice";
+  const expectedAdviceCommand = isAdvicePlan
+    ? planWorkbenchAiAdviceProviderCommand({
+        provider: plan.provider,
+        exactModelId: plan.selectedModel,
+        reasoningEffort: plan.selectedEffort,
+      })
+    : null;
+  const expectedAdviceCommandHash = expectedAdviceCommand
+    ? createHash("sha256")
+        .update(JSON.stringify(expectedAdviceCommand), "utf8")
+        .digest("hex")
+    : null;
   const isProviderBindingValid =
+    (isAdvicePlan &&
+      /^PROFILE-[0-9]{6,}$/u.test(plan.profileId) &&
+      plan.subscriptionOffering ===
+        (plan.provider === "codex"
+          ? "chatgpt_subscription_oauth"
+          : "claude_max")) ||
     (plan.provider === "claude" &&
       /^PROFILE-20000[12]$/u.test(plan.profileId) &&
       plan.subscriptionOffering === "claude_max" &&
@@ -635,7 +670,7 @@ function validatePlan(plan: PreparedPlan, tmpSourcePath: string) {
   }
   const isTaskPlan = plan.operationMode === "isolated_task";
   if (
-    (plan.operationMode !== "boolean_probe" && !isTaskPlan) ||
+    (plan.operationMode !== "boolean_probe" && !isTaskPlan && !isAdvicePlan) ||
     (isTaskPlan &&
       ((plan.taskRole !== "executor" && plan.taskRole !== "reviewer") ||
         !/^TASKPKT-[A-F0-9]{32}$/u.test(plan.taskPacketRef ?? "") ||
@@ -649,10 +684,27 @@ function validatePlan(plan: PreparedPlan, tmpSourcePath: string) {
         /[\0\r\n,]/u.test(plan.workspaceSourcePath) ||
         plan.workspaceMountMode !==
           (plan.taskRole === "executor" ? "read_write" : "read_only"))) ||
-    (!isTaskPlan &&
+    (isAdvicePlan &&
       (plan.taskRole !== null ||
         plan.taskPacketRef !== null ||
         plan.taskPacketHash !== null ||
+        !/^ADVICEPKT-[A-F0-9]{32}$/u.test(plan.advicePacketRef ?? "") ||
+        !/^[a-f0-9]{64}$/u.test(plan.advicePacketHash ?? "") ||
+        plan.adviceCommandHash !== expectedAdviceCommandHash ||
+        typeof plan.providerInput !== "string" ||
+        plan.providerInput.length === 0 ||
+        Buffer.byteLength(plan.providerInput, "utf8") >
+          PROVIDER_INPUT_LIMIT_BYTES ||
+        plan.workspaceSourcePath !== null ||
+        plan.workspaceMountMode !== null)) ||
+    (!isTaskPlan &&
+      !isAdvicePlan &&
+      (plan.taskRole !== null ||
+        plan.taskPacketRef !== null ||
+        plan.taskPacketHash !== null ||
+        (plan.advicePacketRef ?? null) !== null ||
+        (plan.advicePacketHash ?? null) !== null ||
+        (plan.adviceCommandHash ?? null) !== null ||
         plan.providerInput !== null ||
         plan.workspaceSourcePath !== null ||
         plan.workspaceMountMode !== null))
@@ -697,6 +749,8 @@ function planIdentity(plan: PreparedPlan) {
         taskRole: plan.taskRole,
         taskPacketHash: plan.taskPacketHash,
         taskWorkload: plan.taskWorkload,
+        advicePacketHash: plan.advicePacketHash ?? null,
+        adviceCommandHash: plan.adviceCommandHash ?? null,
         ownershipLabel: plan.ownershipLabel,
         commands: plan.commands,
       }),
@@ -1617,8 +1671,8 @@ export function describeDockerEffectRuntimeContract() {
     engine: DOCKER_ENGINE,
     environment: "runtime_owned_minimal_replacement",
     commandPlan:
-      "exact_nine_command_subscription_preflight_provider_probe_or_isolated_task",
-    taskInput: "runtime_owned_stdin_only_not_docker_argv",
+      "exact_nine_command_subscription_preflight_provider_probe_isolated_task_or_workbench_advice",
+    taskInput: "runtime_owned_task_or_advice_stdin_only_not_docker_argv",
     cleanup:
       "durable_create_receipt_exact_docker_id_name_label_image_and_network_configuration_then_exact_id_and_name_absence",
     processTreeTermination: "taskkill_exact_pid_tree_then_close",

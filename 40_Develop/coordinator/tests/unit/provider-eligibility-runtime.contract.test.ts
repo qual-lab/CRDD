@@ -66,6 +66,7 @@ function createRequest() {
     delegationNeed: "beneficial",
     delegationReason: "specialized_executor_benefit",
     requestedExecutorProvider: "auto",
+    requestedProfileId: null,
     subjectProvider: null,
     requiresIndependentProvider: false,
     role: "executor",

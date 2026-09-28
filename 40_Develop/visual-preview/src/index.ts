@@ -15,8 +15,14 @@ export {
 } from "./preview-server.ts";
 export {
   type BrowserWindowSize,
+  type BrowserVisualProfile,
   type BrowserZoomMeasurement,
   type BrowserZoomVerificationRequest,
   type BrowserZoomVerificationResult,
+  type LocalWebVisualTarget,
+  type LocalWebVisualVerificationRequest,
+  type LocalWebVisualVerificationResult,
+  observeLocalListener,
+  verifyLocalWebApplicationVisual,
   verifyBrowserZoom,
 } from "./browser-zoom-verifier.ts";

@@ -12,15 +12,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  applyCredentialAccessRecovery,
   authenticateConnectionCredential,
   createMemoryConnectionCredentialRegistry,
   issueConnectionCredential,
   listConnectionCredentials,
+  planCredentialAccessRecovery,
   resolveCredentialProfileDefaults,
   revokeConnectionCredential,
   rotateConnectionCredential,
   updateConnectionCredentialAccess,
   type ConnectionCredentialRegistry,
+  type CredentialAccessRecoveryRecorder,
   type CredentialRandomBytes,
   type RequestAccessContext,
 } from "../../src/index.ts";
@@ -30,7 +33,7 @@ const administrator: RequestAccessContext = Object.freeze({
   profile: "administrator",
   workspaceIds: Object.freeze([]),
   systemAdmin: true,
-  registryRevision: 0,
+  credentialRegistryRevision: 0,
 });
 
 /**
@@ -41,6 +44,10 @@ const administrator: RequestAccessContext = Object.freeze({
  * @input N/A: 内部counterだけを初期化する。
  * @returns 要求byte数を満たすCredentialRandomBytes関数。
  * @precondition 本Providerを本番へ渡さない。
+ * @stimulus 要求byte数を指定してProviderを呼び出す。
+ * @observation 返却byte列と内部counterの進行を観測する。
+ * @oracle 同じ開始状態では同じ順序となり、呼出し間ではbyte列が異なる。
+ * @cleanup N/A: Process内counter以外の資源を生成しない。
  * @postcondition 呼出しごとにcounterが一つ進む。
  * @effect 試験Process内counterだけを更新する。
  * @failure N/A: 正のbyte数に対して必ずBufferを返す。
@@ -56,6 +63,33 @@ function createDeterministicRandom(): CredentialRandomBytes {
     counter += 1;
     return value;
   };
+}
+
+/**
+ * Credential Access Recovery試験用の秘密非保持Recorderを作成する。
+ *
+ * @responsibility prepareとsettleの呼出しを受理し、Recovery Applicationの正常経路を局所検証可能にする。
+ * @trace RFD-IT-013
+ * @input N/A: 外部状態を持たないRecorderを生成する。
+ * @returns 両操作を成功させるCredentialAccessRecoveryRecorder。
+ * @precondition 本Recorderを本番の耐久記録へ使用しない。
+ * @stimulus prepareとsettleへ試験用入力を渡す。
+ * @observation 各操作の成功結果を観測する。
+ * @oracle 両操作がtrueを返し、秘密値または入力を保存しない。
+ * @cleanup N/A: 共有資源を生成しない。
+ * @postcondition 入力plan／resultを保存しない。
+ * @effect N/A: 呼出しごとにtrueを返すだけである。
+ * @failure N/A: 失敗を注入しない。
+ * @invariant Token、saltおよびVerifierを受理しない型契約を維持する。
+ * @boundary 試験とRecovery Recorder Portの境界。
+ * @security 本番Evidenceとして使用しない。
+ * @concurrency 共有状態を持たない。
+ */
+function createRecoveryRecorder(): CredentialAccessRecoveryRecorder {
+  return Object.freeze({
+    prepare: () => true,
+    settle: () => true,
+  });
 }
 
 /**
@@ -122,7 +156,7 @@ test("Secretを一度だけ返し現在RecordからAccess Contextを生成する
       profile: "management",
       workspaceIds: ["development", "management"],
       systemAdmin: false,
-      registryRevision: 1,
+      credentialRegistryRevision: 1,
     },
   });
 });
@@ -153,7 +187,7 @@ test("不正Tokenと非管理発行を情報非開示かつEffect 0で拒否す�
       profile: "developer",
       workspaceIds: ["development"],
       systemAdmin: false,
-      registryRevision: 0,
+      credentialRegistryRevision: 0,
     },
     { profile: "developer" },
     createDeterministicRandom(),
@@ -190,7 +224,7 @@ test("失効を次Requestから反映する", () => {
   assert.deepEqual(
     revokeConnectionCredential(
       registry,
-      { ...administrator, registryRevision: 1 },
+      { ...administrator, credentialRegistryRevision: 1 },
       issued.record.credentialId,
     ),
     {
@@ -230,7 +264,7 @@ test("旧失効と新発行を一つのRegistry更新でローテーションす
   if (issued.status !== "completed") assert.fail("credential must be issued");
   const rotated = rotateConnectionCredential(
     registry,
-    { ...administrator, registryRevision: 1 },
+    { ...administrator, credentialRegistryRevision: 1 },
     issued.record.credentialId,
     random,
   );
@@ -272,7 +306,7 @@ test("管理Metadataだけを表示し明示Grant更新を次Requestへ反映す
   if (issued.status !== "completed") assert.fail("credential must be issued");
   const listed = listConnectionCredentials(registry, {
     ...administrator,
-    registryRevision: 1,
+    credentialRegistryRevision: 1,
   });
   assert.equal(listed.status, "available");
   if (listed.status !== "available") assert.fail("metadata must be available");
@@ -281,7 +315,7 @@ test("管理Metadataだけを表示し明示Grant更新を次Requestへ反映す
   assert.deepEqual(
     updateConnectionCredentialAccess(
       registry,
-      { ...administrator, registryRevision: 1 },
+      { ...administrator, credentialRegistryRevision: 1 },
       issued.record.credentialId,
       { workspaceIds: ["management"], systemAdmin: false },
     ),
@@ -322,7 +356,7 @@ test("非管理CredentialへCredential Identityと件数を開示しない", () 
       profile: "developer",
       workspaceIds: ["development"],
       systemAdmin: false,
-      registryRevision: 0,
+      credentialRegistryRevision: 0,
     }),
     {
       status: "blocked",
@@ -364,4 +398,184 @@ test("Registry競合を自動再試行せずTokenを公開しない", () => {
       token: null,
     },
   );
+});
+
+/**
+ * Host Recoveryで旧管理Credentialだけを失効し通常Credentialを保持することを検証する。
+ *
+ * @responsibility Administrator Recoveryの対象選択、明示確認、不可分Registry更新およびContent GrantなしBootstrapを観測する。
+ * @trace RFD-IT-013
+ * @precondition 有効なAdministratorとDeveloper Credentialを同じRegistryへ発行する。
+ * @stimulus Host AuthorityでRecoveryを計画し、表示内容を確認して適用する。
+ * @observation 失効対象、保持対象、Registry revision、旧・新Tokenの認証結果を観測する。
+ * @oracle 旧Administratorだけが失効し、Developerは維持され、新AdministratorはworkspaceIdsを持たない。
+ * @cleanup Memory Registryを試験終了時に破棄する。
+ * @boundary RFD-IT-013=Direct Boundary: Host Authority→Recovery Plan→Credential Registry→再入場。
+ */
+test("Administrator Recoveryを一revisionで適用し通常Credentialを保持する", () => {
+  const registry = createMemoryConnectionCredentialRegistry();
+  const random = createDeterministicRandom();
+  const oldAdmin = issueConnectionCredential(
+    registry,
+    administrator,
+    { profile: "administrator" },
+    random,
+  );
+  const developer = issueConnectionCredential(
+    registry,
+    { ...administrator, credentialRegistryRevision: 1 },
+    { profile: "developer" },
+    random,
+  );
+  if (oldAdmin.status !== "completed" || developer.status !== "completed")
+    assert.fail("credentials must be issued");
+  const planned = planCredentialAccessRecovery(
+    registry,
+    {
+      hostAuthorityConfirmed: true,
+      mode: "administrator_recovery",
+      recoveryId: "credential-access-recovery.11111111111111111111111111111111",
+    },
+    random,
+  );
+  assert.equal(planned.status, "ready");
+  if (planned.status !== "ready") assert.fail("recovery plan must be ready");
+  assert.deepEqual(planned.plan.revokeCredentialIds, [
+    oldAdmin.record.credentialId,
+  ]);
+  assert.deepEqual(planned.plan.preserveCredentialIds, [
+    developer.record.credentialId,
+  ]);
+  assert.equal(planned.plan.productDataEffect, false);
+  const recovered = applyCredentialAccessRecovery(
+    registry,
+    planned.plan,
+    true,
+    createRecoveryRecorder(),
+    random,
+  );
+  assert.equal(recovered.status, "completed");
+  if (recovered.status !== "completed") assert.fail("recovery must complete");
+  assert.equal(registry.inspect().revision, 3);
+  assert.equal(
+    authenticateConnectionCredential(registry, oldAdmin.token).status,
+    "blocked",
+  );
+  assert.equal(
+    authenticateConnectionCredential(registry, developer.token).status,
+    "available",
+  );
+  const nextAdmin = authenticateConnectionCredential(registry, recovered.token);
+  assert.equal(nextAdmin.status, "available");
+  if (nextAdmin.status !== "available")
+    assert.fail("bootstrap administrator must authenticate");
+  assert.deepEqual(nextAdmin.access.workspaceIds, []);
+  assert.equal(nextAdmin.access.systemAdmin, true);
+});
+
+/**
+ * Full Access Resetと確認前Effect 0を検証する。
+ *
+ * @responsibility 全Credential失効の強いRecoveryを確認なしで実行せず、確認後だけ新管理入口を作る。
+ * @trace RFD-IT-013
+ * @precondition 有効なManagement Credentialを一件発行してFull Access Reset計画を固定する。
+ * @stimulus 未確認適用の後、同じ計画を確認済みで適用する。
+ * @observation 各結果、Registry revision、旧Tokenおよび新Tokenの認証結果を観測する。
+ * @oracle 未確認時はEffect 0、確認後は旧Credential失効と新Administrator発行が一revisionで成立する。
+ * @cleanup Memory Registryを試験終了時に破棄する。
+ * @boundary RFD-IT-013=Direct Boundary: Human Confirmation→Full Access Reset→再入場。
+ */
+test("Full Access Resetを明示確認後だけ適用する", () => {
+  const registry = createMemoryConnectionCredentialRegistry();
+  const random = createDeterministicRandom();
+  const management = issueConnectionCredential(
+    registry,
+    administrator,
+    { profile: "management" },
+    random,
+  );
+  if (management.status !== "completed")
+    assert.fail("management credential must be issued");
+  const planned = planCredentialAccessRecovery(
+    registry,
+    {
+      hostAuthorityConfirmed: true,
+      mode: "full_access_reset",
+      recoveryId: "credential-access-recovery.22222222222222222222222222222222",
+    },
+    random,
+  );
+  if (planned.status !== "ready") assert.fail("recovery plan must be ready");
+  const unconfirmed = applyCredentialAccessRecovery(
+    registry,
+    planned.plan,
+    false,
+    createRecoveryRecorder(),
+    random,
+  );
+  assert.equal(
+    unconfirmed.reason,
+    "credential_access_recovery_confirmation_required",
+  );
+  assert.equal(registry.inspect().revision, 1);
+  const recovered = applyCredentialAccessRecovery(
+    registry,
+    planned.plan,
+    true,
+    createRecoveryRecorder(),
+    random,
+  );
+  assert.equal(recovered.status, "completed");
+  if (recovered.status !== "completed") assert.fail("full reset must complete");
+  assert.equal(
+    authenticateConnectionCredential(registry, management.token).status,
+    "blocked",
+  );
+  assert.equal(
+    authenticateConnectionCredential(registry, recovered.token).status,
+    "available",
+  );
+});
+
+/**
+ * Recovery計画後のRegistry変更を古い確認結果で上書きしないことを検証する。
+ *
+ * @responsibility Humanが確認した対象集合と適用時Registryが異なる場合にEffect 0で停止する。
+ * @trace RFD-IT-013
+ * @precondition 空Registry revision 0でAdministrator Recovery計画を固定する。
+ * @stimulus 計画後に別Credentialを発行し、古い計画を適用する。
+ * @observation blocked reason、Registry revisionおよびRecord件数を観測する。
+ * @oracle plan_staleで停止し、Recoveryによる追加revisionやTokenを作らない。
+ * @cleanup Memory Registryを試験終了時に破棄する。
+ * @boundary RFD-IT-013=Direct Boundary: Recovery Plan Revision→並行Registry更新→適用拒否。
+ */
+test("古いRecovery計画をEffect 0で拒否する", () => {
+  const registry = createMemoryConnectionCredentialRegistry();
+  const random = createDeterministicRandom();
+  const planned = planCredentialAccessRecovery(
+    registry,
+    {
+      hostAuthorityConfirmed: true,
+      mode: "administrator_recovery",
+      recoveryId: "credential-access-recovery.33333333333333333333333333333333",
+    },
+    random,
+  );
+  if (planned.status !== "ready") assert.fail("recovery plan must be ready");
+  issueConnectionCredential(
+    registry,
+    administrator,
+    { profile: "developer" },
+    random,
+  );
+  const result = applyCredentialAccessRecovery(
+    registry,
+    planned.plan,
+    true,
+    createRecoveryRecorder(),
+    random,
+  );
+  assert.equal(result.reason, "credential_access_recovery_plan_stale");
+  assert.equal(result.registryEffectCount, 0);
+  assert.equal(registry.inspect().revision, 1);
 });
