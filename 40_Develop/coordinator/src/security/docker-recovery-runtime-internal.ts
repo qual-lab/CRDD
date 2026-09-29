@@ -265,6 +265,8 @@ type DockerRestartPreparation = Readonly<{
   directory: string;
   rootIdentity: string;
   directoryIdentity: string;
+  recoveryIds: readonly string[];
+  activeStableLogicalHomeBindingHashes: readonly string[];
   binding: DockerRestartBinding;
   submissionName: string;
   locks: readonly Readonly<{
@@ -6753,6 +6755,54 @@ function restartPathIdentity(target: string) {
 }
 
 /**
+ * Docker再起動境界で使用する文字列集合を決定順へ正規化する。
+ *
+ * @responsibility Recovery一覧と論理Home一覧を重複のない決定順へ正規化する。
+ * @trace ARCH-000008
+ * @input values: readonly string[]
+ * @returns 重複を除き昇順に整列した文字列配列を返す。
+ * @precondition valuesは観測済みの文字列配列である。
+ * @postcondition 入力順に依存せず、同じ集合から同じ配列を返す。
+ * @effect N/A: 入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: 文字列配列以外の入力は型境界で拒否される。
+ * @invariant 入力配列を変更せず、値の追加または推測を行わない。
+ * @boundary N/A: Process内の同一Subsystemで完結する。
+ * @security Recovery Identityを新設、短縮または外部公開しない。
+ * @concurrency N/A: 共有非同期状態を持たない同期処理である。
+ */
+function normalizeDockerRestartScope(values: readonly string[]) {
+  return Object.freeze([...new Set(values)].sort());
+}
+
+/**
+ * Docker再起動前後の観測済み文字列集合が同一か判定する。
+ *
+ * @responsibility Recovery一覧または論理Home一覧の追加・欠落・置換を検出する。
+ * @trace ARCH-000008
+ * @input left: readonly string[]、right: readonly string[]
+ * @returns 両集合が同一ならtrue、それ以外はfalseを返す。
+ * @precondition leftとrightは観測済みの文字列配列である。
+ * @postcondition 順序差だけは許容し、要素差と重複による意味差を正規化後に判定する。
+ * @effect N/A: 入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: 文字列配列以外の入力は型境界で拒否される。
+ * @invariant 比較中に入力配列または共有状態を変更しない。
+ * @boundary N/A: Process内の同一Subsystemで完結する。
+ * @security Recovery Identityの内容を結果へ含めず一致可否だけを返す。
+ * @concurrency N/A: 共有非同期状態を持たない同期処理である。
+ */
+function sameDockerRestartScope(
+  left: readonly string[],
+  right: readonly string[],
+) {
+  const normalizedLeft = normalizeDockerRestartScope(left);
+  const normalizedRight = normalizeDockerRestartScope(right);
+  return (
+    normalizedLeft.length === normalizedRight.length &&
+    normalizedLeft.every((value, index) => value === normalizedRight[index])
+  );
+}
+
+/**
  * Owns the three existing kernel domains until explicit release; no Docker effect.
  *
  * @responsibility Runtime 所有 Docker Restartの準備条件、候補Identity、Effect前の拒否境界を所有する。
@@ -6808,18 +6858,77 @@ export function prepareRuntimeOwnedDockerRestart(
     const root = observeRuntimeStateRootFromWindows(developmentContext);
     if (!root) throw new Error("docker_restart_root_unverified");
     const rootIdentity = restartPathIdentity(root.rootPath);
-    const host = discoverRecoveryHostBinding(root.rootPath, parsed);
-    const hostLock = acquireRuntimeOwnedHostOperationKernelLock(
-      path.basename(host.hostRoot),
-      host.hostNonce,
+    const initialInventory = inspectDockerRecoveryRootSnapshot(root.rootPath);
+    const initialRecoveryIds =
+      initialInventory.dockerRecoveryIds as readonly string[];
+    if (
+      initialInventory.status !== "completed" ||
+      !initialRecoveryIds.some((value) => value === parsed.token)
+    )
+      throw new Error("docker_restart_scope_conflict");
+    const recoveryIds = normalizeDockerRestartScope(initialRecoveryIds);
+    const recoveryScopes: Array<
+      Readonly<{
+        recoveryId: string;
+        stableLogicalHomeBindingHash: string;
+        hostRoot: string;
+        hostRootName: string;
+        hostNonce: string;
+      }>
+    > = [];
+    for (const recoveryId of recoveryIds) {
+      const recovery = parseDockerTaskRecoveryId(recoveryId);
+      if (!recovery) throw new Error("docker_restart_scope_conflict");
+      const host = discoverRecoveryHostBinding(root.rootPath, recovery);
+      recoveryScopes.push(
+        Object.freeze({
+          recoveryId,
+          stableLogicalHomeBindingHash: recovery.stableLogicalHomeBindingHash,
+          hostRoot: host.hostRoot,
+          hostRootName: path.basename(host.hostRoot),
+          hostNonce: host.hostNonce,
+        }),
+      );
+    }
+    const activeStableLogicalHomeBindingHashes = normalizeDockerRestartScope(
+      initialInventory.activeStableLogicalHomeBindingHashes as readonly string[],
     );
-    if (!hostLock) throw new Error("docker_restart_host_active_or_unknown");
-    locks.push(hostLock);
-    const homeLock = acquireRuntimeOwnedLogicalProviderHomeKernelLock(
-      parsed.stableLogicalHomeBindingHash,
+    const scopedHomeHashes = normalizeDockerRestartScope(
+      recoveryScopes.map((scope) => scope.stableLogicalHomeBindingHash),
     );
-    if (!homeLock) throw new Error("docker_restart_home_active_or_unknown");
-    locks.push(homeLock);
+    if (
+      !sameDockerRestartScope(
+        activeStableLogicalHomeBindingHashes,
+        scopedHomeHashes,
+      )
+    )
+      throw new Error("docker_restart_scope_conflict");
+    const hostScopesByKey = new Map<string, (typeof recoveryScopes)[number]>();
+    for (const scope of recoveryScopes) {
+      const key = `${scope.hostRootName}\u0000${scope.hostNonce}`;
+      const existing = hostScopesByKey.get(key);
+      if (existing && existing.hostRoot !== scope.hostRoot)
+        throw new Error("docker_restart_scope_conflict");
+      hostScopesByKey.set(key, scope);
+    }
+    for (const scope of [...hostScopesByKey.values()].sort((left, right) =>
+      `${left.hostRootName}\u0000${left.hostNonce}`.localeCompare(
+        `${right.hostRootName}\u0000${right.hostNonce}`,
+      ),
+    )) {
+      const hostLock = acquireRuntimeOwnedHostOperationKernelLock(
+        scope.hostRootName,
+        scope.hostNonce,
+      );
+      if (!hostLock) throw new Error("docker_restart_host_active_or_unknown");
+      locks.push(hostLock);
+    }
+    for (const homeHash of scopedHomeHashes) {
+      const homeLock =
+        acquireRuntimeOwnedLogicalProviderHomeKernelLock(homeHash);
+      if (!homeLock) throw new Error("docker_restart_home_active_or_unknown");
+      locks.push(homeLock);
+    }
     const stateLock = acquireRuntimeOwnedDockerRuntimeStateKernelLock(
       root.stableLogicalHomeBindingHash,
     );
@@ -6833,11 +6942,23 @@ export function prepareRuntimeOwnedDockerRestart(
     const inventory = inspectDockerRecoveryRootSnapshot(root.rootPath);
     if (
       inventory.status !== "completed" ||
-      inventory.dockerRecoveryIds.length !== 1 ||
-      inventory.dockerRecoveryIds[0] !== parsed.token ||
-      inventory.activeStableLogicalHomeBindingHashes.some(
-        (value) => value !== parsed.stableLogicalHomeBindingHash,
-      )
+      !sameDockerRestartScope(inventory.dockerRecoveryIds, recoveryIds) ||
+      !sameDockerRestartScope(
+        inventory.activeStableLogicalHomeBindingHashes,
+        activeStableLogicalHomeBindingHashes,
+      ) ||
+      recoveryScopes.some((scope) => {
+        const recovery = parseDockerTaskRecoveryId(scope.recoveryId);
+        if (!recovery) return true;
+        const currentHost = discoverRecoveryHostBinding(
+          root.rootPath,
+          recovery,
+        );
+        return (
+          currentHost.hostRoot !== scope.hostRoot ||
+          currentHost.hostNonce !== scope.hostNonce
+        );
+      })
     )
       throw new Error("docker_restart_scope_conflict");
     const durableBinding = discoverRecoveryRuntimeStateBinding(
@@ -6982,6 +7103,8 @@ export function prepareRuntimeOwnedDockerRestart(
       rootIdentity,
       directory,
       directoryIdentity: restartPathIdentity(directory),
+      recoveryIds,
+      activeStableLogicalHomeBindingHashes,
       binding,
       submissionName,
       locks: Object.freeze(locks),
@@ -7113,8 +7236,11 @@ export function verifyRuntimeOwnedDockerRestartPreparation(
       return false;
     return (
       inventory.status === "completed" &&
-      inventory.dockerRecoveryIds.length === 1 &&
-      inventory.dockerRecoveryIds[0] === record.binding.recoveryId
+      sameDockerRestartScope(inventory.dockerRecoveryIds, record.recoveryIds) &&
+      sameDockerRestartScope(
+        inventory.activeStableLogicalHomeBindingHashes,
+        record.activeStableLogicalHomeBindingHashes,
+      )
     );
   } catch {
     return false;
@@ -7316,8 +7442,12 @@ export function recoverRuntimeOwnedDockerTaskAfterRecordedEngineRestart(
     const inventory = inspectDockerRecoveryRootSnapshot(root.rootPath);
     if (
       inventory.status !== "completed" ||
-      inventory.dockerRecoveryIds.length !== 1 ||
-      inventory.dockerRecoveryIds[0] !== parsed.token
+      !inventory.dockerRecoveryIds.some(
+        (value: unknown) => value === parsed.token,
+      ) ||
+      !inventory.activeStableLogicalHomeBindingHashes.some(
+        (value: unknown) => value === parsed.stableLogicalHomeBindingHash,
+      )
     )
       throw new Error("docker_task_recovery_restart_scope_conflict");
     const directory = path.join(

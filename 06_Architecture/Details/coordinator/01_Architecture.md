@@ -607,6 +607,8 @@ Runtime利用側は履歴の有無だけで処置を決めない。`不正 → �
 
 Docker Task Recoveryは元のRecovery IDと発行時Sessionの証拠を保持し、再ログオン時は同じ安定Identity、元の耐久記録、現在の保護境界および現在Sessionを結ぶ順序付き引継ぎ記録を追加する。引継ぎ後も変更前にHost世代、論理Home、Runtime Stateの各Lockを取得し、外部観測の間だけ解放したLockを同じIdentityで再取得してから続行する。Docker Desktop再起動Fenceは、終了済み修復記録と現在のfreshなEngine・資源不存在観測が両方成立した場合だけ利用でき、履歴の採用または引継ぎだけでは成立しない。
 
+複数のDocker Task Recoveryが同じRuntime Stateに残る場合も、件数競合だけを理由に全Recoveryを処置不能へしない。検証付き再起動の準備は、現在Inventoryにある全Recovery IDを閉集合として取得し、各IDから導いたHost世代を決定順で、続いて各論理Homeを決定順で、最後にRuntime StateをLockする。全Lock取得後にInventory、論理Home集合、Host Root／NonceおよびRuntime State Rootをfreshに再観測し、追加、欠落、置換または観測不能があればHost Effect 0で停止する。全Scopeが非稼働と確認できた場合だけ、選択した一つのexact Recovery IDへ再起動記録を結ぶ。再起動後のTask回復は、対象IDがInventoryへ残り、対象固有の再起動chain、pending submissionおよび資源不存在を検証できる場合に限り、その対象だけを収束させる。他のRecoveryを削除、完了化または同じEvidenceへ合成せず、残ったIDは次の独立した回復として処置する。
+
 いずれの引継ぎ連鎖も件数を上限8に制限し、自己参照、循環、分岐、番号飛び、前後Session不一致、Identity不一致、改変、部分書込みまたは上限超過をEffect 0で拒否する。Releaseは`origin <= adoption <= handoff[0] <= ... <= handoff[n] <= closure <= current boundary`の単調な連鎖とし、同じRelease番号では同じ署名済みRelease Identityだけを許す。将来Release、降格または同じ番号の別Identityが混在する連鎖は採用しない。
 
 新しい履歴記録は同一Filesystem上の準備fileをflush・再読取りした後にhard linkで排他的に公開し、単一の勝者だけを採用する。読取り専用の利用側は、公開済みtargetだけ、公開済みtargetと同一fileの準備残存、準備fileだけ、不正または観測不能を区別し、残存物を削除せず、準備残存を含む履歴全体を`verified`または完了へ昇格しない。現在の署名済みRuntime、検証済みRoot／保護／Policy、現在Sessionおよび外側Lockを確認済みの対象限定persist経路だけが、期待byteと同一file Identityの準備残存を削除して公開済みtargetへ収束できる。共有公開処理のbyte一致やhard link成立自体はAuthorityを作らない。別file、別候補、未知名、不正byte、部分file、観測不能またはDirectory境界の確定不能では何も削除せず、元記録と同じRecovery IDを保持して停止する。

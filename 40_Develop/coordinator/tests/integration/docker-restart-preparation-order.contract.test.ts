@@ -57,9 +57,16 @@ const body = stripTypeScriptTypes(
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
  * @boundary ERB-IT-014=Direct Boundary: coordinator Test Source→対象契約
  */
-function runPreparation(isHistoryValid: boolean) {
+function runPreparation(
+  isHistoryValid: boolean,
+  includeSecondRecovery = false,
+) {
   const h = "a".repeat(64);
+  const secondHome = "d".repeat(64);
+  const secondNonce = "e".repeat(64);
+  const secondBase = "f".repeat(64);
   const token = `docker-task.${h}.${h}.${h}`;
+  const secondToken = `docker-task.${secondHome}.${secondNonce}.${secondBase}`;
   const root = {
     rootPath: path.resolve("fixture-root"),
     runtimeStateIdentityHash: h,
@@ -80,6 +87,7 @@ function runPreparation(isHistoryValid: boolean) {
   const origin = createDockerRestartRecord(binding, "stop_intent");
   let writes = 0;
   let releases = 0;
+  const acquiredLocks: string[] = [];
   /**
    * lockのTest準備責務を実行する。
    *
@@ -104,12 +112,20 @@ function runPreparation(isHistoryValid: boolean) {
     path,
     Object,
     Error,
-    parseDockerTaskRecoveryId: () => ({
-      token,
-      operationNonce: h,
-      stableLogicalHomeBindingHash: h,
-      baseHash: h,
-    }),
+    parseDockerTaskRecoveryId: (value: string) =>
+      value === secondToken
+        ? {
+            token: secondToken,
+            operationNonce: secondNonce,
+            stableLogicalHomeBindingHash: secondHome,
+            baseHash: secondBase,
+          }
+        : {
+            token,
+            operationNonce: h,
+            stableLogicalHomeBindingHash: h,
+            baseHash: h,
+          },
     verifyBundledCoordinatorPackageFromFixedManifestCandidate: () => ({
       status: "candidate",
       runtimeOwnedReleaseTrustConfirmed: true,
@@ -120,14 +136,34 @@ function runPreparation(isHistoryValid: boolean) {
     }),
     observeRuntimeStateRootFromWindows: () => root,
     restartPathIdentity: () => "fixed",
-    discoverRecoveryHostBinding: () => ({ hostRoot: "host", hostNonce: h }),
-    acquireRuntimeOwnedHostOperationKernelLock: lock,
-    acquireRuntimeOwnedLogicalProviderHomeKernelLock: lock,
-    acquireRuntimeOwnedDockerRuntimeStateKernelLock: lock,
+    discoverRecoveryHostBinding: (
+      _root: string,
+      recovery: { token: string },
+    ) =>
+      recovery.token === secondToken
+        ? { hostRoot: "host-b", hostNonce: secondNonce }
+        : { hostRoot: "host-a", hostNonce: h },
+    acquireRuntimeOwnedHostOperationKernelLock: (
+      name: string,
+      nonce: string,
+    ) => {
+      acquiredLocks.push(`host:${name}:${nonce}`);
+      return lock();
+    },
+    acquireRuntimeOwnedLogicalProviderHomeKernelLock: (home: string) => {
+      acquiredLocks.push(`home:${home}`);
+      return lock();
+    },
+    acquireRuntimeOwnedDockerRuntimeStateKernelLock: (state: string) => {
+      acquiredLocks.push(`state:${state}`);
+      return lock();
+    },
     inspectDockerRecoveryRootSnapshot: () => ({
       status: "completed",
-      dockerRecoveryIds: [token],
-      activeStableLogicalHomeBindingHashes: [],
+      dockerRecoveryIds: includeSecondRecovery ? [secondToken, token] : [token],
+      activeStableLogicalHomeBindingHashes: includeSecondRecovery
+        ? [secondHome, h]
+        : [h],
     }),
     discoverRecoveryRuntimeStateBinding: () => ({
       runtimeStateIdentityHash: h,
@@ -164,13 +200,26 @@ function runPreparation(isHistoryValid: boolean) {
     ensureDockerTaskSessionHandoff: () => {
       writes++;
     },
+    normalizeDockerRestartScope: (values: readonly string[]) =>
+      Object.freeze([...new Set(values)].sort()),
+    sameDockerRestartScope: (
+      left: readonly string[],
+      right: readonly string[],
+    ) => {
+      const normalizedLeft = [...new Set(left)].sort();
+      const normalizedRight = [...new Set(right)].sort();
+      return (
+        normalizedLeft.length === normalizedRight.length &&
+        normalizedLeft.every((value, index) => value === normalizedRight[index])
+      );
+    },
     dockerRestartPreparations: new WeakMap(),
   };
   const result = runInNewContext(
     `${body}\nprepareRuntimeOwnedDockerRestart("id", ${JSON.stringify(path.resolve("old-release"))});`,
     context,
   );
-  return { result, writes, releases };
+  return { result, writes, releases, acquiredLocks, secondToken };
 }
 /**
  * invalid historical signature blocks before protected-root session handoffを検証する。
@@ -214,6 +263,30 @@ test("same stable user re-logon preserves the durable restart principal while pr
 });
 
 /**
+ * 複数Recoveryの検証付き再起動は全Scopeを決定順で停止確認して対象を準備することを検証する。
+ *
+ * @responsibility 複数Recoveryが存在しても全Host・Home・Runtime Stateを固定して循環停止を作らないことを検証する。
+ * @trace ERB-IT-014
+ * @precondition 同じRuntime Stateに異なるHostと論理Homeを持つ2件のRecoveryが存在する。
+ * @stimulus 先頭Recoveryの検証付き再起動準備を実行する。
+ * @observation Lock取得順、準備結果、書込み回数および保持Recovery一覧を観測する。
+ * @oracle 全Host、全Home、Runtime Stateの順に決定的にLockされ、対象Recoveryの準備が成立する。
+ * @cleanup 準備CapabilityはTest VM内だけに存在し、Host資源を作成しない。
+ * @boundary ERB-IT-014=Related 2 Blocks: Recovery Inventory→Docker Restart Preparation
+ */
+test("multiple recoveries are locked as one restart scope before one exact recovery is prepared", () => {
+  const { result, writes, acquiredLocks } = runPreparation(true, true);
+  assert.equal(result.status, "prepared");
+  assert.equal(writes, 1);
+  assert.equal(acquiredLocks.length, 5);
+  assert.deepEqual(
+    acquiredLocks.map((value) => value.split(":", 1)[0]),
+    ["host", "host", "home", "home", "state"],
+  );
+  assert.ok(result.capability);
+});
+
+/**
  * restart revalidation consumes validated record inventory, not publication companionsを検証する。
  *
  * @responsibility restart revalidation consumes validated record inventory, not publication companionsの合否判定を所有する。
@@ -248,6 +321,8 @@ test("restart revalidation consumes validated record inventory, not publication 
     directoryIdentity: "fixed",
     submissionName: "submission-create_subscription_auth_probe.json",
     binding: { recoveryId: token, pendingSubmissionSha256: hash },
+    recoveryIds: [token],
+    activeStableLogicalHomeBindingHashes: [hash],
     continuation: true,
     originRecords: [Buffer.from("origin\n")],
     handoffs: [Buffer.from("handoff\n")],
@@ -260,6 +335,7 @@ test("restart revalidation consumes validated record inventory, not publication 
   ];
   let inventoryReads = 0;
   let isInventoryValid = true;
+  let observedRecoveryIds = [token];
   const context = {
     Buffer,
     path,
@@ -283,8 +359,15 @@ test("restart revalidation consumes validated record inventory, not publication 
     },
     inspectDockerRecoveryRootSnapshot: () => ({
       status: "completed",
-      dockerRecoveryIds: [token],
+      dockerRecoveryIds: observedRecoveryIds,
+      activeStableLogicalHomeBindingHashes: [hash],
     }),
+    normalizeDockerRestartScope: (values: readonly string[]) =>
+      Object.freeze([...new Set(values)].sort()),
+    sameDockerRestartScope: (
+      left: readonly string[],
+      right: readonly string[],
+    ) => JSON.stringify([...left].sort()) === JSON.stringify([...right].sort()),
     readExactJson: (name: string) => ({
       hash,
       serialized: name.endsWith("engine-restart-00.json")
@@ -311,15 +394,22 @@ test("restart revalidation consumes validated record inventory, not publication 
     );
   assert.equal(verify(), true);
   assert.equal(inventoryReads, 1);
-  isInventoryValid = false;
+  observedRecoveryIds = [
+    token,
+    `docker-task.${"d".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`,
+  ];
   assert.equal(verify(), false);
   assert.equal(inventoryReads, 2);
+  observedRecoveryIds = [token];
+  isInventoryValid = false;
+  assert.equal(verify(), false);
+  assert.equal(inventoryReads, 3);
 });
 
 /**
- * recorded restart recovery resolves the immutable operation principal after same-user re-logonを検証する。
+ * recorded restart recovery resolves the exact target while another recovery remains after same-user re-logonを検証する。
  *
- * @responsibility recorded restart recovery resolves the immutable operation principal after same-user re-logonの合否判定を所有する。
+ * @responsibility 別Recoveryを保持したまま、記録済み再起動に結合した対象Recoveryだけを再入場させる合否判定を所有する。
  * @trace ERB-IT-014
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus recorded restart recovery resolves the immutable operation principal after same-user re-logonの対象操作を実行する。
@@ -328,7 +418,7 @@ test("restart revalidation consumes validated record inventory, not publication 
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary ERB-IT-014=Direct Boundary: coordinator Test Source→対象契約
  */
-test("recorded restart recovery resolves the immutable operation principal after same-user re-logon", () => {
+test("recorded restart recovery resolves the exact target while another recovery remains after same-user re-logon", () => {
   const recoveryStart = source.indexOf(
     "export function recoverRuntimeOwnedDockerTaskAfterRecordedEngineRestart(",
   );
@@ -399,7 +489,11 @@ test("recorded restart recovery resolves the immutable operation principal after
     }),
     inspectDockerRecoveryRootSnapshot: () => ({
       status: "completed",
-      dockerRecoveryIds: [token],
+      dockerRecoveryIds: [
+        token,
+        `docker-task.${"d".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`,
+      ],
+      activeStableLogicalHomeBindingHashes: [h, "d".repeat(64)],
     }),
     inventoryOperationDirectory: () => inventoryEntries,
     readExactJson: (name: string) => ({
