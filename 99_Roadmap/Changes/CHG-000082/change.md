@@ -3,7 +3,7 @@
 変更ID: `CHG-000082`
 状態（Status）: `In Progress`
 担当責任者: Qual-Lab
-最終更新日: 2026-09-29
+最終更新日: 2026-09-30
 
 ## 現在状態
 
@@ -268,7 +268,7 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 | 根拠の主張軸（観測基盤） | Applicable | DOM、HTTP、Application Contract、Git／Remote境界を分ける | Verification Design |
 | 根拠の主張軸（成果物Identity） | Applicable | UI／BHV／ARCH／QA／Source／Test／Evidenceを接続する | Reality Audit |
 | 根拠の主張軸（lifecycle） | Applicable | Server開始、要求、Effect、結果、shutdown、資源0を分ける | Host E2E |
-| 未解消の不一致 | OPEN | UI／CSR画面、Application Contract、実データ、Production全Profile STおよびShared Server運用境界は接続済み。署名実Provider E2Eで、Provider境界診断の観測契約、正規Candidate Identityの利用側制限、人間受入待ちの期待値に不一致を検出した。Source候補と局所試験は是正済みだが、再署名後の実境界と四経路E2Eは未確認である | 全回帰・独立確認後に再署名し、同じRelease Identityの実境界で再評価する |
+| 未解消の不一致 | OPEN | UI／CSR画面、Application Contract、実データ、Production全Profile STおよびShared Server運用境界は接続済み。再署名後の実Provider E2Eで正常2経路は人間受入待ちまで成立した。残った2件はstdio EOFによる取消要求を即時取消完了と期待した検証Oracle不整合であり、Productionは設計どおり不明状態とexact Recovery義務を返した。Oracle候補と試験fixture清掃は是正済みだが、再固定後の全回帰、独立確認、再署名E2Eおよび四経路E2Eは未確認である | 全回帰・独立確認後に再署名し、同じRelease Identityの実境界で再評価する |
 
 ## 変更経路の計画
 
@@ -310,6 +310,7 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 | Mount修正後の署名候補が次のSelection境界で`workbench_ai_advice_selection_unavailable`に停止した | Workbench専用助言Operationが一般Selection Runtimeの必須Repository結合と、Selection Grantを必要とする明示委譲の要求意味を欠いていた。設計済みのMount前／Effect直前二段階Selectionも未接続だった。同じProduction Closure内の接続Gapである | Phase 5へ元Repository Identity結合、Selection再発行Lifecycleおよび明示委譲Selection要求を追加 | 一般SelectionのRepository結合条件と`none`のGrant非発行契約を弱めず、元RepositoryをOperationへ内部結合する。Workbenchの明示Provider／Profile選択を`beneficial`かつ`explicit_user_delegation`として要求する。Mount前の初回SelectionをMount後に失効し、同じ入力による再SelectionのProvider、Profile、Model、推論強度、速度および理由が完全一致する場合だけEffectへ進む。発行済みSelectionは意味検証前からcleanup対象として保持し、旧Selection失効失敗と不正な再SelectionをAuthority残存不明へ閉じる。Production接続を局所反証し、修正後署名候補でE2Eを再実行する | Repository／WorkspaceのProvider Mount、Path搬送、任意読取りAuthority、Selection TTL、`none`経路および外部送信許可範囲は変更しない。既存Architectureへ一意に整合するため追加判断なし | Production Selection対象35／35、型・Lint・Capability Graph／Traceability、Workbench 21／21、Portable 2,117件中2,112 Pass／5 Explicit Skip／0 Fail。是正後候補の独立確認、再署名、実Provider E2Eは継続 |
 | Repository結合・二段階Selection修正後の署名候補も初回Selectionで`workbench_ai_advice_selection_unavailable`に停止した | WorkbenchがProduction Selection契約へ渡す要求意味の接続Gapであり、同じ助言Production Closureの継続である | Phase 5へWorkbench Selection要求契約とProduction直接結合試験を追加 | Selection Grantを必要とする明示AI実行を`none`へ畳まず、`beneficial`／`explicit_user_delegation`、明示Provider／Profile、Coordinator役割、Operation chainを含む閉じた要求Objectを渡す。Mock fixtureで余分なPropertyを含めて完全比較し、Productionが生成した初回・再発行要求を実Selection Runtimeへ渡して旧Grant失効、新Grant消費およびProvider準備までを反証する | `none`のGrant不要契約、Profile選択、Repository非共有、外部送信許可およびProvider Effect Gateは変更しない。既存契約へ一意に整合するため追加判断なし | 局所35／35、型・Lint・Capability Graph／Traceability、Portable 2,117件中2,112 Pass／5 Explicit Skip／0 Fail。是正後独立確認、再署名および実Provider E2Eは継続 |
 | 署名実Provider E2Eが17件の不一致で停止した | 実Provider境界を成立させる同じProduction Closureであり、17件は独立した新Capabilityではなく、Provider境界診断の閉集合、正規Candidate Identityの利用側互換、人間受入待ちの期待値という3つの契約ずれから派生していた | Phase 5へLifecycle診断の設定・開始・終了Event分離、Candidate Identity非縮退、`integration_pending`終端のE2E期待を追加 | 既知Lifecycle Eventを違反へ誤分類せず、同じOperationへ相関する。Canonical Candidate IDをIntegration Recordまで完全保持する。Task完了・候補採用をObjective／Milestone受入へ昇格せず、人間の明示受入は別Capabilityに維持する | Docker Desktop内部socket障害との時間的相関は有力仮説として分離し、CRDD原因と断定しない。受入Authority、外部送信範囲、Provider HomeおよびDocker Recovery契約は変更しない | Source、Architecture、Qualityおよび局所契約を是正。局所33／33、Portable 2,120件中2,112 Pass／8 Explicit Skip／0 Fail、Host Windows 93／93、独立確認Finding 0。再署名および実Provider E2Eは継続 |
+| 再署名後の実Provider E2Eで正常2経路は成立したが、取消経路に2件の不一致が残った | stdio EOFは親Transport喪失による取消要求であり、取消完了ではない。Productionは終了観測不能を`blocked / unknown`とexact Runtime Process Recovery義務へ閉じたが、検証Oracleだけが即時`cancelled / settled`を要求していた | Phase 5の検証OracleとE2E所有fixture清掃を改訂 | 取消要求、Provider／Process終了、結果、cleanupを分離し、不明時は一意なRecovery義務と最終Inventory cleanを必須にする。E2Eが所有する既知fixture変更だけを開始前内容へ戻す | 公開MCPへ新しい取消Toolを追加せず、Transport喪失、取消要求、取消完了およびRecoveryを混同しない。Productionの保守的な停止契約を弱めない | 静的検査一式、Portable 2,120件中2,112 Pass／8 Explicit Skip／0 Fail、Host Windows 10／10、局所System 30／30、独立確認Finding 0。再署名実Provider E2Eおよび四経路E2Eは継続 |
 
 ### 途中見直しの記録
 

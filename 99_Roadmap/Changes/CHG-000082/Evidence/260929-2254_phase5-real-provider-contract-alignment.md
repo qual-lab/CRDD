@@ -67,6 +67,36 @@ Sandbox内の2件を実装失敗へ畳まず、実環境PassをHost限定Evidenc
 
 確認は現在候補を対象に別Passとして実施した。試験Passを意味妥当性の代替にせず、受入Authority、外部送信範囲、Provider HomeおよびDocker Recovery契約を変更していないことを確認した。
 
+## 再署名後の実Provider再検証
+
+Source Commit `69126ec9e62f0cb5a60b41a85cd63d472d4566a8`、Tree `b95b34da4ed3f792b836abf1aa248ddf7016d693`からCoordinator Runtimeを再署名した。署名候補の直接起動と実Provider E2Eでは、Codex Executor／Claude ReviewerおよびClaude Executor／Codex Reviewerの2経路が、いずれも人間受入待ちまで成立した。
+
+| 項目 | 観測結果 |
+|---|---|
+| 結果契約 | `crdd-coordinator/project-runtime-real-provider-verification` revision 9 |
+| 正常経路 | 2件中2件で`project_runtime_acceptance_decision_required`、`integration_pending`を観測 |
+| 残った不一致 | `cancellation_provider_boundary_mismatch`、`cancellation_semantic_result`の2件 |
+| 取消要求直後 | `blocked`、`effectState: unknown`、`cleanupConfirmed: false`、`manualRecoveryRequired: true` |
+| Recovery | exactな`runtime-process.*.restart-*`と`runtime_process`義務を返却 |
+| 最終Recovery Inventory | `completed / docker_task_runtime_state_clean` |
+| 正本Repository | 取消経路および親喪失回復経路では変更なし |
+
+残った2件はProductionの取消実装欠落ではなく、検証Oracleがstdio EOFを「親Transport喪失による取消要求」ではなく「取消完了」と扱った不整合だった。Architecture、SPEC-000028および`PRL-ST-003`は、取消要求、Provider／Process終了、結果およびcleanupを別々に観測し、終了を確認できない場合は不明状態とexact Recovery Identityを保持することを要求している。Productionはこの契約どおり保守的に停止した。
+
+検証Oracle候補を次へ修正した。
+
+- stdio EOF後はProvider境界の設定診断だけを要求し、未観測のsettled診断を捏造しない。
+- 即時`cancelled`を要求せず、`blocked / unknown`、cleanup未確認、手動回復要求、Process再起動要求および一意なRuntime Process Recovery義務を必須にする。
+- 実行全体の終了時にDocker Task Recovery Inventoryがcleanへ収束していなければ完了にしない。
+- 結果へ取消理由、exact Recovery義務の観測および最終Inventory収束を明示する。
+- 実Provider E2Eが採用確認用fixtureへ行った既知変更は終了時に開始前内容へ戻し、未知内容を上書きしない。
+
+修正候補では、静的検査一式、Portable全回帰2,120件中2,112 Pass／8 Explicit Skip／0 Fail、Host Windows 10／10および局所System 30／30がPassした。
+
+独立確認では、Recovery ID集合に正しい値と不正な余分値が混在した場合の拒否、およびfixture書戻しを確認できない場合の停止が不足している2件を検出した。前者は閉じた理由、一意なRecovery ID、一意かつ余分なPropertyを持たない`runtime_process`義務へ厳格化した。後者は同じFile実体をDescriptorで確認し、既知の`FINAL`だけを書き戻して同期し、終了後に同じ実体と`BASE`内容を再確認するFail Closed処理へ変更した。反証試験追加後に静的検査一式と局所System 30／30を再実行し、Finding 0を確認した。
+
+再署名後の同じ実Provider E2Eおよび四経路E2Eは未実施であるため、この追記だけでPhase 5完了を主張しない。
+
 ## 残るGate
 
 - Source Commitを固定し、同じTreeからCoordinator Runtimeを再署名する。

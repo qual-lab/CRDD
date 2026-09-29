@@ -36,6 +36,63 @@ const BASE = "CRDD_PROJECT_RUNTIME_BASE\n";
 const FINAL = "CRDD_PROJECT_RUNTIME_REAL_PROVIDER_OK\n";
 const MAXIMUM_OUTPUT_BYTES = 4 * 1024 * 1024;
 const PROCESS_TIMEOUT_MS = 45 * 60_000;
+let verifiedRepositoryRootForFixtureCleanup: string | null = null;
+
+/**
+ * 実Provider E2Eが所有する採用確認fixtureだけを開始前内容へ戻す。
+ *
+ * @responsibility 正本Repositoryへ残る試験副作用を、開始時に確認した既知内容へ限定して解消する。
+ * @trace ARCH-000004
+ * @input N/A: mainが検証済みRepository Rootを設定する。
+ * @returns N/A: 戻り値を返さない。
+ * @precondition 対象Fileは開始時にBASEと一致していた。
+ * @postcondition E2Eが生成したFINALだけをBASEへ戻し、それ以外の内容は変更しない。
+ * @effect E2E所有fixture一件を条件付きで書き戻す。
+ * @failure Fileが存在しない、同一実体として確認できない、読取不能または既知内容以外なら失敗として停止する。
+ * @invariant Cancellation fixtureおよび利用者が変更した未知内容を上書きしない。
+ * @boundary 実Provider E2E Processと正本Repositoryの試験fixture境界。
+ * @security Secret、Provider出力またはRepository外Pathを扱わない。
+ * @concurrency 同じE2E Processが所有する終了処理から一度だけ呼び出す。
+ */
+function restoreOwnedAdoptionFixture(): void {
+  if (verifiedRepositoryRootForFixtureCleanup === null) return;
+  const markerPath = path.join(
+    verifiedRepositoryRootForFixtureCleanup,
+    ...MARKER.split("/"),
+  );
+  const before = fs.lstatSync(markerPath);
+  if (!before.isFile() || before.isSymbolicLink())
+    throw new Error("project_runtime_verification_fixture_invalid");
+  const descriptor = fs.openSync(markerPath, "r+");
+  try {
+    const opened = fs.fstatSync(descriptor);
+    if (opened.dev !== before.dev || opened.ino !== before.ino)
+      throw new Error("project_runtime_verification_fixture_changed");
+    const bytes = Buffer.alloc(opened.size);
+    if (fs.readSync(descriptor, bytes, 0, bytes.length, 0) !== bytes.length)
+      throw new Error("project_runtime_verification_fixture_read_incomplete");
+    const current = bytes.toString("utf8");
+    if (current !== BASE && current !== FINAL)
+      throw new Error("project_runtime_verification_fixture_content_unknown");
+    if (current === FINAL) {
+      fs.ftruncateSync(descriptor, 0);
+      if (fs.writeSync(descriptor, BASE, 0, "utf8") !== Buffer.byteLength(BASE))
+        throw new Error(
+          "project_runtime_verification_fixture_write_incomplete",
+        );
+      fs.fsyncSync(descriptor);
+    }
+  } finally {
+    fs.closeSync(descriptor);
+  }
+  const after = fs.lstatSync(markerPath);
+  if (
+    after.dev !== before.dev ||
+    after.ino !== before.ino ||
+    fs.readFileSync(markerPath, "utf8") !== BASE
+  )
+    throw new Error("project_runtime_verification_fixture_cleanup_unconfirmed");
+}
 
 /**
  * Directoryを安定Identityへ変換する。
@@ -194,6 +251,7 @@ async function main() {
       fs.readFileSync(path.join(repositoryRoot, ...marker.split("/")), "utf8"),
       BASE,
     );
+  verifiedRepositoryRootForFixtureCleanup = repositoryRoot;
 
   const verifiedRuntimeRoot = verifyRepositoryRoot(repositoryRoot);
   const runtimePaths =
@@ -511,7 +569,7 @@ try {
   fs.mkdirSync(verificationRoot, { recursive: true, mode: 0o700 });
   const report = Object.freeze({
     contract: "crdd-coordinator/project-runtime-real-provider-verification",
-    contractRevision: 9,
+    contractRevision: 10,
     status: "blocked",
     reason: "project_runtime_public_mcp_verification_incomplete",
     problems: Object.freeze(["verification_exception"]),
@@ -542,4 +600,6 @@ try {
   );
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
   process.exitCode = 2;
+} finally {
+  restoreOwnedAdoptionFixture();
 }

@@ -1302,7 +1302,10 @@ export function buildProjectRuntimeRealProviderReport(
       problems.push(`normal_${index + 1}_provider_boundary_mismatch`);
   });
   processProblems("cancellation", input.cancellation);
-  if (!providerBoundaryDiagnosticsMatch(input.cancellation, true))
+  // stdin EOF is a parent-transport loss cancellation request. The provider
+  // boundary may remain unsettled until the exact recovery obligation is
+  // processed by a later runtime entry.
+  if (!providerBoundaryDiagnosticsMatch(input.cancellation, false))
     problems.push("cancellation_provider_boundary_mismatch");
   processProblems("recovery_reentry", input.recoverySettlement.reentry);
   if (
@@ -1406,24 +1409,46 @@ export function buildProjectRuntimeRealProviderReport(
     problems.push("cancellation_before_provider_process_start");
   if (!input.cancellation.inputEofIssued)
     problems.push("cancellation_eof_not_issued");
+  const cancellationRecoveryIds = Array.isArray(cancellationResult?.recoveryIds)
+    ? cancellationResult.recoveryIds.filter(
+        (value): value is string =>
+          typeof value === "string" &&
+          /^runtime-process\.[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.restart-[0-9a-f]{40}$/u.test(
+            value,
+          ),
+      )
+    : [];
+  const cancellationRecoveryObligations = Array.isArray(
+    cancellationResult?.recoveryObligations,
+  )
+    ? cancellationResult.recoveryObligations
+    : [];
+  const exactCancellationRecoveryObligationObserved =
+    Array.isArray(cancellationResult?.recoveryIds) &&
+    cancellationResult.recoveryIds.length === 1 &&
+    cancellationRecoveryIds.length === 1 &&
+    cancellationRecoveryObligations.length === 1 &&
+    cancellationRecoveryObligations.every((value) => {
+      if (!value || typeof value !== "object") return false;
+      const obligation = value as JsonRecord;
+      return (
+        Object.keys(obligation).length === 2 &&
+        obligation.kind === "runtime_process" &&
+        obligation.recoveryId === cancellationRecoveryIds[0]
+      );
+    });
   if (
-    cancellationResult?.status !== "cancelled" ||
-    cancellationResult.reason !== "project_runtime_operation_cancelled" ||
+    cancellationResult?.status !== "blocked" ||
+    cancellationResult.reason !==
+      "coordinator_task_cancellation_protocol_failed_cleanup_unknown" ||
     cancellationResult.requestId !== input.cancellationExpected.requestId ||
     cancellationResult.projectId !== input.cancellationExpected.projectId ||
     cancellationResult.milestoneId !== input.cancellationExpected.milestoneId ||
-    !cancellationResult.projection ||
-    typeof cancellationResult.projection !== "object" ||
-    (cancellationResult.projection as JsonRecord).milestoneState !==
-      "cancelled" ||
-    cancellationResult.cleanupConfirmed !== true ||
-    cancellationResult.manualRecoveryRequired !== false ||
-    cancellationResult.processRestartRequired !== false ||
-    cancellationResult.effectState !== "settled" ||
-    !Array.isArray(cancellationResult.recoveryIds) ||
-    cancellationResult.recoveryIds.length !== 0 ||
-    !Array.isArray(cancellationResult.recoveryObligations) ||
-    cancellationResult.recoveryObligations.length !== 0
+    cancellationResult.cleanupConfirmed !== false ||
+    cancellationResult.manualRecoveryRequired !== true ||
+    cancellationResult.processRestartRequired !== true ||
+    cancellationResult.effectState !== "unknown" ||
+    !exactCancellationRecoveryObligationObserved
   )
     problems.push("cancellation_semantic_result");
   const expectedCancellationEvents = [
@@ -1693,7 +1718,7 @@ export function buildProjectRuntimeRealProviderReport(
     input.dockerRecovery.manualRecoveryRequired === false;
   return Object.freeze({
     contract: "crdd-coordinator/project-runtime-real-provider-verification",
-    contractRevision: 9,
+    contractRevision: 10,
     status: isCompleted ? "completed" : "blocked",
     reason: isCompleted
       ? "project_runtime_public_mcp_real_providers_cancellation_and_recovery_verified"
@@ -1766,6 +1791,7 @@ export function buildProjectRuntimeRealProviderReport(
         input.cancellation.processStartEventObserved,
       parentEofIssued: input.cancellation.inputEofIssued,
       semanticStatus: cancellationResult?.status ?? null,
+      semanticReason: cancellationResult?.reason ?? null,
       cleanupConfirmed: cancellationResult?.cleanupConfirmed ?? null,
       manualRecoveryRequired:
         cancellationResult?.manualRecoveryRequired ?? null,
@@ -1774,6 +1800,12 @@ export function buildProjectRuntimeRealProviderReport(
       effectState: cancellationResult?.effectState ?? null,
       recoveryIds: cancellationResult?.recoveryIds ?? null,
       recoveryObligations: cancellationResult?.recoveryObligations ?? null,
+      exactRecoveryObligationObserved:
+        exactCancellationRecoveryObligationObserved,
+      recoveryInventoryCleanAfterRun:
+        input.dockerRecovery.status === "completed" &&
+        input.dockerRecovery.reason === "docker_task_runtime_state_clean" &&
+        input.dockerRecovery.manualRecoveryRequired === false,
       childJoined: input.cancellation.joined,
       canonicalRepositoryChanged: isCanonicalRepositoryChanged,
       snapshotBeforeSha256: input.cancellationSnapshotBefore.sha256,

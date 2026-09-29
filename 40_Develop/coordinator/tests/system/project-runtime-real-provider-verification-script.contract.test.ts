@@ -184,6 +184,21 @@ const semantic = (
     },
   },
 });
+const runtimeProcessRecoveryId =
+  "runtime-process.6d7cc28e-2bdf-4c1a-8714-396a4a1db5a3.restart-7fb909b959f2101c318473bf51b0c388e0fb75bf";
+const interruptedCancellationSemantic = (id: string) =>
+  semantic("blocked", id, {
+    reason: "coordinator_task_cancellation_protocol_failed_cleanup_unknown",
+    projection: null,
+    cleanupConfirmed: false,
+    manualRecoveryRequired: true,
+    processRestartRequired: true,
+    recoveryIds: [runtimeProcessRecoveryId],
+    recoveryObligations: [
+      { kind: "runtime_process", recoveryId: runtimeProcessRecoveryId },
+    ],
+    effectState: "unknown",
+  });
 const observation = (
   responses: readonly unknown[],
   overrides: Partial<PublicProcessObservation> = {},
@@ -465,7 +480,7 @@ const buildInput = (overrides: Record<string, unknown> = {}) =>
       normalRun("objective-2", "claude", "codex", true),
     ],
     cancellation: observation(
-      [semantic("cancelled", "objective-cancellation")],
+      [interruptedCancellationSemantic("objective-cancellation")],
       {
         selectionEvents: [{ taskRole: "executor", provider: "claude" }],
         processStartEvents: [
@@ -481,6 +496,20 @@ const buildInput = (overrides: Record<string, unknown> = {}) =>
           provider: "claude",
           operationId: "OP-300001",
         },
+        providerBoundaryEvents: [
+          {
+            event: "coordinator_provider_boundary_configured",
+            taskRole: "executor",
+            provider: "claude",
+            operationId: "OP-300001",
+            approvalModeConfigured: "never",
+            sandboxModeConfigured: "read_only",
+            workspaceMountModeConfigured: "read_only",
+            rootFilesystemReadOnlyConfigured: true,
+            nonRootUserConfigured: true,
+            workdirConfigured: true,
+          },
+        ],
       },
     ),
     cancellationRequestedAfterProcessStart: true,
@@ -545,6 +574,51 @@ test("全観測が相関した場合だけ公開Process E2Eをcompletedにする
   assert.equal(result.publicMcpProcess.actualChildProcess, true);
   assert.equal(result.dockerRecoveryAfterRun.recoverySettlementExercised, true);
   assert.notDeepEqual(result.sourceIdentity, result.distributionIdentity);
+});
+
+/**
+ * 取消Recovery義務の余分値と理由差を完了へ昇格しないことを検証する。
+ *
+ * @responsibility 親Transport喪失後の取消結果を、閉じた理由と一意なRuntime Process Recovery義務へ限定する。
+ * @trace PRL-ST-003
+ * @precondition 正常な取消観測を基準に、理由またはRecovery集合だけを変更する。
+ * @stimulus buildProjectRuntimeRealProviderReportへ変更済み取消観測を渡す。
+ * @observation 結果状態とcancellation_semantic_result問題を観測する。
+ * @oracle 全caseがblockedとなり、意味不一致を明示する。
+ * @cleanup N/A: ProcessまたはFilesystem資源を作成しない。
+ * @boundary PRL-ST-003=Direct Boundary: 取消結果契約→実Provider E2E Oracle
+ */
+test("取消Recovery義務の余分値と理由差を完了へ昇格しない", () => {
+  const base = buildInput();
+  const valid = interruptedCancellationSemantic("objective-cancellation");
+  const validContent = valid.result.structuredContent;
+  const cases = [
+    { ...validContent, reason: "different_reason" },
+    {
+      ...validContent,
+      recoveryIds: [runtimeProcessRecoveryId, "invalid-recovery"],
+    },
+    {
+      ...validContent,
+      recoveryObligations: [
+        {
+          kind: "runtime_process",
+          recoveryId: runtimeProcessRecoveryId,
+          extra: true,
+        },
+      ],
+    },
+  ];
+  for (const structuredContent of cases) {
+    const result = build({
+      cancellation: {
+        ...base.cancellation,
+        responses: [{ ...valid, result: { structuredContent } }],
+      },
+    });
+    assert.equal(result.status, "blocked");
+    assert.ok(result.problems.includes("cancellation_semantic_result"));
+  }
 });
 
 /**

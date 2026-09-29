@@ -84,27 +84,36 @@ process.stdin.on("data", (chunk) => {
     const request = JSON.parse(received.split(/\r?\n/u)[0] ?? "");
     const id = mode === "wrong-id" ? "wrong" : request.id;
     const isCancelled = mode === "cancelled";
+    const runtimeProcessRecoveryId =
+      "runtime-process.6d7cc28e-2bdf-4c1a-8714-396a4a1db5a3.restart-7fb909b959f2101c318473bf51b0c388e0fb75bf";
     const responseLine = `${JSON.stringify({
       jsonrpc: "2.0",
       id,
       result: {
         structuredContent: {
-          status: isCancelled ? "cancelled" : "blocked",
+          status: "blocked",
           reason: isCancelled
-            ? "project_runtime_operation_cancelled"
+            ? "coordinator_task_cancellation_protocol_failed_cleanup_unknown"
             : "project_runtime_acceptance_decision_required",
           contract: "crdd-coordinator/project-runtime-objective-intake/v1",
           requestId: "request-a",
           projectId: "project-a",
           milestoneId: "milestone-a",
           queueId: "queue-a",
-          projection: projection(isCancelled),
-          cleanupConfirmed: true,
-          manualRecoveryRequired: false,
-          processRestartRequired: false,
-          recoveryIds: [],
-          recoveryObligations: [],
-          effectState: "settled",
+          projection: isCancelled ? null : projection(false),
+          cleanupConfirmed: !isCancelled,
+          manualRecoveryRequired: isCancelled,
+          processRestartRequired: isCancelled,
+          recoveryIds: isCancelled ? [runtimeProcessRecoveryId] : [],
+          recoveryObligations: isCancelled
+            ? [
+                {
+                  kind: "runtime_process",
+                  recoveryId: runtimeProcessRecoveryId,
+                },
+              ]
+            : [],
+          effectState: isCancelled ? "unknown" : "settled",
         },
       },
     })}\n`;
@@ -169,9 +178,10 @@ process.stdin.on("data", (chunk) => {
       setInterval(() => {}, 1000);
       return;
     }
-    process.stderr.write(
-      `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_boundary_settled", taskRole: "executor", provider, operationId, providerContainerCreatedObserved: true, providerProcessStartedObserved: true, providerProcessCompletionObserved: true, providerProcessExitStatusClass: "zero", processTreeTerminationObserved: isCancelled, containersAbsentObserved: true, networksAbsentObserved: true, cleanupConfirmed: true })}\n`,
-    );
+    if (!isCancelled)
+      process.stderr.write(
+        `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_boundary_settled", taskRole: "executor", provider, operationId, providerContainerCreatedObserved: true, providerProcessStartedObserved: true, providerProcessCompletionObserved: true, providerProcessExitStatusClass: "zero", processTreeTerminationObserved: false, containersAbsentObserved: true, networksAbsentObserved: true, cleanupConfirmed: true })}\n`,
+      );
     if (mode === "recovery-events") {
       const recoveryId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
       for (const [index, phase] of [

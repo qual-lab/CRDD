@@ -2709,8 +2709,14 @@ const exactAuditedFunctionFlows = Object.freeze(
     [
       "verification_tool",
       "scripts/verify-project-runtime-real-providers.ts",
+      "restoreOwnedAdoptionFixture",
+      "51034c5567fb23832dae6a17a55ec63d4413d55180d423a9a1baab78b906fca9",
+    ],
+    [
+      "verification_tool",
+      "scripts/verify-project-runtime-real-providers.ts",
       "main",
-      "5f42ec998ea0143a97d29cd3087cf1e71bf085588aa9ef6f2ba29d6292976fd2",
+      "cf28f582026fd889954a9951d7676399d963c238302fa2da513ac2b3e4c4eab4",
     ],
   ].map(
     ([graph, source, functionName, bodySha256]) =>
@@ -2814,8 +2820,12 @@ const exactAuditedSemanticGraphSha256 = Object.freeze(
       "10c60bf189c32bdc5d9e5202f945f6ed5b9d2475d26eac9a54bcf63a96c1a2a0",
     ],
     [
+      "scripts/verify-project-runtime-real-providers.ts\0restoreOwnedAdoptionFixture",
+      "1f73ee609e23e807ec6698a49f823f4c0a73f6480339cc646aa397f08ef9e3fd",
+    ],
+    [
       "scripts/verify-project-runtime-real-providers.ts\0main",
-      "8580c037efc3dcc61d56a696993a9abc97f0a80ea6c28177425909bb7aebda10",
+      "17164723373b548f6fa0c7bc4608dbe1ac5e85d86e17adaacc07d7ac7c1f6913",
     ],
   ]),
 );
