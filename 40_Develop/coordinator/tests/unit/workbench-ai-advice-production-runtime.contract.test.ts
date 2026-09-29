@@ -20,6 +20,7 @@ import {
   createIsolatedWorkbenchAiAdviceRuntimeCandidate,
   type WorkbenchAiAdviceRuntimeDependencies,
 } from "../../src/security/workbench-ai-advice-production-runtime.ts";
+import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../src/security/delegation-selection-grant-runtime.ts";
 
 const profile = resolveAiProfileById(
   DEFAULT_AI_PROFILE_CATALOG,
@@ -60,6 +61,7 @@ function fixture(
   overrides: Partial<WorkbenchAiAdviceRuntimeDependencies> = {},
   options: Readonly<{
     mountReobservationUnavailable?: boolean;
+    realSelectionRuntime?: boolean;
     selectionRefreshRevokeFailure?: boolean;
     selectionRefreshUnavailable?: boolean;
     selectionRefreshMismatch?: boolean;
@@ -86,6 +88,48 @@ function fixture(
     mountGrantConsumed: false,
     selectionIssueCount: 0,
   };
+  let selectionRandomValue = 0;
+  const selectionRuntime =
+    createIsolatedDelegationSelectionGrantRuntimeCandidate({
+      verifyOperation: (candidate: unknown) => {
+        assert.equal(candidate, managementCapability);
+        return Object.freeze({
+          operationId: "OP-123456",
+          createdAt: "2026-09-29T00:00:00.000Z",
+        });
+      },
+      observeProviderEligibility: () =>
+        Object.freeze([
+          Object.freeze({
+            provider: "codex",
+            status: "eligible",
+            reason: "ready",
+          }),
+          Object.freeze({
+            provider: "claude",
+            status: "eligible",
+            reason: "ready",
+          }),
+        ]),
+      resolveModelProfile: (request) =>
+        Object.freeze({
+          provider: request.provider,
+          profileId: request.profileId ?? plan.profileId,
+          exactModelId: plan.exactModelId,
+          family: request.family,
+          selectionRole: request.role,
+          modelTier: request.modelTier,
+          speedMode: "normal",
+          billingMode: "subscription_oauth",
+          compatibilityReason: null,
+        }),
+      wallNow: () => 1_000,
+      monotonicNow: () => 2_000,
+      randomBytes: (size: number) => {
+        selectionRandomValue += 1;
+        return Buffer.alloc(size, selectionRandomValue);
+      },
+    });
   const adviceJson = JSON.stringify({
     contract: "crdd-coordinator/workbench-ai-advice-result",
     contractRevision: 1,
@@ -168,10 +212,32 @@ function fixture(
     issueSelection: (_capability: unknown, request: unknown) => {
       calls.push("issue-selection");
       const record = request as Readonly<Record<string, unknown>>;
-      assert.equal(record.requestedProfileId, plan.profileId);
-      assert.equal(record.operationId, "OP-123456");
+      assert.deepEqual(record, {
+        frontProvider: plan.provider,
+        delegationNeed: "beneficial",
+        delegationReason: "explicit_user_delegation",
+        requestedExecutorProvider: plan.provider,
+        requestedProfileId: plan.profileId,
+        subjectProvider: null,
+        requiresIndependentProvider: false,
+        role: "coordinator",
+        workClass: "diagnosis",
+        planState: "complete",
+        risk: "low",
+        difficulty: "medium",
+        decisionImpact: "material",
+        isLocalCandidateOnly: false,
+        hasUnresolvedDirection: false,
+        requiresCrossContextAlignment: true,
+        operationId: "OP-123456",
+        parentOperationId: null,
+        ancestorOperationIds: [],
+        delegationDepth: 0,
+      });
       const index = runtimeObservation.selectionIssueCount;
       runtimeObservation.selectionIssueCount += 1;
+      if (options.realSelectionRuntime === true)
+        return selectionRuntime.issue(_capability, request);
       return Object.freeze({
         status: "issued" as const,
         controlCapability: selectionControls[index],
@@ -190,13 +256,15 @@ function fixture(
             : "workbench-advice-fixed-selection",
       });
     },
-    revokeSelection: () => {
+    revokeSelection: (controlCapability: unknown, capability: unknown) => {
       calls.push("revoke-selection");
       if (
         runtimeObservation.selectionIssueCount === 1 &&
         options.selectionRefreshRevokeFailure === true
       )
         return Object.freeze({ status: "blocked" as const });
+      if (options.realSelectionRuntime === true)
+        return selectionRuntime.revoke(controlCapability, capability);
       return Object.freeze({ status: "revoked" as const });
     },
     issuePacket: (input: Readonly<Record<string, unknown>>) => {
@@ -210,11 +278,26 @@ function fixture(
       });
     },
     revokePacket: () => true,
-    prepareCodex: () =>
-      Object.freeze({
+    prepareCodex: (
+      capability: unknown,
+      _mountCapability: unknown,
+      _mountAuthorization: unknown,
+      selectionUseCapability: unknown,
+    ) => {
+      if (options.realSelectionRuntime === true) {
+        const consumedSelection = selectionRuntime.consume(
+          selectionUseCapability,
+          capability,
+        );
+        assert.ok(consumedSelection);
+        assert.equal(consumedSelection.executorProvider, plan.provider);
+        assert.equal(consumedSelection.profileId, plan.profileId);
+      }
+      return Object.freeze({
         status: "prepared" as const,
         preparedCapability,
-      }),
+      });
+    },
     prepareClaude: () =>
       Object.freeze({
         status: "prepared" as const,
@@ -331,6 +414,37 @@ test("署名確認からHost／Docker cleanup完了後にだけ助言JSONを返�
     "record-docker-host-cleanup",
     "finalize-docker-recovery",
   ]);
+});
+
+/**
+ * Production要求を実Selection Runtimeへ直接接続できることを検証する。
+ *
+ * @responsibility Workbenchが生成した初回・再発行Selection要求を実Selection Runtimeへ渡し、Grantの発行・失効・消費まで同じLifecycleで成立することの合否判定を所有する。
+ * @trace ERB-UT-023
+ * @precondition Workbench Production Runtimeの他境界は決定論的fixtureとし、Selection境界だけを実Runtimeへ接続する。
+ * @stimulus 明示Codex Profileを持つWorkbench助言を実行する。
+ * @observation Production要求、Selection発行回数、旧Grant失効、再発行Grant消費およびProvider Effectを観測する。
+ * @oracle 初回と再発行の2 Grantが実Runtimeから発行され、旧Grantは失効し、新GrantはProvider準備で一回だけ消費されて助言が完了する。
+ * @cleanup Workbench LifecycleがOperationとProvider資源を清掃し、Selection Authorityは失効または消費済みになる。
+ * @boundary ERB-UT-023=Direct Boundary: Workbench Production Runtime→Delegation Selection Grant Runtime→Provider準備
+ */
+test("Production要求を実Selection Runtimeへ直接接続できる", async () => {
+  const current = fixture({}, { realSelectionRuntime: true });
+  const result = await createIsolatedWorkbenchAiAdviceRuntimeCandidate(
+    current.dependencies,
+  ).run(plan, new AbortController().signal, Object.freeze({}));
+  assert.deepEqual(result, {
+    status: "completed",
+    reason: null,
+    adviceJson: current.adviceJson,
+    providerEffectIssued: true,
+    cleanupConfirmed: true,
+  });
+  assert.equal(current.runtimeObservation.selectionIssueCount, 2);
+  assert.equal(
+    current.calls.filter((call) => call === "revoke-selection").length,
+    1,
+  );
 });
 
 /**

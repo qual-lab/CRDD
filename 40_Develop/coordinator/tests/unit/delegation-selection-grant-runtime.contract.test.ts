@@ -315,6 +315,48 @@ test("Front Agent retained結果へSelection Grantを発行しない", () => {
 });
 
 /**
+ * Workbenchの明示AI選択をCoordinator Selection Grantへ固定できることを検証する。
+ *
+ * @responsibility Workbench助言がProduction Selection契約と同じ要求を使い、明示Provider／Profileへ結合したGrantを取得できることの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureとWorkbench助言相当の入力を使用する。
+ * @stimulus beneficialかつexplicit_user_delegationのCoordinator Selectionを発行する。
+ * @observation 発行状態、Provider、Profileおよび一回限りCapabilityを観測する。
+ * @oracle 明示したProvider／Profileへ一致するSelection Grantが発行される。
+ * @cleanup 発行したGrantをcontrol Capabilityで失効する。
+ * @boundary PRL-UT-006=Direct Boundary: Workbench助言要求→Selection Grant Runtime
+ */
+test("Workbenchの明示AI選択をCoordinator Selection Grantへ固定できる", () => {
+  const fixture = createFixture();
+  const issued = fixture.runtime.issue(
+    fixture.managementCapability,
+    createRequest({
+      delegationNeed: "beneficial",
+      delegationReason: "explicit_user_delegation",
+      requestedExecutorProvider: "codex",
+      requestedProfileId: "PROFILE-100001",
+      role: "coordinator",
+      workClass: "diagnosis",
+      risk: "low",
+      difficulty: "medium",
+      decisionImpact: "material",
+      isLocalCandidateOnly: false,
+      requiresCrossContextAlignment: true,
+    }),
+  );
+  assert.equal(issued.status, "issued");
+  assert.equal(issued.executorProvider, "codex");
+  assert.equal(issued.profileId, "PROFILE-100001");
+  assert.equal(
+    fixture.runtime.revoke(
+      issued.controlCapability,
+      fixture.managementCapability,
+    ).status,
+    "revoked",
+  );
+});
+
+/**
  * 再選定はreplacement検証後にだけ旧Grantを失効するを検証する。
  *
  * @responsibility 再選定はreplacement検証後にだけ旧Grantを失効するの合否判定を所有する。

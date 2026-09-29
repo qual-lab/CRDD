@@ -15,7 +15,7 @@
 | 観測済み | 11 / 39 | v0.22移管範囲のうち、Production Workbenchの実Browser Visual GateまでEvidenceへ接続済み |
 | 未観測 | 28 / 39 | 局所試験またはRelationだけで観測済みへ変更しない |
 | 既知Gap | Phase 5 Release Verification進行中 | Shared Server境界、Workbench Visual、AI画面、Node依存閉包およびCatalog Revision 0の局所反証は成立した。現在候補の再署名、署名候補の直接起動、Codex／Claude実Provider E2Eおよび同一Release Identityでの必要な四経路E2Eは未実施 |
-| 次Gate | 現在候補のCommit、再署名、新Manifest存在下の署名拒否試験、署名候補直接起動、実Provider／四経路E2E | [CHG-000082](../99_Roadmap/Changes/CHG-000082/change.md) |
+| 次Gate | Commit、再署名、新Manifest存在下の署名拒否試験、署名候補直接起動、実Provider／四経路E2E | [CHG-000082](../99_Roadmap/Changes/CHG-000082/change.md) |
 | 現在人間判断 | N/A: 現在の実装・検証継続を止める判断事項はない | 新しいRisk受容または対象範囲変更が生じた場合だけ再提示する |
 
 ## 設計集合
@@ -46,9 +46,9 @@ Quality設計は13定義、169 Local Itemまで拡張した。Test Symbol Relati
 |---|---|---|
 | Designed | Canonical | 実装済みまたは試験可能とは主張しない |
 | Implemented | 部分照合 | 未実装CapabilityをRelation追加だけで成立へ変えない |
-| Executed | v0.22現在候補の局所確認、Portable回帰および独立確認を実行済み／署名実境界は未完了 | Coordinator Portableは2,115件中2,106 Pass・明示Skip 8・未成立1、Authority cleanup是正後のWorkbench助言Runtime局所試験は8／8 Pass、Workbenchは21／21 Pass、Checkerは375／375 Pass。未成立1件は旧Manifest削除後かつ新Source Commit／新Manifest未確定の署名拒否fixture前提であり、Passへ算入しない。追加したAuthority cleanup反証、Selection対象試験とPackage Capability利用側閉包はPassし、これ以外の新規失敗はない。独立レビュー・文書監査・Gap影響監査はFinding 0である。v0.21の署名Recovery Matrixと4経路E2Eは履歴Baselineであり、v0.22現在候補の成立根拠へ流用しない |
-| Passed | 局所確認および独立確認はPass／Portable全体とQuality Readyは未成立 | 独立レビュー・文書監査・Gap影響監査はFinding 0。Portableで未成立の署名fixture 1件は新Manifest存在下での再実行が必要である。現在候補のCommit、再署名、新Manifest存在下の署名拒否試験、直接起動、Codex／Claude実Provider E2Eおよび必要な四経路E2Eは未実施。履歴Baselineのv0.21 Source A、carrier BおよびRuntime Execution Identityをv0.22候補へ読み替えない |
-| Evidence | 現在候補の局所確認と直前Portable回帰Evidenceを収集済み／Release Verification Evidenceは未収集 | [Phase 5 Workbench Repository結合とSelection更新](../99_Roadmap/Changes/CHG-000082/Evidence/260929-1305_phase5-workbench-selection-binding.md)に現在候補の原因、局所反証、直前Portable回帰および未完了Gateを保存した。未成立1件は新Source Commit確定・再署名後、新Manifest存在下で再実行する。[Phase 5 純粋CSR Runtime閉包検証](../99_Roadmap/Changes/CHG-000082/Evidence/260928-2354_phase5-pure-csr-runtime-closure.md)と[Phase 5 署名CSR配布閉包](../99_Roadmap/Changes/CHG-000082/Evidence/260929-0025_phase5-signed-csr-distribution-closure.md)は前候補の履歴であり、現在候補の全体Passへ流用しない |
+| Executed | v0.22現在候補の局所確認、Portable回帰および更新候補の三独立確認を実行済み／署名実境界は未完了 | Coordinator Portableは2,117件中2,112 Pass・明示Skip 5・Fail 0、Production Selection対象試験は35／35 Pass、Workbenchは21／21 Pass、Checkerは375／375 Pass。独立レビュー・文書監査・Gap影響監査はFinding 0。旧Manifest削除後に前提不成立となっていた署名拒否fixtureも現在のManifestでPassした。v0.21の署名Recovery Matrixと4経路E2Eは履歴Baselineであり、v0.22現在候補の成立根拠へ流用しない |
+| Passed | 局所確認、Portable全体および更新候補の三独立確認はPass／Quality Readyは未成立 | 5件のSkipはHostまたは人間入力を必要とする明示的な条件付き実行である。Commit、再署名、署名拒否試験、直接起動、Codex／Claude実Provider E2Eおよび必要な四経路E2Eは未実施。履歴Baselineのv0.21 Source A、carrier BおよびRuntime Execution Identityをv0.22候補へ読み替えない |
+| Evidence | 現在候補の局所確認とPortable回帰Evidenceを収集済み／Release Verification Evidenceは未収集 | [Phase 5 Workbench Production Selection契約](../99_Roadmap/Changes/CHG-000082/Evidence/260929-1428_phase5-production-selection-contract.md)に原因、要求契約の是正、局所反証およびPortable全回帰を保存した。[Phase 5 Workbench Repository結合とSelection更新](../99_Roadmap/Changes/CHG-000082/Evidence/260929-1305_phase5-workbench-selection-binding.md)以前は前候補の履歴であり、現在候補の全体Passへ流用しない |
 | Reality Audit | Pending — 現在結果固定済み／残存Evidence待ち | v0.21履歴Baselineの最終署名結果だけを`AIT-ST-010`と`ERB-IT-014`の限定範囲へ接続した。v0.22現在候補は、再署名、署名候補の直接起動、Codex／Claude実Provider E2Eおよび必要な四経路E2EのEvidence待ちである。`RCM-ST-012`、`ERB-ST-009`、`ERB-ST-011`その他の未観測義務を、v0.21の4経路成功やDocker Engine利用可能という非発火からPassへ変更しない |
 
 Coordinator／Project Runtimeの17意味Pilotに加えて全Subsystemへ照合範囲を広げた。skip、fixture自己再現および外部実境界の自己申告を観測済みから除外し、v0.21対象では108件観測済み、22件未観測である。Quality Readyへ昇格せず、PT／LTは人間の明示許可がないため実行しない。

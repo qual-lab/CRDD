@@ -648,9 +648,8 @@ function selectionRequest(
 ) {
   return Object.freeze({
     frontProvider: plan.provider,
-    delegationNeed: "none",
-    delegationReason:
-      "front_can_complete_without_specialized_or_independent_child",
+    delegationNeed: "beneficial",
+    delegationReason: "explicit_user_delegation",
     requestedExecutorProvider: plan.provider,
     requestedProfileId: plan.profileId,
     subjectProvider: null,
