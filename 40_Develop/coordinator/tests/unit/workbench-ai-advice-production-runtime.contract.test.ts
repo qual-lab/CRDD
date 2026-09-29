@@ -58,11 +58,13 @@ const plan = prepared.executionPlan;
  */
 function fixture(
   overrides: Partial<WorkbenchAiAdviceRuntimeDependencies> = {},
+  options: Readonly<{ mountReobservationUnavailable?: boolean }> = {},
 ) {
   const owned = Object.freeze({});
   const mountCapability = Object.freeze({});
   const managementCapability = Object.freeze({});
-  const observationCapability = Object.freeze({});
+  const grantObservationCapability = Object.freeze({});
+  const mountObservationCapability = Object.freeze({});
   const mountControl = Object.freeze({});
   const mountUse = Object.freeze({});
   const mountAuthorization = Object.freeze({});
@@ -74,6 +76,10 @@ function fixture(
   const processControl = Object.freeze({});
   const recoveryCapability = Object.freeze({});
   const calls: string[] = [];
+  const runtimeObservation = {
+    providerHomeCount: 0,
+    mountGrantConsumed: false,
+  };
   const adviceJson = JSON.stringify({
     contract: "crdd-coordinator/workbench-ai-advice-result",
     contractRevision: 1,
@@ -98,25 +104,59 @@ function fixture(
         hostRecoveryId: "HOST-RECOVERY",
       });
     },
-    observeProviderHome: () =>
-      Object.freeze({
+    observeProviderHome: () => {
+      calls.push("observe-provider-home");
+      if (
+        runtimeObservation.providerHomeCount === 1 &&
+        options.mountReobservationUnavailable === true
+      ) {
+        runtimeObservation.providerHomeCount += 1;
+        return Object.freeze({
+          status: "unavailable" as const,
+          provider: plan.provider,
+        });
+      }
+      const observationCapability =
+        runtimeObservation.providerHomeCount === 0
+          ? grantObservationCapability
+          : mountObservationCapability;
+      runtimeObservation.providerHomeCount += 1;
+      return Object.freeze({
         status: "candidate" as const,
         provider: plan.provider,
         observationCapability,
-      }),
-    issueMountGrant: () =>
-      Object.freeze({
+      });
+    },
+    issueMountGrant: (
+      _managementCapability: unknown,
+      observationCapability: unknown,
+    ) => {
+      assert.equal(observationCapability, grantObservationCapability);
+      return Object.freeze({
         status: "issued" as const,
         controlCapability: mountControl,
         useCapability: mountUse,
-      }),
-    consumeMountGrant: () =>
-      Object.freeze({
+      });
+    },
+    consumeMountGrant: (
+      _useCapability: unknown,
+      _managementCapability: unknown,
+      observationCapability: unknown,
+    ) => {
+      calls.push("consume-mount-grant");
+      runtimeObservation.mountGrantConsumed = true;
+      assert.equal(observationCapability, mountObservationCapability);
+      return Object.freeze({
         status: "consumed" as const,
         mountAuthorizationCapability: mountAuthorization,
-      }),
-    revokeMountGrant: () => Object.freeze({ status: "revoked" as const }),
+      });
+    },
+    revokeMountGrant: () => {
+      calls.push("revoke-mount-grant");
+      return Object.freeze({ status: "revoked" as const });
+    },
     issueSelection: (_capability: unknown, request: unknown) => {
+      calls.push("issue-selection");
       const record = request as Readonly<Record<string, unknown>>;
       assert.equal(record.requestedProfileId, plan.profileId);
       assert.equal(record.operationId, "OP-123456");
@@ -131,6 +171,7 @@ function fixture(
     },
     revokeSelection: () => Object.freeze({ status: "revoked" as const }),
     issuePacket: (input: Readonly<Record<string, unknown>>) => {
+      calls.push("issue-packet");
       assert.equal(input.taskHash, plan.taskHash);
       assert.equal(input.projectionHash, plan.projectionHash);
       return Object.freeze({
@@ -156,6 +197,7 @@ function fixture(
       register: unknown,
     ) => {
       calls.push("start-process");
+      calls.push("register-recovery");
       assert.equal(
         (register as (capability: unknown, id: string) => boolean)(
           recoveryCapability,
@@ -205,7 +247,12 @@ function fixture(
     poisonAfterCleanupUnknown: () => calls.push("poison"),
     ...overrides,
   }) as unknown as WorkbenchAiAdviceRuntimeDependencies;
-  return Object.freeze({ dependencies, calls, adviceJson });
+  return Object.freeze({
+    dependencies,
+    calls,
+    adviceJson,
+    runtimeObservation,
+  });
 }
 
 /**
@@ -240,12 +287,59 @@ test("署名確認からHost／Docker cleanup完了後にだけ助言JSONを返�
   assert.deepEqual(current.calls, [
     "consume-package",
     "create-operation",
+    "observe-provider-home",
+    "observe-provider-home",
+    "consume-mount-grant",
+    "issue-selection",
+    "issue-packet",
     "start-process",
+    "register-recovery",
     "prepare-docker-host-cleanup",
     "cleanup-operation",
     "record-docker-host-cleanup",
     "finalize-docker-recovery",
   ]);
+});
+
+/**
+ * Mount Grant発行後のfresh再観測が不成立ならProvider Effectを発行しないことを検証する。
+ *
+ * @responsibility 一回限りの観測Capabilityを再利用せず、Mount Grant消費直前の観測不能をFail Closedにする。
+ * @trace ERB-UT-023
+ * @precondition Grant発行時の観測は成立し、消費直前の再観測だけが不成立である。
+ * @stimulus Workbench助言Production Runtimeを実行する。
+ * @observation 結果理由、Grant失効・消費、Selection、Packet、Recovery、Process、Provider Effect、Operation cleanupおよびProcess poisonの件数を観測する。
+ * @oracle 再観測固有理由でblockedとなり、未消費Grant失効1、Operation cleanup 1、その他の後続Authority・Effect・poison 0になる。
+ * @cleanup Operation cleanupが完了し、Process外資源を残さない。
+ * @boundary ERB-UT-023=Direct Boundary: Provider Home観測→Mount Grant消費
+ */
+test("Mount Grant消費直前のfresh再観測が不成立ならProvider Effectを発行しない", async () => {
+  const current = fixture({}, { mountReobservationUnavailable: true });
+  const result = await createIsolatedWorkbenchAiAdviceRuntimeCandidate(
+    current.dependencies,
+  ).run(plan, new AbortController().signal, Object.freeze({}));
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "workbench_ai_advice_mount_reobservation_unavailable",
+  );
+  assert.equal(result.providerEffectIssued, false);
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(current.runtimeObservation.providerHomeCount, 2);
+  assert.equal(current.runtimeObservation.mountGrantConsumed, false);
+  assert.equal(
+    current.calls.filter((call) => call === "revoke-mount-grant").length,
+    1,
+  );
+  assert.equal(current.calls.includes("issue-selection"), false);
+  assert.equal(current.calls.includes("issue-packet"), false);
+  assert.equal(current.calls.includes("register-recovery"), false);
+  assert.equal(current.calls.includes("start-process"), false);
+  assert.equal(
+    current.calls.filter((call) => call === "cleanup-operation").length,
+    1,
+  );
+  assert.equal(current.calls.includes("poison"), false);
 });
 
 /**

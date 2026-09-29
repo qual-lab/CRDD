@@ -279,10 +279,25 @@ function createWorkbenchAiAdviceRuntime(
         throw new AdviceRuntimeError(
           "workbench_ai_advice_mount_grant_unavailable",
         );
+      const mountObservation = dependencies.observeProviderHome(
+        plan.provider,
+        new Date().toISOString(),
+      ) as RuntimeRecord;
+      const mountObservationCapability = objectValue(
+        mountObservation.observationCapability,
+      );
+      if (
+        mountObservation.status !== "candidate" ||
+        !mountObservationCapability ||
+        mountObservation.provider !== plan.provider
+      )
+        throw new AdviceRuntimeError(
+          "workbench_ai_advice_mount_reobservation_unavailable",
+        );
       const consumedMount = dependencies.consumeMountGrant(
         mountUse,
         operation.managementCapability,
-        observationCapability,
+        mountObservationCapability,
       ) as RuntimeRecord;
       const mountAuthorization = objectValue(
         consumedMount.mountAuthorizationCapability,
