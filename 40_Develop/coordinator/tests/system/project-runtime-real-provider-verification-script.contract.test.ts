@@ -133,7 +133,7 @@ const projection = (isCancelled: boolean) => ({
   nextAction: isCancelled ? "wait_for_task" : "complete",
 });
 const semantic = (
-  status: "completed" | "cancelled",
+  status: "completed" | "blocked" | "cancelled",
   id: string,
   overrides: Record<string, unknown> = {},
 ) => ({
@@ -145,13 +145,35 @@ const semantic = (
       reason:
         status === "cancelled"
           ? "project_runtime_operation_cancelled"
-          : "project_runtime_milestone_accepted",
+          : status === "blocked"
+            ? "project_runtime_acceptance_decision_required"
+            : "project_runtime_milestone_accepted",
       contract: "crdd-coordinator/project-runtime-objective-intake/v1",
       requestId: "request-a",
       projectId: "project-a",
       milestoneId: "milestone-a",
       queueId: "queue-a",
-      projection: projection(status === "cancelled"),
+      projection:
+        status === "blocked"
+          ? {
+              ...projection(false),
+              milestoneState: "executing",
+              objectiveCounts: {
+                ...projection(false).objectiveCounts,
+                integration_pending: 1,
+                accepted: 0,
+              },
+              objectiveTaskSummaries: [
+                {
+                  ...projection(false).objectiveTaskSummaries[0],
+                  objectiveState: "integration_pending",
+                },
+              ],
+              qualityState: "integration_pending",
+              humanDecisionRequired: false,
+              nextAction: "verify_objective_integration",
+            }
+          : projection(status === "cancelled"),
       cleanupConfirmed: true,
       manualRecoveryRequired: false,
       processRestartRequired: false,
@@ -193,6 +215,36 @@ const observation = (
         ...(started ? [{ event: "process_started" as const, ...started }] : []),
       ];
     });
+  const providerBoundaryEvents =
+    overrides.providerBoundaryEvents ??
+    processStartEvents.flatMap((event) => [
+      {
+        event: "coordinator_provider_boundary_configured" as const,
+        taskRole: event.taskRole,
+        provider: event.provider,
+        operationId: event.operationId,
+        approvalModeConfigured: "never" as const,
+        sandboxModeConfigured: "read_only" as const,
+        workspaceMountModeConfigured: "read_only" as const,
+        rootFilesystemReadOnlyConfigured: true,
+        nonRootUserConfigured: true,
+        workdirConfigured: true,
+      },
+      {
+        event: "coordinator_provider_boundary_settled" as const,
+        taskRole: event.taskRole,
+        provider: event.provider,
+        operationId: event.operationId,
+        providerContainerCreatedObserved: true,
+        providerProcessStartedObserved: true,
+        providerProcessCompletionObserved: true,
+        providerProcessExitStatusClass: "zero" as const,
+        processTreeTerminationObserved: false,
+        containersAbsentObserved: true,
+        networksAbsentObserved: true,
+        cleanupConfirmed: true,
+      },
+    ]);
   return Object.freeze({
     exit: { code: 0, signal: null },
     launchError: null,
@@ -213,6 +265,7 @@ const observation = (
     processStartEventObserved: true,
     processStartEvents,
     runtimeEvents,
+    providerBoundaryEvents,
     recoveryEvents: [],
     pidIssued: true,
     streamFailure: false,
@@ -280,7 +333,7 @@ const normalRun = (
     },
   ];
   return {
-    observation: observation([semantic("completed", responseId)], {
+    observation: observation([semantic("blocked", responseId)], {
       selectionEvents,
       processStartEvents,
     }),
@@ -331,11 +384,25 @@ const recoverySettlementFixture = () => ({
         operationId: "OP-400001",
       },
     ],
+    providerBoundaryEvents: [
+      {
+        event: "coordinator_provider_boundary_configured",
+        taskRole: "executor",
+        provider: "claude",
+        operationId: "OP-400001",
+        approvalModeConfigured: "never",
+        sandboxModeConfigured: "read_only",
+        workspaceMountModeConfigured: "read_only",
+        rootFilesystemReadOnlyConfigured: true,
+        nonRootUserConfigured: true,
+        workdirConfigured: true,
+      },
+    ],
   }),
   parentTerminationRequestedAfterProcessStart: true,
   reentry: observation(
     [
-      semantic("completed", "objective-recovery-reentry", {
+      semantic("blocked", "objective-recovery-reentry", {
         queueId: "queue-recovery",
       }),
     ],
@@ -1519,6 +1586,47 @@ test("分割chunkとCRLFから完全なeventだけを一度抽出する", async 
   assert.equal(result.runtimeEventProtocolViolation, false);
   assert.deepEqual(observedItems, ["selection", "process_started"]);
   assert.equal(result.processStartEvents[0]?.operationId, "OP-600001");
+});
+
+/**
+ * Production Provider境界診断を開始Eventと分離して検証する。
+ *
+ * @responsibility Provider境界の設定・終了診断を未知Lifecycle違反へ誤分類しないことを判定する。
+ * @trace PRL-ST-001
+ * @precondition 固定ProbeがProductionと同じ接頭辞・閉じたSchemaで診断を出力する。
+ * @stimulus Public MCP Process観測器へ境界設定、開始、境界終了を入力する。
+ * @observation Runtime EventとProvider Boundary Eventを別々に取得する。
+ * @oracle Protocol違反はなく、開始一件と境界診断二件を相関Identity付きで保持する。
+ * @cleanup 子Processは応答後EOFで終了する。
+ * @boundary PRL-ST-001=System/E2E: Production Diagnostic→Verification Observer
+ */
+test("Production Provider境界診断を開始Eventと分離して検証する", async () => {
+  const child = spawn(process.execPath, [fixture, "boundary-diagnostics"], {
+    windowsHide: true,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  const resultPromise = observePublicMcpProcess(child, {
+    maximumOutputBytes: 8192,
+    timeoutMs: 2_000,
+    terminationGraceMs: 100,
+    closeInputWhen: ({ stdout }) => stdout.includes("\n"),
+  });
+  child.stdin.write('{"id":"objective-1"}\n');
+  const result = await resultPromise;
+  assert.equal(result.runtimeEventProtocolViolation, false);
+  assert.equal(result.processStartEvents.length, 1);
+  assert.deepEqual(
+    result.providerBoundaryEvents.map((event) => event.event),
+    [
+      "coordinator_provider_boundary_configured",
+      "coordinator_provider_boundary_settled",
+    ],
+  );
+  assert.ok(
+    result.providerBoundaryEvents.every(
+      (event) => event.operationId === "OP-700001",
+    ),
+  );
 });
 
 /**

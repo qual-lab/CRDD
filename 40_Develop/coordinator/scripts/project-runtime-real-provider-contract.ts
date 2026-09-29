@@ -60,6 +60,46 @@ type ProcessStartedRuntimeEvent = Readonly<{
   provider: "codex" | "claude";
   operationId: string;
 }>;
+type ProviderBoundaryConfiguredEvent = Readonly<{
+  event: "coordinator_provider_boundary_configured";
+  taskRole: "executor" | "reviewer" | null;
+  provider: "codex" | "claude";
+  operationId: string;
+  approvalModeConfigured:
+    | "approve_for_me"
+    | "never"
+    | "not_applicable"
+    | "other";
+  sandboxModeConfigured: "read_only" | "implicit" | "not_applicable" | "other";
+  workspaceMountModeConfigured: "read_write" | "read_only" | null;
+  rootFilesystemReadOnlyConfigured: boolean;
+  nonRootUserConfigured: boolean;
+  workdirConfigured: boolean;
+}>;
+type ProviderBoundarySettledEvent = Readonly<{
+  event: "coordinator_provider_boundary_settled";
+  taskRole: "executor" | "reviewer" | null;
+  provider: "codex" | "claude";
+  operationId: string;
+  providerContainerCreatedObserved: boolean;
+  providerProcessStartedObserved: boolean;
+  providerProcessCompletionObserved: boolean;
+  providerProcessExitStatusClass:
+    | "zero"
+    | "one"
+    | "one_two_six"
+    | "one_two_seven"
+    | "other_nonzero"
+    | "signal"
+    | "not_observed";
+  processTreeTerminationObserved: boolean;
+  containersAbsentObserved: boolean;
+  networksAbsentObserved: boolean;
+  cleanupConfirmed: boolean;
+}>;
+type ProviderBoundaryDiagnosticEvent =
+  | ProviderBoundaryConfiguredEvent
+  | ProviderBoundarySettledEvent;
 /**
  * project-runtime-real-provider-contractで使用するVerified Runtime Eventの値契約を定義する。
  *
@@ -143,6 +183,7 @@ export type PublicProcessObservation = Readonly<{
     operationId: string;
   }>[];
   runtimeEvents: readonly VerifiedRuntimeEvent[];
+  providerBoundaryEvents: readonly ProviderBoundaryDiagnosticEvent[];
   recoveryEvents: readonly RecoveryEvent[];
   pidIssued: boolean;
   streamFailure: boolean;
@@ -172,6 +213,32 @@ const LIFECYCLE_KEYS = Object.freeze([
   "event",
   "operationId",
   "provider",
+  "taskRole",
+]);
+const BOUNDARY_CONFIGURED_KEYS = Object.freeze([
+  "approvalModeConfigured",
+  "event",
+  "nonRootUserConfigured",
+  "operationId",
+  "provider",
+  "rootFilesystemReadOnlyConfigured",
+  "sandboxModeConfigured",
+  "taskRole",
+  "workdirConfigured",
+  "workspaceMountModeConfigured",
+]);
+const BOUNDARY_SETTLED_KEYS = Object.freeze([
+  "cleanupConfirmed",
+  "containersAbsentObserved",
+  "event",
+  "networksAbsentObserved",
+  "operationId",
+  "processTreeTerminationObserved",
+  "provider",
+  "providerContainerCreatedObserved",
+  "providerProcessCompletionObserved",
+  "providerProcessExitStatusClass",
+  "providerProcessStartedObserved",
   "taskRole",
 ]);
 const RECOVERY_KEYS = Object.freeze([
@@ -337,6 +404,7 @@ function parseKnownDiagnosticLine(
   | Readonly<{ kind: "ignored" }>
   | Readonly<{ kind: "violation" }>
   | Readonly<{ kind: "runtime"; event: VerifiedRuntimeEvent }>
+  | Readonly<{ kind: "boundary"; event: ProviderBoundaryDiagnosticEvent }>
   | Readonly<{ kind: "recovery"; event: RecoveryEvent }> {
   const prefix = KNOWN_PREFIXES.find((candidate) => line.startsWith(candidate));
   if (!prefix) return Object.freeze({ kind: "ignored" as const });
@@ -382,24 +450,80 @@ function parseKnownDiagnosticLine(
     });
   }
   if (prefix === LIFECYCLE_PREFIX) {
+    const parsedProvider = provider(parsed.provider) ? parsed.provider : null;
+    const parsedOperationId =
+      typeof parsed.operationId === "string" &&
+      /^OP-[0-9]{6,}$/u.test(parsed.operationId)
+        ? parsed.operationId
+        : null;
+    const validCommon =
+      (parsed.taskRole === null || role(parsed.taskRole)) &&
+      parsedProvider !== null &&
+      parsedOperationId !== null;
     if (
-      !exactKeys(parsed, LIFECYCLE_KEYS) ||
-      parsed.event !== "coordinator_provider_process_started" ||
-      !role(parsed.taskRole) ||
-      !provider(parsed.provider) ||
-      typeof parsed.operationId !== "string" ||
-      !/^OP-[0-9]{6,}$/u.test(parsed.operationId)
+      parsed.event === "coordinator_provider_process_started" &&
+      exactKeys(parsed, LIFECYCLE_KEYS) &&
+      role(parsed.taskRole) &&
+      validCommon
     )
-      return Object.freeze({ kind: "violation" as const });
-    return Object.freeze({
-      kind: "runtime" as const,
-      event: Object.freeze({
-        event: "process_started" as const,
-        taskRole: parsed.taskRole,
-        provider: parsed.provider,
-        operationId: parsed.operationId,
-      }),
-    });
+      return Object.freeze({
+        kind: "runtime" as const,
+        event: Object.freeze({
+          event: "process_started" as const,
+          taskRole: parsed.taskRole,
+          provider: parsedProvider,
+          operationId: parsedOperationId,
+        }),
+      });
+    if (
+      parsed.event === "coordinator_provider_boundary_configured" &&
+      exactKeys(parsed, BOUNDARY_CONFIGURED_KEYS) &&
+      validCommon &&
+      ["approve_for_me", "never", "not_applicable", "other"].includes(
+        String(parsed.approvalModeConfigured),
+      ) &&
+      ["read_only", "implicit", "not_applicable", "other"].includes(
+        String(parsed.sandboxModeConfigured),
+      ) &&
+      (parsed.workspaceMountModeConfigured === "read_write" ||
+        parsed.workspaceMountModeConfigured === "read_only" ||
+        parsed.workspaceMountModeConfigured === null) &&
+      typeof parsed.rootFilesystemReadOnlyConfigured === "boolean" &&
+      typeof parsed.nonRootUserConfigured === "boolean" &&
+      typeof parsed.workdirConfigured === "boolean"
+    )
+      return Object.freeze({
+        kind: "boundary" as const,
+        event: Object.freeze(
+          parsed as unknown as ProviderBoundaryConfiguredEvent,
+        ),
+      });
+    if (
+      parsed.event === "coordinator_provider_boundary_settled" &&
+      exactKeys(parsed, BOUNDARY_SETTLED_KEYS) &&
+      validCommon &&
+      typeof parsed.providerContainerCreatedObserved === "boolean" &&
+      typeof parsed.providerProcessStartedObserved === "boolean" &&
+      typeof parsed.providerProcessCompletionObserved === "boolean" &&
+      [
+        "zero",
+        "one",
+        "one_two_six",
+        "one_two_seven",
+        "other_nonzero",
+        "signal",
+        "not_observed",
+      ].includes(String(parsed.providerProcessExitStatusClass)) &&
+      typeof parsed.processTreeTerminationObserved === "boolean" &&
+      typeof parsed.containersAbsentObserved === "boolean" &&
+      typeof parsed.networksAbsentObserved === "boolean" &&
+      typeof parsed.cleanupConfirmed === "boolean"
+    )
+      return Object.freeze({
+        kind: "boundary" as const,
+        event: Object.freeze(parsed as unknown as ProviderBoundarySettledEvent),
+      });
+    return Object.freeze({ kind: "violation" as const });
   }
   if (
     !exactKeys(parsed, RECOVERY_KEYS) ||
@@ -504,6 +628,7 @@ export async function observePublicMcpProcess(
     operationId: string;
   }>[] = [];
   const runtimeEvents: VerifiedRuntimeEvent[] = [];
+  const providerBoundaryEvents: ProviderBoundaryDiagnosticEvent[] = [];
   const recoveryEvents: RecoveryEvent[] = [];
 
   const closeInput = () => {
@@ -570,6 +695,10 @@ export async function observePublicMcpProcess(
       return;
     }
     if (parsed.kind === "ignored") return;
+    if (parsed.kind === "boundary") {
+      providerBoundaryEvents.push(parsed.event);
+      return;
+    }
     if (parsed.kind === "recovery") {
       recoveryEvents.push(parsed.event);
       return;
@@ -799,6 +928,7 @@ export async function observePublicMcpProcess(
     processStartEventObserved: processStartEvents.length > 0,
     processStartEvents: Object.freeze(processStartEvents),
     runtimeEvents: Object.freeze(runtimeEvents),
+    providerBoundaryEvents: Object.freeze(providerBoundaryEvents),
     recoveryEvents: Object.freeze(recoveryEvents),
     pidIssued,
     streamFailure: isStreamFailure,
@@ -1062,6 +1192,66 @@ function runtimeEventsExactlyMatch(
 }
 
 /**
+ * Provider境界診断がProcess開始通知と同じ実行Identityへ結合しているか判定する。
+ *
+ * @responsibility Provider境界の設定・終了診断とProcess開始通知の相関、重複および欠測判定を所有する。
+ * @trace ARCH-000008
+ * @input observation: PublicProcessObservation、settlementRequired: boolean
+ * @returns 境界診断が期待する閉集合と一致する場合だけtrueを返す。
+ * @precondition 観測値は同じPublic MCP Processから取得されている。
+ * @postcondition 診断を開始通知へ結合できない場合はfalseへ閉じる。
+ * @effect N/A: 入力の比較だけを行う。
+ * @failure N/A: 不一致をfalseで返す。
+ * @invariant 未知Eventや余分な診断を成功へ畳まない。
+ * @boundary Public MCP stderr診断→E2E観測契約。
+ * @security 診断の公開済みfieldだけを比較し、Provider出力やHost Pathを扱わない。
+ * @concurrency N/A: 固定済み観測Snapshotを同期的に比較する。
+ */
+function providerBoundaryDiagnosticsMatch(
+  observation: PublicProcessObservation,
+  settlementRequired: boolean,
+) {
+  const expected = observation.processStartEvents.flatMap((started) => [
+    {
+      event: "coordinator_provider_boundary_configured" as const,
+      taskRole: started.taskRole,
+      provider: started.provider,
+      operationId: started.operationId,
+    },
+    ...(settlementRequired
+      ? [
+          {
+            event: "coordinator_provider_boundary_settled" as const,
+            taskRole: started.taskRole,
+            provider: started.provider,
+            operationId: started.operationId,
+          },
+        ]
+      : []),
+  ]);
+  return (
+    observation.providerBoundaryEvents.length === expected.length &&
+    observation.providerBoundaryEvents.every((event, index) => {
+      const expectedEvent = expected[index];
+      return (
+        expectedEvent !== undefined &&
+        event.event === expectedEvent.event &&
+        event.taskRole === expectedEvent.taskRole &&
+        event.provider === expectedEvent.provider &&
+        event.operationId === expectedEvent.operationId &&
+        (event.event !== "coordinator_provider_boundary_settled" ||
+          (event.providerContainerCreatedObserved === true &&
+            event.providerProcessStartedObserved === true &&
+            event.providerProcessCompletionObserved === true &&
+            event.containersAbsentObserved === true &&
+            event.networksAbsentObserved === true &&
+            event.cleanupConfirmed === true))
+      );
+    })
+  );
+}
+
+/**
  * Project Runtime Real Provider Reportを構築する。
  *
  * @responsibility Project Runtime Real Provider Reportの構築入力、生成結果、不正入力の拒否境界を所有する。
@@ -1108,9 +1298,22 @@ export function buildProjectRuntimeRealProviderReport(
   };
   input.normalRuns.forEach((operationRun, index) => {
     processProblems(`normal_${index + 1}`, operationRun.observation);
+    if (!providerBoundaryDiagnosticsMatch(operationRun.observation, true))
+      problems.push(`normal_${index + 1}_provider_boundary_mismatch`);
   });
   processProblems("cancellation", input.cancellation);
+  if (!providerBoundaryDiagnosticsMatch(input.cancellation, true))
+    problems.push("cancellation_provider_boundary_mismatch");
   processProblems("recovery_reentry", input.recoverySettlement.reentry);
+  if (
+    !providerBoundaryDiagnosticsMatch(
+      input.recoverySettlement.parentLoss,
+      false,
+    )
+  )
+    problems.push("recovery_parent_provider_boundary_mismatch");
+  if (!providerBoundaryDiagnosticsMatch(input.recoverySettlement.reentry, true))
+    problems.push("recovery_reentry_provider_boundary_mismatch");
   const normalResults = input.normalRuns.map((operationRun, index) => {
     const { observation, expected } = operationRun;
     if (!observation.inputEofIssued)
@@ -1126,14 +1329,15 @@ export function buildProjectRuntimeRealProviderReport(
       const expected = input.normalRuns[index]?.expected;
       return (
         !expected ||
-        value?.status !== "completed" ||
-        value.reason !== "project_runtime_milestone_accepted" ||
+        value?.status !== "blocked" ||
+        value.reason !== "project_runtime_acceptance_decision_required" ||
         value.requestId !== expected.requestId ||
         value.projectId !== expected.projectId ||
         value.milestoneId !== expected.milestoneId ||
         !value.projection ||
         typeof value.projection !== "object" ||
-        (value.projection as JsonRecord).milestoneState !== "accepted"
+        (value.projection as JsonRecord).milestoneState !== "executing" ||
+        (value.projection as JsonRecord).qualityState !== "integration_pending"
       );
     })
   )
@@ -1297,11 +1501,16 @@ export function buildProjectRuntimeRealProviderReport(
   if (recovery.reentry.responses.length !== 1 || recoveryResult === null)
     problems.push("recovery_reentry_response_envelope");
   if (
-    recoveryResult?.status !== "completed" ||
-    recoveryResult.reason !== "project_runtime_milestone_accepted" ||
+    recoveryResult?.status !== "blocked" ||
+    recoveryResult.reason !== "project_runtime_acceptance_decision_required" ||
     recoveryResult.requestId !== recovery.expected.requestId ||
     recoveryResult.projectId !== recovery.expected.projectId ||
     recoveryResult.milestoneId !== recovery.expected.milestoneId ||
+    !recoveryResult.projection ||
+    typeof recoveryResult.projection !== "object" ||
+    (recoveryResult.projection as JsonRecord).milestoneState !== "executing" ||
+    (recoveryResult.projection as JsonRecord).qualityState !==
+      "integration_pending" ||
     recoveryResult.cleanupConfirmed !== true ||
     recoveryResult.manualRecoveryRequired !== false ||
     recoveryResult.processRestartRequired !== false ||
@@ -1406,7 +1615,8 @@ export function buildProjectRuntimeRealProviderReport(
     recovery.parentLoss.processTreeTerminationConfirmed &&
     recovery.parentLoss.joined &&
     !recovery.parentLoss.inputEofIssued &&
-    recoveryResult?.status === "completed" &&
+    recoveryResult?.status === "blocked" &&
+    recoveryResult.reason === "project_runtime_acceptance_decision_required" &&
     recovery.reentry.joined;
   if (!isRecoverySettlementExercised)
     problems.push("recovery_settlement_lifecycle_mismatch");
@@ -1483,7 +1693,7 @@ export function buildProjectRuntimeRealProviderReport(
     input.dockerRecovery.manualRecoveryRequired === false;
   return Object.freeze({
     contract: "crdd-coordinator/project-runtime-real-provider-verification",
-    contractRevision: 8,
+    contractRevision: 9,
     status: isCompleted ? "completed" : "blocked",
     reason: isCompleted
       ? "project_runtime_public_mcp_real_providers_cancellation_and_recovery_verified"
@@ -1524,8 +1734,10 @@ export function buildProjectRuntimeRealProviderReport(
         input.recoverySettlement.reentry.pidIssued &&
         input.recoverySettlement.reentry.joined,
       transport: "stdio",
-      completedObjectiveCount: normalResults.filter(
-        (value) => value?.status === "completed",
+      verifiedObjectiveCount: normalResults.filter(
+        (value) =>
+          value?.status === "blocked" &&
+          value.reason === "project_runtime_acceptance_decision_required",
       ).length,
       runs: Object.freeze(
         input.normalRuns.map((operationRun, index) =>

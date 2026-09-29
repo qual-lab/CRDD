@@ -33,7 +33,7 @@ type IntegrationRecordBinding = Readonly<{
   queueId: string;
 }>;
 
-const RECORD_IDENTITY = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
+const RECORD_IDENTITY = /^[A-Za-z0-9][A-Za-z0-9._-]{0,511}$/u;
 const BINDING_IDENTITY = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,511}$/u;
 
 /**

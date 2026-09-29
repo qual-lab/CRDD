@@ -94,7 +94,7 @@ describe("Project Runtime design traceability", () => {
         stateMachines: 7,
         transitions: 54,
         actionBindings: 54,
-        invariants: 32,
+        invariants: 33,
         failureInjections: 16,
         implementationBindings: 9,
         verificationBindings: 23,

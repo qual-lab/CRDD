@@ -511,7 +511,7 @@ try {
   fs.mkdirSync(verificationRoot, { recursive: true, mode: 0o700 });
   const report = Object.freeze({
     contract: "crdd-coordinator/project-runtime-real-provider-verification",
-    contractRevision: 8,
+    contractRevision: 9,
     status: "blocked",
     reason: "project_runtime_public_mcp_verification_incomplete",
     problems: Object.freeze(["verification_exception"]),

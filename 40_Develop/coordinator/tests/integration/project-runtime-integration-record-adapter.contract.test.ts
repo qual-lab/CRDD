@@ -99,6 +99,43 @@ test("integration records are immutable and an identical retry is idempotent", (
 });
 
 /**
+ * 正規Candidate IdentityをIntegration Recordとして保存できることを検証する。
+ *
+ * @responsibility Candidate Storeが発行する完全なCandidate IDとIntegration Record境界の互換性を判定する。
+ * @trace PRL-IT-005
+ * @precondition Candidate IDは`candidate.<64hex>.<64hex>`の正規形式である。
+ * @stimulus 正規Candidate IDをIdentityとするIntegration Recordを書き込む。
+ * @observation 書込み結果と生成Recordを取得する。
+ * @oracle 128文字を超える正規Identityを長さだけで拒否せず、完全なIdentityを保持する。
+ * @cleanup 登録済みhookが一時Repositoryを清掃する。
+ * @boundary PRL-IT-005=Related 2 Blocks: Candidate Store→Integration Record Adapter
+ */
+test("canonical candidate identity is preserved by the integration record", (t) => {
+  const { root } = fixture(t);
+  const records = adapter(root);
+  const candidateId = `candidate.${"a".repeat(64)}.${"b".repeat(64)}`;
+  const result = records.write({
+    kind: "integration",
+    identity: candidateId,
+    value: { status: "candidate", changedPaths: ["result.txt"] },
+  });
+  assert.equal(result.status, "completed");
+  const target = path.join(
+    root,
+    ".crdd",
+    "project-runtime",
+    "results",
+    "integration",
+    "project-a",
+    `${candidateId}.json`,
+  );
+  assert.equal(
+    JSON.parse(fs.readFileSync(target, "utf8")).identity,
+    candidateId,
+  );
+});
+
+/**
  * an identity collision is blocked without replacing the first recordを検証する。
  *
  * @responsibility an identity collision is blocked without replacing the first recordの合否判定を所有する。

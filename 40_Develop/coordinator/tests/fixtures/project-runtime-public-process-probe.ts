@@ -25,12 +25,12 @@ const projection = (isCancelled: boolean) => ({
   projectId: "project-a",
   milestoneId: "milestone-a",
   generation: 1,
-  milestoneState: isCancelled ? "cancelled" : "accepted",
+  milestoneState: isCancelled ? "cancelled" : "executing",
   objectiveCounts: {
     planned: 0,
     executing: 0,
-    integration_pending: 0,
-    accepted: isCancelled ? 0 : 1,
+    integration_pending: isCancelled ? 0 : 1,
+    accepted: 0,
     returned: 0,
     blocked: 0,
     cancelled: isCancelled ? 1 : 0,
@@ -51,7 +51,7 @@ const projection = (isCancelled: boolean) => ({
   objectiveTaskSummaries: [
     {
       objectiveId: "objective-a",
-      objectiveState: isCancelled ? "cancelled" : "accepted",
+      objectiveState: isCancelled ? "cancelled" : "integration_pending",
       taskCounts: {
         planned: 0,
         waiting_dependency: 0,
@@ -68,10 +68,10 @@ const projection = (isCancelled: boolean) => ({
     },
   ],
   workProgress: isCancelled ? "in_progress" : "tasks_complete",
-  qualityState: isCancelled ? "not_evaluated" : "accepted",
+  qualityState: isCancelled ? "not_evaluated" : "integration_pending",
   humanDecisionRequired: false,
   recoveryRequired: false,
-  nextAction: isCancelled ? "wait_for_task" : "complete",
+  nextAction: isCancelled ? "wait_for_task" : "verify_objective_integration",
 });
 let received = "";
 process.stdin.setEncoding("utf8");
@@ -89,10 +89,10 @@ process.stdin.on("data", (chunk) => {
       id,
       result: {
         structuredContent: {
-          status: isCancelled ? "cancelled" : "completed",
+          status: isCancelled ? "cancelled" : "blocked",
           reason: isCancelled
             ? "project_runtime_operation_cancelled"
-            : "project_runtime_milestone_accepted",
+            : "project_runtime_acceptance_decision_required",
           contract: "crdd-coordinator/project-runtime-objective-intake/v1",
           requestId: "request-a",
           projectId: "project-a",
@@ -125,6 +125,23 @@ process.stdin.on("data", (chunk) => {
       }, 5);
       return;
     }
+    if (mode === "boundary-diagnostics") {
+      const operationId = "OP-700001";
+      process.stderr.write(
+        `[Coordinator selection] ${JSON.stringify(selectionNotice("executor", "codex"))}\n`,
+      );
+      process.stderr.write(
+        `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_boundary_configured", taskRole: "executor", provider: "codex", operationId, approvalModeConfigured: "never", sandboxModeConfigured: "read_only", workspaceMountModeConfigured: "read_only", rootFilesystemReadOnlyConfigured: true, nonRootUserConfigured: true, workdirConfigured: true })}\n`,
+      );
+      process.stderr.write(
+        `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_process_started", taskRole: "executor", provider: "codex", operationId })}\n`,
+      );
+      process.stderr.write(
+        `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_boundary_settled", taskRole: "executor", provider: "codex", operationId, providerContainerCreatedObserved: true, providerProcessStartedObserved: true, providerProcessCompletionObserved: true, providerProcessExitStatusClass: "zero", processTreeTerminationObserved: false, containersAbsentObserved: true, networksAbsentObserved: true, cleanupConfirmed: true })}\n`,
+      );
+      process.stdout.write(responseLine);
+      return;
+    }
     if (mode === "embedded-event")
       process.stderr.write(
         `diagnostic ${JSON.stringify({ event: "coordinator_provider_process_started", taskRole: "executor", provider: "claude", operationId: "OP-UNTRUSTED" })}\n`,
@@ -134,13 +151,27 @@ process.stdin.on("data", (chunk) => {
     process.stderr.write(
       `[Coordinator selection] ${JSON.stringify(selectionNotice("executor", mode === "cancelled" || mode === "parent-loss" ? "claude" : "codex"))}\n`,
     );
+    const provider =
+      mode === "cancelled" || mode === "parent-loss" ? "claude" : "codex";
+    const operationId =
+      mode === "cancelled"
+        ? "OP-300001"
+        : mode === "parent-loss"
+          ? "OP-400001"
+          : "OP-100001";
     process.stderr.write(
-      `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_process_started", taskRole: "executor", provider: mode === "cancelled" || mode === "parent-loss" ? "claude" : "codex", operationId: mode === "cancelled" ? "OP-300001" : mode === "parent-loss" ? "OP-400001" : "OP-100001" })}\n`,
+      `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_boundary_configured", taskRole: "executor", provider, operationId, approvalModeConfigured: "never", sandboxModeConfigured: "read_only", workspaceMountModeConfigured: "read_only", rootFilesystemReadOnlyConfigured: true, nonRootUserConfigured: true, workdirConfigured: true })}\n`,
+    );
+    process.stderr.write(
+      `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_process_started", taskRole: "executor", provider, operationId })}\n`,
     );
     if (mode === "parent-loss") {
       setInterval(() => {}, 1000);
       return;
     }
+    process.stderr.write(
+      `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_boundary_settled", taskRole: "executor", provider, operationId, providerContainerCreatedObserved: true, providerProcessStartedObserved: true, providerProcessCompletionObserved: true, providerProcessExitStatusClass: "zero", processTreeTerminationObserved: isCancelled, containersAbsentObserved: true, networksAbsentObserved: true, cleanupConfirmed: true })}\n`,
+    );
     if (mode === "recovery-events") {
       const recoveryId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
       for (const [index, phase] of [
@@ -172,7 +203,15 @@ process.stdin.on("data", (chunk) => {
       );
     if (mode !== "cancelled")
       process.stderr.write(
+        `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_boundary_configured", taskRole: "reviewer", provider: "claude", operationId: "OP-100001", approvalModeConfigured: "never", sandboxModeConfigured: "read_only", workspaceMountModeConfigured: "read_only", rootFilesystemReadOnlyConfigured: true, nonRootUserConfigured: true, workdirConfigured: true })}\n`,
+      );
+    if (mode !== "cancelled")
+      process.stderr.write(
         `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_process_started", taskRole: "reviewer", provider: "claude", operationId: "OP-100001" })}\n`,
+      );
+    if (mode !== "cancelled")
+      process.stderr.write(
+        `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_boundary_settled", taskRole: "reviewer", provider: "claude", operationId: "OP-100001", providerContainerCreatedObserved: true, providerProcessStartedObserved: true, providerProcessCompletionObserved: true, providerProcessExitStatusClass: "zero", processTreeTerminationObserved: false, containersAbsentObserved: true, networksAbsentObserved: true, cleanupConfirmed: true })}\n`,
       );
     process.stdout.write(responseLine);
   }

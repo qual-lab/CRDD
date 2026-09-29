@@ -638,6 +638,8 @@ Workbenchの読取り助言は一般Taskを偽装せず、`workbench_advice`を�
 
 実行構成は設定済みの値、実行結果は外部境界で観測済みの値として表示し、両者を同じ成立事実へ畳まない。診断sinkの失敗、遅延または不在はAuthority、Sandbox、外部Effect、cleanupおよび本処理の結果を変更しない。診断だけからWorkspaceのbyte変化を推定せず、候補Filesystemの独立観測を正本とする。
 
+Provider境界のLifecycle診断は、`coordinator_provider_boundary_configured`、`coordinator_provider_process_started`、`coordinator_provider_boundary_settled`の閉じたEvent集合として扱う。検証側は設定、OS Process開始、完了・cleanupを同じEventへ畳まず、`operationId`、ProviderおよびTask Roleで相関する。既知の設定または終了Eventを未知Protocol違反へ誤分類して後続の取消・親喪失操作を抑止してはならず、反対にEvent欠落、余分なEvent、順序差またはIdentity差を成功へ補正してはならない。
+
 外部Agentへ渡すTask Packetは、通常の対話環境から推測できない実行Capabilityを明示する。隔離WorkspaceにGit Metadataがないこと、利用できない編集Command、および検証済みの決定論的な編集手段を実装と同じ変更で接続する。Agentに試行錯誤でTool Inventoryを推定させず、設定したCapabilityと実際のImage内Toolを結合試験で照合する。
 
 <a id="11-変更と検証"></a>
