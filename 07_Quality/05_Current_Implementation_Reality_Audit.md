@@ -185,7 +185,7 @@ Sandbox内ではProcess列挙が`Access denied`となり、取消試験も子Pro
 | Checker全試験 | 375／375 Pass | Current Profile、工程契約、Source／Test Header、Symbol GraphおよびReality Relationを同じ候補で確認した |
 | Coordinator静的確認 | Format／Type／Lint／3 Traceability GateすべてPass | Runtime Capability Graph、Coordinator Runtime Traceability、Project Runtime Design Traceabilityを確認した |
 | Coordinator Windows Process Gate | 現在の未署名固定Treeでは未実施 | 以前のv0.22候補の7／8 Pass・1 Blockedとv0.21固定候補の8／8 Passは履歴Evidenceとして保持するが、現在Treeの成立根拠へ流用しない。再署名後の実境界Gateで再観測する |
-| Coordinator全回帰 | 2,110件中2,105 Pass、失敗0、5 Explicit Skip | 現在の未署名固定Treeで実行した。Skip 5件は明示実環境試験であり、PassまたはEvidenceへ畳まない。再署名、候補直接起動、実Provider E2Eおよび必要な四経路E2Eは未実施 |
+| Coordinator全回帰 | Authority cleanup是正後のPortable実行は2,115件中2,106 Pass、8 Explicit Skip、1件未成立。局所8／8 Pass | 未成立1件は旧Manifest削除後かつ新Source Commit／新Manifest未確定の署名拒否fixture前提である。追加したAuthority cleanup反証、Selection対象試験とPackage Capability利用側閉包はPassし、これ以外の新規失敗はない。現在候補を全回帰Passへ昇格せず、新Source Commit確定・再署名後、新Manifest存在下で署名拒否試験を再実行する |
 
 ## 11. 旧Runtime Traceability JSONの移行判定
 
@@ -351,7 +351,7 @@ v0.22では、旧Snapshotで未完成としていたShared Serverについて、
 | Hybrid | 12 | 自動部分と人間判断・実境界部分を分離し、自動部分だけのPassを全体成立へ畳まない |
 | Manual | 10 | skipまたは自動Test SymbolをEvidenceにせず、参加条件、入力、判断、未判断範囲およびEvidenceを固定して実施する |
 
-Automated Gapを閉じ、Manual／Hybrid項目の実施条件と現在Releaseへの影響を固定した。v0.21の署名候補で得た回帰、Windows Process Gate、Recovery Matrixおよび4経路E2Eは履歴Evidenceとして維持し、v0.22の現在候補へ流用しない。v0.22の未署名固定TreeではCoordinator 2,110件中2,105 Pass・失敗0・明示Skip 5、Workbench 21／21 Pass、Checker 375／375 Passである。Workbench 21件には、Vite生成済みBrowser BundleがGit追跡集合と署名配布Treeへ含まれる契約を追加した。Skip 5件は明示実環境試験であり、未実施をPassまたはEvidenceへ畳まない。現在候補の再署名、署名候補の直接起動、Codex／Claude実Provider E2Eおよび必要な四経路E2Eが完了するまでQuality Readyへ昇格しない。Reality Auditは未実装Capabilityや未実行の手動評価を自分で補完せず、対応するQuality Mappingから再評価する。
+Automated Gapを閉じ、Manual／Hybrid項目の実施条件と現在Releaseへの影響を固定した。v0.21の署名候補で得た回帰、Windows Process Gate、Recovery Matrixおよび4経路E2Eは履歴Evidenceとして維持し、v0.22の現在候補へ流用しない。v0.22現在候補のPortable実行はCoordinator 2,115件中2,106 Pass・明示Skip 8・未成立1件であり、Authority cleanup是正後のWorkbench助言Runtime局所試験は8／8 Pass、Workbenchは21／21 Pass、Checkerは375／375 Passである。未成立1件は旧Manifest削除後かつ新Source Commit／新Manifest未確定の署名拒否fixture前提であり、Passへ畳まない。独立レビュー・文書監査・Gap影響監査はFinding 0でPassした。現在候補のCommit、再署名、新Manifest存在下の署名拒否試験、署名候補の直接起動、Codex／Claude実Provider E2Eおよび必要な四経路E2Eが完了するまでQuality Readyへ昇格しない。Reality Auditは未実装Capabilityや未実行の手動評価を自分で補完せず、対応するQuality Mappingから再評価する。
 
 ### 13.3 Hybrid項目の実施条件
 

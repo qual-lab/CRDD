@@ -24,6 +24,7 @@ import {
   issueRuntimeOwnedDelegationSelectionGrant,
   revokeRuntimeOwnedDelegationSelectionGrant,
 } from "./delegation-selection-grant-runtime.ts";
+import { bindRuntimeOwnedRepositoryOperation } from "./repository-operation-runtime.ts";
 import {
   cancelRuntimeOwnedDockerProcessController,
   startRuntimeOwnedDockerProcessController,
@@ -59,6 +60,10 @@ import {
   issueRuntimeOwnedWorkbenchAiAdvicePacket,
   revokeRuntimeOwnedWorkbenchAiAdvicePacket,
 } from "./workbench-ai-advice-runtime-packet.ts";
+import {
+  resolveVerifiedRepositoryRoot,
+  type VerifiedRepositoryRoot,
+} from "../../../version-control/src/repository-location.ts";
 
 export const WORKBENCH_AI_ADVICE_PRODUCTION_RUNTIME_CONTRACT =
   "crdd-coordinator/workbench-ai-advice-production-runtime";
@@ -114,6 +119,9 @@ type Operation = Readonly<{
 export type WorkbenchAiAdviceRuntimeDependencies = Readonly<{
   consumeVerifiedPackage: (capability: unknown) => boolean;
   createOperation: () => Promise<Operation>;
+  bindRepository: (
+    managementCapability: unknown,
+  ) => Readonly<{ operationId: string }> | null;
   observeProviderHome: typeof inspectRuntimeOwnedWindowsProviderHomeCandidate;
   issueMountGrant: typeof issueRuntimeOwnedProviderHomeMountGrant;
   consumeMountGrant: typeof consumeRuntimeOwnedProviderHomeMountGrant;
@@ -142,21 +150,27 @@ export type WorkbenchAiAdviceRuntimeDependencies = Readonly<{
  * @responsibility 一回用の署名配布物CapabilityをRuntimeへ渡し、助言Lifecycleの外へ再利用可能なAuthorityを公開しない。
  * @trace ARCH-000010
  * @trace ARCH-000015
- * @input issueVerifiedPackageCapability: 現在配布物を検証して一回用Capabilityを返す関数。
+ * @input issueVerifiedPackageCapability: 現在配布物を検証して一回用Capabilityを返す関数、repositoryRootCapability: 元Repositoryの検証済みRoot Capability。
  * @returns Workbench Provider Executorへ注入できるRuntime Port。
  * @precondition 発行関数は秘密値を返さず、失敗時はnullを返す。
  * @postcondition 各呼出しは独立Operationを所有し、completedはHost／Docker cleanup後だけ返る。
  * @effect 選択ProviderのDocker ProcessとRepository-local Runtime状態を操作する。
  * @failure 署名、Identity、取消、Process、回復またはcleanupの不成立をblockedへ閉じる。
- * @invariant 自動再送、Provider fallback、Repository Mountおよび生出力公開を行わない。
+ * @invariant 自動再送、Provider fallback、Repository Mountおよび生出力公開を行わず、Selection前に元Repository Identityへ結合する。
  * @boundary Workbench Production Compositionと署名済みCoordinator Runtimeの間。
  * @security Capability、Host Path、Credentialおよび生Provider出力を公開結果へ含めない。
  * @concurrency 呼出しごとに独立Operationを生成し、共有Authorityを使い回さない。
  */
 export function createRuntimeOwnedWorkbenchAiAdviceProductionRuntime(
   issueVerifiedPackageCapability: () => unknown,
+  repositoryRootCapability: VerifiedRepositoryRoot,
 ): WorkbenchAiAdviceRuntimePort {
-  const runtime = createWorkbenchAiAdviceRuntime(productionDependencies);
+  const repositoryRoot = resolveVerifiedRepositoryRoot(
+    repositoryRootCapability,
+  );
+  const runtime = createWorkbenchAiAdviceRuntime(
+    createProductionDependencies(repositoryRoot),
+  );
   return (executionPlan, cancellationSignal) =>
     runtime(
       executionPlan,
@@ -240,6 +254,7 @@ function createWorkbenchAiAdviceRuntime(
     let processControl: object | null = null;
     let recoveryCapability: object | null = null;
     let recoveryFinalizationCapability: object | null = null;
+    let selectionCleanupConfirmed = true;
     let providerEffectIssued = false;
     let isOperationCleaned = false;
     let hostGenerationFailed = false;
@@ -250,6 +265,29 @@ function createWorkbenchAiAdviceRuntime(
       if (cancellationSignal.aborted)
         throw new AdviceRuntimeError(
           "workbench_ai_advice_cancelled_during_operation_creation",
+        );
+
+      const repositoryBinding = dependencies.bindRepository(
+        operation.managementCapability,
+      );
+      if (
+        !repositoryBinding ||
+        repositoryBinding.operationId !== operation.operationId
+      )
+        throw new AdviceRuntimeError(
+          "workbench_ai_advice_repository_binding_unavailable",
+        );
+
+      const selectionInput = selectionRequest(plan, operation.operationId);
+      const selection = dependencies.issueSelection(
+        operation.managementCapability,
+        selectionInput,
+      ) as RuntimeRecord;
+      selectionControl = objectValue(selection.controlCapability);
+      let selectionUse = objectValue(selection.useCapability);
+      if (!validSelection(selection, selectionControl, selectionUse, plan))
+        throw new AdviceRuntimeError(
+          "workbench_ai_advice_selection_unavailable",
         );
 
       const observation = dependencies.observeProviderHome(
@@ -307,24 +345,42 @@ function createWorkbenchAiAdviceRuntime(
           "workbench_ai_advice_mount_authorization_unavailable",
         );
 
-      const selection = dependencies.issueSelection(
+      const revokedSelection = dependencies.revokeSelection(
+        selectionControl,
         operation.managementCapability,
-        selectionRequest(plan, operation.operationId),
       ) as RuntimeRecord;
-      selectionControl = objectValue(selection.controlCapability);
-      const selectionUse = objectValue(selection.useCapability);
+      if (revokedSelection.status !== "revoked")
+        throw new AdviceRuntimeError(
+          "workbench_ai_advice_selection_refresh_revoke_failed",
+        );
+      selectionControl = null;
+      const refreshedSelection = dependencies.issueSelection(
+        operation.managementCapability,
+        selectionInput,
+      ) as RuntimeRecord;
+      const refreshedSelectionControl = objectValue(
+        refreshedSelection.controlCapability,
+      );
+      const refreshedSelectionUse = objectValue(
+        refreshedSelection.useCapability,
+      );
+      selectionControl = refreshedSelectionControl;
       if (
-        selection.status !== "issued" ||
-        !selectionControl ||
-        !selectionUse ||
-        selection.profileId !== plan.profileId ||
-        selection.selectedModel !== plan.exactModelId ||
-        selection.selectedEffort !== plan.reasoningEffort
+        !validSelection(
+          refreshedSelection,
+          refreshedSelectionControl,
+          refreshedSelectionUse,
+          plan,
+        )
       )
         throw new AdviceRuntimeError(
-          "workbench_ai_advice_selection_unavailable",
+          "workbench_ai_advice_selection_refresh_unavailable",
         );
-
+      selectionUse = refreshedSelectionUse;
+      if (!sameSelection(selection, refreshedSelection))
+        throw new AdviceRuntimeError(
+          "workbench_ai_advice_selection_refresh_mismatch",
+        );
       const packet = dependencies.issuePacket({
         operationId: operation.operationId,
         profileId: plan.profileId,
@@ -492,11 +548,18 @@ function createWorkbenchAiAdviceRuntime(
         } catch {}
       }
       if (packetOwner) dependencies.revokePacket(packetOwner);
-      if (selectionControl && operation)
-        dependencies.revokeSelection(
-          selectionControl,
-          operation.managementCapability,
-        );
+      if (selectionControl && operation) {
+        try {
+          const revokedSelection = dependencies.revokeSelection(
+            selectionControl,
+            operation.managementCapability,
+          ) as RuntimeRecord;
+          if (revokedSelection.status === "revoked") selectionControl = null;
+          else selectionCleanupConfirmed = false;
+        } catch {
+          selectionCleanupConfirmed = false;
+        }
+      }
       if (mountControl && operation)
         dependencies.revokeMountGrant(
           mountControl,
@@ -516,6 +579,7 @@ function createWorkbenchAiAdviceRuntime(
           cleanupConfirmed = false;
         }
       }
+      cleanupConfirmed = cleanupConfirmed && selectionCleanupConfirmed;
       if (operation && !cleanupConfirmed) {
         try {
           await dependencies.abandonOperation(operation.managementCapability);
@@ -608,6 +672,68 @@ function selectionRequest(
 }
 
 /**
+ * Workbench助言のSelectionが固定実行計画と一致するか判定する。
+ *
+ * @responsibility Provider Effect前にProfile、Model、推論強度およびCapabilityの完全性を検査する。
+ * @trace ARCH-000010
+ * @input selection: Selection結果、controlCapability: 制御Capability、useCapability: 利用Capability、plan: 固定実行計画
+ * @returns 固定実行計画と完全一致する発行済みSelectionだけtrueを返す。
+ * @precondition Selection結果は署名CoordinatorのSelection境界から返されている。
+ * @postcondition trueでもProvider Effect Authorityを発行しない。
+ * @effect N/A: 入力値の比較だけを行う。
+ * @failure 不足、不一致または不正状態をfalseへ閉じる。
+ * @invariant Repository／Workspace共有可否を変更しない。
+ * @boundary Workbench助言LifecycleとSelection Grant境界。
+ * @security Capability自体を公開結果へ含めない。
+ * @concurrency N/A: 共有状態を持たない同期判定である。
+ */
+function validSelection(
+  selection: RuntimeRecord,
+  controlCapability: object | null,
+  useCapability: object | null,
+  plan: WorkbenchAiAdviceExecutionPlan,
+) {
+  return (
+    selection.status === "issued" &&
+    controlCapability !== null &&
+    useCapability !== null &&
+    selection.executorProvider === plan.provider &&
+    selection.profileId === plan.profileId &&
+    selection.selectedModel === plan.exactModelId &&
+    selection.selectedEffort === plan.reasoningEffort &&
+    typeof selection.speedMode === "string" &&
+    typeof selection.selectionNotice === "string"
+  );
+}
+
+/**
+ * Mount前後のSelectionが同じ意味を保持するか判定する。
+ *
+ * @responsibility 短命Selectionの再発行によってProvider、Profile、Model、推論強度、速度または理由が変化しないことを保証する。
+ * @trace ARCH-000010
+ * @input initial: Mount前Selection、refreshed: Effect直前Selection
+ * @returns 意味Propertyが完全一致する場合だけtrueを返す。
+ * @precondition 両Selectionは同じOperationと入力から発行されている。
+ * @postcondition Capability Object Identityは比較対象に含めない。
+ * @effect N/A: 入力値の比較だけを行う。
+ * @failure 意味差または不足Propertyをfalseへ閉じる。
+ * @invariant Selectionの短命性と一回消費性を変更しない。
+ * @boundary Mount前選定とProvider Effect直前選定の境界。
+ * @security Selection理由以外の内部状態を公開しない。
+ * @concurrency N/A: 共有状態を持たない同期判定である。
+ */
+function sameSelection(initial: RuntimeRecord, refreshed: RuntimeRecord) {
+  return (
+    initial.executorProvider === refreshed.executorProvider &&
+    initial.profileId === refreshed.profileId &&
+    initial.selectedModel === refreshed.selectedModel &&
+    initial.selectedEffort === refreshed.selectedEffort &&
+    initial.speedMode === refreshed.speedMode &&
+    initial.selectionNotice === refreshed.selectionNotice
+  );
+}
+
+/**
  * 署名済みWorkbench助言Production Runtime境界におけるcreateProductionOperationの処理境界を固定する。
  *
  * @responsibility 署名済みWorkbench助言Production Runtime境界に必要な入力処理、失敗分類および結果生成を所有する。
@@ -674,11 +800,37 @@ async function createProductionOperation(): Promise<Operation> {
   }
 }
 
-const productionDependencies: WorkbenchAiAdviceRuntimeDependencies =
-  Object.freeze({
+/**
+ * 検証済みRepositoryへ閉じたWorkbench助言Production依存を構築する。
+ *
+ * @responsibility Workbench助言OperationのRepository結合と署名Coordinator実境界を同じ依存集合へ固定する。
+ * @trace ARCH-000008
+ * @trace ARCH-000010
+ * @input repositoryRoot: 検証済みCapabilityから解決したRepository Root。解決不能時はnull。
+ * @returns Repository Scopeへ閉じたProduction Runtime依存を返す。
+ * @precondition Repository RootはVersion Control境界で検証済み、または解決不能としてnullである。
+ * @postcondition nullの場合も別Repositoryへfallbackせず、Repository結合時にFail Closedとなる。
+ * @effect N/A: 依存関数を構成するだけで、OperationまたはFilesystem Effectをまだ発行しない。
+ * @failure Repository結合不能は実行時に`workbench_ai_advice_repository_binding_unavailable`へ閉じる。
+ * @invariant Repository／WorkspaceのProvider Mountを有効化しない。
+ * @boundary Workbench CLIの検証済みRepository Capabilityと署名Coordinator Runtimeの境界。
+ * @security Repository Pathを公開結果、Task PacketまたはProvider入力へ追加しない。
+ * @concurrency 返却依存はOperationごとに独立したCapabilityへ結合される。
+ */
+function createProductionDependencies(
+  repositoryRoot: string | null,
+): WorkbenchAiAdviceRuntimeDependencies {
+  return Object.freeze({
     consumeVerifiedPackage:
       consumeRuntimeOwnedVerifiedCoordinatorPackageCapability,
     createOperation: createProductionOperation,
+    bindRepository: (managementCapability) =>
+      repositoryRoot === null
+        ? null
+        : bindRuntimeOwnedRepositoryOperation(
+            managementCapability,
+            repositoryRoot,
+          ),
     observeProviderHome: inspectRuntimeOwnedWindowsProviderHomeCandidate,
     issueMountGrant: issueRuntimeOwnedProviderHomeMountGrant,
     consumeMountGrant: consumeRuntimeOwnedProviderHomeMountGrant,
@@ -700,6 +852,7 @@ const productionDependencies: WorkbenchAiAdviceRuntimeDependencies =
     abandonOperation: abandonOwnedHostOperationGenerationLock,
     poisonAfterCleanupUnknown: poisonRuntimeProcessAfterCleanupUnknown,
   });
+}
 
 /**
  * 署名済みWorkbench助言Production Runtime境界におけるobjectValueの処理境界を固定する。

@@ -40,6 +40,7 @@ const adviceRuntime = createRuntimeOwnedWorkbenchAiAdviceProductionRuntime(
     issueRuntimeOwnedVerifiedCoordinatorPackageCapability({
       evaluationTime: new Date().toISOString(),
     }).capability,
+  verifiedRepositoryRoot.capability,
 );
 const adviceExecutor = createWorkbenchAiAdviceProviderExecutor(adviceRuntime);
 const providerAdapter = createWorkbenchAiProviderAdapter({

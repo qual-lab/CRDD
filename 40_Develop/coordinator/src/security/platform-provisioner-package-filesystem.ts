@@ -6235,7 +6235,7 @@ const exactRuntimePackageCapabilityConsumers = Object.freeze(
     [
       "src/security/workbench-ai-advice-production-runtime.ts",
       "consumeRuntimeOwnedVerifiedCoordinatorPackageCapability",
-      "module",
+      "createProductionDependencies",
       "reference",
       1,
     ],

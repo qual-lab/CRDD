@@ -58,7 +58,12 @@ const plan = prepared.executionPlan;
  */
 function fixture(
   overrides: Partial<WorkbenchAiAdviceRuntimeDependencies> = {},
-  options: Readonly<{ mountReobservationUnavailable?: boolean }> = {},
+  options: Readonly<{
+    mountReobservationUnavailable?: boolean;
+    selectionRefreshRevokeFailure?: boolean;
+    selectionRefreshUnavailable?: boolean;
+    selectionRefreshMismatch?: boolean;
+  }> = {},
 ) {
   const owned = Object.freeze({});
   const mountCapability = Object.freeze({});
@@ -68,8 +73,8 @@ function fixture(
   const mountControl = Object.freeze({});
   const mountUse = Object.freeze({});
   const mountAuthorization = Object.freeze({});
-  const selectionControl = Object.freeze({});
-  const selectionUse = Object.freeze({});
+  const selectionControls = [Object.freeze({}), Object.freeze({})];
+  const selectionUses = [Object.freeze({}), Object.freeze({})];
   const packetOwner = Object.freeze({});
   const packetUse = Object.freeze({});
   const preparedCapability = Object.freeze({});
@@ -79,6 +84,7 @@ function fixture(
   const runtimeObservation = {
     providerHomeCount: 0,
     mountGrantConsumed: false,
+    selectionIssueCount: 0,
   };
   const adviceJson = JSON.stringify({
     contract: "crdd-coordinator/workbench-ai-advice-result",
@@ -103,6 +109,10 @@ function fixture(
         operationId: "OP-123456",
         hostRecoveryId: "HOST-RECOVERY",
       });
+    },
+    bindRepository: () => {
+      calls.push("bind-repository");
+      return Object.freeze({ operationId: "OP-123456" });
     },
     observeProviderHome: () => {
       calls.push("observe-provider-home");
@@ -160,16 +170,35 @@ function fixture(
       const record = request as Readonly<Record<string, unknown>>;
       assert.equal(record.requestedProfileId, plan.profileId);
       assert.equal(record.operationId, "OP-123456");
+      const index = runtimeObservation.selectionIssueCount;
+      runtimeObservation.selectionIssueCount += 1;
       return Object.freeze({
         status: "issued" as const,
-        controlCapability: selectionControl,
-        useCapability: selectionUse,
+        controlCapability: selectionControls[index],
+        useCapability: selectionUses[index],
+        executorProvider: plan.provider,
         profileId: plan.profileId,
-        selectedModel: plan.exactModelId,
+        selectedModel:
+          index === 1 && options.selectionRefreshUnavailable === true
+            ? "invalid-model"
+            : plan.exactModelId,
         selectedEffort: plan.reasoningEffort,
+        speedMode: "normal",
+        selectionNotice:
+          index === 1 && options.selectionRefreshMismatch === true
+            ? "workbench-advice-changed-selection"
+            : "workbench-advice-fixed-selection",
       });
     },
-    revokeSelection: () => Object.freeze({ status: "revoked" as const }),
+    revokeSelection: () => {
+      calls.push("revoke-selection");
+      if (
+        runtimeObservation.selectionIssueCount === 1 &&
+        options.selectionRefreshRevokeFailure === true
+      )
+        return Object.freeze({ status: "blocked" as const });
+      return Object.freeze({ status: "revoked" as const });
+    },
     issuePacket: (input: Readonly<Record<string, unknown>>) => {
       calls.push("issue-packet");
       assert.equal(input.taskHash, plan.taskHash);
@@ -287,9 +316,12 @@ test("署名確認からHost／Docker cleanup完了後にだけ助言JSONを返�
   assert.deepEqual(current.calls, [
     "consume-package",
     "create-operation",
+    "bind-repository",
+    "issue-selection",
     "observe-provider-home",
     "observe-provider-home",
     "consume-mount-grant",
+    "revoke-selection",
     "issue-selection",
     "issue-packet",
     "start-process",
@@ -327,11 +359,19 @@ test("Mount Grant消費直前のfresh再観測が不成立ならProvider Effect�
   assert.equal(result.cleanupConfirmed, true);
   assert.equal(current.runtimeObservation.providerHomeCount, 2);
   assert.equal(current.runtimeObservation.mountGrantConsumed, false);
+  assert.equal(current.runtimeObservation.selectionIssueCount, 1);
   assert.equal(
     current.calls.filter((call) => call === "revoke-mount-grant").length,
     1,
   );
-  assert.equal(current.calls.includes("issue-selection"), false);
+  assert.equal(
+    current.calls.filter((call) => call === "issue-selection").length,
+    1,
+  );
+  assert.equal(
+    current.calls.filter((call) => call === "revoke-selection").length,
+    1,
+  );
   assert.equal(current.calls.includes("issue-packet"), false);
   assert.equal(current.calls.includes("register-recovery"), false);
   assert.equal(current.calls.includes("start-process"), false);
@@ -340,6 +380,149 @@ test("Mount Grant消費直前のfresh再観測が不成立ならProvider Effect�
     1,
   );
   assert.equal(current.calls.includes("poison"), false);
+});
+
+/**
+ * Repository結合が不成立ならSelectionとProvider Effectを発行しないことを検証する。
+ *
+ * @responsibility Workbench助言Operationを元Repository Identityへ結合できない状態をFail Closedにする。
+ * @trace ERB-UT-023
+ * @precondition Operation生成は成立するがRepository結合だけが不成立である。
+ * @stimulus Workbench助言Production Runtimeを実行する。
+ * @observation 結果理由、Selection、Mount、Packet、Process、Provider EffectおよびOperation cleanupを観測する。
+ * @oracle Repository結合固有理由でblockedとなり、後続Authority・Effect 0、Operation cleanup 1になる。
+ * @cleanup Operation cleanupが完了し、Process外資源を残さない。
+ * @boundary ERB-UT-023=Direct Boundary: Repository Identity→Selection Grant
+ */
+test("Repository結合が不成立ならSelectionとProvider Effectを発行しない", async () => {
+  const current = fixture({ bindRepository: () => null });
+  const result = await createIsolatedWorkbenchAiAdviceRuntimeCandidate(
+    current.dependencies,
+  ).run(plan, new AbortController().signal, Object.freeze({}));
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "workbench_ai_advice_repository_binding_unavailable",
+  );
+  assert.equal(result.providerEffectIssued, false);
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(current.calls.includes("issue-selection"), false);
+  assert.equal(current.calls.includes("observe-provider-home"), false);
+  assert.equal(current.calls.includes("issue-packet"), false);
+  assert.equal(current.calls.includes("start-process"), false);
+  assert.equal(
+    current.calls.filter((call) => call === "cleanup-operation").length,
+    1,
+  );
+});
+
+/**
+ * 初回Selectionを失効できなければ再発行とProvider Effectへ進まないことを検証する。
+ *
+ * @responsibility Mount後のSelection更新前に旧Authorityの失効を必須とし、失効不能時に後続Authorityを発行しない。
+ * @trace ERB-UT-023
+ * @precondition Repository結合、初回Selection、Provider Home再観測およびMount Grant消費は成立する。
+ * @stimulus 初回Selectionの失効だけを不成立にしてWorkbench助言Runtimeを実行する。
+ * @observation Selection発行・失効、Packet、Process、Provider EffectおよびOperation cleanupを観測する。
+ * @oracle Selection再発行0、Packet・Process・Provider Effect 0、Operation cleanup 1となり、失効不明をcleanup成功へ畳まない。
+ * @cleanup catch経路が旧Selection失効を再試行し、なお失敗する場合はProcessをpoisonする。
+ * @boundary ERB-UT-023=Direct Boundary: Mount完了→旧Selection失効
+ */
+test("初回Selectionを失効できなければ再発行とProvider Effectへ進まない", async () => {
+  const current = fixture({}, { selectionRefreshRevokeFailure: true });
+  const result = await createIsolatedWorkbenchAiAdviceRuntimeCandidate(
+    current.dependencies,
+  ).run(plan, new AbortController().signal, Object.freeze({}));
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "workbench_ai_advice_selection_refresh_revoke_failed",
+  );
+  assert.equal(result.providerEffectIssued, false);
+  assert.equal(result.cleanupConfirmed, false);
+  assert.equal(current.runtimeObservation.selectionIssueCount, 1);
+  assert.equal(
+    current.calls.filter((call) => call === "revoke-selection").length,
+    2,
+  );
+  assert.equal(current.calls.includes("issue-packet"), false);
+  assert.equal(current.calls.includes("start-process"), false);
+  assert.equal(
+    current.calls.filter((call) => call === "cleanup-operation").length,
+    1,
+  );
+  assert.equal(current.calls.includes("poison"), true);
+});
+
+/**
+ * 再発行Selectionが不正でも取得済みAuthorityを失効することを検証する。
+ *
+ * @responsibility 再Selectionの検証前にCleanup Authorityを保持し、不正RecordをAuthority残存へ変換しない。
+ * @trace ERB-UT-023
+ * @precondition 初回Selection失効後に、ControlとUseを持つがModelが不正な再Selectionが発行される。
+ * @stimulus 不正な再SelectionでWorkbench助言Runtimeを実行する。
+ * @observation 二回のSelection、両Selection失効、Packet、Process、Provider EffectおよびOperation cleanupを観測する。
+ * @oracle 再Selection不成立理由でblockedとなり、新旧Selectionを失効してProvider Effect 0で閉じる。
+ * @cleanup Operation cleanupが完了し、Process外資源を残さない。
+ * @boundary ERB-UT-023=Direct Boundary: Selection再発行→Selection検証
+ */
+test("不正な再Selectionは取得済みAuthorityを失効してProvider Effectへ進まない", async () => {
+  const current = fixture({}, { selectionRefreshUnavailable: true });
+  const result = await createIsolatedWorkbenchAiAdviceRuntimeCandidate(
+    current.dependencies,
+  ).run(plan, new AbortController().signal, Object.freeze({}));
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "workbench_ai_advice_selection_refresh_unavailable",
+  );
+  assert.equal(result.providerEffectIssued, false);
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(current.runtimeObservation.selectionIssueCount, 2);
+  assert.equal(
+    current.calls.filter((call) => call === "revoke-selection").length,
+    2,
+  );
+  assert.equal(current.calls.includes("issue-packet"), false);
+  assert.equal(current.calls.includes("start-process"), false);
+  assert.equal(
+    current.calls.filter((call) => call === "cleanup-operation").length,
+    1,
+  );
+});
+
+/**
+ * Mount後の再Selectionが初回Selectionと異なる場合はProvider Effectを発行しないことを検証する。
+ *
+ * @responsibility 短命Selection更新時の意味変更をProvider Effect前に拒否する。
+ * @trace ERB-UT-023
+ * @precondition Repository結合、初回Selection、Provider Home再観測およびMount Grant消費は成立する。
+ * @stimulus 再Selectionの理由だけを初回から変更してWorkbench助言Runtimeを実行する。
+ * @observation 二回のSelection、旧Selection失効、新Selection失効、Packet、Process、Effectおよびcleanupを観測する。
+ * @oracle 意味不一致固有理由でblockedとなり、二つのSelectionを失効してProvider Effect 0で閉じる。
+ * @cleanup Operation cleanupが完了し、Process外資源を残さない。
+ * @boundary ERB-UT-023=Direct Boundary: Mount完了→Effect直前Selection更新
+ */
+test("Mount後の再Selectionが初回Selectionと異なる場合はProvider Effectを発行しない", async () => {
+  const current = fixture({}, { selectionRefreshMismatch: true });
+  const result = await createIsolatedWorkbenchAiAdviceRuntimeCandidate(
+    current.dependencies,
+  ).run(plan, new AbortController().signal, Object.freeze({}));
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "workbench_ai_advice_selection_refresh_mismatch");
+  assert.equal(result.providerEffectIssued, false);
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(current.runtimeObservation.selectionIssueCount, 2);
+  assert.equal(
+    current.calls.filter((call) => call === "revoke-selection").length,
+    2,
+  );
+  assert.equal(current.calls.includes("issue-packet"), false);
+  assert.equal(current.calls.includes("start-process"), false);
+  assert.equal(
+    current.calls.filter((call) => call === "cleanup-operation").length,
+    1,
+  );
 });
 
 /**
