@@ -438,6 +438,36 @@ session `41439`は終了コード0で終了し、Native試験実行物のコン�
 
 この照合により、正常計算が合格してもHost移行全体は未完了であることを確認した。既存試験を廃止せず、未確認の実Host境界を次の反証へ接続する。試験用モデル名はProvider送信なしのSession構築条件であり、承認された新モデルの利用可能性や実Provider E2Eの証明には使わない。
 
+### 実Host正常試験の初回失敗と試験入力の是正
+
+警告是正候補のsession `50104`は終了コード0で完了した。Nativeコンパイルは11分19秒、履歴`o2ha3jxouvtks3harfdrg1ic9`、image manifest `60d4253e9e7e1fa469225d53088c526af688a795f60e00fe82fa40855b562f6e`。新規のResult無視警告2件は再発せず、固定公式Source由来の警告1件が残る。exact imageの現存を読み取り確認し、試験alias `crdd-advice-host-corrected:60d4253e9e7e1fa4`の解決先も照合した。
+
+新しい実行物で、Host Hash、実行物に対応する新Link Map、musl起動部品、ELFの動的依存不存在と非実行stackを確認した。試験一覧は2659件で、そのうちexact正常試験1件をnetworkなしで実行した。履歴`fbo9vtbbc10u3wojjfilk5n8f`は終了コード101で失敗した。実行1件はFail、Pass 0件、未実行2658件である。正常結果のassertionでpanicが発生し、共通のshutdown、全登録資源終了および隔離Root保持のassertion通過後に再通知された。正常結果と9Roleの成立は証明できておらず、Host全体やE2Eの合格へ算入しない。
+
+固定Archiveの`code-mode-runtime/src/runtime/globals.rs`を再照合したところ、Hostは`console`を明示的に削除し、正式出力APIとして`text`を登録していた。試験入力`console.log(6 * 7);`はこの契約に適合しない。実測したerror本文は初回assertionに含まれていないため、これ以外の原因不存在までは断定しない。Productionを変更せず、試験入力を`text(6 * 7);`へ是正し、固定試験の結果だけをassertion失敗時のローカル診断へ追加した。
+
+更新Source Hashは`16fbf7ca93f0efb849da0df18bdca342ad93ea62e90beaa490bc273c881f752e`、整形確認は成功した。新しい固定Context `.crdd/tmp/codex-advice-host-text-20261001`、Dockerfile Hash `b1553cf8dcf951e454c10c27b07408a3ab687d17ff332bb987e6960216afeaf0`を準備した。既存Mapの保持先は未使用のexact `/out/native-link-maps-before-text-correction`とし、新Mapを再取得する。前の失敗候補を成功へ読み替えず、着手前確認後に再コンパイルと実測を行う。新ContextとaliasにもCoordinator保守担当、2026-10-08までの保持上限とexact清掃条件を適用する。
+
+正式APIへの是正の読取り着手前確認はFinding 0件だった。確認者も固定Sourceの`text_callback`が値を結果Contentへ搬送することを確認した。結果診断は今回の固定計算・秘密値なしのローカル試験だけへ限定し、Provider出力公開の一般契約へ流用しない。
+
+固定baseのIdentityを再照合し、cacheを使わずtext是正候補の再コンパイルを開始した。sessionは`83013`。Source Hashと整形確認は成功し、Nativeコンパイルが進行中である。実行手順は大量の試験一覧をログへ保存したまま画面出力を省略する変更だけを行い、pipeline失敗、exact試験名の確認、実行1件のOracleは維持した。更新した実行Dockerfile Hashは`78528b07366f2deeea5c48271925b4cefc933341bbb27d97ffeec383f3e8723d`。再コンパイルと再実測はまだ合格未確定である。
+
+### JS能力反証の追加候補
+
+正常試験の再コンパイルを待つ間に、進行中の固定Contextとは別の試験SourceコピーへJS能力反証を追加した。正常計算の起動・隔離・終了処理を共通helperへ移し、別の試験から`require('node:fs')`、`process.pid`、不正な専用protocolを引数にする`fetch`、通常`node:fs` importと動的importを実捕捉Routerへ順に渡す。各cellの失敗結果に加え、能力不存在または固定module-loaderのimport拒否理由を要求する。network遮断や不正protocolによる拒否だけで能力不存在を証明しない。その後に同じSessionで`text(6 * 7)`の正常結果、9Roleおよび全登録資源終了を確認する。禁止Toolのdelegate配送、取消またはIPC喪失をこの結果へ含めない。
+
+Source Hashは`41f8805c3e7bdff07cf7dba104ac71adbcca15d42b7f227e0a0f568ffdd2fb2b`。整形確認と対象限定の読取り着手前確認は成功し、追加Finding 0件だった。Helperと試験Headerに刺激・観測・判定・清掃および`ERB-IT-024`へのTraceを記載した。起動から全cell実行までの期限・panic捕捉と終了時のSession所有を維持した。まだこの追加候補はNative compile・実測を行っていない。正常候補session `83013`の進行中入力Hash `16fbf7ca...`と混同せず、その結果を新しいSource Hashへ流用しない。
+
+### 正式text APIによる実Host正常試験の結果
+
+text是正候補session `83013`は終了コード0、Nativeコンパイル11分28秒で完了した。履歴`xh0fcii2daom4qoabp689oaz5`、image manifest `76e7d1f040aea8afd4869eb69416bbb72048bb30746ad7eade95ed30a5cfdb43`。exact imageと試験alias `crdd-advice-host-text:76e7d1f040aea8af`の一致を確認した。
+
+cacheを使わず、更新実行Dockerfile `78528b07366f2deeea5c48271925b4cefc933341bbb27d97ffeec383f3e8723d`でHost Hash、実行物別の新Map、musl部品とELF条件を再確認した。実Host正常試験1件はPass、Fail／Ignored 0件、未実行2658件、試験5.12秒だった。session `73521`はimage展開まで終了コード0で完了し、履歴`ej54asyh1td4pwy592e2x0b6u`、結果image manifest `cfb40f3db42f3f194815698872dd72d51d51a86226953e59f71cf920fa8ba38a`を確認した。exact 42行、正常結果、9Roleと全登録Task終了、Host reap、隔離Rootの終了時保持がこの試験の成立範囲である。
+
+この合格のSource Hashは`16fbf7ca93f0efb849da0df18bdca342ad93ea62e90beaa490bc273c881f752e`であり、追加中のJS・Cell終了候補とは別である。禁止アクセス、禁止delegate、取消、IPC喪失、公開CLI、実Provider E2Eまたは移行全体の合格へ流用しない。正常実測imageと試験aliasも同じ担当責任者、2026-10-08の保持上限とexact清掃条件を持つ。
+
+結果imageをnetworkなし・read-only・Host Mountなしの一時containerで読み、保存したHash記録を確認した。Native試験実行物は`f246933a9e336e70e125c466f3937f2ae3da101f573abc77eaf2d9b77cf04ed5`、新Link Mapは`8610b76dfa7e66a9ef641055f3c7a0feedef7bd273ec1c9b4593da87be68695c`、Mapの出力対応記録は`d46799f644ebed93b1bd3ed6a5ebbbc70e9f02af72b20a8c9d8d87248a5d4d23`だった。確認用containerは所有した一時資源として終了時に除去し、永続Dockerデータは操作していない。
+
 ## Checklist
 
 - [x] 人間承認のモデル方針と旧候補の履歴を区別した。
