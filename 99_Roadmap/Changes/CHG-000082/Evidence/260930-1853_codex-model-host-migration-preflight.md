@@ -338,6 +338,106 @@ CoordinatorのFormatter・型・Lint・能力閉包と旧設計トレース検�
 
 このCheckpointは専用Build入力・モデルCatalog外出し・回帰是正の保存であり、専用Runtimeの有効化、Release署名、全体E2EまたはRelease完了ではない。全Checker回帰の再実行、実Code Mode Host観測、必要な署名E2Eと全体品質確認を続ける。
 
+### 固定CheckpointのChecker全回帰と実Host観測器の局所反証
+
+Commit `2734243005153e765ec7832f21f3a1f4c81a0dc3`で`40_Develop/checker`の`npm run test:run`を実行し、全375件成功、失敗・取消・skip・todoは0、終了コード0、266298.8002msだった。直前のFormatter・型・Lintも成功している。これはChecker契約の全回帰であり、Stableタグとfeature HEADの差に起因する既知のRepository検査Errorを解消したことや、実Host・Provider E2E成立を意味しない。
+
+実Host試験用の観測器をRepository-local `.crdd/tmp/codex-advice-lifecycle-observer-20261001.rs`で試作した。SHA-256は`00895479572c1efeb14c3cd722647ea906dba5e1e0effe56f34b36189b68dd69`。ローカルRust `1.94.1`で`rustfmt --edition 2024`、`rustc --edition 2024 --test`を実行し、同名`.exe`の三試験が成功した。搬送Task終了だけでdelegate本体終了としない、未観測Host回収と未出現の必須Taskを成功にしない、同PIDの別世代と回収失敗を区別することを確認した。観測器はkill／abort／取消を発行しない。まだ実Hostや公式SourceのTaskへ接続しておらず、実行基盤の終了保証として使用しない。
+
+この試作Sourceと実行物は生成・試験用でGit管理外とし、Coordinator保守担当が実Host観測Patchへ反映・再試験後に清掃する。保持上限は2026-10-08であり、未解決の観測参照がある場合は理由と新しい保持判断を残す。名前や期限だけで所有不明な資源を削除しない。次は試験Patch限定featureへ観測器を結合し、公式固定Host、実Session、Router、BrokerとRegistryを通す反証へ接続する。
+
+### 試験専用featureと遅延通知の分離
+
+2026-10-01、観測器のHost回収を現在のglobal scopeとPIDから探索する方式から、開始時に取得した観測scope・PID・世代を保持するToken方式へ変更した。同PIDを別scopeで再使用しても古い回収通知が新Hostの回収根拠にならない反証を追加した。
+
+固定SourceのRepository-local試験コピーに、CoreからCode Modeへ伝播する`crdd-lifecycle-observation` featureと、feature有効時だけ公開する観測moduleを追加した。reader／writer／driver／supervisor／stderrの五Taskはspawn前に観測guardを予約し、Futureの終了または破棄で記録する。guardは取消・kill・abortを発行せず、ProductionのTool集合を変更しない。未pollのFutureも予約済みとして扱い、破棄を実際に観測する反証を追加した。
+
+観測module SHA-256は`8aaf4c744ea72ff6a3bd7204c419b32eb674b6b5b08a9ffbc02adb1cf06d66d6`。ローカルRustの構文整形と単独module試験は終了コード0、6件成功・失敗0だった。これはcross-crateのCargo compileや実Host終了の証明ではない。Host Tokenの実Child回収経路、delegate本体／結果搬送、Core Worker／dispatch、watcher、Session起動／終了への接続は未完了であり、全Task終了をまだ主張しない。試験コピーは`.crdd/tmp/codex-advice-test-check-20260930/codex-rs`に保持し、同じ2026-10-08の保持上限と未解決参照の清掃条件を適用する。
+
+### 実Child回収と全Task接続の具体化確認
+
+実Childの開始Tokenを`spawn → establish → Supervisor`へ保持し、handshake失敗時の回収とSupervisorの`child.wait()`実結果に接続した。`wait`失敗または未回収Tokenの破棄を回収成功にしない。delegate本体と結果搬送、要求／yield監視、Core Worker／dispatch、Session起動／終了を追加し、対象の12 Roleをspawn前予約で接続した。構文整形は成功したが、Cargo・実Hostは未実行である。
+
+読み取り専用の具体化確認では、Host回収Tokenと12 Role接続は整合している一方、後続子Taskが新しいglobal観測範囲へ混入し得る点と、内側Future破棄と終了登録の順序保証が不足している点を検出した。これを実Host合格へ進む前の是正事項とした。
+
+試験feature限定のTokio task-localで開始時の観測範囲を子Taskへ継承し、内側`Pin<Box<F>>`を破棄した後にguard終了を登録するwrapperへ変更した。内側Dropを同期barrierで保留し、その間はclosureがfalseである反証を追加した。更新module SHA-256は`3bb244b8c49e0a6fb66e394b0e7cd6e0e53f8bb116411734af5cdb449389d67b`。featureなしのローカル単独module試験は7件成功・失敗0・終了コード0。feature有効時の観測範囲継承反証は追加済みだが未実行であり、この7件へ算入しない。
+
+全観測範囲のclosureと個別取消の帰属を区別する。実Host試験は一観測範囲一シナリオとして構成し、複数connection／Cell／request間の個別因果をRole存在だけで主張しない。現在は是正後の読み取り専用確認、cross-crate compile、実Session／Router／Host／Broker／Registry反証が残る。ProductionのTool許可集合、取消、killまたはabort処理は変更していない。
+
+### 観測feature有効での反証結果
+
+未poll FutureのDropも開始時scopeを継承するため、task-localを`Option<Observation>`とし、scopeを`observe_future`呼出時に構築した。task-localの`None`をglobal scopeへ置換しない。旧scopeで作成した未poll FutureのDropが子登録しても、新scopeの必須Roleを満たさない反証を追加した。読み取り専用再確認は観測器限定Pass、追加Finding 0だった。実Host、Core compile、全資源closureは判定対象外である。
+
+試験Contextは`.crdd/tmp/codex-advice-build-gFU1UU`。独立観測module SHA-256は`80f16aa7d1b76eac58843d6ca807a4d181e60a5aee48d4e64384b7dc72d10339`、Cargo入力は`774d661fa222467f6b10ec76e5a9b055b20f2efddb67f75f3504bb3397904f8a`、独立Dockerfileは`b4639d0ca44e43ac60a38311f281dbfc20c774834e722949b2409c3f4677980f`。固定Rust 1.95.0 imageとTokio 1.52.3でfeature有効の9試験が成功、失敗・無視・filterは0、終了コード0だった。Build履歴は`l9k464sovuagaywxvt0tov0hi`、生成image manifestは`a7c3239350b8c97371e33caeb84f7e31f6bfcaae9b777bedf8c5afb96073af7e`。この試験imageをRuntimeとして有効化しない。
+
+最初の`observation-probe`経路はCLI本体まで再Buildする過剰な依存を持っていたため、session `44257`を意図して停止し終了コード1を観測した。これを試験成功へ算入しない。後続の独立Dockerfileだけが9試験の根拠であり、Provider要求、Docker再起動、永続データ削除は実施していない。
+
+実Code Mode crateへ観測hooksを接続した`cargo check --locked -p codex-code-mode --features crdd-lifecycle-observation`を開始した。Dockerfile SHA-256は`adc0f62c4e66fcb691ddaeb5509314982438a664e659a29dd1bfd2e85131196f`、観測中sessionは`53785`。現在はコンパイル進行を確認しただけで、成功未確定である。Contextを進行中に変更せず、同じhandleから終端結果を確認する。Contextと試験imageはCoordinator保守担当が保持し、2026-10-08までに未解決参照・稼働Buildと必要根拠の保存を確認してexact対象の清掃判断を行う。共有cacheをこの試験の所有資源として一括削除しない。
+
+その後、同sessionでCode Mode crateの型検査が`Finished dev profile`、81.89秒で完了した。観測feature有効の実crateコードがコンパイル可能であることは確認できた。これは既定GNU開発targetの`cargo check`であり、musl Native試験実行、Coreとの接続、実Host終了または署名E2Eへ読み替えない。Dockerのimage書き出し・展開は引き続き観測中で、Build全体の終了はまだ確定していない。予定image manifestは`0bf93f538eac429da4f59207375c0529db386c16449d9913beb72564f28c80ad`だが、現時点で展開完了を主張しない。
+
+最終pollでsession `53785`の終了コード0とimage展開完了を確認した。Build履歴は`mck8bfxd2s6e7l5v8vy4vljmc`。固定platform指定に関するDockerfile warningは1件で、Compiler Errorまたは試験成功の追加根拠ではない。生成imageは上記のexact manifestで保持し、Contextと同じ清掃・保持条件を適用する。
+
+### Core側feature伝播の型検査と実Session試験の準備
+
+前回imageのconfig digestはローカルimage Identityとして解決できず、manifestによる参照もBuildKitが外部Repositoryとして解決しようとして停止した。最初のCore Buildは終了コード1、履歴`24bcm86bm7a067be3t2hqf66i`で、コンパイルを開始していない。exact manifestをローカルで読取り照合し、試験専用alias `crdd-advice-code-mode-check:0bf93f538eac429d`を付けた。aliasの解決先は`0bf93f538eac429da4f59207375c0529db386c16449d9913beb72564f28c80ad`と一致する。これは公開Releaseタグ、外部pushまたはRuntime採用ではない。
+
+新Context `.crdd/tmp/codex-advice-build-czF0DQ`でCore Cargo featureとCore delegate観測入力を加え、固定musl環境の`cargo check --locked --target x86_64-unknown-linux-musl -p codex-core --lib --features crdd-lifecycle-observation`を実行した。Dockerfile SHA-256は`5b5e125cbbbb0bddf423d68c3872ed111eda98c49c9eea93affc56449d98b069`。session `60132`は終了コード0、型検査195.3秒で完了、image書き出し・展開も完了した。履歴`hs7k2ai7da7lpf3hkk0gsar57`、image manifest `c6a2076e3aa45f20938a387b636919b87e22e6bd1c8ec2c951559e9d3f380194`。未使用`ToolCallSource` importのCompiler Warningが1件あり、同importは固定公式Sourceにも存在する。警告なし検査とは主張せず、無関係な公式Sourceを是正目的だけで変更しない。
+
+試験コピーには既存startup試験Patchを適用し、既存のSession helperはDisabled Providerを維持した。実Host試験だけが明示Providerを渡す別helperを追加した。最初の正常計算シナリオは実`capture_step_context`、捕捉したRouter、Code Mode Handler、固定HostとBroker workerを使用し、成功結果とexact `42`行を確認する。assertion panicもSession終了後に再通知する構成で、全登録Task終了・Host回収と正常経路の必須Roleを確認する。正常計算で通らないdelegate配送・禁止Tool・取消を合格へ算入しない。この新試験は構文整形のみで、着手前具体化確認とNative test compile、Host実行は未完了である。
+
+公開Source照合用の`.crdd/tmp/codex-advice-source-inspection-20261001`、追加Context、試験imageとaliasもCoordinator保守担当が保持する。2026-10-08の保持上限、未解決参照と稼働Buildの確認、exact対象の清掃条件を適用する。共有Docker cacheや名前だけで一致する別資源を削除しない。
+
+### 実Host試験の着手前指摘と是正（2026-10-01）
+
+読取り専用の着手前確認で、Session起動失敗が終了処置を迂回すること、および未指定cwdが固定公式Sourceの作業Directoryへ解決されることの2件を検出した。Native実行前に試験コピーを是正した。本番Policy、許可Tool、通常Executor／Reviewerと既存Disabled Provider試験の条件は変更していない。
+
+- Host試験は空WorkspaceをConfigBuilderの`ConfigOverrides.cwd`へ渡す。構築後のcwd書換えで代用しない。HomeとWorkspaceのTempDirは呼出側が終了観測まで保持する。
+- Session構築、準備と計算を30秒期限・panic捕捉へ含め、取得済みSessionを外側で保持して共通のshutdownへ渡す。起動未取得の場合もProvider参照を解放する。
+- 登録済み資源の終了確認`resources_settled`と正常シナリオ成立`is_closed`を分離した。空scopeで資源が登録されなかったことは正常試験Passではない。正常成功には従来の全登録Task、Host reapと9Role観測を引き続き要求する。
+- 空scope、Task未終了、Host未回収およびreap失敗を正常成立へ算入しない負例を追加した。
+
+`rustfmt --check --edition 2024`は対象3ファイルで終了コード0、追跡対象の`git diff --check`も終了コード0。更新したregistry試験SHA-256は`64ecf2df84a37f3d42b77e1fcba66a7d89b893a949b15dd8c581baa5f204cdee`、Session helperは`8c732bd25d1e63eca368fbb86b1c2c201e055c4030237fe1b20dcf82226cffec`、観測moduleは`c3687f77e7e45456832e7827fd3237bfc1224324db3a5cd29414d14942beadea`。独立した着手前再確認へ渡した段階であり、新しいNative compile、負例実行、Host実起動、独立完成レビューおよびE2Eは未完了である。前のコンパイル結果をこの更新版へ流用しない。
+
+着手前再確認は対象限定で追加Finding 0件、先の2件を解消と判定した。これは完成後レビューではない。Native試験Context `.crdd/tmp/codex-advice-host-native-20261001`を固定し、Dockerfile SHA-256 `af1d0ec97dea051c3d3f4a8bbcfe68d1cb53c51feec2c9cc95811cf14747bf85`で`cargo test --locked --release --target x86_64-unknown-linux-musl -p codex-core --lib --features crdd-lifecycle-observation --no-run`を開始した。観測sessionは`45547`。HostとNative linkerのHash照合はBuild内で両方成功、整形確認も成功し、Compiler進行を確認している。まだコンパイル成功・試験実行・Host実測は確定していない。
+
+前回Core型検査のimage manifest `c6a2076e...`は現在のDocker image一覧で見つからなかった。履歴上のCompletedをimageの現存と読み替えず、現在存在するalias `crdd-advice-code-mode-check:0bf93f538eac429d`のexact manifest `0bf93f538eac429da4f59207375c0529db386c16449d9913beb72564f28c80ad`を確認して使用した。新ContextもCoordinator保守担当が所有し、2026-10-08までの保持上限と、稼働Build・未解決参照を確認したexact清掃条件を適用する。進行中のContextを変更せず同じhandleで終端を観測する。
+
+同sessionの再観測でNativeコンパイルの進行を確認した。実行用Context `.crdd/tmp/codex-advice-host-run-20261001`を別に準備し、コンパイル中の入力は変更していない。実行用Dockerfile SHA-256は`4cc5358d8b7abaf1f1332e25334cbd7cc058c34193b2e9d8879c50333107465c`。実行手順は固定Host Hash、実行物別Link Map、musl起動部品、ELFの非動的依存と非実行stackを照合し、試験一覧にexactな正常試験名が存在することを確認した後、ネットワークなしでその1件だけを実行する。0件実行を成功へ算入しない。まだこの実行段階は開始していない。新Contextにも同じ担当責任者、保持上限およびexact清掃条件を適用する。
+
+更新した観測moduleをローカルRustの`rustc --edition 2024 --test`で構築し、`--test-threads=1`で8件Pass、Fail／Ignored／Filtered 0件を確認した。追加した資源終了とシナリオ成立の区別の負例も含む。Tokio featureを無効にしたローカル確認であり、固定musl target、Tokio継承、実Hostまたは全E2Eの根拠へ流用しない。実行物`.crdd/tmp/codex-advice-lifecycle-std-20261001.exe`も同じ保持・清掃条件の試験一時物である。Native Buildは引き続きsession `45547`で観測する。
+
+Native Build session `45547`は終了コード1で終了した。履歴`l76r87yivhc95v78n9pta8d2w`。試験の新規コードに、存在しない`crate::features::Feature`参照2箇所と`assert_eq!`の曖昧参照1箇所があり、Compilerが拒否した。固定Sourceの`codex_features::Feature`と`std::assert_eq!`へ限定是正した。更新registry試験SHA-256は`d9fea47d42c89b402444d1584e56340b57d33cad1e708de7bcddcebd993664c2`。整形確認後に同じ検証条件で再Buildを開始し、新sessionは`41439`。先の失敗をHost動作不良や本番Policy失敗へ読み替えない。固定公式Source由来の未使用import warning 1件も残っており、警告なしとは表示しない。
+
+実行手順の読取り専用確認は追加Finding 0件だった。実行時はBuild完了後に確認したimmutable Image ID／Digestを渡し、RUN cacheを使わず新しい実測を行う。手順確認を実Host試験結果へ流用しない。
+
+再Build session `41439`では試験コードの参照エラー3件は再発していないが、Feature有効化の`Result`を無視していた新規警告2件を検出した。この候補を実Host実測へ進めない。試験Sourceコピーだけを変更し、両Featureの有効化成功を`expect`で必須確認した。失敗時は既存のpanic捕捉と共通終了処置へ進む。更新registry試験SHA-256は`17aa799b30ecf9a042dbca64ab42b1e4080ddef98aaa40d94c1d42c9459ff7c3`、整形確認は成功。進行中のBuild Contextは変更せず、その入力Hash `d9fea47d...`と是正後Sourceを区別する。現在のBuild終端と是正後候補のNative検証は未確定であり、先行候補の結果を是正後Hashへ流用しない。
+
+次の固定候補では、新Host試験と補助関数のHeaderに規約の刺激・観測・判定・清掃を追加した。Session helper SHA-256は`ab2c7f4c5d4e2f41f4c98ba00d97f09b128a4ff5bce3f1e877e04a691c631662`、registry試験は`62be430e47549c935e4dee3200906d4c8467f2751d80575e2a22d02978fc48d1`。整形確認は成功。別Context `.crdd/tmp/codex-advice-host-corrected-20261001`、Dockerfile SHA-256 `e6e1f27e3864f1111715c53d1c05032b67bae70aa1953e365ae2e2c10244ec2b`を準備した。旧Build完了後にimmutable imageを照合し、依存部品だけを再利用して2ファイルを再コンパイルする計画であり、旧試験結果は流用しない。旧Link Mapは確認したcontainer内のexact `/out`範囲で保持移動し、新Mapを別に取得する。再コンパイルはnetworkなし、offline／locked条件で行い、警告2件の再発を拒否する。着手前読取り確認へ渡した段階で、まだ実行していない。新Contextも同じ担当責任者と2026-10-08までの保持・exact清掃条件を適用する。
+
+### Nativeコンパイル終端と警告是正候補の再検証
+
+session `41439`は終了コード0で終了し、Native試験実行物のコンパイルとimage展開を確認した。コンパイル所要時間は20分53秒、Build履歴は`pap0qqmyjcuqhby5buo5p8d8m`、image manifestは`7a121915b2846e0ee61ab63b62245c9947f8605ae1a0f7646727dd7e630987ef`。この入力には新規警告2件が残るため、実Host試験には使用しない。試験実行はまだ行っておらず、正常動作やE2E Passとは主張しない。
+
+警告是正候補の着手前読取り確認は対象限定でFinding 0件だった。Dockerfile、Source Hash、旧Map保持と新Map取得、offline／locked条件を確認した。raw `sha256:`をFROMへ渡した最初の試行は外部Repository名として解釈され、コンパイル開始前に終了コード1で停止した。履歴は`qas9yg7m7snjtw19leds3u87f`。imageの現存とexact Identityを読取り確認し、局所試験専用alias `crdd-advice-native-check:7a121915b2846e0e`を付け、aliasの解決先が上記manifestと一致することを再確認した。公開Releaseタグ、Runtime採用または外部pushではない。
+
+確認済みaliasでcacheを使わず警告是正Contextを再Buildした。session `50104`でSource Hash照合と整形確認は成功し、networkなしのNative再コンパイルが進行中である。終端結果と実Host試験は未確定。新aliasにもCoordinator保守担当、2026-10-08までの保持上限、稼働Buildと未解決参照を確認したexact清掃条件を適用する。
+
+### 既存試験と実Host反証の範囲照合
+
+固定Sourceの`code-mode/src/remote_session_tests.rs`と現在の試験コピーを照合した。既存の試験名や全件数から、まだ実測していない境界を成立済みへ繰り上げない。
+
+| 確認した対象 | 実際に確認する範囲 | 現在の不足 |
+|---|---|---|
+| `provider_returns_missing_host_error` | 存在しないHostへの起動要求が拒否されること | 固定Hostの差替え、起動途中失敗、in-process fallback不存在とは別である |
+| `shutdown_before_open_does_not_spawn_the_host` | 起動前shutdown後のexecute拒否 | 実行中Cell取消、起動後shutdown、Host reapと登録Task終了の証明ではない |
+| `provider_reuses_its_live_process_host` | Provider内部参照の共有 | 実Hostの起動・生存・回収を観測する試験ではない |
+| `crdd_advice_startup_ceiling` | 実Sessionの起動Policyと無害なHandlerカウンタによる直接／Code Mode由来の配送制限 | 実HostのJS環境、import拒否、Host側からのdelegate搬送は別途必要である |
+| 観測器の独立反証 | scope継承、未poll、Drop順、PID再利用、資源終了とシナリオ成立の区別 | 実Hostと実Core workerが同じ観測経路へ接続されたことを単独では証明しない |
+| 新しい正常計算試験 | 実Session、捕捉Router、実Core worker、固定Host、exact結果と終了観測 | 再コンパイル進行中であり未実行。禁止delegate、FS／Network／Process、import、取消、IPC断は含まない |
+
+この照合により、正常計算が合格してもHost移行全体は未完了であることを確認した。既存試験を廃止せず、未確認の実Host境界を次の反証へ接続する。試験用モデル名はProvider送信なしのSession構築条件であり、承認された新モデルの利用可能性や実Provider E2Eの証明には使わない。
+
 ## Checklist
 
 - [x] 人間承認のモデル方針と旧候補の履歴を区別した。
