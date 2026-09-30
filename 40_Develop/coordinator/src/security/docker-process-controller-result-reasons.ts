@@ -14,6 +14,8 @@
  * @security exactな固定値だけを公開し、診断本文を公開しない。
  * @concurrency N/A: 不変の固定値だけを公開する。
  */
+import { WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_REASONS } from "./workbench-ai-advice-provider-output.ts";
+
 export const DOCKER_PROCESS_CONTROLLER_PUBLIC_COMPLETION_REASONS =
   Object.freeze([
     "provider_deadline_exceeded",
@@ -43,6 +45,7 @@ export const DOCKER_PROCESS_CONTROLLER_PUBLIC_COMPLETION_REASONS =
     "docker_process_controller_execution_restricted",
     "provider_subscription_auth_not_confirmed",
     "provider_result_invalid",
+    ...WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_REASONS,
     "provider_task_result_input_invalid",
     "provider_task_result_json_invalid",
     "provider_task_result_envelope_status_invalid",

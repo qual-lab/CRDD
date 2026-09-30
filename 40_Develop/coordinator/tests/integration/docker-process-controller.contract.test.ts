@@ -693,6 +693,63 @@ test("Workbench助言出力をcleanup後の助言JSONへ縮約する", async () 
 });
 
 /**
+ * 助言抽出の固定拒否理由を清掃後に上位へ搬送する。
+ *
+ * @responsibility 不正Claude Envelopeの具体的理由を一般理由へ丸めず、成功本文を公開せずに帰還することを確認する。
+ * @trace ERB-IT-002
+ * @precondition 実Controllerへ助言Planと正常終了する不正Envelopeを渡す。
+ * @stimulus Provider実行を完了し、所有資源のcleanupを観測する。
+ * @observation completionの状態、理由、正規化結果とcleanupを取得する。
+ * @oracle blockedとexact拒否理由を保持し、normalizedResultはnull、cleanupは確認済みである。
+ * @cleanup fixtureで所有Process、Container、NetworkおよびMount不存在を観測する。
+ * @boundary ERB-IT-002=Direct Boundary: Provider抽出→Controller→公開結果
+ */
+test("助言抽出の固定拒否理由を清掃後に上位へ搬送する", async () => {
+  const fixture = createFixture(
+    {
+      startCommand: (command: { purpose: string }) => ({
+        started: async () => true,
+        wait: async () => ({
+          status: 0,
+          signal: null,
+          stdout:
+            command.purpose === "start_provider_attached"
+              ? "{}"
+              : command.purpose === "start_subscription_auth_probe_attached"
+                ? createSubscriptionAuthOutput()
+                : "",
+          stderr: "",
+          outputExceeded: false,
+        }),
+        terminateAndWait: async () => true,
+      }),
+    },
+    {
+      operationMode: "workbench_advice",
+      taskRole: null,
+      taskPacketRef: null,
+      taskPacketHash: null,
+      advicePacketRef: "ADVICEPKT-00112233445566778899AABBCCDDEEFF",
+      advicePacketHash: "a".repeat(64),
+      adviceCommandHash: "b".repeat(64),
+      providerInput: "Give advice from the supplied projection.",
+      workspaceSourcePath: null,
+      workspaceMountMode: null,
+    },
+  );
+  const started = fixture.controller.start(
+    fixture.preparedCapability,
+    fixture.managementCapability,
+  );
+  assert.equal(started.status, "started");
+  const completion = await started.completion;
+  assert.equal(completion.status, "blocked");
+  assert.equal(completion.reason, "workbench_ai_claude_envelope_invalid");
+  assert.equal(completion.normalizedResult, null);
+  assert.equal(completion.cleanupConfirmed, true);
+});
+
+/**
  * Provider実ProcessのOS起動確認後だけRuntime所有の開始観測を公開するを検証する。
  *
  * @responsibility Provider実ProcessのOS起動確認後だけRuntime所有の開始観測を公開するの合否判定を所有する。

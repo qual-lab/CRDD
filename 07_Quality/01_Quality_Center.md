@@ -14,7 +14,7 @@
 | 現在対象 | v0.22.0 | Project Operation、Workbench、CROS、複数Repository、AI Runtimeを段階的に照合する |
 | 観測済み | 11 / 39 | v0.22移管範囲のうち、Production Workbenchの実Browser Visual GateまでEvidenceへ接続済み |
 | 未観測 | 28 / 39 | 局所試験またはRelationだけで観測済みへ変更しない |
-| 既知Gap | Phase 5 Release Verification進行中 | 終了後Observer接続を是正し、Project Runtime公開MCP E2Eと最終回復在庫確認は合格した。Workbench、必要な四経路、個別品質項目および最終配布の照合は未完了であり、39項目の網羅をこの合格から推定しない |
+| 既知Gap | Phase 5 Release Verification進行中 | Project Runtime公開MCP E2Eと最終回復在庫確認は合格した。Workbench実Provider確認はCodex助言の出力抽出で停止した。具体的拒否理由の搬送欠落を局所是正したが、実抽出拒否の原因は新しい署名候補で確認する必要がある。必要な四経路、個別品質項目および最終配布の照合も未完了であり、39項目の網羅を限定合格から推定しない |
 | 次Gate | Workbench実Provider E2E、必要な四経路E2E、個別品質項目の照合、最終配布固定と署名照合 | [CHG-000082](../99_Roadmap/Changes/CHG-000082/change.md)、[終了後Observer接続是正と再実測](../99_Roadmap/Changes/CHG-000082/Evidence/260930-1440_signed-runtime-recovery-observer.md) |
 | 現在人間判断 | N/A: 現在の実装・検証継続を止める判断事項はない | 新しいRisk受容または対象範囲変更が生じた場合だけ再提示する |
 

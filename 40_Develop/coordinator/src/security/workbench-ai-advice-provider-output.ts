@@ -14,6 +14,15 @@ export const WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_CONTRACT =
   "crdd-coordinator/workbench-ai-advice-provider-output";
 export const WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_CONTRACT_REVISION = 1;
 
+export const WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_REASONS = Object.freeze([
+  "workbench_ai_provider_output_invalid",
+  "workbench_ai_codex_output_invalid",
+  "workbench_ai_codex_completion_invalid",
+  "workbench_ai_codex_tool_event_forbidden",
+  "workbench_ai_codex_final_message_invalid",
+  "workbench_ai_claude_envelope_invalid",
+] as const);
+
 const MAXIMUM_RAW_BYTES = 262_144;
 const MAXIMUM_EVENTS = 4_096;
 
@@ -178,7 +187,9 @@ function confirmed(adviceJson: string) {
  * @security 生Provider出力を返さない。
  * @concurrency N/A: 共有状態を持たない同期処理である。
  */
-function blocked(reason: string) {
+function blocked(
+  reason: (typeof WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_REASONS)[number],
+) {
   return Object.freeze({
     status: "blocked" as const,
     reason,
