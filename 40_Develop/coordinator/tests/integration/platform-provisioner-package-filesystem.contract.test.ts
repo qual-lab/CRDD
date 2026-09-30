@@ -787,6 +787,34 @@ test("検証Toolの全Sourceと実Process起動点を独立グラフとして完
   );
 
   const loaderResultReplaced = { ...sources };
+  for (const [before, after] of [
+    [
+      "40_Develop/coordinator/src/security/docker-recovery-runtime.ts",
+      "40_Develop/coordinator/src/security/docker-recovery-runtime-internal.ts",
+    ],
+    [
+      "recoveryModule.inspectRuntimeOwnedDockerTaskRecoveryState()",
+      "recoveryModule.inspectRuntimeOwnedDockerTaskRecoveryState({})",
+    ],
+    [
+      "const recoveryModule = (await import(",
+      "const otherModule = (await import(",
+    ],
+  ] as const) {
+    const recoveryLoaderChanged = { ...sources };
+    const original =
+      sources["scripts/verify-project-runtime-real-providers.ts"] ?? "";
+    assert.ok(original.includes(before));
+    recoveryLoaderChanged["scripts/verify-project-runtime-real-providers.ts"] =
+      original.replace(before, after);
+    assert.throws(
+      () =>
+        assertVerificationToolCapabilityGraphForVerification(
+          recoveryLoaderChanged,
+        ),
+      /runtime_dependency_(?:loader|child_process|capability_flow)_unbound/u,
+    );
+  }
   loaderResultReplaced["scripts/verify-project-runtime-real-providers.ts"] =
     sources["scripts/verify-project-runtime-real-providers.ts"]?.replace(
       "const native =\n    nativeModule.verifyBundledCoordinatorPackageFromFixedManifestCandidate({",

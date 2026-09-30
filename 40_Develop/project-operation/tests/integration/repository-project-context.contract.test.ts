@@ -182,7 +182,6 @@ test("必須項目が欠けたRelease Projectionを推測補完しない", () =>
   );
 });
 
-/** Current Quality Projectionを現在品質のRead Modelへ変換する。 */
 /**
  * 現行Quality CenterをCurrent Quality Read Modelへ変換するを検証する。
  *
@@ -202,9 +201,75 @@ test("現行Quality CenterをCurrent Quality Read Modelへ変換する", async (
   );
   const projection = parseRepositoryQualityProjectionMarkdown(markdown);
 
-  assert.equal(projection.target, "v0.22.0");
-  assert.equal(projection.observed, "11 / 39");
-  assert.equal(projection.unobserved, "28 / 39");
-  assert.match(projection.knownGap, /Reality Audit/u);
-  assert.match(projection.nextGate, /Blocking Finding 0/u);
+  for (const [label, value] of [
+    ["全体状態", projection.overallState],
+    ["現在対象", projection.target],
+    ["観測済み", projection.observed],
+    ["未観測", projection.unobserved],
+    ["既知Gap", projection.knownGap],
+    ["次Gate", projection.nextGate],
+    ["現在人間判断", projection.humanDecision],
+  ]) {
+    assert.ok(value && value.length > 0);
+    assert.ok(markdown.includes(`| ${label} | ${value} |`));
+  }
+});
+
+/**
+ * 固定品質Projectionの全fieldと欠測拒否を検証する。
+ *
+ * @responsibility 現在文書の可変な状態文に依存せず、固定Schemaの意味と欠測拒否を検証する。
+ * @trace PPR-IT-019
+ * @precondition 七項目を持つ固定Markdownと、一項目だけ欠いた反証を用意する。
+ * @stimulus 固定Markdownと欠測MarkdownをReaderへ渡す。
+ * @observation Read Modelの全fieldと欠測Errorを取得する。
+ * @oracle 全fieldが固定値と一致し、欠測は推測せず拒否される。
+ * @cleanup N/A: 文字列だけを扱い、外部資源を作成しない。
+ * @boundary PPR-IT-019=Direct Boundary: 固定Quality Projection→Consumer Read Model。
+ */
+test("品質Projectionの固定Schemaを読み取り欠測を拒否する", () => {
+  const markdown = `## Current Quality Projection
+
+| 項目 | 現在値 | 根拠・次の処置 |
+|---|---|---|
+| 全体状態 | 検証中 | 固定根拠 |
+| 現在対象 | v0.22.0 | 固定根拠 |
+| 観測済み | 2 / 3 | 固定根拠 |
+| 未観測 | 1 / 3 | 固定根拠 |
+| 既知Gap | 人間評価待ち | 固定根拠 |
+| 次Gate | 評価結果を確認 | 固定根拠 |
+| 現在人間判断 | 残る一件の評価 | 固定根拠 |
+`;
+  const projection = parseRepositoryQualityProjectionMarkdown(markdown);
+  assert.deepEqual(
+    [
+      projection.overallState,
+      projection.target,
+      projection.observed,
+      projection.unobserved,
+      projection.knownGap,
+      projection.nextGate,
+      projection.humanDecision,
+    ],
+    [
+      "検証中",
+      "v0.22.0",
+      "2 / 3",
+      "1 / 3",
+      "人間評価待ち",
+      "評価結果を確認",
+      "残る一件の評価",
+    ],
+  );
+  assert.equal(
+    Object.values(projection.rationale).every((value) => value === "固定根拠"),
+    true,
+  );
+  assert.throws(
+    () =>
+      parseRepositoryQualityProjectionMarkdown(
+        markdown.replace("| 既知Gap | 人間評価待ち | 固定根拠 |\n", ""),
+      ),
+    /quality_projection_value_missing/u,
+  );
 });

@@ -53,6 +53,18 @@ const verificationScriptSource = fs.readFileSync(
  * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("実Provider E2Eは分離後の公開MCP入口だけを起動する", () => {
+  assert.doesNotMatch(
+    verificationScriptSource,
+    /import\s*\{\s*inspectRuntimeOwnedDockerTaskRecoveryState\s*\}\s*from/u,
+  );
+  assert.match(
+    verificationScriptSource,
+    /path\.join\(\s*distributionRoot,\s*"40_Develop\/coordinator\/src\/security\/docker-recovery-runtime\.ts"/u,
+  );
+  assert.match(
+    verificationScriptSource,
+    /const dockerRecovery\s*=\s*recoveryModule\.inspectRuntimeOwnedDockerTaskRecoveryState\(\)/u,
+  );
   assert.match(
     verificationScriptSource,
     /"template",\s*"tools",\s*"crdd-mcp\.ts"/u,

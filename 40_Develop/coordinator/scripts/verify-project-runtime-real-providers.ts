@@ -15,7 +15,6 @@ import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,
 } from "../../version-control/src/repository-location.ts";
-import { inspectRuntimeOwnedDockerTaskRecoveryState } from "../src/security/docker-recovery-runtime.ts";
 import {
   inspectBundledCoordinatorPackageFilesystemCandidate,
   inspectVerifiedNativeDistributionCandidate,
@@ -311,6 +310,16 @@ async function main() {
     verifiedDistributionStatus: "candidate",
     distributionRootReported: false,
   });
+  const recoveryModule = (await import(
+    pathToFileURL(
+      path.join(
+        distributionRoot,
+        "40_Develop/coordinator/src/security/docker-recovery-runtime.ts",
+      ),
+    ).href
+  )) as {
+    inspectRuntimeOwnedDockerTaskRecoveryState: () => JsonRecord;
+  };
 
   const runId = randomUUID().replaceAll("-", "").slice(0, 16);
   const commonFields = Object.freeze({
@@ -493,7 +502,8 @@ async function main() {
   const recoverySnapshotAfter =
     captureCanonicalRepositorySnapshot(repositoryRoot);
 
-  const dockerRecovery = inspectRuntimeOwnedDockerTaskRecoveryState();
+  const dockerRecovery =
+    recoveryModule.inspectRuntimeOwnedDockerTaskRecoveryState();
   const report = buildProjectRuntimeRealProviderReport({
     runId,
     sourceIdentity: Object.freeze({

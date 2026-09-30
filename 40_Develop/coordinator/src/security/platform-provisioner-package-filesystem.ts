@@ -1387,7 +1387,10 @@ function isExactRealProviderVerificationDynamicImport(
       "(",
       "distributionRoot",
       ",",
-      "40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts",
+      tokens[declaration.start + 10]?.value ===
+      "40_Develop/coordinator/src/security/docker-recovery-runtime.ts"
+        ? "40_Develop/coordinator/src/security/docker-recovery-runtime.ts"
+        : "40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts",
       ",",
       ")",
       ",",
@@ -1438,8 +1441,8 @@ function assertLoaderCapabilityBoundary(
     coordinatorRelativeSourcePath(relativePath) ===
     "scripts/verify-project-runtime-real-providers.ts";
   if (
-    allowedDynamicImports.length > 1 ||
-    (isRealProviderVerification && allowedDynamicImports.length !== 1)
+    allowedDynamicImports.length > 2 ||
+    (isRealProviderVerification && allowedDynamicImports.length !== 2)
   )
     throw new Error("platform_provisioner_runtime_dependency_loader_unbound");
   if (isRealProviderVerification) {
@@ -1458,12 +1461,41 @@ function assertLoaderCapabilityBoundary(
           declaration.bindings[0]?.local === local &&
           !declaration.bindings[0]?.typeOnly,
       );
-    const dynamic = allowedDynamicImports[0];
+    const dynamic = allowedDynamicImports.find(
+      (declaration) =>
+        tokens[declaration.start + 10]?.value ===
+        "40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts",
+    );
+    const recoveryDynamic = allowedDynamicImports.find(
+      (declaration) =>
+        tokens[declaration.start + 10]?.value ===
+        "40_Develop/coordinator/src/security/docker-recovery-runtime.ts",
+    );
+    const recoveryModuleUses = tokens
+      .map((token, index) => (token.value === "recoveryModule" ? index : -1))
+      .filter((index) => index >= 0);
     const nativeModuleUses = tokens
       .map((token, index) => (token.value === "nativeModule" ? index : -1))
       .filter((index) => index >= 0);
     if (
       !dynamic ||
+      !recoveryDynamic ||
+      recoveryDynamic.start <= dynamic.end ||
+      !tokenSequenceMatches(tokens, recoveryDynamic.start - 5, [
+        "const",
+        "recoveryModule",
+        "=",
+        "(",
+        "await",
+      ]) ||
+      recoveryModuleUses.length !== 2 ||
+      !tokenSequenceMatches(tokens, recoveryModuleUses[1] ?? -1, [
+        "recoveryModule",
+        ".",
+        "inspectRuntimeOwnedDockerTaskRecoveryState",
+        "(",
+        ")",
+      ]) ||
       !hasCanonicalBinding("node:path", "default", "path") ||
       !hasCanonicalBinding("node:url", "pathToFileURL", "pathToFileURL") ||
       !tokenSequenceMatches(tokens, dynamic.start - 5, [
@@ -2716,7 +2748,7 @@ const exactAuditedFunctionFlows = Object.freeze(
       "verification_tool",
       "scripts/verify-project-runtime-real-providers.ts",
       "main",
-      "cf28f582026fd889954a9951d7676399d963c238302fa2da513ac2b3e4c4eab4",
+      "d3bcc9ebc9e17cb579c724c0f33e86a3be960a026641eafcdaabc456eb1c3411",
     ],
   ].map(
     ([graph, source, functionName, bodySha256]) =>
@@ -2825,7 +2857,7 @@ const exactAuditedSemanticGraphSha256 = Object.freeze(
     ],
     [
       "scripts/verify-project-runtime-real-providers.ts\0main",
-      "17164723373b548f6fa0c7bc4608dbe1ac5e85d86e17adaacc07d7ac7c1f6913",
+      "dd900871c895c6ab06d61fb49855bdd4a2e5a191311c7d1bb19151b5fe2977af",
     ],
   ]),
 );
