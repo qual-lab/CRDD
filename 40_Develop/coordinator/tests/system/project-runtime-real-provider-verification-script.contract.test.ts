@@ -10,7 +10,7 @@
  * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
  */
 import assert from "node:assert/strict";
-import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import { EventEmitter } from "node:events";
 import fs from "node:fs";
 import { PassThrough } from "node:stream";
@@ -19,8 +19,8 @@ import { fileURLToPath } from "node:url";
 
 import {
   buildProjectRuntimeRealProviderReport,
-  observePublicMcpProcess,
   type JsonRecord,
+  observePublicMcpProcess,
   type PublicProcessObservation,
 } from "../../scripts/project-runtime-real-provider-contract.ts";
 
@@ -188,7 +188,7 @@ const runtimeProcessRecoveryId =
   "runtime-process.6d7cc28e-2bdf-4c1a-8714-396a4a1db5a3.restart-7fb909b959f2101c318473bf51b0c388e0fb75bf";
 const interruptedCancellationSemantic = (id: string) =>
   semantic("blocked", id, {
-    reason: "coordinator_task_cancellation_protocol_failed_cleanup_unknown",
+    reason: "project_runtime_task_recovery_required",
     projection: null,
     cleanupConfirmed: false,
     manualRecoveryRequired: true,
@@ -574,6 +574,102 @@ test("全観測が相関した場合だけ公開Process E2Eをcompletedにする
   assert.equal(result.publicMcpProcess.actualChildProcess, true);
   assert.equal(result.dockerRecoveryAfterRun.recoverySettlementExercised, true);
   assert.notDeepEqual(result.sourceIdentity, result.distributionIdentity);
+});
+
+/**
+ * 取消後に完了したProvider境界清掃を正しい観測として受理することを検証する。
+ *
+ * @responsibility 親Transport喪失後もProvider境界だけが確定清掃された場合を、上位Runtime Process Recovery義務と矛盾させず検証する。
+ * @trace PRL-ST-003
+ * @precondition 取消観測はconfiguredに続いて完全なsettled診断を一件持つ。
+ * @stimulus buildProjectRuntimeRealProviderReportへ取消観測を渡す。
+ * @observation 完成状態とProvider境界問題一覧を観測する。
+ * @oracle Reportはcompletedとなり、cancellation_provider_boundary_mismatchを持たない。
+ * @cleanup N/A: ProcessまたはFilesystem資源を作成しない。
+ * @boundary PRL-ST-003=Direct Boundary: Provider境界診断→実Provider E2E Oracle
+ */
+test("取消後に完了したProvider境界清掃を受理する", () => {
+  const base = buildInput();
+  const started = base.cancellation.processStartEvents[0];
+  assert.ok(started);
+  const result = build({
+    cancellation: {
+      ...base.cancellation,
+      providerBoundaryEvents: [
+        ...base.cancellation.providerBoundaryEvents,
+        {
+          event: "coordinator_provider_boundary_settled",
+          taskRole: started.taskRole,
+          provider: started.provider,
+          operationId: started.operationId,
+          providerContainerCreatedObserved: true,
+          providerProcessStartedObserved: true,
+          providerProcessCompletionObserved: true,
+          providerProcessExitStatusClass: "nonzero",
+          processTreeTerminationObserved: false,
+          containersAbsentObserved: true,
+          networksAbsentObserved: true,
+          cleanupConfirmed: true,
+        },
+      ],
+    },
+  });
+  assert.equal(result.status, "completed", JSON.stringify(result));
+  assert.ok(
+    !result.problems.includes("cancellation_provider_boundary_mismatch"),
+  );
+});
+
+/**
+ * 取消時の不完全または閉集合外Provider境界診断を拒否することを検証する。
+ *
+ * @responsibility 任意Settlementを、存在時は完全・Identity一致・一意な一件に限定する。
+ * @trace PRL-ST-003
+ * @precondition 取消観測は完全なconfiguredとsettled診断を基準に、完全性、Identity、一意性または閉集合を破る。
+ * @stimulus buildProjectRuntimeRealProviderReportへ各反証観測を渡す。
+ * @observation 完成状態とProvider境界問題一覧を観測する。
+ * @oracle 全caseがblockedとなり、cancellation_provider_boundary_mismatchを持つ。
+ * @cleanup N/A: ProcessまたはFilesystem資源を作成しない。
+ * @boundary PRL-ST-003=Direct Boundary: Provider境界診断→実Provider E2E Oracle
+ */
+test("取消時の不完全または閉集合外Provider境界診断を拒否する", () => {
+  const base = buildInput();
+  const started = base.cancellation.processStartEvents[0];
+  assert.ok(started);
+  const settled = {
+    event: "coordinator_provider_boundary_settled" as const,
+    taskRole: started.taskRole,
+    provider: started.provider,
+    operationId: started.operationId,
+    providerContainerCreatedObserved: true,
+    providerProcessStartedObserved: true,
+    providerProcessCompletionObserved: true,
+    providerProcessExitStatusClass: "nonzero" as const,
+    processTreeTerminationObserved: false,
+    containersAbsentObserved: true,
+    networksAbsentObserved: true,
+    cleanupConfirmed: true,
+  };
+  const configured = base.cancellation.providerBoundaryEvents[0];
+  assert.ok(configured);
+  const cases = [
+    [configured, { ...settled, cleanupConfirmed: false }],
+    [configured, { ...settled, operationId: "operation-mismatch" }],
+    [configured, settled, settled],
+    [configured, settled, configured],
+  ];
+  for (const providerBoundaryEvents of cases) {
+    const result = build({
+      cancellation: {
+        ...base.cancellation,
+        providerBoundaryEvents,
+      },
+    });
+    assert.equal(result.status, "blocked");
+    assert.ok(
+      result.problems.includes("cancellation_provider_boundary_mismatch"),
+    );
+  }
 });
 
 /**

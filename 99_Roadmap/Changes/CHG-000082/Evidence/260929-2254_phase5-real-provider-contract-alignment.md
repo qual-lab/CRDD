@@ -97,6 +97,30 @@ Source Commit `69126ec9e62f0cb5a60b41a85cd63d472d4566a8`、Tree `b95b34da4ed3f79
 
 再署名後の同じ実Provider E2Eおよび四経路E2Eは未実施であるため、この追記だけでPhase 5完了を主張しない。
 
+## revision 10署名候補での再観測
+
+Source Commit `a5c01959fd66e3af9dc46a1a90df9b7c7b202d06`、Tree `87d98d98709658f62a57700b98695aa6a4cd7dff`、Release Sequence `2026093001`を署名し、候補自身の検証器で暗号署名、Release Trust、Runtime Execution Identityおよび配布内容の一致を確認した。同じ候補で実Provider E2Eを再実行した結果、正常2経路、exact Runtime Process Recovery、E2E所有fixtureの開始前内容および最終Recovery Inventory cleanは成立した。一方、取消Oracleの2件は解消しなかった。
+
+| 項目 | 観測結果 |
+|---|---|
+| 結果契約 | `crdd-coordinator/project-runtime-real-provider-verification` revision 10 |
+| 正常経路 | Codex Executor／Claude Reviewer、Claude Executor／Codex Reviewerともに`project_runtime_acceptance_decision_required`で人間受入待ちへ到達 |
+| 取消公開理由 | `project_runtime_task_recovery_required` |
+| 取消状態 | `blocked`、`effectState: unknown`、cleanup未確認、手動回復・Process再起動要求 |
+| Recovery | 一意な`runtime-process.*.restart-*`と、余分Propertyのない一意な`runtime_process`義務 |
+| 最終Inventory | `completed / docker_task_runtime_state_clean` |
+| 正本Repository | 取消前後のSnapshot Hash一致 |
+| 残った不一致 | `cancellation_provider_boundary_mismatch`、`cancellation_semantic_result` |
+
+再観測によって、前回のOracle修正には次の層境界誤りが残っていると判明した。
+
+1. Public MCPは下位Coordinatorの`coordinator_task_cancellation_protocol_failed_cleanup_unknown`をそのまま公開せず、Project Runtime公開契約の`project_runtime_task_recovery_required`へ正規化する。Oracleと固定fixtureだけが下位理由を要求していた。
+2. 親Transport喪失後もProvider Container境界の終了・清掃は独立して完了できる。上位Runtime Processの終了観測不能と、Provider境界の`settled`は矛盾しない。Oracleは未settledだけを許可し、実環境で観測した完全なsettled診断を余分Eventとして拒否していた。
+
+Productionの`blocked / unknown / exact Recovery`は変更しない。Oracleは公開理由を検証し、取消時のProvider境界について`configured`を必須、完全な`settled`は観測された場合に検証して受理、不完全・Identity不一致・重複・余分Eventは拒否する。局所契約へ、取消後にProvider境界清掃だけが完了する実測形を追加した。
+
+この再是正後、局所System 31／31、Formatter、型、Lint、Runtime Capability Graph、Runtime TraceabilityおよびProject Runtime Design TraceabilityがPassした。初回の独立レビューでは、任意Settlementについて正常受理だけでなく、不完全・Identity不一致・重複・余分Eventの拒否を直接回帰へ固定する必要があるとの指摘が1件あった。4形の表駆動反証を追加し、局所System 32／32、Portable 2,123件中2,115 Pass／8 Explicit Skip／0 Fail、Host Windows 10／10を新しい改訂版で確認した。Production Runtimeの停止・回復契約は変更していない。再署名実Provider E2Eおよび四経路E2Eは継続する。
+
 ## 残るGate
 
 - Source Commitを固定し、同じTreeからCoordinator Runtimeを再署名する。

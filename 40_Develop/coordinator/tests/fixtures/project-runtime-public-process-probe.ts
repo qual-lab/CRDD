@@ -93,7 +93,7 @@ process.stdin.on("data", (chunk) => {
         structuredContent: {
           status: "blocked",
           reason: isCancelled
-            ? "coordinator_task_cancellation_protocol_failed_cleanup_unknown"
+            ? "project_runtime_task_recovery_required"
             : "project_runtime_acceptance_decision_required",
           contract: "crdd-coordinator/project-runtime-objective-intake/v1",
           requestId: "request-a",

@@ -1211,44 +1211,40 @@ function providerBoundaryDiagnosticsMatch(
   observation: PublicProcessObservation,
   settlementRequired: boolean,
 ) {
-  const expected = observation.processStartEvents.flatMap((started) => [
-    {
-      event: "coordinator_provider_boundary_configured" as const,
-      taskRole: started.taskRole,
-      provider: started.provider,
-      operationId: started.operationId,
-    },
-    ...(settlementRequired
-      ? [
-          {
-            event: "coordinator_provider_boundary_settled" as const,
-            taskRole: started.taskRole,
-            provider: started.provider,
-            operationId: started.operationId,
-          },
-        ]
-      : []),
-  ]);
-  return (
-    observation.providerBoundaryEvents.length === expected.length &&
-    observation.providerBoundaryEvents.every((event, index) => {
-      const expectedEvent = expected[index];
-      return (
-        expectedEvent !== undefined &&
-        event.event === expectedEvent.event &&
-        event.taskRole === expectedEvent.taskRole &&
-        event.provider === expectedEvent.provider &&
-        event.operationId === expectedEvent.operationId &&
-        (event.event !== "coordinator_provider_boundary_settled" ||
-          (event.providerContainerCreatedObserved === true &&
-            event.providerProcessStartedObserved === true &&
-            event.providerProcessCompletionObserved === true &&
-            event.containersAbsentObserved === true &&
-            event.networksAbsentObserved === true &&
-            event.cleanupConfirmed === true))
-      );
-    })
-  );
+  let eventIndex = 0;
+  for (const started of observation.processStartEvents) {
+    const configured = observation.providerBoundaryEvents[eventIndex];
+    if (
+      configured?.event !== "coordinator_provider_boundary_configured" ||
+      configured.taskRole !== started.taskRole ||
+      configured.provider !== started.provider ||
+      configured.operationId !== started.operationId
+    )
+      return false;
+    eventIndex += 1;
+
+    const settled = observation.providerBoundaryEvents[eventIndex];
+    if (
+      settled?.event === "coordinator_provider_boundary_settled" &&
+      settled.taskRole === started.taskRole &&
+      settled.provider === started.provider &&
+      settled.operationId === started.operationId
+    ) {
+      if (
+        settled.providerContainerCreatedObserved !== true ||
+        settled.providerProcessStartedObserved !== true ||
+        settled.providerProcessCompletionObserved !== true ||
+        settled.containersAbsentObserved !== true ||
+        settled.networksAbsentObserved !== true ||
+        settled.cleanupConfirmed !== true
+      )
+        return false;
+      eventIndex += 1;
+    } else if (settlementRequired) {
+      return false;
+    }
+  }
+  return eventIndex === observation.providerBoundaryEvents.length;
 }
 
 /**
@@ -1439,8 +1435,7 @@ export function buildProjectRuntimeRealProviderReport(
     });
   if (
     cancellationResult?.status !== "blocked" ||
-    cancellationResult.reason !==
-      "coordinator_task_cancellation_protocol_failed_cleanup_unknown" ||
+    cancellationResult.reason !== "project_runtime_task_recovery_required" ||
     cancellationResult.requestId !== input.cancellationExpected.requestId ||
     cancellationResult.projectId !== input.cancellationExpected.projectId ||
     cancellationResult.milestoneId !== input.cancellationExpected.milestoneId ||
