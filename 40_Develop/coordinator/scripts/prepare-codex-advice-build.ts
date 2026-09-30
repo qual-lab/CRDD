@@ -22,7 +22,7 @@ import { verifyRepositoryRoot } from "../../version-control/src/repository-locat
  * @input N/A: Script位置から同じRepository Rootと固定入力Pathだけを解決する。
  * @returns 作成したContextのPath、固定IdentityとBuild未実施の結果。
  * @precondition 固定Source ArchiveがRepository-local一時領域に取得済みである。
- * @postcondition ContextにはArchive、起動Patch、試験Patch、試験linker、Dockerfile、入力Manifestだけが存在する。
+ * @postcondition Contextには固定Archive、起動Patch、試験Patchと照合表、公式Host、試験linker、Dockerfile、入力Manifestだけが存在する。
  * @effect 検証済みRepository Root直下の.crdd/tmpに新しい一時Directoryを作成する。
  * @failure Root、実体Path、File種別、SizeまたはHashが不正なら停止する。
  * @invariant Runtime配布物、採用済みProfile、既存Contextを変更しない。
@@ -67,7 +67,26 @@ export function prepareCodexAdviceBuild() {
         "40_Develop/coordinator/runtime/codex-advice-startup-test.patch",
       ),
       expected:
-        "35a050c4ab6df76a07dfdff4696f3fd462a34f65911bf5f8d58d3f235f9e855e",
+        "03e916f0371b80cf4f7038b54f3b81356218d277acc506dd3f473a4acc15cc31",
+    },
+    {
+      name: "codex-advice-startup-test-inputs.sha256",
+      source: path.join(
+        root,
+        "40_Develop/coordinator/runtime/codex-advice-startup-test-inputs.sha256",
+      ),
+      expected:
+        "f812775b4254a47376adcc99491c7752869daed403df39d7b998ae95cdf51b80",
+    },
+    {
+      name: "codex-code-mode-host",
+      source: path.join(
+        temporary.directory,
+        "codex-01592-attestation/codex-code-mode-host-x86_64-unknown-linux-musl",
+      ),
+      expected:
+        "5b2c075ac2380fa04d76d7313fbc044d29c8d0a0d0b9138415acd4610211ca03",
+      exactSize: 74_068_880,
     },
     {
       name: "codex-advice-native-linker.sh",
@@ -90,7 +109,9 @@ export function prepareCodexAdviceBuild() {
     if (
       !metadata.isFile() ||
       metadata.isSymbolicLink() ||
-      metadata.size > 32 * 1024 * 1024
+      ("exactSize" in input
+        ? metadata.size !== input.exactSize
+        : metadata.size > 32 * 1024 * 1024)
     )
       throw new Error("codex_advice_build_input_invalid");
     if (fs.realpathSync.native(input.source) !== path.resolve(input.source))
@@ -99,6 +120,7 @@ export function prepareCodexAdviceBuild() {
     const bytes =
       input.name.endsWith(".patch") ||
       input.name.endsWith(".sh") ||
+      input.name.endsWith(".sha256") ||
       input.name === "Dockerfile"
         ? Buffer.from(original.toString("utf8").replaceAll("\r\n", "\n"))
         : original;

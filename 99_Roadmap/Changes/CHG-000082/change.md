@@ -62,6 +62,11 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 <summary>全ファイルを表示</summary>
 
 - [`99_Roadmap/Changes/CHG-000082/change.md`](./change.md)
+- [`99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md`](./Evidence/260930-1853_codex-model-host-migration-preflight.md)
+- [`40_Develop/coordinator/runtime/codex-advice-builder.Dockerfile`](../../../40_Develop/coordinator/runtime/codex-advice-builder.Dockerfile)
+- [`40_Develop/coordinator/runtime/codex-advice-startup-test.patch`](../../../40_Develop/coordinator/runtime/codex-advice-startup-test.patch)
+- [`40_Develop/coordinator/runtime/codex-advice-startup-test-inputs.sha256`](../../../40_Develop/coordinator/runtime/codex-advice-startup-test-inputs.sha256)
+- [`40_Develop/coordinator/scripts/prepare-codex-advice-build.ts`](../../../40_Develop/coordinator/scripts/prepare-codex-advice-build.ts)
 - [`99_Roadmap/Changes/CHG-000082/Evidence/260929-1305_phase5-workbench-selection-binding.md`](./Evidence/260929-1305_phase5-workbench-selection-binding.md)
 - [`99_Roadmap/Changes/CHG-000082/Evidence/260929-1428_phase5-production-selection-contract.md`](./Evidence/260929-1428_phase5-production-selection-contract.md)
 - [`99_Roadmap/Changes/CHG-000082/Evidence/260929-2112_phase5-multiple-docker-recovery-restart.md`](./Evidence/260929-2112_phase5-multiple-docker-recovery-restart.md)

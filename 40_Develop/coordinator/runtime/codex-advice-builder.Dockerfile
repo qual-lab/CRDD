@@ -147,14 +147,34 @@ FROM builder AS startup-verification
 COPY codex-advice-native-linker.sh /build/codex-advice-native-linker.sh
 RUN chmod 0555 /build/codex-advice-native-linker.sh && mkdir -p /out/native-link-maps
 COPY codex-advice-startup-test.patch /build/codex-advice-startup-test.patch
-RUN echo '35a050c4ab6df76a07dfdff4696f3fd462a34f65911bf5f8d58d3f235f9e855e  /build/codex-advice-startup-test.patch' | sha256sum -c - \
+COPY codex-advice-startup-test-inputs.sha256 /build/codex-advice-startup-test-inputs.sha256
+COPY codex-code-mode-host /build/codex-code-mode-host
+RUN echo '03e916f0371b80cf4f7038b54f3b81356218d277acc506dd3f473a4acc15cc31  /build/codex-advice-startup-test.patch' | sha256sum -c - \
+    && echo 'f812775b4254a47376adcc99491c7752869daed403df39d7b998ae95cdf51b80  /build/codex-advice-startup-test-inputs.sha256' | sha256sum -c - \
+    && echo '5b2c075ac2380fa04d76d7313fbc044d29c8d0a0d0b9138415acd4610211ca03  /build/codex-code-mode-host' | sha256sum -c - \
+    && test "$(stat -c %s /build/codex-code-mode-host)" -eq 74068880 \
+    && chmod 0555 /build/codex-code-mode-host \
     && echo 'e49d60cafaef325fbd85255bef4dd4588eb4418f434b0c0726d519cf420e4723  core/src/session/tests.rs' | sha256sum -c - \
     && echo '91fc8a069b117f91d39ad5af51cbcd52cb715e35a42a58e08ad91aa09faeb590  core/src/tools/registry_tests.rs' | sha256sum -c - \
     && git -C /build/openai-codex-ff6aec9 apply --unidiff-zero --check /build/codex-advice-startup-test.patch \
     && git -C /build/openai-codex-ff6aec9 apply --unidiff-zero /build/codex-advice-startup-test.patch \
-    && rustfmt --edition 2024 core/src/session/tests.rs core/src/tools/registry_tests.rs \
-    && rustfmt --edition 2024 --check core/src/session/tests.rs core/src/tools/registry_tests.rs
-RUN /bin/bash -eu <<'TEST'
+    && sha256sum -c /build/codex-advice-startup-test-inputs.sha256 \
+    && awk '$2 ~ /\.rs$/ { print $2 }' /build/codex-advice-startup-test-inputs.sha256 | xargs rustfmt --edition 2024 --check
+# Fetch locked public test dependencies before entering the network-free stage.
+# This step does not compile or run tests and never changes production artifacts.
+RUN /bin/bash -eu <<'FETCH_TEST_DEPENDENCIES'
+set -o pipefail
+cmp Cargo.lock /out/Cargo.lock.resolved
+sha256sum Cargo.lock > /out/test-dependency-lock.sha256
+sha256sum -c /out/cargo-locks.sha256
+sha256sum -c /out/artifacts.sha256
+cargo fetch --locked --target "$TARGET" 2>&1 | tee /out/test-dependency-fetch.log
+cmp Cargo.lock /out/Cargo.lock.resolved
+sha256sum -c /out/test-dependency-lock.sha256
+sha256sum -c /out/cargo-locks.sha256
+sha256sum -c /out/artifacts.sha256
+FETCH_TEST_DEPENDENCIES
+RUN --network=none /bin/bash -eu <<'TEST'
 build_env=()
 while IFS='=' read -r key value; do
     case "$key" in
@@ -174,17 +194,19 @@ export RUSTY_V8_ARCHIVE=/build/v8/librusty_v8_ptrcomp_sandbox_release_x86_64-unk
 export RUSTY_V8_SRC_BINDING_PATH=/build/v8/src_binding_ptrcomp_sandbox_release_x86_64-unknown-linux-musl.rs
 export CODEX_BWRAP_SHA256=$(sha256sum /out/bwrap | cut -d ' ' -f 1)
 set -o pipefail
-env "${build_env[@]}" cargo test --locked --release --target "$TARGET" -p codex-core --lib --no-run 2>&1 | tee /out/startup-verification-compile.log
+env "${build_env[@]}" cargo test --offline --locked --release --target "$TARGET" -p codex-core -p codex-code-mode --lib --features crdd-lifecycle-observation --no-run 2>&1 | tee /out/startup-verification-compile.log
 sha256sum -c /out/artifacts.sha256
 sha256sum core/src/session/tests.rs core/src/tools/registry_tests.rs /build/codex-advice-startup-test.patch > /out/startup-verification-inputs.sha256
 TEST
 
 FROM startup-verification AS startup-verification-run
-RUN /bin/bash -eu <<'RUN_TEST'
+RUN --network=none /bin/bash -eu <<'RUN_TEST'
 set -o pipefail
 mapfile -t test_binaries < <(find "target/$TARGET/release/deps" -maxdepth 1 -type f -name 'codex_core-*' -executable)
 test "${#test_binaries[@]}" -eq 1
-test_binary="${test_binaries[0]}"
+core_test_binary="${test_binaries[0]}"
+verify_test_binary() {
+local test_binary="$1" record_prefix="$2"
 map="/out/native-link-maps/$(basename "$test_binary").map"
 recorded_output="/out/native-link-maps/$(basename "$test_binary").output"
 test -f "$map" && test ! -L "$map"
@@ -195,20 +217,64 @@ musl_root="$(rustc --print sysroot)/lib/rustlib/$TARGET/lib/self-contained"
 grep -Fx "LOAD $musl_root/rcrt1.o" "$map"
 grep -Fx "LOAD $musl_root/libc.a" "$map"
 awk -v root="$musl_root/" '$1 == "LOAD" && $2 ~ /\/(.*crt.*\.o|libc\.a)$/ { if (index($2, root) != 1) exit 1 }' "$map"
-sha256sum "$test_binary" "$map" "$recorded_output" > /out/native-test-link.sha256
-readelf -hW "$test_binary" > /out/native-test-elf-header.txt
-readelf -lW "$test_binary" > /out/native-test-elf-programs.txt
-readelf -dW "$test_binary" > /out/native-test-elf-dynamic.txt
-grep -q 'Class:.*ELF64' /out/native-test-elf-header.txt
-grep -q 'Machine:.*X86-64' /out/native-test-elf-header.txt
-grep -q 'Type:.*DYN' /out/native-test-elf-header.txt
-if grep -q 'INTERP' /out/native-test-elf-programs.txt; then exit 1; fi
-if grep -q '(NEEDED)' /out/native-test-elf-dynamic.txt; then exit 1; fi
-awk '$1 == "GNU_STACK" { found=1; if ($7 != "RW") exit 1 } END { if (!found) exit 1 }' /out/native-test-elf-programs.txt
+sha256sum "$test_binary" "$map" "$recorded_output" > "/out/$record_prefix-link.sha256"
+readelf -hW "$test_binary" > "/out/$record_prefix-elf-header.txt"
+readelf -lW "$test_binary" > "/out/$record_prefix-elf-programs.txt"
+readelf -dW "$test_binary" > "/out/$record_prefix-elf-dynamic.txt"
+grep -q 'Class:.*ELF64' "/out/$record_prefix-elf-header.txt"
+grep -q 'Machine:.*X86-64' "/out/$record_prefix-elf-header.txt"
+grep -q 'Type:.*DYN' "/out/$record_prefix-elf-header.txt"
+if grep -q 'INTERP' "/out/$record_prefix-elf-programs.txt"; then exit 1; fi
+if grep -q '(NEEDED)' "/out/$record_prefix-elf-dynamic.txt"; then exit 1; fi
+awk '$1 == "GNU_STACK" { found=1; if ($7 != "RW") exit 1 } END { if (!found) exit 1 }' "/out/$record_prefix-elf-programs.txt"
+}
+verify_test_binary "$core_test_binary" native-test
+test_binary="$core_test_binary"
 printf 'Native test binary startup: --list (no test body executes)\n'
 timeout --signal=TERM --kill-after=5s 30s "$test_binary" --list 2>&1 | tee /out/startup-verification-list.log
 printf 'Native startup-policy tests: selected cases only\n'
-"$test_binary" crdd_advice_startup_ceiling --nocapture --test-threads=1 2>&1 | tee /out/startup-verification.log
+startup_test=tools::registry::tests::crdd_advice_startup_tests::crdd_advice_startup_ceiling
+grep -Fx "$startup_test: test" /out/startup-verification-list.log
+timeout --signal=TERM --kill-after=5s 75s "$test_binary" "$startup_test" --exact --nocapture --test-threads=1 2>&1 | tee /out/startup-verification.log
+grep -F 'test result: ok. 1 passed; 0 failed; 0 ignored;' /out/startup-verification.log
+echo '5b2c075ac2380fa04d76d7313fbc044d29c8d0a0d0b9138415acd4610211ca03  /build/codex-code-mode-host' | sha256sum -c -
+for test_name in \
+    tools::registry::tests::crdd_advice_host_tests::crdd_advice_host_normal_cell \
+    tools::registry::tests::crdd_advice_host_tests::crdd_advice_host_js_capability_rejections \
+    tools::registry::tests::crdd_advice_host_tests::crdd_advice_host_forbidden_delegate \
+    tools::registry::tests::crdd_advice_host_tests::crdd_advice_host_pending_cell_termination \
+    tools::registry::tests::crdd_advice_host_tests::crdd_advice_host_loss \
+    tools::registry::tests::crdd_advice_host_tests::crdd_advice_host_reader_endpoint_loss; do
+    grep -Fx "$test_name: test" /out/startup-verification-list.log
+    log="/out/host-native-${test_name##*::}.log"
+    timeout --signal=TERM --kill-after=5s 75s "$test_binary" "$test_name" --exact --nocapture --test-threads=1 2>&1 | tee "$log"
+    grep -F 'test result: ok. 1 passed; 0 failed; 0 ignored;' "$log"
+done
+mapfile -t owner_test_binaries < <(find "target/$TARGET/release/deps" -maxdepth 1 -type f -name 'codex_code_mode-*' -executable)
+test "${#owner_test_binaries[@]}" -eq 1
+owner_test_binary="${owner_test_binaries[0]}"
+verify_test_binary "$owner_test_binary" fault-owner
+timeout --signal=TERM --kill-after=5s 30s "$owner_test_binary" --list 2>&1 | tee /out/fault-owner-list.log
+for test_name in \
+    crdd_fault_injection::tests::exact_pending_and_history \
+    crdd_fault_injection::tests::request_removal_is_connection_scoped \
+    crdd_fault_injection::tests::startup_owner_is_captured \
+    crdd_lifecycle_observation::tests::delegate_correlation_rejects_missing_split_duplicate_and_reordered_events \
+    crdd_lifecycle_observation::tests::settled_resources_do_not_prove_scenario_execution \
+    crdd_lifecycle_observation::tests::unpolled_inner_drop_inherits_old_scope \
+    crdd_lifecycle_observation::tests::inner_drop_must_complete_before_end_is_observed \
+    crdd_lifecycle_observation::tests::child_task_inherits_original_scope_after_global_scope_changes \
+    crdd_lifecycle_observation::tests::unpolled_wrapped_future_is_registered_and_drop_observed \
+    crdd_lifecycle_observation::tests::late_reap_is_bound_to_original_scope_not_reused_pid \
+    crdd_lifecycle_observation::tests::installed_scope_registers_future_reservation_before_poll \
+    crdd_lifecycle_observation::tests::empty_or_unobserved_is_not_closed \
+    crdd_lifecycle_observation::tests::delivery_end_does_not_prove_body_end \
+    crdd_lifecycle_observation::tests::failed_reap_and_other_generation_do_not_prove_exit; do
+    grep -Fx "$test_name: test" /out/fault-owner-list.log
+    log="/out/fault-owner-${test_name##*::}.log"
+    timeout --signal=TERM --kill-after=5s 30s "$owner_test_binary" "$test_name" --exact --nocapture --test-threads=1 2>&1 | tee "$log"
+    grep -F 'test result: ok. 1 passed; 0 failed; 0 ignored;' "$log"
+done
 sha256sum -c /out/artifacts.sha256
 RUN_TEST
 

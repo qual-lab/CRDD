@@ -598,6 +598,62 @@ session `14254`は終了コード0で完了した。Nativeコンパイルは14�
 
 六試験結果Sectionの記録範囲限定の独立確認はPass、Finding 0件だった。image／ログの独立再取得や029全体の完成判定ではない。Repository Checker session `52317`は終了コード1、Error 1／Warning 0、24546msで、既知の`stable-release-tag-identity-mismatch`だけが残った。`git diff --check`は成功した。
 
+### 追跡中の試験Patchへの統合と正式ビルドの再開（2026-10-01）
+
+局所候補の実Host六試験、故障注入Owner三試験および終了観測の反証十一試験を、起動制限一試験と合わせて追跡中のTest Patchへ統合した。正式実行の対象は二十一件であり、各試験をexact名で別Processへ割り当てる。固定Host、試験実行物とLink Mapの結合、musl、動的依存不存在、非実行stack、個別期限およびPass 1／Fail・Ignored 0を実行条件とする。局所候補の既存Passを統合後候補へ流用しない。
+
+最初の正式ビルドsession `28597`は終了コード1だった。履歴`xbqh2q026euxnzrevdhwo0csn`は2026-10-01 06:40:21開始、07:10:53終了、`failed`であり、試験バイナリのコンパイル前に`assert_cmd v2.1.2`を取得できなかった。Cargoの終了コードは101、理由は`attempting to make an HTTP request, but --offline was specified`だった。試験本体は未実行であり、この結果を二十一件のFailまたはPassへ算入しない。固定Contextは`.crdd/tmp/codex-advice-build-3tCbgK`、Dockerfile Hashは`a201c8b07720b0baffb2ef259ab3374be7b99096df87063c3182f18e471cfb68`である。
+
+是正では、試験コンパイル前に`cargo fetch --locked --target x86_64-unknown-linux-musl`による公開依存の取得だけを分離した。取得前後でCargo.lockの一致、Lock関連Hashおよび既に生成したProduction成果物Hashを要求する。依存取得段階ではコンパイル・試験を行わず、試験コンパイルと実行は引き続き`--network=none`、`--offline --locked`とする。依存不足を理由に試験のNetwork境界やOracleを緩和しない。
+
+更新した固定Context `.crdd/tmp/codex-advice-build-iEuzSe`から、session `95360`、履歴`c8de5glfy3ftfl4qcgeb0gwqd`を2026-10-01 07:17:15に開始した。
+
+| 固定入力 | SHA-256 |
+|---|---|
+| Dockerfile | `5255258d06ae861ea8e06a72468bbdf2ff6b81f2471a6eff70b1f6d802a31185` |
+| Test Patch | `03e916f0371b80cf4f7038b54f3b81356218d277acc506dd3f473a4acc15cc31` |
+| 十八件の試験Source Hash一覧 | `f812775b4254a47376adcc99491c7752869daed403df39d7b998ae95cdf51b80` |
+| Production Patch（変更なし） | `1fbd4d98e20e2a4a7c106f7f417129e061297fba65b7ef521969e40ef847faeb` |
+| 固定公式Host | `5b2c075ac2380fa04d76d7313fbc044d29c8d0a0d0b9138415acd4610211ca03` |
+
+本Sectionは再開時点の記録であり、再ビルドの終端成功、二十一件のPass、`ERB-ST-030`、Workbench本番接続またはv0.22全回帰の成立を示さない。公開CLI取消・親Process喪失の試験補助については、言語例外の人間承認が未取得であり、Native補助を作成していない。既存の署名Runtime、QA観測集計、有効化およびRelease判断を変更しない。
+
+Contextと出力のOwnerはCoordinator保守担当、保持上限は2026-10-08とする。実行中Buildまたは未解決参照がある間は削除せず、必要Evidenceを保存してからexact Identity・非使用・不存在を確認する。Provider要求、Docker再起動および永続Dockerデータ削除は行わない。
+
+### 統合後候補の正式二十一試験の終端結果（2026-10-01）
+
+再開したsession `95360`は終了コード0で完了した。履歴`c8de5glfy3ftfl4qcgeb0gwqd`は`completed`、2026-10-01 08:08:11終了、全体50分55秒、25／25段階完了である。試験バイナリのコンパイルは19分19秒、個別試験の実行段階は40.5秒だった。前節の再開時点で未取得だった結果を本節で追記し、前回の失敗記録は保持する。
+
+| 対象 | 実行件数 | 結果 | 観測範囲 |
+|---|---|---|---|
+| 起動制限 | 1 | Pass 1、Fail／Ignored 0、5.49秒。 | 起動時のTool集合と、意図的なassertion失敗を含む清掃経路。ログ内の意図的panicを試験全体のFailへ読み替えない。 |
+| 実Host六scenario | 6 | 各Pass 1、Fail／Ignored 0、5.04～5.06秒。 | 正常計算、JS能力拒否、禁止delegate、同じCell終了、Host喪失、Reader端点喪失を別Processで確認。公開CLI取消ではない。 |
+| 故障注入Owner | 3 | 各Pass 1、Fail／Ignored 0。 | pendingと履歴、Connection別解除、起動時Owner捕捉の反証。実Host試験の代替ではない。 |
+| 終了観測の反証 | 11 | 各Pass 1、Fail／Ignored 0。 | delegate相関、scenario未実行、Taskのpoll前登録・破棄順序・元Scope、PID再使用、空／未観測、結果配送と処理終了、reap失敗・別世代を独立反証。 |
+
+結果は`.crdd/tmp/codex-advice-formal-verification-20261001-r2`へ出力され、二十一件の保存ログそれぞれについて、一件だけの`test result: ok. 1 passed; 0 failed; 0 ignored;`を再取得した。Core側の各Processで他2663試験、Owner／観測側の各Processで他84試験は未実行である。二十一件を公式Codex全試験、CRDD全回帰またはv0.22全体のPassへ読み替えない。
+
+| 生成物／結合根拠 | SHA-256 |
+|---|---|
+| Core試験実行物（Build内で記録） | `62c0a5ba2cea9acc0d3413ca3a17c0dc461b28ad7376964e6a719e02c15126b3` |
+| Core Link Map（出力から再ハッシュ） | `807fd06c65b3a4eaae1dfd4a88ab8a0cef4aa4c60c0c8c11731878b7784a64c5` |
+| Core出力記録（出力から再ハッシュ） | `d46799f644ebed93b1bd3ed6a5ebbbc70e9f02af72b20a8c9d8d87248a5d4d23` |
+| Owner／観測試験実行物（Build内で記録） | `f2c41487b5429dc74cb8f376ece7e3f7ba3cdac605490b538446993f53c67bc6` |
+| Owner／観測Link Map（出力から再ハッシュ） | `9e0815cf81f09ab1045631f71ab3abf61ef1bc87a092c7797fcf0e34e72ec33e` |
+| Owner／観測出力記録（出力から再ハッシュ） | `0caa5c54fc6708e94ee37d8b5e4eaa3e532c5f147c36e4b5e28f78f5e4b9eed2` |
+| Production CLI（出力から再ハッシュ） | `366286511b5d8d4d804ca9a7539eb7be7f6ea38f083bf5629e7b12ca828ba1b3` |
+| bwrap（出力から再ハッシュ） | `07bc720e15a730d717e81b42acb3b95049803360738115c6f6c59830accef7c2` |
+
+Cargo.lockは依存取得前後で一致し、出力されたLock Hash `e85460a5c2a1f92d73ca0a40219c846f6a10d729f3186667485372c3aa82cfbf`を再ハッシュで確認した。Production CLIとbwrapのHashは取得前後および試験終了後で一致し、出力からも一致を確認した。試験用PatchをProduction成果物へ採用していない。BuildKitは既存の固定`linux/amd64`指定に関する`FromPlatformFlagConstDisallowed`警告一件を出した。成功結果から警告不存在を主張しない。
+
+前節の再開記録の独立確認は記録範囲限定Pass、Finding 0件だった。確認者は固定Contextの七入力を再ハッシュし、記載HashとDockerfileの取得・offline境界を確認した。ビルド履歴の独立取得、今回の終端結果またはRuntime完成の確認ではない。今回の終端結果と統合後試験基盤は、別途固定内容の独立確認へ渡す。
+
+公開CLI取消／親Process喪失の`ERB-ST-030`、本番コマンドへのHost接続、実Provider E2Eおよび全回帰は未完了である。現在の本番助言コマンドはCode ModeとHostを無効にしており、このNative結果から本番成立を推定しない。承認待ちNative補助は未作成、署名Runtime・QA観測集計・Release判断も不変とする。
+
+統合後Native検証基盤と本節の終端記録の独立確認は対象限定Pass、Finding 0件だった。確認者は二十一件の保存ログを独立確認し、CLI、bwrap、解決済みLock、両Link Mapと出力記録を再ハッシュした。固定入力、試験feature限定、Production段階不変、取得とoffline試験の分離も確認した。Build履歴の独立取得や試験の再実行ではなく、`ERB-ST-030`、本番接続、全回帰、署名E2E、QA集計またはRelease判断のPassへ流用しない。
+
+コミット前のCoordinator静的確認session `87960`は終了コード0、Formatter 681件・Lint 682件、Production／Test型検査および三機械契約確認が成功した。Repository Checker session `84774`は終了コード1、Error 1／Warning 0、25354msで、既知の`stable-release-tag-identity-mismatch`だけが残った。今回の構造Findingは0件であり、Repository全体のPassとは扱わない。CHGの影響ファイル一覧へ今回の五対象を追加し、範囲、Phase、AcceptanceおよびQA集計は変更しない。
+
 ## Checklist
 
 - [x] 人間承認のモデル方針と旧候補の履歴を区別した。
