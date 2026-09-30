@@ -561,6 +561,43 @@ session `80982`は終了コード0で完了した。Nativeコンパイルは14�
 
 四試験結果Sectionの記録範囲限定の独立確認はPass、Finding 0件だった。確認者は現在SourceとOracleへの一致を確認したが、image／ログの独立再取得や試験Patch全体の完成後レビューではない。Repository Checker session `47435`は終了コード1、Error 1／Warning 0、19774msで、既知の`stable-release-tag-identity-mismatch`だけが残った。`git diff --check`は成功した。
 
+### 故障注入Ownerの局所反証と実Host候補（2026-10-01）
+
+故障注入は試験featureと明示Ownerの両方がある場合だけ有効にする。OwnerはHost起動開始時に捕捉し、実ExecutionStartedのCell、Host PID／世代および実Driver pending Requestを結合する。取消Tokenは状態の読取りだけに利用し、現在対応と発行履歴を分離する。独立確認で、同一Ownerの別Connectionに同じRequest IDがある場合の解除波及を検出した。自身のPID／世代に属するCellだけを解除対象に是正し、二Connectionの同一Request ID反証を追加した。局所Source再確認はFinding 0件だった。
+
+固定Context `.crdd/tmp/codex-advice-fault-owner-20261001`のOwner Source Hashは`74b3f0a0bf8d45d5c483c9a156fd615897f0a0906cccc4e53f68f995425336d6`、Dockerfile Hashは`3090710c7035f68e4e9a398fd63e44746121ef6a8f7c773141e704afbbf4a92b`である。十SourceのHashと整形を確認し、offline／locked／networkなしで型検査と単体試験を実行した。
+
+session `83345`は終了コード0、コンパイル1分59秒、履歴`mfbrcjqi5vauipl2ybwur8w8h`、結果image manifestは`5ef486741dcb0c4f24533fd8035b7e888fb4d722bf2c45eb9b5953f442615bf8`だった。`exact_pending_and_history`、`request_removal_is_connection_scoped`、`startup_owner_is_captured`は3 Pass、0 Fail／Ignored、他82試験は未実行である。実行物Hashは`aa2939208ca2b52b67ba1060e4a5c3dabf599c5bf13360beb6e0d52164369396`。結果imageからnetworkなし・read-only・Host Mountなしで三件のログとHashを再取得し、一時containerを除去した。これはOwnerの状態管理反証であり、実Host故障や`ERB-IT-029`の成立根拠ではない。
+
+実Host候補にはHost喪失とクライアントReader端点喪失を別試験として追加した。実Coreの未完了Cellが同じIDでYieldedとなった後、実Wait Futureをpollしてexact pending Requestを観測し、その対象へ一回だけ注入する。同じWaitの失敗、実Supervisor分岐、現在pending解除、共通shutdown、九RoleとHost reapを共同で要求する。事前確認でWaitの数値期限とOwnerへのTarget値搬送の型不整合二件を是正した。自然Yieldは故障結果に算入せず、Reader端点喪失を自然EOFやHost喪失へ読み替えない。
+
+固定Registry試験Source Hashは`62af7a05f1ddc977908aa5f3cf0d6a76189b41dd9538f8bb2910f7fc6b5e701e`、Contextは`.crdd/tmp/codex-advice-host-faults-20261001`である。最初のBuildはDockerfileのFROMへimage IDを名前として渡したためmetadata解決で終了コード1となり、コンパイルと試験は未開始だった。同じexact imageに用途限定aliasを付けIdentity照合後、session `14254`で再コンパイルを開始した。本記録時点ではその終端結果と実Host二故障の結果は未取得である。
+
+試験Sourceと補助機構はまだignored候補であり、追跡中Test Patch、QA観測集計、署名Runtimeや全E2Eへ算入しない。追加ContextとaliasにもCoordinator保守担当、2026-10-08の保持上限および既存のexact清掃条件を適用する。Provider要求、署名、Docker再起動および永続Dockerデータ削除は行わない。
+
+局所是正と本Sectionの記録限定独立確認はPass、Finding 0件だった。image／ログの独立再取得や実Host二故障の成功確認ではない。Repository Checker session `48084`は終了コード1、Error 1／Warning 0、22532msで、既知の`stable-release-tag-identity-mismatch`だけが残った。ignored候補をこのCheckerで確認済みとは扱わない。
+
+### 実Host六試験の再確認と二故障の実測（2026-10-01）
+
+session `14254`は終了コード0で完了した。Nativeコンパイルは14分42秒、履歴`jflabqyg6jnncxwnf2llfo8wh`、生成image manifestは`5affccc1c17ab22d2c1e051c0951bdfa367139f7d470d0cdc6449f80472fe502`だった。今回のSourceと十補助SourceのHash、整形を確認し、offline／locked／networkなしでビルドした。旧候補の実行物やLink Mapを新候補の結果へ流用しない。
+
+実行Context `.crdd/tmp/codex-advice-host-faults-run-20261001`のDockerfile Hashは`4558d52a1b5c0bab8ad0cde4fec70871e0b3e9e26a4772b025e0fa9c0be7af5f`である。固定Host、今回生成した実行物と新Link Mapの結合、musl、動的依存不存在と非実行stackを確認してから、六試験を別Process・個別期限付きで実行した。session `53476`は終了コード0、履歴`5ynjx8rbsfev4h3hwcyab2xvz`、結果image manifestは`f80033d63d6d2e631896d66acc9871457e649dc6dfd8865af1280a1d6ae86d12`だった。
+
+| exact試験 | 結果 | この候補で確認した範囲 |
+|---|---|---|
+| `crdd_advice_host_normal_cell` | Pass 1、Fail／Ignored 0、5.12秒 | 実Session・Router・Core・固定Hostの正常計算、九Role、Host reapと全登録Task終了。 |
+| `crdd_advice_host_js_capability_rejections` | Pass 1、Fail／Ignored 0、5.04秒 | 禁止JS能力／importの拒否、後続正常計算と共通終了条件。 |
+| `crdd_advice_host_forbidden_delegate` | Pass 1、Fail／Ignored 0、5.04秒 | 三種の禁止delegateの相関付き実搬送・Registry拒否・Handler 0、後続正常計算、十二Roleと最終再確認。 |
+| `crdd_advice_host_pending_cell_termination` | Pass 1、Fail／Ignored 0、5.04秒 | 同じCellのYielded→Terminated、後続正常計算と共通終了条件。 |
+| `crdd_advice_host_loss` | Pass 1、Fail／Ignored 0、5.04秒 | exact Host／世代／Cell／Requestに結合した実pending要求へHost終了要求を一回発行。同じWaitの失敗、実Supervisor終端分岐の存在、現在pending解除、九Role・実reap・全Task終了。最初の分岐名は固定しない。 |
+| `crdd_advice_host_reader_endpoint_loss` | Pass 1、Fail／Ignored 0、5.03秒 | exact Connectionの実Readerを喪失させ、同じWaitの失敗、実`reader`終端分岐、現在pending解除、九Role・Host reap・全Task終了。自然EOFやwriter異常の試験ではない。 |
+
+各Processの他2663試験は未実行であり、六件を全回帰へ拡張しない。二故障は正常な次Cellを要求せず、故障したConnectionの失敗搬送と回収を確認した。全scenarioで隔離Home／Workspaceを終了観測まで保持し、公開CLI取消／親Process喪失や外側Container／Networkの閉包をこのNative ITで証明したとは扱わない。
+
+結果imageからnetworkなし・read-only・Host Mountなしで六ログとHashを再取得し、一時containerを除去した。実行物Hashは`2cee382608c0145f1199ecf8c1a6b9111d8079eb6994e3f6199017ff391f0fc0`、新Map Hashは`a8ceb7eafd41850380a9b49c62da618738ff86c3ba625450da3faf93b6ac5dad`、出力記録Hashは`d46799f644ebed93b1bd3ed6a5ebbbc70e9f02af72b20a8c9d8d87248a5d4d23`である。候補Sourceはまだtracked Test Patchへ統合しておらず、QA観測集計、署名Runtime有効化、実Provider E2EやReleaseの完了へ算入しない。
+
+六試験結果Sectionの記録範囲限定の独立確認はPass、Finding 0件だった。image／ログの独立再取得や029全体の完成判定ではない。Repository Checker session `52317`は終了コード1、Error 1／Warning 0、24546msで、既知の`stable-release-tag-identity-mismatch`だけが残った。`git diff --check`は成功した。
+
 ## Checklist
 
 - [x] 人間承認のモデル方針と旧候補の履歴を区別した。
