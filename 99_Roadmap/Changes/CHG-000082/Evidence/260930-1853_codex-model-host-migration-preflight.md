@@ -468,6 +468,22 @@ cacheを使わず、更新実行Dockerfile `78528b07366f2deeea5c48271925b4cefc93
 
 結果imageをnetworkなし・read-only・Host Mountなしの一時containerで読み、保存したHash記録を確認した。Native試験実行物は`f246933a9e336e70e125c466f3937f2ae3da101f573abc77eaf2d9b77cf04ed5`、新Link Mapは`8610b76dfa7e66a9ef641055f3c7a0feedef7bd273ec1c9b4593da87be68695c`、Mapの出力対応記録は`d46799f644ebed93b1bd3ed6a5ebbbc70e9f02af72b20a8c9d8d87248a5d4d23`だった。確認用containerは所有した一時資源として終了時に除去し、永続Dockerデータは操作していない。
 
+### QA接続Gapの是正（2026-10-01）
+
+実Host試験候補のHeaderは`ERB-IT-024`を参照していたが、同項目の正本は起動Policy・登録・配送を対象とし、Disabled Code Mode Providerによる局所検証と明示していた。正常実測や実HostのJS能力・Cell終了を024の完成根拠へ算入することはできない。前の着手前確認における「Trace整合」はID存在の確認に留まり、Owner義務範囲の確認不足だった。確認者もこの評価を訂正した。
+
+Coordinator詳細設計7.5.1・11節を正式な導出元にして、QA-000006へ実Host正常025、JS能力拒否026、禁止delegate配送027、保留Cell終了028、Host喪失／IPC断029、公開CLI取消／親Process喪失030を追加した。025～029はIT、030はSTであり、既存024の保証範囲は維持する。追加の着手前確認は、025のHost差替え等を別途反証すること、027の実Core到達、029と030のscenario別評価、清掃完了と観測不能停止の分離を条件に着手可だった。完成後の独立レビューとは扱わない。
+
+全6項目は未観測とする。既存Source Hash `16fbf7ca...`の正常計算は履歴上の個別実測として保持するが、新しい検証項目全体または変更後Sourceの合格へ読み替えない。新SourceのHeader、Build入力と試験Hashを再固定してから実行する。追加候補のBuildはまだ開始していない。
+
+今回の分類は、承認済みモデル／Host移行に対する検証接続不足の是正である。QA設計、Architectureの導出キー、統合投影、試験Traceおよび現在品質状態を伝播対象とする。Policy・Authority・Provider送信範囲・署名・通常Executor／Reviewerは変更しない。QA／設計の独立レビュー、文書と不足影響の確認を行い、準拠基準を変更しないため準拠監査は追加しない。現在、新しい人間判断は不要である。
+
+完成後の対象限定独立確認は、025に公開CLI終了を混ぜたOracleと、Reality Audit内の旧集計の残存を指摘した。025をCore Session shutdown／Host終了へ訂正し、現在集合・内訳・移管一覧を同期した。再レビューはFinding 0、QA設計整理と文書・伝播影響に限定してPassだった。定義表から抽出した一意Local IDは176件、移管表の一意集合は46件である。新6項目は全て未観測であり、v0.21の22件未観測と既観測11件は変更していない。
+
+Checker packageの`npm run check`は終了コード0で、Formatter、型およびLintを通過した。Repository Checkerの再実行は終了コード1、Error 1／Warning 0で、残る指摘はfeature HEADと公開済みv0.21 tagの既知不一致だけだった。今回追加した導出キーの集合・試験段階・外部境界および条件区分の不整合は解消した。これはRepository全体のPassではない。契約全回帰はsession `88130`で実行中であり、本記録時点では終端結果を取得していない。
+
+ignored試験Sourceの新Hashは`7a45e454f5e19e5e611f1450806eed08eed7bfe0eb45607ede9fa72b47916f06`で、正常025・JS拒否026・Cell終了028および共通helperのTraceをOwnerへ修正した。まだ再Build・実測していない。prepared Build Contextの旧Source Hashを使わず、新Hashへ再固定してから実行する。
+
 ## Checklist
 
 - [x] 人間承認のモデル方針と旧候補の履歴を区別した。

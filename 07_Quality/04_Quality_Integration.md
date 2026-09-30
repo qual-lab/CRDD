@@ -14,13 +14,15 @@ Canonical設計集合と個別Releaseの検証対象を分ける。Local Itemを
 
 | 対象 | Local Item数 | Release上の処置 |
 |---|---:|---|
-| Canonical設計集合 | 170 | 全件を保持する。起動時Tool制限を確認する`ERB-IT-024`を含む |
+| Canonical設計集合 | 176 | 全件を保持する。起動時Tool制限を確認する`ERB-IT-024`を含む |
 | v0.21 Group A | 130 | v0.21のQuality Gateで評価する。108件観測済み、22件未観測 |
-| v0.22 Group B以降 | 40 | v0.21のGateから分離する。`ERB-IT-020`、`ERB-ST-019`、`ERB-IT-021`、`ERB-ST-022`、`ERB-UT-023`、`PPR-IT-002`、`PPR-IT-019`、`CPR-IT-008`、`CPR-UT-009`、`RFD-IT-014`、`RFD-ST-015`を観測済みとし、`ERB-IT-024`を含む未観測29件を区別して、v0.22で実装・実境界・人間受入を再評価する |
+| v0.22 Group B以降 | 46 | v0.21のGateから分離する。`ERB-IT-020`、`ERB-ST-019`、`ERB-IT-021`、`ERB-ST-022`、`ERB-UT-023`、`PPR-IT-002`、`PPR-IT-019`、`CPR-IT-008`、`CPR-UT-009`、`RFD-IT-014`、`RFD-ST-015`を観測済みとし、`ERB-IT-024`を含む未観測35件を区別して、v0.22で実装・実境界・人間受入を再評価する |
 
-v0.22対象40件のうち、既存Prototype RelationとVisual Previewの局所Relationは現実の非後退確認および対象指示として保持する。`ERB-IT-020`はBrowser Lifecycle、`ERB-ST-019`は実Browser Zoom、`ERB-IT-021`はWorkbench Production Shell、`ERB-ST-022`はProduction Workbenchの15画面×3表示Profile×3 Zoomと終了後資源、`ERB-UT-023`はCoordinator AI依頼種別Router、`PPR-IT-002`は許可済みProject Context FederationとWorkbench表示、`PPR-IT-019`はProject Context Consumer Reader、`CPR-IT-008`はTopic／Meeting Record Reader、`CPR-UT-009`は候補採用ApplicationのAuthority・Revision・Scope・Lease境界、`RFD-IT-014`はWorkbench→Version Control→実Git／bare Remoteの直接境界、`RFD-ST-015`は通常Pushの拒否・通信断・結果不明・操作後再観測と実Browser確認のEvidenceで観測済みである。`RFD-ST-016`を含む残り29件は、対象Capabilityの実装、実境界または人間受入をまだ証明していない。[v0.22 Roadmap](../99_Roadmap/01_Roadmap.md#12-v0220--project運営複数repository)が要求する新Capability全体の完成根拠へ、局所Relationを読み替えない。
+v0.22対象46件のうち、既存Prototype RelationとVisual Previewの局所Relationは現実の非後退確認および対象指示として保持する。`ERB-IT-020`はBrowser Lifecycle、`ERB-ST-019`は実Browser Zoom、`ERB-IT-021`はWorkbench Production Shell、`ERB-ST-022`はProduction Workbenchの15画面×3表示Profile×3 Zoomと終了後資源、`ERB-UT-023`はCoordinator AI依頼種別Router、`PPR-IT-002`は許可済みProject Context FederationとWorkbench表示、`PPR-IT-019`はProject Context Consumer Reader、`CPR-IT-008`はTopic／Meeting Record Reader、`CPR-UT-009`は候補採用ApplicationのAuthority・Revision・Scope・Lease境界、`RFD-IT-014`はWorkbench→Version Control→実Git／bare Remoteの直接境界、`RFD-ST-015`は通常Pushの拒否・通信断・結果不明・操作後再観測と実Browser確認のEvidenceで観測済みである。`RFD-ST-016`を含む残り35件は、対象Capabilityの実装、実境界または人間受入をまだ証明していない。[v0.22 Roadmap](../99_Roadmap/01_Roadmap.md#12-v0220--project運営複数repository)が要求する新Capability全体の完成根拠へ、局所Relationを読み替えない。
 
 ## 2. Architecture横断モデルの処置
+
+助言専用Hostの追加検証義務はCoordinator詳細設計7.5.1・11節から導出し、`coord.advice-code-mode-host`を`ERB-IT-024`～`ERB-IT-029`および`ERB-ST-030`へ接続する。既存の起動Policy項目024を実Host全体の保証へ広げず、追加6項目は未観測としてv0.22の集合に含める。
 
 横断モデルはCanonical IDとは別のIDを発行しない。Architecture全体にまたがる成立条件を、該当する検証目標へ次のように接続する。
 
@@ -47,6 +49,7 @@ v0.22対象40件のうち、既存Prototype RelationとVisual Previewの局所Re
 
 | 詳細設計領域 | 検証単位 | 接続する検証目標 | Local Item | 処置状態 | 未確認／再評価条件 |
 |---|---|---|---|---|---|
+| [coordinator](../06_Architecture/Details/coordinator/01_Architecture.md) | `coord.advice-code-mode-host` | [外部Runtime境界](Definitions/QA-000006/quality_definition.md) | `ERB-IT-024`、`ERB-IT-025`、`ERB-IT-026`、`ERB-IT-027`、`ERB-IT-028`、`ERB-IT-029`、`ERB-ST-030` | OPEN | 起動Policyと実Host、公開CLIを別々に実測する。正常計算の履歴観測を禁止能力・取消・IPC断・親喪失の合格へ流用しない |
 | [artifact-signing](../06_Architecture/Details/artifact-signing/01_Architecture.md) | `artifact-signing.signature-component` | [成果物IntegrityとTrust](Definitions/QA-000010/quality_definition.md) | `AIT-IT-008`、`AIT-UT-011` | Covered | なし |
 | [artifact-signing](../06_Architecture/Details/artifact-signing/01_Architecture.md) | `artifact-signing.one-shot-authorization` | [成果物IntegrityとTrust](Definitions/QA-000010/quality_definition.md) | `AIT-IT-007`、`AIT-UT-012` | Covered | なし |
 | [artifact-signing](../06_Architecture/Details/artifact-signing/01_Architecture.md) | `artifact-signing.consumer-boundary` | [成果物IntegrityとTrust](Definitions/QA-000010/quality_definition.md) | `AIT-IT-009` | Covered | Manifest配置・公開はCoordinatorの別検証単位で再評価する |
@@ -137,7 +140,7 @@ Source IDごとの検証義務は各工程の`Analysis/<工程>/quality_analysis
 | [Project Runtime lifecycle](Definitions/QA-000003/quality_definition.md) | `PRL-ST-001`、`PRL-UAT-002`、`PRL-ST-003`、`PRL-ST-004`、`PRL-IT-005`、`PRL-UT-006`、`PRL-UT-007`、`PRL-IT-008`、`PRL-ST-009`、`PRL-UAT-010`、`PRL-IT-011`、`PRL-IT-012`、`PRL-IT-013`、`PRL-UT-014` | 6工程のAnalysis §3 | 本書§2／§3とproject-runtime／coordinator／platform-access |
 | [投影と出所](Definitions/QA-000004/quality_definition.md) | `PPR-IT-001`、`PPR-IT-002`、`PPR-IT-003`、`PPR-IT-004`、`PPR-ST-005`、`PPR-UT-006`、`PPR-UAT-007`、`PPR-UAT-008`、`PPR-UAT-009`、`PPR-IT-010`、`PPR-UT-011`、`PPR-IT-012`、`PPR-UT-013`、`PPR-UT-014`、`PPR-UAT-015`、`PPR-UT-016`、`PPR-UT-017`、`PPR-IT-018`、`PPR-IT-019`、`PPR-UAT-020` | 6工程のAnalysis §3 | 本書§2／§3とcros／execution-intelligence／mcp／project-operation／project-runtime／runtime-data／version-control |
 | [候補の昇格](Definitions/QA-000005/quality_definition.md) | `CPR-IT-001`、`CPR-UAT-002`、`CPR-UAT-003`、`CPR-IT-004`、`CPR-ST-005`、`CPR-IT-006`、`CPR-UAT-007`、`CPR-IT-008`、`CPR-UT-009` | 6工程のAnalysis §3 | 本書§2／§3とcoordinator／cros／mcp／project-operation／project-runtime |
-| [外部Runtime境界](Definitions/QA-000006/quality_definition.md) | `ERB-IT-001`、`ERB-IT-002`、`ERB-IT-003`、`ERB-IT-004`、`ERB-ST-005`、`ERB-IT-006`、`ERB-UAT-007`、`ERB-IT-008`、`ERB-ST-009`、`ERB-IT-010`、`ERB-ST-011`、`ERB-IT-012`、`ERB-ST-013`、`ERB-IT-014`、`ERB-ST-015`、`ERB-UT-016`、`ERB-IT-017`、`ERB-IT-018`、`ERB-ST-019`、`ERB-IT-020`、`ERB-IT-021`、`ERB-ST-022`、`ERB-UT-023`、`ERB-IT-024` | 6工程のAnalysis §3 | 本書§2／§3とcoordinator／cros／platform-access／visual-preview／workbench |
+| [外部Runtime境界](Definitions/QA-000006/quality_definition.md) | `ERB-IT-001`、`ERB-IT-002`、`ERB-IT-003`、`ERB-IT-004`、`ERB-ST-005`、`ERB-IT-006`、`ERB-UAT-007`、`ERB-IT-008`、`ERB-ST-009`、`ERB-IT-010`、`ERB-ST-011`、`ERB-IT-012`、`ERB-ST-013`、`ERB-IT-014`、`ERB-ST-015`、`ERB-UT-016`、`ERB-IT-017`、`ERB-IT-018`、`ERB-ST-019`、`ERB-IT-020`、`ERB-IT-021`、`ERB-ST-022`、`ERB-UT-023`、`ERB-IT-024`、`ERB-IT-025`、`ERB-IT-026`、`ERB-IT-027`、`ERB-IT-028`、`ERB-IT-029`、`ERB-ST-030` | 6工程のAnalysis §3 | 本書§2／§3とcoordinator／cros／platform-access／visual-preview／workbench |
 | [RepositoryとFederation](Definitions/QA-000007/quality_definition.md) | `RFD-IT-001`、`RFD-IT-002`、`RFD-ST-003`、`RFD-ST-004`、`RFD-IT-005`、`RFD-UT-006`、`RFD-UAT-007`、`RFD-IT-008`、`RFD-IT-009`、`RFD-ST-010`、`RFD-IT-011`、`RFD-IT-012`、`RFD-IT-013`、`RFD-IT-014`、`RFD-ST-015`、`RFD-ST-016` | 6工程のAnalysis §3 | 本書§2／§3とcros／crdd-domain-library／mcp／runtime-data／version-control |
 | [Runtime Data lifecycle](Definitions/QA-000008/quality_definition.md) | `RDL-IT-001`、`RDL-ST-002`、`RDL-IT-003`、`RDL-IT-004`、`RDL-UT-005`、`RDL-UAT-006`、`RDL-IT-007` | 6工程のAnalysis §3 | 本書§2／§3とplatform-access／runtime-data |
 | [外部送信とTransport](Definitions/QA-000009/quality_definition.md) | `EST-IT-001`、`EST-IT-002`、`EST-ST-003`、`EST-IT-004`、`EST-ST-005`、`EST-UAT-006`、`EST-UAT-007`、`EST-UAT-008`、`EST-UAT-009`、`EST-IT-010`、`EST-ST-011`、`EST-ST-012` | 6工程のAnalysis §3 | 本書§2／§3とcoordinator／cros／mcp／project-runtime |
