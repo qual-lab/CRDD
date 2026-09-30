@@ -285,6 +285,7 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
       "40_Develop/checker/src/rules/reality-symbol-graph.ts",
       "40_Develop/coordinator/bin/coordinator.ts",
       "40_Develop/coordinator/scripts/measure-development-providers.ts",
+      "40_Develop/coordinator/scripts/prepare-codex-advice-build.ts",
       "40_Develop/coordinator/scripts/prepare-release-candidate.ts",
       "40_Develop/coordinator/scripts/promote-release-manifest.ts",
       "40_Develop/coordinator/scripts/sign-release-manifest.ts",

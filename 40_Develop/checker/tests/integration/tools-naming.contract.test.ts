@@ -724,6 +724,7 @@ const TEXT_FILE = /^[a-z0-9]+(?:-[a-z0-9]+)*\.txt$/u;
 const NATIVE_EXECUTABLE_FILE = /^[a-z0-9]+(?:-[a-z0-9]+)*\.exe$/u;
 const POLICY_FILE = /^[a-z0-9]+(?:-[a-z0-9]+)*-\d+\.\d+\.\d+\.policy$/u;
 const DOCKERFILE = /^[a-z0-9]+(?:-[a-z0-9]+)*\.Dockerfile$/u;
+const SOURCE_PATCH_FILE = /^[a-z0-9]+(?:-[a-z0-9]+)*\.patch$/u;
 const RESERVED_FILE_NAMES = new Set([
   ".gitignore",
   "Cargo.lock",
@@ -1241,6 +1242,26 @@ function assertFileName(file: string): void {
     assert.match(name, DOCKERFILE, `Dockerfile name: ${file}`);
     return;
   }
+  if (name.endsWith(".patch")) {
+    assert.match(name, SOURCE_PATCH_FILE, `fixed source patch name: ${file}`);
+    assert.equal(
+      path.dirname(file),
+      path.join(repositoryRoot, "40_Develop", "coordinator", "runtime"),
+      `source patch must belong to the approved Coordinator build: ${file}`,
+    );
+    return;
+  }
+  if (
+    file ===
+    path.join(
+      repositoryRoot,
+      "40_Develop",
+      "coordinator",
+      "runtime",
+      "codex-advice-native-linker.sh",
+    )
+  )
+    return;
   assert.fail(`unrecognized filename without an owned convention: ${file}`);
 }
 
@@ -3363,6 +3384,22 @@ function formatViolations(violations: readonly NamingViolation[]): string {
  * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 test("内部実装のPathと型付きsource identifierは内部コーディング規約へ一致する", () => {
+  assert.throws(() =>
+    assertFileName(
+      path.join(
+        repositoryRoot,
+        "40_Develop",
+        "coordinator",
+        "runtime",
+        "arbitrary.sh",
+      ),
+    ),
+  );
+  assert.throws(() =>
+    assertFileName(
+      path.join(repositoryRoot, "40_Develop", "checker", "unowned.patch"),
+    ),
+  );
   const files = pathInspectionRoots.flatMap(collectFiles);
   for (const file of files) assertFileName(file);
   const codingStandards = fs.lstatSync(

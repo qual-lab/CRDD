@@ -11,6 +11,9 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
+import defaultCatalogData from "../src/default-ai-profile-catalog.json" with {
+  type: "json",
+};
 
 import {
   DEFAULT_AI_PROFILE_CATALOG,
@@ -21,6 +24,90 @@ import {
   resolveAiProfileById,
   validateAiProfileCatalog,
 } from "../src/index.ts";
+
+/**
+ * 同梱JSONを検証済みの不変Catalogとして公開する。
+ *
+ * @responsibility 設定本文の全値保持と、生JSONからの分離を検証する。
+ * @trace RCM-UT-001
+ * @precondition 同梱JSONと公開Catalogを読み込んでいる。
+ * @stimulus 全値、参照Identityおよび各階層のfreezeを照合する。
+ * @observation Catalog、Adapter、Profileとその配列を観測する。
+ * @oracle 全値は一致し、生JSONを公開せず、全階層が不変である。
+ * @cleanup N/A: 外部資源を生成しない。
+ * @boundary N/A: 同一Process内の同梱設定検証である。
+ */
+test("同梱JSONの全値を保持して深い不変Catalogを公開する", () => {
+  assert.deepEqual(DEFAULT_AI_PROFILE_CATALOG, defaultCatalogData);
+  assert.notEqual(DEFAULT_AI_PROFILE_CATALOG, defaultCatalogData);
+  assert.notEqual(
+    DEFAULT_AI_PROFILE_CATALOG.adapters,
+    defaultCatalogData.adapters,
+  );
+  assert.notEqual(
+    DEFAULT_AI_PROFILE_CATALOG.profiles,
+    defaultCatalogData.profiles,
+  );
+  assert.ok(Object.isFrozen(DEFAULT_AI_PROFILE_CATALOG));
+  for (const collection of [
+    DEFAULT_AI_PROFILE_CATALOG.adapters,
+    DEFAULT_AI_PROFILE_CATALOG.profiles,
+  ]) {
+    assert.ok(Object.isFrozen(collection));
+    for (const item of collection) {
+      assert.ok(Object.isFrozen(item));
+      for (const value of Object.values(item)) {
+        if (Array.isArray(value)) assert.ok(Object.isFrozen(value));
+      }
+    }
+  }
+  assert.throws(() => {
+    (
+      DEFAULT_AI_PROFILE_CATALOG.profiles[0] as unknown as Record<
+        string,
+        unknown
+      >
+    ).exactModelId = "unregistered-model";
+  }, TypeError);
+  assert.throws(() => {
+    const adapter = DEFAULT_AI_PROFILE_CATALOG.adapters[0];
+    assert.ok(adapter);
+    (adapter.allowedModelIds as string[]).push("unregistered-model");
+  }, TypeError);
+  assert.deepEqual(DEFAULT_AI_PROFILE_CATALOG, defaultCatalogData);
+});
+
+/**
+ * 同梱設定と同じSchemaで不正なProfile関係を拒否する。
+ *
+ * @responsibility 未登録Model、重複Identityおよび未知項目を初期設定でも許容しないことを検証する。
+ * @trace RCM-UT-002
+ * @precondition 同梱JSONを各反証用に独立複製する。
+ * @stimulus Model参照、Profile IdentityおよびSchema項目を破損する。
+ * @observation 各候補の検証結果を観測する。
+ * @oracle 全候補がnullで拒否され、元の公開Catalogは変更されない。
+ * @cleanup N/A: 外部資源を生成しない。
+ * @boundary N/A: 同一Process内の設定検証である。
+ */
+test("初期設定の未登録Model・重複Profile・未知項目を拒否する", () => {
+  const unknownModel = structuredClone(defaultCatalogData);
+  const unknownModelProfile = unknownModel.profiles[0];
+  assert.ok(unknownModelProfile);
+  unknownModelProfile.exactModelId = "unregistered-model";
+  assert.equal(validateAiProfileCatalog(unknownModel), null);
+  const duplicate = structuredClone(defaultCatalogData);
+  const duplicateProfile = duplicate.profiles[0];
+  assert.ok(duplicateProfile);
+  duplicate.profiles.push(structuredClone(duplicateProfile));
+  assert.equal(validateAiProfileCatalog(duplicate), null);
+  const unknownField = structuredClone(defaultCatalogData) as Record<
+    string,
+    unknown
+  >;
+  unknownField.executable = "unregistered-command";
+  assert.equal(validateAiProfileCatalog(unknownField), null);
+  assert.deepEqual(DEFAULT_AI_PROFILE_CATALOG, defaultCatalogData);
+});
 
 /**
  * 既定Profileを決定論的に解決する。

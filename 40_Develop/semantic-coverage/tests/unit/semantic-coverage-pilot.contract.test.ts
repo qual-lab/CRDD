@@ -420,7 +420,7 @@ test("CoordinatorとProject Runtimeの可視表からPilot IRを決定論的に�
       subsystem: "project-runtime",
       sourceDocument:
         "06_Architecture/Details/project-runtime/02_Detailed_Design.md",
-      expectedMeaningCount: 9,
+      expectedMeaningCount: 10,
     },
   ] as const;
   for (const pilot of pilots) {
@@ -510,14 +510,29 @@ test("Pilot Semantic Keyを実装Symbol側のimplementsから解決する", () =
   );
   assert.deepEqual(built.findings, []);
   assert.ok(built.graph);
-  assert.equal(built.graph.meaningsByKey.size, 17);
-  assert.equal(built.graph.implementationIdsByMeaningKey.size, 16);
-  assert.equal(built.graph.qualityLocalIdsByMeaningKey.size, 17);
+  assert.equal(built.graph.meaningsByKey.size, 18);
+  assert.equal(built.graph.implementationIdsByMeaningKey.size, 17);
+  assert.equal(built.graph.qualityLocalIdsByMeaningKey.size, 18);
+  assert.ok(
+    built.graph.implementationIdsByMeaningKey
+      .get("project-runtime.candidate-adoption")
+      ?.includes("project-runtime.candidate-adoption-application"),
+  );
+  assert.deepEqual(
+    built.graph.qualityLocalIdsByMeaningKey.get(
+      "project-runtime.candidate-adoption",
+    ),
+    ["QA-000005/CPR-IT-006", "QA-000005/CPR-UT-009"],
+  );
   assert.deepEqual(
     built.graph.implementationIdsByMeaningKey.get(
       "coordinator.provider-effect-authority",
     ),
-    ["coordinator.provider-authority-runtime"],
+    [
+      "coordinator.provider-authority-runtime",
+      "coordinator.source.scripts.authenticate.claude.subscription",
+      "coordinator.source.src.security.claude.subscription.authentication",
+    ],
   );
   assert.deepEqual(
     built.graph.implementationIdsByMeaningKey.get(
@@ -764,7 +779,7 @@ test("Quality Local Itemが全Pilot Semantic Keyの正方向Relationを所有す
   assert.ok(compiled.relations);
   assert.equal(
     new Set(compiled.relations.map(({ semanticKey }) => semanticKey)).size,
-    17,
+    18,
   );
 });
 

@@ -31,7 +31,7 @@ Quality ID: `QA-000006`
 
 | 詳細設計領域 | 受け取る成立条件 |
 |---|---|
-| [coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md) | 実行編成、Authority、外部Effect、候補、回収・回復 |
+| [coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md) | 実行編成、Authority、外部Effect、候補、回収・回復。7.5.1の助言専用起動制限は`ERB-IT-024`で登録・配送の境界を確認する。 |
 | [cros](../../../06_Architecture/Details/cros/01_Architecture.md) | Repository横断解決、Grant、投影、外部接続、候補処置 |
 | [platform-access](../../../06_Architecture/Details/platform-access/01_Architecture.md) | OS資源、Process Effect、観測、cleanup、回復 |
 | [verification-runner](../../../06_Architecture/Details/verification-runner/01_Architecture.md) | 外部境界試験の段階適用、子Process結果および観測不能時の停止 |
@@ -66,7 +66,7 @@ Quality ID: `QA-000006`
 | 条件区分 | 適用 | 対応Local Item | 判断理由 |
 |---|---|---|---|
 | 正常 | Required | ERB-IT-001、ERB-UT-016 | 通常の成立経路を独立して確認する。 |
-| 境界 | Required | ERB-IT-002、ERB-IT-006、ERB-UAT-007、ERB-IT-008、ERB-IT-010、ERB-ST-015、ERB-IT-018、ERB-ST-019、ERB-IT-020、ERB-IT-021、ERB-ST-022、ERB-UT-023 | 値、Authority、情報、責務、localhost配信範囲、Browser lifecycle、Workbench Production Shell、AI依頼種別、実Browser観測または利用者判断の境界を確認する。 |
+| 境界 | Required | ERB-IT-002、ERB-IT-006、ERB-UAT-007、ERB-IT-008、ERB-IT-010、ERB-ST-015、ERB-IT-018、ERB-ST-019、ERB-IT-020、ERB-IT-021、ERB-ST-022、ERB-UT-023、ERB-IT-024 | 値、Authority、情報、責務、localhost配信範囲、Browser lifecycle、Workbench Production Shell、AI依頼種別、助言専用の起動Policy、実Browser観測または利用者判断の境界を確認する。 |
 | 準正常 | Required | ERB-IT-004、ERB-ST-005 | 継続可能な分岐、保留、観測不能または診断状態を成功へ畳まない。 |
 | 異常 | N/A | - | 独立した異常条件を持たない。 |
 | 回復 | Required | ERB-IT-003、ERB-ST-009、ERB-ST-011、ERB-IT-012、ERB-ST-013、ERB-IT-014、ERB-IT-017 | 失敗・取消後に同じIdentityと義務で安全に再入場できることを確認する。 |
@@ -75,6 +75,7 @@ Quality ID: `QA-000006`
 
 | Local ID | 条件区分 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測 | Oracle | Evidence | 終了後条件 | 実行形態 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `ERB-IT-024` | 境界 | IT | Advice Startup Policy／Registration／Dispatch | 固定助言CLIの実Session起動→捕捉Policy→公式Tool Registry→Handler | Related 2 Blocks | Coordinator詳細設計7.5.1、固定Sourceと起動Patch、既定・空集合・execのみ・waitのみ・別namespaceのみ・追加制約・Guardianの起動Policy、無害なカウンタ付きHandler | 実Sessionを起動し、trusted／external／prependから登録を試み、DirectとCode Mode由来の入力を配送する。捕捉後のPolicy変更、assertion失敗および待機期限超過も試みる | 捕捉済み許可集合、追加制約、登録結果、名前とnamespace、配送結果、Handler到達件数、Worker join、期限付きSession終了およびhook受信口の閉鎖を記録する | 元の厳しいPolicyを維持したexec／waitとの交差だけが登録可能である。shell、patch、MCP、web、permissions、agent、質問／メッセージ、clockおよび未知名は、表示状態によらず登録・実行できずHandler到達0となる。捕捉後の変更でも緩和できない。正常・panic・待機期限超過の終了経路が成立する | ERB-IT-024、固定Source・起動Patch・試験PatchのHash、Policy分類、登録入口、名前分類、Direct／Code Mode分類、拒否・到達件数、終了後状態およびOracle判定を保存する。認証情報、生Provider出力および絶対Pathは保存しない | Provider Turn送信0、System Tool Handler到達0、試験Worker join、期限付きSession終了およびhook受信口閉鎖を確認する。直接観測しないOS Process／Listener全体の不存在は別の実Host検証で確認し、この局所結果から推定しない | Automated |
 | `ERB-IT-001` | 正常 | IT | External Contract／Lifecycle | Adapter→実CLI・Process・Container | Direct Boundary | 固定CLI・Process・Container、相関ID、終了後資源Observer | 外部実行を開始し完了まで観測する | ERB-IT-001として、「外部実行を開始し完了まで観測する」前後のAdapter→実CLI・Process・Containerについて、Identity、phase／state遷移、結果field、Effect発行回数、資源残存数および失敗理由を記録する | 構成、要求、受理、開始、結果、完了を同じrunで相関 | ERB-IT-001、固定した改訂版・環境・入力Identity、phase／state遷移、結果field、Effect／資源件数、Oracle判定「構成、要求、受理、開始、結果、完了を同じrunで相関」および終了後条件「すべての所有資源の終了を独立観測」を保存する。Secret、鍵bytes、passphrase、生Provider出力および絶対Pathは保存しない | すべての所有資源の終了を独立観測 | Automated |
 | `ERB-IT-002` | 境界 | IT | Fault Injection／Lifecycle | Controller→stdio・signal・close→資源Observer | Adjacent 1 Block | 起動・搬送・取消・closeの各境界へ故障を注入できる固定Task | handle取得後、write後、kill要求後にそれぞれ失敗させる | ERB-IT-002として、「handle取得後、write後、kill要求後にそれぞれ失敗させる」前後のController→stdio・signal・close→資源Observerについて、Identity、phase／state遷移、結果field、Effect発行回数、資源残存数および失敗理由を記録する | 前段階の成功を後段階の成功にせず、原因段階を返す | ERB-IT-002、固定した改訂版・環境・入力Identity、phase／state遷移、結果field、Effect／資源件数、Oracle判定「前段階の成功を後段階の成功にせず、原因段階を返す」および終了後条件「終了不明をcleanup成功にしない」を保存する。Secret、鍵bytes、passphrase、生Provider出力および絶対Pathは保存しない | 終了不明をcleanup成功にしない | Automated |
 | `ERB-IT-003` | 回復 | IT | Cancellation／Recovery | Task Runtime→Controller→外部Runtime→Recovery | Related 2 Blocks | 実行中Task、取消Authority、重複・遅延通知と部分結果の注入点 | timeout、cancel、重複通知、遅延close、部分結果を順に発生させる | ERB-IT-003として、「timeout、cancel、重複通知、遅延close、部分結果を順に発生させる」前後のTask Runtime→Controller→外部Runtime→Recoveryについて、Identity、phase／state遷移、結果field、Effect発行回数、資源残存数および失敗理由を記録する | 状態遷移、結果搬送、Effect、回収を独立に評価 | ERB-IT-003、固定した改訂版・環境・入力Identity、phase／state遷移、結果field、Effect／資源件数、Oracle判定「状態遷移、結果搬送、Effect、回収を独立に評価」および終了後条件「残存する場合は回復義務を保持」を保存する。Secret、鍵bytes、passphrase、生Provider出力および絶対Pathは保存しない | 残存する場合は回復義務を保持 | Automated |
@@ -131,6 +132,8 @@ Evidenceには各段階のCommit／Tree、固定Path、Asset Hash、Git追跡判
 初回起動期限後にDocker Processが残存する実環境反例では、`ERB-ST-009`は停止前のEngine Probe TimeoutをEngine停止と同一視せず、既知2領域のexact lockとProcess集合を継続入口で確認する。同じRepair ID内で停止意図を耐久化し、停止Effectを一回だけ発行して、Engine既知停止とProcess不存在をfreshに確認した後にだけ二領域退避へ進む。既に不存在なら停止Effectは`not_issued`で閉じる。Engine状態不明、部分停止、観測不能、取消またはIdentity不一致ではrenameと再起動を0件にし、条件別理由と同じ回復義務を保持する。旧形式の3 Effect継続記録は、成立済み段階を再発行せず現行の4 Effectモデルへ読取り投影できることも検証する。
 
 `ERB-ST-022`の機械観測部分は、[Phase 5 Workbench実Browser Visual Gate](../../../99_Roadmap/Changes/CHG-000082/Evidence/260928-1028_phase5-workbench-actual-browser-visual.md)で15画面、3表示Profile、3 Zoomの27条件を不適合0・許容例外0で完了し、[純粋CSR移行](../../../99_Roadmap/Changes/CHG-000082/Evidence/260928-1745_phase5-workbench-pure-csr.md)で全画面DOMのBrowser React所有への移行後も同じ27条件を再観測した。人間UAT、実Provider E2EまたはShared Server配置の成立へは読み替えない。
+
+`ERB-IT-024`はProductionの`Session::new`を通る試験用入口を使用する。SessionServicesを直接構築して既定Policyを設定するhelperや、制限処理を別実装へ複製する試験では成立を主張しない。offline model、試験認証、専用の空HomeおよびDisabled Code Mode Providerを維持し、結果の成否にかかわらずSessionを終了する。Code Mode由来のRegistry配送確認を、実HostのJS→IPC→Router、Host取消・回収、署名またはProvider E2Eの合格へ流用しない。
 
 ## Semantic Coverage Pilot
 

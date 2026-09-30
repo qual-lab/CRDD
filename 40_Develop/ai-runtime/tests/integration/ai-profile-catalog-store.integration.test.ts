@@ -9,8 +9,8 @@
  * @boundary RCM-IT-005=Direct Boundary: Runtime Root Resolver→Catalog Store→Filesystem
  */
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { execFileSync, spawnSync } from "node:child_process";
+import { copyFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 
@@ -24,6 +24,82 @@ import {
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
   import.meta.dirname,
 );
+
+/**
+ * 初期Catalogを別Node Processで読み込み、破損時の起動停止を検証する。
+ *
+ * @responsibility 同梱JSONの欠落、構文不正とSchema不正を旧値へのfallbackにしないことを反証する。
+ * @trace RCM-IT-005
+ * @precondition 現行catalog.tsをRepository-localの独立Fixtureへ複製する。
+ * @stimulus 正常、欠落、構文不正およびSchema不正のJSONで順にModuleを読み込む。
+ * @observation 子Process終了、Signal、成功markerと期待する停止理由を観測する。
+ * @oracle 正常だけmarkerを返し、不正三条件は非0で停止する。
+ * @cleanup exactな作成済みFixtureをfinallyで削除する。
+ * @boundary RCM-IT-005=Direct Boundary: bundled Catalog→Node JSON loader→Schema validator。
+ */
+test("同梱JSONの欠落・構文不正・Schema不正はModule起動を停止する", async () => {
+  const testsRoot = path.join(repositoryRoot, ".crdd", "tests");
+  await mkdir(testsRoot, { recursive: true });
+  const fixture = await mkdtemp(path.join(testsRoot, "ai-profile-default-"));
+  const sourceRoot = path.resolve(import.meta.dirname, "../../src");
+  const jsonPath = path.join(fixture, "default-ai-profile-catalog.json");
+  try {
+    await copyFile(
+      path.join(sourceRoot, "catalog.ts"),
+      path.join(fixture, "catalog.ts"),
+    );
+    await writeFile(path.join(fixture, "package.json"), '{"type":"module"}');
+    for (const scenario of ["normal", "missing", "syntax", "schema"] as const) {
+      if (scenario === "normal") {
+        await copyFile(
+          path.join(sourceRoot, "default-ai-profile-catalog.json"),
+          jsonPath,
+        );
+      } else if (scenario === "missing") {
+        await rm(jsonPath);
+      } else {
+        await writeFile(
+          jsonPath,
+          scenario === "syntax" ? "{" : '{"contract":"invalid"}',
+        );
+      }
+      const result = spawnSync(
+        process.execPath,
+        [
+          "--input-type=module",
+          "-e",
+          'import { DEFAULT_AI_PROFILE_CATALOG } from "./catalog.ts"; if (DEFAULT_AI_PROFILE_CATALOG.profiles.length > 0) console.log("CATALOG_LOADED");',
+        ],
+        {
+          cwd: fixture,
+          windowsHide: true,
+          encoding: "utf8",
+          timeout: 10_000,
+          maxBuffer: 16_384,
+        },
+      );
+      assert.equal(result.error, undefined);
+      assert.equal(result.signal, null);
+      if (scenario === "normal") {
+        assert.equal(result.status, 0);
+        assert.equal(result.stdout.trim(), "CATALOG_LOADED");
+      } else {
+        assert.equal(result.status, 1);
+        assert.equal(result.stdout, "");
+        assert.match(
+          result.stderr,
+          scenario === "missing"
+            ? /ERR_MODULE_NOT_FOUND/u
+            : scenario === "syntax"
+              ? /SyntaxError/u
+              : /ai_profile_default_catalog_invalid/u,
+        );
+      }
+    }
+  } finally {
+    await rm(fixture, { recursive: true, force: true });
+  }
+});
 
 /**
  * 試験Fixture内に最小Git Repositoryを作成する。

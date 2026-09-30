@@ -40,6 +40,12 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 
 ## 現在状態と構造変更
 
+### 現在の検証と次のWorkbench見直しの順序
+
+人間は、まず現状の設計・実装で必要な局所試験、署名付きE2E、全回帰および独立レビューを完了し、結果と残課題を示して一区切りつける方針を確認した。その後にWorkbenchのUX／IAを再検討する。現状の試験が通ることを、表示スペースと作業導線の十分性の証明とは扱わない。
+
+後続の見直し対象は、表示スペースの役割・情報量・優先順位、表示情報と人間の作業の対応、一覧・詳細・比較・編集の遷移、およびAI相談から人間判断・操作への導線である。現在の検証候補へ未分析のUX変更を混在させず、検証結果の提示後に人間との認識合わせから開始する。見直しの採用内容またはRelease可否をこの順序の確認だけから確定しない。
+
 | 項目 | 変更前 | 変更後 |
 |---|---|---|
 | Workbench実体 | Visual FixtureとCanonical UI／SPEC Detailだけが存在する | `40_Develop/workbench`がProduction Web Surfaceを所有する |
@@ -396,6 +402,12 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 
 ## 後続対応 / ロードマップ
 
-Workbench助言の最新状態は[通知契約照合](Evidence/260930-1643_workbench-advice-notification-contract.md)に記録した。署名Runtime `ecb7fb1d`のCodex単独実測は正常終了・資源回収後に`workbench_ai_codex_tool_event_forbidden`で停止した。正常な思考通知の誤拒否と不正・更新Itemの検査漏れを局所是正し、関連257件と独立レビューを通過した。実測拒否の具体的なItem種別は未観測であり、原因を思考通知と断定しない。新署名候補での解消確認、Claude助言と変更候補およびWorkbench全体のE2Eは未完了である。
+固定CLI本体のモデル情報で、助言用`gpt-5.6-sol`は`code_mode_only`だが現行助言実行ではHostを無効化する不整合を確認した。実測errorもCode Mode利用不能の固定文言へ一致した。設定関連のもう一件は未特定である。人間は後続判断として6.1 Solを標準、6 Lunaを軽量用途とするProfileと対応固定CLIへの移行を承認した。旧5.5互換Profile／5.6 Host案は判断前の候補履歴として保持し、現在の採用方針にはしない。
+
+公式CLI `0.159.2`の固定配布物では両モデルがCode Mode専用だった。Hostを正式に含めるだけでなく、非表示Tool名の直接呼出しを実行前に拒否できる許可集合が必要である。公式Sourceの起動時`ToolPolicy`はこの制限を持つが、公開CLI設定からの注入入口は今回の確認で未発見だった。専用実行物の構築・配布・保守を伴う最小起動Adapterへの拡張は人間が承認した。助言用の権限は広げず、通常Executor／Reviewerと専用制限を分け、局所反証と独立レビュー後に再署名・実Provider E2Eへ進む。現在は新モデル実行、Host有効化、権限緩和またはerror無視を行っていない。初期ProfileのJSON外出しは型・Lint・契約試験13件と配布物観測を通過し、独立レビューPass・Finding 0である。根拠、未確認範囲および着手前確認は[モデル・Host移行の着手前確認](Evidence/260930-1853_codex-model-host-migration-preflight.md)を参照する。
+
+署名Runtime `52249c52`の再診断では、拒否対象が完了error通知二件と判明した。固定文字列分類は設定関連一件、code mode関連一件に一致したが、原因の確定ではない。正常終了・資源回収後もWorkbench助言は拒否されており、受理条件を緩めず固定CLIの設定契約へ戻って確認する。診断Toolは独立レビューを通過し、本文や未知値は保存していない。通常E2E合格へは算入しない。根拠と限界は[Codexエラー通知分類](Evidence/260930-1801_workbench-advice-error-classification.md)を参照する。
+
+先行する通知契約の是正は[通知契約照合](Evidence/260930-1643_workbench-advice-notification-contract.md)に記録した。署名Runtime `ecb7fb1d`のCodex単独実測は正常終了・資源回収後に`workbench_ai_codex_tool_event_forbidden`で停止した。正常な思考通知の誤拒否と不正・更新Itemの検査漏れを局所是正し、関連257件と独立レビューを通過した。その実測時点では具体的なItem種別を観測しておらず、原因を思考通知と断定していない。後続の署名Runtime `52249c52`でも拒否が続き、上記診断でerror通知を特定した。解消確認、Claude助言と変更候補およびWorkbench全体のE2Eは未完了である。
 
 Phase 4までの接続とPhase 5の13画面を閉じ、15画面のProduction DOMを3表示Profile×3 Zoomの実Browserで観測した。読取り助言、変更候補の生成と別操作での採否、Shared Serverの公開入口はProduction Compositionまで接続済みである。署名Runtime `45254e2b`と是正済み検証Tool `1b756ac2`によるRun `2e55c8cd2897464b`は、Project Runtime公開MCPの通常二経路、取消、exact Recovery、最終回復在庫確認まで合格した。再入場後の人間の採用判断待ちは意図した停止であり、自動採用完了を主張しない。是正前の失敗結果は履歴Evidenceとして保持する。次はWorkbench実Provider E2Eと必要な四経路E2Eを実測し、残る品質項目を個別照合する。その後、最終回帰・独立レビュー、最終配布固定、再署名、署名拒否試験および直接起動確認を閉じて人間のRelease判断へ渡す。現在の限定合格を全体Quality ReadyまたはRelease可能へ読み替えない。

@@ -1,0 +1,146 @@
+{
+  "contract": "crdd/ai-profile-catalog",
+  "contractRevision": 1,
+  "adapters": [
+    {
+      "adapterId": "codex-cli",
+      "provider": "codex",
+      "offering": "chatgpt_subscription_oauth",
+      "authorityOrigin": "https://chatgpt.com",
+      "allowedModelIds": [
+        "gpt-5.5",
+        "gpt-5.6-sol",
+        "gpt-6-astra"
+      ],
+      "allowedReasoningEfforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ]
+    },
+    {
+      "adapterId": "claude-code",
+      "provider": "claude",
+      "offering": "claude_max",
+      "authorityOrigin": "https://claude.ai",
+      "allowedModelIds": [
+        "opus"
+      ],
+      "allowedReasoningEfforts": [
+        "low",
+        "medium",
+        "high"
+      ]
+    }
+  ],
+  "profiles": [
+    {
+      "profileId": "PROFILE-100001",
+      "adapterId": "codex-cli",
+      "family": "sol",
+      "exactModelId": "gpt-5.6-sol",
+      "selectionRoles": [
+        "coordinator",
+        "result_integration"
+      ],
+      "modelTiers": [
+        "preferred"
+      ],
+      "speedMode": "normal",
+      "billingMode": "subscription_oauth",
+      "defaultReasoningEffort": "medium",
+      "compatibilityReason": null
+    },
+    {
+      "profileId": "PROFILE-100002",
+      "adapterId": "codex-cli",
+      "family": "sol",
+      "exactModelId": "gpt-5.6-sol",
+      "selectionRoles": [
+        "coordinator",
+        "result_integration"
+      ],
+      "modelTiers": [
+        "upper_allowed"
+      ],
+      "speedMode": "normal",
+      "billingMode": "subscription_oauth",
+      "defaultReasoningEffort": "medium",
+      "compatibilityReason": null
+    },
+    {
+      "profileId": "PROFILE-100003",
+      "adapterId": "codex-cli",
+      "family": "sol",
+      "exactModelId": "gpt-5.5",
+      "selectionRoles": [
+        "executor",
+        "independent_reviewer"
+      ],
+      "modelTiers": [
+        "preferred"
+      ],
+      "speedMode": "normal",
+      "billingMode": "subscription_oauth",
+      "defaultReasoningEffort": "medium",
+      "compatibilityReason": "gpt_5_6_code_mode_only_host_unavailable_in_fixed_linux_runtime"
+    },
+    {
+      "profileId": "PROFILE-100004",
+      "adapterId": "codex-cli",
+      "family": "sol",
+      "exactModelId": "gpt-5.5",
+      "selectionRoles": [
+        "executor",
+        "independent_reviewer"
+      ],
+      "modelTiers": [
+        "upper_allowed"
+      ],
+      "speedMode": "normal",
+      "billingMode": "subscription_oauth",
+      "defaultReasoningEffort": "medium",
+      "compatibilityReason": "gpt_5_6_code_mode_only_host_unavailable_in_fixed_linux_runtime"
+    },
+    {
+      "profileId": "PROFILE-200001",
+      "adapterId": "claude-code",
+      "family": "opus",
+      "exactModelId": "opus",
+      "selectionRoles": [
+        "coordinator",
+        "executor",
+        "independent_reviewer",
+        "result_integration"
+      ],
+      "modelTiers": [
+        "preferred"
+      ],
+      "speedMode": "normal",
+      "billingMode": "subscription_oauth",
+      "defaultReasoningEffort": "medium",
+      "compatibilityReason": null
+    },
+    {
+      "profileId": "PROFILE-200002",
+      "adapterId": "claude-code",
+      "family": "opus",
+      "exactModelId": "opus",
+      "selectionRoles": [
+        "coordinator",
+        "executor",
+        "independent_reviewer",
+        "result_integration"
+      ],
+      "modelTiers": [
+        "upper_allowed"
+      ],
+      "speedMode": "normal",
+      "billingMode": "subscription_oauth",
+      "defaultReasoningEffort": "medium",
+      "compatibilityReason": null
+    }
+  ]
+}

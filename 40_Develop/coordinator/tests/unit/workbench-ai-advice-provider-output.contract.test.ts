@@ -11,7 +11,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { DOCKER_PROCESS_CONTROLLER_PUBLIC_COMPLETION_REASONS } from "../../src/security/docker-process-controller-result-reasons.ts";
+import { dockerProcessControllerPublicCompletionReasons } from "../../src/security/docker-process-controller-result-reasons.ts";
 import {
   extractWorkbenchAiAdviceProviderOutput,
   WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_REASONS,
@@ -73,7 +73,7 @@ test("助言抽出の全拒否理由を閉じた公開語彙へ接続する", ()
     [...WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_REASONS].sort(),
   );
   const publicReasons = new Set<string>(
-    DOCKER_PROCESS_CONTROLLER_PUBLIC_COMPLETION_REASONS,
+    dockerProcessControllerPublicCompletionReasons,
   );
   for (const reason of observed)
     assert.equal(publicReasons.has(reason), true, reason);
@@ -171,17 +171,19 @@ test("CodexのCommand／File Change Eventを拒否する", () => {
  * @boundary ERB-UT-023=Direct Boundary: Codex JSONL→助言抽出
  */
 test("正常な思考通知を非公開のまま最終助言と分離する", () => {
-  const reasoning = ["item.started", "item.updated", "item.completed"].map(
-    (type) => ({
-      type,
-      item: {
-        type: "reasoning",
-        text: `private-marker ${JSON.stringify(ADVICE)}`,
-      },
-    }),
-  );
+  const reasoningEvents = [
+    "item.started",
+    "item.updated",
+    "item.completed",
+  ].map((type) => ({
+    type,
+    item: {
+      type: "reasoning",
+      text: `private-marker ${JSON.stringify(ADVICE)}`,
+    },
+  }));
   const raw = [
-    ...reasoning,
+    ...reasoningEvents,
     {
       type: "item.completed",
       item: { type: "agent_message", text: JSON.stringify(ADVICE) },
@@ -195,7 +197,7 @@ test("正常な思考通知を非公開のまま最終助言と分離する", ()
   assert.equal(result.adviceJson, JSON.stringify(ADVICE));
   assert.equal(JSON.stringify(result).includes("private-marker"), false);
   assert.equal(result.rawOutputReported, false);
-  const reasoningOnly = [...reasoning, { type: "turn.completed" }]
+  const reasoningOnly = [...reasoningEvents, { type: "turn.completed" }]
     .map((event) => JSON.stringify(event))
     .join("\n");
   assert.equal(

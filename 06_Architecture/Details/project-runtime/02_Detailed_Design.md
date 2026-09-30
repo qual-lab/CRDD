@@ -37,6 +37,10 @@
 | `IF-DECISION` | `human_decision_controller` | `partial` | `human_decision_flow` |
 | `IF-PLATFORM` | `platform_adapter` | `partial` | `responsibility_separation` |
 
+### 2.1. 既存候補の採用境界
+
+`IF-INTEGRATION`は[候補採用の引渡し契約](01_Architecture.md#qualityへの引渡し)に従い、Candidate Storeから同じ候補を再読取りし、明示採用AuthorityとAdoption Lease、現在Revision、dirty Pathおよび許可Scopeを確認してから正本へ反映する。候補IdentityをIntegration Recordへ完全に保持し、採用Receiptの耐久記録とLease解放を確認する。拒否時は正本Effect 0、settlement不明時は同じRecovery義務を保持し、採用によるCommit／Pushは発行しない。候補生成と候補採用を同じ成功状態へ畳まない。
+
 ## 3. 永続Record
 
 | ID | 所有Interface | 資源 | 耐久化の意味 | 必須意味 |
@@ -405,5 +409,6 @@
 | `project-runtime.recovery-obligation` | `recovery` | Effectまたはcleanupが不明なTask／Decisionをexact Recovery Identityへ結び、同じ義務の解消または人間移送まで保持する。 | `ARCH-000004` | `Required` | `## 11. 失敗注入` | — |
 | `project-runtime.transport-neutral-application-contract` | `boundary` | CLI、MCPその他のTransportがProject Authorityや成功意味を新設せず、Core所有の公開Application Contractを同じ意味で提供する。 | `ARCH-000012` | `Required` | `## 2. Interface` | — |
 | `project-runtime.execution-intelligence-read-model` | `projection` | Execution Intelligenceを読取り専用Portとして利用し、実行事実と評価候補をProjectのAuthorityや受入判断へ変換しない。 | `ARCH-000007` | `Required` | `## 2. Interface` | — |
+| `project-runtime.candidate-adoption` | `authority` | 同一候補の再読取り、明示採用Authority、Leaseと現在Revision／dirty Scopeの確認を通じて正本へ採用し、Receiptを耐久記録する。拒否時は正本Effect 0、settlement不明時は同じRecovery義務を保持し、Commit／Pushを伴わない。 | `ARCH-000004` | `Required` | `### 2.1. 既存候補の採用境界` | — |
 - 正常・準正常・異常および実境界の検証が、対象CapabilityのLifecycleを閉じる。
 - 現行設計の変更時は本書を更新し、旧版の別文書を現行Treeへ追加しない。

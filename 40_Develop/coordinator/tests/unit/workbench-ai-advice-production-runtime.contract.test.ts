@@ -209,7 +209,7 @@ function fixture(
       calls.push("revoke-mount-grant");
       return Object.freeze({ status: "revoked" as const });
     },
-    issueSelection: (_capability: unknown, request: unknown) => {
+    issueSelection: (selectionCapability: unknown, request: unknown) => {
       calls.push("issue-selection");
       const record = request as Readonly<Record<string, unknown>>;
       assert.deepEqual(record, {
@@ -237,7 +237,7 @@ function fixture(
       const index = runtimeObservation.selectionIssueCount;
       runtimeObservation.selectionIssueCount += 1;
       if (options.realSelectionRuntime === true)
-        return selectionRuntime.issue(_capability, request);
+        return selectionRuntime.issue(selectionCapability, request);
       return Object.freeze({
         status: "issued" as const,
         controlCapability: selectionControls[index],

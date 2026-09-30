@@ -307,6 +307,26 @@ Effect／cleanupを独立観測
 
 <a id="development-provider-measurement"></a>
 
+### 7.5.1 Codex助言専用の起動制限
+
+CodexのCode Mode内部計算を助言に利用する場合も、System Toolの操作権限は与えない。非表示Toolや通知の欠落は実行禁止の保証ではないため、公式の起動時許可集合（`ToolPolicy`）へ実行前の上限を固定する。
+
+| 対象 | 固定する契約 |
+|---|---|
+| 助言用実行物 | 公式CLI `0.159.2`のSource Commit `ff6aec96948b70d94983af2641a6b67c94faeff5`へ最小起動Patchを加える。専用実行物はWorkbench読取り助言だけへ接続する。 |
+| 通常Task | Executor／Reviewerは公式実行物を使い、助言専用Patchの制限を流用しない。既存の権限・取消・結果契約を維持する。 |
+| 許可集合 | 公式Code Modeの`exec`と`wait`だけを上限とする。既存許可集合がある場合は交差し、他の既存制約も維持する。追加権限引数の公開は禁止する。 |
+| 適用点 | Sessionが明示Policyまたは暗黙のGuardian Policyを解決した直後、その結果をさらに制限して捕捉する。設定、環境変数、再開履歴、forkまたはモデル出力から解除できない。 |
+| 禁止Tool | Shell、Patch、MCP、Web、Agent、権限要求、質問・メッセージ用Toolおよび未知Toolを登録しない。別namespaceや非表示名の直接呼出しもHandlerへ到達させない。最終`agent_message`はToolではなく結果搬送として既存契約で検証する。 |
+| 別途閉じる境界 | Hooks、notify、Plugin、MCP、追加Environment、任意引数、API-key fallbackを継承しない。ToolPolicyだけでこれらが閉じるとは主張しない。 |
+| Host | 固定した公式Code Mode Hostだけをstdioで使用し、in-process fallbackを禁止する。CLI終了とHost終了を分け、取消・IPC断・異常終了・終了後のProcess Tree、Container、Networkを観測する。 |
+| 結果公開 | 唯一のSchema適合最終結果だけを全資源のcleanup確定後に公開する。error、未知通知、複数本文またはcleanup不明を成功へ畳まない。 |
+| 配布・Build | Source改訂版、対象Fileの変更前Hash、Patch Hash、固定toolchain、Build条件、専用実行物とHostのHashおよび実Image Digestを結合する。Provider RuntimeでBuildしない。 |
+
+固定Patchは`40_Develop/coordinator/runtime/codex-advice-startup.patch`が所有する。対象は公式Sourceの`codex-rs/core/src/session/session.rs`で、変更前SHA-256は`de7eca05b55865c0ef03465a29bfb51e54d1eb78d253533d8b76e88712172f2d`である。Hashまたは一意な適用位置が一致しなければ変更・Buildを開始しない。公式Sourceは変更履歴の正解として逆輸入せず、承認済みの助言禁止境界を実現する依存として扱う。
+
+Qualityへの引渡しは、直接／Nestedの禁止Tool呼出し、namespace正規化と衝突、既存制約の非緩和、再開／fork、Hook混入、Host欠落・差替え・異常終了・取消・IPC断・残存およびcleanup不明を含む。正常系では内部計算から唯一の最終回答を生成できることも確認し、安全な拒否だけで助言Capabilityの完成とはしない。現在は設計と固定Patchの候補段階であり、Build、実境界、署名またはE2Eの合格を意味しない。
+
 ## 8. Providerとモデル選定
 
 別Providerへの委譲を基本とし、同一Providerは、委譲不要、能力上の適合、Provider利用不能または独立した別Contextを説明できる場合だけ選ぶ。Front CodexからはClaude Executor、Front Claude CodeからはCodex Executorを優先するが、品質条件を満たす適格集合の中で判断する。

@@ -31,7 +31,7 @@ import {
 } from "../../src/security/coordinator-task-runtime.ts";
 import { coordinatorTaskPublicReasons } from "../../src/security/coordinator-task-result-reasons.ts";
 import { selectDelegationRouteCandidate } from "../../src/security/delegation-route-selection.ts";
-import { DOCKER_PROCESS_CONTROLLER_PUBLIC_COMPLETION_REASONS } from "../../src/security/docker-process-controller-result-reasons.ts";
+import { dockerProcessControllerPublicCompletionReasons } from "../../src/security/docker-process-controller-result-reasons.ts";
 import {
   cleanupOwnedOperationDirectories,
   createIsolatedOwnedOperationDirectoryCreationFailureCandidate,
@@ -6440,7 +6440,7 @@ test("Task Runtime契約は実Host active binding残存時にcleanupを拒否し
  */
 test("Docker Process Controllerの公開失敗理由をTask公開Registryへ全数接続する", () => {
   const taskReasons = new Set<string>(coordinatorTaskPublicReasons);
-  for (const reason of DOCKER_PROCESS_CONTROLLER_PUBLIC_COMPLETION_REASONS) {
+  for (const reason of dockerProcessControllerPublicCompletionReasons) {
     assert.equal(taskReasons.has(reason), true, reason);
   }
 });

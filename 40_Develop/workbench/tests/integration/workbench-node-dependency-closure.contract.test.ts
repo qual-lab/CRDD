@@ -25,6 +25,10 @@ const repositoryRoot = path.resolve(packageRoot, "../..");
  * @input Import／Export宣言のmodule clause文字列を受け取る。
  * @returns Runtime value依存ならtrueを返す。
  * @precondition clauseは閉じた宣言Patternから抽出済みである。
+ * @stimulus module clauseのRuntime value有無を判定する。
+ * @observation value宣言かtype-only宣言かのbooleanを取得する。
+ * @oracle Node依存Graphへ型参照だけの辺を追加しない。
+ * @cleanup N/A: 文字列だけを同期判定する。
  * @postcondition type-only named集合はfalse、star exportとvalue宣言はtrueになる。
  * @effect N/A: Syntax Treeだけを読む。
  * @failure N/A: 閉じたSyntax種別だけを処理する。
@@ -53,6 +57,10 @@ function carriesRuntimeValue(clause: string): boolean {
  * @input TypeScript／TSX Source File Pathを受け取る。
  * @returns Runtime valueとして到達するmodule specifier集合を返す。
  * @precondition filePathはWorkbench package内の通常Sourceである。
+ * @stimulus SourceのImportとExport宣言を抽出する。
+ * @observation Runtime module specifierの重複しない集合を取得する。
+ * @oracle 非Literal依存を閉じた依存へ推測せず拒否する。
+ * @cleanup N/A: Sourceを読み取るだけである。
  * @postcondition type-only宣言を含まず、同一specifierを重複しない。
  * @effect Source Fileを読取る。
  * @failure 非Literal dynamic importまたは閉じない宣言は試験を例外終了する。
@@ -88,6 +96,10 @@ function runtimeSpecifiers(filePath: string): readonly string[] {
  * @input importerと相対module specifierを受け取る。
  * @returns 正規化済み絶対Source Pathを返す。
  * @precondition specifierは相対Pathで始まり、拡張子付きである。
+ * @stimulus importerから相対参照を解決する。
+ * @observation Repository内の正規化済みSource Pathを取得する。
+ * @oracle Repository外への参照と拡張子不明を拒否する。
+ * @cleanup N/A: Path文字列だけを変換する。
  * @postcondition 解決Pathは現在Repository内に留まる。
  * @effect N/A: Path文字列だけを変換する。
  * @failure Package越境または拡張子なしを例外で拒否する。

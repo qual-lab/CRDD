@@ -1,0 +1,32 @@
+diff --git a/codex-rs/core/src/session/session.rs b/codex-rs/core/src/session/session.rs
+--- a/codex-rs/core/src/session/session.rs
++++ b/codex-rs/core/src/session/session.rs
+@@ -983,11 +983,27 @@
+-        let tool_policy = thread_extension_init
++        let source_tool_policy = thread_extension_init
+             .get::<codex_extension_api::ToolPolicy>()
+             .unwrap_or_else(|| {
+                 // Older reviewer rollouts predate the explicit startup policy.
+                 if crate::guardian::is_basic_session_source(&session_configuration.session_source) {
+                     Arc::new(codex_guardian_reviewer::reviewer_tool_policy())
+                 } else {
+                     Arc::default()
+                 }
+             });
++        // CRDD advice-only executable: narrow the resolved startup policy,
++        // including implicit Guardian restrictions, without a config escape.
++        let mut crdd_advice_tool_policy = source_tool_policy.as_ref().clone();
++        crdd_advice_tool_policy.allowed_tools = Some(
++            [
++                codex_tools::ToolName::plain(codex_code_mode::PUBLIC_TOOL_NAME),
++                codex_tools::ToolName::plain(codex_code_mode::WAIT_TOOL_NAME),
++            ]
++            .into_iter()
++            .filter(|name| crdd_advice_tool_policy.allows(name))
++            .collect(),
++        );
++        crdd_advice_tool_policy.expose_additional_permissions = false;
++        let tool_policy = Arc::new(crdd_advice_tool_policy);
++        thread_extension_init.insert(tool_policy.as_ref().clone());
++
+         let mcp_thread_init = thread_extension_init.clone();

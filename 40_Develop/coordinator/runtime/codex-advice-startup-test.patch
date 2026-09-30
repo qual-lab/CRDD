@@ -1,0 +1,310 @@
+diff --git a/codex-rs/core/src/session/tests.rs b/codex-rs/core/src/session/tests.rs
+--- a/codex-rs/core/src/session/tests.rs
++++ b/codex-rs/core/src/session/tests.rs
+@@ -6817,3 +6817,48 @@
+-async fn make_session_with_config_and_rx(
+-    mutator: impl FnOnce(&mut Config),
+-) -> anyhow::Result<(Arc<Session>, async_channel::Receiver<Event>)> {
++async fn make_session_with_config_and_rx(
++    mutator: impl FnOnce(&mut Config),
++) -> anyhow::Result<(Arc<Session>, async_channel::Receiver<Event>)> {
++    make_crdd_advice_session(
++        mutator,
++        codex_extension_api::ExtensionDataInit::default(),
++        SessionSource::Exec,
++    )
++    .await
++}
++
++/// 試験Sessionの終了処理を本番のshutdownへ接続する。
++///
++/// @responsibility 成功・失敗後に同じSessionのRuntimeを終了する。
++/// @trace ERB-IT-024
++/// @input 試験が所有するSession。
++/// @returns shutdownの完了結果。
++/// @precondition 固定SourceとProduction起動Patchを適用済みである。
++/// @postcondition 試験結果をProductionの完成結果へ読み替えない。
++/// @effect Session所有資源の終了を要求して待機する。
++/// @failure shutdownが完了できなければ試験を合格にしない。
++/// @invariant Provider Turnを送信せず、禁止System Toolを実行しない。
++/// @boundary 実Session起動、Tool登録およびRegistry配送の試験境界。
++/// @security 試験用認証だけを使用し、秘密値や生Provider出力を記録しない。
++/// @concurrency N/A: 試験内で順序付きに実行する。
++pub(crate) async fn shutdown_crdd_advice_session(session: &Arc<Session>) -> bool {
++    handlers::shutdown(session, "crdd-advice-test-shutdown".to_string()).await
++}
++
++/// Production起動処理を使う助言Policy試験Sessionを生成する。
++///
++/// @responsibility 試験入力を実Session::newへ搬送し、制限処理を複製しない。
++/// @trace ERB-IT-024
++/// @input 固定Config変更、ExtensionData初期値およびSessionSource。
++/// @returns 起動したSessionとEvent受信口。
++/// @precondition 固定SourceとProduction起動Patchを適用済みである。
++/// @postcondition 試験結果をProductionの完成結果へ読み替えない。
++/// @effect 専用の試験HomeとSessionを作成する。
++/// @failure Session::newの失敗をそのまま返す。
++/// @invariant Provider Turnを送信せず、禁止System Toolを実行しない。
++/// @boundary 実Session起動、Tool登録およびRegistry配送の試験境界。
++/// @security 試験用認証だけを使用し、秘密値や生Provider出力を記録しない。
++/// @concurrency N/A: 試験内で順序付きに実行する。
++pub(crate) async fn make_crdd_advice_session(
++    mutator: impl FnOnce(&mut Config),
++    thread_extension_init: codex_extension_api::ExtensionDataInit,
++    session_source: SessionSource,
++) -> anyhow::Result<(Arc<Session>, async_channel::Receiver<Event>)> {
+@@ -6878,1 +6878,1 @@
+-        session_source: SessionSource::Exec,
++        session_source: session_source.clone(),
+@@ -6917,1 +6917,1 @@
+-        SessionSource::Exec,
++        session_source,
+@@ -6923,1 +6923,1 @@
+-        codex_extension_api::ExtensionDataInit::default(),
++        thread_extension_init,
+diff --git a/codex-rs/core/src/tools/registry_tests.rs b/codex-rs/core/src/tools/registry_tests.rs
+--- a/codex-rs/core/src/tools/registry_tests.rs
++++ b/codex-rs/core/src/tools/registry_tests.rs
+@@ -1,1 +1,242 @@
+ use super::*;
++
++mod crdd_advice_startup_tests {
++    use super::*;
++    use std::assert_eq;
++    use codex_extension_api::ExtensionDataInit;
++    use codex_extension_api::ToolPolicy;
++    use codex_protocol::protocol::InternalSessionSource;
++    use codex_protocol::protocol::SessionSource;
++
++    /// 試験Toolの名前と到達件数を保持する。
++    /// @responsibility 実操作を発行せずHandlerの到達だけを観測する。
++    /// @trace ERB-IT-024
++    struct CountedHandler {
++        name: codex_tools::ToolName,
++        calls: Arc<AtomicUsize>,
++    }
++
++    impl ToolExecutor<ToolInvocation> for CountedHandler {
++        /// 試験Handlerの登録名を返す。
++        ///
++        /// @responsibility 登録と配送で同じ名前を使用する。
++        /// @trace ERB-IT-024
++        /// @input 自身の固定Tool名。
++        /// @returns 固定Tool名の独立Clone。
++        /// @precondition 固定SourceとProduction起動Patchを適用済みである。
++        /// @postcondition 試験結果をProductionの完成結果へ読み替えない。
++        /// @effect N/A: 値を返すだけである。
++        /// @failure N/A: 名前は試験内で確定している。
++        /// @invariant Provider Turnを送信せず、禁止System Toolを実行しない。
++        /// @boundary 実Session起動、Tool登録およびRegistry配送の試験境界。
++        /// @security 試験用認証だけを使用し、秘密値や生Provider出力を記録しない。
++        /// @concurrency N/A: 試験内で順序付きに実行する。
++        fn tool_name(&self) -> codex_tools::ToolName {
++            self.name.clone()
++        }
++
++        /// 試験HandlerのSchemaを返す。
++        ///
++        /// @responsibility 既存の無害な試験Schemaへ接続する。
++        /// @trace ERB-IT-024
++        /// @input 自身の固定Tool名。
++        /// @returns 既存test_specが生成するToolSpec。
++        /// @precondition 固定SourceとProduction起動Patchを適用済みである。
++        /// @postcondition 試験結果をProductionの完成結果へ読み替えない。
++        /// @effect N/A: Schema値を構築するだけである。
++        /// @failure N/A: 固定試験名のSchemaを生成する。
++        /// @invariant Provider Turnを送信せず、禁止System Toolを実行しない。
++        /// @boundary 実Session起動、Tool登録およびRegistry配送の試験境界。
++        /// @security 試験用認証だけを使用し、秘密値や生Provider出力を記録しない。
++        /// @concurrency N/A: 試験内で順序付きに実行する。
++        fn spec(&self) -> codex_tools::ToolSpec {
++            test_spec(&self.name)
++        }
++
++        /// 無害なHandler到達を数える。
++        ///
++        /// @responsibility 禁止名がHandlerへ到達していないことを直接観測する。
++        /// @trace ERB-IT-024
++        /// @input Registryが搬送したToolInvocation。
++        /// @returns 無害な成功結果。
++        /// @precondition 固定SourceとProduction起動Patchを適用済みである。
++        /// @postcondition 試験結果をProductionの完成結果へ読み替えない。
++        /// @effect 試験専用Atomicカウンタを一回増加する。
++        /// @failure N/A: System操作を行わない固定Handlerである。
++        /// @invariant Provider Turnを送信せず、禁止System Toolを実行しない。
++        /// @boundary 実Session起動、Tool登録およびRegistry配送の試験境界。
++        /// @security 試験用認証だけを使用し、秘密値や生Provider出力を記録しない。
++        /// @concurrency 専用Atomicカウンタだけを更新する。
++        fn handle<'a>(&'a self, _invocation: ToolInvocation) -> codex_tools::ToolExecutorFuture<'a>
++        where
++            ToolInvocation: 'a,
++        {
++            self.calls.fetch_add(1, Ordering::SeqCst);
++            Box::pin(async {
++                Ok(Box::new(crate::tools::context::FunctionToolOutput::from_text(
++                    "test-handler-reached".to_string(),
++                    Some(true),
++                )) as Box<dyn crate::tools::context::ToolOutput>)
++            })
++        }
++    }
++
++    impl CoreToolRuntime for CountedHandler {}
++
++    /// 実起動Policyの制限と登録・配送拒否を確認する。
++    ///
++    /// @responsibility 起動Patchが既存制約を緩めず、禁止Handlerへの到達を防ぐことを反証する。
++    /// @trace ERB-IT-024
++    /// @input 明示Policyまたは既定Policy、およびExec／GuardianのSessionSource。
++    /// @returns 局所試験の結果。
++    /// @precondition 固定SourceとProduction起動Patchを適用済みである。
++    /// @postcondition 試験結果をProductionの完成結果へ読み替えない。
++    /// @effect 試験Sessionを生成し、無害なHandlerを登録・配送して終了する。
++    /// @failure 許可集合、制約、登録結果、配送結果、カウンタまたは終了結果が異なれば失敗する。
++    /// @invariant Provider Turnを送信せず、禁止System Toolを実行しない。
++    /// @boundary 実Session起動、Tool登録およびRegistry配送の試験境界。
++    /// @security 試験用認証だけを使用し、秘密値や生Provider出力を記録しない。
++    /// @concurrency N/A: 試験内で順序付きに実行する。
++    async fn check_case(initial: Option<ToolPolicy>, source: SessionSource, probe: u8) -> anyhow::Result<()> {
++        let expected_source = initial.clone().unwrap_or_else(|| {
++            if matches!(&source, SessionSource::Internal(InternalSessionSource::Guardian)) {
++                codex_guardian_reviewer::reviewer_tool_policy()
++            } else {
++                ToolPolicy::default()
++            }
++        });
++        let mut init = ExtensionDataInit::default();
++        if let Some(policy) = initial {
++            init.insert(policy);
++        }
++        let (session, _events) = crate::session::tests::make_crdd_advice_session(
++            |config| config.ephemeral = true,
++            init,
++            source,
++        )
++        .await?;
++        let checked_session = Arc::clone(&session);
++        // Catch assertion panics in a joined task so shutdown runs before failure is propagated.
++        let mut checked = tokio::spawn(async move {
++            if probe == 1 { panic!("intentional cleanup-path assertion"); }
++            if probe == 2 { std::future::pending::<()>().await; }
++            let captured = Arc::clone(&checked_session.tool_policy);
++            let allowed = ["exec", "wait"];
++            let expected = allowed
++                .iter()
++                .map(|name| codex_tools::ToolName::plain(*name))
++                .filter(|name| expected_source.allows(name))
++                .collect::<Vec<_>>();
++            assert_eq!(captured.allowed_tools.as_ref(), Some(&expected));
++            assert_eq!(captured.require_managed_sandbox, expected_source.require_managed_sandbox);
++            assert_eq!(captured.require_unified_exec, expected_source.require_unified_exec);
++            assert!(!captured.expose_additional_permissions);
++            checked_session.services.thread_extension_data.insert(ToolPolicy::default());
++            assert!(Arc::ptr_eq(&captured, &checked_session.tool_policy));
++            let turn = checked_session.new_default_turn().await;
++            let mut names = vec![
++                "exec_command", "shell_command", "shell", "write_stdin", "apply_patch",
++                "web", "search_query", "request_permissions", "spawn_agent", "send_input",
++                "ask_question", "send_message", "request_user_input", "request_user_input_async",
++                "send_message_to_user_async", "clock", "unknown", "exec", "wait",
++            ];
++            names.sort();
++            for name in names {
++                for namespace in [None, Some(""), Some(DEFAULT_FUNCTION_NAMESPACE), Some("mcp__fixture")] {
++                    let name = match namespace {
++                        None => codex_tools::ToolName::plain(name),
++                        Some(namespace) => codex_tools::ToolName::namespaced(namespace, name),
++                    };
++                    let should_allow = captured.allows(&name);
++                    for entry in 0..3 {
++                        let mut registry = ToolRegistry::with_tool_policy(Arc::clone(&captured));
++                        let calls = Arc::new(AtomicUsize::new(0));
++                        let handler = Arc::new(CountedHandler {
++                            name: name.clone(),
++                            calls: Arc::clone(&calls),
++                        }) as Arc<dyn CoreToolRuntime>;
++                        match entry {
++                            0 => registry.register_trusted(handler),
++                            1 => assert_eq!(registry.register_external(handler), should_allow),
++                            _ => registry.prepend_trusted(handler),
++                        }
++                        assert_eq!(registry.tool(&name).is_some(), should_allow);
++                        for nested in [false, true] {
++                            let mut invocation = test_invocation(
++                                Arc::clone(&checked_session), Arc::clone(&turn),
++                                "crdd-advice-test-call", name.clone(),
++                            );
++                            if nested {
++                                invocation.source = crate::tools::context::ToolCallSource::CodeMode {
++                                    cell_id: "crdd-test-cell".to_string(),
++                                    runtime_tool_call_id: "crdd-test-runtime-call".to_string(),
++                                };
++                            }
++                            let dispatched = registry.dispatch_any_with_state(invocation, None).await;
++                            assert_eq!(dispatched.is_ok(), should_allow);
++                        }
++                        assert_eq!(calls.load(Ordering::SeqCst), if should_allow { 2 } else { 0 });
++                    }
++                }
++            }
++        });
++        let deadline = if probe == 2 { 50 } else { 30_000 };
++        let joined = tokio::time::timeout(std::time::Duration::from_millis(deadline), &mut checked).await;
++        let aborted = if joined.is_err() {
++            checked.abort();
++            Some(tokio::time::timeout(std::time::Duration::from_secs(5), &mut checked).await)
++        } else { None };
++        let shutdown = tokio::time::timeout(
++            std::time::Duration::from_secs(5),
++            crate::session::tests::shutdown_crdd_advice_session(&session),
++        ).await;
++        assert!(matches!(shutdown, Ok(true)), "test Session shutdown must complete within deadline");
++        assert!(session.async_hook_results.is_closed(), "Session hook channel must be closed");
++        if let Some(aborted) = aborted {
++            assert!(matches!(aborted, Ok(Err(ref error)) if error.is_cancelled()), "aborted worker must join");
++        }
++        match probe {
++            0 => { joined??; }
++            1 => assert!(matches!(joined, Ok(Err(ref error)) if error.is_panic())),
++            2 => assert!(joined.is_err(), "intentional wait must hit the deadline"),
++            _ => panic!("unknown cleanup probe"),
++        }
++        Ok(())
++    }
++
++    /// 起動Policyの母集合と既存制約を全ケースで評価する。
++    ///
++    /// @responsibility 既定、厳しい明示Policyおよび暗黙Guardianの反例を処置する。
++    /// @trace ERB-IT-024
++    /// @input 固定した七つのPolicy分類。
++    /// @returns 全分類の局所試験結果。
++    /// @precondition 固定SourceとProduction起動Patchを適用済みである。
++    /// @postcondition 試験結果をProductionの完成結果へ読み替えない。
++    /// @effect 分類ごとに専用Sessionを起動し終了する。
++    /// @failure 一つでも拒否・制約・終了が不成立なら試験を失敗させる。
++    /// @invariant Provider Turnを送信せず、禁止System Toolを実行しない。
++    /// @boundary 実Session起動、Tool登録およびRegistry配送の試験境界。
++    /// @security 試験用認証だけを使用し、秘密値や生Provider出力を記録しない。
++    /// @concurrency N/A: 試験内で順序付きに実行する。
++    #[tokio::test]
++    async fn crdd_advice_startup_ceiling() -> anyhow::Result<()> {
++        let exec = codex_tools::ToolName::plain("exec");
++        let wait = codex_tools::ToolName::plain("wait");
++        for allowed_tools in [
++            None, Some(Vec::new()), Some(vec![exec]), Some(vec![wait]),
++            Some(vec![codex_tools::ToolName::namespaced("untrusted", "exec")]),
++        ] {
++            check_case(Some(ToolPolicy {
++                allowed_tools,
++                require_managed_sandbox: true,
++                require_unified_exec: true,
++                expose_additional_permissions: true,
++            }), SessionSource::Exec, 0).await?;
++        }
++        check_case(None, SessionSource::Exec, 0).await?;
++        check_case(None, SessionSource::Internal(InternalSessionSource::Guardian), 0).await?;
++        check_case(None, SessionSource::Exec, 1).await?;
++        check_case(None, SessionSource::Exec, 2).await?;
++        Ok(())
++    }
++}

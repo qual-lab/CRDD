@@ -5267,6 +5267,32 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "coordinator:integration:workbench-ai-profile-catalog-flow",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/workbench-ai-profile-catalog-flow.integration.test.ts",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": ["ai-profile-catalog", "repository-store", "workbench-ai-advice"],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["profile_snapshot_preserved", "advice_dispatch_observed", "provider_effect_absent"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "workbench:integration:node-dependency-closure",
+      "owner": "workbench",
+      "path": "40_Develop/workbench/tests/integration/workbench-node-dependency-closure.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["workbench", "node-runtime", "browser-client", "dependency-closure"],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["node_dependency_closure_verified", "browser_dependency_absent_from_server", "source_unchanged"],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "workbench:integration:project-surface",
       "owner": "workbench",
       "path": "40_Develop/workbench/tests/integration/project-surface.contract.test.ts",

@@ -19,6 +19,10 @@ import type {
   ResolvedAiProfileIdentity,
 } from "./ai-profile-types.ts";
 
+import defaultCatalogData from "./default-ai-profile-catalog.json" with {
+  type: "json",
+};
+
 const IDENTIFIER = /^[a-z][a-z0-9._-]{1,63}$/u;
 const PROFILE_ID = /^PROFILE-[0-9]{6,}$/u;
 const MODEL_ID = /^[a-z0-9][a-z0-9._-]{0,127}$/u;
@@ -38,94 +42,11 @@ const EFFORTS = new Set<AiReasoningEffort>([
   "max",
 ]);
 
-export const DEFAULT_AI_PROFILE_CATALOG: AiProfileCatalog = Object.freeze({
-  contract: "crdd/ai-profile-catalog",
-  contractRevision: 1,
-  adapters: Object.freeze([
-    Object.freeze({
-      adapterId: "codex-cli",
-      provider: "codex",
-      offering: "chatgpt_subscription_oauth",
-      authorityOrigin: "https://chatgpt.com",
-      allowedModelIds: Object.freeze(["gpt-5.5", "gpt-5.6-sol", "gpt-6-astra"]),
-      allowedReasoningEfforts: Object.freeze([
-        "low",
-        "medium",
-        "high",
-        "xhigh",
-        "max",
-      ] as const),
-    }),
-    Object.freeze({
-      adapterId: "claude-code",
-      provider: "claude",
-      offering: "claude_max",
-      authorityOrigin: "https://claude.ai",
-      allowedModelIds: Object.freeze(["opus"]),
-      allowedReasoningEfforts: Object.freeze([
-        "low",
-        "medium",
-        "high",
-      ] as const),
-    }),
-  ]),
-  profiles: Object.freeze([
-    ...(["preferred", "upper_allowed"] as const).map((tier, tierIndex) =>
-      Object.freeze({
-        profileId: `PROFILE-${100001 + tierIndex}`,
-        adapterId: "codex-cli",
-        family: "sol",
-        exactModelId: "gpt-5.6-sol",
-        selectionRoles: Object.freeze([
-          "coordinator",
-          "result_integration",
-        ] as const),
-        modelTiers: Object.freeze([tier]),
-        speedMode: "normal" as const,
-        billingMode: "subscription_oauth" as const,
-        defaultReasoningEffort: "medium" as const,
-        compatibilityReason: null,
-      }),
-    ),
-    ...(["preferred", "upper_allowed"] as const).map((tier, tierIndex) =>
-      Object.freeze({
-        profileId: `PROFILE-${100003 + tierIndex}`,
-        adapterId: "codex-cli",
-        family: "sol",
-        exactModelId: "gpt-5.5",
-        selectionRoles: Object.freeze([
-          "executor",
-          "independent_reviewer",
-        ] as const),
-        modelTiers: Object.freeze([tier]),
-        speedMode: "normal" as const,
-        billingMode: "subscription_oauth" as const,
-        defaultReasoningEffort: "medium" as const,
-        compatibilityReason:
-          "gpt_5_6_code_mode_only_host_unavailable_in_fixed_linux_runtime",
-      }),
-    ),
-    ...(["preferred", "upper_allowed"] as const).map((tier, index) =>
-      Object.freeze({
-        profileId: `PROFILE-${200001 + index}`,
-        adapterId: "claude-code",
-        family: "opus",
-        exactModelId: "opus",
-        selectionRoles: Object.freeze([
-          "coordinator",
-          "executor",
-          "independent_reviewer",
-          "result_integration",
-        ] as const),
-        modelTiers: Object.freeze([tier]),
-        speedMode: "normal" as const,
-        billingMode: "subscription_oauth" as const,
-        defaultReasoningEffort: "medium" as const,
-        compatibilityReason: null,
-      }),
-    ),
-  ]),
-});
+export const DEFAULT_AI_PROFILE_CATALOG: AiProfileCatalog = (() => {
+  const catalog = validateAiProfileCatalog(defaultCatalogData);
+  if (!catalog) throw new Error("ai_profile_default_catalog_invalid");
+  return catalog;
+})();
 
 /**
  * 候補が配列でないRecordか判定する。

@@ -203,6 +203,7 @@ dirty、untrackedまたはdetachedであることだけを不正としない。�
 |---|---|---|---|---|
 | Runtime Data | Repository RootをGit CLIから直接取得する処理 | Repository Location | 1 | Root能力をPortから取得し、旧Root Ownerと直接Git依存が0 |
 | Coordinator Repository Security | Repository Root／Layout／Operationの直接解釈 | Repository Location、Repository-local Ignore Registration | 1 | Root／Layout解釈をPortへ一本化し、Runtime Data領域作成時のignore登録を新Portへ接続 |
+| Coordinator専用CLI Build準備 | Build入力・一時領域の起点Root | Repository Location。領域作成はRuntime Dataを経由する | 1 | `prepare-codex-advice-build.ts`がexact Rootを検証し、そのRoot直下の`.crdd/tmp`だけに新しいContextを作成する。既存ContextとRuntime配布物は変更しない |
 | Checker Current Tree | Root、index、HEAD、historical objectの直接観測 | Checker Observation用途限定入口。Repository Identityが必要な別責務はRepository Identity用途限定入口を使う | 2 | 開発・採用の両経路が検証済みCRDD基準版Rootの用途限定公開入口だけを利用し、Root公開入口とGit内部実装への依存が0 |
 | Regression Selection | 変更集合の直接導出 | Local Change Set Observation | 2 | 変更集合の意味をPortへ一本化し、実Git境界の反証を持つ |
 | Coordinator Snapshot | Object Reader、Workspace、Candidate IntegrationによるGit内部構造の直接解釈 | Fixed Snapshot Read、Candidate Materialization | 3 | Object ReaderをAdapter内部へ隔離し、旧Owner Consumerが0 |

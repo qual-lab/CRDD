@@ -14,7 +14,7 @@
  * @security exactな固定値だけを公開し、prefixまたは正規表現による許可へ拡張しない。
  * @concurrency N/A: 不変の固定値だけを公開する。
  */
-import { DOCKER_PROCESS_CONTROLLER_PUBLIC_COMPLETION_REASONS } from "./docker-process-controller-result-reasons.ts";
+import { dockerProcessControllerPublicCompletionReasons } from "./docker-process-controller-result-reasons.ts";
 
 export const COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS = Object.freeze({
   prepareFailed: "coordinator_task_provider_prepare_failed",
@@ -30,7 +30,7 @@ export const COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS = Object.freeze({
 
 export const coordinatorTaskPublicReasons = Object.freeze([
   ...Object.values(COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS),
-  ...DOCKER_PROCESS_CONTROLLER_PUBLIC_COMPLETION_REASONS,
+  ...dockerProcessControllerPublicCompletionReasons,
   "coordinator_task_cancellation_protocol_failed_cleanup_confirmed",
   "coordinator_task_cancellation_protocol_failed_cleanup_unknown",
   "coordinator_task_cancellation_receipt_invalid",

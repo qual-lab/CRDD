@@ -6791,14 +6791,16 @@ function normalizeDockerRestartScope(values: readonly string[]) {
  * @concurrency N/A: 共有非同期状態を持たない同期処理である。
  */
 function sameDockerRestartScope(
-  left: readonly string[],
-  right: readonly string[],
+  leftValues: readonly string[],
+  rightValues: readonly string[],
 ) {
-  const normalizedLeft = normalizeDockerRestartScope(left);
-  const normalizedRight = normalizeDockerRestartScope(right);
+  const normalizedLeftValues = normalizeDockerRestartScope(leftValues);
+  const normalizedRightValues = normalizeDockerRestartScope(rightValues);
   return (
-    normalizedLeft.length === normalizedRight.length &&
-    normalizedLeft.every((value, index) => value === normalizedRight[index])
+    normalizedLeftValues.length === normalizedRightValues.length &&
+    normalizedLeftValues.every(
+      (value, index) => value === normalizedRightValues[index],
+    )
   );
 }
 

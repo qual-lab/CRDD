@@ -59,7 +59,7 @@ const body = stripTypeScriptTypes(
  */
 function runPreparation(
   isHistoryValid: boolean,
-  includeSecondRecovery = false,
+  shouldIncludeSecondRecovery = false,
 ) {
   const h = "a".repeat(64);
   const secondHome = "d".repeat(64);
@@ -160,8 +160,10 @@ function runPreparation(
     },
     inspectDockerRecoveryRootSnapshot: () => ({
       status: "completed",
-      dockerRecoveryIds: includeSecondRecovery ? [secondToken, token] : [token],
-      activeStableLogicalHomeBindingHashes: includeSecondRecovery
+      dockerRecoveryIds: shouldIncludeSecondRecovery
+        ? [secondToken, token]
+        : [token],
+      activeStableLogicalHomeBindingHashes: shouldIncludeSecondRecovery
         ? [secondHome, h]
         : [h],
     }),
@@ -203,14 +205,16 @@ function runPreparation(
     normalizeDockerRestartScope: (values: readonly string[]) =>
       Object.freeze([...new Set(values)].sort()),
     sameDockerRestartScope: (
-      left: readonly string[],
-      right: readonly string[],
+      leftValues: readonly string[],
+      rightValues: readonly string[],
     ) => {
-      const normalizedLeft = [...new Set(left)].sort();
-      const normalizedRight = [...new Set(right)].sort();
+      const normalizedLeftValues = [...new Set(leftValues)].sort();
+      const normalizedRightValues = [...new Set(rightValues)].sort();
       return (
-        normalizedLeft.length === normalizedRight.length &&
-        normalizedLeft.every((value, index) => value === normalizedRight[index])
+        normalizedLeftValues.length === normalizedRightValues.length &&
+        normalizedLeftValues.every(
+          (value, index) => value === normalizedRightValues[index],
+        )
       );
     },
     dockerRestartPreparations: new WeakMap(),
@@ -365,9 +369,11 @@ test("restart revalidation consumes validated record inventory, not publication 
     normalizeDockerRestartScope: (values: readonly string[]) =>
       Object.freeze([...new Set(values)].sort()),
     sameDockerRestartScope: (
-      left: readonly string[],
-      right: readonly string[],
-    ) => JSON.stringify([...left].sort()) === JSON.stringify([...right].sort()),
+      leftValues: readonly string[],
+      rightValues: readonly string[],
+    ) =>
+      JSON.stringify([...leftValues].sort()) ===
+      JSON.stringify([...rightValues].sort()),
     readExactJson: (name: string) => ({
       hash,
       serialized: name.endsWith("engine-restart-00.json")

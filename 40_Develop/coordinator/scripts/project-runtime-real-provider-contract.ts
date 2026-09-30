@@ -60,6 +60,17 @@ type ProcessStartedRuntimeEvent = Readonly<{
   provider: "codex" | "claude";
   operationId: string;
 }>;
+/**
+ * Provider開始前に固定した実行境界の診断値を表す。
+ *
+ * @responsibility 設定済み境界と操作Identityを相関する。
+ * @trace ARCH-000004
+ * @shape Provider、操作Identity、承認、Sandbox、MountおよびProcess設定を保持する。
+ * @invariant 設定済み値を開始・完了の観測値と同一視しない。
+ * @boundary 公開MCPのProvider診断からE2E Oracleへの搬送境界。
+ * @security 秘密値、Host Pathまたは生Provider出力を含めない。
+ * @compatibility 固定eventと閉じた状態語彙を利用側が照合する。
+ */
 type ProviderBoundaryConfiguredEvent = Readonly<{
   event: "coordinator_provider_boundary_configured";
   taskRole: "executor" | "reviewer" | null;
@@ -76,6 +87,17 @@ type ProviderBoundaryConfiguredEvent = Readonly<{
   nonRootUserConfigured: boolean;
   workdirConfigured: boolean;
 }>;
+/**
+ * Provider終了後に観測したProcess・Container・Networkの状態を表す。
+ *
+ * @responsibility 終了後観測を同じ操作Identityへ結合する。
+ * @trace ARCH-000004
+ * @shape 開始・完了観測、終了分類、資源不存在と清掃確認を保持する。
+ * @invariant Process終了だけで全資源の清掃成立を推定しない。
+ * @boundary 公開MCPのProvider診断からE2E Oracleへの搬送境界。
+ * @security 秘密値、Host Pathまたは生Provider出力を含めない。
+ * @compatibility 固定eventと閉じた終了分類を利用側が照合する。
+ */
 type ProviderBoundarySettledEvent = Readonly<{
   event: "coordinator_provider_boundary_settled";
   taskRole: "executor" | "reviewer" | null;
@@ -97,6 +119,17 @@ type ProviderBoundarySettledEvent = Readonly<{
   networksAbsentObserved: boolean;
   cleanupConfirmed: boolean;
 }>;
+/**
+ * Provider境界の設定と終了後観測を識別可能な診断集合へまとめる。
+ *
+ * @responsibility 設定と観測の異なる値契約を判別可能なUnionで保持する。
+ * @trace ARCH-000004
+ * @shape configuredとsettledの二つのevent型だけを許可する。
+ * @invariant 設定値を終了後観測へ変換しない。
+ * @boundary 公開MCPのProvider診断からE2E Oracleへの搬送境界。
+ * @security 診断をAuthorityまたはProvider実行許可へ昇格しない。
+ * @compatibility eventによる判別と各型の固定Propertyを維持する。
+ */
 type ProviderBoundaryDiagnosticEvent =
   | ProviderBoundaryConfiguredEvent
   | ProviderBoundarySettledEvent;
@@ -456,7 +489,7 @@ function parseKnownDiagnosticLine(
       /^OP-[0-9]{6,}$/u.test(parsed.operationId)
         ? parsed.operationId
         : null;
-    const validCommon =
+    const isValidCommon =
       (parsed.taskRole === null || role(parsed.taskRole)) &&
       parsedProvider !== null &&
       parsedOperationId !== null;
@@ -464,7 +497,7 @@ function parseKnownDiagnosticLine(
       parsed.event === "coordinator_provider_process_started" &&
       exactKeys(parsed, LIFECYCLE_KEYS) &&
       role(parsed.taskRole) &&
-      validCommon
+      isValidCommon
     )
       return Object.freeze({
         kind: "runtime" as const,
@@ -478,7 +511,7 @@ function parseKnownDiagnosticLine(
     if (
       parsed.event === "coordinator_provider_boundary_configured" &&
       exactKeys(parsed, BOUNDARY_CONFIGURED_KEYS) &&
-      validCommon &&
+      isValidCommon &&
       ["approve_for_me", "never", "not_applicable", "other"].includes(
         String(parsed.approvalModeConfigured),
       ) &&
@@ -501,7 +534,7 @@ function parseKnownDiagnosticLine(
     if (
       parsed.event === "coordinator_provider_boundary_settled" &&
       exactKeys(parsed, BOUNDARY_SETTLED_KEYS) &&
-      validCommon &&
+      isValidCommon &&
       typeof parsed.providerContainerCreatedObserved === "boolean" &&
       typeof parsed.providerProcessStartedObserved === "boolean" &&
       typeof parsed.providerProcessCompletionObserved === "boolean" &&
@@ -1422,7 +1455,7 @@ export function buildProjectRuntimeRealProviderReport(
   )
     ? cancellationResult.recoveryObligations
     : [];
-  const exactCancellationRecoveryObligationObserved =
+  const isExactCancellationRecoveryObligationObserved =
     Array.isArray(cancellationResult?.recoveryIds) &&
     cancellationResult.recoveryIds.length === 1 &&
     cancellationRecoveryIds.length === 1 &&
@@ -1446,7 +1479,7 @@ export function buildProjectRuntimeRealProviderReport(
     cancellationResult.manualRecoveryRequired !== true ||
     cancellationResult.processRestartRequired !== true ||
     cancellationResult.effectState !== "unknown" ||
-    !exactCancellationRecoveryObligationObserved
+    !isExactCancellationRecoveryObligationObserved
   )
     problems.push("cancellation_semantic_result");
   const expectedCancellationEvents = [
@@ -1801,7 +1834,7 @@ export function buildProjectRuntimeRealProviderReport(
       recoveryIds: cancellationResult?.recoveryIds ?? null,
       recoveryObligations: cancellationResult?.recoveryObligations ?? null,
       exactRecoveryObligationObserved:
-        exactCancellationRecoveryObligationObserved,
+        isExactCancellationRecoveryObligationObserved,
       recoveryInventoryCleanAfterRun:
         input.dockerRecovery.status === "completed" &&
         input.dockerRecovery.reason === "docker_task_runtime_state_clean" &&

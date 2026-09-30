@@ -4,6 +4,7 @@
  * @packageDocumentation
  * @responsibility coordinator:system:project-runtime-real-provider-verification-scriptが所有する検証責務を実行する。
  * @trace PRL-ST-001
+ * @trace PRL-ST-003
  * @trace PRL-ST-004
  * @level ST
  * @scope project、runtime、real、provider、verification、script
@@ -196,8 +197,20 @@ const semantic = (
     },
   },
 });
-const runtimeProcessRecoveryId =
+const RUNTIME_PROCESS_RECOVERY_ID =
   "runtime-process.6d7cc28e-2bdf-4c1a-8714-396a4a1db5a3.restart-7fb909b959f2101c318473bf51b0c388e0fb75bf";
+/**
+ * 取消後にProcess再起動が必要な公開回復結果を構築する。
+ *
+ * @responsibility exact回復参照と未確定Effectを同じ試験入力へ保持する。
+ * @trace PRL-ST-004
+ * @precondition 試験が固定した回復Identityを使用する。
+ * @stimulus 公開MCP応答のblocked結果を構築する。
+ * @observation cleanup未確認、再起動要求と同じ回復参照を返す。
+ * @oracle 呼出し元が取消結果を成功へ丸めないことを判定できる。
+ * @cleanup N/A: 値だけを構築し、Processや永続資源を作成しない。
+ * @boundary 公開MCP結果から検証Reportへの搬送境界。
+ */
 const interruptedCancellationSemantic = (id: string) =>
   semantic("blocked", id, {
     reason: "project_runtime_task_recovery_required",
@@ -205,9 +218,9 @@ const interruptedCancellationSemantic = (id: string) =>
     cleanupConfirmed: false,
     manualRecoveryRequired: true,
     processRestartRequired: true,
-    recoveryIds: [runtimeProcessRecoveryId],
+    recoveryIds: [RUNTIME_PROCESS_RECOVERY_ID],
     recoveryObligations: [
-      { kind: "runtime_process", recoveryId: runtimeProcessRecoveryId },
+      { kind: "runtime_process", recoveryId: RUNTIME_PROCESS_RECOVERY_ID },
     ],
     effectState: "unknown",
   });
@@ -604,7 +617,7 @@ test("取消後に完了したProvider境界清掃を受理する", () => {
   const base = buildInput();
   const started = base.cancellation.processStartEvents[0];
   assert.ok(started);
-  for (const providerProcessCompletionObserved of [true, false]) {
+  for (const isProviderProcessCompletionObserved of [true, false]) {
     const result = build({
       cancellation: {
         ...base.cancellation,
@@ -617,11 +630,13 @@ test("取消後に完了したProvider境界清掃を受理する", () => {
             operationId: started.operationId,
             providerContainerCreatedObserved: true,
             providerProcessStartedObserved: true,
-            providerProcessCompletionObserved,
-            providerProcessExitStatusClass: providerProcessCompletionObserved
+            providerProcessCompletionObserved:
+              isProviderProcessCompletionObserved,
+            providerProcessExitStatusClass: isProviderProcessCompletionObserved
               ? "nonzero"
               : "not_observed",
-            processTreeTerminationObserved: !providerProcessCompletionObserved,
+            processTreeTerminationObserved:
+              !isProviderProcessCompletionObserved,
             containersAbsentObserved: true,
             networksAbsentObserved: true,
             cleanupConfirmed: true,
@@ -695,30 +710,25 @@ test("取消時の不完全または閉集合外Provider境界診断を拒否す
 });
 
 /**
- * 通常経路と回復再入場では強制終了だけを正常完了へ昇格しない。
+ * 通常二経路では強制終了だけを正常完了へ昇格しない。
  *
- * @responsibility 取消専用の終了条件が通常二経路と回復再入場へ漏れないことを検証する。
- * @trace PRL-ST-001 PRL-ST-003
+ * @responsibility 取消専用の終了条件が通常二経路へ漏れないことを検証する。
+ * @trace PRL-ST-001
  * @precondition 全体成立する観測から、対象経路の正常完了だけを未観測へ変更する。
- * @stimulus Process Tree終了と全清掃を確認済みとした反証を三経路へ個別に渡す。
+ * @stimulus Process Tree終了と全清掃を確認済みとした反証を通常二経路へ個別に渡す。
  * @observation Reportの状態と経路別Provider境界不一致を取得する。
  * @oracle 各経路がblockedとなり、対応するProvider境界不一致を持つ。
  * @cleanup N/A: 固定観測値だけを扱い、資源を作成しない。
- * @boundary PRL-ST-001=Direct Boundary: 通常完了診断→E2E Oracle。PRL-ST-003=Direct Boundary: 回復再入場診断→E2E Oracle。
+ * @boundary PRL-ST-001=Direct Boundary: 通常完了診断→E2E Oracle。
  */
-test("通常二経路と回復再入場はProcess Tree終了だけでは合格しない", () => {
+test("通常二経路はProcess Tree終了だけでは合格しない", () => {
   const base = buildInput();
   const targets = [
-    ...base.normalRuns.map((run, index) => ({
-      observation: run.observation,
+    ...base.normalRuns.map((normalRun, index) => ({
+      observation: normalRun.observation,
       problem: `normal_${index + 1}_provider_boundary_mismatch`,
       index,
     })),
-    {
-      observation: base.recoverySettlement.reentry,
-      problem: "recovery_reentry_provider_boundary_mismatch",
-      index: -1,
-    },
   ];
   for (const target of targets) {
     const changed = {
@@ -735,23 +745,56 @@ test("通常二経路と回復再入場はProcess Tree終了だけでは合格�
             : event,
       ),
     };
-    const result = build(
-      target.index < 0
-        ? {
-            recoverySettlement: {
-              ...base.recoverySettlement,
-              reentry: changed,
-            },
-          }
-        : {
-            normalRuns: base.normalRuns.map((run, index) =>
-              index === target.index ? { ...run, observation: changed } : run,
-            ),
-          },
-    );
+    const result = build({
+      normalRuns: base.normalRuns.map((normalRun, index) =>
+        index === target.index
+          ? { ...normalRun, observation: changed }
+          : normalRun,
+      ),
+    });
     assert.equal(result.status, "blocked");
     assert.ok(result.problems.includes(target.problem));
   }
+});
+
+/**
+ * 回復再入場では強制終了だけを正常完了へ昇格しない。
+ *
+ * @responsibility 取消専用の終了条件が回復再入場へ漏れないことを検証する。
+ * @trace PRL-ST-003
+ * @precondition 全体成立する観測から回復再入場の正常完了だけを未観測へ変更する。
+ * @stimulus Process Tree終了と全清掃を確認済みとした反証を回復再入場へ渡す。
+ * @observation Reportの状態と回復再入場のProvider境界不一致を取得する。
+ * @oracle blockedかつrecovery_reentry_provider_boundary_mismatchとなる。
+ * @cleanup N/A: 固定観測値だけを扱い、資源を作成しない。
+ * @boundary PRL-ST-003=Direct Boundary: 回復再入場診断→E2E Oracle。
+ */
+test("回復再入場はProcess Tree終了だけでは合格しない", () => {
+  const base = buildInput();
+  const observation = base.recoverySettlement.reentry;
+  const result = build({
+    recoverySettlement: {
+      ...base.recoverySettlement,
+      reentry: {
+        ...observation,
+        providerBoundaryEvents: observation.providerBoundaryEvents.map(
+          (event) =>
+            event.event === "coordinator_provider_boundary_settled"
+              ? {
+                  ...event,
+                  providerProcessCompletionObserved: false,
+                  providerProcessExitStatusClass: "not_observed" as const,
+                  processTreeTerminationObserved: true,
+                }
+              : event,
+        ),
+      },
+    },
+  });
+  assert.equal(result.status, "blocked");
+  assert.ok(
+    result.problems.includes("recovery_reentry_provider_boundary_mismatch"),
+  );
 });
 
 /**
@@ -774,14 +817,14 @@ test("取消Recovery義務の余分値と理由差を完了へ昇格しない", 
     { ...validContent, reason: "different_reason" },
     {
       ...validContent,
-      recoveryIds: [runtimeProcessRecoveryId, "invalid-recovery"],
+      recoveryIds: [RUNTIME_PROCESS_RECOVERY_ID, "invalid-recovery"],
     },
     {
       ...validContent,
       recoveryObligations: [
         {
           kind: "runtime_process",
-          recoveryId: runtimeProcessRecoveryId,
+          recoveryId: RUNTIME_PROCESS_RECOVERY_ID,
           extra: true,
         },
       ],

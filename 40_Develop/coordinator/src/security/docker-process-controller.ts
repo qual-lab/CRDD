@@ -20,7 +20,7 @@ import {
   startRuntimeOwnedDockerCommand,
 } from "./docker-effect-runtime.ts";
 import {
-  DOCKER_PROCESS_CONTROLLER_PUBLIC_COMPLETION_REASONS,
+  dockerProcessControllerPublicCompletionReasons,
   type DockerProcessControllerPublicCompletionReason,
 } from "./docker-process-controller-result-reasons.ts";
 import { parseDockerTaskRecoveryId } from "./docker-recovery-identity.ts";
@@ -141,7 +141,7 @@ const CREATE_PURPOSES = new Set([
   "create_provider",
 ]);
 const blockedCompletionReasons = new Set<string>(
-  DOCKER_PROCESS_CONTROLLER_PUBLIC_COMPLETION_REASONS,
+  dockerProcessControllerPublicCompletionReasons,
 );
 /**
  * Docker Process Controllerの最終理由を表す。

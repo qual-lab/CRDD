@@ -50,7 +50,7 @@ test("共通Project Contextを読み未構成Capabilityを明示する", async (
   assert.equal(surface.plan.projection?.targetReleaseDate, "2026-10-03");
   assert.equal(surface.quality.state, "available");
   assert.equal(surface.quality.projection?.target, "v0.22.0");
-  assert.equal(surface.quality.projection?.unobserved, "28 / 39");
+  assert.equal(surface.quality.projection?.unobserved, "29 / 40");
   assert.ok(
     surface.ownerArtifacts.artifacts.some(
       (artifact) => artifact.relativePath === "99_Roadmap/01_Roadmap.md",

@@ -4,6 +4,18 @@
   "subsystem": "workbench",
   "symbols": [
     {
+      "symbolId": "workbench.test.integration.node-dependency-closure",
+      "kind": "test-suite",
+      "path": "tests/integration/workbench-node-dependency-closure.contract.test.ts",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-IT-021"],
+      "verifies": [
+        "workbench.server",
+        "workbench.presentation.react-shell",
+        "workbench.presentation.browser-client"
+      ]
+    },
+    {
       "symbolId": "workbench.public-api",
       "kind": "module",
       "path": "src/index.ts",

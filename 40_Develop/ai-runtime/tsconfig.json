@@ -5,6 +5,7 @@
     "exactOptionalPropertyTypes": true,
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
+    "resolveJsonModule": true,
     "noEmit": true,
     "noImplicitAny": true,
     "noUncheckedIndexedAccess": true,

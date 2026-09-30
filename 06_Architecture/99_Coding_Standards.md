@@ -41,7 +41,11 @@ CRDD公式Repositoryが所有する内部Scriptは`.ts`を標準とし、Node.js
 
 TypeScriptだけでは安全に確認できないOS APIへ接続する最小部分は、`40_Develop/platform-access/**`のprivate Rust実装に限定できる。CRDD本体、一般CLI、Policy、契約およびProcess lifecycleはTypeScriptに保持する。Rust成果物は公開CLI、独立製品、永続準備Lifecycleまたは採用RepositoryのBuild依存を所有せず、固定protocolで要求されたOS観測と限定操作だけを行う。この例外を内部Script一般のRust移行へ拡張しない。
 
+外部Providerの公式実行物に、公開設定では実現できない実行前の制限を加える場合、人間が承認した用途に限定して固定Sourceへの最小Patchを保持できる。現在の適用先はCoordinatorが所有するCodex助言専用実行物だけであり、一般CLIやCRDD本体のRust化ではない。Patch、公式Source改訂版、変更前File Hash、Build条件および実行物Hashを固定し、通常Executor／Reviewerの公式実行物と混同しない。Build orchestration、Provider Authority、Process lifecycle、取消とRecoveryはTypeScript側の既存Ownerに保持する。採用RepositoryでのBuild、Runtime Build、環境変数や設定による制限解除、通常Taskへの専用実行物の暗黙流用は禁止する（MUST NOT）。設計の正本は[Coordinator詳細設計](Details/coordinator/01_Architecture.md#751-codex助言専用の起動制限)とする。
+
 BAT、CMD、PowerShellまたはShell ScriptをOS権限判定のRuntime実装やBuild orchestrationとして新設しない。通常Runtimeから`cargo run`、PATH上のCargo／Rust binaryまたは開発用`target/`成果物を起動しない。Rustの固定成果物、toolchainおよび署名Identityへの結合は[Windowsネイティブ部品の設計](Details/platform-access/01_Architecture.md)が所有し、反復するBuild・検証手順は[Coordinator RuntimeのWorkflow](../19_Workflows/01_Coordinator_Runtime.md)が所有する。
+
+CargoのNative試験リンクに必要な固定Adapter `40_Develop/coordinator/runtime/codex-advice-native-linker.sh`は、固定Docker Build内のGCC引数搬送と実行物別Link Map検査だけを所有する。これはShellによるRuntime実装やBuild orchestrationではなく、通常Runtime、Provider起動または任意Shell実行へ流用しない。他のShell Scriptを許可する根拠にはしない。
 
 Coordinatorのproduction sourceとtest sourceは、別々のstrict設定で`noEmit`検査する。攻撃的な不正shapeまたはNode.js API差替えを扱う試験fixtureは、`unknown`と実行時assertionで表現し、型に合わせて負例を弱めない。
 
@@ -102,6 +106,7 @@ Toolの既定書込みRootは現在のリポジトリ内に限定する。現在
 | 固定Native実行物 | ASCII `kebab-case` | `crdd-platform-access.exe` |
 | 版固定Policy成果物 | ASCII `kebab-case`のsubject＋`-<major>.<minor>.<patch>.policy` | `windows-docker-desktop-4.41.2.policy` |
 | Dockerfile | ASCII `kebab-case`のsubject＋`.Dockerfile` | `provider-egress-proxy.Dockerfile` |
+| 固定Source Patch | ASCII `kebab-case`のsubject＋`.patch`。用途は承認済み専用Buildに限定する | `codex-advice-startup.patch` |
 | 試験ファイル | `<subject>.<kind>.test.ts` | `crdd-check.contract.test.ts` |
 
 大文字小文字の混在、空白、意味を持たない連番、および表で対象別に定めた区切り形式以外を使用する命名は禁止する。TypeScript／Markdown／JSON／Python／Plain text／固定Native実行物／版固定Policy／Dockerfile subjectの通常名へ`snake_case`を、Rust moduleファイルへ`kebab-case`を適用しない。

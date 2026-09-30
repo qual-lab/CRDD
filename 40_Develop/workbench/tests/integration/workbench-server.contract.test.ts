@@ -357,10 +357,10 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
     );
     assert.match(serializedModel, /Group B/u);
     assert.match(serializedModel, /日程リスク/u);
-    assert.equal(model.surface.quality.projection?.unobserved, "28 / 39");
-    assert.match(
+    assert.equal(model.surface.quality.projection?.unobserved, "29 / 40");
+    assert.equal(
       model.surface.quality.projection?.nextGate ?? "",
-      /署名候補直接起動.*実Provider.*四経路E2E/u,
+      "Workbench実Provider E2E、必要な四経路E2E、個別品質項目の照合、最終配布固定と署名照合",
     );
     assert.ok(model.surface.ownerArtifacts.artifacts.length > 0);
 

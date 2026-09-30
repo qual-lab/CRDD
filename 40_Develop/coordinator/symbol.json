@@ -4,6 +4,17 @@
   "subsystem": "coordinator",
   "symbols": [
     {
+      "symbolId": "coordinator.test.integration.workbench-ai-profile-catalog-flow",
+      "kind": "test-suite",
+      "path": "tests/integration/workbench-ai-profile-catalog-flow.integration.test.ts",
+      "qaIds": ["QA-000001"],
+      "localTestIds": ["RCM-IT-005"],
+      "verifies": [
+        "coordinator.source.src.composition.workbench.ai.repository.composition",
+        "coordinator.source.src.security.workbench.ai.advice.dispatch.runtime"
+      ]
+    },
+    {
       "symbolId": "coordinator.task-runtime",
       "kind": "file",
       "path": "src/security/coordinator-task-runtime.ts",
@@ -1270,6 +1281,7 @@
       ],
       "localTestIds": [
         "PRL-ST-001",
+        "PRL-ST-003",
         "PRL-ST-004"
       ],
       "verifies": [

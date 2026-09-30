@@ -30,6 +30,7 @@ const expectedProtectedSigningConsumers = [
 ];
 const expectedAreaConsumers = [
   "40_Develop/coordinator/scripts/measure-development-providers.ts",
+  "40_Develop/coordinator/scripts/prepare-codex-advice-build.ts",
   "40_Develop/coordinator/scripts/prepare-release-candidate.ts",
   "40_Develop/coordinator/src/core/verification-result-record.ts",
   "40_Develop/coordinator/src/security/project-runtime-acceptance-decision-store.ts",
@@ -175,9 +176,17 @@ function violations(sources: SourceSet): string[] {
       /["']\.["']\s*,\s*["']crdd["']/u.test(source);
     if (item !== RESOLVER_PATH && hasDirectRootConstruction)
       findings.push(`raw-root:${item}`);
+    // Topic探索の固定除外式はPath構築ではない。同Fileの他のliteralは免除しない。
+    const rootLiteralSource =
+      item === "40_Develop/project-operation/src/topic-meeting-repository.ts"
+        ? source.replace(
+            '[".git", ".crdd", "node_modules"].includes(entry.name)',
+            "repositoryExplorationExclusion",
+          )
+        : source;
     if (
       !SEMANTIC_ROOT_LITERAL_OWNERS.has(item) &&
-      /["'](?:\.crdd|crdd)["']/u.test(source)
+      /["'](?:\.crdd|crdd)["']/u.test(rootLiteralSource)
     )
       findings.push(`root-literal:${item}`);
     if (
@@ -352,6 +361,13 @@ test("新規Componentのraw Root構築と名前付きPathの親再解釈を拒�
   assert.ok(
     findings.includes("named-parent:40_Develop/future-tool/src/consumer.ts"),
   );
+  const topicSource =
+    "40_Develop/project-operation/src/topic-meeting-repository.ts";
+  sources.set(
+    topicSource,
+    `${sources.get(topicSource)}\nconst forbiddenRoot = ".crdd";`,
+  );
+  assert.ok(violations(sources).includes(`root-literal:${topicSource}`));
 });
 
 /**
