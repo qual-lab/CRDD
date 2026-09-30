@@ -1233,7 +1233,10 @@ function providerBoundaryDiagnosticsMatch(
       if (
         settled.providerContainerCreatedObserved !== true ||
         settled.providerProcessStartedObserved !== true ||
-        settled.providerProcessCompletionObserved !== true ||
+        (settlementRequired
+          ? settled.providerProcessCompletionObserved !== true
+          : settled.providerProcessCompletionObserved !== true &&
+            settled.processTreeTerminationObserved !== true) ||
         settled.containersAbsentObserved !== true ||
         settled.networksAbsentObserved !== true ||
         settled.cleanupConfirmed !== true
@@ -1781,6 +1784,8 @@ export function buildProjectRuntimeRealProviderReport(
       ),
     }),
     cancellation: Object.freeze({
+      processStartEvents: input.cancellation.processStartEvents,
+      providerBoundaryEvents: input.cancellation.providerBoundaryEvents,
       providerProcessStartObservedBeforeCancellation:
         input.cancellationRequestedAfterProcessStart &&
         input.cancellation.processStartEventObserved,

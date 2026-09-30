@@ -577,7 +577,7 @@ test("全観測が相関した場合だけ公開Process E2Eをcompletedにする
 });
 
 /**
- * 取消後に完了したProvider境界清掃を正しい観測として受理することを検証する。
+ * 取消後の正常完了またはProcess Tree終了と境界清掃を受理することを検証する。
  *
  * @responsibility 親Transport喪失後もProvider境界だけが確定清掃された場合を、上位Runtime Process Recovery義務と矛盾させず検証する。
  * @trace PRL-ST-003
@@ -592,32 +592,41 @@ test("取消後に完了したProvider境界清掃を受理する", () => {
   const base = buildInput();
   const started = base.cancellation.processStartEvents[0];
   assert.ok(started);
-  const result = build({
-    cancellation: {
-      ...base.cancellation,
-      providerBoundaryEvents: [
-        ...base.cancellation.providerBoundaryEvents,
-        {
-          event: "coordinator_provider_boundary_settled",
-          taskRole: started.taskRole,
-          provider: started.provider,
-          operationId: started.operationId,
-          providerContainerCreatedObserved: true,
-          providerProcessStartedObserved: true,
-          providerProcessCompletionObserved: true,
-          providerProcessExitStatusClass: "nonzero",
-          processTreeTerminationObserved: false,
-          containersAbsentObserved: true,
-          networksAbsentObserved: true,
-          cleanupConfirmed: true,
-        },
-      ],
-    },
-  });
-  assert.equal(result.status, "completed", JSON.stringify(result));
-  assert.ok(
-    !result.problems.includes("cancellation_provider_boundary_mismatch"),
-  );
+  for (const providerProcessCompletionObserved of [true, false]) {
+    const result = build({
+      cancellation: {
+        ...base.cancellation,
+        providerBoundaryEvents: [
+          ...base.cancellation.providerBoundaryEvents,
+          {
+            event: "coordinator_provider_boundary_settled",
+            taskRole: started.taskRole,
+            provider: started.provider,
+            operationId: started.operationId,
+            providerContainerCreatedObserved: true,
+            providerProcessStartedObserved: true,
+            providerProcessCompletionObserved,
+            providerProcessExitStatusClass: providerProcessCompletionObserved
+              ? "nonzero"
+              : "not_observed",
+            processTreeTerminationObserved: !providerProcessCompletionObserved,
+            containersAbsentObserved: true,
+            networksAbsentObserved: true,
+            cleanupConfirmed: true,
+          },
+        ],
+      },
+    });
+    assert.equal(result.status, "completed", JSON.stringify(result));
+    assert.ok(
+      !result.problems.includes("cancellation_provider_boundary_mismatch"),
+    );
+    assert.equal(result.cancellation.providerBoundaryEvents.length, 2);
+    assert.equal(
+      result.cancellation.providerBoundaryEvents[1]?.event,
+      "coordinator_provider_boundary_settled",
+    );
+  }
 });
 
 /**
@@ -653,6 +662,7 @@ test("取消時の不完全または閉集合外Provider境界診断を拒否す
   const configured = base.cancellation.providerBoundaryEvents[0];
   assert.ok(configured);
   const cases = [
+    [configured, { ...settled, providerProcessCompletionObserved: false }],
     [configured, { ...settled, cleanupConfirmed: false }],
     [configured, { ...settled, operationId: "operation-mismatch" }],
     [configured, settled, settled],
@@ -669,6 +679,66 @@ test("取消時の不完全または閉集合外Provider境界診断を拒否す
     assert.ok(
       result.problems.includes("cancellation_provider_boundary_mismatch"),
     );
+  }
+});
+
+/**
+ * 通常経路と回復再入場では強制終了だけを正常完了へ昇格しない。
+ *
+ * @responsibility 取消専用の終了条件が通常二経路と回復再入場へ漏れないことを検証する。
+ * @trace PRL-ST-001 PRL-ST-003
+ * @precondition 全体成立する観測から、対象経路の正常完了だけを未観測へ変更する。
+ * @stimulus Process Tree終了と全清掃を確認済みとした反証を三経路へ個別に渡す。
+ * @observation Reportの状態と経路別Provider境界不一致を取得する。
+ * @oracle 各経路がblockedとなり、対応するProvider境界不一致を持つ。
+ * @cleanup N/A: 固定観測値だけを扱い、資源を作成しない。
+ * @boundary PRL-ST-001=Direct Boundary: 通常完了診断→E2E Oracle。PRL-ST-003=Direct Boundary: 回復再入場診断→E2E Oracle。
+ */
+test("通常二経路と回復再入場はProcess Tree終了だけでは合格しない", () => {
+  const base = buildInput();
+  const targets = [
+    ...base.normalRuns.map((run, index) => ({
+      observation: run.observation,
+      problem: `normal_${index + 1}_provider_boundary_mismatch`,
+      index,
+    })),
+    {
+      observation: base.recoverySettlement.reentry,
+      problem: "recovery_reentry_provider_boundary_mismatch",
+      index: -1,
+    },
+  ];
+  for (const target of targets) {
+    const changed = {
+      ...target.observation,
+      providerBoundaryEvents: target.observation.providerBoundaryEvents.map(
+        (event) =>
+          event.event === "coordinator_provider_boundary_settled"
+            ? {
+                ...event,
+                providerProcessCompletionObserved: false,
+                providerProcessExitStatusClass: "not_observed" as const,
+                processTreeTerminationObserved: true,
+              }
+            : event,
+      ),
+    };
+    const result = build(
+      target.index < 0
+        ? {
+            recoverySettlement: {
+              ...base.recoverySettlement,
+              reentry: changed,
+            },
+          }
+        : {
+            normalRuns: base.normalRuns.map((run, index) =>
+              index === target.index ? { ...run, observation: changed } : run,
+            ),
+          },
+    );
+    assert.equal(result.status, "blocked");
+    assert.ok(result.problems.includes(target.problem));
   }
 });
 
