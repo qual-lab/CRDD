@@ -11,12 +11,12 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-CRDDはv0.21.0を公開済みで、v0.22.0のDiscoveryを進めている。v0.22.0の目標Release日は2026-10-03である。Project Contextは五つの代表場面を共通形式で回答する要求を採用し、試験した最小形式をRepository共通入口へ昇格している。
+CRDDはv0.21.0を公開済みで、v0.22.0の実装・検証を進めている。v0.22.0の目標Release日は2026-10-03である。Project Contextは五つの代表場面を共通形式で回答する要求を採用し、試験した最小形式をRepository共通入口へ昇格している。署名候補のProject Runtime公開MCP実Provider E2Eは通常二経路・取消・exact Recovery・最終資源回収まで合格した。Workbench、必要な四経路および残る品質項目の確認を継続しており、全体合格とRelease判断は未成立である。
 
 | 種別 | 項目 | 現在状態 | Owner Relation |
 |---|---|---|---|
 | 現在事実 | 公開Baseline | v0.21.0 | Git tag `v0.21.0`、Commit `e9947d4f733c3c46b90ee9f78c70898d1920bae9` |
-| 現在事実 | v0.22.0 | Discovery進行中、目標Release日2026-10-03 | [Roadmap](99_Roadmap/01_Roadmap.md) |
+| 現在事実 | v0.22.0 | 実装・検証進行中、目標Release日2026-10-03 | [Roadmap](99_Roadmap/01_Roadmap.md)、[CHG-000082](99_Roadmap/Changes/CHG-000082/change.md) |
 | 現在事実 | Project Context | Repository投影、Manifest v2 Identity照合、Markdown／Codex確認、Repository単体MCPおよびCROS Credentialで絞ったRemote Project Context MCPが成立 | [REQ-000038](01_Discovery/Definitions/REQ-000038/requirement.md)、[Repository MCP検証](99_Roadmap/Changes/CHG-000082/Evidence/260927-2014_phase4-project-context-mcp.md)、[Remote MCP検証](99_Roadmap/Changes/CHG-000082/Evidence/260927-2029_phase4-remote-project-context-mcp.md) |
 | 現在事実 | 情報入口 | Project ContextをOverviewとし、Topic、Meeting、Roadmap、Quality、DocumentationおよびRuntime Stateを各Ownerから読む能力地図を整理済み | [能力地図](01_Discovery/Analysis/EXP-000029/capability_map.md) |
 | 現在事実 | Topic／Meeting操作 | Repository CRUD Coreと共通Applicationが成立し、WorkbenchおよびRepository単体MCPから登録・編集・Cursor一覧・取得・Relation影響付き削除を同じ契約で利用できる。同一Repository内ではOutcome表とAction移管表を同時更新し、全Outcome処置後だけMeetingを閉じられる。Remote CROSではRequestごとにCredential／Grant／Exposure／Bindingを再検証し、Workbenchが許可済みPortfolio Sourceを明示選択して同じ操作をMCP経由で行える。別RepositoryのRelationは同じSessionで許可された一意なOwnerへ遷移できるが、Relationを別Repository書込みAuthorityにはしない | [REQ-000039](01_Discovery/Definitions/REQ-000039/requirement.md)、[Remote Workbench検証](99_Roadmap/Changes/CHG-000082/Evidence/260928-0325_phase5-remote-workbench-topic-meeting.md) |
@@ -69,7 +69,7 @@ Workbenchを先に作るのではなく、どのConsumerでも同じProject理�
 
 | 候補 | 理由・成立条件 | Owner Relation |
 |---|---|---|
-| REQ-000037〜041をUX以降へ全数伝播する | 任意期限、Project Context、Topic／Meeting、WorkbenchおよびRemote CROSの利用者成果を設計へ渡すため | [Discovery台帳](01_Discovery/01_Product_Discovery.md) |
+| 残る品質項目を設計・実装・実測へ照合する | REQ-000037〜041の設計伝播を完了した後も、Relationだけを成立Evidenceとして扱わず、各検証義務を実際の観測へ接続する必要があるため | [Quality Center](07_Quality/01_Quality_Center.md)、[Discovery台帳](01_Discovery/01_Product_Discovery.md) |
 | Workbenchの実Provider E2Eと残る画面Closureを行う | 15画面の実Browser Visual Gate、読取り助言／変更候補のProduction Runtimeおよび候補の別採否操作は成立した。残るAI関連Partial 2画面を実Codex／Claudeと最終Production Closureで再評価するため | [CHG-000082](99_Roadmap/Changes/CHG-000082/change.md)、[実Browser Visual Gate](99_Roadmap/Changes/CHG-000082/Evidence/260928-1028_phase5-workbench-actual-browser-visual.md) |
 | 次工程Gateでv0.22.0の日程Riskを再評価する | Scopeは確認済みだが、2026-10-03までの残作業と検証費用は工程進行に合わせて更新する必要があるため | [Roadmap](99_Roadmap/01_Roadmap.md)、[REQ-000037](01_Discovery/Definitions/REQ-000037/requirement.md) |
 

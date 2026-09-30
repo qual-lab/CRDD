@@ -2,9 +2,9 @@
 
 状態: Quality Design Ready — Reality Audit Pending
 担当責任者: Qual-Lab
-最終更新日: 2026-09-29
+最終更新日: 2026-09-30
 
-現在注記: v0.21の最終署名照合は履歴Baselineとして完了している。v0.22の現在候補は未署名であり、再署名、署名候補の直接起動、実Provider E2Eおよび必要な四経路E2Eが未実施のため、Quality Readyへ昇格しない。
+現在注記: v0.21の最終署名照合は履歴Baselineとして完了している。v0.22の署名候補Commit `45254e2b`と是正済み検証Tool `1b756ac2`によるProject Runtime公開MCP実Provider E2Eは、Run `2e55c8cd2897464b`で合格した。通常二経路、取消、exact Recoveryおよび最終資源回収を確認し、再入場後は意図どおり人間の採用判断待ちで停止した。Workbench実Provider E2E、必要な四経路E2E、個別品質項目の照合および最終配布の再署名は残るため、Quality Readyへ昇格しない。
 
 ## Current Quality Projection
 
@@ -14,8 +14,8 @@
 | 現在対象 | v0.22.0 | Project Operation、Workbench、CROS、複数Repository、AI Runtimeを段階的に照合する |
 | 観測済み | 11 / 39 | v0.22移管範囲のうち、Production Workbenchの実Browser Visual GateまでEvidenceへ接続済み |
 | 未観測 | 28 / 39 | 局所試験またはRelationだけで観測済みへ変更しない |
-| 既知Gap | Phase 5 Release Verification進行中 | Shared Server境界、Workbench Visual、AI画面、Node依存閉包およびCatalog Revision 0の局所反証は成立した。現在候補の再署名、署名候補の直接起動、Codex／Claude実Provider E2Eおよび同一Release Identityでの必要な四経路E2Eは未実施 |
-| 次Gate | Commit、再署名、新Manifest存在下の署名拒否試験、署名候補直接起動、実Provider／四経路E2E | [CHG-000082](../99_Roadmap/Changes/CHG-000082/change.md) |
+| 既知Gap | Phase 5 Release Verification進行中 | 終了後Observer接続を是正し、Project Runtime公開MCP E2Eと最終回復在庫確認は合格した。Workbench、必要な四経路、個別品質項目および最終配布の照合は未完了であり、39項目の網羅をこの合格から推定しない |
+| 次Gate | Workbench実Provider E2E、必要な四経路E2E、個別品質項目の照合、最終配布固定と署名照合 | [CHG-000082](../99_Roadmap/Changes/CHG-000082/change.md)、[終了後Observer接続是正と再実測](../99_Roadmap/Changes/CHG-000082/Evidence/260930-1440_signed-runtime-recovery-observer.md) |
 | 現在人間判断 | N/A: 現在の実装・検証継続を止める判断事項はない | 新しいRisk受容または対象範囲変更が生じた場合だけ再提示する |
 
 ## 設計集合

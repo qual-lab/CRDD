@@ -35,9 +35,19 @@ Run `a50af6470d4c45dd`は終了後の回復状態を観測できず、全体E2E�
 - 通常経路の正常完了必須、取消時の終了観測、exact Recovery、Container／Network不存在および最終cleanupの条件は変更しない。
 - 署名済みstagingは変更しない。検証ToolとLoader契約の変更を将来の正式配布へ含める場合は、署名Closureの再検証・再署名が必要である。
 
-Formatter、型、Lint、Capability Graphおよび既存Traceability検査は合格した。公開Processの局所System試験は33／33合格した。独立再レビューはPassで、確認者自身の対象Graph試験も1／1合格した。Package Filesystem契約試験全体は実行中であり、是正後の全体E2Eは未実行である。これらの局所合格を全体E2Eへ流用しない。
+Formatter、型、Lint、Capability Graphおよび既存Traceability検査は合格した。公開Processの局所System試験は33／33合格した。独立再レビューはPassで、確認者自身の対象Graph試験も1／1合格した。Package Filesystem契約試験と公開Process試験の結合実行は158／158合格、失敗・Skipともに0で終了した。是正後の全体E2Eは別途実行し、これらの局所合格を流用しない。
 
 同時にProject Contextの検証を、変化するQuality Owner本文の旧文言固定から、現在の七項目のexactな表一致へ修正した。固定fixtureで七項目と根拠の保持、必須行欠損の拒否を別に確認する。Package試験19／19合格、読み取り専用の独立レビューPass、確認者自身の対象試験6／6合格である。Qualityの観測済み件数を増やす変更ではない。
+
+## 是正後の署名Runtime実測
+
+同じ署名RuntimeとTool Commit `1b756ac2e2f503a21e38bfbd0dac9680582f6b71`で、Run `2e55c8cd2897464b`を実行した。2026-09-30 14:55:34 JSTに結果を保存し、`REAL_PROVIDER_EXIT=0`で終了した。結果は`completed / project_runtime_public_mcp_real_providers_cancellation_and_recovery_verified`、問題集合空、`cleanupConfirmed: true`、手動回復・Process再起動ともに不要、`effectState: settled`である。
+
+結果はRepository-local `.crdd/verification/project-runtime-public-real-providers-1790747734484/result.json`、SHA-256は`e3f04503f69259d5975abd9749a0ade1fc4245ddeee1b35c5ddfa71270ac600c`である。通常二経路の正本差分、取消時のexact義務、親Process喪失後の同じ回復参照に結合した七段階のLifecycleと再入場、最終`docker_task_runtime_state_clean`を確認した。
+
+通常経路と再入場は`project_runtime_acceptance_decision_required`という人間の採用判断待ちを期待する。結果Field `freshPublicMcpReentryCompleted`は`status === completed`だけを数えるため`false`であり、再入場未実行の意味ではない。実際の再入場応答はIdentity、期待する判断待ち状態、正常完了、境界清掃および子Process joinを検証条件で確認した。自動採用の完了やRelease Authorityを主張しない。
+
+この実測は公開MCPの固定Scenarioに限定する。Workbenchの読取り助言／変更候補、四経路E2Eおよび39件のQuality義務全体は別に確認する。
 
 ## Checklist
 
@@ -46,4 +56,4 @@ Formatter、型、Lint、Capability Graphおよび既存Traceability検査は合
 - [x] 観測不能を在庫空またはcleanup成功へ変換していない。
 - [x] Provider要求を伴わない局所比較で接続不一致を再現した。
 - [x] Runtime本体の安全判定を弱めていない。
-- [ ] OPEN: 是正後の全体E2Eは未実行。局所試験と独立レビュー後に再評価する。
+- [x] 是正後の公開MCP全体E2Eを実行し、最終回復在庫まで確認した。
