@@ -488,6 +488,40 @@ session `88130`は終了コード0で完了した。Checker契約試験は375件
 
 QA設計整理はCommit `32245461`として作業ブランチへpushした。最終文書を対象にしたRepository Checker session `62523`も終了し、Error 1／Warning 0、理由は既知の`stable-release-tag-identity-mismatch`だけだった。今回の変更由来の構造・関係Findingは0件であり、この既知指摘を消すために公開タグやHEADを変更していない。
 
+### 新Traceで固定した実Host三試験（2026-10-01）
+
+固定候補の正常計算、JS能力拒否、保留Cell終了は、実Hostを用いる別Processの局所試験として全3件成功した。公開CLI取消、禁止delegate、Host喪失、IPC断、署名または実Provider E2Eの完成を示す結果ではない。試験Sourceと観測Hookはまだignored領域の候補であり、追跡する試験Patchへの統合・固定候補の完成後レビューが未完了であるため、Quality Centerの正式な観測済み件数は変更しない。
+
+| 固定入力／結果 | Identityまたは観測 |
+|---|---|
+| Registry試験Source | `7a45e454f5e19e5e611f1450806eed08eed7bfe0eb45607ede9fa72b47916f06` |
+| Session試験Source | `ab2c7f4c5d4e2f41f4c98ba00d97f09b128a4ff5bce3f1e877e04a691c631662` |
+| Build Dockerfile | `168636d62de671ec13938f38bacbcfa9f2af13a6e1af7bcc38130b30929ffe6b` |
+| 実行Dockerfile | `c5fd9f3c79b4f922160b065c88217800fb8b8a08255312ed0d6789fa91249180` |
+| 再コンパイル | session `15196`、終了コード0、11分23秒、履歴`ypoog8g4bgdhves6axnjh8fly` |
+| コンパイルimage manifest | `f5cfc2459e5d143bced3c6d84ae3a61a00e0b73ed23f24b5e60eafda79913089` |
+| 試験実行 | session `79855`、終了コード0、履歴`dehy96ootls36jyryhwa1v5q0` |
+| 結果image manifest | `de8aec62d41d5671736d407069b80485c3a4d842052f0ef3564e699b7d657857` |
+| 試験実行物 | `c723d4d3ed8b6b760805ce043d03f7574c79053572a03998988a0f0ec594489e` |
+| 新Link Map | `404f2d08eefe083264e5d55c401e92a6eb2e79618b8a4ed12cb2944454884a8c` |
+| Link出力記録 | `d46799f644ebed93b1bd3ed6a5ebbbc70e9f02af72b20a8c9d8d87248a5d4d23` |
+
+Source Hashとrustfmt、offline／lockedのNative compile、新Mapに結合したmusl部品、固定Host Hash、ELFの動的依存不存在と非実行stackを確認した。compile時には既存のunused import警告1件が残り、追加した未使用Result警告はなかった。Dockerfileのbase ARG既定値に関する警告は残るが、実行時のbaseはexact Identityへ解決している。
+
+| exact試験 | 結果 | 観測範囲 |
+|---|---|---|
+| `crdd_advice_host_normal_cell` | Pass 1、Fail／Ignored 0、5.11秒 | 実Session・捕捉Router・Core・固定Hostによるexact 42行。 |
+| `crdd_advice_host_js_capability_rejections` | Pass 1、Fail／Ignored 0、5.04秒 | require／process／fetchの能力不存在と通常／動的import拒否を別Cellで確認。その後同じSessionの正常計算が成功。 |
+| `crdd_advice_host_pending_cell_termination` | Pass 1、Fail／Ignored 0、5.03秒 | 開始済み同じCellのYieldedからLiveCell Terminatedを確認し、後続正常計算が成功。公開CLI取消の証明ではない。 |
+
+各試験で9Role成立、登録Taskの全終了、Host reapと終了時の隔離Root保持を確認した。各Processの他2660試験は未実行であり、全回帰には算入しない。compile後の最初のdigest参照はローカルmetadata解決で失敗し、試験を開始しなかった（履歴`7rs97c19qhib89tr0g8vi0rs5`）。専用tagのIdentityを再確認し、`--pull=false`で同じmanifestへ解決した再実行だけを上表の根拠とする。ネットワークなしの検証用containerは`--rm`で終了し、Provider Turn・署名・Docker再起動・永続Dockerデータ削除は行っていない。
+
+次の禁止delegate試験の着手前確認では、unknown名一件だけでは027全体を満たさないこと、実captured Routerを空Registryで置換しないこと、および各要求の搬送相関が必要と指摘された。既知禁止名・namespace付き禁止名・未知名を、本番Policyと既存exec／waitを保持した同じStepから実Coreへ個別搬送する計画へ具体化する。Roleの存在だけを要求相関へ読み替えない。
+
+今回のContextとローカルimageのOwnerはCoordinator保守担当とし、保持上限は2026-10-08とする。実行中Build、未解決参照または未保存根拠がある間は削除せず、exact Identityと終了を確認してから清掃する。履歴上の局所Passを有効化・署名・Releaseの承認へ読み替えない。
+
+Evidence追加Sectionの読取り独立確認は対象限定Pass、Finding 0件だった。確認者はSource／Dockerfileの4 HashとOracleの範囲を再照合し、実測報告との文書整合を確認した。image内ログ・実行物を独立再取得した再検証ではなく、試験PatchまたはRuntimeの完成後レビューにも流用しない。更新後Repository Checker session `41864`は終了コード1、Error 1／Warning 0、21467msで、既知の`stable-release-tag-identity-mismatch`だけが残った。今回の記録更新に由来する構造Findingは0件であり、Repository全体のPassとは扱わない。`git diff --check`も成功した。
+
 ## Checklist
 
 - [x] 人間承認のモデル方針と旧候補の履歴を区別した。
