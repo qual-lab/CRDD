@@ -125,23 +125,121 @@ test("Codex JSONLからToolなしの唯一の最終本文を抽出する", () =>
  * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
  */
 test("CodexのCommand／File Change Eventを拒否する", () => {
-  for (const itemType of ["command_execution", "file_change"]) {
+  for (const itemType of [
+    "command_execution",
+    "file_change",
+    "mcp_tool_call",
+    "web_search",
+    "todo_list",
+    "unknown_item",
+  ]) {
+    for (const eventType of [
+      "item.started",
+      "item.updated",
+      "item.completed",
+    ]) {
+      const raw = [
+        JSON.stringify({ type: "turn.started" }),
+        JSON.stringify({
+          type: eventType,
+          item: { type: itemType, status: "completed" },
+        }),
+        JSON.stringify({
+          type: "item.completed",
+          item: { type: "agent_message", text: JSON.stringify(ADVICE) },
+        }),
+        JSON.stringify({ type: "turn.completed" }),
+      ].join("\n");
+      const result = extractWorkbenchAiAdviceProviderOutput("codex", raw);
+      assert.equal(result.status, "blocked");
+      assert.equal(result.reason, "workbench_ai_codex_tool_event_forbidden");
+      assert.equal(result.adviceJson, null);
+    }
+  }
+});
+
+/**
+ * 正常な思考通知を最終助言と分離する。
+ *
+ * @responsibility 思考通知をTool操作へ誤分類せず、思考本文を返却しないことを確認する。
+ * @trace ERB-UT-023
+ * @precondition 思考本文に助言JSONと非公開markerを含む固定通知を用意する。
+ * @stimulus 開始、更新、完了の思考通知と一つの最終回答を抽出器へ渡す。
+ * @observation 受理結果、助言JSONと非公開markerの不存在を観測する。
+ * @oracle 最終回答だけを返し、思考通知だけでは成功しない。
+ * @cleanup N/A: 局所文字列処理だけで外部資源を作らない。
+ * @boundary ERB-UT-023=Direct Boundary: Codex JSONL→助言抽出
+ */
+test("正常な思考通知を非公開のまま最終助言と分離する", () => {
+  const reasoning = ["item.started", "item.updated", "item.completed"].map(
+    (type) => ({
+      type,
+      item: {
+        type: "reasoning",
+        text: `private-marker ${JSON.stringify(ADVICE)}`,
+      },
+    }),
+  );
+  const raw = [
+    ...reasoning,
+    {
+      type: "item.completed",
+      item: { type: "agent_message", text: JSON.stringify(ADVICE) },
+    },
+    { type: "turn.completed" },
+  ]
+    .map((event) => JSON.stringify(event))
+    .join("\n");
+  const result = extractWorkbenchAiAdviceProviderOutput("codex", raw);
+  assert.equal(result.status, "confirmed");
+  assert.equal(result.adviceJson, JSON.stringify(ADVICE));
+  assert.equal(JSON.stringify(result).includes("private-marker"), false);
+  assert.equal(result.rawOutputReported, false);
+  const reasoningOnly = [...reasoning, { type: "turn.completed" }]
+    .map((event) => JSON.stringify(event))
+    .join("\n");
+  assert.equal(
+    extractWorkbenchAiAdviceProviderOutput("codex", reasoningOnly).status,
+    "blocked",
+  );
+});
+
+/**
+ * 正常回答があっても不正通知を無視しない。
+ *
+ * @responsibility 不正Itemと不正本文を正常回答によって隠せないことを確認する。
+ * @trace ERB-UT-023
+ * @precondition 欠落、null、配列、本文欠落と未知Item通知の反例を用意する。
+ * @stimulus 各反例を正常な最終回答と同じJSONLへ入れる。
+ * @observation 状態、拒否理由と助言本文の不存在を観測する。
+ * @oracle 全反例がblockedで、正常回答を部分公開しない。
+ * @cleanup N/A: 局所文字列処理だけで外部資源を作らない。
+ * @boundary ERB-UT-023=Direct Boundary: Codex JSONL→助言抽出
+ */
+test("正常回答があっても不正Itemと不正本文を無視しない", () => {
+  const invalidEvents = [
+    { type: "item.started" },
+    { type: "item.updated", item: null },
+    { type: "item.completed", item: [] },
+    { type: "item.completed", item: { type: "agent_message" } },
+    { type: "item.completed", item: { type: "agent_message", text: 42 } },
+    { type: "item.future", item: { type: "reasoning", text: "text" } },
+  ];
+  for (const invalid of invalidEvents) {
     const raw = [
-      JSON.stringify({ type: "turn.started" }),
-      JSON.stringify({
-        type: "item.completed",
-        item: { type: itemType, status: "completed" },
-      }),
-      JSON.stringify({
+      invalid,
+      {
         type: "item.completed",
         item: { type: "agent_message", text: JSON.stringify(ADVICE) },
-      }),
-      JSON.stringify({ type: "turn.completed" }),
-    ].join("\n");
+      },
+      { type: "turn.completed" },
+    ]
+      .map((event) => JSON.stringify(event))
+      .join("\n");
     const result = extractWorkbenchAiAdviceProviderOutput("codex", raw);
     assert.equal(result.status, "blocked");
-    assert.equal(result.reason, "workbench_ai_codex_tool_event_forbidden");
     assert.equal(result.adviceJson, null);
+    assert.equal(result.rawOutputReported, false);
   }
 });
 

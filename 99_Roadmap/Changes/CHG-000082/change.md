@@ -396,4 +396,6 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 
 ## 後続対応 / ロードマップ
 
+Workbench助言の最新状態は[通知契約照合](Evidence/260930-1643_workbench-advice-notification-contract.md)に記録した。署名Runtime `ecb7fb1d`のCodex単独実測は正常終了・資源回収後に`workbench_ai_codex_tool_event_forbidden`で停止した。正常な思考通知の誤拒否と不正・更新Itemの検査漏れを局所是正し、関連257件と独立レビューを通過した。実測拒否の具体的なItem種別は未観測であり、原因を思考通知と断定しない。新署名候補での解消確認、Claude助言と変更候補およびWorkbench全体のE2Eは未完了である。
+
 Phase 4までの接続とPhase 5の13画面を閉じ、15画面のProduction DOMを3表示Profile×3 Zoomの実Browserで観測した。読取り助言、変更候補の生成と別操作での採否、Shared Serverの公開入口はProduction Compositionまで接続済みである。署名Runtime `45254e2b`と是正済み検証Tool `1b756ac2`によるRun `2e55c8cd2897464b`は、Project Runtime公開MCPの通常二経路、取消、exact Recovery、最終回復在庫確認まで合格した。再入場後の人間の採用判断待ちは意図した停止であり、自動採用完了を主張しない。是正前の失敗結果は履歴Evidenceとして保持する。次はWorkbench実Provider E2Eと必要な四経路E2Eを実測し、残る品質項目を個別照合する。その後、最終回帰・独立レビュー、最終配布固定、再署名、署名拒否試験および直接起動確認を閉じて人間のRelease判断へ渡す。現在の限定合格を全体Quality ReadyまたはRelease可能へ読み替えない。

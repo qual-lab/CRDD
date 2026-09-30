@@ -58,7 +58,7 @@ export function extractWorkbenchAiAdviceProviderOutput(
 /**
  * Codex JSONLからToolを伴わない唯一の最終Agent本文を抽出する。
  *
- * @responsibility 一Turn完了、失敗0、Tool Event 0、最終Agent本文1件を確認する。
+ * @responsibility 一Turn完了、失敗0、Tool Event 0、最終Agent本文1件を確認し、正常な思考通知は非公開のまま分離する。
  * @trace ARCH-000015
  * @input raw: Codex CLI JSONL。
  * @returns 最終Agent本文または拒否結果。
@@ -66,7 +66,7 @@ export function extractWorkbenchAiAdviceProviderOutput(
  * @postcondition confirmed時の本文はJSONL Envelopeから分離される。
  * @effect N/A: JSONLを解析するだけである。
  * @failure 不正行、複数Turn、失敗、Tool Eventまたは複数最終本文を拒否する。
- * @invariant CommandやFile Change Eventを助言として受理しない。
+ * @invariant 思考本文を助言へ含めず、Tool操作、不正Itemおよび未知Itemを受理しない。
  * @boundary Codex JSONLと共通助言JSONの間。
  * @security Agent本文以外のEvent内容を返さない。
  * @concurrency N/A: 共有状態を持たない同期処理である。
@@ -88,17 +88,28 @@ function extractCodex(raw: string) {
     return blocked("workbench_ai_codex_completion_invalid");
 
   const itemEvents = records.filter(
-    (event) =>
-      (event.type === "item.started" || event.type === "item.completed") &&
-      isRecord(event.item),
+    (event) => typeof event.type === "string" && event.type.startsWith("item."),
   );
   if (
     itemEvents.some(
       (event) =>
-        (event.item as Record<string, unknown>).type !== "agent_message",
+        !["item.started", "item.updated", "item.completed"].includes(
+          event.type as string,
+        ) ||
+        !isRecord(event.item) ||
+        !["agent_message", "reasoning"].includes(event.item.type as string),
     )
   )
     return blocked("workbench_ai_codex_tool_event_forbidden");
+  if (
+    itemEvents.some(
+      (event) =>
+        event.type === "item.completed" &&
+        (event.item as Record<string, unknown>).type === "agent_message" &&
+        typeof (event.item as Record<string, unknown>).text !== "string",
+    )
+  )
+    return blocked("workbench_ai_codex_final_message_invalid");
   const messages = itemEvents.filter(
     (event) =>
       event.type === "item.completed" &&
