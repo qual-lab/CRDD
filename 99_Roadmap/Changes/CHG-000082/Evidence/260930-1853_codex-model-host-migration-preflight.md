@@ -522,6 +522,45 @@ Source Hashとrustfmt、offline／lockedのNative compile、新Mapに結合し�
 
 Evidence追加Sectionの読取り独立確認は対象限定Pass、Finding 0件だった。確認者はSource／Dockerfileの4 HashとOracleの範囲を再照合し、実測報告との文書整合を確認した。image内ログ・実行物を独立再取得した再検証ではなく、試験PatchまたはRuntimeの完成後レビューにも流用しない。更新後Repository Checker session `41864`は終了コード1、Error 1／Warning 0、21467msで、既知の`stable-release-tag-identity-mismatch`だけが残った。今回の記録更新に由来する構造Findingは0件であり、Repository全体のPassとは扱わない。`git diff --check`も成功した。
 
+### 禁止delegate候補のコンパイル是正と故障試験の着手前照合（2026-10-01）
+
+禁止delegate候補は、既知禁止名、namespace付き禁止名と未知名の三要求について、実Hostから実Core Registryの拒否までをCell・Runtime呼出ID・Tool名で相関する。全六段階をexact順序で一回ずつ要求し、全資源終了後にも再照合する。初回結果だけが整っていても、後から重複要求が観測された場合は合格にしない。実captured RouterのPolicyと既存exec／waitは保持し、禁止候補の無害なHandlerは全終了後まで呼出回数0を要求する。
+
+固定候補のコンパイルsession `92521`は終了コード1だった。新しい試験モジュールの`assert_eq!`三箇所が、外側の`pretty_assertions`と標準preludeの同名macroによりE0659となった。試験は開始しておらず、この結果を拒否試験のFailまたはPassへ算入しない。履歴は`7ely3ekl1rkfyi5lgczlkwxe8`である。
+
+既存の隣接試験モジュールと同じ`use std::assert_eq;`を明示し、rustfmtを適用した。旧固定候補を変更せず、新Context `.crdd/tmp/codex-advice-host-delegate-fix-20261001`を作成した。更新したRegistry試験Source Hashは`3fde76fc3ce5c1ab852a37f02554310b67cb84fb7239aaef70704361266263ad`、Dockerfile Hashは`627deb7849340527fbc59092b8338a759324d26838862129aa68f3eeff1832c3`である。他の六入力Hash、比較値、拒否条件、終了処理とProduction Policyは変更しない。局所差分と四試験の実行手順の読取り確認はFinding 0件だった。完成後の試験・Runtimeレビューではない。
+
+exact base `f5cfc2459e5d143bced3c6d84ae3a61a00e0b73ed23f24b5e60eafda79913089`を再確認し、cacheなし・networkなしでsession `80982`の再コンパイルを開始した。七Source Hashと整形確認は成功したが、本記録時点ではコンパイルと実Host四試験の終端結果は未取得である。実行Context `.crdd/tmp/codex-advice-host-delegate-run-20261001`のDockerfile Hashは`eb61ef8d5df3028310cee3d1a02d8d9149cb6e4e695c99b83a4a9e51cf2c2367`であり、新実行物・新Mapの結合、固定Host、muslとELF条件を確認してから四試験を別Processで実行する。前の三試験の結果を新候補へ流用しない。
+
+次の`ERB-IT-029`はHost喪失とクライアント側IPC端点喪失を別scenarioにする。読取り着手前確認では、PIDを後から再取得する方式を避け、exact Connectionと世代に結合した実Supervisor所有のChildへ限定する案を採用した。Host喪失は`try_wait == Ok(None)`を確認して`start_kill`を発行し、実wait／reapを別に観測する。Reader喪失は同Connectionの実Reader Taskを終了させ、その所有stdout読取り端を破棄する。合成Failed通知、failure書換えまたは共有取消Tokenの直接操作で故障を代替しない。
+
+Cellの結合は実ExecutionStarted受理点で固定し、別Cell・別世代・既終了・観測不能・二重注入を拒否する。注入Channel閉鎖後はselect枝を無効にし、即時反復を作らない。Host停止とstdout EOFは競合するため、最初のSupervisor分岐を固定せず実測記録とする。同じpending要求の失敗、同世代Hostの実回収、全登録Task終了を共同Oracleにする。Reader喪失を自然EOFやwriter I/O異常の証明へ拡張しない。この予定契約は着手前照合であり、実装・型検査・実注入は未実施である。
+
+追加ContextにもCoordinator保守担当、2026-10-08の保持上限と前節のexact清掃条件を適用する。QA項目の観測数、署名、Runtime有効化またはRelease判断は変更しない。
+
+本Sectionの記録正確性の読取り独立確認は対象限定Pass、Finding 0件だった。Build履歴を独立再取得した検証ではなく、027／029またはRuntime全体の完成へ流用しない。Repository Checker session `72911`は終了コード1、Error 1／Warning 0、34825msで、既知の`stable-release-tag-identity-mismatch`だけが残った。今回の記録更新による新規構造Findingは0件であり、Repository全体のPassとは扱わない。
+
+### 禁止delegateを含む実Host四試験の結果（2026-10-01）
+
+session `80982`は終了コード0で完了した。Nativeコンパイルは14分30秒、履歴`wtdhajka64uaswhm3ryq7ydro`、生成image manifestは`d9ad9bc457d6a6596664e0af0797bd69a7fe69a3a287202a9dbb54837a63ab66`である。生成imageと試験alias `crdd-advice-host-delegate:d9ad9bc457d6a659`のexact Identityを確認し、cacheなしで四試験を実行した。
+
+実行session `81655`は終了コード0、履歴`gxa0h808xzkvs7i53townp38w`、結果image manifestは`a65c06f0d39947b61987f6a4a5056b190d5a24bb9e74b05122a5d838df397462`だった。固定Host Hash、今回生成した実行物と新Link Mapの結合、musl部品、動的依存不存在と非実行stackを確認した。
+
+| exact試験 | 結果 | 今回の観測範囲 |
+|---|---|---|
+| `crdd_advice_host_normal_cell` | Pass 1、Fail／Ignored 0、5.11秒 | 実Session・captured Router・Core・固定Hostの正常計算と終了観測。 |
+| `crdd_advice_host_js_capability_rejections` | Pass 1、Fail／Ignored 0、5.04秒 | require／process／fetchと通常／動的importの拒否、後続正常計算、終了観測。 |
+| `crdd_advice_host_forbidden_delegate` | Pass 1、Fail／Ignored 0、5.04秒 | 既知禁止名、namespace付き禁止名、未知名を別Cellで実Host→IPC→Core→同じcaptured Registryへ搬送。六段階のexact要求相関、Hostへ返る拒否結果、Handler呼出0、要求ごとの後続正常計算と全終了後の相関再確認。 |
+| `crdd_advice_host_pending_cell_termination` | Pass 1、Fail／Ignored 0、5.03秒 | 同じ開始済CellのYielded→Terminated、後続正常計算と終了観測。公開CLI取消ではない。 |
+
+正常・JS拒否・Cell終了では九Role、禁止delegateでは追加のDelegate Body／Delivery／Core Dispatchを含む十二Roleが成立し、全登録Task終了、Host reapと終了時の隔離Root保持を確認した。各Processの他2661試験は未実行であり、四件を全回帰へ読み替えない。Queue受理をHostの結果受信と同一視せず、Hostのexact拒否結果を別に要求した。
+
+結果imageをnetworkなし・read-only・Host Mountなしの一時containerで読み、保存済みHashと四ログの合格行を再取得した。試験実行物Hashは`88bd51b02293eb00fba99b3a2b6fe55f9ef45494c40c4d6a494a592299ec3e92`、新Map Hashは`ad860be9ca61e95949b9b56189b7b69b42fa673183054fab61a52a183a977d78`、出力記録Hashは`d46799f644ebed93b1bd3ed6a5ebbbc70e9f02af72b20a8c9d8d87248a5d4d23`だった。確認containerは終了時に除去し、Provider要求、Docker再起動、署名と永続Dockerデータ削除は行っていない。
+
+試験候補はまだignored領域にあり、追跡中のTest Patchへ統合していない。今回の実測は固定候補の個別根拠として保持し、QA項目の完成集計やRuntime有効化へ算入しない。Host喪失／IPC断、公開CLI取消／親Process喪失、Host差替え・不在・fallback等の別義務を未確認のまま閉じない。
+
+四試験結果Sectionの記録範囲限定の独立確認はPass、Finding 0件だった。確認者は現在SourceとOracleへの一致を確認したが、image／ログの独立再取得や試験Patch全体の完成後レビューではない。Repository Checker session `47435`は終了コード1、Error 1／Warning 0、19774msで、既知の`stable-release-tag-identity-mismatch`だけが残った。`git diff --check`は成功した。
+
 ## Checklist
 
 - [x] 人間承認のモデル方針と旧候補の履歴を区別した。
