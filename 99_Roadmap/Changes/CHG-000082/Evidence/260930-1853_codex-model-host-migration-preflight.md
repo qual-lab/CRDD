@@ -1070,6 +1070,24 @@ docker-task.29c9921916f3a63170e77179d3145c8627a2b3519d5813b7c9cf2a87d136d9aa.5f7
 
 独立確認はSource、文書と直接利用側への影響を対象とする。CRDD全体の準拠基準や安定IDの意味を変更しないため、今回は準拠監査を追加しない。旧1ターン結果、失敗記録と署名は書き換えない。次の実測はまずClaude限定で行い、全E2Eを最初の確認場所にしない。旧Inspectorを新Parserへ暗黙流用せず、使用する場合は新Hash・行位置・1〜2整数条件を再固定して確認する。現在はPilotであり、正式化またはRelease判断ではない。
 
+## 最大2ターン候補cb0bdb85の署名と結果取得前の通信失敗
+
+更新9ファイルのSource・文書・直接影響確認は限定Pass、Finding 0。関連回帰190／190と区別し、独立確認者は実試験を再実行していない。Repository Checkerは既知の`.git`の`stable-release-tag-identity-mismatch`だけを保持し、error 1／warning 0であった。候補をCommit `cb0bdb85594ee5f474207ec302c7bd8ba570bd14`、Tree `090fa2c3e73f3bf96ee1413cfca1fb6768c8ac68`へ固定し、コミット・プッシュした。
+
+人間入力後の保存結果は`SIGN_EXIT=0`。Sequence `2026100105`、Manifest Hash `0476fe3c1ac1968d56617efa5a64d6404f7bcd3e8b98f8fbbaabf02998c40607`、Package Content Root `ab6f7688d48bcddd01fa2b17425e6b6d487ec1d7276129c4d3649f7ba57f7803`、Runtime Identity `22ab8465c7fbbe560189082b3dd6af37d13fe9db9dfabfc5c15b3742061316d2`を、信頼済みworktreeの検証器で照合した。正式署名の暗号一致と315ファイル・7863405bytesの閉包一致を確認した後だけ候補Moduleを使用した。Provider未起動preflightと限定Tool確認は成功。Tool Hashは`65a76263578b8cd125a0643c693b0e9fe63db338b11688f3fbb9e231a38b5aa8`で、固定HEAD以外は前回確認済みToolと同じ。旧Inspectorは起動していない。
+
+Claude助言限定のOperation `OP-316260095346878994283426077264554482536`では、境界設定後に`workbench_verification_transport_failed`を取得した。`timedOut: false`、`transportPhase: headers_unobserved`であり、HTTP観測期限超過ではない。Provider開始・完了と助言結果は未観測で、最大2ターンの成立可否には到達していない。HTTP listener終了、Canonical不変、生出力非公開を確認したが、fresh一覧は未解決回復IDを返し、全E2Eは未成立である。
+
+```text
+docker-task.29c9921916f3a63170e77179d3145c8627a2b3519d5813b7c9cf2a87d136d9aa.2c8159aa7a9c2b8734b46bca105b3016fa3e5e1ddb7ee2836c9d293ac0582f42.67fc0e9b4e6f5c550b3f23f9a84acc7572af00d190a5e4b09239e36cc784f0d6
+```
+
+同じIDの通常回収は`docker_task_recovery_create_outcome_unknown / manualRecoveryRequired: true / evidenceState: preserved`で停止した。この時点でDocker Engine 29.8.1は応答しており、Task作成要求の不成立やDocker故障とは断定しない。今回のIDに結合した検証付き再起動を人間へ確認し、明示承認を得た。
+
+承認後の一回の検証付き再起動は`completed / docker_restart_settled / settled`、終了コード0で完了し、`cleanupConfirmed: true / restartCompleted: true / taskRecoveryCompleted: false`を取得した。再起動成立をTask回収へ読み替えず、公開CLIの`--recover-isolation`と`--after-recorded-docker-restart`へ同じexact IDを指定した。続くTask回収は`recovered / docker_task_recovery_completed`、終了コード0で完了した。署名候補を再検証した後の独立した一覧観測でも`completed / docker_task_runtime_state_clean`、`manualRecoveryRequired: false`、回復ID集合・活動中Home結合集合とも空、終了コード0を確認した。
+
+この回復では新しいProvider依頼、永続データ削除または別IDへの置換を行っていない。次はHTTP接続失敗を切り分ける。回収完了や結果取得前の失敗を、2ターンPilotの成功・失敗または全E2E合格へ読み替えない。
+
 ## Checklist
 
 - [x] 人間承認のモデル方針と旧候補の履歴を区別した。

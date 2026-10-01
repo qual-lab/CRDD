@@ -42,12 +42,13 @@ CRDDはv0.21.0を公開済みで、v0.22.0の実装・検証を進めている�
 
 ### 結論
 
-Dockerの通常起動は承認後に実施し、同じTask回復IDの回収とfresh一覧cleanを確認した。Claude助言の最大2ターンPilotは承認され、固定起動計画・結果検査と局所反証を更新した。新しい署名と実Providerの限定確認は未完了である。Codex助言は公開HTTP経由で成功したが、Claude助言と全Workbench E2Eは未成立である。詳細は[最大2ターンPilot](99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md#人間承認済みのclaude最大2ターンpilot)を参照する。
+現在、この継続作業で追加の人間判断は必要ない。Claude助言の最大2ターンPilotは承認され、新しい署名の一致も確認した。ただし限定実測は結果取得前のHTTP通信失敗で停止した。人間承認後に同じ回復IDで検証付きDocker再起動とTask回収を完了し、再観測で未解決回復ID・活動中Home結合とも空を確認した。次はHTTP接続失敗を切り分ける。Codex助言は公開HTTP経由で成功したが、Claude助言と全Workbench E2Eは未成立である。詳細は[新候補の確認と通信失敗](99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md#最大2ターン候補cb0bdb85の署名と結果取得前の通信失敗)を参照する。
 
 Workbenchの新モデル移行では、起動時のTool許可集合を固定する最小Adapterの追加が承認された。助言用の操作禁止を維持し、局所反証と独立レビュー後に再署名・実Provider E2Eへ進む。6.1 Sol標準／6 Luna軽量用途へのモデル方針も承認済みである。現在のPilot継続に追加の方針判断は不要であり、署名時の秘密入力は人間が行う。この承認をRelease承認とは扱わない。Repository IDの正式固定は、Project Context契約の固定時に改めて人間が判断する。
 
 | 判断 | 判断する人 | 選択肢・影響 | Owner Relation |
 |---|---|---|---|
+| なし（同じTask回復IDの検証付き再起動を承認済み） | Qual-Lab | 再起動とTask回収を完了し、再観測で回復一覧cleanを確認した。新しいProvider依頼や永続データ削除は行っていない。助言成功または全E2E合格とは区別する | [新候補の回復記録](99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md#最大2ターン候補cb0bdb85の署名と結果取得前の通信失敗) |
 | なし（最大2ターンPilotを承認済み） | Qual-Lab | 一つの依頼・一回送信・Tool禁止・Repository非共有を維持して限定実測へ進む。独立確認、新署名と実Provider成立を確認するまで正式化しない | [最大2ターンPilot](99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md#人間承認済みのclaude最大2ターンpilot) |
 | なし（最小起動Adapter追加を承認済み） | Qual-Lab | 専用実行物の構築・配布・保守を含めて実装を継続する。禁止Toolの実行前拒否、局所反証、独立レビュー、再署名と実Provider E2Eが未完了であり、承認だけから利用可能またはRelease可能とは表示しない | [CHG-000082](99_Roadmap/Changes/CHG-000082/change.md)、[移行の着手前確認](99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md) |
 | なし（確認済み） | Qual-Lab | v0.22はRepository内＋Project横断＋AI利用構成を扱い、Workbench要求も採用済み。Discovery整理を閉じて次工程へ進める | [Scope探索](01_Discovery/Analysis/EXP-000034/exploration.md)、[REQ-000040](01_Discovery/Definitions/REQ-000040/requirement.md) |
