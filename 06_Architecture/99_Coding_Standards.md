@@ -107,7 +107,10 @@ Toolの既定書込みRootは現在のリポジトリ内に限定する。現在
 | 版固定Policy成果物 | ASCII `kebab-case`のsubject＋`-<major>.<minor>.<patch>.policy` | `windows-docker-desktop-4.41.2.policy` |
 | Dockerfile | ASCII `kebab-case`のsubject＋`.Dockerfile` | `provider-egress-proxy.Dockerfile` |
 | 固定Source Patch | ASCII `kebab-case`のsubject＋`.patch`。用途は承認済み専用Buildに限定する | `codex-advice-startup.patch` |
+| 固定Source入力Hash一覧 | 現行の許可Pathは`40_Develop/coordinator/runtime/codex-advice-startup-test-inputs.sha256`だけ。承認済みCodex助言専用Buildの入力整合確認に限定する | `codex-advice-startup-test-inputs.sha256` |
 | 試験ファイル | `<subject>.<kind>.test.ts` | `crdd-check.contract.test.ts` |
+
+固定Source入力Hash一覧の許可を、任意の`*-inputs.sha256`、別Ownerの同名ファイル、または他のchecksum成果物へ一般化しない。この一覧はBuild入力の整合根拠であり、単独で署名、決定権限（Authority）または実行許可を与えない。
 
 大文字小文字の混在、空白、意味を持たない連番、および表で対象別に定めた区切り形式以外を使用する命名は禁止する。TypeScript／Markdown／JSON／Python／Plain text／固定Native実行物／版固定Policy／Dockerfile subjectの通常名へ`snake_case`を、Rust moduleファイルへ`kebab-case`を適用しない。
 

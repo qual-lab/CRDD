@@ -10,7 +10,7 @@
  *
  * @responsibility Dockerの省略可能なInit fieldを、不正構造やInit必須の欠測と区別する。
  * @trace ARCH-000008
- * @input hostConfig: JSONから読んだHostConfig、required: 固定起動計画がInitを要求するか。
+ * @input hostConfig: JSONから読んだHostConfig、isInitRequired: 固定起動計画がInitを要求するか。
  * @returns 有効なHostConfig上でInit指定条件が一致する場合だけtrue。
  * @precondition 呼出し側が同じ資源のIdentityと他の隔離条件を別途照合する。
  * @postcondition 必須対象はown propertyのtrueのみ、対象外は未記載・null・falseのみ受理する。
@@ -23,7 +23,7 @@
  */
 export function dockerContainerInitObservationMatches(
   hostConfig: unknown,
-  required: boolean,
+  isInitRequired: boolean,
 ) {
   if (
     hostConfig === null ||
@@ -34,9 +34,9 @@ export function dockerContainerInitObservationMatches(
   )
     return false;
   const descriptor = Object.getOwnPropertyDescriptor(hostConfig, "Init");
-  if (!descriptor) return !required && !("Init" in hostConfig);
+  if (!descriptor) return !isInitRequired && !("Init" in hostConfig);
   if (!("value" in descriptor)) return false;
-  return required
+  return isInitRequired
     ? descriptor.value === true
     : descriptor.value === null || descriptor.value === false;
 }

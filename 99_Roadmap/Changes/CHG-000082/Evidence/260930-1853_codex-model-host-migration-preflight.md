@@ -974,6 +974,28 @@ WorkbenchはCoordinator署名閉包に含まれないため、同じ検証Tool R
 
 Runtime実装を変更したため旧署名候補のIdentityは流用しない。新しい署名候補で同じexact回復IDを閉じ、公開Workbench E2Eを再実行するまでPhase 5は未完了である。
 
+## 固定Build入力の命名検査と後続の不足
+
+命名検査は、専用Buildが固定Hash付きで利用する`codex-advice-startup-test-inputs.sha256`を未分類として拒否していた。命名正本とCheckerの許可をこのexact Pathだけへ接続し、別Ownerの同名、同じruntime内の別一覧、類似Suffixの拒否例を追加した。Runtime、Build script、入力Hashおよび署名待ち候補は変更していない。着手前の読み取り専用確認は着手可、固定2ファイルの独立Source ReviewはPass、Finding 0である。
+
+CheckerのFormatter・型検査・Lintはすべて終了コード0。全命名contractは17件中16件成功、1件失敗であり、全体Passではない。ファイル名の拒否を解消した結果、型付き識別子検査まで到達して12件の命名不足を検出した。対象はCoordinatorの`codex-advice-distribution.ts`、`docker-container-init-observation.ts`とDocker実行・回復の両contract試験であり、定数名、Boolean名、parameter名、配列名の不足である。命名規則を弱めず、後続是正として扱う。署名候補の固定内容は変更せず、この検査結果をRuntime成立またはE2E成功の根拠へ昇格しない。
+
+## 署名候補cfc46179とexact回復の終了確認
+
+外部署名の保存結果は`SIGN_EXIT=0`、署名Processの終了とマニフェスト生成を確認した。正式なframingによるManifest Hashは`d1d57d2e0b25fa54a847ae9105465968e672d18b48a53387cdf0a098f8925b09`、Release Sequenceは`2026100102`、Commitは`cfc46179ee6a0c2ea308b28deb671e9600d39999`である。信頼済みworktreeの検証器で署名と配布閉包の一致を確認した。生ファイルSHA256をManifest Identityと誤って比較した初回診断は拒否され、正式framingへ是正した後に`candidate`となった。検証契約を弱めていない。
+
+この候補を検証した後だけ候補の回復Moduleを読み込み、上記と同じexact回復IDを再開した。結果は`status: recovered`、`reason: docker_task_recovery_completed`、`recoveryId: null`、`manualRecoveryRequired: false`。回復一覧は`completed / docker_task_runtime_state_clean`となり、回復ID集合と有効Home結合集合は空であった。新Task、Provider要求、Docker再起動または永続Dockerデータ削除は発行していない。
+
+診断スクリプトの成功比較が`completed`を想定していたため、実結果`recovered`でも非0終了になった。この比較誤りは診断スクリプト側で是正し、回復の成功結果と区別した。回復結果の`evidenceState: unknown`は保持し、耐久根拠の状態まで確認済みとは主張しない。Workbench全E2Eはまだ再実行しておらず、Phase 5の完了根拠ではない。
+
+## 命名不足12件の是正と再確認
+
+署名Processの終端とexact回復の終了を確認した後、識別子だけを規約へ合わせた。固定配布Objectの定数名、Init必須判定parameter、試験のBoolean名・配列名を変更し、外部wire keyの`Destination`と生成Worker内の独立した`advice` bindingは維持した。値、条件、返却型、試験Oracleおよび公開関数は変更していない。
+
+CoordinatorとCheckerの静的Gateはすべて成功。全命名contractは17／17成功、42612.8548ms。Docker実行・回復の関連全回帰は129／129成功、105253.0937ms。いずれも失敗・取消・skip・todo 0である。固定4ファイルのSource限定独立レビューはPass、Finding 0。Runtime Sourceの変更は配布閉包Identityを変えるため、cfc46179候補を最終E2Eの新版証明へ流用せず、新しい固定候補を署名する。
+
+固定SHA256は、`codex-advice-distribution.ts`が`8e17338b6d57fde1b1075e1f7c05ac36525e795629df213f7903cc70ba6557e2`、`docker-container-init-observation.ts`が`68257713250e421d1986b0c80c3c63db674ee7ee20213a75fa8634e80c4ccdb7`、Docker実行試験が`1581686a6b3edf19cabae0a01840010029db6ea5c909fc782dc440df1a33465b`、回復試験が`eeb24fdb7f0129299c603751e92014c92707a43668b98585c8a047a80f7df1d4`である。
+
 ## Checklist
 
 - [x] 人間承認のモデル方針と旧候補の履歴を区別した。

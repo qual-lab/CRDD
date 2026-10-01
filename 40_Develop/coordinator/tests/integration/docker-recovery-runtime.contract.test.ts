@@ -1993,7 +1993,7 @@ function createKilledFullProductionRecoveryRoot(
     | "receipt"
     | "receipt_proxy" = "expected",
   recoveryCorrelationId: string | null = null,
-  advice = false,
+  isAdvice = false,
 ) {
   const parent = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-production-full-recovery-test-"),
@@ -2211,7 +2211,7 @@ function createKilledFullProductionRecoveryRoot(
       handoff,
       hostPhase,
       recoveryCorrelationId ?? "",
-      advice ? "codex-advice" : "normal",
+      isAdvice ? "codex-advice" : "normal",
     ],
     { windowsHide: true, encoding: "utf8", timeout: 15_000 },
   );
@@ -4830,7 +4830,7 @@ test("助言専用の耐久RecoveryはInit拒否後も同じIDで回収し完了
     assert.equal(fs.existsSync(fixture.hostMarker), false);
     assertOnlyCompletedRecoveryEvidence(fixture.root);
     const names = fs.readdirSync(fixture.root).sort();
-    const completion = names.map((name) =>
+    const completionRecords = names.map((name) =>
       fs.readFileSync(path.join(fixture.root, name), "utf8"),
     );
     assert.deepEqual(
@@ -4852,7 +4852,7 @@ test("助言専用の耐久RecoveryはInit拒否後も同じIDで回収し完了
       names.map((name) =>
         fs.readFileSync(path.join(fixture.root, name), "utf8"),
       ),
-      completion,
+      completionRecords,
     );
     assertOnlyCompletedRecoveryEvidence(fixture.root);
   } finally {
@@ -8066,18 +8066,18 @@ test("専用助言initと通常非initをexact Recoveryの構成検査で区別�
   const seed = JSON.parse(
     exactContainerRunner().runDockerCommand(["docker", "inspect"]).stdout,
   )[0];
-  for (const advice of [false, true]) {
-    const image = advice
+  for (const isAdvice of [false, true]) {
+    const image = isAdvice
       ? describeCodexAdviceDistributionIdentity().fixedImageDigest
       : `sha256:${"b".repeat(64)}`;
     for (const init of [null, false, true, undefined, "false", 1]) {
-      const expected = advice
+      const isExpected = isAdvice
         ? init === true
         : init === undefined || init === null || init === false;
       const fixture = exactContainerRunner({
         Config: { ...seed.Config, Image: image },
         HostConfig: { ...seed.HostConfig, Init: init },
-        Mounts: advice
+        Mounts: isAdvice
           ? seed.Mounts.filter(
               (mount: { Destination: string }) => mount.Destination !== "/work",
             )
@@ -8094,12 +8094,12 @@ test("専用助言initと通常非initをexact Recoveryの構成検査で区別�
           null,
           "create_provider",
           Object.freeze(["internal"]),
-          advice ? "workbench_advice" : "isolated_task",
-          advice ? null : "read_write",
+          isAdvice ? "workbench_advice" : "isolated_task",
+          isAdvice ? null : "read_write",
         ),
-        expected,
+        isExpected,
       );
-      assert.equal(fixture.removeCount(), expected ? 1 : 0);
+      assert.equal(fixture.removeCount(), isExpected ? 1 : 0);
     }
   }
 });
@@ -8127,17 +8127,17 @@ test("Proxyと認証Probeの省略可能Initをexact Recoveryで照合する", (
       ).runDockerCommand(["container", "inspect"]).stdout,
     )[0];
     for (const init of [undefined, null, false, true, "false", 1]) {
-      for (const wrongIdentity of [false, true]) {
+      for (const hasWrongIdentity of [false, true]) {
         const configuration = structuredClone(seed);
         if (init === undefined) delete configuration.HostConfig.Init;
         else configuration.HostConfig.Init = init;
-        if (wrongIdentity)
+        if (hasWrongIdentity)
           configuration.Config.Labels["crdd.coordinator.runtime"] = "f".repeat(
             16,
           );
         const fixture = exactContainerRunner(configuration);
-        const expected =
-          !wrongIdentity &&
+        const isExpected =
+          !hasWrongIdentity &&
           (init === undefined || init === null || init === false);
         assert.equal(
           recoverExactDockerResourceWithRunner(
@@ -8153,9 +8153,9 @@ test("Proxyと認証Probeの省略可能Initをexact Recoveryで照合する", (
             "workbench_advice",
             null,
           ),
-          expected,
+          isExpected,
         );
-        assert.equal(fixture.removeCount(), expected ? 1 : 0);
+        assert.equal(fixture.removeCount(), isExpected ? 1 : 0);
       }
     }
   }

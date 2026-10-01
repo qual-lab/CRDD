@@ -1258,6 +1258,17 @@ function assertFileName(file: string): void {
       "40_Develop",
       "coordinator",
       "runtime",
+      "codex-advice-startup-test-inputs.sha256",
+    )
+  )
+    return;
+  if (
+    file ===
+    path.join(
+      repositoryRoot,
+      "40_Develop",
+      "coordinator",
+      "runtime",
       "codex-advice-native-linker.sh",
     )
   )
@@ -3400,6 +3411,30 @@ test("内部実装のPathと型付きsource identifierは内部コーディン�
       path.join(repositoryRoot, "40_Develop", "checker", "unowned.patch"),
     ),
   );
+  for (const file of [
+    path.join(
+      repositoryRoot,
+      "40_Develop",
+      "checker",
+      "codex-advice-startup-test-inputs.sha256",
+    ),
+    path.join(
+      repositoryRoot,
+      "40_Develop",
+      "coordinator",
+      "runtime",
+      "unowned-inputs.sha256",
+    ),
+    path.join(
+      repositoryRoot,
+      "40_Develop",
+      "coordinator",
+      "runtime",
+      "codex-advice-startup-test-inputs.sha256.backup",
+    ),
+  ]) {
+    assert.throws(() => assertFileName(file));
+  }
   const files = pathInspectionRoots.flatMap(collectFiles);
   for (const file of files) assertFileName(file);
   const codingStandards = fs.lstatSync(

@@ -9,7 +9,7 @@
  * @security Identity一致だけを認証、資源回収またはE2E成立の証明にしない。
  */
 
-const identity = Object.freeze({
+const CODEX_ADVICE_DISTRIBUTION_IDENTITY = Object.freeze({
   exactVersion: "0.159.2",
   sourceCommit: "ff6aec96948b70d94983af2641a6b67c94faeff5",
   sourceArchiveSha256:
@@ -54,7 +54,7 @@ const identity = Object.freeze({
  * @concurrency N/A: 共有可変状態を持たない。
  */
 export function describeCodexAdviceDistributionIdentity() {
-  return identity;
+  return CODEX_ADVICE_DISTRIBUTION_IDENTITY;
 }
 
 /**
@@ -79,6 +79,6 @@ export function codexAdviceProviderInitRequired(
 ) {
   return (
     operationMode === "workbench_advice" &&
-    imageDigest === identity.fixedImageDigest
+    imageDigest === CODEX_ADVICE_DISTRIBUTION_IDENTITY.fixedImageDigest
   );
 }

@@ -1097,7 +1097,7 @@ test("通常Effect cleanupは認証Probeの空・別・追加Networkを削除し
 test("通常清掃でもCodex助言専用initの欠測と対象外混入を拒否する", async () => {
   for (const provider of ["codex", "claude"] as const) {
     for (const init of [true, null, false, undefined, "false", 1]) {
-      const expected =
+      const isExpected =
         provider === "codex"
           ? init === true
           : init === undefined || init === null || init === false;
@@ -1125,9 +1125,9 @@ test("通常清掃でもCodex助言専用initの欠測と対象外混入を拒�
             PidsLimit: 64,
             Init: init,
           };
-          observed.Mounts = ["/provider-home", "/tmp"].map((Destination) => ({
+          observed.Mounts = ["/provider-home", "/tmp"].map((destination) => ({
             Type: "bind",
-            Destination,
+            Destination: destination,
             RW: true,
             Propagation: "rprivate",
           }));
@@ -1148,10 +1148,10 @@ test("通常清掃でもCodex助言専用initの欠測と対象外混入を拒�
         fixture.recoveryCapability,
         fixture.managementCapability,
       );
-      assert.equal(result.confirmed, expected);
+      assert.equal(result.confirmed, isExpected);
       assert.equal(
         fixture.invocations.filter((call) => call.argv.includes("rm")).length,
-        expected ? 1 : 0,
+        isExpected ? 1 : 0,
       );
     }
   }
@@ -1177,7 +1177,7 @@ test("Initの省略と不正なHostConfigを混同しない", () => {
       return true;
     },
   });
-  for (const required of [false, true]) {
+  for (const isInitRequired of [false, true]) {
     for (const invalid of [
       undefined,
       null,
@@ -1191,24 +1191,24 @@ test("Initの省略と不正なHostConfigを混同しない", () => {
       accessor,
     ])
       assert.equal(
-        dockerContainerInitObservationMatches(invalid, required),
+        dockerContainerInitObservationMatches(invalid, isInitRequired),
         false,
       );
     assert.equal(
-      dockerContainerInitObservationMatches({}, required),
-      !required,
+      dockerContainerInitObservationMatches({}, isInitRequired),
+      !isInitRequired,
     );
     assert.equal(
-      dockerContainerInitObservationMatches({ Init: null }, required),
-      !required,
+      dockerContainerInitObservationMatches({ Init: null }, isInitRequired),
+      !isInitRequired,
     );
     assert.equal(
-      dockerContainerInitObservationMatches({ Init: false }, required),
-      !required,
+      dockerContainerInitObservationMatches({ Init: false }, isInitRequired),
+      !isInitRequired,
     );
     assert.equal(
-      dockerContainerInitObservationMatches({ Init: true }, required),
-      required,
+      dockerContainerInitObservationMatches({ Init: true }, isInitRequired),
+      isInitRequired,
     );
   }
   assert.equal(getterCalls, 0);
@@ -1281,11 +1281,11 @@ test("通常清掃でProxyと認証ProbeのInit未指定を解釈する", async 
         fixture.recoveryCapability,
         fixture.managementCapability,
       );
-      const expected = init === undefined || init === null || init === false;
-      assert.equal(result.confirmed, expected, `${purpose}:${String(init)}`);
+      const isExpected = init === undefined || init === null || init === false;
+      assert.equal(result.confirmed, isExpected, `${purpose}:${String(init)}`);
       assert.equal(
         fixture.invocations.filter((call) => call.argv.includes("rm")).length,
-        expected ? 1 : 0,
+        isExpected ? 1 : 0,
       );
     }
   }
