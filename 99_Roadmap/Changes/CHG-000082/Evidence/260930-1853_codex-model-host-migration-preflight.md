@@ -1147,6 +1147,16 @@ docker-task.29c9921916f3a63170e77179d3145c8627a2b3519d5813b7c9cf2a87d136d9aa.4b0
 
 この局所結果から、6500msの同期停止だけを全体E2E通信失敗の原因とは扱わない。一方、受付応答が同期Executor準備の後になることは観測した。実Provider準備の所要時間、HTTP要求の種類・接続状態および失敗codeの相関は未取得である。次は生出力や秘密を取得せず、この相関を判定可能にしてから是正案を決める。受付遅延を改善するだけで既知の通信失敗が直ったと表示せず、Timeout延長、無条件再送またはProvider再起動を行わない。
 
+## 通信分類付きの二助言連続診断
+
+同じ署名Runtime26449d19を使い、固定Toolだけに`--sequential-advice-diagnostic-only`を追加した。Codex→Claudeの最大2件の助言だけを対象とし、候補操作は0、初回失敗時は次の依頼へ進まない。Claude-onlyとの同時指定を拒否し、HTTP計測は二つの助言診断モードだけに許可する。Inspector併用は拒否する。受理条件、署名閉包、外部送信範囲、再送禁止とexact回復は変更していない。
+
+モード別Profile集合、候補0、競合Flag拒否と実Toolの助言Loopを使った初回失敗後の呼出し0を局所反証した。既存HTTP計測の引数・Response・元Error保持、閉集合分類、復元とpending 0の試験も成功した。限定Source独立確認はPass、Finding 0。記録だけのCommit `11daa7966e5c9843f00e255a0773729dd0f1290a`へToolを再固定し、Hash `0b81eb60f1e533b9c10db6a0b899bcf3442e549ac77285eb77760e3c3853b7fa`、モード選択Module Hash `97e287f49ef8f3b24d1a1f39e46d3f6cfa0bfaf77c15ed31d4454b5160ff5329`を取得した。署名検証、fresh回復一覧cleanとProvider未起動preflightの後に一回だけ実行した。
+
+Codex Operation `OP-26047859075361241791570297628532615605`、Claude Operation `OP-286538315635802942328134957016959449914`はともに開始・完了・終了class zeroを観測し、公開HTTP結果はcompleted、根拠参照exact一致であった。四分類の項目数はCodexが6／2／2／4、Claudeが15／5／4／7。診断終了コードは0、成功Scenarioは2件。Process Tree終了、Container／Network不存在、cleanup、Listener終了、Canonical不変、計測復元・pending 0・observationFailed falseおよびfresh回復一覧cleanを確認した。候補操作、Inspector、再送、Docker再起動および永続データ削除は行っていない。
+
+今回の通信失敗分類は空であり、直前の連続実行失敗は再現しなかった。原因を確定・解消した結果ではなく、計測付きの二助言連続診断が一回成立した結果である。`fullE2eVerified: false`を維持する。変更候補、採否操作および残る品質項目は別Gateであり、通常の全Workbench E2E成立は引き続き未確認である。
+
 ## Checklist
 
 - [x] 人間承認のモデル方針と旧候補の履歴を区別した。
