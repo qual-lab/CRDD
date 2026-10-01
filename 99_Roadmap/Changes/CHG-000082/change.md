@@ -3,7 +3,7 @@
 変更ID: `CHG-000082`
 状態（Status）: `In Progress`
 担当責任者: Qual-Lab
-最終更新日: 2026-09-30
+最終更新日: 2026-10-02
 
 ## 現在状態
 
@@ -16,7 +16,7 @@
 | Phase／Gate適用判断 | `Applicable`: 画面Shell、読取り投影、書込みEffect、Remote接続を分けて成立確認する必要がある |
 | 現在Phase | `Phase 5 — Production Closure` |
 | 現在Gate | `Passed: Phase 4`: User Accountを追加せず、Role Credentialから許可範囲だけのSessionを作り、Repository単体／Remote CROS、Repository／CROS Profile Ownerおよび非管理者へのCatalog非開示を分離した |
-| 次のGate | Workbench実Provider経路と必要な四経路を検証→残るQuality義務を個別に処置→最終候補の回帰・独立確認→配布固定・再署名・署名拒否／直接起動確認→同一Release Identityで最終照合→人間へ採用・Release判断を提示する |
+| 次のGate | 現在は新しい実Taskを停止。残存Hostのexact対象・回収Authorityと通信断の原因層を確認し、再開条件成立後にWorkbench実Provider経路と必要な四経路を検証→残るQuality義務を個別に処置→最終候補の回帰・独立確認→配布固定・再署名・署名拒否／直接起動確認→同一Release Identityで最終照合→人間へ採用・Release判断を提示する。現在の停止と補強候補は[候補通信診断と終了待ち](Evidence/260930-1853_codex-model-host-migration-preflight.md#候補d36a9decの署名通信切断の切り分けと終了待ちの不足)を参照する |
 
 ## 契機 / 起点
 

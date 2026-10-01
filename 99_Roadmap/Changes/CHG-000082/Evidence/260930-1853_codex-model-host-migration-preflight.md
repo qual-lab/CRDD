@@ -1199,6 +1199,87 @@ Providerなしの局所反証では、Runtimeの実`createBlocked`関数から�
 
 診断Toolと透過観測はGit非追跡の診断物として保持し、Productionまたは署名閉包へ混入させない。次は更新候補を署名し、正規の対話端末で必要なRuntime同意を確認してから候補経路を再検証する。無条件再送、同意の自動入力、採用、Commit／PushまたはDocker再起動をE2Eから行わない。
 
+## 候補d36a9decの署名、通信切断の切り分けと終了待ちの不足
+
+### 結論
+
+署名候補d36a9decは検証済みだが、Workbench変更候補の実Provider成立と全E2Eは未確認である。候補限定の通信診断はGETの`ECONNRESET`で停止した。追加調査で検証Toolが公開取消の後にExecutorの終了を待っていないことを確認した。ただし、通信断の原因とHost残存3件の発生原因は確定していない。新しい実Taskを停止したまま、Toolの終了待ちを是正して局所確認した。既存Host残存の削除、Docker再起動、Provider再送は行っていない。
+
+### 固定署名候補と実診断
+
+| 項目 | 結果 |
+|---|---|
+| 署名対象 | Commit `d36a9dec73250705019ab97e7a3c1cfd85b09292`、Tree `7a8deea8a1144c42dc98d23d3395330f8fba5605`、Sequence `2026100201`。保存された署名結果は`SIGN_EXIT=0`。 |
+| 署名Identity | Manifest `1087e142ccd5731a7cbb1772335135fd7be9ef63ca66156a0d918988b50984d1`、Package Content Root `8ce68fa5bb8ae85265523596cf3ab67975715f78d1541beb953faf96d12dab38`、Runtime Identity `109868da8b5dc7d3d219f55478423f6b540d57afce20fadab873c7500c7f2cc6`。 |
+| 配布確認 | 信頼済みworktree側で暗号一致と315 files／7,864,289 bytesの閉包を確認した後だけ候補Moduleを使用した。最終Releaseの配布またはQuality Readyではない。 |
+| 通信診断 | Codex候補1件だけ。助言、Claude候補、Inspector、採用、Commit／Push、Docker再起動、API-key fallbackは実行しない。GETは5849msで`ECONNRESET`、event-loop最大遅延5753ms、`headers_unobserved / timedOut: false`。診断のtimeout分類は発火しなかったが、すべてのtimeout原因を排除した結果ではない。 |
+| 最終結果 | 終了コード1、completed Scenario 0。exact Request参照への公開cancelは返却されたが、Task／Reader settlementは`unconfirmed`。Listener終了と正本不変を確認した。Docker回復一覧cleanはHost清掃完了を含まない。 |
+| 保存結果 | `.crdd/tmp/candidate-http-transport-d36a9dec.result.json`、SHA256 `9f43e3867d45f33327e325037592f1989e6772a18d68260ee63c6b6e5aff0d97`。旧結果を書き換えず保持した。 |
+
+実際の外部送信確認は人間が正規端末で扱う。会話上の承認やWorkbench入力を耐久Runtime同意へ自動変換せず、challengeも自動入力しない。
+
+### Providerを使わない切り分け
+
+| 確認 | 観測と限界 |
+|---|---|
+| 公開HTTPと局所Executor | 正常、6500msの同期停止、短い非同期待機後の6500ms停止の3ケースでは通信切断を再現しなかった。実Runtime、Provider、Docker、Native、Storeは使用していない。 |
+| 受付後のidle境界 | 固定1ケースで、start返却1707ms、running観測とpoll待機開始2111ms、同期停止2801〜9302ms、次GET9303〜9785msを観測し、GETは正常返却した。意図した順序が成立しても、実Provider経路の原因排除や非干渉証明には一般化しない。 |
+| 局所HTTP確認の独立レビュー | 3ケースとidleケースの固定Source／Result 4ファイルを読み取り確認し、限定Pass、Finding 0。独立確認者は再実行していない。idle Source Hash `fb080c7a779d8d0712cac1fd88e71ea6a93809b118989a7c0fb5b6a1f0336deb`、Result Hash `b50d2cb9afa04338319726de0e3b3d81566700b38483e8420af2651bb43ee76f`。 |
+| 署名Packageの読取り原価 | 同じ315 files／7,864,289 bytesを4回検証し、1375.537／1139.984／1200.735／1300.037ms、合計5016.293msを観測した。事前検証1668.267ms、import、Node起動時間は合計に含めない。Capability発行、Native、子Process、Worker、KernelLock、Provider、Dockerは実行しない。 |
+| 原価確認の独立レビュー | Source Hash `a0b941f65efa9b6ee2096adcd81fea1ecce34064cd4addf8bbc8f114cf6782e2`、Result Hash `7c0728f6ec30530d31801ffdd273bddbf8efe0bf4b827451c5492ed69905565d`を固定し、限定Pass、Finding 0。再実行なし。実診断との時間的近さは原因候補の材料に留め、通信断の因果証明や性能Gate成立にしない。 |
+
+Runtimeの同期準備経路には、Repository固定改訂の読取り、Policy／Grant、保護されたStore／Consentの観測、署名Packageの再検証、Native観測とLock待機がある。これらの安全確認を削除、cache化または期限延長する判断はしていない。原因に近い段階の観測が不足している。
+
+### 終了後の追加観測
+
+| 境界 | 現在の根拠 | 未確認範囲 |
+|---|---|---|
+| Docker | 保存結果とfresh一覧は回復ID集合・活動中Home結合集合が空、manual recovery不要。 | generic Host RootとCandidate Storeは、この一覧の対象ではない。 |
+| Host | 耐久marker 3件はすべて`host_only`で、対応Rootが存在した。最新Rootは既知6子Directoryの直下Entryが各0であった。最新marker Hashは`542b4f370985798e056352b838ead0d6782eac815b8ee1a43ede6e95f466244b`。 | markerはManifest、Runtime、Operation、Requestとの結合を持たず、今回Taskとのexact対応は未成立。時刻や空Directoryから削除Authorityを生成しない。 |
+| Process | 追加の読み取りCIMで固定候補Reader、E2E driver、Host generation supervisor各0を確認した。 | 元Taskのcompletion、finally実行、明示失効、全KernelLock解放を証明しない。 |
+| Candidate Store | 固定Root候補の直下metadata列挙が完了し、candidate／staged／pending／legacy lock／unexpected各0、bytes 0、Root非reparse、前後metadata一致を確認した。最初の制限環境では観測不能だったため、追加の読み取り許可で確認した。本文は読んでいない。 | Native保護、DACL、KnownFolderの正式結合およびKernelLockは未観測。点時点の物理不存在を元Taskのcleanup成立へ読み替えない。 |
+
+Host以外を含む広い一時領域には過去分のRootも存在するが、今回の所有対象へ含めていない。Storeの公開reviewは期限切れ候補のGCを行い得るため、読み取り限定inventoryとして使用しなかった。Hostの回収は既存のexact回復入口が所有する。過去のDocker再起動承認を、今回Host3件の回収許可へ拡張しない。
+
+### 検証Toolの終了待ち是正
+
+Sourceと署名候補の該当16ファイルのHash一致を確認した。公開AI ApplicationのcancelはAbort通知とcancelled表示を返すが、Executorの完了をjoinしない。一方、Single Task Adapterはnative completionを待ち、Runtimeの最終処理がRoot不存在、generation解放、marker不存在を順に確認する。修正前Toolは公開cancel後にListenerを閉じ、最後のトップレベルthrowでNodeを終了させ得た。これはToolのSource上の不足であり、Host3件の残存原因を特定した結果ではない。
+
+変更分類は非追跡の検証Toolの終了処理是正である。Runtime、公開契約、署名閉包、成功集合、Provider入力、取消Signal、timeout、cache、安全確認および旧診断結果は変更しない。読み取り専門確認を経て次を採用した。
+
+- 助言／候補の既存Production Factoryが返すExecutorを非async wrapperで観測し、引数、this、原Promise、結果、Errorをそのまま搬送する。
+- 終了時はListenerを閉じる前に同じExecutorの終端を待つ。60秒は観測期限であり、Runtime期限、cleanup期限またはhard wall-clock保証ではない。
+- 期限超過時は未確認・新Task禁止の中間結果をRepository-local `.crdd/tmp`へRoot alias拒否・上書き禁止で記録し、保持Timerで同じ完了だけを待つ。記録失敗でも強制exitしない。
+- 終端後にTimerを解放する。期限超過と元の失敗は消去せず、非zero exitCodeで自然終了する。PromiseのjoinedをRuntime／Readerのcleanup成立へ昇格しない。
+- 閉鎖後と8呼出し超過は実Executor呼出し前に拒否する。既知4 Scenarioの正常経路は変更しない。
+
+最初の改訂では、新しいhelperと局所試験にFormatter、strict型検査、Lintを実行し、すべて終了コード0を取得した。その後、原Promise／結果／this／引数の同一性、Getter非実行、拒否Errorと同期throwの保持、非Promise／Proxy、実Applicationの公開cancelと清掃barrierの分離、期限超過後の同じPromise完了、Timer解放、8件上限、閉鎖後の呼出し0、複数Executorと未開始を6／6 Pass、145.3113msで確認した。これらはProcess内fixtureであり、実Host清掃の観測ではない。main Toolの構文確認も終了コード0であった。
+
+最初の改訂のTool Hashは`dcadb5af2c615e8b42ea2afb42a6e2028f59f02704465d94b99c49f8b517f3bf`、helper Hashは`8140945cea6f2931c9652336583e68b80bf788e1c0bec6176dd6ae389604d9ad`、局所試験Hashは`23b156ef0c2ae307d93a38da59b8cda850797c308534729fae0dd475ee57a5da`。これらはRepository-local診断物であり、Gitまたは署名閉包へ加えない。Bootstrapとして継続している既存mjs Toolの拡張子は今回変更せず、新しいhelperと試験はTypeScriptとした。
+
+独立レビューでは、非Promise返値またはPromise観測失敗が既知Promiseの一覧に入らないため、一覧のjoinだけでListener終了へ進める不足を1件検出した。既知Promiseの終端と、終了を観測できないOwnerの保持要否を分離して是正した。終了を観測できないOwnerが残る場合は、中間記録と既知Promiseの終端待ちの後も、resolverを保持しないnever Promiseとref TimerでProcessの自動終了を止める。入力や返値のGetterを実行して終端を推測しない。
+
+| 是正後の固定確認 | 結果と限界 |
+|---|---|
+| 静的Gate | Formatter、strict型検査、Lintおよびmain構文確認は終了コード0。非追跡の2つのTypeScriptファイルだけを静的検査し、ProductionまたはRepository全体を整形していない。 |
+| 局所反証 | 9／9 Pass、141.7993ms。既知Promiseが0件または一部だけの未知Owner、観測thenの失敗、実main終了分岐のSource抜粋VM、実保持関数のSource抜粋VMを追加した。VMだけのfixture解放は実Ownerの終端根拠ではない。 |
+| 独立再レビュー | 固定3ファイルを読み取り確認し、前回Finding解消、新規Finding 0、限定Pass。開始・終了Hashは一致した。独立確認者は局所試験を再実行していない。 |
+| 最新固定Hash | Tool `f81c45e6d2255179f5c7a9de7e9cbcf329e74d682314d6052e266bc27637624c`、helper `41c78a835e98804dd66ae7016847451db9a96c337256b2e536ed66f7b788c615`、局所試験 `4b8498d469e51fdd62c0a3f58386111220b78c0697e1b4ed23acbea8dc927408`。 |
+
+現在のGateは、残存Hostのexact対象と回収Authorityの確認、通信断の原因層確認である。Toolの局所是正と限定独立確認は成立したが、実Reader回収、本番cleanupおよびE2E成立へ一般化しない。必要条件が成立するまで実Taskを再開しない。Quality件数11／46、全体119／176は変更せず、旧診断または署名成立をLocal Itemの新しいPassへ投影しない。採用、最終統合、Release判断は行っていない。
+
+### 回復参照を提示できないHost残存の正式な引継ぎ
+
+署名候補と一致するSource、および既存の設計・運用・是正履歴を読み取り確認した。`formatHostRecoveryToken`は純粋な文字列整形だが、その文字列は回復Capability取得の入力になる。通常の参照取得はowned WeakMapとprivate marker照合を要求し、失敗時の再構成も捕捉済みmarker Identityとbytes、または当該temporary handleとsuccessor bytesのlineageへ限定する。既知のexact IDによる公開回復はfreshな排他・回復世代を取得して、状態、Root／Child Identity、未知childおよびactive Docker bindingを検査してから限定回収する別のEffectである。
+
+今回確認したSourceと運用からは、元の回復参照を提示できない担当者が任意の現在markerから参照を再構成する正式な引継ぎ入口を確認できなかった。これは限定調査のGapであり、すべての入口の不存在を証明した結果ではない。Host3件と今回Taskとのexact結合、回復参照を提示できなくなった経緯も未確定のまま保持する。Token再構成、Native／Lock取得、Root／marker削除、Recovery、Provider再送およびDocker再起動は行っていない。
+
+人間への判断候補は、同じCHGで「元の回復参照を提示できない残存作業領域を、安全な保守手続きへ引き継ぐ契約」の候補設計・実装・局所反証・独立確認を進めるかである。承認対象の閉集合、操作と期限、freshな排他・Identity照合、active Docker bindingの拒否、置換・未知・観測不能時のEffect 0を実行時に強制する必要がある。候補は未採用・未実装であり、この質問を契約採用、既存Rootの回収承認、Token手動生成、Provider再送または再起動の許可へ拡張しない。保留時は新実Task停止を維持する。
+
+### 現在案内の独立確認と直接伝播
+
+初回の文書監査・限定Gap／Impact監査はFail、Major指摘は計2件であった。固定対象はProject Context Hash `c492aa9de3d14a4cdf30b655064732d02889c2921931802f98325dd3d1bdfbab`と本Evidence Hash `e39f23febf4141e6f12ef0b638467733ec2c8d363710306157b4a2d9b705b5e9`。旧「再署名・実Providerへ進む」案内と、CHG／Quality入口への停止Gate伝播不足を検出した。全監査結果を統合し、指摘元へ是正方針を再提示して整合確認した後、現在の案内、次Gateおよび判断欄を同じ停止条件へ揃えた。過去結果、Source、署名閉包、診断ToolおよびQuality件数は変更しない。是正後の4文書の限定再確認は、文書監査とGap／Impact監査ともPass、両指摘Resolved、新規Finding 0であった。独立確認者は実試験・Native・Recoveryを再実行していない。対象HashはProject Context `dd109399dd6ef8d4b993b05de8b268ebf29fda8b602c76d9b3fbe51269abbdb8`、CHG本文 `e2a7d3d49f9230d72a9874435d175ee1205b5f3e0c0116b210f879f7f4d36e44`、Quality Center `1088483314ba29d7148cfcc2a8533ec1d2827b9560d68546cb63d5ddda62e167`、本Evidenceの監査結果追記前 `69a63d3bd204eacd74fc525729a7eb399fca7e4b7ed30ddb7ea89b79a59c33d4`で開始・終了一致した。このPassは現在案内と限定記録・直接伝播に限り、実Task再開、Host回収、Authority採用、Quality ReadyまたはReleaseを承認しない。
+
 ## Checklist
 
 - [x] 人間承認のモデル方針と旧候補の履歴を区別した。

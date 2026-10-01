@@ -27,12 +27,13 @@ CRDDはv0.21.0を公開済みで、v0.22.0の実装・検証を進めている�
 
 ### 結論
 
-現在の主要Riskはv0.22.0の日程である。Project ContextではOwner Artifactとの二重管理を避ける必要がある。Manifest v2と公式Repositoryの自己適用には暫定Repository IDを設定したが、正式固定はv0.22の契約固定時に再評価する。
+現在の主要Riskはv0.22.0の日程である。Workbench候補の通信切断とHost残存により、新しい実Taskも停止している。Project ContextではOwner Artifactとの二重管理を避ける必要がある。Manifest v2と公式Repositoryの自己適用には暫定Repository IDを設定したが、正式固定はv0.22の契約固定時に再評価する。
 
 | 種別 | 結論 | 影響 | 根拠 |
 |---|---|---|---|
 | 現在事実 | v0.22.0の初期日程Riskは高い | 2026-10-03までに現Scopeの全工程を閉じられない可能性がある | [Roadmap](99_Roadmap/01_Roadmap.md) |
 | 現在事実 | v0.21対象のHybrid 12件、Manual 10件は未観測 | 全体Quality Readyを主張できない | [Quality Center](07_Quality/01_Quality_Center.md) |
+| 現在事実 | Workbench候補検証の通信切断とHost作業記録3件の残存が未解決 | 新しい実Taskを停止。Docker回復一覧、Candidate Store直下および対象Processが空でも、元Taskの完了・Host清掃成立へ読み替えない | [候補通信診断と終了待ち](99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md#候補d36a9decの署名通信切断の切り分けと終了待ちの不足) |
 | 共有分析 | 五場面の詳細をRootへ複製すると第二の正本になり得る | 更新負担とOwner Artifactとの不一致が増える | [REQ-000038](01_Discovery/Definitions/REQ-000038/requirement.md)、[進捗契約](15_Progress.md#repository-project-context) |
 | 現在事実 | Repository IDは`qual-lab.crdd-standard`を暫定採用 | Manifest v2の自己適用とFederation入力を試せる。正式固定前の変更は移行対象になる | [Manifest v2 Example](template/.crdd/config/repository-manifest.example.json)、[REQ-000038](01_Discovery/Definitions/REQ-000038/requirement.md) |
 
@@ -42,15 +43,16 @@ CRDDはv0.21.0を公開済みで、v0.22.0の実装・検証を進めている�
 
 ### 結論
 
-現在、追加の方針判断は必要ないが、次の署名で人間の秘密入力が必要である。署名候補26449d19でCodex・Claude助言は成立したが、候補生成は未成立。透過診断で元の拒否理由が「Runtimeの外部送信確認を取得できない」と判明し、その正常な拒否を受取側が結果不明へ変換する不整合を是正した。静的Gate、局所27件、関連68件および限定独立レビューは成功。送信確認Gateは維持し、再署名後に正式なRuntime同意の再利用または対話確認が必要である。Runtimeで利用可能な同意を確認できなかった詳細原因は未確定。回復一覧はcleanで、未解決回復ID・活動中Home結合はともに空。全E2EとRelease成立は未確認のままである。詳細は[完了値診断と搬送是正](99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md#候補完了値の透過診断と未選択provider結果の搬送是正)を参照する。
+署名候補d36a9decは検証済みであり、現在、署名の秘密入力は求めていない。回復参照を提示できないHost残存を安全な保守手続きへ引き継ぐ契約について、同じCHGで候補の設計・実装・確認を進めるか、人間判断が必要である。旧26449候補のCodex・Claude助言成立と、正常拒否の搬送是正は保持するが、変更候補生成と全E2Eは未成立である。候補限定診断で通信切断を観測し、Toolが取消後のExecutor終了を待たない不足を是正した。局所9件と限定独立再レビューはPassだが、通信断の原因、元Taskの完了とHost作業記録3件の回収は未確認であり、新しい実Taskは停止中。exactな回収対象・Authorityと通信断の原因層を先に確認する。過去のDocker再起動承認を今回Host残存の回収許可へ拡張しない。詳細は[候補通信診断と終了待ち](99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md#候補d36a9decの署名通信切断の切り分けと終了待ちの不足)を参照する。
 
-Workbenchの新モデル移行では、起動時のTool許可集合を固定する最小Adapterの追加が承認された。助言用の操作禁止を維持し、局所反証と独立レビュー後に再署名・実Provider E2Eへ進む。6.1 Sol標準／6 Luna軽量用途へのモデル方針も承認済みである。現在のPilot継続に追加の方針判断は不要であり、署名時の秘密入力は人間が行う。この承認をRelease承認とは扱わない。Repository IDの正式固定は、Project Context契約の固定時に改めて人間が判断する。
+Workbenchの新モデル移行では、起動時のTool許可集合を固定する最小Adapterの追加が承認された。助言用の操作禁止は維持する。署名候補d36a9decは成立したが、実Taskは上記の回収対象・Authorityおよび通信断の原因層を確認するまで再開しない。6.1 Sol標準／6 Luna軽量用途へのモデル方針も承認済みである。承認済み方針は保持するが、現在は追加の署名入力を求めていない。今後必要となる署名の秘密入力は人間が行う。この承認をRelease承認とは扱わない。Repository IDの正式固定は、Project Context契約の固定時に改めて人間が判断する。
 
 | 判断 | 判断する人 | 選択肢・影響 | Owner Relation |
 |---|---|---|---|
+| 回復参照を提示できないHost残存の保守契約を同じCHGで補強するか | Qual-Lab | 推奨は候補の設計・実装・局所反証・独立確認を進めること。任意markerを元のAuthorityへ読み替えず、承認対象とのexact結合とfreshな排他・Identity検査を設計する。契約採用や既存Rootの回収承認とは分け、Root削除、Token手動生成、Provider再送、Docker再起動はこの質問に含めない。保留時は新実Task停止を維持する | [回復参照を提示できない残存の引継ぎ](99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md#回復参照を提示できないhost残存の正式な引継ぎ) |
 | なし（同じTask回復IDの検証付き再起動を承認済み） | Qual-Lab | 再起動とTask回収を完了し、再観測で回復一覧cleanを確認した。新しいProvider依頼や永続データ削除は行っていない。助言成功または全E2E合格とは区別する | [新候補の回復記録](99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md#最大2ターン候補cb0bdb85の署名と結果取得前の通信失敗) |
 | なし（最大2ターンPilotを承認済み） | Qual-Lab | 一つの依頼・一回送信・Tool禁止・Repository非共有を維持して限定実測へ進む。独立確認、新署名と実Provider成立を確認するまで正式化しない | [最大2ターンPilot](99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md#人間承認済みのclaude最大2ターンpilot) |
-| なし（最小起動Adapter追加を承認済み） | Qual-Lab | 専用実行物の構築・配布・保守を含めて実装を継続する。禁止Toolの実行前拒否、局所反証、独立レビュー、再署名と実Provider E2Eが未完了であり、承認だけから利用可能またはRelease可能とは表示しない | [CHG-000082](99_Roadmap/Changes/CHG-000082/change.md)、[移行の着手前確認](99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md) |
+| なし（最小起動Adapter追加を承認済み） | Qual-Lab | 専用実行物の構築・配布・保守を含む承認済み範囲は維持する。署名候補d36a9decは成立したが、変更候補生成と全E2Eは未成立である。実Taskは上記停止Gateを保持し、承認だけから利用可能またはRelease可能とは表示しない | [CHG-000082](99_Roadmap/Changes/CHG-000082/change.md)、[移行の着手前確認](99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md) |
 | なし（確認済み） | Qual-Lab | v0.22はRepository内＋Project横断＋AI利用構成を扱い、Workbench要求も採用済み。Discovery整理を閉じて次工程へ進める | [Scope探索](01_Discovery/Analysis/EXP-000034/exploration.md)、[REQ-000040](01_Discovery/Definitions/REQ-000040/requirement.md) |
 | CRDD標準RepositoryのRepository IDを正式固定するか | Qual-Lab | 現在判断ではない。v0.22では`qual-lab.crdd-standard`を暫定採用し、Project Context契約固定時に維持または変更を判断する | [REQ-000038](01_Discovery/Definitions/REQ-000038/requirement.md)、[Runtime Data Architecture](06_Architecture/Details/runtime-data/01_Architecture.md#5-configとrepository-identity) |
 | なし（確認済み） | Qual-Lab | WorkbenchはDirection Aを採用し、公式CRDDロゴとNoto Sans CJK系Fontを使う | [Visual Baseline](04_UI/Details/Visual/workbench-hero/visual-baseline.md)、[CHG-000081](99_Roadmap/Changes/CHG-000081/change.md) |
@@ -74,6 +76,7 @@ Workbenchを先に作るのではなく、どのConsumerでも同じProject理�
 
 | 候補 | 理由・成立条件 | Owner Relation |
 |---|---|---|
+| 残存Hostの安全な処置と通信断の原因層を確認する | 取消表示と実処理終了を分離するTool是正は局所・限定独立確認まで成立した。exactな残存対象・回収Authority、通信断の原因層を確認するまで実Taskを再開しない | [候補通信診断と終了待ち](99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md#候補d36a9decの署名通信切断の切り分けと終了待ちの不足) |
 | 残る品質項目を設計・実装・実測へ照合する | REQ-000037〜041の設計伝播を完了した後も、Relationだけを成立Evidenceとして扱わず、各検証義務を実際の観測へ接続する必要があるため | [Quality Center](07_Quality/01_Quality_Center.md)、[Discovery台帳](01_Discovery/01_Product_Discovery.md) |
 | Workbenchの実Provider E2Eと残る画面Closureを行う | 15画面の実Browser Visual Gate、読取り助言／変更候補のProduction Runtimeおよび候補の別採否操作は成立した。残るAI関連Partial 2画面を実Codex／Claudeと最終Production Closureで再評価するため | [CHG-000082](99_Roadmap/Changes/CHG-000082/change.md)、[実Browser Visual Gate](99_Roadmap/Changes/CHG-000082/Evidence/260928-1028_phase5-workbench-actual-browser-visual.md) |
 | 次工程Gateでv0.22.0の日程Riskを再評価する | Scopeは確認済みだが、2026-10-03までの残作業と検証費用は工程進行に合わせて更新する必要があるため | [Roadmap](99_Roadmap/01_Roadmap.md)、[REQ-000037](01_Discovery/Definitions/REQ-000037/requirement.md) |

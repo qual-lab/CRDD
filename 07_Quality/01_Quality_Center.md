@@ -2,7 +2,7 @@
 
 状態: Quality Design Ready — Reality Audit Pending
 担当責任者: Qual-Lab
-最終更新日: 2026-10-01
+最終更新日: 2026-10-02
 
 現在注記: v0.21の最終署名照合は履歴Baselineとして完了している。v0.22の署名候補Commit `45254e2b`と是正済み検証Tool `1b756ac2`によるProject Runtime公開MCP実Provider E2Eは、Run `2e55c8cd2897464b`で合格した。通常二経路、取消、exact Recoveryおよび最終資源回収を確認し、再入場後は意図どおり人間の採用判断待ちで停止した。Workbench実Provider E2E、必要な四経路E2E、個別品質項目の照合および最終配布の再署名は残るため、Quality Readyへ昇格しない。
 
@@ -15,8 +15,8 @@
 | 観測済み | 11 / 46 | v0.22対象範囲のうち、Production Workbenchの実Browser Visual GateまでEvidenceへ接続済み |
 | 未観測 | 35 / 46 | 起動時Tool制限024と実Host／公開CLIの追加6項目025～030を含む。局所試験またはRelationだけで観測済みへ変更しない |
 | 既知Gap | Phase 5 Release Verification進行中 | Project Runtime公開MCP E2Eと最終回復在庫確認は合格した。Workbench Codex助言は、選択モデルが要求するCode Modeを無効化した起動不整合で停止した。6.1 Sol／6 Lunaと対応CLI・Hostへの移行、助言専用の最小起動制限は承認済みである。Native試験の旧SIGSEGVはRust最終リンクの境界へ切り分け、是正後の専用CLIとbwrapの起動およびNativeリンク処理の局所反証を確認した。実Host正常計算は固定候補で個別実測したが、QAの保証範囲を広く解釈したTrace不足を検出した。024を維持し、実Host／公開CLIの6義務025～030を追加した。追加候補は未実行で、禁止能力・故障・公開取消・新モデル実行は未確認である。必要な四経路、個別品質項目および最終配布の照合も未完了であり、46項目の網羅を限定合格から推定しない |
-| 次Gate | Workbench実Provider E2E、必要な四経路E2E、個別品質項目の照合、最終配布固定と署名照合 | [CHG-000082](../99_Roadmap/Changes/CHG-000082/change.md)、[終了後Observer接続是正と再実測](../99_Roadmap/Changes/CHG-000082/Evidence/260930-1440_signed-runtime-recovery-observer.md) |
-| 現在人間判断 | N/A: 現在の実装・検証継続を止める判断事項はない | 新しいRisk受容または対象範囲変更が生じた場合だけ再提示する |
+| 次Gate | 現在は新しい実Taskを停止。残存Hostのexact対象・回収Authorityと通信断の原因層を確認し、再開条件成立後にWorkbench実Provider E2E、必要な四経路E2E、個別品質項目の照合、最終配布固定と署名照合を行う | [CHG-000082](../99_Roadmap/Changes/CHG-000082/change.md)、[候補通信診断と終了待ち](../99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md#候補d36a9decの署名通信切断の切り分けと終了待ちの不足) |
+| 現在人間判断 | 回復参照を提示できないHost残存の保守契約を同じCHGで補強するか、Qual-Labの判断待ち | 検討対象は候補の設計・実装・局所反証・独立確認であり、契約採用や既存Rootの回収承認とは分ける。Root削除、Token手動生成、Provider再送、Docker再起動は含まない。判断前は新実Taskの停止を維持する。[補強候補](../99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md#回復参照を提示できないhost残存の正式な引継ぎ) |
 
 ## 設計集合
 
