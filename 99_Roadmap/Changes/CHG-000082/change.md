@@ -114,6 +114,7 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 - [`40_Develop/coordinator/src/security/codex-advice-distribution.ts`](../../../40_Develop/coordinator/src/security/codex-advice-distribution.ts)
 - [`40_Develop/coordinator/src/security/codex-docker-runtime-adapter.ts`](../../../40_Develop/coordinator/src/security/codex-docker-runtime-adapter.ts)
 - [`40_Develop/coordinator/src/security/docker-effect-runtime.ts`](../../../40_Develop/coordinator/src/security/docker-effect-runtime.ts)
+- [`40_Develop/coordinator/src/security/docker-container-init-observation.ts`](../../../40_Develop/coordinator/src/security/docker-container-init-observation.ts)
 - [`40_Develop/coordinator/tests/fixtures/docker-auth-probe-inspect-none.json`](../../../40_Develop/coordinator/tests/fixtures/docker-auth-probe-inspect-none.json)
 - [`40_Develop/coordinator/tests/integration/docker-effect-runtime.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/docker-effect-runtime.contract.test.ts)
 - [`40_Develop/coordinator/tests/integration/docker-recovery-runtime.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/docker-recovery-runtime.contract.test.ts)

@@ -4,6 +4,13 @@
   "subsystem": "coordinator",
   "symbols": [
     {
+      "symbolId": "coordinator.source.src.security.docker.container.init.observation",
+      "kind": "file",
+      "path": "src/security/docker-container-init-observation.ts",
+      "archIds": ["ARCH-000008"],
+      "implements": ["coordinator.cleanup-before-result", "coordinator.recovery-obligation"]
+    },
+    {
       "symbolId": "coordinator.test.integration.workbench-ai-profile-catalog-flow",
       "kind": "test-suite",
       "path": "tests/integration/workbench-ai-profile-catalog-flow.integration.test.ts",

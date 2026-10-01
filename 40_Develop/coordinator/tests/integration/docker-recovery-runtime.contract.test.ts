@@ -8058,7 +8058,7 @@ test("production共有Docker回復はreplacement構成を削除せずEvidenceを
  * @precondition 固定inspect形の合成応答と通常／専用Imageを使用する。
  * @stimulus fresh Recoveryが同じexact IDを再検査する。
  * @observation 判定と削除発行件数を取得する。
- * @oracle 専用助言はtrueだけ、通常Taskはnull／falseだけを受理する。
+ * @oracle 専用助言はtrueだけ、通常Taskは未記載／null／falseだけを受理する。
  * @cleanup N/A: 合成Docker runnerは実資源を作らない。
  * @boundary PRL-IT-013=Related 2 Blocks: Recovery再入場→exact構成検査
  */
@@ -8071,7 +8071,9 @@ test("専用助言initと通常非initをexact Recoveryの構成検査で区別�
       ? describeCodexAdviceDistributionIdentity().fixedImageDigest
       : `sha256:${"b".repeat(64)}`;
     for (const init of [null, false, true, undefined, "false", 1]) {
-      const expected = advice ? init === true : init === null || init === false;
+      const expected = advice
+        ? init === true
+        : init === undefined || init === null || init === false;
       const fixture = exactContainerRunner({
         Config: { ...seed.Config, Image: image },
         HostConfig: { ...seed.HostConfig, Init: init },
@@ -8098,6 +8100,63 @@ test("専用助言initと通常非initをexact Recoveryの構成検査で区別�
         expected,
       );
       assert.equal(fixture.removeCount(), expected ? 1 : 0);
+    }
+  }
+});
+
+/**
+ * Proxyと認証Probeの省略可能Initをexact Recoveryで照合する。
+ *
+ * @responsibility 実障害で残った二用途の構成解釈と拒否時の削除0を検証する。
+ * @trace PRL-IT-013
+ * @precondition 各用途の隔離条件を満たす合成inspect応答を使う。
+ * @stimulus Init未記載／null／false／true／不正型を同じexact資源へ与える。
+ * @observation 回収判定と削除回数を読む。
+ * @oracle 未指定またはfalseだけを受理し、他のIdentity不一致は引き続き拒否する。
+ * @cleanup N/A: 合成Docker runnerであり実資源を作らない。
+ * @boundary PRL-IT-013=Related 2 Blocks: fresh Recovery→Docker inspect
+ */
+test("Proxyと認証Probeの省略可能Initをexact Recoveryで照合する", () => {
+  for (const purpose of ["create_proxy", "create_subscription_auth_probe"]) {
+    const networks =
+      purpose === "create_proxy" ? ["internal", "egress"] : ["none"];
+    const seed = JSON.parse(
+      (purpose === "create_proxy"
+        ? exactProxyRunner(networks)
+        : exactAuthRunner(networks)
+      ).runDockerCommand(["container", "inspect"]).stdout,
+    )[0];
+    for (const init of [undefined, null, false, true, "false", 1]) {
+      for (const wrongIdentity of [false, true]) {
+        const configuration = structuredClone(seed);
+        if (init === undefined) delete configuration.HostConfig.Init;
+        else configuration.HostConfig.Init = init;
+        if (wrongIdentity)
+          configuration.Config.Labels["crdd.coordinator.runtime"] = "f".repeat(
+            16,
+          );
+        const fixture = exactContainerRunner(configuration);
+        const expected =
+          !wrongIdentity &&
+          (init === undefined || init === null || init === false);
+        assert.equal(
+          recoverExactDockerResourceWithRunner(
+            fixture.runDockerCommand,
+            "container",
+            fixture.dockerId,
+            seed.Name.slice(1),
+            "crdd.coordinator.runtime=0123456789abcdef",
+            seed.Config.Image,
+            null,
+            purpose,
+            networks,
+            "workbench_advice",
+            null,
+          ),
+          expected,
+        );
+        assert.equal(fixture.removeCount(), expected ? 1 : 0);
+      }
     }
   }
 });

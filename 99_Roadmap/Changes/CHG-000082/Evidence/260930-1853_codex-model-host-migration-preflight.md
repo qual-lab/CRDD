@@ -936,6 +936,44 @@ WorkbenchはCoordinator署名閉包に含まれないため、同じ検証Tool R
 
 以上はRunnerの準備と拒否経路の証拠であり、正しい署名配布物の受理、実Provider要求、取消・回復・資源回収または全体E2Eの成功ではない。実境界の確認は未完了である。
 
+## 署名候補2952ab00の実境界確認と回収停止
+
+署名候補の署名・配布内容・Native Identityは検証済みだが、公開Workbench E2Eは未成立である。最初のCodex助言でProcess終了コード0を観測した後、資源回収を確認できず停止した。Claude、候補確認・破棄、取消および親Process喪失の全体成立は、この実行から主張しない。
+
+| 確認対象 | 実測結果 |
+|---|---|
+| 固定Commit | `2952ab00d192ed7ab56f983e32c41eec61e2b13f` |
+| Manifest Hash | `8956503c49a455cb3d2deb09b2791efb348034cbb74ea3d893b9ac9ea1fcdc06` |
+| 署名終了 | `SIGN_EXIT=0`。署名と配布内容を別途検証した |
+| 公開E2E | 終了コード1。Provider終了0、Process Tree終了・Container／Network不存在・cleanupはいずれも未確認 |
+| 回復 | 同じexact IDで`docker_task_recovery_resource_mismatch`。根拠は`preserved` |
+| 読取り専用照合 | Providerのexact IDとexact名の不存在、両Networkの構成一致を確認。Proxyと認証ProbeはIdentity・Image・Network一致だが`Init`項目がJSONに存在せず、現行照合条件で拒否された |
+
+回復IDは`docker-task.7a8a913ba325345122de111096d1e616e1f6cd4b9499ef405901862b8198f56a.7f95c5996be75f1efcb94daf268d1af10831a4cc4798f605d2301ebde2061df1.6b1443ef0d2babc9d7956623e66db1b7ca1500fbd5728bd580b6dd882c7d0dab`である。新しいTask、Docker再起動、永続データ削除または名前だけに基づく資源削除は行っていない。
+
+回復診断の初回起動には別の問題があった。`node --input-type=module -e`から起動すると、file Workerへ同じ引数が継承されて`ERR_INPUT_TYPE_NOT_ALLOWED`になった。固有診断PipeのWorker実測で確認し、通常のfile起動へ変更して実際の回復停止理由を再取得した。これはE2Eの回収停止原因と混同しない。
+
+現行の通常終了処理と回復処理は、Init不要の資源で`Init === null || Init === false`を要求している。試験Fixtureにも`Init: null`が含まれる。実応答の項目未記載を安全に解釈する契約と反証試験が不足している。Init必須の専用Providerでは`true`要求を維持し、項目未記載を一律に許容しない。修正前にこの境界と利用側を再照合する。
+
+## Init省略表現の限定是正と固定候補の確認
+
+通常清掃とfresh RecoveryのInit解釈を共通の`docker-container-init-observation.ts`へ接続した。[MobyのHostConfig定義](https://github.com/moby/moby/blob/master/api/types/container/hostconfig.go)はInitを省略可能なpointerとして持ち、nullではdaemon設定を利用すると説明している。未記載を既存許容nullと同じ明示指定なしへ接続し、実効的な非init稼働の保証とはしない。Init必須の専用助言Providerはown data fieldのtrueだけを引き続き要求する。
+
+変更分類はDocker wire表現の解釈に関する限定是正である。既存CHGのPhase 5内で扱い、モデル・Image・起動引数・所有権・削除Authority・exact Recovery Identity・他の隔離条件は変更しない。着手前確認は外部資源回収と複数正本への影響を理由に読み取り専用の専門確認へ渡し、条件付き着手可を統合してから実装した。条件はHostConfig不正構造・継承field・accessor・不正型の拒否と、両consumerの一致である。準拠基準や決定権限を変えないため準拠監査は追加していない。
+
+| 検証 | 結果と範囲 |
+|---|---|
+| Coordinator／Checker静的Gate | Formatter・型・LintとCoordinatorの既存Graph／Trace検査をすべて成功。追加Fixtureのプロパティ名誤りは型検査で拒否後に是正し、Gateを再実行した |
+| Init局所試験 | 7／7成功。うち1件は名前filterで含まれた既存initial marker試験であり、全7件を新規Init試験とは呼ばない |
+| 関連2ファイル全回帰 | 129／129成功、失敗・取消・skip・todo 0、104220.3892ms。実Provider E2Eや実資源回収の証明ではない |
+| 現在資源の読取り照合 | 同じexact記録の5用途すべてmatch。診断runnerはDocker ls／inspectだけを許可し、removeAfterVerification=falseを強制した。回収Effectは発行していない |
+| 独立技術・安全レビュー | Source限定Pass、Finding 0。固定対象は共通primitive、通常清掃、回復、両試験、Architecture Details、Symbol manifestの7ファイル。実E2E・回収・署名成立へ拡張しない |
+| Repository Checker | 2026-10-01T08:11:05.443Z、error 1／warning 0。既知の`.git`上の`stable-release-tag-identity-mismatch`のみ。作業featureでv0.21タグを移動して解消しない |
+
+共通primitiveの固定SHA256は`aaf530ffabdedb0ce224afe816f384a41f69b9306b97f4a779a3f8a2b78f5f77`である。通常清掃は`cf461cf6ab741fb2f4f7d4f534320ece8617dec933e9a695f624f9cb121f49fd`、回復は`ecd7e618d3ea768a49a466312d9ad5e945ee7f24264322536fbdf2807664a85c`を確認した。関連試験の固定SHA256は順に`c023c336fe7e48d7e8f64ab665ee485973222c11c075206b66e570161434b4a0`、`3faf506107c28fa3742b25ffcbb36dddff3a27b72c51bdc8706c18457572a6a1`である。
+
+Runtime実装を変更したため旧署名候補のIdentityは流用しない。新しい署名候補で同じexact回復IDを閉じ、公開Workbench E2Eを再実行するまでPhase 5は未完了である。
+
 ## Checklist
 
 - [x] 人間承認のモデル方針と旧候補の履歴を区別した。

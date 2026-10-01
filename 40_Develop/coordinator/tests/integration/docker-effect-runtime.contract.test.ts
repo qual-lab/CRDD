@@ -14,6 +14,7 @@ import fs from "node:fs";
 import test from "node:test";
 import { createIsolatedClaudeDockerRuntimeAdapterCandidate } from "../../src/security/claude-docker-runtime-adapter.ts";
 import { createIsolatedCodexDockerRuntimeAdapterCandidate } from "../../src/security/codex-docker-runtime-adapter.ts";
+import { dockerContainerInitObservationMatches } from "../../src/security/docker-container-init-observation.ts";
 import {
   createIsolatedDockerEffectRuntimeCandidate,
   describeDockerEffectRuntimeContract,
@@ -234,6 +235,7 @@ function createEffectFixture(
     }>;
     internalNetworkReceiptId?: string;
     authReceiptId?: string;
+    proxyReceiptId?: string;
     providerReceiptId?: string;
     handleForInvocation?: (
       invocationIndex: number,
@@ -316,6 +318,7 @@ function createEffectFixture(
     },
     ...(options.internalNetworkReceiptId ||
     options.authReceiptId ||
+    options.proxyReceiptId ||
     options.providerReceiptId
       ? {
           inspectReceipts: () =>
@@ -333,8 +336,8 @@ function createEffectFixture(
                 dockerId: null,
               }),
               create_proxy: Object.freeze({
-                submitted: false,
-                dockerId: null,
+                submitted: options.proxyReceiptId !== undefined,
+                dockerId: options.proxyReceiptId ?? null,
               }),
               create_provider: Object.freeze({
                 submitted: options.providerReceiptId !== undefined,
@@ -1087,7 +1090,7 @@ test("通常Effect cleanupは認証Probeの空・別・追加Networkを削除し
  * @precondition 実Adapter由来のCodex／Claude助言Planと合成inspect応答を使う。
  * @stimulus 通常清掃へexact Provider receiptを渡す。
  * @observation 構成判定、削除発行と清掃完了値を観測する。
- * @oracle Codex助言はtrueだけ、Claude助言はnull／falseだけを受理し、不一致で削除0となる。
+ * @oracle Codex助言はtrueだけ、Claude助言は未記載／null／falseだけを受理し、不一致で削除0となる。
  * @cleanup N/A: 疑似Docker Processは各waitで終了し実Containerを作らない。
  * @boundary ERB-IT-004=Direct Boundary: Provider receipt→清掃前inspect
  */
@@ -1095,7 +1098,9 @@ test("通常清掃でもCodex助言専用initの欠測と対象外混入を拒�
   for (const provider of ["codex", "claude"] as const) {
     for (const init of [true, null, false, undefined, "false", 1]) {
       const expected =
-        provider === "codex" ? init === true : init === null || init === false;
+        provider === "codex"
+          ? init === true
+          : init === undefined || init === null || init === false;
       const providerId = "c".repeat(64);
       const fixture = createEffectFixture({
         isAdvice: true,
@@ -1144,6 +1149,140 @@ test("通常清掃でもCodex助言専用initの欠測と対象外混入を拒�
         fixture.managementCapability,
       );
       assert.equal(result.confirmed, expected);
+      assert.equal(
+        fixture.invocations.filter((call) => call.argv.includes("rm")).length,
+        expected ? 1 : 0,
+      );
+    }
+  }
+});
+
+/**
+ * Initの省略と不正なHostConfigを混同しない。
+ *
+ * @responsibility 通常清掃と回復が共有するwire判定の拒否境界を確認する。
+ * @trace ERB-IT-004
+ * @precondition DockerのJSON形と、JSONでは到達しない不正構造を用意する。
+ * @stimulus 必須／対象外の両方で判定を呼び出す。
+ * @observation 判定値とaccessor呼出し回数を観測する。
+ * @oracle 必須はown trueのみ、対象外は未記載／null／falseのみ、不正構造と型は拒否する。
+ * @cleanup N/A: 局所値だけを使い外部資源を作らない。
+ * @boundary ERB-IT-004=Direct Boundary: inspect JSON→共有構成判定
+ */
+test("Initの省略と不正なHostConfigを混同しない", () => {
+  let getterCalls = 0;
+  const accessor = Object.defineProperty({}, "Init", {
+    get: () => {
+      getterCalls += 1;
+      return true;
+    },
+  });
+  for (const required of [false, true]) {
+    for (const invalid of [
+      undefined,
+      null,
+      [],
+      "HostConfig",
+      { Init: undefined },
+      { Init: "false" },
+      { Init: 1 },
+      { Init: {} },
+      Object.create({ Init: true }),
+      accessor,
+    ])
+      assert.equal(
+        dockerContainerInitObservationMatches(invalid, required),
+        false,
+      );
+    assert.equal(
+      dockerContainerInitObservationMatches({}, required),
+      !required,
+    );
+    assert.equal(
+      dockerContainerInitObservationMatches({ Init: null }, required),
+      !required,
+    );
+    assert.equal(
+      dockerContainerInitObservationMatches({ Init: false }, required),
+      !required,
+    );
+    assert.equal(
+      dockerContainerInitObservationMatches({ Init: true }, required),
+      required,
+    );
+  }
+  assert.equal(getterCalls, 0);
+});
+
+/**
+ * 通常清掃でProxyと認証ProbeのInit未指定を解釈する。
+ *
+ * @responsibility 二用途のwire表現を通常終了でも同じ判定へ接続する。
+ * @trace ERB-IT-004
+ * @precondition 実AdapterのPlanと用途別の合成inspect応答を使う。
+ * @stimulus Init未記載／null／false／true／不正型を通常清掃へ渡す。
+ * @observation 回収完了とrm発行件数を読む。
+ * @oracle 未記載／null／falseだけで回収し、trueと不正型では削除0となる。
+ * @cleanup N/A: 模擬Docker実行であり実Containerを作らない。
+ * @boundary ERB-IT-004=Direct Boundary: 通常清掃→Proxy／認証Probe inspect
+ */
+test("通常清掃でProxyと認証ProbeのInit未指定を解釈する", async () => {
+  for (const purpose of ["proxy", "auth"] as const) {
+    for (const init of [undefined, null, false, true, "false", 1]) {
+      const dockerId = "e".repeat(64);
+      const fixture = createEffectFixture({
+        isAdvice: true,
+        provider: "codex",
+        ...(purpose === "proxy"
+          ? { proxyReceiptId: dockerId }
+          : { authReceiptId: dockerId }),
+        outputForInvocation: (argv) => {
+          const observed = structuredClone(
+            loadSanitizedAuthProbeInspectFixture().inspect,
+          ) as Record<string, unknown>;
+          observed.Id = dockerId;
+          observed.Name = `/${purpose === "proxy" ? fixture.plan.proxyContainerName : fixture.plan.authContainerName}`;
+          observed.Config = {
+            User: "65534:65534",
+            Image:
+              purpose === "proxy"
+                ? fixture.plan.proxyImageDigest
+                : fixture.plan.providerImageDigest,
+            Labels: {
+              "crdd.coordinator.runtime":
+                fixture.plan.ownershipLabel.split("=")[1],
+            },
+          };
+          const hostConfig = observed.HostConfig as Record<string, unknown>;
+          if (init === undefined) delete hostConfig.Init;
+          else hostConfig.Init = init;
+          hostConfig.PidsLimit = purpose === "proxy" ? 64 : 32;
+          if (purpose === "proxy") {
+            hostConfig.Tmpfs = { "/tmp": "rw,noexec,nosuid,size=16777216" };
+            observed.Mounts = [];
+            observed.NetworkSettings = {
+              Networks: {
+                [fixture.plan.internalNetworkName]: {},
+                [fixture.plan.egressNetworkName]: {},
+              },
+            };
+          } else observed.NetworkSettings = { Networks: { none: {} } };
+          return Object.freeze({
+            status: 0,
+            signal: null,
+            stdout: argv.includes("inspect") ? JSON.stringify([observed]) : "",
+            stderr: "",
+            outputExceeded: false,
+          });
+        },
+      });
+      const result = await fixture.runtime.cleanupOwnedResources(
+        fixture.plan,
+        fixture.recoveryCapability,
+        fixture.managementCapability,
+      );
+      const expected = init === undefined || init === null || init === false;
+      assert.equal(result.confirmed, expected, `${purpose}:${String(init)}`);
       assert.equal(
         fixture.invocations.filter((call) => call.argv.includes("rm")).length,
         expected ? 1 : 0,

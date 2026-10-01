@@ -9,6 +9,7 @@ import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { codexAdviceProviderInitRequired } from "./codex-advice-distribution.ts";
+import { dockerContainerInitObservationMatches } from "./docker-container-init-observation.ts";
 import { createWindowsDockerCliEnvironment } from "../core/windows-child-environment.ts";
 import {
   acquireRuntimeOwnedDockerRuntimeStateKernelLock,
@@ -4383,10 +4384,11 @@ export function recoverExactDockerResourceWithRunner(
       ) &&
       hostConfig?.PidsLimit ===
         (purpose === "create_subscription_auth_probe" ? 32 : 64) &&
-      (purpose === "create_provider" &&
-      codexAdviceProviderInitRequired(operationMode, expectedImage)
-        ? hostConfig?.Init === true
-        : hostConfig?.Init === null || hostConfig?.Init === false) &&
+      dockerContainerInitObservationMatches(
+        hostConfig,
+        purpose === "create_provider" &&
+          codexAdviceProviderInitRequired(operationMode, expectedImage),
+      ) &&
       networkNames.length === expectedNetworks.length &&
       networkNames.every(
         (networkName, index) =>
