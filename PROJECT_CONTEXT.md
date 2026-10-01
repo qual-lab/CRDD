@@ -42,7 +42,7 @@ CRDDはv0.21.0を公開済みで、v0.22.0の実装・検証を進めている�
 
 ### 結論
 
-現在、この継続作業で追加の人間判断は必要ない。Claude助言の最大2ターンPilotは承認され、新しい署名の一致も確認した。HTTP通信失敗で残った同じ回復IDは、人間承認後の検証付きDocker再起動とTask回収で処置した。その後の通信分類付き限定診断ではHTTP失敗は再現せず、Claude開始・終了0と資源回収を観測したが、結果Envelopeの検査で拒否した。未解決回復ID・活動中Home結合はともに空である。次はEnvelope拒否条件を切り分ける。Codex助言は公開HTTP経由で成功したが、Claude助言と全Workbench E2Eは未成立である。詳細は[通信分類付き限定診断](99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md#同じ署名候補のhttp分類付きclaude限定診断)を参照する。
+現在、この継続作業で追加の方針判断は必要ない。Claude助言の最大2ターンPilotは承認済みで、署名候補では開始・終了0と回収を観測したが、結果Envelopeの検査で拒否した。Inspectorによる条件計測は結果取得前の通信失敗で未成立となり、同じ回復IDを人間承認後の再起動とTask回収で処置した。未解決回復ID・活動中Home結合はともに空である。計測の反復を止め、受理条件を変えず通常Parserの拒否理由を5層へ分離した。静的・局所回帰とSource・文書・直接影響の限定独立確認は成功し、新署名の準備を進める。署名時の秘密入力は引き続き人間が行う。Codex助言は公開HTTP経由で成功したが、Claude助言と全Workbench E2Eは未成立である。詳細は[通常診断への切替](99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md#envelope計測の未成立と通常診断への切替)を参照する。
 
 Workbenchの新モデル移行では、起動時のTool許可集合を固定する最小Adapterの追加が承認された。助言用の操作禁止を維持し、局所反証と独立レビュー後に再署名・実Provider E2Eへ進む。6.1 Sol標準／6 Luna軽量用途へのモデル方針も承認済みである。現在のPilot継続に追加の方針判断は不要であり、署名時の秘密入力は人間が行う。この承認をRelease承認とは扱わない。Repository IDの正式固定は、Project Context契約の固定時に改めて人間が判断する。
 

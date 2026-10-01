@@ -12,6 +12,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { dockerProcessControllerPublicCompletionReasons } from "../../src/security/docker-process-controller-result-reasons.ts";
+import { coordinatorTaskPublicReasons } from "../../src/security/coordinator-task-result-reasons.ts";
 import {
   extractWorkbenchAiAdviceProviderOutput,
   WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_REASONS,
@@ -32,12 +33,12 @@ const ADVICE = Object.freeze({
 /**
  * 助言抽出の全拒否理由を閉じた公開語彙へ接続する。
  *
- * @responsibility 六つの独立した拒否入力から実際の理由集合を取得し、宣言集合と公開集合の欠落を検出する。
+ * @responsibility 各独立した拒否入力から実際の理由集合を取得し、宣言集合と公開集合の欠落を検出する。
  * @trace ERB-UT-023
  * @precondition 不正入力、JSONL、Tool EventおよびClaude Envelopeの固定反例を用意する。
  * @stimulus 各反例を実抽出器へ渡して拒否理由を取得する。
  * @observation 状態、理由、結果本文の不存在と公開Registryのexact inclusionを観測する。
- * @oracle 観測した六理由が宣言集合と一致し、全件が公開可能で、同prefix自由文は含まれない。
+ * @oracle 観測した全理由が宣言集合と一致し、全件が公開可能で、同prefix自由文は含まれない。
  * @cleanup N/A: 文字列と不変Registryだけを扱い外部資源を作らない。
  * @boundary ERB-UT-023=Direct Boundary: Provider出力抽出→固定診断語彙
  */
@@ -56,7 +57,17 @@ test("助言抽出の全拒否理由を閉じた公開語彙へ接続する", ()
         .join("\n"),
     ],
     ["codex", JSON.stringify({ type: "turn.completed" })],
+    ["claude", "null"],
     ["claude", "{}"],
+    ["claude", '{"type":"result","subtype":"success","is_error":false}'],
+    [
+      "claude",
+      '{"type":"result","subtype":"success","is_error":false,"num_turns":1}',
+    ],
+    [
+      "claude",
+      '{"type":"result","subtype":"success","is_error":false,"num_turns":1,"total_cost_usd":0}',
+    ],
   ] as const;
   const observed = new Set<string>();
   for (const [provider, raw] of cases) {
@@ -67,7 +78,7 @@ test("助言抽出の全拒否理由を閉じた公開語彙へ接続する", ()
     assert.ok(typeof result.reason === "string");
     observed.add(result.reason);
   }
-  assert.equal(observed.size, 6);
+  assert.equal(observed.size, 10);
   assert.deepEqual(
     [...observed].sort(),
     [...WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_REASONS].sort(),
@@ -77,6 +88,12 @@ test("助言抽出の全拒否理由を閉じた公開語彙へ接続する", ()
   );
   for (const reason of observed)
     assert.equal(publicReasons.has(reason), true, reason);
+  for (const reason of observed)
+    assert.equal(
+      new Set<string>(coordinatorTaskPublicReasons).has(reason),
+      true,
+      reason,
+    );
   assert.equal(
     publicReasons.has("workbench_ai_caller_controlled_secret"),
     false,
@@ -361,4 +378,100 @@ test("ClaudeのError、Turn上限外、Cost不正および出力欠落を拒否�
     assert.equal(result.status, "blocked");
     assert.equal(result.adviceJson, null);
   }
+});
+
+/**
+ * Claude拒否層の優先順と受理集合の不変を確認する。
+ *
+ * @responsibility 固定理由の細分化が受理条件や秘密情報の公開を変えないことを検証する。
+ * @trace ERB-UT-023
+ * @precondition 成功Envelopeと各層の単独・複合反例を用意する。
+ * @stimulus 反例および成功条件の組合せを実抽出器へ渡す。
+ * @observation 拒否理由、助言本文不存在、metadata非公開と成功集合を観測する。
+ * @oracle 最初の不成立層だけを返し、旧七条件と受理結果が一致する。
+ * @cleanup N/A: 局所のJSON解析だけで外部資源を作らない。
+ * @boundary ERB-UT-023=Direct Boundary: Claude Envelope→固定理由→公開理由集合
+ */
+test("Claude拒否層は先頭不成立だけを返し受理集合を変えない", () => {
+  const baseline = {
+    type: "result",
+    subtype: "success",
+    is_error: false,
+    num_turns: 1,
+    total_cost_usd: 0,
+    structured_output: ADVICE,
+    session_id: "private-marker",
+  };
+  const cases: readonly (readonly [Record<string, unknown>, string])[] = [
+    [{ type: "private-marker" }, "completion_invalid"],
+    [{ subtype: "private-marker" }, "completion_invalid"],
+    [{ is_error: true }, "completion_invalid"],
+    [{ num_turns: 3 }, "turn_count_invalid"],
+    [{ num_turns: "private-marker" }, "turn_count_invalid"],
+    [{ total_cost_usd: -1 }, "metadata_invalid"],
+    [{ total_cost_usd: "private-marker" }, "metadata_invalid"],
+    [{ structured_output: undefined }, "structured_output_invalid"],
+    [{ structured_output: [] }, "structured_output_invalid"],
+    [{ structured_output: "private-marker" }, "structured_output_invalid"],
+    [
+      {
+        is_error: true,
+        num_turns: 3,
+        total_cost_usd: -1,
+        structured_output: null,
+      },
+      "completion_invalid",
+    ],
+    [
+      { num_turns: 3, total_cost_usd: -1, structured_output: null },
+      "turn_count_invalid",
+    ],
+    [{ total_cost_usd: -1, structured_output: null }, "metadata_invalid"],
+  ];
+  for (const [overrides, suffix] of cases) {
+    const result = extractWorkbenchAiAdviceProviderOutput(
+      "claude",
+      JSON.stringify({ ...baseline, ...overrides }),
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(result.reason, `workbench_ai_claude_${suffix}`);
+    assert.equal(result.adviceJson, null);
+    assert.equal(JSON.stringify(result).includes("private-marker"), false);
+  }
+  for (const raw of ["null", "[]", "not-json"])
+    assert.equal(
+      extractWorkbenchAiAdviceProviderOutput("claude", raw).reason,
+      "workbench_ai_claude_envelope_invalid",
+    );
+  for (const type of ["result", "other"])
+    for (const subtype of ["success", "error"])
+      for (const is_error of [false, true])
+        for (const num_turns of [1, 2, 0, 3, 1.5, "2", null])
+          for (const total_cost_usd of [0, -1, "0", null])
+            for (const structured_output of [ADVICE, null, []]) {
+              const result = extractWorkbenchAiAdviceProviderOutput(
+                "claude",
+                JSON.stringify({
+                  type,
+                  subtype,
+                  is_error,
+                  num_turns,
+                  total_cost_usd,
+                  structured_output,
+                }),
+              );
+              const oldAccepted =
+                type === "result" &&
+                subtype === "success" &&
+                is_error === false &&
+                typeof num_turns === "number" &&
+                Number.isInteger(num_turns) &&
+                num_turns >= 1 &&
+                num_turns <= 2 &&
+                typeof total_cost_usd === "number" &&
+                Number.isFinite(total_cost_usd) &&
+                total_cost_usd >= 0 &&
+                structured_output === ADVICE;
+              assert.equal(result.status === "confirmed", oldAccepted);
+            }
 });

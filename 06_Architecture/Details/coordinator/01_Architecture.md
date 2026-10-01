@@ -306,6 +306,18 @@ Effect／cleanupを独立観測
 - Executor Coreと署名Runtime Adapterの間では、Operation、Profile、Task／Projection Hash、Provider PromptおよびProvider Command Hashを`ADVICEPKT-*`へ固定する一回消費Packetを使用する。PacketはRepository／Workspace共有、ToolおよびSessionを常に`false`とし、別Ownerによる消費、再利用および未使用取消後の利用を拒否する。Packet発行だけではProvider Effect Authorityを生成しない。
 - 署名Coordinatorの実Docker lifecycleへ`workbench_advice`専用Modeを接続する。Boolean ProbeまたはWorkspace付き一般Taskを流用せず、署名配布物Capability、Operation世代、元Repository Identity結合、Provider Home、Selection、限定Egress、取消、Docker Recovery、Host cleanupおよび最終Recovery確定を同じLifecycleで所有する。元Repositoryへの結合はSelection AuthorityのScope確認にだけ用い、ProviderへのRepository／Workspace Mount、Path搬送または任意読取りAuthorityを生成してはならない（MUST NOT）。Task／Projection／Profile／Command Identityを一回消費Packetへ結合し、HostとDockerのcleanupが確定するまで助言JSONを公開してはならない（MUST NOT）。
 
+Claude助言の拒否理由は、通常の結果搬送で次の順に検査する。最初に不成立となった層だけを返し、後続条件が成立したことや外部CLIの原因まで確定したことを意味しない。受理条件、Turn上限、取消、資源回収および自動再送禁止は変更しない。
+
+| 検査順 | 不成立の範囲 | 固定理由 |
+|---|---|---|
+| 1 | 一意なJSONの通常Recordではない | `workbench_ai_claude_envelope_invalid` |
+| 2 | `result`／`success`／非Errorの完了状態ではない | `workbench_ai_claude_completion_invalid` |
+| 3 | 整数の1〜2Turnではない | `workbench_ai_claude_turn_count_invalid` |
+| 4 | Cost情報が有限の非負数ではない | `workbench_ai_claude_metadata_invalid` |
+| 5 | `structured_output`が欠落、または通常Recordではない | `workbench_ai_claude_structured_output_invalid` |
+
+固定理由以外の値、Turn数実値、Cost値、回答本文またはSession情報を診断へ追加しない。結果Schemaの形は維持するが、公開理由の閉集合は拡張するため、新しい署名Runtime Identityで区別する。旧候補の観測理由を書き換えず、旧版の固定理由集合との互換性を推定しない。
+
 <a id="development-provider-measurement"></a>
 
 ### 7.5.1 Codex助言専用の起動制限

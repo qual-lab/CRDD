@@ -1098,6 +1098,31 @@ Operation `OP-182657429629475702379013079733819433815`ではProvider開始・完
 
 Process Tree終了、Container／Network不存在、cleanup、HTTP listener終了、計測復元、計測pending 0、Canonical不変およびfresh回復一覧cleanを確認した。計測は`observationFailed: false`、回復ID集合・活動中Home結合集合とも空、manual recovery不要である。これは計測付き診断であり、2ターンPilot成立または通常E2E合格ではない。次は新Parserの固定Hash・行位置・1〜2整数条件に一致した計測で、結果Envelopeの拒否条件だけを確認する。生のProvider回答やCost値は取得しない。
 
+## Envelope計測の未成立と通常診断への切替
+
+新Parserに一致する専用計測を作成し、旧Observerは変更・使用しなかった。Parser Hash `798047171e891f75a64d69981368c97f2d89e20edf854aeaf0ba401b3edb3d02`と行内容を照合し、固定frameから七Booleanだけを取得する。1・2の正常例、各単独不成立、Record不正、hit 0／複数、評価失敗、起動失敗および終了期限超過後のWorker終了を局所反証した。診断Source限定独立確認はPass、Finding 0。固定HashはRunner `7fccc02d455e0463ca07baa00fd25c530769e45e21eb3032c16e2e54ec18661a`、監視入口`c7973c91a8c6e5279d4df39ae7fcdce13d6060b1d77a3f1b0b449184e917f94b`、Worker `76a98c2ef3ec8236120de519249ce08b32cc36130db0732758c79db9c214cc31`である。
+
+署名検証、Provider未起動preflightおよびfresh回復一覧clean後の一回の実測は、Operation `OP-26747554953475072383658963247558321631`で`headers_unobserved / timedOut: false`となった。Provider開始・完了は未観測、計測hit 0で、Envelope条件の取得には到達していない。HTTP listener終了、計測clean・Worker終了とCanonical不変は確認したが、Task作成結果が未確認の回復義務を残した。診断終了コードは1であり、条件取得成功へ読み替えない。
+
+```text
+docker-task.29c9921916f3a63170e77179d3145c8627a2b3519d5813b7c9cf2a87d136d9aa.fdcf66c7b21f91f3155b2279bb80dff7e09d3ebe93cda112a71527d5c76a00c8.00ebf2775d8834fda69ef4a774ad638407538e3cc94adafbd1022ddac2b4dbd4
+```
+
+通常回収は`docker_task_recovery_create_outcome_unknown`で停止し、根拠を保持した。人間の明示承認後、同じIDで検証付き再起動`docker_restart_settled`、続く公開CLIのTask回収`docker_task_recovery_completed`を取得し、両終了コード0を確認した。署名候補を再検証したfresh一覧もclean、manual recovery不要、回復ID・活動中Home結合とも空であった。新しいProvider依頼、永続データ削除およびID置換は回復時に行っていない。
+
+Providerを使わない局所比較では、Inspectorあり／なしの両方で6秒の同期停止を二回挟んだHTTP読取りがすべて成功した。Listener終了、計測復元・pending 0およびInspector Worker終了を確認した。この比較で干渉を再現できなかっただけで、実Provider経路への影響がないと証明したものではない。Inspector計測を実Providerで反復することは止める。
+
+通常診断への切替は、受理条件を変えず、最初の拒否層だけを固定理由へ分離する。着手前の読み取り確認を受け、形式→成功状態→整数1〜2Turn→有限非負Cost情報→通常Recordの出力の順をArchitectureとSourceへ反映した。出力の欠落と型不正を含むため、固定理由は`structured_output_invalid`とし、不存在だけを主張しない。公開理由の閉集合は拡張するが、結果形、Tool禁止、Authority、再送禁止、cleanup後公開および成功集合は維持する。旧候補の理由を書き換えず、新しい署名Identityで区別する。
+
+| 更新候補の確認 | 結果 |
+|---|---|
+| 静的Gate | Formatter、型、Lint、能力Graph、Runtime Trace、Project Runtime Design Traceは終了コード0。 |
+| 局所意味回帰 | 12ファイル、Portable対象194／194 Pass、6943.5942ms。各拒否層、複合反例の先頭優先、672組の受理集合一致、全10理由の公開集合接続およびControllerの全5層cleanup後搬送を確認した。 |
+| Host境界 | 最初の制限環境実行ではWindows実子孫取消2件が終了観測猶予超過で失敗した。Sourceを変更せず専用Host権限で再実行し、2／2 Pass、1186.4253ms。初回失敗を消去せず、PortableとHostの成立範囲を分ける。 |
+| Repository Checker | 既知の`.git`の`stable-release-tag-identity-mismatch`だけを保持し、error 1／warning 0。更新候補の差分検査は成功した。 |
+| 独立確認 | 固定6ファイルのSource・文書・直接影響レビューは限定Pass、Finding 0。受理集合、全10理由のDocker／Task公開閉集合、5層のcleanup後搬送および秘密非開示を確認した。独立確認者による実試験の再実行は行っていない。 |
+| 署名・実Provider | 新署名およびInspectorなしの実Provider診断は未完了。局所成功や限定レビューPassを助言またはRelease成立にしない。 |
+
 ## Checklist
 
 - [x] 人間承認のモデル方針と旧候補の履歴を区別した。

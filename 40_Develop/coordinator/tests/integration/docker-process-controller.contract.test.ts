@@ -705,48 +705,66 @@ test("Workbench助言出力をcleanup後の助言JSONへ縮約する", async () 
  * @boundary ERB-IT-002=Direct Boundary: Provider抽出→Controller→公開結果
  */
 test("助言抽出の固定拒否理由を清掃後に上位へ搬送する", async () => {
-  const fixture = createFixture(
-    {
-      startCommand: (command: { purpose: string }) => ({
-        started: async () => true,
-        wait: async () => ({
-          status: 0,
-          signal: null,
-          stdout:
-            command.purpose === "start_provider_attached"
-              ? "{}"
-              : command.purpose === "start_subscription_auth_probe_attached"
-                ? createSubscriptionAuthOutput()
-                : "",
-          stderr: "",
-          outputExceeded: false,
+  const cases = [
+    ["null", "workbench_ai_claude_envelope_invalid"],
+    ["{}", "workbench_ai_claude_completion_invalid"],
+    [
+      '{"type":"result","subtype":"success","is_error":false}',
+      "workbench_ai_claude_turn_count_invalid",
+    ],
+    [
+      '{"type":"result","subtype":"success","is_error":false,"num_turns":1}',
+      "workbench_ai_claude_metadata_invalid",
+    ],
+    [
+      '{"type":"result","subtype":"success","is_error":false,"num_turns":1,"total_cost_usd":0}',
+      "workbench_ai_claude_structured_output_invalid",
+    ],
+  ] as const;
+  for (const [raw, reason] of cases) {
+    const fixture = createFixture(
+      {
+        startCommand: (command: { purpose: string }) => ({
+          started: async () => true,
+          wait: async () => ({
+            status: 0,
+            signal: null,
+            stdout:
+              command.purpose === "start_provider_attached"
+                ? raw
+                : command.purpose === "start_subscription_auth_probe_attached"
+                  ? createSubscriptionAuthOutput()
+                  : "",
+            stderr: "",
+            outputExceeded: false,
+          }),
+          terminateAndWait: async () => true,
         }),
-        terminateAndWait: async () => true,
-      }),
-    },
-    {
-      operationMode: "workbench_advice",
-      taskRole: null,
-      taskPacketRef: null,
-      taskPacketHash: null,
-      advicePacketRef: "ADVICEPKT-00112233445566778899AABBCCDDEEFF",
-      advicePacketHash: "a".repeat(64),
-      adviceCommandHash: "b".repeat(64),
-      providerInput: "Give advice from the supplied projection.",
-      workspaceSourcePath: null,
-      workspaceMountMode: null,
-    },
-  );
-  const started = fixture.controller.start(
-    fixture.preparedCapability,
-    fixture.managementCapability,
-  );
-  assert.equal(started.status, "started");
-  const completion = await started.completion;
-  assert.equal(completion.status, "blocked");
-  assert.equal(completion.reason, "workbench_ai_claude_envelope_invalid");
-  assert.equal(completion.normalizedResult, null);
-  assert.equal(completion.cleanupConfirmed, true);
+      },
+      {
+        operationMode: "workbench_advice",
+        taskRole: null,
+        taskPacketRef: null,
+        taskPacketHash: null,
+        advicePacketRef: "ADVICEPKT-00112233445566778899AABBCCDDEEFF",
+        advicePacketHash: "a".repeat(64),
+        adviceCommandHash: "b".repeat(64),
+        providerInput: "Give advice from the supplied projection.",
+        workspaceSourcePath: null,
+        workspaceMountMode: null,
+      },
+    );
+    const started = fixture.controller.start(
+      fixture.preparedCapability,
+      fixture.managementCapability,
+    );
+    assert.equal(started.status, "started");
+    const completion = await started.completion;
+    assert.equal(completion.status, "blocked");
+    assert.equal(completion.reason, reason);
+    assert.equal(completion.normalizedResult, null);
+    assert.equal(completion.cleanupConfirmed, true);
+  }
 });
 
 /**

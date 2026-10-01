@@ -21,6 +21,10 @@ export const WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_REASONS = Object.freeze([
   "workbench_ai_codex_tool_event_forbidden",
   "workbench_ai_codex_final_message_invalid",
   "workbench_ai_claude_envelope_invalid",
+  "workbench_ai_claude_completion_invalid",
+  "workbench_ai_claude_turn_count_invalid",
+  "workbench_ai_claude_metadata_invalid",
+  "workbench_ai_claude_structured_output_invalid",
 ] as const);
 
 const MAXIMUM_RAW_BYTES = 262_144;
@@ -127,14 +131,14 @@ function extractCodex(raw: string) {
 /**
  * Claude JSON envelopeからSchema検証済み出力を抽出する。
  *
- * @responsibility 1〜2Turnの整数上限、非Error、有限Cost metadataおよびstructured_output存在を確認する。
+ * @responsibility 1〜2Turnの整数上限、非Error、有限Cost metadataおよびstructured_outputの通常Recordを確認し、最初の不成立層だけを固定理由で返す。
  * @trace ARCH-000015
  * @input raw: Claude CLI JSON envelope。
  * @returns structured_outputの一意なJSON文字列または拒否結果。
  * @precondition rawは`--output-format json`出力である。
  * @postcondition Provider metadataを除きstructured_outputだけを再直列化する。
  * @effect N/A: JSONを解析・再直列化するだけである。
- * @failure 不正Envelope、Turn数不一致、Error、Cost不正または出力欠落を拒否する。
+ * @failure 形式、成功状態、Turn数、Cost情報、出力の順に不成立を拒否する。出力不正には欠落と非通常Recordを含む。
  * @invariant Session IDとUsageを返さない。
  * @boundary Claude JSON envelopeと共通助言JSONの間。
  * @security Provider metadataと生出力を公開しない。
@@ -142,21 +146,29 @@ function extractCodex(raw: string) {
  */
 function extractClaude(raw: string) {
   const envelope = parseUnambiguousJsonDocument(raw);
+  if (!isRecord(envelope))
+    return blocked("workbench_ai_claude_envelope_invalid");
   if (
-    !isRecord(envelope) ||
     envelope.type !== "result" ||
     envelope.subtype !== "success" ||
-    envelope.is_error !== false ||
+    envelope.is_error !== false
+  )
+    return blocked("workbench_ai_claude_completion_invalid");
+  if (
     typeof envelope.num_turns !== "number" ||
     !Number.isInteger(envelope.num_turns) ||
     envelope.num_turns < 1 ||
-    envelope.num_turns > 2 ||
+    envelope.num_turns > 2
+  )
+    return blocked("workbench_ai_claude_turn_count_invalid");
+  if (
     typeof envelope.total_cost_usd !== "number" ||
     !Number.isFinite(envelope.total_cost_usd) ||
-    envelope.total_cost_usd < 0 ||
-    !isRecord(envelope.structured_output)
+    envelope.total_cost_usd < 0
   )
-    return blocked("workbench_ai_claude_envelope_invalid");
+    return blocked("workbench_ai_claude_metadata_invalid");
+  if (!isRecord(envelope.structured_output))
+    return blocked("workbench_ai_claude_structured_output_invalid");
   return confirmed(JSON.stringify(envelope.structured_output));
 }
 
