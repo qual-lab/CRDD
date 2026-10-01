@@ -783,6 +783,55 @@ CLI喪失の失敗を回収済みという最終値だけで取り消さない�
 
 今回所有する診断Containerは結果をGit管理外の検証記録へ保存した後、上記exact ID・Image・所有label・停止状態・Host共有なしを確認して通常削除し、fresh一覧で不存在を確認した。記録更新後のChecker session `55135`は終了コード1、Error 1／Warning 0で、既知の`stable-release-tag-identity-mismatch`だけだった。Repository全体Passへ読み替えない。
 
+### 合成認証ファイルの読取り互換性（2026-10-01）
+
+旧`0.149.1`と専用`0.159.2`は、合成した旧形・新形の認証ファイルを両方読めた。四ケースとも終了コード0、固定`Logged in using ChatGPT`分類、認証ファイルの実行前後Hash一致、UID／GID 65534所有・mode 0400を確認した。これは保存形式の認識だけであり、認証有効性、Subscription、更新・書戻し互換性または本番利用の証明ではない。
+
+[公式認証説明](https://learn.chatgpt.com/docs/auth)は認証キャッシュの共有と自動更新を説明するが、対象二版間の互換性保証ではない。固定`0.159.2` Sourceの`login/src/auth/storage.rs`、`token_data.rs`と`auth/manager.rs`を読み、`OPENAI_API_KEY`、`tokens`、`last_refresh`、任意の`auth_mode`と追加認証方式Fieldを確認した。`persist_tokens`は既存保存値をloadし、応答に存在するID／access／refresh tokenだけを更新し、`last_refresh`を変更してsaveする。file backendは既存fileをtruncateしてJSONを書き、flushする。このSource照合を実書込みや並行更新の成立へ読み替えない。
+
+| 固定条件 | 確認結果 |
+|---|---|
+| 通常CLIのbase | `sha256:e7fefafffd4b96614811b2d51b9704d3280e4995c358ed5e25ec795215dbd45c`。通常配布物は変更していない。 |
+| 専用CLIのbase | 前節の`sha256:843db607376a454cb7c901e76d4da1d168d6e384912366448df3363b42624d36`。 |
+| 旧形fixture | 明示dummyの非秘密JWT、架空account、dummy access／refresh、`OPENAI_API_KEY=null`、`last_refresh`。SHA-256 `bd0971600c09aa617ee61cca442a2a6a3c650e6e45defa8667f1c67bb3de3d65`。 |
+| 新形fixture | 旧形へ`auth_mode=chatgpt`だけを追加。SHA-256 `49d44a16a831ffad763a72b4dc466ea2ee39c54b204fb8a8d9f539ee14630104`。 |
+| 試験Image | 通常版 `sha256:d8f57c1439b1520b8e831f2c64a4db3c3904c84d1e0b425796ebbdea6f0fb809`、専用版 `sha256:a2df8c3f76c10217cca83901c38717909788f2166fe7f6c21cfe0f1cd76dd173`。base tagをBuild前にDigest照合し、派生Imageのbase Layer列も照合した。 |
+| Runner | Git管理外の`read-compatibility.ts`、SHA-256 `84f597e2d6672f07baf2556068c4e5a8bcecac3c44f9bf139f31dcb809d86ab2`。専用Dockerfile `56dec552cf698ed901daf3ddfefbb895d8f4613919f5f444f8f6904db8192596`。Formatter・strict型検査・警告を失敗とするLintを通過。 |
+| 隔離と結果 | ケースごとに独立したContainer、Home Pathと読取り専用合成fileを使い、Host bindなし、network none、非root、read-only root、cap-drop ALL、no-new-privileges、pids-limit 64とした。未知診断、非zero、Hash変化や読取り不明を成功にしない。生stdout／stderrは保存・公開せず固定分類だけを記録した。終了後に所有labelのContainer一覧が空であることを確認した。 |
+
+最初の二Build指定はbase参照の解決に失敗し、認証試験へ進まなかった。Buildのnetwork noneはRUNのNetwork境界であり、metadata解決の外部照会まで無効にするものとは主張しない。以後はローカルtagのexact Digestと派生Layer列を照合した。初回の四ケースはCOPYの0400が親Directoryへも適用されたため、認証判定前の読取り拒否だった。Directoryだけ0555へ是正し、認証fileの0400を維持した。旧四失敗は`verification-result.json`、是正後は別の`verification-result-r2.json`へ保存し、上書きしていない。
+
+専用RootはRepository-local `.crdd/tmp/codex-advice-auth-compat-20261001`で、Ownerはcoordinator-maintainer、保持上限は2026-10-08、清掃条件はexact Root、実行中資源と未解決参照の不存在確認である。実Credential、既存Home、Repository共有、実Provider要求、Docker再起動および永続Dockerデータ削除は使っていない。外部要求を試みたことの不存在は主張しない。既存Homeへの接続前に、実更新後の旧版再読取り、書込み方式と並行利用、本番のHost回収を引き続き確認する。
+
+独立レビューでは、r2 Runnerに二つの不足を指摘された。Dockerクライアントのtimeout後にContainerが残る場合のexact回収契約と、stdoutに余分な行がある場合の拒否が不足していた。上表のr2観測を取り消したり本番成立へ昇格したりせず、統合した是正方針を確認者へ返して整合確認後にr3へ是正した。
+
+| r3の是正・確認 | 結果 |
+|---|---|
+| 所有資源の回収 | createが返した64桁exact IDを直ちにfinallyの対象とし、Image・所有label・隔離条件を再確認してから停止・通常削除する。作成結果不明や所有不一致では推測した名前を削除Authorityへしない。回収不明では次ケースを停止する。 |
+| 出力の閉集合 | stdoutは前Hash・所有属性・後Hashの三行だけ、stderrは固定login通知と既知のread-only Warningだけを受理する。CRLFをLFへ統一し、末尾改行を必須とする。余分な行、欠測、重複、順序違い、Hash／mode不一致および未知stderrは拒否する。純粋判定試験は1件成功、失敗0件。 |
+| 静的確認 | 初回の専用Biome設定とNode module設定、errno型判定およびfinally内throwに不足があり、実境界試験前に是正した。専用Rootを実行DirectoryにしてFormatterを実行し、strict型検査とWarning拒否Lintは終了0。LintのInfo 5件はWarning／Errorとは区別した。 |
+| 四読取りケース | r3も旧版／新版と旧形／新形の全四組合せが終了0、厳密出力判定成功、各Container回収確認済み。 |
+| timeout反例 | exact Container `95a4d2381106ba6dd4a6a343249cb3a3bffccd6a6a078bc57cdb836ec0394be6`でattachの1000ms timeout後に実稼働を観測した。同じIDの停止、停止状態、削除およびfresh一覧で不存在を確認した。クライアント終了を資源回収と同一視していない。 |
+| 固定入力と結果 | Runner SHA-256 `eca2a103e3e48ca3548ae024710932f0547984f25198a176cca49ab845a2d69b`、判定Source `3fb3b3230169c5593d3c80ce3ad0a5d38a454c6a4ed93e7b9c13aed84eff2428`、判定試験 `6f6cc5da1f63b9fddf9b26d8f49a9bef0f6a00a590a5db0533229880a991b900`。別保存した`verification-result-r3.json`は`fe968945ebfc5d581cabf1fec3a5b8f0cd4dd90ff07c51c7d09da6be170c9e63`、failures 0、executionUnconfirmed false。 |
+
+r3実行後の所有labelによるfresh一覧は終了0・空だった。この一覧は名前から削除対象を決める根拠ではなく、終了後の補足観測だけに使った。今回の修正と観測は合成読取りと局所回収に限定し、認証更新、並行書込み、本番Host回収、Production接続またはE2Eの成立は主張しない。
+
+r3の再レビューでは閉出力判定とtimeout後のexact回収を確認した一方、所有照合にHome・User・実行コマンドの不足が残った。r3を履歴として維持し、是正方針の整合確認後にr4を別保存した。固定baseと派生Imageの全既定環境値が事前固定値へ一致することを確認し、各Containerの全環境key／value、重複不存在、HOME／CODEX_HOME、自動更新禁止、UID／GID、Entrypoint、固定scriptとWorkingDirを起動前・timeout後・清掃前・停止後に同じ期待値へ照合した。不一致や観測不能では操作せず、exact ID、実行段階、清掃段階と清掃未確認を保持して次ケースを止める。任意のImage環境を期待値として無条件に受け入れない。
+
+| r4の固定候補 | 結果 |
+|---|---|
+| Source | Runner SHA-256 `011c1598f93adfc8e5afe22728778905ab28f1db59da6f29779116b2e1f4d132`、所有構成判定 `3e69436c80f15f9c5519633bde4e0b5f4f534252cdf39f784c141db30103e425`、所有構成反例試験 `a9ce8422166856bded8bd2445655aba9429509af7f9817ed0bf5b0550e55cec4`。閉出力判定とその試験はr3から変更していない。 |
+| 静的確認・純粋試験 | Formatter、strict型検査、Warning拒否Lintは終了0。Info 5件。閉出力試験と所有構成試験は2件成功。別Home、重複環境key、別script、別User、別WorkingDir、別Entrypointと自動更新値不一致を拒否した。 |
+| 四読取りケース | r4も全四組合せが終了0、厳密判定成功、各exact Containerの回収とfresh不存在を確認した。 |
+| timeout反例 | exact Container `2ed01c988dbab3e70688ebd6edafb3fb4a0d312efc47ee1d76086a703b9a87a6`でクライアントtimeout後の実稼働と同じIDの回収を確認した。 |
+| 結果 | `verification-result-r4.json` SHA-256 `6eb3d5d4cdfbc54eab228db9ebe58b67b524f88a2314c459e1bb95de463881af`。failures 0、executionUnconfirmed false。実行後の所有label一覧も終了0・空。 |
+
+r4でも実認証、更新・並行互換、本番Host回収、Production接続とE2Eは未確認である。今回の追加確認をQA全体の完了やRelease準備完了へ読み替えない。
+
+r4の固定Source、保存結果と本節の記録整合は、再レビューで対象限定Pass、残るFinding 0件だった。Docker実状態や試験結果の独立再取得ではない。Production実装、署名Runtime、QA集計およびRelease判断は変更していない。
+
+記録更新後のRepository Checker session `70306`は終了コード1、Error 1／Warning 0で、既知の`stable-release-tag-identity-mismatch`だけだった。`git diff --check`は成功した。Checker全体Passとは表示しない。
+
 ## Checklist
 
 - [x] 人間承認のモデル方針と旧候補の履歴を区別した。
