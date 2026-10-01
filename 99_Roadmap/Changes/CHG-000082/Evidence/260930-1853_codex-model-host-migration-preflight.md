@@ -1044,6 +1044,16 @@ docker-task.29c9921916f3a63170e77179d3145c8627a2b3519d5813b7c9cf2a87d136d9aa.5f7
 
 次の処置は、Docker Desktopの通常起動に関する人間判断を得たうえで現在状態を確認し、同じIDの再起動記録の確定とTask回復を行うこと。その後、通信失敗とEnvelope条件不一致を切り分ける。通常起動については確認待ちであり、再起動の反復、新しいProvider依頼、永続Dockerデータ削除は行っていない。Phase 5と残る品質Gateは未完了のまま保持する。
 
+## 通常起動後の同一回復とClaudeターン上限の実測
+
+人間がDocker Desktopの通常起動を承認した後、署名Valid・Docker Inc発行者の固定実行物を一度起動した。Docker Desktop 4.93.0、Engine 29.8.1の応答を取得した。既存のexact回復IDで再入場し、`docker_restart_settled / settled / cleanupConfirmed: true / restartCompleted: true`を取得した。この操作をTask回復と混同せず、続いて公開CLIの`--recover-isolation`と`--after-recorded-docker-restart`を同じIDへ指定し、`recovered / docker_task_recovery_completed`、終了コード0を取得した。fresh一覧は`docker_task_runtime_state_clean`、manual recovery不要、回復ID集合・活動中Home結合集合とも空であった。永続Dockerデータ削除や新しいProvider依頼は、回復操作では発行していない。
+
+その後、同じ署名Runtimeと承認済み固定TaskでClaude助言限定診断を一回実行した。診断Toolの固定HEADは文書だけ更新した`506f7980e04aa6279f2ebad9eb60e5979a40da36`であり、Runtimeの署名対象7c045f10とは分離した。診断Tool Hashは`6c9abf27d6f30a222c3ef66fa689f828ef43a41b23162645add390de48be7faf`。変更は固定Tool改訂と、HTTP失敗時のBoolean `timedOut`／閉集合`transportPhase`の分類だけである。局所合成確認とSource限定独立確認はPass、Finding 0。Providerを起動しないpreflightでも固定候補条件を確認した。
+
+実行Operationは`OP-272930208013340512094882696218660698120`。Provider開始・完了を観測し、終了classは`one`、拒否理由は`provider_turn_limit_exceeded`であった。Process Tree終了、Container／Network不存在、cleanup成立、HTTP listener終了、監視Worker終了とfresh一覧cleanを確認した。Envelope監視はhit 0であり、Envelope条件そのものは未観測である。結果は診断失敗／全E2E未成立として保持し、資源回収成功を助言成功へ読み替えない。
+
+この実測は現行`--max-turns 1`の上限到達を示すが、以前の`workbench_ai_claude_envelope_invalid`まで同じ原因と断定しない。次の検討対象は、一つの人間依頼・一回送信・Repository非共有・Tool禁止を維持したまま、Claudeの内部結果生成を有限ターンで試行することの可否である。現行Architectureの1ターン固定とParserの`num_turns === 1`を無断で緩和しない。現在はその方針判断待ちであり、Runtime Source、署名閉包および上限を変更していない。
+
 ## Checklist
 
 - [x] 人間承認のモデル方針と旧候補の履歴を区別した。
