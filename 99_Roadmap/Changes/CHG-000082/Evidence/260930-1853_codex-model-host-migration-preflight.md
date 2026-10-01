@@ -705,6 +705,38 @@ helperが子をforkし、未execの直接子にpidfdを確保してから起動g
 
 本節の記録独立確認は範囲限定Pass、Finding 0件。記録更新後のChecker session `61671`は終了コード1、Error 1／Warning 0、20161msで、既知の`stable-release-tag-identity-mismatch`だけを返した。今回の文書構造Findingは0件であり、Repository全体のPassを主張しない。
 
+### 通知満杯と公開CLIのオフライン取消実測（2026-10-01）
+
+固定mockによる通知満杯の反証と、固定公開CLI・公式Hostを使う取消／親CLI喪失の局所観測まで進めた。本番Coordinator、`ERB-ST-030`全体、署名E2E、全回帰またはReleaseの合格ではない。
+
+| 確認 | 結果 | 限定範囲 |
+|---|---|---|
+| 実FIFOの通知満杯 | readerを保持したままnonblocking書込みを行い、1 byteでも`EAGAIN`になる状態を確認。helper結果2、close、全Processがobserverだけへ戻ること、FIFOの不存在を確認した。 | 特定通知段の特定や全通知段の切断ではない。 |
+| FIFO作成後の失敗 | 独立レビューで作成処理の所有範囲漏れ一件を検出し、清掃用tryへ移した。作成直後の固定失敗から、元理由の保持・FIFO不存在・observerだけへの復帰を確認した。 | 固定mockと試験Runnerの清掃反例。 |
+| 実CLIのSIGINT取消 | 実際の保留Cell ID `1`、CLIと一意な直下公式Hostの世代・実行物Hash・UIDを確認してから注入。Signal受理、直接子reap、helper close、終了後の全Process一覧、fixtureの全Socket／listener終了を確認した。 | init付き専用Container、rootの試験observer、dummy認証、オフライン刺激だけ。 |
+| Hostの親CLI喪失 | 別Containerで同じ開始条件を確認し、CLIだけへSIGKILLを注入。wait状態9と直接子reapを確認し、Hostの残存なく開始時のinit／observer二世代だけへ戻った。 | Coordinatorや試験Runner自身の親喪失を代替しない。 |
+
+通知満杯の履歴`rxg55f5m1hm9pmerz87tt2r5l`は終了コード0、一試験に二反例を配置し、Pass 1／Fail 0、32.5msだった。固定Sourceの独立再確認は対象限定Pass、Finding 0件である。Nodeの通知上限を小さくする前節の合成故障とは異なり、今回は実OSのFIFO満杯を観測した。
+
+実CLIは`0.159.2`のhelpと公式固定SourceのSchemaへ照合した。`features.code_mode_host`は`enabled=true`と`disable_in_process_fallback=true`を併記し、Host不在を内部実行へfallbackさせない。初回は旧設定`features.agents`が認識されず、要求数0で停止した。公式の`multi_agent`／`multi_agent_v2`をfalseへ固定して再実行し、Nativeの許可Tool集合は変更していない。fixtureのdummy認証を固定値へ統一し、取消前の輸送失敗と注入後の予定切断を区別した。書式・警告を失敗とするLint・strict型検査、およびfixture／parser八試験は成功した。
+
+試験Runnerの独立確認では、fixture取得後の同期起動失敗時の所有範囲、helperのstdio回収、Host fallback禁止の三点を是正した。同期起動失敗反例は結果2を保持し、fixture Socket 0、listener停止、observer以外のProcess不存在を確認した。是正Sourceの再確認は対象限定Pass、Finding 0件だった。
+
+初回の実取消では、実Hostが終了した後もNode PID1へ引き取られたZombieが残り、結果2で停止した。この旧結果を成功へ変更していない。[Linux waitの契約](https://man7.org/linux/man-pages/man2/wait.2.html)と[Dockerのinit指定](https://docs.docker.com/reference/cli/docker/container/run/#specify-an-init-process)を照合し、独立した着手前確認の後、孤児のreapを担当するinit付きの試験構成へ変更した。最終走査はobserver終了とContainer停止より前に行い、init／observerのPID・起動tick・親・UID・実行物Hashが開始時と同じであることを確認した。Hostの生存、Zombieまたは読取り失敗は除外していない。initのHashは実観測値であり、事前検証済み固定入力とは区別する。initのreapをCLI自身のHost回収保証や本番構成の保証へ読み替えない。
+
+| 実CLI局所実測 | exact Container ID | 最終結果 |
+|---|---|---|
+| SIGINT取消 | `ce7f10fa9d7d7f608eee24bb3b8637d1ce9a8c59368fa228582695510861cda9` | 終了コード0。実CLI PID 20／起動tick 116709、公式Host PID 73／起動tick 116789。最終Processは開始時と同じinit PID 1とobserver PID 7だけ。 |
+| 親CLI喪失 | `fcff4d45456492509e0421de8d6bc84def7b5dd78ae49197a77a303e566971a9` | 終了コード0。実CLI PID 20／起動tick 117467、公式Host PID 78／起動tick 117508。最終Processは開始時と同じ二世代だけ。 |
+
+固定Buildは`ky0dc62yahpiykdtmn8x8xakz`、imageは`sha256:191717bf0ce22203c2559d7c71cce14c702c171f8b5004d4118a651f4e55a5e8`である。CLI実行物は`366286511b5d8d4d804ca9a7539eb7be7f6ea38f083bf5629e7b12ca828ba1b3`、公式Hostは`5b2c075ac2380fa04d76d7313fbc044d29c8d0a0d0b9138415acd4610211ca03`で、準備時の再ハッシュも一致した。実CLI observer Sourceは`61fcb195800bdf40608eaf8eeebacaedaf760be33003cb396d888c0454e30abc`、fixtureは`45b693bc3480b6c6697f92a97748677fdaf8df5c4a4832905fd1abefd94006b8`、専用Dockerfileは`7161f1a386c9a186f0c8783191b986ba9b913ffbfa687060a652d24073816d16`である。
+
+すべて`network=none`・mountなし・非privilegedであり、実Provider要求、既存Credential Home、Repository共有、Docker再起動、永続Dockerデータ削除を行っていない。Production Source、署名Runtime、QA集計は変更していない。残る補助故障の全分岐、本番相当の入力・権限・Process構成、公開Coordinator取消、署名E2Eおよび全回帰は未確認として保持する。準備物と診断物の保持Owner、上限とexact清掃条件は前節のままである。
+
+本節と固定Source・非追跡結果記録の独立確認は対象限定Pass、Finding 0件だった。確認者はSource Hashと実行Contextへの複製一致、世代前後照合、残存・欠測の拒否、旧失敗の保持、主張の限定を確認した。実Container結果・Build履歴の独立再取得やOS再実行ではない。今回所有する停止済み試験Container五個は、exact ID・image・所有label・mountなし・終了状態を再確認して削除し、不存在を確認した。imageと非追跡準備物は、前述の保持条件で残す。
+
+記録更新後のChecker session `86563`は終了コード1、Error 1／Warning 0、24815msで、既知の`stable-release-tag-identity-mismatch`だけを返した。1156 Markdown、18098 local link、2057 anchorを確認した。Git管理外の局所試験はChecker対象外であり、今回の個別Gate・独立確認を代替しない。Repository全体のPassとは扱わない。
+
 ## Checklist
 
 - [x] 人間承認のモデル方針と旧候補の履歴を区別した。
