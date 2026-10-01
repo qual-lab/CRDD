@@ -1157,6 +1157,26 @@ Codex Operation `OP-26047859075361241791570297628532615605`、Claude Operation `
 
 今回の通信失敗分類は空であり、直前の連続実行失敗は再現しなかった。原因を確定・解消した結果ではなく、計測付きの二助言連続診断が一回成立した結果である。`fullE2eVerified: false`を維持する。変更候補、採否操作および残る品質項目は別Gateであり、通常の全Workbench E2E成立は引き続き未確認である。
 
+## 二助言成立後の候補生成停止と完了結果契約の局所反証
+
+固定ToolのHEADを`da737de87ed88ed0be7e8af8a1a949d34456f181`へ一意に更新し、署名候補26449d19でObserverなしの通常E2Eを実行した。Codex助言`OP-124432988250781684156956607638719647347`とClaude助言`OP-80030064578207822098103677418608813982`は開始・完了・終了class zeroとcleanupまで観測した。次のCodex候補で検証Assertionが失敗し、終了コード1、成功Scenarioは2件。候補Provider境界のEventは未観測であり、これだけからProvider非発行またはEffect 0を主張しない。Listener終了、正本不変、回復一覧cleanを確認した。
+
+同じ助言の反復を避け、候補だけを最大2件扱う診断モードをGit非追跡Toolへ追加した。初回失敗で次依頼を止め、他診断モードと両Observerの併用を拒否する。公開Snapshotのmode・profileとの相関を確認してrequestIdと候補参照を保持し、拒否理由は既存公開Registryと実在する固定理由のexact集合だけを表示する。未知理由は`unclassified_reason`へ伏せる。相関した候補が存在する場合は公開reviewでavailableを確認した後に確認付き破棄を一度だけ発行し、破棄結果不明でも再送しない。
+
+モード集合、初回失敗停止、破棄unknownの再送0、参照保持と秘密marker非開示を局所反証した。Source限定独立レビューはFinding 0でPass。下位Adapterと依頼Applicationの固定理由9件の追加も限定レビューPassであり、独立確認者による実試験の再実行は行っていない。
+
+| 候補専用実測 | 結果 |
+|---|---|
+| 最初の診断 | requestId `ai-request.ca6c2490-b481-468a-82b9-08fa3e5d5905`、status unknown、reason未分類、候補参照null、終了コード1。未知理由の生値は保存していない。 |
+| 固定理由母集合補強後 | requestId `ai-request.1753aef6-127c-4f4d-ab31-eaec651f853a`、status unknown、reason `single_task_completion_observation_invalid`、候補参照null、終了コード1。Claude候補へは進んでいない。 |
+| 終了後条件 | 両診断ともListener終了、正本不変、settlement failureなし、回復一覧clean、manual recovery不要、回復ID・活動中Home結合なし。採用、Commit、Push、Docker再起動、永続データ削除は試験で行っていない。 |
+
+Providerなしの局所反証では、Runtimeの実`createBlocked`関数から生成した拒否結果に、局所Fixtureとして`processRestartRequired: false`を補完した上でSingle Task Adapterへ渡した。これはProducer結果を未変更のまま搬送した証明ではない。この補完条件を固定し、Producerが返す`executorProvider: null`では、元の固定拒否理由が`single_task_completion_observation_invalid`へ変換され、manual recovery必要となった。同じ結果の`executorProvider`だけを未設定、codex、claudeとした三反例では元の拒否理由とmanual recovery不要が保持された。外部依頼、Docker操作および正本書換えは発行していない。
+
+これはProducerとConsumerの結果契約の不一致を実証したものであり、実測時の元の拒否理由を確定した結果ではない。Promise拒否と完了値不正も現在は同じ理由になる。次は元の完了結果を秘密非開示の固定分類で確認し、結果契約と元の停止原因を分けて是正案を確定する。Production修正、拒否条件緩和、再署名および全回帰にはまだ進んでいない。全E2E成立は未確認のままである。
+
+診断Tool Hashは`439dfca5536b543a7335efdc89d312a339d641df56ec336899680219a5c26c58`、モードModuleは`04cb061c2e401d168cf839e17e01122947036a8ee830cd714609a657b5b0b7af`、モード反証は`2b5036348aa6353d3140d6d721399dac292a09bd02022f9c073949361a65c66f`、完了契約反証は`5832b621039f9c990069e19494078838867c21e3f754ec62ee7fc657d5e833bb`である。全てRepository-local `.crdd/tmp`の非追跡診断物であり、署名閉包へ混入させない。
+
 ## Checklist
 
 - [x] 人間承認のモデル方針と旧候補の履歴を区別した。
