@@ -924,6 +924,18 @@ POST後の応答切断、確認済み400、不正Locationまたは結果観測�
 
 実Workbenchへ偽Applicationを注入し、故障HTTP Serverで応答切断と前回結果流用を反証した。実Provider、署名Runner、本番Runtime、Authorityは変更・実行していない。実Provider Runnerの公開入口接続と、配布検証前の動的importを除去するGateは引き続き未完了である。
 
+### 実Provider Runnerの公開受付接続準備（2026-10-01）
+
+既存のRepository-local一時Runnerを、内部Application直呼出しから公開WorkbenchのHTTP接続へ変更した。期待Release Identityの非秘密JSONを同じ検証済みRepositoryの`.crdd`内のregular fileへ限定し、現行検証Toolの署名Verifierが配布物を受理する前に配布物のModuleを読み込まない。CoordinatorのComposition、Recovery、ai-runtimeとversion-controlは署名配布物だけから利用する。
+
+WorkbenchはCoordinator署名閉包に含まれないため、同じ検証Tool Repositoryの固定Sourceと生成Client Assetを別に照合する。署名済みCoordinatorと別固定の公開Workbench Sourceの組合せであり、Workbench自体の署名やBrowser操作の成立を主張しない。Toolの固定Commit、dirty拒否、全追跡ファイルの内容Hash、Client Asset HashとNode版を確認する。
+
+候補破棄は要求のawait前に発行済みを記録し、応答切断後は清掃目的でも再送しない。通常破棄と失敗時清掃の結果を合否判定前に保持する。依頼ID、候補ID、回復IDは元の値のまま保持し、Listener終了、Runtime回復状態と正本Hashを独立収集した後に失敗を集約する。本文、Prompt、Token、生の例外messageとstackは集約へ含めない。
+
+着手前確認と独立レビューで、Root結合、署名閉包の所属、例外による元失敗の上書き、exactな不明結果参照の欠落を是正した。最終RunnerのSource限定レビューはPass、Finding 0件。SHA-256は`a35f5f84507712dad5243adbc4f436ca0c9ea45499a62d413b34482d0bac795b`。構文確認は終了コード0、固定失敗参照の局所3反例は成功。期待Identity未指定と偽Identityでは、それぞれ固定拒否で終了コード1となり、配布物Module、Listener、Providerの開始前に停止した。現行CoordinatorのSource Filesystem検査は`candidate`、終了コード0だった。
+
+以上はRunnerの準備と拒否経路の証拠であり、正しい署名配布物の受理、実Provider要求、取消・回復・資源回収または全体E2Eの成功ではない。実境界の確認は未完了である。
+
 ## Checklist
 
 - [x] 人間承認のモデル方針と旧候補の履歴を区別した。
