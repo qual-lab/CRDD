@@ -832,6 +832,32 @@ r4の固定Source、保存結果と本節の記録整合は、再レビューで
 
 記録更新後のRepository Checker session `70306`は終了コード1、Error 1／Warning 0で、既知の`stable-release-tag-identity-mismatch`だけだった。`git diff --check`は成功した。Checker全体Passとは表示しない。
 
+### 合成認証の更新・書戻しと他版再読取り（2026-10-01）
+
+旧`0.149.1`が更新した合成認証を専用`0.159.2`で読み、逆方向も読み取れることを確認した。r10は両方向とも更新要求1回、固定応答完了、期待したtoken書戻し、account維持、他版読取り、通常EOF終了と資源回収が成立した。これは保存互換性の局所確認であり、実認証、Subscription、本番接続またはE2Eの合格ではない。
+
+実Credentialや既存Homeを使わず、ケース別の合成Homeとloopbackの固定更新応答を使用した。Host bindなし、network none、非root、read-only root、cap-drop ALL、no-new-privileges、固定tmpfsと資源上限で実CLIを動かした。生の認証値、stdout、stderrまたはError本文を保存せず、閉じた分類とHashだけを残した。外部要求を試みたことの不存在は主張しない。
+
+| 確認対象 | 固定結果 |
+|---|---|
+| 試験Image／Build | `sha256:f523bb368aa3171dac423655c0eff6a31c6e5ec4300d33f50e36a2a1fc781415`／`i2i5h8hxtgj1x8rlzpzh96nh8`。前節の旧版・専用版Digestを使用した。Buildのnetwork noneはRUNの境界であり、metadata解決まで無通信とは主張しない。 |
+| 実観測 | 両方向ともrequestCount 1、requestValidated／responseFinished／observedTokenWrite／crossVersionRead／normalTermination true、fixtureFailure／protocolFailure null、childExit 0、emergencyTerminationIssued false、listenerClosed true、remainingSockets 0。 |
+| 出力判定 | 応答の順序、重複、閉じたField、Sourceで確認した通知とtimestampを検査した。未知出力、余分な行、未完了JSONと未知stderrを拒否する。finally後にも最終HTTP状態を再評価し、遅延エラーや追加要求を清掃成功で隠さない。純粋反例試験4件成功、失敗0件。 |
+| 静的Gate | r10はFormatter、strict型検査、Warning拒否Lintを通過後に実行した。 |
+| exact回収 | Container `d2d15f10f18749e9eb3ac2af6a5a2e6a0f2bcae5a872850d7164dd35cd44788a`のIdentity・Image・構成・所有labelを再確認し、通常削除後のfresh不存在を確認した。回収不明では次ケースへ進まない。 |
+| Source Hash | observer `f6a305ddd721135e65a772e141ad60920bc067f408f6fe4c274e22152869d078`、出力判定 `5491712b83d8882a8a918d17f30ab3a1f44756a6902a02bb476cc61cc3d18984`、反例試験 `89ca02d7ac1e041075b57e05cb70d89e358fa8c0169aad784ec5ae895623f567`、Runner `78ef0fe6bb641cbf23b638a6a631958c7dedc691cf3b0cb6f4f7650c4f636b94`。 |
+| Dockerfile／結果Hash | `73565301d7019ba4f5a871a505fb0964add638aa005b23b2556202c4aecba4e0`／`verification-result-r10.json`: `5d02f691e0bd5a842e1020fed74524048cbd8501e8562a36796f9ce57a56d59b`。 |
+
+失敗履歴は上書きせず保持した。r1は起動前のDocker Cmd表現差、r2〜r4は固定通知の判定不足、r7〜r8は通知timestamp Field不足で拒否した。r5／r9の正常観測後も独立レビューで出力・資源所有・最終HTTP判定・反例試験の不足が見つかり、是正してr10を再実行した。r6は静的Gate失敗後に誤って実行したため、有効な検証根拠として採用しない。
+
+共有Homeについては、既存のWindows Kernel Lockを使う独立2 processの同一Home排他と、await中の所有維持・release後失効の2試験が成功した。同じHome bindingはCLI版やImageではなくHome Identityで排他される。ただし実CLIによる並行書込みや本番Home接続を実証した結果ではない。
+
+r10の固定Sourceと保存結果は独立再レビューで対象限定Pass、残るSource Finding 0件だった。実Docker状態・試験結果の独立再取得ではなく、実際のlisten／stdio／socket清掃故障注入も未確認である。本番ContainerのPID1・Host回収、専用Image接続、実認証、署名E2Eと全回帰は引き続き未完了とする。
+
+Git管理外Rootは`.crdd/tmp/codex-advice-auth-refresh-20261001`、Ownerはcoordinator-maintainer、保持上限は2026-10-08である。exact Identity、未解決参照と実行中資源の不存在を確認した別操作で清掃する。期限だけで削除しない。Production実装、署名Runtime、QA集計とRelease判断は変更していない。
+
+追加節の記録整合も独立確認で対象限定Pass、Finding 0件だった。記録更新後のRepository Checkerは終了コード1、Error 1／Warning 0で、既知の`stable-release-tag-identity-mismatch`だけだった。`git diff --check`は成功した。Repository全体Passとは表示しない。
+
 ## Checklist
 
 - [x] 人間承認のモデル方針と旧候補の履歴を区別した。
