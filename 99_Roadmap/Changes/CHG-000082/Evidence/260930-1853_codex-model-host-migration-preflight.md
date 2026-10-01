@@ -1280,6 +1280,41 @@ Sourceと署名候補の該当16ファイルのHash一致を確認した。公�
 
 初回の文書監査・限定Gap／Impact監査はFail、Major指摘は計2件であった。固定対象はProject Context Hash `c492aa9de3d14a4cdf30b655064732d02889c2921931802f98325dd3d1bdfbab`と本Evidence Hash `e39f23febf4141e6f12ef0b638467733ec2c8d363710306157b4a2d9b705b5e9`。旧「再署名・実Providerへ進む」案内と、CHG／Quality入口への停止Gate伝播不足を検出した。全監査結果を統合し、指摘元へ是正方針を再提示して整合確認した後、現在の案内、次Gateおよび判断欄を同じ停止条件へ揃えた。過去結果、Source、署名閉包、診断ToolおよびQuality件数は変更しない。是正後の4文書の限定再確認は、文書監査とGap／Impact監査ともPass、両指摘Resolved、新規Finding 0であった。独立確認者は実試験・Native・Recoveryを再実行していない。対象HashはProject Context `dd109399dd6ef8d4b993b05de8b268ebf29fda8b602c76d9b3fbe51269abbdb8`、CHG本文 `e2a7d3d49f9230d72a9874435d175ee1205b5f3e0c0116b210f879f7f4d36e44`、Quality Center `1088483314ba29d7148cfcc2a8533ec1d2827b9560d68546cb63d5ddda62e167`、本Evidenceの監査結果追記前 `69a63d3bd204eacd74fc525729a7eb399fca7e4b7ed30ddb7ea89b79a59c33d4`で開始・終了一致した。このPassは現在案内と限定記録・直接伝播に限り、実Task再開、Host回収、Authority採用、Quality ReadyまたはReleaseを承認しない。
 
+## Native二十一試験のQuality適用と清掃観測Gap（2026-10-02）
+
+### 結論と変更境界
+
+保存済みNative二十一試験は実行済みであり、各exact試験の一件成功を再確認した。ただし、試験成功とQuality Local Item全体の成立は別である。実Host共通試験はSession終了、登録Task終了とHost reapを確認する一方、試験用Home／Workspaceの所有者清掃後の不存在を明示観測していない。未充足の終了後条件を残したまま全体Passへ昇格せず、起動Policy局所根拠も公開CLIや実Provider成立へ広げない。
+
+変更分類は、保存済み検証結果の適用範囲と現在の品質投影の是正である。基準Commitは`cbbec57f7ead4f23043906dab9c2294613542abd`。変更先は本Evidenceへの追記と[Quality Center](../../../../07_Quality/01_Quality_Center.md)の既知Gap案内だけとする。履歴、Source、署名閉包、[QA-000006](../../../../07_Quality/Definitions/QA-000006/quality_definition.md)、観測済み件数、決定権限および実Task停止Gateは変えない。CHG本文とProject Contextは同じOwner Evidenceと未成立状態へ接続済みであり、新しい判断・停止条件を追加しないため変更不要とした。
+
+着手前に品質保証の結果／現在状態境界、QA-000006の観測・終了後条件、固定試験Patch、正式実行履歴と保存ログを照合した。独立確認は品質上の適用判断、文書および直接影響の三観点とする。準拠基準、実装または配布Identityを変更しないため、準拠監査、全回帰、再署名と実Provider再実行は本更新の確認手段にしない。保守入口の補強は引き続き人間判断待ちであり、この確認を承認に代えない。
+
+### 固定根拠と限定適用
+
+実行条件、生成物、Link MapとLockのIdentityは[統合後候補の正式二十一試験の終端結果](#統合後候補の正式二十一試験の終端結果2026-10-01)を保持する。今回の読取りでは、Repository-local保存先`codex-advice-formal-verification-20261001-r2`の起動制限一ログ、実Host六ログ、故障注入Owner／終了観測十四ログについて、各`1 passed; 0 failed; 0 ignored`を再取得した。再実行や新しいProcess観測ではない。十四件の補助反証を新Local Item十四件として数えない。
+
+固定公式SourceはCommit `ff6aec96948b70d94983af2641a6b67c94faeff5`、Archive Hash `b749fadee5cc236dff4cd0fc076cc4e08840937529ea71bca2928e233755712a`。現在の起動Patch `1fbd4d98e20e2a4a7c106f7f417129e061297fba65b7ef521969e40ef847faeb`、試験Patch `03e916f0371b80cf4f7038b54f3b81356218d277acc506dd3f473a4acc15cc31`、試験入力一覧 `f812775b4254a47376adcc99491c7752869daed403df39d7b998ae95cdf51b80`は、保存Build入力の同名Hashと一致した。入力記録の事前状態を実行終端結果へ読み替えない。
+
+| Local Item | 保存根拠の限定成立 | 未成立・適用限界 |
+|---|---|---|
+| `ERB-IT-024` | 実Session起動、捕捉Policy、登録入口と配送、禁止Handler 0。正常・panic・期限超過のWorker join、Session終了、hook受信口閉鎖。 | 起動Policy局所境界の根拠として保持する。実Host全体、公開CLI、配布と実Providerへ流用せず、正式観測集計は更新しない。 |
+| `ERB-IT-025` | exact 42行と成功結果、九Role・全登録Task終了、Host reap。 | 定義が要求する隔離Root保持後の所有者清掃と清掃後不存在が未観測。 |
+| `ERB-IT-026` | require／process／fetch不存在、通常／動的import拒否、次Cell正常、Task終了とHost reap。 | 能力境界の反証であり、network遮断だけの根拠ではない。共通試験Rootの清掃後条件は未確認。 |
+| `ERB-IT-027` | 禁止直接名／namespace付き名／未知名の相関した実Core拒否、Handler 0、正常復帰、十二Role終了とHost reap。 | 共通試験Rootの清掃後条件は未確認。公開CLIやProvider成立へ流用しない。 |
+| `ERB-IT-028` | 同じCellのYielded後、同一IDのLiveCell／Terminated、次Cell正常、Task終了とHost reap。 | 共通試験Rootの清掃後条件は未確認。公開取消の`ERB-ST-030`は対象外。 |
+| `ERB-IT-029` | Host喪失とReader端点喪失の別二ケース。exact要求・世代の失敗、実Supervisor終端、別世代拒否、Task終了とHost reap。 | 二ケースを一組の限定根拠として扱う。共通試験Rootの清掃後条件は未確認。親CLI喪失の030へ流用しない。 |
+
+### 清掃観測の不足と次の確認
+
+共通の`run_crdd_host_scenario`はHome／WorkspaceのTempDirを終了観測まで保持し、正常結果の返却前に両Rootの存在をassertする。その後、明示closeの結果と不存在を確認せず、scope終了時の暗黙Dropへ委ねる。Task終了・Host reap・TempDir DropからFilesystem清掃成功を推定しない。この不足と、別に未解決であるWorkbenchのHost残存三件との因果関係も主張しない。
+
+是正候補は、同じ試験所有Rootを明示的に清掃し、清掃結果と終了後不存在を独立に観測すること。正常だけでなく、error／timeout／panic、清掃失敗と観測不能が全体成功にならない反証へ接続する必要がある。未実装・未再実行であり、現存するHost残存を削除する提案ではない。必要な実行境界と所有範囲を確認し、実Task停止Gateを維持したまま、Source是正と実測の実行可否を別途判断する。
+
+Quality集計はv0.22対象`11 / 46`観測済み、`35 / 46`未観測、全体`119 / 176`観測済み、`57 / 176`未観測を維持する。「未観測」は必要な保証全体のEvidenceが未充足という意味であり、関連試験が一度も実行されていないこととは区別する。
+
+限定記録の初回独立確認は、品質解釈Fail、文書Conditional、直接影響Passであった。同一Minor指摘`QI-01`は共通Helper名の誤記一件で、実試験の失敗ではない。初回対象HashはQuality Center `01263c0ad932e3a431d72eeb5a97b67bcdb48a68d7fb00f848d6d3b2831763cf`、本Evidence `3352e086bd812dec81c0345976535c986f3ada72e7608d558767fbd6e5e2b441`。全結果を統合し、三確認者へ是正方針を再提示して整合確認した後、固定Patchの宣言と六呼出し先に一致する名前へ一箇所だけ訂正した。是正後の固定二文書は三観点とも限定Pass、QI-01はResolved、新規Finding 0件であった。確認者は品質解釈`candidate_transport_diagnostic`、文書`candidate_sync_path_review`、直接影響`v022_remaining_verification_map`。再確認対象HashはQuality Centerの上記不変値と、本Evidenceの結果追記前`5260eff3001c6579e44af1768259d3aa704304d2374cfe934a8ae2726ee8266e`で、各確認の開始・終了一致を確認した。Checkerは21622ms、Error 1／Warning 0で、既知の`stable-release-tag-identity-mismatch`だけが残り、今回差分由来のFindingは0件。Source、QA定義、過去結果、件数、停止Gate、Authorityと署名閉包は不変。三確認者は実試験・回収を再実行しておらず、このPassを実Task再開、清掃成立、Quality ReadyまたはReleaseの根拠にはしない。
+
 ## Checklist
 
 - [x] 人間承認のモデル方針と旧候補の履歴を区別した。
@@ -1289,3 +1324,7 @@ Sourceと署名候補の該当16ファイルのHash一致を確認した。公�
 - [x] 着手前確認を完成後の独立レビューとして扱わなかった。
 - [x] 着手前のSource調査・局所確認ではProviderを起動せず、承認済みの実Provider診断を別記した。権限拡大は行っていない。
 - [ ] OPEN: Tool集合の閉包とHostの実境界反証を完了する。成立根拠がなければHost有効化前に停止し、具体的な不足へ戻る。
+- [x] 保存済みNative試験の成功と、Local Item全体の未成立を区別した。
+- [x] 試験用Rootの清掃後不存在を暗黙Dropから推定せず、Host残存三件との因果を捏造していない。
+- [x] 今回の限定適用記録を品質解釈・文書・直接影響の三観点で独立確認し、指摘一件を訂正・再確認した。
+- [ ] OPEN: 清掃観測GapのSource是正と必要な反証・実測を完了する。必要範囲の根拠が揃う前に観測済み件数を増やさない。
