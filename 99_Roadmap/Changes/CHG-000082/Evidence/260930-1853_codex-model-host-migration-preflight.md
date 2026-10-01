@@ -1177,6 +1177,28 @@ Providerなしの局所反証では、Runtimeの実`createBlocked`関数から�
 
 診断Tool Hashは`439dfca5536b543a7335efdc89d312a339d641df56ec336899680219a5c26c58`、モードModuleは`04cb061c2e401d168cf839e17e01122947036a8ee830cd714609a657b5b0b7af`、モード反証は`2b5036348aa6353d3140d6d721399dac292a09bd02022f9c073949361a65c66f`、完了契約反証は`5832b621039f9c990069e19494078838867c21e3f754ec62ee7fc657d5e833bb`である。全てRepository-local `.crdd/tmp`の非追跡診断物であり、署名閉包へ混入させない。
 
+## 候補完了値の透過診断と未選択Provider結果の搬送是正
+
+固定HEAD `ae00eb4ee0106a5ee6e8ab9d79aa1d8b0474902c`で、署名Runtime26449d19のCodex候補1件だけに完了値の透過観測を付与した。署名Factoryと同じ6依存を使い、startTaskの返却object、completion Promise、完了値および拒否Errorを置換しない。Getterを実行せずown data descriptorだけから固定理由と項目の型を取得する。助言0、他Observer併用拒否、観測1件・join期限5秒、全E2E falseを固定した。非介入性と秘密非開示の局所反例が成功し、限定Source独立レビューはFinding 0でPassであった。
+
+実測requestId `ai-request.3da0f5ca-b664-4ef0-ac37-307762a3823e`では、元のcompletionはfulfilled／blocked、理由は`coordinator_task_external_send_confirmation_unavailable`であった。`executorProvider`はnull、cleanup true、manual recovery false、process restart false、候補と単一回復参照はnullであった。受取側だけがこれを`single_task_completion_observation_invalid`へ変換していた。観測hits 1、joined／clean true。試験は終了コード1であり、Listener終了、正本不変、回復一覧clean、未解決回復ID・活動中Home結合なしを確認した。診断付き試験を通常E2E合格にはしない。
+
+元の拒否と搬送不整合は別課題である。RuntimeはこのTaskに利用可能な送信同意を取得できず、正式な対話確認も取得できなかった。欠測、失効または境界変更のどれかは未確定である。会話上の承認やWorkbenchの送信確認を耐久Runtime同意へ自動変換せず、この安全停止を維持する。
+
+搬送側は、blocked結果の未選択Provider nullだけを許可し、上位の省略可能Provider項目には投影しないよう是正した。completed/nullと未知値は拒否し、欠測・data undefined互換、元の理由、cleanup、再起動要否、exact回復参照および取消の判定を保持する。Accessorがundefinedへ畳まれる既存の穴も、Getter非実行の拒否へ是正した。nullからEffect 0を推定しない。
+
+| 固定差分と検証 | 結果 |
+|---|---|
+| 実装・設計 | Single Task Adapter、Adapter契約試験、Workbench候補Runtime契約試験、Coordinator詳細設計の4ファイル。送信確認Runtime、Authority、署名閉包の成功条件は変更しない。 |
+| 静的Gate | Formatter、型、Lint、能力Graph、Runtime Trace、Project Runtime Design Traceは終了コード0。 |
+| 局所反証 | AdapterとWorkbench候補の2ファイル、27／27 Pass、959.0788ms。blocked/nullの理由保持、exact回復保持、completed/null拒否、Getter非実行と拒否、undefined互換、Codex／Claude正常結果およびWorkbenchまでの拒否理由搬送を確認した。 |
+| 関連回帰 | Project Runtime実行、実行許可／Host Adapter、Workbench依頼Application／候補Runtimeの5ファイル、68／68 Pass、31744.8906ms。新しいWorkbench拒否試験追加前の既存回帰結果であり、新試験は上の27件に含む。 |
+| Checker | 既知の`.git`の`stable-release-tag-identity-mismatch`のみ、error 1／warning 0。公開済みtagは変更しない。差分検査は成功。 |
+| 独立確認 | 固定4ファイルのSource、設計、直接利用側と拒否／回復／取消の意味について限定Pass、Finding 0。独立確認者による実試験の再実行は行っていない。 |
+| 未完了Gate | 更新Sourceの再署名、正式な送信同意の再利用または対話確認、変更候補の実Provider成立、通常Workbench E2Eと残る品質項目。 |
+
+診断Toolと透過観測はGit非追跡の診断物として保持し、Productionまたは署名閉包へ混入させない。次は更新候補を署名し、正規の対話端末で必要なRuntime同意を確認してから候補経路を再検証する。無条件再送、同意の自動入力、採用、Commit／PushまたはDocker再起動をE2Eから行わない。
+
 ## Checklist
 
 - [x] 人間承認のモデル方針と旧候補の履歴を区別した。

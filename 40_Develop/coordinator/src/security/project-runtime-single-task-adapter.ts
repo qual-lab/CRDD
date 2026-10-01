@@ -388,6 +388,15 @@ function inspectCompletionRecord(value: unknown): Readonly<{
       "candidateStoreRecoveryId",
     );
     const rawDockerRecoveryIds = ownDataProperty(value, "dockerRecoveryIds");
+    const executorProviderDescriptor = Object.getOwnPropertyDescriptor(
+      value,
+      "executorProvider",
+    );
+    if (
+      executorProviderDescriptor !== undefined &&
+      !Object.hasOwn(executorProviderDescriptor, "value")
+    )
+      return null;
     const executorProvider = ownDataProperty(value, "executorProvider");
     // The v0.18 completion record never carries status "cancelled": effect-era
     // cancellation settles as "blocked" with a runtime-owned cancellation
@@ -408,7 +417,8 @@ function inspectCompletionRecord(value: unknown): Readonly<{
       rawDockerRecoveryIds.length > 128 ||
       (executorProvider !== undefined &&
         executorProvider !== "codex" &&
-        executorProvider !== "claude") ||
+        executorProvider !== "claude" &&
+        !(status === "blocked" && executorProvider === null)) ||
       (status === "completed" && cleanupConfirmed !== true)
     )
       return null;

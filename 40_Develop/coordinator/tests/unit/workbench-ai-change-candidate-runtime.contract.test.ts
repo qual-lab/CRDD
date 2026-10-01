@@ -178,3 +178,74 @@ test("許可PathなしではTask Effectを発行しない", async () => {
   assert.equal(result.status, "blocked");
   assert.equal(startCount, 0);
 });
+
+/**
+ * Runtimeの送信確認拒否をWorkbenchへ同じ理由で返す。
+ *
+ * @responsibility 未選択Providerの拒否を結果不明へ変えず、送信確認Gateを保持する。
+ * @trace ERB-UT-023
+ * @precondition Repository RootとProfileは有効、Task完了値だけを固定注入する。
+ * @stimulus 送信確認不可・Provider未選択の完了値を候補Executorへ返す。
+ * @observation 上位結果の状態、理由、候補とCapability失効回数を観測する。
+ * @oracle blockedと元理由を保持し、候補なし、失効1回である。
+ * @cleanup N/A: ProviderやDocker資源を生成せず局所依存だけを使う。
+ * @boundary ERB-UT-023=Direct Boundary: Task完了値→Workbench候補Executor。
+ */
+test("送信確認不可の未選択拒否をWorkbench結果へ保持する", async () => {
+  const verified = verifiedRoot();
+  let revoked = 0;
+  const executor =
+    createIsolatedWorkbenchAiChangeCandidateExecutorForDevelopment(
+      verified.capability,
+      profileStore,
+      Object.freeze({
+        observeRevision: gitRepositoryRevisionAdapter,
+        issueRuntimeCapability: () => Object.freeze({}),
+        revokeRuntimeCapability: () => {
+          revoked += 1;
+          return true;
+        },
+        startTask: () =>
+          Object.freeze({
+            status: "started",
+            controlCapability: Object.freeze({}),
+            completion: Promise.resolve(
+              Object.freeze({
+                status: "blocked",
+                reason:
+                  "coordinator_task_external_send_confirmation_unavailable",
+                cleanupConfirmed: true,
+                manualRecoveryRequired: false,
+                processRestartRequired: false,
+                candidateId: null,
+                hostRecoveryId: null,
+                dockerRecoveryIds: Object.freeze([]),
+                candidateRecoveryId: null,
+                candidateStoreRecoveryId: null,
+                executorProvider: null,
+              }),
+            ),
+          }),
+        cancelTask: () =>
+          Promise.resolve(Object.freeze({ status: "cancelled" })),
+      }),
+    );
+  const result = await executor(
+    Object.freeze({
+      mode: "change_candidate",
+      profileId: "PROFILE-100003",
+      prompt: "固定候補の検証",
+      contextReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
+      allowedPaths: Object.freeze(["40_Develop/workbench/src"]),
+      externalSendConfirmed: true,
+    }),
+    new AbortController().signal,
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "coordinator_task_external_send_confirmation_unavailable",
+  );
+  assert.equal(result.candidate, null);
+  assert.equal(revoked, 1);
+});

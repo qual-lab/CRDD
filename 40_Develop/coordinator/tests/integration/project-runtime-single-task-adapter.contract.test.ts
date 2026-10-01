@@ -1000,3 +1000,125 @@ test("Effect前拒否母集団はv0.18 Runtimeの実throw経路と一致する",
       error.message === "coordinator_task_release_verification_required",
   );
 });
+
+/**
+ * Provider未選択の拒否結果でも理由と回復参照を保持する。
+ *
+ * @responsibility blocked/nullを結果不明へ変換せず、実際の回復義務だけを保持する。
+ * @trace PRL-IT-005
+ * @precondition 実Runtimeの拒否結果に対応する固定完了値を用いる。
+ * @stimulus 回復不要とexact回復義務ありの完了値をAdapterへ渡す。
+ * @observation 理由、Provider投影、cleanupと回復参照を観測する。
+ * @oracle 元理由を保持し、nullをProviderやEffect 0の根拠にしない。
+ * @cleanup N/A: 外部資源を生成せず、完了Promiseだけを局所注入する。
+ * @boundary PRL-IT-005=Direct Boundary: Task完了値→Single Task Adapter。
+ */
+test("未選択Providerの拒否は理由とexact回復を保持する", async () => {
+  for (const manualRecoveryRequired of [false, true]) {
+    const { dependencies } = harness({
+      completion: Promise.resolve(
+        completionRecord({
+          status: "blocked",
+          reason: "coordinator_task_external_send_confirmation_unavailable",
+          executorProvider: null,
+          candidateId: null,
+          cleanupConfirmed: !manualRecoveryRequired,
+          manualRecoveryRequired,
+          dockerRecoveryIds: manualRecoveryRequired ? [dockerRecoveryId] : [],
+        }),
+      ),
+    });
+    const result = await runProjectRuntimeSingleTaskAttempt(
+      dependencies,
+      validInput(),
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(
+      result.reason,
+      "coordinator_task_external_send_confirmation_unavailable",
+    );
+    assert.equal(Object.hasOwn(result, "executorProvider"), false);
+    assert.equal(result.cleanupConfirmed, !manualRecoveryRequired);
+    assert.equal(result.manualRecoveryRequired, manualRecoveryRequired);
+    assert.deepEqual(
+      result.recoveryIds,
+      manualRecoveryRequired ? [dockerRecoveryId] : [],
+    );
+    assert.deepEqual(
+      result.recoveryObligations,
+      manualRecoveryRequired
+        ? [{ kind: "docker", recoveryId: dockerRecoveryId }]
+        : [],
+    );
+  }
+});
+
+/**
+ * Providerの欠測互換と不正完了値の拒否を区別する。
+ *
+ * @responsibility 未選択nullは拒否結果だけで許可し、成功や未知値へ広げない。
+ * @trace PRL-IT-005
+ * @precondition 外部Effectを持たない固定Fixtureを使用する。
+ * @stimulus completed/null、未知値、欠測互換、実効Providerを比較する。
+ * @observation 結果理由と実効Providerの投影を観測する。
+ * @oracle completed/nullと未知値は拒否し、undefinedと既存Providerを維持する。
+ * @cleanup N/A: 固定完了Promise以外の資源を使用しない。
+ * @boundary PRL-IT-005=Direct Boundary: Task完了値→Single Task Adapter。
+ */
+test("Provider未選択は成功へ拡張せず欠測互換を維持する", async () => {
+  for (const executorProvider of [
+    null,
+    "unknown",
+    undefined,
+    "codex",
+    "claude",
+  ]) {
+    const { dependencies } = harness({
+      completion: Promise.resolve(completionRecord({ executorProvider })),
+    });
+    const result = await runProjectRuntimeSingleTaskAttempt(
+      dependencies,
+      validInput(),
+    );
+    if (executorProvider === null || executorProvider === "unknown") {
+      assert.equal(result.reason, "single_task_completion_observation_invalid");
+      assert.equal(result.manualRecoveryRequired, true);
+    } else {
+      assert.equal(result.status, "completed");
+      assert.equal(result.executorProvider, executorProvider);
+    }
+  }
+});
+
+/**
+ * Provider Getterを欠測に読み替えず非実行で拒否する。
+ *
+ * @responsibility 参照時Effectを持つAccessorを結果契約へ受理しない。
+ * @trace PRL-IT-005
+ * @precondition Provider項目だけをAccessorにした固定完了値を用いる。
+ * @stimulus AdapterへAccessor完了値を渡す。
+ * @observation Getter呼出し数と拒否理由を観測する。
+ * @oracle Getter 0回かつ完了観測不正として拒否する。
+ * @cleanup N/A: 外部Effectや残存資源を生成しない。
+ * @boundary PRL-IT-005=Direct Boundary: Task完了値→Single Task Adapter。
+ */
+test("Provider Accessorを実行せず欠測互換から除外する", async () => {
+  let getterCalls = 0;
+  const value = { ...completionRecord() };
+  Object.defineProperty(value, "executorProvider", {
+    get() {
+      getterCalls += 1;
+      return undefined;
+    },
+  });
+  const { dependencies } = harness({
+    completion: Promise.resolve(Object.freeze(value)),
+  });
+  const result = await runProjectRuntimeSingleTaskAttempt(
+    dependencies,
+    validInput(),
+  );
+  assert.equal(getterCalls, 0);
+  assert.equal(result.reason, "single_task_completion_observation_invalid");
+  assert.equal(result.manualRecoveryRequired, true);
+});

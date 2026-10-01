@@ -875,6 +875,11 @@ Coordinator
 | 完成 | Objective／Milestoneの受入を判定する | Task結果とcleanupを報告する |
 
 CoordinatorはProject状態を再定義せず、Project RuntimeはProvider、OS、Containerまたは候補Storeの実装へ依存しない。意味契約は[Project Runtime詳細設計](../project-runtime/02_Detailed_Design.md)、両者の実装・試験接続は[機械可読な設計対応](../../../07_Quality/Registry/project-runtime-design-traceability.json)と契約試験で照合する。
+
+単一Taskの拒否結果では、実効Executor Providerが未選択の場合の`executorProvider: null`を正当な未選択として受け取る。上位の省略可能なProvider項目へは投影せず、元の拒否理由、cleanup、再起動要否およびexact回復参照を保持する。未選択だけからEffect 0や資源不存在を推定しない。成功結果のnull、未知Provider、ProxyまたはAccessorは拒否し、欠測・data `undefined`の既存互換は維持する。Accessorを欠測へ読み替えず、Getterを実行しない。
+
+外部送信確認を取得できない拒否は、この結果搬送の是正とは別である。Workbenchでの送信確認表示や会話上の承認を、Runtimeの検証済み同意の代替にしない。有効な同意を再利用できなければ正式な対話確認へ戻り、自動承認、無条件再送またはProvider開始によって拒否を回避しない。
+
 ## 15. 非目標
 
 - Provider同士の直接spawn

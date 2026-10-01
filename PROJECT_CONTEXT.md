@@ -42,7 +42,7 @@ CRDDはv0.21.0を公開済みで、v0.22.0の実装・検証を進めている�
 
 ### 結論
 
-現在、この継続作業で追加の方針判断は必要ない。Claude助言の最大2ターンPilotは承認済みである。署名候補26449d19では二助言連続診断に続き、Observerなしの通常E2EでもCodex・Claude助言が成立した。ただしCodex候補は`single_task_completion_observation_invalid`で停止し、全E2E合格は未成立。Providerなしの局所反証で、Runtimeが返すProvider未選択のnullを受取側が不正結果へ変換する結果契約の不一致を再現した。実測時の元の拒否理由はまだ未確認であり、Production修正前にこれを確認する。未解決回復ID・活動中Home結合はともに空。診断では採用、Commit、Push、Inspector、無条件再送およびDocker再起動を行っていない。詳細は[候補停止と完了結果契約](99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md#二助言成立後の候補生成停止と完了結果契約の局所反証)を参照する。
+現在、追加の方針判断は必要ないが、次の署名で人間の秘密入力が必要である。署名候補26449d19でCodex・Claude助言は成立したが、候補生成は未成立。透過診断で元の拒否理由が「Runtimeの外部送信確認を取得できない」と判明し、その正常な拒否を受取側が結果不明へ変換する不整合を是正した。静的Gate、局所27件、関連68件および限定独立レビューは成功。送信確認Gateは維持し、再署名後に正式なRuntime同意の再利用または対話確認が必要である。Runtimeで利用可能な同意を確認できなかった詳細原因は未確定。回復一覧はcleanで、未解決回復ID・活動中Home結合はともに空。全E2EとRelease成立は未確認のままである。詳細は[完了値診断と搬送是正](99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md#候補完了値の透過診断と未選択provider結果の搬送是正)を参照する。
 
 Workbenchの新モデル移行では、起動時のTool許可集合を固定する最小Adapterの追加が承認された。助言用の操作禁止を維持し、局所反証と独立レビュー後に再署名・実Provider E2Eへ進む。6.1 Sol標準／6 Luna軽量用途へのモデル方針も承認済みである。現在のPilot継続に追加の方針判断は不要であり、署名時の秘密入力は人間が行う。この承認をRelease承認とは扱わない。Repository IDの正式固定は、Project Context契約の固定時に改めて人間が判断する。
 
