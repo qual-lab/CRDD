@@ -687,6 +687,24 @@ helperが子をforkし、未execの直接子にpidfdを確保してから起動g
 
 記録更新後のRepository Checker session `70091`は終了コード1、Error 1／Warning 0、27629msで、既知の`stable-release-tag-identity-mismatch`だけを返した。1156 Markdown、18098 local link、2057 anchorを確認し、今回の文書構造Findingは0件だった。Git管理外の試験準備物はChecker対象外であり、前述の個別Gateと独立確認を代替しない。既知Findingを免除せず、Repository全体のPassとは扱わない。
 
+### 試験Runner故障と補助の実期限の局所確認（2026-10-01）
+
+前節の未確認から、Runnerの過長通知拒否・開始通知欠測、および補助自身の180秒期限を追加確認した。ProductionとNative補助Sourceは変更していない。
+
+| 追加確認 | 結果 | 限定範囲 |
+|---|---|---|
+| 通知上限拒否と開始通知欠測 | 固定mockを生存させ、通知observerの上限を32 byteへ絞る場合と、開始通知を不可視にする場合を個別実行。両ケースで失敗を返し、固定stop後のhelper closeと通知由来の直接子PIDのstat不存在を確認した。 | 合成したobserver故障であり、Native通知pipe満杯の実測ではない。 |
+| 清掃失敗とIdentity欠測の同時保持 | 独立レビューで診断上書き一件を検出し、両Errorを保持する集約へ是正。元Errorを順序付きで保持する局所反例が成功した。 | 実OSのclose欠測ではなく診断搬送の反証。 |
+| 補助の実180秒期限 | 制御stdinを開いたまま固定mockを待機させ、180062.1msで試験成功。補助結果2、非常停止受理、直接子reap、wait状態9、mock readyと子stat不存在を共同確認した。 | 外側190秒の観測期限とは別。期限切れを取消成功へ読み替えない。 |
+
+型、書式とLintを成功させてから、専用Container内の`network=none`で実行した。OS Runner履歴`mmmj5me5sz93f4d9ga73mdnz9`は終了コード0、五試験Pass／Fail 0、5325.3msである。五試験は既存九OSケース、追加二observer故障ケースと局所集約反例を含む。期限試験履歴`exvikx0qyoo0gzg4ve1dqoncq`は終了コード0、一試験Pass／Fail 0、全試験180137.5msである。既存Credential HomeやRepository mount、Provider要求、Docker再起動は行っていない。
+
+固定入力SHA-256は、OS Runner `0b149b9543890b113ba3a9ae54c478600fff97775d4c7964e6cee2b7215b0162`、期限試験 `290d4894a2a523774e29eb9355670db13d4f63e0e9eeda8ede6ca84ae88d5f57`、Dockerfile `ed9c6f2028e3874a0dcb2f6a7c6f1fdc6403d6fa972a831be52305cef8c53061`である。Source独立再確認は対象限定Pass、残るFinding 0件。確認者によるOS再実行や終端結果の独立取得ではない。
+
+残る未確認は、Runnerのstdio close欠測、Native通知pipe満杯と全通知段の切断、gate終了・許可前子終了、fork後pidfd取得失敗、実CLI取消、CLI親Process喪失とHost Tree回収である。`ERB-ST-030`、本番接続、署名E2E、全回帰、QA集計とRelease判断は変更しない。保持Ownerと上限、exact清掃条件は前節と同じである。
+
+本節の記録独立確認は範囲限定Pass、Finding 0件。記録更新後のChecker session `61671`は終了コード1、Error 1／Warning 0、20161msで、既知の`stable-release-tag-identity-mismatch`だけを返した。今回の文書構造Findingは0件であり、Repository全体のPassを主張しない。
+
 ## Checklist
 
 - [x] 人間承認のモデル方針と旧候補の履歴を区別した。
