@@ -297,42 +297,52 @@ test("Codexの失敗Turnと複数最終本文を拒否する", () => {
  * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Claude成功Envelopeからstructured_outputだけを抽出する", () => {
-  const result = extractWorkbenchAiAdviceProviderOutput(
-    "claude",
-    JSON.stringify({
-      type: "result",
-      subtype: "success",
-      is_error: false,
-      num_turns: 1,
-      total_cost_usd: 0.01,
-      session_id: "secret-session",
-      usage: { input_tokens: 1, output_tokens: 2 },
-      structured_output: ADVICE,
-    }),
-  );
-  assert.equal(result.status, "confirmed");
-  assert.equal(result.adviceJson, JSON.stringify(ADVICE));
-  assert.equal("session_id" in result, false);
-  assert.equal("total_cost_usd" in result, false);
-  assert.equal(result.rawOutputReported, false);
+  for (const numberOfTurns of [1, 2]) {
+    const result = extractWorkbenchAiAdviceProviderOutput(
+      "claude",
+      JSON.stringify({
+        type: "result",
+        subtype: "success",
+        is_error: false,
+        num_turns: numberOfTurns,
+        total_cost_usd: 0.01,
+        session_id: "secret-session",
+        usage: { input_tokens: 1, output_tokens: 2 },
+        structured_output: ADVICE,
+      }),
+    );
+    assert.equal(result.status, "confirmed");
+    assert.equal(result.adviceJson, JSON.stringify(ADVICE));
+    assert.equal("session_id" in result, false);
+    assert.equal("total_cost_usd" in result, false);
+    assert.equal(result.rawOutputReported, false);
+  }
 });
 
 /**
- * ClaudeのError、複数Turn、Cost不正および出力欠落を拒否するを検証する。
+ * ClaudeのError、Turn上限外、Cost不正および出力欠落を拒否するを検証する。
  *
- * @responsibility ClaudeのError、複数Turn、Cost不正および出力欠落を拒否するを検証するの検証責務を所有する。
+ * @responsibility ClaudeのError、Turn上限外、Cost不正および出力欠落を拒否する検証責務を所有する。
  * @trace ERB-UT-023
  * @precondition 対象契約を再現できる固定入力と依存を用意する。
- * @stimulus ClaudeのError、複数Turn、Cost不正および出力欠落を拒否するの対象操作を実行する。
+ * @stimulus ClaudeのError、Turn上限外、Cost不正および出力欠落を拒否する対象操作を実行する。
  * @observation 返却値、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionがSummaryの期待条件を満たす。
  * @cleanup N/A: Process外資源を生成しない局所検証である。
  * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
  */
-test("ClaudeのError、複数Turn、Cost不正および出力欠落を拒否する", () => {
+test("ClaudeのError、Turn上限外、Cost不正および出力欠落を拒否する", () => {
   for (const overrides of [
     { is_error: true },
-    { num_turns: 2 },
+    { num_turns: 0 },
+    { num_turns: 3 },
+    { num_turns: -1 },
+    { num_turns: 1.5 },
+    { num_turns: "2" },
+    { num_turns: null },
+    { num_turns: undefined },
+    { num_turns: Number.NaN },
+    { num_turns: Number.POSITIVE_INFINITY },
     { total_cost_usd: -1 },
     { structured_output: undefined },
   ]) {

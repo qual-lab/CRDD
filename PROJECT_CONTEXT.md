@@ -42,13 +42,13 @@ CRDDはv0.21.0を公開済みで、v0.22.0の実装・検証を進めている�
 
 ### 結論
 
-Dockerの通常起動は承認後に実施し、同じTask回復IDの回収とfresh一覧cleanを確認した。現在の停止事項は、Claude助言が1ターン上限に到達したため、内部結果生成を有限ターンで試行する方針の判断待ちである。Codex助言は公開HTTP経由で成功したが、Claude助言と全Workbench E2Eは未成立である。詳細は[現在の確認と回復](99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md#通常起動後の同一回復とclaudeターン上限の実測)を参照する。
+Dockerの通常起動は承認後に実施し、同じTask回復IDの回収とfresh一覧cleanを確認した。Claude助言の最大2ターンPilotは承認され、固定起動計画・結果検査と局所反証を更新した。新しい署名と実Providerの限定確認は未完了である。Codex助言は公開HTTP経由で成功したが、Claude助言と全Workbench E2Eは未成立である。詳細は[最大2ターンPilot](99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md#人間承認済みのclaude最大2ターンpilot)を参照する。
 
-Workbenchの新モデル移行では、起動時のTool許可集合を固定する最小Adapterの追加が承認された。助言用の操作禁止を維持し、局所反証と独立レビュー後に再署名・実Provider E2Eへ進む。6.1 Sol標準／6 Luna軽量用途へのモデル方針も承認済みである。モデル方針自体に追加の人間判断は不要だが、Claude内部ターン上限については上記の判断待ちである。この承認をRelease承認とは扱わない。Repository IDの正式固定は、Project Context契約の固定時に改めて人間が判断する。
+Workbenchの新モデル移行では、起動時のTool許可集合を固定する最小Adapterの追加が承認された。助言用の操作禁止を維持し、局所反証と独立レビュー後に再署名・実Provider E2Eへ進む。6.1 Sol標準／6 Luna軽量用途へのモデル方針も承認済みである。現在のPilot継続に追加の方針判断は不要であり、署名時の秘密入力は人間が行う。この承認をRelease承認とは扱わない。Repository IDの正式固定は、Project Context契約の固定時に改めて人間が判断する。
 
 | 判断 | 判断する人 | 選択肢・影響 | Owner Relation |
 |---|---|---|---|
-| Claude助言の内部結果生成を有限ターンで試行するか | Qual-Lab | 現行1ターン固定では上限到達を実測した。一つの依頼・一回送信・Tool禁止・Repository非共有を維持し、上限変更の有限Pilot可否を判断する。無制限化や結果検査の無断緩和は行わない | [ターン上限の実測](99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md#通常起動後の同一回復とclaudeターン上限の実測) |
+| なし（最大2ターンPilotを承認済み） | Qual-Lab | 一つの依頼・一回送信・Tool禁止・Repository非共有を維持して限定実測へ進む。独立確認、新署名と実Provider成立を確認するまで正式化しない | [最大2ターンPilot](99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md#人間承認済みのclaude最大2ターンpilot) |
 | なし（最小起動Adapter追加を承認済み） | Qual-Lab | 専用実行物の構築・配布・保守を含めて実装を継続する。禁止Toolの実行前拒否、局所反証、独立レビュー、再署名と実Provider E2Eが未完了であり、承認だけから利用可能またはRelease可能とは表示しない | [CHG-000082](99_Roadmap/Changes/CHG-000082/change.md)、[移行の着手前確認](99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md) |
 | なし（確認済み） | Qual-Lab | v0.22はRepository内＋Project横断＋AI利用構成を扱い、Workbench要求も採用済み。Discovery整理を閉じて次工程へ進める | [Scope探索](01_Discovery/Analysis/EXP-000034/exploration.md)、[REQ-000040](01_Discovery/Definitions/REQ-000040/requirement.md) |
 | CRDD標準RepositoryのRepository IDを正式固定するか | Qual-Lab | 現在判断ではない。v0.22では`qual-lab.crdd-standard`を暫定採用し、Project Context契約固定時に維持または変更を判断する | [REQ-000038](01_Discovery/Definitions/REQ-000038/requirement.md)、[Runtime Data Architecture](06_Architecture/Details/runtime-data/01_Architecture.md#5-configとrepository-identity) |

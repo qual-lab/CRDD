@@ -1054,6 +1054,22 @@ docker-task.29c9921916f3a63170e77179d3145c8627a2b3519d5813b7c9cf2a87d136d9aa.5f7
 
 この実測は現行`--max-turns 1`の上限到達を示すが、以前の`workbench_ai_claude_envelope_invalid`まで同じ原因と断定しない。次の検討対象は、一つの人間依頼・一回送信・Repository非共有・Tool禁止を維持したまま、Claudeの内部結果生成を有限ターンで試行することの可否である。現行Architectureの1ターン固定とParserの`num_turns === 1`を無断で緩和しない。現在はその方針判断待ちであり、Runtime Source、署名閉包および上限を変更していない。
 
+## 人間承認済みのClaude最大2ターンPilot
+
+人間は最大2ターンの限定Pilotを承認した。変更分類は助言の結果受理範囲と固定起動契約を変える非自明なCoordinator変更である。Architecture Details、Command Plan、Envelope検査とその直接利用側を照合した。着手前の読み取り専門確認は条件付き着手可で、整数上限、両Effect入口の再導出、新署名必須および旧Inspectorの固定Hash・行位置を混同しないことを条件として採用した。
+
+今回の変更はClaude助言だけの`--max-turns 2`と整数の`1 <= num_turns <= 2`への固定である。Codex、一般Task、Model／Image、Tool禁止、Repository／Workspace非共有、Session非保持、一回送信・一回消費Packet、取消・cleanup・exact回復は維持した。既存Packet／Resultの形は変更せず、変更した起動計画は新しいCommand Hashと署名Runtime Identityで区別する。旧計画を新版で黙って受理する互換措置は設けない。
+
+| 関連確認 | 結果 |
+|---|---|
+| 静的Gate | Formatter、型、Lint、能力Graph、Runtime Trace、Project Runtime Design Traceは終了コード0。 |
+| Envelope局所反証 | 1と2を受理し、0、3、負値、小数、文字列、null、欠落、NaN／InfinityのJSON投影、Error、負のCost、structured output欠落を拒否した。Metadataと生出力は公開しない。 |
+| Effect直前の差替え拒否 | Adviceの固定Create計画は上限2。上限1または3へ差し替えたPlanは拒否し、Process発行0を確認した。 |
+| 関連回帰 | 助言Dispatch／Plan／Production Runtime／Command／Executor／Output／Packet、通常Codex、Docker Effect／Controller、通常Claude結果／一般Task結果の12ファイルで190／190成功、6081.9019ms。失敗・取消・skip・todoは0。 |
+| 独立確認・新署名・実Provider | この局所結果だけでは成立済みとしない。更新した固定Sourceの独立確認と新しい署名が必要であり、実ProviderのPilotは未実施。 |
+
+独立確認はSource、文書と直接利用側への影響を対象とする。CRDD全体の準拠基準や安定IDの意味を変更しないため、今回は準拠監査を追加しない。旧1ターン結果、失敗記録と署名は書き換えない。次の実測はまずClaude限定で行い、全E2Eを最初の確認場所にしない。旧Inspectorを新Parserへ暗黙流用せず、使用する場合は新Hash・行位置・1〜2整数条件を再固定して確認する。現在はPilotであり、正式化またはRelease判断ではない。
+
 ## Checklist
 
 - [x] 人間承認のモデル方針と旧候補の履歴を区別した。

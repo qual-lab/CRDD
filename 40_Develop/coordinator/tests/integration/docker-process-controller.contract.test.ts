@@ -618,7 +618,7 @@ const providerStartObservationTaskOutput = createProviderOutput({
  *
  * @responsibility 第3実行モードのPlan受理、Provider Envelope除去および終了後公開境界を判定する。
  * @trace ERB-IT-002
- * @precondition 有効なAdvice Packet IdentityとClaude一Turn出力を使用する。
+ * @precondition 有効なAdvice Packet IdentityとClaude二Turn出力を使用する。
  * @stimulus Process Controllerでworkbench_advice Planを完了する。
  * @observation completionのstatus、cleanupおよびnormalizedResultを観測する。
  * @oracle 生Envelopeを含めずadviceJsonだけをcleanup確認後に返す。
@@ -651,7 +651,7 @@ test("Workbench助言出力をcleanup後の助言JSONへ縮約する", async () 
               signal: null,
               stdout: isProvider
                 ? createProviderOutput({
-                    num_turns: 1,
+                    num_turns: 2,
                     structured_output: advice,
                   })
                 : isAuth

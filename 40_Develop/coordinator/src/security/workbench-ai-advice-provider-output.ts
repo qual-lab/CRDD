@@ -127,7 +127,7 @@ function extractCodex(raw: string) {
 /**
  * Claude JSON envelopeからSchema検証済み出力を抽出する。
  *
- * @responsibility 一Turn成功、非Error、有限Cost metadataおよびstructured_output存在を確認する。
+ * @responsibility 1〜2Turnの整数上限、非Error、有限Cost metadataおよびstructured_output存在を確認する。
  * @trace ARCH-000015
  * @input raw: Claude CLI JSON envelope。
  * @returns structured_outputの一意なJSON文字列または拒否結果。
@@ -147,7 +147,10 @@ function extractClaude(raw: string) {
     envelope.type !== "result" ||
     envelope.subtype !== "success" ||
     envelope.is_error !== false ||
-    envelope.num_turns !== 1 ||
+    typeof envelope.num_turns !== "number" ||
+    !Number.isInteger(envelope.num_turns) ||
+    envelope.num_turns < 1 ||
+    envelope.num_turns > 2 ||
     typeof envelope.total_cost_usd !== "number" ||
     !Number.isFinite(envelope.total_cost_usd) ||
     envelope.total_cost_usd < 0 ||

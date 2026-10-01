@@ -603,6 +603,30 @@ test("Workbench助言本文を非共有Providerのstdinだけへ渡す", async (
     ),
   );
   assert.equal(fixture.invocations.length, 0);
+  assert.equal(
+    providerCreate.argv[providerCreate.argv.indexOf("--max-turns") + 1],
+    "2",
+  );
+  for (const turnLimit of ["1", "3"]) {
+    const changedCommands = fixture.plan.commands.map((command) =>
+      command.purpose !== "create_provider"
+        ? command
+        : {
+            ...command,
+            argv: command.argv.map((value, index, argv) =>
+              argv[index - 1] === "--max-turns" ? turnLimit : value,
+            ),
+          },
+    );
+    assert.throws(() =>
+      fixture.runtime.startCommand(
+        providerStart,
+        { ...fixture.plan, commands: changedCommands },
+        fixture.managementCapability,
+      ),
+    );
+    assert.equal(fixture.invocations.length, 0);
+  }
   const handle = fixture.runtime.startCommand(
     providerStart,
     fixture.plan,

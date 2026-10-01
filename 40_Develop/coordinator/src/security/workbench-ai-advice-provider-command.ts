@@ -254,7 +254,7 @@ function planClaudeAdviceCommand(
       "--output-format",
       "json",
       "--max-turns",
-      "1",
+      "2",
       "--no-session-persistence",
       "--permission-mode",
       "dontAsk",

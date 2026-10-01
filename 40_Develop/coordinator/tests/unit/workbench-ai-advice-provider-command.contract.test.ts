@@ -130,6 +130,8 @@ test("Claude助言をSchema付き・Toolなしの標準入力計画へ固定す�
     false,
   );
   assert.equal(plan.argv.includes("--json-schema"), true);
+  assert.equal(plan.argv.filter((value) => value === "--max-turns").length, 1);
+  assert.equal(plan.argv[plan.argv.indexOf("--max-turns") + 1], "2");
   assert.equal(plan.argv.includes("--no-session-persistence"), true);
   assert.equal(plan.repositoryMounted, false);
   assert.equal(plan.workspaceMountRequired, false);
