@@ -1993,6 +1993,7 @@ function createKilledFullProductionRecoveryRoot(
     | "receipt"
     | "receipt_proxy" = "expected",
   recoveryCorrelationId: string | null = null,
+  advice = false,
 ) {
   const parent = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-production-full-recovery-test-"),
@@ -2019,6 +2020,7 @@ function createKilledFullProductionRecoveryRoot(
     const handoff = process.argv[2];
     const hostPhase = process.argv[3];
     const recoveryCorrelationId = process.argv[4] || null;
+    const advice = process.argv[5] === "codex-advice";
     const owned = host.createOwnedOperationDirectories();
     const context = host.createOwnedOperationContextCapability(owned);
     const mounts = host.createOwnedMountCapability(owned);
@@ -2066,7 +2068,7 @@ function createKilledFullProductionRecoveryRoot(
     let begun;
     try {
       const plan = Object.freeze({
-        provider: "claude",
+        provider: advice ? "codex" : "claude",
         operationId: operation.operationId,
         grantRef: "PHMGRANT-123456",
         profileId: "PROFILE-123456",
@@ -2075,14 +2077,14 @@ function createKilledFullProductionRecoveryRoot(
         localUserBindingHash,
         stableLogicalHomeBindingHash,
         authContainerName: "crdd-auth-0123456789abcdef",
-        providerContainerName: "crdd-claude-0123456789abcdef",
+        providerContainerName: advice ? "crdd-codex-0123456789abcdef" : "crdd-claude-0123456789abcdef",
         proxyContainerName: "crdd-proxy-0123456789abcdef",
         internalNetworkName: "crdd-internal-0123456789abcdef",
         egressNetworkName: "crdd-egress-0123456789abcdef",
         ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
-        providerImageDigest: "sha256:" + "a".repeat(64),
+        providerImageDigest: advice ? ${JSON.stringify(describeCodexAdviceDistributionIdentity().fixedImageDigest)} : "sha256:" + "a".repeat(64),
         proxyImageDigest: "sha256:" + "b".repeat(64),
-        operationMode: "isolated_task",
+        operationMode: advice ? "workbench_advice" : "isolated_task",
         workspaceMountMode: "read_write",
         ...(recoveryCorrelationId ? { recoveryCorrelationId } : {}),
       });
@@ -2209,6 +2211,7 @@ function createKilledFullProductionRecoveryRoot(
       handoff,
       hostPhase,
       recoveryCorrelationId ?? "",
+      advice ? "codex-advice" : "normal",
     ],
     { windowsHide: true, encoding: "utf8", timeout: 15_000 },
   );
@@ -4743,6 +4746,115 @@ test("production共有回復engineはHost expected世代のprocess killを残存
       },
     });
     executedRecoveryTraceCases.add("CASE-RECOVERY-TO-RECOVERED");
+  } finally {
+    disposeKilledFullProductionRecoveryFixture(fixture);
+  }
+});
+
+/**
+ * 助言専用の耐久記録を別Processから回復し、構成拒否と二重回収防止を検証する。
+ *
+ * @responsibility 同じRecovery IDの拒否、回収、完了再読取りの合否を判定する。
+ * @trace PRL-IT-013
+ * @precondition 子Processが専用Imageのreceiptを保存して終了する。
+ * @stimulus Init=nullで拒否後、Init=trueの模擬Docker観測で同じIDを回復する。
+ * @observation 耐久在庫、削除回数、Host残存と完了記録を読む。
+ * @oracle 不正構成では削除0、正しい構成では削除1、再入場で記録不変。
+ * @cleanup exactな試験Rootを既存fixture清掃で回収する。
+ * @boundary PRL-IT-013=耐久記録→別Processの回復engine。Docker観測は模擬であり、実Providerや署名E2Eの証明ではない。
+ */
+test("助言専用の耐久RecoveryはInit拒否後も同じIDで回収し完了を再読取りする", () => {
+  const fixture = createKilledFullProductionRecoveryRoot("receipt", null, true);
+  const root = verifiedRoot(fixture.root);
+  const configuration = {
+    Name: "/crdd-codex-0123456789abcdef",
+    Config: {
+      User: "65534:65534",
+      Image: describeCodexAdviceDistributionIdentity().fixedImageDigest,
+      Labels: { "crdd.coordinator.runtime": "0123456789abcdef" },
+    },
+    HostConfig: {
+      Init: true,
+      ReadonlyRootfs: true,
+      Privileged: false,
+      CapDrop: ["ALL"],
+      CapAdd: [],
+      SecurityOpt: ["no-new-privileges:true"],
+      PidsLimit: 64,
+    },
+    NetworkSettings: {
+      Networks: { "crdd-internal-0123456789abcdef": {} },
+    },
+    Mounts: [
+      {
+        Type: "bind",
+        Destination: "/provider-home",
+        RW: true,
+        Propagation: "rprivate",
+      },
+      { Type: "bind", Destination: "/tmp", RW: true, Propagation: "rprivate" },
+    ],
+  };
+  const rejectedDocker = exactContainerRunner({
+    ...configuration,
+    HostConfig: { ...configuration.HostConfig, Init: null },
+  });
+  const acceptedDocker = exactContainerRunner(configuration);
+  try {
+    const rejected = recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+      fixture.recoveryId,
+      root,
+      () => root,
+      rejectedDocker.runDockerCommand,
+    );
+    assert.equal(rejected.status, "blocked");
+    assert.equal(rejected.recoveryId, fixture.recoveryId);
+    assert.equal(rejectedDocker.removeCount(), 0);
+    const unresolved = inspectDockerRecoveryRootSnapshotWithLock(root);
+    assert.deepEqual(unresolved.dockerRecoveryIds, [fixture.recoveryId]);
+    assert.deepEqual(
+      recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+        fixture.recoveryId,
+        root,
+        () => root,
+        acceptedDocker.runDockerCommand,
+      ),
+      {
+        status: "recovered",
+        reason: "docker_task_recovery_completed",
+        recoveryId: null,
+      },
+    );
+    assert.equal(acceptedDocker.removeCount(), 1);
+    assert.equal(fs.existsSync(fixture.hostRoot), false);
+    assert.equal(fs.existsSync(fixture.hostMarker), false);
+    assertOnlyCompletedRecoveryEvidence(fixture.root);
+    const names = fs.readdirSync(fixture.root).sort();
+    const completion = names.map((name) =>
+      fs.readFileSync(path.join(fixture.root, name), "utf8"),
+    );
+    assert.deepEqual(
+      recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+        fixture.recoveryId,
+        root,
+        () => root,
+        acceptedDocker.runDockerCommand,
+      ),
+      {
+        status: "recovered",
+        reason: "docker_task_recovery_completion_replayed",
+        recoveryId: null,
+      },
+    );
+    assert.equal(acceptedDocker.removeCount(), 1);
+    assert.deepEqual(fs.readdirSync(fixture.root).sort(), names);
+    assert.deepEqual(
+      names.map((name) =>
+        fs.readFileSync(path.join(fixture.root, name), "utf8"),
+      ),
+      completion,
+    );
+    assertOnlyCompletedRecoveryEvidence(fixture.root);
   } finally {
     disposeKilledFullProductionRecoveryFixture(fixture);
   }

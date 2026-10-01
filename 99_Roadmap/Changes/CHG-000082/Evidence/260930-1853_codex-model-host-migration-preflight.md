@@ -880,6 +880,28 @@ Source接続、init条件と負例、Architectureの観測境界は独立確認�
 
 本節とCHG影響一覧の記録整合も独立確認で対象限定Pass、Finding 0件だった。記録更新後のRepository Checker（session `29130`）は終了コード1、Error 1／Warning 0で、既知の`stable-release-tag-identity-mismatch`だけだった。`git diff --check`は成功した。Repository全体PassやRelease Gate完了とは表示しない。
 
+### Production利用側と実環境プロファイルの再確認（2026-10-01）
+
+Source接続Commit `97890c8b`で、Production助言Runtime、Profile Catalog連鎖とDocker Process Controllerの3ファイルを確認した（session `65993`）。106試験のうち104件成功、Windows実子孫終了の2件は制限環境で失敗した。取消要求は発行されたが終了観測はfalseで、`provider_cancellation_grace_exceeded`を保持しており、失敗を正常取消へ畳んでいない。
+
+同じSource・同じ2試験を定義済みHost Windowsの実環境権限で再実行し、2件成功、失敗0、終了コード0、所要1081msを確認した。実子孫の終了、所有Process不存在、取消一回、cleanup結果別のcancelled／blocked、イベント監視解除を試験本文で照合する。全回帰や専用Image内部Hostの実回収を証明する結果ではない。今後の通常局所試験はportableの除外条件を使い、Host試験は実環境プロファイルへ分離する。
+
+固定専用Imageの現存をread-only inspectで再確認した。Digestは`sha256:843db607376a454cb7c901e76d4da1d168d6e384912366448df3363b42624d36`、Userは`65534:65534`、WorkingDirは`/work`、Entrypointは専用CLI Pathで一致した。Docker Engineは`29.8.1`だった。初回のformat表示はCmd field不存在で失敗したため、JSONを読み直してIdentityを検査し、Cmd欠測を明示した。Image Buildで指定した空Cmdを実CLI引数継承の保証へ読み替えない。Runtimeは明示argvを使う。Provider起動、秘密値読取り、Docker再起動、資源削除はこの再観測で行っていない。
+
+次Gateは既存証拠の合算では閉じない。専用配布IdentityからRuntimeの実際の検査への結合、本番Planでの実Home／取消／Host喪失、同じ耐久Recovery IDのfresh再入場、Workbench公開受付と署名E2Eを確認する。追加の検証専用Imageを大量に作るのではなく、既存の公開経路とRunnerへ不足する観測を接続する方針を独立確認へ渡した。
+
+独立確認では初めにRuntimeの専用binary検査追加を要求したが、既存契約との再照合で過剰な要求と判明した。現行の所有者は固定Digestを`--pull=never`へ渡すAdapter、固定Commandを再導出するEffect、exact ContainerとImage・構成を照合する清掃／Recovery、Identityを含むSource閉包を検証する署名Packageである。通常Codex／Claudeもこの方式を使用するため、新しいRuntime Probeは追加しない。配布時のBuild provenanceと三binary／所有属性／version／exact Imageの結合、固定Identityとの一致を確認する。署名後のIdentity変更は既存の配布閉包検査が拒否する。本番lifecycle・実Home・耐久fresh再入場の確認は別Gateとして残る。
+
+今回のfresh Hash確認では、包装入力のCLI=`366286511b5d8d4d804ca9a7539eb7be7f6ea38f083bf5629e7b12ca828ba1b3`、Host=`5b2c075ac2380fa04d76d7313fbc044d29c8d0a0d0b9138415acd4610211ca03`、bwrap=`07bc720e15a730d717e81b42acb3b95049803360738115c6f6c59830accef7c2`が固定Identityと一致した。包装用Dockerfileと追跡対象Dockerfileはともに`3438a2779bbf858f810d17d44f53425e70e3421babda9209af65480e9da351f6`、起動Patchは`1fbd4d98e20e2a4a7c106f7f417129e061297fba65b7ef521969e40ef847faeb`で一致した。この入力一致と現在Imageの現存を、Imageから全binaryを再抽出した証明や独立Build再実行へ読み替えない。過去の包装実測を含む完全なBuild provenance照合は署名前Gateとして保持する。
+
+### 助言専用の耐久Recovery再入場（2026-10-01）
+
+基準Commit `97890c8b`へ、専用助言の耐久復旧を検証する契約試験を追加した。子Processが専用Imageと`workbench_advice`のreceiptを保存して終了し、親Processが同じRecovery IDを読み直す。Init=nullの模擬inspectは削除0で拒否され、未解決在庫に同じIDが残る。Init=true、固定Image、workspace共有なしの観測ではexactな削除1回で回復し、Host Rootとmarkerの不存在、完了在庫を確認する。同じIDの再入場では追加削除がなく、完了記録の全ファイル名と内容も不変だった。既定の通常Claude fixtureと既存12組合せの反例は変更していない。
+
+静的Gateは終了コード0（session `87320`）。追加試験と既存receipt試験の2件は成功、失敗0、終了コード0、所要4048msだった。続いて復旧試験ファイル全体を同じ実行Processで確認し、112件成功、失敗・取消・skip・todo 0、終了コード0、所要97618msだった（session `68103`）。試験一時RootはRepository-local `.crdd/tmp/auth-lock-tests-20261001`へ固定した。
+
+追加差分の独立再レビューは対象限定Pass、Finding 0件だった。耐久記録と模擬Docker観測の連鎖を確認したもので、実Docker、実Home、Image内部Hostの回収、署名E2EまたはWorkbench全体の成立証明ではない。実境界と公開Workbench受付の確認は引き続き未完了である。
+
 ## Checklist
 
 - [x] 人間承認のモデル方針と旧候補の履歴を区別した。
