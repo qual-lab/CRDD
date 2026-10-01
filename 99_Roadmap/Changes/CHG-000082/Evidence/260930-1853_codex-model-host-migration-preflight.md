@@ -916,6 +916,14 @@ POST後の応答切断、確認済み400、不正Locationまたは結果観測�
 
 公開HTTP接続部は偽AI Applicationと故障注入HTTP Serverで検証した。実Provider Runnerへの接続、署名候補、本番実Home、内部Hostの終了・回収およびWorkbench実Provider E2Eは未完了である。公開server、Production Application、Authority、既存結果parserと通常Task／ClaudeのRuntimeは変更していない。
 
+### 公開候補確認・破棄の検証接続（2026-10-01）
+
+検証用HTTP接続部に候補確認と確認付き破棄を追加した。採用操作は公開しない。公開snapshot、確認結果および破棄結果の候補IDを照合し、確認不能を候補不存在へ変換しない。破棄結果のEffect、cleanup、回復要否は変更せず返す。POST後の通信失敗、不正操作・別候補IDまたは前回結果の再利用は、同じ候補IDを保持した不明結果として停止し、再送しない。
+
+独立レビューで相関条件の反証不足を検出し、available確認の同ID／別ID、破棄後の別ID／別操作／前回結果同値を追加した。最終差分の独立再レビューは対象限定Pass、Finding 0件。静的Gateは終了コード0。最終の試験ファイル全体は29件成功、失敗・取消・skip・todo 0、終了コード0、所要62376msだった（session `13379`）。接続部のSHA-256は`7795dea443bce97335f6539501ec027f1c38591f7829fe71d9dc8809a85970cc`。
+
+実Workbenchへ偽Applicationを注入し、故障HTTP Serverで応答切断と前回結果流用を反証した。実Provider、署名Runner、本番Runtime、Authorityは変更・実行していない。実Provider Runnerの公開入口接続と、配布検証前の動的importを除去するGateは引き続き未完了である。
+
 ## Checklist
 
 - [x] 人間承認のモデル方針と旧候補の履歴を区別した。

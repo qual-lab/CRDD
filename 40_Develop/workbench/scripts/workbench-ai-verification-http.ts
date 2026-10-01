@@ -12,6 +12,7 @@ import assert from "node:assert/strict";
 import type {
   WorkbenchAiRequestApplication,
   WorkbenchAiRequestCommand,
+  WorkbenchCandidateApplication,
 } from "../src/ai-request.ts";
 import { inspectWorkbenchClientModel } from "../src/presentation/workbench-client-model.ts";
 
@@ -161,7 +162,7 @@ async function readMain(baseUrl: string) {
  * @responsibility 同じrequestId、modeとprofileIdを公開結果から照合する。
  * @trace ARCH-000015
  * @input 起動済みWorkbenchのloopback URL。
- * @returns start／observe／cancelの検証用接続部。
+ * @returns start／observe／cancelと候補確認・破棄の検証用接続部。採用操作は含めない。
  * @precondition CallerがListenerと本番Applicationの終了・回復を所有する。
  * @postcondition 内部Application、署名またはProviderへ直接アクセスしない。
  * @effect 操作Tokenを読み、明示された公開HTTP操作を発行する。
@@ -173,7 +174,10 @@ async function readMain(baseUrl: string) {
  */
 export async function createWorkbenchAiVerificationHttpApplication(
   baseUrl: string,
-): Promise<WorkbenchAiRequestApplication> {
+): Promise<
+  WorkbenchAiRequestApplication &
+    Pick<WorkbenchCandidateApplication, "review" | "discard">
+> {
   const url = new URL(baseUrl);
   if (
     url.protocol !== "http:" ||
@@ -188,7 +192,60 @@ export async function createWorkbenchAiVerificationHttpApplication(
   const initial = await readMain(baseUrl);
   const token = initial.actionToken;
   const accepted = new Map<string, WorkbenchAiRequestCommand>();
-  return Object.freeze({
+  return Object.freeze<
+    WorkbenchAiRequestApplication &
+      Pick<WorkbenchCandidateApplication, "review" | "discard">
+  >({
+    review: async (candidateId) => {
+      const model = await readMain(baseUrl);
+      assert.equal(
+        model.aiRequest.snapshot?.candidate?.candidateId,
+        candidateId,
+      );
+      const review = model.aiRequest.candidateReview;
+      if (review === null)
+        throw new Error("workbench_verification_candidate_review_missing");
+      if (review.candidate !== null)
+        assert.equal(review.candidate.candidateId, candidateId);
+      return review;
+    },
+    discard: async (candidateId, confirmed) => {
+      const before = await readMain(baseUrl);
+      assert.equal(
+        before.aiRequest.snapshot?.candidate?.candidateId,
+        candidateId,
+      );
+      try {
+        const response = await requestBounded(
+          baseUrl,
+          "/candidate/action",
+          new URLSearchParams({
+            actionToken: token,
+            operation: "discard",
+            candidateId,
+            confirmed: confirmed ? "true" : "false",
+          }),
+        );
+        assert.equal(response.status, 303);
+        assert.equal(response.location, "/#ai-request");
+        const model = await readMain(baseUrl);
+        assert.equal(
+          model.aiRequest.snapshot?.candidate?.candidateId,
+          candidateId,
+        );
+        const action = model.aiRequest.candidateAction;
+        if (action === null)
+          throw new Error("workbench_verification_candidate_action_missing");
+        assert.equal(action.operation, "discard");
+        assert.equal(action.candidateId, candidateId);
+        assert.notDeepEqual(action, before.aiRequest.candidateAction);
+        return action;
+      } catch {
+        throw new Error("workbench_candidate_http_discard_outcome_unknown", {
+          cause: Object.freeze({ candidateId }),
+        });
+      }
+    },
     start: async (request) => {
       if (
         request.contextReferences.length !== 1 ||
