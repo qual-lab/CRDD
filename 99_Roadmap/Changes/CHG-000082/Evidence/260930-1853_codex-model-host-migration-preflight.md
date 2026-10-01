@@ -737,6 +737,25 @@ helperが子をforkし、未execの直接子にpidfdを確保してから起動g
 
 記録更新後のChecker session `86563`は終了コード1、Error 1／Warning 0、24815msで、既知の`stable-release-tag-identity-mismatch`だけを返した。1156 Markdown、18098 local link、2057 anchorを確認した。Git管理外の局所試験はChecker対象外であり、今回の個別Gate・独立確認を代替しない。Repository全体のPassとは扱わない。
 
+### 本番接続の着手前確認と非rootの限定実測（2026-10-01）
+
+本番助言コマンドは通常Task用`0.149.1`の配布Identityを参照し、Code ModeとHostを無効にしている。独立した着手前確認で、助言専用Image／CLI／Host／bwrapのIdentity分離、共有認証Homeの互換性、本番隔離条件、initの所有者、出力抽出・署名・Recoveryの利用側を接続前の確認対象へ加えた。通常Executor／ReviewerとClaudeは変更しない。これは完成後レビューのPassではない。
+
+変更前の`npm run check`はFormatter・strict型検査・警告を失敗とするLint・三つの静的契約検査まで終了コード0だった。助言コマンド、Packet、Executorと通常Codex計画の四試験Fileは22件すべて合格し、417msだった。既存基準の確認であり、新しい助言経路の成立根拠ではない。
+
+前節の固定CLI・Host・helper・observerを変更せず、専用Dockerfileへ非rootの試験targetだけを追加した。Build `ixz776sjhx65iccm6uhk4pk3z`のImageは`sha256:4fd983bd673051c4b9f0617860f4466dbe0f6a8fe2292151101bb6b7c5a63edc`、Dockerfile Hashは`c798473b4cafd36cbba6f89f01abd1708835953928a84f47f606017c60b120dc`である。初回Buildは専用Dockerfile名の指定漏れで開始前に失敗したため、実名を明示して実行した。
+
+| 限定実測 | exact Container ID | 観測結果 |
+|---|---|---|
+| SIGINT取消 | `72177cb57763dae55fd947ef80c84706f1271022774f5c0ede12954c9df0f99d` | 終了コード0。実Cell `1`、CLIと直下HostのUID 65534・固定Hashを確認。helper close後は開始時と同じinit／observer二世代だけとなり、fixture Socket 0・listener停止を確認した。 |
+| CLI喪失 | `a7da85ac65c800ed22eb3ae580e4d0657f67bc7d42c914317e28e8157ed82517` | 終了コード2、`blocked`。実Cell、CLI／HostのUIDとHash、helper close、最終二世代、Socket 0・listener停止は観測したが、途中で汎用`Error`を記録した。失敗段階を区別できず、合格としない。 |
+
+両Containerは別々に実行し、UID／GID 65534、read-only root、cap-drop ALL、no-new-privileges、既定seccomp、pids-limit 64、network none、memory 1GiB、CPU 2とした。Host bind、Repositoryおよび既存Homeの共有はない。匿名tmpfsは`/fixture/home/.codex`と`/fixture/output`を各16MiB・mode 0700・UID／GID 65534、`/tmp`を16MiB・mode 1777・同UID／GIDとし、すべてrw／nosuid／nodev／noexecである。PromptはImage内のread-only regular file、Homeと出力は新規の空状態だった。initのUID、実行物Hashと世代は実観測し、固定配布物とは主張しない。
+
+CLI喪失の失敗を回収済みという最終値だけで取り消さない。次は既存observerの失敗段階・固定エラー分類を診断し、原因を特定してから再確認する。権限追加、sandbox無効化、未知状態の合格化は行わない。本番の`/work`、専用tmp／認証Home、egress、init方式、署名閉包、公開Coordinator取消と実Provider E2Eは未確認として保持する。Production Source、署名Runtime、QA集計とRelease判断は変更していない。
+
+本節の記録は対象限定独立レビューでPass、Finding 0件だった。Build・OS・Container条件の独立再取得ではない。今回所有する停止済みContainer二個は、exact ID・Image・所有label・終了状態・Host共有なしを再確認して通常削除し、fresh一覧で不存在を確認した。Imageと非追跡入力は前節の保持条件で残す。走査中のPID消滅は原因候補であり、現在の`Error`だけから実原因とは断定しない。
+
 ## Checklist
 
 - [x] 人間承認のモデル方針と旧候補の履歴を区別した。
