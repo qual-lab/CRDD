@@ -7,6 +7,7 @@
 import { randomBytes } from "node:crypto";
 import { performance } from "node:perf_hooks";
 
+import { codexAdviceProviderInitRequired } from "./codex-advice-distribution.ts";
 import {
   planCodexIsolatedTask,
   planCodexReadOnlyProbe,
@@ -749,6 +750,12 @@ function buildPlan(
     ]),
     createCommand("create_provider", [
       "create",
+      ...(codexAdviceProviderInitRequired(
+        advicePacket ? "workbench_advice" : "isolated_task",
+        providerImageDigest,
+      )
+        ? ["--init"]
+        : []),
       ...(taskPacket || advicePacket ? ["--interactive"] : []),
       "--pull=never",
       "--network",

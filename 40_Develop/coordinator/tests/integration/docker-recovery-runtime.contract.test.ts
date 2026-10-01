@@ -19,6 +19,7 @@ import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { renderDockerRecoveryDoctorReport } from "../../src/core/docker-recovery-command-report.ts";
 import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "../../src/security/candidate-store-kernel-lock.ts";
+import { describeCodexAdviceDistributionIdentity } from "../../src/security/codex-advice-distribution.ts";
 import {
   dockerRecoveryCommitName,
   inspectDockerRecoveryJournalDirectory,
@@ -2608,6 +2609,7 @@ function exactContainerRunner(overrides: Record<string, unknown> = {}) {
       Labels: Object.freeze({ "crdd.coordinator.runtime": "0123456789abcdef" }),
     }),
     HostConfig: Object.freeze({
+      Init: null,
       ReadonlyRootfs: true,
       Privileged: false,
       CapDrop: Object.freeze(["ALL"]),
@@ -2693,6 +2695,7 @@ function exactProxyRunner(networkNames: readonly string[]) {
       }),
     }),
     HostConfig: Object.freeze({
+      Init: null,
       ReadonlyRootfs: true,
       Privileged: false,
       CapDrop: Object.freeze(["ALL"]),
@@ -2737,6 +2740,7 @@ function exactAuthRunner(networkNames: readonly string[] = ["none"]) {
       }),
     }),
     HostConfig: Object.freeze({
+      Init: null,
       ReadonlyRootfs: true,
       Privileged: false,
       CapDrop: Object.freeze(["ALL"]),
@@ -7932,6 +7936,58 @@ test("production共有Docker回復はreplacement構成を削除せずEvidenceを
     false,
   );
   assert.equal(fixture.removeCount(), 0);
+});
+
+/**
+ * 専用助言initと通常非initをexact Recoveryの構成検査で区別する。
+ *
+ * @responsibility init欠落、誤った型と対象外へのinit混入で削除を発行しないことを確認する。
+ * @trace PRL-IT-013
+ * @precondition 固定inspect形の合成応答と通常／専用Imageを使用する。
+ * @stimulus fresh Recoveryが同じexact IDを再検査する。
+ * @observation 判定と削除発行件数を取得する。
+ * @oracle 専用助言はtrueだけ、通常Taskはnull／falseだけを受理する。
+ * @cleanup N/A: 合成Docker runnerは実資源を作らない。
+ * @boundary PRL-IT-013=Related 2 Blocks: Recovery再入場→exact構成検査
+ */
+test("専用助言initと通常非initをexact Recoveryの構成検査で区別する", () => {
+  const seed = JSON.parse(
+    exactContainerRunner().runDockerCommand(["docker", "inspect"]).stdout,
+  )[0];
+  for (const advice of [false, true]) {
+    const image = advice
+      ? describeCodexAdviceDistributionIdentity().fixedImageDigest
+      : `sha256:${"b".repeat(64)}`;
+    for (const init of [null, false, true, undefined, "false", 1]) {
+      const expected = advice ? init === true : init === null || init === false;
+      const fixture = exactContainerRunner({
+        Config: { ...seed.Config, Image: image },
+        HostConfig: { ...seed.HostConfig, Init: init },
+        Mounts: advice
+          ? seed.Mounts.filter(
+              (mount: { Destination: string }) => mount.Destination !== "/work",
+            )
+          : seed.Mounts,
+      });
+      assert.equal(
+        recoverExactDockerResourceWithRunner(
+          fixture.runDockerCommand,
+          "container",
+          fixture.dockerId,
+          "provider",
+          "crdd.coordinator.runtime=0123456789abcdef",
+          image,
+          null,
+          "create_provider",
+          Object.freeze(["internal"]),
+          advice ? "workbench_advice" : "isolated_task",
+          advice ? null : "read_write",
+        ),
+        expected,
+      );
+      assert.equal(fixture.removeCount(), expected ? 1 : 0);
+    }
+  }
 });
 
 /**

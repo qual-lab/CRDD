@@ -11,6 +11,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import {
+  codexAdviceProviderInitRequired,
+  describeCodexAdviceDistributionIdentity,
+} from "../../src/security/codex-advice-distribution.ts";
+import { describeCodexExecutionPlanContract } from "../../src/security/codex-execution-plan.ts";
 import { planWorkbenchAiAdviceProviderCommand } from "../../src/security/workbench-ai-advice-provider-command.ts";
 
 /**
@@ -28,12 +33,51 @@ import { planWorkbenchAiAdviceProviderCommand } from "../../src/security/workben
 test("Codex助言をToolなし・Repository非共有の標準入力計画へ固定する", () => {
   const plan = planWorkbenchAiAdviceProviderCommand({
     provider: "codex",
-    exactModelId: "gpt-5.6-sol",
+    exactModelId: "gpt-6.1-sol",
     reasoningEffort: "medium",
   });
 
   assert.equal(plan.provider, "codex");
-  assert.equal(plan.exactModelId, "gpt-5.6-sol");
+  assert.equal(plan.exactModelId, "gpt-6.1-sol");
+  const distribution = describeCodexAdviceDistributionIdentity();
+  const normal = describeCodexExecutionPlanContract().distributionIdentity;
+  assert.equal(plan.command, distribution.executablePath);
+  assert.equal(plan.fixedImageDigest, distribution.fixedImageDigest);
+  assert.notEqual(plan.command, normal.executablePath);
+  assert.notEqual(plan.fixedImageDigest, normal.fixedImageDigest);
+  assert.equal(
+    codexAdviceProviderInitRequired("workbench_advice", plan.fixedImageDigest),
+    true,
+  );
+  for (const mode of ["boolean_probe", "isolated_task", "unknown"]) {
+    assert.equal(
+      codexAdviceProviderInitRequired(mode, plan.fixedImageDigest),
+      false,
+    );
+  }
+  for (const image of [
+    normal.fixedImageDigest,
+    null,
+    `sha256:${"0".repeat(64)}`,
+  ]) {
+    assert.equal(
+      codexAdviceProviderInitRequired("workbench_advice", image),
+      false,
+    );
+  }
+  assert.equal(plan.argv.includes("features.code_mode=true"), true);
+  assert.equal(
+    plan.argv.includes(
+      "features.code_mode_host={enabled=true,disable_in_process_fallback=true}",
+    ),
+    true,
+  );
+  assert.equal(plan.argv.includes("features.code_mode_interrupt=true"), true);
+  assert.equal(plan.argv.includes("features.code_mode_only=true"), true);
+  assert.equal(plan.argv.includes("features.multi_agent=false"), true);
+  assert.equal(plan.argv.includes("features.multi_agent_v2=false"), true);
+  assert.equal(plan.argv.includes("agents.enabled=false"), false);
+  assert.equal(plan.argv.includes("features.code_mode=false"), false);
   assert.equal(plan.reasoningEffort, "medium");
   assert.equal(plan.resultTransport, "codex_cli_jsonl");
   assert.equal(plan.argv.at(-1), "-");

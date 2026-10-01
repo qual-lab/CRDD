@@ -13,6 +13,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import test from "node:test";
 import { createIsolatedClaudeDockerRuntimeAdapterCandidate } from "../../src/security/claude-docker-runtime-adapter.ts";
+import { createIsolatedCodexDockerRuntimeAdapterCandidate } from "../../src/security/codex-docker-runtime-adapter.ts";
 import {
   createIsolatedDockerEffectRuntimeCandidate,
   describeDockerEffectRuntimeContract,
@@ -35,7 +36,10 @@ import { planWorkbenchAiAdviceProviderCommand } from "../../src/security/workben
 function createPlanFixture(
   taskRole: "executor" | "reviewer" | null = null,
   isAdvice = false,
+  provider: "codex" | "claude" = "claude",
 ) {
+  const profileId = provider === "codex" ? "PROFILE-100001" : "PROFILE-200001";
+  const model = provider === "codex" ? "gpt-6.1-sol" : "opus";
   const managementCapability = Object.freeze({});
   const mountCapability = Object.freeze({});
   const mountAuthorizationCapability = Object.freeze({});
@@ -44,7 +48,11 @@ function createPlanFixture(
   const authorityUseCapability = Object.freeze({});
   const authorityControlCapability = Object.freeze({});
   let randomValue = 0;
-  const adapter = createIsolatedClaudeDockerRuntimeAdapterCandidate({
+  const createAdapter =
+    provider === "codex"
+      ? createIsolatedCodexDockerRuntimeAdapterCandidate
+      : createIsolatedClaudeDockerRuntimeAdapterCandidate;
+  const adapter = createAdapter({
     verifyOperationMount: () =>
       Object.freeze({
         operationId: "OP-123456",
@@ -63,8 +71,8 @@ function createPlanFixture(
         status: "activated",
         grant: Object.freeze({
           grantRef: "PHMGRANT-123456",
-          provider: "claude",
-          profileId: "PROFILE-200001",
+          provider,
+          profileId,
           operationId: "OP-123456",
           providerHomeIdentityHash: "d".repeat(64),
           providerHomeProtectionHash: "e".repeat(64),
@@ -73,7 +81,7 @@ function createPlanFixture(
         }),
         activeMountCapability,
       }),
-    borrowMountSource: () => "C:\\provider-homes\\claude",
+    borrowMountSource: () => `C:\\provider-homes\\${provider}`,
     completeMount: () => Object.freeze({ status: "completed" }),
     wallNow: () => 1_000,
     monotonicNow: () => 2_000,
@@ -86,12 +94,12 @@ function createPlanFixture(
         selectionRecordId: "MODELSEL-12345678",
         operationId: "OP-123456",
         frontProvider: "codex" as const,
-        executorProvider: "claude" as const,
-        route: "front_codex__executor_claude",
-        profileId: "PROFILE-200001",
-        model: "opus",
+        executorProvider: provider,
+        route: `front_codex__executor_${provider}`,
+        profileId,
+        model,
         basis: Object.freeze({
-          provider: "claude" as const,
+          provider,
           role: "executor" as const,
           workClass: "bounded_implementation" as const,
           planState: "complete" as const,
@@ -126,8 +134,8 @@ function createPlanFixture(
       }),
     consumeAdvicePacket: () => {
       const providerCommand = planWorkbenchAiAdviceProviderCommand({
-        provider: "claude",
-        exactModelId: "opus",
+        provider,
+        exactModelId: model,
         reasoningEffort: "low",
       });
       return Object.freeze({
@@ -135,8 +143,8 @@ function createPlanFixture(
         contractRevision: 1,
         packetRef: "ADVICEPKT-00112233445566778899AABBCCDDEEFF",
         operationId: "OP-123456",
-        profileId: "PROFILE-200001",
-        provider: "claude" as const,
+        profileId,
+        provider,
         taskHash: "2".repeat(64),
         projectionHash: "3".repeat(64),
         commandHash: createHash("sha256")
@@ -157,8 +165,8 @@ function createPlanFixture(
         useCapability: authorityUseCapability,
         controlCapability: authorityControlCapability,
         operationId: "OP-123456",
-        provider: "claude",
-        profileId: "PROFILE-200001",
+        provider,
+        profileId,
         providerHomeMountGrantRef: "PHMGRANT-123456",
         runtimeAuthorityIssued: true,
       }),
@@ -212,6 +220,7 @@ function createEffectFixture(
   options: Readonly<{
     taskRole?: "executor" | "reviewer";
     isAdvice?: boolean;
+    provider?: "codex" | "claude";
     configEntries?: readonly string[];
     outputForInvocation?: (
       argv: readonly string[],
@@ -225,6 +234,7 @@ function createEffectFixture(
     }>;
     internalNetworkReceiptId?: string;
     authReceiptId?: string;
+    providerReceiptId?: string;
     handleForInvocation?: (
       invocationIndex: number,
     ) => OwnedCommandHandle | null;
@@ -233,6 +243,7 @@ function createEffectFixture(
   const { plan, managementCapability } = createPlanFixture(
     options.taskRole ?? null,
     options.isAdvice ?? false,
+    options.provider ?? "claude",
   );
   const invocations: Array<{
     executable: string;
@@ -303,7 +314,9 @@ function createEffectFixture(
         closed: () => closed,
       });
     },
-    ...(options.internalNetworkReceiptId || options.authReceiptId
+    ...(options.internalNetworkReceiptId ||
+    options.authReceiptId ||
+    options.providerReceiptId
       ? {
           inspectReceipts: () =>
             Object.freeze({
@@ -324,8 +337,8 @@ function createEffectFixture(
                 dockerId: null,
               }),
               create_provider: Object.freeze({
-                submitted: false,
-                dockerId: null,
+                submitted: options.providerReceiptId !== undefined,
+                dockerId: options.providerReceiptId ?? null,
               }),
             }),
         }
@@ -566,6 +579,27 @@ test("Workbench助言本文を非共有Providerのstdinだけへ渡す", async (
   );
   assert.ok(providerStart);
   assert.ok(providerCreate);
+  assert.equal(providerCreate.argv.includes("--init"), false);
+  const changedCreate = Object.freeze({
+    ...providerCreate,
+    argv: Object.freeze(["create", "--init", ...providerCreate.argv.slice(1)]),
+  });
+  const changedPlan = Object.freeze({
+    ...fixture.plan,
+    commands: Object.freeze(
+      fixture.plan.commands.map((command) =>
+        command === providerCreate ? changedCreate : command,
+      ),
+    ),
+  });
+  assert.throws(() =>
+    fixture.runtime.startCommand(
+      changedCreate,
+      changedPlan,
+      fixture.managementCapability,
+    ),
+  );
+  assert.equal(fixture.invocations.length, 0);
   const handle = fixture.runtime.startCommand(
     providerStart,
     fixture.plan,
@@ -1042,6 +1076,79 @@ test("通常Effect cleanupは認証Probeの空・別・追加Networkを削除し
       false,
     );
     assert.equal(fixture.counts().configRemoved, 0);
+  }
+});
+
+/**
+ * 通常清掃でもCodex助言専用initの欠測と対象外混入を拒否する。
+ *
+ * @responsibility 起動計画に結合したProvider receiptを清掃前に再検査する。
+ * @trace ERB-IT-004
+ * @precondition 実Adapter由来のCodex／Claude助言Planと合成inspect応答を使う。
+ * @stimulus 通常清掃へexact Provider receiptを渡す。
+ * @observation 構成判定、削除発行と清掃完了値を観測する。
+ * @oracle Codex助言はtrueだけ、Claude助言はnull／falseだけを受理し、不一致で削除0となる。
+ * @cleanup N/A: 疑似Docker Processは各waitで終了し実Containerを作らない。
+ * @boundary ERB-IT-004=Direct Boundary: Provider receipt→清掃前inspect
+ */
+test("通常清掃でもCodex助言専用initの欠測と対象外混入を拒否する", async () => {
+  for (const provider of ["codex", "claude"] as const) {
+    for (const init of [true, null, false, undefined, "false", 1]) {
+      const expected =
+        provider === "codex" ? init === true : init === null || init === false;
+      const providerId = "c".repeat(64);
+      const fixture = createEffectFixture({
+        isAdvice: true,
+        provider,
+        providerReceiptId: providerId,
+        outputForInvocation: (argv) => {
+          const observed = structuredClone(
+            loadSanitizedAuthProbeInspectFixture().inspect,
+          ) as Record<string, unknown>;
+          observed.Id = providerId;
+          observed.Name = `/${fixture.plan.providerContainerName}`;
+          observed.Config = {
+            User: "65534:65534",
+            Image: fixture.plan.providerImageDigest,
+            Labels: {
+              "crdd.coordinator.runtime":
+                fixture.plan.ownershipLabel.split("=")[1],
+            },
+          };
+          observed.HostConfig = {
+            ...(observed.HostConfig as Record<string, unknown>),
+            PidsLimit: 64,
+            Init: init,
+          };
+          observed.Mounts = ["/provider-home", "/tmp"].map((Destination) => ({
+            Type: "bind",
+            Destination,
+            RW: true,
+            Propagation: "rprivate",
+          }));
+          observed.NetworkSettings = {
+            Networks: { [fixture.plan.internalNetworkName]: {} },
+          };
+          return Object.freeze({
+            status: 0,
+            signal: null,
+            stdout: argv.includes("inspect") ? JSON.stringify([observed]) : "",
+            stderr: "",
+            outputExceeded: false,
+          });
+        },
+      });
+      const result = await fixture.runtime.cleanupOwnedResources(
+        fixture.plan,
+        fixture.recoveryCapability,
+        fixture.managementCapability,
+      );
+      assert.equal(result.confirmed, expected);
+      assert.equal(
+        fixture.invocations.filter((call) => call.argv.includes("rm")).length,
+        expected ? 1 : 0,
+      );
+    }
   }
 });
 

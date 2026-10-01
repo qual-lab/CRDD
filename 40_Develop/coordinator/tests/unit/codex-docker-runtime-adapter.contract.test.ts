@@ -271,6 +271,7 @@ test("Workbench助言をRepository非共有のCodex Planへ固定する", () => 
     (command) => command.purpose === "create_provider",
   );
   assert.ok(createProvider);
+  assert.equal(createProvider.argv.includes("--init"), true);
   assert.equal(
     createProvider.argv.includes("C:\\crdd\\operation\\workspace"),
     false,

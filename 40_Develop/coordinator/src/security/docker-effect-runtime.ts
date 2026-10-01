@@ -7,6 +7,7 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { codexAdviceProviderInitRequired } from "./codex-advice-distribution.ts";
 import {
   planClaudeIsolatedTask,
   planClaudeReadOnlyProbe,
@@ -531,6 +532,12 @@ function expectedCommands(
     ["network", "connect", plan.egressNetworkName, plan.proxyContainerName],
     [
       "create",
+      ...(codexAdviceProviderInitRequired(
+        plan.operationMode,
+        plan.providerImageDigest,
+      )
+        ? ["--init"]
+        : []),
       ...(plan.operationMode === "isolated_task" || adviceCommand
         ? ["--interactive"]
         : []),
@@ -1066,6 +1073,10 @@ function createRuntime(dependencies: RuntimeDependencies) {
           option.startsWith("no-new-privileges"),
         ) &&
         hostConfig?.PidsLimit === expectedPids &&
+        (purpose === "create_provider" &&
+        codexAdviceProviderInitRequired(plan.operationMode, expectedImage)
+          ? hostConfig?.Init === true
+          : hostConfig?.Init === null || hostConfig?.Init === false) &&
         networkNames.length === expectedNetworks.length &&
         networkNames.every(
           (value, index) => value === expectedNetworks[index],

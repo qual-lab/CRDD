@@ -321,6 +321,7 @@ CodexのCode Mode内部計算を助言に利用する場合も、System Toolの�
 | 禁止Tool | Shell、Patch、MCP、Web、Agent、権限要求、質問・メッセージ用Toolおよび未知Toolを登録しない。別namespaceや非表示名の直接呼出しもHandlerへ到達させない。最終`agent_message`はToolではなく結果搬送として既存契約で検証する。 |
 | 別途閉じる境界 | Hooks、notify、Plugin、MCP、追加Environment、任意引数、API-key fallbackを継承しない。ToolPolicyだけでこれらが閉じるとは主張しない。 |
 | Host | 固定した公式Code Mode Hostだけをstdioで使用し、in-process fallbackを禁止する。CLI終了とHost終了を分け、取消・IPC断・異常終了・終了後のProcess Tree、Container、Networkを観測する。 |
+| 孤児Processの回収 | Codex助言専用ImageのProviderコンテナだけにDocker initを指定し、CLI喪失後の孤児Processのreapを担当させる。通常Task、Claude助言、認証probeとproxyへ適用しない。起動計画、Effect直前の再導出、清掃とfresh Recoveryは同じ専用Image／実行方式から適用条件を導く。inspectのInitは対象でtrue、対象外でnull／falseだけを受理し、欠測・不正型を非initの成立へ畳まない。init指定やContainer不存在だけで内部Hostの終了・reapを成立済みとせず、Signal搬送、取消、CLI喪失、Host喪失と観測不能を別に確認する。 |
 | 結果公開 | 唯一のSchema適合最終結果だけを全資源のcleanup確定後に公開する。error、未知通知、複数本文またはcleanup不明を成功へ畳まない。 |
 | 配布・Build | Source改訂版、対象Fileの変更前Hash、Patch Hash、固定toolchain、Build条件、専用実行物とHostのHashおよび実Image Digestを結合する。Provider RuntimeでBuildしない。 |
 

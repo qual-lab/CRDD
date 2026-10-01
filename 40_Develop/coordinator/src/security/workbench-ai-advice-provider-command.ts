@@ -11,7 +11,7 @@
  */
 import type { AiReasoningEffort } from "../../../ai-runtime/src/ai-profile-types.ts";
 import { describeClaudeExecutionPlanContract } from "./claude-execution-plan.ts";
-import { describeCodexExecutionPlanContract } from "./codex-execution-plan.ts";
+import { describeCodexAdviceDistributionIdentity } from "./codex-advice-distribution.ts";
 
 export const WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT =
   "crdd-coordinator/workbench-ai-advice-provider-command";
@@ -128,7 +128,7 @@ export function planWorkbenchAiAdviceProviderCommand(
  * @postcondition argv末尾は標準入力を示す`-`で、Prompt本文を含まない。
  * @effect N/A: コマンド計画を生成するだけである。
  * @failure N/A: Catalog検証済み入力だけを受け取る。
- * @invariant 固定Image Digestと公式CLI Pathを変更しない。
+ * @invariant 固定Image Digestと助言専用CLI Pathを呼出し側入力で変更しない。
  * @boundary Workbench助言とCodex CLIの間。
  * @security Filesystem Tool、Web、MCP、Plugin、MemoryおよびSubagentを無効化する。
  * @concurrency N/A: 共有状態を持たない同期処理である。
@@ -136,12 +136,12 @@ export function planWorkbenchAiAdviceProviderCommand(
 function planCodexAdviceCommand(
   input: WorkbenchAiAdviceProviderCommandInput,
 ): WorkbenchAiAdviceProviderCommand {
-  const contract = describeCodexExecutionPlanContract();
+  const distribution = describeCodexAdviceDistributionIdentity();
   return Object.freeze({
     contract: WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT,
     contractRevision: WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT_REVISION,
     provider: "codex" as const,
-    command: contract.distributionIdentity.executablePath,
+    command: distribution.executablePath,
     argv: Object.freeze([
       "exec",
       "--ephemeral",
@@ -155,9 +155,13 @@ function planCodexAdviceCommand(
       "--config",
       "features.respect_system_proxy=true",
       "--config",
-      "features.code_mode=false",
+      "features.code_mode=true",
       "--config",
-      "features.code_mode_host=false",
+      "features.code_mode_host={enabled=true,disable_in_process_fallback=true}",
+      "--config",
+      "features.code_mode_interrupt=true",
+      "--config",
+      "features.code_mode_only=true",
       "--config",
       "features.shell_tool=false",
       "--config",
@@ -171,7 +175,9 @@ function planCodexAdviceCommand(
       "--config",
       "features.memories=false",
       "--config",
-      "agents.enabled=false",
+      "features.multi_agent=false",
+      "--config",
+      "features.multi_agent_v2=false",
       "--config",
       "memories.generate_memories=false",
       "--config",
@@ -190,7 +196,7 @@ function planCodexAdviceCommand(
       CODEX_HOME: "/provider-home",
       CODEX_DISABLE_AUTO_UPDATE: "1",
     }),
-    fixedImageDigest: contract.distributionIdentity.fixedImageDigest,
+    fixedImageDigest: distribution.fixedImageDigest,
     exactModelId: input.exactModelId,
     reasoningEffort: input.reasoningEffort,
     promptTransport: "stdin_only" as const,

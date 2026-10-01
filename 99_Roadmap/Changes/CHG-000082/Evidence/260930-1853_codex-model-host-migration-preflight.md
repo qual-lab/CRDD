@@ -858,6 +858,28 @@ Git管理外Rootは`.crdd/tmp/codex-advice-auth-refresh-20261001`、Ownerはcoor
 
 追加節の記録整合も独立確認で対象限定Pass、Finding 0件だった。記録更新後のRepository Checkerは終了コード1、Error 1／Warning 0で、既知の`stable-release-tag-identity-mismatch`だけだった。`git diff --check`は成功した。Repository全体Passとは表示しない。
 
+### 助言専用配布物のSource接続とinit検査（2026-10-01）
+
+専用Codexの固定Image／CLIをWorkbench助言計画へ接続した。これは未署名Source候補であり、本番助言、署名E2Eまたはv0.22全体の成立ではない。基準Commitは`759ad66f`で、通常CodexとClaudeの実行計画は変更していない。
+
+| 対象 | 対応と確認範囲 |
+|---|---|
+| 配布Identity | `codex-advice-distribution.ts`へ専用CLI、公式Host、bwrap、Source、Patch、Lock、DockerfileとImageの固定Identityをまとめた。同File SHA-256は`5cc28d7271afcae03d38324d65390780d9a4eb82c8d8713f88186c69663272a1`。値の取得は実配布物の検証や実行Authorityを発行しない。 |
+| 助言Command | 専用CLIとImageを使い、Code Mode Hostを有効化しin-process fallbackを禁止した。内部計算だけを許可する起動Patch、標準入力、閉じた結果検査と通常Taskからの分離を維持した。Claude助言Commandは変更していない。 |
+| init適用 | `create_provider`で`workbench_advice`と専用Imageが一致する場合だけ`--init`を要求する。同じ純粋判定をAdapter、Effect直前のCommand再導出、清掃とRecoveryが使う。対象外の認証probe、proxy、通常TaskとClaudeへ追加しない。 |
+| 構成観測 | 対象はInit=true、対象外はnull／falseだけを受理する。欠測、文字列、数値を対象外の成立へ畳まず、削除を拒否する。通常清掃と直接Recovery関数の各12組合せで、結果と削除要求件数を検査した。直接関数への合成入力は耐久記録からのfresh再入場の証明ではない。 |
+| Docker表現の局所実測 | 専用Imageからnetwork none、read-only、非root、cap-drop ALL、no-new-privileges、mountなしの未起動Containerを作り、実inspectで非initの`null`を観測した。exact ID `68fa9450e837bf8e5217a8051034ddfd35da208a5aaa35c34e74eaa5616d4604`のImage、所有label、未起動状態を確認し、通常削除後のfresh不存在を確認した。Provider要求、Docker再起動と永続データ削除は行っていない。 |
+| 静的Gate | 最終SourceのFormatter、production／test strict型検査、Warning拒否Lint、Runtime capability graphと二つのTraceability検査を再実行し、終了コード0を確認した（session `59680`）。 |
+| 既存経路 | 通常Codex実行計画のSHA-256は`635a4022d2883cbe8d56d29752d877b4b6e769260b97f964b877183daa76f742`、Claudeは`16da35d4ad1790d7cf5e7e803db6dd4a4b6aacea2ef85c44bf1f0ffd049a90af`で基準から不変。専用経路の局所合格を通常経路全体の再検証へ読み替えない。 |
+
+先行確認では、最終Sourceの助言／Adapter／Effect／通常Codex計画の48試験と、実Sourceを複製する未署名開発配布閉包の3試験が成功した。初回のClaude fixtureへinit=trueを期待した試験失敗は、対象外条件の誤った期待値を修正して再実行したもので、Claudeへinitを広げて解消していない。Recovery／Executorの114試験はその後のinit負例追加前の結果であり、最終Source全体の合格へ流用しない。
+
+静的Gate再確認後、最終SourceのRecovery、助言Executor、助言Command、Runtime Packet、Codex Adapter、Docker Effectと通常Codex実行計画の7ファイルを同じsession `50923`で再実行した。163試験成功、失敗・取消・skip 0件、終了コード0、所要106843msだった。観測待ちの間に同じProcessを再起動していない。試験の一時RootはRepository-local `.crdd/tmp/auth-lock-tests-20261001`へ固定した。この再実行は専用助言の実Docker lifecycleや耐久記録の新条件を全部実証するものではない。
+
+Source接続、init条件と負例、Architectureの観測境界は独立確認で対象限定Pass、Finding 0件だった。これは実Dockerの独立再取得ではない。必要な残り確認は、本番相当のSignal搬送・取消・CLI喪失・Host喪失・孤児reap、実Home接続、耐久記録からのfresh Recovery、実配布物の検証と署名、実Provider E2E、全回帰および品質全体の集計である。init指定やContainer不存在だけから内部Hostの終了・回収を主張しない。
+
+本節とCHG影響一覧の記録整合も独立確認で対象限定Pass、Finding 0件だった。記録更新後のRepository Checker（session `29130`）は終了コード1、Error 1／Warning 0で、既知の`stable-release-tag-identity-mismatch`だけだった。`git diff --check`は成功した。Repository全体PassやRelease Gate完了とは表示しない。
+
 ## Checklist
 
 - [x] 人間承認のモデル方針と旧候補の履歴を区別した。
