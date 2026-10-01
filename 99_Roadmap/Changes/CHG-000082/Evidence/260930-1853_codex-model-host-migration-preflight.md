@@ -1088,6 +1088,16 @@ docker-task.29c9921916f3a63170e77179d3145c8627a2b3519d5813b7c9cf2a87d136d9aa.2c8
 
 この回復では新しいProvider依頼、永続データ削除または別IDへの置換を行っていない。次はHTTP接続失敗を切り分ける。回収完了や結果取得前の失敗を、2ターンPilotの成功・失敗または全E2E合格へ読み替えない。
 
+## 同じ署名候補のHTTP分類付きClaude限定診断
+
+署名候補cb0bdb85を変更せず、検証Toolだけに固定loopback公開Routeの通信分類を追加した。元fetchの引数・結果・拒否Errorを維持し、再送を追加しない。記録は固定GET／POST、Route区分、有限の経過時間と閉集合の通信codeに限定し、本文・URL・headers・Token・Error本文は保存しない。上限16件と終了時の復元を必須とした。経過時間は診断参考値であり、性能成立の根拠ではない。
+
+局所反証で実Socket切断と接続拒否、正常Responseの同一性、拒否Errorの同一性、対象外通信非観測、秘密markerの非記録、上限超過および復元を確認した。独立確認でcode Getterの二重読取りを指摘され、一度取得した同じ値だけを許可判定・保存するよう是正し、Getterの反証を追加した。限定Source再確認はPass、残Finding 0。Tool Hashは`520cae0bd1409589dcd5c32f94135e61fc1aebd75a76948964dd09a2ee616c37`、通信計測Module Hashは`7b1d69ddef858b4325d7306779ee91a7b4c84269a2c3d3c7b0145bfbe438eb84`。Provider未起動preflightとfresh回復一覧cleanを確認後に一回だけ実行した。
+
+Operation `OP-182657429629475702379013079733819433815`ではProvider開始・完了を観測し、終了classは`zero`であった。しかし`workbench_ai_claude_envelope_invalid`で助言を拒否し、診断終了コードは1であった。通信失敗の観測は空で、今回HTTP失敗は再現しなかった。前回の通信失敗を解消済みまたは原因確定とは扱わない。
+
+Process Tree終了、Container／Network不存在、cleanup、HTTP listener終了、計測復元、計測pending 0、Canonical不変およびfresh回復一覧cleanを確認した。計測は`observationFailed: false`、回復ID集合・活動中Home結合集合とも空、manual recovery不要である。これは計測付き診断であり、2ターンPilot成立または通常E2E合格ではない。次は新Parserの固定Hash・行位置・1〜2整数条件に一致した計測で、結果Envelopeの拒否条件だけを確認する。生のProvider回答やCost値は取得しない。
+
 ## Checklist
 
 - [x] 人間承認のモデル方針と旧候補の履歴を区別した。
