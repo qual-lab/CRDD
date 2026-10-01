@@ -756,6 +756,33 @@ CLI喪失の失敗を回収済みという最終値だけで取り消さない�
 
 本節の記録は対象限定独立レビューでPass、Finding 0件だった。Build・OS・Container条件の独立再取得ではない。今回所有する停止済みContainer二個は、exact ID・Image・所有label・終了状態・Host共有なしを再確認して通常削除し、fresh一覧で不存在を確認した。Imageと非追跡入力は前節の保持条件で残す。走査中のPID消滅は原因候補であり、現在の`Error`だけから実原因とは断定しない。
 
+### 診断付き再実測と助言専用配布候補（2026-10-01）
+
+非rootのCLI喪失を再実測し、今回は終了コード0で終了した。ただし前節の汎用`Error`は再現せず、原因確定や旧失敗の解消とは扱わない。observerへ固定された失敗段階、エラー分類とerrnoだけを追加した。走査、残存判定、権限、待機期限および清掃条件は弱めず、エラー本文、Host PathやProvider出力は記録していない。書式、警告を失敗とするLintとstrict型検査は成功した。初回のBiome実行はGit管理外の対象を処理せず失敗したため、専用設定を明示して一Fileの処理成功を確認した。
+
+| 限定実測 | 根拠 | 結果と限界 |
+|---|---|---|
+| 診断付きCLI喪失 | observer SHA-256 `74cd51da9d25fdf30ec14625fe54a04ac16a7375ee5086364b1b1c61164e6a1f`、Build `otbiuj95ycsp3jyvz4wyqiisa`、Image `sha256:00b0c8073fd66c8cbd8569d831305c5bb9374fe91772a2c83b187e06d4007b9f` | 前節と同じ非rootの局所構成。実Cell `1`、CLI PID 20／起動tick 46677、Host PID 70／起動tick 46692と固定Hashを確認した。helper終了0／close、開始時と同じinit PID 1／tick 46639とobserver PID 7／tick 46646だけへの復帰、fixture Socket 0／listener停止を観測した。失敗一覧は空、診断値はnull。 |
+| 終了後状態 | exact Container `bb42f63e9281cfea31d7ca4e589a64ed65862bc31b67e268a333e0472dc6ee51` | 所有label、固定Image、終了コード0、停止状態、Host mountなしを再取得した。今回の一回成功を断続的失敗の不存在証明にしない。 |
+
+配布候補の着手前確認では、通常ProviderからのIdentity分離、固定三実行物、Hostの隣接配置、Build Contextのallowlist、明示的な空CMDを確認対象とした。`40_Develop/coordinator/runtime/codex-advice-provider.Dockerfile`を追加し、承認済みの助言専用CLI、公式Hostとbwrapだけを固定Python baseへ配置した。init、試験helper、実Home、Repository、Promptおよび診断ログを含めない。公式固定Sourceの`InstallContext`が現在実行物に隣接するHostを解決することへ配置を照合した。
+
+| 配布候補 | 確認結果 |
+|---|---|
+| Build | `uriecsb9q7rqqdl0t0uzyxgqf`。network none、固定base `python@sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047`。 |
+| Dockerfile | SHA-256 `3438a2779bbf858f810d17d44f53425e70e3421babda9209af65480e9da351f6`。 |
+| Image | `sha256:843db607376a454cb7c901e76d4da1d168d6e384912366448df3363b42624d36`。amd64／Linux、USER `65534:65534`、WORKDIR `/work`、専用CLI ENTRYPOINT、継承CMDなしをinspectした。 |
+| CLI | regular file、root所有、mode 0555、286610712 byte、SHA-256 `366286511b5d8d4d804ca9a7539eb7be7f6ea38f083bf5629e7b12ca828ba1b3`。 |
+| 公式Host | regular file、root所有、mode 0555、74068880 byte、SHA-256 `5b2c075ac2380fa04d76d7313fbc044d29c8d0a0d0b9138415acd4610211ca03`。 |
+| bwrap | regular file、root所有、mode 0555、529792 byte、SHA-256 `07bc720e15a730d717e81b42acb3b95049803360738115c6f6c59830accef7c2`。 |
+| 起動版確認 | 非root、read-only root、network none、cap-drop ALL、no-new-privileges、pids-limit 64で`codex-cli 0.159.2`を観測した。read-only状態でPATH alias作成不能のWarningが出た。版表示の成功をHost実行、認証または本番成立へ読み替えない。 |
+
+通常Executor／Reviewer、Claude、助言Command Plan、署名RuntimeおよびQA集計は変更していない。共有認証Homeの読書き互換性、本番ContainerのPID1とHost回収、本番の入力・egress・出力抽出、専用ImageのRuntime接続、署名E2Eと全回帰は未確認である。配布候補は未採用であり、追加の利用者向け準備操作を設けない。ImageとBuild入力は2026-10-08までを保持上限とし、exact Identity・未解決参照・実行中資源の不存在を確認した別の清掃操作で処置する。保持期限だけでは削除しない。
+
+固定Source、専用包装境界と本節の記録整合は独立レビューで対象限定Pass、Finding 0件だった。Image、Build履歴と実Container結果の独立再取得ではない。Coordinatorの`npm run check`はFormatter・strict型検査・警告を失敗とするLint・三つの静的契約検査まで終了コード0だった。助言コマンド、PacketとExecutorを含む指定四Fileの試験実行は13件成功、失敗0件、150msだった。新Imageの本番接続や全回帰を検証した結果ではない。
+
+今回所有する診断Containerは結果をGit管理外の検証記録へ保存した後、上記exact ID・Image・所有label・停止状態・Host共有なしを確認して通常削除し、fresh一覧で不存在を確認した。記録更新後のChecker session `55135`は終了コード1、Error 1／Warning 0で、既知の`stable-release-tag-identity-mismatch`だけだった。Repository全体Passへ読み替えない。
+
 ## Checklist
 
 - [x] 人間承認のモデル方針と旧候補の履歴を区別した。
