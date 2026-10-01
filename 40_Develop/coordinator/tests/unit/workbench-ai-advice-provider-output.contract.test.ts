@@ -132,6 +132,8 @@ test("CodexのCommand／File Change Eventを拒否する", () => {
     "web_search",
     "todo_list",
     "unknown_item",
+    "error",
+    "warning",
   ]) {
     for (const eventType of [
       "item.started",

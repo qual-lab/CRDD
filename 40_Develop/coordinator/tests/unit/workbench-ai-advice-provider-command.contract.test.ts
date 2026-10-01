@@ -67,6 +67,12 @@ test("Codex助言をToolなし・Repository非共有の標準入力計画へ固�
   }
   assert.equal(plan.argv.includes("features.code_mode=true"), true);
   assert.equal(
+    plan.argv.filter(
+      (argument) => argument === "suppress_unstable_features_warning=true",
+    ).length,
+    1,
+  );
+  assert.equal(
     plan.argv.includes(
       "features.code_mode_host={enabled=true,disable_in_process_fallback=true}",
     ),
@@ -119,6 +125,10 @@ test("Claude助言をSchema付き・Toolなしの標準入力計画へ固定す�
   assert.equal(plan.argv.includes("--effort"), true);
   assert.equal(plan.argv.includes("high"), true);
   assert.equal(plan.argv.includes("--tools="), true);
+  assert.equal(
+    plan.argv.includes("suppress_unstable_features_warning=true"),
+    false,
+  );
   assert.equal(plan.argv.includes("--json-schema"), true);
   assert.equal(plan.argv.includes("--no-session-persistence"), true);
   assert.equal(plan.repositoryMounted, false);

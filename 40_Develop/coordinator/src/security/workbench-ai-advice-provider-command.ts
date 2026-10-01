@@ -153,6 +153,8 @@ function planCodexAdviceCommand(
       "--config",
       `model_reasoning_effort="${input.reasoningEffort}"`,
       "--config",
+      "suppress_unstable_features_warning=true",
+      "--config",
       "features.respect_system_proxy=true",
       "--config",
       "features.code_mode=true",

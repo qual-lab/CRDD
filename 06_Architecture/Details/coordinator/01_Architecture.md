@@ -323,6 +323,7 @@ CodexのCode Mode内部計算を助言に利用する場合も、System Toolの�
 | Host | 固定した公式Code Mode Hostだけをstdioで使用し、in-process fallbackを禁止する。CLI終了とHost終了を分け、取消・IPC断・異常終了・終了後のProcess Tree、Container、Networkを観測する。 |
 | 孤児Processの回収 | Codex助言専用ImageのProviderコンテナだけにDocker initを指定し、CLI喪失後の孤児Processのreapを担当させる。通常Task、Claude助言、認証probeとproxyへ適用しない。起動計画、Effect直前の再導出、清掃とfresh Recoveryは同じ専用Image／実行方式から適用条件を導く。inspectのInitは必須対象でown fieldのtrueだけを受理し、未記載・null・false・不正型は拒否する。対象外では有効なHostConfig上の未記載／null／falseだけを受理する。DockerのInitは省略可能であり、未記載とnullはdaemon設定へ委ねる明示指定なしを表す。これを実効的な非init稼働の証明にしない。HostConfig欠落・不正構造・継承fieldをInit未指定へ畳まず、通常清掃とfresh Recoveryで同じ観測判定を使用する。init指定やContainer不存在だけで内部Hostの終了・reapを成立済みとせず、Signal搬送、取消、CLI喪失、Host喪失と観測不能を別に確認する。 |
 | 結果公開 | 唯一のSchema適合最終結果だけを全資源のcleanup確定後に公開する。error、未知通知、複数本文またはcleanup不明を成功へ畳まない。 |
+| 開発中機能の表示 | 専用Codex助言Commandだけに`suppress_unstable_features_warning=true`を固定し、採用済み機能の開発中一覧Warningの表示を発生元で抑止する。公式固定CLIはこのWarningもJSONLのerror itemへ投影するため、結果検査でerrorを無視する方法は採らない。この設定は機能の不確実性や実失敗を解消する保証ではない。Code Modeの起動失敗、他のWarning／Error、未知通知および不正結果の拒否を維持し、通常TaskとClaudeへ適用しない。 |
 | 配布・Build | Source改訂版、対象Fileの変更前Hash、Patch Hash、固定toolchain、Build条件、専用実行物とHostのHashおよび実Image Digestを結合する。Provider RuntimeでBuildしない。 |
 
 固定Patchは`40_Develop/coordinator/runtime/codex-advice-startup.patch`が所有する。対象は公式Sourceの`codex-rs/core/src/session/session.rs`で、変更前SHA-256は`de7eca05b55865c0ef03465a29bfb51e54d1eb78d253533d8b76e88712172f2d`である。Hashまたは一意な適用位置が一致しなければ変更・Buildを開始しない。公式Sourceは変更履歴の正解として逆輸入せず、承認済みの助言禁止境界を実現する依存として扱う。

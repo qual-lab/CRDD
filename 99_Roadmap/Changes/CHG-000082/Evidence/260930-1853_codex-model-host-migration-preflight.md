@@ -996,6 +996,29 @@ CoordinatorとCheckerの静的Gateはすべて成功。全命名contractは17／
 
 固定SHA256は、`codex-advice-distribution.ts`が`8e17338b6d57fde1b1075e1f7c05ac36525e795629df213f7903cc70ba6557e2`、`docker-container-init-observation.ts`が`68257713250e421d1986b0c80c3c63db674ee7ee20213a75fa8634e80c4ccdb7`、Docker実行試験が`1581686a6b3edf19cabae0a01840010029db6ea5c909fc782dc440df1a33465b`、回復試験が`eeb24fdb7f0129299c603751e92014c92707a43668b98585c8a047a80f7df1d4`である。
 
+## 署名候補3658b7bcの実助言診断と限定是正
+
+人間入力後の保存結果は`SIGN_EXIT=0`。Commitは`3658b7bc2e990e643c6a6bebacfeff01cededb30`、Treeは`21d0bda81ea6e8f2ccef5a4b0237c5b17409b68d`、Release Sequenceは`2026100103`である。正式Manifest Hashは`d6333228e3cfa47055952457c85b39b0484cd865dbb33047fa7f80c80ed42cfb`、Package Content Rootは`3f6aba8b5aa1405dfed74f896237b002b73975903f3648f9db1f4a5a275d132e`、Runtime Identityは`5c0800c5f08b5bbfed62603b2cb1aed9420fd46df1b82777d02f6a94c02ad79d`。信頼済みworktreeの検証器で署名と固定配布閉包を照合した後だけ候補Moduleを利用した。
+
+| 確認 | 結果と限界 |
+|---|---|
+| 公開Workbench HTTP E2E初回 | Codex助言で停止。Provider終了0、Process Tree終了、Container／Network不存在とcleanupを確認。助言の成立は未確認であり、全E2Eは終了コード1 |
+| 公開HTTPの固定理由診断 | 同じ候補・固定Taskで`blocked / workbench_ai_codex_tool_event_forbidden`を取得。Provider終了0と資源回収は成立したが、全E2Eは不合格。候補作成・採用は実施していない |
+| 種別診断 | error 1、code_mode分類1、agent_message 1。監視終了、fresh回復一覧clean、Project Context不変を確認。本文は保存・公開していない |
+| 固定文言診断 | error 1が公式の開発中機能一覧Warning文言に一致。禁止Tool操作通知は観測されず、監視clean・hits 1・Worker終了・回復一覧clean・Project Context不変・診断失敗0を確認。公開HTTP E2Eではなく、原因を分類する一回の計測である |
+
+公開HTTP二回のOperation IDは順に`OP-149990329481942033290495923963440161875`、`OP-84650588475403195823556475784620243772`。種別診断は`OP-86692007994361945769903645006675032480`、固定文言診断は`OP-311025137882143392515950389222493621190`である。いずれもProvider終了0と回収成功を、助言成功または全E2E合格へ読み替えない。
+
+固定公式Source `ff6aec96948b70d94983af2641a6b67c94faeff5`の`features/src/lib.rs`は、`suppress_unstable_features_warning`がtrueのとき開発中機能一覧Warningだけを生成しない。`exec/src/event_processor_with_jsonl_output.rs`の`collect_warning`はWarningをJSONLのerror itemへ投影する。この接続により、採用済み機能の一覧Warningが現行結果検査の拒否対象になっていた。一般的なCode Modeエラーを無害と判定したのではなく、固定文言一致と公式発生元の意味を区別して確認した。
+
+着手前の読み取り専用専門確認は着手可。是正は専用Codex助言Commandに`suppress_unstable_features_warning=true`を固定する。Parserは変更せず、他のWarning／Error、Code Mode起動失敗、未知Tool、複数本文、不正Schemaの拒否を維持する。通常Codex Task、Claude、Model、Image、ToolPolicy、Host、Isolation、取消・回復の契約は変更しない。これは開発中機能の不確実性そのものを解消する措置ではない。局所試験、独立レビュー、新しい署名と公開E2Eを別Gateとして扱う。
+
+診断監視はSource限定の独立確認でPass、Finding 0。合成試験は0／1／2 hit、閉集合分類、秘密marker非開示、固定Warning分類、評価失敗、起動失敗、残存Worker強制終了を確認した。診断Toolの初回終了判定には、終了後観測の失敗をexitへ接続しない不足があり、独立指摘後に全観測の試行と固定失敗集合・非0終了へ是正した。警告分類の合成試験を二つの監視同時起動で試した一回は干渉により失敗し、逐次起動へ直して全試験を再成功させた。これらのTool是正をRuntimeの不具合と混同しない。
+
+限定是正後のCoordinator静的GateはFormatter、型、Lint、能力Graphと両Trace検査をすべて終了コード0で完了した。助言関連8ファイルと通常Codex計画の9ファイル回帰は58／58成功、1189.2493ms。Docker実行・fresh回復の関連全回帰は129／129成功、126274.2784ms。いずれも失敗・取消・skip・todo 0。固定Command、両局所試験、Architecture Detailsの4ファイルに対する独立Source ReviewはPass、Finding 0である。全Repository Checkerは2026-10-01T12:09:02.415Zにerror 1／warning 0で、既知の`.git`上の`stable-release-tag-identity-mismatch`だけを保持した。
+
+この是正は署名閉包内のCommandを変更するため、3658b7bcの署名を新版の根拠へ流用しない。新しい固定候補の署名・公開Workbench E2Eと後続の必要な全Gateが成立するまでPhase 5を完了としない。
+
 ## Checklist
 
 - [x] 人間承認のモデル方針と旧候補の履歴を区別した。
@@ -1003,5 +1026,5 @@ CoordinatorとCheckerの静的Gateはすべて成功。全命名contractは17／
 - [x] 署名一致、公式配布物のBundle検証およびPatch適用後の専用CLIを区別した。
 - [x] 公式固定Sourceで公開API、import拒否と通知省略を確認した。
 - [x] 着手前確認を完成後の独立レビューとして扱わなかった。
-- [x] Provider起動や権限拡大を実施しなかった。
+- [x] 着手前のSource調査・局所確認ではProviderを起動せず、承認済みの実Provider診断を別記した。権限拡大は行っていない。
 - [ ] OPEN: Tool集合の閉包とHostの実境界反証を完了する。成立根拠がなければHost有効化前に停止し、具体的な不足へ戻る。
