@@ -1123,6 +1123,22 @@ Providerを使わない局所比較では、Inspectorあり／なしの両方で
 | 独立確認 | 固定6ファイルのSource・文書・直接影響レビューは限定Pass、Finding 0。受理集合、全10理由のDocker／Task公開閉集合、5層のcleanup後搬送および秘密非開示を確認した。独立確認者による実試験の再実行は行っていない。 |
 | 署名・実Provider | 新署名およびInspectorなしの実Provider診断は未完了。局所成功や限定レビューPassを助言またはRelease成立にしない。 |
 
+## 通常診断候補26449d19の署名・Claude局所成立と全体E2Eの通信失敗
+
+人間入力後の保存結果は`SIGN_EXIT=0`。Commit `26449d190341e6994f253f4f0d9f79fab992f75d`、Tree `1dbb448364c0c3412b1e35e6be3f6d1624f6475f`、Sequence `2026100106`へ固定した。Manifest Hash `d3e9ba0e2a61515dc32dace745b2f03d0830489a20c8a4ec888640ddda20eb8a`、Package Content Root `94d7e1db785e57bbb330df48fd513a9a9039dd9655912bddf8eb94aa4ca1c843`、Runtime Identity `491541f02a79e3ccf25190c7bb8a5b76edf54ecaf6bada3c4d222e3155766142`について暗号一致と315ファイル・7863965bytesの閉包一致を確認した。Toolは固定HEAD一行だけを更新し、Hash `c9bb32f3dd797e1b7669c8a926fa2b202814d3cde21a7b9413060a4556105b55`。限定独立確認はPass、Finding 0。Provider未起動preflightは終了コード0であり、以後の二実行ともInspectorとHTTP計測を起動していない。
+
+Claude限定実測のOperation `OP-166652563590774543835488481776001204334`は公開HTTP経由で成功し、終了コード0。Profile `PROFILE-200001`の結果はcompleted、四分類の項目数は11／6／5／6、根拠参照はexact一致であった。Provider開始・完了・終了class zero、Process Tree終了、Container／Network不存在、cleanup、Listener終了、Canonical不変およびfresh回復一覧cleanを確認した。これは一回のClaude助言成立であり、最大2ターンPilotの正式採用または全E2E合格ではない。
+
+続く全体E2EではCodex助言のOperation `OP-21435237368704155321500199524757859346`が開始・完了・終了class zero・cleanupまで成立した。しかし次のClaude Operation `OP-106721521621240985728988391037730187345`は設定後、開始・完了未観測のまま`workbench_verification_transport_failed / headers_unobserved / timedOut: false`となり、終了コード1。成功Scenarioは1件、変更候補には未到達。Listener終了とCanonical不変は確認したが、終了時に次のexact回復義務を保持した。
+
+```text
+docker-task.29c9921916f3a63170e77179d3145c8627a2b3519d5813b7c9cf2a87d136d9aa.4b0f89e2595a31a1b434ec6b691edb83e3e2b2022efe7953acccbed8d3b7d038.855ca88cd597b4a4d233d63739922ab746818078978ccbe821f093cc80947af1
+```
+
+同じ署名公開CLIから同じIDを通常回収し、`recovered / docker_task_recovery_completed`、終了コード0を取得した。再観測も`docker_task_runtime_state_clean`、manual recovery不要、回復ID・活動中Home結合とも空、終了コード0。再起動、新しいProvider依頼および永続Dockerデータ削除は回収時に行っていない。
+
+今回Inspectorなしでも通信失敗が発生したため、Inspectorは失敗の必要条件ではない。ただし通信の根本原因は未確定である。単独Claude成功から連続実行の成立を推定せず、全体E2Eを再実行する前に公開HTTPの接続再利用、Server待機とTask開始搬送を局所確認する。拒否条件緩和、無条件再送および全E2E合格表示は行わない。
+
 ## Checklist
 
 - [x] 人間承認のモデル方針と旧候補の履歴を区別した。
