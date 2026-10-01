@@ -1019,6 +1019,31 @@ CoordinatorとCheckerの静的Gateはすべて成功。全命名contractは17／
 
 この是正は署名閉包内のCommandを変更するため、3658b7bcの署名を新版の根拠へ流用しない。新しい固定候補の署名・公開Workbench E2Eと後続の必要な全Gateが成立するまでPhase 5を完了としない。
 
+## 署名候補7c045f10の公開HTTP確認と未完了の回復
+
+結論として、Codex助言は公開Workbench HTTP経由で成立したが、Claude助言と全Workbench E2Eは未成立である。最新の限定診断ではHTTP通信が失敗し、Provider開始および結果Envelopeは確認できず、Envelope条件の原因判定には到達していない。Docker回復も未完了であり、新しいProvider依頼を停止している。
+
+対象Commitは`7c045f10564c44727360ecf950ef95a1ce5d571b`、Treeは`2f342c283ff39eee085a0905cfced499e4a2769b`。人間入力による署名結果は`SIGN_EXIT=0`で、Release Sequenceは`2026100104`、Manifest Hashは`c890cdc3dd9ec98d1e90dd1a4951c75e1edf8e019a32acfe3c7e34b5f4abedba`、Package Content Rootは`46c0f6591e75ce0344f48609cb7cc9d7c05bfb0c288f3dc583602e88c4ace88e`、Runtime Identityは`2a84df0de3339f7448992b08fbc5a6ff82bfea77d63b4d0aea7626081e381d77`である。信頼済みworktreeの検証器で署名と固定配布閉包を照合した後だけ候補を実行した。
+
+| 確認 | 観測結果 | 成立しない主張 |
+|---|---|---|
+| 公開HTTPのCodex助言 | `OP-221379880833407480081461943100795470963`。助言の検査に成功し、Provider終了0、Process Tree終了、Container／Network不存在とcleanupを確認した。 | Claude助言、変更候補、全E2Eの成功ではない。 |
+| Claude限定診断 | `OP-15292627843692761287179198040207298796`。Provider開始・終了0とcleanupを確認したが、`workbench_ai_claude_envelope_invalid`で拒否した。 | 終了0を結果Schemaの成立へ読み替えない。拒否条件のどれに違反したかは未確定である。 |
+| Envelope条件だけの計測 | `OP-6360333969469102198020446160568606171`。`workbench_verification_transport_failed`で停止。Provider開始と結果Envelopeは未観測。監視Worker終了、監視clean、hit 0、HTTP listener終了とCanonical不変を確認した。 | 条件計測に成功したとは扱わない。HTTP期限超過またはClaude出力の具体的な原因は、この結果だけでは確定しない。 |
+| 同じIDの通常回復 | `docker_task_recovery_create_outcome_unknown`で停止。回復根拠は保持した。 | 作成要求の不成立、資源不存在、回収完了を主張しない。 |
+| 人間承認後の検証付き再起動 | `docker_restart_start_unconfirmed`、phase `start_intent`、`restartCompleted: false`。補助処理のcleanupは確認したが、Task回復は未完了である。 | 補助処理の回収をDocker起動成功またはTask回復完了へ読み替えない。 |
+| 再起動後の読み取り確認 | Docker Serverは取得できず、`dockerDesktopLinuxEngine` pipe不存在を取得した。`Docker Desktop`と`com.docker.backend`のProcessは確認できなかった。 | Docker起動失敗の内部原因は未確定である。 |
+
+未解決のexact回復IDは次のとおりであり、新しいIDへ置き換えない。
+
+```text
+docker-task.29c9921916f3a63170e77179d3145c8627a2b3519d5813b7c9cf2a87d136d9aa.5f75f7e193d5c4a12b67be5276fb693eb5987642ca60a0876ee81be5036564cb.3b05a2f2f79fd954ce5c0e5eb37203692f3aebcc4c46799cdb8e382b6a4c8b26
+```
+
+計測は結果本文・秘密値・実際のcost値を取得せず、既存Parserの七条件に一致するBooleanだけを対象とした。局所合成試験は正常条件、turn数不一致、種別不一致、失敗flag、負のcost、structured output欠落およびnullを確認した。独立Source確認はFinding 0であったが、実Providerからの条件取得は未成立である。計測Toolの固定Hashは、公開HTTP runnerが`7b80015f24a4db6fad588c0fc799843946cffd5350ee1ceeec14a5b3451d934d`、監視入口が`06bf7c09c00d433458ff8e5f3da77d2043c0df945c3d6cc38be00f1ab1fae684`、監視Workerが`6fe1aaf6aafeee9fca1ec3801d2069efdb1cae96e05fb2d78ec951f50f11967b`である。これは計測ToolのSource確認であり、Runtime全体の再レビューまたは全E2E合格ではない。
+
+次の処置は、Docker Desktopの通常起動に関する人間判断を得たうえで現在状態を確認し、同じIDの再起動記録の確定とTask回復を行うこと。その後、通信失敗とEnvelope条件不一致を切り分ける。通常起動については確認待ちであり、再起動の反復、新しいProvider依頼、永続Dockerデータ削除は行っていない。Phase 5と残る品質Gateは未完了のまま保持する。
+
 ## Checklist
 
 - [x] 人間承認のモデル方針と旧候補の履歴を区別した。
