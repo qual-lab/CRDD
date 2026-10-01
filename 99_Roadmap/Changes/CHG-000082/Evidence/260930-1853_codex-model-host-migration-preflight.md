@@ -654,6 +654,39 @@ Cargo.lockは依存取得前後で一致し、出力されたLock Hash `e85460a5
 
 コミット前のCoordinator静的確認session `87960`は終了コード0、Formatter 681件・Lint 682件、Production／Test型検査および三機械契約確認が成功した。Repository Checker session `84774`は終了コード1、Error 1／Warning 0、25354msで、既知の`stable-release-tag-identity-mismatch`だけが残った。今回の構造Findingは0件であり、Repository全体のPassとは扱わない。CHGの影響ファイル一覧へ今回の五対象を追加し、範囲、Phase、AcceptanceおよびQA集計は変更しない。
 
+### 試験専用OS補助の承認と局所検証（2026-10-01）
+
+人間は、公開CLI取消・親Process喪失の検証に使用する最小Rust補助を試験専用として承認した。前節の未承認・未作成は当時の状態として保持する。補助はRepository-localな`.crdd/tmp/codex-advice-cli-cancellation-20261001/native-control`で準備し、Production Runtimeや配布物へ組み込んでいない。TypeScriptが試験の入力・観測・判定を所有し、Rustは固定CLIの直接子起動、世代固定参照によるSignal発行、終了観測と回収だけを扱う。任意PIDや実行物の指定、Provider要求、Docker再起動および永続Dockerデータ削除は行っていない。
+
+helperが子をforkし、未execの直接子にpidfdを確保してから起動gateを開く。取得できるまで子のexecを許可しない。質問ファイルのstdinと試験制御のstdinを分け、exec状態pipeの終了、Signal受理、Process終了および直接子回収を別の観測として扱う。exec状態pipeのEOFだけではCLI開始を確認済みとしない。
+
+| 確認 | 結果 | 限定範囲 |
+|---|---|---|
+| Rust書式・Clippy・コンパイル | 成功。全targetの警告をエラーとして評価した。 | 固定Rust 1.95.0、Linux muslの試験補助。 |
+| 固定制御parser | Pass 3、Fail／Ignored 0。 | 三固定値、不正値、重複の局所評価。 |
+| TypeScript書式・Lint・strict型 | 成功。 | 固定mockを使う局所試験Runner。 |
+| mockを用いたOS反証 | 九ケースを三試験へ配置し、Pass 3、Fail／Skipped 0。 | SIGINT、SIGKILL、不正制御、制御EOF、Signal通知切断、質問ファイルのsymlink／directory／FIFO拒否、exec失敗。実CLIやHostではない。 |
+
+取消・強制終了と通知切断の試験では、mockが専用質問入力を読み終えた通知と子のstatを取得してから制御を注入し、終了後に同じPIDのstatが`ENOENT`となることを確認した。SIGINT／SIGKILLケースでは受理通知とwait状態を別々に照合した。通知切断ケースではhelper非zeroとmock子の不存在を確認した。質問ファイルの不正形状は子開始前に拒否し、exec失敗は開始成功へ読み替えず直接子回収を観測した。
+
+固定Build履歴`1pzg3cnurhn64afsx4a89i5lj`は終了コード0で完了し、三OS試験の実行は271.8msだった。RustとNodeの試験実行段階は`network=none`であり、準備段階だけで公開された固定Toolchain、Node imageとLock指定のlibcを取得した。Repositoryや既存Credential Homeを試験Containerへmountしていない。初回Build `vg7bojpsazakvnks5xh091b13`はrustfmt未導入で試験前に失敗し、専用Build環境へ必要componentを加えて再実行した。
+
+| 固定入力 | SHA-256 |
+|---|---|
+| Linux補助Source | `3e8fe7ceb635456c282eb269da51592b750ceab45727af900c42dd2efbefd8b1` |
+| 制御parser Source | `91e043a0c4a174886f1f101e1681e5485eebb4db19520f00395d4999e70222fd` |
+| mock Source | `5a9416b693f9576744a1da6fae273bcbe528eef159ca70e64042706bff34fea1` |
+| OS試験Source | `76667ab57a78a85c3ba393dee1739acf739b5a93aac7119219f0731b31d52475` |
+| 専用Dockerfile | `e40bc006db7ac1a0a698b98122e6ac719e996bee62a8b9e7b9a9192d08284bc9` |
+
+独立確認で、通知失敗時の清掃、質問ファイルの形状検査、Test Header、Runnerの失敗搬送と期限付き終了待ちを是正した。固定Sourceの再確認は対象限定Pass、追加Finding 0件である。確認者によるOS試験の独立再実行ではない。
+
+残る未確認は、通知pipe満杯と全通知段の切断、gate終了・許可前子終了、fork後pidfd取得失敗、補助の絶対期限、Runnerの過長通知・開始通知欠測・stdio close欠測、実CLI取消、CLI親Process喪失とHost Tree回収である。これらを九ケースの結果から成立済みとせず、`ERB-ST-030`、本番接続、署名E2E、全回帰およびQA観測集計を変更しない。
+
+専用準備物と試験結果のOwnerはCoordinator保守担当、保持上限は2026-10-08である。未解決参照や実行中検証がある間は削除せず、必要Evidenceの保存、exact対象・非使用および削除後不存在を確認する。
+
+記録更新後のRepository Checker session `70091`は終了コード1、Error 1／Warning 0、27629msで、既知の`stable-release-tag-identity-mismatch`だけを返した。1156 Markdown、18098 local link、2057 anchorを確認し、今回の文書構造Findingは0件だった。Git管理外の試験準備物はChecker対象外であり、前述の個別Gateと独立確認を代替しない。既知Findingを免除せず、Repository全体のPassとは扱わない。
+
 ## Checklist
 
 - [x] 人間承認のモデル方針と旧候補の履歴を区別した。
