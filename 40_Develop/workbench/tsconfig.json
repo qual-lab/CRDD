@@ -21,6 +21,7 @@
     "client/**/*.ts",
     "client/**/*.tsx",
     "bin/**/*.ts",
+    "scripts/**/*.ts",
     "tests/**/*.ts",
     "vite.config.ts"
   ]

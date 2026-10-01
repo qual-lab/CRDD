@@ -165,6 +165,8 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 - [`40_Develop/workbench/src/runtime-activity.ts`](../../../40_Develop/workbench/src/runtime-activity.ts)
 - [`40_Develop/workbench/src/owner-artifact-surface.ts`](../../../40_Develop/workbench/src/owner-artifact-surface.ts)
 - [`40_Develop/workbench/src/workbench-server.ts`](../../../40_Develop/workbench/src/workbench-server.ts)
+- [`40_Develop/workbench/scripts/workbench-ai-verification-http.ts`](../../../40_Develop/workbench/scripts/workbench-ai-verification-http.ts)
+- [`40_Develop/workbench/tsconfig.json`](../../../40_Develop/workbench/tsconfig.json)
 - [`40_Develop/workbench/src/presentation/workbench-shell.ts`](../../../40_Develop/workbench/src/presentation/workbench-shell.ts)
 - [`40_Develop/workbench/tests/integration/project-surface.contract.test.ts`](../../../40_Develop/workbench/tests/integration/project-surface.contract.test.ts)
 - [`40_Develop/workbench/tests/integration/workbench-server.contract.test.ts`](../../../40_Develop/workbench/tests/integration/workbench-server.contract.test.ts)

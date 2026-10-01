@@ -902,6 +902,20 @@ Source接続Commit `97890c8b`で、Production助言Runtime、Profile Catalog連�
 
 追加差分の独立再レビューは対象限定Pass、Finding 0件だった。耐久記録と模擬Docker観測の連鎖を確認したもので、実Docker、実Home、Image内部Hostの回収、署名E2EまたはWorkbench全体の成立証明ではない。実境界と公開Workbench受付の確認は引き続き未完了である。
 
+### 公開Workbench受付を通る検証接続部（2026-10-01）
+
+既存の実Provider検証はProduction Compositionを直接呼び、Workbenchの公開HTTP受付を通っていなかった。検証用の`workbench-ai-verification-http.ts`を追加し、公開Form、起動時Token、送信確認、固定303 Locationと公開JSONモデルを通してstart／observe／cancelを実行する。同じrequestId、modeとprofileIdを照合し、303だけをAI完了と扱わない。接続部のSHA-256は`dc34c45a59ff2cc81e60664920c5e429d70010a7b8231493fc47309f6cbd8c99`である。
+
+POST後の応答切断、確認済み400、不正Locationまたは結果観測失敗では再送せず、一回のfreshモデル照会で取得可能な同じ依頼IDを保持する。取得不能はID不明のまま固定診断へ返す。確認なしの400だけは、公開serverの内部start未呼出しを反証した条件でblockedとする。受信中の1MiB上限、15秒期限、失敗時の先abort、最大1秒のReader取消待機と全Timer解除を持ち、清掃不明と元の故障分類を区別する。Listener終了をAI取消やProvider資源回収と同一視しない。
+
+独立確認の初回指摘は、POST後の不明結果処理の漏れとTransport清掃・期限の反証不足だった。共通の不明結果処理へ是正し、再確認で検出した試験自身の初期Listener清掃漏れと故障分類のOracle不足も是正した。最終Sourceの独立再レビューは対象限定Pass、Finding 0件だった。静的Gateは終了コード0。最終局所確認では9種類の実HTTP故障、正常受付と認可拒否、既存Shell確認を含む12件成功、失敗・取消・skip・todo 0、終了コード0、所要36616msだった（session `44463`）。
+
+先行全体回帰は既存の品質件数Oracleが`29 / 40`で固定され、現在の正本投影`35 / 46`との不一致で17件成功・1件失敗だった。輸送試験の期待値をOwnerの現在投影との同値照合へ変更した。Owner集計の正しさをこの試験で証明したとは扱わず、既存parserの欠損・型拒否反例は維持した。是正後の前候補は28件成功だったが、最終の診断分類補強前であるため最終候補の根拠へ流用しない。
+
+最終修正版の試験ファイル全体は28件成功、失敗・取消・skip・todo 0、終了コード0、所要56649msだった（session `4630`）。前候補の結果と区別して保持する。
+
+公開HTTP接続部は偽AI Applicationと故障注入HTTP Serverで検証した。実Provider Runnerへの接続、署名候補、本番実Home、内部Hostの終了・回収およびWorkbench実Provider E2Eは未完了である。公開server、Production Application、Authority、既存結果parserと通常Task／ClaudeのRuntimeは変更していない。
+
 ## Checklist
 
 - [x] 人間承認のモデル方針と旧候補の履歴を区別した。
