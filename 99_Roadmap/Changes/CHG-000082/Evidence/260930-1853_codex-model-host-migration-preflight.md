@@ -1139,6 +1139,14 @@ docker-task.29c9921916f3a63170e77179d3145c8627a2b3519d5813b7c9cf2a87d136d9aa.4b0
 
 今回Inspectorなしでも通信失敗が発生したため、Inspectorは失敗の必要条件ではない。ただし通信の根本原因は未確定である。単独Claude成功から連続実行の成立を推定せず、全体E2Eを再実行する前に公開HTTPの接続再利用、Server待機とTask開始搬送を局所確認する。拒否条件緩和、無条件再送および全E2E合格表示は行わない。
 
+## Providerなしの連続HTTP局所確認
+
+2026-10-02の局所確認では、最初に固定loopback HTTPへGET／GET／POST／GET／POST／GETを送った。POST受付内で6500ms同期停止を挟み、既定の接続管理／`Connection: close`指定の二条件で全12要求が成功し、両Listenerの終了を確認した。これは既定の接続管理と同期停止の組合せでは今回の失敗を再現しなかった根拠であり、実Socket再利用の観測や接続競合の不存在証明ではない。
+
+次に本番Workbench Server、公開HTTP検証接続部とCoordinator依頼Applicationを使い、外部Executorだけを固定局所Fixtureへ置換した。二依頼ともExecutorの6500ms同期停止後に受付と固定結果を取得し、各経過時間は7565ms／7587ms、Executor呼出し2回、Listener終了を確認した。Provider、Docker操作、Repository書換えおよび外部送信は発行していない。検証ScriptはRepository-local `.crdd/tmp`の`http-start-sync-local-probe.mjs`と`workbench-sync-start-local-probe.mjs`であり、Git非追跡の診断Fixtureとして扱う。
+
+この局所結果から、6500msの同期停止だけを全体E2E通信失敗の原因とは扱わない。一方、受付応答が同期Executor準備の後になることは観測した。実Provider準備の所要時間、HTTP要求の種類・接続状態および失敗codeの相関は未取得である。次は生出力や秘密を取得せず、この相関を判定可能にしてから是正案を決める。受付遅延を改善するだけで既知の通信失敗が直ったと表示せず、Timeout延長、無条件再送またはProvider再起動を行わない。
+
 ## Checklist
 
 - [x] 人間承認のモデル方針と旧候補の履歴を区別した。
