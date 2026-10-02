@@ -394,6 +394,7 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 - 追加結果参照: [署名Runtimeの終了後Observer接続是正と公開MCP E2E再実測](./Evidence/260930-1440_signed-runtime-recovery-observer.md)
 - 追加結果参照: [Workbench助言の実Provider出力拒否と診断搬送の是正](./Evidence/260930-1621_workbench-advice-result-rejection.md)
 - 追加結果参照: [Shared Gatewayの非開示境界と品質適用](./Evidence/261002_shared-gateway-non-disclosure.md)。`RFD-ST-004`だけを新しい実HTTP根拠へ接続し、Host回収・実Provider・全体品質の未成立は維持する
+- 追加結果参照: [品質176項目の固定候補照合](./Evidence/261002_quality-item-reconciliation.md)。全項目の候補集合と旧版の観測主張108件の現行適用未照合を追跡する。現在の品質件数と停止Gateは変更しない
 - Quality Center: `RFD-IT-014`と`RFD-ST-015`を、Workbench→Version Control→実Git／bare Remote、実Browser確認、故障分類および再観測のEvidenceとして観測済みにした。`ERB-ST-022`も15画面、Desktop／Tablet／Mobile、100%／200%／400%の27条件、React commit後の画像確定待ち、終了所要時間および終了後不存在Evidenceへ接続した。`ERB-IT-020`は残存子Processへの世代Identity限定Fallback実発行とIdentity不一致時のEffect 0へ接続した
 
 ## 実際の影響 / 逸脱

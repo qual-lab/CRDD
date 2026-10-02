@@ -242,6 +242,8 @@ Project RuntimeはArchitecture Detailsの構造化が進んでいるため、生
 
 v0.21の固定Baseline108件観測済み・22件未観測を履歴として維持し、108＋13＝121件観測済み・55件未観測は算定候補とする。現在の全体件数へ昇格する前に、Qual-Labが一意Local ItemごとのRelation・根拠・適用改訂版を再照合する。前回の算定不整合は[前回記録](../99_Roadmap/Changes/CHG-000082/Evidence/261002_quality-visual-preview-projection.md)、今回の一項目適用と未確認範囲は[新しい根拠記録](../99_Roadmap/Changes/CHG-000082/Evidence/261002_shared-gateway-non-disclosure.md)に残す。
 
+[176項目の固定候補照合](../99_Roadmap/Changes/CHG-000082/Evidence/261002_quality-item-reconciliation.md)で、移管46件と旧版130件の候補集合を一意に対応付けた。旧版の観測主張108件の現行適用は未照合で、そのうち6件は一次検証条件が変更されている。これは候補照合であり、現在件数、Evidenceの適用および全体OPENを変更しない。
+
 | 非完成・非Evidence Relation | Relationを保持する理由 | Evidenceへ算入しない理由 |
 |---|---|---|
 | `RCM-ST-012` | Consumer ClosureのSystem検証対象を明示する | 固定観測配列は実Consumerの実行を証明しない |
