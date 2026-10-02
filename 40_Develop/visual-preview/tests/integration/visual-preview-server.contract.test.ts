@@ -14,9 +14,11 @@ import { request as httpRequest } from "node:http";
 import path from "node:path";
 import test from "node:test";
 import { randomUUID } from "node:crypto";
+import { once } from "node:events";
+import { createConnection } from "node:net";
 
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/repository-location.ts";
-import { startVisualPreview } from "../../src/index.ts";
+import { observeLocalListener, startVisualPreview } from "../../src/index.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
   import.meta.dirname,
@@ -29,14 +31,15 @@ const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
  * @trace ERB-IT-018
  * @precondition Repository Rootが検証済みである。
  * @stimulus `.crdd/tests`配下へ一意な実行単位のFixtureを作成する。
- * @observation 作成したRepository相対Rootと清掃操作を返す。
+ * @observation 作成したRepository相対Root、内容の再照合および清掃操作を返す。
  * @oracle 呼出し側が配信・拒否・清掃条件を判定できる。
- * @cleanup 返却したcleanupがFixture全体を削除する。
+ * @cleanup 返却したcleanupが検証済みRepository内のFixture全体を削除し、ENOENTを直接確認する。
  * @boundary ERB-IT-018=Direct Boundary: visual-preview Test Source→対象契約
  */
 function createFixture(): Readonly<{
   relativeRoot: string;
   absoluteRoot: string;
+  assertUnchanged: () => void;
   cleanup: () => void;
 }> {
   const relativeRoot = `.crdd/tests/visual-preview-${randomUUID()}`;
@@ -56,7 +59,66 @@ function createFixture(): Readonly<{
   return Object.freeze({
     relativeRoot,
     absoluteRoot,
-    cleanup: () => fs.rmSync(absoluteRoot, { recursive: true, force: true }),
+    /**
+     * 固定Fixtureの内容と構造が変わっていないことを確認する。
+     *
+     * @responsibility HTTP操作前後のFile内容、Directory集合とJunction解決先を照合する。
+     * @trace ERB-IT-018
+     * @precondition 当該Fixtureが作成済みで清掃前である。
+     * @stimulus File、DirectoryとLinkを再読取りする。
+     * @observation 固定内容、entry集合、Link種別と解決先。
+     * @oracle 作成時の期待値と全項目が一致する。
+     * @cleanup N/A: 読取りだけであり、Fixture削除はcleanupが所有する。
+     * @boundary Repository内FixtureのFilesystem直接観測。
+     */
+    assertUnchanged: () => {
+      assert.deepEqual(fs.readdirSync(absoluteRoot).sort(), [
+        "assets",
+        "index.html",
+        "linked",
+      ]);
+      assert.deepEqual(fs.readdirSync(path.join(absoluteRoot, "assets")), [
+        "style.css",
+      ]);
+      assert.equal(
+        fs.readFileSync(path.join(absoluteRoot, "index.html"), "utf8"),
+        "<!doctype html><title>Visual Preview Fixture</title>",
+      );
+      assert.equal(
+        fs.readFileSync(path.join(absoluteRoot, "assets", "style.css"), "utf8"),
+        "body{}\n",
+      );
+      assert.equal(fs.lstatSync(linkedDirectory).isSymbolicLink(), true);
+      assert.equal(
+        fs.realpathSync.native(linkedDirectory),
+        fs.realpathSync.native(path.join(absoluteRoot, "assets")),
+      );
+    },
+    /**
+     * 所有Fixtureを削除し不存在を直接確認する。
+     *
+     * @responsibility 当該Fixtureの包含・非Link確認、明示削除と終了後観測を所有する。
+     * @trace ERB-IT-018
+     * @precondition 当該Fixtureが存在し、試験のListener終了後である。
+     * @stimulus 包含とRootのLink種別を確認し、Fixtureを削除する。
+     * @observation 削除結果と削除後lstatのError code。
+     * @oracle 包含確認が成功し、削除後のlstatがexact ENOENTになる。
+     * @cleanup 当該Fixture全体の不存在を確認する。
+     * @boundary Repository内の試験所有Fixture清掃。
+     */
+    cleanup: () => {
+      const relative = path.relative(repositoryRoot, absoluteRoot);
+      assert.equal(relative.startsWith(`..${path.sep}`), false);
+      assert.equal(path.isAbsolute(relative), false);
+      assert.equal(relative.split(path.sep)[0], ".crdd");
+      assert.equal(fs.lstatSync(absoluteRoot).isSymbolicLink(), false);
+      fs.rmSync(absoluteRoot, { recursive: true, force: false });
+      assert.throws(
+        () => fs.lstatSync(absoluteRoot),
+        (error: unknown) =>
+          error instanceof Error && "code" in error && error.code === "ENOENT",
+      );
+    },
   });
 }
 
@@ -157,6 +219,7 @@ test("通常FileだけをGET／HEADで配信し共通Security Headerを返す", 
     assert.doesNotMatch(health.body, /CRDD|test-tmp|visual-preview-/u);
   } finally {
     await handle.close();
+    fixture.assertUnchanged();
     fixture.cleanup();
   }
 });
@@ -167,9 +230,9 @@ test("通常FileだけをGET／HEADで配信し共通Security Headerを返す", 
  * @responsibility Visual Previewの拒否境界とListener資源清掃の合否判定を所有する。
  * @trace ERB-IT-018
  * @precondition Repository内FixtureとLink反例が存在しPreviewが起動済みである。
- * @stimulus Traversal、Encode済みSeparator、Link、DirectoryおよびPOSTを要求してHandleを閉じる。
- * @observation Status、Allow Header、公開本文および終了後Connection失敗を観測する。
- * @oracle 禁止Pathは404、POSTは405、close後は新しいConnectionを受理しない。
+ * @stimulus Traversal、Encode済みSeparator、Link、DirectoryおよびPOSTを要求し、未完了HTTP Connectionを保持してHandleを閉じる。
+ * @observation Status、Allow Header、公開本文、保持Connectionのcloseおよび終了後の直接接続拒否を観測する。
+ * @oracle 禁止Pathは404、POSTは405、内容は不変、保持Connectionは終了し、close後Listenerはabsentである。timeoutや未知Errorは合格にしない。
  * @cleanup Handleを冪等に閉じ、Fixtureを削除する。
  * @boundary ERB-IT-018=Direct Boundary: visual-preview Test Source→対象契約
  */
@@ -180,7 +243,16 @@ test("越境・Link・Directory・書込みMethodを拒否して終了後Listene
     rootRelativePath: fixture.relativeRoot,
   });
   const baseUrl = handle.baseUrl;
+  const url = new URL(baseUrl);
+  const heldConnection = createConnection({
+    host: url.hostname,
+    port: Number(url.port),
+  });
   try {
+    await once(heldConnection, "connect", {
+      signal: AbortSignal.timeout(5_000),
+    });
+    heldConnection.write("GET /index.html HTTP/1.1\r\nHost: localhost\r\n");
     for (const forbidden of [
       "/../package.json",
       "/..%2fpackage.json",
@@ -195,12 +267,29 @@ test("越境・Link・Directory・書込みMethodを拒否して終了後Listene
     const post = await requestRaw(baseUrl, "/index.html", "POST");
     assert.equal(post.status, 405);
     assert.equal(post.headers.allow, "GET, HEAD");
+    fixture.assertUnchanged();
+    assert.equal(heldConnection.destroyed, false);
+    const connectionClosed = once(heldConnection, "close", {
+      signal: AbortSignal.timeout(5_000),
+    });
+    await handle.close();
+    await connectionClosed;
+    assert.equal(heldConnection.destroyed, true);
+    assert.equal(await observeLocalListener(Number(url.port)), "absent");
   } finally {
     await handle.close();
     await handle.close();
+    heldConnection.destroy();
+    fixture.assertUnchanged();
     fixture.cleanup();
   }
-  await assert.rejects(requestRaw(baseUrl, "/index.html"));
+  await assert.rejects(
+    requestRaw(baseUrl, "/index.html"),
+    (error: unknown) =>
+      error instanceof Error &&
+      "code" in error &&
+      error.code === "ECONNREFUSED",
+  );
 });
 
 /**
@@ -240,6 +329,7 @@ test("Repository外・Absolute・Link RootをListener開始前に拒否する", 
       /visual_preview_root_invalid|visual_preview_root_link_forbidden/u,
     );
   } finally {
+    fixture.assertUnchanged();
     fixture.cleanup();
   }
 });
