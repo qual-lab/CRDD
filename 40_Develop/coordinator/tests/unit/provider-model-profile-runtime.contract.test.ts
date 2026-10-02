@@ -168,6 +168,16 @@ test("外部Catalogの追加Familyを固定列挙なしで解決する", () => {
       candidate,
       createRequest({
         profileId: "PROFILE-300001",
+        role: "independent_reviewer",
+      }),
+    ),
+    null,
+  );
+  assert.equal(
+    resolveRuntimeOwnedProviderModelProfileFromCatalog(
+      candidate,
+      createRequest({
+        profileId: "PROFILE-300001",
         role: "reviewer",
       }),
     ),
