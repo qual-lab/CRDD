@@ -186,6 +186,21 @@ Source Definition由来の検証義務を維持し、Detailは具体的な観測
 
 全数Coverageと試験段階の扱いは[UI／SPEC DetailのQuality分析](../../Analysis/Detail/quality_analysis.md)を中央統合投影とし、本定義は上記Relationの検証責務を局所所有する。
 
+## Host残存の限定回復に追加する観測条件
+
+[Coordinator詳細設計§11](../../../06_Architecture/Details/coordinator/01_Architecture.md#元の回復参照を確定できないhost残存の保守候補)の限定経路は未完成である。内部PolicyのUTとは分け、次の既存検証義務に観測条件を追加する。記載だけでは実施済みまたはCoveredとしない。
+
+| Local Item | 追加する反証・観測 | 終了後条件／現在状態 |
+|---|---|---|
+| `ERB-IT-001` | 選択ユーザー・Root・marker・全六childのexact結合、処置前のfresh再確認、限定削除と直接不存在観測。 | 全対象の明示不存在と全handle／observer／Lock解放を別々に確認する。OPEN: 実処置未接続。 |
+| `ERB-IT-002` | Identity差替え、非空child、未知child、別状態、Docker結合、使用中、初期化中および承認不一致。 | 処置前の拒否ではFilesystem／Provider Effect 0。OPEN: 実境界の拒否未観測。 |
+| `ERB-IT-003` | 部分清掃後のProcess喪失と同一対象への再入場。新しいfresh承認と保護済みlineageを検証し、既に処置済みの対象を別物へ置換しない。 | 発行済みEffect、残存対象、回復義務を保持する。OPEN: 保護済み再入場未接続。 |
+| `ERB-IT-004` | 旧形式のproducer／consumer観測が不完全、Lockだけ取得可能、markerだけ存在、非使用・不存在観測不能。 | unknownを非使用・不存在へ畳まず、追加Effect 0で停止する。OPEN: 実観測未接続。 |
+| `ERB-ST-030` | 将来の正式入口で、同じ実残存クラスを安全なfixtureとして発生させ、対象提示→承認→fresh確認→処置→最終観測を相関する。 | 新Provider依頼とDocker永続データ削除0。全資源不存在またはexactな回復義務を保持する。OPEN: 公開入口未接続。 |
+| `ERB-UAT-007` | 元Taskの回復権限と新しい限定保守承認の違い、実在対象と対象外、拒否時の理由を利用者が理解できるか確認する。 | 承認だけを実行・清掃完了へ表示しない。OPEN: 利用者確認未実施。 |
+
+既存三件に対する実処置承認は未取得であり、試験fixtureを理由にその領域を削除しない。Local Item数と観測済み件数はこの設計追加では変更しない。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した

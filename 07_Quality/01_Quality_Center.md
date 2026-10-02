@@ -16,7 +16,7 @@
 | 未観測 | 35 / 46 | 起動時Tool制限024と実Host／公開CLIの追加6項目025～030を含む。局所試験またはRelationだけで観測済みへ変更しない |
 | 既知Gap | Phase 5 Release Verification進行中 | Project Runtime公開MCP E2Eと最終回復在庫確認は合格した。モデル／Host移行と助言専用起動制限は承認済み。固定候補のNative二十一試験は実行済みで、024の起動Policyと025～029の実Host局所根拠へ対応付けた。ただし、共通試験Home／Workspaceの所有者清掃後の不存在は未観測であり、Local Item全体の観測済み件数を増やしていない。保存ログの成功、未充足の終了後条件、公開CLI030および実Provider成立を区別する。現在の通信断とHost残存三件は別の未解決事項であり、必要な四経路、個別品質項目および最終配布の照合も未完了である。詳細は[Native試験のQuality適用と清掃観測Gap](../99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md#native二十一試験のquality適用と清掃観測gap2026-10-02)を参照する |
 | 次Gate | 現在は新しい実Taskを停止。残存Hostのexact対象・回収Authorityと通信断の原因層を確認し、再開条件成立後にWorkbench実Provider E2E、必要な四経路E2E、個別品質項目の照合、最終配布固定と署名照合を行う | [CHG-000082](../99_Roadmap/Changes/CHG-000082/change.md)、[候補通信診断と終了待ち](../99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md#候補d36a9decの署名通信切断の切り分けと終了待ちの不足) |
-| 現在人間判断 | 回復参照を提示できないHost残存の保守契約を同じCHGで補強するか、Qual-Labの判断待ち | 検討対象は候補の設計・実装・局所反証・独立確認であり、契約採用や既存Rootの回収承認とは分ける。Root削除、Token手動生成、Provider再送、Docker再起動は含まない。判断前は新実Taskの停止を維持する。[補強候補](../99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md#回復参照を提示できないhost残存の正式な引継ぎ) |
+| 現在人間判断 | 同じCHGで限定的な人間承認付きRecoveryを追加する方針は承認済み。第一単位の着手に追加判断なし | 候補設計と内部Policyの局所UTから進める。実観測・処置Authority・削除・公開入口は未接続であり、新実Task停止と既存観測件数を維持する。実在三件の削除、元Token生成、Provider再送、Docker再起動とReleaseは含めない。[現在記録](../99_Roadmap/Changes/CHG-000082/Evidence/261002_host-orphan-recovery-design.md) |
 
 ## 設計集合
 

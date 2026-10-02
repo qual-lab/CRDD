@@ -433,6 +433,27 @@ CLI optionは個別の存在だけでなく、同時指定する全optionの組�
 
 Docker Desktopの破損時は通常Taskと分離した最終復旧経路を使う。対象Process、固定artifact、mutex、耐久記録、Directory Identityおよび再開条件を確認する。親Directory renameはWindowsの限定最終手段であり、推測削除や無条件再起動を行わない。
 
+### 元の回復参照を確定できないHost残存の保守候補
+
+**現状: 候補判定だけを実装した。実観測、保守Authority、公開入口および削除処理は未接続であり、回復成立ではない。** 同じCHG-000082で限定経路を追加する人間判断は得ているが、既存三件の処置は対象を提示した別の承認が必要である。
+
+対象候補は、Coordinatorが作成した`host_only`記録と対応する六つの空の子Directoryだけを持つHost作業領域に限定する。元Tokenをmarkerから生成し直さず、人間が新たに承認した単一対象の保守と、元Taskの回復Authorityを分ける。非空領域、別状態、Docker資源、永続Provider Home、由来不明な領域および汎用強制削除は対象外である。
+
+| 必須条件 | 保存・確認する根拠 | 不成立時 |
+|---|---|---|
+| 対象と人間承認の一致 | 選択ユーザー、Runtime／Repository結合、対象snapshotのHashとfreshな明示承認。snapshotは親、記録Directory、marker、Root、六childのexact Identity、marker bytes、固定child集合と空観測を含む。取得時刻と比較対象Hashを分ける。 | 対象変更、承認欠落または不明なら処置前にEffect 0。 |
+| 所有範囲と現在Identity | 許可したOS管理Root内の由来・所有主体と、全対象のfreshな一致。名前、prefix、marker自己申告だけを根拠にしない。 | 範囲外、差替え、別世代、reparseまたは観測不能を拒否する。 |
+| 非使用と初期化中の排他 | 作成前から最終清掃までの連続した排他、および対象を使用し得るproducer／consumerの閉じた母集団。旧形式には別の移行根拠が必要である。 | KernelLock取得成功、六childが空または既知Process件数0だけでは非使用確認としない。旧形式の根拠が不明なら停止する。 |
+| Dockerとの非結合 | 対象に結合する耐久記録と現在の観測で、Docker bindingの明示不存在を確認する。 | 未観測・破損を不存在へ畳まず、Docker清掃へ範囲を広げない。 |
+| 耐久的な進行記録と再入場 | Repository-local `.crdd`を使う場合は非Authorityのcheckpointに限定し、再入場ごとにfreshな人間承認と保護済み対象へ再結合する。次Processの削除許可を発行する記録は別の保護済みRecovery Authorityであり、自己申告JSONから発行しない。 | 別対象への再結合、承認範囲の拡張および欠測の成功化を拒否する。 |
+| 処置後の直接観測 | 将来の処置実装では非再帰の限定削除後に六child、Root、markerの明示不存在、handle／observer／Lockの解放と記録の終端を確認する。 | 部分処置または観測不能は回復義務と処置事実を保持する。Effect発行後をEffect 0と表示しない。 |
+
+候補判定は[内部Policy](../../../40_Develop/coordinator/src/security/host-orphan-recovery-policy.ts)が所有する。十一条件の値を閉じたSchemaで照合するだけで、根拠の実在性を証明しない。`candidate_ready`でも`authorityConferred:false`、`cleanupConfirmed:false`、`productionConnected:false`を維持し、回復Token、Pathまたは削除Capabilityを返さない。この診断断面をARCH-000008へ接続し、実処置はその診断Authorityへ追加しない。
+
+後段の接続順序は、対象観測→人間へのexact対象提示→限定承認→連続排他とfresh再確認→限定処置→不存在・資源解放観測である。部分処置後の再入場は事前固定した対象と許可した進行だけを扱い、初回snapshotと同じ完全存在を要求して回復不能にしない。
+
+**OPEN:** 旧形式の非使用根拠、初期化前からの排他、差替えを防ぐOS処置境界、保護済み再入場、SPEC／Workflowへの実処置契約と公開入口は未成立である。これらを反証・独立確認するまでHelp／capabilitiesに未完成clean操作を公開しない。詳細な進行と承認範囲は[CHGの記録](../../../99_Roadmap/Changes/CHG-000082/Evidence/261002_host-orphan-recovery-design.md)、検証義務は[QA-000003](../../../07_Quality/Definitions/QA-000003/quality_definition.md#host残存の保守候補判定)と[QA-000006](../../../07_Quality/Definitions/QA-000006/quality_definition.md#host残存の限定回復に追加する観測条件)を参照する。
+
 #### Docker外部境界の結合単位
 
 Docker境界は一つのCLI呼出しとして扱わず、同じ状態、Authorityおよび資源のlifecycleを閉じられる単位に分ける。各単位を実Dockerまたは安全に同等な実境界へ段階的に接続し、最後に公開Task入口から組み合わせる。

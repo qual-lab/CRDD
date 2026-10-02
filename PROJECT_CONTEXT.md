@@ -43,13 +43,13 @@ CRDDはv0.21.0を公開済みで、v0.22.0の実装・検証を進めている�
 
 ### 結論
 
-署名候補d36a9decは検証済みであり、現在、署名の秘密入力は求めていない。回復参照を提示できないHost残存を安全な保守手続きへ引き継ぐ契約について、同じCHGで候補の設計・実装・確認を進めるか、人間判断が必要である。旧26449候補のCodex・Claude助言成立と、正常拒否の搬送是正は保持するが、変更候補生成と全E2Eは未成立である。候補限定診断で通信切断を観測し、Toolが取消後のExecutor終了を待たない不足を是正した。局所9件と限定独立再レビューはPassだが、通信断の原因、元Taskの完了とHost作業記録3件の回収は未確認であり、新しい実Taskは停止中。exactな回収対象・Authorityと通信断の原因層を先に確認する。過去のDocker再起動承認を今回Host残存の回収許可へ拡張しない。詳細は[候補通信診断と終了待ち](99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md#候補d36a9decの署名通信切断の切り分けと終了待ちの不足)を参照する。
+署名候補d36a9decは検証済みであり、現在、署名の秘密入力は求めていない。回復参照を確定できないHost残存に対し、同じCHGで限定的な人間承認付きRecovery経路の設計・実装・確認を進める方針は承認済みである。現在、第一単位の着手に追加の人間判断は必要ない。候補判定だけを追加し、実観測、処置Authority、削除と公開入口は未接続として保持する。既存三件の実処置は必要保証の確認後、exact対象を提示して別の承認を得る。通信断の原因、元Taskの完了とHost三件の回収は未確認であり、新しい実Taskは停止中。過去のDocker再起動承認をHost残存の回収許可へ拡張しない。詳細は[限定保守の現在記録](99_Roadmap/Changes/CHG-000082/Evidence/261002_host-orphan-recovery-design.md)、過去の局所是正と観測は[候補通信診断と終了待ち](99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md#候補d36a9decの署名通信切断の切り分けと終了待ちの不足)を参照する。
 
 Workbenchの新モデル移行では、起動時のTool許可集合を固定する最小Adapterの追加が承認された。助言用の操作禁止は維持する。署名候補d36a9decは成立したが、実Taskは上記の回収対象・Authorityおよび通信断の原因層を確認するまで再開しない。6.1 Sol標準／6 Luna軽量用途へのモデル方針も承認済みである。承認済み方針は保持するが、現在は追加の署名入力を求めていない。今後必要となる署名の秘密入力は人間が行う。この承認をRelease承認とは扱わない。Repository IDの正式固定は、Project Context契約の固定時に改めて人間が判断する。
 
 | 判断 | 判断する人 | 選択肢・影響 | Owner Relation |
 |---|---|---|---|
-| 回復参照を提示できないHost残存の保守契約を同じCHGで補強するか | Qual-Lab | 推奨は候補の設計・実装・局所反証・独立確認を進めること。任意markerを元のAuthorityへ読み替えず、承認対象とのexact結合とfreshな排他・Identity検査を設計する。契約採用や既存Rootの回収承認とは分け、Root削除、Token手動生成、Provider再送、Docker再起動はこの質問に含めない。保留時は新実Task停止を維持する | [回復参照を提示できない残存の引継ぎ](99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md#回復参照を提示できないhost残存の正式な引継ぎ) |
+| なし（同じCHGの限定Recovery追加を承認済み） | Qual-Lab | 設計・実装・局所反証・独立確認を進める。候補判定を実処置・清掃完了へ読み替えず、旧形式の非使用と初期化中の排他を確認する。実在三件の削除、元Token生成、Provider再送、Docker再起動とReleaseは今回の承認に含めない | [限定保守の現在記録](99_Roadmap/Changes/CHG-000082/Evidence/261002_host-orphan-recovery-design.md) |
 | なし（同じTask回復IDの検証付き再起動を承認済み） | Qual-Lab | 再起動とTask回収を完了し、再観測で回復一覧cleanを確認した。新しいProvider依頼や永続データ削除は行っていない。助言成功または全E2E合格とは区別する | [新候補の回復記録](99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md#最大2ターン候補cb0bdb85の署名と結果取得前の通信失敗) |
 | なし（最大2ターンPilotを承認済み） | Qual-Lab | 一つの依頼・一回送信・Tool禁止・Repository非共有を維持して限定実測へ進む。独立確認、新署名と実Provider成立を確認するまで正式化しない | [最大2ターンPilot](99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md#人間承認済みのclaude最大2ターンpilot) |
 | なし（最小起動Adapter追加を承認済み） | Qual-Lab | 専用実行物の構築・配布・保守を含む承認済み範囲は維持する。署名候補d36a9decは成立したが、変更候補生成と全E2Eは未成立である。実Taskは上記停止Gateを保持し、承認だけから利用可能またはRelease可能とは表示しない | [CHG-000082](99_Roadmap/Changes/CHG-000082/change.md)、[移行の着手前確認](99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md) |

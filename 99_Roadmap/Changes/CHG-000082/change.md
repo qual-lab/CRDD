@@ -62,6 +62,12 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 <summary>全ファイルを表示</summary>
 
 - [`99_Roadmap/Changes/CHG-000082/change.md`](./change.md)
+- [`99_Roadmap/Changes/CHG-000082/Evidence/261002_host-orphan-recovery-design.md`](./Evidence/261002_host-orphan-recovery-design.md)
+- [`99_Roadmap/Changes/CHG-000082/Evidence/261002_native-test-cleanup-preflight.md`](./Evidence/261002_native-test-cleanup-preflight.md)
+- [`40_Develop/coordinator/src/security/host-orphan-recovery-policy.ts`](../../../40_Develop/coordinator/src/security/host-orphan-recovery-policy.ts)
+- [`40_Develop/coordinator/tests/unit/host-orphan-recovery-policy.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/host-orphan-recovery-policy.contract.test.ts)
+- [`40_Develop/coordinator/tsconfig.strict.json`](../../../40_Develop/coordinator/tsconfig.strict.json)
+- [`07_Quality/Definitions/QA-000003/quality_definition.md`](../../../07_Quality/Definitions/QA-000003/quality_definition.md)
 - [`99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md`](./Evidence/260930-1853_codex-model-host-migration-preflight.md)
 - [`40_Develop/coordinator/runtime/codex-advice-builder.Dockerfile`](../../../40_Develop/coordinator/runtime/codex-advice-builder.Dockerfile)
 - [`40_Develop/coordinator/runtime/codex-advice-startup-test.patch`](../../../40_Develop/coordinator/runtime/codex-advice-startup-test.patch)
@@ -322,6 +328,7 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 
 | Finding／契機 | 同じIntentと判断した理由 | 追加Phase／範囲 | Gate・完了条件への影響 | 追加確認／人間判断 | 処置 |
 |---|---|---|---|---|---|
+| 元の回復参照を確定できない空のHost残存が観測され、同じCHGで限定保守経路を追加する人間判断を得た | 実Provider検証後の残存から安全に回復できない、既存Recovery責務の欠落であり、新しい汎用清掃Capabilityではない | Phase 5へ空のhost_onlyに限る対象確認・fresh承認・非使用確認・限定処置・不存在観測を追加 | 新実Task停止を維持する。候補判定、実観測、Authority、実処置、公開入口および全資源観測を分けて閉じる。局所UTをRecovery完成へ読み替えない | 設計・実装・局所反証・独立確認は本対話で承認済み。実在三件の削除、元Token生成、Provider再送、Docker再起動、Releaseは含めない | 第一単位は候補設計とAuthorityを発行しない内部Policy。旧形式の非使用・初期化排他・OS処置境界・再入場はOPEN。[現在記録](Evidence/261002_host-orphan-recovery-design.md) |
 | 署名済み実境界で障害修復Protocolが意図的に返す公式停止の未発行を上位Runtimeが失敗扱いした | Workbench AI実Provider E2Eを成立させるDocker境界のProduction Closureであり、同じIntent内の実境界Gapである | Phase 5へ障害修復の`not_issued`受理契約是正を追加 | Repairでは公式停止を発行せず、上位Runtimeが`false / not_issued`だけを正常分岐として受理する局所契約試験、署名済み修復、Host Windows回帰を追加 | 既存の修復ID・耐久記録・Trust・削除禁止を維持し、`true / unknown`を成功へ補正しない | 対応中 |
 | Workbenchの将来展開を踏まえ、表示層をReact＋Viteへ固定する人間判断を得た | Project Context、Topic／Meeting、Repository、AIおよびShared Serverを一つのWorkbenchへ展開する同じProduction Intentであり、別Capabilityではない | Phase 5へVite Browser Build、固定Asset配信および既存15画面のReact移行を追加 | Node側のAuthorityとHTTP操作契約を維持し、CSR、JSON Read Model、CSP、allowlist、既存IT、実Browser Visualを再確認する。全画面Component化前を移行完了と表示しない | React＋Vite採用は本対話で確認済み。Next.js、Electron、業務AuthorityのClient移動は対象外 | 実装・直接検証・独立レビュー済み。Phase 5全体の実Provider E2Eは継続 |
 | 段階移行境界やSSRとの二重管理を残さず、既存15画面本体をClient-side React Componentへ移行する人間判断を得た | React＋ViteをWorkbenchのProduction表示基盤として固定する同じIntentの完結条件であり、新しい利用者Capabilityではない | Phase 5へ全画面CSR、JSON Read Model境界、Raw HTML Fragment廃止、SSR／Hydration廃止およびBrowser DOM再読取り廃止を追加 | 既存15画面、Form、Action Token、権限、Server Effect、同一Origin／CSP、3表示Profile×3 Zoomを不変条件として再検証する。旧署名候補は移行前Evidenceとしてのみ保持し、移行後に新しい固定候補を作る | 本対話でスコープ拡大とSSR不採用を確認済み。Clientへの業務Authority移動、Next.js、Electronは引き続き対象外 | 実装・直接検証・独立レビュー済み。Phase 5全体の実Provider E2Eは継続 |

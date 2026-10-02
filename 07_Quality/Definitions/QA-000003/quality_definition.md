@@ -151,6 +151,12 @@ Source Definition由来の検証義務を維持し、Detailは具体的な観測
 
 全数Coverageと試験段階の扱いは[UI／SPEC DetailのQuality分析](../../Analysis/Detail/quality_analysis.md)を中央統合投影とし、本定義は上記Relationの検証責務を局所所有する。
 
+## Host残存の保守候補判定
+
+`PRL-UT-006`には[Coordinator詳細設計§11](../../../06_Architecture/Details/coordinator/01_Architecture.md#元の回復参照を確定できないhost残存の保守候補)の内部候補判定を含める。十一の必須条件を一件ずつ不成立、unknown、欠落へ変え、対象外資源クラス、不正Hash、未知field、AccessorおよびProxyを拒否する。全条件の局所fixtureが成立してもAuthority非発行、清掃未確認、本番未接続を返すことをOracleとする。
+
+このUTは根拠値の純粋な照合だけであり、実在する所有権・非使用・Lock・不存在を証明しない。実観測と処置の義務はQA-000006が所有する。局所Passを新しいRecovery経路の完成、既存Host三件の清掃またはQuality Readyへ昇格させない。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した

@@ -69,6 +69,7 @@
     "src/security/execution-environment.ts",
     "src/security/host-operation-lock-supervisor.ts",
     "src/security/host-recovery-record.ts",
+    "src/security/host-orphan-recovery-policy.ts",
     "src/security/platform-key-storage-policy.ts",
     "src/security/platform-provisioner-manifest-loader.ts",
     "src/security/platform-provisioner-package-filesystem.ts",
