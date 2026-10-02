@@ -109,6 +109,40 @@ Source、起動Patch、試験Patch、入力一覧、Builder、旧署名候補お
 
 本節と追補用Checklistは全確認終了後の結果だけの書戻しであり、上記Hashは書戻し前の固定対象を指す。この追補を初回記録の確認対象へ加えず、旧結果へ新Hashを遡及適用しない。Source採用、清掃、Local Item成立、全Recovery、実Task再開およびReleaseは本確認の対象外である。結果だけの書戻しは確認者と整合済みである。
 
+## 追加確認: Build失敗後の保持と再識別の不足
+
+基準Commitは`1428fab522634141a3027ba79d2cc97f50fe99a3`。この追補は失敗経路のSource読取りと計画上の不足を記録するものであり、新しいRunnerの採用、Source修正または清掃の実測ではない。親の照合と別の読取り専用確認者による着手前確認は、境界を補正した上で記録編集の着手可とした。
+
+### 今回確認した事実
+
+| 対象 | 読取りで確認したこと | 未保証の範囲 |
+|---|---|---|
+| [Native試験Builder](../../../../40_Develop/coordinator/runtime/codex-advice-builder.Dockerfile) | `startup-verification-run`は`/bin/bash -eu`と`pipefail`を使用する。timeout、試験、teeまたはgrep等の失敗ではRUNが失敗し、依存する後段`startup-verification-artifacts`のCOPYによる正常な成果物書出しは完成しない。 | 失敗時に別経路で得られるlog、Build基盤内の物理Rootの残存・消失、耐久的な再識別は未確認。書出し失敗を「全log消失」や「Root不存在」へ読み替えない。 |
+| [Build入力準備](../../../../40_Develop/coordinator/scripts/prepare-codex-advice-build.ts) | Context生成、固定入力照合、Manifestと保持条件の記録を所有する。結果は`buildExecuted: false`で、Build起動・待機・失敗後の書出しを実行しない。 | Context生成後からManifest保存・結果搬送までの途中失敗、Build／親Process喪失後の再識別と再入場は閉じていない。Contextの七日保持条件をNative試験Rootの保持保証へ流用しない。 |
+
+読取り対象のRepository上bytes SHA-256は、Dockerfileが`5255258d06ae861ea8e06a72468bbdf2ff6b81f2471a6eff70b1f6d802a31185`、準備Scriptが`9da0cc21e678ae3046c92b6dca9961e6423580f446b54e623307a2dcf55ac3bf`である。準備ScriptはDockerfile等をLF正規化してContextへ保存するため、これらを実行時Context内bytesのHashとは扱わない。今回Contextは新規作成していない。追補前の本記録SHA-256は`1c79271e506690b80b07907972781fa21879f374fdb518399e451671812f27cc`であり、旧独立確認の対象Hashは変更しない。
+
+### 検討結果と次の確認条件
+
+読取り専用の技術検討では、同じ固定試験Binary内でchild fixtureを自己起動し、終了後に親がRootを処置する案が提示された。これは検討案であり、採用・実装・実測ではない。childの実終了を確認できても、別ProcessのHost終了、外側Runner／Buildの親喪失、耐久参照、成果物書出しおよび再入場を証明したことにはならない。
+
+| 対象資源 | 次の設計・確認で必要な対応 | 現在状態 |
+|---|---|---|
+| Native試験のHome／Workspace | 取得主体、全利用者、終了根拠、清掃Authorityと直接不存在観測へ対応付ける。 | 既存の清掃後条件は未成立。 |
+| child案で追加し得るreceipt保存域とその親Root | 実際に追加する場合は所有者・保持・再識別・終了後条件へ含める。既存二Rootの清掃成功だけで全資源cleanとしない。 | 検討案。実在・実装を推定しない。 |
+| Build Contextと診断成果物 | 既存の保持条件と、途中失敗・親喪失時の結果搬送／再識別を照合する。ログはEvidenceであり削除Authorityではない。 | Contextの保持記載だけでは失敗経路全体を閉じない。 |
+| 共有Docker cacheその他の非所有資源 | 本変更の清掃対象へ含めない。 | 回収範囲は拡張しない。 |
+
+次のSource編集前には、正常終了だけでなく、部分取得、試験失敗、timeout、panic、親喪失、古い／不一致の参照、結果搬送失敗、観測不能を同じ所有資源集合へ接続する必要がある。耐久参照を得られない場合はRootやAuthorityを推測せず停止する。具体的な契約はCoordinator詳細設計とQA-000006へ戻し、本記録へreceipt Schemaや回収手順の第二正本を作らない。
+
+本追補の完成後の技術・文書・品質／直接影響確認は未実施。Source、Patch、入力一覧、Builder、旧署名候補、旧Native二十一試験と品質件数は変更しない。旧本文の`11 / 46`と`119 / 176`は当時の基準時点の記載であり、現在品質の投影には使用しない。ERB-IT-025〜029の清掃後条件未成立、新実Task停止、旧三Rootの方式採否・実処置の判断待ちは維持する。調査記録だけのため実OS試験、全回帰、再署名または準拠監査は行わず、旧限定Passをこの追補へ流用しない。
+
+### Build失敗後の保持・再識別追補の独立確認
+
+作成担当と別の確認者が、基準Commit `1428fab522634141a3027ba79d2cc97f50fe99a3`からの本記録一文書差分を固定して確認した。技術独立レビュー、文書監査、品質・直接影響の三観点は全て限定Pass、Finding 0、確信度は高である。固定対象SHA-256 `a88b84b32d555d778f4747f78f9271c04162e4d9af8d4e4c7ff07150e68b616e`、参照SourceのHashとHEADは確認開始・終了で一致した。追加リンクの実在と差分空白検査も確認した。
+
+前節の「完成後確認は未実施」は、この結果追記前の状態を指す。全三結果を統合した後、この節と該当Checklist一行だけを結果として書き戻した。確認者と整合済みで、確認時Hashを追記後Hashへ置き換えていない。限定Passは調査記録の技術解釈と境界だけであり、Source採用、実行、Root利用者の閉包、保持・清掃の成立、Local Item成立、実Task再開またはReleaseには適用しない。旧結果・Hash、残るOPEN、停止と人間承認の境界は変更しない。
+
 ## Checklist
 
 - [x] 固定Source、Patch、入力一覧と旧検証結果の境界を確認した。
@@ -120,4 +154,6 @@ Source、起動Patch、試験Patch、入力一覧、Builder、旧署名候補お
 - [x] 後続調査でexact crate bytesとCargo.lockの一致を確認した。初回確認時には未確認だったことを保持した。
 - [x] Session終了bool、Code Mode登録RoleとHome書込みActorの実終了を区別し、清掃前提を破る反例を計画へ取り込んだ。
 - [x] 追補の新固定対象を三観点で独立確認し、DOC-01を是正・再確認した。初回の対象Hashと合格範囲へ遡及適用していない。
+- [x] Buildの正常な成果物書出し、失敗時の保持不明と入力Contextの保持条件を区別した。child案を実測済みと扱っていない。
+- [x] Build失敗後の保持・再識別追補を新固定版で三観点から独立確認し、調査記録だけの限定Pass、Finding 0を記録した。旧限定Passへ流用していない。
 - [ ] OPEN: Root利用者の閉包、新Source候補・反証・実測は未成立。着手前確認を統合してからSourceを編集し、実測へ進む前に停止Gateと実行範囲を再照合する。
