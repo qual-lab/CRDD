@@ -89,6 +89,23 @@
       ]
     },
     {
+      "symbolId": "mcp.test.system.cros-projection-non-disclosure",
+      "kind": "test-suite",
+      "path": "tests/system/cros-projection-non-disclosure.contract.test.ts",
+      "qaIds": [
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "RFD-ST-004"
+      ],
+      "verifies": [
+        "mcp.source.src.adapters.topic.meeting.adapter",
+        "mcp.source.src.composition.cros.project.context.application",
+        "mcp.source.src.composition.cros.shared.server",
+        "mcp.source.src.transports.streamable.http.transport"
+      ]
+    },
+    {
       "symbolId": "mcp.test.system.cros-shared-server-entry",
       "kind": "test-suite",
       "path": "tests/system/cros-shared-server-entry.integration.test.ts",

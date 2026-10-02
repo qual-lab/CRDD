@@ -345,7 +345,7 @@
       "responsibilities": ["transport_decode_encode", "public_contract_projection", "project_context_projection", "closed_result_mapping"],
       "externalBoundaries": ["mcp_request", "project_runtime_public_contract", "project_context_read_model", "mcp_response"],
       "lifecycleProfile": "pure_component",
-      "testIds": ["mcp:unit:project-context", "mcp:unit:project-runtime", "mcp:integration:cros-project-context", "mcp:integration:cros-shared-server", "mcp:integration:transport-lifecycle", "mcp:system:stdio", "coordinator:integration:project-runtime-composition-root"],
+      "testIds": ["mcp:unit:project-context", "mcp:unit:project-runtime", "mcp:integration:cros-project-context", "mcp:integration:cros-shared-server", "mcp:integration:transport-lifecycle", "mcp:system:cros-projection-non-disclosure", "mcp:system:stdio", "coordinator:integration:project-runtime-composition-root"],
       "postconditions": ["transport_does_not_issue_authority", "canonical_result_not_reinterpreted", "unknown_field_rejected"]
     },
     {
@@ -355,7 +355,7 @@
       "responsibilities": ["stdio_session", "localhost_http_session", "cancellation_and_connection_close"],
       "externalBoundaries": ["stdio", "localhost_http", "client_disconnect"],
       "lifecycleProfile": "transport_session",
-      "testIds": ["mcp:integration:cros-shared-server", "mcp:integration:transport-lifecycle", "mcp:system:cros-shared-server-entry", "mcp:system:stdio", "mcp:system:streamable-http", "coordinator:integration:project-runtime-composition-root"],
+      "testIds": ["mcp:integration:cros-shared-server", "mcp:integration:transport-lifecycle", "mcp:system:cros-projection-non-disclosure", "mcp:system:cros-shared-server-entry", "mcp:system:stdio", "mcp:system:streamable-http", "coordinator:integration:project-runtime-composition-root"],
       "postconditions": ["rest_and_mcp_same_origin", "tls_termination_contract_verified", "listener_closed", "inflight_request_classified", "disconnect_not_reported_success"]
     },
     {
@@ -478,7 +478,7 @@
       "id": "cros:credential-to-project-context-mcp",
       "architectureAnchor": "06_Architecture/Details/mcp/01_Architecture.md#3-依存と所有権",
       "blockPath": ["cros:workspace-federation-and-handoff", "mcp:public-contract-adapter", "mcp:transport-session"],
-      "testIds": ["cros:integration:remote-transport", "cros:integration:shared-server-config", "mcp:integration:cros-project-context", "mcp:integration:cros-shared-server", "mcp:system:cros-shared-server-entry"],
+      "testIds": ["cros:integration:remote-transport", "cros:integration:shared-server-config", "mcp:integration:cros-project-context", "mcp:integration:cros-shared-server", "mcp:system:cros-projection-non-disclosure", "mcp:system:cros-shared-server-entry"],
       "postconditions": ["authorized_projection_only", "credential_secret_not_stored", "grant_outside_repository_not_disclosed", "rest_and_mcp_same_origin", "tls_termination_contract_verified", "listener_absent"]
     },
     {
@@ -3470,6 +3470,19 @@
         "public_result_observed",
         "owned_resources_settled_or_reported"
       ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "mcp:system:cros-projection-non-disclosure",
+      "owner": "mcp",
+      "path": "40_Develop/mcp/tests/system/cros-projection-non-disclosure.contract.test.ts",
+      "level": "system",
+      "kind": "contract",
+      "semanticTags": ["cros", "mcp", "shared-server", "credential", "exposure", "repository", "non-disclosure"],
+      "environment": "fixed_system_runtime",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["public_result_observed", "owned_resources_settled_or_reported", "listener_absent"],
       "mandatoryByDefault": true
     },
     {

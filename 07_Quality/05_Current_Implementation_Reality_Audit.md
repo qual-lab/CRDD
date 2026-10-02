@@ -236,18 +236,17 @@ Project RuntimeはArchitecture Detailsの構造化が進んでいるため、生
 
 ## 12. Relation是正結果
 
-現在のCanonical設計集合は13定義・176個の一意なLocal Itemであり、現物の`symbol.json`から132件のRelationと44件のRelationなし集合を確認した。Relationは検証対象を示すだけで、単独では完成Evidenceではない。移管一覧46件は既観測11件に`ERB-IT-018`を加え、12件観測済み・34件未観測とする。
+現在のCanonical設計集合は13定義・176個の一意なLocal Itemであり、現物の`symbol.json`から132件のRelationと44件のRelationなし集合を確認した。Relationは検証対象を示すだけで、単独では完成Evidenceではない。移管一覧46件は既観測12件に`RFD-ST-004`の[公開Gateway非開示根拠](../99_Roadmap/Changes/CHG-000082/Evidence/261002_shared-gateway-non-disclosure.md)を加え、13件観測済み・33件未観測とする。同じLocal ItemへのTest Symbol追加はRelationの一意件数を増やさない。
 
 **全体の現在集計は再照合中（OPEN）。** 旧投影は119件観測済み・57件未観測としていたが、118件のRelation側完成根拠とRelationなし観測1件という内訳が現集合と一致しない。Relationなし集合には観測済みの`ERB-ST-019`と`RFD-ST-015`があり、既観測`PPR-IT-002`が非完成表に残り、未観測`PPR-ST-005`が同表から欠落していた。表の処置を是正するが、残りRelationの現行Evidence適用を全件再確認したとは扱わない。
 
-v0.21の固定Baseline108件観測済み・22件未観測を履歴として維持し、108＋12＝120件観測済み・56件未観測は算定候補とする。現在の全体件数へ昇格する前に、Qual-Labが一意Local ItemごとのRelation・根拠・適用改訂版を再照合する。今回の算定と未確認範囲は[根拠記録](../99_Roadmap/Changes/CHG-000082/Evidence/261002_quality-visual-preview-projection.md)に残す。
+v0.21の固定Baseline108件観測済み・22件未観測を履歴として維持し、108＋13＝121件観測済み・55件未観測は算定候補とする。現在の全体件数へ昇格する前に、Qual-Labが一意Local ItemごとのRelation・根拠・適用改訂版を再照合する。前回の算定不整合は[前回記録](../99_Roadmap/Changes/CHG-000082/Evidence/261002_quality-visual-preview-projection.md)、今回の一項目適用と未確認範囲は[新しい根拠記録](../99_Roadmap/Changes/CHG-000082/Evidence/261002_shared-gateway-non-disclosure.md)に残す。
 
 | 非完成・非Evidence Relation | Relationを保持する理由 | Evidenceへ算入しない理由 |
 |---|---|---|
 | `RCM-ST-012` | Consumer ClosureのSystem検証対象を明示する | 固定観測配列は実Consumerの実行を証明しない |
 | `ERB-ST-011` | Docker Session HandoffのSystem検証対象を明示する | 別Process RecordだけではDocker Engine／Host資源を独立観測していない |
 | `RFD-ST-003` | CROS Session AccessのPrototype検証対象を明示する | v0.22のCredential→Workspace Grant実境界を成立させていない |
-| `RFD-ST-004` | CROS FederationのPrototype検証対象を明示する | v0.22の複数Repository実境界を成立させていない |
 | `RFD-IT-009` | Repository Federationの局所対象を明示する | 局所Relationだけでは複数Repository Capabilityの完成を証明しない |
 | `RFD-ST-010` | CROS Context HandoffのPrototype検証対象を明示する | v0.22の複数Repository Handoff実境界を成立させていない |
 | `RFD-IT-011` | Context Handoffの局所対象を明示する | 局所Relationだけでは実Runtime間Handoffの完成を証明しない |
@@ -275,9 +274,9 @@ v0.21の固定Baseline108件観測済み・22件未観測を履歴として維�
 | RDL | 1 | Manual 1 |
 | RFD | 7 | Automated 4、Hybrid 2、Manual 1 |
 
-上表の57件とAutomated 19件・Hybrid 18件・Manual 20件は**旧投影の内訳（現在への適用は再照合中）**であり、現在の未観測集合を確定した値ではない。新しい自動Testが同数必要という意味ではない。移管母集団の現在未観測は34件で、`PPR-UAT-020`と助言用起動Policy／Host／公開CLIの024〜030を含む。`ERB-IT-018`は固定根拠へ接続した。Hybridの自動部分だけを全体成立へ畳まず、人間・実境界の独立評価を維持する。領域別・実行形態別内訳は一意集合再照合後に更新する。
+上表の57件とAutomated 19件・Hybrid 18件・Manual 20件は**旧投影の内訳（現在への適用は再照合中）**であり、現在の未観測集合を確定した値ではない。新しい自動Testが同数必要という意味ではない。移管母集団の現在未観測は33件で、`PPR-UAT-020`と助言用起動Policy／Host／公開CLIの024〜030を含む。`ERB-IT-018`は固定根拠へ接続した。Hybridの自動部分だけを全体成立へ畳まず、人間・実境界の独立評価を維持する。領域別・実行形態別内訳は一意集合再照合後に更新する。
 
-今回の局所Closureでは、`AIT-ST-010`、`CQS-ST-013`、`RDL-ST-002`、`ERB-IT-012`、`CQS-ST-012`、`ERB-ST-015`、`RFD-IT-005`、`ERB-IT-008`、`ERB-UT-016`および`ERB-IT-017`を、それぞれの実境界と専用試験へ接続した。公式素材の判断完全性、Revision競合および収載Relationも、専用Packageの`OAG-IT-005`、`OAG-IT-006`、`OAG-IT-007`、`OAG-UT-008`へ接続した。v0.22では`ERB-UT-023`をCoordinator AI依頼種別Router、`ERB-IT-021`をWorkbench Production Shell、`ERB-ST-022`を15画面×3表示Profile×3 Zoomの実Browser Visual Gate、`PPR-IT-002`を許可済みProject Context FederationとWorkbench表示、`PPR-IT-019`をProject Context Consumer Reader、`CPR-IT-008`をTopic／Meeting Record Reader、`CPR-UT-009`を候補採用ApplicationのAuthority・Revision・Scope・Lease境界、`RFD-IT-014`と`RFD-ST-015`をRepository変更公開の直接境界・実Browser・故障分類Evidenceへ接続した。一方、v0.21の`RCM-ST-012`と`ERB-ST-011`およびv0.22の未完了Capabilityは、Relationを保持したまま完成Evidenceへの算入を外した。skipされた`CQS-UAT-007`はRelationを持たないManual未観測である。移管母集団46件は既観測11件とVisual Preview直接境界の1件を合わせて12件を観測済みとする。残る34件のRelationは現実記録として保持しても、新Capability全体のRelease Evidenceへは数えない。PT／LT実処理は人間の明示許可がないため実行していない。最終Source A `01eb00a63dcab09b4b32a41bf142bab70897cd8c`とmanifest carrier B `7362268eecbbc744fc08f809a3a0976fe16ac805`を固定し、同じRuntime Execution Identity `9850722655b50fcf3d9e70064801729280ab1d0202a6f0472af590535df26f54`でRecovery Matrix 7シナリオと署名4経路E2E 4／4を完了した。[最終署名Evidence](../99_Roadmap/Changes/CHG-000080/Evidence/260924-1930_signed-e2e.md)は`AIT-ST-010`と`ERB-IT-014`の限定範囲へ接続する。Docker Engine利用可能という非発火を`ERB-ST-009`／`ERB-ST-011`の修復完走へ、4経路成功を`RCM-ST-012`の実Consumer全数観測へ読み替えず、v0.21対象のHybrid 12件・Manual 10件を未観測として維持する。
+今回の局所Closureでは、`AIT-ST-010`、`CQS-ST-013`、`RDL-ST-002`、`ERB-IT-012`、`CQS-ST-012`、`ERB-ST-015`、`RFD-IT-005`、`ERB-IT-008`、`ERB-UT-016`および`ERB-IT-017`を、それぞれの実境界と専用試験へ接続した。公式素材の判断完全性、Revision競合および収載Relationも、専用Packageの`OAG-IT-005`、`OAG-IT-006`、`OAG-IT-007`、`OAG-UT-008`へ接続した。v0.22では`ERB-UT-023`をCoordinator AI依頼種別Router、`ERB-IT-021`をWorkbench Production Shell、`ERB-ST-022`を15画面×3表示Profile×3 Zoomの実Browser Visual Gate、`PPR-IT-002`を許可済みProject Context FederationとWorkbench表示、`PPR-IT-019`をProject Context Consumer Reader、`CPR-IT-008`をTopic／Meeting Record Reader、`CPR-UT-009`を候補採用ApplicationのAuthority・Revision・Scope・Lease境界、`RFD-IT-014`と`RFD-ST-015`をRepository変更公開の直接境界・実Browser・故障分類Evidenceへ接続した。一方、v0.21の`RCM-ST-012`と`ERB-ST-011`およびv0.22の未完了Capabilityは、Relationを保持したまま完成Evidenceへの算入を外した。skipされた`CQS-UAT-007`はRelationを持たないManual未観測である。移管母集団46件は、既観測12件にShared Gateway非開示境界の`RFD-ST-004`を加えて13件を観測済みとする。残る33件のRelationは現実記録として保持しても、新Capability全体のRelease Evidenceへは数えない。PT／LT実処理は人間の明示許可がないため実行していない。最終Source A `01eb00a63dcab09b4b32a41bf142bab70897cd8c`とmanifest carrier B `7362268eecbbc744fc08f809a3a0976fe16ac805`を固定し、同じRuntime Execution Identity `9850722655b50fcf3d9e70064801729280ab1d0202a6f0472af590535df26f54`でRecovery Matrix 7シナリオと署名4経路E2E 4／4を完了した。[最終署名Evidence](../99_Roadmap/Changes/CHG-000080/Evidence/260924-1930_signed-e2e.md)は`AIT-ST-010`と`ERB-IT-014`の限定範囲へ接続する。Docker Engine利用可能という非発火を`ERB-ST-009`／`ERB-ST-011`の修復完走へ、4経路成功を`RCM-ST-012`の実Consumer全数観測へ読み替えず、v0.21対象のHybrid 12件・Manual 10件を未観測として維持する。
 
 ### 12.1 初回のSubsystem別Snapshot
 
@@ -310,9 +309,11 @@ v0.21の固定Baseline108件観測済み・22件未観測を履歴として維�
 
 ### 12.2 v0.22 Shared Serverの実境界
 
+以下は169 Local Item時点の実装・観測記録の履歴である。現在の176件へ全体Closureを適用せず、個別義務の成立は§12と§13.1の現在根拠から判定する。
+
 v0.22では、旧Snapshotで未完成としていたShared Serverについて、固定OS設定から検証済みRepositoryとWorkspace Exposureを構成し、外部TLS終端の後段にあるloopback GatewayからRESTとMCPを同じHTTPS Originへ投影する実装を追加した。現在CredentialのRequest単位検証、非開示、平文Origin拒否、Forwarded HeaderとBrowser Originの不一致拒否、親Process終了時のListener／Socket／Proxy Request回収を専用Integration／System試験で観測した。
 
-| 実境界 | 現在判定 | 根拠 |
+| 実境界 | 当該観測時点の判定 | 根拠 |
 |---|---|---|
 | 固定運用設定→検証済みRepository／Exposure | Passed | `cros:integration:shared-server-config` |
 | REST／MCP同一公開OriginとTLS終端契約 | Passed | `mcp:integration:cros-shared-server` |
@@ -330,7 +331,7 @@ v0.22では、旧Snapshotで未完成としていたShared Serverについて、
 |---|---|---|---|
 | 助言専用の起動Policy／実Host／公開CLI | `ERB-IT-024`、`ERB-IT-025`、`ERB-IT-026`、`ERB-IT-027`、`ERB-IT-028`、`ERB-IT-029`、`ERB-ST-030` | v0.22のモデル／Host移行で追加した7義務。全て未観測として保持し、正常計算の個別実測を全体Passへ算入しない | v0.22 |
 | 利用者所有Trust | `AIT-UAT-006` | 未観測を保持しRelease対象外 | v0.22 |
-| CROS Workspace／Repository境界 | `RFD-ST-003`、`RFD-ST-004`、`RFD-IT-009`、`RFD-ST-010`、`RFD-IT-011`、`RFD-ST-016` | `RFD-ST-004`、`RFD-IT-009`、`RFD-IT-011`はPrototype Relationとして保持。`RFD-ST-003`、`RFD-ST-010`、`RFD-ST-016`は未観測。いずれも新Capability完成へ数えない | v0.22 |
+| CROS Workspace／Repository境界 | `RFD-ST-003`、`RFD-ST-004`、`RFD-IT-009`、`RFD-ST-010`、`RFD-IT-011`、`RFD-ST-016` | `RFD-ST-004`だけを[固定された公開Gateway非開示根拠](../99_Roadmap/Changes/CHG-000082/Evidence/261002_shared-gateway-non-disclosure.md)により観測済みへ接続した。`RFD-IT-009`、`RFD-IT-011`は局所Relationを保持し、`RFD-ST-003`、`RFD-ST-010`、`RFD-ST-016`は未観測。Credential Lifecycle、実Filesystem、Host Recovery、全CROSの完成へ拡張しない | v0.22 |
 | CROS Tool／Handoff境界 | `RCM-IT-010`、`ERB-IT-010`、`ERB-ST-013` | `RCM-IT-010`、`ERB-ST-013`は既存Capabilityの非後退Relationとして保持。`ERB-IT-010`は未観測 | v0.22 |
 | Visual Preview境界 | `ERB-IT-018` | [直接境界の固定根拠](../99_Roadmap/Changes/CHG-000082/Evidence/261002_visual-preview-direct-boundary.md)でLibrary→localhost HTTP、拒否条件、読取り内容不変、保持Connection終了、Listener・Fixture不存在を確認。独立確認後に観測済みへ接続した。実Browser／署名CLI／Providerへ拡張しない | v0.22 |
 | Browser Lifecycle観測 | `ERB-IT-020` | Listener三値観測、正常終了／Fallback分離、親終了後に残る子Processへのexactな世代Identity限定Fallback、Identity不一致／未検証時のEffect 0、Graph深度順、最終Tree 0およびcleanup前段失敗後の後続段実行・Error集約を直接境界契約試験で観測済みとして保持する | v0.22 |
