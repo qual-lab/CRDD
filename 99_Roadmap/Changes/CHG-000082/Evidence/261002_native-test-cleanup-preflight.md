@@ -66,6 +66,49 @@
 
 Passは調査記録の技術解釈と適用境界だけを対象とする。確認者は試験・Source編集・実Root操作を実行せず、Source採用、清掃、Local Item成立または実Task再開を承認していない。三結果の統合後、この節とChecklistだけを結果書戻しとして追記した。確認対象Hashと追記後Hashを取り違えず、元の記録、許可範囲と残るOPENを維持する。三確認者はこの結果だけの書戻しを整合済みとした。
 
+## 後続調査: 依存実物とRoot利用者の追加確認（2026-10-02）
+
+基準Commitは`ffc341207464e65eb5a5f8d35470495eaaa4941e`。初回の調査結果・限定Pass・対象Hashは上記の履歴として保持する。この追補を旧確認の対象またはSource修正の合格へ遡及適用しない。
+
+### 結論
+
+tempfileのexact crate bytesを照合できた。一方、**Session終了のboolとCode Modeの登録Roleだけでは、Homeを使う全処理の終了を証明できない**反例を確認した。Source編集前の計画を、書込み処理の実終了まで含む観測へ戻す。削除処理を先に追加しない。
+
+| 確認対象 | 新たに確認した根拠 | 計画への影響 |
+|---|---|---|
+| tempfile `3.27.0`の実物 | 公開crateをRepository-local `.crdd/tmp/native-cleanup-crate-261002/`へ取得。SHA-256 `32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd`は固定ArchiveのCargo.lockと一致。 | 公開tagのAPI説明だけでなく、Buildが要求する実物との一致を確認した。Source候補のcompile・実測とは別の根拠である。 |
+| 生成時の自動清掃抑止 | 実物の`src/lib.rs`でBuilderの`disable_cleanup`をDirectory生成へ搬送する。`src/dir/mod.rs`でDropは同値がfalseの場合だけ削除を試み、明示closeは同値にかかわらず削除結果を返す。両fileのSHA-256はそれぞれ`d182721b62c126916b73bb4865ced5d3637bd1a4a77d27ea9e9708973e5f9493`、`d144325a6528a9a6e7c78a42e0eec42ee401c3b834ef5851376323725756f219`。 | 取得時の抑止と明示清掃を分離する当初方向を維持する。失敗後のkeepだけでは代替しない。 |
+| 実Session試験の保存処理 | 固定Archiveの`core/src/session/tests.rs`はHomeを使う`LocalThreadStore`を実Sessionへ渡す。`core/src/session/handlers.rs`は保存処理のshutdownがErrでも通知を送った後にtrueを返す。 | Session終了のtrueをHome非使用の証明にしない。実際の保存処理の終了結果を別に観測する。 |
+| 書込みActorの失敗 | 固定Archiveの`rollout/src/recorder.rs`は、drain失敗時にはWriterを生存させて再flush／shutdownを可能にする。成功経路は実WriterのJoinHandle待機へ進む。 | 正常な終了通知だけでなく、Writer生存時には削除0で保持する反証が必要である。 |
+| 終了待機の取消 | 同fileの`wait_for_exit`はJoinHandleをtakeしてからawaitし、Handleがない場合にはOkを返す。 | 後追いの再shutdown成功を実joinへ読み替えない。元の終了処理で実際に確認した結果を保持し、timeout／取消／観測不能では清掃しない。 |
+| 初期化途中の失敗 | 固定Archiveの`thread-store/src/live_thread.rs`は初期化GuardのDropから非同期のdiscardを起動し得る。 | `owned_session == None`を「Task未作成」へ畳まない。早期error／timeout／panicでは、未確認の利用者が終わる前にRootを削除しない。 |
+
+公式Sourceの根拠は、SHA-256 `b749fadee5cc236dff4cd0fc076cc4e08840937529ea71bca2928e233755712a`を再確認した既存Archiveから直接読んだ。新しいProvider依頼、Docker操作、Native実行および旧三Rootの変更は行っていない。crate取得は公開名・版だけで行い、内部Source、診断結果または秘密値を送信していない。
+
+### 現在の編集前Gate
+
+読取り専用の着手前確認を一旦完了した。Home／Workspaceを実際に使う処理の終了観測は、まだ全件へ接続できていない。既存Code Mode Observerが持たない保存処理等を、Role名の追加だけで観測済みにしない。元の終了呼出しと実join結果を試験用観測へ接続し、shutdown自身のpanicもscenarioのpanicとは別に捕捉する計画へ修正する。
+
+| 対象 | 確認済みの範囲 | 未成立の条件／予定処置 |
+|---|---|---|
+| Code ModeのTaskとHost | 固定試験Patchは、必須Roleの非空登録・終了とHost終端を確認する。 | Session全体やFilesystem処理の終端へ拡張解釈しない。既存の六scenarioとOracleを維持する。 |
+| 保存Writerと初期化Guard | 上表の固定Archive確認で、失敗時Writer生存と初期化失敗後の非同期discardを確認した。 | 元shutdownの結果・実joinを保持する。Session未取得や後追いの再shutdown成功を非使用証明にしない。 |
+| MCP事前準備Worker | 固定Archiveの`core/src/session/mcp_prewarm.rs`は取消要求後にWorkerをawaitする。ただしjoin Errorを警告へ吸収し、呼出し元へ終了結果を返さない。 | このWorkerの結果搬送と、取消された処理の背後Filesystem利用は別に確認する。shutdown全体のboolへ畳まない。 |
+| Skills／ConfigのFilesystem利用 | 専門確認で同期配置と非同期Filesystem利用を確認した。ただし下位処理の終端保証を今回すべて固定Archiveへ照合できたわけではない。 | Future終了・取消と背後処理の終了を同一視しない。下位保証はOPENとし、Root清掃の許可条件に用いない。 |
+| StateDB | 当該Session fixtureは`LocalThreadStore`へ`None`を渡す。 | このfixtureからDB Workerの新設を推定しない。他fixtureや全Providerへの非該当へ一般化しない。 |
+
+次の実装単位は、取得時の自動清掃抑止と、終了観測後の明示清掃を分ける。先に自動清掃を抑止する場合も、保持対象の所有、停止条件、容量・保持、再入場を固定してから試験する。正常結果でRootが残れば清掃未成立を明示し、Container終了だけを二Rootの清掃確認へ読み替えない。明示清掃は、上記の未確認処理まで終了を確認できる候補が成立した後に限る。
+
+Source、起動Patch、試験Patch、入力一覧、Builder、旧署名候補および過去のNative二十一試験は変更していない。局所反証・新Native試験・Local Itemへの適用は未実施であり、観測済み件数と新実Task停止を維持する。旧三Rootの限定回復方式の人間判断と、この試験自身の清掃是正を混同しない。
+
+### 追補の限定独立確認
+
+作成担当と別の確認者が、技術解釈、文書・追跡、品質・直接影響の三観点を一つの固定対象へ確認した。初回追補のSHA-256は`61f0fc5ae8cb799d098a3ef0ccfc14be6aca2a1a6d94669816fefe6863ab333b`で、技術と品質・直接影響は限定Pass、文書はMinor Finding `DOC-01`一件だった。原因はChecklistの旧完了行が追補を含む現在版へ読めることだった。
+
+全結果を統合し、確認者と是正方針を整合した後、指定されたChecklist一行だけを変更した。新固定対象のSHA-256は`5a4771b6bd2b54ce296191e1cd6120d3315d885e635ec205315af59756346434`。確認者は開始・終了Hash一致、変更が指定一行だけであること、および三観点の限定Pass、新規Finding 0、`DOC-01`のResolvedを確認した。
+
+本節と追補用Checklistは全確認終了後の結果だけの書戻しであり、上記Hashは書戻し前の固定対象を指す。この追補を初回記録の確認対象へ加えず、旧結果へ新Hashを遡及適用しない。Source採用、清掃、Local Item成立、全Recovery、実Task再開およびReleaseは本確認の対象外である。結果だけの書戻しは確認者と整合済みである。
+
 ## Checklist
 
 - [x] 固定Source、Patch、入力一覧と旧検証結果の境界を確認した。
@@ -73,5 +116,8 @@ Passは調査記録の技術解釈と適用境界だけを対象とする。確�
 - [x] 終了未確認時の削除を防ぐ条件を取得前へ戻した。
 - [x] 元error／timeout／panic、部分清掃と観測不能を別に評価する計画を残した。
 - [x] 旧三Rootの限定回復、試験Rootの清掃Gapと通信断の原因を混同していない。
-- [x] 本固定記録の三観点の独立確認と結果統合を完了し、調査記録だけの限定Passとして残した。
-- [ ] OPEN: exact crate bytesの照合、新Source候補・反証・実測は未実施。実測へ進む前に停止Gateと実行範囲を再照合する。
+- [x] 初回記録（確認対象SHA-256 `7578a168a6321e862e23c894b995f10ec6a7f57e44f9c7eb4c5eaa750389b67b`）の三観点の独立確認と結果統合を完了し、調査記録だけの限定Passとして残した。
+- [x] 後続調査でexact crate bytesとCargo.lockの一致を確認した。初回確認時には未確認だったことを保持した。
+- [x] Session終了bool、Code Mode登録RoleとHome書込みActorの実終了を区別し、清掃前提を破る反例を計画へ取り込んだ。
+- [x] 追補の新固定対象を三観点で独立確認し、DOC-01を是正・再確認した。初回の対象Hashと合格範囲へ遡及適用していない。
+- [ ] OPEN: Root利用者の閉包、新Source候補・反証・実測は未成立。着手前確認を統合してからSourceを編集し、実測へ進む前に停止Gateと実行範囲を再照合する。
