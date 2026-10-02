@@ -235,6 +235,10 @@ Project Runtime CoreはOS固有のPath、principal、Filesystem保護、Lock、P
 - 同じrequest identityの現在結果を再取得する。
 - v0.20の別変更で採用した場合に限り、Project Stateを読み取り専用で投影する。
 
+Objectiveは任意の`requestedProfileId`でExecutorのProfileを明示選択できる。入力は既存の`PROFILE-`形式を検査して所有Snapshotへ固定し、CLIとMCP stdio／HTTPの同じObjective操作からCoordinator Task、Route Candidate、Selection Grantへ同じIDを搬送する。省略時は既存の自動選択を維持する。形式が正しくても登録、Provider／Role／Tierとの適合性または利用可能性を保証せず、既存Resolverと実行Gateで検証する。Reviewerへ指定を継承せず、入力やMCP metadataからAuthorityを生成しない。
+
+WorkbenchのPromptから変更候補を作る操作は別のSingle Task操作であり、公開Objectiveと同じ操作には統合しない。両操作のProfile搬送はそれぞれ検証し、一方の合格を他方の全経路成立へ流用しない。
+
 Project State参照は`requestId`、`projectId`および`repositoryRevision`だけを受け取る。Applicationへ渡すState Portは`readState`だけへ縮小し、書込み、Queue更新、Lease、Task実行または判断Capabilityを構成できない。結果は次を区別する。
 
 ```text

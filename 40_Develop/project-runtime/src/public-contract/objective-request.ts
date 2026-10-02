@@ -18,8 +18,8 @@ import { normalizeRepositoryRelativePath } from "../boundary/repository-relative
  * @shape ProjectRuntimeObjectiveRequestが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeObjectiveRequestで宣言した値と責務の対応を維持する。
  * @boundary N/A: ProjectRuntimeObjectiveRequestの宣言は外部境界を開かない。
- * @security N/A: ProjectRuntimeObjectiveRequestはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility ProjectRuntimeObjectiveRequestの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @security Profile IDはExecutor選択の希望であり、実行Authorityまたは利用可能性を付与しない。
+ * @compatibility Profile ID省略時は既存の自動選択を維持し、指定時はIDを変更せず搬送する。
  */
 export type ProjectRuntimeObjectiveRequest = Readonly<{
   requestId: string;
@@ -35,6 +35,7 @@ export type ProjectRuntimeObjectiveRequest = Readonly<{
   originLane: "interactive" | "scheduled";
   adoptResult: boolean;
   requestedExecutorProvider?: "auto" | "codex" | "claude";
+  requestedProfileId?: string;
   decisionCapabilityReplacement?: Readonly<{
     decisionId: string;
     replacementRequestId: string;
@@ -164,9 +165,13 @@ const REQUIRED_REQUEST_KEYS = Object.freeze([
 const OPTIONAL_REQUEST_KEYS = Object.freeze([
   "decisionCapabilityReplacement",
   "requestedExecutorProvider",
+  "requestedProfileId",
 ] as const);
 const requestKeySets = Object.freeze(
-  [0, 1, 2, 3].map(
+  Array.from(
+    { length: 2 ** OPTIONAL_REQUEST_KEYS.length },
+    (_, mask) => mask,
+  ).map(
     (mask) =>
       new Set([
         ...REQUIRED_REQUEST_KEYS,
@@ -180,17 +185,17 @@ const requestKeySets = Object.freeze(
 /**
  * Project Runtime Objective Requestを観測する。
  *
- * @responsibility Project Runtime Objective Requestの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @responsibility 閉じたObjective入力を所有Snapshotへ変換し、明示Profileの形式を検査する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns ProjectRuntimeObjectiveRequest | nullを返す。
  * @precondition 「value: unknown」がinspectProjectRuntimeObjectiveRequestの入力契約を満たす。
- * @postcondition inspectProjectRuntimeObjectiveRequestの責務を完了した結果だけを返す。
+ * @postcondition 受理したProfile IDをexactに保持し、省略されたIDを生成しない。
  * @effect N/A: inspectProjectRuntimeObjectiveRequestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: inspectProjectRuntimeObjectiveRequestは独自の失敗分岐を所有しない。
  * @invariant inspectProjectRuntimeObjectiveRequestは入力から導いた結果以外の共有状態を変更しない。
  * @boundary N/A: inspectProjectRuntimeObjectiveRequestはProcess内の同一Subsystemで完結する。
- * @security N/A: inspectProjectRuntimeObjectiveRequestはAuthority、秘密値または信頼判断を扱わない。
+ * @security 未知field、Accessor、Proxyと不正Profile形式を拒否する。登録・適合性は既存Resolverが別に検証する。
  * @concurrency N/A: inspectProjectRuntimeObjectiveRequestは共有非同期状態を持たない同期処理である。
  */
 export function inspectProjectRuntimeObjectiveRequest(
@@ -246,6 +251,9 @@ export function inspectProjectRuntimeObjectiveRequest(
       request.requestedExecutorProvider !== "auto" &&
       request.requestedExecutorProvider !== "codex" &&
       request.requestedExecutorProvider !== "claude") ||
+    (Object.hasOwn(request, "requestedProfileId") &&
+      (typeof request.requestedProfileId !== "string" ||
+        !/^PROFILE-[0-9]{6,}$/u.test(request.requestedProfileId))) ||
     (request.decisionCapabilityReplacement !== undefined &&
       (!replacement ||
         !validId(replacement.decisionId) ||
@@ -272,6 +280,9 @@ export function inspectProjectRuntimeObjectiveRequest(
             | "codex"
             | "claude",
         }
+      : {}),
+    ...(typeof request.requestedProfileId === "string"
+      ? { requestedProfileId: request.requestedProfileId }
       : {}),
     ...(replacement
       ? {

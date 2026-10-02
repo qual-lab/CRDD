@@ -422,19 +422,19 @@ function stable(prefix: string, ...parts: readonly string[]) {
 }
 
 /**
- * Canonical Single Task request used by both execution and bounded E2E admission.
+ * 公開Objectiveを既存のSingle Task入力へ変換する。
  *
  * @responsibility Project Runtime Coordinator Task Requestの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
  * @input request: ProjectRuntimeObjectiveRequest、frontProvider: "codex" | "claude"
  * @returns buildProjectRuntimeCoordinatorTaskRequestの計算結果を返す。
  * @precondition 「request: ProjectRuntimeObjectiveRequest、frontProvider: "codex" | "claude"」がbuildProjectRuntimeCoordinatorTaskRequestの入力契約を満たす。
- * @postcondition buildProjectRuntimeCoordinatorTaskRequestの責務を完了した結果だけを返す。
+ * @postcondition 明示Profile IDをexactに搬送し、省略時は既存の自動選択を維持する。
  * @effect N/A: buildProjectRuntimeCoordinatorTaskRequestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: buildProjectRuntimeCoordinatorTaskRequestは独自の失敗分岐を所有しない。
  * @invariant buildProjectRuntimeCoordinatorTaskRequestは入力から導いた結果以外の共有状態を変更しない。
  * @boundary N/A: buildProjectRuntimeCoordinatorTaskRequestはProcess内の同一Subsystemで完結する。
- * @security N/A: buildProjectRuntimeCoordinatorTaskRequestはAuthority、秘密値または信頼判断を扱わない。
+ * @security Profile IDは選択希望だけを表し、Resolver／Grantの適合性検証または実行Authorityを代替しない。
  * @concurrency N/A: buildProjectRuntimeCoordinatorTaskRequestは共有非同期状態を持たない同期処理である。
  */
 export function buildProjectRuntimeCoordinatorTaskRequest(
@@ -444,6 +444,9 @@ export function buildProjectRuntimeCoordinatorTaskRequest(
   return Object.freeze({
     frontProvider,
     requestedExecutorProvider: request.requestedExecutorProvider ?? "auto",
+    ...(request.requestedProfileId !== undefined
+      ? { requestedProfileId: request.requestedProfileId }
+      : {}),
     objective: request.objective,
     acceptanceCriteria: Object.freeze([...request.acceptanceCriteria]),
     allowedPaths: Object.freeze([...request.allowedPaths]),

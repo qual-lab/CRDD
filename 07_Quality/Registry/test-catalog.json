@@ -4581,6 +4581,48 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "coordinator:unit:project-runtime-profile-transport",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/project-runtime-profile-transport.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "project",
+        "runtime",
+        "profile",
+        "transport"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed",
+        "source_unchanged"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:host-orphan-recovery-policy",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/host-orphan-recovery-policy.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "host",
+        "orphan",
+        "recovery",
+        "policy"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed",
+        "source_unchanged"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "coordinator:unit:provider-model-selection-runtime",
       "owner": "coordinator",
       "path": "40_Develop/coordinator/tests/unit/provider-model-selection-runtime.contract.test.ts",

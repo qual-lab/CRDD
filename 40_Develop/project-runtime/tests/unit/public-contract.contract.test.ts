@@ -154,6 +154,123 @@ test("Objective要求は閉じた公開契約へsnapshotする", () => {
 });
 
 /**
+ * Objectiveの任意三項目を全組合せで固定する。
+ *
+ * @responsibility 明示Profileのexact搬送と省略時の非生成を全八組合せで検証する。
+ * @trace PRL-UT-014
+ * @precondition 正常なObjectiveと三つの任意入力を使用する。
+ * @stimulus 三項目の有無を全八組合せで入力検査へ渡す。
+ * @observation Snapshot全体、Profile ID、所有Propertyと不変性を確認する。
+ * @oracle 同じ入力だけが固定され、省略したProfileを補完しない。
+ * @cleanup N/A: 外部資源を作成しない。
+ * @boundary N/A: 純粋な入力検査。
+ */
+test("Objectiveの任意三項目は全八組合せでexactにsnapshotする", () => {
+  const optional = [
+    {
+      decisionCapabilityReplacement: {
+        decisionId: "decision-1",
+        replacementRequestId: "request-2",
+      },
+    },
+    { requestedExecutorProvider: "codex" },
+    { requestedProfileId: "PROFILE-100001" },
+  ];
+  for (let mask = 0; mask < 8; mask += 1) {
+    const source = Object.assign(
+      { ...objectiveRequest() },
+      ...optional.filter((_entry, index) => (mask & (1 << index)) !== 0),
+    );
+    const inspected = inspectProjectRuntimeObjectiveRequest(source);
+    assert.ok(inspected, `mask=${mask}`);
+    assert.deepEqual(inspected, source);
+    assert.equal(
+      Object.hasOwn(inspected, "requestedProfileId"),
+      (mask & 4) !== 0,
+    );
+    assert.ok(Object.isFrozen(inspected));
+  }
+  const source = {
+    ...objectiveRequest(),
+    requestedProfileId: "PROFILE-999999",
+  };
+  const inspected = inspectProjectRuntimeObjectiveRequest(source);
+  assert.ok(inspected); // 形式受理は登録済み・利用可能の証明ではない。
+  source.requestedProfileId = "PROFILE-100002";
+  assert.equal(inspected.requestedProfileId, "PROFILE-999999");
+});
+
+/**
+ * 不正Profileと動的入力を評価前に拒否する。
+ *
+ * @responsibility Profileの型・形式・閉じた形と非実行拒否を検証する。
+ * @trace PRL-UT-014
+ * @precondition 不正値、getterとProxy trapを持つ合成入力を使用する。
+ * @stimulus Objective入力検査へ各入力を渡す。
+ * @observation 拒否結果とgetter／trap呼出し件数を確認する。
+ * @oracle 全件null、getter／trap呼出し0で、未知fieldも拒否する。
+ * @cleanup N/A: メモリ内の入力だけを使用する。
+ * @boundary N/A: 純粋な入力検査。
+ */
+test("ObjectiveのProfileは不正形式・Accessor・Proxyを実行せず拒否する", () => {
+  for (const requestedProfileId of [
+    undefined,
+    null,
+    1,
+    {},
+    "",
+    "PROFILE-12345",
+    "profile-100001",
+    "PROFILE-100001\n",
+    "PROFILE-100001/other",
+  ]) {
+    assert.equal(
+      inspectProjectRuntimeObjectiveRequest({
+        ...objectiveRequest(),
+        requestedProfileId,
+      }),
+      null,
+    );
+  }
+  let calls = 0;
+  const accessor = Object.defineProperty(
+    { ...objectiveRequest() },
+    "requestedProfileId",
+    {
+      enumerable: true,
+      get: () => {
+        calls += 1;
+        return "PROFILE-100001";
+      },
+    },
+  );
+  const proxy = new Proxy(
+    { ...objectiveRequest(), requestedProfileId: "PROFILE-100001" },
+    {
+      ownKeys: () => {
+        calls += 1;
+        throw new Error("trap must not execute");
+      },
+      getPrototypeOf: () => {
+        calls += 1;
+        throw new Error("trap must not execute");
+      },
+    },
+  );
+  assert.equal(inspectProjectRuntimeObjectiveRequest(accessor), null);
+  assert.equal(inspectProjectRuntimeObjectiveRequest(proxy), null);
+  assert.equal(calls, 0);
+  assert.equal(
+    inspectProjectRuntimeObjectiveRequest({
+      ...objectiveRequest(),
+      requestedProfileId: "PROFILE-100001",
+      selectionGrant: "not-authority",
+    }),
+    null,
+  );
+});
+
+/**
  * Objective要求は未知field・accessor・ProxyをEffect前に拒否するを検証する。
  *
  * @responsibility Objective要求は未知field・accessor・ProxyをEffect前に拒否するの合否判定を所有する。

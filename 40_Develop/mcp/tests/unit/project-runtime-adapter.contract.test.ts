@@ -330,6 +330,164 @@ test("MCP discovery and tool list expose the three public operations", async () 
 });
 
 /**
+ * MCPはProfileを任意のObjective入力として公開する。
+ *
+ * @responsibility 発見Schemaと実入力検査のProfile契約を一致させる。
+ * @trace PRL-UT-014
+ * @precondition 既存の三操作と正常metadataを使用する。
+ * @stimulus tools/listで公開Schemaを取得する。
+ * @observation Objectiveのproperties、requiredと未知field拒否を確認する。
+ * @oracle Profileは固定形式の任意項目で、Decision／Stateへ追加しない。
+ * @cleanup N/A: 外部資源を生成しない。
+ * @boundary N/A: Protocol handlerの局所試験。
+ */
+test("MCP SchemaはProfileをObjectiveだけの任意項目として公開する", async () => {
+  const response = await handleMcpProjectRuntimeRequest(
+    request("tools/list", { _meta: META }),
+    dependencies(),
+  );
+  const tools = (
+    response.result as {
+      tools: readonly {
+        name: string;
+        inputSchema: {
+          properties: Record<string, unknown>;
+          required: readonly string[];
+          additionalProperties: boolean;
+        };
+      }[];
+    }
+  ).tools;
+  const schema = tools.find(
+    (tool) => tool.name === MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL,
+  )?.inputSchema;
+  assert.ok(schema);
+  assert.deepEqual(schema.properties.requestedProfileId, {
+    type: "string",
+    pattern: "^PROFILE-[0-9]{6,}$",
+  });
+  assert.equal(schema.required.includes("requestedProfileId"), false);
+  assert.equal(schema.required.length, 12);
+  assert.equal(schema.additionalProperties, false);
+  for (const tool of tools.filter(
+    (tool) => tool.name !== MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL,
+  ))
+    assert.equal(
+      Object.hasOwn(tool.inputSchema.properties, "requestedProfileId"),
+      false,
+    );
+});
+
+/**
+ * MCPからCoreへ明示Profileを入力だけから搬送する。
+ *
+ * @responsibility 明示選択と省略を区別し、認証からProfileを補完しないことを検証する。
+ * @trace PRL-UT-014
+ * @precondition 認証済みの合成入力とメモリ内のCore観測Portを使用する。
+ * @stimulus 同じObjectiveをProfile有無とProvider有無の四組合せで渡す。
+ * @observation Core入力、認証Context、取消Signalと結果を確認する。
+ * @oracle Profile IDはexact、省略は省略、Authorityと結果意味は既存契約のまま。
+ * @cleanup N/A: 外部Process、Providerと永続状態を生成しない。
+ * @boundary N/A: 実Transportや実Application全体を起動しない。
+ */
+test("MCP Objectiveは明示Profileをexactに保持し省略時に生成しない", async () => {
+  for (let mask = 0; mask < 4; mask += 1) {
+    const input = {
+      ...objective(),
+      ...(mask & 1 ? { requestedProfileId: "PROFILE-100001" } : {}),
+      ...(mask & 2 ? { requestedExecutorProvider: "codex" } : {}),
+    };
+    const controller = new AbortController();
+    let calls = 0;
+    const baseline = dependencies();
+    const response = await handleMcpProjectRuntimeRequest(
+      request("tools/call", {
+        _meta: META,
+        name: MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL,
+        arguments: input,
+      }),
+      dependencies({
+        runObjective: async (observed, signal, authentication) => {
+          calls += 1;
+          assert.deepEqual(observed, input);
+          assert.notEqual(observed, input);
+          assert.ok(Object.isFrozen(observed));
+          assert.equal(signal, controller.signal);
+          assert.deepEqual(authentication, { principalId: "principal-a" });
+          return baseline.runObjective(observed, signal, authentication);
+        },
+      }),
+      controller.signal,
+    );
+    assert.equal(calls, 1);
+    assert.equal((response.result as { isError: boolean }).isError, false);
+  }
+});
+
+/**
+ * 不正Profileを認証・Core処理より前に拒否する。
+ *
+ * @responsibility Profile入力の不正が下位呼出しや動的入力実行を生じないことを検証する。
+ * @trace PRL-UT-014
+ * @precondition 不正形式、未知field、getterとProxyを持つ合成入力。
+ * @stimulus 各入力をMCP Objective handlerへ渡す。
+ * @observation error code、認証・Core・getter／trap呼出し件数。
+ * @oracle -32602で拒否し、全呼出し件数0。
+ * @cleanup N/A: メモリ内の入力だけを使用する。
+ * @boundary N/A: 実Transportを起動しない局所試験。
+ */
+test("MCP Objectiveは不正Profileを認証・Core呼出し前に拒否する", async () => {
+  let calls = 0;
+  const invalid = [
+    ...[null, undefined, "PROFILE-12345", "profile-100001"].map(
+      (requestedProfileId) => ({ ...objective(), requestedProfileId }),
+    ),
+    {
+      ...objective(),
+      requestedProfileId: "PROFILE-100001",
+      authority: "not-authority",
+    },
+    Object.defineProperty({ ...objective() }, "requestedProfileId", {
+      enumerable: true,
+      get: () => {
+        calls += 1;
+        return "PROFILE-100001";
+      },
+    }),
+    new Proxy(
+      { ...objective(), requestedProfileId: "PROFILE-100001" },
+      {
+        ownKeys: () => {
+          calls += 1;
+          throw new Error("trap must not execute");
+        },
+      },
+    ),
+  ];
+  for (const argumentsValue of invalid) {
+    const response = await handleMcpProjectRuntimeRequest(
+      request("tools/call", {
+        _meta: META,
+        name: MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL,
+        arguments: argumentsValue,
+      }),
+      dependencies({
+        authenticateClient: () => {
+          calls += 1;
+          return { status: "verified", principalId: "principal-a" };
+        },
+        runObjective: async () => {
+          calls += 1;
+          throw new Error("Core must not execute");
+        },
+      }),
+    );
+    assert.equal(response.error?.code, -32602);
+  }
+  assert.equal(calls, 0);
+});
+
+/**
  * MCP state tool returns the canonical read-only resultを検証する。
  *
  * @responsibility MCP state tool returns the canonical read-only resultの合否判定を所有する。

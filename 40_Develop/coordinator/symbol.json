@@ -4018,6 +4018,44 @@
       "archIds": [
         "ARCH-000008"
       ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.project-runtime-profile-transport",
+      "kind": "test-suite",
+      "path": "tests/unit/project-runtime-profile-transport.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-014"
+      ],
+      "verifies": [
+        "coordinator.source.src.composition.project.runtime.composition.root",
+        "coordinator.source.src.security.coordinator.task.request",
+        "project-runtime.source.src.public.contract.objective.request"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.host.orphan.recovery.policy",
+      "kind": "file",
+      "path": "src/security/host-orphan-recovery-policy.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.host-orphan-recovery-policy",
+      "kind": "test-suite",
+      "path": "tests/unit/host-orphan-recovery-policy.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-006"
+      ],
+      "verifies": [
+        "coordinator.source.src.security.host.orphan.recovery.policy"
+      ]
     }
   ]
 }

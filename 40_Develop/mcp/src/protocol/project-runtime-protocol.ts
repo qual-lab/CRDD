@@ -71,6 +71,7 @@ export const objectiveKeys = new Set([
   "adoptResult",
   "decisionCapabilityReplacement",
   "requestedExecutorProvider",
+  "requestedProfileId",
 ] as const);
 export const decisionKeys = new Set([
   "decisionId",
@@ -326,11 +327,16 @@ export function getMcpProjectRuntimeToolDefinitions() {
         requestedExecutorProvider: Object.freeze({
           enum: Object.freeze(["auto", "codex", "claude"]),
         }),
+        requestedProfileId: Object.freeze({
+          type: "string",
+          pattern: "^PROFILE-[0-9]{6,}$",
+        }),
       },
       [...objectiveKeys].filter(
         (key) =>
           key !== "decisionCapabilityReplacement" &&
-          key !== "requestedExecutorProvider",
+          key !== "requestedExecutorProvider" &&
+          key !== "requestedProfileId",
       ),
     ),
     tool(
