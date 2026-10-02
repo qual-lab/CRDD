@@ -2234,7 +2234,8 @@
         "PRL-UT-014"
       ],
       "verifies": [
-        "coordinator.source.src.security.provider.model.profile.runtime"
+        "coordinator.source.src.security.provider.model.profile.runtime",
+        "coordinator.source.src.security.delegation.selection.grant.runtime"
       ]
     },
     {

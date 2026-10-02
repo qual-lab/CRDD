@@ -86,6 +86,42 @@
 
 限定結果は公開入力、MCP Schema／注入Core capture、純粋builder、登録／Traceと局所根拠だけを対象とする。PRL-UT-014全体、PRL-IT-012、実CLI／stdio／HTTP、専用Profile再入場、実Provider／Recovery、過去の結果の現在適用、全体Quality、再署名およびReleaseは未成立のまま。この節、結果表の該当行とChecklist一行だけが全確認完了後の結果書戻しであり、確認者と整合済みである。確認時Hashを現在Hashへ置き換えず、実行時入力、Source、Catalog、Symbol、品質件数、署名、承認状態および停止Gateは変更していない。
 
+## 追加の実Catalog接続確認
+
+基準Commit `2d76f55d4f57b9a21aa4470977d68c66fe7e99c9`で、先行試験の明示Profile→Selection Grantが差替えResolverを使っていることを確認した。これは先行117件の合格を取り消す結果ではないが、実Catalogと実Resolverの接続確認を代替できない。既存`PRL-UT-014`の観測範囲を補うため、同じ試験fileへ一件追加した。Production Source、Catalog、モデル採用、Authority、Quality集計、署名候補およびHost停止は変更しない。
+
+### 経路と事前照合
+
+変更分類は既存検証設計に対する局所試験の補強である。親がQA-000003、実Resolver、経路選択、Grant、既定JSON Catalog、Coding Standardsと先行Evidenceを照合した。公開契約、適用条件または正本の品質条件は追加しないため、Template移行・準拠監査は非該当。技術、文書および品質／直接影響の三観点を、同じ固定三file差分へ独立確認する。実Task、公開Transport、Provider、Host回収、全回帰、再署名は行わず、旧形式非使用方式の採否と実再起動・削除の別承認を保持する。
+
+編集は、既存[Profile試験](../../../../40_Develop/coordinator/tests/unit/provider-model-profile-runtime.contract.test.ts)への実Resolver接続、[Symbol Manifest](../../../../40_Develop/coordinator/symbol.json)のGrant実装参照追加、本節の記録に限定する。既存Catalogには同じ試験fileが登録済みで、新しい試験file・Local Item・Canonical IDは作らない。既存Sourceの責務や選択Policyを試験都合で変更しない。
+
+### 観測範囲と結果
+
+| 項目 | 確認結果・限界 |
+|---|---|
+| 実接続 | 既定JSON Catalog→実Profile Resolver→実Route選択→隔離したGrant storeの発行・一回消費。Operation確認、利用可否、時計と乱数だけがメモリ内fixtureであり、本番Operation Authority・利用可否の実観測ではない。 |
+| 有限入力 | 二Front Provider×二Executor Providerについて、自動／明示適合／未知ID／Provider不一致／tier不一致を確認。CodexのCoordinator専用ProfileをExecutorへ使う役割不一致を二Frontから追加し、計22組合せ。既定Claude Profileは全役割を許すため、存在しないClaude役割不一致を捏造しない。 |
+| 肯定・反証 | 適合結果のProfile／ModelをCatalogと照合し、消費後の二回目を拒否。不適合時はProfile、Control／Use Capabilityがnullで発行なし。全経路でProvider Authority／Effect許可なし、Catalog不変。これは実外部Effectの観測ではない。 |
+| 静的確認・局所試験 | Formatter→五型構成→Lintが成功し、13fileの118／118件合格、Fail／Cancel／Skip／Todo 0、4244.483ms。22組合せは一Test Case内の入力母集団であり、22 Local Itemの完了を意味しない。 |
+| 実行固定 | UTC `2026-10-02T09:11:55.446Z`〜`2026-10-02T09:12:01.867Z`。先行と同じ選択規則の1,887 regular fileの前後digestは`8276ad71d7bb7ea328b8b2011dc4d8cc30676a79ad2293749550de29a6910a7b`で一致。HEAD、Tree、Index／Worktree状態も前後一致。 |
+| 原記録 | `.crdd/verification/chg-000082-catalog-grant-261002/run-final.json`、SHA-256 `9eb893ca02a7388dedcc9ac7d893a7c7937ec556c6a6e28ea5cb6cd46fd284b3`。実command、cwd、Tool版／実行物Hash、前後snapshot digest、主要入力Hash、stdout／stderr、終了codeを保持。`runner-final.mjs`に選択・実行方法を保存。保持・無効化は前節と同じ。 |
+| 未成立 | PRL-UT-014全体、PRL-IT-012、公開CLI／stdio／HTTP、Reviewerへの実搬送、Profile再入場、実Provider／Host回収、全体品質とReleaseは未成立のまま。 |
+
+初回失敗は試験fixtureの利用可否理由を契約外の`fixture_only`としたことにより、実Catalogへ到達する前に拒否された。局所診断で理由を特定し、既存の許可語彙`ready`へ試験fixtureだけを修正した。先行の同Provider委譲が原因という暫定説明は確定原因としない。失敗記録`run-first.json`を保持し、製品側の拒否条件を緩和していない。
+
+一度、実行結果の取得がTool応答で途切れた。該当検証Processが存在しないことを読み取り確認してから再実行し、そのlive sessionの結果を取得した。結果を取得できなかった実行を成立根拠に用いず、Processの不在を試験合格へ読み替えない。
+
+独立確認はこの結果追記前には未完了だった。本節の追加を先行11fileのPassへ遡及していない。
+
+### 追加接続の独立確認結果
+
+作成担当と別の確認者が、同じ固定三fileに対する技術、文書、品質／直接影響の全三観点を完了した。いずれも限定Pass、Finding 0、確信度は高。確認時Hashは試験`463c0817ee876e520eb905af81195f52eff2a5b0a22c2f7702a1ab89aeea115b`、Symbol `ff59ef52c254594059aaaa6a91ea5496e6758e07fa03060228d656aa205ef2ca`、本記録`0c39a37d79e31b63b742c95afd0eab7a072afa6f984ae632c08fd78e3c94c341`で、開始・終了が一致した。基準HEADと原記録Hashも固定版と一致した。確認者は1,887入力を読み取りで再構成し、上記digestと一致した。実行・編集や過去のPass流用は行っていない。
+
+親が実Checkerの`realitySymbolGraphRule`を別途読み取り実行し、UTC `2026-10-02T09:13:26.352Z`〜`2026-10-02T09:13:26.682Z`にFinding 0を取得した。方法を含む補助記録は同じDirectoryの`current-symbol-graph.json`、SHA-256 `907e5114027be65417d4a3bf93d811718b690d89aa5c8d55fe458f97591aa207`。Relationの機械確認であり、実試験、Repository全体Checkerまたは検証義務のPassではない。
+
+本結果節とChecklist一行だけを、全確認終了後に書き戻した。結果のみの書戻しは確認者と整合済みであり、確認時Hashを現在Hashへ置き換えない。実行時入力、旧117件とその監査、Source／Catalog、品質件数、署名、承認とHost停止は不変。PRL-UT-014全体、PRL-IT-012と前表の未成立範囲を閉じない。
+
 ## Checklist
 
 - [x] 公開Source契約への任意項目追加と既存意味の搬送是正を区別した。
@@ -95,4 +131,5 @@
 - [x] Formatter・型・Lintを試験より前に実行した。
 - [x] 固定入力と実行記録を保持し、旧結果へHashを遡及していない。
 - [x] 固定11fileの技術・文書・品質／不足影響の全必須独立確認を完了し、限定Pass、Finding 0と未成立範囲を記録した。
+- [x] 実Catalog接続の追加三fileを独立した固定版で三観点から確認し、局所118件と限定Passを記録した。全体義務、実TaskおよびHost回収へ昇格していない。
 - [ ] OPEN: 実入口、専用Profile再入場、実Provider、全回帰、再署名と全体Qualityは未確認。Host停止Gate成立後に対象改訂版を固定して確認する。
