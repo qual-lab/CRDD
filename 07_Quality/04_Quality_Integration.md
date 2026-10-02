@@ -16,9 +16,9 @@ Canonical設計集合と個別Releaseの検証対象を分ける。Local Itemを
 |---|---:|---|
 | Canonical設計集合 | 176 | 全件を保持する。起動時Tool制限を確認する`ERB-IT-024`を含む |
 | v0.21 Group A | 130 | v0.21のQuality Gateで評価する。108件観測済み、22件未観測 |
-| v0.22 Group B以降 | 46 | v0.21のGateから分離する。`ERB-IT-020`、`ERB-ST-019`、`ERB-IT-021`、`ERB-ST-022`、`ERB-UT-023`、`PPR-IT-002`、`PPR-IT-019`、`CPR-IT-008`、`CPR-UT-009`、`RFD-IT-014`、`RFD-ST-015`を観測済みとし、`ERB-IT-024`を含む未観測35件を区別して、v0.22で実装・実境界・人間受入を再評価する |
+| v0.21からの移管母集団 | 46 | 持越しと後続追加の一覧。現在の個別観測と採用Release Scopeとの対応は[算定Owner](05_Current_Implementation_Reality_Audit.md#13-移管母集団の処置とrelease適用範囲)を参照し、本表で件数を再定義しない |
 
-v0.22対象46件のうち、既存Prototype RelationとVisual Previewの局所Relationは現実の非後退確認および対象指示として保持する。`ERB-IT-020`はBrowser Lifecycle、`ERB-ST-019`は実Browser Zoom、`ERB-IT-021`はWorkbench Production Shell、`ERB-ST-022`はProduction Workbenchの15画面×3表示Profile×3 Zoomと終了後資源、`ERB-UT-023`はCoordinator AI依頼種別Router、`PPR-IT-002`は許可済みProject Context FederationとWorkbench表示、`PPR-IT-019`はProject Context Consumer Reader、`CPR-IT-008`はTopic／Meeting Record Reader、`CPR-UT-009`は候補採用ApplicationのAuthority・Revision・Scope・Lease境界、`RFD-IT-014`はWorkbench→Version Control→実Git／bare Remoteの直接境界、`RFD-ST-015`は通常Pushの拒否・通信断・結果不明・操作後再観測と実Browser確認のEvidenceで観測済みである。`RFD-ST-016`を含む残り35件は、対象Capabilityの実装、実境界または人間受入をまだ証明していない。[v0.22 Roadmap](../99_Roadmap/01_Roadmap.md#12-v0220--project運営複数repository)が要求する新Capability全体の完成根拠へ、局所Relationを読み替えない。
+移管母集団は、v0.22の採用済みRelease Scopeそのものではない。`ERB-IT-018`は[固定された直接境界根拠](../99_Roadmap/Changes/CHG-000082/Evidence/261002_visual-preview-direct-boundary.md)へ接続した。既存Prototype Relationは対象指示として保持するが、完成根拠へ読み替えない。本格Trust Policy管理はDiscoveryとCHGの対象外であり、`AIT-UAT-006`全体との対応はQual-Labが最終Quality／Scope Gateまでに再照合する。安全上必要な信頼要素分離や署名検証も含まれるため、この項目全体を非該当として削除しない。現在の件数・未観測項目は[Reality Audit](05_Current_Implementation_Reality_Audit.md#12-relation是正結果)、完成範囲は[Roadmap](../99_Roadmap/01_Roadmap.md#12-v0220--project運営複数repository)と[Scope探索](../01_Discovery/Analysis/EXP-000034/exploration.md)を正本とする。
 
 ## 2. Architecture横断モデルの処置
 

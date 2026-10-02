@@ -9,7 +9,7 @@
 
 | 項目 | 記載内容 |
 |---|---|
-| 現在の変更状態 | Phase 5のProduction Closureを進行中。画面・共有Server・Topic／Meeting・Version ControlとAIのProduction接続は既存Evidenceに保持する。署名Runtime `45254e2b`と独立レビュー済みTool `1b756ac2`による公開MCP実Provider E2EはRun `2e55c8cd2897464b`で合格した。正常二経路、取消、親Process喪失後のexact Recovery、再入場時の人間採用判断待ちおよび最終在庫清掃を観測した。Observer接続是正の静的検査と局所158／158も合格した。この合格をWorkbench実Provider経路、39件のQuality義務全体またはRelease可能状態へ拡張しない |
+| 現在の変更状態 | Phase 5のProduction Closureを進行中。画面・共有Server・Topic／Meeting・Version ControlとAIのProduction接続は既存Evidenceに保持する。署名Runtime `45254e2b`と独立レビュー済みTool `1b756ac2`による公開MCP実Provider E2EはRun `2e55c8cd2897464b`で合格した。正常二経路、取消、親Process喪失後のexact Recovery、再入場時の人間採用判断待ちおよび最終在庫清掃を観測した。Observer接続是正の静的検査と局所158／158も合格した。この合格をWorkbench実Provider経路、Quality移管母集団および未観測の検証義務全体またはRelease可能状態へ拡張しない |
 | 対象改訂版 | `v0.22.0` |
 | 成立済み | G1〜G5のScreen Architecture、Direction A、5画面のSecondary展開、Production Shell、公式ロゴ、Project Context共通Reader、Topic／Meeting Record ReaderとRepository CRUD Core、共通Applicationの検索・絞込み・安定並び順・Query拘束Cursor、WorkbenchのTopic／Meeting独立Detail、Workbench／Repository単体MCPのTopic／Meeting CRUDと同一Repository内Meeting Outcome処置、Remote CROSのCredential／Workspace／Exposure／Repository Revision再検証付きTopic／Meeting Routing、同じSessionとExposure Snapshotに限定したRepository間Owner Relation解決、Workbenchの許可済みPortfolio Source明示選択・Remote Topic／Meeting MCP読書き・Owner Repository付きRelation遷移・Local fallback禁止、許可済みPortfolio Federation、Repository mode／CROS federation表示、Project Portfolioの検索・状態絞込み・20件単位Query拘束継続読込・Source別五場面Detail・欠測保持、作業ツリー読取り、選択Stage／Unstage／Commit／確認済み通常Push、拒否・通信断・結果不明・再観測、Role別Credential Core、Token非保存、永続Registry、Workbench Credential管理Surface、Bearer Remote Transport、Workbench Remote接続／更新／切断、Project Runtime状態Toolの非曖昧化、CROS CredentialによるRemote Project Context MCP、Host限定Access Recovery、AI Profileの閉じた共通Schema・一意解決・四軸Availability・Owner別耐久Snapshot・改訂競合付き採用Core・Repository／CROS WorkbenchのProfile限定管理・`systemAdmin`以外へのCatalog非開示・Coordinator／Workbench Consumer接続、Workbenchの現在Session限定AI依頼Port、読取り助言／変更候補の明示、開始／観測／取消、事実／共有済み分析／追加推論／次の選択肢の分離表示、Coordinatorの依頼種別別Mode Router・現在Process内観測・取消・未知状態非推測、読取り助言の利用者依頼・Profile・内容Hash付き許可済み投影をEffect 0で固定する専用Task Packet、許可参照へ拘束した専用Result Parser、Workbench選択Profile IDのCoordinator Task Request→Route Candidate→Executor Selection Grantへのexact搬送とReviewerへの非伝播、Runtime ActivityのRepository実構成、Execution Intelligence EventのProject限定継続読込、Remote CROSのCredential／Exposure再検証付きActivity投影、未接続／absent／unknown／observedの分離表示 |
 | 未成立 | Workbenchの読取り助言／変更候補の実Codex／Claude検証、必要な四経路E2E、残るQuality義務の個別処置、および最新Treeの最終配布固定・署名・照合。公開MCP E2Eと最終回復在庫確認は今回成立済みであり、旧失敗結果は履歴Evidenceとして保持する。画面Visual成立、公開MCP成立および局所試験からWorkbench全体の実境界成立を推定しない |
@@ -64,6 +64,7 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 - [`99_Roadmap/Changes/CHG-000082/change.md`](./change.md)
 - [`99_Roadmap/Changes/CHG-000082/Evidence/261002_host-orphan-recovery-design.md`](./Evidence/261002_host-orphan-recovery-design.md)
 - [`99_Roadmap/Changes/CHG-000082/Evidence/261002_native-test-cleanup-preflight.md`](./Evidence/261002_native-test-cleanup-preflight.md)
+- [`99_Roadmap/Changes/CHG-000082/Evidence/261002_quality-visual-preview-projection.md`](./Evidence/261002_quality-visual-preview-projection.md)
 - [`40_Develop/coordinator/src/security/host-orphan-recovery-policy.ts`](../../../40_Develop/coordinator/src/security/host-orphan-recovery-policy.ts)
 - [`40_Develop/coordinator/tests/unit/host-orphan-recovery-policy.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/host-orphan-recovery-policy.contract.test.ts)
 - [`40_Develop/coordinator/tsconfig.strict.json`](../../../40_Develop/coordinator/tsconfig.strict.json)
@@ -274,6 +275,8 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 - セキュリティ / プライバシー / コスト: localhost既定、Repository／Session Authorityを再評価せず、非開示情報を推測しない。Desktop Runtime依存は追加しない
 
 ## 対象外 / 変更してはならないこと
+
+現在品質の一項目適用、旧集計の不整合と採用Scopeの再照合は[品質投影記録](Evidence/261002_quality-visual-preview-projection.md)を参照する。この記録更新からSource、検証義務、AuthorityまたはRelease Scopeを変更しない。
 
 - 対象外: Electron等のDesktop包装、Force Push、Merge、Rebase、通常Discard、Workbench内会話履歴の正本化、本格Trust Policy管理
 - 変更してはならないこと: CROS／Project Operation／Version ControlのAuthority、Project ContextのOwner、非開示Sourceの存在秘匿、CHG-000081で固定したDirection Aと公式ロゴの使用

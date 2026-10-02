@@ -236,7 +236,11 @@ Project RuntimeはArchitecture Detailsの構造化が進んでいるため、生
 
 ## 12. Relation是正結果
 
-現在のCanonical設計集合は、13件のQuality Definitionが所有する176個の一意なLocal Itemである。Test Sourceの`symbol.json`が所有する正方向Relationは132件に存在する。このうち118件を完成Evidenceへ算入し、14件はRelationを対象指示として保持したまま非完成・非Evidenceと判定する。Relationを持たない44件のうち`ERB-ST-019`だけは[実Browser Zoom Evidence](../99_Roadmap/Changes/CHG-000081/Evidence/260927-1323_visual-browser-zoom.md)で観測済みである。したがって、現在の観測済みは119件、未観測は57件（非完成Relation 14件、EvidenceのないRelationなし43件）となる。Test Symbol Relationは「その試験がLocal Itemを対象にする」ことを表すだけで、単独では観測済みEvidenceを意味しない。v0.21のRelease対象はGroup Aの130件で108件観測済み・22件未観測、v0.22へ移管した46件は`ERB-IT-020`、`ERB-ST-019`、`ERB-IT-021`、`ERB-ST-022`、`ERB-UT-023`、`PPR-IT-002`、`PPR-IT-019`、`CPR-IT-008`、`CPR-UT-009`、`RFD-IT-014`、`RFD-ST-015`の11件観測済み・35件未観測である。`RFD-ST-016`を含む未観測項目を、新CapabilityのPass、実装済みまたはRelease可能へ変更しない。
+現在のCanonical設計集合は13定義・176個の一意なLocal Itemであり、現物の`symbol.json`から132件のRelationと44件のRelationなし集合を確認した。Relationは検証対象を示すだけで、単独では完成Evidenceではない。移管一覧46件は既観測11件に`ERB-IT-018`を加え、12件観測済み・34件未観測とする。
+
+**全体の現在集計は再照合中（OPEN）。** 旧投影は119件観測済み・57件未観測としていたが、118件のRelation側完成根拠とRelationなし観測1件という内訳が現集合と一致しない。Relationなし集合には観測済みの`ERB-ST-019`と`RFD-ST-015`があり、既観測`PPR-IT-002`が非完成表に残り、未観測`PPR-ST-005`が同表から欠落していた。表の処置を是正するが、残りRelationの現行Evidence適用を全件再確認したとは扱わない。
+
+v0.21の固定Baseline108件観測済み・22件未観測を履歴として維持し、108＋12＝120件観測済み・56件未観測は算定候補とする。現在の全体件数へ昇格する前に、Qual-Labが一意Local ItemごとのRelation・根拠・適用改訂版を再照合する。今回の算定と未確認範囲は[根拠記録](../99_Roadmap/Changes/CHG-000082/Evidence/261002_quality-visual-preview-projection.md)に残す。
 
 | 非完成・非Evidence Relation | Relationを保持する理由 | Evidenceへ算入しない理由 |
 |---|---|---|
@@ -249,14 +253,13 @@ Project RuntimeはArchitecture Detailsの構造化が進んでいるため、生
 | `RFD-IT-011` | Context Handoffの局所対象を明示する | 局所Relationだけでは実Runtime間Handoffの完成を証明しない |
 | `RCM-IT-010` | CROS Tool Registryの対象を明示する | Workbenchを含む公開Tool Registry実境界を成立させていない |
 | `ERB-ST-013` | 複数Runtime HandoffのSystem対象を明示する | 実Runtime間の搬送と終了後状態を独立観測していない |
-| `ERB-IT-018` | Visual Previewのlocalhost境界を明示する | 局所配信Relationを独立した完成Evidenceへ固定していない |
 | `EST-IT-010` | 四Surface同等性の局所対象を明示する | CLI／MCP／Workbenchを共有Ownerで実接続していない |
 | `EST-ST-011` | 結果帰還のSystem対象を明示する | Workbenchを含む実Surfaceへの結果帰還を観測していない |
-| `PPR-IT-002` | 許可済みRepositoryのProject ContextをFederationしWorkbenchへ表示する | 欠測・Identity競合・Repository単体／CROS表示を直接境界で観測済み。Shared Serverと非開示System境界は別義務で確認する |
+| `PPR-ST-005` | 複数Repositoryから公開ViewまでのSystem非開示境界を対象として保持する | QA-000004のHybrid義務。§13.1で未観測としており、既存MCP RelationだけでSystem／人間側の観測成立へ昇格しない |
 | `CPR-IT-004` | Project Operation候補処置の局所対象を明示する | Memory Prototypeだけでは永続Operationを証明しない |
 | `CPR-IT-006` | Project Operation昇格の局所対象を明示する | 永続StoreとAuthority境界を実接続していない |
 
-| Quality領域 | 未観測数 | 実行形態の内訳 |
+| Quality領域 | 旧投影の未観測数（現在再照合中） | 旧投影の実行形態内訳 |
 |---|---:|---|
 | AIT | 1 | Manual 1 |
 | AUH | 4 | Hybrid 3、Manual 1 |
@@ -272,9 +275,9 @@ Project RuntimeはArchitecture Detailsの構造化が進んでいるため、生
 | RDL | 1 | Manual 1 |
 | RFD | 7 | Automated 4、Hybrid 2、Manual 1 |
 
-この57件は「新しい自動Testが57本必要」という意味ではない。v0.22移管範囲の未観測35件には、`PPR-UAT-020`、`ERB-IT-018`と助言用起動Policy／Host／公開CLIの024～030を含む。v0.21範囲の未観測22件はHybrid 12件、Manual 10件である。未観測項目の実行形態はAutomated 19件、Hybrid 18件、Manual 20件である。Hybridは自動観測と独立した人間・実境界評価の両方、Manualは参加者の判断Evidenceを必要とする。自動部分だけを全体成立へ畳まず、名前や同じQuality領域だけを根拠にTest Symbolへ接続しない。
+上表の57件とAutomated 19件・Hybrid 18件・Manual 20件は**旧投影の内訳（現在への適用は再照合中）**であり、現在の未観測集合を確定した値ではない。新しい自動Testが同数必要という意味ではない。移管母集団の現在未観測は34件で、`PPR-UAT-020`と助言用起動Policy／Host／公開CLIの024〜030を含む。`ERB-IT-018`は固定根拠へ接続した。Hybridの自動部分だけを全体成立へ畳まず、人間・実境界の独立評価を維持する。領域別・実行形態別内訳は一意集合再照合後に更新する。
 
-今回の局所Closureでは、`AIT-ST-010`、`CQS-ST-013`、`RDL-ST-002`、`ERB-IT-012`、`CQS-ST-012`、`ERB-ST-015`、`RFD-IT-005`、`ERB-IT-008`、`ERB-UT-016`および`ERB-IT-017`を、それぞれの実境界と専用試験へ接続した。公式素材の判断完全性、Revision競合および収載Relationも、専用Packageの`OAG-IT-005`、`OAG-IT-006`、`OAG-IT-007`、`OAG-UT-008`へ接続した。v0.22では`ERB-UT-023`をCoordinator AI依頼種別Router、`ERB-IT-021`をWorkbench Production Shell、`ERB-ST-022`を15画面×3表示Profile×3 Zoomの実Browser Visual Gate、`PPR-IT-002`を許可済みProject Context FederationとWorkbench表示、`PPR-IT-019`をProject Context Consumer Reader、`CPR-IT-008`をTopic／Meeting Record Reader、`CPR-UT-009`を候補採用ApplicationのAuthority・Revision・Scope・Lease境界、`RFD-IT-014`と`RFD-ST-015`をRepository変更公開の直接境界・実Browser・故障分類Evidenceへ接続した。一方、v0.21の`RCM-ST-012`と`ERB-ST-011`およびv0.22の未完了Capabilityは、Relationを保持したまま完成Evidenceへの算入を外した。skipされた`CQS-UAT-007`はRelationを持たないManual未観測である。Group B以降に属する46件はv0.22へ移管し、11件を観測済みとする。残る35件のRelationは現実記録として保持しても、新Capability全体のRelease Evidenceへは数えない。PT／LT実処理は人間の明示許可がないため実行していない。最終Source A `01eb00a63dcab09b4b32a41bf142bab70897cd8c`とmanifest carrier B `7362268eecbbc744fc08f809a3a0976fe16ac805`を固定し、同じRuntime Execution Identity `9850722655b50fcf3d9e70064801729280ab1d0202a6f0472af590535df26f54`でRecovery Matrix 7シナリオと署名4経路E2E 4／4を完了した。[最終署名Evidence](../99_Roadmap/Changes/CHG-000080/Evidence/260924-1930_signed-e2e.md)は`AIT-ST-010`と`ERB-IT-014`の限定範囲へ接続する。Docker Engine利用可能という非発火を`ERB-ST-009`／`ERB-ST-011`の修復完走へ、4経路成功を`RCM-ST-012`の実Consumer全数観測へ読み替えず、v0.21対象のHybrid 12件・Manual 10件を未観測として維持する。
+今回の局所Closureでは、`AIT-ST-010`、`CQS-ST-013`、`RDL-ST-002`、`ERB-IT-012`、`CQS-ST-012`、`ERB-ST-015`、`RFD-IT-005`、`ERB-IT-008`、`ERB-UT-016`および`ERB-IT-017`を、それぞれの実境界と専用試験へ接続した。公式素材の判断完全性、Revision競合および収載Relationも、専用Packageの`OAG-IT-005`、`OAG-IT-006`、`OAG-IT-007`、`OAG-UT-008`へ接続した。v0.22では`ERB-UT-023`をCoordinator AI依頼種別Router、`ERB-IT-021`をWorkbench Production Shell、`ERB-ST-022`を15画面×3表示Profile×3 Zoomの実Browser Visual Gate、`PPR-IT-002`を許可済みProject Context FederationとWorkbench表示、`PPR-IT-019`をProject Context Consumer Reader、`CPR-IT-008`をTopic／Meeting Record Reader、`CPR-UT-009`を候補採用ApplicationのAuthority・Revision・Scope・Lease境界、`RFD-IT-014`と`RFD-ST-015`をRepository変更公開の直接境界・実Browser・故障分類Evidenceへ接続した。一方、v0.21の`RCM-ST-012`と`ERB-ST-011`およびv0.22の未完了Capabilityは、Relationを保持したまま完成Evidenceへの算入を外した。skipされた`CQS-UAT-007`はRelationを持たないManual未観測である。移管母集団46件は既観測11件とVisual Preview直接境界の1件を合わせて12件を観測済みとする。残る34件のRelationは現実記録として保持しても、新Capability全体のRelease Evidenceへは数えない。PT／LT実処理は人間の明示許可がないため実行していない。最終Source A `01eb00a63dcab09b4b32a41bf142bab70897cd8c`とmanifest carrier B `7362268eecbbc744fc08f809a3a0976fe16ac805`を固定し、同じRuntime Execution Identity `9850722655b50fcf3d9e70064801729280ab1d0202a6f0472af590535df26f54`でRecovery Matrix 7シナリオと署名4経路E2E 4／4を完了した。[最終署名Evidence](../99_Roadmap/Changes/CHG-000080/Evidence/260924-1930_signed-e2e.md)は`AIT-ST-010`と`ERB-IT-014`の限定範囲へ接続する。Docker Engine利用可能という非発火を`ERB-ST-009`／`ERB-ST-011`の修復完走へ、4経路成功を`RCM-ST-012`の実Consumer全数観測へ読み替えず、v0.21対象のHybrid 12件・Manual 10件を未観測として維持する。
 
 ### 12.1 初回のSubsystem別Snapshot
 
@@ -319,7 +322,7 @@ v0.22では、旧Snapshotで未完成としていたShared Serverについて、
 
 この追加観測はShared Server能力の実装Closureを示す。ここでの169 Local Itemは当該観測時点の履歴母集合であり、現在の176件の算定には使わない。観測済み件数は最終Production Closureの固定改訂版で再集計する。外部公開を実施していないことを、公開配置そのものの実Evidenceへ読み替えない。
 
-## 13. 未観測57件の処置とRelease適用範囲
+## 13. 移管母集団の処置とRelease適用範囲
 
 ### 13.1 v0.22へ移管する46件
 
@@ -329,7 +332,7 @@ v0.22では、旧Snapshotで未完成としていたShared Serverについて、
 | 利用者所有Trust | `AIT-UAT-006` | 未観測を保持しRelease対象外 | v0.22 |
 | CROS Workspace／Repository境界 | `RFD-ST-003`、`RFD-ST-004`、`RFD-IT-009`、`RFD-ST-010`、`RFD-IT-011`、`RFD-ST-016` | `RFD-ST-004`、`RFD-IT-009`、`RFD-IT-011`はPrototype Relationとして保持。`RFD-ST-003`、`RFD-ST-010`、`RFD-ST-016`は未観測。いずれも新Capability完成へ数えない | v0.22 |
 | CROS Tool／Handoff境界 | `RCM-IT-010`、`ERB-IT-010`、`ERB-ST-013` | `RCM-IT-010`、`ERB-ST-013`は既存Capabilityの非後退Relationとして保持。`ERB-IT-010`は未観測 | v0.22 |
-| Visual Preview境界 | `ERB-IT-018` | 局所IT Relationと実Browserでの利用実績は保持するが、独立した完成Evidence未固定のため未観測を維持する | v0.22 |
+| Visual Preview境界 | `ERB-IT-018` | [直接境界の固定根拠](../99_Roadmap/Changes/CHG-000082/Evidence/261002_visual-preview-direct-boundary.md)でLibrary→localhost HTTP、拒否条件、読取り内容不変、保持Connection終了、Listener・Fixture不存在を確認。独立確認後に観測済みへ接続した。実Browser／署名CLI／Providerへ拡張しない | v0.22 |
 | Browser Lifecycle観測 | `ERB-IT-020` | Listener三値観測、正常終了／Fallback分離、親終了後に残る子Processへのexactな世代Identity限定Fallback、Identity不一致／未検証時のEffect 0、Graph深度順、最終Tree 0およびcleanup前段失敗後の後続段実行・Error集約を直接境界契約試験で観測済みとして保持する | v0.22 |
 | 実Browser Zoom | `ERB-ST-019` | 5画面×3 Zoomの実Browser Evidenceを観測済みとして保持する | v0.22 |
 | Workbench Production Shell | `ERB-UT-023`、`ERB-IT-021`、`ERB-ST-022` | `ERB-UT-023`はAI依頼種別Router、`ERB-IT-021`はlocalhost直接境界Evidence、`ERB-ST-022`は15画面×3表示Profile×3 ZoomをReact commit後に観測し、画像確定待ち、終了所要時間および終了後不存在を確認済み。残存子Process限定Fallback自体は`ERB-IT-020`で実発行し、STの通常終了結果から推定しない | v0.22 |
@@ -343,6 +346,12 @@ v0.22では、旧Snapshotで未完成としていたShared Serverについて、
 | 複数Repository範囲 | `RFD-UAT-007` | 未観測を保持しRelease対象外 | v0.22 |
 
 移管はQuality Definitionまたは既存Relationの削除、適用除外、完成認定ではない。v0.22で対応Capabilityの実装、実境界および人間受入を一体で再開する。
+
+### 13.1.1 採用Scopeとの対応 — OPEN
+
+移管一覧46件は履歴と追加義務の管理母集団であり、全件がv0.22へ採用済みという意味ではない。[Scope探索](../01_Discovery/Analysis/EXP-000034/exploration.md)と[CHGの対象外](../99_Roadmap/Changes/CHG-000082/change.md#対象外--変更してはならないこと)は本格Trust Policy管理をv0.22から外している。一方、`AIT-UAT-006`は利用者所有Policyを含む判断を要求する。安全上必要な信頼要素分離・署名検証と、対象外の本格管理との対応をまだ確定していない。
+
+Qual-Labは最終Quality／Scope GateまでにSource固有の意味ごとに採用範囲を照合する。現在はOPENとして定義・Relation・未観測を保持し、分母の無断縮小、項目全体のN/A認定または対象外機能の先行実装を行わない。
 
 ### 13.2 v0.21で処置する22件
 

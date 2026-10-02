@@ -12,11 +12,11 @@
 |---|---|---|
 | 全体状態 | Quality Design Ready — Reality Audit Pending | Quality Readyへ昇格しない |
 | 現在対象 | v0.22.0 | Project Operation、Workbench、CROS、複数Repository、AI Runtimeを段階的に照合する |
-| 観測済み | 11 / 46 | v0.22対象範囲のうち、Production Workbenchの実Browser Visual GateまでEvidenceへ接続済み |
-| 未観測 | 35 / 46 | 起動時Tool制限024と実Host／公開CLIの追加6項目025～030を含む。局所試験またはRelationだけで観測済みへ変更しない |
+| 観測済み | 12 / 46 | v0.21からの移管母集団に対する進捗。既観測11件にVisual Preview直接境界の`ERB-IT-018`を追加した。[算定と限界](../99_Roadmap/Changes/CHG-000082/Evidence/261002_quality-visual-preview-projection.md) |
+| 未観測 | 34 / 46 | 同じ移管母集団の未観測。移管一覧を採用済みRelease Scopeと同一視せず、Trust項目の対応を再照合する。Native局所試験だけで024〜030を観測済みにしない |
 | 既知Gap | Phase 5 Release Verification進行中 | Project Runtime公開MCP E2Eと最終回復在庫確認は合格した。モデル／Host移行と助言専用起動制限は承認済み。固定候補のNative二十一試験は実行済みで、024の起動Policyと025～029の実Host局所根拠へ対応付けた。ただし、共通試験Home／Workspaceの所有者清掃後の不存在は未観測であり、Local Item全体の観測済み件数を増やしていない。保存ログの成功、未充足の終了後条件、公開CLI030および実Provider成立を区別する。現在の通信断とHost残存三件は別の未解決事項であり、必要な四経路、個別品質項目および最終配布の照合も未完了である。詳細は[Native試験のQuality適用と清掃観測Gap](../99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md#native二十一試験のquality適用と清掃観測gap2026-10-02)を参照する |
 | 次Gate | 現在は新しい実Taskを停止。残存Hostのexact対象・回収Authorityと通信断の原因層を確認し、再開条件成立後にWorkbench実Provider E2E、必要な四経路E2E、個別品質項目の照合、最終配布固定と署名照合を行う | [CHG-000082](../99_Roadmap/Changes/CHG-000082/change.md)、[候補通信診断と終了待ち](../99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md#候補d36a9decの署名通信切断の切り分けと終了待ちの不足) |
-| 現在人間判断 | 同じCHGで限定的な人間承認付きRecoveryを追加する方針は承認済み。第一単位の着手に追加判断なし | 候補設計と内部Policyの局所UTから進める。実観測・処置Authority・削除・公開入口は未接続であり、新実Task停止と既存観測件数を維持する。実在三件の削除、元Token生成、Provider再送、Docker再起動とReleaseは含めない。[現在記録](../99_Roadmap/Changes/CHG-000082/Evidence/261002_host-orphan-recovery-design.md) |
+| 現在人間判断 | 限定Recovery追加は承認済み。旧領域の非使用確認にWindows再起動の境界と再利用防止を用いる方式は設計判断待ち | 候補判定の第一単位のみ完了。実観測・処置Authority・削除・公開入口は未接続。実再起動・実在三件の削除は別承認であり、新実Task停止を維持する。[現在記録](../99_Roadmap/Changes/CHG-000082/Evidence/261002_host-orphan-recovery-design.md) |
 
 ## 設計集合
 
@@ -28,21 +28,23 @@
 
 ## 結論
 
-Quality設計は13定義、176 Local Itemまで拡張した。Test Symbol Relationは132件に存在し、完成Evidenceへ算入できるのは118件、対象指示としてRelationを保持するが非完成・非Evidenceと判定するものは14件である。Relationを持たない44件のうち`ERB-ST-019`だけは実Browser Evidenceで観測済みであり、現在の観測済みは119件、未観測は57件（非完成Relation 14件、EvidenceのないRelationなし43件）である。このうちv0.21.0のRelease対象はGroup Aに属する130件で、108件が観測済み、22件が未観測（Hybrid 12件、Manual 10件）であり、機械化可能な既知Gapは0件である。Project Operation、Workbench、CROS、複数Repository、利用者所有TrustおよびVisual Previewに属する46件はv0.22.0へ移管し、`ERB-IT-020`、`ERB-ST-019`、`ERB-IT-021`、`ERB-ST-022`、`ERB-UT-023`、`PPR-IT-002`、`PPR-IT-019`、`CPR-IT-008`、`CPR-UT-009`、`RFD-IT-014`、`RFD-ST-015`の11件を観測済み、残り35件を未観測とする。局所成立を新Capability全体の完成Evidenceへ読み替えない。
+Quality設計は13定義、176 Local Item。移管一覧の一意集合46件のうち、既観測11件と`ERB-IT-018`の新しい直接境界根拠を合わせて12件を観測済み、34件を未観測とする。全体の旧投影119件観測済み・57件未観測と、そのRelation別内訳には表示不整合が見つかったため、**現在の全体集計は再照合中（OPEN）**である。v0.21の固定Baseline108／130と22未観測は履歴として維持する。108＋12＝120は算定候補であり、現在のRelation別Evidence適用を証明した全体件数とは表示しない。設計集合・過去結果は削除せず、[算定Owner](05_Current_Implementation_Reality_Audit.md#12-relation是正結果)へ戻して再照合する。
 
 | 対象 | 現在状態 | 根拠・次の処置 |
 |---|---|---|
 | Canonical入力 | REQ 41、UX 35、IA 23、UI 20、SPEC 30、ARCH 18を全件Mapping済み | [Quality Integration](04_Quality_Integration.md) |
 | UI／SPEC Detail | Covered: 20 SCR、20 PRT、32 Interaction、30 BHVを全数処置し、Source Definition由来の既存検証目標へ具体的観測条件として統合した | [UI／SPEC DetailのQuality分析](Analysis/Detail/quality_analysis.md) |
 | Quality Analysis | 6工程の全入力を、Source固有条件付きで13検証目標へ接続し独立レビュー済み | Reality Auditではこの設計集合を変更せず、現行実装との対応を照合する |
-| Quality Definitions | 13定義、176 Local ItemをCanonical化済み | Test Relationによる完成Evidence 118件とRelation外の実Browser Evidence 1件を合わせて119件観測済み、57件未観測。v0.21対象130件は108件観測済み・22件未観測、v0.22対象46件は11件観測済み・35件未観測であり、各Release群と全体の母集合を混在させない |
+| Quality Definitions | 13定義、176 Local ItemをCanonical化済み | 移管母集団は12／46観測済み、34／46未観測。全体の現在件数とRelation別Evidence適用は再照合中。設計件数、Relation件数、履歴結果と現在成立を混在させない |
 | Architecture詳細設計 | 18領域を適用判定済み | 実装OwnerのないCapability、現実との不一致およびTest未接続をReality Auditで処置する |
-| Checker | Repository構造検査と全契約試験が成立 | 現在候補の固定Treeに対するRepository検査は、今回差分由来のFinding 0、Warning 0である。Error 1件は、v0.22作業HEADが公開済みv0.21.0 tagと一致しないFeature Branch上の既知状態であり、v0.22のRelease候補固定時に再評価する。実行ごとに変わるファイル、Markdown、LinkおよびAnchorの件数はこの現在投影へ複製せず、[Phase 5 純粋CSR Runtime閉包検証](../99_Roadmap/Changes/CHG-000082/Evidence/260928-2354_phase5-pure-csr-runtime-closure.md)が示す固定Treeから再現する。Verification RunnerはWorkbenchを含むOwner、実行Profileおよび結合経路を全数照合し、40 Pass・失敗0・条件付きSkip 1である |
-| Reality Audit | 現在結果固定済み — Hybrid／Manual Evidence Pending | skipのEvidence誤算入と実境界未観測を是正し、v0.21に残るHybrid 12件とManual 10件を未観測のまま固定した。最終署名E2Eは`AIT-ST-010`と`ERB-IT-014`の限定範囲へ接続し、残る義務を一括してPassへ変更していない。v0.22対象46件は同版で再開する |
+| Checker | 参照Evidenceの固定候補に対する履歴 | 参照Evidenceの採取当時の固定Treeでは、差分由来のFinding 0、Warning 0だった。Error 1件は、v0.22作業HEADが公開済みv0.21.0 tagと一致しないFeature Branch上の既知状態であり、v0.22のRelease候補固定時に再評価する。実行ごとに変わるファイル、Markdown、LinkおよびAnchorの件数はこの現在投影へ複製せず、[Phase 5 純粋CSR Runtime閉包検証](../99_Roadmap/Changes/CHG-000082/Evidence/260928-2354_phase5-pure-csr-runtime-closure.md)が示す固定Treeから再現する。Verification RunnerはWorkbenchを含むOwner、実行Profileおよび結合経路を全数照合し、当時40 Pass・失敗0・条件付きSkip 1だった。現在への全体適用は再照合中である |
+| Reality Audit | v0.21限定結果の履歴 — 現在全体への適用は再照合中 | skipのEvidence誤算入と実境界未観測を是正し、v0.21に残るHybrid 12件とManual 10件を未観測のまま固定した。最終署名E2Eは`AIT-ST-010`と`ERB-IT-014`の限定範囲へ接続し、残る義務を一括してPassへ変更していない。移管母集団46件の現在処置は算定Ownerへ接続する |
 
-## 現在の品質投影
+## 品質軸の履歴と現在適用
 
-| 軸 | 現在状態 | この状態から主張しないこと |
+以下は参照Evidenceの採取当時の記録である。「現在候補」「未実施」「未収集」は当時版に限り、現在状態は冒頭のCurrent Quality Projectionと[算定Owner](05_Current_Implementation_Reality_Audit.md#12-relation是正結果)を参照する。旧結果を現在全体のPassへ流用せず、現在への適用は再照合中として保持する。
+
+| 軸 | 採取当時の状態（現在への適用は再照合中） | この状態から主張しないこと |
 |---|---|---|
 | Designed | Canonical | 実装済みまたは試験可能とは主張しない |
 | Implemented | 部分照合 | 未実装CapabilityをRelation追加だけで成立へ変えない |
