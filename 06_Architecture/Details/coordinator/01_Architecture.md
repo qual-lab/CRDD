@@ -530,6 +530,35 @@ namespace初期化の失敗ではexact Token回復へ接続できない。Token�
 
 清掃は公開済みintent→Root処置・直接不存在→元marker処置・直接不存在→排他解放の順で進める。取消・部分処置・通知喪失・例外は同じ終端記録へ接続する。進行追記を持つ場合も、書込みを処置済みの証明にせず、対象ごとのfresh観測を正本にする。leaseの通知上`closed`だけでnative資源の回収まで成立としない。
 
+#### 終端intentの閉じた搬送形式
+
+完全に観測できたsnapshotだけを、内部codec `host-terminal-record.ts`の入力にする。Root未作成、六childの部分作成、Identity不明の初期化失敗はこの形式の適用外である。欠けた値をゼロや推測で埋めず、既存の失敗分類と取得済みexact参照保持を維持する。初期化途中からの耐久再入場は別に接続する必要がある。
+
+| field | revision 1の形と意味 |
+|---|---|
+| `contract`／`contractRevision` | `crdd-coordinator/host-terminal-intent`／`1`。未知Revisionを拒否する。 |
+| `reference` | caller-knownな`host-terminal.<小文字UUID v4>`。codecは発行しない。限定保守では今回の保守選択Identityにも相当し、snapshot Hashだけで選択を結合しない。 |
+| `producer` | `owned_cleanup`は`originalReferenceSha256`だけ、`human_orphan_cleanup`は`selectionSnapshotSha256`と`originalReferenceUnknownReason: original_reference_unconfirmed`だけを持つ。混在・欠落を拒否する。 |
+| `bindings` | `runtimeSha256`、`repositorySha256`、`selectedUserSha256`。小文字64桁。実行物・Repository・選択利用者との実際の照合は記録Ownerが行う。 |
+| `target` | `parentIdentity`、`recoveryDirectoryIdentity`、`terminalDirectoryIdentity`、`root`、`marker`、`children`の閉集合。 |
+| `root`／`marker` | `name`と`identity`。markerだけに元bytesの`sha256`を加える。Root名は`crdd-coordinator-doctor-`＋1〜96文字のASCII英数字・`_`・`-`、marker名は`host-<64桁小文字Hash>.json`。自由Pathを受け取らない。 |
+| `children` | 実名`workspace`、`provider-home`、`tmp`、`events`、`projection`、`management`の六件を全て保持する。現行Sourceのobject key `providerHome`をこの実名へ明示変換するAdapterは未接続。 |
+| 各`identity` | Win32の`volumeSerial`、`fileIndexHigh`、`fileIndexLow`、`creationTimeHigh`、`creationTimeLow`の五u32。整数0〜4294967295、負のゼロ不可。同じvolume／file indexが二対象に現れるsnapshotを拒否する。 |
+| `cleanupOrder` | `root_absence`→`marker_absence`→`lease_terminal`の固定三要素。保存済み進行、成功、非使用やAuthorityを表すfieldは持たない。 |
+
+Win32の五fieldは専用型であり、Nodeの`dev/ino/birthtimeNs`、既存Native protocolの三field Identityと互換扱いしない。creation timeまで取得する観測AdapterはOPEN。元参照HashとRoot／markerの実際の関係はcodecから証明できない。通常清掃の元exact参照・Hash・対象照合、限定保守のfresh承認・同じ選択参照との照合、情報分類はpublication前のOwner責務である。
+
+正規文書は表のfield順、nested fieldもcodecの固定順、改行なしUTF-8 JSONとする。全ての文書bytesを一文書8KiB上限へ数え、SHA-256もそのbytesだけを対象とする。UUID／Hashは小文字、u32は通常の十進整数表現に限定する。encode前にnestedのProxy、Accessor、未知fieldと特殊prototypeを拒否し、未検証objectの`toJSON`等を実行しない。decodeは最大8KiBの所有copyを取り、共有memoryを拒否し、fatal UTF-8解析・閉Schema確認・再encodeとのbyte完全一致を要求する。BOM、重複key、空白・改行・余分bytes、escapeや指数表現による非正規値を受理しない。正規文書受理は保存・保護・実Identity・現在権限・非使用・清掃成立を意味しない。
+
+| 本番への接続点 | 現状と必要な処置 |
+|---|---|
+| 作成前の容量予約とcaller参照 | 未接続。`createOwnedOperationDirectories`が戻った後のhost参照返却へfieldを足すだけでは、最初のEffect前・Process喪失後の同じ参照を保証できない。 |
+| 完全snapshotからintentへ | codecのみ。観測Adapter、実bindings、元exact参照または保守選択・承認との照合は未接続。 |
+| Native保護付きstage・公開 | 未接続。局所保護実測を本番の保護、保持handle、no-replace公開・直接観測へ接続する。 |
+| Root／marker／lease共同終端 | 未接続。現在のRoot→世代失効／解放→marker順をcodec追加では変更しない。公開確定後、Root直接不存在→marker直接不存在→lease実終端へまとめて移行する。 |
+| async利用側と再入場 | 未接続。同期wrapperへのPromise搬送を禁止し、Host→ProcessAbsence→RuntimeStateの取得と逆順解放、待機後のfresh観測を全利用側へ接続する。 |
+| 初期化途中・旧形式 | 未解決。部分snapshotを新形式へ捏造しない。旧三件の非使用、実停止・実削除は別のfresh根拠と承認が必要である。 |
+
 #### 終端記録自身の管理清掃
 
 終端記録の清掃は元Taskの清掃とは別の管理責務であり、CoordinatorのHost回復記録Ownerが所有する。元Root・元marker・leaseの共同終端を確認する前、未解決参照がある間、または観測不能の間は削除しない。

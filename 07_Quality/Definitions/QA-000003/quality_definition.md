@@ -165,6 +165,8 @@ Source Definition由来の検証義務を維持し、Detailは具体的な観測
 
 期限登録中の同期取消では登録・解除を一回に限定し、listenを発行しない。取得要求の保留と結果Promiseを分け、期限後またはlisten例外後の先行close通知で購読を外さない。後着取得へ一回closeを発行し、その後の対応終端で登録を解除しても、先に返した不明結果は同一のまま保持する。
 
+同じ`PRL-UT-006`でHost終端intentの閉Schemaを確認する。完全snapshotの両producer、固定参照・Hash・五u32・六child実名・処置順、key順に依存しない正規encode、全閉集合の欠落／未知field、producer混在・未知理由、Identity alias、u32両端・範囲外・負のゼロ、自由Path、Proxy／Accessor／特殊prototypeを処置する。decodeでは8KiB上限、fatal UTF-8、BOM、重複key、余分bytes、非正規JSON、共有memoryとbyte入力のcustom getter／iteratorを反証する。Oracleは正規bytesへの往復、入力実行0とnested値の不変性に限る。初期化途中への補完、実Identityの観測、caller耐久参照、Native保護・publication・容量予約、本番清掃と再入場はこのUTから成立扱いにせず、QA-000006の実境界義務を保持する。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した

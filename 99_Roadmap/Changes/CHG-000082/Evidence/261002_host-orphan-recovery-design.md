@@ -674,6 +674,72 @@ r5文書入力のscoped Checkerも25278ms、Exit 0、Finding 0、Warning 0、関
 
 限定Passは同利用者・固定別Process・自己生成二対象の局所診断と記録に限る。全失敗枝の故障注入、別主体、親喪失、厳密終了期限、本番連続排他、耐久caller、旧三Root、実Recovery／全E2EはOPEN。次は未接続の本番利用側・耐久記録・旧非使用の保証を具体化し、局所結果を実清掃許可へ読み替えない。
 
+## 終端intentの形式と本番接続の具体化
+
+**結論: 完全snapshotの閉Schemaを先に実装し、本番の保存・清掃への差替えは行わない。** 基準Commitは`f6d185870d9fd60ffe8ed940e070de21004b34d2`。同じCHGの承認済み限定Recoveryの実装であり、Windows再起動、実在三件の停止・削除、Docker／Provider操作、署名、統合・Releaseは含めない。
+
+### 着手前の照合と変更経路
+
+親はCoordinatorの終端候補、Runtime Dataの作成前caller参照、現行作成・清掃、元記録Loader、Capability初期化とNative Adapterを照合した。読取り専用確認者は同じHEAD・cleanで着手可とした。producer相関、完全snapshotへの限定、Win32／Node Identityの非互換、正規bytes、先行caller参照と容量予約を計画へ一括反映した。確認者は編集・実行・外部送信を行っていない。初期化途中を推測で埋めないこと、codec受理を実由来・Authorityへ昇格しないことも不変条件とした。
+
+変更分類は非自明な回復契約の内部具体化。OwnerはCoordinator詳細設計、実装は既存security境界、UTは既存`PRL-UT-006`へ接続する。新しいSubsystem、公開index、Native protocol、QA IDや試験段階を増やさない。技術、51文書、品質／53直接影響の三観点を同じ固定版で独立確認する。準拠基準、外部公開またはRelease判断は変えないため、それらの監査・操作を今回の単位へ追加しない。
+
+### 実装単位と本番の未接続条件
+
+| 契約・利用側 | 今回の処置 | 次に成立させる条件 |
+|---|---|---|
+| 終端intentの形状とbyte搬送 | `host-terminal-record.ts`で閉Schemaと正規encode／decodeを実装。完全snapshotだけに限定する。 | actual producer出力とNative読取りから同じcodecへ接続する。 |
+| 元参照・保守選択との関係 | normalは元参照Hashだけ、maintenanceはsnapshot Hashと閉じた不明理由だけ。caller-known refは今回の保守選択Identityでもあり、codecは生成しない。 | publication前の元exact参照・対象・Hash照合、またはfresh承認と同じ保守選択への照合。 |
+| `createOwnedOperationDirectories`／transactional作成 | 変更しない。現行の元initializing marker→Root→六child→host_onlyと、返却後のhostRef取得を確認した。 | 最初のEffect前の容量予約とcaller耐久参照。Root未作成／部分作成／Identity不明の再入場は新codecの適用外として別に閉じる。 |
+| 完全対象観測 | Win32五u32を専用型とする。六childは実名で搬送する。 | creation time付き実Adapter、`providerHome`→`provider-home`の明示変換、現在の選択利用者・Runtime・Repositoryとの結合。Node Identityや既存Native三fieldから補完しない。 |
+| stage・公開・容量 | 保存操作は未実装、OPENを維持する。 | Native保護、連続保持、bounded write／flush、no-replace link、実bytes／実体の照合と共通容量予約。 |
+| sync／async cleanupとSupervisor | 変更しない。現行はRoot→失効／解放→markerである。 | 公開intent→Root直接不存在→marker直接不存在→lease共同終端を全利用側へ移行する。Promiseを同期wrapperへ渡すだけの変更をしない。 |
+| 元Loader／cold再入場／管理清掃 | 変更しない。元Token Loaderをterminal Authorityへ流用しない。 | freshなOwner、同じcaller参照、保護、Identityと非使用へ再結合し、Evidence引渡し後だけ記録自身を限定清掃する。 |
+| 旧三Root・実Provider Task | 停止Gateを維持、操作0。 | 旧形式の非使用とexact処置の根拠・別承認。形式UTのPassを清掃許可にしない。 |
+
+Schemaの正本は[Coordinator詳細設計](../../../../06_Architecture/Details/coordinator/01_Architecture.md#終端intentの閉じた搬送形式)。正常例は両producerの完全snapshot、非発火例はRoot未作成、境界例はu32／8KiB・bytes差、情報不足例は欠落Identity・不明producerとして処置する。形状を受理しても実由来・現在権限・非使用・保存・清掃を証明しない。完全intentの現在のconsumerは内部UTだけであり、公開Capabilityとして表示しない。
+
+### 局所検証結果
+
+Production／Testの型確認、二SourceのFormatter・LintはExit 0。これらを先に通してから、形式UTと既存の保守候補・plain snapshot試験を実行し、15件Pass、Fail／Skip／Todo 0、350.2483msだった。両producer、閉集合の欠落・未知field、整数境界、同じfile indexの重複、実行可能property、正規bytes差、UTF-8不正、8192／8193bytesの拒否段階、共有・detach済みmemory、byte offsetと入力変更を確認した。各nestedの不正入力を全組合せで列挙したという主張ではない。共通のplain snapshot境界の反例も同じ実行へ含めた。
+
+最終UTの前後で13入力のHashが一致した。Sourceは`a54066eaa7337dff6807329a7f094ab61e928ea0677c25f02b29bd1a65d9340b`、Testは`cd4720ad749e981c19e997986bc500438543562a03462b792797b25af0b81dfe`。Nodeは24.19.0、実体と主要Tool／設定を識別し、実cwd、UTCの開始・終了と実返却を保存した。全推移的依存・環境全体の固定ではない。最初の15件結果も保持し、Test補強前の入力へ後の結果を遡及しない。
+
+六fileを指定したscoped Checkerは25679ms、Exit 0、Finding／Warning 0。実展開108Markdown、9801リンク・489anchorを確認した。summaryの展開一覧は100件で切れるが、確認件数108とは区別した。Codeの全HeaderやNative意味をCheckerが保証したという主張ではない。差分空白確認もExit 0だった。Checker入力の本記録Hash `9947bd54933a044e67be835d51eed336f4758df5271e09106469f49ed278ee9e`と結果追記後の独立確認版を区別する。
+
+原記録はRepository-localの`.crdd/verification/chg-000082-terminal-codec-261003/run.json`（SHA-256 `f4a8a546fe6eb7d7d95ad58d96702bb063955e4a3ab28ca09864c102f6fbe44d`）。Git非追跡とし、同CHGの検証記録として保持する。現在参照中のため削除せず、CHGのEvidence引渡し時に保持・清掃を再評価する。診断記録は回復Authorityではない。
+
+**現在状態: 静的・局所自己確認済み。新固定版の三観点独立確認待ち。** 全本番接続、初期化途中、旧三件、実Recovery／全E2Eおよび全体品質の未成立は維持する。
+
+### 初回独立確認と是正方針
+
+六対象と原記録を同じ固定版で三観点確認した結果、技術は限定Pass、51文書と品質／53直接影響はFail、統合Fail・Finding 2件だった。開始・終了HEADは`f6d185870d9fd60ffe8ed940e070de21004b34d2`、対象と原記録の指定Hashは一致・不変。前回NativeのPassは流用していない。
+
+| 指摘 | 原因と適用する是正 | 不変範囲 |
+|---|---|---|
+| TC-Q01 | 新Source／Testが正方向のSymbolとTest Catalogに未登録だった。SourceをARCH-000008、TestをQA-000003／PRL-UT-006と`verifies`へ接続し、実在Testを既存unit／contractの登録契約へ追加する。 | 既存Relation、Local ID、試験段階、品質の観測状態と本番consumerは変更しない。 |
+| TC-Q02 | 初回記録はTSの小さい入口だけを識別し、使用した実行本体・解決helper・Native・tests設定との対応が不足した。実解決chainと主要設定を新しい実行前後Hashへ追加し、静的・局所検証を新原記録で行う。 | 初回runとその値を不変保持し、過去の環境へ現在値を補完しない。codecと検証義務を緩めない。 |
+
+三観点の是正方針整合は着手可・追加条件なし。登録二fileを含む新しい八file固定集合で再確認する。現在、新しい人間判断は不要。初回Failは保持し、指摘解消・Passの判定は是正後の独立再確認に委ねる。
+
+### 是正後の新実行r2
+
+TC-Q01の正方向登録を二fileへ追加した。Test Catalogの実在全数照合はFailure 0、新Testの一意登録と属性を確認した。Symbol Graph Ruleの直接読取り確認もFinding 0だった。試験の存在・Relationを実行済みEvidenceや本番接続と同一視しない。最初のCatalog確認用コマンドは誤ったproperty名`entries`を参照して失敗したため、実Schemaの`tests`へ診断だけを修正した。失敗返却も保存し、製品変更や過去結果の上書きを行っていない。
+
+TC-Q02では、TS入口→`lib/tsc.js`→packageが指定する`lib/getExePath.js`→platform package→選択Native `tsc.exe`の実解決を確認した。Node 24.19.0／win32／x64と解決した絶対Pathを記録し、実型検証器、両tsconfig、登録二file、Checker入口と主要設定を含む23入力を新実行前後で識別した。全件Hash一致。型二段階とFormatter／LintはExit 0で、その後の15局所UTは364.7335ms、Fail／Skip／Todo 0だった。codec本体とTestの前回Hashも維持した。全推移的依存や環境全体の固定ではない。
+
+新scoped Checkerは八file指定、25223ms、Exit 0、Finding／Warning 0。実展開108Markdown・9801リンク・489anchorだった。原記録は`run-r2.json`（SHA-256 `ad66f791e80fc2715ba1e4f95178275d09546cff49c2b18953c092ba4e3e2f44`）として同じRepository-local検証Directoryへ分離し、初回`run.json`は指定Hashのまま保持した。実cwd・UTC・完結返却と失敗した診断を含めた。実行入力の本記録Hash `5bb019ac9266f1b225bc2df2c6d76e4909a9172f2e57d6baab2831cedb4bb9b6`と、この結果追記後の独立確認版を区別する。保持と清掃の条件は初回と同じで、原記録を回復Authorityへ昇格しない。
+
+**現在状態: 二指摘の適用・新しい自己確認済み。新固定八fileの三観点独立再確認待ち。** 初回Failを保持し、解消・Passは未判定。本番接続、初期化途中、旧三件、実Recovery／全E2E、署名と全体品質は未成立のままである。
+
+### 新固定八fileの独立再確認結果
+
+三必須観点の全結果を統合し、技術・51文書／追跡・品質／53直接影響はいずれも限定Pass、TC-Q01／TC-Q02は解消、新Finding 0だった。開始・終了HEADは`f6d185870d9fd60ffe8ed940e070de21004b34d2`。Source／Test／config／設計／QAの前掲Hashに加え、Symbol `7f3c3cafd70cb2254aa038c34e60bd83cf43d686a35ec48a293a1edd78728693`、Catalog `7a568e6bd6bf5ceb9bf7bcd8af7c9cb3a945f87abb87994fc3f004661b7859aa`、結果書戻し前の本記録 `1a0d04829fc2646df548829ad0529d5b180e2f7441894e186f0206b1fba4d898`、旧・新原記録の指定Hashが確認開始・終了で一致・不変だった。
+
+確認者は純粋codec、正方向の一意登録、23入力の実解決・前後識別、静的先行、15UT、Catalog／Graphとscoped Checker、新旧結果の分離を照合した。編集・再実行・外部操作は行っていない。本節とChecklist一行だけを書き戻し、Source、登録、設計／QA、原記録、品質件数、署名、Authorityと停止Gateは不変である。初回FailへPassを遡及せず、実行入力Evidence `5bb019…bb9b6`とは別の確認版として扱う。
+
+限定Passは完全snapshotの形式、局所UT、正方向登録と記録だけに限る。実由来、Authority、非使用、保存／publication、caller耐久参照／容量、Native Adapter、初期化途中、全利用側移行、旧三Root、実Recovery／全E2E、全体品質はOPEN。全依存固定やPRL-UT-006全義務の完成は主張しない。現在、新しい人間判断は不要である。
+
 ## Checklist
 
 - [x] 同じCHGのIntent、限定対象、対象外と人間承認を記録した。
@@ -695,5 +761,6 @@ r5文書入力のscoped Checkerも25278ms、Exit 0、Finding 0、Warning 0、関
 - [x] Node APIの六場面実測と原記録を新固定版で三観点から独立確認し、限定Pass・Finding 0を記録した。hardlinkの不変性、本番Windows保護、実Recoveryおよび全体品質を未成立と分けた。
 - [x] Windows保護方式の新実行r3を三観点で独立再確認し、三指摘の解消・限定Pass・Finding 0を記録した。同一Processの局所観測と本番保護・実Recoveryの未成立を分け、旧Failと旧原記録を保持した。
 - [x] 別Processの新固定版r5を三観点で独立確認し、限定Pass・Finding 0を記録した。役割別receiptとProcess／Job終端をfixture handle closeと区別し、本番・旧Root・全体品質の未成立を保持した。
+- [x] 終端intent codecと正方向登録の新固定八fileを三観点で独立再確認し、二指摘解消・限定Pass・新Finding 0を記録した。本番・実Recovery・PRL-UT-006全義務の未成立、初回Failと旧原記録を保持した。
 - [ ] OPEN: 旧形式の非使用、初期化排他、OS処置境界、保護済み再入場、SPEC／Workflow・公開入口と実境界検証が未成立。根拠取得後に同じCHGで接続する。
 - [ ] OPEN: 実在三件のexact処置承認と清掃未実施。必要保証成立後に対象を提示し、別に承認を得る。

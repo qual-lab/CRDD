@@ -69,6 +69,7 @@
     "src/security/execution-environment.ts",
     "src/security/host-operation-lock-supervisor.ts",
     "src/security/host-recovery-record.ts",
+    "src/security/host-terminal-record.ts",
     "src/security/host-orphan-recovery-policy.ts",
     "src/security/host-operation-inprocess-lease-internal.ts",
     "src/security/platform-key-storage-policy.ts",
