@@ -1082,10 +1082,58 @@ Error専用WeakMapと三段の同じErrorによる列挙反証、初回結果へ
 
 書戻しは本節とChecklist該当一行だけを許容した。他五file、公開Schema・理由、Authority、署名、品質件数と停止Gateは不変。限定Passは助言初期化失敗の初回結果保持と今回の根拠区間だけであり、caller耐久接続、async移行、旧三Root処置、全Recovery／E2EはOPENである。現在、追加の人間判断は不要である。
 
+#### 同参照の現在候補観測 — 設計と実装単位
+
+基準Commit `af579151`で次の単位へ進む。読取り専用の着手前確認は、caller-known参照、独立保持した完全intent／対象binding、現在実体観測と過去証明の分離を条件として着手可だった。既存strict readerへ現在Identityを旧期待値として渡す案、未使用保存port、参照だけでのAuthority発行は採用しない。
+
+| 一次編集対象 | 今回の処置・反証と非変更範囲 |
+|---|---|
+| Native私有reader | 既知Identity照合と現在候補観測を明示した方針で分離し、同じ保持・ACL・全bytes・前後Identity・今回closeへ接続する。新型は現在Identityだけを返し、過去receiptや元file連続性を返さない。 |
+| 新しい限定fixture／Owner | 新run・freshなRepository-local対象だけ。prepared／public、二名／両不存在／内容／Directory／参照／byte境界、同bytes別実体、strict旧Identity拒否、保持中変更拒否と今回closeを確認する。全Oracle後だけ自作六file・空二Directoryを非再帰清掃する。失敗時は保持して停止する。 |
+| 二Details・QA・本記録 | 上位Schema／producer／対象bindingとNative opaque bytes相関、現在観測と履歴、局所成立と本番接続を分ける。既存Local Itemへ区間を追加し、件数・停止Gateは変えない。 |
+| 直接Relation | 既存Native Source登録と試験Fileの001／002／003、Case／Helper Trace和集合を照合する。既存値で足りる場合は追加しない。 |
+
+Formatter／Clippy、Owner型／Formatter／Lintを試験前に行い、新固定binaryとOwnerの一回実行、Native通常回帰、限定Checkerを新原記録へ保存する。実入力object・明示cwd・時計・全返却と主要入力前後を保持する。技術／lifecycle、51文書／Trace、品質／53直接影響の三必須観点を同じ固定候補で独立確認し、全結果の前に是正しない。
+
+既存strict reader、旧fixture／原記録、公開dispatch／Protocol、caller耐久接続、共有容量、async移行、実残存三件、Docker／Provider、署名、Authorityと停止Gateは不変。新現在候補の受理だけで本番再入場・処置Gate、旧対象清掃または全E2Eを成立にしない。準拠基準・公開Capabilityを変更しないため52準拠／Release監査はこの内部単位の判定へ使用しない。新しい人間判断は不要である。
+
+**現在状態:** 実装と局所検証を完了し、独立確認へ渡す。現在実体観測の部品からcaller耐久保存と本番Adapterへ順に接続する。Windows再起動は既定の前提にしない。
+
+#### 同参照の現在候補観測 — 新局所検証r1
+
+| 確認 | 今回の実績と限界 |
+|---|---|
+| 試験前の静的確認 | Rust Formatter／Clippy、限定Ownerの型／Formatter／Lintを全てexit 0で完了した。初回型確認はmodule設定不足で停止し、ignoredなOwnerの専用設定にmoduleを明示して再確認した。ignored pathへ直接実行したFormatterの「0 file」は確認実績に数えず、固定Biomeのstdinによる整形・読取り確認を別に行った。 |
+| 新しい実体試験 | 固定binaryと新runの自己所有対象で175ms、exit 0。prepared／publicの現在観測2件、拒否7件、同bytes別実体の区別、旧Identityを期待するstrict readerの拒否、保持中変更拒否を確認した。現在Identityを過去receiptへ付け替えていない。 |
+| 終了後条件 | 今回の個別close記録43行は全てtrue。これは全OS handleの不存在証明ではない。試験刺激の自作file改名を明示し、全Oracle後に自作六file・空二Directoryだけを非再帰で回収した。NativeとOwnerで試験Rootの不存在を確認した。旧三Rootへの処置ではない。 |
+| Native通常回帰・Relation | 28成功・失敗0・ignored 17、0.28s。新しい実体試験は通常回帰ではignoredとし、上記一回の実行を重複実績にしない。Case／HelperのTrace和集合とFile Relationは既存ERB-IT-001／002／003に一致し、既存Catalog接続を確認した。Local Item全義務を確認済みとは表示しない。 |
+| 限定Checker | 五file指定、24031ms、exit 0、104Markdown・9961リンク・589anchor、指摘／警告0。展開上限、ignored除外、展開範囲外リンク未確認を維持する。先行する誤ったCLI引数はexit 2であり、Checker実行成功へ読み替えず原記録へ保持した。 |
+| 入力識別 | 静的確認前45主要入力と、新build後・試験前46主要入力を、全局所確認終了後と照合した。HEADと各Hashが一致した。新binaryのSHA-256は`8f0fc4e9dbf1460cca584f2692c63767f17273e779307a38038bf6757f966ec9`。全推移入力closure・環境全体不変を主張しない。 |
+| 原記録 | `.crdd/verification/chg-000082-terminal-current-261003/current-run-r1.json`、SHA-256 `b928ddee06c61c1fd021db25ceb16656b93d59c66e4043a3c8777c2c3497390e`。実入力object・明示cwd／環境・UTC前後・初回／全wait／完結返却、失敗した静的確認とCLI入力、前後Hashを保持する。 |
+
+実行入力時の本記録Hashは`7c2b2b055c4bfe7ceca928cc1fe660556ad3182e185035429a486ab872a6e6d0`であり、この追記版を試験入力へ遡及しない。新fixtureは同一Process・opaque bytesの局所確認である。上位Schema／producer／対象binding、caller耐久保存、fresh Process再入場、公開Native Adapter、共有容量、OS故障注入、async移行、旧三Root処置、全Recovery／E2EはOPEN。署名・Authority・停止Gate・品質件数は不変である。
+
+#### 同参照の現在候補観測 — 初回独立確認と文書是正
+
+固定五fileの三必須観点は、技術／lifecycleと品質／53直接影響が限定Pass、51文書／TraceがFailだった。CUR-D01は共用`TerminalObservedRecord`型Headerが全利用でcaller既知Identityを必要とすると述べ、新しい現在候補入口と不一致である。開始・終了のHEAD、五file、原記録と支持入力Hashは一致した。
+
+全結果を統合して三観点と是正整合を確認後、該当`@compatibility`一行だけを修正した。Known入口の旧Identity照合、現在候補入口の今回Identity観測と、両方式に独立した期待bytesが必要であることを分けた。本体、Oracle、Owner、旧原記録、公開契約、品質件数、Authority、署名と停止Gateは変更していない。文書是正に伴う新しいOS実測は行わず、旧実行と是正版のHashを区別する。新版の三観点再確認は未完了であり、完了Checklistを更新していない。
+
+Rust Formatter確認はexit 0。一行をメモリ上で旧Headerへ戻した全file Hashが実測版`a5388700d074828445e731a19896f87a8e24db066cdc769fdb630ece2c8f2dea`と一致し、本体・Oracle不変を確認した。是正後Source Hashは`6dbb5e8cc2ac92e0075de2dcd854b2c1b24bf3bc7cfaa99126cf17a6365af899`。この文書是正確認の原記録は`.crdd/verification/chg-000082-terminal-current-261003/header-remediation-r2.json`、SHA-256 `9e7cffc60c379415a1cf095ef35328214a5a0750b65380d5cb6644b7a50f9935`であり、新しい実体試験結果ではない。
+
+#### 同参照の現在候補観測 — 是正後の独立再確認
+
+新固定五fileを技術／lifecycle、51文書／Trace、品質／53直接影響の三必須観点で再確認し、全て限定Pass、CUR-D01解消・新Finding 0、確信度は高だった。開始・終了HEAD `af579151874167c0b3d7d71a472bab78e0eb4f96`、五file、旧実行原記録・補助原記録と支持入力Hashは一致した。確認者は編集、試験再実行、外部送信または実資源操作を行っていない。
+
+実測Source `a5388700…`と実行入力Evidence `7c2b2b05…`、初回レビューEvidence `f8a51aef…`、Header是正後Source `6dbb5e8c…`と今回レビューEvidence `5d48e982…`、本書戻し版を区別する。前節の再確認未完了は本結果追記前の状態であり、旧Failと原記録へPassを遡及しない。Headerの一行以外の本体・Oracle不変を再確認し、新OS実測は発生していない。
+
+書戻しは本節とChecklist該当一行だけに限定した。限定Passは現在候補の私有観測部品と今回の根拠区間であり、Known正常系の新OS実測、上位binding／producer／Schema、caller耐久保存、公開Adapter、共有容量、async移行、旧三Root処置、全Recovery／E2EはOPEN。署名、Authority、停止Gateと品質件数を変更していない。現在、追加の人間判断は不要である。
+
 ## Checklist
 
 - [x] 助言初期化失敗の既知清掃分類を維持し、取得済み参照を初回結果の私有結合まで保持する局所UTを完了した。
 - [x] 助言初期化失敗の新固定六fileを三必須観点で独立再確認し、AI-T01／AI-Q01解消・限定Pass・新Finding 0を記録した。初回結果保持と全RecoveryのOPEN、旧Failと新検証を区別した。
+- [x] 同参照の現在候補観測を新自己所有対象で局所確認し、新固定五fileを三必須観点で独立再確認した。CUR-D01解消・限定Pass・新Finding 0と、現在Identity／過去証明／Authority、本番接続と全RecoveryのOPENを区別した。
 
 
 - [x] 同じCHGのIntent、限定対象、対象外と人間承認を記録した。

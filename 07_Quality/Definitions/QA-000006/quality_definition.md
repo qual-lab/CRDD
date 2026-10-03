@@ -243,6 +243,12 @@ Coordinator所有範囲で終了・排他・清掃を閉じる設計では、上
 
 このfixtureは`ERB-IT-001`／`ERB-IT-002`と、`ERB-IT-003`の「意図的終了後の既知完全記録の再読取り」という限定区間だけを扱う。cfg(test)のwriter再取得は本番APIではない。metadata不明とclose結果の単調保持は、実readerが使う局所判定関数への合成入力で確認し、実OS故障とは別fieldにする。ACL異常、reparse、OS metadata失敗、実CloseHandle失敗、突然crash、rename途中、caller耐久再入場、初期化途中、署名Runtime／公開入口と実残存三件は未観測のまま保持する。Local Item全体、品質件数と停止Gateは更新しない。
 
+`windows::terminal::tests::terminal_current_candidate_fixture`は、新しい自己生成対象で私有の現在候補readerを通す限定ITである。`ERB-IT-001`のprepared／publicの現在照合・保持中変更拒否・今回close、`ERB-IT-002`の二名／両不存在／内容／Directory／参照／byte容量拒否、`ERB-IT-003`の「同bytesの別実体を過去の元実体にしない」という区間だけを扱う。同じfixture名を再利用せず、固定Ownerがcwd・実入力・新binary Hash・fresh不存在を確認して一回実行する。
+
+現在候補は旧Identityを入力しない。試験では独立した作成時IdentityをOracleだけに使い、同bytesの新実体を現在候補で観測しても、旧Identityのstrict readerが拒否することを確認する。意図した自己生成fileの改名・再作成は刺激として個別記録し、保持中の予想外変更と区別する。全Oracle・全closeの後だけfreshに照合した自作六fileと空二Directoryを非再帰清掃し、直接不存在を確認する。失敗／不明では追加清掃しない。
+
+これは同一Processの現在観測とopaque bytes相関だけである。正規Schema／producer／対象binding、元file連続性、過去receipt、caller耐久再入場、別Process、ACL異常／reparse／OS観測故障／実close失敗、容量予約、Authority、実残存三件または全Recoveryを検証済みにしない。Local Item数・観測件数・停止Gateは維持する。File Relationの既存001／002／003と新Case／HelperのTrace和集合を別に照合する。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した

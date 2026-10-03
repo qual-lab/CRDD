@@ -901,13 +901,93 @@ struct TerminalObservationFailure {
 /// @invariant rename、write、清掃およびAuthority発行を行わない。
 /// @boundary Windows内部記録。現在consumerは自己生成fixtureだけ。
 /// @security shareREADとACL観測をWRITE_DAC防御や非使用証明へ昇格しない。
-/// @compatibility callerの既知五field/属性と期待bytesを必要とし、記録自身から取得しない。
+/// @compatibility Known入口はcaller既知の五field/属性と独立した期待bytesを必要とする。CurrentCandidateは旧Identityを要求せず今回Identityを返し、両方式とも期待bytesを対象記録自身から生成しない。
 struct TerminalObservedRecord<'a> {
     directory: &'a TerminalDirectory,
     reference: String,
     state: TerminalObservedState,
     handle: OwnedHandle,
     close_confirmed: Option<bool>,
+}
+
+/// 過去の実体照合と現在候補の観測を区別する。
+///
+/// @responsibility 現在取得したIdentityを過去の期待Identityへ付け替えない。
+/// @trace ARCH-000008
+/// @shape caller既知Identity、または現在候補の観測だけ。
+/// @invariant CurrentCandidateは元fileの連続性を保証しない。
+/// @boundary 私有readerの照合方針。
+/// @security Authority、非使用または処置許可を発行しない。
+/// @compatibility 既存strict readerはKnownだけを使用する。
+#[derive(Clone, Copy)]
+enum TerminalIdentityCheck {
+    Known(DirectoryIdentity),
+    CurrentCandidate,
+}
+
+/// 独立保持した内容と一致する現在記録を保持する。
+///
+/// @responsibility 返却喪失後にも同じ参照の現在実体を観測し、履歴証明とは分離する。
+/// @trace ARCH-000008
+/// @shape 私有readerと今回観測した五field・属性Identity。
+/// @invariant bytes一致を元file連続性、過去receiptまたは清掃成功にしない。
+/// @boundary 私有Native観測→限定候補consumer。本番Protocolは未接続。
+/// @security callerの完全intentと対象bindingの確認、fresh Authorityと非使用は別責務。
+/// @compatibility strict readerへ現在Identityを過去の期待値として渡さない。
+struct TerminalCurrentCandidate<'a> {
+    record: TerminalObservedRecord<'a>,
+    current_identity: DirectoryIdentity,
+}
+
+impl<'a> TerminalCurrentCandidate<'a> {
+    /// 同じ参照の現在記録を独立した全bytesと照合する。
+    ///
+    /// @responsibility 名前だけの探索と過去成功の復元を行わず、現在実体を返す。
+    /// @trace ARCH-000008
+    /// @input 検証済みDirectory guard、caller-known参照、独立保持した1..8192bytes。
+    /// @returns 現在候補guard、または同じ参照と今回open・close失敗。
+    /// @precondition callerが完全intentのSchema・producer・対象bindingを別に検証する。
+    /// @postcondition 唯一名、現在Identity、保護、全bytes、他名不存在と親を確認する。
+    /// @effect OPEN_EXISTINGの読取りだけ。作成・公開・復元・清掃は0。
+    /// @failure 二名、両不存在、内容・保護・実体不一致、unknownは停止する。
+    /// @invariant 現在Identityを旧期待値へ変換せず、履歴receiptを生成しない。
+    /// @boundary Native→Windows記録観測。公開回復入口ではない。
+    /// @security 同じ利用者とACL一致を元producerのlineageやAuthorityにしない。
+    /// @concurrency 保持中はshareREAD。close後の不変性と非使用は保証しない。
+    fn open(
+        directory: &'a TerminalDirectory,
+        reference: &str,
+        bytes: &[u8],
+    ) -> Result<Self, TerminalObservationFailure> {
+        TerminalObservedRecord::open_checked(
+            directory,
+            reference,
+            TerminalIdentityCheck::CurrentCandidate,
+            bytes,
+        )
+        .map(|(record, current_identity)| Self {
+            record,
+            current_identity,
+        })
+    }
+
+    /// 今回の候補readerだけを明示closeする。
+    ///
+    /// @responsibility 最初のclose結果を保持し、候補観測と資源終了を区別する。
+    /// @trace ARCH-000011
+    /// @input 自己所有する現在候補guard。
+    /// @returns 今回readerの最初のclose結果。
+    /// @precondition 同期readの実終端済み。
+    /// @postcondition falseを後続呼出しでtrueへ変更しない。
+    /// @effect 自己所有reader一件のcloseだけ。
+    /// @failure close失敗は同じ参照へ保持する。
+    /// @invariant 元producerのhandle終了、Root回収または記録清掃を主張しない。
+    /// @boundary Native→Windows CloseHandle。
+    /// @security 記録名・内容を変更せず、Authorityを発行しない。
+    /// @concurrency 一意所有readerの同期終了。
+    fn close(&mut self) -> bool {
+        self.record.close()
+    }
 }
 
 /// 直接観測の明示不存在だけをfalseとする。
@@ -973,6 +1053,35 @@ impl<'a> TerminalObservedRecord<'a> {
         expected: DirectoryIdentity,
         bytes: &[u8],
     ) -> Result<Self, TerminalObservationFailure> {
+        Self::open_checked(
+            directory,
+            reference,
+            TerminalIdentityCheck::Known(expected),
+            bytes,
+        )
+        .map(|(record, _)| record)
+    }
+
+    /// 一つの読取り経路で既知実体照合と現在候補観測を分ける。
+    ///
+    /// @responsibility 両方式で同じ保護・内容・今回終端確認を維持する。
+    /// @trace ARCH-000008
+    /// @input Directory guard、同参照、明示照合方針、独立保持した期待bytes。
+    /// @returns readerと今回Identity、または同参照の取得・close失敗。
+    /// @precondition 既知方針の期待Identityはcaller由来。現在候補をその期待値にしない。
+    /// @postcondition 同じ保持実体の前後一致、保護、全bytes、唯一名を確認する。
+    /// @effect 読取りhandleとmetadataだけ。write・rename・removeは0。
+    /// @failure 入力・名前・実体・保護・内容・close不明を区別して停止する。
+    /// @invariant 現在候補の受理から過去write・flush・closeを推定しない。
+    /// @boundary 私有Native reader→Windows。
+    /// @security 再公開・清掃Authorityを作らない。
+    /// @concurrency 保持中shareREAD、親chain借用。未知の別主体との排他は主張しない。
+    fn open_checked(
+        directory: &'a TerminalDirectory,
+        reference: &str,
+        check: TerminalIdentityCheck,
+        bytes: &[u8],
+    ) -> Result<(Self, DirectoryIdentity), TerminalObservationFailure> {
         let mut failure = TerminalObservationFailure {
             reference: reference.to_owned(),
             reason: "terminal_observation_unconfirmed",
@@ -1034,7 +1143,9 @@ impl<'a> TerminalObservedRecord<'a> {
         };
         let verified = (|| {
             let current = terminal_identity(observed.handle.0)?;
-            if current != expected || current.attributes & FILE_ATTRIBUTE_DIRECTORY != 0 {
+            if matches!(check, TerminalIdentityCheck::Known(expected) if current != expected)
+                || current.attributes & FILE_ATTRIBUTE_DIRECTORY != 0
+            {
                 return Err("terminal_observation_identity_mismatch");
             }
             verify_terminal_protection(observed.handle.0, &directory.user, &directory.system)?;
@@ -1045,17 +1156,19 @@ impl<'a> TerminalObservedRecord<'a> {
                 return Err("terminal_record_two_names");
             }
             directory.verify()?;
-            if terminal_identity(observed.handle.0)? != expected {
+            if terminal_identity(observed.handle.0)? != current {
                 return Err("terminal_observation_identity_mismatch");
             }
-            Ok(())
+            Ok(current)
         })();
-        if let Err(reason) = verified {
-            failure.reason = reason;
-            failure.close_confirmed = Some(observed.close());
-            return Err(failure);
+        match verified {
+            Err(reason) => {
+                failure.reason = reason;
+                failure.close_confirmed = Some(observed.close());
+                Err(failure)
+            }
+            Ok(identity) => Ok((observed, identity)),
         }
-        Ok(observed)
     }
 
     /// fresh読取りhandleの明示closeを単調保持する。
@@ -1118,6 +1231,283 @@ mod tests {
     const COLD_DIRECTORY: &str = "host-terminal.219b9b53-f1e6-4e78-89ab-93d4a9ec3007";
     const COLD_ABSENT: &str = "host-terminal.219b9b53-f1e6-4e78-89ab-93d4a9ec3008";
     const COLD_BINARY: &str = "C:/project/CRDD/.crdd/verification/chg-000082-terminal-publication-261003/target/x86_64-pc-windows-msvc/debug/deps/crdd_platform_access-d760b2b78c72e216.exe";
+
+    /// 現在候補と過去の既知実体を別の型・Oracleで確認する。
+    ///
+    /// @responsibility 独立した内容の一致、現在Identity、strict拒否、closeと自作清掃を別に記録する。
+    /// @trace ERB-IT-001
+    /// @trace ERB-IT-002
+    /// @trace ERB-IT-003
+    /// @precondition 固定run/cwd、Node Ownerとfreshなfixture-current-r1。旧fixtureと実残存は対象外。
+    /// @stimulus prepared/public観測、二名/不存在/内容/Directory拒否、同bytes別実体と保持中変更拒否。
+    /// @observation 今回Identity/名前、個別close、strict旧Identity拒否、清掃発行数と直接不存在。
+    /// @oracle 現在候補の成功を履歴receipt/Authority/本番再入場へ昇格しない。全Oracle後だけ限定observed。
+    /// @cleanup 全正常Oracleと全closeの後だけfreshな自作六file/空child/空Rootを非再帰清掃。不明で停止。
+    /// @boundary 未署名Native自己生成fixture→Windows。Docker/Provider/旧三Rootは0。
+    #[test]
+    #[ignore = "Fixed current-candidate fixture; explicit Node owner required"]
+    fn terminal_current_candidate_fixture() {
+        const RUN: &str = "current.261003.73c9d18f.r1";
+        const PREPARED: &str = "host-terminal.73c9d18f-6ab5-4e8c-945f-640b56003001";
+        const PUBLISHED: &str = "host-terminal.73c9d18f-6ab5-4e8c-945f-640b56003002";
+        const COLLISION: &str = "host-terminal.73c9d18f-6ab5-4e8c-945f-640b56003003";
+        const REPLACED: &str = "host-terminal.73c9d18f-6ab5-4e8c-945f-640b56003004";
+        const DIRECTORY: &str = "host-terminal.73c9d18f-6ab5-4e8c-945f-640b56003005";
+        const ABSENT: &str = "host-terminal.73c9d18f-6ab5-4e8c-945f-640b56003006";
+        assert_eq!(
+            std::env::var("CRDD_TERMINAL_CURRENT_RUN").as_deref(),
+            Ok(RUN)
+        );
+        assert_eq!(
+            std::env::current_dir().unwrap(),
+            Path::new("C:/project/CRDD")
+        );
+        let root = Path::new(PARENT).join("fixture-current-r1");
+        let bytes = vec![b'c'; MAX_RECORD_BYTES];
+        let mut phase = "preflight";
+        let mut closes = Vec::new();
+        let mut mutation_effect = false;
+        let mut os_error = None;
+        let mut cleanup_count = 0_u32;
+        let mut fresh_reads = 0_u32;
+        let mut rejected = 0_u32;
+        let mut replacement_distinguished = false;
+        let mut fixture_rename_issued = false;
+        let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let parent = Path::new(PARENT);
+            let parent_id = observe_fixture_identity(parent, &mut closes);
+            assert_eq!(observe_terminal_presence(&root), Ok(false));
+            phase = "tokens";
+            let (mut primary, mut impersonation) = process_tokens().unwrap();
+            let user = token_user_sid_bytes(primary.0).unwrap();
+            let system = local_system_sid_bytes().unwrap();
+            closes.push((
+                "token_impersonation",
+                close_terminal_handle(&mut impersonation),
+            ));
+            closes.push(("token_primary", close_terminal_handle(&mut primary)));
+            assert!(closes.iter().all(|(_, closed)| *closed));
+            phase = "create";
+            let mut wide: Vec<u16> = root.as_os_str().encode_wide().collect();
+            wide.push(0);
+            with_terminal_descriptor(&user, &system, |attributes| {
+                // SAFETY: exact fresh repository-local fixture and live descriptor.
+                if unsafe { CreateDirectoryW(wide.as_ptr(), attributes) } == 0 {
+                    return Err("current_fixture_create_failed");
+                }
+                Ok(())
+            })
+            .unwrap();
+            let root_id = observe_fixture_identity(&root, &mut closes);
+            let mut directory = TerminalDirectory::open(&root, root_id).unwrap();
+            let mut records = Vec::new();
+            for reference in [PREPARED, PUBLISHED, COLLISION, REPLACED] {
+                let mut stage = TerminalStage::create(&directory, reference, &bytes).unwrap();
+                if reference == PUBLISHED {
+                    stage.publish(&bytes).unwrap();
+                }
+                records.push((reference, stage.identity));
+                closes.push(("stage", stage.close()));
+                assert!(closes.iter().all(|(_, closed)| *closed));
+            }
+            let (collision_stage, collision_public) = terminal_names(COLLISION).unwrap();
+            let collision_id = create_collision_fixture(&directory, &collision_public, &mut closes);
+            let (directory_name, _) = terminal_names(DIRECTORY).unwrap();
+            let child_directory = root.join(&directory_name);
+            let mut wide: Vec<u16> = child_directory.as_os_str().encode_wide().collect();
+            wide.push(0);
+            with_terminal_descriptor(&user, &system, |attributes| {
+                // SAFETY: exact self-owned fixture child, live descriptor.
+                if unsafe { CreateDirectoryW(wide.as_ptr(), attributes) } == 0 {
+                    return Err("current_fixture_child_create_failed");
+                }
+                Ok(())
+            })
+            .unwrap();
+            let child_id = observe_fixture_identity(&child_directory, &mut closes);
+            phase = "current_read";
+            for (reference, identity, state) in [
+                (PREPARED, records[0].1, TerminalObservedState::Prepared),
+                (PUBLISHED, records[1].1, TerminalObservedState::Published),
+            ] {
+                let mut candidate =
+                    TerminalCurrentCandidate::open(&directory, reference, &bytes).unwrap();
+                assert_eq!(candidate.record.reference, reference);
+                assert_eq!(candidate.record.state, state);
+                assert_eq!(candidate.current_identity, identity);
+                let (stage, public) = terminal_names(reference).unwrap();
+                assert_fixture_mutation_rejected(
+                    &root.join(if state == TerminalObservedState::Prepared {
+                        stage
+                    } else {
+                        public
+                    }),
+                    state == TerminalObservedState::Published,
+                    &mut phase,
+                    &mut os_error,
+                    &mut closes,
+                    &mut mutation_effect,
+                );
+                let closed = candidate.close();
+                closes.push(("current_reader", closed));
+                assert!(closed && candidate.close() == closed);
+                fresh_reads += 1;
+            }
+            phase = "rejections";
+            let oversized = vec![b'c'; MAX_RECORD_BYTES + 1];
+            for (reference, data, reason, opened) in [
+                (
+                    COLLISION,
+                    bytes.as_slice(),
+                    "terminal_record_two_names",
+                    false,
+                ),
+                (ABSENT, bytes.as_slice(), "terminal_record_absent", false),
+                (
+                    PREPARED,
+                    b"wrong".as_slice(),
+                    "terminal_observation_bytes_mismatch",
+                    true,
+                ),
+                (
+                    DIRECTORY,
+                    bytes.as_slice(),
+                    "terminal_observation_identity_mismatch",
+                    true,
+                ),
+                (PREPARED, b"".as_slice(), "terminal_bytes_invalid", false),
+                (
+                    PREPARED,
+                    oversized.as_slice(),
+                    "terminal_bytes_invalid",
+                    false,
+                ),
+                (
+                    "host-terminal.invalid",
+                    bytes.as_slice(),
+                    "terminal_reference_invalid",
+                    false,
+                ),
+            ] {
+                let failure = TerminalCurrentCandidate::open(&directory, reference, data)
+                    .err()
+                    .expect("current_should_reject");
+                assert_eq!(failure.reference, reference);
+                assert_eq!(failure.reason, reason);
+                assert_eq!(failure.open_issued, opened);
+                assert_eq!(failure.opened, opened);
+                assert_eq!(
+                    failure.close_confirmed,
+                    if opened { Some(true) } else { None }
+                );
+                if opened {
+                    closes.push(("rejected_reader", failure.close_confirmed.unwrap()));
+                }
+                rejected += 1;
+            }
+            phase = "replacement";
+            let (replaced_stage, _) = terminal_names(REPLACED).unwrap();
+            let retired = root.join("retired-current-r1.stage");
+            assert_eq!(observe_terminal_presence(&retired), Ok(false));
+            assert_eq!(
+                observe_fixture_identity(&root.join(&replaced_stage), &mut closes),
+                records[3].1
+            );
+            assert_eq!(fs::read(root.join(&replaced_stage)).unwrap(), bytes);
+            fixture_rename_issued = true;
+            fs::rename(root.join(&replaced_stage), &retired).unwrap();
+            let mut replacement = TerminalStage::create(&directory, REPLACED, &bytes).unwrap();
+            let replacement_id = replacement.identity;
+            assert_ne!(replacement_id, records[3].1);
+            closes.push(("replacement_stage", replacement.close()));
+            assert!(closes.iter().all(|(_, closed)| *closed));
+            let failure = TerminalObservedRecord::open(&directory, REPLACED, records[3].1, &bytes)
+                .err()
+                .expect("strict_should_reject_replacement");
+            assert_eq!(failure.reason, "terminal_observation_identity_mismatch");
+            assert_eq!(failure.close_confirmed, Some(true));
+            closes.push(("strict_rejection", failure.close_confirmed.unwrap()));
+            let mut candidate =
+                TerminalCurrentCandidate::open(&directory, REPLACED, &bytes).unwrap();
+            assert_eq!(candidate.current_identity, replacement_id);
+            assert_ne!(candidate.current_identity, records[3].1);
+            assert_eq!(candidate.record.reference, REPLACED);
+            closes.push(("replacement_reader", candidate.close()));
+            replacement_distinguished = true;
+            drop(candidate);
+            drop(replacement);
+            phase = "close";
+            closes.push(("directory", directory.close()));
+            assert!(closes.iter().all(|(_, closed)| *closed));
+            drop(directory);
+            let (prepared_name, _) = terminal_names(PREPARED).unwrap();
+            let (_, published_name) = terminal_names(PUBLISHED).unwrap();
+            phase = "cleanup";
+            for (name, identity, data) in [
+                (prepared_name.as_str(), records[0].1, bytes.as_slice()),
+                (published_name.as_str(), records[1].1, bytes.as_slice()),
+                (collision_stage.as_str(), records[2].1, bytes.as_slice()),
+                (collision_public.as_str(), collision_id, b"prior".as_slice()),
+                ("retired-current-r1.stage", records[3].1, bytes.as_slice()),
+                (replaced_stage.as_str(), replacement_id, bytes.as_slice()),
+            ] {
+                assert_eq!(observe_fixture_identity(parent, &mut closes), parent_id);
+                assert_eq!(observe_fixture_identity(&root, &mut closes), root_id);
+                let path = root.join(name);
+                assert_eq!(observe_fixture_identity(&path, &mut closes), identity);
+                assert_eq!(fs::read(&path).unwrap(), data);
+                cleanup_count += 1;
+                fs::remove_file(&path).unwrap();
+                assert_eq!(observe_terminal_presence(&path), Ok(false));
+            }
+            assert_eq!(observe_fixture_identity(parent, &mut closes), parent_id);
+            assert_eq!(observe_fixture_identity(&root, &mut closes), root_id);
+            assert_eq!(
+                observe_fixture_identity(&child_directory, &mut closes),
+                child_id
+            );
+            assert_eq!(fs::read_dir(&child_directory).unwrap().count(), 0);
+            cleanup_count += 1;
+            fs::remove_dir(&child_directory).unwrap();
+            assert_eq!(observe_terminal_presence(&child_directory), Ok(false));
+            assert_eq!(observe_fixture_identity(parent, &mut closes), parent_id);
+            assert_eq!(observe_fixture_identity(&root, &mut closes), root_id);
+            assert_eq!(fs::read_dir(&root).unwrap().count(), 0);
+            cleanup_count += 1;
+            fs::remove_dir(&root).unwrap();
+            assert_eq!(observe_terminal_presence(&root), Ok(false));
+            assert_eq!(observe_fixture_identity(parent, &mut closes), parent_id);
+            phase = "complete";
+        }));
+        let presence = match observe_terminal_presence(&root) {
+            Ok(true) => "present",
+            Ok(false) => "absent",
+            Err(_) => "unknown",
+        };
+        let success = outcome.is_ok()
+            && phase == "complete"
+            && presence == "absent"
+            && fresh_reads == 2
+            && rejected == 7
+            && replacement_distinguished
+            && fixture_rename_issued
+            && cleanup_count == 8
+            && !mutation_effect
+            && closes.iter().all(|(_, closed)| *closed);
+        let close_rows: Vec<_> = closes
+            .iter()
+            .map(|(owner, confirmed)| {
+                format!("{{\"owner\":\"{owner}\",\"confirmed\":{confirmed}}}")
+            })
+            .collect();
+        println!(
+            "\n{{\"contract\":\"crdd-native/terminal-current-candidate-fixture\",\"contractRevision\":1,\"run\":\"{RUN}\",\"status\":\"{}\",\"phase\":\"{phase}\",\"currentReadsVerified\":{fresh_reads},\"rejectionChecksVerified\":{rejected},\"sameBytesReplacementDistinguished\":{replacement_distinguished},\"fixtureRenameIssued\":{fixture_rename_issued},\"checkedClosesConfirmed\":{},\"closeResults\":[{}],\"cleanupIssuedCount\":{cleanup_count},\"fixturePresence\":\"{presence}\",\"unexpectedMutationEffectIssued\":{mutation_effect},\"historicalReceiptRestored\":false,\"productionIntegrationVerified\":false,\"callerDurableReentryVerified\":false,\"schemaBindingVerified\":false,\"osFaultInjectionVerified\":false,\"strictDeadlineClaimed\":false}}",
+            if success { "observed" } else { "unconfirmed" },
+            closes.iter().all(|(_, closed)| *closed),
+            close_rows.join(",")
+        );
+        assert!(success, "current_candidate_unconfirmed");
+    }
 
     /// 既知Identityの六u32だけを固定Workerへ搬送する。
     ///

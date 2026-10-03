@@ -180,6 +180,14 @@ Host終端記録のSchema、参照、容量、Authority、再入場と清掃は[
 
 自己生成fixtureの別Processで、準備済みreader保持中と公開済みwriter保持中に意図的終了を与える。親が期待exitとexact Process／Job終端を確認してからfresh読取りを行う。子の明示close、突然crash、rename途中、電源断、caller耐久接続または本番Recoveryの成立をこの検証へ含めない。Workerのwriter再取得はcfg(test)だけであり、本番の再公開APIではない。
 
+#### 返却された実体情報がない場合の現在候補観測
+
+過去の記録file Identityをcallerが保持していない場合は、既存strict readerへ対象自身から得たIdentityを期待値として渡さない。別の私有型`TerminalCurrentCandidate`で、caller-known参照と独立保持した全bytesを、現在の唯一名・実体・保護へ照合する。既知Identity照合と現在候補観測は明示した方針を持つ同じreader本体を使用し、既存strict readerの既知実体条件は維持する。
+
+返すIdentityは今回の現在観測だけである。同じ内容の別実体を現在候補として観測できても、元fileとの連続性、過去のwrite／flush／rename／close、元producerのlineage、非使用、Authorityまたは清掃成功は成立しない。参照だけで独立した内容・対象bindingがなければ結合未確認として停止する。Nativeはboundedなopaque bytesの一致を所有し、完全intentの正規Schema・producer・対象bindingを上位Ownerが確認する。
+
+候補は参照由来のexact二名だけを解決し、列挙、近似探索、自由Path、再公開、復元または清掃を行わない。唯一名の非reparse同期readerをshareREADで保持し、現在Identityの前後一致、保護、全bytes、他名不存在と親を再確認する。今回open・失敗・単調closeは同じ参照へ残す。本番Protocol、caller耐久接続、返却喪失後の再入場およびfreshな処置Gateは未接続である。
+
 **接続前OPEN:** 現在の固定OS保存境界、caller耐久参照、共有容量予約、初期化途中、本番Process喪失／再入場、全consumerと旧三領域は未成立。shareREADと二ACEだけから、WRITE_DAC／owner変更への連続防御、close後の不変性、別主体の防御または非使用を推定しない。私有部品の成立を公開Recovery完成へ昇格しない。
 
 ## 4. バイナリ境界
