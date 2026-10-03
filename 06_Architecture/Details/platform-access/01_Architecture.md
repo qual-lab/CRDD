@@ -148,6 +148,23 @@ Coordinator側で再検証 → 診断／回復結果
 
 RootやHomeの観測結果は、用途別Adapterが同じOperationのRepository、選択ユーザー、署名済み配布物およびRecovery状態と再結合して初めて利用できる。別Operationへ持ち回らない。
 
+### Host終端記録の内部保存部品
+
+Host終端記録のSchema、参照、容量、Authority、再入場と清掃は[Coordinatorの候補契約](../coordinator/01_Architecture.md#終端記録の保存再入場の候補契約)が所有する。Nativeは検証済み非秘密bytesのOS保存・保護・非置換公開だけを具体化する。現在の`windows_terminal.rs`は私有する内部部品で、唯一のconsumerは自己生成fixtureである。公開dispatch、Adapter、署名Runtimeと実Recoveryは未接続であり、任意Path受付や削除コマンドを公開しない。
+
+| 保存段階 | Nativeの責務 | 不明・失敗時の処置 |
+|---|---|---|
+| 親の保持 | local fixed driveの全祖先を非reparseの同期handleで保持し、最終Directoryの五field Identity、現在利用者ownerとprotected二ACEを照合する。 | 相対Path、UNC、reparse、保護・実体・close不明は停止する。固定OS保存境界への接続はCoordinator／Native Adapterの後続条件であり、内部guardだけから許可範囲を作らない。 |
+| stage作成 | 参照から単純leafを決定し、1〜8192bytesの受付判定後、CREATE_NEWと明示DACLで作成する。同期READ／WRITE／DELETE handleをshareREADで一意保持する。 | 作成後失敗は同じ参照と作成済みreceiptを保持し、stageを自動削除しない。DELETE accessは内部linkの前提だけで、公開削除Authorityではない。 |
+| 内容の保存 | 部分writeと進捗0を処置し、同じhandleへ完全write、file flush、長さ・全bytes・EOF照合を行う。 | write／flush発行済みを未発行へ戻さず、未確認のまま公開やRoot処置へ進まない。file flushをDirectory耐久化・電源断保証にしない。 |
+| 非置換公開 | 同じstage handleへ`NtSetInformationFile`の`FileLinkInformation=11`、`ReplaceIfExists=false`を使用する。`RootDirectory=NULL`と同Directoryの単純leafだけを渡し、Ex／Bypass／POSIX／置換は使わない。 | NTSTATUSをWin32 last errorと混同しない。予期しないPendingではbuffer・IO_STATUS・handleを実終端まで保持する。待機不能ではNative Processを異常終了し、成功を返さず呼出し側へ回復義務を残す。硬いOS-I/O期限は主張しない。 |
+| 公開の照合 | link成功後、公開名にREAD／READ_CONTROLの私有guardを取得する。shareREAD／WRITEは既存writerに互換とし、DELETE shareは与えない。元stage guardも保持し、両名の五field Identity・属性・全bytes・保護を再照合する。公開名guard取得・相関確認前は候補公開にとどまり、公開名の連続保護を主張しない。 | link要求、公開名guard取得と完全照合を別receiptへ残す。取得不能、衝突・別実体・bytes不一致・close不明は同じ参照へ残す。別参照再発行、既存対象上書き、Root／marker処置は0。 |
+| 終了 | 公開名guard→元stageの順に個別の明示closeを確認し、総合結果も単調保持する。前段失敗でも後段を試行する。 | Drop、close通知、空slotを全終了成功へ昇格しない。記録のstage／公開先はこの内部部品では削除しない。 |
+
+同Directoryの名前解決と非置換指定は[MicrosoftのFILE_LINK_INFORMATION契約](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/ns-ntifs-_file_link_information)、user-modeの処理は[NtSetInformationFile契約](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-ntsetinformationfile)、flushは[FlushFileBuffers契約](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-flushfilebuffers)へ照合する。MicrosoftのNtSetInformationFile一覧の72という表記と、利用するSDKのclass11を混同しない。可変長structはSDK定義のoffset・alignment・minimum sizeで構成し、全storageをzero初期化する。
+
+**接続前OPEN:** 局所反証では、stage handleを保持していても追加公開名のDELETE accessを取得できた。削除要求は未発行であり、実削除成立とは区別する。保存元一名のshareREADから追加名の保護を推定せず、追加read guardの取得・両名の反証を実証するまで成功接続しない。stageの直接不存在へ保護を途切れさせず収束する処理、現在の固定OS保存境界、caller耐久参照、共有容量予約、初期化途中、Process喪失／再入場、全consumerと旧三領域も未成立。shareREADと二ACEだけから、WRITE_DAC／owner変更への連続防御、close後の不変性、別主体の防御または非使用を推定しない。今回の内部primitiveの成立を公開Recovery完成へ縮小しない。
+
 ## 4. バイナリ境界
 
 Root／Home／Store／Stateのbyte・flag定義は[protocol.rs](../../../40_Develop/platform-access/src/protocol.rs)、Docker復旧のcommand・応答は[docker_repair.rs](../../../40_Develop/platform-access/src/docker_repair.rs)を正本とする。

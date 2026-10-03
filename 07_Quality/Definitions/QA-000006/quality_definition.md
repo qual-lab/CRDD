@@ -225,6 +225,16 @@ Coordinator所有範囲で終了・排他・清掃を閉じる設計では、上
 
 現在は全行OPENである。実装上の発生点と観測手段を固定してから実境界へ接続する。局所のSchema／順序試験は`PRL-UT-006`が所有し、ここで求める保護・Filesystem・Process喪失・公開入口の成立を代替しない。
 
+`windows::terminal::tests::terminal_publication_fixture`は、[Native内部保存部品](../../../06_Architecture/Details/platform-access/01_Architecture.md#host終端記録の内部保存部品)を自己生成したRepository-local対象で通す限定ITである。`ERB-IT-001`の完全write／flush／両名の実体・全bytes、`ERB-IT-002`の既存先衝突、8192／8193bytesと保持中の変更拒否を対象にする。通常のcargo testからはignoredとし、専用Ownerが固定cwd、入力とbinary Hash、freshなfixture不存在を確認して一回だけ実行する。実返却、全明示close、自己生成四fileと空Directoryの非再帰清掃・直接不存在を別々に確認する。途中失敗では追加清掃せず保持して停止する。
+
+このfixtureはNativeのopaqueな非秘密bytesの保存を検証し、上位Schema、元Task Authority、非使用、caller耐久性、容量、固定OS namespace、Process喪失／再入場、stage保持中の除去または署名Runtime／公開入口を検証したことにはしない。未観測は保持し、この登録からLocal Item全体やQuality件数を観測済みへ更新しない。
+
+初回の保存・公開fixtureは失敗し、全Oracleは未成立である。専用の読取り診断は残った三fileの現在Identity・ACL・全bytesと明示closeだけを確認した。続く第一stageの保持診断は、write-open、DELETE-open、removeと非置換renameの四要求がerror32で拒否されたこと、および診断handleの明示closeを確認した。公開名側の保持中拒否、既存先衝突、過大入力の作成前拒否、四file清掃と初回失敗原因はこの診断から推定しない。結果は[限定保守の検証記録](../../../99_Roadmap/Changes/CHG-000082/Evidence/261002_host-orphan-recovery-design.md#保存試験r1の停止と診断)に接続し、全保存・公開fixtureをOPENのまま保持する。
+
+構造化したr2の全局所試験では、公開名のDELETE access取得を拒否できない反例を検出した。予想外handleは明示closeされ、削除・改名・清掃は未発行だった。失敗段階、個別close、清掃発行数、現在の残存を保持し、総合closeを成功へ補完していない。公開名の保護を是正・実証するまで、保存部品全体のPass、既存三Rootの清掃および実Task再開へ進めない。
+
+公開名の追加read guardで是正したr3は、同一Processの自己生成対象で両名の四拒否、既存先非置換、入力境界、個別closeと限定清掃後の直接不存在を局所確認した。r3の実行時は自己確認結果として記録した。同じ固定候補の限定独立確認結果は検証記録に接続し、Local Item全義務の成立とは区別する。guard取得前の候補公開を連続した名前保護へ昇格せず、取得不能・差替え・消失は同じreceiptに残してRoot／marker処置0とする。別Process、取得前の競合、caller再入場、stageの連続保護付き除去および本番接続はこの結果に含めない。Local Item全義務と品質件数は未観測を維持する。
+
 既存三件に対する実処置承認は未取得であり、試験fixtureを理由にその領域を削除しない。Local Item数と観測済み件数はこの設計追加では変更しない。
 
 ## Checklist

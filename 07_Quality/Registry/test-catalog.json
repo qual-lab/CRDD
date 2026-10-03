@@ -5602,6 +5602,19 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "platform-access:integration:windows_terminal",
+      "owner": "platform-access",
+      "path": "40_Develop/platform-access/src/windows_terminal.rs",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["windows", "filesystem", "recovery"],
+      "environment": "windows_rust_runtime",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["native_process_result_observed", "owned_handles_settled_or_reported"],
+      "mandatoryByDefault": false
+    },
+    {
       "id": "platform-access:integration:cli",
       "owner": "platform-access",
       "path": "40_Develop/platform-access/tests/cli.rs",

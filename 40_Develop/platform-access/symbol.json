@@ -4,6 +4,20 @@
   "subsystem": "platform-access",
   "symbols": [
     {
+      "symbolId": "platform-access.source.windows-terminal",
+      "kind": "module",
+      "path": "src/windows_terminal.rs",
+      "archIds": ["ARCH-000008", "ARCH-000011"]
+    },
+    {
+      "symbolId": "platform-access.test.integration.windows-terminal",
+      "kind": "test-suite",
+      "path": "src/windows_terminal.rs",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-IT-001", "ERB-IT-002"],
+      "verifies": ["platform-access.source.windows-terminal"]
+    },
+    {
       "symbolId": "platform-access.native-entry",
       "kind": "module",
       "path": "src/main.rs",

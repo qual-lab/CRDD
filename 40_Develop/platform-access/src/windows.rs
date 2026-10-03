@@ -56,6 +56,9 @@ use crate::protocol::{
     ProviderHomeResponse, Reason, Request, Response,
 };
 
+#[path = "windows_terminal.rs"]
+mod terminal;
+
 #[link(name = "shell32")]
 unsafe extern "system" {
     /// Windows Root・Provider Home観測のSHGetKnownFolderPath責務を実行する。

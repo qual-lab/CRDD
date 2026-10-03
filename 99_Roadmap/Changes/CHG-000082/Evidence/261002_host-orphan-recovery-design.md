@@ -740,7 +740,106 @@ TC-Q02では、TS入口→`lib/tsc.js`→packageが指定する`lib/getExePath.j
 
 限定Passは完全snapshotの形式、局所UT、正方向登録と記録だけに限る。実由来、Authority、非使用、保存／publication、caller耐久参照／容量、Native Adapter、初期化途中、全利用側移行、旧三Root、実Recovery／全E2E、全体品質はOPEN。全依存固定やPRL-UT-006全義務の完成は主張しない。現在、新しい人間判断は不要である。
 
+## 終端記録のNative保存・公開部品
+
+**結論: 元の実体を保持したまま完全bytesを保存し、既存公開先を置換せず公開する内部部品を具体化する。** 基準Commitは`e149991815cc22ff55fa749d652f6cd624434fce`。同じCHGの限定Recoveryの内部実装であり、実在三件、Docker、Provider、署名済みRuntime、公開Adapterと全Recoveryへは接続しない。
+
+### 着手前照合と適用範囲
+
+読取り専用の着手前確認で、同じ保存handleを連続保持すること、no-replaceの通常`FileLinkInformation`を使うこと、同期handleとAPI構造の寿命を結合すること、完全write／flush／readbackおよびchecked-closeを区別することを計画へ統合した。結果は着手可で、追加の人間判断は不要だった。共有モードは公開後の読取りと保持中の書換え・削除拒否を両立させる。NTSTATUSを別APIのLastErrorへ読み替えず、要求発行後の失敗をEffect 0へ戻さない。
+
+変更の一次キーは、Native内部部品・親module接続・既存windows-sys機能選択、platform-access詳細設計、QA-000006の部分検証、Source／Testの正方向登録および本記録である。Schema・AuthorityはCoordinator詳細設計が所有し、Nativeは1〜8192bytesのopaqueな非秘密記録だけを扱う。新しい公開Protocol、Subsystem、QA IDや品質観測件数を作らない。技術、51文書、品質／53直接影響を同じ固定差分で独立確認する。準拠基準・外部公開・Release判断を変えないため、それらの監査・操作は今回の局所単位には追加しない。
+
+| 場面 | 予定処置・確認 |
+|---|---|
+| 正常 | 保護済み自己生成Directoryの祖先・実体を保持し、CREATE_NEW stageへ完全write／flushする。同じhandleから公開linkを作り、両名のIdentity・ACL・全bytesを照合する。 |
+| 非発火 | 空／8193bytes、不正な参照はstage作成前に拒否する。試験fixture自身のEffectまで0だったという主張にしない。 |
+| 境界・反例 | 既存公開先を上書きせず、既存Identity・bytesを維持する。保持中の書換え・DELETE access・rename・削除を拒否する。 |
+| 情報不足・部分成立 | stage作成／write／flush／link要求／照合／closeのreceiptを単調に保持し、不明・失敗を清掃済みへ畳まない。保護を維持したstage名の除去はOPENとする。 |
+
+専用のignored ITを固定binary・実cwd・一回の実行に限定する。Node所有者が入力Hashと自作fixtureの不存在を別観測し、Nativeはfresh Identity照合後に四自作fileと空Directoryだけを非再帰清掃する。失敗時は残存を保持し、別Identityでの再試行や自動清掃を行わない。15秒のNode待機上限は同期syscall取消・全OS handleの厳密終了期限の保証ではない。
+
+現在のconsumerはこの内部ITだけである。caller耐久参照、共通容量、初期化途中、固定OS Runtime名前空間、親Process喪失、stageの連続保護付き収束、全利用側、旧三Root非使用と実処置は未成立。Owner／WRITE_DACの連続防御やhandle解除後の不変性も主張しない。Windows再起動は前提にしない。
+
+### 保存試験r1の停止と診断
+
+初回の自己生成試験はNative Exit 101、Node Exit 2で停止し、全保存・公開Oracleは未成立だった。178ms、Nativeのstderr230bytes／stdout269bytes。stageと公開先は各8192bytes、衝突用の既存先は5bytesで残った。自動清掃、元entryの再実行、別fixture作成および旧三Rootの操作は行っていない。初回Nodeは実行前のPath表記照合で停止したため、Native実行は一回だけだった。後段試験を増やす前に、この境界の原因診断へ戻した。
+
+失敗literalを保存していない搬送上の不足があり、前回の失敗原因は現時点では未特定である。一般panic／Debug本文や秘密を保存するのではなく、別の固定診断entryでleading-newlineの閉packetを出す方針へ補強した。行頭packetだけを解析するOwnerとlibtest接頭辞が衝突し得る問題も分離した。これは今回のExit 101を説明する確定原因ではない。型定義の検索先、Errorの型絞込み、Biome stdinの確認方式は実行前に是正し、その失敗と最終静的成功を原記録へ保持した。
+
+原記録`run-r1.json`（SHA-256 `2d7ada13b754363ef34c7e55997bf41bdb8c9886ce6a9d7cfd139819cecc3f40`）は失敗のまま保持する。30入力の前後Hashは一致し、静的成功後に一回実行した。最初のno-run compiler出力の一部は表示上限で切れており、完全compiler logを保持したとは主張しない。旧Sourceを挿入部分の除去と改行表現から再構成し、実行前Hash `93d467…2ad07`への一致を確認して別名保存した。前回binaryも`72fc292…2afa5`の同じbytesで保持し、現在のSource／binaryへ旧結果を付け替えない。
+
+続くread-only診断は、現在の自作三fileだけの五field・属性・ACL・全known bytesとchecked-closeを確認した。195ms、Native／Node Exit 0、閉packet解析と現在Oracleがともに成立。第一／第二名の五fieldと属性32は一致し、衝突先は別実体だった。Nodeの入力前後観測も一致、fixtureは保持中である。この結果を過去のNTSTATUS、保持中変更拒否、保存試験r1または清掃成功へ遡及しない。原記録`readback-r1.json`（SHA-256 `e3014298475014997fe66e547abeca8b90b66b8ad54c799c75b6c7d4c40c2b95`）には34入力の前後一致、静的先行、exact entry／cwd／UTC／実返却を保存した。全推移的依存・環境全体の固定ではない。
+
+次の自己生成第一stageだけの一回診断では、読取りで取得した現在Identity・bytes・ACLをfresh照合して保持し、write-open／DELETE-open／remove／非置換renameを個別に観測する。改名先は同じ自作親の固定leafを直接不存在確認し、`MoveFileExW`のflags0を使って既存先置換・別volume copy・再起動予約を禁止する。[Microsoftのmove契約](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-movefileexw)に照合済みである。期待外成功・不明・32以外の拒否では後続要求を止め、成功時のLastErrorを読まない。取得済handleのclose結果と最初の失敗を両方保持して終端packetを返し、復元・再試行・清掃をしない。Nodeは後段再観測が不明でも取得済packetを失わない。
+
+Catalog全数照合とSymbol Graphの直接確認は、入口呼出しの診断誤りを是正した後、Failure／Finding 0だった。二つの初回誤呼出しも保持し、製品修正や過去結果への補完にはしていない。全保存部品、全Recoveryと品質件数は未成立のままである。
+
+第一stageの一回保持診断は152ms、Native／Node Exit 0だった。write-open、DELETE-open、remove、非置換renameの四要求がすべて失敗・error32であり、予想外のFilesystem Effectは発行されなかった。取得したhandleと親chainの明示closeは確認済み、fixtureは保持、改名先は直接不存在、Nodeの11観測入力と指定38入力の前後Hashは一致した。型・Formatter／Lint・Rust no-runを先に通した。最終実行前には本文だけの診断計画追記があり、その前後のSourceとToolは同じだった。
+
+原記録`mutation-r1.json`（SHA-256 `29ca14986da07f432e5792edfcd2f31bb92212f0ededceef0fba7d114b8f8a4f`）を旧二記録とは別に保持した。使用Source `081932…c2a1`、binary `41cef7…13157`も同じbytesで別名保存した。保存場所と保持・清掃条件は前掲のRepository-local検証Directoryと同じであり、参照中の診断記録を回復Authorityにしない。
+
+この診断は現在の第一stageだけを対象にする。初回のRust renameとはAPIが異なり、公開名の拒否、初回の停止箇所、衝突・過大入力の全Oracle、fixture清掃または保存部品全体のPassは証明していない。初回失敗は未特定のまま残し、個別の段階と終端を返す検証搬送へ補強してから、別の自己生成fixtureを一回だけ確認する。実在三Root、Docker、Provider、署名済みRuntimeと全体品質は変更しない。
+
+### 新しい全局所試験r2の計画
+
+同梱Rust 1.94.1の一次Source `std/sys/fs/windows.rs`の1311〜1362行を読取り、`fs::rename`がREPLACE指定と、条件によるDELETE open／POSIX fallbackを使うことを確認した。後段openがsharing violationで失敗しても、先行ACCESS_DENIEDを返す経路がある。Source HTMLのSHA-256は`ca5a5335a113f912427edc615cbc876384b7a9570d25c055f3b7e2e4b19e2034`。これは原「必ず32」という期待が契約に対して強すぎる可能性の根拠であり、原r1が実際にその経路で失敗した証拠ではない。
+
+読取り専用の着手前整合で、r2は自己生成`fixture-r2`と専用runに固定し、stage／公開名の両方を同じguard保持中に非置換の四APIで反証する案を確認した。production内部部品は不変とし、既存先衝突、空・過大・不正参照の作成前拒否、全明示close、fresh実体／全bytes照合と四file・空Directoryの限定清掃を維持する。原r1のSource／binary／結果／残存には触れない。
+
+段階、OS error、個別close結果、予想外変更および清掃要求数を`catch_unwind`の外に保持し、失敗でも閉packetへ搬送する。panic本文は搬送しない。失敗時の総合closeは未確認としてnullにするが、既知の個別結果は消さない。清掃途中失敗を「全fixture保持」や「清掃未発行」に戻さず、現在の明示不存在／残存／観測不能を別に返す。失敗以降は追加清掃・復元・再試行0。abort／timeout／packet欠落はcatch成功にせずNode側で未確認とする。静的確認後に新しい固定binaryを一回だけ実行する。
+
+### r2で特定した公開名側の保護不足
+
+新しい全局所試験r2は174ms、Native Exit 101／Node Exit 2で停止した。閉packetの解析は成立し、停止段階は`public_delete_open`、OS errorはnull、予想外に取得できたDELETE handleの明示closeはtrueだった。第一stageの四拒否と公開名のwrite-open拒否までは進んだが、公開名のDELETE accessを拒否できなかった。削除・改名の要求はこの段階では発行しておらず、予想外の変更0、清掃発行数0、自作`fixture-r2`は残存。総合closeはnullのまま保持し、既知の六個別close結果を失っていない。
+
+原記録`run-r2.json`（SHA-256 `63da139c7cb50a3d294c1bb79f49e889c4a3546d5561f27b550ff6101d56581a`）へ、静的先行、41入力の前後一致、固定cwd／UTC／実返却を保存した。Source `f291c7…0462`、binary `4ef4d8…4eaa`も別名保存した。r1、readback、mutationの原記録と元fixtureは不変保持している。r2失敗を原r1の特定原因へ遡及せず、DELETE accessの取得を実削除成立に読み替えない。
+
+この結果は、保存元のhandle一件だけから追加公開名の削除用access拒否まで推定できない反例である。全保存・公開OracleはFailのままであり、新しいfixtureの再実行・追加清掃を止め、公開名保護の再設計へ戻す。現在の内部部品は本番未接続で、実Root／marker、Docker、Provider、署名済みRuntimeの変更は0。実Task停止Gateは維持する。
+
+### 公開名guardによるr3の是正計画
+
+同じCHG内で、公開名には追加のREAD／READ_CONTROL guardを取得して保持する。DELETE accessは追加せず、shareREAD／WRITEで元writerとの互換を保ち、DELETE shareを禁止する。元stage guardも保持して内容を守る。取得済みの公開名guardについて原stageの五field・属性・ACL・全bytesをfresh照合し、両名の再読取り後だけ`link_verified`を立てる。要求済み、guard取得済みと照合済みを別に保持し、公開名guard→stageの個別closeと総合結果を残す。
+
+取得前の候補公開gapを名前の連続保護へ読み替えない。取得不能・消失・差替え・観測不能は同じreceiptに残し、Root／marker処置0で停止する。固定版監査ではない読取り専用の計画確認で、最小READ guard案はこの条件付きで採用可能だった。実装中に確認対象Sourceは変わっており、その確認の前後Hash一致は主張しない。r2の実測結論は保存済みSource／binary／原記録だけに限定する。
+
+新しい自己生成`fixture-r3`を専用run／Ownerへ固定し、静的確認後に両名の四反証、非置換衝突、過大入力・不正参照、guardの個別終端と限定清掃を一回確認する。r1／r2残存と記録は不変保持する。成功時の両名保護はこの実測までOPENであり、公開guard取得前の敵対的差替え、別Process、caller再入場、実Recoveryおよび全体品質の成立とは別に扱う。
+
+### r3の局所確認結果
+
+r3は153ms、Native／Node Exit 0、閉packet解析と全局所Oracleが成立した。8192bytesの保存・flush・非置換公開、追加公開名guardの実体・ACL・全bytes照合、stage／公開名の両方でwrite-open／DELETE-open／remove／非置換renameの拒否、既存先衝突と旧bytes不変、空／8193bytes／不正参照の作成前拒否、各guardの個別close、fresh実体／bytes照合後の四自作fileと空Directoryの清掃、終了後の直接不存在を確認した。清掃要求数は5、予想外変更0。個別closeの記録には同じguardの再確認と読取りhandleも含み、その件数を実資源数へ読み替えない。
+
+Rust Formatter／Clippy、Node Ownerの型・Formatter／Lintを先行し、新しい固定binaryを一回だけ実行した。45入力のHashはその前後とNative既存試験後で一致した。Sourceは`76022c38c7859aceed0f15778109ddf5f495f7da6342b63f37a3c27ff8599991`、binaryは`50677fd56a710b58001420c945c53c31b218567ec205be6ddb7aedd32d9b8d0a`。Native既定回帰は28件Pass、Fail 0、明示ignored 13件、0.34秒だった。今回の専用fixtureは別実行であり、ignoredを実施済みに数えない。Docker実操作、Provider、署名Runtime、全E2Eは実行していない。
+
+八file指定のscoped Checkerは24853ms、Exit 0、Finding／Warning 0。展開84Markdown、9079リンク・497anchorを確認した。実行入力の本記録Hashは`5c00c7c3098b07ef3716e2967e9b51220a4c53ca79c086c580b55dbcb3ceffea`であり、結果追記後の本文をその入力へ遡及しない。原記録`run-r3.json`（SHA-256 `53b3707f52196ac7adc650186c30082a3826e5731d79ab4957b88783aae0f423`）は旧Fail記録とは別に保持する。実cwd、UTC、実返却、主要Tool／設定を識別したが、全推移的依存・環境全体の固定ではない。
+
+**現在状態: Native内部保存部品の静的・局所自己確認済み。新固定八fileの三観点独立確認待ち。** 原r1の原因不明とr2のFailを保持し、過去へPassを補完しない。今回の成立は成功照合後・二guard保持中の同一Process反証に限る。公開名guard取得前の敵対的差替え、別Process、初期化途中、stageの連続保護付き除去、caller耐久参照・容量、再入場、全consumer、旧三Root、実Recovery／全E2Eと品質件数は未成立である。
+
+### 保存部品の初回独立確認と検証記録の是正
+
+固定八fileを三観点で確認した初回独立判定はFailだった。技術と51文書／追跡は限定Pass、品質／53直接影響で次の二不足を検出した。Source不具合の検出はなく、r3の153ms局所結果、28件の既存Passと13件ignored、旧失敗および未接続境界は維持した。開始・終了HEADは`e149991815cc22ff55fa749d652f6cd624434fce`、八対象と六原記録のHashは前後一致した。
+
+| 指摘 | 原因と是正 | 変更しない範囲 |
+|---|---|---|
+| TP-Q01 | 後段Checkerの`final-checks.json`には実入力・待機返却・外側時点が不足した。旧記録を保持し、一時storeに残った実入力と返却を別記録へ移した。旧完了直後UTCは未保存と明示し、内部時計から復元しない。新しい読取り専用Checkerには実入力、cwd、環境設定、開始・終了時計、初回および全待機返却、八対象とHEADの前後照合を結合した。 | 旧記録、Source、Oracle、品質件数と停止Gate。 |
+| TP-Q02 | `cargo fmt`／`cargo clippy`の実入口を前後入力へ含めていなかった。指定toolchainの`cargo-fmt.exe`／`cargo-clippy.exe`と既存検証器の解決先・Hashを含む47入力を、Formatter／Clippyの新しい実入力・cwd・UTC・完結返却へ結合した。 | 旧r3の入力と153ms実測、fixture、既存残存および全推移的依存の未固定。 |
+
+三観点の全結果を統合し、上の一括是正方針を確認者へ再提示して着手可・追加競合なしを確認してから実施した。新しいFormatter／ClippyはExit 0、読取り専用CheckerもExit 0、Finding／Warning 0だった。完全な開始・終了記録を持つ後段Checkerは22419ms、展開84Markdown・9079リンク・497anchor。開始前と完了後のHEADおよび47入力Hashは一致し、r3 Source `76022c38c7859aceed0f15778109ddf5f495f7da6342b63f37a3c27ff8599991`は不変だった。Native fixture、既存Native回帰、Docker、Provider、実三Root、署名Runtimeは再実行・変更していない。
+
+旧`final-checks.json`はSHA-256 `8a03c9f90aacd066e88c8dfb42b6bc4c4419db9ab17116cb0ccf1c6ac60c5f64`のまま保持する。旧実入力の別保存`legacy-final-invocation.json`は`b5f97c5a7f131af438258d5a6edf641990bd0fb40192f830db4cc40167f2cfcc`、新しい静的・Checker記録`new-static-checks.json`は`1d827a52a8a95d670fb33871d068aa2d042fbfd54d99595ae8e8088c85754892`。いずれも前掲Repository-local検証Directory内に保持し、旧入力の不足を新結果で遡及補完しない。新実行の本記録入力Hashは`cf0f2ce6b5a8da9cd11b4967d13fbb76de6959babf0999d4ef3b748bd3d273cb`であり、本節追記後の確認版とは別である。
+
+現在は二指摘に対する新自己確認済みであり、新固定八fileの三観点再確認待ちである。解消・限定Pass・完了Checklistへ先行して書き戻さず、本番接続、公開前競合、別Process、stage連続保護付き除去、耐久参照、容量、初期化、再入場、旧三Root、実Recoveryと全体品質のOPENを維持する。
+
+### 保存部品の新固定候補の独立再確認結果
+
+新固定八fileの技術、51文書／追跡、品質／53直接影響の全結果を統合し、いずれも限定Pass、新Finding 0、TP-Q01／TP-Q02はResolvedだった。開始・終了HEADは`e149991815cc22ff55fa749d652f6cd624434fce`、八対象・旧六原記録・新二原記録のHashはすべて指定値と一致し、不変だった。確認版の本記録は`151131e866cd9baf5c9f486f93ad332cd0e82d52afc3254954885f357fa104c9`、QAは`95757f474cf695debf26aa6b258b1ff5654981d539a7e2b9a8c610ffad418ffd`。他六対象は前掲の新実行記録と同じであり、Sourceは`76022c38c7859aceed0f15778109ddf5f495f7da6342b63f37a3c27ff8599991`のままだった。
+
+確認者は同じreceipt、Pending時のmemory／handle寿命、両guard相関、非置換公開・個別close、旧Fail保持、実入口と前後識別、完全Checker搬送および未接続境界を照合した。編集・再実行・外部／実資源操作はしていない。旧完了直後UTCを補完せず、新しい別実行によって記録不足を処置した。本節・該当Checklist一行、および現在形の確認待ちを実行時履歴と限定結果参照へ直すQAの指定一文だけを書き戻す方針を、三観点で追加確認し、許容・新Finding 0だった。
+
+限定Passはこの私有部品と局所結果・追跡の確認に限る。初回Fail、r1原因不明、旧入力不足、公開guard取得前の競合、別Process、stage連続保護付き除去、caller耐久接続・容量、初期化・再入場、全consumer、旧三Root、実Recovery／全E2Eおよび全体品質のOPENは不変である。Source、登録、原記録、品質件数、署名、Authorityと停止Gateを変更せず、新しい人間判断は不要である。
+
 ## Checklist
+
 
 - [x] 同じCHGのIntent、限定対象、対象外と人間承認を記録した。
 - [x] 元の回復Authorityと新しい保守候補を区別した。
@@ -763,4 +862,6 @@ TC-Q02では、TS入口→`lib/tsc.js`→packageが指定する`lib/getExePath.j
 - [x] 別Processの新固定版r5を三観点で独立確認し、限定Pass・Finding 0を記録した。役割別receiptとProcess／Job終端をfixture handle closeと区別し、本番・旧Root・全体品質の未成立を保持した。
 - [x] 終端intent codecと正方向登録の新固定八fileを三観点で独立再確認し、二指摘解消・限定Pass・新Finding 0を記録した。本番・実Recovery・PRL-UT-006全義務の未成立、初回Failと旧原記録を保持した。
 - [ ] OPEN: 旧形式の非使用、初期化排他、OS処置境界、保護済み再入場、SPEC／Workflow・公開入口と実境界検証が未成立。根拠取得後に同じCHGで接続する。
+- [x] Native保存・公開のr1／r2失敗とr3局所成立を分け、公開名保護不足を是正し、主要入力の前後一致と明示close／自作対象の限定清掃を記録した。
+- [x] Native保存部品の新固定八fileを三観点で独立再確認し、二指摘解消・限定Pass・新Finding 0を記録した。本番・実Recovery・Local Item全義務と全体品質の未成立は保持した。
 - [ ] OPEN: 実在三件のexact処置承認と清掃未実施。必要保証成立後に対象を提示し、別に承認を得る。
