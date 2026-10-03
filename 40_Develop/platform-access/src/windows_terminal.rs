@@ -7,7 +7,7 @@
 use super::*;
 use std::path::Component;
 use windows_sys::Wdk::Storage::FileSystem::{
-    FILE_LINK_INFORMATION, FileLinkInformation, NtSetInformationFile,
+    FILE_RENAME_INFORMATION, FileRenameInformation, NtSetInformationFile,
 };
 use windows_sys::Win32::Foundation::{STATUS_PENDING, WAIT_OBJECT_0};
 use windows_sys::Win32::Storage::FileSystem::{
@@ -22,7 +22,7 @@ const MAX_RECORD_BYTES: usize = 8192;
 ///
 /// @responsibility 失敗後にも発行済み処置を保持する。
 /// @trace ARCH-000008
-/// @shape 参照、各処置の発行、公開名guard取得、公開照合、二handleと総合終了の確認。
+/// @shape 参照、各処置の発行、最終NTSTATUS、stage不存在・public照合とreader/writer終了の確認。
 /// @invariant 発行済みの値を未発行へ戻さず、公開照合を回復成功にしない。
 /// @boundary 私有Native記録処理→呼出し元の耐久接続。
 /// @security 参照は非Authorityであり秘密値を持たない。
@@ -33,11 +33,12 @@ struct TerminalReceipt {
     stage_created: bool,
     write_issued: bool,
     flush_issued: bool,
-    link_issued: bool,
-    public_guard_acquired: bool,
-    link_verified: bool,
-    public_guard_close_confirmed: Option<bool>,
-    stage_handle_close_confirmed: Option<bool>,
+    rename_issued: bool,
+    rename_nt_status: Option<i32>,
+    stage_absence_verified: bool,
+    publication_verified: bool,
+    reader_close_confirmed: Option<bool>,
+    record_handle_close_confirmed: Option<bool>,
     handle_close_confirmed: Option<bool>,
 }
 
@@ -78,15 +79,14 @@ struct TerminalDirectory {
 ///
 /// @responsibility 書込みから公開照合まで同じfile objectを保持する。
 /// @trace ARCH-000008
-/// @shape 親借用、stage handle、追加公開名のread guard、参照由来の二名、五field Identity、単調receipt。
-/// @invariant handleを外へ出さず、stageのshareREADと同期modeを変更しない。公開照合前に公開名guardを取得する。
+/// @shape 親借用、唯一のwriter handle、参照由来のstage/public名、五field Identity、単調receipt。
+/// @invariant handleを外へ出さず、同じwriterのshareREADと同期modeを公開照合後も維持する。
 /// @boundary Windows記録部品。唯一の現在consumerは自己生成fixture。
-/// @security DELETE accessはlinkの内部前提であり公開削除Authorityではない。
-/// @compatibility stage除去・caller耐久接続・公開Native Protocolは未接続。
+/// @security DELETE accessはrenameの内部前提であり公開削除Authorityではない。
+/// @compatibility 旧hardlink二名の移行、caller耐久接続・公開Native Protocolは未接続。
 struct TerminalStage<'a> {
     directory: &'a TerminalDirectory,
     handle: OwnedHandle,
-    public_handle: Option<OwnedHandle>,
     stage_name: String,
     public_name: String,
     identity: DirectoryIdentity,
@@ -534,11 +534,12 @@ impl<'a> TerminalStage<'a> {
             stage_created: false,
             write_issued: false,
             flush_issued: false,
-            link_issued: false,
-            public_guard_acquired: false,
-            link_verified: false,
-            public_guard_close_confirmed: None,
-            stage_handle_close_confirmed: None,
+            rename_issued: false,
+            rename_nt_status: None,
+            stage_absence_verified: false,
+            publication_verified: false,
+            reader_close_confirmed: None,
+            record_handle_close_confirmed: None,
             handle_close_confirmed: None,
         };
         let prepared = (|| {
@@ -582,7 +583,6 @@ impl<'a> TerminalStage<'a> {
         let mut stage = Self {
             directory,
             handle: created,
-            public_handle: None,
             stage_name,
             public_name,
             identity: directory.identity,
@@ -636,24 +636,24 @@ impl<'a> TerminalStage<'a> {
         Ok(stage)
     }
 
-    /// 同じ保持fileに同Directoryの非置換linkを追加し、二名を照合する。
+    /// 同じwriterを保持したまま非置換renameし、公開名を照合する。
     ///
-    /// @responsibility 公開要求と公開照合を別receiptにする。
+    /// @responsibility rename要求・返却・stage不存在・public相関を別receiptへ保持する。
     /// @trace ARCH-000008
     /// @input 自己所有stageと作成時と同じ期待bytes。
-    /// @returns 完全照合か同じ参照/発行済み処置付き失敗。
-    /// @precondition stage同期handle/親chain生存、caller側の同じ参照と容量予約が有効。
-    /// @postcondition class11/ReplaceIfExists=false/同Directoryの単純leafのみ。公開名read guardはshareREAD|WRITEでDELETE shareを与えない。
-    /// @effect exact fileへのlink作成を一回要求し、二名をreadbackする。
-    /// @failure NTSTATUS、close、Identity/bytes不明は失敗。別名再発行や削除をしない。
-    /// @invariant stageの除去とRoot/marker処置は実装しない。公開名guard取得前のgapを成功や連続した名前保護へ昇格しない。
-    /// @boundary Native→NtSetInformationFile/Windows file readback。
-    /// @security 置換/Ex/POSIX/Bypassを使わず既存公開先を上書きしない。
-    /// @concurrency 同期handleとrequest memoryを実終端まで保持する。
+    /// @returns 完全照合、または同じ参照と発行済み処置付き失敗。
+    /// @precondition 同期writer/親chain生存、callerの同じ参照と容量予約が有効。
+    /// @postcondition class10/ReplaceIfExists=false/同Directoryの単純leafに限定する。
+    /// @effect 同handleのrenameを一回要求し、公開名をfresh readbackする。
+    /// @failure NTSTATUS、stage存在/観測不能、Identity/bytes、reader close不明で停止する。
+    /// @invariant 失敗後の再rename、復元、別参照、清掃とRoot/marker処置をしない。
+    /// @boundary Native→NtSetInformationFile/Windows metadata/readback。
+    /// @security Ex/POSIX/Bypass/置換を使わず、writerを閉じて名前を収束させない。
+    /// @concurrency 同期handleとrequest memoryを実終端まで保持する。不存在は観測時点の事実。
     fn publish(&mut self, bytes: &[u8]) -> Result<(), TerminalFailure> {
         let result = (|| {
-            if self.receipt.link_issued {
-                return Err("terminal_link_already_issued");
+            if self.receipt.rename_issued {
+                return Err("terminal_rename_already_issued");
             }
             self.directory.verify()?;
             self.verify_identity()?;
@@ -661,18 +661,17 @@ impl<'a> TerminalStage<'a> {
                 return Err("terminal_bytes_mismatch");
             }
             let name: Vec<u16> = self.public_name.encode_utf16().collect();
-            let offset = std::mem::offset_of!(FILE_LINK_INFORMATION, FileName);
-            let length = offset
+            let offset = std::mem::offset_of!(FILE_RENAME_INFORMATION, FileName);
+            let length = size_of::<FILE_RENAME_INFORMATION>()
                 .checked_add(
                     name.len()
                         .checked_mul(2)
-                        .ok_or("terminal_link_size_invalid")?,
+                        .ok_or("terminal_rename_size_invalid")?,
                 )
-                .ok_or("terminal_link_size_invalid")?
-                .max(size_of::<FILE_LINK_INFORMATION>());
+                .ok_or("terminal_rename_size_invalid")?;
             let mut storage = vec![0_usize; length.div_ceil(size_of::<usize>())];
-            let pointer = storage.as_mut_ptr().cast::<FILE_LINK_INFORMATION>();
-            // SAFETY: usize alignment satisfies HANDLE/LONG alignment; zero allocation is large enough.
+            let pointer = storage.as_mut_ptr().cast::<FILE_RENAME_INFORMATION>();
+            // SAFETY: aligned, zeroed SDK struct plus the complete bounded UTF-16 leaf.
             unsafe {
                 (*pointer).Anonymous.ReplaceIfExists = false;
                 (*pointer).RootDirectory = null_mut();
@@ -684,24 +683,24 @@ impl<'a> TerminalStage<'a> {
                 );
             }
             let mut io_status = IO_STATUS_BLOCK::default();
-            self.receipt.link_issued = true;
-            // SAFETY: private synchronous source handle; simple leaf resolves in its existing directory.
-            // Buffer and IO_STATUS stay alive through any unexpected pending completion.
+            self.receipt.rename_issued = true;
+            // SAFETY: private synchronous handle; simple leaf stays in its existing Directory.
+            // Request storage and IO_STATUS stay alive until actual completion.
             let status = unsafe {
                 NtSetInformationFile(
                     self.handle.0,
                     &mut io_status,
                     pointer.cast(),
                     length as u32,
-                    FileLinkInformation,
+                    FileRenameInformation,
                 )
             };
             let completion = if status == STATUS_PENDING {
-                // SAFETY: same request/handle are held; no hard OS-I/O deadline is claimed.
+                // SAFETY: same handle owns its only pending request; no hard deadline is claimed.
                 if unsafe { WaitForSingleObject(self.handle.0, INFINITE) } != WAIT_OBJECT_0 {
                     std::process::abort();
                 }
-                // SAFETY: signalled I/O handle has completed its only request.
+                // SAFETY: the signalled handle has settled the request.
                 let completed = unsafe { io_status.Anonymous.Status };
                 if completed == STATUS_PENDING {
                     std::process::abort();
@@ -710,59 +709,46 @@ impl<'a> TerminalStage<'a> {
             } else {
                 status
             };
+            self.receipt.rename_nt_status = Some(completion);
             if completion != 0 {
-                return Err("terminal_link_not_verified");
+                return Err("terminal_rename_not_verified");
             }
-            // Publication is still provisional. Original shareREAD protects bytes,
-            // but does not by itself prove protection of this added link name.
-            // Existing writer needs shareWRITE in this new reader's sharing mode.
-            let public_guard = open_terminal_handle(
+            match std::fs::symlink_metadata(self.directory.path.join(&self.stage_name)) {
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                    self.receipt.stage_absence_verified = true;
+                }
+                Ok(_) => return Err("terminal_stage_still_present"),
+                Err(_) => return Err("terminal_stage_absence_unknown"),
+            }
+            let mut reader = open_terminal_handle(
                 &self.directory.path.join(&self.public_name),
                 FILE_GENERIC_READ | READ_CONTROL,
-                FILE_SHARE_READ | FILE_SHARE_WRITE,
+                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
             )?;
-            self.public_handle = Some(public_guard);
-            self.receipt.public_guard_acquired = true;
-            let public_handle = self.public_handle.as_ref().unwrap().0;
-            if terminal_identity(public_handle)? != self.identity {
-                return Err("terminal_public_guard_identity_mismatch");
-            }
-            verify_terminal_protection(
-                public_handle,
-                &self.directory.user,
-                &self.directory.system,
-            )?;
-            if read_terminal_bytes(public_handle)? != bytes {
-                return Err("terminal_public_guard_bytes_mismatch");
-            }
-            for name in [&self.stage_name, &self.public_name] {
-                let mut reader = open_terminal_handle(
-                    &self.directory.path.join(name),
-                    FILE_GENERIC_READ | READ_CONTROL,
-                    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                )?;
-                let observed = (|| {
-                    if terminal_identity(reader.0)? != self.identity {
-                        return Err("terminal_link_identity_mismatch");
-                    }
-                    verify_terminal_protection(
-                        reader.0,
-                        &self.directory.user,
-                        &self.directory.system,
-                    )?;
-                    if read_terminal_bytes(reader.0)? != bytes {
-                        return Err("terminal_link_bytes_mismatch");
-                    }
-                    Ok(())
-                })();
-                if !close_terminal_handle(&mut reader) {
-                    return Err("terminal_reader_close_unknown");
+            let observed = (|| {
+                if terminal_identity(reader.0)? != self.identity {
+                    return Err("terminal_public_identity_mismatch");
                 }
-                observed?;
+                verify_terminal_protection(reader.0, &self.directory.user, &self.directory.system)?;
+                if read_terminal_bytes(reader.0)? != bytes {
+                    return Err("terminal_public_bytes_mismatch");
+                }
+                Ok(())
+            })();
+            let reader_closed = close_terminal_handle(&mut reader);
+            self.receipt.reader_close_confirmed = Some(reader_closed);
+            if !reader_closed {
+                return Err("terminal_reader_close_unknown");
             }
+            observed?;
             self.verify_identity()?;
             self.directory.verify()?;
-            self.receipt.link_verified = true;
+            match std::fs::symlink_metadata(self.directory.path.join(&self.stage_name)) {
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Ok(_) => return Err("terminal_stage_still_present"),
+                Err(_) => return Err("terminal_stage_absence_unknown"),
+            }
+            self.receipt.publication_verified = true;
             Ok(())
         })();
         result.map_err(|reason| TerminalFailure {
@@ -773,7 +759,7 @@ impl<'a> TerminalStage<'a> {
 
     /// 保持fileの実体と保護を再確認する。
     ///
-    /// @responsibility 同じfileへのwrite/link/readbackの相関を確認する。
+    /// @responsibility 同じfileへのwrite/rename/readbackの相関を確認する。
     /// @trace ARCH-000011
     /// @input 私有stage。
     /// @returns 一致または固定失敗。
@@ -799,8 +785,8 @@ impl<'a> TerminalStage<'a> {
     /// @input 一意所有stage。
     /// @returns 初回終了確認の値。
     /// @precondition 保留I/Oの実終端を確認済み。
-    /// @postcondition 二handleそれぞれの成功/unknownと総合値をreceiptへ保持する。
-    /// @effect 初回だけ公開名guard→stageの順にCloseHandleを発行する。前段失敗でも後段を試行する。
+    /// @postcondition 公開照合readerの既知結果とwriterの個別close/総合値をreceiptへ保持する。
+    /// @effect 初回だけ唯一のwriterへCloseHandleを発行する。reader不明を総合成功にしない。
     /// @failure unknownはfalseのまま保持する。
     /// @invariant stage/public名を削除しない。
     /// @boundary Native→CloseHandle。
@@ -810,16 +796,9 @@ impl<'a> TerminalStage<'a> {
         if let Some(closed) = self.receipt.handle_close_confirmed {
             return closed;
         }
-        let public_closed = if let Some(handle) = self.public_handle.as_mut() {
-            let closed = close_terminal_handle(handle);
-            self.receipt.public_guard_close_confirmed = Some(closed);
-            closed
-        } else {
-            true
-        };
-        let stage_closed = close_terminal_handle(&mut self.handle);
-        self.receipt.stage_handle_close_confirmed = Some(stage_closed);
-        let closed = public_closed & stage_closed;
+        let record_closed = close_terminal_handle(&mut self.handle);
+        self.receipt.record_handle_close_confirmed = Some(record_closed);
+        let closed = record_closed & self.receipt.reader_close_confirmed.unwrap_or(true);
         self.receipt.handle_close_confirmed = Some(closed);
         closed
     }
@@ -889,7 +868,7 @@ mod tests {
     const REFERENCE: &str = "host-terminal.219b9b53-f1e6-4e78-89ab-93d4a9ec3001";
     const COLLISION_REFERENCE: &str = "host-terminal.219b9b53-f1e6-4e78-89ab-93d4a9ec3002";
     const UNUSED_REFERENCE: &str = "host-terminal.219b9b53-f1e6-4e78-89ab-93d4a9ec3003";
-    const RUN: &str = "publication.261003.219b9b53.r3";
+    const RUN: &str = "publication.261003.219b9b53.r4";
     const PARENT: &str =
         "C:/project/CRDD/.crdd/verification/chg-000082-terminal-publication-261003";
 
@@ -1388,7 +1367,7 @@ mod tests {
         use windows_sys::Wdk::Storage::FileSystem::{
             FILE_RENAME_INFORMATION, FileRenameInformation,
         };
-        assert!(!*issued && !stage.receipt.link_issued && stage.public_handle.is_none());
+        assert!(!*issued && !stage.receipt.rename_issued && !stage.receipt.publication_verified);
         let (expected_stage, expected_public) = terminal_names(&stage.receipt.reference).unwrap();
         assert_eq!(stage.stage_name, expected_stage);
         assert_eq!(stage.public_name, expected_public);
@@ -1582,16 +1561,12 @@ mod tests {
             phase = "collision_close";
             let closed = collision.close();
             closes.push(("collision_close", closed));
-            assert!(closed && collision.receipt.stage_handle_close_confirmed == Some(true));
+            assert!(closed && collision.receipt.record_handle_close_confirmed == Some(true));
             phase = "stage_close";
             let closed = stage.close();
             closes.push(("stage_close", closed));
-            assert!(closed && stage.receipt.stage_handle_close_confirmed == Some(true));
-            assert!(
-                stage.public_handle.is_none()
-                    && !stage.receipt.link_issued
-                    && !stage.receipt.link_verified
-            );
+            assert!(closed && stage.receipt.record_handle_close_confirmed == Some(true));
+            assert!(!stage.receipt.rename_issued && !stage.receipt.publication_verified);
             drop(collision);
             drop(stage);
             phase = "directory_close";
@@ -1672,16 +1647,56 @@ mod tests {
         assert!(success, "terminal_rename_candidate_unconfirmed");
     }
 
+    /// 固定fixtureの同じ参照と部分receiptを閉packetへ搬送する。
+    ///
+    /// @responsibility panic後にも最後に取得した処置・確認を失わない。
+    /// @trace ERB-IT-001
+    /// @trace ERB-IT-002
+    /// @precondition fixtureの二つの固定UUID参照だけを扱う。
+    /// @stimulus 取得済みreceiptを固定field順のJSONへ変換する。
+    /// @observation 未取得と既知false/true、最終NTSTATUSとclose不明を区別する。
+    /// @oracle 発行や確認の値を成功補完しない。
+    /// @cleanup N/A: memory上の変換だけ。
+    /// @boundary 私有試験receipt→Nodeの閉じた解析。
+    fn fixture_receipt_json(receipt: &Option<TerminalReceipt>) -> String {
+        let Some(receipt) = receipt else {
+            return "null".to_owned();
+        };
+        assert!(terminal_names(&receipt.reference).is_ok());
+        let optional_bool = |value: Option<bool>| {
+            value
+                .map(|v| v.to_string())
+                .unwrap_or_else(|| "null".to_owned())
+        };
+        format!(
+            "{{\"reference\":\"{}\",\"stageCreated\":{},\"writeIssued\":{},\"flushIssued\":{},\"renameIssued\":{},\"renameNtStatus\":{},\"stageAbsenceVerified\":{},\"publicationVerified\":{},\"readerCloseConfirmed\":{},\"recordHandleCloseConfirmed\":{},\"handleCloseConfirmed\":{}}}",
+            receipt.reference,
+            receipt.stage_created,
+            receipt.write_issued,
+            receipt.flush_issued,
+            receipt.rename_issued,
+            receipt
+                .rename_nt_status
+                .map(|v| v.to_string())
+                .unwrap_or_else(|| "null".to_owned()),
+            receipt.stage_absence_verified,
+            receipt.publication_verified,
+            optional_bool(receipt.reader_close_confirmed),
+            optional_bool(receipt.record_handle_close_confirmed),
+            optional_bool(receipt.handle_close_confirmed)
+        )
+    }
+
     /// 自己生成実Windows対象でNative保存・公開primitiveを実行する。
     ///
     /// @responsibility 私有本体を通し、成功/拒否とhandle終端/fixture清掃を別に観測する。
     /// @trace ERB-IT-001
     /// @trace ERB-IT-002
-    /// @precondition exact cwd、r3 run参照、固定run親をNode Ownerが確認し、fixture-r3は明示不存在。r1/r2残存は変更しない。
+    /// @precondition exact cwd、r4 run参照、固定run親をNode Ownerが確認し、fixture-r4は明示不存在。r1/r2残存は変更しない。
     /// @stimulus 8192byte保存/公開、衝突、8193byte/空/不正参照拒否、保持中変更拒否。
     /// @observation 五field、全bytes、protected二ACE、発行receipt、error32、個別close、清掃発行数、現在の不存在/残存/不明。
     /// @oracle 全観測と全close後のfresh照合/清掃/不存在だけで限定observedを出す。Schema/Authority/本番Recoveryは主張しない。
-    /// @cleanup 通常Oracleと全close成立後だけ自己生成四fileと空Directoryを一件ずつ処置する。途中失敗では既発行清掃を保持して追加処置0。
+    /// @cleanup 通常Oracleと全close成立後だけ自己生成三fileと空Directoryを一件ずつ処置する。途中失敗では既発行清掃を保持して追加処置0。
     /// @boundary 固定test binary→Windows local filesystem。署名/公開入口/旧Root/Docker/Providerは未接続。
     #[test]
     #[ignore = "Fixed repository-local fixture; run through its Node owner only"]
@@ -1699,7 +1714,9 @@ mod tests {
         let mut closes = Vec::new();
         let mut cleanup_count = 0_u32;
         let mut mutation_effect = false;
-        let root = Path::new(PARENT).join("fixture-r3");
+        let mut record_receipt: Option<TerminalReceipt> = None;
+        let mut collision_receipt: Option<TerminalReceipt> = None;
+        let root = Path::new(PARENT).join("fixture-r4");
         let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             let parent = Path::new(PARENT);
             let parent_id = observe_fixture_identity(parent, &mut closes);
@@ -1736,47 +1753,82 @@ mod tests {
             let collision_id = create_collision_fixture(&directory, &collision_public, &mut closes);
             let bytes = vec![b'x'; MAX_RECORD_BYTES];
             phase = "stage_create";
-            let mut stage = TerminalStage::create(&directory, REFERENCE, &bytes).unwrap();
+            let created = TerminalStage::create(&directory, REFERENCE, &bytes);
+            let mut stage = match created {
+                Ok(stage) => stage,
+                Err(failure) => {
+                    record_receipt = Some(failure.receipt);
+                    panic!("publication_stage_create_unconfirmed");
+                }
+            };
+            record_receipt = Some(stage.receipt.clone());
             assert!(
                 stage.receipt.stage_created
                     && stage.receipt.write_issued
                     && stage.receipt.flush_issued
             );
-            assert!(!stage.receipt.link_issued && !stage.receipt.link_verified);
+            assert!(!stage.receipt.rename_issued && !stage.receipt.publication_verified);
             phase = "stage_publish";
-            stage.publish(&bytes).unwrap();
-            assert!(stage.receipt.link_issued && stage.receipt.link_verified);
-            assert!(stage.receipt.public_guard_acquired && stage.public_handle.is_some());
+            let published = stage.publish(&bytes);
+            record_receipt = Some(stage.receipt.clone());
+            published.unwrap();
+            assert!(stage.receipt.rename_issued && stage.receipt.publication_verified);
+            assert_eq!(stage.receipt.rename_nt_status, Some(0));
+            assert!(stage.receipt.stage_absence_verified);
+            assert_eq!(stage.receipt.reader_close_confirmed, Some(true));
             let identity = stage.identity;
             let stage_name = stage.stage_name.clone();
             let public_name = stage.public_name.clone();
-            for (public, name) in [(false, &stage_name), (true, &public_name)] {
-                assert_fixture_mutation_rejected(
-                    &root.join(name),
-                    public,
-                    &mut phase,
-                    &mut os_error,
-                    &mut closes,
-                    &mut mutation_effect,
-                );
-            }
+            assert_eq!(
+                fs::symlink_metadata(root.join(&stage_name))
+                    .err()
+                    .map(|e| e.kind()),
+                Some(std::io::ErrorKind::NotFound)
+            );
+            assert_fixture_mutation_rejected(
+                &root.join(&public_name),
+                true,
+                &mut phase,
+                &mut os_error,
+                &mut closes,
+                &mut mutation_effect,
+            );
             phase = "repeated_publish";
             let repeated = stage.publish(&bytes).unwrap_err();
-            assert_eq!(repeated.reason, "terminal_link_already_issued");
+            assert_eq!(repeated.reason, "terminal_rename_already_issued");
             assert_eq!(repeated.receipt, stage.receipt);
             phase = "collision_stage_create";
-            let mut collision =
-                TerminalStage::create(&directory, COLLISION_REFERENCE, b"new").unwrap();
+            let created = TerminalStage::create(&directory, COLLISION_REFERENCE, b"new");
+            let mut collision = match created {
+                Ok(stage) => stage,
+                Err(failure) => {
+                    collision_receipt = Some(failure.receipt);
+                    panic!("publication_collision_stage_unconfirmed");
+                }
+            };
+            collision_receipt = Some(collision.receipt.clone());
             let collision_stage_id = collision.identity;
             phase = "collision_publish";
-            let rejected = collision.publish(b"new").unwrap_err();
-            assert_eq!(rejected.reason, "terminal_link_not_verified");
+            let publication = collision.publish(b"new");
+            collision_receipt = Some(collision.receipt.clone());
+            let rejected = publication.unwrap_err();
+            assert_eq!(rejected.reason, "terminal_rename_not_verified");
             assert!(
                 rejected.receipt.stage_created
-                    && rejected.receipt.link_issued
-                    && !rejected.receipt.link_verified
+                    && rejected.receipt.rename_issued
+                    && !rejected.receipt.publication_verified
             );
-            assert!(!rejected.receipt.public_guard_acquired && collision.public_handle.is_none());
+            assert_eq!(
+                rejected.receipt.rename_nt_status,
+                Some(windows_sys::Win32::Foundation::STATUS_OBJECT_NAME_COLLISION)
+            );
+            assert!(!rejected.receipt.stage_absence_verified);
+            assert_eq!(rejected.receipt.reader_close_confirmed, None);
+            assert_eq!(
+                observe_fixture_identity(&root.join(&collision_stage), &mut closes),
+                collision_stage_id
+            );
+            assert_eq!(read_terminal_bytes(collision.handle.0).unwrap(), b"new");
             assert_eq!(
                 observe_fixture_identity(&root.join(&collision_public), &mut closes),
                 collision_id
@@ -1795,7 +1847,7 @@ mod tests {
                     !failure.receipt.stage_created
                         && !failure.receipt.write_issued
                         && !failure.receipt.flush_issued
-                        && !failure.receipt.link_issued
+                        && !failure.receipt.rename_issued
                 );
             }
             phase = "created_names";
@@ -1804,48 +1856,47 @@ mod tests {
                 .map(|e| e.unwrap().file_name())
                 .collect();
             observed_names.sort();
-            let mut expected_names: Vec<_> = [
-                &stage_name,
-                &public_name,
-                &collision_stage,
-                &collision_public,
-            ]
-            .into_iter()
-            .map(OsString::from)
-            .collect();
+            let mut expected_names: Vec<_> = [&public_name, &collision_stage, &collision_public]
+                .into_iter()
+                .map(OsString::from)
+                .collect();
             expected_names.sort();
             assert_eq!(observed_names, expected_names);
             phase = "collision_close";
             let closed = collision.close();
+            collision_receipt = Some(collision.receipt.clone());
             closes.push(("collision_close", closed));
-            if let Some(value) = collision.receipt.stage_handle_close_confirmed {
+            if let Some(value) = collision.receipt.record_handle_close_confirmed {
                 closes.push(("collision_source_close", value));
             }
             assert!(closed);
             phase = "collision_close";
             let closed = collision.close();
+            collision_receipt = Some(collision.receipt.clone());
             closes.push(("collision_close", closed));
             assert!(closed);
             assert_eq!(collision.receipt.handle_close_confirmed, Some(true));
-            assert_eq!(collision.receipt.stage_handle_close_confirmed, Some(true));
-            assert_eq!(collision.receipt.public_guard_close_confirmed, None);
+            assert_eq!(collision.receipt.record_handle_close_confirmed, Some(true));
+            assert_eq!(collision.receipt.reader_close_confirmed, None);
             phase = "stage_close";
             let closed = stage.close();
+            record_receipt = Some(stage.receipt.clone());
             closes.push(("stage_close", closed));
-            if let Some(value) = stage.receipt.public_guard_close_confirmed {
-                closes.push(("stage_public_guard_close", value));
+            if let Some(value) = stage.receipt.reader_close_confirmed {
+                closes.push(("stage_reader_close", value));
             }
-            if let Some(value) = stage.receipt.stage_handle_close_confirmed {
+            if let Some(value) = stage.receipt.record_handle_close_confirmed {
                 closes.push(("stage_source_close", value));
             }
             assert!(closed);
             phase = "stage_close";
             let closed = stage.close();
+            record_receipt = Some(stage.receipt.clone());
             closes.push(("stage_close", closed));
             assert!(closed);
             assert_eq!(stage.receipt.handle_close_confirmed, Some(true));
-            assert_eq!(stage.receipt.stage_handle_close_confirmed, Some(true));
-            assert_eq!(stage.receipt.public_guard_close_confirmed, Some(true));
+            assert_eq!(stage.receipt.record_handle_close_confirmed, Some(true));
+            assert_eq!(stage.receipt.reader_close_confirmed, Some(true));
             drop(collision);
             drop(stage);
             phase = "directory_close";
@@ -1859,7 +1910,6 @@ mod tests {
             drop(directory);
             phase = "cleanup_file";
             for (name, expected_id, expected_bytes) in [
-                (&stage_name, identity, bytes.as_slice()),
                 (&public_name, identity, bytes.as_slice()),
                 (&collision_stage, collision_stage_id, b"new".as_slice()),
                 (&collision_public, collision_id, b"prior".as_slice()),
@@ -1895,7 +1945,7 @@ mod tests {
         };
         let success = outcome.is_ok()
             && presence == "absent"
-            && cleanup_count == 5
+            && cleanup_count == 4
             && !mutation_effect
             && closes.iter().all(|(_, value)| *value);
         let close_rows: Vec<_> = closes
@@ -1905,7 +1955,7 @@ mod tests {
             })
             .collect();
         println!(
-            "\n{{\"contract\":\"crdd-native/terminal-publication-fixture\",\"status\":\"{}\",\"phase\":\"{}\",\"osError\":{},\"maximumBytes\":8192,\"noReplaceVerified\":{},\"heldMutationRejected\":{},\"allCheckedClosesConfirmed\":{},\"closeResults\":[{}],\"cleanupIssuedCount\":{},\"unexpectedMutationEffectIssued\":{},\"fixturePresence\":\"{}\",\"productionIntegrationVerified\":false,\"stageUnlinkWhileHeldVerified\":false}}",
+            "\n{{\"contract\":\"crdd-native/terminal-rename-publication-fixture\",\"status\":\"{}\",\"phase\":\"{}\",\"osError\":{},\"maximumBytes\":8192,\"noReplaceVerified\":{},\"heldMutationRejected\":{},\"allCheckedClosesConfirmed\":{},\"closeResults\":[{}],\"cleanupIssuedCount\":{},\"unexpectedMutationEffectIssued\":{},\"fixturePresence\":\"{}\",\"productionIntegrationVerified\":false,\"stageAbsenceWhileHeldVerified\":{},\"recordReceipt\":{},\"collisionReceipt\":{}}}",
             if success { "observed" } else { "unconfirmed" },
             phase,
             os_error
@@ -1917,7 +1967,10 @@ mod tests {
             close_rows.join(","),
             cleanup_count,
             mutation_effect,
-            presence
+            presence,
+            success,
+            fixture_receipt_json(&record_receipt),
+            fixture_receipt_json(&collision_receipt)
         );
         assert!(success, "terminal_publication_unconfirmed");
     }

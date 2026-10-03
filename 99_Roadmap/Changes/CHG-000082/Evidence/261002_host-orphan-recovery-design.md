@@ -874,6 +874,42 @@ Rust Formatter／ClippyとNode Ownerの型・Formatter／Lintを先行した。�
 
 書戻しは本節とChecklist一行に限定し、三観点で許容を確認した。Source、productionのhardlink契約、QA件数、旧記録、署名、Authorityと実Task停止Gateは変更しない。限定Passは同一Process・自己生成対象・同writer保持中の候補だけに適用し、本番採用、別Process、Process喪失、cold再入場、caller耐久接続・容量、初期化、全consumer、旧三Root非使用／実処置、実Recovery／全E2EのOPENは維持する。現在、新しい人間判断は不要である。
 
+## 私有保存部品への改名方式の反映計画
+
+基準は`a596ac82d611db6aa049fb7c2abfd03079cd377c`。次単位は私有`publish`を同handleのclass10・非置換renameへ置換する実装変更であり、公開Recoveryへの採用ではない。着手前の読取り専用確認で、下表の補強を条件に着手可だった。親はplatform／coordinator Details、QAの限定ITと前単位のSource・実測へ照合し、旧Capabilityの完全write／flush／readback、非置換、保持中のbytes／名保護、部分receiptと明示closeを新方式へ対応付けた。旧二名への再入場は方式・producer版との整合が未成立のため移行しない。
+
+| 編集の一次対象 | 予定処置と保持条件 |
+|---|---|
+| Native私有保存部品 | rename要求済み、最終NTSTATUS、stage不存在確認、public相関確認、reader／writer個別closeを分ける。元writerを唯一の保護Ownerとして保持し、追加public guardを除去する。 |
+| 新full fixtureと専用Owner | 候補helperでなくpublish本体を直接通す。正常、衝突、処置前拒否、重複要求拒否と部分receiptを新fresh対象・新閉packetへ結合する。 |
+| platform／coordinator Details | 方式の現行責務と本番未接続を整合させる。stage不存在を観測時点の事実とし、後続stage新規作成禁止やclose後不変性にしない。 |
+| QAの限定検証説明 | 保持中stage不存在・public照合、三file清掃を新方式へ接続する。旧hardlink結果は履歴として保持し、Local Item全義務と品質件数を更新しない。 |
+| 本記録 | 静的先行、新固定binary一回、実入力／返却／前後識別、新三観点独立確認を記録する。旧Source／binary／原記録・旧fixtureは不変。 |
+
+rename後の観測不能では、成立可能性と同じ参照・発行済みEffectを保持し、再rename、別参照、復元、清掃とRoot処置を止める。close不明は単調保持し、Dropを成功Oracleにしない。Process喪失ではstageのみ／publicのみ／未知を推測せず、caller耐久参照・cold再入場をOPENのまま維持する。Cargo版・feature、codec、参照形式、公開dispatch、OS namespace、容量、全consumer、旧三Root、Docker／Provider／署名、Authorityと停止Gateは変更しない。
+
+技術、51文書／追跡、品質／53直接影響の新固定集合を完成後に独立確認する。専門安全性・lifecycleをこの三観点へ含めるが、公開Capabilityや準拠基準を新設しないため52準拠・全Release監査は今回の完成主張へ使用しない。必要な実Recovery／全E2Eは後段の未成立条件として維持する。
+
+### 私有publish本体の新方式の局所結果
+
+新full fixture-r4は候補helperでなく現在のpublish本体を一回通し、182ms、Native／Node Exit 0だった。元writer保持中の非置換rename、stage直接不存在、publicの五field・属性・ACL・全8192bytes、四変更拒否、重複publish拒否、既存先衝突と旧先／新stageの実体・bytes不変を確認した。不正参照・空／8193bytesは作成前に拒否された。正常receiptはrename要求済み・最終NTSTATUS 0・stage不存在・public相関・reader／writer終了を別々に保持し、衝突receiptは要求済み・NTSTATUS -1073741771・public未確認・reader未取得・writer終了を保持した。既発行作成／write／flushをEffect 0へ畳んでいない。
+
+27個別close記録にはreaderと再確認を含み、実資源数にしない。全通常Oracle・明示close後だけ、自作三fileと空Directoryをfresh照合して非再帰清掃し、清掃要求数4・終了後直接不存在・予想外変更0を確認した。Nodeの15秒観測上限をOS-I/O取消または全資源終端の保証にはしていない。
+
+静的先行のFormatter／Clippy、Node Ownerの型・Formatter／Lintは全てExit 0。同じ新binaryの既定Native回帰は28Pass・Fail 0・明示ignored 14件、0.25秒だった。専用fixtureの別実行をignored全件の実施へ数えない。Sourceは`5b933c34392bb58f5a282b112a596b6a4c711bc6b0cb31c7456ddddcbbc77273`、binaryは`fe2c702db2fc7a579e3a1138918440fafb993dcc2ce4da305db836daefc5ddf7`、Ownerは`66b1b817bb22843a0e866f9203a0d752527081a100721bd516741f54dd3b1385`。実測前後・既定回帰後のHEADと57主要入力は一致した。全依存・環境全体の固定ではない。
+
+原記録`run-r4.json`（SHA-256 `3a7ff8d83d6a3af8670159660d8725f7ecc376c67625d4615f7b72c8673163b4`）へ実入力、cwd・設定、外側UTC、実返却・実入口と前後識別を保存した。前単位の試験内候補Source／binaryも別名で不変保存し、旧hardlinkのSource／binary／Fail・Pass原記録と残存は変更していない。現在は新固定五fileの三観点独立確認待ちであり、この自己確認を本番接続、実Recovery、旧三Root清掃またはLocal Item全義務／品質件数の完成へ昇格しない。
+
+### 私有publish本体の新固定版の独立確認結果
+
+新固定五fileを技術、51文書／追跡、品質／53直接影響の三必須観点で独立確認し、全結果は限定Pass、Finding 0だった。開始・終了HEADは`a596ac82d611db6aa049fb7c2abfd03079cd377c`で一致し、五対象、専用Owner、新binary、実測・Checker原記録、保存済み前単位Source／binaryと旧失敗記録の指定Hashも一致・不変だった。前単位のPassは流用していない。確認者は編集、fixture再実行、外部・実資源操作を行っておらず、確信度は高である。
+
+実測入力の本記録は`3fb482d3f750ba9683a429742b5ef05835cfd0a30f538b37b15899ed64340ce1`、Checker／レビュー入力版は`609b1995f9e34132067477337eefa482df859ab1e113fa8d6aeccb46443db2b7`であり、本節追記後の版をこれらへ遡及しない。五file指定のCheckerは23419ms、Exit 0、Finding／Warning 0、実検査104Markdown・9959リンク・587anchorだった。展開範囲の表示一覧は`expanded_scope_truncated:true`を保持し、その一覧を全件表示や全Source Headerの機械保証へ読み替えない。実入力、cwd・設定、外側UTC、初回・一待機の完結返却および完了後57入力／HEAD一致を`checker-r4.json`（SHA-256 `bffa4282bb09621a379f48a1c99059bbb389dcda44ecc47846643e4221d206a2`）へ保存した。前掲`run-r4.json`は不変保持する。
+
+三観点は、同writerの非置換rename、Pending時の寿命、要求・最終NTSTATUS・stage不存在・public相関・個別closeの分離、衝突と重複拒否、部分receiptの単調保持、旧二名方式の自動移行禁止、実測と未接続境界を照合した。書戻しは本節とChecklist一行だけに限定し、三観点で許容を確認した。他四file、契約、QA件数、旧記録、署名、Authorityと実Task停止Gateは変更しない。
+
+限定Passは私有保存部品と同一Processの局所結果・記録に限る。全失敗枝の故障注入、公開dispatch、OS namespace、caller耐久接続・容量、Process喪失／cold再入場、全consumer、旧三Rootの非使用／実処置、実Recovery／全E2Eは未成立のままである。現在、追加の人間判断は不要である。
+
 ## Checklist
 
 
@@ -901,4 +937,5 @@ Rust Formatter／ClippyとNode Ownerの型・Formatter／Lintを先行した。�
 - [x] Native保存・公開のr1／r2失敗とr3局所成立を分け、公開名保護不足を是正し、主要入力の前後一致と明示close／自作対象の限定清掃を記録した。
 - [x] Native保存部品の新固定八fileを三観点で独立再確認し、二指摘解消・限定Pass・新Finding 0を記録した。本番・実Recovery・Local Item全義務と全体品質の未成立は保持した。
 - [x] 同handle改名の試験内候補を新固定二fileで三観点から独立確認し、限定Pass・Finding 0を記録した。旧hardlink結果を流用せず、本番採用と実Recoveryの未成立を保持した。
+- [x] 私有publish本体への同handle改名を新固定五fileで三観点から独立確認し、限定Pass・Finding 0を記録した。部分receipt、実測入力と確認版の区別、旧方式履歴および公開Recovery・全体品質の未成立を保持した。
 - [ ] OPEN: 実在三件のexact処置承認と清掃未実施。必要保証成立後に対象を提示し、別に承認を得る。

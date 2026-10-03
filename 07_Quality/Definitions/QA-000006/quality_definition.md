@@ -225,9 +225,9 @@ Coordinator所有範囲で終了・排他・清掃を閉じる設計では、上
 
 現在は全行OPENである。実装上の発生点と観測手段を固定してから実境界へ接続する。局所のSchema／順序試験は`PRL-UT-006`が所有し、ここで求める保護・Filesystem・Process喪失・公開入口の成立を代替しない。
 
-`windows::terminal::tests::terminal_publication_fixture`は、[Native内部保存部品](../../../06_Architecture/Details/platform-access/01_Architecture.md#host終端記録の内部保存部品)を自己生成したRepository-local対象で通す限定ITである。`ERB-IT-001`の完全write／flush／両名の実体・全bytes、`ERB-IT-002`の既存先衝突、8192／8193bytesと保持中の変更拒否を対象にする。通常のcargo testからはignoredとし、専用Ownerが固定cwd、入力とbinary Hash、freshなfixture不存在を確認して一回だけ実行する。実返却、全明示close、自己生成四fileと空Directoryの非再帰清掃・直接不存在を別々に確認する。途中失敗では追加清掃せず保持して停止する。
+`windows::terminal::tests::terminal_publication_fixture`は、[Native内部保存部品](../../../06_Architecture/Details/platform-access/01_Architecture.md#host終端記録の内部保存部品)の現在のpublish本体を自己生成したRepository-local対象で通す限定ITである。`ERB-IT-001`の完全write／flush、同writer保持中の非置換rename、stage直接不存在、public実体・ACL・全bytesと個別close、`ERB-IT-002`の既存先衝突・前後不変、重複要求拒否、8192／8193bytesと保持中変更拒否を対象にする。通常のcargo testからはignoredとし、専用Ownerが固定cwd、入力とbinary Hash、freshなfixture不存在を確認して一回だけ実行する。新run・新閉packetへ部分receiptと個別closeを搬送し、自己生成三fileと空Directoryの非再帰清掃・直接不存在を別に確認する。途中失敗では追加清掃せず保持して停止する。
 
-このfixtureはNativeのopaqueな非秘密bytesの保存を検証し、上位Schema、元Task Authority、非使用、caller耐久性、容量、固定OS namespace、Process喪失／再入場、stage保持中の除去または署名Runtime／公開入口を検証したことにはしない。未観測は保持し、この登録からLocal Item全体やQuality件数を観測済みへ更新しない。
+このfixtureはNativeのopaqueな非秘密bytesの保存を検証し、上位Schema、元Task Authority、非使用、caller耐久性、容量、固定OS namespace、Process喪失／再入場、旧二名の移行、close後不変性または署名Runtime／公開入口を検証したことにはしない。stage不存在は観測時点の事実であり、後続の新規作成禁止にしない。旧r1／r2／r3のhardlink結果は履歴として保持し、新rename結果へ付け替えない。未観測は保持し、この登録からLocal Item全体やQuality件数を観測済みへ更新しない。
 
 初回の保存・公開fixtureは失敗し、全Oracleは未成立である。専用の読取り診断は残った三fileの現在Identity・ACL・全bytesと明示closeだけを確認した。続く第一stageの保持診断は、write-open、DELETE-open、removeと非置換renameの四要求がerror32で拒否されたこと、および診断handleの明示closeを確認した。公開名側の保持中拒否、既存先衝突、過大入力の作成前拒否、四file清掃と初回失敗原因はこの診断から推定しない。結果は[限定保守の検証記録](../../../99_Roadmap/Changes/CHG-000082/Evidence/261002_host-orphan-recovery-design.md#保存試験r1の停止と診断)に接続し、全保存・公開fixtureをOPENのまま保持する。
 

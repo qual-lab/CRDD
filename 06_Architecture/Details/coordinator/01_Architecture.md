@@ -508,11 +508,11 @@ namespace初期化の失敗ではexact Token回復へ接続できない。Token�
 | 記録保護 | 同じ利用者のCoordinator管理資源として、書込み主体、所有者、アクセス制御、処理中の差替え防止を確認する。 | 現行の実Path・属性・Identity確認や`0700/0600`をWindowsの所有者／DACL保護の証明にしない。保護不明ではRoot／marker処置0。 |
 | 参照の取得 | 最初の記録Effect前に、同じ処置対象へ結合した非Authorityの内部参照を一回確定する。stageと公開先はこの参照から決定する。 | Process喪失後にも参照を取得できるcaller側の既存耐久接続を確認する。Process内変数だけでは不足。取得前失敗では参照を捏造せず、取得後の結果・例外・再入場では同じ参照を保持する。 |
 | 記録内容 | 固定Schema／Revision、参照、producer種別、対象Root・元marker・固定childのIdentity、必要なbyte Hash、元参照との関係または不明理由、処置対象と順序を保存する。 | 自由Path、秘密値、元TaskのToken再発行、成功を自己申告するfieldを受理しない。元marker消失後も対象の結合情報を失わない。 |
-| 公開 | caller-known stageへ完全なbounded文書を書き、file flush後、既存対象を置換しないlink等で公開する。同一実体・完全なbytesを両名から照合する。 | 書込み・flush・公開要求だけを確定にしない。公開不明や衝突で上書き、別参照の再発行またはRoot処置を行わない。 |
+| 公開 | caller-known stageへ完全なbounded文書を書き、file flush後、同じwriterを保持した非置換renameで公開する。stage直接不存在、public実体・完全なbytesとreader closeを別に照合する。Nativeの私有部品は[platform-access](../platform-access/01_Architecture.md#host終端記録の内部保存部品)が具体化する。 | 書込み・flush・rename要求だけを確定にしない。公開不明や衝突で上書き、再rename、復元、別参照の再発行またはRoot処置を行わない。 |
 | 耐久範囲 | 公開各段階のProcess喪失と再入場を確認する。 | Directory自身の耐久化、OS喪失・電源断後の残存は別の未保証条件。file flushだけで全耐久性を宣言しない。 |
 | 容量と受付 | 初期候補値は一文書8KiB、stage／公開先を合わせた物理entry上限1024件、総byte上限8MiB。併存する二名の両方を計数する。 | 全producer共通の予約・計数で並行超過を防ぐ。上限／計数不明では新Root取得前に停止する。既存参照の読取りは継続できるが、新記録が必要な回復Effectは上限を迂回しない。値は接続前の固定候補レビューで確認し、削除許可にしない。 |
 
-保存原理は[Runtime Dataの一時Operation管理](../runtime-data/01_Architecture.md#42-operation所有契約)と照合するが、その実装をHost清掃へ接続済みとは扱わない。Nodeのfile modeはWindowsで利用者別アクセス制御を表さず、hard linkは同一file objectを複数名で参照するため、公開後のstageを別内容へ書き換えない。[Node.js v24.19.0のFilesystem契約](https://nodejs.org/download/release/v24.19.0/docs/api/fs.html)、[Windowsのhard link契約](https://learn.microsoft.com/en-us/windows/win32/fileio/hard-links-and-junctions)を方式の根拠とする。no-replace公開と実体の保護は、対象OS・Filesystemの実境界で別に反証する。
+保存原理は[Runtime Dataの一時Operation管理](../runtime-data/01_Architecture.md#42-operation所有契約)と照合するが、その実装をHost清掃へ接続済みとは扱わない。Nodeのfile modeはWindowsで利用者別アクセス制御を表さず、現在方式のno-replace公開と保持中保護はNativeの実境界で反証する。旧hardlink二名は新方式へ自動収束させず、保存方式／producer版との再入場対応をOPENとして残す。stage不存在は観測時点の事実であり、親保持だけから後続のstage新規作成禁止やclose後不変性を主張しない。
 
 | producer | 結合元 | 禁止する推定 |
 |---|---|---|
@@ -524,7 +524,7 @@ namespace初期化の失敗ではexact Token回復へ接続できない。Token�
 | 再入場時の記録観測 | 許可する記録上の処置 | Root／markerへの処置 |
 |---|---|---|
 | stageのみ | exact参照へ結合した完全な文書・保護・実体を確認した場合だけ公開を継続する。不完全／不明では保持して停止する。 | 公開の確定前は0。 |
-| stageと公開先の二名 | 同じfile object、同じ完全なbytes、同じ参照ならstage側だけの除去候補。不存在を直接確認する。 | stage残存・除去不明の間は0。 |
+| stageと公開先の二名 | 旧hardlink候補、または現在方式では不整合の候補として保持する。方式／producer版・実体・bytesと現在参照を照合する再入場処理が未接続のため、自動改名・除去をしない。 | 追加処置0。旧二名の移行・再入場はOPEN。 |
 | 公開先のみ | 同じ参照、Schema、保護、実体・bytesを再検証する。 | freshな権限・対象・非使用・排他へ再結合後だけ、事前固定した残存対象を処置する。 |
 | 不一致、未知entryまたは観測不能 | 別参照で回避せず、同じ取得済み参照と根拠を保持して停止する。 | 追加Effect 0。 |
 

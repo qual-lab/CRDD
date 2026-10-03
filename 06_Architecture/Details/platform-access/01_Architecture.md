@@ -155,15 +155,17 @@ Host終端記録のSchema、参照、容量、Authority、再入場と清掃は[
 | 保存段階 | Nativeの責務 | 不明・失敗時の処置 |
 |---|---|---|
 | 親の保持 | local fixed driveの全祖先を非reparseの同期handleで保持し、最終Directoryの五field Identity、現在利用者ownerとprotected二ACEを照合する。 | 相対Path、UNC、reparse、保護・実体・close不明は停止する。固定OS保存境界への接続はCoordinator／Native Adapterの後続条件であり、内部guardだけから許可範囲を作らない。 |
-| stage作成 | 参照から単純leafを決定し、1〜8192bytesの受付判定後、CREATE_NEWと明示DACLで作成する。同期READ／WRITE／DELETE handleをshareREADで一意保持する。 | 作成後失敗は同じ参照と作成済みreceiptを保持し、stageを自動削除しない。DELETE accessは内部linkの前提だけで、公開削除Authorityではない。 |
+| stage作成 | 参照から単純leafを決定し、1〜8192bytesの受付判定後、CREATE_NEWと明示DACLで作成する。同期READ／WRITE／DELETE handleをshareREADで一意保持する。 | 作成後失敗は同じ参照と作成済みreceiptを保持し、stageを自動削除しない。DELETE accessは内部renameの前提だけで、公開削除Authorityではない。 |
 | 内容の保存 | 部分writeと進捗0を処置し、同じhandleへ完全write、file flush、長さ・全bytes・EOF照合を行う。 | write／flush発行済みを未発行へ戻さず、未確認のまま公開やRoot処置へ進まない。file flushをDirectory耐久化・電源断保証にしない。 |
-| 非置換公開 | 同じstage handleへ`NtSetInformationFile`の`FileLinkInformation=11`、`ReplaceIfExists=false`を使用する。`RootDirectory=NULL`と同Directoryの単純leafだけを渡し、Ex／Bypass／POSIX／置換は使わない。 | NTSTATUSをWin32 last errorと混同しない。予期しないPendingではbuffer・IO_STATUS・handleを実終端まで保持する。待機不能ではNative Processを異常終了し、成功を返さず呼出し側へ回復義務を残す。硬いOS-I/O期限は主張しない。 |
-| 公開の照合 | link成功後、公開名にREAD／READ_CONTROLの私有guardを取得する。shareREAD／WRITEは既存writerに互換とし、DELETE shareは与えない。元stage guardも保持し、両名の五field Identity・属性・全bytes・保護を再照合する。公開名guard取得・相関確認前は候補公開にとどまり、公開名の連続保護を主張しない。 | link要求、公開名guard取得と完全照合を別receiptへ残す。取得不能、衝突・別実体・bytes不一致・close不明は同じ参照へ残す。別参照再発行、既存対象上書き、Root／marker処置は0。 |
-| 終了 | 公開名guard→元stageの順に個別の明示closeを確認し、総合結果も単調保持する。前段失敗でも後段を試行する。 | Drop、close通知、空slotを全終了成功へ昇格しない。記録のstage／公開先はこの内部部品では削除しない。 |
+| 非置換公開 | 同じwriter handleへ`NtSetInformationFile`の`FileRenameInformation=10`、`ReplaceIfExists=false`を使用する。`RootDirectory=NULL`と同Directoryの単純leafだけを渡し、Ex／Bypass／POSIX／置換は使わない。 | 要求発行と最終NTSTATUSを別に保持し、Win32 last errorと混同しない。予期しないPendingではbuffer・IO_STATUS・handleを実終端まで保持する。待機不能では異常終了して成功を返さない。硬いOS-I/O期限は主張しない。 |
+| 公開の照合 | 元writerを唯一の保護Ownerとして保持中、stageの直接不存在と公開名readerによる五field Identity・属性・ACL・全bytesを照合する。readerはshareREAD／WRITE／DELETEを指定してwriterへ互換とし、照合後に個別closeする。 | rename要求・実返却・stage不存在・public相関・reader closeを別receiptへ残す。不一致／不明では再rename、復元、別参照、清掃とRoot／marker処置0。不在は観測時点の事実であり、後続のstage新規作成を禁止した保証ではない。 |
+| 終了 | 唯一のwriterの明示closeと、既知のreader close結果を保持する。どちらか不明なら総合終了を成功にしない。 | Drop、close通知、空slotを全終了成功へ昇格しない。stage不存在はrenameの別観測であり、closeによる削除にしない。失敗後の記録を自動削除しない。 |
 
-同Directoryの名前解決と非置換指定は[MicrosoftのFILE_LINK_INFORMATION契約](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/ns-ntifs-_file_link_information)、user-modeの処理は[NtSetInformationFile契約](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-ntsetinformationfile)、flushは[FlushFileBuffers契約](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-flushfilebuffers)へ照合する。MicrosoftのNtSetInformationFile一覧の72という表記と、利用するSDKのclass11を混同しない。可変長structはSDK定義のoffset・alignment・minimum sizeで構成し、全storageをzero初期化する。
+同Directoryの名前解決と非置換指定は[MicrosoftのFILE_RENAME_INFORMATION契約](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/ns-ntifs-_file_rename_information)、処理は[NtSetInformationFile契約](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-ntsetinformationfile)、flushは[FlushFileBuffers契約](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-flushfilebuffers)へ照合する。SDKのclass10、offset・alignmentとstruct全体＋UTF-16 leafを含むzero初期化storageを使用する。
 
-**接続前OPEN:** 局所反証では、stage handleを保持していても追加公開名のDELETE accessを取得できた。削除要求は未発行であり、実削除成立とは区別する。保存元一名のshareREADから追加名の保護を推定せず、追加read guardの取得・両名の反証を実証するまで成功接続しない。stageの直接不存在へ保護を途切れさせず収束する処理、現在の固定OS保存境界、caller耐久参照、共有容量予約、初期化途中、Process喪失／再入場、全consumerと旧三領域も未成立。shareREADと二ACEだけから、WRITE_DAC／owner変更への連続防御、close後の不変性、別主体の防御または非使用を推定しない。今回の内部primitiveの成立を公開Recovery完成へ縮小しない。
+旧hardlink方式の追加公開名に対するDELETE access取得と、その追加guardによるr3是正は[変更履歴](../../../99_Roadmap/Changes/CHG-000082/Evidence/261002_host-orphan-recovery-design.md)へ保持する。旧二名cold caseを新rename方式へ自動移行・清掃せず、方式／producer版との整合を未成立として残す。新方式のpublish本体を通す局所検証・独立確認も旧結果とは別に行う。
+
+**接続前OPEN:** 現在の固定OS保存境界、caller耐久参照、共有容量予約、初期化途中、Process喪失／再入場、全consumerと旧三領域は未成立。shareREADと二ACEだけから、WRITE_DAC／owner変更への連続防御、close後の不変性、別主体の防御または非使用を推定しない。私有部品の成立を公開Recovery完成へ昇格しない。
 
 ## 4. バイナリ境界
 
