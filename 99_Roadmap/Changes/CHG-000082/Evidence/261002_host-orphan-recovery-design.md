@@ -979,6 +979,68 @@ Source／Oracle、旧fixture、署名Runtime、Authority、停止Gateと実残�
 
 書戻しは本節とChecklist一行だけを三観点で許容した。他五file、旧raw、契約、品質件数、署名、Authorityと停止Gateは変更しない。限定Passは私有読取りと自己生成fixture・記録の区間だけであり、本番再入場、caller耐久接続、OS故障、旧三Root、全Recovery／E2Eは未成立のままである。現在、追加の人間判断は不要である。
 
+### 本番同期排他の失敗保持是正（2026-10-03）
+
+基準HEADは`50f3d23fb641802b9f05cba847a2d83629405e7a`。本番への接続確認で、解放前にOwner参照を消すため、一度解放が失敗しても次のcloseではtrueを返す欠落を確認した。再取得null／例外の後にも同じ成功化が可能だった。別Intentではなく、同じCHGの「不明を成功へ畳まない回復責務」の是正とする。
+
+| 経路・範囲 | 今回の処置 |
+|---|---|
+| 変更分類 | 実装の失敗保持と直接の設計・検証・Relation追随。新しい公開Capability、Authorityやリリース判断は追加しない。 |
+| 着手前整合 | 読取り専用の技術／lifecycle・Owner／文書・品質直接影響確認を統合し、着手可。controller内部も同期集約もliteral trueだけを成功とする具体化を採用した。 |
+| 実装 | 世代別release一回、解放失敗時Owner保持、再取得失敗の保持、失敗後の作業・取得0、close反復false。正常な新世代と正常close反復は維持する。 |
+| 直接利用側 | `docker-recovery-runtime-internal.ts`の同期解放集約がfalse／例外を既存のblocked理由へ搬送する。戻り型と公開理由は維持し、成功化を防ぐ。非同期wrapper移行は混ぜない。 |
+| 予定検証 | Formatter→型→Lintを局所試験より先に実行する。PRL-UT-006の同じcore注入試験、既存PRL-IT-013の自己生成排他／Process二件、関係照合とscoped Checkerを行う。 |
+| 固定後の確認 | 技術、51文書／Trace、品質／53直接影響の三必須観点を同じ固定候補で独立確認する。全結果を得るまで是正しない。 |
+| 今回実行しないもの | 基準・準拠表明は変えないため52準拠監査は非該当。実残存三件、Docker／Provider、署名E2E、全回帰、本番非同期化・耐久caller接続は今回の局所是正から成立を主張しない。 |
+| 人間判断 | 今回の限定是正には追加判断不要。既存三件のexact停止・処置承認と、広い未接続経路の採用判断は代替しない。 |
+
+**現在状態:** 是正実装と以下の局所検証を完了した。独立確認は未完了であり、既存の停止Gateを維持する。
+
+| 検証 | 結果・限界 |
+|---|---|
+| 静的確認 | Formatter・scoped型検査・Lintを試験前に実行した。初回Lintは意図的thenable fixtureを拒否したため、その一行だけへ理由付き抑止を付け、三確認を再実行してexit 0。Lint失敗時には試験を開始していない。 |
+| 局所UT | 既存四件と追加四件、計8件成功・0失敗、128.1137ms。解放失敗8組、再取得失敗4組、正常三世代、初回null／例外、集約の非boolean九入力を処置した。件数はCase／fixtureの区分であり、全回復義務のCoverage率ではない。 |
+| 既存IT | 自己生成したrandom bindingの排他と子Processだけを使用した二件成功・0失敗、1466.1326ms。同期解放窓前後の他Process取得と、試験所有Process終了後の取得を確認した。実解放失敗注入、全Native終端、実残存三件の非使用を証明しない。 |
+| Relation | 既存unit File登録のverifiesへcontroller一値を追加した。PRL-UT-006と二Source IDの実在、公開indexに試験入口がないことを読取り照合した。Catalogの既存File entry、Local Item義務・観測件数は維持した。 |
+| Checker | 七fileを指定してexit 0、指摘／警告0、26807ms。実検査108Markdown・9807リンク・494anchor。expanded_scope_truncated:trueとGit-ignored除外を維持し、全実装・ignored原記録の保証にはしない。 |
+| 入力識別 | 静的確認前と試験／Checker後に13主要入力とHEADを照合した。途中の差は意図したUTのLint抑止一行のみで、Source・利用側・IT・fixture・Ownerは不変。全推移依存・環境不変は主張しない。 |
+| 原記録 | Repository-local `.crdd/verification/chg-000082-lock-settlement-261003/local-r1.json`と`checker-r1.json`に各実入力object、明示cwd、UTC前後、初回返却と全wait、完結返却を保存した。最初のFormatterによる整形は原記録の対象外であり、後続の読取り確認へ付け替えていない。 |
+
+同じcoreの局所注入と既存の正常実境界は区別する。本番の同期consumerはfalseを既存blocked理由へ搬送するが、耐久caller接続、保護済み終端intent、全async利用側移行、旧三領域のexact処置、署名E2Eは未成立のままである。
+
+#### 同期排他r1の独立指摘と是正計画
+
+固定七file（本記録`75a5e51e1d777d23a221b4c202e55cbc5807e0262e2f31ce8ba6a2c901c0dd5b`）の三必須観点を完了した。技術／lifecycleは限定Pass、51文書／Traceと品質／53直接影響はFail、未解決二件だった。全結果を統合し、次の是正計画を三観点へ再提示して着手可を確認した。新候補のPassではない。
+
+| 指摘 | 原因・処置 | 非変更範囲・確認 |
+|---|---|---|
+| DLS-D01 | 三つの合成Ownerのrelease処理をCase Headerだけで説明していた。各property直前へPRL-UT-006の固定Test Headerを追加し、失敗mode、初回Owner、正常世代の計数・返値をそれぞれ記録する。 | 本体・返値・計数・Oracle・Source・Relation・義務不変。三Headerの内容と本文不変を照合する。 |
+| DLS-Q01 | 原記録は実入力と搬送を保存したが、検証器の実行物・設定・Worker入口の再識別が不足した。旧二rawを不変保持し、Node、実解決TS Native、Biome、設定、Checker、Worker接続Sourceと関連package／lockを新しい主要入力集合へ追加する。 | 全推移closureの保証へ拡張しない。静的→同じ8UT→自己生成2IT→関係／Checkerを新実行として全入力・時計・全返却・前後Hashと一体保存する。旧結果へ遡及しない。 |
+
+旧`local-r1.json`のSHA-256は`38591c5fffe3f40b303dcaa5490759141e2fb4d81f7ebcb017bdf48da4a7a16a`、旧`checker-r1.json`は`44243a2acf246fe0b31faaedf58c50fdfe10eef04456a0a4b9328937ba0bbf46`。実残存、Authority、署名、production本体、品質件数と停止Gateは不変である。新実行・再確認は未完了のまま保持する。
+
+#### 同期排他r2の是正後検証
+
+新しい検証器・主要入力集合へ結合した実行だけを以下へ記録する。旧r1の返却と原記録は変更していない。二Findingの解消と新候補のPassは、三観点の再確認へ渡す。
+
+| 確認 | r2の実績・限界 |
+|---|---|
+| DLS-D01 | 三propertyへ固定Test Headerを追加した。追加三blockを読取り上だけ除いたbytesのHashはr1の`9d4c860e33b9b62e050ba194bdfc517ef151ec5f633110c507fdae0cf36856ec`と一致し、本文・Oracleの不変を確認した。比較の初回起動はshell引用の構文誤りで未成立、修正した読取り比較がexit 0。実試験やSource処理の失敗へ読み替えない。 |
+| DLS-Q01の入力 | 明示した33主要入力を前後照合した。Node v24.19.0の実binary、TS 7.0.2のbin／wrapper／Resolver／packageと実解決win32-x64 `tsc.exe`、Biome binary／設定、継承strict設定、Checker入口／package／lock、二Worker接続Sourceと関連package／lockを含む。全推移closure・環境全体の識別とは区別する。 |
+| 新静的・試験 | Formatter→scoped型→Lintはいずれもexit 0。その後の同じUT8件は124.2854ms、自己生成排他／試験所有Processだけの既存IT2件は1380.5094ms、全て成功・0失敗。実解放失敗・全Native終端・実残存三件は未確認のまま。 |
+| 関係・Checker | File Relationと公開indexの読取り照合はexit 0。新Checkerは23027ms、exit 0、108Markdown・9807リンク・494anchor、指摘／警告0。expanded_scope_truncated:trueとignored除外を保持する。 |
+| 新原記録 | 同じRepository-local領域の`remediation-r2.json`、SHA-256 `25482711b1d0051b4a0e8a7662e79725f433dd4b5e8f508afda1556237b5f95a`。全実入力object、明示環境上書き・cwd、UTC前後、初回・全wait・完結返却、33入力とHEADの前後一致を一体保存した。実行入力の本記録Hashは`4a0f450c3909842edf5669c2a3c5e640b835d5186cfa2b6b23b5a5df69cbf51c`であり、本節追記版へ遡及しない。 |
+
+production本体、返値、Oracle、Authority、署名、旧二raw、品質件数および停止Gateは不変。今回の追加は試験Headerと再識別記録だけである。caller耐久接続、async移行、本番終端記録、旧三領域の処置と全Recoveryは未成立のまま保持する。
+
+#### 同期排他r2の独立再確認
+
+新固定七fileを技術／lifecycle、51文書／Trace、品質／53直接影響の三必須観点で独立再確認し、全て限定Pass、DLS-D01／Q01解消・新Finding 0、確信度は高だった。開始・終了HEADは`50f3d23fb641802b9f05cba847a2d83629405e7a`で一致し、七対象・旧二raw・新二rawの指定Hashは一致・不変だった。確認者は編集、再実行、外部／実資源操作を行っていない。
+
+独自の読取り比較でも三Header除去後の旧UT bytesとの一致を確認した。33主要入力とHEADの実行前後一致、実解決Native、明示環境上書き・cwd・時計・初回／全wait／完結返却、新旧結果の分離は原記録と整合した。実行入力Evidence`4a0f450c3909842edf5669c2a3c5e640b835d5186cfa2b6b23b5a5df69cbf51c`、レビュー版`3e70a5403df243051bd78d913c952fb286605a55a95f746ba549e3cf71bada66`と本書戻し版を区別する。r1の未完了表示は当時の状態であり、今回の同期是正区間は独立確認済みである。
+
+書戻しは本節とChecklist一行だけを許容した。他六file、旧raw、品質件数・署名・Authority・停止Gateは変更しない。限定Passは同期controller・解放集約と今回の根拠区間だけであり、全Native終端、実解放故障、async移行、耐久caller、本番終端記録、旧三Rootおよび全Recovery／E2Eは未成立のまま保持する。現在、追加の人間判断は不要である。
+
 ## Checklist
 
 
@@ -1008,4 +1070,5 @@ Source／Oracle、旧fixture、署名Runtime、Authority、停止Gateと実残�
 - [x] 同handle改名の試験内候補を新固定二fileで三観点から独立確認し、限定Pass・Finding 0を記録した。旧hardlink結果を流用せず、本番採用と実Recoveryの未成立を保持した。
 - [x] 私有publish本体への同handle改名を新固定五fileで三観点から独立確認し、限定Pass・Finding 0を記録した。部分receipt、実測入力と確認版の区別、旧方式履歴および公開Recovery・全体品質の未成立を保持した。
 - [x] cold-r1のCase／Helper Trace和集合、File Relation、実入力・時計・全返却を新固定六fileの三観点で独立再確認し、限定Pass・COLD-Q01／Q02解消・新Finding 0を記録した。旧実測／欠測を保持し、本番再入場・実Recovery・全体品質の成立とは分けた。
+- [x] 同期排他の失敗保持を新固定七fileの三観点で独立再確認し、DLS-D01／Q01解消・限定Pass・新Finding 0を記録した。失敗後の成功化を是正し、33主要入力の新検証と全Recoveryの未成立を区別した。
 - [ ] OPEN: 実在三件のexact処置承認と清掃未実施。必要保証成立後に対象を提示し、別に承認を得る。

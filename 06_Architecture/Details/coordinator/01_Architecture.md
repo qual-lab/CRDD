@@ -206,6 +206,8 @@ Host Operation
 
 逆順取得、待機中の未知lock削除、別OperationのRecovery ID流用を禁止する。取消は新規取得を止め、既に所有する内側資源から順に回収し、最後にHost Operation lockを解放する。
 
+Docker回復の同期排他controllerは、取得した各KernelLock世代の解放を一回だけ要求する。解放は返値`true`だけを確認済みとし、`false`・例外・非booleanでは未確認のOwner参照と最初の失敗を保持する。作業後の再取得がnullまたは例外になった場合も終端失敗を保持する。以後の`outsideLock`は作業・再取得を発行せず、`close`は反復しても`false`のままとする。正常な再取得は別世代であり、その世代の正常解放後だけ反復`close`を`true`とする。作業例外後も再取得を試み、共同失敗では元の作業例外をcauseとして保持し、作業済みEffectを取消済みとしない。同期解放集約は全Ownerの解放を試み、最初の未確認理由を返す。Promiseやtruthy値を成功へ変えず、thenも実行しない。この判定は下位の同期通知だけを扱い、全Native資源回収、非同期移行、終端記録の本番接続や実残存の清掃を証明しない。
+
 ## 7. Authorityと外部送信
 
 Repository読取り、外部送信、Provider起動、候補書込み、候補export、Docker復旧は別Authorityである。RoleはAuthorityを意味しない。

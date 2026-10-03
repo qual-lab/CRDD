@@ -1797,7 +1797,8 @@
         "PRL-UT-006"
       ],
       "verifies": [
-        "coordinator.source.src.security.docker.recovery.state.machine"
+        "coordinator.source.src.security.docker.recovery.state.machine",
+        "coordinator.source.src.security.docker.recovery.lock.controller"
       ]
     },
     {

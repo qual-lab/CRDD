@@ -9,20 +9,20 @@ export const DOCKER_RECOVERY_STATE_MACHINE_CONTRACT =
 export const DOCKER_RECOVERY_STATE_MACHINE_CONTRACT_REVISION = 2;
 
 /**
- * 回復 Synchronizationsを解放する。
+ * 全ての回復排他の解放を試み、最初の未確認理由を返す。
  *
- * @responsibility 回復 Synchronizationsの所有権、解放条件、終了後不存在の確認境界を所有する。
+ * @responsibility 一つの失敗で後続解放を省略せず、同期返値trueだけを成功とする。
  * @trace ARCH-000008
  * @input attempts: readonly Readonly<{ release: () => boolean; reason: string; }>[]
- * @returns releaseRecoverySynchronizationsの計算結果を返す。
+ * @returns 最初の失敗理由、または全てtrueだった場合のnull。
  * @precondition 「attempts: readonly Readonly<{ release: () => boolean; reason: string; }>[]」がreleaseRecoverySynchronizationsの入力契約を満たす。
  * @postcondition releaseRecoverySynchronizationsの責務を完了した結果だけを返す。
- * @effect N/A: releaseRecoverySynchronizationsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure releaseRecoverySynchronizationsは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @effect 各attemptの解放処理を順に一回呼び出す。
+ * @failure false、非booleanおよび例外を対応する失敗理由として保持する。
  * @invariant releaseRecoverySynchronizationsは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: releaseRecoverySynchronizationsはProcess内の同一Subsystemで完結する。
+ * @boundary 各排他Ownerの同期返値。全OS資源の不存在をこの集約だけでは証明しない。
  * @security releaseRecoverySynchronizationsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: releaseRecoverySynchronizationsは共有非同期状態を持たない同期処理である。
+ * @concurrency Promiseやthenableを待機・実行せず失敗とする。
  */
 export function releaseRecoverySynchronizations(
   attempts: readonly Readonly<{
@@ -33,7 +33,7 @@ export function releaseRecoverySynchronizations(
   let firstFailure: string | null = null;
   for (const attempt of attempts) {
     try {
-      if (!attempt.release()) firstFailure ??= attempt.reason;
+      if (attempt.release() !== true) firstFailure ??= attempt.reason;
     } catch {
       firstFailure ??= attempt.reason;
     }

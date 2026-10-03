@@ -153,6 +153,8 @@ Source Definition由来の検証義務を維持し、Detailは具体的な観測
 
 ## Host残存の保守候補判定
 
+`PRL-UT-006`で本番と同じ同期排他controller coreの失敗保持を確認する。解放false・例外・非boolean、再取得null・例外、作業例外との共同失敗を与え、世代別解放一回、最初の失敗保持、失敗後の作業・再取得0、反復closeのfalseを確認する。正常な再取得は別世代で各一回解放し、正常close反復はtrueとする。同期解放集約では全attemptを処置し、true以外を成功へ変換せず、Promise／thenableのthenを実行しない。局所fixtureはOS操作を持たず、実CloseHandle失敗やNative全終端を証明しない。既存`PRL-IT-013`の自己生成Process・排他による正常再取得／Owner喪失確認と、QA-000006の未成立な実Recovery義務を維持する。
+
 `PRL-UT-006`には[Coordinator詳細設計§11](../../../06_Architecture/Details/coordinator/01_Architecture.md#元の回復参照を確定できないhost残存の保守候補)の内部候補判定を含める。十一の必須条件を一件ずつ不成立、unknown、欠落へ変え、対象外資源クラス、不正Hash、未知field、AccessorおよびProxyを拒否する。全条件の局所fixtureが成立してもAuthority非発行、清掃未確認、本番未接続を返すことをOracleとする。
 
 同じ`PRL-UT-006`でHost Lockの取得待機後の世代再検証も確認する。待機前の所有者・世代参照と記録Hash値を捕捉し、待機中の失効、所有者／Identity／世代の置換、記録Hash変更、別Lock設定、再観測不能を一件ずつ与える。不一致では後着した新Lockだけを一回解放し、既存Lockへの操作0、旧世代への公開0を確認する。解放の実終端前は結果を返さず、解放throw・不明はprocess停止対象へ分類する。Lockなしの既知取得失敗は元分類を保つ。Lockなしの回収不明と取得例外はfreshに再検証し、同じ現在世代だけ失効とContext Capability取消へ接続する。不一致・観測不能では旧世代変更0、既存Lock操作0を保ち、全例でprocess停止対象とする。Lockを伴う回収不明と、後着Lock解放の確認付き失敗も分類を保持する。これは局所settlementの観測であり、実OS排他、Root清掃、作成前排他または旧形式の非使用を証明しない。
