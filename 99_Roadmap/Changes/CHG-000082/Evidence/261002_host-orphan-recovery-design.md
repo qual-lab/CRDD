@@ -315,6 +315,37 @@ UTC `2026-10-03T03:00:11.776Z`〜`2026-10-03T03:03:59.001Z`で、前節の候補
 
 確認した成立範囲は共有namespaceの所有と初期化settlementである。Source上の上位停止分類、非Authorityの49局所試験と同じ試験登録、検証器までの再識別を確認した。実OS reparse、作成前連続排他、全利用側移行、旧三Rootの非使用、実清掃、署名E2E、全PRL-UT-006または全体品質の成立は主張しない。結果書戻しは全三結果統合後、確認者が整合済みとした本節とChecklist一行だけに限定した。他四file、旧結果・Hash、実行入力EvidenceのHash、原記録、品質件数、Authorityおよび新実Task停止は不変である。
 
+### 同一Processの排他候補 — 限定実測
+
+基準Commit `af1239ac1c00f54c95d81913456b06dbce25d84c`のcleanな状態で、全利用側を編集する前に排他の所有者を確認した。別Supervisorだけが終了し、親の同期Filesystem処理が継続する反例があるため、取得前後の`assertLive`だけを連続保証にしない。親と読取り専用確認者は、**同じCoordinator Node Process内でpipeを所有する小さい候補を先に実測する**計画を整合した。addonの新設、全Filesystem処理のNative移管または保証低下の受容を既定にしない。
+
+外部読取りは公開API名・版だけを使用した。[Node v24.19.0のIPC／close契約](https://nodejs.org/download/release/v24.19.0/docs/api/net.html)と[同じtagのWindows pipe実装](https://github.com/nodejs/node/blob/v24.19.0/deps/uv/src/win/pipe.c)を確認し、Repository情報、診断logおよび秘密値は送信していない。公開契約ではWindows pipeは所有Process終了時に閉じられ、Serverのcloseは接続終了を待つ。固定Sourceの初回bindは`FILE_FLAG_FIRST_PIPE_INSTANCE`を使う。これらの意味を、Directory差替え防止や旧Root非使用へ拡張しない。
+
+実測は用途限定のRepository-local `.crdd/verification/chg-000082-host-inprocess-lease-261003/`で行った。本番Source・Factory・公開入口には接続していない。自己生成した検証専用pipe名を同じ試験のIPC入力だけに搬送し、最大二つの自己所有Node子Processを使用した。通常のCoordinator、Provider、Docker、実在三件のRootまたはmarkerには操作しない。全体28秒の終了上限と20秒の停止開始を設定し、不明なら成功・再試行を禁止する。所有子の終了要求と実際のexit／closeを分けて観測した。
+
+| 限定場面 | 実際の観測 |
+|---|---|
+| 同一Processの同期処理中 | 親がpipeを保持して750ms同期処理している区間内に、別の所有子が同名bindを試み、`EADDRINUSE`で拒否された。子の実exit／closeを確認後、親closeと別子の再bindを確認した。 |
+| 接続がある状態のclose | 接続が残る間はclose完了を主張せず、両socketの終了後にServer closeと別子の再bindを確認した。 |
+| listening前の取消 | Ownerの取消flagを先に設定した。後着listeningを実際に観測してからOwnerがcloseし、別子の再bindを確認した。listenへのAbortSignalによる自動closeは使っていない。 |
+| 自己所有Processの終了 | pipeを保持する検証用の子だけへ終了要求を発行した。実exit／close後に別子の再bindを確認した。通常Processは終了していない。 |
+
+実行区間はUTC `2026-10-03T03:22:09.883Z`〜`2026-10-03T03:22:11.539Z`。Node `v24.19.0`、libuv `1.52.1`、Windows x64で、`node probe.ts`はExit 0だった。実行前にFormatter確認→strict型→Warningを失敗とするLintを実行し、全てExit 0だった。初回型確認の`ForkOptions`不整合では実測を開始せず、不要なoptionを除いて静的段階から再確認した。
+
+実行前後のNode binary SHA-256は`3602f2bb1a10f2cbab4c36886218a33c1ab3db87290e73b033c46c77147d0237`、probe Sourceは`e7bd7b43c276c219f0bcf5fca5be90def29cda2f4b43772d090dfb2a751bad4c`で一致した。固定結果`result.json`のSHA-256は`d341ca1da71b5f5a6934d2e49a443f3f41c87036cebdfb570b10534f2584e2b0`。actual command、cwd、Tool結合出力とExitは同じDirectoryの`invocation.json`へ保持した。probe、型／整形設定、結果は同じ用途限定Rootに保持する。原記録消失時は再実測まで新しい根拠に使用せず、保存条件は本記録の先行局所結果と同じとする。生Error、pipe名および秘密値は結果へ保存していない。
+
+終了時は自己所有子二つ以下の全close、Server close、socket closeおよび試験timerの解除を確認した。全OS handleの網羅確認、正式QA項目成立または実RecoveryのPassとはしない。結果は候補primitiveの限定観測であり、固定候補の完成後独立確認はまだ行っていない。
+
+次の実装前に、同じleaseの作成前取得とgenerationへの一回移管、取消後の後着取得、Root／marker処置後の解放不明でも同じ参照を保持する終端記録、および全利用側の待機・Lock順序を契約へ接続する。現在の同期wrapperへPromiseを渡すだけでは移行しない。限定清掃のNative操作は六空childの非再帰処置として別に評価し、通常Filesystem処理全体のNative移管と混同しない。旧三Rootの非使用・旧利用側の閉包、差替えを防ぐOS処置境界、実停止・実削除の別承認、新実Task停止および全体品質のOPENは維持する。
+
+### 同一Process排他候補の独立確認結果
+
+同じ固定候補を、作成担当とは別の確認者が技術解釈、文書監査、品質／直接影響の三観点から確認した。三観点は限定Pass、Finding 0。開始・終了HEADは`af1239ac1c00f54c95d81913456b06dbce25d84c`、本記録の書戻し前SHA-256は`b49eca5ef581568474c217c10bf1e740847ae8807e2fc3277c13cee877537085`で一致した。probe、result、invocationの固定Hashと実出力は一致し、差分空白検査はExit 0だった。確認者は再実行、編集、実操作を行っていない。
+
+確認範囲は四場面の観測・assertionと記録の一致、結果の再識別、本番完成へ昇格しない境界である。確認者は公開API／固定Sourceを新規取得していない。保存invocationは実測実行の記録であり、静的段階の検証器までを独立再識別したとは扱わない。全OS handle不存在、本番の連続排他・取消・解放、旧三Root非使用、実Recovery、署名E2Eおよび全体品質は未成立のまま保持する。
+
+全三結果を統合後、確認者が整合済みとした本節とChecklist一行だけを書き戻した。原記録、旧結果とHash、本番Source、品質件数、Authorityおよび新実Task停止は不変である。
+
 ## Checklist
 
 - [x] 同じCHGのIntent、限定対象、対象外と人間承認を記録した。
@@ -330,5 +361,6 @@ UTC `2026-10-03T03:00:11.776Z`〜`2026-10-03T03:03:59.001Z`で、前節の候補
 - [x] 今回の六文書の固定差分を技術・文書・品質／直接影響の三観点から独立確認し、限定Pass・Finding 0を記録した。旧限定Passを流用せず、実装・清掃・全体品質は未成立と分けた。
 - [x] 取得待機後の局所是正を同じ固定六fileで三観点から独立確認し、5指摘の解消と限定Passを記録した。実Recovery・全体品質の完了とは分けた。
 - [x] 共有回復Directoryの所有・初期化是正を固定五fileで三観点から独立確認し、限定Pass・Finding 0を記録した。連続排他、実OS保証、旧三Root清掃および全体品質の成立とは分けた。
+- [x] 同一Process排他の四場面実測を固定記録で三観点から独立確認し、限定Pass・Finding 0を記録した。本番接続、旧Root非使用、実Recoveryおよび全体品質は未成立と区別した。
 - [ ] OPEN: 旧形式の非使用、初期化排他、OS処置境界、保護済み再入場、SPEC／Workflow・公開入口と実境界検証が未成立。根拠取得後に同じCHGで接続する。
 - [ ] OPEN: 実在三件のexact処置承認と清掃未実施。必要保証成立後に対象を提示し、別に承認を得る。
