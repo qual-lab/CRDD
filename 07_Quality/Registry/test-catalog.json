@@ -4602,6 +4602,19 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "coordinator:unit:host-operation-lock-activation",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/host-operation-lock-activation.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": ["host", "operation-lock", "activation", "lifecycle"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["result_observed", "source_unchanged"],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "coordinator:unit:host-orphan-recovery-policy",
       "owner": "coordinator",
       "path": "40_Develop/coordinator/tests/unit/host-orphan-recovery-policy.contract.test.ts",

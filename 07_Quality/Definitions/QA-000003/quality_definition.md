@@ -155,6 +155,8 @@ Source Definition由来の検証義務を維持し、Detailは具体的な観測
 
 `PRL-UT-006`には[Coordinator詳細設計§11](../../../06_Architecture/Details/coordinator/01_Architecture.md#元の回復参照を確定できないhost残存の保守候補)の内部候補判定を含める。十一の必須条件を一件ずつ不成立、unknown、欠落へ変え、対象外資源クラス、不正Hash、未知field、AccessorおよびProxyを拒否する。全条件の局所fixtureが成立してもAuthority非発行、清掃未確認、本番未接続を返すことをOracleとする。
 
+同じ`PRL-UT-006`でHost Lockの取得待機後の世代再検証も確認する。待機前の所有者・世代参照と記録Hash値を捕捉し、待機中の失効、所有者／Identity／世代の置換、記録Hash変更、別Lock設定、再観測不能を一件ずつ与える。不一致では後着した新Lockだけを一回解放し、既存Lockへの操作0、旧世代への公開0を確認する。解放の実終端前は結果を返さず、解放throw・不明はprocess停止対象へ分類する。Lockなしの既知取得失敗は元分類を保つ。Lockなしの回収不明と取得例外はfreshに再検証し、同じ現在世代だけ失効とContext Capability取消へ接続する。不一致・観測不能では旧世代変更0、既存Lock操作0を保ち、全例でprocess停止対象とする。Lockを伴う回収不明と、後着Lock解放の確認付き失敗も分類を保持する。これは局所settlementの観測であり、実OS排他、Root清掃、作成前排他または旧形式の非使用を証明しない。
+
 このUTは根拠値の純粋な照合だけであり、実在する所有権・非使用・Lock・不存在を証明しない。実観測と処置の義務はQA-000006が所有する。局所Passを新しいRecovery経路の完成、既存Host三件の清掃またはQuality Readyへ昇格させない。
 
 ## Checklist

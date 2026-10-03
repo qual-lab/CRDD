@@ -2644,10 +2644,10 @@ function ownedOperationFromManagementCapability(managementCapability: unknown) {
  * @returns activateOwnedHostOperationGenerationLockの計算結果を返す。
  * @precondition 「managementCapability: unknown」がactivateOwnedHostOperationGenerationLockの入力契約を満たす。
  * @postcondition activateOwnedHostOperationGenerationLockの責務を完了した結果だけを返す。
- * @effect N/A: activateOwnedHostOperationGenerationLockは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect 固定Supervisorを取得し、失効した取得のLockだけを解放する。
  * @failure activateOwnedHostOperationGenerationLockは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant activateOwnedHostOperationGenerationLockは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: activateOwnedHostOperationGenerationLockはProcess内の同一Subsystemで完結する。
+ * @invariant 待機前の世代・記録Hashとfresh観測が一致する場合だけLockを搬送する。
+ * @boundary Supervisor取得とOperation世代・耐久記録の再検証の境界。
  * @security activateOwnedHostOperationGenerationLockはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency activateOwnedHostOperationGenerationLockは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
@@ -2659,22 +2659,187 @@ export async function activateOwnedHostOperationGenerationLock(
   const state = ownedOperationGeneration(binding.owned, identity);
   if (state.generationLock)
     throw new Error("owned_operation_generation_lock_already_active");
-  const outcome = await acquireRuntimeOwnedHostOperationSupervisorLock(
-    path.basename(identity.root),
-    identity.hostRecovery.nonce,
-  );
-  if (outcome.status === "acquired" && outcome.lock) {
-    state.generationLock = outcome.lock;
+  const recordHash = state.currentRecordHash;
+  return settleHostOperationLockAcquisition({
+    before: Object.freeze({
+      binding,
+      identity,
+      generation: state,
+      recordHash,
+      retired: state.retired,
+      lock: state.generationLock,
+    }),
+    acquire: () =>
+      acquireRuntimeOwnedHostOperationSupervisorLock(
+        path.basename(identity.root),
+        identity.hostRecovery.nonce,
+      ),
+    readCurrent: () => {
+      const after =
+        ownedOperationFromManagementCapability(managementCapability);
+      const current = ownedOperationGeneration(
+        after.binding.owned,
+        after.identity,
+      );
+      validatePrivateHostRecoveryRecord(
+        after.identity,
+        after.identity.hostRecovery.state,
+      );
+      return Object.freeze({
+        binding: after.binding,
+        identity: after.identity,
+        generation: current,
+        recordHash: current.currentRecordHash,
+        retired: current.retired,
+        lock: current.generationLock,
+      });
+    },
+    publish: (lock) => {
+      state.generationLock = lock;
+    },
+    retainUnknown: (lock) => {
+      state.generationLock = lock;
+      state.retired = true;
+      revokeOwnedOperationContextCapabilities(state.owned);
+    },
+    poison: poisonRuntimeProcessAfterCleanupUnknown,
+  });
+}
+
+/**
+ * Host Lock取得の依存と、取得後に再確認する所有境界を定義する。
+ *
+ * @responsibility 取得・再検証・公開・不明時保持を同じ取得処理へ結合する。
+ * @trace ARCH-000008
+ * @shape Supervisor取得結果と同期の再検証・所有権搬送callbackを持つ。
+ * @invariant publishとretainUnknownは再検証成功時だけ呼ばれる。
+ * @boundary Supervisorの非同期取得とOperation世代の同期公開の境界。
+ * @security 試験依存は本番Authorityへ昇格しない。
+ * @compatibility 公開CLI・結果Schema・Lock protocolを変更しない。
+ */
+type HostOperationLockActivationDependencies = Readonly<{
+  before: HostOperationLockActivationSnapshot;
+  acquire: () => ReturnType<
+    typeof acquireRuntimeOwnedHostOperationSupervisorLock
+  >;
+  readCurrent: () => HostOperationLockActivationSnapshot;
+  publish: (
+    lock: NonNullable<OperationGenerationState["generationLock"]>,
+  ) => void;
+  retainUnknown: (lock: OperationGenerationState["generationLock"]) => void;
+  poison: () => void;
+}>;
+
+/**
+ * 取得前後で比較する所有者・世代と記録Hashの値を定義する。
+ *
+ * @responsibility 可変generation参照と捕捉済みHash値を分けて保持する。
+ * @trace ARCH-000008
+ * @shape 所有binding、identity、generation参照、Hash、失効とLockの値を持つ。
+ * @invariant Hash値はgenerationが後に変更されても変わらない。
+ * @boundary 待機前の捕捉値と待機後のfresh観測値の境界。
+ * @security この値だけでは本番Capabilityまたは回復Authorityを発行しない。
+ * @compatibility 内部取得比較に限定し公開Schemaへ追加しない。
+ */
+type HostOperationLockActivationSnapshot = Readonly<{
+  binding: object;
+  identity: object;
+  generation: object;
+  recordHash: string;
+  retired: boolean;
+  lock: OperationGenerationState["generationLock"];
+}>;
+
+/**
+ * 後着したHost Lockを、現在も有効な取得元へだけ搬送する。
+ *
+ * @responsibility 取得待機後の失効・置換を拒否し、新取得Lockの回収責務を保持する。
+ * @trace ARCH-000008
+ * @input dependencies: 取得、fresh再検証、所有権搬送、process停止の依存。
+ * @returns activated、既存取得失敗分類、または後着Lockの回収不明を返す。
+ * @precondition 再検証と所有権搬送は同期処理であり、同じ取得元を検査する。
+ * @postcondition 不一致時は取得Lockだけを一回解放し、旧世代へ代入しない。
+ * @effect 注入されたSupervisor取得・解放とprocess停止だけを行う。
+ * @failure 再検証throwは不一致。解放throw・不明はcleanup_unknownへ閉じる。
+ * @invariant 再検証と公開の間にawaitを置かず、既存Lockを解放・置換しない。
+ * @boundary 非同期取得結果とOperationの現在世代の境界。
+ * @security Lock解放確認をRoot清掃成立またはRecovery Authorityにしない。
+ * @concurrency 取得Promiseと後着Lockの終端まで待ち、回収をfire-and-forgetにしない。
+ */
+async function settleHostOperationLockAcquisition(
+  dependencies: HostOperationLockActivationDependencies,
+) {
+  const before = Object.freeze({ ...dependencies.before });
+  let outcome: Awaited<
+    ReturnType<HostOperationLockActivationDependencies["acquire"]>
+  >;
+  try {
+    outcome = await dependencies.acquire();
+  } catch {
+    outcome = { status: "cleanup_unknown", lock: null };
+  }
+  if (!outcome.lock && outcome.status !== "cleanup_unknown") {
+    return outcome.status;
+  }
+  let isCurrent = false;
+  try {
+    const current = dependencies.readCurrent();
+    isCurrent =
+      current.binding === before.binding &&
+      current.identity === before.identity &&
+      current.generation === before.generation &&
+      current.recordHash === before.recordHash &&
+      current.retired === false &&
+      current.lock === null;
+  } catch {}
+  if (isCurrent && outcome.status === "acquired" && outcome.lock) {
+    dependencies.publish(outcome.lock);
     return "activated" as const;
   }
-  if (outcome.status === "cleanup_unknown") {
-    if (outcome.lock) state.generationLock = outcome.lock;
-    state.retired = true;
-    revokeOwnedOperationContextCapabilities(state.owned);
-    poisonRuntimeProcessAfterCleanupUnknown();
+  if (isCurrent && outcome.status === "cleanup_unknown") {
+    dependencies.retainUnknown(outcome.lock);
+    dependencies.poison();
     return "cleanup_unknown" as const;
   }
-  return outcome.status;
+  if (!outcome.lock) {
+    dependencies.poison();
+    return "cleanup_unknown" as const;
+  }
+  let released: Awaited<ReturnType<typeof outcome.lock.release>> =
+    "cleanup_unknown";
+  try {
+    released = await outcome.lock.release();
+  } catch {}
+  if (released === "cleanup_unknown" || outcome.status === "cleanup_unknown") {
+    dependencies.poison();
+    return "cleanup_unknown" as const;
+  }
+  return "cleanup_confirmed_failure" as const;
+}
+
+/**
+ * 本番と同じ取得settlementを使う、非Authorityの試験候補を構築する。
+ *
+ * @responsibility 後着Lockの再検証・解放を外部Effectなしの依存で検証可能にする。
+ * @trace ARCH-000008
+ * @input dependencies: 試験が所有する取得・再検証・搬送・停止依存。
+ * @returns productionAuthority=falseのactivate入口を返す。
+ * @precondition 本番Capability、OS Lockおよび回復Authorityを発行しない依存を使用する。
+ * @postcondition activateは本番と同じsettlement関数を呼ぶ。
+ * @effect N/A: 候補の構築だけでは依存を実行しない。
+ * @failure 実行時の失敗はsettlementの分類へ従う。
+ * @invariant 本番のOperation世代Map・公開入口を変更しない。
+ * @boundary 試験依存と本番取得settlementの境界。
+ * @security 候補の結果を実OS排他・清掃成立の証明にしない。
+ * @concurrency 返すactivateは取得と後着回収の完了まで待つ。
+ */
+export function createIsolatedHostOperationLockActivationCandidate(
+  dependencies: HostOperationLockActivationDependencies,
+) {
+  return Object.freeze({
+    productionAuthority: false as const,
+    activate: () => settleHostOperationLockAcquisition(dependencies),
+  });
 }
 
 /**

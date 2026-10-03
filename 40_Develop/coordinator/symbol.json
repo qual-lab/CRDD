@@ -4045,6 +4045,14 @@
       ]
     },
     {
+      "symbolId": "coordinator.test.unit.host-operation-lock-activation",
+      "kind": "test-suite",
+      "path": "tests/unit/host-operation-lock-activation.contract.test.ts",
+      "qaIds": ["QA-000003"],
+      "localTestIds": ["PRL-UT-006"],
+      "verifies": ["coordinator.source.src.security.execution.environment"]
+    },
+    {
       "symbolId": "coordinator.test.unit.host-orphan-recovery-policy",
       "kind": "test-suite",
       "path": "tests/unit/host-orphan-recovery-policy.contract.test.ts",

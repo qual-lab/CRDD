@@ -182,6 +182,94 @@ Source読取りでは、`createOwnedOperationDirectories`のmarker／Root／六c
 全三結果を統合し、確認者と整合した後、本節と今回のChecklist一行だけを結果として書き戻した。旧限定Pass・旧Hash・他五文書・Source・署名候補・品質件数・実操作の別承認・新実Task停止は変更しない。上表の確認時Hashを追記後Hashへ置き換えない。
 
 
+## 取得待機後の失効競合の局所是正 — 2026-10-03
+
+### 対象と着手前確認
+
+基準Commitは`feb4ac712ddf49479f3c7df2f60eba6ea5da5e5c`。最初に作成前排他の接続を計画したが、初期化writer内の清掃、同期Doctor／検証Script、およびreadiness失敗後の排他なし清掃を確認したため、接続前に計画を修正した。この母集団を未処置のまま非同期作成へ切り替えない。第一Source単位は、既存の`activateOwnedHostOperationGenerationLock`における取得await後の失効再検証へ限定した。
+
+親と読取り専用確認者は、Coordinator詳細設計、既存取得・readiness・通常清掃、Task／助言利用側、Coding Standards、PRL-UT-006の既存義務を照合した。確認者は、Hashを参照でなく値として捕捉すること、fresh再検証と公開の間にawaitを置かないこと、後着Lockだけを一回回収すること、回収不明時のprocess停止、元の取得分類保持を条件に着手可とした。Source・試験・QAの対応と本記録を同じ固定差分で技術独立レビュー、文書・品質／直接影響確認へ渡す。公開契約・準拠基準・リリース判断を変更しないため準拠監査は行わない。実Process／Root／Docker／Provider操作はこの単位で行わず、実OS排他・署名E2E・全回帰の成立を主張しない。
+
+| 処置対象 | 今回の処置 |
+|---|---|
+| 取得前の所有者・Identity・世代・Hash | 同じ可変世代参照だけでなくHash値を捕捉する。 |
+| 取得後の公開 | Capability・世代・耐久記録をfreshに読み、参照・Hashが一致し、未失効かつLock未設定の場合だけ公開する。 |
+| 待機中の失効・置換・記録変更・別Lock設定・観測不能 | 新取得Lockを旧世代へ代入せず、そのLockだけを一回解放して終端を待つ。 |
+| Lockを伴う取得回収不明 | 同じ現在世代へだけ保持する。不一致では新Lockを回収し、元の不明分類とprocess停止を維持する。 |
+| 取得例外・解放throw・不明 | 正常・非取得へ丸めず停止対象にする。Root清掃成立とは分ける。 |
+| 正常Task・助言 | 同じ既存有効化関数へ接続済み。readiness・loss監視・通常清掃・結果Schemaは変更しない。 |
+| Doctor・検証Script・同期負例seam | 今回変更しない。作成前排他への全利用側移行はOPEN。 |
+| 旧三Root・署名候補・実操作許可 | 不変。新Sourceの局所合格を旧Rootの非使用または処置許可にしない。 |
+
+### 実装と自己確認
+
+`execution-environment.ts`の本番有効化関数から、同じ取得settlementへfresh再検証を渡した。試験入口は同じsettlementを使う非Authorityの依存差替えであり、公開`index.ts`へ追加していない。局所fixtureの六つの差分は、失効、binding置換、Identity置換、世代置換、記録Hash変更、別Lock設定を個別に与える。既存Lockへの解放0と、後着Lock一回の解放を観測する。これは実Root・実Supervisorの観測ではない。
+
+同じSource改訂版で、Formatter確認、production／test型検査、Warningを失敗とするLintを順に実行し、全て終了コード0だった。続くRuntime Capability Graph、旧Coordinator Traceability、旧Project Runtime Design Traceabilityの静的確認も終了コード0だった。旧JSONのacceptedを廃止判断またはReality Audit成立へ流用しない。その後、`host-operation-lock-activation.contract.test.ts`と既存`host-generation-loss-transition.contract.test.ts`だけを実行し、19件Pass、Fail／Cancel／Skip／Todo 0、終了コード0だった。新規親試験一件と17子試験、既存試験一件を含む件数である。全Coordinator回帰、実OS排他、作成前排他、Root清掃、独立レビューまたはv0.22完成を意味しない。
+
+完成後の独立確認は未実施。既存の清掃側Gap、初期化writerの保持処置、全利用側移行、旧形式の非使用、実処置Authority、公開入口と通信断の原因層は未成立で、新実Task停止を維持する。
+
+### 初回三観点の指摘と統合是正
+
+初回の固定四fileに対する技術独立レビュー、文書監査、品質／直接影響確認は全て完了し、Findingは5件だった。初回候補は限定Passではない。基準HEADは`feb4ac712ddf49479f3c7df2f60eba6ea5da5e5c`。Source `c14bc7b0516dbef9254cd55df53b01682133d5afe3cb43f4a00ecd4269b2f97e`、新試験 `5b99610f4f4e518a19f21e31a644d0569fc73acd041029adc7c6d5607fe756ba`、QA定義 `a2dde68560cfd57a599a9b624fad7d960c6933c5693daf8a49f3ead9fa2854a2`、本記録 `9e666336a27ac5dedcf1f93af14a4cc8ea8641c58257477681e1c6ce1f162dfd`の開始・終了Hashは一致した。直前の19件は、この初回候補の当時の自己確認要約であり、以下の是正後候補へ遡及適用しない。
+
+全三結果の統合後、同じ確認者へ期待処置、適用先、反証と変更禁止範囲を提示し、実施可を確認してから是正した。
+
+| 編集単位 | 指摘 | 原因と今回の処置 |
+|---|---|---|
+| 取得不明の失効処理 | HLA-T01 | 今回導入した回帰。Lockなし回収不明で既存の失効処置を落としていた。取得例外も同じ不明経路へ収束し、freshに同じ現在世代と確認できた場合だけretire／Context Capability取消へ接続する。不一致・観測不能は旧世代変更0、既存Lock操作0、process停止を維持する。 |
+| 試験の責務記録 | HLA-D01 | 既存規約の適用漏れ。全Case宣言箇所と返却七Helperに固定8項Headerを付け、fixtureの終端条件を実際に保留した取得・解放Promiseへ限定した。未使用通知PromiseのstubはI/O／handleを持たない。 |
+| 試験の識別子 | HLA-D02 | 既存命名規約の適用漏れ。Booleanと関数の識別子を責務に沿う表現へ変更し、machine statusとOracleは保持した。 |
+| 実在試験の登録 | HLA-Q01 | 固定候補前の利用側照合漏れ。Catalogへ`coordinator:unit:host-operation-lock-activation`、Symbolへ同Pathのtest-suiteを追加し、QA-000003／PRL-UT-006／本番execution-environmentへ接続した。Local Item新設や品質件数の変更はしない。 |
+| 新しい検証記録 | HLA-Q02 | 監査へ渡した再識別根拠の不足。是正後のactual commands、cwd、時点、終了code、Tool結合出力、入力と検証器の前後Identityを用途限定repo-local記録へ保存した。旧19件の原記録を捏造しない。 |
+
+Lockなしunknownと取得例外それぞれへ、現在、失効、binding／Identity／世代置換、Hash変更、別Lock設定、観測不能の八条件を与えた。後着Lockの解放が確認付き失敗となる条件も追加し、元分類を維持する。今回の指摘は既存規則の適用・母集団照合不足であり、新しいRuleや管理IDを増やさない。既存の全数登録検査と同じsettlementの反証試験へ接続した。
+
+### 是正後候補の自己確認記録
+
+新結果は、UTC `2026-10-03T02:36:02.493Z`〜`2026-10-03T02:38:05.735Z`の実行である。Node `v24.19.0`、Windows x64を使用し、`NODE_OPTIONS`／`NODE_PATH`／`BIOME_BINARY`は未設定だった。Node、npm入口、TypeScript wrapper／実JS／解決helper／選択Native、Biome wrapper／選択NativeのSHA-256を前後記録した。2058件のGit管理対象と非ignore未追跡regular fileのPath／Hash集合の集約SHA-256は、前後とも`ca6f142766a695741dc584389309cf084fa2e31eadf5f76de6658df6d590b46a`だった。HEAD／Tree、対象六file、検証器、Index／Worktree差分、未追跡集合も一致した。本節は結果記録後の追記であり、追記後の文書Hashを実行時の文書Hashへ置き換えない。
+
+原記録はRepository-local `.crdd/verification/chg-000082-host-lock-activation-261003-r3/run.json`、SHA-256 `a18eb1dd77e8c507322b1dca84239b3ff7bcbc2714254d3c7d04541e1170ebe9`。Toolが返したUnicode結合出力を保持し、分離した生stdout／stderr bytesとは主張しない。途中の型失敗では試験を開始せず、Source是正後にFormatterから再開した。途中記録は同用途の`261003-r2/run.json`へ分離して保持する。Phase 5結論固定まで保存し、廃棄前に必要な非秘密根拠を正式Evidenceへ移す。記録消失または入力変更では、再実行まで再識別可能な根拠として使用しない。
+
+| 順 | cwd | actual command／処理 | 結果 |
+|---|---|---|---|
+| 1 | `40_Develop/coordinator` | `npm run format:check` | Exit 0、689 file、書換えなし。 |
+| 2 | 同上 | `npm run typecheck` | Exit 0、production／test二構成。 |
+| 3 | 同上 | `npm run lint` | Exit 0、690 file、Warningを失敗とする。 |
+| 4–6 | 同上 | `npm run runtime-capability-graph:check`、`npm run runtime-traceability:check`、`npm run project-runtime-design-traceability:check` | 全てExit 0、accepted。旧JSONの廃止やReality Audit成立ではない。 |
+| 7 | 同上 | `node --test ./tests/unit/host-operation-lock-activation.contract.test.ts ./tests/unit/host-generation-loss-transition.contract.test.ts` | Exit 0、35／35 Pass、Fail／Cancel／Skip／Todo 0、229.634ms。新親一件・33子・隣接一件。 |
+| 8 | Repository Root | 既存`inspectTestCatalog`／`discoverRepositoryTestFiles`と`realitySymbolGraphRule`を読取り専用で実行。exact invocationは原記録。 | Exit 0、実在試験267件、Catalog／GraphのFinding 0、新試験PathとQA／Local Item／実装Relationを確認。 |
+| 9 | 同上 | `node ./40_Develop/checker/bin/crdd-check.ts --root . --json --summary` | Exit 1、Error 1／Warning 0。既知の`stable-release-tag-identity-mismatch`のみ。1164 MD／18365 Link／2259 Anchor、38014ms。全体Passではない。 |
+
+新試験は非Authorityの局所依存だけを使用する。実Host Root、実Supervisor、Docker、Providerまたは既存三件への操作は行っていない。自己確認結果はApplied／Self-checkedであり、5指摘のResolvedまたは再レビューPassはまだ主張しない。次の同じ固定六fileの三観点再確認で解消を判定する。既存清掃Gap、全利用側移行、旧形式の非使用、通信断、署名候補、新実Task停止は不変である。
+
+### 再確認後の検証器結合補強
+
+固定六fileの技術独立レビューと文書監査はPassだった。品質／直接影響確認ではHLA-Q01を解消し、HLA-Q02だけを未解消とした。原因はnpmが起動する`tsc.cmd`／`biome.cmd`のHashと、shimから選択されるNodeの根拠がr3に含まれていなかったことだった。35件の実行結果を否定する指摘ではない。全三結果を統合し、同じ確認者へ是正計画を提示して実施可を確認した。
+
+Production、試験Oracleおよび他五fileは変更せず、新記録r4を作成した。UTC `2026-10-03T02:46:07.865Z`〜`2026-10-03T02:47:32.271Z`。原記録はRepository-local `.crdd/verification/chg-000082-host-lock-activation-261003-r4/run.json`、SHA-256 `18b95d74d65692efd839ad24a4aed2ab97362723f926883e8f8af8fe83095863`。r3は不変で、遡及補正しない。保存・再実行条件はr3と同じである。
+
+両shimのcmd／PowerShell／shell入口、npmのlifecycle PATH構成とcommand構成、COMSPEC、PATHから解決されるNode実体を前後記録した。shim直下の優先`node.exe`はlstatのENOENTで明示不存在だった。npm内の解決結果も前後一致し、既定cmdから両cmd shimを通り、`C:/Program Files/nodejs/node.exe`と記録済みJS／Nativeへ至る選択条件を保存した。これはOSのProcess image生成を実測した記録ではない。対象六file・検証器・2058件の入力集約・Index／Worktree差分は実行前後で一致した。本節追記後の文書Hashは実行時Hashと分ける。
+
+前節の同じ九処理を同じ順序で再実行した。Formatter→型→Lint、三静的Contract、Catalog／GraphはExit 0。局所試験は35／35、Fail／Cancel／Skip／Todo 0、184.3109msだった。CheckerはExit 1、既知tag不一致一件のみ、Warning 0、1164 MD／18365 Link／2259 Anchor、30139msだった。全体Passではない。HLA-Q02は自己確認済みであり、同じ六fileの最終三観点確認が完了するまでResolvedとは扱わない。実OS保証、全利用側移行、旧三Rootの非使用・処置、新実Task停止は不変である。
+
+### 取得待機後の局所是正の最終限定確認
+
+作成担当と別の確認者が、同じ六fileの技術独立レビュー、文書監査、品質／直接影響確認をすべて完了した。三観点は限定Pass、未解決Finding 0。HLA-T01／D01／D02／Q01／Q02をResolvedとした。基準HEADは開始・終了とも`feb4ac712ddf49479f3c7df2f60eba6ea5da5e5c`、確認対象のHashも開始・終了で一致した。
+
+| 確認対象 | SHA-256 |
+|---|---|
+| `execution-environment.ts` | `d579618054a9636935bd4e9afc4ca01d3f96f92725d0a3a4b7249c31dc8301b6` |
+| `host-operation-lock-activation.contract.test.ts` | `a33af296fb509e83d7ee95b4f7c4ae475bc4dddaf5991a9d30c03c4e7c70bc49` |
+| `QA-000003/quality_definition.md` | `e12a2407b3d4ebcaaf2c1ac014aa79b1f73c0022e679e0cdabf00628434ff7d7` |
+| `test-catalog.json` | `3335ebef591f26d626c3cd9a9bcbc49999a0c70ded2097e02e1715d97c915f15` |
+| Coordinator `symbol.json` | `2e4a744c25bb3adc364f4cec413e3b98607bacb13c3c63799d7f5e159023c42f` |
+| 本記録の結果書戻し前 | `3964c0408e08cda46390b4a1a7becd5fa6c29f58dca29ee5cb6806ebc8c92ace` |
+
+r4原記録と旧r3は不変だった。起動shimまでの再識別、35件の局所結果、Catalog／Symbol対応、未知取得の現在世代だけの失効、後着Lock一回の解放と実終端待機を確認した。Checkerの既知tag不一致一件は別診断のまま保持する。
+
+本節とChecklist一行だけを全結果統合後に書き戻した。確認者はこの結果書戻しを整合済みとした。他五file、旧Hash、旧結果、品質件数、許可範囲および新実Task停止は変更しない。作成前排他、全利用側移行、readiness／cleanup、旧三Rootの非使用、実OS保証、実Recovery、署名適用および全体品質は引き続きOPENである。
+
 ## Checklist
 
 - [x] 同じCHGのIntent、限定対象、対象外と人間承認を記録した。
@@ -195,5 +283,6 @@ Source読取りでは、`createOwnedOperationDirectories`のmarker／Root／六c
 - [x] 方式判断記録と現在投影の二文書を同じ固定版で三観点から独立確認した。未実証の方式をOS保証・実清掃・全E2E成立へ昇格していない。
 - [x] 2026-10-03の人間選択を記録した。Coordinator所有範囲で調査・是正し、Windows再起動を前提にしない。方式の選択を実停止・削除許可へ読み替えない。
 - [x] 今回の六文書の固定差分を技術・文書・品質／直接影響の三観点から独立確認し、限定Pass・Finding 0を記録した。旧限定Passを流用せず、実装・清掃・全体品質は未成立と分けた。
+- [x] 取得待機後の局所是正を同じ固定六fileで三観点から独立確認し、5指摘の解消と限定Passを記録した。実Recovery・全体品質の完了とは分けた。
 - [ ] OPEN: 旧形式の非使用、初期化排他、OS処置境界、保護済み再入場、SPEC／Workflow・公開入口と実境界検証が未成立。根拠取得後に同じCHGで接続する。
 - [ ] OPEN: 実在三件のexact処置承認と清掃未実施。必要保証成立後に対象を提示し、別に承認を得る。
