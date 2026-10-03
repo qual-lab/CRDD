@@ -346,6 +346,78 @@ UTC `2026-10-03T03:00:11.776Z`〜`2026-10-03T03:03:59.001Z`で、前節の候補
 
 全三結果を統合後、確認者が整合済みとした本節とChecklist一行だけを書き戻した。原記録、旧結果とHash、本番Source、品質件数、Authorityおよび新実Task停止は不変である。
 
+### 同一Process排他の内部lifecycle候補
+
+基準Commit `c60b166aa1c6b35e2114517c794c0b675c324261`から、前節の実測を本番未接続の内部状態機械へ具体化する。親と読取り専用確認者は、既存security Ownerの最小単位と同じアルゴリズムへの局所試験だけを着手可とした。既存Supervisor、公開入口、OS Adapter、Root／marker処置、全利用側移行、署名済みRuntime、旧三Rootおよび新実Task停止は変更しない。
+
+| 対象 | 今回の処置 |
+|---|---|
+| Coordinator詳細設計§11 | 同一Process候補の状態・通知・終端条件を定義する。非Authority終端記録を先に確定し、Root→marker→排他の順で閉じる案を次段の前提とする。保存・保護・exact結合・保持上限はOPEN。 |
+| `host-operation-inprocess-lease-internal.ts` | 取得、取消、後着通知、個別socket、期限、二重解放と未確認結果を一つのOwnerで処置する。OSや削除操作には接続しない。 |
+| 既存局所試験 | 同じ内部状態機械へ非Authority依存を渡す。実timer、pipe、Process、Root、DockerおよびProviderを生成・操作しない。 |
+| QA-000003／PRL-UT-006 | 追加局所義務を既存Local Itemへ接続する。正式項目全体の成立や全体品質件数は変更しない。 |
+| 型構成／Symbol | 未接続Sourceもproduction型確認へ含め、既存Test Symbolの実装Relationへ追加する。新試験Path・新ID・公開indexは作らない。 |
+
+発火例はlisten発行後の取得・取消・解放、非発火例は開始前取消、境界例は登録中取消・後着取得・接続が残るclose、情報不足例は依存例外・期限・通知不整合である。取消だけを資源不存在へ変換せず、結果確定後も必要な後着通知のOwnerを保持する。`closed`はTransport通知上の終端であり、native endgame、対象の非使用、削除権限またはOperation全体の清掃成功ではない。
+
+変更分類は内部非同期lifecycleの候補具体化である。Formatter→production／test型→Warningを失敗とするLint→三静的Contract→局所UT→Catalog／Symbol Graphの順で自己確認し、同じ固定差分へ技術、文書、品質／直接影響の独立三観点を適用する。準拠基準・Release判断を変更しないため準拠監査を追加しない。実境界、署名E2E、PT／LTおよび全回帰はこの未接続候補の成立根拠にしない。結果は後節へ実測値として書き戻す。現在は実装・自己確認中で、独立Passは未成立である。
+
+現在投影の停止条件・許可・旧三Root状態は変わっていないため、PROJECT_CONTEXTを実装経過だけで更新しない。現在、人間による追加の方式判断は必要ない。実停止・実削除には従前どおりexact対象の別承認が必要である。
+
+### 内部lifecycle候補の自己確認
+
+Node `v24.19.0`、Windows x64で、同じ候補をFormatter→production／test型→Warningを失敗とするLint→三静的Contract→局所UT→Catalog／Symbol Graph→Repository Checkerの順に確認した。結果原記録はRepository-local `.crdd/verification/chg-000082-inprocess-lifecycle-261003/run-r2.json`、SHA-256 `821e318933418d954512a7d371cb63427ec015431c90a464c1c0dc75830ce5cb`に保持する。actual command、開始・終了時点、Tool結合出力、終了codeおよび対象八fileの前後Hashを保存した。ただしFormatter、二型確認、Lint、Catalog／Graphの五処理は実行cwdを明示保存していなかった。八fileは七変更対象と不変のCatalogであり、前後Hashは一致した。cwdの不足を補った記録として扱わず、下記の独立指摘と是正へ接続する。本節は実行後の結果追記であり、文書の実行時Hashを書き換えない。全入力集合・全検証器のbinaryを網羅再識別したとは主張しない。原記録消失時は再確認まで新しい成立根拠にせず、保存条件は前節の局所結果と同じとする。
+
+| 確認 | 実結果と限界 |
+|---|---|
+| Formatter／型／Lint | Source・Testの363 file整形／Lint、production／test二型構成は全てExit 0。未接続Sourceもproduction型構成へ明示登録した。 |
+| 三静的Contract | Runtime Capability Graphと旧二Traceabilityは全てExit 0。旧JSON廃止、Semantic Coverageまたは新しい実境界の成立とは分ける。 |
+| 既存二fileの局所UT | 61／61 Pass、Fail／Cancel／Skip／Todo 0、270.6645ms、Exit 0。新候補の12親Caseを含む。親Case内の条件数を正式QA項目数へ加算しない。 |
+| Catalog／Symbol Graph | Exit 0、Finding 0。実在267試験、同じTest Path／QA-000003／PRL-UT-006を保ち、新Source-file SymbolへのRelationを確認した。 |
+| Repository Checker | Exit 1。既知の`stable-release-tag-identity-mismatch`一件だけ。全体Passではない。 |
+
+最初の確認では可視Checklistの追加項目が固定集合と不一致だったため、Checkerを弱めず、Architectureの既定Checklistを維持した。今回の評価・未成立条件は本文と本変更記録へ残した。期限解除中の取消と購読解除中の再入も追加で反証し、最新Sourceで静的段階から確認し直した。初回原記録`run.json`は上書きせず、最終結果へ混ぜない。
+
+試験は同じ内部状態機械の通知処置であり、実OS排他、native endgame、旧三Rootの非使用・清掃、正式PRL-UT-006全体または実Recoveryの成立ではない。新しいOS Adapter、実timer、pipe、子Process、Root、DockerおよびProvider操作はない。次段の耐久終端記録、共同終端条件と全利用側移行はOPENである。現在は自己確認済みであり、独立三観点の結果が揃うまで限定Passとは扱わない。
+
+### 内部lifecycle候補の独立指摘と是正
+
+基準HEAD `c60b166aa1c6b35e2114517c794c0b675c324261`、固定七file、書戻し前Evidence SHA-256 `e4c5e22f0d23829304a8569b3ba86f1ba3b60d517008715bbc736a64dfd4a61a`を技術、文書、品質／直接影響の三観点で確認した。全結果を統合した判定はFail、Finding三件であり、61局所試験の成功を限定Passへ昇格しない。対象と原記録は確認前後不変で、確認者は再実行・編集・実操作を行っていない。
+
+| 指摘 | 原因・固定した是正と反証 |
+|---|---|
+| IL-T01 | 期限登録中の取消で再入登録し、解除責任を上書きして取消後listenを発行し得た。登録中flagを追加し、返却責任を保持する。listen直前に取消を再確認し、未開始なら期限・購読を解除する。登録中取消の一登録・一解除・listen0を試験する。 |
+| IL-T02 | 公開結果のunknownと取得要求のsettlementを混同し、先行closeで購読を外し得た。取得pendingを別管理し、保留中にcloseを先行しない。先行終端通知は後着取得の根拠にせず、後着取得→一回close→対応終端まで購読を保持する。期限後とlisten例外後の後着を試験する。 |
+| IL-Q01 | r2の五処理でcwdを保存していなかった。旧原記録は不変で保持し、全commandへ明示workdirを渡す新r3で確認し直す。r2の不足は本記録で訂正する。 |
+
+編集前に全三件の統合方針を指摘元へ再提示し、三観点との整合と是正着手可を確認した。方針整合は完成後Passではない。Source／試験／Architecture／QA／Evidenceだけを指摘へ対応付け、既存Supervisor・Factory・利用側・OS Adapter・Root／marker・Authority・署名・旧原記録・品質件数・停止Gateは変更しない。是正後は新しい固定七fileと新原記録を、同じ三観点で再確認する。
+
+### 是正候補r3の自己確認
+
+UTC `2026-10-03T03:57:10.677Z`〜`2026-10-03T03:58:05.769Z`に、是正後の同じ候補を静的段階から再確認した。新原記録は `.crdd/verification/chg-000082-inprocess-lifecycle-261003/run-r3.json`、SHA-256 `966df18956d662f037f4869d8be141990b2420f9063cec39a8e93337d6bb9444`。snapshotを含む全commandへ明示workdirを渡し、実command、cwd、時点、終了code、Tool結合出力と同じ八fileの前後Hashを保存した。前後Hashは一致した。旧r2は変更せず、旧指摘・旧結果を最終結果へ混ぜない。本節は実行後追記であり、実行入力の文書Hashを更新しない。
+
+Formatter、二型構成、Warningを失敗とするLint、三静的Contract、Catalog／Symbol Graphは全てExit 0。局所二fileは64／64 Pass、Fail／Cancel／Skip／Todo 0、266.8113ms、Exit 0だった。追加三CaseがIL-T01／IL-T02を反証した。Repository CheckerはExit 1、既知tag不一致一件だけである。対象・操作・保存上の限界はr2節と同じであり、全検証器のbinary・全入力集合の網羅再識別を主張しない。
+
+是正自己確認は独立Passではない。新固定七fileでの技術、文書、品質／直接影響の再確認を待ち、本番接続、終端記録、全利用側移行、旧三Root非使用・清掃、実Recoveryおよび全体品質はOPENを維持する。
+
+### 是正候補r3の独立確認結果
+
+新しい固定七fileの技術、文書、品質／直接影響をすべて再確認した。三観点は限定Pass、IL-T01／IL-T02／IL-Q01はResolved、新Finding 0。旧Passを流用していない。開始・終了HEADは`c60b166aa1c6b35e2114517c794c0b675c324261`、対象Hash・r3・旧r2は不変だった。確認者は再実行・編集・外部送信・実操作を行わず、差分空白検査はExit 0だった。
+
+| 固定確認対象 | SHA-256 |
+|---|---|
+| Coordinator詳細設計 | `3f8d771430fb5b2acc951cae43b52fd634a2f864a6e80337cef22b266aa941c0` |
+| QA-000003定義 | `792d7e69226cfc9e65ee8ea07d811c7c32c37cc967bf2650135e8865c23803bb` |
+| 内部lease候補 | `1b2bde7d6907ee9896dca5ef5d42f936bdd0b3de94fd073e015f4bfc850a0eab` |
+| 既存局所試験 | `ea3768a56ed628fcc134ccf35183004d0a85830c2aaa03d8a784950b81cd4dbf` |
+| production型構成 | `fb4c7d29dcd60fd163834b5dec3a26daaf671cd0c723212e2b411b6c4eb72e89` |
+| Coordinator Symbol | `c41db9cae8cfecf76736c09f98b0ad4c985c06b27bb8f229a98b04652d4638f6` |
+| 本記録のレビュー版・結果書戻し前 | `0e0b9a24bd895b75ab9cc76fb68812dd1c86ecfedbbb33218d56809c9f232141` |
+
+実行入力としての本記録Hashは`a78ace7db49d23945a8368ced17583bda7135927ec8fccb60fdf8085bf166e84`であり、上記レビュー版とは区別する。r3原記録Hashは`966df18956d662f037f4869d8be141990b2420f9063cec39a8e93337d6bb9444`。64局所結果と追加三反例、登録・Relation、全command／snapshotの明示cwd、八入力前後一致を照合した。
+
+全結果統合後、確認者が整合済みとした本節とChecklist一行だけを書き戻す。他六file、旧Fail・Hash、旧r2／r3、品質件数、Authorityおよび停止Gateは不変である。成立範囲は本番未接続の内部通知処置だけ。本番連続排他、native終端／OS資源不存在、正式PRL-UT-006全体、耐久終端記録、全利用側移行、旧三Root清掃、実Recovery、署名E2Eおよび全体品質は未成立のままである。検証器・全入力の網羅再識別も主張しない。
+
 ## Checklist
 
 - [x] 同じCHGのIntent、限定対象、対象外と人間承認を記録した。
@@ -362,5 +434,6 @@ UTC `2026-10-03T03:00:11.776Z`〜`2026-10-03T03:03:59.001Z`で、前節の候補
 - [x] 取得待機後の局所是正を同じ固定六fileで三観点から独立確認し、5指摘の解消と限定Passを記録した。実Recovery・全体品質の完了とは分けた。
 - [x] 共有回復Directoryの所有・初期化是正を固定五fileで三観点から独立確認し、限定Pass・Finding 0を記録した。連続排他、実OS保証、旧三Root清掃および全体品質の成立とは分けた。
 - [x] 同一Process排他の四場面実測を固定記録で三観点から独立確認し、限定Pass・Finding 0を記録した。本番接続、旧Root非使用、実Recoveryおよび全体品質は未成立と区別した。
+- [x] 未接続内部lifecycleの三指摘を是正し、新固定七fileで三観点の限定Pass・新Finding 0を確認した。64局所結果と本番・実Recoveryの未成立を分けた。
 - [ ] OPEN: 旧形式の非使用、初期化排他、OS処置境界、保護済み再入場、SPEC／Workflow・公開入口と実境界検証が未成立。根拠取得後に同じCHGで接続する。
 - [ ] OPEN: 実在三件のexact処置承認と清掃未実施。必要保証成立後に対象を提示し、別に承認を得る。

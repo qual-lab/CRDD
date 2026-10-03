@@ -161,6 +161,10 @@ Source Definition由来の検証義務を維持し、Detailは具体的な観測
 
 同じ`PRL-UT-006`で共有回復Directoryの初期化を確認する。既存成功、mkdir成功、mkdirのEEXIST競合をfresh検証へ戻し、共有Directory削除0・他Task記録操作0を確認する。初期観測unknown／throw、mkdir結果不明、EEXIST後の不正Path・reparse・Identity読取りthrow・unknown、既存Directory検証失敗を拒否し、`cleanupConfirmed:false`／回復IDなしを保持する。Root・marker作成前の拒否とnamespace状態不明を全Effect 0へ畳まない。試験依存は実Filesystemを操作せず、このUTの成功を実OSの境界保証または実清掃へ昇格しない。
 
+同じ`PRL-UT-006`の追加局所範囲として、未接続の同一Process lease候補を確認する。取得前／登録中取消、取消後の後着取得、取得・解放の期限切替、二重解放、Server close後の個別socket待機、bind失敗、重複・不正通知、依存例外および期限後の後着終端を処置する。要求前通知から成功を発行しない。確定した未確認結果は後着成功で上書きせず、通知所有者を保持する。Oracleは通知処置だけであり、`closed`からnative endgame、Operation全体の清掃、対象の非使用または削除権限を推定しない。本番入口・OS Adapter・Root／marker処置・全利用側移行には未接続であり、実境界の義務はQA-000006に残す。
+
+期限登録中の同期取消では登録・解除を一回に限定し、listenを発行しない。取得要求の保留と結果Promiseを分け、期限後またはlisten例外後の先行close通知で購読を外さない。後着取得へ一回closeを発行し、その後の対応終端で登録を解除しても、先に返した不明結果は同一のまま保持する。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した

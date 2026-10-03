@@ -4045,12 +4045,18 @@
       ]
     },
     {
+      "symbolId": "coordinator.source.src.security.host.operation.inprocess.lease.internal",
+      "kind": "file",
+      "path": "src/security/host-operation-inprocess-lease-internal.ts",
+      "archIds": ["ARCH-000008"]
+    },
+    {
       "symbolId": "coordinator.test.unit.host-operation-lock-activation",
       "kind": "test-suite",
       "path": "tests/unit/host-operation-lock-activation.contract.test.ts",
       "qaIds": ["QA-000003"],
       "localTestIds": ["PRL-UT-006"],
-      "verifies": ["coordinator.source.src.security.execution.environment"]
+      "verifies": ["coordinator.source.src.security.execution.environment", "coordinator.source.src.security.host.operation.inprocess.lease.internal"]
     },
     {
       "symbolId": "coordinator.test.unit.host-orphan-recovery-policy",

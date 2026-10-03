@@ -479,6 +479,25 @@ namespace初期化の失敗ではexact Token回復へ接続できない。Token�
 
 この所有分離は作成前からの連続排他、OSによる差替え防止、全利用側移行または旧三領域の非使用を証明しない。これらのOPENは維持する。
 
+#### 同一Processの排他と終端追跡の接続候補
+
+**現状: 内部状態機械を局所試験で確認する段階。本番入口、OS Adapter、Root／markerの処置および全利用側の移行は未接続である。** 排他は対象へ触れるCoordinatorと同じProcessが所有する候補を用いる。別Supervisorだけが先に終了して親の同期処理が継続する反例を避ける。限定実測の四場面は[変更記録](../../../99_Roadmap/Changes/CHG-000082/Evidence/261002_host-orphan-recovery-design.md#同一processの排他候補--限定実測)に置き、実測だけで本番保証を宣言しない。
+
+| 状態・通知 | 候補が保持する条件 |
+|---|---|
+| 取得前の取消 | listenを開始しない。取得なしと、生成後の終端未確認を区別する。 |
+| 取得待機中 | 公開結果とは別に取得要求の保留を保持する。期限・取消だけでcloseを先行せず、listeningまたはlisten_failedまで購読を保持する。取得より先のclose通知は、その後の取得の終端根拠にしない。 |
+| listening | 取消・失敗がない場合だけ保持中として返す。後着取得は同じOwnerがcloseへ接続する。 |
+| error、予期しない通知または解放開始 | 新しい利用を拒否し、失敗を単調に保持する。close要求を一回に限定し、各受理socketの終端も確認する。 |
+| 取得要求の通知上settlement、その後のclose通知と全受理socketの終端 | Transport通知上の終端を返す。native endgame、全OS handle不存在、Root清掃またはOperation全体の`cleanupConfirmed`とは別である。 |
+| close throw、期限または観測不能 | 終端未確認としてOwnerを保持する。後着通知を処置しても、先に返した不明結果を成功へ書き換えない。 |
+
+局所試験と将来のOS Adapterは同じ内部状態機械を用いる。試験用依存から本番の削除権限を発行せず、公開indexへ入口を追加しない。実装境界はCoordinatorの既存security Ownerに閉じ、新しいSubsystem、addon、汎用Lock機能または任意Pathの利用入口を作らない。
+
+全利用側移行の前提は、**同じ内部Identityへ結合した非Authorityの耐久終端記録を先に確定し、Root処置・直接不存在→exact marker処置・直接不存在→排他解放を順に確認する**ことである。解放後にmarkerを削除する案は排他外の処置を残すため採用しない。終端記録は所在と処置進行の手掛かりであり、元TaskのToken再発行、削除許可、非使用証明または成功証明にしない。次Processはfreshな権限・Identity・資源観測へ再結合し、記録単体からEffectを発行しない。
+
+終端記録の保存Root、保護、原子的確定、exact参照との結合、保持上限と回収OwnerはOPENである。これらと各資源の共同終端条件が固定されるまで、Root／marker処置、既存Supervisorの置換および全利用側の移行を開始しない。同期wrapperへPromiseを渡すだけの変更も行わない。旧三領域、新実Task停止、実停止・実削除の別承認および全体品質は不変である。
+
 旧形式の非使用を安全に確認できる具体的方式、作成前排他と全利用側の移行、OS処置境界はまだ未確定である。必要な保証を検証できない場合は処置しない。Windows再起動が不可欠という根拠が得られない限り、それを既定の前提または利用者への必須操作にしない。
 
 **OPEN:** 旧形式の非使用根拠、初期化前からの排他、差替えを防ぐOS処置境界、保護済み再入場、SPEC／Workflowへの実処置契約と公開入口は未成立である。これらを反証・独立確認するまでHelp／capabilitiesに未完成clean操作を公開しない。詳細な進行と承認範囲は[CHGの記録](../../../99_Roadmap/Changes/CHG-000082/Evidence/261002_host-orphan-recovery-design.md)、検証義務は[QA-000003](../../../07_Quality/Definitions/QA-000003/quality_definition.md#host残存の保守候補判定)と[QA-000006](../../../07_Quality/Definitions/QA-000006/quality_definition.md#host残存の限定回復に追加する観測条件)を参照する。
