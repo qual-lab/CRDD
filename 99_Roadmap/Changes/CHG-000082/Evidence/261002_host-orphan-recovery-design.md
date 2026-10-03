@@ -418,6 +418,79 @@ Formatter、二型構成、Warningを失敗とするLint、三静的Contract、C
 
 全結果統合後、確認者が整合済みとした本節とChecklist一行だけを書き戻す。他六file、旧Fail・Hash、旧r2／r3、品質件数、Authorityおよび停止Gateは不変である。成立範囲は本番未接続の内部通知処置だけ。本番連続排他、native終端／OS資源不存在、正式PRL-UT-006全体、耐久終端記録、全利用側移行、旧三Root清掃、実Recovery、署名E2Eおよび全体品質は未成立のままである。検証器・全入力の網羅再識別も主張しない。
 
+## 終端記録の保存・再入場 — 候補契約の具体化
+
+基準Commitは`2db37721f29ab16534e6237fdae2b4a0c4b723bb`。元markerを処置後も同じ回復対象へ戻れるよう、[詳細設計の候補契約](../../../../06_Architecture/Details/coordinator/01_Architecture.md#終端記録の保存再入場の候補契約)を具体化する。記録は対象・進行を追う手掛かりであり、元TaskのAuthorityまたは清掃成功の正本にしない。
+
+### 変更経路と着手前整合
+
+| 項目 | 今回の処置 |
+|---|---|
+| 変更分類 | 同じRecovery責務の設計具体化。非自明なArchitecture・Qualityの直接伝播。 |
+| 着手前整合 | 親が現行Loader、Root／marker清掃順、Runtime Dataのstage／排他的link、Authority・保守・品質規則を照合。読取り専用確認者が保存／保護、二producer、参照保持、容量、管理清掃の六条件付きで文書編集のみ着手可。 |
+| 固定範囲 | Coordinator詳細設計、QA-000006、今回のCHG記録の三文書。 |
+| 独立確認 | 新固定三文書の技術、51文書、品質／53直接影響の三観点。全結果統合前は編集せず、旧Passを流用しない。 |
+| 行わない確認 | Source・署名Runtime不変のため、型／Lint／全回帰・再署名・Provider E2Eを本更新の根拠として再実行しない。準拠基準・Release判断も不変。文書Checkerと差分・リンク確認は行う。 |
+| 人間判断 | 現時点では新しい方法選択は不要。実Process停止、旧三Root処置、書込みRoot拡張およびReleaseは今回の許可に含めない。 |
+
+語彙は既存の「終端記録」「回復参照」「非Authority」「再入場」を再利用し、本文では対象と進行の手掛かり、権限ではないことを先に説明する。新しい正式用語、Canonical IDまたは公開Token体系は定義しない。専門家向けの詳細表でも、保存条件・権限・停止・未成立を別に表示する。
+
+### 専門判断の根拠と残る不確実性
+
+| 観点・比較 | 設計への反映 |
+|---|---|
+| markerを残して排他解放後に除去する案 | 排他外の処置と参照喪失窓が残るため不採用。選定済みの終端intent先行→Root→marker→leaseを維持。 |
+| markerから旧Tokenを復元する案 | 元参照不明の保守でAuthorityを復元するため不採用。通常清掃と保守のproducerを分け、後者は今回のexact選択へ結合。 |
+| Runtime Dataのcaller-known stage／排他的公開 | 既存原理として照合。ただし別の保存境界・Authorityを持つ実装をHostへ接続済みとはしない。 |
+| 書込み・flush後のrenameだけで確定する案 | 既存対象の置換、公開不明と実体差を除外できないため、そのまま採用しない。no-replace公開・両名の照合・stage不存在を接続前条件にする。 |
+| 参照を局所変数だけへ保持する案 | Process喪失で再入場不能になるため不採用。最初のEffect前の参照とcaller耐久接続を必須とする。 |
+| 記録を永久保持する案／古い順で消す案 | 前者は容量無制限、後者は未解決参照を壊すため不採用。stageも含めた容量予約と、共同終端後の別管理清掃へ分離。 |
+| Windows modeとFilesystem原理 | [Node v24.19.0](https://nodejs.org/download/release/v24.19.0/docs/api/fs.html)、[Windows hard link](https://learn.microsoft.com/en-us/windows/win32/fileio/hard-links-and-junctions)、[FlushFileBuffers](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-flushfilebuffers)を2026-10-03に確認。modeをWindows ACLへ昇格せず、file flushをDirectory／電源断の全耐久保証へ拡張しない。 |
+
+探索範囲は同じCoordinatorの通常清掃・限定保守、固定保存境界、Process喪失、容量と記録清掃に限定した。汎用journal、全FilesystemのNative化、任意Path清掃、OS再起動および元Task再実行は対象外。候補値8KiB／1024entry／8MiBは接続前に確認する運用候補であり、容量超過を削除許可にしない。保存保護、no-replace公開、caller耐久接続、予約計数、引渡しReceiptと実管理清掃の実装・実観測は未成立である。
+
+### 編集と利用側の対応
+
+| 編集一次キー | 対象／適用位置 | 処置・確認方法 |
+|---|---|---|
+| HT-D01 | Coordinator詳細設計の同一Process候補末尾と新しい候補契約節 | 旧OPENを設計候補と実保証のOPENへ分離。保存、保護、二producer、段階別再入場、容量、共同終端と管理清掃を一つのOwnerへ定義する。 |
+| HT-Q01 | QA-000006のHost限定回復節末尾 | 既存Local Itemへ各公開段階・取消／喪失・差替え・容量競合・marker消失・lease不明・Evidence失敗の反証を追加。全行未観測、件数不変。 |
+| HT-E01 | 本記録のChecklist直前 | 採用理由、計画条件、編集対応、独立結果と残る未成立を記録。契約本文を第二の正本にしない。 |
+
+通常Task・Doctor・検証Script・exact回復・限定保守・診断／公開結果・管理清掃が将来のconsumer母集団である。今回はすべてSource未変更・未接続とし、完成主張を止める。QA-000003の既存局所通知処置、Runtime Dataの既存一時Operation契約、配布／署名、PROJECT_CONTEXTの停止・判断状態は変更しない。前二者は設計原理／責務の参照であり、本番接続の証拠ではない。停止、旧三Root、Sourceと品質件数が不変のため、現在投影の内容更新はN/Aと評価する。
+
+### 文書候補の自己確認
+
+Node v24.19.0でRepository Checkerを実行し、Exit 1、既知の`stable-release-tag-identity-mismatch`一件だけを確認した。新しい文書不備は0、差分空白検査はExit 0だった。初回に検出したRuntime Data参照のanchorを訂正してから再確認した。全CheckerのPassとは表示しない。
+
+原記録は`.crdd/verification/chg-000082-terminal-contract-261003/run.json`、SHA-256 `bca6daf2160f36fcc4466f19f8c56b91c7aa16dc0f710a4e5c4c15448872eda1`。明示cwd、実command、Tool結合出力、終了code、三文書の実行前後Hashを保存し、前後一致を確認した。本節は実行後追記であり、入力Hashとレビュー版Hashを区別する。Source確認・実処置・再署名・E2Eは実行していない。
+
+### 初回独立確認とHT-Q02の是正
+
+固定三文書を技術、51文書、品質／53直接影響の三観点で確認した。技術はPass、文書・品質／直接影響はFail。FindingはHT-Q02一件であり、上記原記録のChecker返却結果に実command／cwdを結合して保存していなかった。検査結果内の対象Rootは実cwdの代替ではない。「明示cwd、実command保存済み」という初回記載はChecker部分について不足していた。
+
+全結果を統合した是正案を指摘元へ再提示し、整合と着手可を確認した。旧原記録・旧Hashを不変で保持し、推定による補完をしない。設計・QAの意味、Source、実操作、品質件数、Authorityおよび停止Gateは変更していない。
+
+新しい確認は`.crdd/verification/chg-000082-terminal-contract-261003/run-r2.json`へ保存した。SHA-256は`b4106c9468c10fa829967ed5a94369cf5c8ed73470530f58d9931ae32bdddda9`。実際にToolへ渡すinputオブジェクトと、初期返却・全待機返却を結合した。前後のHEADは`2db37721f29ab16534e6237fdae2b4a0c4b723bb`、三文書と旧原記録のHashは一致した。これは新実行であり、旧実行の入力復元ではない。
+
+Checkerは30315ms、Exit 1、既知tag不一致一件、Warning 0、新しい文書不備0。差分空白検査はExit 0。Source・OS・実Recovery・全回帰・E2Eの確認には昇格しない。
+
+**現在状態: 是正候補r2の自己確認済み、独立再確認待ち。** 新固定三文書とr2を同じ三観点へ渡し、全結果を待つ。契約実装・Recovery完成・Quality Readyは未成立のままである。
+
+### 文書候補r2の独立再確認結果
+
+固定三文書を技術、51文書、品質／53直接影響の三観点ですべて再確認し、全結果は限定Pass、HT-Q02はResolved、新Finding 0だった。旧Passを流用していない。確認者の開始・終了HEADは`2db37721f29ab16534e6237fdae2b4a0c4b723bb`、下記Hashと新r2・旧runは一致・不変だった。確認者は再実行・編集・外部送信・実操作を行っていない。
+
+| 固定確認対象 | SHA-256 |
+|---|---|
+| Coordinator詳細設計 | `2e4b4a7ade49eee6aedbf224b5457232b451d1a1cfa10d18f087e7c2244f13e0` |
+| QA-000006定義 | `829ea107917b1eed2d1ed4f2355df6ffb8585a4e313b2cb9245fd69785dc5ef4` |
+| 本記録のレビュー版・結果書戻し前 | `7b87afff862db062f4ebb05b9d9c4d8a828dbaeccb3243e6ca907efd8d61f36c` |
+
+新r2の実行入力としての本記録Hashは`97e5a01d0cbacd6b71198d22584a177bfb181d765638665e2fe72e1d1c1b1964`であり、レビュー版と区別する。Checkerのinput、初期返却と同じsessionの全待機返却、前後HEAD／Hash、差分空白のinput／結果を独立照合した。30315ms、Exit 1、既知一件／Warning 0に一致する。限定Passは文書候補と根拠記録の整合に限り、Checker全体のPassではない。
+
+全結果統合後、確認者が許容した本結果節とChecklist一行だけを書き戻す。他二文書、旧Fail、旧run／新r2、Source、Authority、品質件数および停止Gateは不変である。契約実装、Windows保護、実Recovery、E2Eおよび全体品質はOPENを維持する。
+
 ## Checklist
 
 - [x] 同じCHGのIntent、限定対象、対象外と人間承認を記録した。
@@ -435,5 +508,6 @@ Formatter、二型構成、Warningを失敗とするLint、三静的Contract、C
 - [x] 共有回復Directoryの所有・初期化是正を固定五fileで三観点から独立確認し、限定Pass・Finding 0を記録した。連続排他、実OS保証、旧三Root清掃および全体品質の成立とは分けた。
 - [x] 同一Process排他の四場面実測を固定記録で三観点から独立確認し、限定Pass・Finding 0を記録した。本番接続、旧Root非使用、実Recoveryおよび全体品質は未成立と区別した。
 - [x] 未接続内部lifecycleの三指摘を是正し、新固定七fileで三観点の限定Pass・新Finding 0を確認した。64局所結果と本番・実Recoveryの未成立を分けた。
+- [x] 終端記録の文書候補を新固定三文書で三観点から独立再確認し、HT-Q02の解消・限定Pass・新Finding 0を記録した。Windows保護、実装、実Recoveryと全体品質は未成立と分けた。
 - [ ] OPEN: 旧形式の非使用、初期化排他、OS処置境界、保護済み再入場、SPEC／Workflow・公開入口と実境界検証が未成立。根拠取得後に同じCHGで接続する。
 - [ ] OPEN: 実在三件のexact処置承認と清掃未実施。必要保証成立後に対象を提示し、別に承認を得る。

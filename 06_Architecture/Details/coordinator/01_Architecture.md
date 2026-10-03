@@ -496,7 +496,50 @@ namespace初期化の失敗ではexact Token回復へ接続できない。Token�
 
 全利用側移行の前提は、**同じ内部Identityへ結合した非Authorityの耐久終端記録を先に確定し、Root処置・直接不存在→exact marker処置・直接不存在→排他解放を順に確認する**ことである。解放後にmarkerを削除する案は排他外の処置を残すため採用しない。終端記録は所在と処置進行の手掛かりであり、元TaskのToken再発行、削除許可、非使用証明または成功証明にしない。次Processはfreshな権限・Identity・資源観測へ再結合し、記録単体からEffectを発行しない。
 
-終端記録の保存Root、保護、原子的確定、exact参照との結合、保持上限と回収OwnerはOPENである。これらと各資源の共同終端条件が固定されるまで、Root／marker処置、既存Supervisorの置換および全利用側の移行を開始しない。同期wrapperへPromiseを渡すだけの変更も行わない。旧三領域、新実Task停止、実停止・実削除の別承認および全体品質は不変である。
+終端記録の候補契約は次節へ具体化する。候補契約の定義と、保存・保護・公開・再入場の実環境での成立は別である。後者と各資源の共同終端条件を確認するまで、Root／marker処置、既存Supervisorの置換および全利用側の移行を開始しない。同期wrapperへPromiseを渡すだけの変更も行わない。旧三領域、新実Task停止、実停止・実削除の別承認および全体品質は不変である。
+
+#### 終端記録の保存・再入場の候補契約
+
+**目的は、Rootや元markerがなくなった後にも、未確認の排他解放を同じ対象として追えることである。** 記録の存在・Hash・保存済み進行から、削除権限、現在の非使用または成功を発行しない。以下は本番未接続の設計候補であり、現在のLoader、Windows保護または清掃の実装保証ではない。
+
+| 所有する項目 | 候補契約 | 接続前に確認する条件 |
+|---|---|---|
+| 保存先 | 既存の検証済みOS temporary parent内にある`crdd-coordinator-recovery-v1`の固定child `terminal-v1/`。対象Rootと元markerから分離し、任意Pathを入力にしない。 | parent、共有Directory、固定childの実体・Identity・非reparse境界をfreshに確認する。Operation清掃で共有Directoryを削除しない。 |
+| 記録保護 | 同じ利用者のCoordinator管理資源として、書込み主体、所有者、アクセス制御、処理中の差替え防止を確認する。 | 現行の実Path・属性・Identity確認や`0700/0600`をWindowsの所有者／DACL保護の証明にしない。保護不明ではRoot／marker処置0。 |
+| 参照の取得 | 最初の記録Effect前に、同じ処置対象へ結合した非Authorityの内部参照を一回確定する。stageと公開先はこの参照から決定する。 | Process喪失後にも参照を取得できるcaller側の既存耐久接続を確認する。Process内変数だけでは不足。取得前失敗では参照を捏造せず、取得後の結果・例外・再入場では同じ参照を保持する。 |
+| 記録内容 | 固定Schema／Revision、参照、producer種別、対象Root・元marker・固定childのIdentity、必要なbyte Hash、元参照との関係または不明理由、処置対象と順序を保存する。 | 自由Path、秘密値、元TaskのToken再発行、成功を自己申告するfieldを受理しない。元marker消失後も対象の結合情報を失わない。 |
+| 公開 | caller-known stageへ完全なbounded文書を書き、file flush後、既存対象を置換しないlink等で公開する。同一実体・完全なbytesを両名から照合する。 | 書込み・flush・公開要求だけを確定にしない。公開不明や衝突で上書き、別参照の再発行またはRoot処置を行わない。 |
+| 耐久範囲 | 公開各段階のProcess喪失と再入場を確認する。 | Directory自身の耐久化、OS喪失・電源断後の残存は別の未保証条件。file flushだけで全耐久性を宣言しない。 |
+| 容量と受付 | 初期候補値は一文書8KiB、stage／公開先を合わせた物理entry上限1024件、総byte上限8MiB。併存する二名の両方を計数する。 | 全producer共通の予約・計数で並行超過を防ぐ。上限／計数不明では新Root取得前に停止する。既存参照の読取りは継続できるが、新記録が必要な回復Effectは上限を迂回しない。値は接続前の固定候補レビューで確認し、削除許可にしない。 |
+
+保存原理は[Runtime Dataの一時Operation管理](../runtime-data/01_Architecture.md#42-operation所有契約)と照合するが、その実装をHost清掃へ接続済みとは扱わない。Nodeのfile modeはWindowsで利用者別アクセス制御を表さず、hard linkは同一file objectを複数名で参照するため、公開後のstageを別内容へ書き換えない。[Node.js v24.19.0のFilesystem契約](https://nodejs.org/download/release/v24.19.0/docs/api/fs.html)、[Windowsのhard link契約](https://learn.microsoft.com/en-us/windows/win32/fileio/hard-links-and-junctions)を方式の根拠とする。no-replace公開と実体の保護は、対象OS・Filesystemの実境界で別に反証する。
+
+| producer | 結合元 | 禁止する推定 |
+|---|---|---|
+| 元exact参照を確認済みの通常清掃 | 現在の所有世代、Root、nonce、記録Hashと既存回復関係。 | 記録単体から既存Authorityを再発行すること。 |
+| 元参照不明の限定保守 | 人間に提示したexact Root・marker・六child snapshotと、今回の保守選択Identity。 | marker本文や名前から旧Token・旧nonce・旧Authorityを復元すること。新lease取得を旧利用者との排他成立とみなすこと。 |
+
+通常清掃は現在の正当な所有／回復契約へ再結合し、限定保守は新しいfresh承認と保護済みlineageへ再結合する。どちらも同じ対象の現在Identity・非使用・連続排他を確認し、保存済みの確認結果を流用しない。変更によって元Taskを再開しない。
+
+| 再入場時の記録観測 | 許可する記録上の処置 | Root／markerへの処置 |
+|---|---|---|
+| stageのみ | exact参照へ結合した完全な文書・保護・実体を確認した場合だけ公開を継続する。不完全／不明では保持して停止する。 | 公開の確定前は0。 |
+| stageと公開先の二名 | 同じfile object、同じ完全なbytes、同じ参照ならstage側だけの除去候補。不存在を直接確認する。 | stage残存・除去不明の間は0。 |
+| 公開先のみ | 同じ参照、Schema、保護、実体・bytesを再検証する。 | freshな権限・対象・非使用・排他へ再結合後だけ、事前固定した残存対象を処置する。 |
+| 不一致、未知entryまたは観測不能 | 別参照で回避せず、同じ取得済み参照と根拠を保持して停止する。 | 追加Effect 0。 |
+
+清掃は公開済みintent→Root処置・直接不存在→元marker処置・直接不存在→排他解放の順で進める。取消・部分処置・通知喪失・例外は同じ終端記録へ接続する。進行追記を持つ場合も、書込みを処置済みの証明にせず、対象ごとのfresh観測を正本にする。leaseの通知上`closed`だけでnative資源の回収まで成立としない。
+
+#### 終端記録自身の管理清掃
+
+終端記録の清掃は元Taskの清掃とは別の管理責務であり、CoordinatorのHost回復記録Ownerが所有する。元Root・元marker・leaseの共同終端を確認する前、未解決参照がある間、または観測不能の間は削除しない。
+
+- 必要Evidenceは、今回許可されたRepository-local `.crdd/verification/`等の既存保持先へ移す。許可されたexact Root以外へ暗黙にarchiveしない。移動先の実bytes・Identity・同じ参照を確認した引渡しReceiptがなければ、原記録を削除しない。
+- 引渡し後、当該記録のfresh Identity、参照解消、非使用と専用管理清掃のAuthorityを確認して、その記録だけを処置する。共有Directory、別Operationの記録および元Rootへ処置を拡張しない。
+- 各処置の直後と、次回の新規記録受付前に終了済み記録の清掃要否を評価する。経過時間・古い順・容量超過だけで自動削除しない。清掃できなければ上限を守って停止し、必要な人間処置を示す。
+- 管理清掃が部分成功・不明なら、同じ管理対象のfile Identityと引渡しReceiptを保持する。元Taskを再開せず、元Root清掃用記録を再帰的に作らない。管理清掃の終了は原記録とstageの直接不存在、処置用handle／observerの終端を確認して判定する。
+
+**接続前OPEN:** 実際の保存・アクセス制御・差替え防止、no-replace公開、caller耐久接続、容量予約、Evidence引渡しと管理清掃は未実装・未観測。これらと旧利用側の閉包、Root／markerの限定OS処置を満たすまで、候補契約を実Recovery成立へ昇格しない。
 
 旧形式の非使用を安全に確認できる具体的方式、作成前排他と全利用側の移行、OS処置境界はまだ未確定である。必要な保証を検証できない場合は処置しない。Windows再起動が不可欠という根拠が得られない限り、それを既定の前提または利用者への必須操作にしない。
 
