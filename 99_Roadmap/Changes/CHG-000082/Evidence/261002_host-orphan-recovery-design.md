@@ -838,6 +838,42 @@ Rust Formatter／Clippy、Node Ownerの型・Formatter／Lintを先行し、新�
 
 限定Passはこの私有部品と局所結果・追跡の確認に限る。初回Fail、r1原因不明、旧入力不足、公開guard取得前の競合、別Process、stage連続保護付き除去、caller耐久接続・容量、初期化・再入場、全consumer、旧三Root、実Recovery／全E2Eおよび全体品質のOPENは不変である。Source、登録、原記録、品質件数、署名、Authorityと停止Gateを変更せず、新しい人間判断は不要である。
 
+## 保護を維持した準備名の収束候補
+
+**次の目的は、保存元のwriterを閉じずに準備名を直接不存在へ収束できるか確認することである。** 基準Commitは`f61706558ea3a7fc0cd54cde85dce029461aeca2`。前単位のSource `76022c38c7859aceed0f15778109ddf5f495f7da6342b63f37a3c27ff8599991`とbinary `50677fd56a710b58001420c945c53c31b218567ec205be6ddb7aedd32d9b8d0a`を同じbytesで別名保持した。前単位の限定Pass・実測を次方式へ付け替えない。
+
+| 候補 | 判断と保持条件 |
+|---|---|
+| stage保持handleから通常disposition | 要求受理と名前消失を区別する。非POSIXでは全handleの終了、POSIXでは削除handleの終了を伴う一次記述だけから、writer保持中のstage除去を保証できないため今回採用しない。 |
+| 同じhandleで非置換rename | writerを閉じずに準備名を公開名へ移せれば二名状態を避けられる。試験内の候補として一回反証する。改名後の名前保護、直接不存在、実体・bytesと衝突拒否はまだ未成立。 |
+| 別guardへのhandoff | 現public guardはWRITE共有ありで、元writerを閉じた後のbytes保護を単独では担えない。不共有WRITEの新guardは生存するwriterと衝突し得る。close／reopenやOwner ACLへの置換で保護の空白を作らない。 |
+
+読取り専用の着手前確認で、rename後の追加noDELETE共有guardは元DELETE accessと衝突し得るため必須にしない計画へ整合した。元RW／DELETE・shareREADの同じhandleを保持したまま、SDKの`FILE_RENAME_INFORMATION`／class10、`ReplaceIfExists=false`、RootDirectory NULL、同Directoryの単純leafで一回要求する。[Microsoftのrename構造契約](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/ns-ntifs-_file_rename_information)と[NtSetInformationFile契約](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-ntsetinformationfile)を入口・必要access・ABIの根拠とするが、開いたfileの実際の共有意味は試験で別に反証する。Ex／POSIX／force／bypass／既存先置換は使わない。
+
+変更は`windows_terminal.rs`のtest内候補と本記録だけに限定し、現在のproduction保存部品・公開契約は変更しない。自己生成`fixture-rename-r1`と専用Node Ownerを固定する。正常は元handle保持中のstage直接不存在、公開名の五field・ACL・全8192bytes、元handleだけによるWRITE／DELETE open・remove・非置換rename拒否を確認する。衝突例では別stageへの要求一回だけを行い、既存先と元stageの実体・bytesが維持されることを確認する。
+
+要求発行、NTSTATUS、直接不存在、保持中拒否、個別close、清掃要求数と現在の残存／不明をcatchの外へ保持する。公開名readerはshareREAD／WRITE／DELETEで元writerとの互換を保つ。PendingではABI memory・IO_STATUS・handleを実終端まで保持する。失敗・予想外成功・観測不能では後続mutation・復元・清掃を止め、現在の同じ参照と既発行Effectを失わない。正常Oracleと全明示close後だけ、自作三fileと空Directoryをfresh照合し非再帰清掃・直接不存在を確認する。Nodeの15秒観測上限をOS-I/O取消完了の保証にしない。
+
+静的確認を先行し、新しい固定binaryのexact test一件を一回だけ実行する。技術、51文書／追跡、品質／53直接影響を新固定候補で独立確認する。現在の限定候補を本番へ採用せず、公開前競合、別Process、Process喪失、caller耐久参照・容量、初期化・再入場、全consumer、旧三Root非使用と実処置、全E2EはOPENを維持する。実Process停止、実三件削除、Docker再起動、Provider、署名とReleaseは今回実行しない。
+
+### 同じhandleの改名候補の局所結果
+
+自己生成`fixture-rename-r1`へのexact test一件を一回実行し、131ms、Native／Node Exit 0だった。正常renameのNTSTATUSは0、既存先衝突は`STATUS_OBJECT_NAME_COLLISION`（-1073741771）。元writerを保持中にstage名の直接不存在、公開名のfresh五field・ACL・全8192bytes、WRITE／DELETE open・remove・非置換renameの拒否を確認した。衝突例では旧先と新stageの実体・bytesが不変だった。個別close後のfresh照合と自作三file・空Directoryの非再帰清掃も成立し、清掃要求数4、終了後直接不存在、予想外変更0だった。22個別close記録には一時readerと再観測が含まれ、実資源数を表さない。
+
+Rust Formatter／ClippyとNode Ownerの型・Formatter／Lintを先行した。最初のClippyは試験内closureの不要括弧で失敗し、括弧だけを是正後にFormatter／Clippy Exit 0を確認してからbuild・実測へ進んだ。Sourceは`80979d32db8f2e410a03ad0daa9a513400f0d90ca15f1cf5ed6b1f94f423d7f6`、binaryは`372b5bc1198ff72c5b91dc7c2cf2de3f0476ba9f9bd6cc4b0a8cbc16f61a66fe`、Node Ownerは`9d01c431c537f20207011b4eadc10e34eb986dd3b012d2e8e7cb331da80e42a1`。開始前・終了後・既定Native回帰後のHEADと51主要入力Hashは一致した。これは全推移的依存・環境全体の固定ではない。
+
+同じtest binaryの既定Native回帰は28件Pass、Fail 0、明示ignored 14件、0.29秒。新しい専用fixtureは別実行であり、ignoredを全実施済みに数えない。読取り専用の実入口解決先、実入力・cwd・設定、外側UTCと完結返却も結合し、原記録`rename-run-r1.json`を前掲Repository-local検証Directoryへ保存した（SHA-256 `90985bac6924196425f6c90b6cb9ac7a555d793c0f25fbbe21376d7eb49ce9dd`）。旧Source／binary／原記録と旧自作残存を変更していない。
+
+現在は**試験内候補の局所自己確認済み、新固定二fileの三観点独立確認待ち**である。現在のproduction保存方式はhardlinkのまま変更していない。renameへの本番採用、改名途中の観測不能／Process喪失、cold再入場、caller耐久参照・容量、初期化、全consumer、旧三Root非使用と実処置、実Recovery／全E2Eおよび全体品質は未成立である。今回の局所結果をこれらの完成へ昇格しない。
+
+### 改名候補の新固定版の独立確認結果
+
+新固定二fileを技術、51文書／追跡、品質／53直接影響の三必須観点で独立確認し、全結果は限定Pass、Finding 0だった。開始・終了HEADは`f61706558ea3a7fc0cd54cde85dce029461aeca2`で一致し、二対象、専用Owner、新binary、原記録と保存済み旧r3 Source／binaryの指定Hashも一致・不変だった。前回Passは流用していない。編集・fixture再実行・実資源操作はなく、確信度は高である。
+
+実測入力の本記録は`5085701e80c13e12457c5c288d24bef9f2ab443cdb07f368b2da82bb80b55bb4`、Checker／レビュー入力版は`4ddddc9997742646ae9d84c637ba06366b76f5197da32589910001be48bdb650`であり、結果追記後の版をこれらへ遡及しない。二file指定のCheckerは23946ms、Exit 0、Finding／Warning 0、実範囲7Markdown・425リンク・47anchorだった。実入力・cwd・設定、外側UTC、初回返却・二待機返却と完了後51入力／HEAD一致を`rename-checker-r1.json`（SHA-256 `858f88a1542070ad10b245d6c2607fd316962d381f65b62aab125867bcf6ebd4`）へ別保存した。実測原記録`rename-run-r1.json`（`90985bac6924196425f6c90b6cb9ac7a555d793c0f25fbbe21376d7eb49ce9dd`）は不変保持する。
+
+書戻しは本節とChecklist一行に限定し、三観点で許容を確認した。Source、productionのhardlink契約、QA件数、旧記録、署名、Authorityと実Task停止Gateは変更しない。限定Passは同一Process・自己生成対象・同writer保持中の候補だけに適用し、本番採用、別Process、Process喪失、cold再入場、caller耐久接続・容量、初期化、全consumer、旧三Root非使用／実処置、実Recovery／全E2EのOPENは維持する。現在、新しい人間判断は不要である。
+
 ## Checklist
 
 
@@ -864,4 +900,5 @@ Rust Formatter／Clippy、Node Ownerの型・Formatter／Lintを先行し、新�
 - [ ] OPEN: 旧形式の非使用、初期化排他、OS処置境界、保護済み再入場、SPEC／Workflow・公開入口と実境界検証が未成立。根拠取得後に同じCHGで接続する。
 - [x] Native保存・公開のr1／r2失敗とr3局所成立を分け、公開名保護不足を是正し、主要入力の前後一致と明示close／自作対象の限定清掃を記録した。
 - [x] Native保存部品の新固定八fileを三観点で独立再確認し、二指摘解消・限定Pass・新Finding 0を記録した。本番・実Recovery・Local Item全義務と全体品質の未成立は保持した。
+- [x] 同handle改名の試験内候補を新固定二fileで三観点から独立確認し、限定Pass・Finding 0を記録した。旧hardlink結果を流用せず、本番採用と実Recoveryの未成立を保持した。
 - [ ] OPEN: 実在三件のexact処置承認と清掃未実施。必要保証成立後に対象を提示し、別に承認を得る。

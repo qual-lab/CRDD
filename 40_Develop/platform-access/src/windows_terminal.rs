@@ -1373,6 +1373,305 @@ mod tests {
         assert!(success, "retained_mutation_unconfirmed");
     }
 
+    /// 同じstage handleの非置換rename候補を一回要求する。
+    ///
+    /// @responsibility production公開方式を変更せず、class10の実返却を試験へ搬送する。
+    /// @trace ERB-IT-001
+    /// @trace ERB-IT-002
+    /// @precondition 未公開の自己生成stage、同期RW/DELETE handleと親guardが生存。
+    /// @stimulus 同Directoryの閉じたpublic leafへReplaceIfExists=falseでNtSetInformationFileを一回発行する。
+    /// @observation 要求発行済みとNTSTATUSを区別し、LastErrorへ読み替えない。
+    /// @oracle 候補の受理だけを返し、名前保護・直接不存在・本番成立は呼出し側の別観測。
+    /// @cleanup Pending時のmemory/IO_STATUS/handleを実終端まで保持し、待機不能ではabortする。
+    /// @boundary 試験内のみ→Windows Native rename。Ex/POSIX/force/bypassは使わない。
+    fn request_fixture_rename(stage: &TerminalStage<'_>, issued: &mut bool) -> i32 {
+        use windows_sys::Wdk::Storage::FileSystem::{
+            FILE_RENAME_INFORMATION, FileRenameInformation,
+        };
+        assert!(!*issued && !stage.receipt.link_issued && stage.public_handle.is_none());
+        let (expected_stage, expected_public) = terminal_names(&stage.receipt.reference).unwrap();
+        assert_eq!(stage.stage_name, expected_stage);
+        assert_eq!(stage.public_name, expected_public);
+        let name: Vec<u16> = expected_public.encode_utf16().collect();
+        let length = size_of::<FILE_RENAME_INFORMATION>() + name.len() * 2;
+        let mut storage = vec![0_usize; length.div_ceil(size_of::<usize>())];
+        let pointer = storage.as_mut_ptr().cast::<FILE_RENAME_INFORMATION>();
+        let offset = std::mem::offset_of!(FILE_RENAME_INFORMATION, FileName);
+        // SAFETY: zeroed, aligned storage includes SDK struct and the entire UTF-16 leaf.
+        unsafe {
+            (*pointer).Anonymous.ReplaceIfExists = false;
+            (*pointer).RootDirectory = null_mut();
+            (*pointer).FileNameLength = (name.len() * 2) as u32;
+            std::ptr::copy_nonoverlapping(
+                name.as_ptr(),
+                storage.as_mut_ptr().cast::<u8>().add(offset).cast::<u16>(),
+                name.len(),
+            );
+        }
+        let mut io_status = IO_STATUS_BLOCK::default();
+        *issued = true;
+        // SAFETY: same private synchronous handle; request storage stays alive until actual completion.
+        let status = unsafe {
+            NtSetInformationFile(
+                stage.handle.0,
+                &mut io_status,
+                pointer.cast(),
+                length as u32,
+                FileRenameInformation,
+            )
+        };
+        if status != STATUS_PENDING {
+            return status;
+        }
+        // SAFETY: only this request is pending on the held synchronous handle.
+        if unsafe { WaitForSingleObject(stage.handle.0, INFINITE) } != WAIT_OBJECT_0 {
+            std::process::abort();
+        }
+        let completed = unsafe { io_status.Anonymous.Status };
+        if completed == STATUS_PENDING {
+            std::process::abort();
+        }
+        completed
+    }
+
+    /// 同じwriter保持中の改名候補を自己生成対象だけで反証する。
+    ///
+    /// @responsibility writerをcloseして名前が消えた結果を連続保護へ昇格しない。
+    /// @trace ERB-IT-001
+    /// @trace ERB-IT-002
+    /// @precondition 専用run/cwdとfixture-rename-r1の直接不存在をNode Ownerも確認する。
+    /// @stimulus 8192bytesのstageを同handleで一回改名し、公開名の四変更拒否と別stageの既存先衝突を観測する。
+    /// @observation NTSTATUS、stage直接不存在、fresh五field/ACL/全bytes、個別close、清掃要求数と終了後不存在。
+    /// @oracle 元guard保持中の限定観測と全明示close/自作清掃だけで候補observedを返す。
+    /// @cleanup 通常Oracleと全close後だけ自作三fileと空Directoryを限定清掃する。失敗後の追加処置0。
+    /// @boundary test-only Native候補→Windows。現在のproduction保存契約・旧Root・Docker・Providerは不変。
+    #[test]
+    #[ignore = "Test-only rename candidate; fixed Node owner required"]
+    fn terminal_rename_candidate_fixture() {
+        assert_eq!(
+            std::env::var("CRDD_TERMINAL_PUBLICATION_RUN").as_deref(),
+            Ok("rename.261003.219b9b53.r1")
+        );
+        assert_eq!(
+            std::env::current_dir().unwrap(),
+            Path::new("C:/project/CRDD")
+        );
+        let mut phase = "preflight";
+        let mut os_error = None;
+        let mut rename_status = None;
+        let mut collision_status = None;
+        let mut rename_issued = false;
+        let mut collision_issued = false;
+        let mut stage_absent_held = false;
+        let mut closes = Vec::new();
+        let mut cleanup_count = 0_u32;
+        let mut mutation_effect = false;
+        let root = Path::new(PARENT).join("fixture-rename-r1");
+        let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let parent = Path::new(PARENT);
+            let parent_id = observe_fixture_identity(parent, &mut closes);
+            phase = "fixture_absence";
+            assert_eq!(
+                fs::symlink_metadata(&root).err().map(|e| e.kind()),
+                Some(std::io::ErrorKind::NotFound)
+            );
+            phase = "tokens";
+            let (mut primary, mut impersonation) = process_tokens().unwrap();
+            let user = token_user_sid_bytes(primary.0).unwrap();
+            let system = local_system_sid_bytes().unwrap();
+            let closed = close_terminal_handle(&mut impersonation);
+            closes.push(("token_impersonation", closed));
+            let other_closed = close_terminal_handle(&mut primary);
+            closes.push(("token_primary", other_closed));
+            assert!(closed & other_closed);
+            let mut wide: Vec<u16> = root.as_os_str().encode_wide().collect();
+            wide.push(0);
+            phase = "fixture_create";
+            with_terminal_descriptor(&user, &system, |attributes| {
+                // SAFETY: exact fresh repository-local fixture with held descriptor.
+                if unsafe { CreateDirectoryW(wide.as_ptr(), attributes) } == 0 {
+                    return Err("rename_fixture_directory_create_failed");
+                }
+                Ok(())
+            })
+            .unwrap();
+            let root_id = observe_fixture_identity(&root, &mut closes);
+            phase = "directory_open";
+            let mut directory = TerminalDirectory::open(&root, root_id).unwrap();
+            let (collision_stage, collision_public) = terminal_names(COLLISION_REFERENCE).unwrap();
+            phase = "collision_fixture_create";
+            let collision_id = create_collision_fixture(&directory, &collision_public, &mut closes);
+            let bytes = vec![b'x'; MAX_RECORD_BYTES];
+            phase = "stage_create";
+            let mut stage = TerminalStage::create(&directory, REFERENCE, &bytes).unwrap();
+            let identity = stage.identity;
+            let stage_name = stage.stage_name.clone();
+            let public_name = stage.public_name.clone();
+            stage.verify_identity().unwrap();
+            assert_eq!(read_terminal_bytes(stage.handle.0).unwrap(), bytes);
+            phase = "same_handle_rename";
+            rename_status = Some(request_fixture_rename(&stage, &mut rename_issued));
+            assert_eq!(rename_status, Some(0));
+            phase = "stage_absence_while_held";
+            directory.verify().unwrap();
+            assert_eq!(
+                fs::symlink_metadata(root.join(&stage_name))
+                    .err()
+                    .map(|e| e.kind()),
+                Some(std::io::ErrorKind::NotFound)
+            );
+            stage_absent_held = true;
+            phase = "public_readback_while_held";
+            let mut reader = open_terminal_handle(
+                &root.join(&public_name),
+                FILE_GENERIC_READ | READ_CONTROL,
+                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+            )
+            .unwrap();
+            let readback = || {
+                assert_eq!(terminal_identity(reader.0).unwrap(), identity);
+                verify_terminal_protection(reader.0, &directory.user, &directory.system).unwrap();
+                assert_eq!(read_terminal_bytes(reader.0).unwrap(), bytes);
+            };
+            let observed = std::panic::catch_unwind(std::panic::AssertUnwindSafe(readback));
+            let closed = close_terminal_handle(&mut reader);
+            closes.push(("rename_reader", closed));
+            assert!(closed && observed.is_ok());
+            stage.verify_identity().unwrap();
+            directory.verify().unwrap();
+            assert_fixture_mutation_rejected(
+                &root.join(&public_name),
+                true,
+                &mut phase,
+                &mut os_error,
+                &mut closes,
+                &mut mutation_effect,
+            );
+            phase = "collision_stage_create";
+            let mut collision =
+                TerminalStage::create(&directory, COLLISION_REFERENCE, b"new").unwrap();
+            let collision_stage_id = collision.identity;
+            phase = "collision_rename";
+            collision_status = Some(request_fixture_rename(&collision, &mut collision_issued));
+            assert_eq!(
+                collision_status,
+                Some(windows_sys::Win32::Foundation::STATUS_OBJECT_NAME_COLLISION)
+            );
+            assert_eq!(
+                observe_fixture_identity(&root.join(&collision_public), &mut closes),
+                collision_id
+            );
+            assert_eq!(fs::read(root.join(&collision_public)).unwrap(), b"prior");
+            assert_eq!(
+                observe_fixture_identity(&root.join(&collision_stage), &mut closes),
+                collision_stage_id
+            );
+            assert_eq!(read_terminal_bytes(collision.handle.0).unwrap(), b"new");
+            phase = "created_names";
+            let mut observed_names: Vec<_> = fs::read_dir(&root)
+                .unwrap()
+                .map(|e| e.unwrap().file_name())
+                .collect();
+            observed_names.sort();
+            let mut expected_names: Vec<_> = [&public_name, &collision_stage, &collision_public]
+                .into_iter()
+                .map(OsString::from)
+                .collect();
+            expected_names.sort();
+            assert_eq!(observed_names, expected_names);
+            phase = "collision_close";
+            let closed = collision.close();
+            closes.push(("collision_close", closed));
+            assert!(closed && collision.receipt.stage_handle_close_confirmed == Some(true));
+            phase = "stage_close";
+            let closed = stage.close();
+            closes.push(("stage_close", closed));
+            assert!(closed && stage.receipt.stage_handle_close_confirmed == Some(true));
+            assert!(
+                stage.public_handle.is_none()
+                    && !stage.receipt.link_issued
+                    && !stage.receipt.link_verified
+            );
+            drop(collision);
+            drop(stage);
+            phase = "directory_close";
+            let closed = directory.close();
+            closes.push(("directory_close", closed));
+            assert!(closed);
+            drop(directory);
+            phase = "cleanup_file";
+            for (name, expected_id, expected_bytes) in [
+                (&public_name, identity, bytes.as_slice()),
+                (&collision_stage, collision_stage_id, b"new".as_slice()),
+                (&collision_public, collision_id, b"prior".as_slice()),
+            ] {
+                assert_eq!(observe_fixture_identity(parent, &mut closes), parent_id);
+                assert_eq!(observe_fixture_identity(&root, &mut closes), root_id);
+                let path = root.join(name);
+                assert_eq!(observe_fixture_identity(&path, &mut closes), expected_id);
+                assert_eq!(fs::read(&path).unwrap(), expected_bytes);
+                cleanup_count += 1;
+                fs::remove_file(&path).unwrap();
+                assert_eq!(
+                    fs::symlink_metadata(&path).err().map(|e| e.kind()),
+                    Some(std::io::ErrorKind::NotFound)
+                );
+            }
+            assert_eq!(fs::read_dir(&root).unwrap().count(), 0);
+            assert_eq!(observe_fixture_identity(&root, &mut closes), root_id);
+            phase = "cleanup_directory";
+            cleanup_count += 1;
+            fs::remove_dir(&root).unwrap();
+            assert_eq!(
+                fs::symlink_metadata(&root).err().map(|e| e.kind()),
+                Some(std::io::ErrorKind::NotFound)
+            );
+            assert_eq!(observe_fixture_identity(parent, &mut closes), parent_id);
+            phase = "complete";
+        }));
+        let presence = match fs::symlink_metadata(&root) {
+            Ok(_) => "present",
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => "absent",
+            Err(_) => "unknown",
+        };
+        let success = outcome.is_ok()
+            && presence == "absent"
+            && cleanup_count == 4
+            && !mutation_effect
+            && closes.iter().all(|(_, value)| *value);
+        let close_rows: Vec<_> = closes
+            .iter()
+            .map(|(owner, confirmed)| {
+                format!("{{\"owner\":\"{}\",\"confirmed\":{}}}", owner, confirmed)
+            })
+            .collect();
+        println!(
+            "\n{{\"contract\":\"crdd-native/terminal-rename-candidate-fixture\",\"status\":\"{}\",\"phase\":\"{}\",\"osError\":{},\"renameNtStatus\":{},\"collisionNtStatus\":{},\"renameIssued\":{},\"collisionRenameIssued\":{},\"stageAbsentWhileHeldVerified\":{},\"maximumBytes\":8192,\"noReplaceVerified\":{},\"heldMutationRejected\":{},\"allCheckedClosesConfirmed\":{},\"closeResults\":[{}],\"cleanupIssuedCount\":{},\"unexpectedMutationEffectIssued\":{},\"fixturePresence\":\"{}\",\"productionIntegrationVerified\":false}}",
+            if success { "observed" } else { "unconfirmed" },
+            phase,
+            os_error
+                .map(|v| v.to_string())
+                .unwrap_or_else(|| "null".to_owned()),
+            rename_status
+                .map(|v| v.to_string())
+                .unwrap_or_else(|| "null".to_owned()),
+            collision_status
+                .map(|v| v.to_string())
+                .unwrap_or_else(|| "null".to_owned()),
+            rename_issued,
+            collision_issued,
+            stage_absent_held,
+            success,
+            success,
+            if success { "true" } else { "null" },
+            close_rows.join(","),
+            cleanup_count,
+            mutation_effect,
+            presence
+        );
+        assert!(success, "terminal_rename_candidate_unconfirmed");
+    }
+
     /// 自己生成実Windows対象でNative保存・公開primitiveを実行する。
     ///
     /// @responsibility 私有本体を通し、成功/拒否とhandle終端/fixture清掃を別に観測する。
