@@ -557,6 +557,71 @@ RootのBiome設定は`.crdd`を除外するため、無処理の成功にしな�
 
 限定PassはNode APIの原理実測と記録の適合性に限る。検証器の全推移的依存、本番保護、Native Identity、Process喪失、耐久caller、容量予約および厳密期限終了はOPEN。ERB項目全体、実Recovery、旧三Rootの非使用・清掃および全体品質は未成立のままである。
 
+## Windows保護方式 — 自己生成二対象の限定実測
+
+**結論: 同じProcess内のhandle共有制限について、Directory保持だけの反例、file保持中の拒否、明示close後の正例を観測した。** 本番の連続排他、別Process、Process喪失後の再入場、旧三Rootの非使用・清掃は未成立のままである。
+
+### 範囲と着手前確認
+
+基準Commitは`66a9a17239e5920f59b8159ce783a06681218e7d`。読取り専用の着手前確認で、Node metadataとWin32 Identityを未確認変換しないこと、Directory renameの拒否時にchild handleを残さないこと、異常時はDropを終了成功へ代用しないことを具体化した。新しい人間判断は不要だった。
+
+変更は`windows.rs`の`#[cfg(test)]`内のhelperとignored fixture、およびRepository-local診断TSに限定する。Production処理、公開protocol、OS共有Root、旧三Root、署名済み実行物、新Provider Taskへ接続しない。自己生成対象は固定run親の`fixture/`とその中の`record`だけであり、別名への改名と復元も同じ親内の固定名に限定した。一回につきDirectory一実体・file一実体、file内容5bytes、開始時の両fixture名は明示不存在とした。10秒は新しいFilesystem Effectの点検期限であり、保留syscall取消・厳密な全処理終了期限ではない。
+
+Buildは既存Cargo cacheを読取り元にし、checksum一致した23archiveと24sparse index、registry設定一件をRepository-localの専用`CARGO_HOME`へコピーした。49 entry、集計対象約5.8MBであり、設定一件のbytesを集計値に含めていない。copy操作のTool原返却は保存しておらず、この準備の全操作再現性を主張しない。Windows選択依存はrootを含む24 packageで、欠けていた`fiat-crypto`と`libc`は選択外だった。metadataの取得とBuildは`--frozen --offline`、固定Rust 1.94.1実体、wrapper／追加Rust flagsなしで行った。target、build、TEMP／TMPも同じ検証Rootへ限定した。依存の外部取得と既存cache書込みは行っていない。
+
+### 初回の搬送失敗と新実行
+
+初回はNative exit 0、exit／close、Node側の親Identity一致と両fixture名の`ENOENT`を観測したが、固定JSON行を解析できず`failed_or_unconfirmed`だった。初回のPassへ遡及しない。生Native出力は非保存であり、接頭辞を直接観測したとは扱わない。
+
+Rust 1.94.1の[標準試験ランナー実装](https://github.com/rust-lang/rust/blob/1.94.1/library/test/src/formatters/pretty.rs)は、単一thread実行で試験名の進捗を改行なしに出力する。原因候補はこの共有stdout上の進捗とfixtureのJSON行の結合だった。是正計画を読取り専用確認へ再提示し、fixtureの`println!`先頭改行と新しい`.r2`相関参照だけを変更した。Nodeの行先頭一致、一件、10 fieldの閉Schemaは弱めていない。
+
+初回原記録は`.crdd/verification/chg-000082-native-protection-261003/run-initial.json`、SHA-256 `7890a39e10f634aafa2870b2fd6781d1871b08f3492dc7ece64190af2678c9a5`。新実行原記録は同Rootの`run-r2.json`、SHA-256 `fc9bc97374b87d728f6d66327c4c7259f29f569cb07d0e55fe8e8e07d009f2ea`。新実行前にRust Formatter確認、test binaryのcompile、Warningを失敗とするClippy、診断TSのstrict noEmit、Formatter／Lintのstdin実適用と入力完全一致、構文確認が全てExit 0だった。旧原記録は不変である。
+
+### 新実行r2の観測
+
+| 観点 | 局所観測 |
+|---|---|
+| 保護構造 | 作成時に指定したselected user所有、protected DACL、selected user／SYSTEM二ACEをhandleから再読取りした。別主体のアクセス実証ではない。 |
+| Directory保持のみ | childへの5bytes書込みとそのhandleのchecked-closeが成功。その後child handleなしでDirectory自身のrenameがWin32 error 32で拒否された。 |
+| file自身の保持 | read成功。固定access／shareでのwrite・delete access取得、実deleteとrenameはerror 32で拒否された。他の失敗codeを成功へ畳まない。 |
+| 明示終端後 | 保持・観測・Token handleのchecked-close後、同じfileへのwrite、fileとDirectoryのrename／元名への復元が成功した。 |
+| 清掃 | Native側のfresh Volume／File ID一致後、自作fileと空Directoryだけを非再帰で除去し、直接不存在を確認した。Node側の別読取りでも両fixture名は`ENOENT`だった。 |
+| 搬送・Process | 閉Schemaを解析でき、NativeとNodeはExit 0、exitとcloseを観測。121ms、出力525bytes、output上限超過・Process errorなし。 |
+
+Nodeのdev／ino／birthtimeの前後一致とNativeのVolume／File IDの前後一致は別観測とし、両Identityを同一と主張していない。清掃確認は自己生成二対象だけであり、診断Source、入力記録、cacheおよびtest binaryの不存在を主張しない。これらは同CHGの後続確認用に保持し、確認結果の移送・再実行要否の解決時に検証Root単位で保持終了を判断する。由来不明の対象はこの清掃へ含めない。
+
+新実行のSource／binary Hashは前後一致した。Native Sourceは`41b2d826e959fb86fc0103560c200862b864017ff0956a28ea966710b5d9ff08`、診断TSは`96722c7146baca354cfb90cec0ba384e5d3e7b15eb4f8db83d52f51ccd1a0776`、test binaryは`80506fb8196550150472632ba411a208a5c63952729d64e9f345cf5fab4c54a0`。Buildの全推移的入力の網羅的Hash固定ではなく、Native production署名の更新でもない。
+
+scoped Checkerは29035ms、Exit 0、Finding 0、Warning 0。要求scopeにNative Sourceも指定したが、実際の展開は関連六Markdown、391リンク、42anchorであり、Native Sourceの意味・HeaderまたはGit非追跡診断物の検査成功を主張しない。原記録は同検証Rootの`document-check.json`、SHA-256 `3431a3de4c9e690e08de6b154899b720634345663eea361860fabf4358990a6e`。実行入力の本記録Hashは`f053759e2512dc1a850a4030bfa0c708bf540cc53b8428732b69f2e4cc75b722`であり、本段落追記後の独立確認版と区別する。差分空白確認もExit 0だった。
+
+**現在状態: 局所実測の自己確認済み、固定候補の技術・51文書・品質／53直接影響の独立確認待ち。** 既存QAの一部根拠であり、ERB項目全体の完了、品質件数変更、本番保護、実Recoveryまたは全体Quality Readyへ昇格しない。次に必要な実測・接続は、別Processの排他、所有処理の実終了・再入場、耐久記録と本番利用側である。
+
+### 固定版レビューの指摘と新実行r3
+
+基準HEAD `66a9a17239e5920f59b8159ce783a06681218e7d`、Native Source `41b2d826e959fb86fc0103560c200862b864017ff0956a28ea966710b5d9ff08`、本記録 `05804984ccca81e4e736f3959addb0f3ed32881cf15b0d33ae88052537f4e07f`を三観点で独立確認した。技術は正常局所観測と閉Schema搬送に限定Pass、文書と品質／直接影響はFailだった。三Findingを全結果確定後に統合し、修正計画を同じ確認者へ再提示した。旧結果のPass化、実RecoveryおよびQA件数への昇格は行っていない。
+
+| 指摘 | 適用した是正 | 不変範囲 |
+|---|---|---|
+| NP-D01 | Headerで清掃開始前の失敗と、清掃中の部分成立・以後停止を区別した。既発行処置を未発行にしない。 | 実装本体と合否条件を変更していない。 |
+| NP-D02 | 二helperの前提に固定run親Directoryのread-only観測を含めた。全呼出しを照合し、親への変更を許可しない。 | 任意Path、親清掃、公開契約を追加していない。 |
+| NP-Q01 | 実cwd、UTC時点、実行物と設定の前後識別を新記録へ保存し、新しいrun `.r3`で静的段階と局所実測を再実行した。 | 初回／r2／準備／旧Checkerの四原記録は指定Hashのまま保持した。旧環境を現在値で補完しない。 |
+
+着手前の是正方針は三観点で条件付きAcceptとなり、追加条件も全て適用した。解決したNode実体・版・Hash、Rustのcargo／rustc／rustfmt／cargo-clippy／clippy-driver、TypeScriptの入口・解決helper・package・選択Native、Biomeの入口・package・選択Nativeと主要設定、Native Source、診断TSを含む28入力を前後で識別した。`NODE_OPTIONS`は空、`NODE_PATH`は未設定、`BIOME_BINARY`は選択実体へ固定した。全exec inputにRepository Rootのcwdを明示し、UTCの開始・終了とToolの実返却を保存した。Rust Buildの全推移的入力、型定義全件または環境全体の固定を主張しない。
+
+新原記録は`.crdd/verification/chg-000082-native-protection-261003/run-r3.json`、SHA-256 `06aa9884141d217e1ecc43b285c6c5796fcff236ac4bed43450287a5cb9bd549`。12 invocationのcwd・UTC・完結返却と28入力の一致を別の機械照合で確認した。静的六段階は全てExit 0。再実測は168ms、Native／Node Exit 0、閉Schema搬送、handleの明示終端とfixture二名の直接不存在が成立し、終了後の別読取りでも確認した。新Sourceは`5f33e29c24fe9b22ff873160266f51337b1aa4caff704aad271d2dc3e10640b1`、診断TSは`dd20cea82a87aee2a07ac8c87a817c07f39836634b9b9226f3354286f5c82653`、Build後のtest binaryは`9b7bf8f8816d28ad709a71e63847eecfcef1a136abeaddfa9b02fbfa23cc4b23`で前後一致した。
+
+新しいscoped Checkerも関連六Markdown・391リンク・42anchor、30287ms、Exit 0、Finding 0、Warning 0だった。`document-check-r3.json`（SHA-256 `da52f4f60b862b3fd170d31b0b7294f60ec1f2abb27f9b10a1108dfc1cc4db7a`）にexplicit cwd、UTC、初期／wait返却を保存した。Node実体は新実測の事前識別へ接続し、Checker入口・packageと文書のHashは実行中・終了後の観測で一致した。Checkerの全推移的依存固定ではない。実行入力文書Hash `87938b7c8eebb8e1c3274740368286bb85ab0fbcd30a85d61ada978317997622`と本段落追記後の確認版を分け、Native Header・Git非追跡診断物・Repository全体の確認へ昇格しない。
+
+**現在状態: 三指摘の適用・自己確認済み。新固定版の三観点再確認待ちであり、Resolvedまたは独立Passではない。** 別Process保護、本番の連続排他、Process喪失、実Recovery、実在三件の処置、署名および全体品質の未成立は不変である。
+
+### 新固定版r3の独立確認結果
+
+技術、51文書、品質／53直接影響の三必須観点を同じ新固定版で再確認し、全結果を統合した。三観点とも限定Pass、Finding 0、NP-D01／NP-D02／NP-Q01はResolvedだった。開始・終了HEADは`66a9a17239e5920f59b8159ce783a06681218e7d`、結果書戻し前の本記録は`68127abe76863c00c26c9062c2f1012eaddba47b6e5e0b7000acdc4069545f92`で一致・不変。Source、TS、test binary、新二記録と旧四原記録の指定Hashも一致した。Checker入力文書`87938b7c8eebb8e1c3274740368286bb85ab0fbcd30a85d61ada978317997622`と区別し、旧FailへPassを遡及していない。
+
+確認者は四Header修正、実呼出しの親読取り、清掃前停止と部分清掃、12 invocationのcwd・UTC・完結返却、28入力前後一致、168msの局所結果および別読取りの不存在を照合した。編集・再実行・外部操作は行っていない。本結果節とChecklist一行だけを書き戻し、Source、原記録、署名、QA件数、Authorityおよび停止Gateは不変である。
+
+限定Passは同一Processの自己生成二対象に対する局所診断と記録に限る。別Process、本番の連続排他、親Process喪失、厳密期限、耐久caller、全Recovery、実在三件の処置および全体品質はOPENのままである。
+
 ## Checklist
 
 - [x] 同じCHGのIntent、限定対象、対象外と人間承認を記録した。
@@ -576,5 +641,6 @@ RootのBiome設定は`.crdd`を除外するため、無処理の成功にしな�
 - [x] 未接続内部lifecycleの三指摘を是正し、新固定七fileで三観点の限定Pass・新Finding 0を確認した。64局所結果と本番・実Recoveryの未成立を分けた。
 - [x] 終端記録の文書候補を新固定三文書で三観点から独立再確認し、HT-Q02の解消・限定Pass・新Finding 0を記録した。Windows保護、実装、実Recoveryと全体品質は未成立と分けた。
 - [x] Node APIの六場面実測と原記録を新固定版で三観点から独立確認し、限定Pass・Finding 0を記録した。hardlinkの不変性、本番Windows保護、実Recoveryおよび全体品質を未成立と分けた。
+- [x] Windows保護方式の新実行r3を三観点で独立再確認し、三指摘の解消・限定Pass・Finding 0を記録した。同一Processの局所観測と本番保護・実Recoveryの未成立を分け、旧Failと旧原記録を保持した。
 - [ ] OPEN: 旧形式の非使用、初期化排他、OS処置境界、保護済み再入場、SPEC／Workflow・公開入口と実境界検証が未成立。根拠取得後に同じCHGで接続する。
 - [ ] OPEN: 実在三件のexact処置承認と清掃未実施。必要保証成立後に対象を提示し、別に承認を得る。
