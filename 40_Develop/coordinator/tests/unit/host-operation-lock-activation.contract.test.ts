@@ -1,16 +1,196 @@
 /**
- * Host Lock取得待機後の失効拒否と、新取得Lockだけの回収を検証する。
+ * Host Lockの後着取得と、共有回復Directoryの初期化失敗を検証する。
  *
  * @packageDocumentation
- * @responsibility 非Authority依存で本番settlementの後着・失効・回収不明を反証する。
+ * @responsibility 非Authority依存で本番settlementの後着・失効・回収不明と共有Directory非削除を反証する。
  * @trace PRL-UT-006
  * @level UT
- * @scope coordinator、host-operation-lock、activation
+ * @scope coordinator、host-operation-lock、activation、shared-host-recovery-directory
  * @boundary PRL-UT-006=Direct Boundary: Test→Host Lock取得settlement
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createIsolatedHostOperationLockActivationCandidate } from "../../src/security/execution-environment.ts";
+import {
+  createIsolatedHostOperationLockActivationCandidate,
+  createIsolatedSharedHostRecoveryDirectoryCandidate,
+} from "../../src/security/execution-environment.ts";
+
+/**
+ * 共有Directoryの初期化と不明分類を局所依存で確認する。
+ *
+ * @responsibility mkdirだけのEEXIST合流、fresh検証、全失敗の保持を確認する。
+ * @trace PRL-UT-006
+ * @precondition 実Filesystem・Process・本番Capabilityを使わない。
+ * @stimulus 存在観測、mkdir、検証の各段階へ成功・競合・失敗を与える。
+ * @observation 依存呼出し順、返却Identity、InitializationFailure分類を記録する。
+ * @oracle 検証済み結果だけを返し、不明時は清掃未確認・回復IDなしを保持する。
+ * @cleanup N/A: 同期局所値だけであり、削除依存・I/O・handleを持たない。
+ * @boundary PRL-UT-006=Direct Boundary: Test依存→本番共有初期化settlement
+ */
+test("共有回復DirectoryはOperation失敗で削除せず、競合後もfresh検証する", async (t) => {
+  const existsError = Object.assign(new Error("exists"), { code: "EEXIST" });
+  const cases: ReadonlyArray<{
+    name: string;
+    before: "present" | "confirmed_absent" | "unknown";
+    observationError?: Error;
+    creationError?: Error;
+    validationError?: Error;
+    succeeds: boolean;
+    calls: string[];
+  }> = [
+    {
+      name: "既存の検証成功",
+      before: "present",
+      succeeds: true,
+      calls: ["observe", "validate"],
+    },
+    {
+      name: "作成後の検証成功",
+      before: "confirmed_absent",
+      succeeds: true,
+      calls: ["observe", "create", "validate"],
+    },
+    {
+      name: "mkdir存在競合後の検証成功",
+      before: "confirmed_absent",
+      creationError: existsError,
+      succeeds: true,
+      calls: ["observe", "create", "validate"],
+    },
+    {
+      name: "初期観測unknown",
+      before: "unknown",
+      succeeds: false,
+      calls: ["observe"],
+    },
+    {
+      name: "初期観測throw",
+      before: "present",
+      observationError: new Error("observation_failed"),
+      succeeds: false,
+      calls: ["observe"],
+    },
+    {
+      name: "mkdir結果不明",
+      before: "confirmed_absent",
+      creationError: new Error("create_unknown"),
+      succeeds: false,
+      calls: ["observe", "create"],
+    },
+    {
+      name: "mkdir後Identity取得throw",
+      before: "confirmed_absent",
+      validationError: new Error("identity_unknown"),
+      succeeds: false,
+      calls: ["observe", "create", "validate"],
+    },
+    {
+      name: "既存Directory検証失敗",
+      before: "present",
+      validationError: new Error("untrusted_directory"),
+      succeeds: false,
+      calls: ["observe", "validate"],
+    },
+    {
+      name: "EEXIST後のPath不一致",
+      before: "confirmed_absent",
+      creationError: existsError,
+      validationError: new Error("path_mismatch"),
+      succeeds: false,
+      calls: ["observe", "create", "validate"],
+    },
+    {
+      name: "EEXIST後のreparse拒否",
+      before: "confirmed_absent",
+      creationError: existsError,
+      validationError: new Error("reparse_rejected"),
+      succeeds: false,
+      calls: ["observe", "create", "validate"],
+    },
+    {
+      name: "EEXIST後Identity取得throw",
+      before: "confirmed_absent",
+      creationError: existsError,
+      validationError: new Error("identity_unknown"),
+      succeeds: false,
+      calls: ["observe", "create", "validate"],
+    },
+    {
+      name: "EEXIST後の検証unknown",
+      before: "confirmed_absent",
+      creationError: existsError,
+      validationError: new Error("validation_unknown"),
+      succeeds: false,
+      calls: ["observe", "create", "validate"],
+    },
+    {
+      name: "検証で発生したEEXISTは合流しない",
+      before: "present",
+      validationError: existsError,
+      succeeds: false,
+      calls: ["observe", "validate"],
+    },
+  ];
+  for (const condition of cases) {
+    /**
+     * 指定した共有初期化条件の結果と呼出し順を確認する。
+     *
+     * @responsibility 存在通知だけの成功化と、失敗時の清掃確認trueへの既定化を拒否する。
+     * @trace PRL-UT-006
+     * @precondition 各conditionが成功または一つの失敗段階を指定する。
+     * @stimulus 同じ本番settlementへ非Authority依存を一回渡す。
+     * @observation 呼出し順、同じ返却Identity、清掃未確認とnull回復ID。
+     * @oracle conditionの固定期待値と一致し、削除・marker・Root依存が存在しない。
+     * @cleanup N/A: 局所同期値だけであり、実資源を生成しない。
+     * @boundary PRL-UT-006=Direct Boundary: Test依存→共有初期化settlement
+     */
+    await t.test(condition.name, () => {
+      const calls: string[] = [];
+      const directory = Object.freeze({
+        directory: "non-authority-fixture",
+        identity: Object.freeze({ dev: 1n, ino: 2n, birthtimeNs: 3n }),
+      });
+      const candidate = createIsolatedSharedHostRecoveryDirectoryCandidate({
+        observe: () => {
+          calls.push("observe");
+          if (condition.observationError) throw condition.observationError;
+          return condition.before;
+        },
+        create: () => {
+          calls.push("create");
+          if (condition.creationError) throw condition.creationError;
+        },
+        validate: () => {
+          calls.push("validate");
+          if (condition.validationError) throw condition.validationError;
+          return directory;
+        },
+      });
+      assert.equal(candidate.productionAuthority, false);
+      if (condition.succeeds) {
+        assert.equal(candidate.initialize(), directory);
+      } else {
+        let failure: unknown = null;
+        assert.throws(
+          () => {
+            try {
+              candidate.initialize();
+            } catch (error) {
+              failure = error;
+              throw error;
+            }
+          },
+          { message: "host_recovery_initialization_failed" },
+        );
+        assert.deepEqual(candidate.classifyFailure(failure), {
+          cleanupConfirmed: false,
+          hostRecoveryId: null,
+        });
+      }
+      assert.deepEqual(calls, condition.calls);
+    });
+  }
+});
 
 /**
  * 後着取得を制御する非Authorityのfixtureを構築する。

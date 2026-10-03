@@ -159,6 +159,8 @@ Source Definition由来の検証義務を維持し、Detailは具体的な観測
 
 このUTは根拠値の純粋な照合だけであり、実在する所有権・非使用・Lock・不存在を証明しない。実観測と処置の義務はQA-000006が所有する。局所Passを新しいRecovery経路の完成、既存Host三件の清掃またはQuality Readyへ昇格させない。
 
+同じ`PRL-UT-006`で共有回復Directoryの初期化を確認する。既存成功、mkdir成功、mkdirのEEXIST競合をfresh検証へ戻し、共有Directory削除0・他Task記録操作0を確認する。初期観測unknown／throw、mkdir結果不明、EEXIST後の不正Path・reparse・Identity読取りthrow・unknown、既存Directory検証失敗を拒否し、`cleanupConfirmed:false`／回復IDなしを保持する。Root・marker作成前の拒否とnamespace状態不明を全Effect 0へ畳まない。試験依存は実Filesystemを操作せず、このUTの成功を実OSの境界保証または実清掃へ昇格しない。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した

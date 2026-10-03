@@ -1756,81 +1756,133 @@ function identityMatchesRecord(
 }
 
 /**
- * Host 回復 Directoryが成立する状態を確保する。
+ * 共有回復記録Directoryの初期化依存を定義する。
  *
- * @responsibility Host 回復 Directoryの成立条件、作成または再利用、失敗時の非成立境界を所有する。
+ * @responsibility 存在観測、mkdir、freshな境界とIdentity検証を分ける。
  * @trace ARCH-000008
- * @input parent: string
- * @returns Readonly<{ directory: string; identity: FilesystemIdentity }>を返す。
- * @precondition 「parent: string」がensureHostRecoveryDirectoryの入力契約を満たす。
- * @postcondition ensureHostRecoveryDirectoryの責務を完了した結果だけを返す。
- * @effect ensureHostRecoveryDirectoryはFilesystemの読取りまたは書込みを実行する。
- * @failure ensureHostRecoveryDirectoryは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant ensureHostRecoveryDirectoryは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security ensureHostRecoveryDirectoryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: ensureHostRecoveryDirectoryは共有非同期状態を持たない同期処理である。
+ * @shape 三つの局所呼出しと検証済みDirectory／Identityを持つ。
+ * @invariant 削除、marker読取り、Token発行の依存を含めない。
+ * @boundary Coordinator内の共有管理資源初期化。
+ * @security 本番は固定PathのFilesystem依存、試験は非Authority依存だけを渡す。
+ * @compatibility 既存の存在観測とInitializationFailure分類を使用する。
+ */
+type SharedHostRecoveryDirectoryDependencies = Readonly<{
+  observe: () => "present" | "confirmed_absent" | "unknown";
+  create: () => void;
+  validate: () => Readonly<{
+    directory: string;
+    identity: FilesystemIdentity;
+  }>;
+}>;
+
+/**
+ * 共有回復記録Directoryを削除せず初期化・再利用する。
+ *
+ * @responsibility mkdirの存在競合をfresh検証へ戻し、不明を停止分類へ接続する。
+ * @trace ARCH-000008
+ * @input 存在観測、作成と検証の依存。
+ * @returns freshに検証した共有DirectoryとIdentity。
+ * @precondition 依存は同じ固定Directoryを扱う。
+ * @postcondition 成功時は検証結果だけを返し、失敗時は清掃未確認を保持する。
+ * @effect 渡された観測・mkdir・検証だけを実行する。
+ * @failure 観測不明、mkdir失敗、境界・Identity検証失敗をInitializationFailureへ包む。
+ * @invariant 共有Directoryと他Taskの記録を削除せず、回復Tokenを生成しない。
+ * @boundary 共有管理資源の初期化settlement。
+ * @security EEXISTを由来またはAuthorityの証明にしない。
+ * @concurrency 他Taskのmkdirと競合した場合も同じfresh検証を要求する。
+ */
+function initializeSharedHostRecoveryDirectory(
+  dependencies: SharedHostRecoveryDirectoryDependencies,
+) {
+  try {
+    const before = dependencies.observe();
+    if (before === "unknown")
+      throw new Error("host_recovery_directory_observation_unknown");
+    if (before === "confirmed_absent") {
+      try {
+        dependencies.create();
+      } catch (error) {
+        if (
+          !error ||
+          typeof error !== "object" ||
+          !("code" in error) ||
+          error.code !== "EEXIST"
+        )
+          throw error;
+      }
+    }
+    return dependencies.validate();
+  } catch (error) {
+    throwHostRecoveryInitializationFailure(error, {
+      cleanupConfirmed: false,
+      hostRecoveryId: null,
+    });
+  }
+}
+
+/**
+ * 固定した共有回復記録Directoryを作成または再検証する。
+ *
+ * @responsibility 本番Filesystem依存を共有初期化settlementへ接続する。
+ * @trace ARCH-000008
+ * @input 検証済みtemporary parentの実Path。
+ * @returns 共有Directoryの実PathとFilesystem Identity。
+ * @precondition 呼出し元がparentを実Directoryへ解決済みである。
+ * @postcondition 固定child、実Directory、fresh Identityが成立した場合だけ返す。
+ * @effect 固定childの存在・実Path・属性・Identityを読み、未存在ならmkdirを要求する。
+ * @failure 初期化・観測・検証の失敗は清掃未確認、回復IDなしで停止する。
+ * @invariant Operation失敗時も共有Directoryを削除しない。
+ * @boundary OS管理temporary parent内の共有管理資源。
+ * @security alias、別parent、非Directory、symbolic linkを拒否し、markerを信頼し直さない。
+ * @concurrency mkdir競合後もfreshな同じ境界検証を行う。連続OS排他は本関数の保証ではない。
  */
 function ensureHostRecoveryDirectory(
   parent: string,
 ): Readonly<{ directory: string; identity: FilesystemIdentity }> {
   const directory = path.join(parent, HOST_RECOVERY_DIRECTORY);
-  const before = observeFilesystemEntry(directory);
-  if (before === "unknown")
-    throwHostRecoveryInitializationFailure(
-      new Error("host_recovery_directory_observation_unknown"),
-      { cleanupConfirmed: false, hostRecoveryId: null },
-    );
-  let isCreationAttempted = false;
-  let isCreated = false;
-  let identity: FilesystemIdentity | null = null;
-  try {
-    if (before === "confirmed_absent") {
-      isCreationAttempted = true;
-      fs.mkdirSync(directory, { mode: 0o700 });
-      isCreated = true;
-    }
-    const real = fs.realpathSync(directory);
-    const metadata = fs.lstatSync(real);
-    identity = readFilesystemIdentity(real);
-    if (
-      real !== directory ||
-      path.dirname(real) !== parent ||
-      !metadata.isDirectory() ||
-      metadata.isSymbolicLink()
-    ) {
-      throw new Error("host_recovery_directory_untrusted");
-    }
-    return { directory: real, identity };
-  } catch (error) {
-    let cleanupConfirmed = !isCreationAttempted;
-    if (isCreated && identity) {
-      try {
-        if (
-          !sameFilesystemIdentity(
-            readFilesystemIdentity(directory),
-            identity,
-          ) ||
-          fs.readdirSync(directory).length !== 0
-        )
-          throw new Error("host_recovery_directory_replaced");
-        fs.rmdirSync(directory);
-        requireConfirmedAbsent(
-          directory,
-          "host_recovery_directory_cleanup_unconfirmed",
-        );
-        cleanupConfirmed = true;
-      } catch {
-        cleanupConfirmed = false;
-      }
-    }
-    if (!cleanupConfirmed)
-      throwHostRecoveryInitializationFailure(error, {
-        cleanupConfirmed: false,
-        hostRecoveryId: null,
-      });
-    throw error;
-  }
+  return initializeSharedHostRecoveryDirectory({
+    observe: () => observeFilesystemEntry(directory),
+    create: () => fs.mkdirSync(directory, { mode: 0o700 }),
+    validate: () => {
+      const real = fs.realpathSync(directory);
+      const metadata = fs.lstatSync(real);
+      const identity = readFilesystemIdentity(real);
+      if (
+        real !== directory ||
+        path.dirname(real) !== parent ||
+        !metadata.isDirectory() ||
+        metadata.isSymbolicLink()
+      )
+        throw new Error("host_recovery_directory_untrusted");
+      return { directory: real, identity };
+    },
+  });
+}
+
+/**
+ * 共有回復Directoryの非Authority局所試験入口を構築する。
+ *
+ * @responsibility 本番と同じ初期化settlementへ試験依存を渡す。
+ * @trace ARCH-000008
+ * @input Filesystem・Processを持たない試験用の観測、作成、検証依存。
+ * @returns 初期化と内部失敗分類を確認する非Authority候補。
+ * @precondition 本番Authorityの発行または公開APIとして使用しない。
+ * @postcondition productionAuthority=falseで同じsettlementだけを返す。
+ * @effect N/A: 構築時は依存呼出しや外部操作を行わない。
+ * @failure 初期化呼出しの失敗は本番と同じ分類を保持する。
+ * @invariant 公開indexへexportせず、削除Capability・Tokenを発行しない。
+ * @boundary 同Subsystem内の内部試験支援。
+ * @security 戻り値は本番の所有・非使用・清掃を証明しない。
+ * @concurrency N/A: 同期局所候補であり非同期資源を持たない。
+ */
+export function createIsolatedSharedHostRecoveryDirectoryCandidate(
+  dependencies: SharedHostRecoveryDirectoryDependencies,
+) {
+  return Object.freeze({
+    productionAuthority: false as const,
+    initialize: () => initializeSharedHostRecoveryDirectory(dependencies),
+    classifyFailure: hostRecoveryInitializationFailure,
+  });
 }
 
 /**

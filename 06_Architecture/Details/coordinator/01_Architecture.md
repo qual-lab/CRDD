@@ -464,6 +464,21 @@ Windows全体の再起動を前提にせず、Coordinatorが所有する処理�
 | 旧形式の移行 | 新排他の導入だけでは旧形式の非使用を証明しない。旧対象を利用できる処理と入口の閉包、終了および再利用抑止を別に確認する。 | 旧版・複製したRuntime・別入口の利用可能性が未確認。Process名や件数0だけの判定。 |
 | OS限定処置 | 対象Identityの差替え防止と、処置時の使用・再利用防止を実環境が提供する保証へ接続する。Pathやhandleの取得だけを保証成立としない。 | 保証不明、使用中、対象不一致、部分処置または観測不能。 |
 
+#### 共有回復記録Directoryの所有と初期化
+
+複数TaskのHost回復記録を保持する共有Directoryは、Coordinatorの管理資源であり、一つのOperationの一時Rootではない。Operationの作成失敗・通常清掃・回復では共有Directoryを削除せず、対象Operationへ結合したRoot・marker等だけを処置する。共有Directoryの管理清掃を本経路へ暗黙に追加しない。
+
+| 初期化状態 | 処置と結果の意味 |
+|---|---|
+| 既存Directoryのfresh検証成功 | 固定parent／child、実DirectoryとIdentityを確認して再利用する。既存markerの本文やHashから回復Tokenを発行しない。 |
+| 未存在からmkdir成功、検証成功 | 共有管理資源として保持する。後続Operationが失敗しても共有Directoryはrollbackしない。 |
+| mkdir呼出しがEEXIST | その通知だけを成功・由来・Authorityにせず、同じfreshな境界・実体・Identity検証へ戻る。別の観測や検証で生じたEEXISTを成功扱いしない。 |
+| 初期観測不明、mkdir失敗、境界・Identity検証失敗 | `cleanupConfirmed:false`、`hostRecoveryId:null`を上位へ保持し、`manualRecoveryRequired:true`で停止する。Root／marker未作成とnamespace状態不明を分け、全Effect 0とは表示しない。 |
+
+namespace初期化の失敗ではexact Token回復へ接続できない。Tokenを生成せず、Operatorによる共有Directory状態確認へ移送する。再入場は通常作成入口のfresh検証から行い、不明の間は停止する。自動retry、元Task再開または共有Directory削除は行わない。成功した共有Directoryの存在だけをOperation清掃の失敗にせず、Operation所有資源の終端と未解決のnamespace初期化失敗を区別する。
+
+この所有分離は作成前からの連続排他、OSによる差替え防止、全利用側移行または旧三領域の非使用を証明しない。これらのOPENは維持する。
+
 旧形式の非使用を安全に確認できる具体的方式、作成前排他と全利用側の移行、OS処置境界はまだ未確定である。必要な保証を検証できない場合は処置しない。Windows再起動が不可欠という根拠が得られない限り、それを既定の前提または利用者への必須操作にしない。
 
 **OPEN:** 旧形式の非使用根拠、初期化前からの排他、差替えを防ぐOS処置境界、保護済み再入場、SPEC／Workflowへの実処置契約と公開入口は未成立である。これらを反証・独立確認するまでHelp／capabilitiesに未完成clean操作を公開しない。詳細な進行と承認範囲は[CHGの記録](../../../99_Roadmap/Changes/CHG-000082/Evidence/261002_host-orphan-recovery-design.md)、検証義務は[QA-000003](../../../07_Quality/Definitions/QA-000003/quality_definition.md#host残存の保守候補判定)と[QA-000006](../../../07_Quality/Definitions/QA-000006/quality_definition.md#host残存の限定回復に追加する観測条件)を参照する。

@@ -270,6 +270,51 @@ r4原記録と旧r3は不変だった。起動shimまでの再識別、35件の�
 
 本節とChecklist一行だけを全結果統合後に書き戻した。確認者はこの結果書戻しを整合済みとした。他五file、旧Hash、旧結果、品質件数、許可範囲および新実Task停止は変更しない。作成前排他、全利用側移行、readiness／cleanup、旧三Rootの非使用、実OS保証、実Recovery、署名適用および全体品質は引き続きOPENである。
 
+### 作成前排他へ向けた共有管理資源の是正
+
+基準Commit `276f993e660a1ab2c041538b665953a9dfe100b5`のcleanな状態から、全利用側移行の前提となる共有回復記録Directoryの所有を確認した。親と読取り専用確認者は、`ensureHostRecoveryDirectory`内の失敗時rmdirが他Taskの使用と競合し得ることを照合した。Operation失敗時に共有Directoryを削除しない方針は、同じCHGで承認済みの限定Recoveryを成立させる前提是正として着手可だった。新しいphase、管理ID、公開Capabilityまたは実操作許可は追加しない。
+
+契約の正本は[Coordinator詳細設計§11](../../../../06_Architecture/Details/coordinator/01_Architecture.md#元の回復参照を確定できないhost残存の保守候補)。共有DirectoryをOperation一時Rootと分け、mkdir呼出しのEEXISTだけをfresh検証へ合流させる。観測・検証失敗を通常Errorのまま上位の清掃確認trueへ既定化せず、既存InitializationFailureの清掃未確認・回復IDなしとして搬送する。Tokenは生成しない。不明時はOperator確認待ちで、元Task再開や自動retryは追加しない。
+
+| 編集対象 | 処置・変更しない範囲 |
+|---|---|
+| Architecture§11 | 共有管理資源のOwner、初期化状態、停止と再入場を明確化する。連続OS排他や旧形式非使用はOPEN。 |
+| `execution-environment.ts` | 同じensure入口から、削除依存を持たない初期化settlementへ接続する。Root／markerの作成・通常清掃と既存Token契約は変更しない。 |
+| 既存局所試験 | 同じ本番settlementへ非Authority依存を渡す。実Root・Process・Docker・Providerを操作しない。 |
+| QA-000003／PRL-UT-006 | 共有Directory削除0、EEXIST後のfresh拒否、不明分類を追加する。Local Item・全体品質件数は増やさない。 |
+
+変更は共有資源の所有・初期化失敗の実装接続であり、技術独立レビュー、文書監査、品質／直接影響確認を同じ固定差分へ行う。準拠基準・Release判断を変えないため準拠監査は追加しない。静的確認と局所UTの後に独立確認へ渡し、作成前排他・全利用側移行・実OS保証・旧三Rootの非使用・実削除・署名E2Eの完了とは分ける。現在は是正作業中で、検証・独立確認のPassはまだない。
+
+### 共有管理資源是正の自己確認
+
+UTC `2026-10-03T03:00:11.776Z`〜`2026-10-03T03:03:59.001Z`で、前節の候補を検証した。Node `v24.19.0`、Windows x64を使用した。対象七file（変更五fileと不変のCatalog／Symbol）、HEAD／Tree、検証器と起動shim、npm内のNode／tsc／Biome解決、Index／Worktree差分、未追跡集合は前後一致した。2058件の入力集合の集約SHA-256は`e4051b8abe771e2bff12781aa1fa1c0f5f2de38d2442d5edd79ca446873a229e`。本節は実行後の結果追記であり、追記後の文書Hashを実行時Hashへ置き換えない。
+
+原記録はRepository-local `.crdd/verification/chg-000082-shared-host-namespace-261003/run.json`、SHA-256 `bc39eae05e5ce325a106f705512ae9fc0cb4cbf0a25fd91e038703875b0efd2c`。actual command、cwd、時点、終了code、Tool結合出力と前後Identityを保存した。分離した生stdout／stderr bytesとは主張しない。保存・消失時の再実行条件は本記録の先行r3／r4と同じである。
+
+| 確認範囲 | 結果 |
+|---|---|
+| Formatter→型→Lint | 同じ順で実行し、全てExit 0。689 fileの整形確認、production／test型二構成、690 fileのWarningを失敗とするLint。 |
+| 三静的Contract | Runtime Capability Graph、旧Coordinator Traceability、旧Project Runtime Design Traceabilityは全てExit 0。旧JSON廃止やReality Audit成立とは分ける。 |
+| 既存二fileの局所UT | `host-operation-lock-activation.contract.test.ts`と`host-generation-loss-transition.contract.test.ts`を実行。49／49 Pass、Fail／Cancel／Skip／Todo 0、212.028ms、Exit 0。共有初期化の親一件と13子Caseを含む。 |
+| Catalog／Symbol Graph | 既存の読取り専用確認はExit 0、Finding 0。実在267試験、同じ試験PathとQA／Local Item／実装Relationを保持。新ID・登録は不要。 |
+| Repository Checker | Exit 1、Error 1／Warning 0。既知の`stable-release-tag-identity-mismatch`のみ。1164 MD／18366 Link／2260 Anchor、30980ms。全体Passではない。 |
+
+共有初期化試験は同じsettlementへ局所依存を渡した観測であり、実Filesystemのreparse拒否、連続排他または旧三Rootの非使用を実証していない。追加の隣接試験候補を確認したが、実OS Root作成Caseを含むため今回の局所範囲へ無条件に追加しなかった。実Root、Process、Docker、Providerおよび既存三件への操作はない。現在は自己確認済みであり、独立三観点の結果が揃うまで限定Passとは扱わない。
+
+### 共有管理資源是正の独立確認結果
+
+作成担当とは別の確認者が、同じ固定五fileの技術独立レビュー、文書監査、品質／直接影響確認をすべて完了した。三観点は限定Pass、Finding 0。開始・終了のHEAD／追跡先は`276f993e660a1ab2c041538b665953a9dfe100b5`で一致し、対象Hashと原記録`bc39eae05e5ce325a106f705512ae9fc0cb4cbf0a25fd91e038703875b0efd2c`は不変だった。追加試験・実操作は行っていない。
+
+| 固定確認対象 | SHA-256 |
+|---|---|
+| Coordinator詳細設計 | `714bfba49cccbaeb87e415af662eb9b2b38eae88dcbcdbf3e423b4c75ac0be59` |
+| QA-000003定義 | `249df43c72f84203ccef5a2af6e4a92beee42364fd451c09f9bcda12e9decbc7` |
+| `execution-environment.ts` | `1ee48385077300fb634fd6acf3ee0328b75b3bcfb76b683c651b52dbf8898fa1` |
+| `host-operation-lock-activation.contract.test.ts` | `a9b6e1d900810c18c5a31c1c274ae161a51a2262638abf944bd5e88c6ffd34e1` |
+| 本記録の結果書戻し前 | `aabdfc7fcf8c1fc753050d2bb2063ca859d1bf8e7d1e09ca88e868951c43fad3` |
+
+確認した成立範囲は共有namespaceの所有と初期化settlementである。Source上の上位停止分類、非Authorityの49局所試験と同じ試験登録、検証器までの再識別を確認した。実OS reparse、作成前連続排他、全利用側移行、旧三Rootの非使用、実清掃、署名E2E、全PRL-UT-006または全体品質の成立は主張しない。結果書戻しは全三結果統合後、確認者が整合済みとした本節とChecklist一行だけに限定した。他四file、旧結果・Hash、実行入力EvidenceのHash、原記録、品質件数、Authorityおよび新実Task停止は不変である。
+
 ## Checklist
 
 - [x] 同じCHGのIntent、限定対象、対象外と人間承認を記録した。
@@ -284,5 +329,6 @@ r4原記録と旧r3は不変だった。起動shimまでの再識別、35件の�
 - [x] 2026-10-03の人間選択を記録した。Coordinator所有範囲で調査・是正し、Windows再起動を前提にしない。方式の選択を実停止・削除許可へ読み替えない。
 - [x] 今回の六文書の固定差分を技術・文書・品質／直接影響の三観点から独立確認し、限定Pass・Finding 0を記録した。旧限定Passを流用せず、実装・清掃・全体品質は未成立と分けた。
 - [x] 取得待機後の局所是正を同じ固定六fileで三観点から独立確認し、5指摘の解消と限定Passを記録した。実Recovery・全体品質の完了とは分けた。
+- [x] 共有回復Directoryの所有・初期化是正を固定五fileで三観点から独立確認し、限定Pass・Finding 0を記録した。連続排他、実OS保証、旧三Root清掃および全体品質の成立とは分けた。
 - [ ] OPEN: 旧形式の非使用、初期化排他、OS処置境界、保護済み再入場、SPEC／Workflow・公開入口と実境界検証が未成立。根拠取得後に同じCHGで接続する。
 - [ ] OPEN: 実在三件のexact処置承認と清掃未実施。必要保証成立後に対象を提示し、別に承認を得る。
