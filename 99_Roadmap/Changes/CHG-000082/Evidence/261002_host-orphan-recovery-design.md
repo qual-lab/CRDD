@@ -622,6 +622,58 @@ scoped Checkerは29035ms、Exit 0、Finding 0、Warning 0。要求scopeにNative
 
 限定Passは同一Processの自己生成二対象に対する局所診断と記録に限る。別Process、本番の連続排他、親Process喪失、厳密期限、耐久caller、全Recovery、実在三件の処置および全体品質はOPENのままである。
 
+## Windows保護方式 — 別Processからの限定実測r4
+
+**結論: 同じ利用者の別Processからも、親のfile／Directory保持中の拒否と、明示解除後の正例を観測した。** 自作二対象の局所確認であり、本番連続排他、親Process喪失、耐久caller、旧三Rootの非使用・実清掃は未成立である。
+
+### 計画と不変範囲
+
+基準Commitは`5b190b8dd2e4ee6246846e232d6c320d42ca2af5`。読取り専用の着手前確認で、失敗JSONと成功Oracleを分け、起動・終端不明の部分結果を保持すること、各role一回・同時一Workerとし、失敗後のWorker再試行とfixture清掃を禁止することを補強した。Windows uptimeによる10秒の共有cutoffを明示環境で渡し、Workerは新しいwrite／delete／renameの直前に点検する。親の10秒点検とWorker wait 3秒・既存Job清掃観測最大2秒は別条件であり、保留syscall取消または厳密な全処理終了期限を主張しない。
+
+変更は`windows.rs`の`#[cfg(test)]`内とGit非追跡診断TS、本記録だけである。既存`windows_owned_child.rs`は読取り入力とし、Production、公開protocol、署名実行物、旧三Root、DockerおよびProviderへ変更・操作を加えていない。本番設計・公開契約の採用を変えない診断なので、上位Template／Ruleの意味変更は非該当と評価した。ERB-IT-001／002の部分根拠に限り、QA件数と停止Gateは不変である。
+
+親NativeはNodeが前後Hashを確認する固定test binaryから、同じ実行物のexact ignored Workerを起動する。子環境はrun、held／released、uptime cutoffとRepository-local TEMP／TMPだけであり、親の環境全体や秘密を継承しない。標準入出力は固定NULだけを渡す。既存OwnedChildのJobへ停止状態で結合した後に開始する。全assertionとfixture handleのchecked-close後に限り、heldはexit 71、releasedはexit 72を返す。exit 0だけでは選択Worker実行の証明にしない。親は役割別exitとexact Process終了・Job内Process 0の両方を要求する。Job、Process、NUL等の全OS handle checked-close保証とは区別する。
+
+### 観測結果
+
+| 場面 | 局所観測 |
+|---|---|
+| 保持中の別Worker | file readが成功し、write／DELETE access、実file削除、file rename、Directory renameがerror 32で拒否された。fileとDirectoryの両保持中の観測であり、Directory単独の因果証明にしない。既存のDirectory-only反例も維持した。 |
+| 解除後の別Worker | checked-close後、同じfileへの5bytes書込み、file／Directoryの改名・復元が成功した。Workerの前後で親・Root・fileのNative Identityが一致した。 |
+| Worker終端 | 両Workerが役割別71／72で完了し、各exact Processの終了と所有Job内Process 0を確認した。timeout・観測不能・期待外exitを成功へ読み替えない。 |
+| 最終清掃 | 親が再度fresh Native Identityを確認し、自作fileと空Directoryだけを非再帰清掃した。Nativeの直接不存在、Nodeの別読取りおよび終了後の追加読取りで両fixture名が`ENOENT`だった。 |
+| 搬送 | revision 2、12 fieldの閉Schema、Native／Node Exit 0、exit／closeを確認した。215ms、出力584bytes、output上限超過・Process errorなし。 |
+
+閉Schemaは成功と合法な失敗結果の両方を解析する。`phase`、held／releasedの部分結果、固定reasonを保存し、起動の未発行／発行済み、終了確認／不明、timeout、取消、観測不能と期待外exitを分ける。`fixtureHandleClosuresConfirmed`はfixture handleだけに限定し、`separateProcessProtectionVerified`は両Worker receipt、親の後続Oracleと最終清掃が全て成立した場合だけtrueにする。失敗分類の全枝を故障注入したとは主張しない。
+
+原記録は`.crdd/verification/chg-000082-native-protection-261003/run-r4.json`、SHA-256 `6e30827cd87efdcf9595b0f3ea2cb770bff0028283ff71c73fdc1f7fdd343a6c`。重複参照を除いた16 invocationのexplicit cwd・UTC・完結返却を照合した。初回TS型確認はunknownの型絞込み不足で失敗し、実測前に閉Schema確認後だけ型を確定する構造へ是正した。その失敗も原記録に残した。Rust SourceはこのTSのみの修正前後で不変であり、実測前のRust Formatter・compile・Clippyと、修正後のTS strict・Formatter／Lint・構文確認は全てExit 0だった。Native Source・診断TSと主要Tool／設定、既存OwnedChildを含む29入力の前後一致を確認し、旧六原記録は指定Hashのまま保持した。全推移的依存の固定ではない。
+
+新Source SHA-256は`3f2e50163ca0c4940067e4a9326050f438479fac57e114527719d836daeb3b66`、診断TSは`75d28b90d99fa5437bfd1841e716444837869ec4326eb1dfdfb637c15f845184`、test binaryは`d21c7cfbb793427d2327ff28ccc67ac4ce1148b2af1dd8b7c4e93b7ddf4e3501`で一致・不変だった。Node IdentityとWin32 Identityを相互変換せず、別観測として保持した。診断用cache、Source、記録とbinaryは前節の同CHG検証用保持条件を継承し、fixture清掃から全検証Rootの不存在を主張しない。
+
+**現在状態: 局所自己確認済み、固定版の技術・51文書・品質／53直接影響の独立確認待ち。** 同利用者・固定実行物以外の別主体、親喪失、本番利用側、耐久記録と実RecoveryはOPEN。実在三件の停止・削除、署名、全E2EおよびReleaseへ進まない。
+
+### 自己照合の補強と新固定版r5
+
+r4の成功観測後、親Headerのchecked-close対象をfixtureが登録した保持・観測・Token handleへ限定し、親の各点検もWorkerと同じuptime cutoffへ統一した。合法な失敗reasonの一覧には、未処置だった`receipts_missing`を追加した。成功Oracleを変更せず、r4原記録を保持した。r4診断TSも`native-protection-probe-r4.ts`へ同じHashで保持し、旧実行を現在のSourceで上書きした根拠にしない。中間のRust Formatter構文失敗は括弧不足を修正してから静的段階へ入り、記録時点を持たない準備操作を識別済みinvocation数へ含めていない。
+
+新しい`.r5`の原記録`run-r5.json`（SHA-256 `83ab18dae71b3f802fafb1c9c45e64e29489e2cbf47804b677294a9d945aef56`）では、12 invocationのexplicit cwd・UTC・完結返却、静的六段階Exit 0、29入力前後一致と終了後の別読取りを確認した。222ms、出力584bytes、Native／Node Exit 0。held／releasedの両receipt、fixture handleの明示close、fresh Identityと非再帰清掃、直接不存在が再成立した。初回TS失敗とr4の記録をPassへ書き換えていない。
+
+r5のSourceは`234ff21fa3bb51e34193b32cf919b08b69e2cec2910a9e41d0e1f939cbe8495f`、診断TSは`0056d80c2bdbf59430421ee470934a8c96ce5d8057bbf7f7955c77b6f3122116`、test binaryは`2d68a8795f6da7f8f313e59d9686f0e907f7868a76c2a9add145aa698e62313b`で前後一致した。限定結果と本番・親喪失・旧Root・実Recoveryの未成立を分ける。
+
+r4文書入力のscoped Checkerは32871ms、Exit 0、Finding 0、Warning 0、実展開は関連六Markdown・391リンク・42anchorだった。`document-check-r4.json`に入口・package・文書の前後Hash、explicit cwd、UTCと初期／wait返却を保存した。Native意味、HeaderとGit非追跡診断物の機械保証へ昇格しない。この段落追記後の固定版確認とは別の入力版として保持する。
+
+r5文書入力のscoped Checkerも25278ms、Exit 0、Finding 0、Warning 0、関連六Markdown・391リンク・42anchorだった。原記録`document-check-r5.json`（SHA-256 `00c067f3b0bb66b946a9b7b0abe2ce217ca87923b8eee301150c1a0b8f111382`）に入口・package・文書の前後Hash、explicit cwd、UTCと初期／wait返却を保存した。実行入力文書Hash `ca67ca46b1f84823e9576d80240b83a967b7089df0f4294b1e0bcdd7e3e3bc29`と本段落追記後の確認版を分ける。Git非追跡診断物、Native Header、全Checker依存またはRepository全体の確認へ昇格しない。差分空白確認もExit 0だった。
+
+**現在状態: r5の自己確認済み、三必須観点の新固定版独立確認待ち。** 旧三件の実処置、本番接続、耐久caller、親喪失、署名および全体品質は未成立のままである。
+
+### 新固定版r5の独立確認結果
+
+技術、51文書、品質／53直接影響の三必須観点を同じ新固定版で確認し、全結果を統合した。三観点とも限定Pass、Finding 0だった。開始・終了HEADは`5b190b8dd2e4ee6246846e232d6c320d42ca2af5`、結果書戻し前の本記録は`bd4c544dc4760d6757aa9f20464ba8bf7e1cc2edd5572f3c0ecf90fb87332b5f`で一致・不変。Source、TS、binary、指定原記録、既存OwnedChild、保存r4 TSと旧六原記録も指定Hashと一致した。Checker入力文書`ca67ca46b1f84823e9576d80240b83a967b7089df0f4294b1e0bcdd7e3e3bc29`と区別し、旧Passを流用していない。
+
+確認者は各role一回・直列、失敗後の停止、親子の共有cutoff、71／72とexact Process・Job終端の共同判定、fixture handleだけの明示close、合法な失敗搬送、12 invocation、29入力および222ms局所結果を照合した。編集・再実行・外部操作は行っていない。本結果節とChecklist一行だけを書き戻し、Source、原記録、QA件数、署名、Authorityと停止Gateは不変である。
+
+限定Passは同利用者・固定別Process・自己生成二対象の局所診断と記録に限る。全失敗枝の故障注入、別主体、親喪失、厳密終了期限、本番連続排他、耐久caller、旧三Root、実Recovery／全E2EはOPEN。次は未接続の本番利用側・耐久記録・旧非使用の保証を具体化し、局所結果を実清掃許可へ読み替えない。
+
 ## Checklist
 
 - [x] 同じCHGのIntent、限定対象、対象外と人間承認を記録した。
@@ -642,5 +694,6 @@ scoped Checkerは29035ms、Exit 0、Finding 0、Warning 0。要求scopeにNative
 - [x] 終端記録の文書候補を新固定三文書で三観点から独立再確認し、HT-Q02の解消・限定Pass・新Finding 0を記録した。Windows保護、実装、実Recoveryと全体品質は未成立と分けた。
 - [x] Node APIの六場面実測と原記録を新固定版で三観点から独立確認し、限定Pass・Finding 0を記録した。hardlinkの不変性、本番Windows保護、実Recoveryおよび全体品質を未成立と分けた。
 - [x] Windows保護方式の新実行r3を三観点で独立再確認し、三指摘の解消・限定Pass・Finding 0を記録した。同一Processの局所観測と本番保護・実Recoveryの未成立を分け、旧Failと旧原記録を保持した。
+- [x] 別Processの新固定版r5を三観点で独立確認し、限定Pass・Finding 0を記録した。役割別receiptとProcess／Job終端をfixture handle closeと区別し、本番・旧Root・全体品質の未成立を保持した。
 - [ ] OPEN: 旧形式の非使用、初期化排他、OS処置境界、保護済み再入場、SPEC／Workflow・公開入口と実境界検証が未成立。根拠取得後に同じCHGで接続する。
 - [ ] OPEN: 実在三件のexact処置承認と清掃未実施。必要保証成立後に対象を提示し、別に承認を得る。

@@ -2178,21 +2178,215 @@ mod tests {
         result
     }
 
+    /// 固定Workerを一回起動し、役割別の完了receiptと同Process/Jobの終端を確認する。
+    ///
+    /// @responsibility 期待外exit、期限超過、起動・終端不明を成功にせず、再実行しない。
+    /// @trace ERB-IT-001
+    /// @trace ERB-IT-002
+    /// @precondition 親fixtureが自己生成二対象を保持し、roleと共有cutoffを固定している。
+    /// @stimulus 同じ固定test binaryのexact Workerを、明示環境と所有Jobで起動する。
+    /// @observation 起動結果、役割別exit 71/72、exact child終了とJob内Process 0。
+    /// @oracle 期待exitとcleanup_confirmedの両方が成立した場合だけ成功を返す。
+    /// @cleanup 既存OwnedChildの終端処理を使い、不明ではfixture清掃と次Workerを許可しない。Job等の全handle checked-closeは主張しない。
+    /// @boundary 親Native試験Process→Windows Job→同利用者の別Native試験Process。
+    fn run_protection_probe_worker(role: &str, cutoff: u64) -> Result<(), &'static str> {
+        use crate::windows_owned_child::{Completion, OwnedChild};
+        let expected_exit = match role {
+            "held" => 71,
+            "released" => 72,
+            _ => return Err("worker_role_invalid"),
+        };
+        let executable = Path::new(
+            "C:/project/CRDD/.crdd/verification/chg-000082-native-protection-261003/target/x86_64-pc-windows-msvc/debug/deps/crdd_platform_access-7057a9b9f47b61a1.exe",
+        );
+        if std::env::current_exe().ok().as_deref() != Some(executable) {
+            return Err("worker_executable_mismatch");
+        }
+        // SAFETY: GetTickCount64 is a process-independent monotonic Windows uptime observation.
+        if unsafe { windows_sys::Win32::System::SystemInformation::GetTickCount64() } >= cutoff {
+            return Err("worker_start_cutoff");
+        }
+        let command = format!(
+            "\"{}\" --exact windows::tests::terminal_protection_fixture_worker --ignored --nocapture --test-threads=1",
+            executable.display()
+        );
+        let environment = format!(
+            "CRDD_NATIVE_PROTECTION_CUTOFF={cutoff}\0CRDD_NATIVE_PROTECTION_ROLE={role}\0CRDD_NATIVE_PROTECTION_RUN=terminal-protection.261003.5b190b8d.r5\0TEMP=C:/project/CRDD/.crdd/verification/chg-000082-native-protection-261003/tmp\0TMP=C:/project/CRDD/.crdd/verification/chg-000082-native-protection-261003/tmp\0\0"
+        );
+        let mut environment: Vec<u16> = environment.encode_utf16().collect();
+        let child = OwnedChild::spawn(
+            executable,
+            std::ffi::OsStr::new(&command),
+            &mut environment,
+            Path::new("C:/project/CRDD"),
+        )
+        .map_err(
+            |failure| match (failure.process_created, failure.cleanup_confirmed) {
+                (false, true) => "worker_start_not_issued",
+                (false, false) => "worker_start_unissued_cleanup_unknown",
+                (true, true) => "worker_start_failed_cleanup_confirmed",
+                (true, false) => "worker_start_failed_cleanup_unknown",
+            },
+        )?;
+        let outcome = child.wait(std::time::Duration::from_secs(3), || false);
+        if !outcome.cleanup_confirmed {
+            return Err(match outcome.completion {
+                Completion::Exited(_) => "worker_exit_cleanup_unknown",
+                Completion::TimedOut => "worker_timeout_cleanup_unknown",
+                Completion::Cancelled => "worker_cancel_cleanup_unknown",
+                Completion::ObservationFailed => "worker_observation_cleanup_unknown",
+            });
+        }
+        match outcome.completion {
+            Completion::Exited(code) if code == expected_exit => Ok(()),
+            Completion::Exited(_) => Err("worker_unexpected_exit_cleanup_confirmed"),
+            Completion::TimedOut => Err("worker_timeout_cleanup_confirmed"),
+            Completion::Cancelled => Err("worker_cancel_cleanup_confirmed"),
+            Completion::ObservationFailed => Err("worker_observation_cleanup_confirmed"),
+        }
+    }
+
+    /// 親の共有保持中と解除後を、同利用者の別Processから限定観測する。
+    ///
+    /// @responsibility 全assertionと明示closeの後だけrole固有exitを返し、通常exit 0をreceiptにしない。
+    /// @trace ERB-IT-001
+    /// @trace ERB-IT-002
+    /// @precondition exact Worker、固定run/role/cwd、親が自己生成したfixtureと共有cutoffを使う。
+    /// @stimulus read後、heldではwrite/delete/rename拒否、releasedではwriteと改名・復元を試す。
+    /// @observation error 32、read内容、fresh Native Identity、checked-closeとrole固有exit。
+    /// @oracle 全観測成功後だけ71/72で終了する。両保持中のDirectory拒否をDirectory単独の因果証明にしない。
+    /// @cleanup 自分のread/write handleだけをchecked-closeする。二対象の削除は親だけが所有する。
+    /// @boundary 同利用者の別Native試験Process→自己生成二対象。別主体・本番保護・親喪失は未検証。
+    #[test]
+    #[ignore = "Fixed child of the repository-local protection fixture only"]
+    fn terminal_protection_fixture_worker() {
+        assert_eq!(
+            std::env::var("CRDD_NATIVE_PROTECTION_RUN").as_deref(),
+            Ok("terminal-protection.261003.5b190b8d.r5")
+        );
+        assert_eq!(
+            std::env::current_dir().unwrap(),
+            Path::new("C:/project/CRDD")
+        );
+        let role = std::env::var("CRDD_NATIVE_PROTECTION_ROLE").unwrap();
+        assert!(role == "held" || role == "released");
+        let cutoff: u64 = std::env::var("CRDD_NATIVE_PROTECTION_CUTOFF")
+            .unwrap()
+            .parse()
+            .unwrap();
+        let check_cutoff = || {
+            // SAFETY: read-only OS uptime, shared with the parent new-effect cutoff.
+            let now = unsafe { windows_sys::Win32::System::SystemInformation::GetTickCount64() };
+            assert!(now < cutoff && cutoff - now <= 10_000);
+        };
+        check_cutoff();
+        let parent =
+            Path::new("C:/project/CRDD/.crdd/verification/chg-000082-native-protection-261003");
+        let root = parent.join("fixture");
+        let root_next = parent.join("fixture-renamed");
+        let file_path = root.join("record");
+        let file_next = root.join("record-renamed");
+        let parent_id = probe_identity(parent).unwrap();
+        let root_id = probe_identity(&root).unwrap();
+        let file_id = probe_identity(&file_path).unwrap();
+        let mut reader = open_probe_handle(
+            &file_path,
+            FILE_GENERIC_READ,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+        )
+        .unwrap();
+        // SAFETY: unique read handle ownership is restored before explicit close.
+        let mut file = unsafe { fs::File::from_raw_handle(reader.0) };
+        reader.0 = null_mut();
+        let mut bytes = [0_u8; 5];
+        let read = file.read_exact(&mut bytes);
+        reader.0 = file.into_raw_handle();
+        let closed = close_probe_handle(&mut reader);
+        assert!(read.is_ok() && bytes == *b"probe" && closed);
+        if role == "held" {
+            for access in [FILE_GENERIC_WRITE, DELETE] {
+                check_cutoff();
+                match open_probe_handle(
+                    &file_path,
+                    access,
+                    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                ) {
+                    Err(32) => (),
+                    Ok(mut unexpected) => {
+                        let _ = close_probe_handle(&mut unexpected);
+                        panic!("worker_unexpected_access");
+                    }
+                    Err(_) => panic!("worker_wrong_access_error"),
+                }
+            }
+            check_cutoff();
+            assert_eq!(
+                fs::remove_file(&file_path)
+                    .err()
+                    .and_then(|e| e.raw_os_error()),
+                Some(32)
+            );
+            check_cutoff();
+            assert_eq!(
+                fs::rename(&file_path, &file_next)
+                    .err()
+                    .and_then(|e| e.raw_os_error()),
+                Some(32)
+            );
+            check_cutoff();
+            assert_eq!(
+                fs::rename(&root, &root_next)
+                    .err()
+                    .and_then(|e| e.raw_os_error()),
+                Some(32)
+            );
+        } else {
+            check_cutoff();
+            let mut writer = open_probe_handle(
+                &file_path,
+                FILE_GENERIC_WRITE,
+                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+            )
+            .unwrap();
+            // SAFETY: unique write handle ownership is restored before explicit close.
+            let mut file = unsafe { fs::File::from_raw_handle(writer.0) };
+            writer.0 = null_mut();
+            check_cutoff();
+            let written = file.write_all(b"child");
+            writer.0 = file.into_raw_handle();
+            let closed = close_probe_handle(&mut writer);
+            assert!(written.is_ok() && closed);
+            check_cutoff();
+            fs::rename(&file_path, &file_next).unwrap();
+            check_cutoff();
+            fs::rename(&file_next, &file_path).unwrap();
+            check_cutoff();
+            fs::rename(&root, &root_next).unwrap();
+            check_cutoff();
+            fs::rename(&root_next, &root).unwrap();
+        }
+        assert_eq!(probe_identity(parent).unwrap(), parent_id);
+        assert_eq!(probe_identity(&root).unwrap(), root_id);
+        assert_eq!(probe_identity(&file_path).unwrap(), file_id);
+        check_cutoff();
+        std::process::exit(if role == "held" { 71 } else { 72 });
+    }
+
     /// 自己生成対象だけでDirectoryとfileの共有拒否を分離して観測する。
     ///
     /// @responsibility 保持中の拒否とchecked-close後の正例を分け、実Recoveryへ昇格しない。
     /// @trace ERB-IT-001
     /// @trace ERB-IT-002
     /// @precondition Nodeが固定run参照、exact cwd、親Identityとfresh fixture名を確認済みである。
-    /// @stimulus 二対象をprotected DACLで作り、Directory保持だけの反例、file保持と解除後を順に観測する。
+    /// @stimulus 二対象をprotected DACLで作り、同一Processと固定別Processの保持中・解除後を順に観測する。
     /// @observation Native Identity、DACL、固定error32、CloseHandle、同じ実体の非再帰清掃と直接不存在。
     /// @oracle 全観測・清掃・直接不存在確認が成功した場合だけobservedを返す。清掃開始前の失敗・panic・期限超過では清掃を開始せず、清掃中の失敗・期限超過では追加清掃を停止し、既発行処置を未発行扱いにしない。
-    /// @cleanup checked-closeを全所有handleへ試行し、前段観測とchecked-close成功後だけfresh Identityを確認して清掃を開始する。清掃中の部分失敗では追加清掃を停止し、残る状態と既発行処置を保持する。
-    /// @boundary 単一Native試験Process→Windows filesystem。別Processと本番連続排他は未検証。
+    /// @cleanup checked-closeをfixtureが登録した保持・観測・Token handleへ試行し、前段観測とchecked-close成功後だけfresh Identityを確認して清掃を開始する。清掃中の部分失敗では追加清掃を停止し、残る状態と既発行処置を保持する。
+    /// @boundary 親Native試験Process→固定Job/別Native試験Process→自己生成二対象。本番連続排他と親喪失は未検証。
     #[test]
     #[ignore = "Fixed repository-local diagnostic; invoke through its Node owner only"]
     fn terminal_protection_fixture_observes_handle_sharing() {
-        let expected_run = "terminal-protection.261003.66a9a172.r3";
+        let expected_run = "terminal-protection.261003.5b190b8d.r5";
         assert_eq!(
             std::env::var("CRDD_NATIVE_PROTECTION_RUN").as_deref(),
             Ok(expected_run)
@@ -2213,10 +2407,21 @@ mod tests {
                 Some(std::io::ErrorKind::NotFound)
             );
         }
-        let started = std::time::Instant::now();
+        // SAFETY: fixed interval added to read-only monotonic Windows uptime.
+        let worker_cutoff =
+            unsafe { windows_sys::Win32::System::SystemInformation::GetTickCount64() }
+                .checked_add(10_000)
+                .expect("uptime_cutoff_overflow");
+        let cutoff_expired = || {
+            // SAFETY: same read-only Windows uptime cutoff as the fixed Workers.
+            (unsafe { windows_sys::Win32::System::SystemInformation::GetTickCount64() })
+                >= worker_cutoff
+        };
         let mut handles = Vec::<OwnedHandle>::new();
         let mut identities = None;
         let mut phase = "preflight";
+        let mut held_worker_verified = false;
+        let mut released_worker_verified = false;
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             let before = probe_identity(parent)?;
             let (primary, impersonation) = process_tokens().ok_or("token_unavailable")?;
@@ -2277,7 +2482,7 @@ mod tests {
                 lpSecurityDescriptor: descriptor_pointer,
                 bInheritHandle: 0,
             };
-            if started.elapsed().as_secs() >= 10 || probe_identity(parent)? != before {
+            if cutoff_expired() || probe_identity(parent)? != before {
                 return Err("creation_cutoff_or_parent_changed");
             }
             phase = "directory_creation";
@@ -2293,7 +2498,7 @@ mod tests {
             );
             probe_protection(handles[2].0, &user, &system)?;
             let root_id = probe_identity(&root)?;
-            if started.elapsed().as_secs() >= 10 {
+            if cutoff_expired() {
                 return Err("file_creation_cutoff");
             }
             phase = "file_creation";
@@ -2322,7 +2527,7 @@ mod tests {
                 return Err("creation_handle_close_unknown");
             }
             phase = "directory_only_counterexample";
-            if started.elapsed().as_secs() >= 10 {
+            if cutoff_expired() {
                 return Err("counterexample_cutoff");
             }
             // A directory handle must not be mistaken for a child-file write barrier.
@@ -2335,7 +2540,7 @@ mod tests {
             // SAFETY: unique ownership is transferred to File and taken back before checked-close.
             let mut file = unsafe { fs::File::from_raw_handle(writer.0) };
             writer.0 = null_mut();
-            let written = if started.elapsed().as_secs() < 10 {
+            let written = if !cutoff_expired() {
                 file.write_all(b"probe")
             } else {
                 Err(std::io::Error::from(std::io::ErrorKind::TimedOut))
@@ -2346,7 +2551,7 @@ mod tests {
                 return Err("child_write_or_close_failed");
             }
             // No child handle remains, so this rejection tests the directory holder alone.
-            if started.elapsed().as_secs() >= 10 {
+            if cutoff_expired() {
                 return Err("directory_rename_cutoff");
             }
             if fs::rename(&root, &root_next)
@@ -2391,13 +2596,13 @@ mod tests {
                     Err(_) => return Err("wrong_access_rejection"),
                 }
             }
-            if started.elapsed().as_secs() >= 10 {
+            if cutoff_expired() {
                 return Err("rename_cutoff");
             }
             if fs::remove_file(&child).err().and_then(|e| e.raw_os_error()) != Some(32) {
                 return Err("file_delete_oracle_failed");
             }
-            if started.elapsed().as_secs() >= 10 {
+            if cutoff_expired() {
                 return Err("file_rename_cutoff");
             }
             if fs::rename(&child, &child_next)
@@ -2407,6 +2612,9 @@ mod tests {
             {
                 return Err("file_rename_oracle_failed");
             }
+            phase = "held_worker";
+            run_protection_probe_worker("held", worker_cutoff)?;
+            held_worker_verified = true;
             Ok(())
         }));
         let mut handles_closed = true;
@@ -2420,13 +2628,17 @@ mod tests {
             (|| {
                 phase = "after_close_positive";
                 let (root_id, child_id, parent_id) = identities.ok_or("receipts_missing")?;
-                if started.elapsed().as_secs() >= 10
+                if cutoff_expired()
                     || probe_identity(parent)? != parent_id
                     || probe_identity(&root)? != root_id
                     || probe_identity(&child)? != child_id
                 {
                     return Err("fresh_identity_or_cutoff_failed");
                 }
+                phase = "released_worker";
+                run_protection_probe_worker("released", worker_cutoff)?;
+                released_worker_verified = true;
+                phase = "after_close_positive";
                 let mut writer = open_probe_handle(
                     &child,
                     FILE_GENERIC_WRITE,
@@ -2436,7 +2648,7 @@ mod tests {
                 // SAFETY: writer is uniquely owned and is restored before checked-close.
                 let mut file = unsafe { fs::File::from_raw_handle(writer.0) };
                 writer.0 = null_mut();
-                let written = if started.elapsed().as_secs() < 10 {
+                let written = if !cutoff_expired() {
                     file.write_all(b"after")
                 } else {
                     Err(std::io::Error::from(std::io::ErrorKind::TimedOut))
@@ -2446,24 +2658,24 @@ mod tests {
                 if written.is_err() || !closed {
                     return Err("after_close_handle_unknown");
                 }
-                if started.elapsed().as_secs() >= 10 {
+                if cutoff_expired() {
                     return Err("file_rename_positive_cutoff");
                 }
                 fs::rename(&child, &child_next).map_err(|_| "after_close_file_rename_failed")?;
-                if started.elapsed().as_secs() >= 10 {
+                if cutoff_expired() {
                     return Err("file_restore_cutoff");
                 }
                 fs::rename(&child_next, &child).map_err(|_| "file_restore_failed")?;
-                if started.elapsed().as_secs() >= 10 {
+                if cutoff_expired() {
                     return Err("directory_rename_positive_cutoff");
                 }
                 fs::rename(&root, &root_next).map_err(|_| "after_close_directory_rename_failed")?;
-                if started.elapsed().as_secs() >= 10 {
+                if cutoff_expired() {
                     return Err("directory_restore_cutoff");
                 }
                 fs::rename(&root_next, &root).map_err(|_| "directory_restore_failed")?;
                 phase = "cleanup";
-                if started.elapsed().as_secs() >= 10
+                if cutoff_expired()
                     || probe_identity(parent)? != parent_id
                     || probe_identity(&root)? != root_id
                     || probe_identity(&child)? != child_id
@@ -2476,7 +2688,7 @@ mod tests {
                 {
                     return Err("file_absence_unconfirmed");
                 }
-                if started.elapsed().as_secs() >= 10 || probe_identity(&root)? != root_id {
+                if cutoff_expired() || probe_identity(&root)? != root_id {
                     return Err("directory_cleanup_identity_or_cutoff_failed");
                 }
                 fs::remove_dir(&root).map_err(|_| "directory_cleanup_failed")?;
@@ -2499,10 +2711,12 @@ mod tests {
             "failed_retained"
         };
         let reason = final_result.err().unwrap_or("fixed_fixture_verified");
-        let all_handle_closures_confirmed = final_result.is_ok();
+        let fixture_handle_closures_confirmed = final_result.is_ok();
+        let separate_process_protection_verified =
+            final_result.is_ok() && held_worker_verified && released_worker_verified;
         // Separate the bounded record from libtest's progress label on the shared stdout.
         println!(
-            "\n{{\"contract\":\"crdd-native/terminal-protection-fixture\",\"revision\":1,\"run\":\"{expected_run}\",\"status\":\"{status}\",\"reason\":\"{reason}\",\"phase\":\"{phase}\",\"allHandleClosuresConfirmed\":{all_handle_closures_confirmed},\"productionIntegrationVerified\":false,\"separateProcessProtectionVerified\":false,\"strictDeadlineClaimed\":false}}"
+            "\n{{\"contract\":\"crdd-native/terminal-protection-fixture\",\"revision\":2,\"run\":\"{expected_run}\",\"status\":\"{status}\",\"reason\":\"{reason}\",\"phase\":\"{phase}\",\"fixtureHandleClosuresConfirmed\":{fixture_handle_closures_confirmed},\"heldWorkerVerified\":{held_worker_verified},\"releasedWorkerVerified\":{released_worker_verified},\"productionIntegrationVerified\":false,\"separateProcessProtectionVerified\":{separate_process_protection_verified},\"strictDeadlineClaimed\":false}}"
         );
         assert!(final_result.is_ok(), "fixed_fixture_failed");
     }
