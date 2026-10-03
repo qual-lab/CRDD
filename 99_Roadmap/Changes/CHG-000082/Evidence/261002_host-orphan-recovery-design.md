@@ -491,6 +491,72 @@ Checkerは30315ms、Exit 1、既知tag不一致一件、Warning 0、新しい文
 
 全結果統合後、確認者が許容した本結果節とChecklist一行だけを書き戻す。他二文書、旧Fail、旧run／新r2、Source、Authority、品質件数および停止Gateは不変である。契約実装、Windows保護、実Recovery、E2Eおよび全体品質はOPENを維持する。
 
+## 終端記録の公開方式 — Node APIの限定実測
+
+**結論: 自己生成fileの六場面を観測できた。hardlinkによる公開はno-replaceを実現したが、内容の不変性を保証しない。** 本番の記録保護、Native Identity、連続排他、Process喪失後の再入場および実Recoveryは未成立のままである。
+
+### 実行範囲と着手前確認
+
+基準Commitは`4d47c4f0069abcd3581956800a82464154201d99`。着手前に現在投影、保守、品質、コーディング規約と候補契約を照合し、読取り専用確認者へ具体計画を提示した。期限は保留I/Oの取消保証にしないこと、意図的置換fileにも新receiptを保持すること、既存fixtureを変更しないことを条件として着手可だった。これらを試験本文へ反映し、方法選択の新しい人間判断は不要と確認した。
+
+| 境界 | 固定した条件 |
+|---|---|
+| 実測対象 | Repository-local `.crdd/verification/chg-000082-terminal-publication-261003/fixture/`の自己生成固定file名だけ。開始時に既存なら停止。 |
+| 容量・実行 | 作成するfile entryは累計12件、二名も二件として数える。物理bytes上限64KiB。実測は一Node Process、一回、retry 0。静的段階の検証器は別Processであり、実測Process数へ混ぜない。 |
+| 期限 | 開始後10秒で新しい書込み／除去を拒否する点検。同期FS syscallの最大待ち時間、取消または厳密な全処理終了期限は保証しない。期限後も未終了を清掃済みへ変換せず、失敗・保持へ接続する。 |
+| 取得・清掃 | `wx`で取得後は観測失敗もreceiptへ未確認として保持。close不明、予期しないIdentity差または清掃不明なら保持して失敗。既知の作成receiptへfreshに結合し、exact unlink／空Directory rmdirだけを行う。recursive除去は使用しない。 |
+| 非操作対象 | OS temporary共有Root、旧三Root／marker、Docker、Provider、本番Process、署名済みRuntime、Production Source、公開入口とAuthority。 |
+| 変更経路 | 既存QA反証の局所実測とEvidence更新。意味・準拠・Release契約は不変。技術、51文書、品質／53直接影響の三必須観点で新固定記録を独立確認する。全回帰・署名E2E・PT／LTはこの方式実測の成立根拠にしない。 |
+
+試験Codeと入力は同じ検証Rootへ保存し、Git非追跡の診断物として保持する。入力のrun参照は実測前に固定した非Authorityの相関参照であり、Canonical IDや元Taskの回復Tokenではない。試験Codeを本番のParser、Loaderまたは管理清掃へ流用しない。
+
+### 六場面の結果
+
+| 場面 | 実観測 | 時間 |
+|---|---|---|
+| 完全公開とstage除去 | `wx`→完全write→fsync→close→link後、Node metadataと両名bytesが一致。stageと最後の公開名の直接不存在を確認。 | 20ms |
+| 既存公開先の衝突 | 一回のlinkは`EEXIST`で拒否。既存公開先のIdentityとbytesは不変。 | 17ms |
+| 不完全stage | 切れたJSONはparse不能。公開要求を発行せず、存在を完了にしない。 | 9ms |
+| 同一実体の改変 | stageの意図的書換えは公開名にも反映した。Identityは同じでも元bytesとの不一致を観測できた。OSが改変を阻止した結果ではない。 | 14ms |
+| 別実体への置換 | 元stageを保持して公開名だけを別fileへ置換し、新Identityとbytes不一致を観測。新fileは新receiptで回収した。 | 18ms |
+| 三配置の相関 | stageのみ→二名→公開名のみで、事前固定した同じrun参照を読めた。同じProcessでの配置観測であり、Process喪失試験ではない。 | 10ms |
+
+六場面、累計12 entry、残るreceipt 0、`ioUnconfirmed:false`、`cleanupConfirmed:true`、全体90ms、Exit 0だった。fixtureは実行後に別の読取りからも明示`ENOENT`を確認した。Node v24.19.0、Windowsでの結果である。`fsync`の返却をDirectory耐久化・電源断後の保証へ昇格していない。
+
+### 静的段階と原記録
+
+RootのBiome設定は`.crdd`を除外するため、無処理の成功にしない。実Codeをstdinとして同じRoot設定へ渡し、仮想的なintegration配置でFormatterとLintを適用した。Formatterは出力と入力の完全一致、LintはWarningを失敗とし、stdin用`--write`の出力も完全一致を要求した。Lint出力をSourceへ書き戻していない。仮想Pathに`40_Develop`のFileを作成していない。strict型検査は専用のnoEmit構成で同じCodeを検査し、構文確認を終えてから実測した。四段階は全てExit 0。準備時のLint stdin操作不足による失敗も原記録に残し、最終の成功へ混ぜない。
+
+原記録は`.crdd/verification/chg-000082-terminal-publication-261003/run.json`、SHA-256 `1dcc279f6e94d5fc55953bcf99fd0fb0e84f936215c2c7b9e13b0e9b8c1f5011`。各Toolへ実際に渡したcommand／cwdと返却を結合し、静的段階、実測、前後Hashと終了後不存在観測を保存した。
+
+| 再識別する入力 | SHA-256 |
+|---|---|
+| 診断TypeScript | `b197283c72cde560a7092878db3256be3b5faa3f5826b75595df472acb29a49e` |
+| 固定入力 | `403466ae92f2d316aeb9173634c177255f1f28e78b17f1d7927e119ae9ad6027` |
+| 専用strict構成 | `280ff68274b49266d3c27810e307e65079306fec95ef0ea43a52ecffb8922d66` |
+| 診断のESM設定 | `89c47db7851f89caec72da4f215ebc21cf1e294aeef3b45d2583562d846ab035` |
+| RootのBiome設定 | `2a0c976b0d0f37dcf2588518ed5ba170f74022f60b7a541324b847b5a34081e8` |
+
+開始・終了HEADと同じ八入力Hashは一致した。八入力には上表の五FileとNode binary、Biome起動入口、TypeScript起動入口を含む。検証器の全推移的入力・binaryの網羅的再識別ではなく、Tool結合出力もstdout／stderrの独立取得ではない。
+
+本記録を起点にしたscoped Checkerは、関連六Markdown、391リンク、42anchorを確認し、25066ms、Exit 0、Finding 0、Warning 0だった。差分空白検査もExit 0。原記録は`.crdd/verification/chg-000082-terminal-publication-261003/document-check.json`、SHA-256 `b1b69d54414d005167a90e3c5ee1a30561fb7f82393ecbd082d7f748f165e295`。明示input、初期／最終返却、前後HEAD・本記録と実測runのHashを結合した。本段落は実行後追記であり、実行入力Hashと独立確認版を区別する。Repository全体の文書確認、Git非追跡の診断物確認または既知Release tag不一致の解消を主張しない。
+
+### 次段への意味と限界
+
+原理の実測を、本番保護へ代用しない。現在の観測用Native handleは共有write／deleteを許しており、差替え防止の根拠ではない。protected DACLが同じ利用者へ書込みを許すことも、同じ利用者による改変阻止にはならない。次に必要なのは、同じ実体を保持したWindows保護・差替え防止と、そのhandle終端の確認である。
+
+既存候補契約はhardlinkを不変Snapshotにせず、公開後のstage書換えを禁止し、実保護を接続前OPENとしているため、今回の観測からCanonical意味の変更は不要と評価する。既存QAのERB-IT-001／002／003に対する一部観測であり、正式Local Item全体の完了、品質件数の増加、全体Quality ReadyまたはPROJECT_CONTEXTの停止Gate更新は行わない。Native Identity、連続排他、Process喪失、caller耐久接続、容量予約と本番管理清掃は未観測のままである。
+
+**現在状態: 限定実測の自己確認済み、独立三観点待ち。** 新実Task、旧三件の実停止・削除およびReleaseへ進まない。
+
+### 限定実測の独立確認結果
+
+新しい固定版を技術、51文書、品質／53直接影響の三必須観点で確認し、全結果を統合した。三観点とも限定Pass、Finding 0だった。旧Passを流用していない。開始・終了HEADは`4d47c4f0069abcd3581956800a82464154201d99`、結果書戻し前の本記録SHA-256は`fa159126a6b33c07985a73a66a5c75fd759b0c75e39eab0a3c86a64e2edfbe5f`で一致・不変だった。支持入力と原記録六件の指定Hashも一致した。Checker実行入力版`95b00ca6799139615d34d73b33defc3ffb5220f37e68909f5c24e107185da75a`と区別する。
+
+六場面のassertionと保存結果、hardlinkの改変と別実体への置換、新receiptによる非再帰清掃、静的段階の実適用、原記録および終了後の別読取りを独立照合した。確認者は再実行・編集・外部送信・実操作を行っていない。本結果節とChecklist一行だけを書き戻し、原記録、Source、署名、QA件数、Authorityおよび停止Gateは不変である。
+
+限定PassはNode APIの原理実測と記録の適合性に限る。検証器の全推移的依存、本番保護、Native Identity、Process喪失、耐久caller、容量予約および厳密期限終了はOPEN。ERB項目全体、実Recovery、旧三Rootの非使用・清掃および全体品質は未成立のままである。
+
 ## Checklist
 
 - [x] 同じCHGのIntent、限定対象、対象外と人間承認を記録した。
@@ -509,5 +575,6 @@ Checkerは30315ms、Exit 1、既知tag不一致一件、Warning 0、新しい文
 - [x] 同一Process排他の四場面実測を固定記録で三観点から独立確認し、限定Pass・Finding 0を記録した。本番接続、旧Root非使用、実Recoveryおよび全体品質は未成立と区別した。
 - [x] 未接続内部lifecycleの三指摘を是正し、新固定七fileで三観点の限定Pass・新Finding 0を確認した。64局所結果と本番・実Recoveryの未成立を分けた。
 - [x] 終端記録の文書候補を新固定三文書で三観点から独立再確認し、HT-Q02の解消・限定Pass・新Finding 0を記録した。Windows保護、実装、実Recoveryと全体品質は未成立と分けた。
+- [x] Node APIの六場面実測と原記録を新固定版で三観点から独立確認し、限定Pass・Finding 0を記録した。hardlinkの不変性、本番Windows保護、実Recoveryおよび全体品質を未成立と分けた。
 - [ ] OPEN: 旧形式の非使用、初期化排他、OS処置境界、保護済み再入場、SPEC／Workflow・公開入口と実境界検証が未成立。根拠取得後に同じCHGで接続する。
 - [ ] OPEN: 実在三件のexact処置承認と清掃未実施。必要保証成立後に対象を提示し、別に承認を得る。
