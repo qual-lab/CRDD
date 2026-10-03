@@ -1041,7 +1041,51 @@ production本体、返値、Oracle、Authority、署名、旧二raw、品質件�
 
 書戻しは本節とChecklist一行だけを許容した。他六file、旧raw、品質件数・署名・Authority・停止Gateは変更しない。限定Passは同期controller・解放集約と今回の根拠区間だけであり、全Native終端、実解放故障、async移行、耐久caller、本番終端記録、旧三Rootおよび全Recovery／E2Eは未成立のまま保持する。現在、追加の人間判断は不要である。
 
+#### 助言初期化失敗の分類と初回参照保持 — 着手
+
+着手前の読取り確認はHEAD `105a467bf59a29d41e62cecf8fcd863d2827499e`で行った。caller耐久接続を先行する案は修正した。現Host factoryは作成後に参照を返し、Nativeの現在読取りはcaller既知のfile Identityと全bytesを必要とする。参照fieldだけを既存Project状態へ追加しても、作成後・返却前の喪失を解決できない。未使用のRequest保存port、一律Task拒否または旧参照の遡及生成は追加しない。
+
+同じCHGの先行是正を、助言初期化失敗の既知分類と初回Runtime結果への参照保持に限定した。下位で清掃確認済みでもOperation未返却のため外側catchが未確認へ読み替える原因を修正し、未解決の取得済み参照を同じ初回結果へ私有結合する。公開Schema、Provider入力、署名、Authority、実残存三領域および品質件数は変更しない。
+
+Formatter→scoped型→Lintはいずれもexit 0。その後に助言Runtime、Provider Executor、Dispatchおよび実行計画の局所UTを実行し、33件成功・失敗0、640.9608msだった。本番と同じ初期化関数へ偽依存を接続し、作成／activation／readiness各段の清掃true／false、元参照あり／なし、未知例外、元結果とcopyの分離、公開JSON非漏えいおよびProvider開始0を確認した。実OSの清掃・Lock終端または別Process再入場の証明ではない。
+
+初回のscoped型は試験設定のNode型探索先不足で停止した。設定を明示した次の型確認では、追加fixtureの清掃Receipt返値不足を検出した。偽Receiptを型契約へ合わせ、Formatter・型・Lintを再実行した後だけUTへ進んだ。失敗した二確認を成功記録へ読み替えない。
+
+scoped Checkerは25185ms、exit 0、101Markdown・9872リンク・566anchor、指摘／警告0。expanded_scope_truncated:true、ignored除外および範囲外のリンク未確認を維持する。27主要入力とHEADはUT／Checker前後で一致した。Node、TSの実解決Native、Biome、設定、下位作成境界、公開indexおよびChecker入口を含むが、全推移入力closureではない。
+
+原記録はRepository-local `.crdd/verification/chg-000082-advice-initialization-261003/local-r1.json`、SHA-256 `fdabf57805dee62c2ef3037a424d01e24d8ddf373821321a9158d5520a72b10e`。実入力、明示環境上書き・cwd、UTC前後、初回／全wait／完結返却、新旧静的結果および27入力Hashを保存した。実行時の本書Hashは`84521121ec4fe8a3244fe044af4bd76ec6b52d9bb15d37d3692ae6a5a3ebae5b`であり、この結果追記版へ遡及しない。
+
+固定差分の技術／lifecycle、51文書／Trace、品質／53直接影響の三観点のr1独立確認は全てFail、指摘2件だった。AI-T01はErrorの通常own propertyから元参照を列挙できる不一致、AI-Q01は実行した直接UT4fileのうち3fileが27入力Hash集合へ未収載である不一致。実外部漏えいの観測ではない。対象6file、HEADおよび旧原記録Hashは開始・終了で一致した。確認者は編集、試験再実行、外部／実資源操作をしていない。
+
+統合是正は三観点と整合確認済み。Error専用WeakMapへ分類を移し、公開getterやown propertyを追加しない。作成／activation／readiness各段でErrorのJSON、Object.keys、spreadへの元参照非漏えいと、同じErrorを外側catchが消費する分類・参照保持を確認する。新原記録には直接3UTを加えた30主要入力を静的確認前とUT／Checker終了後に照合する。旧r1原記録と3UT本文は不変で保持し、旧実行へHashを推定補完しない。
+
+r2の局所検証は以下のとおり完了した。三観点再確認は未完了であり、初回結果から後段の投影・Request Owner・fresh Processへ伝播する接続、本番耐久終端記録、async移行、実回復／全E2EはOPENを維持する。
+
+#### 助言初期化r2の是正後検証
+
+| 確認 | 新しい実績と限界 |
+|---|---|
+| AI-T01 | Error専用WeakMapへ分類を保持し、元参照をown propertyへ置かない。作成／activation／readiness各段の同じErrorについて、Object.keys・JSON・spreadへの元参照非漏えいと、外側catchによる分類・参照保持を確認した。公開getter・Schema・理由・Authorityは追加していない。 |
+| 静的確認 | Formatterの整形後、読取りFormatter→scoped型→Lintを全てexit 0で完了してから試験へ進んだ。Node v24.19.0、TS 7.0.2の実解決NativeおよびBiome 2.5.6を識別した。 |
+| 局所UT | 同じ直接4fileで33件成功・失敗／skip／cancel 0、653.3568ms。既知清掃true／false、未知例外、初回結果の私有結合とcopy非結合、Provider開始0を確認した。実OS回収・別Process再入場の証明ではない。 |
+| Checker | 六file指定、23831ms、exit 0、101Markdown・9872リンク・566anchor、指摘／警告0。expanded_scope_truncated:true、ignored除外と展開範囲外のリンク未確認を維持し、全実装の保証へ拡張しない。 |
+| AI-Q01と前後識別 | 直接4UT全てを含む30主要入力を静的確認前とUT／Checker完了後に照合し、HEADと全Hashが一致した。全推移入力closure・環境全体不変を主張しない。追加した直接3UT本文と旧r1原記録は変更していない。 |
+| 新原記録 | `.crdd/verification/chg-000082-advice-initialization-261003/remediation-r2.json`、SHA-256 `f886f21d3a09140b425fded6d173a5daf9a70a7ae5d20c1e6f06e5f4773265e1`。実入力object、明示cwd・環境上書き、UTC前後、初回／全wait／完結返却および30入力の前後識別を保持した。旧r1へ遡及補完しない。 |
+
+新実行入力の本記録Hashは`e1a66b22dce2d4f6e56ca0d5b9c5b661748f83124281c4e11bc95890b6032b4a`であり、本節追記版を試験入力へ付け替えない。署名Runtime、品質件数、実残存三領域、Docker／Provider操作および停止Gateは不変。指摘解消と限定Passの判断は、この新しい固定六fileの三必須観点へ渡す。
+
+#### 助言初期化r2の独立再確認
+
+固定六fileを技術／lifecycle、51文書／Trace、品質／53直接影響の三必須観点で独立再確認し、全て限定Pass、AI-T01／AI-Q01解消・新Finding 0、確信度は高だった。開始・終了HEADは`105a467bf59a29d41e62cecf8fcd863d2827499e`で一致し、六対象、旧r1と新r2原記録の指定Hashは不変だった。確認者は編集、試験再実行、外部／実資源操作を行っていない。
+
+Error専用WeakMapと三段の同じErrorによる列挙反証、初回結果への分類保持、Header・ERB-UT-023・File Relation、直接4UTを含む30入力の前後一致と新実績を照合した。実行入力Evidence `e1a66b22dce2d4f6e56ca0d5b9c5b661748f83124281c4e11bc95890b6032b4a`、レビュー版`a0e1e8bc126301ced486d76344b84751124a8cbcb7be28aa04ae48dbd3f75b2f`と本書戻し版を区別する。上記の独立確認未完了は今回結果追記前の状態であり、旧Fail・原記録・実行入力版へPassを遡及しない。
+
+書戻しは本節とChecklist該当一行だけを許容した。他五file、公開Schema・理由、Authority、署名、品質件数と停止Gateは不変。限定Passは助言初期化失敗の初回結果保持と今回の根拠区間だけであり、caller耐久接続、async移行、旧三Root処置、全Recovery／E2EはOPENである。現在、追加の人間判断は不要である。
+
 ## Checklist
+
+- [x] 助言初期化失敗の既知清掃分類を維持し、取得済み参照を初回結果の私有結合まで保持する局所UTを完了した。
+- [x] 助言初期化失敗の新固定六fileを三必須観点で独立再確認し、AI-T01／AI-Q01解消・限定Pass・新Finding 0を記録した。初回結果保持と全RecoveryのOPEN、旧Failと新検証を区別した。
 
 
 - [x] 同じCHGのIntent、限定対象、対象外と人間承認を記録した。

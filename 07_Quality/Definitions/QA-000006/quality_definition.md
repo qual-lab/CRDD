@@ -122,6 +122,8 @@ Quality ID: `QA-000006`
 
 `ERB-UT-023`では、Workbenchの明示AI実行をSelection不要の`none`へ畳まない。`beneficial`／`explicit_user_delegation`、明示Provider／Profile、Coordinator役割およびOperation Identityを要求fieldとして検査する。Productionが生成した初回・再発行要求を実Selection Runtimeへ直接渡し、旧Grant失効、新Grant消費およびProvider準備境界まで確認する。Mockが発行済み結果を返すことだけをProduction契約成立の根拠にしない。
 
+`ERB-UT-023`の助言初期化失敗では、下位作成境界の清掃確認true／false、分類のない例外および取得済み参照あり／なしを分ける。Operation未返却だけで清掃未確認へ読み替えず、既知trueは維持、false／未知は停止とする。初回Runtime結果の私有分類、元結果Objectへの結合、copy後の非結合、公開JSONへの参照非漏えい、Provider開始0およびpoison要否を観測する。これは現在Process内の初回結果までの契約であり、後段投影・Request Owner・fresh Process再入場、実資源不存在または実清掃成功の証明にはしない。
+
 `ERB-IT-021`のNode実行閉包ケースでは、Workbench CLI入口とRuntime value import／re-export／literal dynamic import Graphを固定入力とし、type-only参照を実行依存へ数えず再帰走査する。到達Source、外部module specifier、`.tsx`および`client/`到達を観測し、Serverへ到達する一方でBrowser描画Module、`.tsx`、`client/`および`react`／`react/*`への到達が0であることをOracleとする。Evidenceには固定Tree、入口、到達Source集合Hash、外部module集合、除外したtype-only宣言数、禁止到達件数およびOracle判定を保存し、Source本文と絶対Pathは保存しない。
 
 `ERB-IT-021`のBrowser Bundle配布閉包ケースでは、`40_Develop/workbench/dist/client/assets/workbench-client.js`を固定Pathとし、次の段階を分けて確認する。

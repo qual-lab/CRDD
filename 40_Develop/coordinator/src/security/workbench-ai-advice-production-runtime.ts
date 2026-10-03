@@ -70,6 +70,48 @@ export const WORKBENCH_AI_ADVICE_PRODUCTION_RUNTIME_CONTRACT =
 export const WORKBENCH_AI_ADVICE_PRODUCTION_RUNTIME_CONTRACT_REVISION = 1;
 
 /**
+ * 助言Runtimeの初回失敗に結合する非公開の回復情報を表す。
+ *
+ * @responsibility 清掃分類と取得済みexact参照を同じ初回結果に保持する。
+ * @trace ARCH-000008
+ * @shape 清掃確認、手動回復要否および取得済み参照またはnullの閉じた値。
+ * @invariant 清掃確認済みの場合は参照を回復対象として保持しない。
+ * @boundary Coordinator内部の失敗分類境界。
+ * @security 元参照を公開JSON、理由、Provider入力またはlogへ複製しない。
+ * @compatibility 公開結果SchemaおよびRecovery Authorityを変更しない。
+ */
+type HostFailure = Readonly<{
+  cleanupConfirmed: boolean;
+  manualRecoveryRequired: boolean;
+  hostRecoveryId: string | null;
+}>;
+
+const hostFailures = new WeakMap<object, HostFailure>();
+const initializationFailures = new WeakMap<Error, HostFailure>();
+
+/**
+ * 同じ初回Runtime結果に保持されたHost失敗分類を内部で照会する。
+ *
+ * @responsibility 元の結果Objectに結合した分類だけを返す。
+ * @trace ARCH-000008
+ * @input result: 初回Runtime結果または未知の値。
+ * @returns 保持済み分類、または結合がなければnull。
+ * @precondition 呼出し元はCoordinator内部で結果Objectを保持している。
+ * @postcondition copy、公開投影または別Processに元参照を復元しない。
+ * @effect N/A: Process内WeakMapを読み取るだけである。
+ * @failure 未登録の値をnullとし、Host資源不存在とは解釈しない。
+ * @invariant 参照の照会から削除権限、非使用または回復成功を発行しない。
+ * @boundary 非公開Runtime結果と内部失敗分類の境界。
+ * @security 公開indexへexportせず、JSON列挙対象へ値を追加しない。
+ * @concurrency 同じ結果への分類を返却後に変更しない。
+ */
+export function classifyWorkbenchAiAdviceHostFailure(result: unknown) {
+  return result !== null && typeof result === "object"
+    ? (hostFailures.get(result) ?? null)
+    : null;
+}
+
+/**
  * 署名済みWorkbench助言Production Runtime境界で使用するRuntimeRecordの構造を固定する。
  *
  * @responsibility 署名済みWorkbench助言Production Runtime境界が受け渡す値、状態および制約を一つの型契約として保持する。
@@ -568,7 +610,14 @@ function createWorkbenchAiAdviceRuntime(
       if (recoveryCapability)
         dependencies.abandonDockerRecovery(recoveryCapability);
 
-      let cleanupConfirmed = isOperationCleaned;
+      const initializationFailure =
+        error instanceof AdviceRuntimeError
+          ? (initializationFailures.get(error) ?? null)
+          : classifyOwnedCoordinatorOperationCreationFailure(error);
+      let cleanupConfirmed =
+        isOperationCleaned ||
+        (operation === null &&
+          initializationFailure?.cleanupConfirmed === true);
       if (operation && !isOperationCleaned && !providerEffectIssued) {
         try {
           const cleanup = dependencies.classifyOperationCleanup(
@@ -587,13 +636,26 @@ function createWorkbenchAiAdviceRuntime(
       }
       if (!cleanupConfirmed) dependencies.poisonAfterCleanupUnknown();
       operation?.releaseHostGenerationDrain?.();
-      return blocked(
+      const result = blocked(
         error instanceof AdviceRuntimeError
           ? error.reason
           : "workbench_ai_advice_runtime_failed_closed",
         providerEffectIssued,
         cleanupConfirmed,
       );
+      hostFailures.set(
+        result,
+        Object.freeze({
+          cleanupConfirmed,
+          manualRecoveryRequired: !cleanupConfirmed,
+          hostRecoveryId: cleanupConfirmed
+            ? null
+            : (operation?.hostRecoveryId ??
+              initializationFailure?.hostRecoveryId ??
+              null),
+        }),
+      );
+      return result;
     } finally {
       if (abortListener)
         cancellationSignal.removeEventListener("abort", abortListener);
@@ -619,9 +681,26 @@ function createWorkbenchAiAdviceRuntime(
 class AdviceRuntimeError extends Error {
   readonly reason: string;
 
-  constructor(reason: string) {
+  /**
+   * 公開理由と私有Host分類を同じ初期化失敗へ結合する。
+   *
+   * @responsibility 下位で取得済みの分類を外側catchまで保持する。
+   * @trace ARCH-000008
+   * @input reason: 固定理由、hostFailure: 私有分類またはnull。
+   * @returns 現在Process内の失敗Object。
+   * @precondition 分類は所有Operation境界の観測結果である。
+   * @postcondition 理由へ元参照を埋め込まない。
+   * @effect N/A: Errorの局所値を初期化するだけである。
+   * @failure N/A: 自身で追加の資源処置をしない。
+   * @invariant 分類の保持から回復成功やAuthorityを発行しない。
+   * @boundary 下位初期化と外側の失敗処理の境界。
+   * @security Errorを公開結果として返さず、私有参照はJSON投影しない。
+   * @concurrency 生成後に分類を置換しない。
+   */
+  constructor(reason: string, hostFailure: HostFailure | null = null) {
     super(reason);
     this.reason = reason;
+    if (hostFailure !== null) initializationFailures.set(this, hostFailure);
   }
 }
 
@@ -733,14 +812,14 @@ function sameSelection(initial: RuntimeRecord, refreshed: RuntimeRecord) {
 }
 
 /**
- * 署名済みWorkbench助言Production Runtime境界におけるcreateProductionOperationの処理境界を固定する。
+ * Operation作成と世代Lock準備を同じ初期化失敗境界へ閉じる。
  *
  * @responsibility 署名済みWorkbench助言Production Runtime境界に必要な入力処理、失敗分類および結果生成を所有する。
  * @trace ARCH-000008
- * @input 宣言された引数だけを受け取る。
- * @returns 宣言された結果型を返す。
- * @precondition 呼出し元が型、IdentityおよびAuthorityの契約を満たす。
- * @postcondition 成功時だけ検証済みの結果を返す。
+ * @input dependencies: 固定本番依存、または非Authorityの局所試験依存。
+ * @returns 準備済みOperationと同じ世代の喪失観測。
+ * @precondition 作成境界は取得済み参照と失敗分類を所有する。
+ * @postcondition 初期化失敗は清掃分類と未解決のexact参照を同じErrorへ保持する。
  * @effect 宣言または注入された依存以外へEffectを発行しない。
  * @failure 不正入力、依存失敗または観測不能を成功へ畳まない。
  * @invariant 入力のIdentity、AuthorityおよびScopeを暗黙に拡張しない。
@@ -749,33 +828,34 @@ function sameSelection(initial: RuntimeRecord, refreshed: RuntimeRecord) {
  * @concurrency 共有状態は宣言された所有者とlifecycleに従う。
  */
 
-async function createProductionOperation(): Promise<Operation> {
+async function createProductionOperation(
+  dependencies: OperationInitializationDependencies = productionOperationInitialization,
+): Promise<Operation> {
   let operation: Operation;
   try {
-    operation = createRuntimeOwnedCoordinatorOperation() as Operation;
+    operation = dependencies.create();
   } catch (error) {
     const creation =
       classifyOwnedOperationDirectoryCreationFailure(error) ??
       classifyOwnedCoordinatorOperationCreationFailure(error);
-    if (!creation?.cleanupConfirmed) poisonRuntimeProcessAfterCleanupUnknown();
+    if (!creation?.cleanupConfirmed) dependencies.poison();
     throw new AdviceRuntimeError(
       creation?.cleanupConfirmed
         ? "workbench_ai_advice_operation_initialization_failed_cleanup_confirmed"
         : "workbench_ai_advice_operation_initialization_cleanup_unknown_process_restart_required",
+      creation,
     );
   }
   try {
-    const activation = await activateOwnedHostOperationGenerationLock(
+    const activation = await dependencies.activate(
       operation.managementCapability,
     );
     if (activation !== "activated") throw new Error("activation_failed");
-    const readiness = await confirmOwnedHostOperationGenerationLockReadiness(
+    const readiness = await dependencies.confirmReadiness(
       operation.managementCapability,
     );
     if (readiness !== "ready") throw new Error("readiness_failed");
-    const loss = observeOwnedHostOperationGenerationLoss(
-      operation.managementCapability,
-    );
+    const loss = dependencies.observeLoss(operation.managementCapability);
     return Object.freeze({
       ...operation,
       hostGenerationFailureDetected: loss.detected,
@@ -786,17 +866,96 @@ async function createProductionOperation(): Promise<Operation> {
     let cleanupConfirmed = false;
     try {
       cleanupConfirmed =
-        verifyOwnedOperationCleanupOutcome(
-          await cleanupOwnedOperationDirectoriesAsync(operation.owned),
+        dependencies.classifyCleanup(
+          await dependencies.cleanup(operation.owned),
         ) !== null;
     } catch {}
-    if (!cleanupConfirmed) poisonRuntimeProcessAfterCleanupUnknown();
+    if (!cleanupConfirmed) dependencies.poison();
     throw new AdviceRuntimeError(
       cleanupConfirmed
         ? "workbench_ai_advice_host_generation_lock_unavailable_cleanup_confirmed"
         : "workbench_ai_advice_host_generation_lock_cleanup_unknown_process_restart_required",
+      Object.freeze({
+        cleanupConfirmed,
+        manualRecoveryRequired: !cleanupConfirmed,
+        hostRecoveryId: cleanupConfirmed ? null : operation.hostRecoveryId,
+      }),
     );
   }
+}
+
+/**
+ * Operation作成と世代Lock準備の固定依存を表す。
+ *
+ * @responsibility 本番と局所反証を同じ初期化処理へ接続する。
+ * @trace ARCH-000008
+ * @shape 作成、activation、readiness、喪失観測、清掃、清掃分類および停止の七依存。
+ * @invariant 清掃分類に成功を捏造する既定値を持たない。
+ * @boundary 助言RuntimeのOperation初期化境界。
+ * @security 試験依存から本番Authorityを発行しない。
+ * @compatibility 本番依存は既存のCoordinator所有Operationへ固定する。
+ */
+type OperationInitializationDependencies = Readonly<{
+  create: () => Operation;
+  activate: typeof activateOwnedHostOperationGenerationLock;
+  confirmReadiness: typeof confirmOwnedHostOperationGenerationLockReadiness;
+  observeLoss: typeof observeOwnedHostOperationGenerationLoss;
+  cleanup: typeof cleanupOwnedOperationDirectoriesAsync;
+  classifyCleanup: typeof verifyOwnedOperationCleanupOutcome;
+  poison: () => void;
+}>;
+
+const productionOperationInitialization: OperationInitializationDependencies =
+  Object.freeze({
+    create: createRuntimeOwnedCoordinatorOperation,
+    activate: activateOwnedHostOperationGenerationLock,
+    confirmReadiness: confirmOwnedHostOperationGenerationLockReadiness,
+    observeLoss: observeOwnedHostOperationGenerationLoss,
+    cleanup: cleanupOwnedOperationDirectoriesAsync,
+    classifyCleanup: verifyOwnedOperationCleanupOutcome,
+    poison: poisonRuntimeProcessAfterCleanupUnknown,
+  });
+
+/**
+ * 権限を持たないOperation初期化の局所反証候補を構成する。
+ *
+ * @responsibility 本番と同じ作成・世代Lock失敗分類を偽依存で実行する。
+ * @trace ARCH-000008
+ * @input dependencies: 局所試験用の閉じた依存。
+ * @returns productionAuthority=falseと初期化関数。
+ * @precondition 依存は本番のAuthorityまたは実資源を取得しない。
+ * @postcondition 候補から署名Runtimeの権限を発行しない。
+ * @effect 返されたcreate実行時だけ注入依存を呼ぶ。
+ * @failure 本番と同じ私有失敗分類を保持してthrowする。
+ * @invariant 本番の固定依存を変更しない。
+ * @boundary Coordinator内部の局所反証境界。
+ * @security 公開index、CLIまたはHTTPへ入口を追加しない。
+ * @concurrency 候補生成時に依存集合を固定する。
+ */
+export function createIsolatedWorkbenchAiOperationCandidate(
+  dependencies: OperationInitializationDependencies,
+) {
+  const fixed = Object.freeze({ ...dependencies });
+  return Object.freeze({
+    productionAuthority: false as const,
+    /**
+     * 固定した偽依存で本番と同じ初期化処理を開始する。
+     *
+     * @responsibility 局所反証を別実装で代替せず同じ失敗境界へ接続する。
+     * @trace ARCH-000008
+     * @input N/A: 候補生成時の固定依存だけを用いる。
+     * @returns 準備済み偽Operation、または私有分類付きの失敗。
+     * @precondition 注入依存は本番権限を取得しない。
+     * @postcondition 元の失敗分類と未解決参照を保持する。
+     * @effect 注入された依存だけを呼ぶ。
+     * @failure 本番と同じ初期化失敗をthrowする。
+     * @invariant 本番依存を変更しない。
+     * @boundary Coordinator内部の局所反証境界。
+     * @security 公開入口や本番Authorityを提供しない。
+     * @concurrency 実行ごとにOperationを局所保持する。
+     */
+    create: () => createProductionOperation(fixed),
+  });
 }
 
 /**

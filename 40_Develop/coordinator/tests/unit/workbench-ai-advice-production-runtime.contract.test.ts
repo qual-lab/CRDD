@@ -18,9 +18,12 @@ import {
 import { prepareWorkbenchAiAdviceExecutionPlan } from "../../src/security/workbench-ai-advice-execution-plan.ts";
 import {
   createIsolatedWorkbenchAiAdviceRuntimeCandidate,
+  createIsolatedWorkbenchAiOperationCandidate,
+  classifyWorkbenchAiAdviceHostFailure,
   type WorkbenchAiAdviceRuntimeDependencies,
 } from "../../src/security/workbench-ai-advice-production-runtime.ts";
 import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../src/security/delegation-selection-grant-runtime.ts";
+import { createIsolatedCoordinatorOperationCreationCandidate } from "../../src/security/coordinator-operation-creation-internal.ts";
 
 const profile = resolveAiProfileById(
   DEFAULT_AI_PROFILE_CATALOG,
@@ -691,4 +694,344 @@ test("Host cleanup不成立後は助言を公開せず回復状態を保持す�
   assert.equal(result.providerEffectIssued, true);
   assert.equal(result.cleanupConfirmed, false);
   assert.equal(result.adviceJson, null);
+});
+
+/**
+ * 所有Operation作成の固定された失敗分類を実際の状態機械から取得する。
+ *
+ * @responsibility 清掃確認済みと未確認を同じ作成失敗の反例として用意する。
+ * @trace ERB-UT-023
+ * @precondition メモリ内の偽所有対象と固定参照だけを使う。
+ * @stimulus Capability初期化を失敗させ、指定した清掃結果へ分岐する。
+ * @observation 作成境界が投げた元のError Objectを保持する。
+ * @oracle 下位の私有分類が対象の清掃確認とexact参照を保持する。
+ * @cleanup N/A: Filesystem、Dockerまたは子Processを操作しない。
+ * @boundary ERB-UT-023=Direct Boundary: Operation作成分類→助言Runtime。
+ */
+function initializationFailure(cleanupConfirmed: boolean): unknown {
+  const candidate = createIsolatedCoordinatorOperationCreationCandidate({
+    /**
+     * メモリ内の偽所有対象を生成する。
+     *
+     * @responsibility createDirectoriesの局所反証を所有する。
+     * @trace ERB-UT-023
+     * @precondition 固定した偽依存と対象段だけを使う。
+     * @stimulus 本番と同じ初期化処理から呼び出す。
+     * @observation 返値、例外および局所呼出しを観測する。
+     * @oracle 固定Objectだけを返し、Filesystemを取得しない。
+     * @cleanup N/A: Process外資源を取得しない。
+     * @boundary ERB-UT-023=Direct Boundary: 偽依存→初期化処理。
+     */
+    createDirectories: () =>
+      Object.freeze({}) as ReturnType<
+        Parameters<
+          typeof createIsolatedCoordinatorOperationCreationCandidate
+        >[0]["createDirectories"]
+      >,
+    /**
+     * 固定の元参照を返す。
+     *
+     * @responsibility getHostRecoveryIdの局所反証を所有する。
+     * @trace ERB-UT-023
+     * @precondition 固定した偽依存と対象段だけを使う。
+     * @stimulus 本番と同じ初期化処理から呼び出す。
+     * @observation 返値、例外および局所呼出しを観測する。
+     * @oracle 実Tokenではない同じfixture文字列を返す。
+     * @cleanup N/A: Process外資源を取得しない。
+     * @boundary ERB-UT-023=Direct Boundary: 偽依存→初期化処理。
+     */
+    getHostRecoveryId: () => "exact-host-reference-fixture",
+    /**
+     * Capability初期化失敗を注入する。
+     *
+     * @responsibility initializeCapabilitiesの局所反証を所有する。
+     * @trace ERB-UT-023
+     * @precondition 固定した偽依存と対象段だけを使う。
+     * @stimulus 本番と同じ初期化処理から呼び出す。
+     * @observation 返値、例外および局所呼出しを観測する。
+     * @oracle 固定例外を投げ、Authorityを生成しない。
+     * @cleanup N/A: Process外資源を取得しない。
+     * @boundary ERB-UT-023=Direct Boundary: 偽依存→初期化処理。
+     */
+    initializeCapabilities: () => {
+      throw new Error("fixture_initialization_failure");
+    },
+    /**
+     * 作成失敗後の清掃確認を分岐する。
+     *
+     * @responsibility cleanupDirectoriesの局所反証を所有する。
+     * @trace ERB-UT-023
+     * @precondition 固定した偽依存と対象段だけを使う。
+     * @stimulus 本番と同じ初期化処理から呼び出す。
+     * @observation 返値、例外および局所呼出しを観測する。
+     * @oracle 指定したfalseだけ例外を投げ、実削除しない。
+     * @cleanup N/A: Process外資源を取得しない。
+     * @boundary ERB-UT-023=Direct Boundary: 偽依存→初期化処理。
+     */
+    cleanupDirectories: () => {
+      if (!cleanupConfirmed) throw new Error("fixture_cleanup_unknown");
+    },
+  });
+  try {
+    candidate.create();
+  } catch (error) {
+    return error;
+  }
+  throw new Error("fixture_failure_required");
+}
+
+/**
+ * 初期化失敗の既知清掃分類とexact参照を初回結果まで保持する。
+ *
+ * @responsibility operation未返却を未清掃と読み替えず、元分類と公開境界を確認する。
+ * @trace ERB-UT-023
+ * @precondition 固定した作成失敗、偽依存および有効な助言計画を用いる。
+ * @stimulus 清掃確認済みと未確認の作成失敗で助言Runtimeを実行する。
+ * @observation 初回結果、私有分類、poison呼出し、JSONおよびProvider開始を確認する。
+ * @oracle 清掃trueは維持し参照null、falseはexact参照保持。両方ともProvider開始0。
+ * @cleanup N/A: 全依存はProcess内の偽実装である。
+ * @boundary ERB-UT-023=Direct Boundary: 作成失敗分類→初回Runtime結果。
+ */
+test("初期化失敗の清掃分類と取得済み参照を初回結果まで保持する", async () => {
+  for (const confirmed of [true, false]) {
+    const failure = initializationFailure(confirmed);
+    const current = fixture({
+      createOperation: async () => {
+        throw failure;
+      },
+    });
+    const result = await createIsolatedWorkbenchAiAdviceRuntimeCandidate(
+      current.dependencies,
+    ).run(plan, new AbortController().signal, Object.freeze({}));
+    assert.equal(result.status, "blocked");
+    assert.equal(result.cleanupConfirmed, confirmed);
+    assert.equal(result.providerEffectIssued, false);
+    assert.deepEqual(classifyWorkbenchAiAdviceHostFailure(result), {
+      cleanupConfirmed: confirmed,
+      manualRecoveryRequired: !confirmed,
+      hostRecoveryId: confirmed ? null : "exact-host-reference-fixture",
+    });
+    assert.equal(current.calls.includes("start-process"), false);
+    assert.equal(current.calls.includes("poison"), !confirmed);
+    assert.equal(
+      JSON.stringify(result).includes("exact-host-reference"),
+      false,
+    );
+    assert.equal(classifyWorkbenchAiAdviceHostFailure({ ...result }), null);
+  }
+});
+
+/**
+ * 分類のない作成例外を清掃確認や回復参照へ補完しない。
+ *
+ * @responsibility operation未取得とHost不存在を区別し、未知失敗を停止状態に保持する。
+ * @trace ERB-UT-023
+ * @precondition 元作成分類を持たない固定例外を用いる。
+ * @stimulus createOperationが未知例外を投げる。
+ * @observation cleanup、私有参照、poisonおよびProvider開始を確認する。
+ * @oracle cleanup=false、manual=true、参照null。Provider開始0でpoisonを要求する。
+ * @cleanup N/A: Process外資源を取得しない。
+ * @boundary ERB-UT-023=Direct Boundary: 未分類例外→Runtime停止結果。
+ */
+test("未知の初期化失敗は不存在へ畳まない", async () => {
+  const current = fixture({
+    createOperation: async () => {
+      throw new Error("fixture_unknown_creation");
+    },
+  });
+  const result = await createIsolatedWorkbenchAiAdviceRuntimeCandidate(
+    current.dependencies,
+  ).run(plan, new AbortController().signal, Object.freeze({}));
+  assert.equal(result.cleanupConfirmed, false);
+  assert.deepEqual(classifyWorkbenchAiAdviceHostFailure(result), {
+    cleanupConfirmed: false,
+    manualRecoveryRequired: true,
+    hostRecoveryId: null,
+  });
+  assert.equal(current.calls.includes("poison"), true);
+  assert.equal(current.calls.includes("start-process"), false);
+});
+
+/**
+ * 本番と同じ初期化処理の各失敗段で清掃分類と元参照を保持する。
+ *
+ * @responsibility 作成、activationおよびreadinessの元失敗から初回結果への接続を反証する。
+ * @trace ERB-UT-023
+ * @precondition 本番と同じ初期化関数を使用し、全OS依存をメモリ内の偽依存へ固定する。
+ * @stimulus 三失敗段それぞれで清掃確認済みと未確認へ分岐する。
+ * @observation 初回結果、exact参照、清掃呼出し、Provider開始および公開JSONを確認する。
+ * @oracle 三段全てで清掃分類を維持し、未確認だけ元参照を保持する。Provider開始0。
+ * @cleanup N/A: 偽Operationだけを用い、Filesystem、Lock、Dockerまたは子Processを取得しない。
+ * @boundary ERB-UT-023=Direct Boundary: 本番初期化状態機械→助言Runtime初回結果。
+ */
+test("作成と世代Lock準備の失敗分類を本番と同じ処理で搬送する", async () => {
+  for (const stage of ["creation", "activation", "readiness"] as const) {
+    for (const confirmed of [true, false]) {
+      let cleanupCalls = 0;
+      const operation = createIsolatedWorkbenchAiOperationCandidate({
+        /**
+         * 指定段に応じて偽Operationまたは作成失敗を返す。
+         *
+         * @responsibility createの局所反証を所有する。
+         * @trace ERB-UT-023
+         * @precondition 固定した偽依存と対象段だけを使う。
+         * @stimulus 本番と同じ初期化処理から呼び出す。
+         * @observation 返値、例外および局所呼出しを観測する。
+         * @oracle 取得済み固定参照を使い、新しい参照を生成しない。
+         * @cleanup N/A: Process外資源を取得しない。
+         * @boundary ERB-UT-023=Direct Boundary: 偽依存→初期化処理。
+         */
+        create: () => {
+          if (stage === "creation") throw initializationFailure(confirmed);
+          return Object.freeze({
+            owned: Object.freeze({}),
+            mountCapability: Object.freeze({}),
+            managementCapability: Object.freeze({}),
+            operationId: "OP-123456",
+            hostRecoveryId: "exact-host-reference-fixture",
+          });
+        },
+        /**
+         * 世代Lockのactivation失敗を注入する。
+         *
+         * @responsibility activateの局所反証を所有する。
+         * @trace ERB-UT-023
+         * @precondition 固定した偽依存と対象段だけを使う。
+         * @stimulus 本番と同じ初期化処理から呼び出す。
+         * @observation 返値、例外および局所呼出しを観測する。
+         * @oracle 指定段だけthrowし、それ以外はactivatedを返す。
+         * @cleanup N/A: Process外資源を取得しない。
+         * @boundary ERB-UT-023=Direct Boundary: 偽依存→初期化処理。
+         */
+        activate: async () => {
+          if (stage === "activation") throw new Error("fixture_activation");
+          return "activated" as const;
+        },
+        /**
+         * 世代Lockのreadiness失敗を注入する。
+         *
+         * @responsibility confirmReadinessの局所反証を所有する。
+         * @trace ERB-UT-023
+         * @precondition 固定した偽依存と対象段だけを使う。
+         * @stimulus 本番と同じ初期化処理から呼び出す。
+         * @observation 返値、例外および局所呼出しを観測する。
+         * @oracle 固定例外を投げ、OS Lockを取得しない。
+         * @cleanup N/A: Process外資源を取得しない。
+         * @boundary ERB-UT-023=Direct Boundary: 偽依存→初期化処理。
+         */
+        confirmReadiness: async () => {
+          throw new Error("fixture_readiness");
+        },
+        /**
+         * 失敗試験で喪失観測へ到達しないことを守る。
+         *
+         * @responsibility observeLossの局所反証を所有する。
+         * @trace ERB-UT-023
+         * @precondition 固定した偽依存と対象段だけを使う。
+         * @stimulus 本番と同じ初期化処理から呼び出す。
+         * @observation 返値、例外および局所呼出しを観測する。
+         * @oracle 到達した場合は固定例外を投げる。
+         * @cleanup N/A: Process外資源を取得しない。
+         * @boundary ERB-UT-023=Direct Boundary: 偽依存→初期化処理。
+         */
+        observeLoss: () => {
+          throw new Error("fixture_loss_observation_not_expected");
+        },
+        /**
+         * 世代Lock準備失敗後の清掃回数と結果を返す。
+         *
+         * @responsibility cleanupの局所反証を所有する。
+         * @trace ERB-UT-023
+         * @precondition 固定した偽依存と対象段だけを使う。
+         * @stimulus 本番と同じ初期化処理から呼び出す。
+         * @observation 返値、例外および局所呼出しを観測する。
+         * @oracle 一回を計数し、指定falseだけthrowする。
+         * @cleanup N/A: Process外資源を取得しない。
+         * @boundary ERB-UT-023=Direct Boundary: 偽依存→初期化処理。
+         */
+        cleanup: async () => {
+          cleanupCalls += 1;
+          if (!confirmed) throw new Error("fixture_cleanup_unknown");
+          return Object.freeze({
+            kind: "owned_operation_cleanup_outcome" as const,
+          });
+        },
+        /**
+         * 偽清掃Receiptを分類する。
+         *
+         * @responsibility classifyCleanupの局所反証を所有する。
+         * @trace ERB-UT-023
+         * @precondition 固定した偽依存と対象段だけを使う。
+         * @stimulus 本番と同じ初期化処理から呼び出す。
+         * @observation 返値、例外および局所呼出しを観測する。
+         * @oracle cleanupが返った経路だけcompletedを返す。
+         * @cleanup N/A: Process外資源を取得しない。
+         * @boundary ERB-UT-023=Direct Boundary: 偽依存→初期化処理。
+         */
+        classifyCleanup: () => "completed" as const,
+        /**
+         * 本番のProcess停止依存を局所試験で分離する。
+         *
+         * @responsibility poisonの局所反証を所有する。
+         * @trace ERB-UT-023
+         * @precondition 固定した偽依存と対象段だけを使う。
+         * @stimulus 本番と同じ初期化処理から呼び出す。
+         * @observation 返値、例外および局所呼出しを観測する。
+         * @oracle 実Process状態を変更しない。
+         * @cleanup N/A: Process外資源を取得しない。
+         * @boundary ERB-UT-023=Direct Boundary: 偽依存→初期化処理。
+         */
+        poison: () => {},
+      });
+      let failure: unknown;
+      try {
+        await operation.create();
+      } catch (error) {
+        failure = error;
+      }
+      assert.ok(failure instanceof Error);
+      assert.equal(Object.keys(failure).includes("hostFailure"), false);
+      assert.equal(
+        JSON.stringify(failure).includes("exact-host-reference"),
+        false,
+      );
+      assert.equal(
+        JSON.stringify({ ...failure }).includes("exact-host-reference"),
+        false,
+      );
+      const current = fixture({
+        /**
+         * 本番と同じ初期化境界の元ErrorをRuntimeへ渡す。
+         *
+         * @responsibility 列挙反証で保持した同じ失敗Objectの分類を消費させる。
+         * @trace ERB-UT-023
+         * @precondition 初期化境界が元Errorを返却済みである。
+         * @stimulus 助言RuntimeからOperation取得を要求する。
+         * @observation 同じError Objectをthrowする。
+         * @oracle Runtimeの私有分類が清掃結果と元参照を保持する。
+         * @cleanup N/A: 追加資源を生成しない。
+         * @boundary ERB-UT-023=Direct Boundary: 初期化Error→Runtime catch。
+         */
+        createOperation: async () => {
+          throw failure;
+        },
+      });
+      const result = await createIsolatedWorkbenchAiAdviceRuntimeCandidate(
+        current.dependencies,
+      ).run(plan, new AbortController().signal, Object.freeze({}));
+      assert.equal(result.status, "blocked");
+      assert.equal(result.cleanupConfirmed, confirmed);
+      assert.deepEqual(classifyWorkbenchAiAdviceHostFailure(result), {
+        cleanupConfirmed: confirmed,
+        manualRecoveryRequired: !confirmed,
+        hostRecoveryId: confirmed ? null : "exact-host-reference-fixture",
+      });
+      assert.equal(cleanupCalls, stage === "creation" ? 0 : 1);
+      assert.equal(current.calls.includes("start-process"), false);
+      assert.equal(
+        JSON.stringify(result).includes("exact-host-reference"),
+        false,
+      );
+    }
+  }
 });

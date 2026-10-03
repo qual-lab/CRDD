@@ -2339,7 +2339,8 @@
       ],
       "verifies": [
         "coordinator.source.src.security.workbench.ai.advice.production.runtime",
-        "coordinator.source.src.security.workbench.ai.advice.provider.executor"
+        "coordinator.source.src.security.workbench.ai.advice.provider.executor",
+        "coordinator.source.src.security.coordinator.operation.creation.internal"
       ]
     },
     {

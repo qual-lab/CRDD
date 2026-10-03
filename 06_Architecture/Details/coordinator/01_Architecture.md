@@ -532,6 +532,12 @@ namespace初期化の失敗ではexact Token回復へ接続できない。Token�
 
 清掃は公開済みintent→Root処置・直接不存在→元marker処置・直接不存在→排他解放の順で進める。取消・部分処置・通知喪失・例外は同じ終端記録へ接続する。進行追記を持つ場合も、書込みを処置済みの証明にせず、対象ごとのfresh観測を正本にする。leaseの通知上`closed`だけでnative資源の回収まで成立としない。
 
+#### 助言初期化失敗の分類と初回参照保持
+
+Workbench助言の初期化失敗では、Operationが呼出し元へ返る前でも、下位作成境界が確認した清掃分類と取得済みexact参照を失わない。作成、世代Lockのactivation／readiness失敗の私有分類を外側の失敗処理へ渡し、`operation=null`だけから清掃失敗またはHost不存在を推定しない。既知の清掃確認は維持し、未知例外は未確認のまま停止する。
+
+初回Runtime結果には同じ清掃分類と未解決の元参照を非列挙の内部結合として保持する。公開結果Schema、JSON、理由、Provider入力へ元参照を追加せず、この結合から回復Authorityを発行しない。保持は元の結果Objectが生存する現在Process内だけであり、executor以降の投影、WorkbenchのRequest Ownerおよび別Processの再入場へ接続済みとは扱わない。清掃確認済みの場合は回復対象参照をnullとする。後段の照会Ownerと耐久接続はOPENである。
+
 #### 終端intentの閉じた搬送形式
 
 完全に観測できたsnapshotだけを、内部codec `host-terminal-record.ts`の入力にする。Root未作成、六childの部分作成、Identity不明の初期化失敗はこの形式の適用外である。欠けた値をゼロや推測で埋めず、既存の失敗分類と取得済みexact参照保持を維持する。初期化途中からの耐久再入場は別に接続する必要がある。
