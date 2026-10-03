@@ -165,7 +165,22 @@ Host終端記録のSchema、参照、容量、Authority、再入場と清掃は[
 
 旧hardlink方式の追加公開名に対するDELETE access取得と、その追加guardによるr3是正は[変更履歴](../../../99_Roadmap/Changes/CHG-000082/Evidence/261002_host-orphan-recovery-design.md)へ保持する。旧二名cold caseを新rename方式へ自動移行・清掃せず、方式／producer版との整合を未成立として残す。新方式のpublish本体を通す局所検証・独立確認も旧結果とは別に行う。
 
-**接続前OPEN:** 現在の固定OS保存境界、caller耐久参照、共有容量予約、初期化途中、Process喪失／再入場、全consumerと旧三領域は未成立。shareREADと二ACEだけから、WRITE_DAC／owner変更への連続防御、close後の不変性、別主体の防御または非使用を推定しない。私有部品の成立を公開Recovery完成へ昇格しない。
+#### 別Processからの現在読取り
+
+私有読取り部品はcaller既知の参照、五field・属性Identityと期待bytesを入力とする。対象自身から期待Identityを作らず、過去の作成・flush・公開・close receiptを復元しない。
+
+| 現在の形状 | 読取り結果 | 処置 |
+|---|---|---|
+| stageだけ | `Prepared` | 現在の完全性を照合してreaderを保持する。公開の継続は別Ownerの未接続責務。 |
+| publicだけ | `Published` | 現在の完全性を照合してreaderを保持する。元Task成功や削除Authorityを発行しない。 |
+| 二名／両不存在 | 固定拒否 | 同じ参照を保持し、移行・復元・清掃0。 |
+| 不一致／観測不能 | 固定拒否 | 取得前拒否と取得後closeを分け、不明を不存在へ畳まない。 |
+
+両名の直接観測後、唯一名を同期・非reparse・READ／READ_CONTROL・shareREADで保持し、実体・属性・owner／protected二ACE・全bytesを再照合する。他名の明示不存在、親chainと同じ実体を再確認する。これは観測時点の形状であり、後続の別名新規作成を禁止する保証ではない。失敗結果は同じ参照、今回open要求／取得と個別close確認だけを持つ。最初のclose結果は単調に保持し、Dropや二回目の呼出しで上書きしない。
+
+自己生成fixtureの別Processで、準備済みreader保持中と公開済みwriter保持中に意図的終了を与える。親が期待exitとexact Process／Job終端を確認してからfresh読取りを行う。子の明示close、突然crash、rename途中、電源断、caller耐久接続または本番Recoveryの成立をこの検証へ含めない。Workerのwriter再取得はcfg(test)だけであり、本番の再公開APIではない。
+
+**接続前OPEN:** 現在の固定OS保存境界、caller耐久参照、共有容量予約、初期化途中、本番Process喪失／再入場、全consumerと旧三領域は未成立。shareREADと二ACEだけから、WRITE_DAC／owner変更への連続防御、close後の不変性、別主体の防御または非使用を推定しない。私有部品の成立を公開Recovery完成へ昇格しない。
 
 ## 4. バイナリ境界
 

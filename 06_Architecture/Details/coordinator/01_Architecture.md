@@ -559,6 +559,10 @@ Win32の五fieldは専用型であり、Nodeの`dev/ino/birthtimeNs`、既存Nat
 | async利用側と再入場 | 未接続。同期wrapperへのPromise搬送を禁止し、Host→ProcessAbsence→RuntimeStateの取得と逆順解放、待機後のfresh観測を全利用側へ接続する。 |
 | 初期化途中・旧形式 | 未解決。部分snapshotを新形式へ捏造しない。旧三件の非使用、実停止・実削除は別のfresh根拠と承認が必要である。 |
 
+私有Nativeの[現在読取り](../platform-access/01_Architecture.md#別processからの現在読取り)は、上表の形状をcaller既知の参照・実体・全bytesへ照合する内部部品である。`Prepared`／`Published`は現在の唯一名だけを示し、過去のwrite／flush／rename／明示closeを復元しない。Native失敗の今回open・close確認も、保存済み履歴とは別に保持する。
+
+Coordinatorの記録Ownerは、再入場前の耐久参照、producer版、Schema、容量、現在Authorityとlineageを別に検証する。stage-onlyの公開継続、本番callerの再起動接続と全利用側への搬送は未接続である。自己生成Workerの意図的Process終了とfresh読取りから、旧三領域の非使用、清掃許可または元Taskの完了を推定しない。
+
 #### 終端記録自身の管理清掃
 
 終端記録の清掃は元Taskの清掃とは別の管理責務であり、CoordinatorのHost回復記録Ownerが所有する。元Root・元marker・leaseの共同終端を確認する前、未解決参照がある間、または観測不能の間は削除しない。

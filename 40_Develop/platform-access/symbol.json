@@ -14,7 +14,7 @@
       "kind": "test-suite",
       "path": "src/windows_terminal.rs",
       "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-001", "ERB-IT-002"],
+      "localTestIds": ["ERB-IT-001", "ERB-IT-002", "ERB-IT-003"],
       "verifies": ["platform-access.source.windows-terminal"]
     },
     {

@@ -910,6 +910,75 @@ rename後の観測不能では、成立可能性と同じ参照・発行済みEf
 
 限定Passは私有保存部品と同一Processの局所結果・記録に限る。全失敗枝の故障注入、公開dispatch、OS namespace、caller耐久接続・容量、Process喪失／cold再入場、全consumer、旧三Rootの非使用／実処置、実Recovery／全E2Eは未成立のままである。現在、追加の人間判断は不要である。
 
+## 別Process終了後の記録読取りの反映計画
+
+基準は`851cb5b2bb6b2f0d9efb857811ab039edb20e279`。目的は、自己生成記録を保持するProcessの意図的な終了後、caller既知の同じ参照・五field／属性Identity・期待bytesへfreshに再結合できることを確認することである。突然のcrash、rename途中、OS喪失、callerの耐久参照、公開Recoveryと旧三Root処置は対象外であり未成立を維持する。
+
+読取り専用の着手前確認で、技術・lifecycle、文書OwnerおよびQA直接影響を照合して着手可だった。私有readerは両名観測→唯一名のguard取得→Identity／属性／owner／protected二ACE／全bytes→他名の直接不存在→親のfresh再検証を行う。Prepared／Publishedは今回のstageだけ／publicだけという観測であり、過去のwrite／flush／rename／close receiptを復元しない。取得後失敗にも同じ参照、今回open要求／取得と個別close確認を残す。
+
+| 一次編集対象 | 予定処置・反証と非変更範囲 |
+|---|---|
+| Native私有reader | OPEN_EXISTING・READ／READ_CONTROL・shareREADだけで保持し、write／rename／removeは行わない。両名、両なし、不一致、Directoryと観測不能を拒否し、取得後失敗では明示closeを記録する。 |
+| fresh fixture・限定Worker | 親の全record／Directory明示close後だけ、固定test binaryのexact Workerを所有Jobで起動する。Preparedはreader保持中exit 71、Publishedはfixture専用writer再取得・publish本体の照合後に保持中exit 72。役割別exitとProcess／Job終端の両方を必要とし、timeout後の回収を成功にしない。 |
+| 判定のモデル反証 | 実readerが使うmetadata解釈と単調close保持を純粋判定へ分け、不明の不存在化とfalse→true上書きを反証する。これはOS実故障や実handle終端の観測ではない。 |
+| 二Details・QA・本記録とFile Relation | platformが保持読取り、Coordinatorが参照／lineage／Authority、QAがERB-IT-001／002および003の限定区間を所有する。試験File登録は既存entryを使用するが、Case／HelperのTrace和集合とSymbolのLocal Item Relationを別に照合し、003を接続する。Local Item全義務・件数を更新しない。 |
+
+異常・予想外mutation・close不明・Worker不明では次Worker、復元と自作清掃を止める。通常Oracleと明示close後だけ、fresh実体・bytesを確認した自作fileと空Directoryを非再帰処置し、直接不存在を観測する。Node観測期限を硬いOS-I/O期限にしない。ACL改変、reparse、OS観測失敗、CloseHandle実失敗はこの実測では未観測であり、Source接続とモデル判定を実OS拒否へ昇格しない。
+
+Formatter／Clippy、専用Ownerの型・Formatter／Lintを先行し、新固定binaryを一回だけ実行する。実入力、外側時計、完結返却と主要入力の前後識別を保存する。完成後は同じ固定五fileで技術、51文書／追跡、品質／53直接影響を独立確認する。公開Capability、準拠基準または配布有効化を変更しないため、52準拠／Release監査をこの内部結果の判定へ使用しない。OwnedChild、公開dispatch、codec、容量、署名、旧fixture／原記録、旧三Root、Docker／Provider、Authorityと停止Gateは不変である。
+
+### 別Process終了後の局所観測結果（cold-r1）
+
+2026-10-03の自己生成fixtureで限定観測を完了した。本番Recovery、caller耐久再入場、旧三領域の回収および全体E2Eは未成立である。独立確認は、この新しい候補と結果に対して別途行う。
+
+| 観点 | 結果と根拠 |
+|---|---|
+| 実行前検査 | Rust Formatter／Clippy、専用OwnerのTypeScript型検査／Biomeは全てexit 0。新しい依存を追加していない。 |
+| 固定実行 | 基準HEAD `851cb5b2`。Native binary SHA-256 `9da41277bcc5b82043bb90d3d8edf41489877a6a5863d0dbfc4d0da061db37f4`、Source `770b7b162fa45fb5b45806e0609c5d0288b70bc3c3d15f8eb318e3e027694fe9`、Owner `2bb72097ed7a7f633f6822eb5eccc8ecf1f0c5d2f31e3bedb033bf50b10aecf7`。cold-r1の新fixtureだけをNativeで一回実行した。 |
+| 前段停止 | 最初のOwner起動はbinary引数の区切り表現不一致を事前検査で拒否した。Native／Workerは未起動。実行入力の表現だけを修正し、61主要入力とHEADの不変を確認した。拒否記録を成功結果へ上書きせず保持した。 |
+| 意図的Process終了 | prepared reader保持中はexit 71、published writer保持中はexit 72。親が同じexact Process／Jobの終端を確認した。子の明示close成功や突然crashを主張しない。 |
+| fresh読取り | 同じ既知参照・五field／属性・protected二ACE／owner・8192bytesを両形状で照合。保持中のwrite／delete-open、removeと非置換renameはerror32で拒否。 |
+| 拒否 | 二名、両不存在、bytes／Identity不一致とDirectoryを拒否。取得前と取得後closeを分け、同じ参照を保持した。 |
+| 局所判定モデル | 実readerが使うmetadata判定でNotFoundだけを不存在にし、その他をunknownとした。close初回falseを後続trueで上書きしない。合成入力であり、OS実故障注入ではない。 |
+| 自己生成清掃 | 33件の個別close観測行は全てtrue。重複・観測handleを含む行数であり、全OS資源件数ではない。通常oracleと全既知close・Worker終端の後、四fileと二空Directoryへ非再帰処置6件を発行。直接不存在、予想外変更0。実残存三件には触れていない。 |
+| 時間・返却 | Owner計測235ms、Node／Native exit 0、専用test 1件成功。packet解析、Native相関とtest件数を共同確認した。硬いOS I/O期限を主張しない。 |
+| 回帰と不変範囲 | Native通常回帰28件成功・0失敗・16 ignored、0.27s。局所実行と回帰の前後で61主要入力とHEAD不変。全推移依存・環境不変の証明ではない。旧fixture・旧結果・署名Runtime・QA件数・停止Gateは変更していない。 |
+| 保存記録 | Repository-local `.crdd/verification/chg-000082-terminal-publication-261003/cold-run-r1.json`、SHA-256 `681095519e16d34cb120985d29ef7dfbe25832996bdaecfaac42ded0d42bd9b6`。実コマンド、UTC前後、返却、入出力Hash、前段拒否、回帰と前後比較を保持した。前版binaryを別名へ保持し、SourceのLF正規化控えを元byte Hashと同一視していない。 |
+
+ACL異常、reparse、OS metadata失敗、実CloseHandle失敗、rename途中、初期化途中、caller再起動接続、容量と固定OS保存境界は未確認のまま保持する。この局所成立だけで追加Taskを再開しない。
+
+### cold-r1の独立指摘と是正計画
+
+固定五file（本記録 `f7b1284fd33eff91a0834cb225cdfa54c60ccbd7f119682854dca225c480e112`）の三必須観点を完了した。技術は限定Pass、51文書／追跡と品質／53直接影響はFailだった。全結果を統合し、次の是正計画を三観点へ再提示して着手可を確認した。これは指摘解消または新候補のPassではない。
+
+| 指摘 | 原因・処置 | 非変更範囲・確認 |
+|---|---|---|
+| COLD-Q01 | 既存File登録をCase／Helperの新しいTrace和集合の十分条件と扱った。`platform-access.test.integration.windows-terminal`の`localTestIds`へ`ERB-IT-003`一値を追加し、File登録と和集合照合を編集計画・Checklistで分ける。 | 既存ID／qaIds／verifies／義務／品質件数／観測状態を維持。Catalogは既存File entryで足りる。六fileの新固定集合で関係を再確認する。 |
+| COLD-Q02 | 旧保存記録に実行入力の一部・時計・全待機搬送が欠けた。旧二rawを不変保持し、実履歴から残る情報だけを別補足へ保存する。未明示defaultや未保存時点は`not_saved`とし推定しない。 | 235msの旧実測と欠測を保持。Native fixtureは再実行しない。静的確認・Checkerだけを、明示cwd、実Tool input全体、前後時計、初回と全wait、HEAD／主要入力の前後を一体保存して再確認する。 |
+
+Source／Oracle、旧fixture、署名Runtime、Authority、停止Gateと実残存三件は不変である。Clippy生成物は既存Repository-local領域内に限る。一般化可能な原因は、試験Fileの存在だけで新Traceを接続済みと扱ったことと、Tool inputを手作業で抜粋して返却を上書きしたことだった。既存Trace規則は変更せず和集合照合を追加し、検証記録は実入力object全体と全返却を追記保存する。
+
+### cold-r1の是正後確認
+
+新しいNative実測は発行していない。Source／binary／Oracleを維持してFile Relationを補強し、静的確認・関係照合・Checkerだけを新記録へ保存した。指摘解消の最終判定は新固定六fileの三観点再確認へ渡す。
+
+| 確認 | 是正後の結果・保存範囲 |
+|---|---|
+| COLD-Q01 | SourceのCase／HelperのERB Trace和集合とFile Relationが001／002／003で一致した。qaIds／verifiesとCatalog既存entryは不変。全Local Item義務や観測件数の成立にはしていない。 |
+| COLD-Q02の旧記録 | `cold-run-r1.json`と`cold-checker-r1.json`は旧Hash不変。実Tool call履歴と残存情報だけを`cold-recording-supplement-r1.json`（SHA-256 `6cf0851a8fd598d69516c80d05a2357d7422ff681a536e155c98e8719f2665df`）へ別保存した。明示しなかったdefaultや未保存時計は`not_saved`であり、cwd・時点を推定して補完していない。 |
+| 新静的確認 | Formatter／Clippy、専用Ownerの型／Biome、Trace和集合の読取り照合はexit 0。各実入力object、明示cwd、前後時計と返却を保存した。生成物は既存Repository-local領域だけ。 |
+| 新Checker | 六file指定、23094ms、exit 0、指摘／警告0、実検査104Markdown・9960リンク・588anchor。展開表示は`expanded_scope_truncated:true`を維持し、全Sourceやignored Ownerの保証にはしない。実入力、明示cwd、初回返却、全3waitの入力／前後時計／返却と完結返却を追記保持した。 |
+| 前後識別 | 新静的確認前、Checker直前、完了後で64主要入力とHEADが一致。全推移依存・環境不変の保証ではない。実行入力の本記録は`193a0f54458ea7c597e091a176adffa6f9a180e0006e9a5e813729f1f6ac6393`であり、本節追記版へ遡及しない。 |
+| 新原記録 | `cold-remediation-r1.json`、SHA-256 `9eff7355b40fbfbafb7c0f8925d36a36efd0f98d21d5e805f4b8dc263826810c`。新入力と新確認だけを保持し、旧235ms・61入力の局所実測へ付け替えていない。 |
+
+### cold-r1是正後の独立再確認
+
+新固定六fileを技術、51文書／追跡、品質／53直接影響の三必須観点で独立再確認し、全て限定Pass、COLD-Q01／Q02解消・新Finding 0だった。確信度は高である。開始・終了HEADは`851cb5b2bb6b2f0d9efb857811ab039edb20e279`で一致し、六対象、旧二raw、新補足と是正原記録の指定Hashは一致・不変だった。確認者は編集、再実行、外部・実資源操作を行っていない。
+
+入力版の本記録`193a0f54458ea7c597e091a176adffa6f9a180e0006e9a5e813729f1f6ac6393`とレビュー版`33dd44406ce72dc4ab1284ede96c34f056a48d7130e781c1a786a7e2a8047a12`を区別し、本節へ遡及しない。三観点は、File Relationの003一値追加とTrace和集合、旧欠測の`not_saved`、新実入力全体・明示cwd・時計・初回と全3waitの搬送、64主要入力とHEADの前後一致を照合した。Native再実行はなく、旧235ms実測を新記録へ付け替えていない。
+
+書戻しは本節とChecklist一行だけを三観点で許容した。他五file、旧raw、契約、品質件数、署名、Authorityと停止Gateは変更しない。限定Passは私有読取りと自己生成fixture・記録の区間だけであり、本番再入場、caller耐久接続、OS故障、旧三Root、全Recovery／E2Eは未成立のままである。現在、追加の人間判断は不要である。
+
 ## Checklist
 
 
@@ -938,4 +1007,5 @@ rename後の観測不能では、成立可能性と同じ参照・発行済みEf
 - [x] Native保存部品の新固定八fileを三観点で独立再確認し、二指摘解消・限定Pass・新Finding 0を記録した。本番・実Recovery・Local Item全義務と全体品質の未成立は保持した。
 - [x] 同handle改名の試験内候補を新固定二fileで三観点から独立確認し、限定Pass・Finding 0を記録した。旧hardlink結果を流用せず、本番採用と実Recoveryの未成立を保持した。
 - [x] 私有publish本体への同handle改名を新固定五fileで三観点から独立確認し、限定Pass・Finding 0を記録した。部分receipt、実測入力と確認版の区別、旧方式履歴および公開Recovery・全体品質の未成立を保持した。
+- [x] cold-r1のCase／Helper Trace和集合、File Relation、実入力・時計・全返却を新固定六fileの三観点で独立再確認し、限定Pass・COLD-Q01／Q02解消・新Finding 0を記録した。旧実測／欠測を保持し、本番再入場・実Recovery・全体品質の成立とは分けた。
 - [ ] OPEN: 実在三件のexact処置承認と清掃未実施。必要保証成立後に対象を提示し、別に承認を得る。

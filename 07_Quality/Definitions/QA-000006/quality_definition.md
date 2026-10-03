@@ -237,6 +237,10 @@ Coordinator所有範囲で終了・排他・清掃を閉じる設計では、上
 
 既存三件に対する実処置承認は未取得であり、試験fixtureを理由にその領域を削除しない。Local Item数と観測済み件数はこの設計追加では変更しない。
 
+`windows::terminal::tests::terminal_cold_observation_fixture`は、準備済みreaderと公開済みwriterを持つ別Workerの意図的Process終了後、親が同じ既知参照・五field／属性・ACL・全bytesをfreshに照合する限定ITである。期待exit 71／72とexact Process／Job終端を共同条件にし、timeout後の回収成功を期待終了へ読み替えない。二名、両不存在、内容・Identity不一致とDirectoryを拒否し、reader保持中のwrite／delete／remove／rename拒否、今回checked-closeと自己生成四file・二Directoryの非再帰清掃後不存在を別観測にする。
+
+このfixtureは`ERB-IT-001`／`ERB-IT-002`と、`ERB-IT-003`の「意図的終了後の既知完全記録の再読取り」という限定区間だけを扱う。cfg(test)のwriter再取得は本番APIではない。metadata不明とclose結果の単調保持は、実readerが使う局所判定関数への合成入力で確認し、実OS故障とは別fieldにする。ACL異常、reparse、OS metadata失敗、実CloseHandle失敗、突然crash、rename途中、caller耐久再入場、初期化途中、署名Runtime／公開入口と実残存三件は未観測のまま保持する。Local Item全体、品質件数と停止Gateは更新しない。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した
