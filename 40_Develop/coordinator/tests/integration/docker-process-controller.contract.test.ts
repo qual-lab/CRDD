@@ -1301,6 +1301,80 @@ test("Lifecycle通知はbackpressureを失敗とせずwrite完了を待ち、clo
 });
 
 /**
+ * Provider開始失敗を後続の終了例外で上書きしないことを検証する。
+ *
+ * @responsibility 開始確認と開始通知の一次失敗の保持を判定する。
+ * @trace ERB-IT-002
+ * @precondition 外部操作を発行しない決定論的fixtureを使用する。
+ * @stimulus 開始失敗後の終了処理で例外を発生させる。
+ * @observation 一次失敗と清掃結果を別々に観測する。
+ * @oracle 一次失敗の理由が終了例外によって変わらない。
+ * @cleanup fixtureのみで実資源を作成しない。
+ * @boundary ERB-IT-002=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("Provider開始失敗を後続の終了例外で上書きしない", async () => {
+  for (const scenario of ["start_failed", "notice_failed"]) {
+    for (const confirmed of [true, false]) {
+      const notices: Array<Record<string, unknown>> = [];
+      const fixture = createFixture(
+        {
+          reportProviderBoundaryDiagnostic: (
+            notice: Record<string, unknown>,
+          ) => {
+            notices.push(notice);
+          },
+          reportProviderProcessStarted: async () => false,
+          startCommand: (command: { purpose: string }) => ({
+            started: async () =>
+              command.purpose !== "start_provider_attached" ||
+              scenario !== "start_failed",
+            wait: async () => ({
+              status: 0,
+              signal: null,
+              stdout:
+                command.purpose === "start_subscription_auth_probe_attached"
+                  ? createSubscriptionAuthOutput()
+                  : "",
+              stderr: "",
+              outputExceeded: false,
+            }),
+            terminateAndWait: async () => {
+              throw new Error("EPIPE");
+            },
+          }),
+          cleanupOwnedResources: async () => ({
+            confirmed,
+            processTreeTerminated: confirmed,
+            containersAbsent: confirmed,
+            networksAbsent: confirmed,
+          }),
+        },
+        providerStartObservationTaskPlan,
+      );
+      const result = await fixture.controller.start(
+        fixture.preparedCapability,
+        fixture.managementCapability,
+      ).completion;
+      assert.ok(result);
+      const settled = notices.find(
+        (notice) => notice.event === "coordinator_provider_boundary_settled",
+      );
+      assert.ok(settled);
+      const primary = settled.primaryFailure as Record<string, unknown>;
+      assert.equal(primary.purpose, "start_provider_attached");
+      assert.equal(
+        primary.reason,
+        scenario === "start_failed"
+          ? "docker_process_controller_provider_start_failed"
+          : "docker_process_controller_provider_start_observation_failed",
+      );
+      assert.equal(primary.exceptionCode, null);
+      assert.equal(settled.cleanupConfirmed, confirmed);
+    }
+  }
+});
+
+/**
  * 実Process開始観測を公開できなければ対象Processを終了して成功を返さないを検証する。
  *
  * @responsibility 実Process開始観測を公開できなければ対象Processを終了して成功を返さないの合否判定を所有する。

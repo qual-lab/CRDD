@@ -98,6 +98,22 @@
 
 原記録の保持要否はPhase 5の結果確認時または2026-10-11に再評価する。参照中の記録や物理残存を名前・経過時間だけで削除しない。
 
+## 作成境界の診断を限定補強した結果
+
+人間は、全E2Eの再実行やRecovery拡張より先に、認証確認用Containerの作成境界を局所診断する方針を承認した。Timeout延長、Docker再起動、Provider／Model変更、Fallback追加は原因が示されるまで行わない。
+
+既存記録の比較では、Claudeの終了・清掃後、Codexの認証確認用Containerについて作成意図の記録だけがあり、作成応答の記録とReviewerのProcess開始はない。意図の記録は要求発行の証明ではなく、Docker拒否、通信Timeout、要求前の例外のいずれかを現在の記録だけでは確定できない。途中で成功した基準版との比較でも、通常Taskの作成Planと設定期限に原因と断定できる変更は確認できていない。
+
+現在実装では、最初の失敗の段階・固定理由・安全な例外分類と、Command Handle取得／応答観測／Receipt記録を、後続の清掃結果とは別に境界通知へ保持する。例外本文、Secret、PathまたはProvider本文は保存しない。Handle取得をDocker受理、応答観測を耐久記録と同一視しない。通知はbest-effortであり、Process喪失時の保存保証や追加Authorityを与えない。従来の公開結果、取消・清掃・回復条件は変更していない。
+
+検証結果:
+
+- Formatter、型検査、Lint、Runtime Capability Graphと既存Traceability確認はPass。
+- Controllerと実Process検証Toolの対象契約試験は129件Pass、失敗・skipは0件。外部Docker／Providerを使わない局所確認である。
+- 独立確認の2指摘を是正し、更新版の対象限定再レビューはPass。開始失敗後の終了例外による一次原因の上書きと、配列を文字列へ変換して受理するParserの穴を確認した。
+
+事故原因は未確定。現在の診断追加は未署名であり、既存署名Runtimeの実環境成立を意味しない。今回のexact回復待ちも未解消のため、新しいProvider試験は開始していない。次は既存記録と要求前の実行経路を照合し、追加の外部Effectを発行せずに再現できる範囲を先に確認する。今回の結果からRecovery拡張やTimeout変更を採用しない。
+
 ## Checklist
 
 - [x] 人間の指定どおり、Source是正より先に試験結果を収集した。

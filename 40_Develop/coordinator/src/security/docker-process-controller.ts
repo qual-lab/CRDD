@@ -1869,7 +1869,8 @@ async function executePlan(
           primaryFailure = Object.freeze({
             purpose: diagnosticPurpose,
             stage: diagnosticStage,
-            reason: "docker_process_controller_provider_start_observation_failed",
+            reason:
+              "docker_process_controller_provider_start_observation_failed",
             exceptionCode: null,
             commandHandleObtained,
             responseObserved,

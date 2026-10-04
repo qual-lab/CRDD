@@ -336,17 +336,17 @@ function isPrimaryFailureDiagnostic(value: unknown): boolean {
     ]) &&
     (record.purpose === null ||
       (typeof record.purpose === "string" &&
-      [
-        "create_subscription_auth_probe",
-        "start_subscription_auth_probe_attached",
-        "create_internal_network",
-        "create_egress_network",
-        "create_proxy",
-        "connect_proxy_egress",
-        "create_provider",
-        "start_proxy",
-        "start_provider_attached",
-      ].includes(record.purpose))) &&
+        [
+          "create_subscription_auth_probe",
+          "start_subscription_auth_probe_attached",
+          "create_internal_network",
+          "create_egress_network",
+          "create_proxy",
+          "connect_proxy_egress",
+          "create_provider",
+          "start_proxy",
+          "start_provider_attached",
+        ].includes(record.purpose))) &&
     typeof record.stage === "string" &&
     [
       "submission_record",
@@ -364,30 +364,30 @@ function isPrimaryFailureDiagnostic(value: unknown): boolean {
     ) &&
     (record.exceptionCode === null ||
       (typeof record.exceptionCode === "string" &&
-      [
-        "unclassified_exception",
-        "ENOENT",
-        "EACCES",
-        "EPERM",
-        "ETIMEDOUT",
-        "ECONNREFUSED",
-        "EPIPE",
-        "docker_effect_management_required",
-        "docker_effect_plan_invalid",
-        "docker_effect_plan_replaced",
-        "docker_effect_command_not_owned",
-        "docker_effect_platform_unsupported",
-        "docker_effect_cli_untrusted",
-        "docker_effect_cli_replaced",
-        "docker_effect_path_invalid",
-        "docker_effect_config_invalid",
-        "docker_effect_config_replaced",
-        "docker_effect_filesystem_identity_invalid",
-        "owned_operation_management_binding_required",
-        "owned_operation_unknown_child",
-        "owned_operation_child_replaced",
-        "owned_operation_mount_replaced",
-      ].includes(record.exceptionCode))) &&
+        [
+          "unclassified_exception",
+          "ENOENT",
+          "EACCES",
+          "EPERM",
+          "ETIMEDOUT",
+          "ECONNREFUSED",
+          "EPIPE",
+          "docker_effect_management_required",
+          "docker_effect_plan_invalid",
+          "docker_effect_plan_replaced",
+          "docker_effect_command_not_owned",
+          "docker_effect_platform_unsupported",
+          "docker_effect_cli_untrusted",
+          "docker_effect_cli_replaced",
+          "docker_effect_path_invalid",
+          "docker_effect_config_invalid",
+          "docker_effect_config_replaced",
+          "docker_effect_filesystem_identity_invalid",
+          "owned_operation_management_binding_required",
+          "owned_operation_unknown_child",
+          "owned_operation_child_replaced",
+          "owned_operation_mount_replaced",
+        ].includes(record.exceptionCode))) &&
     typeof record.commandHandleObtained === "boolean" &&
     typeof record.responseObserved === "boolean" &&
     typeof record.receiptRecorded === "boolean" &&
