@@ -438,7 +438,7 @@ test("MCP Objectiveは明示Profileをexactに保持し省略時に生成しな�
  */
 test("MCP Objectiveは不正Profileを認証・Core呼出し前に拒否する", async () => {
   let calls = 0;
-  const invalid = [
+  const invalidArguments = [
     ...[null, undefined, "PROFILE-12345", "profile-100001"].map(
       (requestedProfileId) => ({ ...objective(), requestedProfileId }),
     ),
@@ -464,7 +464,7 @@ test("MCP Objectiveは不正Profileを認証・Core呼出し前に拒否する",
       },
     ),
   ];
-  for (const argumentsValue of invalid) {
+  for (const argumentsValue of invalidArguments) {
     const response = await handleMcpProjectRuntimeRequest(
       request("tools/call", {
         _meta: META,

@@ -1915,6 +1915,38 @@ type RuntimeExternalProcessCallsite = Readonly<{
 
 const runtimeExternalProcessCallsites = Object.freeze(
   [
+    ...[
+      ["executeHostTerminalRecordRequest", ["[", "nativeMode", "]"]],
+      [
+        "executeTerminalObservationRequest",
+        ["[", "observationClass", "=", "=", "="],
+      ],
+    ].map(([containingFunction, argvPrefix]) => [
+      "src/security/host-terminal-windows-adapter.ts",
+      containingFunction,
+      "spawnSync",
+      [
+        "path",
+        ".",
+        "join",
+        "(",
+        "distributionRoot",
+        ",",
+        ".",
+        ".",
+        ".",
+        "PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH",
+        ".",
+        "split",
+        "(",
+        "/",
+        ")",
+        ",",
+        ")",
+      ],
+      argvPrefix,
+      ["const", "verification", "="],
+    ]),
     [
       "src/security/windows-directory-bootstrap.ts",
       "observeSystemWindowsDirectory",
@@ -2019,6 +2051,32 @@ const runtimeExternalProcessCallsites = Object.freeze(
       "spawn",
       ["process", ".", "execPath"],
       ["[", "entrypoint", ".", "filePath"],
+    ],
+    [
+      "src/security/host-recovery-namespace-windows-adapter.ts",
+      "initializeHostRecoveryNamespaceWindows",
+      "spawnSync",
+      [
+        "path",
+        ".",
+        "join",
+        "(",
+        "distributionRoot",
+        ",",
+        ".",
+        ".",
+        ".",
+        "PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH",
+        ".",
+        "split",
+        "(",
+        "/",
+        ")",
+        ",",
+        ")",
+      ],
+      ["[", "initialize", "?"],
+      ["const", "verification", "="],
     ],
     [
       "src/security/candidate-store-windows-adapter.ts",
@@ -2272,6 +2330,36 @@ type ExactExternalProcessCallGraph = Readonly<{
 
 const exactExternalProcessCalls = Object.freeze(
   [
+    [
+      "runtime",
+      "src/security/host-terminal-windows-adapter.ts",
+      "executeHostTerminalRecordRequest",
+      "spawnSync",
+      1,
+      "fffeeed7107e19871c4cb739e1ce9f858181663b7cbd7713f224a951ef6304a3",
+      "1b379951454f30de5926e696187f4c97de62053f1c39f986b0730d2ee878ebb8",
+      "execution",
+    ],
+    [
+      "runtime",
+      "src/security/host-terminal-windows-adapter.ts",
+      "executeTerminalObservationRequest",
+      "spawnSync",
+      1,
+      "0a4e8c36d331611e3829051d525ea8d8d47a4eaf0a13d7bfe9ed76b7e98edd71",
+      "3ba598d5758ed192647c6409b98f982eefd5f8b1822e62b7243784df36ac98d9",
+      "execution",
+    ],
+    [
+      "runtime",
+      "src/security/host-recovery-namespace-windows-adapter.ts",
+      "initializeHostRecoveryNamespaceWindows",
+      "spawnSync",
+      1,
+      "99019ba1880e7fe25ad765c46176eb039a33efc0cd8c67508788235bfa6efc3d",
+      "ef8933e00fe5a8e7bbc36b0cf18f6e8b347fad0ef259e5c544dd4d4fe36df207",
+      "execution",
+    ],
     [
       "runtime",
       "src/security/windows-directory-bootstrap.ts",
@@ -2608,6 +2696,54 @@ const exactAuditedFunctionFlows = Object.freeze(
   [
     [
       "runtime",
+      "src/security/host-terminal-windows-adapter.ts",
+      "executeHostTerminalRecordRequest",
+      "1b379951454f30de5926e696187f4c97de62053f1c39f986b0730d2ee878ebb8",
+    ],
+    [
+      "runtime",
+      "src/security/host-terminal-windows-adapter.ts",
+      "executeTerminalObservationRequest",
+      "3ba598d5758ed192647c6409b98f982eefd5f8b1822e62b7243784df36ac98d9",
+    ],
+    [
+      "runtime",
+      "src/security/host-terminal-windows-adapter.ts",
+      "saveHostTerminalWindowsRecord",
+      "7998c4cfd967a5a118cbf30c520db5dbd2a8faff68eb55036a595d01835ec958",
+    ],
+    [
+      "runtime",
+      "src/security/host-terminal-windows-adapter.ts",
+      "readHostTerminalWindowsRecord",
+      "f3b0c51082a4cf7d77969680339318edef93b04f7cf38633f5369e12ca16b7fd",
+    ],
+    [
+      "runtime",
+      "src/security/host-terminal-windows-adapter.ts",
+      "saveKnownFileHostTerminalWindowsRecord",
+      "740ebfb55f177e78eecf470bc46a34129647e005c567ba0161b8f410fb5e8fac",
+    ],
+    [
+      "runtime",
+      "src/security/host-terminal-windows-adapter.ts",
+      "readKnownFileHostTerminalWindowsRecord",
+      "34c2321382899b03d63b9de94cb2e0cfce49afc3353c9a202fe42a35b4057b64",
+    ],
+    [
+      "runtime",
+      "src/security/host-terminal-windows-adapter.ts",
+      "observeHostTerminalWindowsTarget",
+      "7aec2c33df8d3ac26b4cf778f71387b1210b46ce2f5770b41bf817113efaeaa8",
+    ],
+    [
+      "runtime",
+      "src/security/host-terminal-windows-adapter.ts",
+      "observeKnownFileHostTerminalWindowsTarget",
+      "571727fd30d340420c3c5a64a807bfa5adeb274b011a332dea3a4458fbb6fd75",
+    ],
+    [
+      "runtime",
       "src/core/interactive-console.ts",
       "readInteractiveConsoleLineOutcome",
       "a824b755243d910aaf0afc7e1de06600253fefd697430a8230cae17037d953fd",
@@ -2764,6 +2900,38 @@ const exactAuditedFunctionFlows = Object.freeze(
 const exactAuditedSemanticGraphSha256 = Object.freeze(
   new Map([
     [
+      "src/security/host-terminal-windows-adapter.ts\0executeHostTerminalRecordRequest",
+      "e5c374c27f3c30dcb9e1c27c80cb73bd05a61104f2f5b5e76c6bb206f2de86d7",
+    ],
+    [
+      "src/security/host-terminal-windows-adapter.ts\0executeTerminalObservationRequest",
+      "f66622797afa7fabbaeac31ac46f3fe722a6a696abe2dd218dab66fa8e863c92",
+    ],
+    [
+      "src/security/host-terminal-windows-adapter.ts\0saveHostTerminalWindowsRecord",
+      "46f4c18b7266619fcee03eefd06d8bc1a69bdbaf99e02c3769f0206a35330128",
+    ],
+    [
+      "src/security/host-terminal-windows-adapter.ts\0readHostTerminalWindowsRecord",
+      "d2135fd9b8e4e8213c9d11f9b9b213ae73ce816db3def2c1cdabc7cf0f0ff7e6",
+    ],
+    [
+      "src/security/host-terminal-windows-adapter.ts\0saveKnownFileHostTerminalWindowsRecord",
+      "55811c0f355f355651e6f1c34e7bb61dafc952482d3a2bf963a40212d63dfd9f",
+    ],
+    [
+      "src/security/host-terminal-windows-adapter.ts\0readKnownFileHostTerminalWindowsRecord",
+      "e699938526b11a036f4d0fd5ba75653a8a727d5ca986e02b9afa4dda16525508",
+    ],
+    [
+      "src/security/host-terminal-windows-adapter.ts\0observeHostTerminalWindowsTarget",
+      "227b28e678d520ca718a10b7d72372b08c0ac3ad6d680b2d3c64b38e2644b8ea",
+    ],
+    [
+      "src/security/host-terminal-windows-adapter.ts\0observeKnownFileHostTerminalWindowsTarget",
+      "385c4b8a9463dd371e67d4394cfc1775b19c8acb97800a09145356f7c3bcf49e",
+    ],
+    [
       "src/core/interactive-console.ts\0readInteractiveConsoleLineOutcome",
       "bc7946d27e9093d12cb588aef1d6a61a26389a809fc23705a1501246335aed11",
     ],
@@ -2864,6 +3032,15 @@ const exactAuditedSemanticGraphSha256 = Object.freeze(
 
 const auditedExportedFunctionIdentities = Object.freeze(
   new Set([
+    ...[
+      "saveHostTerminalWindowsRecord",
+      "readHostTerminalWindowsRecord",
+      "saveKnownFileHostTerminalWindowsRecord",
+      "readKnownFileHostTerminalWindowsRecord",
+      "observeHostTerminalWindowsTarget",
+      "observeKnownFileHostTerminalWindowsTarget",
+    ].map((name) => `src/security/host-terminal-windows-adapter.ts\0${name}`),
+    "src/security/host-recovery-namespace-windows-adapter.ts\0initializeHostRecoveryNamespaceWindows",
     "src/core/interactive-console.ts\0readInteractiveConsoleLineOutcome",
     "src/security/candidate-store-kernel-lock.ts\0acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome",
     "src/security/candidate-store-kernel-lock.ts\0acquireRuntimeOwnedHostOperationSupervisorLock",
@@ -3004,6 +3181,53 @@ type ExecutableProvenance = Readonly<{
 
 const exactExecutableProvenance = Object.freeze(
   new Map<string, ExecutableProvenance>([
+    ...[
+      "executeHostTerminalRecordRequest",
+      "executeTerminalObservationRequest",
+    ].map(
+      (name) =>
+        [
+          `src/security/host-terminal-windows-adapter.ts\0${name}`,
+          Object.freeze({
+            classification: "registered_platform_helper" as const,
+            proofs: Object.freeze([
+              Object.freeze([
+                "verifyBundledCoordinatorPackageFromFixedManifestCandidate",
+                "(",
+              ]),
+              Object.freeze([
+                "beginPlatformAccessArtifactSigningObservation",
+                "(",
+                "distributionRoot",
+                ")",
+              ]),
+              Object.freeze([
+                "createWindowsHostTerminalHelperEnvironment",
+                "(",
+              ]),
+            ]),
+          }),
+        ] as const,
+    ),
+    [
+      "src/security/host-recovery-namespace-windows-adapter.ts\0initializeHostRecoveryNamespaceWindows",
+      Object.freeze({
+        classification: "registered_platform_helper",
+        proofs: Object.freeze([
+          Object.freeze([
+            "verifyBundledCoordinatorPackageFromFixedManifestCandidate",
+            "(",
+          ]),
+          Object.freeze([
+            "beginPlatformAccessArtifactSigningObservation",
+            "(",
+            "distributionRoot",
+            ")",
+          ]),
+          Object.freeze(["createWindowsHostTerminalHelperEnvironment", "("]),
+        ]),
+      }),
+    ],
     [
       "src/security/windows-directory-bootstrap.ts\0observeSystemWindowsDirectory",
       Object.freeze({
@@ -4351,6 +4575,56 @@ const processWrapperConsumers = Object.freeze(
 );
 
 /**
+ * 名前付き関数の型引数を越え、直後の引数開始位置を取得する。
+ *
+ * @responsibility 通常宣言と型引数付き宣言を同じ所有者検査へ接続する。
+ * @trace ARCH-000014
+ * @input 既存tokenizerのtoken列と関数宣言候補の位置。
+ * @returns 引数開始位置、または名前付き宣言でない場合のnull。
+ * @precondition token列は上限付きSourceの字句解析結果である。
+ * @postcondition 型引数終端直後の括弧だけを返し、後方の別括弧を探索しない。
+ * @effect N/A: token列の読取りだけ。
+ * @failure 型引数が閉じない、または直後が引数括弧でなければ拒否する。
+ * @invariant 文字列中の山括弧を構文上の区切りとして数えない。
+ * @boundary Source宣言→起動点・本体・事前Effectの検査。
+ * @security 解析不能な宣言を登録済み関数として受理しない。
+ * @concurrency N/A: 同期の局所解析であり共有状態を持たない。
+ */
+function namedFunctionParametersOpening(
+  tokens: readonly SourceToken[],
+  functionIndex: number,
+) {
+  if (
+    tokens[functionIndex]?.kind !== "identifier" ||
+    tokens[functionIndex]?.value !== "function" ||
+    tokens[functionIndex + 1]?.kind !== "identifier"
+  )
+    return null;
+  const start = functionIndex + 2;
+  if (tokens[start]?.kind !== "punctuation") return null;
+  if (tokens[start]?.value === "(") return start;
+  if (tokens[start]?.value !== "<") return null;
+  let depth = 0;
+  for (let index = start; index < tokens.length; index += 1) {
+    if (tokens[index]?.kind !== "punctuation") continue;
+    if (tokens[index]?.value === "<") depth += 1;
+    else if (tokens[index]?.value === ">") {
+      depth -= 1;
+      if (depth !== 0) continue;
+      if (
+        tokens[index + 1]?.kind === "punctuation" &&
+        tokens[index + 1]?.value === "("
+      )
+        return index + 1;
+      break;
+    }
+  }
+  throw new Error(
+    "platform_provisioner_runtime_dependency_parse_failed:function_type_parameters",
+  );
+}
+
+/**
  * containing Named Functionを決定する。
  *
  * @responsibility containing Named Functionの導出に必要な入力、判定規則、返却結果の境界を所有する。
@@ -4452,16 +4726,11 @@ function containingNamedFunction(
       }
       continue;
     }
-    if (
-      tokens[index]?.kind !== "identifier" ||
-      tokens[index]?.value !== "function" ||
-      tokens[index + 1]?.kind !== "identifier" ||
-      tokens[index + 2]?.value !== "("
-    )
-      continue;
+    const parametersOpening = namedFunctionParametersOpening(tokens, index);
+    if (parametersOpening === null) continue;
     let parametersEnd: number;
     try {
-      parametersEnd = matchingTokenIndex(tokens, index + 2, "(", ")");
+      parametersEnd = matchingTokenIndex(tokens, parametersOpening, "(", ")");
     } catch {
       continue;
     }
@@ -5436,10 +5705,11 @@ export function runtimeNamedFunctionGraphSnapshotForVerification(
       tokens[index]?.kind !== "identifier" ||
       tokens[index]?.value !== "function" ||
       tokens[index + 1]?.kind !== "identifier" ||
-      !requested.has(tokens[index + 1]?.value ?? "") ||
-      tokens[index + 2]?.value !== "("
+      !requested.has(tokens[index + 1]?.value ?? "")
     )
       continue;
+    const parametersOpening = namedFunctionParametersOpening(tokens, index);
+    if (parametersOpening === null) continue;
     const name = tokens[index + 1]?.value ?? "";
     const declarationOccurrence = (occurrences.get(name) ?? 0) + 1;
     occurrences.set(name, declarationOccurrence);
@@ -5462,7 +5732,12 @@ export function runtimeNamedFunctionGraphSnapshotForVerification(
       throw new Error(
         `platform_provisioner_runtime_dependency_capability_graph_mismatch:${name}:export`,
       );
-    const parametersEnd = matchingTokenIndex(tokens, index + 2, "(", ")");
+    const parametersEnd = matchingTokenIndex(
+      tokens,
+      parametersOpening,
+      "(",
+      ")",
+    );
     let bodyStart = parametersEnd + 1;
     while (bodyStart < tokens.length && tokens[bodyStart]?.value !== "{")
       bodyStart += 1;
@@ -5662,10 +5937,16 @@ function assertNoAuditedPreBodyEffects(
   for (let index = 0; index < tokens.length; index += 1) {
     if (
       tokens[index]?.value === "function" &&
-      functionNames.has(tokens[index + 1]?.value ?? "") &&
-      tokens[index + 2]?.value === "("
+      functionNames.has(tokens[index + 1]?.value ?? "")
     ) {
-      const parametersEnd = matchingTokenIndex(tokens, index + 2, "(", ")");
+      const parametersOpening = namedFunctionParametersOpening(tokens, index);
+      if (parametersOpening === null) continue;
+      const parametersEnd = matchingTokenIndex(
+        tokens,
+        parametersOpening,
+        "(",
+        ")",
+      );
       const parameterTokens = tokens.slice(index + 3, parametersEnd);
       if (
         parameterTokens.some((token) =>
@@ -5765,7 +6046,7 @@ function assertExactCapabilityGraphSourceUniverse(
   const expectedTokens = exactExternalProcessCalls.filter(
     (callsite) => callsite.graph === graph,
   );
-  const expectedCount = graph === "runtime" ? 23 : 6;
+  const expectedCount = graph === "runtime" ? 26 : 6;
   const stableIdentities = expectedTokens.map(
     (callsite) =>
       `${callsite.source}\u0000${callsite.containingFunction}\u0000${callsite.primitive}\u0000${callsite.occurrence}`,
@@ -5781,7 +6062,7 @@ function assertExactCapabilityGraphSourceUniverse(
     (flow) => `${flow.graph}\u0000${flow.source}\u0000${flow.functionName}`,
   );
   if (
-    exactExternalProcessCalls.length !== 29 ||
+    exactExternalProcessCalls.length !== 32 ||
     exactExecutableProvenance.size !== exactExternalProcessCalls.length ||
     exactExternalProcessCalls.some(
       (callsite) =>
@@ -6261,6 +6542,27 @@ const exactRuntimePackageCapabilityConsumers = Object.freeze(
       1,
     ],
     [
+      "src/security/host-recovery-namespace-windows-adapter.ts",
+      "verifyBundledCoordinatorPackageFromFixedManifestCandidate",
+      "initializeHostRecoveryNamespaceWindows",
+      "call",
+      1,
+    ],
+    [
+      "src/security/host-terminal-windows-adapter.ts",
+      "verifyBundledCoordinatorPackageFromFixedManifestCandidate",
+      "executeHostTerminalRecordRequest",
+      "call",
+      1,
+    ],
+    [
+      "src/security/host-terminal-windows-adapter.ts",
+      "verifyBundledCoordinatorPackageFromFixedManifestCandidate",
+      "executeTerminalObservationRequest",
+      "call",
+      2,
+    ],
+    [
       "src/security/local-personal-authority-runtime.ts",
       "verifyBundledCoordinatorPackageFromFixedManifestCandidate",
       "verifyRelease",
@@ -6723,7 +7025,10 @@ function assertExactRuntimePackageCapabilityConsumerGraph(
         (consumer.source !==
           "src/security/workbench-ai-advice-production-runtime.ts" &&
           consumer.source !==
-            "src/security/workbench-ai-change-candidate-runtime.ts")),
+            "src/security/workbench-ai-change-candidate-runtime.ts" &&
+          consumer.source !==
+            "src/security/host-recovery-namespace-windows-adapter.ts" &&
+          consumer.source !== "src/security/host-terminal-windows-adapter.ts")),
   );
   const observedIdentities = observedTokens.map(
     runtimePackageCapabilityConsumerIdentity,
@@ -7039,11 +7344,17 @@ function namedFunctionBodyRange(
     if (
       tokens[index]?.value !== "function" ||
       tokens[index + 1]?.value !== functionName ||
-      tokens[index + 2]?.value !== "(" ||
       containingNamedFunction(tokens, index) !== null
     )
       continue;
-    const parametersEnd = matchingTokenIndex(tokens, index + 2, "(", ")");
+    const parametersOpening = namedFunctionParametersOpening(tokens, index);
+    if (parametersOpening === null) continue;
+    const parametersEnd = matchingTokenIndex(
+      tokens,
+      parametersOpening,
+      "(",
+      ")",
+    );
     let opening = parametersEnd + 1;
     while (opening < tokens.length && tokens[opening]?.value !== "{")
       opening += 1;

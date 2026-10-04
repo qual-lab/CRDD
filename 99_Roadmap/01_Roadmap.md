@@ -2,7 +2,7 @@
 
 Status: Non-normative Open Work Registry
 Owner: Qual-Lab
-Last Updated: 2026-09-25
+Last Updated: 2026-10-04
 Related:
 - [CRDD標準自身のDiscovery](../01_Discovery/01_Product_Discovery.md)
 - [Product候補登録](../01_Discovery/02_Product_Candidates.md)
@@ -49,6 +49,7 @@ v0.21.0はGroup AだけをRelease範囲とする。Group B以降のCanonical設�
 | 目標リリース日 | `2026-10-03` | 2026-09-25にQual-Labが設定 |
 | 個別Roadmap項目の期限 | 未設定 | 項目ごとに必要性を確認し、設定しない項目は日程リスクを未評価とする |
 | 初期の日程リスク | 高い | 目標日まで8日でDiscoveryを開始し、候補Scopeと解決案が未確定である。現Scopeの維持、分離またはリスク許容はDiscovery結果を基に人間が判断する |
+| 現在の日程状態 | 目標日経過・Release完了未成立 | 2026-10-04（日本時間）の確認時点でCHG-000082はPhase 5進行中。Host残存の回収、Workbench実Provider経路、残る品質項目と最終検証が未完了である。目標日を履歴として保持し、新しい期限やScope縮小をAIだけで設定しない |
 
 次のGroupは別々のRelease範囲ではなく、v0.22.0を一つの完成形へ収束させる候補範囲である。ただし、既存の設計、WIPおよび採用済み項目名から解決形を確定しない。最初にDiscoveryで、利用者の困りごと、現在の代替、望ましい変化、利用頻度および判断価値を再確認する。そこで必要性が確認された項目だけを依存順へ確定し、後続工程へ渡す。
 
@@ -83,7 +84,7 @@ Workbenchは後付けのUIではない。[入口再探索](../01_Discovery/Analy
 | v0.22 Repository Tool／Capability Registry | 要求採用 | UX引き渡し待ち | [Repository Capabilityの探索](../01_Discovery/Analysis/EXP-000025/exploration.md)、[REQ-000014](../01_Discovery/Definitions/REQ-000014/requirement.md) | Capability Contractと組織・Repository固有Adapterを分け、Repository単体ではCredentialなし、CROSでは許可Repositoryだけから同じ能力を発見・実行する体験を具体化する |
 | v0.22 Context Operating System（CROS） | 要求維持 | Discovery境界確認済み／UX引き渡し待ち | [Project横断Contextの探索](../01_Discovery/Analysis/EXP-000027/exploration.md)、[Project横断の再確認](../01_Discovery/Analysis/EXP-000035/exploration.md)、[Remote利用境界](../01_Discovery/Analysis/EXP-000036/exploration.md) | Repository内正本を中央へ移さず、Logical Project Federationと読み取り専用PortfolioをRole別共有Credentialの範囲で提供する体験を具体化する。既存設計は後のReality Audit入力とする |
 | v0.22 Remote MCP接続 | 要求採用 | UX引き渡し待ち | [Local MCP／HTTPの探索](../01_Discovery/Analysis/EXP-000015/exploration.md)、[Role別共有Credential](../01_Discovery/Definitions/REQ-000041/requirement.md) | Role別Bearer Credential、TLS、非開示、切断後の同一Request再取得をUX／SPEC／Architectureで具体化する。Transportが公開Application Contractを所有しない制約は維持する |
-| v0.22 正式検証の安全なHeadless出力 | Adopted | Planned | [v0.20 Runtime責務分離](Changes/CHG-000063/change.md) | 保存先Authorityと閉じた結果契約を設計し、CI／Remoteの代表経路で検証する |
+| v0.22 正式検証の安全なHeadless出力 | Adopted | 一部実装／四経路の公開入口は未対応 | [v0.20 Runtime責務分離](Changes/CHG-000063/change.md)、[現行入口の確認](Changes/CHG-000082/Evidence/261002_quality-item-reconciliation.md#正式検証の画面なし実行の現行確認--2026-10-04) | 結果のRepository内保存と閉じた投影は存在するが、四経路の公開入口は端末なし実行を拒否する。保存先Authority、既存外部送信承認の扱いと閉じた出力契約を接続し、CI／Remoteの代表経路で検証する。保存機能や配送可能だけから完了を主張しない |
 
 #### Group D: 薄いSurface、Runtime設定、限定実証
 

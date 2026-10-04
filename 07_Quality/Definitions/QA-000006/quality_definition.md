@@ -214,7 +214,17 @@ Coordinator所有範囲で終了・排他・清掃を閉じる設計では、上
 
 ### 終端記録の保存・再入場で追加する反証
 
+対象一式の私有Readerは[Platformの読取り契約](../../../06_Architecture/Details/platform-access/01_Architecture.md#対象一式の私有読取り接続)に従う。`ERB-IT-001`でnamespace三実体＋Root／marker／固定六childの十一実体、元marker全bytes／EOF／前後長とHash、独立Known照合、新八handleの逆順終了を確認する。`ERB-IT-002`で全位置の各五field・属性、全pair重複、種別／reparse、名前と利用者・Hash差、八取得位置の欠落、markerの0／65536／65537bytesを反証する。`ERB-IT-003`で途中取得・読取失敗とclose不明の併発、元理由・位置・取得数・個別終了保持、追加保存停止を確認する。実OS刺激と合成終了モデル、現在観測と独立期待値、対象Reader終了と外側guard／Process終了を分ける。既存8KiB記録Readerへの影響は同じ改訂版の実保存回帰で確認する。現在観測は原子的Snapshot、空状態・未知child不存在、非使用、`host_only`意味、正式承認または清掃成功を保証しない。Local Item数・全体観測数・品質状態は維持し、属性なしcodec、初期化、全legacy互換、公開Protocolと実残存処置は別の未成立条件として追跡する。
+
+固定保存境界の私有観測では、`ERB-IT-001`にOS所在候補と独立fixture親の一致、三実体・二ACL・選択利用者の結合、保持後verifyと個別終了を接続する。`ERB-IT-002`で三位置の各五field、重複実体、利用者Hash、recovery／terminalそれぞれの欠落・file／reparse・ACL、返却長とUTF-16を反証する。`ERB-IT-003`ではToken部分取得、途中openとclose不明の併発、元理由・各個別終了の単調保持と追加保存停止を確認する。純値検査、実体試験、実OS故障は別に記録し、未観測の位置を合格へ畳まない。一般利用者Profileが必要な実体試験は制限Token環境で受理条件を弱めず、固定Ownerの通常利用者実行と分ける。Local Item数・観測済み件数・全体品質状態は変更しない。
+
 [Coordinator詳細設計の候補契約](../../../06_Architecture/Details/coordinator/01_Architecture.md#終端記録の保存再入場の候補契約)について、通常清掃と元参照不明の限定保守を別producerとして確認する。次は検証設計の追加であり、実施済み結果ではない。
+
+Nativeの共通排他では、`ERB-IT-001`の同threadでの取得・fresh保護・同期区間・release／close、`ERB-IT-002`の再帰取得、別thread／別Process競合、属性・日時差による別排他への逃避、descriptor不一致・同名別object・有限timeout、`ERB-IT-003`のabandoned所有取得と保存拒否・終了不明の単調保持を分けて観測する。実OS反証と注入した失敗は区別する。これらの排他区間だけでは容量計数・全producer・公開入口・旧対象の非使用は成立しない。Local Item数と観測済み件数は変更しない。
+
+処置許可直前のAtomic判定について、判定前に別threadが終端不明を確定した場合はcallback0と取得済み所有のrelease／closeを確認する。判定後の不明は既許可処置の取消にしない。取得／処置Errとrelease／close不明の同時発生では、元の固定理由・終端理由・発行receiptを共同保持する。cfg(test)の順序制御と合成終端失敗を、実OS故障発生の証明へ昇格しない。
+
+容量と保存の一体接続では、`ERB-IT-001`でMutex内の列挙→完全計数／全観測終了→予約→stage→公開照合→writer終了→Mutex終了の順序と正常終端後の再計数を確認する。`ERB-IT-002`で同参照既存、未知名、Directory／reparse、公開0byte、過大file、保護・共有拒否、途中列挙不明、上限・overflowを反証する。0byte stageと同実体の併存二名は物理名別に計数する。`ERB-IT-003`では各終了不明と公開失敗の組合せ、同参照・部分receipt・元原因の共同保持、追加保存停止を確認する。純境界Helperを実保存本体でも使い、少数の実列挙・保存と1024entry／8MiBの純判定を分ける。大規模物理列挙、合成close故障、unwind、非参加producer・別session・公開consumerの未観測を合格へ畳まず、Local Item数・観測数は変更しない。
 
 | Local Item | 刺激・観測 | Oracle／終了後条件 |
 |---|---|---|
@@ -226,6 +236,16 @@ Coordinator所有範囲で終了・排他・清掃を閉じる設計では、上
 | `ERB-ST-030` | 全利用側移行後、公開入口の失敗結果から耐久参照、再入場、共同終端、Evidence引渡しへ追跡する。 | marker消失後も許可された利用側へ同じ非Authority参照を返す。境界外には対象の存在・参照を開示しない。内部試験だけで公開経路の成立を宣言しない。 |
 
 現在は全行OPENである。実装上の発生点と観測手段を固定してから実境界へ接続する。局所のSchema／順序試験は`PRL-UT-006`が所有し、ここで求める保護・Filesystem・Process喪失・公開入口の成立を代替しない。
+
+`host-terminal-caller-checkpoint.integration.test.ts`は上記のうちRepository-local caller保存だけを自己生成Git Rootで確認する。完全bytesの保存・同参照fresh Process読取り・反復保存、異なるbytesの衝突、独立binding差、部分stage保持、未知inventory、1023物理entryからの2entry予約拒否、同一／別Processのnamed pipe競合、取得前／取得中取消、所有Process終了後の再取得を対象とする。固定Windows実環境profileへ分離し、portableでのskipをPassに数えない。Native固定namespace・ACL・共通容量、caller保存途中の全故障点、Power loss、実残存三件、公開入口とEvidence移管／管理清掃はこの試験から成立を主張しない。
+
+準備Ownerの接続では、同じ試験で検証済みRoot、閉じた入力、三結合Hash、取消済みSignalと固定実行Contextの前提拒否を確認する。取得済み参照の保持、Native起動・caller保存前の停止、Accessor非実行、caller記録Directoryの直接不存在を観測する。この確認は前提拒否だけを証明する。実NativeのCurrent／Known観測から完全intent・caller保存までの正常経路、二呼出し間／保存待機中の変更、保存後取消、搬送例外のEffect不明保持は、実経路の接続確認で別に照合する。準備済み表示を非使用、人間承認、Native公開保存、清掃またはLocal Item全義務成立へ読み替えない。
+
+Native保存接続のCaseは、未保存・正常caller・独立binding差・取消・canonical破損を自己生成Repositoryで評価する。正常callerだけがfresh読取り後にAdapterの固定実行Context検査へ達し、無効ContextでProcess／記録Effect 0を保持する。専用保存CLIのCaseは不正要求・観測mode混用・余分argvを実childで拒否し、receiptなし・取得0を確認する。これらは取得前拒否の根拠であり、実Native正常保存・実三件への適用を証明しない。
+
+`PRL-UT-006`の保存搬送Caseは、十一Known値・本文・nonce・同参照の要求形状、応答の完全性と上限、計数・公開・Mutex／writer／外側closeの共同成立、および部分保存receiptの保持を合成入力で確認する。Native保存区間の実target差替え、実close故障、返却喪失、正常保存と同参照再入場は接続確認で別に観測する。Source接続や拒否試験を全RecoveryのPassにしない。
+
+同じLocal Itemの読戻し搬送Caseは、Prepared／Publishedの現在観測、同bytesの別実体を過去Identityへ昇格しないこと、対象未試行、nonce・同参照・完全形状の拒否、およびReader／外側close不明時の部分結果保持を合成入力で確認する。`ERB-IT-001`の専用CLI拒否Caseは不正要求・保存mode混用・余分argvを実childで拒否し、記録取得・対象取得・変更なしを観測する。caller結合Caseは完全文書・独立bindings・前後再確認と未検証実行Contextの拒否を確認する。正常なNative読戻し、Root消失後の実再入場、非使用・承認・限定清掃は経路全体の実境界確認へ残し、これらの局所結果から観測済み件数や全Recoveryの合格を更新しない。
 
 `windows::terminal::tests::terminal_publication_fixture`は、[Native内部保存部品](../../../06_Architecture/Details/platform-access/01_Architecture.md#host終端記録の内部保存部品)の現在のpublish本体を自己生成したRepository-local対象で通す限定ITである。`ERB-IT-001`の完全write／flush、同writer保持中の非置換rename、stage直接不存在、public実体・ACL・全bytesと個別close、`ERB-IT-002`の既存先衝突・前後不変、重複要求拒否、8192／8193bytesと保持中変更拒否を対象にする。通常のcargo testからはignoredとし、専用Ownerが固定cwd、入力とbinary Hash、freshなfixture不存在を確認して一回だけ実行する。新run・新閉packetへ部分receiptと個別closeを搬送し、自己生成三fileと空Directoryの非再帰清掃・直接不存在を別に確認する。途中失敗では追加清掃せず保持して停止する。
 
@@ -248,6 +268,42 @@ Coordinator所有範囲で終了・排他・清掃を閉じる設計では、上
 現在候補は旧Identityを入力しない。試験では独立した作成時IdentityをOracleだけに使い、同bytesの新実体を現在候補で観測しても、旧Identityのstrict readerが拒否することを確認する。意図した自己生成fileの改名・再作成は刺激として個別記録し、保持中の予想外変更と区別する。全Oracle・全closeの後だけfreshに照合した自作六fileと空二Directoryを非再帰清掃し、直接不存在を確認する。失敗／不明では追加清掃しない。
 
 これは同一Processの現在観測とopaque bytes相関だけである。正規Schema／producer／対象binding、元file連続性、過去receipt、caller耐久再入場、別Process、ACL異常／reparse／OS観測故障／実close失敗、容量予約、Authority、実残存三件または全Recoveryを検証済みにしない。Local Item数・観測件数・停止Gateは維持する。File Relationの既存001／002／003と新Case／HelperのTrace和集合を別に照合する。
+
+`ERB-IT-001`のNative CLI確認へ、専用`--host-terminal-observe`の不正要求、余分argv、標準modeとの混用拒否を接続する。専用不正入力は実exit 2・phase 1・取得0・stderrなしを観測する。この拒否試験は、正常な十一実体観測、署名配布物、回復Ownerの実呼出し、清掃または全Recoveryを証明しない。
+
+`windows::terminal::tests::terminal_generation_exclusion_and_release`は、`ERB-IT-001`の実Windows排他境界を限定確認する。freshな自己生成UUIDだけを使い、同世代の重複取得拒否、別世代の独立取得、同handleの選択利用者／SYSTEM二ACE保護と解放後の再取得、全所有handleの明示closeを観測する。Filesystem、実残存、DockerとProviderへ接続しない。既存Node／Supervisorとの相互運用は次の専用Caseへ分離する。当初Processの終了、旧領域の非使用、最終処置の連続排他、署名Runtimeと回復経路全体は別の未成立条件であり、この局所確認からLocal Item全体やQuality集計を完了にしない。
+
+`windows::terminal::tests::terminal_generation_node_interoperation`は、`ERB-IT-001`のNativeと同期Node Worker／非同期Supervisorの相互運用を確認する。Nodeの既存production Lockを[専用fixture](../../../40_Develop/coordinator/tests/fixtures/host-terminal-generation-worker.ts)から呼び、両経路でNative保持中のNode拒否、Native解放後のNode取得・解放、Node保持中のNative拒否、Nodeの明示解放・実Process終了後のNative再取得を順に観測する。Supervisorは本番の取得関数・往復確認・exit確認付き解放を使い、独自の代替Lockへ切り替えない。固定Node実行物のHash、通常のfile起動、最小環境、fresh UUIDと固定応答を使い、未知応答・終了失敗・解放不明を成功へ補完しない。fixtureはNative試験の支援資源であり、Node runnerの独立した検証項目へ数えない。
+
+この試験はSupervisorの異常終了・IPC故障、旧版consumerの再入場抑止、親Process喪失、実close故障、OS保存namespace、旧三件の非使用、最終処置の連続保持および公開Recoveryを検証したことにはしない。Local Item数・全体の観測済み件数・停止Gateは維持する。
+
+`windows::terminal::tests::terminal_disposition_fixture`は、`ERB-IT-001`／`ERB-IT-002`のOS意味を実測するcfg(test)の限定試験である。固定Repository-localの自己生成親・Root・六child・markerだけを使い、親guardとfreshな同世代排他を保持して、通常`FileDispositionInfo`の要求受理、対象handle明示close、直接不存在を区別する。非空childの拒否と、互換readerが残るmarkerを不存在にしない反例を含む。Root不存在→marker不存在→世代解放の順を確認し、成功時だけ自作の空親を非再帰清掃する。途中失敗では取得handleの終了を試し、自作物を保持する。通常cargo testからはignoredとし、固定cwd・run指定・fresh不存在を確認したOwnerだけが実行する。
+
+この実測はAPIの適用可能性の確認であり、本番の最終処置、未知child全数照合、旧三件の非使用・削除、固定OS namespace初期化、承認Owner、署名Runtimeまたは公開Recoveryを成立済みにしない。必要なLocal Item数、品質集計と停止Gateは維持する。
+
+### 既知7バイトfileの同handle観測
+
+`ERB-IT-001`で、検証・保持したworkspaceと祖先から固定`fixture.txt`をshareREADで開き、同handleのdisk種別・非Directory／非reparse・リンク数1・7bytes・全bytes／EOF・固定Hash・前後Identityを確認する。Known再照合、観測失敗後の初回close、親guard終了と自作対象の直接不存在を別々に観測する。`ERB-IT-002`で欠落、Known実体差、7bytes内の異内容、6／8bytes、hardlink、既存write／delete handleとの共有競合、Directoryとreparseへの代替を反証する。reparse作成不能の場合は理由と未観測を残し、拒否済みにしない。
+
+`windows::terminal::tests::terminal_known_file_fixture`は固定cwd・run・freshなRepository-local自己生成対象に限定した局所ITである。通常のcargo testではignoredとし、明示Ownerが一回実行する。互換readerが存在しても観測が成功する反例を含め、その成功を非使用証明にしない。保持fileのReaderを終了した後の値は、将来の清掃まで連続保持した根拠ではない。十二実体共同観測と専用Protocolは次の対象一式のCaseで別に確認し、保存・読戻し、旧三Rootの非使用、fresh承認、最終処置・公開Recoveryの義務は未成立のまま残す。
+
+`windows::terminal::tests::terminal_target_fixture`の既知file区間で、九対象handleの同時保持、十二実体Current／namespace-Knownの専用応答、独立した全十二対象Knownの共同照合と個別closeを観測する。十二位置の六field、選択利用者、marker Hash、file長・リンク数・Hashの77差替えは、位置・元理由・九対象closeを保持して拒否する。file内容差と欠落も位置11で拒否する。Knownの比較は対象handle終了前に行い、読取り成功・全closeを未知entry不存在、非使用、保存済み、最終清掃の連続保持へ昇格しない。対象一式の自作物だけを清掃し、現在不存在を別に確認する。通常cargo testでのignoredと、固定Ownerによる実行を区別する。正常なCoordinator→Native搬送、R3保存／読戻し／caller接続、実残存回収と署名RuntimeはこのCaseの対象外である。
+
+`ERB-IT-001`の専用CLI拒否Caseでは、十二実体の保存／読戻しmodeへ旧frame、欠落frame、逆modeおよび余分argvを実Processで渡す。正形状でも独立本文Hashが不一致なら、OS namespace取得前に同参照・nonceを保持して停止し、保存receiptなし・全資源取得0を返す。新しい`CRDDKW03`／`CRDDKB03`と内包`CRDDKR03`、実exit・child joinを確認する。これは拒否経路の実搬送であり、正常な固定OS保存、Root／file消失後の正常読戻し、caller再入場、署名Runtimeまたは全Recoveryの成立根拠ではない。
+
+`ERB-IT-001`／`ERB-IT-002`／`ERB-IT-003`には既知file専用caller記録の実Filesystemと共通leaseの確認を接続する。自己生成Repositoryだけで、十二実体・file条件・完全正規bytesの保存とfresh読戻し、一致再入場の追加記録Effect 0、同参照別内容・旧形式の拒否、取消前の管理／記録Effect 0、lease終了とstage不存在を確認する。専用Native接続の前後で同じcaller bytesを再検証し、未検証実行ContextではProcess Effect 0で同参照を保持する。これらはRepository-local callerの確認であり、保護された固定OS保存、正常Native搬送、返却喪失後の本番再入場、旧三件の非使用・清掃、全Recoveryの成立とは区別する。
+
+専用候補の準備bodyから、実際の自己生成Repositoryのcaller保存へ接続する結合確認を`ERB-IT-001`／`ERB-IT-002`／`ERB-IT-003`の限定範囲へ含める。検証済みRepository Rootと実Runtime Data resolver・正規codec・既存保存Ownerを使用し、同参照のfresh読戻し、一致再入場の追加記録Effect 0、lease終了とstage不存在を確認する。Native観測だけを合成値へ置き換えるため、正常Native観測・固定OS保存と公開Recoveryはこの確認の対象外として保持する。
+
+実境界の保存場所確認では、本番と同じ固定環境でWindows一時領域を解決し、元対象の親実体と同じ境界へ結合できることを要求する。親Processの通常環境で成功しても、本番用環境での解決成功へ読み替えない。環境値の空指定、別場所への解決、取得不能、固定子Directory欠落を拒否例に含め、書込み・ACL修復・別場所へのfallbackを発行しない。OS保存場所の作成・変更は、exact Root、用途、所有者、保持・回復と人間承認を別に確定してから実行する。
+
+今回の実所在確認では、同じ固定Native・frameを通常環境、旧一般Native環境、新Host専用環境で読み取り専用に比較する。所在取得、取得したToken／Directory／対象handleと個別終了を共同で評価し、診断の停止理由を正常保存の結果へ読み替えない。新環境が通常環境と同じ親へ達しても、保存子Directory欠落、旧対象の非使用、初期化許可と正常Native保存は別の未成立事項として保持する。未署名の開発実行物による診断を署名Runtimeの検証へ昇格しない。
+
+共有管理先の保護付き作成は`ERB-IT-003`の限定観測へ含める。作成前に同Tokenの選択利用者・独立親実体・全非reparse chainを確認し、固定Recovery／Terminalだけを作成時からprotected二ACEで作る。適合済み再利用は追加作成0、不適合ACL・同名fileは修復0で拒否する。作成競合後のfresh照合、部分作成・型／ACL拒否とchild close失敗の共同保持、親guard終了を観測する。既存ACL移行は通常作成と別に、開始抑止・終了・変更前後のchild Identity／bytes／保護・旧exact回復の維持を検証する。新Mutexや作成成功だけを非使用または移行許可にしない。
+
+`windows::terminal::host_namespace_creation_tests::host_namespace_creation_fixture`は、固定Repository-localの自己生成r2だけで新規作成、無変更再利用、既存不適合と同名fileの拒否、明示closeと終了後不存在を確認する専用実Windows Caseである。通常cargo testではignoredとし、固定cwd・run・通常選択利用者・先行静的検査を確認したOwnerが直接起動する。制限環境の選択利用者不明は拒否のまま保持し、保護条件を緩めない。作成競合・OS API／close故障刺激、通常producer、署名搬送、既存共有ACL移行と全Recoveryは別の未観測条件である。局所成功をLocal Item全体のPassへ自動昇格しない。[今回の範囲と原記録](../../../99_Roadmap/Changes/CHG-000082/Evidence/261002_host-orphan-recovery-design.md#保護付き作成部品の局所確認--2026-10-04)へ接続する。
+
+通常producerの保護付き作成は、署名Nativeの親観測→独立期待値付き初期化→Root／marker生成の順序を処置する。`ERB-IT-003`の追加局所Caseは、`host-recovery-namespace.integration.test.ts`で現在の本体を使った署名拒否・mode相関・部分処置・transport不明・通常入口の順序を、Native専用r3で本体の作成・再利用・親／利用者差・不適合拒否と個別終了を確認する。専用CLIの不正要求は実Processで取得前拒否を確認する。既存の明示親付き負例は下位primitiveを変更しておらず、署名拒否を元Oracleの代わりにしない。これは局所観測であり、署名付き正常保存、ACL移行、作成競合とAPI／close故障、全Recoveryは未観測のままとする。[接続と限界](../../../99_Roadmap/Changes/CHG-000082/Evidence/261002_host-orphan-recovery-design.md#通常作成入口と専用搬送の接続--2026-10-04)に従い、Local Itemの全体Passや件数を変更しない。
 
 ## Checklist
 

@@ -133,6 +133,9 @@ test("canonical candidate identity is preserved by the integration record", (t) 
     JSON.parse(fs.readFileSync(target, "utf8")).identity,
     candidateId,
   );
+  assert.deepEqual(fs.readdirSync(path.dirname(target)), [
+    `${candidateId}.json`,
+  ]);
 });
 
 /**
@@ -156,6 +159,16 @@ test("an identity collision is blocked without replacing the first record", (t) 
     value: { afterRevision: "a".repeat(40) },
   };
   assert.equal(records.write(first).status, "completed");
+  const directory = path.join(
+    root,
+    ".crdd",
+    "project-runtime",
+    "results",
+    "adoption",
+    "project-a",
+  );
+  const target = path.join(directory, "receipt-a.json");
+  const original = fs.readFileSync(target);
   const collision = records.write({
     ...first,
     value: { afterRevision: "b".repeat(40) },
@@ -165,6 +178,8 @@ test("an identity collision is blocked without replacing the first record", (t) 
     collision.status === "blocked" && collision.manualRecoveryRequired,
     true,
   );
+  assert.deepEqual(fs.readFileSync(target), original);
+  assert.deepEqual(fs.readdirSync(directory), ["receipt-a.json"]);
 });
 
 /**

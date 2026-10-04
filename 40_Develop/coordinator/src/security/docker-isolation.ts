@@ -18,17 +18,20 @@ import {
 } from "./docker-cli-trust.ts";
 
 import {
+  acquireHostOperationRecoveryGenerationByIdentity,
   adoptOwnedHostRecoveryRecordTransition,
   cleanupOwnedOperationDirectories,
   createOwnedMountCapability,
   getOwnedHostRecoveryId,
   recoverOwnedOperationDirectories,
+  releaseHostOperationRecoveryGeneration,
   transitionOwnedDockerSubmissionState,
   verifyOwnedMountCapability,
 } from "./execution-environment.ts";
 import {
   formatHostRecoveryToken,
   loadHostRecoveryRecordByToken,
+  parseHostRecoveryToken,
 } from "./host-recovery-record.ts";
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 
@@ -4218,112 +4221,159 @@ function recoveryMounts(recovery: LoadedDockerRecovery): DockerMounts {
 }
 
 /**
- * recover Docker Isolation Probeを決定する。
+ * Docker診断の回復を同じHost世代の排他内で処置する。
  *
- * @responsibility recover Docker Isolation Probeの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @responsibility 対象を読む前の世代排他、回復記録の現在確認、Docker資源確認、Host清掃と解放を順序付ける。
  * @trace ARCH-000008
- * @input token: unknown
- * @returns recoverDockerIsolationProbeの計算結果を返す。
- * @precondition 「token: unknown」がrecoverDockerIsolationProbeの入力契約を満たす。
- * @postcondition recoverDockerIsolationProbeの責務を完了した結果だけを返す。
- * @effect N/A: recoverDockerIsolationProbeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure recoverDockerIsolationProbeは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant recoverDockerIsolationProbeは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: recoverDockerIsolationProbeはProcess内の同一Subsystemで完結する。
- * @security recoverDockerIsolationProbeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: recoverDockerIsolationProbeは共有非同期状態を持たない同期処理である。
+ * @input 元のexactなDocker診断回復Token。
+ * @returns recoveredまたはblocked。未解決時は現在のexact参照を保持する。
+ * @precondition 元Tokenを提示し、既存生成入口のUUID由来Rootと同じ世代へ結合する。Schema・Hash・対象実体は取得後に確認する。
+ * @postcondition 成功はHost清掃と取得した排他の解放がともに成立した場合だけ返す。
+ * @effect 回復記録の読取り、既存Host排他の取得・解放、必要なDocker回収とHost清掃。
+ * @failure 不正なRoot世代、未取得、Host結合差、下位失敗、解放未確認では停止し、成功へ畳まない。
+ * @invariant Root由来Host nonceをProbe nonceと混同せず、取得後の記録と照合した同じ排他をHost清掃へ渡す。
+ * @boundary 公開診断回復から既存Host世代・Docker・Filesystemへの境界。
+ * @security Tokenを新設せず、元Task再実行、Provider依頼、Docker再起動を行わない。
+ * @concurrency 既存Host／Docker Task回復と同じ対象排他をRoot初回読取り前から清掃終了まで保持する。
  */
 export function recoverDockerIsolationProbe(token: unknown) {
   let activeRecoveryId = token;
-  try {
-    const recovery = loadRecoveryRecord(token);
-    const cli = createTrustedDockerCliCapability();
-    const environment = dockerEnvironment(recovery.children.management);
-    const containerId = recovery.record.container.id;
-    if (!containerId) {
+  let generation: object | null = null;
+  const result = (() => {
+    try {
+      const selected = parseRecoveryToken(token);
+      const hostNonce = selected.rootName.slice(
+        "crdd-coordinator-doctor-".length,
+      );
+      if (
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(
+          hostNonce,
+        )
+      )
+        throw new Error("docker_recovery_host_generation_mismatch");
+      const parent = fs.realpathSync(os.tmpdir());
+      generation = acquireHostOperationRecoveryGenerationByIdentity(
+        path.join(parent, selected.rootName),
+        hostNonce,
+      );
+      if (!generation)
+        return {
+          status: "blocked",
+          reason: "docker_recovery_host_generation_active_or_unknown",
+          recoveryId: activeRecoveryId,
+          hostCleanupCompleted: false,
+        };
+      const recovery = loadRecoveryRecord(token);
+      const host = parseHostRecoveryToken(recovery.record.hostRecoveryId);
+      if (
+        host.rootName !== selected.rootName ||
+        host.rootName !== recovery.parsed.rootName ||
+        host.nonce !== hostNonce
+      )
+        throw new Error("docker_recovery_host_generation_mismatch");
+      const cli = createTrustedDockerCliCapability();
+      const environment = dockerEnvironment(recovery.children.management);
+      const containerId = recovery.record.container.id;
+      if (!containerId) {
+        return {
+          status: "blocked",
+          reason: "docker_recovery_container_identity_unknown",
+          recoveryId: token,
+        };
+      }
+      const identity: ContainerIdentity = {
+        id: containerId,
+        probeId: recovery.record.probeId,
+      };
+      let absenceCapability = null;
+      if (identity.id) {
+        absenceCapability = observeContainerAbsence(
+          cli,
+          environment,
+          identity,
+          recovery.record.hostRecoveryId,
+          recovery.record.rootName,
+        );
+        if (!absenceCapability) {
+          const mounts = recoveryMounts(recovery);
+          const capability = Object.freeze({ kind: "recovered_docker_probe" });
+          containerIdentities.set(capability, Object.freeze(identity));
+          const inspect = inspectOwnedContainer(
+            cli,
+            environment,
+            capability,
+            mounts,
+          );
+          if (!inspect)
+            return {
+              status: "blocked",
+              reason: "docker_recovery_container_mismatch",
+              recoveryId: token,
+            };
+          const cleanup = cleanupOwnedContainer(
+            cli,
+            environment,
+            capability,
+            mounts,
+            recovery.record.hostRecoveryId,
+          );
+          if (!cleanup.confirmed)
+            return {
+              status: "blocked",
+              reason: cleanup.reason,
+              recoveryId: token,
+            };
+          absenceCapability = cleanup.absenceCapability;
+        }
+      }
+      const absence = confirmDockerAbsence(
+        recovery.record.hostRecoveryId,
+        null,
+        absenceCapability,
+        {
+          probeId: identity.probeId,
+          id: identity.id,
+          rootName: recovery.record.rootName,
+          cli,
+        },
+      );
+      activeRecoveryId = absence.hostRecoveryId;
+      const recovered = recoverOwnedOperationDirectories(
+        absence.hostRecoveryId,
+        generation,
+      );
+      const normalized = normalizeHostCleanupResult(
+        recovered,
+        absence.hostRecoveryId,
+        {
+          status: "recovered",
+          reason: "docker_probe_recovery_completed",
+        },
+      );
+      return normalized.hostCleanupCompleted
+        ? normalized
+        : { ...normalized, status: "blocked" };
+    } catch (error) {
       return {
         status: "blocked",
-        reason: "docker_recovery_container_identity_unknown",
-        recoveryId: token,
+        reason: normalizeFailure(error, "docker_probe_recovery_failed"),
+        recoveryId: activeRecoveryId,
+        hostCleanupCompleted: false,
       };
     }
-    const identity: ContainerIdentity = {
-      id: containerId,
-      probeId: recovery.record.probeId,
-    };
-    let absenceCapability = null;
-    if (identity.id) {
-      absenceCapability = observeContainerAbsence(
-        cli,
-        environment,
-        identity,
-        recovery.record.hostRecoveryId,
-        recovery.record.rootName,
-      );
-      if (!absenceCapability) {
-        const mounts = recoveryMounts(recovery);
-        const capability = Object.freeze({ kind: "recovered_docker_probe" });
-        containerIdentities.set(capability, Object.freeze(identity));
-        const inspect = inspectOwnedContainer(
-          cli,
-          environment,
-          capability,
-          mounts,
-        );
-        if (!inspect)
-          return {
-            status: "blocked",
-            reason: "docker_recovery_container_mismatch",
-            recoveryId: token,
-          };
-        const cleanup = cleanupOwnedContainer(
-          cli,
-          environment,
-          capability,
-          mounts,
-          recovery.record.hostRecoveryId,
-        );
-        if (!cleanup.confirmed)
-          return {
-            status: "blocked",
-            reason: cleanup.reason,
-            recoveryId: token,
-          };
-        absenceCapability = cleanup.absenceCapability;
-      }
-    }
-    const absence = confirmDockerAbsence(
-      recovery.record.hostRecoveryId,
-      null,
-      absenceCapability,
-      {
-        probeId: identity.probeId,
-        id: identity.id,
-        rootName: recovery.record.rootName,
-        cli,
-      },
-    );
-    activeRecoveryId = absence.hostRecoveryId;
-    const recovered = recoverOwnedOperationDirectories(absence.hostRecoveryId);
-    const normalized = normalizeHostCleanupResult(
-      recovered,
-      absence.hostRecoveryId,
-      {
-        status: "recovered",
-        reason: "docker_probe_recovery_completed",
-      },
-    );
-    return normalized.hostCleanupCompleted
-      ? normalized
-      : { ...normalized, status: "blocked" };
-  } catch (error) {
+  })();
+  if (generation && !releaseHostOperationRecoveryGeneration(generation))
     return {
+      ...result,
       status: "blocked",
-      reason: normalizeFailure(error, "docker_probe_recovery_failed"),
+      reason: "docker_recovery_host_generation_release_unconfirmed",
       recoveryId: activeRecoveryId,
       hostCleanupCompleted: false,
+      cleanup: "unconfirmed",
+      retainOperationDirectories: true,
+      manualRecoveryRequired: true,
     };
-  }
+  return result;
 }
 
 export const DOCKER_ISOLATION_PROFILE = Object.freeze({

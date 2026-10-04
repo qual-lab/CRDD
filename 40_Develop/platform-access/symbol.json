@@ -4,10 +4,54 @@
   "subsystem": "platform-access",
   "symbols": [
     {
+      "symbolId": "platform-access.source.host-namespace-protocol",
+      "kind": "module",
+      "path": "src/host_namespace_protocol.rs",
+      "archIds": ["ARCH-000008", "ARCH-000011"]
+    },
+    {
+      "symbolId": "platform-access.test.integration.host-namespace-protocol",
+      "kind": "test-suite",
+      "path": "src/host_namespace_protocol.rs",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-IT-003"],
+      "verifies": ["platform-access.source.host-namespace-protocol"]
+    },
+    {
+      "symbolId": "platform-access.test.integration.host-namespace-creation",
+      "kind": "test-suite",
+      "path": "tests/fixtures/host_namespace_creation.rs",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-IT-003"],
+      "verifies": ["platform-access.source.windows-terminal", "platform-access.source.host-namespace-protocol"]
+    },
+    {
+      "symbolId": "platform-access.source.terminal-protocol",
+      "kind": "module",
+      "path": "src/terminal_protocol.rs",
+      "archIds": ["ARCH-000008", "ARCH-000011"]
+    },
+    {
+      "symbolId": "platform-access.test.unit.terminal-protocol",
+      "kind": "test-suite",
+      "path": "src/terminal_protocol.rs",
+      "qaIds": ["QA-000003"],
+      "localTestIds": ["PRL-UT-006"],
+      "verifies": ["platform-access.source.terminal-protocol"]
+    },
+    {
+      "symbolId": "platform-access.test.integration.windows-protection",
+      "kind": "test-suite",
+      "path": "tests/fixtures/windows_protection.rs",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-IT-001", "ERB-IT-002"],
+      "verifies": ["platform-access.native-entry"]
+    },
+    {
       "symbolId": "platform-access.source.windows-terminal",
       "kind": "module",
       "path": "src/windows_terminal.rs",
-      "archIds": ["ARCH-000008", "ARCH-000011"]
+      "archIds": ["ARCH-000008", "ARCH-000011", "ARCH-000015"]
     },
     {
       "symbolId": "platform-access.test.integration.windows-terminal",
@@ -15,7 +59,10 @@
       "path": "src/windows_terminal.rs",
       "qaIds": ["QA-000006"],
       "localTestIds": ["ERB-IT-001", "ERB-IT-002", "ERB-IT-003"],
-      "verifies": ["platform-access.source.windows-terminal"]
+      "verifies": [
+        "platform-access.source.windows-terminal",
+        "coordinator.source.src.security.candidate.store.kernel.lock"
+      ]
     },
     {
       "symbolId": "platform-access.native-entry",
@@ -91,7 +138,8 @@
         "QA-000006"
       ],
       "localTestIds": [
-        "ERB-IT-001"
+        "ERB-IT-001",
+        "ERB-IT-003"
       ],
       "verifies": [
         "platform-access.native-entry"

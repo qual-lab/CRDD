@@ -250,7 +250,7 @@ test("controllerは解放失敗を成功へ戻さずOwner世代を再使用し�
  */
 test("controllerは再取得失敗後のcloseを成功へ変えない", () => {
   for (const mode of ["null", "throw"]) {
-    for (const effectThrows of [false, true]) {
+    for (const doesEffectThrow of [false, true]) {
       let acquisitions = 0;
       let releases = 0;
       let effects = 0;
@@ -285,7 +285,7 @@ test("controllerは再取得失敗後のcloseを成功へ変えない", () => {
         () =>
           controller.outsideLock(() => {
             effects += 1;
-            if (effectThrows) throw original;
+            if (doesEffectThrow) throw original;
             return "effect_done";
           }),
         (error: unknown) => {
@@ -294,7 +294,7 @@ test("controllerは再取得失敗後のcloseを成功へ変えない", () => {
             error.message,
             "docker_task_runtime_state_generation_active_or_unknown",
           );
-          assert.equal(error.cause, effectThrows ? original : undefined);
+          assert.equal(error.cause, doesEffectThrow ? original : undefined);
           return true;
         },
       );

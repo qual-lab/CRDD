@@ -5066,7 +5066,7 @@ test("廃止済みPathの参照は固定履歴と移行説明にだけ残る", (
  */
 function testHeaderTagValue(header: string, tag: string): string | null {
   const match = new RegExp(
-    `^\\s*(?:\\*|///)\\s+@${tag}\\s+(\\S(?:.*\\S)?)\\s*$`,
+    `^[ \\t]*(?:\\*|///|//!)[ \\t]+@${tag}[ \\t]+(\\S(?:[^\\r\\n]*\\S)?)[ \\t]*\\r?$`,
     "mu",
   ).exec(header);
   return match?.[1] ?? null;
@@ -5086,7 +5086,7 @@ function testHeaderTagValue(header: string, tag: string): string | null {
  */
 function testHeaderTagValues(header: string, tag: string): readonly string[] {
   const pattern = new RegExp(
-    `^\\s*(?:\\*|///)\\s+@${tag}\\s+(\\S(?:.*\\S)?)\\s*$`,
+    `^[ \\t]*(?:\\*|///|//!)[ \\t]+@${tag}[ \\t]+(\\S(?:[^\\r\\n]*\\S)?)[ \\t]*\\r?$`,
     "gmu",
   );
   return [
@@ -5144,15 +5144,24 @@ function assertTestHeader(
   allowedLocalItemIds: readonly string[],
   expectedLevel: string,
   location: string,
-  traceCardinality: "exact-one" | "one-or-more",
 ): readonly string[] {
   assert.notEqual(header, "", `Test Header missing: ${location}`);
   const summary = header
     .split(/\r?\n/u)
-    .map((line) => line.replace(/^\s*(?:\/\*\*|\*\/?|\/{3})\s?/u, "").trim())
+    .map((line) =>
+      line.replace(/^[ \t]*(?:\/\*\*|\*\/?|\/\/[!/])[ \t]?/u, "").trim(),
+    )
     .find((line) => line.length > 0 && !line.startsWith("@"));
   assert.ok(summary, `Test Header summary missing: ${location}`);
   for (const tag of requiredTags) {
+    if (tag === "packageDocumentation") {
+      assert.match(
+        header,
+        /^[ \t]*(?:\*|\/\/!)[ \t]+@packageDocumentation[ \t]*\r?$/mu,
+        `Test Header @packageDocumentation missing: ${location}`,
+      );
+      continue;
+    }
     const value = testHeaderTagValue(header, tag);
     assert.notEqual(value, null, `Test Header @${tag} missing: ${location}`);
     if (value?.startsWith("N/A"))
@@ -5164,12 +5173,6 @@ function assertTestHeader(
   }
   const traces = testHeaderTagValues(header, "trace");
   assert.ok(traces.length > 0, `Test Header @trace missing: ${location}`);
-  if (traceCardinality === "exact-one")
-    assert.equal(
-      traces.length,
-      1,
-      `Test Case must own one Local Item: ${location}`,
-    );
   for (const trace of traces) {
     assert.match(
       trace,
@@ -5196,6 +5199,294 @@ function assertTestHeader(
 }
 
 /**
+ * 純Test FileのHeaderと宣言段階を同じ規則で検査する。
+ *
+ * @responsibility TypeScriptとRustのFile Headerを同じ必須項目・Symbol集合へ結ぶ。
+ * @trace RCM-IT-005
+ * @precondition 純Test Fileであり、実在Local Item集合と期待段階が確定している。
+ * @stimulus 先頭TSDocまたはRustdoc module Headerを取り出して検査する。
+ * @observation 欠落、段階差、Trace集合差をassertionで取得する。
+ * @oracle 全固定項目、実在・同段階TraceとSymbolの完全集合が成立した場合だけ返る。
+ * @cleanup N/A: Source文字列と読取り済み集合だけを扱う。
+ * @boundary Coding Standardsの純Test File契約→Catalog／Symbol照合。
+ */
+function assertTestFileHeader(
+  source: string,
+  allowedLocalItemIds: readonly string[],
+  expectedLevel: string,
+  location: string,
+): void {
+  const header = source.startsWith("//!")
+    ? (source.match(/^(?:\/\/![^\r\n]*(?:\r?\n|$))+/u)?.[0] ?? "")
+    : (source.match(/^\/\*\*[\s\S]*?\*\//u)?.[0] ?? "");
+  const traces = assertTestHeader(
+    header,
+    [
+      "packageDocumentation",
+      "responsibility",
+      "trace",
+      "level",
+      "scope",
+      "boundary",
+    ],
+    allowedLocalItemIds,
+    expectedLevel,
+    `${location}:file`,
+  );
+  assert.equal(
+    testHeaderTagValue(header, "level"),
+    expectedLevel,
+    `Test File declared level mismatch: ${location}`,
+  );
+  assert.deepEqual(
+    [...traces].sort(),
+    [...allowedLocalItemIds].sort(),
+    `Test File trace set must equal Test Symbol relation: ${location}`,
+  );
+}
+
+/**
+ * Rust関数の直前属性からCaseとHelperの重複を避ける。
+ *
+ * @responsibility test／ignore属性を持つ関数を一つのCaseとして扱う。
+ * @trace RCM-IT-005
+ * @precondition Sourceは行分割済みで、indexはNamed fn宣言を指す。
+ * @stimulus 空行と連続した直前属性だけを逆順に確認する。
+ * @observation test属性がある場合だけtrueを返す。
+ * @oracle 無関係なCodeやCommentを越えず、通常HelperをCase扱いしない。
+ * @cleanup N/A: 入力配列を変更しない。
+ * @boundary 純Rust試験Sourceの構文→Case／Helperの局所分類。
+ */
+function rustFunctionIsTestCase(
+  lines: readonly string[],
+  index: number,
+): boolean {
+  for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
+    const line = lines[cursor]?.trim() ?? "";
+    if (line === "") continue;
+    if (!/^#\[[^\r\n]*\]$/u.test(line)) return false;
+    if (/^#\[(?:tokio::)?test\]$/u.test(line)) return true;
+  }
+  return false;
+}
+
+/**
+ * 一つ以上のTest Traceと拒否条件を同じ判定関数で確認する。
+ *
+ * @responsibility 正本が許す複数Traceを受理し、必須条件の緩和を反証する。
+ * @trace RCM-IT-005
+ * @precondition 実在Quality Local Item集合が読取り済みである。
+ * @stimulus 複数正常、0件、未知ID、他段階、Symbol外Traceを与える。
+ * @observation assertTestHeaderの戻り値とassertionを取得する。
+ * @oracle 複数の同段階・実在・Symbol内Traceだけ受理し、各負例を拒否する。
+ * @cleanup N/A: memoryと正本の読取りだけである。
+ * @boundary Test Headerの判定関数とCoding Standardsの一つ以上契約。
+ */
+test("Test Headerは複数の正しいTraceを受理し必須条件を維持する", () => {
+  const prefix =
+    "/**\n * 参照集合の局所fixture。\n * @responsibility 正常と負例のshapeだけを構成する。\n";
+  const ids = ["ERB-IT-001", "ERB-IT-002"];
+  const valid = `${prefix}${ids.map((id) => ` * @trace ${id}`).join("\n")}\n */`;
+  assert.deepEqual(
+    assertTestHeader(valid, ["responsibility", "trace"], ids, "IT", "fixture"),
+    ids,
+  );
+  assert.throws(
+    () =>
+      assertTestHeader(
+        `${prefix} */`,
+        ["responsibility", "trace"],
+        ids,
+        "IT",
+        "fixture",
+      ),
+    /@trace missing/u,
+  );
+  assert.throws(
+    () =>
+      assertTestHeader(
+        `${prefix} * @trace ZZZ-IT-999\n */`,
+        ["responsibility", "trace"],
+        ["ZZZ-IT-999"],
+        "IT",
+        "fixture",
+      ),
+    /trace not found/u,
+  );
+  assert.throws(
+    () =>
+      assertTestHeader(
+        valid,
+        ["responsibility", "trace"],
+        ids,
+        "UT",
+        "fixture",
+      ),
+    /level mismatch/u,
+  );
+  assert.throws(
+    () =>
+      assertTestHeader(
+        valid,
+        ["responsibility", "trace"],
+        ["ERB-IT-001"],
+        "IT",
+        "fixture",
+      ),
+    /outside Test Symbol relation/u,
+  );
+  assert.throws(
+    () =>
+      assertTestHeader(
+        valid,
+        ["responsibility", "trace", "oracle"],
+        ids,
+        "IT",
+        "fixture",
+      ),
+    /@oracle missing/u,
+  );
+});
+
+/**
+ * Test File Headerの同じ契約をTSとRustで反証する。
+ *
+ * @responsibility File先頭の必須項目、段階とTrace集合の検査欠落を防ぐ。
+ * @trace RCM-IT-005
+ * @precondition ERB-IT-001／002が実在する。
+ * @stimulus 両形式へ正常、項目欠落、空値、異段階、未知ID、Symbol外と集合不足を与える。
+ * @observation 同じFile検査関数の正常返却と拒否assertionを取得する。
+ * @oracle 裸packageDocumentationだけをmarkerとして受理し、他の空値を次行から補完しない。
+ * @cleanup N/A: memory上のfixtureだけを使用する。
+ * @boundary 純Test File契約とTS／RustのComment形式。
+ */
+test("Test File HeaderはRustとTypeScriptで同じ固定項目を検査する", () => {
+  const ids = ["ERB-IT-001", "ERB-IT-002"];
+  const tags = [
+    "@packageDocumentation",
+    "@responsibility File全体の局所検査。",
+    ...ids.map((id) => `@trace ${id}`),
+    "@level IT",
+    "@scope 正常と拒否のmemory fixture。",
+    "@boundary N/A: 外部資源を扱わない。",
+  ];
+  for (const prefix of [" *", "//!"]) {
+    /**
+     * 固定項目を二つのComment形式へ配置する。
+     *
+     * @responsibility 正常と拒否の同じ項目集合をTSDoc／Rustdoc文字列へ変換する。
+     * @trace RCM-IT-005
+     * @precondition Caseが形式prefixと評価する項目を指定する。
+     * @stimulus 固定Summaryと項目を改行で連結する。
+     * @observation File先頭へ置くHeader文字列を返す。
+     * @oracle Header検査関数が両形式の同じ正常・拒否条件を判定できる。
+     * @cleanup N/A: memory上の文字列だけを作成する。
+     * @boundary Comment形式の局所fixtureでありSourceや外部資源は変更しない。
+     */
+    const build = (values: readonly string[]) =>
+      `${prefix === " *" ? "/**\n" : ""}${prefix} File Headerのfixture。\n${values.map((value) => `${prefix} ${value}`).join("\n")}\n${prefix === " *" ? " */\n" : ""}`;
+    const valid = build(tags);
+    assertTestFileHeader(valid, ids, "IT", "fixture");
+    for (const tag of [
+      "packageDocumentation",
+      "responsibility",
+      "trace",
+      "level",
+      "scope",
+      "boundary",
+    ]) {
+      assert.throws(
+        () =>
+          assertTestFileHeader(
+            build(tags.filter((value) => !value.startsWith(`@${tag}`))),
+            ids,
+            "IT",
+            "fixture",
+          ),
+        /missing/u,
+      );
+    }
+    for (const tag of [
+      "responsibility",
+      "trace",
+      "level",
+      "scope",
+      "boundary",
+    ]) {
+      assert.throws(
+        () =>
+          assertTestFileHeader(
+            build(
+              tags.map((value) =>
+                value.startsWith(`@${tag}`) ? `@${tag} ` : value,
+              ),
+            ),
+            ids,
+            "IT",
+            "fixture",
+          ),
+        /missing/u,
+      );
+    }
+    assert.throws(
+      () =>
+        assertTestFileHeader(
+          build(
+            tags.map((value) => (value === "@level IT" ? "@level UT" : value)),
+          ),
+          ids,
+          "IT",
+          "fixture",
+        ),
+      /declared level mismatch/u,
+    );
+    assert.throws(
+      () =>
+        assertTestFileHeader(
+          build(
+            tags.map((value) =>
+              value === "@trace ERB-IT-001" ? "@trace ZZZ-IT-999" : value,
+            ),
+          ),
+          [...ids, "ZZZ-IT-999"],
+          "IT",
+          "fixture",
+        ),
+      /trace not found/u,
+    );
+    assert.throws(
+      () => assertTestFileHeader(valid, [ids[0]], "IT", "fixture"),
+      /outside Test Symbol relation/u,
+    );
+    assert.throws(
+      () =>
+        assertTestFileHeader(
+          build(tags.filter((value) => value !== "@trace ERB-IT-002")),
+          ids,
+          "IT",
+          "fixture",
+        ),
+      /trace set must equal/u,
+    );
+  }
+  assert.equal(
+    rustFunctionIsTestCase(["/// Helper。", "fn helper() {}"], 1),
+    false,
+  );
+  assert.equal(
+    rustFunctionIsTestCase(["#[test]", "#[ignore]", "fn case() {}"], 2),
+    true,
+  );
+  assert.equal(
+    rustFunctionIsTestCase(
+      ["#[test]", "const unrelated: u8 = 0;", "fn helper() {}"],
+      2,
+    ),
+    false,
+  );
+});
+
+/**
  * 全Test SourceをQuality Local Itemへ一意に接続するを検証する。
  *
  * @responsibility Test Catalog、Source Header、Symbol RelationおよびQuality Local Itemの全数整合を検証する。
@@ -5203,7 +5494,7 @@ function assertTestHeader(
  * @precondition Test Catalog、Quality Definitionおよび各Subsystemのsymbol.jsonが読取り可能である。
  * @stimulus 登録済みTest Sourceを全件走査してHeaderとRelationを照合する。
  * @observation Catalog件数、Test宣言、Header tag、Trace、段階およびSymbol Relationを取得する。
- * @oracle Test FileはCase／HelperのLocal Item和集合へ接続し、個別Test Caseは一つ、Named Helperは一つ以上の同段階Local Itemを持つ。
+ * @oracle Test FileはCase／HelperのLocal Item和集合へ接続し、個別Test CaseとNamed Helperは一つ以上の実在・同段階Local Itemを持つ。
  * @cleanup N/A: 読取り専用検査でありRepositoryを変更しない。
  * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
@@ -5317,26 +5608,11 @@ test("全Test SourceをQuality Local Itemへ責務単位で接続する", () => 
 
     const lines = source.split(/\r?\n/u);
     if (catalogTest.path.endsWith(".ts")) {
-      const fileHeader = source.match(/^\/\*\*[\s\S]*?\*\//u)?.[0] ?? "";
-      const fileTraces = assertTestHeader(
-        fileHeader,
-        [
-          "packageDocumentation",
-          "responsibility",
-          "trace",
-          "level",
-          "scope",
-          "boundary",
-        ],
+      assertTestFileHeader(
+        source,
         normalizedLocalTestIds,
         expectedLevel,
-        `${catalogTest.path}:file`,
-        "one-or-more",
-      );
-      assert.deepEqual(
-        [...fileTraces].sort(),
-        normalizedLocalTestIds,
-        `Test File trace set must equal Test Symbol relation: ${catalogTest.id}`,
+        catalogTest.path,
       );
       const usedLocalItemIds = new Set<string>();
       for (let index = 0; index < lines.length; index += 1) {
@@ -5365,7 +5641,6 @@ test("全Test SourceをQuality Local Itemへ責務単位で接続する", () => 
           normalizedLocalTestIds,
           expectedLevel,
           `${catalogTest.path}:${index + 1}`,
-          isTestCase ? "exact-one" : "one-or-more",
         );
         for (const trace of traces) usedLocalItemIds.add(trace);
       }
@@ -5375,10 +5650,25 @@ test("全Test SourceをQuality Local Itemへ責務単位で接続する", () => 
         `Test Symbol relation must be used by a Case or Helper: ${catalogTest.id}`,
       );
     } else if (catalogTest.path.endsWith(".rs")) {
+      const isPureTestFile = relativePath.startsWith("tests/");
+      if (isPureTestFile)
+        assertTestFileHeader(
+          source,
+          normalizedLocalTestIds,
+          expectedLevel,
+          catalogTest.path,
+        );
       const usedLocalItemIds = new Set<string>();
       for (let index = 0; index < lines.length; index += 1) {
-        if (!/^\s*#\[(?:tokio::)?test\]\s*$/u.test(lines[index] ?? ""))
-          continue;
+        const line = lines[index] ?? "";
+        const isCase = /^\s*#\[(?:tokio::)?test\]\s*$/u.test(line);
+        const isHelper =
+          isPureTestFile &&
+          /^\s*(?:pub(?:\([^)]*\))?\s+)?(?:(?:async|unsafe|const|extern(?:\s+"[^"]+")?)\s+)*fn\s+[A-Za-z_]\w*/u.test(
+            line,
+          ) &&
+          !rustFunctionIsTestCase(lines, index);
+        if (!isCase && !isHelper) continue;
         const traces = assertTestHeader(
           testHeaderBefore(lines, index),
           [
@@ -5394,7 +5684,6 @@ test("全Test SourceをQuality Local Itemへ責務単位で接続する", () => 
           normalizedLocalTestIds,
           expectedLevel,
           `${catalogTest.path}:${index + 1}`,
-          "exact-one",
         );
         for (const trace of traces) usedLocalItemIds.add(trace);
       }

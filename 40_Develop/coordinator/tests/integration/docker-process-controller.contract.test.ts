@@ -614,6 +614,148 @@ const providerStartObservationTaskOutput = createProviderOutput({
 });
 
 /**
+ * 作成境界の一次失敗を清掃結果から分離して検証する。
+ *
+ * @responsibility 要求前例外、応答、期限超過、記録失敗を区別し原因の上書きを拒否する。
+ * @trace ERB-IT-002
+ * @precondition 自己生成のController fixtureだけを使用する。
+ * @stimulus 作成境界の各段階と清掃の成功・失敗・例外を組み合わせる。
+ * @observation 終了診断、最終結果と後続Command件数を取得する。
+ * @oracle 一次失敗は清掃状態によらず不変で、清掃不明時の安全結果を維持する。
+ * @cleanup N/A: Docker、ProviderやFilesystem資源を作成しない。
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→Command／清掃Adapter→診断
+ */
+test("作成境界の一次失敗を清掃結果から分離する", async () => {
+  const scenarios = [
+    "submission_false",
+    "submission_throw",
+    "start_throw",
+    "wait_throw",
+    "timeout",
+    "timeout_termination_throw",
+    "nonzero",
+    "receipt_false",
+    "receipt_throw",
+    "secret_exception",
+  ];
+  for (const scenario of scenarios) {
+    for (const cleanupMode of ["complete", "unknown", "throw"]) {
+      const notices: Array<Record<string, unknown>> = [];
+      let startCount = 0;
+      const fixture = createFixture({
+        reportProviderBoundaryDiagnostic: (notice: Record<string, unknown>) => {
+          notices.push(notice);
+        },
+        markResourceSubmission: () => {
+          if (scenario === "submission_throw") throw new Error("EACCES");
+          return scenario !== "submission_false";
+        },
+        startCommand: () => {
+          startCount += 1;
+          if (scenario === "start_throw")
+            throw new Error("docker_effect_plan_invalid");
+          if (scenario === "secret_exception")
+            throw new Error("secret-value-must-not-escape");
+          return {
+            started: async () => true,
+            wait: async () => {
+              if (scenario === "wait_throw") throw new Error("ECONNREFUSED");
+              if (scenario.startsWith("timeout")) return null;
+              return {
+                status: scenario === "nonzero" ? 1 : 0,
+                signal: null,
+                stdout: "fixed-id",
+                stderr: "secret-value-must-not-escape",
+                outputExceeded: false,
+              };
+            },
+            terminateAndWait: async () => {
+              if (scenario === "timeout_termination_throw")
+                throw new Error("EPIPE");
+              return true;
+            },
+          };
+        },
+        recordResourceReceipt: () => {
+          if (scenario === "receipt_throw") throw new Error("EPERM");
+          return false;
+        },
+        cleanupOwnedResources: async () => {
+          if (cleanupMode === "throw") throw new Error("secret-cleanup-error");
+          return {
+            confirmed: cleanupMode === "complete",
+            processTreeTerminated: cleanupMode === "complete",
+            containersAbsent: cleanupMode === "complete",
+            networksAbsent: cleanupMode === "complete",
+          };
+        },
+      });
+      const started = fixture.controller.start(
+        fixture.preparedCapability,
+        fixture.managementCapability,
+      );
+      const result = await started.completion;
+      assert.ok(result);
+      assert.equal(startCount, scenario.startsWith("submission") ? 0 : 1);
+      const settled = notices.find(
+        (notice) => notice.event === "coordinator_provider_boundary_settled",
+      );
+      assert.ok(settled);
+      const primary = settled.primaryFailure as Record<string, unknown>;
+      assert.equal(primary.purpose, "create_subscription_auth_probe");
+      assert.equal(
+        primary.stage,
+        scenario.startsWith("submission")
+          ? "submission_record"
+          : scenario === "start_throw" || scenario === "secret_exception"
+            ? "command_start"
+            : scenario === "wait_throw"
+              ? "command_wait"
+              : scenario.startsWith("receipt")
+                ? "resource_receipt_record"
+                : "execution_classification",
+      );
+      assert.equal(
+        primary.reason,
+        scenario === "submission_false"
+          ? "docker_resource_submission_record_unavailable"
+          : scenario === "receipt_false"
+            ? "docker_resource_receipt_unavailable"
+            : scenario.startsWith("timeout")
+              ? "docker_setup_deadline_exceeded"
+              : scenario === "nonzero"
+                ? "docker_setup_create_subscription_auth_probe_failed"
+                : "docker_process_controller_execution_failed_closed",
+      );
+      assert.equal(
+        primary.commandHandleObtained,
+        !scenario.startsWith("submission") &&
+          scenario !== "start_throw" &&
+          scenario !== "secret_exception",
+      );
+      assert.equal(
+        primary.responseObserved,
+        scenario === "nonzero" || scenario.startsWith("receipt"),
+      );
+      assert.equal(primary.receiptRecorded, false);
+      assert.equal(settled.cleanupConfirmed, cleanupMode === "complete");
+      if (cleanupMode !== "complete")
+        assert.equal(
+          result.reason,
+          "docker_process_controller_cleanup_unconfirmed",
+        );
+      assert.equal(JSON.stringify(settled).includes("secret-"), false);
+      if (scenario === "start_throw")
+        assert.equal(primary.exceptionCode, "docker_effect_plan_invalid");
+      if (scenario === "secret_exception")
+        assert.equal(primary.exceptionCode, "unclassified_exception");
+      if (scenario === "timeout_termination_throw")
+        assert.equal(primary.exceptionCode, null);
+    }
+  }
+});
+
+/**
  * Workbench助言出力をcleanup後の助言JSONへ縮約することを検証する。
  *
  * @responsibility 第3実行モードのPlan受理、Provider Envelope除去および終了後公開境界を判定する。
@@ -637,6 +779,7 @@ test("Workbench助言出力をcleanup後の助言JSONへ縮約する", async () 
     additionalInferences: [],
     nextOptions: [],
   };
+
   const fixture = createFixture(
     {
       startCommand: (command: { purpose: string }) => {
@@ -944,6 +1087,15 @@ test("Provider境界診断は実行構成とProcess・cleanup観測を本文な�
       containersAbsentObserved: true,
       networksAbsentObserved: true,
       cleanupConfirmed: true,
+      primaryFailure: {
+        purpose: "start_provider_attached",
+        stage: "execution_classification",
+        reason: "provider_process_exit_nonzero",
+        exceptionCode: null,
+        commandHandleObtained: true,
+        responseObserved: true,
+        receiptRecorded: false,
+      },
     },
   ]);
 });
@@ -3731,7 +3883,7 @@ test("公開契約はtimeout、cancel、cleanup、Recoveryと秘密非出力を�
   assert.equal(contract.providerTimeoutMs, 300_000);
   assert.equal(contract.cancellationGraceMs, 5_000);
   assert.equal(contract.recoveryBeforeDockerEffect, true);
-  assert.equal(contract.contractRevision, 30);
+  assert.equal(contract.contractRevision, 31);
   assert.match(contract.subscriptionAuthentication, /required_before/u);
   assert.match(contract.subscriptionAuthentication, /stdout_stderr_shape/u);
   assert.match(contract.subscriptionOffering, /exact_match_required/u);

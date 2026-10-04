@@ -170,7 +170,7 @@ const OPTIONAL_REQUEST_KEYS = Object.freeze([
 const requestKeySets = Object.freeze(
   Array.from(
     { length: 2 ** OPTIONAL_REQUEST_KEYS.length },
-    (_, mask) => mask,
+    (_entry, mask) => mask,
   ).map(
     (mask) =>
       new Set([

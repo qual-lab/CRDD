@@ -2,7 +2,7 @@
 
 状態: Quality Design Ready — Reality Audit Pending
 担当責任者: Qual-Lab
-最終更新日: 2026-10-03
+最終更新日: 2026-10-04
 
 現在注記: v0.21の最終署名照合は履歴Baselineとして完了している。v0.22の署名候補Commit `45254e2b`と是正済み検証Tool `1b756ac2`によるProject Runtime公開MCP実Provider E2Eは、Run `2e55c8cd2897464b`で合格した。通常二経路、取消、exact Recoveryおよび最終資源回収を確認し、再入場後は意図どおり人間の採用判断待ちで停止した。Workbench実Provider E2E、必要な四経路E2E、個別品質項目の照合および最終配布の再署名は残るため、Quality Readyへ昇格しない。
 
@@ -15,8 +15,8 @@
 | 観測済み | 13 / 46 | v0.21からの移管母集団に対する進捗。既観測12件にShared Gateway非開示境界の`RFD-ST-004`を追加した。[新しい根拠と限界](../99_Roadmap/Changes/CHG-000082/Evidence/261002_shared-gateway-non-disclosure.md) |
 | 未観測 | 33 / 46 | 同じ移管母集団の未観測。移管一覧を採用済みRelease Scopeと同一視せず、Trust項目の対応を再照合する。Native局所試験だけで024〜030を観測済みにしない |
 | 既知Gap | Phase 5 Release Verification進行中 | Project Runtime公開MCP E2Eと最終回復在庫確認は合格した。モデル／Host移行と助言専用起動制限は承認済み。固定候補のNative二十一試験は実行済みで、024の起動Policyと025～029の実Host局所根拠へ対応付けた。ただし、共通試験Home／Workspaceの所有者清掃後の不存在は未観測であり、Local Item全体の観測済み件数を増やしていない。保存ログの成功、未充足の終了後条件、公開CLI030および実Provider成立を区別する。現在の通信断とHost残存三件は別の未解決事項であり、必要な四経路、個別品質項目および最終配布の照合も未完了である。詳細は[Native試験のQuality適用と清掃観測Gap](../99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md#native二十一試験のquality適用と清掃観測gap2026-10-02)を参照する |
-| 次Gate | 現在は新しい実Taskを停止。残存Hostのexact対象・回収Authorityと通信断の原因層を確認し、再開条件成立後にWorkbench実Provider E2E、必要な四経路E2E、個別品質項目の照合、最終配布固定と署名照合を行う | [CHG-000082](../99_Roadmap/Changes/CHG-000082/change.md)、[候補通信診断と終了待ち](../99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md#候補d36a9decの署名通信切断の切り分けと終了待ちの不足) |
-| 現在人間判断 | 限定Recovery追加と、Coordinator所有処理の終了・利用抑止・排他で閉じる方向の調査・是正は承認済み。Windows再起動を前提にしない | 方式採否待ちではなく再設計中。候補判定の第一単位のみ完了で、旧形式の非使用・OS保証・実観測・処置Authority・削除・公開入口は未成立。実Process停止・実在三件の削除は別承認であり、新実Task停止を維持する。[現在記録](../99_Roadmap/Changes/CHG-000082/Evidence/261002_host-orphan-recovery-design.md) |
+| 次Gate | 是正前の全E2E収集を継続する予定だが、確認入力後のforward経路でReviewer開始と資源回収が未成立。通常回収と承認済み再起動も拒否され、残る実Taskを開始できない | [全体確認の途中結果](../99_Roadmap/Changes/CHG-000082/Evidence/261004_all-e2e-collection.md)。今回の実行阻害だけを先に是正して収集へ戻すか人間へ確認する。全体合格やQuality件数増加へ読み替えない。 |
+| 現在人間判断 | 今回の実行阻害だけを先に是正し、残りのE2E収集へ戻すか | 既存手順では今回の回復待ちを解消できない。ACL移行、旧三件の削除、汎用Recovery追加、未観測義務の免除またはRelease承認を含めない。[方針と境界](../99_Roadmap/Changes/CHG-000082/Evidence/261004_all-e2e-collection.md) |
 
 ## 設計集合
 

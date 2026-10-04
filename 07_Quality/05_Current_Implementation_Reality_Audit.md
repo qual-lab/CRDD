@@ -200,7 +200,7 @@ Sandbox内ではProcess列挙が`Access denied`となり、取消試験も子Pro
 
 | 旧Property | 現在のOwner | Coordinator | Project Runtime | 移行判定 |
 |---|---|---:|---:|---|
-| Resource／State／Transition／Invariant等の設計意味 | Architecture Details | 10 Resource、32 State、31 Transition、5分類、12 Invariant | 9 Interface、10 Record、14 Resource、4 Lock、7 Authority、9 Effect、7 State Machine、54 Action Binding、32 Invariant、16 Failure Injection | Project Runtimeは構造化済み。Coordinatorは一部が文章から決定論的に再生成できず、Details補強が必要 |
+| Resource／State／Transition／Invariant等の設計意味 | Architecture Details | 10 Resource、32 State、31 Transition、5分類、12 Invariant | 9 Interface、10 Record、14 Resource、4 Lock、7 Authority、9 Effect、7 State Machine、54 Action Binding、33 Invariant、16 Failure Injection | Project Runtimeは構造化済み。Coordinatorは一部が文章から決定論的に再生成できず、Details補強が必要 |
 | Effect観測範囲 | Architecture Detailsの状態遷移契約 | `transition_delta` | 非該当 | Coordinatorの遷移観測規則としてDetailsへ明示してから生成する |
 | Implementation Binding | `40_Develop/*/symbol.json` | 旧JSONでは独立集合なし | 9件 | Symbol側へ移行し、旧JSONへ二重記録しない |
 | Verification Binding | Quality Definition＋Test Symbol | 25件 | 23件 | Local ItemとTest Symbolへ移行する |
@@ -208,6 +208,8 @@ Sandbox内ではProcess列挙が`Access denied`となり、取消試験も子Pro
 | Schema／Revision／参照先 | 生成契約のHeader | あり | あり | 生成物のIdentityとしてのみ保持する |
 
 Propertyの全数はCoordinator 11件、Project Runtime 16件である。Semantic CoverageのMigration Inventoryは、上表の配列とObjectだけでなく、`schema`、`schemaRevision`、参照先および`effectObservationScope`を含むルートProperty全件にOwnerを必須化する。未分類Propertyが追加された場合はMigration Inventoryを発行しない。
+
+2026-10-04の[読み取り専用再確認](../99_Roadmap/Changes/CHG-000082/Evidence/261002_quality-item-reconciliation.md#旧traceability-jsonの廃止条件再確認--2026-10-04)では、上表の現行件数とID欠落0を確認した。ただし、Migration Inventoryの`identityCoverage: complete`は識別子の所在を確認した結果であり、各項目の値・関係が正本と同等であることを証明しない。メモリ上だけでProject Runtimeの`interfaces[0].owner`を変えてもInventoryが変わらない反例を確認した。`semanticShape: structured`も移行済みの判定ではない。値・関係の同等性と全利用側の移行は、§11.3の廃止Gateで引き続き確認する。
 
 ### 11.2 現在のConsumer
 

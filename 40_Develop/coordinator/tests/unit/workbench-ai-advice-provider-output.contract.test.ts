@@ -445,33 +445,36 @@ test("Claude拒否層は先頭不成立だけを返し受理集合を変えな�
     );
   for (const type of ["result", "other"])
     for (const subtype of ["success", "error"])
-      for (const is_error of [false, true])
-        for (const num_turns of [1, 2, 0, 3, 1.5, "2", null])
-          for (const total_cost_usd of [0, -1, "0", null])
-            for (const structured_output of [ADVICE, null, []]) {
+      for (const isError of [false, true])
+        for (const turnCount of [1, 2, 0, 3, 1.5, "2", null])
+          for (const totalCostUsd of [0, -1, "0", null])
+            for (const structuredOutput of [ADVICE, null, []]) {
               const result = extractWorkbenchAiAdviceProviderOutput(
                 "claude",
                 JSON.stringify({
                   type,
                   subtype,
-                  is_error,
-                  num_turns,
-                  total_cost_usd,
-                  structured_output,
+                  is_error: isError,
+                  num_turns: turnCount,
+                  total_cost_usd: totalCostUsd,
+                  structured_output: structuredOutput,
                 }),
               );
-              const oldAccepted =
+              const wasPreviouslyAccepted =
                 type === "result" &&
                 subtype === "success" &&
-                is_error === false &&
-                typeof num_turns === "number" &&
-                Number.isInteger(num_turns) &&
-                num_turns >= 1 &&
-                num_turns <= 2 &&
-                typeof total_cost_usd === "number" &&
-                Number.isFinite(total_cost_usd) &&
-                total_cost_usd >= 0 &&
-                structured_output === ADVICE;
-              assert.equal(result.status === "confirmed", oldAccepted);
+                isError === false &&
+                typeof turnCount === "number" &&
+                Number.isInteger(turnCount) &&
+                turnCount >= 1 &&
+                turnCount <= 2 &&
+                typeof totalCostUsd === "number" &&
+                Number.isFinite(totalCostUsd) &&
+                totalCostUsd >= 0 &&
+                structuredOutput === ADVICE;
+              assert.equal(
+                result.status === "confirmed",
+                wasPreviouslyAccepted,
+              );
             }
 });

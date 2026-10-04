@@ -12,9 +12,11 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash, generateKeyPairSync, sign } from "node:crypto";
 import fs from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import test, { after } from "node:test";
+import { runInNewContext } from "node:vm";
 import {
   createRuntimeLocalTypeScriptWorker,
   runtimeLocalTypeScriptChildRegistrySnapshotForPackageObserver,
@@ -39,6 +41,7 @@ import {
   issueRuntimeOwnedVerifiedCoordinatorPackageCapability,
   releaseSigningProtectedPathDiagnosticForVerification,
   runtimePackageCapabilityConsumerGraphDiagnosticForVerification,
+  runtimeNamedFunctionGraphSnapshotForVerification,
   verifyBundledCoordinatorPackageCandidate,
 } from "../../src/security/platform-provisioner-package-filesystem.ts";
 import {
@@ -53,6 +56,139 @@ import { assertCanonicalCandidate } from "../support/test-support.ts";
 
 const developmentFixtureRoots = new Set<string>();
 const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
+
+/**
+ * Host回復Nativeの二搬送と六つのmode供給元を閉グラフへ結合する。
+ *
+ * @responsibility 未登録起動点、mode変更、実行条件・所有者変更を拒否する。
+ * @trace AIT-IT-013
+ * @precondition 現在Sourceの読取りとMemory内の変異だけ。Nativeは起動しない。
+ * @stimulus 二つの搬送、六wrapper、型引数・引数defaultを個別に変更する。
+ * @observation 固定Source受理と各変異の例外を観測する。
+ * @oracle 登録Sourceだけ受理し、起動・搬送・供給元の変更は拒否する。
+ * @cleanup N/A: OS資源や一時fileを作成しない。
+ * @boundary Source→署名対象の起動点と呼出し元の静的検査。
+ */
+test("Host回復Nativeの二搬送と六wrapperの閉グラフを確認する", () => {
+  const sourcePath = "src/security/host-terminal-windows-adapter.ts";
+  const source = fs.readFileSync(
+    path.join(coordinatorRoot, sourcePath),
+    "utf8",
+  );
+  assert.doesNotThrow(() =>
+    assertRuntimeSourceDeclaredGraphBoundaryForVerification(sourcePath, source),
+  );
+  for (const [before, after] of [
+    ["[nativeMode]", '["--unexpected-mode"]'],
+    ['? "--host-terminal-observe"', '? "--unexpected-mode"'],
+    ['"--host-terminal-save",', '"--host-terminal-read",'],
+    ['"--host-terminal-read",', '"--host-terminal-save",'],
+    [
+      '"--host-terminal-known-file-save",',
+      '"--host-terminal-known-file-read",',
+    ],
+    [
+      '    evaluateKnownFileHostTerminalReadResponse,\n    "--host-terminal-known-file-read",',
+      '    evaluateKnownFileHostTerminalReadResponse,\n    "--host-terminal-known-file-save",',
+    ],
+    [
+      '    "eleven",\n    requestContexts,',
+      '    "known_file",\n    requestContexts,',
+    ],
+    [
+      '    "known_file",\n    knownFileRequestContexts,',
+      '    "eleven",\n    knownFileRequestContexts,',
+    ],
+    ["shell: false,", "shell: true,"],
+    ["timeout: 5000,", "timeout: 1,"],
+    [
+      "function executeHostTerminalRecordRequest<",
+      "export function executeHostTerminalRecordRequest<",
+    ],
+    [
+      "function executeTerminalObservationRequest<",
+      "function renamedTerminalObservationRequest<",
+    ],
+    [
+      "  request: HostTerminalSaveRequest | HostTerminalReadRequest,",
+      "  request: HostTerminalSaveRequest | HostTerminalReadRequest = spawnSync(process.execPath, []),",
+    ],
+    [
+      "  Observation extends",
+      "  Observation = typeof spawnSync(process.execPath, []) extends",
+    ],
+  ] as const) {
+    assert.ok(source.includes(before), before);
+    const mutated = source.replace(before, after);
+    assert.notEqual(mutated, source);
+    assert.throws(
+      () =>
+        assertRuntimeSourceDeclaredGraphBoundaryForVerification(
+          sourcePath,
+          mutated,
+        ),
+      /runtime_dependency_(?:child_process|capability|parse)/u,
+      before,
+    );
+  }
+  const moved = `${source.replace(
+    "function executeTerminalObservationRequest<",
+    "function nestedOwner() { function executeTerminalObservationRequest<",
+  )}\n}`;
+  assert.throws(
+    () =>
+      assertRuntimeSourceDeclaredGraphBoundaryForVerification(
+        sourcePath,
+        moved,
+      ),
+    /runtime_dependency_capability_graph_mismatch:executeTerminalObservationRequest:scope:nestedOwner/u,
+  );
+});
+
+/**
+ * 型引数付き宣言の境界を文字列や後方の括弧と混同しないことを確認する。
+ *
+ * @responsibility 型引数の入れ子と不正終端を四つの関数検査へ共通の境界で渡す。
+ * @trace AIT-IT-013
+ * @precondition 合成SourceだけをMemoryで解析する。
+ * @stimulus 通常、generic、入れ子、文字列山括弧、不正終端を入力する。
+ * @observation 名前・本体の取得件数と解析拒否を観測する。
+ * @oracle 正常形は一件、不正な型引数終端は後方へ探索せず拒否する。
+ * @cleanup N/A: 外部操作や共有状態はない。
+ * @boundary 関数宣言の解析→本体・所有者の検査。
+ */
+test("名前付き関数の型引数終端と文字列を区別する", () => {
+  for (const source of [
+    "function sample(value: string) { return value; }",
+    "function sample<T>(value: T) { return value; }",
+    "function sample<T extends Readonly<Array<string>>>(value: T) { return value; }",
+    'function sample<T extends "<" | ">">(value: T) { return value; }',
+  ]) {
+    const graph = runtimeNamedFunctionGraphSnapshotForVerification(
+      "src/security/generic-fixture.ts",
+      source,
+      ["sample"],
+    );
+    assert.equal(graph.length, 1);
+    assert.equal(graph[0]?.name, "sample");
+    assert.equal(graph[0]?.lexicalScope, "module");
+  }
+  for (const source of [
+    "function sample<T(value: T) { return value; }",
+    "function sample<T> misplaced(value: T) { return value; }",
+    'function sample<T extends ">"(value: T) { return value; }',
+    'function sample"<"T>(value: T) { return value; }',
+  ]) {
+    assert.throws(() => {
+      const graph = runtimeNamedFunctionGraphSnapshotForVerification(
+        "src/security/generic-fixture.ts",
+        source,
+        ["sample"],
+      );
+      assert.equal(graph.length, 1);
+    });
+  }
+});
 
 /**
  * Runtime sibling component宣言は各Identityを一度だけ所有するを検証する。
@@ -1031,6 +1167,94 @@ test("Runtime Package Capabilityの宣言集合と全実利用側を完全一致
     () =>
       assertRuntimePackageCapabilityConsumerGraphForVerification(additional),
     /runtime_dependency_consumer_graph_mismatch/u,
+  );
+});
+
+/**
+ * 追加した利用側を旧版の必須集合へ混ぜないことを確認する。
+ *
+ * @responsibility 現行とv0.21の利用側集合を実際の選別本体で区別する。
+ * @trace AIT-IT-013
+ * @precondition 登録表と選別関数だけをSourceから抽出してMemoryで評価する。
+ * @stimulus 現行の全件、旧版集合、旧版に新利用側を混ぜた集合を渡す。
+ * @observation 選別本体の受理とconsumer_set拒否を観測する。
+ * @oracle 旧版は新規三利用側を要求せず、混入は拒否する。現行は三件を要求する。
+ * @cleanup N/A: VM評価のみ。OS・Native・署名操作を行わない。
+ * @boundary 配布検証の版別利用側選別。下位Source解析は別の既存契約試験で確認する。
+ */
+test("Runtime Package Capabilityの旧版集合へ新Host利用側を混ぜない", () => {
+  const source = fs.readFileSync(
+    path.join(
+      coordinatorRoot,
+      "src/security/platform-provisioner-package-filesystem.ts",
+    ),
+    "utf8",
+  );
+  const table = source.match(
+    /const exactRuntimePackageCapabilityConsumers = Object\.freeze\([\s\S]*?\n\);/u,
+  )?.[0];
+  const body = source.match(
+    /function assertExactRuntimePackageCapabilityConsumerGraph\([\s\S]*?\n\}/u,
+  )?.[0];
+  assert.ok(table);
+  assert.ok(body);
+  const scope = {
+    assertRuntimePackageCapabilityHandoffClosure: () => {},
+    assertReleaseAssuranceConsumerClosure: () => {},
+    runtimePackageCapabilityConsumerGraphForVerification: () => scope.observed,
+    observed: [] as readonly Readonly<{
+      source: string;
+      symbol: string;
+      owner: string;
+      use: string;
+      occurrence: number;
+    }>[],
+    current: [] as readonly Readonly<{
+      source: string;
+      symbol: string;
+      owner: string;
+      use: string;
+      occurrence: number;
+    }>[],
+    check: undefined as
+      | undefined
+      | ((sources: object, selection: string, profile: string) => void),
+  };
+  runInNewContext(
+    stripTypeScriptTypes(
+      `${table}\n${body}\nfunction runtimePackageCapabilityConsumerIdentity(consumer) { return [consumer.source, consumer.symbol, consumer.owner, consumer.use, consumer.occurrence].join("\\0"); }\nglobalThis.current = exactRuntimePackageCapabilityConsumers; globalThis.check = assertExactRuntimePackageCapabilityConsumerGraph;`,
+    ),
+    scope,
+  );
+  assert.ok(scope.check);
+  const host = scope.current.filter((item) =>
+    [
+      "src/security/host-recovery-namespace-windows-adapter.ts",
+      "src/security/host-terminal-windows-adapter.ts",
+    ].includes(item.source),
+  );
+  assert.equal(host.length, 3);
+  const legacy = scope.current.filter(
+    (item) =>
+      ![
+        "src/security/workbench-ai-advice-production-runtime.ts",
+        "src/security/workbench-ai-change-candidate-runtime.ts",
+        "src/security/host-recovery-namespace-windows-adapter.ts",
+        "src/security/host-terminal-windows-adapter.ts",
+      ].includes(item.source),
+  );
+  scope.observed = scope.current;
+  assert.doesNotThrow(() => scope.check?.({}, "repository", "current"));
+  scope.observed = legacy;
+  assert.doesNotThrow(() => scope.check?.({}, "repository", "v0.21"));
+  assert.throws(
+    () => scope.check?.({}, "repository", "current"),
+    /consumer_set/u,
+  );
+  scope.observed = [...legacy, ...host];
+  assert.throws(
+    () => scope.check?.({}, "repository", "v0.21"),
+    /consumer_set/u,
   );
 });
 

@@ -1884,6 +1884,75 @@ test("分割chunkとCRLFから完全なeventだけを一度抽出する", async 
 });
 
 /**
+ * 一次失敗の診断搬送と不正値の拒否を検証する。
+ *
+ * @responsibility 固定診断を保持し、自由文と偽の観測を拒否する。
+ * @trace PRL-ST-001
+ * @precondition 固定の自己生成Processだけを実行する。
+ * @stimulus 一次失敗の正常値、未知項目、未知段階と不整合を搬送する。
+ * @observation Protocol違反と保存された境界診断を取得する。
+ * @oracle 正常値だけ保持し、不正値はProtocol違反とする。
+ * @cleanup 子Processは応答後EOFで終了する。
+ * @boundary PRL-ST-001=Adjacent 1 Block: Process診断→検証Observer
+ */
+test("一次失敗の固定診断だけをProcessから保持する", async () => {
+  const primary = {
+    purpose: "create_subscription_auth_probe",
+    stage: "command_start",
+    reason: "docker_process_controller_execution_failed_closed",
+    exceptionCode: "docker_effect_plan_invalid",
+    commandHandleObtained: false,
+    responseObserved: false,
+    receiptRecorded: false,
+  };
+  const cases = [
+    null,
+    primary,
+    { ...primary, reason: "secret-text" },
+    { ...primary, exceptionCode: "secret-text" },
+    { ...primary, stage: "unknown" },
+    { ...primary, rawOutput: "secret-text" },
+    { ...primary, responseObserved: true },
+    { ...primary, receiptRecorded: true },
+    { ...primary, purpose: [primary.purpose] },
+    { ...primary, stage: [primary.stage] },
+    { ...primary, exceptionCode: ["ENOENT"] },
+  ];
+  for (const [index, value] of cases.entries()) {
+    const child = spawn(
+      process.execPath,
+      [fixture, "boundary-primary-diagnostic", JSON.stringify(value)],
+      {
+        windowsHide: true,
+        stdio: ["pipe", "pipe", "pipe"],
+      },
+    );
+    const pending = observePublicMcpProcess(child, {
+      maximumOutputBytes: 8192,
+      timeoutMs: 2_000,
+      terminationGraceMs: 100,
+      closeInputWhen: ({ stdout }) => stdout.includes("\n"),
+    });
+    child.stdin.write('{"id":"objective-1"}\n');
+    const result = await pending;
+    assert.equal(
+      result.runtimeEventProtocolViolation,
+      index >= 2,
+      `case_${index}`,
+    );
+    if (index < 2) {
+      const settled = result.providerBoundaryEvents.find(
+        (event) => event.event === "coordinator_provider_boundary_settled",
+      );
+      assert.ok(
+        settled && settled.event === "coordinator_provider_boundary_settled",
+      );
+      assert.deepEqual(settled.primaryFailure, value);
+    }
+  }
+});
+
+/**
  * Production Provider境界診断を開始Eventと分離して検証する。
  *
  * @responsibility Provider境界の設定・終了診断を未知Lifecycle違反へ誤分類しないことを判定する。

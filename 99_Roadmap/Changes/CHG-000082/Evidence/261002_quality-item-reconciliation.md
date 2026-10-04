@@ -274,6 +274,160 @@ Symbol参照数はmanifestにある正方向Symbol Relationの数であり、Tes
 
 全確認完了後、この節とChecklistの該当一行だけを結果として書き戻した。確認者とこの最小書戻しを整合済みであり、既存二文書、原記録、残るOPENおよび実行時Hashは変更していない。
 
+## 現行Profile選定の局所再確認 — 2026-10-04
+
+`PRL-UT-014`のうち、Profile解決、配送候補と選択許可の部分を現行作業Treeで再確認した。三試験fileの28件は、失敗・取消・スキップ0で成立した。これは当初の176件の固定照合とは別の追加根拠であり、上記の独立確認結果を今回の追加範囲へ流用しない。Local Item全体、公開Transport、実Providerまたは全体品質のPassにはしない。
+
+| 確認対象 | 実行した根拠 | 観測した意味と限界 |
+|---|---|---|
+| 実CatalogとProfile解決 | `provider-model-profile-runtime.contract.test.ts`、6試験 | 既定／追加Family、未知値・余分key・accessor拒否を確認した。実Catalog・実ResolverからSelection Grantまで、二Front Provider×二Executor Providerの自動／明示適合／未知ID／Provider違い／tier違い、およびCodexの役割違いの22場面を確認した。8場面は採用、14場面は拒否。一回消費と再利用拒否、Catalog不変、Provider Authority非発行・実行許可なしを確認した。Operation確認、時計、乱数と利用可否は局所fixtureであり、本番Operation Authorityと実Taskを確認したものではない。 |
+| 配送候補とExecutor／Reviewer選定 | `delegation-route-selection.contract.test.ts`、15試験 | 明示Profile保持、四配送経路、未知の利用可否で推測fallbackしないこと、独立Reviewerの条件とExecutor実行前の選定を確認した。公開入口からReviewerまでのProfile誤伝播の不存在は、この結果だけで証明しない。 |
+| 選定規則 | `provider-model-selection-runtime.contract.test.ts`、7試験 | 説明可能な選定、未解決方針の低推論化防止、不正分類の拒否、速度・再選定境界を確認した。実モデルの性能・外部環境の成立は対象外である。 |
+
+整形確認→Coordinator Source／Testの型検査→三試験fileのLintを先に実施し、すべて終了値0であった。続いて主要入力10fileのHashを固定して上記28試験を実行し、終了後のHash一致を確認した。Node.js 24.19.0、基準HEAD `a9ad3fbbb642e1f3ae23cb97aecaf83fa69adad2`の作業Treeを使用し、固定後の実行時間は390.3117msであった。新しいProvider依頼、Docker再起動、旧Host Root削除、署名変更は行っていない。
+
+原記録はRepository-local `.crdd/verification/chg-000082-host-terminal-production-261003/profile-resolver-current-261004.json`、SHA-256 `08f6f1fcbc4de554b65659bf4bddece143873de8eabca7d430365748d2d4fb65`である。原記録はPhase 5の固定候補確認まで保持し、必要な非秘密結果を本Evidenceへ残す。未解決参照の解消後に限定清掃する。前回の公開契約・搬送31試験と今回の28試験は対象・実行時点を分け、合算を個別義務の完成根拠にはしない。
+
+次は`PRL-IT-012`の全入口とReviewer非伝播、`PRL-IT-005`のCandidate Identity／Integration Recordを現行入力・Oracle・終了後条件へ照合する。旧108件の残る適用照合、旧未観測22件と移管未観測33件、旧Host三件の非使用と新実Task停止は維持する。
+
+## Candidate記録の直接観測の補強 — 2026-10-04
+
+`PRL-IT-005`のIntegration Record保存境界を再確認した。既存試験は正規Candidate Identityの保存成功と衝突拒否を確認していたが、記録が一件だけであることと衝突後の元byte不変を直接確認していなかった。この不足だけを同じ試験fileへ補い、Production実装・Canonical義務・Authorityは変更していない。
+
+| 条件 | 追加した直接観測 | 結果 |
+|---|---|---|
+| `candidate.<64hex>.<64hex>`の正常保存 | 完全なIdentityを再読取りし、保存Directoryが当該Record一件だけであることを確認した。 | 成立。短縮・再採番・追加Record・pending残存はない。 |
+| 同じIdentityで異なる内容の保存要求 | 初回Recordのbyte列を保存し、衝突拒否後のbyte一致とDirectoryの一件性を確認した。 | 成立。元Recordを書き換えず、別Recordも追加していない。 |
+
+整形→Coordinator Source／Testの型検査→Lintを終了値0で実施後、四試験を再実行した。Pass 4、失敗・取消・スキップ0、606.5007ms。一時Repositoryは事前に範囲確認したRepository-local `.crdd/verification/chg-000082-quality-record-261004/tmp`へ限定し、試験終了後に同Root直下の残存0を観測した。Sourceと試験の主要入力二fileは実行前後で一致した。新しいProvider依頼、Docker操作、旧Host Root削除、署名変更は行っていない。
+
+原記録は同じRepository-local検証Directoryの`integration-record-current.json`、SHA-256 `611d62905877cd2e027e7af1097e6341e3e2c972e4807e58277f49d7bbec5e62`である。Phase 5固定候補確認まで保持し、参照解消後に限定清掃する。保存Adapterの四試験からTask State／Candidate Storeの全Consumer、改変・短縮Identity、Scope／Authority／cleanupの反例、Local Item全体または最終独立確認の成立は推定しない。旧独立確認は追加した試験・根拠のレビューに流用しない。
+
+## Executor限定Profile搬送の四組合せ — 2026-10-04
+
+`PRL-IT-012`のうち、実Coordinator状態機械からExecutor／Reviewer選定へのProfile搬送を補強した。既存CaseのCodex Executor一組合せを、Front Provider二種×Executor Provider二種の四組合せへ拡張した。Production実装、Profile Catalog、Canonical義務またはAuthorityは変更していない。
+
+| 条件 | 直接観測 | 結果・限界 |
+|---|---|---|
+| 四正常組合せ | Front Provider、Executorの指定ProviderとProfile ID、Reviewerの役割・subjectProvider・Profile `null`・独立Provider要求、選定二回。 | 四組合せとも完了した。選定依存は合成であり、実Catalog／Grant、公開UI・CLI・MCPや実Providerへ拡大しない。 |
+| 不正Profile `latest` | 入力拒否、選定0、Operation作成0、Provider Process開始0。 | Task入力契約で拒否した。件数はfixtureの発生点であり、実OSやNetworkの不存在証明ではない。 |
+
+Formatter→Coordinator Source／Test型→Lintは全てexit 0。名前を限定した既存一Case内で四正常組合せと一拒否を確認し、1件成功・失敗・取消・skip 0、303.345msだった。実行前2026-10-03T19:52:50.1956549Zと実行後19:52:57.7614373Zの選択七入力Hashは一致した。完全依存閉包、全試験file、Coverage、Local Item全体や独立完成レビューは未確認である。
+
+原記録はRepository-local `.crdd/verification/chg-000082-host-terminal-production-261003/profile-executor-only-matrix-261004.json`、SHA-256 `d039855a4fcb13c21cec2038c89f9f443337e481aee6ee6ef9d2c0848b672378`。Phase 5の固定候補確認まで保持し、必要な非秘密根拠を本Evidenceへ残す。旧独立確認や先の28試験を今回の改訂へ流用せず、全入口のProfile搬送、Authority／結果のTransport同等性、元E2Eと全体品質の未成立を保持する。Provider依頼、Docker操作、旧Host削除、署名変更は行っていない。
+
+## Candidate Identity照合の拒否とbyte不変 — 2026-10-04
+
+`PRL-IT-005`のうち、実Candidate Storeから採用Adapterへ渡すIdentity照合の反例を既存ITへ追加した。Production実装、Canonical条件、AuthorityおよびQA集計は変更していない。汎用Integration RecordのIdentity字句契約をCandidate専用へ狭めず、候補の存在・内容一致は既存Store／採用Adapterの責務として確認した。
+
+| 条件 | 実際の観測 | 結果・限界 |
+|---|---|---|
+| 完全な正規Candidate ID | 発行IDとの完全一致と139文字の保持、再Bindingと正常採用。 | 完全なIDを受理した。Candidate IDから採用Authorityは発行していない。 |
+| 四ID反例 | 一文字短縮、末尾hexの改変、prefixの大小文字変更、余分な末尾区切り。実StoreのreadとAdapterのbind、adoptを実行した。 | 全件nullで拒否した。未知IDの網羅を主張せず、四同値分割の反例とする。 |
+| 四Metadata反例 | 内容Hash違い、基準Revision違い、変更Path不足、許可外Path混入。実Adapterのadoptを実行した。 | 全件nullで拒否した。Authorityや上位Applicationの拒否理由をこの戻り値から推定しない。 |
+| 八拒否後の不変 | 毎回、Repository二fileのbyte相当の内容、Git dirtyなし、Store全名前集合と通常fileの全byte列を直接再読取り。 | 変更は観測されなかった。OS全体の資源不存在、Process／Network Effect 0または第三者との競合を証明するものではない。 |
+| 記録Adapterの既存四試験 | 同一再試行、完全IDを持つ一件、Identity衝突後のbyte不変、不正Path拒否。 | 別Adapter試験として再実行した。候補採用から記録までの一本の結合試験ではない。 |
+
+Formatter→Coordinator Source／Test型→Lintはexit 0。最初の型確認では再帰一覧のstring／Buffer overloadが不明確だったため、encodingを`utf8`へ明示し、静的段階からやり直してから試験した。二file五Caseは成功5・失敗0・取消0・skip 0、3192.8601msだった。改変八条件は既存一Case内であり、Local Itemを八件増やした意味ではない。Gitのuser-home ignoreアクセス警告と改行変換警告は結果から削除していない。
+
+追加ITのSHA-256は`20a96b9c805f0205ffdbbdc71b5f25cd7d32db104e95c8437d3e04f48079cf2f`。選択五入力の実行前後Hashは一致した。試験は検証済みRepository内の既存用途限定tmpへTEMP／TMPを固定し、終了後の同tmpは空だった。旧Host三件には触れていない。原記録は`.crdd/verification/chg-000082-quality-record-261004/candidate-identity-current.json`、SHA-256 `c8b89bd3409439cf0a9bf075e46e9ac7237dc09f910bfdbb6f40594de2351ee2`。Phase 5固定候補確認まで保持し、2026-10-11までに参照・保持要否を再評価する。名前だけによる削除は行わない。
+
+ProductionのWorkbench採用入口はStore再読取りとBinding一致を確認した後だけPersistence／採用Applicationへ進むことをSource照合したが、今回その公開入口は実行していない。改変ID拒否時の上位結果field・記録0、Task State、Authority、cleanupおよび全Consumerの現行適合は未完了であり、`PRL-IT-005`全体のPassへ昇格しない。新しい実Task、署名、Docker再起動と旧残存削除は行っていない。
+
+Header／Trace検査は初回18成功・1失敗（59229.1435ms）で、追加TraceをSymbol関係へ反映していなかった。既存test-suiteの`localTestIds`へ追加した後も昇順不一致で18成功・1失敗（54818.4504ms）となった。現在は`PRL-IT-005, PRL-IT-012`の昇順へ修正し、失敗した全Test SourceのTrace検査一項目を限定再実行して1成功・失敗・取消・skip 0（324.1601ms）を確認した。Checkerを弱めていない。Symbol JSONはBiomeの既存除外対象であり、対象fileのFormatter成功とは扱わず、JSON構文parseとTrace検査を行った。現在Symbol SHA-256は`3778ef7cc0a46891ef46198a43eae053defad02fbc5ee61e6e760c287b02a9ec`。
+
+別確認者は、固定した試験・Production Source・Symbol関係・結果書戻し前の本節から、反例の差、拒否発生点、byte不変Oracle、QA接続と過大主張の有無を読み取り専用で確認し、今回の試験補強に限りPass・指摘0とした。二失敗と最小結果追記が確認範囲を変えないことも整合した。全体技術レビュー、文書監査、Gap／Impact監査の代替にはしない。原記録は同検証Directoryの`candidate-identity-trace-review.json`、SHA-256 `0ded1c2db74e73361ef7b5a3f3081c82e3ea75b1502aaa45e020ed288ee7088d`。保持・再評価条件は前段と同じである。
+
+## 複数Recoveryの順次処置と先行未確認 — 2026-10-04
+
+`PRL-IT-013`のうち、同じTaskにDocker回復二件とHost義務一件がある場合の再入場を、既存Objective intake ITで補強した。実Repository保存層と実Applicationを通し、Production実装・Canonical義務・Authorityは変更していない。任意IDを利用者が選ぶ新操作を追加したものではなく、Applicationが同じObjectiveの既存義務を一件ずつ処置する経路の確認である。
+
+| 条件 | 直接観測 | 結果・限界 |
+|---|---|---|
+| 二Docker回復が通常成立する | exact IDの順序、保存済みphase、受領した二ID、Task実行回数、Host義務の全field。 | 二件とも受領済みとなり、Host義務は元の内容・requiredのまま外部回復として返した。Task実行は初回一回だけだった。 |
+| 先頭Docker回復が未確認 | 後続呼出しなし、二件目のrequired保持、受領0、再入場時の先頭ID再使用。 | 未確認時は後続を処置しなかった。次回は同じ先頭IDから再開し、二件の受領後もHost義務は変更しなかった。 |
+
+Provider実行、Docker回復と受領は合成Portである。既存helperがruntime_process義務を保存State上でsettleしており、実Process消失・世代交代を証明しない。一Objective・一Taskの範囲であり、別Task、全Host／Home Inventory、実Docker清掃、OS資源不存在または`PRL-IT-013`全体の成立は未確認である。
+
+Formatter→Coordinator Source／Test型→Lintは終了値0。最初の限定実行は1成功・失敗／取消／skip 0、2581.0688ms。その後静的段階を再確認し、四入力の完全Hashを固定した再実行も1成功・失敗／取消／skip 0、2761.7383msだった。四入力の前後Hash一致とRepository内の用途限定tmp直下の残存0を観測した。Test SHA-256は`da20bf5d0214dd355a9753570f50bc3a7a840eb310bfc860e7b220d04e702def`。Symbolの既存suiteへ`PRL-IT-013`を追加し、全Test SourceのTrace検査を限定再実行して1成功・失敗／取消／skip 0、280.6838msだった。Symbol SHA-256は`6815cde2d00ab1f7b4cf151e7f3454006b6834bfb9e8bf7deb9a3447d7bebcac`。全依存閉包・全回帰・Coverageを確認した結果ではない。
+
+原記録はRepository-local `.crdd/verification/chg-000082-quality-record-261004/multiple-recovery-current.json`、SHA-256 `e31dca19ea1286ea29ce7c55a571b9ea1961d1900e0e4ba5c0cf178022ecb8cd`。Phase 5固定候補確認まで保持し、2026-10-11までに参照と保持要否を再評価する。名前だけで削除しない。新しいProvider依頼、Docker再起動、旧Host三件の削除、署名変更とQA集計更新は行っていない。旧独立確認を今回の補強へ流用せず、全体技術レビュー・文書監査・Gap／Impact監査は未完了のまま維持する。
+
+作成担当とは別の確認者が上記の固定対象、Production、QA、原記録と本節を読み取り専用で確認し、試験補強の範囲でPass・指摘0とした。先頭未確認、exact ID再使用、Host不変、追加Task実行抑止と合成境界の説明がOracleへ接続していることを確認した。既存Helperの準備責務Traceは維持可能であり、呼出し先IDの和集合を機械追加していない。結果書戻し前の本Evidence SHA-256は`9ea8fa9093a534bdb826b811f0c69dba7842696ad3120f173a4d99d47bd2606a`。確認記録は同検証Directoryの`multiple-recovery-review.json`、SHA-256 `a6032fcb2c21ba09cd65bd22f75f0ef329558f24efa4378f3d113e489be5bd2c`である。
+
+同じ固定版で既存の単一Recovery・受領中断Caseと今回の複数Caseを限定回帰し、2成功・失敗／取消／skip 0、4847.1235ms、選択四入力のHash一致と用途限定tmp直下0を確認した。回帰原記録は`multiple-recovery-regression.json`、SHA-256 `93c064e62bf4106a48390e5e5ff22320a5b7af62e9e081bcd36cf9760e72f30f`。二記録の保持・再評価条件は前段と同じである。本段の最小結果書戻しは確認者と整合済みで、全体監査、実処置、Local Item全体またはReleaseの判定を変更していない。
+
+## Recovery一覧と対象限定処置の現行再確認 — 2026-10-04
+
+前節のApplication確認とは別に、`PRL-IT-013`へ既に接続されているjournal／Runtimeの七Caseを現行作業Treeで再実行した。新しい試験・Productionコード・Canonical条件は追加していない。
+
+| 境界 | 確認した範囲 | 観測結果・残る限界 |
+|---|---|---|
+| journalの対象限定resume | cleanup、base move、base commit move、pointer deleteでexact Recovery IDを指定する。 | Aの処置中にBのanchor bytesと`dev / ino / birthtimeNs`が不変。結合情報違いは変更前に拒否しanchorを保持した。試験所有のNode子Processで中間状態を作り、Repository内の実Filesystemを使用した。 |
+| 複数Homeの一覧 | 異なる論理Homeでbase moveの中間状態を二件作る。 | 両exact IDを一覧化した。Identity／利用者結合値とLockはfixtureであり、実Host保護namespaceの適合確認ではない。 |
+| exact Docker構成検査 | 完全一致とreplacementを合成runnerへ渡す。 | 一致時の削除発行1、replacement時0。実Dockerの資源不存在や回復完了を示さない。 |
+
+Formatter→Coordinator Source／Test型→対象二fileのLintは終了値0。七Caseは成功7・失敗／取消／skip 0、2672.7416ms。選択六入力の完全Hashは前後一致し、Repository内の検証済み用途限定tmp直下は0件だった。公開CLI／WorkbenchのComposition、全TaskのScope、全Local Itemと独立確認は未成立のまま保持する。直前節の限定レビューを今回の観測へ流用せず、最終技術・文書・Gap／Impact監査で対象とする。新しいProvider依頼、Docker再起動、旧Host三件の削除、署名変更とQA集計変更は行っていない。
+
+原記録はRepository-local `.crdd/verification/chg-000082-quality-record-261004/recovery-inventory-selection-current.json`、SHA-256 `3cd50fbbc9b4dd1f4731247f9d7c037e5b050c19d26817a03b8c1651b545fc9d`。Phase 5固定候補確認まで保持し、2026-10-11までに参照と保持要否を再評価する。名前だけによる削除は行わない。
+
+## Profile搬送の入口別照合 — 2026-10-04
+
+Profileを失わず搬送する局所境界とWorkbenchのHTTP入口を現行版で確認した。局所36試験とHTTP一試験は成功したが、`PRL-IT-012`全体の成立へは昇格しない。Productionコード、QA義務、Profile CatalogとAuthorityは変更していない。
+
+[Project Runtime詳細設計](../../../../06_Architecture/Details/project-runtime/01_Architecture.md)は、公開Objective（CLI／MCP）とWorkbenchの変更候補（Single Task）を別操作として定義している。UI、CLI、MCPという媒体名だけで両操作を同一化せず、各操作の入力・結果・Authorityを同じ操作の範囲で比較する。今回の照合は既存契約の検証であり、新しいUI Objective入口や別のProfile選択方式を追加しない。
+
+| 境界 | 今回の根拠 | 残る確認 |
+|---|---|---|
+| 公開Objective→Task入力 | 実入力検査・builder・Task snapshotで、任意三項目の八組合せ×Front Provider二種を確認した。 | 公開CLIとMCPの実搬送を含む一本の結合確認ではない。 |
+| MCP Objective handler→Application Port | 明示IDの完全保持、省略時の非生成、不正入力の認証・Core呼出し0、取消Signal、閉じた結果と回復集合を確認した。 | 認証・Coreは合成Port。stdio／HTTPの実Transportから現行Catalog・Selection Grantへの結合は未確認。 |
+| Workbench HTTP→AI Application Port | 送信未確認の拒否、助言／変更候補の別入力、指定Profile、許可Path、状態と四区分の結果を実Serverで確認した。 | AI Applicationと候補操作は合成Port。Browser操作、実Coordinatorとの結合とProvider成立は未確認。 |
+| Workbench Application／候補Executor→Task Port | 助言／変更候補の配送分離、未知Profile・不正入力拒否、取消後の遅延完了拒否、指定ProfileのTask搬送、未採用Candidate結果を確認した。 | Task Portは合成。Builtin Catalogのfixtureは採用済み外部Profileや6.1 Sol／6 Luna移行の実境界証明ではない。 |
+| Task→Executor／Reviewer選定 | 前節の四組合せでExecutor限定搬送とReviewerへの非伝播を確認した範囲を維持する。今回の36試験にはその再実行を含めない。 | 各公開入口から現行Catalog・Grant・Task選定までを同じ実行で結合する必要がある。 |
+| 公開CLI | 現行Sourceはstdin入力を読み、同じ公開Objective関数へ渡す。 | Source接続は実行結果ではない。正常入力・不正Profile・結果fieldと終了条件の実CLI観測は今回未実施。 |
+
+Formatter→型→Lintを終了値0で確認後、四fileの局所36試験を実行した。固定記録の再実行は成功36・失敗／取消／skip 0、1220.0045ms、2026-10-04 05:25:38〜05:25:44 UTC。続いてWorkbench試験のFormatter→型→Lintを終了値0で確認し、名前限定の実HTTP一試験は成功1・失敗／取消／skip 0、2890.8114ms、05:27:22〜05:27:28 UTCだった。Node.js 24.19.0、HEAD `a9ad3fbbb642e1f3ae23cb97aecaf83fa69adad2`、Root Tree `0dc1df1a8dee2ec27c94f18500d59c06c2c44977`、Object Format `sha1`のdirtyな作業Treeを使用した。選択入力・実行物とGit状態は、それぞれの固定実行前後で一致した。完全な推移的依存閉包、全回帰やCoverage率の確認ではない。
+
+最初の採取は私のコマンド指定に誤りがあり、未引用のGit Tree式をPowerShellが別引数へ変換し、Hash表示も短縮された。HTTP側の最初の採取ではロゴPathが誤っていた。試験自体は成功したが、これらは入力固定の根拠に使わず、引用・JSON表示・実ロゴPathを訂正した後の前後一致を持つ再実行だけを上記へ採用した。不完全な採取とGit警告も原記録へ保持した。
+
+原記録はRepository-local `.crdd/verification/chg-000082-quality-record-261004/profile-boundary-current.json`、SHA-256 `b974f534a420cb84657496a4ca2570a1d1be7813078c298fc51c4d68e4551b6d`。Phase 5固定候補確認まで保持し、2026-10-11までに参照と保持要否を再評価する。用途限定tmpには既存Microsoft診断の`.trn`十fileが残り、送信・内容・由来の全確認はしていない。tmp全体の不存在や秘密不存在を主張せず、名前だけで削除しない。
+
+新しいProvider依頼、Docker操作、共有ACL変更、旧Host三件処置、署名、Commit／Pushは行っていない。Quality Centerへ共有ACL移行の判断待ちを反映したが、13／46と全体OPENは変更しない。今回の結果は最終技術レビュー・文書監査・Gap／Impact監査で確認する。過去の限定レビューを新しい結果へ流用せず、同じ小境界への個別監査反復も追加しない。
+
+## 旧Traceability JSONの廃止条件再確認 — 2026-10-04
+
+旧二JSONは現在も必要な利用側を持ち、廃止条件は未成立である。[Reality Auditの移行判定](../../../../07_Quality/05_Current_Implementation_Reality_Audit.md#11-旧runtime-traceability-jsonの移行判定)と[採用済みRoadmap](../../../01_Roadmap.md#12-v0220--project運営複数repository)を維持し、削除や全Subsystemへの旧形式展開は行わない。
+
+| 確認したこと | 結果 | この結果では証明しないこと |
+|---|---|---|
+| 既存Migration Inventoryのルート項目 | Coordinator 11項目、Project Runtime 16項目を分類し、Finding 0。同じ入力の二回の結果は一致した。 | 下位Propertyの値・関係の同等性、各Ownerへの移行完了。 |
+| 設計IDの所在 | 設計配列のID欠落0。Project RuntimeのInvariantは現行33件であり、旧表示32件を算定Ownerで訂正した。 | IDが本文にあることだけによる、抽出完全性や意味の一致。 |
+| 値の変化への反証 | メモリ上だけで`interfaces[0].owner`を別値へ変更しても、Inventoryは元入力と完全一致しFinding 0だった。実ファイルへの変更はない。 | 正本側の欠陥、新しいOwnerの採用、または本番実装の変更。既存Inventoryが値の同等性を判定しないという観測に限定する。 |
+| 現行利用側 | Coordinatorの二検査Script、二契約試験と試験支援、CheckerのProfile／fixture、Architecture参照、Semantic Coverage移行入力に旧Pathが残る。 | 参照箇所の件数だけによる完全な動的利用側の不存在。 |
+
+着手前は既存§11.1〜11.3、Semantic Coverage詳細設計の正本／生成物境界と実Inventoryを照合した。今回の変更は結果の明確化と現行件数の訂正であり、廃止Gate、QA義務、設計、Schema、Source、Authorityと利用側は変更しない。編集の対応は、現行Invariant件数を§11.1へ、値の同等性を証明しない限界を同節へ、実行条件・反例と利用側を本節へ残す。旧JSONを正解としてCanonicalへ逆輸入せず、次に必要なのは正本から生成した値・関係と旧投影の比較、および利用側置換である。
+
+実行はNode.js 24.19.0の読み取り専用診断で終了値0。HEAD `a9ad3fbbb642e1f3ae23cb97aecaf83fa69adad2`、Root Tree `0dc1df1a8dee2ec27c94f18500d59c06c2c44977`のdirtyな作業Treeで、選択六入力のSHA-256は前後一致した。完全な推移的依存閉包、回帰試験、生成器による全Property抽出または廃止Gate合格の確認ではない。元JSON、設計文書とProduction Sourceを診断で変更していない。
+
+原記録はRepository-local `.crdd/verification/chg-000082-quality-record-261004/legacy-retirement-current.json`、SHA-256 `8ed545223d661ec7177871c237e1050d79171b6b19787f1548228b54031e6eea`。Phase 5固定候補確認まで保持し、2026-10-11までに参照と保持要否を再評価する。名前や経過時間だけで削除しない。Provider依頼、Docker操作、共有ACL変更、旧Host三件処置、署名、Commit／Pushは行っていない。13／46と全体OPENは変更せず、最終技術レビュー・文書監査・Gap／Impact監査は未完了のまま保持する。
+
+## 正式検証の画面なし実行の現行確認 — 2026-10-04
+
+採用済み[Roadmapの画面なし実行（Headless）](../../../01_Roadmap.md#12-v0220--project運営複数repository)は未完了である。既存の結果保存を未実装扱いにせず、公開入口の配送条件と正式検証の成立を分けた。今回の変更は本節、Roadmapの対応状態とCHGの参照だけであり、起動条件、署名、外部送信承認、保存先Authority、QA義務と品質集計は変更しない。
+
+| 境界 | 今回の直接観測・Source照合 | 残る確認 |
+|---|---|---|
+| 四経路の公開入口 | `template/tools/crdd-coordinator.ts verify-routes`をパイプ接続した実子Processは終了値64、stdoutなし、`coordinator_launch_terminal_output_required`で停止した。公開入口から署名検証・Provider実行へ進んでいない。 | 既存承認を検証し、承認不足では送信せず停止する画面なし実行経路。端末条件を無条件に削除してよいという根拠ではない。 |
+| 配送計画 | 画面なしの四経路拒否、端末ありの配送、未定義`--headless`拒否、復旧検証・一般Taskの機械出力配送、署名の端末必須の六条件を純粋関数で確認した。 | `ready`は配送計画だけであり、実行許可、署名成立や試験合格ではない。 |
+| 保存用投影 | blockedの合成結果から生出力・Host Path・Credential・任意fieldの四つの合成値が除外され、cleanup未完了と回復要求は保持された。 | 実Provider結果の全field、実Writerの耐久保存、CI／Remoteの情報境界。四値だけの確認から秘密不存在を推定しない。 |
+| 既存結果Writer | 検証済みRepository内の保存領域へ開始・結果・完了を分け、開始保存失敗ではcallbackを呼ばず、終了保存失敗では実行結果と保存状態を分けるSourceを照合した。 | 今回Writerは実行していない。保存先・結果公開のAuthorityと画面なし利用側までの結合確認。 |
+
+着手前は品質保証§1.3／§1.4／§5.3、Roadmap、Coordinatorの公開Launcher、一般署名検証と結果Writerを照合した。記録は既存進捗表示の具体化であり、新しい正式契約を採用しない。全体技術レビュー・文書監査・Gap／Impact監査で確認し、準拠基準を変更しないため準拠監査をこの局所記録だけに追加しない。署名・認証の人間入力は画面なしに移さず、保存成功を実行成功へ変換しない。
+
+Formatter→Source型→Lintは終了値0。その後の読み取り専用診断は終了値0、Node.js 24.19.0、2026-10-04 05:45:48〜05:45:49 UTC。HEAD `a9ad3fbbb642e1f3ae23cb97aecaf83fa69adad2`、Root Tree `0dc1df1a8dee2ec27c94f18500d59c06c2c44977`、Object Format `sha1`のdirtyな作業Treeで、選択八入力HashとGit状態は診断前後で一致した。実子は同期joinしsignalなしで終了した。完全依存閉包、保存領域の全残存、実CI／Remote、正式署名実行またはLocal Item全体を確認した結果ではない。
+
+原記録はRepository-local `.crdd/verification/chg-000082-quality-record-261004/headless-entry-current.json`、SHA-256 `324419306f20f1a05102552b3ba3c391101d7f05d8a6929ea415291123575686`。Phase 5固定候補確認まで保持し、2026-10-11までに参照・保持要否を再評価する。名前や経過時間だけで削除しない。Provider依頼、Docker操作、共有ACL変更、旧Host三件処置、署名、Commit／Pushは行っていない。今回の拒否確認を正式検証の合格やRelease可能へ昇格しない。
+
 ## Checklist
 
 - [x] 旧版と現行版、一次表と補足参照、補集合と実測を分けた。
@@ -283,3 +437,14 @@ Symbol参照数はmanifestにある正方向Symbol Relationの数であり、Tes
 - [x] 候補照合を現在品質の第二正本または新しいRegistryにしていない。
 - [x] 三対象固定版の文書・品質・判断境界を独立確認し、候補照合の範囲で限定Pass、Finding 0を記録した。
 - [ ] OPEN: 108件の現在適用、旧未観測22件と移管未観測33件の成立、全体品質の確定は未完了。
+- [x] 現行Profile選定の局所28試験と主要入力の前後一致を記録し、公開Transport・実Provider・個別義務全体および独立確認の未成立を分けた。
+- [x] Candidate記録の一件性と衝突後のbyte不変を試験で直接観測し、実Consumer全体と最終独立確認の未成立を分けた。
+- [x] ProfileのExecutor限定搬送を四正常組合せと不正指定の選定・開始0で確認し、合成依存、選択七入力および個別義務全体の未成立を分けた。
+- [x] 候補照合の八拒否とStore／Repository不変を実Adapterで確認し、別の記録Adapter試験、未実行の公開入口、個別義務全体と最終独立確認の未成立を分けた。
+- [x] 候補試験追加の限定独立確認とTrace関係の是正結果を記録し、全体監査へ流用していない。
+- [x] 複数Recoveryの順次処置、先行未確認後の後続保持とexact ID再使用を実保存・Applicationで確認し、合成Port・別Taskと全Inventoryの未確認を分けた。
+- [x] 複数Recovery試験の限定独立確認と単一Recoveryを含む二Caseの限定回帰を記録し、全体成立へ拡大していない。
+- [x] journalの対象別不変、複数Home一覧と構成不一致拒否の既存七Caseを現行版で観測し、実Docker・公開Compositionと独立確認の未成立を分けた。
+- [x] Profileの局所36試験と実HTTP一試験を入口別に対応付け、別操作、合成Port、採取誤りと未結合境界を明示した。
+- [x] 旧二JSONの現行ルート項目・ID所在と利用側を確認し、値の同等性を判定しない反例と廃止未成立を分けた。
+- [x] 四経路の画面なし公開入口拒否を実子で確認し、配送計画・合成投影・WriterのSource接続と正式検証未成立を分けた。

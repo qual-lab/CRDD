@@ -4,6 +4,8 @@
  * @responsibility CreationFailureを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000004
  */
+import fs from "node:fs";
+import os from "node:os";
 import {
   classifyOwnedOperationDirectoryCreationFailure,
   cleanupOwnedOperationDirectories,
@@ -14,6 +16,7 @@ import {
   getOwnedHostRecoveryId,
   verifyOwnedOperationManagementCapability,
 } from "./execution-environment.ts";
+import { initializeHostRecoveryNamespaceWindows } from "./host-recovery-namespace-windows-adapter.ts";
 
 /**
  * coordinator-operation-creation-internalで使用するCreation 失敗の値契約を定義する。
@@ -153,8 +156,50 @@ function createTransactional(dependencies: Dependencies) {
   }
 }
 
+/**
+ * 通常の作成OwnerでWindows共有管理境界を先に保護検証する。
+ *
+ * @responsibility Root・marker生成前に署名Native初期化を確認し、未確認の共有Effectを保持する。
+ * @trace ARCH-000004
+ * @trace ARCH-000008
+ * @trace ARCH-000011
+ * @input N/A: 通常producerと同じOS一時親だけを採用する。
+ * @returns 既存の所有Operation Directory。
+ * @precondition Task／doctor／Workbenchの通常作成Ownerから呼ぶ。
+ * @postcondition Windowsは保護初期化確認後だけRoot／markerを生成する。
+ * @effect Windowsの署名Native観測・固定共有child作成と、既存のOperation作成。
+ * @failure 署名・親・初期化不明は清掃未確認・IDなし。下位のrollback分類は維持する。
+ * @invariant 共有DirectoryのACL修復・rollback・別親fallbackを行わない。
+ * @boundary 通常作成Owner→署名Native→既存Node作成primitive。
+ * @security 明示試験親や未署名試験依存を本番入力として受け付けない。
+ * @concurrency 同期作成前検査。初期化とRoot生成の間に連続Native handle保持を主張しない。
+ */
+function createProtectedRuntimeOwnedOperationDirectories() {
+  if (process.platform !== "win32") return createOwnedOperationDirectories();
+  let parent: string;
+  try {
+    parent = fs.realpathSync(os.tmpdir());
+    const metadata = fs.lstatSync(parent);
+    if (!metadata.isDirectory() || metadata.isSymbolicLink())
+      throw new Error("temporary_parent_must_be_real_directory");
+  } catch (cause) {
+    fail(cause, true, null);
+  }
+  const initialization = initializeHostRecoveryNamespaceWindows(parent);
+  if (initialization.status !== "initialized") {
+    fail(
+      new Error("host_recovery_namespace_initialization_failed", {
+        cause: initialization,
+      }),
+      false,
+      null,
+    );
+  }
+  return createOwnedOperationDirectories(parent);
+}
+
 const productionDependencies: Dependencies = Object.freeze({
-  createDirectories: createOwnedOperationDirectories,
+  createDirectories: createProtectedRuntimeOwnedOperationDirectories,
   getHostRecoveryId: getOwnedHostRecoveryId,
   initializeCapabilities: (owned) => {
     const contextCapability = createOwnedOperationContextCapability(owned);

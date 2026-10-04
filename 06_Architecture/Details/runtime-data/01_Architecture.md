@@ -111,6 +111,9 @@ Related:
    │  ├─ recovery/                            Project Runtime固有の再入場情報
    │  └─ work/                                未確定Transactionとrollback用作業物
    │
+   ├─ coordinator/                         [D] Coordinator固有の回復接続
+   │  └─ recovery/host-terminal/               同じ非Authority参照と完全intentの再入場情報
+   │
    ├─ execution/                           [D] Execution Intelligence
    │  └─ <operation-id>/
    │     └─ events/                           Operation内の不変Event。要約はEventから投影する
@@ -159,6 +162,7 @@ Related:
 |---|---|---|
 | `config/` | Commit固定する非秘密のRepository宣言とPolicy | Repository設定の変更・削除がGitで確定する |
 | `project-runtime/` | Project実行の現在状態、Queue、結果、判断、固有Recovery | 各状態のsettlement、保持規則または明示Migrationが成立する |
+| `coordinator/` | Coordinator固有の非Authorityなcaller回復参照・完全intent | 終了・管理清掃は[Coordinatorのcaller接続](../coordinator/01_Architecture.md#限定保守のcaller接続と二回の短命処理)が所有する。未接続範囲はOPEN |
 | `execution/` | 実行履歴、測定値、相関可能な診断情報 | Retentionと未解決参照を確認して清掃できる |
 | `verification/` | 検証対象、結果、未確認範囲と判断根拠 | Evidence保持方針とRelease／監査参照が終了する |
 | `candidates/` | 未採用成果物、由来、現在の処置、Candidate固有Recovery | 採用、破棄または期限切れ処置とRecoveryが確定する |

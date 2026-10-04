@@ -4,6 +4,7 @@
  * @packageDocumentation
  * @responsibility coordinator:integration:project-runtime-objective-intakeが所有する検証責務を実行する。
  * @trace PRL-IT-005
+ * @trace PRL-IT-013
  * @level IT
  * @scope project、runtime、objective、intake
  * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
@@ -1438,128 +1439,224 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
 });
 
 /**
- * 混在RecoveryはDockerをsettleして外部義務を型付きで返すを検証する。
+ * 複数Recoveryの順次処置、先行失敗後の保持とHost義務の非処置を検証する。
  *
- * @responsibility 混在RecoveryはDockerをsettleして外部義務を型付きで返すの合否判定を所有する。
+ * @responsibility 同じTaskの二Docker回復をexact IDで処置し、失敗後の後続項目と対象外Host義務を保持する合否を判定する。
  * @trace PRL-IT-005
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 混在RecoveryはDockerをsettleして外部義務を型付きで返すの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
+ * @trace PRL-IT-013
+ * @precondition 実Repository保存層と実再入場Applicationを使い、Provider実行とDocker回復Portは合成する。
+ * @stimulus 二Docker回復とHost義務を作り、通常と先頭回復の未確認の二条件で同じObjectiveへ再入場する。
+ * @observation 回復呼出しID、受領ID、Task再実行回数、保存済み項目phaseとHost義務の全fieldを観測する。
+ * @oracle 先頭未確認では後続をrequiredのまま保持し、次回も同じIDで回復する。Host義務は変更せず外部回復として返す。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary PRL-IT-013=Related 2 Blocks: Task State Store→Objective Application→合成Task Recovery Port。実Docker清掃は対象外である。
  */
 test("混在RecoveryはDockerをsettleして外部義務を型付きで返す", async (t) => {
-  const workingDirectory = root(t);
-  const hostRecoveryId = `host-task.${"a".repeat(64)}`;
-  const dockerRecoveryId = `docker-task.${"b".repeat(64)}.${"c".repeat(64)}.${"d".repeat(64)}`;
-  let recoveryCalls = 0;
-  let attempts = 0;
-  const dependencies = {
-    authenticatedPrincipalId: "principal-a",
-    verifyProjectBinding: () => ({
-      status: "verified",
-      repositoryBindingId: "binding-a",
-      repositoryRevision: revision,
-      workingDirectory,
-      repositoryRoot: workingDirectory,
-      bindingCapability: {},
-    }),
-    planObjective: () => ({
-      milestoneAcceptanceCriteria: ["Result exists."],
-      objectives: [
-        { id: "objective-a", acceptanceCriteria: ["Result exists."] },
-      ],
-      tasks: [
+  for (const isFirstRecoveryBlocked of [false, true]) {
+    const workingDirectory = root(t);
+    const hostRecoveryId = `host-task.${"a".repeat(64)}`;
+    const dockerRecoveryId = `docker-task.${"b".repeat(64)}.${"c".repeat(64)}.${"d".repeat(64)}`;
+    const secondDockerRecoveryId = `docker-task.${"e".repeat(64)}.${"f".repeat(64)}.${"1".repeat(64)}`;
+    const recoveryCalls: string[] = [];
+    const acknowledgementIds: string[] = [];
+    let attempts = 0;
+    const dependencies = {
+      authenticatedPrincipalId: "principal-a",
+      verifyProjectBinding: () => ({
+        status: "verified",
+        repositoryBindingId: "binding-a",
+        repositoryRevision: revision,
+        workingDirectory,
+        repositoryRoot: workingDirectory,
+        bindingCapability: {},
+      }),
+      planObjective: () => ({
+        milestoneAcceptanceCriteria: ["Result exists."],
+        objectives: [
+          { id: "objective-a", acceptanceCriteria: ["Result exists."] },
+        ],
+        tasks: [
+          {
+            id: "task-a",
+            objectiveId: "objective-a",
+            dependencies: [],
+            allowedPaths: ["result.txt"],
+            conflictKeys: ["result.txt"],
+          },
+        ],
+      }),
+      createTaskExecutions: () => [
         {
-          id: "task-a",
-          objectiveId: "objective-a",
-          dependencies: [],
-          allowedPaths: ["result.txt"],
-          conflictKeys: ["result.txt"],
+          taskId: "task-a",
+          taskRequest: {},
+          repositoryRoot: workingDirectory,
         },
       ],
-    }),
-    createTaskExecutions: () => [
-      {
-        taskId: "task-a",
-        taskRequest: {},
-        repositoryRoot: workingDirectory,
-      },
-    ],
-    observeLeaseOwner: () => ({ status: "absent" }),
-    recoverTaskRecovery: (recoveryId: string) => {
-      recoveryCalls += 1;
-      assert.equal(recoveryId, dockerRecoveryId);
-      return {
-        status: "recovered",
-        recoveryId: null,
-        manualRecoveryRequired: false,
-      };
-    },
-    acknowledgeTaskRecovery: () => ({
-      status: "completed",
-      reason: "acknowledged",
-      acknowledgement: dockerAcknowledgement,
-    }),
-    finalizeTaskRecoveryAcknowledgement: finalizedAcknowledgement,
-    execution: {
-      runSingleTaskAttempt: async (
-        input: ProjectRuntimeSingleTaskAttemptInput,
-      ) => {
-        attempts += 1;
+      observeLeaseOwner: () => ({ status: "absent" }),
+      recoverTaskRecovery: (recoveryId: string) => {
+        recoveryCalls.push(recoveryId);
+        assert.ok(
+          [dockerRecoveryId, secondDockerRecoveryId].includes(recoveryId),
+        );
+        if (isFirstRecoveryBlocked && recoveryCalls.length === 1) {
+          assert.equal(recoveryId, dockerRecoveryId);
+          return {
+            status: "blocked",
+            recoveryId,
+            manualRecoveryRequired: true,
+          };
+        }
         return {
-          ...(await completed(input)),
-          status: "blocked" as const,
-          reason: "host_cleanup_unknown",
-          effectState: "unknown" as const,
-          cleanupConfirmed: false,
-          manualRecoveryRequired: true,
-          recoveryIds: [hostRecoveryId, dockerRecoveryId],
-          recoveryObligations: [
-            { kind: "host" as const, recoveryId: hostRecoveryId },
-            { kind: "docker" as const, recoveryId: dockerRecoveryId },
-          ],
-          candidateId: null,
+          status: "recovered",
+          recoveryId: null,
+          manualRecoveryRequired: false,
         };
       },
-    },
-  };
-  const first = await runProjectRuntimeObjective(
-    dependencies,
-    request({ maximumReplans: 0 }),
-    new AbortController().signal,
-  );
-  assert.equal(
-    first.reason,
-    "project_runtime_task_recovery_required",
-    JSON.stringify(first),
-  );
-  const resumed = await runProjectRuntimeObjective(
-    dependencies,
-    request({ maximumReplans: 0 }),
-    new AbortController().signal,
-  );
-  assert.equal(resumed.reason, "project_runtime_task_recovery_not_settled");
-  settleRuntimeProcessAsFreshProcess(
-    workingDirectory,
-    "binding-a",
-    "project-a",
-  );
-  const externalRecovery = await runProjectRuntimeObjective(
-    dependencies,
-    request({ maximumReplans: 0 }),
-    new AbortController().signal,
-  );
-  assert.equal(
-    externalRecovery.reason,
-    "project_runtime_external_recovery_required",
-  );
-  assert.deepEqual(externalRecovery.recoveryObligations, [
-    { kind: "host", recoveryId: hostRecoveryId },
-  ]);
-  assert.equal(recoveryCalls, 1);
-  assert.equal(attempts, 1);
+      acknowledgeTaskRecovery: (identity: { recoveryId: string }) => {
+        acknowledgementIds.push(identity.recoveryId);
+        return {
+          status: "completed",
+          reason: "acknowledged",
+          acknowledgement: dockerAcknowledgement,
+        };
+      },
+      finalizeTaskRecoveryAcknowledgement: finalizedAcknowledgement,
+      execution: {
+        runSingleTaskAttempt: async (
+          input: ProjectRuntimeSingleTaskAttemptInput,
+        ) => {
+          attempts += 1;
+          return {
+            ...(await completed(input)),
+            status: "blocked" as const,
+            reason: "host_cleanup_unknown",
+            effectState: "unknown" as const,
+            cleanupConfirmed: false,
+            manualRecoveryRequired: true,
+            recoveryIds: [
+              hostRecoveryId,
+              dockerRecoveryId,
+              secondDockerRecoveryId,
+            ],
+            recoveryObligations: [
+              { kind: "host" as const, recoveryId: hostRecoveryId },
+              { kind: "docker" as const, recoveryId: dockerRecoveryId },
+              { kind: "docker" as const, recoveryId: secondDockerRecoveryId },
+            ],
+            candidateId: null,
+          };
+        },
+      },
+    };
+    const first = await runProjectRuntimeObjective(
+      dependencies,
+      request({ maximumReplans: 0 }),
+      new AbortController().signal,
+    );
+    assert.equal(
+      first.reason,
+      "project_runtime_task_recovery_required",
+      JSON.stringify(first),
+    );
+    const beforeReentry = readProjectRuntimeState(
+      workingDirectory,
+      "binding-a",
+      "project-a",
+    );
+    assert.equal(beforeReentry.status, "completed");
+    assert.ok(beforeReentry.value);
+    const hostBefore = beforeReentry.value.tasks[0]?.recoveryObligations.find(
+      (entry) => entry.recoveryId === hostRecoveryId,
+    );
+    assert.ok(hostBefore);
+    assert.equal(hostBefore.phase, "required");
+    const resumed = await runProjectRuntimeObjective(
+      dependencies,
+      request({ maximumReplans: 0 }),
+      new AbortController().signal,
+    );
+    assert.equal(resumed.reason, "project_runtime_task_recovery_not_settled");
+    const afterStoppedReentry = readProjectRuntimeState(
+      workingDirectory,
+      "binding-a",
+      "project-a",
+    );
+    assert.equal(afterStoppedReentry.status, "completed");
+    assert.ok(afterStoppedReentry.value);
+    assert.deepEqual(
+      afterStoppedReentry.value.tasks[0]?.recoveryObligations.find(
+        (entry) => entry.recoveryId === hostRecoveryId,
+      ),
+      hostBefore,
+    );
+    const secondAfterStop =
+      afterStoppedReentry.value.tasks[0]?.recoveryObligations.find(
+        (entry) => entry.recoveryId === secondDockerRecoveryId,
+      );
+    assert.ok(secondAfterStop);
+    assert.equal(
+      secondAfterStop.phase,
+      isFirstRecoveryBlocked ? "required" : "settled",
+    );
+    assert.deepEqual(
+      recoveryCalls,
+      isFirstRecoveryBlocked
+        ? [dockerRecoveryId]
+        : [dockerRecoveryId, secondDockerRecoveryId],
+    );
+    assert.deepEqual(acknowledgementIds, []);
+    assert.equal(attempts, 1);
+    settleRuntimeProcessAsFreshProcess(
+      workingDirectory,
+      "binding-a",
+      "project-a",
+    );
+    const externalRecovery = await runProjectRuntimeObjective(
+      dependencies,
+      request({ maximumReplans: 0 }),
+      new AbortController().signal,
+    );
+    assert.equal(
+      externalRecovery.reason,
+      "project_runtime_external_recovery_required",
+    );
+    assert.deepEqual(externalRecovery.recoveryObligations, [
+      { kind: "host", recoveryId: hostRecoveryId },
+    ]);
+    assert.deepEqual(
+      recoveryCalls,
+      isFirstRecoveryBlocked
+        ? [dockerRecoveryId, dockerRecoveryId, secondDockerRecoveryId]
+        : [dockerRecoveryId, secondDockerRecoveryId],
+    );
+    assert.deepEqual(acknowledgementIds, [
+      dockerRecoveryId,
+      secondDockerRecoveryId,
+    ]);
+    const afterExternal = readProjectRuntimeState(
+      workingDirectory,
+      "binding-a",
+      "project-a",
+    );
+    assert.equal(afterExternal.status, "completed");
+    assert.ok(afterExternal.value);
+    assert.deepEqual(
+      afterExternal.value.tasks[0]?.recoveryObligations.find(
+        (entry) => entry.recoveryId === hostRecoveryId,
+      ),
+      hostBefore,
+    );
+    for (const id of [dockerRecoveryId, secondDockerRecoveryId]) {
+      assert.equal(
+        afterExternal.value.tasks[0]?.recoveryObligations.find(
+          (entry) => entry.recoveryId === id,
+        )?.phase,
+        "acknowledged",
+      );
+    }
+    assert.equal(attempts, 1);
+  }
 });
 
 /**

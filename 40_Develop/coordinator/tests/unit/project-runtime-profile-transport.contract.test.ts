@@ -42,7 +42,7 @@ const objective = Object.freeze({
  * @boundary N/A: 実Task、ProviderとHost資源を起動しない。
  */
 test("Objective Profileは全八組合せで既存Task契約へexactに搬送する", () => {
-  const optional = [
+  const optionalFieldNames = [
     {
       decisionCapabilityReplacement: {
         decisionId: "decision-1",
@@ -57,7 +57,9 @@ test("Objective Profileは全八組合せで既存Task契約へexactに搬送す
       const request = inspectProjectRuntimeObjectiveRequest(
         Object.assign(
           { ...objective },
-          ...optional.filter((_entry, index) => (mask & (1 << index)) !== 0),
+          ...optionalFieldNames.filter(
+            (_entry, index) => (mask & (1 << index)) !== 0,
+          ),
         ),
       );
       assert.ok(request);

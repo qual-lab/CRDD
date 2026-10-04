@@ -437,9 +437,9 @@ Docker Desktopの破損時は通常Taskと分離した最終復旧経路を使�
 
 ### 元の回復参照を確定できないHost残存の保守候補
 
-**現状: 候補判定だけを実装した。実観測、保守Authority、公開入口および削除処理は未接続であり、回復成立ではない。** 同じCHG-000082で限定経路を追加する人間判断は得ているが、既存三件の処置は対象を提示した別の承認が必要である。
+**現状: 候補判定、現在観測とcaller記録の内部接続まで実装した。保守Authority、公開入口、削除処理と一連の実境界確認は未接続であり、回復成立ではない。** 同じCHG-000082で限定経路を追加する人間判断は得ているが、既存三件の処置は対象を提示した別の承認が必要である。
 
-対象候補は、Coordinatorが作成した`host_only`記録と対応する六つの空の子Directoryだけを持つHost作業領域に限定する。元Tokenをmarkerから生成し直さず、人間が新たに承認した単一対象の保守と、元Taskの回復Authorityを分ける。非空領域、別状態、Docker資源、永続Provider Home、由来不明な領域および汎用強制削除は対象外である。
+現行実装の対象候補は、Coordinatorが作成した`host_only`記録と対応する六つの空の子Directoryだけを持つHost作業領域に限定する。元Tokenをmarkerから生成し直さず、人間が新たに承認した単一対象の保守と、元Taskの回復Authorityを分ける。2026-10-04に、後述の既知試験ファイル一件を別クラスの設計対象へ含める人間判断を得た。これは現行の空クラスへの非空受理、実停止・削除承認または実装済みの主張ではない。後述の一件以外の非空領域、別状態、Docker資源、永続Provider Home、由来不明な領域および汎用強制削除は対象外である。
 
 | 必須条件 | 保存・確認する根拠 | 不成立時 |
 |---|---|---|
@@ -454,6 +454,41 @@ Docker Desktopの破損時は通常Taskと分離した最終復旧経路を使�
 
 後段の接続順序は、対象観測→人間へのexact対象提示→限定承認→連続排他とfresh再確認→限定処置→不存在・資源解放観測である。部分処置後の再入場は事前固定した対象と許可した進行だけを扱い、初回snapshotと同じ完全存在を要求して回復不能にしない。
 
+#### 既知の7バイト試験ファイルを含む対象
+
+**設計対象への追加は承認済み、専用記録codec・十二実体の観測搬送と保存前Known照合は局所確認済みである。Native保存・読戻しはSource上で接続し、取得前拒否を実CLIで確認した。Coordinator Adapter／caller耐久記録もSource接続し、自己生成Repositoryの保存・読戻し・非置換を局所確認した。正常な固定OS保存・Native読戻しと公開処置は未成立である。** 対象は既存Root `crdd-coordinator-doctor-26606538-94a3-4b8a-bee3-40c14195e3f6`の`workspace/fixture.txt`一件である。現在の`empty_host_only_v1`、十一実体の観測・intent・Protocolは変更せず、空クラスと混在しない別クラスとして具体化する。既知bytesとの一致は試験データとの対応であり、元Taskの由来、非使用または削除Authorityを証明しない。
+
+| 必須条件 | 固定する内容 | 不一致・未確認時 |
+|---|---|---|
+| 単一対象 | 人間へ提示したRoot・marker・六childと、`workspace`直下の固定名`fixture.txt`だけを対象snapshotへ含める。Root直下は六childだけ、他五childは空、workspace内は当該fileだけである。 | 別Rootへの暗黙適用、別名、追加entry、列挙不能では処置前に停止する。 |
+| file実体と内容 | 保持した同じhandleで通常file・非reparse・リンク数1、五識別値と属性、サイズ7bytes、全bytes・EOFを確認する。SHA-256は`be9351741a8155d01fd028d158546f1005e73ceeb0bb2d093335feac4144e450`に限定する。 | fileとDirectoryの代替、hardlink、リンク数不明、差替え、部分read、サイズ・Hash差を拒否する。通常fileという表示だけでリンク数1を推定しない。 |
+| 非使用・人間承認 | 当初の利用終了、全既知consumerの再入場抑止、同世代排他、Docker bindingの不存在、freshなexact対象の人間承認を空クラスと同じく要求する。 | 人間の「別途使っていない」という申告やfile内容一致だけから、終了・非使用・削除許可を作らない。 |
+| 連続保持 | 最終Nativeが同世代排他と対象の保持を処置前から終了まで所有する。fileのwrite／delete競合を拒否する共有条件で同handleを保持し、Identity・内容を確認してからそのhandleへ限定処置を発行する。 | Path再openへの持替え、親喪失による早期解放、競合または必要保証不明では処置しない。 |
+| 処置と不存在 | 当該file→六child→Root→markerの順に非再帰で処置し、各直接不存在、全reader／handleの終了、最後の同世代排他解放を確認する。 | 削除要求受理を不存在としない。互換readerの残存、close不明または観測不能は未完了として保持する。 |
+| 部分処置・再入場 | 処置前snapshotへfileの実体・サイズ・Hashを追加し、同じ参照と許可した進行を保持する。処置済みのfile不存在と、未処置の同file実体を区別して再入場する。 | 欠測を処置済みへ畳まない。同名fileの再出現、異なる実体、矛盾または新しい承認なしの再入場を拒否する。 |
+
+このクラスはnamespace三実体と既存のRoot・marker・六childにfile一実体を加えた十二実体を扱う。空クラスの十一実体へfileを黙って除外・合成して保存してはならない。既存記録を新Schemaへ後付け変換せず、異なるクラス・改訂版を明示拒否する。専用codecでは`contractRevision:3`と`resourceClass:known_fixture_host_only_v1`を候補として扱う。旧revision 2のcodec・保存・Native入口とは別型・別入口とし、搬送一式の完成前に全Protocolの正式固定とは扱わない。
+
+記録codecはRootの構造とmarker名の世代対応を検査するが、特定Rootの処置許可を所有しない。上位の対象選択Ownerが承認済みのexact Rootと選択snapshotへ結合する。codec単独で別Rootの形状を受理しても、保守対象・削除Authorityを拡張しない。
+
+| 記録候補のfield | 固定条件 |
+|---|---|
+| `contractRevision`／`resourceClass` | `3`／`known_fixture_host_only_v1`。未知field、クラス・改訂版差を拒否する。 |
+| `producer` | `human_orphan_cleanup`だけ。選択snapshot Hashと`original_reference_unconfirmed`を保持し、通常owned producerと混在しない。 |
+| `target.knownFile` | `parent:workspace`、`name:fixture.txt`、六u32 Identity、`byteLength:7`、上記固定SHA-256、`linkCount:1`。十二実体はvolume／file indexで相異なる。 |
+| `cleanupOrder` | `file_absence → root_absence → marker_absence → lease_terminal`。六childの処置はRoot不存在に先立つ条件であり、順序省略を許さない。 |
+| 正規bytes | 固定key順・改行なしUTF-8、8192bytes以内。BOM、重複key、余剰bytesと非正規数値表現を拒否する。期待値の受理を実観測へ昇格しない。 |
+
+| 接続先 | 必要な処置 | 現在状態 |
+|---|---|---|
+| Coordinatorの候補Policy・対象観測 | クラスを区別し、固定entry集合・file内容・リンク数と同世代非使用を別の条件として照合する。 | 未接続。空クラスの受理条件を維持する。 |
+| intent codec・選択Hash・caller checkpoint | 十二実体とfileの固定内容を同じ選択へ結合し、保存・読戻し・部分進行で落とさない。 | 専用候補codec、Adapter／caller耐久記録と二時点観測から選択Hash・完全記録を準備するSourceを接続し、局所field差・部分失敗と自己生成Repositoryの保存・読戻し・非置換を確認済み。正常Native保存と最終処置への接続は未成立。現行十一実体の記録を新クラスへ使わない。 |
+| Native Protocol・Current／Known・保存・読戻し・最終処置 | file保持、bounded読取り、リンク数、個別close、処置事実と同参照の再入場を共同搬送する。 | 専用Current／namespace-Knownの搬送と私有の全十二対象Known照合を自己生成対象で局所確認済み。namespace-Knownは全対象Knownではない。十二実体用のNative保存・読戻しdispatchと既存writer／readerはSource上で接続し、本文Hash差の取得前拒否を実CLIで確認した。Coordinator Adapter／callerも専用入口へSource接続し、局所frameと自己生成caller保存・読戻しを確認した。正常な固定OS保存・Native読戻し、最終処置と署名Runtimeは未成立。 |
+| Host／Docker exact回復、診断、通常作成 | 通常経路は既存契約で継続し、限定保守と同じ旧世代の排他へ接続する。新規作成は旧Rootを再利用しない。 | 既存の接続確認を維持する。元の生存中owned能力・旧版閉包の終了根拠は未成立。 |
+| Qualityの既存Local Item | PRL-UT-006と回復・清掃の関連項目へ正常、差替え、未知entry、hardlink、内容差、reader残存、親喪失、途中処置と再入場を接続する。 | 新クラスの記録候補・観測搬送を局所UT、同handle観測・十二対象Knownを自己生成対象の局所ITで確認済み。保存・実Recovery・清掃の全義務は未成立。既存の空クラスPassを流用しない。 |
+
+発火例は、指定した一件の全実体・固定bytes・非使用・fresh承認・保持条件を確定できた場合である。非発火例は、別file、任意の非空領域、通常のexact回復またはDocker結合がある場合である。境界例は、Hashが一致してもhardlinkが二つある場合、あるいは削除要求受理後に互換readerが残る場合であり、前者は処置前拒否、後者は未完了として保持する。判定情報不足例はリンク数・列挙・当初利用終了の不明であり、空や非使用へ補完しない。
+
 #### Coordinator所有範囲で非使用を確認する設計条件
 
 Windows全体の再起動を前提にせず、Coordinatorが所有する処理の終了と、対象を再利用できない状態を限定清掃まで保つ方向で設計する。以下は未接続の後段が満たすべき条件であり、現行Sourceの実装保証または既存三領域の清掃許可ではない。対象を使う処理が閉じていることを確認できない場合は停止し、Coordinator所有外のProcessを一括停止しない。
@@ -465,6 +500,23 @@ Windows全体の再起動を前提にせず、Coordinatorが所有する処理�
 | 所有Processと資源 | 対象へ結合したNode、Supervisor、Native／Provider子孫、Docker資源等、実在する利用者をexactな世代Identityで区別し、終了要求と実終了を分ける。全OS Processや全Docker処理を対象にしない。 | 子Process・待機・observer・handle等の残存、結合不明、終了観測不能。Docker一覧だけの空観測。 |
 | 旧形式の移行 | 新排他の導入だけでは旧形式の非使用を証明しない。旧対象を利用できる処理と入口の閉包、終了および再利用抑止を別に確認する。 | 旧版・複製したRuntime・別入口の利用可能性が未確認。Process名や件数0だけの判定。 |
 | OS限定処置 | 対象Identityの差替え防止と、処置時の使用・再利用防止を実環境が提供する保証へ接続する。Pathやhandleの取得だけを保証成立としない。 | 保証不明、使用中、対象不一致、部分処置または観測不能。 |
+
+#### 旧形式に限定した実接続の最小案
+
+**既存Supervisorを通常経路で維持し、限定清掃を行う最終Native自身が同じ旧世代の排他を保持する。** 以下はSourceとの着手前照合で得た接続案であり、実処置・公開契約の完成や実三件の許可ではない。全通常利用側のSupervisor置換を、限定回復の暗黙の前提にしない。
+
+| 必要な保証 | 最小接続 | 拒否・変更禁止範囲 |
+|---|---|---|
+| 同じ旧世代への結合 | 固定Root名のUUID suffixからnonceを導き、marker名の`SHA256(nonce)`由来、fresh marker本文の`rootName`、保持したmarker実体／全bytes Hashを共同照合する。旧`host-recovery/v1`本文にはnonceがないため、本文からの読取りやfield追加は要求しない。既存`hostOperationGenerationBindingHash`と同じdomain・順序・UTF-8で排他名へ結合する。 | nonceを元Tokenや処置Authorityに変換しない。名の対応は準備入口で拒否できるが、本文・実体のfresh確認とNativeでの排他保持は別の未成立条件である。別世代、不明な旧形式や対象差では停止する。intentの成功fieldや新Canonical IDを追加しない。 |
+| 旧世代への再入場抑止 | Host exact回復、Docker exact回復および診断回復が使う同じHostOperation排他を、処置するNative Processが直接所有する。 | Node／Supervisorだけの保持に依存しない。親喪失で排他が先に解放され、Nativeだけが処置を継続する反例を拒否する。 |
+| 当初の利用終了 | 当初Process、実際に対象を利用した子孫、生成実行物と既知consumerの閉包を独立根拠で確認する。通常作成が新UUIDだけを受けることと、当初owned能力が生存中に旧Rootを利用し得ることを区別する。 | 新しい排他の取得、名前、空状態、`host_only`、Process一覧0を当初Processのexact終了へ昇格しない。旧Runtime・検証入口の結合不明では処置前に停止する。 |
+| 処置と終了 | 同参照読戻し→fresh承認→Nativeの同世代排他→現在の記録・対象・非使用／Docker binding再確認→六空childの非再帰処置→Root直接不存在→exact marker処置・直接不存在→全Reader終了→排他解放。 | 未知entry・非空内容・使用中・観測不能は拒否する。途中処置の事実と未解決参照を保持し、記録書込みや通知上成功だけから不存在・全終端を作らない。 |
+
+発火例は、元Authority不明でも同じ対象・旧世代・非使用根拠・fresh承認を確定できた空`host_only`領域である。非発火例は通常の正当なexact回復、Coordinator外の領域、非空対象またはDocker bindingを持つ対象である。境界例は当初Processが終了していても旧exact回復が排他を保持している場合で、取得競合として処置0へ停止する。判定情報不足例は生成元／当初Processの終了根拠が欠ける場合であり、現在のProcess件数0から補完しない。
+
+この最小案の確認は、小部品の三観点反復を追加せず、入口から最終不存在・排他解放までの固定候補へ統合する。必須の独立技術確認、文書確認、直接影響確認は維持する。実際の旧三領域はこの表だけから処置可能とは判定しない。
+
+Native読戻しは同じ旧世代の排他を自身で保持し、記録Readerと外側guardの終了後に解放するSource接続まで実装した。応答revision 2で取得と解放を個別搬送する。自己生成した世代では、同期Node Workerと非同期Supervisorの両経路で相互の取得拒否と解放後の再取得を[局所確認した](../../../99_Roadmap/Changes/CHG-000082/Evidence/261002_host-orphan-recovery-design.md#非同期supervisorとの排他相互運用--2026-10-04)。正常な署名搬送、旧版consumerの閉包、異常・親喪失経路と最終清掃の連続保持は未成立である。読戻しの終了を別操作への排他引継ぎ、元利用者の終了または実対象の非使用確認にしない。
 
 #### 共有回復記録Directoryの所有と初期化
 
@@ -532,6 +584,35 @@ namespace初期化の失敗ではexact Token回復へ接続できない。Token�
 
 清掃は公開済みintent→Root処置・直接不存在→元marker処置・直接不存在→排他解放の順で進める。取消・部分処置・通知喪失・例外は同じ終端記録へ接続する。進行追記を持つ場合も、書込みを処置済みの証明にせず、対象ごとのfresh観測を正本にする。leaseの通知上`closed`だけでnative資源の回収まで成立としない。
 
+#### 限定保守のcaller接続と二回の短命処理
+
+固定保存境界の読取り部品は[Platform Details](../platform-access/01_Architecture.md#固定保存境界の私有観測)へ具体化している。固定保存境界では三Directoryの独立期待値と利用者を照合し、十一実体のCurrent／Known観測は[Platformの私有読取り接続](../platform-access/01_Architecture.md#対象一式の私有読取り接続)へ具体化している。Source上では専用の読取り確認Protocolと`host-terminal-windows-adapter.ts`を接続する。Adapterは完全intentから三独立期待値・利用者と固定名を搬送し、nonce、応答形状、十一実体の型・相異、最初の三期待値、全資源close、実child終了と成果物前後一致を確認する。Generic Platform Adapterを置換せず、成功でも清掃Authorityを発行しない。回復Ownerからの実呼出し、初回期待値の取得、保存先初期化、記録公開・同参照の本番再入場と署名配布物の成立は未接続である。所在候補の取得を許可済み保存先や新しいAuthorityの発行にしない。
+
+元Taskを確定できない限定保守では、Project RuntimeのTaskRecordへ回復情報を後付けしない。Coordinator自身が、検証済みRepository Rootから解決する`.crdd/coordinator/recovery/host-terminal/`に、同じ非Authority参照と完全intentを保持する。実行知の`task_attempt_settled`を保守記録へ流用せず、新しい汎用Storeや独立Subsystemも作らない。
+
+| 段階 | 所有する処理 | 次へ進む条件 | 停止時に保持するもの |
+|---|---|---|---|
+| 対象観測 | 短命Nativeが固定namespace、親・管理Directory・Root・marker・六childの11実体と選択利用者を観測する。必要なnamespace初期化は独立した管理Effectとする。 | 全対象とmarker bytesを観測し、自己所有handleの終了を確認する。 | 取得済みの同参照、管理Effectの発行・確認状態。既存共有Directoryをrollbackで削除しない。 |
+| caller保存 | CoordinatorがRoot／Ignore確認、閉Schema、producerとbinding照合を行い、完全intentを保存・flush・再読取りする。 | 同参照の完全bytesが一致し、保存資源を終端した。 | 同参照と完全intent。衝突、部分書込み、返却喪失またはclose不明では書き換え・別参照発行をしない。 |
+| 記録公開 | 別の短命Nativeが同じnamespace、11実体、marker bytesと利用者をfreshに再照合する。共通容量排他をそのNative自身が取得し、計数・予約・CREATE_NEW・write・flush・非置換公開・結果観測まで保持する。 | 全再照合、保存・公開、個別closeと実child終端が成立した。 | 同参照と単調な部分receipt。上位のpacket受信を実child終了へ読み替えない。 |
+| 同参照再入場 | fresh Processがcaller保存を再検証し、独立した全bytesをNativeの現在候補readerへ渡す。 | 同じ参照の唯一名、現在実体、保護、全bytesと今回の終了を確認する。 | 現在観測だけ。過去の成功receipt、旧file連続性、Authorityを生成しない。 |
+
+二回のNative呼出し間で対象を継続保持したとは主張しない。記録公開前に全対象を再確認し、不一致・未知ならstage作成を行わない。namespace初期化後の失敗を「全Effect 0」にせず、記録Effect、管理Effect、Process／handle取得とRoot／marker処置を区別する。容量排他は別Supervisorの生存表示から推定せず、保存Effectを発行する同じNative Processが所有する。
+
+`publishHostTerminalRecoveryCheckpoint`は同参照のcaller canonicalを既存Readerでfreshに検証し、正規bytes／Hash、独立bindingsと十一Known値を専用保存要求へ結合する。自己申告のsaved結果Objectを入力にせず、保存前後で同じcaller bytesを照合する。`host-terminal-windows-adapter.ts`は固定署名／開発Worker、実child終了、成果物前後一致、nonceと同参照、対象全体、計数・保存・全closeを共同評価する。保存場所だけの一致から対象差替えを見逃さない。
+
+Nativeへの保存要求は一回だけ発行する。搬送・返却・終了・成果物観測が不明なら記録Effectをfalseへ戻さず、同参照とcaller完全bytesを保持する。応答の形状・相関を確認できても終了コードと矛盾する場合は停止し、取得済みのNative部分結果を保持する。保存Effectは不明とし、部分結果から保存成功を主張しない。Nativeが保存した後でcaller再確認や取消が失敗しても、公開済みreceiptを消さない。これは内部の記録接続であり、公開Recovery CLI、非使用、処置承認、Root／marker清掃または同参照Native再入場の実境界成立ではない。
+
+`readHostTerminalRecoveryCheckpoint`は、同じcaller canonicalのfreshな完全bytesと独立bindingsを専用読戻し要求へ結合し、Native前後の同一内容を確認する。読戻しは現在のPrepared／Published記録と実体だけを観測し、Root／marker／六childを取得しない。清掃途中で対象が消失しても同参照を追えることと、処置直前に対象・非使用・承認をfresh確認することを分ける。現在記録の一致は過去receiptやAuthorityではない。Reader・外側guard・子Process終了の共同成立後だけ観測成功とし、取消、caller差替え、搬送不明では取得済み参照とNative部分結果を保持する。読戻し自体は記録Effectを発行しない。
+
+この接続の完成候補は、caller保存だけでなく固定OS namespace、共有容量、Native protocol／Adapter、同参照を消費する入口まで一体とする。保存だけの入口を公開Recoveryとして表示しない。caller側にも容量・保持Ownerを持たせ、共同終端とEvidence移管を確認する前に自動削除しない。現在は接続実装中であり、通常producerの新Root作成前予約、全async利用側移行、legacy非使用、fresh承認と連続排他、およびRoot／marker処置は未成立である。
+
+caller保存の排他は、検証済みRepository Rootをdomain-separated Hashへ変換した固定Windows named pipeを、保存するNode Process自身が所有する。取得の`listening`、失敗、取消、後着取得、受理socketと`close`を既存の同一Process状態機械へ接続する。pipeは通信入口ではなく、受理socketをデータ交換せず終端する。任意pipe名・Pathを入力にせず、別Supervisorの生存やLock Directoryの削除を排他の根拠にしない。取得・解放の待機上限は各2秒とし、再試行しない。未取得と終端未確認を区別する。Process喪失後に部分fileが消えるとは主張しない。
+
+caller Directoryでは8KiB／1024物理entry／8MiBを上限とし、新規保存前にstageと公開名の2entry・両名byte分を同期予約計数する。未知entryと分類不能では新記録を止め、既存参照の読取りは別に維持する。完全bytesを`CREATE_NEW` stageへ保存・flush・再読取りし、Repository-localの非置換hardlinkでcanonical名を公開する。両名の同一実体を確認し、writer close後に自分のstageだけを除去してcanonical全bytesを再検証する。これはOS保存側の同writer保持rename契約とは別のcaller接続であり、Windows ACL・連続handle防御・過去のNative receiptを証明しない。部分stage、併存、不一致、close不明では再公開・上書き・修復をしない。
+
+fresh callerは検証済みRepository Rootから同参照のcanonicalのみを読み、独立期待bindings、codec、descriptor実体の前後一致とcloseを確認する。readerのclose失敗は読取り失敗との併発時も保持し、保存結果の終了確認をfalseにする。Native前後のcaller読取りでも、終了未確認の固定理由を上位結果へ保持する。Native呼出し後なら取得済み部分結果と同参照を保持し、再close・再送はしない。新規保存を許すのは最初のcanonical直接観測が明示ENOENTだった場合だけであり、存在観測後の消失を新規受付へ戻さない。この現在値だけをNative再観測へ渡し、記録自身から期待binding、旧Identity、過去成功またはAuthorityを作らない。共同終端とEvidence移管後のcaller記録清掃は別に接続する必要があり、未解決参照の自動削除は行わない。caller側の部分実装は私有入口に限定し、公開CLIと全Recoveryの完成として表示しない。
+
 #### 助言初期化失敗の分類と初回参照保持
 
 Workbench助言の初期化失敗では、Operationが呼出し元へ返る前でも、下位作成境界が確認した清掃分類と取得済みexact参照を失わない。作成、世代Lockのactivation／readiness失敗の私有分類を外側の失敗処理へ渡し、`operation=null`だけから清掃失敗またはHost不存在を推定しない。既知の清掃確認は維持し、未知例外は未確認のまま停止する。
@@ -542,26 +623,44 @@ Workbench助言の初期化失敗では、Operationが呼出し元へ返る前�
 
 完全に観測できたsnapshotだけを、内部codec `host-terminal-record.ts`の入力にする。Root未作成、六childの部分作成、Identity不明の初期化失敗はこの形式の適用外である。欠けた値をゼロや推測で埋めず、既存の失敗分類と取得済みexact参照保持を維持する。初期化途中からの耐久再入場は別に接続する必要がある。
 
-| field | revision 1の形と意味 |
+| field | revision 2の形と意味 |
 |---|---|
-| `contract`／`contractRevision` | `crdd-coordinator/host-terminal-intent`／`1`。未知Revisionを拒否する。 |
+| `contract`／`contractRevision` | `crdd-coordinator/host-terminal-intent`／`2`。属性を持たないRevision 1と未知Revisionを拒否し、既存の観測値から属性を推測補完しない。 |
 | `reference` | caller-knownな`host-terminal.<小文字UUID v4>`。codecは発行しない。限定保守では今回の保守選択Identityにも相当し、snapshot Hashだけで選択を結合しない。 |
 | `producer` | `owned_cleanup`は`originalReferenceSha256`だけ、`human_orphan_cleanup`は`selectionSnapshotSha256`と`originalReferenceUnknownReason: original_reference_unconfirmed`だけを持つ。混在・欠落を拒否する。 |
 | `bindings` | `runtimeSha256`、`repositorySha256`、`selectedUserSha256`。小文字64桁。実行物・Repository・選択利用者との実際の照合は記録Ownerが行う。 |
 | `target` | `parentIdentity`、`recoveryDirectoryIdentity`、`terminalDirectoryIdentity`、`root`、`marker`、`children`の閉集合。 |
 | `root`／`marker` | `name`と`identity`。markerだけに元bytesの`sha256`を加える。Root名は`crdd-coordinator-doctor-`＋1〜96文字のASCII英数字・`_`・`-`、marker名は`host-<64桁小文字Hash>.json`。自由Pathを受け取らない。 |
 | `children` | 実名`workspace`、`provider-home`、`tmp`、`events`、`projection`、`management`の六件を全て保持する。現行Sourceのobject key `providerHome`をこの実名へ明示変換するAdapterは未接続。 |
-| 各`identity` | Win32の`volumeSerial`、`fileIndexHigh`、`fileIndexLow`、`creationTimeHigh`、`creationTimeLow`の五u32。整数0〜4294967295、負のゼロ不可。同じvolume／file indexが二対象に現れるsnapshotを拒否する。 |
+| 各`identity` | Win32の`volumeSerial`、`fileIndexHigh`、`fileIndexLow`、`creationTimeHigh`、`creationTimeLow`の五識別値と、同じhandleの`attributes`を六u32として全十一対象に保持する。整数0〜4294967295、負のゼロ不可。同じvolume／file indexが二対象に現れるsnapshotを拒否する。属性は欠落・既定値補完・maskによる削減を許さない。file／Directory／reparseの適否はNativeのfresh観測が判定し、codecでの形状受理を実体判定へ昇格しない。 |
 | `cleanupOrder` | `root_absence`→`marker_absence`→`lease_terminal`の固定三要素。保存済み進行、成功、非使用やAuthorityを表すfieldは持たない。 |
 
-Win32の五fieldは専用型であり、Nodeの`dev/ino/birthtimeNs`、既存Native protocolの三field Identityと互換扱いしない。creation timeまで取得する観測AdapterはOPEN。元参照HashとRoot／markerの実際の関係はcodecから証明できない。通常清掃の元exact参照・Hash・対象照合、限定保守のfresh承認・同じ選択参照との照合、情報分類はpublication前のOwner責務である。
+Win32の五識別値と属性は専用型であり、Nodeの`dev/ino/birthtimeNs`、既存Native protocolの三field Identityと互換扱いしない。creation timeと属性を取得する私有Readerは自己生成fixtureへ接続済みで、専用観測Adapterと保護付き現在値の初回取得はSource上に実装した。回復Ownerの呼出しと署名配布物はOPENである。旧Revision 1の試験記録を上書きせず、属性を後付けして再入場や処置の入力にしない。元参照HashとRoot／markerの実際の関係はcodecから証明できない。通常清掃の元exact参照・Hash・対象照合、限定保守のfresh承認・同じ選択参照との照合、情報分類はpublication前のOwner責務である。
 
 正規文書は表のfield順、nested fieldもcodecの固定順、改行なしUTF-8 JSONとする。全ての文書bytesを一文書8KiB上限へ数え、SHA-256もそのbytesだけを対象とする。UUID／Hashは小文字、u32は通常の十進整数表現に限定する。encode前にnestedのProxy、Accessor、未知fieldと特殊prototypeを拒否し、未検証objectの`toJSON`等を実行しない。decodeは最大8KiBの所有copyを取り、共有memoryを拒否し、fatal UTF-8解析・閉Schema確認・再encodeとのbyte完全一致を要求する。BOM、重複key、空白・改行・余分bytes、escapeや指数表現による非正規値を受理しない。正規文書受理は保存・保護・実Identity・現在権限・非使用・清掃成立を意味しない。
+
+初回対象確認と完全intent作成は分離する。対象名、独立して保持した三保存場所の実体と選択利用者だけから確認要求を作れ、未取得のRoot／marker／child実体を捏造しない。初回の保存場所自体がまだ未知の場合は、同じ固定Nativeの読取り専用Current要求（`CRDDHC01`）で取得する。Nativeは固定OS所在の全祖先を保持し、同じTokenで選択利用者を取得し、recovery／terminal双方の保護と三実体の型・相異を確認する。欠落・保護不適合は停止し、自動作成やACL修復をしない。Current結果は現在観測だけであり、上位Ownerが保持した後の別呼出し（`CRDDHT02`）で全期待値を再照合する。二呼出し間の連続保持、旧Task由来、非使用および清掃許可は主張しない。応答は既存`CRDDHR02`を共有し、要求種別を私有相関Contextへ保持してCurrentとKnownを混同しない。
+
+`observeHostTerminalWindowsCandidate`は、この二呼出しを接続する。初回が拒否・終了不明なら二回目を発行せず、初回で実取得した三保存場所と利用者をKnown要求へ渡す。両応答の十一実体、利用者と元marker Hashが全て一致した場合だけ、二時点の対象一致を返す。不一致は停止し、二時点一致から連続保持や非使用を推定しない。取消は呼出し前後で確認し、同期Native実行の即時取消は保証しない。
+
+`prepareHostTerminalRecoveryCheckpoint`は、検証済みRepository、callerが一回確定した同じ参照、固定名と独立した三結合Hashを受け取り、上記の二回観測から完全intentを構成し、既存のRepository内caller保存へ渡す。選択snapshot Hashは、固定名、十一実体の六値、元marker Hashと三結合Hashの固定順から導出し、nonce・終了状態・参照・Hash自身を含めない。観測と保存の結果を分け、取消や失敗でも取得済み参照、保存済みbytesとEffectを保持する。予期しない搬送・保存例外のEffectは不明として返し、Effectなしへ畳まない。保存した二時点snapshotは履歴上の結合根拠であって、保存待機後の現在値や非使用の証明ではない。現在、前提拒否と既存caller保存を局所確認した段階であり、実Native正常観測から保存までの共同成立、保護済みNative公開・承認・清掃のOwner接続と署名配布物は未成立である。
+
+既知fileクラスは`observeKnownFileHostTerminalWindowsCandidate`と`prepareKnownFileHostTerminalRecoveryCheckpoint`の専用入口を使う。専用Currentから別呼出しのnamespace-Knownへ接続し、十二Identity、利用者、元marker Hashとfileの長さ・リンク数・Hashを二時点で比較する。namespace三実体の一致だけで対象全体一致としない。初回拒否・終了不明・取消では二回目を発行せず、二回目失敗・例外でも初回の取得済み結果を保持する。両Process終了が確認できない結果を準備可能としない。
+
+新クラスの選択HashはUTF-8の`crdd/host-terminal-known-file-selection/v1\0`に、改行なしJSON配列を結合したSHA-256とする。配列はRoot名、marker名、十二Identityの配列、元marker Hash、Runtime Hash、Repository Hash、選択利用者Hash、file三値の配列の順とする。各IdentityはvolumeSerial、fileIndexHigh、fileIndexLow、creationTimeHigh、creationTimeLow、attributesの順、file三値はbyteLength、linkCount、sha256の順である。nonce、回復参照、結果・終了状態とHash自身は含めない。旧クラスのdomainと配列順は変更しない。
+
+専用準備Ownerは同参照のrevision 3完全intentを専用caller保存へ渡す。実codecと準備bodyの局所確認、および合成観測から自己生成Repositoryの実caller保存・再読取りまでを確認するが、合成観測をNative正常搬送の根拠へ昇格しない。保存開始後の例外はEffect不明、保存後の取消は既存receiptとEffectを保持する。Hashは対象選択の相関だけであり、bindingsの実由来、fresh承認、非使用、連続排他、実清掃と公開Recoveryを証明しない。
+
+Host終端の観測・保存・読戻しは、`createWindowsHostTerminalHelperEnvironment`の専用環境を共用する。一般Native helperの空`TMP`／`TEMP`を変更せず、既存Host producerと同じ`os.tmpdir()`の候補を通常Directory・非symlinkとして確認し、正規の実Pathを両fieldへ同じ値で搬送する。不正・取得不能では別場所へ補完しない。この値は所在候補であって所有証明ではない。Nativeは全祖先の保持、選択利用者、三実体と二保護を確認し、上位Ownerは元対象の親との一致を独立した根拠へ結合する。固定`terminal-v1`の欠落・保護不適合では停止し、自動作成・ACL修復・削除を行わない。専用保存先の初期化は、別の用途限定操作とexact Rootへの許可が成立するまで実行しない。
+
+既存共有recoveryのWindows保護は、通常producerのUnix mode指定だけでは成立しない。2026-10-04の人間判断により、共有Directoryの限定ACL移行と通常producerの保護付き作成／fresh検証を、同じCHGの設計・実装・試験へ追加した。これは実ACL変更、実OS作成、Process停止または旧三件削除の許可ではない。通常入口は既存不適合を停止し、自動ACL修復・旧marker更新・新保存先へのfallbackを行わない。[比較と判断境界](../../../99_Roadmap/Changes/CHG-000082/Evidence/261002_host-orphan-recovery-design.md#共有管理フォルダの保護不一致と次の判断--2026-10-04)を参照する。
+
+通常のTask／doctor／Workbench助言の作成Ownerは、WindowsではRoot・marker作成前に固定親を解決し、署名付きNativeの親観測→独立期待値付き保護初期化を確認する。署名・親・利用者・保護・終了の不明では共有物をrollbackせず、清掃未確認・回復IDなしとして移送する。非Windowsの既存作成処理は変更しない。下位のNode作成primitiveはRoot／markerのrollback等の局所契約を所有するが、Windows保護成立の証明ではない。明示親を使う既存の負例は下位primitiveの失敗点を引き続き確認し、署名接続の早期拒否をそのOracleの成功に読み替えない。通常の本番接続と下位fixtureの観測範囲を分離する。
 
 | 本番への接続点 | 現状と必要な処置 |
 |---|---|
 | 作成前の容量予約とcaller参照 | 未接続。`createOwnedOperationDirectories`が戻った後のhost参照返却へfieldを足すだけでは、最初のEffect前・Process喪失後の同じ参照を保証できない。 |
-| 完全snapshotからintentへ | codecのみ。観測Adapter、実bindings、元exact参照または保守選択・承認との照合は未接続。 |
+| 完全snapshotからintentへ | codecと専用観測AdapterをSource上に実装した。回復Ownerの呼出し、実bindings、元exact参照または保守選択・承認との照合は未接続。 |
 | Native保護付きstage・公開 | 未接続。局所保護実測を本番の保護、保持handle、no-replace公開・直接観測へ接続する。 |
 | Root／marker／lease共同終端 | 未接続。現在のRoot→世代失効／解放→marker順をcodec追加では変更しない。公開確定後、Root直接不存在→marker直接不存在→lease実終端へまとめて移行する。 |
 | async利用側と再入場 | 未接続。同期wrapperへのPromise搬送を禁止し、Host→ProcessAbsence→RuntimeStateの取得と逆順解放、待機後のfresh観測を全利用側へ接続する。 |
@@ -585,6 +684,12 @@ Coordinatorの記録Ownerは、再入場前の耐久参照、producer版、Schem
 **接続前OPEN:** 実際の保存・アクセス制御・差替え防止、no-replace公開、caller耐久接続、容量予約、Evidence引渡しと管理清掃は未実装・未観測。これらと旧利用側の閉包、Root／markerの限定OS処置を満たすまで、候補契約を実Recovery成立へ昇格しない。
 
 旧形式の非使用を安全に確認できる具体的方式、作成前排他と全利用側の移行、OS処置境界はまだ未確定である。必要な保証を検証できない場合は処置しない。Windows再起動が不可欠という根拠が得られない限り、それを既定の前提または利用者への必須操作にしない。
+
+限定保守の再利用防止では、現在のSourceで旧Rootを利用できる入口を対象とする。新規Taskと受動Doctorは新UUIDのRootだけを生成し、旧Rootを選択しない。当初Process内のowned／mount／management能力、exactなHost回復、Docker Taskの耐久base／journalに保持したHost lineage、およびDocker診断回復が既知の利用側である。当初能力の終了根拠と、fresh回復の対象排他を分け、全OSのProcess不存在や名前だけの一覧を代替証明にしない。
+
+Docker診断回復は、exact TokenのRoot名から既存producerが発行したHost世代を純粋に導出し、対象Rootの最初の記録読取りより前にHost世代排他を取得する。Probe nonceをHost世代へ流用しない。取得後に元の記録を読み、埋め込まれたHost TokenのRoot名・nonceと照合し、差または不明ではDocker利用前に停止する。同じ排他能力をHost清掃へ渡し、取得済み排他を解放してから結果を返す。解放未確認では成功を返さず現在のexact参照と清掃未確認を保持する。この接続の局所確認だけで、実三Rootの当初世代終了、限定保守の承認・OS処置・耐久再入場または全Recoveryを成立済みにしない。
+
+Docker Taskのexact回復は、Runtime Stateのbase／journalからHost結合を取得してから、対象Rootの最初の観測より前に同世代排他を取得する。move／delete Journalの存在を排他省略の理由にしない。省略できるのは、Hostを使わないexact終端清掃記録または清掃Directory候補の分岐だけであり、実処置前の既存Identity・全entry・Hash検証を維持する。省略後に非終端処理へ戻る場合も、Host Path解決より前に未取得を拒否する。通常の一時解放・同世代再取得・実体再照合と、Host Rootが既に無い終端再入場を維持し、全経路を新しい連続保持へ置換しない。最終限定Native清掃の連続保持は別の受入条件として接続する。
 
 **OPEN:** 旧形式の非使用根拠、初期化前からの排他、差替えを防ぐOS処置境界、保護済み再入場、SPEC／Workflowへの実処置契約と公開入口は未成立である。これらを反証・独立確認するまでHelp／capabilitiesに未完成clean操作を公開しない。詳細な進行と承認範囲は[CHGの記録](../../../99_Roadmap/Changes/CHG-000082/Evidence/261002_host-orphan-recovery-design.md)、検証義務は[QA-000003](../../../07_Quality/Definitions/QA-000003/quality_definition.md#host残存の保守候補判定)と[QA-000006](../../../07_Quality/Definitions/QA-000006/quality_definition.md#host残存の限定回復に追加する観測条件)を参照する。
 
@@ -817,6 +922,10 @@ Docker Task Recoveryは元のRecovery IDと発行時Sessionの証拠を保持し
 機械結果と人間表示を分離する。文字化け、二回Enter、入力reader失敗、ウィンドウ自動閉鎖または結果未保存はUX不具合であり、Security上のfail closedだけを理由に受容しない。
 
 ### Provider外部境界の診断接続
+
+最初の失敗と、その後の清掃結果は別の事実として保持する。Process Controllerは既存の終了後診断へ`primaryFailure`を追加し、失敗したCommand用途、固定段階、固定理由、既知例外の分類、Handle取得・応答観測・資源ID記録の成否を最初の失敗時に固定する。Timeout後の終了処理や清掃の失敗で、この一次失敗を上書きしない。正常終了時は`null`とし、清掃だけの失敗を存在しない一次実行失敗へ変換しない。最終status、cleanupとexact Recoveryの安全条件は変更しない。
+
+Handle取得はDockerの要求受理ではなく、CLI応答は資源IDの記録成立ではない。作成意図記録だけから要求発行やDocker受理を推定しない。診断は秘密値、Host Path、argv、stackおよび生出力を含まず、固定語彙外の例外は`unclassified_exception`とする。既存の診断通知はbest-effortであり、受信した検証Toolが記録を保存する。通知未達、清掃中の停止またはProcess喪失時の耐久保存は保証しない。過去の署名Runtimeの診断に当該Fieldがないことを、失敗不存在へ読み替えない。
 
 ProviderとDockerの外部境界は、一般Architectureの[外部境界の診断可能性](../../../27_Architecture.md#外部境界の診断可能性)を次の二系列で実装する。
 

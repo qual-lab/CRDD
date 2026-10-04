@@ -166,7 +166,7 @@ test("Objective要求は閉じた公開契約へsnapshotする", () => {
  * @boundary N/A: 純粋な入力検査。
  */
 test("Objectiveの任意三項目は全八組合せでexactにsnapshotする", () => {
-  const optional = [
+  const optionalFieldNames = [
     {
       decisionCapabilityReplacement: {
         decisionId: "decision-1",
@@ -179,7 +179,9 @@ test("Objectiveの任意三項目は全八組合せでexactにsnapshotする", (
   for (let mask = 0; mask < 8; mask += 1) {
     const source = Object.assign(
       { ...objectiveRequest() },
-      ...optional.filter((_entry, index) => (mask & (1 << index)) !== 0),
+      ...optionalFieldNames.filter(
+        (_entry, index) => (mask & (1 << index)) !== 0,
+      ),
     );
     const inspected = inspectProjectRuntimeObjectiveRequest(source);
     assert.ok(inspected, `mask=${mask}`);

@@ -57,6 +57,7 @@ test("検証済みRepository Rootだけから全Repository-local Pathを解決�
   assert.deepEqual(paths?.allowedTopLevelAreas, [
     "config",
     "project-runtime",
+    "coordinator",
     "execution",
     "verification",
     "candidates",
@@ -65,6 +66,10 @@ test("検証済みRepository Rootだけから全Repository-local Pathを解決�
     "tests",
     "tmp",
   ]);
+  assert.equal(
+    paths?.coordinator,
+    path.join(repositoryRoot, ".crdd", "coordinator"),
+  );
 });
 
 /**

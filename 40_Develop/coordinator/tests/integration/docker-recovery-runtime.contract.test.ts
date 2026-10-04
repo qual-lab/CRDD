@@ -425,7 +425,7 @@ const dockerTaskRecoveryId = `docker-task.${stableHome}.${operationNonce}.${base
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Operation Directory生成primitiveはEffect前失敗とrollback確認済み失敗をopaque分類するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
+ * @oracle Effect前失敗とrollback確認済み失敗はclean、共有保存場所不正は清掃未確認・IDなしで保持する。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-013=Direct Boundary: coordinator Test Source→対象契約
  */
@@ -457,13 +457,20 @@ test("Operation Directory生成primitiveはEffect前失敗とrollback確認済�
         assert.deepEqual(
           classifyOwnedOperationDirectoryCreationFailure(error),
           {
-            cleanupConfirmed: true,
-            manualRecoveryRequired: false,
+            cleanupConfirmed: false,
+            manualRecoveryRequired: true,
             hostRecoveryId: null,
           },
         );
         return true;
       },
+    );
+    assert.equal(
+      fs.readFileSync(
+        path.join(parent, "crdd-coordinator-recovery-v1"),
+        "utf8",
+      ),
+      "x",
     );
     assert.deepEqual(
       fs

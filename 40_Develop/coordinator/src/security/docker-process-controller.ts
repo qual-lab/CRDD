@@ -46,7 +46,7 @@ import { extractWorkbenchAiAdviceProviderOutput } from "./workbench-ai-advice-pr
 
 export const DOCKER_PROCESS_CONTROLLER_CONTRACT =
   "crdd-coordinator/docker-process-controller";
-export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 30;
+export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 31;
 
 const SETUP_TIMEOUT_MS = 10_000;
 const PROVIDER_TIMEOUT_MS = 300_000;
@@ -347,15 +347,45 @@ type ProviderProcessStartedNotice = Readonly<{
   operationId: string;
 }>;
 /**
- * docker-process-controllerで使用するProvider Boundary Diagnostic Noticeの値契約を定義する。
+ * 最初の失敗を後続の清掃結果と分けて説明する。
  *
- * @responsibility Provider Boundary Diagnostic NoticeのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility 固定段階と理由、要求・応答・記録の異なる観測を保持する。
  * @trace ARCH-000008
- * @shape ProviderBoundaryDiagnosticNoticeが表すProperty、識別子およびRelationを型として固定する。
- * @invariant ProviderBoundaryDiagnosticNoticeで宣言した値と責務の対応を維持する。
- * @boundary N/A: ProviderBoundaryDiagnosticNoticeの宣言は外部境界を開かない。
- * @security ProviderBoundaryDiagnosticNoticeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility ProviderBoundaryDiagnosticNoticeの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape 固定用途、段階、理由、例外分類と三つの観測値。
+ * @invariant Handle取得をDocker受理、応答を記録成功と同一視しない。
+ * @boundary Controllerから受動診断の利用側への搬送。
+ * @security 自由文、Path、argv、Provider出力や秘密値を含めない。
+ * @compatibility 診断は実行・清掃・Recoveryの判定を変更しない。
+ */
+type PrimaryFailureDiagnostic = Readonly<{
+  purpose: string | null;
+  stage:
+    | "submission_record"
+    | "command_restriction"
+    | "command_start"
+    | "provider_start_observation"
+    | "command_wait"
+    | "execution_classification"
+    | "resource_receipt_record"
+    | "subscription_auth_verification"
+    | "provider_result_normalization";
+  reason: DockerProcessControllerFinalReason;
+  exceptionCode: string | null;
+  commandHandleObtained: boolean;
+  responseObserved: boolean;
+  receiptRecorded: boolean;
+}>;
+
+/**
+ * Provider境界の設定と終了後の診断を表す。
+ *
+ * @responsibility 設定、一次失敗と清掃観測を区別して搬送する。
+ * @trace ARCH-000008
+ * @shape configuredとsettledの固定Event集合。
+ * @invariant 設定や診断をEffect成立の根拠へ変換しない。
+ * @boundary Runtimeから受動診断の利用側への搬送。
+ * @security 秘密値、Pathや生出力を含めない。
+ * @compatibility 診断失敗で処理結果を変更しない。
  */
 type ProviderBoundaryDiagnosticNotice =
   | Readonly<{
@@ -398,6 +428,7 @@ type ProviderBoundaryDiagnosticNotice =
       containersAbsentObserved: boolean;
       networksAbsentObserved: boolean;
       cleanupConfirmed: boolean;
+      primaryFailure: PrimaryFailureDiagnostic | null;
     }>;
 /**
  * docker-process-controllerで使用するRuntime Dependenciesの値契約を定義する。
@@ -1653,6 +1684,59 @@ function commandRestrictionAllows(restriction: unknown, purpose: string) {
 }
 
 /**
+ * 例外を秘密値のない固定分類へ変換する。
+ *
+ * @responsibility 既知の内部拒否とOS失敗だけを診断へ残す。
+ * @trace ARCH-000008
+ * @input error: 捕捉した未知の例外。
+ * @returns 固定分類またはunclassified_exception。
+ * @precondition N/A: 任意の例外値を受け取る。
+ * @postcondition 自由文とstackを返さない。
+ * @effect N/A: own data propertyだけを読む。
+ * @failure 不正値やProxyの例外はunclassified_exceptionへ閉じる。
+ * @invariant getterを呼ばず、未知の文字列を公開しない。
+ * @boundary 内部例外から受動診断への変換。
+ * @security Path、秘密値やProvider出力を複製しない。
+ * @concurrency N/A: 共有状態を変更しない。
+ */
+function classifyCommandDiagnosticException(error: unknown): string {
+  const allowed = new Set([
+    "ENOENT",
+    "EACCES",
+    "EPERM",
+    "ETIMEDOUT",
+    "ECONNREFUSED",
+    "EPIPE",
+    "docker_effect_management_required",
+    "docker_effect_plan_invalid",
+    "docker_effect_plan_replaced",
+    "docker_effect_command_not_owned",
+    "docker_effect_platform_unsupported",
+    "docker_effect_cli_untrusted",
+    "docker_effect_cli_replaced",
+    "docker_effect_path_invalid",
+    "docker_effect_config_invalid",
+    "docker_effect_config_replaced",
+    "docker_effect_filesystem_identity_invalid",
+    "owned_operation_management_binding_required",
+    "owned_operation_unknown_child",
+    "owned_operation_child_replaced",
+    "owned_operation_mount_replaced",
+  ]);
+  try {
+    if (!error || typeof error !== "object") return "unclassified_exception";
+    for (const key of ["code", "message"]) {
+      const descriptor = Object.getOwnPropertyDescriptor(error, key);
+      if (descriptor && "value" in descriptor && allowed.has(descriptor.value))
+        return descriptor.value;
+    }
+  } catch {
+    // A hostile error object is not a source of diagnostic text.
+  }
+  return "unclassified_exception";
+}
+
+/**
  * Planを実行する。
  *
  * @responsibility Planの実行条件、Effect範囲、終了結果の境界を所有する。
@@ -1688,11 +1772,23 @@ async function executePlan(
   let providerExitStatusClass: ReturnType<
     typeof providerProcessExitStatusClass
   > = "not_observed";
+  let diagnosticPurpose: string | null = null;
+  let diagnosticStage: PrimaryFailureDiagnostic["stage"] = "submission_record";
+  let commandHandleObtained = false;
+  let responseObserved = false;
+  let receiptRecorded = false;
+  let exceptionCode: string | null = null;
+  let primaryFailure: PrimaryFailureDiagnostic | null = null;
 
   reportPassiveBoundaryDiagnostic(state, providerBoundaryConfiguration(plan));
 
   try {
     for (const command of plan.commands) {
+      diagnosticPurpose = command.purpose;
+      diagnosticStage = "submission_record";
+      commandHandleObtained = false;
+      responseObserved = false;
+      receiptRecorded = false;
       if (record.cancellationRequested) {
         requestedStatus = "cancelled";
         reason = "provider_operation_cancelled";
@@ -1711,6 +1807,7 @@ async function executePlan(
         reason = "docker_resource_submission_record_unavailable";
         break;
       }
+      diagnosticStage = "command_restriction";
       if (
         !commandRestrictionAllows(record.commandRestriction, command.purpose)
       ) {
@@ -1725,15 +1822,27 @@ async function executePlan(
         reason = "provider_operation_cancelled";
         break;
       }
+      diagnosticStage = "command_start";
       const handle = state.dependencies.startCommand(
         command,
         plan,
         record.managementCapability,
       );
+      commandHandleObtained = true;
       record.activeHandle = handle;
       if (isProvider) {
+        diagnosticStage = "provider_start_observation";
         const processStarted = await handle.started(CANCELLATION_GRACE_MS);
         if (!processStarted) {
+          primaryFailure = Object.freeze({
+            purpose: diagnosticPurpose,
+            stage: diagnosticStage,
+            reason: "docker_process_controller_provider_start_failed",
+            exceptionCode: null,
+            commandHandleObtained,
+            responseObserved,
+            receiptRecorded,
+          });
           await handle.terminateAndWait(CANCELLATION_GRACE_MS);
           record.activeHandle = null;
           requestedStatus = "blocked";
@@ -1757,6 +1866,15 @@ async function executePlan(
           isStartObserved = false;
         }
         if (!isStartObserved) {
+          primaryFailure = Object.freeze({
+            purpose: diagnosticPurpose,
+            stage: diagnosticStage,
+            reason: "docker_process_controller_provider_start_observation_failed",
+            exceptionCode: null,
+            commandHandleObtained,
+            responseObserved,
+            receiptRecorded,
+          });
           record.cancellationRequested = true;
           await handle.terminateAndWait(CANCELLATION_GRACE_MS);
           record.activeHandle = null;
@@ -1766,9 +1884,11 @@ async function executePlan(
           break;
         }
       }
+      diagnosticStage = "command_wait";
       const execution = await handle.wait(
         isProvider ? PROVIDER_TIMEOUT_MS : SETUP_TIMEOUT_MS,
       );
+      responseObserved = execution !== null;
       record.activeHandle = null;
       // A submitted CREATE can have completed while cancellation was requested.
       // Preserve its validated receipt before stopping; otherwise cleanup loses
@@ -1781,6 +1901,7 @@ async function executePlan(
         reason = "provider_operation_cancelled";
         break;
       }
+      diagnosticStage = "execution_classification";
       const classified = classifyExecution(
         execution,
         command.purpose,
@@ -1795,10 +1916,20 @@ async function executePlan(
       if (!classified.ok) {
         requestedStatus = "blocked";
         reason = classified.reason;
+        primaryFailure = Object.freeze({
+          purpose: diagnosticPurpose,
+          stage: diagnosticStage,
+          reason,
+          exceptionCode: null,
+          commandHandleObtained,
+          responseObserved,
+          receiptRecorded,
+        });
         if (execution === null)
           await handle.terminateAndWait(CANCELLATION_GRACE_MS);
         break;
       }
+      diagnosticStage = "resource_receipt_record";
       if (
         CREATE_PURPOSES.has(command.purpose) &&
         state.dependencies.recordResourceReceipt &&
@@ -1813,6 +1944,9 @@ async function executePlan(
         reason = "docker_resource_receipt_unavailable";
         break;
       }
+      receiptRecorded =
+        CREATE_PURPOSES.has(command.purpose) &&
+        state.dependencies.recordResourceReceipt !== undefined;
       if (record.cancellationRequested) {
         requestedStatus = "cancelled";
         reason = "provider_operation_cancelled";
@@ -1822,6 +1956,7 @@ async function executePlan(
         command.purpose === "start_subscription_auth_probe_attached" &&
         execution
       ) {
+        diagnosticStage = "subscription_auth_verification";
         if (
           !subscriptionAuthConfirmed(
             plan.provider,
@@ -1837,6 +1972,7 @@ async function executePlan(
         isSubscriptionAuthConfirmed = true;
       }
       if (isProvider && execution) {
+        diagnosticStage = "provider_result_normalization";
         const providerResult =
           plan.operationMode === "isolated_task"
             ? normalizeProviderTaskStructuredResult(
@@ -1872,9 +2008,23 @@ async function executePlan(
           .digest("hex");
       }
     }
-  } catch {
+  } catch (error) {
     requestedStatus = "blocked";
     reason = "docker_process_controller_execution_failed_closed";
+    exceptionCode = classifyCommandDiagnosticException(error);
+  }
+
+  // Latch before cleanup: a later cleanup failure cannot replace this fact.
+  if (primaryFailure === null && requestedStatus === "blocked") {
+    primaryFailure = Object.freeze({
+      purpose: diagnosticPurpose,
+      stage: diagnosticStage,
+      reason,
+      exceptionCode,
+      commandHandleObtained,
+      responseObserved,
+      receiptRecorded,
+    });
   }
 
   let cleanup: CleanupObservation = Object.freeze({
@@ -1972,6 +2122,7 @@ async function executePlan(
     state,
     Object.freeze({
       event: "coordinator_provider_boundary_settled" as const,
+      primaryFailure,
       taskRole: plan.taskRole,
       provider: plan.provider,
       operationId: plan.operationId,

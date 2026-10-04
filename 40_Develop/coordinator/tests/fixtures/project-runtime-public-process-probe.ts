@@ -134,7 +134,10 @@ process.stdin.on("data", (chunk) => {
       }, 5);
       return;
     }
-    if (mode === "boundary-diagnostics") {
+    if (
+      mode === "boundary-diagnostics" ||
+      mode === "boundary-primary-diagnostic"
+    ) {
       const operationId = "OP-700001";
       process.stderr.write(
         `[Coordinator selection] ${JSON.stringify(selectionNotice("executor", "codex"))}\n`,
@@ -146,7 +149,7 @@ process.stdin.on("data", (chunk) => {
         `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_process_started", taskRole: "executor", provider: "codex", operationId })}\n`,
       );
       process.stderr.write(
-        `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_boundary_settled", taskRole: "executor", provider: "codex", operationId, providerContainerCreatedObserved: true, providerProcessStartedObserved: true, providerProcessCompletionObserved: true, providerProcessExitStatusClass: "zero", processTreeTerminationObserved: false, containersAbsentObserved: true, networksAbsentObserved: true, cleanupConfirmed: true })}\n`,
+        `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_boundary_settled", taskRole: "executor", provider: "codex", operationId, providerContainerCreatedObserved: true, providerProcessStartedObserved: true, providerProcessCompletionObserved: true, providerProcessExitStatusClass: "zero", processTreeTerminationObserved: false, containersAbsentObserved: true, networksAbsentObserved: true, cleanupConfirmed: true, ...(mode === "boundary-primary-diagnostic" ? { primaryFailure: JSON.parse(process.argv[3] ?? "null") } : {}) })}\n`,
       );
       process.stdout.write(responseLine);
       return;

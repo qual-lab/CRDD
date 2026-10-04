@@ -4789,10 +4789,10 @@ function discoverRecoveryRuntimeStateBinding(
  * @postcondition recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserverの責務を完了した結果だけを返す。
  * @effect recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserverはFilesystemの読取りまたは書込みを実行する。
  * @failure recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserverは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserverは宣言した境界以外へEffectを拡張しない。
+ * @invariant Host Rootの最初の観測より前に同世代排他を取得し、Hostを使わない検証済み終端清掃だけ取得を省略する。
  * @boundary FilesystemとProcess内Domain処理の境界。
  * @security recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserverはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserverは共有非同期状態を持たない同期処理である。
+ * @concurrency Host、Provider HomeとRuntime Stateの排他を所有し、一時解放後は同じ世代と実体を再照合する。
  */
 export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
   token: unknown,
@@ -4937,7 +4937,11 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
   );
   const cleanupIntentPresent = inspectDockerRecoveryJournalDirectory(
     root.rootPath,
-  ).some((intent) => intent.recoveryId === parsed.token);
+  ).some(
+    (intent) =>
+      intent.schema === "crdd-coordinator-recovery-cleanup-delete/v1" &&
+      intent.recoveryId === parsed.token,
+  );
   let hostOperationGeneration: object | null = null;
   let hostOperationGenerationIdentity: Readonly<{
     hostRoot: string;
@@ -5424,6 +5428,10 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       )
     )
       throw new Error("docker_task_recovery_base_mismatch");
+    if (!hostOperationGeneration)
+      throw new Error(
+        "docker_task_host_operation_generation_active_or_unknown",
+      );
     const hostPaths = hostPathsFromBase(base);
     const hostRootPresent = recoveryPathPresent(hostPaths.root);
     const hostMarkerPresent = recoveryPathPresent(hostPaths.marker);
@@ -5433,10 +5441,6 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
     const managementDirectoryName = managementDirectoryNameFromBase(base);
     const initialHostRecoveryId = String(base.initialHostRecoveryId ?? "");
     const initialHostIdentity = parseHostRecoveryToken(initialHostRecoveryId);
-    if (!hostOperationGeneration)
-      throw new Error(
-        "docker_task_host_operation_generation_active_or_unknown",
-      );
     resumeDockerRecoveryJournalDirectory(operationDirectory);
     const hostManagementDirectory = path.join(
       hostPaths.root,

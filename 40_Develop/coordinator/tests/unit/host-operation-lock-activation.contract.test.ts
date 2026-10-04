@@ -10,6 +10,9 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
+import { runInNewContext } from "node:vm";
+import { recoverDockerIsolationProbe } from "../../src/security/docker-isolation.ts";
+import { recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver } from "../../src/security/docker-recovery-runtime-internal.ts";
 import {
   createIsolatedHostOperationInProcessLeaseCandidate,
   type HostOperationLeaseDependencies,
@@ -376,9 +379,9 @@ test("同一Process lease候補は取得後取消と後着socketを処置する"
  * @boundary PRL-UT-006=Direct Boundary: Signal→内部lease候補
  */
 test("同一Process lease候補は取得前・登録中取消でlistenを発行しない", async () => {
-  for (const beforeSubscribe of [true, false]) {
+  for (const isBeforeSubscribe of [true, false]) {
     const signal = new AbortController();
-    if (beforeSubscribe) signal.abort();
+    if (isBeforeSubscribe) signal.abort();
     const fixture = createLeaseNotificationFixture("none", () =>
       signal.abort(),
     );
@@ -1384,4 +1387,445 @@ test("Host Lockの後着取得を再検証し、新取得Lockだけを回収す�
       assert.equal(await result, "cleanup_confirmed_failure");
     },
   );
+});
+
+/**
+ * 本番の診断回復関数へ非Authorityの局所依存を与える。
+ *
+ * @responsibility 本番関数のbodyを複製・書換えず、解析・取得・対象読取り・利用・解放の順序を観測する。
+ * @trace PRL-UT-006
+ * @precondition 現在importした関数のbodyだけを使用し、OSとDockerへ接続しない。
+ * @stimulus 指定した一つの依存失敗を同じ本番bodyへ与える。
+ * @observation 依存の呼出順、同一排他Object、返却理由とexact参照。
+ * @oracle 未取得ではDocker利用0、成功以前に解放確認、失敗でも取得済み排他を一回処置する。
+ * @cleanup N/A: VMと局所値のみで、実handle・timer・Processを生成しない。
+ * @boundary PRL-UT-006=Direct Boundary: 局所依存→本番診断回復body
+ */
+function createProbeRecoveryOrderingFixture(
+  fault:
+    | "none"
+    | "token"
+    | "generation"
+    | "parent"
+    | "acquire"
+    | "acquire_throw"
+    | "record"
+    | "docker"
+    | "release"
+    | "binding"
+    | "host_nonce",
+) {
+  const events: string[] = [];
+  const generation = Object.freeze({});
+  const hostNonce = "4fdc962b-51d0-4e90-8ec6-7c37374213b5";
+  const rootName = `crdd-coordinator-doctor-${hostNonce}`;
+  const context = {
+    parseRecoveryToken: (reference: unknown) => {
+      assert.equal(reference, "exact-probe-reference");
+      events.push("parse");
+      if (fault === "token") throw new Error("token_invalid");
+      return {
+        rootName:
+          fault === "generation" ? "crdd-coordinator-doctor-fixture" : rootName,
+        nonce: "a074ebad-e48b-4241-9f43-4399f042cf0c",
+      };
+    },
+    os: { tmpdir: () => "fixed-parent" },
+    fs: {
+      realpathSync: (value: unknown) => {
+        assert.equal(value, "fixed-parent");
+        events.push("parent");
+        if (fault === "parent") throw new Error("parent_unknown");
+        return "fixed-parent";
+      },
+    },
+    path: {
+      join: (parent: unknown, name: unknown) => {
+        assert.equal(parent, "fixed-parent");
+        assert.equal(name, rootName);
+        return `fixed-parent/${rootName}`;
+      },
+    },
+    loadRecoveryRecord: () => {
+      events.push("read");
+      if (fault === "record") throw new Error("read_unknown");
+      return {
+        parsed: { rootName },
+        children: { management: "fixed-management" },
+        record: {
+          rootName,
+          hostRecoveryId: "exact-host-reference",
+          probeId: "fixed-probe",
+          container: { id: "fixed-container" },
+        },
+      };
+    },
+    parseHostRecoveryToken: () => ({
+      rootName: fault === "binding" ? "other-root" : rootName,
+      nonce:
+        fault === "host_nonce"
+          ? "a074ebad-e48b-4241-9f43-4399f042cf0c"
+          : hostNonce,
+    }),
+    acquireHostOperationRecoveryGenerationByIdentity: (
+      root: unknown,
+      nonce: unknown,
+    ) => {
+      assert.equal(root, `fixed-parent/${rootName}`);
+      assert.equal(nonce, hostNonce);
+      events.push("acquire");
+      if (fault === "acquire_throw") throw new Error("acquire_unknown");
+      return fault === "acquire" ? null : generation;
+    },
+    releaseHostOperationRecoveryGeneration: (owner: unknown) => {
+      assert.equal(owner, generation);
+      events.push("release");
+      return fault !== "release";
+    },
+    createTrustedDockerCliCapability: () => {
+      events.push("docker");
+      if (fault === "docker") throw new Error("docker_unknown");
+      return Object.freeze({});
+    },
+    dockerEnvironment: () => Object.freeze({}),
+    observeContainerAbsence: () => Object.freeze({}),
+    confirmDockerAbsence: () => {
+      events.push("confirm");
+      return { hostRecoveryId: "exact-current-host-reference" };
+    },
+    recoverOwnedOperationDirectories: (reference: unknown, owner: unknown) => {
+      assert.equal(reference, "exact-current-host-reference");
+      assert.equal(owner, generation);
+      events.push("cleanup");
+      return { status: "recovered", reason: "fixed_cleanup_complete" };
+    },
+    normalizeHostCleanupResult: () => ({
+      status: "recovered",
+      reason: "docker_probe_recovery_completed",
+      recoveryId: null,
+      hostCleanupCompleted: true,
+      cleanup: "confirmed",
+      retainOperationDirectories: false,
+    }),
+    normalizeFailure: () => "fixed_dependency_failure",
+  };
+  const recover = runInNewContext(
+    `(${recoverDockerIsolationProbe.toString()})`,
+    context,
+    { timeout: 1_000 },
+  ) as typeof recoverDockerIsolationProbe;
+  return { events, recover };
+}
+
+/**
+ * 診断回復の対象排他をDocker利用前から最終解放まで維持する。
+ *
+ * @responsibility 三種の回復経路で共用するHost排他への診断回復接続を反証する。
+ * @trace PRL-UT-006
+ * @precondition 非Authority依存と現在の本番関数bodyを使用する。
+ * @stimulus 正常、入力／世代／親不正、取得null／throw、記録不明、二種のHost結合差、Docker失敗と解放不明を与える。
+ * @observation 十一経路の順序、返却状態、exact参照、清掃確認field。
+ * @oracle 未取得では対象読取り0・Docker0。HostとProbeのnonceを分け、取得後は同じOwnerを清掃へ渡して一回解放する。
+ * @cleanup N/A: 実OS・Docker・Filesystem資源は生成しない。
+ * @boundary PRL-UT-006=Direct Boundary: 本番診断回復body→局所依存
+ */
+test("診断回復は対象排他を先に取得し同じOwnerを清掃・解放へ渡す", () => {
+  const normal = createProbeRecoveryOrderingFixture("none");
+  assert.equal(normal.recover("exact-probe-reference").status, "recovered");
+  assert.deepEqual(normal.events, [
+    "parse",
+    "parent",
+    "acquire",
+    "read",
+    "docker",
+    "confirm",
+    "cleanup",
+    "release",
+  ]);
+  for (const fault of [
+    "token",
+    "generation",
+    "parent",
+    "acquire",
+    "acquire_throw",
+    "record",
+    "docker",
+    "release",
+    "binding",
+    "host_nonce",
+  ] as const) {
+    const fixture = createProbeRecoveryOrderingFixture(fault);
+    const result = fixture.recover("exact-probe-reference");
+    assert.equal(result.status, "blocked");
+    assert.equal(result.hostCleanupCompleted, false);
+    assert.equal(
+      result.recoveryId,
+      fault === "release"
+        ? "exact-current-host-reference"
+        : "exact-probe-reference",
+    );
+    assert.equal(
+      fixture.events.filter((event) => event === "release").length,
+      ["token", "generation", "parent", "acquire", "acquire_throw"].includes(
+        fault,
+      )
+        ? 0
+        : 1,
+    );
+    if (
+      ["token", "generation", "parent", "acquire", "acquire_throw"].includes(
+        fault,
+      )
+    )
+      assert.equal(fixture.events.includes("read"), false);
+    if (fault !== "release" && fault !== "docker")
+      assert.equal(fixture.events.includes("docker"), false);
+    if (fault === "release") {
+      assert.ok("cleanup" in result);
+      assert.ok("retainOperationDirectories" in result);
+      assert.equal(result.cleanup, "unconfirmed");
+      assert.equal(result.retainOperationDirectories, true);
+    }
+  }
+});
+
+/**
+ * Task回復bodyへ非AuthorityのJournalと排他依存を与える。
+ *
+ * @responsibility 排他省略の選別と非終端fallbackの最初のHost観測を記録する。
+ * @trace PRL-UT-006
+ * @precondition Journal検証自体は既存実装が所有し、ここでは検証後の投影値だけを与える。
+ * @stimulus Journal種別、exact参照、清掃Directoryの存在と継続状態を選ぶ。
+ * @observation Host取得、最初のHost Path解決、Home／State解放の順序。
+ * @oracle 本番関数bodyを変更せず実行し、排他なしではHost観測に到達しない。
+ * @cleanup N/A: VM内の局所値だけを用い、実資源を生成しない。
+ * @boundary PRL-UT-006=Direct Boundary: 本番Task回復body→局所依存
+ */
+function createTaskRecoveryOrderingFixture(
+  intents: ReadonlyArray<Readonly<{ schema: string; recoveryId: string }>>,
+  cleanupPresent: boolean,
+  shouldContinueWithoutHost: boolean,
+) {
+  const events: string[] = [];
+  const token = "exact-task-reference";
+  const root = {
+    rootPath: "runtime-state",
+    runtimeStateIdentityHash: "identity",
+    runtimeStateProtectionHash: "protection",
+    stableLogicalHomeBindingHash: "home",
+    localUserBindingHash: "user",
+  };
+  const binding = { ...root, runtimeStateBindingHash: "home" };
+  const base = {
+    stableLogicalHomeBindingHash: "home",
+    localUserBindingHash: "user",
+    runtimeStateBinding: binding,
+    resources: {
+      auth: "auth",
+      provider: "provider",
+      proxy: "proxy",
+      internal: "internal",
+      egress: "egress",
+    },
+    images: {
+      provider: `sha256:${"a".repeat(64)}`,
+      proxy: `sha256:${"b".repeat(64)}`,
+    },
+    operationMode: "isolated_task",
+    workspaceMountMode: "read_write",
+    ownershipLabel: `crdd.coordinator.runtime=${"c".repeat(16)}`,
+  };
+  let cleanupQueries = 0;
+  const context = {
+    parseDockerTaskRecoveryId: () => ({
+      token,
+      stableLogicalHomeBindingHash: "home",
+      operationNonce: "nonce",
+      baseHash: "hash",
+    }),
+    discoverRecoveryRuntimeStateBinding: () => binding,
+    inspectDockerRecoveryRootSnapshot: () => ({
+      status: "completed",
+      dockerRecoveryIds: [token],
+    }),
+    inspectDockerRecoveryJournalDirectory: () => intents,
+    path: {
+      join: (...parts: string[]) => parts.join("/"),
+      basename: (value: string) => value.split("/").at(-1),
+    },
+    recoveryPathPresent: (value: string) => {
+      assert.equal(
+        value.startsWith("runtime-state/"),
+        true,
+        "Host Rootへ未取得で到達しない",
+      );
+      if (value.includes("cleanup-docker-task-"))
+        return cleanupPresent && cleanupQueries++ === 0;
+      return (
+        value.endsWith("/base.json") || value.endsWith("/base-commit.json")
+      );
+    },
+    discoverRecoveryHostBinding: () => {
+      events.push("binding");
+      return { hostRoot: "host-root", hostNonce: "host-nonce" };
+    },
+    acquireHostOperationRecoveryGenerationByIdentity: () => {
+      events.push("host-acquire");
+      return null;
+    },
+    acquireRuntimeOwnedLogicalProviderHomeKernelLock: () => {
+      events.push("home-acquire");
+      return shouldContinueWithoutHost
+        ? {
+            release: () => {
+              events.push("home-release");
+              return true;
+            },
+          }
+        : null;
+    },
+    createDockerRecoveryRuntimeStateLockController: () => ({
+      outsideLock: (effect: () => unknown) => effect(),
+      close: () => {
+        events.push("state-release");
+        return true;
+      },
+    }),
+    releaseRecoverySynchronizations: (
+      attempts: Array<{ release: () => boolean; reason: string }>,
+    ) => {
+      let failure: string | null = null;
+      for (const attempt of attempts)
+        if (!attempt.release()) failure ??= attempt.reason;
+      return failure;
+    },
+    ensureDockerTaskSessionHandoff: () => ({
+      currentLocalUserBindingHash: "user",
+    }),
+    inspectDockerTaskSessionHandoffs: () => ({
+      currentLocalUserBindingHash: "user",
+    }),
+    fs: {
+      lstatSync: (value: string) => {
+        assert.equal(value, root.rootPath);
+        return { dev: 1, ino: 2, birthtimeNs: 3 };
+      },
+    },
+    verifyObservedRuntimeStateMutationBoundary: () => undefined,
+    resumeDockerRecoveryJournalDirectoryForRecovery: () =>
+      events.push("journal-resume"),
+    readExactJson: (value: string) => ({
+      serialized: "fixed-base",
+      value: value.endsWith("/base.json")
+        ? base
+        : { stableLogicalHomeBindingHash: "home", baseHash: "hash" },
+    }),
+    createHash: () => ({ update: () => ({ digest: () => "hash" }) }),
+    validateDockerRecoveryBase: () => true,
+    validateDockerRecoveryBaseCommit: () => true,
+    exactRecordKeys: (record: object, keys: string[]) =>
+      Object.keys(record).length === keys.length &&
+      keys.every((key) => Object.hasOwn(record, key)),
+    SAFE_RESOURCE: /^[a-z]+$/u,
+    hostPathsFromBase: () => {
+      events.push("host-paths");
+      throw new Error("host_observation_before_lock");
+    },
+    safeRecoveryReason: (error: unknown) =>
+      error instanceof Error
+        ? error.message
+        : String((error as { message?: unknown }).message),
+  };
+  const recover = runInNewContext(
+    `(${recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver.toString()})`,
+    context,
+    { timeout: 1_000 },
+  ) as typeof recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver;
+  return {
+    events,
+    run: () =>
+      recover(
+        token,
+        root as Parameters<typeof recover>[1],
+        () => root as Parameters<typeof recover>[1],
+      ),
+  };
+}
+
+/**
+ * Task回復の排他省略をexact終端清掃に限定する。
+ *
+ * @responsibility move／delete Journalによる未取得Host観測と非終端fallbackを反証する。
+ * @trace PRL-UT-006
+ * @precondition 現在の本番関数bodyと局所依存を使用する。
+ * @stimulus Journalなし、move、delete、別参照の終端、exact終端、清掃候補ありを与える。
+ * @observation 選別結果、取得・解放順序、同じ回復参照、Host観測への到達。
+ * @oracle 非終端ではHost排他拒否後にHome取得0。省略後のfallbackでもHost観測0、Home／Stateを一回解放。
+ * @cleanup N/A: 実OS・Docker・Filesystem資源を生成しない。
+ * @boundary PRL-UT-006=Direct Boundary: 本番Task回復body→局所依存
+ */
+test("Task回復はexact終端清掃だけHost排他を省略し非終端fallbackを観測前に拒否する", () => {
+  const terminal = "crdd-coordinator-recovery-cleanup-delete/v1";
+  for (const intents of [
+    [],
+    [
+      {
+        schema: "crdd-coordinator-durable-json-move/v1",
+        recoveryId: "exact-task-reference",
+      },
+    ],
+    [
+      {
+        schema: "crdd-coordinator-durable-json-delete/v1",
+        recoveryId: "exact-task-reference",
+      },
+    ],
+    [{ schema: terminal, recoveryId: "different-task-reference" }],
+  ]) {
+    const fixture = createTaskRecoveryOrderingFixture(intents, false, false);
+    const result = fixture.run();
+    assert.equal(result.status, "blocked");
+    assert.equal(
+      result.reason,
+      "docker_task_host_operation_generation_active_or_unknown",
+    );
+    assert.equal(result.recoveryId, "exact-task-reference");
+    assert.deepEqual(fixture.events, ["binding", "host-acquire"]);
+  }
+  const terminalIntents = [
+    { schema: terminal, recoveryId: "exact-task-reference" },
+  ];
+  const selected = createTaskRecoveryOrderingFixture(
+    terminalIntents,
+    false,
+    false,
+  );
+  assert.equal(
+    selected.run().reason,
+    "docker_task_process_generation_active_or_unknown",
+  );
+  assert.deepEqual(selected.events, ["home-acquire"]);
+  for (const [intents, cleanupPresent] of [
+    [terminalIntents, false],
+    [[], true],
+  ] as const) {
+    const fixture = createTaskRecoveryOrderingFixture(
+      intents,
+      cleanupPresent,
+      true,
+    );
+    const result = fixture.run();
+    assert.equal(result.status, "blocked");
+    assert.equal(
+      result.reason,
+      "docker_task_host_operation_generation_active_or_unknown",
+    );
+    assert.equal(result.recoveryId, "exact-task-reference");
+    assert.deepEqual(fixture.events, [
+      "home-acquire",
+      "journal-resume",
+      "state-release",
+      "home-release",
+    ]);
+  }
 });

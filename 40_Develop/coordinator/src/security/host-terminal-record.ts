@@ -15,7 +15,7 @@ const MAX_BYTES = 8_192;
 const HASH = /^[a-f0-9]{64}$/u;
 const REFERENCE =
   /^host-terminal\.[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/u;
-const CHILD_NAMES = [
+const childNames = [
   "workspace",
   "provider-home",
   "tmp",
@@ -28,12 +28,21 @@ const ORDER = Object.freeze([
   "marker_absence",
   "lease_terminal",
 ] as const);
-const ID_KEYS = [
+const FIXTURE_ORDER = Object.freeze([
+  "file_absence",
+  "root_absence",
+  "marker_absence",
+  "lease_terminal",
+] as const);
+const FIXTURE_SHA256 =
+  "be9351741a8155d01fd028d158546f1005e73ceeb0bb2d093335feac4144e450";
+const identityKeys = [
   "volumeSerial",
   "fileIndexHigh",
   "fileIndexLow",
   "creationTimeHigh",
   "creationTimeLow",
+  "attributes",
 ] as const;
 const typedArrayPrototype = Object.getPrototypeOf(Uint8Array.prototype);
 const byteLengthGetter = Object.getOwnPropertyDescriptor(
@@ -52,16 +61,16 @@ const bufferGetter = Object.getOwnPropertyDescriptor(
 /**
  * Win32の実体識別値を表す。
  *
- * @responsibility file indexとcreation timeをvolumeへ結合する。
+ * @responsibility file indexとcreation timeをvolumeへ結合し、同じhandleの属性を欠落なく搬送する。
  * @trace ARCH-000008
- * @shape BY_HANDLE_FILE_INFORMATION由来の五つのu32。
+ * @shape BY_HANDLE_FILE_INFORMATION由来の五つの識別値とattributesの六u32。
  * @invariant Nodeのdev／ino／birthtimeNsや既存三field Native Identityと相互変換しない。
  * @boundary 将来の固定Windows観測Adapterと記録codecの境界。
  * @security 値の受理は実観測、所有、保護または非使用の証明ではない。
- * @compatibility revision 1はWindowsのこの形だけを受理する。
+ * @compatibility revision 2だけを受理し、属性のないrevision 1を推測補完しない。
  */
 export type HostTerminalWindowsIdentity = Readonly<
-  Record<(typeof ID_KEYS)[number], number>
+  Record<(typeof identityKeys)[number], number>
 >;
 
 /**
@@ -88,7 +97,7 @@ type HostTerminalProducer =
  *
  * @responsibility caller-known参照、選択主体、対象実体と処置順を保持する。
  * @trace ARCH-000008
- * @shape revision 1、固定bindings、親／管理Directory／Root／marker／六childのIdentity。
+ * @shape revision 2、固定bindings、親／管理Directory／Root／marker／六childの属性付きIdentity。
  * @invariant 成功、処置済み、非使用、Authorityの自己申告fieldを持たない。
  * @boundary 本番未接続の保存入力。初期化途中やIdentity不明は入力範囲外。
  * @security 任意Path、秘密値、元回復Tokenまたは削除Capabilityを含めない。
@@ -96,7 +105,7 @@ type HostTerminalProducer =
  */
 export type HostTerminalIntent = Readonly<{
   contract: "crdd-coordinator/host-terminal-intent";
-  contractRevision: 1;
+  contractRevision: 2;
   reference: string;
   producer: HostTerminalProducer;
   bindings: Readonly<{
@@ -115,7 +124,7 @@ export type HostTerminalIntent = Readonly<{
       sha256: string;
     }>;
     children: Readonly<
-      Record<(typeof CHILD_NAMES)[number], HostTerminalWindowsIdentity>
+      Record<(typeof childNames)[number], HostTerminalWindowsIdentity>
     >;
   }>;
   cleanupOrder: typeof ORDER;
@@ -137,6 +146,109 @@ export type EncodedHostTerminalIntent = Readonly<{
   serialized: string;
   sha256: string;
 }>;
+
+/**
+ * 既知試験fileを含む十二実体の限定intent候補を表す。
+ *
+ * @responsibility 空クラスと別の改訂版で固定fileの期待条件を欠落なく保持する。
+ * @trace ARCH-000008
+ * @shape revision 3候補、human producer、十一実体とworkspaceの固定file一実体。
+ * @invariant fileの期待値を実観測、非使用、人間承認または処置結果としない。
+ * @boundary 新クラス専用codec。Nativeの十二実体観測搬送は別入口で接続し、保存・公開処置は未接続。
+ * @security 任意fileやPathを受け付けず、実対象の許可は上位Ownerが別に照合する。
+ * @compatibility revision 2へfileを除外して搬送せず、旧bytesから自動移行しない。
+ */
+export type KnownFixtureHostTerminalIntent = Readonly<
+  Omit<
+    HostTerminalIntent,
+    "contractRevision" | "producer" | "target" | "cleanupOrder"
+  > & {
+    contractRevision: 3;
+    resourceClass: "known_fixture_host_only_v1";
+    producer: Extract<HostTerminalProducer, { kind: "human_orphan_cleanup" }>;
+    target: HostTerminalIntent["target"] &
+      Readonly<{
+        knownFile: Readonly<{
+          parent: "workspace";
+          name: "fixture.txt";
+          identity: HostTerminalWindowsIdentity;
+          byteLength: 7;
+          sha256: typeof FIXTURE_SHA256;
+          linkCount: 1;
+        }>;
+      }>;
+    cleanupOrder: typeof FIXTURE_ORDER;
+  }
+>;
+
+/**
+ * 新クラスの正規文書とHashを別型で保持する。
+ *
+ * @responsibility 十二実体を十一実体の保存入力へ暗黙変換させない。
+ * @trace ARCH-000008
+ * @shape 新クラスintent、改行なしserialized、そのUTF-8 Hash。
+ * @invariant 正規bytesの受理は保存・公開・処置の成立ではない。
+ * @boundary 新クラスcodecの内部利用側だけに返す。
+ * @security Hashや固定期待条件から回復Authorityを発行しない。
+ * @compatibility 既存EncodedHostTerminalIntentと別の型・入口で扱う。
+ */
+export type EncodedKnownFixtureHostTerminalIntent = Readonly<{
+  intent: KnownFixtureHostTerminalIntent;
+  serialized: string;
+  sha256: string;
+}>;
+
+/**
+ * 旧Host領域の固定名から、既存の世代排他と同じ結合値を導く。
+ *
+ * @responsibility RootのUUIDとmarker名の対応を照合し、存在しない本文nonceを要求しない。
+ * @trace ARCH-000008
+ * @trace ARCH-000015
+ * @input 未検証のRoot単純名とmarker単純名。
+ * @returns 固定名、nonce、世代結合Hashの不変値、またはnull。
+ * @precondition 名前以外の実体・本文Hash・非使用・人間承認は後続Ownerが別に確認する。
+ * @postcondition 既存HostOperation排他と同じUTF-8、domain、順序でHashを導く。
+ * @effect N/A: 純粋な文字列検査とHash計算だけ。
+ * @failure UUIDv4、markerのSHA-256名または両者の対応が不正ならnull。
+ * @invariant 名前の対応から元Task、旧Token、非使用または処置権限を復元しない。
+ * @boundary 限定保守の対象選択→既存世代排他への結合。
+ * @security 任意Path、自由nonceまたはcaller指定の排他名を受け付けない。
+ * @concurrency N/A: 共有状態を持たない同期計算。Lock取得は行わない。
+ */
+export function resolveHostTerminalLegacyGeneration(
+  rootName: unknown,
+  markerName: unknown,
+): Readonly<{
+  rootName: string;
+  markerName: string;
+  nonce: string;
+  bindingSha256: string;
+}> | null {
+  if (typeof rootName !== "string" || typeof markerName !== "string")
+    return null;
+  const matched =
+    /^crdd-coordinator-doctor-([a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12})$/u.exec(
+      rootName,
+    );
+  const nonce = matched?.[1];
+  if (
+    !nonce ||
+    markerName !==
+      `host-${createHash("sha256").update(nonce).digest("hex")}.json`
+  )
+    return null;
+  return Object.freeze({
+    rootName,
+    markerName,
+    nonce,
+    bindingSha256: createHash("sha256")
+      .update("crdd-host-operation-generation-v1\0", "utf8")
+      .update(rootName, "utf8")
+      .update("\0", "utf8")
+      .update(nonce, "utf8")
+      .digest("hex"),
+  });
+}
 
 /**
  * 閉じたown data fieldを取り出す。
@@ -188,12 +300,12 @@ function requireHash(value: unknown): string {
 /**
  * Windows識別値を型と正規範囲へ固定する。
  *
- * @responsibility 五u32の完全性と整数表現を確認する。
+ * @responsibility 六u32の完全性と整数表現を確認し、属性をそのまま保持する。
  * @trace ARCH-000008
  * @input 未検証Identity。
  * @returns 不変のWin32識別値。
  * @precondition N/A: 未知fieldや不正数値を拒否する。
- * @postcondition Node IdentityをWin32 Identityへ暗黙変換しない。
+ * @postcondition Node IdentityをWin32 Identityへ暗黙変換せず、属性の既定値を生成しない。
  * @effect N/A: 入力値の検査と複製だけを行う。
  * @failure 欠落、範囲外、非整数、負のゼロは固定Identityエラー。
  * @invariant 実観測の鮮度や対象の所有を証明しない。
@@ -202,8 +314,8 @@ function requireHash(value: unknown): string {
  * @concurrency N/A: 同期的にown data fieldを取得する。
  */
 function requireWindowsIdentity(value: unknown): HostTerminalWindowsIdentity {
-  const fields = requireFields(value, ID_KEYS);
-  for (const key of ID_KEYS) {
+  const fields = requireFields(value, identityKeys);
+  for (const key of identityKeys) {
     const number = fields[key];
     if (
       typeof number !== "number" ||
@@ -220,6 +332,7 @@ function requireWindowsIdentity(value: unknown): HostTerminalWindowsIdentity {
     fileIndexLow: fields.fileIndexLow as number,
     creationTimeHigh: fields.creationTimeHigh as number,
     creationTimeLow: fields.creationTimeLow as number,
+    attributes: fields.attributes as number,
   });
 }
 
@@ -298,7 +411,7 @@ function normalizeIntent(value: unknown): HostTerminalIntent {
   ]);
   if (
     top.contract !== "crdd-coordinator/host-terminal-intent" ||
-    top.contractRevision !== 1
+    top.contractRevision !== 2
   )
     throw new Error("host_terminal_contract_invalid");
   if (typeof top.reference !== "string" || !REFERENCE.test(top.reference))
@@ -315,7 +428,40 @@ function normalizeIntent(value: unknown): HostTerminalIntent {
     "repositorySha256",
     "selectedUserSha256",
   ]);
-  const target = requireFields(top.target, [
+  const normalizedTarget = normalizeTerminalTarget(top.target);
+  return Object.freeze({
+    contract: "crdd-coordinator/host-terminal-intent",
+    contractRevision: 2,
+    reference: top.reference,
+    producer: requireProducer(top.producer),
+    bindings: Object.freeze({
+      runtimeSha256: requireHash(bindings.runtimeSha256),
+      repositorySha256: requireHash(bindings.repositorySha256),
+      selectedUserSha256: requireHash(bindings.selectedUserSha256),
+    }),
+    target: normalizedTarget,
+    cleanupOrder: ORDER,
+  });
+}
+
+/**
+ * 両クラスに共通する十一実体の対象構造を検査する。
+ *
+ * @responsibility 固定名・完全Identity・相異条件を同じ検査で保持する。
+ * @trace ARCH-000008
+ * @input 未検証の親、管理Directory、Root、markerと六child。
+ * @returns 同じ固定順の不変target。
+ * @precondition N/A: 不正形状も拒否対象として受け取る。
+ * @postcondition 新クラスfileは別Ownerが保持し、文書改訂版の変換は行わない。
+ * @effect N/A: own data fieldの検査と局所複製だけ。
+ * @failure 欠落、Path、Identity不正またはaliasを固定エラーで拒否する。
+ * @invariant 形状検査から実体観測・非使用・Authorityを発行しない。
+ * @boundary 二つの専用codec内部の共通構造検査。
+ * @security 未検証Getterを呼ばず、未知fieldを保存しない。
+ * @concurrency N/A: 同期計算で外部資源を所有しない。
+ */
+function normalizeTerminalTarget(value: unknown): HostTerminalIntent["target"] {
+  const target = requireFields(value, [
     "parentIdentity",
     "recoveryDirectoryIdentity",
     "terminalDirectoryIdentity",
@@ -332,7 +478,7 @@ function normalizeIntent(value: unknown): HostTerminalIntent {
     !/^host-[a-f0-9]{64}\.json$/u.test(marker.name)
   )
     throw new Error("host_terminal_name_invalid");
-  const childInput = requireFields(target.children, CHILD_NAMES);
+  const childInput = requireFields(target.children, childNames);
   const children = Object.freeze({
     workspace: requireWindowsIdentity(childInput.workspace),
     "provider-home": requireWindowsIdentity(childInput["provider-home"]),
@@ -377,19 +523,7 @@ function normalizeIntent(value: unknown): HostTerminalIntent {
   );
   if (new Set(identitiesByBytes).size !== identities.length)
     throw new Error("host_terminal_identity_alias");
-  return Object.freeze({
-    contract: "crdd-coordinator/host-terminal-intent",
-    contractRevision: 1,
-    reference: top.reference,
-    producer: requireProducer(top.producer),
-    bindings: Object.freeze({
-      runtimeSha256: requireHash(bindings.runtimeSha256),
-      repositorySha256: requireHash(bindings.repositorySha256),
-      selectedUserSha256: requireHash(bindings.selectedUserSha256),
-    }),
-    target: normalizedTarget,
-    cleanupOrder: ORDER,
-  });
+  return normalizedTarget;
 }
 
 /**
@@ -495,6 +629,186 @@ export function decodeHostTerminalIntent(
     throw new Error("host_terminal_document_invalid");
   }
   const encoded = encodeHostTerminalIntent(parsed);
+  if (!bytes.equals(Buffer.from(encoded.serialized, "utf8")))
+    throw new Error("host_terminal_document_not_canonical");
+  return encoded;
+}
+
+/**
+ * 既知fileを含む十二実体を専用の正規文書へ変換する。
+ *
+ * @responsibility 固定fileの期待条件と人間保守producerを別改訂版へ結合する。
+ * @trace ARCH-000008
+ * @input 新クラスの未検証intent候補。
+ * @returns 十二実体を保持する不変intent、serializedとHash。
+ * @precondition 上位Ownerが許可した単一Rootの選択と実観測を別途照合する。
+ * @postcondition revision 2や通常owned producerを新クラスへ変換しない。
+ * @effect N/A: memoryの検査・正規化だけ。保存、Native、処置を呼ばない。
+ * @failure 未知field、改訂版差、file条件差、aliasまたは上限を固定エラーで拒否する。
+ * @invariant 期待するsize・Hash・リンク数を実観測や非使用確認としない。
+ * @boundary 新クラス専用codec。既存十一実体の保存入口とは未接続。
+ * @security 元Token、任意Path、処置済みfieldと削除Authorityを発行しない。
+ * @concurrency N/A: 同期計算で共有資源を所有しない。
+ */
+export function encodeKnownFixtureHostTerminalIntent(
+  value: unknown,
+): EncodedKnownFixtureHostTerminalIntent {
+  const top = requireFields(value, [
+    "contract",
+    "contractRevision",
+    "resourceClass",
+    "reference",
+    "producer",
+    "bindings",
+    "target",
+    "cleanupOrder",
+  ]);
+  if (
+    top.contract !== "crdd-coordinator/host-terminal-intent" ||
+    top.contractRevision !== 3 ||
+    top.resourceClass !== "known_fixture_host_only_v1"
+  )
+    throw new Error("host_terminal_fixture_contract_invalid");
+  if (typeof top.reference !== "string" || !REFERENCE.test(top.reference))
+    throw new Error("host_terminal_reference_invalid");
+  const producer = requireProducer(top.producer);
+  if (producer.kind !== "human_orphan_cleanup")
+    throw new Error("host_terminal_fixture_producer_invalid");
+  const order = snapshotPlainArray(top.cleanupOrder, FIXTURE_ORDER.length);
+  if (
+    order.status !== "ok" ||
+    order.value.length !== FIXTURE_ORDER.length ||
+    !FIXTURE_ORDER.every((item, index) => item === order.value[index])
+  )
+    throw new Error("host_terminal_order_invalid");
+  const target = requireFields(top.target, [
+    "parentIdentity",
+    "recoveryDirectoryIdentity",
+    "terminalDirectoryIdentity",
+    "root",
+    "marker",
+    "children",
+    "knownFile",
+  ]);
+  const baseTarget = normalizeTerminalTarget({
+    parentIdentity: target.parentIdentity,
+    recoveryDirectoryIdentity: target.recoveryDirectoryIdentity,
+    terminalDirectoryIdentity: target.terminalDirectoryIdentity,
+    root: target.root,
+    marker: target.marker,
+    children: target.children,
+  });
+  if (
+    !resolveHostTerminalLegacyGeneration(
+      baseTarget.root.name,
+      baseTarget.marker.name,
+    )
+  )
+    throw new Error("host_terminal_fixture_generation_invalid");
+  const file = requireFields(target.knownFile, [
+    "parent",
+    "name",
+    "identity",
+    "byteLength",
+    "sha256",
+    "linkCount",
+  ]);
+  if (
+    file.parent !== "workspace" ||
+    file.name !== "fixture.txt" ||
+    file.byteLength !== 7 ||
+    file.sha256 !== FIXTURE_SHA256 ||
+    file.linkCount !== 1
+  )
+    throw new Error("host_terminal_fixture_file_invalid");
+  const fileIdentity = requireWindowsIdentity(file.identity);
+  if ((fileIdentity.attributes & 0x410) !== 0)
+    throw new Error("host_terminal_fixture_file_invalid");
+  const existingIdentities = [
+    baseTarget.parentIdentity,
+    baseTarget.recoveryDirectoryIdentity,
+    baseTarget.terminalDirectoryIdentity,
+    baseTarget.root.identity,
+    baseTarget.marker.identity,
+    ...Object.values(baseTarget.children),
+  ];
+  if (
+    existingIdentities.some(
+      (identity) =>
+        identity.volumeSerial === fileIdentity.volumeSerial &&
+        identity.fileIndexHigh === fileIdentity.fileIndexHigh &&
+        identity.fileIndexLow === fileIdentity.fileIndexLow,
+    )
+  )
+    throw new Error("host_terminal_identity_alias");
+  const bindings = requireFields(top.bindings, [
+    "runtimeSha256",
+    "repositorySha256",
+    "selectedUserSha256",
+  ]);
+  const intent: KnownFixtureHostTerminalIntent = Object.freeze({
+    contract: "crdd-coordinator/host-terminal-intent",
+    contractRevision: 3,
+    resourceClass: "known_fixture_host_only_v1",
+    reference: top.reference,
+    producer,
+    bindings: Object.freeze({
+      runtimeSha256: requireHash(bindings.runtimeSha256),
+      repositorySha256: requireHash(bindings.repositorySha256),
+      selectedUserSha256: requireHash(bindings.selectedUserSha256),
+    }),
+    target: Object.freeze({
+      ...baseTarget,
+      knownFile: Object.freeze({
+        parent: "workspace",
+        name: "fixture.txt",
+        identity: fileIdentity,
+        byteLength: 7,
+        sha256: FIXTURE_SHA256,
+        linkCount: 1,
+      }),
+    }),
+    cleanupOrder: FIXTURE_ORDER,
+  });
+  const serialized = JSON.stringify(intent);
+  if (Buffer.byteLength(serialized, "utf8") > MAX_BYTES)
+    throw new Error("host_terminal_bytes_exceeded");
+  return Object.freeze({
+    intent,
+    serialized,
+    sha256: createHash("sha256").update(serialized, "utf8").digest("hex"),
+  });
+}
+
+/**
+ * 新クラスの正規bytesを専用型へ再構成する。
+ *
+ * @responsibility 十二実体の文書を旧改訂版や非正規JSONと混同しない。
+ * @trace ARCH-000008
+ * @input 最大8192bytesの未検証Uint8Array候補。
+ * @returns 新クラスの不変intent、serializedとHash。
+ * @precondition N/A: 不正bytesや旧文書も拒否対象として受け取る。
+ * @postcondition 元bytesと再encodeが完全一致した場合だけ返す。
+ * @effect N/A: 所有copyの解析だけ。記録保存・処置を行わない。
+ * @failure UTF-8、Schema、改訂版または正規bytes差を固定エラーで拒否する。
+ * @invariant 文書受理は現在実体、リンク数、承認または清掃の証明ではない。
+ * @boundary 新クラスの記録搬送。既存Nativeの保存／読戻しには未接続。
+ * @security 共有memory、未知値や不正文書本文を結果へ運ばない。
+ * @concurrency 所有copyを同期的に読み、SharedArrayBufferを拒否する。
+ */
+export function decodeKnownFixtureHostTerminalIntent(
+  value: unknown,
+): EncodedKnownFixtureHostTerminalIntent {
+  const bytes = copyDocumentBytes(value);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(
+      new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes),
+    );
+  } catch {
+    throw new Error("host_terminal_document_invalid");
+  }
+  const encoded = encodeKnownFixtureHostTerminalIntent(parsed);
   if (!bytes.equals(Buffer.from(encoded.serialized, "utf8")))
     throw new Error("host_terminal_document_not_canonical");
   return encoded;

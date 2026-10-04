@@ -3,7 +3,7 @@
 変更ID: `CHG-000082`
 状態（Status）: `In Progress`
 担当責任者: Qual-Lab
-最終更新日: 2026-10-02
+最終更新日: 2026-10-04
 
 ## 現在状態
 
@@ -16,7 +16,9 @@
 | Phase／Gate適用判断 | `Applicable`: 画面Shell、読取り投影、書込みEffect、Remote接続を分けて成立確認する必要がある |
 | 現在Phase | `Phase 5 — Production Closure` |
 | 現在Gate | `Passed: Phase 4`: User Accountを追加せず、Role Credentialから許可範囲だけのSessionを作り、Repository単体／Remote CROS、Repository／CROS Profile Ownerおよび非管理者へのCatalog非開示を分離した |
-| 次のGate | 現在は新しい実Taskを停止。残存Hostのexact対象・回収Authorityと通信断の原因層を確認し、再開条件成立後にWorkbench実Provider経路と必要な四経路を検証→残るQuality義務を個別に処置→最終候補の回帰・独立確認→配布固定・再署名・署名拒否／直接起動確認→同一Release Identityで最終照合→人間へ採用・Release判断を提示する。現在の停止と補強候補は[候補通信診断と終了待ち](Evidence/260930-1853_codex-model-host-migration-preflight.md#候補d36a9decの署名通信切断の切り分けと終了待ちの不足)を参照する |
+| 次のGate | 人間の最新指定により、是正前に全E2Eの結果を収集する。最新の両助言は成功したが、送信確認の時間切れ、Project RuntimeのProvider開始前停止と未実行経路が残る。残りの実行と結果保存→根本原因ごとの是正計画→必要な是正・再検証→残るQuality義務の個別処置→最終候補の回帰・独立確認→配布固定・再署名・最終照合→人間の採用・Release判断へ進む。旧三件を削除せず、未成立の回復機能や品質義務を免除しない。[全体確認の途中結果](Evidence/261004_all-e2e-collection.md) |
+
+共有管理フォルダのACL移行を前提に復旧設計を広げる案は取り下げ、現在の承認質問にしない。2026-10-04の人間の確認により、まずE2Eを実行し、再現性のある問題だけ対応を検討する。実アクセス権変更・共有環境の初期化・Process停止・旧三件削除は行っていない。以前の局所設計・実装・試験は履歴として保持し、回復全体の成立またはRelease可能とは扱わない。[再開方針と確認結果](Evidence/261004_workbench-e2e-restart.md)を現在の案内とする。
 
 ## 契機 / 起点
 
@@ -63,9 +65,25 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 
 - [`99_Roadmap/Changes/CHG-000082/change.md`](./change.md)
 - [`99_Roadmap/Changes/CHG-000082/Evidence/261002_host-orphan-recovery-design.md`](./Evidence/261002_host-orphan-recovery-design.md)
+- [`99_Roadmap/Changes/CHG-000082/Evidence/261002_quality-item-reconciliation.md`](./Evidence/261002_quality-item-reconciliation.md)
+- [`40_Develop/coordinator/tests/integration/project-runtime-integration-record-adapter.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/project-runtime-integration-record-adapter.contract.test.ts)
 - [`99_Roadmap/Changes/CHG-000082/Evidence/261002_native-test-cleanup-preflight.md`](./Evidence/261002_native-test-cleanup-preflight.md)
 - [`99_Roadmap/Changes/CHG-000082/Evidence/261002_quality-visual-preview-projection.md`](./Evidence/261002_quality-visual-preview-projection.md)
 - [`40_Develop/coordinator/src/security/host-orphan-recovery-policy.ts`](../../../40_Develop/coordinator/src/security/host-orphan-recovery-policy.ts)
+- [`40_Develop/coordinator/src/security/host-terminal-record.ts`](../../../40_Develop/coordinator/src/security/host-terminal-record.ts)
+- [`40_Develop/coordinator/src/security/host-terminal-caller-lease.ts`](../../../40_Develop/coordinator/src/security/host-terminal-caller-lease.ts)
+- [`40_Develop/coordinator/src/security/host-terminal-caller-checkpoint.ts`](../../../40_Develop/coordinator/src/security/host-terminal-caller-checkpoint.ts)
+- [`40_Develop/coordinator/src/security/host-terminal-windows-adapter.ts`](../../../40_Develop/coordinator/src/security/host-terminal-windows-adapter.ts)
+- [`40_Develop/coordinator/tests/unit/host-terminal-record.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/host-terminal-record.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/host-terminal-caller-checkpoint.integration.test.ts`](../../../40_Develop/coordinator/tests/integration/host-terminal-caller-checkpoint.integration.test.ts)
+- [`40_Develop/coordinator/tests/fixtures/host-terminal-generation-worker.ts`](../../../40_Develop/coordinator/tests/fixtures/host-terminal-generation-worker.ts)
+- [`40_Develop/platform-access/src/terminal_protocol.rs`](../../../40_Develop/platform-access/src/terminal_protocol.rs)
+- [`40_Develop/platform-access/src/windows_terminal.rs`](../../../40_Develop/platform-access/src/windows_terminal.rs)
+- [`40_Develop/platform-access/src/windows.rs`](../../../40_Develop/platform-access/src/windows.rs)
+- [`40_Develop/platform-access/src/main.rs`](../../../40_Develop/platform-access/src/main.rs)
+- [`40_Develop/platform-access/tests/cli.rs`](../../../40_Develop/platform-access/tests/cli.rs)
+- [`40_Develop/coordinator/src/security/docker-isolation.ts`](../../../40_Develop/coordinator/src/security/docker-isolation.ts)
+- [`40_Develop/coordinator/tests/unit/host-operation-lock-activation.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/host-operation-lock-activation.contract.test.ts)
 - [`40_Develop/coordinator/tests/unit/host-orphan-recovery-policy.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/host-orphan-recovery-policy.contract.test.ts)
 - [`40_Develop/coordinator/tsconfig.strict.json`](../../../40_Develop/coordinator/tsconfig.strict.json)
 - [`07_Quality/Definitions/QA-000003/quality_definition.md`](../../../07_Quality/Definitions/QA-000003/quality_definition.md)
@@ -332,6 +350,8 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 
 | Finding／契機 | 同じIntentと判断した理由 | 追加Phase／範囲 | Gate・完了条件への影響 | 追加確認／人間判断 | 処置 |
 |---|---|---|---|---|---|
+| 通常producerの共有管理DirectoryとNativeの固定保護条件が一致しなかった | 同じHost回復責務の局所不一致として調査したが、現Directoryから他利用者の実変更可能性までは実証していない | 当初、保護付き作成と限定ACL移行の設計・実装・試験を追加した。現在は追加拡張を止め、固定E2Eと再現した失敗を優先する | 追加基盤の完成を保存済み署名Runtimeの固定E2E開始の一律前提にしない。旧三件や回復全体の未成立を消去しない | ACL移行案は取り下げ、現在の承認質問にしない。権限変更・共有OS作成・旧三件削除は未実施 | 過去の局所確認と配布128試験を保持し、製品全体の完成へ一般化しない。[現在の方針](Evidence/261004_workbench-e2e-restart.md)、[旧比較](Evidence/261002_host-orphan-recovery-design.md#共有管理フォルダの保護不一致と次の判断--2026-10-04) |
+| 既存Host残存一件に、既知の`workspace/fixture.txt`、7bytesが存在した。2026-10-04に人間が限定設計への追加を承認した | 元の回復参照がない同じHost残存を安全に処置する責務の具体的な反例であり、汎用非空清掃の追加ではない | Phase 5の限定Recoveryへ指定file一件を別クラスとして追加。空クラス・現行十一実体Schemaは緩めない | 十二実体・同handle内容／リンク数確認・fileからの非再帰処置・部分再入場を設計、実装、Qualityへ接続する。全体Gateと新実Task停止は維持する | 人間は、この作業の試験以外でCoordinatorを利用していないことと設計対象への追加を回答した。これはProcess終了、非使用、実停止・削除の承認ではない | 専用codec、観測、Native保存／読戻し、Adapter・callerと記録準備をSource接続した。空TEMP／TMPの実所在取得停止をHost専用環境で是正し、30 Host UT／8 caller IT／9 Windows Adapter UTと選択3契約が成功した。読み取り専用実診断は専用保存子Directory欠落で停止した。初期化入口・正常固定OS保存・本番再入場・公開処置は未成立。[現在の結果](Evidence/261002_host-orphan-recovery-design.md#十二実体の記録準備と実環境の保存境界--2026-10-04) |
 | 元の回復参照を確定できない空のHost残存が観測され、同じCHGで限定保守経路を追加する人間判断を得た | 実Provider検証後の残存から安全に回復できない、既存Recovery責務の欠落であり、新しい汎用清掃Capabilityではない | Phase 5へ空のhost_onlyに限る対象確認・fresh承認・非使用確認・限定処置・不存在観測を追加 | 新実Task停止を維持する。候補判定、実観測、Authority、実処置、公開入口および全資源観測を分けて閉じる。局所UTをRecovery完成へ読み替えない | 設計・実装・局所反証・独立確認は本対話で承認済み。2026-10-03にCoordinator所有範囲の終了・利用抑止・排他で閉じる方向を確認し、Windows再起動を前提にしない。実在三件の削除、元Token生成、実Process停止、Provider再送、Docker再起動、Releaseは含めない | 第一単位は候補設計とAuthorityを発行しない内部Policy。全利用側と旧形式の閉包、作成前排他、OS処置境界・再入場はOPEN。方式の採否待ちではなく承認範囲内の再設計中。[現在記録](Evidence/261002_host-orphan-recovery-design.md) |
 | 署名済み実境界で障害修復Protocolが意図的に返す公式停止の未発行を上位Runtimeが失敗扱いした | Workbench AI実Provider E2Eを成立させるDocker境界のProduction Closureであり、同じIntent内の実境界Gapである | Phase 5へ障害修復の`not_issued`受理契約是正を追加 | Repairでは公式停止を発行せず、上位Runtimeが`false / not_issued`だけを正常分岐として受理する局所契約試験、署名済み修復、Host Windows回帰を追加 | 既存の修復ID・耐久記録・Trust・削除禁止を維持し、`true / unknown`を成功へ補正しない | 対応中 |
 | Workbenchの将来展開を踏まえ、表示層をReact＋Viteへ固定する人間判断を得た | Project Context、Topic／Meeting、Repository、AIおよびShared Serverを一つのWorkbenchへ展開する同じProduction Intentであり、別Capabilityではない | Phase 5へVite Browser Build、固定Asset配信および既存15画面のReact移行を追加 | Node側のAuthorityとHTTP操作契約を維持し、CSR、JSON Read Model、CSP、allowlist、既存IT、実Browser Visualを再確認する。全画面Component化前を移行完了と表示しない | React＋Vite採用は本対話で確認済み。Next.js、Electron、業務AuthorityのClient移動は対象外 | 実装・直接検証・独立レビュー済み。Phase 5全体の実Provider E2Eは継続 |
@@ -394,7 +414,7 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 - 追加結果参照: [署名Runtimeの終了後Observer接続是正と公開MCP E2E再実測](./Evidence/260930-1440_signed-runtime-recovery-observer.md)
 - 追加結果参照: [Workbench助言の実Provider出力拒否と診断搬送の是正](./Evidence/260930-1621_workbench-advice-result-rejection.md)
 - 追加結果参照: [Shared Gatewayの非開示境界と品質適用](./Evidence/261002_shared-gateway-non-disclosure.md)。`RFD-ST-004`だけを新しい実HTTP根拠へ接続し、Host回収・実Provider・全体品質の未成立は維持する
-- 追加結果参照: [品質176項目の固定候補照合](./Evidence/261002_quality-item-reconciliation.md)。全項目の候補集合と旧版の観測主張108件の現行適用未照合を追跡する。現在の品質件数と停止Gateは変更しない
+- 追加結果参照: [品質176項目の固定候補照合](./Evidence/261002_quality-item-reconciliation.md)。全項目の候補集合と旧版の観測主張108件の現行適用未照合を追跡する。Profile搬送の局所36試験とWorkbench HTTP一試験を入口別に照合し、公開CLI／MCP Transportから現行Catalog・Task選定への結合不足を分けた。旧二JSONの廃止条件と四経路の画面なし実行の公開入口未対応も現行実体から確認した。現在の品質件数と停止Gateは変更しない。
 - 追加結果参照: [Profile選択の現行UTとRole反例の補強](./Evidence/261002_profile-selection-current-ut.md)。局所60件の根拠を記録し、Transport同等性、PRL-UT-014全体、全体品質と実回復の未成立は維持する
 - 追加是正参照: [公開ObjectiveのProfile搬送と試験登録](./Evidence/261002_objective-profile-transport.md)。任意Profile入力、MCP SchemaとTask搬送の実装接続漏れ、先行Host候補UTの登録漏れを是正した。局所117件の結果を全入口・実回復・全体品質へ拡張しない
 - Quality Center: `RFD-IT-014`と`RFD-ST-015`を、Workbench→Version Control→実Git／bare Remote、実Browser確認、故障分類および再観測のEvidenceとして観測済みにした。`ERB-ST-022`も15画面、Desktop／Tablet／Mobile、100%／200%／400%の27条件、React commit後の画像確定待ち、終了所要時間および終了後不存在Evidenceへ接続した。`ERB-IT-020`は残存子Processへの世代Identity限定Fallback実発行とIdentity不一致時のEffect 0へ接続した

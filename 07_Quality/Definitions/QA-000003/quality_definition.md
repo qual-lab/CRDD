@@ -167,7 +167,31 @@ Source Definition由来の検証義務を維持し、Detailは具体的な観測
 
 期限登録中の同期取消では登録・解除を一回に限定し、listenを発行しない。取得要求の保留と結果Promiseを分け、期限後またはlisten例外後の先行close通知で購読を外さない。後着取得へ一回closeを発行し、その後の対応終端で登録を解除しても、先に返した不明結果は同一のまま保持する。
 
-同じ`PRL-UT-006`でHost終端intentの閉Schemaを確認する。完全snapshotの両producer、固定参照・Hash・五u32・六child実名・処置順、key順に依存しない正規encode、全閉集合の欠落／未知field、producer混在・未知理由、Identity alias、u32両端・範囲外・負のゼロ、自由Path、Proxy／Accessor／特殊prototypeを処置する。decodeでは8KiB上限、fatal UTF-8、BOM、重複key、余分bytes、非正規JSON、共有memoryとbyte入力のcustom getter／iteratorを反証する。Oracleは正規bytesへの往復、入力実行0とnested値の不変性に限る。初期化途中への補完、実Identityの観測、caller耐久参照、Native保護・publication・容量予約、本番清掃と再入場はこのUTから成立扱いにせず、QA-000006の実境界義務を保持する。
+同じ`PRL-UT-006`でHost終端intent revision 2の閉Schemaを確認する。完全snapshotの両producer、固定参照・Hash・五識別値とattributesの六u32・六child実名・処置順、key順に依存しない正規encode、全閉集合の欠落／未知field、producer混在・未知理由、Identity alias、u32両端・範囲外・負のゼロ、自由Path、Proxy／Accessor／特殊prototypeを処置する。十一対象ごとにattributesの変更を保持し、欠落と属性を持たないrevision 1を拒否する。decodeでは8KiB上限、fatal UTF-8、BOM、重複key、余分bytes、非正規JSON、共有memoryとbyte入力のcustom getter／iteratorを反証する。Oracleは正規bytesへの往復、入力実行0とnested値の不変性に限る。初期化途中への補完、実Identityの観測、caller耐久参照、Native保護・publication・容量予約、本番清掃と再入場はこのUTから成立扱いにせず、QA-000006の実境界義務を保持する。
+
+同じ`PRL-UT-006`でDocker診断回復のHost排他接続順を確認する。現在の本番関数bodyを変更せず局所依存へ接続し、正常、Token／Host世代／親の不正、取得null／例外、取得後の記録不明、Docker依存失敗、解放不明、Host Root名差およびHost nonce差の十一経路を与える。Probe nonceとHost nonceは異なる値にする。未取得では対象Rootの記録読取り0・Docker利用0、取得後の対象差・記録不明ではDocker利用0を確認する。同じ排他ObjectをHost清掃へ渡し、取得後の失敗でも一回解放する。解放不明では成功・清掃確認を返さず、現在のexact回復参照、手動回復の必要性と清掃未確認を保持する。これは本番bodyの呼出順・結果相関のUTであり、実排他、Docker回収、実フォルダ不存在、旧三Rootの非使用または全Recoveryの成立を証明しない。
+
+同じ`PRL-UT-006`でDocker Task回復の排他省略を確認する。Journalなし、move、deleteおよび別Taskの終端記録ではHost排他が拒否された後にHome取得・Host観測・Docker処置へ進まない。exactな終端清掃記録または清掃Directory候補だけ省略を許すが、その後に非終端処理へ到達した場合はHost Path解決より前に拒否し、Home／State排他を各一回解放して同じ回復参照を保持する。JournalのIdentity・Schema検証は既存の実Journalが所有し、VM fixtureの投影値からその検証成立を推定しない。`PRL-IT-013`では既存の実Journal、終端清掃途中のProcess喪失からの再入場、Task Aだけの処置によるTask B不変、および外側観測中の一時解放・同世代再取得を併せて確認する。
+
+`PRL-UT-006`では、Host対象確認の専用frameについてnonce、revision、型・相異、独立namespace期待値、選択利用者、取得数と初回closeの相関を確認する。観測成功＋外側close不明でSnapshotを出さず元観測失敗を捏造しないこと、部分取得・不正boolean・余剰bytes・入力getter／Proxy／共有memory・偽要求参照を拒否することを、現在のcodec／Adapterへ接続する。初回要求は完全intentを必要とせず、Current結果と独立期待値のKnown照合を分け、Current成功でも保護・全終了を必須とする。純値成功を実OS観測、署名配布物、非使用・実処置または全Recoveryの成立へ昇格しない。
+
+### 既知7バイトfileの専用記録候補
+
+`PRL-UT-006`で[Coordinatorの既知fileクラス](../../../06_Architecture/Details/coordinator/01_Architecture.md#既知の7バイト試験ファイルを含む対象)の専用revision 3候補を確認する。十二実体・固定file名／親・7bytes・固定Hash・リンク数1・全Identity相異・世代名対応・人間保守producerだけを受理し、空クラスrevision 2との両方向の混用を拒否する。対象Rootの構造検査と上位Ownerのexact選択許可を区別する。旧保存／読戻し／観測入口が新候補を受け付けないこと、Proxy／Accessor実行0、nested不変値、正規bytes往復とBOM・重複key・余剰・非正規数値・共有memoryの拒否をOracleとする。
+
+同じ`PRL-UT-006`で、専用十二実体観測のCurrent／namespace-Known要求登録と応答を確認する。旧新magic・改訂版・要求の混用、偽私有参照、短縮・余剰・nonce差、十二Identityの型・相異、固定7bytes／リンク数1／Hash、九対象と外側資源の終了相関を反証する。namespace-Knownは三namespace実体と選択利用者だけの独立期待値として扱い、全対象Knownへ昇格しない。応答形状の成功を実Processの正常搬送や保存成功へ読み替えない。
+
+専用十二実体の保存／読戻しframeも同じ`PRL-UT-006`へ接続する。471bytes header・全十二Identity・file長／リンク数／Hash・独立本文／Hash・三固定名の欠落と混用を拒否し、本文1／8192bytesを受理、0／8193bytesを拒否する。各位置の型差とalias、file固定値の全byte差を反証する。保存の部分receipt・九対象観測を縮約せず、読戻しは対象Snapshotなし・対象取得0と現在Reader／世代排他終了を保持する。局所encoderの成功を実保存・正常再入場・清掃成功にしない。
+
+Coordinator Adapterでも、専用保存／読戻しの私有登録と旧形式・逆mode・clone拒否を確認する。現factory Sourceが構成する要求を独立offsetで解析し、471bytes header、十二Identity、file条件、同参照と完全正規本文／Hashを照合する。保存応答の全392payload bytes差、切断・余剰、旧内包frame、不正成功を反証し、部分保存・元理由・receiptを同参照で保持する。読戻しは対象未取得と現在記録を区別する。搬送Ownerの本番bodyを合成Workerへ接続して、旧新両クラスで固定mode、exit不一致、解析不能と部分receiptを確認する。合成Workerを実Native正常保存の根拠にしない。
+
+専用候補の二回観測では、十二Identityの六field、選択利用者、marker Hashとfileの長さ・リンク数・Hashを比較する。初回拒否・終了未確認・取消では二回目0、再要求生成中の取消・生成失敗も二回目0を確認する。二回目の拒否・終了未確認・例外では初回receiptを保持する。下位が実行前に拒否した理由は保持し、成功を返したのにhelper終了が未確認の場合だけ共同観測未成立とする。私有の旧／新Current要求、namespace-Known要求、cloneの混用も反証する。
+
+同じ`PRL-UT-006`で、候補観測から専用revision 3とcaller保存へ準備する本番関数bodyを確認する。選択Hashのdomain、配列順、十二実体・file条件を独立に導出し、一field差はHashへ反映、回復参照だけの差はHashへ反映しないことを確認する。旧domain・旧受付は維持する。入力不正、観測失敗・例外、各処理境界の取消、保存拒否・例外、保存後取消では同参照・部分結果・Effect不明を保持し、再試行・Authorityを発行しない。合成観測・合成保存を実Native保存や非使用の根拠にしない。
+
+これらは期待値・正規bytes・観測frameの局所確認である。実fileの内容・リンク数、非使用、保存、十二実体の実搬送、処置と部分再入場の成立はQA-000006で別に確認する。既存Local Itemへ接続し、局所Case追加をLocal Item全義務の完了や全体件数の更新理由にしない。
+
+Host終端専用環境の`PRL-UT-006`では、同じ本番関数bodyに対する十五の入力区分で、正規親を`TMP`／`TEMP`へ同値搬送し、他fieldと一般Native環境を変更しないことを確認する。前提環境欠落、相対・UNC・NUL・drive root、file・symlink、metadata／正規化例外と正規化後不正を拒否し、fallbackを行わない。合成Filesystemによる関数bodyの確認であり、実OS所在・保護・正常保存の根拠にはしない。
 
 ## Checklist
 

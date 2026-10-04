@@ -12,7 +12,7 @@
  * @trace ARCH-000008
  * @shape listening、listen_failed、server_closed、socket_opened、socket_closedの閉集合。
  * @invariant socket通知は同じ参照Identityへ結合する。
- * @boundary 内部状態機械と将来のOS Adapterの境界。
+ * @boundary 内部状態機械と固定caller保存のOS Adapterの境界。
  * @security 通知は削除Authorityや非使用証明を含まない。
  * @compatibility 未知通知を成功として受理しない。
  */
@@ -30,9 +30,9 @@ export type HostOperationLeaseEvent =
  * @trace ARCH-000008
  * @shape subscribe、listen、close、closeSocketと解除可能な期限。
  * @invariant 依存が保持する資源を通知前に不存在へ畳まない。
- * @boundary 局所試験用依存と将来の固定OS Adapterだけが利用する。
+ * @boundary 局所試験用依存と固定caller保存のOS Adapterだけが利用する。
  * @security 任意Path、削除操作、Providerまたは公開Capabilityを受け取らない。
- * @compatibility この候補は本番Factoryや公開入口に未接続である。
+ * @compatibility caller保存の私有Adapterへ接続する。通常Host処置の公開Factoryにはしない。
  */
 export type HostOperationLeaseDependencies = Readonly<{
   subscribe: (listener: (event: HostOperationLeaseEvent) => void) => () => void;
@@ -87,7 +87,7 @@ export type HostOperationLeaseCandidate = Readonly<{
  * @trace ARCH-000008
  * @input 内部資源依存と呼出し側が所有する取消Signal。
  * @returns 保持中判定、取得結果と一回の解放結果を持つ内部Owner。
- * @precondition 依存は同じ資源の通知と要求を所有し、実OS Adapterはまだ本番接続しない。
+ * @precondition 依存は同じ資源の通知と要求を所有し、caller保存の固定OS Adapterまたは局所試験に限定する。
  * @postcondition 取消・失敗後は保持中を返さず、不明結果と後着資源のOwnerを失わない。
  * @effect 依存へlisten、close、受理socket終端要求と通知・期限登録を発行する。
  * @failure 依存例外、重複通知、期限または観測不能を未取得・失敗・終端未確認へ区別する。
@@ -119,17 +119,17 @@ export function createIsolatedHostOperationInProcessLeaseCandidate(
   let acquireSettled = false;
   let endSettled = false;
   let listenStarted = false;
-  let listenPending = false;
-  let listening = false;
-  let cancelled = signal.aborted;
-  let failed = false;
-  let closing = false;
+  let isListenPending = false;
+  let isListening = false;
+  let isCancelled = signal.aborted;
+  let hasFailed = false;
+  let isClosing = false;
   let closeRequested = false;
-  let serverClosed = false;
+  let isServerClosed = false;
   let disposeSubscription: (() => void) | null = null;
-  let disposingSubscription = false;
+  let isDisposingSubscription = false;
   let clearDeadline: (() => void) | null = null;
-  let registeringDeadline = false;
+  let isRegisteringDeadline = false;
   const sockets = new Set<object>();
   const seenSockets = new Set<object>();
   const requestedSockets = new Set<object>();
@@ -146,7 +146,7 @@ export function createIsolatedHostOperationInProcessLeaseCandidate(
     resolveEnd(
       Object.freeze({
         status,
-        serverCloseObserved: serverClosed,
+        serverCloseObserved: isServerClosed,
         socketsPending: sockets.size,
       }),
     );
@@ -158,36 +158,36 @@ export function createIsolatedHostOperationInProcessLeaseCandidate(
       current?.();
       return true;
     } catch {
-      failed = true;
+      hasFailed = true;
       return false;
     }
   };
   const markUnknown = () => {
-    failed = true;
-    closing = true;
+    hasFailed = true;
+    isClosing = true;
     settleAcquire("unconfirmed");
     settleEnd("unconfirmed");
     stopDeadline();
   };
   const finishObservedEnd = () => {
     if (
-      listenPending ||
-      !serverClosed ||
+      isListenPending ||
+      !isServerClosed ||
       sockets.size !== 0 ||
-      disposingSubscription
+      isDisposingSubscription
     )
       return;
-    closing = true;
+    isClosing = true;
     if (!stopDeadline()) {
       markUnknown();
       return;
     }
     signal.removeEventListener("abort", cancel);
     try {
-      disposingSubscription = true;
+      isDisposingSubscription = true;
       disposeSubscription?.();
       disposeSubscription = null;
-      disposingSubscription = false;
+      isDisposingSubscription = false;
     } catch {
       markUnknown();
       return;
@@ -197,20 +197,20 @@ export function createIsolatedHostOperationInProcessLeaseCandidate(
       return;
     }
     settleAcquire("not_acquired");
-    settleEnd(failed ? "closed_after_failure" : "closed");
+    settleEnd(hasFailed ? "closed_after_failure" : "closed");
   };
   const finishNotStarted = () => {
-    closing = true;
+    isClosing = true;
     signal.removeEventListener("abort", cancel);
     if (!stopDeadline()) {
       markUnknown();
       return;
     }
     try {
-      disposingSubscription = true;
+      isDisposingSubscription = true;
       disposeSubscription?.();
       disposeSubscription = null;
-      disposingSubscription = false;
+      isDisposingSubscription = false;
     } catch {
       markUnknown();
       return;
@@ -219,8 +219,8 @@ export function createIsolatedHostOperationInProcessLeaseCandidate(
     settleEnd("not_started");
   };
   const ensureDeadline = () => {
-    if (clearDeadline || registeringDeadline || endSettled) return;
-    registeringDeadline = true;
+    if (clearDeadline || isRegisteringDeadline || endSettled) return;
+    isRegisteringDeadline = true;
     try {
       clearDeadline = dependencies.scheduleDeadline(() => {
         markUnknown();
@@ -230,11 +230,11 @@ export function createIsolatedHostOperationInProcessLeaseCandidate(
     } catch {
       markUnknown();
     } finally {
-      registeringDeadline = false;
+      isRegisteringDeadline = false;
     }
   };
   const requestClose = () => {
-    closing = true;
+    isClosing = true;
     ensureDeadline();
     for (const socket of sockets) {
       if (requestedSockets.has(socket)) continue;
@@ -246,7 +246,7 @@ export function createIsolatedHostOperationInProcessLeaseCandidate(
       }
     }
     // 公開結果がunknownでも、取得要求のsettlement前にはcloseを先行しない。
-    if (!listenStarted || listenPending || closeRequested || serverClosed)
+    if (!listenStarted || isListenPending || closeRequested || isServerClosed)
       return;
     closeRequested = true;
     try {
@@ -256,7 +256,7 @@ export function createIsolatedHostOperationInProcessLeaseCandidate(
     }
   };
   const cancel = () => {
-    cancelled = true;
+    isCancelled = true;
     requestClose();
   };
   const onEvent = (event: HostOperationLeaseEvent) => {
@@ -264,14 +264,15 @@ export function createIsolatedHostOperationInProcessLeaseCandidate(
     if (!listenStarted) markUnknown();
     switch (event.kind) {
       case "listening":
-        listenPending = false;
-        if (listening || serverClosed) failed = true;
-        listening = true;
-        if (signal.aborted) cancelled = true;
-        if (cancelled || closing || failed) requestClose();
+        isListenPending = false;
+        if (isListening || isServerClosed) hasFailed = true;
+        isListening = true;
+        if (signal.aborted) isCancelled = true;
+        if (isCancelled || isClosing || hasFailed) requestClose();
         else if (stopDeadline()) {
           // 期限解除中の同期取消も、取得結果の公開直前に再確認する。
-          if (cancelled || closing || failed || signal.aborted) requestClose();
+          if (isCancelled || isClosing || hasFailed || signal.aborted)
+            requestClose();
           else settleAcquire("acquired");
         } else {
           markUnknown();
@@ -279,42 +280,42 @@ export function createIsolatedHostOperationInProcessLeaseCandidate(
         }
         break;
       case "listen_failed":
-        listenPending = false;
-        failed = true;
+        isListenPending = false;
+        hasFailed = true;
         requestClose();
         break;
       case "server_closed":
-        if (listenPending) {
+        if (isListenPending) {
           // 取得要求より先のcloseを、後着取得の終端根拠へ使わない。
           markUnknown();
           break;
         }
-        if (serverClosed || !closeRequested) failed = true;
-        serverClosed = true;
-        closing = true;
+        if (isServerClosed || !closeRequested) hasFailed = true;
+        isServerClosed = true;
+        isClosing = true;
         requestClose();
         finishObservedEnd();
         break;
       case "socket_opened":
-        if (serverClosed) markUnknown();
+        if (isServerClosed) markUnknown();
         if (seenSockets.has(event.socket)) {
-          failed = true;
+          hasFailed = true;
           requestClose();
           break;
         }
         seenSockets.add(event.socket);
         sockets.add(event.socket);
-        if (closing || cancelled || failed) requestClose();
+        if (isClosing || isCancelled || hasFailed) requestClose();
         break;
       case "socket_closed":
         if (!sockets.delete(event.socket)) {
-          failed = true;
+          hasFailed = true;
           requestClose();
         }
         finishObservedEnd();
         break;
       default:
-        failed = true;
+        hasFailed = true;
         requestClose();
     }
   };
@@ -326,7 +327,7 @@ export function createIsolatedHostOperationInProcessLeaseCandidate(
      * @responsibility 取消・失敗・解放後を保持中へ戻さない。
      * @trace ARCH-000008
      * @input N/A: Owner内の現在状態だけを読む。
-     * @returns listening後かつ取消・失敗・解放開始前だけtrue。
+     * @returns isListening後かつ取消・失敗・解放開始前だけtrue。
      * @precondition 同じ内部Ownerから呼び出す。
      * @postcondition 状態や資源を変更しない。
      * @effect N/A: Owner内の状態を読むだけである。
@@ -337,7 +338,11 @@ export function createIsolatedHostOperationInProcessLeaseCandidate(
      * @concurrency 同じevent loop内の現在状態を同期で読む。
      */
     isHeld: () =>
-      listening && !cancelled && !failed && !closing && !serverClosed,
+      isListening &&
+      !isCancelled &&
+      !hasFailed &&
+      !isClosing &&
+      !isServerClosed,
     /**
      * 同じOwnerの解放を一回要求する。
      *
@@ -360,7 +365,7 @@ export function createIsolatedHostOperationInProcessLeaseCandidate(
       return end;
     },
   });
-  if (cancelled) {
+  if (isCancelled) {
     settleAcquire("not_acquired");
     settleEnd("not_started");
     return owner;
@@ -368,23 +373,23 @@ export function createIsolatedHostOperationInProcessLeaseCandidate(
   try {
     disposeSubscription = dependencies.subscribe(onEvent);
     // subscribe内の同期通知より後に返された解除責任も同じOwnerへ回収する。
-    if (serverClosed) finishObservedEnd();
+    if (isServerClosed) finishObservedEnd();
     if (endSettled) return owner;
     signal.addEventListener("abort", cancel, { once: true });
-    if (signal.aborted) cancelled = true;
-    if (cancelled) {
+    if (signal.aborted) isCancelled = true;
+    if (isCancelled) {
       finishNotStarted();
       return owner;
     }
     ensureDeadline();
     if (endSettled) return owner;
-    if (signal.aborted) cancelled = true;
-    if (cancelled || closing || failed) {
+    if (signal.aborted) isCancelled = true;
+    if (isCancelled || isClosing || hasFailed) {
       finishNotStarted();
       return owner;
     }
     listenStarted = true;
-    listenPending = true;
+    isListenPending = true;
     dependencies.listen();
   } catch {
     markUnknown();

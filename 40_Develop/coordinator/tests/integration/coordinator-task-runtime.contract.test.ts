@@ -3021,32 +3021,55 @@ test("任意Executor制約はauto既定と分離して同じSlate・Selection Ga
  *
  * @responsibility Workbench等の利用者選択をCoordinator内部で別Profileへ読み替えず、Reviewer選定へ誤伝播しない。
  * @trace PRL-IT-012
- * @precondition Codex Executorと整合するProfile IDをTask Requestへ指定する。
- * @stimulus Coordinator Task Runtimeを完了まで実行する。
- * @observation ExecutorとReviewerのSelection Requestを観測する。
+ * @precondition 二Front Providerと二Executor Providerに適合するProfile IDをTask Requestへ指定する。
+ * @stimulus 四組合せのCoordinator Task Runtimeを完了まで実行し、不正Profileの拒否も確認する。
+ * @observation ExecutorとReviewerのSelection Request、選定回数と不正入力時のEffect件数を観測する。
  * @oracle Executorだけが明示Profile IDを保持し、Reviewerは独立選定を続ける。
  * @cleanup FixtureのRuntime cleanupが完了する。
- * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary Coordinator実状態機械と合成依存の接続。公開Transport、実Resolver、Provider／Host実作用は対象外。
  */
 test("明示Profile IDをExecutor Selectionだけへ搬送する", async () => {
-  const harness = fixture({
-    slateExecutorProvider: "codex",
-    slateReviewerProvider: "claude",
-  });
-  const result = await harness.runtime.start(
-    request({
-      requestedExecutorProvider: "codex",
-      requestedProfileId: "PROFILE-100003",
-    }),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
-  assert.equal(result.status, "completed");
-  assert.equal(
-    harness.selectionRequests[0]?.requestedProfileId,
-    "PROFILE-100003",
-  );
-  assert.equal(harness.selectionRequests[1]?.requestedProfileId, null);
+  for (const frontProvider of ["codex", "claude"] as const) {
+    for (const executorProvider of ["codex", "claude"] as const) {
+      const profileId =
+        executorProvider === "codex" ? "PROFILE-100003" : "PROFILE-200001";
+      const reviewerProvider =
+        executorProvider === "codex" ? "claude" : "codex";
+      const harness = fixture({
+        slateExecutorProvider: executorProvider,
+        slateReviewerProvider: reviewerProvider,
+      });
+      const result = await harness.runtime.start(
+        request({
+          frontProvider,
+          requestedExecutorProvider: executorProvider,
+          requestedProfileId: profileId,
+        }),
+        "C:\\repository",
+        "2026-08-25T00:00:00.000Z",
+      ).completion;
+      assert.equal(result.status, "completed");
+      assert.equal(harness.selectionRequests.length, 2);
+      assert.equal(harness.selectionRequests[0]?.frontProvider, frontProvider);
+      assert.equal(harness.selectionRequests[0]?.role, "executor");
+      assert.equal(harness.selectionRequests[0]?.requestedProfileId, profileId);
+      assert.equal(
+        harness.selectionRequests[0]?.requestedExecutorProvider,
+        executorProvider,
+      );
+      assert.equal(harness.selectionRequests[1]?.frontProvider, frontProvider);
+      assert.equal(harness.selectionRequests[1]?.role, "independent_reviewer");
+      assert.equal(
+        harness.selectionRequests[1]?.subjectProvider,
+        executorProvider,
+      );
+      assert.equal(harness.selectionRequests[1]?.requestedProfileId, null);
+      assert.equal(
+        harness.selectionRequests[1]?.requiresIndependentProvider,
+        true,
+      );
+    }
+  }
 
   const invalid = fixture();
   const invalidResult = await invalid.runtime.start(
@@ -3057,6 +3080,8 @@ test("明示Profile IDをExecutor Selectionだけへ搬送する", async () => {
   assert.equal(invalidResult.status, "blocked");
   assert.equal(invalidResult.reason, "coordinator_task_request_invalid");
   assert.equal(invalid.selectionRequests.length, 0);
+  assert.equal(invalid.operationCreateCount(), 0);
+  assert.equal(invalid.processStartCount(), 0);
 });
 
 /**

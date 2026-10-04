@@ -11,6 +11,7 @@ import path from "node:path";
 import { StringDecoder } from "node:string_decoder";
 import { inspectMcpProjectRuntimeObjectiveResult } from "../../mcp/src/index.ts";
 import { startOwnedWindowsProcessTreeTermination } from "../src/security/docker-owned-process.ts";
+import { dockerProcessControllerPublicCompletionReasons } from "../src/security/docker-process-controller-result-reasons.ts";
 import { inspectRepositoryIdentityCandidate } from "../src/security/repository-operation-runtime.ts";
 
 /**
@@ -118,6 +119,7 @@ type ProviderBoundarySettledEvent = Readonly<{
   containersAbsentObserved: boolean;
   networksAbsentObserved: boolean;
   cleanupConfirmed: boolean;
+  primaryFailure?: JsonRecord | null;
 }>;
 /**
  * Provider境界の設定と終了後観測を識別可能な診断集合へまとめる。
@@ -301,6 +303,102 @@ const RECOVERY_PHASES = new Set<RecoveryEvent["phase"]>([
   "queue_settled",
   "retry_ready",
 ]);
+
+/**
+ * 一次失敗の固定診断だけを受理する。
+ *
+ * @responsibility 自由文や不整合な観測を検証記録へ搬送しない。
+ * @trace ARCH-000004
+ * @input value: JSONから取得した診断候補。
+ * @returns nullまたは完全な固定診断ならtrue。
+ * @precondition 値はJSON parserを通過している。
+ * @postcondition 未知の項目、理由、例外分類を拒否する。
+ * @effect N/A: 値の確認だけを行う。
+ * @failure 不正値はfalseへ閉じる。
+ * @invariant Handle、応答、記録の順序を逆転させない。
+ * @boundary Runtime診断からE2Eの記録への搬送。
+ * @security Path、秘密値や生出力を受理しない。
+ * @concurrency N/A: 共有状態を変更しない。
+ */
+function isPrimaryFailureDiagnostic(value: unknown): boolean {
+  if (value === null) return true;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const record = value as JsonRecord;
+  return (
+    exactKeys(record, [
+      "commandHandleObtained",
+      "exceptionCode",
+      "purpose",
+      "reason",
+      "receiptRecorded",
+      "responseObserved",
+      "stage",
+    ]) &&
+    (record.purpose === null ||
+      (typeof record.purpose === "string" &&
+      [
+        "create_subscription_auth_probe",
+        "start_subscription_auth_probe_attached",
+        "create_internal_network",
+        "create_egress_network",
+        "create_proxy",
+        "connect_proxy_egress",
+        "create_provider",
+        "start_proxy",
+        "start_provider_attached",
+      ].includes(record.purpose))) &&
+    typeof record.stage === "string" &&
+    [
+      "submission_record",
+      "command_restriction",
+      "command_start",
+      "provider_start_observation",
+      "command_wait",
+      "execution_classification",
+      "resource_receipt_record",
+      "subscription_auth_verification",
+      "provider_result_normalization",
+    ].includes(record.stage) &&
+    dockerProcessControllerPublicCompletionReasons.some(
+      (reason) => reason === record.reason,
+    ) &&
+    (record.exceptionCode === null ||
+      (typeof record.exceptionCode === "string" &&
+      [
+        "unclassified_exception",
+        "ENOENT",
+        "EACCES",
+        "EPERM",
+        "ETIMEDOUT",
+        "ECONNREFUSED",
+        "EPIPE",
+        "docker_effect_management_required",
+        "docker_effect_plan_invalid",
+        "docker_effect_plan_replaced",
+        "docker_effect_command_not_owned",
+        "docker_effect_platform_unsupported",
+        "docker_effect_cli_untrusted",
+        "docker_effect_cli_replaced",
+        "docker_effect_path_invalid",
+        "docker_effect_config_invalid",
+        "docker_effect_config_replaced",
+        "docker_effect_filesystem_identity_invalid",
+        "owned_operation_management_binding_required",
+        "owned_operation_unknown_child",
+        "owned_operation_child_replaced",
+        "owned_operation_mount_replaced",
+      ].includes(record.exceptionCode))) &&
+    typeof record.commandHandleObtained === "boolean" &&
+    typeof record.responseObserved === "boolean" &&
+    typeof record.receiptRecorded === "boolean" &&
+    (record.responseObserved !== true ||
+      record.commandHandleObtained === true) &&
+    (record.receiptRecorded !== true ||
+      (record.responseObserved === true &&
+        typeof record.purpose === "string" &&
+        record.purpose.startsWith("create_")))
+  );
+}
 
 /**
  * Keysが完全一致するか判定する。
@@ -533,7 +631,14 @@ function parseKnownDiagnosticLine(
       });
     if (
       parsed.event === "coordinator_provider_boundary_settled" &&
-      exactKeys(parsed, BOUNDARY_SETTLED_KEYS) &&
+      exactKeys(
+        parsed,
+        Object.hasOwn(parsed, "primaryFailure")
+          ? [...BOUNDARY_SETTLED_KEYS, "primaryFailure"].sort()
+          : BOUNDARY_SETTLED_KEYS,
+      ) &&
+      (!Object.hasOwn(parsed, "primaryFailure") ||
+        isPrimaryFailureDiagnostic(parsed.primaryFailure)) &&
       isValidCommon &&
       typeof parsed.providerContainerCreatedObserved === "boolean" &&
       typeof parsed.providerProcessStartedObserved === "boolean" &&

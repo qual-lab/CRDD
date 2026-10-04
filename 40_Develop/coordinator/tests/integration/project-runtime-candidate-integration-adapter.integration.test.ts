@@ -4,6 +4,7 @@
  * @packageDocumentation
  * @responsibility coordinator:integration:project-runtime-candidate-integration-adapterが所有する検証責務を実行する。
  * @trace PRL-IT-012
+ * @trace PRL-IT-005
  * @level IT
  * @scope project、runtime、candidate、adapter
  * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
@@ -22,16 +23,18 @@ import { createProjectRuntimeState } from "../../../project-runtime/src/index.ts
 import { gitFixedSnapshotAdapter } from "../../../version-control/src/git/fixed-snapshot-adapter.ts";
 
 /**
- * real candidate bundles are merged and explicitly adopted into the bound repositoryを検証する。
+ * 実候補の完全なIdentity照合、改変拒否と明示採用を検証する。
  *
- * @responsibility real candidate bundles are merged and explicitly adopted into the bound repositoryの合否判定を所有する。
+ * @responsibility Candidate Storeと採用AdapterのIdentity照合、拒否時のbyte不変および正常採用を判定する。
  * @trace PRL-IT-012
+ * @trace PRL-IT-005
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus real candidate bundles are merged and explicitly adopted into the bound repositoryの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
+ * @observation 完全な候補ID、拒否結果、RepositoryとStoreのbyte列、正常採用結果と終了後条件を観測する。
+ * @oracle 改変・短縮ID、Hash、Revision、変更範囲を拒否し、拒否後もStoreとRepositoryを変更しない。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary PRL-IT-005=Related 2 Blocks: Candidate Store→Candidate Integration Adapter。Authority GateとIntegration Record接続は本Caseの範囲外である。
  */
 test("real candidate bundles are merged and explicitly adopted into the bound repository", async (t) => {
   const repository = fs.mkdtempSync(
@@ -152,6 +155,65 @@ test("real candidate bundles are merged and explicitly adopted into the bound re
     dirty: false,
     observedPaths: [],
   });
+  assert.ok(bound);
+  assert.equal(bound.candidateId, published.candidateId);
+  assert.equal(bound.candidateId.length, "candidate.".length + 64 + 1 + 64);
+  const storeNames = fs
+    .readdirSync(candidateRoot, { recursive: true, encoding: "utf8" })
+    .sort();
+  const storeBytes = new Map(
+    storeNames
+      .filter((name) => fs.lstatSync(path.join(candidateRoot, name)).isFile())
+      .map((name) => [name, fs.readFileSync(path.join(candidateRoot, name))]),
+  );
+  const rejectedIds = [
+    published.candidateId.slice(0, -1),
+    `${published.candidateId.slice(0, -1)}${published.candidateId.endsWith("a") ? "b" : "a"}`,
+    published.candidateId.replace("candidate.", "Candidate."),
+    `${published.candidateId}.`,
+  ];
+  const rejectedCandidates = [
+    ...rejectedIds.map((candidateId) => ({ ...bound, candidateId })),
+    { ...bound, candidateHash: "e".repeat(64) },
+    { ...bound, baseRevision: "f".repeat(40) },
+    { ...bound, changedPaths: ["result.txt"] },
+    { ...bound, changedPaths: ["result.txt", "unexpected.txt"] },
+  ];
+  for (const rejectedId of rejectedIds) {
+    assert.equal(candidateStore.read(rejectedId), null);
+    assert.equal(adapter.bindPublishedCandidate(rejectedId), null);
+  }
+  for (const rejectedCandidate of rejectedCandidates) {
+    assert.equal(await adapter.adoptCandidate(rejectedCandidate), null);
+    assert.equal(
+      fs.readFileSync(path.join(repository, "result.txt"), "utf8"),
+      "before\n",
+    );
+    assert.equal(
+      fs.readFileSync(path.join(repository, "resultz.txt"), "utf8"),
+      "before-2\n",
+    );
+    assert.equal(
+      execFileSync("git", ["-C", repository, "status", "--porcelain"], {
+        encoding: "utf8",
+        windowsHide: true,
+      }),
+      "",
+    );
+    assert.deepEqual(
+      fs
+        .readdirSync(candidateRoot, { recursive: true, encoding: "utf8" })
+        .sort(),
+      storeNames,
+    );
+    for (const [name, bytes] of storeBytes) {
+      assert.deepEqual(fs.readFileSync(path.join(candidateRoot, name)), bytes);
+    }
+  }
+  assert.deepEqual(
+    adapter.bindPublishedCandidate(published.candidateId),
+    bound,
+  );
   const boundReceipt = (await adapter.adoptCandidate(bound as never)) as Record<
     string,
     unknown

@@ -269,6 +269,53 @@ export function createWindowsNativeHelperEnvironment() {
 }
 
 /**
+ * Host終端専用の一時所在候補を既存作成Ownerと同じ方法で解決する。
+ *
+ * @responsibility 空のTMP／TEMPでWin32の所在取得を壊さず、Host境界だけへ候補を搬送する。
+ * @trace ARCH-000008
+ * @trace ARCH-000011
+ * @input N/A: 既存producerと同じos.tmpdir候補を採用し、自由Pathを受け付けない。
+ * @returns TMP／TEMPを同じcanonical候補へ結んだ不変環境、またはnull。
+ * @precondition 候補はAuthorityではない。Nativeと上位Ownerが親実体・由来を別に確認する。
+ * @postcondition 他の中立化fieldと一般Native helper環境は変更しない。
+ * @effect 既存のOS所在検証と一時親のmetadata／realpath読取りだけ。作成・修復・削除0。
+ * @failure 所在、型、canonical化、通常Directory確認が不明ならfallbackせず停止する。
+ * @invariant 親候補を元対象の親Identity・非使用・処置許可へ昇格しない。
+ * @boundary Host終端Adapter→Native GetTempPathWの所在候補。
+ * @security 任意設定、秘密値と別場所への自動移行を追加しない。
+ * @concurrency 所在を一回解決する。処理中の差替えはNative保持handleとKnown照合で確認する。
+ */
+export function createWindowsHostTerminalHelperEnvironment() {
+  const environment = createWindowsNativeHelperEnvironment();
+  if (!environment) return null;
+  try {
+    const candidate = os.tmpdir();
+    if (
+      typeof candidate !== "string" ||
+      candidate.includes("\0") ||
+      !/^[A-Za-z]:\\[^\\]/u.test(candidate)
+    )
+      return null;
+    const metadata = fs.lstatSync(candidate);
+    if (!metadata.isDirectory() || metadata.isSymbolicLink()) return null;
+    const parent = fs.realpathSync(candidate);
+    if (
+      !/^[A-Za-z]:\\[^\\]/u.test(parent) ||
+      parent.includes("\0") ||
+      path.win32.normalize(parent) !== parent ||
+      path.win32.parse(parent).root === parent
+    )
+      return null;
+    const parentMetadata = fs.lstatSync(parent);
+    if (!parentMetadata.isDirectory() || parentMetadata.isSymbolicLink())
+      return null;
+    return Object.freeze({ ...environment, TMP: parent, TEMP: parent });
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Windows Docker Desktop Repair Helper Environmentを構築する。
  *
  * @responsibility Windows Docker Desktop Repair Helper Environmentの構築入力、生成結果、不正入力の拒否境界を所有する。

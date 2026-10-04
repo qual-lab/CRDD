@@ -4,6 +4,23 @@
   "subsystem": "coordinator",
   "symbols": [
     {
+      "symbolId": "coordinator.source.src.security.host.recovery.namespace.windows.adapter",
+      "kind": "file",
+      "path": "src/security/host-recovery-namespace-windows-adapter.ts",
+      "archIds": ["ARCH-000008", "ARCH-000011"]
+    },
+    {
+      "symbolId": "coordinator.test.integration.host-recovery-namespace",
+      "kind": "test-suite",
+      "path": "tests/integration/host-recovery-namespace.integration.test.ts",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-IT-003"],
+      "verifies": [
+        "coordinator.source.src.security.host.recovery.namespace.windows.adapter",
+        "coordinator.source.src.security.coordinator.operation.creation.internal"
+      ]
+    },
+    {
       "symbolId": "coordinator.source.src.security.docker.container.init.observation",
       "kind": "file",
       "path": "src/security/docker-container-init-observation.ts",
@@ -731,6 +748,7 @@
         "QA-000003"
       ],
       "localTestIds": [
+        "PRL-IT-005",
         "PRL-IT-012"
       ],
       "verifies": [
@@ -861,7 +879,8 @@
         "QA-000003"
       ],
       "localTestIds": [
-        "PRL-IT-005"
+        "PRL-IT-005",
+        "PRL-IT-013"
       ],
       "verifies": [
         "coordinator.source.src.security.docker.project.recovery.settlement",
@@ -4067,12 +4086,38 @@
       "archIds": ["ARCH-000008"]
     },
     {
+      "symbolId": "coordinator.source.src.security.host.terminal.windows.adapter",
+      "kind": "file",
+      "path": "src/security/host-terminal-windows-adapter.ts",
+      "archIds": ["ARCH-000008", "ARCH-000011"]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.host.terminal.caller.lease",
+      "kind": "file",
+      "path": "src/security/host-terminal-caller-lease.ts",
+      "archIds": ["ARCH-000008"]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.host.terminal.caller.checkpoint",
+      "kind": "file",
+      "path": "src/security/host-terminal-caller-checkpoint.ts",
+      "archIds": ["ARCH-000008", "ARCH-000011"]
+    },
+    {
+      "symbolId": "coordinator.test.integration.host-terminal-caller-checkpoint",
+      "kind": "test-suite",
+      "path": "tests/integration/host-terminal-caller-checkpoint.integration.test.ts",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-IT-001", "ERB-IT-002", "ERB-IT-003"],
+      "verifies": ["coordinator.source.src.security.host.terminal.caller.lease", "coordinator.source.src.security.host.terminal.caller.checkpoint", "coordinator.source.src.security.host.terminal.record"]
+    },
+    {
       "symbolId": "coordinator.test.unit.host-terminal-record",
       "kind": "test-suite",
       "path": "tests/unit/host-terminal-record.contract.test.ts",
       "qaIds": ["QA-000003"],
       "localTestIds": ["PRL-UT-006"],
-      "verifies": ["coordinator.source.src.security.host.terminal.record"]
+      "verifies": ["coordinator.source.src.security.host.terminal.record", "coordinator.source.src.security.host.terminal.windows.adapter"]
     },
     {
       "symbolId": "coordinator.test.unit.host-orphan-recovery-policy",
