@@ -4,6 +4,7 @@
  * @packageDocumentation
  * @responsibility coordinator:integration:project-runtime-durable-foundationが所有する検証責務を実行する。
  * @trace PRL-IT-012
+ * @trace PRL-IT-005
  * @level IT
  * @scope project、runtime、durable、foundation
  * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
@@ -11,32 +12,2804 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
+import { once } from "node:events";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
   acquireProjectRuntimeLease,
+  acquireProjectRuntimeSnapshotLease,
+  acquireProjectRuntimeSnapshotPilotLock,
+  inspectProjectRuntimeSnapshotLeaseAcquisitionOwner,
+  reconcileProjectRuntimeSnapshotLeaseOwnerLoss,
   createProjectRuntimePersistencePorts,
+  createProjectRuntimeSnapshotPersistencePorts,
+  createProjectRuntimeSnapshotAcceptanceDecisionStore,
+  createProjectRuntimeSnapshotDecisionRecoveryStore,
+  createProjectRuntimeSnapshotIntegrationRecordPort,
   describeProjectRuntimeDurableFoundation,
+  decodeProjectRuntimeStateQueueSnapshotPilot,
+  encodeProjectRuntimeStateQueueSnapshotPilot,
   enqueueProjectOperation,
   readProjectOperationQueueState,
   readProjectRuntimeState,
+  readProjectRuntimeSnapshot,
+  readLegacyProjectRuntimeStateAndQueueInputs,
+  readLegacyProjectRuntimeLeaseInputs,
   reconcileCanonicalAdoptionLeaseAcquisitionOwnerLoss,
   reconcileProjectRuntimeLeaseOwnerLoss,
   selectNextProjectOperation,
   settleProjectOperationQueueLeaseRelease,
   updateProjectOperationQueueState,
   writeProjectRuntimeState,
+  writeProjectRuntimeSnapshot,
+  writeProjectRuntimeSnapshotState,
+  initializeProjectRuntimeSnapshot,
+  inspectProjectRuntimeSnapshotIntake,
+  maintainProjectRuntimeSnapshot,
+  createCurrentProjectRuntimePersistencePorts,
 } from "../../src/security/project-runtime-durable-foundation.ts";
 import {
   createProjectRuntimeState,
+  adoptProjectRuntimeExistingCandidate,
   type ProjectRuntimeState,
+  type ProjectRuntimeAcceptanceDecisionRecord,
+  type ProjectRuntimeDecisionRecoveryIntent,
 } from "../../../project-runtime/src/index.ts";
+import {
+  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
+  requireReadyRepositoryRuntimeDataArea,
+} from "../../../runtime-data/src/index.ts";
+import { acquireRuntimeOwnedProjectRuntimeStateKernelLock } from "../../src/security/candidate-store-kernel-lock.ts";
 
 const MAX_RECORD_BYTES = 16 * 1024 * 1024;
+
+/**
+ * 採用前の既知拒否を実保存と履歴へ接続することを検証する。
+ * @responsibility Receiptなしの終了証拠をexact Ownerだけ整理する。
+ * @trace PRL-IT-012
+ * @precondition 新版保存と別Projectの終了証拠がある。
+ * @stimulus dirty観測で採用を拒否し、履歴へ終了を搬送する。
+ * @observation 採用回数、結果、証拠と履歴を読む。
+ * @oracle Effect 0、失敗要約一件、別Projectの証拠不変。
+ * @cleanup fixtureの終了hookで所有Rootを回収する。
+ * @boundary 採用Applicationから本番保存Portと実Lease。
+ */
+test("snapshot production: rejected adoption retires exact evidence without receipt", async (t) => {
+  const { root } = fixture(t);
+  assert.equal(
+    initializeProjectRuntimeSnapshot(root, "binding-a").status,
+    "completed",
+  );
+  const ports = createCurrentProjectRuntimePersistencePorts(root, "binding-a");
+  const other = ports.lease.acquire(
+    "project-b",
+    "canonical",
+    "canonical-adoption",
+  );
+  assert.equal(other.status, "completed");
+  if (other.status !== "completed") throw new Error("fixture_lease_failed");
+  assert.equal(other.value.release().status, "completed");
+  const otherEvidence = readProjectRuntimeSnapshot(root, "binding-a").value
+    ?.leaseEvidence;
+  let effects = 0;
+  const result = await adoptProjectRuntimeExistingCandidate(
+    {
+      lease: ports.lease,
+      records: createProjectRuntimeSnapshotIntegrationRecordPort({
+        workingDirectory: root,
+        repositoryBindingId: "binding-a",
+        projectId: "project-a",
+        milestoneId: "candidate",
+        queueId: "adoption-a",
+      }),
+      candidate: {
+        observeLeaseOwner: () => ({ status: "not_running" }),
+        observeCanonicalRepository: () => ({
+          status: "observed",
+          repositoryRevision: "a".repeat(40),
+          dirty: true,
+          observedPaths: ["result.txt"],
+        }),
+        adoptCandidate: async () => {
+          effects += 1;
+          throw new Error("must_not_adopt");
+        },
+      },
+    },
+    {
+      projectId: "project-a",
+      adoptionAuthorized: true,
+      allowedPaths: ["result.txt"],
+      candidate: {
+        candidateId: "candidate-a",
+        candidateHash: "b".repeat(64),
+        baseRevision: "a".repeat(40),
+        changedPaths: ["result.txt"],
+      },
+    },
+  );
+  assert.equal(
+    result.reason,
+    "project_runtime_adoption_revision_or_scope_mismatch",
+  );
+  assert.equal(result.effectIssued, false);
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(result.receiptId, null);
+  assert.equal(effects, 0);
+  const recorded = readProjectRuntimeSnapshot(root, "binding-a").value;
+  assert.ok(recorded?.results[0]);
+  assert.equal(
+    (recorded.results[0].value as { status: string }).status,
+    "rejected",
+  );
+  assert.equal(maintainProjectRuntimeSnapshot(root, "binding-a").value, 1);
+  const closed = readProjectRuntimeSnapshot(root, "binding-a").value;
+  assert.equal(closed?.results.length, 0);
+  assert.deepEqual(closed?.leaseEvidence, otherEvidence);
+  const lines = fs
+    .readFileSync(
+      path.join(root, ".crdd", "project-runtime", "history.jsonl"),
+      "utf8",
+    )
+    .trim()
+    .split("\n");
+  assert.equal(JSON.parse(lines[1] ?? "{}").outcome, "failed");
+});
+
+/**
+ * 同Projectの採用結果を段階的に整理しても参照中の終了証拠を失わないことを検証する。
+ * @responsibility 採用結果と共用Lease証拠の参照終了を一緒に処置する。
+ * @trace PRL-IT-012
+ * @precondition 新版保存に終了済み採用結果二件を保持する。
+ * @stimulus 一件を参照保護し、整理後に参照を解除する。
+ * @observation 結果、Lease証拠、履歴と最新Projectを読む。
+ * @oracle 各結果の参照終了後だけ退役し、残る結果の証拠を保持する。
+ * @cleanup fixtureの終了hookで所有Rootを回収する。
+ * @boundary 新版保存、履歴と参照保護。
+ */
+test("snapshot production: shared adoption evidence survives staged retirement", (t) => {
+  const { root, state } = fixture(t);
+  assert.equal(
+    initializeProjectRuntimeSnapshot(root, "binding-a").status,
+    "completed",
+  );
+  const ports = createCurrentProjectRuntimePersistencePorts(root, "binding-a");
+  const lease = ports.lease.acquire(
+    "project-a",
+    "canonical",
+    "canonical-adoption",
+  );
+  assert.equal(lease.status, "completed");
+  if (lease.status !== "completed") throw new Error("fixture_lease_failed");
+  assert.equal(lease.value.release().status, "completed");
+  const records = createProjectRuntimeSnapshotIntegrationRecordPort({
+    workingDirectory: root,
+    repositoryBindingId: "binding-a",
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    queueId: "adoption-a",
+  });
+  for (const identity of ["receipt-a", "receipt-b"])
+    assert.equal(
+      records.write({
+        kind: "adoption",
+        identity,
+        value: {
+          status: "completed",
+          receiptId: identity,
+          beforeRevision: "a".repeat(40),
+          afterRevision: "b".repeat(40),
+          changedPaths: ["result.txt"],
+          cleanupConfirmed: true,
+        },
+      }).status,
+      "completed",
+    );
+  const protectedState = {
+    ...state,
+    milestone: { ...state.milestone, criterionEvidenceIds: ["receipt-b"] },
+  };
+  assert.equal(ports.state.writeState(protectedState, 0).status, "completed");
+  assert.equal(maintainProjectRuntimeSnapshot(root, "binding-a").value, 1);
+  const retained = readProjectRuntimeSnapshot(root, "binding-a").value;
+  assert.deepEqual(
+    retained?.results.map((item) => item.identity),
+    ["receipt-b"],
+  );
+  assert.ok(retained && retained.leaseEvidence.length > 0);
+  assert.equal(
+    ports.state.writeState(
+      {
+        ...protectedState,
+        generation: protectedState.generation + 1,
+        milestone: { ...protectedState.milestone, criterionEvidenceIds: [] },
+      },
+      protectedState.generation,
+    ).status,
+    "completed",
+  );
+  assert.equal(maintainProjectRuntimeSnapshot(root, "binding-a").value, 1);
+  const closed = readProjectRuntimeSnapshot(root, "binding-a").value;
+  assert.equal(closed?.results.length, 0);
+  assert.equal(closed?.leaseEvidence.length, 0);
+  assert.equal(closed?.projects.length, 1);
+});
+
+/**
+ * 公開初期化入口を実Processで通し、Queryや再初期化が世代を作り直さないことを検証する。
+ * @responsibility 運用手順と本番の明示初期化を同じ入口へ結合する。
+ * @trace PRL-IT-012
+ * @precondition 自己所有の新品Repositoryを使う。
+ * @stimulus 公開launcherのautomation初期化を二回実行する。
+ * @observation 応答、保存世代とFile一覧を読む。
+ * @oracle 同じ受付世代、単一state.json、Providerや旧Directoryなし。
+ * @cleanup fixtureの終了hookで所有Rootを回収する。
+ * @boundary 公開launcher、CLI、実保存。
+ */
+test("snapshot production: public initialization is explicit and idempotent", (t) => {
+  const { root } = fixture(t);
+  const launcher = fileURLToPath(
+    new URL("../../../../template/tools/crdd-coordinator.ts", import.meta.url),
+  );
+  /**
+   * 公開入口から自己所有Repositoryを明示初期化する。
+   * @responsibility 同じ入口の再実行結果と受付世代を観測する。
+   * @trace PRL-IT-012
+   * @precondition 新品のGit Repositoryと固定launcherを使用する。
+   * @stimulus automation project --initialize --jsonを実Processで実行する。
+   * @observation 正式JSON応答を解析して返す。
+   * @oracle 初回と再実行は同じ受付世代でcompletedとなる。
+   * @cleanup 同期子Processは終了まで待ち、親試験がfixtureを回収する。
+   * @boundary PRL-IT-012=Direct Boundary: 公開launcher→CLI→Repository保存。
+   */
+  const invoke = () =>
+    JSON.parse(
+      execFileSync(
+        process.execPath,
+        [launcher, "automation", "project", "--initialize", "--json"],
+        { cwd: root, windowsHide: true, encoding: "utf8" },
+      ),
+    );
+  const first = invoke();
+  const second = invoke();
+  assert.equal(first.status, "completed");
+  assert.equal(second.status, "completed");
+  assert.equal(second.value, first.value);
+  assert.deepEqual(
+    fs.readdirSync(path.join(root, ".crdd", "project-runtime")),
+    ["state.json", "state.lock"],
+  );
+});
+
+/**
+ * 新品初期化と、通常Queueを持たない既存候補の採用接続を検証する。
+ * @responsibility 保存刷新で独立採用の能力を失わないことを確認する。
+ * @trace PRL-IT-012
+ * @precondition Repository-localの隔離fixtureを用いる。
+ * @stimulus 初期化、採用Lease取得・解放、結果再送を行う。
+ * @observation 現在値とLease、結果件数を読む。
+ * @oracle ProjectとQueueは空のままで、一件の結果だけが保存される。
+ * @cleanup fixtureの終了hookで所有Rootを回収する。
+ * @boundary 本番Persistence Factoryから実保存・実Lease。
+ */
+test("snapshot production: fresh bootstrap and independent adoption", (t) => {
+  const { root } = fixture(t);
+  assert.equal(readProjectRuntimeSnapshot(root, "binding-a").value, null);
+  const initialized = initializeProjectRuntimeSnapshot(root, "binding-a");
+  assert.equal(initialized.status, "completed");
+  assert.equal(
+    initializeProjectRuntimeSnapshot(root, "binding-a").value,
+    initialized.value,
+  );
+  const persistence = createCurrentProjectRuntimePersistencePorts(
+    root,
+    "binding-a",
+  );
+  const lease = persistence.lease.acquire(
+    "project-a",
+    "canonical",
+    "canonical-adoption",
+  );
+  assert.equal(lease.status, "completed");
+  if (lease.status !== "completed") throw new Error("adoption_lease_failed");
+  assert.equal(lease.value.release().status, "completed");
+  const records = createProjectRuntimeSnapshotIntegrationRecordPort({
+    workingDirectory: root,
+    repositoryBindingId: "binding-a",
+    projectId: "project-a",
+    milestoneId: "workbench-candidate",
+    queueId: "adoption-a",
+  });
+  const record = {
+    kind: "adoption" as const,
+    identity: "receipt-a",
+    value: {
+      status: "completed",
+      receiptId: "receipt-a",
+      beforeRevision: "a".repeat(40),
+      afterRevision: "b".repeat(40),
+      changedPaths: ["result.txt"],
+      cleanupConfirmed: true,
+    },
+  };
+  assert.equal(records.write(record).status, "completed");
+  assert.equal(records.write(record).status, "completed");
+  assert.equal(
+    records.write({ ...record, value: { status: "blocked" } }).status,
+    "blocked",
+  );
+  assert.equal(
+    records.write({ ...record, kind: "integration" }).status,
+    "blocked",
+  );
+  const snapshot = readProjectRuntimeSnapshot(root, "binding-a");
+  assert.equal(snapshot.value?.projects.length, 0);
+  assert.equal(snapshot.value?.queueEntries.length, 0);
+  assert.equal(snapshot.value?.results.length, 1);
+  assert.equal(maintainProjectRuntimeSnapshot(root, "binding-a").value, 1);
+  const retired = readProjectRuntimeSnapshot(root, "binding-a");
+  assert.equal(retired.value?.results.length, 0);
+  assert.equal(retired.value?.leaseEvidence.length, 0);
+  assert.equal(retired.value?.intakeEpoch, initialized.value);
+  assert.equal(maintainProjectRuntimeSnapshot(root, "binding-a").value, 0);
+});
+
+/**
+ * 終了済みQueueの履歴確定と受付世代の一体更新を検証する。
+ * @responsibility 最新Projectを保持し、古い依頼の再実行を拒否する。
+ * @trace PRL-IT-012
+ * @precondition 新版Snapshotと閉じた取消状態を用いる。
+ * @stimulus Queueを終了し、整理と旧受付再送を行う。
+ * @observation Queue、受付世代、履歴行、Project状態を読む。
+ * @oracle 履歴一行、Queueゼロ、世代変更、Project保持、旧受付拒否。
+ * @cleanup fixtureの終了hookで所有Rootを回収する。
+ * @boundary 本番保存Factoryと履歴・受付。
+ */
+test("snapshot production: retire closed queue and reject old intake", (t) => {
+  const { root, state } = fixture(t);
+  const initial = initializeProjectRuntimeSnapshot(root, "binding-a");
+  if (initial.status !== "completed") throw new Error("bootstrap_failed");
+  const epoch = initial.value;
+  const ports = createProjectRuntimeSnapshotPersistencePorts(
+    root,
+    "binding-a",
+    epoch,
+  );
+  const closed: ProjectRuntimeState = {
+    ...state,
+    milestone: {
+      ...state.milestone,
+      state: "cancelled",
+      criterionEvidenceIds: ["receipt-a"],
+    },
+    objectives: state.objectives.map((item) => ({
+      ...item,
+      state: "cancelled" as const,
+    })),
+    tasks: state.tasks.map((item) => ({
+      ...item,
+      state: "cancelled" as const,
+      cleanupConfirmed: true,
+      startPhase: "settled" as const,
+      attemptId: "attempt-a",
+      operationId: "operation-a",
+      authorityBindingId: "authority-a",
+    })),
+  };
+  assert.equal(ports.state.writeState(closed, 0).status, "completed");
+  const input = {
+    queueId: "canonical",
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    requestHash: "b".repeat(64),
+    originLane: "interactive" as const,
+    repositoryRevision: "a".repeat(40),
+    scopeHash: "c".repeat(64),
+  };
+  assert.equal(ports.state.enqueueOperation(input).status, "completed");
+  assert.equal(
+    ports.state.updateQueue("canonical", 1, {
+      state: "cancelled",
+      lease: null,
+      resumeCondition: null,
+      resultReference: null,
+    }).status,
+    "completed",
+  );
+  const canonicalEvidence: unknown[] = [];
+  for (const projectId of ["project-a", "project-b"]) {
+    if (projectId === "project-b")
+      assert.equal(
+        ports.state.writeState(
+          {
+            ...closed,
+            projectId,
+            milestone: {
+              ...closed.milestone,
+              criterionEvidenceIds: ["receipt-b"],
+            },
+          },
+          0,
+        ).status,
+        "completed",
+      );
+    const acquired = ports.lease.acquire(
+      projectId,
+      "canonical",
+      "canonical-adoption",
+    );
+    assert.equal(acquired.status, "completed");
+    if (acquired.status !== "completed")
+      throw new Error("fixture_adoption_failed");
+    assert.equal(acquired.value.release().status, "completed");
+    const identity = projectId === "project-a" ? "receipt-a" : "receipt-b";
+    assert.equal(
+      createProjectRuntimeSnapshotIntegrationRecordPort({
+        workingDirectory: root,
+        repositoryBindingId: "binding-a",
+        projectId,
+        milestoneId: "milestone-a",
+        queueId: projectId === "project-a" ? "canonical" : "adoption-b",
+      }).write({
+        kind: "adoption",
+        identity,
+        value: {
+          status: "completed",
+          receiptId: identity,
+          beforeRevision: "a".repeat(40),
+          afterRevision: "b".repeat(40),
+          changedPaths: ["result.txt"],
+          cleanupConfirmed: true,
+        },
+      }).status,
+      "completed",
+    );
+  }
+  canonicalEvidence.push(
+    ...(readProjectRuntimeSnapshot(root, "binding-a").value?.leaseEvidence ??
+      []),
+  );
+  const queued = readProjectRuntimeSnapshot(root, "binding-a").value;
+  assert.ok(queued);
+  const beforeRetirement = fs.readFileSync(
+    path.join(root, ".crdd", "project-runtime", "state.json"),
+    "utf8",
+  );
+  assert.equal(
+    writeProjectRuntimeSnapshot(
+      root,
+      "binding-a",
+      JSON.stringify({
+        ...queued,
+        snapshotRevision: queued.snapshotRevision + 1,
+        projects: [
+          {
+            ...closed,
+            generation: closed.generation + 1,
+            milestone: { ...closed.milestone, id: "milestone-new" },
+          },
+        ],
+      }),
+      queued.snapshotRevision,
+    ).status,
+    "blocked",
+  );
+  assert.equal(
+    fs.readFileSync(
+      path.join(root, ".crdd", "project-runtime", "state.json"),
+      "utf8",
+    ),
+    beforeRetirement,
+  );
+  assert.equal(maintainProjectRuntimeSnapshot(root, "binding-a").value, 1);
+  const snapshot = readProjectRuntimeSnapshot(root, "binding-a");
+  assert.notEqual(snapshot.value?.intakeEpoch, epoch);
+  assert.equal(snapshot.value?.queueEntries.length, 0);
+  assert.equal(snapshot.value?.projects.length, 2);
+  assert.equal(snapshot.value?.results.length, 2);
+  assert.deepEqual(snapshot.value?.leaseEvidence, canonicalEvidence);
+  assert.equal(snapshot.value?.historyPending.length, 0);
+  assert.equal(maintainProjectRuntimeSnapshot(root, "binding-a").value, 0);
+  assert.equal(ports.state.enqueueOperation(input).status, "blocked");
+  const stale = {
+    epoch,
+    queueId: "queue-new",
+    requestHash: "d".repeat(64),
+    projectId: "project-new",
+    milestoneId: "milestone-new",
+  };
+  assert.equal(
+    inspectProjectRuntimeSnapshotIntake(root, "binding-a", stale).status,
+    "blocked",
+  );
+  const stalePorts = createProjectRuntimeSnapshotPersistencePorts(
+    root,
+    "binding-a",
+    epoch,
+    stale,
+  );
+  assert.equal(
+    stalePorts.state.writeState({ ...state, projectId: "project-new" }, 0)
+      .status,
+    "blocked",
+  );
+  assert.equal(
+    readProjectRuntimeSnapshot(root, "binding-a").value?.projects.some(
+      (item) => item.projectId === "project-new",
+    ),
+    false,
+  );
+  const historyRows = fs
+    .readFileSync(
+      path.join(root, ".crdd", "project-runtime", "history.jsonl"),
+      "utf8",
+    )
+    .trim()
+    .split("\n")
+    .map((line) => JSON.parse(line));
+  assert.equal(historyRows.filter((row) => row.id === "canonical").length, 1);
+});
+
+/**
+ * 新版Owner喪失処置の観測と終了境界を検証する。
+ * @responsibility 存続・不明・対象変更を回収完了へ畳まない。
+ * @trace PRL-IT-005
+ * @precondition 自己所有Repositoryのv2現在状態と通常Leaseを使う。
+ * @stimulus Owner観測結果、空Directory、保存中断を変える。
+ * @observation intent、終了証拠、Queue、実排他、同じ回復参照を読む。
+ * @oracle absent一致時だけ回収し、取得未確定の成功証拠を作らない。
+ * @cleanup mockを戻し、自己所有fixtureだけを回収する。
+ * @boundary PRL-IT-005=Direct Boundary: Snapshot→Process観測→実排他。
+ */
+test("Host Windows: 新版Owner喪失は現在観測と同じ取得へ結合する", {
+  skip: process.platform !== "win32",
+}, (t) => {
+  for (const mode of [
+    "alive",
+    "unknown",
+    "mismatch",
+    "nonempty",
+    "normal",
+    "bound",
+    "target_changed",
+    "observer_throw",
+    "initial_release_unknown",
+    "adoption_same",
+    "adoption_other",
+    "never_acquired",
+    "save_failure",
+    "unbound_absent",
+    "unbound_no_parent",
+    "unbound_present",
+  ] as const) {
+    const { root, state } = fixture(t);
+    const isAdoption = mode.startsWith("adoption");
+    const queueId = isAdoption ? "canonical" : "queue-a";
+    const held = acquireProjectRuntimeSnapshotPilotLock(root);
+    if (held.status !== "completed") throw new Error("fixture_lock_failed");
+    const rootHash = held.value.repositoryRootHash;
+    assert.equal(held.value.release(), true);
+    assert.equal(
+      writeProjectRuntimeSnapshot(
+        root,
+        "binding-a",
+        JSON.stringify({
+          schema: "crdd-coordinator/project-runtime-snapshot/v2",
+          schemaRevision: 2,
+          repositoryRootHash: rootHash,
+          repositoryBindingId: "binding-a",
+          snapshotRevision: 1,
+          intakeEpoch: "epoch-a",
+          intakeBindings: [{ queueId, epoch: "epoch-a" }],
+          projects:
+            mode === "adoption_other"
+              ? [state, { ...state, projectId: "project-b" }]
+              : [state],
+          queueEntries: [
+            {
+              queueId,
+              projectId: mode === "adoption_other" ? "project-b" : "project-a",
+              milestoneId: "milestone-a",
+              requestHash: "b".repeat(64),
+              originLane: "interactive",
+              repositoryRevision: "a".repeat(40),
+              scopeHash: "c".repeat(64),
+              state: "queued",
+              generation: 1,
+              ownerGeneration: null,
+              resumeCondition: null,
+              resultReference: null,
+            },
+          ],
+          leaseIntents: [],
+          leaseEvidence: [],
+          results: [],
+          historyPending: [],
+          acceptanceDecisions: [],
+          decisionRecoveries: [],
+        }),
+        0,
+      ).status,
+      "completed",
+    );
+    const current = path.join(root, ".crdd", "project-runtime", "state.json");
+    if (mode === "never_acquired") {
+      const bytes = fs.readFileSync(current, "utf8");
+      const absent = reconcileProjectRuntimeSnapshotLeaseOwnerLoss(
+        root,
+        "binding-a",
+        "project-a",
+        "queue-a",
+        "project-operation",
+        () => {
+          throw new Error("must_not_observe");
+        },
+      );
+      assert.equal(absent.status, "completed");
+      assert.equal(fs.readFileSync(current, "utf8"), bytes);
+      assert.equal(
+        fs.existsSync(
+          path.join(root, ".crdd", "tmp", "project-runtime-leases"),
+        ),
+        false,
+      );
+      continue;
+    }
+    const originalRename = fs.renameSync;
+    let isInjected = false;
+    const isUnbound = mode.startsWith("unbound");
+    const mock = isUnbound
+      ? t.mock.method(
+          fs,
+          "renameSync",
+          (...args: Parameters<typeof originalRename>) => {
+            if (
+              !isInjected &&
+              String(args[1]) === current &&
+              JSON.parse(fs.readFileSync(String(args[0]), "utf8")).payload
+                .leaseEvidence.length > 0
+            ) {
+              isInjected = true;
+              throw new Error("acquired_save_failed");
+            }
+            return Reflect.apply(originalRename, fs, args);
+          },
+        )
+      : null;
+    const ports = createProjectRuntimeSnapshotPersistencePorts(
+      root,
+      "binding-a",
+      "epoch-a",
+    );
+    const acquired = ports.lease.acquire(
+      "project-a",
+      queueId,
+      isAdoption ? "canonical-adoption" : "project-operation",
+    );
+    mock?.mock.restore();
+    if (isUnbound) {
+      assert.equal(acquired.status, "blocked");
+      // 本試験が所有する失敗候補を戻し、回収入口の現在状態からの処置だけを評価する。
+      fs.unlinkSync(
+        path.join(root, ".crdd", "project-runtime", "state.pending.json"),
+      );
+    } else assert.equal(acquired.status, "completed");
+    const statePort = ports.state;
+    if (mode === "bound" && acquired.status === "completed") {
+      assert.equal(
+        statePort.updateQueue("queue-a", 1, {
+          state: "leased",
+          lease: acquired.value,
+          resumeCondition: null,
+          resultReference: null,
+        }).status,
+        "completed",
+      );
+    }
+    const locks = path.join(root, ".crdd", "tmp", "project-runtime-leases");
+    const lock = path.join(locks, fs.readdirSync(locks)[0] as string);
+    if (mode === "nonempty")
+      fs.writeFileSync(path.join(lock, "in-use"), "fixture");
+    if (mode === "unbound_absent" || mode === "unbound_no_parent")
+      fs.rmdirSync(lock);
+    if (mode === "unbound_no_parent") {
+      fs.rmdirSync(locks);
+      fs.rmdirSync(path.dirname(locks));
+    }
+    const before = JSON.parse(fs.readFileSync(current, "utf8")).payload;
+    const recoveryId = before.leaseIntents[0].recoveryId;
+    if (mode === "unbound_absent") {
+      const bytes = fs.readFileSync(current, "utf8");
+      const content = {
+        kind: "project-operation",
+        queueId,
+        ownerGeneration: before.leaseIntents[0].ownerGeneration,
+        ownerProcessId: before.leaseIntents[0].ownerProcessId,
+        disposition: "acquisition_unknown_closed",
+      };
+      const skipped = {
+        ...before,
+        snapshotRevision: before.snapshotRevision + 1,
+        leaseIntents: [],
+        leaseEvidence: [
+          {
+            schema: "crdd-coordinator/project-runtime-durable-foundation/v1",
+            schemaRevision: 1,
+            recordKind: "lease-evidence",
+            repositoryBindingId: "binding-a",
+            projectId: "project-a",
+            createdGeneration: 1,
+            updatedGeneration: 2,
+            contentHash: createHash("sha256")
+              .update(JSON.stringify(content))
+              .digest("hex"),
+            content,
+          },
+        ],
+      };
+      assert.equal(
+        writeProjectRuntimeSnapshot(
+          root,
+          "binding-a",
+          JSON.stringify(skipped),
+          before.snapshotRevision,
+        ).status,
+        "blocked",
+      );
+      assert.equal(fs.readFileSync(current, "utf8"), bytes);
+      const pendingPath = path.join(
+        root,
+        ".crdd",
+        "project-runtime",
+        "state.pending.json",
+      );
+      const pendingBytes = `${JSON.stringify({
+        payload: skipped,
+        contentHash: createHash("sha256")
+          .update(JSON.stringify(skipped))
+          .digest("hex"),
+        baseRevision: before.snapshotRevision,
+        baseHash: createHash("sha256").update(bytes).digest("hex"),
+      })}\n`;
+      fs.writeFileSync(pendingPath, pendingBytes);
+      assert.equal(
+        writeProjectRuntimeSnapshot(
+          root,
+          "binding-a",
+          JSON.stringify(skipped),
+          before.snapshotRevision,
+        ).status,
+        "blocked",
+      );
+      assert.equal(fs.readFileSync(current, "utf8"), bytes);
+      assert.equal(fs.readFileSync(pendingPath, "utf8"), pendingBytes);
+      // 自己所有の不正入力fixtureだけを戻し、正規経路の反証を続ける。
+      fs.unlinkSync(pendingPath);
+    }
+    let shouldFailEnd = mode === "save_failure";
+    const ending = t.mock.method(
+      fs,
+      "renameSync",
+      (...args: Parameters<typeof originalRename>) => {
+        if (
+          shouldFailEnd &&
+          String(args[1]) === current &&
+          JSON.parse(fs.readFileSync(String(args[0]), "utf8")).payload
+            .leaseIntents.length === 0
+        ) {
+          shouldFailEnd = false;
+          throw new Error("end_save_failed");
+        }
+        return Reflect.apply(originalRename, fs, args);
+      },
+    );
+    const originalLoad = Atomics.load;
+    const isReleaseUnknown = mode === "initial_release_unknown";
+    const releasing = t.mock.method(
+      Atomics,
+      "load",
+      (...args: Parameters<typeof originalLoad>) => {
+        const value = Reflect.apply(originalLoad, Atomics, args);
+        if (isReleaseUnknown && Number(value) === 2) {
+          return 3;
+        }
+        return value;
+      },
+    );
+    let isCallbackObserved = false;
+    const result = (
+      isAdoption
+        ? ports.lease.reconcileAdoptionOwnerLoss.bind(null, "project-a")
+        : ports.lease.reconcileOperationOwnerLoss.bind(
+            null,
+            "project-a",
+            queueId,
+          )
+    )((owner) => {
+      isCallbackObserved = true;
+      // callbackが短期排他を保持していないことを実Ownerの再取得で確認する。
+      const observationLock = acquireProjectRuntimeSnapshotPilotLock(root);
+      assert.equal(observationLock.status, "completed");
+      if (observationLock.status === "completed")
+        assert.equal(observationLock.value.release(), true);
+      if (mode === "observer_throw") throw new Error("observation_failed");
+      if (mode === "target_changed" && acquired.status === "completed") {
+        assert.equal(
+          statePort.updateQueue("queue-a", 1, {
+            state: "leased",
+            lease: acquired.value,
+            resumeCondition: null,
+            resultReference: null,
+          }).status,
+          "completed",
+        );
+      }
+      return {
+        ...owner,
+        status:
+          mode === "alive"
+            ? "alive"
+            : mode === "unknown"
+              ? "unknown"
+              : "absent",
+        ownerGeneration:
+          mode === "mismatch" ? "other-owner" : owner.ownerGeneration,
+      };
+    });
+    releasing.mock.restore();
+    ending.mock.restore();
+    if (
+      [
+        "alive",
+        "unknown",
+        "mismatch",
+        "observer_throw",
+        "target_changed",
+        "initial_release_unknown",
+        "nonempty",
+        "save_failure",
+      ].includes(mode)
+    ) {
+      assert.equal(result.status, "blocked", mode);
+      if (mode !== "alive") assert.equal(result.recoveryId, recoveryId);
+      if (mode === "initial_release_unknown") {
+        assert.equal(isCallbackObserved, false);
+        assert.equal(result.manualRecoveryRequired, true);
+      }
+      assert.equal(fs.existsSync(lock), mode !== "save_failure");
+      assert.ok(
+        JSON.parse(fs.readFileSync(current, "utf8")).payload.leaseIntents
+          .length > 0,
+      );
+      if (mode === "save_failure") {
+        const stateBytes = fs.readFileSync(current, "utf8");
+        const pending = fs.readFileSync(
+          path.join(root, ".crdd", "project-runtime", "state.pending.json"),
+          "utf8",
+        );
+        let pendingCallbackCalls = 0;
+        const repeated = reconcileProjectRuntimeSnapshotLeaseOwnerLoss(
+          root,
+          "binding-a",
+          "project-a",
+          queueId,
+          "project-operation",
+          () => {
+            pendingCallbackCalls += 1;
+            throw new Error("must_not_observe_pending");
+          },
+        );
+        assert.equal(repeated.status, "blocked");
+        assert.equal(pendingCallbackCalls, 0);
+        assert.equal(repeated.recoveryId, recoveryId);
+        assert.equal(repeated.manualRecoveryRequired, true);
+        assert.equal(fs.readFileSync(current, "utf8"), stateBytes);
+        assert.equal(
+          fs.readFileSync(
+            path.join(root, ".crdd", "project-runtime", "state.pending.json"),
+            "utf8",
+          ),
+          pending,
+        );
+        assert.equal(fs.existsSync(lock), false);
+        const payload = JSON.parse(pending).payload;
+        const revision = JSON.parse(fs.readFileSync(current, "utf8")).payload
+          .snapshotRevision;
+        assert.equal(
+          writeProjectRuntimeSnapshot(
+            root,
+            "binding-a",
+            JSON.stringify(payload),
+            revision,
+          ).status,
+          "completed",
+        );
+      }
+    } else {
+      assert.equal(result.status, "completed");
+      const saved = JSON.parse(fs.readFileSync(current, "utf8")).payload;
+      assert.deepEqual(
+        result.value,
+        isAdoption ? { recoveryId } : saved.queueEntries[0],
+      );
+      assert.equal(saved.leaseIntents.length, 0);
+      assert.equal(
+        saved.leaseEvidence.at(-1).content.disposition,
+        isUnbound ? "acquisition_unknown_closed" : "recovered_after_owner_loss",
+      );
+      assert.equal(saved.leaseEvidence.length, isUnbound ? 1 : 2);
+      assert.equal(
+        saved.queueEntries[0].state,
+        mode === "bound" ? "recovery_required" : "queued",
+      );
+      assert.equal(saved.queueEntries[0].ownerGeneration, null);
+      assert.equal(
+        saved.queueEntries[0].resumeCondition,
+        mode === "bound" ? "owner_loss" : null,
+      );
+      assert.equal(
+        saved.queueEntries[0].resultReference,
+        isAdoption ? null : recoveryId,
+      );
+      if (isAdoption) {
+        assert.deepEqual(saved.queueEntries, before.queueEntries);
+        assert.deepEqual(saved.results, before.results);
+      }
+      assert.equal(fs.existsSync(lock), false);
+    }
+  }
+});
+
+/**
+ * 取得・解放途中の不明状態を確認する。
+ * @responsibility 保存失敗と物理操作失敗を清掃完了へ丸めない。
+ * @trace PRL-IT-005
+ * @precondition 自己所有Repositoryとv2保存を使う。
+ * @stimulus 取得証拠の置換失敗と実排他の解放失敗を注入する。
+ * @observation 回復参照、残存intent、実排他と再取得拒否を確認する。
+ * @oracle 同じexact Identityを維持し、使用中のQueueを解除しない。
+ * @cleanup mockを戻して自己所有fixtureを回収する。
+ * @boundary PRL-IT-005=Direct Boundary: 統合Lease→保存と実排他。
+ */
+test("Host Windows: 統合Leaseは取得・解放途中の記録を保全する", {
+  skip: process.platform !== "win32",
+}, (t) => {
+  for (const failure of [
+    "intent_record",
+    "acquired_record",
+    "root_replacement",
+    "intent_release_confirmation",
+    "physical_release",
+  ] as const) {
+    const { root, state } = fixture(t);
+    const held = acquireProjectRuntimeSnapshotPilotLock(root);
+    if (held.status !== "completed") throw new Error("lock_fixture_failed");
+    const rootHash = held.value.repositoryRootHash;
+    assert.equal(held.value.release(), true);
+    const payload = {
+      schema: "crdd-coordinator/project-runtime-snapshot/v2",
+      schemaRevision: 2,
+      repositoryRootHash: rootHash,
+      repositoryBindingId: "binding-a",
+      snapshotRevision: 1,
+      intakeEpoch: "epoch-a",
+      intakeBindings: [{ queueId: "queue-a", epoch: "epoch-a" }],
+      projects: [state],
+      queueEntries: [
+        {
+          queueId: "queue-a",
+          projectId: "project-a",
+          milestoneId: "milestone-a",
+          requestHash: "b".repeat(64),
+          originLane: "interactive",
+          repositoryRevision: "a".repeat(40),
+          scopeHash: "c".repeat(64),
+          state: "queued",
+          generation: 1,
+          ownerGeneration: null,
+          resumeCondition: null,
+          resultReference: null,
+        },
+      ],
+      leaseEvidence: [],
+      leaseIntents: [],
+      results: [],
+      historyPending: [],
+      acceptanceDecisions: [],
+      decisionRecoveries: [],
+    };
+    assert.equal(
+      writeProjectRuntimeSnapshot(root, "binding-a", JSON.stringify(payload), 0)
+        .status,
+      "completed",
+    );
+    const directory = path.join(root, ".crdd", "project-runtime");
+    const current = path.join(directory, "state.json");
+    if (failure === "intent_release_confirmation") {
+      const original = Atomics.load;
+      const mock = t.mock.method(
+        Atomics,
+        "load",
+        (...args: Parameters<typeof original>) => {
+          const observed = Reflect.apply(original, Atomics, args);
+          if (
+            Number(observed) === 2 &&
+            JSON.parse(fs.readFileSync(current, "utf8")).payload.leaseIntents
+              .length === 1
+          )
+            return 3;
+          return observed;
+        },
+      );
+      try {
+        const failed = acquireProjectRuntimeSnapshotLease(
+          root,
+          "binding-a",
+          "project-a",
+          "queue-a",
+          "project-operation",
+        );
+        assert.equal(failed.status, "blocked");
+        assert.equal(failed.manualRecoveryRequired, true);
+        assert.equal(
+          failed.recoveryId,
+          JSON.parse(fs.readFileSync(current, "utf8")).payload.leaseIntents[0]
+            .recoveryId,
+        );
+        assert.equal(
+          fs.existsSync(
+            path.join(root, ".crdd", "tmp", "project-runtime-leases"),
+          ),
+          false,
+        );
+      } finally {
+        mock.mock.restore();
+      }
+    } else if (failure === "root_replacement") {
+      const original = fs.lstatSync;
+      const oldRoot = `${root}-original`;
+      let isReplaced = false;
+      const mock = t.mock.method(
+        fs,
+        "lstatSync",
+        (...args: Parameters<typeof original>) => {
+          const stack = new Error().stack ?? "";
+          if (
+            !isReplaced &&
+            String(args[0]) === root &&
+            stack.includes("acquireProjectRuntimeSnapshotLease") &&
+            !stack.includes("withProjectRuntimeSnapshotOperation") &&
+            JSON.parse(fs.readFileSync(current, "utf8")).payload.leaseIntents
+              .length === 1
+          ) {
+            isReplaced = true;
+            fs.renameSync(root, oldRoot);
+            fs.mkdirSync(root);
+            execFileSync("git", ["init", "--quiet", root], {
+              windowsHide: true,
+            });
+          }
+          return Reflect.apply(original, fs, args);
+        },
+      );
+      try {
+        const failed = acquireProjectRuntimeSnapshotLease(
+          root,
+          "binding-a",
+          "project-a",
+          "queue-a",
+          "project-operation",
+        );
+        assert.equal(isReplaced, true);
+        assert.equal(failed.status, "blocked");
+        assert.equal(
+          failed.recoveryId,
+          JSON.parse(
+            fs.readFileSync(
+              path.join(oldRoot, ".crdd", "project-runtime", "state.json"),
+              "utf8",
+            ),
+          ).payload.leaseIntents[0].recoveryId,
+        );
+        assert.equal(fs.existsSync(path.join(root, ".crdd")), false);
+      } finally {
+        mock.mock.restore();
+        if (isReplaced) {
+          assert.equal(path.dirname(root), path.dirname(oldRoot));
+          fs.rmSync(root, { recursive: true, force: true });
+          fs.renameSync(oldRoot, root);
+        }
+      }
+    } else if (failure === "acquired_record" || failure === "intent_record") {
+      const original = fs.renameSync;
+      let calls = 0;
+      const mock = t.mock.method(
+        fs,
+        "renameSync",
+        (...args: Parameters<typeof original>) => {
+          if (
+            String(args[1]) === current &&
+            ++calls === (failure === "intent_record" ? 1 : 2)
+          )
+            throw new Error("injected_acquired_record_failure");
+          return Reflect.apply(original, fs, args);
+        },
+      );
+      let failed: ReturnType<typeof acquireProjectRuntimeSnapshotLease>;
+      try {
+        failed = acquireProjectRuntimeSnapshotLease(
+          root,
+          "binding-a",
+          "project-a",
+          "queue-a",
+          "project-operation",
+        );
+      } finally {
+        mock.mock.restore();
+      }
+      assert.equal(failed.status, "blocked");
+      if (failed.status !== "blocked")
+        throw new Error("expected_lease_failure");
+      assert.equal(failed.manualRecoveryRequired, true);
+      assert.ok(failed.recoveryId?.startsWith("lease-acquisition-"));
+      assert.equal(
+        fs.existsSync(path.join(directory, "state.pending.json")),
+        true,
+      );
+      const saved = JSON.parse(fs.readFileSync(current, "utf8"));
+      const pending = JSON.parse(
+        fs.readFileSync(path.join(directory, "state.pending.json"), "utf8"),
+      );
+      assert.equal(
+        failed.recoveryId,
+        pending.payload.leaseIntents[0].recoveryId,
+      );
+      if (failure === "intent_record") {
+        assert.equal(saved.payload.leaseIntents.length, 0);
+        assert.equal(
+          fs.existsSync(
+            path.join(root, ".crdd", "tmp", "project-runtime-leases"),
+          ),
+          false,
+        );
+        continue;
+      }
+      assert.equal(saved.payload.leaseIntents[0].phase, "acquisition_reserved");
+      assert.equal(saved.payload.leaseEvidence.length, 0);
+      assert.equal(
+        fs.readdirSync(
+          path.join(root, ".crdd", "tmp", "project-runtime-leases"),
+        ).length,
+        1,
+      );
+      assert.equal(
+        readProjectRuntimeSnapshot(root, "binding-a").status,
+        "blocked",
+      );
+    } else {
+      const acquired = acquireProjectRuntimeSnapshotLease(
+        root,
+        "binding-a",
+        "project-a",
+        "queue-a",
+        "project-operation",
+      );
+      assert.equal(acquired.status, "completed");
+      if (acquired.status !== "completed")
+        throw new Error("lease_fixture_failed");
+      const original = fs.rmdirSync;
+      const mock = t.mock.method(
+        fs,
+        "rmdirSync",
+        (...args: Parameters<typeof original>) => {
+          if (String(args[0]).includes("project-runtime-leases"))
+            throw new Error("injected_release_failure");
+          return Reflect.apply(original, fs, args);
+        },
+      );
+      let failed: ReturnType<typeof acquired.value.release>;
+      try {
+        failed = acquired.value.release();
+      } finally {
+        mock.mock.restore();
+      }
+      assert.equal(failed.status, "blocked");
+      if (failed.status !== "blocked")
+        throw new Error("expected_release_failure");
+      assert.equal(failed.manualRecoveryRequired, true);
+      assert.ok(failed.recoveryId?.startsWith("lease-acquisition-"));
+      const saved = readProjectRuntimeSnapshot(root, "binding-a");
+      assert.equal(saved.status, "completed");
+      assert.equal(saved.value?.leaseIntents.at(-1)?.phase, "release_pending");
+      assert.equal(saved.value?.leaseEvidence.length, 1);
+      const before = fs.readFileSync(current, "utf8");
+      assert.equal(
+        acquireProjectRuntimeSnapshotLease(
+          root,
+          "binding-a",
+          "project-a",
+          "queue-a",
+          "project-operation",
+        ).status,
+        "blocked",
+      );
+      assert.equal(fs.readFileSync(current, "utf8"), before);
+    }
+  }
+});
+
+/**
+ * 判断記録と判断回復の統合保存を確認する。
+ * @responsibility 一回限り作成、完全一致比較交換と世代連鎖を検証する。
+ * @trace PRL-IT-005
+ * @precondition 自己所有Repositoryのv2保存を使う。
+ * @stimulus 作成・再送・異内容・確定・回復更新・破損世代を与える。
+ * @observation 保存内容と再構築したPortの返却値を照合する。
+ * @oracle 競合時はbytesを変えず、二世代単独・未知欄を拒否する。
+ * @cleanup 自己所有fixtureを回収する。
+ * @boundary PRL-IT-005=Direct Boundary: 判断Store Port→統合保存。
+ */
+test("Host Windows: 統合判断Storeは二世代とexact回復CASを保存する", {
+  skip: process.platform !== "win32",
+}, (t) => {
+  const { root, state } = fixture(t);
+  const held = acquireProjectRuntimeSnapshotPilotLock(root);
+  assert.equal(held.status, "completed");
+  if (held.status !== "completed") throw new Error("lock_fixture_failed");
+  const rootHash = held.value.repositoryRootHash;
+  assert.equal(held.value.release(), true);
+  const queue = {
+    queueId: "queue-a",
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    requestHash: "b".repeat(64),
+    originLane: "interactive",
+    repositoryRevision: "a".repeat(40),
+    scopeHash: "c".repeat(64),
+    state: "queued",
+    generation: 1,
+    ownerGeneration: null,
+    resumeCondition: null,
+    resultReference: null,
+  };
+  const payload = {
+    schema: "crdd-coordinator/project-runtime-snapshot/v2",
+    schemaRevision: 2,
+    repositoryRootHash: rootHash,
+    repositoryBindingId: "binding-a",
+    snapshotRevision: 1,
+    intakeEpoch: "epoch-a",
+    intakeBindings: [{ queueId: "queue-a", epoch: "epoch-a" }],
+    projects: [state],
+    queueEntries: [queue],
+    leaseEvidence: [],
+    leaseIntents: [],
+    results: [],
+    historyPending: [],
+    acceptanceDecisions: [],
+    decisionRecoveries: [],
+  };
+  assert.equal(
+    writeProjectRuntimeSnapshot(root, "binding-a", JSON.stringify(payload), 0)
+      .status,
+    "completed",
+  );
+  const store = createProjectRuntimeSnapshotAcceptanceDecisionStore(
+    root,
+    "binding-a",
+  );
+  const decision: ProjectRuntimeAcceptanceDecisionRecord = {
+    recordId: "decision-a",
+    decisionId: "authority-a",
+    sourceSpecId: "SPEC-000002",
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    repositoryRevision: "a".repeat(40),
+    expectedGeneration: 1,
+    target: "objective",
+    targetId: "objective-a",
+    decision: "accept",
+    criterionEvidenceIds: ["evidence-a"],
+    principalId: "principal-a",
+    disposition: "prepared",
+    newGeneration: null,
+  };
+  assert.equal(store.read("missing").value, null);
+  assert.equal(store.create(decision).status, "completed");
+  const file = path.join(root, ".crdd", "project-runtime", "state.json");
+  const before = fs.readFileSync(file, "utf8");
+  assert.equal(store.create(decision).status, "blocked");
+  const finalized = {
+    ...decision,
+    disposition: "finalized" as const,
+    newGeneration: 2,
+  };
+  assert.equal(
+    store.compareAndSet({ ...decision, principalId: "different" }, finalized)
+      .status,
+    "blocked",
+  );
+  assert.equal(fs.readFileSync(file, "utf8"), before);
+  assert.equal(store.compareAndSet(decision, finalized).status, "completed");
+  assert.equal(store.compareAndSet(decision, finalized).status, "blocked");
+  assert.deepEqual(
+    createProjectRuntimeSnapshotAcceptanceDecisionStore(root, "binding-a").read(
+      decision.recordId,
+    ).value,
+    finalized,
+  );
+  const recovery: ProjectRuntimeDecisionRecoveryIntent = {
+    recoveryId: "recovery-a",
+    recordId: "decision-a",
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    queueId: "queue-a",
+    applicationId: "application-a",
+    expectedGeneration: 1,
+    newGeneration: 2,
+    observedDisposition: "prepared",
+    unknownBoundary: "project_readback",
+    disposition: "required",
+  };
+  const recoveryStore = createProjectRuntimeSnapshotDecisionRecoveryStore(
+    root,
+    "binding-a",
+  );
+  const created = recoveryStore.create(recovery) as { status: string };
+  assert.equal(created.status, "completed");
+  assert.equal(
+    (recoveryStore.create(recovery) as { status: string }).status,
+    "blocked",
+  );
+  const settled = { ...recovery, disposition: "settled" as const };
+  assert.equal(
+    (
+      recoveryStore.compareAndSet(
+        { ...recovery, unknownBoundary: "other" },
+        settled,
+      ) as { status: string }
+    ).status,
+    "blocked",
+  );
+  assert.equal(
+    (recoveryStore.compareAndSet(recovery, settled) as { status: string })
+      .status,
+    "completed",
+  );
+  assert.deepEqual(
+    (
+      createProjectRuntimeSnapshotDecisionRecoveryStore(root, "binding-a").read(
+        "recovery-a",
+      ) as { value: unknown }
+    ).value,
+    settled,
+  );
+  const observed = readProjectRuntimeSnapshot(root, "binding-a");
+  assert.equal(observed.status, "completed");
+  if (
+    observed.status !== "completed" ||
+    !observed.value ||
+    observed.value.schemaRevision !== 2
+  )
+    throw new Error("snapshot_fixture_failed");
+  assert.equal(observed.value.decisionRecoveries[0]?.generation, 2);
+  for (const malformed of [
+    {
+      ...observed.value,
+      snapshotRevision: observed.value.snapshotRevision + 1,
+      acceptanceDecisions: observed.value.acceptanceDecisions.filter(
+        (item) => item.generation === 2,
+      ),
+    },
+    {
+      ...observed.value,
+      snapshotRevision: observed.value.snapshotRevision + 1,
+      decisionRecoveries: [
+        { generation: 2, value: { ...settled, secret: "forbidden" } },
+      ],
+    },
+    {
+      ...observed.value,
+      schema: "unknown",
+      snapshotRevision: observed.value.snapshotRevision + 1,
+    },
+  ]) {
+    const unchanged = fs.readFileSync(file, "utf8");
+    assert.equal(
+      writeProjectRuntimeSnapshot(
+        root,
+        "binding-a",
+        JSON.stringify(malformed),
+        observed.value.snapshotRevision,
+      ).status,
+      "blocked",
+    );
+    assert.equal(fs.readFileSync(file, "utf8"), unchanged);
+  }
+  assert.equal(
+    fs.existsSync(path.join(root, ".crdd", "project-runtime", "state")),
+    false,
+  );
+  assert.equal(
+    fs.existsSync(path.join(root, ".crdd", "project-runtime", "recovery")),
+    false,
+  );
+  const results = createProjectRuntimeSnapshotIntegrationRecordPort({
+    workingDirectory: root,
+    repositoryBindingId: "binding-a",
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    queueId: "queue-a",
+  });
+  for (const kind of ["integration", "adoption"] as const) {
+    const result = {
+      kind,
+      identity: `result-${kind}`,
+      value: { status: "confirmed" },
+    };
+    assert.equal(results.write(result).status, "completed");
+    const exact = fs.readFileSync(file, "utf8");
+    assert.equal(results.write(result).status, "completed");
+    assert.equal(
+      results.write({ ...result, value: { status: "different" } }).status,
+      "blocked",
+    );
+    assert.equal(fs.readFileSync(file, "utf8"), exact);
+  }
+  assert.equal(
+    createProjectRuntimeSnapshotIntegrationRecordPort({
+      workingDirectory: root,
+      repositoryBindingId: "binding-a",
+      projectId: "project-a",
+      milestoneId: "other",
+      queueId: "queue-a",
+    }).write({ kind: "integration", identity: "result-other", value: {} })
+      .status,
+    "blocked",
+  );
+  assert.equal(
+    fs.existsSync(path.join(root, ".crdd", "project-runtime", "results")),
+    false,
+  );
+  const ports = createProjectRuntimeSnapshotPersistencePorts(
+    root,
+    "binding-a",
+    "epoch-a",
+  );
+  const statePort = ports.state;
+  const operation = ports.lease.acquire(
+    "project-a",
+    "queue-a",
+    "project-operation",
+  );
+  assert.equal(operation.status, "completed");
+  if (operation.status !== "completed")
+    throw new Error("snapshot_lease_fixture_failed");
+  const beforeOwnerRead = fs.readFileSync(file);
+  const ownerRead = ports.lease.inspectAcquisitionOwner();
+  assert.equal(ownerRead.status, "completed");
+  assert.deepEqual(ownerRead.value, {
+    acquisition: {
+      repositoryBindingId: "binding-a",
+      projectId: "project-a",
+      queueId: "queue-a",
+      ownerGeneration: operation.value.ownerGeneration,
+      ownerProcessId: process.pid,
+      recoveryId: `lease-acquisition-${createHash("sha256").update("binding-a\0project-operation").digest("hex").slice(0, 40)}`,
+    },
+  });
+  assert.deepEqual(fs.readFileSync(file), beforeOwnerRead);
+  assert.equal(
+    ports.lease.acquire("project-a", "queue-a", "project-operation").status,
+    "blocked",
+  );
+  const adoption = ports.lease.acquire(
+    "project-a",
+    "canonical",
+    "canonical-adoption",
+  );
+  assert.equal(adoption.status, "completed");
+  if (adoption.status !== "completed")
+    throw new Error("snapshot_adoption_fixture_failed");
+  assert.equal(adoption.value.release().status, "completed");
+  const beforeReconcile = fs.readFileSync(file);
+  assert.equal(
+    ports.lease.reconcileOperationOwnerLoss(
+      "project-a",
+      "queue-a",
+      (owner) => ({
+        ...owner,
+        status: "alive",
+      }),
+    ).status,
+    "blocked",
+  );
+  assert.deepEqual(fs.readFileSync(file), beforeReconcile);
+  const adoptionReconcile = ports.lease.reconcileAdoptionOwnerLoss(
+    "project-a",
+    () => {
+      throw new Error("no_adoption_owner_to_observe");
+    },
+  );
+  assert.equal(adoptionReconcile.status, "completed");
+  assert.deepEqual(adoptionReconcile.value, { recoveryId: null });
+  assert.deepEqual(fs.readFileSync(file), beforeReconcile);
+  assert.equal(
+    statePort.updateQueue("queue-a", 1, {
+      state: "leased",
+      lease: operation.value,
+      resumeCondition: null,
+      resultReference: null,
+    }).status,
+    "completed",
+  );
+  assert.equal(
+    statePort.updateQueue("queue-a", 2, {
+      state: "running",
+      lease: operation.value,
+      resumeCondition: null,
+      resultReference: null,
+    }).status,
+    "completed",
+  );
+  assert.equal(
+    statePort.updateQueue("queue-a", 3, {
+      state: "integration_pending",
+      lease: operation.value,
+      resumeCondition: null,
+      resultReference: "integration-a",
+    }).status,
+    "completed",
+  );
+  assert.equal(
+    statePort.settleQueueLeaseRelease(
+      "queue-a",
+      4,
+      operation.value.ownerGeneration,
+    ).status,
+    "blocked",
+  );
+  assert.equal(operation.value.release().status, "completed");
+  assert.equal(operation.value.release().status, "blocked");
+  assert.deepEqual(
+    inspectProjectRuntimeSnapshotLeaseAcquisitionOwner(root, "binding-a").value,
+    { acquisition: null },
+  );
+  assert.equal(
+    statePort.settleQueueLeaseRelease(
+      "queue-a",
+      4,
+      operation.value.ownerGeneration,
+    ).status,
+    "completed",
+  );
+  const releasedSnapshot = readProjectRuntimeSnapshot(root, "binding-a");
+  assert.equal(releasedSnapshot.status, "completed");
+  assert.equal(releasedSnapshot.value?.leaseIntents.length, 0);
+  assert.equal(releasedSnapshot.value?.leaseEvidence.length, 4);
+  const settledBytes = fs.readFileSync(file);
+  const recoveredQueue = ports.lease.reconcileOperationOwnerLoss(
+    "project-a",
+    "queue-a",
+    () => {
+      throw new Error("no_operation_owner_to_observe");
+    },
+  );
+  assert.equal(recoveredQueue.status, "completed");
+  assert.deepEqual(
+    recoveredQueue.value,
+    ports.state.readQueue("queue-a").value,
+  );
+  assert.deepEqual(fs.readFileSync(file), settledBytes);
+  const invalidQueue = ports.lease.reconcileOperationOwnerLoss(
+    "other-project",
+    "queue-a",
+    () => {
+      throw new Error("invalid_binding_must_not_observe");
+    },
+  );
+  assert.equal(invalidQueue.status, "blocked");
+  if (invalidQueue.status !== "blocked")
+    throw new Error("recovery_fixture_failed");
+  assert.equal(invalidQueue.manualRecoveryRequired, true);
+  assert.match(invalidQueue.recoveryId ?? "", /^lease-acquisition-/);
+  assert.deepEqual(fs.readFileSync(file), settledBytes);
+  assert.deepEqual(
+    fs.readdirSync(path.join(root, ".crdd", "tmp", "project-runtime-leases")),
+    [],
+  );
+  assert.deepEqual(
+    fs.readdirSync(path.join(root, ".crdd", "project-runtime")).sort(),
+    ["state.json", "state.lock"],
+  );
+});
+
+/**
+ * 統合保存の読取りと真正不存在を確認する。
+ * @responsibility 未確定保存・破損・観測不能を正常値へ畳まない。
+ * @trace PRL-IT-005
+ * @precondition 自己所有の独立Repositoryを使う。
+ * @stimulus 不存在、保存後、pending、結合差、aliasと親の観測失敗を与える。
+ * @observation 読取り値、停止結果、元bytesと保存領域の不存在を確認する。
+ * @oracle 読取りで保存先を作らず、不明時は記録を保全する。
+ * @cleanup mockを戻し自己所有fixtureを回収する。
+ * @boundary PRL-IT-005=Direct Boundary: 統合保存→内部読取り。
+ */
+test("Host Windows: 統合Snapshot読取りは不存在と未確定を区別する", {
+  skip: process.platform !== "win32",
+}, (t) => {
+  const { root, state } = fixture(t);
+  const empty = readProjectRuntimeSnapshot(root, "binding-a");
+  assert.equal(empty.status, "completed");
+  assert.equal(empty.value, null);
+  assert.equal(fs.existsSync(path.join(root, ".crdd")), false);
+  for (const generation of [-1, Number.NaN, Number.MAX_SAFE_INTEGER + 1]) {
+    assert.equal(
+      writeProjectRuntimeSnapshotState(
+        root,
+        "binding-a",
+        JSON.stringify(state),
+        generation,
+      ).status,
+      "blocked",
+    );
+  }
+  assert.equal(
+    writeProjectRuntimeSnapshotState(root, "binding-a", "{", 0).status,
+    "blocked",
+  );
+  assert.equal(
+    writeProjectRuntimeSnapshotState(
+      root,
+      "binding-a",
+      JSON.stringify(state),
+      0,
+    ).status,
+    "blocked",
+  );
+  assert.equal(fs.existsSync(path.join(root, ".crdd")), false);
+  const held = acquireProjectRuntimeSnapshotPilotLock(root);
+  assert.equal(held.status, "completed");
+  if (held.status !== "completed") throw new Error("lock_fixture_failed");
+  const rootHash = held.value.repositoryRootHash;
+  assert.equal(held.value.release(), true);
+  const payload = {
+    schema: "crdd-coordinator/project-runtime-snapshot/v1",
+    schemaRevision: 1,
+    repositoryRootHash: rootHash,
+    repositoryBindingId: "binding-a",
+    snapshotRevision: 1,
+    intakeEpoch: "epoch-a",
+    intakeBindings: [],
+    projects: [state],
+    queueEntries: [],
+    leaseEvidence: [],
+    leaseIntents: [],
+    results: [],
+    historyPending: [],
+  };
+  assert.equal(
+    writeProjectRuntimeSnapshot(root, "binding-a", JSON.stringify(payload), 0)
+      .status,
+    "completed",
+  );
+  assert.deepEqual(
+    readProjectRuntimeSnapshot(root, "binding-a").value,
+    payload,
+  );
+  const directory = path.join(root, ".crdd", "project-runtime");
+  const current = path.join(directory, "state.json");
+  const before = fs.readFileSync(current, "utf8");
+  assert.equal(readProjectRuntimeSnapshot(root, "binding-b").status, "blocked");
+  const pending = path.join(directory, "state.pending.json");
+  fs.writeFileSync(pending, "{");
+  assert.equal(readProjectRuntimeSnapshot(root, "binding-a").status, "blocked");
+  assert.equal(fs.readFileSync(pending, "utf8"), "{");
+  assert.equal(fs.readFileSync(current, "utf8"), before);
+  fs.unlinkSync(pending);
+  const alias = path.join(directory, "alias.json");
+  fs.linkSync(current, alias);
+  assert.equal(readProjectRuntimeSnapshot(root, "binding-a").status, "blocked");
+  fs.unlinkSync(alias);
+  fs.writeFileSync(current, "{");
+  assert.equal(readProjectRuntimeSnapshot(root, "binding-a").status, "blocked");
+  assert.equal(fs.readFileSync(current, "utf8"), "{");
+  fs.writeFileSync(current, before);
+  for (const code of ["EACCES", "ENOENT"]) {
+    const original = fs.lstatSync;
+    let calls = 0;
+    const mocked = t.mock.method(
+      fs,
+      "lstatSync",
+      (...args: Parameters<typeof original>) => {
+        if (
+          String(args[0]) === path.join(root, ".crdd") &&
+          ++calls === (code === "ENOENT" ? 2 : 1)
+        )
+          throw Object.assign(new Error("injected_parent_observation"), {
+            code,
+          });
+        return Reflect.apply(original, fs, args);
+      },
+    );
+    try {
+      assert.equal(
+        readProjectRuntimeSnapshot(root, "binding-a").status,
+        "blocked",
+      );
+      assert.ok(calls > 0);
+    } finally {
+      mocked.mock.restore();
+    }
+    assert.equal(fs.readFileSync(current, "utf8"), before);
+  }
+});
+
+/**
+ * 統合保存上のState／Queue全操作を新版Factoryの実Leaseと照合する。
+ * @responsibility 自己再取得を避け、優先順位・世代・回復Identityを維持する。
+ * @trace PRL-IT-005
+ * @precondition 自己所有RepositoryのSnapshotを全区画で初期化する。
+ * @stimulus 全8操作、同依頼再送、異内容、旧受付、使用中、終了と回復を実行する。
+ * @observation Queue値、世代、保存bytesとLease解放結果を確認する。
+ * @oracle 使用中を割込まず、結果・回復参照はexactに照合し、再取得なしで確定する。
+ * @cleanup 未解放Leaseをfinallyで解放しfixtureを回収する。
+ * @boundary PRL-IT-005=Direct Boundary: Persistence Factory→統合保存と新版Lease。
+ */
+test("Host Windows: 統合State PortはQueue全操作と優先順位を保存する", {
+  skip: process.platform !== "win32",
+}, (t) => {
+  const { root, state } = fixture(t);
+  const held = acquireProjectRuntimeSnapshotPilotLock(root);
+  assert.equal(held.status, "completed");
+  if (held.status !== "completed") throw new Error("fixture_owner_failed");
+  const repositoryRootHash = held.value.repositoryRootHash;
+  assert.equal(held.value.release(), true);
+  const payload = {
+    schema: "crdd-coordinator/project-runtime-snapshot/v2",
+    schemaRevision: 2,
+    repositoryRootHash,
+    repositoryBindingId: "binding-a",
+    snapshotRevision: 1,
+    intakeEpoch: "epoch-a",
+    intakeBindings: [],
+    projects: [state],
+    queueEntries: [],
+    leaseEvidence: [],
+    leaseIntents: [],
+    results: [],
+    historyPending: [],
+    acceptanceDecisions: [],
+    decisionRecoveries: [],
+  };
+  assert.equal(
+    writeProjectRuntimeSnapshot(root, "binding-a", JSON.stringify(payload), 0)
+      .status,
+    "completed",
+  );
+  const ports = createProjectRuntimeSnapshotPersistencePorts(
+    root,
+    "binding-a",
+    "epoch-a",
+  );
+  const port = ports.state;
+  assert.deepEqual(port.readState("project-a").value, state);
+  assert.equal(port.readState("project-missing").value, null);
+  assert.equal(
+    port.writeState(
+      { ...state, generation: state.generation + 1 },
+      state.generation,
+    ).status,
+    "completed",
+  );
+  const input = {
+    queueId: "queue-a",
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    requestHash: "b".repeat(64),
+    originLane: "scheduled" as const,
+    repositoryRevision: "a".repeat(40),
+    scopeHash: "c".repeat(64),
+  };
+  assert.equal(port.enqueueOperation(input).status, "completed");
+  const current = path.join(root, ".crdd", "project-runtime", "state.json");
+  const before = fs.readFileSync(current, "utf8");
+  assert.equal(port.enqueueOperation(input).status, "completed");
+  assert.equal(fs.readFileSync(current, "utf8"), before);
+  assert.equal(
+    port.enqueueOperation({ ...input, requestHash: "d".repeat(64) }).status,
+    "blocked",
+  );
+  const retired = createProjectRuntimeSnapshotPersistencePorts(
+    root,
+    "binding-a",
+    "old-epoch",
+  ).state;
+  assert.equal(
+    retired.enqueueOperation({ ...input, queueId: "queue-retired" }).status,
+    "blocked",
+  );
+  assert.equal(fs.readFileSync(current, "utf8"), before);
+  assert.equal(
+    port.enqueueOperation({
+      ...input,
+      queueId: "queue-i",
+      originLane: "interactive",
+    }).status,
+    "completed",
+  );
+  assert.equal(port.selectNextOperation().value?.queueId, "queue-i");
+  assert.equal(port.readQueue("queue-a").value?.state, "waiting_foreground");
+  const acquired = ports.lease.acquire(
+    "project-a",
+    "queue-i",
+    "project-operation",
+  );
+  assert.equal(acquired.status, "completed");
+  if (acquired.status !== "completed") throw new Error("fixture_lease_failed");
+  let released = false;
+  try {
+    assert.equal(
+      port.updateQueue("queue-i", 1, {
+        state: "leased",
+        lease: null,
+        resumeCondition: null,
+        resultReference: null,
+      }).status,
+      "blocked",
+    );
+    assert.equal(
+      port.updateQueue("queue-i", 1, {
+        state: "leased",
+        lease: acquired.value,
+        resumeCondition: null,
+        resultReference: null,
+      }).status,
+      "completed",
+    );
+    assert.equal(port.selectNextOperation().value, null);
+    assert.equal(
+      port.updateQueue("queue-i", 2, {
+        state: "running",
+        lease: acquired.value,
+        resumeCondition: null,
+        resultReference: null,
+      }).status,
+      "completed",
+    );
+    assert.equal(
+      port.updateQueue("queue-i", 3, {
+        state: "recovery_required",
+        lease: acquired.value,
+        resumeCondition: "exact_recovery",
+        resultReference: "recovery-a",
+      }).status,
+      "completed",
+    );
+    assert.equal(
+      port.settleQueueLeaseRelease("queue-i", 4, acquired.value.ownerGeneration)
+        .status,
+      "blocked",
+    );
+    assert.equal(acquired.value.release().status, "completed");
+    released = true;
+    const settled = port.settleQueueLeaseRelease(
+      "queue-i",
+      4,
+      acquired.value.ownerGeneration,
+    );
+    assert.equal(settled.status, "completed");
+    assert.equal(settled.value?.ownerGeneration, null);
+    assert.equal(
+      port.settleQueueRecovery("queue-i", 5, "different-recovery").status,
+      "blocked",
+    );
+    const resumed = port.settleQueueRecovery("queue-i", 5, "recovery-a");
+    assert.equal(resumed.status, "completed");
+    assert.equal(resumed.value?.resumeCondition, "exact_recovery_settled");
+    assert.equal(
+      port.updateQueue("queue-i", 6, {
+        state: "cancelled",
+        lease: null,
+        resumeCondition: null,
+        resultReference: null,
+      }).status,
+      "completed",
+    );
+    const scheduled = port.selectNextOperation();
+    assert.equal(scheduled.value?.queueId, "queue-a");
+    assert.equal(scheduled.value?.state, "queued");
+    assert.equal(scheduled.value?.generation, 3);
+    assert.equal(
+      port.updateQueue("queue-a", 1, {
+        state: "cancelled",
+        lease: null,
+        resumeCondition: null,
+        resultReference: null,
+      }).status,
+      "blocked",
+    );
+    assert.equal(port.readQueue("queue-missing").status, "blocked");
+  } finally {
+    if (!released) assert.equal(acquired.value.release().status, "completed");
+  }
+});
+
+/**
+ * Queueと途中Leaseと結果を含む一体保存を確認する。
+ * @responsibility 保存整理で未解決値や元の受付結合を落とさない。
+ * @trace PRL-IT-005
+ * @precondition 本番生成したQueueとLease証拠を自己所有fixtureで使う。
+ * @stimulus 非空Snapshotを保存し、受付変更、結果欠落、Identity変更、State更新と保存失敗を試す。
+ * @observation 値の一致と拒否後の現在File不変を確認する。
+ * @oracle 併存する取得段階を保持し、不正な更新は上書きしない。
+ * @cleanup Leaseをfinallyで解放しfixtureを回収する。
+ * @boundary PRL-IT-005=Direct Boundary: 全区画の結合→Snapshot保存。
+ */
+test("Host Windows: 統合Snapshotは受付結合と未解決記録を保持する", {
+  skip: process.platform !== "win32",
+}, (t) => {
+  const { root, state } = fixture(t);
+  const queue = enqueueProjectOperation(root, "binding-a", {
+    queueId: "queue-a",
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    requestHash: "b".repeat(64),
+    originLane: "scheduled",
+    repositoryRevision: "a".repeat(40),
+    scopeHash: "c".repeat(64),
+  });
+  assert.equal(queue.status, "completed");
+  if (queue.status !== "completed") throw new Error("queue_fixture_failed");
+  const lease = acquireProjectRuntimeLease(
+    root,
+    "binding-a",
+    "project-a",
+    "queue-a",
+    "project-operation",
+  );
+  assert.equal(lease.status, "completed");
+  if (lease.status !== "completed") throw new Error("lease_fixture_failed");
+  try {
+    const observed = readLegacyProjectRuntimeLeaseInputs(root);
+    assert.equal(observed.status, "completed");
+    assert.ok(observed.value);
+    const evidence = observed.value.evidence[0];
+    assert.ok(evidence);
+    const held = acquireProjectRuntimeSnapshotPilotLock(root);
+    assert.equal(held.status, "completed");
+    if (held.status !== "completed") throw new Error("lock_fixture_failed");
+    const rootHash = held.value.repositoryRootHash;
+    assert.equal(held.value.release(), true);
+    const resultValue = {
+      status: "completed",
+      candidateReference: "candidate-a",
+    };
+    const payload = {
+      schema: "crdd-coordinator/project-runtime-snapshot/v1",
+      schemaRevision: 1,
+      repositoryRootHash: rootHash,
+      repositoryBindingId: "binding-a",
+      snapshotRevision: 1,
+      intakeEpoch: "epoch-new",
+      intakeBindings: [{ queueId: "queue-a", epoch: "epoch-original" }],
+      projects: [state],
+      queueEntries: [queue.value],
+      leaseEvidence: observed.value.evidence,
+      leaseIntents: ["acquisition_pending", "lock_owned"].map((phase) => ({
+        projectId: "project-a",
+        queueId: "queue-a",
+        kind: "project-operation",
+        ownerGeneration: evidence.content.ownerGeneration,
+        ownerProcessId: evidence.content.ownerProcessId,
+        recoveryId: `lease-acquisition-${createHash("sha256").update("binding-a\0project-operation").digest("hex").slice(0, 40)}`,
+        phase,
+      })),
+      results: [
+        {
+          contract: "crdd-coordinator/project-runtime-integration/v1",
+          kind: "integration",
+          repositoryBindingId: "binding-a",
+          projectId: "project-a",
+          milestoneId: "milestone-a",
+          queueId: "queue-a",
+          identity: "result-a",
+          contentHash: createHash("sha256")
+            .update(JSON.stringify(resultValue))
+            .digest("hex"),
+          value: resultValue,
+        },
+      ],
+      historyPending: [],
+    };
+    assert.equal(
+      writeProjectRuntimeSnapshot(root, "binding-a", JSON.stringify(payload), 0)
+        .status,
+      "completed",
+    );
+    const current = path.join(root, ".crdd", "project-runtime", "state.json");
+    const before = fs.readFileSync(current, "utf8");
+    assert.deepEqual(JSON.parse(before).payload, payload);
+    const next = { ...payload, snapshotRevision: 2 };
+    for (const invalid of [
+      { ...next, intakeBindings: [{ queueId: "queue-a", epoch: "epoch-new" }] },
+      { ...next, results: [] },
+      { ...next, leaseIntents: [] },
+      {
+        ...next,
+        leaseIntents: payload.leaseIntents.map((item) => ({
+          ...item,
+          ownerProcessId: item.ownerProcessId + 1,
+        })),
+      },
+      { ...next, projects: [{ ...state, generation: state.generation + 2 }] },
+      {
+        ...next,
+        queueEntries: [
+          { ...queue.value, generation: 2, scopeHash: "d".repeat(64) },
+        ],
+      },
+      {
+        ...next,
+        leaseIntents: [{ ...payload.leaseIntents[0], recoveryId: "different" }],
+      },
+    ]) {
+      assert.equal(
+        writeProjectRuntimeSnapshot(
+          root,
+          "binding-a",
+          JSON.stringify(invalid),
+          1,
+        ).status,
+        "blocked",
+      );
+      assert.equal(fs.readFileSync(current, "utf8"), before);
+      const pendingPath = path.join(
+        root,
+        ".crdd",
+        "project-runtime",
+        "state.pending.json",
+      );
+      const pending = `${JSON.stringify({ payload: invalid, contentHash: createHash("sha256").update(JSON.stringify(invalid)).digest("hex"), baseRevision: 1, baseHash: createHash("sha256").update(before).digest("hex") })}\n`;
+      fs.writeFileSync(pendingPath, pending);
+      assert.equal(
+        writeProjectRuntimeSnapshot(root, "binding-a", JSON.stringify(next), 1)
+          .status,
+        "blocked",
+      );
+      assert.equal(fs.readFileSync(current, "utf8"), before);
+      assert.equal(fs.readFileSync(pendingPath, "utf8"), pending);
+      fs.unlinkSync(pendingPath);
+    }
+    const pendingPayload = { ...next, repositoryRootHash: rootHash };
+    const pending = `${JSON.stringify({ payload: pendingPayload, contentHash: createHash("sha256").update(JSON.stringify(pendingPayload)).digest("hex"), baseRevision: 1, baseHash: "0".repeat(64) })}\n`;
+    const pendingPath = path.join(
+      root,
+      ".crdd",
+      "project-runtime",
+      "state.pending.json",
+    );
+    fs.writeFileSync(pendingPath, pending);
+    assert.equal(
+      writeProjectRuntimeSnapshot(root, "binding-a", JSON.stringify(next), 1)
+        .status,
+      "blocked",
+    );
+    assert.equal(fs.readFileSync(current, "utf8"), before);
+    assert.equal(fs.readFileSync(pendingPath, "utf8"), pending);
+    const updatedState = { ...state, generation: state.generation + 1 };
+    assert.equal(
+      writeProjectRuntimeSnapshotState(
+        root,
+        "binding-a",
+        JSON.stringify(updatedState),
+        state.generation,
+      ).status,
+      "blocked",
+    );
+    assert.equal(fs.readFileSync(current, "utf8"), before);
+    assert.equal(fs.readFileSync(pendingPath, "utf8"), pending);
+    fs.unlinkSync(pendingPath);
+    const changed = writeProjectRuntimeSnapshotState(
+      root,
+      "binding-a",
+      JSON.stringify(updatedState),
+      state.generation,
+    );
+    assert.equal(changed.status, "completed");
+    assert.deepEqual(changed.value, updatedState);
+    const expected = {
+      ...payload,
+      snapshotRevision: 2,
+      projects: [updatedState],
+    };
+    assert.deepEqual(
+      readProjectRuntimeSnapshot(root, "binding-a").value,
+      expected,
+    );
+    const savedBytes = fs.readFileSync(current, "utf8");
+    assert.equal(
+      writeProjectRuntimeSnapshotState(
+        root,
+        "binding-a",
+        JSON.stringify(updatedState),
+        state.generation,
+      ).status,
+      "blocked",
+    );
+    assert.equal(fs.readFileSync(current, "utf8"), savedBytes);
+    const additional = { ...state, projectId: "project-b", generation: 1 };
+    assert.equal(
+      writeProjectRuntimeSnapshotState(
+        root,
+        "binding-a",
+        JSON.stringify(additional),
+        0,
+      ).status,
+      "completed",
+    );
+    assert.deepEqual(readProjectRuntimeSnapshot(root, "binding-a").value, {
+      ...expected,
+      snapshotRevision: 3,
+      projects: [updatedState, additional],
+    });
+    const previousBytes = fs.readFileSync(current, "utf8");
+    const rename = t.mock.method(fs, "renameSync", () => {
+      throw new Error("state_update_rename_injected");
+    });
+    try {
+      const interrupted = writeProjectRuntimeSnapshotState(
+        root,
+        "binding-a",
+        JSON.stringify({
+          ...updatedState,
+          generation: updatedState.generation + 1,
+        }),
+        updatedState.generation,
+      );
+      assert.equal(interrupted.status, "blocked");
+      assert.equal(interrupted.manualRecoveryRequired, true);
+    } finally {
+      rename.mock.restore();
+    }
+    assert.equal(fs.readFileSync(current, "utf8"), previousBytes);
+    assert.ok(fs.existsSync(pendingPath));
+    const reacquired = acquireProjectRuntimeSnapshotPilotLock(root);
+    assert.equal(reacquired.status, "completed");
+    if (reacquired.status !== "completed")
+      throw new Error("lock_reacquisition_failed");
+    assert.equal(reacquired.value.release(), true);
+  } finally {
+    assert.equal(lease.value.release().status, "completed");
+  }
+});
+
+/**
+ * 統合Snapshotの固定候補保存と再入場を確認する。
+ * @responsibility 旧Writerを切替せず保存CASと途中再開を反証する。
+ * @trace PRL-IT-005
+ * @precondition 自己所有Repositoryと本番生成したState値を使う。
+ * @stimulus 正常保存、同候補再送、世代競合、rename失敗と再入場を実行する。
+ * @observation state.json本文、固定pending、改訂番号を確認する。
+ * @oracle 同候補は一重確定し、競合は上書きせず中断候補を保持する。
+ * @cleanup mockを復元して自己所有fixtureを回収する。
+ * @boundary PRL-IT-005=Direct Boundary: Snapshot保存→Windows Filesystem。
+ */
+test("Host Windows: 統合Snapshotは固定pendingから一重確定する", {
+  skip: process.platform !== "win32",
+}, (t) => {
+  const { root, state } = fixture(t);
+  const held = acquireProjectRuntimeSnapshotPilotLock(root);
+  assert.equal(held.status, "completed");
+  if (held.status !== "completed") throw new Error("lock_fixture_failed");
+  const rootHash = held.value.repositoryRootHash;
+  assert.equal(held.value.release(), true);
+  const payload = {
+    schema: "crdd-coordinator/project-runtime-snapshot/v1",
+    schemaRevision: 1,
+    repositoryRootHash: rootHash,
+    repositoryBindingId: "binding-a",
+    snapshotRevision: 1,
+    intakeEpoch: "epoch-a",
+    intakeBindings: [],
+    projects: [state],
+    queueEntries: [],
+    leaseEvidence: [],
+    leaseIntents: [],
+    results: [],
+    historyPending: [],
+  };
+  const current = path.join(root, ".crdd", "project-runtime", "state.json");
+  const pending = path.join(
+    root,
+    ".crdd",
+    "project-runtime",
+    "state.pending.json",
+  );
+  assert.equal(
+    writeProjectRuntimeSnapshot(root, "binding-a", JSON.stringify(payload), 0)
+      .status,
+    "completed",
+  );
+  const first = fs.readFileSync(current, "utf8");
+  assert.deepEqual(JSON.parse(first).payload, payload);
+  assert.equal(fs.existsSync(pending), false);
+  assert.equal(
+    writeProjectRuntimeSnapshot(root, "binding-a", JSON.stringify(payload), 0)
+      .status,
+    "completed",
+  );
+  assert.equal(fs.readFileSync(current, "utf8"), first);
+  const conflict = { ...payload, intakeEpoch: "epoch-conflict" };
+  assert.equal(
+    writeProjectRuntimeSnapshot(root, "binding-a", JSON.stringify(conflict), 0)
+      .status,
+    "blocked",
+  );
+  assert.equal(fs.readFileSync(current, "utf8"), first);
+  const next = {
+    ...payload,
+    snapshotRevision: 2,
+    projects: [{ ...state, generation: 2 }],
+  };
+  const rename = t.mock.method(fs, "renameSync", () => {
+    throw new Error("injected_rename_failure");
+  });
+  assert.equal(
+    writeProjectRuntimeSnapshot(root, "binding-a", JSON.stringify(next), 1)
+      .status,
+    "blocked",
+  );
+  assert.equal(fs.readFileSync(current, "utf8"), first);
+  assert.ok(fs.existsSync(pending));
+  const savedPending = fs.readFileSync(pending, "utf8");
+  assert.deepEqual(JSON.parse(savedPending).payload, next);
+  rename.mock.restore();
+  assert.equal(
+    writeProjectRuntimeSnapshot(root, "binding-a", JSON.stringify(next), 1)
+      .status,
+    "completed",
+  );
+  assert.equal(fs.readFileSync(current, "utf8"), savedPending);
+  assert.equal(fs.existsSync(pending), false);
+  fs.writeFileSync(pending, savedPending);
+  assert.equal(
+    writeProjectRuntimeSnapshot(root, "binding-a", JSON.stringify(next), 1)
+      .status,
+    "completed",
+  );
+  assert.equal(fs.existsSync(pending), false);
+  fs.writeFileSync(pending, "{");
+  assert.equal(
+    writeProjectRuntimeSnapshot(
+      root,
+      "binding-a",
+      JSON.stringify({ ...next, snapshotRevision: 3 }),
+      2,
+    ).status,
+    "blocked",
+  );
+  assert.equal(fs.readFileSync(pending, "utf8"), "{");
+  assert.equal(fs.readFileSync(current, "utf8"), savedPending);
+});
+
+/**
+ * 部分形式や未知区画を保存前に拒否する。
+ * @responsibility 不完全なSnapshotをstate.jsonとして成立させない。
+ * @trace PRL-IT-005
+ * @precondition 自己所有Repositoryを使用する。
+ * @stimulus 部分codec、Root差、区画欠落、未知区画を入力する。
+ * @observation 保存File不存在を確認する。
+ * @oracle 不正入力は現在値を作らない。
+ * @cleanup 自己所有fixtureを回収する。
+ * @boundary PRL-IT-005=Direct Boundary: 入力検証→Snapshot保存。
+ */
+test("Host Windows: 統合Snapshotは部分形式と結合不明を保存しない", {
+  skip: process.platform !== "win32",
+}, (t) => {
+  const { root, state } = fixture(t);
+  const held = acquireProjectRuntimeSnapshotPilotLock(root);
+  assert.equal(held.status, "completed");
+  if (held.status !== "completed") throw new Error("lock_fixture_failed");
+  const rootHash = held.value.repositoryRootHash;
+  assert.equal(held.value.release(), true);
+  const payload = {
+    schema: "crdd-coordinator/project-runtime-snapshot/v1",
+    schemaRevision: 1,
+    repositoryRootHash: rootHash,
+    repositoryBindingId: "binding-a",
+    snapshotRevision: 1,
+    intakeEpoch: "epoch-a",
+    intakeBindings: [],
+    projects: [state],
+    queueEntries: [],
+    leaseEvidence: [],
+    leaseIntents: [],
+    results: [],
+    historyPending: [],
+  };
+  for (const invalid of [
+    { ...payload, repositoryRootHash: "0".repeat(64) },
+    { ...payload, results: undefined },
+    { ...payload, extra: true },
+    {
+      ...payload,
+      schema: "crdd-coordinator/project-runtime-state-queue-snapshot-pilot/v1",
+    },
+  ]) {
+    assert.equal(
+      writeProjectRuntimeSnapshot(root, "binding-a", JSON.stringify(invalid), 0)
+        .status,
+      "blocked",
+    );
+    assert.equal(
+      fs.existsSync(path.join(root, ".crdd", "project-runtime", "state.json")),
+      false,
+    );
+  }
+  const other = fixture(t);
+  const otherRuntime = path.join(other.root, ".crdd");
+  assert.equal(path.dirname(otherRuntime), fs.realpathSync.native(other.root));
+  assert.equal(fs.existsSync(otherRuntime), false);
+  const original = fs.realpathSync.native;
+  let hasChangedAfterAcquisition = false;
+  const mocked = t.mock.method(
+    fs.realpathSync,
+    "native",
+    (...args: Parameters<typeof original>) => {
+      const stack = new Error("root_observation").stack ?? "";
+      if (
+        String(args[0]) === root &&
+        stack.includes("writeProjectRuntimeSnapshot") &&
+        stack.includes(
+          "resolveRepositoryRuntimeDataPathsFromWorkingDirectory",
+        ) &&
+        !stack.includes("acquireProjectRuntimeSnapshotPilotLock")
+      ) {
+        hasChangedAfterAcquisition = true;
+        return other.root;
+      }
+      return Reflect.apply(original, fs.realpathSync, args);
+    },
+  );
+  try {
+    assert.equal(
+      writeProjectRuntimeSnapshot(root, "binding-a", JSON.stringify(payload), 0)
+        .status,
+      "blocked",
+    );
+    assert.equal(hasChangedAfterAcquisition, true);
+  } finally {
+    mocked.mock.restore();
+  }
+  assert.equal(fs.existsSync(otherRuntime), false);
+  for (const name of ["state.json", "state.pending.json", "state.lock"])
+    assert.equal(
+      fs.existsSync(path.join(root, ".crdd", "project-runtime", name)),
+      false,
+    );
+});
+
+/**
+ * 取得中と解放後のLease入力を非破壊で保持する。
+ * @responsibility 証拠と物理残存を区別した移行入力を確認する。
+ * @trace PRL-IT-005
+ * @precondition 本番入口から二種類のLeaseを取得する。
+ * @stimulus 取得中と解放後に旧記録を読み取る。
+ * @observation 証拠、途中Marker、実ファイルHashを比較する。
+ * @oracle 読取りは非破壊で、解放前後の証拠が残る。
+ * @cleanup Leaseをfinallyで解放し自己所有fixtureを回収する。
+ * @boundary PRL-IT-005=Direct Boundary: 旧Lease保存→移行入力。
+ */
+test("旧Lease入力は取得中のMarkerと解放済み証拠を保持する", (t) => {
+  const { root } = fixture(t);
+  const leases = ["project-operation", "canonical-adoption"] as const;
+  for (const kind of leases) {
+    const acquired = acquireProjectRuntimeLease(
+      root,
+      "binding-a",
+      "project-a",
+      "queue-a",
+      kind,
+    );
+    assert.equal(acquired.status, "completed");
+    if (acquired.status !== "completed")
+      throw new Error("lease_fixture_failed");
+    try {
+      const observed = readLegacyProjectRuntimeLeaseInputs(root);
+      assert.equal(observed.status, "completed");
+      assert.ok(observed.value);
+      assert.equal(observed.value.migrationCommitted, false);
+      assert.ok(
+        observed.value.evidence.some(
+          (row) =>
+            row.content.kind === kind && row.content.disposition === "acquired",
+        ),
+      );
+      for (const footprint of ["lock", "acquisition", "ownership"])
+        assert.ok(
+          observed.value.footprints.some((row) => row.kind === footprint),
+        );
+      for (const source of observed.value.sourceRecords) {
+        const bytes = fs.readFileSync(
+          path.join(root, ".crdd", "project-runtime", source.relativePath),
+        );
+        assert.equal(
+          createHash("sha256").update(bytes).digest("hex"),
+          source.sha256,
+        );
+      }
+      assert.deepEqual(readLegacyProjectRuntimeLeaseInputs(root), observed);
+    } finally {
+      assert.equal(acquired.value.release().status, "completed");
+    }
+  }
+  const settled = readLegacyProjectRuntimeLeaseInputs(root);
+  assert.equal(settled.status, "completed");
+  assert.ok(settled.value);
+  assert.equal(settled.value.evidence.length, 4);
+  assert.equal(settled.value.footprints.length, 0);
+});
+
+/**
+ * 解放証拠だけの記録と未知残存を停止させる。
+ * @responsibility 不完全な旧入力を空値や移行済みにしない。
+ * @trace PRL-IT-005
+ * @precondition 本番Leaseを取得し解放したfixtureを使用する。
+ * @stimulus acquired証拠の欠落、未知File、外部hardlinkを与える。
+ * @observation 停止結果と元Fileの保存を確認する。
+ * @oracle 不正入力はblockedで削除されない。
+ * @cleanup 自己所有fixtureを回収する。
+ * @boundary PRL-IT-005=Direct Boundary: 旧Lease入力の拒否境界。
+ */
+test("旧Lease入力は証拠の欠落と未知残存を省略しない", (t) => {
+  for (const failure of [
+    "missing-acquired",
+    "unknown-file",
+    "external-hardlink",
+  ]) {
+    const { root } = fixture(t);
+    const acquired = acquireProjectRuntimeLease(
+      root,
+      "binding-a",
+      "project-a",
+      "queue-a",
+      "project-operation",
+    );
+    assert.equal(acquired.status, "completed");
+    if (acquired.status !== "completed")
+      throw new Error("lease_fixture_failed");
+    assert.equal(acquired.value.release().status, "completed");
+    const directory = path.join(
+      root,
+      ".crdd",
+      "project-runtime",
+      "recovery",
+      "leases",
+    );
+    const first = fs
+      .readdirSync(directory)
+      .find((name) => !name.endsWith("-released.json"));
+    assert.ok(first);
+    if (failure === "missing-acquired")
+      fs.unlinkSync(path.join(directory, first));
+    if (failure === "unknown-file")
+      fs.writeFileSync(
+        path.join(
+          root,
+          ".crdd",
+          "project-runtime",
+          "work",
+          "locks",
+          "unknown.txt",
+        ),
+        "unknown",
+      );
+    if (failure === "external-hardlink")
+      fs.linkSync(
+        path.join(directory, first),
+        path.join(root, "outside-lease.json"),
+      );
+    const previousRows = fs.readdirSync(directory);
+    const rejected = readLegacyProjectRuntimeLeaseInputs(root);
+    assert.equal(rejected.status, "blocked", failure);
+    assert.equal(
+      rejected.reason,
+      "project_runtime_legacy_leases_invalid_or_unknown",
+    );
+    assert.deepEqual(fs.readdirSync(directory), previousRows);
+  }
+});
+
+/**
+ * 取得前後のMarkerと未確定解放を元のまま保持する。
+ * @responsibility 証拠公開前の残存を移行入力から落とさない。
+ * @trace PRL-IT-005
+ * @precondition 自己所有fixtureに既知shapeの途中Fileを作成する。
+ * @stimulus 取得候補の内部hardlink対と解放不明Markerを読み取る。
+ * @observation 全footprint、元bytes Hash、非変更を観測する。
+ * @oracle 証拠が未公開でも残存を返し、Ownerの生死は判断しない。
+ * @cleanup 自己所有fixtureを回収する。
+ * @boundary PRL-IT-005=Direct Boundary: 取得中断残存→移行入力。
+ */
+test("旧Lease入力は証拠公開前の内部hardlinkと解放不明を保持する", (t) => {
+  const { root } = fixture(t);
+  const locks = path.join(root, ".crdd", "project-runtime", "work", "locks");
+  fs.mkdirSync(locks, { recursive: true });
+  const marker = JSON.stringify({
+    kind: "project-operation",
+    queueId: "queue-a",
+    ownerGeneration: "owner-a",
+    ownerProcessId: process.pid,
+    recoveryId: "lease-acquisition-a",
+  });
+  const pending = path.join(
+    locks,
+    ".pending-project-operation-binding-a-acquisition-fixture.tmp",
+  );
+  fs.writeFileSync(pending, marker);
+  fs.linkSync(
+    pending,
+    path.join(locks, "project-operation-binding-a.acquire-pending"),
+  );
+  fs.writeFileSync(
+    path.join(locks, "project-operation-binding-a.acquire-lock-owned"),
+    marker,
+  );
+  fs.writeFileSync(
+    path.join(locks, "project-operation-binding-a.release-unknown"),
+    "owner-a\n",
+  );
+  fs.mkdirSync(path.join(locks, "project-operation-binding-a.lock"));
+  const input = readLegacyProjectRuntimeLeaseInputs(root);
+  assert.equal(input.status, "completed");
+  assert.ok(input.value);
+  assert.equal(input.value.evidence.length, 0);
+  assert.deepEqual(input.value.footprints.map((row) => row.kind).sort(), [
+    "acquisition",
+    "lock",
+    "ownership",
+    "release",
+    "temporary",
+  ]);
+  assert.equal(input.value.sourceRecords.length, 4);
+  assert.equal(input.value.migrationCommitted, false);
+  assert.equal(fs.statSync(pending).nlink, 2);
+  assert.deepEqual(readLegacyProjectRuntimeLeaseInputs(root), input);
+});
+
+/**
+ * 保存排他の不正入力と非Windows境界を確認する。
+ *
+ * @responsibility 不正HashでWorkerを開始しない拒否条件を確認する。
+ * @trace PRL-IT-005
+ * @precondition 不正値を入力する。非Windows分岐はその実行環境で確認する。
+ * @stimulus 不正Hashと非Windows時の正規Hashを低水準入口へ渡す。
+ * @observation nullの非取得結果を観測する。
+ * @oracle 不正入力と非Windowsでは取得handleを返さない。
+ * @cleanup N/A: 拒否入力はWorkerを取得しない。
+ * @boundary PRL-IT-005=Direct Boundary: 入力→Windows排他入口。
+ */
+test("Snapshot排他は不正Hashと非Windowsを取得前に拒否する", () => {
+  for (const value of [
+    null,
+    undefined,
+    "",
+    "a".repeat(63),
+    "A".repeat(64),
+    1,
+  ]) {
+    assert.equal(acquireRuntimeOwnedProjectRuntimeStateKernelLock(value), null);
+  }
+  if (process.platform !== "win32") {
+    assert.equal(
+      acquireRuntimeOwnedProjectRuntimeStateKernelLock("a".repeat(64)),
+      null,
+    );
+  }
+});
+
+/**
+ * Repository結合した排他とProcess喪失後の再取得を実環境で確認する。
+ *
+ * @responsibility 同Rootの競合を拒否し、OS排他の解放を反証する。
+ * @trace PRL-IT-005
+ * @precondition Windows上の自己所有Repository fixtureを使用する。
+ * @stimulus 独立Processが取得し、競合、別Root、通常解放と強制終了を試す。
+ * @observation 取得結果、保持handleと子Processの終了を観測する。
+ * @oracle 同Rootだけ拒否し、終了後に新しいhandleを取得できる。
+ * @cleanup 子Processを終了確認し、全handle解放後にfixtureを回収する。
+ * @boundary PRL-IT-005=Direct Boundary: Repository検証→Windows Named Pipe。
+ */
+test("Host Windows: Snapshot排他は配下・case差を統一しOwner終了後に再取得できる", {
+  skip: process.platform !== "win32",
+}, async (t) => {
+  const { root } = fixture(t);
+  const { root: otherRoot } = fixture(t);
+  const nested = path.join(root, "nested");
+  fs.mkdirSync(nested);
+  const ownerProbe = fileURLToPath(
+    new URL(
+      "../fixtures/project-runtime-snapshot-lock-owner.ts",
+      import.meta.url,
+    ),
+  );
+  const child = spawn(process.execPath, [ownerProbe, root], {
+    windowsHide: true,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  try {
+    const [ready] = await once(child.stdout, "data", {
+      signal: AbortSignal.timeout(10000),
+    });
+    assert.equal(String(ready), "ready");
+    for (const contender of [root, nested, root.toUpperCase()]) {
+      const result = acquireProjectRuntimeSnapshotPilotLock(contender);
+      try {
+        assert.equal(result.status, "blocked");
+        assert.equal(
+          result.reason,
+          "project_runtime_snapshot_lock_unavailable",
+        );
+      } finally {
+        if (result.status === "completed") {
+          assert.equal(result.value.release(), true);
+        }
+      }
+    }
+    const independent = acquireProjectRuntimeSnapshotPilotLock(otherRoot);
+    assert.equal(independent.status, "completed");
+    if (independent.status === "completed") {
+      try {
+        assert.equal(independent.value.assertLive(), true);
+      } finally {
+        assert.equal(independent.value.release(), true);
+      }
+      assert.equal(independent.value.assertLive(), false);
+    }
+  } finally {
+    if (child.exitCode === null && child.signalCode === null) {
+      const closed = once(child, "close", {
+        signal: AbortSignal.timeout(10000),
+      });
+      child.kill("SIGKILL");
+      await closed;
+    }
+  }
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const result = acquireProjectRuntimeSnapshotPilotLock(root);
+    assert.equal(result.status, "completed");
+    if (result.status === "completed") {
+      try {
+        assert.equal(result.value.assertLive(), true);
+      } finally {
+        assert.equal(result.value.release(), true);
+      }
+      assert.equal(result.value.assertLive(), false);
+    }
+  }
+  assert.equal(
+    acquireProjectRuntimeSnapshotPilotLock(path.join(root, "missing")).status,
+    "blocked",
+  );
+});
+
+/**
+ * State／Queue試行codecの閉じた入力・破損拒否を検証する。
+ *
+ * @responsibility 部分形式の相関と値分離を反証する。
+ * @trace PRL-IT-005
+ * @precondition 通常Stateを持つ自己所有fixtureを用意する。
+ * @stimulus 符号化、復号、改竄、結合不一致と不正形状を入力する。
+ * @observation 戻り値、入力値と復号値の独立性を確認する。
+ * @oracle 有効な部分形式だけ受理し、全負例で停止する。
+ * @cleanup fixture hookが自己所有領域を回収する。codecは書込みしない。
+ * @boundary PRL-IT-005=Direct Boundary: JSON→保存試行codec。
+ */
+test("Snapshot試行codecは重複・孤立・改竄を拒否し独立した値を返す", (t) => {
+  const { state } = fixture(t);
+  const payload = {
+    schema: "crdd-coordinator/project-runtime-state-queue-snapshot-pilot/v1",
+    schemaRevision: 1,
+    repositoryBindingId: "binding-a",
+    snapshotRevision: 3,
+    projects: [state],
+    queueEntries: [
+      {
+        queueId: "queue-a",
+        projectId: state.projectId,
+        milestoneId: "old-milestone",
+        requestHash: "a".repeat(64),
+        originLane: "interactive",
+        repositoryRevision: "b".repeat(40),
+        scopeHash: "c".repeat(64),
+        state: "completed",
+        generation: 1,
+        ownerGeneration: null,
+        resumeCondition: null,
+        resultReference: "result-a",
+      },
+    ],
+  };
+  const original = JSON.stringify(payload);
+  const encoded = encodeProjectRuntimeStateQueueSnapshotPilot(
+    original,
+    "binding-a",
+  );
+  assert.equal(encoded.status, "completed");
+  if (encoded.status !== "completed") throw new Error("codec_failed");
+  const decoded = decodeProjectRuntimeStateQueueSnapshotPilot(
+    encoded.value,
+    "binding-a",
+  );
+  assert.equal(decoded.status, "completed");
+  if (decoded.status !== "completed") throw new Error("codec_failed");
+  assert.deepEqual(decoded.value, payload);
+  const changed = decoded.value.projects[0];
+  assert.ok(changed);
+  Object.assign(changed, { generation: 9 });
+  assert.equal(JSON.stringify(payload), original);
+  for (const invalid of [
+    { ...payload, extra: null },
+    { ...payload, snapshotRevision: 0 },
+    { ...payload, projects: [state, state] },
+    {
+      ...payload,
+      queueEntries: [...payload.queueEntries, ...payload.queueEntries],
+    },
+    { ...payload, projects: [] },
+    { ...payload, projects: [{ ...state, extra: null }] },
+  ])
+    assert.equal(
+      encodeProjectRuntimeStateQueueSnapshotPilot(
+        JSON.stringify(invalid),
+        "binding-a",
+      ).status,
+      "blocked",
+    );
+  assert.equal(
+    encodeProjectRuntimeStateQueueSnapshotPilot(original, "binding-b").status,
+    "blocked",
+  );
+  assert.equal(
+    decodeProjectRuntimeStateQueueSnapshotPilot(encoded.value, "binding-b")
+      .status,
+    "blocked",
+  );
+  const altered = JSON.parse(encoded.value);
+  altered.payload.snapshotRevision = 4;
+  assert.equal(
+    decodeProjectRuntimeStateQueueSnapshotPilot(
+      JSON.stringify(altered),
+      "binding-a",
+    ).status,
+    "blocked",
+  );
+  const extraEnvelope = { ...JSON.parse(encoded.value), extra: null };
+  assert.equal(
+    decodeProjectRuntimeStateQueueSnapshotPilot(
+      JSON.stringify(extraEnvelope),
+      "binding-a",
+    ).status,
+    "blocked",
+  );
+  for (const invalid of [
+    "{",
+    "あ".repeat(Math.ceil(MAX_RECORD_BYTES / 3) + 1),
+  ]) {
+    assert.equal(
+      encodeProjectRuntimeStateQueueSnapshotPilot(invalid, "binding-a").status,
+      "blocked",
+    );
+    assert.equal(
+      decodeProjectRuntimeStateQueueSnapshotPilot(invalid, "binding-a").status,
+      "blocked",
+    );
+  }
+});
 
 /**
  * stateEnvelopeのTest準備責務を実行する。
@@ -189,9 +2962,21 @@ function stateWithStoredBytes(
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 function fixture(t: test.TestContext) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-project-durable-"));
+  const temporary = requireReadyRepositoryRuntimeDataArea(
+    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+      fileURLToPath(new URL("../../../../", import.meta.url)),
+      "tmp",
+    ),
+    "fixture_repository_root_invalid",
+  ).directory;
+  const root = fs.mkdtempSync(path.join(temporary, "crdd-project-durable-"));
   execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  t.after(() => {
+    assert.equal(path.dirname(root), temporary);
+    assert.equal(fs.realpathSync.native(root), root);
+    fs.rmSync(root, { recursive: true, force: true });
+    assert.equal(fs.existsSync(root), false);
+  });
   const created = createProjectRuntimeState({
     projectId: "project-a",
     milestoneId: "milestone-a",
@@ -238,6 +3023,172 @@ test("PR-D-N-01 durably creates and reads generation-bound Project State", (t) =
   const stale = writeProjectRuntimeState(root, "binding-a", state, 0);
   assert.equal(stale.status, "blocked");
   assert.equal(stale.reason, "project_runtime_state_generation_conflict");
+});
+
+/**
+ * 旧記録の最新値と全世代の導出元を、保存を変更せず取得できることを確認する。
+ *
+ * @responsibility 移行準備が正常記録を保持し、移行完了を誤表示しないことを検証する。
+ * @trace PRL-IT-005
+ * @precondition 本番WriterでStateとQueueを作成する。
+ * @stimulus 旧形式の移行入力を二度読み取る。
+ * @observation 最新Envelope、全世代Hashと実ファイルのbyte列を比較する。
+ * @oracle 最新世代が一致し、全導出元が残り、読取り前後でbyte列が変わらない。
+ * @cleanup fixtureが所有するRepositoryを試験終了後に回収する。
+ * @boundary 旧Filesystem保存Adapter→移行準備。
+ */
+test("旧State／Queueの全世代を検証し、書込みなしで最新値を抽出する", (t) => {
+  const { root, state } = fixture(t);
+  assert.equal(
+    writeProjectRuntimeState(root, "binding-a", state, 0).status,
+    "completed",
+  );
+  const next = { ...state, generation: 2 };
+  assert.equal(
+    writeProjectRuntimeState(root, "binding-a", next, 1).status,
+    "completed",
+  );
+  const queue = enqueueProjectOperation(root, "binding-a", {
+    queueId: "queue-a",
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    requestHash: "b".repeat(64),
+    originLane: "scheduled",
+    repositoryRevision: "a".repeat(40),
+    scopeHash: "c".repeat(64),
+  });
+  assert.equal(queue.status, "completed");
+  const location = path.join(stateDirectory(root), "generation-2.json");
+  const before = fs.readFileSync(location);
+  const result = readLegacyProjectRuntimeStateAndQueueInputs(root);
+  assert.equal(result.status, "completed");
+  if (result.status !== "completed") throw new Error("legacy_inputs_failed");
+  assert.equal(result.value.migrationCommitted, false);
+  assert.deepEqual(
+    result.value.states.map((record) => record.content),
+    [next],
+  );
+  assert.equal(result.value.queues.length, 1);
+  assert.equal(result.value.sourceRecords.length, 3);
+  assert.equal(
+    result.value.sourceRecords[0]?.relativePath,
+    "state/project-a/generation-1.json",
+  );
+  assert.deepEqual(readLegacyProjectRuntimeStateAndQueueInputs(root), result);
+  assert.deepEqual(fs.readFileSync(location), before);
+  assert.equal(
+    fs.existsSync(path.join(root, ".crdd/project-runtime/state.json")),
+    false,
+  );
+});
+
+/**
+ * 最新世代が読めても旧記録が不正なら移行入力を返さないことを確認する。
+ *
+ * @responsibility 欠番・古い世代のHash破損を最新値で隠さない拒否を検証する。
+ * @trace PRL-IT-005
+ * @precondition 本番Writerで連続する二世代を保存する。
+ * @stimulus 古い世代を改変し、その後欠番状態で再読取りする。
+ * @observation 拒否結果と最新世代のbyte列を取得する。
+ * @oracle どちらもblockedであり、新保存先の作成も最新世代の変更もない。
+ * @cleanup fixtureが所有するRepositoryを試験終了後に回収する。
+ * @boundary 旧Filesystem保存Adapter→移行準備の拒否境界。
+ */
+test("旧世代のHash破損と欠番を移行準備で拒否する", (t) => {
+  const { root, state } = fixture(t);
+  assert.equal(
+    writeProjectRuntimeState(root, "binding-a", state, 0).status,
+    "completed",
+  );
+  assert.equal(
+    writeProjectRuntimeState(root, "binding-a", { ...state, generation: 2 }, 1)
+      .status,
+    "completed",
+  );
+  const first = path.join(stateDirectory(root), "generation-1.json");
+  const second = path.join(stateDirectory(root), "generation-2.json");
+  const before = fs.readFileSync(second);
+  const record = JSON.parse(fs.readFileSync(first, "utf8"));
+  record.contentHash = "0".repeat(64);
+  fs.writeFileSync(first, JSON.stringify(record));
+  const corrupt = readLegacyProjectRuntimeStateAndQueueInputs(root);
+  assert.equal(corrupt.status, "blocked");
+  assert.equal(corrupt.manualRecoveryRequired, false);
+  fs.unlinkSync(first);
+  assert.equal(
+    readLegacyProjectRuntimeStateAndQueueInputs(root).status,
+    "blocked",
+  );
+  assert.deepEqual(fs.readFileSync(second), before);
+  assert.equal(
+    fs.existsSync(path.join(root, ".crdd/project-runtime/state.json")),
+    false,
+  );
+});
+
+/**
+ * 親領域の不正と列挙後の観測不能を、真正の記録不存在から区別する。
+ *
+ * @responsibility 不正親、aliasと読取不能を空入力成功へ変換しないことを検証する。
+ * @trace PRL-IT-005
+ * @precondition 自己所有Repositoryと旧Writerによる正常記録を用いる。
+ * @stimulus 親を不正実体へ置換し、列挙済み子の観測を失敗させる。
+ * @observation 結果、手動回復表示、最新記録のbyte列を観測する。
+ * @oracle 不存在だけ成功し、不正・観測不能では候補なしのblockedとなる。
+ * @cleanup mockをrestoreし、fixtureが自己所有Repositoryだけを回収する。
+ * @boundary 旧保存領域の親／子Directory観測→移行準備。
+ */
+test("旧入力の真正不存在・不正親・alias・列挙後観測不能を区別する", (t) => {
+  const { root, state } = fixture(t);
+  const absent = readLegacyProjectRuntimeStateAndQueueInputs(root);
+  assert.equal(absent.status, "completed");
+  if (absent.status !== "completed") throw new Error("absent_inputs_failed");
+  assert.equal(absent.value.sourceRecords.length, 0);
+  const crdd = path.join(root, ".crdd");
+  fs.writeFileSync(crdd, "not-a-directory");
+  assert.equal(
+    readLegacyProjectRuntimeStateAndQueueInputs(root).status,
+    "blocked",
+  );
+  fs.unlinkSync(crdd);
+  fs.mkdirSync(crdd);
+  const runtime = path.join(crdd, "project-runtime");
+  fs.writeFileSync(runtime, "not-a-directory");
+  assert.equal(
+    readLegacyProjectRuntimeStateAndQueueInputs(root).status,
+    "blocked",
+  );
+  fs.unlinkSync(runtime);
+  fs.symlinkSync(path.join(root, "absent-owned-target"), runtime, "junction");
+  assert.equal(
+    readLegacyProjectRuntimeStateAndQueueInputs(root).status,
+    "blocked",
+  );
+  fs.unlinkSync(runtime);
+  assert.equal(
+    writeProjectRuntimeState(root, "binding-a", state, 0).status,
+    "completed",
+  );
+  const target = stateDirectory(root);
+  const location = path.join(target, "generation-1.json");
+  const before = fs.readFileSync(location);
+  const original = fs.lstatSync;
+  const mock = t.mock.method(
+    fs,
+    "lstatSync",
+    (...args: Parameters<typeof original>) => {
+      if (String(args[0]) === target)
+        throw Object.assign(new Error("observation_unavailable"), {
+          code: "ENOENT",
+        });
+      return Reflect.apply(original, fs, args);
+    },
+  );
+  const unknown = readLegacyProjectRuntimeStateAndQueueInputs(root);
+  mock.mock.restore();
+  assert.equal(unknown.status, "blocked");
+  assert.equal(unknown.manualRecoveryRequired, false);
+  assert.deepEqual(fs.readFileSync(location), before);
 });
 
 /**

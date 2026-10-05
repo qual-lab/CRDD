@@ -57,6 +57,7 @@ export const discoverKeys = new Set(["_meta"] as const);
 export const listKeys = new Set(["_meta", "cursor"] as const);
 export const listKeysNoCursor = new Set(["_meta"] as const);
 export const objectiveKeys = new Set([
+  "intakeEpoch",
   "requestId",
   "projectId",
   "milestoneId",
@@ -293,6 +294,7 @@ export function getMcpProjectRuntimeToolDefinitions() {
       "CRDD Objectiveを実行",
       "検証済みProjectへObjectiveを登録し、Project Runtimeで実行します。",
       {
+        intakeEpoch: id,
         requestId: id,
         projectId: id,
         milestoneId: id,

@@ -5,7 +5,7 @@
  * @trace ARCH-000008
  */
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
-import { readProjectRuntimeState } from "./project-runtime-durable-foundation.ts";
+import { readCurrentProjectRuntimeState as readProjectRuntimeState } from "./project-runtime-durable-foundation.ts";
 
 /**
  * docker-project-recovery-settlementで使用するProject Settled Docker 回復の値契約を定義する。

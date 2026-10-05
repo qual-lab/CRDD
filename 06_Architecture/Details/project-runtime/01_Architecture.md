@@ -80,6 +80,8 @@ Project Runtimeは、人間が許可したObjectiveをProject-level execution st
 
 Project Runtimeが所有するのは意味と遷移であり、外部能力の実装ではない。必要な実行、永続化、Platform観測、候補統合、判断継続および実行知発行はPortとして要求する。
 
+現在状態、待機中の仕事、採否待ち候補への参照、未確定の結果保存・採用後処理と未解決回復は、一連の仕事のつながりを失わず管理する。新しい受領・既読管理は追加しない。保存の具体契約は[詳細設計の一体保存](02_Detailed_Design.md#compact-runtime-storage)が所有する。共通4ファイルへの切替は設計段階であり、現行の世代記録、Lease、判断継続と利用側を移行するまで旧形式を撤去しない。
+
 Objective／Milestone Acceptance Decision PortはProject運営者の明示判断だけを受け付ける。Project Management Projection、Task完了またはObjective受入から次段階のAuthorityを生成せず、受入判断記録からTask作成やProvider Effectを発行しない。
 
 ## 2. Package境界
@@ -300,6 +302,10 @@ State Store、Execution Adapter、Transport等には複数の具象実装が成�
 担当Interaction Relation: `PRT-000002.spec-000002`、`PRT-000002.spec-000003`、`PRT-000002.spec-000028`、`PRT-000002.spec-000029`、`PRT-000003.spec-000004`、`PRT-000003.spec-000005`、`PRT-000004.spec-000002`、`PRT-000004.spec-000006`、`PRT-000004.spec-000007`、`PRT-000005.spec-000008`、`PRT-000007.spec-000011`、`PRT-000011.spec-000005`、`PRT-000012.spec-000017`
 
 本領域は上記Relationの配置責務を局所所有する。Detailを新しい要求として解釈せず、対応ARCH-IDが所有する配置・境界・状態・観測の制約として実現する。
+
+## 保存方式の切替確認
+
+保存の一体化を詳細設計へ接続し、既存Lease・判断継続の意味を保持した。本番Port接続とこのRepositoryの旧E2E記録清掃・新形式初期化を実施した。全回帰と②全体の終了判定は継続中であり、実切替だけから現版全体の完成を主張しない。[変更記録](../../../99_Roadmap/Changes/CHG-000082/Evidence/261005_project-runtime-phase2.md)で追跡する。
 
 ## Checklist
 

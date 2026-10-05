@@ -31,7 +31,10 @@ import {
   executeProjectRuntimePublicAcceptanceDecision,
   executeProjectRuntimePublicStateQuery,
 } from "../../src/composition/project-runtime-composition-root.ts";
-import { createProjectRuntimePersistencePorts } from "../../src/security/project-runtime-durable-foundation.ts";
+import {
+  createCurrentProjectRuntimePersistencePorts,
+  initializeProjectRuntimeSnapshot,
+} from "../../src/security/project-runtime-durable-foundation.ts";
 import { createProjectRuntimeAcceptanceDecisionStore } from "../../src/security/project-runtime-acceptance-decision-store.ts";
 import { createProjectRuntimeWindowsDecisionStoreTestingAdapter } from "../../src/security/project-runtime-windows-decision-store.ts";
 
@@ -118,7 +121,11 @@ function persistAcceptancePendingState(
     ownerGeneration: `owner-${projectId}`,
   });
   assert.ok(state.state);
-  const port = createProjectRuntimePersistencePorts(
+  assert.equal(
+    initializeProjectRuntimeSnapshot(root, repositoryBindingId).status,
+    "completed",
+  );
+  const port = createCurrentProjectRuntimePersistencePorts(
     root,
     repositoryBindingId,
   ).state;
@@ -295,7 +302,7 @@ test("公開入口からObjective受入後のMilestone三判断を一度だけ�
       Object.freeze({ principalId: "operator-a" }),
     );
     assert.equal(accepted.status, "completed", accepted.reason);
-    const statePort = createProjectRuntimePersistencePorts(
+    const statePort = createCurrentProjectRuntimePersistencePorts(
       repository.root,
       bindingId,
     ).state;

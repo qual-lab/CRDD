@@ -11,6 +11,8 @@
  * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { initializeProjectRuntimeSnapshot } from "../../src/security/project-runtime-durable-foundation.ts";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
@@ -118,6 +120,12 @@ test("development composition uses the explicitly supplied candidate integration
     windowsHide: true,
   }).trim();
   const decisionRoot = path.join(root, ".decision-store");
+  const initialized = initializeProjectRuntimeSnapshot(
+    root,
+    `binding-${createHash("sha256").update(root).digest("hex").slice(0, 40)}`,
+  );
+  assert.equal(initialized.status, "completed");
+  let intakeEpoch = initialized.value as string;
   fs.mkdirSync(decisionRoot);
   const decisionStore =
     createProjectRuntimeWindowsDecisionStoreTestingAdapter(decisionRoot);
@@ -267,6 +275,7 @@ test("development composition uses the explicitly supplied candidate integration
       originLane: "interactive",
       requestedExecutorProvider: "codex",
       adoptResult: false,
+      intakeEpoch,
     },
     new AbortController().signal,
     root,
@@ -385,6 +394,8 @@ test("development composition uses the explicitly supplied candidate integration
   assert.equal(after.status, "completed");
   assert.equal(after.observationState, "observed");
   assert.equal(after.projection?.milestoneState, "accepted");
+  if ("intakeEpoch" in after && typeof after.intakeEpoch === "string")
+    intakeEpoch = after.intakeEpoch;
   assert.equal(
     result.contract,
     "crdd-coordinator/project-runtime-objective-intake/v1",
@@ -412,6 +423,7 @@ test("development composition uses the explicitly supplied candidate integration
       originLane: "interactive",
       requestedExecutorProvider: "codex",
       adoptResult: true,
+      intakeEpoch,
     },
     new AbortController().signal,
     root,
@@ -478,6 +490,7 @@ test("development composition uses the explicitly supplied candidate integration
           originLane: "interactive",
           requestedExecutorProvider: "codex",
           adoptResult: false,
+          intakeEpoch,
         },
       },
     },
@@ -576,6 +589,7 @@ test("development composition uses the explicitly supplied candidate integration
       originLane: "interactive",
       requestedExecutorProvider: "codex",
       adoptResult: false,
+      intakeEpoch,
     },
     new AbortController().signal,
     root,
@@ -602,6 +616,7 @@ test("development composition uses the explicitly supplied candidate integration
       originLane: "interactive",
       requestedExecutorProvider: "codex",
       adoptResult: false,
+      intakeEpoch,
     },
     new AbortController().signal,
     root,
@@ -634,6 +649,7 @@ test("development composition uses the explicitly supplied candidate integration
       originLane: "interactive",
       requestedExecutorProvider: "codex",
       adoptResult: false,
+      intakeEpoch,
     },
     new AbortController().signal,
     root,

@@ -24,8 +24,11 @@ import {
   readRuntimeOwnedCandidateBundle,
 } from "../security/candidate-bundle-store.ts";
 import { createRuntimeOwnedProjectCandidateIntegrationAdapter } from "../security/project-runtime-candidate-integration-adapter.ts";
-import { createProjectRuntimePersistencePorts } from "../security/project-runtime-durable-foundation.ts";
-import { createProjectRuntimeIntegrationRecordAdapter } from "../security/project-runtime-integration-record-adapter.ts";
+import {
+  createCurrentProjectRuntimePersistencePorts as createProjectRuntimePersistencePorts,
+  createProjectRuntimeSnapshotIntegrationRecordPort as createProjectRuntimeIntegrationRecordAdapter,
+  maintainProjectRuntimeSnapshot,
+} from "../security/project-runtime-durable-foundation.ts";
 import {
   createProjectRuntimeWindowsPlatformAdapter,
   observeProjectRuntimePlatformFamily,
@@ -433,7 +436,8 @@ export function createRepositoryWorkbenchCandidateApplication(
       };
       const repositoryBindingId = `binding-${createHash("sha256")
         .update(repositoryRoot)
-        .digest("hex")}`;
+        .digest("hex")
+        .slice(0, 40)}`;
       const operationId = createHash("sha256")
         .update(candidateId)
         .digest("hex")
@@ -442,27 +446,50 @@ export function createRepositoryWorkbenchCandidateApplication(
         repositoryRoot,
         repositoryBindingId,
       );
-      return adoptionResult(
-        await adoptProjectRuntimeExistingCandidate(
-          Object.freeze({
-            candidate: Object.freeze({ ...adapter, observeLeaseOwner }),
-            lease: persistence.lease,
-            records: createProjectRuntimeIntegrationRecordAdapter({
-              workingDirectory: repositoryRoot,
-              repositoryBindingId,
-              projectId,
-              milestoneId: "workbench-ai-change-candidate",
-              queueId: `workbench-adoption-${operationId}`,
-            }),
-          }),
-          Object.freeze({
+      const adopted = await adoptProjectRuntimeExistingCandidate(
+        Object.freeze({
+          candidate: Object.freeze({ ...adapter, observeLeaseOwner }),
+          lease: persistence.lease,
+          records: createProjectRuntimeIntegrationRecordAdapter({
+            workingDirectory: repositoryRoot,
+            repositoryBindingId,
             projectId,
-            candidate: bound,
-            allowedPaths: review.candidate.changedPaths,
-            adoptionAuthorized: true,
+            milestoneId: "workbench-ai-change-candidate",
+            queueId: `workbench-adoption-${operationId}`,
           }),
-        ),
+        }),
+        Object.freeze({
+          projectId,
+          candidate: bound,
+          allowedPaths: review.candidate.changedPaths,
+          adoptionAuthorized: true,
+        }),
       );
+      if (
+        adopted.status === "completed" ||
+        (adopted.reason ===
+          "project_runtime_adoption_revision_or_scope_mismatch" &&
+          !adopted.effectIssued &&
+          !adopted.effectStateUnknown &&
+          adopted.cleanupConfirmed &&
+          !adopted.manualRecoveryRequired &&
+          adopted.recoveryIds.length === 0)
+      ) {
+        const maintained = maintainProjectRuntimeSnapshot(
+          repositoryRoot,
+          repositoryBindingId,
+        );
+        if (maintained.status !== "completed")
+          return adoptionResult({
+            ...adopted,
+            status: "blocked",
+            reason: maintained.reason,
+            cleanupConfirmed: false,
+            manualRecoveryRequired: true,
+            effectStateUnknown: true,
+          });
+      }
+      return adoptionResult(adopted);
     },
 
     /**

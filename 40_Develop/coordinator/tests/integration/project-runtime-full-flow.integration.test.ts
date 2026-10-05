@@ -25,8 +25,11 @@ import {
   verifyExecutionIntelligenceRepositoryRoot,
 } from "../../../execution-intelligence/src/index.ts";
 import {
-  createProjectRuntimePersistencePorts,
-  readProjectRuntimeState,
+  createCurrentProjectRuntimePersistencePorts as createProjectRuntimePersistencePorts,
+  readCurrentProjectRuntimeState as readProjectRuntimeState,
+  initializeProjectRuntimeSnapshot,
+  createProjectRuntimeSnapshotIntegrationRecordPort as createProjectRuntimeIntegrationRecordAdapter,
+  createProjectRuntimeSnapshotAcceptanceDecisionStore as createProjectRuntimeAcceptanceDecisionStore,
 } from "../../src/security/project-runtime-durable-foundation.ts";
 import { recordProjectRuntimeExecutionEvent } from "../../src/security/execution-intelligence-adapter.ts";
 import {
@@ -40,12 +43,10 @@ import {
   type ProjectRuntimeReplanClassifier,
   type ProjectRuntimeReplanInput,
 } from "../../../project-runtime/src/index.ts";
-import { createProjectRuntimeIntegrationRecordAdapter } from "../../src/security/project-runtime-integration-record-adapter.ts";
 import { runProjectRuntimeObjective } from "../../src/security/project-runtime-objective-intake.ts";
 import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../src/security/project-runtime-execution-authorization-adapter.ts";
 import { createProjectRuntimeDecisionCapabilityAdapter } from "../../src/security/project-runtime-decision-capability-adapter.ts";
 import { createProjectRuntimeAcceptanceAuthorityAdapter } from "../../src/security/project-runtime-acceptance-authority-adapter.ts";
-import { createProjectRuntimeAcceptanceDecisionStore } from "../../src/security/project-runtime-acceptance-decision-store.ts";
 
 const revision = "a".repeat(40);
 
@@ -161,6 +162,10 @@ function fixture(t: test.TestContext) {
   );
   execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const initialized = initializeProjectRuntimeSnapshot(root, "binding-full");
+  assert.equal(initialized.status, "completed");
+  if (initialized.status !== "completed")
+    throw new Error("fixture_bootstrap_failed");
   const request = Object.freeze({
     requestId: "request-full",
     projectId: "project-full",
@@ -174,6 +179,7 @@ function fixture(t: test.TestContext) {
     maximumReplans: 2,
     originLane: "interactive" as const,
     adoptResult: false,
+    intakeEpoch: initialized.value,
   });
   let attempts = 0;
   const dependencies = {
@@ -391,6 +397,13 @@ test("bounded parallel attempts are evaluated by one integrated accepted result"
   );
   execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const initialized = initializeProjectRuntimeSnapshot(
+    root,
+    "binding-bounded-evaluation",
+  );
+  assert.equal(initialized.status, "completed");
+  if (initialized.status !== "completed")
+    throw new Error("fixture_bootstrap_failed");
   const request = Object.freeze({
     requestId: "request-bounded-evaluation",
     projectId: "project-bounded-evaluation",
@@ -404,6 +417,7 @@ test("bounded parallel attempts are evaluated by one integrated accepted result"
     maximumReplans: 0,
     originLane: "interactive" as const,
     adoptResult: false,
+    intakeEpoch: initialized.value,
   });
   let active = 0;
   let maximumActive = 0;

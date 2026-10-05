@@ -7,6 +7,27 @@
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { normalizeRepositoryRelativePath } from "../../../project-runtime/src/boundary/repository-relative-path.ts";
+import { acquireRuntimeOwnedProjectRuntimeStateKernelLock } from "./candidate-store-kernel-lock.ts";
+import { readStableBoundedFileSnapshot } from "./bounded-file-snapshot.ts";
+import {
+  validProjectRuntimeResultRecord,
+  type LegacyResultRecord,
+  type IntegrationRecordBinding,
+} from "./project-runtime-integration-record-adapter.ts";
+import {
+  historyRow,
+  updateProjectRuntimeHistoryOwned,
+  inspectProjectRuntimeHistorySettlement,
+  type HistoryRow,
+} from "./project-runtime-history.ts";
+import {
+  PROJECT_RUNTIME_ACCEPTANCE_DECISION_STORE_CONTRACT,
+  validProjectRuntimeAcceptanceDecisionEnvelope,
+  validProjectRuntimeAcceptanceDecisionRecord,
+  type ProjectRuntimeAcceptanceDecisionEnvelope,
+} from "./project-runtime-acceptance-decision-store.ts";
+import { validProjectRuntimeDecisionRecoveryIntent } from "./project-runtime-decision-recovery-store.ts";
 
 import type {
   ProjectQueueEntry,
@@ -20,11 +41,19 @@ import type {
   ProjectRuntimePortResult,
   ProjectRuntimeState,
   ProjectRuntimeStatePort,
+  ProjectRuntimeAcceptanceDecisionStore,
+  ProjectRuntimeDecisionRecoveryStore,
+  ProjectRuntimeDecisionRecoveryIntent,
   ProjectTaskRecoveryObligation,
+} from "../../../project-runtime/src/index.ts";
+import {
+  PROJECT_RUNTIME_INTEGRATION_CONTRACT,
+  type ProjectRuntimeIntegrationRecordPort,
 } from "../../../project-runtime/src/index.ts";
 import {
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
   requireReadyRepositoryRuntimeDataArea,
+  resolveRepositoryRuntimeDataPathsFromWorkingDirectory,
 } from "../../../runtime-data/src/index.ts";
 
 export const PROJECT_RUNTIME_DURABLE_FOUNDATION_CONTRACT =
@@ -79,9 +108,11 @@ type ActiveLease = Readonly<{
   lockOwnershipMarker: string;
   evidenceDirectory: string;
   identity: string;
+  snapshotPhysicalIdentity?: string;
 }>;
 
 const activeLeases = new WeakMap<ProjectRuntimeLease, ActiveLease>();
+const snapshotOwners = new WeakSet<object>();
 
 /**
  * project-runtime-durable-foundationで使用するEnvelopeの値契約を定義する。
@@ -106,10 +137,63 @@ type Envelope = Readonly<{
   content: unknown;
 }>;
 
+/**
+ * 検証済みRepositoryに結合した保存試行用排他を取得する。
+ *
+ * @responsibility 起動Directoryから同じRootのOS排他へ接続する。
+ * @trace ARCH-000004
+ * @input workingDirectory: 対象Repository内の起動Directory。
+ * @returns 保持確認・解放handle、または停止結果。
+ * @precondition WindowsのRepositoryとして一意に解決できる。
+ * @postcondition native realpathが取れなければ文字列Pathへfallbackしない。
+ * @effect Filesystemを読み、WorkerとOS排他を取得する。保存Fileは作らない。
+ * @failure Root不正、観測不能、競合と取得確認不能では停止する。
+ * @invariant 排他取得だけで保存・移行・旧Writer停止を主張しない。
+ * @boundary Repository検証からWindows短期排他への境界。
+ * @security 呼出し元から任意のRoot Hashを受け取らない。
+ * @concurrency 同Rootのcase差と配下起動を同じ排他へ結合する。
+ */
+export function acquireProjectRuntimeSnapshotPilotLock(
+  workingDirectory: string,
+): StoreResult<
+  NonNullable<
+    ReturnType<typeof acquireRuntimeOwnedProjectRuntimeStateKernelLock>
+  > &
+    Readonly<{ repositoryRoot: string; repositoryRootHash: string }>
+> {
+  try {
+    const paths =
+      resolveRepositoryRuntimeDataPathsFromWorkingDirectory(workingDirectory);
+    if (!paths || process.platform !== "win32")
+      return blocked("project_runtime_snapshot_lock_root_invalid", false);
+    const root = fs.realpathSync.native(paths.repositoryRoot);
+    assertDirectory(root);
+    const identity = digest(
+      `crdd-project-runtime-verified-root-v1\0${root.toLowerCase()}`,
+    );
+    const lock = acquireRuntimeOwnedProjectRuntimeStateKernelLock(identity);
+    if (!lock)
+      return blocked("project_runtime_snapshot_lock_unavailable", false);
+    const owner = Object.freeze({
+      ...lock,
+      repositoryRoot: root,
+      repositoryRootHash: identity,
+    });
+    snapshotOwners.add(owner);
+    return completed("project_runtime_snapshot_lock_acquired", owner);
+  } catch {
+    return blocked("project_runtime_snapshot_lock_root_invalid", false);
+  }
+}
+
 const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
 const HASH = /^[0-9a-f]{64}$/u;
 const REVISION = /^[0-9a-f]{40,64}$/u;
 const MAX_RECORD_BYTES = 16 * 1024 * 1024;
+const STATE_QUEUE_SNAPSHOT_PILOT_SCHEMA =
+  "crdd-coordinator/project-runtime-state-queue-snapshot-pilot/v1";
+const SNAPSHOT_SCHEMA = "crdd-coordinator/project-runtime-snapshot/v1";
+const SNAPSHOT_SCHEMA_V2 = "crdd-coordinator/project-runtime-snapshot/v2";
 const PROJECT_QUEUE_STATES = new Set<ProjectQueueState>([
   "queued",
   "leased",
@@ -776,7 +860,8 @@ function validLeaseEvidence(value: unknown) {
     Number(value.ownerProcessId) > 0 &&
     (value.disposition === "acquired" ||
       value.disposition === "released" ||
-      value.disposition === "recovered_after_owner_loss")
+      value.disposition === "recovered_after_owner_loss" ||
+      value.disposition === "acquisition_unknown_closed")
   );
 }
 
@@ -1380,6 +1465,23 @@ function leaseEvidenceRoot(runtime: string) {
 function activeLeaseIsObserved(activeLease: ActiveLease) {
   try {
     assertDirectory(activeLease.lock);
+    if (activeLease.snapshotPhysicalIdentity !== undefined) {
+      for (const directory of [
+        activeLease.repositoryRoot,
+        path.join(activeLease.repositoryRoot, ".crdd"),
+        path.join(activeLease.repositoryRoot, ".crdd", "tmp"),
+        path.dirname(activeLease.lock),
+      ]) {
+        assertDirectory(directory);
+        if (fs.realpathSync.native(directory) !== directory) return false;
+      }
+      const metadata = fs.lstatSync(activeLease.lock);
+      return (
+        digest(
+          JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
+        ) === activeLease.snapshotPhysicalIdentity
+      );
+    }
     return !fs.existsSync(activeLease.recoveryMarker);
   } catch {
     return false;
@@ -1582,9 +1684,9 @@ function readEnvelopeFile(directory: string, name: string): Envelope {
  *
  * @responsibility Envelopesの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000004
- * @input directory: string、prefix: string
+ * @input directory、prefix。requireObservedDirectoryは列挙済み対象の消失を拒否する移行準備用の指定。
  * @returns readonly Envelope[]を返す。
- * @precondition 「directory: string、prefix: string」がreadEnvelopesの入力契約を満たす。
+ * @precondition requireObservedDirectoryは呼出し元が対象を列挙済みの場合だけ指定する。
  * @postcondition readEnvelopesの責務を完了した結果だけを返す。
  * @effect readEnvelopesはFilesystemの読取りまたは書込みを実行する。
  * @failure readEnvelopesは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -1593,8 +1695,13 @@ function readEnvelopeFile(directory: string, name: string): Envelope {
  * @security readEnvelopesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: readEnvelopesは共有非同期状態を持たない同期処理である。
  */
-function readEnvelopes(directory: string, prefix: string): readonly Envelope[] {
-  if (!fs.existsSync(directory)) return Object.freeze([]);
+function readEnvelopes(
+  directory: string,
+  prefix: string,
+  shouldRequireObservedDirectory = false,
+): readonly Envelope[] {
+  if (!shouldRequireObservedDirectory && !fs.existsSync(directory))
+    return Object.freeze([]);
   assertDirectory(directory);
   const names = fs.readdirSync(directory);
   if (names.length > 4096)
@@ -1646,7 +1753,11 @@ type LeaseEvidenceContent = Readonly<{
   queueId: string;
   ownerGeneration: string;
   ownerProcessId: number;
-  disposition: "acquired" | "released" | "recovered_after_owner_loss";
+  disposition:
+    | "acquired"
+    | "released"
+    | "recovered_after_owner_loss"
+    | "acquisition_unknown_closed";
 }>;
 
 /**
@@ -1817,6 +1928,4710 @@ function validatedQueueHistory(
     resultItems.push(record as QueueEnvelope);
   }
   return Object.freeze(resultItems);
+}
+
+/**
+ * 旧形式から抽出した状態・Queueと検証元を表す。
+ *
+ * @responsibility 移行準備の観測結果と移行確定の区別を所有する。
+ * @trace ARCH-000004
+ * @shape 最新Envelope集合、全世代の正規化Hashと未移行の表示。
+ * @invariant 終端項目も含め、抽出結果だけでは移行完了を表示しない。
+ * @boundary 旧保存Adapterと移行準備の内部境界。
+ * @security N/A: この型は操作許可や削除Authorityを表さない。
+ * @compatibility v1の旧世代入力に限定し、新Snapshotの固定Schemaにはしない。
+ */
+type LegacyProjectRuntimeInputs = Readonly<{
+  states: readonly Envelope[];
+  queues: readonly Envelope[];
+  sourceRecords: readonly Readonly<{
+    relativePath: string;
+    normalizedEnvelopeHash: string;
+  }>[];
+  migrationCommitted: false;
+}>;
+
+/**
+ * State／Queue部分形式の値契約を定義する。
+ *
+ * @responsibility 保存切替前の試行用payloadと改訂番号を所有する。
+ * @trace ARCH-000004
+ * @shape Repository結合、Snapshot改訂、StateとQueueの配列。
+ * @invariant 完全なRuntime状態、Lease、Decisionまたは受領証明を表さない。
+ * @boundary N/A: 型宣言は外部操作を行わない。
+ * @security binding一致は呼出し元指定との一致だけでAuthorityではない。
+ * @compatibility 本番Portへ公開せず、試行codecに限定する。
+ */
+type StateQueueSnapshotPilotPayload = Readonly<{
+  schema: typeof STATE_QUEUE_SNAPSHOT_PILOT_SCHEMA;
+  schemaRevision: 1;
+  repositoryBindingId: string;
+  snapshotRevision: number;
+  projects: readonly ProjectRuntimeState[];
+  queueEntries: readonly ProjectQueueEntry[];
+}>;
+
+/**
+ * 一体保存する現在状態の閉じた値契約を定義する。
+ * @responsibility 既存値と受付世代、途中Lease、履歴未確定搬送を保持する。
+ * @trace ARCH-000004
+ * @shape 保存情報、受付結合、Project、Queue、Lease、結果、未搬送終了要約。
+ * @invariant 保護DecisionとOS handleを保存しない。保存と受付の世代を分離する。
+ * @boundary Repository-localの現在状態。
+ * @security Hashや状態名をAuthorityへ昇格しない。
+ * @compatibility 既存Portの値を維持し、実データ切替は別処置とする。
+ */
+type ProjectRuntimeSnapshot = Readonly<{
+  repositoryRootHash: string;
+  repositoryBindingId: string;
+  snapshotRevision: number;
+  intakeEpoch: string;
+  intakeBindings: readonly Readonly<{ queueId: string; epoch: string }>[];
+  projects: readonly ProjectRuntimeState[];
+  queueEntries: readonly ProjectQueueEntry[];
+  leaseEvidence: readonly LeaseEvidenceEnvelope[];
+  leaseIntents: readonly Readonly<{
+    projectId: string;
+    queueId: string;
+    kind: LeaseKind;
+    ownerGeneration: string;
+    ownerProcessId: number;
+    recoveryId: string;
+    phase:
+      | "acquisition_pending"
+      | "acquisition_reserved"
+      | "lock_owned"
+      | "release_pending"
+      | "recovery_pending";
+    physicalIdentity?: string | null;
+  }>[];
+  results: readonly LegacyResultRecord[];
+  historyPending: readonly HistoryRow[];
+}> &
+  (
+    | Readonly<{ schema: typeof SNAPSHOT_SCHEMA; schemaRevision: 1 }>
+    | Readonly<{
+        schema: typeof SNAPSHOT_SCHEMA_V2;
+        schemaRevision: 2;
+        acceptanceDecisions: readonly ProjectRuntimeAcceptanceDecisionEnvelope[];
+        decisionRecoveries: readonly Readonly<{
+          generation: number;
+          value: ProjectRuntimeDecisionRecoveryIntent;
+        }>[];
+      }>
+  );
+
+/**
+ * 現在状態の全区画と既存結合を検証する。
+ * @responsibility 部分codecを完全保存形式として受理しない。
+ * @trace ARCH-000004
+ * @input value: JSON値、binding: 期待Repository結合、rootHash: 取得済みRoot結合。
+ * @returns 閉じたSnapshotとして有効か。
+ * @precondition JSON値だけを渡す。
+ * @postcondition 参照、証拠、受付結合、結果と終了要約を検証する。
+ * @effect N/A: 値検証のみ。
+ * @failure 不正形状・未知区画・孤立参照はfalse。
+ * @invariant Owner状態や清掃を推定しない。
+ * @boundary JSONから保存契約。
+ * @security 既存保護情報を新規発行しない。
+ * @concurrency N/A: 同期検証。
+ */
+function validProjectRuntimeSnapshot(
+  value: unknown,
+  binding: string,
+  rootHash: string,
+): value is ProjectRuntimeSnapshot {
+  try {
+    if (
+      !plainObject(value) ||
+      !exactKeys(value, [
+        "schema",
+        "schemaRevision",
+        "repositoryRootHash",
+        "repositoryBindingId",
+        "snapshotRevision",
+        "intakeEpoch",
+        "intakeBindings",
+        "projects",
+        "queueEntries",
+        "leaseEvidence",
+        "leaseIntents",
+        "results",
+        "historyPending",
+        ...(value.schema === SNAPSHOT_SCHEMA_V2
+          ? ["acceptanceDecisions", "decisionRecoveries"]
+          : []),
+      ]) ||
+      !(
+        (value.schema === SNAPSHOT_SCHEMA && value.schemaRevision === 1) ||
+        (value.schema === SNAPSHOT_SCHEMA_V2 && value.schemaRevision === 2)
+      ) ||
+      value.repositoryBindingId !== binding ||
+      value.repositoryRootHash !== rootHash ||
+      !validId(binding) ||
+      !HASH.test(rootHash) ||
+      !validId(value.intakeEpoch) ||
+      !Number.isSafeInteger(value.snapshotRevision) ||
+      Number(value.snapshotRevision) < 1
+    )
+      return false;
+    for (const key of [
+      "intakeBindings",
+      "projects",
+      "queueEntries",
+      "leaseEvidence",
+      "leaseIntents",
+      "results",
+      "historyPending",
+    ])
+      if (!Array.isArray(value[key])) return false;
+    if (
+      !(value.projects as unknown[]).every(validProjectRuntimeState) ||
+      !(value.queueEntries as unknown[]).every(validQueueEntry)
+    )
+      return false;
+    const snapshot = value as unknown as ProjectRuntimeSnapshot;
+    const projects = new Set(snapshot.projects.map((item) => item.projectId));
+    const queues = new Map(
+      snapshot.queueEntries.map((item) => [item.queueId, item]),
+    );
+    if (
+      projects.size !== snapshot.projects.length ||
+      queues.size !== snapshot.queueEntries.length ||
+      snapshot.queueEntries.some((item) => !projects.has(item.projectId))
+    )
+      return false;
+    const intake = new Set<string>();
+    for (const item of snapshot.intakeBindings) {
+      if (
+        !plainObject(item) ||
+        !exactKeys(item, ["queueId", "epoch"]) ||
+        !validId(item.epoch) ||
+        !queues.has(item.queueId) ||
+        intake.has(item.queueId)
+      )
+        return false;
+      intake.add(item.queueId);
+    }
+    if (intake.size !== queues.size) return false;
+    const evidenceGroups = new Map<string, LeaseEvidenceEnvelope[]>();
+    for (const record of snapshot.leaseEvidence) {
+      if (
+        !plainObject(record) ||
+        !exactKeys(record, [
+          "schema",
+          "schemaRevision",
+          "recordKind",
+          "repositoryBindingId",
+          "projectId",
+          "createdGeneration",
+          "updatedGeneration",
+          "contentHash",
+          "content",
+        ]) ||
+        record.schema !== PROJECT_RUNTIME_DURABLE_FOUNDATION_CONTRACT ||
+        record.schemaRevision !== 1 ||
+        record.recordKind !== "lease-evidence" ||
+        record.repositoryBindingId !== binding ||
+        !validId(record.projectId) ||
+        !validLeaseEvidence(record.content) ||
+        record.createdGeneration !== 1 ||
+        record.updatedGeneration !==
+          (record.content.disposition === "acquired" ? 1 : 2) ||
+        record.contentHash !== digest(JSON.stringify(record.content)) ||
+        !(record.content.kind === "canonical-adoption"
+          ? record.content.queueId === "canonical"
+          : queues.get(record.content.queueId)?.projectId === record.projectId)
+      )
+        return false;
+      const key = `${leaseIdentity(binding, record.projectId, record.content.queueId, record.content.kind)}\0${record.content.ownerGeneration}`;
+      const groups = evidenceGroups.get(key) ?? [];
+      groups.push(record);
+      evidenceGroups.set(key, groups);
+    }
+    for (const groups of evidenceGroups.values()) {
+      const acquired = groups.find(
+        (item) => item.content.disposition === "acquired",
+      );
+      if (
+        (!acquired &&
+          !(
+            snapshot.schema === SNAPSHOT_SCHEMA_V2 &&
+            groups.length === 1 &&
+            groups[0]?.content.disposition === "acquisition_unknown_closed"
+          )) ||
+        groups.length > 2 ||
+        new Set(groups.map((item) => item.content.disposition)).size !==
+          groups.length ||
+        groups.some(
+          (item) =>
+            item.projectId !== groups[0]?.projectId ||
+            item.content.queueId !== groups[0]?.content.queueId ||
+            item.content.ownerProcessId !== groups[0]?.content.ownerProcessId ||
+            (acquired &&
+              item.content.disposition === "acquisition_unknown_closed"),
+        )
+      )
+        return false;
+    }
+    const intents = new Set<string>();
+    const intentOwners = new Map<string, string>();
+    for (const item of snapshot.leaseIntents) {
+      if (
+        !plainObject(item) ||
+        !exactKeys(item, [
+          "projectId",
+          "queueId",
+          "kind",
+          "ownerGeneration",
+          "ownerProcessId",
+          "recoveryId",
+          "phase",
+          ...(snapshot.schema === SNAPSHOT_SCHEMA_V2
+            ? ["physicalIdentity"]
+            : []),
+        ]) ||
+        !validId(item.projectId) ||
+        !(item.kind === "canonical-adoption"
+          ? item.queueId === "canonical"
+          : queues.get(item.queueId)?.projectId === item.projectId) ||
+        (item.kind !== "project-operation" &&
+          item.kind !== "canonical-adoption") ||
+        !validId(item.ownerGeneration) ||
+        !Number.isSafeInteger(item.ownerProcessId) ||
+        item.ownerProcessId < 1 ||
+        item.recoveryId !==
+          leaseAcquisitionRecoveryId(
+            binding,
+            item.projectId,
+            item.queueId,
+            item.kind,
+          ) ||
+        ![
+          "acquisition_pending",
+          "acquisition_reserved",
+          "lock_owned",
+          "release_pending",
+          "recovery_pending",
+        ].includes(item.phase)
+      )
+        return false;
+      if (
+        snapshot.schema === SNAPSHOT_SCHEMA_V2 &&
+        !(
+          ((item.phase === "acquisition_pending" ||
+            item.phase === "acquisition_reserved" ||
+            item.phase === "recovery_pending") &&
+            item.physicalIdentity === null) ||
+          (item.phase !== "acquisition_pending" &&
+            item.phase !== "acquisition_reserved" &&
+            typeof item.physicalIdentity === "string" &&
+            HASH.test(item.physicalIdentity))
+        )
+      )
+        return false;
+      const key = `${leaseIdentity(binding, item.projectId, item.queueId, item.kind)}\0${item.ownerGeneration}\0${item.phase}`;
+      const leaseKey = leaseIdentity(
+        binding,
+        item.projectId,
+        item.queueId,
+        item.kind,
+      );
+      const ownerKey = `${item.ownerGeneration}\0${item.ownerProcessId}\0${item.queueId}\0${item.projectId}`;
+      const evidence = evidenceGroups.get(
+        `${leaseKey}\0${item.ownerGeneration}`,
+      );
+      if (
+        evidence?.some(
+          (record) =>
+            record.projectId !== item.projectId ||
+            record.content.queueId !== item.queueId ||
+            record.content.ownerProcessId !== item.ownerProcessId,
+        )
+      )
+        return false;
+      if (intentOwners.has(leaseKey) && intentOwners.get(leaseKey) !== ownerKey)
+        return false;
+      intentOwners.set(leaseKey, ownerKey);
+      if (intents.has(key)) return false;
+      intents.add(key);
+    }
+    const results = new Set<string>();
+    for (const item of snapshot.results) {
+      if (
+        !validProjectRuntimeResultRecord(item) ||
+        item.repositoryBindingId !== binding ||
+        (queues.has(item.queueId) &&
+          (queues.get(item.queueId)?.projectId !== item.projectId ||
+            queues.get(item.queueId)?.milestoneId !== item.milestoneId))
+      )
+        return false;
+      const key = `${item.kind}\0${item.projectId}\0${item.identity}`;
+      if (results.has(key)) return false;
+      results.add(key);
+    }
+    const history = new Set<string>();
+    for (const item of snapshot.historyPending) {
+      historyRow(item, Date.now());
+      if (history.has(item.id)) return false;
+      history.add(item.id);
+    }
+    if (snapshot.schema === SNAPSHOT_SCHEMA_V2) {
+      for (const groups of evidenceGroups.values()) {
+        const acquired = groups.find(
+          (item) => item.content.disposition === "acquired",
+        );
+        if (
+          groups.length === 1 &&
+          acquired &&
+          !snapshot.leaseIntents.some(
+            (item) =>
+              item.projectId === acquired.projectId &&
+              item.queueId === acquired.content.queueId &&
+              item.kind === acquired.content.kind &&
+              item.ownerGeneration === acquired.content.ownerGeneration &&
+              item.ownerProcessId === acquired.content.ownerProcessId &&
+              item.phase === "lock_owned",
+          )
+        )
+          return false;
+      }
+      if (
+        !Array.isArray(snapshot.acceptanceDecisions) ||
+        !Array.isArray(snapshot.decisionRecoveries)
+      )
+        return false;
+      const decisions = new Map<
+        string,
+        ProjectRuntimeAcceptanceDecisionEnvelope[]
+      >();
+      for (const item of snapshot.acceptanceDecisions) {
+        if (
+          !plainObject(item) ||
+          !exactKeys(item, [
+            "contract",
+            "repositoryBindingId",
+            "recordId",
+            "generation",
+            "previousHash",
+            "record",
+          ]) ||
+          !validId(item.recordId) ||
+          !validProjectRuntimeAcceptanceDecisionEnvelope(
+            item,
+            binding,
+            item.recordId,
+          ) ||
+          !plainObject(item.record) ||
+          !exactKeys(item.record, [
+            "recordId",
+            "decisionId",
+            "sourceSpecId",
+            "projectId",
+            "milestoneId",
+            "repositoryRevision",
+            "expectedGeneration",
+            "target",
+            "targetId",
+            "decision",
+            "criterionEvidenceIds",
+            "principalId",
+            "disposition",
+            "newGeneration",
+          ]) ||
+          !projects.has(item.record.projectId)
+        )
+          return false;
+        const groups = decisions.get(item.recordId) ?? [];
+        groups.push(item);
+        decisions.set(item.recordId, groups);
+      }
+      for (const groups of decisions.values()) {
+        const first = groups.find((item) => item.generation === 1);
+        const second = groups.find((item) => item.generation === 2);
+        if (
+          !first ||
+          groups.length > 2 ||
+          new Set(groups.map((item) => item.generation)).size !==
+            groups.length ||
+          (second && second.previousHash !== digest(JSON.stringify(first)))
+        )
+          return false;
+      }
+      const recoveries = new Set<string>();
+      for (const item of snapshot.decisionRecoveries) {
+        if (
+          !plainObject(item) ||
+          !exactKeys(item, ["generation", "value"]) ||
+          !Number.isSafeInteger(item.generation) ||
+          Number(item.generation) < 1 ||
+          !validProjectRuntimeDecisionRecoveryIntent(item.value) ||
+          !plainObject(item.value) ||
+          !exactKeys(item.value, [
+            "recoveryId",
+            "recordId",
+            "projectId",
+            "milestoneId",
+            "queueId",
+            "applicationId",
+            "expectedGeneration",
+            "newGeneration",
+            "observedDisposition",
+            "unknownBoundary",
+            "disposition",
+          ]) ||
+          queues.get(item.value.queueId)?.projectId !== item.value.projectId ||
+          queues.get(item.value.queueId)?.milestoneId !==
+            item.value.milestoneId ||
+          recoveries.has(item.value.recoveryId)
+        )
+          return false;
+        recoveries.add(item.value.recoveryId);
+      }
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 保存Envelopeを復号し全区画とHashを検証する。
+ * @responsibility 不正・部分Snapshotを保存入力から拒否する。
+ * @trace ARCH-000004
+ * @input bytes: UTF-8 JSON、bindingとrootHash: 期待結合。
+ * @returns 検証済みSnapshot、または例外。
+ * @precondition 実体Rootを別途確認する。
+ * @postcondition 未知区画、内容Hashと結合を検証済み。
+ * @effect N/A: 復号のみ。
+ * @failure 不正入力と16MiB超過で例外。
+ * @invariant 受理だけで実移行を表示しない。
+ * @boundary Byte文字列と保存契約。
+ * @security Authorityを生成しない。
+ * @concurrency N/A: 純粋復号。
+ */
+function decodeProjectRuntimeSnapshot(
+  bytes: string,
+  binding: string,
+  rootHash: string,
+): ProjectRuntimeSnapshot {
+  if (
+    typeof bytes !== "string" ||
+    Buffer.byteLength(bytes, "utf8") > MAX_RECORD_BYTES
+  )
+    throw new Error("snapshot_bytes_invalid");
+  const value: unknown = JSON.parse(bytes);
+  if (
+    !plainObject(value) ||
+    !exactKeys(value, ["payload", "contentHash", "baseRevision", "baseHash"]) ||
+    !validProjectRuntimeSnapshot(value.payload, binding, rootHash) ||
+    value.contentHash !== digest(JSON.stringify(value.payload)) ||
+    value.baseRevision !== value.payload.snapshotRevision - 1 ||
+    (value.baseRevision === 0
+      ? value.baseHash !== null
+      : typeof value.baseHash !== "string" || !HASH.test(value.baseHash))
+  )
+    throw new Error("snapshot_invalid");
+  return value.payload;
+}
+
+/**
+ * 統合保存の現在値を変更せず読み取る。
+ * @responsibility 真正不存在と未確定保存・観測不能を区別する。
+ * @trace ARCH-000004
+ * @input workingDirectory: Repository内の起点、binding: 期待する保存結合。
+ * @returns 検証済みSnapshot、真正不存在のnull、または停止。
+ * @precondition 本番切替は呼出し側が別途管理する。
+ * @postcondition Root・全区画・Hashと排他解放を確認した時だけ成功する。
+ * @effect Fileの読取りと短期排他のみ。保存領域を作成しない。
+ * @failure alias、途中消失、pending、破損と結合不明を拒否する。
+ * @invariant 新版破損を旧形式へのFallback許可にしない。
+ * @boundary Repository-localの統合保存から内部Portへの境界。
+ * @security 読取りだけでAuthorityや手動Recovery義務を発行しない。
+ * @concurrency 同Rootの短期OS排他を取得し解放確認まで成功を保留する。
+ */
+export function readProjectRuntimeSnapshot(
+  workingDirectory: string,
+  binding: string,
+): StoreResult<ProjectRuntimeSnapshot | null> {
+  if (!validId(binding))
+    return blocked("project_runtime_snapshot_input_invalid");
+  const acquired = acquireProjectRuntimeSnapshotPilotLock(workingDirectory);
+  if (acquired.status !== "completed") return blocked(acquired.reason);
+  const lock = acquired.value;
+  const outcome = readProjectRuntimeSnapshotOwned(lock, binding);
+  if (!lock.release())
+    return blocked("project_runtime_snapshot_lock_release_unconfirmed", true);
+  return outcome;
+}
+
+/**
+ * 清掃済みの保存領域を新版の現在状態として初期化する。
+ * @responsibility 明示的な切替でだけ受付世代を発行する。
+ * @trace ARCH-000004
+ * @input workingDirectory: 検証対象Root、binding: Repository結合。
+ * @returns 確定保存した受付世代、または保全停止。
+ * @precondition 旧記録の清掃はフロントAIが完了している。
+ * @postcondition 同時初期化でも保存済みの一世代だけを返す。
+ * @effect 新品領域にstate.jsonを作成する。
+ * @failure 旧記録、履歴、pending、破損、観測不能は初期化しない。
+ * @invariant QueryやRequest受付による暗黙初期化を行わない。
+ * @boundary Repository-localの切替と現在状態。
+ * @security 候補、認証、保護Decision、Evidenceを削除しない。
+ * @concurrency 同Rootの短期Ownerで検査と保存を直列化する。
+ */
+export function initializeProjectRuntimeSnapshot(
+  workingDirectory: string,
+  binding: string,
+): StoreResult<string> {
+  if (!validId(binding))
+    return blocked("project_runtime_snapshot_input_invalid");
+  const acquired = acquireProjectRuntimeSnapshotPilotLock(workingDirectory);
+  if (acquired.status !== "completed") return blocked(acquired.reason);
+  const owner = acquired.value;
+  let result: StoreResult<string>;
+  try {
+    const observed = readProjectRuntimeSnapshotOwned(owner, binding);
+    if (observed.status !== "completed") result = observed;
+    else if (observed.value !== null)
+      result =
+        observed.value.schema === SNAPSHOT_SCHEMA_V2
+          ? completed(
+              "project_runtime_snapshot_initialized",
+              observed.value.intakeEpoch,
+            )
+          : blocked("project_runtime_snapshot_schema_invalid");
+    else {
+      const { runtime } = storageRoot(owner.repositoryRoot);
+      if (fs.readdirSync(runtime).some((name) => name !== "state.lock"))
+        result = blocked("project_runtime_snapshot_fresh_area_required");
+      else {
+        const payload: ProjectRuntimeSnapshot = {
+          schema: SNAPSHOT_SCHEMA_V2,
+          schemaRevision: 2,
+          repositoryRootHash: owner.repositoryRootHash,
+          repositoryBindingId: binding,
+          snapshotRevision: 1,
+          intakeEpoch: `epoch-${randomUUID()}`,
+          intakeBindings: [],
+          projects: [],
+          queueEntries: [],
+          leaseEvidence: [],
+          leaseIntents: [],
+          results: [],
+          historyPending: [],
+          acceptanceDecisions: [],
+          decisionRecoveries: [],
+        };
+        const saved = writeProjectRuntimeSnapshotOwned(
+          owner,
+          binding,
+          JSON.stringify(payload),
+          0,
+        );
+        result =
+          saved.status === "completed"
+            ? completed(
+                "project_runtime_snapshot_initialized",
+                saved.value.intakeEpoch,
+              )
+            : saved;
+      }
+    }
+  } catch {
+    result = blocked("project_runtime_snapshot_initialization_unconfirmed");
+  }
+  try {
+    if (!owner.release())
+      return blocked("project_runtime_snapshot_lock_release_unconfirmed", true);
+  } catch {
+    return blocked("project_runtime_snapshot_lock_release_unconfirmed", true);
+  }
+  return result;
+}
+
+/**
+ * 取得済み排他Ownerの値契約を定義する。
+ * @responsibility 保存の内部処置へRoot結合と生存確認を渡す。
+ * @trace ARCH-000004
+ * @shape OS排他handle、repositoryRoot、repositoryRootHash。
+ * @invariant 呼出し元指定のHashを取得済みOwnerとして扱わない。
+ * @boundary 保存処置のProcess内境界。
+ * @security JSONから構築せず検証済み取得結果だけを用いる。
+ * @compatibility 既存の短期排他取得結果と同じ値契約。
+ */
+export type ProjectRuntimeSnapshotOwner = NonNullable<
+  ReturnType<typeof acquireRuntimeOwnedProjectRuntimeStateKernelLock>
+> &
+  Readonly<{ repositoryRoot: string; repositoryRootHash: string }>;
+
+/**
+ * 借用する保存Ownerの実発行と生存を確認する。
+ * @responsibility 値が同じだけの偽造handleを拒否する。
+ * @trace ARCH-000004
+ * @input owner: 未検証handle。
+ * @returns 発行済みで現在保持中ならtrue。
+ * @precondition 同じModuleの発行集合を用いる。
+ * @postcondition 解放済みと偽造値を拒否する。
+ * @effect Rootの読取りだけを行う。
+ * @failure 観測不能はfalse。
+ * @invariant JSONや構造的な型から排他を生成しない。
+ * @boundary 保存Ownerと履歴借用入口。
+ * @security Root以外の書込み許可を与えない。
+ * @concurrency 取得・解放は呼出し側が所有する。
+ */
+export function isLiveProjectRuntimeSnapshotOwner(
+  owner: unknown,
+): owner is ProjectRuntimeSnapshotOwner {
+  if (!owner || typeof owner !== "object" || !snapshotOwners.has(owner))
+    return false;
+  const issued = owner as ProjectRuntimeSnapshotOwner;
+  try {
+    return (
+      issued.assertLive() &&
+      fs.realpathSync.native(issued.repositoryRoot) === issued.repositoryRoot &&
+      !fs.lstatSync(issued.repositoryRoot).isSymbolicLink()
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 統合保存上のProject状態だけを同じ排他内で更新する。
+ * @responsibility 既存State世代の比較と他区画の保全を接続する。
+ * @trace ARCH-000004
+ * @input workingDirectory、binding、stateJson、expectedGeneration。
+ * @returns 保存済みProject状態、または記録を保全した停止。
+ * @precondition 全入力を照合したSnapshotが既に存在する。
+ * @postcondition Snapshot改訂とState世代を別々に検証し、解放確認後に成功する。
+ * @effect 統合state.jsonと固定pendingだけを更新する。
+ * @failure 入力不正、不存在、世代競合、pendingまたは保存不明で停止する。
+ * @invariant Queue、受付結合、Lease、結果と未搬送履歴を変更しない。
+ * @boundary 明示的な接続試行から統合保存への境界。本番Factoryは切り替えない。
+ * @security 旧形式Fallback、初期化、Authority発行と旧記録削除を行わない。
+ * @concurrency 読取り・比較・保存まで一つの短期Ownerを保持し外部待機しない。
+ */
+export function writeProjectRuntimeSnapshotState(
+  workingDirectory: string,
+  binding: string,
+  stateJson: string,
+  expectedGeneration: number,
+  intake?: Readonly<{
+    epoch: string;
+    queueId: string;
+    requestHash: string;
+    projectId: string;
+    milestoneId: string;
+  }>,
+): StoreResult<ProjectRuntimeState> {
+  let state: ProjectRuntimeState;
+  try {
+    if (
+      !validId(binding) ||
+      typeof stateJson !== "string" ||
+      Buffer.byteLength(stateJson, "utf8") > MAX_RECORD_BYTES ||
+      !Number.isSafeInteger(expectedGeneration) ||
+      expectedGeneration < 0
+    )
+      throw new Error("snapshot_state_input_invalid");
+    const parsed: unknown = JSON.parse(stateJson);
+    if (
+      !validProjectRuntimeState(parsed) ||
+      parsed.generation !== expectedGeneration + 1
+    )
+      throw new Error("snapshot_state_input_invalid");
+    state = parsed;
+  } catch {
+    return blocked("project_runtime_state_generation_mismatch");
+  }
+  const acquired = acquireProjectRuntimeSnapshotPilotLock(workingDirectory);
+  if (acquired.status !== "completed") return blocked(acquired.reason);
+  const lock = acquired.value;
+  let outcome: StoreResult<ProjectRuntimeState>;
+  try {
+    const observed = readProjectRuntimeSnapshotOwned(lock, binding);
+    if (observed.status !== "completed") outcome = blocked(observed.reason);
+    else if (observed.value === null)
+      outcome = blocked("project_runtime_snapshot_absent");
+    else {
+      const current = observed.value;
+      if (intake && !projectRuntimeSnapshotIntakeMatches(current, intake))
+        throw new Error("project_runtime_intake_epoch_retired");
+      const previous = current.projects.find(
+        (item) => item.projectId === state.projectId,
+      );
+      if ((previous?.generation ?? 0) !== expectedGeneration)
+        outcome = blocked("project_runtime_state_generation_conflict");
+      else {
+        const projects = previous
+          ? current.projects.map((item) =>
+              item.projectId === state.projectId ? state : item,
+            )
+          : [...current.projects, state];
+        const saved = writeProjectRuntimeSnapshotOwned(
+          lock,
+          binding,
+          JSON.stringify({
+            ...current,
+            snapshotRevision: current.snapshotRevision + 1,
+            projects,
+          }),
+          current.snapshotRevision,
+        );
+        outcome =
+          saved.status === "completed"
+            ? completed("project_runtime_state_durable", state)
+            : saved;
+      }
+    }
+  } catch {
+    outcome = blocked("project_runtime_state_observation_unknown");
+  }
+  if (!lock.release())
+    return blocked("project_runtime_snapshot_lock_release_unconfirmed", true);
+  return outcome;
+}
+
+/**
+ * 同じ排他Owner内で現在値を読み取る。
+ * @responsibility 自己再取得せず、読取りと保存の一連の処置を支える。
+ * @trace ARCH-000004
+ * @input lock: 取得済みOwner、binding: 期待する保存結合。
+ * @returns 検証済みSnapshot、真正不存在、または停止。
+ * @precondition 呼出し側が短期排他を取得し解放を担当する。
+ * @postcondition pendingを確定・回収せず現在値だけを返す。
+ * @effect File読取りのみ。保存領域を作成しない。
+ * @failure Root・親・File・内容の不正または観測不能で停止する。
+ * @invariant 取得・解放を内部で繰り返さない。
+ * @boundary 排他Owner内の保存読取り。
+ * @security 旧形式への自動Fallbackをしない。
+ * @concurrency 取得済み短期排他の保持を呼出し側が管理する。
+ */
+function readProjectRuntimeSnapshotOwned(
+  lock: ProjectRuntimeSnapshotOwner,
+  binding: string,
+): StoreResult<ProjectRuntimeSnapshot | null> {
+  let outcome: StoreResult<ProjectRuntimeSnapshot | null>;
+  try {
+    const resolved = resolveRepositoryRuntimeDataPathsFromWorkingDirectory(
+      lock.repositoryRoot,
+    );
+    if (
+      !resolved ||
+      resolved.repositoryRoot !== lock.repositoryRoot ||
+      !lock.assertLive()
+    )
+      throw new Error("snapshot_root_changed");
+    const root = lock.repositoryRoot;
+    const parents = [root, path.join(root, ".crdd"), resolved.projectRuntime];
+    let isAbsent = false;
+    for (const parent of parents) {
+      try {
+        fs.lstatSync(parent);
+      } catch (error) {
+        if (errorCode(error) !== "ENOENT" || parent === root) throw error;
+        for (const observed of parents.slice(0, parents.indexOf(parent)))
+          assertDirectory(observed);
+        isAbsent = true;
+        break;
+      }
+      assertDirectory(parent);
+    }
+    if (isAbsent) outcome = completed("project_runtime_snapshot_absent", null);
+    else {
+      const pending = path.join(resolved.projectRuntime, "state.pending.json");
+      let pendingExists = true;
+      try {
+        fs.lstatSync(pending);
+      } catch (error) {
+        if (errorCode(error) !== "ENOENT") throw error;
+        pendingExists = false;
+      }
+      for (const parent of parents) assertDirectory(parent);
+      if (pendingExists) throw new Error("snapshot_pending_unsettled");
+      const current = path.join(resolved.projectRuntime, "state.json");
+      let stat: fs.Stats | null = null;
+      try {
+        stat = fs.lstatSync(current);
+      } catch (error) {
+        if (errorCode(error) !== "ENOENT") throw error;
+        for (const parent of parents) assertDirectory(parent);
+      }
+      if (stat === null)
+        outcome = completed("project_runtime_snapshot_absent", null);
+      else {
+        if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1)
+          throw new Error("snapshot_file_invalid");
+        const observed = readStableBoundedFileSnapshot(
+          current,
+          MAX_RECORD_BYTES,
+        );
+        for (const parent of parents) assertDirectory(parent);
+        if (fs.lstatSync(current).nlink !== 1 || !lock.assertLive())
+          throw new Error("snapshot_observation_changed");
+        const bytes = new TextDecoder("utf-8", { fatal: true }).decode(
+          observed.bytes,
+        );
+        outcome = completed(
+          "project_runtime_snapshot_observed",
+          decodeProjectRuntimeSnapshot(bytes, binding, lock.repositoryRootHash),
+        );
+      }
+    }
+  } catch {
+    outcome = blocked("project_runtime_snapshot_invalid_or_unconfirmed", true);
+  }
+  return outcome;
+}
+
+/**
+ * 一体保存の変更と中断再入場を実行する。
+ * @responsibility 固定pendingを先に処置し期待改訂番号で保存を確定する。
+ * @trace ARCH-000004
+ * @input workingDirectory、binding、payloadJson、expectedRevision。
+ * @returns 保存したSnapshotまたは保全停止。
+ * @precondition 明示接続した呼出し側が旧Writer停止と全入力照合を担当する。
+ * @postcondition read-backとpending不存在を確認した時だけ成功を返す。
+ * @effect Repository-localのstate.lock、state.pending.json、state.jsonを更新する。
+ * @failure 排他、Root、世代、Hash、保存または回収不明で停止する。
+ * @invariant 実データの旧Writerを自動切替せず、旧記録を削除しない。
+ * @boundary 現在状態のFilesystem保存。
+ * @security 保護Decisionと任意Pathを受け取らない。
+ * @concurrency 同Rootの短期OS排他だけを保持し外部待機しない。
+ */
+export function writeProjectRuntimeSnapshot(
+  workingDirectory: string,
+  binding: string,
+  payloadJson: string,
+  expectedRevision: number,
+): StoreResult<ProjectRuntimeSnapshot> {
+  const acquired = acquireProjectRuntimeSnapshotPilotLock(workingDirectory);
+  if (acquired.status !== "completed") return blocked(acquired.reason);
+  const lock = acquired.value;
+  const outcome = writeProjectRuntimeSnapshotOwned(
+    lock,
+    binding,
+    payloadJson,
+    expectedRevision,
+  );
+  if (!lock.release())
+    return blocked("project_runtime_snapshot_lock_release_unconfirmed", true);
+  return outcome;
+}
+
+/**
+ * 同じ排他Owner内で保存と中断再入場を処置する。
+ * @responsibility 操作固有の更新から同じOwnerの保存確定へ接続する。
+ * @trace ARCH-000004
+ * @input lock: 取得済みOwner、binding、payloadJson、expectedRevision。
+ * @returns 保存結果または記録を保全した停止。
+ * @precondition 呼出し側が短期排他を取得し解放を担当する。
+ * @postcondition 現在File読戻しとpending不存在を確認した時だけ保存成功。
+ * @effect 固定marker・pending・現在Fileの保存を行う。
+ * @failure Root・世代・記録・保存・観測の不明時は保全停止する。
+ * @invariant 自己再取得せず、既存の遷移検査を維持する。
+ * @boundary 排他Owner内の保存更新。
+ * @security 旧Writerの自動切替や記録削除を発行しない。
+ * @concurrency 外部待機を行わず短期排他の保持範囲で保存する。
+ */
+function writeProjectRuntimeSnapshotOwned(
+  lock: ProjectRuntimeSnapshotOwner,
+  binding: string,
+  payloadJson: string,
+  expectedRevision: number,
+): StoreResult<ProjectRuntimeSnapshot> {
+  let outcome: StoreResult<ProjectRuntimeSnapshot>;
+  let filesystemEffectIssued = false;
+  try {
+    if (
+      !validId(binding) ||
+      !Number.isSafeInteger(expectedRevision) ||
+      expectedRevision < 0 ||
+      typeof payloadJson !== "string" ||
+      Buffer.byteLength(payloadJson, "utf8") > MAX_RECORD_BYTES
+    )
+      throw new Error("snapshot_input_invalid");
+    const payload: unknown = JSON.parse(payloadJson);
+    if (
+      !validProjectRuntimeSnapshot(payload, binding, lock.repositoryRootHash) ||
+      payload.snapshotRevision !== expectedRevision + 1
+    )
+      throw new Error("snapshot_input_invalid");
+    const resolved = resolveRepositoryRuntimeDataPathsFromWorkingDirectory(
+      lock.repositoryRoot,
+    );
+    if (
+      !resolved ||
+      resolved.repositoryRoot !== lock.repositoryRoot ||
+      !lock.assertLive()
+    )
+      throw new Error("snapshot_root_changed");
+    const { runtime, repositoryRoot: root } = storageRoot(lock.repositoryRoot);
+    if (root !== lock.repositoryRoot || !lock.assertLive())
+      throw new Error("snapshot_root_changed");
+    const currentPath = path.join(runtime, "state.json");
+    const pendingPath = path.join(runtime, "state.pending.json");
+    const markerPath = path.join(runtime, "state.lock");
+    const marker = `${JSON.stringify({ schema: "crdd-coordinator/project-runtime-state-lock/v1", repositoryRootHash: lock.repositoryRootHash })}\n`;
+    /**
+     * 正規Fileの真正不存在と安定読取りを区別する。
+     * @responsibility aliasと途中消失を空値へ畳まない。
+     * @trace ARCH-000004
+     * @input location: 固定保存File。
+     * @returns UTF-8本文または真正不存在のnull。
+     * @precondition 親領域を確認済み。
+     * @postcondition hardlinkと不正UTF-8を拒否する。
+     * @effect 読取りのみ。
+     * @failure 観測不能で例外。
+     * @invariant 不明と不存在を区別する。
+     * @boundary Filesystem。
+     * @security 固定Pathだけを読む。
+     * @concurrency Root排他下で実行する。
+     */
+    const read = (location: string): string | null => {
+      let stat: fs.Stats;
+      try {
+        stat = fs.lstatSync(location);
+      } catch (error) {
+        if (errorCode(error) !== "ENOENT") throw error;
+        assertDirectory(lock.repositoryRoot);
+        assertDirectory(path.join(root, ".crdd"));
+        assertDirectory(runtime);
+        return null;
+      }
+      if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1)
+        throw new Error("snapshot_file_invalid");
+      const observed = readStableBoundedFileSnapshot(
+        location,
+        MAX_RECORD_BYTES,
+      );
+      assertDirectory(root);
+      assertDirectory(path.join(root, ".crdd"));
+      assertDirectory(runtime);
+      if (fs.lstatSync(location).nlink !== 1)
+        throw new Error("snapshot_link_changed");
+      return new TextDecoder("utf-8", { fatal: true }).decode(observed.bytes);
+    };
+    /**
+     * 新規の固定候補を書き込みFile確定を要求する。
+     * @responsibility 部分書込みを成功として返さない。
+     * @trace ARCH-000004
+     * @input location: 固定Path、bytes: 検証済み本文。
+     * @returns N/A: 戻り値なし。
+     * @precondition 短期排他を保持し対象は不存在。
+     * @postcondition 同handleでfsyncを要求済み。
+     * @effect 固定Fileを新規作成する。
+     * @failure 作成・書込み・fsync失敗で例外。
+     * @invariant 既存Fileを上書きしない。
+     * @boundary Filesystem。
+     * @security mode0700親内のFileを0600で作る。
+     * @concurrency wxで競合作成を拒否する。
+     */
+    const create = (location: string, bytes: string): void => {
+      if (!lock.assertLive()) throw new Error("snapshot_lock_lost");
+      filesystemEffectIssued = true;
+      const fd = fs.openSync(location, "wx", 0o600);
+      try {
+        fs.writeFileSync(fd, bytes, "utf8");
+        fs.fsyncSync(fd);
+      } finally {
+        fs.closeSync(fd);
+      }
+    };
+    const existingMarker = read(markerPath);
+    if (existingMarker === null) create(markerPath, marker);
+    if (read(markerPath) !== marker)
+      throw new Error("snapshot_lock_marker_invalid");
+    let currentBytes = read(currentPath);
+    let current =
+      currentBytes === null
+        ? null
+        : decodeProjectRuntimeSnapshot(
+            currentBytes,
+            binding,
+            lock.repositoryRootHash,
+          );
+    const pendingBytes = read(pendingPath);
+    if (pendingBytes !== null) {
+      filesystemEffectIssued = true;
+      const candidate = decodeProjectRuntimeSnapshot(
+        pendingBytes,
+        binding,
+        lock.repositoryRootHash,
+      );
+      const pending = JSON.parse(pendingBytes) as {
+        baseRevision: number;
+        baseHash: string | null;
+      };
+      const hash = currentBytes === null ? null : digest(currentBytes);
+      if (
+        hash === pending.baseHash &&
+        (current?.snapshotRevision ?? 0) === pending.baseRevision
+      ) {
+        assertProjectRuntimeSnapshotTransition(current, candidate, lock);
+        const fd = fs.openSync(pendingPath, "r+");
+        try {
+          fs.fsyncSync(fd);
+        } finally {
+          fs.closeSync(fd);
+        }
+        if (!lock.assertLive() || read(pendingPath) !== pendingBytes)
+          throw new Error("snapshot_pending_changed");
+        filesystemEffectIssued = true;
+        fs.renameSync(pendingPath, currentPath);
+        currentBytes = read(currentPath);
+        if (currentBytes !== pendingBytes)
+          throw new Error("snapshot_readback_invalid");
+        current = candidate;
+      } else if (
+        hash === digest(pendingBytes) &&
+        current?.snapshotRevision === candidate.snapshotRevision
+      ) {
+        const fd = fs.openSync(currentPath, "r+");
+        try {
+          fs.fsyncSync(fd);
+        } finally {
+          fs.closeSync(fd);
+        }
+        if (!lock.assertLive() || read(pendingPath) !== pendingBytes)
+          throw new Error("snapshot_pending_changed");
+        filesystemEffectIssued = true;
+        fs.unlinkSync(pendingPath);
+      } else throw new Error("snapshot_pending_conflict");
+      if (read(pendingPath) !== null)
+        throw new Error("snapshot_pending_remains");
+    }
+    const candidateBytes = `${JSON.stringify({ payload, contentHash: digest(JSON.stringify(payload)), baseRevision: expectedRevision, baseHash: current?.snapshotRevision === payload.snapshotRevision ? (JSON.parse(currentBytes ?? "null") as { baseHash: string | null }).baseHash : currentBytes === null ? null : digest(currentBytes) })}\n`;
+    if (Buffer.byteLength(candidateBytes, "utf8") > MAX_RECORD_BYTES)
+      throw new Error("snapshot_size_invalid");
+    if (currentBytes === candidateBytes)
+      outcome = completed("project_runtime_snapshot_durable", payload);
+    else {
+      if ((current?.snapshotRevision ?? 0) !== expectedRevision)
+        throw new Error("snapshot_revision_conflict");
+      assertProjectRuntimeSnapshotTransition(current, payload, lock);
+      create(pendingPath, candidateBytes);
+      if (!lock.assertLive()) throw new Error("snapshot_lock_lost");
+      const pending = read(pendingPath);
+      if (pending !== candidateBytes)
+        throw new Error("snapshot_pending_readback_invalid");
+      filesystemEffectIssued = true;
+      fs.renameSync(pendingPath, currentPath);
+      if (read(currentPath) !== candidateBytes || read(pendingPath) !== null)
+        throw new Error("snapshot_readback_invalid");
+      outcome = completed("project_runtime_snapshot_durable", payload);
+    }
+  } catch {
+    outcome = blocked(
+      "project_runtime_snapshot_invalid_or_unconfirmed",
+      filesystemEffectIssued,
+    );
+  }
+  return outcome;
+}
+
+/**
+ * 保存候補への遷移で未解決記録と受付結合を保全する。
+ * @responsibility 通常保存と中断再入場に同じ遷移制約を適用する。
+ * @trace ARCH-000004
+ * @input current: 現在値または初期不存在、payload: 検証済み候補。
+ * @returns N/A: 違反時に例外を返す。
+ * @precondition 双方の構造と結合は検証済み。
+ * @postcondition 改訂番号、記録世代と未解決区画の維持を確認済み。
+ * @effect N/A: 値の比較のみ。
+ * @failure 記録の除去、結合変更または世代飛越を拒否する。
+ * @invariant pendingで通常保存の保全制約を迂回しない。
+ * @boundary 現在値から候補への保存遷移。
+ * @security Hash一致を遷移許可と同一視しない。
+ * @concurrency N/A: 排他を所有する呼出し側で実行する。
+ */
+function assertProjectRuntimeSnapshotTransition(
+  current: ProjectRuntimeSnapshot | null,
+  payload: ProjectRuntimeSnapshot,
+  owner: ProjectRuntimeSnapshotOwner,
+): void {
+  if (payload.snapshotRevision !== (current?.snapshotRevision ?? 0) + 1)
+    throw new Error("snapshot_revision_conflict");
+  for (const intent of payload.leaseIntents) {
+    if (intent.phase !== "acquisition_reserved") continue;
+    if (
+      current?.leaseIntents.some(
+        (item) => JSON.stringify(item) === JSON.stringify(intent),
+      )
+    )
+      continue;
+    const identity = leaseIdentity(
+      payload.repositoryBindingId,
+      intent.projectId,
+      intent.queueId,
+      intent.kind,
+    );
+    if (
+      intent.physicalIdentity !== null ||
+      intent.ownerProcessId !== process.pid ||
+      payload.leaseIntents.filter(
+        (item) =>
+          leaseIdentity(
+            payload.repositoryBindingId,
+            item.projectId,
+            item.queueId,
+            item.kind,
+          ) === identity,
+      ).length !== 1 ||
+      current?.leaseIntents.some(
+        (item) =>
+          leaseIdentity(
+            payload.repositoryBindingId,
+            item.projectId,
+            item.queueId,
+            item.kind,
+          ) === identity,
+      ) ||
+      !projectRuntimeSnapshotLeaseResourcesAbsent(
+        owner.repositoryRoot,
+        identity,
+      )
+    )
+      throw new Error("snapshot_acquisition_reservation_invalid");
+  }
+  if (current) {
+    if (payload.schema !== current.schema)
+      throw new Error("snapshot_schema_transition_invalid");
+    const retired = new Set(
+      current.queueEntries
+        .filter(
+          (queue) =>
+            !payload.queueEntries.some(
+              (item) => item.queueId === queue.queueId,
+            ),
+        )
+        .map((item) => item.queueId),
+    );
+    const retiredMilestones = new Set(
+      current.queueEntries
+        .filter(
+          (queue) =>
+            retired.has(queue.queueId) &&
+            !payload.queueEntries.some(
+              (item) =>
+                item.projectId === queue.projectId &&
+                item.milestoneId === queue.milestoneId,
+            ),
+        )
+        .map((queue) => JSON.stringify([queue.projectId, queue.milestoneId])),
+    );
+    const currentEvidenceIds = new Set(
+      [...current.projects, ...payload.projects].flatMap((project) => [
+        ...project.milestone.criterionEvidenceIds,
+        ...project.objectives.flatMap(
+          (objective) => objective.criterionEvidenceIds,
+        ),
+      ]),
+    );
+    for (const queueId of retired) {
+      const row = current.historyPending.find((item) => item.id === queueId);
+      if (
+        !projectRuntimeQueueIsClosed(current, queueId, owner) ||
+        !row ||
+        inspectProjectRuntimeHistorySettlement(owner, row) === null
+      )
+        throw new Error("snapshot_retirement_unconfirmed");
+    }
+    if (retired.size > 0 !== (payload.intakeEpoch !== current.intakeEpoch))
+      throw new Error("snapshot_intake_epoch_transition_invalid");
+    if (
+      current.schema === SNAPSHOT_SCHEMA_V2 &&
+      payload.schema === SNAPSHOT_SCHEMA_V2
+    ) {
+      for (const old of current.acceptanceDecisions) {
+        if (
+          retiredMilestones.has(
+            JSON.stringify([old.record.projectId, old.record.milestoneId]),
+          ) &&
+          current.acceptanceDecisions.some(
+            (item) =>
+              item.recordId === old.recordId &&
+              item.generation === 2 &&
+              item.record.disposition === "finalized",
+          ) &&
+          !payload.decisionRecoveries.some(
+            (item) => item.value.recordId === old.recordId,
+          )
+        )
+          continue;
+        if (
+          !payload.acceptanceDecisions.some(
+            (item) => JSON.stringify(item) === JSON.stringify(old),
+          )
+        )
+          throw new Error("snapshot_acceptance_decision_removed");
+      }
+      for (const old of current.decisionRecoveries) {
+        if (
+          retired.has(old.value.queueId) &&
+          old.value.disposition === "settled" &&
+          !payload.decisionRecoveries.some(
+            (item) => item.value.recoveryId === old.value.recoveryId,
+          )
+        )
+          continue;
+        const next = payload.decisionRecoveries.find(
+          (item) => item.value.recoveryId === old.value.recoveryId,
+        );
+        if (
+          !next ||
+          (JSON.stringify(next) !== JSON.stringify(old) &&
+            (next.generation !== old.generation + 1 ||
+              [
+                "recordId",
+                "projectId",
+                "milestoneId",
+                "queueId",
+                "expectedGeneration",
+              ].some(
+                (key) =>
+                  next.value[
+                    key as keyof ProjectRuntimeDecisionRecoveryIntent
+                  ] !==
+                  old.value[key as keyof ProjectRuntimeDecisionRecoveryIntent],
+              )))
+        )
+          throw new Error("snapshot_decision_recovery_transition_invalid");
+      }
+    }
+    for (const collection of ["results", "leaseEvidence"] as const) {
+      for (const old of current[collection])
+        if (
+          !payload[collection].some(
+            (item) => JSON.stringify(item) === JSON.stringify(old),
+          )
+        )
+          if (
+            collection === "results"
+              ? (!current.queueEntries.some(
+                  (queue) =>
+                    retired.has(queue.queueId) &&
+                    queue.queueId === (old as LegacyResultRecord).queueId &&
+                    queue.projectId === old.projectId &&
+                    queue.milestoneId ===
+                      (old as LegacyResultRecord).milestoneId,
+                ) &&
+                  !current.historyPending.some(
+                    (row) =>
+                      row.id === (old as LegacyResultRecord).identity &&
+                      projectRuntimeStandaloneAdoptionIsClosed(
+                        current,
+                        row.id,
+                        owner,
+                      ) &&
+                      inspectProjectRuntimeHistorySettlement(owner, row) !==
+                        null,
+                  )) ||
+                currentEvidenceIds.has((old as LegacyResultRecord).identity) ||
+                payload.queueEntries.some(
+                  (item) =>
+                    item.resultReference ===
+                    (old as LegacyResultRecord).identity,
+                )
+              : !current.queueEntries.some(
+                  (queue) =>
+                    (old as LeaseEvidenceEnvelope).content.kind ===
+                      "project-operation" &&
+                    retired.has(queue.queueId) &&
+                    queue.queueId ===
+                      (old as LeaseEvidenceEnvelope).content.queueId &&
+                    queue.projectId === old.projectId,
+                ) &&
+                !projectRuntimeRejectedAdoptionEvidenceCanRetire(
+                  current,
+                  payload,
+                  old as LeaseEvidenceEnvelope,
+                  owner,
+                ) &&
+                !(
+                  (old as LeaseEvidenceEnvelope).content.kind ===
+                    "canonical-adoption" &&
+                  !payload.queueEntries.some(
+                    (queue) => queue.projectId === old.projectId,
+                  ) &&
+                  !payload.leaseIntents.some(
+                    (intent) => intent.projectId === old.projectId,
+                  ) &&
+                  !payload.results.some(
+                    (record) =>
+                      record.kind === "adoption" &&
+                      record.projectId === old.projectId,
+                  ) &&
+                  current.historyPending.some(
+                    (row) =>
+                      (current.queueEntries.some(
+                        (queue) =>
+                          retired.has(queue.queueId) &&
+                          queue.projectId === old.projectId,
+                      ) ||
+                        current.results.some(
+                          (record) =>
+                            record.identity === row.id &&
+                            record.projectId === old.projectId &&
+                            !projectRuntimeAdoptionWasRejected(record) &&
+                            projectRuntimeStandaloneAdoptionIsClosed(
+                              current,
+                              row.id,
+                              owner,
+                            ),
+                        )) &&
+                      inspectProjectRuntimeHistorySettlement(owner, row) !==
+                        null,
+                  )
+                )
+          )
+            throw new Error("snapshot_retained_obligation_removed");
+    }
+    for (const old of current.historyPending) {
+      if (
+        !payload.historyPending.some(
+          (item) => JSON.stringify(item) === JSON.stringify(old),
+        ) &&
+        inspectProjectRuntimeHistorySettlement(owner, old) === null
+      )
+        throw new Error("snapshot_history_transfer_unconfirmed");
+    }
+    for (const old of current.leaseIntents) {
+      if (
+        payload.leaseIntents.some(
+          (item) => JSON.stringify(item) === JSON.stringify(old),
+        )
+      )
+        continue;
+      const end = payload.leaseEvidence.find(
+        (item) =>
+          item.projectId === old.projectId &&
+          item.content.queueId === old.queueId &&
+          item.content.kind === old.kind &&
+          item.content.ownerGeneration === old.ownerGeneration &&
+          item.content.ownerProcessId === old.ownerProcessId &&
+          item.content.disposition !== "acquired",
+      );
+      const identity = leaseIdentity(
+        payload.repositoryBindingId,
+        old.projectId,
+        old.queueId,
+        old.kind,
+      );
+      if (end && end.content.disposition !== "released") {
+        const recovery = current.leaseIntents.find(
+          (item) =>
+            item.projectId === old.projectId &&
+            item.queueId === old.queueId &&
+            item.kind === old.kind &&
+            item.ownerGeneration === old.ownerGeneration &&
+            item.ownerProcessId === old.ownerProcessId &&
+            item.phase === "recovery_pending",
+        );
+        const owned = current.leaseIntents.find(
+          (item) =>
+            item.projectId === old.projectId &&
+            item.queueId === old.queueId &&
+            item.kind === old.kind &&
+            item.ownerGeneration === old.ownerGeneration &&
+            item.phase === "lock_owned",
+        );
+        if (
+          !recovery ||
+          recovery.recoveryId !== old.recoveryId ||
+          (end.content.disposition === "acquisition_unknown_closed"
+            ? owned !== undefined ||
+              (recovery.physicalIdentity !== null &&
+                !current.leaseIntents.some(
+                  (item) =>
+                    item.projectId === old.projectId &&
+                    item.queueId === old.queueId &&
+                    item.kind === old.kind &&
+                    item.ownerGeneration === old.ownerGeneration &&
+                    item.phase === "acquisition_reserved",
+                ))
+            : !owned || recovery.physicalIdentity !== owned.physicalIdentity)
+        )
+          throw new Error("snapshot_recovery_intent_unconfirmed");
+      }
+      if (
+        current.schema !== SNAPSHOT_SCHEMA_V2 ||
+        !end ||
+        !projectRuntimeSnapshotLeaseResourcesAbsent(
+          owner.repositoryRoot,
+          identity,
+        )
+      )
+        throw new Error("snapshot_unsettled_lease_intent_removed");
+    }
+    for (const old of current.queueEntries) {
+      if (retired.has(old.queueId)) continue;
+      const next = payload.queueEntries.find(
+        (item) => item.queueId === old.queueId,
+      );
+      if (
+        !next ||
+        [
+          "projectId",
+          "milestoneId",
+          "requestHash",
+          "originLane",
+          "repositoryRevision",
+          "scopeHash",
+        ].some(
+          (key) =>
+            next[key as keyof ProjectQueueEntry] !==
+            old[key as keyof ProjectQueueEntry],
+        ) ||
+        (JSON.stringify(next) !== JSON.stringify(old) &&
+          next.generation !== old.generation + 1) ||
+        current.intakeBindings.find((item) => item.queueId === old.queueId)
+          ?.epoch !==
+          payload.intakeBindings.find((item) => item.queueId === old.queueId)
+            ?.epoch
+      )
+        throw new Error("snapshot_queue_generation_invalid");
+    }
+    for (const old of current.projects) {
+      const next = payload.projects.find(
+        (item) => item.projectId === old.projectId,
+      );
+      if (
+        next &&
+        next.milestoneId !== old.milestoneId &&
+        current.queueEntries.some(
+          (queue) =>
+            queue.projectId === old.projectId && !retired.has(queue.queueId),
+        )
+      )
+        throw new Error("snapshot_project_milestone_still_referenced");
+      if (
+        !next ||
+        (JSON.stringify(next) !== JSON.stringify(old) &&
+          next.generation !== old.generation + 1)
+      )
+        throw new Error("snapshot_project_generation_invalid");
+    }
+  }
+}
+
+/**
+ * 保存操作の読取り・値更新・確定を一つのOwnerへ閉じる。
+ * @responsibility 内部の同期処置だけを同じ短期排他へ接続する。
+ * @trace ARCH-000004
+ * @input workingDirectory、binding、Module内部の同期操作。
+ * @returns 操作値、または元の停止結果。
+ * @precondition 初期Snapshotは全入力照合によって別途確定している。
+ * @postcondition 保存・解放確認後だけ成功し、変更しない読取りは保存しない。
+ * @effect 操作が変更を返した場合に限り固定Snapshotを保存する。
+ * @failure 操作例外、保存停止、解放未確認を停止へ戻す。
+ * @invariant 外部公開callback、非同期待機と旧形式Fallbackを持たない。
+ * @boundary 保存Module内部の操作とFilesystem。
+ * @security Ownerを呼出し側へ公開せず、Authorityを新規発行しない。
+ * @concurrency 一回取得し、全処置結果から一回の解放確認へ戻す。
+ */
+function withProjectRuntimeSnapshotOperation<T>(
+  workingDirectory: string,
+  binding: string,
+  operation: (
+    current: ProjectRuntimeSnapshot,
+    owner: ProjectRuntimeSnapshotOwner,
+  ) => StoreResult<Readonly<{ next: ProjectRuntimeSnapshot | null; value: T }>>,
+): StoreResult<T> {
+  if (!validId(binding))
+    return blocked("project_runtime_snapshot_input_invalid");
+  const acquired = acquireProjectRuntimeSnapshotPilotLock(workingDirectory);
+  if (acquired.status !== "completed") return blocked(acquired.reason);
+  const owner = acquired.value;
+  let result: StoreResult<T>;
+  try {
+    const observed = readProjectRuntimeSnapshotOwned(owner, binding);
+    if (observed.status !== "completed") result = observed;
+    else if (observed.value === null)
+      result = blocked("project_runtime_snapshot_absent");
+    else {
+      const applied = operation(observed.value, owner);
+      if (applied.status !== "completed") result = applied;
+      else if (applied.value.next === null)
+        result = completed(applied.reason, applied.value.value);
+      else {
+        const saved = writeProjectRuntimeSnapshotOwned(
+          owner,
+          binding,
+          JSON.stringify({
+            ...applied.value.next,
+            snapshotRevision: observed.value.snapshotRevision + 1,
+          }),
+          observed.value.snapshotRevision,
+        );
+        result =
+          saved.status === "completed"
+            ? completed(applied.reason, applied.value.value)
+            : saved;
+      }
+    }
+  } catch {
+    result = blocked(
+      "project_runtime_snapshot_operation_invalid_or_unconfirmed",
+    );
+  }
+  try {
+    if (!owner.release())
+      return blocked("project_runtime_snapshot_lock_release_unconfirmed", true);
+  } catch {
+    return blocked("project_runtime_snapshot_lock_release_unconfirmed", true);
+  }
+  return result;
+}
+
+/**
+ * 一件の仕事について終了後の参照と実資源を照合する。
+ * @responsibility 状態名だけで終了記録を削除しない。
+ * @trace ARCH-000004
+ * @input current、Queue ID、取得済み保存Owner。
+ * @returns 現在の仕事が閉じている場合だけtrue。
+ * @precondition Snapshotは全体検証済み。
+ * @postcondition 判断待ち・未解決回復・Lease残存を拒否済み。
+ * @effect 所有するLeaseの不存在を読み取る。
+ * @failure 観測不能はfalse。
+ * @invariant Candidate本体と保護Authorityを削除しない。
+ * @boundary 現在状態と実行排他。
+ * @security 終了済みを認証・採用許可にしない。
+ * @concurrency 同じ短期Ownerで評価する。
+ */
+function projectRuntimeQueueIsClosed(
+  current: ProjectRuntimeSnapshot,
+  queueId: string,
+  owner: ProjectRuntimeSnapshotOwner,
+): boolean {
+  try {
+    if (current.schema !== SNAPSHOT_SCHEMA_V2) return false;
+    const queue = current.queueEntries.find((item) => item.queueId === queueId);
+    if (
+      !queue ||
+      !["completed", "cancelled"].includes(queue.state) ||
+      queue.ownerGeneration !== null
+    )
+      return false;
+    const project = current.projects.find(
+      (item) => item.projectId === queue.projectId,
+    );
+    if (
+      !project ||
+      project.milestoneId !== queue.milestoneId ||
+      !["accepted", "cancelled"].includes(project.milestone.state) ||
+      project.tasks.some(
+        (task) =>
+          !["completed", "failed", "cancelled", "superseded"].includes(
+            task.state,
+          ) ||
+          !task.cleanupConfirmed ||
+          task.recoveryUnresolved ||
+          task.recoveryObligations.some((item) => item.phase !== "settled"),
+      )
+    )
+      return false;
+    if (
+      current.leaseIntents.some((item) => item.projectId === queue.projectId) ||
+      current.decisionRecoveries.some(
+        (item) =>
+          item.value.queueId === queueId &&
+          item.value.disposition !== "settled",
+      )
+    )
+      return false;
+    if (project.tasks.some((task) => task.candidateId !== null)) {
+      const receipt = current.results.find(
+        (item) =>
+          item.queueId === queueId &&
+          item.kind === "adoption" &&
+          item.identity === queue.resultReference,
+      );
+      const candidate = current.results.find(
+        (item) => item.queueId === queueId && item.kind === "integration",
+      );
+      if (
+        !receipt ||
+        !candidate ||
+        !plainObject(receipt.value) ||
+        !plainObject(candidate.value) ||
+        receipt.value.status !== "completed" ||
+        receipt.value.cleanupConfirmed !== true ||
+        receipt.value.beforeRevision !== candidate.value.baseRevision ||
+        !Array.isArray(receipt.value.changedPaths) ||
+        !Array.isArray(candidate.value.changedPaths) ||
+        JSON.stringify([...receipt.value.changedPaths].sort()) !==
+          JSON.stringify([...candidate.value.changedPaths].sort())
+      )
+        return false;
+    }
+    const decisions = current.acceptanceDecisions.filter(
+      (item) =>
+        item.record.projectId === queue.projectId &&
+        item.record.milestoneId === queue.milestoneId,
+    );
+    if (
+      decisions.some(
+        (item) =>
+          !decisions.some(
+            (next) =>
+              next.recordId === item.recordId &&
+              next.generation === 2 &&
+              next.record.disposition === "finalized",
+          ),
+      )
+    )
+      return false;
+    for (const kind of ["project-operation", "canonical-adoption"] as const)
+      if (
+        !projectRuntimeSnapshotLeaseResourcesAbsent(
+          owner.repositoryRoot,
+          leaseIdentity(
+            current.repositoryBindingId,
+            queue.projectId,
+            kind === "project-operation" ? queueId : "canonical",
+            kind,
+          ),
+        )
+      )
+        return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 採用呼出し前に確定した拒否記録の閉じた値を確認する。
+ * @responsibility 拒否を成功Receiptや未知Effectから区別する。
+ * @trace ARCH-000004
+ * @input 検証済み採用Record。
+ * @returns exact Ownerに結合した既知拒否か。
+ * @precondition 値はJSONとして検証済みである。
+ * @postcondition 固定理由と全fieldが一致した場合だけtrue。
+ * @effect N/A: 局所値だけを検査する。
+ * @failure 不正値はfalse。
+ * @invariant Receipt不存在からEffect 0を推定しない。
+ * @boundary 採用Applicationと保存結果。
+ * @security Callerの追加fieldを採用しない。
+ * @concurrency N/A: 同期純粋処理。
+ */
+function projectRuntimeAdoptionWasRejected(
+  record: LegacyResultRecord,
+): boolean {
+  return (
+    record.kind === "adoption" &&
+    plainObject(record.value) &&
+    exactKeys(record.value, [
+      "status",
+      "reason",
+      "ownerGeneration",
+      "effectIssued",
+      "cleanupConfirmed",
+    ]) &&
+    record.value.status === "rejected" &&
+    record.value.reason ===
+      "project_runtime_adoption_revision_or_scope_mismatch" &&
+    record.value.ownerGeneration === record.identity &&
+    record.value.effectIssued === false &&
+    record.value.cleanupConfirmed === true
+  );
+}
+
+/**
+ * 既知拒否の終了証拠をexact Owner単位で整理できるか確認する。
+ * @responsibility 拒否結果、終了証拠、履歴確定と除去候補を結合する。
+ * @trace ARCH-000004
+ * @input 現在値、保存候補、終了証拠と取得済みOwner。
+ * @returns 全終了条件が成立した場合だけtrue。
+ * @precondition 同Rootの短期排他を保持する。
+ * @postcondition 別Owner世代の証拠を除去しない。
+ * @effect 実Leaseと履歴確定を読む。
+ * @failure 観測不能はfalse。
+ * @invariant 未知Effectと解放未確認を整理しない。
+ * @boundary 採用終了から履歴と現在保存。
+ * @security 履歴は再実行Authorityを持たない。
+ * @concurrency 同じ保存Owner内で評価する。
+ */
+function projectRuntimeRejectedAdoptionEvidenceCanRetire(
+  current: ProjectRuntimeSnapshot,
+  payload: ProjectRuntimeSnapshot,
+  evidence: LeaseEvidenceEnvelope,
+  owner: ProjectRuntimeSnapshotOwner,
+): boolean {
+  if (evidence.content.kind !== "canonical-adoption") return false;
+  const record = current.results.find(
+    (item) =>
+      item.projectId === evidence.projectId &&
+      item.identity === evidence.content.ownerGeneration &&
+      projectRuntimeAdoptionWasRejected(item),
+  );
+  const row =
+    record &&
+    current.historyPending.find((item) => item.id === record.identity);
+  return Boolean(
+    record &&
+      row &&
+      row.outcome === "failed" &&
+      row.primaryFailure === "execution" &&
+      !payload.results.some((item) => item.identity === record.identity) &&
+      projectRuntimeStandaloneAdoptionIsClosed(
+        current,
+        record.identity,
+        owner,
+      ) &&
+      inspectProjectRuntimeHistorySettlement(owner, row) !== null,
+  );
+}
+
+/**
+ * 通常Queueを持たない採用結果の終了条件を確認する。
+ * @responsibility 実適用Receipt、参照と実Leaseの現在観測から整理可能性を決める。
+ * @trace ARCH-000004
+ * @input 検証済み保存値、Receipt Identity、取得済みOwner。
+ * @returns 全条件が成立した場合だけtrue。
+ * @precondition Ownerは同じRepositoryへ結合している。
+ * @postcondition 使用中・参照中・未確定結果を退役対象にしない。
+ * @effect 所有する実Leaseの不存在を読む。
+ * @failure 不正Receiptと観測不能はfalse。
+ * @invariant Receiptを再適用Authorityへ変換しない。
+ * @boundary 独立候補採用と現在保存の境界。
+ * @security Candidate本文や秘密値を履歴へ複製しない。
+ * @concurrency 同じ短期Owner内で評価する。
+ */
+function projectRuntimeStandaloneAdoptionIsClosed(
+  current: ProjectRuntimeSnapshot,
+  identity: string,
+  owner: ProjectRuntimeSnapshotOwner,
+): boolean {
+  try {
+    if (current.schema !== SNAPSHOT_SCHEMA_V2) return false;
+    const record = current.results.find(
+      (item) => item.identity === identity && item.kind === "adoption",
+    );
+    const isRejected =
+      record !== undefined && projectRuntimeAdoptionWasRejected(record);
+    if (
+      !record ||
+      !plainObject(record.value) ||
+      (!isRejected &&
+        (!exactKeys(record.value, [
+          "status",
+          "receiptId",
+          "beforeRevision",
+          "afterRevision",
+          "changedPaths",
+          "cleanupConfirmed",
+        ]) ||
+          record.value.status !== "completed" ||
+          record.value.receiptId !== identity ||
+          record.value.cleanupConfirmed !== true ||
+          typeof record.value.beforeRevision !== "string" ||
+          !/^[0-9a-f]{40,64}$/u.test(record.value.beforeRevision) ||
+          typeof record.value.afterRevision !== "string" ||
+          !/^[0-9a-f]{40,64}$/u.test(record.value.afterRevision) ||
+          !Array.isArray(record.value.changedPaths) ||
+          record.value.changedPaths.length === 0 ||
+          record.value.changedPaths.some(
+            (item) =>
+              typeof item !== "string" ||
+              normalizeRepositoryRelativePath(item) === null,
+          ))) ||
+      current.queueEntries.some(
+        (queue) => queue.projectId === record.projectId,
+      ) ||
+      current.leaseIntents.some(
+        (intent) => intent.projectId === record.projectId,
+      ) ||
+      (isRejected &&
+        current.results.some(
+          (other) =>
+            other.projectId === record.projectId &&
+            other.kind === "adoption" &&
+            !projectRuntimeAdoptionWasRejected(other),
+        )) ||
+      current.decisionRecoveries.some(
+        (item) =>
+          item.value.projectId === record.projectId &&
+          item.value.disposition !== "settled",
+      ) ||
+      current.projects.some(
+        (project) =>
+          project.milestone.criterionEvidenceIds.includes(identity) ||
+          project.objectives.some((objective) =>
+            objective.criterionEvidenceIds.includes(identity),
+          ),
+      )
+    )
+      return false;
+    const evidence = current.leaseEvidence.filter(
+      (item) =>
+        item.projectId === record.projectId &&
+        item.content.kind === "canonical-adoption" &&
+        (!isRejected || item.content.ownerGeneration === identity),
+    );
+    if (
+      !evidence.length ||
+      evidence.some(
+        (item) =>
+          !evidence.some(
+            (end) =>
+              end.content.ownerGeneration === item.content.ownerGeneration &&
+              end.content.ownerProcessId === item.content.ownerProcessId &&
+              end.content.disposition !== "acquired",
+          ),
+      )
+    )
+      return false;
+    return projectRuntimeSnapshotLeaseResourcesAbsent(
+      owner.repositoryRoot,
+      leaseIdentity(
+        current.repositoryBindingId,
+        record.projectId,
+        "canonical",
+        "canonical-adoption",
+      ),
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 終了要約の生成、履歴確定、受付世代切替を接続する。
+ * @responsibility 閉じたQueueと専属の終了証拠を現在状態から退役する。
+ * @trace ARCH-000004
+ * @input Repository Root、binding、評価時刻。
+ * @returns 退役件数または保全停止。
+ * @precondition 本番の終了処置後に呼ぶ。Queryからは呼ばない。
+ * @postcondition 履歴確定後だけQueueを除き、同じ保存で受付世代を切り替える。
+ * @effect 固定history.jsonlとstate.jsonを保存する。
+ * @failure 保存失敗時は同じ終了時刻の要約を再送可能に保持する。
+ * @invariant 最新Project、結果、受入判断、候補、保護Authorityは保持する。
+ * @boundary 終了処置から現在状態と30日履歴。
+ * @security 未解決状態を期間だけで退役しない。
+ * @concurrency 各段階を同Rootの短期Ownerで直列化する。
+ */
+export function maintainProjectRuntimeSnapshot(
+  workingDirectory: string,
+  binding: string,
+  now = Date.now(),
+): StoreResult<number> {
+  const prepared = withProjectRuntimeSnapshotOperation(
+    workingDirectory,
+    binding,
+    (current, owner) => {
+      if (
+        !Number.isSafeInteger(now) ||
+        now < 0 ||
+        current.schema !== SNAPSHOT_SCHEMA_V2
+      )
+        return blocked("project_runtime_history_time_invalid");
+      const rows = current.queueEntries
+        .filter(
+          (queue) =>
+            !current.historyPending.some((row) => row.id === queue.queueId) &&
+            projectRuntimeQueueIsClosed(current, queue.queueId, owner),
+        )
+        .map(
+          (queue): HistoryRow => ({
+            id: queue.queueId,
+            occurredAt: new Date(now).toISOString(),
+            outcome: queue.state === "cancelled" ? "cancelled" : "completed",
+            primaryFailure: queue.state === "cancelled" ? "cancel" : null,
+            cleanup: "confirmed",
+          }),
+        );
+      for (const record of current.results) {
+        if (
+          current.historyPending.some((row) => row.id === record.identity) ||
+          !projectRuntimeStandaloneAdoptionIsClosed(
+            current,
+            record.identity,
+            owner,
+          )
+        )
+          continue;
+        rows.push({
+          id: record.identity,
+          occurredAt: new Date(now).toISOString(),
+          outcome: projectRuntimeAdoptionWasRejected(record)
+            ? "failed"
+            : "completed",
+          primaryFailure: projectRuntimeAdoptionWasRejected(record)
+            ? "execution"
+            : null,
+          cleanup: "confirmed",
+        });
+      }
+      return completed("project_runtime_history_prepared", {
+        next: rows.length
+          ? { ...current, historyPending: [...current.historyPending, ...rows] }
+          : null,
+        value: rows.length,
+      });
+    },
+  );
+  if (prepared.status !== "completed") return prepared;
+  return withProjectRuntimeSnapshotOperation(
+    workingDirectory,
+    binding,
+    (current, owner) => {
+      if (current.schema !== SNAPSHOT_SCHEMA_V2)
+        return blocked("project_runtime_snapshot_schema_invalid");
+      const trimmed = updateProjectRuntimeHistoryOwned(owner, null, now);
+      if (trimmed.status !== "completed") return blocked(trimmed.reason, true);
+      const retired = new Set<string>();
+      for (const row of current.historyPending) {
+        if (
+          !projectRuntimeQueueIsClosed(current, row.id, owner) &&
+          !projectRuntimeStandaloneAdoptionIsClosed(current, row.id, owner)
+        )
+          continue;
+        const saved = updateProjectRuntimeHistoryOwned(
+          owner,
+          JSON.stringify(row),
+          now,
+        );
+        if (
+          saved.status !== "completed" ||
+          inspectProjectRuntimeHistorySettlement(owner, row, now) === null
+        )
+          return blocked("project_runtime_history_transfer_unconfirmed", true);
+        retired.add(row.id);
+      }
+      return completed("project_runtime_terminal_records_retired", {
+        next: retired.size
+          ? {
+              ...current,
+              intakeEpoch: current.queueEntries.some((queue) =>
+                retired.has(queue.queueId),
+              )
+                ? `epoch-${randomUUID()}`
+                : current.intakeEpoch,
+              queueEntries: current.queueEntries.filter(
+                (item) => !retired.has(item.queueId),
+              ),
+              intakeBindings: current.intakeBindings.filter(
+                (item) => !retired.has(item.queueId),
+              ),
+              leaseEvidence: current.leaseEvidence.filter(
+                (item) =>
+                  !current.queueEntries.some(
+                    (queue) =>
+                      item.content.kind === "project-operation" &&
+                      retired.has(queue.queueId) &&
+                      queue.queueId === item.content.queueId &&
+                      queue.projectId === item.projectId,
+                  ) &&
+                  !projectRuntimeRejectedAdoptionEvidenceCanRetire(
+                    current,
+                    {
+                      ...current,
+                      results: current.results.filter(
+                        (record) => !retired.has(record.identity),
+                      ),
+                    },
+                    item,
+                    owner,
+                  ) &&
+                  !(
+                    item.content.kind === "canonical-adoption" &&
+                    !current.results.some(
+                      (record) =>
+                        record.kind === "adoption" &&
+                        record.projectId === item.projectId &&
+                        ((!retired.has(record.identity) &&
+                          !current.queueEntries.some(
+                            (queue) =>
+                              retired.has(queue.queueId) &&
+                              queue.queueId === record.queueId &&
+                              queue.projectId === record.projectId &&
+                              queue.milestoneId === record.milestoneId,
+                          )) ||
+                          current.projects.some(
+                            (project) =>
+                              project.milestone.criterionEvidenceIds.includes(
+                                record.identity,
+                              ) ||
+                              project.objectives.some((objective) =>
+                                objective.criterionEvidenceIds.includes(
+                                  record.identity,
+                                ),
+                              ),
+                          ) ||
+                          current.queueEntries.some(
+                            (queue) =>
+                              !retired.has(queue.queueId) &&
+                              queue.resultReference === record.identity,
+                          )),
+                    ) &&
+                    !current.queueEntries.some(
+                      (queue) =>
+                        queue.projectId === item.projectId &&
+                        !retired.has(queue.queueId),
+                    ) &&
+                    current.historyPending.some(
+                      (row) =>
+                        retired.has(row.id) &&
+                        (current.queueEntries.some(
+                          (queue) =>
+                            queue.queueId === row.id &&
+                            queue.projectId === item.projectId,
+                        ) ||
+                          current.results.some(
+                            (record) =>
+                              record.identity === row.id &&
+                              record.projectId === item.projectId &&
+                              !projectRuntimeAdoptionWasRejected(record),
+                          )),
+                    )
+                  ),
+              ),
+              decisionRecoveries: current.decisionRecoveries.filter(
+                (item) => !retired.has(item.value.queueId),
+              ),
+              results: current.results.filter(
+                (item) =>
+                  (!current.queueEntries.some(
+                    (queue) =>
+                      retired.has(queue.queueId) &&
+                      queue.queueId === item.queueId &&
+                      queue.projectId === item.projectId &&
+                      queue.milestoneId === item.milestoneId,
+                  ) &&
+                    !retired.has(item.identity)) ||
+                  current.projects.some(
+                    (project) =>
+                      project.milestone.criterionEvidenceIds.includes(
+                        item.identity,
+                      ) ||
+                      project.objectives.some((objective) =>
+                        objective.criterionEvidenceIds.includes(item.identity),
+                      ),
+                  ) ||
+                  current.queueEntries.some(
+                    (queue) =>
+                      !retired.has(queue.queueId) &&
+                      queue.resultReference === item.identity,
+                  ),
+              ),
+              acceptanceDecisions: current.acceptanceDecisions.filter(
+                (item) =>
+                  !current.queueEntries.some(
+                    (queue) =>
+                      retired.has(queue.queueId) &&
+                      queue.projectId === item.record.projectId &&
+                      queue.milestoneId === item.record.milestoneId,
+                  ) ||
+                  current.queueEntries.some(
+                    (queue) =>
+                      !retired.has(queue.queueId) &&
+                      queue.projectId === item.record.projectId &&
+                      queue.milestoneId === item.record.milestoneId,
+                  ),
+              ),
+              historyPending: current.historyPending.filter(
+                (row) => !retired.has(row.id),
+              ),
+            }
+          : null,
+        value: retired.size,
+      });
+    },
+  );
+}
+
+/**
+ * 未搬送の終了要約を同じOwnerで履歴へ搬送する。
+ * @responsibility 履歴確定と現在値からの除去を別の確定として接続する。
+ * @trace ARCH-000004
+ * @input workingDirectory、binding、固定する評価時刻。
+ * @returns 保存済みと期限処置の件数、または保全停止。
+ * @precondition 検証済みSnapshotの終了要約だけを扱う。
+ * @postcondition 履歴を確認できた要約だけを現在値から除去する。
+ * @effect 履歴と現在状態の固定pendingを順に保存する。
+ * @failure 履歴失敗では現在値を保持し、現在値保存失敗では再送可能な要約を保持する。
+ * @invariant Queue、Project、回復義務、候補本体を除去しない。
+ * @boundary 現在状態と30日保持の履歴。
+ * @security 期限超過を未解決状態の削除へ広げない。
+ * @concurrency 同じ実発行Ownerを借用し自己再取得しない。
+ */
+export function transferProjectRuntimeSnapshotHistory(
+  workingDirectory: string,
+  binding: string,
+  now = Date.now(),
+): StoreResult<Readonly<{ recorded: number; expired: number }>> {
+  return withProjectRuntimeSnapshotOperation(
+    workingDirectory,
+    binding,
+    (current, owner) => {
+      let recorded = 0;
+      let expired = 0;
+      for (const row of current.historyPending) {
+        const saved = updateProjectRuntimeHistoryOwned(
+          owner,
+          JSON.stringify(row),
+          now,
+        );
+        if (saved.status !== "completed") return blocked(saved.reason, true);
+        const disposition = inspectProjectRuntimeHistorySettlement(
+          owner,
+          row,
+          now,
+        );
+        if (disposition === null)
+          return blocked("project_runtime_history_transfer_unconfirmed", true);
+        if (disposition === "recorded") recorded += 1;
+        else expired += 1;
+      }
+      return completed("project_runtime_history_transferred", {
+        next: current.historyPending.length
+          ? { ...current, historyPending: [] }
+          : null,
+        value: { recorded, expired },
+      });
+    },
+  );
+}
+
+/**
+ * 統合保存上の受入判断Storeを構築する。
+ * @responsibility 二世代の判断記録を同じ短期排他で作成・読取り・比較交換する。
+ * @trace ARCH-000005
+ * @input workingDirectory: 検証するRepository、binding: 期待結合。
+ * @returns 既存の受入判断Store Port。
+ * @precondition 全入力照合済みv2保存がある。
+ * @postcondition 期待値不一致と重複作成を拒否し、他区画を保持する。
+ * @effect 操作時に統合保存を更新する。
+ * @failure 未知版、破損、不存在、比較不一致は停止する。
+ * @invariant 第2世代単独を許さず、JSONから人間承認を生成しない。
+ * @boundary 受入判断PortとRepository内現在状態。
+ * @security 保護Authorityや秘密値を移さない。
+ * @concurrency 読取りと比較交換を同じ保存Ownerへ閉じる。
+ */
+export function createProjectRuntimeSnapshotAcceptanceDecisionStore(
+  workingDirectory: string,
+  binding: string,
+): ProjectRuntimeAcceptanceDecisionStore {
+  return Object.freeze({
+    /**
+     * 受入判断の初回記録を作成する。
+     * @responsibility 同Identityの二重作成を拒否する。
+     * @trace ARCH-000005
+     * @input record: preparedの判断記録。
+     * @returns 確定した記録または停止。
+     * @precondition v2保存が存在する。
+     * @postcondition 第1世代だけを追加する。
+     * @effect 統合保存を更新する。
+     * @failure 不正値と重複を拒否する。
+     * @invariant 他区画を変更しない。
+     * @boundary 判断Portと保存。
+     * @security 承認Authorityを新設しない。
+     * @concurrency 同じ保存Ownerで処置する。
+     */
+    create(record) {
+      return withProjectRuntimeSnapshotOperation(
+        workingDirectory,
+        binding,
+        (current) => {
+          if (
+            current.schema !== SNAPSHOT_SCHEMA_V2 ||
+            !validProjectRuntimeAcceptanceDecisionRecord(record) ||
+            record.disposition !== "prepared"
+          )
+            return blocked("project_runtime_acceptance_record_invalid");
+          if (
+            current.acceptanceDecisions.some(
+              (item) => item.recordId === record.recordId,
+            )
+          )
+            return blocked("project_runtime_acceptance_record_exists");
+          const entry: ProjectRuntimeAcceptanceDecisionEnvelope = {
+            contract: PROJECT_RUNTIME_ACCEPTANCE_DECISION_STORE_CONTRACT,
+            repositoryBindingId: binding,
+            recordId: record.recordId,
+            generation: 1,
+            previousHash: null,
+            record,
+          };
+          return completed("project_runtime_acceptance_record_created", {
+            next: {
+              ...current,
+              acceptanceDecisions: [...current.acceptanceDecisions, entry],
+            },
+            value: record,
+          });
+        },
+      );
+    },
+    /**
+     * 照合済みの最新受入判断を返す。
+     * @responsibility 二世代の結合を維持する。
+     * @trace ARCH-000005
+     * @input recordId: 対象判断。
+     * @returns 最新記録、真正不存在または停止。
+     * @precondition v2保存が存在する。
+     * @postcondition 保存値を変更しない。
+     * @effect 保存を読み取る。
+     * @failure 不正Identityと未知版を拒否する。
+     * @invariant 不明を不存在へ丸めない。
+     * @boundary 判断Portと保存。
+     * @security Authorityを発行しない。
+     * @concurrency 短期保存Ownerを保持する。
+     */
+    read(recordId) {
+      return withProjectRuntimeSnapshotOperation(
+        workingDirectory,
+        binding,
+        (current) => {
+          if (current.schema !== SNAPSHOT_SCHEMA_V2 || !validId(recordId))
+            return blocked(
+              "project_runtime_acceptance_record_identity_invalid",
+            );
+          const groups = current.acceptanceDecisions.filter(
+            (item) => item.recordId === recordId,
+          );
+          return completed("project_runtime_acceptance_record_observed", {
+            next: null,
+            value:
+              groups.find((item) => item.generation === 2)?.record ??
+              groups.find((item) => item.generation === 1)?.record ??
+              null,
+          });
+        },
+      );
+    },
+    /**
+     * 受入判断を確定する。
+     * @responsibility preparedの完全一致を前提に第2世代を追加する。
+     * @trace ARCH-000005
+     * @input expectedとnext: 期待値と確定値。
+     * @returns 確定記録または停止。
+     * @precondition 期待値が現在の第1世代と一致する。
+     * @postcondition 第1世代のHashへ結合する。
+     * @effect 統合保存を更新する。
+     * @failure 比較競合と二重確定を拒否する。
+     * @invariant 第2世代を単独作成しない。
+     * @boundary 判断Portと保存。
+     * @security Authorityを発行しない。
+     * @concurrency 比較と確定を同じOwnerで行う。
+     */
+    compareAndSet(expected, next) {
+      return withProjectRuntimeSnapshotOperation(
+        workingDirectory,
+        binding,
+        (current) => {
+          if (
+            current.schema !== SNAPSHOT_SCHEMA_V2 ||
+            !validProjectRuntimeAcceptanceDecisionRecord(expected) ||
+            !validProjectRuntimeAcceptanceDecisionRecord(next) ||
+            expected.recordId !== next.recordId ||
+            expected.disposition !== "prepared" ||
+            next.disposition !== "finalized"
+          )
+            return blocked(
+              "project_runtime_acceptance_record_transition_invalid",
+            );
+          const first = current.acceptanceDecisions.find(
+            (item) =>
+              item.recordId === expected.recordId && item.generation === 1,
+          );
+          if (
+            !first ||
+            JSON.stringify(first.record) !== JSON.stringify(expected)
+          )
+            return blocked(
+              "project_runtime_acceptance_record_generation_mismatch",
+            );
+          if (
+            current.acceptanceDecisions.some(
+              (item) =>
+                item.recordId === expected.recordId && item.generation === 2,
+            )
+          )
+            return blocked("project_runtime_acceptance_record_exists");
+          const entry: ProjectRuntimeAcceptanceDecisionEnvelope = {
+            contract: PROJECT_RUNTIME_ACCEPTANCE_DECISION_STORE_CONTRACT,
+            repositoryBindingId: binding,
+            recordId: expected.recordId,
+            generation: 2,
+            previousHash: digest(JSON.stringify(first)),
+            record: next,
+          };
+          return completed("project_runtime_acceptance_record_finalized", {
+            next: {
+              ...current,
+              acceptanceDecisions: [...current.acceptanceDecisions, entry],
+            },
+            value: next,
+          });
+        },
+      );
+    },
+  });
+}
+
+/**
+ * 統合保存上の判断回復Storeを構築する。
+ * @responsibility exactな回復記録の現在値と比較交換世代を保持する。
+ * @trace ARCH-000008
+ * @input workingDirectory: 検証するRepository、binding: 期待結合。
+ * @returns 既存の判断回復Store Port。
+ * @precondition 旧入力の全連鎖を照合したv2保存がある。
+ * @postcondition 回復Identityと期待値の完全一致を維持する。
+ * @effect 操作時に統合保存を更新する。
+ * @failure 不正入力、未知版、比較競合、保存未確定は停止する。
+ * @invariant 保存改訂を記録比較交換の代替にしない。
+ * @boundary 判断回復PortとRepository内現在状態。
+ * @security 保存状態から回復Authorityを新設しない。
+ * @concurrency 現在値の確認と確定を同じOwnerで行う。
+ */
+export function createProjectRuntimeSnapshotDecisionRecoveryStore(
+  workingDirectory: string,
+  binding: string,
+): ProjectRuntimeDecisionRecoveryStore {
+  return Object.freeze({
+    /**
+     * 判断回復の初回意図を保存する。
+     * @responsibility 同回復Identityの二重作成を拒否する。
+     * @trace ARCH-000008
+     * @input intent: 回復意図。
+     * @returns 確定意図または停止。
+     * @precondition v2保存と対象Queueがある。
+     * @postcondition 記録世代1を追加する。
+     * @effect 統合保存を更新する。
+     * @failure 不正値と重複を拒否する。
+     * @invariant 元の回復Identityを維持する。
+     * @boundary 回復Portと保存。
+     * @security 回復Authorityを新設しない。
+     * @concurrency 同じ保存Ownerで処置する。
+     */
+    create(intent) {
+      return withProjectRuntimeSnapshotOperation(
+        workingDirectory,
+        binding,
+        (current) => {
+          if (
+            current.schema !== SNAPSHOT_SCHEMA_V2 ||
+            !validProjectRuntimeDecisionRecoveryIntent(intent)
+          )
+            return blocked("project_runtime_decision_recovery_invalid");
+          if (
+            current.decisionRecoveries.some(
+              (item) => item.value.recoveryId === intent.recoveryId,
+            )
+          )
+            return blocked("project_runtime_decision_recovery_exists");
+          return completed("project_runtime_decision_recovery_created", {
+            next: {
+              ...current,
+              decisionRecoveries: [
+                ...current.decisionRecoveries,
+                { generation: 1, value: intent },
+              ],
+            },
+            value: intent,
+          });
+        },
+      );
+    },
+    /**
+     * exactな判断回復を読み取る。
+     * @responsibility 最新値と真正不存在を区別する。
+     * @trace ARCH-000008
+     * @input recoveryId: 対象回復。
+     * @returns 現在値、真正不存在または停止。
+     * @precondition v2保存が存在する。
+     * @postcondition 記録を変更しない。
+     * @effect 保存を読み取る。
+     * @failure 不正値と未知版を拒否する。
+     * @invariant 観測不能を不存在へ丸めない。
+     * @boundary 回復Portと保存。
+     * @security Authorityを発行しない。
+     * @concurrency 短期保存Ownerを保持する。
+     */
+    read(recoveryId) {
+      return withProjectRuntimeSnapshotOperation(
+        workingDirectory,
+        binding,
+        (current) => {
+          if (current.schema !== SNAPSHOT_SCHEMA_V2 || !validId(recoveryId))
+            return blocked("project_runtime_decision_recovery_invalid");
+          return completed("project_runtime_decision_recovery_observed", {
+            next: null,
+            value:
+              current.decisionRecoveries.find(
+                (item) => item.value.recoveryId === recoveryId,
+              )?.value ?? null,
+          });
+        },
+      );
+    },
+    /**
+     * 判断回復の現在値を比較交換する。
+     * @responsibility 期待値の完全一致と記録世代を維持する。
+     * @trace ARCH-000008
+     * @input expectedとnext: 期待値と更新値。
+     * @returns 更新値または停止。
+     * @precondition 同じ回復Identityを扱う。
+     * @postcondition 記録世代を一つ進める。
+     * @effect 統合保存を更新する。
+     * @failure 比較競合と結合差を拒否する。
+     * @invariant 保存改訂をCASの代替にしない。
+     * @boundary 回復Portと保存。
+     * @security Authorityを発行しない。
+     * @concurrency 比較と確定を同じOwnerで行う。
+     */
+    compareAndSet(expected, next) {
+      return withProjectRuntimeSnapshotOperation(
+        workingDirectory,
+        binding,
+        (current) => {
+          if (
+            current.schema !== SNAPSHOT_SCHEMA_V2 ||
+            !validProjectRuntimeDecisionRecoveryIntent(expected) ||
+            !validProjectRuntimeDecisionRecoveryIntent(next) ||
+            expected.recoveryId !== next.recoveryId
+          )
+            return blocked("project_runtime_decision_recovery_invalid");
+          const prior = current.decisionRecoveries.find(
+            (item) => item.value.recoveryId === expected.recoveryId,
+          );
+          if (
+            !prior ||
+            JSON.stringify(prior.value) !== JSON.stringify(expected)
+          )
+            return blocked(
+              "project_runtime_decision_recovery_generation_mismatch",
+            );
+          return completed("project_runtime_decision_recovery_updated", {
+            next: {
+              ...current,
+              decisionRecoveries: current.decisionRecoveries.map((item) =>
+                item === prior
+                  ? { generation: prior.generation + 1, value: next }
+                  : item,
+              ),
+            },
+            value: next,
+          });
+        },
+      );
+    },
+  });
+}
+
+/**
+ * 候補公開と採用結果の保存Portを統合保存へ結合する。
+ * @responsibility 同Identityの再送を同内容に限定し、後処理の結果を耐久化する。
+ * @trace ARCH-000005
+ * @input binding: Repository・Project・Milestone・Queueの固定結合。
+ * @returns 既存の結果保存Port。
+ * @precondition 全入力照合済み保存と対象Queueがある。
+ * @postcondition 保存を受領や実適用の許可へ読み替えない。
+ * @effect 新しい結果だけを同じ排他内で保存する。
+ * @failure 不正値、結合差、異内容再送、保存失敗は停止する。
+ * @invariant 採用後の保存失敗から候補を再適用しない。
+ * @boundary 結果保存PortとRepository内現在状態。
+ * @security 新しいAuthorityや既読状態を作成しない。
+ * @concurrency 読取り、同Identity照合、更新を同じOwnerで行う。
+ */
+export function createProjectRuntimeSnapshotIntegrationRecordPort(
+  binding: IntegrationRecordBinding,
+): ProjectRuntimeIntegrationRecordPort {
+  return Object.freeze({
+    /**
+     * 同Identity・同内容に限定して結果を保存する。
+     * @responsibility 候補公開と採用結果の不変な保存を所有する。
+     * @trace ARCH-000005
+     * @input record: 既存結果Portの値。
+     * @returns 保存確定または停止。
+     * @precondition 対象Queueと結合が一致する。
+     * @postcondition 同内容再送で保存を増やさない。
+     * @effect 新しい結果を統合保存へ追加する。
+     * @failure 異内容再送を拒否する。
+     * @invariant 保存失敗から再適用しない。
+     * @boundary 結果Portと保存。
+     * @security 既読やAuthorityを新設しない。
+     * @concurrency 照合と更新を同じOwnerで行う。
+     */
+    write(record) {
+      return withProjectRuntimeSnapshotOperation(
+        binding.workingDirectory,
+        binding.repositoryBindingId,
+        (current) => {
+          const value: LegacyResultRecord = {
+            contract: PROJECT_RUNTIME_INTEGRATION_CONTRACT,
+            kind: record.kind,
+            repositoryBindingId: binding.repositoryBindingId,
+            projectId: binding.projectId,
+            milestoneId: binding.milestoneId,
+            queueId: binding.queueId,
+            identity: record.identity,
+            contentHash: digest(JSON.stringify(record.value)),
+            value: record.value,
+          };
+          if (!validProjectRuntimeResultRecord(value))
+            return blocked("project_runtime_result_invalid");
+          const queue = current.queueEntries.find(
+            (item) => item.queueId === binding.queueId,
+          );
+          if (
+            (value.kind === "integration" && !queue) ||
+            (queue &&
+              (queue.projectId !== binding.projectId ||
+                queue.milestoneId !== binding.milestoneId))
+          )
+            return blocked("project_runtime_result_binding_invalid");
+          const old = current.results.find(
+            (item) =>
+              item.kind === value.kind &&
+              item.projectId === value.projectId &&
+              item.identity === value.identity,
+          );
+          if (old && JSON.stringify(old) !== JSON.stringify(value))
+            return blocked("project_runtime_result_identity_conflict");
+          return completed("project_runtime_result_durable", {
+            next: old
+              ? null
+              : { ...current, results: [...current.results, value] },
+            value: { written: true as const },
+          });
+        },
+      );
+    },
+  });
+}
+
+/**
+ * 新版の未終了取得意図から、操作LeaseのOwner参照を取得する。
+ * @responsibility 記録の取得とOS上のOwner生死判定を分離する。
+ * @trace ARCH-000004
+ * @input workingDirectory: Repository内起点、binding: 対象Repository結合。
+ * @returns 同一Ownerに結合した取得参照、真正な参照不存在、または停止。
+ * @precondition 新版v2の現在状態が確定している。
+ * @postcondition 記録の読取りだけでOwner死亡や回収成功を表示しない。
+ * @effect 短期排他を取得してSnapshotを読む。状態を保存しない。
+ * @failure 複数Owner、Queue結合差、未知Schemaと観測不能を拒否する。
+ * @invariant 別ProjectのLeaseや採用Leaseを操作Ownerとして返さない。
+ * @boundary 現在Snapshotから既存Lease PortのOwner参照へ。
+ * @security JSONから実行用opaque LeaseやAuthorityを復元しない。
+ * @concurrency 同じ短期Owner内でQueueと取得意図を照合し、解放確認後に返す。
+ */
+export function inspectProjectRuntimeSnapshotLeaseAcquisitionOwner(
+  workingDirectory: string,
+  binding: string,
+): StoreResult<
+  Readonly<{ acquisition: ProjectRuntimeLeaseAcquisitionResolution | null }>
+> {
+  return withProjectRuntimeSnapshotOperation(
+    workingDirectory,
+    binding,
+    (current) => {
+      if (current.schema !== SNAPSHOT_SCHEMA_V2)
+        return blocked("project_runtime_snapshot_schema_invalid");
+      const intents = current.leaseIntents.filter(
+        (item) => item.kind === "project-operation",
+      );
+      const first = intents[0];
+      if (!first)
+        return completed("project_runtime_lease_acquisition_absent", {
+          next: null,
+          value: { acquisition: null },
+        });
+      const queue = current.queueEntries.find(
+        (item) => item.queueId === first.queueId,
+      );
+      if (
+        !queue ||
+        queue.projectId !== first.projectId ||
+        (queue.ownerGeneration !== null &&
+          queue.ownerGeneration !== first.ownerGeneration) ||
+        intents.some(
+          (item) =>
+            item.projectId !== first.projectId ||
+            item.queueId !== first.queueId ||
+            item.ownerGeneration !== first.ownerGeneration ||
+            item.ownerProcessId !== first.ownerProcessId ||
+            item.recoveryId !== first.recoveryId,
+        )
+      )
+        return blocked(
+          "project_runtime_lease_acquisition_owner_mismatch",
+          true,
+          first.recoveryId,
+        );
+      return completed("project_runtime_lease_acquisition_owner_observed", {
+        next: null,
+        value: {
+          acquisition: Object.freeze({
+            repositoryBindingId: binding,
+            projectId: first.projectId,
+            queueId: first.queueId,
+            ownerGeneration: first.ownerGeneration,
+            ownerProcessId: first.ownerProcessId,
+            recoveryId: first.recoveryId,
+          }),
+        },
+      });
+    },
+  );
+}
+
+/**
+ * 統合保存の取得意図と短命な実排他を結合する。
+ * @responsibility 記録の確定と物理取得を分け、同Ownerのopaque Leaseだけを返す。
+ * @trace ARCH-000004
+ * @input workingDirectory、binding、projectId、queueId、kind。
+ * @returns 実排他を取得したLease、またはexact取得回復参照付き停止。
+ * @precondition v2保存と対象Project／Queueがある。
+ * @postcondition 意図と取得証拠の確定後にだけLeaseを返す。
+ * @effect 取得意図を保存し、Repository内tmpへ短命な排他Directoryを作成する。
+ * @failure 部分取得は意図を保全し、未取得や清掃済みへ丸めない。
+ * @invariant 短期保存排他を長期実行や外部待機へ持ち越さない。
+ * @boundary 現在状態、実Filesystem排他、Process内opaque Lease。
+ * @security JSONからLeaseを復元しない。
+ * @concurrency Repository単位／Project単位の既存Lease Identityを維持する。
+ */
+export function acquireProjectRuntimeSnapshotLease(
+  workingDirectory: string,
+  binding: string,
+  projectId: string,
+  queueId: string,
+  kind: LeaseKind,
+): StoreResult<ProjectRuntimeLease> {
+  if (
+    ![binding, projectId, queueId].every(validId) ||
+    (kind !== "project-operation" && kind !== "canonical-adoption")
+  )
+    return blocked("project_runtime_lease_identity_invalid");
+  const identity = leaseIdentity(binding, projectId, queueId, kind);
+  const recoveryId = leaseAcquisitionRecoveryId(
+    binding,
+    projectId,
+    queueId,
+    kind,
+  );
+  const ownerGeneration = randomUUID();
+  const intent = {
+    projectId,
+    queueId,
+    kind,
+    ownerGeneration,
+    ownerProcessId: process.pid,
+    recoveryId,
+    phase: "acquisition_reserved" as const,
+    physicalIdentity: null,
+  };
+  let intentSaveRequested = false;
+  const reserved = withProjectRuntimeSnapshotOperation(
+    workingDirectory,
+    binding,
+    (current, owner) => {
+      if (
+        current.schema !== SNAPSHOT_SCHEMA_V2 ||
+        !validId(projectId) ||
+        (kind === "project-operation"
+          ? !current.projects.some((item) => item.projectId === projectId) ||
+            !current.queueEntries.some(
+              (item) =>
+                item.queueId === queueId && item.projectId === projectId,
+            )
+          : queueId !== "canonical")
+      )
+        return blocked("project_runtime_lease_binding_invalid");
+      if (
+        current.leaseIntents.some(
+          (item) =>
+            leaseIdentity(binding, item.projectId, item.queueId, item.kind) ===
+            identity,
+        )
+      )
+        return blocked("project_runtime_lease_unavailable");
+      if (
+        !projectRuntimeSnapshotLeaseResourcesAbsent(
+          owner.repositoryRoot,
+          identity,
+        )
+      )
+        return blocked("project_runtime_lease_preexisting_resource");
+      const metadata = fs.lstatSync(owner.repositoryRoot);
+      intentSaveRequested = true;
+      return completed("project_runtime_lease_intent_durable", {
+        next: { ...current, leaseIntents: [...current.leaseIntents, intent] },
+        value: {
+          repositoryRoot: owner.repositoryRoot,
+          rootIdentity: digest(
+            JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
+          ),
+        },
+      });
+    },
+  );
+  if (reserved.status !== "completed")
+    return intentSaveRequested && reserved.manualRecoveryRequired
+      ? blocked(reserved.reason, true, recoveryId)
+      : reserved;
+  const { repositoryRoot, rootIdentity } = reserved.value;
+  const lock = path.join(
+    repositoryRoot,
+    ".crdd",
+    "tmp",
+    "project-runtime-leases",
+    `${identity}.lock`,
+  );
+  let physicalIdentity: string;
+  try {
+    const resolved =
+      resolveRepositoryRuntimeDataPathsFromWorkingDirectory(workingDirectory);
+    const rootMetadata = fs.lstatSync(repositoryRoot);
+    if (
+      !resolved ||
+      resolved.repositoryRoot !== repositoryRoot ||
+      !rootMetadata.isDirectory() ||
+      rootMetadata.isSymbolicLink() ||
+      fs.realpathSync.native(repositoryRoot) !== repositoryRoot ||
+      digest(
+        JSON.stringify([
+          rootMetadata.dev,
+          rootMetadata.ino,
+          rootMetadata.birthtimeMs,
+        ]),
+      ) !== rootIdentity
+    )
+      throw new Error("lease_root_changed");
+    const runtime = ensureDirectory(repositoryRoot, ".crdd");
+    assertDirectory(runtime);
+    const temporary = ensureDirectory(runtime, "tmp");
+    assertDirectory(temporary);
+    const locks = ensureDirectory(temporary, "project-runtime-leases");
+    assertDirectory(locks);
+    fs.mkdirSync(lock, { mode: 0o700 });
+    assertDirectory(locks);
+    assertDirectory(lock);
+    const metadata = fs.lstatSync(lock);
+    physicalIdentity = digest(
+      JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
+    );
+  } catch {
+    return blocked(
+      "project_runtime_lease_acquisition_recovery_required",
+      true,
+      recoveryId,
+    );
+  }
+  const acquired = withProjectRuntimeSnapshotOperation(
+    workingDirectory,
+    binding,
+    (current) => {
+      if (
+        current.schema !== SNAPSHOT_SCHEMA_V2 ||
+        !current.leaseIntents.some(
+          (item) => JSON.stringify(item) === JSON.stringify(intent),
+        )
+      )
+        return blocked(
+          "project_runtime_lease_intent_mismatch",
+          true,
+          recoveryId,
+        );
+      const metadata = fs.lstatSync(lock);
+      if (
+        !metadata.isDirectory() ||
+        metadata.isSymbolicLink() ||
+        digest(
+          JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
+        ) !== physicalIdentity
+      )
+        return blocked(
+          "project_runtime_lease_physical_identity_changed",
+          true,
+          recoveryId,
+        );
+      const evidence = envelope("lease-evidence", binding, projectId, 1, 1, {
+        kind,
+        queueId,
+        ownerGeneration,
+        ownerProcessId: process.pid,
+        disposition: "acquired",
+      }) as LeaseEvidenceEnvelope;
+      return completed("project_runtime_lease_acquired", {
+        next: {
+          ...current,
+          leaseIntents: [
+            ...current.leaseIntents,
+            { ...intent, phase: "lock_owned" as const, physicalIdentity },
+          ],
+          leaseEvidence: [...current.leaseEvidence, evidence],
+        },
+        value: true,
+      });
+    },
+  );
+  if (acquired.status !== "completed")
+    return blocked(
+      "project_runtime_lease_acquisition_recovery_required",
+      true,
+      recoveryId,
+    );
+  let released = false;
+  let lease!: ProjectRuntimeLease;
+  lease = Object.freeze({
+    kind,
+    ownerGeneration,
+    /**
+     * 同じ実排他を解放して終了を保存する。
+     * @responsibility 解放意図、実体照合、不存在確認、終了証拠の順を守る。
+     * @trace ARCH-000004
+     * @input N/A: opaque Leaseの取得時結合を使う。
+     * @returns 解放確定またはexact回復参照付き停止。
+     * @precondition 同じ実体を保持するLeaseである。
+     * @postcondition 成功時は実排他が不在でintentが終了している。
+     * @effect 同じ排他Directoryを解放し保存を更新する。
+     * @failure 別実体、観測不能、保存失敗を保全停止する。
+     * @invariant 要求発行を解放完了にしない。
+     * @boundary opaque Lease、Filesystem、統合保存。
+     * @security 別Ownerの実体を処置しない。
+     * @concurrency 短期保存Ownerを物理操作の前後で分離する。
+     */
+    release(): StoreResult<Readonly<{ released: true }>> {
+      if (released) return blocked("project_runtime_lease_already_released");
+      const active = activeLeases.get(lease);
+      if (!active || !activeLeaseIsObserved(active))
+        return blocked(
+          "project_runtime_lease_release_unknown",
+          true,
+          recoveryId,
+        );
+      const pending = withProjectRuntimeSnapshotOperation(
+        workingDirectory,
+        binding,
+        (current) => {
+          if (
+            current.schema !== SNAPSHOT_SCHEMA_V2 ||
+            !current.leaseIntents.some(
+              (item) =>
+                item.ownerGeneration === ownerGeneration &&
+                item.phase === "lock_owned" &&
+                item.physicalIdentity === physicalIdentity,
+            )
+          )
+            return blocked(
+              "project_runtime_lease_intent_mismatch",
+              true,
+              recoveryId,
+            );
+          return completed("project_runtime_lease_release_intent_durable", {
+            next: {
+              ...current,
+              leaseIntents: [
+                ...current.leaseIntents,
+                {
+                  ...intent,
+                  phase: "release_pending" as const,
+                  physicalIdentity,
+                },
+              ],
+            },
+            value: true,
+          });
+        },
+      );
+      if (pending.status !== "completed") {
+        activeLeases.delete(lease);
+        return blocked(
+          "project_runtime_lease_release_unknown",
+          true,
+          recoveryId,
+        );
+      }
+      try {
+        if (!activeLeaseIsObserved(active))
+          throw new Error("lease_identity_changed");
+        fs.rmdirSync(lock);
+        if (
+          !leaseAcquisitionFootprintAbsent(path.dirname(lock), identity, [lock])
+        )
+          throw new Error("lease_release_unconfirmed");
+      } catch {
+        activeLeases.delete(lease);
+        return blocked(
+          "project_runtime_lease_release_unknown",
+          true,
+          recoveryId,
+        );
+      }
+      activeLeases.delete(lease);
+      const settled = withProjectRuntimeSnapshotOperation(
+        workingDirectory,
+        binding,
+        (current) => {
+          if (
+            current.schema !== SNAPSHOT_SCHEMA_V2 ||
+            !current.leaseIntents.some(
+              (item) =>
+                item.ownerGeneration === ownerGeneration &&
+                item.phase === "release_pending" &&
+                item.physicalIdentity === physicalIdentity,
+            )
+          )
+            return blocked(
+              "project_runtime_lease_intent_mismatch",
+              true,
+              recoveryId,
+            );
+          const evidence = envelope(
+            "lease-evidence",
+            binding,
+            projectId,
+            1,
+            2,
+            {
+              kind,
+              queueId,
+              ownerGeneration,
+              ownerProcessId: process.pid,
+              disposition: "released",
+            },
+          ) as LeaseEvidenceEnvelope;
+          return completed("project_runtime_lease_released", {
+            next: {
+              ...current,
+              leaseIntents: current.leaseIntents.filter(
+                (item) =>
+                  !(
+                    item.ownerGeneration === ownerGeneration &&
+                    item.kind === kind &&
+                    item.projectId === projectId &&
+                    item.queueId === queueId
+                  ),
+              ),
+              leaseEvidence: [...current.leaseEvidence, evidence],
+            },
+            value: { released: true as const },
+          });
+        },
+      );
+      if (settled.status !== "completed")
+        return blocked(
+          "project_runtime_lease_release_unknown",
+          true,
+          recoveryId,
+        );
+      released = true;
+      return settled;
+    },
+  });
+  activeLeases.set(lease, {
+    repositoryRoot,
+    repositoryBindingId: binding,
+    projectId,
+    queueId,
+    kind,
+    ownerGeneration,
+    lock,
+    recoveryMarker: "",
+    acquisitionMarker: "",
+    lockOwnershipMarker: "",
+    evidenceDirectory: "",
+    identity,
+    snapshotPhysicalIdentity: physicalIdentity,
+  });
+  return completed("project_runtime_lease_acquired", lease);
+}
+
+/**
+ * 新版Leaseの実排他を、親の真正不存在も含めて観測する。
+ * @responsibility 不存在と不正親・観測不能を区別する。
+ * @trace ARCH-000004
+ * @input repositoryRoot: 検証済みRoot、identity: 実排他の固定Identity。
+ * @returns 実排他と取得途中Fileが真正に不在か。
+ * @precondition 呼出し側がRoot実体と対象intentを照合する。
+ * @postcondition FileやDirectoryを作成せず観測結果だけを返す。
+ * @effect Repository内の正規親と対象のmetadataを読む。
+ * @failure alias、不正形状、読取り拒否は例外として呼出し側へ返す。
+ * @invariant 親の不存在と観測不能を同一視しない。
+ * @boundary Repository Rootからtmp内の短命な実排他へ。
+ * @security Root外の実体へ辿らない。
+ * @concurrency Rootと最後の既知親を不存在判定前に再確認する。
+ */
+function projectRuntimeSnapshotLeaseResourcesAbsent(
+  repositoryRoot: string,
+  identity: string,
+): boolean {
+  assertDirectory(repositoryRoot);
+  let parent = repositoryRoot;
+  for (const name of [".crdd", "tmp", "project-runtime-leases"]) {
+    const child = path.join(parent, name);
+    if (pathConfirmedAbsent(child)) {
+      assertDirectory(repositoryRoot);
+      assertDirectory(parent);
+      return true;
+    }
+    assertDirectory(child);
+    parent = child;
+  }
+  const isAbsent = leaseAcquisitionFootprintAbsent(parent, identity, [
+    path.join(parent, `${identity}.lock`),
+  ]);
+  assertDirectory(repositoryRoot);
+  assertDirectory(parent);
+  return isAbsent;
+}
+
+/**
+ * 新版LeaseのOwner喪失を現在観測から終了処置する。
+ * @responsibility 過去の取得結果と現在の資源不存在を分けて保存する。
+ * @trace ARCH-000004
+ * @input Repository起点、binding、Project、Queue、Lease種別、既存Owner観測。
+ * @returns 終了後のQueueと回復参照、または同じ参照付き停止。
+ * @precondition v2現在状態と対象の取得意図が検証できる。
+ * @postcondition 回収確認だけでTask成功や採用成功を表示しない。
+ * @effect 回収意図を保存し、同じ空の実排他を解放して終了を保存する。
+ * @failure Owner存続、観測不能、対象変更、由来未確定実体では処置しない。
+ * @invariant 取得未確定を取得成功へ書き換えない。
+ * @boundary Snapshot、Process観測、Repository内の実排他。
+ * @security 他Owner、他Root、候補と保護判断へ処置を広げない。
+ * @concurrency 外部観測を短期排他の外で行い、対象を再照合する。
+ */
+export function reconcileProjectRuntimeSnapshotLeaseOwnerLoss(
+  workingDirectory: string,
+  binding: string,
+  projectId: string,
+  queueId: string,
+  kind: LeaseKind,
+  observeOwner: ProjectRuntimeLeaseOwnerObservation,
+): StoreResult<
+  Readonly<{ queue: ProjectQueueEntry | null; recoveryId: string | null }>
+> {
+  if (
+    ![binding, projectId, queueId].every(validId) ||
+    !["project-operation", "canonical-adoption"].includes(kind) ||
+    typeof observeOwner !== "function"
+  )
+    return blocked("project_runtime_lease_recovery_input_invalid");
+  const recoveryId = leaseAcquisitionRecoveryId(
+    binding,
+    projectId,
+    queueId,
+    kind,
+  );
+  const identity = leaseIdentity(binding, projectId, queueId, kind);
+  const inspected = withProjectRuntimeSnapshotOperation(
+    workingDirectory,
+    binding,
+    (current, owner) => {
+      if (current.schema !== SNAPSHOT_SCHEMA_V2)
+        return blocked("project_runtime_snapshot_schema_invalid");
+      const queue =
+        kind === "project-operation"
+          ? (current.queueEntries.find((item) => item.queueId === queueId) ??
+            null)
+          : null;
+      if (
+        !validId(projectId) ||
+        (kind === "project-operation"
+          ? !current.projects.some((item) => item.projectId === projectId) ||
+            queue?.projectId !== projectId
+          : queueId !== "canonical")
+      )
+        return blocked("project_runtime_lease_binding_invalid");
+      const intents = current.leaseIntents.filter(
+        (item) =>
+          item.projectId === projectId &&
+          item.queueId === queueId &&
+          item.kind === kind,
+      );
+      const metadata = fs.lstatSync(owner.repositoryRoot);
+      return completed("project_runtime_lease_recovery_inspected", {
+        next: null,
+        value: {
+          intents,
+          queue,
+          repositoryRoot: owner.repositoryRoot,
+          rootIdentity: digest(
+            JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
+          ),
+        },
+      });
+    },
+  );
+  if (inspected.status !== "completed")
+    return blocked(inspected.reason, true, recoveryId);
+  const initial = inspected.value;
+  const lock = path.join(
+    initial.repositoryRoot,
+    ".crdd",
+    "tmp",
+    "project-runtime-leases",
+    `${identity}.lock`,
+  );
+  const first = initial.intents[0];
+  if (!first) {
+    if (initial.queue?.ownerGeneration) {
+      return withProjectRuntimeSnapshotOperation(
+        workingDirectory,
+        binding,
+        (current, owner) => {
+          const queue = current.queueEntries.find(
+            (item) => item.queueId === queueId,
+          );
+          const released = current.leaseEvidence.find(
+            (item) =>
+              item.projectId === projectId &&
+              item.content.queueId === queueId &&
+              item.content.kind === kind &&
+              item.content.ownerGeneration === queue?.ownerGeneration &&
+              item.content.disposition === "released",
+          );
+          if (
+            !queue ||
+            queue.generation !== initial.queue?.generation ||
+            queue.ownerGeneration !== initial.queue?.ownerGeneration ||
+            !["leased", "running"].includes(queue.state) ||
+            !released ||
+            current.leaseIntents.some(
+              (item) =>
+                item.projectId === projectId &&
+                item.queueId === queueId &&
+                item.kind === kind,
+            ) ||
+            !projectRuntimeSnapshotLeaseResourcesAbsent(
+              owner.repositoryRoot,
+              identity,
+            )
+          )
+            return blocked(
+              "project_runtime_lease_recovery_state_mismatch",
+              true,
+              recoveryId,
+            );
+          const next: ProjectQueueEntry = {
+            ...queue,
+            generation: queue.generation + 1,
+            state: "recovery_required",
+            ownerGeneration: null,
+            resumeCondition: "owner_loss",
+            resultReference: recoveryId,
+          };
+          return completed("project_runtime_released_lease_reconciled", {
+            next: {
+              ...current,
+              queueEntries: current.queueEntries.map((item) =>
+                item.queueId === queueId ? next : item,
+              ),
+            },
+            value: { queue: next, recoveryId: null },
+          });
+        },
+      );
+    }
+    try {
+      if (
+        !projectRuntimeSnapshotLeaseResourcesAbsent(
+          initial.repositoryRoot,
+          identity,
+        ) ||
+        initial.queue?.ownerGeneration
+      )
+        return blocked(
+          "project_runtime_lease_recovery_state_mismatch",
+          true,
+          recoveryId,
+        );
+      return completed("project_runtime_lease_acquisition_resources_absent", {
+        queue: initial.queue,
+        recoveryId: null,
+      });
+    } catch {
+      return blocked(
+        "project_runtime_lease_recovery_observation_unknown",
+        true,
+        recoveryId,
+      );
+    }
+  }
+  const ownIntents = initial.intents;
+  if (
+    ownIntents.some(
+      (item) =>
+        item.ownerGeneration !== first.ownerGeneration ||
+        item.ownerProcessId !== first.ownerProcessId ||
+        item.recoveryId !== first.recoveryId,
+    ) ||
+    (initial.queue?.ownerGeneration !== null &&
+      initial.queue?.ownerGeneration !== undefined &&
+      initial.queue.ownerGeneration !== first.ownerGeneration)
+  )
+    return blocked(
+      "project_runtime_lease_acquisition_owner_mismatch",
+      true,
+      recoveryId,
+    );
+  let observation: unknown;
+  try {
+    observation = observeOwner(
+      Object.freeze({
+        ownerProcessId: first.ownerProcessId,
+        ownerGeneration: first.ownerGeneration,
+      }),
+    );
+  } catch {
+    return blocked(
+      "project_runtime_lease_owner_observation_unknown",
+      true,
+      recoveryId,
+    );
+  }
+  if (
+    !plainObject(observation) ||
+    !exactKeys(observation, ["status", "ownerProcessId", "ownerGeneration"]) ||
+    observation.ownerProcessId !== first.ownerProcessId ||
+    observation.ownerGeneration !== first.ownerGeneration
+  )
+    return blocked(
+      "project_runtime_lease_owner_observation_unknown",
+      true,
+      recoveryId,
+    );
+  if (observation.status === "alive")
+    return blocked("project_runtime_lease_owner_still_active");
+  if (observation.status !== "absent")
+    return blocked(
+      "project_runtime_lease_owner_observation_unknown",
+      true,
+      recoveryId,
+    );
+  let physicalIdentity =
+    ownIntents.find((item) => item.physicalIdentity !== null)
+      ?.physicalIdentity ?? null;
+  if (physicalIdentity === null) {
+    try {
+      if (
+        !projectRuntimeSnapshotLeaseResourcesAbsent(
+          initial.repositoryRoot,
+          identity,
+        )
+      ) {
+        if (first.phase !== "acquisition_reserved" || ownIntents.length !== 1)
+          return blocked(
+            "project_runtime_lease_physical_identity_unconfirmed",
+            true,
+            recoveryId,
+          );
+        assertDirectory(path.join(initial.repositoryRoot, ".crdd"));
+        assertDirectory(path.join(initial.repositoryRoot, ".crdd", "tmp"));
+        assertDirectory(path.dirname(lock));
+        assertDirectory(lock);
+        const metadata = fs.lstatSync(lock);
+        if (fs.readdirSync(lock).length !== 0)
+          return blocked(
+            "project_runtime_lease_physical_identity_unconfirmed",
+            true,
+            recoveryId,
+          );
+        physicalIdentity = digest(
+          JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
+        );
+      }
+    } catch {
+      return blocked(
+        "project_runtime_lease_recovery_observation_unknown",
+        true,
+        recoveryId,
+      );
+    }
+  }
+  const pending = {
+    ...first,
+    phase: "recovery_pending" as const,
+    physicalIdentity,
+  };
+  const reserved = withProjectRuntimeSnapshotOperation(
+    workingDirectory,
+    binding,
+    (current, owner) => {
+      const metadata = fs.lstatSync(owner.repositoryRoot);
+      if (
+        current.schema !== SNAPSHOT_SCHEMA_V2 ||
+        owner.repositoryRoot !== initial.repositoryRoot ||
+        digest(
+          JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
+        ) !== initial.rootIdentity ||
+        JSON.stringify(
+          current.leaseIntents.filter(
+            (item) =>
+              item.projectId === projectId &&
+              item.queueId === queueId &&
+              item.kind === kind,
+          ),
+        ) !== JSON.stringify(ownIntents) ||
+        JSON.stringify(
+          kind === "project-operation"
+            ? (current.queueEntries.find((item) => item.queueId === queueId) ??
+                null)
+            : null,
+        ) !== JSON.stringify(initial.queue)
+      )
+        return blocked(
+          "project_runtime_lease_recovery_state_mismatch",
+          true,
+          recoveryId,
+        );
+      const existing = ownIntents.find(
+        (item) => item.phase === "recovery_pending",
+      );
+      if (existing && JSON.stringify(existing) !== JSON.stringify(pending))
+        return blocked(
+          "project_runtime_lease_intent_mismatch",
+          true,
+          recoveryId,
+        );
+      return completed("project_runtime_lease_recovery_intent_durable", {
+        next: existing
+          ? null
+          : { ...current, leaseIntents: [...current.leaseIntents, pending] },
+        value: true,
+      });
+    },
+  );
+  if (reserved.status !== "completed")
+    return blocked(reserved.reason, true, recoveryId);
+  try {
+    const resolved =
+      resolveRepositoryRuntimeDataPathsFromWorkingDirectory(workingDirectory);
+    const rootMetadata = fs.lstatSync(initial.repositoryRoot);
+    if (
+      !resolved ||
+      resolved.repositoryRoot !== initial.repositoryRoot ||
+      !rootMetadata.isDirectory() ||
+      rootMetadata.isSymbolicLink() ||
+      fs.realpathSync.native(initial.repositoryRoot) !==
+        initial.repositoryRoot ||
+      digest(
+        JSON.stringify([
+          rootMetadata.dev,
+          rootMetadata.ino,
+          rootMetadata.birthtimeMs,
+        ]),
+      ) !== initial.rootIdentity
+    )
+      throw new Error("lease_root_changed");
+    // 不存在と観測不能を区別し、親にaliasがある場合も処置しない。
+    if (
+      !projectRuntimeSnapshotLeaseResourcesAbsent(
+        initial.repositoryRoot,
+        identity,
+      )
+    ) {
+      assertDirectory(path.join(initial.repositoryRoot, ".crdd"));
+      assertDirectory(path.join(initial.repositoryRoot, ".crdd", "tmp"));
+      assertDirectory(path.dirname(lock));
+      assertDirectory(lock);
+      const metadata = fs.lstatSync(lock);
+      if (
+        physicalIdentity === null ||
+        digest(
+          JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
+        ) !== physicalIdentity ||
+        fs.readdirSync(lock).length !== 0
+      )
+        return blocked(
+          "project_runtime_lease_physical_identity_unconfirmed",
+          true,
+          recoveryId,
+        );
+      fs.rmdirSync(lock);
+    }
+    if (
+      !projectRuntimeSnapshotLeaseResourcesAbsent(
+        initial.repositoryRoot,
+        identity,
+      )
+    )
+      throw new Error("lease_release_unconfirmed");
+  } catch {
+    return blocked(
+      "project_runtime_lease_recovery_observation_unknown",
+      true,
+      recoveryId,
+    );
+  }
+  const settled = withProjectRuntimeSnapshotOperation(
+    workingDirectory,
+    binding,
+    (current, owner) => {
+      const metadata = fs.lstatSync(owner.repositoryRoot);
+      if (
+        current.schema !== SNAPSHOT_SCHEMA_V2 ||
+        owner.repositoryRoot !== initial.repositoryRoot ||
+        digest(
+          JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
+        ) !== initial.rootIdentity ||
+        JSON.stringify(
+          kind === "project-operation"
+            ? (current.queueEntries.find((item) => item.queueId === queueId) ??
+                null)
+            : null,
+        ) !== JSON.stringify(initial.queue) ||
+        JSON.stringify(
+          current.leaseIntents.filter(
+            (item) =>
+              item.projectId === projectId &&
+              item.queueId === queueId &&
+              item.kind === kind,
+          ),
+        ) !==
+          JSON.stringify(
+            ownIntents.some((item) => item.phase === "recovery_pending")
+              ? ownIntents
+              : [...ownIntents, pending],
+          ) ||
+        !projectRuntimeSnapshotLeaseResourcesAbsent(
+          initial.repositoryRoot,
+          identity,
+        )
+      )
+        return blocked(
+          "project_runtime_lease_recovery_state_mismatch",
+          true,
+          recoveryId,
+        );
+      const acquired = current.leaseEvidence.find(
+        (item) =>
+          item.projectId === projectId &&
+          item.content.queueId === queueId &&
+          item.content.kind === kind &&
+          item.content.ownerGeneration === first.ownerGeneration &&
+          item.content.disposition === "acquired",
+      );
+      const ended = current.leaseEvidence.find(
+        (item) =>
+          item.projectId === projectId &&
+          item.content.queueId === queueId &&
+          item.content.kind === kind &&
+          item.content.ownerGeneration === first.ownerGeneration &&
+          item.content.disposition !== "acquired",
+      );
+      if (ended)
+        return blocked(
+          "project_runtime_lease_recovery_state_mismatch",
+          true,
+          recoveryId,
+        );
+      const evidence = envelope("lease-evidence", binding, projectId, 1, 2, {
+        kind,
+        queueId,
+        ownerGeneration: first.ownerGeneration,
+        ownerProcessId: first.ownerProcessId,
+        disposition: acquired
+          ? "recovered_after_owner_loss"
+          : "acquisition_unknown_closed",
+      }) as LeaseEvidenceEnvelope;
+      const queue: ProjectQueueEntry | null =
+        initial.queue === null
+          ? null
+          : Object.freeze({
+              ...initial.queue,
+              generation: initial.queue.generation + 1,
+              ...(initial.queue.ownerGeneration === null
+                ? {}
+                : {
+                    state: "recovery_required" as const,
+                    ownerGeneration: null,
+                    resumeCondition: "owner_loss" as const,
+                  }),
+              resultReference: recoveryId,
+            });
+      return completed("project_runtime_lease_owner_loss_reconciled", {
+        next: {
+          ...current,
+          leaseIntents: current.leaseIntents.filter(
+            (item) =>
+              !(
+                item.projectId === projectId &&
+                item.queueId === queueId &&
+                item.kind === kind &&
+                item.ownerGeneration === first.ownerGeneration
+              ),
+          ),
+          leaseEvidence: [...current.leaseEvidence, evidence],
+          queueEntries:
+            queue === null
+              ? current.queueEntries
+              : current.queueEntries.map((item) =>
+                  item.queueId === queueId ? queue : item,
+                ),
+        },
+        value: { queue, recoveryId },
+      });
+    },
+  );
+  return settled.status === "completed"
+    ? settled
+    : blocked(settled.reason, true, recoveryId);
+}
+
+/**
+ * 発行時の受付結合を現在の保存値へ照合する。
+ * @responsibility 新規受付と退役前の同内容再入場を区別する。
+ * @trace ARCH-000004
+ * @input current: 保存値、intake: 発行時世代と依頼結合。
+ * @returns 受付可能ならtrue。
+ * @precondition currentは検証済み。
+ * @postcondition 退役済み世代を現在世代へ付け替えない。
+ * @effect N/A: 値比較のみ。
+ * @failure 異内容、異結合、退役済み世代の再入場はfalse。
+ * @invariant 同じProject名だけで再入場を許可しない。
+ * @boundary Requestと保存契約。
+ * @security 受付世代は実行Authorityではない。
+ * @concurrency 同Ownerで保存直前にも使用する。
+ */
+function projectRuntimeSnapshotIntakeMatches(
+  current: ProjectRuntimeSnapshot,
+  intake: Readonly<{
+    epoch: string;
+    queueId: string;
+    requestHash: string;
+    projectId: string;
+    milestoneId: string;
+  }>,
+): boolean {
+  if (
+    !validId(intake.epoch) ||
+    !validId(intake.queueId) ||
+    !HASH.test(intake.requestHash) ||
+    !validId(intake.projectId) ||
+    !validId(intake.milestoneId)
+  )
+    return false;
+  const queue = current.queueEntries.find(
+    (item) => item.queueId === intake.queueId,
+  );
+  if (!queue) return current.intakeEpoch === intake.epoch;
+  return (
+    current.intakeBindings.some(
+      (item) => item.queueId === intake.queueId && item.epoch === intake.epoch,
+    ) &&
+    queue.requestHash === intake.requestHash &&
+    queue.projectId === intake.projectId &&
+    queue.milestoneId === intake.milestoneId
+  );
+}
+
+/**
+ * State作成より前に、発行時の受付結合を確認する。
+ * @responsibility 拒否する依頼からProject状態を生成しない。
+ * @trace ARCH-000004
+ * @input Repository Root、binding、依頼の発行時結合。
+ * @returns 検証成功または停止。
+ * @precondition Rootと呼出し主体は上位で検証済み。
+ * @postcondition 状態を書き換えず受付を評価する。
+ * @effect 短期排他と読取りのみ。
+ * @failure 旧世代、異内容、未初期化は停止。
+ * @invariant この確認だけを後続保存の保証にしない。
+ * @boundary 本番入口と現在状態。
+ * @security 認証または権限を発行しない。
+ * @concurrency 保存時も同じ判定を再実行する。
+ */
+export function inspectProjectRuntimeSnapshotIntake(
+  workingDirectory: string,
+  binding: string,
+  intake: Readonly<{
+    epoch: string;
+    queueId: string;
+    requestHash: string;
+    projectId: string;
+    milestoneId: string;
+  }>,
+): StoreResult<true> {
+  return withProjectRuntimeSnapshotOperation(
+    workingDirectory,
+    binding,
+    (current) =>
+      projectRuntimeSnapshotIntakeMatches(current, intake)
+        ? completed("project_runtime_intake_verified", {
+            next: null,
+            value: true as const,
+          })
+        : blocked("project_runtime_intake_epoch_retired"),
+  );
+}
+
+/**
+ * 統合保存用State／Queueの全操作を構成する。
+ * @responsibility 既存Portの世代・選択・実行Owner・回復契約を同じ保存Ownerへ接続する。
+ * @trace ARCH-000004
+ * @input workingDirectory、binding、Request発行時に取得したintakeEpoch。
+ * @returns State／Queue Port。既存本番Factoryは変更しない。
+ * @precondition 全入力照合済みSnapshotと有効な発行時受付世代がある。
+ * @postcondition 各操作が同じ排他内の比較と保存確認を使用する。
+ * @effect 操作時にだけ統合Snapshotを読取り・保存する。
+ * @failure 世代・受付・Owner・回復不一致は保全停止する。
+ * @invariant 保存改訂をState／Queue世代や実資源の証明にしない。
+ * @boundary Coreの既存State Portと統合保存。
+ * @security 過去Requestを現在世代へ自動付替えしない。
+ * @concurrency 選択から待機Queue更新まで自己再取得せず一つの短期Ownerに閉じる。
+ */
+export function createProjectRuntimeSnapshotStatePort(
+  workingDirectory: string,
+  binding: string,
+  intakeEpoch: string,
+  intake?: Readonly<{
+    epoch: string;
+    queueId: string;
+    requestHash: string;
+    projectId: string;
+    milestoneId: string;
+  }>,
+): ProjectRuntimeStatePort {
+  if (!validId(binding) || !validId(intakeEpoch))
+    throw new Error("snapshot_port_binding_invalid");
+  return Object.freeze({
+    writeState: (state, expectedGeneration) =>
+      writeProjectRuntimeSnapshotState(
+        workingDirectory,
+        binding,
+        JSON.stringify(state),
+        expectedGeneration,
+        intake,
+      ),
+    readState: (projectId) =>
+      withProjectRuntimeSnapshotOperation(
+        workingDirectory,
+        binding,
+        (current) => {
+          if (!validId(projectId))
+            return blocked("project_runtime_state_identity_invalid");
+          return completed("project_runtime_state_observed", {
+            next: null,
+            value:
+              current.projects.find((item) => item.projectId === projectId) ??
+              null,
+          });
+        },
+      ),
+    enqueueOperation: (input) =>
+      withProjectRuntimeSnapshotOperation(
+        workingDirectory,
+        binding,
+        (current) => {
+          const existing = current.queueEntries.find(
+            (item) => item.queueId === input.queueId,
+          );
+          if (existing) {
+            const epoch = current.intakeBindings.find(
+              (item) => item.queueId === input.queueId,
+            )?.epoch;
+            return epoch === intakeEpoch &&
+              existing.requestHash === input.requestHash &&
+              existing.projectId === input.projectId &&
+              existing.milestoneId === input.milestoneId
+              ? completed("project_runtime_queue_request_reused", {
+                  next: null,
+                  value: existing,
+                })
+              : blocked("project_runtime_queue_identity_conflict");
+          }
+          if (current.intakeEpoch !== intakeEpoch)
+            return blocked("project_runtime_intake_epoch_retired");
+          const value: ProjectQueueEntry = {
+            ...input,
+            state: "queued",
+            generation: 1,
+            ownerGeneration: null,
+            resumeCondition: null,
+            resultReference: null,
+          };
+          if (
+            !validQueueEntry(value) ||
+            !current.projects.some((item) => item.projectId === value.projectId)
+          )
+            return blocked("project_runtime_queue_input_invalid");
+          return completed("project_runtime_queue_entry_durable", {
+            next: {
+              ...current,
+              queueEntries: [...current.queueEntries, value],
+              intakeBindings: [
+                ...current.intakeBindings,
+                { queueId: value.queueId, epoch: intakeEpoch },
+              ],
+            },
+            value,
+          });
+        },
+      ),
+    readQueue: (queueId) =>
+      withProjectRuntimeSnapshotOperation(
+        workingDirectory,
+        binding,
+        (current) => {
+          if (!validId(queueId))
+            return blocked("project_runtime_queue_input_invalid");
+          const value = current.queueEntries.find(
+            (item) => item.queueId === queueId,
+          );
+          return value
+            ? completed("project_runtime_queue_observed", { next: null, value })
+            : blocked("project_runtime_queue_observation_unknown");
+        },
+      ),
+    selectNextOperation: () =>
+      withProjectRuntimeSnapshotOperation(
+        workingDirectory,
+        binding,
+        (current) => {
+          const orderedTasks = [...current.queueEntries].sort((a, b) =>
+            a.queueId < b.queueId ? -1 : a.queueId > b.queueId ? 1 : 0,
+          );
+          const isActive = orderedTasks.some(
+            (item) => item.ownerGeneration !== null,
+          );
+          const interactive = orderedTasks.find(
+            (item) =>
+              item.originLane === "interactive" &&
+              item.state === "queued" &&
+              item.ownerGeneration === null,
+          );
+          if (isActive || interactive) {
+            const reason = isActive
+              ? "active_operation_pending"
+              : "interactive_queue_pending";
+            let hasChanged = false;
+            const queueEntries = current.queueEntries.map((item) => {
+              if (
+                item.originLane !== "scheduled" ||
+                item.state !== "queued" ||
+                item.ownerGeneration !== null
+              )
+                return item;
+              hasChanged = true;
+              return {
+                ...item,
+                state: "waiting_foreground" as const,
+                generation: item.generation + 1,
+                resumeCondition: reason,
+                resultReference: null,
+              };
+            });
+            return completed(
+              isActive
+                ? "project_runtime_active_operation_retained"
+                : "project_runtime_interactive_queue_selected",
+              {
+                next: hasChanged ? { ...current, queueEntries } : null,
+                value: isActive ? null : (interactive ?? null),
+              },
+            );
+          }
+          const waiting = orderedTasks.find(
+            (item) =>
+              item.originLane === "scheduled" &&
+              item.state === "waiting_foreground" &&
+              item.ownerGeneration === null,
+          );
+          if (waiting) {
+            const value = {
+              ...waiting,
+              state: "queued" as const,
+              generation: waiting.generation + 1,
+              resumeCondition: null,
+              resultReference: null,
+            };
+            return completed("project_runtime_scheduled_queue_selected", {
+              next: {
+                ...current,
+                queueEntries: current.queueEntries.map((item) =>
+                  item.queueId === value.queueId ? value : item,
+                ),
+              },
+              value,
+            });
+          }
+          const value =
+            orderedTasks.find(
+              (item) =>
+                item.originLane === "scheduled" &&
+                item.state === "queued" &&
+                item.ownerGeneration === null,
+            ) ?? null;
+          return completed(
+            value
+              ? "project_runtime_scheduled_queue_selected"
+              : "project_runtime_queue_empty",
+            { next: null, value },
+          );
+        },
+      ),
+    updateQueue: (queueId, expectedGeneration, next) =>
+      withProjectRuntimeSnapshotOperation(
+        workingDirectory,
+        binding,
+        (current, owner) => {
+          const previous = current.queueEntries.find(
+            (item) => item.queueId === queueId,
+          );
+          if (
+            !validId(queueId) ||
+            !Number.isSafeInteger(expectedGeneration) ||
+            expectedGeneration < 1 ||
+            !previous ||
+            previous.generation !== expectedGeneration
+          )
+            return blocked("project_runtime_queue_generation_conflict");
+          if (next.resumeCondition !== null && !validId(next.resumeCondition))
+            return blocked("project_runtime_queue_resume_condition_invalid");
+          if (
+            next.resultReference !== null &&
+            !validResultReference(next.resultReference)
+          )
+            return blocked("project_runtime_queue_result_reference_invalid");
+          if (
+            !(
+              QUEUE_TRANSITIONS[previous.state] as readonly ProjectQueueState[]
+            ).includes(next.state)
+          )
+            return blocked("project_runtime_queue_transition_invalid");
+          if (
+            previous.state === "recovery_required" &&
+            next.state === "recovery_required" &&
+            !(
+              previous.ownerGeneration === null &&
+              previous.resumeCondition === "owner_loss" &&
+              next.lease === null &&
+              next.resumeCondition === "exact_recovery" &&
+              next.resultReference !== null
+            )
+          )
+            return blocked("project_runtime_queue_recovery_binding_invalid");
+          if (
+            previous.state === "recovery_required" &&
+            next.state === "queued" &&
+            !(
+              previous.ownerGeneration === null &&
+              previous.resumeCondition === "owner_loss" &&
+              previous.resultReference !== null &&
+              next.lease === null &&
+              next.resumeCondition === null &&
+              next.resultReference === null
+            )
+          )
+            return blocked("project_runtime_queue_owner_loss_reset_invalid");
+          const activeLease = next.lease
+            ? activeLeases.get(next.lease)
+            : undefined;
+          const isRequired =
+            previous.ownerGeneration !== null ||
+            next.state === "leased" ||
+            next.state === "running";
+          if (!isRequired && next.lease !== null)
+            return blocked("project_runtime_queue_lease_invalid");
+          if (
+            isRequired &&
+            (activeLease?.kind !== "project-operation" ||
+              activeLease.repositoryRoot !== owner.repositoryRoot ||
+              activeLease.repositoryBindingId !== binding ||
+              activeLease.projectId !== previous.projectId ||
+              activeLease.queueId !== queueId ||
+              !activeLeaseIsObserved(activeLease))
+          )
+            return blocked("project_runtime_queue_lease_invalid");
+          if (
+            isRequired &&
+            previous.ownerGeneration !== null &&
+            previous.ownerGeneration !== activeLease?.ownerGeneration
+          )
+            return blocked("project_runtime_queue_owner_mismatch");
+          const value: ProjectQueueEntry = {
+            ...previous,
+            state: next.state,
+            generation: previous.generation + 1,
+            ownerGeneration: isRequired
+              ? (activeLease?.ownerGeneration ?? null)
+              : null,
+            resumeCondition: next.resumeCondition,
+            resultReference: next.resultReference,
+          };
+          if (!validQueueEntry(value))
+            return blocked("project_runtime_queue_record_mismatch");
+          return completed("project_runtime_queue_state_durable", {
+            next: {
+              ...current,
+              queueEntries: current.queueEntries.map((item) =>
+                item.queueId === queueId ? value : item,
+              ),
+            },
+            value,
+          });
+        },
+      ),
+    settleQueueRecovery: (queueId, expectedGeneration, recoveryId) =>
+      withProjectRuntimeSnapshotOperation(
+        workingDirectory,
+        binding,
+        (current) => {
+          const previous = current.queueEntries.find(
+            (item) => item.queueId === queueId,
+          );
+          if (
+            !validId(queueId) ||
+            !validResultReference(recoveryId) ||
+            !Number.isSafeInteger(expectedGeneration) ||
+            expectedGeneration < 1 ||
+            !previous ||
+            previous.generation !== expectedGeneration
+          )
+            return blocked(
+              "project_runtime_queue_recovery_generation_conflict",
+            );
+          if (
+            previous.state !== "recovery_required" ||
+            previous.ownerGeneration !== null ||
+            previous.resumeCondition !== "exact_recovery" ||
+            previous.resultReference !== recoveryId
+          )
+            return blocked("project_runtime_queue_recovery_identity_mismatch");
+          const value: ProjectQueueEntry = {
+            ...previous,
+            state: "queued",
+            generation: previous.generation + 1,
+            ownerGeneration: null,
+            resumeCondition: "exact_recovery_settled",
+            resultReference: recoveryId,
+          };
+          return completed("project_runtime_queue_recovery_settled", {
+            next: {
+              ...current,
+              queueEntries: current.queueEntries.map((item) =>
+                item.queueId === queueId ? value : item,
+              ),
+            },
+            value,
+          });
+        },
+      ),
+    settleQueueLeaseRelease: (queueId, expectedGeneration, ownerGeneration) =>
+      withProjectRuntimeSnapshotOperation(
+        workingDirectory,
+        binding,
+        (current, owner) => {
+          const previous = current.queueEntries.find(
+            (item) => item.queueId === queueId,
+          );
+          if (
+            !validId(queueId) ||
+            !validId(ownerGeneration) ||
+            !Number.isSafeInteger(expectedGeneration) ||
+            expectedGeneration < 1 ||
+            !previous ||
+            previous.generation !== expectedGeneration ||
+            previous.ownerGeneration !== ownerGeneration ||
+            previous.state === "leased" ||
+            previous.state === "running"
+          )
+            return blocked(
+              "project_runtime_queue_release_settlement_state_mismatch",
+              true,
+            );
+          const runtime = path.join(
+            owner.repositoryRoot,
+            ".crdd",
+            "project-runtime",
+          );
+          const identity = leaseIdentity(
+            binding,
+            previous.projectId,
+            queueId,
+            "project-operation",
+          );
+          const locks =
+            current.schema === SNAPSHOT_SCHEMA_V2
+              ? path.join(
+                  owner.repositoryRoot,
+                  ".crdd",
+                  "tmp",
+                  "project-runtime-leases",
+                )
+              : path.join(runtime, "work", "locks");
+          if (
+            !leaseAcquisitionFootprintAbsent(
+              locks,
+              identity,
+              (current.schema === SNAPSHOT_SCHEMA_V2
+                ? [".lock"]
+                : [
+                    ".lock",
+                    ".release-unknown",
+                    ".acquire-pending",
+                    ".acquire-lock-owned",
+                  ]
+              ).map((suffix) => path.join(locks, `${identity}${suffix}`)),
+            )
+          )
+            return blocked(
+              "project_runtime_queue_release_settlement_resource_present",
+              true,
+            );
+          const evidence =
+            current.schema === SNAPSHOT_SCHEMA_V2
+              ? {
+                  released: current.leaseEvidence.find(
+                    (item) =>
+                      item.projectId === previous.projectId &&
+                      item.content.queueId === queueId &&
+                      item.content.kind === "project-operation" &&
+                      item.content.ownerGeneration === ownerGeneration &&
+                      item.content.disposition === "released",
+                  ),
+                  recovered: current.leaseEvidence.find(
+                    (item) =>
+                      item.projectId === previous.projectId &&
+                      item.content.queueId === queueId &&
+                      item.content.kind === "project-operation" &&
+                      item.content.ownerGeneration === ownerGeneration &&
+                      item.content.disposition === "recovered_after_owner_loss",
+                  ),
+                }
+              : readExactLeaseEvidence(
+                  path.join(runtime, "recovery", "leases"),
+                  {
+                    repositoryBindingId: binding,
+                    projectId: previous.projectId,
+                    queueId,
+                    kind: "project-operation",
+                    identity,
+                    ownerGeneration,
+                  },
+                );
+          if (
+            current.schema === SNAPSHOT_SCHEMA_V2 &&
+            current.leaseIntents.some(
+              (item) => item.ownerGeneration === ownerGeneration,
+            )
+          )
+            return blocked(
+              "project_runtime_queue_release_intent_unsettled",
+              true,
+            );
+          if (!evidence.released || evidence.recovered)
+            return blocked(
+              "project_runtime_queue_release_evidence_mismatch",
+              true,
+            );
+          const value = {
+            ...previous,
+            generation: previous.generation + 1,
+            ownerGeneration: null,
+          };
+          return completed("project_runtime_queue_release_settled", {
+            next: {
+              ...current,
+              queueEntries: current.queueEntries.map((item) =>
+                item.queueId === queueId ? value : item,
+              ),
+            },
+            value,
+          });
+        },
+      ),
+  });
+}
+
+/**
+ * 閉じたState／Queue部分形式と参照関係を確認する。
+ *
+ * @responsibility 既存値制約、ID重複とRepository結合の拒否を所有する。
+ * @trace ARCH-000004
+ * @input value: JSONから得た通常データ。expectedBinding: 呼出し元が要求する結合。
+ * @returns 試行payloadとして受理できるか。
+ * @precondition 呼出し元がJSON.parseした値だけを渡す。
+ * @postcondition 不明項目、重複、孤立Queueまたは不正値を受理しない。
+ * @effect N/A: 純粋な値検証で書込みしない。
+ * @failure 不正形状と結合不一致はfalse。
+ * @invariant Snapshot改訂と各Recordのgenerationを同一視しない。
+ * @boundary JSON値から内部の試行契約への境界。
+ * @security Hashや結合を実体Identity・Authorityの証明にしない。
+ * @concurrency N/A: 共有状態を操作しない。
+ */
+function validStateQueueSnapshotPilotPayload(
+  value: unknown,
+  expectedBinding: string,
+): value is StateQueueSnapshotPilotPayload {
+  if (
+    !validId(expectedBinding) ||
+    !plainObject(value) ||
+    !exactKeys(value, [
+      "schema",
+      "schemaRevision",
+      "repositoryBindingId",
+      "snapshotRevision",
+      "projects",
+      "queueEntries",
+    ]) ||
+    value.schema !== STATE_QUEUE_SNAPSHOT_PILOT_SCHEMA ||
+    value.schemaRevision !== 1 ||
+    value.repositoryBindingId !== expectedBinding ||
+    !Number.isSafeInteger(value.snapshotRevision) ||
+    Number(value.snapshotRevision) < 1 ||
+    !Array.isArray(value.projects) ||
+    value.projects.length > 4096 ||
+    !Array.isArray(value.queueEntries) ||
+    value.queueEntries.length > 4096 ||
+    !value.projects.every(validProjectRuntimeState) ||
+    !value.queueEntries.every(validQueueEntry)
+  )
+    return false;
+  const projectIds = new Set(value.projects.map((entry) => entry.projectId));
+  const queueIds = new Set(value.queueEntries.map((entry) => entry.queueId));
+  return (
+    projectIds.size === value.projects.length &&
+    queueIds.size === value.queueEntries.length &&
+    value.queueEntries.every((entry) => projectIds.has(entry.projectId))
+  );
+}
+
+/**
+ * JSON入力から検証済みState／Queue試行Envelopeを作る。
+ *
+ * @responsibility JSONを検証後にHash付きの部分形式へ符号化する。
+ * @trace ARCH-000004
+ * @input payloadJson: 通常JSON文字列。expectedRepositoryBindingId: 期待結合。
+ * @returns Hash付きJSON文字列、または停止結果。
+ * @precondition 実体Repositoryの結合検証は呼出し元が別途行う。
+ * @postcondition Schemaと全payloadをHash対象とし、未知項目を落として正当化しない。
+ * @effect N/A: 保存、Lock、移行と外部送信を行わない。
+ * @failure 不正JSON、結合、値または16MiB超過を拒否する。
+ * @invariant 完全state.jsonとして保存できる形式ではない。
+ * @boundary 文字列入力だけを受け、getterやtoJSONを実行しない。
+ * @security Lease、DecisionとAuthorityを生成しない。
+ * @concurrency N/A: 外部状態を読書きしない純粋codec。
+ */
+export function encodeProjectRuntimeStateQueueSnapshotPilot(
+  payloadJson: string,
+  expectedRepositoryBindingId: string,
+): StoreResult<string> {
+  try {
+    if (
+      typeof payloadJson !== "string" ||
+      Buffer.byteLength(payloadJson, "utf8") > MAX_RECORD_BYTES
+    )
+      return blocked("project_runtime_snapshot_pilot_invalid", false);
+    const payload: unknown = JSON.parse(payloadJson);
+    if (
+      !validStateQueueSnapshotPilotPayload(payload, expectedRepositoryBindingId)
+    )
+      return blocked("project_runtime_snapshot_pilot_invalid", false);
+    const bytes = `${JSON.stringify({ payload, contentHash: digest(JSON.stringify(payload)) })}\n`;
+    if (Buffer.byteLength(bytes, "utf8") > MAX_RECORD_BYTES)
+      return blocked("project_runtime_snapshot_pilot_invalid", false);
+    return completed("project_runtime_snapshot_pilot_encoded", bytes);
+  } catch {
+    return blocked("project_runtime_snapshot_pilot_invalid", false);
+  }
+}
+
+/**
+ * 試行EnvelopeのHash・Schema・結合を復号時に再検証する。
+ *
+ * @responsibility 破損・未知項目を拒否して独立した値を返す。
+ * @trace ARCH-000004
+ * @input bytes: Hash付きJSON文字列。expectedRepositoryBindingId: 期待結合。
+ * @returns State／Queue部分payload、または停止結果。
+ * @precondition 完全な移行入力や保存保証として利用しない。
+ * @postcondition parse前のByte上限とparse後の閉じたSchemaを確認する。
+ * @effect N/A: Filesystemと共有状態を変更しない。
+ * @failure JSON、Hash、結合、参照、上限の不正を拒否する。
+ * @invariant 過去QueueのMilestone／Revision差だけで履歴を失わない。
+ * @boundary 文字列から独立した内部値への境界。
+ * @security 受理はAuthority、移行確定またはRepository実体証明ではない。
+ * @concurrency N/A: 排他やWriter停止を証明しない。
+ */
+export function decodeProjectRuntimeStateQueueSnapshotPilot(
+  bytes: string,
+  expectedRepositoryBindingId: string,
+): StoreResult<StateQueueSnapshotPilotPayload> {
+  try {
+    if (
+      typeof bytes !== "string" ||
+      Buffer.byteLength(bytes, "utf8") > MAX_RECORD_BYTES
+    )
+      return blocked("project_runtime_snapshot_pilot_invalid", false);
+    const envelope: unknown = JSON.parse(bytes);
+    if (
+      !plainObject(envelope) ||
+      !exactKeys(envelope, ["payload", "contentHash"]) ||
+      !validStateQueueSnapshotPilotPayload(
+        envelope.payload,
+        expectedRepositoryBindingId,
+      ) ||
+      envelope.contentHash !== digest(JSON.stringify(envelope.payload))
+    )
+      return blocked("project_runtime_snapshot_pilot_invalid", false);
+    return completed(
+      "project_runtime_snapshot_pilot_decoded",
+      envelope.payload,
+    );
+  } catch {
+    return blocked("project_runtime_snapshot_pilot_invalid", false);
+  }
+}
+
+/**
+ * 旧形式の状態とQueueを全世代検証し、集約保存の入力候補を読み取る。
+ *
+ * @responsibility 旧記録の欠番・内容・結合を検証し、最新値と導出元を返す。
+ * @trace ARCH-000004
+ * @input workingDirectory: 検証対象Repository内のDirectory。
+ * @returns 最新State、Queueと全世代の正規化Envelope Hash。移行済み結果ではない。
+ * @precondition 対象がVersion Control Repositoryとして一意に解決できる。
+ * @postcondition 一件でも不正・観測不能なら候補を返さず停止する。
+ * @effect Filesystemの読取りだけ。Directoryの作成、切替、回収はしない。
+ * @failure 不正Root、記録の欠番、内容不一致、読取不能を拒否する。
+ * @invariant 終端Queueも残し、再受付防止情報や回復義務を落とさない。
+ * @boundary Repository-localな旧State／Queueから移行準備への境界。
+ * @security 保護されたDecision、Lease、結果を移行済みと扱わず、Authorityを発行しない。
+ * @concurrency 排他を取得しない読取り候補。旧Writer停止や一貫Snapshotの証明には使わない。
+ */
+export function readLegacyProjectRuntimeStateAndQueueInputs(
+  workingDirectory: string,
+): StoreResult<LegacyProjectRuntimeInputs> {
+  try {
+    const paths =
+      resolveRepositoryRuntimeDataPathsFromWorkingDirectory(workingDirectory);
+    if (!paths) return blocked("project_runtime_repository_root_invalid");
+    assertDirectory(paths.repositoryRoot);
+    const states: Envelope[] = [];
+    const queues: Envelope[] = [];
+    const sourceRecords: Readonly<{
+      relativePath: string;
+      normalizedEnvelopeHash: string;
+    }>[] = [];
+    for (const parent of [
+      path.join(paths.repositoryRoot, ".crdd"),
+      paths.projectRuntime,
+    ]) {
+      try {
+        fs.lstatSync(parent);
+      } catch (error) {
+        if (errorCode(error) !== "ENOENT") throw error;
+        assertDirectory(path.dirname(parent));
+        return completed(
+          "project_runtime_legacy_inputs_observed",
+          Object.freeze({
+            states: Object.freeze(states),
+            queues: Object.freeze(queues),
+            sourceRecords: Object.freeze(sourceRecords),
+            migrationCommitted: false as const,
+          }),
+        );
+      }
+      assertDirectory(parent);
+    }
+    for (const area of ["state", "queues"] as const) {
+      const directory = path.join(paths.projectRuntime, area);
+      try {
+        fs.lstatSync(directory);
+      } catch (error) {
+        if (errorCode(error) === "ENOENT") {
+          assertDirectory(paths.projectRuntime);
+          continue;
+        }
+        throw error;
+      }
+      assertDirectory(path.join(paths.repositoryRoot, ".crdd"));
+      assertDirectory(paths.projectRuntime);
+      assertDirectory(directory);
+      const names = fs.readdirSync(directory).sort();
+      if (names.length > 4096 || names.some((name) => !validId(name)))
+        throw new Error("project_runtime_legacy_inventory_invalid");
+      for (const name of names) {
+        const records = [
+          ...readEnvelopes(path.join(directory, name), "generation-", true),
+        ].sort(
+          (left, right) => left.updatedGeneration - right.updatedGeneration,
+        );
+        const latest = records.at(-1);
+        if (!latest) {
+          if (area === "queues")
+            throw new Error("project_runtime_legacy_queue_empty");
+          continue;
+        }
+        if (area === "queues") {
+          if (
+            validatedQueueHistory(records, latest.repositoryBindingId, name) ===
+            null
+          )
+            throw new Error("project_runtime_legacy_queue_mismatch");
+          queues.push(latest);
+        } else {
+          if (
+            records.some(
+              (record) =>
+                record.recordKind !== "project-state" ||
+                record.repositoryBindingId !== latest.repositoryBindingId ||
+                record.projectId !== name ||
+                !validProjectRuntimeState(record.content) ||
+                record.content.projectId !== name,
+            )
+          )
+            throw new Error("project_runtime_legacy_state_mismatch");
+          states.push(latest);
+        }
+        for (const record of records) {
+          sourceRecords.push(
+            Object.freeze({
+              relativePath: `${area}/${name}/generation-${record.updatedGeneration}.json`,
+              normalizedEnvelopeHash: digest(JSON.stringify(record)),
+            }),
+          );
+        }
+      }
+    }
+    return completed(
+      "project_runtime_legacy_inputs_observed",
+      Object.freeze({
+        states: Object.freeze(states),
+        queues: Object.freeze(queues),
+        sourceRecords: Object.freeze(sourceRecords),
+        migrationCommitted: false as const,
+      }),
+    );
+  } catch {
+    return blocked("project_runtime_legacy_inputs_invalid_or_unknown");
+  }
+}
+
+/**
+ * 旧Lease保存の全入力と物理残存を定義する。
+ *
+ * @responsibility 取得・解放証拠と途中残存を区別して保持する。
+ * @trace ARCH-000004
+ * @shape evidence、footprints、sourceRecords、migrationCommitted。
+ * @invariant File読取りだけでOwner終了・排他・移行成立を表示しない。footprintsのRepository・Project結合は後続の統合照合まで未確定。
+ * @boundary 旧保存から移行準備への内部境界。
+ * @security 保護DecisionとAuthorityを含めない。
+ * @compatibility 既存Lease handleとWriterを変更しない。
+ */
+type LegacyLeaseInputs = Readonly<{
+  evidence: readonly LeaseEvidenceEnvelope[];
+  footprints: readonly Readonly<{
+    relativePath: string;
+    kind: "lock" | "acquisition" | "ownership" | "release" | "temporary";
+    value: LeaseAcquisitionMarker | string | null;
+  }>[];
+  sourceRecords: readonly Readonly<{ relativePath: string; sha256: string }>[];
+  migrationCommitted: false;
+}>;
+
+/**
+ * 旧Lease証拠と途中残存を、変更せず全件抽出する。
+ *
+ * @responsibility 保存統合で失ってはいけないLease入力の検証と保全を所有する。
+ * @trace ARCH-000004
+ * @input workingDirectory: 対象Repository内の起点。
+ * @returns 証拠・途中残存・元Byte列Hash、または停止結果。
+ * @precondition Version Control Rootが一意に検証できる。
+ * @postcondition acquiredと終了証拠の結合を確認する。途中残存は収集だけを行い有効Leaseへ採用しない。
+ * @effect Filesystemの読取りのみ。作成・削除・Process操作なし。
+ * @failure 不正親、列挙後消失、未知項目、Hash・Owner差、観測不能で停止する。
+ * @invariant 過去の解放証拠だけで現在のOwner不存在を推定しない。
+ * @boundary Repository-localの旧recovery/leasesとwork/locks。
+ * @security 外部hardlink・aliasを拒否し、本文を診断出力しない。
+ * @concurrency 各読取り時点の確認。旧Writer停止と一貫Snapshotは別途必要。
+ */
+export function readLegacyProjectRuntimeLeaseInputs(
+  workingDirectory: string,
+): StoreResult<LegacyLeaseInputs> {
+  try {
+    const paths =
+      resolveRepositoryRuntimeDataPathsFromWorkingDirectory(workingDirectory);
+    if (!paths) throw new Error("legacy_lease_root_invalid");
+    const root = paths.repositoryRoot;
+    assertDirectory(root);
+    const observedParents = [root];
+    /**
+     * 親領域の真正不存在だけを許可する。
+     * @responsibility 初回lstat後の失敗を不存在へ畳まない。
+     * @trace ARCH-000004
+     * @input directory: Root内の親Path。
+     * @returns 正規Directoryならtrue、真正不存在ならfalse。
+     * @precondition 祖先を順に確認する。
+     * @postcondition 不存在の場合も確認済み祖先が正規である。
+     * @effect 読取りのみ。
+     * @failure 観測不能・途中消失・aliasで例外。
+     * @invariant 空結果を不明の代用にしない。
+     * @boundary Filesystem。
+     * @security Rootの外を列挙しない。
+     * @concurrency Writer停止を証明しない。
+     */
+    const parentExists = (directory: string): boolean => {
+      try {
+        fs.lstatSync(directory);
+      } catch (error) {
+        if (errorCode(error) !== "ENOENT") throw error;
+        for (const parent of observedParents) assertDirectory(parent);
+        return false;
+      }
+      assertDirectory(directory);
+      observedParents.push(directory);
+      return true;
+    };
+    const evidence: LeaseEvidenceEnvelope[] = [];
+    const footprints: LegacyLeaseInputs["footprints"][number][] = [];
+    const sourceRecords: LegacyLeaseInputs["sourceRecords"][number][] = [];
+    /**
+     * 読取り済み入力を変更不能な結果へまとめる。
+     * @responsibility 移行未実施の入力だけを返す。
+     * @trace ARCH-000004
+     * @input N/A: 同期読取り内の局所配列を参照する。
+     * @returns 旧証拠と残存情報の読取り結果。
+     * @precondition 各入力の検証が成功している。
+     * @postcondition migrationCommittedはfalseである。
+     * @effect N/A: 結果構築だけを行う。
+     * @failure N/A: 不正入力は呼出し前に拒否する。
+     * @invariant 読取りを移行完了へ昇格しない。
+     * @boundary 局所配列から返却値。
+     * @security 本文の外部送信を行わない。
+     * @concurrency N/A: 同期処理内で完結する。
+     */
+    const result = () =>
+      completed(
+        "project_runtime_legacy_leases_observed",
+        Object.freeze({
+          evidence: Object.freeze(evidence),
+          footprints: Object.freeze(footprints),
+          sourceRecords: Object.freeze(sourceRecords),
+          migrationCommitted: false as const,
+        }),
+      );
+    for (const parent of [path.join(root, ".crdd"), paths.projectRuntime]) {
+      if (!parentExists(parent)) return result();
+    }
+    /**
+     * 一つの旧Fileを同handleで読取り、元bytesを記録する。
+     * @responsibility 安定したUTF-8入力と導出元Hashを返す。
+     * @trace ARCH-000004
+     * @input location: 列挙済みのexact File。
+     * @returns UTF-8本文。
+     * @precondition 正規の親Directoryを確認済み。
+     * @postcondition 元bytesのHashと相対Pathを記録済み。
+     * @effect 読取りのみ。
+     * @failure 不正UTF-8、観測不能、読取り中変更で例外。
+     * @invariant 正規化Hashと元bytes Hashを混同しない。
+     * @boundary FilesystemからJSON復号。
+     * @security 本文をlogや外部へ複製しない。
+     * @concurrency 親とFileを再確認する。
+     */
+    const read = (location: string): string => {
+      const snapshot = readStableBoundedFileSnapshot(
+        location,
+        MAX_RECORD_BYTES,
+      );
+      for (const parent of observedParents) assertDirectory(parent);
+      sourceRecords.push(
+        Object.freeze({
+          relativePath: path
+            .relative(paths.projectRuntime, location)
+            .split(path.sep)
+            .join("/"),
+          sha256: createHash("sha256").update(snapshot.bytes).digest("hex"),
+        }),
+      );
+      return new TextDecoder("utf-8", { fatal: true }).decode(snapshot.bytes);
+    };
+    const recovery = path.join(paths.projectRuntime, "recovery");
+    if (parentExists(recovery)) {
+      const directory = path.join(recovery, "leases");
+      if (parentExists(directory)) {
+        const names = fs.readdirSync(directory).sort();
+        for (const name of names) {
+          const location = path.join(directory, name);
+          if (!name.endsWith(".json") || fs.lstatSync(location).nlink !== 1)
+            throw new Error("legacy_lease_file_invalid");
+          const value: unknown = JSON.parse(read(location));
+          if (
+            !plainObject(value) ||
+            !exactKeys(value, [
+              "schema",
+              "schemaRevision",
+              "recordKind",
+              "repositoryBindingId",
+              "projectId",
+              "createdGeneration",
+              "updatedGeneration",
+              "contentHash",
+              "content",
+            ]) ||
+            value.schema !== PROJECT_RUNTIME_DURABLE_FOUNDATION_CONTRACT ||
+            value.schemaRevision !== 1 ||
+            value.recordKind !== "lease-evidence" ||
+            !validId(value.repositoryBindingId) ||
+            !validId(value.projectId) ||
+            !validLeaseEvidence(value.content)
+          )
+            throw new Error("legacy_lease_record_invalid");
+          const record = value as unknown as LeaseEvidenceEnvelope;
+          const content = record.content;
+          const suffix =
+            content.disposition === "acquired"
+              ? ""
+              : content.disposition === "released"
+                ? "-released"
+                : "-recovered";
+          const expectedName = `${leaseIdentity(record.repositoryBindingId, record.projectId, content.queueId, content.kind)}-${content.ownerGeneration}${suffix}.json`;
+          if (
+            name !== expectedName ||
+            record.createdGeneration !== 1 ||
+            record.updatedGeneration !==
+              (content.disposition === "acquired" ? 1 : 2) ||
+            record.contentHash !== digest(JSON.stringify(content)) ||
+            fs.lstatSync(location).nlink !== 1
+          )
+            throw new Error("legacy_lease_record_mismatch");
+          evidence.push(Object.freeze(record));
+        }
+        assertDirectory(directory);
+        if (
+          JSON.stringify(fs.readdirSync(directory).sort()) !==
+          JSON.stringify(names)
+        )
+          throw new Error("legacy_lease_inventory_changed");
+      }
+    }
+    const groups = new Map<string, LeaseEvidenceEnvelope[]>();
+    for (const record of evidence) {
+      const key = `${leaseIdentity(record.repositoryBindingId, record.projectId, record.content.queueId, record.content.kind)}\0${record.content.ownerGeneration}`;
+      const groupRecords = groups.get(key) ?? [];
+      groupRecords.push(record);
+      groups.set(key, groupRecords);
+    }
+    for (const groupRecords of groups.values()) {
+      const acquired = groupRecords.find(
+        (item) => item.content.disposition === "acquired",
+      );
+      if (
+        !acquired ||
+        groupRecords.length > 2 ||
+        new Set(groupRecords.map((item) => item.content.disposition)).size !==
+          groupRecords.length ||
+        groupRecords.some(
+          (item) =>
+            item.repositoryBindingId !== acquired.repositoryBindingId ||
+            item.projectId !== acquired.projectId ||
+            item.content.queueId !== acquired.content.queueId ||
+            item.content.ownerProcessId !== acquired.content.ownerProcessId,
+        )
+      )
+        throw new Error("legacy_lease_group_mismatch");
+    }
+    const work = path.join(paths.projectRuntime, "work");
+    if (parentExists(work)) {
+      const locks = path.join(work, "locks");
+      if (parentExists(locks)) {
+        const names = fs.readdirSync(locks).sort();
+        const fileIdentities = new Map<
+          string,
+          { dev: number; ino: number; nlink: number }
+        >();
+        for (const name of names) {
+          if (!/^[A-Za-z0-9._-]{1,512}$/u.test(name))
+            throw new Error("legacy_lease_name_invalid");
+          const location = path.join(locks, name);
+          const stat = fs.lstatSync(location);
+          if (stat.isSymbolicLink()) throw new Error("legacy_lease_alias");
+          const relativePath = `work/locks/${name}`;
+          if (stat.isDirectory()) {
+            if (!name.endsWith(".lock"))
+              throw new Error("legacy_lease_directory_invalid");
+            assertDirectory(location);
+            if (fs.readdirSync(location).length !== 0)
+              throw new Error("legacy_lease_lock_contents_invalid");
+            footprints.push(
+              Object.freeze({ relativePath, kind: "lock", value: null }),
+            );
+            continue;
+          }
+          if (!stat.isFile()) throw new Error("legacy_lease_type_invalid");
+          const text = read(location);
+          fileIdentities.set(name, {
+            dev: stat.dev,
+            ino: stat.ino,
+            nlink: stat.nlink,
+          });
+          if (name.endsWith(".release-unknown")) {
+            const owner = text.endsWith("\n") ? text.slice(0, -1) : "";
+            if (!validId(owner) || stat.nlink !== 1)
+              throw new Error("legacy_lease_release_invalid");
+            footprints.push(
+              Object.freeze({ relativePath, kind: "release", value: owner }),
+            );
+          } else {
+            const kind = name.endsWith(".acquire-pending")
+              ? "acquisition"
+              : name.endsWith(".acquire-lock-owned")
+                ? "ownership"
+                : /^\.pending-.+-acquisition-.+\.tmp$/u.test(name)
+                  ? "temporary"
+                  : null;
+            const parsed: unknown = JSON.parse(text);
+            if (
+              !kind ||
+              !plainObject(parsed) ||
+              !exactKeys(parsed, [
+                "kind",
+                "queueId",
+                "ownerGeneration",
+                "ownerProcessId",
+                "recoveryId",
+              ]) ||
+              (parsed.kind !== "project-operation" &&
+                parsed.kind !== "canonical-adoption") ||
+              !validId(parsed.queueId) ||
+              !validId(parsed.ownerGeneration) ||
+              !validId(parsed.recoveryId) ||
+              !Number.isSafeInteger(parsed.ownerProcessId) ||
+              Number(parsed.ownerProcessId) < 1
+            )
+              throw new Error("legacy_lease_marker_invalid");
+            footprints.push(
+              Object.freeze({
+                relativePath,
+                kind,
+                value: Object.freeze(parsed as LeaseAcquisitionMarker),
+              }),
+            );
+          }
+        }
+        for (const [name, file] of fileIdentities) {
+          const current = fs.lstatSync(path.join(locks, name));
+          if (
+            !current.isFile() ||
+            current.isSymbolicLink() ||
+            current.dev !== file.dev ||
+            current.ino !== file.ino ||
+            current.nlink !== file.nlink
+          )
+            throw new Error("legacy_lease_file_changed");
+          const aliases = [...fileIdentities.values()].filter(
+            (other) => file.dev === other.dev && file.ino === other.ino,
+          );
+          if (file.nlink !== aliases.length)
+            throw new Error("legacy_lease_external_hardlink");
+        }
+        assertDirectory(locks);
+        if (
+          JSON.stringify(fs.readdirSync(locks).sort()) !== JSON.stringify(names)
+        )
+          throw new Error("legacy_lease_inventory_changed");
+      }
+    }
+    for (const parent of observedParents) assertDirectory(parent);
+    return result();
+  } catch {
+    return blocked("project_runtime_legacy_leases_invalid_or_unknown");
+  }
 }
 
 /**
@@ -4142,6 +8957,157 @@ export function createProjectRuntimePersistencePorts(
     state: statePort,
     lease: leasePort,
   });
+}
+
+/**
+ * 受付以外の既存操作を現在の保存世代へ接続する。
+ * @responsibility 読取り・採用・判断・回復の本番利用側を新版へ結合する。
+ * @trace ARCH-000004
+ * @input Repository Rootと保存binding。
+ * @returns 新版のPersistence Port。
+ * @precondition 明示的な初期化が完了している。
+ * @postcondition 新版不存在または不正では旧形式を使用しない。
+ * @effect Snapshot読取りと短期排他。
+ * @failure 不存在、破損、pending、旧版では例外。
+ * @invariant Objective受付は発行時世代を指定する専用入口を使用する。
+ * @boundary 本番Compositionと保存Port。
+ * @security 認証・採用Authorityを生成しない。
+ * @concurrency 構築時の世代を固定し、各変更時に再確認する。
+ */
+export function createCurrentProjectRuntimePersistencePorts(
+  workingDirectory: string,
+  binding: string,
+): ProjectRuntimePersistencePorts {
+  const observed = readProjectRuntimeSnapshot(workingDirectory, binding);
+  if (
+    observed.status !== "completed" ||
+    !observed.value ||
+    observed.value.schema !== SNAPSHOT_SCHEMA_V2
+  )
+    throw new Error("project_runtime_snapshot_not_initialized");
+  return createProjectRuntimeSnapshotPersistencePorts(
+    workingDirectory,
+    binding,
+    observed.value.intakeEpoch,
+  );
+}
+
+/**
+ * 新版の現在状態からProjectを読み取る。
+ * @responsibility Docker回復の利用側にも同じ保存値を提供する。
+ * @trace ARCH-000004
+ * @input Repository Root、binding、Project ID。
+ * @returns Project状態または観測停止。
+ * @precondition 呼出し権限は上位で検証する。
+ * @postcondition 不存在と未初期化を区別する。
+ * @effect 読取りと短期排他のみ。
+ * @failure 旧版、pending、破損は停止する。
+ * @invariant 読取りによる初期化やFallbackをしない。
+ * @boundary 保存と回復利用側。
+ * @security 保存値はAuthorityではない。
+ * @concurrency 同Owner下でProject値を確定する。
+ */
+export function readCurrentProjectRuntimeState(
+  workingDirectory: string,
+  binding: string,
+  projectId: string,
+): StoreResult<ProjectRuntimeState | null> {
+  return withProjectRuntimeSnapshotOperation(
+    workingDirectory,
+    binding,
+    (current) =>
+      current.schema === SNAPSHOT_SCHEMA_V2 && validId(projectId)
+        ? completed("project_runtime_state_observed", {
+            next: null,
+            value:
+              current.projects.find((item) => item.projectId === projectId) ??
+              null,
+          })
+        : blocked("project_runtime_snapshot_schema_invalid"),
+  );
+}
+
+/**
+ * 統合保存の状態操作と排他操作を一組として接続する。
+ *
+ * @responsibility 既存Persistence Portを新版の保存・取得・回復へ結合する。
+ * @trace ARCH-000004
+ * @input 検証済みRepository Root、binding、Request発行時のintakeEpoch。
+ * @returns 既存のState PortとLease Port。
+ * @precondition 操作前に新版Snapshotを初期化し、発行時の受付世代を固定する。
+ * @postcondition 停止理由とexact回復参照を変更せず既存利用側へ返す。
+ * @effect 構築時はなし。操作時の保存・実排他は各接続先が所有する。
+ * @failure Operation回復のQueue欠落・結合不一致は停止する。
+ * @invariant Adoption回復を通常Queueの更新へ変換しない。
+ * @boundary CoreのPersistence PortとRepository内の統合保存。
+ * @security 旧形式Fallback、暗黙初期化、受付世代の自動付替えを行わない。
+ * @concurrency 各操作が既存の短期保存Ownerと実行Leaseの分離を維持する。
+ */
+export function createProjectRuntimeSnapshotPersistencePorts(
+  workingDirectory: string,
+  repositoryBindingId: string,
+  intakeEpoch: string,
+  intake?: Readonly<{
+    epoch: string;
+    queueId: string;
+    requestHash: string;
+    projectId: string;
+    milestoneId: string;
+  }>,
+): ProjectRuntimePersistencePorts {
+  const state = createProjectRuntimeSnapshotStatePort(
+    workingDirectory,
+    repositoryBindingId,
+    intakeEpoch,
+    intake,
+  );
+  const lease: ProjectRuntimeLeasePort = Object.freeze({
+    acquire: (projectId, queueId, kind) =>
+      acquireProjectRuntimeSnapshotLease(
+        workingDirectory,
+        repositoryBindingId,
+        projectId,
+        queueId,
+        kind,
+      ),
+    inspectAcquisitionOwner: () =>
+      inspectProjectRuntimeSnapshotLeaseAcquisitionOwner(
+        workingDirectory,
+        repositoryBindingId,
+      ),
+    reconcileOperationOwnerLoss: (projectId, queueId, observeOwner) => {
+      const result = reconcileProjectRuntimeSnapshotLeaseOwnerLoss(
+        workingDirectory,
+        repositoryBindingId,
+        projectId,
+        queueId,
+        "project-operation",
+        observeOwner,
+      );
+      if (result.status !== "completed") return result;
+      const queue = result.value.queue;
+      if (!queue || queue.projectId !== projectId || queue.queueId !== queueId)
+        return blocked(
+          "project_runtime_lease_recovery_queue_mismatch",
+          result.value.recoveryId !== null,
+          result.value.recoveryId,
+        );
+      return completed(result.reason, queue);
+    },
+    reconcileAdoptionOwnerLoss: (projectId, observeOwner) => {
+      const result = reconcileProjectRuntimeSnapshotLeaseOwnerLoss(
+        workingDirectory,
+        repositoryBindingId,
+        projectId,
+        "canonical",
+        "canonical-adoption",
+        observeOwner,
+      );
+      if (result.status !== "completed") return result;
+      return completed(result.reason, { recoveryId: result.value.recoveryId });
+    },
+  });
+  return Object.freeze({ state, lease });
 }
 
 /**

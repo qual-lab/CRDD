@@ -34,6 +34,7 @@ const objectiveRequest = Object.freeze({
   maximumReplans: 1,
   originLane: "interactive" as const,
   adoptResult: false,
+  intakeEpoch: "fixture-epoch",
 });
 
 const PROJECT_RUNTIME_OBJECTIVE_PLAN = Object.freeze({

@@ -22,7 +22,7 @@ import {
   finalizeRuntimeOwnedDockerRecoveryAcknowledgement,
 } from "./docker-recovery-runtime-internal.ts";
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
-import { readProjectRuntimeState } from "./project-runtime-durable-foundation.ts";
+import { readCurrentProjectRuntimeState as readProjectRuntimeState } from "./project-runtime-durable-foundation.ts";
 
 export type { ProjectSettledDockerRecovery };
 

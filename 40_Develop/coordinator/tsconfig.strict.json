@@ -29,6 +29,7 @@
     "src/security/coordinator-task-request.ts",
     "src/security/execution-intelligence-adapter.ts",
     "src/security/project-runtime-durable-foundation.ts",
+    "src/security/project-runtime-history.ts",
     "src/security/project-runtime-single-task-adapter.ts",
     "src/security/project-runtime-windows-platform-adapter.ts",
     "src/security/development-measurement-session.ts",

@@ -112,7 +112,7 @@ type NamespaceInitialization = Readonly<{
 export function decodeHostRecoveryNamespaceResponse(
   input: unknown,
   nonceHex: string,
-  initialize: boolean,
+  shouldInitialize: boolean,
 ): NamespaceObservation | null {
   if (
     !Buffer.isBuffer(input) ||
@@ -154,7 +154,7 @@ export function decodeHostRecoveryNamespaceResponse(
     directories > 64
   )
     return null;
-  const children: NamespaceObservation["children"][number][] = [];
+  const childObservations: NamespaceObservation["children"][number][] = [];
   for (let index = 0; index < 2; index += 1) {
     const offset = 49 + index * 5;
     const present = bytes[offset];
@@ -178,11 +178,11 @@ export function decodeHostRecoveryNamespaceResponse(
     if (present === 0) {
       if (issued !== 0 || created !== 2 || acquired !== 0 || close !== 2)
         return null;
-      children.push(null);
+      childObservations.push(null);
     } else {
       if ((issued === 0 && created !== 0) || (acquired === 0 && close !== 2))
         return null;
-      children.push(
+      childObservations.push(
         Object.freeze({
           createIssued: issued === 1,
           created: created === 2 ? null : created === 1,
@@ -257,26 +257,26 @@ export function decodeHostRecoveryNamespaceResponse(
     closes.slice(tokens).map((value) => value === 1),
   );
   if (
-    !initialize &&
-    (children.some((child) => child !== null) || (mask & 6) !== 0)
+    !shouldInitialize &&
+    (childObservations.some((child) => child !== null) || (mask & 6) !== 0)
   )
     return null;
   if (status !== 0) {
     if (
-      status !== (initialize ? 2 : 1) ||
+      status !== (shouldInitialize ? 2 : 1) ||
       operation !== "" ||
       selected !== 1 ||
-      mask !== (initialize ? 7 : 1) ||
+      mask !== (shouldInitialize ? 7 : 1) ||
       tokens !== 2 ||
-      tokenCloses.some((value) => !value) ||
+      tokenCloses.some((isConfirmed) => !isConfirmed) ||
       directories === 0 ||
-      directoryCloses.some((value) => !value) ||
+      directoryCloses.some((isConfirmed) => !isConfirmed) ||
       reason !==
-        (initialize
+        (shouldInitialize
           ? "terminal_namespace_initialized"
           : "terminal_namespace_parent_observed") ||
-      (initialize &&
-        children.some(
+      (shouldInitialize &&
+        childObservations.some(
           (child) =>
             child === null ||
             !child.handleAcquired ||
@@ -305,12 +305,13 @@ export function decodeHostRecoveryNamespaceResponse(
     }
   }
   return Object.freeze({
-    status: status === 0 ? "blocked" : initialize ? "initialized" : "observed",
+    status:
+      status === 0 ? "blocked" : shouldInitialize ? "initialized" : "observed",
     reason,
     operationReason: operation || null,
     identities: Object.freeze(identities),
     selectedUserSha256,
-    children: Object.freeze(children),
+    children: Object.freeze(childObservations),
     tokenCloses,
     directoryCloses,
   });
@@ -340,7 +341,7 @@ export function initializeHostRecoveryNamespaceWindows(
   let initialization: NamespaceObservation | null = null;
   let processEffectIssued = false;
   let helperExitConfirmed = false;
-  let artifactVerifiedBeforeAndAfter = false;
+  let isArtifactVerifiedBeforeAndAfter = false;
   let filesystemEffectIssued: boolean | null = false;
   /**
    * 現在の部分観測と明示した完了判定だけを返す。
@@ -358,15 +359,18 @@ export function initializeHostRecoveryNamespaceWindows(
    * @security Path・SID・元Tokenを返さない。
    * @concurrency 同期呼出し内の現在値だけをcopyする。
    */
-  const result = (reason: string, completed = false): NamespaceInitialization =>
+  const result = (
+    reason: string,
+    isCompleted = false,
+  ): NamespaceInitialization =>
     Object.freeze({
-      status: completed ? "initialized" : "blocked",
+      status: isCompleted ? "initialized" : "blocked",
       reason,
       parentObservation,
       initialization,
       processEffectIssued,
       helperExitConfirmed,
-      artifactVerifiedBeforeAndAfter,
+      artifactVerifiedBeforeAndAfter: isArtifactVerifiedBeforeAndAfter,
       filesystemEffectIssued,
     });
   try {
@@ -402,13 +406,13 @@ export function initializeHostRecoveryNamespaceWindows(
       JSON.stringify(before.artifact) !== JSON.stringify(signing.artifact)
     )
       return result("terminal_namespace_artifact_not_verified");
-    for (const initialize of [false, true]) {
+    for (const shouldInitialize of [false, true]) {
       const nonce = randomBytes(32);
-      const request = Buffer.alloc(initialize ? 98 : 42);
-      request.write(initialize ? "CRDDNI01" : "CRDDNC01", 0, "ascii");
+      const request = Buffer.alloc(shouldInitialize ? 98 : 42);
+      request.write(shouldInitialize ? "CRDDNI01" : "CRDDNC01", 0, "ascii");
       request.writeUInt16LE(1, 8);
       nonce.copy(request, 10);
-      if (initialize) {
+      if (shouldInitialize) {
         const identity = parentObservation?.identities[0];
         const user = parentObservation?.selectedUserSha256;
         if (!identity || !user)
@@ -421,15 +425,15 @@ export function initializeHostRecoveryNamespaceWindows(
       // Record issuance before calling the Process API; exceptions are not proof of Effect 0.
       processEffectIssued = true;
       helperExitConfirmed = false;
-      artifactVerifiedBeforeAndAfter = false;
-      if (initialize) filesystemEffectIssued = null;
+      isArtifactVerifiedBeforeAndAfter = false;
+      if (shouldInitialize) filesystemEffectIssued = null;
       const execution = spawnSync(
         path.join(
           distributionRoot,
           ...PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH.split("/"),
         ),
         [
-          initialize
+          shouldInitialize
             ? "--host-recovery-namespace-initialize"
             : "--host-recovery-namespace-observe",
         ],
@@ -462,18 +466,18 @@ export function initializeHostRecoveryNamespaceWindows(
         JSON.stringify(before.artifact) !== JSON.stringify(after.artifact)
       )
         return result("terminal_namespace_artifact_changed");
-      artifactVerifiedBeforeAndAfter = true;
+      isArtifactVerifiedBeforeAndAfter = true;
       const observation = decodeHostRecoveryNamespaceResponse(
         execution.stdout,
         nonce.toString("hex"),
-        initialize,
+        shouldInitialize,
       );
       if (
         !observation ||
         execution.status !== (observation.status === "blocked" ? 2 : 0)
       )
         return result("terminal_namespace_response_invalid");
-      if (initialize) {
+      if (shouldInitialize) {
         initialization = observation;
         filesystemEffectIssued = observation.children.some(
           (child) => child?.createIssued === true,
@@ -483,7 +487,7 @@ export function initializeHostRecoveryNamespaceWindows(
       }
       if (observation.status === "blocked") return result(observation.reason);
       if (
-        initialize &&
+        shouldInitialize &&
         (JSON.stringify(observation.identities[0]) !==
           JSON.stringify(parentObservation?.identities[0]) ||
           observation.selectedUserSha256 !==

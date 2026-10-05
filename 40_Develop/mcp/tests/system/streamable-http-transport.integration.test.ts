@@ -62,6 +62,7 @@ function dependencies(
       projectId: request.projectId,
       repositoryRevision: request.repositoryRevision,
       observationState: "absent",
+      intakeEpoch: "fixture-epoch",
       projection: null,
       cleanupConfirmed: true,
       manualRecoveryRequired: false,
@@ -537,6 +538,7 @@ test("HTTP response切断は進行中Objectiveへ取消を伝播して終了時�
         maximumReplans: 0,
         originLane: "interactive",
         adoptResult: false,
+        intakeEpoch: "fixture-epoch",
       },
     },
   };
@@ -642,6 +644,7 @@ test("公開Launcherのsignal所有は実行中Applicationの取消とjoin完了
         maximumReplans: 0,
         originLane: "interactive",
         adoptResult: false,
+        intakeEpoch: "fixture-epoch",
       },
     },
   };

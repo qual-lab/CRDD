@@ -10,12 +10,20 @@
  */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
-import { createProjectRuntimeIntegrationRecordAdapter } from "../../src/security/project-runtime-integration-record-adapter.ts";
+import {
+  createProjectRuntimeIntegrationRecordAdapter,
+  readLegacyProjectRuntimeResultInputs,
+} from "../../src/security/project-runtime-integration-record-adapter.ts";
+import {
+  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
+  requireReadyRepositoryRuntimeDataArea,
+} from "../../../runtime-data/src/index.ts";
 
 /**
  * fixtureのTest準備責務を実行する。
@@ -30,13 +38,285 @@ import { createProjectRuntimeIntegrationRecordAdapter } from "../../src/security
  * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 function fixture(t: test.TestContext) {
+  const repository = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "../../../..",
+  );
+  const area = requireReadyRepositoryRuntimeDataArea(
+    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(repository, "tmp"),
+    "fixture_repository_root_invalid",
+  );
+  const parent = fs.realpathSync.native(area.directory);
   const root = fs.mkdtempSync(
-    path.join(os.tmpdir(), "crdd-project-integration-record-"),
+    path.join(parent, "crdd-project-integration-record-"),
   );
   execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  t.after(() => {
+    assert.equal(fs.realpathSync.native(root), root);
+    assert.equal(path.dirname(root), parent);
+    fs.rmSync(root, { recursive: true, force: true });
+    assert.equal(fs.existsSync(root), false);
+  });
   return { root };
 }
+
+/**
+ * 本番Writerの公開結果を変更せず全件抽出する。
+ *
+ * @responsibility kindとProjectをまたぐ結果・元Byte列Hashの保持を確認する。
+ * @trace PRL-IT-005
+ * @precondition 自己所有Repositoryへ本番Writerで記録を作る。
+ * @stimulus 抽出入口を二度呼ぶ。
+ * @observation 全値、導出元Hash、読取り前後Byte列を比較する。
+ * @oracle valueと結合は不変で、migrationCommittedはfalse。
+ * @cleanup fixtureのRootだけを回収する。
+ * @boundary 旧Writer→Filesystem→移行入力。
+ */
+test("旧結果の全kind・Projectを非変更で抽出し、受領済みとは扱わない", (t) => {
+  const { root } = fixture(t);
+  for (const kind of ["integration", "adoption"] as const) {
+    for (const project of ["project-a", "project-b"]) {
+      assert.equal(
+        adapter(root, project).write({
+          kind,
+          identity: `record-${kind}`,
+          value: { status: kind, applied: kind === "adoption" },
+        }).status,
+        "completed",
+      );
+    }
+  }
+  const read = readLegacyProjectRuntimeResultInputs(root);
+  assert.equal(read.status, "completed");
+  if (read.status !== "completed") throw new Error("read_failed");
+  assert.equal(read.value.records.length, 4);
+  assert.equal(read.value.sourceRecords.length, 4);
+  assert.equal(read.value.migrationCommitted, false);
+  for (const source of read.value.sourceRecords) {
+    const bytes = fs.readFileSync(
+      path.join(root, ".crdd", "project-runtime", source.relativePath),
+    );
+    assert.equal(
+      source.sha256,
+      createHash("sha256").update(bytes).digest("hex"),
+    );
+  }
+  assert.deepEqual(readLegacyProjectRuntimeResultInputs(root), read);
+});
+
+/**
+ * 破損・結合差・残存候補を黙って捨てないことを確認する。
+ *
+ * @responsibility 不正結果を空入力へ畳まず既存Byte列を保全する。
+ * @trace PRL-IT-005
+ * @precondition 本番Writerが保存した結果を使う。
+ * @stimulus 未知key、kind、Project、Identity、Hash、pending、hardlinkを注入する。
+ * @observation 停止結果とFile内容を確認する。
+ * @oracle 一件でも不正なら全体を停止し移行候補を返さない。
+ * @cleanup fixtureのRootだけを回収する。
+ * @boundary 旧結果の全数検証。
+ */
+test("旧結果のHash・結合・未知項目とpending・hardlinkを拒否し保全する", (t) => {
+  const { root } = fixture(t);
+  assert.equal(
+    adapter(root).write({
+      kind: "adoption",
+      identity: "receipt-a",
+      value: { applied: true },
+    }).status,
+    "completed",
+  );
+  const directory = path.join(
+    root,
+    ".crdd",
+    "project-runtime",
+    "results",
+    "adoption",
+    "project-a",
+  );
+  const target = path.join(directory, "receipt-a.json");
+  const original = fs.readFileSync(target, "utf8");
+  for (const change of [
+    { extra: true },
+    { kind: "integration" },
+    { projectId: "project-b" },
+    { identity: "receipt-b" },
+    { contentHash: "0".repeat(64) },
+    { value: { applied: false } },
+  ]) {
+    const invalid = JSON.stringify({ ...JSON.parse(original), ...change });
+    fs.writeFileSync(target, invalid);
+    const result = readLegacyProjectRuntimeResultInputs(root);
+    assert.equal(result.status, "blocked");
+    assert.equal(
+      result.status === "blocked" && result.manualRecoveryRequired,
+      false,
+    );
+    assert.equal(fs.readFileSync(target, "utf8"), invalid);
+  }
+  fs.writeFileSync(target, original);
+  const pending = path.join(directory, ".pending-trial.tmp");
+  fs.writeFileSync(pending, "unfinished");
+  assert.equal(readLegacyProjectRuntimeResultInputs(root).status, "blocked");
+  assert.equal(fs.readFileSync(pending, "utf8"), "unfinished");
+  fs.unlinkSync(pending);
+  const link = path.join(root, "receipt-hardlink");
+  fs.linkSync(target, link);
+  assert.equal(readLegacyProjectRuntimeResultInputs(root).status, "blocked");
+  fs.unlinkSync(link);
+  assert.equal(readLegacyProjectRuntimeResultInputs(root).status, "completed");
+});
+
+/**
+ * 真正不存在と観測不能・列挙後消失・親aliasを区別する。
+ *
+ * @responsibility 不明を空結果へ読み替えない。
+ * @trace PRL-IT-005
+ * @precondition 自己所有の試験Repositoryを使う。
+ * @stimulus ENOENT、EACCES、親junctionと上限超過を注入する。
+ * @observation 空結果と停止結果、元Fileの保全を確認する。
+ * @oracle 親の真正不存在だけ成功し、他は停止する。
+ * @cleanup Mockを復元しfixtureのRootだけを回収する。
+ * @boundary Repository Root・親領域・個別File読取り。
+ */
+test("旧結果は真正不存在だけ空とし、観測不能・途中消失・alias・超過を停止する", (t) => {
+  const { root } = fixture(t);
+  const absent = readLegacyProjectRuntimeResultInputs(root);
+  assert.equal(absent.status, "completed");
+  if (absent.status !== "completed") throw new Error("absent_failed");
+  assert.equal(absent.value.records.length, 0);
+  assert.equal(fs.existsSync(path.join(root, ".crdd")), false);
+  assert.equal(
+    adapter(root).write({
+      kind: "integration",
+      identity: "candidate-a",
+      value: {},
+    }).status,
+    "completed",
+  );
+  const target = path.join(
+    root,
+    ".crdd",
+    "project-runtime",
+    "results",
+    "integration",
+    "project-a",
+    "candidate-a.json",
+  );
+  const lstat = fs.lstatSync;
+  for (const code of ["EACCES", "ENOENT"]) {
+    const mock = t.mock.method(fs, "lstatSync", ((
+      location: fs.PathLike,
+      ...args: unknown[]
+    ) => {
+      if (String(location) === target)
+        throw Object.assign(new Error("injected"), { code });
+      return Reflect.apply(lstat, fs, [location, ...args]);
+    }) as typeof fs.lstatSync);
+    try {
+      assert.equal(
+        readLegacyProjectRuntimeResultInputs(root).status,
+        "blocked",
+      );
+    } finally {
+      mock.mock.restore();
+    }
+  }
+  const original = fs.readFileSync(target);
+  fs.writeFileSync(target, "x".repeat(16 * 1024 * 1024 + 1));
+  assert.equal(readLegacyProjectRuntimeResultInputs(root).status, "blocked");
+  fs.writeFileSync(target, original);
+  const project = path.dirname(target);
+  const displaced = path.join(root, "displaced");
+  fs.renameSync(project, displaced);
+  fs.symlinkSync(
+    displaced,
+    project,
+    process.platform === "win32" ? "junction" : "dir",
+  );
+  assert.equal(readLegacyProjectRuntimeResultInputs(root).status, "blocked");
+  fs.unlinkSync(project);
+  fs.renameSync(displaced, project);
+  assert.equal(readLegacyProjectRuntimeResultInputs(root).status, "completed");
+});
+
+/**
+ * 観測済み祖先の消失と不正encodingを正常入力へ畳まない。
+ *
+ * @responsibility 存在確認後の失敗と置換文字を使ったHash一致の反証を固定する。
+ * @trace PRL-IT-005
+ * @precondition 本番Writer結果と自己所有Repositoryを使う。
+ * @stimulus 親realpathのENOENT、空返却前祖先EACCES、不正UTF-8を注入する。
+ * @observation 停止結果と元bytesの不変を確認する。
+ * @oracle いずれも空入力や受理へ変換しない。
+ * @cleanup Mockを復元しfixtureのRootだけを回収する。
+ * @boundary Filesystem観測とJSON復号。
+ */
+test("旧結果は親の途中消失・祖先再確認失敗・不正UTF8を拒否する", (t) => {
+  const { root } = fixture(t);
+  const lstat = fs.lstatSync;
+  let rootReads = 0;
+  const ancestorMock = t.mock.method(fs, "lstatSync", ((
+    location: fs.PathLike,
+    ...args: unknown[]
+  ) => {
+    if (String(location) === root && ++rootReads >= 2)
+      throw Object.assign(new Error("injected"), { code: "EACCES" });
+    return Reflect.apply(lstat, fs, [location, ...args]);
+  }) as typeof fs.lstatSync);
+  try {
+    assert.equal(readLegacyProjectRuntimeResultInputs(root).status, "blocked");
+  } finally {
+    ancestorMock.mock.restore();
+  }
+  assert.equal(
+    adapter(root).write({
+      kind: "integration",
+      identity: "candidate-a",
+      value: { text: "\uFFFD" },
+    }).status,
+    "completed",
+  );
+  const parent = path.join(root, ".crdd");
+  const realpath = fs.realpathSync.native;
+  const parentMock = t.mock.method(fs.realpathSync, "native", ((
+    location: fs.PathLike,
+    ...args: unknown[]
+  ) => {
+    if (String(location) === parent)
+      throw Object.assign(new Error("injected"), { code: "ENOENT" });
+    return Reflect.apply(realpath, fs.realpathSync, [location, ...args]);
+  }) as typeof fs.realpathSync.native);
+  try {
+    assert.equal(readLegacyProjectRuntimeResultInputs(root).status, "blocked");
+  } finally {
+    parentMock.mock.restore();
+  }
+  const target = path.join(
+    root,
+    ".crdd",
+    "project-runtime",
+    "results",
+    "integration",
+    "project-a",
+    "candidate-a.json",
+  );
+  const original = fs.readFileSync(target);
+  const replacement = Buffer.from("\uFFFD");
+  const index = original.indexOf(replacement);
+  assert.notEqual(index, -1);
+  const invalid = Buffer.concat([
+    original.subarray(0, index),
+    Buffer.from([0xff]),
+    original.subarray(index + replacement.length),
+  ]);
+  assert.equal(invalid.toString("utf8"), original.toString("utf8"));
+  fs.writeFileSync(target, invalid);
+  assert.equal(readLegacyProjectRuntimeResultInputs(root).status, "blocked");
+  assert.deepEqual(fs.readFileSync(target), invalid);
+  fs.writeFileSync(target, original);
+  assert.equal(readLegacyProjectRuntimeResultInputs(root).status, "completed");
+});
 
 /**
  * adapterのTest準備責務を実行する。

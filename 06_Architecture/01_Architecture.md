@@ -1,14 +1,14 @@
 # CRDD参照Toolのアーキテクチャ
 
-Status: Architecture Ready (v0.21.0)
+Status: Candidate (v0.22.0, 保存方式刷新の確認中)
 Owner: Qual-Lab
-Last Updated: 2026-09-19
+Last Updated: 2026-10-06
 
 ## 1. 目的と現在状態
 
 本書はArchitecture工程の固定入口である。CanonicalなUI／SPECから導いた18件の責務定義と、それらをQualityが検証設計へ使える形に統合した横断モデルを案内する。個別定義の内容を再定義せず、対象、網羅状態、主要判断、未解決事項および次工程への引渡しを所有する。
 
-個別責務定義、横断モデルおよび15領域のCanonical詳細設計は、成果物別の可視Checklist、8種類のEngineering ConcernおよびTemplate／Checker契約を含めて独立再レビューを完了した。加えて、CRDD Domain Libraryの責務分離をCandidate詳細設計として扱う。現行実装との一致は、Quality工程でReality Auditとして判定する。
+v0.21.0の基準版では、個別責務定義、横断モデルおよび15領域のCanonical詳細設計について、成果物別の可視Checklist、8種類のEngineering ConcernおよびTemplate／Checker契約を含む独立再レビューを完了し、Architecture Readyとした。現在のv0.22.0候補では、Coordinator／Project Runtimeの保存方式刷新とCRDD Domain Libraryの責務分離を追加確認中であり、基準版のReadyを現版全体の完成へ読み替えない。各領域の設計・実装・検証の成立範囲と未完了事項を局所成果物で区別し、現行実装との一致はQuality工程のReality Auditで判定する。
 
 ## 2. 工程入力と再構築方法
 
@@ -101,6 +101,8 @@ ARCH-IDは全体の基本設計Identityであり、詳細設計領域のIdentity
 
 ## 5. Architecture Ready判定
 
+以下は固定Commit `03e16613`で確認した基準版の判定である。v0.22.0の保存方式刷新を含む現在候補の全体判定ではない。現在候補は本書冒頭のCandidate状態と、各領域・変更記録の未完了Gateに従う。
+
 | 条件 | 現在状態 | 根拠／次の処置 |
 |---|---|---|
 | UI／SPEC全数分析 | Pass | 20 UI、30 SPEC、未分析0。現行UI／SPEC Contractを再転記し、Source固有の観点評価と未確認事項を追加した |
@@ -112,7 +114,7 @@ ARCH-IDは全体の基本設計Identityであり、詳細設計領域のIdentity
 | 詳細設計 | Pass | [詳細設計の対応表](07_Detail_Architecture_Map.md)を基準に、15領域のRelation、必要成果物、Engineering Concernを具体化した |
 | 詳細設計の独立レビュー | Pass | 固定Commit `03e16613`を再レビューし、所有責務、Quality引渡し、結果語彙およびCanonical／Reality Audit境界の不一致0件を確認した |
 
-固定Commit `03e16613`について、契約、詳細設計および工程閉包の3系統で独立再レビューを行い、Critical／Major／Moderate／Minor 0を確認した。Architecture Analysis、Definitions、横断モデル、DetailsおよびQualityへの引渡しが同じ改訂版で閉じたため、Architecture Readyとする。
+固定Commit `03e16613`について、契約、詳細設計および工程閉包の3系統で独立再レビューを行い、Critical／Major／Moderate／Minor 0を確認した。Architecture Analysis、Definitions、横断モデル、DetailsおよびQualityへの引渡しが同じ改訂版で閉じたため、当該基準版をArchitecture Readyとした。
 
 ## 6. 保持する意図と対象外
 

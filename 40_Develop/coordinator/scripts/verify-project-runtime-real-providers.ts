@@ -25,6 +25,7 @@ import {
   captureCanonicalRepositorySnapshot,
   type JsonRecord,
   observePublicMcpProcess,
+  inspectPublishedProjectRuntimeIntakeEpoch,
 } from "./project-runtime-real-provider-contract.ts";
 
 const MARKER =
@@ -131,7 +132,11 @@ function stableDirectory(value: string) {
  * @security N/A: mcpEnvelopeはAuthority、秘密値または信頼判断を扱わない。
  * @concurrency N/A: mcpEnvelopeは共有非同期状態を持たない同期処理である。
  */
-function mcpEnvelope(id: string, request: unknown) {
+function mcpEnvelope(
+  id: string,
+  request: unknown,
+  tool = "crdd.run_objective",
+) {
   return `${JSON.stringify({
     jsonrpc: "2.0",
     id,
@@ -141,7 +146,7 @@ function mcpEnvelope(id: string, request: unknown) {
         "io.modelcontextprotocol/protocolVersion": "2026-07-28",
         "io.modelcontextprotocol/clientCapabilities": {},
       },
-      name: "crdd.run_objective",
+      name: tool,
       arguments: request,
     },
   })}\n`;
@@ -182,20 +187,67 @@ function startPublicMcpProcess(
 }
 
 /**
- * objectiveを決定する。
+ * 公開MCP状態取得から新Requestの受付世代を得る。
  *
- * @responsibility objectiveの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @responsibility 認証済みQueryと子Processの終端を確認し、発行時世代を固定する。
  * @trace ARCH-000004
- * @input commonFields: JsonRecord、runId: string、provider: "codex" | "claude"、shouldAdoptResult: boolean
- * @returns objectiveの計算結果を返す。
- * @precondition 「commonFields: JsonRecord、runId: string、provider: "codex" | "claude"、shouldAdoptResult: boolean」がobjectiveの入力契約を満たす。
- * @postcondition objectiveの責務を完了した結果だけを返す。
- * @effect N/A: objectiveは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: objectiveは独自の失敗分岐を所有しない。
- * @invariant objectiveは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: objectiveはProcess内の同一Subsystemで完結する。
- * @security N/A: objectiveはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: objectiveは共有非同期状態を持たない同期処理である。
+ * @input 署名配布Root、Repository Root、ProjectとRevisionのQuery結合。
+ * @returns 検査済みの受付世代。
+ * @precondition 新版保存を明示初期化済みで、送信範囲は固定検証Task内である。
+ * @postcondition 同Requestの再入場では呼び直して世代を付け替えない。
+ * @effect localhostの公開MCP Processを起動し、状態Queryだけを発行する。
+ * @failure 相関差、通信障害、未終了、Provider起動またはQuery停止を拒否する。
+ * @invariant 初期化・Provider依頼・外部送信をこのQueryへ追加しない。
+ * @boundary 固定検証Toolと公開MCP状態取得。
+ * @security 内部保存を直接読まず、認証・認可済みの公開DTOだけを使用する。
+ * @concurrency 入力EOFと子Process終了を確認してから値を返す。
+ */
+async function readPublishedIntakeEpoch(
+  distributionRoot: string,
+  repositoryRoot: string,
+  request: { projectId: string; repositoryRevision: string },
+): Promise<string> {
+  const child = startPublicMcpProcess(distributionRoot, repositoryRoot);
+  const observed = observePublicMcpProcess(child, {
+    maximumOutputBytes: MAXIMUM_OUTPUT_BYTES,
+    timeoutMs: PROCESS_TIMEOUT_MS,
+    closeInputWhen: ({ stdout }) => stdout.split(/\r?\n/u).some(Boolean),
+  });
+  child.stdin.write(
+    mcpEnvelope(
+      "intake-epoch",
+      {
+        requestId: "intake-epoch",
+        projectId: request.projectId,
+        repositoryRevision: request.repositoryRevision,
+      },
+      "crdd.get_project_runtime_state",
+    ),
+  );
+  const observation = await observed;
+  const epoch = inspectPublishedProjectRuntimeIntakeEpoch(observation, {
+    requestId: "intake-epoch",
+    ...request,
+  });
+  if (epoch === null)
+    throw new Error("project_runtime_verification_state_unconfirmed");
+  return epoch;
+}
+
+/**
+ * 新しい検証依頼の意味と範囲を固定する。
+ * @responsibility Providerと採否を固定し、受付世代は発行直前の取得値を使う。
+ * @trace ARCH-000004
+ * @input 共通の検証範囲、Run Identity、Provider、採否。
+ * @returns 変更不能な新Request候補。
+ * @precondition 基準Revisionと検証範囲が確認済み。
+ * @postcondition 受信側に世代補完を求めない。
+ * @effect N/A: 値の構築のみ。
+ * @failure N/A: 外部処理を呼ばない。
+ * @invariant 同じ依頼の再入場でIdentityや世代を変更しない。
+ * @boundary 固定検証Taskの発行境界。
+ * @security 新しい送信範囲やAuthorityを生成しない。
+ * @concurrency N/A: 同期構築。
  */
 function objective(
   commonFields: JsonRecord,
@@ -344,7 +396,18 @@ async function main() {
   ]);
 
   const normalRuns = [];
-  for (const [index, request] of objectives.entries()) {
+  for (const [index, candidate] of objectives.entries()) {
+    const request = Object.freeze({
+      ...candidate,
+      intakeEpoch: await readPublishedIntakeEpoch(
+        distributionRoot,
+        repositoryRoot,
+        {
+          projectId: candidate.projectId,
+          repositoryRevision: repository.commit,
+        },
+      ),
+    });
     const snapshotBefore = captureCanonicalRepositorySnapshot(repositoryRoot);
     const child = startPublicMcpProcess(distributionRoot, repositoryRoot);
     let isInputClosed = false;
@@ -390,6 +453,14 @@ async function main() {
 
   const cancellationRequest = Object.freeze({
     ...commonFields,
+    intakeEpoch: await readPublishedIntakeEpoch(
+      distributionRoot,
+      repositoryRoot,
+      {
+        projectId: `crdd-project-runtime-public-cancel-${runId}`,
+        repositoryRevision: repository.commit,
+      },
+    ),
     requestId: `project-runtime-public-cancel-${runId}`,
     projectId: `crdd-project-runtime-public-cancel-${runId}`,
     milestoneId: "public-provider-cancellation",
@@ -436,6 +507,14 @@ async function main() {
 
   const recoveryRequest = Object.freeze({
     ...commonFields,
+    intakeEpoch: await readPublishedIntakeEpoch(
+      distributionRoot,
+      repositoryRoot,
+      {
+        projectId: `crdd-project-runtime-public-recovery-${runId}`,
+        repositoryRevision: repository.commit,
+      },
+    ),
     requestId: `project-runtime-public-recovery-${runId}`,
     projectId: `crdd-project-runtime-public-recovery-${runId}`,
     milestoneId: "public-provider-parent-loss-recovery",

@@ -10,6 +10,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { StringDecoder } from "node:string_decoder";
 import { inspectMcpProjectRuntimeObjectiveResult } from "../../mcp/src/index.ts";
+import { inspectProjectRuntimeStateQueryResult } from "../../project-runtime/src/public-contract/project-state-query.ts";
 import { startOwnedWindowsProcessTreeTermination } from "../src/security/docker-owned-process.ts";
 import { dockerProcessControllerPublicCompletionReasons } from "../src/security/docker-process-controller-result-reasons.ts";
 import { inspectRepositoryIdentityCandidate } from "../src/security/repository-operation-runtime.ts";
@@ -225,6 +226,69 @@ export type PublicProcessObservation = Readonly<{
 }>;
 
 const SELECTION_PREFIX = "[Coordinator selection] ";
+/**
+ * 公開状態取得の完了観測から受付世代を検証する。
+ * @responsibility DTO相関、通信と子Process終了、Provider非起動を一緒に判定する。
+ * @trace ARCH-000004
+ * @input 観測結果と状態取得の要求Identity。
+ * @returns 一致する受付世代、またはnull。
+ * @precondition 観測は既存の公開Process観測処置が生成する。
+ * @postcondition 不明や矛盾を世代取得成功へ畳まない。
+ * @effect N/A: 値の検査のみ。
+ * @failure 不正DTO・通信失敗・相関差・未終了はnull。
+ * @invariant 観測から初期化やProvider依頼を発行しない。
+ * @boundary 公開MCP Queryと固定検証Task発行。
+ * @security 内部保存・秘密値・Authorityを取得しない。
+ * @concurrency N/A: 完了済みの一観測を評価する。
+ */
+export function inspectPublishedProjectRuntimeIntakeEpoch(
+  observation: PublicProcessObservation,
+  request: Readonly<{
+    requestId: string;
+    projectId: string;
+    repositoryRevision: string;
+  }>,
+): string | null {
+  const response = observation.responses[0] as
+    | {
+        jsonrpc?: unknown;
+        id?: unknown;
+        error?: unknown;
+        result?: { isError?: unknown; structuredContent?: unknown };
+      }
+    | undefined;
+  if (
+    observation.responses.length !== 1 ||
+    observation.parseFailure ||
+    observation.streamFailure ||
+    observation.runtimeEventProtocolViolation ||
+    observation.timedOut ||
+    !observation.joined ||
+    !observation.inputEofIssued ||
+    !observation.outputWithinLimit ||
+    observation.launchError !== null ||
+    observation.exit?.code !== 0 ||
+    observation.exit.signal !== null ||
+    observation.processStartEvents.length !== 0 ||
+    observation.providerBoundaryEvents.length !== 0 ||
+    response?.jsonrpc !== "2.0" ||
+    response.id !== request.requestId ||
+    response.error !== undefined ||
+    response.result?.isError !== false
+  )
+    return null;
+  const state = inspectProjectRuntimeStateQueryResult(
+    response.result.structuredContent,
+  );
+  return state?.status === "completed" &&
+    state.cleanupConfirmed &&
+    state.requestId === request.requestId &&
+    state.projectId === request.projectId &&
+    state.repositoryRevision === request.repositoryRevision
+    ? state.intakeEpoch
+    : null;
+}
+
 const LIFECYCLE_PREFIX = "[Coordinator lifecycle] ";
 const RECOVERY_PREFIX = "[Project Runtime recovery] ";
 const KNOWN_PREFIXES = Object.freeze([

@@ -45,15 +45,17 @@ import {
 } from "../security/platform-provisioner-package-filesystem.ts";
 import { createRuntimeOwnedProjectCandidateIntegrationAdapter } from "../security/project-runtime-candidate-integration-adapter.ts";
 import { createProjectRuntimeAcceptanceAuthorityAdapter } from "../security/project-runtime-acceptance-authority-adapter.ts";
-import { createProjectRuntimeAcceptanceDecisionStore } from "../security/project-runtime-acceptance-decision-store.ts";
 import { createProjectRuntimeDecisionCapabilityAdapter } from "../security/project-runtime-decision-capability-adapter.ts";
-import { createProjectRuntimeDecisionRecoveryStore } from "../security/project-runtime-decision-recovery-store.ts";
 import {
-  createProjectRuntimePersistencePorts,
-  readProjectRuntimeState,
+  createCurrentProjectRuntimePersistencePorts as createProjectRuntimePersistencePorts,
+  readCurrentProjectRuntimeState as readProjectRuntimeState,
+  createProjectRuntimeSnapshotAcceptanceDecisionStore as createProjectRuntimeAcceptanceDecisionStore,
+  createProjectRuntimeSnapshotDecisionRecoveryStore as createProjectRuntimeDecisionRecoveryStore,
+  createProjectRuntimeSnapshotIntegrationRecordPort as createProjectRuntimeIntegrationRecordAdapter,
+  readProjectRuntimeSnapshot,
+  maintainProjectRuntimeSnapshot,
 } from "../security/project-runtime-durable-foundation.ts";
 import { createProjectRuntimeExecutionAuthorizationAdapter } from "../security/project-runtime-execution-authorization-adapter.ts";
-import { createProjectRuntimeIntegrationRecordAdapter } from "../security/project-runtime-integration-record-adapter.ts";
 import { runProjectRuntimeObjective } from "../security/project-runtime-objective-intake.ts";
 import { runProjectRuntimeSingleTaskAttempt } from "../security/project-runtime-single-task-adapter.ts";
 import { openRuntimeOwnedWindowsProjectDecisionStore } from "../security/project-runtime-windows-decision-store.ts";
@@ -817,7 +819,10 @@ async function executeProjectRuntimePublicObjective(
     queueId: execution.queueId,
     principalId: protectedStore.principalId,
     store: protectedStore.store,
-    recoveryStore: createProjectRuntimeDecisionRecoveryStore(repositoryRoot),
+    recoveryStore: createProjectRuntimeDecisionRecoveryStore(
+      repositoryRoot,
+      stable("binding", repositoryRoot),
+    ),
     capability: decisionCapability,
     persistence: createProjectRuntimePersistencePorts(
       repositoryRoot,
@@ -1066,23 +1071,43 @@ function executeProjectRuntimePublicDecision(
     queueId: record.queueId,
     principalId: protectedStore.principalId,
     store: protectedStore.store,
-    recoveryStore: createProjectRuntimeDecisionRecoveryStore(repositoryRoot),
+    recoveryStore: createProjectRuntimeDecisionRecoveryStore(
+      repositoryRoot,
+      stable("binding", repositoryRoot),
+    ),
     capability: decisionCapability,
     persistence: createProjectRuntimePersistencePorts(
       repositoryRoot,
       stable("binding", repositoryRoot),
     ),
   } as const;
-  if (record.disposition === "prepared")
-    return recoverProjectRuntimeHumanDecision(commonFields, { recordId });
-  return submitProjectRuntimeHumanDecision(commonFields, {
-    decisionId,
-    recordId,
-    repositoryRevision: request.repositoryRevision,
-    generation: request.generation,
-    selectedOption: request.selectedOption,
-    continuationCapability: request.continuationCapability,
-  });
+  const result =
+    record.disposition === "prepared"
+      ? recoverProjectRuntimeHumanDecision(commonFields, { recordId })
+      : submitProjectRuntimeHumanDecision(commonFields, {
+          decisionId,
+          recordId,
+          repositoryRevision: request.repositoryRevision,
+          generation: request.generation,
+          selectedOption: request.selectedOption,
+          continuationCapability: request.continuationCapability,
+        });
+  if (result.status === "completed") {
+    const maintained = maintainProjectRuntimeSnapshot(
+      repositoryRoot,
+      stable("binding", repositoryRoot),
+    );
+    if (maintained.status !== "completed")
+      return Object.freeze({
+        ...result,
+        status: "blocked" as const,
+        reason: maintained.reason,
+        cleanupConfirmed: false,
+        manualRecoveryRequired: true,
+        effectState: "unknown" as const,
+      });
+  }
+  return result;
 }
 
 /**
@@ -1198,7 +1223,7 @@ export function executeProjectRuntimePublicAcceptanceDecision(
         effectState: "no_effect" as const,
       });
     const repositoryBindingId = stable("binding", repositoryRoot);
-    return recordProjectRuntimeAcceptanceDecision(
+    const result = recordProjectRuntimeAcceptanceDecision(
       Object.freeze({
         state: createProjectRuntimePersistencePorts(
           repositoryRoot,
@@ -1214,6 +1239,21 @@ export function executeProjectRuntimePublicAcceptanceDecision(
       }),
       rawRequest,
     );
+    if (result.status === "completed") {
+      const maintenance = maintainProjectRuntimeSnapshot(
+        repositoryRoot,
+        repositoryBindingId,
+      );
+      if (maintenance.status !== "completed")
+        return Object.freeze({
+          ...result,
+          status: "blocked" as const,
+          reason: maintenance.reason,
+          cleanupConfirmed: false,
+          manualRecoveryRequired: true,
+        });
+    }
+    return result;
   } catch (error) {
     if (error instanceof RepositoryRuntimeDataAreaBlockedError)
       return projectRuntimeDataBoundaryBlocked(error);
@@ -1322,6 +1362,7 @@ export function executeProjectRuntimePublicStateQuery(
       repositoryRevision: request.repositoryRevision,
       observationState: "unknown" as const,
       projection: null,
+      intakeEpoch: null,
       cleanupConfirmed: true as const,
       manualRecoveryRequired: false,
       effectState: "no_effect" as const,
@@ -1340,12 +1381,37 @@ export function executeProjectRuntimePublicStateQuery(
       manualRecoveryRequired: false,
       effectState: "no_effect" as const,
     });
+  const snapshot = readProjectRuntimeSnapshot(
+    repositoryRoot,
+    stable("binding", repositoryRoot),
+  );
+  if (
+    snapshot.status !== "completed" ||
+    snapshot.value === null ||
+    snapshot.value.schemaRevision !== 2
+  )
+    return Object.freeze({
+      contract: PROJECT_RUNTIME_STATE_QUERY_CONTRACT,
+      status: "blocked" as const,
+      reason: "project_runtime_snapshot_not_initialized",
+      requestId: request.requestId,
+      projectId: request.projectId,
+      repositoryRevision: request.repositoryRevision,
+      observationState: "unknown" as const,
+      projection: null,
+      intakeEpoch: null,
+      cleanupConfirmed: true as const,
+      manualRecoveryRequired:
+        snapshot.status === "blocked" && snapshot.manualRecoveryRequired,
+      effectState: "no_effect" as const,
+    });
   return queryProjectRuntimeState(
     createProjectRuntimePersistencePorts(
       repositoryRoot,
       stable("binding", repositoryRoot),
     ).state,
     request,
+    snapshot.value.intakeEpoch,
   );
 }
 

@@ -2299,6 +2299,26 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "coordinator:integration:project-runtime-history",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/project-runtime-history.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "project",
+        "runtime",
+        "history"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "coordinator:integration:project-runtime-durable-foundation",
       "owner": "coordinator",
       "path": "40_Develop/coordinator/tests/integration/project-runtime-durable-foundation.contract.test.ts",

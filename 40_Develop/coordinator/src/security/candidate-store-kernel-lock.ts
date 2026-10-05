@@ -18,6 +18,41 @@ import {
   runInteractiveConsoleKernelLockLifecycle,
 } from "./candidate-store-kernel-lock-lifecycle-internal.ts";
 
+/**
+ * Project Runtime保存用の専用OS排他を取得する。
+ *
+ * @responsibility 他のRuntime排他から分離した名前空間を所有する。
+ * @trace ARCH-000004
+ * @input repositoryRootHash: 検証済みRootから上位が導出した64桁Hash。
+ * @returns 保持確認・解放handle、または取得不能のnull。
+ * @precondition Root実体の確認は上位境界が行う。
+ * @postcondition 既存Candidate／Provider／Docker排他のIdentityを変更しない。
+ * @effect Workerを生成しWindows Named Pipeを排他的に保持する。
+ * @failure 非Windows、不正Hash、競合と取得確認不能は取得handleを返さない。
+ * @invariant 取得は保存、移行または既存Writer停止の証明ではない。
+ * @boundary TypeScript WorkerからWindows OS排他への境界。
+ * @security Hash自体をRepository実体やAuthorityとみなさない。
+ * @concurrency 同じRootのWriterを排除し、保持中はassertLiveで確認する。
+ */
+export function acquireRuntimeOwnedProjectRuntimeStateKernelLock(
+  repositoryRootHash: unknown,
+) {
+  if (
+    process.platform !== "win32" ||
+    typeof repositoryRootHash !== "string" ||
+    !/^[0-9a-f]{64}$/u.test(repositoryRootHash)
+  )
+    return null;
+  const identity = createHash("sha256")
+    .update("crdd-project-runtime-state-kernel-lock-v1\0")
+    .update(repositoryRootHash)
+    .digest("hex")
+    .slice(0, 32);
+  return acquireNamedPipeKernelLock(
+    `\\\\.\\pipe\\CRDD.Coordinator.ProjectRuntimeState.${identity}`,
+  );
+}
+
 const SYNCHRONOUS_LOCK_ACQUIRE_TIMEOUT_MS = 5_000;
 const HOST_SUPERVISOR_ACQUIRE_TIMEOUT_MS = 1_000;
 const LOCK_RELEASE_TIMEOUT_MS = 5_000;

@@ -22,6 +22,7 @@ import { normalizeRepositoryRelativePath } from "../boundary/repository-relative
  * @compatibility Profile ID省略時は既存の自動選択を維持し、指定時はIDを変更せず搬送する。
  */
 export type ProjectRuntimeObjectiveRequest = Readonly<{
+  intakeEpoch: string;
   requestId: string;
   projectId: string;
   milestoneId: string;
@@ -149,6 +150,7 @@ function inspectStrings(
 }
 
 const REQUIRED_REQUEST_KEYS = Object.freeze([
+  "intakeEpoch",
   "requestId",
   "projectId",
   "milestoneId",
@@ -224,6 +226,7 @@ export function inspectProjectRuntimeObjectiveRequest(
           new Set(["decisionId", "replacementRequestId"] as const),
         );
   if (
+    !validId(request.intakeEpoch) ||
     !validId(request.requestId) ||
     !validId(request.projectId) ||
     !validId(request.milestoneId) ||
@@ -261,6 +264,7 @@ export function inspectProjectRuntimeObjectiveRequest(
   )
     return null;
   return Object.freeze({
+    intakeEpoch: request.intakeEpoch,
     requestId: request.requestId,
     projectId: request.projectId,
     milestoneId: request.milestoneId,

@@ -17,12 +17,14 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
-  createProjectRuntimePersistencePorts,
-  readProjectOperationQueueState,
-  readProjectRuntimeState,
+  createCurrentProjectRuntimePersistencePorts as createProjectRuntimePersistencePorts,
+  readCurrentProjectRuntimeState as readProjectRuntimeState,
+  initializeProjectRuntimeSnapshot,
+  readProjectRuntimeSnapshot,
+  createProjectRuntimeSnapshotIntegrationRecordPort as createProjectRuntimeIntegrationRecordAdapter,
 } from "../../src/security/project-runtime-durable-foundation.ts";
+import { readProjectOperationQueueState } from "../fixtures/project-runtime-current-ports.ts";
 import { integrateProjectRuntimeOperation } from "../../../project-runtime/src/index.ts";
-import { createProjectRuntimeIntegrationRecordAdapter } from "../../src/security/project-runtime-integration-record-adapter.ts";
 import { inspectMcpProjectRuntimeObjectiveResult } from "../../../mcp/src/index.ts";
 import { runProjectRuntimeObjective } from "../../src/security/project-runtime-objective-intake.ts";
 import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../src/security/project-runtime-execution-authorization-adapter.ts";
@@ -45,6 +47,10 @@ async function prepared(t: test.TestContext) {
     path.join(os.tmpdir(), "crdd-project-integration-"),
   );
   execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
+  const initialized = initializeProjectRuntimeSnapshot(root, "binding-a");
+  assert.equal(initialized.status, "completed");
+  if (initialized.status !== "completed")
+    throw new Error("fixture_bootstrap_failed");
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const result = await runProjectRuntimeObjective(
     {
@@ -118,6 +124,7 @@ async function prepared(t: test.TestContext) {
       maximumReplans: 1,
       originLane: "interactive",
       adoptResult: false,
+      intakeEpoch: initialized.value,
     },
     new AbortController().signal,
   );
@@ -236,16 +243,9 @@ test("Task完了と候補生成だけではObjective／Milestoneを受け入れ�
   );
   assert.equal(queue.status === "completed" && queue.value.state, "completed");
   assert.equal(
-    fs.existsSync(
-      path.join(
-        root,
-        ".crdd",
-        "project-runtime",
-        "results",
-        "integration",
-        "project-a",
-        "integrated-a.json",
-      ),
+    readProjectRuntimeSnapshot(root, "binding-a").value?.results.some(
+      (record) =>
+        record.kind === "integration" && record.identity === "integrated-a",
     ),
     true,
   );
@@ -274,7 +274,14 @@ test("explicit adoption is serialized and requires a fresh matching repository o
   );
   const child = spawn(
     process.execPath,
-    [probe, root, signal, "pause-before-publish"],
+    [
+      probe,
+      root,
+      signal,
+      "pause-before-publish",
+      "canonical-adoption",
+      "canonical",
+    ],
     { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] },
   );
   t.after(() => {
@@ -433,14 +440,42 @@ test("revision mismatch blocks canonical adoption and releases its lease", async
  */
 test("canonical adoption preserves malformed acquisition evidence and exposes its recovery reference", async (t) => {
   const { root, queueId } = await prepared(t);
-  const marker = path.join(
-    root,
-    ".crdd",
-    "project-runtime",
-    "work",
-    "locks",
-    "canonical-adoption-binding-a-project-a.acquire-pending",
+  const signal = path.join(root, "malformed-canonical-ready");
+  const probe = fileURLToPath(
+    new URL(
+      "../fixtures/project-runtime-lease-interleaving-probe.ts",
+      import.meta.url,
+    ),
   );
+  const child = spawn(
+    process.execPath,
+    [
+      probe,
+      root,
+      signal,
+      "pause-before-publish",
+      "canonical-adoption",
+      "canonical",
+    ],
+    { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] },
+  );
+  t.after(() => {
+    if (child.exitCode === null) child.kill();
+  });
+  const deadline = Date.now() + 10_000;
+  while (!fs.existsSync(signal) && Date.now() < deadline)
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.equal(fs.existsSync(signal), true);
+  child.kill();
+  await new Promise<void>((resolve) => child.once("exit", () => resolve()));
+  const leaseRoot = path.join(root, ".crdd", "tmp", "project-runtime-leases");
+  const names = fs
+    .readdirSync(leaseRoot)
+    .filter((name) => name.endsWith(".lock"));
+  assert.equal(names.length, 1);
+  const marker = path.join(leaseRoot, names[0] ?? "invalid");
+  assert.equal(fs.realpathSync.native(marker), marker);
+  fs.rmdirSync(marker);
   fs.writeFileSync(marker, "not-json\n", "utf8");
   let adoptions = 0;
   const result = await integrateProjectRuntimeOperation(

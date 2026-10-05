@@ -73,6 +73,7 @@ function objective() {
     maximumReplans: 1,
     originLane: "interactive",
     adoptResult: false,
+    intakeEpoch: "fixture-epoch",
   };
 }
 
@@ -367,7 +368,8 @@ test("MCP SchemaはProfileをObjectiveだけの任意項目として公開する
     pattern: "^PROFILE-[0-9]{6,}$",
   });
   assert.equal(schema.required.includes("requestedProfileId"), false);
-  assert.equal(schema.required.length, 12);
+  assert.equal(schema.required.includes("intakeEpoch"), true);
+  assert.equal(schema.required.length, 13);
   assert.equal(schema.additionalProperties, false);
   for (const tool of tools.filter(
     (tool) => tool.name !== MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL,
@@ -522,6 +524,7 @@ test("MCP state tool returns the canonical read-only result", async () => {
           projectId: input.projectId,
           repositoryRevision: input.repositoryRevision,
           observationState: "absent",
+          intakeEpoch: "fixture-epoch",
           projection: null,
           cleanupConfirmed: true,
           manualRecoveryRequired: false,

@@ -117,6 +117,7 @@ test("状態参照はProject Runtimeのcanonical投影だけを返す", () => {
   const result = queryProjectRuntimeState(
     reader({ status: "completed", reason: "observed", value: runtimeState() }),
     request,
+    "fixture-epoch",
   );
   assert.equal(result.status, "completed");
   assert.equal(result.observationState, "observed");
@@ -141,6 +142,7 @@ test("状態不存在は失敗や成功推定ではなくabsent観測として�
   const result = queryProjectRuntimeState(
     reader({ status: "completed", reason: "absent", value: null }),
     request,
+    "fixture-epoch",
   );
   assert.equal(result.status, "completed");
   assert.equal(result.observationState, "absent");
@@ -167,6 +169,7 @@ test("異なるRepository改訂版の状態を現在値として返さない", (
       value: { ...runtimeState(), repositoryRevision: "b".repeat(40) },
     }),
     request,
+    "fixture-epoch",
   );
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "project_runtime_state_revision_mismatch");
@@ -196,6 +199,7 @@ test("観測不能と既存Recovery義務をEffect発行と混同しない", () 
       recoveryId: "recovery-a",
     }),
     request,
+    "fixture-epoch",
   );
   assert.equal(result.status, "blocked");
   assert.equal(result.observationState, "unknown");

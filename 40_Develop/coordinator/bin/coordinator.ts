@@ -7,9 +7,11 @@
  */
 
 import fs from "node:fs";
+import { createHash } from "node:crypto";
 import { types as utilTypes } from "node:util";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../version-control/src/repository-location.ts";
 import { runProjectRuntimePublicObjective } from "../src/composition/project-runtime-composition-root.ts";
+import { initializeProjectRuntimeSnapshot } from "../src/security/project-runtime-durable-foundation.ts";
 import {
   parseCandidateArguments,
   parseDoctorArguments,
@@ -140,6 +142,9 @@ function printHelp() {
     `  coordinator task --request-stdin [--json]  # verifies prerequisites per operation\n`,
   );
   process.stdout.write(`  coordinator capabilities --json\n`);
+  process.stdout.write(
+    `  coordinator project --initialize --json  # explicit fresh-state setup\n`,
+  );
   process.stdout.write(`  coordinator doctor [--json] [--isolation]\n`);
   process.stdout.write(
     `  coordinator doctor --recover-isolation <recovery-id> [--json]\n`,
@@ -246,6 +251,25 @@ function runCapabilitiesCommand(args: readonly string[]) {
  * @concurrency runProjectCommandは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
 async function runProjectCommand(args: readonly string[]) {
+  if (args.length === 2 && args[0] === "--initialize" && args[1] === "--json") {
+    try {
+      const root = resolveVerifiedRepositoryRootFromWorkingDirectory(
+        process.cwd(),
+      );
+      const binding = `binding-${createHash("sha256").update(root).digest("hex").slice(0, 40)}`;
+      const result = initializeProjectRuntimeSnapshot(root, binding);
+      process.stdout.write(
+        `${JSON.stringify({ command: "project initialize", ...result })}\n`,
+      );
+      process.exitCode = result.status === "completed" ? 0 : 2;
+    } catch {
+      process.stdout.write(
+        `${JSON.stringify({ command: "project initialize", status: "blocked", reason: "project_runtime_repository_root_not_verified" })}\n`,
+      );
+      process.exitCode = 2;
+    }
+    return;
+  }
   if (
     args.length !== 2 ||
     args[0] !== "--request-stdin" ||

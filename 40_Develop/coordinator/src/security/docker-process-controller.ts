@@ -1774,8 +1774,8 @@ async function executePlan(
   > = "not_observed";
   let diagnosticPurpose: string | null = null;
   let diagnosticStage: PrimaryFailureDiagnostic["stage"] = "submission_record";
-  let commandHandleObtained = false;
-  let responseObserved = false;
+  let hasCommandHandle = false;
+  let hasResponseObservation = false;
   let receiptRecorded = false;
   let exceptionCode: string | null = null;
   let primaryFailure: PrimaryFailureDiagnostic | null = null;
@@ -1786,8 +1786,8 @@ async function executePlan(
     for (const command of plan.commands) {
       diagnosticPurpose = command.purpose;
       diagnosticStage = "submission_record";
-      commandHandleObtained = false;
-      responseObserved = false;
+      hasCommandHandle = false;
+      hasResponseObservation = false;
       receiptRecorded = false;
       if (record.cancellationRequested) {
         requestedStatus = "cancelled";
@@ -1828,7 +1828,7 @@ async function executePlan(
         plan,
         record.managementCapability,
       );
-      commandHandleObtained = true;
+      hasCommandHandle = true;
       record.activeHandle = handle;
       if (isProvider) {
         diagnosticStage = "provider_start_observation";
@@ -1839,8 +1839,8 @@ async function executePlan(
             stage: diagnosticStage,
             reason: "docker_process_controller_provider_start_failed",
             exceptionCode: null,
-            commandHandleObtained,
-            responseObserved,
+            commandHandleObtained: hasCommandHandle,
+            responseObserved: hasResponseObservation,
             receiptRecorded,
           });
           await handle.terminateAndWait(CANCELLATION_GRACE_MS);
@@ -1872,8 +1872,8 @@ async function executePlan(
             reason:
               "docker_process_controller_provider_start_observation_failed",
             exceptionCode: null,
-            commandHandleObtained,
-            responseObserved,
+            commandHandleObtained: hasCommandHandle,
+            responseObserved: hasResponseObservation,
             receiptRecorded,
           });
           record.cancellationRequested = true;
@@ -1889,7 +1889,7 @@ async function executePlan(
       const execution = await handle.wait(
         isProvider ? PROVIDER_TIMEOUT_MS : SETUP_TIMEOUT_MS,
       );
-      responseObserved = execution !== null;
+      hasResponseObservation = execution !== null;
       record.activeHandle = null;
       // A submitted CREATE can have completed while cancellation was requested.
       // Preserve its validated receipt before stopping; otherwise cleanup loses
@@ -1922,8 +1922,8 @@ async function executePlan(
           stage: diagnosticStage,
           reason,
           exceptionCode: null,
-          commandHandleObtained,
-          responseObserved,
+          commandHandleObtained: hasCommandHandle,
+          responseObserved: hasResponseObservation,
           receiptRecorded,
         });
         if (execution === null)
@@ -2022,8 +2022,8 @@ async function executePlan(
       stage: diagnosticStage,
       reason,
       exceptionCode,
-      commandHandleObtained,
-      responseObserved,
+      commandHandleObtained: hasCommandHandle,
+      responseObserved: hasResponseObservation,
       receiptRecorded,
     });
   }

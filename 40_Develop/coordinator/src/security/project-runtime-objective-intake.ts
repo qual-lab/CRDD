@@ -15,7 +15,11 @@ import {
   runProjectRuntimeObjectiveApplication,
 } from "../../../project-runtime/src/index.ts";
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
-import { createProjectRuntimePersistencePorts } from "./project-runtime-durable-foundation.ts";
+import {
+  createProjectRuntimeSnapshotPersistencePorts,
+  inspectProjectRuntimeSnapshotIntake,
+  maintainProjectRuntimeSnapshot,
+} from "./project-runtime-durable-foundation.ts";
 import { createProjectRuntimeExecutionHostPorts } from "./project-runtime-execution-host-adapter.ts";
 import {
   createProjectRuntimeTaskRecoveryAdapter,
@@ -227,15 +231,52 @@ export async function runProjectRuntimeObjective(
     return blocked(request, "project_runtime_plan_invalid_or_out_of_scope");
 
   const hostPorts = createProjectRuntimeExecutionHostPorts();
-  return runProjectRuntimeObjectiveApplication(
+  const intake = {
+    epoch: request.intakeEpoch,
+    projectId: request.projectId,
+    milestoneId: request.milestoneId,
+    queueId: hostPorts.clockIdentity.createStableId("queue", [
+      binding.repositoryBindingId,
+      request.projectId,
+      request.milestoneId,
+      request.requestId,
+      dependencies.authenticatedPrincipalId,
+    ]),
+    requestHash: hostPorts.clockIdentity.createContentHash(
+      JSON.stringify({
+        ...request,
+        authenticatedPrincipalId: dependencies.authenticatedPrincipalId,
+        acceptanceCriteria: [...request.acceptanceCriteria],
+        allowedPaths: [...request.allowedPaths],
+        readPaths: [...request.readPaths],
+      }),
+    ),
+  };
+  const admitted = inspectProjectRuntimeSnapshotIntake(
+    binding.workingDirectory,
+    binding.repositoryBindingId,
+    intake,
+  );
+  if (admitted.status !== "completed")
+    return createProjectRuntimeObjectiveResult(request, {
+      status: "blocked",
+      reason: admitted.reason,
+      cleanupConfirmed: !admitted.manualRecoveryRequired,
+      manualRecoveryRequired: admitted.manualRecoveryRequired,
+      recoveryIds: admitted.recoveryId ? [admitted.recoveryId] : [],
+      effectState: admitted.manualRecoveryRequired ? "unknown" : "no_effect",
+    });
+  const result = await runProjectRuntimeObjectiveApplication(
     {
       authenticatedPrincipalId: dependencies.authenticatedPrincipalId,
       repositoryBindingId: binding.repositoryBindingId,
       repositoryRoot: binding.repositoryRoot,
       plan,
-      persistence: createProjectRuntimePersistencePorts(
+      persistence: createProjectRuntimeSnapshotPersistencePorts(
         binding.workingDirectory,
         binding.repositoryBindingId,
+        request.intakeEpoch,
+        intake,
       ),
       clockIdentity: hostPorts.clockIdentity,
       processSafety: hostPorts.processSafety,
@@ -256,4 +297,23 @@ export async function runProjectRuntimeObjective(
     request,
     cancellationSignal,
   );
+  if (result.status === "blocked") return result;
+  const maintenance = maintainProjectRuntimeSnapshot(
+    binding.workingDirectory,
+    binding.repositoryBindingId,
+  );
+  if (maintenance.status !== "completed")
+    return createProjectRuntimeObjectiveResult(request, {
+      ...result,
+      status: "blocked",
+      projection:
+        result.projection?.milestoneState === "accepted"
+          ? null
+          : result.projection,
+      reason: `${result.status === "cancelled" ? "project_runtime_cancelled_" : ""}${maintenance.reason}`,
+      cleanupConfirmed: false,
+      manualRecoveryRequired: true,
+      effectState: "unknown",
+    });
+  return result;
 }

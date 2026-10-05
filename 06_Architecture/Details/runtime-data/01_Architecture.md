@@ -21,7 +21,7 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 |---|---|---|---|
 | Component Model | Required | config、state、execution、recovery、candidate、tmpのOwnerを分ける。 | [§3](#3-各領域の意味) |
 | Interface Model | Required | 検証済みRoot Capabilityと全ConsumerのPath利用を固定する。 | [§8](#8-path-capabilityとconsumer-closure) |
-| Data Flow | Required | Repository-localとOS管理Rootへの配置を追跡する。 | [§2](#2-repository-local目標構成) |
+| Data Flow | Required | Repository-localとOS管理Rootへの配置を追跡する。 | [§2](#2-repository-local構成と切替境界) |
 | State Model | Required | durable、candidate、temporary、参照中、清掃可能を分ける。 | [§4.4](#44-lifecycle) |
 | Sequence | Required | 作成時にOwnerと清掃条件を記録し、観測後だけ削除する。 | [§4.4](#44-lifecycle) |
 | Failure／Recovery | Required | 観測不能、参照中、由来不明を削除せず回復義務へ結ぶ。 | [§4.5](#45-recoveryの所有) |
@@ -86,7 +86,9 @@ Related:
 | Runtime Data | 状態、Evidence、候補、一時物はGit管理しない |
 | 直下 | `.crdd`直下にfileを置かない。新しい用途は所有とLifecycleを決めてから追加する |
 
-## 2. Repository-local目標構成
+## 2. Repository-local構成と切替境界
+
+以下は現行の分散保存・移行元を含む構成である。Coordinator／Project Runtimeの新しい共通配置は後述の縮小目標であり、両方を並行した正本として運用しない。その他の領域は各Ownerの現行契約に従う。
 
 凡例:
 
@@ -156,6 +158,32 @@ Related:
          └─ work/                             再生成可能な中間file
 ```
 
+<a id="compact-owner-layout"></a>
+
+### Coordinator／Project Runtimeの縮小目標
+
+Project Runtimeは、このRepositoryで旧試験記録の清掃と新形式への初期化を実施した。Coordinatorおよびその他Ownerの残る物理切替は未実施である。実施範囲と保全対象は[実切替結果](../../../99_Roadmap/Changes/CHG-000082/Evidence/261005_project-runtime-phase2.md#29-repositoryの実切替結果)を参照し、両Ownerの切替完了へ拡張しない。
+
+```text
+.crdd/
+├ coordinator/
+│  ├ state.json
+│  ├ state.lock
+│  ├ state.pending.json
+│  └ history.jsonl
+├ project-runtime/
+│  ├ state.json
+│  ├ state.lock
+│  ├ state.pending.json
+│  └ history.jsonl
+├ candidates/<candidate-id>/  候補本体と由来
+└ tmp/<operation-id>/work/    再生成可能な一時作業
+```
+
+`state.pending.json`は保存更新中だけ必要な短命ファイル、`tmp/.../work/`は処理の中間物であり、用途と再入場Ownerを混同しない。新しい保存用子フォルダは作らない。既存`tmp/.operations/.staging/`、Release準備と他Ownerの領域は別契約であり、今回の子フォルダ廃止に含めない。
+
+状態のSchema、保存確定、履歴搬送と移行は[Project Runtime詳細設計](../project-runtime/02_Detailed_Design.md#compact-runtime-storage)および[Coordinator縮小設計](../coordinator/01_Architecture.md#現在状態と履歴を分ける縮小設計)が所有する。秘密、保護Decision、署名鍵、専用Provider Homeは保護境界を維持し、普通のRepository-local JSONへまとめない。既存のRepository外Candidate Storeも、Identity・保護・全利用側の移行確認前に移動・回収しない。
+
 ## 3. 各領域の意味
 
 | 領域 | 所有する情報 | 主な終了条件 |
@@ -170,6 +198,30 @@ Related:
 | `communication/` | Repository内のCommunication状態と昇格候補 | Promotion、終了または保持方針が確定する |
 | `tests/` | 特定試験Runの入力、出力、診断 | Run終了後、必要Evidenceを保持先へ移し清掃する |
 | `tmp/` | Operation中だけ必要な再生成可能な中間物 | Operationの全終端経路で削除し、不存在を確認する |
+
+### 3.1. 保存量を増やし続けないための終了契約
+
+保存領域を追加・変更する際は、用途、保持責任者、利用側、終了条件、清掃契機と保持上限を評価する。保持条件の未設定を、無期限・無制限保持の許可として扱わない。既存のComponentが終了・受理・回復を所有し、保持のためだけに新しい共通DBや常設Serviceを作らない。
+
+| 情報の種類 | 終了・保持の評価 |
+|---|---|
+| 現在状態 | 現在値を更新し、終了・受理済み項目を除く。再入場に必要な世代を除き、Snapshotを永久累積しない。 |
+| 通常の診断 | File容量、世代数、総容量を有限にする。制御状態・未受理結果を循環ログへ混入させない。 |
+| 一時作業と試験中間物 | 正常・失敗・取消の終端で回収する。中断残存は既存のOwnerとexact参照による次回再入場へ接続する。 |
+| 検証根拠 | 改訂版・結果・Hash・未確認範囲を必要な品質／CHG成果物へ昇格する。参照終了後の物理回収は保持責任者が判断する。 |
+| CandidateとRelease入力 | 採用・破棄、利用側の受理、置換・比較参照終了を清掃契機にする。未受理・参照中の入力を容量都合で削除しない。 |
+
+上限値と上限到達時の処置は各Ownerの設計・設定で具体化する。未解決義務、未受理結果、所有不明、観測不能または参照中の必要根拠を、経過時間や件数だけで削除しない。上限内へ収められない場合は、不要な新規生成を止め、必要な対象・容量・保持条件を再評価する。
+
+既存の固定Pathに依存する入力集合は、利用側を移行するまで保全できるが、対象、責任者、再評価契機と移行先を明示した有限の例外とする。同じ場所へ新しいScriptや診断を追加する許可ではない。終了記録の自動期限削除が未実装・未承認である領域は、明示清掃の契約を維持する。
+
+### 3.2. Candidateの有限保持
+
+承認済み方針は、作成から7日を既定期限とし、次回起動または候補操作で期限切れを処置することである。常設清掃Serviceは追加しない。採用時は反映・結果・回復・参照の確定後、不採用時は拒否の確定後に本体を回収する。保留する場合は明示した有限期限へ延長し、無期限保留にしない。
+
+処理中、採用／rollback中、回復中、参照中の候補は保護する。Identity、時計、非使用または参照終了を確認できなければ削除せず、同じOwnerで再入場する。部分削除の再入場と終了後不存在を確認し、名前・経過時間だけで由来不明物を消さない。Release入力、Evidence、認証情報、未受領結果にはこの7日規則を適用しない。
+
+OPEN: 自動処置、保持延長の上限、保護参照の全利用側照合と物理Store移行は未実装・未確定。方針の採用を有効化済みと表示しない。
 
 ## 4. `tmp/`の限定用途
 
@@ -402,6 +454,12 @@ Consumer集合は手書き一覧だけを正本としない。実Sourceからraw
 担当Interaction Relation: `PRT-000006.spec-000010`、`PRT-000006.spec-000031`、`PRT-000008.spec-000012`、`PRT-000011.spec-000005`、`PRT-000011.spec-000016`、`PRT-000017.spec-000022`
 
 本領域は上記Relationの配置責務を局所所有する。Detailを新しい要求として解釈せず、対応ARCH-IDが所有する配置・境界・状態・観測の制約として実現する。
+
+## 保存方式の切替確認
+
+共通4ファイルを切替前の設計として区別し、保存中の短命ファイルと処理中間物のOwnerを分けた。Candidateの7日方針、保護対象、削除不能条件と未実装範囲を記録した。保存用途別に終了、保持責任者、利用側、清掃契機と上限の評価を要求し、未解決・未受理・観測不能をログ容量対策で捨てない契約を記録した。
+
+OPEN: 各Ownerの保持上限値・自動循環・旧形式の清掃は未完了。CHG-000082の後続段階で具体化し、実装・実切替・独立確認の結果が揃うまで、設計記載だけを実装済みとしない。
 
 ## Checklist
 

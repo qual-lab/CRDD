@@ -915,6 +915,20 @@ Docker Task Recoveryは元のRecovery IDと発行時Sessionの証拠を保持し
 
 <a id="14-consoletask内部搬送回収の実装契約"></a>
 
+### 現在状態と履歴を分ける縮小設計
+
+切替前の設計として、Repository Rootを検証した`.crdd/coordinator/`へ`state.json`、`state.lock`、`state.pending.json`、`history.jsonl`を置く。配置の共通責務は[Runtime Data](../runtime-data/01_Architecture.md#compact-owner-layout)、Project側の仕事の保存は[Project Runtime詳細設計](../project-runtime/02_Detailed_Design.md#compact-runtime-storage)が所有する。既存の回復記録とcaller接続を置換済みとは扱わない。
+
+| 情報 | 所有・終了条件 |
+|---|---|
+| `state.json` | `activeOperations / unresolvedRecoveries / pendingDeliveries`を中心とする現在の閉集合。完了・回収・受領を確認した項目は除き、過去の診断やEvidenceを追加し続けない。 |
+| `state.lock / state.pending.json` | Coordinator側の単一Writerによる短期更新。実効排他、期待改訂版、保存確定、read-backと中断時の同一Identity再入場を確認する。複数Writer用の新Lock Frameworkは作らない。 |
+| `history.jsonl` | 時刻と相関Identityを含む有限な終了・診断要約。最初の失敗とcleanup／後続失敗を別々に残す。回復AuthorityやEvidenceの代わりにしない。 |
+
+通常の回復は内部で処置し、自動処置できず人間操作が必要な場合だけ「再認証」「Docker再起動」等の具体的な介入を要求する。未解決回復を自動期限切れにせず、大量の未解決蓄積はRuntime不具合として扱う。履歴上限値、状態から履歴への確定搬送、既存回復・利用側の移行はOPENであり、現行の診断通知を耐久搬送済みと主張しない。
+
+過去の作成結果がunknownであるAttemptの終了は、今回の限定Classだけを対象にする。Provider本体起動前、外部送信なし、共有書込みEffectなし、旧OwnerのEffect不能、遅延Createの無害化、現在の対象Process／Container／Network等の不存在をすべて確認する。観測不能は不存在ではない。条件を証明できない場合は閉鎖しない。過去unknownを保持した終了分類と新規受付の可否を別判定にし、通常cleanup成功、過去Effect不存在、Provider開始後の回復へ一般化しない。この終了経路の実接続・反証はOPENである。
+
 ## 12. 利用者との対話
 
 利用者に示す質問は、何を承認するか、何が送信・変更されるか、入力後に何が起きるかを主要ロケールで先に示す。開始だけのEnter、公開確認値、秘密passphraseを区別する。通常運用では初期設定後の送信確認を再要求せず、Release鍵passphraseはRelease署名時だけHuman-only入力とする。
@@ -1179,6 +1193,12 @@ CodexとClaude、複数のProcess Controller、通常実行とRecovery等、同�
 担当Interaction Relation: `PRT-000002.spec-000002`、`PRT-000002.spec-000003`、`PRT-000002.spec-000028`、`PRT-000002.spec-000029`、`PRT-000003.spec-000004`、`PRT-000003.spec-000005`、`PRT-000005.spec-000009`、`PRT-000010.spec-000014`、`PRT-000010.spec-000015`、`PRT-000011.spec-000005`、`PRT-000012.spec-000017`、`PRT-000013.spec-000018`、`PRT-000016.spec-000021`、`PRT-000016.spec-000026`、`PRT-000016.spec-000027`
 
 本領域は上記Relationの配置責務を局所所有する。Detailを新しい要求として解釈せず、対応ARCH-IDが所有する配置・境界・状態・観測の制約として実現する。
+
+## 保存方式の切替確認
+
+現在状態、有限履歴、Evidenceを分け、物理切替と診断搬送の未実装範囲を明示した。unknown終了を今回の限定Classに留め、過去unknown保持と新規受付を別判定にした。
+
+OPEN: 保存確定、履歴上限、既存回復の移行と限定Classの実接続・反証は未完了。該当境界の実装前に具体化し、実境界の反例と独立確認が揃うまで完了としない。
 
 ## Checklist
 

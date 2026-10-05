@@ -374,6 +374,7 @@ test("parent EOF aborts and joins an active semantic request before stdio closes
         maximumReplans: 0,
         originLane: "interactive",
         adoptResult: false,
+        intakeEpoch: "fixture-epoch",
       },
     },
   };
@@ -424,6 +425,7 @@ test("stdio preserves semantic cleanup uncertainty after transport cleanup", asy
         maximumReplans: 0,
         originLane: "interactive",
         adoptResult: false,
+        intakeEpoch: "fixture-epoch",
       },
     },
   };

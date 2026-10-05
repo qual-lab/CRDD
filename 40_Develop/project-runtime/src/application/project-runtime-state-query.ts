@@ -31,6 +31,7 @@ import {
 export function queryProjectRuntimeState(
   state: Pick<ProjectRuntimeStatePort, "readState">,
   request: ProjectRuntimeStateQuery,
+  intakeEpoch: string,
 ): ProjectRuntimeStateQueryResult {
   const observed = state.readState(request.projectId);
   if (observed.status !== "completed")
@@ -43,6 +44,7 @@ export function queryProjectRuntimeState(
       repositoryRevision: request.repositoryRevision,
       observationState: "unknown",
       projection: null,
+      intakeEpoch: null,
       cleanupConfirmed: true,
       manualRecoveryRequired: observed.manualRecoveryRequired,
       effectState: "no_effect",
@@ -57,6 +59,7 @@ export function queryProjectRuntimeState(
       repositoryRevision: request.repositoryRevision,
       observationState: "absent",
       projection: null,
+      intakeEpoch,
       cleanupConfirmed: true,
       manualRecoveryRequired: false,
       effectState: "no_effect",
@@ -71,6 +74,7 @@ export function queryProjectRuntimeState(
       repositoryRevision: request.repositoryRevision,
       observationState: "unknown",
       projection: null,
+      intakeEpoch: null,
       cleanupConfirmed: true,
       manualRecoveryRequired: false,
       effectState: "no_effect",
@@ -84,6 +88,7 @@ export function queryProjectRuntimeState(
     repositoryRevision: request.repositoryRevision,
     observationState: "observed",
     projection: projectProjectRuntimeState(observed.value),
+    intakeEpoch,
     cleanupConfirmed: true,
     manualRecoveryRequired: false,
     effectState: "no_effect",

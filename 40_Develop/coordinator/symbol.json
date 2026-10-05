@@ -7,14 +7,21 @@
       "symbolId": "coordinator.source.src.security.host.recovery.namespace.windows.adapter",
       "kind": "file",
       "path": "src/security/host-recovery-namespace-windows-adapter.ts",
-      "archIds": ["ARCH-000008", "ARCH-000011"]
+      "archIds": [
+        "ARCH-000008",
+        "ARCH-000011"
+      ]
     },
     {
       "symbolId": "coordinator.test.integration.host-recovery-namespace",
       "kind": "test-suite",
       "path": "tests/integration/host-recovery-namespace.integration.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-003"],
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-003"
+      ],
       "verifies": [
         "coordinator.source.src.security.host.recovery.namespace.windows.adapter",
         "coordinator.source.src.security.coordinator.operation.creation.internal"
@@ -24,15 +31,24 @@
       "symbolId": "coordinator.source.src.security.docker.container.init.observation",
       "kind": "file",
       "path": "src/security/docker-container-init-observation.ts",
-      "archIds": ["ARCH-000008"],
-      "implements": ["coordinator.cleanup-before-result", "coordinator.recovery-obligation"]
+      "archIds": [
+        "ARCH-000008"
+      ],
+      "implements": [
+        "coordinator.cleanup-before-result",
+        "coordinator.recovery-obligation"
+      ]
     },
     {
       "symbolId": "coordinator.test.integration.workbench-ai-profile-catalog-flow",
       "kind": "test-suite",
       "path": "tests/integration/workbench-ai-profile-catalog-flow.integration.test.ts",
-      "qaIds": ["QA-000001"],
-      "localTestIds": ["RCM-IT-005"],
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-IT-005"
+      ],
       "verifies": [
         "coordinator.source.src.composition.workbench.ai.repository.composition",
         "coordinator.source.src.security.workbench.ai.advice.dispatch.runtime"
@@ -795,6 +811,7 @@
         "QA-000003"
       ],
       "localTestIds": [
+        "PRL-IT-005",
         "PRL-IT-012"
       ],
       "verifies": [
@@ -4069,55 +4086,91 @@
       "symbolId": "coordinator.source.src.security.host.operation.inprocess.lease.internal",
       "kind": "file",
       "path": "src/security/host-operation-inprocess-lease-internal.ts",
-      "archIds": ["ARCH-000008"]
+      "archIds": [
+        "ARCH-000008"
+      ]
     },
     {
       "symbolId": "coordinator.test.unit.host-operation-lock-activation",
       "kind": "test-suite",
       "path": "tests/unit/host-operation-lock-activation.contract.test.ts",
-      "qaIds": ["QA-000003"],
-      "localTestIds": ["PRL-UT-006"],
-      "verifies": ["coordinator.source.src.security.execution.environment", "coordinator.source.src.security.host.operation.inprocess.lease.internal"]
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-006"
+      ],
+      "verifies": [
+        "coordinator.source.src.security.execution.environment",
+        "coordinator.source.src.security.host.operation.inprocess.lease.internal"
+      ]
     },
     {
       "symbolId": "coordinator.source.src.security.host.terminal.record",
       "kind": "file",
       "path": "src/security/host-terminal-record.ts",
-      "archIds": ["ARCH-000008"]
+      "archIds": [
+        "ARCH-000008"
+      ]
     },
     {
       "symbolId": "coordinator.source.src.security.host.terminal.windows.adapter",
       "kind": "file",
       "path": "src/security/host-terminal-windows-adapter.ts",
-      "archIds": ["ARCH-000008", "ARCH-000011"]
+      "archIds": [
+        "ARCH-000008",
+        "ARCH-000011"
+      ]
     },
     {
       "symbolId": "coordinator.source.src.security.host.terminal.caller.lease",
       "kind": "file",
       "path": "src/security/host-terminal-caller-lease.ts",
-      "archIds": ["ARCH-000008"]
+      "archIds": [
+        "ARCH-000008"
+      ]
     },
     {
       "symbolId": "coordinator.source.src.security.host.terminal.caller.checkpoint",
       "kind": "file",
       "path": "src/security/host-terminal-caller-checkpoint.ts",
-      "archIds": ["ARCH-000008", "ARCH-000011"]
+      "archIds": [
+        "ARCH-000008",
+        "ARCH-000011"
+      ]
     },
     {
       "symbolId": "coordinator.test.integration.host-terminal-caller-checkpoint",
       "kind": "test-suite",
       "path": "tests/integration/host-terminal-caller-checkpoint.integration.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-001", "ERB-IT-002", "ERB-IT-003"],
-      "verifies": ["coordinator.source.src.security.host.terminal.caller.lease", "coordinator.source.src.security.host.terminal.caller.checkpoint", "coordinator.source.src.security.host.terminal.record"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-001",
+        "ERB-IT-002",
+        "ERB-IT-003"
+      ],
+      "verifies": [
+        "coordinator.source.src.security.host.terminal.caller.lease",
+        "coordinator.source.src.security.host.terminal.caller.checkpoint",
+        "coordinator.source.src.security.host.terminal.record"
+      ]
     },
     {
       "symbolId": "coordinator.test.unit.host-terminal-record",
       "kind": "test-suite",
       "path": "tests/unit/host-terminal-record.contract.test.ts",
-      "qaIds": ["QA-000003"],
-      "localTestIds": ["PRL-UT-006"],
-      "verifies": ["coordinator.source.src.security.host.terminal.record", "coordinator.source.src.security.host.terminal.windows.adapter"]
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-006"
+      ],
+      "verifies": [
+        "coordinator.source.src.security.host.terminal.record",
+        "coordinator.source.src.security.host.terminal.windows.adapter"
+      ]
     },
     {
       "symbolId": "coordinator.test.unit.host-orphan-recovery-policy",
@@ -4131,6 +4184,30 @@
       ],
       "verifies": [
         "coordinator.source.src.security.host.orphan.recovery.policy"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.project.runtime.history",
+      "kind": "file",
+      "path": "src/security/project-runtime-history.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.project-runtime-history",
+      "kind": "test-suite",
+      "path": "tests/integration/project-runtime-history.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-IT-005",
+        "PRL-IT-012"
+      ],
+      "verifies": [
+        "coordinator.source.src.security.project.runtime.history",
+        "coordinator.source.src.security.project.runtime.durable.foundation"
       ]
     }
   ]

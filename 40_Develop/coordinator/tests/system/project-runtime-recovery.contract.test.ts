@@ -23,11 +23,13 @@ import { consumeDockerRecoveryReceiptAfterProjectSettlement } from "../../src/se
 import {
   readProjectRuntimeState,
   writeProjectRuntimeState,
-} from "../../src/security/project-runtime-durable-foundation.ts";
+} from "../fixtures/project-runtime-current-ports.ts";
+import { initializeProjectRuntimeSnapshot } from "../../src/security/project-runtime-durable-foundation.ts";
 import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../src/security/project-runtime-execution-authorization-adapter.ts";
 import { runProjectRuntimeObjective as runProjectRuntimeObjectiveWithPorts } from "../../src/security/project-runtime-objective-intake.ts";
 
 const revision = "a".repeat(40);
+let fixtureIntakeEpoch = "fixture-epoch";
 type ObjectiveDependencies = Parameters<
   typeof runProjectRuntimeObjectiveWithPorts
 >[0];
@@ -87,6 +89,11 @@ function root(t: test.TestContext) {
   );
   execFileSync("git", ["init", "--quiet", value], { windowsHide: true });
   t.after(() => fs.rmSync(value, { recursive: true, force: true }));
+  const initialized = initializeProjectRuntimeSnapshot(value, "binding-a");
+  assert.equal(initialized.status, "completed");
+  if (initialized.status !== "completed")
+    throw new Error("fixture_bootstrap_failed");
+  fixtureIntakeEpoch = initialized.value;
   return value;
 }
 
@@ -116,6 +123,7 @@ function request(overrides: Record<string, unknown> = {}) {
     maximumReplans: 0,
     originLane: "interactive",
     adoptResult: false,
+    intakeEpoch: fixtureIntakeEpoch,
     ...overrides,
   };
 }

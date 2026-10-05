@@ -20,6 +20,25 @@ if (
   throw new Error("project_runtime_lease_interleaving_probe_input_invalid");
 
 if (mode === "pause-before-publish") {
+  const originalMkdirSync = fs.mkdirSync;
+  fs.mkdirSync = ((
+    target: fs.PathLike,
+    options?: fs.MakeDirectoryOptions & { recursive?: boolean },
+  ) => {
+    const result = originalMkdirSync(target, options);
+    if (
+      String(target).includes("project-runtime-leases") &&
+      String(target).endsWith(".lock")
+    ) {
+      fs.writeFileSync(signalPath, "ready\n", "utf8");
+      const deadline = Date.now() + 10_000;
+      while (!fs.existsSync(`${signalPath}.go`)) {
+        if (Date.now() >= deadline) throw new Error("probe_signal_timeout");
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5);
+      }
+    }
+    return result;
+  }) as typeof fs.mkdirSync;
   const originalLinkSync = fs.linkSync;
   fs.linkSync = ((source: fs.PathLike, destination: fs.PathLike) => {
     if (String(destination).endsWith(".acquire-pending")) {
@@ -34,9 +53,14 @@ if (mode === "pause-before-publish") {
   }) as typeof fs.linkSync;
 }
 
-const { acquireProjectRuntimeLease } = await import(
+const foundation = await import(
   "../../src/security/project-runtime-durable-foundation.ts"
 );
+const acquireProjectRuntimeLease = fs.existsSync(
+  `${workingDirectory}/.crdd/project-runtime/state.json`,
+)
+  ? foundation.acquireProjectRuntimeSnapshotLease
+  : foundation.acquireProjectRuntimeLease;
 const result = acquireProjectRuntimeLease(
   workingDirectory,
   "binding-a",

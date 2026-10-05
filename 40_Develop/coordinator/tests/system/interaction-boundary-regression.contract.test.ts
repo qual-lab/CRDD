@@ -2600,6 +2600,8 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
     // queryDockerEngine/queryContainersAbsent: trusted fixed CLI observations only.
     // Their argument/provenance closure is owned by the protected-path graph.
     "src/security/docker-restart-machine.ts",
+    "src/security/host-recovery-namespace-windows-adapter.ts",
+    "src/security/host-terminal-windows-adapter.ts",
     "src/security/provider-home-windows-adapter.ts",
     "src/security/windows-directory-bootstrap.ts",
   ]);

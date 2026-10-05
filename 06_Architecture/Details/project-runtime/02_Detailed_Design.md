@@ -2,7 +2,7 @@
 
 状態: 現行正本
 担当責任者: Qual-Lab
-最終更新日: 2026-09-11
+最終更新日: 2026-10-06
 
 ## Related
 
@@ -55,6 +55,128 @@
 | `REC-DECISION-CONTINUATION` | `IF-DECISION` | `RES-DECISION-CONTINUATION` | `before_effect_intent` | `continuation_hash`<br>`selected_user_principal`<br>`decision_project_milestone_generation_revision`<br>`continuation_expiry`<br>`continuation_consumed_or_invalidated_state`<br>`replacement_request_identity`<br>`decision_application_id`<br>`expected_project_generation`<br>`new_project_generation`<br>`application_disposition_issued_prepared_finalized_recovery_invalidated_or_expired` |
 | `REC-DECISION-RECOVERY-INTENT` | `IF-PLATFORM` | `RES-DECISION-RECOVERY-INTENT` | `before_effect_intent` | `exact_continuation_record_identity`<br>`last_confirmed_disposition`<br>`decision_application_id`<br>`expected_project_generation`<br>`new_project_generation`<br>`unknown_observation_boundary`<br>`recovery_identity`<br>`recovery_disposition_required_or_settled` |
 | `REC-DOCKER-RECOVERY-ACKNOWLEDGEMENT` | `IF-PLATFORM` | `RES-DOCKER-RECOVERY-ACKNOWLEDGEMENT` | `after_effect_receipt` | `exact_docker_recovery_identity`<br>`fresh_runtime_root_four_hash_binding`<br>`completion_receipt_committed_pair_hash_and_identity`<br>`temporary_acknowledgement_tombstone_not_project_history`<br>`project_acknowledged_readback_precedes_tombstone_gc`<br>`absence_is_not_acknowledgement` |
+
+<a id="compact-runtime-storage"></a>
+
+### 3.1. 現在状態の一体保存と有限履歴
+
+採用方向は、Repository Rootを検証した`.crdd/project-runtime/`内の共通4ファイルへ、現在の仕事を一体保存することである。本番Portは新版保存へ接続し、このRepositoryでは旧E2E記録の清掃と公開入口による初期化を実施した。実施結果は[変更記録](../../../99_Roadmap/Changes/CHG-000082/Evidence/261005_project-runtime-phase2.md#29-repositoryの実切替結果)で追跡する。上表のRecordは論理責務として維持し、ファイル統合によって判断Authorityや仕事全体の一括確定を追加保証しない。
+
+| ファイル | 所有する内容・終了条件 |
+|---|---|
+| `state.json` | 現在のProject状態、Queue、進行中Attempt、採否待ち候補への参照、未確定の結果保存・採用後処理、判断待ち、未解決回復、履歴への未確定搬送。既存操作・参照・回復の処置と終了要約の保存を確認した項目は除く。 |
+| `state.lock` | 保存更新の短期排他に結合する固定入口。ファイル存在、PID、時刻だけを排他成立・Owner死亡の根拠にしない。 |
+| `state.pending.json` | 同じ排他Ownerが確定前に作る短命な保存候補。確定後に除き、中断残存は同じIdentityの再入場で処置する。 |
+| `history.jsonl` | 時刻、終了Identity、結論、最初の失敗と後続の回収結果の要約。現在状態、Authority、採否待ち・未解決処置の正本にはしない。 |
+
+大きな候補本体は`.crdd/candidates/`、再生成できる一時物は`.crdd/tmp/<operation-id>/work/`へ分離する。新しい`staging/`、`logs/`、`project-runtime/work/`は作らない。保護方法が異なる判断継続・秘密・署名鍵はこのJSONへ移さず、既存Platform境界を維持する。
+
+| 境界 | 保存・再入場の設計条件 |
+|---|---|
+| 更新競合 | Snapshot全体の改訂番号とProject／Queueごとのgenerationを区別する。期待世代を再検査し、排他Ownerだけが保存候補を公開する。Queue選択から更新へ移る内部呼出しで自己再取得しない。 |
+| 保存確定 | 正規Root、閉じたSchema、内容Hash、期待世代を検証する。同じDirectory内の置換、書込み確定、read-back、異常終了時の残存をWindows実境界で確認するまで、原子的・耐久的確定を実装済みとしない。 |
+| 外部待機 | 短期保存排他をProvider待機中に保持しない。長期Operation Leaseとその終了確認は別責務として維持する。 |
+| 結果保存・採用後処理 | integration Recordは候補の耐久公開、adoption Receiptは実適用結果、Queue.resultReferenceは既存の結果参照として維持する。保存成功を利用者の受領・既読へ読み替えず、取得・受領確認の新しいPortを追加しない。参照中・採否待ち・回復待ちは残し、適用後に記録が失敗した場合も適用済み事実と未確定保存を保持する。記録不存在を再適用許可にしない。 |
+| 終了と履歴 | 終了要約をstateへ保持し、同じ終了Identityで履歴へ搬送・確認してから現在項目を除く。中断時は重複を識別して再入場する。履歴障害だけで無関係な新規仕事を永久停止させない。 |
+| 履歴保持 | 通常履歴は直近30日を保持し、起動・更新時に30日より古い要約を除く。件数・合計Byteの削除上限は設けない。期限外の行も含めて全行を逐次検証し、途中行、未来時刻・時計逆行、循環失敗を処置する。履歴から仕事やAuthorityを再実行しない。 |
+| 別Port間の中断 | State、Queue、結果、保護Decisionへの呼出しの間で停止できる。物理一体化だけで全更新のall-old／all-newを主張せず、同じ仕事Identityで未完了処置へ戻る。 |
+| 旧形式からの切替 | 新形態へ刷新し、旧保存形式のRuntime内変換・Fallback・旧Writerを残さない。切替時はフロントAIが旧入口の停止、現在資源・参照の確認、必要成果物の保全と用途別Rootの清掃を行う。旧仕事を新Snapshotへ自動継承せず、新しい受付世代で初期化する。 |
+
+新版の保存契約は閉じたSnapshot Schema、Root・Binding結合、期待世代による競合拒否と現在の未解決処置の保全である。旧形式の連続世代を永続互換契約として維持せず、旧不変条件IDをそのまま新版の成立根拠へ読み替えない。
+
+新版Schema、実効排他とRootの結合、Windows保存確定、結果保存・採用後処理は本番Compositionへ接続する。終了Identityは履歴確定後に退役し、通常履歴は30日保持とする。Qualityには競合、中断、再送、参照中・未解決の結果の削除、採用後の記録失敗による重複適用、旧Writer再入場、履歴循環と終了後残存を反証対象として渡す。接続の存在を独立レビュー合格や実Provider E2E合格の代替にしない。
+
+今回の変更は既存運用の保存統合であり、受領・既読管理の新機能を追加しない。保存後も利用者が結果を読んでいないという理由だけで、終了項目を現在状態へ残し続けない。
+
+| 新版の論理区画 | 保持する既存の意味 |
+|---|---|
+| 保存情報 | 閉じたSchema、Repository結合、Snapshot改訂番号、内容Hash。各Recordのgenerationとは区別する。 |
+| 受付 | 現在の受付世代と進行Queueの結合。新Request発行時の世代を搬送する。刷新前のRequestを新規仕事として再受付しない。 |
+| Project・Queue | 既存State・Queueの全Property。Task、Attempt、判断待ち、回復義務、requestHash、ownerGeneration、resultReferenceを省略しない。 |
+| Lease記録 | 取得Identity、Owner世代、取得・解放途中とOwner喪失の既存証拠。OS排他handle自体や保護されたDecisionは保存しない。 |
+| 統合・採用記録 | kind、Identity、Repository／Project／Milestone／Queue結合、内容Hash、既存value。既存結果の意味を保存整理で変更しない。 |
+| 未完了後処理 | 既存回復・終了確認・履歴への未確定搬送。完了状態名だけで削除しない。 |
+
+新版Leaseは取得意図、取得確定、解放途中、Owner喪失回収をRepository・Project・Queue・Owner世代・Owner Processへ結合する。取得途中で停止した場合に架空の取得成功を追加せず、取得結果未確定と現在の回収完了を分ける。Fileの存在だけでOwnerの稼働を、解放証拠だけで現在の実資源不存在を推定しない。
+
+切替時の旧記録整理はフロントAIの移行手順が所有する。旧Coordinator／Project Runtime／Docker処理を停止し、実資源、未採用候補、結果・判断の未完了参照を確認してから、検証済み用途別Rootの旧記録・一時物を回収する。認証、署名鍵、送信同意、保護された有効判断、候補本体と正式Evidenceを世代記録の清掃へ混ぜない。使用中・参照中・由来不明は一括削除せず、未処置を具体的に返す。Runtimeへ汎用移行・旧履歴再生の仕組みを追加しない。
+
+保存統合と長期実行排他は責務を分ける。短期保存排他は固定`state.lock`とRepositoryへ結合したOS排他を使用する。長期Leaseの短命な実体は`.crdd/tmp/project-runtime-leases/`へ置き、取得意図を保存してから実体を作り、実体Identityと取得証拠を保存する。解放時も意図保存、物理解放の確認、終了証拠とQueueの確定を順序付ける。短期保存排他を保持したままProvider完了を待たない。旧`project-runtime/work/locks/`へ本番処理を戻さない。
+
+`history.jsonl`の先頭行は閉じた保存情報、以降は終了要約とする。保存情報は契約名、改訂番号、Repository結合Hash、変更前の全体Hash、要約行のHash、UTC保存時刻を持つ。要約は終了Identity、UTC終了時刻、終了分類、一次失敗分類、回収結果だけを保持する。自由記述の診断本文や秘密値は保存しない。全行を検証し、ちょうど30日前の行は残し、それより古い行だけを除く。時計逆行・未来時刻・途中行を期限切れとして削除しない。
+
+短命な`history.pending.jsonl`は同じDirectory内の置換候補であり、履歴世代を蓄積しない。同じRoot排他下で、現在の全体Hashが候補と一致すれば候補の回収だけを行い、変更前Hashと一致すれば同じ候補の保存を再開する。不一致・破損は上書きせず保持する。確定後はread-backと短命Fileの不存在を確認する。履歴確定後だけ終了記録を除く。
+
+部分codecは検証専用であり、本番の`state.json`として使用しない。本番は全区画を持つv2 Schemaを検証する。ID重複、孤立Queue、不正State／Queue、Root・Binding差、Hash不一致、未知fieldと未知版を拒否する。入力と返却値にはUTF-8で16MiBの上限を適用する。
+
+短期保存排他は、検証済みRepository Rootのnative realpathをWindowsのcase差を正規化してHash化し、Project Runtime専用のNamed Pipeへ結合する。Worker取得・保持確認・解放処理を再利用し、Candidate／Provider／Dockerの名前空間は変更しない。`assertLive()`で保持を確認し、`release()`がfalseなら解放未確認とする。File保存の確認をOS電源断時の耐久性保証へ読み替えない。
+
+#### 統合保存入口の接続
+
+`writeProjectRuntimeSnapshot`は、部分codecとは別の統合保存契約を使用する。本番は判断区画を含む`crdd-coordinator/project-runtime-snapshot/v2`に固定し、v1試行からの暗黙拡張や旧DirectoryへのFallbackを行わない。
+
+| 区画 | 固定する値 |
+|---|---|
+| 保存情報 | schema、schemaRevision、repositoryRootHash、repositoryBindingId、snapshotRevision。 |
+| 受付 | intakeEpochと、全QueueごとのintakeBindings（queueId／epoch）。既存Queueを現在世代へ付け替えない。 |
+| 既存現在値 | projects、queueEntries。各RecordのgenerationとQueueのIdentityを維持する。 |
+| 実行権の記録 | leaseEvidence、leaseIntents。取得途中／物理排他取得後／解放未確定のphaseを分け、同Ownerに併存する途中記録を省略しない。 |
+| 結果と終了処理 | results、historyPending。結果は既存kind・Identity・結合・内容Hashを検証し、終了要約は履歴と同じ値契約を使う。 |
+
+保存Envelopeはpayload、contentHash、baseRevision、baseHashの閉集合とする。baseRevisionは候補のsnapshotRevisionの一つ前、baseHashは変更前File全体のHashである。初回はbaseRevision=0／baseHash=null。候補Hashは検証済みpendingの全bytesから導出する。`state.pending.json`と確定後の`state.json`は同じEnvelopeであり、短命File内の内容を変換せず置換する。
+
+残存pendingがあれば新規更新より先に再検証する。現在値がbaseHash・baseRevisionと一致すれば同候補のFile確定を再要求して置換する。現在値が候補全bytes・候補改訂と一致すれば現在Fileの確定を再要求し、pendingだけを回収する。不一致、部分File、Root差は保全して停止する。新規保存は固定pendingの作成・fsync・読戻し、置換、現在値の読戻しとpending不存在確認の順とする。fsync要求の成功をWindows電源断時の耐久性保証へ読み替えない。
+
+保存入口は、未解決Queue、Lease途中、参照中結果と未搬送要約の除去を拒否する。`maintainProjectRuntimeSnapshot`は、Task終了・回収、判断終了、採用後処理および実Lease不存在を確認し、同じ終了Identityの要約を履歴へ確定した後だけQueue・受付結合と不要な終了記録を除く。同じ更新で受付世代を切り替え、退役済み依頼の再実行を拒否する。最新Projectと参照中結果は保持する。適用後の記録失敗は回復・後処理状態を保持し、Record不存在から採用を再実行しない。未整理Queueが残るProjectのMilestone置換を拒否し、旧仕事を孤立させない。
+
+`readProjectRuntimeSnapshot`は内部保存の読取り入口であり、利用者向け結果取得・受領機能ではない。取得済みRootと親Directoryを順に検証し、領域を作成せず真正不存在だけをnullとして返す。固定pendingが存在する場合は保全停止し、この入口から確定・回収しない。正規File、単一link、安定した上限付き読取り、UTF-8、全区画・Hash・Root・Bindingを確認する。破損・alias・途中消失・観測不能から旧形式へFallbackしない。短期排他の解放確認後だけ成功を返す。本番State読取りはこのv2入口へ接続する。
+
+保存の内部処置は取得済みOwnerを受け取り、自ら排他を再取得・解放しない。外側の入口が取得と解放確認を担当し、読取り・操作固有更新・保存を同じOwnerへ接続する。OwnerはJSONや呼出し元指定Hashから復元しない。本番CompositionはState／Queue・Lease・結果・受入判断・判断回復の新版Portを一組で使用する。
+
+Project状態更新は入力・上限・期待世代を取得前に検証し、同じOwner内で現在値の読取り、世代比較、受付結合の再検査、更新と保存を行う。Snapshot不存在から自動初期化しない。Project不在だけは期待世代0で追加し、既存Projectは現在世代一致時だけ置換する。他Project・Queue・受付結合・Lease・結果・未搬送履歴を保持する。未整理QueueがあるProjectのMilestone置換は拒否する。pendingは保全停止し、保存専用入口の再入場で処置する。
+
+#### 独立採用の終了と参照保護
+
+通常Queueの終了記録はProject・Milestone・Queueの結合で照合する。採用Leaseの固定名`canonical`を通常QueueのIDと同一視しない。一般保存と固定pending再入場にも同じ除去条件を適用し、現在値だけでなく保存候補が新しく追加する成果根拠の参照も保護する。
+
+通常Queueを持たない成功採用は、完全なReceipt、未参照、未解決処置なし、終了証拠と現在の実Lease不存在を確認して整理する。同Projectの別Receiptが残る間は、共有する終了証拠を保持する。
+
+採用Applicationが実際の採用呼出し前にRevision／Scope不一致を検出し、取得Leaseの解放まで確認した場合だけ、`adoption`結果を`status: rejected`として保存する。固定理由、実取得`ownerGeneration`、`effectIssued: false`、`cleanupConfirmed: true`を閉じた値として持ち、成功Receiptを作らない。結果IdentityはそのOwner世代へ結合する。保存停止・例外では正式な未確定結果を返し、証拠を保持する。
+
+この拒否結果も、exact Ownerの取得・終了証拠、現在の実資源不存在、未参照を照合し、失敗の終了要約を履歴へ確定してから対応証拠だけを除く。採用発行後、未知Effect、解放未確認、別世代の証拠だけでは整理しない。Candidate本体、最新Project、署名・認証や保護された判断は変更しない。
+
+#### 操作と保存の接続範囲
+
+`createProjectRuntimeSnapshotPersistencePorts`はState／Queueの8操作とLeaseの4操作を新版保存へ接続する。構築だけで初期化・保存・旧形式Fallbackを行わず、Request発行時の受付世代と依頼結合を固定する。本番の内部操作は`createCurrentProjectRuntimePersistencePorts`から検証済みv2世代を使い、外部Requestの世代を補完するために使わない。Operation回復は要求したProject／Queueへ結合し、Adoption回復はcanonical採用Leaseへ結合する。停止理由とexact回復参照を保持する。
+
+受付世代の本番接続では、認証・Repository・Revisionを確認した既存の状態取得入口から世代を返し、新Requestの発行側が値を固定する。CLIとMCPの受信時には現在世代へ補完・付替えしない。Projectが不在でも有効な現在Snapshotがあれば世代を取得できるが、Snapshot不存在・未確定・破損・観測不能では値を生成せず、状態取得へ初期化Effectを加えない。Workbenchは現状Objective発行者ではなく、新しい発行機能をこの保存刷新へ追加しない。
+
+最初のState作成前と、同じ短期Owner内の保存時に受付結合を照合する。新規Queueは現在世代一致、退役前の既存Queueは保存済み受付結合・依頼内容Hash・Project・Milestone等の一致、退役済みまたは不存在の旧Queueは旧世代拒否をそれぞれ処置する。検査後の世代変更も保存前に再照合する。本番Objective入口はRequestの`intakeEpoch`と依頼結合をFactoryへ渡し、受信時に現在世代を補完しない。受付世代を人間のAuthority、発行時刻の暗号的証明または悪意ある改変の防止とは扱わない。
+
+| 操作群 | 統合先で維持する契約 | 現在の接続状態 |
+|---|---|---|
+| State／Queueの8操作 | 世代比較、同依頼再送、優先順位、使用中の割込み禁止、exact回復参照。 | 本番Objective・判断・受入・統合Compositionが新版Factoryを使用する。 |
+| Leaseの4操作 | 取得途中の耐久記録、実排他、解放確認、Owner喪失の再観測。 | 本番Factoryが短期保存排他と長期実行Leaseを分離して使用する。 |
+| integration／adoption結果の保存 | 同Identity・同内容再送、採用後保存失敗から再適用しない。 | 本番統合とWorkbench独立採用がv2結果Portを使用する。 |
+| 受入判断の作成・読取り・比較交換 | preparedの第1世代とfinalizedの第2世代、作成一回限り、期待値の完全一致。 | 本番受入入口がv2判断Storeを使用する。旧二世代をRuntime内で移行しない。 |
+| 判断回復の作成・読取り・比較交換 | exact回復Identity、期待値完全一致、途中状態保全。 | 本番判断入口がv2回復Storeを使用する。旧連鎖を再構築しない。 |
+| 未搬送終了要約の履歴への搬送 | 全内容一致再送、履歴確定後だけ現在値から除去、30日保持。 | Objective・判断・受入・Workbench採用の終了処置が整理入口を使用する。 |
+
+受入判断と判断回復を加える保存形式は`crdd-coordinator/project-runtime-snapshot/v2`として区別する。v1試行の値に欄を暗黙追加せず、未知版、不正v2、未確定保存から旧DirectoryへFallbackしない。`acceptanceDecisions`は記録ごとに第1世代と、存在する場合だけ第2世代を保持し、第2世代単独を許さない。`decisionRecoveries`は記録ごとの現在値・保存世代を保持する。新形式の比較交換は同じ排他内の完全な期待値照合とSnapshot確定で行う。旧形式はフロントAIの切替手順で整理し、Runtime内で旧連鎖を再構築しない。
+
+両欄はRepository内の非秘密の処理記録であり、保護された判断AuthorityやCapabilityを複製しない。履歴へ移す場合も、保護記録の参照、Project適用、Queue、回復と後処理が解消する前に除去しない。退役受付世代によって過去判断の作成や再適用が復活しないことを確認する。
+
+新版Leaseの物理排他は`.crdd/tmp/project-runtime-leases/`の短命なDirectoryとして保持し、現在状態の正本は`state.json`のintentと証拠へ統合する。取得意図を確定して短期保存排他を解放した後に物理排他を取り、同Ownerの取得記録を再照合して取得証拠を確定する。解放も意図確定、物理解放、不存在確認、終了証拠確定の順とし、短期保存排他を実行中や外部待機へ持ち越さない。Directoryの実体Identityは取得後に照合し、別の実体へ置換された場合は処置しない。物理取得後・証拠保存前の不明な窓は成功へ丸めず、exactな未解決取得として保持する。JSON上のintent除去は終了証拠と現在の物理不存在を照合した専用終了処置に限り、一般保存で未解決義務を消さない。
+
+v2の実体結合は取得したDirectoryのdevice、inode、birthtimeMsをJSON配列順でHash化した`physicalIdentity`とする。取得前のintentではnull、取得後・解放意図では照合済みHashを持つ。これはOSが返した属性に基づく置換検知であり、AuthorityやWindows電源断保証ではない。opaque Leaseの利用時は親Directoryも正規実体として再確認する。未終了の取得証拠には同Ownerの`lock_owned`意図を要求する。終了証拠なしにintentを除いた保存候補を受理せず、終了証拠がある場合も同じ物理排他の不存在を保存確定前・pending再入場時に確認する。
+
+物理取得前には、取得意図を保存した時点のRepository実体を同じ属性とnative realpathで再確認し、親を確認してから子を作成する。意図保存の途中失敗や保存後のOwner解放未確認は、同じexact回復参照を返す。競合・入力拒否などEffect前の停止へ、存在しない回復義務を追加しない。解放意図の保存が未確認となったopaque Leaseは以後の実行に使用しない。
+
+履歴搬送は実発行された同じOwnerを借用し、偽造値や解放済みOwnerを拒否する。借用本体は取得・解放せず、外側が全結果の解放確認を担当する。一回の搬送では評価時刻を固定し、要約IDと全内容を照合する。期限内の要約はexact行の保存とread-back、期限超過の要約は30日契約による期限処置を区別する。履歴確定後に現在状態の保存が失敗しても、同じ要約から再送し、二重行を増やさない。一般保存と固定pending再入場の双方で、未搬送要約の除去には同内容の履歴行または検証済み期限処置を要求する。これは終了要約の搬送だけであり、Queue、Project、結果、判断、回復義務、候補本体の退役・削除を許可しない。
+
+新版Owner喪失処置は、同一取得意図・Queue・Repository実体を読み、短期排他を解放してから既存のProcess観測へ渡す。PIDとOwner世代が一致した`absent`だけを受理し、再取得後に対象の全内容とRoot実体を再照合する。無関係な区画の更新は保持し、観測の間に対象が変わった場合は処置しない。`recovery_pending`を確定してから、正規の親と同じ実体Identityを持つ空の排他Directoryだけを解放し、不存在を確認して終了証拠を保存する。回収意図の保存後、物理解放後、終了保存中断後も同じ回復参照から再入場する。
+
+取得証拠がある場合は`recovered_after_owner_loss`へ結合する。取得証拠がない場合は`acquisition_unknown_closed`として過去の不明と現在の回収を分ける。取得前の同Owner内で実排他不存在を確認した唯一の`acquisition_reserved`があり、旧Ownerのexact不存在、現在の空の正規Directoryと同一実体を確認できる場合だけ、物理Identityを回復意図へ保存してから回収する。不明・非空・別取得との重複・実体差は停止する。取得成功やTask成功を捏造しない。Queue Ownerが結合済みなら`recovery_required / owner_loss`へ移し、未結合ならqueuedを保持する。採用Leaseの回収を再適用許可にしない。
 
 ## 4. 資源と終了条件
 
@@ -412,3 +534,12 @@
 | `project-runtime.candidate-adoption` | `authority` | 同一候補の再読取り、明示採用Authority、Leaseと現在Revision／dirty Scopeの確認を通じて正本へ採用し、Receiptを耐久記録する。拒否時は正本Effect 0、settlement不明時は同じRecovery義務を保持し、Commit／Pushを伴わない。 | `ARCH-000004` | `Required` | `### 2.1. 既存候補の採用境界` | — |
 - 正常・準正常・異常および実境界の検証が、対象CapabilityのLifecycleを閉じる。
 - 現行設計の変更時は本書を更新し、旧版の別文書を現行Treeへ追加しない。
+
+## Checklist
+
+- [x] 旧連続世代の保証と新版Snapshotの目標を区別し、旧不変条件の意味を変更していない。
+- [x] 物理統合と仕事全体の一括確定を区別し、別Port間の中断、Leaseと保護Decisionの境界を維持した。
+- [x] 保存、採用後処理、終了、履歴と移行の反証対象を明示した。
+- [x] 新版Schema、Root結合、保存確定・再入場、退役後の旧受付拒否と公開初期化を実装・局所試験へ接続した。
+- [x] 受付・終了整理・本番接続の追加反例とArchitecture／QualityのSource／Contract独立確認を完了し、旧実記録の清掃・新形式初期化を確認した。
+- OPEN: Coordinator全回帰の結果と②全体の終了判定は継続中。未処置の失敗があれば影響を評価し、必要な是正・再確認を完了するまで②全体Passとしない。

@@ -47,6 +47,7 @@ export type ProjectRuntimeStateQuery = Readonly<{
  * @compatibility ProjectRuntimeStateQueryResultの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 export type ProjectRuntimeStateQueryResult = Readonly<{
+  intakeEpoch: string | null;
   contract: typeof PROJECT_RUNTIME_STATE_QUERY_CONTRACT;
   status: "completed" | "blocked";
   reason: string;
@@ -66,6 +67,7 @@ const queryKeys = new Set([
   "repositoryRevision",
 ] as const);
 const resultKeys = new Set([
+  "intakeEpoch",
   "contract",
   "status",
   "reason",
@@ -390,6 +392,9 @@ export function inspectProjectRuntimeStateQueryResult(
   const result = snapshotPlainRecord(value, resultKeys);
   if (
     !result ||
+    (result.status === "completed"
+      ? !validId(result.intakeEpoch)
+      : result.intakeEpoch !== null) ||
     result.contract !== PROJECT_RUNTIME_STATE_QUERY_CONTRACT ||
     !["completed", "blocked"].includes(String(result.status)) ||
     !validReason(result.reason) ||

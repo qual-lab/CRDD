@@ -164,14 +164,14 @@ test("名前付き関数の型引数終端と文字列を区別する", () => {
     "function sample<T extends Readonly<Array<string>>>(value: T) { return value; }",
     'function sample<T extends "<" | ">">(value: T) { return value; }',
   ]) {
-    const graph = runtimeNamedFunctionGraphSnapshotForVerification(
+    const graphs = runtimeNamedFunctionGraphSnapshotForVerification(
       "src/security/generic-fixture.ts",
       source,
       ["sample"],
     );
-    assert.equal(graph.length, 1);
-    assert.equal(graph[0]?.name, "sample");
-    assert.equal(graph[0]?.lexicalScope, "module");
+    assert.equal(graphs.length, 1);
+    assert.equal(graphs[0]?.name, "sample");
+    assert.equal(graphs[0]?.lexicalScope, "module");
   }
   for (const source of [
     "function sample<T(value: T) { return value; }",
@@ -180,12 +180,12 @@ test("名前付き関数の型引数終端と文字列を区別する", () => {
     'function sample"<"T>(value: T) { return value; }',
   ]) {
     assert.throws(() => {
-      const graph = runtimeNamedFunctionGraphSnapshotForVerification(
+      const graphs = runtimeNamedFunctionGraphSnapshotForVerification(
         "src/security/generic-fixture.ts",
         source,
         ["sample"],
       );
-      assert.equal(graph.length, 1);
+      assert.equal(graphs.length, 1);
     });
   }
 });
@@ -1227,14 +1227,14 @@ test("Runtime Package Capabilityの旧版集合へ新Host利用側を混ぜな�
     scope,
   );
   assert.ok(scope.check);
-  const host = scope.current.filter((item) =>
+  const hostGraphs = scope.current.filter((item) =>
     [
       "src/security/host-recovery-namespace-windows-adapter.ts",
       "src/security/host-terminal-windows-adapter.ts",
     ].includes(item.source),
   );
-  assert.equal(host.length, 3);
-  const legacy = scope.current.filter(
+  assert.equal(hostGraphs.length, 3);
+  const legacyGraphs = scope.current.filter(
     (item) =>
       ![
         "src/security/workbench-ai-advice-production-runtime.ts",
@@ -1245,13 +1245,13 @@ test("Runtime Package Capabilityの旧版集合へ新Host利用側を混ぜな�
   );
   scope.observed = scope.current;
   assert.doesNotThrow(() => scope.check?.({}, "repository", "current"));
-  scope.observed = legacy;
+  scope.observed = legacyGraphs;
   assert.doesNotThrow(() => scope.check?.({}, "repository", "v0.21"));
   assert.throws(
     () => scope.check?.({}, "repository", "current"),
     /consumer_set/u,
   );
-  scope.observed = [...legacy, ...host];
+  scope.observed = [...legacyGraphs, ...hostGraphs];
   assert.throws(
     () => scope.check?.({}, "repository", "v0.21"),
     /consumer_set/u,

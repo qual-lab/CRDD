@@ -2075,7 +2075,7 @@ const runtimeExternalProcessCallsites = Object.freeze(
         ",",
         ")",
       ],
-      ["[", "initialize", "?"],
+      ["[", "shouldInitialize", "?"],
       ["const", "verification", "="],
     ],
     [
@@ -2356,8 +2356,8 @@ const exactExternalProcessCalls = Object.freeze(
       "initializeHostRecoveryNamespaceWindows",
       "spawnSync",
       1,
-      "99019ba1880e7fe25ad765c46176eb039a33efc0cd8c67508788235bfa6efc3d",
-      "ef8933e00fe5a8e7bbc36b0cf18f6e8b347fad0ef259e5c544dd4d4fe36df207",
+      "ee41b7f44e40bb256748916017f908c6f7a309d5c699a77ebdc61ffe6f7d6c41",
+      "8b0a09b79d6a4d674c939722cd49d932aeb041ddc0bb16c5feb1e139268ff555",
       "execution",
     ],
     [
@@ -2884,7 +2884,7 @@ const exactAuditedFunctionFlows = Object.freeze(
       "verification_tool",
       "scripts/verify-project-runtime-real-providers.ts",
       "main",
-      "d3bcc9ebc9e17cb579c724c0f33e86a3be960a026641eafcdaabc456eb1c3411",
+      "a111c157bc2be9ca294e78f3f97da13ef80d8527d1ba3a7e840948e9a151dba0",
     ],
   ].map(
     ([graph, source, functionName, bodySha256]) =>
@@ -3025,7 +3025,7 @@ const exactAuditedSemanticGraphSha256 = Object.freeze(
     ],
     [
       "scripts/verify-project-runtime-real-providers.ts\0main",
-      "dd900871c895c6ab06d61fb49855bdd4a2e5a191311c7d1bb19151b5fe2977af",
+      "24734ed2d1a3b1acf864d59c1b6d803fc90ee6a2993aaa50ade78b7af90c5157",
     ],
   ]),
 );

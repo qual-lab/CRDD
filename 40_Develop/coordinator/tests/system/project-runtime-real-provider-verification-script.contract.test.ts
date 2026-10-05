@@ -20,6 +20,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   buildProjectRuntimeRealProviderReport,
+  inspectPublishedProjectRuntimeIntakeEpoch,
   type JsonRecord,
   observePublicMcpProcess,
   type PublicProcessObservation,
@@ -78,7 +79,7 @@ test("実Provider E2Eは分離後の公開MCP入口だけを起動する", () =>
     verificationScriptSource.match(
       /closeInputWhen:\s*\(\{ stdout \}\)\s*=>\s*\n?\s*stdout\.split\(\/\\r\?\\n\/u\)\.some\(Boolean\)/gu,
     )?.length,
-    2,
+    3,
   );
 });
 /**
@@ -312,6 +313,94 @@ const observation = (
     ...overrides,
   });
 };
+/**
+ * 受付世代の公開取得が搬送・相関・終了条件を満たす場合だけ成功することを検証する。
+ *
+ * @responsibility 新Requestへ誤った受付世代や未確定応答を接続しない。
+ * @trace PRL-ST-001
+ * @precondition AI実行を伴わない状態取得の完了観測を構築する。
+ * @stimulus 搬送失敗、相関差、Provider開始、DTO不正を個別に注入する。
+ * @observation 世代またはnullの判定を読む。
+ * @oracle 正常だけ世代を返し、それ以外はnullを返す。
+ * @cleanup N/A: 値だけを評価し実資源を作らない。
+ * @boundary 公開MCP応答と新Requestの受付世代の境界。
+ */
+test("受付世代の公開取得は搬送・相関・終了条件を全て要求する", () => {
+  const request = {
+    requestId: "intake-epoch",
+    projectId: "project-a",
+    repositoryRevision: "a".repeat(40),
+  };
+  const state = {
+    ...request,
+    contract: "crdd-coordinator/project-runtime-state-query/v1",
+    intakeEpoch: "epoch-a",
+    status: "completed",
+    reason: "project_runtime_state_absent",
+    observationState: "absent",
+    projection: null,
+    cleanupConfirmed: true,
+    manualRecoveryRequired: false,
+    effectState: "no_effect",
+  };
+  const response = {
+    jsonrpc: "2.0",
+    id: request.requestId,
+    result: { isError: false, structuredContent: state },
+  };
+  const quiet = {
+    selectionEvents: [],
+    processStartEvents: [],
+    runtimeEvents: [],
+    providerBoundaryEvents: [],
+  };
+  const inspect = (
+    responses: readonly unknown[],
+    overrides: Partial<PublicProcessObservation> = {},
+  ) =>
+    inspectPublishedProjectRuntimeIntakeEpoch(
+      observation(responses, { ...quiet, ...overrides }),
+      request,
+    );
+  assert.equal(inspect([response]), "epoch-a");
+  for (const overrides of [
+    { parseFailure: true },
+    { streamFailure: true },
+    { runtimeEventProtocolViolation: true },
+    { timedOut: true },
+    { joined: false },
+    { inputEofIssued: false },
+    { outputWithinLimit: false },
+    { launchError: "launch_failed" },
+    { exit: { code: 2, signal: null } },
+    { exit: { code: 0, signal: "SIGTERM" } },
+    { processStartEvents: observation([]).processStartEvents },
+    { providerBoundaryEvents: observation([]).providerBoundaryEvents },
+  ] as Partial<PublicProcessObservation>[])
+    assert.equal(inspect([response], overrides), null);
+  for (const invalid of [
+    { ...response, jsonrpc: "1.0" },
+    { ...response, id: "other" },
+    { ...response, error: {} },
+    { ...response, result: { ...response.result, isError: true } },
+    ...[
+      { requestId: "other" },
+      { projectId: "other" },
+      { repositoryRevision: "b".repeat(40) },
+      { intakeEpoch: null },
+      { cleanupConfirmed: false },
+      { status: "blocked" },
+      { unexpected: true },
+    ].map((change) => ({
+      ...response,
+      result: { isError: false, structuredContent: { ...state, ...change } },
+    })),
+  ])
+    assert.equal(inspect([invalid]), null);
+  assert.equal(inspect([]), null);
+  assert.equal(inspect([response, response]), null);
+});
+
 const unchangedSnapshot = {
   sha256: "same",
   headCommit: "a",

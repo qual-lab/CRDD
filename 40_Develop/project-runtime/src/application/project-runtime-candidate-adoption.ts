@@ -662,6 +662,44 @@ export async function adoptProjectRuntimeExistingCandidate(
         },
       );
   }
+  if (
+    !isAdoptionAttempted &&
+    finalResult?.reason ===
+      "project_runtime_adoption_revision_or_scope_mismatch" &&
+    !finalResult.effectIssued &&
+    !finalResult.effectStateUnknown &&
+    finalResult.cleanupConfirmed &&
+    !finalResult.manualRecoveryRequired &&
+    finalResult.recoveryIds.length === 0
+  ) {
+    let rejectionRecorded = false;
+    try {
+      const recorded = dependencies.records.write({
+        kind: "adoption",
+        identity: lease.ownerGeneration,
+        value: {
+          status: "rejected",
+          reason: finalResult.reason,
+          ownerGeneration: lease.ownerGeneration,
+          effectIssued: false,
+          cleanupConfirmed: true,
+        },
+      });
+      rejectionRecorded = recorded?.status === "completed";
+    } catch {
+      rejectionRecorded = false;
+    }
+    if (!rejectionRecorded)
+      finalResult = result(
+        input,
+        "blocked",
+        "project_runtime_adoption_rejection_record_unknown",
+        {
+          cleanupConfirmed: false,
+          manualRecoveryRequired: true,
+        },
+      );
+  }
   return (
     finalResult ??
     result(input, "blocked", "project_runtime_adoption_observation_unknown", {

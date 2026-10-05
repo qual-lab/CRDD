@@ -36,7 +36,7 @@ function responseFrame(
   nonce: Buffer,
   status: number,
   reason?: string,
-  reuse = false,
+  shouldReuse = false,
 ) {
   const text =
     reason ??
@@ -61,13 +61,13 @@ function responseFrame(
       : status === 2
         ? [
             1,
-            reuse ? 0 : 1,
-            reuse ? 0 : 1,
+            shouldReuse ? 0 : 1,
+            shouldReuse ? 0 : 1,
             1,
             1,
             1,
-            reuse ? 0 : 1,
-            reuse ? 0 : 1,
+            shouldReuse ? 0 : 1,
+            shouldReuse ? 0 : 1,
             1,
             1,
           ]
@@ -237,7 +237,7 @@ test("共有初期化Adapterは署名拒否と部分処置を同じ本体で保�
     "false_success_reason",
   ]) {
     const launches: string[] = [];
-    const execute = runInNewContext(`(${body})`, {
+    const executeAdapter = runInNewContext(`(${body})`, {
       Buffer,
       Date,
       JSON,
@@ -279,18 +279,18 @@ test("共有初期化Adapterは署名拒否と部分処置を同じ本体で保�
       ) => {
         assert.equal(argv.length, 1);
         launches.push(argv[0] ?? "");
-        const initialize = launches.length === 2;
-        assert.equal(options.input.length, initialize ? 98 : 42);
+        const shouldInitialize = launches.length === 2;
+        assert.equal(options.input.length, shouldInitialize ? 98 : 42);
         assert.equal(
           options.input.subarray(0, 8).toString("ascii"),
-          initialize ? "CRDDNI01" : "CRDDNC01",
+          shouldInitialize ? "CRDDNI01" : "CRDDNC01",
         );
-        if (initialize) {
+        if (shouldInitialize) {
           assert.equal(options.input.readUInt32LE(50), 3);
           assert.deepEqual(options.input.subarray(66), Buffer.alloc(32, 8));
         }
         const nonce = options.input.subarray(10, 42);
-        if (initialize && scenario === "transport")
+        if (shouldInitialize && scenario === "transport")
           return {
             pid: 1,
             error: new Error("fixture"),
@@ -299,22 +299,22 @@ test("共有初期化Adapterは署名拒否と部分処置を同じ本体で保�
             stdout: Buffer.alloc(0),
             stderr: Buffer.alloc(0),
           };
-        const blocked =
-          (!initialize && scenario === "capture_blocked") ||
-          (initialize &&
+        const isBlocked =
+          (!shouldInitialize && scenario === "capture_blocked") ||
+          (shouldInitialize &&
             ["partial", "false_success_reason"].includes(scenario));
         const stdout =
-          initialize && scenario === "malformed"
+          shouldInitialize && scenario === "malformed"
             ? Buffer.from("invalid")
             : responseFrame(
                 nonce,
-                blocked ? 0 : initialize ? 2 : 1,
-                scenario === "false_success_reason" && initialize
+                isBlocked ? 0 : shouldInitialize ? 2 : 1,
+                scenario === "false_success_reason" && shouldInitialize
                   ? "terminal_namespace_initialized"
                   : undefined,
                 scenario === "reused",
               );
-        if (!initialize && blocked) {
+        if (!shouldInitialize && isBlocked) {
           const captured = responseFrame(
             nonce,
             1,
@@ -332,13 +332,13 @@ test("共有初期化Adapterは署名拒否と部分処置を同じ本体で保�
         return {
           pid: 1,
           signal: null,
-          status: blocked ? 2 : 0,
+          status: isBlocked ? 2 : 0,
           stdout,
           stderr: Buffer.alloc(0),
         };
       },
     }) as typeof initializeHostRecoveryNamespaceWindows;
-    const result = execute(
+    const result = executeAdapter(
       scenario === "different_parent" ? "C:\\other" : parent,
     );
     assert.equal(
@@ -410,7 +410,7 @@ test("通常producerはWindows保護検証をRoot・marker生成より先に行�
       cleanupConfirmed: boolean;
       hostRecoveryId: string | null;
     } | null = null;
-    const execute = runInNewContext(`(${body})`, {
+    const executeAdapter = runInNewContext(`(${body})`, {
       process: { platform: scenario === "non_windows" ? "linux" : "win32" },
       fs: {
         realpathSync: () => "C:\\fixture\\parent",
@@ -444,7 +444,7 @@ test("通常producerはWindows保護検証をRoot・marker生成より先に行�
       },
     }) as () => unknown;
     if (["blocked", "bad_parent", "primitive_failure"].includes(scenario)) {
-      assert.throws(execute);
+      assert.throws(executeAdapter);
       if (scenario === "primitive_failure") {
         assert.equal(classification, null);
       } else {
@@ -454,7 +454,7 @@ test("通常producerはWindows保護検証をRoot・marker生成より先に行�
         });
       }
     } else {
-      assert.equal(execute(), root);
+      assert.equal(executeAdapter(), root);
     }
     assert.deepEqual(
       events,

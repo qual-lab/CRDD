@@ -37,6 +37,11 @@ type Envelope = Readonly<{
   value: ProjectRuntimeDecisionRecoveryIntent;
 }>;
 
+export {
+  type Envelope as ProjectRuntimeDecisionRecoveryEnvelope,
+  validIntent as validProjectRuntimeDecisionRecoveryIntent,
+};
+
 const HASH = /^[0-9a-f]{64}$/u;
 const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
 

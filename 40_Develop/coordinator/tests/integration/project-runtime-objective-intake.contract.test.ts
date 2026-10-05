@@ -35,7 +35,8 @@ import {
   settleProjectOperationQueueRecovery,
   updateProjectOperationQueueState,
   writeProjectRuntimeState,
-} from "../../src/security/project-runtime-durable-foundation.ts";
+} from "../fixtures/project-runtime-current-ports.ts";
+import { initializeProjectRuntimeSnapshot } from "../../src/security/project-runtime-durable-foundation.ts";
 import {
   inspectProjectRuntimeObjectiveRequest,
   runProjectRuntimeObjective as runProjectRuntimeObjectiveWithPorts,
@@ -50,6 +51,7 @@ import {
 } from "../../../project-runtime/src/index.ts";
 
 const revision = "a".repeat(40);
+let fixtureIntakeEpoch = "fixture-epoch";
 type ObjectiveDependencies = Parameters<
   typeof runProjectRuntimeObjectiveWithPorts
 >[0];
@@ -131,6 +133,9 @@ const finalizedAcknowledgement = () => ({
 function root(t: test.TestContext) {
   const value = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-project-intake-"));
   execFileSync("git", ["init", "--quiet", value], { windowsHide: true });
+  const initialized = initializeProjectRuntimeSnapshot(value, "binding-a");
+  assert.equal(initialized.status, "completed");
+  fixtureIntakeEpoch = initialized.value as string;
   t.after(() => fs.rmSync(value, { recursive: true, force: true }));
   return value;
 }
@@ -257,6 +262,7 @@ function request(overrides: Record<string, unknown> = {}) {
     maximumReplans: 1,
     originLane: "interactive",
     adoptResult: false,
+    intakeEpoch: fixtureIntakeEpoch,
     ...overrides,
   };
 }
@@ -499,7 +505,7 @@ test("public Objective re-entry reconciles a pre-publication owner loss before e
     requestHash: createHash("sha256")
       .update(
         JSON.stringify({
-          ...exactRequest,
+          ...inspectProjectRuntimeObjectiveRequest(exactRequest),
           authenticatedPrincipalId: "principal-a",
           acceptanceCriteria: [...exactRequest.acceptanceCriteria],
           allowedPaths: [...exactRequest.allowedPaths],
@@ -613,22 +619,13 @@ test("public Objective re-entry reconciles a pre-publication owner loss before e
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
-test("public Objective re-entry preserves ambiguous acquisition evidence and returns its exact recovery reference", async (t) => {
+test("public Objective re-entry preserves malformed snapshot without inventing a recovery identity", async (t) => {
   for (const count of [1, 2]) {
     const workingDirectory = root(t);
-    const locks = path.join(
-      workingDirectory,
-      ".crdd",
-      "project-runtime",
-      "work",
-      "locks",
-    );
+    const locks = path.join(workingDirectory, ".crdd", "project-runtime");
     fs.mkdirSync(locks, { recursive: true });
     const createdItems = Array.from({ length: count }, (_unused, index) =>
-      path.join(
-        locks,
-        `.pending-project-operation-binding-a-acquisition-malformed-${index}.tmp`,
-      ),
+      path.join(locks, index === 0 ? "state.json" : "state.pending.json"),
     );
     for (const target of createdItems)
       fs.writeFileSync(target, "not-json\n", "utf8");
@@ -673,10 +670,7 @@ test("public Objective re-entry preserves ambiguous acquisition evidence and ret
     );
     assert.equal(result.status, "blocked");
     assert.equal(result.manualRecoveryRequired, true);
-    assert.match(
-      result.recoveryIds[0] ?? "",
-      /^lease-acquisition-[0-9a-f]{40}$/u,
-    );
+    assert.deepEqual(result.recoveryIds, []);
     assert.equal(effects, 0);
     assert.equal(
       createdItems.every((target) => fs.existsSync(target)),
@@ -707,7 +701,7 @@ test("public Objective classifies foreign, missing, and mismatched acquisition q
     const residualQueueId = `queue-residual-${scenario}`;
     const residualProjectId =
       scenario === "foreign-project" ? "project-b" : "project-a";
-    if (scenario !== "missing-queue") {
+    {
       const queued = enqueueProjectOperation(workingDirectory, "binding-a", {
         queueId: residualQueueId,
         projectId: residualProjectId,
@@ -725,16 +719,20 @@ test("public Objective classifies foreign, missing, and mismatched acquisition q
       residualQueueId,
       residualProjectId,
     );
-    if (scenario === "queue-mismatch") {
+    if (scenario !== "foreign-project") {
       const record = path.join(
         workingDirectory,
         ".crdd",
         "project-runtime",
-        "queues",
-        residualQueueId,
-        "generation-1.json",
+        "state.json",
       );
-      fs.writeFileSync(record, "not-json\n", "utf8");
+      const envelope = JSON.parse(fs.readFileSync(record, "utf8"));
+      if (scenario === "missing-queue") envelope.payload.queueEntries = [];
+      else envelope.payload.queueEntries[0].projectId = "project-unbound";
+      envelope.contentHash = createHash("sha256")
+        .update(JSON.stringify(envelope.payload))
+        .digest("hex");
+      fs.writeFileSync(record, `${JSON.stringify(envelope)}\n`, "utf8");
     }
     const before = runtimeSnapshot(workingDirectory);
     let effects = 0;
@@ -779,18 +777,22 @@ test("public Objective classifies foreign, missing, and mismatched acquisition q
     assert.equal(result.status, "blocked", scenario);
     assert.equal(result.manualRecoveryRequired, true, scenario);
     assert.equal(result.cleanupConfirmed, false, scenario);
-    assert.match(
-      result.recoveryIds[0] ?? "",
-      /^lease-acquisition-[0-9a-f]{40}$/u,
-      scenario,
-    );
-    assert.equal(
-      result.reason,
-      scenario === "foreign-project"
-        ? "project_runtime_lease_acquisition_project_identity_mismatch"
-        : "project_runtime_lease_acquisition_queue_identity_mismatch",
-      scenario,
-    );
+    if (scenario === "foreign-project") {
+      assert.match(
+        result.recoveryIds[0] ?? "",
+        /^lease-acquisition-[0-9a-f]{40}$/u,
+      );
+      assert.equal(
+        result.reason,
+        "project_runtime_lease_acquisition_project_identity_mismatch",
+      );
+    } else {
+      assert.deepEqual(result.recoveryIds, []);
+      assert.equal(
+        result.reason,
+        "project_runtime_snapshot_invalid_or_unconfirmed",
+      );
+    }
     assert.equal(effects, 0, scenario);
     assert.deepEqual(runtimeSnapshot(workingDirectory), before, scenario);
   }

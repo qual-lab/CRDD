@@ -160,6 +160,7 @@ test("stdio blockはparent EOFで進行要求を取消してjoin後に終了す�
           maximumReplans: 0,
           originLane: "interactive",
           adoptResult: false,
+          intakeEpoch: "fixture-epoch",
         },
       },
     })}\n`,

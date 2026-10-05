@@ -71,6 +71,7 @@ function objectiveRequest() {
     maximumReplans: 1,
     originLane: "interactive",
     adoptResult: false,
+    intakeEpoch: "fixture-epoch",
   } as const;
 }
 

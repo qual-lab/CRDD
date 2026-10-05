@@ -46,6 +46,7 @@ function fixture(
     dirty?: boolean;
     receiptInvalid?: boolean;
     releaseBlocked?: boolean;
+    recordThrows?: boolean;
   }> = {},
 ) {
   const calls = { reconcile: 0, acquire: 0, adopt: 0, record: 0, release: 0 };
@@ -125,6 +126,7 @@ function fixture(
       records: Object.freeze({
         write: () => {
           calls.record += 1;
+          if (options.recordThrows) throw new Error("record_injected");
           return completed(
             "recorded",
             Object.freeze({ written: true as const }),
@@ -145,6 +147,37 @@ const input = Object.freeze({
   }),
   allowedPaths: Object.freeze(["result.txt"]),
   adoptionAuthorized: true,
+});
+
+/**
+ * 採用前拒否の保存例外を正式な停止結果へ閉じることを検証する。
+ * @responsibility 解放後の例外を未捕捉Promiseへ流さない。
+ * @trace PRL-UT-006
+ * @precondition dirty拒否と結果保存throwを注入する。
+ * @stimulus 明示採用Applicationを実行する。
+ * @observation 結果、採用・解放・保存回数を読む。
+ * @oracle 採用0、解放1、固定unknown、cleanup false、manual true。
+ * @cleanup N/A: 外部資源を作らない。
+ * @boundary 採用Applicationと保存Port。
+ */
+test("採用前拒否の保存例外は結果不明として証拠を保持する", async () => {
+  const current = fixture({ dirty: true, recordThrows: true });
+  const result = await adoptProjectRuntimeExistingCandidate(
+    current.dependencies,
+    input,
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "project_runtime_adoption_rejection_record_unknown",
+  );
+  assert.equal(result.effectIssued, false);
+  assert.equal(result.cleanupConfirmed, false);
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(result.receiptId, null);
+  assert.equal(current.calls.adopt, 0);
+  assert.equal(current.calls.release, 1);
+  assert.equal(current.calls.record, 1);
 });
 
 /**
@@ -238,6 +271,7 @@ test("現在Scopeがdirtyなら採用Effect前で停止する", async () => {
   );
   assert.equal(result.effectIssued, false);
   assert.equal(current.calls.adopt, 0);
+  assert.equal(current.calls.record, 1);
   assert.equal(current.calls.release, 1);
 });
 

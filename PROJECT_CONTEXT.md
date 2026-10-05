@@ -11,6 +11,10 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
+②の受付世代の実接続、終了記録の整理、本番保存Port切替とRepositoryの実切替を実施した。旧形式の互換処理は追加せず、フロントAIが非使用と保全範囲を確認して旧E2E記録516ファイルを清掃した。公開初期化と再初期化は同じ受付世代を返し、現在の保存領域は`state.json`と`state.lock`、現在の仕事は空である。候補本体・認証・署名・正式Evidenceは保全した。静的Gate、関連130件、MCP50件、Project Runtime UT69件・IT5件とArchitecture／QualityのSource／Contract限定独立レビューが成功し、全体Checkerはerror0／warning0となった。全Portableの6件Failを原因別に是正し、公開Acceptance2件、保存関連を含むHost36件と局所反例が成功した。Source／Contract独立再レビューはPass。Checker全377件と公開入口の関連37件も成功した。配布候補・署名依存の再確認は継続中であり、②全体Passにはしていない。次は署名検証用候補を固定する。[切替前確認](99_Roadmap/Changes/CHG-000082/Evidence/261005_project-runtime-phase2.md#28-本番切替前の独立確認と実在庫)、[実切替結果](99_Roadmap/Changes/CHG-000082/Evidence/261005_project-runtime-phase2.md#29-repositoryの実切替結果)、[現候補の確認結果](99_Roadmap/Changes/CHG-000082/Evidence/261005_project-runtime-phase2.md#31-命名是正後の現候補)を参照する。
+
+①の一時領域・検証資料整理は承認済み限定範囲で独立確認Passとなった。Coordinator記録の縮小とCandidateの7日保持は後続段階であり、②の保存切替だけを根拠に実装済みとしない。署名済み実Provider E2E・Release全体の成立も今回の限定確認から推定しない。[整理①の結果](99_Roadmap/Changes/CHG-000082/Evidence/261005_runtime-data-phase1.md#14-①の独立確認結果)を参照する。
+
 CRDDはv0.21.0を公開済みで、v0.22.0の実装・検証を進めている。v0.22.0の目標Release日は2026-10-03である。Project Contextは五つの代表場面を共通形式で回答する要求を採用し、試験した最小形式をRepository共通入口へ昇格している。署名候補のProject Runtime公開MCP実Provider E2Eは通常二経路・取消・exact Recovery・最終資源回収まで合格した。Workbench、必要な四経路および残る品質項目の確認を継続しており、全体合格とRelease判断は未成立である。
 
 | 種別 | 項目 | 現在状態 | Owner Relation |
@@ -33,7 +37,7 @@ v0.22.0は10/3の目標日を経過し、Release完了は未成立である。�
 |---|---|---|---|
 | 現在事実 | v0.22.0は目標日を経過・Release完了未成立 | 2026-10-04（日本時間）時点でPhase 5進行中。未完了の回復、Workbench実Provider経路と品質確認を保持し、期限・Scopeの変更は人間が判断する | [Roadmap](99_Roadmap/01_Roadmap.md)、[CHG-000082](99_Roadmap/Changes/CHG-000082/change.md) |
 | 現在事実 | v0.21対象のHybrid 12件、Manual 10件は未観測 | 全体Quality Readyを主張できない | [Quality Center](07_Quality/01_Quality_Center.md) |
-| 現在事実 | 最新のCodex／Claude助言は成功。実Task経路には停止・未実行が残り、旧Host残存3件も未処置 | 是正前の全体収集を継続する。以前のGET通信断は今回再現しなかったが、解消済みとしない。全E2E合格や旧三件清掃へ読み替えない | [全体確認の途中結果](99_Roadmap/Changes/CHG-000082/Evidence/261004_all-e2e-collection.md)、[通信断の履歴](99_Roadmap/Changes/CHG-000082/Evidence/261004_workbench-e2e-restart.md) |
+| 現在事実 | 最新のCodex／Claude助言は成功。実Task経路には停止・未実行が残る。旧Coordinator状態は人間指定でリセット済み | 是正前の全体収集の未完了義務を維持する。以前のGET通信断は今回再現しなかったが、解消済みとしない。明示リセットを通常の製品回復成功や全E2E合格へ読み替えない。リセット前の旧Host三件の観測は履歴根拠として保持する | [全体確認と明示リセットの記録](99_Roadmap/Changes/CHG-000082/Evidence/261004_all-e2e-collection.md)、[通信断の履歴](99_Roadmap/Changes/CHG-000082/Evidence/261004_workbench-e2e-restart.md) |
 | 共有分析 | 五場面の詳細をRootへ複製すると第二の正本になり得る | 更新負担とOwner Artifactとの不一致が増える | [REQ-000038](01_Discovery/Definitions/REQ-000038/requirement.md)、[進捗契約](15_Progress.md#repository-project-context) |
 | 現在事実 | Repository IDは`qual-lab.crdd-standard`を暫定採用 | Manifest v2の自己適用とFederation入力を試せる。正式固定前の変更は移行対象になる | [Manifest v2 Example](template/.crdd/config/repository-manifest.example.json)、[REQ-000038](01_Discovery/Definitions/REQ-000038/requirement.md) |
 
@@ -43,7 +47,7 @@ v0.22.0は10/3の目標日を経過し、Release完了は未成立である。�
 
 ### 結論
 
-人間は、全E2E再実行やRecovery拡張より先に、認証確認用Containerの作成境界を局所診断する方針を承認した。一次失敗を清掃結果と分離する診断変更は静的確認・局所試験・対象限定独立レビューを通過したが、実障害の原因は未確定であり、現在の追加実装は未署名である。今回のexact回復待ちが未解決のまま新しいProvider試験を開始しない。Timeout延長、追加再起動、Provider／Model変更、旧三件の清掃や汎用Recovery追加はこの診断範囲に含めない。残る品質義務とRelease判断は保持する。[現在の方針と結果](99_Roadmap/Changes/CHG-000082/Evidence/261004_all-e2e-collection.md)を優先し、以下の局所設計の経緯を新しい承認待ちやE2Eの一律前提へ読み替えない。
+人間は作成境界の局所診断後、この開発PCの旧Coordinator実行状態のリセットと、記録・回復方式全般の縮小を指示した。一時43フォルダ、旧記録353ファイルと空記録Directory44件を削除し、送信同意2ファイル、認証Home、署名鍵、Repository成果物とEvidenceを保持した。保存済み署名Runtimeの読取りInventoryは回復待ち・active Home Bindingとも空である。旧Taskの作成結果は不明のままで、通常回復成功または全E2E合格へ変更しない。一次失敗診断の追加実装は未署名であり、今後の記録方式は現在状態・未解決回復・診断履歴を分離して設計を見直す。[現在の方針と結果](99_Roadmap/Changes/CHG-000082/Evidence/261004_all-e2e-collection.md)を優先し、以下の局所設計は当時の経緯として扱う。残る品質義務とRelease判断は保持する。
 
 旧記録には作成したProcess・世代の結合がなく、保存済み診断の終了記録も三件へ結合できない。旧PIDの完全復元を永久の停止条件にせず、実際のCoordinator生成処理・子孫の現在の終了と、旧対象への再入場抑止を接続する。現在のProcess件数やLockだけでは非使用成立としない。2026-10-04に、人間はこの作業の試験以外ではCoordinatorを利用していないことと、既知7バイトfile一件を別の限定設計へ含めることを回答した。これは元Processの終了証明や実処置許可ではない。長寿命のAWS・単純待機・Computer Use Tool候補を、無根拠にCoordinator停止対象へ含めない。[現在の確認範囲](99_Roadmap/Changes/CHG-000082/Evidence/261002_host-orphan-recovery-design.md#非使用確認の対象範囲を実在するcoordinator入口へ限定)に従い、対象を使えるCoordinator所有処理を特定する前に一括停止しない。実停止、固定OS保存場所の変更と既存三件の削除は別承認である。新クラスの専用記録codecと同handleのfile読取りは[自己生成対象で局所確認した](99_Roadmap/Changes/CHG-000082/Evidence/261002_host-orphan-recovery-design.md#既知fileの記録候補と同handle読取り--2026-10-04)。十二実体の専用観測搬送と保存前の全対象Known照合は自己生成対象で局所確認した。Native保存・読戻しはSource上で接続し、[不正入力と本文Hash差の取得前拒否を実CLIで確認した](99_Roadmap/Changes/CHG-000082/Evidence/261002_host-orphan-recovery-design.md#十二実体のnative保存読戻し接続--2026-10-04)。[Coordinator Adapter／caller耐久記録もSource接続し、自己生成Repositoryの保存・読戻し・非置換を局所確認した](99_Roadmap/Changes/CHG-000082/Evidence/261002_host-orphan-recovery-design.md#十二実体のcoordinator保存読戻し接続--2026-10-04)。正常な固定OS保存・Native読戻し、本番再入場と公開処置は未成立であり、実残存の回収・全E2E・Release可能とは扱わない。
 

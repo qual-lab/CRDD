@@ -27,6 +27,7 @@ const objective = Object.freeze({
   maximumReplans: 0,
   originLane: "interactive" as const,
   adoptResult: false,
+  intakeEpoch: "fixture-epoch",
 });
 
 /**
