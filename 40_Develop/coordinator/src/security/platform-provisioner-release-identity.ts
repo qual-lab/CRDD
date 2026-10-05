@@ -16,7 +16,7 @@ import { PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH } from "./platform-access-rele
 import { PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH } from "./platform-provisioner-manifest-loader.ts";
 import { isCanonicalCrddGitObjectId } from "./release-identity-grammar.ts";
 
-const MAXIMUM_DISTRIBUTION_FILES = 2_048;
+const MAXIMUM_DISTRIBUTION_FILES = 4_096;
 const MAXIMUM_DISTRIBUTION_BYTES = 64 * 1024 * 1024;
 const TRACKED_RUNTIME_SETTING_RELATIVE_PATHS = new Set<string>([
   EXTERNAL_SEND_POLICY_RELATIVE_PATH,

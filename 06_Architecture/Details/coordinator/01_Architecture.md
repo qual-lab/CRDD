@@ -362,6 +362,12 @@ Workbenchで利用者が明示したAI Profileによる助言実行は、Front A
 
 ## 9. 署名済み配布物
 
+### 配布全体の観測予算
+
+Release Identityの全体観測は、最大4096ファイル・合計64MiBの固定予算とする。件数と容量を別々に判定し、どちらかの超過、実体変更、alias、Root差またはTree不一致を拒否する。観測予算内であることを署名・Authorityの成立とは扱わない。Runtime packageやTrust Coreの別母集合の予算はこの値へ一括変更しない。
+
+この件数は文書・Source・試験・固定成果物を含む配布全体のための上限であり、Runtimeの履歴保持数や同時実行数ではない。秘密入力前に同じ固定配布物を観測し、署名対象のexact Treeへ一致させる。
+
 鍵参照、direct TTYの秘密入力および任意byte列への暗号署名は[成果物署名Component](../artifact-signing/01_Architecture.md)が所有する。CoordinatorはRuntime依存集合、Manifest payload、固定Publisher Policy、P検査／S検査の順序、Envelopeおよびstaging配置だけを所有し、鍵PathのFilesystem検査や暗号Primitiveを再実装しない。
 
 CRDDはGit clone／submoduleだけでRuntimeを利用できる配布構造を採る。v0.21の目標Release候補TreeにはSource、文書、試験および固定成果物`40_Develop/platform-access/artifacts/windows-x64/crdd-platform-access.exe`を含める。署名ManifestはCoordinator配布物の固定入口である`template/tools/coordinator/coordinator-package-manifest.json`へ置き、launcher、公開API改訂、`40_Develop`実装およびNative Runtime Artifactを同じ配布全体Identityへ結合する。実装、署名、昇格および検証は同じPathを正本として使用し、設定用の別Pathへ複製しない。

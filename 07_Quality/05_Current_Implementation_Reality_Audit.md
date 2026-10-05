@@ -132,11 +132,11 @@ v0.20.1の実行知はEvent生成、Repository-local Storeへの不変保存、�
 
 初回判定は`Covered 1／Partial 15／Missing 1`だった。途中のRelation是正では16件を観測済みとしたが、その後のTest Source全数移行でFile、Case、Helperを一つの代表Local Itemへ縮約し、成立済みRelationを失った。さらに旧Relationには物理Test段階とLocal Item段階の不一致が含まれていたため、旧集合をそのまま復元せず、197 Test Fileと2,125 Test Caseを責務別に再照合した。
 
-現在は17意味中15件が実装と自動Testの両Relationを持つ。`coordinator.runtime-trust-consumption`は実装自体がない`Missing`である。`project-runtime.execution-intelligence-read-model`は実装Relationを持つが、手動UATである`PPR-UAT-008`が未実施の`manual_pending`である。Unit Testまたは名前の近いTestをUAT成立へ昇格しない。
+2026-10-06の再生成では18意味中16件が実装と自動Testの両Relationを持つ。保存のEffect前耐久化を含む現在のCanonical表から再生成し、旧17意味の生成結果とは区別する。`coordinator.runtime-trust-consumption`は実装自体がない`Missing`である。`project-runtime.execution-intelligence-read-model`は実装Relationを持つが、手動UATである`PPR-UAT-008`が未実施の`manual_pending`である。Relationの存在を実行・Passへ、Unit TestをUAT成立へ昇格しない。現在の生成版と限界は[②の現実照合](../99_Roadmap/Changes/CHG-000082/Evidence/261006_phase2-reality-audit.md)を参照する。
 
 `coordinator.runtime-trust-consumption`だけは単なるRelation漏れではない。Trust候補のLoader、VerifierおよびPackage Trust Coreは存在するが、現行Source自身がRuntime Trust Policy activationとProvider launch integrationを`not_implemented`として公開している。したがって、署名検証部品の存在や署名済みE2E成功から、このMeaningの成立を推定しない。
 
-### 8.2 局所実行結果
+### 8.2 局所実行結果の履歴
 
 | 対象 | 結果 | 判定 |
 |---|---:|---|
@@ -237,6 +237,8 @@ CHGや過去EvidenceのPath参照は当時の履歴であり、現行Consumer移
 Project RuntimeはArchitecture Detailsの構造化が進んでいるため、生成器とConsumer移行後に先行廃止できる可能性が高い。Coordinatorは固有MeaningをDetailsへ戻すまで削除不可である。他Subsystemには旧JSONの複製を作らず、必要な機械投影を各Architecture Detailsから生成する。
 
 ## 12. Relation是正結果
+
+2026-10-06にQA定義と全Subsystemのsymbol manifestを再集計し、13定義・176項目・Relationあり132項目・なし44項目を再確認した。未定義Local Item参照とSymbol ID重複は0。今回の②では保存切替、公開入口、Windows境界の局所根拠を追記したが、PRL-IT-005／012の全義務のPass件数は増やしていない。[最新の再集計と適用範囲](../99_Roadmap/Changes/CHG-000082/Evidence/261006_phase2-reality-audit.md)で試験件数と義務成立を分ける。全176項目の個別Evidence適用は引き続き未完了である。
 
 現在のCanonical設計集合は13定義・176個の一意なLocal Itemであり、現物の`symbol.json`から132件のRelationと44件のRelationなし集合を確認した。Relationは検証対象を示すだけで、単独では完成Evidenceではない。移管一覧46件は既観測12件に`RFD-ST-004`の[公開Gateway非開示根拠](../99_Roadmap/Changes/CHG-000082/Evidence/261002_shared-gateway-non-disclosure.md)を加え、13件観測済み・33件未観測とする。同じLocal ItemへのTest Symbol追加はRelationの一意件数を増やさない。
 

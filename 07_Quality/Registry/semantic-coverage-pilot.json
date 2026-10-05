@@ -9,7 +9,7 @@
       "stability": "pilot",
       "subsystem": "coordinator",
       "sourceDocument": "06_Architecture/Details/coordinator/01_Architecture.md",
-      "sourceSha256": "ce8a0b5c5baaec2c9d8d54e299e05644686b911f526b6338602a6d1d2dc1358c",
+      "sourceSha256": "e6642224acb261e9cdcceadee6570b025addba920b40e543cf1df8297dea65ab",
       "meanings": [
         {
           "semanticKey": "coordinator.candidate-review-boundary",
@@ -111,7 +111,7 @@
       "stability": "pilot",
       "subsystem": "project-runtime",
       "sourceDocument": "06_Architecture/Details/project-runtime/02_Detailed_Design.md",
-      "sourceSha256": "3739fe46ced69453e33e9f15351ce5bb173f980d4d2f9a9937b6c35ba90101e8",
+      "sourceSha256": "271d7c97d05200f3d3e720179ea77396c9534833dcb91e47d7167cf1542612c4",
       "meanings": [
         {
           "semanticKey": "project-runtime.acceptance-decision-authority",
@@ -122,6 +122,17 @@
           ],
           "verification": "required",
           "sourceSection": "## 6. Authority",
+          "notApplicableReason": null
+        },
+        {
+          "semanticKey": "project-runtime.candidate-adoption",
+          "kind": "authority",
+          "statement": "同一候補の再読取り、明示採用Authority、Leaseと現在Revision／dirty Scopeの確認を通じて正本へ採用し、Receiptを耐久記録する。拒否時は正本Effect 0、settlement不明時は同じRecovery義務を保持し、Commit／Pushを伴わない。",
+          "archIds": [
+            "ARCH-000004"
+          ],
+          "verification": "required",
+          "sourceSection": "### 2.1. 既存候補の採用境界",
           "notApplicableReason": null
         },
         {
@@ -245,6 +256,8 @@
           "ARCH-000008"
         ],
         "implementationSymbolIds": [
+          "coordinator.source.src.security.claude.subscription.authentication",
+          "coordinator.source.src.security.docker.container.init.observation",
           "coordinator.task-runtime"
         ],
         "implementationObservation": "observed",
@@ -301,7 +314,9 @@
           "ARCH-000015"
         ],
         "implementationSymbolIds": [
-          "coordinator.provider-authority-runtime"
+          "coordinator.provider-authority-runtime",
+          "coordinator.source.scripts.authenticate.claude.subscription",
+          "coordinator.source.src.security.claude.subscription.authentication"
         ],
         "implementationObservation": "observed",
         "qualityLocalIds": [
@@ -340,6 +355,8 @@
         ],
         "implementationSymbolIds": [
           "coordinator.docker-desktop-runtime-repair",
+          "coordinator.source.src.security.claude.subscription.authentication",
+          "coordinator.source.src.security.docker.container.init.observation",
           "coordinator.task-runtime"
         ],
         "implementationObservation": "observed",
@@ -385,9 +402,30 @@
         ],
         "verificationMode": "automated",
         "testSymbolIds": [
+          "coordinator.test.integration.project-runtime-composition-root",
           "coordinator.test.system.project-runtime-acceptance-decision",
           "project-runtime.test.integration.acceptance-decision-application",
           "project-runtime.test.unit.state"
+        ],
+        "testObservation": "observed"
+      },
+      {
+        "semanticKey": "project-runtime.candidate-adoption",
+        "archIds": [
+          "ARCH-000004"
+        ],
+        "implementationSymbolIds": [
+          "coordinator.source.src.composition.workbench.candidate.application",
+          "project-runtime.candidate-adoption-application"
+        ],
+        "implementationObservation": "observed",
+        "qualityLocalIds": [
+          "QA-000005/CPR-IT-006",
+          "QA-000005/CPR-UT-009"
+        ],
+        "verificationMode": "automated",
+        "testSymbolIds": [
+          "project-runtime.test.unit.candidate-adoption-application"
         ],
         "testObservation": "observed"
       },

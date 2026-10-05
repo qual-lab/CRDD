@@ -552,3 +552,84 @@ test("配布Treeの読込競合はHashと権限を発行せず対象descriptor�
     }
   }
 });
+
+/**
+ * 配布観測の件数境界と容量上限を独立して確認する。
+ *
+ * @responsibility 旧2048件境界を越えた配布を収容し、4097件または64MiB超過を拒否する。
+ * @trace AIT-IT-002
+ * @precondition Repository-localの一時Rootだけを使用する。
+ * @stimulus 2048、2049、4096、4097件および容量超過を入力する。
+ * @observation 件数、Tree一致、拒否結果とAuthority非発行を確認する。
+ * @oracle 4096件までは期待Treeへ一致し、件数または容量超過は拒否する。
+ * @cleanup 検証済み一時Rootを削除し不存在を確認する。
+ * @boundary Filesystem観測から非Authorityの配布Identity判定まで。
+ */
+test("配布観測は4096件までを収容し件数と64MiBの超過を拒否する", () => {
+  const temporaryRoot = path.resolve(
+    import.meta.dirname,
+    "../../../..",
+    ".crdd",
+    "tmp",
+  );
+  fs.mkdirSync(temporaryRoot, { recursive: true });
+  const root = fs.mkdtempSync(path.join(temporaryRoot, "release-budget-"));
+  const entries: Array<readonly [string, string, Buffer]> = [];
+  try {
+    assert.equal(fs.realpathSync.native(root), root);
+    for (const count of [2048, 2049, 4096, 4097]) {
+      while (entries.length < count) {
+        const name = `file-${String(entries.length).padStart(4, "0")}.txt`;
+        fs.writeFileSync(path.join(root, name), "", { flag: "wx" });
+        entries.push(["100644", name, objectId("blob", Buffer.alloc(0))]);
+      }
+      const expectedTree = tree(entries).toString("hex");
+      const result = inspectPlatformProvisionerReleaseIdentityCandidate(
+        root,
+        expectedTree,
+      );
+      assert.equal(result.status, count <= 4096 ? "candidate" : "blocked");
+      assert.equal(result.runtimeAuthorityConferred, false);
+      assert.equal(result.runtimeCapabilityIssued, false);
+      if (count <= 4096) {
+        assert.equal(result.crddTree, expectedTree);
+        assert.equal(result.distributionFileCount, count);
+      }
+    }
+    for (const [, name] of entries) fs.unlinkSync(path.join(root, name));
+    const oversizedPath = path.join(root, "oversized.bin");
+    const descriptor = fs.openSync(oversizedPath, "wx");
+    try {
+      fs.ftruncateSync(descriptor, 64 * 1024 * 1024 + 1);
+    } finally {
+      fs.closeSync(descriptor);
+    }
+    const oversizedTree = tree([
+      [
+        "100644",
+        "oversized.bin",
+        objectId("blob", fs.readFileSync(oversizedPath)),
+      ],
+    ]).toString("hex");
+    assert.equal(
+      inspectPlatformProvisionerReleaseIdentityCandidate(root, oversizedTree)
+        .status,
+      "blocked",
+    );
+    assert.equal(
+      describePlatformProvisionerReleaseIdentityContract()
+        .maximumDistributionFiles,
+      4096,
+    );
+    assert.equal(
+      describePlatformProvisionerReleaseIdentityContract()
+        .maximumDistributionBytes,
+      64 * 1024 * 1024,
+    );
+  } finally {
+    assert.ok(root.startsWith(`${temporaryRoot}${path.sep}release-budget-`));
+    assert.equal(fs.realpathSync.native(root), root);
+    fs.rmSync(root, { recursive: true, force: true });
+    assert.equal(fs.existsSync(root), false);
+  }
+});

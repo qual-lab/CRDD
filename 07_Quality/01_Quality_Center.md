@@ -2,7 +2,7 @@
 
 状態: Quality Design Ready — Reality Audit Pending
 担当責任者: Qual-Lab
-最終更新日: 2026-10-04
+最終更新日: 2026-10-06
 
 現在注記: v0.21の最終署名照合は履歴Baselineとして完了している。v0.22の署名候補Commit `45254e2b`と是正済み検証Tool `1b756ac2`によるProject Runtime公開MCP実Provider E2Eは、Run `2e55c8cd2897464b`で合格した。通常二経路、取消、exact Recoveryおよび最終資源回収を確認し、再入場後は意図どおり人間の採用判断待ちで停止した。Workbench実Provider E2E、必要な四経路E2E、個別品質項目の照合および最終配布の再署名は残るため、Quality Readyへ昇格しない。
 
@@ -14,11 +14,13 @@
 | 現在対象 | v0.22.0 | Project Operation、Workbench、CROS、複数Repository、AI Runtimeを段階的に照合する |
 | 観測済み | 13 / 46 | v0.21からの移管母集団に対する進捗。既観測12件にShared Gateway非開示境界の`RFD-ST-004`を追加した。[新しい根拠と限界](../99_Roadmap/Changes/CHG-000082/Evidence/261002_shared-gateway-non-disclosure.md) |
 | 未観測 | 33 / 46 | 同じ移管母集団の未観測。移管一覧を採用済みRelease Scopeと同一視せず、Trust項目の対応を再照合する。Native局所試験だけで024〜030を観測済みにしない |
-| 既知Gap | Phase 5 Release Verification進行中 | Project Runtime公開MCP E2Eと最終回復在庫確認は合格した。モデル／Host移行と助言専用起動制限は承認済み。固定候補のNative二十一試験は実行済みで、024の起動Policyと025～029の実Host局所根拠へ対応付けた。ただし、共通試験Home／Workspaceの所有者清掃後の不存在は未観測であり、Local Item全体の観測済み件数を増やしていない。保存ログの成功、未充足の終了後条件、公開CLI030および実Provider成立を区別する。現在の通信断とHost残存三件は別の未解決事項であり、必要な四経路、個別品質項目および最終配布の照合も未完了である。詳細は[Native試験のQuality適用と清掃観測Gap](../99_Roadmap/Changes/CHG-000082/Evidence/260930-1853_codex-model-host-migration-preflight.md#native二十一試験のquality適用と清掃観測gap2026-10-02)を参照する |
-| 次Gate | 是正前の全E2E収集を継続する予定だが、確認入力後のforward経路でReviewer開始と資源回収が未成立。通常回収と承認済み再起動も拒否され、残る実Taskを開始できない | [全体確認の途中結果](../99_Roadmap/Changes/CHG-000082/Evidence/261004_all-e2e-collection.md)。今回の実行阻害だけを先に是正して収集へ戻すか人間へ確認する。全体合格やQuality件数増加へ読み替えない。 |
-| 現在人間判断 | 今回の実行阻害だけを先に是正し、残りのE2E収集へ戻すか | 既存手順では今回の回復待ちを解消できない。ACL移行、旧三件の削除、汎用Recovery追加、未観測義務の免除またはRelease承認を含めない。[方針と境界](../99_Roadmap/Changes/CHG-000082/Evidence/261004_all-e2e-collection.md) |
+| 既知Gap | ②の局所成立と全体品質の未完了を分離 | 保存切替・初期化、公開入口37件、Host36件、Checker377件、配布package128件と件数予算改訂後の配布Identity9件は成功。PRL-IT-005／012は一部観測で、全義務Passへ増算しない。署名依存、Workbench／必要なE2Eと全項目のEvidence適用は未完了。[最新の照合](../99_Roadmap/Changes/CHG-000082/Evidence/261006_phase2-reality-audit.md) |
+| 次Gate | 新固定候補の署名前検査・署名依存確認と②の完了判定 | 配布件数が2048上限を超えた原因を確認し、人間承認に基づき4096へ限定改訂。64MiB、Root／alias、Tree、署名とAuthority条件は維持する。署名と全体E2EのPassは未成立。[原因と境界](../99_Roadmap/Changes/CHG-000082/Evidence/261005_project-runtime-phase2.md#32-署名前検査の件数予算超過) |
+| 現在人間判断 | なし（件数予算改訂を承認済み） | 秘密入力が必要な署名は外部対話端末で依頼する。署名操作の承認からRelease、未観測義務の免除または新Provider送信を推定しない。 |
 
 ## 設計集合
+
+2026-10-06の現物再集計は13定義・176項目、試験Relationあり132項目・なし44項目、Symbol616件（ID重複0、未定義Local Item参照0）である。Semantic Coverageを再生成し、18意味のうち16は実装・自動試験の両Relation、1は実装・試験未観測、1は手動確認待ちとなった。いずれもRelationの数字であり、実行や品質項目の全体Pass件数ではない。[再集計と適用範囲](../99_Roadmap/Changes/CHG-000082/Evidence/261006_phase2-reality-audit.md)を参照する。
 
 | 項目 | 件数 |
 |---|---:|
