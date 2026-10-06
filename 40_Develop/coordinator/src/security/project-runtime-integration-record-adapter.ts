@@ -12,7 +12,11 @@ import {
   type ProjectRuntimeIntegrationRecordPort,
   type ProjectRuntimePortResult,
 } from "../../../project-runtime/src/index.ts";
-import { resolveRepositoryRuntimeDataPathsFromWorkingDirectory } from "../../../runtime-data/src/index.ts";
+import {
+  observeRepositoryRuntimeDataArea,
+  resolveRepositoryRuntimeDataPathsFromWorkingDirectory,
+} from "../../../runtime-data/src/index.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import { readStableBoundedFileSnapshot } from "./bounded-file-snapshot.ts";
 
 /**
@@ -200,15 +204,33 @@ export function readLegacyProjectRuntimeResultInputs(
           migrationCommitted: false as const,
         }),
       });
-    const observedParents = [root];
-    for (const parent of [
-      path.join(root, ".crdd"),
-      paths.projectRuntime,
-      path.join(paths.projectRuntime, "results"),
-    ]) {
+    const verified = verifyRepositoryRoot(root);
+    if (verified.status !== "completed")
+      throw new Error("legacy_result_root_invalid");
+    const observedArea = observeRepositoryRuntimeDataArea(
+      verified.capability,
+      "project-runtime",
+    );
+    if (observedArea.status === "not_observed") return result();
+    if (
+      observedArea.status !== "ready" ||
+      observedArea.directory !== paths.projectRuntime
+    )
+      throw new Error("legacy_result_area_invalid");
+    const observedParents = [root, observedArea.directory];
+    for (const parent of [path.join(observedArea.directory, "results")]) {
       if (!legacyDirectory(parent, true)) {
         for (const observed of observedParents)
           legacyDirectory(observed, false);
+        const finalArea = observeRepositoryRuntimeDataArea(
+          verified.capability,
+          "project-runtime",
+        );
+        if (
+          finalArea.status !== "ready" ||
+          finalArea.boundaryIdentity !== observedArea.boundaryIdentity
+        )
+          throw new Error("legacy_result_area_changed");
         return result();
       }
       observedParents.push(parent);
@@ -252,7 +274,15 @@ export function readLegacyProjectRuntimeResultInputs(
           if (fs.lstatSync(location).nlink !== 1)
             throw new Error("legacy_result_link_changed");
           legacyDirectory(root, false);
-          legacyDirectory(path.join(root, ".crdd"), false);
+          const currentArea = observeRepositoryRuntimeDataArea(
+            verified.capability,
+            "project-runtime",
+          );
+          if (
+            currentArea.status !== "ready" ||
+            currentArea.boundaryIdentity !== observedArea.boundaryIdentity
+          )
+            throw new Error("legacy_result_area_changed");
           legacyDirectory(paths.projectRuntime, false);
           legacyDirectory(directory, false);
           legacyDirectory(kindDirectory, false);
@@ -267,6 +297,15 @@ export function readLegacyProjectRuntimeResultInputs(
         }
       }
     }
+    const finalArea = observeRepositoryRuntimeDataArea(
+      verified.capability,
+      "project-runtime",
+    );
+    if (
+      finalArea.status !== "ready" ||
+      finalArea.boundaryIdentity !== observedArea.boundaryIdentity
+    )
+      throw new Error("legacy_result_area_changed");
     return result();
   } catch {
     return Object.freeze({

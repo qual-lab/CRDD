@@ -87,7 +87,7 @@ function isDataDescriptor(
  *
  * @responsibility Plain 記録の取得範囲、plain-data制約、拒否境界を所有する。
  * @trace ARCH-000007
- * @input value: unknown、expectedKeys: ReadonlySet<K>
+ * @input value: unknown、expectedKeys: ReadonlySet<K>、optionalKeys: ReadonlySet<K>。
  * @returns Readonly<Record<K, unknown>> | nullを返す。
  * @precondition 「value: unknown、expectedKeys: ReadonlySet<K>」がsnapshotPlainRecordの入力契約を満たす。
  * @postcondition snapshotPlainRecordの責務を完了した結果だけを返す。
@@ -101,19 +101,30 @@ function isDataDescriptor(
 export function snapshotPlainRecord<const K extends string>(
   value: unknown,
   expectedKeys: ReadonlySet<K>,
+  optionalKeys: ReadonlySet<K> = new Set<K>(),
 ): Readonly<Record<K, unknown>> | null {
   try {
     if (!isPlainRecord(value)) return null;
     const descriptors = Object.getOwnPropertyDescriptors(value);
     const keys = Reflect.ownKeys(descriptors);
     if (
-      keys.length !== expectedKeys.size ||
-      keys.some((key) => typeof key !== "string" || !expectedKeys.has(key as K))
+      keys.length < expectedKeys.size ||
+      keys.some(
+        (key) =>
+          typeof key !== "string" ||
+          (!expectedKeys.has(key as K) && !optionalKeys.has(key as K)),
+      )
     )
       return null;
     const snapshot = Object.create(null) as Record<K, unknown>;
     for (const key of expectedKeys) {
       const descriptor = descriptors[key];
+      if (!isDataDescriptor(descriptor)) return null;
+      snapshot[key] = descriptor.value;
+    }
+    for (const key of optionalKeys) {
+      const descriptor = descriptors[key];
+      if (descriptor === undefined) continue;
       if (!isDataDescriptor(descriptor)) return null;
       snapshot[key] = descriptor.value;
     }

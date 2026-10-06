@@ -16,6 +16,7 @@ import test from "node:test";
 
 import {
   ensureRepositoryRuntimeDataArea,
+  observeRepositoryRuntimeDataArea,
   RepositoryRuntimeDataAreaBlockedError,
   requireReadyRepositoryRuntimeDataArea,
   resolveRepositoryRuntimeDataPaths,
@@ -29,16 +30,148 @@ import {
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 
 /**
- * 検証済みRepository Rootだけから全Repository-local Pathを解決するを検証する。
- *
- * @responsibility 検証済みRepository Rootだけから全Repository-local Pathを解決するの合否判定を所有する。
+ * Owner観測はRootを公開せず不存在と置換・観測障害を区別する。
+ * @responsibility area単位の読み取り専用APIを直接Filesystemで反証する。
  * @trace RDL-IT-001
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 検証済みRepository Rootだけから全Repository-local Pathを解決するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RDL-IT-001=Direct Boundary: runtime-data Test Source→対象契約
+ * @precondition 検証済み現在Repositoryのtests領域に孤立Git fixtureを作る。
+ * @stimulus 不存在、既存area、Root型不正、area置換、観測障害を与える。
+ * @observation 状態、不透明Identity、実Directory内容、Ignore不存在を観測する。
+ * @oracle ENOENTだけがnot_observed、異なる既存Directoryは別Identity、観測不能はblocked。
+ * @cleanup exact fixture Rootを清掃し終了後不存在を確認する。
+ * @boundary RDL-IT-001=Direct Boundary: Owner observer→VCS／Filesystem metadata
+ */
+test("Owner読取り観測は不存在・境界置換・観測不能をEffect0で区別する", (t) => {
+  const current = verifyRepositoryRoot(repositoryRoot);
+  if (current.status !== "completed") throw new Error("fixture_root_invalid");
+  const testArea = requireReadyRepositoryRuntimeDataArea(
+    ensureRepositoryRuntimeDataArea(current.capability, "tests"),
+    "fixture_area_invalid",
+  );
+  const root = fs.mkdtempSync(
+    path.join(testArea.directory, "runtime-area-observation-"),
+  );
+  t.after(() => {
+    assert.equal(path.dirname(root), testArea.directory);
+    assert.equal(fs.realpathSync.native(root), root);
+    fs.rmSync(root, { recursive: true });
+    assert.equal(fs.existsSync(root), false);
+  });
+  fs.mkdirSync(path.join(root, ".git", "info"), { recursive: true });
+  fs.writeFileSync(path.join(root, ".git", "HEAD"), "ref: refs/heads/main\n");
+  fs.writeFileSync(
+    path.join(root, ".git", "config"),
+    "[core]\n\trepositoryformatversion = 0\n\tbare = false\n",
+  );
+  const verified = verifyRepositoryRoot(root);
+  if (verified.status !== "completed") throw new Error("fixture_invalid");
+  const initialEntries = fs.readdirSync(root);
+  assert.deepEqual(
+    observeRepositoryRuntimeDataArea(
+      verified.capability,
+      "execution-intelligence",
+    ),
+    {
+      status: "not_observed",
+      reason: "repository_runtime_data_area_absent",
+      effectIssued: false,
+    },
+  );
+  assert.deepEqual(fs.readdirSync(root), initialEntries);
+  assert.equal(
+    fs.existsSync(path.join(root, ".git", "info", "exclude")),
+    false,
+  );
+  assert.equal(
+    observeRepositoryRuntimeDataArea(
+      { ...verified.capability },
+      "execution-intelligence",
+    ).status,
+    "blocked",
+  );
+  const runtimeRoot = path.join(root, ".crdd");
+  fs.mkdirSync(runtimeRoot);
+  assert.equal(
+    observeRepositoryRuntimeDataArea(
+      verified.capability,
+      "execution-intelligence",
+    ).status,
+    "not_observed",
+  );
+  const paths = resolveRepositoryRuntimeDataPaths(verified.capability);
+  if (!paths) throw new Error("paths_invalid");
+  const area = paths.executionIntelligence;
+  fs.mkdirSync(area);
+  const first = observeRepositoryRuntimeDataArea(
+    verified.capability,
+    "execution-intelligence",
+  );
+  assert.equal(first.status, "ready");
+  if (first.status !== "ready") throw new Error("first_invalid");
+  assert.equal(first.effectIssued, false);
+  assert.equal(first.directory, area);
+  assert.equal(Object.hasOwn(first, "root"), false);
+  assert.match(first.boundaryIdentity, /^[0-9a-f]{64}$/u);
+  const runtimePrior = path.join(root, "runtime-prior");
+  fs.renameSync(runtimeRoot, runtimePrior);
+  fs.writeFileSync(runtimeRoot, "not-a-directory");
+  const invalid = observeRepositoryRuntimeDataArea(
+    verified.capability,
+    "execution-intelligence",
+  );
+  assert.equal(invalid.status, "blocked");
+  if (invalid.status === "blocked")
+    assert.equal(
+      invalid.reason,
+      "repository_runtime_data_area_boundary_invalid",
+    );
+  fs.unlinkSync(runtimeRoot);
+  fs.renameSync(runtimePrior, runtimeRoot);
+  const prior = path.join(root, "area-prior");
+  fs.renameSync(area, prior);
+  fs.mkdirSync(area);
+  const replaced = observeRepositoryRuntimeDataArea(
+    verified.capability,
+    "execution-intelligence",
+  );
+  assert.equal(replaced.status, "ready");
+  if (replaced.status === "ready")
+    assert.notEqual(replaced.boundaryIdentity, first.boundaryIdentity);
+  const original = fs.lstatSync;
+  Reflect.set(fs, "lstatSync", ((target: fs.PathLike, ...args: unknown[]) => {
+    if (path.resolve(String(target)) === path.resolve(area))
+      throw Object.assign(new Error("unobservable"), { code: "EACCES" });
+    return Reflect.apply(original, fs, [target, ...args]);
+  }) as typeof fs.lstatSync);
+  try {
+    const unknown = observeRepositoryRuntimeDataArea(
+      verified.capability,
+      "execution-intelligence",
+    );
+    assert.equal(unknown.status, "blocked");
+    if (unknown.status === "blocked")
+      assert.equal(
+        unknown.reason,
+        "repository_runtime_data_area_observation_failed",
+      );
+  } finally {
+    Reflect.set(fs, "lstatSync", original);
+  }
+  assert.equal(
+    fs.existsSync(path.join(root, ".git", "info", "exclude")),
+    false,
+  );
+});
+
+/**
+ * 検証済みRepository Rootだけから全Repository-local Pathを解決する。
+ * @responsibility Root能力から名前付きPathへの搬送を検証する。
+ * @trace RDL-IT-001
+ * @precondition 現在のRepositoryの検証済みRootを使用する。
+ * @stimulus 公開Path resolverへ同じRoot能力を渡す。
+ * @observation 名前付きPathとRoot一致を観測する。
+ * @oracle 全Pathが宣言済みRepository内の領域へ一致する。
+ * @cleanup N/A: 読取り確認のみで新しい資源を作成しない。
+ * @boundary RDL-IT-001=Direct Boundary: Root能力→名前付きPath
  */
 test("検証済みRepository Rootだけから全Repository-local Pathを解決する", () => {
   const verification = verifyRepositoryRoot(repositoryRoot);
@@ -58,7 +191,7 @@ test("検証済みRepository Rootだけから全Repository-local Pathを解決�
     "config",
     "project-runtime",
     "coordinator",
-    "execution",
+    "execution-intelligence",
     "verification",
     "candidates",
     "release",

@@ -38,6 +38,7 @@ const expectedAreaConsumers = [
   "40_Develop/coordinator/src/security/project-runtime-candidate-integration-adapter.ts",
   "40_Develop/coordinator/src/security/project-runtime-decision-recovery-store.ts",
   "40_Develop/coordinator/src/security/project-runtime-durable-foundation.ts",
+  "40_Develop/coordinator/src/security/project-runtime-history.ts",
   "40_Develop/execution-intelligence/src/store/execution-intelligence-store.ts",
   "40_Develop/visual-preview/src/browser-zoom-verifier.ts",
 ] as const;
@@ -66,7 +67,7 @@ const ALLOWED_TOP_LEVEL_AREAS = new Set([
   "config",
   "project-runtime",
   "coordinator",
-  "execution",
+  "execution-intelligence",
   "verification",
   "candidates",
   "release",
@@ -209,7 +210,7 @@ function violations(sources: SourceSet): string[] {
       ),
     ].flatMap((match) => (match[1] ? [match[1]] : []));
     const properties =
-      "config|projectRuntime|coordinator|execution|verification|candidates|release|communication|tests|temporary";
+      "config|projectRuntime|coordinator|executionIntelligence|verification|candidates|release|communication|tests|temporary";
     if (
       pathSets.some((name) =>
         new RegExp(

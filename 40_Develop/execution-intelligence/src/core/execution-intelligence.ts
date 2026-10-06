@@ -11,7 +11,7 @@ import {
 } from "../boundary/plain-data-snapshot.ts";
 
 export const EXECUTION_INTELLIGENCE_EVENT_CONTRACT =
-  "crdd/execution-intelligence-event/v1" as const;
+  "crdd/execution-intelligence-event/v2" as const;
 
 /**
  * execution-intelligenceで使用するExecution Observationの値契約を定義する。
@@ -61,7 +61,7 @@ export type ExecutionUsage = Readonly<{
  * @security N/A: ExecutionIntelligenceEventはAuthority、秘密値または信頼判断を扱わない。
  * @compatibility ExecutionIntelligenceEventの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type ExecutionIntelligenceEvent = Readonly<{
+export type TaskAttemptExecutionIntelligenceEvent = Readonly<{
   contract: typeof EXECUTION_INTELLIGENCE_EVENT_CONTRACT;
   eventId: string;
   eventType: "task_attempt_settled";
@@ -82,6 +82,12 @@ export type ExecutionIntelligenceEvent = Readonly<{
     durationMs: ExecutionObservation<number>;
     usage: ExecutionUsage;
     humanActiveMs: ExecutionObservation<number>;
+    profileId: ExecutionObservation<string>;
+    profileRevision: ExecutionObservation<string>;
+    reasoningEffort: ExecutionObservation<string>;
+    overrideApplied: ExecutionObservation<boolean>;
+    parentExecutionId: ExecutionObservation<string>;
+    diagnostic: ExecutionObservation<ExecutionDiagnostic>;
   }>;
   outcome: Readonly<{
     status: "completed" | "blocked" | "cancelled" | "unknown";
@@ -100,6 +106,105 @@ export type ExecutionIntelligenceEvent = Readonly<{
 }>;
 
 /**
+ * Taskを持たないOperationの実行記録を定義する。
+ * @responsibility 任意Operationへ架空のTask Identityを要求しない。
+ * @trace ARCH-000007
+ * @shape project、operation、executionのIdentityと共通観測を保持する。
+ * @invariant Task専用のIdentityを持たない。
+ * @boundary N/A: 値契約だけを定義する。
+ * @security Authorityを含まない。
+ * @compatibility v2のoperation_settledだけに適用する。
+ */
+export type OperationExecutionIntelligenceEvent = Omit<
+  TaskAttemptExecutionIntelligenceEvent,
+  "eventType" | "identity"
+> &
+  Readonly<{
+    eventType: "operation_settled";
+    identity: Readonly<{
+      projectId: string;
+      operationId: string;
+      executionId: string;
+    }>;
+  }>;
+
+/**
+ * 実行知の二つのIdentity母集団を明示的に区別する。
+ * @responsibility Taskと任意Operationを同じ観測契約へ接続する。
+ * @trace ARCH-000007
+ * @shape eventTypeで識別する閉じたunion。
+ * @invariant Task IdentityをOperationへ補完しない。
+ * @boundary N/A: 値契約だけを定義する。
+ * @security Authorityを発行しない。
+ * @compatibility v1の保存済み記録を受理しない。
+ */
+export type ExecutionIntelligenceEvent =
+  | TaskAttemptExecutionIntelligenceEvent
+  | OperationExecutionIntelligenceEvent;
+
+/**
+ * 生応答を複製しない診断の許可値を定義する。
+ * @responsibility 停止段階と安全な分類だけを共有する。
+ * @trace ARCH-000007
+ * @shape stage、categoryと任意の閉じた補足値。
+ * @invariant 任意本文、Header、Path、messageを持たない。
+ * @boundary Producerが安全化した値の受理境界。
+ * @security typeとcodeは静的許可値に限定する。
+ * @compatibility 未対応値を推定または自由文へ変換しない。
+ */
+export type ExecutionDiagnostic = Readonly<{
+  stage:
+    | "transport"
+    | "http"
+    | "refusal"
+    | "output_limit"
+    | "json_parse"
+    | "schema_validation"
+    | "identity_validation"
+    | "semantic_validation"
+    | "completed";
+  category:
+    | "rate_limit"
+    | "quota"
+    | "billing"
+    | "authentication"
+    | "permission"
+    | "unavailable"
+    | "invalid_response"
+    | "refused"
+    | "output_limit"
+    | "none";
+  httpStatus: number | null;
+  type:
+    | "rate_limit_error"
+    | "insufficient_quota"
+    | "billing_error"
+    | "authentication_error"
+    | "permission_error"
+    | "server_error"
+    | "invalid_request_error"
+    | null;
+  code:
+    | "rate_limit_exceeded"
+    | "insufficient_quota"
+    | "billing_hard_limit_reached"
+    | "invalid_api_key"
+    | "permission_denied"
+    | "server_error"
+    | "context_length_exceeded"
+    | null;
+  finishReason:
+    | "completed"
+    | "stop"
+    | "length"
+    | "max_output_tokens"
+    | "content_filter"
+    | "refusal"
+    | null;
+  refusal: boolean | null;
+}>;
+
+/**
  * execution-intelligenceで使用するTask Attempt Settled Event 入力の値契約を定義する。
  *
  * @responsibility Task Attempt Settled Event 入力のProperty、Identity、状態制約を型境界として所有する。
@@ -112,11 +217,46 @@ export type ExecutionIntelligenceEvent = Readonly<{
  */
 export type TaskAttemptSettledEventInput = Readonly<{
   occurredAt: string;
-  identity: ExecutionIntelligenceEvent["identity"];
-  execution: ExecutionIntelligenceEvent["execution"];
+  identity: TaskAttemptExecutionIntelligenceEvent["identity"];
+  execution: Omit<
+    ExecutionIntelligenceEvent["execution"],
+    | "profileId"
+    | "profileRevision"
+    | "reasoningEffort"
+    | "overrideApplied"
+    | "parentExecutionId"
+    | "diagnostic"
+  > &
+    Partial<
+      Pick<
+        ExecutionIntelligenceEvent["execution"],
+        | "profileId"
+        | "profileRevision"
+        | "reasoningEffort"
+        | "overrideApplied"
+        | "parentExecutionId"
+        | "diagnostic"
+      >
+    >;
   outcome: ExecutionIntelligenceEvent["outcome"];
   quality: ExecutionIntelligenceEvent["quality"];
 }>;
+
+/**
+ * 任意Operationの構築入力を定義する。
+ * @responsibility 実行Identityと共通観測を受け取る。
+ * @trace ARCH-000007
+ * @shape Task入力と同じ観測、Operation固有Identity。
+ * @invariant Taskを偽造しない。
+ * @boundary N/A: 型宣言のみ。
+ * @security Authorityや生応答を含まない。
+ * @compatibility 省略した追加観測は未観測として構築する。
+ */
+export type OperationSettledEventInput = Omit<
+  TaskAttemptSettledEventInput,
+  "identity"
+> &
+  Readonly<{ identity: OperationExecutionIntelligenceEvent["identity"] }>;
 
 /**
  * observedを決定する。
@@ -276,7 +416,7 @@ const taskAttemptIdentityKeys = new Set([
  * @concurrency N/A: taskAttemptEventIdは共有非同期状態を持たない同期処理である。
  */
 function taskAttemptEventId(
-  value: ExecutionIntelligenceEvent["identity"],
+  value: TaskAttemptExecutionIntelligenceEvent["identity"],
 ): string {
   return `execution-${createHash("sha256")
     .update(
@@ -290,6 +430,175 @@ function taskAttemptEventId(
       ].join("\0"),
     )
     .digest("hex")}`;
+}
+
+/**
+ * 任意OperationのイベントIdentityを決定的に導出する。
+ * @responsibility Taskイベントと異なるhash領域で実行を相関する。
+ * @trace ARCH-000007
+ * @input Operationの検査済みIdentity。
+ * @returns 決定的なイベントID。
+ * @precondition Identityは閉じた3項目である。
+ * @postcondition 同一入力は同一IDを返す。
+ * @effect N/A: 純粋なhash計算。
+ * @failure N/A: 検査後の固定入力だけを受け取る。
+ * @invariant Taskのhash領域と混同しない。
+ * @boundary N/A: 同一process内計算。
+ * @security Authorityを含まない。
+ * @concurrency N/A: 共有状態を持たない。
+ */
+function operationEventId(
+  value: OperationExecutionIntelligenceEvent["identity"],
+): string {
+  return `execution-${createHash("sha256").update(["operation_settled", value.projectId, value.operationId, value.executionId].join("\0")).digest("hex")}`;
+}
+
+/**
+ * 診断の静的許可値と完全なshapeを検査する。
+ * @responsibility 任意のProvider本文や追加fieldを拒否する。
+ * @trace ARCH-000007
+ * @input 未信頼の診断値。
+ * @returns 安全化された閉じた診断、またはnull。
+ * @precondition N/A: 未信頼値を受け付ける。
+ * @postcondition 許可値以外を保持しない。
+ * @effect N/A: 局所検査のみ。
+ * @failure shapeまたは値が不正ならnull。
+ * @invariant 機密値を診断へ複製しない。
+ * @boundary Producerから観測への値境界。
+ * @security 自由文と任意Headerを受理しない。
+ * @concurrency N/A: 同期局所検査。
+ */
+function inspectExecutionDiagnostic(
+  value: unknown,
+): ExecutionDiagnostic | null {
+  const entry = snapshotPlainRecord(
+    value,
+    new Set([
+      "stage",
+      "category",
+      "httpStatus",
+      "type",
+      "code",
+      "finishReason",
+      "refusal",
+    ]),
+  );
+  if (
+    !entry ||
+    typeof entry.stage !== "string" ||
+    ![
+      "transport",
+      "http",
+      "refusal",
+      "output_limit",
+      "json_parse",
+      "schema_validation",
+      "identity_validation",
+      "semantic_validation",
+      "completed",
+    ].includes(entry.stage) ||
+    typeof entry.category !== "string" ||
+    ![
+      "rate_limit",
+      "quota",
+      "billing",
+      "authentication",
+      "permission",
+      "unavailable",
+      "invalid_response",
+      "refused",
+      "output_limit",
+      "none",
+    ].includes(entry.category) ||
+    !(
+      entry.httpStatus === null ||
+      (typeof entry.httpStatus === "number" &&
+        Number.isInteger(entry.httpStatus) &&
+        entry.httpStatus >= 100 &&
+        entry.httpStatus <= 599)
+    ) ||
+    !(
+      entry.type === null ||
+      (typeof entry.type === "string" &&
+        [
+          "rate_limit_error",
+          "insufficient_quota",
+          "billing_error",
+          "authentication_error",
+          "permission_error",
+          "server_error",
+          "invalid_request_error",
+        ].includes(entry.type))
+    ) ||
+    !(
+      entry.code === null ||
+      (typeof entry.code === "string" &&
+        [
+          "rate_limit_exceeded",
+          "insufficient_quota",
+          "billing_hard_limit_reached",
+          "invalid_api_key",
+          "permission_denied",
+          "server_error",
+          "context_length_exceeded",
+        ].includes(entry.code))
+    ) ||
+    !(
+      entry.finishReason === null ||
+      (typeof entry.finishReason === "string" &&
+        [
+          "completed",
+          "stop",
+          "length",
+          "max_output_tokens",
+          "content_filter",
+          "refusal",
+        ].includes(entry.finishReason))
+    ) ||
+    !(entry.refusal === null || typeof entry.refusal === "boolean")
+  )
+    return null;
+  return Object.freeze({
+    stage: entry.stage as ExecutionDiagnostic["stage"],
+    category: entry.category as ExecutionDiagnostic["category"],
+    httpStatus: entry.httpStatus,
+    type: entry.type as ExecutionDiagnostic["type"],
+    code: entry.code as ExecutionDiagnostic["code"],
+    finishReason: entry.finishReason as ExecutionDiagnostic["finishReason"],
+    refusal: entry.refusal,
+  });
+}
+
+/**
+ * 使用量5項目の欠測を残した完全性を導出する。
+ * @responsibility 非該当と未観測を区別し、費用を推定しない。
+ * @trace ARCH-000007
+ * @input 検査済み使用量。
+ * @returns 非該当、未観測、一部、完全の分類。
+ * @precondition 各fieldは観測契約を満たす。
+ * @postcondition 未観測を0や無課金へ変換しない。
+ * @effect N/A: 局所計算のみ。
+ * @failure N/A: 検査済み値を分類する。
+ * @invariant 全field非該当を完全として数えない。
+ * @boundary N/A: process内計算。
+ * @security 金額や単価を補完しない。
+ * @concurrency N/A: 共有状態なし。
+ */
+export function classifyExecutionUsageCompleteness(
+  usage: ExecutionUsage,
+): "complete" | "partial" | "not_observed" | "not_applicable" {
+  const applicableUsageObservations = Object.values(usage).filter(
+    (entry) => entry.state !== "not_applicable",
+  );
+  if (applicableUsageObservations.length === 0) return "not_applicable";
+  const observedCount = applicableUsageObservations.filter(
+    (entry) => entry.state === "observed",
+  ).length;
+  return observedCount === 0
+    ? "not_observed"
+    : observedCount === applicableUsageObservations.length
+      ? "complete"
+      : "partial";
 }
 
 /**
@@ -309,7 +618,7 @@ function taskAttemptEventId(
  * @concurrency N/A: countは共有非同期状態を持たない同期処理である。
  */
 function count(value: unknown): value is number {
-  return Number.isSafeInteger(value) && Number(value) >= 0;
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 }
 
 /**
@@ -417,10 +726,17 @@ export function inspectExecutionIntelligenceEvent(
         "quality",
       ] as const),
     );
-    if (!event) return null;
+    if (
+      !event ||
+      typeof event.eventType !== "string" ||
+      !["task_attempt_settled", "operation_settled"].includes(event.eventType)
+    )
+      return null;
     const identitySnapshot = snapshotPlainRecord(
       event.identity,
-      taskAttemptIdentityKeys,
+      event.eventType === "task_attempt_settled"
+        ? taskAttemptIdentityKeys
+        : new Set(["projectId", "operationId", "executionId"]),
     );
     const executionSnapshot = snapshotPlainRecord(
       event.execution,
@@ -432,6 +748,12 @@ export function inspectExecutionIntelligenceEvent(
         "provider",
         "role",
         "usage",
+        "profileId",
+        "profileRevision",
+        "reasoningEffort",
+        "overrideApplied",
+        "parentExecutionId",
+        "diagnostic",
       ] as const),
     );
     const outcomeSnapshot = snapshotPlainRecord(
@@ -458,6 +780,29 @@ export function inspectExecutionIntelligenceEvent(
       ] as const),
     );
     if (!usageSnapshot) return null;
+    const profileId = observation(executionSnapshot.profileId, (entry) =>
+      identity(entry) ? entry : null,
+    );
+    const profileRevision = observation(
+      executionSnapshot.profileRevision,
+      (entry) => (identity(entry) ? entry : null),
+    );
+    const reasoningEffort = observation(
+      executionSnapshot.reasoningEffort,
+      (entry) => (identity(entry) ? entry : null),
+    );
+    const overrideApplied = observation(
+      executionSnapshot.overrideApplied,
+      (entry) => (typeof entry === "boolean" ? entry : null),
+    );
+    const parentExecutionId = observation(
+      executionSnapshot.parentExecutionId,
+      (entry) => (identity(entry) ? entry : null),
+    );
+    const diagnostic = observation(
+      executionSnapshot.diagnostic,
+      inspectExecutionDiagnostic,
+    );
     const provider = observation(executionSnapshot.provider, (entry) =>
       identity(entry) ? entry : null,
     );
@@ -519,7 +864,6 @@ export function inspectExecutionIntelligenceEvent(
     });
     if (
       event.contract !== EXECUTION_INTELLIGENCE_EVENT_CONTRACT ||
-      event.eventType !== "task_attempt_settled" ||
       !identity(event.eventId) ||
       !text(event.occurredAt, 64) ||
       Number.isNaN(Date.parse(event.occurredAt)) ||
@@ -536,11 +880,19 @@ export function inspectExecutionIntelligenceEvent(
       !cacheWriteTokens ||
       !costOrCredits ||
       !quality ||
+      !profileId ||
+      !profileRevision ||
+      !reasoningEffort ||
+      !overrideApplied ||
+      !parentExecutionId ||
+      !diagnostic ||
+      typeof outcomeSnapshot.status !== "string" ||
       !["completed", "blocked", "cancelled", "unknown"].includes(
-        String(outcomeSnapshot.status),
+        outcomeSnapshot.status,
       ) ||
+      typeof outcomeSnapshot.effectState !== "string" ||
       !["no_effect", "settled", "unknown"].includes(
-        String(outcomeSnapshot.effectState),
+        outcomeSnapshot.effectState,
       ) ||
       !text(outcomeSnapshot.reason, 512) ||
       typeof outcomeSnapshot.cleanupConfirmed !== "boolean" ||
@@ -551,11 +903,27 @@ export function inspectExecutionIntelligenceEvent(
     const canonicalIdentity = Object.freeze({
       ...identitySnapshot,
     }) as ExecutionIntelligenceEvent["identity"];
-    if (event.eventId !== taskAttemptEventId(canonicalIdentity)) return null;
+    const expectedEventId =
+      event.eventType === "task_attempt_settled"
+        ? taskAttemptEventId(
+            canonicalIdentity as TaskAttemptExecutionIntelligenceEvent["identity"],
+          )
+        : operationEventId(
+            canonicalIdentity as OperationExecutionIntelligenceEvent["identity"],
+          );
+    if (event.eventId !== expectedEventId) return null;
+    if (
+      event.eventType === "operation_settled" &&
+      parentExecutionId.state === "observed" &&
+      parentExecutionId.value ===
+        (canonicalIdentity as OperationExecutionIntelligenceEvent["identity"])
+          .executionId
+    )
+      return null;
     return Object.freeze({
       contract: EXECUTION_INTELLIGENCE_EVENT_CONTRACT,
       eventId: event.eventId,
-      eventType: "task_attempt_settled" as const,
+      eventType: event.eventType,
       occurredAt: event.occurredAt,
       identity: canonicalIdentity,
       execution: Object.freeze({
@@ -572,12 +940,25 @@ export function inspectExecutionIntelligenceEvent(
           costOrCredits,
         }),
         humanActiveMs,
+        profileId,
+        profileRevision,
+        reasoningEffort,
+        overrideApplied,
+        parentExecutionId,
+        diagnostic,
       }) as ExecutionIntelligenceEvent["execution"],
       outcome: Object.freeze({
-        ...outcomeSnapshot,
-      }) as ExecutionIntelligenceEvent["outcome"],
+        status:
+          outcomeSnapshot.status as ExecutionIntelligenceEvent["outcome"]["status"],
+        reason: outcomeSnapshot.reason,
+        effectState:
+          outcomeSnapshot.effectState as ExecutionIntelligenceEvent["outcome"]["effectState"],
+        cleanupConfirmed: outcomeSnapshot.cleanupConfirmed,
+        manualRecoveryRequired: outcomeSnapshot.manualRecoveryRequired,
+        processRestartRequired: outcomeSnapshot.processRestartRequired,
+      }),
       quality,
-    });
+    }) as ExecutionIntelligenceEvent;
   } catch {
     return null;
   }
@@ -601,7 +982,7 @@ export function inspectExecutionIntelligenceEvent(
  */
 export function createTaskAttemptSettledEvent(
   input: TaskAttemptSettledEventInput,
-): ExecutionIntelligenceEvent {
+): TaskAttemptExecutionIntelligenceEvent {
   const inputSnapshot = snapshotPlainRecord(
     input,
     new Set(["execution", "identity", "occurredAt", "outcome", "quality"]),
@@ -615,19 +996,128 @@ export function createTaskAttemptSettledEvent(
     throw new Error("execution_intelligence_event_invalid");
   const canonicalIdentity = Object.freeze({
     ...identitySnapshot,
-  }) as ExecutionIntelligenceEvent["identity"];
+  }) as TaskAttemptExecutionIntelligenceEvent["identity"];
   const event = {
     contract: EXECUTION_INTELLIGENCE_EVENT_CONTRACT,
     eventId: taskAttemptEventId(canonicalIdentity),
     eventType: "task_attempt_settled" as const,
     occurredAt: inputSnapshot.occurredAt,
     identity: canonicalIdentity,
-    execution: inputSnapshot.execution,
+    execution: completeExecutionObservations(inputSnapshot.execution),
     outcome: inputSnapshot.outcome,
     quality: inputSnapshot.quality,
   };
   const inspected = inspectExecutionIntelligenceEvent(event);
-  if (!inspected) throw new Error("execution_intelligence_event_invalid");
+  if (inspected?.eventType !== "task_attempt_settled")
+    throw new Error("execution_intelligence_event_invalid");
+  return inspected;
+}
+
+/**
+ * 構築入力の省略された追加観測を明示的な未観測へ変換する。
+ * @responsibility 旧constructor入力をv2の完全shapeへ接続する。
+ * @trace ARCH-000007
+ * @input 未信頼execution入力。
+ * @returns 検査前の完全shapeまたはnull。
+ * @precondition N/A: 任意値を受け取る。
+ * @postcondition 値を推定せず未観測理由を保持する。
+ * @effect N/A: 局所コピーのみ。
+ * @failure accessorや追加fieldは拒否する。
+ * @invariant 保存済みv1記録の互換Readerではない。
+ * @boundary 公開constructorの値境界。
+ * @security getterを実行しない。
+ * @concurrency N/A: 同期処理。
+ */
+function completeExecutionObservations(value: unknown): unknown {
+  const entry = snapshotPlainRecord(
+    value,
+    new Set([
+      "role",
+      "provider",
+      "model",
+      "inputStrategyRef",
+      "durationMs",
+      "usage",
+      "humanActiveMs",
+    ]),
+    new Set([
+      "profileId",
+      "profileRevision",
+      "reasoningEffort",
+      "overrideApplied",
+      "parentExecutionId",
+      "diagnostic",
+    ]),
+  );
+  if (!entry) return null;
+  return {
+    ...entry,
+    profileId: Object.hasOwn(entry, "profileId")
+      ? entry.profileId
+      : notObserved("profile_not_reported"),
+    profileRevision: Object.hasOwn(entry, "profileRevision")
+      ? entry.profileRevision
+      : notObserved("profile_revision_not_reported"),
+    reasoningEffort: Object.hasOwn(entry, "reasoningEffort")
+      ? entry.reasoningEffort
+      : notObserved("reasoning_effort_not_reported"),
+    overrideApplied: Object.hasOwn(entry, "overrideApplied")
+      ? entry.overrideApplied
+      : notObserved("override_not_reported"),
+    parentExecutionId: Object.hasOwn(entry, "parentExecutionId")
+      ? entry.parentExecutionId
+      : notObserved("parent_execution_not_reported"),
+    diagnostic: Object.hasOwn(entry, "diagnostic")
+      ? entry.diagnostic
+      : notObserved("diagnostic_not_reported"),
+  };
+}
+
+/**
+ * Taskを捏造せず任意Operationの終端観測を構築する。
+ * @responsibility 任意Operation入力をv2の検査へ接続する。
+ * @trace ARCH-000007
+ * @input OperationSettledEventInput。
+ * @returns 検査済みOperationイベント。
+ * @precondition 3つのIdentityと共通観測が有効である。
+ * @postcondition 新Identityだけを持つ不変イベントを返す。
+ * @effect N/A: 値構築のみ。
+ * @failure 不正入力はexecution_intelligence_event_invalid。
+ * @invariant Task Identityを追加しない。
+ * @boundary 公開constructorの値境界。
+ * @security 生出力やAuthorityを保持しない。
+ * @concurrency N/A: 共有状態なし。
+ */
+export function createOperationSettledEvent(
+  input: OperationSettledEventInput,
+): OperationExecutionIntelligenceEvent {
+  const entry = snapshotPlainRecord(
+    input,
+    new Set(["execution", "identity", "occurredAt", "outcome", "quality"]),
+  );
+  const ids = entry
+    ? snapshotPlainRecord(
+        entry.identity,
+        new Set(["projectId", "operationId", "executionId"]),
+      )
+    : null;
+  if (!entry || !ids || !Object.values(ids).every(identity))
+    throw new Error("execution_intelligence_event_invalid");
+  const canonicalIdentity = Object.freeze({
+    ...ids,
+  }) as OperationExecutionIntelligenceEvent["identity"];
+  const inspected = inspectExecutionIntelligenceEvent({
+    contract: EXECUTION_INTELLIGENCE_EVENT_CONTRACT,
+    eventType: "operation_settled",
+    eventId: operationEventId(canonicalIdentity),
+    occurredAt: entry.occurredAt,
+    identity: canonicalIdentity,
+    execution: completeExecutionObservations(entry.execution),
+    outcome: entry.outcome,
+    quality: entry.quality,
+  });
+  if (inspected?.eventType !== "operation_settled")
+    throw new Error("execution_intelligence_event_invalid");
   return inspected;
 }
 
@@ -657,6 +1147,12 @@ export type ExecutionIntelligenceSummary = Readonly<{
   observedUsageFieldCount: number;
   humanActiveObservationCount: number;
   qualityObservationCount: number;
+  diagnosticObservationCount: number;
+  assignmentFullyObservedEventCount: number;
+  usageCompleteEventCount: number;
+  usagePartialEventCount: number;
+  usageNotApplicableEventCount: number;
+  costObservationCount: number;
   missingnessPreserved: true;
 }>;
 
@@ -740,6 +1236,36 @@ export function summarizeExecutionIntelligence(
     ).length,
     qualityObservationCount: validEvents.filter(
       (event) => event.quality.state === "observed",
+    ).length,
+    diagnosticObservationCount: validEvents.filter(
+      (event) => event.execution.diagnostic.state === "observed",
+    ).length,
+    assignmentFullyObservedEventCount: validEvents.filter((event) =>
+      [
+        event.execution.provider,
+        event.execution.model,
+        event.execution.profileId,
+        event.execution.profileRevision,
+        event.execution.reasoningEffort,
+        event.execution.overrideApplied,
+      ].every((entry) => entry.state === "observed"),
+    ).length,
+    usageCompleteEventCount: validEvents.filter(
+      (event) =>
+        classifyExecutionUsageCompleteness(event.execution.usage) ===
+        "complete",
+    ).length,
+    usagePartialEventCount: validEvents.filter(
+      (event) =>
+        classifyExecutionUsageCompleteness(event.execution.usage) === "partial",
+    ).length,
+    usageNotApplicableEventCount: validEvents.filter(
+      (event) =>
+        classifyExecutionUsageCompleteness(event.execution.usage) ===
+        "not_applicable",
+    ).length,
+    costObservationCount: validEvents.filter(
+      (event) => event.execution.usage.costOrCredits.state === "observed",
     ).length,
     missingnessPreserved: true as const,
   });

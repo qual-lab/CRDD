@@ -10,6 +10,8 @@
  */
 export {
   createTaskAttemptSettledEvent,
+  createOperationSettledEvent,
+  classifyExecutionUsageCompleteness,
   EXECUTION_INTELLIGENCE_EVENT_CONTRACT,
   inspectExecutionIntelligenceEvent,
   notApplicable,
@@ -18,6 +20,10 @@ export {
   proposeExecutionImprovementCandidates,
   summarizeExecutionIntelligence,
   type ExecutionIntelligenceEvent,
+  type TaskAttemptExecutionIntelligenceEvent,
+  type OperationExecutionIntelligenceEvent,
+  type OperationSettledEventInput,
+  type ExecutionDiagnostic,
   type ExecutionIntelligenceSummary,
   type ExecutionObservation,
   type ExecutionUsage,

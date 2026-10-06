@@ -15,7 +15,10 @@ import { createHash } from "node:crypto";
 import { initializeProjectRuntimeSnapshot } from "../../src/security/project-runtime-durable-foundation.ts";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
+import {
+  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
+  requireReadyRepositoryRuntimeDataArea,
+} from "../../../runtime-data/src/index.ts";
 import path from "node:path";
 import { Writable } from "node:stream";
 import test from "node:test";
@@ -94,7 +97,16 @@ test("Runtime Data失敗を公開Project Runtime結果まで意味変更せず�
  */
 test("development composition uses the explicitly supplied candidate integration boundary", async (t) => {
   const root = fs.mkdtempSync(
-    path.join(os.tmpdir(), "crdd-project-public-runtime-"),
+    path.join(
+      requireReadyRepositoryRuntimeDataArea(
+        ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+          path.resolve(import.meta.dirname, "../../../.."),
+          "tests",
+        ),
+        "fixture_root_invalid",
+      ).directory,
+      "crdd-project-public-runtime-",
+    ),
   );
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   execFileSync("git", ["init", "--quiet", root], { windowsHide: true });

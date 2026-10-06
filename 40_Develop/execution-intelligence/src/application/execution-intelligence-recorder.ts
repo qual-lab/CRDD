@@ -6,8 +6,10 @@
  */
 import {
   createTaskAttemptSettledEvent,
+  createOperationSettledEvent,
   type ExecutionIntelligenceEvent,
   type TaskAttemptSettledEventInput,
+  type OperationSettledEventInput,
 } from "../core/execution-intelligence.ts";
 import {
   readExecutionIntelligence,
@@ -28,6 +30,9 @@ import { verifyExecutionIntelligenceRepositoryRoot } from "../store/verified-rep
  * @compatibility ExecutionIntelligenceRecorderの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 export type ExecutionIntelligenceRecorder = Readonly<{
+  recordOperation: (
+    input: OperationSettledEventInput,
+  ) => ReturnType<typeof writeExecutionIntelligenceEvent>;
   recordTaskAttempt: (
     input: TaskAttemptSettledEventInput,
   ) => ReturnType<typeof writeExecutionIntelligenceEvent>;
@@ -105,6 +110,15 @@ export function createBoundExecutionIntelligenceRecorder(
   writeEvent: ExecutionIntelligenceEventWriter,
 ): ExecutionIntelligenceRecorder {
   return Object.freeze({
+    recordOperation: (input: OperationSettledEventInput) => {
+      let event: ExecutionIntelligenceEvent;
+      try {
+        event = createOperationSettledEvent(input);
+      } catch {
+        return invalidEventPublication();
+      }
+      return writeEvent(capability, event);
+    },
     recordTaskAttempt: (input: TaskAttemptSettledEventInput) => {
       let event: ExecutionIntelligenceEvent;
       try {

@@ -1,5 +1,18 @@
 # Execution Intelligence現行実装のReality Audit
 
+## 2026-10-06の変更候補と基準版の区別
+
+以下の既存監査本文はv0.20.1／v0.21の基準版CapabilityとEvidenceを保持するものであり、v0.22の新保存方式を実装済み・Passとする根拠ではない。現在のCanonical契約は[詳細設計の新形式](01_Architecture.md#10-実行知の共通観測と保存契約)および[③の変更記録](../../../99_Roadmap/Changes/CHG-000082/Evidence/261006_execution-intelligence-phase3.md)を参照する。
+
+| 意味 | v0.22変更候補 | 確認状態 |
+|---|---|---|
+| 保存 | `.crdd/execution-intelligence/history.jsonl`、単一Writer Lock、短命pendingと原子的公開 | 全82回帰と直接利用側確認、独立再レビューPass。署名・実Provider E2Eは含めない。 |
+| 保持 | Tool別Git管理設定、既定30日。回復未確認は期限整理から保護 | 設定と保護条件の試験・独立確認済み。別途是正したRuntime Data閉包6指摘は、全38契約と独立再レビューで解消を確認した。 |
+| 対象 | Taskと一般Operationを区別し、実績割当・安全診断・部分使用量を保持 | 型・反証・独立確認済み。実際に未接続のProducerを観測済みとしない。 |
+| 移行 | 旧Readerを作らず、フロントAIが正当性を確認して変換・清掃 | 新形式へ33件を保存しID・内容一致を確認。10件の回収未確認状態を新履歴で保護。人間指示により移行済み旧領域を清掃し、新Readerの33件保持と旧領域不存在を確認した。移行結果の独立確認済み。 |
+
+基準版本文にある不変の個別Event File方式、保持APIの不存在、当時のCapability制限は歴史的な確認内容であり、新方式の現在契約として使用しない。
+
 成果物種別: Architecture Reality Audit
 対象領域: execution-intelligence
 状態: 基準版Capabilityの照合対象

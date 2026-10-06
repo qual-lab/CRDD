@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "実行履歴設定",
+  "description": ".crdd/config/execution-intelligence.jsonの非秘密設定。削除許可と未解決義務の解除は実行履歴の所有者が判断する。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaRevision", "historyRetentionDays"],
+  "properties": {
+    "schemaRevision": { "const": 1 },
+    "historyRetentionDays": { "type": "integer", "minimum": 1, "maximum": 104249991, "description": "上限はミリ秒への安全な整数変換限界。" }
+  }
+}

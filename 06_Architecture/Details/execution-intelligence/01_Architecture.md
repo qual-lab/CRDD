@@ -94,6 +94,8 @@ Writerだけが検証済みRecord PortからStoreへの公開Effectを所有す�
 
 ## 2. Interface Model
 
+本書の`recorded`等は設計上の概念状態であり、公開APIの返却literalではない。公開Writerの成功判定は`ExecutionIntelligencePublicationResult`の`status: "completed"`を使用し、[利用手順](../../../19_Workflows/03_Execution_Intelligence.md#runtime-adapterからの利用)に従ってEffectと回収結果も確認する。
+
 記録Portは、作成側Identity、Execution Identity、Attempt、Canonical Event、Schema Revisionおよび相関情報を受け取る。Writerは入力を再解釈せず検査し、公開結果を`recorded`、`not_recorded`、`unknown`で返す。`unknown`には同じAttemptへ再入場する非Authorityな回復参照を含められる。
 
 読取りPortは、許可されたSource識別、対象Task、取得条件とSnapshot条件を受け取る。結果は、観測状態、事実、評価候補、Source Revision、観測時点および欠測理由を返す。どちらのPortもFilesystem Pathや内部Store表現を公開契約へ漏らさない。
@@ -189,6 +191,51 @@ Record PortとQueryはTypeScript APIとして同じ契約を公開し、CLI、MC
 - 開示不可Sourceの存在やIdentityを境界外へ漏らさない。
 - 評価候補は非Authorityであり、明示した決定権限者の判断を代替しない。
 - CanonicalなTask Identity、Revisionおよび観測時点を利用側で再解釈しない。
+
+## 10. 実行知の共通観測と保存契約
+
+### 10.1. Eventと観測値
+
+公開入口は`40_Develop/execution-intelligence/src/index.ts`とし、Provider固有Resultの取得・安全化は利用側Adapterが所有する。共有Event契約はv2とし、次の二種を同じStore／Reader／集計へ接続する。旧v1の保存ReaderやRuntime内変換は持たない。
+
+| 種別 | 必須Identity | 対象 |
+|---|---|---|
+| `task_attempt_settled` | Project／Milestone／Objective／Task／Attempt／Operation | Project RuntimeのTask試行 |
+| `operation_settled` | Project／Operation／Execution | 生成・評価・画像・補正等の一般Operation。Taskを捏造しない |
+
+共通の役割、Provider、Model、所要時間、使用量、実行結果、品質観測に、Profile ID／Revision、推論量、個別上書き有無、親Executionと安全化した診断の観測状態を接続する。補正やModel変更は新しいExecutionとして記録し、旧Eventを改変しない。Profile指定と実際のModel観測は別の根拠であり、設定値から実績を補完しない。
+
+診断はHTTP、拒否、打切り、JSON解析、Schema検査、対象一致、意味検査等の閉じた段階・分類と許可済み識別値だけを受理する。任意のmessage、param、応答本文、Header一式、値を含むSchema位置、認証情報を受理しない。未対応の詳細は未観測とし、失われた実応答の原因を後から推定しない。任意のSchema位置や要求相関Headerの搬送は、Producerの安全化・許可集合・情報分類を定義するまで未対応とする。
+
+使用量の完全性は取得済み・欠測・非該当のfield集合から導出する。取得済み0と未観測を分け、Token取得済み／費用欠測を無課金や完全観測へ丸めない。応答後の成果物拒否でも取得済み使用量は保持する。Operationの直接診断は元Runtimeが所有し、実行知が利用不能でも現在の停止理由を判断できる契約を維持する。
+
+### 10.2. Schema責務と利用側
+
+| 契約 | Owner／Writer | Reader／試験 | 所有しないもの |
+|---|---|---|---|
+| 共通Eventと閉じた観測 | Execution Intelligence。利用側Adapterが実測値から構成する | 公開Recorder、Store、集計、閉Schema・欠測・不正値試験 | Provider実行、承認、認証、課金、品質採用 |
+| Task試行 | Project Runtime／Coordinator Adapter | Task専用Projection・統合評価・Workbench Activity | 一般Operationに架空Taskを付与すること |
+| 一般Operation | 採用RuntimeのAdapterと`recordOperation` | 公開Reader・集計・保存往復試験 | Communicationへの接続済み・実Provider検証済みの主張 |
+| 履歴保存 | Storeの単一履歴排他 | 不変内容、競合、途中故障、Reader Effect 0の試験 | Taskキュー、実行Authority、回復状態DB |
+
+同じfieldが別層へ搬送されたことを、その利用側の保存・表示成立とはみなさない。Task専用画面は一般OperationをTaskとして表示せず、一般Operationを表示する追加UIは未接続と明示する。
+
+### 10.3. 保存と保持
+
+```text
+<verified-repository-root>/.crdd/execution-intelligence/
+├ history.jsonl
+├ history.lock
+└ history.pending.jsonl
+```
+
+`history.jsonl`は1行1Eventの構造化記録である。Eventの内容は不変とし、同一ID同内容の再送は再読取りで収束、異内容は拒否する。Repository内の履歴全体を一つの`history.lock`で排他し、完成した履歴を`history.pending.jsonl`へ書込み・flushした後、atomic replaceと再読取りで保存確定を確認する。短い書込み、公開済み／未公開／不明、cleanup不明を分け、所有不明のLockやpendingを時刻だけで奪取しない。ReaderはLock・pendingを作成せず、完全なSnapshotを読取り、部分JSONL・重複・破損・更新不明を完全履歴として返さない。
+
+通常記録の既定保持期間は人間が採用した30日とする。Execution Intelligenceは`<verified-repository-root>/.crdd/config/execution-intelligence.json`、Project Runtimeは別の`project-runtime.json`を用いる。各Toolは自分の設定だけを読み、もう一方の設定状態に依存しない。非秘密の設定はGit管理し、未設定は各30日、不正設定や観測不能は当該Toolの整理を停止する。設定の読取り・構造検査はRuntime Data、何を削除できるかは各履歴Ownerが所有する。
+
+回収未確認、手動回復が必要、Effect不明または再起動が必要な記録を、期限だけで削除しない。正式Evidenceは履歴ではなく品質／CHGのOwner成果物として保全する。期間外の通常Eventを新規公開・再公開せず、期限による未記録を明示する。期間抽出は物理削除ではない。結果には観測した範囲と欠測を保持し、古い記録がないことを実行なしへ変換しない。
+
+旧`.crdd/execution/`はフロントAIが、旧Producer停止、必要情報・参照・未解決義務の確認、新形式への移行結果確認後に清掃する。Runtime内に旧形式Reader、Fallback、二重書込みを残さない。移行前の必要記録を無条件に削除しない。
 
 ## Implementation Structure
 

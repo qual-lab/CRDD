@@ -5,21 +5,32 @@ import {
   usageNotObserved,
 } from "../../src/index.ts";
 
-const [repositoryRoot, reason = "task_completed"] = process.argv.slice(2);
-if (!repositoryRoot) process.exitCode = 3;
-else {
+const [repositoryRoot, reason = "task_completed", operationId = "operation-a"] =
+  process.argv.slice(2);
+if (!repositoryRoot) {
+  process.stdout.write(
+    `${JSON.stringify({ status: "blocked", reason: "execution_repository_root_invalid", stage: "argument_validation", effectIssued: false })}\n`,
+  );
+  process.exitCode = 3;
+} else {
   const verified = verifyExecutionIntelligenceRepositoryRoot(repositoryRoot);
-  if (verified.status !== "completed") process.exitCode = 4;
-  else {
+  if (verified.status !== "completed") {
+    process.stdout.write(
+      `${JSON.stringify({ status: "blocked", reason: "execution_repository_root_invalid", stage: "root_verification", effectIssued: false })}\n`,
+    );
+    process.exitCode = 4;
+  } else {
     const event = createTaskAttemptSettledEvent({
-      occurredAt: "2026-09-05T00:00:01.000Z",
+      occurredAt: new Date(
+        Math.floor(Date.now() / 86_400_000) * 86_400_000,
+      ).toISOString(),
       identity: {
         projectId: "project-a",
         milestoneId: "milestone-a",
         objectiveId: "objective-a",
         taskId: "task-a",
         attemptId: "attempt-a",
-        operationId: "operation-a",
+        operationId,
       },
       execution: {
         role: "executor",

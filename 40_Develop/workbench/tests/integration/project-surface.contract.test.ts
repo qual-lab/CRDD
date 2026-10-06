@@ -50,7 +50,9 @@ test("共通Project Contextを読み未構成Capabilityを明示する", async (
   assert.equal(surface.plan.projection?.targetReleaseDate, "2026-10-03");
   assert.equal(surface.quality.state, "available");
   assert.equal(surface.quality.projection?.target, "v0.22.0");
-  assert.equal(surface.quality.projection?.unobserved, "29 / 40");
+  // 2026-10-06のQuality正本は移管母集団46件中33件未観測。
+  // 旧29 / 40は過去の母集団であり、現在投影の期待値には使わない。
+  assert.equal(surface.quality.projection?.unobserved, "33 / 46");
   assert.ok(
     surface.ownerArtifacts.artifacts.some(
       (artifact) => artifact.relativePath === "99_Roadmap/01_Roadmap.md",

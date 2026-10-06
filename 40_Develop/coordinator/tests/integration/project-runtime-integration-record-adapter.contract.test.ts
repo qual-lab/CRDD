@@ -26,6 +26,53 @@ import {
 } from "../../../runtime-data/src/index.ts";
 
 /**
+ * 空の旧結果でもAreaの途中置換を拒否する。
+ * @responsibility 開始と終了の境界Identityを相関させる。
+ * @trace PRL-IT-005
+ * @precondition 自己所有Repositoryに空results領域を作る。
+ * @stimulus 列挙中にproject-runtimeを別Directoryへ置換する。
+ * @observation Readerの停止結果と両Directoryの存在を確認する。
+ * @oracle 空結果をcompletedにせず、いずれの実体も削除しない。
+ * @cleanup Mockを復元しfixtureがexact Rootだけを回収する。
+ * @boundary PRL-IT-005=Direct Boundary: 共通Area観測→旧結果Reader
+ */
+test("空の旧結果もAreaの途中置換を正常観測へ畳まない", (t) => {
+  const { root } = fixture(t);
+  const area = requireReadyRepositoryRuntimeDataArea(
+    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+      root,
+      "project-runtime",
+    ),
+    "fixture_area_invalid",
+  );
+  const directory = path.join(area.directory, "results");
+  fs.mkdirSync(directory);
+  const displaced = path.join(root, "displaced-runtime");
+  const readdir = fs.readdirSync;
+  let isReplaced = false;
+  const mocked = t.mock.method(fs, "readdirSync", ((
+    location: fs.PathLike,
+    ...args: unknown[]
+  ) => {
+    if (String(location) === directory && !isReplaced) {
+      fs.renameSync(area.directory, displaced);
+      fs.mkdirSync(directory, { recursive: true });
+      isReplaced = true;
+      return [];
+    }
+    return Reflect.apply(readdir, fs, [location, ...args]);
+  }) as typeof fs.readdirSync);
+  try {
+    assert.equal(readLegacyProjectRuntimeResultInputs(root).status, "blocked");
+    assert.equal(isReplaced, true);
+    assert.equal(fs.existsSync(displaced), true);
+    assert.equal(fs.existsSync(directory), true);
+  } finally {
+    mocked.mock.restore();
+  }
+});
+
+/**
  * fixtureのTest準備責務を実行する。
  *
  * @responsibility fixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。

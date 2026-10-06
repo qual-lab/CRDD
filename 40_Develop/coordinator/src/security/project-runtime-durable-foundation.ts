@@ -53,8 +53,129 @@ import {
 import {
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
   requireReadyRepositoryRuntimeDataArea,
-  resolveRepositoryRuntimeDataPathsFromWorkingDirectory,
+  resolveRepositoryRuntimeDataPaths,
+  observeRepositoryRuntimeDataArea,
+  type RepositoryRuntimeDataAreaObservation,
 } from "../../../runtime-data/src/index.ts";
+import {
+  verifyRepositoryRoot,
+  verifyRepositoryRootFromWorkingDirectory,
+  resolveVerifiedRepositoryRoot,
+} from "../../../version-control/src/index.ts";
+
+/**
+ * 検証済みRootから名前付きPathだけを投影する。
+ * @responsibility Runtime Data Ownerの名前付き境界を利用しprivate Rootを復元しない。
+ * @trace ARCH-000004
+ * @input 検証するRepository起点と宣言済み領域。
+ * @returns 公開投影または無効Rootのnull。
+ * @precondition Callerは既存のRepository/Lease結合を保持する。
+ * @postcondition 観測不能を不存在または有効Authorityへ変換しない。
+ * @effect VCSとFilesystemを読み取る。初期化、Lock、書込みは0。
+ * @failure Root不正、Owner blocked、境界不一致で停止する。
+ * @invariant Physical IdentityとRecovery Identityは変更しない。
+ * @boundary Coordinator永続基盤からRuntime Data/Version Control公開入口。
+ * @security 名前付きPathはAuthorityではなくI/O前の観測を必要とする。
+ * @concurrency 観測した現在境界だけを返す。
+ */
+function resolveProjectRuntimeNamedPaths(workingDirectory: string) {
+  const verified = verifyRepositoryRootFromWorkingDirectory(workingDirectory);
+  return verified.status === "completed"
+    ? resolveRepositoryRuntimeDataPaths(verified.capability)
+    : null;
+}
+
+/**
+ * 既存の名前付き領域をEffect0で観測する。
+ * @responsibility Runtime Data Ownerの名前付き境界を利用しprivate Rootを復元しない。
+ * @trace ARCH-000004
+ * @input 検証するRepository起点と宣言済み領域。
+ * @returns readyまたは真正不存在のnot_observed。
+ * @precondition Callerは既存のRepository/Lease結合を保持する。
+ * @postcondition 観測不能を不存在または有効Authorityへ変換しない。
+ * @effect VCSとFilesystemを読み取る。初期化、Lock、書込みは0。
+ * @failure Root不正、Owner blocked、境界不一致で停止する。
+ * @invariant Physical IdentityとRecovery Identityは変更しない。
+ * @boundary Coordinator永続基盤からRuntime Data/Version Control公開入口。
+ * @security 名前付きPathはAuthorityではなくI/O前の観測を必要とする。
+ * @concurrency 観測した現在境界だけを返す。
+ */
+function observeProjectRuntimeArea(
+  repositoryRoot: string,
+  area: "project-runtime" | "tmp",
+) {
+  const verified = verifyRepositoryRoot(repositoryRoot);
+  if (verified.status !== "completed")
+    throw new Error("project_runtime_repository_root_invalid");
+  const observation = observeRepositoryRuntimeDataArea(
+    verified.capability,
+    area,
+  );
+  if (observation.status === "blocked") throw new Error(observation.reason);
+  if (
+    observation.status === "ready" &&
+    observation.repositoryRoot !== repositoryRoot
+  )
+    throw new Error("project_runtime_repository_root_invalid");
+  return observation;
+}
+
+/**
+ * I/O対象の名前付き領域が現在も成立することを確認する。
+ * @responsibility Runtime Data Ownerの名前付き境界を利用しprivate Rootを復元しない。
+ * @trace ARCH-000004
+ * @input 検証するRepository起点と宣言済み領域。
+ * @returns 確認済みready観測。
+ * @precondition Callerは既存のRepository/Lease結合を保持する。
+ * @postcondition 観測不能を不存在または有効Authorityへ変換しない。
+ * @effect VCSとFilesystemを読み取る。初期化、Lock、書込みは0。
+ * @failure Root不正、Owner blocked、境界不一致で停止する。
+ * @invariant Physical IdentityとRecovery Identityは変更しない。
+ * @boundary Coordinator永続基盤からRuntime Data/Version Control公開入口。
+ * @security 名前付きPathはAuthorityではなくI/O前の観測を必要とする。
+ * @concurrency 観測した現在境界だけを返す。
+ */
+function assertProjectRuntimeArea(
+  repositoryRoot: string,
+  area: "project-runtime" | "tmp",
+  directory: string,
+) {
+  const observation = observeProjectRuntimeArea(repositoryRoot, area);
+  if (observation.status !== "ready" || observation.directory !== directory)
+    throw new Error("project_runtime_storage_boundary_invalid");
+  return observation;
+}
+
+/**
+ * I/O前後の同じ境界観測を照合する。
+ * @responsibility Runtime Data Ownerの名前付き境界を利用しprivate Rootを復元しない。
+ * @trace ARCH-000004
+ * @input 検証するRepository起点と宣言済み領域。
+ * @returns N/A: 一致確認のみ。
+ * @precondition Callerは既存のRepository/Lease結合を保持する。
+ * @postcondition 観測不能を不存在または有効Authorityへ変換しない。
+ * @effect VCSとFilesystemを読み取る。初期化、Lock、書込みは0。
+ * @failure Root不正、Owner blocked、境界不一致で停止する。
+ * @invariant Physical IdentityとRecovery Identityは変更しない。
+ * @boundary Coordinator永続基盤からRuntime Data/Version Control公開入口。
+ * @security 名前付きPathはAuthorityではなくI/O前の観測を必要とする。
+ * @concurrency 観測した現在境界だけを返す。
+ */
+function assertProjectRuntimeAreaUnchanged(
+  repositoryRoot: string,
+  area: "project-runtime" | "tmp",
+  initial: Exclude<RepositoryRuntimeDataAreaObservation, { status: "blocked" }>,
+) {
+  const current = observeProjectRuntimeArea(repositoryRoot, area);
+  if (
+    initial.status !== current.status ||
+    (initial.status === "ready" &&
+      (current.status !== "ready" ||
+        current.directory !== initial.directory ||
+        current.boundaryIdentity !== initial.boundaryIdentity))
+  )
+    throw new Error("project_runtime_storage_boundary_changed");
+}
 
 export const PROJECT_RUNTIME_DURABLE_FOUNDATION_CONTRACT =
   "crdd-coordinator/project-runtime-durable-foundation/v1" as const;
@@ -162,11 +283,14 @@ export function acquireProjectRuntimeSnapshotPilotLock(
     Readonly<{ repositoryRoot: string; repositoryRootHash: string }>
 > {
   try {
-    const paths =
-      resolveRepositoryRuntimeDataPathsFromWorkingDirectory(workingDirectory);
-    if (!paths || process.platform !== "win32")
+    const verified = verifyRepositoryRootFromWorkingDirectory(workingDirectory);
+    const repositoryRoot =
+      verified.status === "completed"
+        ? resolveVerifiedRepositoryRoot(verified.capability)
+        : null;
+    if (!repositoryRoot || process.platform !== "win32")
       return blocked("project_runtime_snapshot_lock_root_invalid", false);
-    const root = fs.realpathSync.native(paths.repositoryRoot);
+    const root = fs.realpathSync.native(repositoryRoot);
     assertDirectory(root);
     const identity = digest(
       `crdd-project-runtime-verified-root-v1\0${root.toLowerCase()}`,
@@ -1466,16 +1590,27 @@ function activeLeaseIsObserved(activeLease: ActiveLease) {
   try {
     assertDirectory(activeLease.lock);
     if (activeLease.snapshotPhysicalIdentity !== undefined) {
+      const paths = resolveProjectRuntimeNamedPaths(activeLease.repositoryRoot);
+      if (!paths) return false;
+      const boundary = assertProjectRuntimeArea(
+        activeLease.repositoryRoot,
+        "tmp",
+        paths.temporary,
+      );
       for (const directory of [
         activeLease.repositoryRoot,
-        path.join(activeLease.repositoryRoot, ".crdd"),
-        path.join(activeLease.repositoryRoot, ".crdd", "tmp"),
+        boundary.directory,
         path.dirname(activeLease.lock),
       ]) {
         assertDirectory(directory);
         if (fs.realpathSync.native(directory) !== directory) return false;
       }
       const metadata = fs.lstatSync(activeLease.lock);
+      assertProjectRuntimeAreaUnchanged(
+        activeLease.repositoryRoot,
+        "tmp",
+        boundary,
+      );
       return (
         digest(
           JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
@@ -2714,9 +2849,7 @@ function readProjectRuntimeSnapshotOwned(
 ): StoreResult<ProjectRuntimeSnapshot | null> {
   let outcome: StoreResult<ProjectRuntimeSnapshot | null>;
   try {
-    const resolved = resolveRepositoryRuntimeDataPathsFromWorkingDirectory(
-      lock.repositoryRoot,
-    );
+    const resolved = resolveProjectRuntimeNamedPaths(lock.repositoryRoot);
     if (
       !resolved ||
       resolved.repositoryRoot !== lock.repositoryRoot ||
@@ -2724,20 +2857,9 @@ function readProjectRuntimeSnapshotOwned(
     )
       throw new Error("snapshot_root_changed");
     const root = lock.repositoryRoot;
-    const parents = [root, path.join(root, ".crdd"), resolved.projectRuntime];
-    let isAbsent = false;
-    for (const parent of parents) {
-      try {
-        fs.lstatSync(parent);
-      } catch (error) {
-        if (errorCode(error) !== "ENOENT" || parent === root) throw error;
-        for (const observed of parents.slice(0, parents.indexOf(parent)))
-          assertDirectory(observed);
-        isAbsent = true;
-        break;
-      }
-      assertDirectory(parent);
-    }
+    const boundary = observeProjectRuntimeArea(root, "project-runtime");
+    const parents = [root, resolved.projectRuntime];
+    const isAbsent = boundary.status === "not_observed";
     if (isAbsent) outcome = completed("project_runtime_snapshot_absent", null);
     else {
       const pending = path.join(resolved.projectRuntime, "state.pending.json");
@@ -2779,6 +2901,7 @@ function readProjectRuntimeSnapshotOwned(
         );
       }
     }
+    assertProjectRuntimeAreaUnchanged(root, "project-runtime", boundary);
   } catch {
     outcome = blocked("project_runtime_snapshot_invalid_or_unconfirmed", true);
   }
@@ -2858,9 +2981,7 @@ function writeProjectRuntimeSnapshotOwned(
       payload.snapshotRevision !== expectedRevision + 1
     )
       throw new Error("snapshot_input_invalid");
-    const resolved = resolveRepositoryRuntimeDataPathsFromWorkingDirectory(
-      lock.repositoryRoot,
-    );
+    const resolved = resolveProjectRuntimeNamedPaths(lock.repositoryRoot);
     if (
       !resolved ||
       resolved.repositoryRoot !== lock.repositoryRoot ||
@@ -2870,6 +2991,7 @@ function writeProjectRuntimeSnapshotOwned(
     const { runtime, repositoryRoot: root } = storageRoot(lock.repositoryRoot);
     if (root !== lock.repositoryRoot || !lock.assertLive())
       throw new Error("snapshot_root_changed");
+    const boundary = assertProjectRuntimeArea(root, "project-runtime", runtime);
     const currentPath = path.join(runtime, "state.json");
     const pendingPath = path.join(runtime, "state.pending.json");
     const markerPath = path.join(runtime, "state.lock");
@@ -2896,8 +3018,7 @@ function writeProjectRuntimeSnapshotOwned(
       } catch (error) {
         if (errorCode(error) !== "ENOENT") throw error;
         assertDirectory(lock.repositoryRoot);
-        assertDirectory(path.join(root, ".crdd"));
-        assertDirectory(runtime);
+        assertProjectRuntimeAreaUnchanged(root, "project-runtime", boundary);
         return null;
       }
       if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1)
@@ -2907,8 +3028,7 @@ function writeProjectRuntimeSnapshotOwned(
         MAX_RECORD_BYTES,
       );
       assertDirectory(root);
-      assertDirectory(path.join(root, ".crdd"));
-      assertDirectory(runtime);
+      assertProjectRuntimeAreaUnchanged(root, "project-runtime", boundary);
       if (fs.lstatSync(location).nlink !== 1)
         throw new Error("snapshot_link_changed");
       return new TextDecoder("utf-8", { fatal: true }).decode(observed.bytes);
@@ -4675,17 +4795,21 @@ export function acquireProjectRuntimeSnapshotLease(
       ? blocked(reserved.reason, true, recoveryId)
       : reserved;
   const { repositoryRoot, rootIdentity } = reserved.value;
+  const leasePaths = resolveProjectRuntimeNamedPaths(repositoryRoot);
+  if (!leasePaths || leasePaths.repositoryRoot !== repositoryRoot)
+    return blocked(
+      "project_runtime_lease_acquisition_recovery_required",
+      true,
+      recoveryId,
+    );
   const lock = path.join(
-    repositoryRoot,
-    ".crdd",
-    "tmp",
+    leasePaths.temporary,
     "project-runtime-leases",
     `${identity}.lock`,
   );
   let physicalIdentity: string;
   try {
-    const resolved =
-      resolveRepositoryRuntimeDataPathsFromWorkingDirectory(workingDirectory);
+    const resolved = resolveProjectRuntimeNamedPaths(workingDirectory);
     const rootMetadata = fs.lstatSync(repositoryRoot);
     if (
       !resolved ||
@@ -4702,10 +4826,14 @@ export function acquireProjectRuntimeSnapshotLease(
       ) !== rootIdentity
     )
       throw new Error("lease_root_changed");
-    const runtime = ensureDirectory(repositoryRoot, ".crdd");
-    assertDirectory(runtime);
-    const temporary = ensureDirectory(runtime, "tmp");
-    assertDirectory(temporary);
+    const temporary = requireReadyRepositoryRuntimeDataArea(
+      ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+        repositoryRoot,
+        "tmp",
+      ),
+      "project_runtime_repository_root_invalid",
+    ).directory;
+    const boundary = assertProjectRuntimeArea(repositoryRoot, "tmp", temporary);
     const locks = ensureDirectory(temporary, "project-runtime-leases");
     assertDirectory(locks);
     fs.mkdirSync(lock, { mode: 0o700 });
@@ -4715,6 +4843,7 @@ export function acquireProjectRuntimeSnapshotLease(
     physicalIdentity = digest(
       JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
     );
+    assertProjectRuntimeAreaUnchanged(repositoryRoot, "tmp", boundary);
   } catch {
     return blocked(
       "project_runtime_lease_acquisition_recovery_required",
@@ -4850,9 +4979,15 @@ export function acquireProjectRuntimeSnapshotLease(
       try {
         if (!activeLeaseIsObserved(active))
           throw new Error("lease_identity_changed");
+        const boundary = assertProjectRuntimeArea(
+          repositoryRoot,
+          "tmp",
+          leasePaths.temporary,
+        );
         fs.rmdirSync(lock);
+        assertProjectRuntimeAreaUnchanged(repositoryRoot, "tmp", boundary);
         if (
-          !leaseAcquisitionFootprintAbsent(path.dirname(lock), identity, [lock])
+          !projectRuntimeSnapshotLeaseResourcesAbsent(repositoryRoot, identity)
         )
           throw new Error("lease_release_unconfirmed");
       } catch {
@@ -4962,22 +5097,23 @@ function projectRuntimeSnapshotLeaseResourcesAbsent(
   identity: string,
 ): boolean {
   assertDirectory(repositoryRoot);
-  let parent = repositoryRoot;
-  for (const name of [".crdd", "tmp", "project-runtime-leases"]) {
-    const child = path.join(parent, name);
-    if (pathConfirmedAbsent(child)) {
-      assertDirectory(repositoryRoot);
-      assertDirectory(parent);
-      return true;
-    }
-    assertDirectory(child);
-    parent = child;
+  const boundary = observeProjectRuntimeArea(repositoryRoot, "tmp");
+  if (boundary.status === "not_observed") {
+    assertProjectRuntimeAreaUnchanged(repositoryRoot, "tmp", boundary);
+    return true;
   }
+  const parent = path.join(boundary.directory, "project-runtime-leases");
+  if (pathConfirmedAbsent(parent)) {
+    assertProjectRuntimeAreaUnchanged(repositoryRoot, "tmp", boundary);
+    return true;
+  }
+  assertDirectory(parent);
   const isAbsent = leaseAcquisitionFootprintAbsent(parent, identity, [
     path.join(parent, `${identity}.lock`),
   ]);
   assertDirectory(repositoryRoot);
   assertDirectory(parent);
+  assertProjectRuntimeAreaUnchanged(repositoryRoot, "tmp", boundary);
   return isAbsent;
 }
 
@@ -5061,10 +5197,15 @@ export function reconcileProjectRuntimeSnapshotLeaseOwnerLoss(
   if (inspected.status !== "completed")
     return blocked(inspected.reason, true, recoveryId);
   const initial = inspected.value;
+  const leasePaths = resolveProjectRuntimeNamedPaths(initial.repositoryRoot);
+  if (!leasePaths || leasePaths.repositoryRoot !== initial.repositoryRoot)
+    return blocked(
+      "project_runtime_lease_recovery_observation_unknown",
+      true,
+      recoveryId,
+    );
   const lock = path.join(
-    initial.repositoryRoot,
-    ".crdd",
-    "tmp",
+    leasePaths.temporary,
     "project-runtime-leases",
     `${identity}.lock`,
   );
@@ -5221,8 +5362,11 @@ export function reconcileProjectRuntimeSnapshotLeaseOwnerLoss(
             true,
             recoveryId,
           );
-        assertDirectory(path.join(initial.repositoryRoot, ".crdd"));
-        assertDirectory(path.join(initial.repositoryRoot, ".crdd", "tmp"));
+        const boundary = assertProjectRuntimeArea(
+          initial.repositoryRoot,
+          "tmp",
+          leasePaths.temporary,
+        );
         assertDirectory(path.dirname(lock));
         assertDirectory(lock);
         const metadata = fs.lstatSync(lock);
@@ -5234,6 +5378,11 @@ export function reconcileProjectRuntimeSnapshotLeaseOwnerLoss(
           );
         physicalIdentity = digest(
           JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
+        );
+        assertProjectRuntimeAreaUnchanged(
+          initial.repositoryRoot,
+          "tmp",
+          boundary,
         );
       }
     } catch {
@@ -5300,8 +5449,7 @@ export function reconcileProjectRuntimeSnapshotLeaseOwnerLoss(
   if (reserved.status !== "completed")
     return blocked(reserved.reason, true, recoveryId);
   try {
-    const resolved =
-      resolveRepositoryRuntimeDataPathsFromWorkingDirectory(workingDirectory);
+    const resolved = resolveProjectRuntimeNamedPaths(workingDirectory);
     const rootMetadata = fs.lstatSync(initial.repositoryRoot);
     if (
       !resolved ||
@@ -5326,8 +5474,11 @@ export function reconcileProjectRuntimeSnapshotLeaseOwnerLoss(
         identity,
       )
     ) {
-      assertDirectory(path.join(initial.repositoryRoot, ".crdd"));
-      assertDirectory(path.join(initial.repositoryRoot, ".crdd", "tmp"));
+      const boundary = assertProjectRuntimeArea(
+        initial.repositoryRoot,
+        "tmp",
+        leasePaths.temporary,
+      );
       assertDirectory(path.dirname(lock));
       assertDirectory(lock);
       const metadata = fs.lstatSync(lock);
@@ -5344,6 +5495,11 @@ export function reconcileProjectRuntimeSnapshotLeaseOwnerLoss(
           recoveryId,
         );
       fs.rmdirSync(lock);
+      assertProjectRuntimeAreaUnchanged(
+        initial.repositoryRoot,
+        "tmp",
+        boundary,
+      );
     }
     if (
       !projectRuntimeSnapshotLeaseResourcesAbsent(
@@ -5935,10 +6091,14 @@ export function createProjectRuntimeSnapshotStatePort(
               "project_runtime_queue_release_settlement_state_mismatch",
               true,
             );
-          const runtime = path.join(
+          const paths = resolveProjectRuntimeNamedPaths(owner.repositoryRoot);
+          if (!paths)
+            throw new Error("project_runtime_repository_root_invalid");
+          const runtime = paths.projectRuntime;
+          const boundary = assertProjectRuntimeArea(
             owner.repositoryRoot,
-            ".crdd",
             "project-runtime",
+            runtime,
           );
           const identity = leaseIdentity(
             binding,
@@ -5948,32 +6108,34 @@ export function createProjectRuntimeSnapshotStatePort(
           );
           const locks =
             current.schema === SNAPSHOT_SCHEMA_V2
-              ? path.join(
-                  owner.repositoryRoot,
-                  ".crdd",
-                  "tmp",
-                  "project-runtime-leases",
-                )
+              ? path.join(paths.temporary, "project-runtime-leases")
               : path.join(runtime, "work", "locks");
           if (
-            !leaseAcquisitionFootprintAbsent(
-              locks,
-              identity,
-              (current.schema === SNAPSHOT_SCHEMA_V2
-                ? [".lock"]
-                : [
+            !(current.schema === SNAPSHOT_SCHEMA_V2
+              ? projectRuntimeSnapshotLeaseResourcesAbsent(
+                  owner.repositoryRoot,
+                  identity,
+                )
+              : leaseAcquisitionFootprintAbsent(
+                  locks,
+                  identity,
+                  [
                     ".lock",
                     ".release-unknown",
                     ".acquire-pending",
                     ".acquire-lock-owned",
-                  ]
-              ).map((suffix) => path.join(locks, `${identity}${suffix}`)),
-            )
+                  ].map((suffix) => path.join(locks, `${identity}${suffix}`)),
+                ))
           )
             return blocked(
               "project_runtime_queue_release_settlement_resource_present",
               true,
             );
+          assertProjectRuntimeAreaUnchanged(
+            owner.repositoryRoot,
+            "project-runtime",
+            boundary,
+          );
           const evidence =
             current.schema === SNAPSHOT_SCHEMA_V2
               ? {
@@ -6198,8 +6360,7 @@ export function readLegacyProjectRuntimeStateAndQueueInputs(
   workingDirectory: string,
 ): StoreResult<LegacyProjectRuntimeInputs> {
   try {
-    const paths =
-      resolveRepositoryRuntimeDataPathsFromWorkingDirectory(workingDirectory);
+    const paths = resolveProjectRuntimeNamedPaths(workingDirectory);
     if (!paths) return blocked("project_runtime_repository_root_invalid");
     assertDirectory(paths.repositoryRoot);
     const states: Envelope[] = [];
@@ -6208,26 +6369,25 @@ export function readLegacyProjectRuntimeStateAndQueueInputs(
       relativePath: string;
       normalizedEnvelopeHash: string;
     }>[] = [];
-    for (const parent of [
-      path.join(paths.repositoryRoot, ".crdd"),
-      paths.projectRuntime,
-    ]) {
-      try {
-        fs.lstatSync(parent);
-      } catch (error) {
-        if (errorCode(error) !== "ENOENT") throw error;
-        assertDirectory(path.dirname(parent));
-        return completed(
-          "project_runtime_legacy_inputs_observed",
-          Object.freeze({
-            states: Object.freeze(states),
-            queues: Object.freeze(queues),
-            sourceRecords: Object.freeze(sourceRecords),
-            migrationCommitted: false as const,
-          }),
-        );
-      }
-      assertDirectory(parent);
+    const boundary = observeProjectRuntimeArea(
+      paths.repositoryRoot,
+      "project-runtime",
+    );
+    if (boundary.status === "not_observed") {
+      assertProjectRuntimeAreaUnchanged(
+        paths.repositoryRoot,
+        "project-runtime",
+        boundary,
+      );
+      return completed(
+        "project_runtime_legacy_inputs_observed",
+        Object.freeze({
+          states: Object.freeze(states),
+          queues: Object.freeze(queues),
+          sourceRecords: Object.freeze(sourceRecords),
+          migrationCommitted: false as const,
+        }),
+      );
     }
     for (const area of ["state", "queues"] as const) {
       const directory = path.join(paths.projectRuntime, area);
@@ -6240,8 +6400,11 @@ export function readLegacyProjectRuntimeStateAndQueueInputs(
         }
         throw error;
       }
-      assertDirectory(path.join(paths.repositoryRoot, ".crdd"));
-      assertDirectory(paths.projectRuntime);
+      assertProjectRuntimeAreaUnchanged(
+        paths.repositoryRoot,
+        "project-runtime",
+        boundary,
+      );
       assertDirectory(directory);
       const names = fs.readdirSync(directory).sort();
       if (names.length > 4096 || names.some((name) => !validId(name)))
@@ -6289,6 +6452,11 @@ export function readLegacyProjectRuntimeStateAndQueueInputs(
         }
       }
     }
+    assertProjectRuntimeAreaUnchanged(
+      paths.repositoryRoot,
+      "project-runtime",
+      boundary,
+    );
     return completed(
       "project_runtime_legacy_inputs_observed",
       Object.freeze({
@@ -6345,11 +6513,11 @@ export function readLegacyProjectRuntimeLeaseInputs(
   workingDirectory: string,
 ): StoreResult<LegacyLeaseInputs> {
   try {
-    const paths =
-      resolveRepositoryRuntimeDataPathsFromWorkingDirectory(workingDirectory);
+    const paths = resolveProjectRuntimeNamedPaths(workingDirectory);
     if (!paths) throw new Error("legacy_lease_root_invalid");
     const root = paths.repositoryRoot;
     assertDirectory(root);
+    const boundary = observeProjectRuntimeArea(root, "project-runtime");
     const observedParents = [root];
     /**
      * 親領域の真正不存在だけを許可する。
@@ -6396,8 +6564,9 @@ export function readLegacyProjectRuntimeLeaseInputs(
      * @security 本文の外部送信を行わない。
      * @concurrency N/A: 同期処理内で完結する。
      */
-    const result = () =>
-      completed(
+    const result = () => {
+      assertProjectRuntimeAreaUnchanged(root, "project-runtime", boundary);
+      return completed(
         "project_runtime_legacy_leases_observed",
         Object.freeze({
           evidence: Object.freeze(evidence),
@@ -6406,9 +6575,9 @@ export function readLegacyProjectRuntimeLeaseInputs(
           migrationCommitted: false as const,
         }),
       );
-    for (const parent of [path.join(root, ".crdd"), paths.projectRuntime]) {
-      if (!parentExists(parent)) return result();
-    }
+    };
+    if (boundary.status === "not_observed") return result();
+    observedParents.push(boundary.directory);
     /**
      * 一つの旧Fileを同handleで読取り、元bytesを記録する。
      * @responsibility 安定したUTF-8入力と導出元Hashを返す。

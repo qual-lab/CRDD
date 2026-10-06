@@ -2,7 +2,7 @@
 
 状態: 現行の操作手順
 担当責任者: Qual-Lab
-最終更新日: 2026-09-05
+最終更新日: 2026-10-06
 
 ## 目的と対象
 
@@ -14,8 +14,8 @@
 2. 公開入口の`verifyExecutionIntelligenceRepositoryRoot`へRootを渡す。拒否された場合は別Pathを推測せず、Effect 0で停止する。
 3. 利用側Adapterで、仕事Identityと実際に観測した値だけから閉Eventを構成する。取得していない値は理由付き`not_observed`とし、要求値、推定値または既定値で補わない。
 4. Root確認で返された同じ実行時能力とEventを`writeExecutionIntelligenceEvent`へ渡す。
-5. 発行結果の`effectState`、`cleanupConfirmed`、`retryAllowed`、`manualRecoveryRequired`および`residualArtifactIds`を確認する。`blocked`または観測不能を記録成功へ読み替えない。
-6. 集約または物理清掃では、同じRoot能力を使用する。清掃はexact Event Hash、未解決参照0および耐久Evidence IDが揃う場合だけ要求する。
+5. 公開Writerの成功は`status: "completed"`である。設計上の概念状態`recorded`をAPIのstatus値として判定しない。成功時も`effectState`、`cleanupConfirmed`、`retryAllowed`、`manualRecoveryRequired`および`residualArtifactIds`を確認する。`blocked`または観測不能を記録成功へ読み替えない。
+6. 集約では同じRoot能力を使用する。通常履歴の期間整理は保存Ownerの契約に従い、未解決・回収未確認の記録や正式Evidenceを期限だけで消さない。
 
 外部AI APIを利用する採用Repositoryでは、API呼出しそのものを実行知へ委譲しない。利用側が既存の認証、送信許可および実行契約に従ってAPIを実行し、結果から確認できたProvider、Model、利用量、所要時間および結果だけをAdapterで変換する。Prompt、Response、秘密値、外部送信Authorityまたは内部推論をEventへ渡さない。
 
@@ -56,6 +56,30 @@ created.recorder.recordTaskAttempt({
 ```
 
 この例の`workIdentity`、`durationMs`、`inputTokens`、`outputTokens`および`outcome`は利用側が成立させる値であり、ライブラリが推定する値ではない。利用量の一部だけ取得できる場合は取得済みfieldだけを`observed`にし、費用が不明だからTokenも未観測にする、またはCache未報告を0にする処理を行わない。ApplicationがBundlerやWorkspace packageを使う場合も公開package入口だけへ依存し、`src/core`や`src/store`を直接importしない。npm等の独立配布形態は現行Release範囲に含めず、CRDD clone／submodule内の同じ改訂版を利用する。
+
+## 一般Operationと新形式への移行
+
+Taskを持たない記事・画像・評価等は、同じRecorderの`recordOperation`へProject／Operation／ExecutionのIdentityを渡す。Task専用Identityを創作しない。Profile名から実効Modelを推定せず、実際に取得できた割当・診断・使用量だけを観測として渡す。生のProvider応答、自由文error、Header全体は渡さない。
+
+保存先は`<verified-repository-root>/.crdd/execution-intelligence/`である。旧`execution/`は自動読取り・変換・再生されない。フロントAIは次を実施する。
+
+1. 旧Producerを停止し、使用中・未解決・参照中の記録を確認する。
+2. 正式判断に必要な根拠を品質／CHGへ保全し、通常記録を新契約へ変換する。取得できない新fieldは理由付き未観測とする。
+3. 新公開Recorder／ReaderでIdentity、件数、欠測、結果を照合する。期限対象外として保全した物を通常履歴へ混ぜない。
+4. 移行結果と参照終了を確認した旧領域だけを清掃する。不明・使用中・未解決なら削除せず担当者へ戻す。
+
+## 履歴保持期間の設定
+
+設定は機能別でなくTool別に持つ。`template/.crdd/config/execution-intelligence.example.json`を参考に、次を`<verified-repository-root>/.crdd/config/execution-intelligence.json`へ置く。Project Runtimeは別の`project-runtime.json`と対応する設定例を用いる。非秘密のRepository設定として両ファイルをGit管理できる。実行履歴、Lock、一時物、秘密およびCandidateは追跡しない。
+
+```json
+{
+  "schemaRevision": 1,
+  "historyRetentionDays": 30
+}
+```
+
+各Toolは自分の設定だけを読み、もう一方の不正設定や不存在を処理条件にしない。設定ファイルが存在しない場合だけ各30日を使う。期間は正の整数日で指定し、不正設定を既定値へ黙って置換しない。設定は通常履歴だけに効き、キュー、未受理結果、未解決回復、候補Patch、認証、署名鍵、正式Evidenceには効かない。過去に削除済みの記録は期間を延ばしても復元されない。設定読取り不能・不正時は当該Toolの期間整理を停止し、無制限保持や短縮削除へFallbackしない。
 
 ## CRDD公式Repositoryでの開発確認
 

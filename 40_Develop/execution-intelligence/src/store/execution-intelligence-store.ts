@@ -7,6 +7,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { snapshotPlainRecord } from "../boundary/plain-data-snapshot.ts";
 
 import {
   inspectExecutionIntelligenceEvent,
@@ -21,6 +22,8 @@ import {
   ensureRepositoryRuntimeDataArea,
   RepositoryRuntimeDataAreaBlockedError,
   requireReadyRepositoryRuntimeDataArea,
+  observeRepositoryRuntimeDataArea,
+  readExecutionIntelligenceConfig,
 } from "../../../runtime-data/src/index.ts";
 import type { VerifiedRepositoryRoot } from "../../../version-control/src/repository-location.ts";
 
@@ -29,6 +32,44 @@ const MAXIMUM_TOTAL_BYTES = 32 * 1024 * 1024;
 const LOCK_ATTEMPTS = 200;
 const LOCK_RETRY_MS = 10;
 const waitArray = new Int32Array(new SharedArrayBuffer(4));
+/**
+ * 不存在と観測不能を区別してDirectory Entryを観測する。
+ * @responsibility ENOENTだけを不存在とし、権限不足やI/O障害を空状態へ畳まない。
+ * @trace ARCH-000007
+ * @input target: 検証済みRoot内の固定Path。
+ * @returns 観測した存在の真偽。
+ * @precondition 呼出し側がRootとPathの境界を検証済みである。
+ * @postcondition 不明をfalseへ補完しない。
+ * @effect Filesystem metadataを読み取る。書込みEffectは0。
+ * @failure ENOENT以外の観測障害を呼出し側へ伝播する。
+ * @invariant broken linkも存在として検査側へ渡す。
+ * @boundary StoreとFilesystem metadataの境界。
+ * @security 任意Pathを公開入力から受け取らない。
+ * @concurrency 原子的なlstat一回の観測だけを表し将来の不存在を保証しない。
+ */
+function entryExists(target: string): boolean {
+  try {
+    fs.lstatSync(target);
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+    throw error;
+  }
+}
+
+/**
+ * 読取り期間の半開区間を定義する。
+ * @responsibility 保存・物理保持とは独立した期間抽出条件を所有する。
+ * @trace ARCH-000007
+ * @shape ISO日時のfromInclusive以上、toExclusive未満。
+ * @invariant 全履歴の安全検査を期間抽出によって省略しない。
+ * @boundary N/A: 値契約だけを定義する。
+ * @security 任意PathやProvider本文を受け取らない。
+ * @compatibility 未指定では全件を返す。
+ */
+export type ExecutionIntelligenceReadOptions = Readonly<{
+  period: Readonly<{ fromInclusive: string; toExclusive: string }>;
+}>;
 
 /**
  * execution-intelligence-storeで使用するExecution Intelligence Publication 結果の値契約を定義する。
@@ -81,8 +122,10 @@ export type ExecutionIntelligencePublicationResult =
  */
 type StoreLayout = Readonly<{
   executionDirectory: string;
-  operationDirectory: string | null;
-  eventsDirectory: string | null;
+  boundaryIdentity: string | null;
+  history: string;
+  pending: string;
+  lock: string;
 }>;
 
 /**
@@ -97,7 +140,6 @@ type StoreLayout = Readonly<{
  * @compatibility MutationLockの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 type MutationLock = Readonly<{
-  directory: string;
   owner: string;
   identity: string;
 }>;
@@ -240,9 +282,9 @@ function ensureDirectory(directory: string): void {
  *
  * @responsibility store Layoutの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000007
- * @input rootCapability: VerifiedExecutionRepositoryRoot、shouldCreate: boolean、operationId: string | null、resolveArea: RuntimeDataAreaResolver
+ * @input rootCapability: VerifiedExecutionRepositoryRoot、shouldCreate: boolean、resolveArea: RuntimeDataAreaResolver
  * @returns StoreLayout | nullを返す。
- * @precondition 「rootCapability: VerifiedExecutionRepositoryRoot、shouldCreate: boolean、operationId: string | null、resolveArea: RuntimeDataAreaResolver」がstoreLayoutの入力契約を満たす。
+ * @precondition 「rootCapability: VerifiedExecutionRepositoryRoot、shouldCreate: boolean、resolveArea: RuntimeDataAreaResolver」がstoreLayoutの入力契約を満たす。
  * @postcondition storeLayoutの責務を完了した結果だけを返す。
  * @effect storeLayoutはFilesystemの読取りまたは書込みを実行する。
  * @failure storeLayoutは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -254,15 +296,32 @@ function ensureDirectory(directory: string): void {
 function storeLayout(
   rootCapability: VerifiedExecutionRepositoryRoot,
   shouldCreate: boolean,
-  operationId: string | null = null,
   resolveArea: RuntimeDataAreaResolver = ensureRepositoryRuntimeDataArea,
 ): StoreLayout | null {
   const repositoryRoot = resolveVerifiedExecutionRepositoryRoot(rootCapability);
   if (repositoryRoot === null)
     throw new Error("execution_store_root_capability_invalid");
+  if (!shouldCreate) {
+    const area = observeRepositoryRuntimeDataArea(
+      rootCapability,
+      "execution-intelligence",
+    );
+    if (area.status === "not_observed") return null;
+    if (area.status === "blocked")
+      throw new MutationBoundaryError(area.reason, []);
+    if (area.repositoryRoot !== repositoryRoot)
+      throw new Error("execution_store_root_capability_invalid");
+    return Object.freeze({
+      executionDirectory: area.directory,
+      boundaryIdentity: area.boundaryIdentity,
+      history: path.join(area.directory, "history.jsonl"),
+      pending: path.join(area.directory, "history.pending.jsonl"),
+      lock: path.join(area.directory, "history.lock"),
+    });
+  }
   let observedArea = resolveArea(
     rootCapability as VerifiedRepositoryRoot,
-    "execution",
+    "execution-intelligence",
   );
   for (
     let attempt = 0;
@@ -274,7 +333,7 @@ function storeLayout(
     Atomics.wait(waitArray, 0, 0, LOCK_RETRY_MS);
     observedArea = resolveArea(
       rootCapability as VerifiedRepositoryRoot,
-      "execution",
+      "execution-intelligence",
     );
   }
   const area = requireReadyRepositoryRuntimeDataArea(
@@ -284,18 +343,8 @@ function storeLayout(
   if (area.repositoryRoot !== repositoryRoot)
     throw new Error("execution_store_root_capability_invalid");
   const executionDirectory = area.directory;
-  const operationDirectory =
-    operationId === null ? null : path.join(executionDirectory, operationId);
-  const eventsDirectory =
-    operationDirectory === null
-      ? null
-      : path.join(operationDirectory, "events");
-  for (const directory of [
-    executionDirectory,
-    operationDirectory,
-    eventsDirectory,
-  ].filter((value): value is string => value !== null)) {
-    if (!fs.existsSync(directory)) {
+  for (const directory of [executionDirectory]) {
+    if (!entryExists(directory)) {
       if (!shouldCreate) return null;
       ensureDirectory(directory);
     } else if (!safeDirectory(directory))
@@ -303,8 +352,10 @@ function storeLayout(
   }
   return Object.freeze({
     executionDirectory,
-    operationDirectory,
-    eventsDirectory,
+    boundaryIdentity: null,
+    history: path.join(executionDirectory, "history.jsonl"),
+    pending: path.join(executionDirectory, "history.pending.jsonl"),
+    lock: path.join(executionDirectory, "history.lock"),
   });
 }
 
@@ -322,51 +373,45 @@ function storeLayout(
  * @invariant acquireMutationLockは宣言した境界以外へEffectを拡張しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
  * @security N/A: acquireMutationLockはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: acquireMutationLockは共有非同期状態を持たない同期処理である。
+ * @concurrency Root全体のhistory.lockをwxで排他的に取得し、未所有Lockを自動奪取しない。
  */
 function acquireMutationLock(layout: StoreLayout): MutationLock | null {
-  if (layout.operationDirectory === null)
-    throw new Error("execution_store_operation_directory_missing");
-  const directory = path.join(layout.operationDirectory, ".mutation-lock");
   for (let attempt = 0; attempt < LOCK_ATTEMPTS; attempt += 1) {
+    let descriptor: number;
     try {
-      fs.mkdirSync(directory, { mode: 0o700 });
+      descriptor = fs.openSync(layout.lock, "wx", 0o600);
     } catch (error) {
-      const code = (error as NodeJS.ErrnoException).code;
-      if (code !== "EEXIST") throw error;
-      if (!safeDirectory(directory))
-        throw new Error("execution_store_lock_boundary_invalid");
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
       Atomics.wait(waitArray, 0, 0, LOCK_RETRY_MS);
       continue;
     }
-
     const identity = randomUUID();
-    const owner = path.join(directory, "owner.json");
     try {
-      const descriptor = fs.openSync(owner, "wx", 0o600);
       try {
         fs.writeFileSync(
           descriptor,
-          `${JSON.stringify({ contract: "crdd/execution-store-lock/v1", identity })}\n`,
+          `${JSON.stringify({
+            contract: "crdd/execution-store-lock/v2",
+            identity,
+          })}\n`,
           "utf8",
         );
         fs.fsyncSync(descriptor);
       } finally {
         fs.closeSync(descriptor);
       }
-      return Object.freeze({ directory, owner, identity });
+      return Object.freeze({ owner: layout.lock, identity });
     } catch {
-      let cleanupConfirmed = false;
+      let isCleanupConfirmed = false;
       try {
-        if (fs.existsSync(owner)) fs.unlinkSync(owner);
-        if (fs.existsSync(directory)) fs.rmdirSync(directory);
-        cleanupConfirmed = !fs.existsSync(directory);
+        fs.unlinkSync(layout.lock);
+        isCleanupConfirmed = !entryExists(layout.lock);
       } catch {
-        cleanupConfirmed = false;
+        isCleanupConfirmed = false;
       }
       throw new MutationBoundaryError(
         "execution_store_lock_initialization_failed",
-        cleanupConfirmed ? [] : ["execution-store-mutation-lock"],
+        isCleanupConfirmed ? [] : ["history.lock"],
       );
     }
   }
@@ -387,20 +432,24 @@ function acquireMutationLock(layout: StoreLayout): MutationLock | null {
  * @invariant releaseMutationLockは宣言した境界以外へEffectを拡張しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
  * @security N/A: releaseMutationLockはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: releaseMutationLockは共有非同期状態を持たない同期処理である。
+ * @concurrency exactな所有Identityが一致するLockだけを解放する。
  */
 function releaseMutationLock(lock: MutationLock): boolean {
   try {
-    const parsed = JSON.parse(fs.readFileSync(lock.owner, "utf8")) as unknown;
+    const status = fs.lstatSync(lock.owner);
+    if (!status.isFile() || status.isSymbolicLink() || status.nlink !== 1)
+      return false;
+    const parsed = JSON.parse(fs.readFileSync(lock.owner, "utf8")) as {
+      identity?: unknown;
+      contract?: unknown;
+    };
     if (
-      typeof parsed !== "object" ||
-      parsed === null ||
-      (parsed as { identity?: unknown }).identity !== lock.identity
+      parsed.contract !== "crdd/execution-store-lock/v2" ||
+      parsed.identity !== lock.identity
     )
       return false;
     fs.unlinkSync(lock.owner);
-    fs.rmdirSync(lock.directory);
-    return !fs.existsSync(lock.directory);
+    return !entryExists(lock.owner);
   } catch {
     return false;
   }
@@ -433,7 +482,7 @@ function blockedPublication(
     effectStateUnknown?: boolean;
     recoveryReference?: string | null;
   }> = {},
-): ExecutionIntelligencePublicationResult {
+): Extract<ExecutionIntelligencePublicationResult, { status: "blocked" }> {
   const isEffectStateUnknown =
     boundary.effectStateUnknown ?? effectState === "unknown";
   const recoveryReference = boundary.recoveryReference ?? null;
@@ -462,7 +511,7 @@ function blockedPublication(
  * @precondition 「target: string、expected: Buffer、eventId: string」がexistingPublicationの入力契約を満たす。
  * @postcondition existingPublicationの責務を完了した結果だけを返す。
  * @effect existingPublicationはFilesystemの読取りまたは書込みを実行する。
- * @failure N/A: existingPublicationは独自の失敗分岐を所有しない。
+ * @failure 完成bytes不一致または読取り失敗をthrowし、呼出し側が公開後Effect不明として閉じる。
  * @invariant existingPublicationは宣言した境界以外へEffectを拡張しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
  * @security N/A: existingPublicationはAuthority、秘密値または信頼判断を扱わない。
@@ -474,26 +523,21 @@ function existingPublication(
   eventId: string,
 ): ExecutionIntelligencePublicationResult {
   const existing = fs.readFileSync(target);
-  return existing.equals(expected)
-    ? Object.freeze({
-        status: "completed" as const,
-        reason: "execution_event_already_recorded" as const,
-        eventId,
-        effectState: "settled" as const,
-        effectIssued: true as const,
-        effectStateUnknown: false as const,
-        cleanupConfirmed: true as const,
-        retryAllowed: false as const,
-        manualRecoveryRequired: false as const,
-        residualArtifactIds: Object.freeze([]) as readonly [],
-        recoveryReference: null,
-      })
-    : blockedPublication(
-        "execution_event_identity_conflict",
-        "no_effect",
-        true,
-        [],
-      );
+  if (!existing.equals(expected))
+    throw new Error("execution_store_publication_readback_mismatch");
+  return Object.freeze({
+    status: "completed" as const,
+    reason: "execution_event_already_recorded" as const,
+    eventId,
+    effectState: "settled" as const,
+    effectIssued: true as const,
+    effectStateUnknown: false as const,
+    cleanupConfirmed: true as const,
+    retryAllowed: false as const,
+    manualRecoveryRequired: false as const,
+    residualArtifactIds: Object.freeze([]) as readonly [],
+    recoveryReference: null,
+  });
 }
 
 /**
@@ -510,147 +554,195 @@ function existingPublication(
  * @invariant writeExecutionIntelligenceEventWithRuntimeDataAreaは宣言した境界以外へEffectを拡張しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
  * @security N/A: writeExecutionIntelligenceEventWithRuntimeDataAreaはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: writeExecutionIntelligenceEventWithRuntimeDataAreaは共有非同期状態を持たない同期処理である。
+ * @concurrency Root全体のLockで設定取得・読取り・保持整理・原子的公開を直列化する。
  */
 export function writeExecutionIntelligenceEventWithRuntimeDataArea(
   rootCapability: VerifiedExecutionRepositoryRoot,
   value: unknown,
   resolveArea: RuntimeDataAreaResolver,
+  clock: () => number = Date.now,
 ): ExecutionIntelligencePublicationResult {
   const event = inspectExecutionIntelligenceEvent(value);
   if (!event)
     return blockedPublication("execution_event_invalid", "no_effect", true, []);
-  let lock: MutationLock | null = null;
-  let temporary: string | null = null;
-  let target: string | null = null;
+  let layout: StoreLayout | null = null,
+    lock: MutationLock | null = null;
+  let isPendingOwned = false,
+    wasPublicationAttempted = false;
   let expected: Buffer | null = null;
   let result: ExecutionIntelligencePublicationResult | null = null;
-  let lockReleased = true;
   try {
-    const layout = storeLayout(
-      rootCapability,
-      true,
-      event.identity.operationId,
-      resolveArea,
-    );
+    layout = storeLayout(rootCapability, true, resolveArea);
     if (!layout) throw new Error("execution_store_directory_missing");
-    if (layout.eventsDirectory === null)
-      throw new Error("execution_store_events_directory_missing");
     lock = acquireMutationLock(layout);
     if (!lock)
       return blockedPublication(
         "execution_store_lock_unavailable",
         "no_effect",
         false,
-        ["execution-store-mutation-lock"],
+        ["history.lock"],
         true,
       );
-    target = path.join(layout.eventsDirectory, `${event.eventId}.json`);
-    expected = Buffer.from(`${JSON.stringify(event)}\n`, "utf8");
-    if (fs.existsSync(target))
-      result = existingPublication(target, expected, event.eventId);
-    else {
-      const temporaryIdentity = `execution-pending-${randomUUID()}`;
-      temporary = path.join(layout.eventsDirectory, `.${temporaryIdentity}`);
-      const descriptor = fs.openSync(temporary, "wx", 0o600);
-      try {
-        fs.writeFileSync(descriptor, expected);
-        fs.fsyncSync(descriptor);
-      } finally {
-        fs.closeSync(descriptor);
+    if (entryExists(layout.pending))
+      throw new MutationBoundaryError("execution_store_pending_unresolved", [
+        "history.pending.jsonl",
+      ]);
+    const now = clock();
+    if (!Number.isFinite(now)) throw new Error("execution_store_clock_invalid");
+    const settings = readExecutionIntelligenceConfig(rootCapability);
+    if (settings.status === "blocked")
+      throw new MutationBoundaryError(settings.reason, []);
+    const cutoff =
+      now - settings.config.historyRetentionDays * 24 * 60 * 60 * 1000;
+    const protectedEvent = (entry: ExecutionIntelligenceEvent) =>
+      !entry.outcome.cleanupConfirmed ||
+      entry.outcome.manualRecoveryRequired ||
+      entry.outcome.processRestartRequired ||
+      entry.outcome.effectState === "unknown";
+    if (Date.parse(event.occurredAt) < cutoff && !protectedEvent(event)) {
+      result = blockedPublication(
+        "execution_event_retention_expired",
+        "no_effect",
+        true,
+        [],
+      );
+    } else {
+      const history = readFromExecutionDirectory(layout.executionDirectory);
+      const existing = history.events.find(
+        (entry) => entry.eventId === event.eventId,
+      );
+      if (existing && JSON.stringify(existing) !== JSON.stringify(event))
+        result = blockedPublication(
+          "execution_event_identity_conflict",
+          "no_effect",
+          true,
+          [],
+        );
+      else {
+        const retainedEvents = history.events.filter(
+          (entry) =>
+            Date.parse(entry.occurredAt) >= cutoff || protectedEvent(entry),
+        );
+        if (!existing) retainedEvents.push(event);
+        if (retainedEvents.length > MAXIMUM_EVENTS)
+          throw new MutationBoundaryError(
+            "execution_store_event_limit_exceeded",
+            [],
+          );
+        expected = Buffer.from(
+          retainedEvents.map((entry) => `${JSON.stringify(entry)}\n`).join(""),
+          "utf8",
+        );
+        if (expected.length > MAXIMUM_TOTAL_BYTES)
+          throw new MutationBoundaryError(
+            "execution_store_byte_limit_exceeded",
+            [],
+          );
+        const descriptor = fs.openSync(layout.pending, "wx", 0o600);
+        isPendingOwned = true;
+        try {
+          fs.writeFileSync(descriptor, expected);
+          fs.fsyncSync(descriptor);
+        } finally {
+          fs.closeSync(descriptor);
+        }
+        if (!fs.readFileSync(layout.pending).equals(expected))
+          throw new Error("execution_store_pending_readback_mismatch");
+        wasPublicationAttempted = true;
+        fs.renameSync(layout.pending, layout.history);
+        if (entryExists(layout.pending))
+          throw new Error("execution_store_publication_incomplete");
+        isPendingOwned = false;
+        result = existingPublication(layout.history, expected, event.eventId);
+        if (result.status === "completed")
+          result = Object.freeze({
+            ...result,
+            reason: existing
+              ? ("execution_event_already_recorded" as const)
+              : ("execution_event_recorded" as const),
+          });
       }
-      try {
-        fs.linkSync(temporary, target);
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
-      }
-      result = existingPublication(target, expected, event.eventId);
-      fs.unlinkSync(temporary);
-      temporary = null;
-      if (result.status === "completed")
-        result = Object.freeze({
-          ...result,
-          reason: "execution_event_recorded" as const,
-        });
     }
   } catch (error) {
-    let effectState: "no_effect" | "settled" | "unknown" = "no_effect";
-    if (target !== null && expected !== null) {
-      try {
-        if (fs.existsSync(target) && fs.readFileSync(target).equals(expected))
-          effectState = "settled";
-      } catch {
-        effectState = "unknown";
-      }
-    }
-    const runtimeDataFailure =
+    const failure =
       error instanceof RepositoryRuntimeDataAreaBlockedError ? error : null;
-    const boundaryResiduals =
-      error instanceof MutationBoundaryError
-        ? error.residualArtifactIds
-        : Object.freeze([]);
+    const effectState: "no_effect" | "settled" | "unknown" =
+      wasPublicationAttempted ? "unknown" : "no_effect";
+    const residuals =
+      error instanceof MutationBoundaryError ? error.residualArtifactIds : [];
     result = blockedPublication(
-      runtimeDataFailure?.reason ??
+      failure?.reason ??
         (error instanceof MutationBoundaryError
           ? error.message
           : "execution_event_store_unavailable"),
-      runtimeDataFailure?.effectStateUnknown
+      failure?.effectStateUnknown
         ? "unknown"
-        : runtimeDataFailure?.effectIssued
+        : failure?.effectIssued
           ? "settled"
           : effectState,
-      runtimeDataFailure?.cleanupConfirmed ??
-        (temporary === null && boundaryResiduals.length === 0),
-      [
-        ...(temporary === null ? [] : [path.basename(temporary)]),
-        ...boundaryResiduals,
-      ],
-      runtimeDataFailure?.retryAllowed ?? false,
-      runtimeDataFailure
+      failure?.cleanupConfirmed ?? (!isPendingOwned && residuals.length === 0),
+      [...(isPendingOwned ? ["history.pending.jsonl"] : []), ...residuals],
+      failure?.retryAllowed ?? false,
+      failure
         ? {
-            effectIssued: runtimeDataFailure.effectIssued,
-            effectStateUnknown: runtimeDataFailure.effectStateUnknown,
-            recoveryReference: runtimeDataFailure.recoveryReference,
+            effectIssued: failure.effectIssued,
+            effectStateUnknown: failure.effectStateUnknown,
+            recoveryReference: failure.recoveryReference,
           }
-        : {},
+        : { recoveryReference: wasPublicationAttempted ? event.eventId : null },
     );
   } finally {
-    if (temporary !== null) {
+    if (isPendingOwned && layout) {
       try {
-        if (fs.existsSync(temporary)) fs.unlinkSync(temporary);
-        temporary = null;
+        fs.unlinkSync(layout.pending);
+        isPendingOwned = entryExists(layout.pending);
       } catch {
-        // The closed result below preserves the residual identity.
+        isPendingOwned = true;
       }
     }
-    if (lock !== null) {
-      lockReleased = releaseMutationLock(lock);
-      if (!lockReleased || temporary !== null)
-        result = blockedPublication(
-          "execution_event_store_cleanup_unknown",
-          result?.effectState ?? "unknown",
-          false,
-          [
-            ...(temporary === null ? [] : [path.basename(temporary)]),
-            ...(lockReleased ? [] : ["execution-store-mutation-lock"]),
-          ],
-        );
-    }
+    const released = lock === null || releaseMutationLock(lock);
+    if (!released || isPendingOwned)
+      result = blockedPublication(
+        "execution_event_store_cleanup_unknown",
+        result?.effectState ?? "unknown",
+        false,
+        [
+          ...(isPendingOwned ? ["history.pending.jsonl"] : []),
+          ...(released ? [] : ["history.lock"]),
+        ],
+        false,
+        {
+          effectIssued: result?.effectIssued ?? wasPublicationAttempted,
+          effectStateUnknown: result?.effectStateUnknown ?? true,
+          recoveryReference:
+            result?.recoveryReference ??
+            (wasPublicationAttempted ? event.eventId : null),
+        },
+      );
+    else if (
+      result?.status === "blocked" &&
+      result.reason === "execution_event_store_unavailable"
+    )
+      result = blockedPublication(
+        result.reason,
+        result.effectState,
+        true,
+        [],
+        false,
+        {
+          effectIssued: result.effectIssued,
+          effectStateUnknown: result.effectStateUnknown,
+          recoveryReference: result.recoveryReference,
+        },
+      );
   }
-  if (
-    result?.status === "blocked" &&
-    temporary === null &&
-    lockReleased &&
-    result.reason === "execution_event_store_unavailable"
-  )
-    result = blockedPublication(result.reason, result.effectState, true, []);
   return (
     result ??
     blockedPublication(
       "execution_event_store_observation_unknown",
       "unknown",
       false,
-      ["execution-store-mutation-lock"],
+      ["history.lock"],
     )
   );
 }
@@ -699,55 +791,86 @@ export function writeExecutionIntelligenceEvent(
  * @concurrency N/A: readFromExecutionDirectoryは共有非同期状態を持たない同期処理である。
  */
 function readFromExecutionDirectory(directory: string) {
+  const history = path.join(directory, "history.jsonl");
   const events: ExecutionIntelligenceEvent[] = [];
-  const hashes: Record<string, string> = {};
-  let totalBytes = 0;
-  for (const operationId of fs.readdirSync(directory).sort()) {
-    if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(operationId))
-      throw new Error("execution_store_operation_directory_invalid");
-    const operationDirectory = path.join(directory, operationId);
-    if (!safeDirectory(operationDirectory))
-      throw new Error("execution_store_operation_directory_invalid");
-    const names = fs.readdirSync(operationDirectory).sort();
-    if (names.length !== 1 || names[0] !== "events")
-      throw new Error("execution_store_operation_shape_invalid");
-    const eventsDirectory = path.join(operationDirectory, "events");
-    if (!safeDirectory(eventsDirectory))
-      throw new Error("execution_store_event_directory_invalid");
-    for (const name of fs.readdirSync(eventsDirectory).sort()) {
-      if (!/^execution-[0-9a-f]{64}\.json$/u.test(name))
-        throw new Error("execution_store_filename_invalid");
-      const target = path.join(eventsDirectory, name);
-      const status = fs.lstatSync(target);
-      if (!status.isFile() || status.isSymbolicLink())
-        throw new Error("execution_store_entry_type_invalid");
-      totalBytes += status.size;
-      if (events.length >= MAXIMUM_EVENTS)
-        throw new Error("execution_store_event_limit_exceeded");
-      if (totalBytes > MAXIMUM_TOTAL_BYTES)
-        throw new Error("execution_store_byte_limit_exceeded");
-      const bytes = fs.readFileSync(target);
-      const event = inspectExecutionIntelligenceEvent(
-        JSON.parse(bytes.toString("utf8")),
+  const hashes: Record<string, string> = Object.create(null);
+  const allowed = new Set([
+    "history.jsonl",
+    "history.pending.jsonl",
+    "history.lock",
+  ]);
+  if (fs.readdirSync(directory).some((name) => !allowed.has(name)))
+    throw new Error("execution_store_filename_invalid");
+  const historyExists = entryExists(history);
+  if (historyExists) {
+    const status = fs.lstatSync(history);
+    if (!status.isFile() || status.isSymbolicLink() || status.nlink !== 1)
+      throw new Error("execution_store_entry_type_invalid");
+    if (status.size > MAXIMUM_TOTAL_BYTES)
+      throw new MutationBoundaryError(
+        "execution_store_byte_limit_exceeded",
+        [],
       );
+    const descriptor = fs.openSync(history, "r");
+    let bytes: Buffer;
+    try {
+      const actual = fs.fstatSync(descriptor);
       if (
-        !event ||
-        `${event.eventId}.json` !== name ||
-        event.identity.operationId !== operationId
+        !actual.isFile() ||
+        actual.nlink !== 1 ||
+        actual.size > MAXIMUM_TOTAL_BYTES
       )
+        throw new Error("execution_store_entry_type_invalid");
+      bytes = Buffer.alloc(actual.size);
+      let offset = 0;
+      while (offset < bytes.length) {
+        const count = fs.readSync(
+          descriptor,
+          bytes,
+          offset,
+          bytes.length - offset,
+          offset,
+        );
+        if (count === 0) throw new Error("execution_store_read_incomplete");
+        offset += count;
+      }
+    } finally {
+      fs.closeSync(descriptor);
+    }
+    const source = bytes.toString("utf8");
+    if (!Buffer.from(source, "utf8").equals(bytes))
+      throw new Error("execution_store_encoding_invalid");
+    if (source && !source.endsWith("\n"))
+      throw new Error("execution_store_incomplete_record");
+    for (const line of source ? source.slice(0, -1).split("\n") : []) {
+      if (events.length >= MAXIMUM_EVENTS)
+        throw new MutationBoundaryError(
+          "execution_store_event_limit_exceeded",
+          [],
+        );
+      const event = inspectExecutionIntelligenceEvent(JSON.parse(line));
+      if (!event || Object.hasOwn(hashes, event.eventId))
         throw new Error("execution_store_content_invalid");
       events.push(event);
-      hashes[event.eventId] = sha256(bytes);
+      hashes[event.eventId] = sha256(Buffer.from(`${line}\n`));
     }
   }
   const summary = summarizeExecutionIntelligence(events);
   if (!summary) throw new Error("execution_summary_invalid");
   return Object.freeze({
     status: "completed" as const,
-    reason: "execution_events_observed" as const,
+    reason: (historyExists
+      ? "execution_events_observed"
+      : "execution_events_not_observed") as
+      | "execution_events_observed"
+      | "execution_events_not_observed",
+    observationState: (historyExists ? "observed" : "not_observed") as
+      | "observed"
+      | "not_observed",
     events: Object.freeze(events),
     hashes: Object.freeze(hashes),
     summary,
+    period: null as ExecutionIntelligenceReadOptions["period"] | null,
   });
 }
 
@@ -760,54 +883,148 @@ function readFromExecutionDirectory(directory: string) {
  * @returns | ReturnType<typeof readFromExecutionDirectory> | Extract<ExecutionIntelligencePublicationResult, { status: "blocked" }>を返す。
  * @precondition 「rootCapability: VerifiedExecutionRepositoryRoot、resolveArea: RuntimeDataAreaResolver」がreadExecutionIntelligenceWithRuntimeDataAreaの入力契約を満たす。
  * @postcondition readExecutionIntelligenceWithRuntimeDataAreaの責務を完了した結果だけを返す。
- * @effect N/A: readExecutionIntelligenceWithRuntimeDataAreaは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect Filesystemを読み取る。Lock、設定、Directoryの作成・変更Effectは0。
  * @failure readExecutionIntelligenceWithRuntimeDataAreaは入力不正または下位処理の失敗を呼出し側へ返す。
  * @invariant readExecutionIntelligenceWithRuntimeDataAreaは入力から導いた結果以外の共有状態を変更しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
  * @security N/A: readExecutionIntelligenceWithRuntimeDataAreaはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: readExecutionIntelligenceWithRuntimeDataAreaは共有非同期状態を持たない同期処理である。
+ * @concurrency Lock／pendingを読取り前後に観測し、原子的に公開した完全なhistory snapshotだけを返す。
  */
 export function readExecutionIntelligenceWithRuntimeDataArea(
   rootCapability: VerifiedExecutionRepositoryRoot,
   resolveArea: RuntimeDataAreaResolver,
+  options?: ExecutionIntelligenceReadOptions,
 ):
   | ReturnType<typeof readFromExecutionDirectory>
   | Extract<ExecutionIntelligencePublicationResult, { status: "blocked" }> {
   try {
-    const layout = storeLayout(rootCapability, false, null, resolveArea);
-    if (layout === null) {
-      const emptySummary = summarizeExecutionIntelligence([]);
-      if (!emptySummary) throw new Error("execution_empty_summary_invalid");
-      return Object.freeze({
-        status: "completed" as const,
-        reason: "execution_events_observed" as const,
-        events: Object.freeze([]),
-        hashes: Object.freeze({}),
-        summary: emptySummary,
+    let period: { fromInclusive: number; toExclusive: number } | null = null;
+    let requestedPeriod: ExecutionIntelligenceReadOptions["period"] | null =
+      null;
+    if (options !== undefined) {
+      const parsed = snapshotPlainRecord(options, new Set(["period"]));
+      const range =
+        parsed &&
+        snapshotPlainRecord(
+          parsed.period,
+          new Set(["fromInclusive", "toExclusive"]),
+        );
+      if (
+        !range ||
+        typeof range.fromInclusive !== "string" ||
+        typeof range.toExclusive !== "string"
+      )
+        return blockedPublication(
+          "execution_period_invalid",
+          "no_effect",
+          true,
+          [],
+        );
+      const fromInclusive = Date.parse(range.fromInclusive),
+        toExclusive = Date.parse(range.toExclusive);
+      if (
+        !Number.isFinite(fromInclusive) ||
+        !Number.isFinite(toExclusive) ||
+        fromInclusive >= toExclusive
+      )
+        return blockedPublication(
+          "execution_period_invalid",
+          "no_effect",
+          true,
+          [],
+        );
+      period = { fromInclusive, toExclusive };
+      requestedPeriod = Object.freeze({
+        fromInclusive: range.fromInclusive,
+        toExclusive: range.toExclusive,
       });
     }
-    return readFromExecutionDirectory(layout.executionDirectory);
+    const layout = storeLayout(rootCapability, false, resolveArea);
+    if (!layout) {
+      const summary = summarizeExecutionIntelligence([]);
+      if (!summary) throw new Error("execution_summary_invalid");
+      return Object.freeze({
+        status: "completed" as const,
+        reason: "execution_events_not_observed" as const,
+        observationState: "not_observed" as const,
+        events: Object.freeze([]),
+        hashes: Object.freeze({}),
+        summary,
+        period: requestedPeriod,
+      });
+    }
+    const unsettled = () =>
+      [layout.lock, layout.pending]
+        .filter((target) => entryExists(target))
+        .map((target) => path.basename(target));
+    let residuals = unsettled();
+    if (residuals.length)
+      return blockedPublication(
+        "execution_store_publication_pending",
+        "unknown",
+        false,
+        residuals,
+        true,
+        { effectIssued: false },
+      );
+    const result = readFromExecutionDirectory(layout.executionDirectory);
+    const finalArea = observeRepositoryRuntimeDataArea(
+      rootCapability,
+      "execution-intelligence",
+    );
+    if (
+      finalArea.status !== "ready" ||
+      finalArea.boundaryIdentity !== layout.boundaryIdentity ||
+      finalArea.repositoryRoot !==
+        resolveVerifiedExecutionRepositoryRoot(rootCapability)
+    )
+      return blockedPublication(
+        "execution_store_boundary_changed",
+        "no_effect",
+        true,
+        [],
+      );
+    residuals = unsettled();
+    if (residuals.length)
+      return blockedPublication(
+        "execution_store_publication_pending",
+        "unknown",
+        false,
+        residuals,
+        true,
+        { effectIssued: false },
+      );
+    if (!period) return result;
+    const events = result.events.filter(
+      (event) =>
+        Date.parse(event.occurredAt) >= period.fromInclusive &&
+        Date.parse(event.occurredAt) < period.toExclusive,
+    );
+    const summary = summarizeExecutionIntelligence(events);
+    if (!summary) throw new Error("execution_summary_invalid");
+    const hashes = Object.fromEntries(
+      events.map((event) => {
+        const hash = result.hashes[event.eventId];
+        if (typeof hash !== "string") throw new Error("execution_hash_missing");
+        return [event.eventId, hash] as const;
+      }),
+    );
+    return Object.freeze({
+      ...result,
+      events: Object.freeze(events),
+      hashes: Object.freeze(hashes),
+      summary,
+      period: requestedPeriod,
+    });
   } catch (error) {
-    const runtimeDataFailure =
-      error instanceof RepositoryRuntimeDataAreaBlockedError ? error : null;
     return blockedPublication(
-      runtimeDataFailure?.reason ?? "execution_event_store_observation_failed",
-      runtimeDataFailure?.effectStateUnknown
-        ? "unknown"
-        : runtimeDataFailure?.effectIssued
-          ? "settled"
-          : "no_effect",
-      runtimeDataFailure?.cleanupConfirmed ?? true,
+      error instanceof MutationBoundaryError
+        ? error.message
+        : "execution_event_store_observation_failed",
+      "no_effect",
+      true,
       [],
-      runtimeDataFailure?.retryAllowed ?? false,
-      runtimeDataFailure
-        ? {
-            effectIssued: runtimeDataFailure.effectIssued,
-            effectStateUnknown: runtimeDataFailure.effectStateUnknown,
-            recoveryReference: runtimeDataFailure.recoveryReference,
-          }
-        : {},
-    ) as Extract<ExecutionIntelligencePublicationResult, { status: "blocked" }>;
+    );
   }
 }
 
@@ -820,7 +1037,7 @@ export function readExecutionIntelligenceWithRuntimeDataArea(
  * @returns readExecutionIntelligenceの計算結果を返す。
  * @precondition 「rootCapability: VerifiedExecutionRepositoryRoot」がreadExecutionIntelligenceの入力契約を満たす。
  * @postcondition readExecutionIntelligenceの責務を完了した結果だけを返す。
- * @effect N/A: readExecutionIntelligenceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect Filesystemを読み取る。Lock、設定、Directoryの作成・変更Effectは0。
  * @failure N/A: readExecutionIntelligenceは独自の失敗分岐を所有しない。
  * @invariant readExecutionIntelligenceは入力から導いた結果以外の共有状態を変更しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
@@ -829,9 +1046,11 @@ export function readExecutionIntelligenceWithRuntimeDataArea(
  */
 export function readExecutionIntelligence(
   rootCapability: VerifiedExecutionRepositoryRoot,
+  options?: ExecutionIntelligenceReadOptions,
 ) {
   return readExecutionIntelligenceWithRuntimeDataArea(
     rootCapability,
     ensureRepositoryRuntimeDataArea,
+    options,
   );
 }

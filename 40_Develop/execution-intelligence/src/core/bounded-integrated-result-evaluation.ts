@@ -6,7 +6,7 @@
  */
 import {
   inspectExecutionIntelligenceEvent,
-  type ExecutionIntelligenceEvent,
+  type TaskAttemptExecutionIntelligenceEvent,
   type ExecutionObservation,
 } from "./execution-intelligence.ts";
 import {
@@ -70,7 +70,7 @@ export type BoundedIntegratedResultEvaluationInput = Readonly<{
   projectId: string;
   milestoneId: string;
   expectedTaskIds: readonly string[];
-  taskAttemptEvents: readonly ExecutionIntelligenceEvent[];
+  taskAttemptEvents: readonly TaskAttemptExecutionIntelligenceEvent[];
   integratedResult: IntegratedResultObservation;
   measurements: Readonly<{
     timeToAcceptedResultMs: CountObservation;
@@ -375,13 +375,15 @@ export function inspectBoundedIntegratedResultEvaluationInput(
   const integratedResult = inspectIntegratedResult(input.integratedResult);
   const measurements = inspectMeasurements(input.measurements);
   if (
-    events.some((entry) => entry === null) ||
+    events.some(
+      (entry) => entry === null || entry.eventType !== "task_attempt_settled",
+    ) ||
     !integratedResult ||
     !measurements ||
     new Set(events.map((entry) => entry?.eventId)).size !== events.length
   )
     return null;
-  const exactEvents = events as ExecutionIntelligenceEvent[];
+  const exactEvents = events as TaskAttemptExecutionIntelligenceEvent[];
   if (
     exactEvents.some(
       (event) =>

@@ -365,8 +365,8 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
       ownerSurface.quality.projection?.unobserved,
     );
     assert.equal(
-      model.surface.quality.projection?.nextGate ?? "",
-      "Workbench実Provider E2E、必要な四経路E2E、個別品質項目の照合、最終配布固定と署名照合",
+      model.surface.quality.projection?.nextGate,
+      ownerSurface.quality.projection?.nextGate,
     );
     assert.ok(model.surface.ownerArtifacts.artifacts.length > 0);
 

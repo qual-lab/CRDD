@@ -126,11 +126,17 @@ export function projectExecutionRecords(
       });
       continue;
     }
-    if (!attemptIds.value.includes(inspected.identity.attemptId)) {
+    if (
+      inspected.eventType !== "task_attempt_settled" ||
+      !attemptIds.value.includes(inspected.identity.attemptId)
+    ) {
       excludedEvents.push({
         eventId: inspected.eventId,
         state: "outside_attempt",
-        reason: "attempt_identity_mismatch",
+        reason:
+          inspected.eventType === "task_attempt_settled"
+            ? "attempt_identity_mismatch"
+            : "operation_event_outside_task_query",
       });
       continue;
     }

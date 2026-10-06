@@ -88,6 +88,22 @@ Source Definition由来の検証義務を維持し、Detailは具体的な観測
 
 全数Coverageと試験段階の扱いは[UI／SPEC DetailのQuality分析](../../Analysis/Detail/quality_analysis.md)を中央統合投影とし、本定義は上記Relationの検証責務を局所所有する。
 
+## 実行知v2・履歴保存刷新の検証条件
+
+情報源は[実行知の共通観測と保存契約](../../../06_Architecture/Details/execution-intelligence/01_Architecture.md#10-実行知の共通観測と保存契約)。既存の検証目標と局所項目へ次の意味ケースを接続する。表の存在やSchema適合を実Provider観測・品質受入の根拠にしない。
+
+| 意味ケース | 対応Local Item | 観測とOracle | 終了後条件 |
+|---|---|---|---|
+| Task／一般Operation、Profileと実際割当、補正の親参照 | ERP-UT-006／ERP-IT-001 | 存在しないTaskを作らず、実績未観測を予定Profileで補わない。新Executionは旧Eventを変更しない | 入力不変、拒否時Effect 0 |
+| 閉じた診断、拒否・打切り・Schema不正と取得済みusage | ERP-UT-006／ERP-IT-001 | 許可済み診断と使用量が保存・読取りで一致する。生の本文・message・Header・秘密sentinelは拒否する。費用欠測を0へ変換しない | 不正入力の保存0、Reader Effect 0 |
+| 部分usage、取得済み0、完全性・非該当の分母 | ERP-UT-006 | 集計対象と観測件数が一致し、not_observedとnot_applicableを別々に処置する | 推定課金・品質採用0 |
+| 同一履歴の複数Process更新と再送 | ERP-IT-002 | 同内容再送は一件、異内容同IDは拒否、別IDの並行成功記録を失わない。全Process終了後の共有履歴を再観測する | Lock・pending・handle 0または同じ未解決参照 |
+| 短い書込み・flush・公開・readback・cleanup故障 | ERP-IT-003 | 公開済み／未公開／不明とcleanupを分け、部分JSONLや破損を正常履歴として返さない | 旧確定履歴保全、残存はexact参照 |
+| 期間境界と設定変更・不正設定 | ERP-IT-005／ERP-UT-006 | 既定30日と二つの独立設定を確認する。境界直前・一致・直後を処置し、未解決記録・正式Evidenceを期限だけで消さない。不正時は停止し、過去の整理証拠を現在設定で再解釈しない | state／キュー／未受理結果への削除Effect 0 |
+| 公開Recorder→Store→Reader、Task専用利用側 | ERP-IT-001／ERP-ST-004 | 一般Operationを保持するがTask専用画面へ架空Taskとして表示しない。実Provider・採用先Adapterの未接続を明示する | Source不変、Authority発行0 |
+
+PT／LTは今回の有限契約確認では非該当。人間が対象と上限を指定した場合だけ別途実行する。性能上限の受理試験を性能試験成立と表示しない。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した

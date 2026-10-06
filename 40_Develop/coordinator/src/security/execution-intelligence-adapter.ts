@@ -7,6 +7,7 @@
 import {
   createTaskAttemptSettledEvent,
   type ExecutionIntelligenceEvent,
+  type TaskAttemptExecutionIntelligenceEvent,
   type ExecutionIntelligencePublicationResult,
   usageNotObserved,
   verifyExecutionIntelligenceRepositoryRoot,
@@ -23,7 +24,7 @@ import type {
  * @responsibility Project Runtime Task Attempt Eventの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000007
  * @input input: ProjectRuntimeTaskAttemptObservation
- * @returns ExecutionIntelligenceEventを返す。
+ * @returns TaskAttemptExecutionIntelligenceEventを返す。
  * @precondition 「input: ProjectRuntimeTaskAttemptObservation」がcreateProjectRuntimeTaskAttemptEventの入力契約を満たす。
  * @postcondition createProjectRuntimeTaskAttemptEventの責務を完了した結果だけを返す。
  * @effect N/A: createProjectRuntimeTaskAttemptEventは入力と局所値だけを扱い、外部または共有Effectを発行しない。
@@ -35,7 +36,7 @@ import type {
  */
 export function createProjectRuntimeTaskAttemptEvent(
   input: ProjectRuntimeTaskAttemptObservation,
-): ExecutionIntelligenceEvent {
+): TaskAttemptExecutionIntelligenceEvent {
   return createTaskAttemptSettledEvent({
     occurredAt: input.occurredAt,
     identity: input.identity,

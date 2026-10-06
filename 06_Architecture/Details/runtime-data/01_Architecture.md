@@ -116,9 +116,10 @@ Related:
    ├─ coordinator/                         [D] Coordinator固有の回復接続
    │  └─ recovery/host-terminal/               同じ非Authority参照と完全intentの再入場情報
    │
-   ├─ execution/                           [D] Execution Intelligence
-   │  └─ <operation-id>/
-   │     └─ events/                           Operation内の不変Event。要約はEventから投影する
+   ├─ execution-intelligence/              [D] Execution Intelligence
+   │  ├─ history.jsonl                       不変Eventを1行ずつ保持する履歴
+   │  ├─ history.lock                        単一履歴全体の排他
+   │  └─ history.pending.jsonl                保存確定中だけ存在する短命な完成Snapshot
    │
    ├─ verification/                        [D] 検証結果と根拠
    │  └─ <verification-id>/
@@ -191,7 +192,7 @@ Project Runtimeは、このRepositoryで旧試験記録の清掃と新形式へ�
 | `config/` | Commit固定する非秘密のRepository宣言とPolicy | Repository設定の変更・削除がGitで確定する |
 | `project-runtime/` | Project実行の現在状態、Queue、結果、判断、固有Recovery | 各状態のsettlement、保持規則または明示Migrationが成立する |
 | `coordinator/` | Coordinator固有の非Authorityなcaller回復参照・完全intent | 終了・管理清掃は[Coordinatorのcaller接続](../coordinator/01_Architecture.md#限定保守のcaller接続と二回の短命処理)が所有する。未接続範囲はOPEN |
-| `execution/` | 実行履歴、測定値、相関可能な診断情報 | Retentionと未解決参照を確認して清掃できる |
+| `execution-intelligence/` | 実行履歴、測定値、相関可能な診断情報 | 保持期間と未解決参照を確認して清掃できる。旧`execution/`の移行はフロントAIが行い、Runtime互換Readerを残さない |
 | `verification/` | 検証対象、結果、未確認範囲と判断根拠 | Evidence保持方針とRelease／監査参照が終了する |
 | `candidates/` | 未採用成果物、由来、現在の処置、Candidate固有Recovery | 採用、破棄または期限切れ処置とRecoveryが確定する |
 | `release/` | Release候補、Manifest、Gate Evidence、staging、Release固有Recovery | Promotion、破棄またはRecoveryが完了する |
@@ -236,7 +237,7 @@ OPEN: 自動処置、保持延長の上限、保護参照の全利用側照合�
 | 再開時に必要なScript、引数、Identity | 不可 | 回復を所有するComponent配下の`recovery/`へ構造化して置く。秘密値は保存しない |
 | 一時変換、展開、比較、組立て途中のfile | 可 | 所有Operationの`work/` |
 | 正式な検証結果または監査根拠 | 不可 | `verification/`または正本のQuality成果物 |
-| 診断log | 条件付きで可 | 一時診断なら`tmp/`、判断に使うなら`execution/`または`verification/`へ昇格する |
+| 診断log | 条件付きで可 | 一時診断なら`tmp/`、実行横断の観測なら`execution-intelligence/`、正式な検証根拠なら`verification/`へ接続する |
 | Release staging | 不可 | `release/<candidate-id>/work/` |
 | Provider出力または未採用Candidate | 不可 | `candidates/`。外部送信Policyと保持条件に従う |
 | Cache | 不可 | `tmp/`をCacheとして流用しない。必要性を確認して別契約を設計する |
@@ -430,6 +431,51 @@ Consumer集合は手書き一覧だけを正本としない。実Sourceからraw
 - Repository-local状態とCROS／User／Host Runtime状態を混在させない。
 - 現行のRecovery義務と正式Evidenceを失わず、旧Path Readerを0件にする。
 - 移行後に旧Pathを再生成する回帰試験を持つ。
+
+## 保存領域の読取り専用観測
+
+`observeRepositoryRuntimeDataArea`は検証済みRepository Rootと宣言済みAreaを受け取り、保存領域の現在の観測だけを返す。Directory作成、Git除外登録、Lock取得、設定変更および削除を行わない。Parent Rootの組立てとFilesystem境界の検証はRuntime Dataが所有し、利用側が名前付きPathの親を逆算して`.crdd`を再構成しない。
+
+| 結果 | 意味 | 利用側の処置 |
+|---|---|---|
+| ready | RootとAreaのDirectory境界を検証した現在の観測。非Authorityの不透明な`boundaryIdentity`を持つ。 | 内容読取りの前後でOwner観測を再取得し、同じ境界を見ているか照合する。 |
+| not_observed | RootまたはAreaの明示的な不存在を観測した。 | 未作成を正常履歴や実行なしへ読み替えず、未観測を表示する。 |
+| blocked | Capability不正、link・type不正、境界失効または観測不能。 | 読取りを停止し、不存在や空履歴へ補正しない。 |
+
+`boundaryIdentity`はDirectory置換の検知用であり、操作権限、過去の終了証明、履歴の完全性または内容の不変性を発行しない。内容Hash、Lock・pendingと終了後観測は各Storeの責務として維持する。
+
+## 履歴保持期間の設定
+
+履歴所有者が通常履歴を整理するときは、`readProjectRuntimeConfig`または`readExecutionIntelligenceConfig`から自分のTool設定を読み取る。Runtime Dataは設定の検証と読取りだけを所有し、記録の削除判断は各履歴所有者が行う。他Toolの設定は読取り条件にしない。
+
+| 項目 | 契約 |
+|---|---|
+| 配置 | Repository-local `.crdd/config/project-runtime.json`と`.crdd/config/execution-intelligence.json`。非秘密のTool別設定として明示allowlistでGit管理する。 |
+| 固定形式 | 各ファイルに`schemaRevision: 1`と`historyRetentionDays`を必須とする。未評価の設定項目を先回りして追加しない。 |
+| 既定 | 当該Toolの設定ファイルが存在しない場合だけ30日。他Toolの設定状態に依存しない。 |
+| 指定値 | ミリ秒へ安全に変換できる正の整数日数。所有者別に指定する。 |
+| 不正・観測不能 | 当該Toolの設定結果をblockedとして整理を停止する。既定値や無期限へ読み替えない。 |
+| 保護範囲 | 未解決の回復義務、実行中の状態、Candidate、秘密情報および正式Evidenceを通常履歴の期間で削除しない。 |
+| 変更時 | 一回の整理処理は一つの設定Snapshotを用いる。過去の終了判断に必要な保持期間はProject Runtime側が判断時の記録へ固定し、後の設定変更で過去の根拠を書き換えない。 |
+
+設定例は`template/.crdd/config/project-runtime.example.json`と`execution-intelligence.example.json`、Schemaは`template/tools/schemas/project-runtime-config-schema.json`と`execution-intelligence-config-schema.json`で提供する。設定を自動作成せず、不存在だけを既定値の適用根拠とする。共通の期間設定ファイルや旧形式Readerは追加しない。
+
+### 設定の配置と管理境界
+
+設定は読み込む所有者と適用範囲で配置する。設定例を実設定として読み込まず、配布物にあるという理由だけで権限や採用を推定しない。
+
+| 種別 | 配布・説明 | 実際の配置 | 管理責任 |
+|---|---|---|---|
+| Repository Identity・外部送信Policy | `template/.crdd/config/*.example.json` | 利用Repositoryの`.crdd/config/` | 非秘密の共有宣言として明示allowlistでGit管理する。Policy採用権限は既存契約を維持する。 |
+| Project Runtime・Execution Intelligence設定 | Tool別の`template/.crdd/config/*.example.json` | 利用Repositoryの`.crdd/config/<tool>.json` | 非秘密のRepository設定として明示allowlistでGit管理する。期間の指定だけで削除権限を発行しない。 |
+| AI Profile Catalog | AI Runtimeが所有する固定既定Catalogと管理入口 | Repository単体は`.crdd/config/ai-profile-catalog/`、CROSはOS管理の設定Root | 既存Catalog保存契約を維持する。今回Snapshot方式や管理権限を変更しない。 |
+| CROS Shared Server | `template/tools/cros-shared-server-config-example.json`。MCP運用手順から参照する。 | OS管理のCROS設定Rootの`shared-server.json` | Host管理者が設定する。設定例は配布物であり、Runtimeが実設定として読まない。 |
+| Schema | `template/tools/schemas/` | 配布物の固定Schema | CRDD配布版が所有する検査契約であり、利用Repositoryの実設定ではない。 |
+| 固定Runtime設定・既定Catalog・Release Manifest | 各SubsystemのRuntime／Source、署名Manifestの既存配置 | 固定配布物内 | 実装・署名契約が所有する。利用者の設定置場として編集しない。 |
+
+`template/tools/`は起動入口、Schema、固定Release ManifestおよびCROS Host設定の配布例を保持する。利用Repositoryが編集する実設定は置かない。Repository用の設定例は実配置と対応する`template/.crdd/config/`へ揃える。OS管理の設定例はRepository用ひな型へ混ぜず、独立したファイルで提供し、所有する運用手順から参照する。例のJSONを文書に重複保持しない。
+
+`.crdd`全体を追跡対象にせず、既定の非追跡と非秘密の改訂固定設定の明示allowlistを併用する。Runtime状態、履歴、Lock、一時物、候補および秘密は追跡しない。今回、既存設定の値、Loaderの配置、署名対象、Catalog保存形式およびAuthorityを変更しない。
 
 ## Implementation Structure
 

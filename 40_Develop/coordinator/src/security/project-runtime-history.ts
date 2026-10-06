@@ -1,5 +1,5 @@
 /**
- * Project Runtimeの終了要約を30日保持する保存試行を所有する。
+ * Project Runtimeの終了要約を設定期間保持する保存試行を所有する。
  *
  * @responsibility 現在状態を変更せず履歴の検証、置換、再入場を行う。
  * @trace ARCH-000004
@@ -9,17 +9,20 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
+  readProjectRuntimeConfig,
+  observeRepositoryRuntimeDataArea,
   requireReadyRepositoryRuntimeDataArea,
   resolveRepositoryRuntimeDataPathsFromWorkingDirectory,
 } from "../../../runtime-data/src/index.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import {
   acquireProjectRuntimeSnapshotPilotLock,
   isLiveProjectRuntimeSnapshotOwner,
   type ProjectRuntimeSnapshotOwner,
 } from "./project-runtime-durable-foundation.ts";
 
-const CONTRACT = "crdd-coordinator/project-runtime-history-pilot/v1";
-const RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+const CONTRACT = "crdd-coordinator/project-runtime-history-pilot/v2";
+const DAY_MS = 86_400_000;
 const HASH = /^[0-9a-f]{64}$/u;
 const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
 
@@ -53,7 +56,7 @@ export type HistoryRow = Readonly<{
  *
  * @responsibility 変更前と候補の相関を固定する。
  * @trace ARCH-000004
- * @shape contract、revision、rootHash、baseHash、rowsHash、writtenAt。
+ * @shape contract、revision、rootHash、baseHash、rowsHash、writtenAt、historyRetentionDays。
  * @invariant 保存候補は一つの変更前Hashへ結合する。
  * @boundary Repository内の履歴。
  * @security HashはAuthorityではない。
@@ -66,6 +69,7 @@ type HistoryHeader = Readonly<{
   baseHash: string | null;
   rowsHash: string;
   writtenAt: string;
+  historyRetentionDays: number;
 }>;
 
 /**
@@ -270,13 +274,15 @@ function scan(
   for (const line of lines(file)) {
     full.update(`${line}\n`);
     if (!header) {
-      const value = closedObject(JSON.parse(line), [
+      const parsed: unknown = JSON.parse(line);
+      const value = closedObject(parsed, [
         "contract",
         "revision",
         "rootHash",
         "baseHash",
         "rowsHash",
         "writtenAt",
+        "historyRetentionDays",
       ]);
       if (
         value.contract !== CONTRACT ||
@@ -290,6 +296,13 @@ function scan(
           (typeof value.baseHash !== "string" || !HASH.test(value.baseHash)))
       )
         throw new Error("header");
+      if (
+        typeof value.historyRetentionDays !== "number" ||
+        !Number.isSafeInteger(value.historyRetentionDays) ||
+        value.historyRetentionDays <= 0 ||
+        !Number.isSafeInteger(value.historyRetentionDays * DAY_MS)
+      )
+        throw new Error("retention");
       header = {
         contract: CONTRACT,
         revision: value.revision,
@@ -297,6 +310,7 @@ function scan(
         baseHash: value.baseHash,
         rowsHash: value.rowsHash,
         writtenAt: timestamp(value.writtenAt, now),
+        historyRetentionDays: value.historyRetentionDays,
       };
       if (JSON.stringify(header) !== line) throw new Error("canonical");
     } else {
@@ -353,7 +367,7 @@ function flushRecoveredFile(file: string): void {
 }
 
 /**
- * 通常履歴を30日分へ置換し、中断候補へ再入場する。
+ * 通常履歴を設定期間分へ置換し、中断候補へ再入場する。
  *
  * @responsibility Repository結合した一Writerで保存確認を行う。
  * @trace ARCH-000004
@@ -383,11 +397,13 @@ export function updateProjectRuntimeHistoryOwned(
     reason: "project_runtime_history_invalid",
   };
   try {
-    if (
-      !Number.isSafeInteger(now) ||
-      now < RETENTION_MS ||
-      now > 8_640_000_000_000_000
-    )
+    const verified = verifyRepositoryRoot(lock.repositoryRoot);
+    if (verified.status !== "completed") throw new Error("root");
+    const policy = readProjectRuntimeConfig(verified.capability);
+    if (policy.status !== "ready") throw new Error("config");
+    const retentionDays = policy.config.historyRetentionDays;
+    const retentionMs = retentionDays * DAY_MS;
+    if (!Number.isSafeInteger(now) || now < 0 || now > 8_640_000_000_000_000)
       throw new Error("clock");
     if (
       recordJson !== null &&
@@ -500,14 +516,14 @@ export function updateProjectRuntimeHistoryOwned(
             if (JSON.stringify(incoming) !== line) throw new Error("conflict");
             isDuplicate = true;
           }
-          if (Date.parse(row.occurredAt) >= now - RETENTION_MS)
+          if (Date.parse(row.occurredAt) >= now - retentionMs)
             retained.update(`${line}\n`);
         })
       : null;
     const add =
       incoming &&
       !isDuplicate &&
-      Date.parse(incoming.occurredAt) >= now - RETENTION_MS
+      Date.parse(incoming.occurredAt) >= now - retentionMs
         ? `${JSON.stringify(incoming)}\n`
         : "";
     retained.update(add);
@@ -518,6 +534,7 @@ export function updateProjectRuntimeHistoryOwned(
       baseHash: old?.hash ?? null,
       rowsHash: retained.digest("hex"),
       writtenAt: new Date(now).toISOString(),
+      historyRetentionDays: retentionDays,
     };
     if (!Number.isSafeInteger(header.revision)) throw new Error("revision");
     assertOwner();
@@ -527,7 +544,7 @@ export function updateProjectRuntimeHistoryOwned(
       if (
         old &&
         scan(current, rootHash, now, (row, line) => {
-          if (Date.parse(row.occurredAt) >= now - RETENTION_MS)
+          if (Date.parse(row.occurredAt) >= now - retentionMs)
             fs.writeFileSync(fd, `${line}\n`, "utf8");
         }).hash !== old.hash
       )
@@ -614,20 +631,21 @@ export function inspectProjectRuntimeHistorySettlement(
   now = Date.now(),
 ): "recorded" | "expired" | null {
   if (!isLiveProjectRuntimeSnapshotOwner(lock)) return null;
+  if (!Number.isSafeInteger(now) || now < 0 || now > 8_640_000_000_000_000)
+    return null;
   try {
-    const directory = path.join(
-      lock.repositoryRoot,
-      ".crdd",
+    const verified = verifyRepositoryRoot(lock.repositoryRoot);
+    if (
+      verified.status !== "completed" ||
+      readProjectRuntimeConfig(verified.capability).status !== "ready"
+    )
+      return null;
+    const observedArea = observeRepositoryRuntimeDataArea(
+      verified.capability,
       "project-runtime",
     );
-    for (const parent of [path.dirname(directory), directory]) {
-      if (
-        fs.realpathSync.native(parent) !== parent ||
-        !fs.lstatSync(parent).isDirectory() ||
-        fs.lstatSync(parent).isSymbolicLink()
-      )
-        return null;
-    }
+    if (observedArea.status !== "ready") return null;
+    const directory = observedArea.directory;
     try {
       fs.lstatSync(path.join(directory, "history.pending.jsonl"));
       return null;
@@ -647,12 +665,23 @@ export function inspectProjectRuntimeHistorySettlement(
         }
       },
     );
-    if (!isLiveProjectRuntimeSnapshotOwner(lock)) return null;
+    const finalArea = observeRepositoryRuntimeDataArea(
+      verified.capability,
+      "project-runtime",
+    );
+    if (
+      finalArea.status !== "ready" ||
+      finalArea.boundaryIdentity !== observedArea.boundaryIdentity ||
+      !isLiveProjectRuntimeSnapshotOwner(lock)
+    )
+      return null;
     if (isMatched) return "recorded";
-    if (Date.parse(row.occurredAt) >= now - RETENTION_MS) return null;
+    // 設定変更で過去の削除根拠を再解釈しない。旧Headerは移行せず拒否する。
+    const savedRetentionMs = saved.header.historyRetentionDays * DAY_MS;
+    if (Date.parse(row.occurredAt) >= now - savedRetentionMs) return null;
     return !isMatched &&
       Date.parse(row.occurredAt) <
-        Date.parse(saved.header.writtenAt) - RETENTION_MS
+        Date.parse(saved.header.writtenAt) - savedRetentionMs
       ? "expired"
       : null;
   } catch {

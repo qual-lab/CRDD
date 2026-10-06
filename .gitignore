@@ -1,4 +1,5 @@
 # Repository-local CRDD runtime state is untracked by default.
+!/.crdd/
 /.crdd/*
 /.env
 /.env-crdd
@@ -8,6 +9,13 @@
 /.crdd/config/*
 !/.crdd/config/repository-manifest.json
 !/.crdd/config/external-send-policy.json
+!/.crdd/config/project-runtime.json
+!/.crdd/config/execution-intelligence.json
+
+# Configuration examples are distribution artifacts, not runtime state.
+!/template/.crdd/
+!/template/.crdd/config/
+!/template/.crdd/config/*.example.json
 
 # Tool package dependencies are restored from their lockfiles.
 **/node_modules/

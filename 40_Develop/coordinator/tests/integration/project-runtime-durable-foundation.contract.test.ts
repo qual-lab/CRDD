@@ -67,6 +67,217 @@ import { acquireRuntimeOwnedProjectRuntimeStateKernelLock } from "../../src/secu
 const MAX_RECORD_BYTES = 16 * 1024 * 1024;
 
 /**
+ * 名前付き保存領域の真正不存在を読取りだけで返す。
+ * @responsibility Snapshotと旧入力Readerが初期化Effectを発行しないことを判定する。
+ * @trace PRL-IT-005
+ * @precondition Git Rootだけがある自己所有fixtureを用いる。
+ * @stimulus Snapshotと旧State/Queue/Lease入力を読む。
+ * @observation 結果とRoot内容、Git exclude bytesを取得する。
+ * @oracle 真正不存在を返しDirectoryやIgnore設定を変更しない。
+ * @cleanup fixture hookが所有Rootを清掃する。
+ * @boundary Repository Runtime Data Owner→foundation Reader。
+ */
+test("名前付き保存領域の不存在はReader初期化Effectを発行しない", (t) => {
+  const { root } = fixture(t);
+  const rootNames = fs.readdirSync(root);
+  const excludePath = path.join(root, ".git", "info", "exclude");
+  const excludeBytes = fs.readFileSync(excludePath);
+  const snapshot = readProjectRuntimeSnapshot(root, "binding-a");
+  const states = readLegacyProjectRuntimeStateAndQueueInputs(root);
+  const leases = readLegacyProjectRuntimeLeaseInputs(root);
+  assert.equal(snapshot.status, "completed");
+  assert.equal(snapshot.value, null);
+  assert.equal(states.status, "completed");
+  assert.equal(states.value?.sourceRecords.length, 0);
+  assert.equal(leases.status, "completed");
+  assert.equal(leases.value?.sourceRecords.length, 0);
+  assert.deepEqual(fs.readdirSync(root), rootNames);
+  assert.deepEqual(fs.readFileSync(excludePath), excludeBytes);
+});
+
+/**
+ * 名前付きareaの観測不能を空入力へ変換しない。
+ * @responsibility Owner blockedをReaderの停止結果へ接続する。
+ * @trace PRL-IT-005
+ * @precondition 正常な旧State記録がある自己所有fixtureを用いる。
+ * @stimulus project-runtime areaのlstatへEACCESを注入する。
+ * @observation 全Readerの状態と既存記録bytesを取得する。
+ * @oracle 空入力/absent成功ではなくblockedとなり旧記録不変。
+ * @cleanup 注入関数を復元しfixture hookで清掃する。
+ * @boundary Runtime Data Ownerの観測障害→foundation Reader。
+ */
+test("名前付きareaの観測不能はSnapshotと旧入力Readerを停止する", (t) => {
+  const { root, state } = fixture(t);
+  assert.equal(
+    writeProjectRuntimeState(root, "binding-a", state, 0).status,
+    "completed",
+  );
+  const runtime = path.join(root, ".crdd", "project-runtime");
+  const location = path.join(stateDirectory(root), "generation-1.json");
+  const beforeBytes = fs.readFileSync(location);
+  const original = fs.lstatSync;
+  Reflect.set(fs, "lstatSync", ((target: fs.PathLike, ...args: unknown[]) => {
+    if (String(target) === runtime)
+      throw Object.assign(new Error("injected_area_observation_failure"), {
+        code: "EACCES",
+      });
+    return Reflect.apply(original, fs, [target, ...args]);
+  }) as typeof fs.lstatSync);
+  try {
+    assert.equal(
+      readProjectRuntimeSnapshot(root, "binding-a").status,
+      "blocked",
+    );
+    assert.equal(
+      readLegacyProjectRuntimeStateAndQueueInputs(root).status,
+      "blocked",
+    );
+    assert.equal(readLegacyProjectRuntimeLeaseInputs(root).status, "blocked");
+  } finally {
+    Reflect.set(fs, "lstatSync", original);
+  }
+  assert.deepEqual(fs.readFileSync(location), beforeBytes);
+});
+
+for (const readerKind of ["snapshot", "state", "lease"] as const) {
+  /**
+   * 空areaでも読取り途中の置換を現在境界の成立へ丸めない。
+   * @responsibility 開始と終了の不透明Identityを同じReader結果へ結ぶ。
+   * @trace PRL-IT-005
+   * @precondition 正規の空project-runtime areaがある。
+   * @stimulus 最初の子Path観測時にareaを別物理Directoryへ置換する。
+   * @observation Reader結果、新旧areaの内容、置換実行を取得する。
+   * @oracle 完全な空入力でもblockedとなりReaderの書込みは0。
+   * @cleanup 注入関数を復元しfixture内の新旧areaを清掃する。
+   * @boundary Runtime Data境界置換→Snapshot/旧入力Reader。
+   */
+  test(`名前付き空areaの途中置換は${readerKind}Readerを停止する`, (t) => {
+    const { root } = fixture(t);
+    const runtime = requireReadyRepositoryRuntimeDataArea(
+      ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+        root,
+        "project-runtime",
+      ),
+      "fixture_area_invalid",
+    ).directory;
+    const prior = path.join(root, "prior-runtime-area");
+    const childPath = path.join(
+      runtime,
+      readerKind === "snapshot"
+        ? "state.pending.json"
+        : readerKind === "state"
+          ? "state"
+          : "recovery",
+    );
+    const original = fs.lstatSync;
+    let wasAreaReplaced = false;
+    Reflect.set(fs, "lstatSync", ((target: fs.PathLike, ...args: unknown[]) => {
+      if (String(target) === childPath && !wasAreaReplaced) {
+        wasAreaReplaced = true;
+        fs.renameSync(runtime, prior);
+        fs.mkdirSync(runtime);
+      }
+      return Reflect.apply(original, fs, [target, ...args]);
+    }) as typeof fs.lstatSync);
+    try {
+      const result =
+        readerKind === "snapshot"
+          ? readProjectRuntimeSnapshot(root, "binding-a")
+          : readerKind === "state"
+            ? readLegacyProjectRuntimeStateAndQueueInputs(root)
+            : readLegacyProjectRuntimeLeaseInputs(root);
+      assert.equal(wasAreaReplaced, true);
+      assert.equal(result.status, "blocked");
+    } finally {
+      Reflect.set(fs, "lstatSync", original);
+    }
+    assert.deepEqual(fs.readdirSync(runtime), []);
+    assert.deepEqual(fs.readdirSync(prior), []);
+  });
+}
+
+for (const fault of ["unobservable", "alias"] as const) {
+  /**
+   * tmpの親境界を確認できないLeaseを削除しない。
+   * @responsibility Owner blockedと物理Identity/Recovery Identityの保持を判定する。
+   * @trace PRL-IT-012
+   * @precondition 新版の実Leaseと取得intentがある。
+   * @stimulus tmpの観測不能またはjunction置換後にreleaseを呼ぶ。
+   * @observation 停止結果、回復ID、Lock実体と保存bytesを取得する。
+   * @oracle 手動回復を要求し同じLockと回復参照を残す。
+   * @cleanup 親と注入関数を復元し同じLeaseを解放後fixtureを清掃する。
+   * @boundary opaque Lease→Runtime Data Owner→Filesystem cleanup。
+   */
+  test(`tmp親境界の${fault}はLeaseを不存在にせず削除を拒否する`, (t) => {
+    const { root } = fixture(t);
+    assert.equal(
+      initializeProjectRuntimeSnapshot(root, "binding-a").status,
+      "completed",
+    );
+    const acquired = acquireProjectRuntimeSnapshotLease(
+      root,
+      "binding-a",
+      "project-a",
+      "canonical",
+      "canonical-adoption",
+    );
+    assert.equal(acquired.status, "completed");
+    if (acquired.status !== "completed")
+      throw new Error("fixture_lease_failed");
+    const beforeSnapshot = readProjectRuntimeSnapshot(root, "binding-a").value;
+    assert.ok(beforeSnapshot?.schemaRevision === 2);
+    const recoveryId = beforeSnapshot.leaseIntents[0]?.recoveryId;
+    assert.ok(recoveryId);
+    const temporary = path.join(root, ".crdd", "tmp");
+    const moved = path.join(root, "prior-temporary-area");
+    const locks = path.join(temporary, "project-runtime-leases");
+    const names = fs.readdirSync(locks);
+    assert.equal(names.length, 1);
+    const lockName = names[0];
+    assert.ok(lockName);
+    const lockPath = path.join(locks, lockName);
+    const lockMetadata = fs.lstatSync(lockPath);
+    const statePath = path.join(root, ".crdd", "project-runtime", "state.json");
+    const beforeBytes = fs.readFileSync(statePath);
+    const original = fs.lstatSync;
+    if (fault === "alias") {
+      fs.renameSync(temporary, moved);
+      fs.symlinkSync(moved, temporary, "junction");
+    } else {
+      Reflect.set(fs, "lstatSync", ((
+        target: fs.PathLike,
+        ...args: unknown[]
+      ) => {
+        if (String(target) === temporary)
+          throw Object.assign(new Error("injected_tmp_observation_failure"), {
+            code: "EACCES",
+          });
+        return Reflect.apply(original, fs, [target, ...args]);
+      }) as typeof fs.lstatSync);
+    }
+    try {
+      const result = acquired.value.release();
+      assert.equal(result.status, "blocked");
+      assert.equal(result.manualRecoveryRequired, true);
+      assert.equal(result.recoveryId, recoveryId);
+    } finally {
+      Reflect.set(fs, "lstatSync", original);
+      if (fault === "alias") {
+        fs.unlinkSync(temporary);
+        fs.renameSync(moved, temporary);
+      }
+    }
+    const actual = fs.lstatSync(lockPath);
+    assert.equal(actual.dev, lockMetadata.dev);
+    assert.equal(actual.ino, lockMetadata.ino);
+    assert.equal(actual.birthtimeMs, lockMetadata.birthtimeMs);
+    assert.deepEqual(fs.readFileSync(statePath), beforeBytes);
+    assert.equal(acquired.value.release().status, "completed");
+    assert.equal(fs.existsSync(lockPath), false);
+  });
+}
+
+/**
  * 採用前の既知拒否を実保存と履歴へ接続することを検証する。
  * @responsibility Receiptなしの終了証拠をexact Ownerだけ整理する。
  * @trace PRL-IT-012
@@ -2364,9 +2575,7 @@ test("Host Windows: 統合Snapshotは部分形式と結合不明を保存しな�
       if (
         String(args[0]) === root &&
         stack.includes("writeProjectRuntimeSnapshot") &&
-        stack.includes(
-          "resolveRepositoryRuntimeDataPathsFromWorkingDirectory",
-        ) &&
+        stack.includes("resolveProjectRuntimeNamedPaths") &&
         !stack.includes("acquireProjectRuntimeSnapshotPilotLock")
       ) {
         hasChangedAfterAcquisition = true;

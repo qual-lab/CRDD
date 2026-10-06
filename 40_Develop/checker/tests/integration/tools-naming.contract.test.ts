@@ -444,6 +444,7 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     requiredTags: ["boundary", "concurrency", "effect"],
     exportedModules: [
       "./core/runtime-data-contract.ts",
+      "./platform/tool-runtime-config.ts",
       "./platform/runtime-data-path-resolver.ts",
       "./store/temporary-operation-store.ts",
     ],

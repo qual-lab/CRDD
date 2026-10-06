@@ -14,6 +14,8 @@ import test from "node:test";
 import {
   BOUNDED_INTEGRATED_RESULT_EVALUATION_INPUT_CONTRACT,
   createTaskAttemptSettledEvent,
+  createOperationSettledEvent,
+  classifyExecutionUsageCompleteness,
   evaluateBoundedIntegratedResult,
   inspectExecutionIntelligenceEvent,
   notApplicable,
@@ -23,6 +25,515 @@ import {
   summarizeExecutionIntelligence,
   usageNotObserved,
 } from "../../src/index.ts";
+
+/**
+ * 任意OperationのIdentityと安全観測のfixtureを構築する。
+ * @responsibility Task Identityを含まない有効な入力を供給する。
+ * @trace ERP-UT-006
+ * @precondition N/A: 固定入力を使用する。
+ * @stimulus task fixtureから共通観測だけを取得する。
+ * @observation Operation構築入力。
+ * @oracle Task Identityが含まれない。
+ * @cleanup N/A: 外部資源なし。
+ * @boundary ERP-UT-006=Direct Boundary。
+ */
+function operationInput() {
+  const base = event("blocked");
+  return {
+    occurredAt: base.occurredAt,
+    identity: {
+      projectId: "project-a",
+      operationId: "generate-a",
+      executionId: "execution-a",
+    },
+    execution: {
+      ...base.execution,
+      provider: observed("provider-a", "runtime_assignment"),
+      model: observed("model-a", "runtime_assignment"),
+      profileId: observed("profile-a", "runtime_assignment"),
+      profileRevision: observed("revision-a", "runtime_assignment"),
+      reasoningEffort: observed("low", "runtime_assignment"),
+      overrideApplied: observed(true, "runtime_assignment"),
+      parentExecutionId: observed("execution-parent", "operation_parent"),
+      diagnostic: observed(
+        {
+          stage: "schema_validation" as const,
+          category: "invalid_response" as const,
+          httpStatus: 200,
+          type: null,
+          code: null,
+          finishReason: "stop" as const,
+          refusal: false,
+        },
+        "sanitized_adapter",
+      ),
+      usage: {
+        ...usageNotObserved("not_reported"),
+        inputTokens: observed(12, "provider_usage"),
+        outputTokens: observed(8, "provider_usage"),
+      },
+    },
+    outcome: base.outcome,
+    quality: base.quality,
+  };
+}
+
+/**
+ * v2はTaskを持たないOperationの実績と失敗時使用量を保持する。
+ * @responsibility generic Identity、親参照、割当、診断、欠測を検証する。
+ * @trace ERP-UT-006
+ * @precondition schema検査で拒否した観測を用意する。
+ * @stimulus Operationイベントを構築し、検査と集計を行う。
+ * @observation Identity、観測値、summary。
+ * @oracle Taskがなくても有効で、失敗使用量を保持し、費用は欠測。
+ * @cleanup N/A: 外部資源なし。
+ * @boundary ERP-UT-006=Direct Boundary。
+ */
+test("v2 generic operation preserves actual assignments diagnostics and failed usage", () => {
+  const value = createOperationSettledEvent(operationInput());
+  assert.equal(value.contract, "crdd/execution-intelligence-event/v2");
+  assert.equal(value.eventType, "operation_settled");
+  assert.deepEqual(Object.keys(value.identity).sort(), [
+    "executionId",
+    "operationId",
+    "projectId",
+  ]);
+  assert.deepEqual(inspectExecutionIntelligenceEvent(value), value);
+  assert.equal(value.execution.overrideApplied.state, "observed");
+  assert.equal(value.execution.diagnostic.state, "observed");
+  assert.equal(value.execution.usage.inputTokens.state, "observed");
+  assert.equal(value.execution.usage.costOrCredits.state, "not_observed");
+  assert.equal(
+    classifyExecutionUsageCompleteness(value.execution.usage),
+    "partial",
+  );
+  const summary = summarizeExecutionIntelligence([value]);
+  assert.ok(summary);
+  assert.equal(summary.assignmentFullyObservedEventCount, 1);
+  assert.equal(summary.diagnosticObservationCount, 1);
+  assert.equal(summary.usagePartialEventCount, 1);
+  assert.equal(summary.costObservationCount, 0);
+});
+
+/**
+ * 使用量の非該当と欠測を費用の存在から独立して分類する。
+ * @responsibility 固定5fieldの完全性境界を検証する。
+ * @trace ERP-UT-006
+ * @precondition 全未観測と全非該当の使用量を用意する。
+ * @stimulus field別の観測状態を変更する。
+ * @observation 完全性分類。
+ * @oracle 未観測は0へ補完せず、非該当fieldは完全性の必須集合から除外。
+ * @cleanup N/A: 外部資源なし。
+ * @boundary ERP-UT-006=Direct Boundary。
+ */
+test("usage completeness distinguishes missingness and non-applicability without cost guessing", () => {
+  assert.equal(
+    classifyExecutionUsageCompleteness(usageNotObserved("missing")),
+    "not_observed",
+  );
+  const absent = {
+    inputTokens: notApplicable("none"),
+    outputTokens: notApplicable("none"),
+    cacheReadTokens: notApplicable("none"),
+    cacheWriteTokens: notApplicable("none"),
+    costOrCredits: notApplicable("none"),
+  };
+  assert.equal(classifyExecutionUsageCompleteness(absent), "not_applicable");
+  assert.equal(
+    classifyExecutionUsageCompleteness({
+      ...absent,
+      inputTokens: observed(0, "receipt"),
+    }),
+    "complete",
+  );
+  assert.equal(
+    classifyExecutionUsageCompleteness({
+      ...absent,
+      inputTokens: observed(0, "receipt"),
+      costOrCredits: notObserved("cost_not_reported"),
+    }),
+    "partial",
+  );
+});
+
+/**
+ * v1保存済み記録と任意診断fieldを拒否する。
+ * @responsibility 生情報の複製とIdentity混同を防ぐ境界を検証する。
+ * @trace ERP-UT-006
+ * @precondition 有効Operationと閉じた診断を用意する。
+ * @stimulus 生本文、Header、自由code、旧contract、Task Identityを混入する。
+ * @observation inspectorとconstructorの拒否。
+ * @oracle 不正入力を受理せず、getterを実行しない。
+ * @cleanup N/A: 外部資源なし。
+ * @boundary ERP-UT-006=Direct Boundary。
+ */
+test("v2 rejects raw diagnostics invalid optional observations and identity fabrication", () => {
+  const input = operationInput();
+  assert.ok(input.execution.diagnostic.state === "observed");
+  const value = createOperationSettledEvent(input);
+  assert.equal(
+    inspectExecutionIntelligenceEvent({
+      ...value,
+      contract: "crdd/execution-intelligence-event/v1",
+    }),
+    null,
+  );
+  for (const extra of [
+    { message: "raw" },
+    { headers: { authorization: "raw" } },
+    { code: "arbitrary_provider_text" },
+    { httpStatus: 600 },
+    { refusal: "false" },
+    { stage: "unknown_stage" },
+  ]) {
+    const diagnostic: Readonly<Record<string, unknown>> = {
+      ...input.execution.diagnostic.value,
+      ...extra,
+    };
+    assert.equal(
+      inspectExecutionIntelligenceEvent({
+        ...value,
+        execution: {
+          ...value.execution,
+          diagnostic: observed(diagnostic, "sanitized_adapter"),
+        },
+      }),
+      null,
+    );
+  }
+  assert.throws(
+    () =>
+      createOperationSettledEvent({
+        ...input,
+        identity: { ...input.identity, taskId: "invented" },
+      } as never),
+    /execution_intelligence_event_invalid/,
+  );
+  assert.throws(
+    () =>
+      createOperationSettledEvent({
+        ...input,
+        execution: { ...input.execution, diagnostic: null },
+      } as never),
+    /execution_intelligence_event_invalid/,
+  );
+  assert.throws(
+    () =>
+      createOperationSettledEvent({
+        ...input,
+        execution: {
+          ...input.execution,
+          parentExecutionId: observed("execution-a", "parent"),
+        },
+      }),
+    /execution_intelligence_event_invalid/,
+  );
+  let calls = 0;
+  const accessor = {
+    ...input.execution,
+    get diagnostic() {
+      calls += 1;
+      return input.execution.diagnostic;
+    },
+  };
+  assert.throws(
+    () => createOperationSettledEvent({ ...input, execution: accessor }),
+    /execution_intelligence_event_invalid/,
+  );
+  assert.equal(calls, 0);
+});
+
+/**
+ * 旧constructor入力はv2の未観測を明示し、Task限定評価はgenericを拒否する。
+ * @responsibility constructor互換と読取り互換の境界を区別する。
+ * @trace ERP-UT-006
+ * @precondition 追加観測を省略した既存task fixtureを使用する。
+ * @stimulus Task構築とgenericのTask限定評価を実行する。
+ * @observation 追加観測と評価結果。
+ * @oracle v2 shapeは完成し、genericはTaskとして評価されない。
+ * @cleanup N/A: 外部資源なし。
+ * @boundary ERP-UT-006=Direct Boundary。
+ */
+test("old task constructor inputs emit v2 missing observations and task evaluation rejects generic operations", () => {
+  const value = event();
+  assert.equal(value.execution.profileId.state, "not_observed");
+  assert.equal(value.execution.diagnostic.state, "not_observed");
+  const base = evaluationInput();
+  assert.equal(
+    evaluateBoundedIntegratedResult({
+      ...base,
+      taskAttemptEvents: [createOperationSettledEvent(operationInput())],
+    }),
+    null,
+  );
+  const { diagnostic: omittedDiagnostic, ...incomplete } = value.execution;
+  assert.equal(omittedDiagnostic.state, "not_observed");
+  assert.equal(
+    inspectExecutionIntelligenceEvent({ ...value, execution: incomplete }),
+    null,
+  );
+});
+
+/**
+ * 診断enumは変換可能Objectを受理せず、変換hookも実行しない。
+ * @responsibility 診断5fieldのprimitive境界と秘密の非搬送を検証する。
+ * @trace ERP-UT-006
+ * @precondition 許可enumへ文字列化できるObjectと機密sentinelを各fieldへ用意する。
+ * @stimulus inspectorと公開Operation constructorへObject、Proxy、Accessor、各変換hookを投入する。
+ * @observation 拒否結果、hook呼出し数、公開結果のserialization。
+ * @oracle 全反証を拒否し、hook呼出し0、返却結果にsentinelを含まない。
+ * @cleanup N/A: 局所fixtureだけを使用する。
+ * @boundary ERP-UT-006=Direct Boundary: 診断入力→公開constructor／inspector。
+ */
+test("diagnostic enum fields reject object coercion and serialization hooks without executing them", () => {
+  const input = operationInput();
+  assert.ok(input.execution.diagnostic.state === "observed");
+  const baseDiagnostic = input.execution.diagnostic.value;
+  const baseEvent = createOperationSettledEvent(input);
+  const diagnosticFieldCases = [
+    { field: "stage", permittedValue: "http" },
+    { field: "category", permittedValue: "quota" },
+    { field: "type", permittedValue: "insufficient_quota" },
+    { field: "code", permittedValue: "insufficient_quota" },
+    { field: "finishReason", permittedValue: "stop" },
+  ];
+  const secretSentinel = "diagnostic-secret-sentinel-not-for-storage";
+  for (const { field, permittedValue } of diagnosticFieldCases) {
+    let hookCalls = 0;
+    const maliciousFieldValues: readonly unknown[] = [
+      { permittedValue, secret: secretSentinel },
+      Object(permittedValue),
+      {
+        secret: secretSentinel,
+        toString: () => {
+          hookCalls += 1;
+          return permittedValue;
+        },
+        toJSON: () => {
+          hookCalls += 1;
+          return secretSentinel;
+        },
+      },
+      {
+        [Symbol.toPrimitive]: () => {
+          hookCalls += 1;
+          return permittedValue;
+        },
+        toJSON: () => {
+          hookCalls += 1;
+          return secretSentinel;
+        },
+      },
+      {
+        toJSON: () => {
+          hookCalls += 1;
+          return secretSentinel;
+        },
+      },
+      new Proxy(
+        {},
+        {
+          get: () => {
+            hookCalls += 1;
+            throw new Error("proxy_get_must_not_run");
+          },
+          getPrototypeOf: () => {
+            hookCalls += 1;
+            throw new Error("proxy_prototype_must_not_run");
+          },
+          ownKeys: () => {
+            hookCalls += 1;
+            throw new Error("proxy_keys_must_not_run");
+          },
+        },
+      ),
+    ];
+    for (const maliciousValue of maliciousFieldValues) {
+      const maliciousDiagnostic = observed(
+        { ...baseDiagnostic, [field]: maliciousValue },
+        "sanitized_adapter",
+      );
+      const inspected = inspectExecutionIntelligenceEvent({
+        ...baseEvent,
+        execution: { ...baseEvent.execution, diagnostic: maliciousDiagnostic },
+      });
+      assert.equal(inspected, null, `${field}: nonprimitive rejection`);
+      assert.equal(JSON.stringify(inspected).includes(secretSentinel), false);
+      assert.throws(
+        () =>
+          createOperationSettledEvent({
+            ...input,
+            execution: { ...input.execution, diagnostic: maliciousDiagnostic },
+          } as never),
+        /execution_intelligence_event_invalid/,
+      );
+      assert.equal(hookCalls, 0, `${field}: conversion hooks must not run`);
+    }
+    const accessorDiagnostic = { ...baseDiagnostic };
+    Object.defineProperty(accessorDiagnostic, field, {
+      enumerable: true,
+      get: () => {
+        hookCalls += 1;
+        return permittedValue;
+      },
+    });
+    const accessorObservation = observed(
+      accessorDiagnostic,
+      "sanitized_adapter",
+    );
+    assert.equal(
+      inspectExecutionIntelligenceEvent({
+        ...baseEvent,
+        execution: { ...baseEvent.execution, diagnostic: accessorObservation },
+      }),
+      null,
+    );
+    assert.throws(
+      () =>
+        createOperationSettledEvent({
+          ...input,
+          execution: { ...input.execution, diagnostic: accessorObservation },
+        }),
+      /execution_intelligence_event_invalid/,
+    );
+    assert.equal(hookCalls, 0, `${field}: getter must not run`);
+  }
+  const inspected = inspectExecutionIntelligenceEvent(baseEvent);
+  assert.ok(inspected);
+  assert.ok(inspected.execution.diagnostic.state === "observed");
+  assert.equal(typeof inspected.execution.diagnostic.value.stage, "string");
+  assert.equal(JSON.stringify(inspected).includes(secretSentinel), false);
+});
+
+/**
+ * イベント種別と終端enumでも変換hookを実行しない。
+ * @responsibility 診断と同じ非primitive拒否契約をEvent全体へ照合する。
+ * @trace ERP-UT-006
+ * @precondition 許可値へ変換可能なObjectと秘密sentinelを用意する。
+ * @stimulus eventType、outcome.status、outcome.effectStateへ変換ObjectやAccessorを投入する。
+ * @observation inspector／constructorの拒否、hook呼出し、返却値。
+ * @oracle 不正値を拒否し、hook0、sentinel非搬送を維持する。
+ * @cleanup N/A: 局所値以外の資源なし。
+ * @boundary ERP-UT-006=Direct Boundary: Event入力→公開値検査。
+ */
+test("event and outcome enums reject coercion hooks and reconstruct only primitive values", () => {
+  const input = operationInput();
+  const baseEvent = createOperationSettledEvent(input);
+  const eventFieldCases = [
+    { field: "eventType", permittedValue: "operation_settled" },
+    { field: "status", permittedValue: "blocked" },
+    { field: "effectState", permittedValue: "no_effect" },
+  ];
+  const secretSentinel = "event-enum-secret-sentinel-not-for-storage";
+  for (const { field, permittedValue } of eventFieldCases) {
+    let hookCalls = 0;
+    const maliciousFieldValues: readonly unknown[] = [
+      { secret: secretSentinel },
+      Object(permittedValue),
+      {
+        toString: () => {
+          hookCalls += 1;
+          return permittedValue;
+        },
+        toJSON: () => {
+          hookCalls += 1;
+          return secretSentinel;
+        },
+      },
+      {
+        [Symbol.toPrimitive]: () => {
+          hookCalls += 1;
+          return permittedValue;
+        },
+        toJSON: () => {
+          hookCalls += 1;
+          return secretSentinel;
+        },
+      },
+      {
+        toJSON: () => {
+          hookCalls += 1;
+          return secretSentinel;
+        },
+      },
+      new Proxy(
+        {},
+        {
+          get: () => {
+            hookCalls += 1;
+            throw new Error("proxy_must_not_run");
+          },
+          getPrototypeOf: () => {
+            hookCalls += 1;
+            throw new Error("proxy_must_not_run");
+          },
+          ownKeys: () => {
+            hookCalls += 1;
+            throw new Error("proxy_must_not_run");
+          },
+        },
+      ),
+    ];
+    for (const maliciousValue of maliciousFieldValues) {
+      const eventCandidate =
+        field === "eventType"
+          ? { ...baseEvent, eventType: maliciousValue }
+          : {
+              ...baseEvent,
+              outcome: { ...baseEvent.outcome, [field]: maliciousValue },
+            };
+      const inspected = inspectExecutionIntelligenceEvent(eventCandidate);
+      assert.equal(inspected, null, `${field}: object rejected`);
+      assert.equal(JSON.stringify(inspected).includes(secretSentinel), false);
+      const constructorInput =
+        field === "eventType"
+          ? { ...input, eventType: maliciousValue }
+          : {
+              ...input,
+              outcome: { ...input.outcome, [field]: maliciousValue },
+            };
+      assert.throws(
+        () => createOperationSettledEvent(constructorInput as never),
+        /execution_intelligence_event_invalid/,
+      );
+      assert.equal(hookCalls, 0, `${field}: hooks must not run`);
+    }
+    const accessorEvent = { ...baseEvent, outcome: { ...baseEvent.outcome } };
+    const accessorTarget =
+      field === "eventType" ? accessorEvent : accessorEvent.outcome;
+    Object.defineProperty(accessorTarget, field, {
+      enumerable: true,
+      get: () => {
+        hookCalls += 1;
+        return permittedValue;
+      },
+    });
+    assert.equal(inspectExecutionIntelligenceEvent(accessorEvent), null);
+    const accessorInput =
+      field === "eventType"
+        ? { ...input, eventType: undefined }
+        : { ...input, outcome: accessorEvent.outcome };
+    if (field === "eventType")
+      Object.defineProperty(accessorInput, field, {
+        enumerable: true,
+        get: () => {
+          hookCalls += 1;
+          return permittedValue;
+        },
+      });
+    assert.throws(
+      () => createOperationSettledEvent(accessorInput as never),
+      /execution_intelligence_event_invalid/,
+    );
+    assert.equal(hookCalls, 0, `${field}: accessor must not run`);
+  }
+  const inspected = inspectExecutionIntelligenceEvent(baseEvent);
+  assert.ok(inspected);
+  assert.equal(typeof inspected.eventType, "string");
+  assert.equal(typeof inspected.outcome.status, "string");
+  assert.equal(typeof inspected.outcome.effectState, "string");
+  assert.equal(JSON.stringify(inspected).includes(secretSentinel), false);
+});
 
 /**
  * public observation helpers preserve values, absence and non-applicabilityを検証する。

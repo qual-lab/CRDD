@@ -15,6 +15,7 @@ import {
   readExecutionIntelligence,
   verifyExecutionIntelligenceRepositoryRoot,
   type ExecutionIntelligenceEvent,
+  type TaskAttemptExecutionIntelligenceEvent,
 } from "../../execution-intelligence/src/index.ts";
 import { inspectProjectRuntimeStateQueryResult } from "../../project-runtime/src/index.ts";
 import { observeChangePublicationTarget } from "../../version-control/src/change-publication.ts";
@@ -155,7 +156,7 @@ const MAXIMUM_EVENT_LIMIT = 50;
  * @concurrency N/A: 共有状態を持たない同期処理である。
  */
 function projectRuntimeEvent(
-  event: ExecutionIntelligenceEvent,
+  event: TaskAttemptExecutionIntelligenceEvent,
 ): WorkbenchRuntimeEventProjection {
   return Object.freeze({
     eventId: event.eventId,
@@ -278,7 +279,11 @@ function observeRepositoryRuntimeEvents(
       continuation: null,
     });
   const sorted = observed.events
-    .filter((event) => event.identity.projectId === projectId)
+    .filter(
+      (event): event is TaskAttemptExecutionIntelligenceEvent =>
+        event.eventType === "task_attempt_settled" &&
+        event.identity.projectId === projectId,
+    )
     .sort(
       (left, right) =>
         right.occurredAt.localeCompare(left.occurredAt) ||

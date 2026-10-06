@@ -14,11 +14,61 @@ import test from "node:test";
 
 import {
   createTaskAttemptSettledEvent,
+  createOperationSettledEvent,
   notObserved,
   observed,
   projectExecutionRecords,
   usageNotObserved,
 } from "../../src/index.ts";
+
+/**
+ * Task限定Projectionはgenericを除外し、対象Taskの安全観測を失わない。
+ * @responsibility variant境界と追加観測の搬送を検証する。
+ * @trace PPR-IT-003
+ * @precondition 同じProjectのTaskと任意Operationを用意する。
+ * @stimulus Attempt限定Projectionへ両variantを渡す。
+ * @observation factsとexcluded。
+ * @oracle Taskだけを保持し、追加観測を改変しない。
+ * @cleanup N/A: 値だけを構築し外部資源なし。
+ * @boundary PPR-IT-003=Adjacent 1 Block: constructor→Projection。
+ */
+test("task projection preserves safe metadata and explicitly excludes generic operations", () => {
+  const base = event("project-a", "attempt-a");
+  const task = createTaskAttemptSettledEvent({
+    occurredAt: base.occurredAt,
+    identity: base.identity,
+    outcome: base.outcome,
+    quality: base.quality,
+    execution: {
+      ...base.execution,
+      profileId: observed("profile-a", "assignment"),
+      overrideApplied: observed(true, "assignment"),
+    },
+  });
+  const operation = createOperationSettledEvent({
+    occurredAt: base.occurredAt,
+    identity: {
+      projectId: "project-a",
+      operationId: "operation-a",
+      executionId: "execution-a",
+    },
+    execution: base.execution,
+    outcome: base.outcome,
+    quality: base.quality,
+  });
+  const result = projectExecutionRecords({
+    projectId: "project-a",
+    attemptIds: ["attempt-a"],
+    events: [task, operation],
+  });
+  assert.ok(result);
+  assert.deepEqual(result.facts, [task]);
+  assert.equal(result.excluded[0]?.state, "outside_attempt");
+  assert.deepEqual(
+    result.facts[0]?.execution.profileId,
+    task.execution.profileId,
+  );
+});
 
 /**
  * 固定Identityの実行Eventを構築する。

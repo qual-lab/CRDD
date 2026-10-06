@@ -21,6 +21,8 @@ export {
   REPOSITORY_MANIFEST_RELATIVE_PATH,
   VERIFICATION_RELATIVE_PATH,
   ensureRepositoryRuntimeDataArea,
+  observeRepositoryRuntimeDataArea,
+  type RepositoryRuntimeDataAreaObservation,
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
   requireReadyRepositoryRuntimeDataArea,
   RepositoryRuntimeDataAreaBlockedError,
@@ -30,6 +32,12 @@ export {
   type RepositoryRuntimeArea,
   type CrosRootInput,
 } from "./platform/runtime-data-path-resolver.ts";
+export {
+  readProjectRuntimeConfig,
+  readExecutionIntelligenceConfig,
+  type ToolRuntimeConfig,
+  type ToolRuntimeConfigResult,
+} from "./platform/tool-runtime-config.ts";
 export {
   createTemporaryOperation,
   resumeTemporaryOperation,

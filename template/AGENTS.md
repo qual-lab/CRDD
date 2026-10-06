@@ -145,6 +145,12 @@ CRDDのタグ、コミット、サブモジュール参照、`00_CRDD/`の配布
 - 単体試験が適用される実装では、分岐網羅率`100%`を既定目標とする。未達または除外がある場合は、測定対象、分母、分子、実測値、具体的理由、残るリスク、代替確認、担当責任者、必要な人間判断、再確認条件を取得可能にする。数値だけで品質成立を推定しない。
 - `40_Develop`にはコード、構成、移行、ビルド、テスト等の実装成果物を置き、CRDD管理用Markdownを置かない。
 
+### 設定の配置
+
+Repositoryに固有の非秘密設定は`.crdd/config/`へTool別のファイルとして置く。設定例はCRDD配布物の`template/.crdd/config/*.example.json`を参照し、例そのものを実設定や実行許可として読み込まない。`project-runtime.json`と`execution-intelligence.json`は独立したTool設定であり、それぞれ`schemaRevision`と`historyRetentionDays`を保持する。設定ファイルの不存在だけ各30日となり、不正な設定は当該Toolの整理を止める。
+
+Manifest、外部送信Policyおよび上記二つのTool設定は非秘密の共有設定として、`.gitignore`の明示allowlistでGit管理できる。`.crdd`全体を追跡対象にせず、Runtime状態、履歴、Lock、一時物、候補および秘密は管理外を維持する。既存の親Directory除外が設定を隠す場合は、`.crdd/`と`config/`の再包含も設定する。CROSのHost共通設定はOS管理の設定Root、固定Runtime設定と既定Catalogは所有Subsystem、Schemaは配布物の`template/tools/schemas/`へ置き、Repository設定へ混在させない。
+
 ## 工程実行と引き渡し
 
 課題探索・要求形成、UX、IA、UI、振る舞い仕様、アーキテクチャ、実装、検証を実行・監査する場合は、対象工程文書の工程契約を正本とする。入口、変換、必要な責務の網羅、出口、工程判定基準、監査チェックリストをプロンプト、作業手順、エージェント定義で再定義しない。

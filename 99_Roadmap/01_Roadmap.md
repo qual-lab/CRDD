@@ -2,7 +2,7 @@
 
 Status: Non-normative Open Work Registry
 Owner: Qual-Lab
-Last Updated: 2026-10-04
+Last Updated: 2026-10-06
 Related:
 - [CRDD標準自身のDiscovery](../01_Discovery/01_Product_Discovery.md)
 - [Product候補登録](../01_Discovery/02_Product_Candidates.md)
@@ -114,6 +114,19 @@ Workbenchは後付けのUIではない。[入口再探索](../01_Discovery/Analy
 | 複数Projectの横断調整・最適化 | Held | Unscheduled | [Product候補登録](../01_Discovery/02_Product_Candidates.md) | v0.22の読み取り専用Portfolio投影と後続の実行Evidenceを基に、Project間の優先順位、Capacity、投資判断およびEffect Authorityを別能力として採否する |
 
 長期研究候補のうち、[v0.19へ採用したProject Runtime境界](../01_Discovery/Analysis/EXP-000008/exploration.md)は完了根拠へ移した。有用性・照合費用の改善候補は、v0.23の参照実証と実行評価または版未定の高度な最適化へ責務ごとに分けた。将来候補の存在は、版予約、実装許可またはRelease条件を意味しない。長期能力地平との比較は未完了Taskではなく、各VersionのRelease Readinessで行う定期評価である。
+
+### 1.5. 採用先の編集フィードバックからの還元
+
+2026-10-06、人間はCommunication採用先の30候補の棚卸しとRoadmap化、および実行知に関わる項目の今回対応を指定した。全数処置、情報源の固定Hash、今回対象と対象外は[還元棚卸しと③の計画](Changes/CHG-000082/Evidence/261006_execution-intelligence-phase3.md)を参照する。候補保持を全項目の採用、版予約、採用先への書込みまたは汎用性の証明にしない。
+
+| 作業 | 判断状態 | 対応状態 | 情報源 | 次の処置／再評価契機 |
+|---|---|---|---|---|
+| v0.22 実行知の保存刷新・安全診断・実績割当 | 人間指定／同じCHGの③ | In Progress | [候補17・22〜25・28・30の処置](Changes/CHG-000082/Evidence/261006_execution-intelligence-phase3.md#2-還元候補の全数処置) | Taskと一般Operation、安全化診断、実際割当、欠測と使用量を公開契約・Store・Reader・試験へ接続する。旧形式移行はフロントAIが担当し、Runtime互換を残さない。承認済み30日整理と双方の期間設定を反証する。 |
+| 会話・範囲・成熟度・主張強度・レビュー完了の改善 | Exploring | Unscheduled | [候補1〜5・10〜13](Changes/CHG-000082/Evidence/261006_execution-intelligence-phase3.md#2-還元候補の全数処置) | Documentation／Agent／Discovery／Communicationの既存規則との差分を確認し、重複追加せず不足だけ具体化する。 |
+| 意味モデル・完成物・声・章間接続・視覚投影・編集還流 | Exploring | Unscheduled | [候補6〜8・14〜21](Changes/CHG-000082/Evidence/261006_execution-intelligence-phase3.md#2-還元候補の全数処置) | Communication工程再開または追加実証時に、規則と参照実装を一体評価する。局所語彙・画像Recipe・90%目標を無条件に標準化しない。 |
+| 作業中の還元捕捉と任意能力の再評価 | Exploring | Unscheduled | [候補9・24](Changes/CHG-000082/Evidence/261006_execution-intelligence-phase3.md#2-還元候補の全数処置) | Maintenance／Discoveryへ照合する。Communicationへの実行知接続は採用先の別変更として、現在需要・重複・導入費用を再評価する。 |
+| Schema責務地図・RuntimeとGitの境界・統合した判断入力 | Exploring | Unscheduled | [候補22・26・27](Changes/CHG-000082/Evidence/261006_execution-intelligence-phase3.md#2-還元候補の全数処置) | 対象Architecture再開時にOwner・Writer・Readerと現行能力へ照合する。全Schemaの新基盤を先行構築しない。 |
+| 分岐から保証への逆照合・正式承認入口・使用APIの契約照合 | Exploring | Unscheduled | [候補28〜30](Changes/CHG-000082/Evidence/261006_execution-intelligence-phase3.md#2-還元候補の全数処置) | Quality／Architecture再開時に未網羅を試験不足・設計不足・冗長実装へ処置する。公開入口・公式契約・独立した期待結果を確認し、Mock成功と実Provider成立を分ける。 |
 
 ## 2. 版ごとにできるようになること
 

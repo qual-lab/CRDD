@@ -18,6 +18,14 @@ MCPはCoordinatorのsubcommandではない。Project RuntimeやPlatform Access�
 
 採用Repositoryでは、公式Release tagへ固定した完全な`00_CRDD` cloneまたはsubmoduleから公開入口を起動する。CRDD公式Repository内の開発確認では、同じ相対位置の`template/tools/crdd-mcp.ts`を使用する。内部packageの`bin`、内部moduleまたはCoordinator CLIからMCP入口を推測しない。
 
+## CROS Shared ServerのHost設定
+
+Shared ServerはRepository単体の設定を使わず、OS管理のCROS設定Rootにある固定名`shared-server.json`を読む。配置Rootと認可契約は[CROS設計](../06_Architecture/Details/cros/01_Architecture.md)および[Runtime Data設計](../06_Architecture/Details/runtime-data/01_Architecture.md#6-crosとの物理分離)を参照する。
+
+設定形式は、独立した[CROS Shared Server設定例](../template/tools/cros-shared-server-config-example.json)を参照する。例はGit管理する配布物であり、Runtimeが直接読み込む実設定ではない。本書に同じJSONを重複保持しない。
+
+実設定はHost管理者が対象Root、公開Origin、TLS終端および公開範囲を確認して作成する。Bearer Tokenや秘密をこのJSONへ含めない。例の値を実設定や起動許可として自動採用しない。Runtimeが読むPathや形式は変更しない。
+
 ## 実行前と終了後
 
 | 時点 | 確認 |

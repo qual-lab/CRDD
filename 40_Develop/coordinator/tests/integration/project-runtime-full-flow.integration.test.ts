@@ -12,7 +12,10 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
+import {
+  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
+  requireReadyRepositoryRuntimeDataArea,
+} from "../../../runtime-data/src/index.ts";
 import path from "node:path";
 import test from "node:test";
 
@@ -158,7 +161,16 @@ function acceptIntegratedResult(
  */
 function fixture(t: test.TestContext) {
   const root = fs.mkdtempSync(
-    path.join(os.tmpdir(), "crdd-project-full-flow-"),
+    path.join(
+      requireReadyRepositoryRuntimeDataArea(
+        ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+          path.resolve(import.meta.dirname, "../../../.."),
+          "tests",
+        ),
+        "fixture_root_invalid",
+      ).directory,
+      "crdd-project-full-flow-",
+    ),
   );
   execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -393,7 +405,16 @@ test("public intake, bounded retry, progress and integration form one accepted f
  */
 test("bounded parallel attempts are evaluated by one integrated accepted result", async (t) => {
   const root = fs.mkdtempSync(
-    path.join(os.tmpdir(), "crdd-project-bounded-evaluation-"),
+    path.join(
+      requireReadyRepositoryRuntimeDataArea(
+        ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+          path.resolve(import.meta.dirname, "../../../.."),
+          "tests",
+        ),
+        "fixture_root_invalid",
+      ).directory,
+      "crdd-project-bounded-evaluation-",
+    ),
   );
   execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));

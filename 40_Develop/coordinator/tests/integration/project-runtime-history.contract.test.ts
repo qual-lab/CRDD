@@ -21,19 +21,140 @@ import {
   requireReadyRepositoryRuntimeDataArea,
 } from "../../../runtime-data/src/index.ts";
 import {
-  updateProjectRuntimeHistoryPilot,
-  updateProjectRuntimeHistoryOwned,
-  inspectProjectRuntimeHistorySettlement,
-} from "../../src/security/project-runtime-history.ts";
-import {
   acquireProjectRuntimeSnapshotPilotLock,
   readProjectRuntimeSnapshot,
-  writeProjectRuntimeSnapshot,
   transferProjectRuntimeSnapshotHistory,
+  writeProjectRuntimeSnapshot,
 } from "../../src/security/project-runtime-durable-foundation.ts";
+import {
+  inspectProjectRuntimeHistorySettlement,
+  updateProjectRuntimeHistoryOwned,
+  updateProjectRuntimeHistoryPilot,
+} from "../../src/security/project-runtime-history.ts";
 
 const DAY = 24 * 60 * 60 * 1000;
 const referenceTime = Date.parse("2026-10-05T00:00:00.000Z");
+
+/**
+ * 設定期間と保存時の期限根拠を確認する。
+ * @responsibility 追加、清掃、未搬送証明へ一つの保持方針を接続する。
+ * @trace PRL-IT-012
+ * @precondition 自己所有Repositoryを使用する。
+ * @stimulus 7日、90日への変更と不正設定、旧Headerを与える。
+ * @observation JSONL行とsettlement結果を確認する。
+ * @oracle 設定変更が過去の期限処置を捏造せず旧形式を拒否する。
+ * @cleanup fixtureがexact Rootを回収する。
+ * @boundary PRL-IT-012=Direct Boundary: 履歴Adapter→Repository設定とJSONL。
+ */
+test("Host Windows: 保持期間は設定可能で保存時の期限根拠を維持する", (t) => {
+  const f = fixture(t);
+  const config = path.join(f.root, ".crdd", "config");
+  fs.mkdirSync(config, { recursive: true });
+  const file = path.join(config, "project-runtime.json");
+  fs.writeFileSync(
+    path.join(config, "execution-intelligence.json"),
+    "invalid_other_tool",
+  );
+  const policy = {
+    schemaRevision: 1,
+    historyRetentionDays: 7,
+  };
+  fs.writeFileSync(file, JSON.stringify(policy));
+  assert.equal(
+    updateProjectRuntimeHistoryPilot(
+      f.root,
+      row("eight", referenceTime - 8 * DAY),
+      referenceTime,
+    ).status,
+    "completed",
+  );
+  assert.equal(
+    updateProjectRuntimeHistoryPilot(
+      f.root,
+      row("seven", referenceTime - 7 * DAY),
+      referenceTime,
+    ).status,
+    "completed",
+  );
+  const acquired = acquireProjectRuntimeSnapshotPilotLock(f.root);
+  if (acquired.status !== "completed") throw new Error("owner");
+  try {
+    fs.writeFileSync(
+      file,
+      JSON.stringify({
+        ...policy,
+        historyRetentionDays: 90,
+      }),
+    );
+    assert.equal(
+      inspectProjectRuntimeHistorySettlement(
+        acquired.value,
+        JSON.parse(row("eight", referenceTime - 8 * DAY)),
+        referenceTime,
+      ),
+      "expired",
+    );
+    assert.equal(
+      inspectProjectRuntimeHistorySettlement(
+        acquired.value,
+        JSON.parse(row("seven", referenceTime - 7 * DAY)),
+        referenceTime,
+      ),
+      "recorded",
+    );
+    assert.equal(
+      updateProjectRuntimeHistoryOwned(
+        acquired.value,
+        row("thirty-one", referenceTime - 31 * DAY),
+        referenceTime,
+      ).status,
+      "completed",
+    );
+    assert.equal(
+      inspectProjectRuntimeHistorySettlement(
+        acquired.value,
+        JSON.parse(row("thirty-one", referenceTime - 31 * DAY)),
+        referenceTime,
+      ),
+      "recorded",
+    );
+    fs.writeFileSync(file, "{}");
+    const bytes = fs.readFileSync(f.current, "utf8");
+    assert.equal(
+      updateProjectRuntimeHistoryOwned(
+        acquired.value,
+        row("invalid"),
+        referenceTime,
+      ).status,
+      "blocked",
+    );
+    assert.equal(fs.readFileSync(f.current, "utf8"), bytes);
+    assert.equal(
+      inspectProjectRuntimeHistorySettlement(
+        acquired.value,
+        JSON.parse(row("seven", referenceTime - 7 * DAY)),
+        referenceTime,
+      ),
+      null,
+    );
+    fs.writeFileSync(file, JSON.stringify(policy));
+    const lines = bytes.trimEnd().split("\n");
+    const header = JSON.parse(lines[0] ?? "{}");
+    delete header.historyRetentionDays;
+    header.contract = "crdd-coordinator/project-runtime-history-pilot/v1";
+    fs.writeFileSync(
+      f.current,
+      `${JSON.stringify(header)}\n${lines.slice(1).join("\n")}\n`,
+    );
+    assert.equal(
+      updateProjectRuntimeHistoryOwned(acquired.value, null, referenceTime)
+        .status,
+      "blocked",
+    );
+  } finally {
+    assert.equal(acquired.value.release(), true);
+  }
+});
 
 /**
  * 現在状態から履歴への二段確定を確認する。
