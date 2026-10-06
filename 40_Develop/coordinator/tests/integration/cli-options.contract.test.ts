@@ -10,7 +10,6 @@
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -22,6 +21,7 @@ import {
 } from "../../src/core/cli-options.ts";
 import { renderDockerRecoveryDoctorReport } from "../../src/core/docker-recovery-command-report.ts";
 import { assertPresent } from "../support/test-support.ts";
+import { withUnsignedRuntimeFixture } from "../support/unsigned-runtime-fixture.ts";
 
 const coordinatorExecutable = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -560,18 +560,18 @@ test("helpは通常Taskと現在利用可能なcommandだけを案内する", ()
 });
 
 /**
- * 実task CLIは曖昧JSONと未検証source checkoutを全Effect前に拒否するを検証する。
+ * 実task CLIは曖昧JSONと明示未署名配布をTask開始前に拒否するを検証する。
  *
- * @responsibility 実task CLIは曖昧JSONと未検証source checkoutを全Effect前に拒否するの合否判定を所有する。
+ * @responsibility 実task CLIは曖昧JSONと明示未署名配布をTask開始前に拒否するの合否判定を所有する。
  * @trace PRL-IT-012
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 実task CLIは曖昧JSONと未検証source checkoutを全Effect前に拒否するの対象操作を実行する。
+ * @stimulus 実task CLIは曖昧JSONと明示未署名配布をTask開始前に拒否するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
-test("実task CLIは曖昧JSONと未検証source checkoutを全Effect前に拒否する", () => {
+test("実task CLIは曖昧JSONと明示未署名配布をTask開始前に拒否する", () => {
   const ambiguous = spawnSync(
     process.execPath,
     [coordinatorExecutable, "task", "--request-stdin", "--json"],
@@ -587,17 +587,26 @@ test("実task CLIは曖昧JSONと未検証source checkoutを全Effect前に拒�
     "task_request_invalid_json",
   );
 
-  const invalidRepository = spawnSync(
-    process.execPath,
-    [coordinatorExecutable, "task", "--request-stdin", "--json"],
-    {
-      cwd: os.tmpdir(),
-      input: JSON.stringify({ frontProvider: "codex" }),
-      encoding: "utf8",
-      windowsHide: true,
-    },
+  const invalidRepository = withUnsignedRuntimeFixture((root) =>
+    spawnSync(
+      process.execPath,
+      [
+        path.join(root, "40_Develop", "coordinator", "bin", "coordinator.ts"),
+        "task",
+        "--request-stdin",
+        "--json",
+      ],
+      {
+        cwd: root,
+        input: JSON.stringify({ frontProvider: "codex" }),
+        encoding: "utf8",
+        windowsHide: true,
+      },
+    ),
   );
+  assert.equal(invalidRepository.error, undefined);
   assert.equal(invalidRepository.status, 2);
+  assert.equal(JSON.parse(invalidRepository.stdout).status, "blocked");
   assert.equal(
     JSON.parse(invalidRepository.stdout).reason,
     "coordinator_task_release_verification_required",

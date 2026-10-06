@@ -10,12 +10,15 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
+import { spawnSync } from "node:child_process";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+import { withUnsignedRuntimeFixture } from "../support/unsigned-runtime-fixture.ts";
 
 import { reverifyAuthorityBeforeProviderLaunch } from "../../src/security/authority-prelaunch-verifier.ts";
 import {
   createIsolatedLocalPersonalAuthorityRuntimeCandidate,
   describeLocalPersonalAuthorityRuntimeContract,
-  loadRuntimeOwnedLocalPersonalAuthority,
 } from "../../src/security/local-personal-authority-runtime.ts";
 
 /**
@@ -243,19 +246,32 @@ test("sourceは30秒後に再生成しRelease確認を省略しない", () => {
 });
 
 /**
- * source checkoutのproduction loaderは署名Release不成立なら停止するを検証する。
+ * 明示未署名配布のproduction loaderは停止するを検証する。
  *
- * @responsibility source checkoutのproduction loaderは署名Release不成立なら停止するの合否判定を所有する。
+ * @responsibility 明示未署名配布のproduction loaderは停止するの合否判定を所有する。
  * @trace PRL-UT-006
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus source checkoutのproduction loaderは署名Release不成立なら停止するの対象操作を実行する。
+ * @stimulus 明示未署名配布のproduction loaderは停止するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-UT-006=Direct Boundary: coordinator Test Source→対象契約
  */
-test("source checkoutのproduction loaderは署名Release不成立なら停止する", () => {
-  assert.equal(
+test("明示未署名配布のproduction loaderは停止する", () => {
+  withUnsignedRuntimeFixture((root) => {
+    const moduleUrl = pathToFileURL(
+      path.join(
+        root,
+        "40_Develop",
+        "coordinator",
+        "src",
+        "security",
+        "local-personal-authority-runtime.ts",
+      ),
+    ).href;
+    const source = `import assert from "node:assert/strict";
+import { loadRuntimeOwnedLocalPersonalAuthority } from ${JSON.stringify(moduleUrl)};
+assert.equal(
     loadRuntimeOwnedLocalPersonalAuthority({
       operationId: "OP-123456",
       provider: "claude",
@@ -263,8 +279,17 @@ test("source checkoutのproduction loaderは署名Release不成立なら停止�
     }),
     null,
   );
+process.stdout.write("verified");`;
+    const result = spawnSync(
+      process.execPath,
+      ["--input-type=module", "-e", source],
+      { cwd: root, encoding: "utf8", windowsHide: true, timeout: 15_000 },
+    );
+    assert.equal(result.error, undefined);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout, "verified");
+  });
 });
-
 /**
  * Local Personal Authority contractはT1-T2と外部Root非必須を固定するを検証する。
  *

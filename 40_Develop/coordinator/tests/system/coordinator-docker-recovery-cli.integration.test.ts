@@ -15,6 +15,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { pathToFileURL } from "node:url";
+import { withUnsignedRuntimeFixture } from "../support/unsigned-runtime-fixture.ts";
 import { dispatchDockerDesktopRepairDoctorCommand } from "../../src/core/docker-desktop-repair-doctor-dispatch.ts";
 import { renderDockerRecoveryDoctorReport } from "../../src/core/docker-recovery-command-report.ts";
 import { inspectDockerRecoveryRootSnapshotWithLock } from "../../src/security/docker-recovery-runtime-internal.ts";
@@ -35,17 +36,19 @@ const hostRecoveryId = `host.crdd-coordinator-doctor-fixture.12345678-1234-4234-
  * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 function invokeCli(isJson: boolean) {
-  return spawnSync(
-    process.execPath,
-    [
-      "--experimental-strip-types",
-      path.resolve("bin/coordinator.ts"),
-      "doctor",
-      "--recover-isolation",
-      recoveryId,
-      ...(isJson ? ["--json"] : []),
-    ],
-    { windowsHide: true, encoding: "utf8", timeout: 10_000 },
+  return withUnsignedRuntimeFixture((root) =>
+    spawnSync(
+      process.execPath,
+      [
+        "--experimental-strip-types",
+        path.join(root, "40_Develop", "coordinator", "bin", "coordinator.ts"),
+        "doctor",
+        "--recover-isolation",
+        recoveryId,
+        ...(isJson ? ["--json"] : []),
+      ],
+      { cwd: root, windowsHide: true, encoding: "utf8", timeout: 10_000 },
+    ),
   );
 }
 
@@ -155,32 +158,33 @@ test("実CLIのdocker-task dispatchはJSONでexact IDと安全なblocked理由�
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
-test("実CLIの再起動Fence付きdocker-task dispatchは修復記録の生成元配布RootをRecoveryへ渡す", () => {
-  const repairId = `docker-desktop-repair.${"4".repeat(32)}`;
-  const result = spawnSync(
-    process.execPath,
-    [
-      "--experimental-strip-types",
-      path.resolve("bin/coordinator.ts"),
-      "doctor",
-      "--recover-isolation",
-      recoveryId,
-      "--after-docker-desktop-repair",
-      repairId,
-      "--repair-release-root",
-      path.resolve("fixture-historical-release"),
-      "--json",
-    ],
-    { windowsHide: true, encoding: "utf8", timeout: 10_000 },
-  );
-  assert.equal(result.status, 2, result.stderr);
-  const report = JSON.parse(result.stdout);
-  assert.equal(report.status, "blocked");
-  assert.match(report.reason, /^docker_task_recovery_restart_fence_/u);
-  assert.equal(report.restartFenceVerified, false);
-  assert.equal(report.recoveryId, recoveryId);
-  assert.equal(result.stderr, "");
-});
+test("実CLIの再起動Fence付きdocker-task dispatchは修復記録の生成元配布RootをRecoveryへ渡す", () =>
+  withUnsignedRuntimeFixture((root) => {
+    const repairId = `docker-desktop-repair.${"4".repeat(32)}`;
+    const result = spawnSync(
+      process.execPath,
+      [
+        "--experimental-strip-types",
+        path.join(root, "40_Develop", "coordinator", "bin", "coordinator.ts"),
+        "doctor",
+        "--recover-isolation",
+        recoveryId,
+        "--after-docker-desktop-repair",
+        repairId,
+        "--repair-release-root",
+        path.resolve("fixture-historical-release"),
+        "--json",
+      ],
+      { cwd: root, windowsHide: true, encoding: "utf8", timeout: 10_000 },
+    );
+    assert.equal(result.status, 2, result.stderr);
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.status, "blocked");
+    assert.match(report.reason, /^docker_task_recovery_restart_fence_/u);
+    assert.equal(report.restartFenceVerified, false);
+    assert.equal(report.recoveryId, recoveryId);
+    assert.equal(result.stderr, "");
+  }));
 
 /**
  * 実CLIのDocker Desktop最終砦はinvalid IDをusage 64、未成立境界をblocked 2へ投影するを検証する。
@@ -194,70 +198,77 @@ test("実CLIの再起動Fence付きdocker-task dispatchは修復記録の生成�
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
-test("実CLIのDocker Desktop最終砦はinvalid IDをusage 64、未成立境界をblocked 2へ投影する", () => {
-  const executable = path.resolve("bin/coordinator.ts");
-  const invalid = spawnSync(
-    process.execPath,
-    [
-      "--experimental-strip-types",
-      executable,
-      "doctor",
-      "--close-docker-desktop-runtime-repair",
-      "invalid",
-      "--json",
-    ],
-    { windowsHide: true, encoding: "utf8", timeout: 10_000 },
-  );
-  assert.equal(invalid.status, 64, invalid.stderr);
-  assert.equal(JSON.parse(invalid.stdout).status, "blocked");
+test("実CLIのDocker Desktop最終砦はinvalid IDをusage 64、未成立境界をblocked 2へ投影する", () =>
+  withUnsignedRuntimeFixture((root) => {
+    const executable = path.join(
+      root,
+      "40_Develop",
+      "coordinator",
+      "bin",
+      "coordinator.ts",
+    );
+    const invalid = spawnSync(
+      process.execPath,
+      [
+        "--experimental-strip-types",
+        executable,
+        "doctor",
+        "--close-docker-desktop-runtime-repair",
+        "invalid",
+        "--json",
+      ],
+      { cwd: root, windowsHide: true, encoding: "utf8", timeout: 10_000 },
+    );
+    assert.equal(invalid.status, 64, invalid.stderr);
+    assert.equal(JSON.parse(invalid.stdout).status, "blocked");
 
-  const syntacticallyValid = `docker-desktop-repair.${"a".repeat(32)}`;
-  const blocked = spawnSync(
-    process.execPath,
-    [
-      "--experimental-strip-types",
-      executable,
-      "doctor",
-      "--close-docker-desktop-runtime-repair",
-      syntacticallyValid,
-      "--json",
-    ],
-    { windowsHide: true, encoding: "utf8", timeout: 10_000 },
-  );
-  assert.equal(blocked.status, 2, blocked.stderr);
-  const report = JSON.parse(blocked.stdout);
-  assert.equal(report.status, "blocked");
-  assert.equal(report.pathReported, false);
-  assert.equal(report.credentialReported, false);
+    const syntacticallyValid = `docker-desktop-repair.${"a".repeat(32)}`;
+    const blocked = spawnSync(
+      process.execPath,
+      [
+        "--experimental-strip-types",
+        executable,
+        "doctor",
+        "--close-docker-desktop-runtime-repair",
+        syntacticallyValid,
+        "--json",
+      ],
+      { cwd: root, windowsHide: true, encoding: "utf8", timeout: 10_000 },
+    );
+    assert.equal(blocked.status, 2, blocked.stderr);
+    const report = JSON.parse(blocked.stdout);
+    assert.equal(report.status, "blocked");
+    assert.equal(report.pathReported, false);
+    assert.equal(report.credentialReported, false);
 
-  const repair = spawnSync(
-    process.execPath,
-    [
-      "--experimental-strip-types",
-      executable,
-      "doctor",
-      "--repair-docker-desktop-runtime",
-      "--json",
-    ],
-    { windowsHide: true, encoding: "utf8", timeout: 10_000 },
-  );
-  assert.equal(repair.status, 2, repair.stderr);
-  assert.equal(JSON.parse(repair.stdout).status, "blocked");
+    const repair = spawnSync(
+      process.execPath,
+      [
+        "--experimental-strip-types",
+        executable,
+        "doctor",
+        "--repair-docker-desktop-runtime",
+        "--json",
+      ],
+      { cwd: root, windowsHide: true, encoding: "utf8", timeout: 10_000 },
+    );
+    assert.equal(repair.status, 2, repair.stderr);
+    assert.equal(JSON.parse(repair.stdout).status, "blocked");
 
-  const human = spawnSync(
-    process.execPath,
-    [
-      "--experimental-strip-types",
-      executable,
-      "doctor",
-      "--close-docker-desktop-runtime-repair",
-      syntacticallyValid,
-    ],
-    { windowsHide: true, encoding: "utf8", timeout: 10_000 },
-  );
-  assert.equal(human.status, 2, human.stderr);
-  assert.doesNotMatch(human.stdout, /C:\\|credential|password|token/iu);
-});
+    const human = spawnSync(
+      process.execPath,
+      [
+        "--experimental-strip-types",
+        executable,
+        "doctor",
+        "--close-docker-desktop-runtime-repair",
+        syntacticallyValid,
+      ],
+      { cwd: root, windowsHide: true, encoding: "utf8", timeout: 10_000 },
+    );
+    assert.equal(human.status, 2, human.stderr);
+    assert.doesNotMatch(human.stdout, /C:\\|credential|password|token/iu);
+  }));
 
 /**
  * Docker Desktop専用dispatcherはrepair／closeの2・0・throwを同じrendererへ投影するを検証する。

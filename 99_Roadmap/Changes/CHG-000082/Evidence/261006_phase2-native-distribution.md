@@ -7,7 +7,7 @@
 
 ## 結論
 
-署名候補の実初期化2件は、配布されたWindows補助実行ファイルが現在のRust Sourceに追従していないため停止した。Source、回復機能、Timeout、Docker設定は変更せず、既存buildの成果物を配布へ反映する。新候補の署名と実初期化・全回帰は未完了で、②全体Passではない。
+現候補の署名とproduction初期化2件は成功した。以前の配布binary未追従、bootstrap固定Hash漏れと保護Directory不一致は、以下へ時系列の失敗・是正根拠として保持する。全Portable収集と失敗六件の試験前提是正も完了し、②の最終独立確認を残す。全製品E2EとRelease全体のPassではない。
 
 ## 固定候補と結果
 
@@ -53,10 +53,15 @@ Architecture／Qualityの着手前確認後、固定Hashを新exeのHashへ更�
 
 再発防止は配布binary、bootstrap固定Hash、manifestを一つの更新集合として確認する。既存のbootstrap異常応答拒否試験は正常frame受理を含み、Hashが不一致ならその正常例も失敗するため、このGateを秘密入力前へ置く。新しい汎用回復機能や許可条件緩和を追加しない。
 
+## 現候補の再確認
+
+Source A 1ce6d9c5、Tree 2b0a2b3、carrier B 28e288acの署名と配置は成功した。manifest SHA-256は8be590d91244a724dd4755077d567335ec1d38b14d05af04ac5e0b82dab85cc3。production Operation／doctorは元Oracleで2/2成功した。全Portableの結果と試験前提六件の限定是正・35件再確認は[②最終確認](261005_project-runtime-phase2.md#35-最終署名候補と全回帰の処置)に記録した。現在の新候補について再署名・実初期化が未完了という冒頭の記述は旧候補時点の履歴であり、現Gateは②最終独立レビューだけが残る。
+
 ## Checklist
 
 - [x] 署名成功と実初期化の成立を区別した。
 - [x] 最初の失敗を元Oracleで確認し、回復や設定を増築しなかった。
 - [x] 旧／新binary、固定Source、build条件と診断結果を分離した。
 - [x] 既存Native試験と非実行項目を区別した。
-- [ ] OPEN: 新固定候補の署名、元2件、Coordinator全Portableと②最終独立確認を完了する。
+- [x] 新固定候補の署名、元2件、全Portable収集と全失敗の処置を確認した。
+- [ ] OPEN: ②最終独立確認を完了する。

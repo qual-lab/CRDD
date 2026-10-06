@@ -60,7 +60,7 @@
 
 ## 残るGate
 
-件数上限4096への限定採用は人間承認済み。64MiB、Root／alias拒否、同一handle、exact Tree、署名とAuthorityの条件は維持した。新固定Commitから配布物を生成し、正式preflight、署名、production Operation／doctorを再確認する。秘密入力は外部端末に限定する。
+件数上限4096への限定採用と新固定候補の正式preflight、署名、production Operation／doctorは成功した。全Portable収集と試験前提六件の処置は[②最終確認](261005_project-runtime-phase2.md#35-最終署名候補と全回帰の処置)を参照する。②の最終独立確認を残し、全品質項目の判定は変更しない。
 
 全体の旧観測値の個別適用、必要なWorkbench／Provider E2E、未実施のManual／Hybrid義務は残る。旧記録の明示リセットは通常Recovery成功ではない。③、Release、Provider追加送信やDocker再起動へこの照合から進まない。
 
@@ -70,5 +70,6 @@
 - [x] 旧版の集計と現在の再生成を分けた。
 - [x] 未定義参照・重複と全数集合を確認した。
 - [x] 不足を推測で補わず、全体OPENと現在の局所成立を分けた。
-- [ ] OPEN: 署名候補とproduction初期化のGateが未完了。新固定候補の確認後に再評価する。
+- [x] 現固定候補の署名、production初期化2件、全Portable収集と失敗六件の試験前提是正後35件を確認した。
+- [ ] OPEN: ②の最終独立レビューを完了する。
 - [ ] OPEN: 全176項目の個別Evidence現在適用は未完了。局所試験から全体Passへ変更しない。

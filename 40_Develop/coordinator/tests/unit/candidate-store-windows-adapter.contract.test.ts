@@ -10,28 +10,44 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
+import { spawnSync } from "node:child_process";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+import { withUnsignedRuntimeFixture } from "../support/unsigned-runtime-fixture.ts";
 
 import {
-  consumeRuntimeOwnedCandidateStoreRootCapability,
   describeCandidateStoreWindowsAdapterContract,
   inspectRuntimeOwnedWindowsCandidateStore,
 } from "../../src/security/candidate-store-windows-adapter.ts";
 import { WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE } from "../../src/core/windows-child-environment.ts";
 
 /**
- * source checkoutは署名済みRelease確認前にCandidate Store Effectを開始しないを検証する。
+ * 明示未署名配布はCandidate Store Effectを開始しないを検証する。
  *
- * @responsibility source checkoutは署名済みRelease確認前にCandidate Store Effectを開始しないの合否判定を所有する。
+ * @responsibility 明示未署名配布はCandidate Store Effectを開始しないの合否判定を所有する。
  * @trace PPR-UT-014
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus source checkoutは署名済みRelease確認前にCandidate Store Effectを開始しないの対象操作を実行する。
+ * @stimulus 明示未署名配布はCandidate Store Effectを開始しないの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PPR-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
-test("source checkoutは署名済みRelease確認前にCandidate Store Effectを開始しない", () => {
-  const result = inspectRuntimeOwnedWindowsCandidateStore(
+test("明示未署名配布はCandidate Store Effectを開始しない", () => {
+  withUnsignedRuntimeFixture((root) => {
+    const moduleUrl = pathToFileURL(
+      path.join(
+        root,
+        "40_Develop",
+        "coordinator",
+        "src",
+        "security",
+        "candidate-store-windows-adapter.ts",
+      ),
+    ).href;
+    const source = `import assert from "node:assert/strict";
+import { inspectRuntimeOwnedWindowsCandidateStore, consumeRuntimeOwnedCandidateStoreRootCapability } from ${JSON.stringify(moduleUrl)};
+const result = inspectRuntimeOwnedWindowsCandidateStore(
     true,
     new Date().toISOString(),
   );
@@ -45,8 +61,17 @@ test("source checkoutは署名済みRelease確認前にCandidate Store Effectを
     consumeRuntimeOwnedCandidateStoreRootCapability(result.rootCapability),
     null,
   );
+process.stdout.write("verified");`;
+    const result = spawnSync(
+      process.execPath,
+      ["--input-type=module", "-e", source],
+      { cwd: root, encoding: "utf8", windowsHide: true, timeout: 15_000 },
+    );
+    assert.equal(result.error, undefined);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout, "verified");
+  });
 });
-
 /**
  * Candidate Store adapterは環境由来の相対Rootをnative照合前に拒否するを検証する。
  *

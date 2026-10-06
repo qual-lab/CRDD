@@ -11,9 +11,9 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-②の受付世代の実接続、終了記録の整理、本番保存Port切替とRepositoryの実切替を実施した。旧形式の互換処理は追加せず、フロントAIが非使用と保全範囲を確認して旧E2E記録516ファイルを清掃した。公開初期化と再初期化は同じ受付世代を返し、現在の保存領域は`state.json`と`state.lock`、現在の仕事は空である。候補本体・認証・署名・正式Evidenceは保全した。静的Gate、関連130件、MCP50件、Project Runtime UT69件・IT5件とArchitecture／QualityのSource／Contract限定独立レビューが成功し、全体Checkerはerror0／warning0となった。全Portableの6件Failを原因別に是正し、公開Acceptance2件、保存関連を含むHost36件と局所反例が成功した。Source／Contract独立再レビューはPass。Checker全377件と公開入口の関連37件も成功した。配布候補・署名依存の再確認は継続中であり、②全体Passにはしていない。次は署名検証用候補を固定する。[切替前確認](99_Roadmap/Changes/CHG-000082/Evidence/261005_project-runtime-phase2.md#28-本番切替前の独立確認と実在庫)、[実切替結果](99_Roadmap/Changes/CHG-000082/Evidence/261005_project-runtime-phase2.md#29-repositoryの実切替結果)、[現候補の確認結果](99_Roadmap/Changes/CHG-000082/Evidence/261005_project-runtime-phase2.md#31-命名是正後の現候補)を参照する。
+②の受付世代、終了整理、本番v2保存PortとRepository切替を実施した。状態・キューを一体保存し、履歴は30日保持、終了済み処置後は受付世代で旧IDの再利用を拒否する。候補・認証・署名・正式Evidenceは保全した。現署名候補のproduction初期化2件は成功。全Portableは2277件中2266成功・6失敗・5未実施となり、失敗六件の未署名前提を試験専用fixtureへ分離した後、関連35件すべて成功した。本番Sourceは変更していない。②の最終独立レビューを残し、③以降と全製品E2Eは未完了として維持する。[②の最終確認](99_Roadmap/Changes/CHG-000082/Evidence/261005_project-runtime-phase2.md#35-最終署名候補と全回帰の処置)を参照する。
 
-2026-10-06、Reality Auditの現物再集計は13QA・176検証項目、試験Relationあり132・なし44、Symbol616（重複・未定義参照0）。意味モデルを再生成し18意味中16は実装と自動試験の両Relation、1は未接続、1は手動確認待ちとなった。これは品質項目のPass数ではなく、全項目のEvidence適用はOPENを維持する。配布件数上限の超過を原因確認し、人間承認に基づき4096へ限定改訂、64MiBと署名条件は維持した。容量反例是正後9/9と静的GateはPass。新固定候補の署名依存確認へ進む。[現在の現実照合](99_Roadmap/Changes/CHG-000082/Evidence/261006_phase2-reality-audit.md)を参照する。
+2026-10-06のReality Auditは13QA・176検証項目、試験Relationあり132・なし44、Symbol616（重複・未定義参照0）。18意味中16は実装と自動試験の両Relation、1は未接続、1は手動確認待ちである。これは品質項目のPass数ではなく、全項目のEvidence適用はOPENを維持する。[現在の現実照合](99_Roadmap/Changes/CHG-000082/Evidence/261006_phase2-reality-audit.md)を参照する。
 
 ①の一時領域・検証資料整理は承認済み限定範囲で独立確認Passとなった。Coordinator記録の縮小とCandidateの7日保持は後続段階であり、②の保存切替だけを根拠に実装済みとしない。署名済み実Provider E2E・Release全体の成立も今回の限定確認から推定しない。[整理①の結果](99_Roadmap/Changes/CHG-000082/Evidence/261005_runtime-data-phase1.md#14-①の独立確認結果)を参照する。
 

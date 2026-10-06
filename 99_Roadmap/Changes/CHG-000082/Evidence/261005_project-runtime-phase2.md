@@ -659,3 +659,23 @@ Qualityレビューは前節の容量超過例で、期待Treeが実内容と一
 正式Sourceは変更せず試験だけを修正した。静的Gateと全9試験が再度Pass（5.534秒）。試験SHA-256は1EFE3BF8F0F1BA1BB6FC503CC763CF9A81704386B0202EC85B0766A350319381。同じ容量超過fixtureと正しいTreeに対し、正式64MiB予算はblocked、Memory内でbytes予算だけ128MiBに変えた局所変異はcandidateとなり、容量Guardへの反証感度を確認した。Memory内実験を正式候補・署名Passへ算入しない。一時fixtureは不存在を確認した。
 
 是正後のArchitecture／Quality独立再レビューは、Source／反例／文書境界と品質投影に限定してともにPass。必須指摘は解消した。新固定候補の正式preflight、署名依存、②全体GateとE2Eは未完了で、この限定Passから推定しない。
+
+## 35. 最終署名候補と全回帰の処置
+
+Source Aは1ce6d9c54fa82b67adbbc172ae60e2e6a37b34f9、Treeは2b0a2b3e9d6f9e418379b1c55b8e4722ffb7e920。manifest carrier Bは28e288acb573786f07dac2490bbdeee891860e98で、Aとの差分はmanifest一件だけである。manifest SHA-256は8be590d91244a724dd4755077d567335ec1d38b14d05af04ac5e0b82dab85cc3。正式preflight、外部署名SIGN_EXIT=0、署名済みstaging自身の配置とproduction Operation／doctorの元2件は2/2成功した。誤った鍵の拒否も全Portable内で元Oracleを維持して成功した。
+
+| 実行集合 | 結果と意味 |
+|---|---|
+| 固定BのCoordinator全Portable | 2277件、成功2266・失敗6・未実施5・取消0・todo0。1387.393秒。単一実行の全Passとはしない。 |
+| 失敗6件 | task CLI一件、回復CLI三件、Candidate Store一件、Local Personal Authority一件。実Checkoutを未署名と仮定する試験前提の欠陥。署名済み環境では署名Gate通過後の別境界へ進むため、既存の未署名Oracleと一致しなかった。 |
+| 限定是正後の関連4ファイル | 35/35成功、失敗・取消・skip・todo0。21.991秒。上記6件すべてと同ファイルの既存反例を再確認した。 |
+| 静的Gate | Formatter、Source／試験の型、Lint、既存三種の設計対応検査が成功。 |
+| 未実施5件 | 環境指定CRDD_REAL_DOCKER_OBSERVATIONを必要とする実Docker観測四件、専用指定を必要とする実Reviewer境界一件。②保存切替のHost36件とは別であり、成功に加算しない。 |
+
+全結果を収集するまで固定Bを編集しなかった。Architecture／Qualityの着手前確認後、Repository-localの専用未署名fixtureへ必要な追跡Source／packageだけを複製した。manifest、Native、秘密、現在状態、tests、node_modules、targetは持ち込まない。fixture自身のhelp成功とmanifest不存在を確認し、実Production Module／CLIをfixtureから起動する。Candidate Capabilityの消費nullとEffect非発行は子Process内で確認し、JSON化でCapabilityが失われる偽陽性を避けた。exact拒否理由、exit、状態、情報非開示と旧反例を弱めていない。finallyでexactな所有Rootを回収し、残存0を確認した。
+
+回復CLIの旧試験には、署名済み実環境でDesktop処置へ届き得る非Hermeticな前提もあった。同条件で再実行せずfixtureへ分離した。旧実行の処置発行は試験結果だけでは確定できないためEffect 0とは主張しない。読取り再観測では実Coordinator CLI／Native補助Process、Docker Desktop／backend Processと新しいDesktop修復記録は検出しなかった。これは過去Effect不存在の証明ではない。今回の是正後試験は署名Gateで停止し、実Desktop修復の成立確認へ拡張しない。
+
+是正は試験だけであり、本番Source、Native、署名済みRuntimeは不変。全Portableを再度総当たりせず、変更した試験前提から影響先四ファイルを全件再実行した。未変更の実装・試験は固定Bの全収集結果に、変更した反例は35件の新結果に対応付ける。異なる集合を足して単一実行の全成功件数を作らない。追加署名、Provider依頼、Docker再起動、回復Framework変更は行わない。
+
+②の実装・本番切替・検証は処置済み。最終Architecture／Quality独立レビューの完了後に②だけを閉じてコミット・プッシュする。③④、Coordinator記録縮小、Candidate保持実装、全製品E2E、176品質項目のEvidence適用とRelease判断は別の未完了義務として維持する。
