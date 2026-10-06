@@ -46,7 +46,7 @@ const runtimeExecutionDirectories = Object.freeze(
   new Set(["bin", "src", "runtime", "policies"]),
 );
 const runtimeExecutionRootFiles = Object.freeze(new Set(["package.json"]));
-const RUNTIME_EXECUTION_LAUNCHER_PATH = "bin/launch.ts";
+const RUNTIME_EXECUTION_LAUNCHER_PATH = "bin/coordinator.ts";
 const VERIFY_KEYS = new Set([
   "manifestEnvelope",
   "evaluationTime",
@@ -653,7 +653,10 @@ function isCanonicalTextPackagePath(relativePath: string) {
  * @security canonicalPackageFileContentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: canonicalPackageFileContentは共有非同期状態を持たない同期処理である。
  */
-function canonicalPackageFileContent(relativePath: string, bytes: Buffer) {
+export function canonicalPackageFileContent(
+  relativePath: string,
+  bytes: Buffer,
+) {
   if (!isCanonicalTextPackagePath(relativePath)) return bytes;
   let crlfCount = 0;
   for (let index = 0; index + 1 < bytes.length; index += 1) {
@@ -1915,6 +1918,55 @@ type RuntimeExternalProcessCallsite = Readonly<{
 
 const runtimeExternalProcessCallsites = Object.freeze(
   [
+    [
+      "scripts/verify-native-protection.ts",
+      "observeNativeProtectionRepositoryRoot",
+      "spawnSync",
+      ["git"],
+      ["[", "rev-parse"],
+    ],
+    [
+      "scripts/verify-native-protection.ts",
+      "lintNativeProtectionArtifact",
+      "spawnSync",
+      ["cargo"],
+      ["[", "+1.94.1-x86_64-pc-windows-msvc"],
+    ],
+    [
+      "scripts/verify-native-protection.ts",
+      "buildNativeProtectionArtifact",
+      "spawnSync",
+      ["cargo"],
+      ["[", "+1.94.1-x86_64-pc-windows-msvc"],
+    ],
+    [
+      "scripts/verify-native-protection.ts",
+      "executeNativeProtectionGuard",
+      "spawnSync",
+      ["binary"],
+      ["[", "exactTest"],
+    ],
+    [
+      "scripts/verify-native-protection.ts",
+      "executeNativeProtectionZeroCase",
+      "spawnSync",
+      ["binary"],
+      ["[", "exactTest"],
+    ],
+    [
+      "scripts/verify-native-protection.ts",
+      "runNativeProtection",
+      "spawn",
+      ["binary"],
+      ["[", "exactTest"],
+    ],
+    [
+      "scripts/prepare-release-candidate.ts",
+      "runPromotion",
+      "spawnSync",
+      ["process", ".", "execPath"],
+      ["[", "launcher"],
+    ],
     ...[
       ["executeHostTerminalRecordRequest", ["[", "nativeMode", "]"]],
       [
@@ -2331,6 +2383,76 @@ type ExactExternalProcessCallGraph = Readonly<{
 const exactExternalProcessCalls = Object.freeze(
   [
     [
+      "verification_tool",
+      "scripts/verify-native-protection.ts",
+      "observeNativeProtectionRepositoryRoot",
+      "spawnSync",
+      1,
+      "3df146e5da611985aaaca792759b0a7f14701d289b26cc675ce6b9da949db200",
+      "1a59d97a8a605001d6b98c7ea6ce919af558e68bff82f503b86869a5ac3cfa03",
+      null,
+    ],
+    [
+      "verification_tool",
+      "scripts/verify-native-protection.ts",
+      "lintNativeProtectionArtifact",
+      "spawnSync",
+      1,
+      "06573b5237ac2992f919f7652e3417f888d602b009d338d8af180938381d532a",
+      "47efff33e14428e70089957eb1eb5b138d99ec30a8732a9389b162512596aabe",
+      null,
+    ],
+    [
+      "verification_tool",
+      "scripts/verify-native-protection.ts",
+      "buildNativeProtectionArtifact",
+      "spawnSync",
+      1,
+      "e8be7f7edeb2c6e64da094472584a3328a8eca4df8a874f4512f89aa0718beca",
+      "6401dd6caef5ac96ce6ea3ceca1dc57ff37bddd03b2b2451169597b3f1b60ac2",
+      null,
+    ],
+    [
+      "verification_tool",
+      "scripts/verify-native-protection.ts",
+      "executeNativeProtectionGuard",
+      "spawnSync",
+      1,
+      "ad6ffee7ebeb5ff41186685c7ee4dcb75dcd886e771926b70fa446f5e8ddf56f",
+      "3b3d33458aa2ba7f7af1960c80d2d64736d030ef527dc51667c74ffb8da94f2d",
+      null,
+    ],
+    [
+      "verification_tool",
+      "scripts/verify-native-protection.ts",
+      "executeNativeProtectionZeroCase",
+      "spawnSync",
+      1,
+      "99ef294d5edfc97815922d953f0de26cb64b1cbbd24eb636d74b56a851d8ca3f",
+      "5d9c8c6c44b9860a4027a08d424f1c5c8cbd302241960c323f77db321821b372",
+      null,
+    ],
+    [
+      "verification_tool",
+      "scripts/verify-native-protection.ts",
+      "runNativeProtection",
+      "spawn",
+      1,
+      "16429410d7ff75d7d0a2c8b71f3e317136ede0d2f7abb108a0fd01789d446fdd",
+      "e77c7855a4a7271951f25a203f72e00482db7ee6706a07a983bc14216a94d804",
+      "child",
+    ],
+    [
+      "verification_tool",
+      "scripts/prepare-release-candidate.ts",
+      "runPromotion",
+      "spawnSync",
+      1,
+      "31947c79349e1a79bd6eacdf2795a1ee0e696c8736ccedde3c88ac0ceae03914",
+      "801192c7bf84ad5a4ddadf1c1ca0edb3e0af96ec7b6ef50cfc93cfeee8d2d132",
+      null,
+    ],
+    [
       "runtime",
       "src/security/host-terminal-windows-adapter.ts",
       "executeHostTerminalRecordRequest",
@@ -2695,6 +2817,60 @@ type ExactAuditedFunctionFlow = Readonly<{
 const exactAuditedFunctionFlows = Object.freeze(
   [
     [
+      "verification_tool",
+      "scripts/prepare-release-candidate.ts",
+      "executeReleaseCandidateLifecycleForVerification",
+      "7d232aa3ed6359db55f3e634c972754180dad532664c19a7b0c3d1d1af1c27d8",
+    ],
+    [
+      "verification_tool",
+      "scripts/prepare-release-candidate.ts",
+      "main",
+      "191003f742fe1d63543ead104665c74c30ed8cf2df4ea7576e5fdbaa82563d9f",
+    ],
+    [
+      "verification_tool",
+      "scripts/verify-native-protection.ts",
+      "observeNativeProtectionRepositoryRoot",
+      "1a59d97a8a605001d6b98c7ea6ce919af558e68bff82f503b86869a5ac3cfa03",
+    ],
+    [
+      "verification_tool",
+      "scripts/verify-native-protection.ts",
+      "lintNativeProtectionArtifact",
+      "47efff33e14428e70089957eb1eb5b138d99ec30a8732a9389b162512596aabe",
+    ],
+    [
+      "verification_tool",
+      "scripts/verify-native-protection.ts",
+      "buildNativeProtectionArtifact",
+      "6401dd6caef5ac96ce6ea3ceca1dc57ff37bddd03b2b2451169597b3f1b60ac2",
+    ],
+    [
+      "verification_tool",
+      "scripts/verify-native-protection.ts",
+      "executeNativeProtectionGuard",
+      "3b3d33458aa2ba7f7af1960c80d2d64736d030ef527dc51667c74ffb8da94f2d",
+    ],
+    [
+      "verification_tool",
+      "scripts/verify-native-protection.ts",
+      "executeNativeProtectionZeroCase",
+      "5d9c8c6c44b9860a4027a08d424f1c5c8cbd302241960c323f77db321821b372",
+    ],
+    [
+      "verification_tool",
+      "scripts/verify-native-protection.ts",
+      "runNativeProtection",
+      "e77c7855a4a7271951f25a203f72e00482db7ee6706a07a983bc14216a94d804",
+    ],
+    [
+      "verification_tool",
+      "scripts/prepare-release-candidate.ts",
+      "runPromotion",
+      "801192c7bf84ad5a4ddadf1c1ca0edb3e0af96ec7b6ef50cfc93cfeee8d2d132",
+    ],
+    [
       "runtime",
       "src/security/host-terminal-windows-adapter.ts",
       "executeHostTerminalRecordRequest",
@@ -2872,7 +3048,7 @@ const exactAuditedFunctionFlows = Object.freeze(
       "runtime",
       "scripts/sign-release-manifest.ts",
       "main",
-      "a7fef8f9e2878dff7e00ccd2bd8824a6540c7947571ee93362ec418acb613bbb",
+      "f63d1e52a252e013c8687c1ae86e83d1e2bd60af8e926c40686d6903bcb62ebe",
     ],
     [
       "verification_tool",
@@ -2884,7 +3060,7 @@ const exactAuditedFunctionFlows = Object.freeze(
       "verification_tool",
       "scripts/verify-project-runtime-real-providers.ts",
       "main",
-      "a111c157bc2be9ca294e78f3f97da13ef80d8527d1ba3a7e840948e9a151dba0",
+      "f696cf00ab61c4caa5694b7142b4541c665e11495104a5881842e7660d2c938c",
     ],
   ].map(
     ([graph, source, functionName, bodySha256]) =>
@@ -2899,6 +3075,42 @@ const exactAuditedFunctionFlows = Object.freeze(
 
 const exactAuditedSemanticGraphSha256 = Object.freeze(
   new Map([
+    [
+      "scripts/prepare-release-candidate.ts\0executeReleaseCandidateLifecycleForVerification",
+      "18a722c4e35c618044afe37aafece291963f6e41c9129ede7436025a0b8aebc2",
+    ],
+    [
+      "scripts/prepare-release-candidate.ts\0main",
+      "57f37f3deb0cce450528b3b12413f95b80d7dcfea9d8354437660a8fb359fd52",
+    ],
+    [
+      "scripts/verify-native-protection.ts\0observeNativeProtectionRepositoryRoot",
+      "735ccb1c6c9227df884e13afcfa8b47f244719f1932ef0eabd726bb4d632199d",
+    ],
+    [
+      "scripts/verify-native-protection.ts\0lintNativeProtectionArtifact",
+      "7c89be25ca83f2fa2775b2b98e530a16069343c5cd579ab347a5f523396815e3",
+    ],
+    [
+      "scripts/verify-native-protection.ts\0buildNativeProtectionArtifact",
+      "99c7ce69cc8f0054d6fe6e10209ebed7e913ee758e0e2fe78223414623c585ac",
+    ],
+    [
+      "scripts/verify-native-protection.ts\0executeNativeProtectionGuard",
+      "21ae55d47d819932614884bdfbb53a9a0a879dc02c3058a97aa40575a6990ae8",
+    ],
+    [
+      "scripts/verify-native-protection.ts\0executeNativeProtectionZeroCase",
+      "20f764e17cf3a7ff0ae3bcf645315cc3fd3890fd33be7fc125b77add9564bd3a",
+    ],
+    [
+      "scripts/verify-native-protection.ts\0runNativeProtection",
+      "5d5d3639d10a314cec7497cb6c37f1ccf9236a05a73652c080aef73a1c93d338",
+    ],
+    [
+      "scripts/prepare-release-candidate.ts\0runPromotion",
+      "579105388b799fa1eac1a1534fbc107c7a74fcf836b74c383a7f66356c3866f0",
+    ],
     [
       "src/security/host-terminal-windows-adapter.ts\0executeHostTerminalRecordRequest",
       "e5c374c27f3c30dcb9e1c27c80cb73bd05a61104f2f5b5e76c6bb206f2de86d7",
@@ -3017,7 +3229,7 @@ const exactAuditedSemanticGraphSha256 = Object.freeze(
     ],
     [
       "scripts/sign-release-manifest.ts\0main",
-      "10c60bf189c32bdc5d9e5202f945f6ed5b9d2475d26eac9a54bcf63a96c1a2a0",
+      "c21d43360317d78b6ef6594e11fc68de0e6cd7f91d0e8af5d7b79f0cb072369e",
     ],
     [
       "scripts/verify-project-runtime-real-providers.ts\0restoreOwnedAdoptionFixture",
@@ -3025,13 +3237,15 @@ const exactAuditedSemanticGraphSha256 = Object.freeze(
     ],
     [
       "scripts/verify-project-runtime-real-providers.ts\0main",
-      "24734ed2d1a3b1acf864d59c1b6d803fc90ee6a2993aaa50ade78b7af90c5157",
+      "3cfb9397d8549d92be99bb20a0de383741f5d5b61e3c1a09f16942396b4434b5",
     ],
   ]),
 );
 
 const auditedExportedFunctionIdentities = Object.freeze(
   new Set([
+    "scripts/prepare-release-candidate.ts\0main",
+    "scripts/prepare-release-candidate.ts\0executeReleaseCandidateLifecycleForVerification",
     ...[
       "saveHostTerminalWindowsRecord",
       "readHostTerminalWindowsRecord",
@@ -3054,11 +3268,25 @@ const auditedExportedFunctionIdentities = Object.freeze(
     "src/security/platform-provisioner-package-filesystem.ts\0inspectVerifiedNativeDistributionCandidate",
     "scripts/sign-release-manifest.ts\0preflightReleaseManifest",
     "scripts/sign-release-manifest.ts\0signReleaseManifest",
+    "scripts/sign-release-manifest.ts\0main",
   ]),
 );
 
 const auditedFunctionLexicalParents = Object.freeze(
   new Map([
+    ...[
+      "observeNativeProtectionRepositoryRoot",
+      "lintNativeProtectionArtifact",
+      "buildNativeProtectionArtifact",
+      "executeNativeProtectionGuard",
+      "executeNativeProtectionZeroCase",
+    ].map(
+      (name) =>
+        [
+          `scripts/verify-native-protection.ts\0${name}`,
+          "runNativeProtection",
+        ] as const,
+    ),
     ["src/security/docker-effect-runtime.ts\0startCommand", "createRuntime"],
     ["src/security/docker-effect-runtime.ts\0runShort", "createRuntime"],
   ]),
@@ -3082,6 +3310,17 @@ type AsyncProcessOwnership = Readonly<{
 
 const exactAsyncProcessOwnership = Object.freeze(
   new Map<string, AsyncProcessOwnership>([
+    [
+      "scripts/verify-native-protection.ts\0runNativeProtection",
+      Object.freeze({
+        classification: "immediate_owner",
+        proofs: Object.freeze([
+          Object.freeze(["child", ".", "on", "(", "error"]),
+          Object.freeze(["child", ".", "on", "(", "exit"]),
+          Object.freeze(["child", ".", "once", "(", "close"]),
+        ]),
+      }),
+    ],
     [
       "scripts/verify-project-runtime-real-providers.ts\0startPublicMcpProcess",
       Object.freeze({
@@ -3181,6 +3420,155 @@ type ExecutableProvenance = Readonly<{
 
 const exactExecutableProvenance = Object.freeze(
   new Map<string, ExecutableProvenance>([
+    [
+      "scripts/verify-native-protection.ts\0observeNativeProtectionRepositoryRoot",
+      Object.freeze({
+        classification: "registered_platform_helper",
+        proofs: Object.freeze([
+          Object.freeze([
+            "assert",
+            ".",
+            "equal",
+            "(",
+            "process",
+            ".",
+            "platform",
+          ]),
+        ]),
+      }),
+    ],
+    [
+      "scripts/verify-native-protection.ts\0lintNativeProtectionArtifact",
+      Object.freeze({
+        classification: "registered_platform_helper",
+        proofs: Object.freeze([
+          Object.freeze([
+            "const",
+            "crateRoot",
+            "=",
+            "repository",
+            "+",
+            "/40_Develop/platform-access",
+          ]),
+        ]),
+      }),
+    ],
+    [
+      "scripts/verify-native-protection.ts\0buildNativeProtectionArtifact",
+      Object.freeze({
+        classification: "registered_platform_helper",
+        proofs: Object.freeze([
+          Object.freeze([
+            "const",
+            "crateRoot",
+            "=",
+            "repository",
+            "+",
+            "/40_Develop/platform-access",
+          ]),
+        ]),
+      }),
+    ],
+    [
+      "scripts/verify-native-protection.ts\0executeNativeProtectionGuard",
+      Object.freeze({
+        classification: "validated_local_artifact",
+        proofs: Object.freeze([
+          Object.freeze([
+            "assert",
+            ".",
+            "equal",
+            "(",
+            "artifacts",
+            ".",
+            "length",
+          ]),
+          Object.freeze([
+            "assert",
+            ".",
+            "equal",
+            "(",
+            "fs",
+            ".",
+            "realpathSync",
+            ".",
+            "native",
+            "(",
+            "binary",
+            ")",
+          ]),
+        ]),
+      }),
+    ],
+    [
+      "scripts/verify-native-protection.ts\0executeNativeProtectionZeroCase",
+      Object.freeze({
+        classification: "validated_local_artifact",
+        proofs: Object.freeze([
+          Object.freeze([
+            "assert",
+            ".",
+            "equal",
+            "(",
+            "artifacts",
+            ".",
+            "length",
+          ]),
+          Object.freeze([
+            "assert",
+            ".",
+            "equal",
+            "(",
+            "fs",
+            ".",
+            "realpathSync",
+            ".",
+            "native",
+            "(",
+            "binary",
+            ")",
+          ]),
+        ]),
+      }),
+    ],
+    [
+      "scripts/verify-native-protection.ts\0runNativeProtection",
+      Object.freeze({
+        classification: "validated_local_artifact",
+        proofs: Object.freeze([
+          Object.freeze([
+            "assert",
+            ".",
+            "equal",
+            "(",
+            "artifacts",
+            ".",
+            "length",
+          ]),
+          Object.freeze([
+            "assert",
+            ".",
+            "equal",
+            "(",
+            "fs",
+            ".",
+            "realpathSync",
+            ".",
+            "native",
+            "(",
+            "binary",
+            ")",
+          ]),
+        ]),
+      }),
+    ],
+    [
+      "scripts/prepare-release-candidate.ts\0runPromotion",
+      Object.freeze({
+        classification: "node_self",
+        proofs: Object.freeze([]),
+      }),
+    ],
     ...[
       "executeHostTerminalRecordRequest",
       "executeTerminalObservationRequest",
@@ -4106,9 +4494,10 @@ function assertNoUndeclaredLocalTypeScriptImportMetaUrl(
         "platform_provisioner_runtime_dependency_child_url_unbound",
       );
     if (
-      ["bin/launch.ts", "40_Develop/coordinator/bin/launch.ts"].includes(
-        relativePath,
-      ) &&
+      [
+        "bin/coordinator.ts",
+        "40_Develop/coordinator/bin/coordinator.ts",
+      ].includes(relativePath) &&
       tokenSequenceMatches(tokens, index + 3, [
         "plan",
         ".",
@@ -6046,7 +6435,7 @@ function assertExactCapabilityGraphSourceUniverse(
   const expectedTokens = exactExternalProcessCalls.filter(
     (callsite) => callsite.graph === graph,
   );
-  const expectedCount = graph === "runtime" ? 26 : 6;
+  const expectedCount = graph === "runtime" ? 26 : 13;
   const stableIdentities = expectedTokens.map(
     (callsite) =>
       `${callsite.source}\u0000${callsite.containingFunction}\u0000${callsite.primitive}\u0000${callsite.occurrence}`,
@@ -6062,7 +6451,7 @@ function assertExactCapabilityGraphSourceUniverse(
     (flow) => `${flow.graph}\u0000${flow.source}\u0000${flow.functionName}`,
   );
   if (
-    exactExternalProcessCalls.length !== 32 ||
+    exactExternalProcessCalls.length !== 39 ||
     exactExecutableProvenance.size !== exactExternalProcessCalls.length ||
     exactExternalProcessCalls.some(
       (callsite) =>
@@ -6165,9 +6554,10 @@ function isAllowedExecPathUse(
       "execPath",
     ]);
   if (
-    ["bin/launch.ts", "40_Develop/coordinator/bin/launch.ts"].includes(
-      relativePath,
-    )
+    [
+      "bin/coordinator.ts",
+      "40_Develop/coordinator/bin/coordinator.ts",
+    ].includes(relativePath)
   )
     return tokenSequenceMatches(tokens, index - 7, [
       "process",
@@ -6409,7 +6799,7 @@ export function runtimePackageCapabilityConsumerGraphForVerification(
 const exactRuntimePackageCapabilityConsumers = Object.freeze(
   [
     [
-      "bin/coordinator.ts",
+      "src/core/coordinator-command.ts",
       "issueRuntimeOwnedVerifiedCoordinatorPackageCapability",
       "runTaskCommand",
       "call",
@@ -7030,12 +7420,12 @@ function assertExactRuntimePackageCapabilityConsumerGraph(
             "src/security/host-recovery-namespace-windows-adapter.ts" &&
           consumer.source !== "src/security/host-terminal-windows-adapter.ts")),
   );
-  const observedIdentities = observedTokens.map(
-    runtimePackageCapabilityConsumerIdentity,
-  );
-  const expectedIdentities = expectedTokens.map(
-    runtimePackageCapabilityConsumerIdentity,
-  );
+  const observedIdentities = observedTokens
+    .map(runtimePackageCapabilityConsumerIdentity)
+    .sort();
+  const expectedIdentities = expectedTokens
+    .map(runtimePackageCapabilityConsumerIdentity)
+    .sort();
   if (
     new Set(expectedIdentities).size !== expectedIdentities.length ||
     observedIdentities.length !== expectedIdentities.length ||
@@ -7153,6 +7543,24 @@ function assertPublicRuntimeObservationConsumerClosure(
   )
     return;
   const expected = Object.freeze([
+    [
+      "observeRuntimeDistribution",
+      "inspectRuntimeDistributionSigningFilesCandidate",
+      [
+        ["distributionRoot"],
+        [
+          "sourceProfile",
+          "=",
+          "=",
+          "=",
+          "v0.21",
+          "?",
+          "v0.21_source_contract",
+          ":",
+          "current_source_contract",
+        ],
+      ],
+    ],
     [
       "observeRuntimeDistribution",
       "inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate",
@@ -7479,7 +7887,7 @@ function assertReleaseSigningProtectedPath(source: string) {
       ],
       [
         "../src/security/platform-provisioner-release-identity.ts",
-        ["inspectPlatformProvisionerReleaseIdentityCandidate"],
+        ["inspectPlatformProvisionerRuntimeGitProvenanceCandidate"],
       ],
       [
         "../src/security/platform-provisioner-policy-identity.ts",
@@ -7572,7 +7980,7 @@ function assertReleaseSigningProtectedPath(source: string) {
       new Set(["prepareReleaseManifestCandidate"]),
     ],
     [
-      "inspectPlatformProvisionerReleaseIdentityCandidate",
+      "inspectPlatformProvisionerRuntimeGitProvenanceCandidate",
       new Set(["prepareReleaseManifestCandidate"]),
     ],
     ["inspectRepositoryFixedSnapshot", new Set(["verifyCommitTreeBinding"])],
@@ -7616,7 +8024,7 @@ function assertReleaseSigningProtectedPath(source: string) {
   ]);
   const expectedProtectedImportUseCount = new Map<string, number>([
     ["inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate", 1],
-    ["inspectPlatformProvisionerReleaseIdentityCandidate", 1],
+    ["inspectPlatformProvisionerRuntimeGitProvenanceCandidate", 1],
     ["inspectRepositoryFixedSnapshot", 1],
     ["verifyRepositoryRoot", 1],
     ["getPlatformProvisionerPolicyIdentity", 1],
@@ -7710,16 +8118,53 @@ function assertReleaseSigningProtectedPath(source: string) {
   );
   const releaseIdentity = directProtectedCall(
     tokens,
-    "inspectPlatformProvisionerReleaseIdentityCandidate",
+    "inspectPlatformProvisionerRuntimeGitProvenanceCandidate",
     "prepareReleaseManifestCandidate",
     ["const", "releaseIdentity", "="],
-    [["distributionRoot"], ["options", ".", "crddTree"]],
+    [
+      [
+        "{",
+        "repositoryRoot",
+        ":",
+        "repository",
+        ",",
+        "distributionRoot",
+        ",",
+        "crddCommit",
+        ":",
+        "options",
+        ".",
+        "crddCommit",
+        ",",
+        "crddTree",
+        ":",
+        "options",
+        ".",
+        "crddTree",
+        ",",
+        "sourceProfile",
+        ":",
+        "options",
+        ".",
+        "crddVersion",
+        "=",
+        "=",
+        "=",
+        "v0.21.0",
+        "?",
+        "v0.21",
+        ":",
+        "current",
+        ",",
+        "}",
+      ],
+    ],
   );
   const commitTree = directProtectedCall(
     tokens,
     "verifyCommitTreeBinding",
     "prepareReleaseManifestCandidate",
-    [],
+    ["const", "repository", "="],
     [
       ["options", ".", "crddCommit"],
       ["options", ".", "crddTree"],
@@ -7802,8 +8247,8 @@ function assertReleaseSigningProtectedPath(source: string) {
   );
   if (
     !(
-      releaseIdentity < commitTree &&
-      commitTree < stagingVerification &&
+      commitTree < releaseIdentity &&
+      releaseIdentity < stagingVerification &&
       policyIdentity < runtimeIdentity &&
       runtimeIdentity < compiledPayload &&
       pPrepare < keyPreflight &&
@@ -8175,7 +8620,8 @@ function verifyLauncherEntryBindings(packageRoot: string) {
   const actualEntries = new Set(
     [...actualDependencies].filter(
       (target) =>
-        target.startsWith("scripts/") || target === "bin/coordinator.ts",
+        target.startsWith("scripts/") ||
+        target === "src/core/coordinator-command.ts",
     ),
   );
   const expected = new Set<string>();
@@ -8248,7 +8694,7 @@ function collectRuntimeExecutionScriptPaths(
   );
   const scriptPaths = new Set<string>();
   const pendingItems: string[] = [];
-  if (fs.existsSync(path.join(packageRoot, "bin", "launch.ts"))) {
+  if (fs.existsSync(path.join(packageRoot, "bin", "coordinator.ts"))) {
     verifyLauncherEntryBindings(packageRoot);
     for (const entry of Object.values(COORDINATOR_LAUNCH_ENTRIES)) {
       const target = canonicalRelativeModuleTarget(
@@ -9228,6 +9674,53 @@ function publicObservation(
     filesystemEffectIssued: false,
     networkEffectIssued: false,
   });
+}
+
+/**
+ * 署名前のGit出所照合に使用する実行集合のPathと内容Hashを観測する。
+ *
+ * @responsibility 既存実行閉包から署名対象File一覧を導出し、全Repository観測へ広げない。
+ * @trace ARCH-000014
+ * @input distributionRoot: 候補の検証対象Root。sourceProfile: 現行またはv0.21の固定Source契約。
+ * @returns 実行集合のPath、byte長、SHA-256と内容Root、または停止結果。
+ * @precondition 呼出し側が署名対象のRootとSource契約を固定している。
+ * @postcondition 同じ閉包の再観測が成立したFile一覧だけを返す。
+ * @effect Filesystemを読取り、書込みや外部送信は行わない。
+ * @failure Root、集合、内容または観測の不成立を停止結果へ返す。
+ * @invariant File一覧は既存の実行閉包と同じ集合である。
+ * @boundary Repository内のRuntime Fileと署名前の出所確認の境界。
+ * @security File本文や秘密を返さず、署名Authorityや実行Capabilityを発行しない。
+ * @concurrency 同期再観測だけを行い、後続実行中の変更不能を保証しない。
+ */
+export function inspectRuntimeDistributionSigningFilesCandidate(
+  distributionRoot: string,
+  sourceProfile: "current" | "v0.21" = "current",
+) {
+  try {
+    if (sourceProfile !== "current" && sourceProfile !== "v0.21")
+      throw new Error("runtime_signing_source_profile_invalid");
+    const observed = observeRuntimeDistribution(
+      distributionRoot,
+      sourceProfile === "v0.21"
+        ? "v0.21_source_contract"
+        : "current_source_contract",
+    );
+    return Object.freeze({
+      status: "candidate" as const,
+      files: observed.observation.files,
+      packageContentRootSha256: observed.contentRoot.packageContentRootSha256,
+      runtimeAuthorityConferred: false,
+      filesystemEffectIssued: false,
+    });
+  } catch {
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: "runtime_signing_files_unobservable" as const,
+      files: Object.freeze([]),
+      runtimeAuthorityConferred: false,
+      filesystemEffectIssued: false,
+    });
+  }
 }
 
 /**

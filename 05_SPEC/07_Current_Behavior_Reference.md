@@ -68,7 +68,7 @@ Local Personal一般Taskは永続的なManaged／Hardened Runtime状態を前提
 
 ### 検証結果の保存
 
-4経路・復旧検証の通常CLIは、公開引数とNode版を確認後、検証済みの対象Repository直下`.crdd/verification/<UUID>/`へ`started.json`を保存してから既存の検証処理を実行する。終了時は`result.json`へ最終結果の限定要約を保存し、flush・read-back成立後だけ結果hashを持つ`complete.json`を追加する。共通起動入口からも同じ処理へ接続し、内部Recovery子Processとimportによる関数利用では保存しない。
+新形式の4経路・復旧検証の通常CLIは、公開引数とNode版を確認後、検証済みの対象Repository直下`.crdd/tests/<UUID>/`へ`started.json`を保存してから既存の検証処理を実行する。終了時は`result.json`へ最終結果の限定要約を保存し、flush・read-back成立後だけ結果hashを持つ`complete.json`を追加する。共通起動入口からも同じ処理へ接続し、内部Recovery子Processとimportによる関数利用では保存しない。旧配布物の保存場所・版・Hashは変更せず、新形式の結果へ読み替えない。
 
 保存対象は固定metadata、開始時Repository改訂版、既知の合否・停止理由・件数・回収状態・文法確認済み回復ID・検証済み結果が返した版識別子に限定する。自由文、入力、Task本文、Provider生出力、秘密値、host pathは保存しない。未知の理由は`unknown`、不正な値はnull等とし、不完全な配列／回復IDを完全な記録と表示しない。開始時HEADは実行配布版の証明ではない。
 

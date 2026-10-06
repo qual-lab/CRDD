@@ -12,7 +12,7 @@ import {
   ensureRepositoryRuntimeDataArea,
   RepositoryRuntimeDataAreaBlockedError,
   requireReadyRepositoryRuntimeDataArea,
-  VERIFICATION_RELATIVE_PATH,
+  TESTS_RELATIVE_PATH,
 } from "../../../runtime-data/src/index.ts";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
@@ -482,10 +482,7 @@ export async function runRecordedVerification<T, E>(
     if (verifiedRuntimeRoot.status !== "completed")
       throw new Error("verification_record_runtime_path_invalid");
     const verificationArea = requireReadyRepositoryRuntimeDataArea(
-      ensureRepositoryRuntimeDataArea(
-        verifiedRuntimeRoot.capability,
-        "verification",
-      ),
+      ensureRepositoryRuntimeDataArea(verifiedRuntimeRoot.capability, "tests"),
       "verification_record_runtime_path_invalid",
     );
     const revision = inspectRepositoryRevisionCandidate(root);
@@ -601,13 +598,11 @@ export function displayVerificationRecording(
 ) {
   const message =
     outcome.recordingOutcome === "saved"
-      ? "検証の最終結果を保存しました。画面を閉じても確認できます。"
+      ? "一時的に試験結果を保存しました。必要な根拠を記録して試験領域を清掃してください。"
       : outcome.recordingOutcome === "start_failed"
         ? "開始記録を保存できないため、検証処理は開始していません。記録領域が一部残る場合があります。"
         : "最終結果を保存できませんでした。以下の実行結果を保持してください。保存失敗から実行結果や回復状態を推定しないでください。";
   process.stderr.write(`${message}\n`);
   if (outcome.recordId)
-    process.stderr.write(
-      `記録: ${VERIFICATION_RELATIVE_PATH}/${outcome.recordId}/\n`,
-    );
+    process.stderr.write(`記録: ${TESTS_RELATIVE_PATH}/${outcome.recordId}/\n`);
 }

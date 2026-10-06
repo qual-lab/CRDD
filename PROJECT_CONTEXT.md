@@ -11,6 +11,14 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
+移管された実行Evidenceは既存Markdownへ正式要約として集約し、未コミットJSON46Fileを独立確認後に回収した。過去の対象版・結果・観測限界は保持し、実行別の書庫を増やさない。[集約結果](99_Roadmap/Changes/CHG-000082/Evidence/261006_release-test-retention-phase4.md#移管jsonの正式要約と終了処置--2026-10-07)を参照する。
+
+tmp清掃では終了済みログ104件と、承認された配布・試験生成物11件（合計約711MB）を追加回収した。公式CLIへの切替は局所確認・限定独立レビューまで完了したが、署名と実Provider E2Eは未実施である。Coverage保存先と署名Fixture命名の二件は是正済み。横断命名検査では既存Sourceの258件の指摘が残り、全域Passとはしない。旧改造CLI専用診断は廃止し、実Filesystem連続処置だけを正式試験へ移して17件成功・限定独立レビューPassとした。追加75ファイル（約519MB）も回収し、旧空.operations/.stagingとtests/coordinator-launchを回収し、試験親フォルダの再生成も是正した。署名一時配置はtmp/signatureへ切替済みで、局所試験と限定独立レビューはPassである。実署名・製品E2Eの未評価は維持する。新公式CLIの認証／取消E2E義務は維持する。[現在の処置と確認範囲](99_Roadmap/Changes/CHG-000082/change.md#tmpの追加回収と横断確認二件の是正--2026-10-07)を参照する。
+
+Native試験の保存先整理は、残る九能力十実行とNode／Native排他互換を正式入口へ移し、全十一実測・独立再レビューを完了した。旧六領域2,041File（約255MiB）を確認後に回収し、`.crdd/verification`は不存在、`.crdd/tests`は空である。これは保存先整理の完了であり、署名・製品E2E・v0.22全体完了を示さない。[実施結果](99_Roadmap/Changes/CHG-000082/change.md#残るnative試験の移行と旧実物の終了処置--2026-10-07)を参照する。
+
+署名範囲の縮小は実装と二観点の独立再レビューを完了し、必須追加指摘0である。全Repositoryの候補展開をやめ、固定Git版の実行閉包とNativeだけを照合するV6方式へ切り替えた。準備・署名・昇格・終了清掃を同じ端末所有権へ接続し、中断前の参照搬送も既存の一時操作記録だけで処置する。新しいstateや回復DBは追加していない。局所試験、型・整形・Lint、Headerと構造検査は成功したが、実署名・TTY・実子Process境界は未評価で、旧V5 ManifestによるV6昇格試験の前提不整合も残る。新方式の実Runtime利用可能・全E2E成功・Release可能を主張しない。本体Manifestを保全し、コミット・プッシュは人間指定により停止中。[現在の処置](99_Roadmap/Changes/CHG-000082/change.md#2026-10-06の範囲見直し--署名対象と一時配置の縮小)を参照する。
+
 ②の保存方式刷新は完了した。受付世代、終了整理、本番v2保存PortとRepository実切替を実施し、履歴は30日保持、終了済み処置後は旧IDの再利用を拒否する。候補・認証・署名・正式Evidenceは保全した。現署名候補のproduction初期化2件は成功。全Portable収集の失敗六件を未署名試験の前提欠陥として隔離し、関連35件すべて成功。本番Sourceは不変で、Architecture／Quality最終独立レビューもPass、必須是正0件となった。③以降・全製品E2E・全品質項目の未完了は維持する。[②の完了判定](99_Roadmap/Changes/CHG-000082/Evidence/261005_project-runtime-phase2.md#36-②の完了判定)を参照する。
 
 2026-10-06のReality Auditは13QA・176検証項目、試験Relationあり132・なし44、Symbol616（重複・未定義参照0）。18意味中16は実装と自動試験の両Relation、1は未接続、1は手動確認待ちである。これは品質項目のPass数ではなく、全項目のEvidence適用はOPENを維持する。[現在の現実照合](99_Roadmap/Changes/CHG-000082/Evidence/261006_phase2-reality-audit.md)を参照する。

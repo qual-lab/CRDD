@@ -117,7 +117,7 @@ function fixture(t: TestContext) {
  * @boundary ERP-ST-004=Direct Boundary: coordinator Test Source→対象契約
  */
 function store(root: string) {
-  return path.join(root, ".crdd", "verification");
+  return path.join(root, ".crdd", "tests");
 }
 /**
  * resultPathのTest準備責務を実行する。
@@ -868,13 +868,13 @@ test("公開Recovery入口は端末出力を変えず、未署名の停止も最
   const root = fixture(t);
   const child = spawnSync(
     process.execPath,
-    [path.join(packageRoot, "bin/launch.ts"), "verify-recovery"],
+    [path.join(packageRoot, "bin/coordinator.ts"), "verify-recovery"],
     { cwd: root, encoding: "utf8", windowsHide: true, timeout: 30_000 },
   );
   assert.equal(child.status, 2, child.stderr);
   const result = JSON.parse(child.stdout);
   assert.equal(result.status, "blocked");
-  assert.match(child.stderr, /最終結果を保存しました/u);
+  assert.match(child.stderr, /一時的に試験結果を保存しました/u);
   const ids = fs.readdirSync(store(root));
   assert.equal(ids.length, 1);
   assert.equal(

@@ -10,12 +10,12 @@
  * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果 / AIT-IT-009=Adjacent 1 Block: Signer結果→Coordinator配置契約
  */
 import assert from "node:assert/strict";
-import { execFileSync, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { generateKeyPairSync, randomBytes, sign } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import test from "node:test";
+import test, { mock } from "node:test";
 import { pathToFileURL } from "node:url";
 
 import {
@@ -38,11 +38,12 @@ import {
 } from "../../src/security/platform-provisioner-package-filesystem.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from "../../src/security/provisioning-signature-primitives.ts";
 import { validateArtifactSignatureResult } from "../../../artifact-signing/src/index.ts";
+import { createFixedRuntimeSigningFixture } from "../fixtures/fixed-runtime-signing-fixture.ts";
 
 const TEST_PASSPHRASE = "test-only-release-signing-passphrase";
 const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
 const repositoryRoot = path.resolve(coordinatorRoot, "../..");
-const releaseStagingRoot = path.join(repositoryRoot, ".crdd", "release");
+const releaseStagingRoot = path.join(repositoryRoot, ".crdd", "tmp");
 
 /**
  * Signer結果が配置責務を含まない閉じた値契約であることを検証する。
@@ -325,87 +326,35 @@ test("期限なしは明示指定だけを受け、CLIの排他違反とundefine
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
  * @boundary AIT-IT-008=Direct Boundary: coordinator Test Source→対象契約
  */
-function uniqueReleaseCandidate(prefix: string) {
+function uniqueReleaseCandidate(prefix: string, fixedSignature = false) {
   fs.mkdirSync(releaseStagingRoot, { recursive: true });
   const value = path.join(
     releaseStagingRoot,
-    `${prefix}-${randomBytes(8).toString("hex")}`,
+    fixedSignature
+      ? "signature"
+      : `${prefix}-${randomBytes(8).toString("hex")}`,
   );
   fs.mkdirSync(value);
-  return value;
-}
-
-/**
- * currentSignedSourceIdentityのTest準備責務を実行する。
- *
- * @responsibility currentSignedSourceIdentityがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
- * @trace AIT-IT-008
- * @precondition 呼出し元Test Caseが必要な入力を渡す。
- * @stimulus currentSignedSourceIdentityを呼び出す。
- * @observation 返却値、生成fixtureまたは観測値を取得する。
- * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
- * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AIT-IT-008=Direct Boundary: coordinator Test Source→対象契約
- */
-function currentSignedSourceIdentity() {
-  const manifestPath = path.join(
-    repositoryRoot,
-    "template",
-    "tools",
-    "coordinator",
-    "coordinator-package-manifest.json",
-  );
-  const manifestBytes = fs.existsSync(manifestPath)
-    ? fs.readFileSync(manifestPath, "utf8")
-    : (() => {
-        const relativeManifestPath =
-          "template/tools/coordinator/coordinator-package-manifest.json";
-        const manifestCommit = execFileSync(
-          "git",
-          [
-            "-C",
-            repositoryRoot,
-            "log",
-            "-1",
-            "--diff-filter=A",
-            "--format=%H",
-            "--",
-            relativeManifestPath,
-          ],
-          { encoding: "utf8", windowsHide: true },
-        ).trim();
-        if (!manifestCommit)
-          throw new Error("test_release_manifest_history_missing");
-        return execFileSync(
-          "git",
-          [
-            "-C",
-            repositoryRoot,
-            "show",
-            `${manifestCommit}:${relativeManifestPath}`,
-          ],
-          { encoding: "utf8", windowsHide: true },
-        );
-      })();
-  const envelope: unknown = JSON.parse(manifestBytes);
-  if (typeof envelope !== "object" || envelope === null) {
-    throw new Error("test_release_manifest_envelope_invalid");
-  }
-  const payload = Reflect.get(envelope, "payload");
-  if (typeof payload !== "object" || payload === null) {
-    throw new Error("test_release_manifest_payload_invalid");
-  }
-  const crddCommit = Reflect.get(payload, "crddCommit");
-  const crddTree = Reflect.get(payload, "crddTree");
-  const crddVersion = Reflect.get(payload, "crddVersion");
-  if (
-    typeof crddCommit !== "string" ||
-    typeof crddTree !== "string" ||
-    typeof crddVersion !== "string"
-  ) {
-    throw new Error("test_release_manifest_source_identity_invalid");
-  }
-  return Object.freeze({ crddCommit, crddTree, crddVersion });
+  const work = path.join(value, "work");
+  fs.mkdirSync(work);
+  /**
+   * 試験が終了した後に自己生成した操作Directoryだけを回収する。
+   *
+   * @responsibility 個別fixtureのwork回収と親Directory回収を別々に確認する。
+   * @trace AIT-IT-008
+   * @precondition このhelperがvalueとworkを作成し、試験側がworkを清掃する。
+   * @stimulus 試験終了hookからworkの不存在を確認し、空のvalueを削除する。
+   * @observation workとvalueの存在状態、および非再帰Directory削除の結果。
+   * @oracle workが存在しない場合だけvalueを削除し、削除後もvalueが存在しない。
+   * @cleanup 自己生成した空の親Directoryだけを回収し、隣接fixtureを触らない。
+   * @boundary Repository-local tmp内の試験Directory。実署名・Runtime起動は行わない。
+   */
+  test.after(() => {
+    assert.equal(fs.existsSync(work), false);
+    fs.rmdirSync(value);
+    assert.equal(fs.existsSync(value), false);
+  });
+  return work;
 }
 
 /**
@@ -1104,12 +1053,12 @@ test("実行primitive閉包の代表違反を全公開Consumerと署名CLIで秘
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Release署名RootはRepository-localの単一candidate directoryだけを受理するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @oracle 許可外Root、Git markerのfile・directory・dangling link・EACCESを署名前に拒否する。
+ * @cleanup 作成したmarkerと所有候補をfinallyで回収し、EACCES mockを復元する。
  * @boundary AIT-IT-008=Direct Boundary: coordinator Test Source→対象契約
  */
-test("Release署名RootはRepository-localの単一candidate directoryだけを受理する", () => {
-  const candidate = uniqueReleaseCandidate("contract-root");
+test("Release署名RootはRepository-localのsignature/workだけを受理する", () => {
+  const candidate = uniqueReleaseCandidate("contract-root", true);
   const outside = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-signing-root-outside-"),
   );
@@ -1128,6 +1077,7 @@ test("Release署名RootはRepository-localの単一candidate directoryだけを�
       repositoryRoot,
       path.join(repositoryRoot, ".crdd"),
       releaseStagingRoot,
+      path.dirname(candidate),
       arbitraryLocal,
       nested,
     ]) {
@@ -1146,6 +1096,80 @@ test("Release署名RootはRepository-localの単一candidate directoryだけを�
           }),
         /release_manifest_distribution_root_invalid/u,
       );
+    }
+    const gitMarker = path.join(candidate, ".git");
+    for (const markerKind of ["file", "directory"] as const) {
+      if (markerKind === "file")
+        fs.writeFileSync(gitMarker, "fixture", { flag: "wx" });
+      else fs.mkdirSync(gitMarker);
+      assert.throws(
+        () =>
+          preflightReleaseManifest({
+            distributionRoot: candidate,
+            privateKeyPath: path.resolve("fixture-private-key-not-read"),
+            crddVersion: "v0.22.0",
+            releaseSequence: 1,
+            crddCommit: "a".repeat(40),
+            crddTree: "b".repeat(40),
+            issuedAt: "2026-10-06T00:00:00.000Z",
+            expiresAt: "2027-10-06T00:00:00.000Z",
+          }),
+        /release_manifest_distribution_root_invalid/u,
+      );
+      if (markerKind === "file") fs.unlinkSync(gitMarker);
+      else fs.rmdirSync(gitMarker);
+    }
+    fs.symlinkSync(
+      path.join(candidate, "missing-git-target"),
+      gitMarker,
+      "junction",
+    );
+    try {
+      assert.equal(fs.existsSync(gitMarker), false);
+      assert.throws(
+        () =>
+          preflightReleaseManifest({
+            distributionRoot: candidate,
+            privateKeyPath: path.resolve("fixture-private-key-not-read"),
+            crddVersion: "v0.22.0",
+            releaseSequence: 1,
+            crddCommit: "a".repeat(40),
+            crddTree: "b".repeat(40),
+            issuedAt: "2026-10-06T00:00:00.000Z",
+            expiresAt: "2027-10-06T00:00:00.000Z",
+          }),
+        /release_manifest_distribution_root_invalid/u,
+      );
+    } finally {
+      fs.unlinkSync(gitMarker);
+    }
+    const originalLstat = fs.lstatSync;
+    const deniedMarker = mock.method(
+      fs,
+      "lstatSync",
+      (...args: Parameters<typeof fs.lstatSync>) => {
+        if (args[0] === gitMarker)
+          throw Object.assign(new Error("marker denied"), { code: "EACCES" });
+        return Reflect.apply(originalLstat, fs, args);
+      },
+    );
+    try {
+      assert.throws(
+        () =>
+          preflightReleaseManifest({
+            distributionRoot: candidate,
+            privateKeyPath: path.resolve("fixture-private-key-not-read"),
+            crddVersion: "v0.22.0",
+            releaseSequence: 1,
+            crddCommit: "a".repeat(40),
+            crddTree: "b".repeat(40),
+            issuedAt: "2026-10-06T00:00:00.000Z",
+            expiresAt: "2027-10-06T00:00:00.000Z",
+          }),
+        /release_manifest_distribution_root_invalid/u,
+      );
+    } finally {
+      deniedMarker.mock.restore();
     }
   } finally {
     fs.rmSync(candidate, { recursive: true, force: true });
@@ -1540,33 +1564,35 @@ test("偽造tokenと既存manifestをRelease staging成功へ流用しない", (
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 固定公開鍵に対応しない秘密鍵ではmanifestを生成しないの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AIT-IT-008=Direct Boundary: coordinator Test Source→対象契約
+ * @oracle 正常P後のRuntime・Native差替えはSで秘密鍵open 0・Manifest不存在・能力再利用拒否となる。復元後の非固定鍵も従来どおり拒否する。
+ * @cleanup 差替えbytesとopen mockをfinallyで復元し、所有fixtureを回収する。
+ * @boundary AIT-IT-008=Direct Boundary: coordinator Test Source→対象契約。実署名は対象外。
  */
-test("固定公開鍵に対応しない秘密鍵ではmanifestを生成しない", () => {
-  const distributionRoot = uniqueReleaseCandidate("test-key-pin");
-  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-manifest-key-"));
-  const archive = path.join(parent, "release-tree.tar");
-  const privateKeyPath = path.join(parent, "crdd-release-v1-private.pem");
+test("固定公開鍵に対応しない秘密鍵ではmanifestを生成しない", async () => {
+  const fixture = createFixedRuntimeSigningFixture();
+  const {
+    source,
+    distributionRoot,
+    commit: crddCommit,
+    tree: crddTree,
+  } = fixture;
+  const privateKeyPath = path.join(
+    path.dirname(source),
+    "crdd-release-v1-private.pem",
+  );
   try {
-    const { crddCommit, crddTree, crddVersion } = currentSignedSourceIdentity();
-    execFileSync(
-      "git",
-      [
-        "-C",
-        repositoryRoot,
-        "archive",
-        "--format=tar",
-        `--output=${archive}`,
-        crddCommit,
-      ],
-      { windowsHide: true, stdio: "ignore" },
-    );
-    execFileSync("tar", ["-xf", archive, "-C", distributionRoot], {
-      windowsHide: true,
-      stdio: "ignore",
-    });
+    const signingModule: typeof import("../../scripts/sign-release-manifest.ts") =
+      await import(
+        pathToFileURL(
+          path.join(
+            source,
+            "40_Develop",
+            "coordinator",
+            "scripts",
+            "sign-release-manifest.ts",
+          ),
+        ).href
+      );
     const { privateKey } = generateKeyPairSync("ed25519");
     fs.writeFileSync(
       privateKeyPath,
@@ -1578,10 +1604,69 @@ test("固定公開鍵に対応しない秘密鍵ではmanifestを生成しない
       }),
       { flag: "wx" },
     );
-    const preflight = preflightReleaseManifest({
+    const manifestPath = path.join(
+      distributionRoot,
+      "template/tools/coordinator/coordinator-package-manifest.json",
+    );
+    for (const relativePath of [
+      "40_Develop/coordinator/bin/coordinator.ts",
+      "template/tools/coordinator/windows-x64/crdd-platform-access.exe",
+    ]) {
+      const authorization = signingModule.preflightReleaseManifest({
+        distributionRoot,
+        privateKeyPath,
+        crddVersion: "v0.22.0",
+        releaseSequence: 20,
+        crddCommit,
+        crddTree,
+        issuedAt: "2026-09-07T00:00:00.000Z",
+        expiresAt: "2027-09-07T00:00:00.000Z",
+      }).authorization;
+      const target = path.join(distributionRoot, relativePath);
+      const originalBytes = fs.readFileSync(target);
+      fs.writeFileSync(
+        target,
+        Buffer.concat([
+          originalBytes,
+          Buffer.from("\n// changed after preflight\n"),
+        ]),
+      );
+      const originalOpen = fs.openSync;
+      let privateKeyOpens = 0;
+      const keyObserver = mock.method(
+        fs,
+        "openSync",
+        (...args: Parameters<typeof fs.openSync>) => {
+          if (args[0] === privateKeyPath) {
+            privateKeyOpens += 1;
+            throw new Error("private key must not be opened");
+          }
+          return Reflect.apply(originalOpen, fs, args);
+        },
+      );
+      try {
+        assert.throws(
+          () =>
+            signingModule.signReleaseManifest(authorization, TEST_PASSPHRASE),
+          /release_manifest_(?:package_observation_failed|runtime_execution_identity_invalid|runtime_provenance_mismatch)/u,
+        );
+        assert.equal(privateKeyOpens, 0);
+        assert.throws(() => fs.lstatSync(manifestPath), { code: "ENOENT" });
+        assert.throws(
+          () =>
+            signingModule.signReleaseManifest(authorization, TEST_PASSPHRASE),
+          /release_manifest_preflight_authorization_invalid/u,
+        );
+        assert.equal(privateKeyOpens, 0);
+      } finally {
+        keyObserver.mock.restore();
+        fs.writeFileSync(target, originalBytes);
+      }
+    }
+    const preflight = signingModule.preflightReleaseManifest({
       distributionRoot,
       privateKeyPath,
-      crddVersion,
+      crddVersion: "v0.22.0",
       releaseSequence: 20,
       crddCommit,
       crddTree,
@@ -1590,7 +1675,7 @@ test("固定公開鍵に対応しない秘密鍵ではmanifestを生成しない
     });
     assert.throws(
       () =>
-        consumeReleaseManifestPreflightAuthorization(
+        signingModule.signReleaseManifest(
           preflight.authorization,
           TEST_PASSPHRASE,
         ),
@@ -1598,7 +1683,7 @@ test("固定公開鍵に対応しない秘密鍵ではmanifestを生成しない
     );
     assert.throws(
       () =>
-        consumeReleaseManifestPreflightAuthorization(
+        signingModule.signReleaseManifest(
           preflight.authorization,
           TEST_PASSPHRASE,
         ),
@@ -1617,7 +1702,190 @@ test("固定公開鍵に対応しない秘密鍵ではmanifestを生成しない
       false,
     );
   } finally {
-    fs.rmSync(distributionRoot, { recursive: true, force: true });
-    fs.rmSync(parent, { recursive: true, force: true });
+    fixture.cleanup();
+  }
+});
+
+/**
+ * 共通fixtureは全祖先のalias、型不正、観測不能を最初の書込み前に拒否する。
+ * @responsibility Root境界の拒否と書込み0を独立に確認する。
+ * @trace AIT-IT-008
+ * @precondition 実Rootを変更せずmetadataだけを局所置換する。
+ * @stimulus Root、.crdd、testsの各境界にlink、非Directory、EACCESを与える。
+ * @observation mkdir、mkdtemp、writeFileの呼出し回数。
+ * @oracle 全反例で構築を拒否し三つの書込み呼出し0。
+ * @cleanup 全mockをfinallyで復元し、実物を変更しない。
+ * @boundary AIT-IT-008: fixture→Filesystem metadata。実署名は対象外。
+ */
+test("固定Runtime fixtureは不正祖先を全書込み前に拒否する", () => {
+  const originalLstat = fs.lstatSync;
+  for (const boundary of [
+    repositoryRoot,
+    path.join(repositoryRoot, ".crdd"),
+    path.join(repositoryRoot, ".crdd", "tests"),
+  ]) {
+    for (const fault of ["link", "file", "canonical", "unknown"] as const) {
+      const calls = { mkdir: 0, mkdtemp: 0, write: 0 };
+      const lstat = mock.method(
+        fs,
+        "lstatSync",
+        (...args: Parameters<typeof fs.lstatSync>) => {
+          if (args[0] === boundary && fault !== "canonical") {
+            if (fault === "unknown")
+              throw Object.assign(new Error("unobservable"), {
+                code: "EACCES",
+              });
+            return {
+              isDirectory: () => fault !== "file",
+              isSymbolicLink: () => fault === "link",
+            } as never;
+          }
+          return Reflect.apply(originalLstat, fs, args);
+        },
+      );
+      const mkdir = mock.method(fs, "mkdirSync", () => {
+        calls.mkdir += 1;
+        throw new Error("write_must_not_run");
+      });
+      const originalRealpath = fs.realpathSync.native;
+      const realpath = mock.method(
+        fs.realpathSync,
+        "native",
+        (...args: Parameters<typeof fs.realpathSync.native>) => {
+          if (fault === "canonical" && args[0] === boundary)
+            return `${boundary}-alias`;
+          return Reflect.apply(originalRealpath, fs.realpathSync, args);
+        },
+      );
+      const mkdtemp = mock.method(fs, "mkdtempSync", () => {
+        calls.mkdtemp += 1;
+        throw new Error("write_must_not_run");
+      });
+      const write = mock.method(fs, "writeFileSync", () => {
+        calls.write += 1;
+        throw new Error("write_must_not_run");
+      });
+      try {
+        assert.throws(() => createFixedRuntimeSigningFixture());
+        assert.deepEqual(calls, { mkdir: 0, mkdtemp: 0, write: 0 });
+      } finally {
+        write.mock.restore();
+        mkdtemp.mock.restore();
+        mkdir.mock.restore();
+        lstat.mock.restore();
+        realpath.mock.restore();
+      }
+    }
+  }
+});
+
+/**
+ * 明示不存在の祖先だけを親から非再帰作成し再観測する。
+ * @responsibility ENOENTと作成順・再観測を検証する。
+ * @trace AIT-IT-008
+ * @precondition .crddとtestsの不存在をmockで与え、実Directoryは変更しない。
+ * @stimulus 各mkdir後だけmetadataを正常へ切り替える。
+ * @observation 作成対象、options、再観測回数とfixture作成へ進む順序。
+ * @oracle Rootを作らず.crdd→testsの非再帰作成後にmkdtempへ到達し、file writeは0。
+ * @cleanup 全mockをfinallyで復元する。
+ * @boundary AIT-IT-008: fixture→Filesystem metadata／Directory作成。実署名は対象外。
+ */
+test("固定Runtime fixtureはENOENT祖先だけを段階作成し再観測する", () => {
+  const originalLstat = fs.lstatSync;
+  const crdd = path.join(repositoryRoot, ".crdd");
+  const tests = path.join(crdd, "tests");
+  const created: string[] = [];
+  const reread = new Set<string>();
+  let writes = 0;
+  const lstat = mock.method(
+    fs,
+    "lstatSync",
+    (...args: Parameters<typeof fs.lstatSync>) => {
+      if (args[0] === crdd || args[0] === tests) {
+        if (!created.includes(args[0]))
+          throw Object.assign(new Error("absent"), { code: "ENOENT" });
+        reread.add(args[0]);
+      }
+      return Reflect.apply(originalLstat, fs, args);
+    },
+  );
+  const mkdir = mock.method(
+    fs,
+    "mkdirSync",
+    (target: fs.PathLike, options?: unknown) => {
+      assert.equal(options, undefined);
+      assert.equal(target, created.length === 0 ? crdd : tests);
+      created.push(target as string);
+    },
+  );
+  const mkdtemp = mock.method(fs, "mkdtempSync", () => {
+    throw new Error("stop_after_prewrite_validation");
+  });
+  const write = mock.method(fs, "writeFileSync", () => {
+    writes += 1;
+  });
+  try {
+    assert.throws(
+      () => createFixedRuntimeSigningFixture(),
+      /stop_after_prewrite_validation/u,
+    );
+    assert.deepEqual(created, [crdd, tests]);
+    assert.deepEqual([...reread], [crdd, tests]);
+    assert.equal(writes, 0);
+  } finally {
+    write.mock.restore();
+    mkdtemp.mock.restore();
+    mkdir.mock.restore();
+    lstat.mock.restore();
+  }
+});
+
+/**
+ * fixture構築失敗でもexact自己生成runだけを回収する。
+ * @responsibility 初回素材write失敗と回収後不存在を確認する。
+ * @trace AIT-IT-008
+ * @precondition 正常祖先と既存Runtime入力を使い、owned run内のwriteだけ失敗させる。
+ * @stimulus mkdtempで生成したexact親配下のwriteを拒否する。
+ * @observation 構築拒否、親run不存在、tests親の保全。
+ * @oracle 同じ生成runだけを回収し、元入力や隣接範囲へ広げない。
+ * @cleanup mockをfinallyで復元する。fixture内部の失敗回収を観測する。
+ * @boundary AIT-IT-008: fixture→Repository-local tests。署名や秘密生成なし。
+ */
+test("固定Runtime fixtureは素材write失敗のexact runを回収する", () => {
+  const originalMkdtemp = fs.mkdtempSync;
+  const originalWrite = fs.writeFileSync;
+  let owned = "";
+  const mkdtemp = mock.method(
+    fs,
+    "mkdtempSync",
+    (...args: Parameters<typeof fs.mkdtempSync>) => {
+      const result = Reflect.apply(originalMkdtemp, fs, args);
+      owned = String(result);
+      return result;
+    },
+  );
+  const write = mock.method(
+    fs,
+    "writeFileSync",
+    (...args: Parameters<typeof fs.writeFileSync>) => {
+      if (typeof args[0] === "string" && args[0].startsWith(owned + path.sep))
+        throw new Error("fixture_write_failed");
+      return Reflect.apply(originalWrite, fs, args);
+    },
+  );
+  try {
+    assert.throws(
+      () => createFixedRuntimeSigningFixture(),
+      /fixture_write_failed/u,
+    );
+    assert.equal(
+      path.dirname(owned),
+      path.join(repositoryRoot, ".crdd", "tests"),
+    );
+    assert.equal(fs.existsSync(owned), false);
+    assert.equal(fs.lstatSync(path.dirname(owned)).isDirectory(), true);
+  } finally {
+    write.mock.restore();
+    mkdtemp.mock.restore();
   }
 });

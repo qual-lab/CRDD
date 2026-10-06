@@ -69,12 +69,13 @@ export const gitFixedSnapshotAdapter: FixedSnapshotAdapter = Object.freeze({
    * @security N/A: readFileはAuthority、秘密値または信頼判断を扱わない。
    * @concurrency N/A: readFileは共有非同期状態を持たない同期処理である。
    */
-  readFile(repositoryRoot, revision, relativePath) {
+  readFile(repositoryRoot, revision, relativePath, maximumBytes) {
     const layout = resolveRepositoryGitLayout(repositoryRoot);
     const result = readGitCommitFileCandidate({
       commonDirectory: layout.commonDirectory.realPath,
       revision,
       relativePath,
+      ...(maximumBytes === undefined ? {} : { maximumBytes }),
     });
     return result?.status === "read"
       ? Object.freeze({

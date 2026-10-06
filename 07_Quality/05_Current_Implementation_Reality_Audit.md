@@ -10,8 +10,8 @@
 
 | 項目 | 件数 |
 |---|---:|
-| Local Item数 | 176 |
-| 内訳 | 167件の工程入力を全件Mapping済み。176件のLocal Itemについて実装・Test・Evidenceとの照合を本書の各判定で分ける。起動時Tool制限の`ERB-IT-024`は未観測として追加した |
+| Local Item数 | 177 |
+| 内訳 | 167件の工程入力を全件Mapping済み。177件のLocal Itemについて実装・Test・Evidenceとの照合を本書の各判定で分ける。起動時Tool制限の`ERB-IT-024`は未観測として追加した |
 
 ## 1. 目的
 
@@ -57,11 +57,11 @@
 
 | 対象 | 状態 | 理由 | 次の処置 |
 |---|---|---|---|
-| 13検証目標のLocal Item | Quality Design Ready | 199件のMapping、Source ID固有条件および176 Local ItemとのRelationを固定した | Pilotの17意味に接続したLocal Itemから照合する |
+| 13検証目標のLocal Item | Quality Design Ready | 199件のMapping、Source ID固有条件および177 Local ItemとのRelationを固定した | Pilotの17意味に接続したLocal Itemから照合する |
 | 現行Source／Test | 全Subsystem初回照合済み | 18領域を実装所有、Symbol Relation、Test Catalog、局所試験、工程／統制所有へ分けた。実装を持つ12領域の静的確認は全てPassした。v0.22のWorkbench、Project Context MCPおよび結合経路を追加した後も、Verification Runnerは40 Pass・失敗0・条件付きSkip 1で閉じた | `Partial`のRelation不足と実装欠落を所有変更へ返す |
 | 実行結果／Evidence | 全Subsystem局所実行済み | 12 TypeScript packageとPlatform Accessの局所試験を実行した。CoordinatorとCheckerではSandboxまたは命名規則に起因する不一致を分離した | 是正後の局所再実行と独立レビューを対象Commitへ結合する |
 
-以前のArchitecture限定Sliceで示した`Covered 4／Partial 6／Missing 1`は、17 ARCH-IDだけを入力にした暫定対応であり、現在の167件Canonical入力に対する品質状態ではない。現在判定へ使用しない。Local Itemは176件であり、Canonical入力件数と同一とは限らない。
+以前のArchitecture限定Sliceで示した`Covered 4／Partial 6／Missing 1`は、17 ARCH-IDだけを入力にした暫定対応であり、現在の167件Canonical入力に対する品質状態ではない。現在判定へ使用しない。Local Itemは177件であり、Canonical入力件数と同一とは限らない。
 
 ## 5. 旧検証設計から引き継ぐ未照合候補
 
@@ -240,7 +240,7 @@ Project RuntimeはArchitecture Detailsの構造化が進んでいるため、生
 
 2026-10-06にQA定義と全Subsystemのsymbol manifestを再集計し、13定義・176項目・Relationあり132項目・なし44項目を再確認した。未定義Local Item参照とSymbol ID重複は0。今回の②では保存切替、公開入口、Windows境界の局所根拠を追記したが、PRL-IT-005／012の全義務のPass件数は増やしていない。[最新の再集計と適用範囲](../99_Roadmap/Changes/CHG-000082/Evidence/261006_phase2-reality-audit.md)で試験件数と義務成立を分ける。全176項目の個別Evidence適用は引き続き未完了である。
 
-現在のCanonical設計集合は13定義・176個の一意なLocal Itemであり、現物の`symbol.json`から132件のRelationと44件のRelationなし集合を確認した。Relationは検証対象を示すだけで、単独では完成Evidenceではない。移管一覧46件は既観測12件に`RFD-ST-004`の[公開Gateway非開示根拠](../99_Roadmap/Changes/CHG-000082/Evidence/261002_shared-gateway-non-disclosure.md)を加え、13件観測済み・33件未観測とする。同じLocal ItemへのTest Symbol追加はRelationの一意件数を増やさない。
+現在のCanonical設計集合は13定義・177個の一意なLocal Itemであり、現物の`symbol.json`から132件のRelationと45件のRelationなし集合を確認した。Relationは検証対象を示すだけで、単独では完成Evidenceではない。移管一覧46件は既観測12件に`RFD-ST-004`の[公開Gateway非開示根拠](../99_Roadmap/Changes/CHG-000082/Evidence/261002_shared-gateway-non-disclosure.md)を加え、13件観測済み・33件未観測とする。同じLocal ItemへのTest Symbol追加はRelationの一意件数を増やさない。 ④で追加したAIT-IT-015の19件の局所試験はSource上の接続であり、symbol manifestと実端末への接続は未評価としてRelationなし集合へ含める。
 
 **全体の現在集計は再照合中（OPEN）。** 旧投影は119件観測済み・57件未観測としていたが、118件のRelation側完成根拠とRelationなし観測1件という内訳が現集合と一致しない。Relationなし集合には観測済みの`ERB-ST-019`と`RFD-ST-015`があり、既観測`PPR-IT-002`が非完成表に残り、未観測`PPR-ST-005`が同表から欠落していた。表の処置を是正するが、残りRelationの現行Evidence適用を全件再確認したとは扱わない。
 
@@ -315,7 +315,7 @@ v0.21の固定Baseline108件観測済み・22件未観測を履歴として維�
 
 ### 12.2 v0.22 Shared Serverの実境界
 
-以下は169 Local Item時点の実装・観測記録の履歴である。現在の176件へ全体Closureを適用せず、個別義務の成立は§12と§13.1の現在根拠から判定する。
+以下は169 Local Item時点の実装・観測記録の履歴である。現在の177件へ全体Closureを適用せず、個別義務の成立は§12と§13.1の現在根拠から判定する。
 
 v0.22では、旧Snapshotで未完成としていたShared Serverについて、固定OS設定から検証済みRepositoryとWorkspace Exposureを構成し、外部TLS終端の後段にあるloopback GatewayからRESTとMCPを同じHTTPS Originへ投影する実装を追加した。現在CredentialのRequest単位検証、非開示、平文Origin拒否、Forwarded HeaderとBrowser Originの不一致拒否、親Process終了時のListener／Socket／Proxy Request回収を専用Integration／System試験で観測した。
 
@@ -327,7 +327,7 @@ v0.22では、旧Snapshotで未完成としていたShared Serverについて、
 | 公開証明書の発行・更新 | N/A | 配置先の外部TLS終端が所有し、CROS／MCPは証明書Authorityを持たない |
 | 実Internet／LANへの公開Effect | OPEN | 本Repositoryの自動試験では外部Network Effectを発行しない。Release判断時に配置先固有の運用確認として扱う |
 
-この追加観測はShared Server能力の実装Closureを示す。ここでの169 Local Itemは当該観測時点の履歴母集合であり、現在の176件の算定には使わない。観測済み件数は最終Production Closureの固定改訂版で再集計する。外部公開を実施していないことを、公開配置そのものの実Evidenceへ読み替えない。
+この追加観測はShared Server能力の実装Closureを示す。ここでの169 Local Itemは当該観測時点の履歴母集合であり、現在の177件の算定には使わない。観測済み件数は最終Production Closureの固定改訂版で再集計する。外部公開を実施していないことを、公開配置そのものの実Evidenceへ読み替えない。
 
 ## 13. 移管母集団の処置とRelease適用範囲
 

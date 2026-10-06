@@ -14,7 +14,7 @@ import {
   requireReadyRepositoryRuntimeDataArea,
   resolveRepositoryRuntimeDataPathsFromWorkingDirectory,
 } from "../../../runtime-data/src/index.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/repository-location.ts";
 import {
   acquireProjectRuntimeSnapshotPilotLock,
   isLiveProjectRuntimeSnapshotOwner,

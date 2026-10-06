@@ -5,8 +5,14 @@
  * @trace ARCH-000004
  */
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import {
+  ensureRepositoryRuntimeDataArea,
+  requireReadyRepositoryRuntimeDataArea,
+} from "../../runtime-data/src/index.ts";
+import { verifyRepositoryRoot } from "../../version-control/src/repository-location.ts";
 import {
   assertCoverageRunRoot,
   createCoverageRunRoot,
@@ -17,9 +23,21 @@ const TARGET = "x86_64-pc-windows-msvc";
 const coordinatorRoot = path.resolve(import.meta.dirname, "..");
 const crateRoot = path.resolve(coordinatorRoot, "..", "platform-access");
 const manifestPath = path.join(crateRoot, "Cargo.toml");
-const coverageRunRoot = createCoverageRunRoot(crateRoot);
+const repositoryRoot = path.resolve(crateRoot, "../..");
+const verifiedRepository = verifyRepositoryRoot(repositoryRoot);
+if (verifiedRepository.status !== "completed")
+  throw new Error(verifiedRepository.reason);
+const resultsRoot = requireReadyRepositoryRuntimeDataArea(
+  ensureRepositoryRuntimeDataArea(verifiedRepository.capability, "tests"),
+  "coverage_repository_tests_root_invalid",
+).directory;
+const coverageRunRoot = createCoverageRunRoot(
+  crateRoot,
+  resultsRoot,
+  repositoryRoot,
+);
 const { coverageRoot } = coverageRunRoot;
-const buildRoot = path.join(coverageRoot, "build");
+const buildRoot = coverageRunRoot.targetRoot;
 const rawProfilePattern = path.join(coverageRoot, "%p-%m.profraw");
 const mergedProfile = path.join(coverageRoot, "coverage.profdata");
 const summaryPath = path.join(coverageRoot, "coverage-summary.json");
@@ -128,7 +146,18 @@ function llvmTool(name: string): string {
 }
 
 assertCoverageRunRoot(coverageRunRoot);
-executeCommand(
+const directInputs = [
+  manifestPath,
+  path.join(crateRoot, "Cargo.lock"),
+  path.join(crateRoot, "build.rs"),
+  path.join(crateRoot, "rust-toolchain.toml"),
+  ...collectFiles(path.join(crateRoot, "src"), ".rs"),
+  ...collectFiles(path.join(crateRoot, "tests"), ".rs"),
+];
+const inputHashes = directInputs.map((file) =>
+  createHash("sha256").update(fs.readFileSync(file)).digest("hex"),
+);
+const artifactOutput = executeCommand(
   "cargo",
   [
     `+${TOOLCHAIN}`,
@@ -136,6 +165,8 @@ executeCommand(
     "--manifest-path",
     manifestPath,
     "--locked",
+    "--no-run",
+    "--message-format=json",
     "--target",
     TARGET,
   ],
@@ -146,11 +177,68 @@ executeCommand(
       LLVM_PROFILE_FILE: rawProfilePattern,
       RUSTFLAGS: "-C instrument-coverage",
     },
-    stdio: ["ignore", "inherit", "inherit"],
+    stdio: ["ignore", "pipe", "inherit"],
   },
 );
 assertCoverageRunRoot(coverageRunRoot);
 
+const artifacts = artifactOutput
+  .trim()
+  .split(/\r?\n/u)
+  .map((line) => JSON.parse(line));
+const testExecutables = artifacts
+  .filter(
+    (message) =>
+      message.reason === "compiler-artifact" &&
+      message.profile?.test === true &&
+      ((message.target?.name === "cli" &&
+        message.target?.kind?.[0] === "test") ||
+        (message.target?.name === "crdd-platform-access" &&
+          message.target?.kind?.[0] === "bin")) &&
+      typeof message.executable === "string",
+  )
+  .map((message) => path.resolve(message.executable));
+const binaries = artifacts
+  .filter(
+    (message) =>
+      message.reason === "compiler-artifact" &&
+      message.profile?.test === false &&
+      message.target?.name === "crdd-platform-access" &&
+      message.target?.kind?.[0] === "bin" &&
+      typeof message.executable === "string",
+  )
+  .map((message) => path.resolve(message.executable));
+if (testExecutables.length !== 2 || binaries.length !== 1) {
+  throw new Error("current Cargo coverage artifacts are not unique");
+}
+const coverageObjects: string[] = [...testExecutables, ...binaries];
+if (
+  new Set(coverageObjects).size !== 3 ||
+  new Set(testExecutables.map((file) => path.basename(file).split("-")[0]))
+    .size !== 2
+) {
+  throw new Error("coverage artifact roles duplicated");
+}
+const artifactHashes = coverageObjects.map((file) => {
+  const relative = path.relative(path.join(buildRoot, TARGET, "debug"), file);
+  if (relative.startsWith("..") || path.isAbsolute(relative))
+    throw new Error("coverage artifact outside declared target");
+  const stat = fs.lstatSync(file);
+  if (
+    !stat.isFile() ||
+    stat.isSymbolicLink() ||
+    (testExecutables.includes(file) && stat.nlink !== 1) ||
+    fs.realpathSync.native(file) !== file
+  )
+    throw new Error("coverage artifact alias");
+  return createHash("sha256").update(fs.readFileSync(file)).digest("hex");
+});
+for (const executable of testExecutables) {
+  executeCommand(executable, [], {
+    env: { ...process.env, LLVM_PROFILE_FILE: rawProfilePattern },
+    stdio: ["ignore", "inherit", "inherit"],
+  });
+}
 const rawProfiles = collectFiles(coverageRoot, ".profraw");
 if (rawProfiles.length === 0) throw new Error("coverage profile missing");
 executeCommand(llvmTool("llvm-profdata"), [
@@ -160,25 +248,6 @@ executeCommand(llvmTool("llvm-profdata"), [
   "-o",
   mergedProfile,
 ]);
-const dependencyRoot = path.join(buildRoot, TARGET, "debug", "deps");
-const testExecutables = collectFiles(dependencyRoot, ".exe").filter((file) =>
-  /^(?:cli|crdd_platform_access)-[0-9a-f]+\.exe$/u.test(path.basename(file)),
-);
-if (testExecutables.length !== 2) {
-  throw new Error(
-    `expected two instrumented test executables, got ${testExecutables.length}`,
-  );
-}
-const binaryExecutable = path.join(
-  buildRoot,
-  TARGET,
-  "debug",
-  "crdd-platform-access.exe",
-);
-if (!fs.statSync(binaryExecutable).isFile()) {
-  throw new Error("instrumented platform-access binary missing");
-}
-const coverageObjects = [...testExecutables, binaryExecutable];
 const firstCoverageObject = coverageObjects[0];
 if (!firstCoverageObject) throw new Error("coverage object missing");
 const exported = executeCommand(llvmTool("llvm-cov"), [
@@ -307,6 +376,24 @@ const summary = Object.freeze({
       ? "not_available_in_fixed_stable_toolchain"
       : "available",
 });
+for (const [index, file] of coverageObjects.entries()) {
+  if (
+    createHash("sha256").update(fs.readFileSync(file)).digest("hex") !==
+    artifactHashes[index]
+  ) {
+    throw new Error("coverage artifact changed during measurement");
+  }
+}
+for (const [index, file] of directInputs.entries()) {
+  if (
+    createHash("sha256").update(fs.readFileSync(file)).digest("hex") !==
+    inputHashes[index]
+  )
+    throw new Error("coverage source changed during measurement");
+}
 fs.writeFileSync(summaryPath, `${JSON.stringify(summary, null, 2)}\n`, "utf8");
 assertCoverageRunRoot(coverageRunRoot);
 process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
+for (const file of [...rawProfiles, mergedProfile, summaryPath])
+  fs.unlinkSync(file);
+fs.rmdirSync(coverageRoot);

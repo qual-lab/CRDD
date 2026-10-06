@@ -8,15 +8,205 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { readFixedSnapshotFile } from "../../../version-control/src/fixed-snapshot.ts";
+import {
+  gitFixedSnapshotAdapter,
+  inspectRepositoryFixedSnapshot,
+} from "../../../version-control/src/git/fixed-snapshot-adapter.ts";
+import {
+  resolveVerifiedRepositoryRoot,
+  type VerifiedRepositoryRoot,
+} from "../../../version-control/src/repository-location.ts";
+
 import {
   EXTERNAL_SEND_POLICY_RELATIVE_PATH,
   REPOSITORY_MANIFEST_RELATIVE_PATH,
 } from "../../../runtime-data/src/index.ts";
-import { PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH } from "./platform-access-release.ts";
+import {
+  beginPlatformAccessArtifactSigningObservation,
+  PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
+  verifyPlatformAccessArtifactSigningObservation,
+} from "./platform-access-release.ts";
+import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
+import {
+  canonicalPackageFileContent,
+  inspectRuntimeDistributionSigningFilesCandidate,
+} from "./platform-provisioner-package-filesystem.ts";
 import { PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH } from "./platform-provisioner-manifest-loader.ts";
 import { isCanonicalCrddGitObjectId } from "./release-identity-grammar.ts";
 
 const MAXIMUM_DISTRIBUTION_FILES = 4_096;
+
+/**
+ * Runtime署名集合の出所を固定Git Snapshotの選択Blobへ照合する。
+ * @responsibility 実行閉包とNativeの出所照合を所有し、全Tree一致を要求しない。
+ * @trace ARCH-000014
+ * @input rawInput: 検証済みRepository Root、配布Root、固定CommitとTree、任意Source Profile。
+ * @returns 非Authorityの候補または停止結果。
+ * @precondition Repository RootはVersion Controlが発行したCapabilityである。
+ * @postcondition 全選択fileのbyte・mode・出所一致と終了前再観測が成立する。
+ * @effect FilesystemとGit objectの読取りだけを行う。
+ * @failure 欠落、差替え、不正Root、Identity不一致、観測不能を停止へ変換する。
+ * @invariant 文書・試験の全Tree一致をRuntime保証へ混入しない。
+ * @boundary 固定Git Snapshotと配布Filesystemの境界。
+ * @security Secret、絶対Path、bytesを返さず、Authorityを発行しない。
+ * @concurrency 閉包とNativeを終了前に再観測し途中差替えを拒否する。
+ */
+export function inspectPlatformProvisionerRuntimeGitProvenanceCandidate(
+  rawInput: unknown,
+) {
+  /**
+   * 出所照合の失敗を非Authorityの停止結果へ変換する。
+   * @responsibility 観測不能を成功または不存在へ畳まない。
+   * @trace ARCH-000014
+   * @input N/A: 固定の停止結果だけを返す。
+   * @returns 書込み、署名、Authorityのない停止結果。
+   * @precondition 出所照合が成立していない。
+   * @postcondition 利用側は署名へ進めない。
+   * @effect N/A: 外部Effectを発行しない。
+   * @failure N/A: 固定値だけを構築する。
+   * @invariant Secret、bytes、絶対Pathを返さない。
+   * @boundary 同一Process内の結果境界。
+   * @security Authorityを発行しない。
+   * @concurrency N/A: 同期固定値の構築だけを行う。
+   */
+  const blocked = () =>
+    Object.freeze({
+      status: "blocked" as const,
+      reason: "platform_provisioner_runtime_git_provenance_invalid",
+      runtimeAuthorityConferred: false,
+      runtimeCapabilityIssued: false,
+      filesystemEffectIssued: false,
+      networkEffectIssued: false,
+    });
+  try {
+    const required = snapshotPlainRecord(
+      rawInput,
+      new Set(["repositoryRoot", "distributionRoot", "crddCommit", "crddTree"]),
+    );
+    const explicit = snapshotPlainRecord(
+      rawInput,
+      new Set([
+        "repositoryRoot",
+        "distributionRoot",
+        "crddCommit",
+        "crddTree",
+        "sourceProfile",
+      ]),
+    );
+    const input =
+      explicit ?? (required ? { ...required, sourceProfile: undefined } : null);
+    if (
+      !input?.repositoryRoot ||
+      typeof input.repositoryRoot !== "object" ||
+      typeof input.distributionRoot !== "string" ||
+      !path.isAbsolute(input.distributionRoot) ||
+      path.normalize(input.distributionRoot) !== input.distributionRoot ||
+      typeof input.crddCommit !== "string" ||
+      typeof input.crddTree !== "string" ||
+      !isCanonicalCrddGitObjectId(input.crddCommit) ||
+      !isCanonicalCrddGitObjectId(input.crddTree) ||
+      (input.sourceProfile !== undefined &&
+        input.sourceProfile !== "current" &&
+        input.sourceProfile !== "v0.21")
+    )
+      return blocked();
+    const repositoryRoot = input.repositoryRoot as VerifiedRepositoryRoot;
+    if (resolveVerifiedRepositoryRoot(repositoryRoot) === null)
+      return blocked();
+    const fixed = inspectRepositoryFixedSnapshot(
+      repositoryRoot,
+      input.crddCommit,
+    );
+    if (
+      fixed?.revisionIdentity !== input.crddCommit ||
+      fixed.snapshotIdentity !== input.crddTree
+    )
+      return blocked();
+    const profile = input.sourceProfile ?? "current";
+    const observed = inspectRuntimeDistributionSigningFilesCandidate(
+      input.distributionRoot,
+      profile,
+    );
+    const native = beginPlatformAccessArtifactSigningObservation(
+      input.distributionRoot,
+    );
+    if (observed.status !== "candidate" || !native) return blocked();
+    const selected = [
+      ...observed.files,
+      {
+        path: native.artifact.relativePath,
+        byteLength: native.artifact.byteLength,
+        sha256: native.artifact.sha256,
+      },
+    ];
+    const seen = new Set<string>();
+    for (const file of selected) {
+      if (seen.has(file.path)) return blocked();
+      seen.add(file.path);
+      const fixedFile = readFixedSnapshotFile(
+        repositoryRoot,
+        input.crddCommit,
+        file.path,
+        gitFixedSnapshotAdapter,
+        MAXIMUM_DISTRIBUTION_BYTES,
+      );
+      if (
+        !fixedFile ||
+        fixedFile.revisionIdentity !== input.crddCommit ||
+        fixedFile.relativePath !== file.path ||
+        (fixedFile.mode !== "100644" && fixedFile.mode !== "100755")
+      )
+        return blocked();
+      const target = path.join(input.distributionRoot, ...file.path.split("/"));
+      const actual = stableFileBytes(target, MAXIMUM_DISTRIBUTION_BYTES);
+      const canonical = canonicalPackageFileContent(file.path, actual.bytes);
+      const gitCanonical = canonicalPackageFileContent(
+        file.path,
+        fixedFile.bytes,
+      );
+      const hash = createHash("sha256").update(canonical).digest("hex");
+      const executable = (actual.mode & 0o111n) !== 0n;
+      if (
+        canonical.byteLength !== file.byteLength ||
+        hash !== file.sha256 ||
+        !canonical.equals(gitCanonical) ||
+        (process.platform !== "win32" &&
+          fixedFile.mode !== (executable ? "100755" : "100644"))
+      )
+        return blocked();
+    }
+    const after = inspectRuntimeDistributionSigningFilesCandidate(
+      input.distributionRoot,
+      profile,
+    );
+    if (
+      after.status !== "candidate" ||
+      after.packageContentRootSha256 !== observed.packageContentRootSha256 ||
+      JSON.stringify(after.files) !== JSON.stringify(observed.files) ||
+      !verifyPlatformAccessArtifactSigningObservation(native.token) ||
+      inspectRepositoryFixedSnapshot(repositoryRoot, input.crddCommit)
+        ?.snapshotIdentity !== input.crddTree
+    )
+      return blocked();
+    return Object.freeze({
+      status: "candidate" as const,
+      reason: "runtime_signing_files_match_fixed_git_snapshot",
+      crddCommit: input.crddCommit,
+      crddTree: input.crddTree,
+      runtimeContentRootSha256: observed.packageContentRootSha256,
+      fileCount: selected.length,
+      nativeHash: native.artifact.sha256,
+      runtimeAuthorityConferred: false,
+      runtimeCapabilityIssued: false,
+      filesystemEffectIssued: false,
+      networkEffectIssued: false,
+    });
+  } catch {
+    return blocked();
+  }
+}
+
 const MAXIMUM_DISTRIBUTION_BYTES = 64 * 1024 * 1024;
 const TRACKED_RUNTIME_SETTING_RELATIVE_PATHS = new Set<string>([
   EXTERNAL_SEND_POLICY_RELATIVE_PATH,

@@ -33,14 +33,14 @@ const MAXIMUM_EVENTS = 4_096;
 /**
  * Provider生出力から助言JSONを抽出する。
  *
- * @responsibility Providerごとの完了Envelope、Turn数、Tool不存在および一意な最終本文を確認する。
+ * @responsibility Providerごとの完了Envelope、Turn数、既知通知分類および一意な最終本文を確認する。
  * @trace ARCH-000015
  * @input provider: 実行済みProvider、raw: Provider CLIの標準出力。
  * @returns 共通Normalizerへ渡す助言JSON、または生出力を含まない拒否結果。
  * @precondition rawは対応する固定CLIのstdoutだけである。
  * @postcondition confirmedの場合も内容のSchema・参照許可は後段Normalizerが再検証する。
  * @effect N/A: 文字列の構文検査と安全な再直列化だけを行う。
- * @failure 過大出力、曖昧JSON、失敗Turn、Tool Event、複数最終本文または不正Envelopeをblockedにする。
+ * @failure 過大出力、曖昧JSON、失敗Turn、未知・不正Item、複数最終本文または不正Envelopeをblockedにする。
  * @invariant Provider metadataを助言本文として扱わない。
  * @boundary Provider固有TransportとProvider非依存Result Contractの間。
  * @security Session、Cost、Token、Command、Pathおよび生Provider出力を返さない。
@@ -60,17 +60,17 @@ export function extractWorkbenchAiAdviceProviderOutput(
 }
 
 /**
- * Codex JSONLからToolを伴わない唯一の最終Agent本文を抽出する。
+ * 公式Codex JSONLの内部通知と唯一の最終Agent本文を分離する。
  *
- * @responsibility 一Turn完了、失敗0、Tool Event 0、最終Agent本文1件を確認し、正常な思考通知は非公開のまま分離する。
+ * @responsibility 一Turn完了、失敗0、最終Agent本文1件を確認し、既知の内部通知を非公開のまま分離する。
  * @trace ARCH-000015
  * @input raw: Codex CLI JSONL。
  * @returns 最終Agent本文または拒否結果。
  * @precondition rawは`--json`出力である。
  * @postcondition confirmed時の本文はJSONL Envelopeから分離される。
  * @effect N/A: JSONLを解析するだけである。
- * @failure 不正行、複数Turn、失敗、Tool Eventまたは複数最終本文を拒否する。
- * @invariant 思考本文を助言へ含めず、Tool操作、不正Itemおよび未知Itemを受理しない。
+ * @failure 不正行、複数Turn、失敗、不正・未知Itemまたは複数最終本文を拒否する。
+ * @invariant 内部通知を助言へ含めず、通知だけからEffect不存在を主張しない。
  * @boundary Codex JSONLと共通助言JSONの間。
  * @security Agent本文以外のEvent内容を返さない。
  * @concurrency N/A: 共有状態を持たない同期処理である。
@@ -101,7 +101,16 @@ function extractCodex(raw: string) {
           event.type as string,
         ) ||
         !isRecord(event.item) ||
-        !["agent_message", "reasoning"].includes(event.item.type as string),
+        ![
+          "agent_message",
+          "reasoning",
+          "command_execution",
+          "file_change",
+          "mcp_tool_call",
+          "collab_tool_call",
+          "web_search",
+          "todo_list",
+        ].includes(event.item.type as string),
     )
   )
     return blocked("workbench_ai_codex_tool_event_forbidden");

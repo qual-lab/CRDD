@@ -2,7 +2,7 @@
  * Workbench助言のProvider出力抽出契約を検証する。
  *
  * @packageDocumentation
- * @responsibility Codex JSONLとClaude Envelopeから助言JSONだけを抽出し、Tool Event・失敗・曖昧出力を拒否する。
+ * @responsibility Codex JSONLとClaude Envelopeから助言JSONだけを抽出し、未知通知・失敗・曖昧出力を拒否する。
  * @trace ERB-UT-023
  * @level UT
  * @scope coordinator、contract、node_process
@@ -50,7 +50,7 @@ test("助言抽出の全拒否理由を閉じた公開語彙へ接続する", ()
     [
       "codex",
       [
-        { type: "item.completed", item: { type: "command_execution" } },
+        { type: "item.completed", item: { type: "unknown_item" } },
         { type: "turn.completed" },
       ]
         .map((event) => JSON.stringify(event))
@@ -130,9 +130,9 @@ test("Codex JSONLからToolなしの唯一の最終本文を抽出する", () =>
 });
 
 /**
- * CodexのCommand／File Change Eventを拒否するを検証する。
+ * Codexの未知・不正Itemを拒否する。
  *
- * @responsibility CodexのCommand／File Change Eventを拒否するを検証するの検証責務を所有する。
+ * @responsibility 公式Schema外のItemとErrorを最終回答へ混入させない。
  * @trace ERB-UT-023
  * @precondition 対象契約を再現できる固定入力と依存を用意する。
  * @stimulus CodexのCommand／File Change Eventを拒否するの対象操作を実行する。
@@ -141,17 +141,8 @@ test("Codex JSONLからToolなしの唯一の最終本文を抽出する", () =>
  * @cleanup N/A: Process外資源を生成しない局所検証である。
  * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
  */
-test("CodexのCommand／File Change Eventを拒否する", () => {
-  for (const itemType of [
-    "command_execution",
-    "file_change",
-    "mcp_tool_call",
-    "web_search",
-    "todo_list",
-    "unknown_item",
-    "error",
-    "warning",
-  ]) {
+test("Codexの未知・不正Itemを拒否する", () => {
+  for (const itemType of ["unknown_item", "error", "warning"]) {
     for (const eventType of [
       "item.started",
       "item.updated",
@@ -173,6 +164,63 @@ test("CodexのCommand／File Change Eventを拒否する", () => {
       assert.equal(result.status, "blocked");
       assert.equal(result.reason, "workbench_ai_codex_tool_event_forbidden");
       assert.equal(result.adviceJson, null);
+    }
+  }
+});
+
+/**
+ * 公式CLIの既知通知を非公開のまま最終助言と分離する。
+ *
+ * @responsibility 内部通知だけを理由に正常な助言を拒否せず、通知本文を公開しない。
+ * @trace ERB-UT-023
+ * @precondition 公式0.159.2の既知Item種別と一つの最終回答を用意する。
+ * @stimulus 各Itemの開始・更新・完了通知を抽出器へ渡す。
+ * @observation 受理結果と最終助言JSONだけの返却を観測する。
+ * @oracle 既知通知があっても唯一の最終本文だけを返し、通知だけでは成功しない。
+ * @cleanup N/A: 局所文字列処理だけで外部資源を作らない。
+ * @boundary ERB-UT-023=Direct Boundary: 公式JSONL→助言抽出
+ */
+test("公式CLIの既知通知を最終助言と分離する", () => {
+  for (const type of [
+    "command_execution",
+    "file_change",
+    "mcp_tool_call",
+    "collab_tool_call",
+    "web_search",
+    "todo_list",
+  ]) {
+    for (const eventType of [
+      "item.started",
+      "item.updated",
+      "item.completed",
+    ]) {
+      const events = [
+        {
+          type: eventType,
+          item: { type, status: "completed", text: "private-marker" },
+        },
+        { type: "turn.completed" },
+      ];
+      const missing = extractWorkbenchAiAdviceProviderOutput(
+        "codex",
+        events.map((event) => JSON.stringify(event)).join("\n"),
+      );
+      assert.equal(missing.status, "blocked");
+      events.unshift({
+        type: "item.completed",
+        item: {
+          type: "agent_message",
+          status: "completed",
+          text: JSON.stringify(ADVICE),
+        },
+      });
+      const result = extractWorkbenchAiAdviceProviderOutput(
+        "codex",
+        events.map((event) => JSON.stringify(event)).join("\n"),
+      );
+      assert.equal(result.status, "confirmed");
+      assert.equal(result.adviceJson, JSON.stringify(ADVICE));
+      assert.equal(JSON.stringify(result).includes("private-marker"), false);
     }
   }
 });

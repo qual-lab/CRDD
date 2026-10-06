@@ -142,8 +142,9 @@ function fixture(): PromotionFixture {
   const candidateRoot = path.join(
     destinationRoot,
     ".crdd",
-    "release",
-    "candidate-system",
+    "tmp",
+    "signature",
+    "work",
   );
   const archive = path.join(parent, "candidate.tar");
   fs.mkdirSync(candidateRoot, { recursive: true });

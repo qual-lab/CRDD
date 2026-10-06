@@ -7,21 +7,23 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { resolveRepositoryRuntimeDataPaths } from "../../runtime-data/src/index.ts";
-import { verifyRepositoryRoot } from "../../version-control/src/repository-location.ts";
+import { observeRepositoryRuntimeDataArea } from "../../runtime-data/src/index.ts";
+import {
+  verifyRepositoryRoot,
+  type VerifiedRepositoryRoot,
+} from "../../version-control/src/repository-location.ts";
 
 import {
   loadPlatformProvisionerManifestEnvelopeForVerification,
   PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH,
 } from "../src/security/platform-provisioner-manifest-loader.ts";
 import { inspectVerifiedNativeDistributionCandidate } from "../src/security/platform-provisioner-package-filesystem.ts";
-import { inspectPlatformProvisionerReleaseIdentityCandidate } from "../src/security/platform-provisioner-release-identity.ts";
+import { inspectPlatformProvisionerRuntimeGitProvenanceCandidate } from "../src/security/platform-provisioner-release-identity.ts";
 import { getPinnedPlatformProvisionerReleaseSignerSpkiDer } from "../src/security/platform-provisioner-release-trust.ts";
 import {
   compilePlatformProvisionerManifestPayloadCandidate,
   verifyHistoricalPlatformProvisionerManifestCandidate,
 } from "../src/security/platform-provisioner-trust-core.ts";
-import { inspectRepositoryIdentityCandidate } from "../src/security/repository-operation-runtime.ts";
 import {
   beginReleaseManifestPromotionSession,
   promoteReleaseManifestBytes,
@@ -32,7 +34,6 @@ import {
 const executionDistributionRoot = fileURLToPath(
   new URL("../../../", import.meta.url),
 );
-const CANDIDATE_NAME = /^[a-z0-9][a-z0-9-]{0,127}$/u;
 
 /**
  * Release Manifest Promotion Topology For Verificationを一意に解決する。
@@ -74,27 +75,51 @@ export function resolveReleaseManifestPromotionTopologyForVerification(
   )
     throw new Error("release_manifest_promotion_destination_root_invalid");
   const verifiedRuntimeRoot = verifyRepositoryRoot(destinationRepositoryRoot);
-  const runtimePaths =
+  const temporaryArea =
     verifiedRuntimeRoot.status === "completed"
-      ? resolveRepositoryRuntimeDataPaths(verifiedRuntimeRoot.capability)
+      ? observeRepositoryRuntimeDataArea(verifiedRuntimeRoot.capability, "tmp")
       : null;
-  if (!runtimePaths)
+  if (temporaryArea?.status !== "ready")
     throw new Error("release_manifest_promotion_topology_invalid");
-  const releaseStagingRoot = runtimePaths.release;
+  const releaseTemporaryRoot = temporaryArea.directory;
   try {
-    const parent = fs.realpathSync.native(path.dirname(distributionRoot));
-    const metadata = fs.lstatSync(distributionRoot);
+    const temporaryMetadata = fs.lstatSync(releaseTemporaryRoot);
+    const operationRoot = path.dirname(distributionRoot);
+    const operationMetadata = fs.lstatSync(operationRoot);
+    const distributionMetadata = fs.lstatSync(distributionRoot);
+    const realTemporaryRoot = fs.realpathSync.native(releaseTemporaryRoot);
+    const realOperationRoot = fs.realpathSync.native(operationRoot);
+    const realDistributionRoot = fs.realpathSync.native(distributionRoot);
     if (
-      parent !== fs.realpathSync.native(releaseStagingRoot) ||
-      !CANDIDATE_NAME.test(path.basename(distributionRoot)) ||
-      !metadata.isDirectory() ||
-      metadata.isSymbolicLink() ||
-      fs.realpathSync.native(distributionRoot) !== distributionRoot
+      !temporaryMetadata.isDirectory() ||
+      temporaryMetadata.isSymbolicLink() ||
+      realTemporaryRoot !== releaseTemporaryRoot ||
+      path.basename(realTemporaryRoot) !== "tmp" ||
+      !operationMetadata.isDirectory() ||
+      operationMetadata.isSymbolicLink() ||
+      realOperationRoot !== operationRoot ||
+      path.dirname(realOperationRoot) !== realTemporaryRoot ||
+      path.basename(realOperationRoot) !== "signature" ||
+      !distributionMetadata.isDirectory() ||
+      distributionMetadata.isSymbolicLink() ||
+      realDistributionRoot !== distributionRoot ||
+      path.dirname(realDistributionRoot) !== realOperationRoot ||
+      path.basename(realDistributionRoot) !== "work" ||
+      !pathDoesNotExist(path.join(realDistributionRoot, ".git"))
     )
       throw new Error("release_manifest_promotion_execution_source_invalid");
   } catch {
     throw new Error("release_manifest_promotion_execution_source_invalid");
   }
+  const temporaryAreaAfter =
+    verifiedRuntimeRoot.status === "completed"
+      ? observeRepositoryRuntimeDataArea(verifiedRuntimeRoot.capability, "tmp")
+      : null;
+  if (
+    temporaryAreaAfter?.status !== "ready" ||
+    temporaryAreaAfter.boundaryIdentity !== temporaryArea.boundaryIdentity
+  )
+    throw new Error("release_manifest_promotion_execution_source_invalid");
   return Object.freeze({ distributionRoot, destinationRepositoryRoot });
 }
 
@@ -181,21 +206,51 @@ function expectedRelease(distributionRoot: string, evaluationTime: string) {
     evaluationTime,
     expectedRelease: expected,
   });
-  const tree = inspectPlatformProvisionerReleaseIdentityCandidate(
-    distributionRoot,
-    payload.crddTree,
-  );
-  if (
-    native.status !== "candidate" ||
-    tree.status !== "candidate" ||
-    tree.manifestExcludedFromSignedGitTree !== true ||
-    tree.platformAccessExecutableIncludedInSignedGitTree !== true
-  )
+  if (native.status !== "candidate")
     throw new Error("release_manifest_promotion_distribution_invalid");
   return Object.freeze({
     expected,
     manifestFileSha256: loaded.manifestFileSha256,
+    platformAccessArtifactSha256: native.platformAccessArtifact.sha256,
   });
+}
+
+/**
+ * 選択Runtime ClosureとNativeが署名Manifestの固定Git Snapshotに一致するか確認する。
+ *
+ * @responsibility 昇格元と昇格先について、全Repositoryの現在HEADではなく、署名対象Runtime ClosureとNativeだけを固定Commit/Treeへ結合する。
+ * @trace ARCH-000004
+ * @input release: ReturnType<typeof expectedRelease>、repositoryRoot: VerifiedRepositoryRoot、distributionRoot: string
+ * @returns 選択Runtime ClosureとNativeが固定Git Snapshotおよび署名Manifestと一致する場合にtrueを返す。
+ * @precondition repositoryRootはverifyRepositoryRootで検証済みであり、releaseは署名Manifestと配布Nativeの検証を完了している。
+ * @postcondition Repositoryの現在HEADまたは文書差分を完成条件へ含めず、選択Runtime ClosureとNativeの一致だけを判定する。
+ * @effect N/A: 読取りと比較だけを行い、FilesystemまたはGitへEffectを発行しない。
+ * @failure 観測不能、固定Snapshot不一致、選択FileのBlob/Mode/Canonical Bytes不一致またはNative不一致をfalseへ畳み、呼出し元が昇格を拒否する。
+ * @authority N/A: 検証済みRepository Root Capabilityを消費するだけで、新しいAuthorityを発行しない。
+ * @recovery N/A: Effectを発行しないためRecoveryを作成しない。
+ * @concurrency N/A: 共有可変状態を持たない同期検証である。
+ */
+function runtimeGitProvenanceMatches(
+  release: ReturnType<typeof expectedRelease>,
+  repositoryRoot: VerifiedRepositoryRoot,
+  distributionRoot: string,
+) {
+  const provenance = inspectPlatformProvisionerRuntimeGitProvenanceCandidate({
+    repositoryRoot,
+    distributionRoot,
+    crddCommit: release.expected.crddCommit,
+    crddTree: release.expected.crddTree,
+    sourceProfile:
+      release.expected.crddVersion === "v0.21.0" ? "v0.21" : "current",
+  });
+  return (
+    provenance.status === "candidate" &&
+    provenance.crddCommit === release.expected.crddCommit &&
+    provenance.crddTree === release.expected.crddTree &&
+    provenance.runtimeContentRootSha256 ===
+      release.expected.packageContentRootSha256 &&
+    provenance.nativeHash === release.platformAccessArtifactSha256
+  );
 }
 
 /**
@@ -203,9 +258,9 @@ function expectedRelease(distributionRoot: string, evaluationTime: string) {
  *
  * @responsibility Source Aの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000004
- * @input expected: ReturnType<typeof expectedRelease>["expected"]、expectedManifestFileSha256: string、distributionRoot: string、destinationRepositoryRoot: string
+ * @input release: ReturnType<typeof expectedRelease>、repositoryRoot: VerifiedRepositoryRoot、distributionRoot: string、destinationRepositoryRoot: string
  * @returns N/A: verifySourceAは戻り値を返さない。
- * @precondition 「expected: ReturnType<typeof expectedRelease>["expected"]、expectedManifestFileSha256: string、distributionRoot: string、destinationRepositoryRoot: string」がverifySourceAの入力契約を満たす。
+ * @precondition 「release: ReturnType<typeof expectedRelease>、repositoryRoot: VerifiedRepositoryRoot、distributionRoot: string、destinationRepositoryRoot: string」がverifySourceAの入力契約を満たす。
  * @postcondition verifySourceAの責務を完了して呼出し元へ制御を戻す。
  * @effect N/A: verifySourceAは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure verifySourceAは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -215,34 +270,27 @@ function expectedRelease(distributionRoot: string, evaluationTime: string) {
  * @concurrency N/A: verifySourceAは共有非同期状態を持たない同期処理である。
  */
 function verifySourceA(
-  expected: ReturnType<typeof expectedRelease>["expected"],
-  expectedManifestFileSha256: string,
+  release: ReturnType<typeof expectedRelease>,
+  repositoryRoot: VerifiedRepositoryRoot,
   distributionRoot: string,
   destinationRepositoryRoot: string,
 ) {
-  const repository = inspectRepositoryIdentityCandidate(
-    destinationRepositoryRoot,
-  );
-  const tree = inspectPlatformProvisionerReleaseIdentityCandidate(
-    distributionRoot,
-    expected.crddTree,
-  );
   const destination = path.join(
     destinationRepositoryRoot,
     ...PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH.split("/"),
   );
   const destinationAbsent = pathDoesNotExist(destination);
   if (
-    repository?.status !== "candidate" ||
-    repository.commit !== expected.crddCommit ||
-    repository.tree !== expected.crddTree ||
-    tree.status !== "candidate" ||
-    tree.manifestExcludedFromSignedGitTree !== true ||
-    tree.platformAccessExecutableIncludedInSignedGitTree !== true ||
+    !runtimeGitProvenanceMatches(release, repositoryRoot, distributionRoot) ||
+    !runtimeGitProvenanceMatches(
+      release,
+      repositoryRoot,
+      destinationRepositoryRoot,
+    ) ||
     (!destinationAbsent &&
       loadPlatformProvisionerManifestEnvelopeForVerification(
         destinationRepositoryRoot,
-      ).manifestFileSha256 !== expectedManifestFileSha256)
+      ).manifestFileSha256 !== release.manifestFileSha256)
   )
     throw new Error("release_manifest_promotion_source_a_invalid");
 }
@@ -380,6 +428,10 @@ export function executeReleaseManifestPromotionCompositionForVerification(
 function productionComposition(
   destinationRepositoryRoot: string,
 ): PromotionComposition {
+  const verifiedRepository = verifyRepositoryRoot(destinationRepositoryRoot);
+  if (verifiedRepository.status !== "completed")
+    throw new Error("release_manifest_promotion_destination_root_invalid");
+  const repositoryRoot = verifiedRepository.capability;
   return Object.freeze({
     inspectRelease: expectedRelease,
     /**
@@ -401,34 +453,33 @@ function productionComposition(
     verifyRepository(phase, release, distributionRoot, evaluationTime) {
       if (phase === "before") {
         verifySourceA(
-          release.expected,
-          release.manifestFileSha256,
+          release,
+          repositoryRoot,
           distributionRoot,
           destinationRepositoryRoot,
         );
         return true;
       }
-      const repository = inspectRepositoryIdentityCandidate(
-        destinationRepositoryRoot,
-      );
       const installed = inspectVerifiedNativeDistributionCandidate({
         distributionRoot,
         evaluationTime,
         expectedRelease: release.expected,
       });
-      const tree = inspectPlatformProvisionerReleaseIdentityCandidate(
-        distributionRoot,
-        release.expected.crddTree,
-      );
       const loaded = loadPlatformProvisionerManifestEnvelopeForVerification(
         destinationRepositoryRoot,
       );
       return (
-        repository?.commit === release.expected.crddCommit &&
-        repository.tree === release.expected.crddTree &&
+        runtimeGitProvenanceMatches(
+          release,
+          repositoryRoot,
+          distributionRoot,
+        ) &&
+        runtimeGitProvenanceMatches(
+          release,
+          repositoryRoot,
+          destinationRepositoryRoot,
+        ) &&
         installed.status === "candidate" &&
-        tree.status === "candidate" &&
-        tree.manifestExcludedFromSignedGitTree === true &&
         loaded.manifestFileSha256 === release.manifestFileSha256
       );
     },

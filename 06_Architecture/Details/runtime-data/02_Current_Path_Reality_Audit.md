@@ -4,6 +4,8 @@
 担当責任者: Qual-Lab
 最終更新日: 2026-09-12
 
+本書の旧Path・件数・移行実績は当時の固定観測である。2026-10-06以降の試験結果保存と`verification/`退役は[現行詳細設計](01_Architecture.md#311-試験結果の受理と清掃)と[整理④の記録](../../../99_Roadmap/Changes/CHG-000082/Evidence/261006_release-test-retention-phase4.md)を参照する。歴史的な場所やHashを現行保存先へ書き換えない。
+
 ## 1. 目的と判断境界
 
 この棚卸しは、検証済みRepository Root直下の`.crdd`について、現行実装が書き込む論理Pathと、CRDD公式Repositoryに残る物理Artifactを分けて確定する。正式なDirectory Taxonomy、移行、削除または保持期間は、この棚卸しだけでは決定しない。

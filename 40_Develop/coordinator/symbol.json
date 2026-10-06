@@ -699,10 +699,13 @@
       "kind": "test-suite",
       "path": "tests/integration/platform-provisioner-package-filesystem.contract.test.ts",
       "qaIds": [
+        "QA-000006",
         "QA-000010"
       ],
       "localTestIds": [
-        "AIT-IT-013"
+        "AIT-IT-013",
+        "ERB-IT-001",
+        "ERB-IT-002"
       ],
       "verifies": [
         "coordinator.source.src.core.runtime.local.typescript.child.entrypoints",
@@ -1682,10 +1685,10 @@
       "kind": "test-suite",
       "path": "tests/integration/release-candidate-preparation.contract.test.ts",
       "qaIds": [
-        "QA-000005"
+        "QA-000010"
       ],
       "localTestIds": [
-        "CPR-IT-001"
+        "AIT-IT-013"
       ],
       "verifies": [
         "coordinator.source.scripts.prepare.release.candidate"

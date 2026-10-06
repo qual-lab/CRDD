@@ -2,7 +2,44 @@
 
 Status: Stable (v0.21.0)
 Owner: Qual-Lab
-Last Updated: 2026-09-11
+Last Updated: 2026-10-06
+
+<a id="native-build-output"></a>
+
+## Nativeビルドの実行前・成果物取得確認
+
+正式入口のBuild指定と出力取得は[コーディング規約](../06_Architecture/99_Coding_Standards.md#native-build-output)に従う。フロントAIは実行前と成果物取得時に次を確認する。
+
+- [ ] Build・Clippy・試験の対象環境が明示され、今回の目的と一致している。
+- [ ] 取得する成果物が今回指定した対象環境と`debug/release`に対応し、同じCargo実行の結果へ結合している。
+- [ ] 対象成果物の欠落を、無印出力や過去の別実行物へのfallbackで補っていない。
+- [ ] 無印DirectoryをCargoの補助出力と区別し、存在だけを理由に削除していない。
+
+対象環境不明、成果物欠落または複数候補で一意に特定できない場合は、取得・配布・検証を停止する。これは毎回評価する手順上のChecklistであり、今回の実行結果を示すチェック済み記録ではない。
+
+通常入口と検証入口は`40_Develop/platform-access/target/`をBuild cacheとして共有する。Coverageは今回Cargoが返した計測用実行物だけを使い、同じ`deps/`に残る過去の実行物を列挙して選ばない。計測profileと要約だけを`.crdd/tests/native-coverage-<一意suffix>/`へ生成し、正常終了後に回収する。失敗・中断時は小さな未処置領域を確認して清掃する。Native保護試験もBuild cacheを共有し、試験対象と結果だけをrun内に置く。実行前後の入力・実行物HashとDirectory Identityが変わった場合は成功を返さない。
+
+## 自己生成Native保存境界試験
+
+静的確認後、Repository Rootから`npm run platform-access:verify-namespace --prefix 40_Develop/coordinator`で起動する。入口は同じ共有cacheから今回Cargoのtest実行物一件を取得し、`.crdd/tests/native-terminal-<UUID>/namespace-r2`だけを自己生成対象とする。保存境界3Directoryの正常例と19拒否例、全handle終了、exact試験一件、exit/close、入力不変と直接不存在を共同確認する。結果保存・清掃前は成否と独立して全保存祖先を再照合し、置換・観測不能では書込みと清掃を止める。成功時は小さなrunを回収し、失敗時は保持して次回開始前に処置する。
+
+残る自己生成試験はRepository Rootから`npm run platform-access:verify-terminal-fixtures --prefix 40_Develop/coordinator`で実行する。対象観測、保存、容量（処置前・処置後）、現在候補、cold観測、rename候補、公開、disposition、既知fileの九能力十実行に、固定NodeとNativeの排他互換試験一件を加える。元の判定、個別handle終了、旧内容保持、子の実体・終了観測を維持する。coldと排他互換だけ検証子を起動し、他の試験は直接子一件に閉じる。実行中は入力を編集しない。
+
+各試験は同じ共有cacheと新しい`.crdd/tests/native-terminal-<UUID>/`を用い、成功時だけ小さなrunを回収する。対象観測だけはWindowsの`GetTempPathW`に自己生成fixture位置を搬送し、その他はrun内`tmp`を使う。旧Rootの読戻し・変更拒否診断は履歴専用であり、現在候補・cold・rename・公開の再実行可能な自己生成試験へ能力を対応付けて廃止する。過去の失敗を成功へ書き換えない。旧残存は人間の許可、現在の非使用、非alias、領域内hardlink集合、排他openと削除直前の入力照合後にのみ回収する。署名、本番回復、Docker、Provider、全E2Eの成立は主張しない。
+
+## 自己生成Native保護試験の反復と終了処置
+
+この局所試験はRepository Rootから`npm run platform-access:verify-protection --prefix 40_Develop/coordinator`で起動する。型・Formatter・Lint確認後、入口がRust ClippyとBuildを先に実行する。署名・Provider・Docker操作は行わない。生成先は`.crdd/tests/native-protection-<UUID>/`で、`started.json`、必要な`result.json`と`tmp/`だけを持ち、Build一式をコピーしない。開始記録は秘密値やHost絶対Pathを含まない。
+
+試験実行を受理したフロントAIが保持と終了処置の責任者となる。前回runが一件でも残る、列挙できない、開始・結果記録が欠ける、破損または状態不明の場合は、新しいrunを生成せず処置へ戻す。入口の名前検出は停止条件だけであり、削除許可ではない。
+
+| 前回状態 | 必須処置 | 新規実行 |
+|---|---|---|
+| 正常結果あり | 判断に必要な結論・入力と実行物Hash・再現手順を現在CHGへ記録する。生結果は保存が必要な場合だけ正式Evidenceへ残す。参照、親／子終端、回復義務、非alias・非使用を確認し、exact runのtmp・不要結果を回収して不存在を確認する。共通Build cacheはこのrunの清掃対象ではない | 終了処置後だけ許可 |
+| Build失敗 | exact runと静的確認の失敗を記録する。Build Processの終端、必要診断、参照と非使用を確認するまで保存し、確認後だけ限定回収する | 処置前は停止 |
+| 中断・結果なし・観測不能 | startedまたは残存runのexact Identityと未確認範囲をOwnerの記録へ残す。終了を成功から推定せず、確認できない対象は保持する | 未確認が残る間は停止 |
+
+正式保存前に唯一の根拠を削除しない。名前・時刻だけで他run、旧verification、署名候補、Manifest、認証またはOS領域を回収しない。自動清掃や新しいRecovery Frameworkは追加しない。前回残存の拒否を、実中断後の回復成功または全体清掃の実測済み根拠とは扱わない。
 
 ## 目的・対象・実行前条件
 
@@ -23,25 +60,29 @@ Last Updated: 2026-09-11
 通常操作は、検証済みNodeから同じ配布物の`template/tools/crdd-coordinator.ts`を起動する。MCP Clientの接続は別の公開入口`template/tools/crdd-mcp.ts`と[MCP Serverの利用手順](04_MCP_Server.md)を使う。AIが実行ごとにwrapper、JSON pipeline、出力転送または別の入力readerを作り直さない。一般TaskはCoordinatorの第一級の`task`入口を使う。利用可能なCoordinator入口は`capabilities --json`から取得し、MCPや準備commandをCoordinatorのsubcommandとして推測しない。以下は絶対Pathの置換だけを行い、Shell文字列へ組み立て直さない。
 
 ```powershell
-& "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\40_Develop\coordinator\bin\launch.ts" task --request-stdin --json
-& "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\40_Develop\coordinator\bin\launch.ts" interactive doctor --json
-& "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\40_Develop\coordinator\bin\launch.ts" verify-routes
-& "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\40_Develop\coordinator\bin\launch.ts" verify-recovery
+& "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\40_Develop\coordinator\bin\coordinator.ts" task --request-stdin --json
+& "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\40_Develop\coordinator\bin\coordinator.ts" interactive doctor --json
+& "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\40_Develop\coordinator\bin\coordinator.ts" verify-routes
+& "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\40_Develop\coordinator\bin\coordinator.ts" verify-recovery
 ```
 
 一般Taskでは構造化stdinをバイト列のまま渡し、stdoutを機械向けに受け取る。その他の自動化は`automation <CLI引数と--json>`を使う。対話同意を自動入力せず、不足時は停止結果を処置する。公式配布担当の署名は`sign-release`の後に既存の署名引数をそのまま渡す。秘密値を引数へ含めない。
 
 対話・署名・4経路検証ではstdoutをfileやpipeへ転送しない。ログ採取を優先して端末を失わせない。出力採取が必要な自動処理と人間の対話を同じ一時wrapperで兼用しない。ウィンドウが必要な場合はホスト側が可視端末を用意し、終了後も読める状態を保持する。共通入口自体は追加ウィンドウや終了待ちEnterを作らない。
 
+配布担当者の署名用画面保持は、固定入口`40_Develop/coordinator/scripts/sign-release-terminal.ts`が担当する。ホストは検証済みNodeの絶対Pathとこの固定Scriptを外部の可視端末で起動し、候補別の`.ps1`／`.cmd`を`tmp`直下へ作らない。入力は既存署名入口の非秘密引数に、`--valid-for-days <正整数>`または`--no-expiry`の排他指定を加える。配布Rootと明示する秘密鍵参照Pathは絶対Pathとする。発行時刻と期限は同一の現在UTCから算出し、秘密入力・配布物検査・署名・配置は既存Commandを同じProcessで呼び出す。秘密、鍵bytesまたはpassphraseを引数・File・Transcriptへ渡さない。
+
+画面保持入口は署名処理の終了後だけEnterを待ち、EOF／取消でも署名処理の終了結果を上書きしない。非TTY、未知／重複引数、期限不正は署名前に拒否する。新しい結果Storeや自動再試行は作らない。窓を強制的に閉じた場合は署名結果を推測せず、既存Manifestの検証から再開する。この入口は一般Taskの公開入口ではなく、配布作業用の補助である。
+
 起動入口の端末結合だけを再確認する場合は、検証済みNodeから`40_Develop/coordinator/tests/fixtures/coordinator-launch-terminal-probe.ts`を実端末で直接実行する。実CLIのhelpと用途不一致の拒否を確認するもので、秘密入力・Provider・Docker・Repository変更は行わない。通常の契約試験と併用し、この確認だけで正式E2Eを合格にしない。
 
 ### 検証画面を閉じた後の結果確認
 
-結果保存に対応した配布物の4経路／復旧検証では、対象Repositoryの`.crdd/verification/<UUID>/`を確認する。`started.json`、`result.json`、`complete.json`のID・種別・開始時刻が一致し、全てをJSONとして読み取れ、完了記録の`resultSha256`と結果fileのSHA-256が一致することを確認する。開始時Repository改訂版を実行配布版と取り違えず、終了記録が保持する検証結果の版情報と対象を照合する。完了記録なし、部分書込み、組合せ／hash不一致、未知値や不完全表示があれば、その範囲は未確認のまま残す。
+新形式の結果保存に対応した配布物の4経路／復旧検証では、対象Repositoryの`.crdd/tests/<UUID>/`を確認する。`started.json`、`result.json`、`complete.json`のID・種別・開始時刻が一致し、全てをJSONとして読み取れ、完了記録の`resultSha256`と結果fileのSHA-256が一致することを確認する。開始時Repository改訂版を実行配布版と取り違えず、終了記録が保持する検証結果の版情報と対象を照合する。完了記録なし、部分書込み、組合せ／hash不一致、未知値や不完全表示があれば、その範囲は未確認のまま残す。旧配布物が保存した`verification/`の場所・版・Hashを、新しい実行結果へ読み替えない。
 
-この記録には会話、確認コード、passphrase、Provider生出力は残らない。未知の停止理由は`unknown`となるため、完全な調査ログの代替ではない。自動的な再実行・回復・署名承認に使わない。不要になった記録は対象を確認した担当者が明示的に清掃するまで保持し、Runtimeは容量超過時にも古い記録を削除しない。Gitは非追跡とし、正式Evidenceへ採用する際は別途対象版と根拠を確認する。旧署名配布物にはこの保存機能を継ぎ足さない。
+この記録には会話、確認コード、passphrase、Provider生出力は残らない。未知の停止理由は`unknown`となるため、完全な調査ログの代替ではない。自動的な再実行・回復・署名承認に使わない。画面を閉じた後に結果を読むための一時記録であり、正式Evidenceや永久保管場所ではない。Runtimeは容量超過時にも古い記録を削除しない。Gitは非追跡とし、旧署名配布物にはこの保存機能を継ぎ足さない。
 
-検証終了時とCHG／Release Gateの終了時に、保持担当者は必要な根拠、現行入力、未解決参照と再生成可能な作業物を区別する。必要な根拠を品質／CHG成果物へ昇格し、参照が終了した作業物・診断を明示的に回収する。保持の設計は[Runtime Dataの終了契約](../06_Architecture/Details/runtime-data/01_Architecture.md#31-保存量を増やし続けないための終了契約)に従う。この手順は古い記録の自動削除機能を追加したものではない。
+フロントAIは検証終了時に結果を受理し、必要な根拠を対象CHG／Releaseの`Evidence/`へ記録するか、不要の理由を確定する。原Artifactのbytesが必要ならその本体も正式保持先へ保存する。その後、現行入力・未解決参照・実行中利用がないことを確認し、一時作業物・診断を清掃して不存在を確認する。中断した実行は次回開始時に確認する。保持の設計は[Runtime Dataの終了契約](../06_Architecture/Details/runtime-data/01_Architecture.md#311-試験結果の受理と清掃)に従い、完了記録だけで清掃を許可しない。これは年齢による自動削除機能ではない。
 
 一回の検証のたびに恒久Launcherや診断Directoryを増設しない。繰り返し使用する検証は正式な実装・試験入口へ接続し、一時的な組立て物は所有Operationの作業領域へ置いて終端で回収する。旧固定Path入力を移行途中で保全する場合は、その有限集合、責任者と再評価契機を記録し、同じ場所へ新しい物を追加しない。古いScriptを保管場所へ移しただけで、現在の再実行入口として案内しない。
 
@@ -50,6 +91,8 @@ Last Updated: 2026-09-11
 <a id="現在利用できるコマンド"></a>
 
 ## 実行記録の保存方式を刷新するとき
+
+今回の保存構成刷新全体（Coordinator、Project Runtime、Execution Intelligence、設定、ログ、候補、署名準備、一時領域と試験結果）では、実装は採用済みの最新構成だけを扱う。旧配置探索、移行目的の旧Reader／Writer、二重書込みやFallbackは組み込まない。旧構成の棚卸し、必要情報のOwnerへの移行、停止・非使用確認後の清掃はフロントAIが担当する。旧署名の真正性確認など、移行とは別に成立が必要な現行Capabilityを互換処理と混同して削除しない。
 
 Coordinator／Project Runtime／Dockerの短命な実行記録は、長期の互換資産として扱わない。今回の新版保存へ切り替える際は、フロントAIが以下を実施する。具体的な新入口が接続・検証されるまで切替を実行せず、この手順の存在だけで②完了としない。
 
@@ -76,7 +119,7 @@ Coordinator／Project Runtime／Dockerの短命な実行記録は、長期の互
 | 保守担当が隔離を検証する | `doctor --isolation` | Docker／一時Filesystemの効果を伴う固定Fake診断。実Provider利用・実Provider取消の証明ではない |
 | 開発・配布担当が検証する | 下記の開発検証、正式署名Runner | 日常開発と公式署名を分ける。一般利用者にRelease鍵を要求しない |
 
-CRDDを`00_CRDD`へ配置した採用Repositoryでは、Project Rootを現在Directoryにして`00_CRDD\40_Develop\coordinator\bin\launch.ts task --request-stdin --json`を使用する。`40_Develop`を含まない文書だけのコピーではRuntimeは利用できないため、公式Release tagへ固定した完全なcloneまたはsubmoduleを用意する。
+CRDDを`00_CRDD`へ配置した採用Repositoryでは、Project Rootを現在Directoryにして`00_CRDD\40_Develop\coordinator\bin\coordinator.ts task --request-stdin --json`を使用する。`40_Develop`を含まない文書だけのコピーではRuntimeは利用できないため、公式Release tagへ固定した完全なcloneまたはsubmoduleを用意する。
 
 以下の絶対Node placeholderは、version 24.12.0以上と実体を確認したNodeへ置き換える。Coordinator CLI、Release鍵生成、Release manifest署名および正式署名一般Task Runnerは、未対応Nodeを対話入力、Release検証またはEffectより前に拒否し、PATH上の別Nodeへfallbackしない。package scriptを使う検証では、親のnpmだけでなくscript内の`node`とその子Processも同じ検証済みNodeへ解決されることを確認する。親だけを絶対Pathで起動し、子がPATH上の旧Nodeへ戻る状態を検証済みと扱わない。Sourceや試験のPathは、現在DirectoryをRepository Identityとして意図的に使う公開契約を除き、module基準の絶対Pathへ固定する。
 
@@ -133,7 +176,7 @@ CRDDを`00_CRDD`へ配置した採用Repositoryでは、Project Rootを現在Dir
 通常Taskが`provider_subscription_auth_not_confirmed`またはClaude認証Probeの固定失敗理由で停止し、専用Provider HomeのOAuth失効を人が確認した場合だけ使用する。通常Taskから自動起動せず、署名済み配布Rootの共通Launcherをdirect TTYから実行する。
 
 ```powershell
-& "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\40_Develop\coordinator\bin\launch.ts" authenticate-claude
+& "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\40_Develop\coordinator\bin\coordinator.ts" authenticate-claude
 ```
 
 1. 表示された公式Claude認証手順を外部system browserで完了する。
@@ -214,6 +257,32 @@ CRDD_RELEASE_PRIVATE_KEY_PATH=C:\absolute\path\to\crdd-release-v1-private.pem
 
 署名済みRelease manifestは自己参照を避けながらGitだけで配布できるよう、署名Source A、manifest carrier B、最終Release Commit Cを分けて生成する。Cは署名後に確定する検証結果だけを取り込む文書Commitであり、Runtime実行集合を変更しない。
 
+### 署名準備の縮小構成
+
+以下の旧全体展開手順は、2026-10-06の承認により置換中であり、現在は実行しない。新方式は固定Commit由来のRuntime実行閉包とNativeだけを`<repository>/.crdd/tmp/signature/work/`へ配置する。Repository全体のTree一致ではなく、選択FileのGit出所・内容・mode、Runtime集合、PolicyとNativeを確認する。準備、対話署名、署名済みstaging自身からの原子昇格、利用終了と清掃を同じOperation Ownerへ接続する。Process-local能力をJSONへ保存せず、正式Manifestを公開できなかった場合に唯一の署名結果を先に消さない。
+
+公開入口は既存の`prepare-release-candidate.ts`を置き換え、次の一回の呼出しで準備、対話署名、署名済みLauncherによる昇格、終了清掃を順に実行する。実装切替、局所試験と限定独立レビューは完了した。実署名の再開許可ではなく、対話端末・実署名・製品E2Eの実境界確認は未評価である。
+
+```powershell
+& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\scripts\prepare-release-candidate.ts" --crdd-version <vX.Y.Z> --release-sequence <positive-safe-integer> --crdd-commit <commit-id> --crdd-tree <tree-id> --operation-id <caller-held-operation-id> --operation-identity <caller-held-identity> --no-expiry
+```
+
+適用後の中断で候補が残った場合は、秘密入力なしの同じ固定入口を `--recover-applied --operation-id <元のID> --operation-identity <現在のIdentity> --generation <現在世代>` で呼ぶ。新規準備、再署名、再昇格は行わない。候補と正式Manifestの全file Hashが一致するときだけ清掃し、未適用・不一致・観測不能では返された次世代参照を保持する。旧配置は探索しない。
+
+起動するフロントAIは、開始前に操作ごとの非秘密な`operationId`と`identity`を生成し、検証済みRepositoryと固定Commit／Treeに結合した作業入力として保持する。同じ値を上記引数へ渡し、初期回復参照の`owner`は`coordinator-release-runtime`、`generation`は`1`とする。識別子は人間に入力させる秘密値や操作権限ではない。端末内で生成して表示するだけでは、端末消失後の参照保持と扱わない。既存の一時操作記録を使い、新しいキュー・state・回復DBを追加しない。中断後は同じ参照を既存Runtime Dataの再入場へ渡し、Root・記録・旧Process・世代の検証を省略しない。
+
+期限付き検証では`--no-expiry`を`--valid-for-days <positive-integer>`へ置き換える。時刻は対話端末の実行時に一度生成し、古いwrapperに固定した時刻を再使用しない。秘密鍵参照は上記`.env-crdd`または明示的な`--private-key`を用い、passphraseは端末だけで入力する。Repository Rootと一時配置先は入口が検証して決定し、候補名や配布Rootを人間の引数で指定しない。
+
+| 終了状態 | 一時配置と結果の扱い |
+|---|---|
+| 昇格と終了処置を確認できた | 正式PathへManifestを公開し、一時作業領域を回収する。終了処置の後に端末のEnter待ちへ進む。 |
+| passphrase不正を署名配置前に確認できた | 署名結果が作られていない経路として一時作業領域を回収する。 |
+| その他の署名・昇格・終了が未確認 | 同じ回復参照と、唯一の署名結果が存在し得る作業領域を保持する。時間切れを清掃完了へ読み替えない。 |
+
+旧準備コマンドの引数、廃棄済み候補または一時wrapperを代替として再使用しない。現在の処置は[CHG-000082](../99_Roadmap/Changes/CHG-000082/change.md#2026-10-06の範囲見直し--署名対象と一時配置の縮小)を参照する。
+
+### 旧手順 — 移行記録、実行停止
+
 1. Release候補Commit Aへ、Source、文書、試験および`40_Develop/platform-access/artifacts/windows-x64/crdd-platform-access.exe`を含め、生成前の`template/tools/coordinator/coordinator-package-manifest.json`は含めない。Local Personal v1の通常buildはall-zeroのpublisher digestでAuthenticodeを明示的に非必須とし、固定publisher digestを指定したbuildだけ追加のAuthenticode検証を必須にする。manifestは実装、署名、昇格および検証が共有するこの固定Pathだけを使用し、別Pathへ複製しない。
 2. Commit Aのblob byteを変換せず、Repository-localの`<repository>/.crdd/release/<candidate-id>`へ展開する。`<candidate-id>`は小文字英数字とhyphenからなる単一Directory名に固定し、Repository直下、`.crdd`直下、別用途の`.crdd`領域、入れ子Path、別Repository、Repository外Root、linkまたはGit metadataを持つRootを受理しない。
 3. Commit A／Tree Aと`crdd-platform-access.exe`を照合し、stagingの固定Pathへmanifestを生成する。生成commandは既存manifest、固定公開鍵と一致しない秘密鍵、非canonical時刻または不正なIdentityを拒否する。秘密鍵のpassphraseは対話端末でだけ入力し、標準出力へ出さない。
@@ -286,7 +355,7 @@ v0.20.0ではこの機械的遷移を実行しないまま公式tagを作成し�
 ```powershell
 & "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\scripts\sign-release-manifest.ts" --distribution-root "<absolute-staging-root>" --crdd-version <vX.Y.Z> --release-sequence <positive-safe-integer> --crdd-commit <commit-id> --crdd-tree <tree-id> --issued-at <canonical-utc> --expires-at <canonical-utc>
 Set-Location "<absolute-crdd-source-root>"
-& "<absolute-preverified-node-24.12+-executable>" "<absolute-staging-root>\40_Develop\coordinator\bin\launch.ts" promote-release
+& "<absolute-preverified-node-24.12+-executable>" "<absolute-staging-root>\40_Develop\coordinator\bin\coordinator.ts" promote-release
 ```
 
 ここで`<absolute-staging-root>`は、上記Repository-local staging Rootのexact candidateでなければならない。
@@ -317,7 +386,7 @@ node 40_Develop/coordinator/tests/fixtures/terminal-interaction-probe.ts cancel
 
 ### 自動試験と開発確認
 
-以下は検証済みリポジトリRootから実行する。試験Runnerが一時領域を必要とする場合は、Repository-localの`.crdd/tests/<execution-unit>/<run-id>/`を所有し、入力・出力・診断をRun単位で分離して全終端経路で清掃する。呼出し元が旧共通一時Directoryへ`TEMP`／`TMP`をまとめて上書きせず、OS全体や永続ユーザー環境の値も変更しない。
+以下は検証済みリポジトリRootから実行する。試験Runnerが一時領域を必要とする場合は、Repository-localの`.crdd/tests/<run-id>/`を所有し、実行単位別の分離が必要な場合だけ`.crdd/tests/<run-id>/<execution-unit>/`を使う。入力・出力・診断をRun単位で分離して全終端経路で清掃する。保全中の旧固定入力は今回移動しない。呼出し元が旧共通一時Directoryへ`TEMP`／`TMP`をまとめて上書きせず、OS全体や永続ユーザー環境の値も変更しない。
 
 ```shell
 npm test --prefix 40_Develop/coordinator

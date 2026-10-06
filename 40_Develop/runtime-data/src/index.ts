@@ -19,7 +19,7 @@ export {
 export {
   EXTERNAL_SEND_POLICY_RELATIVE_PATH,
   REPOSITORY_MANIFEST_RELATIVE_PATH,
-  VERIFICATION_RELATIVE_PATH,
+  TESTS_RELATIVE_PATH,
   ensureRepositoryRuntimeDataArea,
   observeRepositoryRuntimeDataArea,
   type RepositoryRuntimeDataAreaObservation,

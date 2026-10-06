@@ -14,11 +14,317 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
+import { deflateSync } from "node:zlib";
+
+import {
+  gitFixedSnapshotAdapter,
+  inspectRepositoryFixedSnapshot,
+  readFixedSnapshotFile,
+  verifyRepositoryRoot,
+} from "../../../version-control/src/index.ts";
+import {
+  beginPlatformAccessArtifactSigningObservation,
+  PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
+} from "../../src/security/platform-access-release.ts";
+import {
+  canonicalPackageFileContent,
+  inspectRuntimeDistributionSigningFilesCandidate,
+} from "../../src/security/platform-provisioner-package-filesystem.ts";
 
 import {
   describePlatformProvisionerReleaseIdentityContract,
   inspectPlatformProvisionerReleaseIdentityCandidate,
+  inspectPlatformProvisionerRuntimeGitProvenanceCandidate,
 } from "../../src/security/platform-provisioner-release-identity.ts";
+
+/**
+ * 選択Runtime集合のGit出所と非Runtime除外を実Git objectで検証する。
+ * @responsibility 固定Blob、配布閉包、Nativeの結合と拒否を反証する。
+ * @trace AIT-IT-002
+ * @precondition 現行Source閉包を読取り、Repository-local試験Rootだけを使用する。
+ * @stimulus 非秘密fixtureの選択byte、固定Tree、Capability、欠落を変更する。
+ * @observation 出所候補結果とEffect、非選択文書の無影響を観測する。
+ * @oracle 一致時だけcandidate、不一致時blockedでAuthorityとEffectは常にfalse。
+ * @cleanup 所有するexact試験Rootを確認して回収する。
+ * @boundary AIT-IT-002=Related 2 Blocks: Git Snapshot→Runtime閉包→出所判定
+ */
+test("選択Runtime Git出所は全Tree不要で閉包とNativeの混入を拒否する", (t) => {
+  const repository = path.resolve(
+    fileURLToPath(new URL("../../../../", import.meta.url)),
+  );
+  const observed = inspectRuntimeDistributionSigningFilesCandidate(repository);
+  assert.equal(observed.status, "candidate");
+  if (observed.status !== "candidate") return;
+  const testsRoot = path.join(repository, ".crdd", "tests");
+  fs.mkdirSync(testsRoot, { recursive: true });
+  assert.equal(fs.realpathSync.native(testsRoot), testsRoot);
+  const run = fs.mkdtempSync(path.join(testsRoot, "git-provenance-"));
+  t.after(() => {
+    assert.equal(path.dirname(run), testsRoot);
+    assert.equal(fs.realpathSync.native(run), run);
+    fs.rmSync(run, { recursive: true, force: true });
+    assert.equal(fs.existsSync(run), false);
+  });
+  const source = path.join(run, "source");
+  const distribution = path.join(run, "distribution");
+  fs.mkdirSync(path.join(source, ".git", "objects"), { recursive: true });
+  fs.mkdirSync(path.join(source, ".git", "refs", "heads"), { recursive: true });
+  fs.writeFileSync(
+    path.join(source, ".git", "config"),
+    "[core]\nrepositoryformatversion = 0\nbare = false\n",
+  );
+  fs.writeFileSync(
+    path.join(source, ".git", "HEAD"),
+    "ref: refs/heads/fixture\n",
+  );
+  const contents = new Map<string, Buffer>();
+  for (const file of observed.files) {
+    const bytes = fs.readFileSync(
+      path.join(repository, ...file.path.split("/")),
+    );
+    contents.set(file.path, bytes);
+    const target = path.join(distribution, ...file.path.split("/"));
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, bytes);
+  }
+  contents.set(
+    PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
+    Buffer.from("native-fixture\0", "utf8"),
+  );
+  const nativePath = path.join(
+    distribution,
+    ...PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH.split("/"),
+  );
+  fs.mkdirSync(path.dirname(nativePath), { recursive: true });
+  fs.writeFileSync(
+    nativePath,
+    contents.get(PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH) ?? Buffer.alloc(0),
+  );
+  /**
+   * 固定試験Git objectをRepository-local fixtureだけへ生成する。
+   * @responsibility 実Git Blob・Tree・Commitの非秘密入力を構築する。
+   * @trace AIT-IT-002
+   * @precondition sourceは本Test所有Rootである。
+   * @stimulus object typeとbytesをGit形式へ符号化する。
+   * @observation object IDを返す。
+   * @oracle Version Controlの既存Readerで読めるGit objectである。
+   * @cleanup 外側Testがexact Rootを回収する。
+   * @boundary AIT-IT-002=Direct Boundary: fixture→Git object Reader
+   */
+  function writeObject(type: "blob" | "tree" | "commit", bytes: Buffer) {
+    const encoded = Buffer.concat([
+      Buffer.from(`${type} ${bytes.length}\0`, "ascii"),
+      bytes,
+    ]);
+    const oid = createHash("sha1").update(encoded).digest("hex");
+    const directory = path.join(source, ".git", "objects", oid.slice(0, 2));
+    fs.mkdirSync(directory, { recursive: true });
+    fs.writeFileSync(path.join(directory, oid.slice(2)), deflateSync(encoded));
+    return oid;
+  }
+  /**
+   * 選択Pathの階層だけから固定Treeを構築する。
+   * @responsibility 全Repositoryを展開せず閉包のGit出所を構築する。
+   * @trace AIT-IT-002
+   * @precondition contentsは相対Pathと非秘密bytesの集合である。
+   * @stimulus prefix配下のfileと子DirectoryをGit順序で符号化する。
+   * @observation Tree object IDを返す。
+   * @oracle 既存Readerが選択fileを読み取れる。
+   * @cleanup 外側Testがexact Rootを回収する。
+   * @boundary AIT-IT-002=Direct Boundary: fixture→Git Tree Reader
+   */
+  function writeTree(prefix: string): string {
+    const entries = new Map<string, Readonly<{ mode: string; oid: string }>>();
+    for (const [relative, bytes] of contents) {
+      if (!relative.startsWith(prefix)) continue;
+      const remainder = relative.slice(prefix.length);
+      const slash = remainder.indexOf("/");
+      if (slash < 0)
+        entries.set(remainder, {
+          mode: "100644",
+          oid: writeObject("blob", bytes),
+        });
+      else {
+        const name = remainder.slice(0, slash);
+        if (!entries.has(name))
+          entries.set(name, {
+            mode: "40000",
+            oid: writeTree(`${prefix}${name}/`),
+          });
+      }
+    }
+    const ordered = [...entries].sort(([left, a], [right, b]) =>
+      Buffer.compare(
+        Buffer.from(`${left}${a.mode === "40000" ? "/" : ""}`),
+        Buffer.from(`${right}${b.mode === "40000" ? "/" : ""}`),
+      ),
+    );
+    return writeObject(
+      "tree",
+      Buffer.concat(
+        ordered.flatMap(([name, entry]) => [
+          Buffer.from(`${entry.mode} ${name}\0`, "utf8"),
+          Buffer.from(entry.oid, "hex"),
+        ]),
+      ),
+    );
+  }
+  const crddTree = writeTree("");
+  const crddCommit = writeObject(
+    "commit",
+    Buffer.from(
+      `tree ${crddTree}\nauthor CRDD Test <test@example.invalid> 0 +0000\ncommitter CRDD Test <test@example.invalid> 0 +0000\n\nfixture\n`,
+    ),
+  );
+  fs.writeFileSync(
+    path.join(source, ".git", "refs", "heads", "fixture"),
+    `${crddCommit}\n`,
+  );
+  const verified = verifyRepositoryRoot(source);
+  assert.equal(verified.status, "completed");
+  if (verified.status !== "completed") return;
+  assert.equal(
+    inspectRepositoryFixedSnapshot(verified.capability, crddCommit)
+      ?.snapshotIdentity,
+    crddTree,
+  );
+  assert.equal(
+    inspectRuntimeDistributionSigningFilesCandidate(distribution).status,
+    "candidate",
+  );
+  assert.ok(beginPlatformAccessArtifactSigningObservation(distribution));
+  for (const [relative, bytes] of contents) {
+    const fixed = readFixedSnapshotFile(
+      verified.capability,
+      crddCommit,
+      relative,
+      gitFixedSnapshotAdapter,
+      64 * 1024 * 1024,
+    );
+    assert.ok(fixed, relative);
+    assert.equal(fixed.relativePath, relative);
+    assert.ok(
+      canonicalPackageFileContent(relative, fixed.bytes).equals(
+        canonicalPackageFileContent(relative, bytes),
+      ),
+      relative,
+    );
+  }
+  const input = {
+    repositoryRoot: verified.capability,
+    distributionRoot: distribution,
+    crddCommit,
+    crddTree,
+  };
+  const success =
+    inspectPlatformProvisionerRuntimeGitProvenanceCandidate(input);
+  assert.equal(success.status, "candidate");
+  assert.equal(success.filesystemEffectIssued, false);
+  assert.equal(success.runtimeCapabilityIssued, false);
+  assert.equal(JSON.stringify(success).includes(run), false);
+  fs.writeFileSync(
+    path.join(distribution, "README.md"),
+    "unsigned non-runtime document\n",
+  );
+  assert.equal(
+    inspectPlatformProvisionerRuntimeGitProvenanceCandidate(input).status,
+    "candidate",
+  );
+  assert.equal(
+    inspectPlatformProvisionerRuntimeGitProvenanceCandidate({
+      ...input,
+      crddTree: "0".repeat(40),
+    }).status,
+    "blocked",
+  );
+  assert.equal(
+    inspectPlatformProvisionerRuntimeGitProvenanceCandidate({
+      ...input,
+      repositoryRoot: { contract: verified.capability.contract },
+    }).status,
+    "blocked",
+  );
+  assert.equal(
+    inspectPlatformProvisionerRuntimeGitProvenanceCandidate({
+      ...input,
+      crddCommit: "0".repeat(40),
+    }).status,
+    "blocked",
+  );
+  const runtimePath = observed.files.find((file) =>
+    file.path.endsWith(".ts"),
+  )?.path;
+  assert.ok(runtimePath);
+  const target = path.join(distribution, ...runtimePath.split("/"));
+  const original = fs.readFileSync(target);
+  fs.writeFileSync(
+    target,
+    original.toString("utf8").replace(/\r?\n/gu, "\r\n"),
+  );
+  assert.equal(
+    inspectPlatformProvisionerRuntimeGitProvenanceCandidate(input).status,
+    "candidate",
+  );
+  fs.writeFileSync(target, original);
+  fs.appendFileSync(target, "\n// altered selected runtime\n");
+  assert.equal(
+    inspectPlatformProvisionerRuntimeGitProvenanceCandidate(input).status,
+    "blocked",
+  );
+  fs.writeFileSync(target, original);
+  fs.writeFileSync(nativePath, "changed-native");
+  assert.equal(
+    inspectPlatformProvisionerRuntimeGitProvenanceCandidate(input).status,
+    "blocked",
+  );
+  fs.writeFileSync(
+    nativePath,
+    contents.get(PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH) ?? Buffer.alloc(0),
+  );
+  fs.rmSync(target);
+  assert.equal(
+    inspectPlatformProvisionerRuntimeGitProvenanceCandidate(input).status,
+    "blocked",
+  );
+  fs.writeFileSync(target, original);
+  let getterCalls = 0;
+  const accessor = Object.defineProperty({ ...input }, "crddTree", {
+    get() {
+      getterCalls += 1;
+      return crddTree;
+    },
+  });
+  assert.equal(
+    inspectPlatformProvisionerRuntimeGitProvenanceCandidate(accessor).status,
+    "blocked",
+  );
+  assert.equal(getterCalls, 0);
+  const originalBlob = Buffer.concat([
+    Buffer.from(`blob ${original.length}\0`, "ascii"),
+    original,
+  ]);
+  const blobId = createHash("sha1").update(originalBlob).digest("hex");
+  const blobPath = path.join(
+    source,
+    ".git",
+    "objects",
+    blobId.slice(0, 2),
+    blobId.slice(2),
+  );
+  const objectBytes = fs.readFileSync(blobPath);
+  fs.rmSync(blobPath);
+  assert.equal(
+    inspectPlatformProvisionerRuntimeGitProvenanceCandidate(input).status,
+    "blocked",
+  );
+  fs.writeFileSync(blobPath, objectBytes);
+  fs.rmSync(nativePath);
+  assert.equal(
+    inspectPlatformProvisionerRuntimeGitProvenanceCandidate(input).status,
+    "blocked",
+  );
+});
 
 /**
  * objectIdのTest準備責務を実行する。

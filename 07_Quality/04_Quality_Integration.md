@@ -14,7 +14,7 @@ Canonical設計集合と個別Releaseの検証対象を分ける。Local Itemを
 
 | 対象 | Local Item数 | Release上の処置 |
 |---|---:|---|
-| Canonical設計集合 | 176 | 全件を保持する。起動時Tool制限を確認する`ERB-IT-024`を含む |
+| Canonical設計集合 | 177 | 全件を保持する。起動時Tool制限を確認する`ERB-IT-024`を含む |
 | v0.21 Group A | 130 | v0.21のQuality Gateで評価する。108件観測済み、22件未観測 |
 | v0.21からの移管母集団 | 46 | 持越しと後続追加の一覧。現在の個別観測と採用Release Scopeとの対応は[算定Owner](05_Current_Implementation_Reality_Audit.md#13-移管母集団の処置とrelease適用範囲)を参照し、本表で件数を再定義しない |
 
@@ -144,7 +144,7 @@ Source IDごとの検証義務は各工程の`Analysis/<工程>/quality_analysis
 | [RepositoryとFederation](Definitions/QA-000007/quality_definition.md) | `RFD-IT-001`、`RFD-IT-002`、`RFD-ST-003`、`RFD-ST-004`、`RFD-IT-005`、`RFD-UT-006`、`RFD-UAT-007`、`RFD-IT-008`、`RFD-IT-009`、`RFD-ST-010`、`RFD-IT-011`、`RFD-IT-012`、`RFD-IT-013`、`RFD-IT-014`、`RFD-ST-015`、`RFD-ST-016` | 6工程のAnalysis §3 | 本書§2／§3とcros／crdd-domain-library／mcp／runtime-data／version-control |
 | [Runtime Data lifecycle](Definitions/QA-000008/quality_definition.md) | `RDL-IT-001`、`RDL-ST-002`、`RDL-IT-003`、`RDL-IT-004`、`RDL-UT-005`、`RDL-UAT-006`、`RDL-IT-007` | 6工程のAnalysis §3 | 本書§2／§3とplatform-access／runtime-data |
 | [外部送信とTransport](Definitions/QA-000009/quality_definition.md) | `EST-IT-001`、`EST-IT-002`、`EST-ST-003`、`EST-IT-004`、`EST-ST-005`、`EST-UAT-006`、`EST-UAT-007`、`EST-UAT-008`、`EST-UAT-009`、`EST-IT-010`、`EST-ST-011`、`EST-ST-012` | 6工程のAnalysis §3 | 本書§2／§3とcoordinator／cros／mcp／project-runtime |
-| [成果物IntegrityとTrust](Definitions/QA-000010/quality_definition.md) | `AIT-IT-001`、`AIT-IT-002`、`AIT-IT-003`、`AIT-ST-004`、`AIT-UT-005`、`AIT-UAT-006`、`AIT-IT-007`、`AIT-IT-008`、`AIT-IT-009`、`AIT-ST-010`、`AIT-UT-011`、`AIT-UT-012`、`AIT-IT-013`、`AIT-IT-014` | 6工程のAnalysis §3 | 本書§2／§3とartifact-signing／coordinator／runtime-trust |
+| [成果物IntegrityとTrust](Definitions/QA-000010/quality_definition.md) | `AIT-IT-001`、`AIT-IT-002`、`AIT-IT-003`、`AIT-ST-004`、`AIT-UT-005`、`AIT-UAT-006`、`AIT-IT-007`、`AIT-IT-008`、`AIT-IT-009`、`AIT-ST-010`、`AIT-UT-011`、`AIT-UT-012`、`AIT-IT-013`、`AIT-IT-014`、`AIT-IT-015` | 6工程のAnalysis §3 | 本書§2／§3とartifact-signing／coordinator／runtime-trust |
 | [公式AssetのGovernance](Definitions/QA-000011/quality_definition.md) | `OAG-UAT-001`、`OAG-UAT-002`、`OAG-ST-003`、`OAG-UAT-004`、`OAG-IT-005`、`OAG-IT-006`、`OAG-IT-007`、`OAG-UT-008` | 6工程のAnalysis §3 | 本書§2／§3とofficial-asset-governance |
 | [実行記録の公開と再利用](Definitions/QA-000012/quality_definition.md) | `ERP-IT-001`、`ERP-IT-002`、`ERP-IT-003`、`ERP-ST-004`、`ERP-IT-005`、`ERP-UT-006`、`ERP-UAT-007` | 6工程のAnalysis §3 | 本書§2／§3とexecution-intelligence |
 | [成果物の理解と工程引継ぎ](Definitions/QA-000013/quality_definition.md) | `AUH-UAT-001`、`AUH-IT-002`、`AUH-IT-003`、`AUH-ST-004`、`AUH-ST-005`、`AUH-ST-006` | 6工程のAnalysis §3 | 本書§2／§3とchecker／crdd-domain-library／cros |

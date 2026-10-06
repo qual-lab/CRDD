@@ -21,7 +21,7 @@ import {
 
 const packageRoot = fileURLToPath(new URL("../../", import.meta.url));
 const repositoryRoot = path.resolve(packageRoot, "../..");
-const launcher = path.join(packageRoot, "bin/launch.ts");
+const launcher = path.join(packageRoot, "bin/coordinator.ts");
 const terminal = {
   nodeVersion: "24.19.0",
   stdinIsTty: true,
@@ -43,9 +43,9 @@ const terminal = {
  */
 test("共通Launcherの実行入口を一つの正本から解決する", () => {
   assert.deepEqual(COORDINATOR_LAUNCH_ENTRIES, {
-    task: "./coordinator.ts",
-    interactive: "./coordinator.ts",
-    automation: "./coordinator.ts",
+    task: "../src/core/coordinator-command.ts",
+    interactive: "../src/core/coordinator-command.ts",
+    automation: "../src/core/coordinator-command.ts",
     "verify-routes": "../scripts/verify-signed-route-matrix.ts",
     "verify-recovery": "../scripts/verify-signed-recovery-matrix.ts",
     "sign-release": "../scripts/sign-release-manifest.ts",
@@ -53,6 +53,30 @@ test("共通Launcherの実行入口を一つの正本から解決する", () => 
     "authenticate-claude": "../scripts/authenticate-claude-subscription.ts",
   });
   assert.equal(Object.isFrozen(COORDINATOR_LAUNCH_ENTRIES), true);
+});
+
+/**
+ * 引数なしと従来のhelp入力を入口統合後も維持する。
+ * @responsibility 既存help経路の終了値と公開案内を確認する。
+ * @trace PRL-ST-001
+ * @precondition 現在のCoordinator入口を使用する。
+ * @stimulus 引数なし、help、-hで起動する。
+ * @observation 終了値、stdout、stderrを確認する。
+ * @oracle 終了値0、通常Task案内あり、stderr空である。
+ * @cleanup N/A: 永続・一時資源を作成しない。
+ * @boundary 実Processの公開入口。
+ */
+test("入口統合後も引数なしと従来helpは成功する", () => {
+  for (const args of [[], ["help"], ["-h"]]) {
+    const result = spawnSync(process.execPath, [launcher, ...args], {
+      encoding: "utf8",
+      timeout: 30_000,
+      windowsHide: true,
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stderr, "");
+    assert.match(result.stdout, /coordinator task --request-stdin/u);
+  }
 });
 
 /**
@@ -316,18 +340,13 @@ test("実Processのredirectでは対話入口を対象import前に拒否し、�
  * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("実子で同一PID・引数・stdin byte・cwd・終了コードを保持し、import例外を成功にしない", () => {
-  const tempParent = path.join(
-    repositoryRoot,
-    ".crdd",
-    "tests",
-    "coordinator-launch",
-  );
+  const tempParent = path.join(repositoryRoot, ".crdd", "tests");
   fs.mkdirSync(tempParent, { recursive: true });
   assert.equal(fs.realpathSync.native(tempParent), tempParent);
-  const root = fs.mkdtempSync(path.join(tempParent, "launch-contract-"));
+  const root = fs.mkdtempSync(path.join(tempParent, "coordinator-launch-"));
   try {
     for (const relative of [
-      "bin/launch.ts",
+      "bin/coordinator.ts",
       "src/core/coordinator-launch.ts",
       "src/core/node-runtime-version.ts",
     ]) {
@@ -335,7 +354,7 @@ test("実子で同一PID・引数・stdin byte・cwd・終了コードを保持�
       fs.mkdirSync(path.dirname(target), { recursive: true });
       fs.copyFileSync(path.join(packageRoot, relative), target);
     }
-    const entry = path.join(root, "bin/coordinator.ts");
+    const entry = path.join(root, "src/core/coordinator-command.ts");
     fs.writeFileSync(
       entry,
       `import { fileURLToPath } from 'node:url';
@@ -354,7 +373,7 @@ process.stderr.write('FIXTURE_STDERR'); process.exitCode=37;`,
     const input = Buffer.from('{"text":"日本語"}\n', "utf8");
     const result = spawnSync(
       process.execPath,
-      [path.join(root, "bin/launch.ts"), "automation", ...args],
+      [path.join(root, "bin/coordinator.ts"), "automation", ...args],
       {
         cwd: root,
         input,
@@ -375,7 +394,7 @@ process.stderr.write('FIXTURE_STDERR'); process.exitCode=37;`,
     fs.writeFileSync(entry, "throw new Error('PRIVATE_FIXTURE_DETAIL');");
     const failure = spawnSync(
       process.execPath,
-      [path.join(root, "bin/launch.ts"), "automation", "--json"],
+      [path.join(root, "bin/coordinator.ts"), "automation", "--json"],
       { cwd: root, encoding: "utf8", timeout: 30_000, windowsHide: true },
     );
     assert.equal(failure.status, 2);

@@ -14,7 +14,7 @@ import {
   requireReadyRepositoryRuntimeDataArea,
   resolveRepositoryRuntimeDataPaths,
 } from "../../../runtime-data/src/index.ts";
-import type { VerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
+import type { VerifiedRepositoryRoot } from "../../../version-control/src/repository-location.ts";
 import { acquireHostTerminalCallerLease } from "./host-terminal-caller-lease.ts";
 import {
   decodeHostTerminalIntent,

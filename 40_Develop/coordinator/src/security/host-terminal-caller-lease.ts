@@ -7,7 +7,7 @@
 import { createHash } from "node:crypto";
 import { createServer, type Socket } from "node:net";
 import { resolveRepositoryRuntimeDataPaths } from "../../../runtime-data/src/index.ts";
-import type { VerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
+import type { VerifiedRepositoryRoot } from "../../../version-control/src/repository-location.ts";
 import {
   createIsolatedHostOperationInProcessLeaseCandidate,
   type HostOperationLeaseCandidate,

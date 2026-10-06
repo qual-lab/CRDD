@@ -29,9 +29,9 @@ const expectedProtectedSigningConsumers = [
   "40_Develop/coordinator/scripts/sign-release-manifest.ts",
 ];
 const expectedAreaConsumers = [
+  "40_Develop/coordinator/scripts/check-platform-access-coverage.ts",
   "40_Develop/coordinator/scripts/measure-development-providers.ts",
-  "40_Develop/coordinator/scripts/prepare-codex-advice-build.ts",
-  "40_Develop/coordinator/scripts/prepare-release-candidate.ts",
+  "40_Develop/coordinator/scripts/prepare-codex-advice-image.ts",
   "40_Develop/coordinator/src/core/verification-result-record.ts",
   "40_Develop/coordinator/src/security/host-terminal-caller-checkpoint.ts",
   "40_Develop/coordinator/src/security/project-runtime-acceptance-decision-store.ts",
@@ -68,7 +68,6 @@ const ALLOWED_TOP_LEVEL_AREAS = new Set([
   "project-runtime",
   "coordinator",
   "execution-intelligence",
-  "verification",
   "candidates",
   "release",
   "communication",
@@ -82,6 +81,7 @@ const retiredTopLevelAreas = [
   "test-fixtures",
   "test-tmp",
   "verification-results",
+  "verification",
 ] as const;
 
 type SourceSet = ReadonlyMap<string, string>;

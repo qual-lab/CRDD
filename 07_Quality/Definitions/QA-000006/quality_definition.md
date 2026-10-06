@@ -31,7 +31,7 @@ Quality ID: `QA-000006`
 
 | 詳細設計領域 | 受け取る成立条件 |
 |---|---|
-| [coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md) | 実行編成、Authority、外部Effect、候補、回収・回復。7.5.1の助言専用起動制限は`ERB-IT-024`で登録・配送、`ERB-IT-025`～`ERB-IT-029`で実Host／Core、同11節を含む`ERB-ST-030`で公開CLIの取消・親Process喪失を確認する。 |
+| [coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md) | 実行編成、Authority、外部Effect、候補、回収・回復。7.5.1の未改造公式CLI・Docker隔離は`ERB-IT-031`で配布と公開起動を確認する。通知と最終結果は`ERB-UT-023`、同11節を含む公開CLIの取消・親Process喪失は`ERB-ST-030`で確認する。旧内部改造の024～029は現行の要求集合から外す。 |
 | [cros](../../../06_Architecture/Details/cros/01_Architecture.md) | Repository横断解決、Grant、投影、外部接続、候補処置 |
 | [platform-access](../../../06_Architecture/Details/platform-access/01_Architecture.md) | OS資源、Process Effect、観測、cleanup、回復 |
 | [verification-runner](../../../06_Architecture/Details/verification-runner/01_Architecture.md) | 外部境界試験の段階適用、子Process結果および観測不能時の停止 |
@@ -65,16 +65,22 @@ Quality ID: `QA-000006`
 
 | 条件区分 | 適用 | 対応Local Item | 判断理由 |
 |---|---|---|---|
-| 正常 | Required | ERB-IT-001、ERB-UT-016、ERB-IT-025 | 通常の成立経路を独立して確認する。 |
-| 境界 | Required | ERB-IT-002、ERB-IT-006、ERB-UAT-007、ERB-IT-008、ERB-IT-010、ERB-ST-015、ERB-IT-018、ERB-ST-019、ERB-IT-020、ERB-IT-021、ERB-ST-022、ERB-UT-023、ERB-IT-024、ERB-IT-026、ERB-IT-027 | 値、Authority、情報、責務、localhost配信範囲、Browser lifecycle、Workbench Production Shell、AI依頼種別、助言専用の起動Policy、実Browser観測または利用者判断の境界を確認する。 |
+| 正常 | Required | ERB-IT-001、ERB-UT-016、ERB-IT-031 | 通常の成立経路を独立して確認する。 |
+| 境界 | Required | ERB-IT-002、ERB-IT-006、ERB-UAT-007、ERB-IT-008、ERB-IT-010、ERB-ST-015、ERB-IT-018、ERB-ST-019、ERB-IT-020、ERB-IT-021、ERB-ST-022、ERB-UT-023 | 値、Authority、情報、責務、localhost配信範囲、Browser lifecycle、Workbench Production Shell、AI依頼種別、公式助言のDocker隔離、実Browser観測または利用者判断の境界を確認する。 |
 | 準正常 | Required | ERB-IT-004、ERB-ST-005 | 継続可能な分岐、保留、観測不能または診断状態を成功へ畳まない。 |
-| 異常 | Required | ERB-IT-029 | HostとIPCの喪失を正常終了と区別して確認する。親Process喪失は回復項目ERB-ST-030でも独立scenarioとして処置する。 |
-| 回復 | Required | ERB-IT-003、ERB-ST-009、ERB-ST-011、ERB-IT-012、ERB-ST-013、ERB-IT-014、ERB-IT-017、ERB-IT-028、ERB-ST-030 | 失敗・取消後に同じIdentityと義務で安全に再入場できることを確認する。 |
+| 異常 | Required | ERB-IT-002 | 起動・搬送・終了の失敗を正常終了と区別して確認する。親Process喪失は回復項目ERB-ST-030でも独立scenarioとして処置する。 |
+| 回復 | Required | ERB-IT-003、ERB-ST-009、ERB-ST-011、ERB-IT-012、ERB-ST-013、ERB-IT-014、ERB-IT-017、ERB-ST-030 | 失敗・取消後に同じIdentityと義務で安全に再入場できることを確認する。 |
 
 ## 4. 検証項目
 
+公式CLI移行では、旧内部改造に対する`ERB-IT-024`～`ERB-IT-029`を現行の必須集合から除外する。以下の旧6項目の記述は移行対象を識別する履歴であり、現行の要求ではない。IDを別の意味に再利用しない。旧設計と試験は基準Commit `823cb32deaa0e21a28aad73942ab5a05a9aa0950`で追跡し、過去の成功を新方式の成功へ流用しない。公式CLI内部のTool登録禁止とJS能力不存在は現行CRDDの保証対象ではない。
+
+新方式の公開配布・起動は`ERB-IT-031`、有限な通知分類と唯一の最終結果は既存`ERB-UT-023`、取消・喪失と終了後資源は既存`ERB-ST-030`が所有する。署名・実Provider E2Eおよび実取消の再観測が未完了の間、全体Passを表示しない。
+
+
 | Local ID | 条件区分 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測 | Oracle | Evidence | 終了後条件 | 実行形態 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `ERB-IT-031` | 正常 | IT | 公式配布／公開起動 | Coordinator固定配布→Docker→公式Codex CLI／Host | Related 2 Blocks | 検証済み公式CLI・同版Host・既存bwrap、固定DockerfileとImage、認証情報なし | 配置用Imageを作成し、network none・非root・read-onlyのコンテナで版表示と実行物Hashを確認する | 公式版、三実行物Hash、実Image Digest、終了コード、起動Warning、コンテナ終了後状態 | 未改造公式0.159.2と固定Hashが一致する。CLI Source BuildとPatchを必要とせず起動する。Warningを消去せず、実助言・取消・署名成立とは区別する | 固定配布Identity、版、Hash、局所起動と終了後判定の要約。実行ごとの大きな書庫を作らない | Provider依頼0、認証情報使用0、試験コンテナ不存在を確認する | Automated |
 | `ERB-IT-025` | 正常 | IT | 実Host正常計算／終了 | 実Session→捕捉Router→Core Worker→固定Code Mode Host | Related 2 Blocks | 詳細設計7.5.1、固定Source・Patch・Host、専用空Home、Provider送信のない試験認証とモデル | 正式APIの`text(6 * 7)`を実IPC経由で実行しSessionを終了する | 同一runのCell結果、登録Task集合、Role、Host世代、実wait／reapと終了後状態 | exact 42行と成功結果を得る。Core SessionのshutdownとHost終了を別々に確認し、全登録Task終了とHost reapが成立する | 入力・実行物・Host・試験Hash、exact試験名、結果と資源観測を保存する | Provider送信0、所有Task終了、Host reap、隔離Root保持後の所有者清掃。観測不能は未確認 | Automated |
 | `ERB-IT-026` | 境界 | IT | JS能力拒否 | 固定HostのJS環境・module loader→実Core結果 | Related 2 Blocks | 詳細設計7.5.1と025の固定環境、require／process／fetch／通常import／動的importの反証入力 | 各能力を別Cellで要求し、その後同じSessionで正常計算を行う | 各Cellの能力不存在またはimport拒否理由、正常Cell、登録TaskとHost終了 | 全反証を意図した能力境界で拒否する。network遮断や不正入力だけの偶然の拒否を代替にせず、次Cell正常と終了も成立する | 反証分類、固定入力、理由分類、正常復帰、Hashと終了観測 | 禁止FS／Network／Process作用0、所有Task終了とHost reap。生Provider出力は保存しない | Automated |
 | `ERB-IT-027` | 境界 | IT | 禁止delegate配送 | 実Host→IPC→CoreDispatch→捕捉Router／Registry | Related 2 Blocks | 詳細設計7.5.1、禁止Toolを試験用metadataに広告した入力、制限済み実Policy、無害なHandlerカウンタ | 直接名・namespace付き禁止名・未知名をHostからdelegateする | Host送信、IPC搬送、実CoreDispatch到達、拒否理由、Handler件数、終了 | 実Coreまで到達した要求を捕捉Policyで拒否し、禁止Handler到達0。広告をProductionの許可へ変更しない | 名前分類、各搬送段階の相関、拒否・到達件数、固定Hash、終了観測 | 禁止Handler 0、Provider送信0、所有Task終了、Host reap | Automated |
@@ -141,13 +147,7 @@ Evidenceには各段階のCommit／Tree、固定Path、Asset Hash、Git追跡判
 
 `ERB-ST-022`の機械観測部分は、[Phase 5 Workbench実Browser Visual Gate](../../../99_Roadmap/Changes/CHG-000082/Evidence/260928-1028_phase5-workbench-actual-browser-visual.md)で15画面、3表示Profile、3 Zoomの27条件を不適合0・許容例外0で完了し、[純粋CSR移行](../../../99_Roadmap/Changes/CHG-000082/Evidence/260928-1745_phase5-workbench-pure-csr.md)で全画面DOMのBrowser React所有への移行後も同じ27条件を再観測した。人間UAT、実Provider E2EまたはShared Server配置の成立へは読み替えない。
 
-`ERB-IT-024`はProductionの`Session::new`を通る試験用入口を使用する。SessionServicesを直接構築して既定Policyを設定するhelperや、制限処理を別実装へ複製する試験では成立を主張しない。offline model、試験認証、専用の空HomeおよびDisabled Code Mode Providerを維持し、結果の成否にかかわらずSessionを終了する。Code Mode由来のRegistry配送確認を、実HostのJS→IPC→Router、Host取消・回収、署名またはProvider E2Eの合格へ流用しない。
-
-### 助言専用Hostの保証範囲
-
-025～029は実Host／Core境界、030は公開CLIから終了後の実環境を確認する。025の正常計算だけで026～030を成立へ変更しない。固定Hostの欠落・差替え・fallback禁止、Hooks／notify／Plugin／MCP混入、再開／forkおよび追加Environmentの反証は、024の起動Policyだけでは閉じない。専用実行物の構成・起動前Gateと公開入口STへ接続して確認し、対応する試験と観測根拠がない間は未処置として保持する。
-
-全項目の直接導出元はCoordinator詳細設計7.5.1、終了・回復の追加導出元は同11節である。試験用の正常計算結果は実Providerの回答品質、署名一致または配布全体の合格を意味しない。実行結果は本定義ではなくCHG／Release Evidenceが所有する。
+公式CLI移行では内部改造024～029の成立を現行保証として要求しない。公開配布と起動は031、通知分類は023、公開取消・親喪失と終了後資源は030で確認する。公式設定だけを操作不存在の証明にせず、Docker境界の観測と実Provider E2Eを別々に保持する。
 
 ## Semantic Coverage Pilot
 

@@ -311,7 +311,7 @@ async function main() {
       : null;
   if (!runtimePaths)
     throw new Error("project_runtime_verification_path_invalid");
-  const verificationRoot = runtimePaths.verification;
+  const verificationRoot = runtimePaths.tests;
   fs.mkdirSync(verificationRoot, { recursive: true, mode: 0o700 });
   stableDirectory(verificationRoot);
 
@@ -654,7 +654,7 @@ try {
       : null;
   if (!runtimePaths)
     throw new Error("project_runtime_verification_path_invalid");
-  const verificationRoot = runtimePaths.verification;
+  const verificationRoot = runtimePaths.tests;
   fs.mkdirSync(verificationRoot, { recursive: true, mode: 0o700 });
   const report = Object.freeze({
     contract: "crdd-coordinator/project-runtime-real-provider-verification",

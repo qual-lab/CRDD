@@ -147,6 +147,10 @@ CRDDのタグ、コミット、サブモジュール参照、`00_CRDD/`の配布
 
 ### 設定の配置
 
+試験の一時入力、中間署名、段階結果、出力と診断は、検証済みRepository Rootの`.crdd/tests/<run-id>/`へ置く。非試験の短命作業は`.crdd/tmp/`、正式な検証根拠は対象CHG／Releaseの`Evidence/`へ分け、`.crdd/verification/`を新規保存先にしない。旧形式の場所とHashを遡及的に書き換えない。
+
+フロントAIは試験終了時に同じrunの結果を確認し、必要な根拠を正式記録へ昇格するか不要理由を確定する。その後、参照終了、非使用、回復義務を確認して一時物を清掃し、不存在を確認する。中断残存は次回作業開始時に確認する。完了Fileの存在だけで清掃可能とせず、唯一の必要根拠、未受理結果、使用中または観測不能な対象を年齢だけで削除しない。
+
 Repositoryに固有の非秘密設定は`.crdd/config/`へTool別のファイルとして置く。設定例はCRDD配布物の`template/.crdd/config/*.example.json`を参照し、例そのものを実設定や実行許可として読み込まない。`project-runtime.json`と`execution-intelligence.json`は独立したTool設定であり、それぞれ`schemaRevision`と`historyRetentionDays`を保持する。設定ファイルの不存在だけ各30日となり、不正な設定は当該Toolの整理を止める。
 
 Manifest、外部送信Policyおよび上記二つのTool設定は非秘密の共有設定として、`.gitignore`の明示allowlistでGit管理できる。`.crdd`全体を追跡対象にせず、Runtime状態、履歴、Lock、一時物、候補および秘密は管理外を維持する。既存の親Directory除外が設定を隠す場合は、`.crdd/`と`config/`の再包含も設定する。CROSのHost共通設定はOS管理の設定Root、固定Runtime設定と既定Catalogは所有Subsystem、Schemaは配布物の`template/tools/schemas/`へ置き、Repository設定へ混在させない。

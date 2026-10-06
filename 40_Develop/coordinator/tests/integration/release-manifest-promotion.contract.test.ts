@@ -594,6 +594,7 @@ test("productionと同じ合成順序で前段検証、atomic昇格、後段検�
       runtimeExecutionIdentitySha256: "5".repeat(64),
     }),
     manifestFileSha256: value.sha256,
+    platformAccessArtifactSha256: "6".repeat(64),
   });
   try {
     const result = executeReleaseManifestPromotionCompositionForVerification(
@@ -651,6 +652,7 @@ test("合成後段の不成立は公開済みfileを推測削除せず再入場�
       runtimeExecutionIdentitySha256: "5".repeat(64),
     }),
     manifestFileSha256: value.sha256,
+    platformAccessArtifactSha256: "6".repeat(64),
   });
   try {
     assert.throws(
@@ -703,8 +705,8 @@ test("production昇格入口はGit CLIやtext再serializeを使わず固定検�
   for (const required of [
     "verifyHistoricalPlatformProvisionerManifestCandidate",
     "inspectVerifiedNativeDistributionCandidate",
-    "inspectPlatformProvisionerReleaseIdentityCandidate",
-    "inspectRepositoryIdentityCandidate",
+    "inspectPlatformProvisionerRuntimeGitProvenanceCandidate",
+    "verifyRepositoryRoot",
     "beginReleaseManifestPromotionSession",
     "promoteReleaseManifestBytes",
     "verifyPromotedReleaseManifestBytes",
@@ -728,12 +730,19 @@ test("production昇格入口はGit CLIやtext再serializeを使わず固定検�
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary AIT-IT-008=Direct Boundary: coordinator Test Source→対象契約
  */
-test("昇格入口は配置先Repository直下の署名候補自身だけを実行元にする", () => {
+test("昇格入口は配置先Repository直下の署名候補自身だけを実行元にする", (t) => {
   const parent = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-topology-"));
   const destinationRoot = path.join(parent, "repository");
-  const stagingRoot = path.join(destinationRoot, ".crdd", "release");
-  const candidateRoot = path.join(stagingRoot, "candidate-01");
-  const siblingRoot = path.join(parent, "candidate-01");
+  const temporaryRoot = path.join(destinationRoot, ".crdd", "tmp");
+  const operationRoot = path.join(temporaryRoot, "signature");
+  const candidateRoot = path.join(operationRoot, "work");
+  const siblingRoot = path.join(parent, "candidate-01", "work");
+  const legacyCandidateRoot = path.join(
+    destinationRoot,
+    ".crdd",
+    "release",
+    "candidate-01",
+  );
   try {
     fs.mkdirSync(destinationRoot);
     const initialized = spawnSync(
@@ -744,7 +753,8 @@ test("昇格入口は配置先Repository直下の署名候補自身だけを実�
     assert.equal(initialized.error, undefined);
     assert.equal(initialized.status, 0, initialized.stderr);
     fs.mkdirSync(candidateRoot, { recursive: true });
-    fs.mkdirSync(siblingRoot);
+    fs.mkdirSync(siblingRoot, { recursive: true });
+    fs.mkdirSync(legacyCandidateRoot, { recursive: true });
     fs.mkdirSync(
       path.join(destinationRoot, "node_modules", "ignored-package"),
       {
@@ -765,10 +775,123 @@ test("昇格入口は配置先Repository直下の署名候補自身だけを実�
         destinationRepositoryRoot: destinationRoot,
       },
     );
+    const gitMarker = path.join(candidateRoot, ".git");
+    fs.writeFileSync(gitMarker, "gitdir: elsewhere");
+    assert.throws(
+      () =>
+        resolveReleaseManifestPromotionTopologyForVerification(
+          candidateRoot,
+          destinationRoot,
+        ),
+      /release_manifest_promotion_execution_source_invalid/u,
+    );
+    fs.rmSync(gitMarker);
+    fs.mkdirSync(gitMarker);
+    assert.throws(
+      () =>
+        resolveReleaseManifestPromotionTopologyForVerification(
+          candidateRoot,
+          destinationRoot,
+        ),
+      /release_manifest_promotion_execution_source_invalid/u,
+    );
+    fs.rmSync(gitMarker, { recursive: true });
+    const danglingGitTarget = path.join(parent, "dangling-git-target");
+    fs.mkdirSync(danglingGitTarget);
+    fs.symlinkSync(
+      danglingGitTarget,
+      gitMarker,
+      process.platform === "win32" ? "junction" : "dir",
+    );
+    fs.rmSync(danglingGitTarget, { recursive: true });
+    assert.throws(
+      () =>
+        resolveReleaseManifestPromotionTopologyForVerification(
+          candidateRoot,
+          destinationRoot,
+        ),
+      /release_manifest_promotion_execution_source_invalid/u,
+    );
+    fs.rmSync(gitMarker, { force: true });
+    const originalLstatSync = fs.lstatSync;
+    const lstatMock = t.mock.method(fs, "lstatSync", ((
+      ...args: Parameters<typeof fs.lstatSync>
+    ) => {
+      if (path.resolve(args[0].toString()) === gitMarker) {
+        const error = new Error("unobservable") as NodeJS.ErrnoException;
+        error.code = "EACCES";
+        throw error;
+      }
+      return Reflect.apply(originalLstatSync, fs, args);
+    }) as typeof fs.lstatSync);
+    try {
+      assert.throws(
+        () =>
+          resolveReleaseManifestPromotionTopologyForVerification(
+            candidateRoot,
+            destinationRoot,
+          ),
+        /release_manifest_promotion_execution_source_invalid/u,
+      );
+    } finally {
+      lstatMock.mock.restore();
+    }
     assert.throws(
       () =>
         resolveReleaseManifestPromotionTopologyForVerification(
           siblingRoot,
+          destinationRoot,
+        ),
+      /release_manifest_promotion_execution_source_invalid/u,
+    );
+    const outsideOperationRoot = path.join(parent, "outside-operation");
+    const outsideWorkRoot = path.join(outsideOperationRoot, "work");
+    const linkedOperationRoot = path.join(temporaryRoot, "candidate-02");
+    fs.mkdirSync(outsideWorkRoot, { recursive: true });
+    fs.symlinkSync(
+      outsideOperationRoot,
+      linkedOperationRoot,
+      process.platform === "win32" ? "junction" : "dir",
+    );
+    assert.throws(
+      () =>
+        resolveReleaseManifestPromotionTopologyForVerification(
+          path.join(linkedOperationRoot, "work"),
+          destinationRoot,
+        ),
+      /release_manifest_promotion_execution_source_invalid/u,
+    );
+    const linkedWorkOperationRoot = path.join(temporaryRoot, "candidate-03");
+    const linkedWorkRoot = path.join(linkedWorkOperationRoot, "work");
+    fs.mkdirSync(linkedWorkOperationRoot);
+    fs.symlinkSync(
+      outsideWorkRoot,
+      linkedWorkRoot,
+      process.platform === "win32" ? "junction" : "dir",
+    );
+    assert.throws(
+      () =>
+        resolveReleaseManifestPromotionTopologyForVerification(
+          linkedWorkRoot,
+          destinationRoot,
+        ),
+      /release_manifest_promotion_execution_source_invalid/u,
+    );
+    assert.throws(
+      () =>
+        resolveReleaseManifestPromotionTopologyForVerification(
+          legacyCandidateRoot,
+          destinationRoot,
+        ),
+      /release_manifest_promotion_execution_source_invalid/u,
+    );
+    const invalidOperationRoot = path.join(temporaryRoot, "Candidate_01");
+    const invalidWorkRoot = path.join(invalidOperationRoot, "work");
+    fs.mkdirSync(invalidWorkRoot, { recursive: true });
+    assert.throws(
+      () =>
+        resolveReleaseManifestPromotionTopologyForVerification(
+          invalidWorkRoot,
           destinationRoot,
         ),
       /release_manifest_promotion_execution_source_invalid/u,

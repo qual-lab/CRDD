@@ -61,7 +61,7 @@ import {
   verifyRepositoryRoot,
   verifyRepositoryRootFromWorkingDirectory,
   resolveVerifiedRepositoryRoot,
-} from "../../../version-control/src/index.ts";
+} from "../../../version-control/src/repository-location.ts";
 
 /**
  * 検証済みRootから名前付きPathだけを投影する。

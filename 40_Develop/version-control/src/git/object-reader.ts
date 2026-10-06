@@ -1302,11 +1302,16 @@ export function readGitCommitFileCandidate(candidate: unknown) {
       !candidate ||
       typeof candidate !== "object" ||
       Array.isArray(candidate) ||
-      Reflect.ownKeys(candidate).length !== 3 ||
+      ![3, 4].includes(Reflect.ownKeys(candidate).length) ||
       !Reflect.ownKeys(candidate).every(
         (key) =>
           typeof key === "string" &&
-          ["commonDirectory", "revision", "relativePath"].includes(key),
+          [
+            "commonDirectory",
+            "revision",
+            "relativePath",
+            "maximumBytes",
+          ].includes(key),
       ) ||
       typeof value.commonDirectory !== "string" ||
       typeof value.revision !== "string" ||
@@ -1320,6 +1325,20 @@ export function readGitCommitFileCandidate(candidate: unknown) {
     ) {
       return null;
     }
+    const maximumDescriptor = Object.getOwnPropertyDescriptor(
+      value,
+      "maximumBytes",
+    );
+    if (maximumDescriptor && !("value" in maximumDescriptor)) return null;
+    const maximumBytes =
+      maximumDescriptor?.value === undefined ? 65_536 : maximumDescriptor.value;
+    if (
+      typeof maximumBytes !== "number" ||
+      !Number.isSafeInteger(maximumBytes) ||
+      maximumBytes < 1 ||
+      maximumBytes > MAXIMUM_OBJECT_BYTES
+    )
+      return null;
     const commonDirectory = fs.realpathSync.native(value.commonDirectory);
     const readObject = createObjectReader(commonDirectory);
     const treeId = commitTree(readObject(value.revision));
@@ -1337,7 +1356,7 @@ export function readGitCommitFileCandidate(candidate: unknown) {
     if (
       entries.length !== 1 ||
       entries[0]?.relativePath !== value.relativePath ||
-      entries[0].bytes.byteLength > 65_536
+      entries[0].bytes.byteLength > maximumBytes
     ) {
       return null;
     }

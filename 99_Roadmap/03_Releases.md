@@ -57,6 +57,10 @@ Related:
 | `v0.20.0` | [公開Runtime・限定統合検証](./Releases/v0.20.0/Evidence/260906_v020-public-runtime-and-bounded-integration-verification.md) |
 | `v0.21.0` | [Release Readiness](./Releases/v0.21.0/Evidence/260924_release-readiness.md) |
 
+### v0.21.0原記録の正式要約
+
+旧一時保存先から移管したJSONは2026-10-07の人間承認により[正式要約](./Changes/CHG-000082/Evidence/261006_release-test-retention-phase4.md#recorder実行別の根拠)へ集約する。回復Matrixの8a651704-41ca-4290-948b-521f63008253と四経路Matrixのd7aa9851-0054-4d47-b021-1afb5d65b14dを実行別に追跡する。過去の判定・対象版・時刻・原Hashを保持し、今回のRelease成立を新しく主張しない。
+
 ### 次のRelease候補
 
 | Release | Evidence |

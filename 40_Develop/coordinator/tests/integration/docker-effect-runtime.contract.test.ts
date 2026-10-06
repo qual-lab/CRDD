@@ -11,7 +11,10 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
+import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import { createIsolatedClaudeDockerRuntimeAdapterCandidate } from "../../src/security/claude-docker-runtime-adapter.ts";
 import { createIsolatedCodexDockerRuntimeAdapterCandidate } from "../../src/security/codex-docker-runtime-adapter.ts";
 import { dockerContainerInitObservationMatches } from "../../src/security/docker-container-init-observation.ts";
@@ -38,9 +41,20 @@ function createPlanFixture(
   taskRole: "executor" | "reviewer" | null = null,
   isAdvice = false,
   provider: "codex" | "claude" = "claude",
+  isCompatibilityTask = false,
 ) {
-  const profileId = provider === "codex" ? "PROFILE-100001" : "PROFILE-200001";
-  const model = provider === "codex" ? "gpt-6.1-sol" : "opus";
+  const profileId =
+    provider === "codex"
+      ? isCompatibilityTask
+        ? "PROFILE-100003"
+        : "PROFILE-100001"
+      : "PROFILE-200001";
+  const model =
+    provider === "codex"
+      ? isCompatibilityTask
+        ? "gpt-5.5"
+        : "gpt-6.1-sol"
+      : "opus";
   const managementCapability = Object.freeze({});
   const mountCapability = Object.freeze({});
   const mountAuthorizationCapability = Object.freeze({});
@@ -105,13 +119,15 @@ function createPlanFixture(
           workClass: "bounded_implementation" as const,
           planState: "complete" as const,
           risk: "low" as const,
-          difficulty: "low" as const,
+          difficulty: isCompatibilityTask
+            ? ("medium" as const)
+            : ("low" as const),
           decisionImpact: "limited" as const,
           isLocalCandidateOnly: true,
           hasUnresolvedDirection: false,
           requiresCrossContextAlignment: false,
         }),
-        effort: "low" as const,
+        effort: isCompatibilityTask ? ("medium" as const) : ("low" as const),
         modelTier: "preferred",
         speedMode: "normal" as const,
         selectionNotice:
@@ -482,6 +498,130 @@ test("固定planのcommandだけを固定CLI・Engine・最小環境へ渡す", 
     assert.equal(invocation.environment[name], "");
   }
   assert.equal(fixture.counts().configCreated, 1);
+});
+
+/**
+ * Claude終了後に同じ管理領域でCodex用configを再作成できることを確認する。
+ *
+ * @responsibility 旧単発診断の実Filesystem境界と計画の終了前差替え拒否を正式試験へ保持する。
+ * @trace ERB-IT-004
+ * @precondition Repository-local tests内に自己生成した空領域を使用する。
+ * @stimulus 固定Sourceのprivate config処理でClaudeとCodexの計画を順に開始・清掃する。
+ * @observation configの実作成・Identity検証・削除回数と試験領域の空を読む。
+ * @oracle 清掃前の計画変更は拒否され、清掃後のCodex開始と二回の回収が成立する。
+ * @cleanup 自己生成した一意な試験領域だけをfinallyで回収する。
+ * @boundary ERB-IT-004=Direct Boundary: 実Filesystem。CLI信頼とProcessは差替え、Docker/Provider要求は0。
+ */
+test("実config清掃後はClaudeからCodexへ同じ管理領域を再利用できる", async () => {
+  const claude = createPlanFixture("executor", false, "claude").plan;
+  const codex = createPlanFixture("reviewer", false, "codex", true).plan;
+  const claudeCommand = claude.commands[0];
+  const codexCommand = codex.commands[0];
+  assert.ok(claudeCommand && codexCommand);
+  const source = fs.readFileSync(
+    new URL("../../src/security/docker-effect-runtime.ts", import.meta.url),
+    "utf8",
+  );
+  // Productionへ試験専用Exportを追加せず、固定Sourceの三private関数だけを使用する。
+  const bodies = [
+    "filesystemIdentity",
+    "createConfigDirectory",
+    "verifyConfigDirectory",
+  ].map((name) => {
+    const begin = source.indexOf(`function ${name}(`);
+    const end = source.indexOf("\n/**", begin);
+    assert.ok(begin >= 0 && end > begin);
+    return stripTypeScriptTypes(source.slice(begin, end));
+  });
+  const configFunctions = new Function(
+    "fs",
+    "path",
+    `${bodies.join("\n")}\nconst DOCKER_CONFIG_DIRECTORY = "docker-cli-config"; return { createConfigDirectory, verifyConfigDirectory };`,
+  )(fs, path) as {
+    createConfigDirectory(directory: string): {
+      directory: string;
+      identity: string;
+    };
+    verifyConfigDirectory(directory: string, identity: string): void;
+  };
+  const testsRoot = fileURLToPath(
+    new URL("../../../../.crdd/tests/", import.meta.url),
+  );
+  const directory = fs.mkdtempSync(
+    path.join(testsRoot, "docker-config-sequential-"),
+  );
+  let creationCount = 0;
+  let removalCount = 0;
+  const runtime = createIsolatedDockerEffectRuntimeCandidate({
+    platform: "win32",
+    borrowPaths: () => ({ tmp: "C:\\operation\\tmp", management: directory }),
+    readCli: () => ({
+      executablePath:
+        "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe",
+      rootIdentity: "fixture",
+      executableIdentity: "fixture",
+      bytes: 1,
+      sha256: "a".repeat(64),
+      publisherOrganization: "Docker Inc",
+      trustBasis: "windows_authenticode_valid_docker_inc_publisher",
+    }),
+    verifyCli: () => undefined,
+    createConfig: (parent) => {
+      creationCount += 1;
+      return configFunctions.createConfigDirectory(parent);
+    },
+    verifyConfig: configFunctions.verifyConfigDirectory,
+    configEntries: (target) => fs.readdirSync(target),
+    removeConfig: (target) => {
+      fs.rmdirSync(target);
+      removalCount += 1;
+    },
+    startProcess: () => {
+      let isClosed = false;
+      return {
+        started: async () => true,
+        wait: async () => {
+          isClosed = true;
+          return {
+            status: 0,
+            signal: null,
+            stdout: "",
+            stderr: "",
+            outputExceeded: false,
+          };
+        },
+        closed: () => isClosed,
+        terminateAndWait: async () => {
+          isClosed = true;
+          return true;
+        },
+      };
+    },
+  });
+  const sharedManagement = Object.freeze({});
+  try {
+    await runtime.startCommand(claudeCommand, claude, sharedManagement).wait(1);
+    assert.throws(
+      () => runtime.startCommand(codexCommand, codex, sharedManagement),
+      /docker_effect_plan_replaced/u,
+    );
+    assert.equal(
+      (await runtime.cleanupOwnedResources(claude, {}, sharedManagement))
+        .confirmed,
+      true,
+    );
+    await runtime.startCommand(codexCommand, codex, sharedManagement).wait(1);
+    assert.equal(
+      (await runtime.cleanupOwnedResources(codex, {}, sharedManagement))
+        .confirmed,
+      true,
+    );
+    assert.equal(creationCount, 2);
+    assert.equal(removalCount, 2);
+    assert.deepEqual(fs.readdirSync(directory), []);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 /**

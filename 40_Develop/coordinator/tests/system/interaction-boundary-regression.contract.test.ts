@@ -207,7 +207,7 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
     "utf8",
   );
   const cliSource = fs.readFileSync(
-    path.join(coordinatorRoot, "bin", "coordinator.ts"),
+    path.join(coordinatorRoot, "src", "core", "coordinator-command.ts"),
     "utf8",
   );
   assert.equal(parentConsoleSource.includes("process.stdin"), false);
@@ -2680,8 +2680,8 @@ test("非同期の対話・正式Runner entrypointはtop-levelでmain完了を�
  */
 test("保護操作は別名でも裸Runtimeのpackage aliasへ公開しない", () => {
   const protectedEntrypoints = [
-    "bin/launch.ts",
     "bin/coordinator.ts",
+    "src/core/coordinator-command.ts",
     "scripts/generate-release-key.ts",
     "scripts/sign-release-manifest.ts",
     "scripts/verify-signed-general-task.ts",
@@ -2724,8 +2724,8 @@ test("保護操作は別名でも裸Runtimeのpackage aliasへ公開しない", 
     );
   };
   for (const command of [
-    "node ./bin/launch.ts verify-recovery",
-    "node ./bin/launch.ts sign-release --distribution .crdd/release",
+    "node ./bin/coordinator.ts verify-recovery",
+    "node ./bin/coordinator.ts sign-release --distribution .crdd/release",
   ]) {
     assert.equal(invokesProtectedEntrypoint(command), true, command);
   }
@@ -2763,7 +2763,7 @@ test("Node版GateはPATHをAuthorityにせずEffect前に停止する", () => {
   });
 
   const guardedEntrypoints = [
-    "bin/coordinator.ts",
+    "src/core/coordinator-command.ts",
     "scripts/generate-release-key.ts",
     "scripts/sign-release-manifest.ts",
     "scripts/verify-signed-general-task.ts",

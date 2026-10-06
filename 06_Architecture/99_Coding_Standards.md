@@ -41,11 +41,11 @@ CRDD公式Repositoryが所有する内部Scriptは`.ts`を標準とし、Node.js
 
 TypeScriptだけでは安全に確認できないOS APIへ接続する最小部分は、`40_Develop/platform-access/**`のprivate Rust実装に限定できる。CRDD本体、一般CLI、Policy、契約およびProcess lifecycleはTypeScriptに保持する。Rust成果物は公開CLI、独立製品、永続準備Lifecycleまたは採用RepositoryのBuild依存を所有せず、固定protocolで要求されたOS観測と限定操作だけを行う。この例外を内部Script一般のRust移行へ拡張しない。
 
-外部Providerの公式実行物に、公開設定では実現できない実行前の制限を加える場合、人間が承認した用途に限定して固定Sourceへの最小Patchを保持できる。現在の適用先はCoordinatorが所有するCodex助言専用実行物だけであり、一般CLIやCRDD本体のRust化ではない。Patch、公式Source改訂版、変更前File Hash、Build条件および実行物Hashを固定し、通常Executor／Reviewerの公式実行物と混同しない。Build orchestration、Provider Authority、Process lifecycle、取消とRecoveryはTypeScript側の既存Ownerに保持する。採用RepositoryでのBuild、Runtime Build、環境変数や設定による制限解除、通常Taskへの専用実行物の暗黙流用は禁止する（MUST NOT）。設計の正本は[Coordinator詳細設計](Details/coordinator/01_Architecture.md#751-codex助言専用の起動制限)とする。
+外部Providerの公式実行物は未改造で利用し、CRDD側のアクセス・変更・通信制限は既存の隔離境界で所有する。助言目的だけを理由に公式CLI内部の制限や独自Buildを追加しない。Codex助言専用の起動PatchとSource Buildは廃止対象であり、利用側と検証・配布の切替を終えるまでの移行前実装として識別する。通常Executor／Reviewerの公式実行物を変更せず、Provider Authority、Process lifecycle、取消とRecoveryは既存TypeScript Ownerに保持する。新方式は公式CLIと公式Hostの取得済み配布Identityおよび配置用Docker Imageを検証し、採用RepositoryやRuntimeでCodex本体をBuildしない。設計の正本は[Coordinator詳細設計](Details/coordinator/01_Architecture.md#751-codex助言専用の起動制限)とする。
 
 BAT、CMD、PowerShellまたはShell ScriptをOS権限判定のRuntime実装やBuild orchestrationとして新設しない。通常Runtimeから`cargo run`、PATH上のCargo／Rust binaryまたは開発用`target/`成果物を起動しない。Rustの固定成果物、toolchainおよび署名Identityへの結合は[Windowsネイティブ部品の設計](Details/platform-access/01_Architecture.md)が所有し、反復するBuild・検証手順は[Coordinator RuntimeのWorkflow](../19_Workflows/01_Coordinator_Runtime.md)が所有する。
 
-CargoのNative試験リンクに必要な固定Adapter `40_Develop/coordinator/runtime/codex-advice-native-linker.sh`は、固定Docker Build内のGCC引数搬送と実行物別Link Map検査だけを所有する。これはShellによるRuntime実装やBuild orchestrationではなく、通常Runtime、Provider起動または任意Shell実行へ流用しない。他のShell Scriptを許可する根拠にはしない。
+移行前のCodex専用Buildが持つ固定Adapter `40_Develop/coordinator/runtime/codex-advice-native-linker.sh`は、そのBuildの廃止と合わせて撤去する。新方式にShell実装、専用linkerまたはCodex本体のコンパイルを引き継がない。
 
 Coordinatorのproduction sourceとtest sourceは、別々のstrict設定で`noEmit`検査する。攻撃的な不正shapeまたはNode.js API差替えを扱う試験fixtureは、`unknown`と実行時assertionで表現し、型に合わせて負例を弱めない。
 
@@ -54,6 +54,19 @@ Repositoryの基準Node.js版は`.node-version`と各packageの`engines.node`へ
 開発時の静的LintとFormatterは、Repository rootの`biome.json`を正本とするBiome 2.5.6へ固定する。BiomeはdevDependencyに限定し、Runtime成果物または実行時依存へ含めない。Lint、Formatter確認、TypeScript型検査およびRuntime testは別の確認軸として実行し、一つの成功を他の成功へ流用しない。既存Scriptへ一括自動修正を適用せず、移行または是正する単位ごとに整形と意味回帰を確認する。
 
 CRDD所有のTypeScript packageは、全回帰用の公開`test` scriptから、Formatter確認、TypeScript型検査、Warningを失敗とするLint、package固有の静的契約検査、試験本体の順に到達できなければならない。試験本体は内部`test:run`へ分離し、通常の`npm test`から静的段階を迂回させない。Formatter確認が失敗した場合は試験を開始せず、意図的に`format`を適用して差分を確認した後、Formatter確認から再実行する。検証入口が未承認のSource書換えを自動実行してはならない。原因を限定する個別試験は、同じ固定改訂版で静的段階が成功した後にだけ直接実行でき、個別試験だけを全回帰完了へ読み替えない。
+
+<a id="native-build-output"></a>
+
+### Nativeビルドの対象環境と出力取得
+
+CRDDが所有する`platform-access`の正式なBuild・Clippy・試験入口は、対象環境を`--target x86_64-pc-windows-msvc`で明示する。他の対象環境を採用する場合も明示指定を維持し、環境名の変更は対応Platformの設計と利用側へ接続する。
+
+- 成果物の取得先は、指定したBuild Root内の`<target>/debug/`または`<target>/release/`とする。試験実行物は可能な場合、当該Cargo実行の構造化出力から一意に取得する。
+- CRDDの入口は`--target`なしのBuildを意図的に発行せず、無印`debug/`・`release/`から成果物を取得しない。指定環境の成果物がない場合、無印出力へのfallbackを行わない。
+- CargoがBuild補助処理等のため無印`debug/`・`release/`を自動生成することは許容する。Directoryの存在だけを違反、不要または削除可能と判定しない。
+- Build cacheは配布成果物ではない。通常Runtimeは従来どおり検証済み固定成果物だけを利用し、この規則を開発用実行物の起動許可へ読み替えない。
+
+これはCRDD公式RepositoryのNative Build運用に限定する。採用Repositoryの製品一般へ同じtarget名やCargo配置を要求しない。反復手順は[Coordinator Workflow](../19_Workflows/01_Coordinator_Runtime.md#native-build-output)から参照する。
 
 ### 2.2. Platformと外部接続の境界
 
@@ -106,11 +119,7 @@ Toolの既定書込みRootは現在のリポジトリ内に限定する。現在
 | 固定Native実行物 | ASCII `kebab-case` | `crdd-platform-access.exe` |
 | 版固定Policy成果物 | ASCII `kebab-case`のsubject＋`-<major>.<minor>.<patch>.policy` | `windows-docker-desktop-4.41.2.policy` |
 | Dockerfile | ASCII `kebab-case`のsubject＋`.Dockerfile` | `provider-egress-proxy.Dockerfile` |
-| 固定Source Patch | ASCII `kebab-case`のsubject＋`.patch`。用途は承認済み専用Buildに限定する | `codex-advice-startup.patch` |
-| 固定Source入力Hash一覧 | 現行の許可Pathは`40_Develop/coordinator/runtime/codex-advice-startup-test-inputs.sha256`だけ。承認済みCodex助言専用Buildの入力整合確認に限定する | `codex-advice-startup-test-inputs.sha256` |
 | 試験ファイル | `<subject>.<kind>.test.ts` | `crdd-check.contract.test.ts` |
-
-固定Source入力Hash一覧の許可を、任意の`*-inputs.sha256`、別Ownerの同名ファイル、または他のchecksum成果物へ一般化しない。この一覧はBuild入力の整合根拠であり、単独で署名、決定権限（Authority）または実行許可を与えない。
 
 大文字小文字の混在、空白、意味を持たない連番、および表で対象別に定めた区切り形式以外を使用する命名は禁止する。TypeScript／Markdown／JSON／Python／Plain text／固定Native実行物／版固定Policy／Dockerfile subjectの通常名へ`snake_case`を、Rust moduleファイルへ`kebab-case`を適用しない。
 

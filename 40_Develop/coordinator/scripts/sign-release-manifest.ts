@@ -22,7 +22,7 @@ import { verifyRepositoryRoot } from "../../version-control/src/repository-locat
 import { assertSupportedCoordinatorNodeRuntime } from "../src/core/node-runtime-version.ts";
 import { inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate } from "../src/security/platform-provisioner-package-filesystem.ts";
 import { getPlatformProvisionerPolicyIdentity } from "../src/security/platform-provisioner-policy-identity.ts";
-import { inspectPlatformProvisionerReleaseIdentityCandidate } from "../src/security/platform-provisioner-release-identity.ts";
+import { inspectPlatformProvisionerRuntimeGitProvenanceCandidate } from "../src/security/platform-provisioner-release-identity.ts";
 import { getPinnedPlatformProvisionerReleaseSignerSpkiDer } from "../src/security/platform-provisioner-release-trust.ts";
 import {
   calculateRuntimeExecutionIdentityCandidate,
@@ -53,10 +53,9 @@ const runtimeDataPaths =
   })();
 if (runtimeDataPaths.repositoryRoot !== repositoryRoot)
   throw new Error("release_manifest_repository_root_invalid");
-const releaseStagingRoot = runtimeDataPaths.release;
+const releaseStagingRoot = runtimeDataPaths.temporary;
 const MAXIMUM_PRIVATE_KEY_BYTES = 16 * 1024;
 const RELEASE_PRIVATE_KEY_PATH_NAME = "CRDD_RELEASE_PRIVATE_KEY_PATH";
-const RELEASE_CANDIDATE_DIRECTORY = /^[a-z0-9][a-z0-9-]{0,127}$/u;
 const MANIFEST_PREFLIGHT_OPTION_KEYS = Object.freeze([
   "distributionRoot",
   "privateKeyPath",
@@ -224,7 +223,17 @@ function repositoryLocalDistributionRoot(target: string) {
     const stagingRootMetadata = fs.lstatSync(releaseStagingRoot);
     const realLocalRoot = fs.realpathSync.native(localRoot);
     const realStagingRoot = fs.realpathSync.native(releaseStagingRoot);
-    const relativeCandidate = path.relative(realStagingRoot, real);
+    const operationRoot = path.dirname(resolved);
+    const operationMetadata = fs.lstatSync(operationRoot);
+    const realOperationRoot = fs.realpathSync.native(operationRoot);
+    const relativeCandidate = path.relative(realStagingRoot, realOperationRoot);
+    let gitMetadataAbsent = false;
+    try {
+      fs.lstatSync(path.join(real, ".git"));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      gitMetadataAbsent = true;
+    }
     if (
       !metadata.isDirectory() ||
       metadata.isSymbolicLink() ||
@@ -234,10 +243,14 @@ function repositoryLocalDistributionRoot(target: string) {
       realLocalRoot !== runtimeDataPaths.root ||
       !stagingRootMetadata.isDirectory() ||
       stagingRootMetadata.isSymbolicLink() ||
-      realStagingRoot !== path.join(realLocalRoot, "release") ||
+      realStagingRoot !== path.join(realLocalRoot, "tmp") ||
+      !operationMetadata.isDirectory() ||
+      operationMetadata.isSymbolicLink() ||
+      realOperationRoot !== operationRoot ||
+      path.basename(real) !== "work" ||
       path.dirname(relativeCandidate) !== "." ||
-      !RELEASE_CANDIDATE_DIRECTORY.test(relativeCandidate) ||
-      fs.existsSync(path.join(real, ".git"))
+      relativeCandidate !== "signature" ||
+      !gitMetadataAbsent
     ) {
       throw new Error("release_manifest_distribution_root_invalid");
     }
@@ -253,14 +266,14 @@ function repositoryLocalDistributionRoot(target: string) {
  * @responsibility Commit Tree Bindingの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000004
  * @input crddCommit: string、crddTree: string
- * @returns N/A: verifyCommitTreeBindingは戻り値を返さない。
+ * @returns 固定CommitとTreeを照合済みのRepository参照を返す。
  * @precondition 「crddCommit: string、crddTree: string」がverifyCommitTreeBindingの入力契約を満たす。
  * @postcondition verifyCommitTreeBindingの責務を完了して呼出し元へ制御を戻す。
- * @effect N/A: verifyCommitTreeBindingは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect 固定RepositoryのGit objectを読取り、書込みや外部Processを発行しない。
  * @failure verifyCommitTreeBindingは入力不正または下位処理の失敗を呼出し側へ返す。
  * @invariant verifyCommitTreeBindingは入力から導いた結果以外の共有状態を変更しない。
  * @boundary N/A: verifyCommitTreeBindingはProcess内の同一Subsystemで完結する。
- * @security N/A: verifyCommitTreeBindingはAuthority、秘密値または信頼判断を扱わない。
+ * @security 任意Rootや未検証のCommit／Treeを署名の出所として受理しない。
  * @concurrency N/A: verifyCommitTreeBindingは共有非同期状態を持たない同期処理である。
  */
 function verifyCommitTreeBinding(crddCommit: string, crddTree: string) {
@@ -278,6 +291,7 @@ function verifyCommitTreeBinding(crddCommit: string, crddTree: string) {
   ) {
     throw new Error("release_manifest_commit_tree_mismatch");
   }
+  return verified.capability;
 }
 
 /**
@@ -370,12 +384,12 @@ function assertReleaseManifestStaticOptions(options: ManifestPreflightOptions) {
  * @returns prepareReleaseManifestCandidateの計算結果を返す。
  * @precondition 「options: ManifestPreflightOptions」がprepareReleaseManifestCandidateの入力契約を満たす。
  * @postcondition prepareReleaseManifestCandidateの責務を完了した結果だけを返す。
- * @effect N/A: prepareReleaseManifestCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect 配布Filesystemと固定Git objectを読取り、秘密入力と署名前に候補を再確認する。
  * @failure prepareReleaseManifestCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
  * @invariant prepareReleaseManifestCandidateは入力から導いた結果以外の共有状態を変更しない。
  * @boundary N/A: prepareReleaseManifestCandidateはProcess内の同一Subsystemで完結する。
- * @security N/A: prepareReleaseManifestCandidateはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: prepareReleaseManifestCandidateは共有非同期状態を持たない同期処理である。
+ * @security 実行閉包・Native・固定PolicyとGit出所が一致しない候補は秘密利用前に拒否する。
+ * @concurrency 事前確認と署名直前に同じ候補を再観測し、途中差替えを拒否する。
  */
 function prepareReleaseManifestCandidate(options: ManifestPreflightOptions) {
   assertSupportedReleaseGitObjectFormat(options.crddCommit, options.crddTree);
@@ -426,19 +440,27 @@ function prepareReleaseManifestCandidate(options: ManifestPreflightOptions) {
   if (compiled.status !== "candidate") {
     throw new Error("release_manifest_payload_invalid");
   }
-  const releaseIdentity = inspectPlatformProvisionerReleaseIdentityCandidate(
-    distributionRoot,
+  const repository = verifyCommitTreeBinding(
+    options.crddCommit,
     options.crddTree,
   );
+  const releaseIdentity =
+    inspectPlatformProvisionerRuntimeGitProvenanceCandidate({
+      repositoryRoot: repository,
+      distributionRoot,
+      crddCommit: options.crddCommit,
+      crddTree: options.crddTree,
+      sourceProfile: options.crddVersion === "v0.21.0" ? "v0.21" : "current",
+    });
   if (
     releaseIdentity.status !== "candidate" ||
-    releaseIdentity.manifestExcludedFromSignedGitTree !== false ||
-    releaseIdentity.platformAccessExecutableIncludedInSignedGitTree !== true ||
-    releaseIdentity.gitMetadataExcludedFromSignedGitTree !== false
+    releaseIdentity.runtimeContentRootSha256 !==
+      packageObservation.packageContentRootSha256 ||
+    releaseIdentity.nativeHash !==
+      platformAccessObservation.platformAccessArtifact.sha256
   ) {
-    throw new Error("release_manifest_distribution_tree_mismatch");
+    throw new Error("release_manifest_runtime_provenance_mismatch");
   }
-  verifyCommitTreeBinding(options.crddCommit, options.crddTree);
   if (!verifyReleaseStagingManifestSession(platformAccessObservation.token)) {
     throw new Error("release_manifest_artifact_changed_before_signing");
   }
@@ -575,7 +597,7 @@ export function signReleaseManifest(
     );
     return Object.freeze({
       contract: "crdd-coordinator/release-manifest-signing-result",
-      contractRevision: 3,
+      contractRevision: 4,
       status: "created" as const,
       manifestRelativePath: placement.manifestRelativePath,
       manifestHash: compiled.manifestHash,
@@ -588,7 +610,8 @@ export function signReleaseManifest(
       releaseSequence: options.releaseSequence,
       crddCommit: options.crddCommit,
       crddTree: options.crddTree,
-      distributionTreeVerifiedBeforeSigning: true,
+      runtimeGitProvenanceVerifiedBeforeSigning: true,
+      wholeRepositoryTreeVerifiedBeforeSigning: false,
       releaseStagingFilesystemEffectIssued:
         placement.releaseStagingFilesystemEffectIssued,
       stagingRootMustBeDiscarded: placement.stagingRootMustBeDiscarded,
@@ -598,7 +621,7 @@ export function signReleaseManifest(
       runtimeAuthorityConferred: placement.runtimeAuthorityConferred,
       runtimeCapabilityIssued: placement.runtimeCapabilityIssued,
       privateKeyStoredOutsideRepository: true,
-      signedGitTreeContainsNativeArtifacts: true,
+      selectedGitSnapshotContainsNativeArtifact: true,
       repositoryReleaseCommitMustAddManifestOnly: true,
       repositoryReleaseCommitVerifiedBySigner: false,
     });
@@ -768,20 +791,20 @@ export function readReleasePrivateKeyPathFromEnvironmentFile(
  *
  * @responsibility sign-release-manifestの引数受付、終了Code、診断出力境界を所有する。
  * @trace ARCH-000004
- * @input N/A: 実行時引数を受け取らない。
- * @returns N/A: mainは戻り値を返さない。
- * @precondition 「N/A: 実行時引数を受け取らない。」がmainの入力契約を満たす。
- * @postcondition mainの責務を完了して呼出し元へ制御を戻す。
- * @effect mainは外部ProcessまたはRuntime境界の操作を呼び出す。
- * @failure N/A: mainは独自の失敗分岐を所有しない。
- * @invariant mainは宣言した境界以外へEffectを拡張しない。
+ * @input args: 既存署名CLIの引数列。
+ * @returns N/A: 署名結果を既存の標準出力へ表示する。
+ * @precondition 明示した引数が既存署名CLIの閉じた文法を満たす。
+ * @postcondition 既存順序で静的検査、秘密入力、署名および配置結果の表示を完了する。
+ * @effect 端末の秘密入力と既存Manifest配置を実行する。
+ * @failure 既存の入力、検証、秘密入力または配置失敗を呼出し側へ返す。
+ * @invariant 引数の取得元だけを変え、既存の署名責務と検査順序を維持する。
  * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security N/A: mainはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency mainは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ * @security 秘密値を引数、結果または永続記録へ含めない。
+ * @concurrency 秘密入力の終了を待ってから既存署名処理へ進む。
  */
-async function main() {
+export async function main(args: string[] = process.argv.slice(2)) {
   assertSupportedCoordinatorNodeRuntime(process.versions.node);
-  const options = parseArguments(process.argv.slice(2));
+  const options = parseArguments(args);
   assertSupportedReleaseGitObjectFormat(options.crddCommit, options.crddTree);
   assertReleaseManifestStaticOptions(options);
   const preflight = preflightReleaseManifest(options);

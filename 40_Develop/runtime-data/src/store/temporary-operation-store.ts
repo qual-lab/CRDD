@@ -65,6 +65,7 @@ export type TemporaryEvidencePromotionReceipt = Readonly<{
 export type TemporaryOperationRecoveryReference = Readonly<{
   operationId: string;
   owner: string;
+  storage?: "signature";
   identity: string;
   generation: number;
 }>;
@@ -81,6 +82,7 @@ export type TemporaryOperationRecoveryReference = Readonly<{
  */
 type OperationRecord = Readonly<{
   allowedContent: readonly string[];
+  repositoryRoot: string;
   controlRoot: string;
   directory: string;
   documentPath: string;
@@ -89,6 +91,7 @@ type OperationRecord = Readonly<{
   identity: string;
   operationId: string;
   owner: string;
+  storage?: "signature";
 }>;
 /**
  * temporary-operation-storeで使用するPromotion 記録の値契約を定義する。
@@ -108,6 +111,8 @@ type PromotionRecord = Readonly<{
   sha256: string;
   source: string;
   target: string;
+  repositoryRoot: string;
+  evidenceRelativePath: string;
 }>;
 /**
  * temporary-operation-storeで使用するTemporary Operation 入力の値契約を定義する。
@@ -123,6 +128,7 @@ type PromotionRecord = Readonly<{
 type TemporaryOperationInput = Readonly<{
   operationId: string;
   owner: string;
+  storage?: "signature";
   identity: string;
   purpose: string;
   allowedContent: readonly string[];
@@ -140,10 +146,13 @@ type TemporaryOperationInput = Readonly<{
  * @compatibility TemporaryOperationDocumentの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 type TemporaryOperationDocument = Readonly<{
-  schema: "crdd/runtime-data/temporary-operation/v3";
+  schema:
+    | "crdd/runtime-data/temporary-operation/v3"
+    | "crdd/runtime-data/temporary-operation/v4";
   operationId: string;
   identity: string;
   owner: string;
+  storage?: "signature";
   generation: number;
   ownerProcessId: number;
   previousGeneration: number | null;
@@ -254,6 +263,10 @@ function ensureDirectory(target: string): void {
 function validInput(input: TemporaryOperationInput): boolean {
   return (
     ID.test(input.operationId) &&
+    !/^signature\.*$/iu.test(input.operationId) &&
+    (input.storage === undefined ||
+      (input.storage === "signature" &&
+        input.owner === "coordinator-release-runtime")) &&
     ID.test(input.owner) &&
     ID.test(input.identity) &&
     typeof input.purpose === "string" &&
@@ -291,6 +304,9 @@ function recoveryReference(
   return Object.freeze({
     operationId: record.operationId,
     owner: record.owner,
+    ...(record.storage === "signature"
+      ? { storage: "signature" as const }
+      : {}),
     identity: record.identity,
     generation: record.generation,
   });
@@ -329,11 +345,17 @@ function inspectDocument(value: unknown): TemporaryOperationDocument | null {
     "state",
     "terminalPaths",
   ];
+  if (r.storage !== undefined) expectedKeys.push("storage");
+  expectedKeys.sort();
   const keys = Object.keys(r).sort();
   if (
     keys.length !== expectedKeys.length ||
     !keys.every((key, index) => key === expectedKeys[index]) ||
-    r.schema !== "crdd/runtime-data/temporary-operation/v3" ||
+    (r.storage === undefined
+      ? r.schema !== "crdd/runtime-data/temporary-operation/v3"
+      : r.storage !== "signature" ||
+        r.schema !== "crdd/runtime-data/temporary-operation/v4" ||
+        r.owner !== "coordinator-release-runtime") ||
     typeof r.operationId !== "string" ||
     !ID.test(r.operationId) ||
     typeof r.owner !== "string" ||
@@ -414,11 +436,14 @@ function writeDocument(
   document: TemporaryOperationDocument,
 ): void {
   const directory = path.dirname(documentPath);
-  const stagingDirectory = path.join(directory, ".staging");
+  const stagingDirectory =
+    document.storage === "signature"
+      ? directory
+      : path.join(directory, ".staging");
   ensureDirectory(stagingDirectory);
   const temporary = path.join(
     stagingDirectory,
-    `${document.operationId}.${document.identity}.${document.generation}.${document.state}.json`,
+    `${document.operationId}.${document.identity}.${document.generation}.${document.state}${document.storage === "signature" ? ".pending" : ""}.json`,
   );
   if (fs.existsSync(temporary)) fs.rmSync(temporary, { force: true });
   const descriptor = fs.openSync(temporary, "wx", 0o600);
@@ -470,11 +495,14 @@ function createDocument(
   afterCanonicalDocumentLinked: () => void,
 ): void {
   const directory = path.dirname(documentPath);
-  const stagingDirectory = path.join(directory, ".staging");
+  const stagingDirectory =
+    document.storage === "signature"
+      ? directory
+      : path.join(directory, ".staging");
   ensureDirectory(stagingDirectory);
   const temporary = path.join(
     stagingDirectory,
-    `${document.operationId}.${document.identity}.${document.generation}.preparing.json`,
+    `${document.operationId}.${document.identity}.${document.generation}.preparing${document.storage === "signature" ? ".pending" : ""}.json`,
   );
   if (fs.existsSync(temporary))
     throw new Error("temporary_operation_creation_in_progress");
@@ -524,8 +552,8 @@ function initialDocumentStagingPath(
 ): string {
   return path.join(
     path.dirname(documentPath),
-    ".staging",
-    `${reference.operationId}.${reference.identity}.${reference.generation}.preparing.json`,
+    reference.storage === "signature" ? "." : ".staging",
+    `${reference.operationId}.${reference.identity}.${reference.generation}.preparing${reference.storage === "signature" ? ".pending" : ""}.json`,
   );
 }
 
@@ -570,6 +598,7 @@ function removeConfirmedInitialDocumentStagingAlias(
     throw new Error("temporary_operation_staging_alias_unconfirmed");
   const stagedDocument = readDocument(stagingDocumentPath);
   if (
+    stagedDocument.storage !== reference.storage ||
     stagedDocument.operationId !== reference.operationId ||
     stagedDocument.owner !== reference.owner ||
     stagedDocument.identity !== reference.identity ||
@@ -670,9 +699,15 @@ function publishLockDocument(
   afterStagingLockWritten: () => void,
   afterCanonicalLockLinked: () => void,
 ): string {
-  const stagingDirectory = path.join(controlRoot, ".staging");
+  const signature = path.basename(controlRoot) === "signature";
+  const stagingDirectory = signature
+    ? controlRoot
+    : path.join(controlRoot, ".staging");
   ensureDirectory(stagingDirectory);
-  const target = path.join(controlRoot, `${operationId}.lock`);
+  const target = path.join(
+    controlRoot,
+    signature ? "preparation.lock" : `${operationId}.lock`,
+  );
   const temporary = path.join(
     stagingDirectory,
     `${operationId}.${document.identity}.lock.json`,
@@ -749,7 +784,11 @@ function updateLockDocument(
   target: string,
   document: LifecycleLockDocument,
 ): void {
-  const stagingDirectory = path.join(path.dirname(target), ".staging");
+  const directory = path.dirname(target);
+  const stagingDirectory =
+    path.basename(directory) === "signature"
+      ? directory
+      : path.join(directory, ".staging");
   ensureDirectory(stagingDirectory);
   const temporary = path.join(
     stagingDirectory,
@@ -800,7 +839,12 @@ function acquireLock(
   afterStagingLockWritten: () => void = () => {},
   afterCanonicalLockLinked: () => void = () => {},
 ): LifecycleLock {
-  const lockPath = path.join(controlRoot, `${operationId}.lock`);
+  const lockPath = path.join(
+    controlRoot,
+    path.basename(controlRoot) === "signature"
+      ? "preparation.lock"
+      : `${operationId}.lock`,
+  );
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
       publishLockDocument(
@@ -882,9 +926,9 @@ function releaseLock(
  *
  * @responsibility Capabilityの発行条件、Identity、非発行時のEffect 0境界を所有する。
  * @trace ARCH-000011
- * @input controlRoot: string、directory: string、documentPath: string、document: TemporaryOperationDocument
+ * @input repositoryRoot: 検証済みRoot、controlRoot、directory、documentPath、document: 同RootのOperation。
  * @returns issueCapabilityの計算結果を返す。
- * @precondition 「controlRoot: string、directory: string、documentPath: string、document: TemporaryOperationDocument」がissueCapabilityの入力契約を満たす。
+ * @precondition 作成または再入場のOwnerが検証したRootから全Operation Pathを導出済みである。
  * @postcondition issueCapabilityの責務を完了した結果だけを返す。
  * @effect N/A: issueCapabilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: issueCapabilityは独自の失敗分岐を所有しない。
@@ -894,6 +938,7 @@ function releaseLock(
  * @concurrency N/A: issueCapabilityは共有非同期状態を持たない同期処理である。
  */
 function issueCapability(
+  repositoryRoot: string,
   controlRoot: string,
   directory: string,
   documentPath: string,
@@ -904,6 +949,7 @@ function issueCapability(
   });
   const record = Object.freeze({
     allowedContent: document.allowedContent,
+    repositoryRoot,
     controlRoot,
     directory,
     documentPath,
@@ -912,6 +958,9 @@ function issueCapability(
     identity: document.identity,
     operationId: document.operationId,
     owner: document.owner,
+    ...(document.storage === "signature"
+      ? { storage: "signature" as const }
+      : {}),
   });
   operations.set(capability, record);
   return { capability, record };
@@ -954,14 +1003,30 @@ function createTemporaryOperationInternal(
     if (!paths) throw new Error("temporary_operation_root_invalid");
     ensureDirectory(paths.root);
     ensureDirectory(paths.temporary);
-    const controlRoot = path.join(paths.temporary, ".operations");
-    ensureDirectory(controlRoot);
-    const directory = path.join(paths.temporary, input.operationId);
-    documentPath = path.join(controlRoot, `${input.operationId}.json`);
-    if (fs.existsSync(directory))
+    const signature = input.storage === "signature";
+    const controlRoot = path.join(
+      paths.temporary,
+      signature ? "signature" : ".operations",
+    );
+    if (signature) {
+      fs.mkdirSync(controlRoot, { mode: 0o700 });
+      createdDirectory = controlRoot;
+      workspaceOwnershipConfirmed = true;
+    } else ensureDirectory(controlRoot);
+    const directory = signature
+      ? controlRoot
+      : path.join(paths.temporary, input.operationId);
+    documentPath = path.join(
+      controlRoot,
+      signature ? "preparation.json" : `${input.operationId}.json`,
+    );
+    if (!signature && fs.existsSync(directory))
       throw new Error("temporary_operation_creation_failed");
     const preparing: TemporaryOperationDocument = Object.freeze({
-      schema: "crdd/runtime-data/temporary-operation/v3",
+      schema: signature
+        ? "crdd/runtime-data/temporary-operation/v4"
+        : "crdd/runtime-data/temporary-operation/v3",
+      ...(signature ? { storage: "signature" as const } : {}),
       operationId: input.operationId,
       identity: input.identity,
       owner: input.owner,
@@ -983,6 +1048,7 @@ function createTemporaryOperationInternal(
     pendingReference = Object.freeze({
       operationId: input.operationId,
       owner: input.owner,
+      ...(signature ? { storage: "signature" as const } : {}),
       identity: input.identity,
       generation: 1,
     });
@@ -1000,7 +1066,7 @@ function createTemporaryOperationInternal(
       throw error;
     }
     afterControlDocumentPublished();
-    fs.mkdirSync(directory, { mode: 0o700 });
+    if (!signature) fs.mkdirSync(directory, { mode: 0o700 });
     createdDirectory = directory;
     workspaceOwnershipConfirmed = true;
     if (
@@ -1012,6 +1078,7 @@ function createTemporaryOperationInternal(
     const active = Object.freeze({ ...preparing, state: "active" as const });
     writeDocument(documentPath, active);
     const issued = issueCapability(
+      paths.repositoryRoot,
       controlRoot,
       directory,
       documentPath,
@@ -1181,6 +1248,10 @@ function resumeTemporaryOperationInternal(
       typeof reference !== "object" ||
       reference === null ||
       !ID.test(reference.operationId) ||
+      /^signature\.*$/iu.test(reference.operationId) ||
+      (reference.storage !== undefined &&
+        (reference.storage !== "signature" ||
+          reference.owner !== "coordinator-release-runtime")) ||
       !ID.test(reference.owner) ||
       !ID.test(reference.identity) ||
       !ID.test(nextIdentity) ||
@@ -1192,11 +1263,20 @@ function resumeTemporaryOperationInternal(
     const paths =
       resolveRepositoryRuntimeDataPathsForInternalUse(rootCapability);
     if (!paths) throw new Error("temporary_operation_root_invalid");
-    const controlRoot = path.join(paths.temporary, ".operations");
+    const signature = reference.storage === "signature";
+    const controlRoot = path.join(
+      paths.temporary,
+      signature ? "signature" : ".operations",
+    );
     if (!isSafeDirectory(controlRoot))
       throw new Error("temporary_operation_boundary_invalid");
-    directory = path.join(paths.temporary, reference.operationId);
-    documentPath = path.join(controlRoot, `${reference.operationId}.json`);
+    directory = signature
+      ? controlRoot
+      : path.join(paths.temporary, reference.operationId);
+    documentPath = path.join(
+      controlRoot,
+      signature ? "preparation.json" : `${reference.operationId}.json`,
+    );
     if (path.dirname(directory) !== paths.temporary)
       throw new Error("temporary_operation_boundary_invalid");
     if (!fs.existsSync(documentPath)) {
@@ -1217,6 +1297,7 @@ function resumeTemporaryOperationInternal(
         throw new Error("temporary_operation_prepublication_cleanup_confirmed");
       }
       if (
+        stagedDocument.storage !== reference.storage ||
         stagedDocument.operationId !== reference.operationId ||
         stagedDocument.owner !== reference.owner ||
         stagedDocument.identity !== reference.identity ||
@@ -1239,6 +1320,7 @@ function resumeTemporaryOperationInternal(
     );
     let document = readDocument(documentPath);
     if (
+      document.storage !== reference.storage ||
       document.operationId !== reference.operationId ||
       document.owner !== reference.owner ||
       document.identity !== reference.identity
@@ -1298,13 +1380,14 @@ function resumeTemporaryOperationInternal(
       ownerProcessId: process.pid,
       previousGeneration: document.generation,
     });
-    writeDocument(documentPath, resumed);
     pendingRecoveryDocument = resumed;
+    writeDocument(documentPath, resumed);
     afterNextGenerationPublished();
     if (!releaseLock(lock))
       throw new Error("temporary_operation_lock_cleanup_unconfirmed");
     lock = null;
     const issued = issueCapability(
+      paths.repositoryRoot,
       controlRoot,
       directory,
       documentPath,
@@ -1322,20 +1405,49 @@ function resumeTemporaryOperationInternal(
     let recoveryReferenceValue: TemporaryOperationRecoveryReference | null =
       null;
     if (documentPath !== null && pendingRecoveryDocument !== null) {
+      let known = pendingRecoveryDocument;
+      let observedNext = false;
       try {
-        const recoverable = Object.freeze({
-          ...pendingRecoveryDocument,
-          state: "recovery_required" as const,
-        });
-        writeDocument(documentPath, recoverable);
-        recoveryReferenceValue = Object.freeze({
-          operationId: recoverable.operationId,
-          owner: recoverable.owner,
-          identity: recoverable.identity,
-          generation: recoverable.generation,
-        });
+        const observed = readDocument(documentPath);
+        if (
+          observed.operationId === reference.operationId &&
+          observed.owner === reference.owner &&
+          observed.storage === reference.storage
+        ) {
+          if (
+            observed.identity === reference.identity &&
+            observed.generation === reference.generation
+          )
+            known = observed;
+          else if (
+            observed.identity === pendingRecoveryDocument.identity &&
+            observed.generation === pendingRecoveryDocument.generation
+          ) {
+            known = observed;
+            observedNext = true;
+          }
+        }
       } catch {
-        recoveryReferenceValue = null;
+        // 公開結果不明でも試行したIdentityを非Authorityの参照として保持する。
+      }
+      recoveryReferenceValue = Object.freeze({
+        operationId: known.operationId,
+        owner: known.owner,
+        ...(known.storage === "signature"
+          ? { storage: "signature" as const }
+          : {}),
+        identity: known.identity,
+        generation: known.generation,
+      });
+      if (observedNext) {
+        try {
+          writeDocument(
+            documentPath,
+            Object.freeze({ ...known, state: "recovery_required" as const }),
+          );
+        } catch {
+          // 再保存不明を成功にせず、既知参照を失わない。
+        }
       }
     }
     if (lock !== null) releaseLock(lock);
@@ -1430,13 +1542,111 @@ export function resumeTemporaryOperationWithInterruptionForVerification(
 }
 
 /**
+ * 同一Repositoryの正式Evidenceを読取り、全Path境界と単一fileのHashを確認する。
+ *
+ * @responsibility CHG／Release Evidenceだけの有限Path文法とalias／hardlink拒否を所有する。
+ * @trace ARCH-000011
+ * @input repositoryRoot: 検証済みRoot、evidenceRelativePath: 相対POSIX Path。
+ * @returns 既存Evidence fileのSHA-256。
+ * @precondition 正式copyは呼出し側が所有し、この処理は作成しない。
+ * @postcondition Rootからfileまでの実体が正規Pathと一致し読取り前後で変わらない。
+ * @effect 既存Directory metadataと単一file descriptorを読取り、必ずcloseする。
+ * @failure 不正文法、dot segment、alias、hardlink、観測不能または途中置換を拒否する。
+ * @invariant tests／tmpのcopyを正式Evidenceへ昇格せず、任意absolute Pathを受けない。
+ * @boundary 検証済みRepositoryと正式CHG／Release EvidenceのFilesystem境界。
+ * @security 同一Root内の有限allowlistだけを読み、Authorityを発行しない。
+ * @concurrency 親Directoryとfile Identityを前後照合し途中差を拒否する。
+ */
+function readTemporaryOperationEvidenceHash(
+  repositoryRoot: string,
+  evidenceRelativePath: string,
+) {
+  if (
+    typeof evidenceRelativePath !== "string" ||
+    !/^99_Roadmap\/(?:Changes\/CHG-[0-9]{6}|Releases\/v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]{1,64})?)\/Evidence\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}(?:\/[A-Za-z0-9][A-Za-z0-9._-]{0,127})*$/u.test(
+      evidenceRelativePath,
+    )
+  )
+    throw new Error("temporary_operation_evidence_target_invalid");
+  const segments = evidenceRelativePath.split("/");
+  const target = path.join(repositoryRoot, ...segments);
+  const parents = [repositoryRoot];
+  for (const segment of segments.slice(0, -1))
+    parents.push(path.join(parents.at(-1) ?? repositoryRoot, segment));
+  const observations = parents.map((parent) => {
+    const metadata = fs.lstatSync(parent, { bigint: true });
+    if (
+      !metadata.isDirectory() ||
+      metadata.isSymbolicLink() ||
+      fs.realpathSync.native(parent) !== parent
+    )
+      throw new Error("temporary_operation_evidence_target_invalid");
+    return { parent, metadata };
+  });
+  const before = fs.lstatSync(target, { bigint: true });
+  if (
+    !before.isFile() ||
+    before.isSymbolicLink() ||
+    before.nlink !== 1n ||
+    fs.realpathSync.native(target) !== target
+  )
+    throw new Error("temporary_operation_evidence_target_invalid");
+  const descriptor = fs.openSync(target, "r");
+  try {
+    const opened = fs.fstatSync(descriptor, { bigint: true });
+    if (
+      !opened.isFile() ||
+      opened.nlink !== 1n ||
+      opened.dev !== before.dev ||
+      opened.ino !== before.ino ||
+      opened.birthtimeNs !== before.birthtimeNs
+    )
+      throw new Error("temporary_operation_evidence_target_invalid");
+    const hash = createHash("sha256")
+      .update(fs.readFileSync(descriptor))
+      .digest("hex");
+    const after = fs.lstatSync(target, { bigint: true });
+    const finished = fs.fstatSync(descriptor, { bigint: true });
+    if (
+      !after.isFile() ||
+      after.isSymbolicLink() ||
+      after.nlink !== 1n ||
+      after.dev !== opened.dev ||
+      after.ino !== opened.ino ||
+      after.birthtimeNs !== opened.birthtimeNs ||
+      after.size !== opened.size ||
+      after.mtimeNs !== opened.mtimeNs ||
+      finished.size !== opened.size ||
+      finished.mtimeNs !== opened.mtimeNs ||
+      fs.realpathSync.native(target) !== target
+    )
+      throw new Error("temporary_operation_evidence_target_invalid");
+    for (const { parent, metadata } of observations) {
+      const current = fs.lstatSync(parent, { bigint: true });
+      if (
+        !current.isDirectory() ||
+        current.isSymbolicLink() ||
+        current.dev !== metadata.dev ||
+        current.ino !== metadata.ino ||
+        current.birthtimeNs !== metadata.birthtimeNs ||
+        fs.realpathSync.native(parent) !== parent
+      )
+        throw new Error("temporary_operation_evidence_target_invalid");
+    }
+    return hash;
+  } finally {
+    fs.closeSync(descriptor);
+  }
+}
+
+/**
  * Temporary Operation Evidence Promotionを検証する。
  *
  * @responsibility Temporary Operation Evidence Promotionの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000011
- * @input rootCapability: VerifiedRepositoryRoot、capability: TemporaryOperationCapability、input: Readonly<{ recordId: string; artifactName: string; sha256: string }>
+ * @input rootCapability: VerifiedRepositoryRoot、capability: TemporaryOperationCapability、input: 正式Evidence相対Path、artifactName、sha256。
  * @returns verifyTemporaryOperationEvidencePromotionの計算結果を返す。
- * @precondition 「rootCapability: VerifiedRepositoryRoot、capability: TemporaryOperationCapability、input: Readonly<{ recordId: string; artifactName: string; sha256: string }>」がverifyTemporaryOperationEvidencePromotionの入力契約を満たす。
+ * @precondition 呼出し側が同一RootのCHG／Release Evidenceへ正式copyを完了している。
  * @postcondition verifyTemporaryOperationEvidencePromotionの責務を完了した結果だけを返す。
  * @effect verifyTemporaryOperationEvidencePromotionはFilesystemの読取りまたは書込みを実行する。
  * @failure verifyTemporaryOperationEvidencePromotionは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -1448,14 +1658,17 @@ export function resumeTemporaryOperationWithInterruptionForVerification(
 export function verifyTemporaryOperationEvidencePromotion(
   rootCapability: VerifiedRepositoryRoot,
   capability: TemporaryOperationCapability,
-  input: Readonly<{ recordId: string; artifactName: string; sha256: string }>,
+  input: Readonly<{
+    evidenceRelativePath: string;
+    artifactName: string;
+    sha256: string;
+  }>,
 ) {
   try {
     const record = operations.get(capability);
     if (!record) throw new Error("temporary_operation_capability_invalid");
     if (
       !input ||
-      !ID.test(input.recordId) ||
       !ID.test(input.artifactName) ||
       !SHA256.test(input.sha256) ||
       !record.allowedContent.includes(input.artifactName)
@@ -1463,12 +1676,15 @@ export function verifyTemporaryOperationEvidencePromotion(
       throw new Error("temporary_operation_evidence_receipt_invalid");
     const paths =
       resolveRepositoryRuntimeDataPathsForInternalUse(rootCapability);
-    if (!paths) throw new Error("temporary_operation_root_invalid");
+    if (!paths || paths.repositoryRoot !== record.repositoryRoot)
+      throw new Error("temporary_operation_root_invalid");
+    const observed = readTemporaryOperationEvidenceHash(
+      paths.repositoryRoot,
+      input.evidenceRelativePath,
+    );
     const target = path.join(
-      paths.verification,
-      input.recordId,
-      "artifacts",
-      input.artifactName,
+      paths.repositoryRoot,
+      ...input.evidenceRelativePath.split("/"),
     );
     const source = path.join(record.directory, "work", input.artifactName);
     const sourceMetadata = fs.lstatSync(source);
@@ -1476,6 +1692,7 @@ export function verifyTemporaryOperationEvidencePromotion(
     if (
       !sourceMetadata.isFile() ||
       sourceMetadata.isSymbolicLink() ||
+      sourceMetadata.nlink !== 1 ||
       fs.realpathSync.native(source) !== source ||
       !metadata.isFile() ||
       metadata.isSymbolicLink() ||
@@ -1484,9 +1701,6 @@ export function verifyTemporaryOperationEvidencePromotion(
       throw new Error("temporary_operation_evidence_target_invalid");
     const sourceHash = createHash("sha256")
       .update(fs.readFileSync(source))
-      .digest("hex");
-    const observed = createHash("sha256")
-      .update(fs.readFileSync(target))
       .digest("hex");
     if (sourceHash !== input.sha256 || observed !== input.sha256)
       throw new Error("temporary_operation_evidence_hash_mismatch");
@@ -1503,6 +1717,8 @@ export function verifyTemporaryOperationEvidencePromotion(
         sha256: observed,
         source,
         target,
+        repositoryRoot: paths.repositoryRoot,
+        evidenceRelativePath: input.evidenceRelativePath,
       }),
     );
     return Object.freeze({
@@ -1565,16 +1781,21 @@ function settleTemporaryOperationWithRemoval(
     });
   let lock: LifecycleLock | null = null;
   let durableRecoveryConfirmed = false;
+  let recoveryStateUpdateAttempted = false;
   try {
     lock = acquireLock(record.controlRoot, record.operationId, record.identity);
     const document = readDocument(record.documentPath);
     if (
+      document.storage !== record.storage ||
+      document.operationId !== record.operationId ||
+      document.owner !== record.owner ||
       document.state !== "active" ||
       document.identity !== record.identity ||
       document.generation !== record.generation
     )
       throw new Error("temporary_operation_capability_stale");
     if (outcome === "parent_lost") {
+      recoveryStateUpdateAttempted = true;
       writeDocument(
         record.documentPath,
         Object.freeze({ ...document, state: "recovery_required" }),
@@ -1600,6 +1821,7 @@ function settleTemporaryOperationWithRemoval(
           : promotionReceipts.get(promotionReceipt);
       if (
         !promotion ||
+        promotion.repositoryRoot !== record.repositoryRoot ||
         promotion.operationId !== record.operationId ||
         promotion.identity !== record.identity ||
         promotion.generation !== record.generation
@@ -1610,6 +1832,7 @@ function settleTemporaryOperationWithRemoval(
       if (
         !sourceMetadata.isFile() ||
         sourceMetadata.isSymbolicLink() ||
+        sourceMetadata.nlink !== 1 ||
         fs.realpathSync.native(promotion.source) !== promotion.source ||
         !targetMetadata.isFile() ||
         targetMetadata.isSymbolicLink() ||
@@ -1617,30 +1840,56 @@ function settleTemporaryOperationWithRemoval(
         createHash("sha256")
           .update(fs.readFileSync(promotion.source))
           .digest("hex") !== promotion.sha256 ||
-        createHash("sha256")
-          .update(fs.readFileSync(promotion.target))
-          .digest("hex") !== promotion.sha256
+        readTemporaryOperationEvidenceHash(
+          promotion.repositoryRoot,
+          promotion.evidenceRelativePath,
+        ) !== promotion.sha256
       )
         throw new Error("temporary_operation_evidence_not_promoted");
     }
+    recoveryStateUpdateAttempted = true;
     writeDocument(
       record.documentPath,
       Object.freeze({ ...document, state: "recovery_required" }),
     );
     durableRecoveryConfirmed = true;
     operations.delete(capability);
-    const released = releaseLock(lock, removeLifecycleLock);
-    lock = null;
-    if (!released)
-      throw new Error("temporary_operation_lock_cleanup_unconfirmed");
-    removeDirectory(record.directory);
-    if (fs.existsSync(record.directory))
-      throw new Error("temporary_operation_cleanup_unconfirmed");
-    removeConfirmedInitialDocumentStagingAlias(
-      record.documentPath,
-      recoveryReference(record),
-    );
-    fs.unlinkSync(record.documentPath);
+    if (record.storage === "signature") {
+      const work = path.join(record.directory, "work");
+      removeDirectory(work);
+      if (fs.existsSync(work))
+        throw new Error("temporary_operation_cleanup_unconfirmed");
+      removeConfirmedInitialDocumentStagingAlias(
+        record.documentPath,
+        recoveryReference(record),
+      );
+      const remaining = fs.readdirSync(record.directory);
+      if (
+        remaining.some(
+          (name) => name !== "preparation.json" && name !== "preparation.lock",
+        )
+      )
+        throw new Error("temporary_operation_cleanup_unconfirmed");
+      const released = releaseLock(lock, removeLifecycleLock);
+      lock = null;
+      if (!released)
+        throw new Error("temporary_operation_lock_cleanup_unconfirmed");
+      fs.unlinkSync(record.documentPath);
+      fs.rmdirSync(record.directory);
+    } else {
+      const released = releaseLock(lock, removeLifecycleLock);
+      lock = null;
+      if (!released)
+        throw new Error("temporary_operation_lock_cleanup_unconfirmed");
+      removeDirectory(record.directory);
+      if (fs.existsSync(record.directory))
+        throw new Error("temporary_operation_cleanup_unconfirmed");
+      removeConfirmedInitialDocumentStagingAlias(
+        record.documentPath,
+        recoveryReference(record),
+      );
+      fs.unlinkSync(record.documentPath);
+    }
     const stagingDocumentPath = initialDocumentStagingPath(
       record.documentPath,
       recoveryReference(record),
@@ -1662,6 +1911,26 @@ function settleTemporaryOperationWithRemoval(
       recoveryReference: cleanupConfirmed ? null : recoveryReference(record),
     });
   } catch (error) {
+    let recoveryRequired = durableRecoveryConfirmed;
+    if (
+      record.storage === "signature" &&
+      recoveryStateUpdateAttempted &&
+      !durableRecoveryConfirmed
+    ) {
+      try {
+        const observed = readDocument(record.documentPath);
+        recoveryRequired = !(
+          observed.storage === record.storage &&
+          observed.operationId === record.operationId &&
+          observed.owner === record.owner &&
+          observed.identity === record.identity &&
+          observed.generation === record.generation &&
+          observed.state === "active"
+        );
+      } catch {
+        recoveryRequired = true;
+      }
+    }
     if (lock !== null) releaseLock(lock);
     const reason =
       error instanceof Error &&
@@ -1672,10 +1941,11 @@ function settleTemporaryOperationWithRemoval(
       status: "blocked" as const,
       reason,
       cleanupConfirmed: false,
-      recoveryRequired: durableRecoveryConfirmed,
-      recoveryReference: durableRecoveryConfirmed
-        ? recoveryReference(record)
-        : null,
+      recoveryRequired,
+      recoveryReference:
+        recoveryRequired || record.storage === "signature"
+          ? recoveryReference(record)
+          : null,
     });
   }
 }

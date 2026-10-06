@@ -57,7 +57,7 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 
 | 導出キー | 設計項目種別 | 対象 | 正常条件 | 反証する失敗 | 主な試験段階 | 外部境界の段階 | 観測 | 終了後条件 | 未確認 |
 |---|---|---|---|---|---|---|---|---|---|
-| `coord.advice-code-mode-host` | Interface／Sequence／Failure-Recovery | §7.5.1の助言専用Policy、実Core、固定Host、stdio IPC | exec／waitの制限を維持し正常計算から終了後確認まで到達 | 禁止delegate、JS能力利用、Host欠落・差替え・喪失、IPC断、取消・親Process喪失後の残存 | IT／ST | IT: Related 2 Blocks<br>ST: System/E2E | Policy、要求・Cell・Host世代の相関、拒否、結果、実reapと登録Task終了 | 所有資源不存在またはexact回復義務保持。観測不能は成功にしない | 局所正常実測以外の反証、公開CLI経路および実Provider E2E |
+| `coord.advice-code-mode-host` | Interface／Sequence／Failure-Recovery | §7.5.1の公式CLI・Host、stdin入力、Docker隔離 | 未改造の公式配布と公開設定で助言結果を搬送し終了後確認まで到達 | 実行物欠落・差替え、起動失敗、不正通知・複数結果、取消・親Process喪失後の残存 | IT／ST | IT: Related 2 Blocks<br>ST: System/E2E | 配布Hash、構成、通知分類、結果、終了後の資源観測 | 所有資源不存在またはexact回復義務保持。観測不能は成功にしない | 公式CLIの公開経路、失敗・取消反証および実Provider E2E |
 | `coord.provider-selection` | Interface／Implementation Structure | Task属性、Provider／Model構成、Home、Trust結果 | 利用可能性・Policy・Trustを満たす計画だけをEffect前に固定 | 不正Home、未信頼Runtime、利用不能Modelの選択 | IT | Direct Boundary | 選定理由、再選定条件、Trust結果、Effect 0 | Provider Process未開始 | 実Provider／実Homeを使う結合確認 |
 | `coord.provider-attempt` | Sequence／Failure-Recovery | Task／Attempt、送信Authority、Provider Effect、Reviewer結果 | 同じIdentityで結果または理由別停止へ到達 | 承認不足、sandbox拒否、CLI exit、無許可送信、生結果の直接採用 | IT／ST | IT: Related 2 Blocks<br>ST: System/E2E | phase診断、exit、送信範囲、候補状態 | Process／stream／Container回収、未採用候補隔離 | 実Providerによる双方向経路と候補Review |
 | `coord.signed-promotion` | Data Flow／Sequence | Distribution Root、Manifest、署名結果、staging | 完全集合を一つの固定Snapshotとして署名し、競合なくpromotion | Root差、対象漏れ、別Snapshot混入、配置途中失敗 | IT／ST | IT: Adjacent 1 Block<br>ST: System/E2E | Manifest hash、Snapshot Identity、staging／promotion状態 | 失敗候補は公開不可、staging義務を保持 | 正式鍵を用いるRelease署名とpromotion |
@@ -122,7 +122,7 @@ CLI・共通Launcher（bin/）
 
 Local Personalは永続的なRuntime有効化状態、Platform Provisioningまたは事前Activation Recordを持たない。削除済みの有効化・無効化・準備commandは、parser、help、実装、互換shimまたは失敗専用入口として残さない。
 
-利用者向けの安定入口`template/tools/crdd-coordinator.ts`は、同じ改訂版の共通起動入口`bin/launch.ts`へ接続する。共通起動入口は用途、Node版、stdio接続および引数を確認し、同じProcessで対応する既存mainへ接続する。新しいShell、cwd変更、stdio横取りまたはsignal ownerを作らない。MCP Serverは`template/tools/crdd-mcp.ts`が別の構成Rootとして所有し、Coordinator CLIのsubcommandにしない。
+利用者向けの安定入口`template/tools/crdd-coordinator.ts`は、同じ改訂版の共通起動入口`bin/coordinator.ts`へ接続する。共通起動入口は用途、Node版、stdio接続および引数を確認し、同じProcessで対応する既存mainへ接続する。通常処理はsrc/core/coordinator-command.tsが所有し、従来のdoctor／project／capabilities／candidate／taskの直接入力と終了値を維持する。bin配下の実行入口はcoordinator.ts一つとする。新しいShell、cwd変更、stdio横取りまたはsignal ownerを作らない。MCP Serverは`template/tools/crdd-mcp.ts`が別の構成Rootとして所有し、Coordinator CLIのsubcommandにしない。
 
 <a id="3-主実行シーケンス"></a>
 
@@ -303,9 +303,9 @@ Effect／cleanupを独立観測
 - Effect前の取消はProvider呼出し0で閉じる。Effect後の例外・取消・cleanup不明は自動再送せず`unknown`へ保つ。
 - `completed`は、Provider Effect発行、cleanup確認、単一JSONおよび許可済み参照だけを持つ結果がすべて確認できた場合に限る。
 - 現行Production CompositionはこのDispatch、Provider別の固定Adapter選択、読取り助言専用Execution Planまで接続する。Execution PlanはCatalog Revision、Provider、exact Profile／Model／推論強度、Task／Projection Hashを固定し、Promptを標準入力だけで搬送する。Repository／Workspace mount、Tool、Session保持、API Key／有料fallbackを許可しない。
-- Provider Command Planは固定配布物のCLI Path／Image Digestへexact Modelと推論強度を接続する。CodexはTool無効の標準入力とJSONL、ClaudeはTool無効の標準入力とJSON envelope／inline Schemaを用いる。Provider Executor Coreは事前取消、Runtime拒否、cleanup不明および例外を成功へ畳まず、CodexのCommand／File Change Eventを拒否する。Claude助言は人間承認済みPilotとして内部Turn上限を2に固定し、整数の1〜2Turn成功Envelopeから`structured_output`だけを共通Result Parserへ渡す。0、上限超過、不正型、失敗Envelopeおよび出力欠落は拒否する。内部Turnは一つの依頼・一回消費Packet・一つのProvider Processの中に限定し、Tool、Repository／Workspace共有、Session保持または自動再送のAuthorityを新設しない。実Providerでの成立確認後に正式化を判断し、Pilotの局所成功だけを利用可能またはRelease可能と表示しない。Session、Cost、Usage、生Eventおよび生Provider出力は公開しない。
-- Codex助言のJSONLでは、`agent_message`と`reasoning`だけを既知の非Tool通知として扱う。思考本文は助言、診断または根拠へ投影しない。最終回答は`item.completed`の`agent_message`一件だけから抽出し、本文欠落・不正型を拒否する。`item.started`、`item.updated`、`item.completed`のいずれでもTool操作、未知Item種別または不正Itemを拒否し、未知の`item.*`も検査を迂回させない。正常な思考通知とTool操作の区別は[Codexの公式通知形式](https://learn.chatgpt.com/docs/non-interactive-mode)に基づく。思考通知の本文Fieldは結果成立の根拠に使用せず、未確認の段階別必須Fieldを推測で要求しない。
-- Executor Coreと署名Runtime Adapterの間では、Operation、Profile、Task／Projection Hash、Provider PromptおよびProvider Command Hashを`ADVICEPKT-*`へ固定する一回消費Packetを使用する。PacketはRepository／Workspace共有、ToolおよびSessionを常に`false`とし、別Ownerによる消費、再利用および未使用取消後の利用を拒否する。Packet発行だけではProvider Effect Authorityを生成しない。
+- Provider Command Planは固定配布物のCLI Path／Image Digestへexact Modelと推論強度を接続する。Codexは公開設定による操作抑制を伴う標準入力とJSONL、ClaudeはTool無効の標準入力とJSON envelope／inline Schemaを用いる。Provider Executor Coreは事前取消、Runtime拒否、cleanup不明および例外を成功へ畳まず、Codexの既知通知と最終結果を分離し、未知通知・不正Item・Errorを拒否する。Claude助言は人間承認済みPilotとして内部Turn上限を2に固定し、整数の1〜2Turn成功Envelopeから`structured_output`だけを共通Result Parserへ渡す。0、上限超過、不正型、失敗Envelopeおよび出力欠落は拒否する。内部Turnは一つの依頼・一回消費Packet・一つのProvider Processの中に限定し、Tool、Repository／Workspace共有、Session保持または自動再送のAuthorityを新設しない。実Providerでの成立確認後に正式化を判断し、Pilotの局所成功だけを利用可能またはRelease可能と表示しない。Session、Cost、Usage、生Eventおよび生Provider出力は公開しない。
+- Codex助言のJSONLでは、`agent_message`、`reasoning`、`command_execution`、`file_change`、`mcp_tool_call`、`collab_tool_call`、`web_search`、`todo_list`を既知通知として分類する。最終助言以外の通知は結果本文へ投影しない。思考本文は助言、診断または根拠へ投影しない。最終回答は`item.completed`の`agent_message`一件だけから抽出し、本文欠落・不正型を拒否する。`item.started`、`item.updated`、`item.completed`のいずれでも未知Item種別、Errorまたは不正Itemを拒否し、未知の`item.*`も検査を迂回させない。正常な思考通知とTool操作の区別は[Codexの公式通知形式](https://learn.chatgpt.com/docs/non-interactive-mode)に基づく。思考通知の本文Fieldは結果成立の根拠に使用せず、未確認の段階別必須Fieldを推測で要求しない。
+- Executor Coreと署名Runtime Adapterの間では、Operation、Profile、Task／Projection Hash、Provider PromptおよびProvider Command Hashを`ADVICEPKT-*`へ固定する一回消費Packetを使用する。PacketはRepository／Workspace共有、ToolおよびSessionを常に`false`とし、CodexのTool fieldはCRDDによる追加Tool権限の非付与を表す。公式CLI内部の操作不存在の証明にはしない。別Ownerによる消費、再利用および未使用取消後の利用を拒否する。Packet発行だけではProvider Effect Authorityを生成しない。
 - 署名Coordinatorの実Docker lifecycleへ`workbench_advice`専用Modeを接続する。Boolean ProbeまたはWorkspace付き一般Taskを流用せず、署名配布物Capability、Operation世代、元Repository Identity結合、Provider Home、Selection、限定Egress、取消、Docker Recovery、Host cleanupおよび最終Recovery確定を同じLifecycleで所有する。元Repositoryへの結合はSelection AuthorityのScope確認にだけ用い、ProviderへのRepository／Workspace Mount、Path搬送または任意読取りAuthorityを生成してはならない（MUST NOT）。Task／Projection／Profile／Command Identityを一回消費Packetへ結合し、HostとDockerのcleanupが確定するまで助言JSONを公開してはならない（MUST NOT）。
 
 Claude助言の拒否理由は、通常の結果搬送で次の順に検査する。最初に不成立となった層だけを返し、後続条件が成立したことや外部CLIの原因まで確定したことを意味しない。受理条件、Turn上限、取消、資源回収および自動再送禁止は変更しない。
@@ -322,27 +322,27 @@ Claude助言の拒否理由は、通常の結果搬送で次の順に検査す�
 
 <a id="development-provider-measurement"></a>
 
-### 7.5.1 Codex助言専用の起動制限
+<a id="751-codex助言専用の起動制限"></a>
 
-CodexのCode Mode内部計算を助言に利用する場合も、System Toolの操作権限は与えない。非表示Toolや通知の欠落は実行禁止の保証ではないため、公式の起動時許可集合（`ToolPolicy`）へ実行前の上限を固定する。
+### 7.5.1 公式Codexによる助言とDocker隔離
 
-| 対象 | 固定する契約 |
+助言には未改造の公式Codex CLIを使用する。CRDDはCodex内部のToolPolicyを変更せず、既存Docker境界でアクセス・変更・通信範囲を制限する。助言のみという目的を「Codex内部で一切の操作を試みない」保証へ拡張しない。Promptと公開設定による操作抑制は、Docker隔離の代替または操作不存在の証明ではない。
+
+通常Taskの公式0.149.1は変更せず、助言の移行対象は公式0.159.2と同版の公式Code Mode Hostとする。公式配布物の検証済みHashを使用し、Codex本体のSource Build、起動Patch、試験Patchおよび専用linkerを新方式に要求しない。Dockerの配置用Imageは公式実行物を収める包装であり、Codexの改造版ではない。
+
+| 境界 | 新方式で保持する条件 |
 |---|---|
-| 助言用実行物 | 公式CLI `0.159.2`のSource Commit `ff6aec96948b70d94983af2641a6b67c94faeff5`へ最小起動Patchを加える。専用実行物はWorkbench読取り助言だけへ接続する。 |
-| 通常Task | Executor／Reviewerは公式実行物を使い、助言専用Patchの制限を流用しない。既存の権限・取消・結果契約を維持する。 |
-| 許可集合 | 公式Code Modeの`exec`と`wait`だけを上限とする。既存許可集合がある場合は交差し、他の既存制約も維持する。追加権限引数の公開は禁止する。 |
-| 適用点 | Sessionが明示Policyまたは暗黙のGuardian Policyを解決した直後、その結果をさらに制限して捕捉する。設定、環境変数、再開履歴、forkまたはモデル出力から解除できない。 |
-| 禁止Tool | Shell、Patch、MCP、Web、Agent、権限要求、質問・メッセージ用Toolおよび未知Toolを登録しない。別namespaceや非表示名の直接呼出しもHandlerへ到達させない。最終`agent_message`はToolではなく結果搬送として既存契約で検証する。 |
-| 別途閉じる境界 | Hooks、notify、Plugin、MCP、追加Environment、任意引数、API-key fallbackを継承しない。ToolPolicyだけでこれらが閉じるとは主張しない。 |
-| Host | 固定した公式Code Mode Hostだけをstdioで使用し、in-process fallbackを禁止する。CLI終了とHost終了を分け、取消・IPC断・異常終了・終了後のProcess Tree、Container、Networkを観測する。 |
-| 孤児Processの回収 | Codex助言専用ImageのProviderコンテナだけにDocker initを指定し、CLI喪失後の孤児Processのreapを担当させる。通常Task、Claude助言、認証probeとproxyへ適用しない。起動計画、Effect直前の再導出、清掃とfresh Recoveryは同じ専用Image／実行方式から適用条件を導く。inspectのInitは必須対象でown fieldのtrueだけを受理し、未記載・null・false・不正型は拒否する。対象外では有効なHostConfig上の未記載／null／falseだけを受理する。DockerのInitは省略可能であり、未記載とnullはdaemon設定へ委ねる明示指定なしを表す。これを実効的な非init稼働の証明にしない。HostConfig欠落・不正構造・継承fieldをInit未指定へ畳まず、通常清掃とfresh Recoveryで同じ観測判定を使用する。init指定やContainer不存在だけで内部Hostの終了・reapを成立済みとせず、Signal搬送、取消、CLI喪失、Host喪失と観測不能を別に確認する。 |
-| 結果公開 | 唯一のSchema適合最終結果だけを全資源のcleanup確定後に公開する。error、未知通知、複数本文またはcleanup不明を成功へ畳まない。 |
-| 開発中機能の表示 | 専用Codex助言Commandだけに`suppress_unstable_features_warning=true`を固定し、採用済み機能の開発中一覧Warningの表示を発生元で抑止する。公式固定CLIはこのWarningもJSONLのerror itemへ投影するため、結果検査でerrorを無視する方法は採らない。この設定は機能の不確実性や実失敗を解消する保証ではない。Code Modeの起動失敗、他のWarning／Error、未知通知および不正結果の拒否を維持し、通常TaskとClaudeへ適用しない。 |
-| 配布・Build | Source改訂版、対象Fileの変更前Hash、Patch Hash、固定toolchain、Build条件、専用実行物とHostのHashおよび実Image Digestを結合する。Provider RuntimeでBuildしない。 |
+| 入力 | 許可済みProjectionだけを標準入力で渡す。Repository／Workspaceを共有しない |
+| 隔離 | 固定Image、非root、読取り専用root filesystem、既存のmount・権限・通信制限を保持する |
+| 設定 | ユーザー設定・Hook・MCP・Plugin等を継承せず、approval never、read-only等の公式設定で操作を抑制する。設定だけから完全なTool禁止を主張しない |
+| 出力 | 公式JSONLの既知Itemを最終助言本文と分離する。内部計算の通知だけで拒否せず、Error、不正形式、複数最終本文と助言Schema不適合を拒否する。生通知を公開しない |
+| 終了 | init、timeout、取消、Process終了、Container／Network回収、cleanup確定後の結果公開とexact Recovery Identityを保持する |
+| 配布切替 | 新Imageの実Digestを取得し、計画・Effect直前検査・終了後検査・Recoveryへ一括接続する。旧専用Digestを公式Imageの値として流用しない |
+| 未準備 | 実Image・局所確認・必要な署名が未成立の間、新方式を実行可能またはE2E合格と表示しない。旧RecoveryのIdentityは書き換えない |
 
-固定Patchは`40_Develop/coordinator/runtime/codex-advice-startup.patch`が所有する。対象は公式Sourceの`codex-rs/core/src/session/session.rs`で、変更前SHA-256は`de7eca05b55865c0ef03465a29bfb51e54d1eb78d253533d8b76e88712172f2d`である。Hashまたは一意な適用位置が一致しなければ変更・Buildを開始しない。公式Sourceは変更履歴の正解として逆輸入せず、承認済みの助言禁止境界を実現する依存として扱う。
+旧方式のSource Build、起動Patch、試験Patchと専用linkerは新規実行の入力から外す。過去の内部試験と旧配布Identityは変更履歴で追跡し、新方式の保証へ流用しない。未解決の旧exact Recoveryだけは旧Imageのinit構成を照合できるように維持する。
 
-Qualityへの引渡しは、直接／Nestedの禁止Tool呼出し、namespace正規化と衝突、既存制約の非緩和、再開／fork、Hook混入、Host欠落・差替え・異常終了・取消・IPC断・残存およびcleanup不明を含む。正常系では内部計算から唯一の最終回答を生成できることも確認し、安全な拒否だけで助言Capabilityの完成とはしない。現在は設計と固定Patchの候補段階であり、Build、実境界、署名またはE2Eの合格を意味しない。
+Qualityでは公式配布一致、公開設定、標準入力とDocker隔離、有限な通知分類、唯一の結果、取消・Process喪失・資源回収を確認する。公式CLI内部のTool登録拒否やJS能力不存在をCRDDの保証として要求しない。局所確認と実Provider E2Eを分け、後者が未実施なら完成を表示しない。
 
 ## 8. Providerとモデル選定
 
@@ -361,6 +361,29 @@ Workbenchで利用者が明示したAI Profileによる助言実行は、Front A
 <a id="release-artifact-binding"></a>
 
 ## 9. 署名済み配布物
+
+### 署名範囲の縮小 — 採用済みの変更目標、実装未完了
+
+2026-10-06の人間判断により、候補ごとのRepository全体展開と署名前／Manifest昇格時の全体Tree再構成を廃止する。以下は変更目標であり、既存revision 5の実装を変更済みと表示しない。通常Runtimeは既に実行閉包を検証しており、その保証を削除する変更ではない。
+
+| 観点 | 変更目標 | 維持する保証 |
+|---|---|---|
+| 実行対象 | 既存の実行閉包観測を使用する。Coordinatorのproduction allowlist、公開入口、登録済み子入口、到達した兄弟Componentとpackage metadataを対象にする。全`40_Develop`へ広げない。 | 集合内の欠落・追加・改変、集合外依存、未登録子入口と観測不能を拒否する。 |
+| Native／外部実行物 | Platform AccessのPath・bytes・Hash・protocol等を同じ署名Identityへ結合する。Provider image／binary／settingsは既存Provider Ownerの検証へ接続する。 | コードHash一致だけでNativeや外部Provider実行物の一致を推定しない。 |
+| Gitの出所 | CommitとTreeの結合は維持し、署名する選択FileとNativeのGit Blob・mode・正規化後bytesだけを照合する。 | 未Commitまたは別Commitの実行物混入を署名前に拒否する。非実行文書等の全体一致は保証しない。 |
+| 設定 | 固定Security Policyは署名対象のまま維持する。Repository Manifestと外部送信Policyはそれぞれの既存Ownerが検証・更新する。 | Repository固有設定を署名済みRuntime設定と誤表示せず、秘密・Credential・現在状態を署名対象に混ぜない。 |
+| 形式と利用側 | 新しい意味をManifest revision 6と署名domain V6で識別し、署名／検証を同時に変更する。 | V5署名をV6の現在実行許可へ読み替えない。必要な旧履歴専用検証は旧domainのまま分離する。 |
+| 一時配置 | 通常試験は作業Sourceで実行する。署名・原子配置に必要な最小集合だけを既存Operation所有の`tmp/<operation-id>/work/`へ配置する。 | 全Repositoryコピー、恒久候補Directoryの累積、新しい清掃Frameworkは作らない。 |
+
+署名準備はProject RuntimeのAI実行キューとは別の入口であり、キューへの保存を回復参照の保持根拠にしない。起動するフロントAIが最初の作成前に`operationId`と`identity`を確定・保持し、CLIから準備処理へ同じ値を渡す。初期参照は既存Runtime Dataの固定Owner `coordinator-release-runtime`と世代`1`へ結合する。内部生成後の端末表示だけに依存せず、既存の一時操作記録とexact参照による再入場を利用する。識別子から操作能力を復元せず、新しいstate・キュー・回復DBを作らない。
+
+公開入口から、集合抽出、出所確認、秘密入力前の検査、同じ固定入力の再観測、署名、opaqueなManifest bytesの原子公開、結果受理と終了清掃までを一つの経路として接続する。失敗・中断時はexactな未解決対象をOwnerが再確認し、不明を不存在や成功へ畳まない。配置後のManifest一致だけで署名元Runtime・実際の起動物・現在Authorityの一致を推定しない。
+
+実行前後のHashはその観測時点の一致であり、途中の変更・復元や後続の子起動まで変更不能だった証明ではない。既存のRoot Protection、Native選択、子起動とEffect前の再検証の責務を維持し、未実装の保護を今回の縮小で完成へ昇格しない。全体Tree照合も実行中の変更不能を保証していたわけではない。
+
+必須反例は、文書のみの変更によるRuntime一致、実行Source／Policy／Nativeの変更拒否、未登録子入口と兄弟metadata欠落の拒否、Commit由来不一致、Repository設定やProvider Identity不一致の処置、観測後の差替え、V5／V6混在、Manifest公開競合、途中停止と再入場である。検証設計は既存QA-000010の項目を使用し、項目追加そのものを目的にしない。現行手順・実装の記述は以下に残し、署名・配置・利用側の変更と検証が完了してから現行記述へ切り替える。
+
+配布担当者の端末補助は`40_Develop/coordinator/scripts/sign-release-terminal.ts`へ固定する。候補ごとの一時Scriptを量産せず、候補Identityと非秘密の署名条件だけを引数で渡す。補助入口は単一の現在UTCから時刻を整え、既存の署名Commandを同一Processで呼ぶ。新しい子Process、秘密入力Owner、署名Authority、結果Storeまたは回復Frameworkを設けない。署名完了後だけ画面保持の入力を所有し、画面保持の失敗で署名結果を変更しない。窓の強制終了は完了・Effect 0と推定せず、既存Manifest検証へ戻す。既存共通Launcherの契約は維持する。
 
 ### 配布全体の観測予算
 
@@ -682,7 +705,7 @@ Coordinatorの記録Ownerは、再入場前の耐久参照、producer版、Schem
 
 終端記録の清掃は元Taskの清掃とは別の管理責務であり、CoordinatorのHost回復記録Ownerが所有する。元Root・元marker・leaseの共同終端を確認する前、未解決参照がある間、または観測不能の間は削除しない。
 
-- 必要Evidenceは、今回許可されたRepository-local `.crdd/verification/`等の既存保持先へ移す。許可されたexact Root以外へ暗黙にarchiveしない。移動先の実bytes・Identity・同じ参照を確認した引渡しReceiptがなければ、原記録を削除しない。
+- 必要Evidenceは、今回許可されたRepository内の対象CHG／Releaseの`Evidence/`へ移す。一時的な試験結果の保存先`.crdd/tests/`を正式保持先と扱わず、許可されたexact Root以外へ暗黙にarchiveしない。移動先の実bytes・Identity・同じ参照を確認した引渡しReceiptがなければ、原記録を削除しない。
 - 引渡し後、当該記録のfresh Identity、参照解消、非使用と専用管理清掃のAuthorityを確認して、その記録だけを処置する。共有Directory、別Operationの記録および元Rootへ処置を拡張しない。
 - 各処置の直後と、次回の新規記録受付前に終了済み記録の清掃要否を評価する。経過時間・古い順・容量超過だけで自動削除しない。清掃できなければ上限を守って停止し、必要な人間処置を示す。
 - 管理清掃が部分成功・不明なら、同じ管理対象のfile Identityと引渡しReceiptを保持する。元Taskを再開せず、元Root清掃用記録を再帰的に作らない。管理清掃の終了は原記録とstageの直接不存在、処置用handle／observerの終端を確認して判定する。
@@ -1205,6 +1228,33 @@ CodexとClaude、複数のProcess Controller、通常実行とRecovery等、同�
 現在状態、有限履歴、Evidenceを分け、物理切替と診断搬送の未実装範囲を明示した。unknown終了を今回の限定Classに留め、過去unknown保持と新規受付を別判定にした。
 
 OPEN: 保存確定、履歴上限、既存回復の移行と限定Classの実接続・反証は未完了。該当境界の実装前に具体化し、実境界の反例と独立確認が揃うまで完了としない。
+
+
+### 署名準備の一時領域
+
+署名処理は最新の固定配置だけを受理する。旧配置の移行・清掃はフロントAIが[実行記録の刷新手順](../../../19_Workflows/01_Coordinator_Runtime.md#実行記録の保存方式を刷新するとき)に従って行い、署名Sourceに旧ReaderやFallbackを持たせない。
+
+```text
+.crdd/tmp/signature/
+├ preparation.json                  exact Identity・Owner・世代・現在lifecycle
+├ preparation.lock                  更新中だけの短期Lock
+├ <identity等>.pending.json         保存確定前だけの短命ファイル
+├ <identity等>.lock.json            Lock公開・更新前だけの短命ファイル
+└ work/                             必要Runtime入力と署名済みManifest
+```
+
+| 段階 | 処置 | 終了条件 |
+|---|---|---|
+| 準備 | 固定Git版の必要RuntimeとNativeだけを準備する | 対象版・実物・集合が一致 |
+| 署名 | 外部端末で秘密入力し、一時領域へManifestを保存する | 署名済み候補を検証可能 |
+| 正式適用 | 候補の署名・対象を検証して正式Manifestへ反映する | 正式Manifestと候補のbyte・Hash一致を確認 |
+| 清掃 | 利用Process終了後、work、制御記録、空のsignatureを順に削除する | フォルダ不存在を確認 |
+
+正式Manifestは`template/tools/coordinator/coordinator-package-manifest.json`が所有する。秘密鍵・パスフレーズは一時領域にも保存しない。固定Rootの排他的作成により異なる操作IDでも同時準備を拒否する。既存領域は上書き・自動清掃しない。未知の内容は再帰削除せず、記録を残して停止する。
+
+適用前失敗と適用済み・清掃未確認を区別する。適用後の中断は`--recover-applied`から同じexact参照で再入場し、候補と正式Manifestの全file Hashを照合する。一致時は再署名・再適用せず清掃だけを行う。不一致・未適用・読取り不能では次世代回復参照を返し、候補を保持する。lifecycle記録だけから適用成立を推定しないため、適用段階やHashを別の正本として重複保存しない。
+
+制御記録はwork清掃後まで維持する。記録削除と空Root削除の間で失敗した場合は、残ったRootだけからIdentityを復元せず停止する。この窓を完全自動回復と主張せず、フロントAIが非使用と範囲を確認する。任意Path入力、新Lock Framework、汎用Recovery Frameworkは追加しない。
 
 ## Checklist
 

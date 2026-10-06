@@ -17,6 +17,7 @@ import test from "node:test";
 import {
   ensureRepositoryRuntimeDataArea,
   observeRepositoryRuntimeDataArea,
+  type RepositoryRuntimeArea,
   RepositoryRuntimeDataAreaBlockedError,
   requireReadyRepositoryRuntimeDataArea,
   resolveRepositoryRuntimeDataPaths,
@@ -192,7 +193,6 @@ test("検証済みRepository Rootだけから全Repository-local Pathを解決�
     "project-runtime",
     "coordinator",
     "execution-intelligence",
-    "verification",
     "candidates",
     "release",
     "communication",
@@ -414,4 +414,32 @@ test("junction経由のWorking DirectoryはRepository Rootへ正規化せず拒�
     if (fs.existsSync(alias)) fs.unlinkSync(alias);
     fs.rmSync(boundaryRoot, { recursive: true });
   }
+});
+
+/**
+ * 廃止verification Areaはaliasや新規作成へ変換せずEffect前に拒否する。
+ *
+ * @responsibility 許可Area集合の除去と読取り／作成の拒否を確認する。
+ * @trace RDL-IT-001
+ * @precondition 現在RepositoryのRootを検証できる。
+ * @stimulus 廃止Area名を不正入力としてOwnerのensure／observeへ渡す。
+ * @observation 返却状態、EffectとRuntime Rootのentryを取得する。
+ * @oracle projectionにverificationなし、ensureは既存拒否null、observeはblocked、entry不変。
+ * @cleanup N/A: 不正AreaへFilesystem変更を発行しない。
+ * @boundary RDL-IT-001=Direct Boundary: 廃止Area要求→Owner拒否
+ */
+test("廃止verification Areaに新規Effectや互換aliasを発行しない", () => {
+  const root = verifyRepositoryRoot(repositoryRoot);
+  if (root.status !== "completed") throw new Error("fixture_root_invalid");
+  const paths = resolveRepositoryRuntimeDataPaths(root.capability);
+  assert.ok(paths);
+  assert.equal(Object.hasOwn(paths, "verification"), false);
+  const before = fs.readdirSync(path.dirname(paths.tests));
+  const area = "verification" as unknown as RepositoryRuntimeArea;
+  const ensured = ensureRepositoryRuntimeDataArea(root.capability, area);
+  assert.equal(ensured, null);
+  const observed = observeRepositoryRuntimeDataArea(root.capability, area);
+  assert.equal(observed.status, "blocked");
+  assert.equal(observed.effectIssued, false);
+  assert.deepEqual(fs.readdirSync(path.dirname(paths.tests)), before);
 });

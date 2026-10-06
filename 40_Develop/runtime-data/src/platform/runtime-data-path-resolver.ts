@@ -25,14 +25,13 @@ export const REPOSITORY_MANIFEST_RELATIVE_PATH =
   ".crdd/config/repository-manifest.json" as const;
 export const EXTERNAL_SEND_POLICY_RELATIVE_PATH =
   ".crdd/config/external-send-policy.json" as const;
-export const VERIFICATION_RELATIVE_PATH = ".crdd/verification" as const;
+export const TESTS_RELATIVE_PATH = ".crdd/tests" as const;
 
 const REPOSITORY_AREAS = Object.freeze([
   "config",
   "project-runtime",
   "coordinator",
   "execution-intelligence",
-  "verification",
   "candidates",
   "release",
   "communication",
@@ -57,7 +56,6 @@ const AREA_PATH_KEYS = Object.freeze({
   "project-runtime": "projectRuntime",
   coordinator: "coordinator",
   "execution-intelligence": "executionIntelligence",
-  verification: "verification",
   candidates: "candidates",
   release: "release",
   communication: "communication",
@@ -99,7 +97,6 @@ function resolveRepositoryRuntimeDataPathsFromValidatedRoot(
     projectRuntime: path.join(root, "project-runtime"),
     coordinator: path.join(root, "coordinator"),
     executionIntelligence: path.join(root, "execution-intelligence"),
-    verification: path.join(root, "verification"),
     candidates: path.join(root, "candidates"),
     release: path.join(root, "release"),
     communication: path.join(root, "communication"),

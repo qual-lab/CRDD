@@ -1,8 +1,8 @@
 /**
- * Workbench読取り助言専用Codexの固定配布Identityを所有する。
+ * Workbench助言に使う未改造の公式Codexの固定配布Identityを所有する。
  *
  * @packageDocumentation
- * @responsibility 通常Taskの公式CLIから、最小起動Patch付き助言CLIと公式Hostを分離する。
+ * @responsibility 通常Taskを変更せず助言向け公式CLIとHostの配置Identityを固定する。
  * @trace ARCH-000010
  * @boundary 助言Command、配布検証とRecoveryが参照する固定配布境界。
  * @effect N/A: 固定値だけを公開し、配布物の取得や実行を行わない。
@@ -14,33 +14,28 @@ const CODEX_ADVICE_DISTRIBUTION_IDENTITY = Object.freeze({
   sourceCommit: "ff6aec96948b70d94983af2641a6b67c94faeff5",
   sourceArchiveSha256:
     "b749fadee5cc236dff4cd0fc076cc4e08840937529ea71bca2928e233755712a",
-  startupPatchSha256:
-    "1fbd4d98e20e2a4a7c106f7f417129e061297fba65b7ef521969e40ef847faeb",
-  resolvedLockSha256:
-    "e85460a5c2a1f92d73ca0a40219c846f6a10d729f3186667485372c3aa82cfbf",
-  executablePath: "/opt/crdd/providers/codex-advice/0.159.2/codex-advice",
+  officialCliUnmodified: true,
+  executablePath: "/opt/crdd/providers/codex/0.159.2/codex",
   binarySha256:
-    "366286511b5d8d4d804ca9a7539eb7be7f6ea38f083bf5629e7b12ca828ba1b3",
-  hostExecutablePath:
-    "/opt/crdd/providers/codex-advice/0.159.2/codex-code-mode-host",
+    "1748767b230ebfc3d4ab7e4e254920d0c0ad9691fd8c11f190e7d44511a4a92e",
+  hostExecutablePath: "/opt/crdd/providers/codex/0.159.2/codex-code-mode-host",
   hostBinarySha256:
     "5b2c075ac2380fa04d76d7313fbc044d29c8d0a0d0b9138415acd4610211ca03",
-  bwrapBinaryPath:
-    "/opt/crdd/providers/codex-advice/0.159.2/codex-resources/bwrap",
+  bwrapBinaryPath: "/opt/crdd/providers/codex/0.159.2/codex-resources/bwrap",
   bwrapBinarySha256:
-    "07bc720e15a730d717e81b42acb3b95049803360738115c6f6c59830accef7c2",
+    "01fb705f067bd5365b63d8ad2323a61c8d007733ca5e649437e086f3fb9935d8",
   fixedImageDigest:
-    "sha256:843db607376a454cb7c901e76d4da1d168d6e384912366448df3363b42624d36",
+    "sha256:4f35a6542ee0b412714d558bc38e578bcea00490ec2a1f02f02b88c1226f924e",
   imageBuildDefinition:
     "40_Develop/coordinator/runtime/codex-advice-provider.Dockerfile",
   imageBuildDefinitionSha256:
-    "3438a2779bbf858f810d17d44f53425e70e3421babda9209af65480e9da351f6",
+    "92bc2fc6498fee09f745b1710fdb7ada7f868ef06b44d27499d6f6343407e29a",
 });
 
 /**
  * 助言専用の固定配布Identityを返す。
  *
- * @responsibility 同じ専用CLI、Host、bwrap、SourceとImageを全利用側へ渡す。
+ * @responsibility 同じ公式CLI、Host、既存bwrapとImageを全利用側へ渡す。
  * @trace ARCH-000010
  * @input N/A: 呼出し側が配布Identityを上書きする入力を受け取らない。
  * @returns 凍結済みの専用配布Identity。
@@ -48,7 +43,7 @@ const CODEX_ADVICE_DISTRIBUTION_IDENTITY = Object.freeze({
  * @postcondition 通常Executor／Reviewerの配布Identityを変更しない。
  * @effect N/A: 固定Objectを返すだけである。
  * @failure N/A: 外部観測や可変入力を持たない。
- * @invariant 専用実行物を公式未変更CLIと表示しない。
+ * @invariant 公式CLIにCRDDの起動Patchを適用しない。
  * @boundary 助言専用配布の所有者と利用側の間。
  * @security 値の取得を実配布物の検証や実行許可と同一視しない。
  * @concurrency N/A: 共有可変状態を持たない。
@@ -58,14 +53,14 @@ export function describeCodexAdviceDistributionIdentity() {
 }
 
 /**
- * 助言専用ImageのProviderコンテナだけにinitを要求する。
+ * 公式助言Imageと未解決の旧助言Imageにinitを要求する。
  *
  * @responsibility 起動計画、Effect直前検査と耐久Recoveryで同じinit適用条件を使う。
  * @trace ARCH-000010
  * @input operationMode: 実行方式、imageDigest: 固定Image Identity。
- * @returns 助言方式と専用Imageが両方一致する場合だけtrue。
+ * @returns 助言方式と現行または回復対象の旧Imageが一致する場合だけtrue。
  * @precondition 呼出し側がcreate_provider以外へ適用しない。
- * @postcondition 通常Task、Claude助言と旧Imageへinit要求を波及させない。
+ * @postcondition 通常TaskとClaude助言へ波及させず、旧exact Recoveryの構成を保持する。
  * @effect N/A: 固定Identityを比較するだけである。
  * @failure N/A: 不一致はfalseとして返す。
  * @invariant 専用Imageであることを名前やtagから推測しない。
@@ -79,6 +74,8 @@ export function codexAdviceProviderInitRequired(
 ) {
   return (
     operationMode === "workbench_advice" &&
-    imageDigest === CODEX_ADVICE_DISTRIBUTION_IDENTITY.fixedImageDigest
+    (imageDigest === CODEX_ADVICE_DISTRIBUTION_IDENTITY.fixedImageDigest ||
+      imageDigest ===
+        "sha256:843db607376a454cb7c901e76d4da1d168d6e384912366448df3363b42624d36")
   );
 }

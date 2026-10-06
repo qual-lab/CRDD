@@ -38,7 +38,10 @@ import { canonicalizeProvisioningJsonValueCandidate } from "../../src/security/p
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
  * @boundary AIT-UT-005=Direct Boundary: coordinator Test Source→対象契約
  */
-function fixture() {
+function fixture(
+  manifestRevision: number = PLATFORM_PROVISIONER_MANIFEST_REVISION,
+  manifestDomain = PLATFORM_PROVISIONER_MANIFEST_DOMAIN,
+) {
   const signer = generateKeyPairSync("ed25519");
   const spki = signer.publicKey.export({ type: "spki", format: "der" });
   const observedPackageContent = {
@@ -74,7 +77,7 @@ function fixture() {
   assert.equal(runtimeIdentity.status, "candidate");
   const payload = {
     contract: PLATFORM_PROVISIONER_MANIFEST_CONTRACT,
-    contractRevision: PLATFORM_PROVISIONER_MANIFEST_REVISION,
+    contractRevision: manifestRevision,
     crddVersion: "v0.18.1",
     releaseSequence: 2026090102,
     crddCommit: "a".repeat(40),
@@ -85,21 +88,26 @@ function fixture() {
     issuedAt: "2026-09-01T00:00:00.000Z",
     expiresAt: null,
   };
-  const compiled = compilePlatformProvisionerManifestPayloadCandidate({
-    manifestPayload: payload,
-  });
-  assert.equal(compiled.status, "candidate");
+  const canonical = canonicalizeProvisioningJsonValueCandidate(payload);
+  assert.equal(canonical.status, "candidate");
+  if (canonical.status !== "candidate")
+    assert.fail("fixture_manifest_canonicalization_failed");
+  const length = Buffer.alloc(8);
+  length.writeBigUInt64BE(BigInt(canonical.canonicalBytes.length));
+  const message = Buffer.concat([
+    Buffer.from(manifestDomain, "ascii"),
+    length,
+    canonical.canonicalBytes,
+  ]);
   const envelope = {
     contract: PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT,
-    contractRevision: PLATFORM_PROVISIONER_MANIFEST_REVISION,
+    contractRevision: manifestRevision,
     payload,
     signatures: [
       {
         keyId: createHash("sha256").update(spki).digest("hex"),
         algorithm: "Ed25519",
-        signature: sign(null, compiled.message, signer.privateKey).toString(
-          "base64url",
-        ),
+        signature: sign(null, message, signer.privateKey).toString("base64url"),
       },
     ],
   };
@@ -112,25 +120,133 @@ function fixture() {
 }
 
 /**
- * revision 5 manifestは閉じた実行集合とPlatform Access成果物を署名境界へ含めるを検証する。
+ * revision 6 manifestは閉じた実行集合とPlatform Access成果物を署名境界へ含めるを検証する。
  *
- * @responsibility revision 5 manifestは閉じた実行集合とPlatform Access成果物を署名境界へ含めるの合否判定を所有する。
+ * @responsibility revision 6 manifestは閉じた実行集合とPlatform Access成果物を署名境界へ含めるの合否判定を所有する。
  * @trace AIT-UT-005
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus revision 5 manifestは閉じた実行集合とPlatform Access成果物を署名境界へ含めるの対象操作を実行する。
+ * @stimulus revision 6 manifestは閉じた実行集合とPlatform Access成果物を署名境界へ含めるの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary AIT-UT-005=Direct Boundary: coordinator Test Source→対象契約
  */
-test("revision 5 manifestは閉じた実行集合とPlatform Access成果物を署名境界へ含める", () => {
-  const result = verifyPlatformProvisionerManifestCandidate(fixture());
+test("revision 6 manifestは閉じた実行集合とPlatform Access成果物を署名境界へ含める", () => {
+  const value = fixture();
+  const compiled = compilePlatformProvisionerManifestPayloadCandidate({
+    manifestPayload: value.manifestEnvelope.payload,
+  });
+  assert.equal(compiled.status, "candidate");
+  const result = verifyPlatformProvisionerManifestCandidate(value);
   assert.equal(result.status, "candidate");
   assert.equal(result.crddVersion, "v0.18.1");
   assert.equal(result.platformAccessArtifact.sha256, "5".repeat(64));
   assert.equal("nativeProvisionSupervisorArtifact" in result, false);
   assert.equal(result.runtimeAuthorityConferred, false);
   assert.equal(result.runtimeCapabilityIssued, false);
+});
+
+/**
+ * 旧V5の署名は履歴確認だけに受理し、現行署名作成・実行検証へ戻さない。
+ *
+ * @responsibility V5の元domainと非Authority結果、現行V6境界の拒否を確認する。
+ * @trace AIT-UT-005
+ * @precondition 非公式の一時Ed25519鍵と同じ閉Schemaのfixtureを使う。
+ * @stimulus V5・V6をそれぞれ元domainで署名し履歴・現行入口へ渡す。
+ * @observation 履歴の署名確認、Authority不成立、現行の版拒否。
+ * @oracle V5は履歴だけ受理し、V6の履歴確認もAuthorityを発行しない。
+ * @cleanup N/A: 鍵と署名はProcess内だけに保持し永続保存しない。
+ * @boundary AIT-UT-005=Direct Boundary: 純粋な署名Schemaと暗号検証。
+ */
+test("旧V5は履歴専用で、現行署名作成と実行検証はV6だけを受理する", () => {
+  const historicalValue = fixture(
+    5,
+    "CRDD\0PLATFORM-PROVISIONER-PACKAGE-MANIFEST\0V5\0",
+  );
+  for (const value of [historicalValue, fixture()]) {
+    const historical = verifyHistoricalPlatformProvisionerManifestCandidate(
+      value.manifestEnvelope,
+      value.releaseSignerSpkiDer,
+    );
+    assert.equal(historical?.historicalSignatureVerified, true);
+    assert.equal(historical?.runtimeAuthorityConferred, false);
+    assert.equal(historical?.runtimeCapabilityIssued, false);
+    assert.equal(historical?.crddDistributionConfirmed, false);
+  }
+  assert.equal(
+    compilePlatformProvisionerManifestPayloadCandidate({
+      manifestPayload: historicalValue.manifestEnvelope.payload,
+    }).status,
+    "blocked",
+  );
+  const rejected = verifyPlatformProvisionerManifestCandidate(historicalValue);
+  assert.equal(rejected.status, "blocked");
+  assert.equal(rejected.runtimeCapabilityIssued, false);
+  assert.equal(rejected.runtimeAuthorityConferred, false);
+  assert.equal(rejected.filesystemEffectIssued, false);
+  historicalValue.manifestEnvelope.payload.runtimeExecutionIdentitySha256 =
+    "f".repeat(64);
+  assert.equal(
+    verifyHistoricalPlatformProvisionerManifestCandidate(
+      historicalValue.manifestEnvelope,
+      historicalValue.releaseSignerSpkiDer,
+    ),
+    null,
+  );
+});
+
+/**
+ * 版・暗号domain・EnvelopeとPayloadの混在を両入口で拒否する。
+ *
+ * @responsibility V5署名のV6への再解釈と逆方向の混在を防ぐ。
+ * @trace AIT-UT-005
+ * @precondition 一時鍵で各反例を実際に署名し、公式鍵は使用しない。
+ * @stimulus 異なるdomain、版不一致、未対応版を入力する。
+ * @observation 現行のblockedと履歴のnull、AuthorityとEffectの不成立。
+ * @oracle 混在した全例を拒否し、版の書換えだけでは移行できない。
+ * @cleanup N/A: Process内のfixtureだけを使用する。
+ * @boundary AIT-UT-005=Direct Boundary: 純粋な署名Schemaと暗号検証。
+ */
+test("V5とV6のdomain・Envelope版・Payload版の混在を拒否する", () => {
+  const wrongV5Domain = fixture(
+    5,
+    "CRDD\0PLATFORM-PROVISIONER-PACKAGE-MANIFEST\0V6\0",
+  );
+  const wrongV6Domain = fixture(
+    6,
+    "CRDD\0PLATFORM-PROVISIONER-PACKAGE-MANIFEST\0V5\0",
+  );
+  const v5EnvelopeWithV6Payload = fixture();
+  v5EnvelopeWithV6Payload.manifestEnvelope.contractRevision = 5;
+  const v6EnvelopeWithV5Payload = fixture(
+    5,
+    "CRDD\0PLATFORM-PROVISIONER-PACKAGE-MANIFEST\0V5\0",
+  );
+  v6EnvelopeWithV5Payload.manifestEnvelope.contractRevision = 6;
+  const unsupportedRevision = fixture(
+    7,
+    "CRDD\0PLATFORM-PROVISIONER-PACKAGE-MANIFEST\0V7\0",
+  );
+  for (const value of [
+    wrongV5Domain,
+    wrongV6Domain,
+    v5EnvelopeWithV6Payload,
+    v6EnvelopeWithV5Payload,
+    unsupportedRevision,
+  ]) {
+    const current = verifyPlatformProvisionerManifestCandidate(value);
+    assert.equal(current.status, "blocked");
+    assert.equal(current.runtimeAuthorityConferred, false);
+    assert.equal(current.runtimeCapabilityIssued, false);
+    assert.equal(current.filesystemEffectIssued, false);
+    assert.equal(
+      verifyHistoricalPlatformProvisionerManifestCandidate(
+        value.manifestEnvelope,
+        value.releaseSignerSpkiDer,
+      ),
+      null,
+    );
+  }
 });
 
 /**
@@ -395,7 +511,11 @@ test("Runtime Execution IdentityはRelease provenanceから独立し、Policy・
  */
 test("Trust Coreの説明は単一Native成果物と非権限性を示す", () => {
   const contract = describePlatformProvisionerTrustCoreContract();
-  assert.equal(contract.contractRevision, 5);
+  assert.equal(contract.contractRevision, 6);
+  assert.equal(
+    contract.manifestDomain,
+    "CRDD\0PLATFORM-PROVISIONER-PACKAGE-MANIFEST\0V6\0",
+  );
   assert.equal(contract.manifestDomain, PLATFORM_PROVISIONER_MANIFEST_DOMAIN);
   assert.equal(contract.dedicatedPlatformAccessExecutableRequiredForV1, true);
   assert.equal("explicitProvisionCommandRequired" in contract, false);

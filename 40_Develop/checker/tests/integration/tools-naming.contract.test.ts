@@ -725,7 +725,6 @@ const TEXT_FILE = /^[a-z0-9]+(?:-[a-z0-9]+)*\.txt$/u;
 const NATIVE_EXECUTABLE_FILE = /^[a-z0-9]+(?:-[a-z0-9]+)*\.exe$/u;
 const POLICY_FILE = /^[a-z0-9]+(?:-[a-z0-9]+)*-\d+\.\d+\.\d+\.policy$/u;
 const DOCKERFILE = /^[a-z0-9]+(?:-[a-z0-9]+)*\.Dockerfile$/u;
-const SOURCE_PATCH_FILE = /^[a-z0-9]+(?:-[a-z0-9]+)*\.patch$/u;
 const RESERVED_FILE_NAMES = new Set([
   ".gitignore",
   "Cargo.lock",
@@ -1243,37 +1242,6 @@ function assertFileName(file: string): void {
     assert.match(name, DOCKERFILE, `Dockerfile name: ${file}`);
     return;
   }
-  if (name.endsWith(".patch")) {
-    assert.match(name, SOURCE_PATCH_FILE, `fixed source patch name: ${file}`);
-    assert.equal(
-      path.dirname(file),
-      path.join(repositoryRoot, "40_Develop", "coordinator", "runtime"),
-      `source patch must belong to the approved Coordinator build: ${file}`,
-    );
-    return;
-  }
-  if (
-    file ===
-    path.join(
-      repositoryRoot,
-      "40_Develop",
-      "coordinator",
-      "runtime",
-      "codex-advice-startup-test-inputs.sha256",
-    )
-  )
-    return;
-  if (
-    file ===
-    path.join(
-      repositoryRoot,
-      "40_Develop",
-      "coordinator",
-      "runtime",
-      "codex-advice-native-linker.sh",
-    )
-  )
-    return;
   assert.fail(`unrecognized filename without an owned convention: ${file}`);
 }
 
@@ -4290,12 +4258,7 @@ test("Path classifierは不正folderと不正fileを別々に拒否する", () =
  * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 test("型付き命名classifierは構文境界の正負例を同じ規則で判定する", () => {
-  const temporaryParent = path.join(
-    repositoryRoot,
-    ".crdd",
-    "tests",
-    "checker-naming",
-  );
+  const temporaryParent = path.join(repositoryRoot, ".crdd", "tests");
   fs.mkdirSync(temporaryParent, { recursive: true });
   const temporaryRoot = fs.mkdtempSync(
     path.join(temporaryParent, "naming-fixture-"),

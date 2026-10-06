@@ -132,6 +132,8 @@ Portの公開結果ではGit固有語彙を使わない。Git Adapterだけが�
 
 Release Identity、Runtime Execution Identity、署名対象集合およびRelease GateはVersion Controlの出力ではない。Release／SigningがFixed Revision IdentityとRuntime対象集合を入力に合成する。
 
+固定内容の読取りは、一Fileあたり既定64KiBの上限を維持する。Runtime署名の出所照合など、必要な大きいSource／Nativeを読む利用側だけが`maximumBytes`を明示できる。値は1以上64MiB以下の安全な整数に限定し、既存Git objectの総読取り上限、Root・Revision・Path・modeと安定読取りの確認を緩めない。省略は既定値、不正値・上限超過・観測不能は内容なしの停止結果とする。通常の文書読取りへ大容量値を暗黙適用しない。この追加契約の実装・境界試験は[CHG-000082](../../../99_Roadmap/Changes/CHG-000082/change.md)で検証中である。
+
 Git Adapterが本番RuntimeでGit CLIを起動する場合、その子Process境界はAdapter内部へ隔離するだけでは完了しない。署名Runtimeを構成する側は、実在する呼出し元、実行primitive、固定実行ファイルprefix、許可引数prefixおよび結果受領箇所をRuntime依存閉包へ全数登録し、配布物の静的観測と一致する場合だけ候補として扱う。Version Control側はGit操作の意味と失敗正規化を所有し、署名・Release Authorityは引き続き所有しない。
 
 ### 3.1 現行公開Symbol
@@ -203,7 +205,7 @@ dirty、untrackedまたはdetachedであることだけを不正としない。�
 |---|---|---|---|---|
 | Runtime Data | Repository RootをGit CLIから直接取得する処理 | Repository Location | 1 | Root能力をPortから取得し、旧Root Ownerと直接Git依存が0 |
 | Coordinator Repository Security | Repository Root／Layout／Operationの直接解釈 | Repository Location、Repository-local Ignore Registration | 1 | Root／Layout解釈をPortへ一本化し、Runtime Data領域作成時のignore登録を新Portへ接続 |
-| Coordinator専用CLI Build準備 | Build入力・一時領域の起点Root | Repository Location。領域作成はRuntime Dataを経由する | 1 | `prepare-codex-advice-build.ts`がexact Rootを検証し、そのRoot直下の`.crdd/tmp`だけに新しいContextを作成する。既存ContextとRuntime配布物は変更しない |
+| Coordinator公式CLI配置準備 | 配置入力・一時領域の起点Root | Repository Location。領域作成はRuntime Dataを経由する | 1 | `prepare-codex-advice-image.ts`がexact Rootを検証し、そのRoot直下の`.crdd/tmp`だけに新しいContextを作成する。未改造公式実行物だけを配置し、既存ContextとRuntime配布物は変更しない |
 | Checker Current Tree | Root、index、HEAD、historical objectの直接観測 | Checker Observation用途限定入口。Repository Identityが必要な別責務はRepository Identity用途限定入口を使う | 2 | 開発・採用の両経路が検証済みCRDD基準版Rootの用途限定公開入口だけを利用し、Root公開入口とGit内部実装への依存が0 |
 | Regression Selection | 変更集合の直接導出 | Local Change Set Observation | 2 | 変更集合の意味をPortへ一本化し、実Git境界の反証を持つ |
 | Coordinator Snapshot | Object Reader、Workspace、Candidate IntegrationによるGit内部構造の直接解釈 | Fixed Snapshot Read、Candidate Materialization | 3 | Object ReaderをAdapter内部へ隔離し、旧Owner Consumerが0 |

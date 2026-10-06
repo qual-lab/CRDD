@@ -10,7 +10,6 @@
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import {
@@ -32,7 +31,10 @@ import {
  */
 function withTemporaryRoot(runTest: (temporaryRoot: string) => void): void {
   const temporaryRoot = fs.mkdtempSync(
-    path.join(os.tmpdir(), "crdd-coverage-boundary-"),
+    path.join(
+      path.resolve(import.meta.dirname, "../../../..", ".crdd", "tests"),
+      "crdd-coverage-boundary-",
+    ),
   );
   try {
     runTest(temporaryRoot);
@@ -42,26 +44,38 @@ function withTemporaryRoot(runTest: (temporaryRoot: string) => void): void {
 }
 
 /**
- * coverage runは実crate直下のtargetへ専用Directoryを作るを検証する。
+ * coverage runはBuild cacheを共有し計測だけを専用Directoryへ分けるを検証する。
  *
- * @responsibility coverage runは実crate直下のtargetへ専用Directoryを作るの合否判定を所有する。
+ * @responsibility coverage runはBuild cacheを共有し計測だけを専用Directoryへ分けるの合否判定を所有する。
  * @trace ERB-IT-001
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus coverage runは実crate直下のtargetへ専用Directoryを作るの対象操作を実行する。
+ * @stimulus coverage runはBuild cacheを共有し計測だけを専用Directoryへ分けるの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
-test("coverage runは実crate直下のtargetへ専用Directoryを作る", () => {
+test("coverage runはBuild cacheを共有し計測だけを専用Directoryへ分ける", () => {
   withTemporaryRoot((temporaryRoot) => {
     const crateRoot = path.join(temporaryRoot, "platform-access");
     fs.mkdirSync(crateRoot);
-    const runRoot = createCoverageRunRoot(crateRoot);
+    const runRoot = createCoverageRunRoot(
+      crateRoot,
+      temporaryRoot,
+      temporaryRoot,
+    );
     assert.equal(path.dirname(runRoot.targetRoot), crateRoot);
-    assert.equal(path.dirname(runRoot.coverageRoot), runRoot.targetRoot);
-    assert.match(path.basename(runRoot.coverageRoot), /^coverage-/u);
+    assert.equal(path.dirname(runRoot.coverageRoot), temporaryRoot);
+    assert.match(path.basename(runRoot.coverageRoot), /^native-coverage-/u);
     assert.doesNotThrow(() => assertCoverageRunRoot(runRoot));
+    const second = createCoverageRunRoot(
+      crateRoot,
+      temporaryRoot,
+      temporaryRoot,
+    );
+    assert.equal(second.targetRoot, runRoot.targetRoot);
+    assert.notEqual(second.coverageRoot, runRoot.coverageRoot);
+    assert.deepEqual(fs.readdirSync(runRoot.targetRoot), []);
   });
 });
 
@@ -82,7 +96,9 @@ test("coverage runはtargetのfileとjunctionを変更せず拒否する", () =>
     const fileCrateRoot = path.join(temporaryRoot, "file-crate");
     fs.mkdirSync(fileCrateRoot);
     fs.writeFileSync(path.join(fileCrateRoot, "target"), "sentinel", "utf8");
-    assert.throws(() => createCoverageRunRoot(fileCrateRoot));
+    assert.throws(() =>
+      createCoverageRunRoot(fileCrateRoot, temporaryRoot, temporaryRoot),
+    );
     assert.equal(
       fs.readFileSync(path.join(fileCrateRoot, "target"), "utf8"),
       "sentinel",
@@ -99,7 +115,9 @@ test("coverage runはtargetのfileとjunctionを変更せず拒否する", () =>
       path.join(junctionCrateRoot, "target"),
       "junction",
     );
-    assert.throws(() => createCoverageRunRoot(junctionCrateRoot));
+    assert.throws(() =>
+      createCoverageRunRoot(junctionCrateRoot, temporaryRoot, temporaryRoot),
+    );
     assert.equal(fs.readFileSync(sentinelPath, "utf8"), "outside");
   });
 });
@@ -122,7 +140,23 @@ test("coverage runはcrate Rootのjunctionを拒否する", () => {
     const linkedCrate = path.join(temporaryRoot, "crate-link");
     fs.mkdirSync(destination);
     fs.symlinkSync(destination, linkedCrate, "junction");
-    assert.throws(() => createCoverageRunRoot(linkedCrate));
+    assert.throws(() =>
+      createCoverageRunRoot(linkedCrate, temporaryRoot, temporaryRoot),
+    );
+    const actualResults = path.join(destination, "tests");
+    fs.mkdirSync(actualResults);
+    const linkedResultsParent = path.join(temporaryRoot, ".crdd");
+    fs.symlinkSync(destination, linkedResultsParent, "junction");
+    assert.throws(
+      () =>
+        createCoverageRunRoot(
+          destination,
+          path.join(linkedResultsParent, "tests"),
+          temporaryRoot,
+        ),
+      /ancestor alias/u,
+    );
+    assert.deepEqual(fs.readdirSync(actualResults), []);
   });
 });
 
@@ -145,14 +179,22 @@ test("coverage runはtargetまたはrun Directoryの同名置換を拒否する"
       "target-replacement",
     );
     fs.mkdirSync(targetReplacementCrate);
-    const targetRunRoot = createCoverageRunRoot(targetReplacementCrate);
+    const targetRunRoot = createCoverageRunRoot(
+      targetReplacementCrate,
+      temporaryRoot,
+      temporaryRoot,
+    );
     fs.renameSync(targetRunRoot.targetRoot, `${targetRunRoot.targetRoot}-old`);
     fs.mkdirSync(targetRunRoot.targetRoot);
     assert.throws(() => assertCoverageRunRoot(targetRunRoot));
 
     const runReplacementCrate = path.join(temporaryRoot, "run-replacement");
     fs.mkdirSync(runReplacementCrate);
-    const replacedRunRoot = createCoverageRunRoot(runReplacementCrate);
+    const replacedRunRoot = createCoverageRunRoot(
+      runReplacementCrate,
+      temporaryRoot,
+      temporaryRoot,
+    );
     fs.renameSync(
       replacedRunRoot.coverageRoot,
       `${replacedRunRoot.coverageRoot}-old`,

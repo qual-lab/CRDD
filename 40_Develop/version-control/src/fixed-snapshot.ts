@@ -175,6 +175,7 @@ export type FixedSnapshotAdapter = Readonly<{
     repositoryRoot: string,
     revision: string,
     relativePath: string,
+    maximumBytes?: number,
   ): FixedSnapshotFile | null;
   materialize(
     repositoryRoot: string,
@@ -434,7 +435,7 @@ export function inspectFixedSnapshot(
  *
  * @responsibility Fixed Snapshot Fileの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000002
- * @input capability: VerifiedRepositoryRoot、revision: string、relativePath: string、adapter: FixedSnapshotAdapter
+ * @input capability: VerifiedRepositoryRoot、revision: string、relativePath: string、adapter: FixedSnapshotAdapter、maximumBytes?: number（省略時64KiB、明示時1byteから64MiB）
  * @returns FixedSnapshotFile | nullを返す。
  * @precondition 「capability: VerifiedRepositoryRoot、revision: string、relativePath: string、adapter: FixedSnapshotAdapter」がreadFixedSnapshotFileの入力契約を満たす。
  * @postcondition readFixedSnapshotFileの責務を完了した結果だけを返す。
@@ -450,11 +451,22 @@ export function readFixedSnapshotFile(
   revision: string,
   relativePath: string,
   adapter: FixedSnapshotAdapter,
+  maximumBytes?: number,
 ): FixedSnapshotFile | null {
+  if (
+    maximumBytes !== undefined &&
+    (typeof maximumBytes !== "number" ||
+      !Number.isSafeInteger(maximumBytes) ||
+      maximumBytes < 1 ||
+      maximumBytes > 64 * 1024 * 1024)
+  )
+    return null;
   const repositoryRoot = resolveVerifiedRepositoryRoot(capability);
   return repositoryRoot === null
     ? null
-    : adapter.readFile(repositoryRoot, revision, relativePath);
+    : maximumBytes === undefined
+      ? adapter.readFile(repositoryRoot, revision, relativePath)
+      : adapter.readFile(repositoryRoot, revision, relativePath, maximumBytes);
 }
 
 /**

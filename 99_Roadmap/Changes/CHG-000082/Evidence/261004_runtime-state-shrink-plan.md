@@ -136,7 +136,7 @@ Coordinator側のRepository単位の単一Writerを採用方針とし、排他�
 │  ├ coordinator/recovery/host-terminal/  # 既存の利用側接続。Authorityではない
 │  ├ project-runtime/                    # 既存の状態・結果・決定・回復Owner
 │  ├ candidates/<candidate-id>/          # 未採用成果物と候補の回復
-│  ├ verification/<verification-id>/
+│  ├ tests/<run-id>/                     # 試験の一時結果。正式Evidenceへ記録後に清掃
 │  │  ├ started.json
 │  │  ├ result.json
 │  │  ├ complete.json
@@ -278,7 +278,9 @@ Process不存在の確認は対象コマンドライン等の観測範囲に限�
 | ① | `tmp`／`verification`の混在 | 正式結果、作業物、再利用Tool、再入場情報を分類する。現行利用側を壊さず正規配置・終了清掃へ接続する。 | 承認済み限定出口は独立確認Pass。[整理結果と④への引渡し](261005_runtime-data-phase1.md#13-承認後の処置と①の出口)を参照する。 |
 | ② | Project Runtimeの世代・終了記録 | 現在値、未解決義務、未受理結果と履歴を分離し、既存の再入場・受理保証を保つ。 | 完了。実装・本番切替・旧記録清掃・全回帰結果処置・Architecture／Quality最終独立確認Pass。[完了判定](261005_project-runtime-phase2.md#36-②の完了判定)。 |
 | ③ | Execution Intelligence履歴 | 人間が採用したJSONL保存・既定30日とTool別設定で有限保持する。旧形式はフロントAIが移行し、Runtime互換Readerは作らない。安全診断・実績割当・一般Operationを保持する。 | 完了。全82回帰、直接利用側確認、新形式切替と二観点の独立再レビューPass。旧原本清掃等は[完了範囲と残存](261006_execution-intelligence-phase3.md#③の完了判定--2026-10-06)を参照する。 |
-| ④ | 終了済みRelease・試験領域 | 署名対象Tree、現在候補、参照中、終了済みを区別し、必要な根拠を保全して回収する。 | 未着手。 |
+| ④ | 終了済みRelease・試験領域 | 署名対象Tree、現在候補、参照中、終了済みを区別し、必要な根拠を保全して回収する。 | 着手。固定署名端末入口と再生成可能archiveの回収を先行し、[対象と保全理由](261006_release-test-retention-phase4.md)を記録する。 |
+
+2026-10-06の人間判断により、④では`verification/`を新規保存先から廃止する。試験の入力・中間署名・段階結果・診断は`tests/<run-id>/`、非試験の短命作業は`tmp/`、正式な根拠は対象CHG／Releaseの`Evidence/`へ分ける。フロントAIが結果確認、必要根拠の記録、参照・非使用確認、清掃と不存在確認を担う。旧固定参照と唯一の根拠は有限保全し、過去の場所・Hashを遡及変更しない。新規保存の停止と旧物理Rootの回収完了を分けて判定する。
 
 ①では古いLauncherやBuild中間物を年齢・拡張子だけで廃棄しない。固定Path参照、再生成入口、使用中Process、保護されたFixtureを確認する。確認不能な対象は未処置として残し、別対象の整理を継続する。2026-10-05の人間判断により、現行署名・E2E入力と参照を壊し得る既存集合は元位置で有限保全し、④でConsumerと保持条件を照合する。対象は[整理①§13](261005_runtime-data-phase1.md#13-承認後の処置と①の出口)と同節の固定一覧で追跡する。①の出口はこの限定整理と引渡しの独立確認であり、④の物理回収や全E2Eの成立を含めない。
 

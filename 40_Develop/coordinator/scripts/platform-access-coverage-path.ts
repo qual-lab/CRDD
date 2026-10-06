@@ -40,6 +40,12 @@ export type CoverageRunRoot = Readonly<{
   coverageIdentity: DirectoryIdentity;
   targetRoot: string;
   targetIdentity: DirectoryIdentity;
+  resultsRoot: string;
+  resultsIdentity: DirectoryIdentity;
+  boundaries: readonly Readonly<{
+    path: string;
+    identity: DirectoryIdentity;
+  }>[];
 }>;
 
 /**
@@ -120,9 +126,9 @@ function assertSameDirectory(
  *
  * @responsibility Coverage Run Rootの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
- * @input platformAccessCrateRoot: string
+ * @input platformAccessCrateRoot: string、resultsRoot: 検証済みRepository-local試験領域、repositoryRoot: 検証するRepository境界
  * @returns CoverageRunRootを返す。
- * @precondition 「platformAccessCrateRoot: string」がcreateCoverageRunRootの入力契約を満たす。
+ * @precondition crateとresultsRootが呼出し側で検証されたRepository内の通常Directoryである。
  * @postcondition createCoverageRunRootの責務を完了した結果だけを返す。
  * @effect createCoverageRunRootはFilesystemの読取りまたは書込みを実行する。
  * @failure createCoverageRunRootは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -133,7 +139,27 @@ function assertSameDirectory(
  */
 export function createCoverageRunRoot(
   platformAccessCrateRoot: string,
+  resultsRoot: string,
+  repositoryRoot: string,
 ): CoverageRunRoot {
+  const boundaries = [];
+  for (const directory of [platformAccessCrateRoot, resultsRoot]) {
+    const relative = path.relative(repositoryRoot, directory);
+    if (relative.startsWith("..") || path.isAbsolute(relative))
+      throw new Error("coverage directory outside repository");
+    let current = directory;
+    while (true) {
+      const identity = inspectRealDirectory(current);
+      if (identity.realPath !== current)
+        throw new Error("coverage ancestor alias");
+      boundaries.push(Object.freeze({ path: current, identity }));
+      if (current === repositoryRoot) break;
+      const parent = path.dirname(current);
+      if (parent === current)
+        throw new Error("coverage repository boundary unreachable");
+      current = parent;
+    }
+  }
   const crateIdentity = inspectRealDirectory(platformAccessCrateRoot);
   const targetRoot = path.join(platformAccessCrateRoot, "target");
   if (path.dirname(targetRoot) !== platformAccessCrateRoot) {
@@ -149,17 +175,23 @@ export function createCoverageRunRoot(
   if (path.dirname(targetIdentity.realPath) !== crateIdentity.realPath) {
     throw new Error("coverage target resolved outside the crate root");
   }
-  const coverageRoot = fs.mkdtempSync(path.join(targetRoot, "coverage-"));
+  const resultsIdentity = inspectRealDirectory(resultsRoot);
+  const coverageRoot = fs.mkdtempSync(
+    path.join(resultsRoot, "native-coverage-"),
+  );
   assertSameDirectory(targetRoot, targetIdentity);
   const coverageIdentity = inspectRealDirectory(coverageRoot);
-  if (path.dirname(coverageIdentity.realPath) !== targetIdentity.realPath) {
-    throw new Error("coverage run directory resolved outside the target root");
+  if (path.dirname(coverageIdentity.realPath) !== resultsIdentity.realPath) {
+    throw new Error("coverage run directory resolved outside the results root");
   }
   return Object.freeze({
     coverageRoot,
     coverageIdentity,
     targetRoot,
     targetIdentity,
+    resultsRoot,
+    resultsIdentity,
+    boundaries: Object.freeze(boundaries),
   });
 }
 
@@ -180,14 +212,17 @@ export function createCoverageRunRoot(
  * @concurrency N/A: assertCoverageRunRootは共有非同期状態を持たない同期処理である。
  */
 export function assertCoverageRunRoot(runRoot: CoverageRunRoot): void {
+  for (const boundary of runRoot.boundaries)
+    assertSameDirectory(boundary.path, boundary.identity);
   assertSameDirectory(runRoot.targetRoot, runRoot.targetIdentity);
+  assertSameDirectory(runRoot.resultsRoot, runRoot.resultsIdentity);
   assertSameDirectory(runRoot.coverageRoot, runRoot.coverageIdentity);
   if (
     path.dirname(runRoot.coverageIdentity.realPath) !==
-    runRoot.targetIdentity.realPath
+    runRoot.resultsIdentity.realPath
   ) {
     throw new Error(
-      "coverage run directory is no longer a direct target child",
+      "coverage run directory is no longer a direct results child",
     );
   }
 }

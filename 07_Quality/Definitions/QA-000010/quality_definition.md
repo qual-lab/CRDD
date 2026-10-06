@@ -56,7 +56,7 @@ Quality ID: `QA-000010`
 | 条件区分 | 適用 | 対応Local Item | 判断理由 |
 |---|---|---|---|
 | 正常 | Required | AIT-IT-001 | 通常の成立経路を独立して確認する。 |
-| 境界 | Required | AIT-ST-004、AIT-UT-005、AIT-UAT-006、AIT-IT-007、AIT-IT-009、AIT-UT-011、AIT-UT-012、AIT-IT-013、AIT-IT-014 | 値、Authority、情報、責務または利用者判断の境界を確認する。 |
+| 境界 | Required | AIT-ST-004、AIT-UT-005、AIT-UAT-006、AIT-IT-007、AIT-IT-009、AIT-UT-011、AIT-UT-012、AIT-IT-013、AIT-IT-014、AIT-IT-015 | 値、Authority、情報、責務または利用者判断の境界を確認する。 |
 | 準正常 | Required | AIT-IT-003 | 継続可能な分岐、保留、観測不能または診断状態を成功へ畳まない。 |
 | 異常 | Required | AIT-IT-002、AIT-IT-008 | 不正入力、故障または拒否経路を通常成功へ畳まない。 |
 | 回復 | Required | AIT-ST-010 | 失敗・取消後に同じIdentityと義務で安全に再入場できることを確認する。 |
@@ -80,6 +80,14 @@ Quality ID: `QA-000010`
 | `AIT-IT-013` | 境界 | IT | Signed Promotion Boundary | Signer→Staging→Manifest配置 | Adjacent 1 Block | 固定Snapshot、Root差、対象欠落、配置競合 | 署名結果を同じSnapshotのStagingへ配置する | Snapshot、署名、配置対象、競合、結果を記録する | 別Snapshotを混ぜず全対象が揃う場合だけ配置結果を返す | Snapshot、対象集合、配置結果、判定 | 部分配置0または同一Identityの回復義務 | Automated |
 | `AIT-IT-014` | 境界 | IT | Runtime Trust Policy | Artifact観測→Deployment Policy→Authority Gate | Direct Boundary | 同じArtifactに異なるDeployment Owner Policy、失効・未知条件 | Policyを評価しRuntime Authority可否を返す | Artifact Identity、Policy、判定、Authority発行を記録する | Qual-Lab固定許可を使わずDeployment OwnerのPolicyだけを適用する | 入力、Policy、結果、Authority、判定 | 拒否時Authority 0 | Automated |
 
+### 配布担当者の固定端末入口
+
+| Local ID | 条件区分 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測 | Oracle | Evidence | 終了後条件 | 実行形態 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `AIT-IT-015` | 境界 | IT | Terminal／Signing Entry | 固定端末入口→既存署名Command→画面保持 | Direct Boundary | 正常／未知／重複引数、期限／期限なし、TTY／非TTY、正常／失敗Command、EOF／取消 | 非秘密の固定入力でCommandと終了待ちを実行する | 搬送引数、単一UTC、Command呼出し回数、Reader接続順序、終了Code、Listener回収を観測する | 非TTY・不正入力はCommand呼出し0。秘密入力中は補助Readerなし。終了後だけ画面保持し、待機失敗が署名結果を上書きしない | 固定改訂版、非秘密入力、順序、Code、回収判定。秘密・実署名は試験に使用しない | Reader／Listener残存0、自動再試行0 | Automated |
+
+直接の導出元は[Coordinator詳細設計§9](../../../06_Architecture/Details/coordinator/01_Architecture.md#9-署名済み配布物)の配布用端末境界である。[ARCH-000004](../../../06_Architecture/Definitions/ARCH-000004/architecture_definition.md)はCoordinator領域への追跡参照であり、Project Runtimeの状態・Authorityを端末補助へ移すものではない。既存`AIT-IT-008`の秘密Bufferおよび`AIT-IT-009`のSigner結果責務を再定義しない。実Windows端末の表示確認と正式署名は、この非秘密ITの合格から推定しない。
+
 ## Semantic Coverage Pilot
 
 この表はQuality Local Itemが検証する設計上の意味だけを正方向で宣言する。逆方向の一覧は生成し、本文の類似表現から推測しない。
@@ -91,6 +99,19 @@ Quality ID: `QA-000010`
 ## 5. 署名入口とEvidence
 
 秘密入力前に非秘密の全検査を実行し、失敗時は鍵読取り、署名、配置およびAuthority発行を行わない。Evidenceは署名値や鍵を保持せず、検証した軸、対象Identity／Hash、Policy判定、非発行または後続Gateへの引き渡しを保持する。
+
+### 署名範囲縮小時の既存項目への適用
+
+[Coordinator詳細設計の変更目標](../../../06_Architecture/Details/coordinator/01_Architecture.md#署名範囲の縮小--採用済みの変更目標実装未完了)では、署名対象を固定Git版のRuntime実行集合とNativeへ限定する。以下は既存項目の具体的な反例・観測条件であり、新しいLocal Itemや実署名の合格を追加するものではない。
+
+| 既存項目 | 確認する条件 | 合格を推定してはならない範囲 |
+|---|---|---|
+| `AIT-IT-002` | Runtime、Policy、Native、Git由来またはV5／V6形式の不一致を秘密入力前に拒否する。文書だけの変更をRuntime改変として扱わない。 | 署名値が存在することから現在のRuntime Authority発行を推定しない。 |
+| `AIT-IT-003` | Root、検証材料または出所が観測不能なら、明示的な不存在・一致へ丸めず停止する。 | 観測できなかった検証材料を空集合や正常として扱わない。 |
+| `AIT-IT-013` | 最小準備の前後で選択集合・固定Commit／Tree・内容・Nativeが一致する。呼出し側が開始前に保持した両識別子を同値で搬送し、初回返却前中断でも既存Ownerのexact参照を再構成できる。不正・欠損入力は作成前に拒否し、配置競合と未確認終了では同じ回復参照を保持する。 | 準備と清掃の局所成功だけから署名・昇格全体を合格としない。 |
+| `AIT-ST-010` | 同じ操作Ownerで準備、対話署名、署名済み入口からの昇格、利用終了と清掃までを確認する。昇格未完了の唯一の署名結果を先に消さない。 | 非秘密の模擬Commandから実署名・本番昇格・正式Evidenceを推定しない。 |
+
+最小準備の試験は`AIT-IT-013`の配置前部分境界である。Signer結果の責務を所有する`AIT-IT-009`や、候補採否を所有する他のQuality項目へ流用しない。旧V5 Manifestを現在V6の正常入力に使う試験は前提の移行が必要であり、判定を緩めて正常化しない。
 
 ## 追加試験種別の適用
 

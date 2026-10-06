@@ -14,7 +14,157 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
+
+import {
+  gitFixedSnapshotAdapter,
+  readFixedSnapshotFile,
+  verifyRepositoryRoot,
+} from "../../../version-control/src/index.ts";
+
+/**
+ * 固定Snapshotの既定上限と用途限定の明示上限を検証する。
+ * @responsibility 旧Consumerの64KiB既定と明示64MiB境界の両方を反証する。
+ * @trace RFD-IT-012
+ * @precondition Repository-localの所有fixtureだけを使用する。
+ * @stimulus 同じ固定Blobを省略・明示上限・不正上限で要求する。
+ * @observation byte数、返却拒否、getter不実行、Port引数搬送を観測する。
+ * @oracle 既定を拡張せず、明示上限内だけ読み取り、上限外と不正入力はnull。
+ * @cleanup exact所有Rootを確認して回収する。
+ * @boundary RFD-IT-012=Direct Boundary: Fixed Snapshot Port→Git object Reader
+ */
+test("固定Snapshotは既定64KiBを保ち明示64MiBまでの読取上限だけを受理する", (t) => {
+  const repository = path.resolve(
+    fileURLToPath(new URL("../../../../", import.meta.url)),
+  );
+  const testsRoot = path.join(repository, ".crdd", "tests");
+  fs.mkdirSync(testsRoot, { recursive: true });
+  assert.equal(fs.realpathSync.native(testsRoot), testsRoot);
+  const root = fs.mkdtempSync(path.join(testsRoot, "git-read-bound-"));
+  const commonDirectory = path.join(root, ".git");
+  fs.mkdirSync(path.join(commonDirectory, "objects"), { recursive: true });
+  fs.mkdirSync(path.join(commonDirectory, "refs", "heads"), {
+    recursive: true,
+  });
+  fs.writeFileSync(
+    path.join(commonDirectory, "config"),
+    "[core]\nrepositoryformatversion = 0\nbare = false\n",
+  );
+  fs.writeFileSync(
+    path.join(commonDirectory, "HEAD"),
+    "ref: refs/heads/fixture\n",
+  );
+  t.after(() => {
+    assert.equal(path.dirname(root), testsRoot);
+    assert.equal(fs.realpathSync.native(root), root);
+    fs.rmSync(root, { recursive: true, force: true });
+    assert.equal(fs.existsSync(root), false);
+  });
+  const entries = [65_536, 65_537, 64 * 1024 * 1024].map((size) => {
+    const oid = writeObject(commonDirectory, "blob", Buffer.alloc(size, 0x61));
+    return treeEntry("100644", `input-${size}.bin`, oid);
+  });
+  const tree = writeObject(commonDirectory, "tree", Buffer.concat(entries));
+  const revision = writeObject(
+    commonDirectory,
+    "commit",
+    Buffer.from(
+      `tree ${tree}\nauthor T <t@example.invalid> 0 +0000\ncommitter T <t@example.invalid> 0 +0000\n\nfixture\n`,
+    ),
+  );
+  fs.writeFileSync(
+    path.join(commonDirectory, "refs", "heads", "fixture"),
+    `${revision}\n`,
+  );
+  const base = { commonDirectory, revision, relativePath: "input-65537.bin" };
+  assert.equal(
+    readGitCommitFileCandidate({ ...base, relativePath: "input-65536.bin" })
+      ?.bytes.length,
+    65_536,
+  );
+  assert.equal(readGitCommitFileCandidate(base), null);
+  assert.equal(
+    readGitCommitFileCandidate({ ...base, maximumBytes: 65_537 })?.bytes.length,
+    65_537,
+  );
+  assert.equal(
+    readGitCommitFileCandidate({ ...base, maximumBytes: 65_536 }),
+    null,
+  );
+  assert.equal(
+    readGitCommitFileCandidate({
+      ...base,
+      relativePath: "input-67108864.bin",
+      maximumBytes: 64 * 1024 * 1024,
+    })?.bytes.length,
+    64 * 1024 * 1024,
+  );
+  assert.equal(
+    readGitCommitFileCandidate({
+      ...base,
+      relativePath: "input-67108864.bin",
+      maximumBytes: 64 * 1024 * 1024 - 1,
+    }),
+    null,
+  );
+  for (const maximumBytes of [
+    0,
+    -1,
+    0.5,
+    NaN,
+    Infinity,
+    "65537",
+    {},
+    64 * 1024 * 1024 + 1,
+  ])
+    assert.equal(readGitCommitFileCandidate({ ...base, maximumBytes }), null);
+  assert.equal(
+    readGitCommitFileCandidate({ ...base, maximumBytes: 65_537, extra: true }),
+    null,
+  );
+  let getterCalls = 0;
+  const accessor = Object.defineProperty({ ...base }, "maximumBytes", {
+    get() {
+      getterCalls += 1;
+      return 65_537;
+    },
+  });
+  assert.equal(readGitCommitFileCandidate(accessor), null);
+  assert.equal(getterCalls, 0);
+  const verified = verifyRepositoryRoot(root);
+  assert.equal(verified.status, "completed");
+  if (verified.status !== "completed") return;
+  assert.equal(
+    readFixedSnapshotFile(
+      verified.capability,
+      revision,
+      base.relativePath,
+      gitFixedSnapshotAdapter,
+    ),
+    null,
+  );
+  assert.equal(
+    readFixedSnapshotFile(
+      verified.capability,
+      revision,
+      base.relativePath,
+      gitFixedSnapshotAdapter,
+      65_537,
+    )?.bytes.length,
+    65_537,
+  );
+  assert.equal(
+    readFixedSnapshotFile(
+      verified.capability,
+      revision,
+      base.relativePath,
+      gitFixedSnapshotAdapter,
+      Infinity,
+    ),
+    null,
+  );
+});
 
 import {
   describeGitObjectReaderContract,

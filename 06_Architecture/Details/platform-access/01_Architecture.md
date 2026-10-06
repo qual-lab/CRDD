@@ -75,6 +75,8 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 
 ## 2. 成果物と依存
 
+NativeのBuild指定と出力取得は[コーディング規約のNativeビルド契約](../../99_Coding_Standards.md#native-build-output)を参照する。対象環境付きの成果物を取得し、Cargo自身の無印補助出力とCRDDが利用する成果物を区別する。実行前確認は[Workflow](../../../19_Workflows/01_Coordinator_Runtime.md#native-build-output)が所有する。
+
 ### OSディレクトリの初期取得
 
 Windows環境生成はNodeの診断レポートを使用せず、同梱Nativeの`--system-windows-directory`から`GetSystemWindowsDirectoryW()`の結果を取得する。これは読取り専用の初期取得であり、通常Task・RecoveryのAuthorityを発行しない。
@@ -134,10 +136,12 @@ Coordinator側で再検証 → 診断／回復結果
 |---|---|---|
 | 受付・応答形式 | `src/main.rs`、`src/protocol.rs` | mode選択、要求形式、Root／Home系応答の符号化 |
 | Windows観測 | `src/windows.rs` | OS主体、ACL、Known Folder、Filesystem実体と限定初期化 |
-| Host保護の結合試験 | `tests/fixtures/windows_protection.rs` | `windows::protection_tests`の試験専用子module。自己生成対象の共有拒否・別Process観測だけを所有し、一般UTから分離する。ignored診断は既定実行せず、移動後の実境界結果は未確認 |
+| Host保護の結合試験 | `tests/fixtures/windows_protection.rs` | `windows::protection_tests`の試験専用子module。自己生成対象の共有拒否・別Process観測だけを所有し、一般UTから分離する。ignored試験は既定実行しない。正式Node入口がfresh runとCargo返却の一意なtest実行物を固定し、親と子は同じrun・実行物・期限を再確認する |
 | Docker操作 | `src/docker_repair.rs` | 用途別protocol、mutex、固定artifact、Process確認・限定操作 |
 | 発行元検証 | `src/docker_authenticode.rs` | 開いたDocker artifactのWindows署名・発行元検証 |
 | 停止CLIの子Process所有 | `src/windows_owned_child.rs` | 停止前生成、Jobへの割当、実行、有限待機、取消と終了観測 |
+
+Host保護試験の反復入口は`40_Develop/coordinator/scripts/verify-native-protection.ts`とする。Repository Rootから起動し、Buildは`40_Develop/platform-access/target/`を共有し、検証済みRoot直下の`.crdd/tests/native-protection-<UUID>/`へ一時対象・結果だけを保存する。任意Path、実行物またはcommandを引数で受け付けず、旧診断実行物のsuffixや先頭Fileから対象を選ばない。親Case一件、閉じたNative結果、両Workerの役割別終了、明示handle終了、Source／実行物不変とfixture不存在の全条件を共同評価する。中断・未知・失敗は成功へ畳まずrunを保持する。旧残存の回収、OS固定保存場所、署名Runtime、本番回復と他Native試験の成立は対象外である。
 
 再起動protocolのSourceが存在することは、署名済み配布物への収載、耐久記録との接続または実機E2E完了を意味しない。操作許可、Directory退避、Task復旧、再起動完了の総合判定はこのbinaryへ移さず、Coordinator側に保持する。Linux／macOSの実装経路はない。
 
@@ -150,6 +154,8 @@ Coordinator側で再検証 → 診断／回復結果
 RootやHomeの観測結果は、用途別Adapterが同じOperationのRepository、選択ユーザー、署名済み配布物およびRecovery状態と再結合して初めて利用できる。別Operationへ持ち回らない。
 
 ### 固定保存境界の私有観測
+
+自己生成namespace試験の反復Ownerは`40_Develop/coordinator/scripts/verify-native-terminal-namespace.ts`、残る終端fixtureの反復Ownerは`verify-native-terminal-fixtures.ts`である。固定Root・旧実行物名への依存を持たず、今回Cargoのtest実行物と検証済み`.crdd/tests/native-terminal-<UUID>/`を結合する。Native側もRepository、run名、直接child、非reparse祖先と実行物位置を確認する。namespaceの19拒否、対象の164拒否、保存・容量・現在候補・cold・rename・公開・disposition・既知fileの個別Oracleとcloseを保持する。Node／Nativeの排他互換は現在NodeのHashと検証workerへ結合する。結果保存と清掃の許可は試験の成功判定から独立して再評価し、失敗・中断・観測不能は保持する。歴史専用の旧Root読戻し・変更拒否診断は現在候補・cold・rename・公開の自己生成試験へ能力を対応付け、当時の失敗はGit履歴で保持する。実残存を改変して過去の正常成立を主張しない。実行手順は[Coordinator Workflow](../../../19_Workflows/01_Coordinator_Runtime.md)を参照する。
 
 **固定二childの実体と保護を読む部品であり、保存先の初期化や公開Recoveryではない。** 自己生成fixtureに加え、専用の確認入口とCoordinatorの用途限定AdapterをSource上で接続する。保護付き現在値の初回取得も実装したが、署名Runtimeへの有効化、回復Ownerからの実呼出しと記録保存は未接続である。
 

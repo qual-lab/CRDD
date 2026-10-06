@@ -189,6 +189,86 @@ fn probe_protection(handle: HANDLE, user: &[u8], system: &[u8]) -> Result<(), &'
     result
 }
 
+/// 親と子に共通の試験実行範囲を、新しいEffect前に確認する。
+///
+/// @responsibility 任意Pathや旧診断実行物を受理せず、Repository内の同じrunと実行物だけを使う。
+/// @trace ERB-IT-001
+/// @trace ERB-IT-002
+/// @precondition 正式Node入口がfresh runとCargo test実行物を固定している。
+/// @stimulus cwd、環境、run名、祖先Identityとcurrent_exeを再観測する。
+/// @observation 検証済みRepository、run親、run名と同じ実行物。
+/// @oracle 全条件一致だけを返し、不一致ではfixture作成・子起動前に停止する。
+/// @cleanup N/A: 読取り確認だけでhandleはprobe_identity内で明示終了する。
+/// @boundary Node環境→Native親／子→Repository-local tests領域。
+fn protection_fixture_context() -> Result<
+    (
+        std::path::PathBuf,
+        std::path::PathBuf,
+        String,
+        std::path::PathBuf,
+    ),
+    &'static str,
+> {
+    let repository = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(Path::parent)
+        .ok_or("fixture_repository_invalid")?
+        .to_path_buf();
+    let run = std::env::var("CRDD_NATIVE_PROTECTION_RUN").map_err(|_| "fixture_run_missing")?;
+    let uuid = run
+        .strip_prefix("native-protection-")
+        .ok_or("fixture_run_invalid")?;
+    if uuid.len() != 36
+        || !uuid.bytes().enumerate().all(|(i, c)| {
+            if [8, 13, 18, 23].contains(&i) {
+                c == b'-'
+            } else {
+                c.is_ascii_digit() || (b'a'..=b'f').contains(&c)
+            }
+        })
+    {
+        return Err("fixture_run_invalid");
+    }
+    let parent = repository.join(".crdd").join("tests").join(&run);
+    let declared = std::env::var_os("CRDD_NATIVE_PROTECTION_ROOT")
+        .map(std::path::PathBuf::from)
+        .ok_or("fixture_root_missing")?;
+    let executable = std::env::current_exe().map_err(|_| "worker_executable_mismatch")?;
+    let declared_exe = std::env::var_os("CRDD_NATIVE_PROTECTION_EXE")
+        .map(std::path::PathBuf::from)
+        .ok_or("worker_executable_mismatch")?;
+    if std::env::current_dir().ok().as_ref() != Some(&repository)
+        || declared != parent
+        || declared_exe != executable
+        || executable.parent()
+            != Some(
+                repository
+                    .join("40_Develop/platform-access/target/x86_64-pc-windows-msvc/debug/deps")
+                    .as_path(),
+            )
+        || std::env::var_os("TEMP").map(std::path::PathBuf::from) != Some(parent.join("tmp"))
+        || std::env::var_os("TMP").map(std::path::PathBuf::from) != Some(parent.join("tmp"))
+    {
+        return Err("fixture_context_mismatch");
+    }
+    for directory in [
+        &repository,
+        &repository.join("40_Develop"),
+        &repository.join("40_Develop/platform-access"),
+        &repository.join("40_Develop/platform-access/target"),
+        &repository.join("40_Develop/platform-access/target/x86_64-pc-windows-msvc"),
+        &repository.join("40_Develop/platform-access/target/x86_64-pc-windows-msvc/debug"),
+        &repository.join("40_Develop/platform-access/target/x86_64-pc-windows-msvc/debug/deps"),
+        &repository.join(".crdd"),
+        &repository.join(".crdd").join("tests"),
+        &parent,
+        &parent.join("tmp"),
+    ] {
+        probe_identity(directory)?;
+    }
+    Ok((repository, parent, run, executable))
+}
+
 /// 固定Workerを一回起動し、役割別の完了receiptと同Process/Jobの終端を確認する。
 ///
 /// @responsibility 期待外exit、期限超過、起動・終端不明を成功にせず、再実行しない。
@@ -207,12 +287,7 @@ fn run_protection_probe_worker(role: &str, cutoff: u64) -> Result<(), &'static s
         "released" => 72,
         _ => return Err("worker_role_invalid"),
     };
-    let executable = Path::new(
-        "C:/project/CRDD/.crdd/verification/chg-000082-native-protection-261003/target/x86_64-pc-windows-msvc/debug/deps/crdd_platform_access-7057a9b9f47b61a1.exe",
-    );
-    if std::env::current_exe().ok().as_deref() != Some(executable) {
-        return Err("worker_executable_mismatch");
-    }
+    let (repository, parent, run, executable) = protection_fixture_context()?;
     // SAFETY: GetTickCount64 is a process-independent monotonic Windows uptime observation.
     if unsafe { windows_sys::Win32::System::SystemInformation::GetTickCount64() } >= cutoff {
         return Err("worker_start_cutoff");
@@ -222,14 +297,18 @@ fn run_protection_probe_worker(role: &str, cutoff: u64) -> Result<(), &'static s
         executable.display()
     );
     let environment = format!(
-        "CRDD_NATIVE_PROTECTION_CUTOFF={cutoff}\0CRDD_NATIVE_PROTECTION_ROLE={role}\0CRDD_NATIVE_PROTECTION_RUN=terminal-protection.261003.5b190b8d.r5\0TEMP=C:/project/CRDD/.crdd/verification/chg-000082-native-protection-261003/tmp\0TMP=C:/project/CRDD/.crdd/verification/chg-000082-native-protection-261003/tmp\0\0"
+        "CRDD_NATIVE_PROTECTION_CUTOFF={cutoff}\0CRDD_NATIVE_PROTECTION_EXE={}\0CRDD_NATIVE_PROTECTION_ROLE={role}\0CRDD_NATIVE_PROTECTION_ROOT={}\0CRDD_NATIVE_PROTECTION_RUN={run}\0TEMP={}\0TMP={}\0\0",
+        executable.display(),
+        parent.display(),
+        parent.join("tmp").display(),
+        parent.join("tmp").display()
     );
     let mut environment: Vec<u16> = environment.encode_utf16().collect();
     let child = OwnedChild::spawn(
-        executable,
+        &executable,
         std::ffi::OsStr::new(&command),
         &mut environment,
-        Path::new("C:/project/CRDD"),
+        &repository,
     )
     .map_err(
         |failure| match (failure.process_created, failure.cleanup_confirmed) {
@@ -271,14 +350,7 @@ fn run_protection_probe_worker(role: &str, cutoff: u64) -> Result<(), &'static s
 #[test]
 #[ignore = "Fixed child of the repository-local protection fixture only"]
 fn terminal_protection_fixture_worker() {
-    assert_eq!(
-        std::env::var("CRDD_NATIVE_PROTECTION_RUN").as_deref(),
-        Ok("terminal-protection.261003.5b190b8d.r5")
-    );
-    assert_eq!(
-        std::env::current_dir().unwrap(),
-        Path::new("C:/project/CRDD")
-    );
+    let (_, parent, _, _) = protection_fixture_context().unwrap();
     let role = std::env::var("CRDD_NATIVE_PROTECTION_ROLE").unwrap();
     assert!(role == "held" || role == "released");
     let cutoff: u64 = std::env::var("CRDD_NATIVE_PROTECTION_CUTOFF")
@@ -291,8 +363,7 @@ fn terminal_protection_fixture_worker() {
         assert!(now < cutoff && cutoff - now <= 10_000);
     };
     check_cutoff();
-    let parent =
-        Path::new("C:/project/CRDD/.crdd/verification/chg-000082-native-protection-261003");
+    let parent = parent.as_path();
     let root = parent.join("fixture");
     let root_next = parent.join("fixture-renamed");
     let file_path = root.join("record");
@@ -397,17 +468,8 @@ fn terminal_protection_fixture_worker() {
 #[test]
 #[ignore = "Fixed repository-local diagnostic; invoke through its Node owner only"]
 fn terminal_protection_fixture_observes_handle_sharing() {
-    let expected_run = "terminal-protection.261003.5b190b8d.r5";
-    assert_eq!(
-        std::env::var("CRDD_NATIVE_PROTECTION_RUN").as_deref(),
-        Ok(expected_run)
-    );
-    assert_eq!(
-        std::env::current_dir().ok().as_deref(),
-        Some(Path::new("C:/project/CRDD"))
-    );
-    let parent =
-        Path::new("C:/project/CRDD/.crdd/verification/chg-000082-native-protection-261003");
+    let (_, parent, expected_run, _) = protection_fixture_context().unwrap();
+    let parent = parent.as_path();
     let root = parent.join("fixture");
     let root_next = parent.join("fixture-renamed");
     let child = root.join("record");

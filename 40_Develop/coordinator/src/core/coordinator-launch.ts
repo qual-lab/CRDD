@@ -7,9 +7,9 @@
 import { isSupportedCoordinatorNodeRuntime } from "./node-runtime-version.ts";
 
 export const COORDINATOR_LAUNCH_ENTRIES = Object.freeze({
-  task: "./coordinator.ts",
-  interactive: "./coordinator.ts",
-  automation: "./coordinator.ts",
+  task: "../src/core/coordinator-command.ts",
+  interactive: "../src/core/coordinator-command.ts",
+  automation: "../src/core/coordinator-command.ts",
   "verify-routes": "../scripts/verify-signed-route-matrix.ts",
   "verify-recovery": "../scripts/verify-signed-recovery-matrix.ts",
   "sign-release": "../scripts/sign-release-manifest.ts",

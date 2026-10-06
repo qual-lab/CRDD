@@ -4201,6 +4201,65 @@ mod tests {
         FILE_DISPOSITION_INFO, FileDispositionInfo, SetFileInformationByHandle,
     };
 
+    /// 自己生成試験のOwnerが渡したRepository-local実領域と実行物を照合する。
+    ///
+    /// @responsibility 書込み前にcwd、Git境界、UUID run、祖先と実行物位置を固定する。
+    /// @trace ERB-IT-001
+    /// @trace ERB-IT-002
+    /// @trace ERB-IT-003
+    /// @precondition Ownerが実Directoryのfresh runと通常target試験実行物を用意する。
+    /// @stimulus CRDD_TERMINAL_FIXTURE_ROOTとcwd/current_exeを読取る。
+    /// @observation Git marker、各祖先の種別/reparse属性、UUIDと実行物位置。
+    /// @oracle 検証済みcwd直下の.crdd/tests/native-terminal-UUIDだけを返す。
+    /// @cleanup 読取りだけで作成・変更・削除しない。
+    /// @boundary cfg(test)の自己生成試験専用。歴史診断とproduction入口へ適用しない。
+    fn terminal_fixture_context() -> (PathBuf, PathBuf, PathBuf) {
+        use std::os::windows::fs::MetadataExt;
+        let repository = std::env::current_dir().unwrap();
+        let git_marker = fs::symlink_metadata(repository.join(".git")).unwrap();
+        assert!(git_marker.is_dir() || git_marker.is_file());
+        assert_eq!(git_marker.file_attributes() & 0x400, 0);
+        let run = PathBuf::from(
+            std::env::var("CRDD_TERMINAL_FIXTURE_ROOT").expect("fixture run root required"),
+        );
+        assert_eq!(run.parent().unwrap(), repository.join(".crdd/tests"));
+        let name = run.file_name().unwrap().to_str().unwrap();
+        let uuid = name.strip_prefix("native-terminal-").unwrap();
+        assert_eq!(uuid.len(), 36);
+        assert!(uuid.bytes().enumerate().all(|(index, byte)| {
+            if [8, 13, 18, 23].contains(&index) {
+                byte == b'-'
+            } else {
+                byte.is_ascii_hexdigit()
+            }
+        }));
+        for ancestor in run.ancestors() {
+            let metadata = fs::symlink_metadata(ancestor).unwrap();
+            assert!(metadata.is_dir());
+            assert_eq!(metadata.file_attributes() & 0x400, 0);
+            if ancestor != repository && ancestor.starts_with(&repository) {
+                assert!(matches!(
+                    fs::symlink_metadata(ancestor.join(".git")),
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound
+                ));
+            }
+        }
+        let binary = std::env::current_exe().unwrap();
+        assert_eq!(
+            binary.parent().unwrap(),
+            repository.join("40_Develop/platform-access/target/x86_64-pc-windows-msvc/debug/deps")
+        );
+        for ancestor in binary.parent().unwrap().ancestors() {
+            let metadata = fs::symlink_metadata(ancestor).unwrap();
+            assert!(metadata.is_dir());
+            assert_eq!(metadata.file_attributes() & 0x400, 0);
+        }
+        let metadata = fs::symlink_metadata(&binary).unwrap();
+        assert!(metadata.is_file());
+        assert_eq!(metadata.file_attributes() & 0x400, 0);
+        (repository, run, binary)
+    }
+
     /// 自己生成した旧世代名だけでKernel排他の競合と終端を実測する。
     ///
     /// @responsibility 排他取得を実領域の非使用や処置Authorityへ昇格しない。
@@ -4524,17 +4583,44 @@ mod tests {
     #[ignore = "Fixed namespace fixture; explicit Node owner required"]
     fn terminal_namespace_fixture() {
         const RUN: &str = "namespace.261003.b17f28d1.r2";
-        const ROOT: &str =
-            "C:/project/CRDD/.crdd/verification/chg-000082-native-capacity-261003/namespace-r2";
         assert_eq!(
             std::env::var("CRDD_TERMINAL_NAMESPACE_RUN").as_deref(),
             Ok(RUN)
         );
-        assert_eq!(
-            std::env::current_dir().unwrap(),
-            Path::new("C:/project/CRDD")
+        let repository = std::env::current_dir().unwrap();
+        assert!(repository.join(".git").exists());
+        let root_path = std::path::PathBuf::from(
+            std::env::var("CRDD_TERMINAL_NAMESPACE_ROOT").expect("fixture root required"),
         );
-        let root = Path::new(ROOT);
+        let parent = root_path.parent().unwrap();
+        assert_eq!(root_path.file_name().unwrap(), "namespace-r2");
+        assert_eq!(parent.parent().unwrap(), repository.join(".crdd/tests"));
+        let name = parent.file_name().unwrap().to_str().unwrap();
+        let suffix = name.strip_prefix("native-terminal-").unwrap();
+        assert_eq!(suffix.len(), 36);
+        assert!(suffix.bytes().enumerate().all(|(index, byte)| {
+            if [8, 13, 18, 23].contains(&index) {
+                byte == b'-'
+            } else {
+                byte.is_ascii_hexdigit()
+            }
+        }));
+        use std::os::windows::fs::MetadataExt;
+        for ancestor in [
+            repository.clone(),
+            repository.join(".crdd"),
+            repository.join(".crdd/tests"),
+            parent.to_path_buf(),
+        ] {
+            let metadata = fs::symlink_metadata(ancestor).unwrap();
+            assert!(metadata.is_dir());
+            assert_eq!(metadata.file_attributes() & 0x400, 0);
+        }
+        assert_eq!(
+            std::env::current_exe().unwrap().parent().unwrap(),
+            repository.join("40_Develop/platform-access/target/x86_64-pc-windows-msvc/debug/deps")
+        );
+        let root = root_path.as_path();
         let recovery = root.join("crdd-coordinator-recovery-v1");
         let terminal = recovery.join("terminal-v1");
         let paths = [root.to_path_buf(), recovery, terminal];
@@ -4792,7 +4878,7 @@ mod tests {
     /// @trace ERB-IT-001
     /// @trace ERB-IT-002
     /// @trace ERB-IT-003
-    /// @precondition 固定Node Ownerと新しいrepo-local親。通常利用者Tokenで一回実行する。
+    /// @precondition 固定Node Ownerと新しいrepo-local親。TEMP/TMPをtarget-r3へ結び、通常利用者Tokenで一回実行する。
     /// @stimulus 正常十一観測、全位置五field/属性、Hash/利用者、八位置欠落/種別、marker長境界。
     /// @observation 独立Identity・元bytes Hash、八個別close、部分取得数と失敗位置。
     /// @oracle 独立Knownだけ一致し、反例の取得済み全handleを明示終了する。
@@ -4802,18 +4888,23 @@ mod tests {
     #[ignore = "Fixed target fixture; explicit Node owner required"]
     fn terminal_target_fixture() {
         const RUN: &str = "target.261004.9da03fb1.r3";
-        const PARENT: &str =
-            "C:/project/CRDD/.crdd/verification/chg-000082-native-capacity-261003/target-r3";
         const ROOT_NAME: &str = "crdd-coordinator-doctor-fixture_9da03fb1";
         assert_eq!(
             std::env::var("CRDD_TERMINAL_TARGET_RUN").as_deref(),
             Ok(RUN)
         );
+        let (_, run_root, _) = terminal_fixture_context();
+        let parent_path = run_root.join("target-r3");
+        let parent = parent_path.as_path();
+        let mut temporary_buffer = [0_u16; 4097];
+        // SAFETY: bounded writable buffer; validate the real namespace transport before fixture Effect.
+        let temporary_length =
+            unsafe { GetTempPathW(temporary_buffer.len() as u32, temporary_buffer.as_mut_ptr()) };
         assert_eq!(
-            std::env::current_dir().unwrap(),
-            Path::new("C:/project/CRDD")
+            decode_terminal_temporary_parent(&temporary_buffer, temporary_length).unwrap(),
+            parent,
+            "fixture temporary namespace must match target-r3"
         );
-        let parent = Path::new(PARENT);
         let recovery = parent.join("crdd-coordinator-recovery-v1");
         let terminal = recovery.join("terminal-v1");
         let root = parent.join(ROOT_NAME);
@@ -5422,14 +5513,10 @@ mod tests {
     #[ignore = "Fixed save fixture; explicit Node owner required"]
     fn terminal_save_fixture() {
         const RUN: &str = "save.261003.c8d1092a.r1";
-        const ROOT: &str =
-            "C:/project/CRDD/.crdd/verification/chg-000082-native-capacity-261003/save-r1";
         assert_eq!(std::env::var("CRDD_TERMINAL_SAVE_RUN").as_deref(), Ok(RUN));
-        assert_eq!(
-            std::env::current_dir().unwrap(),
-            Path::new("C:/project/CRDD")
-        );
-        let root = Path::new(ROOT);
+        let (_, run_root, _) = terminal_fixture_context();
+        let root_path = run_root.join("save-r1");
+        let root = root_path.as_path();
         let mut phase = "preflight";
         let mut closes = Vec::new();
         let mut saves = Vec::new();
@@ -5472,11 +5559,12 @@ mod tests {
             let (finished_tx, finished_rx) = std::sync::mpsc::channel();
             SAVE_PAUSE.set(Some((started_tx, finished_rx)));
             let competing_ref = refs[7].clone();
+            let worker_root = root.to_path_buf();
             let worker = std::thread::spawn(move || {
                 started_rx
                     .recv_timeout(std::time::Duration::from_secs(4))
                     .unwrap();
-                let mut other = TerminalDirectory::open(Path::new(ROOT), identity).unwrap();
+                let mut other = TerminalDirectory::open(&worker_root, identity).unwrap();
                 let failure = save_terminal_record(&other, &competing_ref, b"q").unwrap_err();
                 let closed = other.close();
                 finished_tx.send(()).unwrap();
@@ -5736,8 +5824,6 @@ mod tests {
     const COLLISION_REFERENCE: &str = "host-terminal.219b9b53-f1e6-4e78-89ab-93d4a9ec3002";
     const UNUSED_REFERENCE: &str = "host-terminal.219b9b53-f1e6-4e78-89ab-93d4a9ec3003";
     const RUN: &str = "publication.261003.219b9b53.r4";
-    const PARENT: &str =
-        "C:/project/CRDD/.crdd/verification/chg-000082-terminal-publication-261003";
 
     const COLD_RUN: &str = "cold.261003.219b9b53.r1";
     const COLD_PREPARED: &str = "host-terminal.219b9b53-f1e6-4e78-89ab-93d4a9ec3004";
@@ -5745,7 +5831,6 @@ mod tests {
     const COLD_COLLISION: &str = "host-terminal.219b9b53-f1e6-4e78-89ab-93d4a9ec3006";
     const COLD_DIRECTORY: &str = "host-terminal.219b9b53-f1e6-4e78-89ab-93d4a9ec3007";
     const COLD_ABSENT: &str = "host-terminal.219b9b53-f1e6-4e78-89ab-93d4a9ec3008";
-    const COLD_BINARY: &str = "C:/project/CRDD/.crdd/verification/chg-000082-terminal-publication-261003/target/x86_64-pc-windows-msvc/debug/deps/crdd_platform_access-d760b2b78c72e216.exe";
 
     std::thread_local! {
         static PERMISSION_PAUSE: std::cell::RefCell<Option<(
@@ -5789,26 +5874,23 @@ mod tests {
     #[test]
     #[ignore = "Fixed capacity fixture; explicit Node owner required"]
     fn terminal_capacity_fixture() {
-        let (run, root_path, permission_mode) = match std::env::var("CRDD_TERMINAL_CAPACITY_RUN")
-            .as_deref()
-        {
-            Ok("capacity.261003.c8d1092a.r3-before") => (
-                "capacity.261003.c8d1092a.r3-before",
-                "C:/project/CRDD/.crdd/verification/chg-000082-native-capacity-261003/capacity-r3-before",
-                "before",
-            ),
-            Ok("capacity.261003.c8d1092a.r3-after") => (
-                "capacity.261003.c8d1092a.r3-after",
-                "C:/project/CRDD/.crdd/verification/chg-000082-native-capacity-261003/capacity-r3-after",
-                "after",
-            ),
-            _ => panic!("fixture_run_invalid"),
-        };
-        assert_eq!(
-            std::env::current_dir().unwrap(),
-            Path::new("C:/project/CRDD")
-        );
-        let root = Path::new(root_path);
+        let (run, root_path, permission_mode) =
+            match std::env::var("CRDD_TERMINAL_CAPACITY_RUN").as_deref() {
+                Ok("capacity.261003.c8d1092a.r3-before") => (
+                    "capacity.261003.c8d1092a.r3-before",
+                    "capacity-r3-before",
+                    "before",
+                ),
+                Ok("capacity.261003.c8d1092a.r3-after") => (
+                    "capacity.261003.c8d1092a.r3-after",
+                    "capacity-r3-after",
+                    "after",
+                ),
+                _ => panic!("fixture_run_invalid"),
+            };
+        let (_, run_root, _) = terminal_fixture_context();
+        let root_path = run_root.join(root_path);
+        let root = root_path.as_path();
         let mut phase = "preflight";
         let mut closes = Vec::new();
         let mut directory_created = false;
@@ -5855,9 +5937,9 @@ mod tests {
                 let recursive = with_terminal_capacity(&directory, || Ok(())).unwrap_err();
                 assert_eq!(recursive.reason, "terminal_capacity_recursive_acquisition");
                 assert!(!recursive.receipt.create_issued && !recursive.receipt.action_started);
+                let worker_root = root.to_path_buf();
                 let worker = std::thread::spawn(move || {
-                    let mut other =
-                        TerminalDirectory::open(Path::new(root_path), identity).unwrap();
+                    let mut other = TerminalDirectory::open(&worker_root, identity).unwrap();
                     let failure = with_terminal_capacity(&other, || Ok(())).unwrap_err();
                     assert_eq!(failure.reason, "terminal_capacity_timeout");
                     assert_eq!(failure.receipt.wait_result, Some(WAIT_TIMEOUT));
@@ -6232,11 +6314,8 @@ mod tests {
             std::env::var("CRDD_TERMINAL_CURRENT_RUN").as_deref(),
             Ok(RUN)
         );
-        assert_eq!(
-            std::env::current_dir().unwrap(),
-            Path::new("C:/project/CRDD")
-        );
-        let root = Path::new(PARENT).join("fixture-current-r1");
+        let (_, parent_path, _) = terminal_fixture_context();
+        let root = parent_path.join("fixture-current-r1");
         let bytes = vec![b'c'; MAX_RECORD_BYTES];
         let mut phase = "preflight";
         let mut closes = Vec::new();
@@ -6248,7 +6327,7 @@ mod tests {
         let mut replacement_distinguished = false;
         let mut fixture_rename_issued = false;
         let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            let parent = Path::new(PARENT);
+            let parent = parent_path.as_path();
             let parent_id = observe_fixture_identity(parent, &mut closes);
             assert_eq!(observe_terminal_presence(&root), Ok(false));
             phase = "tokens";
@@ -6563,24 +6642,28 @@ mod tests {
             "published" => 72,
             _ => panic!("cold_role_invalid"),
         };
-        assert_eq!(std::env::current_exe().unwrap(), Path::new(COLD_BINARY));
+        let (repository, parent, binary) = terminal_fixture_context();
         assert!(
             unsafe { windows_sys::Win32::System::SystemInformation::GetTickCount64() } < cutoff
         );
         let command = format!(
-            "\"{COLD_BINARY}\" --exact windows::terminal::tests::terminal_cold_fixture_worker --ignored --nocapture --test-threads=1"
+            "\"{}\" --exact windows::terminal::tests::terminal_cold_fixture_worker --ignored --nocapture --test-threads=1",
+            binary.display()
         );
         let environment = format!(
-            "CRDD_TERMINAL_COLD_RUN={COLD_RUN}\0CRDD_COLD_ROLE={role}\0CRDD_COLD_CUTOFF={cutoff}\0CRDD_COLD_ROOT_ID={}\0CRDD_COLD_RECORD_ID={}\0TEMP={PARENT}/tmp\0TMP={PARENT}/tmp\0\0",
+            "CRDD_TERMINAL_COLD_RUN={COLD_RUN}\0CRDD_TERMINAL_FIXTURE_ROOT={}\0CRDD_COLD_ROLE={role}\0CRDD_COLD_CUTOFF={cutoff}\0CRDD_COLD_ROOT_ID={}\0CRDD_COLD_RECORD_ID={}\0TEMP={}\0TMP={}\0\0",
+            parent.display(),
             cold_identity_text(root_id),
-            cold_identity_text(record_id)
+            cold_identity_text(record_id),
+            parent.join("tmp").display(),
+            parent.join("tmp").display()
         );
         let mut environment: Vec<u16> = environment.encode_utf16().collect();
         let child = match OwnedChild::spawn(
-            Path::new(COLD_BINARY),
+            &binary,
             std::ffi::OsStr::new(&command),
             &mut environment,
-            Path::new("C:/project/CRDD"),
+            &repository,
         ) {
             Ok(child) => child,
             Err(failure) => {
@@ -6628,18 +6711,14 @@ mod tests {
             std::env::var("CRDD_TERMINAL_COLD_RUN").as_deref(),
             Ok(COLD_RUN)
         );
-        assert_eq!(
-            std::env::current_dir().unwrap(),
-            Path::new("C:/project/CRDD")
-        );
-        assert_eq!(std::env::current_exe().unwrap(), Path::new(COLD_BINARY));
+        let (_, parent, _) = terminal_fixture_context();
         let role = std::env::var("CRDD_COLD_ROLE").unwrap();
         let cutoff: u64 = std::env::var("CRDD_COLD_CUTOFF").unwrap().parse().unwrap();
         let now = unsafe { windows_sys::Win32::System::SystemInformation::GetTickCount64() };
         assert!(now < cutoff && cutoff - now <= 10_000);
         let root_id = cold_identity_environment("CRDD_COLD_ROOT_ID");
         let record_id = cold_identity_environment("CRDD_COLD_RECORD_ID");
-        let root = Path::new(PARENT).join("fixture-cold-r1");
+        let root = parent.join("fixture-cold-r1");
         let directory = TerminalDirectory::open(&root, root_id).unwrap();
         let bytes = vec![b'y'; MAX_RECORD_BYTES];
         if role == "prepared" {
@@ -6708,11 +6787,8 @@ mod tests {
             std::env::var("CRDD_TERMINAL_COLD_RUN").as_deref(),
             Ok(COLD_RUN)
         );
-        assert_eq!(
-            std::env::current_dir().unwrap(),
-            Path::new("C:/project/CRDD")
-        );
-        let root = Path::new(PARENT).join("fixture-cold-r1");
+        let (_, parent_path, _) = terminal_fixture_context();
+        let root = parent_path.join("fixture-cold-r1");
         let mut phase = "preflight";
         let mut closes = Vec::new();
         let mut workers = Vec::new();
@@ -6725,7 +6801,7 @@ mod tests {
         let mut model_verified = false;
         let mut directory_rejected = false;
         let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            let parent = Path::new(PARENT);
+            let parent = parent_path.as_path();
             let parent_id = observe_fixture_identity(parent, &mut closes);
             phase = "fixture_absence";
             assert_eq!(observe_terminal_presence(&root), Ok(false));
@@ -7184,309 +7260,6 @@ mod tests {
         *os_error = None;
     }
 
-    /// 前回停止した自作fixtureを変更せず再読取りする。
-    ///
-    /// @responsibility 保存・公開後の現在観測と前回実行の失敗原因を区別する。
-    /// @trace ERB-IT-001
-    /// @trace ERB-IT-002
-    /// @precondition 固定run/cwdと既存自作fixtureだけ。元Identityの継承や削除許可は作らない。
-    /// @stimulus 親/三fileをread-onlyで開き、ACL/全既知bytes/二名の同じIdentityを読む。
-    /// @observation 固定理由、成功読取り件数、現在Identityの相関、checked-close。
-    /// @oracle 三件の現在読取りと全closeだけをobservedとし、前回の保持中保護や実Recoveryを主張しない。
-    /// @cleanup 観測handleを明示closeし、fixture名/内容を一切処置しない。
-    /// @boundary 固定Native診断→Windows read-only観測。旧三Root/Docker/Providerへ未接続。
-    #[test]
-    #[ignore = "Read-only diagnosis of the retained self-created fixture"]
-    fn terminal_retained_readback_fixture() {
-        assert_eq!(
-            std::env::var("CRDD_TERMINAL_PUBLICATION_RUN").as_deref(),
-            Ok("publication.261003.219b9b53.readback")
-        );
-        assert_eq!(
-            std::env::current_dir().unwrap(),
-            Path::new("C:/project/CRDD")
-        );
-        let root = Path::new(PARENT).join("fixture");
-        let mut directory = None;
-        let mut closed = true;
-        let mut count = 0;
-        let mut first = None;
-        let mut same_pair = false;
-        let mut pair_attributes = false;
-        let mut rows = Vec::new();
-        let observed = (|| {
-            let mut root_reader = open_terminal_handle(
-                &root,
-                FILE_READ_ATTRIBUTES,
-                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-            )?;
-            let root_id = terminal_identity(root_reader.0);
-            closed &= close_terminal_handle(&mut root_reader);
-            let guard = TerminalDirectory::open(&root, root_id?)?;
-            directory = Some(guard);
-            let guard = directory.as_ref().unwrap();
-            let (stage, public) = terminal_names(REFERENCE)?;
-            let (_, collision) = terminal_names(COLLISION_REFERENCE)?;
-            for (index, name) in [&stage, &public, &collision].into_iter().enumerate() {
-                let mut reader = open_terminal_handle(
-                    &root.join(name),
-                    FILE_GENERIC_READ | READ_CONTROL,
-                    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                )?;
-                let id_observation = terminal_identity(reader.0);
-                let protection = verify_terminal_protection(reader.0, &guard.user, &guard.system);
-                let bytes_observation = read_terminal_bytes(reader.0);
-                let id_packet = match id_observation.as_ref() {
-                    Ok(id) => format!(
-                        "[{}, {}, {}, {}, {}]",
-                        id.volume_serial_number,
-                        id.file_index_high,
-                        id.file_index_low,
-                        id.creation_time_low,
-                        id.creation_time_high
-                    ),
-                    Err(_) => "null".to_owned(),
-                };
-                let attributes = id_observation
-                    .as_ref()
-                    .map(|id| id.attributes.to_string())
-                    .unwrap_or_else(|_| "null".to_owned());
-                let readback = (|| {
-                    let id = id_observation?;
-                    if id.attributes & FILE_ATTRIBUTE_DIRECTORY != 0 {
-                        return Err("retained_not_file");
-                    }
-                    protection?;
-                    let bytes = bytes_observation?;
-                    if (index < 2 && bytes != vec![b'x'; MAX_RECORD_BYTES])
-                        || (index == 2 && bytes != b"prior")
-                    {
-                        return Err("retained_bytes_mismatch");
-                    }
-                    if index == 0 {
-                        first = Some(id);
-                    } else if index == 1 {
-                        pair_attributes = first.map(|prior: DirectoryIdentity| prior.attributes)
-                            == Some(id.attributes);
-                        same_pair = first.map(|prior| DirectoryIdentity {
-                            attributes: 0,
-                            ..prior
-                        }) == Some(DirectoryIdentity {
-                            attributes: 0,
-                            ..id
-                        });
-                        if !same_pair {
-                            return Err("retained_pair_identity_mismatch");
-                        }
-                    } else if first.map(|prior| DirectoryIdentity {
-                        attributes: 0,
-                        ..prior
-                    }) == Some(DirectoryIdentity {
-                        attributes: 0,
-                        ..id
-                    }) {
-                        return Err("retained_collision_identity_reused");
-                    }
-                    Ok(())
-                })();
-                let reader_closed = close_terminal_handle(&mut reader);
-                closed &= reader_closed;
-                rows.push(format!(
-                    "{{\"item\":{},\"identity\":{},\"attributes\":{},\"reason\":\"{}\",\"readbackVerified\":{},\"closeConfirmed\":{}}}",
-                    index, id_packet, attributes, readback.as_ref().err().copied().unwrap_or("none"),
-                    readback.is_ok(), reader_closed
-                ));
-                readback?;
-                count += 1;
-            }
-            guard.verify()
-        })();
-        if let Some(guard) = directory.as_mut() {
-            closed &= guard.close();
-        }
-        let reason = observed.err().unwrap_or(if closed {
-            "none"
-        } else {
-            "retained_close_unknown"
-        });
-        let success = reason == "none" && count == 3 && same_pair && closed;
-        println!(
-            "\n{{\"contract\":\"crdd-native/terminal-retained-readback-fixture\",\"status\":\"{}\",\"reason\":\"{}\",\"readbackCount\":{},\"samePairIdentity\":{},\"pairAttributesEqual\":{},\"items\":[{}],\"checkedClosesConfirmed\":{},\"fixtureRetained\":true,\"freshObservationOnly\":true,\"mutationVerified\":false,\"originalRunFailureIdentified\":false}}",
-            if success { "observed" } else { "unconfirmed" },
-            reason,
-            count,
-            same_pair,
-            pair_attributes,
-            rows.join(","),
-            closed
-        );
-        assert!(success, "retained_readback_unconfirmed");
-    }
-
-    /// 既存自作stageだけで保持中の拒否境界を一回診断する。
-    ///
-    /// @responsibility 各要求の実返却を終端closeと分け、期待外なら後続要求を止める。
-    /// @trace ERB-IT-002
-    /// @precondition 固定cwd/run、前回read-only観測の五field/属性/全bytes/ACL、改名先直接不存在。
-    /// @stimulus 同じ実体をREAD/WRITE/DELETE shareREADで保持し、write-open、DELETE-open、remove、非置換renameを順に一度だけ試す。
-    /// @observation 各固定operationの成功/OS error/予想外handle close、最終checked-close。
-    /// @oracle 全件error32と全closeだけを限定observedとし、32以外を先に許容しない。
-    /// @cleanup closeだけ。期待外の削除/改名成功時も復元、再試行、fixture清掃をしない。
-    /// @boundary 自己生成第一stageの限定反証。public名/実Recovery/旧Root/Docker/Providerへ接続しない。
-    #[test]
-    #[ignore = "One held-stage diagnostic after retained read-only observation"]
-    fn terminal_retained_mutation_fixture() {
-        assert_eq!(
-            std::env::var("CRDD_TERMINAL_PUBLICATION_RUN").as_deref(),
-            Ok("publication.261003.219b9b53.mutation")
-        );
-        assert_eq!(
-            std::env::current_dir().unwrap(),
-            Path::new("C:/project/CRDD")
-        );
-        let root = Path::new(PARENT).join("fixture");
-        let path = root.join(format!("{REFERENCE}.stage"));
-        let renamed = root.join(format!("{REFERENCE}.renamed"));
-        let mut directory = None;
-        let mut held = None;
-        let mut closed = true;
-        let mut steps = Vec::new();
-        let mut unexpected_effect = false;
-        let observed = (|| {
-            match fs::symlink_metadata(&renamed) {
-                Err(error) if error.kind() == std::io::ErrorKind::NotFound => (),
-                _ => return Err("mutation_destination_not_absent"),
-            }
-            let mut root_reader = open_terminal_handle(
-                &root,
-                FILE_READ_ATTRIBUTES,
-                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-            )?;
-            let root_id = terminal_identity(root_reader.0);
-            closed &= close_terminal_handle(&mut root_reader);
-            directory = Some(TerminalDirectory::open(&root, root_id?)?);
-            let guard = directory.as_ref().unwrap();
-            held = Some(open_terminal_handle(
-                &path,
-                FILE_GENERIC_READ | FILE_GENERIC_WRITE | DELETE,
-                FILE_SHARE_READ,
-            )?);
-            let handle = held.as_ref().unwrap().0;
-            let expected = DirectoryIdentity {
-                volume_serial_number: 1687905628,
-                file_index_high: 7405568,
-                file_index_low: 3090653,
-                creation_time_low: 2471899880,
-                creation_time_high: 31281919,
-                attributes: 32,
-            };
-            if terminal_identity(handle)? != expected {
-                return Err("mutation_identity_mismatch");
-            }
-            verify_terminal_protection(handle, &guard.user, &guard.system)?;
-            if read_terminal_bytes(handle)? != vec![b'x'; MAX_RECORD_BYTES] {
-                return Err("mutation_bytes_mismatch");
-            }
-            let mut wide: Vec<u16> = path.as_os_str().encode_wide().collect();
-            wide.push(0);
-            for (operation, access) in [("write_open", FILE_GENERIC_WRITE), ("delete_open", DELETE)]
-            {
-                // SAFETY: fixed self-created file and held chain; no write is issued.
-                let raw = unsafe {
-                    CreateFileW(
-                        wide.as_ptr(),
-                        access,
-                        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                        null(),
-                        OPEN_EXISTING,
-                        FILE_FLAG_OPEN_REPARSE_POINT,
-                        null_mut(),
-                    )
-                };
-                let success = raw != INVALID_HANDLE_VALUE;
-                let error = if success {
-                    None
-                } else {
-                    Some(unsafe { GetLastError() })
-                };
-                let unexpected_closed = if success {
-                    let mut unexpected = OwnedHandle(raw);
-                    let value = close_terminal_handle(&mut unexpected);
-                    closed &= value;
-                    Some(value)
-                } else {
-                    None
-                };
-                steps.push(format!(
-                    "{{\"operation\":\"{}\",\"success\":{},\"error\":{},\"unexpectedHandleCloseConfirmed\":{}}}",
-                    operation, success, error.map(|value| value.to_string()).unwrap_or_else(|| "null".to_owned()),
-                    unexpected_closed.map(|value| value.to_string()).unwrap_or_else(|| "null".to_owned())
-                ));
-                if success || error != Some(32) {
-                    return Err("mutation_open_rejection_unexpected");
-                }
-            }
-            let removed = fs::remove_file(&path);
-            let remove_success = removed.is_ok();
-            unexpected_effect |= remove_success;
-            let remove_error = removed.err().and_then(|error| error.raw_os_error());
-            steps.push(format!(
-                "{{\"operation\":\"remove\",\"success\":{},\"error\":{},\"unexpectedHandleCloseConfirmed\":null}}",
-                remove_success, remove_error.map(|value| value.to_string()).unwrap_or_else(|| "null".to_owned())
-            ));
-            if remove_success || remove_error != Some(32) {
-                return Err("mutation_remove_rejection_unexpected");
-            }
-            // SAFETY: fixed self-created source and generated target; flags0 rejects existing destination.
-            // Native no-replace avoids Rust rename's replace-existing semantics in a diagnostic.
-            let mut next: Vec<u16> = renamed.as_os_str().encode_wide().collect();
-            next.push(0);
-            let rename_success = unsafe {
-                windows_sys::Win32::Storage::FileSystem::MoveFileExW(
-                    wide.as_ptr(),
-                    next.as_ptr(),
-                    0,
-                )
-            } != 0;
-            let rename_error = if rename_success {
-                None
-            } else {
-                Some(unsafe { GetLastError() })
-            };
-            unexpected_effect |= rename_success;
-            steps.push(format!(
-                "{{\"operation\":\"rename_no_replace\",\"success\":{},\"error\":{},\"unexpectedHandleCloseConfirmed\":null}}",
-                rename_success, rename_error.map(|value| value.to_string()).unwrap_or_else(|| "null".to_owned())
-            ));
-            if rename_success || rename_error != Some(32) {
-                return Err("mutation_rename_rejection_unexpected");
-            }
-            if terminal_identity(handle)? != expected
-                || read_terminal_bytes(handle)? != vec![b'x'; MAX_RECORD_BYTES]
-            {
-                return Err("mutation_postcondition_mismatch");
-            }
-            guard.verify()
-        })();
-        if let Some(handle) = held.as_mut() {
-            closed &= close_terminal_handle(handle);
-        }
-        if let Some(guard) = directory.as_mut() {
-            closed &= guard.close();
-        }
-        let reason = observed.err().unwrap_or("none");
-        let success = reason == "none" && closed && steps.len() == 4 && !unexpected_effect;
-        println!(
-            "\n{{\"contract\":\"crdd-native/terminal-retained-mutation-fixture\",\"status\":\"{}\",\"reason\":\"{}\",\"steps\":[{}],\"checkedClosesConfirmed\":{},\"unexpectedFilesystemEffectIssued\":{},\"cleanupIssued\":false,\"fixtureRetained\":true,\"fullRecoveryVerified\":false}}",
-            if success { "observed" } else { "unconfirmed" },
-            reason,
-            steps.join(","),
-            closed,
-            unexpected_effect
-        );
-        assert!(success, "retained_mutation_unconfirmed");
-    }
-
     /// 同じstage handleの非置換rename候補を一回要求する。
     ///
     /// @responsibility production公開方式を変更せず、class10の実返却を試験へ搬送する。
@@ -7566,10 +7339,6 @@ mod tests {
             std::env::var("CRDD_TERMINAL_PUBLICATION_RUN").as_deref(),
             Ok("rename.261003.219b9b53.r1")
         );
-        assert_eq!(
-            std::env::current_dir().unwrap(),
-            Path::new("C:/project/CRDD")
-        );
         let mut phase = "preflight";
         let mut os_error = None;
         let mut rename_status = None;
@@ -7580,9 +7349,10 @@ mod tests {
         let mut closes = Vec::new();
         let mut cleanup_count = 0_u32;
         let mut mutation_effect = false;
-        let root = Path::new(PARENT).join("fixture-rename-r1");
+        let (_, parent_path, _) = terminal_fixture_context();
+        let root = parent_path.join("fixture-rename-r1");
         let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            let parent = Path::new(PARENT);
+            let parent = parent_path.as_path();
             let parent_id = observe_fixture_identity(parent, &mut closes);
             phase = "fixture_absence";
             assert_eq!(
@@ -7840,10 +7610,6 @@ mod tests {
             std::env::var("CRDD_TERMINAL_PUBLICATION_RUN").as_deref(),
             Ok(RUN)
         );
-        assert_eq!(
-            std::env::current_dir().unwrap(),
-            Path::new("C:/project/CRDD")
-        );
         let mut phase = "preflight";
         let mut os_error = None;
         let mut closes = Vec::new();
@@ -7851,9 +7617,10 @@ mod tests {
         let mut mutation_effect = false;
         let mut record_receipt: Option<TerminalReceipt> = None;
         let mut collision_receipt: Option<TerminalReceipt> = None;
-        let root = Path::new(PARENT).join("fixture-r4");
+        let (_, parent_path, _) = terminal_fixture_context();
+        let root = parent_path.join("fixture-r4");
         let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            let parent = Path::new(PARENT);
+            let parent = parent_path.as_path();
             let parent_id = observe_fixture_identity(parent, &mut closes);
             phase = "fixture_absence";
             assert_eq!(
@@ -8156,17 +7923,14 @@ mod tests {
     #[ignore = "Fixed self-owned disposition fixture; explicit owner required"]
     fn terminal_disposition_fixture() {
         const RUN: &str = "disposition.261004.61d28f4a.r3";
-        const PARENT: &str = "C:/project/CRDD/.crdd/verification/chg-000082-host-terminal-production-261003/disposition-r3";
         const NONCE: &str = "61d28f4a-a831-437f-b06c-7d8f896e01b4";
         assert_eq!(
             std::env::var("CRDD_TERMINAL_DISPOSITION_RUN").as_deref(),
             Ok(RUN)
         );
-        assert_eq!(
-            std::env::current_dir().unwrap(),
-            Path::new("C:/project/CRDD")
-        );
-        let parent = Path::new(PARENT);
+        let (_, run_root, _) = terminal_fixture_context();
+        let parent_path = run_root.join("disposition-r3");
+        let parent = parent_path.as_path();
         let root_name = format!("crdd-coordinator-doctor-{NONCE}");
         let root = parent.join(&root_name);
         let nonce_hash = sha256(&[NONCE.as_bytes()]).unwrap();
@@ -8448,17 +8212,13 @@ mod tests {
     #[ignore = "Fixed self-owned known-file fixture; explicit owner required"]
     fn terminal_known_file_fixture() {
         const RUN: &str = "known-file.261004.f17052e1.r1";
-        const PARENT: &str =
-            "C:/project/CRDD/.crdd/verification/chg-000082-quality-record-261004/known-file-r1";
         assert_eq!(
             std::env::var("CRDD_TERMINAL_KNOWN_FILE_RUN").as_deref(),
             Ok(RUN)
         );
-        assert_eq!(
-            std::env::current_dir().unwrap(),
-            Path::new("C:/project/CRDD")
-        );
-        let parent = Path::new(PARENT);
+        let (_, run_root, _) = terminal_fixture_context();
+        let parent_path = run_root.join("known-file-r1");
+        let parent = parent_path.as_path();
         let workspace = parent.join("workspace");
         let file = workspace.join("fixture.txt");
         let alias = workspace.join("hardlink.txt");

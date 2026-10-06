@@ -3491,9 +3491,10 @@
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": [
-        "fixed_revision_exported",
-        "staging_identity_verified",
-        "failure_residue_classified"
+        "same_prepared_work_forwarded_to_signer_and_promotion_binding",
+        "settlement_called_only_after_success_or_exact_preplacement_passphrase_rejection",
+        "unknown_failure_retains_exact_recovery_reference_without_cleanup",
+        "real_tty_signature_and_child_process_boundary_not_evaluated"
       ],
       "mandatoryByDefault": true
     },

@@ -29,12 +29,14 @@ import {
   isCanonicalCrddVersion,
 } from "./release-identity-grammar.ts";
 
-export const PLATFORM_PROVISIONER_MANIFEST_REVISION = 5;
+export const PLATFORM_PROVISIONER_MANIFEST_REVISION = 6;
 export const PLATFORM_PROVISIONER_MANIFEST_CONTRACT =
   "crdd-coordinator/platform-provisioner-package-manifest";
 export const PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT =
   "crdd-coordinator/platform-provisioner-package-manifest-envelope";
 export const PLATFORM_PROVISIONER_MANIFEST_DOMAIN =
+  "CRDD\0PLATFORM-PROVISIONER-PACKAGE-MANIFEST\0V6\0";
+const HISTORICAL_PLATFORM_PROVISIONER_MANIFEST_DOMAIN_V5 =
   "CRDD\0PLATFORM-PROVISIONER-PACKAGE-MANIFEST\0V5\0";
 const HISTORICAL_PLATFORM_PROVISIONER_MANIFEST_DOMAIN_V2 =
   "CRDD\0PLATFORM-PROVISIONER-PACKAGE-MANIFEST\0V2\0";
@@ -318,7 +320,7 @@ function normalizeObservedPackage(raw: unknown) {
  *
  * @responsibility Manifestの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000014
- * @input raw: unknown
+ * @input raw: unknown、expectedRevision: 現行6または履歴5。
  * @returns normalizeManifestの計算結果を返す。
  * @precondition 「raw: unknown」がnormalizeManifestの入力契約を満たす。
  * @postcondition normalizeManifestの責務を完了した結果だけを返す。
@@ -329,7 +331,12 @@ function normalizeObservedPackage(raw: unknown) {
  * @security normalizeManifestはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: normalizeManifestは共有非同期状態を持たない同期処理である。
  */
-function normalizeManifest(raw: unknown) {
+function normalizeManifest(
+  raw: unknown,
+  expectedRevision:
+    | 5
+    | typeof PLATFORM_PROVISIONER_MANIFEST_REVISION = PLATFORM_PROVISIONER_MANIFEST_REVISION,
+) {
   const value = snapshotPlainRecord(raw, MANIFEST_KEYS);
   const platformAccessArtifact =
     value &&
@@ -340,7 +347,7 @@ function normalizeManifest(raw: unknown) {
   if (
     !value ||
     value.contract !== PLATFORM_PROVISIONER_MANIFEST_CONTRACT ||
-    value.contractRevision !== PLATFORM_PROVISIONER_MANIFEST_REVISION ||
+    value.contractRevision !== expectedRevision ||
     typeof value.packageName !== "string" ||
     typeof value.packageVersion !== "string" ||
     !packageIdentity(value.packageName, value.packageVersion) ||
@@ -385,7 +392,7 @@ function normalizeManifest(raw: unknown) {
     return null;
   const normalized = Object.freeze({
     ...value,
-    contractRevision: value.contractRevision,
+    contractRevision: expectedRevision,
     packageName: value.packageName,
     packageVersion: value.packageVersion,
     crddVersion: value.crddVersion,
@@ -534,16 +541,18 @@ function normalizeHistoricalV2Manifest(raw: unknown) {
  * @precondition 「revision: number」がselectManifestDomainの入力契約を満たす。
  * @postcondition selectManifestDomainの責務を完了した結果だけを返す。
  * @effect N/A: selectManifestDomainは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: selectManifestDomainは独自の失敗分岐を所有しない。
+ * @failure 未対応revisionは暗号domainを推定せず拒否する。
  * @invariant selectManifestDomainは入力から導いた結果以外の共有状態を変更しない。
  * @boundary N/A: selectManifestDomainはProcess内の同一Subsystemで完結する。
  * @security selectManifestDomainはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: selectManifestDomainは共有非同期状態を持たない同期処理である。
  */
 function selectManifestDomain(revision: number) {
-  return revision === 2
-    ? HISTORICAL_PLATFORM_PROVISIONER_MANIFEST_DOMAIN_V2
-    : PLATFORM_PROVISIONER_MANIFEST_DOMAIN;
+  if (revision === 2) return HISTORICAL_PLATFORM_PROVISIONER_MANIFEST_DOMAIN_V2;
+  if (revision === 5) return HISTORICAL_PLATFORM_PROVISIONER_MANIFEST_DOMAIN_V5;
+  if (revision === PLATFORM_PROVISIONER_MANIFEST_REVISION)
+    return PLATFORM_PROVISIONER_MANIFEST_DOMAIN;
+  throw new Error("platform_provisioner_manifest_revision_unsupported");
 }
 
 /**
@@ -651,6 +660,7 @@ function normalizeHistoricalEnvelope(raw: unknown) {
     !value ||
     value.contract !== PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT ||
     (value.contractRevision !== 2 &&
+      value.contractRevision !== 5 &&
       value.contractRevision !== PLATFORM_PROVISIONER_MANIFEST_REVISION) ||
     !Array.isArray(value.signatures) ||
     utilTypes.isProxy(value.signatures) ||
@@ -673,7 +683,7 @@ function normalizeHistoricalEnvelope(raw: unknown) {
   const payload =
     value.contractRevision === 2
       ? normalizeHistoricalV2Manifest(value.payload)
-      : normalizeManifest(value.payload);
+      : normalizeManifest(value.payload, value.contractRevision);
   const signature = normalizeSignature(entry.value);
   return payload &&
     signature &&

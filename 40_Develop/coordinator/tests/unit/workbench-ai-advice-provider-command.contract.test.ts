@@ -40,6 +40,12 @@ test("Codex助言をToolなし・Repository非共有の標準入力計画へ固�
   assert.equal(plan.provider, "codex");
   assert.equal(plan.exactModelId, "gpt-6.1-sol");
   const distribution = describeCodexAdviceDistributionIdentity();
+  assert.equal(distribution.officialCliUnmodified, true);
+  assert.equal(
+    distribution.binarySha256,
+    "1748767b230ebfc3d4ab7e4e254920d0c0ad9691fd8c11f190e7d44511a4a92e",
+  );
+  assert.equal("startupPatchSha256" in distribution, false);
   const normal = describeCodexExecutionPlanContract().distributionIdentity;
   assert.equal(plan.command, distribution.executablePath);
   assert.equal(plan.fixedImageDigest, distribution.fixedImageDigest);
@@ -55,6 +61,13 @@ test("Codex助言をToolなし・Repository非共有の標準入力計画へ固�
       false,
     );
   }
+  assert.equal(
+    codexAdviceProviderInitRequired(
+      "workbench_advice",
+      "sha256:843db607376a454cb7c901e76d4da1d168d6e384912366448df3363b42624d36",
+    ),
+    true,
+  );
   for (const image of [
     normal.fixedImageDigest,
     null,

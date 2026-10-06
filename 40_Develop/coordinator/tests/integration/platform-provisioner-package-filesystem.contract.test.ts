@@ -4,9 +4,12 @@
  * @packageDocumentation
  * @responsibility coordinator:integration:platform-provisioner-package-filesystemが所有する検証責務を実行する。
  * @trace AIT-IT-013
+ * @trace ERB-IT-001
+ * @trace ERB-IT-002
  * @level IT
  * @scope platform、provisioner、package、filesystem
  * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary ERB-IT-001/ERB-IT-002=Partial Boundary: 固定Tool Source→Process起動・所有graph。実Process lifecycleは対象外。
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -56,6 +59,78 @@ import { assertCanonicalCandidate } from "../support/test-support.ts";
 
 const developmentFixtureRoots = new Set<string>();
 const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
+
+/**
+ * Native検証Toolの六つの固定起動を本番Runtimeへ混入させず検査する。
+ * @responsibility 固定owner、引数、親の検証と非同期所有の変更を拒否する。
+ * @trace ERB-IT-001
+ * @trace ERB-IT-002
+ * @precondition Source読取りとMemory内の変異だけ。Native/Cargo/Gitを起動しない。
+ * @stimulus 六ownerを観測し、起動条件・引数・listener・呼出し関係を個別に改変する。
+ * @observation 固定Source受理と全変異拒否。
+ * @oracle 未登録ownerや外部入力から新たなProcess許可を作らない。
+ * @cleanup N/A: OS資源や一時fileを作成しない。
+ * @boundary ERB-IT-001/ERB-IT-002=Partial Boundary: Source→検証Tool専用Process graph。実Native保護・Process lifecycleの成立は対象外。
+ */
+test("Native検証Toolの六固定起動と所有関係の改変を拒否する", () => {
+  const sourcePath = "scripts/verify-native-protection.ts";
+  const source = fs.readFileSync(
+    path.join(coordinatorRoot, sourcePath),
+    "utf8",
+  );
+  assert.doesNotThrow(() =>
+    assertRuntimeSourceDeclaredGraphBoundaryForVerification(sourcePath, source),
+  );
+  const helpers = [
+    "observeNativeProtectionRepositoryRoot",
+    "lintNativeProtectionArtifact",
+    "buildNativeProtectionArtifact",
+    "executeNativeProtectionGuard",
+    "executeNativeProtectionZeroCase",
+  ];
+  const graph = runtimeNamedFunctionGraphSnapshotForVerification(
+    sourcePath,
+    source,
+    [...helpers, "runNativeProtection"],
+  );
+  assert.equal(graph.length, 6);
+  for (const helper of helpers)
+    assert.equal(
+      graph.find((node) => node.name === helper)?.lexicalScope,
+      "runNativeProtection",
+    );
+  for (const [before, after] of [
+    ['spawnSync("git",', 'spawnSync("other-git",'],
+    ['"+1.94.1-x86_64-pc-windows-msvc",', '"+unknown-toolchain",'],
+    ['exactTest + ".missing"', 'exactTest + ".other"'],
+    ['child.on("error",', 'child.on("other-event",'],
+    ['child.once("close",', 'child.once("other-event",'],
+    ["assert.equal(artifacts.length, 1,", "assert.equal(artifacts.length, 2,"],
+    [
+      "const build = buildNativeProtectionArtifact();",
+      "const build = lintNativeProtectionArtifact();",
+    ],
+    [
+      "function executeNativeProtectionGuard()",
+      "function otherNativeProtectionGuard()",
+    ],
+    [
+      "function observeNativeProtectionRepositoryRoot()",
+      'function observeNativeProtectionRepositoryRoot(injected = spawnSync("other", [], { shell: false }))',
+    ],
+  ] as const) {
+    assert.ok(source.includes(before));
+    const mutated = source.replace(before, after);
+    assert.throws(
+      () =>
+        assertRuntimeSourceDeclaredGraphBoundaryForVerification(
+          sourcePath,
+          mutated,
+        ),
+      /runtime_dependency_(?:child_process|capability_flow|capability_graph)_(?:unbound|mismatch|executable_unbound|ownership_unbound)/u,
+    );
+  }
+});
 
 /**
  * Host回復Nativeの二搬送と六つのmode供給元を閉グラフへ結合する。
@@ -883,18 +958,42 @@ test("Claude再認証のProcess Wrapperを署名前Runtime能力Graphへ固定�
  *
  * @responsibility 検証Toolの全Sourceと実Process起動点を独立グラフとして完全一致させるの合否判定を所有する。
  * @trace AIT-IT-013
+ * @trace ERB-IT-001
+ * @trace ERB-IT-002
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 検証Toolの全Sourceと実Process起動点を独立グラフとして完全一致させるの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary AIT-IT-013=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-IT-001/ERB-IT-002=Partial Boundary: 全Tool Source→固定Process graph。実Process lifecycleは対象外。
  */
 test("検証Toolの全Sourceと実Process起動点を独立グラフとして完全一致させる", () => {
   const sources = verificationToolSources();
   assert.doesNotThrow(() =>
     assertVerificationToolCapabilityGraphForVerification(sources),
   );
+
+  const preparationPath = "scripts/prepare-release-candidate.ts";
+  const preparation = sources[preparationPath] ?? "";
+  for (const [before, after] of [
+    ['[launcher, "promote-release"]', '[launcher, "other-command"]'],
+    ["cwd: repositoryRoot,", "cwd: workDirectory,"],
+    ["bindings.runPromotion(", "bindings.runSigner("],
+  ] as const) {
+    assert.ok(preparation.includes(before));
+    const changedPreparation = {
+      ...sources,
+      [preparationPath]: preparation.replace(before, after),
+    };
+    assert.throws(
+      () =>
+        assertVerificationToolCapabilityGraphForVerification(
+          changedPreparation,
+        ),
+      /runtime_dependency_(?:child_process|capability_flow)_unbound/u,
+    );
+  }
 
   const missing = { ...sources };
   delete missing["scripts/check-dynamic-fake-provider-coverage.ts"];
@@ -3476,10 +3575,10 @@ test("共通Launcherの署名・4経路・Recovery入口と静的依存だけを
       }),
     );
     fs.writeFileSync(
-      path.join(root, "bin", "launch.ts"),
+      path.join(root, "bin", "coordinator.ts"),
       [
         'import "../src/entry.ts";',
-        'await import("./coordinator.ts");',
+        'await import("../src/core/coordinator-command.ts");',
         'await import("../scripts/verify-signed-route-matrix.ts");',
         'await import("../scripts/verify-signed-recovery-matrix.ts");',
         'await import("../scripts/sign-release-manifest.ts");',
@@ -3490,7 +3589,11 @@ test("共通Launcherの署名・4経路・Recovery入口と静的依存だけを
         "",
       ].join("\n"),
     );
-    fs.writeFileSync(path.join(root, "bin", "coordinator.ts"), "export {};\n");
+    fs.mkdirSync(path.join(root, "src", "core"), { recursive: true });
+    fs.writeFileSync(
+      path.join(root, "src", "core", "coordinator-command.ts"),
+      "export {};\n",
+    );
     fs.writeFileSync(path.join(root, "src", "entry.ts"), "export {};\n");
     fs.writeFileSync(
       path.join(root, "scripts", "verify-signed-route-matrix.ts"),
@@ -3542,7 +3645,7 @@ test("共通Launcherの署名・4経路・Recovery入口と静的依存だけを
 
     const first = inspectPlatformProvisionerPackageFilesystemCandidate(root);
     assert.equal(first.status, "candidate");
-    const launcherPath = path.join(root, "bin", "launch.ts");
+    const launcherPath = path.join(root, "bin", "coordinator.ts");
     const canonicalLauncher = fs.readFileSync(launcherPath, "utf8");
     fs.writeFileSync(
       launcherPath,
@@ -3622,9 +3725,9 @@ test("実行Identityのmodule構文を字句解析し、コメント・非relati
       }),
     );
     fs.writeFileSync(
-      path.join(root, "bin", "launch.ts"),
+      path.join(root, "bin", "coordinator.ts"),
       [
-        'await import("./coordinator.ts");',
+        'await import("../src/core/coordinator-command.ts");',
         'await import("../scripts/verify-signed-route-matrix.ts");',
         'await import("../scripts/verify-signed-recovery-matrix.ts");',
         'await import("../scripts/sign-release-manifest.ts");',
@@ -3633,7 +3736,11 @@ test("実行Identityのmodule構文を字句解析し、コメント・非relati
         "",
       ].join("\n"),
     );
-    fs.writeFileSync(path.join(root, "bin", "coordinator.ts"), "export {};\n");
+    fs.mkdirSync(path.join(root, "src", "core"), { recursive: true });
+    fs.writeFileSync(
+      path.join(root, "src", "core", "coordinator-command.ts"),
+      "export {};\n",
+    );
     fs.writeFileSync(
       path.join(root, "scripts", "verify-signed-route-matrix.ts"),
       'import "./verify-signed-general-task.ts";\n',
@@ -3672,7 +3779,7 @@ test("実行Identityのmodule構文を字句解析し、コメント・非relati
       "candidate",
     );
 
-    const launcher = path.join(root, "bin", "launch.ts");
+    const launcher = path.join(root, "bin", "coordinator.ts");
     const canonicalLauncher = fs.readFileSync(launcher, "utf8");
     fs.writeFileSync(
       launcher,

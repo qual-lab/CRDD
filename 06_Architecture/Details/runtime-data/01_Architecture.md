@@ -121,13 +121,6 @@ Related:
    │  ├─ history.lock                        単一履歴全体の排他
    │  └─ history.pending.jsonl                保存確定中だけ存在する短命な完成Snapshot
    │
-   ├─ verification/                        [D] 検証結果と根拠
-   │  └─ <verification-id>/
-   │     ├─ started.json                      対象改訂版と開始時点
-   │     ├─ result.json                       判定、確認・未確認範囲
-   │     ├─ complete.json                     flush/read-backを含む完了記録
-   │     └─ artifacts/                        必要な検証Artifactがある場合だけ作る
-   │
    ├─ candidates/                          [D/W] 未採用の成果物
    │  └─ <candidate-id>/
    │     ├─ metadata.json                     出所、対象、状態、関連Operation
@@ -143,12 +136,14 @@ Related:
    │     ├─ state.json                        Meeting・Topic等の現在状態
    │     └─ candidates/                       昇格前のDecision・記事等の候補
    │
-   ├─ tests/                               [T/D] 試験実行単位の生成物
-   │  └─ <execution-unit>/
-   │     └─ <run-id>/                        複数Runを保持する試験で必須。単一handoff入口はexecution-unit直下の固定入力を使用できる
-   │        ├─ input/                         固定した試験入力
-   │        ├─ output/                        試験出力
-   │        └─ diagnostics/                   失敗時の診断情報
+   ├─ tests/                               [T] 試験の一時生成物。必要な場合だけrun内に実行単位の子階層を設ける
+   │  └─ <run-id>/
+   │     ├─ started.json                      結果保存を行う試験の対象改訂版と開始時点
+   │     ├─ result.json                       判定、確認・未確認範囲
+   │     ├─ complete.json                     flush/read-backを含む保存完了記録
+   │     ├─ input/                           必要な試験入力
+   │     ├─ output/                          必要な試験出力・中間署名
+   │     └─ diagnostics/                     必要な診断情報
    │
    └─ tmp/                                 [T] Operation所有の短期一時物
       ├─ .operations/                         Workspace清掃から分離したLifecycle制御面
@@ -193,11 +188,10 @@ Project Runtimeは、このRepositoryで旧試験記録の清掃と新形式へ�
 | `project-runtime/` | Project実行の現在状態、Queue、結果、判断、固有Recovery | 各状態のsettlement、保持規則または明示Migrationが成立する |
 | `coordinator/` | Coordinator固有の非Authorityなcaller回復参照・完全intent | 終了・管理清掃は[Coordinatorのcaller接続](../coordinator/01_Architecture.md#限定保守のcaller接続と二回の短命処理)が所有する。未接続範囲はOPEN |
 | `execution-intelligence/` | 実行履歴、測定値、相関可能な診断情報 | 保持期間と未解決参照を確認して清掃できる。旧`execution/`の移行はフロントAIが行い、Runtime互換Readerを残さない |
-| `verification/` | 検証対象、結果、未確認範囲と判断根拠 | Evidence保持方針とRelease／監査参照が終了する |
 | `candidates/` | 未採用成果物、由来、現在の処置、Candidate固有Recovery | 採用、破棄または期限切れ処置とRecoveryが確定する |
 | `release/` | Release候補、Manifest、Gate Evidence、staging、Release固有Recovery | Promotion、破棄またはRecoveryが完了する |
 | `communication/` | Repository内のCommunication状態と昇格候補 | Promotion、終了または保持方針が確定する |
-| `tests/` | 特定試験Runの入力、出力、診断 | Run終了後、必要Evidenceを保持先へ移し清掃する |
+| `tests/` | 特定試験Runの入力、中間署名、段階結果、出力、診断 | 結果確認後、必要根拠をCHG／Releaseの正式Evidenceへ記録し、参照・非使用・回復義務を確認して清掃する |
 | `tmp/` | Operation中だけ必要な再生成可能な中間物 | Operationの全終端経路で削除し、不存在を確認する |
 
 ### 3.1. 保存量を増やし続けないための終了契約
@@ -215,6 +209,22 @@ Project Runtimeは、このRepositoryで旧試験記録の清掃と新形式へ�
 上限値と上限到達時の処置は各Ownerの設計・設定で具体化する。未解決義務、未受理結果、所有不明、観測不能または参照中の必要根拠を、経過時間や件数だけで削除しない。上限内へ収められない場合は、不要な新規生成を止め、必要な対象・容量・保持条件を再評価する。
 
 既存の固定Pathに依存する入力集合は、利用側を移行するまで保全できるが、対象、責任者、再評価契機と移行先を明示した有限の例外とする。同じ場所へ新しいScriptや診断を追加する許可ではない。終了記録の自動期限削除が未実装・未承認である領域は、明示清掃の契約を維持する。
+
+### 3.1.1. 試験結果の受理と清掃
+
+`verification/`を新しい保存領域として作成・解決しない。旧領域の実行場所とHashは歴史的根拠として保持し、固定利用側や唯一の必要根拠が残る対象は、処置を確認するまで元位置で保全する。旧領域を新形式の互換ReaderやAliasとして残さない。
+
+フロントAIは次の順で処置する。Runtimeによる結果保存の完了は、正式根拠への昇格や清掃の完了を意味しない。
+
+| 順序 | 必須の確認・処置 |
+|---|---|
+| 1 | 同じrunの結果、対象版、開始・終了記録とHashを確認する。未完了や不一致は未確認として残す。 |
+| 2 | 判断に必要な意味と再現情報を対象CHG／Releaseの`Evidence/`へ記録する。原Artifactのbytes自体が根拠なら、そのArtifactも保持する。不要なら理由を確定する。 |
+| 3 | 旧入力・結果への参照終了、使用中Processの不存在と回復義務を確認する。未知・観測不能を非使用へ丸めない。 |
+| 4 | 許可Root内のexactな一時物を清掃し、終了後の不存在を確認する。 |
+| 5 | 中断残存は次回作業開始時に再評価する。未受理結果を年齢だけで消さない。 |
+
+結果保存Recorderは既存のUUID分離、開始・結果・完了の相関、flush／read-back、32KiBのFile上限と256件の全entry受付上限を維持する。上限到達時は新規保存を停止し、フロントAIが上記手順で処置する。保管用の新しいDB、自動年齢GCまたは常設清掃Serviceは作らない。
 
 ### 3.2. Candidateの有限保持
 
@@ -236,9 +246,10 @@ OPEN: 自動処置、保持延長の上限、保護参照の全利用側照合�
 | 繰り返し使用するScript | 不可 | `40_Develop`の実装または`19_Workflows`が参照する正式入口 |
 | 再開時に必要なScript、引数、Identity | 不可 | 回復を所有するComponent配下の`recovery/`へ構造化して置く。秘密値は保存しない |
 | 一時変換、展開、比較、組立て途中のfile | 可 | 所有Operationの`work/` |
-| 正式な検証結果または監査根拠 | 不可 | `verification/`または正本のQuality成果物 |
-| 診断log | 条件付きで可 | 一時診断なら`tmp/`、実行横断の観測なら`execution-intelligence/`、正式な検証根拠なら`verification/`へ接続する |
-| Release staging | 不可 | `release/<candidate-id>/work/` |
+| 正式な検証結果または監査根拠 | 不可 | 対象CHG／Releaseの`Evidence/`。試験中の一時結果は`tests/<run-id>/` |
+| 診断log | 条件付きで可 | 非試験の一時診断なら`tmp/`、試験診断なら`tests/<run-id>/`、実行横断の観測なら`execution-intelligence/`。正式な根拠は対象CHG／Releaseの`Evidence/`へ接続する |
+| 署名用の再生成可能な実行ファイル一時配置 | 可 | `tmp/signature/work/`。固定Git改訂版の実行閉包とNativeだけを配置する。Repository全体を展開しない。署名・昇格まで同じOperationが所有し、失敗・取消を含む終端後に不存在を確認する |
+| 昇格済み署名Manifest、正式なRelease判断・根拠 | 不可 | Manifestは配布先の正規位置、判断と必要な根拠は対象Release／CHGの正本へ置く。短期作業領域を履歴書庫として保持しない |
 | Provider出力または未採用Candidate | 不可 | `candidates/`。外部送信Policyと保持条件に従う |
 | Cache | 不可 | `tmp/`をCacheとして流用しない。必要性を確認して別契約を設計する |
 | 作業メモ | 不可 | 正本へ意味変換するか、追跡不要なら会話・Task内で閉じる |
@@ -254,7 +265,7 @@ OPEN: 自動処置、保持延長の上限、保護参照の全利用側照合�
 | Owner | 作成、利用、清掃を担当するComponentまたはProcess |
 | Purpose | 中間物が必要な処理と再生成元 |
 | Allowed content | 作成できるfile種別と最大範囲 |
-| Evidence promotion | 判断根拠として残す情報がある場合だけ`required`とする。`verification/<id>/artifacts/`に存在するbyteとHashを独立検証したReceiptをOperation Identity・Owner世代へ結合し、callerのboolean自己申告では削除を許可しない |
+| Evidence promotion | 判断根拠として残す情報がある場合だけ`required`とする。検証済みRepository内の`99_Roadmap/Changes/CHG-<6桁>/Evidence/`または`99_Roadmap/Releases/v<版>/Evidence/`のexactな相対Pathに存在するbyteとHashを独立検証したReceiptをOperation Identity・Owner世代へ結合する。一時的な`tests/`の複製やcallerのboolean自己申告では削除を許可しない |
 | Terminal paths | 正常、失敗、取消、Timeout、親Process喪失 |
 | Promotion | 残す必要が生じた情報の正式な移動先 |
 | Cleanup trigger | 各終端経路と次回の安全な再入場 |
@@ -276,6 +287,10 @@ OPEN: 自動処置、保持延長の上限、保護参照の全利用側照合�
 | Workspaceの部分削除後に清掃失敗 | 外部の制御文書を保持し、再入場時にWorkspaceを再構成する。制御文書をWorkspaceより先に削除しない |
 
 制御文書とLockは、caller-known Identityから決定できる`.operations/.staging/`内のexact fileへ書込み、fileのflush、排他的linkまたはatomic renameおよびread-backを順に確認する。初回文書とLockのCanonical公開は既存対象を置換しない排他的linkで行い、Lock Directory作成後にOwnerが未公開になる窓を作らない。Canonical公開後に残った初回stagingは、Canonicalと同じfile objectかつ同じbyteであることを確認した場合だけ削除し、Operation settlementはWorkspace、Canonical文書およびそのexact stagingの不存在を共同で確認する。WindowsでDirectory自身を`fsync`できないことを成功へ読み替えず、公開前、公開直後およびread-back後のProcess消失を反証する。一度利用した旧Recovery参照、旧Capability、Identity不一致および並行する再入場はEffect 0で拒否する。
+
+署名準備だけは、同じ一時操作契約の閉じた保存プロファイル`storage=signature`を使用する。Ownerは`coordinator-release-runtime`に限定し、制御文書v4を`tmp/signature/preparation.json`、Lockを`preparation.lock`、作業本体を`work/`へ置く。保存確定前の短命Fileも同じRoot直下へ置き、子staging Directoryは作らない。旧署名配置へのFallbackは持たない。既定プロファイルは他の現行利用側の契約であり、署名の旧形式として探索しない。
+
+清掃前にプロファイル・Operation・Owner・Identity・世代を照合する。作業本体を回収し、既知の短命File・Lock・制御文書を処置した後、未知FileがないRootだけを非再帰で削除する。保存前失敗では現Sessionから再試行し、保存成立後または観測不能では既知のexact参照を保持する。参照の保持を削除Authorityや清掃成功と同一視しない。正式Manifest適用後の再入場は[Coordinator設計](../coordinator/01_Architecture.md)が所有する。
 
 ### 4.3. Owner Process観測の既知制約
 
@@ -314,7 +329,7 @@ tmp/<operation-id>/を排他的に作成
                          Workspace再構成・清掃・不存在確認
 ```
 
-清掃不能な`tmp`残存を成功へ畳まない。ただし、一時物自体を耐久Evidenceへ昇格して残し続けるのではなく、必要な意味だけを回復を所有するComponentの`recovery/`または`verification/`へ保存し、物理残存には削除義務を与える。Evidenceを生成しないOperationは、作成時に`not_required`を明示すれば昇格なしで清掃できる。Evidence必須時は、`allowedContent`に含まれる`work/`内のexact source、正式な昇格先、両者のbyte Hash、Operation Identityおよび現Owner世代が一致するReceiptだけを受理する。昇格先の同じHashだけ、または別のsourceから偶然得た同じ名前だけでは清掃を許可しない。
+清掃不能な`tmp`残存を成功へ畳まない。ただし、一時物自体を耐久Evidenceへ昇格して残し続けるのではなく、再入場に必要な状態は回復を所有するComponentへ、正式な根拠は対象CHG／Releaseの`Evidence/`へ保存し、物理残存には削除義務を与える。Evidenceを生成しないOperationは、作成時に`not_required`を明示すれば昇格なしで清掃できる。Evidence必須時は、`allowedContent`に含まれる`work/`内のexact source、正式な昇格先、両者のbyte Hash、Operation Identityおよび現Owner世代が一致するReceiptだけを受理する。昇格先の同じHashだけ、または別のsourceから偶然得た同じ名前だけでは清掃を許可しない。
 
 ### 4.5. Recoveryの所有
 
@@ -405,8 +420,8 @@ Directory探索だけでProjectを登録せず、Repository Manifest、検証済
 |---|---|---|
 | `.crdd/external-send-policy.json` | `.crdd/config/external-send-policy.json` | Loader、署名、Checker、ひな型、`.gitignore`、試験を同じ変更で切り替える |
 | `.crdd`直下の生成Script・log・JSON | 所有領域または`tmp/<operation-id>/` | Reader、Recovery参照、Evidence昇格先を確認する |
-| `test-tmp`、`test-fixtures`、`native-fixture` | `tests/<execution-unit>/<run-id>/` | 全Producerとcleanupを移行し、旧Path利用を機械検出する |
-| `release-staging`、`release-e2e`等 | `release/`、`verification/`、`tests/` | Candidate、Evidence、一時展開を分類する |
+| `test-tmp`、`test-fixtures`、`native-fixture` | `tests/<run-id>/`。実行単位別の分離が必要な場合だけ`tests/<run-id>/<execution-unit>/` | 全Producerとcleanupを移行し、旧Path利用を機械検出する。保全中の固定入力は今回移動しない |
+| `release-staging`、`release-e2e`等 | `release/`、`tests/`、対象CHG／Releaseの`Evidence/` | Candidate、正式根拠、一時展開を分類する |
 | `project-runtime/adoption`内の混在 | `results/`と`work/` | 耐久結果とTransactionのIdentity・Lifecycleを分離する |
 
 旧Pathの互換書込みは残さない。切替前に全Producer、Consumer、派生物、RecoveryおよびRelease経路を閉じ、旧Path利用をCheckerまたは契約試験で拒否する。

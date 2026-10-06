@@ -572,17 +572,17 @@ function inspectTaskCliCancellationWiring(
   const helperImports = namedImportIdentifier(
     sourceFile,
     "bindTaskCliCancellationSignals",
-    "../src/core/task-cli-cancellation.ts",
+    "../core/task-cli-cancellation.ts",
   );
   const cancelImports = namedImportIdentifier(
     sourceFile,
     "cancelRuntimeOwnedCoordinatorTask",
-    "../src/security/coordinator-task-runtime.ts",
+    "../security/coordinator-task-runtime.ts",
   );
   const projectorImports = namedImportIdentifier(
     sourceFile,
     "projectTaskCliCancellationFailure",
-    "../src/core/task-cli-cancellation.ts",
+    "../core/task-cli-cancellation.ts",
   );
   if (helperImports.length !== 1) failures.push("helper_import_not_exact");
   if (cancelImports.length !== 1) failures.push("cancel_import_not_exact");
@@ -792,7 +792,7 @@ test("公開CLIはproduction helperの単一bindingとfinally解除をAST・symb
       assert.ok(project);
       const sourceFile = projectSourceFile(
         project,
-        path.join(coordinatorRoot, "bin", "coordinator.ts"),
+        path.join(coordinatorRoot, "src", "core", "coordinator-command.ts"),
       );
       assert.deepEqual(
         inspectTaskCliCancellationWiring(project, sourceFile),
@@ -820,7 +820,14 @@ test("公開CLIはproduction helperの単一bindingとfinally解除をAST・symb
  */
 test("CLI AST契約はshadow・二重binding・直接signal・finally外解除・guard前returnを拒否する", () => {
   const original = fs.readFileSync(
-    path.join(import.meta.dirname, "..", "..", "bin", "coordinator.ts"),
+    path.join(
+      import.meta.dirname,
+      "..",
+      "..",
+      "src",
+      "core",
+      "coordinator-command.ts",
+    ),
     "utf8",
   );
   const mutations = [
