@@ -15,7 +15,7 @@
 | 観測済み | 13 / 46 | v0.21からの移管母集団に対する進捗。既観測12件にShared Gateway非開示境界の`RFD-ST-004`を追加した。[新しい根拠と限界](../99_Roadmap/Changes/CHG-000082/Evidence/261002_shared-gateway-non-disclosure.md) |
 | 未観測 | 33 / 46 | 同じ移管母集団の未観測。移管一覧を採用済みRelease Scopeと同一視せず、Trust項目の対応を再照合する。Native局所試験だけで024〜030を観測済みにしない |
 | 既知Gap | ②と全体品質の未完了を分離 | 現候補の署名・production初期化2件、全Portable収集と失敗六件の限定是正後35件を確認した。PRL-IT-005／012は一部観測で、全義務Passへ増算しない。Workbench／必要なE2Eと全項目のEvidence適用は未完了。[最新の照合](../99_Roadmap/Changes/CHG-000082/Evidence/261006_phase2-reality-audit.md) |
-| 次Gate | ②の最終独立確認 | 全Portableは2277件中2266成功・6失敗・5未実施。試験前提六件を明示未署名fixtureへ隔離し、影響先四ファイル35件は全成功。単一実行の全Passや全体Quality Readyとはしない。[結果と限界](../99_Roadmap/Changes/CHG-000082/Evidence/261005_project-runtime-phase2.md#35-最終署名候補と全回帰の処置) |
+| 次Gate | 全製品E2Eと残る品質義務を別に確認する | ②の保存方式刷新は最終独立確認Passで完了。全Portable収集と是正後35件を別集合で保持し、全体Quality Readyにはしない。[②の完了根拠](../99_Roadmap/Changes/CHG-000082/Evidence/261005_project-runtime-phase2.md#36-②の完了判定) |
 | 現在人間判断 | なし（件数予算改訂を承認済み） | 秘密入力が必要な署名は外部対話端末で依頼する。署名操作の承認からRelease、未観測義務の免除または新Provider送信を推定しない。 |
 
 ## 設計集合

@@ -542,4 +542,4 @@ v2の実体結合は取得したDirectoryのdevice、inode、birthtimeMsをJSON�
 - [x] 保存、採用後処理、終了、履歴と移行の反証対象を明示した。
 - [x] 新版Schema、Root結合、保存確定・再入場、退役後の旧受付拒否と公開初期化を実装・局所試験へ接続した。
 - [x] 受付・終了整理・本番接続の追加反例とArchitecture／QualityのSource／Contract独立確認を完了し、旧実記録の清掃・新形式初期化を確認した。
-- OPEN: 保存方式刷新②は本番切替・全Portable収集と試験前提六件の限定是正後35件を確認済み。最終独立レビューを完了するまで②全体Passとしない。全製品E2Eや品質項目全体の未完了は②と分離する。
+- 保存方式刷新②は、本番切替・全Portable結果処置・試験前提是正後35件・Architecture／Quality最終独立レビューを完了した。全製品E2Eや品質項目全体の未完了は②と分離する。[完了根拠](../../../99_Roadmap/Changes/CHG-000082/Evidence/261005_project-runtime-phase2.md#36-②の完了判定)。

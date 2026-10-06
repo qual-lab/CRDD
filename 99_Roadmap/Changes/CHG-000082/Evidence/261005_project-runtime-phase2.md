@@ -679,3 +679,21 @@ Source Aは1ce6d9c54fa82b67adbbc172ae60e2e6a37b34f9、Treeは2b0a2b3e9d6f9e41837
 是正は試験だけであり、本番Source、Native、署名済みRuntimeは不変。全Portableを再度総当たりせず、変更した試験前提から影響先四ファイルを全件再実行した。未変更の実装・試験は固定Bの全収集結果に、変更した反例は35件の新結果に対応付ける。異なる集合を足して単一実行の全成功件数を作らない。追加署名、Provider依頼、Docker再起動、回復Framework変更は行わない。
 
 ②の実装・本番切替・検証は処置済み。最終Architecture／Quality独立レビューの完了後に②だけを閉じてコミット・プッシュする。③④、Coordinator記録縮小、Candidate保持実装、全製品E2E、176品質項目のEvidence適用とRelease判断は別の未完了義務として維持する。
+
+## 36. ②の完了判定
+
+固定改訂262faa3e02416a972413cc0553ae00e2a0bfd389について、作成担当から分離したArchitecture／Quality確認者が、実装、設計、移行、試験、現在投影、文書整合と②範囲のGap影響を独立照合し、ともにPass、必須是正0件となった。両結果の完了まで編集を停止し、この完了記録と現在表示だけを更新する方針も双方で確認した。専用fixture helper SHA-256は97E0AC1D3039158BA24F9DB4EC2EC9CC4E2E1A3FFEDE8E7C4ADF1F522C1B9353。Repository Checkerはerror0／warning0である。
+
+②の保存方式刷新は、実装、本番Port・受付世代接続、終了記録整理、Repository実切替、必要検証と独立確認を完了した。異なる検証集合を単一実行の全成功へ合算せず、§35の全Portable収集結果と是正後35件の対応を保持する。
+
+完了範囲はProject Runtimeの現在状態・キュー・保存結果・lease・受付世代・終了後整理と30日履歴である。Coordinator記録縮小、Candidateの7日保持実装、③④、全製品E2E、176品質項目の現在Evidence適用およびReleaseは未完了のまま維持する。この判定は採用・統合・Release承認ではない。人間指定どおり②の変更をコミット・プッシュし、③へは進まない。
+
+## Checklist
+
+- [x] state／queue／lease／結果の現Ownerと本番接続を確認した。
+- [x] 履歴30日、保存確定後の退役、受付世代と旧ID拒否を確認した。
+- [x] 実切替時に候補・認証・署名・正式Evidenceを保全した。
+- [x] 全回帰の失敗・未実施を保持し、是正後結果と区別した。
+- [x] 試験専用の未署名前提を明示し、実環境の修復から隔離した。
+- [x] Architecture／Quality独立レビューと現在投影を接続した。
+- [x] ②完了と製品全体品質・全E2E・Releaseを区別した。

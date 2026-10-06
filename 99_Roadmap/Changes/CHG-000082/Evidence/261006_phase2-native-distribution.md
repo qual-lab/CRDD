@@ -7,7 +7,7 @@
 
 ## 結論
 
-現候補の署名とproduction初期化2件は成功した。以前の配布binary未追従、bootstrap固定Hash漏れと保護Directory不一致は、以下へ時系列の失敗・是正根拠として保持する。全Portable収集と失敗六件の試験前提是正も完了し、②の最終独立確認を残す。全製品E2EとRelease全体のPassではない。
+現候補の署名とproduction初期化2件は成功した。以前の配布binary未追従、bootstrap固定Hash漏れと保護Directory不一致は、以下へ時系列の失敗・是正根拠として保持する。全Portable収集と失敗六件の試験前提是正も完了し、②の最終独立確認もPassで完了した。全製品E2EとRelease全体のPassではない。
 
 ## 固定候補と結果
 
@@ -55,7 +55,7 @@ Architecture／Qualityの着手前確認後、固定Hashを新exeのHashへ更�
 
 ## 現候補の再確認
 
-Source A 1ce6d9c5、Tree 2b0a2b3、carrier B 28e288acの署名と配置は成功した。manifest SHA-256は8be590d91244a724dd4755077d567335ec1d38b14d05af04ac5e0b82dab85cc3。production Operation／doctorは元Oracleで2/2成功した。全Portableの結果と試験前提六件の限定是正・35件再確認は[②最終確認](261005_project-runtime-phase2.md#35-最終署名候補と全回帰の処置)に記録した。現在の新候補について再署名・実初期化が未完了という冒頭の記述は旧候補時点の履歴であり、現Gateは②最終独立レビューだけが残る。
+Source A 1ce6d9c5、Tree 2b0a2b3、carrier B 28e288acの署名と配置は成功した。manifest SHA-256は8be590d91244a724dd4755077d567335ec1d38b14d05af04ac5e0b82dab85cc3。production Operation／doctorは元Oracleで2/2成功した。全Portableの結果と試験前提六件の限定是正・35件再確認は[②最終確認](261005_project-runtime-phase2.md#35-最終署名候補と全回帰の処置)に記録した。現在の新候補について再署名・実初期化が未完了という冒頭の記述は旧候補時点の履歴であり、②最終独立レビューもPassで完了した。
 
 ## Checklist
 
@@ -64,4 +64,4 @@ Source A 1ce6d9c5、Tree 2b0a2b3、carrier B 28e288acの署名と配置は成功
 - [x] 旧／新binary、固定Source、build条件と診断結果を分離した。
 - [x] 既存Native試験と非実行項目を区別した。
 - [x] 新固定候補の署名、元2件、全Portable収集と全失敗の処置を確認した。
-- [ ] OPEN: ②最終独立確認を完了する。
+- [x] ②最終Architecture／Quality独立確認を完了した。[完了判定](261005_project-runtime-phase2.md#36-②の完了判定)。
