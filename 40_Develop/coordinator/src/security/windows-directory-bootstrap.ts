@@ -16,7 +16,7 @@ import {
 // Bootstrap trust binds the shipped helper, not a caller-observed executable.
 // Updated with the Native artifact; this observation grants no Runtime authority.
 const BOOTSTRAP_ARTIFACT_SHA256 =
-  "9a1dc6c886a8ff4834972abb342f33fc2c018d31871ef6eb3152317eb83fcee0";
+  "dcebc4ee0ec8fa358dae0306d8e8a3cc1050c79a7e886573b388b5ee2fafcbf0";
 const distributionRoot = fileURLToPath(
   new URL("../../../../", import.meta.url),
 );
