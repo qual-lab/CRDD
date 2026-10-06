@@ -56,7 +56,7 @@ Quality ID: `QA-000010`
 | 条件区分 | 適用 | 対応Local Item | 判断理由 |
 |---|---|---|---|
 | 正常 | Required | AIT-IT-001 | 通常の成立経路を独立して確認する。 |
-| 境界 | Required | AIT-ST-004、AIT-UT-005、AIT-UAT-006、AIT-IT-007、AIT-IT-009、AIT-UT-011、AIT-UT-012、AIT-IT-013、AIT-IT-014、AIT-IT-015 | 値、Authority、情報、責務または利用者判断の境界を確認する。 |
+| 境界 | Required | AIT-ST-004、AIT-UT-005、AIT-UAT-006、AIT-IT-007、AIT-IT-009、AIT-UT-011、AIT-UT-012、AIT-IT-013、AIT-IT-015 | 値、Authority、情報、責務または利用者判断の境界を確認する。 |
 | 準正常 | Required | AIT-IT-003 | 継続可能な分岐、保留、観測不能または診断状態を成功へ畳まない。 |
 | 異常 | Required | AIT-IT-002、AIT-IT-008 | 不正入力、故障または拒否経路を通常成功へ畳まない。 |
 | 回復 | Required | AIT-ST-010 | 失敗・取消後に同じIdentityと義務で安全に再入場できることを確認する。 |
@@ -78,7 +78,6 @@ Quality ID: `QA-000010`
 | `AIT-UT-011` | 境界 | UT | Signature Component | 署名PrimitiveとPublisher検証規則 | N/A | 期待Publisher、別Publisher、鍵差替え、無効署名 | 署名と検証規則を適用する | Publisher、payload Hash、署名結果、拒否理由を記録する | 期待Publisherの有効署名だけを受理し鍵内容を公開しない | 公開分類済み入力、Hash、結果、判定 | 秘密byte残存0 | Automated |
 | `AIT-UT-012` | 境界 | UT | One-shot Authorization | Authorization状態機械 | N/A | 未使用、予約済み、消費済み、失敗、競合要求 | Authorizationを原子的に予約・消費する | 状態遷移、勝者、敗者、鍵read回数を記録する | 一件だけが消費でき敗者と再利用要求は鍵を読まない | 入力、遷移、read回数、判定 | 再利用可能Authorization 0 | Automated |
 | `AIT-IT-013` | 境界 | IT | Signed Promotion Boundary | Signer→Staging→Manifest配置 | Adjacent 1 Block | 固定Snapshot、Root差、対象欠落、配置競合 | 署名結果を同じSnapshotのStagingへ配置する | Snapshot、署名、配置対象、競合、結果を記録する | 別Snapshotを混ぜず全対象が揃う場合だけ配置結果を返す | Snapshot、対象集合、配置結果、判定 | 部分配置0または同一Identityの回復義務 | Automated |
-| `AIT-IT-014` | 境界 | IT | Runtime Trust Policy | Artifact観測→Deployment Policy→Authority Gate | Direct Boundary | 同じArtifactに異なるDeployment Owner Policy、失効・未知条件 | Policyを評価しRuntime Authority可否を返す | Artifact Identity、Policy、判定、Authority発行を記録する | Qual-Lab固定許可を使わずDeployment OwnerのPolicyだけを適用する | 入力、Policy、結果、Authority、判定 | 拒否時Authority 0 | Automated |
 
 ### 配布担当者の固定端末入口
 
@@ -90,11 +89,12 @@ Quality ID: `QA-000010`
 
 ## Semantic Coverage Pilot
 
+現在のSemantic Pilotに接続する追加項目はない。利用者Trust Policyの有効化とProvider起動Gateへの接続は将来範囲であり、現行の独立読取り評価や署名検証と混同しない。旧AIT-IT-014は上流の読取り評価を起動接続へ拡張したため除去し、IDは再利用しない。
+
 この表はQuality Local Itemが検証する設計上の意味だけを正方向で宣言する。逆方向の一覧は生成し、本文の類似表現から推測しない。
 
 | Local ID | Semantic Key |
 |---|---|
-| `AIT-IT-014` | `coordinator.runtime-trust-consumption` |
 
 ## 5. 署名入口とEvidence
 

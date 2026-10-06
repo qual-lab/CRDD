@@ -9,7 +9,7 @@
       "stability": "pilot",
       "subsystem": "coordinator",
       "sourceDocument": "06_Architecture/Details/coordinator/01_Architecture.md",
-      "sourceSha256": "e6642224acb261e9cdcceadee6570b025addba920b40e543cf1df8297dea65ab",
+      "sourceSha256": "52ad799f35399758685da5c81b6af862b1f998885ac24c2d1fca980062e89736",
       "meanings": [
         {
           "semanticKey": "coordinator.candidate-review-boundary",
@@ -91,17 +91,6 @@
           "verification": "required",
           "sourceSection": "## 11. 取消と回復",
           "notApplicableReason": null
-        },
-        {
-          "semanticKey": "coordinator.runtime-trust-consumption",
-          "kind": "trust",
-          "statement": "Runtime Trust Evaluatorの独立した判断を実行Gateで消費し、署名やPublisher一要素から実行許可を生成しない。",
-          "archIds": [
-            "ARCH-000014"
-          ],
-          "verification": "required",
-          "sourceSection": "## 9. 署名済み配布物",
-          "notApplicableReason": null
         }
       ]
     },
@@ -111,7 +100,7 @@
       "stability": "pilot",
       "subsystem": "project-runtime",
       "sourceDocument": "06_Architecture/Details/project-runtime/02_Detailed_Design.md",
-      "sourceSha256": "271d7c97d05200f3d3e720179ea77396c9534833dcb91e47d7167cf1542612c4",
+      "sourceSha256": "0a4513b277b97fb6f44575fcceb251b884a8c3f927e8485854b47a77b909f8ef",
       "meanings": [
         {
           "semanticKey": "project-runtime.acceptance-decision-authority",
@@ -368,20 +357,6 @@
           "coordinator.test.system.signed-general-task-verification"
         ],
         "testObservation": "observed"
-      },
-      {
-        "semanticKey": "coordinator.runtime-trust-consumption",
-        "archIds": [
-          "ARCH-000014"
-        ],
-        "implementationSymbolIds": [],
-        "implementationObservation": "unobserved",
-        "qualityLocalIds": [
-          "QA-000010/AIT-IT-014"
-        ],
-        "verificationMode": "automated",
-        "testSymbolIds": [],
-        "testObservation": "unobserved"
       },
       {
         "semanticKey": "project-runtime.acceptance-decision-authority",

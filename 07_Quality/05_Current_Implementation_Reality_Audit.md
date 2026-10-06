@@ -115,7 +115,6 @@ v0.20.1の実行知はEvent生成、Repository-local Storeへの不変保存、�
 | `coordinator.provider-effect-authority` | observed | observed | `Covered Candidate`: Authority契約試験を局所実行で確認 |
 | `coordinator.provider-selection-boundary` | observed | observed | `Covered Candidate`: Model Selection契約試験を局所実行で確認 |
 | `coordinator.recovery-obligation` | observed | observed | `Covered Candidate`: Runtime契約試験とRecovery Matrix契約試験を局所実行で確認 |
-| `coordinator.runtime-trust-consumption` | unobserved | unobserved | `Missing`: Trust候補の検証部品はあるが、Runtime Trust Policy activationとProvider launch結合が`not_implemented` |
 | `project-runtime.acceptance-decision-authority` | observed | observed | `Covered Candidate`: 判断ApplicationとState契約試験を局所実行で確認 |
 | `project-runtime.durable-before-effect` | observed | observed | `Covered Candidate`: Project RuntimeのEffect前耐久化を`PRL-ST-004`へ接続したSystem Test Relationで確認 |
 | `project-runtime.execution-intelligence-read-model` | observed | manual_pending | `Pending`: 読取りPortの実装Relationはあるが、利用者受入を所有する`PPR-UAT-008`は未実施でありUnit TestをUATへ昇格しない |
@@ -132,9 +131,9 @@ v0.20.1の実行知はEvent生成、Repository-local Storeへの不変保存、�
 
 初回判定は`Covered 1／Partial 15／Missing 1`だった。途中のRelation是正では16件を観測済みとしたが、その後のTest Source全数移行でFile、Case、Helperを一つの代表Local Itemへ縮約し、成立済みRelationを失った。さらに旧Relationには物理Test段階とLocal Item段階の不一致が含まれていたため、旧集合をそのまま復元せず、197 Test Fileと2,125 Test Caseを責務別に再照合した。
 
-2026-10-06の再生成では18意味中16件が実装と自動Testの両Relationを持つ。保存のEffect前耐久化を含む現在のCanonical表から再生成し、旧17意味の生成結果とは区別する。`coordinator.runtime-trust-consumption`は実装自体がない`Missing`である。`project-runtime.execution-intelligence-read-model`は実装Relationを持つが、手動UATである`PPR-UAT-008`が未実施の`manual_pending`である。Relationの存在を実行・Passへ、Unit TestをUAT成立へ昇格しない。現在の生成版と限界は[②の現実照合](../99_Roadmap/Changes/CHG-000082/Evidence/261006_phase2-reality-audit.md)を参照する。
+2026-10-07の採用範囲照合後、現行の意味集合は17件である。17件すべてが実装Relationを持ち、16件は自動Test Relation、1件は手動UATのmanual_pendingである。利用者Trust Policyの有効化・Provider起動接続は将来版のため、現行のRequired集合から除去した。これは実装追加やMissingの実証解消ではない。Relationの存在を実行・Passへ、Unit TestをUAT成立へ昇格しない。
 
-`coordinator.runtime-trust-consumption`だけは単なるRelation漏れではない。Trust候補のLoader、VerifierおよびPackage Trust Coreは存在するが、現行Source自身がRuntime Trust Policy activationとProvider launch integrationを`not_implemented`として公開している。したがって、署名検証部品の存在や署名済みE2E成功から、このMeaningの成立を推定しない。
+以前のTrust起動接続Missingは、上流の独立読取り評価から現行Coordinatorの起動接続義務へ拡張した範囲不整合だった。署名・完全性・起動時再検証は維持する。将来の独立Trust Policy候補、上流要求および過去の監査結果は、現行実装の不足一覧と分けて保持する。
 
 ### 8.2 局所実行結果の履歴
 
@@ -156,7 +155,7 @@ Sandbox内ではProcess列挙が`Access denied`となり、取消試験も子Pro
 | artifact-signing | `40_Develop/artifact-signing` | 8／8 Pass | Partial | `AIT-IT-007`、`AIT-IT-009`と実試験のRelationを確認して接続する |
 | checker | `40_Develop/checker` | 構造・Relation Error 0／Warning 0、Feature Branch固有の既知tag mismatch 1、全契約試験375／375 Pass | In Review | 構造・関係・Consumer Closure・Symbol Graphの機械確認は成立した。既知tag mismatchはv0.22 Release候補固定後に再評価し、独立レビューで意味妥当性を確認する |
 | contract-migration | checker／version-control等へ分散 | 専用Runnerなし | Gap | 独立packageを要求せず、Consumer Closureと縦断移行の実Owner／Test／Evidenceを明示する |
-| coordinator | `40_Develop/coordinator` | 静的確認Pass、通常ユーザー境界のPilot取消2／2 Pass、AI依頼Mode Router 4／4 Pass | Partial／Missing | 15期待Local Itemのうち13件を接続。`AIT-ST-004`、`ERB-ST-011`はTrust組合せと別Session handoff chainの追加確認が必要。`coordinator.runtime-trust-consumption`は実装欠落 |
+| coordinator | `40_Develop/coordinator` | 静的確認Pass、通常ユーザー境界のPilot取消2／2 Pass、AI依頼Mode Router 4／4 Pass | Partial／Missing | 現行の期待Local Itemは採用範囲へ再接続した。`AIT-ST-004`、`ERB-ST-011`はTrust組合せと別Session handoff chainの追加確認が必要。独立Trust Policy起動接続は現行Scope外 |
 | crdd-domain-library | `40_Develop/crdd-domain-library` | 39／39 Pass | Partial | 8期待Local Itemのうち3件を接続。Filesystem Store LockはOS Kernel排他、二回復者と後続Ownerの別Process競合、同一targetのPath alias競合、不完全RecordのRecovery Identity非発行、回復時・通常Operation後・既存Record観測後のKernel Endpoint解放不明、exact Recovery Obligationの耐久保持・再入場、およびcleanup AuthorityのRoot／Path Scopeまで確認した。署名配布、文書理解、移行閉包は利用側を含む追加確認が必要 |
 | cros | `40_Develop/cros` | 12／12 Pass | Partial | 許可済みRepositoryのProject Context Federationと欠測保持を追加した。Shared Host、Credential永続Store、非開示System境界およびHandoffは後続Phaseで継続する |
 | execution-intelligence | `40_Develop/execution-intelligence` | 56／56 Pass | Partial | 10期待Local Itemのうち7件を接続。利用者判断2件とClock／現行性の結合確認が残る |
@@ -306,7 +305,7 @@ v0.21の固定Baseline108件観測済み・22件未観測を履歴として維�
 | project-runtime | 10／15 | `EST-IT-001`、`PRL-ST-003`、`PRL-ST-004`、`PRL-UAT-002`、`PRL-UAT-010` |
 | quality-change-control | 0／5 | `CQS-IT-001`、`CQS-IT-003`、`CQS-IT-004`、`CQS-IT-008`、`CQS-IT-009` |
 | runtime-data | 3／6 | `PPR-UT-006`、`RDL-ST-002`、`RFD-ST-003` |
-| runtime-trust | 0／5 | `AIT-IT-001`、`AIT-IT-003`、`AIT-IT-014`、`AIT-ST-004`、`AIT-UT-005` |
+| runtime-trust | 0／4 | `AIT-IT-001`、`AIT-IT-003`、`AIT-ST-004`、`AIT-UT-005` |
 | semantic-coverage | 3／6 | `PPR-IT-004`、`RDL-IT-007`、`RDL-ST-002` |
 | verification-runner | 2／8 | `CQS-IT-003`、`CQS-IT-012`、`CQS-IT-013`、`ERB-IT-002`、`ERB-IT-004`、`ERB-ST-015` |
 | version-control | 6／7 | `PPR-UAT-009` |

@@ -11,7 +11,7 @@
 | [ARCH-000004](../../Definitions/ARCH-000004/architecture_definition.md) | Project RuntimeのExecution PortをProvider・Process・Container実行へ接続し、Task／Attempt lifecycleを保持する。 | Covered |
 | [ARCH-000008](../../Definitions/ARCH-000008/architecture_definition.md) | Provider、Process、Docker、結果搬送の各phaseを診断可能にし、推測せず故障境界を返す。 | Covered |
 | [ARCH-000010](../../Definitions/ARCH-000010/architecture_definition.md) | 外部構成から利用可能Provider／Modelを解決し、選定根拠と再選定条件を実行前に固定する。 | Covered |
-| [ARCH-000014](../../Definitions/ARCH-000014/architecture_definition.md) | Runtime Trust Evaluatorの判断を実行Gateで消費する。署名やPublisher一要素から信頼判断を生成しない。 | Partial |
+| [ARCH-000014](../../Definitions/ARCH-000014/architecture_definition.md) | 独立した読取り評価との責務境界を保持する。v0.22では利用者Trust Policyの有効化・Provider起動接続を要求しない。 | Partial |
 | [ARCH-000015](../../Definitions/ARCH-000015/architecture_definition.md) | 外部送信同意、Provider Effect、結果帰還、Review、Candidate dispositionを別Authorityとして処理する。 | Covered |
 
 Relation状態は、この領域が担当する責務断面に対する状態である。複数領域で同じARCH-IDを実現する場合、各領域の断面を合成して基本設計全体を閉じる。
@@ -361,6 +361,8 @@ Workbenchで利用者が明示したAI Profileによる助言実行は、Front A
 <a id="release-artifact-binding"></a>
 
 ## 9. 署名済み配布物
+
+独立Trust Policyの有効化とProvider起動へのAdapter接続は[Roadmapの将来版](../../../99_Roadmap/01_Roadmap.md#2-版ごとにできるようになること)の対象であり、現行Coordinatorの必須能力ではない。署名・完全性・起動時再検証など現在の固定Runtime保証は維持し、独立読取り評価だけから実行Capabilityを発行しない。
 
 ### 署名範囲の縮小 — 採用済みの変更目標、実装未完了
 
@@ -1147,7 +1149,6 @@ Provider境界のLifecycle診断は、`coordinator_provider_boundary_configured`
 | `coordinator.objective-lifecycle` | `lifecycle` | Task／Attemptを要求、許可、Provider実行、Review、候補、cleanup、結果公開へ進め、途中失敗を安全な停止または同じIdentityの回復義務へ収束させる。 | `ARCH-000004` | `Required` | `## 3. 一般Taskの主シーケンス` | — |
 | `coordinator.provider-effect-authority` | `authority` | 外部送信同意、Task Authority、Provider Effectおよび候補採用を別の決定権限として扱い、必要なAuthorityが揃う前にProvider Effectを開始しない。 | `ARCH-000004`<br>`ARCH-000015` | `Required` | `## 7. Authorityと外部送信` | — |
 | `coordinator.provider-selection-boundary` | `boundary` | 利用可能性、Task属性、構成、PolicyおよびTrust結果からProvider／ModelをEffect前に選び、選定理由と再選定条件を固定する。 | `ARCH-000010` | `Required` | `## 8. Providerとモデル選定` | — |
-| `coordinator.runtime-trust-consumption` | `trust` | Runtime Trust Evaluatorの独立した判断を実行Gateで消費し、署名やPublisher一要素から実行許可を生成しない。 | `ARCH-000014` | `Required` | `## 9. 署名済み配布物` | — |
 | `coordinator.external-boundary-diagnostics` | `observability` | Provider、Docker、OS Processおよび結果搬送の要求、開始、完了、失敗、cleanupを同じOperationで相関し、観測不能を成功へ畳まない。 | `ARCH-000008` | `Required` | `### Provider外部境界の診断接続` | — |
 | `coordinator.candidate-review-boundary` | `boundary` | Providerの生結果を正本へ直接採用せず、隔離候補、Review、必要なRemediationおよびCandidate dispositionを経て利用側へ返す。 | `ARCH-000015` | `Required` | `## 10. Provider実行と候補` | — |
 | `coordinator.recovery-obligation` | `recovery` | Effectまたはcleanupが不明な場合はexact Recovery IdentityとEvidenceを保持し、別Taskへの再発行や不明状態の正常化を行わない。 | `ARCH-000004`<br>`ARCH-000008`<br>`ARCH-000015` | `Required` | `## 11. 取消と回復` | — |

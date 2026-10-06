@@ -21,7 +21,9 @@ Native試験の保存先整理は、残る九能力十実行とNode／Native排�
 
 ②の保存方式刷新は完了した。受付世代、終了整理、本番v2保存PortとRepository実切替を実施し、履歴は30日保持、終了済み処置後は旧IDの再利用を拒否する。候補・認証・署名・正式Evidenceは保全した。現署名候補のproduction初期化2件は成功。全Portable収集の失敗六件を未署名試験の前提欠陥として隔離し、関連35件すべて成功。本番Sourceは不変で、Architecture／Quality最終独立レビューもPass、必須是正0件となった。③以降・全製品E2E・全品質項目の未完了は維持する。[②の完了判定](99_Roadmap/Changes/CHG-000082/Evidence/261005_project-runtime-phase2.md#36-②の完了判定)を参照する。
 
-2026-10-06のReality Auditは13QA・176検証項目、試験Relationあり132・なし44、Symbol616（重複・未定義参照0）。18意味中16は実装と自動試験の両Relation、1は未接続、1は手動確認待ちである。これは品質項目のPass数ではなく、全項目のEvidence適用はOPENを維持する。[現在の現実照合](99_Roadmap/Changes/CHG-000082/Evidence/261006_phase2-reality-audit.md)を参照する。
+2026-10-07の採用範囲照合では、独立Trust Policyの起動接続義務を現行必須から除去した。現在のSemantic集合は17意味、実装Relationあり17・自動Test Relationあり16・手動確認待ち1である。未実装機能を実装済みにはしていない。
+
+過去の2026-10-06のReality Auditは13QA・176検証項目、試験Relationあり132・なし44、Symbol616（重複・未定義参照0）。18意味中16は実装と自動試験の両Relation、1は未接続、1は手動確認待ちである。これは品質項目のPass数ではなく、全項目のEvidence適用はOPENを維持する。[現在の現実照合](99_Roadmap/Changes/CHG-000082/Evidence/261006_phase2-reality-audit.md)を参照する。
 
 ①の一時領域・検証資料整理は承認済み限定範囲で独立確認Passとなった。Coordinator記録の縮小とCandidateの7日保持は後続段階であり、②の保存切替だけを根拠に実装済みとしない。署名済み実Provider E2E・Release全体の成立も今回の限定確認から推定しない。[整理①の結果](99_Roadmap/Changes/CHG-000082/Evidence/261005_runtime-data-phase1.md#14-①の独立確認結果)を参照する。
 

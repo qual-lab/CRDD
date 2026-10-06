@@ -2,11 +2,11 @@
  * Runtime Trust判断とPackage Gateの直接境界を検証する。
  *
  * @packageDocumentation
- * @responsibility Deployment Owner Policyの判断が同一Artifactへ結合され、Authority Gateで安全に消費されることを検証する。
- * @trace AIT-IT-014
+ * @responsibility 非Authorityの評価部品間でPolicy判断と同一Artifactの相関を検証する。Provider起動接続や検証目標全体の成立は主張しない。
+ * @trace AIT-IT-001
  * @level IT
- * @scope Artifact観測、Deployment Policy、Authority Gate
- * @boundary AIT-IT-014=Direct Boundary: Artifact観測→Deployment Policy→Authority Gate
+ * @scope Artifact観測、Deployment Policy、読取り評価部品
+ * @boundary AIT-IT-001=Direct Boundary: Artifact観測→Deployment Policy→非Authorityの評価部品
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -20,13 +20,13 @@ const artifactIdentity = "a".repeat(64);
  * Deployment Owner Policyがtrustedとした同一ArtifactだけをGateで受理する。
  *
  * @responsibility Trust評価とGate消費を同じArtifact Identity・Policy revisionへ結合する。
- * @trace AIT-IT-014
+ * @trace AIT-IT-001
  * @precondition 全軸が既知で、PolicyがPublisherを明示的に許可している。
  * @stimulus Trust Evaluatorの結果をPackage Gateの消費境界へ渡す。
  * @observation accepted、Policy revisionおよびAuthority非発行を観測する。
  * @oracle 同一Artifactだけacceptedになり、Gate消費自体はAuthorityを発行しない。
  * @cleanup N/A: 外部資源を作成しない。
- * @boundary AIT-IT-014=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary AIT-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Deployment Owner Policyがtrustedとした同一ArtifactだけをGateで受理する", () => {
   const decision = evaluateRuntimeTrust({
@@ -62,13 +62,13 @@ test("Deployment Owner Policyがtrustedとした同一ArtifactだけをGateで�
  * Identity不一致、未知軸およびAuthority混入をGateで拒否する。
  *
  * @responsibility Trust判断を別Artifactへ流用せず、unknownや権限混入を安全側へ閉じる。
- * @trace AIT-IT-014
+ * @trace AIT-IT-001
  * @precondition 評価結果は別Identity、unknown軸または不正Authority fieldを持つ。
  * @stimulus 各反例をPackage Gateの消費境界へ渡す。
  * @observation accepted、理由およびAuthority非発行を観測する。
  * @oracle 全反例を拒否し、Qual-Lab固定許可や署名Passによるfallbackを行わない。
  * @cleanup N/A: 外部資源を作成しない。
- * @boundary AIT-IT-014=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary AIT-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Identity不一致、未知軸およびAuthority混入をGateで拒否する", () => {
   const unknown = evaluateRuntimeTrust({

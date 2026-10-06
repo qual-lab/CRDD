@@ -20,7 +20,9 @@
 
 ## 設計集合
 
-2026-10-06の現物再集計は13定義・176項目、試験Relationあり132項目・なし44項目、Symbol616件（ID重複0、未定義Local Item参照0）である。Semantic Coverageを再生成し、18意味のうち16は実装・自動試験の両Relation、1は実装・試験未観測、1は手動確認待ちとなった。いずれもRelationの数字であり、実行や品質項目の全体Pass件数ではない。[再集計と適用範囲](../99_Roadmap/Changes/CHG-000082/Evidence/261006_phase2-reality-audit.md)を参照する。
+2026-10-07の現行Semantic集合は17意味、実装Relationあり17・自動Test Relationあり16・手動確認待ち1である。独立Trust Policy起動接続は将来範囲のため現行Requiredから除去した。実装追加によるMissing解消ではなく、実行・Evidence全体Passも主張しない。
+
+過去の2026-10-06の現物再集計は13定義・176項目、試験Relationあり132項目・なし44項目、Symbol616件（ID重複0、未定義Local Item参照0）である。Semantic Coverageを再生成し、18意味のうち16は実装・自動試験の両Relation、1は実装・試験未観測、1は手動確認待ちとなった。いずれもRelationの数字であり、実行や品質項目の全体Pass件数ではない。[再集計と適用範囲](../99_Roadmap/Changes/CHG-000082/Evidence/261006_phase2-reality-audit.md)を参照する。
 
 | 項目 | 件数 |
 |---|---:|

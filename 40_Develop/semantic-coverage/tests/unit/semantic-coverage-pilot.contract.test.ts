@@ -414,7 +414,7 @@ test("CoordinatorとProject Runtimeの可視表からPilot IRを決定論的に�
     {
       subsystem: "coordinator",
       sourceDocument: "06_Architecture/Details/coordinator/01_Architecture.md",
-      expectedMeaningCount: 8,
+      expectedMeaningCount: 7,
     },
     {
       subsystem: "project-runtime",
@@ -510,9 +510,13 @@ test("Pilot Semantic Keyを実装Symbol側のimplementsから解決する", () =
   );
   assert.deepEqual(built.findings, []);
   assert.ok(built.graph);
-  assert.equal(built.graph.meaningsByKey.size, 18);
+  assert.equal(built.graph.meaningsByKey.size, 17);
+  assert.equal(
+    built.graph.meaningsByKey.has("coordinator.runtime-trust-consumption"),
+    false,
+  );
   assert.equal(built.graph.implementationIdsByMeaningKey.size, 17);
-  assert.equal(built.graph.qualityLocalIdsByMeaningKey.size, 18);
+  assert.equal(built.graph.qualityLocalIdsByMeaningKey.size, 17);
   assert.ok(
     built.graph.implementationIdsByMeaningKey
       .get("project-runtime.candidate-adoption")
@@ -779,7 +783,7 @@ test("Quality Local Itemが全Pilot Semantic Keyの正方向Relationを所有す
   assert.ok(compiled.relations);
   assert.equal(
     new Set(compiled.relations.map(({ semanticKey }) => semanticKey)).size,
-    18,
+    17,
   );
 });
 

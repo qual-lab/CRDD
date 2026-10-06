@@ -660,3 +660,11 @@ Nativeスクリプトの横断指摘は、三入口がGitを直接呼びReposito
 ### 移管Evidenceの正式要約化 — 2026-10-07
 
 人間承認により、Recorder14実行42JSONとNative4JSONを既存の整理④Markdownへ集約し、Release案内を要約へのリンクへ変更した。過去の結果・時刻・対象版・固有署名Identity・未記録観測・失敗義務を維持し、重複本文と開始／完了管理Fileを恒久書庫にしない。限定独立再レビューPass後、範囲・非使用・記録相関・削除直前Hashを確認し、46File・157,884 bytesを回収、全件不存在を確認した。実署名・製品E2E・現在品質の全体合格は主張しない。コミット・プッシュは行っていない。
+
+### Runtime Trust起動接続の採用範囲是正 — 2026-10-07
+
+人間からの処遇再確認によりRoadmapの将来版と上流の独立読取り評価を照合した。Coordinatorが利用者Trust Policyを有効化してProvider起動Gateへ消費する義務は現行v0.22の採用範囲ではなく、ARCH-000014の読取り評価契約を過剰拡張したものだった。現行Semantic Required行とAIT-IT-014を除去し、IDは再利用しない。評価部品の既存二試験とOracleは保持し、AIT-IT-001の部分境界へ再接続した。署名・完全性・起動時Gate・既存Trust候補部品・将来Roadmap・上流Canonical IDは変更していない。
+
+正本からSemantic Coverageを再生成し、17意味の実装Relation17、自動Test Relation16、手動確認待ち1となった。実装追加・過去Missingの実証解消・全体品質Passとは表示しない。過去CHGと監査の判定は履歴として維持する。
+
+限定独立レビューは2026-10-07にPass。適用表に残った旧AIT-IT-014参照を是正し、現行の必須参照不存在を再確認した。Semantic Coverageの16試験、独立読取り評価Gateの2試験、変更対象の形式・LintおよびCoordinatorの型検査はPass。全体Checkerは16指摘を検出し、このうち旧ID残存1件を今回是正した。他の既存リンク・Quality対応表／適用判定の残件は全体Passとして扱わない。署名・実Provider E2E・将来Trust起動接続の成立は主張しない。
