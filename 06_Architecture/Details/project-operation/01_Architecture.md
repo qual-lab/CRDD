@@ -1,8 +1,10 @@
-# Project Operation Contextのアーキテクチャ
+# 活動Contextと投影の詳細設計
 
 成果物種別: Architecture詳細設計
 詳細設計領域: project-operation
-状態: Canonical
+状態: Candidate
+
+この意味領域の実装Ownerは`domain-model`であり、独立した`project-operation`Packageは維持しない。Topic／Meeting、Context投影、保存部品の公開入口は[Domain Model詳細](../crdd-domain-library/01_Architecture.md#9-統合後の公開操作と保存owner)へ対応する。本書は活動Contextの意味・状態・正本保存を所有し、CROSのBinding・認可・Routing、Coordinatorの実行、OrchestratorのTask採用を所有しない。新配置のSource接続と検証は未実施である。
 
 ## 基本設計との関係
 
@@ -74,7 +76,7 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 
 担当責任者: Qual-Lab
 最終更新日: 2026-09-12
-関連変更: [CHG-000067](../../../99_Roadmap/Changes/CHG-000067/change.md)
+関連変更: [CHG-000082](../../../99_Roadmap/Changes/CHG-000082/change.md)。過去の活動Context導入は[CHG-000067](../../../99_Roadmap/Changes/CHG-000067/change.md)を参照する。
 
 ## 1. 対象と結論
 
@@ -169,7 +171,7 @@ Logical Project: PRJ-001
 | 同じProject内で複数Repositoryが同じ責務をCanonical Ownerとして宣言する | 明示した分割規則がなければ`conflicting`として扱い、自動選択しない |
 | 同じ責務を分割所有する必要がある | Artifact IDのnamespace、partitionまたは対象範囲を別契約で明示する。Pathや検索順で所有者を決めない |
 
-Repository Manifestの既存`capabilities`はTool／Runtime Capabilityを表す。Context Responsibilityと混同せず、v0.22のSchemaでは別fieldとして表現する。CROSは責務宣言だけでRepositoryを信頼せず、検証済みBindingとTrust Policyの許可範囲を交差させる。
+Repository Manifestの既存`capabilities`はTool／Runtime Capabilityを表す。Context Responsibilityと混同せず、責務の宣言と操作許可を分ける。CROSは責務宣言だけでRepositoryを信頼せず、検証済みBindingと現在のCredential・Workspace許可範囲を交差させる。独立したTrust Policy Frameworkは今回の採用範囲に含めない。
 
 
 Repository名またはDirectory名は人間向け表示であり、Project IDまたはRepository IDの代用にしない。`PRJ-001-MGMT`、`PRJ-001-DEV`等の命名は利用者向けの例として使用できるが、CROSは名前のprefix／suffixからProject Relation、責務またはAuthorityを推定しない。
@@ -177,7 +179,7 @@ Repository名またはDirectory名は人間向け表示であり、Project IDま
 
 ## 3. Repository分離とアクセス境界
 
-Repository分離は、Git Hosting、Filesystem ACL、OS UserまたはShared CROS ServerのWorkspace ExposureがRepository単位の読取りを実際に拒否できる場合に、情報アクセス境界として使用できる。CROS内の表示制御だけで同じOS Userが読めるRepositoryを隠しても、機密性の境界にはならない。
+Repository分離は、Git Hosting、Filesystem ACL、OS Userまたは公開入口がCROSの認可済みWorkspace範囲でRepository単位の読取りを実際に拒否できる場合に、情報アクセス境界として使用できる。CROS内の表示制御だけで同じOS Userが読めるRepositoryを隠しても、機密性の境界にはならない。
 
 ```text
                          Project ID: PRJ-001
@@ -202,7 +204,7 @@ Repository分離は、Git Hosting、Filesystem ACL、OS UserまたはShared CROS
 | `unavailable` | 登録済みだがBinding、Host、Networkまたは外部Serviceを現在利用できない | 認可拒否と混同せず、取得不能として保持する |
 | `unknown` | 存在、Binding、認証または観測結果を安全に確定できない | `restricted`や不存在へ推定せず、後続Effectを止める |
 
-Workbenchの`Unlock`表示は、Client側で別の有効なConnection Credentialを選び、Shared CROS Serverへ再接続する操作である。CROSは共通Password、User Directory、Role Directory、MFA、SSOまたはPassword Recoveryを実装せず、Server側にはToken Hash、`workspace_ids[]`、`system_admin`および失効状態を持つ最小Credential Registryだけを置く。CredentialのWorkspace集合変更は次のRequestから有効とし、進行中TaskのAuthorityを遡及変更しない。
+Workbenchの`Unlock`表示は、Client側で別の有効なConnection Credentialを選び、CROS能力を提供するMCP Serverへ再接続する操作である。同一ProcessではWorkbench Serverから共通の認可付き内部APIを利用する。CROSは共通Password、User Directory、Role Directory、MFA、SSOまたはPassword Recoveryを実装せず、Token Hash、`workspace_ids[]`、`system_admin`および失効状態を持つ最小Credential Registryだけを置く。CredentialのWorkspace集合変更は次のRequestから有効とし、進行中TaskのAuthorityを遡及変更しない。
 
 既に同じLocal UserがRepository内容を読める状態では、Workbench上の再入力は誤操作防止または再確認には使えるが、情報アクセス制御とは表示しない。強い分離が必要な場合は、Repository Hosting権限、別OS Principal、Filesystem ACL、暗号化Volume等、対象環境が所有する境界を使用する。
 
@@ -436,27 +438,25 @@ Repository
 Human／AI／CLI／MCP
           │
           ▼
- Public Project Operation Contract
+ Domain Modelの用途別公開入口
           │
           ▼
- Project Operation Application
+ Topic／Meeting・Context操作
 ├ Identity／Relation Resolver
 ├ Topic／Meeting Lifecycle
-├ Projection Builder
-└ Command／Candidate Router
+├ Source-aware Projection
+└ 所有正本への操作解決
           │
-          ├─→ Repository Read Ports
-          ├─→ Owner-specific Command Ports
-          └─→ CROS Repository Router
+          ├─→ Repository観測・保存部品
+          └─→ 当該Repositoryの正本
 
-Infrastructure Adapters
-├ Filesystem／Git
-├ Runtime Data
-├ MCP／HTTP
-└ CROS Workbench Adapter
+呼出し側の境界
+├ CROS: 別RepositoryのBinding・認可・Routing
+├ Workbench Server: Browser表示API
+└ MCP Server: Machine向け搬送
 ```
 
-Project Operation CoreはFilesystem Path、MCP DTO、Workbench表示形式または特定Project管理Toolへ依存しない。CROS Repository RouterはRelation解決を担当できるが、正本更新やProject横断Authorityを所有しない。
+意味CoreはFilesystem Path、MCP DTO、Workbench表示形式または特定Project管理Toolへ依存しない。CRUD操作は宣言したRepository／保存公開APIを直接利用し、Git Commit／Pushを発行しない。CROSは別Repositoryの認可付きOwner解決を担当し、各正本が要求する更新Authorityを省略しない。Domain ModelからCROSやSurfaceをimportする逆依存を作らない。
 
 ## 10. 実装前の検証義務
 

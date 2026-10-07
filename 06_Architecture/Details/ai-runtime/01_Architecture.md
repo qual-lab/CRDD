@@ -1,4 +1,4 @@
-# AI Runtime Profile詳細設計
+# AI Adapter詳細設計
 
 成果物種別: Architecture詳細設計
 詳細設計領域: ai-runtime
@@ -7,11 +7,15 @@
 
 ## 基本設計との関係
 
-AI Runtime Profileは、外部AIを選ぶためのAdapter、ModelおよびProfileの構成契約を一か所で検証し、Coordinator、CROS、Workbench等の利用側へ同じ意味で渡す。Provider実行、認証情報、任意実行Path、任意CLI引数および実行Authorityは所有しない。
+AI Adapterは、Adapter、Model、Profileの構成契約とProvider固有の起動・認証方式・結果変換を所有する。実装は旧`ai-runtime`とCoordinator内のProvider固有差を`ai-adapter`へ統合する。任意実行Path・任意CLI引数・秘密値をCatalogへ持たず、実行Authorityの発行、Docker／Processの所有、外部送信許可と共通の回収判定はCoordinatorに残す。
+
+新配置のSource接続は未実施である。既存Profile能力と旧Production Compositionの成立範囲を保持し、再編後の接続・実境界確認と区別する。
 
 | Architecture定義 | この領域が具体化する責務 | Relation状態 |
 |---|---|---|
 | [ARCH-000010](../../Definitions/ARCH-000010/architecture_definition.md) | Profile Catalogの閉じたSchema、決定論的な解決、利用可能性の四軸評価 | Covered |
+| [ARCH-000004](../../Definitions/ARCH-000004/architecture_definition.md) | Provider固有の計画と構造化結果を共通実行契約へ接続する。実行・回収AuthorityはCoordinatorに残す。 | Partial |
+| [ARCH-000015](../../Definitions/ARCH-000015/architecture_definition.md) | Workbench助言・変更候補のProvider差を共通入口へ変換し、生出力と共通判断を分離する。 | Partial |
 
 ## 詳細成果物の適用判断
 
@@ -72,7 +76,7 @@ AdapterはProvider固有の起動、認証、取消、結果および回復の�
 
 ```text
 Repository-local設定 ─┐
-CROS Server設定 ──────┼─→ 設定Adapter ─→ AI Runtime Profile Catalog
+CROS設定 ────────────┼─→ 設定Adapter ─→ AI AdapterのProfile Catalog
                       │                    ├ 検証
                       │                    ├ 一意解決
                       │                    └ 利用可能性評価
@@ -84,7 +88,7 @@ CROS Server設定 ──────┼─→ 設定Adapter ─→ AI Runtime Pr
 ```
 
 - Repository単体とCROS Serverは同じCatalog Schemaを使うが、保存場所、採用AuthorityおよびLifecycleは各設定Adapterが所有する。Repository単体は`.crdd/config/ai-profile-catalog/`、CROSはOS管理config Rootの`ai-profile-catalog/`へ別の不変Snapshot列を持つ。
-- AI RuntimeのCatalog検証・解決Coreは検証済みSnapshotを入力にする純粋なDomain境界である。File Adapterは固定Rootへの保存だけを所有し、採用AuthorityまたはProvider Effectを発行しない。
+- AI AdapterのCatalog検証・解決Coreは検証済みSnapshotを入力にする純粋な境界である。File Adapterは固定Rootへの保存だけを所有し、採用AuthorityまたはProvider Effectを発行しない。Provider計画・変換の公開面は[§7](#7-provider差の公開契約と実行境界)に分ける。
 - CoordinatorはProfile ID、AdapterおよびModelを再定義せず、Workbench等で明示選択されたProfile IDをTask Request、Route Candidate、Selection Grantへexactに搬送する。明示IDとProvider／Role／Tierが一致しない場合はProvider Effect前に拒否する。
 - WorkbenchはProfile設定と利用可能性を表示するが、未観測を利用可能へ畳まず、一覧表示から実行Authorityを生成しない。Repository単体とRemote CROSでは、登録済みAdapter／Modelだけを使うProfileの作成・更新・確認付き削除を、それぞれのOwner Storeへ接続する。CROS管理は`systemAdmin`を持つ認証済み接続だけへ公開し、Content Workspace Grantとは分離する。
 
@@ -109,11 +113,12 @@ CROS Server設定 ──────┼─→ 設定Adapter ─→ AI Runtime Pr
 | Adopted Catalog Snapshot | 各設定Owner | 次改訂版の採用または利用終了 |
 | Resolved Profile | AI Runtime | 呼出し完了 |
 | Availability Observation | 実行環境Observer | 再観測またはSession終了 |
-| Provider Execution | Coordinator／Provider Adapter | AI Runtimeの責務外 |
+| Provider Command／Result Translation | AI Adapter | 計画・変換の完了。Process起動・回収の完了ではない |
+| Provider Execution | Coordinator | 実行結果、Process終了と資源回収を別々に観測し、同じOperationをsettleする |
 
 永続Snapshotが一件もない正常なOwner Storeは、Schema検証済みの既定Catalogを`revision 0`として返す。これは採用済みFileの代替ではなく、最初の採用で`expectedRevision: 0`を照合し、成功時にだけ`revision 1`を公開するための初期Snapshotである。Coordinatorは同じSnapshotからProfileを解決し、Profile ID、Adapter、Model、ReasoningおよびCatalog RevisionをExecution Planまで変更せず搬送する。DirectoryまたはSnapshotを観測できない場合、Revision列が不連続な場合、Envelope／Schemaが破損している場合は例外で停止し、`revision 0`へ縮退しない。
 
-既定Catalogの設定本文は`40_Develop/ai-runtime/src/default-ai-profile-catalog.json`が所有する。同梱JSONはOwner別の採用済みSnapshotではなく、初期値を定める配布設定である。Catalog Coreは静的JSON importで読み込み、通常のCatalog Validatorで検証した深い不変Snapshotだけを公開する。欠落、JSON構文破損またはSchema不正では初期化を停止し、埋込み旧値や空Catalogへ戻らない。署名RuntimeがCatalog Coreを消費する場合は、このexact JSONも静的依存として内容Identityと配布閉包へ含める。利用者が採用したOwner Snapshotは同梱初期値の変更だけでは上書きしない。
+既定Catalogの設定本文は統合後の`40_Develop/ai-adapter/src/catalog/default-ai-profile-catalog.json`へ置く。同梱JSONはOwner別の採用済みSnapshotではなく、初期値を定める配布設定である。Catalog Coreは静的JSON importで読み込み、通常のCatalog Validatorで検証した深い不変Snapshotだけを公開する。欠落、JSON構文破損またはSchema不正では初期化を停止し、埋込み旧値や空Catalogへ戻らない。署名RuntimeがCatalog Coreを消費する場合は、このexact JSONも静的依存として内容Identityと配布閉包へ含める。利用者が採用したOwner Snapshotは同梱初期値の変更だけでは上書きしない。
 
 現在の実装は既定Catalog、閉じた検証、一意解決、利用可能性評価、Owner別の耐久Snapshot採用、Repository／CROS WorkbenchのProfile限定管理、Coordinator互換解決、Workbench表示およびWorkbench AI依頼Portまで成立している。Workbenchが選んだProfile IDは、同じCatalog SnapshotのAdapter、Model、ReasoningとCatalog Revisionへ解決され、読取り助言のTask HashおよびProviderとともに一回送信境界までexactに保持される。CROSでは`systemAdmin`を持たないCredentialへCatalogの内容・件数を開示しない。Production Compositionは専用Dispatch、Provider別の固定Adapter選択、Repository非共有の読取り助言専用Execution Plan、固定配布物へ接続するProvider Command Plan、Provider出力抽出およびLifecycle判定を行うExecutor Coreまで接続した。Executor Coreから署名Runtimeへ渡す入力は、Operation、Profile、Task／Projection Hash、PromptおよびCommand Hashを結合した一回消費Packetへ固定し、再利用、別Owner消費、取消後利用および共有境界の拡張を拒否する。Codex／Claude Adapter、Docker Effect、Process ControllerおよびRecoveryは`workbench_advice`を独立Modeとして受理し、Provider HomeとOperation一時領域だけを共有し、助言Promptをstdinだけへ渡し、Provider Envelopeを助言JSONへ縮約してcleanup後に返す。Coordinatorの署名済みRuntimeは実行時に到達する`catalog.ts`／`types.ts`だけをCatalog Coreとして消費し、Store／管理Surfaceを暗黙に署名閉包へ含めない。Production CompositionはOperation生成、Model Selection、Mount Grant、Packet発行およびProcess Controllerまで成立済みである。未確認は今回の是正を含む署名済み配布物の再固定・直接起動と実Provider E2Eであり、局所Mode成立を実Provider利用可能とは表示しない。
 
@@ -129,6 +134,56 @@ CROS Server設定 ──────┼─→ 設定Adapter ─→ AI Runtime Pr
 | 一軸でも利用不可 | `unavailable` | 失敗軸を解消後に再観測 |
 | 採用後のProvider失敗 | Provider境界の結果として保持 | Coordinatorの回復契約へ渡す |
 | Profile削除の確認なし | Effect 0で拒否 | 対象Profileを確認して再要求 |
+
+## 7. Provider差の公開契約と実行境界
+
+### 7.1. 責務別配置と公開操作
+
+```text
+40_Develop/ai-adapter/src/
+├ index.ts             共通のProfile・計画・結果契約
+├ catalog/             Catalog検証、一意解決、既定JSON
+├ profile/             Owner別設定Store、登録・編集・削除
+├ codex/               公式Codexの計画・認証方式・出力変換
+└ claude/              Claude Codeの計画・認証方式・出力変換
+```
+
+DirectoryはProviderまたは具体責務を表し、`internal/`、`application/`、`runtime/`等の中間階層を増やさない。共通入口は契約型と必要な純粋解決を公開し、Profile管理Storeを暗黙に読み込まない。Coordinatorの署名閉包は実際に利用するCatalog・Provider入口と静的JSONへ接続し、Workbench管理用の全Storeを包括しない。
+
+| 公開操作／既存Symbol | Ownerと入口 | 入力／出力 | Authority／Effectと禁止事項 |
+|---|---|---|---|
+| `validateAiProfileCatalog`、`resolveAiProfile`、`resolveAiProfileById`、`evaluateAiProfileAvailability` | `catalog/index.ts` | 明示Snapshot・条件・独立した観測軸／検証・一意解決・利用可能性 | 純粋処理。unknownを実行可能へ補正せず、Authorityを発行しない |
+| `createAiProfileCatalogRegistry`、`createAiProfileCatalogAdministration`、Owner別Store生成 | `profile/index.ts` | 期待Revision、登録済みAdapter／Model、明示管理操作／採用Snapshot・競合拒否 | 許可Ownerの設定だけ保存。CROS管理権限とContent Accessを分離し、秘密や任意実行入口を受理しない |
+| `planCodexReadOnlyProbe`、`planCodexIsolatedTask` | `codex/index.ts` | Mode、Role、effort等の固定入力／固定公式CLIの起動計画 | 外部Effectなし。計画はcandidateであり、起動・外部送信・Mount Authorityを含まない |
+| `planClaudeReadOnlyProbe`、`planClaudeIsolatedTask`、`planClaudeTaskTurnBudget` | `claude/index.ts` | Mode、Role、Task予算／固定CLI計画・Turn予算 | 外部Effectなし。Turn完了とProcess終了・資源不存在を同一視しない |
+| `normalizeCodexStructuredResult`、`normalizeClaudeStructuredResult` | 各Providerの`index.ts` | 対応固定CLIの出力Envelope／共通の構造化入力または拒否 | 生出力を公開しない。候補採否・共通Task判定・是正Capabilityの発行はCoordinator |
+| `planWorkbenchAiAdviceProviderCommand` | 共通入口から対応Providerの計画関数へ直接分岐 | exact Profile Identity／Provider別の助言コマンド計画 | Promptはstdin用。任意argv、API-key・有料APIへのFallbackを追加しない |
+| `extractWorkbenchAiAdviceProviderOutput` | 共通入口から対応Providerの変換関数へ直接分岐 | Provider、固定CLI stdout／助言JSONまたは閉じた拒否理由 | Providerの通知分類・Envelope差だけを処理。共通助言Schema・開示範囲・採用判断はCoordinator |
+| Provider認証方式・Probe計画・Provider固有終了解釈 | 各Providerの用途限定公開入口 | 固定配布物・認証方式・観測／検証済み計画と分類 | 秘密値は既存専用Homeに残す。実Home観測、対話Process、Docker、Lock・回復記録はCoordinator／Native |
+
+Contract文字列、改訂値、理由値、固定CLI配布IdentityはFolder改名だけで変更しない。計画・変換が混在する既存Fileは責務単位で分割し、共通Packet／GrantをProvider側へ移さない。新Providerを予測したPlugin Registryや動的実行Frameworkは作らず、現在のCodex／Claudeの二つ目の具象から共通契約を固定する。
+
+### 7.2. 実行・取消・失敗の接続
+
+| 境界 | AI Adapter | Coordinator／利用側 |
+|---|---|---|
+| 入力 | exact Catalog Revision、Profile、Model、Roleから計画を作り、不一致を拒否 | 同じ解決Identityを依頼、選定、Packetと実行へ搬送する |
+| 認証 | 認証方式とProvider固有のProbe・結果分類 | 専用Homeを実観測。秘密値をPrompt・設定・ログへ複製せず、未認証時だけ具体的な再認証を案内 |
+| 起動 | 固定公式CLI、argv、出力契約を提示するだけ | 外部送信、実行・Mount許可、Docker／Processを取得・所有する |
+| 結果 | Provider通知、完了Envelopeと一意な構造化本文を分離 | 共通Schema、申告と候補実体、Review結果、cleanupを独立に判定する |
+| 取消・遅延 | Provider固有の終了・取消通知を分類。通知だけで実Process停止を主張しない | 同じOperationでProcess tree終了、Container／Network不存在を観測。遅延・重複通知から新Effectや二重結果を発行しない |
+| 失敗・再入場 | 最初のProvider失敗理由を保持。別Model／Providerへ黙ってFallbackしない | Primary Failureとcleanup／Secondary Failureを分ける。再入場・限定unknown終了はCoordinatorの責務 |
+| 履歴 | 共通履歴を直接書かない | Coordinatorが下位実行事実、Orchestratorが上位Attempt事実をExecution Intelligenceへ渡す |
+
+公式CLIは未改造の配布物を使う。旧助言専用Build、Source Patch、Host差替えの再構築経路は移管しない。固定CLIの要求・完了・出力契約を確認し、Docker隔離とCRDD側の計画・結果境界で責務を閉じる。
+
+### 7.3. QA導出と残る照合
+
+既存`ai-runtime.*`の五導出キーはProfile意味の参照として保持する。Provider計画・出力変換はCoordinatorの既存`coord.provider-selection`、`coord.provider-attempt`から担当断面を分離して対応させる。導出キーの改名・QA-IDの追加をFolder変更だけで行わない。
+
+必要な反証は、曖昧Profile、Snapshot不一致、未知／不正Provider出力、CLI非ゼロ、出力不足、取消前後の遅延通知、認証未観測、cleanup不明である。計画関数の成功からProvider Effect、取消完了、資源不存在や実E2E Passを推定しない。
+
+OPEN: Provider公開Symbolの全数、認証計画と実Home観測の分割、Coordinatorの全Consumer、静的JSON・CLI配布Identityの署名閉包、QA Local Itemとの全数対応は段階3内で続ける。Source移管と局所・実境界試験は段階5〜7で確認する。
 
 ## Qualityへの引渡し
 
@@ -158,7 +213,7 @@ CROS Server設定 ──────┼─→ 設定Adapter ─→ AI Runtime Pr
 | Common Contract | Required | Coordinator、Workbench、CROSが同じProfile意味を使う。 | 閉じたCatalog Schemaと公開API | ConsumerがProfile IDやAvailabilityを再定義しない。 | Schema変更は全ConsumerとSnapshot移行へ波及する。 | `ai-runtime.catalog-validation`<br>`ai-runtime.profile-resolution` |
 | Creation／Selection | Required | Profile作成・更新・削除と実行時選択を分ける。 | Profile限定管理Application＋Resolver | 設定採用をProvider実行Authorityにしない。 | 選択条件変更は一意性とConsumerへ波及する。 | `ai-runtime.profile-administration`<br>`ai-runtime.profile-resolution` |
 | State-dependent Behavior | Required | Candidate、Adopted、Resolved、Availabilityで許可操作が異なる。 | Revision付きSnapshot＋Availability Projection | unknown時に実行可能と表示しない。 | 状態追加は表示と拒否契約へ波及する。 | `ai-runtime.catalog-adoption`<br>`ai-runtime.availability` |
-| Composition／Recursion | N/A | Profileは循環・再帰構造を持たず、Adapterへの一段参照で成立する。 | N/A: 閉じた一段参照 | ProfileからProfileを参照しない。 | 階層化要求が生じた場合だけ再評価する。 | `ai-runtime.catalog-validation` |
+| Composition／Recursion | Required | Catalog解決、Provider計画・Envelope変換を共通入力・結果へ合成する。再帰は使用しない。 | CatalogとProvider別公開入口の固定合成。 | ProfileからProfileを参照せず、局所変換の成功を実行・回収完了と扱わない。 | Provider／Envelope追加は共通結果、署名閉包、利用側と反証試験へ波及する。 | `ai-runtime.catalog-validation`<br>`ai-runtime.profile-resolution` |
 | Lifecycle Ownership | Required | SnapshotとAvailability観測のOwner・終了条件が異なる。 | Owner別Store＋Consumer局所観測 | StoreがProvider Processを所有しない。 | 耐久方式変更は回復と移行へ波及する。 | `ai-runtime.catalog-adoption`<br>`ai-runtime.availability` |
 | External Boundary | Required | Filesystem、Provider Adapter、Coordinator、Workbenchへ接続する。 | 境界別Port／Adapter | 一境界の成功を別境界の実行可能性へ流用しない。 | 新Provider追加時はSchema・Authority・E2Eへ波及する。 | `ai-runtime.catalog-validation`<br>`ai-runtime.profile-resolution` |
 
@@ -170,12 +225,12 @@ CROS Server設定 ──────┼─→ 設定Adapter ─→ AI Runtime Pr
 - [x] N/AにArchitecture上の理由を記録した
 - [x] 8種類のEngineering Concernを全数評価した
 - [x] PASSを設計済みの意味に限定した
-- [x] Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
+- OPEN: Provider差の公開操作と実行・取消境界を具体化した。全Symbolと利用側の照合は段階3内で続ける — Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
 - [x] Failure／Recovery、ObservabilityおよびSecurity Boundaryを具体化した
 - [x] 7種類のImplementation Structure観点を全数Applicability判定した
 - [x] 二つ目の具象実装がある責務で、共通契約への昇格または非昇格理由を評価した
 - [x] Qualityへ渡す設計項目を局所的な導出キーまたは同等に一意な参照へ接続した
-- [x] Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
+- OPEN: Profileの既存導出キーとProvider反証を保持した。分割断面からQA Local Itemへの全数対応は段階3内で続ける — Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
 - [x] Human Inputの必要性とOpen／Gapを評価した
 - [x] 現行実装との照合をReality Auditとして分離した
 - [x] Source構造をCanonical詳細設計へ逆輸入していない

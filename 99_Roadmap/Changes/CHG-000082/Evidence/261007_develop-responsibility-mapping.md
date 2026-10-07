@@ -761,6 +761,32 @@ Component／依存、Interface／公開Surface、状態・データ流れ、故�
 | 機械確認 | 全体Failは保持。変更対象Finding 0、差分空白検査成功、Source変更0。 |
 | 次工程 | 段階3で詳細API、配置、全Consumer、設定・移行、QA義務を具体化し、段階4の固定設計監査へ渡す。 |
 
+## 26. 段階3の着手前整合確認と編集順 — 2026-10-07
+
+読み取り専用確認者の全結果を統合し、採用済み責務を詳細設計へ具体化する範囲を着手可とした。追加の人間判断は確認していない。これは段階4の独立設計レビューではない。
+
+詳細設計21領域をSource親16領域へ機械的に圧縮しない。契約移行、品質・変更制御、Runtime Trust等の横断的意味は保持し、実装Package、意味責務、保存Ownerを区別する。10種類の詳細成果物、8種類のEngineering Concern、**7種類**のImplementation Structure観点を全数評価する。
+
+| 編集順 | 正本の具体化 | 保持する境界 |
+|---|---|---|
+| 3A | Domain Modelの公開入口、Topic／Meeting CRUD、投影、設定・保存部品 | Package統合で意味Ownerを潰さず、CRUDからGit確定・公開を発行しない。用途別公開入口から不要な業務処理を読み込まない。 |
+| 3B | AI AdapterとNativeの責務、Provider差、秘密保管、取消・回収 | AdapterのProvider差とCoordinatorの実行Authority・Docker資源を分ける。Nativeは実際のOS原語だけを所有する。 |
+| 3C | Orchestrator／Coordinatorの公開操作、通知、状態・履歴、CLI | 上位からの直接呼出しと登録ハンドラーを用い、通知完了を状態保存やTask完了の証明にしない。元の失敗とcleanupを分離する。 |
+| 3D | CROS／MCP Server／Workbench Serverの共通能力、認可、設定・終了 | Browser向けRESTは残す。Server間REST／Gatewayは能力の移管先を確認して撤去し、同一Processの内部呼出しと別ProcessのMCPで共通認可を保つ。 |
+| 3E | 全利用側、配布・署名閉包、フロントAI移行、QA引渡し | 旧Meaning・導出キー・Local ItemはFolder改名だけで再採番しない。旧形式はフロントAIが処置し、Runtimeへ恒久互換を追加しない。 |
+
+各公開操作はOwner、公開入口、利用側、入力／結果、Authority、Effectを対応させる。状態を持つ操作では正常、失敗、取消、親喪失、遅延・重複通知、終了後資源を確認する。固定候補前に既存能力・過去根拠と新配置の検証義務を分け、旧版のCovered／PASSを未確認の新接続へ流用しない。
+
+移行手順は停止、現在資源・未解決参照の確認、必要情報の保全、exact対象の清掃、新世代初期化、読戻しの順で具体化する。設計候補の具体化中はSource移動・署名・外部AI依頼を行わない。段階3の完了判定とコミットは、3A〜3E、直接伝播、Checklist実評価と機械確認が揃った後に行う。
+
+### 現在の具体化範囲
+
+Domain Modelの用途別公開面、既存操作から新Ownerへの対応、CRUD保存と通知・改訂の順序、Root軽量化と不要な推移依存の反例を詳細正本へ反映した。活動Context詳細はTopic／Meetingの意味・状態を保持し、独立Package、逆依存するCROS Router、Server間REST前提を新Ownerへ対応させた。
+
+AI Adapter詳細はCatalog／Profile管理とProvider別計画・出力変換を分け、公式CLI、秘密保管、実行Authority、Docker資源、取消通知と実停止、共通履歴Writerの境界を具体化した。公開Symbol全数、全Consumer、設定・署名閉包、QA全数対応はまだ未完了であり、対象Checklistへ理由付きOPENを記録した。段階3を完了または独立レビューPassとは表示せず、次は保存配置、Orchestrator／CoordinatorのAPI・通知・状態詳細を具体化する。
+
+詳細設計のARCH Relation追加を統合対応表の順方向・逆方向へ伝播した。Checkerのreportに実Finding集合が含まれることを実装と出力で確認し、全1,579件Failを保持したうえで今回の変更対象Findingは0件だった。差分空白検査は成功し、Source・設定・配布入口の変更は0件である。これは文書構造の限定確認であり、詳細設計の独立レビューやSource回帰の成功ではない。
+
 ## Checklist
 
 - [x] 全18領域を一次対応表へ処置した。

@@ -1,8 +1,8 @@
-# CRDD Domain Libraryの責務境界
+# Domain Modelの責務境界
 
 成果物種別: Architecture詳細設計
 詳細設計領域: crdd-domain-library
-状態: Stable
+状態: Candidate
 
 ## 基本設計との関係
 
@@ -12,8 +12,14 @@
 | [ARCH-000002](../../Definitions/ARCH-000002/architecture_definition.md) | Consumer Closureを含む共通Relation能力を、Checker以外の利用側も同じ意味で利用できる境界にする。 | Covered |
 | [ARCH-000008](../../Definitions/ARCH-000008/architecture_definition.md) | Reality TraceabilityをChecker Ruleから分離し、実装・試験Symbolの中立な観測能力として公開する。 | Covered |
 | [ARCH-000009](../../Definitions/ARCH-000009/architecture_definition.md) | Repository観測とVersion Control Adapterを、Domain意味およびChecker実装から分離する。 | Covered |
+| [ARCH-000005](../../Definitions/ARCH-000005/architecture_definition.md) | Project Context、Release、Qualityの構造化投影を提供し、上位の受入判断・実行状態を所有しない。 | Partial |
+| [ARCH-000006](../../Definitions/ARCH-000006/architecture_definition.md) | Topic／Meetingの構造化CRUD、Outcome処置、昇格とRelation解決を責務別に提供する。 | Partial |
+| [ARCH-000011](../../Definitions/ARCH-000011/architecture_definition.md) | 用途限定Root、設定読取り、保存・排他・短命ファイルの共通部品を提供し、Runtimeごとの終了判断を所有しない。 | Partial |
+| [ARCH-000016](../../Definitions/ARCH-000016/architecture_definition.md) | Source改訂版、現在性、履歴と未観測を投影・保存契約で区別する。 | Partial |
 
-本書は、CRDD Domain Library、Checker、Repository／Version Control基盤および利用側の現在あるべき責務境界を定義する。移行前Path、段階移行、検証結果および残るGateは[CHG-000076](../../../99_Roadmap/Changes/CHG-000076/change.md)が所有する。
+本書は、旧CRDD Domain Library、Project Operation、Runtime Dataの実装を`domain-model`へ統合する責務境界を定義する。Topic／Meetingの意味・状態は[活動Context詳細](../project-operation/01_Architecture.md)、保存用途・保持・清掃は[保存配置詳細](../runtime-data/01_Architecture.md)が所有し、Package統合を理由に重複定義しない。現在の移管と検証Gateは[CHG-000082](../../../99_Roadmap/Changes/CHG-000082/change.md)、過去のLibrary分離は[CHG-000076](../../../99_Roadmap/Changes/CHG-000076/change.md)へ戻る。
+
+新配置での接続は未実施である。従来のCoveredは保持する設計断面であり、統合後のSource、全利用側、試験・署名の成立を示さない。
 
 ## 1. 責務と非目標
 
@@ -31,7 +37,7 @@
 - Checker FindingをCRDD共通Domainの結果型にすること
 - 単一の巨大なRoot Barrelを作ること
 - 同名Fileや類似Algorithmだけを根拠に共通化すること
-- MCPまたはWorkbenchを接続済みConsumerとして扱うこと
+- MCP／Workbenchの旧接続を、新配置の接続確認なしに成立済みとして扱うこと
 - Git Adapterの意味をDomainへ取り込むこと
 - 公開APIから採用、Authority、Releaseまたは外部Effect許可を発行すること
 - Source移行の進捗や試験結果をArchitectureの正本にすること
@@ -41,14 +47,19 @@
 ```text
 40_Develop/
 │
-├ crdd-domain-library/
+├ domain-model/
 │  └ src/
-│     ├ index.ts                   Package全体の公開入口
+│     ├ index.ts                   共通結果だけの軽量公開入口
 │     ├ outcome.ts                 Capability横断の中立な処理結果契約
 │     ├ artifact/                  Artifact解析・Schema・Relation Graph
-│     ├ filesystem-store-root/     用途限定Store Root Capabilityと排他
+│     ├ storage/                   用途限定Store Root、排他・短命保存
+│     ├ configuration/             Manifest・設定の検証と読取り
+│     ├ project-context/           正本の構造化投影とContext固有候補判断
+│     ├ topic/                     Topic状態・CRUD・昇格
+│     ├ meeting/                   Meeting記録・Outcome処置・CRUD
+│     ├ quality-change-control/    品質・変更の中立な意味判定
 │     ├ reality-traceability/      Symbol Manifest・Annotation・Graph
-│     └ repository-observation/    検証済みRoot内の安全なRepository観測
+│     └ repository/                検証済みRoot内の安全な観測・Path解決
 │
 ├ version-control/
 │  └ src/
@@ -88,12 +99,12 @@ template/tools/
 ├ crdd-check.ts                    薄い起動入口
 ├ crdd-coordinator.ts              薄い起動入口
 ├ crdd-mcp.ts                      薄い起動入口
-└ config/                          採用Repository向け設定・Schema
+└ schemas/                         配布版が所有する固定Schema
 ```
 
 物理Directoryは公開／非公開ではなく、Capability、責務または外部境界を表す。`internal/`を非公開性の根拠にせず、Architectureが宣言したRootまたはCapability単位の`index.ts`とexport集合で公開面を制御する。
 
-`src/`直下はCapabilityを表し、その下は最大一階層までとする。Package名ですでに表現している`domain/`や`repository/`を重ねず、`src/domain/...`のような形式的な深掘りを行わない。型だけのFileも責務名で命名し、`types.ts`のような雑多な集約を既定にしない。共通結果契約の実体は`outcome.ts`、Package公開面は`src/index.ts`が所有する。
+`src/`直下は責務を表し、その下は最大一階層までとする。`domain/`、`application/`、`internal/`を形式的な中間階層として追加しない。`repository/`は検証済みRootの観測・解決という具体責務であり、全I/Oの雑多な置場にはしない。共通結果契約の実体は`outcome.ts`、軽量なPackage公開面は`src/index.ts`、個別責務の公開面は各直下Directoryの`index.ts`が所有する。
 
 Package Rootにはecosystem固定Fileだけを置く。TypeScript Sourceは`src/`、`bin/`、`scripts/`または`tests/`の責務へ分類する。`bin/`は引数受付、公開Use Caseの呼出し、構造化結果の表示および終了値反映だけを所有する。回帰段階の選択・実行、Process呼出し、Authority判定および計画・結果構築はVerification Runnerが所有する。`bin/`と`scripts/`は実装本体を再定義せず、宣言済み公開入口を利用する。
 
@@ -116,7 +127,7 @@ Repository／Version Control Infrastructure
 
 | 利用側 | 利用してよい入口 | 利用してはならないもの |
 |---|---|---|
-| Checker | `crdd-domain-library/src/index.ts`、必要なCapabilityの`index.ts`、Version Controlの用途限定公開入口 | 別Capabilityの非公開実装Path、不要なGit Adapterを含むRoot公開入口 |
+| Checker | `domain-model/src/index.ts`、必要な責務の`index.ts`、Version Controlの用途限定公開入口 | 業務CRUD・保存Writerの不要な推移依存、別責務の非公開実装Path、不要なGit Adapterを含むRoot公開入口 |
 | 開発Tool | Architectureが宣言した対象CapabilityまたはApplicationの`index.ts` | Checker Rule、任意の近傍`index.ts` |
 | MCP | 必要なDomainの公開入口 | Checker Pipeline、Checker Finding、Checker Rule |
 | Workbench | 必要なDomainまたは公開Application Contract | Checker実装、Filesystem Adapterの直接呼出し |
@@ -134,12 +145,16 @@ Repository／Version Control Infrastructure
 
 | Capability／公開入口 | 公開Symbolの完全集合／正本 | Effect | 禁止する責務 |
 |---|---|---|---|
-| Package Root `crdd-domain-library/src/index.ts` | Capability別namespaceと共通Outcome型 | なし | 全実装Symbolの無差別な再公開 |
-| Common Outcome `crdd-domain-library/src/outcome.ts` | `DomainStatus`、`DomainIssue`、`DomainOutcome<T>`、`DomainLocation` | なし | Capability固有Issue種別、Checker code、severity、rule、exit code |
-| Artifact `crdd-domain-library/src/artifact/index.ts` | Artifact Model、Schema検証、Relation Graphの公開型と決定論的関数 | なし | Checker Finding、利用者向けmessage |
-| Filesystem Store Root `crdd-domain-library/src/filesystem-store-root/index.ts` | 検証済みRoot Capability、Root内Path解決、OS Kernel排他、exact残存Lock回復 | Root検証では読取り、排他操作ではHash導出EndpointのlistenとLock Record作成・削除 | 任意絶対PathのAuthority化、Link／Junction経由のRoot拡張、個別Domain判断、Filesystem Recordだけによる排他推定 |
-| Reality Traceability `crdd-domain-library/src/reality-traceability/index.ts` | Symbol Manifest、Annotation解釈、Graphの公開型と決定論的な生成・検証関数 | なし。Path APIはRepository相対表記の構文検査だけに用いる | Repository走査、Checker Finding変換、Reality Audit実行、Test合格、実装完成 |
-| Repository Observation `crdd-domain-library/src/repository-observation/index.ts` | Repository観測Port、Root Capability、Reality Symbol Repository観測 | Filesystem読取り | CRDD意味、公開Effect、Checker code、採用判断 |
+| Package Root `domain-model/src/index.ts` | `DomainStatus`、`DomainIssue`、`DomainOutcome<T>`、`DomainLocation`、`validateDomainOutcome`だけ | なし | namespace経由でCRUD、Filesystem Writer、設定Readerを推移的に読み込むこと |
+| Artifact `domain-model/src/artifact/index.ts` | Artifact Model、Schema検証、Relation Graphの公開型と決定論的関数 | なし | Checker Finding、利用者向けmessage |
+| Storage `domain-model/src/storage/index.ts` | 検証済みStore Root、Root内Path解決、Kernel排他、exact Lock回復、短命操作の作成・再入場・終了 | 用途限定Root内の保存・回収とKernel Endpoint | 任意絶対PathのAuthority化、個別Domain判断、Filesystem Recordだけによる排他推定 |
+| Configuration `domain-model/src/configuration/index.ts` | Manifest／設定Schema検証、Repository別Tool設定読取り | 設定読取りだけ。Root作成と設定の自動書込みなし | Policyの採用、Trust Framework、Credential・Authorityの発行 |
+| Project Context `domain-model/src/project-context/index.ts` | Project Context／Release／Qualityの構造化Reader、Source投影、Context固有候補判断 | 本文の解析・意味変換はEffectなし | Roadmap・品質・実行状態の第二正本、一般Task候補の採用 |
+| Topic `domain-model/src/topic/index.ts` | Topic解析・状態変換・登録・編集・取得・一覧・昇格・誤登録削除 | 認可済みRepository内の明示CRUDだけ | Meeting本文・CHG本文の複製、Git Commit／Push、別Repositoryの自動選択 |
+| Meeting `domain-model/src/meeting/index.ts` | Meeting解析・CRUD・Outcome処置・Close評価 | 認可済みRepository内の明示CRUDだけ | pendingを残すClose、時点記録を現在値で上書き、Topicへの無条件昇格 |
+| Quality Change Control `domain-model/src/quality-change-control/index.ts` | 品質・変更状態の中立な判定 | なし | Checker固有Rule、採用・Release Authority |
+| Reality Traceability `domain-model/src/reality-traceability/index.ts` | Symbol Manifest、Annotation解釈、Graphの公開型と決定論的な生成・検証関数 | なし。Path APIはRepository相対表記の構文検査だけに用いる | Repository走査、Checker Finding変換、Reality Audit実行、Test合格、実装完成 |
+| Repository `domain-model/src/repository/index.ts` | 検証済みRoot内のRepository観測、名前付きPath解決、保存領域の読取り専用観測 | Filesystem読取りだけ | Directory作成、設定自動生成、Git確定・公開、採用判断 |
 | Semantic Coverage `semantic-coverage/src/index.ts` | Repository入力の編成、診断、Bundle生成・公開 | 明示したBundle公開 | Architecture・Quality・実装の意味採否、部分公開の成功扱い |
 | Version Control `version-control/src/checker-observation/index.ts`、`version-control/src/repository-identity/index.ts` | [Version Control用途限定公開入口](../version-control/01_Architecture.md#32-用途を限定した公開入口) | 宣言されたRepository観測とIdentity確認 | Domain意味、未Commit通常操作の拒否、利用しないGit Adapterの依存閉包への混入 |
 | Checker `checker/src/index.ts` | `CheckerRunRequest`、`CheckerResult`、`CheckerFinding`、`runChecker` | Repository読取りのみ | Domain Issueの改変、意味採否、外部Effect許可 |
@@ -177,7 +192,7 @@ CRDD Domain Library
                                →atomic publish→cleanup
 ```
 
-Repositoryからの読取りが必要な場合、Domainは`node:fs`実装ではなくRepository Observation Portまたは呼出し側が取得した内容を受け取る。Checker AdapterがDomainの構造化Issueを`CheckerFinding`へ変換し、RuleとPipelineが最終結果を構成する。
+純粋な解析・意味変換は`node:fs`実装へ依存せず、Repositoryの観測結果または呼出し側が取得した内容を受け取る。統合Package内のCRUDと設定読取りは責務別のRepository／保存公開面を利用し、純粋Coreから暗黙に呼び出さない。Checker AdapterがDomainの構造化Issueを`CheckerFinding`へ変換し、RuleとPipelineが最終結果を構成する。
 
 ## 5. 結果と失敗の境界
 
@@ -197,7 +212,7 @@ Domain IssueはChecker severity、Rule名、exit codeを持たない。MCP／Wor
 | 領域 | 責務 |
 |---|---|
 | `template/tools` | 採用Repository向けの安定した起動入口と設定／Schema。業務ロジックを所有しない |
-| `40_Develop/crdd-domain-library` | Artifact、Relation、Reality Traceability、共通OutcomeおよびRepository ObservationのCanonical実装正本 |
+| `40_Develop/domain-model` | Artifact、Relation、Reality、共通Outcome、Repository観測、設定・保存部品、Topic／MeetingとContext投影の実装正本。旧三Packageの移管先 |
 | `40_Develop/checker` | CheckerのCanonical実装正本、CLI、Profile、Generator、試験およびfixture |
 | `40_Develop/version-control` | Version Control Port／AdapterのCanonical実装正本 |
 | `40_Develop/<subsystem>/symbol.json` | 現実側Symbolの正方向Relation Owner |
@@ -227,7 +242,7 @@ Root候補はlauncher実Pathの`template/tools`からexactに2階層上だけを
 | 複数Capabilityの結合試験 | 各Capabilityの公開入口を使い、他Capabilityの実装Pathをimportしない |
 | MCP／Workbench | 接続時にDomainまたは公開Application Contractを使い、Checker実装を再利用しない |
 
-MCPとWorkbenchは将来Consumer候補であり、現在接続済みとは表示しない。
+MCPとWorkbenchの旧公開入口利用は移管対象である。新Packageへの接続、本番Reader／Storeおよび終了後状態の確認前に新構成を完成済みと表示しない。
 
 ### 7.2 Closure条件
 
@@ -246,9 +261,49 @@ MCPとWorkbenchは将来Consumer候補であり、現在接続済みとは表示
 - File内容は、開いたHandleの所在を検証済みRoot配下として証明できる場合だけ、同じHandleから読む。
 - Identity不一致、証明不能または観測不能では安全を推定せず、`unobservable`で停止してHandleを閉じる。
 - symbolic link、junctionまたはRoot外Pathを、存在だけで確認済みにしない。
-- Version ControlのProcess実行、Filesystem読取りおよびBundle書込みをDomain Modelと混在させない。
+- Version ControlのProcess実行とBundle書込みをDomain Modelへ移さない。Filesystem読取り・CRUD保存は用途別公開面へ隔離し、純粋な意味変換から呼び出さない。
 - 読取りAPIとFilesystem Effectを持つAPIを公開面で区別する。
 - Domain ResultからAuthority、採用判断、Release判断または外部Effect許可を生成しない。
+
+## 9. 統合後の公開操作と保存Owner
+
+以下は実装を分割する設計契約であり、新APIの実装済み宣言ではない。公開Symbolの移管は元の意味・結果・失敗条件を保持する。Topic／Meetingが共有する内部Repository手順は`storage/`へ集約できるが、相互の公開Barrelを循環importしない。
+
+| 操作／既存Symbol | 新しい公開入口 | 入力と結果 | 主な利用側 | AuthorityとEffect |
+|---|---|---|---|---|
+| `projectProjectOperationSources`、`applyProjectOperationCandidateDecision` | `project-context/index.ts` | Source状態・改訂版／投影、対象候補と明示判断／次候補状態 | Workbench Server、MCP Server、CROS | 意味変換だけ。対象の採否Authorityを生成せず、一般Patchの採用はOrchestratorへ渡す |
+| `parseRepositoryProjectContextMarkdown`、`parseRepositoryReleaseProjectionMarkdown`、`parseRepositoryQualityProjectionMarkdown` | `project-context/index.ts` | 所有正本のMarkdown／固定表の構造化結果 | Workbench Server、MCP Server、CROS | Effectなし。不正表・欠測を推測で補完しない |
+| `parseTopicMarkdown`、`applyTopicPromotion` | `topic/index.ts` | Topic本文、昇格先Identity・期待改訂／検証済み次版 | TopicのCRUD操作 | 意味変換だけ。実在する対象・同一Projectと人間判断は保存前に再確認 |
+| `parseMeetingMarkdown`、`applyMeetingOutcomeTreatment` | `meeting/index.ts` | Meeting本文、Outcome処置／全表が一致する次版 | MeetingのCRUD操作 | 意味変換だけ。pendingが残るCloseを拒否 |
+| `createTopicMeetingRepository`、`createTopicMeetingApplication`のTopic操作 | `topic/index.ts` | 検証済みRoot、操作、対象ID、期待改訂、Relation／CRUD結果・Cursor付き一覧 | Workbench Server、MCP Server。CROSは認可済みBindingを供給 | 対象Repositoryだけに保存。誤登録削除は影響確認と明示承認が必要 |
+| 同ApplicationのMeeting操作、`MeetingOutcomeCommandResult` | `meeting/index.ts` | 検証済みRoot、Meeting／Outcome、期待改訂／処置結果 | Workbench Server、MCP Server | 同一Repositoryの原子的次版。別Repository処置はCROSの認可・Routingが成立するまで発行しない |
+| `inspectRepositoryManifest`、`inspectCrosTrustPolicy` | `configuration/index.ts` | 明示した宣言／検査結果 | CROS、Checker、各設定利用側 | 宣言の検証のみ。既存Schemaの移管をTrust Policy Framework採用と扱わない |
+| `readProjectRuntimeConfig`、`readExecutionIntelligenceConfig` | `configuration/index.ts` | 検証済みRootと当該Tool／検証済み設定Snapshot | Orchestrator、Execution Intelligence | 設定読取り。不存在だけ既定30日、不正・読取り不能は整理を停止 |
+| `resolveRepositoryRuntimeDataPaths`、`observeRepositoryRuntimeDataArea` | `repository/index.ts` | 検証済みRoot／用途別Pathと境界観測 | Runtime各Owner、Execution Intelligence、診断 | 読取りだけ。`not_observed`と`blocked`を区別し、Rootを逆算しない |
+| `ensureRepositoryRuntimeDataArea`、`createCoordinatorRuntimeDataArea`、`createTemporaryOperation`／`resumeTemporaryOperation`／`settleTemporaryOperation` | `storage/index.ts` | 許可Root、用途、exact Identity／保存Capability・終了／回復結果 | Coordinator、Orchestrator、試験・署名準備 | 宣言用途だけ作成・回収。由来不明・使用中・観測不能ではEffect前停止 |
+
+`createTopicMeetingApplication`の共通実体は一つとし、Topic／Meeting公開面は許可された操作だけを返す。既存型の意味を変えず、全APIの巨大再公開や別実装を作らない。File名・型名の具体化は段階3の公開Symbol全数照合で固定する。
+
+### 9.1. 状態保存と呼出し順
+
+| 順序 | 所有者と処置 | 失敗・取消・中断時 |
+|---|---|---|
+| 1 | Workbench Server／MCP Serverが操作入力を受付。共有利用ではCROSが対象Binding、Credential、許可範囲を再確認 | 認可不明なら本文・件数・対象存在を開示せず、CRUD Effectを発行しない |
+| 2 | Topic／MeetingがIdentity、期待改訂、Relation、状態遷移を評価し、全表が一致する次版を作る | 不正・競合・未処置Outcomeは保存前拒否。通知だけで採用・終了を確定しない |
+| 3 | 保存部品が同じRootで排他、短命File生成、保存確定、読戻しを担当 | 最初の失敗と保存・cleanup結果を分け、不明を旧版・次版いずれかの成功へ丸めない |
+| 4 | 操作Ownerが次版の保存を確認して公開結果を返し、短命File・Handleを終了する | 応答喪失時の再入場は対象Identityと改訂を再観測。古い入力を盲目的に再適用しない |
+
+Source本文を読むだけの投影は書込み排他・作業Directoryを作らない。OrchestratorのQueue／判断／採用状態、Coordinatorの実行／回復状態は各Ownerの単一`state.json`へ保存し、Domain Modelへ中央の状態正本を新設しない。通常履歴のローテーション、候補の期限処置、署名準備の終了判断も各Ownerが行い、共通保存部品が用途を推測して削除しない。
+
+### 9.2. 移管確認と反証
+
+- 旧三Packageの全公開Symbol、利用側、worker起動URL、固定fixture、Schema・配布閉包を新責務へ対応する。Rootの文字置換だけで接続済みとしない。
+- CheckerのArtifact利用からTopic／Meeting Writer、CROS設定、Provider実行が読み込まれないことを依存閉包で確認する。
+- Topic編集の期待改訂不一致、Meetingのpending Close、Relation先不存在ではEffect 0を観測する。保存要求だけを次版確定の証明にしない。
+- 最初の保存失敗と排他解放失敗を独立に観測し、別Ownerのretryが旧回復義務を無視して書き込めないことを確認する。
+- 旧Meaning・QA導出キーは保持する。現在の`crdd-domain-library.*`、`project-operation.*`、`runtime-data.*`はPackage名ではなく既存の設計項目参照であり、改名だけで新IDを発行しない。
+
+OPEN: 新公開面のSymbol全数、各workerと実Consumerの接続、設定・配布閉包の固定、Front AI移行手順とQA Local Itemへの全数対応は段階3内で続ける。統合後のSource試験と実境界は段階5〜7で確認する。
 
 ## 詳細成果物の適用判断
 
@@ -257,7 +312,7 @@ MCPとWorkbenchは将来Consumer候補であり、現在接続済みとは表示
 | Component Model | Required | Checker固有、CRDD共通Domain、Repository／Version Control基盤を分ける。 | [§2](#2-componentとsource配置) |
 | Interface Model | Required | 利用側が実装Fileを直接importしない公開入口を固定する。 | [§3](#3-公開入口と依存方向) |
 | Data Flow | Required | Repository入力からDomain、Surface結果、Effect Adapterまでを示す。 | [§4](#4-data-flow) |
-| State Model | N/A | Library境界は長期状態を所有しない。個別能力の状態は各詳細設計が所有する。 | - |
+| State Model | Required | 統合対象のTopic／Meeting状態、候補判断、保存・排他の状態を意味Ownerごとに維持する。 | [§9](#9-統合後の公開操作と保存owner) |
 | Sequence | Required | Domain結果をSurface固有結果へ変換する順序を固定する。 | [§4](#4-data-flow) |
 | Failure／Recovery | Required | 観測不能、Domain Issue、Checker Findingおよび実行不能を分ける。 | [§5](#5-結果と失敗の境界) |
 | Deployment | Required | `40_Develop`を実装正本、`template/tools`を薄い入口と設定配置に限定する。 | [§6](#6-配布と開発の境界) |
@@ -269,8 +324,8 @@ MCPとWorkbenchは将来Consumer候補であり、現在接続済みとは表示
 
 | Concern | Result | Rationale | Evidence／Related ID |
 |---|---|---|---|
-| Concurrency | N/A | Library境界は共有可変状態を新設しない。個別Effectの並行制御は各Capabilityが所有する。 | [§2](#2-componentとsource配置) |
-| Timing | N/A | Library境界自体に時間制約を追加しない。 | [§4](#4-data-flow) |
+| Concurrency | PASS | Topic／Meetingの期待改訂と保存排他を維持し、Package統合を共有Writerの新設と扱わない。 | [§9](#9-統合後の公開操作と保存owner) |
+| Timing | PASS | 時点付きMeeting、投影現在性、Tool別保持期間を意味Ownerへ接続し、普通の履歴期間で未解決状態を削除しない。 | [§9](#9-統合後の公開操作と保存owner) |
 | Resource Lifecycle | PASS | Handleと一時物はEffectを持つAdapterが所有し、Domainへ移さない。 | [§8](#8-security境界) |
 | External Boundary | PASS | FilesystemとVersion ControlをRepository／Adapterとして分離する。 | [§3](#3-公開入口と依存方向) |
 | Failure／Recovery | PASS | Domain Issue、Surface固有結果、実行不能を分ける。 | [§5](#5-結果と失敗の境界) |
@@ -309,8 +364,8 @@ MCPとWorkbenchは将来Consumer候補であり、現在接続済みとは表示
 |---|---|---|---|---|---|---|
 | Variation | Required | この観点を成立させる構造と責務が存在するため。 | Qualityへの引渡しで責務差を別の設計項目として固定する。 | 具象差を一つの分岐へ畳まず、各導出キーの正常条件と反証条件を保つ。 | 新しい具象を追加した場合、対応する導出キーと利用側の再確認が必要になる。 | `crdd-domain-library.dependency-direction`<br>`crdd-domain-library.public-surface`<br>`crdd-domain-library.source-layout`<br>`crdd-domain-library.consumer-closure`<br>`crdd-domain-library.result-boundary`<br>`crdd-domain-library.repository-boundary`<br>`crdd-domain-library.distribution-identity` |
 | Common Contract | Required | この観点を成立させる構造と責務が存在するため。 | Artifact、Relation、Repository ObservationおよびResultを、Checker／MCP／Workbenchから再利用できるDomain契約として公開する。 | Domain型はCLIやFilesystemの具象を所有せず、各Consumerが同じ意味と結果語彙を利用する。 | Consumer別の類似型・変換・例外語彙が増え、同じCRDD意味が分岐する。 | `crdd-domain-library.public-surface`<br>`crdd-domain-library.result-boundary`<br>`crdd-domain-library.repository-boundary` |
-| Creation／Selection | N/A | 本領域は独立した具象生成・選択責務を持たず、上位から固定入力を受ける。 | 本領域は独立した具象生成・選択責務を持たず、上位から固定入力を受ける。 | 生成・選択判断を本領域へ追加しない。 | 将来生成・選択責務を追加する場合に再評価する。 | N/A |
-| State-dependent Behavior | N/A | 独立した状態遷移を所有せず、構造契約だけを扱う。 | 独立した状態遷移を所有せず、構造契約だけを扱う。 | 状態を新設する場合はOwnerと遷移を再設計する。 | 現時点では非該当。 | N/A |
+| Creation／Selection | Required | Topic／Meeting操作と用途限定保存部品を検証済みRootへ結合する。 | 用途別公開入口と共通内部Repository手順。 | 作成を操作許可や別Repositoryの自動選択と扱わない。 | Root・公開操作の追加は全利用側とEffect前拒否へ波及する。 | `project-operation.context-lifecycle`<br>`runtime-data.repository-local-storage` |
+| State-dependent Behavior | Required | Topic／Meetingの状態、期待改訂、保存・回復状態により許可操作が異なる。 | 意味変換と保存確定を分けた状態判定。 | pending Close、競合、観測不能を成功へ畳まない。 | 状態変更は正本表、CRUD、再入場、QAへ波及する。 | `project-operation.context-lifecycle`<br>`runtime-data.repository-local-storage` |
 | Composition／Recursion | Required | この観点を成立させる構造と責務が存在するため。 | 複数の局所責務を公開結果へ合成し、部分成立と全体成立を分ける。 | 各局所結果を保持し、必要な全要素が揃うまで上位完成を表示しない。 | 構成要素の追加時は完成条件と全Consumerを再確認する。 | `crdd-domain-library.dependency-direction`<br>`crdd-domain-library.public-surface`<br>`crdd-domain-library.source-layout`<br>`crdd-domain-library.consumer-closure`<br>`crdd-domain-library.result-boundary`<br>`crdd-domain-library.repository-boundary`<br>`crdd-domain-library.distribution-identity` |
 | Lifecycle Ownership | Required | この観点を成立させる構造と責務が存在するため。 | Process、Handle、一時物、秘密または公開SnapshotのOwnerと終了条件を固定する。 | 成功・失敗・取消の全経路で資源回収または同一Identityの回復義務を残す。 | Owner変更は取消、Recovery、終了後条件へ波及する。 | `crdd-domain-library.distribution-identity` |
 | External Boundary | Required | この観点を成立させる構造と責務が存在するため。 | 外部境界ごとに要求、受理、Effect、結果搬送および終了後状態を分ける。 | 境界の成功を要求発行だけから推定せず、段階に応じた観測を必須にする。 | 境界変更は直接境界からSystem／E2Eまでの検証範囲へ波及する。 | `crdd-domain-library.distribution-identity` |
@@ -322,6 +377,8 @@ MCPとWorkbenchは将来Consumer候補であり、現在接続済みとは表示
 | Detail Source | UI／SPEC Definition | この領域が担当するSCR／PRT／Interaction／BHV | Relation状態 | 未解決Gap／戻し先 |
 |---|---|---|---|---|
 | [UI／SPEC Detail Architecture Traceability](../../08_UI_SPEC_Detail_Traceability.md) | ARCH-000001、ARCH-000002、ARCH-000008、ARCH-000009のSource Definition | 同Traceability表で上記ARCH-IDへ接続された全Detail ID | Covered | Detailの意味変更はUI／SPECへ、配置責務の変更は該当ARCH定義へ戻す |
+| [活動Contextの担当Relation](../project-operation/01_Architecture.md#上流uispec-detailとの関係) | ARCH-000005、ARCH-000006、ARCH-000016のSource Definition | Topic／MeetingとProject Contextの既存担当Relationを統合Packageの責務別入口で実現する | Partial | 詳細の意味は活動Contextが所有。新配置の利用側接続は段階5〜7で確認する |
+| [保存配置の担当Relation](../runtime-data/01_Architecture.md#上流uispec-detailとの関係) | ARCH-000009、ARCH-000011、ARCH-000013、ARCH-000016のSource Definition | Repository-local／CROSの保存境界に接続された既存担当Relation | Partial | CROSの認可・横断状態はCROSへ、Runtime固有の現在状態は各Ownerへ残す |
 
 担当Interaction Relation: `PRT-000001.spec-000001`、`PRT-000005.spec-000009`、`PRT-000006.spec-000010`、`PRT-000006.spec-000031`、`PRT-000014.spec-000019`、`PRT-000018.spec-000023`
 
@@ -335,12 +392,12 @@ MCPとWorkbenchは将来Consumer候補であり、現在接続済みとは表示
 - [x] N/AにArchitecture上の理由を記録した
 - [x] 8種類のEngineering Concernを全数評価した
 - [x] PASSを設計済みの意味に限定した
-- [x] Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
+- OPEN: 統合後の公開操作・保存Ownerを具体化した。公開Symbol全数と全利用側の照合を段階3内で続ける — Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
 - [x] Failure／Recovery、ObservabilityおよびSecurity Boundaryを具体化した
 - [x] 7種類のImplementation Structure観点を全数Applicability判定した
 - [x] 二つ目の具象実装がある責務で、共通契約への昇格または非昇格理由を評価した
 - [x] Qualityへ渡す設計項目を局所的な導出キーまたは同等に一意な参照へ接続した
-- [x] Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
+- OPEN: 旧三領域の導出キーと反証条件を保持した。統合公開面からQA Local Itemへの全数対応を段階3内で続ける — Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
 - [x] Human Inputの必要性とOpen／Gapを評価した
 - [x] 現行実装との照合をReality Auditとして分離した
 - [x] Source構造をCanonical詳細設計へ逆輸入していない
