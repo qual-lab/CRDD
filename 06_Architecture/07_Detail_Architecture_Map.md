@@ -27,7 +27,7 @@ Quality／Development
 | [ai-runtime](Details/ai-runtime/01_Architecture.md) | ARCH-000004、ARCH-000010、ARCH-000015 | AI AdapterのCatalog・Profile管理、Provider別計画・出力変換と実行Authorityの分離 | Candidate |
 | [artifact-signing](Details/artifact-signing/01_Architecture.md) | ARCH-000014 | 配布物の完全性、鍵Capability、Publisher証明 | Canonical |
 | [checker](Details/checker/01_Architecture.md) | ARCH-000001、ARCH-000002 | 決定論的構造検査と契約移行時の機械的集合検査 | Canonical |
-| [coordinator](Details/coordinator/01_Architecture.md) | ARCH-000004、ARCH-000008、ARCH-000010、ARCH-000014、ARCH-000015 | 実行編成、Provider境界、モデル選定、信頼済み実行、外部情報搬送 | Canonical |
+| [coordinator](Details/coordinator/01_Architecture.md) | ARCH-000004、ARCH-000008、ARCH-000010、ARCH-000014、ARCH-000015 | 単体・上位利用共通のTask公開API、実行Authority、AI Adapter接続、資源回収、通知と結果搬送 | Candidate |
 | [contract-migration](Details/contract-migration/01_Architecture.md) | ARCH-000002 | Canonical Contract変更時の全Consumer・派生物・公開／Release／Recovery経路の閉包 | Canonical |
 | [crdd-domain-library](Details/crdd-domain-library/01_Architecture.md) | ARCH-000001、ARCH-000002、ARCH-000005、ARCH-000006、ARCH-000008、ARCH-000009、ARCH-000011、ARCH-000016 | Domain Modelの用途別公開入口、共通意味、活動CRUD、投影と保存部品。Runtime状態・Git確定・公開は所有しない | Candidate |
 | [cros](Details/cros/01_Architecture.md) | ARCH-000005、ARCH-000006、ARCH-000009、ARCH-000010、ARCH-000013、ARCH-000015、ARCH-000016 | 複数Repositoryの利用範囲、読取り専用Context投影、候補搬送、時間的出所。受入判断書込みは所有しない | Canonical |
@@ -36,7 +36,7 @@ Quality／Development
 | [official-asset-governance](Details/official-asset-governance/01_Architecture.md) | ARCH-000017 | 公式素材の出所、権利、用途、判断、収載状態 | Canonical |
 | [platform-access](Details/platform-access/01_Architecture.md) | ARCH-000004、ARCH-000008、ARCH-000011 | OS／Process／Container境界、実在するEffectと資源Lifecycle | Canonical |
 | [project-operation](Details/project-operation/01_Architecture.md) | ARCH-000005、ARCH-000006、ARCH-000016 | Domain Modelが実装する活動Contextの意味・状態・正本保存と現在投影。受入判断書込みは所有しない | Candidate |
-| [project-runtime](Details/project-runtime/01_Architecture.md) | ARCH-000004、ARCH-000005、ARCH-000007、ARCH-000012 | Project実行、状態投影、Objective／Milestone Acceptance Decision Port／Record、実行事実読取り、公開Application Contract | Canonical |
+| [project-runtime](Details/project-runtime/01_Architecture.md) | ARCH-000004、ARCH-000005、ARCH-000007、ARCH-000012 | OrchestratorのProject実行、状態投影、明示受入判断、実行事実読取り、公開APIと通知・取消契約 | Candidate |
 | [quality-change-control](Details/quality-change-control/01_Architecture.md) | ARCH-000003 | 固定改訂版に対する変更・監査・試験結果と品質状態の統合 | Canonical |
 | [runtime-data](Details/runtime-data/01_Architecture.md) | ARCH-000009、ARCH-000011、ARCH-000013、ARCH-000016 | Repository-local／OS管理領域の配置、保持、Identity、清掃 | Canonical |
 | [runtime-trust](Details/runtime-trust/01_Architecture.md) | ARCH-000014 | 準拠、完全性、Publisher、品質と利用者所有Trust Policyの独立評価 | Canonical |

@@ -787,6 +787,20 @@ AI Adapter詳細はCatalog／Profile管理とProvider別計画・出力変換を
 
 詳細設計のARCH Relation追加を統合対応表の順方向・逆方向へ伝播した。Checkerのreportに実Finding集合が含まれることを実装と出力で確認し、全1,579件Failを保持したうえで今回の変更対象Findingは0件だった。差分空白検査は成功し、Source・設定・配布入口の変更は0件である。これは文書構造の限定確認であり、詳細設計の独立レビューやSource回帰の成功ではない。
 
+Domain／AI Adapterの途中成果は`c95506ce`へチェックポイントとして保存した。以降は段階完了時にコミットし、未完了の詳細設計を完成として記録しない。
+
+Orchestrator詳細では、旧Application／Core／Port／internalの汎用配置を責務別Folderへ置き換え、Orchestrator → Coordinator公開APIの直接依存と単体Coordinator利用を具体化した。既存CLIコマンドは薄い配送から上位へ振り分け、Coordinator libraryの上位再exportは撤去する。公開Objective、状態参照、判断継続、候補採用の既存Symbolと新Ownerを対応し、開始通知・保存確定・取消・親喪失・遅延／重複通知・Primary Failureを区別した。詳細設計02の論理Interface IDは維持し、保存・統合・Transport・Nativeの新担当へ対応させた。保存状態・回復不変条件の全表、全Consumer、QA全数対応は継続中で、段階3の完成判定は未成立である。
+
+この具体化後のCheckerは全1,579件Fail、今回変更した4文書のFinding 0で、差分空白検査も成功した。状態・資源詳細のInterface／Record／資源／Lock／Authority／Effect／状態／遷移／結合／不変条件／失敗注入／実装／検証IDの集合を基準Commitと比較し、249種類が同一であることを確認した。ID保持は意味妥当性や全移管の成立証明ではなく、無断再採番をしていない限定確認である。Source・設定・署名に変更はない。
+
+Coordinator詳細を再編候補へ更新し、単体利用・Task開始／取消・助言／候補・exact回復・署名検証の公開操作境界と、Coordinator所有の通知型を具体化した。現在の公開indexに上位Project操作だけが残る点を実Sourceで確認し、Orchestrator移管後は下位公開面へ置き換える必要を明示した。Provider差はAI Adapter、共通保存はDomain Modelへ対応し、上位import・構成・再exportを禁止した。V6定数と署名domainがSourceへ接続済みであることも確認し、旧V5・旧候補配置を新規入口へ適用しないよう区別した。全回復方式、署名閉包、通知呼出し点、設定とQAの詳細照合は継続中で、段階3の完成や公開API実装済みとはしない。
+
+### 段階3の途中コミット前確認
+
+2026-10-07、人間の指示により現在の詳細設計を途中コミットする。段階3の完了とは扱わず、以降は各段階の完了時にコミットし、採否・範囲変更・リスク受容等の人間判断が必要な場合に停止する。
+
+差分の空白検査は成功した。CheckerのRepository全体のエラーは1578件で、直前確認の1580件から今回変更した署名節への参照切れ2件を是正した。変更対象内に残る23件は、CHG本文の今回変更していない旧Source配置への参照である。全体Pass、独立レビュー完了または段階3完了を主張しない。Source変更・Runtime実行・署名・外部AI依頼は本コミットに含めない。
+
 ## Checklist
 
 - [x] 全18領域を一次対応表へ処置した。

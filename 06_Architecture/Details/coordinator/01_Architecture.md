@@ -2,15 +2,17 @@
 
 成果物種別: Architecture詳細設計
 詳細設計領域: coordinator
-状態: Canonical
+状態: Candidate
+
+本候補は責務再編後のCoordinator詳細設計である。公開API・依存は本書、Provider固有差は[AI Adapter詳細](../ai-runtime/01_Architecture.md)、上位状態と採用は[Orchestrator詳細](../project-runtime/01_Architecture.md)が所有する。旧回復・署名方式の記述は移管前の保証と利用側を照合する基準として区別し、新配置・縮小方式の実装済み根拠にしない。未移管の保証を削除・置換済みとは扱わない。
 
 ## 基本設計との関係
 
 | Architecture定義 | この領域が具体化する責務 | Relation状態 |
 |---|---|---|
-| [ARCH-000004](../../Definitions/ARCH-000004/architecture_definition.md) | Project RuntimeのExecution PortをProvider・Process・Container実行へ接続し、Task／Attempt lifecycleを保持する。 | Covered |
+| [ARCH-000004](../../Definitions/ARCH-000004/architecture_definition.md) | Orchestratorまたは単体利用側から公開APIでTaskを受け、Provider・Process・Containerの実行lifecycleとexactな結果を返す。 | Partial |
 | [ARCH-000008](../../Definitions/ARCH-000008/architecture_definition.md) | Provider、Process、Docker、結果搬送の各phaseを診断可能にし、推測せず故障境界を返す。 | Covered |
-| [ARCH-000010](../../Definitions/ARCH-000010/architecture_definition.md) | 外部構成から利用可能Provider／Modelを解決し、選定根拠と再選定条件を実行前に固定する。 | Covered |
+| [ARCH-000010](../../Definitions/ARCH-000010/architecture_definition.md) | AI Adapterの適格性・計画を利用し、選定根拠、短命Grant、実行許可と再選定条件をEffect前に固定する。 | Partial |
 | [ARCH-000014](../../Definitions/ARCH-000014/architecture_definition.md) | 独立した読取り評価との責務境界を保持する。v0.22では利用者Trust Policyの有効化・Provider起動接続を要求しない。 | Partial |
 | [ARCH-000015](../../Definitions/ARCH-000015/architecture_definition.md) | 外部送信同意、Provider Effect、結果帰還、Review、Candidate dispositionを別Authorityとして処理する。 | Covered |
 
@@ -69,7 +71,7 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 現行Sourceと既存試験は本詳細設計の正式入力ではない。本設計候補を固定した後、成立済み能力を失わないよう`Covered`、`Partial`、`Missing`、`Legacy`または`Implementation Detail`へ分類する。
 
 担当責任者: Qual-Lab
-最終更新日: 2026-09-06
+最終更新日: 2026-10-07
 
 ## 1. 文書責務
 
@@ -81,13 +83,13 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 
 ### 内部ブロック図
 
-以下は主要責務の接続を示す。Sourceは`src`直下の用途別Directoryへ配置し、権限判断だけを`authority/`へ置く。`core/`、`security/`、`composition/`を汎用の置場として残さない。全数の移動対応は[配置対応表](../../../99_Roadmap/Changes/CHG-000082/Evidence/261007_coordinator-source-layout-plan.md)で追跡する。
+以下は再編後の主要責務を示す。Sourceは`src`直下の用途別Directoryへ配置し、権限判断だけを`authority/`へ置く。`src`配下は2階層までとし、`core/`、`security/`、`composition/`、`internal/`を汎用の置場として残さない。基準版の全数配置は[旧配置対応表](../../../99_Roadmap/Changes/CHG-000082/Evidence/261007_coordinator-source-layout-plan.md)、今回の移管は[全File棚卸し](../../../99_Roadmap/Changes/CHG-000082/Evidence/261007_develop-file-inventory.md)で追跡する。
 
 | Source Directory | 所有する責務 |
 |---|---|
 | `cli/` | 引数、対話入力、表示、CLI取消と用途の振り分け |
 | `task/` | 一般Taskの受付、Executor／Reviewerの実行調整、現在Runtimeへ接続する開発計測 |
-| `provider/` | Provider選択、Home、Provider固有の実行計画と結果変換 |
+| `provider/` | Provider選択Grant、Home、Mount、共通実行接続。固有コマンド・出力変換・Model差はAI Adapterへ移す |
 | `external-send/` | 外部送信の同意、許可、一回消費と出口制御 |
 | `authority/` | Grant、事前許可、Trust読取り、秘密情報拒否の判断 |
 | `repository-operation/` | Repository／Workspaceと操作Ownerの結合 |
@@ -95,38 +97,29 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | `docker-runtime/` | TaskのDocker隔離実行と資源回収 |
 | `docker-desktop/` | Docker Desktop／Engineの明示運用処置 |
 | `platform-access/` | Native／Platform Provisionerと保護配布閉包への接続 |
-| `state-storage/` | Coordinator現在状態と共有保存primitive |
+| `state-storage/` | Coordinator現在状態のSchema・遷移・保存Owner。共有保存primitiveはDomain Modelへ移す |
 | `candidate/` | 候補本体の保存、確認、回収とNative接続 |
-| `project-runtime/` | 別packageのProject Runtimeへ実行・保存・判断等のPortを接続する構成 |
-| `workbench-ai/` | Workbenchの助言・変更候補依頼、取消と候補操作 |
+| `project-runtime/` | 廃止する配置。上位状態・Queue・判断・採用・CompositionはOrchestrator、共通保存部品はDomain Modelへ移す。下位Task・資源回復は対応するCoordinator責務へ残す |
+| `workbench-ai/` | 助言・変更候補Mode、送信確認、一回Packet、実行・取消・共通結果。Provider固有計画・出力抽出はAI Adapter、画面・依頼受付はWorkbench Serverへ移す |
 | `diagnostics/` | 環境、配布物、実行時間の診断 |
 
-`src/plain-data-snapshot.ts`は純粋な値取込みを所有する。公開Symbol集合は`src/index.ts`に維持する。通常Runtimeから実装依存を持たない検査・E2E結果記録は`scripts/`、試験と試験専用支援は`tests/`が所有する。この配置を機能変更、旧回復処理の廃止または新しい公開入口の宣言として扱わない。
+`src/plain-data-snapshot.ts`は純粋な値取込みを所有する。公開Symbolは必要操作と検査へ限定して`src/index.ts`に集約し、型だけのファイルは`types.ts`とする。通常Runtimeから実装依存を持たない検査・E2E補助は`scripts/`、試験と試験専用支援は`tests/`が所有する。旧配置変更の完了根拠と今回の責務移管は区別する。
 
 ```text
-CLI・共通Launcher（bin/）
-  ├→ Task実行編成（coordinator-task-*）
-  │    ├→ 入力・選定・結果判定（task/・provider/）
-  │    ├→ 実行許可・署名検証（Authority・package検証群）
-  │    ├→ Provider実行（codex-* / claude-*）
-  │    │    └→ Docker・Process制御（docker-* / 実行環境群）
-  │    └→ 候補・Repository操作（candidate-* / repository-*）
-  │
-  ├→ Project接続（project-runtime/）
-  │    ├→ Project Runtime【別package：意味・状態・調停】
-  │    └→ Port実装（project-runtime/ の接続群）
-  │         実行・永続化・Lease・判断・候補統合・回復
-  │
-  └→ 診断・明示回復
-       ├→ Task資源回復（docker-recovery-* 等）
-       └→ Docker修復／検証付き再起動（desktop-* / restart-*）
+単体CLI / Orchestrator / Workbench Server
+                   ↓ 公開API
+               Coordinator
+  ├─ Task / Review / Advice Mode
+  ├─ 外部送信 / 実行許可 / Home・Mount
+  ├─ 候補本体 / 現在状態 / 資源回復
+  ├→ AI Adapter：Provider計画・出力変換
+  ├→ Domain Model：保存・設定部品
+  ├→ Platform Access：OS観測・保護原語
+  ├→ Version Control：許可済みSnapshot読取り
+  └→ Execution Intelligence：下位実行事実
 
-上記の環境依存処理
-  ├→ Native接続・OS観測 → Platform Access【別package】
-  └→ 観測Adapter → Execution Intelligence【別package】
-
-署名・検証・配布補助（scripts/）
-  → 同じ配布物・実行依存集合の検証を利用
+Coordinator ─×→ Orchestrator / Workbench Server / MCP Server
+署名・検証・配布補助（scripts/）→ 同じ閉包検証
 ```
 
 矢印は主要責務の接続であり、Source上の全importや実行順序を定義しない。各操作のAuthority・回収順序は後続節に従う。検証付き再起動は、公開入口から署名済み配布物、実機停止、修復、再起動、Task回復までを同じRecovery Identityで検証して初めて完成とする。
@@ -142,7 +135,33 @@ CLI・共通Launcher（bin/）
 
 Local Personalは永続的なRuntime有効化状態、Platform Provisioningまたは事前Activation Recordを持たない。削除済みの有効化・無効化・準備commandは、parser、help、実装、互換shimまたは失敗専用入口として残さない。
 
-利用者向けの安定入口`template/tools/crdd-coordinator.ts`は、同じ改訂版の共通起動入口`bin/coordinator.ts`へ接続する。共通起動入口は用途、Node版、stdio接続および引数を確認し、同じProcessで対応する既存mainへ接続する。通常処理はsrc/cli/coordinator-command.tsが所有し、従来のdoctor／project／capabilities／candidate／taskの直接入力と終了値を維持する。bin配下の実行入口はcoordinator.ts一つとする。新しいShell、cwd変更、stdio横取りまたはsignal ownerを作らない。MCP Serverは`template/tools/crdd-mcp.ts`が別の構成Rootとして所有し、Coordinator CLIのsubcommandにしない。
+利用者向けの安定入口`template/tools/crdd-coordinator.ts`は薄い配送を所有する。Task／doctor／capabilities／candidateは同じ改訂版の`bin/coordinator.ts`へ、既存project操作はOrchestrator公開APIへ接続する。Coordinator libraryへ上位依存を残すための転送ではない。通常入口は用途、Node版、stdioと引数を確認し、同じProcessで対応する処理へ接続する。binはcoordinator.ts一つを維持し、新しいShell、cwd変更、stdio横取りまたはsignal ownerを作らない。MCP Serverは独立入口から同じ下位・上位公開APIを利用する。
+
+### 2.1. 公開操作の対象と実装対応
+
+現在の公開indexは上位Project操作を再exportしており、次の下位操作を再編後の公開面へ接続する必要がある。内部関数の一括exportではなく、必要なAuthority・Result検査を備えた閉じた操作に限定する。開発用factoryはtests／scriptsからのみ利用し、本番公開面へ追加しない。
+
+| 公開する操作 | 現在のSymbol・境界 | 入力・結果とEffect |
+|---|---|---|
+| Task開始 | `startRuntimeOwnedCoordinatorTask` | 検査済み要求、検証済みRepository、署名Runtime Capability、上位相関参照 → Operation・取消用control・完了結果。CapabilityをTask Authorityへ読み替えず、消費前の拒否と開始後失敗を分ける。 |
+| Task取消 | `cancelRuntimeOwnedCoordinatorTask` | 同じcontrol Capability → 取消要求の受理。実停止・cleanup・最終結果は対象Taskの終了経路で別に観測する。 |
+| 助言／変更候補 | 既存Workbench AI Mode Router、Dispatch、Runtime Packet | 一回送信確認、Profile・Task・Projection結合 → 助言または隔離候補。画面受付・Profile管理とProvider差は所有しない。 |
+| 候補読取り／export／破棄 | 既存Candidate Storeと公開candidate操作 | 正規Identity、許可済み利用側、現在Store → 同じ候補本文・Metadataまたは処置結果。上位の正本採用・Commit・Pushを発行しない。 |
+| 診断／exact回復 | 既存doctor・Task回復の意味操作 | 現在Repository・Runtime結合、exact参照、必要な介入承認 → 診断・資源終端または未解決。新しいProvider依頼を発行しない。 |
+| 署名済みRuntime検証 | 既存Manifest・閉包・Native検証 | 固定入力と現在実行物 → 不透明な一回実行Capabilityまたは拒否。呼出し元の任意Pathを実行Authorityにしない。 |
+
+APIの具体的な型・呼出し点・利用側全数は棚卸しの関数単位対応へ接続する。公開入口の実接続、署名閉包、QA全数照合はOPENであり、現在の内部関数が存在するだけで公開能力の完成としない。
+
+### 2.2. Coordinator所有の通知と上位処置
+
+| 通知の意味 | Coordinatorが保証する内容 | Orchestrator等が別に確認する内容 |
+|---|---|---|
+| 開始 | exact Operation・Task役割・Providerと、検証したProcess開始観測を結ぶ。要求発行・Handle返却とは区別する。 | 自分のAttempt・世代・Authorityへ結合し、上位状態を保存する。 |
+| 終了 | Provider結果、Process終了、資源回収、Effect状態、一次失敗と後続失敗を区別する。 | 結果の相関・保存、統合・受入、Queueとslotの解除。 |
+| 取消 | 同じ操作の要求受理と実停止・回収を区別する。登録と取消の間の競合を再観測する。 | 通知／Promise完了からcancelledや受入を推定しない。 |
+| 通知失敗・遅延・重複 | 同じOperationの失敗として保持し、別操作へ付け替えない。終了後に新しいEffectを発行しない。 | 旧Attemptを更新しない。保存失敗と下位cleanup不明を別に残す。 |
+
+通知型・ハンドラー登録はCoordinatorが所有する。下位から上位型をimportせず、公開要求へ用途限定のハンドラーを登録する。通知本文は秘密、生Provider出力、任意Path、Authorityを含めない。ハンドラーの完了を上位の耐久保存完了へ読み替えず、通知失敗で最初の失敗をcleanup理由へ上書きしない。汎用Event Busや新しい通知DBは追加しない。
 
 <a id="3-主実行シーケンス"></a>
 
@@ -384,9 +403,9 @@ Workbenchで利用者が明示したAI Profileによる助言実行は、Front A
 
 独立Trust Policyの有効化とProvider起動へのAdapter接続は[Roadmapの将来版](../../../99_Roadmap/01_Roadmap.md#2-版ごとにできるようになること)の対象であり、現行Coordinatorの必須能力ではない。署名・完全性・起動時再検証など現在の固定Runtime保証は維持し、独立読取り評価だけから実行Capabilityを発行しない。
 
-### 署名範囲の縮小 — 採用済みの変更目標、実装未完了
+### 署名範囲の縮小 — V6方式と再編後の閉包
 
-2026-10-06の人間判断により、候補ごとのRepository全体展開と署名前／Manifest昇格時の全体Tree再構成を廃止する。以下は変更目標であり、既存revision 5の実装を変更済みと表示しない。通常Runtimeは既に実行閉包を検証しており、その保証を削除する変更ではない。
+2026-10-06の人間判断により、候補ごとのRepository全体展開と署名前／Manifest昇格時の全体Tree再構成を廃止する。現在SourceのManifest改訂版と署名domainは6／V6へ切替済みである。局所検証と必要な実署名・TTY・製品E2Eを区別し、Source接続だけで実Runtimeの利用可能を表示しない。今回の責務再編では、同じ閉包抽出に新しい公開入口・子入口・Package metadataを接続し、旧版の署名や検証結果を新しい実行Identityへ流用しない。
 
 | 観点 | 変更目標 | 維持する保証 |
 |---|---|---|
@@ -395,7 +414,7 @@ Workbenchで利用者が明示したAI Profileによる助言実行は、Front A
 | Gitの出所 | CommitとTreeの結合は維持し、署名する選択FileとNativeのGit Blob・mode・正規化後bytesだけを照合する。 | 未Commitまたは別Commitの実行物混入を署名前に拒否する。非実行文書等の全体一致は保証しない。 |
 | 設定 | 固定Security Policyは署名対象のまま維持する。Repository Manifestと外部送信Policyはそれぞれの既存Ownerが検証・更新する。 | Repository固有設定を署名済みRuntime設定と誤表示せず、秘密・Credential・現在状態を署名対象に混ぜない。 |
 | 形式と利用側 | 新しい意味をManifest revision 6と署名domain V6で識別し、署名／検証を同時に変更する。 | V5署名をV6の現在実行許可へ読み替えない。必要な旧履歴専用検証は旧domainのまま分離する。 |
-| 一時配置 | 通常試験は作業Sourceで実行する。署名・原子配置に必要な最小集合だけを既存Operation所有の`tmp/<operation-id>/work/`へ配置する。 | 全Repositoryコピー、恒久候補Directoryの累積、新しい清掃Frameworkは作らない。 |
+| 一時配置 | 通常試験は作業Sourceで実行する。署名・原子配置に必要な最小集合だけを固定`tmp/signature/work/`へ配置する。 | 全Repositoryコピー、恒久候補Directoryの累積、新しい清掃Frameworkは作らない。 |
 
 署名準備はProject RuntimeのAI実行キューとは別の入口であり、キューへの保存を回復参照の保持根拠にしない。起動するフロントAIが最初の作成前に`operationId`と`identity`を確定・保持し、CLIから準備処理へ同じ値を渡す。初期参照は既存Runtime Dataの固定Owner `coordinator-release-runtime`と世代`1`へ結合する。内部生成後の端末表示だけに依存せず、既存の一時操作記録とexact参照による再入場を利用する。識別子から操作能力を復元せず、新しいstate・キュー・回復DBを作らない。
 
@@ -403,7 +422,7 @@ Workbenchで利用者が明示したAI Profileによる助言実行は、Front A
 
 実行前後のHashはその観測時点の一致であり、途中の変更・復元や後続の子起動まで変更不能だった証明ではない。既存のRoot Protection、Native選択、子起動とEffect前の再検証の責務を維持し、未実装の保護を今回の縮小で完成へ昇格しない。全体Tree照合も実行中の変更不能を保証していたわけではない。
 
-必須反例は、文書のみの変更によるRuntime一致、実行Source／Policy／Nativeの変更拒否、未登録子入口と兄弟metadata欠落の拒否、Commit由来不一致、Repository設定やProvider Identity不一致の処置、観測後の差替え、V5／V6混在、Manifest公開競合、途中停止と再入場である。検証設計は既存QA-000010の項目を使用し、項目追加そのものを目的にしない。現行手順・実装の記述は以下に残し、署名・配置・利用側の変更と検証が完了してから現行記述へ切り替える。
+必須反例は、文書のみの変更によるRuntime一致、実行Source／Policy／Nativeの変更拒否、未登録子入口と兄弟metadata欠落の拒否、Commit由来不一致、Repository設定やProvider Identity不一致の処置、観測後の差替え、V5／V6混在、Manifest公開競合、途中停止と再入場である。検証設計は既存QA-000010の項目を使用し、項目追加そのものを目的にしない。旧V5の全配布展開・旧候補Pathの記述は移管前の比較基準であり、V6の新規入口へ適用しない。現在の固定一時配置は末尾の「署名準備の一時領域」に従う。旧署名方式の残る記述と全利用側の対応は段階3で整理し、旧実物の清掃はフロントAIへ渡す。
 
 配布担当者の端末補助は`40_Develop/coordinator/scripts/sign-release-terminal.ts`へ固定する。候補ごとの一時Scriptを量産せず、候補Identityと非秘密の署名条件だけを引数で渡す。補助入口は単一の現在UTCから時刻を整え、既存の署名Commandを同一Processで呼ぶ。新しい子Process、秘密入力Owner、署名Authority、結果Storeまたは回復Frameworkを設けない。署名完了後だけ画面保持の入力を所有し、画面保持の失敗で署名結果を変更しない。窓の強制終了は完了・Effect 0と推定せず、既存Manifest検証へ戻す。既存共通Launcherの契約は維持する。
 
@@ -1267,31 +1286,31 @@ Provider境界のLifecycle診断は、`coordinator_provider_boundary_configured`
 
 ## 14. Project Runtimeとの接続
 
-CoordinatorはProject Runtimeが要求する実行Portを実装し、Provider選定、単一Task実行、候補生成、Review、Recovery情報およびcleanup結果を返す。Project、Milestone、Objective、Task Graph、統合、受入およびProject状態の意味は[Project Runtimeアーキテクチャ](../project-runtime/01_Architecture.md)が所有する。
+この見出しは既存参照の解決用に保持する。再編後はOrchestratorがCoordinator公開APIを直接呼び、Coordinatorは単体利用も成立させる。Provider選定の実行Gate、単一Task、候補生成、Review、exact回復情報とcleanup結果を下位の責務として返す。Project、Milestone、Objective、Task Graph、統合、受入とProject状態は[Orchestrator詳細](../project-runtime/01_Architecture.md)が所有する。
 
 ```text
-Project Runtime
-  │ Execution Request
+Orchestrator / 単体利用側
+  │ Task要求・縮小Authority・登録ハンドラー
   ▼
-Coordinator Adapter
-  │ Provider Selection / Task Execution / Recovery
+Coordinator公開API
+  │ 選定Gate / 実行 / Review / 回収・結果
   ▼
 Coordinator
   │
-  ├─ Codex Provider
-  ├─ Claude Provider
-  └─ Platform Access
+  ├→ AI Adapter：Codex / Claude差
+  ├→ Platform Access：OS原語
+  └→ Execution Intelligence：下位事実
 ```
 
-| 境界 | Project Runtime | Coordinator |
+| 境界 | Orchestrator | Coordinator |
 |---|---|---|
 | Taskの意味 | ObjectiveとTask Graphから実行要求を作る | 閉じた実行要求を処理する |
-| Provider | Provider能力をPortとして要求する | Providerを選定し、実行する |
+| Provider | Task内容・Role・任意の選択Profileを渡す | AI Adapterの適格性・計画を使い、実観測・Grant・送信許可成立後に実行する |
 | 候補 | Task結果をProject状態と統合へ接続する | CandidateとReview結果を返す |
 | Recovery | Project／Taskとの相関を保持する | 実行資源のexact Recovery情報を返す |
-| 完成 | Objective／Milestoneの受入を判定する | Task結果とcleanupを報告する |
+| 完成 | 明示Authorityと根拠からObjective／Milestoneの判断を記録する | Task結果とcleanupを別軸で報告する |
 
-CoordinatorはProject状態を再定義せず、Project RuntimeはProvider、OS、Containerまたは候補Storeの実装へ依存しない。意味契約は[Project Runtime詳細設計](../project-runtime/02_Detailed_Design.md)、両者の実装・試験接続は[機械可読な設計対応](../../../07_Quality/Registry/project-runtime-design-traceability.json)と契約試験で照合する。
+CoordinatorはProject状態を再定義せず、Orchestratorをimport・構成・再exportしない。OrchestratorはProvider、OS、Containerや候補Storeの内部実装へ依存せず、公開APIから必要な結果を受ける。通知型はCoordinatorが定義し、Orchestratorがハンドラーを登録する。意味契約は[状態・資源詳細](../project-runtime/02_Detailed_Design.md)、実装・試験接続は既存の機械投影と契約試験で照合する。旧上位Adapterに存在する結果検査を捨てず、下位共通結果検査と上位結合検査へ分けて移す。
 
 単一Taskの拒否結果では、実効Executor Providerが未選択の場合の`executorProvider: null`を正当な未選択として受け取る。上位の省略可能なProvider項目へは投影せず、元の拒否理由、cleanup、再起動要否およびexact回復参照を保持する。未選択だけからEffect 0や資源不存在を推定しない。成功結果のnull、未知Provider、ProxyまたはAccessorは拒否し、欠測・data `undefined`の既存互換は維持する。Accessorを欠測へ読み替えず、Getterを実行しない。
 
@@ -1313,15 +1332,15 @@ CoordinatorはProject状態を再定義せず、Project RuntimeはProvider、OS�
 
 | 観点 | 適用 | 判定理由 | 成立させる構造 | 局所責務・不変条件 | 失敗・変更時の影響 | Qualityへの導出キー |
 |---|---|---|---|---|---|---|
-| Variation | Required | この観点を成立させる構造と責務が存在するため。 | Provider、Process Controller、候補Review、Recoveryを共通契約と具象Adapterへ分ける。 | 利用側はProvider／OS固有の選択理由や終了処理を持たない。 | 新Provider追加時にAuthority、診断、cleanupの抜けが生じる。 | `coord.provider-selection`、`coord.provider-attempt` |
+| Variation | Required | CodexとClaude、OS原語、実行Modeの差が存在する。 | Provider差はAI Adapter、OS差はPlatform Access、Task／助言／回収の意味はCoordinatorへ閉じる。 | 上位利用側はProvider固有argv、CLI出力やDocker資源操作を持たない。 | 新Provider追加時にAuthority、診断、cleanupの抜けが生じる。 | `coord.provider-selection`、`coord.provider-attempt` |
 | Common Contract | Required | この観点を成立させる構造と責務が存在するため。 | Provider、Process Controller、候補ReviewおよびRecoveryの具象差を、Authority、結果、診断、取消とcleanupの共通契約へ揃える。 | 各具象は同じTask／Attempt Identity、Effect境界および終了後条件を保ち、固有出力を上位へ漏らさない。 | 新ProviderやOS経路だけが別の承認、状態、結果または資源回収規則を持つ。 | `coord.provider-selection`、`coord.provider-attempt`、`coord.task-recovery` |
-| Creation／Selection | Required | この観点を成立させる構造と責務が存在するため。 | 構成・利用可能性・Policy・TrustからCoordinatorがEffect前に具象Providerを選ぶ。 | 選定とProvider Effectを分け、未選定時はEffect 0とする。 | 選択後の再解釈や入口別選択で経路が不一致になる。 | `coord.provider-selection` |
+| Creation／Selection | Required | Role・Profile・利用可能性・実行許可の選択が必要である。 | AI Adapterで構成・適格性を解決し、Coordinatorで実Home・署名Runtime・送信許可・短命GrantをEffect前に結合する。 | 選定とProvider Effectを分け、独立Trust Policy Frameworkは要求しない。 | 選択後の再解釈や入口別選択で経路が不一致になる。 | `coord.provider-selection` |
 | State-dependent Behavior | Required | この観点を成立させる構造と責務が存在するため。 | Task／Attempt／Process／Review／Recovery状態ごとに許可する操作を限定する。 | Effect不明やcleanup未確認を成功状態へ遷移させない。 | 状態分岐の分散で再発行や回復Identity喪失が起きる。 | `coord.provider-attempt`、`coord.task-recovery` |
 | Composition／Recursion | Required | この観点を成立させる構造と責務が存在するため。 | 選定、送信許可、Provider実行、Review、候補、cleanupを順序付きで合成する。 | 各段階は前段の確定結果だけを入力とし、循環再試行を作らない。 | 部分成功を全体成功に畳む、または同じEffectを再実行する。 | `coord.provider-attempt`、`coord.signed-promotion` |
 | Lifecycle Ownership | Required | この観点を成立させる構造と責務が存在するため。 | 子Process、stream、Container、候補一時領域とRecovery義務をTask／Attemptへ結ぶ。 | 生成したOwnerが移送またはcleanup確認まで責任を持つ。 | 利用側が完了を受け取っても資源と回復義務が残る。 | `coord.task-recovery`、`coord.docker-repair-handoff` |
 | External Boundary | Required | この観点を成立させる構造と責務が存在するため。 | Provider、Docker、OS Process、Filesystemを診断可能なAdapterで隔離する。 | 要求・開始・完了・結果搬送・終了後状態を同じOperationで相関する。 | CLIやOS差を成功／不存在へ畳み、原因境界を失う。 | `coord.provider-attempt`、`coord.docker-repair-handoff` |
 
-CodexとClaude、複数のProcess Controller、通常実行とRecovery等、同じ責務の具象実装が既に複数あるため共通契約への昇格はRequiredである。共通契約はProviderやOS固有情報を消すためではなく、Authority、結果、診断およびcleanupの不変条件を各具象実装へ強制するために用いる。
+CodexとClaudeの計画・出力変換はAI Adapter内の共通契約へ揃える。CoordinatorはAuthority、結果、診断、取消とcleanupを共通化し、Provider別の専用実行ファイルを持ち続けない。OS原語はNative、ProcessやDocker資源の業務lifecycleはCoordinatorが所有する。限定unknown終了を通常実行・認証・任意孤児清掃へ一般化しない。
 
 ## 上流UI／SPEC Detailとの関係
 
@@ -1366,10 +1385,9 @@ OPEN: 保存確定、履歴上限、既存回復の移行と限定Classの実接
 
 制御記録はwork清掃後まで維持する。記録削除と空Root削除の間で失敗した場合は、残ったRootだけからIdentityを復元せず停止する。この窓を完全自動回復と主張せず、フロントAIが非使用と範囲を確認する。任意Path入力、新Lock Framework、汎用Recovery Frameworkは追加しない。
 
-## Checklist
+縮小Snapshotの基本情報・回復・搬送の相関と、元版／次版／exact bytesの保存形式は局所照合済みである。本番保存、限定終了と全利用側の実接続・実境界反証は未完了であり、設計の自己確認を実装Passにしない。
 
-- [x] 縮小Snapshotの基本情報・回復・搬送の相関と、元版／次版／exact bytesの保存形式を照合した。
-- [ ] OPEN: 縮小Snapshotの本番保存、限定終了と利用側の実接続・実境界反証は未完了。設計の自己確認を実装Passにしない。
+## Checklist
 
 - [x] 関連するARCH-IDと担当する責務断面を明示した
 - [x] 10種類の詳細成果物を全数Applicability判定した
@@ -1377,12 +1395,12 @@ OPEN: 保存確定、履歴上限、既存回復の移行と限定Classの実接
 - [x] N/AにArchitecture上の理由を記録した
 - [x] 8種類のEngineering Concernを全数評価した
 - [x] PASSを設計済みの意味に限定した
-- [x] Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
+- OPEN: 公開API全数、Provider差移管、現在状態と旧回復の全利用側対応は継続中である — Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
 - [x] Failure／Recovery、ObservabilityおよびSecurity Boundaryを具体化した
 - [x] 7種類のImplementation Structure観点を全数Applicability判定した
 - [x] 二つ目の具象実装がある責務で、共通契約への昇格または非昇格理由を評価した
 - [x] Qualityへ渡す設計項目を局所的な導出キーまたは同等に一意な参照へ接続した
-- [x] Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
+- OPEN: 通知・保存・限定終了・署名閉包の新担当を既存Local Itemへ全数対応する必要がある — Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
 - [x] Human Inputの必要性とOpen／Gapを評価した
 - [x] 現行実装との照合をReality Auditとして分離した
 - [x] Source構造をCanonical詳細設計へ逆輸入していない

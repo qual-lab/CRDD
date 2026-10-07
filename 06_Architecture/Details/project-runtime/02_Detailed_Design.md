@@ -1,12 +1,13 @@
-# Project Runtime詳細設計
+# Orchestratorの状態・資源詳細設計
 
-状態: 現行正本
+状態: 設計候補
 担当責任者: Qual-Lab
-最終更新日: 2026-10-06
+最終更新日: 2026-10-07
 
 ## Related
 
-- [Project Runtimeアーキテクチャ](01_Architecture.md)
+- [Orchestratorアーキテクチャ](01_Architecture.md)
+- [責務再編の計画](../../../99_Roadmap/Changes/CHG-000082/Evidence/261007_develop-responsibility-mapping.md)
 - [Project Runtime責務分離](../../../99_Roadmap/Changes/CHG-000063/change.md)
 - [検証設計](../../../07_Quality/03_Verification_Design.md)
 
@@ -20,7 +21,7 @@
 
 本書はProject Runtimeの現在有効なInterface、永続Record、資源、Lock、Authority、Effect、状態遷移、不変条件および失敗注入点を所有する。版ごとの旧設計文書は現行Treeへ累積せず、当時の内容は対応するGit tagで保持する。
 
-[上位アーキテクチャ](01_Architecture.md)は責務、依存方向、公開PortおよびPlatform境界を所有する。[機械可読な設計対応](../../../07_Quality/Registry/project-runtime-design-traceability.json)は本書を再定義せず、本書とCoordinator実装・試験の対応切れを検出する検証用投影である。
+[上位アーキテクチャ](01_Architecture.md)は責務、依存方向、公開APIと通知、Platform境界を所有する。[機械可読な設計対応](../../../07_Quality/Registry/project-runtime-design-traceability.json)は本書を再定義せず、設計と実装・試験の対応切れを検出する検証用投影である。現行Symbol・旧実装Pathの対応表は移管前の基準であり、新配置の成立済み根拠ではない。Interface、Record、遷移とSemantic KeyはFolder改名だけで再採番しない。
 
 <a id="detailed-design-contract"></a>
 ## 2. Interface
@@ -36,6 +37,22 @@
 | `IF-TRANSPORT` | `transport_adapter` | `partial` | `single_task_flow` |
 | `IF-DECISION` | `human_decision_controller` | `partial` | `human_decision_flow` |
 | `IF-PLATFORM` | `platform_adapter` | `partial` | `responsibility_separation` |
+
+### 再編後の実装担当
+
+上表の所有者値は論理的な役割である。実装Packageと混同せず、次の担当へ対応する。既存IDを下位APIの実装型へ移すだけの逆依存は作らない。
+
+| Interface | 新しい実装担当 | 保存・呼出し境界 |
+|---|---|---|
+| `IF-PROJECT-CORE`、`IF-QUEUE`、`IF-SCHEDULER` | Orchestrator | 純粋な選択・遷移と、業務操作による状態保存を分ける。 |
+| `IF-SINGLE-TASK` | Coordinator公開API | Orchestratorが縮小したTaskを渡す。Provider差はAI Adapter、実資源終了はCoordinatorが観測する。 |
+| `IF-STATE-STORE` | Orchestrator | Project Schema、現在状態、受付世代、Queue、判断と未解決参照を所有する。共通保存原語はDomain Model、OS排他はPlatform Accessを利用する。 |
+| `IF-INTEGRATION` | Orchestrator | 候補本体とMetadataはCoordinatorから読取り、Integration Record、明示採用、ReceiptとRevision検査はOrchestratorが所有する。 |
+| `IF-TRANSPORT` | MCP Server、Workbench Server、薄い配布CLI | 同じOrchestrator公開要求・結果検査を利用する。Coordinator libraryから上位操作を再exportしない。 |
+| `IF-DECISION` | Orchestrator | 判断の意味と適用世代を所有する。保護保存原語はPlatform Access、非秘密の現在適用は状態Snapshotへ保存する。 |
+| `IF-PLATFORM` | Platform Access、Coordinator | OS原語はNative、実行・回復意味はCoordinator、上位再入場と判断相関はOrchestrator。Nativeへ業務状態を移さない。 |
+
+Coordinatorの開始・終了通知を受けるだけでは、`REC-TASK-ATTEMPT`やQueueの保存確定は成立しない。Orchestratorが通知Identityと現在世代を検査し、状態保存を読戻しした後だけ上位状態を投影する。取消とPrimary Failure／cleanupの扱いは[公開操作の通知契約](01_Architecture.md#72-通知取消と保存確定)へ接続する。
 
 ### 2.1. 既存候補の採用境界
 
@@ -537,6 +554,7 @@ v2の実体結合は取得したDirectoryのdevice、inode、birthtimeMsをJSON�
 
 ## Checklist
 
+- OPEN: 新担当への全Record・資源・遷移・回復不変条件、Source利用側およびQA義務の対応は継続中である。以下の保存方式刷新②の評価結果を責務再編全体の完了へ流用しない。
 - [x] 旧連続世代の保証と新版Snapshotの目標を区別し、旧不変条件の意味を変更していない。
 - [x] 物理統合と仕事全体の一括確定を区別し、別Port間の中断、Leaseと保護Decisionの境界を維持した。
 - [x] 保存、採用後処理、終了、履歴と移行の反証対象を明示した。

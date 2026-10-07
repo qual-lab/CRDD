@@ -102,7 +102,7 @@ Quality ID: `QA-000010`
 
 ### 署名範囲縮小時の既存項目への適用
 
-[Coordinator詳細設計の変更目標](../../../06_Architecture/Details/coordinator/01_Architecture.md#署名範囲の縮小--採用済みの変更目標実装未完了)では、署名対象を固定Git版のRuntime実行集合とNativeへ限定する。以下は既存項目の具体的な反例・観測条件であり、新しいLocal Itemや実署名の合格を追加するものではない。
+[Coordinator詳細設計のV6方式](../../../06_Architecture/Details/coordinator/01_Architecture.md#署名範囲の縮小--v6方式と再編後の閉包)では、署名対象を固定Git版のRuntime実行集合とNativeへ限定する。以下は既存項目の具体的な反例・観測条件であり、新しいLocal Itemや実署名の合格を追加するものではない。
 
 | 既存項目 | 確認する条件 | 合格を推定してはならない範囲 |
 |---|---|---|

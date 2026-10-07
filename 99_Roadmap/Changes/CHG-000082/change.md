@@ -45,7 +45,7 @@
 
 | 段階 | 処置と完了条件 | 現在状態 |
 |---|---|---|
-| 契約確認 | 成立済みの実行閉包、子入口、Native、Policy、Provider、設定Owner、原子公開と過去Evidenceを変更後Ownerへ対応付ける。 | 着手前の二観点確認を統合済み。[Architectureの変更目標](../../../06_Architecture/Details/coordinator/01_Architecture.md#署名範囲の縮小--採用済みの変更目標実装未完了)を記録した。完成後レビューではない。 |
+| 契約確認 | 成立済みの実行閉包、子入口、Native、Policy、Provider、設定Owner、原子公開と過去Evidenceを変更後Ownerへ対応付ける。 | 着手前の二観点確認を統合済み。[ArchitectureのV6方式と再編後の閉包](../../../06_Architecture/Details/coordinator/01_Architecture.md#署名範囲の縮小--v6方式と再編後の閉包)を記録した。完成後レビューではない。 |
 | 署名・配置の変更 | V6の署名／検証、選択FileのGit出所照合、最小一時配置、原子Manifest公開と終了・中断の処置を公開入口から接続する。 | 現行V6／履歴V2・V5・V6の分離、Signerと昇格前後の選択File照合、最小一時配置と終了清掃を接続した。既存公開準備入口のbinding局所8件と限定独立レビューはPass。本体Manifestの再署名と署名付き実境界は未実施。 |
 | 利用側と伝播 | Runtime公開説明、昇格、履歴読取り、Domain Library、Native設計、Workflowと既存QAの検証設計を揃える。 | 未完了。通常Runtimeが既に持つ実行閉包検証は維持する。 |
 | 検証と閉鎖 | 型・整形・Lint後に局所反例、必要な回帰、固定候補の独立レビュー、必要な署名付き実境界を確認する。 | V6／履歴分離9件、選択File出所と読取り上限2件、Manifest昇格14件は静的確認後に成功。旧全体展開fixtureを最小RuntimeとNativeの固定試験入力へ刷新し、署名入口・端末補助37件が成功した。その後の限定レビューで`.git`不存在判定の不足1件を両入口で是正し、production読取り再レビューは限定Pass。最小準備・清掃の追加局所4件も成功した。公開入口接続、変更全体の回帰・独立レビューは未完了。実署名、Provider依頼、Docker／ACL操作はまだ行わない。 |
