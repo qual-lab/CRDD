@@ -39,12 +39,7 @@ test("Semantic Bundle公開前の失敗は既存Snapshotを置換しない", () 
   const verified = verifyRepositoryRoot(repositoryRoot);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") return;
-  const testRoot = path.join(
-    repositoryRoot,
-    ".crdd",
-    "tests",
-    "crdd-domain-library",
-  );
+  const testRoot = path.join(repositoryRoot, ".crdd", "tests", "domain-model");
   fs.mkdirSync(testRoot, { recursive: true });
   const temporaryRoot = fs.mkdtempSync(path.join(testRoot, "semantic-bundle-"));
   try {

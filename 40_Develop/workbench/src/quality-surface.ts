@@ -9,7 +9,7 @@
  * @effect N/A: 型定義だけを所有する。
  * @security Repository外情報を取得せず、Browser描画責務を所有しない。
  */
-import type { RepositoryQualityProjection } from "../../project-operation/src/index.ts";
+import type { RepositoryQualityProjection } from "../../domain-model/src/project-context/index.ts";
 
 /**
  * Workbenchが観測したCurrent Quality Projectionを定義する。

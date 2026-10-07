@@ -9,7 +9,7 @@
  * @effect N/A: 型定義だけを所有する。
  * @security Repository外情報を取得せず、Browser描画責務を所有しない。
  */
-import type { RepositoryReleaseProjection } from "../../project-operation/src/index.ts";
+import type { RepositoryReleaseProjection } from "../../domain-model/src/project-context/index.ts";
 
 /**
  * Workbenchが観測したCurrent Release Projectionを定義する。

@@ -18,11 +18,9 @@ import {
 } from "../../40_Develop/mcp/src/index.ts";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import {
-  createTopicMeetingApplication,
-  createTopicMeetingRepository,
-  parseRepositoryProjectContextMarkdown,
-} from "../../40_Develop/project-operation/src/index.ts";
+import { createTopicApplication } from "../../40_Develop/domain-model/src/topic/index.ts";
+import { createMeetingApplication } from "../../40_Develop/domain-model/src/meeting/index.ts";
+import { parseRepositoryProjectContextMarkdown } from "../../40_Develop/domain-model/src/project-context/index.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../40_Develop/version-control/src/repository-location.ts";
 import {
   isSupportedCoordinatorNodeRuntime,
@@ -167,9 +165,10 @@ function applicationDependencies(): McpApplicationDependencies {
     projectContext: {
       readPortfolio: () => readRepositoryPortfolio(process.cwd()),
     },
-    topicMeeting: createTopicMeetingApplication(
-      createTopicMeetingRepository(repositoryRoot),
-    ),
+    topicMeeting: Object.freeze({
+      topic: createTopicApplication(repositoryRoot),
+      meeting: createMeetingApplication(repositoryRoot),
+    }),
   };
 }
 

@@ -37,7 +37,8 @@ import {
   protocolError,
   type McpResponse,
 } from "../protocol/project-runtime-protocol.ts";
-import type { TopicMeetingApplication } from "../../../project-operation/src/index.ts";
+import type { TopicMeetingApplications } from "../../../domain-model/src/topic/index.ts";
+
 import {
   handleMcpRoutedTopicMeetingRequest,
   handleMcpTopicMeetingRequest,
@@ -63,7 +64,7 @@ import {
 export type McpApplicationDependencies = Readonly<{
   projectRuntime?: McpProjectRuntimeDependencies;
   projectContext: McpProjectContextDependencies;
-  topicMeeting?: TopicMeetingApplication;
+  topicMeeting?: TopicMeetingApplications;
   topicMeetingRepositoryResolver?: TopicMeetingApplicationResolver;
 }>;
 

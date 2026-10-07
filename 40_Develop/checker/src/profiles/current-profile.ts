@@ -24,7 +24,7 @@ import {
   resolveRevisionIdentity,
 } from "../../../version-control/src/checker-observation/index.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/repository-identity/index.ts";
-import { resolveRepositoryRuntimeDataPaths } from "../../../runtime-data/src/index.ts";
+import { resolveRepositoryRuntimeDataPaths } from "../../../domain-model/src/repository/index.ts";
 import { runCheckerPipeline } from "../pipeline/checker-pipeline.ts";
 import { RuleRegistry } from "../rules/rule-registry.ts";
 import { qualityDesignCanonicalStateRule } from "../rules/quality-design-state.ts";

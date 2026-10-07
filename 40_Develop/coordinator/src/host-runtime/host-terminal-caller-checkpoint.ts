@@ -8,12 +8,12 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { ensureRepositoryRuntimeDataArea } from "../../../domain-model/src/storage/index.ts";
 import {
-  ensureRepositoryRuntimeDataArea,
   RepositoryRuntimeDataAreaBlockedError,
   requireReadyRepositoryRuntimeDataArea,
   resolveRepositoryRuntimeDataPaths,
-} from "../../../runtime-data/src/index.ts";
+} from "../../../domain-model/src/repository/index.ts";
 import type { VerifiedRepositoryRoot } from "../../../version-control/src/repository-location.ts";
 import { acquireHostTerminalCallerLease } from "./host-terminal-caller-lease.ts";
 import {

@@ -18,7 +18,8 @@ import type {
   TopicMeetingListQuery,
   TopicMeetingPage,
   TopicMeetingRelation,
-} from "../../project-operation/src/index.ts";
+} from "../../domain-model/src/topic/index.ts";
+
 import {
   MCP_MEETING_CREATE_TOOL,
   MCP_MEETING_DELETE_TOOL,

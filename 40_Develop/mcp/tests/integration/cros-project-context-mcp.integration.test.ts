@@ -16,11 +16,9 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import {
-  createTopicMeetingApplication,
-  createTopicMeetingRepository,
-  parseRepositoryProjectContextMarkdown,
-} from "../../../project-operation/src/index.ts";
+import { createTopicApplication } from "../../../domain-model/src/topic/index.ts";
+import { createMeetingApplication } from "../../../domain-model/src/meeting/index.ts";
+import { parseRepositoryProjectContextMarkdown } from "../../../domain-model/src/project-context/index.ts";
 import {
   createMemoryConnectionCredentialRegistry,
   issueConnectionCredential,
@@ -330,9 +328,10 @@ test("CROS CredentialのWorkspace範囲だけをProject Context MCPへ搬送す�
  */
 test("CROSは許可済みRepositoryだけへTopic書込みをRoutingする", async () => {
   const root = mkdtempSync(path.join(tmpdir(), "crdd-cros-topic-routing-"));
-  const topicMeeting = createTopicMeetingApplication(
-    createTopicMeetingRepository(root),
-  );
+  const topicMeeting = Object.freeze({
+    topic: createTopicApplication(root),
+    meeting: createMeetingApplication(root),
+  });
   const registry = createMemoryConnectionCredentialRegistry();
   const issued = issueConnectionCredential(registry, ADMINISTRATOR, {
     profile: "developer",
@@ -391,7 +390,7 @@ test("CROSは許可済みRepositoryだけへTopic書込みをRoutingする", asy
     );
     assert.equal(available.status, 200);
     assert.match(JSON.stringify(await available.json()), /record_created/u);
-    assert.equal(topicMeeting.get("topic", "TOPIC-000099")?.revision, 1);
+    assert.equal(topicMeeting.topic.get("TOPIC-000099")?.revision, 1);
 
     const blocked = await createRemoteTopic(baseUrl, issued.token, "REPO-MGMT");
     assert.equal(blocked.status, 200);
@@ -420,18 +419,20 @@ test("CROSは許可済みRepositoryだけへTopic書込みをRoutingする", asy
 test("CROSはRepository間Relationを許可済みOwnerへ解決する", async () => {
   const devRoot = mkdtempSync(path.join(tmpdir(), "crdd-cros-rel-dev-"));
   const mgmtRoot = mkdtempSync(path.join(tmpdir(), "crdd-cros-rel-mgmt-"));
-  const dev = createTopicMeetingApplication(
-    createTopicMeetingRepository(devRoot),
-  );
-  const mgmt = createTopicMeetingApplication(
-    createTopicMeetingRepository(mgmtRoot),
-  );
+  const dev = Object.freeze({
+    topic: createTopicApplication(devRoot),
+    meeting: createMeetingApplication(devRoot),
+  });
+  const mgmt = Object.freeze({
+    topic: createTopicApplication(mgmtRoot),
+    meeting: createMeetingApplication(mgmtRoot),
+  });
   assert.equal(
-    dev.create("topic", relatedTopic("TOPIC-000101", "TOPIC-000201")).status,
+    dev.topic.create(relatedTopic("TOPIC-000101", "TOPIC-000201")).status,
     "completed",
   );
   assert.equal(
-    mgmt.create("topic", relatedTopic("TOPIC-000201", "TOPIC-000101")).status,
+    mgmt.topic.create(relatedTopic("TOPIC-000201", "TOPIC-000101")).status,
     "completed",
   );
   const registry = createMemoryConnectionCredentialRegistry();
@@ -500,7 +501,7 @@ test("CROSはRepository間Relationを許可済みOwnerへ解決する", async ()
     assert.match(body, /TOPIC-000201/u);
     assert.match(body, /"state":"available"/u);
     assert.match(body, /"ownerRepositoryId":"REPO-MGMT"/u);
-    assert.equal(dev.get("topic", "TOPIC-000201"), null);
+    assert.equal(dev.topic.get("TOPIC-000201"), null);
   } finally {
     const closed = await server.close();
     assert.equal(closed.cleanupConfirmed, true);

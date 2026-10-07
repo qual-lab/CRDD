@@ -12,7 +12,7 @@ import { semanticDomainIssue } from "./semantic-ir-compiler.ts";
 import type {
   DomainIssue,
   DomainOutcome,
-} from "../../../crdd-domain-library/src/index.ts";
+} from "../../../domain-model/src/index.ts";
 
 /**
  * Quality Local Itemが検証するSemantic Meaningとの正方向Relationを表す。

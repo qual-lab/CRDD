@@ -7,7 +7,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { observeRepositoryRuntimeDataArea } from "../../runtime-data/src/index.ts";
+import { observeRepositoryRuntimeDataArea } from "../../domain-model/src/repository/index.ts";
 import {
   verifyRepositoryRoot,
   type VerifiedRepositoryRoot,

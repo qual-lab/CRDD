@@ -217,14 +217,12 @@ const sourceOwnershipRoots = Object.freeze([
   path.join(repositoryRoot, "40_Develop", "artifact-signing"),
   path.join(repositoryRoot, "40_Develop", "checker"),
   path.join(repositoryRoot, "40_Develop", "coordinator"),
-  path.join(repositoryRoot, "40_Develop", "crdd-domain-library"),
+  path.join(repositoryRoot, "40_Develop", "domain-model"),
   path.join(repositoryRoot, "40_Develop", "cros"),
   path.join(repositoryRoot, "40_Develop", "execution-intelligence"),
   path.join(repositoryRoot, "40_Develop", "mcp"),
   path.join(repositoryRoot, "40_Develop", "official-asset-governance"),
-  path.join(repositoryRoot, "40_Develop", "project-operation"),
   path.join(repositoryRoot, "40_Develop", "project-runtime"),
-  path.join(repositoryRoot, "40_Develop", "runtime-data"),
   path.join(repositoryRoot, "40_Develop", "semantic-coverage"),
   path.join(repositoryRoot, "40_Develop", "verification-runner"),
   path.join(repositoryRoot, "40_Develop", "version-control"),
@@ -233,7 +231,7 @@ const sourceOwnershipRoots = Object.freeze([
 ]);
 type PublicIndexProfile = Readonly<{
   relativePath: string;
-  expectedTrace: string;
+  expectedTrace: string | readonly string[];
   requiredTags: readonly string[];
   exportedModules: readonly string[];
   namespaceExports?: Readonly<Record<string, string>>;
@@ -286,46 +284,41 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     ],
   },
   {
-    relativePath: "40_Develop/crdd-domain-library/src/index.ts",
+    relativePath: "40_Develop/domain-model/src/index.ts",
     expectedTrace: "ARCH-000008",
     requiredTags: ["boundary"],
-    exportedModules: [
-      "./artifact/index.ts",
-      "./filesystem-store-root/index.ts",
-      "./outcome.ts",
-      "./quality-change-control/index.ts",
-      "./reality-traceability/index.ts",
-      "./repository-observation/index.ts",
-    ],
-    namespaceExports: {
-      artifact: "./artifact/index.ts",
-      filesystemStoreRoot: "./filesystem-store-root/index.ts",
-      qualityChangeControl: "./quality-change-control/index.ts",
-      realityTraceability: "./reality-traceability/index.ts",
-      repositoryObservation: "./repository-observation/index.ts",
-    },
+    exportedModules: ["./outcome.ts"],
   },
   {
-    relativePath: "40_Develop/crdd-domain-library/src/artifact/index.ts",
+    relativePath: "40_Develop/domain-model/src/artifact/index.ts",
     expectedTrace: "ARCH-000008",
     requiredTags: [],
     exportedModules: [
       "./artifact-graph.ts",
-      "./artifact-model.ts",
+      "./types.ts",
       "./markdown-artifact-parser.ts",
       "./schema-validator.ts",
     ],
   },
   {
-    relativePath:
-      "40_Develop/crdd-domain-library/src/quality-change-control/index.ts",
+    relativePath: "40_Develop/domain-model/src/storage/index.ts",
+    expectedTrace: "ARCH-000011",
+    requiredTags: ["boundary", "effect", "security"],
+    exportedModules: [
+      "./filesystem-store-root.ts",
+      "./runtime-data-area.ts",
+      "./temporary-operation-store.ts",
+      "./types.ts",
+    ],
+  },
+  {
+    relativePath: "40_Develop/domain-model/src/quality-change-control/index.ts",
     expectedTrace: "ARCH-000003",
     requiredTags: ["boundary", "security"],
     exportedModules: ["./quality-gate.ts"],
   },
   {
-    relativePath:
-      "40_Develop/crdd-domain-library/src/reality-traceability/index.ts",
+    relativePath: "40_Develop/domain-model/src/reality-traceability/index.ts",
     expectedTrace: "ARCH-000008",
     requiredTags: [],
     exportedModules: [
@@ -336,11 +329,16 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     ],
   },
   {
-    relativePath:
-      "40_Develop/crdd-domain-library/src/repository-observation/index.ts",
-    expectedTrace: "ARCH-000008",
+    relativePath: "40_Develop/domain-model/src/repository/index.ts",
+    expectedTrace: ["ARCH-000008", "ARCH-000011"],
     requiredTags: ["boundary"],
-    exportedModules: ["./reality-symbol-repository-observer.ts"],
+    exportedModules: [
+      "./types.ts",
+      "./repository-observation.ts",
+      "./reality-symbol-repository-observer.ts",
+      "./runtime-data-path-resolver.ts",
+      "./runtime-area-result.ts",
+    ],
   },
   {
     relativePath: "40_Develop/execution-intelligence/src/index.ts",
@@ -387,17 +385,37 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     ],
   },
   {
-    relativePath: "40_Develop/project-operation/src/index.ts",
+    relativePath: "40_Develop/domain-model/src/project-context/index.ts",
     expectedTrace: "ARCH-000005",
     requiredTags: ["boundary", "effect", "security"],
     exportedModules: [
+      "./types.ts",
       "./project-operation.ts",
       "./repository-project-context.ts",
       "./repository-quality-projection.ts",
       "./repository-release-projection.ts",
-      "./topic-meeting-application.ts",
-      "./topic-meeting-repository.ts",
-      "./topic-meeting.ts",
+    ],
+  },
+  {
+    relativePath: "40_Develop/domain-model/src/topic/index.ts",
+    expectedTrace: "ARCH-000006",
+    requiredTags: ["boundary", "effect", "security"],
+    exportedModules: [
+      "./types.ts",
+      "./topic-markdown.ts",
+      "./topic-application.ts",
+      "../storage/types.ts",
+    ],
+  },
+  {
+    relativePath: "40_Develop/domain-model/src/meeting/index.ts",
+    expectedTrace: "ARCH-000006",
+    requiredTags: ["boundary", "effect", "security"],
+    exportedModules: [
+      "./types.ts",
+      "./meeting-markdown.ts",
+      "./meeting-application.ts",
+      "../storage/types.ts",
     ],
   },
   {
@@ -439,14 +457,14 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     ],
   },
   {
-    relativePath: "40_Develop/runtime-data/src/index.ts",
+    relativePath: "40_Develop/domain-model/src/configuration/index.ts",
     expectedTrace: "ARCH-000011",
-    requiredTags: ["boundary", "concurrency", "effect"],
+    requiredTags: ["boundary", "effect", "security"],
     exportedModules: [
-      "./core/runtime-data-contract.ts",
-      "./platform/tool-runtime-config.ts",
-      "./platform/runtime-data-path-resolver.ts",
-      "./store/temporary-operation-store.ts",
+      "./runtime-data-contract.ts",
+      "./tool-runtime-config.ts",
+      "./runtime-data-paths.ts",
+      "./types.ts",
     ],
   },
   {
@@ -529,7 +547,6 @@ const projectConfigs = Object.freeze([
     "tsconfig.json",
   ),
   path.join(repositoryRoot, "40_Develop", "project-runtime", "tsconfig.json"),
-  path.join(repositoryRoot, "40_Develop", "runtime-data", "tsconfig.json"),
   path.join(repositoryRoot, "40_Develop", "mcp", "tsconfig.json"),
   path.join(
     repositoryRoot,
@@ -537,13 +554,7 @@ const projectConfigs = Object.freeze([
     "official-asset-governance",
     "tsconfig.json",
   ),
-  path.join(repositoryRoot, "40_Develop", "project-operation", "tsconfig.json"),
-  path.join(
-    repositoryRoot,
-    "40_Develop",
-    "crdd-domain-library",
-    "tsconfig.json",
-  ),
+  path.join(repositoryRoot, "40_Develop", "domain-model", "tsconfig.json"),
   path.join(repositoryRoot, "40_Develop", "semantic-coverage", "tsconfig.json"),
   path.join(
     repositoryRoot,
@@ -862,7 +873,7 @@ test("CRDD Domain LibraryはCheckerとCLIへ逆依存しない", () => {
   const domainSourceRoot = path.join(
     repositoryRoot,
     "40_Develop",
-    "crdd-domain-library",
+    "domain-model",
     "src",
   );
   const forbiddenDependencies: string[] = [];
@@ -938,7 +949,9 @@ function assertPublicIndexContract(
   ].map((match) => match[1] ?? "");
   assert.deepEqual(
     traceValues,
-    [profile.expectedTrace],
+    typeof profile.expectedTrace === "string"
+      ? [profile.expectedTrace]
+      : profile.expectedTrace,
     `package trace contract: ${file}`,
   );
   for (const requiredTag of profile.requiredTags)

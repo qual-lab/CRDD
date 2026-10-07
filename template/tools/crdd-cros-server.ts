@@ -17,7 +17,7 @@ import {
   readCrosSharedServerOperationalConfig,
 } from "../../40_Develop/cros/src/index.ts";
 import { startCrosSharedServer } from "../../40_Develop/mcp/src/index.ts";
-import type { CrosRootInput } from "../../40_Develop/runtime-data/src/index.ts";
+import type { CrosRootInput } from "../../40_Develop/domain-model/src/repository/index.ts";
 
 /**
  * Shared Server入口の利用方法を表示する。

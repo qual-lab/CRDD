@@ -10,11 +10,11 @@ import {
   type ArtifactSource,
   parseMarkdownArtifact,
   validateArtifactSchema,
-} from "../../../crdd-domain-library/src/artifact/index.ts";
+} from "../../../domain-model/src/artifact/index.ts";
 import {
   type ArtifactGraph,
   buildArtifactGraph,
-} from "../../../crdd-domain-library/src/artifact/index.ts";
+} from "../../../domain-model/src/artifact/index.ts";
 import { mapArtifactDomainIssueToCheckerFinding } from "../adapters/artifact-relation.ts";
 import {
   createFindingCollector,

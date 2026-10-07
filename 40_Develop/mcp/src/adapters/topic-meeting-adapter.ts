@@ -4,7 +4,8 @@
  */
 import { types as utilTypes } from "node:util";
 
-import type { TopicMeetingApplication } from "../../../project-operation/src/index.ts";
+import type { TopicMeetingApplications } from "../../../domain-model/src/topic/index.ts";
+
 import {
   callKeys,
   inspectMcpEnvelope,
@@ -43,7 +44,7 @@ import {
  */
 export type TopicMeetingApplicationResolver = (
   repositoryId: string,
-) => TopicMeetingApplication | null;
+) => TopicMeetingApplications | null;
 
 /**
  * CROS Tool Callの明示Repositoryを解決し、Repository単体契約へ縮約する。
@@ -176,7 +177,7 @@ function exactKeys(
  */
 export async function handleMcpTopicMeetingRequest(
   rawRequest: unknown,
-  application: TopicMeetingApplication,
+  application: TopicMeetingApplications,
   signal: AbortSignal = new AbortController().signal,
 ): Promise<McpResponse> {
   const request = inspectProtocolRequest(rawRequest);
@@ -213,7 +214,7 @@ export async function handleMcpTopicMeetingRequest(
           .every((key) => typeof args[key] === "string")
       )
         throw new Error();
-      const result = application.promoteTopic({
+      const result = application.topic.promoteTopic({
         topicId: args.topicId as string,
         expectedRevision: args.expectedRevision as number,
         changeId: args.changeId as string,
@@ -256,7 +257,7 @@ export async function handleMcpTopicMeetingRequest(
         )
       )
         throw new Error();
-      const result = application.treatMeetingOutcome({
+      const result = application.meeting.treatMeetingOutcome({
         meetingId: args.meetingId as string,
         expectedRevision: args.expectedRevision as number,
         outcomeId: args.outcomeId as string,
@@ -348,8 +349,7 @@ export async function handleMcpTopicMeetingRequest(
           : { pendingOnly: args.pendingOnly as boolean }),
         ...(args.sort === undefined ? {} : { sort: args.sort as never }),
       };
-      const page = application.list({
-        kind,
+      const page = application[kind].list({
         ...(args.cursor === undefined ? {} : { cursor: args.cursor }),
         ...(args.limit === undefined ? {} : { limit: args.limit }),
         ...(Object.keys(query).length === 0 ? {} : { query }),
@@ -367,12 +367,12 @@ export async function handleMcpTopicMeetingRequest(
     ) {
       if (!exactKeys(args, ["id"]) || typeof args.id !== "string")
         throw new Error();
-      const document = application.getDocument(kind, args.id);
+      const document = application[kind].getDocument(args.id);
       const record = document?.record ?? null;
       const relations =
         record === null
           ? Object.freeze([])
-          : application.relations(kind, args.id);
+          : application[kind].relations(args.id);
       return protocolComplete(request.id, {
         content: Object.freeze([
           {
@@ -398,7 +398,7 @@ export async function handleMcpTopicMeetingRequest(
     ) {
       if (!exactKeys(args, ["markdown"]) || typeof args.markdown !== "string")
         throw new Error();
-      const result = application.create(kind, args.markdown);
+      const result = application[kind].create(args.markdown);
       return protocolComplete(request.id, {
         content: Object.freeze([{ type: "text", text: result.reason }]),
         structuredContent: result,
@@ -417,8 +417,7 @@ export async function handleMcpTopicMeetingRequest(
         typeof args.markdown !== "string"
       )
         throw new Error();
-      const result = application.update({
-        kind,
+      const result = application[kind].update({
         id: args.id,
         expectedRevision: args.expectedRevision as number,
         markdown: args.markdown,
@@ -442,8 +441,7 @@ export async function handleMcpTopicMeetingRequest(
         args.reason !== "mistaken_registration"
       )
         throw new Error();
-      const result = application.delete({
-        kind,
+      const result = application[kind].delete({
         id: args.id,
         expectedRevision: args.expectedRevision as number,
         confirmed: args.confirmed,

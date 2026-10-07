@@ -18,13 +18,13 @@ import {
   resolveVerifiedExecutionRepositoryRoot,
   type VerifiedExecutionRepositoryRoot,
 } from "./verified-repository-root.ts";
+import { ensureRepositoryRuntimeDataArea } from "../../../domain-model/src/storage/index.ts";
 import {
-  ensureRepositoryRuntimeDataArea,
   RepositoryRuntimeDataAreaBlockedError,
   requireReadyRepositoryRuntimeDataArea,
   observeRepositoryRuntimeDataArea,
-  readExecutionIntelligenceConfig,
-} from "../../../runtime-data/src/index.ts";
+} from "../../../domain-model/src/repository/index.ts";
+import { readExecutionIntelligenceConfig } from "../../../domain-model/src/configuration/index.ts";
 import type { VerifiedRepositoryRoot } from "../../../version-control/src/repository-location.ts";
 
 const MAXIMUM_EVENTS = 10_000;

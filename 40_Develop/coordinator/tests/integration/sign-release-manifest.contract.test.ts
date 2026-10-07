@@ -369,18 +369,17 @@ function uniqueReleaseCandidate(prefix: string, fixedSignature = false) {
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
  * @boundary AIT-IT-008=Direct Boundary: coordinator Test Source→対象契約
  */
-function runtimeDistributionFixture(prefix: string) {
-  const distributionRoot = uniqueReleaseCandidate(prefix);
+function runtimeDistributionFixture(prefix: string, fixedSignature = false) {
+  const distributionRoot = uniqueReleaseCandidate(prefix, fixedSignature);
   for (const component of [
     "ai-runtime",
     "artifact-signing",
     "coordinator",
     "cros",
     "mcp",
-    "project-operation",
     "project-runtime",
     "execution-intelligence",
-    "runtime-data",
+    "domain-model",
     "version-control",
   ] as const) {
     fs.cpSync(
@@ -754,88 +753,96 @@ test("Runtime依存閉包の欠落を秘密鍵読取りより前の署名preflig
     "template/tools/crdd-mcp.ts",
     "40_Develop/mcp/package.json",
     "40_Develop/project-runtime/src/index.ts",
-    "40_Develop/runtime-data/package.json",
-    "40_Develop/runtime-data/src/index.ts",
+    "40_Develop/domain-model/package.json",
+    "40_Develop/domain-model/src/storage/index.ts",
+    "40_Develop/domain-model/src/storage/filesystem-store-kernel-lock-worker.ts",
+    "40_Develop/domain-model/src/repository/index.ts",
   ] as const;
-  for (const relativePath of cases) {
-    const distributionRoot = runtimeDistributionFixture("contract-closure");
-    const privateKeyPath = path.join(
-      distributionRoot,
-      "private-key-must-not-be-read.pem",
-    );
-    try {
-      const complete =
-        inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(
-          distributionRoot,
-        );
-      assert.equal(
-        complete.status,
-        "candidate",
-        `${relativePath}: ${JSON.stringify(complete)} ${JSON.stringify(diagnoseRuntimeDistributionFilesystemForVerification(distributionRoot))}`,
+  const distributionRoot = runtimeDistributionFixture("contract-closure", true);
+  try {
+    for (const relativePath of cases) {
+      const target = path.join(distributionRoot, ...relativePath.split("/"));
+      const original = fs.readFileSync(target);
+      const privateKeyPath = path.join(
+        distributionRoot,
+        "private-key-must-not-be-read.pem",
       );
-      fs.unlinkSync(path.join(distributionRoot, ...relativePath.split("/")));
-      const incomplete =
-        inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(
-          distributionRoot,
-        );
-      assert.equal(incomplete.status, "blocked", relativePath);
-      assert.equal(incomplete.runtimeAuthorityConferred, false, relativePath);
-      assert.equal(incomplete.effectAuthorizationIssued, false, relativePath);
-      assert.throws(
-        () =>
-          preflightReleaseManifest({
+      try {
+        const complete =
+          inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(
             distributionRoot,
+          );
+        assert.equal(
+          complete.status,
+          "candidate",
+          `${relativePath}: ${JSON.stringify(complete)} ${JSON.stringify(diagnoseRuntimeDistributionFilesystemForVerification(distributionRoot))}`,
+        );
+        fs.unlinkSync(path.join(distributionRoot, ...relativePath.split("/")));
+        const incomplete =
+          inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(
+            distributionRoot,
+          );
+        assert.equal(incomplete.status, "blocked", relativePath);
+        assert.equal(incomplete.runtimeAuthorityConferred, false, relativePath);
+        assert.equal(incomplete.effectAuthorizationIssued, false, relativePath);
+        assert.throws(
+          () =>
+            preflightReleaseManifest({
+              distributionRoot,
+              privateKeyPath,
+              crddVersion: "v0.20.0",
+              releaseSequence: 20,
+              crddCommit: "a".repeat(40),
+              crddTree: "b".repeat(40),
+              issuedAt: "2026-09-06T00:00:00.000Z",
+              expiresAt: "2027-09-06T00:00:00.000Z",
+            }),
+          /release_manifest_package_observation_failed/u,
+          relativePath,
+        );
+        assert.equal(fs.existsSync(privateKeyPath), false);
+        const cli = spawnSync(
+          process.execPath,
+          [
+            path.join(coordinatorRoot, "scripts", "sign-release-manifest.ts"),
+            "--distribution-root",
+            distributionRoot,
+            "--private-key",
             privateKeyPath,
-            crddVersion: "v0.20.0",
-            releaseSequence: 20,
-            crddCommit: "a".repeat(40),
-            crddTree: "b".repeat(40),
-            issuedAt: "2026-09-06T00:00:00.000Z",
-            expiresAt: "2027-09-06T00:00:00.000Z",
-          }),
-        /release_manifest_package_observation_failed/u,
-        relativePath,
-      );
-      assert.equal(fs.existsSync(privateKeyPath), false);
-      const cli = spawnSync(
-        process.execPath,
-        [
-          path.join(coordinatorRoot, "scripts", "sign-release-manifest.ts"),
-          "--distribution-root",
-          distributionRoot,
-          "--private-key",
-          privateKeyPath,
-          "--crdd-version",
-          "v0.20.0",
-          "--release-sequence",
-          "20",
-          "--crdd-commit",
-          "a".repeat(40),
-          "--crdd-tree",
-          "b".repeat(40),
-          "--issued-at",
-          "2026-09-06T00:00:00.000Z",
-          "--expires-at",
-          "2027-09-06T00:00:00.000Z",
-        ],
-        {
-          encoding: "utf8",
-          input: "passphrase-must-not-be-read\n",
-          shell: false,
-          timeout: 5_000,
-          windowsHide: true,
-        },
-      );
-      assert.equal(cli.status, 1, relativePath);
-      assert.equal(cli.stdout, "", relativePath);
-      assert.equal(
-        cli.stderr,
-        "release_manifest_package_observation_failed\n",
-        relativePath,
-      );
-    } finally {
-      fs.rmSync(distributionRoot, { recursive: true, force: true });
+            "--crdd-version",
+            "v0.20.0",
+            "--release-sequence",
+            "20",
+            "--crdd-commit",
+            "a".repeat(40),
+            "--crdd-tree",
+            "b".repeat(40),
+            "--issued-at",
+            "2026-09-06T00:00:00.000Z",
+            "--expires-at",
+            "2027-09-06T00:00:00.000Z",
+          ],
+          {
+            encoding: "utf8",
+            input: "passphrase-must-not-be-read\n",
+            shell: false,
+            timeout: 5_000,
+            windowsHide: true,
+          },
+        );
+        assert.equal(cli.status, 1, relativePath);
+        assert.equal(cli.stdout, "", relativePath);
+        assert.equal(
+          cli.stderr,
+          "release_manifest_package_observation_failed\n",
+          relativePath,
+        );
+      } finally {
+        fs.writeFileSync(target, original);
+      }
     }
+  } finally {
+    fs.rmSync(distributionRoot, { recursive: true, force: true });
   }
 });
 
@@ -905,143 +912,153 @@ test("実行primitive閉包の代表違反を全公開Consumerと署名CLIで秘
         "dependencies.startProcess(process.execPath, [], createDockerProcessEnvironment(), null);\n",
     },
   ] as const;
-  for (const scenario of cases) {
-    const distributionRoot = runtimeDistributionFixture(
-      scenario.name.replaceAll("_", "-"),
-    );
-    const privateKeyPath = path.join(
-      distributionRoot,
-      "private-key-must-not-be-read.pem",
-    );
-    try {
-      const baseline =
-        inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(
-          distributionRoot,
-        );
-      assert.equal(
-        baseline.status,
-        "candidate",
-        `${scenario.name}: ${JSON.stringify(baseline)} ${JSON.stringify(diagnoseRuntimeDistributionFilesystemForVerification(distributionRoot))}`,
-      );
-      fs.appendFileSync(
-        path.join(distributionRoot, ...scenario.relativePath.split("/")),
-        scenario.source,
-      );
-      const observed =
-        inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(
-          distributionRoot,
-        );
-      assert.equal(observed.status, "blocked", scenario.name);
-      assert.equal(observed.runtimeAuthorityConferred, false, scenario.name);
-      assert.equal(observed.effectAuthorizationIssued, false, scenario.name);
-      if (scenario.name === "capability_acquisition") {
-        const fixed = inspectFixedDevelopmentCoordinatorPackageCandidate({
-          distributionRoot,
-          expectedPackageContentRootSha256: baseline.packageContentRootSha256,
-        });
-        assert.equal(fixed.status, "blocked");
-        assert.equal(fixed.runtimeAuthorityConferred, false);
-        assert.equal(fixed.effectAuthorizationIssued, false);
-        const installed = verifyInstalledCoordinatorPackageCandidate({
-          distributionRoot,
-          evaluationTime: "2026-09-06T00:00:00.000Z",
-          expectedRelease: {
-            manifestHash: "a".repeat(64),
-            releaseSequence: 20,
-            crddVersion: "v0.20.0",
-            crddCommit: "b".repeat(40),
-            crddTree: "c".repeat(40),
-            packageContentRootSha256: "d".repeat(64),
-            runtimeExecutionIdentitySha256: "e".repeat(64),
-          },
-        });
-        assert.equal(installed.status, "blocked");
-        assert.equal(installed.runtimeAuthorityConferred, false);
-        assert.equal(installed.effectAuthorizationIssued, false);
-        const copiedModuleUrl = pathToFileURL(
-          path.join(
-            distributionRoot,
-            "40_Develop",
-            "coordinator",
-            "src",
-            "platform-access",
-            "platform-provisioner-package-filesystem.ts",
-          ),
-        );
-        copiedModuleUrl.searchParams.set(
-          "closure",
-          randomBytes(8).toString("hex"),
-        );
-        const copiedImplementation: typeof import("../../src/platform-access/platform-provisioner-package-filesystem.ts") =
-          await import(copiedModuleUrl.href);
-        const issued =
-          copiedImplementation.issueRuntimeOwnedVerifiedCoordinatorPackageCapability(
-            { evaluationTime: "2026-09-06T00:00:00.000Z" },
-          );
-        assert.equal(issued.capability, null);
-        assert.equal(issued.verification.status, "blocked");
-        assert.equal(issued.verification.runtimeAuthorityConferred, false);
-        assert.equal(issued.verification.effectAuthorizationIssued, false);
-        const publicResults = JSON.stringify([fixed, installed, issued]);
-        assert.equal(publicResults.includes(distributionRoot), false);
-        assert.equal(publicResults.includes("child_process"), false);
-        assert.equal(publicResults.includes("spawn"), false);
-      }
-      const input = {
+  const distributionRoot = runtimeDistributionFixture(
+    "primitive-boundary",
+    true,
+  );
+  try {
+    for (const scenario of cases) {
+      const target = path.join(
         distributionRoot,
-        privateKeyPath,
-        crddVersion: "v0.20.0",
-        releaseSequence: 20,
-        crddCommit: "a".repeat(40),
-        crddTree: "b".repeat(40),
-        issuedAt: "2026-09-06T00:00:00.000Z",
-        expiresAt: "2027-09-06T00:00:00.000Z",
-      } as const;
-      assert.throws(
-        () => preflightReleaseManifest(input),
-        /release_manifest_package_observation_failed/u,
-        scenario.name,
+        ...scenario.relativePath.split("/"),
       );
-      assert.equal(fs.existsSync(privateKeyPath), false, scenario.name);
-      const cli = spawnSync(
-        process.execPath,
-        [
-          path.join(coordinatorRoot, "scripts", "sign-release-manifest.ts"),
-          "--distribution-root",
+      const original = fs.readFileSync(target);
+      const privateKeyPath = path.join(
+        distributionRoot,
+        "private-key-must-not-be-read.pem",
+      );
+      try {
+        const baseline =
+          inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(
+            distributionRoot,
+          );
+        assert.equal(
+          baseline.status,
+          "candidate",
+          `${scenario.name}: ${JSON.stringify(baseline)} ${JSON.stringify(diagnoseRuntimeDistributionFilesystemForVerification(distributionRoot))}`,
+        );
+        fs.appendFileSync(
+          path.join(distributionRoot, ...scenario.relativePath.split("/")),
+          scenario.source,
+        );
+        const observed =
+          inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(
+            distributionRoot,
+          );
+        assert.equal(observed.status, "blocked", scenario.name);
+        assert.equal(observed.runtimeAuthorityConferred, false, scenario.name);
+        assert.equal(observed.effectAuthorizationIssued, false, scenario.name);
+        if (scenario.name === "capability_acquisition") {
+          const fixed = inspectFixedDevelopmentCoordinatorPackageCandidate({
+            distributionRoot,
+            expectedPackageContentRootSha256: baseline.packageContentRootSha256,
+          });
+          assert.equal(fixed.status, "blocked");
+          assert.equal(fixed.runtimeAuthorityConferred, false);
+          assert.equal(fixed.effectAuthorizationIssued, false);
+          const installed = verifyInstalledCoordinatorPackageCandidate({
+            distributionRoot,
+            evaluationTime: "2026-09-06T00:00:00.000Z",
+            expectedRelease: {
+              manifestHash: "a".repeat(64),
+              releaseSequence: 20,
+              crddVersion: "v0.20.0",
+              crddCommit: "b".repeat(40),
+              crddTree: "c".repeat(40),
+              packageContentRootSha256: "d".repeat(64),
+              runtimeExecutionIdentitySha256: "e".repeat(64),
+            },
+          });
+          assert.equal(installed.status, "blocked");
+          assert.equal(installed.runtimeAuthorityConferred, false);
+          assert.equal(installed.effectAuthorizationIssued, false);
+          const copiedModuleUrl = pathToFileURL(
+            path.join(
+              distributionRoot,
+              "40_Develop",
+              "coordinator",
+              "src",
+              "platform-access",
+              "platform-provisioner-package-filesystem.ts",
+            ),
+          );
+          copiedModuleUrl.searchParams.set(
+            "closure",
+            randomBytes(8).toString("hex"),
+          );
+          const copiedImplementation: typeof import("../../src/platform-access/platform-provisioner-package-filesystem.ts") =
+            await import(copiedModuleUrl.href);
+          const issued =
+            copiedImplementation.issueRuntimeOwnedVerifiedCoordinatorPackageCapability(
+              { evaluationTime: "2026-09-06T00:00:00.000Z" },
+            );
+          assert.equal(issued.capability, null);
+          assert.equal(issued.verification.status, "blocked");
+          assert.equal(issued.verification.runtimeAuthorityConferred, false);
+          assert.equal(issued.verification.effectAuthorizationIssued, false);
+          const publicResults = JSON.stringify([fixed, installed, issued]);
+          assert.equal(publicResults.includes(distributionRoot), false);
+          assert.equal(publicResults.includes("child_process"), false);
+          assert.equal(publicResults.includes("spawn"), false);
+        }
+        const input = {
           distributionRoot,
-          "--private-key",
           privateKeyPath,
-          "--crdd-version",
-          "v0.20.0",
-          "--release-sequence",
-          "20",
-          "--crdd-commit",
-          "a".repeat(40),
-          "--crdd-tree",
-          "b".repeat(40),
-          "--issued-at",
-          "2026-09-06T00:00:00.000Z",
-          "--expires-at",
-          "2027-09-06T00:00:00.000Z",
-        ],
-        {
-          encoding: "utf8",
-          input: "passphrase-must-not-be-read\n",
-          shell: false,
-          timeout: 5_000,
-          windowsHide: true,
-        },
-      );
-      assert.equal(cli.status, 1, scenario.name);
-      assert.equal(cli.stdout, "", scenario.name);
-      assert.equal(
-        cli.stderr,
-        "release_manifest_package_observation_failed\n",
-        scenario.name,
-      );
-    } finally {
-      fs.rmSync(distributionRoot, { recursive: true, force: true });
+          crddVersion: "v0.20.0",
+          releaseSequence: 20,
+          crddCommit: "a".repeat(40),
+          crddTree: "b".repeat(40),
+          issuedAt: "2026-09-06T00:00:00.000Z",
+          expiresAt: "2027-09-06T00:00:00.000Z",
+        } as const;
+        assert.throws(
+          () => preflightReleaseManifest(input),
+          /release_manifest_package_observation_failed/u,
+          scenario.name,
+        );
+        assert.equal(fs.existsSync(privateKeyPath), false, scenario.name);
+        const cli = spawnSync(
+          process.execPath,
+          [
+            path.join(coordinatorRoot, "scripts", "sign-release-manifest.ts"),
+            "--distribution-root",
+            distributionRoot,
+            "--private-key",
+            privateKeyPath,
+            "--crdd-version",
+            "v0.20.0",
+            "--release-sequence",
+            "20",
+            "--crdd-commit",
+            "a".repeat(40),
+            "--crdd-tree",
+            "b".repeat(40),
+            "--issued-at",
+            "2026-09-06T00:00:00.000Z",
+            "--expires-at",
+            "2027-09-06T00:00:00.000Z",
+          ],
+          {
+            encoding: "utf8",
+            input: "passphrase-must-not-be-read\n",
+            shell: false,
+            timeout: 5_000,
+            windowsHide: true,
+          },
+        );
+        assert.equal(cli.status, 1, scenario.name);
+        assert.equal(cli.stdout, "", scenario.name);
+        assert.equal(
+          cli.stderr,
+          "release_manifest_package_observation_failed\n",
+          scenario.name,
+        );
+      } finally {
+        fs.writeFileSync(target, original);
+      }
     }
+  } finally {
+    fs.rmSync(distributionRoot, { recursive: true, force: true });
   }
 });
 

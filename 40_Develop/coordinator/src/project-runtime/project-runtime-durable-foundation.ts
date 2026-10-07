@@ -50,13 +50,13 @@ import {
   PROJECT_RUNTIME_INTEGRATION_CONTRACT,
   type ProjectRuntimeIntegrationRecordPort,
 } from "../../../project-runtime/src/index.ts";
+import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/storage/index.ts";
 import {
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
   requireReadyRepositoryRuntimeDataArea,
   resolveRepositoryRuntimeDataPaths,
   observeRepositoryRuntimeDataArea,
   type RepositoryRuntimeDataAreaObservation,
-} from "../../../runtime-data/src/index.ts";
+} from "../../../domain-model/src/repository/index.ts";
 import {
   verifyRepositoryRoot,
   verifyRepositoryRootFromWorkingDirectory,

@@ -26,7 +26,7 @@ import {
 import {
   resolveCrosRuntimeRoots,
   type CrosRootInput,
-} from "../../../runtime-data/src/index.ts";
+} from "../../../domain-model/src/repository/index.ts";
 
 const ADMINISTRATOR: RequestAccessContext = Object.freeze({
   credentialId: "bootstrap-admin",

@@ -1919,11 +1919,32 @@ type RuntimeExternalProcessCallsite = Readonly<{
 const runtimeExternalProcessCallsites = Object.freeze(
   [
     [
-      "scripts/verify-native-protection.ts",
-      "observeNativeProtectionRepositoryRoot",
+      "scripts/verify-native-terminal-namespace.ts",
+      "buildNativeTerminalNamespaceArtifact",
       "spawnSync",
-      ["git"],
-      ["[", "rev-parse"],
+      ["cargo"],
+      ["[", "+1.94.1-x86_64-pc-windows-msvc"],
+    ],
+    [
+      "scripts/verify-native-terminal-fixtures.ts",
+      "buildNativeTerminalFixtureArtifact",
+      "spawnSync",
+      ["cargo"],
+      ["[", "+1.94.1-x86_64-pc-windows-msvc"],
+    ],
+    [
+      "scripts/verify-native-terminal-namespace.ts",
+      "runNativeTerminalNamespace",
+      "spawn",
+      ["binary"],
+      ["[", "windows::terminal::tests::terminal_namespace_fixture"],
+    ],
+    [
+      "scripts/verify-native-terminal-fixtures.ts",
+      "runNativeTerminalFixtures",
+      "spawn",
+      ["binary"],
+      ["[", "fixtureCase", ".", "test"],
     ],
     [
       "scripts/verify-native-protection.ts",
@@ -2384,13 +2405,43 @@ const exactExternalProcessCalls = Object.freeze(
   [
     [
       "verification_tool",
-      "scripts/verify-native-protection.ts",
-      "observeNativeProtectionRepositoryRoot",
+      "scripts/verify-native-terminal-namespace.ts",
+      "buildNativeTerminalNamespaceArtifact",
       "spawnSync",
       1,
-      "3df146e5da611985aaaca792759b0a7f14701d289b26cc675ce6b9da949db200",
-      "1a59d97a8a605001d6b98c7ea6ce919af558e68bff82f503b86869a5ac3cfa03",
+      "278a77ab57a03c7911660c3d91e22613d9bf707dc08316430bc4d226a5bb4fab",
+      "41aaedc354d221c0688c6e6cd25e841c78b4be387a5fe49c1fc99d7dff354150",
       null,
+    ],
+    [
+      "verification_tool",
+      "scripts/verify-native-terminal-fixtures.ts",
+      "buildNativeTerminalFixtureArtifact",
+      "spawnSync",
+      1,
+      "25b00318d3de3d03d939cba07c40c7b2b7a981f8a2da344bb07046c83f14449d",
+      "68c9948d34036cff5735cc366940bed353ed4ae23fb6d87263cb51ef316645b7",
+      null,
+    ],
+    [
+      "verification_tool",
+      "scripts/verify-native-terminal-namespace.ts",
+      "runNativeTerminalNamespace",
+      "spawn",
+      1,
+      "3d3728d3a18d652c333cf3483daf9c692ace977c3b6c655ff2cf882a5cd13cb9",
+      "d9bde1e791c6f66f6df97be15bcf0a894f8a84c6260a3e76d715dadad2f581a4",
+      "child",
+    ],
+    [
+      "verification_tool",
+      "scripts/verify-native-terminal-fixtures.ts",
+      "runNativeTerminalFixtures",
+      "spawn",
+      1,
+      "5172d0b836c9a57d27def906e34fa41c861ca20cea3ea91125f261e3f3d3326d",
+      "d9a859378e170e133eb3e5b3f8b0456306a0448dfb48432f6496769012860951",
+      "child",
     ],
     [
       "verification_tool",
@@ -2398,8 +2449,8 @@ const exactExternalProcessCalls = Object.freeze(
       "lintNativeProtectionArtifact",
       "spawnSync",
       1,
-      "06573b5237ac2992f919f7652e3417f888d602b009d338d8af180938381d532a",
-      "47efff33e14428e70089957eb1eb5b138d99ec30a8732a9389b162512596aabe",
+      "bce3fd501826c3f09b81d5bb45510bd2f639202d96fb39a6ee1cac29b4bb4d44",
+      "21d4bdd1496706324dfe8928c52cc2d1edea20264df721a18dced5ea5ae45c8b",
       null,
     ],
     [
@@ -2408,8 +2459,8 @@ const exactExternalProcessCalls = Object.freeze(
       "buildNativeProtectionArtifact",
       "spawnSync",
       1,
-      "e8be7f7edeb2c6e64da094472584a3328a8eca4df8a874f4512f89aa0718beca",
-      "6401dd6caef5ac96ce6ea3ceca1dc57ff37bddd03b2b2451169597b3f1b60ac2",
+      "4e8c0d81989d15d8faa430ae9066c8a43b700cf9802571db5e471b0e34a7640c",
+      "0c34f24a323644a191f486f8ee5246a375d371bd452b9fa76404690ea5d73684",
       null,
     ],
     [
@@ -2439,7 +2490,7 @@ const exactExternalProcessCalls = Object.freeze(
       "spawn",
       1,
       "16429410d7ff75d7d0a2c8b71f3e317136ede0d2f7abb108a0fd01789d446fdd",
-      "e77c7855a4a7271951f25a203f72e00482db7ee6706a07a983bc14216a94d804",
+      "2e1567bd22905d1683f3267fe360f5155a0540182d7526deca90226127c4e2b2",
       "child",
     ],
     [
@@ -2449,7 +2500,7 @@ const exactExternalProcessCalls = Object.freeze(
       "spawnSync",
       1,
       "31947c79349e1a79bd6eacdf2795a1ee0e696c8736ccedde3c88ac0ceae03914",
-      "801192c7bf84ad5a4ddadf1c1ca0edb3e0af96ec7b6ef50cfc93cfeee8d2d132",
+      "9e37a8ecd4917047b26fd03fa8b4d645dea7afa41771605e0319bf06c10f0c46",
       null,
     ],
     [
@@ -2818,6 +2869,30 @@ const exactAuditedFunctionFlows = Object.freeze(
   [
     [
       "verification_tool",
+      "scripts/verify-native-terminal-namespace.ts",
+      "buildNativeTerminalNamespaceArtifact",
+      "41aaedc354d221c0688c6e6cd25e841c78b4be387a5fe49c1fc99d7dff354150",
+    ],
+    [
+      "verification_tool",
+      "scripts/verify-native-terminal-fixtures.ts",
+      "buildNativeTerminalFixtureArtifact",
+      "68c9948d34036cff5735cc366940bed353ed4ae23fb6d87263cb51ef316645b7",
+    ],
+    [
+      "verification_tool",
+      "scripts/verify-native-terminal-namespace.ts",
+      "runNativeTerminalNamespace",
+      "d9bde1e791c6f66f6df97be15bcf0a894f8a84c6260a3e76d715dadad2f581a4",
+    ],
+    [
+      "verification_tool",
+      "scripts/verify-native-terminal-fixtures.ts",
+      "runNativeTerminalFixtures",
+      "d9a859378e170e133eb3e5b3f8b0456306a0448dfb48432f6496769012860951",
+    ],
+    [
+      "verification_tool",
       "scripts/prepare-release-candidate.ts",
       "executeReleaseCandidateLifecycleForVerification",
       "7d232aa3ed6359db55f3e634c972754180dad532664c19a7b0c3d1d1af1c27d8",
@@ -2831,20 +2906,14 @@ const exactAuditedFunctionFlows = Object.freeze(
     [
       "verification_tool",
       "scripts/verify-native-protection.ts",
-      "observeNativeProtectionRepositoryRoot",
-      "1a59d97a8a605001d6b98c7ea6ce919af558e68bff82f503b86869a5ac3cfa03",
-    ],
-    [
-      "verification_tool",
-      "scripts/verify-native-protection.ts",
       "lintNativeProtectionArtifact",
-      "47efff33e14428e70089957eb1eb5b138d99ec30a8732a9389b162512596aabe",
+      "21d4bdd1496706324dfe8928c52cc2d1edea20264df721a18dced5ea5ae45c8b",
     ],
     [
       "verification_tool",
       "scripts/verify-native-protection.ts",
       "buildNativeProtectionArtifact",
-      "6401dd6caef5ac96ce6ea3ceca1dc57ff37bddd03b2b2451169597b3f1b60ac2",
+      "0c34f24a323644a191f486f8ee5246a375d371bd452b9fa76404690ea5d73684",
     ],
     [
       "verification_tool",
@@ -2862,13 +2931,13 @@ const exactAuditedFunctionFlows = Object.freeze(
       "verification_tool",
       "scripts/verify-native-protection.ts",
       "runNativeProtection",
-      "e77c7855a4a7271951f25a203f72e00482db7ee6706a07a983bc14216a94d804",
+      "2e1567bd22905d1683f3267fe360f5155a0540182d7526deca90226127c4e2b2",
     ],
     [
       "verification_tool",
       "scripts/prepare-release-candidate.ts",
       "runPromotion",
-      "801192c7bf84ad5a4ddadf1c1ca0edb3e0af96ec7b6ef50cfc93cfeee8d2d132",
+      "9e37a8ecd4917047b26fd03fa8b4d645dea7afa41771605e0319bf06c10f0c46",
     ],
     [
       "runtime",
@@ -3076,24 +3145,36 @@ const exactAuditedFunctionFlows = Object.freeze(
 const exactAuditedSemanticGraphSha256 = Object.freeze(
   new Map([
     [
+      "scripts/verify-native-terminal-namespace.ts\0buildNativeTerminalNamespaceArtifact",
+      "a95d7bc2577d5a99a84885b30fbe7dd2f3d22a48b143bb083b623e46f6a8b277",
+    ],
+    [
+      "scripts/verify-native-terminal-fixtures.ts\0buildNativeTerminalFixtureArtifact",
+      "b617a97db0ee0e1f8693430f7b5d82a100faba7a0647f9d77054eb8bda074355",
+    ],
+    [
+      "scripts/verify-native-terminal-namespace.ts\0runNativeTerminalNamespace",
+      "d6f123c2e4eb423a331af38a2bd4b6f8eea174a53af1d0bfcfed1c2f83ed3322",
+    ],
+    [
+      "scripts/verify-native-terminal-fixtures.ts\0runNativeTerminalFixtures",
+      "0642bae5c09b5ec0d0ded40890726cfb5eb74b951dca7d81505b7be6d38f3a2b",
+    ],
+    [
       "scripts/prepare-release-candidate.ts\0executeReleaseCandidateLifecycleForVerification",
       "18a722c4e35c618044afe37aafece291963f6e41c9129ede7436025a0b8aebc2",
     ],
     [
       "scripts/prepare-release-candidate.ts\0main",
-      "57f37f3deb0cce450528b3b12413f95b80d7dcfea9d8354437660a8fb359fd52",
-    ],
-    [
-      "scripts/verify-native-protection.ts\0observeNativeProtectionRepositoryRoot",
-      "735ccb1c6c9227df884e13afcfa8b47f244719f1932ef0eabd726bb4d632199d",
+      "49c14a7f2753f1e973b61d0188e207a593817a331234ce5198f24f404a8ac869",
     ],
     [
       "scripts/verify-native-protection.ts\0lintNativeProtectionArtifact",
-      "7c89be25ca83f2fa2775b2b98e530a16069343c5cd579ab347a5f523396815e3",
+      "dc04d7f511e20574e87efc02ebf9c991c0e6f68bd2dbe2bcbab6b9231bf2b249",
     ],
     [
       "scripts/verify-native-protection.ts\0buildNativeProtectionArtifact",
-      "99c7ce69cc8f0054d6fe6e10209ebed7e913ee758e0e2fe78223414623c585ac",
+      "aabd77402e560956b0b9fcf047b564d6e4b2ca23a0bc34dc8cf54c00c484d72c",
     ],
     [
       "scripts/verify-native-protection.ts\0executeNativeProtectionGuard",
@@ -3105,11 +3186,11 @@ const exactAuditedSemanticGraphSha256 = Object.freeze(
     ],
     [
       "scripts/verify-native-protection.ts\0runNativeProtection",
-      "5d5d3639d10a314cec7497cb6c37f1ccf9236a05a73652c080aef73a1c93d338",
+      "2a1023188890af8be6bac47dde9934698ea4e5587e8dc854b0793a3a71ca8e81",
     ],
     [
       "scripts/prepare-release-candidate.ts\0runPromotion",
-      "579105388b799fa1eac1a1534fbc107c7a74fcf836b74c383a7f66356c3866f0",
+      "c1bca132eb2dbb2b3e86b83f2189b7c1cee333b14417e5875cbd6c516f91568f",
     ],
     [
       "src/host-runtime/host-terminal-windows-adapter.ts\0executeHostTerminalRecordRequest",
@@ -3237,7 +3318,7 @@ const exactAuditedSemanticGraphSha256 = Object.freeze(
     ],
     [
       "scripts/verify-project-runtime-real-providers.ts\0main",
-      "3cfb9397d8549d92be99bb20a0de383741f5d5b61e3c1a09f16942396b4434b5",
+      "17426515e5319a21c75fcfecac8046b4746d36738727af4106374bea8e2997d7",
     ],
   ]),
 );
@@ -3276,8 +3357,15 @@ const auditedExportedFunctionIdentities = Object.freeze(
 
 const auditedFunctionLexicalParents = Object.freeze(
   new Map([
+    [
+      "scripts/verify-native-terminal-namespace.ts\0buildNativeTerminalNamespaceArtifact",
+      "runNativeTerminalNamespace",
+    ],
+    [
+      "scripts/verify-native-terminal-fixtures.ts\0buildNativeTerminalFixtureArtifact",
+      "runNativeTerminalFixtures",
+    ],
     ...[
-      "observeNativeProtectionRepositoryRoot",
       "lintNativeProtectionArtifact",
       "buildNativeProtectionArtifact",
       "executeNativeProtectionGuard",
@@ -3315,6 +3403,23 @@ type AsyncProcessOwnership = Readonly<{
 
 const exactAsyncProcessOwnership = Object.freeze(
   new Map<string, AsyncProcessOwnership>([
+    ...[
+      "scripts/verify-native-terminal-namespace.ts\0runNativeTerminalNamespace",
+      "scripts/verify-native-terminal-fixtures.ts\0runNativeTerminalFixtures",
+    ].map(
+      (identity) =>
+        [
+          identity,
+          Object.freeze({
+            classification: "immediate_owner" as const,
+            proofs: Object.freeze([
+              Object.freeze(["child", ".", "once", "(", "error"]),
+              Object.freeze(["child", ".", "once", "(", "exit"]),
+              Object.freeze(["child", ".", "once", "(", "close"]),
+            ]),
+          }),
+        ] as const,
+    ),
     [
       "scripts/verify-native-protection.ts\0runNativeProtection",
       Object.freeze({
@@ -3425,23 +3530,58 @@ type ExecutableProvenance = Readonly<{
 
 const exactExecutableProvenance = Object.freeze(
   new Map<string, ExecutableProvenance>([
-    [
-      "scripts/verify-native-protection.ts\0observeNativeProtectionRepositoryRoot",
-      Object.freeze({
-        classification: "registered_platform_helper",
-        proofs: Object.freeze([
-          Object.freeze([
-            "assert",
-            ".",
-            "equal",
-            "(",
-            "process",
-            ".",
-            "platform",
-          ]),
-        ]),
-      }),
-    ],
+    ...[
+      "scripts/verify-native-terminal-namespace.ts\0buildNativeTerminalNamespaceArtifact",
+      "scripts/verify-native-terminal-fixtures.ts\0buildNativeTerminalFixtureArtifact",
+    ].map(
+      (identity) =>
+        [
+          identity,
+          Object.freeze({
+            classification: "registered_platform_helper" as const,
+            proofs: Object.freeze([
+              Object.freeze(["verifyRepositoryRoot", "(", "repository", ")"]),
+            ]),
+          }),
+        ] as const,
+    ),
+    ...[
+      "scripts/verify-native-terminal-namespace.ts\0runNativeTerminalNamespace",
+      "scripts/verify-native-terminal-fixtures.ts\0runNativeTerminalFixtures",
+    ].map(
+      (identity) =>
+        [
+          identity,
+          Object.freeze({
+            classification: "validated_local_artifact" as const,
+            proofs: Object.freeze([
+              Object.freeze([
+                "assert",
+                ".",
+                "equal",
+                "(",
+                "artifacts",
+                ".",
+                "length",
+                ",",
+                "1",
+              ]),
+              Object.freeze([
+                "assert",
+                ".",
+                "equal",
+                "(",
+                "fs",
+                ".",
+                "realpathSync",
+                "(",
+                "binary",
+                ")",
+              ]),
+            ]),
+          }),
+        ] as const,
+    ),
     [
       "scripts/verify-native-protection.ts\0lintNativeProtectionArtifact",
       Object.freeze({
@@ -4458,21 +4598,112 @@ function usedLocalTypeScriptChildRoleKinds(
   return Object.freeze(uses);
 }
 
+const DOMAIN_STORE_WORKER_OWNER =
+  "40_Develop/domain-model/src/storage/filesystem-store-root.ts";
+const DOMAIN_STORE_WORKER_TARGET =
+  "40_Develop/domain-model/src/storage/filesystem-store-kernel-lock-worker.ts";
+const DOMAIN_STORE_WORKER_RELATIVE_TARGET =
+  "./filesystem-store-kernel-lock-worker.ts";
+
 /**
- * No Undeclared Local Type Script Import Meta Urlを表明どおりか検査する。
+ * Domain保存排他の固定Worker起動を配布依存へ結合する。
  *
- * @responsibility No Undeclared Local Type Script Import Meta Urlの必須条件と違反時の停止境界を所有する。
+ * @responsibility 保存Owner内の一つの直接Worker起動だけから固定依存を導出する。
  * @trace ARCH-000014
- * @input relativePath: string、tokens: readonly SourceToken[]
- * @returns N/A: assertNoUndeclaredLocalTypeScriptImportMetaUrlは戻り値を返さない。
- * @precondition 「relativePath: string、tokens: readonly SourceToken[]」がassertNoUndeclaredLocalTypeScriptImportMetaUrlの入力契約を満たす。
- * @postcondition assertNoUndeclaredLocalTypeScriptImportMetaUrlの責務を完了して呼出し元へ制御を戻す。
- * @effect N/A: assertNoUndeclaredLocalTypeScriptImportMetaUrlは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure assertNoUndeclaredLocalTypeScriptImportMetaUrlは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant assertNoUndeclaredLocalTypeScriptImportMetaUrlは入力から導いた結果以外の共有状態を変更しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security assertNoUndeclaredLocalTypeScriptImportMetaUrlはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: assertNoUndeclaredLocalTypeScriptImportMetaUrlは共有非同期状態を持たない同期処理である。
+ * @input relativePath: 配布Root相対Source、tokens: 解析済みSource Token。
+ * @returns 固定OwnerではWorker一件、それ以外では空の依存集合。
+ * @precondition Source Tokenは同じ観測済みSource bytesから導出する。
+ * @postcondition 固定Ownerの起動参照改変・間接化・追加・欠落を拒否する。
+ * @effect N/A: Sourceを検査するだけでWorkerを起動しない。
+ * @failure 固定参照と異なる起動は既存の未結合Worker結果で拒否する。
+ * @invariant Domain側にCoordinator依存や新しい公開起動APIを要求しない。
+ * @boundary 配布閉包観測とDomain保存WorkerのSource境界。
+ * @security 任意の兄弟PackageやWorkerを許可集合へ含めない。
+ * @concurrency N/A: 同期的なSource検査で共有状態を更新しない。
+ */
+function domainStoreWorkerTargets(
+  relativePath: string,
+  tokens: readonly SourceToken[],
+) {
+  if (relativePath !== DOMAIN_STORE_WORKER_OWNER) return Object.freeze([]);
+  const declarations = moduleDeclarationsFromTokens(tokens);
+  const workerImports = declarations.filter((declaration) =>
+    declaration.bindings.some((binding) => binding.local === "Worker"),
+  );
+  const workerImport = workerImports[0];
+  const workerBinding = workerImport?.bindings[0];
+  if (
+    workerImports.length !== 1 ||
+    workerImport?.kind !== "static_import" ||
+    workerImport.specifierIndex === null ||
+    tokens[workerImport.specifierIndex]?.value !== nodeWorkerThreadsSpecifier ||
+    workerImport.bindings.length !== 1 ||
+    workerBinding?.imported !== "Worker" ||
+    workerBinding.typeOnly
+  )
+    throw new Error(
+      "platform_provisioner_runtime_dependency_child_worker_unbound",
+    );
+  const bindingIndices = new Set(
+    declarations.flatMap((declaration) =>
+      declaration.bindings
+        .filter((binding) => binding.local === "Worker")
+        .map((binding) => binding.localTokenIndex),
+    ),
+  );
+  let calls = 0;
+  for (let index = 0; index < tokens.length; index += 1) {
+    if (
+      tokens[index]?.kind !== "identifier" ||
+      tokens[index]?.value !== "Worker" ||
+      bindingIndices.has(index)
+    )
+      continue;
+    if (
+      tokens[index - 1]?.value !== "new" ||
+      !tokenSequenceMatches(tokens, index + 1, ["(", "new", "URL", "("]) ||
+      tokens[index + 5]?.kind !== "string" ||
+      tokens[index + 5]?.escaped ||
+      tokens[index + 5]?.value !== DOMAIN_STORE_WORKER_RELATIVE_TARGET ||
+      !tokenSequenceMatches(tokens, index + 6, [
+        ",",
+        "import",
+        ".",
+        "meta",
+        ".",
+        "url",
+        ")",
+        ",",
+        "{",
+      ])
+    )
+      throw new Error(
+        "platform_provisioner_runtime_dependency_child_worker_unbound",
+      );
+    calls += 1;
+  }
+  if (calls !== 1)
+    throw new Error(
+      "platform_provisioner_runtime_dependency_child_worker_unbound",
+    );
+  return Object.freeze([DOMAIN_STORE_WORKER_TARGET]);
+}
+
+/**
+ * ローカルTypeScript子処理の未結合URL参照を拒否する。
+ *
+ * @responsibility 宣言済みCoordinator子入口と固定Domain保存Worker以外の起動URLを拒否する。
+ * @trace ARCH-000014
+ * @input relativePath: 配布相対Source、tokens: 同じSourceの解析済みToken。
+ * @returns N/A: 違反がなければ呼出し元へ戻る。
+ * @precondition 固定Workerの起動形式は同じ観測で別途検査する。
+ * @postcondition 未結合のimport.meta.url参照を受理しない。
+ * @effect N/A: Source Tokenだけを検査する。
+ * @failure 未登録・変形した参照は既存の未結合URL結果で拒否する。
+ * @invariant 固定のSource所有者と起動先の対応を維持する。
+ * @boundary 配布Sourceと子入口の検証境界。
+ * @security 任意の子処理URLを許可しない。
+ * @concurrency N/A: 同期検査で共有状態を更新しない。
  */
 function assertNoUndeclaredLocalTypeScriptImportMetaUrl(
   relativePath: string,
@@ -4507,6 +4738,23 @@ function assertNoUndeclaredLocalTypeScriptImportMetaUrl(
         "plan",
         ".",
         "entryRelativePath",
+        ",",
+        "import",
+        ".",
+        "meta",
+        ".",
+        "url",
+        ")",
+      ])
+    )
+      continue;
+    if (
+      relativePath === DOMAIN_STORE_WORKER_OWNER &&
+      tokenSequenceMatches(tokens, index - 3, ["new", "Worker", "("]) &&
+      tokens[index + 3]?.kind === "string" &&
+      !tokens[index + 3]?.escaped &&
+      tokens[index + 3]?.value === DOMAIN_STORE_WORKER_RELATIVE_TARGET &&
+      tokenSequenceMatches(tokens, index + 4, [
         ",",
         "import",
         ".",
@@ -4939,6 +5187,40 @@ const processWrapperConsumers = Object.freeze(
             source: "scripts/check-platform-access-coverage.ts",
             containingFunction: null,
             prefix: Object.freeze(["executeCommand", "(", "cargo", ",", "["]),
+          }),
+          Object.freeze({
+            source: "scripts/check-platform-access-coverage.ts",
+            containingFunction: null,
+            prefix: Object.freeze([
+              "executeCommand",
+              "(",
+              "executable",
+              ",",
+              "[",
+              "]",
+              ",",
+              "{",
+            ]),
+            dominatingProofs: Object.freeze([
+              Object.freeze([
+                "for",
+                "(",
+                "const",
+                "executable",
+                "of",
+                "testExecutables",
+                ")",
+              ]),
+              Object.freeze([
+                "const",
+                "artifactHashes",
+                "=",
+                "coverageObjects",
+                ".",
+                "map",
+                "(",
+              ]),
+            ]),
           }),
           Object.freeze({
             source: "scripts/check-platform-access-coverage.ts",
@@ -5805,6 +6087,21 @@ function assertWorkerCreationImportBoundary(
       continue;
     }
     if (
+      relativePath === DOMAIN_STORE_WORKER_OWNER &&
+      declaration.bindings.length === 1 &&
+      names.size === 1 &&
+      names.get("Worker") === false
+    )
+      continue;
+    if (
+      relativePath === DOMAIN_STORE_WORKER_TARGET &&
+      declaration.bindings.length === 2 &&
+      names.size === 2 &&
+      names.get("parentPort") === false &&
+      names.get("workerData") === false
+    )
+      continue;
+    if (
       [
         "src/host-runtime/candidate-store-lock-worker.ts",
         "40_Develop/coordinator/src/host-runtime/candidate-store-lock-worker.ts",
@@ -6440,7 +6737,7 @@ function assertExactCapabilityGraphSourceUniverse(
   const expectedTokens = exactExternalProcessCalls.filter(
     (callsite) => callsite.graph === graph,
   );
-  const expectedCount = graph === "runtime" ? 26 : 13;
+  const expectedCount = graph === "runtime" ? 26 : 16;
   const stableIdentities = expectedTokens.map(
     (callsite) =>
       `${callsite.source}\u0000${callsite.containingFunction}\u0000${callsite.primitive}\u0000${callsite.occurrence}`,
@@ -6456,7 +6753,7 @@ function assertExactCapabilityGraphSourceUniverse(
     (flow) => `${flow.graph}\u0000${flow.source}\u0000${flow.functionName}`,
   );
   if (
-    exactExternalProcessCalls.length !== 39 ||
+    exactExternalProcessCalls.length !== 42 ||
     exactExecutableProvenance.size !== exactExternalProcessCalls.length ||
     exactExternalProcessCalls.some(
       (callsite) =>
@@ -6541,6 +6838,42 @@ function isAllowedExecPathUse(
   index: number,
 ) {
   const sourcePath = coordinatorRelativeSourcePath(relativePath);
+  if (
+    sourcePath === "scripts/verify-native-terminal-fixtures.ts" &&
+    containingNamedFunction(tokens, index)?.name === "runNativeTerminalFixtures"
+  )
+    return (
+      tokenSequenceMatches(tokens, index - 6, [
+        "sources",
+        ".",
+        "push",
+        "(",
+        "process",
+        ".",
+        "execPath",
+        ".",
+        "replaceAll",
+        "(",
+      ]) ||
+      tokenSequenceMatches(tokens, index - 4, [
+        "CRDD_TEST_NODE_BINARY",
+        ":",
+        "process",
+        ".",
+        "execPath",
+        ",",
+      ]) ||
+      tokenSequenceMatches(tokens, index - 6, [
+        "fs",
+        ".",
+        "readFileSync",
+        "(",
+        "process",
+        ".",
+        "execPath",
+        ")",
+      ])
+    );
   if (
     sourcePath.startsWith("scripts/") &&
     runtimeChildProcessOwnerPrimitives.has(sourcePath) &&
@@ -8513,6 +8846,7 @@ function staticRelativeModuleTargets(
       if (target) targets.push(target);
     }
     targets.push(...selectedScriptChildModuleTargets(relativePath, tokens));
+    targets.push(...domainStoreWorkerTargets(relativePath, tokens));
     targets.push(
       ...declaredLocalTypeScriptChildTargets(relativePath, tokens).map(
         (declaration) => declaration.target,
@@ -9076,6 +9410,11 @@ function observePackage(packageRoot: string) {
 
 const RUNTIME_SIBLING_COMPONENTS = Object.freeze([
   Object.freeze({
+    sourcePrefix: "40_Develop/domain-model/src/",
+    packagePath: "40_Develop/domain-model/package.json",
+    packageName: "@qual-lab/crdd-domain-model",
+  }),
+  Object.freeze({
     sourcePrefix: "40_Develop/ai-runtime/src/",
     packagePath: "40_Develop/ai-runtime/package.json",
     packageName: "@qual-lab/crdd-ai-runtime",
@@ -9101,19 +9440,9 @@ const RUNTIME_SIBLING_COMPONENTS = Object.freeze([
     packageName: "@qual-lab/crdd-project-runtime",
   }),
   Object.freeze({
-    sourcePrefix: "40_Develop/project-operation/src/",
-    packagePath: "40_Develop/project-operation/package.json",
-    packageName: "@qual-lab/crdd-project-operation",
-  }),
-  Object.freeze({
     sourcePrefix: "40_Develop/execution-intelligence/src/",
     packagePath: "40_Develop/execution-intelligence/package.json",
     packageName: "@qual-lab/crdd-execution-intelligence",
-  }),
-  Object.freeze({
-    sourcePrefix: "40_Develop/runtime-data/src/",
-    packagePath: "40_Develop/runtime-data/package.json",
-    packageName: "@qual-lab/crdd-runtime-data",
   }),
   Object.freeze({
     sourcePrefix: "40_Develop/version-control/src/",

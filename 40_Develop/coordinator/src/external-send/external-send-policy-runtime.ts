@@ -6,7 +6,7 @@
  */
 import { createHash } from "node:crypto";
 
-import { EXTERNAL_SEND_POLICY_RELATIVE_PATH } from "../../../runtime-data/src/index.ts";
+import { EXTERNAL_SEND_POLICY_RELATIVE_PATH } from "../../../domain-model/src/configuration/index.ts";
 import { readFixedSnapshotFile } from "../../../version-control/src/fixed-snapshot.ts";
 import { gitFixedSnapshotAdapter } from "../../../version-control/src/git/fixed-snapshot-adapter.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/repository-location.ts";

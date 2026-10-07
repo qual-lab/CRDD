@@ -14,10 +14,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import {
-  createTopicMeetingApplication,
-  createTopicMeetingRepository,
-} from "../../../project-operation/src/index.ts";
+import { createTopicApplication } from "../../../domain-model/src/topic/index.ts";
+import { createMeetingApplication } from "../../../domain-model/src/meeting/index.ts";
 import {
   handleMcpApplicationRequest,
   MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
@@ -127,9 +125,10 @@ function meeting() {
 test("MCPからTopicを登録・一覧・取得・更新する", async () => {
   const root = mkdtempSync(path.join(tmpdir(), "crdd-mcp-topic-"));
   try {
-    const topicMeeting = createTopicMeetingApplication(
-      createTopicMeetingRepository(root),
-    );
+    const topicMeeting = Object.freeze({
+      topic: createTopicApplication(root),
+      meeting: createMeetingApplication(root),
+    });
     const dependencies = {
       projectContext: {
         readPortfolio: async () =>
@@ -187,10 +186,11 @@ test("MCPからTopicを登録・一覧・取得・更新する", async () => {
 test("MCPからMeeting Outcomeを処置してCloseする", async () => {
   const root = mkdtempSync(path.join(tmpdir(), "crdd-mcp-meeting-outcome-"));
   try {
-    const topicMeeting = createTopicMeetingApplication(
-      createTopicMeetingRepository(root),
-    );
-    topicMeeting.create("meeting", meeting());
+    const topicMeeting = Object.freeze({
+      topic: createTopicApplication(root),
+      meeting: createMeetingApplication(root),
+    });
+    topicMeeting.meeting.create(meeting());
     const response = await handleMcpApplicationRequest(
       call(MCP_MEETING_TREAT_OUTCOME_TOOL, {
         meetingId: "MTG-000042",
@@ -218,7 +218,7 @@ test("MCPからMeeting Outcomeを処置してCloseする", async () => {
       },
     );
     assert.equal(result(response).result.isError, false);
-    assert.equal(topicMeeting.get("meeting", "MTG-000042")?.state, "closed");
+    assert.equal(topicMeeting.meeting.get("MTG-000042")?.state, "closed");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -239,10 +239,11 @@ test("MCPからMeeting Outcomeを処置してCloseする", async () => {
 test("MCPからTopicを実在CHGへ昇格接続する", async () => {
   const root = mkdtempSync(path.join(tmpdir(), "crdd-mcp-topic-promote-"));
   try {
-    const topicMeeting = createTopicMeetingApplication(
-      createTopicMeetingRepository(root),
-    );
-    topicMeeting.create("topic", topic(1));
+    const topicMeeting = Object.freeze({
+      topic: createTopicApplication(root),
+      meeting: createMeetingApplication(root),
+    });
+    topicMeeting.topic.create(topic(1));
     const changeDirectory = path.join(
       root,
       "99_Roadmap",
@@ -275,7 +276,7 @@ test("MCPからTopicを実在CHGへ昇格接続する", async () => {
       },
     );
     assert.equal(result(response).result.isError, false);
-    assert.equal(topicMeeting.get("topic", "TOPIC-000042")?.state, "promoted");
+    assert.equal(topicMeeting.topic.get("TOPIC-000042")?.state, "promoted");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

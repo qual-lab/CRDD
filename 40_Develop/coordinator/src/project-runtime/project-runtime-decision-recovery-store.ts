@@ -11,10 +11,8 @@ import type {
   ProjectRuntimeDecisionRecoveryIntent,
   ProjectRuntimeDecisionRecoveryStore,
 } from "../../../project-runtime/src/index.ts";
-import {
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
-  requireReadyRepositoryRuntimeDataArea,
-} from "../../../runtime-data/src/index.ts";
+import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/storage/index.ts";
+import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/repository/index.ts";
 
 export const PROJECT_RUNTIME_DECISION_RECOVERY_STORE_CONTRACT =
   "crdd-coordinator/project-runtime-decision-recovery-store/v1" as const;

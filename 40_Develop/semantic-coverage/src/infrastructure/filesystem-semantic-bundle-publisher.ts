@@ -11,7 +11,7 @@ import {
   resolveVerifiedRepositoryRoot,
   type VerifiedRepositoryRoot,
 } from "../../../version-control/src/repository-identity/index.ts";
-import { createFilesystemRepositoryObservationPort } from "../../../crdd-domain-library/src/repository-observation/index.ts";
+import { createFilesystemRepositoryObservationPort } from "../../../domain-model/src/repository/index.ts";
 
 /**
  * Filesystemへ公開するBundle本文とRepository相対Pathを表す。

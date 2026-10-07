@@ -26,7 +26,7 @@ import path from "node:path";
 import {
   resolveCrosRuntimeRoots,
   type CrosRootInput,
-} from "../../runtime-data/src/index.ts";
+} from "../../domain-model/src/repository/index.ts";
 
 import type {
   ConnectionCredentialRecord,

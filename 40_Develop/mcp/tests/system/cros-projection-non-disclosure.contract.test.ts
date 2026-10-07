@@ -19,12 +19,11 @@ import {
   type CrosExposureSnapshot,
   type RequestAccessContext,
 } from "../../../cros/src/index.ts";
-import {
-  createTopicMeetingApplication,
-  parseRepositoryProjectContextMarkdown,
-  parseTopicMarkdown,
-  type TopicMeetingRepository,
-} from "../../../project-operation/src/index.ts";
+import type { TopicMeetingRepository } from "../../../domain-model/src/topic/index.ts";
+import { createTopicApplication } from "../../../domain-model/src/topic/index.ts";
+import { createMeetingApplication } from "../../../domain-model/src/meeting/index.ts";
+import { parseTopicMarkdown } from "../../../domain-model/src/topic/index.ts";
+import { parseRepositoryProjectContextMarkdown } from "../../../domain-model/src/project-context/index.ts";
 import {
   MCP_PROJECT_CONTEXT_GET_TOOL,
   MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
@@ -241,7 +240,13 @@ function observedRepository() {
       };
     },
   };
-  return { counters, application: createTopicMeetingApplication(port) };
+  return {
+    counters,
+    application: Object.freeze({
+      topic: createTopicApplication(port),
+      meeting: createMeetingApplication(port),
+    }),
+  };
 }
 
 /**

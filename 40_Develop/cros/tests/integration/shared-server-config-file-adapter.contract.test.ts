@@ -19,7 +19,7 @@ import test from "node:test";
 import {
   resolveCrosRuntimeRoots,
   type CrosRootInput,
-} from "../../../runtime-data/src/index.ts";
+} from "../../../domain-model/src/repository/index.ts";
 import { readCrosSharedServerOperationalConfig } from "../../src/index.ts";
 
 /**

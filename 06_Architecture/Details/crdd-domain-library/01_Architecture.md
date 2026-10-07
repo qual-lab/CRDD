@@ -52,6 +52,7 @@
 │     ├ index.ts                   共通結果だけの軽量公開入口
 │     ├ outcome.ts                 Capability横断の中立な処理結果契約
 │     ├ artifact/                  Artifact解析・Schema・Relation Graph
+│     ├ plain-data/                Record／Array入力の検査・浅い所有Snapshot
 │     ├ storage/                   用途限定Store Root、排他・短命保存
 │     ├ configuration/             Manifest・設定の検証と読取り
 │     ├ project-context/           正本の構造化投影とContext固有候補判断
@@ -147,6 +148,7 @@ Repository／Version Control Infrastructure
 |---|---|---|---|
 | Package Root `domain-model/src/index.ts` | `DomainStatus`、`DomainIssue`、`DomainOutcome<T>`、`DomainLocation`、`validateDomainOutcome`だけ | なし | namespace経由でCRUD、Filesystem Writer、設定Readerを推移的に読み込むこと |
 | Artifact `domain-model/src/artifact/index.ts` | Artifact Model、Schema検証、Relation Graphの公開型と決定論的関数 | なし | Checker Finding、利用者向けmessage |
+| Plain Data `domain-model/src/plain-data/index.ts` | `snapshotPlainRecord`、`snapshotPlainArray`だけ。exact own key・prototype・data descriptorを検査し、浅い所有Snapshotまたは既存拒否結果を返す | なし | getter／Proxy trapの実行、nested値全体の安全性保証、Authority発行、Store／Writer・Provider実行への依存 |
 | Storage `domain-model/src/storage/index.ts` | 検証済みStore Root、Root内Path解決、Kernel排他、exact Lock回復、短命操作の作成・再入場・終了 | 用途限定Root内の保存・回収とKernel Endpoint | 任意絶対PathのAuthority化、個別Domain判断、Filesystem Recordだけによる排他推定 |
 | Configuration `domain-model/src/configuration/index.ts` | Manifest／設定Schema検証、Repository別Tool設定読取り | 設定読取りだけ。Root作成と設定の自動書込みなし | Policyの採用、Trust Framework、Credential・Authorityの発行 |
 | Project Context `domain-model/src/project-context/index.ts` | Project Context／Release／Qualityの構造化Reader、Source投影、Context固有候補判断 | 本文の解析・意味変換はEffectなし | Roadmap・品質・実行状態の第二正本、一般Task候補の採用 |
@@ -208,6 +210,8 @@ Domain IssueはChecker severity、Rule名、exit codeを持たない。MCP／Wor
 変換では`kind`、`targetIdentity`、`location`、`reason`、`details`、`status`およびResultの有無を欠落させない。Checkerは明示Mappingで`code`、`severity`、`rule`、`message`を追加し、未知kind、欠落detail、`partial`、`invalid`または`unobservable`を汎用Passへ畳まない。
 
 ## 6. 配布と開発の境界
+
+Coordinatorの保護実行から保存公開入口へ到達する場合、保存排他のWorkerも実行閉包に含める。WorkerのOwnerと起動はDomain Model内に維持し、Coordinatorへの逆依存やCoordinator専用起動APIをDomainへ導入しない。配布観測は`storage/filesystem-store-root.ts`の一つの直接起動と、同じ保存責務内の`filesystem-store-kernel-lock-worker.ts`への固定相対参照を対応付け、起動元・参照先・Worker実体とその依存を検査する。参照の変更・間接化・起動追加・欠落、実体欠落または観測不能では停止する。Domain全Sourceを一律に署名するのではなく、実到達した閉包へ同Workerを接続する。
 
 | 領域 | 責務 |
 |---|---|
@@ -276,14 +280,16 @@ MCPとWorkbenchの旧公開入口利用は移管対象である。新Packageへ�
 | `parseRepositoryProjectContextMarkdown`、`parseRepositoryReleaseProjectionMarkdown`、`parseRepositoryQualityProjectionMarkdown` | `project-context/index.ts` | 所有正本のMarkdown／固定表の構造化結果 | Workbench Server、MCP Server、CROS | Effectなし。不正表・欠測を推測で補完しない |
 | `parseTopicMarkdown`、`applyTopicPromotion` | `topic/index.ts` | Topic本文、昇格先Identity・期待改訂／検証済み次版 | TopicのCRUD操作 | 意味変換だけ。実在する対象・同一Projectと人間判断は保存前に再確認 |
 | `parseMeetingMarkdown`、`applyMeetingOutcomeTreatment` | `meeting/index.ts` | Meeting本文、Outcome処置／全表が一致する次版 | MeetingのCRUD操作 | 意味変換だけ。pendingが残るCloseを拒否 |
-| `createTopicMeetingRepository`、`createTopicMeetingApplication`のTopic操作 | `topic/index.ts` | 検証済みRoot、操作、対象ID、期待改訂、Relation／CRUD結果・Cursor付き一覧 | Workbench Server、MCP Server。CROSは認可済みBindingを供給 | 対象Repositoryだけに保存。誤登録削除は影響確認と明示承認が必要 |
-| 同ApplicationのMeeting操作、`MeetingOutcomeCommandResult` | `meeting/index.ts` | 検証済みRoot、Meeting／Outcome、期待改訂／処置結果 | Workbench Server、MCP Server | 同一Repositoryの原子的次版。別Repository処置はCROSの認可・Routingが成立するまで発行しない |
+| `createTopicApplication`（内部の共通Repository／ApplicationからTopic操作だけを公開） | `topic/index.ts` | 選定・認可済みRootまたは同じ保存契約、対象ID、期待改訂、Relation／CRUD結果・Cursor付き一覧 | Workbench Server、MCP Server。CROSは認可済みBindingを供給 | 対象Repositoryだけに保存。誤登録削除は影響確認と明示承認が必要 |
+| `createMeetingApplication`、`MeetingOutcomeCommandResult` | `meeting/index.ts` | 選定・認可済みRootまたは同じ保存契約、Meeting／Outcome、期待改訂／処置結果 | Workbench Server、MCP Server | 同一Repositoryの原子的次版。別Repository処置はCROSの認可・Routingが成立するまで発行しない |
 | `inspectRepositoryManifest`、`inspectCrosTrustPolicy` | `configuration/index.ts` | 明示した宣言／検査結果 | CROS、Checker、各設定利用側 | 宣言の検証のみ。既存Schemaの移管をTrust Policy Framework採用と扱わない |
 | `readProjectRuntimeConfig`、`readExecutionIntelligenceConfig` | `configuration/index.ts` | 検証済みRootと当該Tool／検証済み設定Snapshot | Orchestrator、Execution Intelligence | 設定読取り。不存在だけ既定30日、不正・読取り不能は整理を停止 |
 | `resolveRepositoryRuntimeDataPaths`、`observeRepositoryRuntimeDataArea` | `repository/index.ts` | 検証済みRoot／用途別Pathと境界観測 | Runtime各Owner、Execution Intelligence、診断 | 読取りだけ。`not_observed`と`blocked`を区別し、Rootを逆算しない |
 | `ensureRepositoryRuntimeDataArea`、`createCoordinatorRuntimeDataArea`、`createTemporaryOperation`／`resumeTemporaryOperation`／`settleTemporaryOperation` | `storage/index.ts` | 許可Root、用途、exact Identity／保存Capability・終了／回復結果 | Coordinator、Orchestrator、試験・署名準備 | 宣言用途だけ作成・回収。由来不明・使用中・観測不能ではEffect前停止 |
 
 `createTopicMeetingApplication`の共通実体は一つとし、Topic／Meeting公開面は許可された操作だけを返す。既存型の意味を変えず、全APIの巨大再公開や別実装を作らない。File名・型名の具体化は段階3の公開Symbol全数照合で固定する。
+
+種別固定の公開操作は生成時にTopicまたはMeetingを選び、CRUD呼出しに種別引数を持たない。`promoteTopic`はTopicだけ、`treatMeetingOutcome`はMeetingだけに存在する。両公開面を同じ認可済みRepositoryへ構成する組の型は`TopicMeetingApplications`であり、組自体が認可・操作・保存を追加しない。保存契約の注入は既存Applicationの検証境界を維持するためのもので、任意Rootへの許可や別RepositoryへのFallbackを生成しない。
 
 ### 9.1. 状態保存と呼出し順
 
@@ -307,6 +313,8 @@ Source本文を読むだけの投影は書込み排他・作業Directoryを作�
 公開集合の移管先と既存QA義務は§9.3、全File／Consumerの予定処置は全ファイル対応、設定・配布とFront AI移行は各Ownerへ接続する。OPEN: 新公開面・worker・全Consumerの実装移管と実起動、設定例と配布物の実切替、統合後のSource試験と実境界は段階5〜7で確認する。
 
 ### 9.3. 旧公開集合の移管先と検証義務
+
+Provider計画の分離時に、Coordinatorの共通入力防御を`plain-data/index.ts`へ単一移管する。CoordinatorとAI Adapterはこの入口へ直接依存し、旧Coordinator入口の再exportや同一検査のコピーを残さない。既存Recordのnull／Arrayのstatus・reason、Proxyのtrap前拒否、getter未実行、enumerability、Array上限・hole・余剰key拒否、浅い凍結を維持する。外部Effect・深いSnapshot・汎用Trust Frameworkを追加しない。既存`PPR-UT-006`のSnapshot反証と各Authority／Provider入力の負例、公開集合と推移依存、型所属・配布閉包を移管後に照合する。設計の具体化を実装移管済み・試験Passと扱わない。
 
 旧三Packageの公開型は意味を保って各責務の`types.ts`へ移し、その責務の`index.ts`から明示再公開する。型だけのFileを`outcome.ts`と呼ぶ運用は追加しない。共通`outcome.ts`は既存の実行時検証`validateDomainOutcome`も持つため維持し、Package Rootは共通結果の型と検証だけの軽量入口にする。旧Rootの名前空間exportを巨大Barrelとして引き継がず、利用側importを能力別公開入口へ変更する。
 

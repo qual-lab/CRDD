@@ -4,7 +4,7 @@
  * @responsibility SemanticCoverageGraphを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000008
  */
-import type { LoadedRealitySymbolManifest } from "../../../crdd-domain-library/src/reality-traceability/index.ts";
+import type { LoadedRealitySymbolManifest } from "../../../domain-model/src/reality-traceability/index.ts";
 import type {
   SemanticIr,
   SemanticIrMeaning,
@@ -14,7 +14,7 @@ import type { QualitySemanticRelation } from "../compilation/quality-semantic-re
 import type {
   DomainIssue,
   DomainOutcome,
-} from "../../../crdd-domain-library/src/index.ts";
+} from "../../../domain-model/src/index.ts";
 
 /**
  * Meaningを実装、Quality Local ItemおよびTest Symbolへ接続したGraphを表す。

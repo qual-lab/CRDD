@@ -829,7 +829,6 @@ test("CRDD所有packageの全回帰入口は静的検査後にだけ試験本体
     "execution-intelligence",
     "mcp",
     "project-runtime",
-    "runtime-data",
     "version-control",
   ];
   for (const packageRoot of packageRoots) {
@@ -13487,18 +13486,13 @@ test("実物のGitサブモジュール内チェッカーから適用先を確�
     { recursive: true },
   );
   fs.cpSync(
-    path.join(repositoryRoot, "40_Develop", "crdd-domain-library", "src"),
-    path.join(source, "40_Develop", "crdd-domain-library", "src"),
+    path.join(repositoryRoot, "40_Develop", "domain-model", "src"),
+    path.join(source, "40_Develop", "domain-model", "src"),
     { recursive: true },
   );
   fs.cpSync(
     path.join(repositoryRoot, "40_Develop", "version-control", "src"),
     path.join(source, "40_Develop", "version-control", "src"),
-    { recursive: true },
-  );
-  fs.cpSync(
-    path.join(repositoryRoot, "40_Develop", "runtime-data", "src"),
-    path.join(source, "40_Develop", "runtime-data", "src"),
     { recursive: true },
   );
   assert.equal(

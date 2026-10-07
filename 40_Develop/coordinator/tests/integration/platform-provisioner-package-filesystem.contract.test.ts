@@ -61,18 +61,98 @@ const developmentFixtureRoots = new Set<string>();
 const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
 
 /**
- * Native検証Toolの六つの固定起動を本番Runtimeへ混入させず検査する。
+ * Domain保存排他Workerの固定起動と改変拒否を検証する。
+ *
+ * @responsibility 兄弟Domainへの依存接続が未登録のWorker一般の許可にならないことを確認する。
+ * @trace AIT-IT-013
+ * @trace ERB-IT-002
+ * @precondition 実Sourceの読取りとMemory内の変異だけを使用する。
+ * @stimulus 固定Owner・参照先を観測し、Target、alias、起動数、importを変更する。
+ * @observation 固定Source受理と全変異拒否を例外から観測する。
+ * @oracle Workerの固定Owner・起動点・参照先がすべて一致する場合だけ受理する。
+ * @cleanup N/A: Worker、Process、一時Directoryを作成しない。
+ * @boundary Partial Boundary: 配布Source→保存Workerの静的接続。実Worker lifecycleは既存保存排他試験が所有する。
+ */
+test("Domain保存Workerの固定参照だけを受理し改変を拒否する", () => {
+  const owner = "40_Develop/domain-model/src/storage/filesystem-store-root.ts";
+  const worker =
+    "40_Develop/domain-model/src/storage/filesystem-store-kernel-lock-worker.ts";
+  const source = fs.readFileSync(
+    path.resolve(coordinatorRoot, "../../", owner),
+    "utf8",
+  );
+  const workerSource = fs.readFileSync(
+    path.resolve(coordinatorRoot, "../../", worker),
+    "utf8",
+  );
+  assert.doesNotThrow(() =>
+    assertRuntimeSourceModuleBoundaryForVerification(owner, source),
+  );
+  assert.doesNotThrow(() =>
+    assertRuntimeSourceModuleBoundaryForVerification(worker, workerSource),
+  );
+  for (const [before, after] of [
+    ["./filesystem-store-kernel-lock-worker.ts", "./other-worker.ts"],
+    [
+      "./filesystem-store-kernel-lock-worker.ts",
+      "./filesystem-store-kernel-lock-worker.ts?alias",
+    ],
+    ["new Worker(", "new OtherWorker("],
+    ["import { Worker }", "import { Worker as OtherWorker }"],
+    ['import { Worker } from "node:worker_threads";', ""],
+    [
+      'import { Worker } from "node:worker_threads";',
+      'import { Worker } from "node:net";',
+    ],
+    [
+      "const worker = new Worker(",
+      'const extra = new Worker(new URL("./filesystem-store-kernel-lock-worker.ts", import.meta.url), {}); const worker = new Worker(',
+    ],
+  ] as const) {
+    assert.ok(source.includes(before), before);
+    assert.throws(
+      () =>
+        assertRuntimeSourceModuleBoundaryForVerification(
+          owner,
+          source.replace(before, after),
+        ),
+      /child_worker_unbound|child_url_unbound/u,
+    );
+  }
+  assert.throws(
+    () =>
+      assertRuntimeSourceModuleBoundaryForVerification(
+        owner.replace("filesystem-store-root.ts", "other-root.ts"),
+        source,
+      ),
+    /child_worker_unbound|child_url_unbound/u,
+  );
+  assert.throws(
+    () =>
+      assertRuntimeSourceModuleBoundaryForVerification(
+        worker,
+        workerSource.replace(
+          "parentPort, workerData",
+          "parentPort, workerData, Worker",
+        ),
+      ),
+    /child_worker_unbound/u,
+  );
+});
+
+/**
+ * Native保護検証Toolの五つの固定起動を本番Runtimeへ混入させず検査する。
  * @responsibility 固定owner、引数、親の検証と非同期所有の変更を拒否する。
  * @trace ERB-IT-001
  * @trace ERB-IT-002
  * @precondition Source読取りとMemory内の変異だけ。Native/Cargo/Gitを起動しない。
- * @stimulus 六ownerを観測し、起動条件・引数・listener・呼出し関係を個別に改変する。
+ * @stimulus 五ownerを観測し、Root検証・起動条件・引数・listener・呼出し関係を個別に改変する。
  * @observation 固定Source受理と全変異拒否。
  * @oracle 未登録ownerや外部入力から新たなProcess許可を作らない。
  * @cleanup N/A: OS資源や一時fileを作成しない。
  * @boundary ERB-IT-001/ERB-IT-002=Partial Boundary: Source→検証Tool専用Process graph。実Native保護・Process lifecycleの成立は対象外。
  */
-test("Native検証Toolの六固定起動と所有関係の改変を拒否する", () => {
+test("Native保護検証Toolの五固定起動と所有関係の改変を拒否する", () => {
   const sourcePath = "scripts/verify-native-protection.ts";
   const source = fs.readFileSync(
     path.join(coordinatorRoot, sourcePath),
@@ -82,7 +162,6 @@ test("Native検証Toolの六固定起動と所有関係の改変を拒否する"
     assertRuntimeSourceDeclaredGraphBoundaryForVerification(sourcePath, source),
   );
   const helpers = [
-    "observeNativeProtectionRepositoryRoot",
     "lintNativeProtectionArtifact",
     "buildNativeProtectionArtifact",
     "executeNativeProtectionGuard",
@@ -93,14 +172,17 @@ test("Native検証Toolの六固定起動と所有関係の改変を拒否する"
     source,
     [...helpers, "runNativeProtection"],
   );
-  assert.equal(graph.length, 6);
+  assert.equal(graph.length, 5);
   for (const helper of helpers)
     assert.equal(
       graph.find((node) => node.name === helper)?.lexicalScope,
       "runNativeProtection",
     );
   for (const [before, after] of [
-    ['spawnSync("git",', 'spawnSync("other-git",'],
+    [
+      "const verified = verifyRepositoryRoot(repository);",
+      'const verified = { status: "completed", capability: null };',
+    ],
     ['"+1.94.1-x86_64-pc-windows-msvc",', '"+unknown-toolchain",'],
     ['exactTest + ".missing"', 'exactTest + ".other"'],
     ['child.on("error",', 'child.on("other-event",'],
@@ -115,8 +197,8 @@ test("Native検証Toolの六固定起動と所有関係の改変を拒否する"
       "function otherNativeProtectionGuard()",
     ],
     [
-      "function observeNativeProtectionRepositoryRoot()",
-      'function observeNativeProtectionRepositoryRoot(injected = spawnSync("other", [], { shell: false }))',
+      "function lintNativeProtectionArtifact()",
+      'function lintNativeProtectionArtifact(injected = spawnSync("other", [], { shell: false }))',
     ],
   ] as const) {
     assert.ok(source.includes(before));
@@ -598,12 +680,10 @@ function developmentFixture(omittedEntrypoint: string | null = null) {
     "40_Develop/mcp/src",
     "40_Develop/project-runtime/package.json",
     "40_Develop/project-runtime/src",
-    "40_Develop/project-operation/package.json",
-    "40_Develop/project-operation/src",
     "40_Develop/execution-intelligence/package.json",
     "40_Develop/execution-intelligence/src",
-    "40_Develop/runtime-data/package.json",
-    "40_Develop/runtime-data/src",
+    "40_Develop/domain-model/package.json",
+    "40_Develop/domain-model/src",
     "40_Develop/version-control/package.json",
     "40_Develop/version-control/src",
     "template/tools",
@@ -955,26 +1035,135 @@ test("Claude再認証のProcess Wrapperを署名前Runtime能力Graphへ固定�
 });
 
 /**
- * 検証Toolの全Sourceと実Process起動点を独立グラフとして完全一致させるを検証する。
+ * Native Coverageの固定された試験実行物集合からの呼出しを検証する。
  *
- * @responsibility 検証Toolの全Sourceと実Process起動点を独立グラフとして完全一致させるの合否判定を所有する。
+ * @responsibility 検査済みCargo出力の集合以外を実行する改変を拒否する。
  * @trace AIT-IT-013
  * @trace ERB-IT-001
  * @trace ERB-IT-002
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 検証Toolの全Sourceと実Process起動点を独立グラフとして完全一致させるの対象操作を実行する。
+ * @stimulus 実行引数、列挙元または実行前Hash検査を個別に改変する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary AIT-IT-013=Direct Boundary: coordinator Test Source→対象契約
  * @boundary ERB-IT-001/ERB-IT-002=Partial Boundary: 全Tool Source→固定Process graph。実Process lifecycleは対象外。
  */
+test("Native Coverageの試験実行物は検査済み集合の固定呼出しだけを受理する", () => {
+  const sources = verificationToolSources();
+  const coveragePath = "scripts/check-platform-access-coverage.ts";
+  const coverage = sources[coveragePath] ?? "";
+  assert.doesNotThrow(() =>
+    assertRuntimeSourceDeclaredGraphBoundaryForVerification(
+      coveragePath,
+      coverage,
+    ),
+  );
+  for (const [before, after] of [
+    [
+      "executeCommand(executable, [], {",
+      'executeCommand("arbitrary.exe", [], {',
+    ],
+    [
+      "for (const executable of testExecutables)",
+      "for (const executable of binaries)",
+    ],
+    [
+      "const artifactHashes = coverageObjects.map(",
+      "const otherHashes = coverageObjects.map(",
+    ],
+  ] as const) {
+    assert.ok(coverage.includes(before));
+    assert.throws(
+      () =>
+        assertRuntimeSourceDeclaredGraphBoundaryForVerification(
+          coveragePath,
+          coverage.replace(before, after),
+        ),
+      /runtime_dependency_child_process_unbound/u,
+    );
+  }
+});
+
+/**
+ * Native端末検証のCargo構築と実行物起動を固定された所有者へ接続する。
+ *
+ * @responsibility Tool専用起動の引数、実体検査、終了通知とNode入力範囲の改変を拒否する。
+ * @trace ERB-IT-001
+ * @trace ERB-IT-002
+ * @precondition 現行端末検証Sourceを読取り投影として取得できる。
+ * @stimulus 固定Sourceを照合し、起動・実体・終了通知とNode入力をメモリ内で改変する。
+ * @observation 正規Sourceの受理と各改変の拒否を取得する。
+ * @oracle 二つの正式Toolだけが固定起動を利用でき、改変は拒否される。
+ * @cleanup N/A: Source読取りとメモリ内改変だけで、CargoとNativeを起動しない。
+ * @boundary 検証Sourceから宣言Graphへの構造検査。実Nativeの成功を主張しない。
+ */
+test("Native端末検証は固定構築・実体・終了所有者とNode入力範囲を維持する", () => {
+  for (const sourcePath of [
+    "scripts/verify-native-terminal-namespace.ts",
+    "scripts/verify-native-terminal-fixtures.ts",
+  ]) {
+    const source = fs.readFileSync(
+      path.join(coordinatorRoot, sourcePath),
+      "utf8",
+    );
+    assert.doesNotThrow(() =>
+      assertRuntimeSourceDeclaredGraphBoundaryForVerification(
+        sourcePath,
+        source,
+      ),
+    );
+    for (const [before, after] of [
+      ['"--no-run",', '"--release",'],
+      [
+        "assert.equal(artifacts.length, 1);",
+        "assert.equal(artifacts.length, 2);",
+      ],
+      ["fs.realpathSync(binary)", "fs.realpathSync(crate)"],
+      ['child.once("close",', 'child.once("exit",'],
+      ["shell: false,", "shell: true,"],
+    ] as const) {
+      assert.ok(source.includes(before));
+      assert.throws(
+        () =>
+          assertRuntimeSourceDeclaredGraphBoundaryForVerification(
+            sourcePath,
+            source.replace(before, after),
+          ),
+        /runtime_dependency_(?:child_process(?:_executable|_ownership)?|capability_flow)_unbound/u,
+      );
+    }
+    const extraNodeReference = `${source}\nconst escapedNodeBinary = process.execPath;\n`;
+    assert.throws(
+      () =>
+        assertRuntimeSourceDeclaredGraphBoundaryForVerification(
+          sourcePath,
+          extraNodeReference,
+        ),
+      /runtime_dependency_(?:child_process(?:_executable|_ownership)?|capability_flow)_unbound/u,
+    );
+  }
+});
+
+/**
+ * 全検証Toolの宣言集合と実SourceのProcess起動点を照合する。
+ *
+ * @responsibility 検証専用Graphの全Source・呼出し・結果搬送の欠落と改変を拒否する。
+ * @trace AIT-IT-013
+ * @trace ERB-IT-001
+ * @trace ERB-IT-002
+ * @precondition 現行scriptsのSourceを読取り投影として取得できる。
+ * @stimulus 全Sourceを照合し、起動引数・所有関係・結果搬送を個別に改変する。
+ * @observation 固定Graphの受理と各改変の拒否を取得する。
+ * @oracle 正規集合だけが受理され、欠落・追加・改変は拒否される。
+ * @cleanup N/A: Source読取りとメモリ内改変のみで実Processを起動しない。
+ * @boundary Sourceから検証Tool専用Graph。実NativeやProviderのlifecycleは対象外。
+ */
 test("検証Toolの全Sourceと実Process起動点を独立グラフとして完全一致させる", () => {
   const sources = verificationToolSources();
   assert.doesNotThrow(() =>
     assertVerificationToolCapabilityGraphForVerification(sources),
   );
-
   const preparationPath = "scripts/prepare-release-candidate.ts";
   const preparation = sources[preparationPath] ?? "";
   for (const [before, after] of [
@@ -1063,6 +1252,43 @@ test("検証Toolの全Sourceと実Process起動点を独立グラフとして完
       ),
     /runtime_dependency_capability_flow_unbound/u,
   );
+});
+
+/**
+ * 候補昇格が統合後の単一入口と固定操作だけを利用することを確認する。
+ *
+ * @responsibility 起動入口の統合を固定Graphへ接続し、旧入口・別操作の再導入を拒否する。
+ * @trace AIT-IT-013
+ * @trace ERB-IT-001
+ * @trace ERB-IT-002
+ * @precondition 現行の候補準備Sourceを読み取れる。
+ * @stimulus 正規Sourceを照合し、Launcher名と昇格操作を個別に改変する。
+ * @observation 正規Graphの受理と改変Graphの拒否を取得する。
+ * @oracle 単一Coordinator入口とpromote-release操作だけが受理される。
+ * @cleanup N/A: メモリ内照合だけで実署名・子Process起動は行わない。
+ * @boundary 候補準備Sourceと検証Tool専用Process Graph。実署名・昇格は対象外。
+ */
+test("候補昇格の固定Graphは統合後の単一Coordinator入口へ接続する", () => {
+  const sourcePath = "scripts/prepare-release-candidate.ts";
+  const source = verificationToolSources()[sourcePath] ?? "";
+  assert.doesNotThrow(() =>
+    assertRuntimeSourceDeclaredGraphBoundaryForVerification(sourcePath, source),
+  );
+  for (const [before, after] of [
+    ['"coordinator.ts"', '"launch.ts"'],
+    ['[launcher, "promote-release"]', '[launcher, "other-command"]'],
+    ['storage: "signature",', 'storage: "other",'],
+  ] as const) {
+    assert.ok(source.includes(before));
+    assert.throws(
+      () =>
+        assertRuntimeSourceDeclaredGraphBoundaryForVerification(
+          sourcePath,
+          source.replace(before, after),
+        ),
+      /runtime_dependency_(?:child_process|capability_flow)_unbound/u,
+    );
+  }
 });
 
 /**
@@ -1581,19 +1807,21 @@ test("署名の保護対象flowを同名decoy・事前Effect・条件付き証�
     `class BeforeMain { static value = readHiddenLine("before-main"); }\n${source}`,
     `[0].map(() => readHiddenLine("before-main"));\n${source}`,
     source.replace(
-      "async function main() {",
-      'async function main(value = readHiddenLine("before-main")) {',
+      "export async function main(args: string[] = process.argv.slice(2)) {",
+      'export async function main(args: string[] = process.argv.slice(2), value = readHiddenLine("before-main")) {',
     ),
     source.replace(
       "preflightReleaseManifest(options);",
       "if (false) preflightReleaseManifest(options);",
     ),
   ];
-  for (const mutated of mutations)
+  for (const mutated of mutations) {
+    assert.notEqual(mutated, source, "反証が現行Sourceへ作用したこと");
     assert.throws(
       () => assertReleaseSigningConsumerClosureForVerification(mutated),
       /runtime_dependency_signing_consumer_unbound/u,
     );
+  }
 });
 
 /**
@@ -1618,8 +1846,8 @@ test("署名の反証は意図した保護phaseで最初に拒否しEffect経路
       phase: "binding_use",
       mutate: (value: string) =>
         value.replace(
-          "async function main() {",
-          "async function main() {\n  const readHiddenLine = () => Promise.resolve('forged');",
+          "export async function main(args: string[] = process.argv.slice(2)) {",
+          "export async function main(args: string[] = process.argv.slice(2)) {\n  const readHiddenLine = () => Promise.resolve('forged');",
         ),
     },
     {
@@ -1925,12 +2153,12 @@ for (const scenario of [
       if (scenario === "variable_declaration")
         fs.appendFileSync(
           declarationModule,
-          'const extraChild = "../security/unregistered-child.ts"; declareLocalTypeScriptChildEntrypoint("candidate_store_lock_worker", "worker", extraChild, import.meta.url);\n',
+          'const extraChild = "./unregistered-child.ts"; declareLocalTypeScriptChildEntrypoint("candidate_store_lock_worker", "worker", extraChild, import.meta.url);\n',
         );
       if (scenario === "template_declaration")
         fs.appendFileSync(
           declarationModule,
-          'declareLocalTypeScriptChildEntrypoint("candidate_store_lock_worker", "worker", `../security/unregistered-child.ts`, import.meta.url);\n',
+          'declareLocalTypeScriptChildEntrypoint("candidate_store_lock_worker", "worker", `./unregistered-child.ts`, import.meta.url);\n',
         );
       if (scenario === "direct_url")
         fs.appendFileSync(
@@ -2314,7 +2542,7 @@ for (const scenario of [
           path.join(
             fixture.packageRoot,
             "src",
-            "security",
+            "docker-runtime",
             "unregistered-child.ts",
           ),
           "export {};\n",
@@ -2540,7 +2768,7 @@ for (const scenario of [
           path.join(
             fixture.packageRoot,
             "src",
-            "security",
+            "host-runtime",
             "unregistered-child.ts",
           ),
           "export {};\n",
@@ -3371,7 +3599,7 @@ test("責務分離後のRuntime componentを静的依存閉包として実行Ide
     fs.writeFileSync(
       valuePath,
       [
-        'import { spawnRuntimeLocalTypeScriptChild } from "../../src/host-runtime/runtime-local-typescript-child-entrypoints.ts";',
+        'import { spawnRuntimeLocalTypeScriptChild } from "../../../coordinator/src/host-runtime/runtime-local-typescript-child-entrypoints.ts";',
         'spawnRuntimeLocalTypeScriptChild("interactive_console_reader", [], {});',
         "export const value = 1;",
         "",
@@ -3571,7 +3799,7 @@ test("非正規表記または実行集合外へのrelative importを署名候�
 test("共通Launcherの署名・4経路・Recovery入口と静的依存だけを実行Identityへ含める", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-launch-closure-"));
   try {
-    for (const directory of ["bin", "src", "src/security", "scripts"]) {
+    for (const directory of ["bin", "src", "src/provider", "scripts"]) {
       fs.mkdirSync(path.join(root, directory), { recursive: true });
     }
     fs.writeFileSync(
@@ -3721,7 +3949,7 @@ test("共通Launcherの署名・4経路・Recovery入口と静的依存だけを
 test("実行Identityのmodule構文を字句解析し、コメント・非relative・未束縛dynamicによる閉包回避を拒否する", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-module-lexer-"));
   try {
-    for (const directory of ["bin", "src", "src/security", "scripts"]) {
+    for (const directory of ["bin", "src", "src/provider", "scripts"]) {
       fs.mkdirSync(path.join(root, directory), { recursive: true });
     }
     fs.writeFileSync(

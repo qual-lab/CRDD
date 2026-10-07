@@ -4,7 +4,7 @@
  * @responsibility stringDetailを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000001
  */
-import type { DomainIssue } from "../../../crdd-domain-library/src/index.ts";
+import type { DomainIssue } from "../../../domain-model/src/index.ts";
 import type { CheckerFinding } from "../findings/finding-model.ts";
 
 /**

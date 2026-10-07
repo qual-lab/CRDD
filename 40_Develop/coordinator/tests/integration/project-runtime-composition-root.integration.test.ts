@@ -15,10 +15,8 @@ import { createHash } from "node:crypto";
 import { initializeProjectRuntimeSnapshot } from "../../src/project-runtime/project-runtime-durable-foundation.ts";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
-import {
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
-  requireReadyRepositoryRuntimeDataArea,
-} from "../../../runtime-data/src/index.ts";
+import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/storage/index.ts";
+import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/repository/index.ts";
 import path from "node:path";
 import { Writable } from "node:stream";
 import test from "node:test";
@@ -37,7 +35,7 @@ import {
   projectRuntimeDataBoundaryBlocked,
   PROJECT_RUNTIME_EXECUTION_INTELLIGENCE_PREFIX,
 } from "../../src/project-runtime/project-runtime-composition-root.ts";
-import { RepositoryRuntimeDataAreaBlockedError } from "../../../runtime-data/src/index.ts";
+import { RepositoryRuntimeDataAreaBlockedError } from "../../../domain-model/src/repository/index.ts";
 import { recordProjectRuntimeExecutionEvent } from "../../src/project-runtime/execution-intelligence-adapter.ts";
 import { createProjectRuntimeWindowsDecisionStoreTestingAdapter } from "../../src/project-runtime/project-runtime-windows-decision-store.ts";
 import {

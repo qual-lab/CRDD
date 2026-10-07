@@ -14,10 +14,8 @@ import os from "node:os";
 import path from "node:path";
 import type { TestContext } from "node:test";
 import test from "node:test";
-import {
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
-  requireReadyRepositoryRuntimeDataArea,
-} from "../../../runtime-data/src/index.ts";
+import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/storage/index.ts";
+import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/repository/index.ts";
 
 import {
   cleanupOwnedOperationDirectories,

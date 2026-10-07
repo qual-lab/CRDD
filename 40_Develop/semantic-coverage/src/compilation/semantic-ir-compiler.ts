@@ -9,7 +9,7 @@ import crypto from "node:crypto";
 import type {
   DomainIssue,
   DomainOutcome,
-} from "../../../crdd-domain-library/src/index.ts";
+} from "../../../domain-model/src/index.ts";
 
 /**
  * Semantic IRへ変換するCanonical文書Snapshotを表す。

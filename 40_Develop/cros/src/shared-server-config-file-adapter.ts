@@ -13,16 +13,14 @@ import { createHash } from "node:crypto";
 import { lstatSync, readFileSync } from "node:fs";
 import path from "node:path";
 
-import {
-  createTopicMeetingApplication,
-  createTopicMeetingRepository,
-  parseRepositoryProjectContextMarkdown,
-  type TopicMeetingApplication,
-} from "../../project-operation/src/index.ts";
+import type { TopicMeetingApplications } from "../../domain-model/src/topic/index.ts";
+import { createTopicApplication } from "../../domain-model/src/topic/index.ts";
+import { createMeetingApplication } from "../../domain-model/src/meeting/index.ts";
+import { parseRepositoryProjectContextMarkdown } from "../../domain-model/src/project-context/index.ts";
 import {
   resolveCrosRuntimeRoots,
   type CrosRootInput,
-} from "../../runtime-data/src/index.ts";
+} from "../../domain-model/src/repository/index.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../version-control/src/index.ts";
 
 import type { CrosExposureSnapshot } from "./remote-transport.ts";
@@ -50,7 +48,7 @@ export type CrosSharedServerOperationalConfig = Readonly<{
   exposureSnapshot: CrosExposureSnapshot;
   resolveTopicMeetingApplication(
     repository: CrosRepository,
-  ): TopicMeetingApplication | null;
+  ): TopicMeetingApplications | null;
 }>;
 
 /**
@@ -95,7 +93,7 @@ export function readCrosSharedServerOperationalConfig(
   const registryRevision = `shared-server-config-${config.revision}`;
   const repositories: CrosRepository[] = [];
   const exposures: CrosExposureSnapshot["exposures"][number][] = [];
-  const applications = new Map<string, TopicMeetingApplication>();
+  const applications = new Map<string, TopicMeetingApplications>();
   const rootsByRepository = new Map<string, string>();
 
   for (const candidate of config.repositories) {
@@ -126,7 +124,10 @@ export function readCrosSharedServerOperationalConfig(
     repositories.push(repository);
     applications.set(
       context.repositoryId,
-      createTopicMeetingApplication(createTopicMeetingRepository(root)),
+      Object.freeze({
+        topic: createTopicApplication(root),
+        meeting: createMeetingApplication(root),
+      }),
     );
     for (const workspaceId of candidate.workspaceIds)
       exposures.push(

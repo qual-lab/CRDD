@@ -16,7 +16,7 @@ import {
   createTemporaryOperation,
   resumeTemporaryOperation,
   settleTemporaryOperation,
-} from "../../../runtime-data/src/index.ts";
+} from "../../../domain-model/src/storage/index.ts";
 import {
   verifyRepositoryRoot,
   type VerifiedRepositoryRoot,

@@ -16,7 +16,7 @@ import test, { type TestContext } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { generateReleaseKeyPair } from "../../scripts/generate-release-key.ts";
-import { ensureRepositoryRuntimeDataArea } from "../../../runtime-data/src/index.ts";
+import { ensureRepositoryRuntimeDataArea } from "../../../domain-model/src/storage/index.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 
 const TEST_PASSPHRASE = "test-only-passphrase-0123456789";

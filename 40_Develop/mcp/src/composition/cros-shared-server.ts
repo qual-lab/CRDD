@@ -27,7 +27,7 @@ import {
   type CrosRuntimeActivityReader,
   type CrosRepository,
 } from "../../../cros/src/index.ts";
-import type { TopicMeetingApplication } from "../../../project-operation/src/index.ts";
+import type { TopicMeetingApplications } from "../../../domain-model/src/topic/index.ts";
 
 import { createCrosProjectContextMcpResolver } from "./cros-project-context-application.ts";
 import { startMcpAuthenticatedStreamableHttp } from "../transports/streamable-http-transport.ts";
@@ -57,7 +57,7 @@ export type CrosSharedServerInput = Readonly<{
   readExposureSnapshot(): CrosExposureSnapshot;
   resolveTopicMeetingApplication?(
     repository: CrosRepository,
-  ): TopicMeetingApplication | null;
+  ): TopicMeetingApplications | null;
   aiProfileAdministration?: AiProfileCatalogAdministration;
   runtimeActivityReader?: CrosRuntimeActivityReader;
 }>;

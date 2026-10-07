@@ -7,13 +7,13 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/storage/index.ts";
+import { readProjectRuntimeConfig } from "../../../domain-model/src/configuration/index.ts";
 import {
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
-  readProjectRuntimeConfig,
   observeRepositoryRuntimeDataArea,
   requireReadyRepositoryRuntimeDataArea,
   resolveRepositoryRuntimeDataPathsFromWorkingDirectory,
-} from "../../../runtime-data/src/index.ts";
+} from "../../../domain-model/src/repository/index.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/repository-location.ts";
 import {
   acquireProjectRuntimeSnapshotPilotLock,

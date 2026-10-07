@@ -12,7 +12,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { ArtifactSchema } from "../../../crdd-domain-library/src/artifact/index.ts";
+import type { ArtifactSchema } from "../../../domain-model/src/artifact/index.ts";
 import { runCheckerPipeline } from "../../src/pipeline/checker-pipeline.ts";
 
 const requirementSchema: ArtifactSchema = Object.freeze({

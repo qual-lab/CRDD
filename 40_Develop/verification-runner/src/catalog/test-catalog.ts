@@ -65,14 +65,12 @@ export type TestCatalogEntry = Readonly<{
     | "artifact-signing"
     | "checker"
     | "coordinator"
-    | "crdd-domain-library"
+    | "domain-model"
     | "cros"
     | "execution-intelligence"
     | "mcp"
     | "official-asset-governance"
-    | "project-operation"
     | "project-runtime"
-    | "runtime-data"
     | "semantic-coverage"
     | "version-control"
     | "platform-access"
@@ -113,14 +111,12 @@ export type TestCatalog = Readonly<{
     "artifact-signing": "node_test";
     checker: "node_test";
     coordinator: "node_test";
-    "crdd-domain-library": "node_test";
+    "domain-model": "node_test";
     cros: "node_test";
     "execution-intelligence": "node_test";
     mcp: "node_test";
     "official-asset-governance": "node_test";
-    "project-operation": "node_test";
     "project-runtime": "node_test";
-    "runtime-data": "node_test";
     "semantic-coverage": "node_test";
     "version-control": "node_test";
     "platform-access": "cargo_test";
@@ -164,14 +160,12 @@ const RUNNER_SUPPORTED_OWNERS = new Set([
   "artifact-signing",
   "checker",
   "coordinator",
-  "crdd-domain-library",
+  "domain-model",
   "cros",
   "execution-intelligence",
   "mcp",
   "official-asset-governance",
-  "project-operation",
   "project-runtime",
-  "runtime-data",
   "semantic-coverage",
   "version-control",
   "platform-access",
@@ -184,14 +178,12 @@ const RUNNER_PROFILES = Object.freeze({
   "artifact-signing": "node_test",
   checker: "node_test",
   coordinator: "node_test",
-  "crdd-domain-library": "node_test",
+  "domain-model": "node_test",
   cros: "node_test",
   "execution-intelligence": "node_test",
   mcp: "node_test",
   "official-asset-governance": "node_test",
-  "project-operation": "node_test",
   "project-runtime": "node_test",
-  "runtime-data": "node_test",
   "semantic-coverage": "node_test",
   "version-control": "node_test",
   "platform-access": "cargo_test",
@@ -353,14 +345,12 @@ export function discoverRepositoryTestFiles(repositoryRoot: string): string[] {
     "artifact-signing",
     "checker",
     "coordinator",
-    "crdd-domain-library",
+    "domain-model",
     "cros",
     "execution-intelligence",
     "mcp",
     "official-asset-governance",
-    "project-operation",
     "project-runtime",
-    "runtime-data",
     "semantic-coverage",
     "version-control",
     "verification-runner",
@@ -424,7 +414,7 @@ function isTestLevel(value: unknown): value is TestLevel {
  */
 function expectedNodeLevel(entryPath: string): string | null {
   return (
-    /^40_Develop\/(?:ai-runtime|artifact-signing|checker|coordinator|crdd-domain-library|cros|execution-intelligence|mcp|official-asset-governance|project-operation|project-runtime|runtime-data|semantic-coverage|verification-runner|version-control|visual-preview|workbench)\/tests\/([^/]+)\//u.exec(
+    /^40_Develop\/(?:ai-runtime|artifact-signing|checker|coordinator|domain-model|cros|execution-intelligence|mcp|official-asset-governance|project-runtime|semantic-coverage|verification-runner|version-control|visual-preview|workbench)\/tests\/([^/]+)\//u.exec(
       entryPath,
     )?.[1] ?? null
   );
@@ -1057,19 +1047,15 @@ function ownerForPath(changedPath: string): TestCatalogEntry["owner"] | null {
     return "verification-runner";
   if (changedPath.startsWith("40_Develop/visual-preview/"))
     return "visual-preview";
-  if (changedPath.startsWith("40_Develop/crdd-domain-library/"))
-    return "crdd-domain-library";
+  if (changedPath.startsWith("40_Develop/domain-model/")) return "domain-model";
   if (changedPath.startsWith("40_Develop/cros/")) return "cros";
   if (changedPath.startsWith("40_Develop/execution-intelligence/"))
     return "execution-intelligence";
   if (changedPath.startsWith("40_Develop/mcp/")) return "mcp";
   if (changedPath.startsWith("40_Develop/official-asset-governance/"))
     return "official-asset-governance";
-  if (changedPath.startsWith("40_Develop/project-operation/"))
-    return "project-operation";
   if (changedPath.startsWith("40_Develop/project-runtime/"))
     return "project-runtime";
-  if (changedPath.startsWith("40_Develop/runtime-data/")) return "runtime-data";
   if (changedPath.startsWith("40_Develop/semantic-coverage/"))
     return "semantic-coverage";
   if (changedPath.startsWith("40_Develop/version-control/"))

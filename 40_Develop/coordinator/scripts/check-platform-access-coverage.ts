@@ -8,10 +8,8 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import {
-  ensureRepositoryRuntimeDataArea,
-  requireReadyRepositoryRuntimeDataArea,
-} from "../../runtime-data/src/index.ts";
+import { ensureRepositoryRuntimeDataArea } from "../../domain-model/src/storage/index.ts";
+import { requireReadyRepositoryRuntimeDataArea } from "../../domain-model/src/repository/index.ts";
 import { verifyRepositoryRoot } from "../../version-control/src/repository-location.ts";
 import {
   assertCoverageRunRoot,

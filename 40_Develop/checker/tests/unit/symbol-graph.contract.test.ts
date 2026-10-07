@@ -14,7 +14,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import type { LoadedRealitySymbolManifest } from "../../../crdd-domain-library/src/reality-traceability/index.ts";
+import type { LoadedRealitySymbolManifest } from "../../../domain-model/src/reality-traceability/index.ts";
 import {
   readRegisteredRealityTests,
   readRegisteredRealityTestsFromRepository,

@@ -26,11 +26,11 @@ import {
   createLegacyRuntimeInventories as createInventories,
   createLegacyRuntimeInventoriesFromObservation,
 } from "../../src/migrations/legacy-runtime-inventory.ts";
-import { validateRealitySymbolManifest as validateDomainRealitySymbolManifest } from "../../../crdd-domain-library/src/reality-traceability/index.ts";
+import { validateRealitySymbolManifest as validateDomainRealitySymbolManifest } from "../../../domain-model/src/reality-traceability/index.ts";
 import {
   createFilesystemRepositoryObservationPort,
   observeRealitySymbolRepository,
-} from "../../../crdd-domain-library/src/repository-observation/index.ts";
+} from "../../../domain-model/src/repository/index.ts";
 
 const checkerRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),

@@ -7,7 +7,7 @@
 import {
   createFilesystemRepositoryObservationPort,
   type RepositoryObservationPort,
-} from "../../../crdd-domain-library/src/repository-observation/index.ts";
+} from "../../../domain-model/src/repository/index.ts";
 import type { VerifiedRepositoryRoot } from "../../../version-control/src/repository-identity/index.ts";
 
 import type { CheckerRealityFinding } from "./reality-traceability.ts";

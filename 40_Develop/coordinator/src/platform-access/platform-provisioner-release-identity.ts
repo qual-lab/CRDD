@@ -21,7 +21,7 @@ import {
 import {
   EXTERNAL_SEND_POLICY_RELATIVE_PATH,
   REPOSITORY_MANIFEST_RELATIVE_PATH,
-} from "../../../runtime-data/src/index.ts";
+} from "../../../domain-model/src/configuration/index.ts";
 import {
   beginPlatformAccessArtifactSigningObservation,
   PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,

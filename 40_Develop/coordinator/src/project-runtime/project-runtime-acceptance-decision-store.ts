@@ -13,10 +13,8 @@ import type {
   ProjectRuntimeAcceptanceDecisionStore,
   ProjectRuntimePortResult,
 } from "../../../project-runtime/src/index.ts";
-import {
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
-  requireReadyRepositoryRuntimeDataArea,
-} from "../../../runtime-data/src/index.ts";
+import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/storage/index.ts";
+import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/repository/index.ts";
 
 export const PROJECT_RUNTIME_ACCEPTANCE_DECISION_STORE_CONTRACT =
   "crdd-coordinator/project-runtime-acceptance-decision-store/v1" as const;

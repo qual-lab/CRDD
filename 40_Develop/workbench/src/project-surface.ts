@@ -12,15 +12,19 @@ import { readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
 
 import {
+  parseTopicMarkdown,
+  type TopicRecord,
+} from "../../domain-model/src/topic/index.ts";
+import {
+  parseMeetingMarkdown,
+  type MeetingRecord,
+} from "../../domain-model/src/meeting/index.ts";
+import {
   parseRepositoryProjectContextMarkdown,
   parseRepositoryQualityProjectionMarkdown,
   parseRepositoryReleaseProjectionMarkdown,
-  parseMeetingMarkdown,
-  parseTopicMarkdown,
-  type MeetingRecord,
   type RepositoryProjectContext,
-  type TopicRecord,
-} from "../../project-operation/src/index.ts";
+} from "../../domain-model/src/project-context/index.ts";
 import { gitLocalChangeSetAdapter } from "../../version-control/src/git/local-change-set-adapter.ts";
 import { gitChangePublicationTargetObservationAdapter } from "../../version-control/src/git/change-publication-adapter.ts";
 import {

@@ -8,11 +8,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
+import { ensureRepositoryRuntimeDataArea } from "../../domain-model/src/storage/index.ts";
 import {
-  ensureRepositoryRuntimeDataArea,
   RepositoryRuntimeDataAreaBlockedError,
   requireReadyRepositoryRuntimeDataArea,
-} from "../../runtime-data/src/index.ts";
+} from "../../domain-model/src/repository/index.ts";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,

@@ -19,10 +19,8 @@ import path from "node:path";
 import test from "node:test";
 import { pathToFileURL } from "node:url";
 import { compileFunction, runInNewContext } from "node:vm";
-import {
-  ensureRepositoryRuntimeDataArea,
-  resolveRepositoryRuntimeDataPaths,
-} from "../../../runtime-data/src/index.ts";
+import { ensureRepositoryRuntimeDataArea } from "../../../domain-model/src/storage/index.ts";
+import { resolveRepositoryRuntimeDataPaths } from "../../../domain-model/src/repository/index.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import {
   type HostTerminalCheckpointPreparation,

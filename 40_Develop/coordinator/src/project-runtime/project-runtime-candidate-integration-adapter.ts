@@ -13,10 +13,8 @@ import type {
   ProjectRuntimeState,
 } from "../../../project-runtime/src/index.ts";
 
-import {
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
-  resolveRepositoryRuntimeDataPathsFromWorkingDirectory,
-} from "../../../runtime-data/src/index.ts";
+import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/storage/index.ts";
+import { resolveRepositoryRuntimeDataPathsFromWorkingDirectory } from "../../../domain-model/src/repository/index.ts";
 import {
   materializeFixedSnapshotCandidate,
   verifyCandidateOutputDirectory,

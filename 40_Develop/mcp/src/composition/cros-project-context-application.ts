@@ -25,9 +25,9 @@ import {
 } from "../../../cros/src/index.ts";
 import type {
   ProjectOperationRecordKind,
-  TopicMeetingApplication,
+  TopicMeetingApplications,
   TopicMeetingRelation,
-} from "../../../project-operation/src/index.ts";
+} from "../../../domain-model/src/topic/index.ts";
 
 import { handleMcpApplicationRequest } from "../adapters/application-adapter.ts";
 import type { McpAuthenticatedRequestHandlerResolver } from "../transports/request-handler.ts";
@@ -46,7 +46,7 @@ import type { McpAuthenticatedRequestHandlerResolver } from "../transports/reque
 
 type AuthorizedTopicMeetingApplication = Readonly<{
   repository: CrosRepository;
-  application: TopicMeetingApplication;
+  application: TopicMeetingApplications;
 }>;
 
 /**
@@ -70,33 +70,59 @@ type AuthorizedTopicMeetingApplication = Readonly<{
 function federateTopicMeetingRelations(
   source: AuthorizedTopicMeetingApplication,
   authorizedApplications: readonly AuthorizedTopicMeetingApplication[],
-): TopicMeetingApplication {
-  return Object.freeze({
-    ...source.application,
-    relations: (
-      kind: ProjectOperationRecordKind,
-      id: string,
-    ): readonly TopicMeetingRelation[] =>
-      Object.freeze(
-        source.application.relations(kind, id).map((relation) => {
-          const owners = authorizedApplications.filter((candidate) =>
-            candidate.application.hasRelationTarget(relation.kind, relation.id),
-          );
-          if (owners.length === 1)
-            return Object.freeze({
-              ...relation,
-              state: "available" as const,
-              ownerRepositoryId: owners[0]?.repository.repositoryId ?? "",
-            });
+): TopicMeetingApplications {
+  /**
+   * 認可済み集合だけで固定種別のRelationを解決する。
+   *
+   * @responsibility 既存の一意・非観測・競合判定を両公開面へ同じ規則で適用する。
+   * @trace ARCH-000013
+   * @input kind: 固定種別、id: Source成果物ID。
+   * @returns 許可済みOwnerだけを参照するRelation集合。
+   * @precondition Application集合は同じRequestの認可済みSnapshotである。
+   * @postcondition 非許可Repositoryを結果へ含めない。
+   * @effect Relation対象の存在を読取るだけで書込みを発行しない。
+   * @failure 所有者不存在はunavailable、複数はconflictingとして保持する。
+   * @invariant Source本文と書込み先を変更しない。
+   * @boundary CROS認可集合とDomain Model読取り境界。
+   * @security 許可集合外の対象を探索しない。
+   * @concurrency 同じRequest固定集合だけを利用する。
+   */
+  const relations = (
+    kind: ProjectOperationRecordKind,
+    id: string,
+  ): readonly TopicMeetingRelation[] =>
+    Object.freeze(
+      source.application[kind].relations(id).map((relation) => {
+        const owners = authorizedApplications.filter((candidate) =>
+          candidate.application[kind].hasRelationTarget(
+            relation.kind,
+            relation.id,
+          ),
+        );
+        if (owners.length === 1)
           return Object.freeze({
             ...relation,
-            state:
-              owners.length === 0
-                ? ("unavailable" as const)
-                : ("conflicting" as const),
+            state: "available" as const,
+            ownerRepositoryId: owners[0]?.repository.repositoryId ?? "",
           });
-        }),
-      ),
+        return Object.freeze({
+          ...relation,
+          state:
+            owners.length === 0
+              ? ("unavailable" as const)
+              : ("conflicting" as const),
+        });
+      }),
+    );
+  return Object.freeze({
+    topic: Object.freeze({
+      ...source.application.topic,
+      relations: (id: string) => relations("topic", id),
+    }),
+    meeting: Object.freeze({
+      ...source.application.meeting,
+      relations: (id: string) => relations("meeting", id),
+    }),
   });
 }
 
@@ -123,7 +149,7 @@ export function createCrosProjectContextMcpResolver(input: {
   readExposureSnapshot(): CrosExposureSnapshot;
   resolveTopicMeetingApplication?(
     repository: CrosRepository,
-  ): TopicMeetingApplication | null;
+  ): TopicMeetingApplications | null;
 }): McpAuthenticatedRequestHandlerResolver {
   return (token) => {
     const authentication = authenticateConnectionCredential(

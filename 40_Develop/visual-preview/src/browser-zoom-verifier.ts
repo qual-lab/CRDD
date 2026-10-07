@@ -12,10 +12,8 @@ import { createConnection } from "node:net";
 import path from "node:path";
 import { promisify } from "node:util";
 
-import {
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
-  requireReadyRepositoryRuntimeDataArea,
-} from "../../runtime-data/src/index.ts";
+import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../domain-model/src/storage/index.ts";
+import { requireReadyRepositoryRuntimeDataArea } from "../../domain-model/src/repository/index.ts";
 import {
   type VisualPreviewHandle,
   startVisualPreview,

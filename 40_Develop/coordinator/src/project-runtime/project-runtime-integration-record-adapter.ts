@@ -15,7 +15,7 @@ import {
 import {
   observeRepositoryRuntimeDataArea,
   resolveRepositoryRuntimeDataPathsFromWorkingDirectory,
-} from "../../../runtime-data/src/index.ts";
+} from "../../../domain-model/src/repository/index.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/repository-location.ts";
 import { readStableBoundedFileSnapshot } from "../state-storage/bounded-file-snapshot.ts";
 

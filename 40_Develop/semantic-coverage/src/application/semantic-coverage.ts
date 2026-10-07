@@ -14,9 +14,9 @@ import {
   createSemanticCoverageGraph as createDomainSemanticCoverageGraph,
   type SemanticCoverageGraph,
 } from "../coverage/index.ts";
-import type { LoadedRealitySymbolManifest } from "../../../crdd-domain-library/src/reality-traceability/index.ts";
-import type { DomainIssue } from "../../../crdd-domain-library/src/index.ts";
-import { createFilesystemRepositoryObservationPort } from "../../../crdd-domain-library/src/repository-observation/index.ts";
+import type { LoadedRealitySymbolManifest } from "../../../domain-model/src/reality-traceability/index.ts";
+import type { DomainIssue } from "../../../domain-model/src/index.ts";
+import { createFilesystemRepositoryObservationPort } from "../../../domain-model/src/repository/index.ts";
 import type { VerifiedRepositoryRoot } from "../../../version-control/src/repository-identity/index.ts";
 
 /**

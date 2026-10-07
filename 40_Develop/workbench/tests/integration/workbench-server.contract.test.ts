@@ -56,10 +56,8 @@ import {
   type CrosRuntimeActivityReader,
   type RequestAccessContext,
 } from "../../../cros/src/index.ts";
-import {
-  createTopicMeetingApplication,
-  createTopicMeetingRepository,
-} from "../../../project-operation/src/index.ts";
+import { createTopicApplication } from "../../../domain-model/src/topic/index.ts";
+import { createMeetingApplication } from "../../../domain-model/src/meeting/index.ts";
 import {
   createCrosProjectContextMcpResolver,
   startMcpAuthenticatedStreamableHttp,
@@ -1548,11 +1546,17 @@ test("Remote Workbenchは明示RepositoryのTopicをMCP経由で表示・更新�
   const applications = new Map([
     [
       "REMOTE-DEV",
-      createTopicMeetingApplication(createTopicMeetingRepository(devRoot)),
+      Object.freeze({
+        topic: createTopicApplication(devRoot),
+        meeting: createMeetingApplication(devRoot),
+      }),
     ],
     [
       "REMOTE-MGMT",
-      createTopicMeetingApplication(createTopicMeetingRepository(mgmtRoot)),
+      Object.freeze({
+        topic: createTopicApplication(mgmtRoot),
+        meeting: createMeetingApplication(mgmtRoot),
+      }),
     ],
   ]);
   const remote = await startCrosRemoteTransport({

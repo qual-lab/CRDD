@@ -8,12 +8,12 @@ import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { types as utilTypes } from "node:util";
+import { ensureRepositoryRuntimeDataArea } from "../../domain-model/src/storage/index.ts";
 import {
-  ensureRepositoryRuntimeDataArea,
   RepositoryRuntimeDataAreaBlockedError,
   requireReadyRepositoryRuntimeDataArea,
-  TESTS_RELATIVE_PATH,
-} from "../../runtime-data/src/index.ts";
+} from "../../domain-model/src/repository/index.ts";
+import { TESTS_RELATIVE_PATH } from "../../domain-model/src/configuration/index.ts";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,

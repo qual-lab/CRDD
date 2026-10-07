@@ -7,7 +7,7 @@
 import { createHash } from "node:crypto";
 import type { Writable } from "node:stream";
 import type { ProjectRuntimeExecutionPublicationObservation } from "../../../project-runtime/src/index.ts";
-import { RepositoryRuntimeDataAreaBlockedError } from "../../../runtime-data/src/index.ts";
+import { RepositoryRuntimeDataAreaBlockedError } from "../../../domain-model/src/repository/index.ts";
 import {
   createProjectRuntimeObjectiveResult,
   inspectProjectRuntimeDecisionRequest,

@@ -712,4 +712,10 @@ Coordinator詳細設計に、現在状態の閉集合、保存途中の再入場
 
 人間との確認に基づく親フォルダ統合・AI固有処理分離・CROS REST／Gateway廃止・Native内部整理を、同じCHGの責務再編として扱う。[対応案と完了計画](./Evidence/261007_develop-responsibility-mapping.md#23-責務再編を完了させる計画)に、全能力・File照合、ARCH基本設計、Details／Quality、設計独立確認、依存順の実装、全体回帰・Reality Audit、固定候補署名E2E、完了判定の順序とGateを記録した。計画はCommit `3389345e`と後続具体化案を基準とする。
 
-現在は計画・調査段階で、Architecture正本・Source移管は未着手。既存Snapshot／回復縮小等の未完了義務は対応付けて維持し、この計画で解消済み・全体Pass・Release可能とは表示しない。PR統合・Release判断は別に保持する。
+計画作成時点ではArchitecture正本・Source移管は未着手だった。既存Snapshot／回復縮小等の未完了義務は対応付けて維持し、この計画だけで解消済み・全体Pass・Release可能とは表示しない。PR統合・Release判断は別に保持する。
+
+### 責務再編の現在地 — 2026-10-08
+
+段階1〜4と段階5AのDomain Model統合・局所検証は完了した。旧三Packageの責務を用途別公開入口へ移し、利用側・Symbol・試験Catalog・配布閉包を接続した。Domain全105試験、Coordinator公開静的検査、移管Graph反証5試験に加え、旧配置Fixtureと署名反証の空振りを是正した配布閉包全133契約が成功した。全体回帰・固定Source独立レビュー・実署名E2Eの完了ではない。次は段階5BのAI Adapter／Platform Access再編を進める。[計画と検証範囲](Evidence/261007_develop-responsibility-mapping.md)を正本とする。
+
+段階5B〜F、全親フォルダのFile名・責務・配置精査、段階6〜8は未完了である。局所成功や設計独立確認を、全Sourceの独立レビュー・実E2E・Release準備完了へ拡張しない。

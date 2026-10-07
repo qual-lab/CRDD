@@ -11,7 +11,7 @@
 
 import { createInterface } from "node:readline/promises";
 
-import type { CrosRootInput } from "../../runtime-data/src/index.ts";
+import type { CrosRootInput } from "../../domain-model/src/repository/index.ts";
 import {
   runCredentialAccessRecoveryCli,
   type CredentialAccessRecoveryCliIo,

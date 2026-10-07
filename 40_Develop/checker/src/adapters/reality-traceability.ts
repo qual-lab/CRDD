@@ -4,14 +4,14 @@
  * @responsibility CheckerRealityFindingを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000001
  */
-import type { DomainIssue } from "../../../crdd-domain-library/src/index.ts";
+import type { DomainIssue } from "../../../domain-model/src/index.ts";
 import {
   createRealitySymbolGraph as createDomainRealitySymbolGraph,
   type LoadedRealitySymbolManifest,
   type RealitySymbolGraph,
   validateRealitySymbolManifest as validateDomainRealitySymbolManifest,
-} from "../../../crdd-domain-library/src/reality-traceability/index.ts";
-import { observeRealitySymbolRepository } from "../../../crdd-domain-library/src/repository-observation/index.ts";
+} from "../../../domain-model/src/reality-traceability/index.ts";
+import { observeRealitySymbolRepository } from "../../../domain-model/src/repository/index.ts";
 import type { VerifiedRepositoryRoot } from "../../../version-control/src/repository-identity/index.ts";
 
 /**

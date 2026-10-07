@@ -310,9 +310,9 @@ function runNpmScript(
  *
  * @responsibility Node Testsの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000003
- * @input owner: | "artifact-signing" | "checker" | "coordinator" | "crdd-domain-library" | "execution-intelligence" | "mcp" | "project-runtime" | "runtime-data" | "semantic-coverage" | "version-control" | "verification-runner"、entries: readonly TestCatalogEntry[]、options: Readonly<{ testNamePattern?: string; testSkipPattern?: string; }>
+ * @input owner: | "artifact-signing" | "checker" | "coordinator" | "domain-model" | "execution-intelligence" | "mcp" | "project-runtime" | "semantic-coverage" | "version-control" | "verification-runner"、entries: readonly TestCatalogEntry[]、options: Readonly<{ testNamePattern?: string; testSkipPattern?: string; }>
  * @returns numberを返す。
- * @precondition 「owner: | "artifact-signing" | "checker" | "coordinator" | "crdd-domain-library" | "execution-intelligence" | "mcp" | "project-runtime" | "runtime-data" | "semantic-coverage" | "version-control" | "verification-runner"、entries: readonly TestCatalogEntry[]、options: Readonly<{ testNamePattern?: string; testSkipPattern?: string; }>」がrunNodeTestsの入力契約を満たす。
+ * @precondition 「owner: | "artifact-signing" | "checker" | "coordinator" | "domain-model" | "execution-intelligence" | "mcp" | "project-runtime" | "semantic-coverage" | "version-control" | "verification-runner"、entries: readonly TestCatalogEntry[]、options: Readonly<{ testNamePattern?: string; testSkipPattern?: string; }>」がrunNodeTestsの入力契約を満たす。
  * @postcondition runNodeTestsの責務を完了した結果だけを返す。
  * @effect runNodeTestsは外部ProcessまたはRuntime境界の操作を呼び出す。
  * @failure N/A: runNodeTestsは独自の失敗分岐を所有しない。
@@ -326,11 +326,10 @@ function runNodeTests(
     | "artifact-signing"
     | "checker"
     | "coordinator"
-    | "crdd-domain-library"
+    | "domain-model"
     | "execution-intelligence"
     | "mcp"
     | "project-runtime"
-    | "runtime-data"
     | "semantic-coverage"
     | "version-control"
     | "verification-runner",
@@ -450,10 +449,9 @@ function runStaticStage(
   }
   for (const owner of [
     "artifact-signing",
-    "crdd-domain-library",
+    "domain-model",
     "mcp",
     "project-runtime",
-    "runtime-data",
     "semantic-coverage",
     "version-control",
   ] as const)
@@ -506,11 +504,10 @@ function runLevelStage(
     "artifact-signing",
     "checker",
     "coordinator",
-    "crdd-domain-library",
+    "domain-model",
     "execution-intelligence",
     "mcp",
     "project-runtime",
-    "runtime-data",
     "semantic-coverage",
     "version-control",
     "verification-runner",
@@ -619,7 +616,6 @@ export function runRegression(
           "40_Develop/execution-intelligence/package.json",
           "40_Develop/mcp/package.json",
           "40_Develop/project-runtime/package.json",
-          "40_Develop/runtime-data/package.json",
           "40_Develop/version-control/package.json",
           "40_Develop/platform-access/Cargo.toml",
         ]

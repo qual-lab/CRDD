@@ -21,15 +21,15 @@ import {
 import type { Socket } from "node:net";
 import path from "node:path";
 
-import {
-  createTopicMeetingApplication,
-  createTopicMeetingRepository,
-  type MeetingOutcomeCommandResult,
-  type TopicMeetingListQuery,
-  type TopicMeetingPage,
-  type TopicPromotionCommandResult,
-  type TopicMeetingWriteResult,
-} from "../../project-operation/src/index.ts";
+import type {
+  TopicMeetingListQuery,
+  TopicMeetingPage,
+  TopicPromotionCommandResult,
+  TopicMeetingWriteResult,
+} from "../../domain-model/src/topic/index.ts";
+import { createTopicApplication } from "../../domain-model/src/topic/index.ts";
+import type { MeetingOutcomeCommandResult } from "../../domain-model/src/meeting/index.ts";
+import { createMeetingApplication } from "../../domain-model/src/meeting/index.ts";
 import {
   executeRemoteAiProfileMutation,
   listConnectionCredentials,
@@ -807,9 +807,10 @@ export async function startWorkbench(
   const runtimeActivityApplication =
     request.runtimeActivityApplication ??
     createRepositoryWorkbenchRuntimeActivityApplication(repositoryRoot);
-  const topicMeeting = createTopicMeetingApplication(
-    createTopicMeetingRepository(repositoryRoot),
-  );
+  const topicMeeting = Object.freeze({
+    topic: createTopicApplication(repositoryRoot),
+    meeting: createMeetingApplication(repositoryRoot),
+  });
   let remoteConnection: WorkbenchRemoteConnection | undefined =
     request.remoteConnection;
   const credentialAdministration = request.credentialAdministration;
@@ -940,27 +941,24 @@ export async function startWorkbench(
               ),
             );
           } else if (operation === "create") {
-            topicMeetingResult = topicMeeting.create(
-              kind,
+            topicMeetingResult = topicMeeting[kind].create(
               form.get("markdown") ?? "",
             );
           } else if (operation === "update") {
-            topicMeetingResult = topicMeeting.update({
-              kind,
+            topicMeetingResult = topicMeeting[kind].update({
               id: form.get("id") ?? "",
               expectedRevision: Number(form.get("expectedRevision")),
               markdown: form.get("markdown") ?? "",
             });
           } else if (operation === "delete") {
-            topicMeetingResult = topicMeeting.delete({
-              kind,
+            topicMeetingResult = topicMeeting[kind].delete({
               id: form.get("id") ?? "",
               expectedRevision: Number(form.get("expectedRevision")),
               confirmed: form.get("confirmed") === "true",
               reason: "mistaken_registration",
             });
           } else if (operation === "treat-outcome" && kind === "meeting") {
-            const outcome = topicMeeting.treatMeetingOutcome({
+            const outcome = topicMeeting.meeting.treatMeetingOutcome({
               meetingId: form.get("id") ?? "",
               expectedRevision: Number(form.get("expectedRevision")),
               outcomeId: form.get("outcomeId") ?? "",
@@ -989,7 +987,7 @@ export async function startWorkbench(
               relationPaths: Object.freeze([]),
             });
           } else if (operation === "promote-topic" && kind === "topic") {
-            const promotion = topicMeeting.promoteTopic({
+            const promotion = topicMeeting.topic.promoteTopic({
               topicId: form.get("id") ?? "",
               expectedRevision: Number(form.get("expectedRevision")),
               changeId: form.get("changeId") ?? "",
@@ -1472,16 +1470,17 @@ export async function startWorkbench(
         let topicPage: TopicMeetingPage;
         let meetingPage: TopicMeetingPage;
         let topicMeetingReader: WorkbenchTopicMeetingDocumentReader =
-          topicMeeting;
+          Object.freeze({
+            getDocument: (kind, id) => topicMeeting[kind].getDocument(id),
+            relations: (kind, id) => topicMeeting[kind].relations(id),
+          });
         if (remoteConnection === undefined) {
-          topicPage = topicMeeting.list({
-            kind: "topic",
+          topicPage = topicMeeting.topic.list({
             ...(topicCursor === null ? {} : { cursor: topicCursor }),
             limit: 20,
             query: topicQuery,
           });
-          meetingPage = topicMeeting.list({
-            kind: "meeting",
+          meetingPage = topicMeeting.meeting.list({
             ...(meetingCursor === null ? {} : { cursor: meetingCursor }),
             limit: 20,
             query: meetingQuery,
@@ -1686,14 +1685,14 @@ export async function startWorkbench(
           let recordView: WorkbenchRecordDocumentView | null = null;
           if (expectedPattern.test(id)) {
             if (remoteConnection === undefined) {
-              const document = topicMeeting.getDocument(kind, id);
+              const document = topicMeeting[kind].getDocument(id);
               if (document !== null)
                 recordView = Object.freeze({
                   kind,
                   id,
                   document,
                   relations: Object.freeze([
-                    ...topicMeeting.relations(kind, id),
+                    ...topicMeeting[kind].relations(id),
                   ]),
                 });
             } else if (

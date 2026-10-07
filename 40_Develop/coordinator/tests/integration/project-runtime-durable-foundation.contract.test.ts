@@ -58,10 +58,8 @@ import {
   type ProjectRuntimeAcceptanceDecisionRecord,
   type ProjectRuntimeDecisionRecoveryIntent,
 } from "../../../project-runtime/src/index.ts";
-import {
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
-  requireReadyRepositoryRuntimeDataArea,
-} from "../../../runtime-data/src/index.ts";
+import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/storage/index.ts";
+import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/repository/index.ts";
 import { acquireRuntimeOwnedProjectRuntimeStateKernelLock } from "../../src/host-runtime/candidate-store-kernel-lock.ts";
 
 const MAX_RECORD_BYTES = 16 * 1024 * 1024;

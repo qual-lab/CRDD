@@ -49,13 +49,11 @@ export function withUnsignedRuntimeFixture<T>(verify: (root: string) => T): T {
       "ai-runtime",
       "artifact-signing",
       "coordinator",
-      "crdd-domain-library",
+      "domain-model",
       "cros",
       "mcp",
-      "project-operation",
       "project-runtime",
       "execution-intelligence",
-      "runtime-data",
       "version-control",
     ]);
     const entries = execFileSync("git", ["ls-files", "-z", "40_Develop"], {

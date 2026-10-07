@@ -104,29 +104,44 @@ async function runNativeTerminalNamespace(): Promise<void> {
       sources.push(path.join(directory, file).replaceAll("\\", "/"));
   }
   const sourceBefore = sources.map(inputIdentity);
-  const build = spawnSync(
-    "cargo",
-    [
-      "+1.94.1-x86_64-pc-windows-msvc",
-      "test",
-      "--manifest-path",
-      crate + "/Cargo.toml",
-      "--locked",
-      "--no-run",
-      "--target",
-      "x86_64-pc-windows-msvc",
-      "--target-dir",
-      target,
-      "--message-format=json",
-    ],
-    {
-      cwd: repository,
-      encoding: "utf8",
-      timeout: 120000,
-      maxBuffer: 8 * 1024 * 1024,
-      windowsHide: true,
-    },
-  );
+  /**
+   * 固定終端namespace試験の実行物をCargo出力として取得する。
+   *
+   * @responsibility 固定toolchain・target・共有Build Rootのno-run起動だけを所有する。
+   * @trace ERB-IT-001
+   * @precondition 親がRepository、入力集合とBuild Rootを検証済みである。
+   * @stimulus 現行の固定Cargo test引数を同期要求する。
+   * @observation 起動Error、終了値と構造化artifact出力。
+   * @oracle 親が成功終了と一意な試験実行物を検査する。
+   * @cleanup 親の入力不変・Directory同一性とrun保持契約に従う。
+   * @boundary Nodeから固定Cargoへの検証専用境界。Native試験はここでは起動しない。
+   */
+  function buildNativeTerminalNamespaceArtifact() {
+    return spawnSync(
+      "cargo",
+      [
+        "+1.94.1-x86_64-pc-windows-msvc",
+        "test",
+        "--manifest-path",
+        crate + "/Cargo.toml",
+        "--locked",
+        "--no-run",
+        "--target",
+        "x86_64-pc-windows-msvc",
+        "--target-dir",
+        target,
+        "--message-format=json",
+      ],
+      {
+        cwd: repository,
+        encoding: "utf8",
+        timeout: 120000,
+        maxBuffer: 8 * 1024 * 1024,
+        windowsHide: true,
+      },
+    );
+  }
+  const build = buildNativeTerminalNamespaceArtifact();
   assert.equal(build.error, undefined);
   assert.equal(build.status, 0);
   const artifacts = build.stdout

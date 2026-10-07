@@ -9,7 +9,7 @@
  * @effect N/A: 検証済みSnapshotから読取り専用Projectionだけを生成する。
  * @security Grant外RepositoryのIdentity、存在および件数を結果へ含めない。
  */
-import type { RepositoryProjectContext } from "../../project-operation/src/index.ts";
+import type { RepositoryProjectContext } from "../../domain-model/src/project-context/index.ts";
 
 import type { CrosExposure, CrosRepository, CrosSession } from "./runtime.ts";
 

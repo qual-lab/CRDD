@@ -27,7 +27,7 @@ import {
   resolveCrosRuntimeRoots,
   resolveRepositoryRuntimeDataPathsFromWorkingDirectory,
   type CrosRootInput,
-} from "../../runtime-data/src/index.ts";
+} from "../../domain-model/src/repository/index.ts";
 import {
   DEFAULT_AI_PROFILE_CATALOG,
   validateAiProfileCatalog,

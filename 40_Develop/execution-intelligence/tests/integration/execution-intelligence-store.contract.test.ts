@@ -18,7 +18,7 @@ import fs from "node:fs";
 
 import path from "node:path";
 import test from "node:test";
-import { ensureRepositoryRuntimeDataArea } from "../../../runtime-data/src/index.ts";
+import { ensureRepositoryRuntimeDataArea } from "../../../domain-model/src/storage/index.ts";
 
 import {
   createExecutionIntelligenceRecorder,

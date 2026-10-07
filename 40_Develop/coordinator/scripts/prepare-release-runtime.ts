@@ -16,7 +16,7 @@ import {
   settleTemporaryOperation,
   type TemporaryOperationCapability,
   type TemporaryOperationRecoveryReference,
-} from "../../runtime-data/src/index.ts";
+} from "../../domain-model/src/storage/index.ts";
 import {
   materializeFixedSnapshotCandidate,
   verifyCandidateOutputDirectory,

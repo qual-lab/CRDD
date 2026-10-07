@@ -12,7 +12,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { parseRepositoryProjectContextMarkdown } from "../../../project-operation/src/index.ts";
+import { parseRepositoryProjectContextMarkdown } from "../../../domain-model/src/project-context/index.ts";
 import {
   createMemoryConnectionCredentialRegistry,
   issueConnectionCredential,

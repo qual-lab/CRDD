@@ -8,7 +8,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { verifyRepositoryRoot } from "../../version-control/src/repository-identity/index.ts";
-import { observeRealitySymbolRepository } from "../../crdd-domain-library/src/repository-observation/index.ts";
+import { observeRealitySymbolRepository } from "../../domain-model/src/repository/index.ts";
 import {
   compileQualitySemanticRelationsFromRepository,
   compileSemanticIrFromRepository,

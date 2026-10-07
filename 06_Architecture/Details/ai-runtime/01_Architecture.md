@@ -163,6 +163,8 @@ DirectoryはProviderまたは具体責務を表し、`internal/`、`application/
 
 Contract文字列、改訂値、理由値、固定CLI配布IdentityはFolder改名だけで変更しない。計画・変換が混在する既存Fileは責務単位で分割し、共通Packet／GrantをProvider側へ移さない。新Providerを予測したPlugin Registryや動的実行Frameworkは作らず、現在のCodex／Claudeの二つ目の具象から共通契約を固定する。
 
+Codex／Claude計画が利用する共通Record入力防御は、[Domain ModelのPlain Data公開契約](../crdd-domain-library/01_Architecture.md#33-capability別の公開契約)へ直接依存する。Coordinator内の実装を逆importせず、Provider側にもコピーしない。共通防御はRecord／Arrayの浅い検査と所有Snapshot化だけを所有し、Profile Store、Authority、Process・Docker・回復へ依存しない。既存の返却値と負例を維持し、Provider入力の個別契約と共通防御を混同しない。
+
 ### 7.2. 実行・取消・失敗の接続
 
 | 境界 | AI Adapter | Coordinator／利用側 |

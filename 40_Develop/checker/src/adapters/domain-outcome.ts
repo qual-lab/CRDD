@@ -10,7 +10,7 @@ import {
   type DomainIssue,
   type DomainOutcome,
   validateDomainOutcome,
-} from "../../../crdd-domain-library/src/index.ts";
+} from "../../../domain-model/src/index.ts";
 
 /**
  * Checkerへ変換済みのDomain Outcomeを表す。

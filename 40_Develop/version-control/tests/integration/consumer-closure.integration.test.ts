@@ -123,7 +123,7 @@ test("保護対象Runtimeは公開barrelやVersion Control内部実装を依存�
   const protectedRoots = [
     path.join(developRoot, "coordinator", "src"),
     path.join(developRoot, "coordinator", "scripts"),
-    path.join(developRoot, "runtime-data", "src"),
+    path.join(developRoot, "domain-model", "src"),
     path.join(developRoot, "execution-intelligence", "src"),
   ];
   const sources = protectedRoots
@@ -313,7 +313,8 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
       "40_Develop/coordinator/src/state-storage/coordinator-state-runtime.ts",
       "40_Develop/cros/src/shared-server-config-file-adapter.ts",
       "40_Develop/execution-intelligence/src/store/verified-repository-root.ts",
-      "40_Develop/runtime-data/src/platform/runtime-data-path-resolver.ts",
+      "40_Develop/domain-model/src/repository/runtime-data-path-resolver.ts",
+      "40_Develop/domain-model/src/storage/runtime-data-area.ts",
       "40_Develop/semantic-coverage/bin/compile-semantic-coverage-pilot.ts",
       "40_Develop/verification-runner/src/execution/regression-execution.ts",
       "40_Develop/visual-preview/src/preview-server.ts",
@@ -327,7 +328,7 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
     consumers(
       /\b(?:registerRepositoryLocalIgnore|gitRepositoryLocalIgnoreAdapter)\b/u,
     ),
-    ["40_Develop/runtime-data/src/platform/runtime-data-path-resolver.ts"],
+    ["40_Develop/domain-model/src/storage/runtime-data-area.ts"],
   );
 });
 
@@ -524,8 +525,13 @@ test("Local Change Setと狭いVersion Control公開入口のConsumer集合が�
     "40_Develop/checker/src/adapters/reality-traceability.ts",
     "40_Develop/checker/src/profiles/current-profile.ts",
     "40_Develop/checker/src/rules/reality-symbol-graph.ts",
-    "40_Develop/crdd-domain-library/src/repository-observation/index.ts",
-    "40_Develop/crdd-domain-library/src/repository-observation/reality-symbol-repository-observer.ts",
+    "40_Develop/domain-model/src/configuration/tool-runtime-config.ts",
+    "40_Develop/domain-model/src/repository/reality-symbol-repository-observer.ts",
+    "40_Develop/domain-model/src/repository/repository-observation.ts",
+    "40_Develop/domain-model/src/repository/runtime-data-path-resolver.ts",
+    "40_Develop/domain-model/src/repository/types.ts",
+    "40_Develop/domain-model/src/storage/runtime-data-area.ts",
+    "40_Develop/domain-model/src/storage/temporary-operation-store.ts",
     "40_Develop/semantic-coverage/bin/compile-semantic-coverage-pilot.ts",
     "40_Develop/semantic-coverage/src/application/semantic-coverage.ts",
     "40_Develop/semantic-coverage/src/infrastructure/filesystem-semantic-bundle-publisher.ts",

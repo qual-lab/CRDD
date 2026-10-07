@@ -642,7 +642,7 @@ Tool名はここでは提案値であり、既存Protocol値を無断変更し�
 | 2. ARCH基本設計の更新 | ARCH Definitionsの責務・境界・主要Component・依存・Handoffを照合更新。REQ／UX／IA／UI／SPECへは不一致箇所だけ戻る。 | 06_Architecture/Definitionsと必要なAnalysis／Relation。 | 合意した責務・二入口・CROS共有配置の意味が正本へ反映。単なるFolder変更でARCH-IDを新設しない。 |
 | 3. Details・配置・Qualityの具体化 | 各領域の公開API、内部File配置、保存Owner、起動・終了・取消、MCP操作、設定、Front AI移行を固定する。 | Architecture Details、Coding Standardsの必要差分、Quality Analysis／Definitions、Workflow・設定例の更新計画。 | 全File／Consumer対応、実装順、必須評価Checklist、失敗・欠測・後条件の検証義務が揃う。Sourceを先に正解にしない。 |
 | 4. 設計の独立確認 | 固定設計を責務・依存／Capability保持、文書・直接伝播、不足・影響の観点で確認する。 | 独立レビューと適用監査、統合した是正表。 | 必須確認を全件完了し、是正後の固定版がPass。未処置事項を「担当あり」だけでPassにしない。 |
-| 5. 依存順の実装・局所検証 | 下記の順序で本体・公開入口・試験・設定・Symbol・配布閉包を同時に移管する。 | 40_Develop、薄いtemplate/tools入口、関連正本。 | 各まとまりで型・整形・Lint・構造／Trace検査、正常・境界・失敗・取消の局所試験が成功。旧経路を残す互換Frameworkを作らない。 |
+| 5. 依存順の実装・局所検証 | 下記の順序で本体・公開入口・試験・設定・Symbol・配布閉包を同時に移管する。全親フォルダの改名・移管後、親フォルダを一つずつ精査し、File名・責務・責務に応じた配置を是正する。 | 40_Develop、薄いtemplate/tools入口、関連正本と親フォルダ別のFile処置表。 | 各まとまりで型・整形・Lint・構造／Trace検査、正常・境界・失敗・取消の局所試験が成功。全親フォルダの精査・処置を終えてから段階6へ進む。旧経路を残す互換Frameworkを作らない。 |
 | 6. 全体回帰・現実照合・独立再レビュー | Portable／Host試験を分けて実行し、新構成の能力・Relation・公開入口・保存・終了条件を監査する。 | Quality／Reality Audit現在投影、必要な正式結果要約。 | 対象全回帰、Checker、宣言能力の本番接続、固定Source独立レビュー・必要監査がPass。実環境未評価は識別し、全体Passへ畳まない。 |
 | 7. 固定候補の署名・実E2E | 署名前提を先に検査し、人間の外部端末で必要なCoordinator閉包だけ署名。最終候補の実経路を確認する。 | 署名Manifest、実境界結果とQualityのEvidence接続。 | 必須実E2Eと回収後条件が成立。失敗は一次原因を保持し、同じ不明状態で全E2Eを繰返さない。 |
 | 8. 完了処置 | 旧参照・未接続・現在Gapの処置、文書・Reality Audit・CHG現在地、Front AI移行手順を確定する。 | CHGの完了判定、正本・品質現在値、変更Summary。 | 必須Gate未達0。残存事項は現在の採用範囲と影響を明示。人間の判断前に統合・Release済みと表示しない。 |
@@ -707,7 +707,23 @@ Tool名はここでは提案値であり、既存Protocol値を無断変更し�
 - [Remote Context MCP根拠](260927-2029_phase4-remote-project-context-mcp.md)はProject Runtime Toolを意図的に公開しない構成を確認している。Activity／Profile追加時も許可Tool一覧、管理権限と内容Accessの分離、Requestごとの失効／Exposure再観測を保持する。
 - PROJECT_CONTEXTの旧投影を現在Sourceの成立証明にしない。各Owner Evidenceの対象版・観測限界から現構成への適用を再評価する。
 
-### 既存Gapの引継ぎ
+### 親フォルダ移管後のFile精査 — 2026-10-08追加
+
+人間の追加指示により、段階5のA〜Fによる全体の改名・移管が終わった後、段階6の全体回帰前に、目標構成の全親フォルダを一つずつ精査する。既存のCHG意図である責務再編の詳細化として扱い、親フォルダ名の変更だけで再編完了としない。
+
+各親フォルダについて、現在の実Source・公開入口・呼出し側を確認して次の対応表を作り、処置後の局所検証まで終えてから次へ進む。既存の一次棚卸しは調査入力とし、移管後の実体に対する精査結果として流用しない。
+
+| 対象File | 実際の責務・利用側 | File名の評価 | 責務の評価 | 配置の評価 | 処置と確認方法 |
+|---|---|---|---|---|---|
+| 親フォルダからの相対Path | 所有する意味、入力・出力、Effect、主要Consumer | 維持／改名と理由 | 維持／分割／統合と理由 | 維持／移動先と理由 | 正本・公開API・試験・Symbol・配布への影響と局所検証 |
+
+精査では、名前から責務を理解できるか、一つのFileへ異なる責務が集まっていないか、別Fileに同じ責務を重複実装していないか、責務Ownerと配置が一致するかを確認する。`src`の階層上限、責務別`types.ts`、明示Exportの`index.ts`、`bin`／`scripts`／`tests`の境界は現行Coding Standardsへ従う。Fileの長さや件数だけを分割理由にしない。
+
+一意な改名・移動は既存の意図と能力を維持して実施する。分割・統合でAPI、依存、状態Owner、AuthorityまたはEffectの意味が変わる場合は、Sourceを先に正解とせず、対象Architecture／Qualityと利用側への影響を確認する。未承認の能力変更や判断が分かれる境界は人間判断へ戻す。安定Meaning IDや既存protocol値を物理名に合わせて改名しない。
+
+完了条件は、全親フォルダ・全Fileに維持理由または具体的処置があり、必要な改名・責務整理・移動が実施済みで、公開面・直接Consumer・試験・Symbol・配布の接続と局所検証を確認できることとする。既存の段階6の独立レビュー・監査と段階7の実E2Eは維持する。
+
+### 既存Gapの引継ぎ（対応表）
 
 | 残件 | 今回のOwner／順序 | 閉じるための根拠 |
 |---|---|---|
@@ -888,6 +904,94 @@ Checkerは2,118File・1,176Markdown・18,622リンク・2,393アンカーを確�
 
 段階4を完了し、次は段階5AのDomain統合・Version Control公開境界から順にSourceを移管する。段階5〜8の実装、全回帰、現実照合、署名実境界、Release引渡しは未完了であり、現在、人間による追加判断は必要ない。
 
+### 段階5Aの統合前基準確認 — 2026-10-08
+
+段階4完了Commitは`8af65cdd`。統合対象三Packageの公開入口とSource母集団を再確認し、Source配置変更前に102試験を実行した。最初のRepository直下起動では13件失敗したが、12件はpackage相対FixtureをRootから起動した試験構成上の参照ずれであり、各packageの正規作業Directoryからの再実行でDomain Library 39件、Runtime Data 44件がすべて成功した。実Process死・Lock競合の確認を省略・成功扱いしていない。
+
+残るProject Operation一件は、現行Project Contextの先行要約に`v0.21.0`という文章を固定期待する試験だった。五場面・三Identity・表・リンク非搬送の確認を維持し、現在正本から取得した先行要約とReader結果の同値性を確認する形へ是正した。Project Operation全19件が成功した。三Packageの102件成功は統合前の基準であり、新配置・公開Symbol・全Consumerの実接続や段階5完了の証明ではない。移管時にはpackage相対Fixture、公開契約試験、設定・配布・Symbol参照も同時に対応する。
+
+### 段階5Aの移管中確認 — 2026-10-08
+
+段階5Aは進行中であり、段階5全体の完了ではない。旧Domain Libraryの物理配置を`domain-model`へ移し、Root公開面を共通結果だけに限定した。Repository観測は公開入口・実装・型、保存排他は公開入口・実装へ分離した。Project Contextの投影・三Parser・候補意味判断と対応する三試験を同じPackageの`project-context`へ移管し、実Sourceから得た利用側importを付け替えた。Meaning ID、試験IDと同一実体のSymbol IDは維持し、現在OwnerとPathを更新した。
+
+Topic／Meetingの混在Markdown Readerを、各責務の`types.ts`・Markdown処理・公開入口へ分割した。Metadata・表の共通解析だけはArtifact内の一実体で保持し、公開Barrelへ露出しない。旧Rootへの互換再exportを追加せず、意味処理を使う全importを新入口へ変更した。実体が二つへ分割された旧File Symbol `project-operation.domain.topic-meeting-record`だけは終了し、参照元を`domain-model.topic-markdown`と`domain-model.meeting-markdown`の両方へ接続した。設計MeaningとQA義務を新設していない。Project Contextの公開15型も責務内の`types.ts`へ集約し、Runtime変換と区別した。
+
+| 確認対象 | 実測結果 | 未完了との境界 |
+|---|---|---|
+| Domain全試験 | 51件成功。整形・型・Lint成功 | Topic／MeetingのCRUD公開面とRuntime Dataの統合は未完了 |
+| Topic／Meeting残存試験 | 8件成功。整形・型・Lint成功 | 共通保存実体と責務別CRUD公開面への移管は未完了 |
+| 利用側型接続 | CROS、MCP、Workbench、Checker／配布入口で成功 | 実起動・署名E2Eを示さない |
+| 公開面と逆依存 | 全`40_Develop`利用側を列挙するDomain公開面12試験とChecker公開面・逆依存2試験で成功 | 他の命名・Header規則の全件是正は未完了 |
+| Verification Runner | 整形・型・Lint成功。Catalog試験17成功・3失敗 | 現在13指摘が残る。Runtime Dataの設計アンカー2件、未登録試験7件、Windows実Process Profile不足4件。今回移したDomain試験のPath欠落ではないが、後続移管・全体Gateで是正する |
+
+その後、Topic／Meetingの共通CRUD実体と対応する既存8試験をDomain Modelの保存責務へ移した。共通の公開値は`storage/types.ts`へ分離し、Topic／Meetingそれぞれに種別固定のCRUD生成入口を追加した。意味処理と保存実体の内部依存は実装Fileへ直接接続し、公開Barrel経由の循環を避けた。処理の複製、結果語彙の変更、反対種別への書込み許可は追加していない。
+
+追加した公開面の実Filesystem試験と移管済みCRUD試験は9件成功し、Domainの整形・型・Lint、Workbench／MCP／CROSの型確認も成功した。不正種別IDおよび反対種別Markdownは既存の例外契約で拒否され、登録済み件数は変わらないことを確認した。上表の51件と公開面12件はこの追加前の全体結果であり、現在の全試験成功へ流用しない。
+
+続いてMCP、Workbench、CROSと配布入口・関連試験を種別固定の公開面へ切り替えた。CROSは認可済み集合だけでRelation Ownerを解決し、書込みはSource Repositoryへ限定する既存挙動を保持した。旧Project Operationの入口、Package登録、型検査母集団、実配布参照と再生成可能な依存Directoryを撤去し、旧Packageの不存在を確認した。実行leaseの`project-operation`という既存状態値、Meaning ID、試験ID、過去の固定履歴はPackage名と区別して維持した。
+
+現在のDomain全60試験（整形・型・Lintを含む）、MCPの認可・横断Relation・CRUD関連7試験、Workbench実HTTP関連29試験、Checker公開入口／逆依存2試験は成功した。MCP、CROS、Workbench、Checker／配布入口の型確認も成功した。Verification Runnerは型確認成功、Catalog試験17成功・3失敗で既知13指摘を維持し、新しいOwner／試験Pathの欠落は追加されていない。これらは署名・実Provider E2Eまたは全製品回帰の成功を示さない。
+
+Runtime Dataの設定・Schema・保持設定Readerは`configuration`、読取り専用Path解決と領域観測は`repository`、領域確保と一時操作は`storage`へ移管した。読取り公開入口から保存操作をRuntime importしない境界を維持した。利用側54Fileのimportを用途別入口へ機械的に変更し、Domain Modelの型確認は成功した。移管した設定・Path・領域の17試験、一時操作の24試験も成功した。一時操作試験の初回はRepository Rootから起動したため9件がfixture探索で失敗し、既存契約のPackage起動位置で再実行して24件成功を確認した。これをRuntime挙動の是正または全回帰成功とは扱わない。
+
+続いて旧Runtime Data Packageを撤去し、分割されたPath Reader／領域Writer／結果境界を実体別Symbolへ対応させ、同一実体のSchema・一時操作・試験IDを維持した。利用側閉包4試験、Checker公開面・逆依存4試験、Version Control閉包10試験は成功した。Coordinator、Checker、Verification Runner、CROS、MCP、Workbench、Execution Intelligence、AI Runtimeの8Packageで型確認が成功した。Catalogの既知13指摘は、実在する7試験の登録、4つのWindows実Process Profile、2つの現在設計アンカーへ対応させ、Catalog20試験成功・指摘0を確認した。未実行のHost試験や実E2Eが成立したという意味ではない。
+
+Domain全試験は初回103成功・公開面契約2件失敗であり、採用済みの用途別公開集合と保護署名のexact私有入口を期待値へ対応させた。次の全試験は104成功・1件失敗で、移管前に直列実行していたRuntime Data試験を並列化したことで共有Ignore登録が衝突した。元の試験実行契約を移管先へ維持して直列化した。その後の公開`npm test`は整形・型・Lintと全105試験が成功し、取消・親Process喪失・世代切替・保存排他・公開面も含めて再確認した。配布閉包の実接続と段階5Aの完成条件照合を終えるまで同段階を完了としない。今回のSource変更はまだコミットしていない。
+
+### 段階5Aの配布閉包接続不足 — 2026-10-08
+
+配布閉包の局所3試験は未成立。Domain Modelへの移管後、Coordinatorの兄弟Package登録と配布fixtureに同Packageが欠落しており、最初は`platform_provisioner_runtime_dependency_outside_execution_set`で停止した。実到達Sourceだけを検証する既存方式を維持してPackageとfixtureを接続した後、3試験とも`platform_provisioner_runtime_dependency_child_url_unbound`で停止した。署名、Docker操作、Provider依頼は行っていない。
+
+Source照合では、`storage/index.ts`から読み込まれる`filesystem-store-root.ts`が、同じ保存責務の`filesystem-store-kernel-lock-worker.ts`を固定相対URLで起動する。一方、Coordinatorの子処理検査はCoordinator所有の登録済み起動Wrapperだけを許可するため、この既存Domain Workerを閉包へ接続できない。Worker import検査も同じ登録集合だけを許可している。親フォルダ移管によるPath欠落と、移管先の公開入口から到達する既存子処理の検証接続不足を分ける。
+
+次の是正対象は、この固定WorkerのSource Owner・起動点・実体・必要依存を配布閉包検査へ接続すること。Domain ModelからCoordinatorへの逆依存、全Domain Sourceの一律署名、未登録Worker一般の許可、排他制御の削除または試験期待値の弱化は行わない。Domain側のWorker lifetimeと保存排他契約は維持し、改名・移管だけでは配布接続を完了としない。固定参照の改変、Worker欠落、別Targetへの差替えを拒否する局所反証と、元の配布閉包3試験を確認してから段階5Aの完了照合へ戻る。
+
+固定保存Ownerの一つの直接Worker起動と、同じ保存責務のWorker実体を配布検査へ接続した。Domain Sourceの起動処理は変更せず、固定の`Worker` import・起動元・相対参照・起動数を検査する。参照改変、別Owner、alias、import欠落、別Module import、追加起動とWorker側のimport拡張を拒否する試験は成功した。一般Workerの許可、逆依存、全Domain Sourceの署名は追加していない。
+
+配布閉包の局所4試験は成功した。途中に見つかった試験入力の二つの旧構成参照（兄弟Packageからの相対importと、固定`tmp/signature/work`以外の署名Root）を現在構成へ対応させ、欠落拒否の期待値は維持した。その後、代表8種の実行primitive違反を各公開検査と署名CLIで秘密入力前に拒否する試験も成功した。型確認と整形確認は成功し、変更した検査・試験3FileのLintも成功した。これらは実署名、実Worker lifecycle全体、実Provider E2Eまたは段階5A全体完了の根拠ではない。
+
+全静的確認は、`scripts/check-platform-access-coverage.ts`のProcess起動登録との不整合で停止している。同Fileの移管前HEAD Sourceを現在検査へ入力しても同じ拒否となったため、Domain import移管による新規失敗とは区別する。Native検証Toolの現在の起動と登録集合を照合して是正し、静的確認全体を再実行する。旧Rootへ依存する署名試験の対応は、試験File全体の確認を終えるまで完了としない。
+
+署名契約File全体は21件成功・失敗0で終了した。試験用鍵と自己生成fixtureによる確認であり、正式署名・外部TTY・実Provider E2Eの実施ではない。その後の検査登録変更とは対象改訂版を区別する。
+
+Native Coverageの停止原因は、検査済みCargo出力の`testExecutables`を列挙して呼び出す既存一箇所の登録漏れだった。固定呼出し形、同集合の列挙と実行前Hash検査を登録へ対応させた。任意実行物への差替え、列挙元変更、Hash検査の除去を拒否する局所試験は成功した。候補昇格には旧`launch.ts`の固定Hashも残っていた。現行`runPromotion`をメモリ内で旧名へ戻した場合に旧二Hashへ一致することを確認し、単一`coordinator.ts`へ更新した。`main`は現在の引数検査、Repository検証、signature保存先とexact回復参照の搬送、同一端末Lifecycleを読み取り照合して現行Graphへ接続した。単一入口・昇格操作・signature指定の改変拒否も成功した。Domain Workerを含む局所3試験、Coordinatorの二つの型確認、全Source整形、変更2FileのLintと差分破損検査は成功した。
+
+全検証Toolの再照合では残る4Fileの登録不整合を検出した。`verify-native-protection.ts`の現在のCargo起動形、`verify-native-terminal-fixtures.ts`と`verify-native-terminal-namespace.ts`の未登録起動、`verify-project-runtime-real-providers.ts`の結果搬送Graphである。各Sourceの実責務・所有・入力・終了後条件を照合する前にHashだけを更新しない。全Graphの拒否を維持し、全静的確認・段階5Aの全Gate・後続段階を完了としない。
+
+最新の検査Sourceによる配布閉包の再確認は12件成功・失敗0で終了した。Domain固定Worker、開発版の実体・Root・入力・Package差替え、文書差分の実行Identity非混在、署名状態の自己申告拒否、分離後component閉包と欠落の秘密入力前拒否を確認した。全検証Toolの残る4Fileはこの12件の対象外であり、全Graph成功へ流用しない。
+
+### 検証Toolの配置登録再照合 — 2026-10-08
+
+全検証Toolの構造Graphは37Source、検証用Process起動16箇所、本番用26箇所で受理された。Native保護・端末検証の現行配置と実際の起動所有者を登録へ反映した。実Provider検証の残る停止は、旧`security`配置を前提とした検査値だった。現行Sourceの二つの参照Pathだけを旧配置へ戻したメモリ上の計算で旧登録値を再現し、処理変更ではなく配置変更による差分と確認して更新した。
+
+全Tool集合の一致、Native保護、Native Coverage、候補昇格に加え、二つのNative端末Toolの固定Cargo引数・一意な実行物・実体照合・終了通知・shell禁止・Owner外Node入力を改変する反証を確認した。関連5試験が成功した。Coordinatorの公開checkは整形739File、型、Lint、全Tool Graph、Runtime／Project Runtime設計トレースの全段階で成功した。Lintの既存情報表示54件は失敗またはWarningではなく、今回まとめて自動修正していない。
+
+Domainの公開npm testも再実行し、静的検査と全105試験が成功した。旧三Packageへの実装importは残らず、Version Controlに残る旧Path文字列は廃止確認の拒否試験だけだった。配布閉包検査の全契約試験は最新版で終了コード1となった。旧`src/security`・`src/provider`配置を参照する試験FixtureのENOENTと、署名保護flowの反証試験失敗を確認した。失敗の全数分類と是正が必要であり、段階5Aは未完了である。これは構造検査と局所契約の結果であり、実Native、署名、Provider E2Eまたは段階5全体の完了ではない。
+
+### 配布閉包の全件失敗を受けた局所是正 — 2026-10-08
+
+全件試験で検出した失敗について、署名反証の検索対象が旧`main()`宣言のままで改変が作用しないことと、子入口・模擬LauncherのFixtureが作成していない旧配置へ書き込むことを確認した。実装の拒否条件を弱めず、現行関数宣言と`host-runtime`／`docker-runtime`のOwnerへ負例を対応させた。模擬認証Moduleは参照先である`src/provider`を明示して作成する。署名反証には、改変前後が同一でないことの確認を追加した。
+
+署名保護・Launcher・module字句解析の四契約と、配置不一致で停止した子入口21契約が成功した。改変作用確認追加後の署名二契約も再確認した。Coordinatorの正式`npm run check`は全段階成功、既存Lint情報54件は維持する。配布閉包の全契約は修正後に再実行するため、この局所成功だけで段階5Aを閉じない。
+
+### 段階5Bの着手前補正案 — 共通入力Snapshot
+
+読取り専用の責務・依存確認と親による正本／Source照合で、Codex／Claude計画がCoordinatorの`plain-data-snapshot.ts`へ依存していることを確認した。同じ実体をAuthority、CLI、Recovery、診断、Native入力等も利用する。Provider計画だけの部品ではないため、AI Adapterへ実体を置いて他のCoordinator境界をProvider領域へ依存させない。Coordinator内維持またはコピー追加も、今回の逆依存撤去と単一Ownerの条件を満たさない。
+
+| 対象 | 段階5Bで具体化する処置 | 保持条件・反証 |
+|---|---|---|
+| 共通Record／Array入力防御 | `domain-model/src/plain-data/plain-data-snapshot.ts`へ単一移管し、`plain-data/index.ts`だけから` snapshotPlainRecord`／`snapshotPlainArray`を公開する。Package Rootの共通Outcome集合は増やさない | Proxyをtrap前に拒否、getter未実行、exact own key・prototype・enumerability、Array上限・hole・余剰key拒否、返却status／reason／null、浅い不変Snapshotを維持。nested値全体の安全性へ保証を強めない |
+| Ownerと利用側 | Domain詳細の責務・公開集合、AI Adapterの依存、全File対応を更新してから移管する。Coordinator／AI Adapterは同じ用途別公開入口へ直接依存し、旧入口shimを残さない | Store／Writer・Provider Process・Authority発行を推移的に読み込まない。既存ARCH-ID・QA導出キーをFolder変更だけで改名しない |
+| 試験と配布 | 既存Snapshot単体とAuthority等のgetter／Proxy負例、Host Terminal直接import、動的模擬Providerの固定Path、型所属・静的依存・署名閉包を追従する | 新公開集合の完全一致、Coordinator逆importと旧deep importの不存在、実利用側の入力拒否と終了後条件を確認する |
+
+ConfigurationはManifest／設定、RepositoryはRoot観測、Storageは保存・排他が責務であり、共通Snapshotの雑多な置場へ拡張しない。独立Package追加は配布・設定管理を増やすため採らない。他の三Subsystemの類似Snapshotをこの移管だけで一括統合しない。この確認は着手前照合であり、段階6のSource独立レビューPassではない。段階5Aの全件検証終了後、正本公開契約を具体化して段階5Bへ進む。
+
+### 段階5Aの局所完了判定 — 2026-10-08
+
+修正後の配布閉包契約は全133件成功、失敗・取消・skip・todoは0、所要628,450.998msで終了した。旧配置Fixtureと空振りする署名反証の失敗は、現行Sourceへ作用する負例として再確認済みである。Domain公開`npm test`の静的検査＋105件、利用側8Packageの型接続、Catalog20件、Runner41件成功・UAT一件未実行、移管Graph反証5件、Coordinator公開静的検査の確認範囲を合わせ、段階5Aの実装移管と局所検証を完了とする。
+
+旧三Packageの実装importと旧三フォルダは不存在、69Fileの対応表を実移管先へ更新した。公開Rootは共通Outcomeだけを維持し、Topic／Meeting・保存・観測・設定を用途別入口へ接続した。未実行UAT、全体回帰・Reality Audit・固定Source独立レビュー、実Native・署名・実Provider E2Eは段階6／7へ保持し、段階5Aの局所完了を全体完成・Release可能へ読み替えない。段階5Bの共通Snapshot正本補正は着手準備であり、実体移管はまだ未実施である。
+
 ## Checklist
 
 - [x] 全18領域を一次対応表へ処置した。
@@ -917,6 +1021,6 @@ Checkerは2,118File・1,176Markdown・18,622リンク・2,393アンカーを確�
 - [x] Activityの画面実装をCROSへそのまま移す逆依存を避け、調査で本番Readerを確認できなかった範囲を明記した。
 - [x] 基本設計からSource・署名E2E・完了までの成果物、依存順、通過条件と現在Gapの扱いを計画した。
 - [x] 未確定Owner・実行依存の未調査範囲をOPENとして明示した。
-- [x] N/A: 本作業はDraft計画の記録のみ。Source回帰・署名・実E2Eは実行していない。
+- [x] N/A: 初期Draft記録時にはSource回帰・署名・実E2Eを実行していない。その後の実施状況は各段階の確認記録で区別する。
 - [x] 段階1の全File予定処置、分割関数、Consumer、保持能力・過去Evidence、必須実経路と現在QA項目を棚卸しへ対応させた。詳細API・配置の確定は段階3へ残す。
 - [x] 段階4の固定設計独立レビュー三観点と是正後再確認を完了した。Source移管・実境界の完了とは区別する。

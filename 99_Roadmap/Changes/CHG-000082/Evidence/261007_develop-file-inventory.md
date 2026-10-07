@@ -1,6 +1,6 @@
 # 責務再編 — 基準ファイルと利用側の棚卸し
 
-状態: 段階1〜3の棚卸し・基本設計・詳細設計は完了 — 段階4の是正・再確認中。Source移管と実検証は未完了。
+状態: 段階1〜4完了。段階5Aの統合対象69Fileは実移管先と局所確認を反映済み。配布契約の包括確認、残る移管と全体実検証は未完了。
 担当責任者: Qual-Lab
 対象: CHG-000082、2026-10-07
 基準改訂版: `463dd4a1ffd86e8bf5c58bb37a92e2ba11984621`（Git object format: sha1）
@@ -11,7 +11,7 @@
 
 全18領域のGit管理対象830ファイルを一次キーとして固定し、各Fileの予定処置、分割対象の関数・責務、静的／非import利用側、保持能力と過去根拠、必須実経路と現在QA項目の対応を整理した。下表は移管の計画であり、公開API・詳細配置の設計完了、Source移管または能力成立を示さない。未接続・不足は後続Gateへ明示的に引き継ぐ。実行結果の書庫ではなく、[再編計画](261007_develop-responsibility-mapping.md#23-責務再編を完了させる計画)の作業表として更新する。
 
-配置案の優先関係: 830行の粗表は段階1で固定した初期移管計画である。後続の確定配置・公開APIは[詳細設計の完了判定](261007_develop-responsibility-mapping.md#段階3の完了判定--2026-10-08)が参照する各OwnerのDetailsと、本書の関数単位優先表を優先する。初期行を自動的に実装済みへ変更せず、段階5で旧File・新Owner・全Consumerの実接続を全数照合する。
+配置案の優先関係: 830行の粗表は段階1で固定した初期移管計画を起点とする。後続の確定配置・公開APIは[詳細設計の完了判定](261007_develop-responsibility-mapping.md#段階3の完了判定--2026-10-08)が参照する各OwnerのDetailsと、本書の関数単位優先表を優先する。初期行を自動的に実装済みへ変更せず、段階5で旧File・新Owner・全Consumerの実接続を全数照合する。段階5Aでは旧Domain Library33、Project Operation18、Runtime Data18の計69行を実在するexact Fileへ更新した。分割・共通化によるN:N対応を保持し、局所確認済みと全体Gate完了を区別する。下記の基準版Consumer表は過去母集団であり、現在のimport先として利用しない。
 
 ## 分母と取得範囲
 
@@ -239,7 +239,7 @@ Pathは基準版におけるRepository相対Pathである。同じFileの行を�
 | 40_Develop/coordinator/src/host-runtime/windows-child-environment.ts | 維持案 | 40_Develop/coordinator/src/host-runtime/windows-child-environment.ts | 内部配置・本文照合待ち |
 | 40_Develop/coordinator/src/host-runtime/windows-directory-bootstrap.ts | 維持案 | 40_Develop/coordinator/src/host-runtime/windows-directory-bootstrap.ts | 内部配置・本文照合待ち |
 | 40_Develop/coordinator/src/index.ts | 維持案 | 40_Develop/coordinator/src/index.ts | 内部配置・本文照合待ち |
-| 40_Develop/coordinator/src/plain-data-snapshot.ts | 維持案 | 40_Develop/coordinator/src/plain-data-snapshot.ts | 内部配置・本文照合待ち |
+| 40_Develop/coordinator/src/plain-data-snapshot.ts | 移管案（段階5B着手前補正） | 40_Develop/domain-model/src/plain-data/plain-data-snapshot.ts<br>40_Develop/domain-model/src/plain-data/index.ts | Provider計画とCoordinatorの共通入力防御を単一Ownerへ移す。既存Record／Array検査と返却値だけを保持し、深いSnapshot・Authority・保存を追加しない。正本公開契約と全利用側・試験・署名閉包への接続後に実施。旧入口の再exportは残さない |
 | 40_Develop/coordinator/src/platform-access/platform-access-adapter.ts | 維持案 | 40_Develop/coordinator/src/platform-access/platform-access-adapter.ts | 内部配置・本文照合待ち |
 | 40_Develop/coordinator/src/platform-access/platform-key-storage-policy.ts | 維持案 | 40_Develop/coordinator/src/platform-access/platform-key-storage-policy.ts | 内部配置・本文照合待ち |
 | 40_Develop/coordinator/src/platform-access/platform-provisioner-manifest-loader.ts | 維持案 | 40_Develop/coordinator/src/platform-access/platform-provisioner-manifest-loader.ts | 内部配置・本文照合待ち |
@@ -546,39 +546,39 @@ Pathは基準版におけるRepository相対Pathである。同じFileの行を�
 | 40_Develop/coordinator/tests/unit/workbench-ai-request-application.contract.test.ts | 維持案 | 40_Develop/coordinator/tests/unit/workbench-ai-request-application.contract.test.ts | 対象責務・Local Item・実観測境界に基づき試験移管先を確定 |
 | 40_Develop/coordinator/tsconfig.strict.json | 維持＋参照更新案 | 40_Develop/coordinator/tsconfig.strict.json | Owner移管と全Consumer・検査／配布閉包を追従 |
 | 40_Develop/coordinator/tsconfig.tests.json | 維持＋参照更新案 | 40_Develop/coordinator/tsconfig.tests.json | Owner移管と全Consumer・検査／配布閉包を追従 |
-| 40_Develop/crdd-domain-library/package-lock.json | 統合・更新案 | 40_Develop/domain-model/package-lock.json | Owner移管と全Consumer・検査／配布閉包を追従 |
-| 40_Develop/crdd-domain-library/package.json | 統合・更新案 | 40_Develop/domain-model/package.json | Owner移管と全Consumer・検査／配布閉包を追従 |
-| 40_Develop/crdd-domain-library/src/artifact/artifact-graph.ts | 移管 | domain-model/src/artifact | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
-| 40_Develop/crdd-domain-library/src/artifact/artifact-model.ts | 移管 | domain-model/src/artifact | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
-| 40_Develop/crdd-domain-library/src/artifact/index.ts | 移管 | domain-model/src/artifact | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
-| 40_Develop/crdd-domain-library/src/artifact/markdown-artifact-parser.ts | 移管 | domain-model/src/artifact | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
-| 40_Develop/crdd-domain-library/src/artifact/schema-validator.ts | 移管 | domain-model/src/artifact | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
-| 40_Develop/crdd-domain-library/src/filesystem-store-root/filesystem-store-kernel-lock-worker.ts | 移管 | domain-model/src/storage | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
-| 40_Develop/crdd-domain-library/src/filesystem-store-root/index.ts | 移管 | domain-model/src/storage | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
-| 40_Develop/crdd-domain-library/src/index.ts | 公開入口再構成 | domain-modelの責務別公開入口 | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
-| 40_Develop/crdd-domain-library/src/outcome.ts | 移管 | domain-model/src/outcome.ts | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
-| 40_Develop/crdd-domain-library/src/quality-change-control/index.ts | 移管 | domain-model/src/quality-change-control | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
-| 40_Develop/crdd-domain-library/src/quality-change-control/quality-gate.ts | 移管 | domain-model/src/quality-change-control | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
-| 40_Develop/crdd-domain-library/src/reality-traceability/domain-issue.ts | 移管 | domain-model/src/reality-traceability | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
-| 40_Develop/crdd-domain-library/src/reality-traceability/index.ts | 移管 | domain-model/src/reality-traceability | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
-| 40_Develop/crdd-domain-library/src/reality-traceability/symbol-annotation.ts | 移管 | domain-model/src/reality-traceability | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
-| 40_Develop/crdd-domain-library/src/reality-traceability/symbol-discovery.ts | 移管 | domain-model/src/reality-traceability | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
-| 40_Develop/crdd-domain-library/src/reality-traceability/symbol-graph.ts | 移管 | domain-model/src/reality-traceability | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
-| 40_Develop/crdd-domain-library/src/reality-traceability/symbol-manifest-model.ts | 移管 | domain-model/src/reality-traceability | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
-| 40_Develop/crdd-domain-library/src/reality-traceability/symbol-manifest-validator.ts | 移管 | domain-model/src/reality-traceability | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
-| 40_Develop/crdd-domain-library/src/repository-observation/filesystem-repository-observer.ts | 移管 | domain-model/src/repository | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
-| 40_Develop/crdd-domain-library/src/repository-observation/index.ts | 移管 | domain-model/src/repository | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
-| 40_Develop/crdd-domain-library/src/repository-observation/reality-symbol-repository-observer.ts | 移管 | domain-model/src/repository | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
-| 40_Develop/crdd-domain-library/symbol.json | 統合・更新案 | 40_Develop/domain-model/symbol.json | Owner移管と全Consumer・検査／配布閉包を追従 |
-| 40_Develop/crdd-domain-library/tests/fixtures/filesystem-store-lock-contender.ts | 移管案 | 40_Develop/domain-model/tests/fixtures/filesystem-store-lock-contender.ts | 対象責務・Local Item・実観測境界に基づき試験移管先を確定 |
-| 40_Develop/crdd-domain-library/tests/fixtures/filesystem-store-lock-owner.ts | 移管案 | 40_Develop/domain-model/tests/fixtures/filesystem-store-lock-owner.ts | 対象責務・Local Item・実観測境界に基づき試験移管先を確定 |
-| 40_Develop/crdd-domain-library/tests/integration/quality-change-control.contract.test.ts | 移管案 | 40_Develop/domain-model/tests/integration/quality-change-control.contract.test.ts | 対象責務・Local Item・実観測境界に基づき試験移管先を確定 |
-| 40_Develop/crdd-domain-library/tests/integration/reality-repository.integration.test.ts | 移管案 | 40_Develop/domain-model/tests/integration/reality-repository.integration.test.ts | 対象責務・Local Item・実観測境界に基づき試験移管先を確定 |
-| 40_Develop/crdd-domain-library/tests/system/quality-change-control.contract.test.ts | 移管案 | 40_Develop/domain-model/tests/system/quality-change-control.contract.test.ts | 対象責務・Local Item・実観測境界に基づき試験移管先を確定 |
-| 40_Develop/crdd-domain-library/tests/unit/filesystem-store-root.contract.test.ts | 移管案 | 40_Develop/domain-model/tests/unit/filesystem-store-root.contract.test.ts | 対象責務・Local Item・実観測境界に基づき試験移管先を確定 |
-| 40_Develop/crdd-domain-library/tests/unit/public-boundary.contract.test.ts | 移管案 | 40_Develop/domain-model/tests/unit/public-boundary.contract.test.ts | 対象責務・Local Item・実観測境界に基づき試験移管先を確定 |
-| 40_Develop/crdd-domain-library/tests/unit/repository-observation.contract.test.ts | 移管案 | 40_Develop/domain-model/tests/unit/repository-observation.contract.test.ts | 対象責務・Local Item・実観測境界に基づき試験移管先を確定 |
-| 40_Develop/crdd-domain-library/tsconfig.json | 統合・更新案 | 40_Develop/domain-model/tsconfig.json | Owner移管と全Consumer・検査／配布閉包を追従 |
+| 40_Develop/crdd-domain-library/package-lock.json | 統合・移管、局所確認済み | 40_Develop/domain-model/package-lock.json | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/crdd-domain-library/package.json | 統合・移管、局所確認済み | 40_Develop/domain-model/package.json | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/crdd-domain-library/src/artifact/artifact-graph.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/src/artifact/artifact-graph.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/crdd-domain-library/src/artifact/artifact-model.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/src/artifact/types.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/crdd-domain-library/src/artifact/index.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/src/artifact/index.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/crdd-domain-library/src/artifact/markdown-artifact-parser.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/src/artifact/markdown-artifact-parser.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/crdd-domain-library/src/artifact/schema-validator.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/src/artifact/schema-validator.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/crdd-domain-library/src/filesystem-store-root/filesystem-store-kernel-lock-worker.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/src/storage/filesystem-store-kernel-lock-worker.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/crdd-domain-library/src/filesystem-store-root/index.ts | 分割・移管、局所確認済み | 40_Develop/domain-model/src/storage/filesystem-store-root.ts<br>40_Develop/domain-model/src/storage/types.ts<br>40_Develop/domain-model/src/storage/index.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/crdd-domain-library/src/index.ts | 分割・移管、局所確認済み | 40_Develop/domain-model/src/index.ts<br>40_Develop/domain-model/src/artifact/index.ts<br>40_Develop/domain-model/src/storage/index.ts<br>40_Develop/domain-model/src/reality-traceability/index.ts<br>40_Develop/domain-model/src/repository/index.ts<br>40_Develop/domain-model/src/quality-change-control/index.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/crdd-domain-library/src/outcome.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/src/outcome.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/crdd-domain-library/src/quality-change-control/index.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/src/quality-change-control/index.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/crdd-domain-library/src/quality-change-control/quality-gate.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/src/quality-change-control/quality-gate.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/crdd-domain-library/src/reality-traceability/domain-issue.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/src/reality-traceability/domain-issue.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/crdd-domain-library/src/reality-traceability/index.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/src/reality-traceability/index.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/crdd-domain-library/src/reality-traceability/symbol-annotation.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/src/reality-traceability/symbol-annotation.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/crdd-domain-library/src/reality-traceability/symbol-discovery.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/src/reality-traceability/symbol-discovery.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/crdd-domain-library/src/reality-traceability/symbol-graph.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/src/reality-traceability/symbol-graph.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/crdd-domain-library/src/reality-traceability/symbol-manifest-model.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/src/reality-traceability/symbol-manifest-model.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/crdd-domain-library/src/reality-traceability/symbol-manifest-validator.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/src/reality-traceability/symbol-manifest-validator.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/crdd-domain-library/src/repository-observation/filesystem-repository-observer.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/src/repository/filesystem-repository-observer.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/crdd-domain-library/src/repository-observation/index.ts | 分割・移管、局所確認済み | 40_Develop/domain-model/src/repository/types.ts<br>40_Develop/domain-model/src/repository/repository-observation.ts<br>40_Develop/domain-model/src/repository/index.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/crdd-domain-library/src/repository-observation/reality-symbol-repository-observer.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/src/repository/reality-symbol-repository-observer.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/crdd-domain-library/symbol.json | 統合・移管、局所確認済み | 40_Develop/domain-model/symbol.json | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/crdd-domain-library/tests/fixtures/filesystem-store-lock-contender.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/tests/fixtures/filesystem-store-lock-contender.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/crdd-domain-library/tests/fixtures/filesystem-store-lock-owner.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/tests/fixtures/filesystem-store-lock-owner.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/crdd-domain-library/tests/integration/quality-change-control.contract.test.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/tests/integration/quality-change-control.contract.test.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/crdd-domain-library/tests/integration/reality-repository.integration.test.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/tests/integration/reality-repository.integration.test.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/crdd-domain-library/tests/system/quality-change-control.contract.test.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/tests/system/quality-change-control.contract.test.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/crdd-domain-library/tests/unit/filesystem-store-root.contract.test.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/tests/unit/filesystem-store-root.contract.test.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/crdd-domain-library/tests/unit/public-boundary.contract.test.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/tests/unit/public-boundary.contract.test.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/crdd-domain-library/tests/unit/repository-observation.contract.test.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/tests/unit/repository-observation.contract.test.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/crdd-domain-library/tsconfig.json | 統合・移管、局所確認済み | 40_Develop/domain-model/tsconfig.json | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
 | 40_Develop/cros/bin/cros-access-recovery.ts | 維持案 | 40_Develop/cros/bin/cros-access-recovery.ts | 内部配置・本文照合待ち |
 | 40_Develop/cros/package-lock.json | 維持＋参照更新案 | 40_Develop/cros/package-lock.json | Owner移管と全Consumer・検査／配布閉包を追従 |
 | 40_Develop/cros/package.json | 維持＋参照更新案 | 40_Develop/cros/package.json | Owner移管と全Consumer・検査／配布閉包を追従 |
@@ -688,24 +688,24 @@ Pathは基準版におけるRepository相対Pathである。同じFileの行を�
 | 40_Develop/platform-access/tests/cli.rs | 維持・利用側追従 | 40_Develop/platform-access/tests/cli.rs | 本文のNative19File表へ接続済み。固定worker名・五File Coverage・署名閉包を追従 |
 | 40_Develop/platform-access/tests/fixtures/host_namespace_creation.rs | 維持・利用側追従 | 40_Develop/platform-access/tests/fixtures/host_namespace_creation.rs | 本文のNative19File表へ接続済み。固定worker名・五File Coverage・署名閉包を追従 |
 | 40_Develop/platform-access/tests/fixtures/windows_protection.rs | 維持・利用側追従 | 40_Develop/platform-access/tests/fixtures/windows_protection.rs | 本文のNative19File表へ接続済み。固定worker名・五File Coverage・署名閉包を追従 |
-| 40_Develop/project-operation/package-lock.json | 統合・更新案 | 40_Develop/domain-model/package-lock.json | Owner移管と全Consumer・検査／配布閉包を追従 |
-| 40_Develop/project-operation/package.json | 統合・更新案 | 40_Develop/domain-model/package.json | Owner移管と全Consumer・検査／配布閉包を追従 |
-| 40_Develop/project-operation/src/index.ts | 公開入口再構成 | domain-modelのproject-context／topic／meeting公開入口 | 本文のDomain関数境界へ接続済み。Quality GateとContext候補を混同しない |
-| 40_Develop/project-operation/src/project-operation.ts | 関数分割・共通核維持 | domain-model/src/project-context | 本文のDomain関数境界へ接続済み。Quality GateとContext候補を混同しない |
-| 40_Develop/project-operation/src/repository-project-context.ts | 移管 | domain-model/src/project-context | 本文のDomain関数境界へ接続済み。Quality GateとContext候補を混同しない |
-| 40_Develop/project-operation/src/repository-quality-projection.ts | 移管 | domain-model/src/project-context | 本文のDomain関数境界へ接続済み。Quality GateとContext候補を混同しない |
-| 40_Develop/project-operation/src/repository-release-projection.ts | 移管 | domain-model/src/project-context | 本文のDomain関数境界へ接続済み。Quality GateとContext候補を混同しない |
-| 40_Develop/project-operation/src/topic-meeting-application.ts | 関数分割・共通核維持 | domain-modelのtopic／meeting。跨り共通核は複製しない | 本文のDomain関数境界へ接続済み。Quality GateとContext候補を混同しない |
-| 40_Develop/project-operation/src/topic-meeting-repository.ts | 関数分割・共通核維持 | domain-modelのtopic／meeting。跨り共通核は複製しない | 本文のDomain関数境界へ接続済み。Quality GateとContext候補を混同しない |
-| 40_Develop/project-operation/src/topic-meeting.ts | 関数分割・共通核維持 | domain-modelのtopic／meeting。跨り共通核は複製しない | 本文のDomain関数境界へ接続済み。Quality GateとContext候補を混同しない |
-| 40_Develop/project-operation/symbol.json | 統合・更新案 | 40_Develop/domain-model/symbol.json | Owner移管と全Consumer・検査／配布閉包を追従 |
-| 40_Develop/project-operation/tests/integration/candidate-adoption.contract.test.ts | 移管案 | 40_Develop/domain-model/tests/integration/candidate-adoption.contract.test.ts | 対象責務・Local Item・実観測境界に基づき試験移管先を確定 |
-| 40_Develop/project-operation/tests/integration/project-projection.contract.test.ts | 移管案 | 40_Develop/domain-model/tests/integration/project-projection.contract.test.ts | 対象責務・Local Item・実観測境界に基づき試験移管先を確定 |
-| 40_Develop/project-operation/tests/integration/repository-project-context.contract.test.ts | 移管案 | 40_Develop/domain-model/tests/integration/repository-project-context.contract.test.ts | 対象責務・Local Item・実観測境界に基づき試験移管先を確定 |
-| 40_Develop/project-operation/tests/integration/topic-meeting-application.contract.test.ts | 移管案 | 40_Develop/domain-model/tests/integration/topic-meeting-application.contract.test.ts | 対象責務・Local Item・実観測境界に基づき試験移管先を確定 |
-| 40_Develop/project-operation/tests/integration/topic-meeting-record.contract.test.ts | 移管案 | 40_Develop/domain-model/tests/integration/topic-meeting-record.contract.test.ts | 対象責務・Local Item・実観測境界に基づき試験移管先を確定 |
-| 40_Develop/project-operation/tests/integration/topic-meeting-repository.contract.test.ts | 移管案 | 40_Develop/domain-model/tests/integration/topic-meeting-repository.contract.test.ts | 対象責務・Local Item・実観測境界に基づき試験移管先を確定 |
-| 40_Develop/project-operation/tsconfig.json | 統合・更新案 | 40_Develop/domain-model/tsconfig.json | Owner移管と全Consumer・検査／配布閉包を追従 |
+| 40_Develop/project-operation/package-lock.json | 統合・移管、局所確認済み | 40_Develop/domain-model/package-lock.json | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/project-operation/package.json | 統合・移管、局所確認済み | 40_Develop/domain-model/package.json | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/project-operation/src/index.ts | 分割・移管、局所確認済み | 40_Develop/domain-model/src/project-context/index.ts<br>40_Develop/domain-model/src/topic/index.ts<br>40_Develop/domain-model/src/meeting/index.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/project-operation/src/project-operation.ts | 分割・移管、局所確認済み | 40_Develop/domain-model/src/project-context/project-operation.ts<br>40_Develop/domain-model/src/project-context/types.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/project-operation/src/repository-project-context.ts | 分割・移管、局所確認済み | 40_Develop/domain-model/src/project-context/repository-project-context.ts<br>40_Develop/domain-model/src/project-context/types.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/project-operation/src/repository-quality-projection.ts | 分割・移管、局所確認済み | 40_Develop/domain-model/src/project-context/repository-quality-projection.ts<br>40_Develop/domain-model/src/project-context/types.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/project-operation/src/repository-release-projection.ts | 分割・移管、局所確認済み | 40_Develop/domain-model/src/project-context/repository-release-projection.ts<br>40_Develop/domain-model/src/project-context/types.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/project-operation/src/topic-meeting-application.ts | 分割・移管、局所確認済み | 40_Develop/domain-model/src/storage/topic-meeting-application.ts<br>40_Develop/domain-model/src/storage/types.ts<br>40_Develop/domain-model/src/topic/topic-application.ts<br>40_Develop/domain-model/src/meeting/meeting-application.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/project-operation/src/topic-meeting-repository.ts | 分割・移管、局所確認済み | 40_Develop/domain-model/src/storage/topic-meeting-repository.ts<br>40_Develop/domain-model/src/storage/types.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/project-operation/src/topic-meeting.ts | 分割・移管、局所確認済み | 40_Develop/domain-model/src/topic/topic-markdown.ts<br>40_Develop/domain-model/src/topic/types.ts<br>40_Develop/domain-model/src/meeting/meeting-markdown.ts<br>40_Develop/domain-model/src/meeting/types.ts<br>40_Develop/domain-model/src/artifact/activity-markdown.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/project-operation/symbol.json | 統合・移管、局所確認済み | 40_Develop/domain-model/symbol.json | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/project-operation/tests/integration/candidate-adoption.contract.test.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/tests/integration/candidate-adoption.contract.test.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/project-operation/tests/integration/project-projection.contract.test.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/tests/integration/project-projection.contract.test.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/project-operation/tests/integration/repository-project-context.contract.test.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/tests/integration/repository-project-context.contract.test.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/project-operation/tests/integration/topic-meeting-application.contract.test.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/tests/integration/topic-meeting-application.contract.test.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/project-operation/tests/integration/topic-meeting-record.contract.test.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/tests/integration/topic-meeting-record.contract.test.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/project-operation/tests/integration/topic-meeting-repository.contract.test.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/tests/integration/topic-meeting-repository.contract.test.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/project-operation/tsconfig.json | 統合・移管、局所確認済み | 40_Develop/domain-model/tsconfig.json | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
 | 40_Develop/project-runtime/package-lock.json | 統合・更新案 | 40_Develop/orchestrator/package-lock.json | Owner移管と全Consumer・検査／配布閉包を追従 |
 | 40_Develop/project-runtime/package.json | 統合・更新案 | 40_Develop/orchestrator/package.json | Owner移管と全Consumer・検査／配布閉包を追従 |
 | 40_Develop/project-runtime/src/application/project-runtime-acceptance-decision.ts | 移管案 | 40_Develop/orchestrator/src/application/project-runtime-acceptance-decision.ts | 内部配置・本文照合待ち |
@@ -754,24 +754,24 @@ Pathは基準版におけるRepository相対Pathである。同じFileの行を�
 | 40_Develop/project-runtime/tests/unit/project-state-query.contract.test.ts | 移管案 | 40_Develop/orchestrator/tests/unit/project-state-query.contract.test.ts | 対象責務・Local Item・実観測境界に基づき試験移管先を確定 |
 | 40_Develop/project-runtime/tests/unit/public-contract.contract.test.ts | 移管案 | 40_Develop/orchestrator/tests/unit/public-contract.contract.test.ts | 対象責務・Local Item・実観測境界に基づき試験移管先を確定 |
 | 40_Develop/project-runtime/tsconfig.json | 統合・更新案 | 40_Develop/orchestrator/tsconfig.json | Owner移管と全Consumer・検査／配布閉包を追従 |
-| 40_Develop/runtime-data/package-lock.json | 統合・更新案 | 40_Develop/domain-model/package-lock.json | Owner移管と全Consumer・検査／配布閉包を追従 |
-| 40_Develop/runtime-data/package.json | 統合・更新案 | 40_Develop/domain-model/package.json | Owner移管と全Consumer・検査／配布閉包を追従 |
-| 40_Develop/runtime-data/src/core/runtime-data-contract.ts | 関数分割 | domain-modelのrepository／storage／configuration公開入口 | 本文のDomain関数境界へ接続済み。署名Root・Fixture・Runtime保存Pathを照合 |
-| 40_Develop/runtime-data/src/index.ts | 公開入口再構成 | domain-modelのrepository／storage／configuration公開入口 | 本文のDomain関数境界へ接続済み。署名Root・Fixture・Runtime保存Pathを照合 |
-| 40_Develop/runtime-data/src/platform/runtime-data-path-resolver.ts | 関数分割 | domain-modelのrepository／storage／configuration公開入口 | 本文のDomain関数境界へ接続済み。署名Root・Fixture・Runtime保存Pathを照合 |
-| 40_Develop/runtime-data/src/platform/tool-runtime-config.ts | 移管 | domain-model/src/configuration | 本文のDomain関数境界へ接続済み。署名Root・Fixture・Runtime保存Pathを照合 |
-| 40_Develop/runtime-data/src/store/temporary-operation-store.ts | 移管 | domain-model/src/storage | 本文のDomain関数境界へ接続済み。署名Root・Fixture・Runtime保存Pathを照合 |
-| 40_Develop/runtime-data/symbol.json | 統合・更新案 | 40_Develop/domain-model/symbol.json | Owner移管と全Consumer・検査／配布閉包を追従 |
-| 40_Develop/runtime-data/tests/fixtures/create-temporary-operation-and-exit.ts | 移管案 | 40_Develop/domain-model/tests/fixtures/create-temporary-operation-and-exit.ts | 対象責務・Local Item・実観測境界に基づき試験移管先を確定 |
-| 40_Develop/runtime-data/tests/fixtures/resume-temporary-operation-and-exit.ts | 移管案 | 40_Develop/domain-model/tests/fixtures/resume-temporary-operation-and-exit.ts | 対象責務・Local Item・実観測境界に基づき試験移管先を確定 |
-| 40_Develop/runtime-data/tests/integration/repository-runtime-data-paths.integration.test.ts | 移管案 | 40_Develop/domain-model/tests/integration/repository-runtime-data-paths.integration.test.ts | 対象責務・Local Item・実観測境界に基づき試験移管先を確定 |
-| 40_Develop/runtime-data/tests/integration/runtime-data-consumer-closure.integration.test.ts | 移管案 | 40_Develop/domain-model/tests/integration/runtime-data-consumer-closure.integration.test.ts | 対象責務・Local Item・実観測境界に基づき試験移管先を確定 |
-| 40_Develop/runtime-data/tests/integration/temporary-operation-lifecycle.integration.test.ts | 移管案 | 40_Develop/domain-model/tests/integration/temporary-operation-lifecycle.integration.test.ts | 対象責務・Local Item・実観測境界に基づき試験移管先を確定 |
-| 40_Develop/runtime-data/tests/integration/tool-runtime-config.contract.test.ts | 移管案 | 40_Develop/domain-model/tests/integration/tool-runtime-config.contract.test.ts | 対象責務・Local Item・実観測境界に基づき試験移管先を確定 |
-| 40_Develop/runtime-data/tests/system/temporary-operation-cleanup.contract.test.ts | 移管案 | 40_Develop/domain-model/tests/system/temporary-operation-cleanup.contract.test.ts | 対象責務・Local Item・実観測境界に基づき試験移管先を確定 |
-| 40_Develop/runtime-data/tests/unit/runtime-data-contract.contract.test.ts | 移管案 | 40_Develop/domain-model/tests/unit/runtime-data-contract.contract.test.ts | 対象責務・Local Item・実観測境界に基づき試験移管先を確定 |
-| 40_Develop/runtime-data/tests/unit/runtime-data-path-resolver.contract.test.ts | 移管案 | 40_Develop/domain-model/tests/unit/runtime-data-path-resolver.contract.test.ts | 対象責務・Local Item・実観測境界に基づき試験移管先を確定 |
-| 40_Develop/runtime-data/tsconfig.json | 統合・更新案 | 40_Develop/domain-model/tsconfig.json | Owner移管と全Consumer・検査／配布閉包を追従 |
+| 40_Develop/runtime-data/package-lock.json | 統合・移管、局所確認済み | 40_Develop/domain-model/package-lock.json | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/runtime-data/package.json | 統合・移管、局所確認済み | 40_Develop/domain-model/package.json | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/runtime-data/src/core/runtime-data-contract.ts | 分割・移管、局所確認済み | 40_Develop/domain-model/src/configuration/runtime-data-contract.ts<br>40_Develop/domain-model/src/configuration/types.ts<br>40_Develop/domain-model/src/storage/runtime-data-area.ts<br>40_Develop/domain-model/src/repository/runtime-area-result.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/runtime-data/src/index.ts | 分割・移管、局所確認済み | 40_Develop/domain-model/src/repository/index.ts<br>40_Develop/domain-model/src/storage/index.ts<br>40_Develop/domain-model/src/configuration/index.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/runtime-data/src/platform/runtime-data-path-resolver.ts | 分割・移管、局所確認済み | 40_Develop/domain-model/src/repository/runtime-data-path-resolver.ts<br>40_Develop/domain-model/src/repository/types.ts<br>40_Develop/domain-model/src/configuration/runtime-data-paths.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/runtime-data/src/platform/tool-runtime-config.ts | 分割・移管、局所確認済み | 40_Develop/domain-model/src/configuration/tool-runtime-config.ts<br>40_Develop/domain-model/src/configuration/types.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/runtime-data/src/store/temporary-operation-store.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/src/storage/temporary-operation-store.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/runtime-data/symbol.json | 統合・移管、局所確認済み | 40_Develop/domain-model/symbol.json | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/runtime-data/tests/fixtures/create-temporary-operation-and-exit.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/tests/fixtures/create-temporary-operation-and-exit.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/runtime-data/tests/fixtures/resume-temporary-operation-and-exit.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/tests/fixtures/resume-temporary-operation-and-exit.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/runtime-data/tests/integration/repository-runtime-data-paths.integration.test.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/tests/integration/repository-runtime-data-paths.integration.test.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/runtime-data/tests/integration/runtime-data-consumer-closure.integration.test.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/tests/integration/runtime-data-consumer-closure.integration.test.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/runtime-data/tests/integration/temporary-operation-lifecycle.integration.test.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/tests/integration/temporary-operation-lifecycle.integration.test.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/runtime-data/tests/integration/tool-runtime-config.contract.test.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/tests/integration/tool-runtime-config.contract.test.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/runtime-data/tests/system/temporary-operation-cleanup.contract.test.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/tests/system/temporary-operation-cleanup.contract.test.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/runtime-data/tests/unit/runtime-data-contract.contract.test.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/tests/unit/runtime-data-contract.contract.test.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/runtime-data/tests/unit/runtime-data-path-resolver.contract.test.ts | 統合・移管、局所確認済み | 40_Develop/domain-model/tests/unit/runtime-data-path-resolver.contract.test.ts | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
+| 40_Develop/runtime-data/tsconfig.json | 統合・移管、局所確認済み | 40_Develop/domain-model/tsconfig.json | 段階5AのSource・公開入口・利用側・Symbol・Catalogを接続。全体回帰・実署名・実E2Eは未完了 |
 | 40_Develop/semantic-coverage/bin/compile-semantic-coverage-pilot.ts | 維持案 | 40_Develop/semantic-coverage/bin/compile-semantic-coverage-pilot.ts | 内部配置・本文照合待ち |
 | 40_Develop/semantic-coverage/package-lock.json | 維持＋参照更新案 | 40_Develop/semantic-coverage/package-lock.json | Owner移管と全Consumer・検査／配布閉包を追従 |
 | 40_Develop/semantic-coverage/package.json | 維持＋参照更新案 | 40_Develop/semantic-coverage/package.json | Owner移管と全Consumer・検査／配布閉包を追従 |

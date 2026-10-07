@@ -15,7 +15,7 @@ import {
   resolveFilesystemStorePath,
   withFilesystemStoreLock,
   type FilesystemStoreRoot,
-} from "../../crdd-domain-library/src/filesystem-store-root/index.ts";
+} from "../../domain-model/src/storage/index.ts";
 
 import {
   applyOfficialAssetDecision,

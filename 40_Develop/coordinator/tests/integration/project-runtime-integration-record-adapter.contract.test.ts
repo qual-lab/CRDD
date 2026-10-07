@@ -20,10 +20,8 @@ import {
   createProjectRuntimeIntegrationRecordAdapter,
   readLegacyProjectRuntimeResultInputs,
 } from "../../src/project-runtime/project-runtime-integration-record-adapter.ts";
-import {
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
-  requireReadyRepositoryRuntimeDataArea,
-} from "../../../runtime-data/src/index.ts";
+import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/storage/index.ts";
+import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/repository/index.ts";
 
 /**
  * 空の旧結果でもAreaの途中置換を拒否する。

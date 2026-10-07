@@ -10,7 +10,7 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { resolveRepositoryRuntimeDataPaths } from "../../runtime-data/src/index.ts";
+import { resolveRepositoryRuntimeDataPaths } from "../../domain-model/src/repository/index.ts";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,

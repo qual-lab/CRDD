@@ -9,7 +9,7 @@
  * @security Remote Transportへ公開せず、生Tokenを完了時のTerminalへ一度だけ表示する。
  */
 
-import type { CrosRootInput } from "../../runtime-data/src/index.ts";
+import type { CrosRootInput } from "../../domain-model/src/repository/index.ts";
 
 import {
   applyCredentialAccessRecovery,

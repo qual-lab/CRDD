@@ -14,7 +14,8 @@ import type {
   TopicMeetingListQuery,
   TopicMeetingPage,
   TopicMeetingRelation,
-} from "../../../project-operation/src/index.ts";
+} from "../../../domain-model/src/topic/index.ts";
+
 import type {
   ChangePublicationResult,
   RepositoryWorktreeFileDiff,
