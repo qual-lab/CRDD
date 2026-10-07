@@ -177,3 +177,80 @@ export function describeDockerRecoveryStateMachineContract() {
     lockReleaseTreatment: "attempt_all_and_report_first_failure",
   });
 }
+
+/**
+ * Coordinator現在状態の保存途中から予定できる次処置を分類する。
+ *
+ * @responsibility 元版・次版のexact内容結合と初回条件を照合し、不明な状態を停止へ分類する。
+ * @trace ARCH-000008
+ * @input current: 正規Fileの閉じた観測、pending: 検証済みSnapshotの版・結合・exact bytes Hash、repositoryBinding: 期待するRepository結合、rootState: 初回Root条件の観測。
+ * @returns publish_pending、remove_pendingまたはblockedという処置候補を返す。
+ * @precondition 呼出し側がSnapshot全体を検証し、Hashをexact UTF-8 bytesから取得している。
+ * @postcondition 元版結合または確定済み同内容の確認なしに処置候補を返さない。
+ * @effect N/A: File、Lock、Process、Dockerを操作しない純粋な判定である。
+ * @failure 不正な版、結合差、同版異内容、既知元版喪失、観測不能はblockedへ分類する。
+ * @invariant 正規Fileの観測不能を不存在へ変換せず、履歴から旧状態を復元しない。
+ * @boundary 検証済みSnapshotのIdentityと再入場処置候補の境界。全Snapshotの妥当性検証は所有しない。
+ * @security 返却値は保存・削除・次EffectのAuthorityでも、cleanup成立の証明でもない。
+ * @concurrency N/A: 排他を取得しない。利用側が同じ短期排他内でfresh観測と実処置を所有する。
+ */
+export function classifyCoordinatorSnapshotReentry(
+  current:
+    | Readonly<{
+        status: "present";
+        revision: number;
+        repositoryBinding: string;
+        payloadSha256: string;
+      }>
+    | Readonly<{ status: "absent" }>
+    | Readonly<{ status: "unknown" }>,
+  pending: Readonly<{
+    revision: number;
+    previous: Readonly<{ revision: number; payloadSha256: string }> | null;
+    repositoryBinding: string;
+    payloadSha256: string;
+  }>,
+  repositoryBinding: string,
+  rootState: "new" | "existing" | "unknown",
+) {
+  if (
+    repositoryBinding.length === 0 ||
+    pending.repositoryBinding !== repositoryBinding ||
+    !Number.isSafeInteger(pending.revision) ||
+    pending.revision < 1 ||
+    !/^[a-f0-9]{64}$/.test(pending.payloadSha256) ||
+    (pending.previous === null
+      ? pending.revision !== 1
+      : !Number.isSafeInteger(pending.previous.revision) ||
+        pending.previous.revision < 1 ||
+        pending.previous.revision >= Number.MAX_SAFE_INTEGER ||
+        pending.revision !== pending.previous.revision + 1 ||
+        !/^[a-f0-9]{64}$/.test(pending.previous.payloadSha256))
+  )
+    return "blocked" as const;
+  if (current.status === "unknown" || rootState === "unknown")
+    return "blocked" as const;
+  if (current.status === "absent")
+    return pending.previous === null && rootState === "new"
+      ? ("publish_pending" as const)
+      : ("blocked" as const);
+  if (
+    current.repositoryBinding !== repositoryBinding ||
+    !Number.isSafeInteger(current.revision) ||
+    current.revision < 1 ||
+    !/^[a-f0-9]{64}$/.test(current.payloadSha256)
+  )
+    return "blocked" as const;
+  if (
+    current.revision === pending.revision &&
+    current.payloadSha256 === pending.payloadSha256
+  )
+    return "remove_pending" as const;
+  if (
+    pending.previous !== null &&
+    current.revision === pending.previous.revision &&
+    current.payloadSha256 === pending.previous.payloadSha256
+  )
+    return "publish_pending" as const;
+  return "blocked" as const;
+}

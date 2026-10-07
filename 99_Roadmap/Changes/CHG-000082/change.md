@@ -678,3 +678,31 @@ Coordinator詳細設計に、現在状態の閉集合、保存途中の再入場
 既存回復状態機械、Recovery Runtime、Process Controllerの局所基準試験は215件成功、失敗・取消・skipは0だった。新保存方式の実装試験ではない。Coordinatorの整形、Production／Test型検査、Lintは成功したが、後続の能力Graph検査は`platform_provisioner_runtime_dependency_child_process_unbound`で停止した。全体Checkerの既存15指摘も残るため、全回帰Passとは表示しない。
 
 現在状態の本番保存接続、限定unknown終了の実装、通常履歴の保持設定、利用側の切替および実境界・署名E2Eは未完了である。今回、Docker再起動、実Provider依頼、実署名、旧回復記録の削除は行っていない。
+
+### 保存再入場判定の第一実装 — 2026-10-07
+
+既存の回復状態機械へCoordinator Snapshotの純粋な再入場判定を追加した。元版／次版のexact bytes Hash、Repository結合、初回Root条件、明示不存在／観測不能、previous改訂相関、非安全整数・overflowを照合する。返却は非Authorityの処置候補で、File・Lock・Docker操作を発行しない。新規三Caseを含む単体十一件と、既存Recovery Runtime／Process Controllerを含む局所回帰218件は全件成功し、失敗・取消・skipは0だった。型・対象整形・Lint・diff確認も成功した。固定Source二Fileの限定独立レビューはPass、必須指摘0である。全Snapshot検証、物理保存と清掃、本番Writer接続、限定unknown終了、全体Checkerの既存残件および実環境E2Eはこの判定へ含めない。旧記録の削除・実署名・Provider依頼・Docker再起動は行っていない。
+
+### 現在状態の保存先・排他接続 — 2026-10-07
+
+既存Repository Operation Ownerへ内部保存先借用を追加し、Root・論理／実体Identity・発行revisionとOwnerを再観測する。公開検証結果へPathを追加せず、借用をAuthorityとして扱わない。既存Windows排他primitiveのCoordinator専用namespaceを追加し、Host試験プロファイルへ接続した。保存先とOwner失効、同Root競合、別Root・Project Runtimeとの独立、解放後再取得の局所二件、および先の再入場三件を合わせた五件が成功した。型検査・対象Biome・diff確認も成功し、限定独立レビューPass、必須是正0である。保存Root Hashの導出、全Snapshot Schema、物理Writer、既存排他との取得順、doctorの再入場Root、本番切替は未完了である。実署名・Docker再起動・Provider依頼・旧記録削除は行っていない。
+
+### 回復記録の内容検証と物理保存の分離 — 2026-10-07
+
+着手前確認で、旧base／段階FileはNative Authorityそのものではないが、Coordinatorの資源選択・回復相関・Host清掃前提へ結合していると確認した。単純なWriter置換を避け、既存八宣言を`docker-recovery-record-model.ts`へ移し、Runtimeから共通の内容検証を利用する形へ分離した。宣言本文は空白正規化したGit基準版比較で全八件一致し、条件や既存受理範囲を変更していない。新しい互換Reader、保存方式の二重正本、Native操作やAuthorityは追加していない。
+
+分離後の回復状態機械・Recovery Runtime・Process Controller局所回帰218件は全件成功、失敗・取消・skipは0だった。型検査、対象Biome、diff確認は成功し、Source二FileとArchitecture追加説明の限定独立レビューはPass、必須是正0である。能力Graph検査は既存の`platform_provisioner_runtime_dependency_child_process_unbound`で停止するため、全体検査Passとはしない。全Snapshot Schema、Writer、Host処置前提の最新状態接続、旧保存撤去、限定unknown終了および実署名E2Eは未完了である。
+
+### 現在状態codecの構造相関 — 2026-10-07
+
+`coordinator-state-model.ts`へ最新Snapshotの閉じた型と本文検査を追加した。固定操作情報とHost遷移の確定JSON本文を文字列として保持し、外側のkey整列によってNative証明の項目順・Hashを変更しない。五purposeの要求状態と現在観測、一次失敗と最終結果、操作と回復・搬送参照を分離した。別Repository、重複・孤立参照、不正改訂、未知field、非正規本文、不正UTF-8、BOM、getter／Proxyを拒否する。ID確定済みで観測unknownになっても資源IDを保持する。
+
+独立レビューの二指摘（Host許可辺の未限定とBuffer accessor評価）を是正し、現行三辺への限定と組込みbyte取得・コピー、拒否反証を追加した。型検査・対象Biome・関連単体十四件が成功し、Source／Test／Architectureの限定再レビューはPass、必須残件0である。先の218件回帰を今回の新codecの回帰数へ合算しない。Snapshot間の遷移不変条件、実Writer・Host回収接続、旧保存撤去と署名E2Eは未完了である。今回もDocker操作、Provider依頼、署名と旧実物削除は行っていない。
+
+### 現在状態の物理保存Port — 2026-10-07
+
+通常操作Ownerへ結合した保存Portを追加した。既存排他、検証済みRepository結合、bounded読取りを用い、現在状態とpendingを固定配置へ保存する。Runtime Data Ownerの排他的領域作成と初回本文を結合し、空の既存領域や公開後の状態喪失を初回へ読み替えない。本文とFile Identity、再openしたdescriptorを照合し、同内容の別Fileを拒否する。保存確認と排他終了を別に返す。
+
+改訂間では固定Identity、確認済み資源ID、一次失敗、結果と受理参照を保持する。回復と搬送の変更も操作Ownerへ結合し、unknownを未発行へ変更しない。終端証明が未接続の間は操作・回復・搬送の削除を拒否する。独立レビューの指摘を是正し、初回準備前のOwner照合と排他解放未確認時の初期化証拠失効も追加した。
+
+型検査、対象Biome、単体三件と実Windows Filesystemの保存・再入場一件はPass、作業差分とstaged差分の形式検査もPass。公開後の状態消失、同内容の実体差し替え、hardlink、別pending、Owner失効、unknown負方向の反証を含む。実装・Architectureの限定再レビューはPass、必須実装指摘0である。ただし追加二指摘の専用反例試験（別Owner初回候補のEffect0と領域未作成、公開前保存失敗と排他解放失敗後の初回再試行拒否）は未完了であり、保存Slice全体の検証完了とは表示しない。本番Producer、doctor再入場、Host終端、旧保存撤去、履歴設定、署名E2Eは引き続き未完了。Docker操作、Provider依頼、署名と旧実物削除は行っていない。

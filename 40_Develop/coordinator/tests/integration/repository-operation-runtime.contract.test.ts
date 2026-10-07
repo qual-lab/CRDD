@@ -14,6 +14,10 @@ import os from "node:os";
 import path from "node:path";
 import type { TestContext } from "node:test";
 import test from "node:test";
+import {
+  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
+  requireReadyRepositoryRuntimeDataArea,
+} from "../../../runtime-data/src/index.ts";
 
 import {
   cleanupOwnedOperationDirectories,
@@ -24,6 +28,7 @@ import {
 } from "../../src/security/execution-environment.ts";
 import {
   bindRuntimeOwnedRepositoryOperation,
+  borrowRuntimeOwnedCoordinatorStateRepository,
   describeRepositoryOperationRuntimeContract,
   inspectRepositoryObjectFormatCandidate,
   verifyRuntimeOwnedRepositoryBindingCapability,
@@ -32,6 +37,53 @@ import {
 
 const firstRevision = "1".repeat(40);
 const secondRevision = "2".repeat(40);
+
+/**
+ * Coordinator保存先の内部借用を実Repositoryと操作Ownerへ結合する。
+ * @responsibility 保存先の一致、公開Path非開示、Owner終了後の失効を確認する。
+ * @trace PRL-IT-012
+ * @precondition 現在Repository内の試験一時領域だけを使用する。
+ * @stimulus 保存先を借用し、操作Ownerを終了して再検証する。
+ * @observation Root、Identity、再検証結果と公開結果を観測する。
+ * @oracle 借用は同じRepositoryだけを返し、終了後は拒否される。
+ * @cleanup 所有操作の一時領域を終了時に回収する。
+ * @boundary PRL-IT-012=Direct Boundary: Repository Operation Owner→Coordinator保存先。
+ */
+test("Coordinator保存先借用は現在Repositoryと有効Ownerだけに結合する", (t) => {
+  const area = requireReadyRepositoryRuntimeDataArea(
+    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+      import.meta.dirname,
+      "tests",
+    ),
+    "coordinator_state_test_root_invalid",
+  );
+  const owned = createOwnedOperationDirectories(area.directory);
+  let cleaned = false;
+  t.after(() => {
+    if (!cleaned) cleanupOwnedOperationDirectories(owned);
+  });
+  const management = createOwnedOperationManagementCapability(
+    createOwnedOperationContextCapability(owned),
+    createOwnedMountCapability(owned),
+  );
+  const root = path.resolve(import.meta.dirname, "../../../..");
+  assert.ok(bindRuntimeOwnedRepositoryOperation(management, root));
+  assert.equal(borrowRuntimeOwnedCoordinatorStateRepository({}), null);
+  const borrowed = borrowRuntimeOwnedCoordinatorStateRepository(management);
+  assert.ok(borrowed);
+  assert.equal(borrowed.repositoryRoot, fs.realpathSync.native(root));
+  assert.ok(borrowed.logicalRepositoryIdentity);
+  assert.ok(borrowed.repositoryInstanceIdentity);
+  assert.equal(Object.isFrozen(borrowed), true);
+  assert.equal(borrowed.revalidate(), true);
+  const publicResult = verifyRuntimeOwnedRepositoryOperation(management);
+  assert.ok(publicResult);
+  assert.equal("repositoryRoot" in publicResult, false);
+  cleanupOwnedOperationDirectories(owned);
+  cleaned = true;
+  assert.equal(borrowed.revalidate(), false);
+  assert.equal(borrowRuntimeOwnedCoordinatorStateRepository(management), null);
+});
 
 /**
  * temporaryRepositoryのTest準備責務を実行する。

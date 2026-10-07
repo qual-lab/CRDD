@@ -310,6 +310,8 @@ Native保存接続のCaseは、未保存・正常caller・独立binding差・取
 
 本節は[Coordinatorの現在状態Snapshot](../../../06_Architecture/Details/coordinator/01_Architecture.md#現在状態snapshotの構造)から既存Local Itemへ導出する。新しい試験IDを目的なく増やさず、以下のscenarioを同じ検証義務の中で個別に判定する。設計の追加を試験合格や本番接続済みと表示しない。
 
+保存再入場の純粋な分類は、[QA-000003](../QA-000003/quality_definition.md)の`PRL-UT-006`で、元版／次版のexact bytes Hash、Repository結合、初回Root条件、明示不存在／観測不能、previous相関、非安全整数・overflowを確認する。返却は非Authorityの処置候補であり、全Snapshot検証、File保存・回収、Root観測、Docker回復の成立は以下の結合・総合義務で別に確認する。
+
 | Local Item | 入力・反証scenario | 観測・Oracle | 終了後条件 |
 |---|---|---|---|
 | `ERB-IT-003` | 正常終了、取消中清掃、一次失敗後の清掃失敗、Process終了後の結果未受理。 | 一次失敗が不変で、cleanupと最終結果を別に保持する。結果受理前にoperationを除去しない。 | 未受理なら同じ結果を保持。清掃不明なら同じexact回復義務を保持。 |
@@ -323,7 +325,7 @@ Native保存接続のCaseは、未保存・正常caller・独立binding差・取
 
 機械確認はSnapshotのshape、参照整合、revision／内容相関と固定purposeを扱う。意味上の限定終了、遅延要求と旧Owner停止の実保証はArchitecture／Qualityの独立確認および実境界の観測で扱う。Mockの返値だけでは実資源不存在や遅延create無害化を証明しない。
 
-PT／LT適用判断: 専用の大規模負荷実行はN/A。今回の変更は容量・履歴が増えても現在の受付や回復へ干渉しないことを結合試験で確認する。Snapshot上限・履歴設定が未確定なので最終容量境界はOPENであり、確定後に再評価する。専用PT／LTの実行は人間指定なしに開始しない。
+PT／LT適用判断: 専用の大規模負荷実行はN/A。今回の変更は容量・履歴が増えても現在の受付や回復へ干渉しないことを結合試験で確認する。Snapshot本文の有限上限はArchitectureへ具体化したが、本番受付制限と履歴設定は未接続なので最終容量境界はOPENであり、接続後に再評価する。専用PT／LTの実行は人間指定なしに開始しない。
 
 OPEN: 新SnapshotへのSource接続、限定終了の実境界反証、各scenarioの実行とEvidenceは未実施。本節の追加だけでLocal ItemをPassへ変更しない。
 

@@ -11,6 +11,8 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
+Docker回復記録の縮小は本番切替前の保存境界を具体化している。Repository結合と短期排他、保存途中の再入場分類、既存内容検証の分離に続き、現在状態の本文と操作・資源・回復参照の構造検査を追加した。新codecの関連単体14件と限定再レビューはPassである。分離時の局所回帰218件とは確認範囲を区別する。最新Snapshotの本番保存、Host回収前提の接続、旧保存撤去と実E2Eは未完了で、全体能力Graphの既知停止も維持する。[現在の範囲](99_Roadmap/Changes/CHG-000082/change.md#現在状態codecの構造相関--2026-10-07)を参照する。
+
 移管された実行Evidenceは既存Markdownへ正式要約として集約し、未コミットJSON46Fileを独立確認後に回収した。過去の対象版・結果・観測限界は保持し、実行別の書庫を増やさない。[集約結果](99_Roadmap/Changes/CHG-000082/Evidence/261006_release-test-retention-phase4.md#移管jsonの正式要約と終了処置--2026-10-07)を参照する。
 
 tmp清掃では終了済みログ104件と、承認された配布・試験生成物11件（合計約711MB）を追加回収した。公式CLIへの切替は局所確認・限定独立レビューまで完了したが、署名と実Provider E2Eは未実施である。Coverage保存先と署名Fixture命名の二件は是正済み。横断命名検査では既存Sourceの258件の指摘が残り、全域Passとはしない。旧改造CLI専用診断は廃止し、実Filesystem連続処置だけを正式試験へ移して17件成功・限定独立レビューPassとした。追加75ファイル（約519MB）も回収し、旧空.operations/.stagingとtests/coordinator-launchを回収し、試験親フォルダの再生成も是正した。署名一時配置はtmp/signatureへ切替済みで、局所試験と限定独立レビューはPassである。実署名・製品E2Eの未評価は維持する。新公式CLIの認証／取消E2E義務は維持する。[現在の処置と確認範囲](99_Roadmap/Changes/CHG-000082/change.md#tmpの追加回収と横断確認二件の是正--2026-10-07)を参照する。

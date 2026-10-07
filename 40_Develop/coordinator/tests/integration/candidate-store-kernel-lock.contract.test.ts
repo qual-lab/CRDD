@@ -4,6 +4,7 @@
  * @packageDocumentation
  * @responsibility coordinator:integration:candidate-store-kernel-lockが所有する検証責務を実行する。
  * @trace CPR-IT-001
+ * @trace ERB-IT-003
  * @level IT
  * @scope candidate、store、kernel、lock
  * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
@@ -18,11 +19,13 @@ import { fileURLToPath } from "node:url";
 
 import {
   acquireRuntimeOwnedCandidateStoreKernelLock,
+  acquireRuntimeOwnedCoordinatorStateKernelLock,
   acquireRuntimeOwnedDockerRuntimeStateKernelLock,
   acquireRuntimeOwnedHostOperationKernelLock,
   acquireRuntimeOwnedHostOperationSupervisorLock,
   acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome,
   acquireRuntimeOwnedLogicalProviderHomeKernelLock,
+  acquireRuntimeOwnedProjectRuntimeStateKernelLock,
   describeCandidateStoreKernelLockContract,
 } from "../../src/security/candidate-store-kernel-lock.ts";
 import {
@@ -33,6 +36,48 @@ import {
 const FAST_SUPERVISOR_TIMING = Object.freeze({
   acquireTimeoutMs: 10,
   releaseTimeoutMs: 10,
+});
+
+/**
+ * Coordinator Snapshotの短期排他をWindows実資源で確認する。
+ * @responsibility 同じRootの競合、別Root・別Ownerとの独立、解放後の再取得を確認する。
+ * @trace ERB-IT-003
+ * @precondition Windowsの名前付きPipeを使用しDockerとProviderは使用しない。
+ * @stimulus 同じRootと異なるRootでLockを取得し解放する。
+ * @observation 取得結果、assertLive、解放と再取得を観測する。
+ * @oracle 同じRootだけが競合し解放後は再取得できる。
+ * @cleanup 取得した全Lockをfinallyで解放する。
+ * @boundary ERB-IT-003=Direct Boundary: Coordinator Snapshot Owner→Windows排他資源。
+ */
+test("Host Windows: Coordinator Snapshot排他はRootとOwnerを分離し解放後に再取得できる", {
+  skip: process.platform !== "win32",
+}, () => {
+  for (const invalid of [null, {}, "", "A".repeat(64), "a".repeat(63)]) {
+    assert.equal(acquireRuntimeOwnedCoordinatorStateKernelLock(invalid), null);
+  }
+  const hash = randomBytes(32).toString("hex");
+  const first = acquireRuntimeOwnedCoordinatorStateKernelLock(hash);
+  assert.ok(first);
+  const other = acquireRuntimeOwnedCoordinatorStateKernelLock(
+    randomBytes(32).toString("hex"),
+  );
+  const project = acquireRuntimeOwnedProjectRuntimeStateKernelLock(hash);
+  try {
+    assert.equal(first.assertLive(), true);
+    assert.equal(acquireRuntimeOwnedCoordinatorStateKernelLock(hash), null);
+    assert.ok(other);
+    assert.ok(project);
+    assert.equal(other.assertLive(), true);
+    assert.equal(project.assertLive(), true);
+  } finally {
+    other?.release();
+    project?.release();
+    assert.equal(first.release(), true);
+  }
+  assert.equal(first.assertLive(), false);
+  const reacquired = acquireRuntimeOwnedCoordinatorStateKernelLock(hash);
+  assert.ok(reacquired);
+  assert.equal(reacquired.release(), true);
 });
 
 /**

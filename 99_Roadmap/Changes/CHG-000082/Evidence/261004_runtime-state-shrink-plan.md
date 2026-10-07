@@ -367,3 +367,9 @@ Trust起動接続の範囲是正は独立レビューPassとなり、Commit `33c
 現在状態の保存契約と限定終了の条件は、[Coordinator詳細設計](../../../../06_Architecture/Details/coordinator/01_Architecture.md#現在状態snapshotの構造)と既存QA Local Itemの反証へ具体化した。元版との結合とpending／正規Snapshotの同一形式に関する指摘を是正し、限定独立設計再レビューはPassとなった。既存局所基準試験215件は成功したが、新保存方式の実装試験ではない。結果と検査停止事項は[CHGの確認要約](../change.md#docker回復縮小の保存契約反証具体化--2026-10-07)へ記録する。
 
 次は既存Producer／Consumerの全数対応を確定し、現在状態保存と終端処置を本番へ接続する。Docker回復縮小、保存切替、実環境の再開または署名E2Eは未完了である。Coordinator通常履歴の保持設定は未確定であり、②の30日を無断で採用しない。
+
+最初の実装Sliceは、既存`docker-recovery-state-machine.ts`の保存再入場分類に限定した。元版／次版のexact内容、Repository結合、初回Root条件、明示不存在／観測不能、previous改訂相関を検査し、保存候補・短命物回収候補・停止を返す。これは操作Authorityではなく、Snapshot全体の検証や物理保存・回収の代わりではない。Project RuntimeのWriterは専用Schemaと排他に結合されているため、その公開Writerをそのまま転用しない。本番接続前にCoordinatorのRoot・短期排他・容量・全Snapshot検証・exact参照搬送を既存Ownerへ接続する。新しいLock Frameworkや旧形式Readerは追加しない。
+
+2026-10-07の保存境界確認後、Root借用と専用の短期排他を追加し、既存の記録内容検証八宣言を物理保存Runtimeから分離した。回復IDは固定操作情報のHashへ結合し、可変Snapshot全体のHashにしない。次の切替順は、閉じた操作型と相関検証、保存／読取りOwnerの同時切替、Hostの処置前提、通常／再入場清掃、結果受理と終了要約後の項目除去である。Host世代marker自体は別責務として維持し、旧Coordinator markerを作らなくなったことだけを回収許可へ変換しない。新Snapshotの本番接続と旧物理保存撤去はまだ完了していない。
+
+閉じた操作型とSnapshot本文の構造相関は、局所十四件・型／対象Biomeと限定再レビューPassまで進んだ。固定証明本文の項目順は保持し、現在観測unknownでも確定IDを失わない。結果は[CHGの確認要約](../change.md#現在状態codecの構造相関--2026-10-07)へ集約した。次は改訂間の固定Identity・一次失敗・確定資源IDの保持と、保存／読取りOwnerの本番接続を扱う。この純粋codecから物理保存・回収や全体E2Eの成立を推定しない。

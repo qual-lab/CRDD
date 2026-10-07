@@ -4,6 +4,7 @@
  * @responsibility Bindingを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000009
  */
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { observeFixedRevisionIdentity } from "../../../version-control/src/fixed-revision.ts";
@@ -326,6 +327,72 @@ export function verifyRuntimeOwnedRepositoryOperation(
           revisionCurrent: true as const,
         })
       : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Coordinatorの保存先選択へ、現在のRepository結合を内部借用する。
+ * @responsibility 操作Ownerへ結合したRoot・論理Identity・実体Identity・発行revisionを再観測して返す。
+ * @trace ARCH-000009
+ * @input managementCapability: 同じRuntimeが所有する操作管理Capability。
+ * @returns 内部保存用のRoot・結合・再検証手段、または借用不能のnull。
+ * @precondition 操作がRepositoryへ結合され、現在のOwnerと発行revisionを確認できる。
+ * @postcondition caller supplied Path、cwd、過去のJSONから保存先を選択しない。
+ * @effect FilesystemとVersion Controlの現在Identityを読取り、書込みは行わない。
+ * @failure 不正Capability、Owner失効、Repository実体・revision差、観測不能はnullを返す。
+ * @invariant 発行時結合を現在観測で置換せず、元Ownerと同じ結合だけを借用する。
+ * @boundary Repository Operation OwnerからCoordinator内部の保存先選択への境界。
+ * @security 返却Path・Identityは書込み、削除、RecoveryまたはProvider起動のAuthorityではなく、外部公開しない。
+ * @concurrency 保存直前・直後の再検証と実効排他はWriterが所有する。借用だけでLockを取得しない。
+ */
+export function borrowRuntimeOwnedCoordinatorStateRepository(
+  managementCapability: unknown,
+) {
+  try {
+    const binding = currentBinding(managementCapability);
+    if (!binding) return null;
+    return Object.freeze({
+      operationId: binding.operationId,
+      repositoryRoot: binding.repositoryRoot,
+      logicalRepositoryIdentity: binding.logicalRepositoryIdentity,
+      repositoryInstanceIdentity: binding.repositoryInstanceIdentity,
+      repositoryBinding: createHash("sha256")
+        .update("crdd-coordinator-repository-state-binding-v1\0")
+        .update(
+          JSON.stringify([
+            binding.repositoryRoot,
+            binding.logicalRepositoryIdentity,
+            binding.repositoryInstanceIdentity,
+          ]),
+          "utf8",
+        )
+        .digest("hex"),
+      revision: binding.revision,
+      /**
+       * 同じ操作OwnerとRepository結合が現在も成立するか再観測する。
+       * @responsibility 借用後のOwner・実体・revision変化をWriterへ返す。
+       * @trace ARCH-000009
+       * @input N/A: 発行時の内部結合を閉包から参照する。
+       * @returns 同じ結合を再確認できた場合だけtrue。
+       * @precondition 借用元のRuntime内で使用する。
+       * @postcondition 観測不能を現在一致へ分類しない。
+       * @effect Repositoryと操作Ownerの現在状態を読取る。
+       * @failure 観測失敗と結合失効はfalse。
+       * @invariant 他のOwnerやRepositoryへ再結合しない。
+       * @boundary 保存利用側と現在のRepository結合観測。
+       * @security trueはFile書込みAuthorityやcleanup許可ではない。
+       * @concurrency 保存用Lockの代わりにはせず、WriterがI/O境界で呼ぶ。
+       */
+      revalidate() {
+        try {
+          return currentBinding(managementCapability) === binding;
+        } catch {
+          return false;
+        }
+      },
+    });
   } catch {
     return null;
   }

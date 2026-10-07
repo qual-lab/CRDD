@@ -977,13 +977,40 @@ Docker Task Recoveryは元のRecovery IDと発行時Sessionの証拠を保持し
 
 `operations`の一項目は、Operation／Attempt／Recovery Identity、ProviderとProfile、発行時RuntimeとHomeの結合、現在のOwner世代、資源の種類・正確なID・要求状態、Host／Leaseの現在checkpoint、一次失敗、最終結果区分を保持する。秘密値、Prompt、Provider生出力、診断全文、過去の状態列は保持しない。書込み可能な共有Mountの有無は限定終了の判定に必要なため、省略して非該当と扱わない。
 
+操作の固定情報と更新可能な現在値を区別する。回復IDは固定した操作情報の内容Hashへ結合し、可変Snapshot全体のHashへ結合しない。同じ操作のcheckpoint更新で回復IDを変えず、更新時には固定情報の一致も確認する。新しいAttemptには新しいnonceを発行し、過去Attemptの回復IDを再利用しない。
+
+| 保存内容 | Ownerと更新条件 | 維持する検証 |
+|---|---|---|
+| 操作の固定情報 | 操作開始時に一度固定する。Operation、nonce、Provider／Profile、許可参照、Home／Runtime結合、予定資源、Image、操作mode、共有Mount条件、初期Host結合。 | 閉じたfield集合、同じ基本情報の内容Hash、同じexact回復IDへの相関。 |
+| 資源・Host・Leaseの現在checkpoint | 同じ操作の実要求・実観測・現在世代に応じて更新する。 | 個別checkpointの構造検証だけでなく、要求前記録、相関、遷移順、現在の実体観測を照合する。 |
+| Hostの処置前提 | Coordinatorの確認結果を既存Host Ownerへ用途限定で渡す。 | opaque Capability、一回消費、現在Host世代と実体排他を維持する。Snapshot項目の存在だけで回収許可を作らない。 |
+
+記録内容の検証は`docker-recovery-record-model.ts`が所有し、Filesystem配置・保存・再入場・Authority発行はRuntime側が所有する。構造検証のPassを資源不存在、現在Authorityまたは完全な遷移検証の代替にしない。旧`active-docker-task-v1.json`の不存在条件を、旧Fileを作らなくなっただけで満たしたと解釈しない。最新Snapshotの検証済み操作結合、資源終端とHost世代へ処置前提を接続してから旧物理記録経路を撤去する。このHost接続と本番切替は未完了である。
+
 資源要求は既存の五purpose（`create_subscription_auth_probe`、`create_internal_network`、`create_egress_network`、`create_proxy`、`create_provider`）に限定する。要求前、意図保存、要求発行、応答／ID確定、現在資源の存在・不存在・観測不能を区別する。意図保存からDocker受理を、空IDから不存在を、清掃要求から清掃完了を推定しない。動作を広げるための任意purposeや任意Pathは追加しない。
+
+##### 現在状態の本文と証明情報
+
+現在状態の外側はobject keyを辞書順とするUTF-8 JSONと末尾一つのLFで固定する。配列の順序は保持し、集合は操作nonce、資源purpose、操作nonceとConsumerの組で昇順・一意にする。非正規本文、重複key、不正UTF-8、BOM、未知fieldを拒否する。
+
+| 保存項目 | 固定する意味 | 検査の限界 |
+|---|---|---|
+| `identityJson`、`identitySha256` | 操作開始時の閉じた基本情報の確定本文とSHA-256。本文の項目順と末尾LFも保持する。 | 可変SnapshotのHashへ回復IDを付け替えない。固定情報のPathを現在の書込み許可にしない。 |
+| `host.pendingTransitionJson` | Host Ownerが確定した処置前本文と次世代Tokenの相関。元のJSON項目順を保持する。 | 外側のkey整列をNative証明本文へ適用しない。保存内容検査は現在Hostの実体確認を代替しない。 |
+| `resources` | 五purposeを必ず評価し、要求状態と現在観測を別fieldにする。 | ID確定済みで観測がunknownになってもIDと受理根拠を保持する。不存在の根拠Hashだけから実不存在を推定しない。 |
+| `primaryFailure`、`outcome` | 最初の失敗と後続清掃・最終結果を別に保持する。 | 最終結果による一次失敗の上書きを禁止する。 |
+
+本文上限は16MiB、未終了操作と回復参照は各64件、結果搬送は操作ごとに三Consumerまでとする。上限到達時は未解決情報を削除せず新しい受付を停止する。これらは履歴保持上限ではない。`coordinator-state-model.ts`は構造検査だけを所有し、実際の受付制限、改訂間遷移、保存OwnerとHost回収への接続は本番Writerの責務である。現時点では本番未接続である。
 
 基本情報の除去条件は、対象の資源終端、回復義務の解決、全結果受理、必要な終了要約の保存確認がすべて成立したことである。Process終了だけで除去しない。回復参照と搬送参照の重複、参照先不存在、別Attemptへの参照流用、immutable Identity差を拒否する。履歴を失っても操作Authorityを復元せず、同じ旧領域を新しいAttemptへ再利用しない。
 
 #### 更新・中断後の再入場
 
 Coordinatorは既存の短期排他と保存primitiveを利用し、Snapshotごとに新しいLockやJournalを増やさない。単一WriterはI/O直前にRepository結合、操作Owner、期待revisionを再確認する。長いProvider実行中や人間判断待ちに保存用Lockを保持し続けない。
+
+通常操作の保存先は、Repository Operation Ownerが検証済みのRoot・論理Identity・実体Identityを内部借用Portへ返し、保存境界で同じOwnerと結合を再検証する。公開検証結果へPathを追加せず、借用自体を書込み・削除・回復Authorityとして扱わない。この通常操作Portは発行revisionも確認するため、旧Attemptの回収入口へそのまま転用しない。再入場・回収では明示選択した現在Repositoryの実体と保存済み結合を照合する入口が別途必要である。
+
+Snapshot排他は既存のWindows名前付きPipe primitiveを用い、検証済みRepository Root HashをCoordinator専用namespaceへ結合する。同じRootのWriterだけを競合させ、Project Runtimeの排他とは分離する。排他取得だけでRoot・File Identityの検証を省略しない。長時間の外部I/OやNative処置をSnapshot排他内で待機しない。既存Host／Home／Runtime排他との取得順と保存処理の全呼出し点は、Writer接続前に確定する。
 
 | 順序 | 処置 | 失敗時の扱い |
 |---|---|---|
@@ -1001,6 +1028,10 @@ Coordinatorは既存の短期排他と保存primitiveを利用し、Snapshotご�
 | 同revision別payload、別世代、参照不正、観測不能 | 更新の同一性を確認できない。 | 上書き0で同じ参照を保持して停止する。 |
 
 pendingと正規Snapshotは同一形式・同一bytesであり、wrapperからpayloadを別公開しない。初回は`revision: 1 / previous: null`とし、新しい保存Rootと正規Snapshotの明示不存在を確認する。初回pendingの再入場でも同じ条件とexact bytesを確認する。正規Snapshot不存在かつ`previous`がnullでない場合は、既知元版の喪失として停止し、履歴から復元しない。未清掃の旧形式Rootを初回として自動採用しない。元内容との結合も検証し、revision番号だけを同一更新の証拠にしない。Windowsでのflush、replace、read-backは、既存primitiveが提供するProcess中断後の再分類保証として扱う。Directory metadataを含む電源断耐久性が未確認の間は、それを保証したと表示しない。通常historyの欠損からSnapshotを復元しない。
+
+初回保存はRuntime Data Ownerによる領域の排他的作成へ結合する。空の既存領域を新品と扱わない。内部初期化証拠は同じ操作Owner・領域Identity・初回本文Hashだけへ結合し、公開要求前に発行済みとし、公開確認後に消費する。失敗後に別本文へ転用せず、公開後のstate喪失を初回へ戻さない。別Processからの初回中断再入場は専用入口未接続として停止する。
+
+保存I/Oは本文とFile Identityを保持し、再openしたdescriptorと置換・削除前の実体を照合する。同じ本文の別Fileや途中消失を拒否する。正規rename後だけpendingのdev/inoを公開先へ引き継ぐ。回復参照と結果搬送の差分も参照操作のOwnerへ結合する。終端証明Portが未接続の間は操作・回復参照・搬送の削除を拒否し、unknown実行情報を処置証明なしに未発行へ変えない。保存確認と排他解放確認を別結果で返し、このPortの局所成立を本番Producer・回収入口・Host終端の全面切替と表示しない。
 
 #### 使い捨て実行環境と限定終了
 
