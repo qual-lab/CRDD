@@ -183,7 +183,18 @@ Contract文字列、改訂値、理由値、固定CLI配布IdentityはFolder改�
 
 必要な反証は、曖昧Profile、Snapshot不一致、未知／不正Provider出力、CLI非ゼロ、出力不足、取消前後の遅延通知、認証未観測、cleanup不明である。計画関数の成功からProvider Effect、取消完了、資源不存在や実E2E Passを推定しない。
 
-OPEN: Provider公開Symbolの全数、認証計画と実Home観測の分割、Coordinatorの全Consumer、静的JSON・CLI配布Identityの署名閉包、QA Local Itemとの全数対応は段階3内で続ける。Source移管と局所・実境界試験は段階5〜7で確認する。
+| 分割する操作・型 | 実利用側と再編後の接続 | 既存の検証義務と担当断面 |
+|---|---|---|
+| Codex／Claudeのread-only probe・isolated task計画 | `docker-effect-runtime.ts`と二Provider Docker Adapterの`buildPlan`がAI Adapterの各Provider公開入口を利用する。Container名・Network・Mount・PreparedPlanの所有はCoordinatorに残す。 | `ERB-IT-001/006`で実CLI契約と固定入力・Profile・計画拒否、`ERB-ST-005/030`で公開結果・取消・回収を確認する。Codex公式配布だけの追加確認は`ERB-IT-031`とし、Claude起動の根拠へ流用しない。 |
+| `planClaudeTaskTurnBudget`、Provider別構造化出力変換 | Claude Docker Adapter、`provider-task-structured-result.ts`、`docker-process-controller.ts`から各Provider公開入口を利用する。共通Executor／Reviewer Schemaと是正判断はCoordinatorに残す。 | `ERB-IT-001/002`で曖昧・不足・不正Envelopeと失敗分類、`ERB-ST-005/030`で実Processの終了・取消・回収を確認する。助言の通知分類は別に`ERB-UT-023`へ対応する。Turn終了だけをProcess終了にしない。 |
+| `planWorkbenchAiAdviceProviderCommand`、`extractWorkbenchAiAdviceProviderOutput` | Workbench助言実行計画、Docker Effect Runtime、Docker Process Controllerから共通計画・変換入口を利用する。Workbench ServerからProvider内部Fileをimportしない。 | `ERB-UT-023`の助言入力・結果拒否、`ERB-IT-031`の実CLI、`ERB-ST-030`の実終了条件へ分ける。Providerエラーをtool操作へ誤分類しないが、不正結果を部分公開しない。 |
+| `createClaudeSubscriptionAuthenticationPlan`のlogin／status argvと`probeConfirmed` | AI Adapterは純粋なCLI・方式・結果分類を返す。`authenticate-claude-subscription.ts`はCoordinatorの認証実行を呼び、Home・Docker・Lock・cleanup・回復記録を保持する。 | `ERB-UT-016`で再認証計画と結果分類、`ERB-IT-008/017`でHome・fresh Process再入場・回収を確認する。秘密コードと認証出力は固定Task、Catalog、診断へ複製しない。 |
+| Catalog検証・Profile解決・Availabilityおよび全公開Profile型 | 現行`ai-runtime/src/index.ts`の型はAI Adapterの`types.ts`へ移し、Catalogの純粋入口から再公開する。Coordinator、CROS、Workbench Server、MCP Serverは公開型と入口へ依存する。 | `ai-runtime.catalog-validation`→`RCM-UT-001/002`、`profile-resolution`→`RCM-UT-001/RCM-IT-005`、`availability`→`RCM-UT-001/RCM-IT-010`を保持する。 |
+| Catalog Registry／Administration、Repository／CROS Store生成 | `profile/index.ts`へ移し、Owner別Storeを維持する。Workbench管理・CROS管理は同じ意味操作を認可後に利用し、実行計画からStoreを暗黙に開かない。 | `ai-runtime.catalog-adoption`→`RCM-IT-005/010`、`profile-administration`→`RCM-UT-002/RCM-IT-005`。再編後の全Consumer一致は`RCM-ST-012`で別に確認する。 |
+
+認証計画の公開型から実Runtime Capability、Mount source、秘密値を除く。二Provider Docker Adapterの`prepare`／`cancel`／`consumePreparedPlan`、Authority StoreとHome観測はCoordinator所有とし、同名APIをAI Adapterへ複製しない。静的Catalog JSONとProvider計画・変換コードは実行閉包へ含めるが、Owner別Profile管理Store全体を署名対象へ追加しない。固定公式CLIは配布Identityと検証方法を保持し、旧改造CLIのSource・Patch・Buildを再導入しない。
+
+Provider公開操作、認証計画と実Home観測の分割、実Consumer、静的JSON・CLI配布Identityの閉包条件とQA義務は本節と全ファイル対応へ固定した。OPEN: Source移管、新公開入口の本番接続、固定CLIの新構成での局所・実境界試験は段階5〜7で確認する。
 
 ## Qualityへの引渡し
 
@@ -217,6 +228,8 @@ OPEN: Provider公開Symbolの全数、認証計画と実Home観測の分割、Co
 | Lifecycle Ownership | Required | SnapshotとAvailability観測のOwner・終了条件が異なる。 | Owner別Store＋Consumer局所観測 | StoreがProvider Processを所有しない。 | 耐久方式変更は回復と移行へ波及する。 | `ai-runtime.catalog-adoption`<br>`ai-runtime.availability` |
 | External Boundary | Required | Filesystem、Provider Adapter、Coordinator、Workbenchへ接続する。 | 境界別Port／Adapter | 一境界の成功を別境界の実行可能性へ流用しない。 | 新Provider追加時はSchema・Authority・E2Eへ波及する。 | `ai-runtime.catalog-validation`<br>`ai-runtime.profile-resolution` |
 
+Checklist評価根拠: §7の公開操作・Provider分割・実Consumer対応により、Component、Interface、Data／StateおよびSequenceを具体化した。本番接続は未評価である。 §7.3の既存導出キー・Provider反証とLocal Item対応により、Qualityへ対象・観測・終了後条件を渡した。Codex配布とClaude認証の確認範囲を混同していない。
+
 ## Checklist
 
 - [x] 関連するARCH-IDと担当する責務断面を明示した
@@ -225,12 +238,12 @@ OPEN: Provider公開Symbolの全数、認証計画と実Home観測の分割、Co
 - [x] N/AにArchitecture上の理由を記録した
 - [x] 8種類のEngineering Concernを全数評価した
 - [x] PASSを設計済みの意味に限定した
-- OPEN: Provider差の公開操作と実行・取消境界を具体化した。全Symbolと利用側の照合は段階3内で続ける — Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
+- [x] Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
 - [x] Failure／Recovery、ObservabilityおよびSecurity Boundaryを具体化した
 - [x] 7種類のImplementation Structure観点を全数Applicability判定した
 - [x] 二つ目の具象実装がある責務で、共通契約への昇格または非昇格理由を評価した
 - [x] Qualityへ渡す設計項目を局所的な導出キーまたは同等に一意な参照へ接続した
-- OPEN: Profileの既存導出キーとProvider反証を保持した。分割断面からQA Local Itemへの全数対応は段階3内で続ける — Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
+- [x] Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
 - [x] Human Inputの必要性とOpen／Gapを評価した
 - [x] 現行実装との照合をReality Auditとして分離した
 - [x] Source構造をCanonical詳細設計へ逆輸入していない

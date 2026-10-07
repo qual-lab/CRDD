@@ -20,6 +20,8 @@ CROSは複数Repository横断の能力領域であり、第三の公開Serverで
 
 共有Linux Host等はWorkbench Server／MCP Server／CROS能力／Repository群の配置形態として扱う。CROS REST、Gateway、Shared Server専用Lifecycleを独立Runtimeとして残さないが、Credential回復・操作一覧・非開示・Origin・TLS・終了保証を撤去に巻き込まない。Repository単体利用へCROS設定を必須化しない。Remote設定とCredential管理はツール単位で分離し、秘密値をRepository投影へ含めない。
 
+2026-10-07の人間判断により、単体／CROSは起動時に明示選択し、設定の存在から自動切替しない。単体は検証済み起動Repository一つ、CROSは現在許可されたRepository集合を扱う。Repository対象操作の入力形式は両形態でそろえ、対象IDからAuthorityを生成しない。Credential発行・ローテーションは今回Hostまたは同一Process Workbenchへ限定し、Remote MCPは非秘密の一覧・Grant変更・失効を提供する。初期管理CredentialはCROSの明示構築時に発行し、内容Grantを自動付与しない。詳細な入力・結果・起動条件は[CROS詳細](../../Details/cros/01_Architecture.md#61-再編後の共通能力と公開入口)と[MCP詳細](../../Details/mcp/01_Architecture.md#単体crosの明示選択とrepository一覧)を正本とする。
+
 ## 2. UI観点の入力
 
 | UI分析 | 守る利用者向けの約束 |

@@ -209,6 +209,23 @@ CRDDを`00_CRDD`へ配置した採用Repositoryでは、Project Rootを現在Dir
 
 ## Docker Desktopの旧復旧記録を扱うとき
 
+### v0.22責務再編後の移行方針
+
+以下の旧署名由来を採用・引継ぐ操作は切替前Runtimeの運用履歴であり、新Runtimeの手順として実行しない。新形式への移行はフロントAIが[縮小設計の処置表](../06_Architecture/Details/coordinator/01_Architecture.md#正常復帰後の検証付き再起動)に従って行う。新Runtimeに旧形式Reader、旧Release chain採用または旧Container再利用を追加しない。
+
+| 順序 | 移行時の確認・処置 | 停止条件 |
+|---|---|---|
+| 1 | 対象Repository Rootと、現在の操作・Owner・未確定要求を確認する。対象に新規受付を行わせない。 | Root、対象集合または稼働状態を確認できない。 |
+| 2 | 対象Process／Container／Network等を現在の実境界で確認し、必要な通常回収を行う。旧Workspaceを新試行から参照させない。 | 不存在と観測不能を区別できない、遅延要求が残る、別の稼働Ownerと競合する。 |
+| 3 | 未受理結果、候補Patch、認証情報、署名鍵／Manifest、正式Evidenceと未解決参照を識別する。新Runtimeへ必要な設定値だけを検証する。 | 保全対象や結果受理の状態を判断できない。 |
+| 4 | 終了を確認できた旧Runtime状態・通常ログ・一時物をexactな対象ごとに清掃する。旧Snapshotや回復chainを新形式へ機械コピーしない。 | 参照中・由来不明・実体Identity差・削除後不存在の観測不能。 |
+| 5 | `.crdd/coordinator/`と`.crdd/orchestrator/`を新形式で初期化し、Tool別設定を新Pathへ適用する。保持すべき未受理結果や未解決参照がある場合は、その処置を先に確定する。 | 未解決情報を捨てなければ初期化できない。人間判断へ戻し、空stateで覆い隠さない。 |
+| 6 | 新しいWriter・公開入口・設定Readerで読戻しと通常操作を確認し、旧Path探索・旧Workspace再利用・暗黙再送がないことを確認する。 | 保存、結果搬送、資源回収または利用側の接続が未確認。 |
+
+フロントAIの移行完了は、実RuntimeのRecovery成功または過去unknownの解消を意味しない。過去に不明だった事実は終了要約に必要最小限で保持する。移行先が未実装の間はこの表を実処置へ使わず、段階5の固定候補と必要な独立確認後に適用する。
+
+### 切替前Runtimeの運用履歴
+
 Docker Desktop最終復旧の起動環境と旧記録の処置は、[専用のHome・作業Directoryと検証境界](../06_Architecture/Details/coordinator/01_Architecture.md#22-docker-desktop最終復旧時の起動環境)に従う。署名配布Rootを作業Directoryとして継承させない。旧版の復旧記録は、対象IDと、その修復IDを発行した署名済み配布Rootを明示する`doctor --adopt-docker-desktop-repair <repair-id> --repair-release-root <absolute-root>`で由来を検証し、既存ID・記録・退避物を保持して引き継ぐ。これはDocker Taskの生成元Rootを指定する引数でも、過去の停止・起動・移動を再実行するコマンドでもない。
 
 旧記録のsettledな起動Effectが新しい失敗世代を作っている場合は、現在の署名版が同じ修復IDへ追記専用の継続記録を作る。対象は`Docker/run`と`docker-secrets-engine`の既知2領域だけであり、各領域のIdentityとlockを別々に確認する。個別socketを削除せず、各Directoryを同一親へ段階退避し、両方の結果を耐久化した後にDesktopを一回だけ再起動する。

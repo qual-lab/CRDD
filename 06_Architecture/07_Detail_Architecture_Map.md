@@ -30,9 +30,9 @@ Quality／Development
 | [coordinator](Details/coordinator/01_Architecture.md) | ARCH-000004、ARCH-000008、ARCH-000010、ARCH-000014、ARCH-000015 | 単体・上位利用共通のTask公開API、実行Authority、AI Adapter接続、資源回収、通知と結果搬送 | Candidate |
 | [contract-migration](Details/contract-migration/01_Architecture.md) | ARCH-000002 | Canonical Contract変更時の全Consumer・派生物・公開／Release／Recovery経路の閉包 | Canonical |
 | [crdd-domain-library](Details/crdd-domain-library/01_Architecture.md) | ARCH-000001、ARCH-000002、ARCH-000005、ARCH-000006、ARCH-000008、ARCH-000009、ARCH-000011、ARCH-000016 | Domain Modelの用途別公開入口、共通意味、活動CRUD、投影と保存部品。Runtime状態・Git確定・公開は所有しない | Candidate |
-| [cros](Details/cros/01_Architecture.md) | ARCH-000005、ARCH-000006、ARCH-000009、ARCH-000010、ARCH-000013、ARCH-000015、ARCH-000016 | 複数Repositoryの利用範囲、読取り専用Context投影、候補搬送、時間的出所。受入判断書込みは所有しない | Canonical |
+| [cros](Details/cros/01_Architecture.md) | ARCH-000005、ARCH-000006、ARCH-000009、ARCH-000010、ARCH-000013、ARCH-000015、ARCH-000016 | 複数Repositoryの利用範囲、共通認可とContext／Activity／Profile能力。REST／Gatewayを廃止し、同一Process呼出しとMCPへ接続する。受入判断書込みは所有しない | Candidate |
 | [execution-intelligence](Details/execution-intelligence/01_Architecture.md) | ARCH-000007、ARCH-000016、ARCH-000018 | 実行記録のCanonical記録、不変公開、読取りProjectionと時間的出所。書込みと読取りを別責務として接続 | Canonical |
-| [mcp](Details/mcp/01_Architecture.md) | ARCH-000005、ARCH-000012、ARCH-000013、ARCH-000015 | 公開Transport、Project読取り投影、Workspace範囲、外部情報境界。受入判断Authorityを生成しない | Canonical |
+| [mcp](Details/mcp/01_Architecture.md) | ARCH-000005、ARCH-000012、ARCH-000013、ARCH-000015 | MCP ServerとしてMachine向け公開Transportを所有し、Orchestrator／Domain Model／CROSの公開契約へ接続する。Shared Host全体や受入判断Authorityは所有しない | Candidate |
 | [official-asset-governance](Details/official-asset-governance/01_Architecture.md) | ARCH-000017 | 公式素材の出所、権利、用途、判断、収載状態 | Canonical |
 | [platform-access](Details/platform-access/01_Architecture.md) | ARCH-000004、ARCH-000008、ARCH-000011 | OS／Process／Container境界、実在するEffectと資源Lifecycle | Canonical |
 | [project-operation](Details/project-operation/01_Architecture.md) | ARCH-000005、ARCH-000006、ARCH-000016 | Domain Modelが実装する活動Contextの意味・状態・正本保存と現在投影。受入判断書込みは所有しない | Candidate |

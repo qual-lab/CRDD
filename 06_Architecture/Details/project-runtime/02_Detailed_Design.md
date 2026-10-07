@@ -77,7 +77,7 @@ Coordinatorの開始・終了通知を受けるだけでは、`REC-TASK-ATTEMPT`
 
 ### 3.1. 現在状態の一体保存と有限履歴
 
-採用方向は、Repository Rootを検証した`.crdd/project-runtime/`内の共通4ファイルへ、現在の仕事を一体保存することである。本番Portは新版保存へ接続し、このRepositoryでは旧E2E記録の清掃と公開入口による初期化を実施した。実施結果は[変更記録](../../../99_Roadmap/Changes/CHG-000082/Evidence/261005_project-runtime-phase2.md#29-repositoryの実切替結果)で追跡する。上表のRecordは論理責務として維持し、ファイル統合によって判断Authorityや仕事全体の一括確定を追加保証しない。
+責務再編後は、Repository Rootを検証した`.crdd/orchestrator/`内の共通4ファイルへ、現在の仕事を一体保存する。現行の`.crdd/project-runtime/`は②で切替済みの基準配置であり、今回の新Owner名への実切替は未完了である。②の旧E2E記録清掃と公開初期化の結果は[変更記録](../../../99_Roadmap/Changes/CHG-000082/Evidence/261005_project-runtime-phase2.md#29-repositoryの実切替結果)で追跡する。上表のRecordは論理責務として維持し、ファイル統合や改名によって判断Authorityや仕事全体の一括確定を追加保証しない。
 
 | ファイル | 所有する内容・終了条件 |
 |---|---|
@@ -104,6 +104,8 @@ Coordinatorの開始・終了通知を受けるだけでは、`REC-TASK-ATTEMPT`
 新版Schema、実効排他とRootの結合、Windows保存確定、結果保存・採用後処理は本番Compositionへ接続する。終了Identityは履歴確定後に退役し、通常履歴は30日保持とする。Qualityには競合、中断、再送、参照中・未解決の結果の削除、採用後の記録失敗による重複適用、旧Writer再入場、履歴循環と終了後残存を反証対象として渡す。接続の存在を独立レビュー合格や実Provider E2E合格の代替にしない。
 
 今回の変更は既存運用の保存統合であり、受領・既読管理の新機能を追加しない。保存後も利用者が結果を読んでいないという理由だけで、終了項目を現在状態へ残し続けない。
+
+再編後の保持設定は`.crdd/config/orchestrator.json`、配布例は`template/.crdd/config/orchestrator.example.json`、Schemaは`template/tools/schemas/orchestrator-config-schema.json`とする。`schemaRevision: 1 / historyRetentionDays`の意味、不存在時だけ30日、不正時の整理停止、非秘密設定の明示Git allowlistを維持する。旧project-runtime設定の確認・値引継ぎ・清掃はフロントAIが行い、新Runtimeは旧名を探索しない。名前の切替だけで現在Snapshotを新受付世代へ無断コピーしない。
 
 | 新版の論理区画 | 保持する既存の意味 |
 |---|---|
@@ -554,7 +556,7 @@ v2の実体結合は取得したDirectoryのdevice、inode、birthtimeMsをJSON�
 
 ## Checklist
 
-- OPEN: 新担当への全Record・資源・遷移・回復不変条件、Source利用側およびQA義務の対応は継続中である。以下の保存方式刷新②の評価結果を責務再編全体の完了へ流用しない。
+- [x] OrchestratorのRecord・資源・遷移・回復不変条件を本書と全ファイル対応、下位Task・通知・保存をCoordinator詳細とQA-000003／006へ対応した。Source移管・本番接続・実境界は未完了であり、以下の保存方式刷新②の評価結果を責務再編全体の完了へ流用しない。
 - [x] 旧連続世代の保証と新版Snapshotの目標を区別し、旧不変条件の意味を変更していない。
 - [x] 物理統合と仕事全体の一括確定を区別し、別Port間の中断、Leaseと保護Decisionの境界を維持した。
 - [x] 保存、採用後処理、終了、履歴と移行の反証対象を明示した。

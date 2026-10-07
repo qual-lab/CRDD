@@ -104,6 +104,12 @@ Quality ID: `QA-000004`
 | `PPR-IT-001` | `project-runtime.project-state-projection` |
 | `PPR-UAT-008` | `project-runtime.execution-intelligence-read-model` |
 
+### 二Surface再編のActivity観測条件
+
+導出元は[CROSの現在Activity投影](../../../06_Architecture/Details/cros/01_Architecture.md)と[MCPのActivity操作](../../../06_Architecture/Details/mcp/01_Architecture.md)である。`PPR-IT-012`では本番の現在状態Readerと履歴Readerを分け、observed／absent／unknown、eventState／eventReason、現在値とeventContinuationを独立に観測する。状態を読めても履歴が観測不能なら、空の正常履歴へ変えない。
+
+`PPR-IT-001/002`では同じProjectと現在許可されたRepositoryを対象に、Local内部呼出しとRemote MCP、limit既定20／境界1・50／不正値、Cursor一致／改ざん／改訂変化、欠測・競合を比較する。結果の出所・改訂版・部分観測を保持し、Cursorから読取りAuthorityを発行しない。認可失効後の再取得は本文・件数・対象存在を非開示にする。両入口の意味比較はQA-000009の`EST-IT-010`、利用者が不完全性を理解できることは`PPR-UAT-015`で確認する。投影処理による正本更新・暗黙再送は0とする。
+
 ## 4. 評価と終了後条件
 
 Passは、各項目の値とその出所／不完全性が同じ相関で返り、読取りがSourceや正本を書き換えず、利用側が欠測を現在値と誤認しない根拠がある場合とする。表示の理解性はSystem Verificationで別に確認する。

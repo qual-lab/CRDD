@@ -90,6 +90,17 @@ Quality ID: `QA-000007`
 | `RFD-ST-015` | 回復 | ST | Workbench／Push Lifecycle | Workbench操作→Application→Version Control Adapter→Remote→結果表示 | System/E2E | Tree／Diff表示、選択差分、Commit内容、確認済みRemote・Branch・Commitと、成功／拒否／通信断／結果不明の各経路 | 利用者が差分を選びCommitし、送信対象を確認して通常Pushする | UI状態、利用者確認、各Effect、Remote結果、終了後Tree、再観測先を記録する | CommitとRemote反映を区別し、拒否・失敗・不明を表示する。結果不明時は同じ対象を再観測して人間判断へ戻す | 固定したScenario、操作、表示、Effect、Oracle、終了後状態。Credentialや生出力は保存しない | 暗黙再送0、Force Push 0、誤対象Effect 0、残存process 0 | Hybrid |
 | `RFD-ST-016` | 回復 | ST | Credential Access Recovery | Host Authority→Credential Registry→Recovery Record→Bootstrap Credential→通常管理 | System/E2E | 全Administrator喪失、認可状態破損、Recovery途中失敗と既存Product Data | Host AuthorityでAccess Recoveryを開始し、途中失敗後は同じRecovery IDへ再入場する | Recovery ID、Registry revision、失効対象、保持対象、Effect、Product Data Hash、終了後管理可否を記録する | 同じRecovery IDでAccessだけを再構成し、生Secretを一度だけ表示して通常管理へ戻る。RepositoryとProject Contextを変更しない | 固定Scenario、非秘密Identity、Recovery ID、Registry revision、Product Data不変性、Oracle、終了後状態。生Secretは保存しない | 重複Recovery 0、生Secret残存0、Product Data Effect 0、通常管理へ再入場可能 | Hybrid |
 
+## 二Surface再編のCredential・共有配置条件
+
+[MCPのHost限定Credential方針](../../../06_Architecture/Details/mcp/01_Architecture.md)と[CROS認可](../../../06_Architecture/Details/cros/01_Architecture.md)から、以下を既存義務へ導く。
+
+| Local Item | 入力・反証 | 観測・終了後条件 |
+|---|---|---|
+| `RFD-ST-003` | Host対話または同一Process Workbenchで発行／rotation、Remote MCPで一覧・Grant変更・失効、古いActor、未初期化Registry | 発行／rotationはHost限定。Remote tools/listとtools/callの両方で発行／rotationを提供せず、生Token返却0。非秘密操作でも現在Actorと期待revisionを再確認する。管理権限だけで内容Grantを生成しない。 |
+| `RFD-ST-004` | 実TLS終端→`/mcp`、正しいHost／Origin、偽装Forwarded Header、失効Credential、Exposure更新、管理者だがContent Grantなし | 現在許可されたRepositoryだけを共通能力へ渡す。誤Host／Origin／Header、失効・範囲外では本文・存在・件数の開示0、Application Effect 0。模擬認可の成功を実TLS配置の成功へ流用しない。 |
+
+HTTP公開Processの終了はQA-000009の`EST-ST-013`で確認する。Credentialの認証成功、単一要求の非開示、Listener closeの返却は、Serverの全handler／socket／Application資源終端の証明ではない。
+
 ## 4. 評価とEvidence
 
 Passは、利用可能なRepository集合と、不在／非開示／判定不能の分類を別に観測した場合だけとする。Evidenceは絶対PathやCredentialを複製せず、検証済みIdentity、Grant／Exposureの判定、拒否理由、失効を相関できる形で保持する。

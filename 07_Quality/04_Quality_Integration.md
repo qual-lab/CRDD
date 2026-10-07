@@ -14,7 +14,7 @@ Canonical設計集合と個別Releaseの検証対象を分ける。Local Itemを
 
 | 対象 | Local Item数 | Release上の処置 |
 |---|---:|---|
-| Canonical設計集合 | 177 | 全件を保持する。起動時Tool制限を確認する`ERB-IT-024`を含む |
+| Canonical設計集合 | 172 | 2026-10-07の現行13定義から再算定。HTTP公開Process終端の`EST-ST-013`と公式CLIの`ERB-IT-031`を含み、廃止した改造CLIの024～029は含めない。項目数はPass数ではない |
 | v0.21 Group A | 130 | v0.21のQuality Gateで評価する。108件観測済み、22件未観測 |
 | v0.21からの移管母集団 | 46 | 持越しと後続追加の一覧。現在の個別観測と採用Release Scopeとの対応は[算定Owner](05_Current_Implementation_Reality_Audit.md#13-移管母集団の処置とrelease適用範囲)を参照し、本表で件数を再定義しない |
 
@@ -22,7 +22,7 @@ Canonical設計集合と個別Releaseの検証対象を分ける。Local Itemを
 
 ## 2. Architecture横断モデルの処置
 
-助言専用Hostの追加検証義務はCoordinator詳細設計7.5.1・11節から導出し、`coord.advice-code-mode-host`を`ERB-IT-024`～`ERB-IT-029`および`ERB-ST-030`へ接続する。既存の起動Policy項目024を実Host全体の保証へ広げず、追加6項目は未観測としてv0.22の集合に含める。
+公式CLIの検証義務はCoordinator詳細設計7.5.1・11節から導出し、`coord.advice-code-mode-host`を`ERB-IT-031`、`ERB-UT-023`および`ERB-ST-030`へ接続する。改造CLI固有の024～029は採用済み廃止対象としてGit履歴に残し、現行集合に含めない。未改造の公式配布・Docker隔離・通知と結果・取消と親Process喪失後の資源観測を維持する。過去の成功を新方式の成功へ流用しない。
 
 横断モデルはCanonical IDとは別のIDを発行しない。Architecture全体にまたがる成立条件を、該当する検証目標へ次のように接続する。
 
@@ -49,7 +49,7 @@ Canonical設計集合と個別Releaseの検証対象を分ける。Local Itemを
 
 | 詳細設計領域 | 検証単位 | 接続する検証目標 | Local Item | 処置状態 | 未確認／再評価条件 |
 |---|---|---|---|---|---|
-| [coordinator](../06_Architecture/Details/coordinator/01_Architecture.md) | `coord.advice-code-mode-host` | [外部Runtime境界](Definitions/QA-000006/quality_definition.md) | `ERB-IT-024`、`ERB-IT-025`、`ERB-IT-026`、`ERB-IT-027`、`ERB-IT-028`、`ERB-IT-029`、`ERB-ST-030` | OPEN | 起動Policyと実Host、公開CLIを別々に実測する。正常計算の履歴観測を禁止能力・取消・IPC断・親喪失の合格へ流用しない |
+| [coordinator](../06_Architecture/Details/coordinator/01_Architecture.md) | `coord.advice-code-mode-host` | [外部Runtime境界](Definitions/QA-000006/quality_definition.md) | `ERB-IT-031`、`ERB-UT-023`、`ERB-ST-030` | OPEN | 公式配布と公開起動、通知と最終結果、取消・親Process喪失を個別評価する。局所起動の履歴を署名・実Provider・終了後資源の成功へ流用しない |
 | [artifact-signing](../06_Architecture/Details/artifact-signing/01_Architecture.md) | `artifact-signing.signature-component` | [成果物IntegrityとTrust](Definitions/QA-000010/quality_definition.md) | `AIT-IT-008`、`AIT-UT-011` | Covered | なし |
 | [artifact-signing](../06_Architecture/Details/artifact-signing/01_Architecture.md) | `artifact-signing.one-shot-authorization` | [成果物IntegrityとTrust](Definitions/QA-000010/quality_definition.md) | `AIT-IT-007`、`AIT-UT-012` | Covered | なし |
 | [artifact-signing](../06_Architecture/Details/artifact-signing/01_Architecture.md) | `artifact-signing.consumer-boundary` | [成果物IntegrityとTrust](Definitions/QA-000010/quality_definition.md) | `AIT-IT-009` | Covered | Manifest配置・公開はCoordinatorの別検証単位で再評価する |
@@ -85,7 +85,7 @@ Canonical設計集合と個別Releaseの検証対象を分ける。Local Itemを
 | [execution-intelligence](../06_Architecture/Details/execution-intelligence/01_Architecture.md) | `execution-intelligence.evaluation-candidate` | [投影と出所](Definitions/QA-000004/quality_definition.md) | `PPR-IT-004`、`PPR-UAT-008`、`PPR-UT-014` | Covered | 人間判断後の下流処置は候補昇格の別検証単位で確認する |
 | [execution-intelligence](../06_Architecture/Details/execution-intelligence/01_Architecture.md) | `execution-intelligence.record-publication` | [実行記録の公開と再利用](Definitions/QA-000012/quality_definition.md) | `ERP-IT-001`、`ERP-IT-002`、`ERP-IT-003`、`ERP-ST-004` | Covered | 複数作成側の実境界で再評価する |
 | [mcp](../06_Architecture/Details/mcp/01_Architecture.md) | `mcp.stdio-transport` | [投影と出所](Definitions/QA-000004/quality_definition.md)<br>[候補の昇格](Definitions/QA-000005/quality_definition.md)<br>[外部送信とTransport](Definitions/QA-000009/quality_definition.md) | `PPR-UT-006`、`CPR-IT-001`、`EST-IT-001`、`EST-IT-002`、`EST-IT-010`、`EST-ST-012` | OPEN | 既存stdio Transportは維持し、Workbenchを含む四Surface同等性`EST-IT-010`はv0.22へ移管する |
-| [mcp](../06_Architecture/Details/mcp/01_Architecture.md) | `mcp.localhost-http-transport` | [RepositoryとFederation](Definitions/QA-000007/quality_definition.md)<br>[外部送信とTransport](Definitions/QA-000009/quality_definition.md) | `RFD-ST-004`、`EST-IT-001`、`EST-IT-002` | OPEN | `RFD-ST-004`の公開Gateway非開示はv0.22の固定根拠へ接続した。個別観測をTransport全体の完成へ広げず、他義務の現在適用は算定Ownerで再照合する |
+| [mcp](../06_Architecture/Details/mcp/01_Architecture.md) | `mcp.localhost-http-transport` | [RepositoryとFederation](Definitions/QA-000007/quality_definition.md)<br>[外部送信とTransport](Definitions/QA-000009/quality_definition.md) | `RFD-ST-004`、`EST-IT-001`、`EST-IT-002`、`EST-ST-013` | OPEN | 二Surface化のHost／Origin／TLSと公開HTTP終端をQA正本へ具体化した。旧Gatewayの非開示観測は履歴であり、新経路の成功へ流用しない。実配置・全資源終端は段階5〜7で確認する |
 | [official-asset-governance](../06_Architecture/Details/official-asset-governance/01_Architecture.md) | `official-asset-governance.asset-decision` | [公式AssetのGovernance](Definitions/QA-000011/quality_definition.md) | `OAG-UAT-001`、`OAG-UAT-002`、`OAG-IT-007` | Covered | 法的助言は対象外 |
 | [official-asset-governance](../06_Architecture/Details/official-asset-governance/01_Architecture.md) | `official-asset-governance.asset-publication` | [公式AssetのGovernance](Definitions/QA-000011/quality_definition.md) | `OAG-ST-003`、`OAG-IT-005` | Covered | 外部配布先の撤回能力はReality Auditで確認する |
 | [official-asset-governance](../06_Architecture/Details/official-asset-governance/01_Architecture.md) | `official-asset-governance.revision-conflict` | [公式AssetのGovernance](Definitions/QA-000011/quality_definition.md) | `OAG-IT-006`、`OAG-UT-008` | Covered | 複数判断者による競合で再評価する |
@@ -140,10 +140,10 @@ Source IDごとの検証義務は各工程の`Analysis/<工程>/quality_analysis
 | [Project Runtime lifecycle](Definitions/QA-000003/quality_definition.md) | `PRL-ST-001`、`PRL-UAT-002`、`PRL-ST-003`、`PRL-ST-004`、`PRL-IT-005`、`PRL-UT-006`、`PRL-UT-007`、`PRL-IT-008`、`PRL-ST-009`、`PRL-UAT-010`、`PRL-IT-011`、`PRL-IT-012`、`PRL-IT-013`、`PRL-UT-014` | 6工程のAnalysis §3 | 本書§2／§3とproject-runtime／coordinator／platform-access |
 | [投影と出所](Definitions/QA-000004/quality_definition.md) | `PPR-IT-001`、`PPR-IT-002`、`PPR-IT-003`、`PPR-IT-004`、`PPR-ST-005`、`PPR-UT-006`、`PPR-UAT-007`、`PPR-UAT-008`、`PPR-UAT-009`、`PPR-IT-010`、`PPR-UT-011`、`PPR-IT-012`、`PPR-UT-013`、`PPR-UT-014`、`PPR-UAT-015`、`PPR-UT-016`、`PPR-UT-017`、`PPR-IT-018`、`PPR-IT-019`、`PPR-UAT-020` | 6工程のAnalysis §3 | 本書§2／§3とcros／execution-intelligence／mcp／project-operation／project-runtime／runtime-data／version-control |
 | [候補の昇格](Definitions/QA-000005/quality_definition.md) | `CPR-IT-001`、`CPR-UAT-002`、`CPR-UAT-003`、`CPR-IT-004`、`CPR-ST-005`、`CPR-IT-006`、`CPR-UAT-007`、`CPR-IT-008`、`CPR-UT-009` | 6工程のAnalysis §3 | 本書§2／§3とcoordinator／cros／mcp／project-operation／project-runtime |
-| [外部Runtime境界](Definitions/QA-000006/quality_definition.md) | `ERB-IT-001`、`ERB-IT-002`、`ERB-IT-003`、`ERB-IT-004`、`ERB-ST-005`、`ERB-IT-006`、`ERB-UAT-007`、`ERB-IT-008`、`ERB-ST-009`、`ERB-IT-010`、`ERB-ST-011`、`ERB-IT-012`、`ERB-ST-013`、`ERB-IT-014`、`ERB-ST-015`、`ERB-UT-016`、`ERB-IT-017`、`ERB-IT-018`、`ERB-ST-019`、`ERB-IT-020`、`ERB-IT-021`、`ERB-ST-022`、`ERB-UT-023`、`ERB-IT-024`、`ERB-IT-025`、`ERB-IT-026`、`ERB-IT-027`、`ERB-IT-028`、`ERB-IT-029`、`ERB-ST-030` | 6工程のAnalysis §3 | 本書§2／§3とcoordinator／cros／platform-access／visual-preview／workbench |
+| [外部Runtime境界](Definitions/QA-000006/quality_definition.md) | `ERB-IT-001`、`ERB-IT-002`、`ERB-IT-003`、`ERB-IT-004`、`ERB-ST-005`、`ERB-IT-006`、`ERB-UAT-007`、`ERB-IT-008`、`ERB-ST-009`、`ERB-IT-010`、`ERB-ST-011`、`ERB-IT-012`、`ERB-ST-013`、`ERB-IT-014`、`ERB-ST-015`、`ERB-UT-016`、`ERB-IT-017`、`ERB-IT-018`、`ERB-ST-019`、`ERB-IT-020`、`ERB-IT-021`、`ERB-ST-022`、`ERB-UT-023`、`ERB-ST-030`、`ERB-IT-031` | 6工程のAnalysis §3 | 本書§2／§3とcoordinator／cros／platform-access／visual-preview／workbench |
 | [RepositoryとFederation](Definitions/QA-000007/quality_definition.md) | `RFD-IT-001`、`RFD-IT-002`、`RFD-ST-003`、`RFD-ST-004`、`RFD-IT-005`、`RFD-UT-006`、`RFD-UAT-007`、`RFD-IT-008`、`RFD-IT-009`、`RFD-ST-010`、`RFD-IT-011`、`RFD-IT-012`、`RFD-IT-013`、`RFD-IT-014`、`RFD-ST-015`、`RFD-ST-016` | 6工程のAnalysis §3 | 本書§2／§3とcros／crdd-domain-library／mcp／runtime-data／version-control |
 | [Runtime Data lifecycle](Definitions/QA-000008/quality_definition.md) | `RDL-IT-001`、`RDL-ST-002`、`RDL-IT-003`、`RDL-IT-004`、`RDL-UT-005`、`RDL-UAT-006`、`RDL-IT-007` | 6工程のAnalysis §3 | 本書§2／§3とplatform-access／runtime-data |
-| [外部送信とTransport](Definitions/QA-000009/quality_definition.md) | `EST-IT-001`、`EST-IT-002`、`EST-ST-003`、`EST-IT-004`、`EST-ST-005`、`EST-UAT-006`、`EST-UAT-007`、`EST-UAT-008`、`EST-UAT-009`、`EST-IT-010`、`EST-ST-011`、`EST-ST-012` | 6工程のAnalysis §3 | 本書§2／§3とcoordinator／cros／mcp／project-runtime |
+| [外部送信とTransport](Definitions/QA-000009/quality_definition.md) | `EST-IT-001`、`EST-IT-002`、`EST-ST-003`、`EST-IT-004`、`EST-ST-005`、`EST-UAT-006`、`EST-UAT-007`、`EST-UAT-008`、`EST-UAT-009`、`EST-IT-010`、`EST-ST-011`、`EST-ST-012`、`EST-ST-013` | 6工程のAnalysis §3 | 本書§2／§3とcoordinator／cros／mcp／project-runtime |
 | [成果物IntegrityとTrust](Definitions/QA-000010/quality_definition.md) | `AIT-IT-001`、`AIT-IT-002`、`AIT-IT-003`、`AIT-ST-004`、`AIT-UT-005`、`AIT-UAT-006`、`AIT-IT-007`、`AIT-IT-008`、`AIT-IT-009`、`AIT-ST-010`、`AIT-UT-011`、`AIT-UT-012`、`AIT-IT-013`、`AIT-IT-015` | 6工程のAnalysis §3 | 本書§2／§3とartifact-signing／coordinator／runtime-trust |
 | [公式AssetのGovernance](Definitions/QA-000011/quality_definition.md) | `OAG-UAT-001`、`OAG-UAT-002`、`OAG-ST-003`、`OAG-UAT-004`、`OAG-IT-005`、`OAG-IT-006`、`OAG-IT-007`、`OAG-UT-008` | 6工程のAnalysis §3 | 本書§2／§3とofficial-asset-governance |
 | [実行記録の公開と再利用](Definitions/QA-000012/quality_definition.md) | `ERP-IT-001`、`ERP-IT-002`、`ERP-IT-003`、`ERP-ST-004`、`ERP-IT-005`、`ERP-UT-006`、`ERP-UAT-007` | 6工程のAnalysis §3 | 本書§2／§3とexecution-intelligence |

@@ -113,6 +113,20 @@ Quality ID: `QA-000010`
 
 最小準備の試験は`AIT-IT-013`の配置前部分境界である。Signer結果の責務を所有する`AIT-IT-009`や、候補採否を所有する他のQuality項目へ流用しない。旧V5 Manifestを現在V6の正常入力に使う試験は前提の移行が必要であり、判定を緩めて正常化しない。
 
+### 責務再編後の閉包に対する反例と観測
+
+以下は段階3で固定する試験設計であり、未実行の新閉包をPassにしない。導出元はCoordinator詳細のV6方式と署名準備の一時領域である。既存Local Itemが所有する署名入力・配置・回復の条件を具体化し、Package改名だけで新しいIDを採番しない。
+
+| 既存項目 | 固定する入力・刺激 | 観測と判定 | 終了後条件 |
+|---|---|---|---|
+| `AIT-IT-002` | ai-adapter／domain-model／orchestrator／mcp-serverの到達Source、package metadata、登録子入口の一要素を変更・欠落させる。別に文書・未到達Sourceだけを変更する。 | 実行集合差は秘密入力前に拒否する。非実行変更はRuntime Identityを変えない。旧名の宣言だけ残る反例も拒否し、実際の依存抽出結果を比較する。 | 拒否経路の鍵read・署名・配置・Provider Effect 0。 |
+| `AIT-IT-003` | Git由来、Native実物、到達Source、Rootの一箇所を読取り不能にする。 | 観測不能を空集合・未到達・不存在へ変えず停止する。理由と対象の非秘密Identityを相関する。 | Runtime Authority非発行、exact未解決参照を保持。 |
+| `AIT-IT-013` | 開発Rootと採用先`01_CRDD`の各本体から最小準備し、旧Source Path、別Root、metadata欠落、公開前中断を個別に与える。 | 選択集合・Git Blob／mode・Native・固定Ownerを署名前後で比較する。全Repositoryコピーなし、未到達Workbench Browser Bundleなしを集合で確認する。 | 完成集合またはexact回復義務。未知の既存領域を上書き・削除しない。 |
+| `AIT-IT-015` | 再編後の単一Coordinator binへ、非秘密の署名入口引数をTTY／非TTYから搬送する。 | Command一回、秘密入力中の補助Reader 0、完了後だけ画面保持、終了Code非上書きを確認する。模擬Commandの成功は実TTY署名を代替しない。 | Reader／Listener 0、暗黙再試行0。 |
+| `AIT-ST-010` | 新閉包を固定Commitから準備し、外部TTY署名、署名済み固定入口から正式適用、利用終了、清掃を行う。適用前／適用後の中断を別scenarioにする。 | Manifest byte／Hash・Root・file object・同じ操作参照を各段階で相関する。適用済みの再入場は再署名・再適用0で清掃へ進む。 | 正常終了は`tmp/signature/`不存在。中断は唯一の署名結果とexact参照を保持し、清掃未確認を完了にしない。 |
+
+Evidenceは対象Commit／Runtime Identity、選択集合Hash、scenario、境界別結果・Effect件数・終了後観測を正式要約へ残す。入力全文・実行ごとの巨大書庫・秘密値を追加しない。旧版の結果は比較根拠として保持し、新閉包の実行結果と分離する。実境界署名は段階7で確認する。
+
 ## 追加試験種別の適用
 
 | 種別 | 適用 | 確認する範囲 | 実行許可 | 未実行時の扱い |

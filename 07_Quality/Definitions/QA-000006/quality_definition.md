@@ -12,7 +12,7 @@ Quality ID: `QA-000006`
 | Source ID | Obligation Key | 導出元 | 保持する固有条件 | 試験段階 | 対応Local Item |
 |---|---|---|---|---|
 | [REQ-000002](../../../01_Discovery/Definitions/REQ-000002/requirement.md) | `req-000002.qa-000006` | Requirement Definition（成立条件・失敗・検証意図） | 外部作用（Effect）の前に範囲、送信許可、実行者と確認者が確定する。成功、失敗、取消の各終了経路で候補、プロセス、Docker等の資源状態を追跡できる。残存資源または回復義務を正常終了へ畳まず同じ実行識別情報で再入場できる。正常完了、外部送信拒否、実行途中取消、確認失敗、清掃不能を通し、各段階の決定権限、結果、残存、回復対象の識別情報を観測する | IT | `ERB-IT-004`、`ERB-IT-003` |
-| [REQ-000005](../../../01_Discovery/Definitions/REQ-000005/requirement.md) | `req-000005.qa-000006` | Requirement Definition（成立条件・失敗・検証意図） | プロジェクト管理、実行編成、通信方式、観測、Platform境界の責任者を一意に説明できる。Project RuntimeからCoordinator実装詳細への依存をPortで反転する。各部品の公開入口以外を利用側が参照せず、単独利用時の契約を確認できる。依存Graph、公開import、package単独試験、代表利用側を確認し、内部パス参照や逆向き依存を反証する | IT／ST | `ERB-IT-001`、`ERB-ST-005` |
+| [REQ-000005](../../../01_Discovery/Definitions/REQ-000005/requirement.md) | `req-000005.qa-000006` | Requirement Definition（成立条件・失敗・検証意図） | プロジェクト管理、実行編成、通信方式、観測、Platform境界の責任者を一意に説明できる。仕事管理から実行編成への依存は公開入口に限定し、下位から上位の実装への逆依存を持たない。各部品の公開入口以外を利用側が参照せず、単独利用時の契約を確認できる。依存Graph、公開import、package単独試験、代表利用側を確認し、内部パス参照や逆向き依存を反証する | IT／ST | `ERB-IT-001`、`ERB-ST-005` |
 | [REQ-000016](../../../01_Discovery/Definitions/REQ-000016/requirement.md) | `req-000016.qa-000006` | Requirement Definition（成立条件・失敗・検証意図） | モデル、設定内容、役割割当、CLI配置をSchemaと接続部対応で検証する。登録、Host可用、認証、処理許可を別々に判定する。構成変更後も既存接続部の起動、取消、結果意味が変わらない。既存モデル追加、設定内容変更、CLI移動、未知モデル、Host不可、認証不足を与え、外部変更の前の選択と拒否を観測する | IT | `ERB-IT-001`、`ERB-IT-004`、`ERB-IT-006` |
 | [REQ-000023](../../../01_Discovery/Definitions/REQ-000023/requirement.md) | `req-000023.qa-000006` | Requirement Definition（成立条件・失敗・検証意図） | 新実行基盤と既存接続部の認証、起動、取消、結果、回復Semanticsを比較する。差がある場合は設定Aliasでなく専用接続部と機能 契約を持つ。実環境で開始から終了後清掃までを段階的に検証する。既存接続部互換と非互換実行基盤を用意し、構成受理、接続部選択、取消、結果、回復、清掃を観測する | IT／ST | `ERB-ST-005`、`ERB-IT-001` |
 | [REQ-000030](../../../01_Discovery/Definitions/REQ-000030/requirement.md) | `req-000030.qa-000006` | Requirement Definition（成立条件・失敗・検証意図） | 各試験段階の責務と重複しない完成主張を定義する。外部境界は正常系から取消、清掃、回復まで実環境で観測する。変更意味から成立済み機能と回帰対象を選び、最終E2Eを最初の結合にしない。局所、外部単体、一連の状態変化、隣接1～2 Block、公開入口の順に故障を注入し、発見段階と診断可能性を観測する | IT | `ERB-IT-004`、`ERB-IT-002` |
@@ -66,14 +66,14 @@ Quality ID: `QA-000006`
 | 条件区分 | 適用 | 対応Local Item | 判断理由 |
 |---|---|---|---|
 | 正常 | Required | ERB-IT-001、ERB-UT-016、ERB-IT-031 | 通常の成立経路を独立して確認する。 |
-| 境界 | Required | ERB-IT-002、ERB-IT-006、ERB-UAT-007、ERB-IT-008、ERB-IT-010、ERB-ST-015、ERB-IT-018、ERB-ST-019、ERB-IT-020、ERB-IT-021、ERB-ST-022、ERB-UT-023 | 値、Authority、情報、責務、localhost配信範囲、Browser lifecycle、Workbench Production Shell、AI依頼種別、公式助言のDocker隔離、実Browser観測または利用者判断の境界を確認する。 |
+| 境界 | Required | ERB-IT-006、ERB-UAT-007、ERB-IT-008、ERB-IT-010、ERB-ST-015、ERB-IT-018、ERB-ST-019、ERB-IT-020、ERB-IT-021、ERB-ST-022、ERB-UT-023 | 値、Authority、情報、責務、localhost配信範囲、Browser lifecycle、Workbench Production Shell、AI依頼種別、公式助言のDocker隔離、実Browser観測または利用者判断の境界を確認する。故障注入ERB-IT-002は異常へ分類する。 |
 | 準正常 | Required | ERB-IT-004、ERB-ST-005 | 継続可能な分岐、保留、観測不能または診断状態を成功へ畳まない。 |
 | 異常 | Required | ERB-IT-002 | 起動・搬送・終了の失敗を正常終了と区別して確認する。親Process喪失は回復項目ERB-ST-030でも独立scenarioとして処置する。 |
 | 回復 | Required | ERB-IT-003、ERB-ST-009、ERB-ST-011、ERB-IT-012、ERB-ST-013、ERB-IT-014、ERB-IT-017、ERB-ST-030 | 失敗・取消後に同じIdentityと義務で安全に再入場できることを確認する。 |
 
 ## 4. 検証項目
 
-公式CLI移行では、旧内部改造に対する`ERB-IT-024`～`ERB-IT-029`を現行の必須集合から除外する。以下の旧6項目の記述は移行対象を識別する履歴であり、現行の要求ではない。IDを別の意味に再利用しない。旧設計と試験は基準Commit `823cb32deaa0e21a28aad73942ab5a05a9aa0950`で追跡し、過去の成功を新方式の成功へ流用しない。公式CLI内部のTool登録禁止とJS能力不存在は現行CRDDの保証対象ではない。
+公式CLI移行では、旧内部改造に対する`ERB-IT-024`～`ERB-IT-029`を現行の必須集合から除外する。旧6項目の詳細は基準Commit `823cb32deaa0e21a28aad73942ab5a05a9aa0950`の本定義で追跡し、現行の検証項目表には残さない。IDを別の意味に再利用せず、過去の成功を新方式の成功へ流用しない。公式CLI内部のTool登録禁止とJS能力不存在は現行CRDDの保証対象ではない。
 
 新方式の公開配布・起動は`ERB-IT-031`、有限な通知分類と唯一の最終結果は既存`ERB-UT-023`、取消・喪失と終了後資源は既存`ERB-ST-030`が所有する。署名・実Provider E2Eおよび実取消の再観測が未完了の間、全体Passを表示しない。
 
@@ -81,15 +81,9 @@ Quality ID: `QA-000006`
 | Local ID | 条件区分 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測 | Oracle | Evidence | 終了後条件 | 実行形態 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `ERB-IT-031` | 正常 | IT | 公式配布／公開起動 | Coordinator固定配布→Docker→公式Codex CLI／Host | Related 2 Blocks | 検証済み公式CLI・同版Host・既存bwrap、固定DockerfileとImage、認証情報なし | 配置用Imageを作成し、network none・非root・read-onlyのコンテナで版表示と実行物Hashを確認する | 公式版、三実行物Hash、実Image Digest、終了コード、起動Warning、コンテナ終了後状態 | 未改造公式0.159.2と固定Hashが一致する。CLI Source BuildとPatchを必要とせず起動する。Warningを消去せず、実助言・取消・署名成立とは区別する | 固定配布Identity、版、Hash、局所起動と終了後判定の要約。実行ごとの大きな書庫を作らない | Provider依頼0、認証情報使用0、試験コンテナ不存在を確認する | Automated |
-| `ERB-IT-025` | 正常 | IT | 実Host正常計算／終了 | 実Session→捕捉Router→Core Worker→固定Code Mode Host | Related 2 Blocks | 詳細設計7.5.1、固定Source・Patch・Host、専用空Home、Provider送信のない試験認証とモデル | 正式APIの`text(6 * 7)`を実IPC経由で実行しSessionを終了する | 同一runのCell結果、登録Task集合、Role、Host世代、実wait／reapと終了後状態 | exact 42行と成功結果を得る。Core SessionのshutdownとHost終了を別々に確認し、全登録Task終了とHost reapが成立する | 入力・実行物・Host・試験Hash、exact試験名、結果と資源観測を保存する | Provider送信0、所有Task終了、Host reap、隔離Root保持後の所有者清掃。観測不能は未確認 | Automated |
-| `ERB-IT-026` | 境界 | IT | JS能力拒否 | 固定HostのJS環境・module loader→実Core結果 | Related 2 Blocks | 詳細設計7.5.1と025の固定環境、require／process／fetch／通常import／動的importの反証入力 | 各能力を別Cellで要求し、その後同じSessionで正常計算を行う | 各Cellの能力不存在またはimport拒否理由、正常Cell、登録TaskとHost終了 | 全反証を意図した能力境界で拒否する。network遮断や不正入力だけの偶然の拒否を代替にせず、次Cell正常と終了も成立する | 反証分類、固定入力、理由分類、正常復帰、Hashと終了観測 | 禁止FS／Network／Process作用0、所有Task終了とHost reap。生Provider出力は保存しない | Automated |
-| `ERB-IT-027` | 境界 | IT | 禁止delegate配送 | 実Host→IPC→CoreDispatch→捕捉Router／Registry | Related 2 Blocks | 詳細設計7.5.1、禁止Toolを試験用metadataに広告した入力、制限済み実Policy、無害なHandlerカウンタ | 直接名・namespace付き禁止名・未知名をHostからdelegateする | Host送信、IPC搬送、実CoreDispatch到達、拒否理由、Handler件数、終了 | 実Coreまで到達した要求を捕捉Policyで拒否し、禁止Handler到達0。広告をProductionの許可へ変更しない | 名前分類、各搬送段階の相関、拒否・到達件数、固定Hash、終了観測 | 禁止Handler 0、Provider送信0、所有Task終了、Host reap | Automated |
-| `ERB-IT-028` | 回復 | IT | 保留Cellの終了 | 実Core CodeModeService→固定Host→同じCell結果 | Related 2 Blocks | 詳細設計7.5.1・11、完了しない固定Promiseと開始済みCell ID | Yieldedを観測後に同じIDをterminateし、次の正常CellとSession終了を実行する | exact Cell ID、Yielded→Terminated、次Cell成功、Task終了、Host reap | 要求発行やMissingCellを終了とせず、同じCellのTerminatedを観測する。公開CLI取消の成立へ読み替えない | 状態・Identity、終端結果、次Cellと資源観測、固定Hash | 保留Cell終端、所有Task終了、Host reap。不明は終了未確認 | Automated |
-| `ERB-IT-029` | 異常 | IT | Host喪失／IPC断 | 保留Cell→Host／stdio IPC→実Core結果と外部Observer | Related 2 Blocks | 詳細設計7.5.1・11、exact Host PID／generation、相関した保留要求、Host喪失とIPC断の別scenario | 世代一致のHost喪失とIPC断を別々に注入する | 同じ要求・Cellの失敗、故障段階、Host世代、実reap、全登録Task終了 | 両scenarioを個別評価し、一方のPassを流用しない。故障後に成功結果を返さず、PID名や要求受理だけから終了を推定しない | scenario別の相関・故障・終端・資源観測とHash | 所有資源の終了確認または未確認理由を保持。別世代への終了Effect 0 | Automated |
 | `ERB-ST-030` | 回復 | ST | 公開CLI取消／親Process喪失 | 本番同等CLI入口→固定Host→Process Tree／Container／Network | System/E2E | 詳細設計7.5.1・11、本番同等の搬送・権限・環境、実行中Cell、対象の外にあるObserver、exact資源Identity | 公開取消とCLI親Process喪失を別scenarioで実行する | 取消伝播、公開結果、Host終了、全所有資源の閉包、必要時のexact回復参照 | 両scenarioを個別評価する。清掃完了と観測不能による停止・回復義務保持を分け、安全な停止を清掃完了やCapability完成へ読み替えない | scenario別の実行Identity、公開結果、資源観測、exact回復義務、固定配布・環境・入力Hash | 全所有資源0または同じexact回復義務保持。新Provider要求・永続Dockerデータ削除0 | Automated |
-| `ERB-IT-024` | 境界 | IT | Advice Startup Policy／Registration／Dispatch | 固定助言CLIの実Session起動→捕捉Policy→公式Tool Registry→Handler | Related 2 Blocks | Coordinator詳細設計7.5.1、固定Sourceと起動Patch、既定・空集合・execのみ・waitのみ・別namespaceのみ・追加制約・Guardianの起動Policy、無害なカウンタ付きHandler | 実Sessionを起動し、trusted／external／prependから登録を試み、DirectとCode Mode由来の入力を配送する。捕捉後のPolicy変更、assertion失敗および待機期限超過も試みる | 捕捉済み許可集合、追加制約、登録結果、名前とnamespace、配送結果、Handler到達件数、Worker join、期限付きSession終了およびhook受信口の閉鎖を記録する | 元の厳しいPolicyを維持したexec／waitとの交差だけが登録可能である。shell、patch、MCP、web、permissions、agent、質問／メッセージ、clockおよび未知名は、表示状態によらず登録・実行できずHandler到達0となる。捕捉後の変更でも緩和できない。正常・panic・待機期限超過の終了経路が成立する | ERB-IT-024、固定Source・起動Patch・試験PatchのHash、Policy分類、登録入口、名前分類、Direct／Code Mode分類、拒否・到達件数、終了後状態およびOracle判定を保存する。認証情報、生Provider出力および絶対Pathは保存しない | Provider Turn送信0、System Tool Handler到達0、試験Worker join、期限付きSession終了およびhook受信口閉鎖を確認する。直接観測しないOS Process／Listener全体の不存在は別の実Host検証で確認し、この局所結果から推定しない | Automated |
 | `ERB-IT-001` | 正常 | IT | External Contract／Lifecycle | Adapter→実CLI・Process・Container | Direct Boundary | 固定CLI・Process・Container、相関ID、終了後資源Observer | 外部実行を開始し完了まで観測する | ERB-IT-001として、「外部実行を開始し完了まで観測する」前後のAdapter→実CLI・Process・Containerについて、Identity、phase／state遷移、結果field、Effect発行回数、資源残存数および失敗理由を記録する | 構成、要求、受理、開始、結果、完了を同じrunで相関 | ERB-IT-001、固定した改訂版・環境・入力Identity、phase／state遷移、結果field、Effect／資源件数、Oracle判定「構成、要求、受理、開始、結果、完了を同じrunで相関」および終了後条件「すべての所有資源の終了を独立観測」を保存する。Secret、鍵bytes、passphrase、生Provider出力および絶対Pathは保存しない | すべての所有資源の終了を独立観測 | Automated |
-| `ERB-IT-002` | 境界 | IT | Fault Injection／Lifecycle | Controller→stdio・signal・close→資源Observer | Adjacent 1 Block | 起動・搬送・取消・closeの各境界へ故障を注入できる固定Task | handle取得後、write後、kill要求後にそれぞれ失敗させる | ERB-IT-002として、「handle取得後、write後、kill要求後にそれぞれ失敗させる」前後のController→stdio・signal・close→資源Observerについて、Identity、phase／state遷移、結果field、Effect発行回数、資源残存数および失敗理由を記録する | 前段階の成功を後段階の成功にせず、原因段階を返す | ERB-IT-002、固定した改訂版・環境・入力Identity、phase／state遷移、結果field、Effect／資源件数、Oracle判定「前段階の成功を後段階の成功にせず、原因段階を返す」および終了後条件「終了不明をcleanup成功にしない」を保存する。Secret、鍵bytes、passphrase、生Provider出力および絶対Pathは保存しない | 終了不明をcleanup成功にしない | Automated |
+| `ERB-IT-002` | 異常 | IT | Fault Injection／Lifecycle | Controller→stdio・signal・close→資源Observer | Adjacent 1 Block | 起動・搬送・取消・closeの各境界へ故障を注入できる固定Task | handle取得後、write後、kill要求後にそれぞれ失敗させる | ERB-IT-002として、「handle取得後、write後、kill要求後にそれぞれ失敗させる」前後のController→stdio・signal・close→資源Observerについて、Identity、phase／state遷移、結果field、Effect発行回数、資源残存数および失敗理由を記録する | 前段階の成功を後段階の成功にせず、原因段階を返す | ERB-IT-002、固定した改訂版・環境・入力Identity、phase／state遷移、結果field、Effect／資源件数、Oracle判定「前段階の成功を後段階の成功にせず、原因段階を返す」および終了後条件「終了不明をcleanup成功にしない」を保存する。Secret、鍵bytes、passphrase、生Provider出力および絶対Pathは保存しない | 終了不明をcleanup成功にしない | Automated |
 | `ERB-IT-003` | 回復 | IT | Cancellation／Recovery | Task Runtime→Controller→外部Runtime→Recovery | Related 2 Blocks | 実行中Task、取消Authority、重複・遅延通知と部分結果の注入点 | timeout、cancel、重複通知、遅延close、部分結果を順に発生させる | ERB-IT-003として、「timeout、cancel、重複通知、遅延close、部分結果を順に発生させる」前後のTask Runtime→Controller→外部Runtime→Recoveryについて、Identity、phase／state遷移、結果field、Effect発行回数、資源残存数および失敗理由を記録する | 状態遷移、結果搬送、Effect、回収を独立に評価 | ERB-IT-003、固定した改訂版・環境・入力Identity、phase／state遷移、結果field、Effect／資源件数、Oracle判定「状態遷移、結果搬送、Effect、回収を独立に評価」および終了後条件「残存する場合は回復義務を保持」を保存する。Secret、鍵bytes、passphrase、生Provider出力および絶対Pathは保存しない | 残存する場合は回復義務を保持 | Automated |
 | `ERB-IT-004` | 準正常 | IT | Unknown State／Safety | Observer→Effect Gate | Direct Boundary | 実行可能性、現存Processまたは終了後不存在を観測できない環境 | 観測不能なまま状態判定と次のEffectを要求する | ERB-IT-004として、「観測不能なまま状態判定と次のEffectを要求する」前後のObserver→Effect Gateについて、Identity、phase／state遷移、結果field、Effect発行回数、資源残存数および失敗理由を記録する | available／absent／doneへ丸めず、安全な停止と診断情報を返す | ERB-IT-004、固定した改訂版・環境・入力Identity、phase／state遷移、結果field、Effect／資源件数、Oracle判定「available／absent／doneへ丸めず、安全な停止と診断情報を返す」および終了後条件「追加外部Effect 0」を保存する。Secret、鍵bytes、passphrase、生Provider出力および絶対Pathは保存しない | 追加外部Effect 0 | Automated |
 | `ERB-ST-005` | 準正常 | ST | Observability／Scenario | 公開入口→外部Runtime→結果・終了後診断 | System/E2E | 同一固定Taskの正常例と各故障例、機密を除く相関ログ契約 | 全例を実行し、段階別診断を収集する | ERB-ST-005として、「全例を実行し、段階別診断を収集する」前後の公開入口→外部Runtime→結果・終了後診断について、Identity、phase／state遷移、結果field、Effect発行回数、資源残存数および失敗理由を記録する | 入力／構成から終了後までの段階、理由、相関を記録 | ERB-ST-005、固定した改訂版・環境・入力Identity、phase／state遷移、結果field、Effect／資源件数、Oracle判定「入力／構成から終了後までの段階、理由、相関を記録」および終了後条件「Path、Credential、Secret、生Provider出力を含まない」を保存する。Secret、鍵bytes、passphrase、生Provider出力および絶対Pathは保存しない | Path、Credential、Secret、生Provider出力を含まない | Automated |
@@ -132,14 +126,14 @@ Quality ID: `QA-000006`
 
 `ERB-IT-021`のNode実行閉包ケースでは、Workbench CLI入口とRuntime value import／re-export／literal dynamic import Graphを固定入力とし、type-only参照を実行依存へ数えず再帰走査する。到達Source、外部module specifier、`.tsx`および`client/`到達を観測し、Serverへ到達する一方でBrowser描画Module、`.tsx`、`client/`および`react`／`react/*`への到達が0であることをOracleとする。Evidenceには固定Tree、入口、到達Source集合Hash、外部module集合、除外したtype-only宣言数、禁止到達件数およびOracle判定を保存し、Source本文と絶対Pathは保存しない。
 
-`ERB-IT-021`のBrowser Bundle配布閉包ケースでは、`40_Develop/workbench/dist/client/assets/workbench-client.js`を固定Pathとし、次の段階を分けて確認する。
+`ERB-IT-021`のBrowser Bundle配布閉包ケースでは、再編後の`40_Develop/workbench-server/dist/client/assets/workbench-client.js`を固定Pathとし、次の段階を分けて確認する。BundleはWorkbench配布物の入力であり、Coordinatorの署名実行閉包へ無条件に含めない。以下は新配置に対する検証計画である。旧配置でのBuild成功は過去の根拠として保持するが、新配置の成功へ流用しない。
 
 | 段階 | 条件・操作 | 観測 | Oracle | 現在状態 |
 |---|---|---|---|---|
-| 1. Build／Git追跡 | Vite Buildを実行し、固定Pathの生成物とGit追跡集合を確認する | Build結果、固定Pathの存在、`git ls-files`の収載、追跡Bundle差分 | Build成功、固定Pathが通常Fileとして存在し、同じPathがGit追跡対象であり、再Build後に意図しない差分がない | Pass |
-| 2. Source Commit収載 | 固定候補CommitのTreeを確認する | Commit、Tree、固定PathのBlob | 固定Pathが署名前のSource Commitへ収載されている | Pending — Commit後に確認 |
-| 3. 署名Tree収載 | Source Commitから作成した配布Treeと署名結果を確認する | Source Commit、署名Tree、固定Path、Asset Hash | 署名TreeにSource Commitと同一の固定Bundleが存在し、署名後の未追跡追加を必要としない | Pending — 再署名後に確認 |
-| 4. 配布Runtime直接起動 | Build Toolchainを持ち込まず、署名stagingからWorkbench CLIを起動する | Runtime import Graph、HTTP起動、Shell／Asset応答、終了後Listener | Node RuntimeがReact／Viteへ依存せず、固定Bundleを配信して直接起動でき、終了後Listenerが残らない | Pending — 署名候補の直接起動で確認 |
+| 1. Build／Git追跡 | Vite Buildを実行し、固定Pathの生成物とGit追跡集合を確認する | Build結果、固定Pathの存在、`git ls-files`の収載、追跡Bundle差分 | Build成功、固定Pathが通常Fileとして存在し、同じPathがGit追跡対象であり、再Build後に意図しない差分がない | OPEN — 新配置への移管後に確認 |
+| 2. Source Commit収載 | 固定候補CommitのTreeを確認する | Commit、Tree、固定PathのBlob | 固定Pathが配布元のSource Commitへ収載されている | OPEN — 移管Commit後に確認 |
+| 3. Workbench配布物収載 | 固定Source Commitから提供するWorkbench配布集合を確認する | Source Commit、固定Path、Asset Hash、配布集合 | 配布集合にSource Commitと同一の固定Bundleが存在し、起動時Buildや未追跡追加を必要としない | OPEN — 新配布集合で確認 |
+| 4. 配布Runtime直接起動 | Build Toolchainを持ち込まず、Workbench配布入口を起動する | Runtime import Graph、HTTP起動、Shell／Asset応答、終了後Listener | Node RuntimeがReact／Viteへ依存せず、固定Bundleを配信して直接起動でき、終了後Listenerが残らない | OPEN — 新配布入口の直接起動で確認 |
 
 Evidenceには各段階のCommit／Tree、固定Path、Asset Hash、Git追跡判定、Runtime外部module集合、HTTP応答、終了後状態およびOracle判定を保存する。Source本文、絶対PathおよびBundle本文全量は保存しない。前段Passから後段成立を推定せず、旧署名候補を新しい配布閉包の根拠へ流用しない。
 
@@ -308,15 +302,30 @@ Native保存接続のCaseは、未保存・正常caller・独立binding差・取
 
 ## Docker回復・現在状態縮小の検証補強
 
+### 切替前の検証義務と現在設計の区別
+
+Coordinator詳細の[旧方式の処置表](../../../06_Architecture/Details/coordinator/01_Architecture.md#正常復帰後の検証付き再起動)に従い、旧Release間の引継ぎ専用`ERB-ST-011`／`ERB-IT-012`は移行元の検証履歴として扱う。上の基準項目表はSource切替前の対応を識別するため保持しているが、新Runtimeで同じhandoff chainを再実装・再検証する義務ではない。段階5の撤去前に、以下の現在方式へ実接続と全利用側を対応させ、現行集合・統合表・生成物を一括確定する。旧項目を別の意味へ再利用しない。
+
+| 維持する保証 | 現在方式のLocal Item | 固定候補で確認する反証 |
+|---|---|---|
+| 同じ操作・回復Identityでの保存と再入場、一次失敗と清掃の分離 | `ERB-IT-003`、`ERB-IT-004` | 別Attempt、元版喪失、観測不能、結果未受理、後続失敗による一次失敗の上書き |
+| 必要な人間介入に限定したDocker再起動 | `ERB-IT-014` | 終了済みClaude参照と未解決Codex参照の混在、別の稼働Owner、対象追加・置換、排他不能、要求結果不明、起動未確認 |
+| 明示的に選択したHost障害修復の安全条件 | `ERB-ST-009`、`ERB-IT-014` | Task回復からの暗黙修復、個別socket削除、観測不能、未確定Effect再発行。旧Releaseへの引継ぎ成功は現在方式のOracleにしない。 |
+| 公開入口から回収・限定終了・新しい試行へ到達 | `ERB-ST-030` | 旧Workspace再利用、Provider開始後／送信不明への限定終了適用、遅延Create、親Process喪失、終了後残存、再送・採用・Commit／Pushの暗黙発行 |
+
+実行形態、結果とEvidenceは各項目の契約を維持する。履歴の退避だけ、旧Reader削除だけ、新規正常実行だけを移行完了またはRecovery成功としない。現在Sourceに旧方式が残るため、上の二項目を現行集計から除外する処置はSource・全Consumer・実証の対応が固定された後に行う。これは旧互換を新Runtimeへ残す指示ではない。
+
 本節は[Coordinatorの現在状態Snapshot](../../../06_Architecture/Details/coordinator/01_Architecture.md#現在状態snapshotの構造)から既存Local Itemへ導出する。新しい試験IDを目的なく増やさず、以下のscenarioを同じ検証義務の中で個別に判定する。設計の追加を試験合格や本番接続済みと表示しない。
 
 保存再入場の純粋な分類は、[QA-000003](../QA-000003/quality_definition.md)の`PRL-UT-006`で、元版／次版のexact bytes Hash、Repository結合、初回Root条件、明示不存在／観測不能、previous相関、非安全整数・overflowを確認する。返却は非Authorityの処置候補であり、全Snapshot検証、File保存・回収、Root観測、Docker回復の成立は以下の結合・総合義務で別に確認する。
 
 | Local Item | 入力・反証scenario | 観測・Oracle | 終了後条件 |
 |---|---|---|---|
+| `ERB-IT-003` | Coordinator設定不存在、正の期間指定、0・負数・小数・overflow、不正Schema、読取り不能、期間前後の通常履歴と未解決参照、終了要約の保存失敗・読戻し失敗。 | 不存在だけ既定30日。期間整理は通常履歴に限り、不正設定・観測不能では削除0。必要な要約の保存確認前にstateを除去しない。 | 未解決義務・未受理結果・Candidate・認証情報・正式Evidenceの削除0。要約再確認によるProvider再実行0。 |
 | `ERB-IT-003` | 正常終了、取消中清掃、一次失敗後の清掃失敗、Process終了後の結果未受理。 | 一次失敗が不変で、cleanupと最終結果を別に保持する。結果受理前にoperationを除去しない。 | 未受理なら同じ結果を保持。清掃不明なら同じexact回復義務を保持。 |
 | `ERB-IT-003` | 元版pending、次版exact一致、同版別内容、元内容Hash差、別Owner、置換後のread-back失敗、初回previous null、正規Snapshot不存在かつprevious非null。 | 許可された同一更新だけ再入場し、既成立の更新は追加更新0。不一致・未知は上書き0。 | pending解決または同じ参照で停止。履歴からAuthority／state復元0。 |
 | `ERB-IT-003` | 結果保存後／Consumer受理前、ack保存後／元記録削除前、最終清掃失敗。 | 結果IdentityとConsumerが一致し、重複受理でも旧Task・Provider依頼を再活性化しない。 | 受理済み項目だけ回収。未解決義務はhistory整理から除外。 |
+| `ERB-IT-003` | 要求前保存拒否、Effect後保存失敗、保存成功／排他解放失敗、外部応答待機中の別Writer、回収観測後のrevision競合、fresh Processでの同一pending再入場。 | 要求前はEffect 0。既発行Effectを未発行へ巻き戻さない。保存排他中にHost／Home／Runtime排他・通知・上位保存・外部応答を待たない。現在Rootと元版を再照合し、旧Process Capabilityを復元しない。 | 短期排他の解放を独立観測。未確定なら同じ回復参照保持、無条件再送0、別操作の記録更新0。 |
 | `ERB-IT-004` | 回復参照先不存在、別Attempt、Identity差、重複参照、複製Repository、移動Root。 | Snapshotを操作Authorityとして受理せず、現在のRoot／Owner／資源へ再結合できなければ拒否する。 | 外部Effect 0、別対象削除0、既知参照保持。 |
 | `ERB-IT-014` | 清掃済み旧参照＋未解決参照、対象追加・欠落・置換、現在稼働Owner、排他取得不能。 | 終了済み参照と現在の稼働を別に扱う。現在対象の閉集合・非稼働・全排他を確認する前に再起動しない。 | 競合時は再起動Effect 0。未選択Recovery変更0。 |
 | `ERB-IT-003`／`ERB-IT-014` | 認証Probe create unknown、遅延create、旧Ownerの遅延start、現在不存在、観測不能、共有書込みMount。 | 限定終了の全条件を個別に確認する。未知を不存在にせず、Provider開始後や送信不明へ一般化しない。 | 成立時も過去unknown維持・旧領域再利用0。未成立なら同じ参照で停止。 |

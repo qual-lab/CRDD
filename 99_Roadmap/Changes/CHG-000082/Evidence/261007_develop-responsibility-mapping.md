@@ -795,11 +795,75 @@ Orchestrator詳細では、旧Application／Core／Port／internalの汎用配�
 
 Coordinator詳細を再編候補へ更新し、単体利用・Task開始／取消・助言／候補・exact回復・署名検証の公開操作境界と、Coordinator所有の通知型を具体化した。現在の公開indexに上位Project操作だけが残る点を実Sourceで確認し、Orchestrator移管後は下位公開面へ置き換える必要を明示した。Provider差はAI Adapter、共通保存はDomain Modelへ対応し、上位import・構成・再exportを禁止した。V6定数と署名domainがSourceへ接続済みであることも確認し、旧V5・旧候補配置を新規入口へ適用しないよう区別した。全回復方式、署名閉包、通知呼出し点、設定とQAの詳細照合は継続中で、段階3の完成や公開API実装済みとはしない。
 
+### 3Dの詳細化 — CROSとMCP
+
+2026-10-07、ARCH-000013の二Surface・同一Process直接呼出し／別Process MCPの契約と、現行CROS公開入口・REST処理・MCP構成を照合した。CROS詳細を再編候補へ更新し、REST／Gateway／専用Serverを残さない配置、共通能力のOwner、認可と結果の境界、ツール別の`cros.json`／`mcp-server.json`、可視設定例の分割、各Serverの終了責務を具体化した。MCP詳細も`mcp-server`配置、Orchestrator／Domain Model／CROSへの公開依存と本体構成Rootへ対応した。旧Gateway成功を新経路の証明にしない。Profile／Activity等の全Tool Schema、Workbench Client接続、QA全数対応と設定例実変更は未完了であり、段階3を完了扱いしない。
+
+この詳細化後のCheckerはRepository全体1578件Failで、CROS／MCP詳細と本計画に対するFindingは0件だった。差分の空白検査も成功した。全体Passや新経路のSource接続・実境界成立を示す結果ではない。
+
+### 3Dの詳細化 — Workbench接続
+
+現行Workbenchの実Sourceから、Portfolio／Profile／ActivityがREST、Topic／MeetingがMCPという二経路と、`baseUrl`／`mcpBaseUrl`を確認した。Workbench詳細へ単一の明示MCP Endpoint、同一Processの認可済みCROS呼出し、能力別の移管Owner、接続世代・失効・遅延結果・取消と保存Effectの分離、CSRを維持した責務別配置を追加した。既存`list_projects`はID・状態・Source数だけで完全Portfolioを返さないため、一覧／詳細・検索・Source表示のSchema対応は未完了として明記した。RESTの単純置換を完成としない。現在、人間の新しい採否判断を要する事項は確認していない。
+
+Workbench更新後のCheckerは全体1578件Fail、Workbench詳細・本計画・詳細Mapに対するFindingは0件だった。続いてMCP詳細へActivityとProfile一覧／作成／更新／削除の閉じた入力・結果候補を追加し、現行AI Profile MutationとActivity型の意味を維持した。Credential管理の全SchemaとPortfolio表示の対応は継続中であり、まだ3D全体を完成扱いしない。
+
+### 3Dの判断履歴 — Credentialの秘密受渡し
+
+現行Credential公開型、Workbench管理変換とMCPの秘密非公開契約を照合した。一覧・Grant変更・失効は非秘密だが、発行／rotationは生Tokenを一度返す。MCP Client／AI履歴への非残存を現在契約では証明できないため、Remote Token搬送を実装せず人間判断へ戻す。選択肢と影響はMCP詳細§3.3に記録した。一般MCP結果への秘密追加、専用配送Framework、Token永続保存は未採用である。Portfolioについては既存Toolのページ契約、Source表示とQuery／revision拘束Cursorを詳細化した。段階3の完了・コミットは判断解決と残る設計確認後に行う。
+
+2026-10-07、人間は発行／rotationをHostまたは同一Process Workbenchへ限定する案を採用した。Remote MCP／Workbenchは一覧・Grant変更・失効を提供し、生Tokenを返す操作は提供しない。初期管理CredentialはCROSの明示構築時に管理可・内容Grantなしで発行する。MCP起動だけで発行しない。この判断待ちは解消した。
+
+同日の人間確認により、単体／CROSは`--cros`の有無で明示し、設定存在から自動切替しない。両Modeは同じRepository一覧・`repositoryId`必須の対象操作Schemaを使う。単体は自身の一件のみを返しWorkbenchで自動選択する。CROSは現在許可された集合から選択し、サーバー起動用CRDDリポを自動公開しない。Project連合・管理操作に不要なRepository入力は追加しない。MCP／Workbench／CROS詳細へ反映し、未実装を成立済みとは表示しない。現在、この判断単位について追加の人間判断は必要ない。残る3Eの利用側・配布・署名閉包・移行・QA対応を続ける。
+
+### 3Eの詳細化 — 配布・署名の新閉包
+
+2026-10-07、現行の`RUNTIME_SIBLING_COMPONENTS`、配布Launcher集合、V6準備入口、正式適用と固定一時領域を照合した。Coordinator詳細に残るV5全体観測・旧release候補Pathを現在のV6最小集合と分離し、新Ownerの公開入口・metadata・登録子入口・実呼出しを同時に切り替える対応表を追加した。全`40_Develop`やWorkbench Browser Bundleを無条件に署名しない。QA-000010へ既存五Local Itemの反例・観測・終了条件を具体化した。実装上の旧兄弟一覧・上位逆依存・旧全体観測の撤去は段階5、実署名・TTY・昇格は段階7の未完了義務として保持する。未実行結果を追加していない。
+
+3Eは全利用側の具体API、残るQA項目、保存・限定終了の設計とフロントAI移行手順の照合を継続する。今回の署名設計整理だけで段階3完了・独立レビューPass・Release可能としない。
+
+同日、②の保存切替済み基準と今回の新配置を分離した。Orchestratorの保存Rootは`.crdd/orchestrator/`、Tool設定は`.crdd/config/orchestrator.json`とし、同名の配布例・Schemaへ対応する。四File、受付世代、30日既定と設定可変、未解決参照保護の保証は保持する。旧Path・設定の読取り、必要値の保全と清掃はフロントAIへ渡し、Sourceに旧形式探索・Snapshotの無断コピー・二重Writerを残さない。詳細設計と共通配置Ownerへ伝播し、実物移行済みとは表示しない。
+
 ### 段階3の途中コミット前確認
 
 2026-10-07、人間の指示により現在の詳細設計を途中コミットする。段階3の完了とは扱わず、以降は各段階の完了時にコミットし、採否・範囲変更・リスク受容等の人間判断が必要な場合に停止する。
 
 差分の空白検査は成功した。CheckerのRepository全体のエラーは1578件で、直前確認の1580件から今回変更した署名節への参照切れ2件を是正した。変更対象内に残る23件は、CHG本文の今回変更していない旧Source配置への参照である。全体Pass、独立レビュー完了または段階3完了を主張しない。Source変更・Runtime実行・署名・外部AI依頼は本コミットに含めない。
+
+### 3Eの直接伝播確認 — 旧Port方式とBrowser配布
+
+2026-10-07、要求正本REQ-000005に旧Port反転方式を必須とする記述が残っていた。人間が採用した直接公開API・登録ハンドラー方式と整合するよう、要求は公開入口限定と下位から上位への逆依存禁止へ修正した。探索記録EXP-000014ではv0.20の判断を履歴として保持し、現在の置換判断と未完了のSource移管を分離した。REQ品質分析の二導出行とQA-000001／QA-000006へ直接伝播した。履歴管理等の別契約にあるPortは今回の対象ではなく変更しない。
+
+QA-000006のERB-IT-021では、Workbench Browser Bundleの新配置・Git収載・配布集合・直接起動の四観測を維持し、Coordinator署名Treeへの無条件収載要求を除いた。旧Build成功は新配置のPassにせず、新四段階をOPENとした。Local Itemの識別情報とServerのBrowser実行依存禁止は維持する。Source変更、署名、Provider依頼、E2Eはこの処置に含めない。
+
+### 3Eの品質集合整理 — 廃止済み改造CLI
+
+2026-10-07、QA-000006の文章では除外済みだったERB-IT-024〜029が現行検証表に残り、Checkerが現行Local Itemとして数えていた。採用済み公式CLI方針に従って六行を現行表から除き、詳細は記録済み基準Commitで保持する。IDの再利用、旧成功の流用、公式CLI内部の保証追加は行わない。維持する公開起動・通知と結果・取消／親Process喪失は031／UT-023／ST-030へ接続し、Quality Integrationの導出行と全数行へ伝播した。故障注入IT-002は観測内容に沿って異常へ分類し、条件区分表を一致させた。
+
+現行13定義のLocal Itemは171件（16／17／14／20／9／25／16／7／12／14／8／7／6）である。これは設計集合の再算定であり、過去Releaseの母集団やPass数を変更しない。全Checkerは1574件Fail、QA-000006の条件区分指摘四件とQuality統合の集合不一致二件は解消した。一方、runtime-trustの旧詳細導出キーに対する段階Coverage不一致は残り、全体Passとしない。差分の空白検査は成功した。旧Docker Repair履歴方式と縮小後方式の置換、QA全数対応および段階3完了は継続中である。
+
+### 3Eの回復縮小・履歴・移行の具体化
+
+2026-10-07、旧Dockerの引継ぎ連鎖と現在方式の責務を分離した。Coordinator詳細に、操作・資源Identityと一次失敗、必要な検証付き再起動、明示的Host修復、旧Releaseのhandoff／continuation、旧Taskの再送禁止の処置表を置いた。旧方式の長い節は移行元の基準設計と明記し、新Runtimeの要求として旧形式を再実装しない。旧引継ぎ専用ST-011／IT-012は移行履歴へ退役する予定だが、Source切替前の基準集合を成功扱いで消さず、現在方式の003／004／014／030へ保証を対応させて段階5で全Consumerと集計を一括確定する。明示Host修復のNative安全条件は009／014で維持し、Task回復から暗黙発火させない。
+
+Coordinatorの通常履歴はTool別coordinator.jsonで既定30日・設定可変とし、時刻・相関、一次失敗とcleanup、未解決参照の保護、state除去前の要約保存確認と再入場を具体化した。件数・容量で通常履歴を削除する条件や新しい履歴サービスは追加しない。共通配置Ownerへ伝播し、WorkflowへフロントAIによる停止・現在観測・保全・exact清掃・新形式初期化・公開入口読戻しの六手順を追加した。実移行は段階5の固定候補と独立確認後であり、現在の物理Rootを操作していない。
+
+基準Sourceも再照合した。認証Probeはdocker-effect-runtime.tsでcreateとstartを分離し、network none・read-only・Home readonly・Workspaceなしの計画を持つ。一方、作成要求済みIDなしのremoveExactResourceはfalseで止まる。限定終了は名前による強制削除でなく、同じ固定計画・Snapshot・旧Ownerとstart不能・要求終端・実観測に接続する必要がある。遅延createが停止Containerを残し得る場合の義務保持も設計へ明記し、空一覧やOwner終了だけで清掃完了としない。
+
+Task開始・取消の実ConsumerをSourceから再照合し、CLI、Workbench候補実行、上位の本番構成、署名検証スクリプト、拒否試験、配布閉包のSymbol照合をCoordinator詳細§2.3へ対応させた。不透明control・元の完了Promise・通知・上位保存を分け、単体利用を維持する。Task関数Headerが実行Effectを持たない旨を記載している不一致は、段階5の入口移管時に是正する対象とした。これは新API実装や取消E2Eの成功を示さない。
+
+候補保存・読取り・保存確定・破棄・回復、診断と明示介入、Runtime検証Capabilityの発行・消費・失効をCoordinator詳細§2.4へ対応させた。内部exportの一括公開を避け、上位の採用判断と下位の候補保存を分離した。保存排他の取得順と受付・要求前・観測後・取消／清掃・結果搬送・終了要約の六時点も固定し、QA-000006へ要求前保存拒否／Effect後保存失敗／解放失敗／revision競合／fresh再入場の反証を追加した。
+
+AI Adapter詳細ではProvider計画・Turn予算・出力変換・助言・Claude認証・Profile公開型／Storeの実Consumerと既存Local Itemを対応させた。Codex専用配布IT-031をClaude認証の証拠へ流用せず、Claude認証はUT-016／IT-008／IT-017、共通Provider契約はIT-001／002／006とST-005／030へ対応する。移管前の実測を移管後のPassとして再利用しない。
+
+確認時の全Checkerは1574件Fail、今回確認したCoordinator／AI Adapter／QA-000006にはFinding 0件、差分の空白検査は成功した。実装切替、署名、実Provider依頼・E2Eは行っていない。段階3全体の完成と独立レビューPassは未成立であり、残るDomain統合・二Surfaceの全ConsumerとQA対応を続ける。
+
+### 段階3の完了判定 — 2026-10-08
+
+詳細設計・公開API・配置・保存Owner・通知／取消・全利用側・設定例の更新計画・フロントAI移行・Quality引渡しの具体化を完了した。Domain統合は旧三領域の公開集合と実Consumerを用途別入口へ対応し、型だけのFileと実処理を持つoutcomeを区別した。二Surfaceは単体／CROSで同じRepository指定契約を保持し、Profile、Activity、Credential、TLS／OriginおよびHTTP終端の反証を既存QAへ対応した。HTTP終端はstdio終端と分けてEST-ST-013を追加した。
+
+現行設計集合は13定義・172項目（16／17／14／20／9／25／16／7／13／14／8／7／6）である。Quality Centerと現実照合の設計数へ伝播し、過去のRelation・試験結果を新設計のPassへ流用していない。Checklistの固定項目名を維持し、評価根拠を本文へ分離した。再Checkerは1,572件Fail・Warning 0であり、今回更新した詳細設計と検証定義のFindingは0件。Quality Integrationに残るruntime-trustの旧詳細導出キーの段階Coverage不一致は既知の現実照合残件で、段階6へ維持する。差分の空白検査は成功した。
+
+読み取り専用の着手前・引渡し確認は独立設計レビューではない。段階3の設計完了をSource移管、実接続、全体Quality Ready、署名E2EまたはRelease可能と表示しない。次は固定Commitを対象に段階4の責務・依存・能力保持、文書・直接伝播、Gap／Impactの三確認を実行する。全結果を統合するまで設計を修正せず、必要な是正と再レビュー後に段階5へ進む。現在、人間による追加判断は必要ない。
 
 ## Checklist
 

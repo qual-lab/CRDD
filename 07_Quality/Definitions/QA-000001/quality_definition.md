@@ -12,7 +12,7 @@ Quality ID: `QA-000001`
 | Source ID | Obligation Key | 導出元 | 保持する固有条件 | 試験段階 | 対応Local Item |
 |---|---|---|---|---|
 | [REQ-000001](../../../01_Discovery/Definitions/REQ-000001/requirement.md) | `req-000001.qa-000001` | Requirement Definition（成立条件・失敗・検証意図） | Gitが管理する対象からリンク、ID、配置等の機械判定可能な不備を再現可能に検出する。正常な階層構造やリポジトリ境界を誤って拒否せず、未確認範囲を未確認として返す。Checker成功だけでは意味レビュー、監査または準拠をPassと表示しない。既知の正常構造、リンク切れ、ID重複、gitlinkまたは境界不明を与え、結果の決定性、誤拒否、未確認表示を観測する | UT | `RCM-UT-002`、`RCM-UT-001` |
-| [REQ-000005](../../../01_Discovery/Definitions/REQ-000005/requirement.md) | `req-000005.qa-000001` | Requirement Definition（成立条件・失敗・検証意図） | プロジェクト管理、実行編成、通信方式、観測、Platform境界の責任者を一意に説明できる。Project RuntimeからCoordinator実装詳細への依存をPortで反転する。各部品の公開入口以外を利用側が参照せず、単独利用時の契約を確認できる。依存Graph、公開import、package単独試験、代表利用側を確認し、内部パス参照や逆向き依存を反証する | IT | `RCM-IT-009` |
+| [REQ-000005](../../../01_Discovery/Definitions/REQ-000005/requirement.md) | `req-000005.qa-000001` | Requirement Definition（成立条件・失敗・検証意図） | プロジェクト管理、実行編成、通信方式、観測、Platform境界の責任者を一意に説明できる。仕事管理から実行編成への依存は公開入口に限定し、下位から上位の実装への逆依存を持たない。各部品の公開入口以外を利用側が参照せず、単独利用時の契約を確認できる。依存Graph、公開import、package単独試験、代表利用側を確認し、内部パス参照や逆向き依存を反証する | IT | `RCM-IT-009` |
 | [REQ-000014](../../../01_Discovery/Definitions/REQ-000014/requirement.md) | `req-000014.qa-000001` | Requirement Definition（成立条件・失敗・検証意図） | ツールごとに識別情報、入力、結果、外部作用（Effect）、取消、清掃条件を登録一覧から確認できる。登録済み、公開済み、Host利用可能、処理許可済みを別状態で返す。Human CLI、MCP、Coordinatorが同じ能力定義と実装を利用する。代表ツールを複数入口から実行し、不登録、非公開、Host不可、不許可、取消、清掃を観測する | IT | `RCM-IT-010` |
 | [REQ-000019](../../../01_Discovery/Definitions/REQ-000019/requirement.md) | `req-000019.qa-000001` | Requirement Definition（成立条件・失敗・検証意図） | 変更した意味の作成側、利用側、派生物、公開・署名・回復・リリース経路を列挙する。各利用側が現在有効なパス、識別情報、Stateを再解釈せず利用する。旧API、旧パス語彙、宣言漏れ、実装未接続を固定候補前に検出する。利用側一件を意図的に旧境界へ残す、宣言だけ追加する、現在有効な値を再解釈する反例でChecker、契約試験、縦断試験を観測する | IT | `RCM-IT-005`、`RCM-IT-003` |
 | [REQ-000034](../../../01_Discovery/Definitions/REQ-000034/requirement.md) | `req-000034.qa-000001` | Requirement Definition（成立条件・失敗・検証意図） | clone／submodule取得した固定Commitから標準入口を発見できる。同梱Manifestと実行基盤が対象Commit／配布集合へ整合する。別リリースの手動DownloadやVersion推測なしに代表ツールを起動できる。fresh clone、submodule、版不一致、欠落実行基盤、改ざんManifestを用い、発見、拒否、代表起動を観測する | IT／UAT | `RCM-IT-003`、`RCM-IT-005`、`RCM-UAT-006` |
@@ -100,6 +100,16 @@ Quality ID: `QA-000001`
 ### Workbench AI Profile Catalog固有条件
 
 v0.22のWorkbench AI Profile Catalogでは、`RCM-IT-005`により、永続Snapshotがまだ存在しないRepository Storeの検証済み既定CatalogをRevision 0として取得し、Production Composition、Profile解決、助言Dispatchまで同じRevisionとProfile Identityを再解釈せず搬送する。最初の採用だけがRevision 1を公開し、負数、小数、破損Storeまたは観測不能をRevision 0へ畳まない。
+
+## 二Surface再編のProfile管理条件
+
+[AI Adapter](../../../06_Architecture/Details/ai-runtime/01_Architecture.md)と[MCP公開操作](../../../06_Architecture/Details/mcp/01_Architecture.md)から、次の条件を既存義務へ導く。新構成のSource・実境界確認は未実施であり、旧経路のPassを継承しない。
+
+| Local Item | 入力・反証 | 観測・終了後条件 |
+|---|---|---|
+| `RCM-IT-005` | Repository／CROSのOwner別Store、初期revision 0、期待revision一致／競合、create／update／delete、保存後応答喪失 | 本番Reader／Writerと共通Mutationを通し、同じSnapshot・Profile Identityを利用側まで保持する。競合・未確認削除で保存0。応答喪失は採用済みrevisionの再観測だけで、暗黙再Mutation0。 |
+| `RCM-IT-010` | 管理可否、許可失効、認証・Host・Quota・Authorityの独立観測、unknown、Local内部呼出し／Remote MCP | Profile管理権限をContent Grantへ変換しない。四軸のunknownをavailableへ補正せず、操作時に現在認可を再確認する。秘密値・任意Path／CLI引数・Provider実行Effect 0。 |
+| `RCM-ST-012` | 新公開入口・新設定の全宣言Consumer、旧import／別Snapshot／Remote未登録反例 | 同じCatalogと意味契約が新公開入口へ接続したことを確認する。全集合未観測を全体Passにせず、入口比較はQA-000009の`EST-IT-010`と独立に判定する。 |
 
 ## 5.1 UI／SPEC Detailからの観測条件
 

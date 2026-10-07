@@ -158,6 +158,17 @@ Related:
 
 ### Coordinator／Project Runtimeの縮小目標
 
+以下のproject-runtime名は②の保存切替基準を示す。今回の責務再編後の物理Ownerはorchestratorとし、現在Sourceを切替済みとは表示しない。
+
+| 基準配置 | 再編後の固定配置 | 移行担当と保持する意味 |
+|---|---|---|
+| `.crdd/project-runtime/` | `.crdd/orchestrator/` | フロントAIが旧受付・資源・未解決参照を確認し、新受付世代で初期化する。Runtimeへ旧Path探索を残さない。四Fileの保存・再入場保証は維持する。 |
+| `.crdd/config/project-runtime.json` | `.crdd/config/orchestrator.json` | 非秘密のTool別設定。保持日数の確認・値引継ぎと明示Git allowlist更新を行う。 |
+| project-runtime設定例・Schema | orchestrator設定例・Schema | 配布側と実Reader、Checker、回帰Runnerを同時更新する。別の共通期間設定へ統合しない。 |
+| `.crdd/coordinator/`、`.crdd/execution-intelligence/` | 同名を維持 | 下位実行、上位編成、実行知の現在状態・履歴Ownerを混同しない。 |
+
+最新のOrchestrator保存・設定契約は[詳細設計](../project-runtime/02_Detailed_Design.md#compact-runtime-storage)が所有する。以下の基準ツリーと旧設定名を新構成の配置指示として使用しない。配布例・Schema・実物の切替は段階5以降の対応対象である。
+
 Project Runtimeは、このRepositoryで旧試験記録の清掃と新形式への初期化を実施した。Coordinatorおよびその他Ownerの残る物理切替は未実施である。実施範囲と保全対象は[実切替結果](../../../99_Roadmap/Changes/CHG-000082/Evidence/261005_project-runtime-phase2.md#29-repositoryの実切替結果)を参照し、両Ownerの切替完了へ拡張しない。
 
 ```text
@@ -460,6 +471,8 @@ Consumer集合は手書き一覧だけを正本としない。実Sourceからraw
 `boundaryIdentity`はDirectory置換の検知用であり、操作権限、過去の終了証明、履歴の完全性または内容の不変性を発行しない。内容Hash、Lock・pendingと終了後観測は各Storeの責務として維持する。
 
 ## 履歴保持期間の設定
+
+責務再編後は、共通設定ReaderをDomain Modelの設定部品へ移管し、各履歴Ownerが自分の設定だけを利用する。新配置は`.crdd/config/orchestrator.json`、`.crdd/config/execution-intelligence.json`、`.crdd/config/coordinator.json`である。Coordinatorの現在状態・回復・終了要約の条件は[Coordinator詳細の縮小設計](../coordinator/01_Architecture.md#現在状態と履歴を分ける縮小設計)を正本とし、本節で再定義しない。以下のProject Runtime Reader名とPathは切替前の基準であり、新Runtimeへ旧設定探索を残す指示ではない。対応する配布例・SchemaもTool名に揃え、Source・設定実物の切替は段階5で行う。
 
 履歴所有者が通常履歴を整理するときは、`readProjectRuntimeConfig`または`readExecutionIntelligenceConfig`から自分のTool設定を読み取る。Runtime Dataは設定の検証と読取りだけを所有し、記録の削除判断は各履歴所有者が行う。他Toolの設定は読取り条件にしない。
 

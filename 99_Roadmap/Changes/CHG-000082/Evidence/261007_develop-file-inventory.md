@@ -1225,7 +1225,7 @@ Context候補採否のpure関数は現在public exportと契約試験があり�
 |---|---|---|
 | package公開入口 | 17 Node packageのname／exports。Coordinatorは`./cli`のみで、他領域は主にsrc/index.ts。domain-libraryは7 subpath | 16領域への統合後も責務別subpathを維持。公開呼出し側から型・実行を確認し、巨大barrelとprivate importを増やさない。RustはCargo入口を維持。 |
 | template/tools/crdd-coordinator.ts | Coordinatorの単一binをimport | 入口名を維持し、Repository開発Root／利用側01_CRDD内Rootの両方で本体接続を確認。 |
-| template/tools/crdd-mcp.ts | mcp、project-operation公開入口 | MCP Server／domain-model公開入口へ同時切替。Repository単体操作をCROS Credential必須へ変えない。 |
+| template/tools/crdd-mcp.ts | mcp、project-operation公開入口 | MCP Server／domain-model公開入口へ同時切替。`--cros`を明示選択とし、単体は検証済み起動Rootへ固定。両ModeのRepository対象Toolは同じrepositoryId必須入力を使い、単体一覧は自身一件のみ。CROS Credentialを単体へ要求せず、設定不正時の自動Fallbackを作らない。 |
 | template/tools/crdd-cros-server.ts | MCP内Shared Serverとruntime-dataのCROS Root型 | 採用能力をMCP Server入口へ置換してから撤去。独立CROS REST／Gatewayを残さず、認可・TLS配置条件・管理者回復を失わない。 |
 | template/tools/cros-shared-server-config-example.json | 人間から見える設定例 | CROS登録・ExposureとMCP Server配置へ責務分離。正式設定例は見える実ファイルとして残し、局所隠し値だけに置換しない。 |
 | Coordinator package scripts | 個別Coverage、Native build／lint／Host試験、Traceability／Graph、署名実境界検証 | Source移管と同じ変更でPath／試験Owner／閉包を更新。Nativeの明示target、Portable／Host分離、外部AI自動非実行を維持。 |
@@ -1288,21 +1288,21 @@ package数とARCH-IDは一対一ではない。下表は現行18領域の能力�
 | 判断待ち・Objective／Milestone受入 | 上位判断／Orchestrator | PRL-UAT-002、PRL-IT-008、PRL-ST-009、PRL-UAT-010 | 明示判断と再入場、重複Effect 0を確認。自動受入を追加しない。 | 3・6・7 |
 | Queue・Lease・state／history・回復再入場 | 上位現在状態／Orchestrator | PRL-IT-011、PRL-IT-013、PRL-ST-003、PRL-ST-004、ERP-IT-001、ERP-IT-003 | savedv2接続、世代切替・30日保持・未解決除外を②の根拠から引継ぎ。下位回収と上位保存を一つの成功値にしない。 | 3・6・7 |
 | 候補採用・破棄・保留とRevision競合 | 採否／Orchestrator、候補本体／Coordinator | CPR-IT-006、CPR-UT-009、CPR-UAT-002、CPR-UAT-003 | 明示確認、対象・Scope再観測、採用Receiptを保持。Commit／Pushは別操作。 | 3・6・7 |
-| Workbench Codex／Claude助言 | Human AI入口／Workbench Server→Coordinator | ERB-UT-023、ERB-IT-001、EST-ST-003、EST-ST-005 | Provider別の二scenario。UTのFake成功から実助言成功を推定しない。改造CLIのERB-IT-024〜029は今回の保持経路でなく、段階3で旧義務の廃止・置換理由をQAへ反映する。 | 3・6・7 |
+| Workbench Codex／Claude助言 | Human AI入口／Workbench Server→Coordinator | ERB-UT-023、ERB-IT-001、EST-ST-003、EST-ST-005 | Provider別の二scenario。UTのFake成功から実助言成功を推定しない。改造CLIのERB-IT-024〜029は今回の保持経路でなく、QA-000006に廃止・置換理由を反映済み。新構成の実Provider成功は未確認である。 | 3・6・7 |
 | Workbench Codex／Claude変更候補とReview | 同上＋Orchestrator採否 | ERB-UT-023、CPR-IT-001、CPR-IT-006、EST-ST-011 | 二Providerの候補生成・Review・本体取得・破棄を個別確認。採用・Commit・Pushを試験の暗黙Effectにしない。 | 3・6・7 |
 | Local Context・Topic／Meeting CRUD | 同Process内部能力／Workbench Server＋CROS＋Domain Model | PPR-IT-019、RFD-IT-009、CPR-ST-005、CPR-IT-008、EST-IT-010 | Browser RESTを維持し内部RESTだけ撤去。Repository単体とCROS利用の意味・認可を保持。 | 3・6・7 |
 | Remote Context・Topic／Meeting CRUD | Machine境界／Workbench Server→MCP Server→CROS | PPR-IT-019、CPR-ST-005、CPR-IT-008、EST-IT-010、EST-IT-002 | [Remote操作](260928-0325_phase5-remote-workbench-topic-meeting.md)をMCP代替経路へ再接続。HTTP成功だけで同じCRUD能力成立としない。 | 3・6・7 |
-| Local／Remote Activity取得・欠測・Cursor | CROS公開Reader／Orchestrator＋Execution Intelligence | PPR-IT-002、PPR-IT-010、PPR-IT-012、ERP-IT-001、EST-IT-010 | 現項目は投影・記録の一般義務。Activityの本番Reader、Cursor／limitとMCP往復の具体scenarioが不足し、段階3で補強する。 | 3・6・7 |
-| Local／Remote AI Profile CRUD | 管理能力／CROS＋AI Adapter | ERB-IT-006、RFD-ST-003、RFD-ST-004、EST-IT-010 | モデル選択・認可は既存義務。Profile管理の本番Store、expectedRevision、削除条件と保存失敗の実経路は不足し、段階3で補強する。 | 3・6・7 |
-| 三Role・失効・Exposure・非開示 | 共通認可／CROS | RFD-ST-003、RFD-ST-004、RFD-IT-013、PPR-ST-005 | 管理能力を内容Accessにしない。Local／MCP双方で現在Grantを再観測し、非公開Repositoryの存在・秘密を漏らさない。 | 3・6・7 |
+| Local／Remote Activity取得・欠測・Cursor | CROS公開Reader／Orchestrator＋Execution Intelligence | PPR-IT-002、PPR-IT-010、PPR-IT-012、ERP-IT-001、EST-IT-010 | QA-000004の追加条件とQA-000009のEST-IT-010に、本番Reader、現在値／履歴欠測、Cursor／limit、失効、Local／Remote比較を固定した。実測は未完了。 | 3・6・7 |
+| Local／Remote AI Profile CRUD | 管理能力／CROS＋AI Adapter | RCM-IT-005、RCM-IT-010、ERB-IT-006、RFD-ST-003、RFD-ST-004、EST-IT-010 | QA-000001とQA-000009へOwner別Store、expectedRevision、CRUD拒否、保存後応答喪失、現在認可とLocal／Remote比較を固定した。実測は未完了。 | 3・6・7 |
+| 三Role・失効・Exposure・非開示 | 共通認可／CROS | RFD-ST-003、RFD-ST-004、RFD-IT-013、PPR-ST-005 | 管理能力を内容Accessにしない。Local／MCP双方で現在Grantを再観測し、非公開Repositoryの存在・秘密を漏らさない。初期管理Credentialは内容Grantなし、発行／rotationはHostまたは同Process Workbenchのみ、Remoteは一覧・Grant変更・失効に限定する。既存IDへ正常・拒否の具体scenarioを対応し、旧Remote秘密配送を保持対象にしない。 | 3・6・7 |
 | 全管理者喪失・限定Access回復 | Host管理操作／CROS | RFD-ST-016 | 既存administrator_recovery／full_access_resetの保証を維持。REST撤去はHost限定経路の削除理由ではない。 | 3・6・7 |
-| Repository単体MCP stdio／HTTP | Machine入口／MCP Server | EST-IT-001、EST-IT-002、EST-ST-012、RFD-IT-009 | stdioのUTF-8分割・EOF・取消とHTTP結果を別評価。CROS設定なしでlocal利用を成立させる。 | 3・6・7 |
-| 共有MCPのTLS・Origin・Exposure | 配置契約／MCP Server＋CROS | EST-IT-001、EST-IT-002、RFD-ST-003、RFD-ST-004 | 過去はloopback・模擬TLS Headerまで。実TLS配置、Host／Originと転送境界の具体義務は不足し、段階3で補強。Linux必須性と利用可能環境を設計後に判定し、Windowsで代替済みにしない。 | 3・4・7 |
-| Server切断・取消・終了後資源 | HTTP／Process所有／MCP Server・Workbench Server | EST-IT-002、EST-ST-012、ERB-IT-020、ERB-IT-021 | Listener・Socket・Request・子Processの実終了を入口別に確認。stdioの義務だけではHTTP全資源を覆わず、段階3で具体化。 | 3・6・7 |
+| Repository単体MCP stdio／HTTP | Machine入口／MCP Server | EST-IT-001、EST-IT-002、EST-ST-012、EST-ST-013、RFD-IT-009 | stdioのUTF-8分割・EOF・取消とHTTP結果を別評価。CROS設定なしでlocal利用を成立させる。Repository一覧一件、自身IDの受理、別IDの拒否、兄弟Repository非探索、Mode自動切替なしを両入口で確認する。Workbenchは同じ一件を自動選択する。 | 3・6・7 |
+| 共有MCPのTLS・Origin・Exposure | 配置契約／MCP Server＋CROS | EST-IT-001、EST-IT-002、RFD-ST-003、RFD-ST-004 | 過去はloopback・模擬TLS Headerまで。QA-000007／009へ実TLS配置、Host／Origin、偽装Header、失効・Exposure変更を具体化済み。実測は未完了。Linux必須性と利用可能環境を設計後に判定し、Windowsで代替済みにしない。 | 3・4・7 |
+| Server切断・取消・終了後資源 | HTTP／Process所有／MCP Server・Workbench Server | EST-IT-002、EST-ST-012、EST-ST-013、ERB-IT-020、ERB-IT-021 | Listener・Socket・Request・子Processの実終了を入口別に確認。stdioはEST-ST-012、HTTPは新EST-ST-013で独立判定。body途中・idle・実行中・重複Signalと全Registry終端をQA-000009へ具体化済み。実測は未完了。 | 3・6・7 |
 | 実Windows保存・Process・ACL・Native Protocol | OS境界／Platform Access＋Coordinator | ERB-IT-001〜004、ERB-ST-030、RFD-IT-012、RDL-IT-001、ERP-IT-003 | [Native正式要約](261006_release-test-retention-phase4.md)の局所成立と本番未接続を分離。固定frame、Handle、Job、ACL、終端のscenarioを新配置へ対応。 | 3・6・7 |
 | 最小署名準備→対話署名→Manifest適用→清掃 | 署名閉包／Signing＋Coordinator | AIT-IT-002、AIT-IT-003、AIT-IT-007〜009、AIT-IT-013、AIT-IT-015、AIT-ST-010 | V6実TTYは未観測。重い署名はCoordinator閉包だけ。AITの汎用Trust Policy義務を今回の新Framework採用にしない。 | 3・6・7 |
 | 未改造公式CLIの固定配布と実利用 | Provider配布／AI Adapter＋Coordinator | ERB-IT-031、ERB-IT-001、ERB-ST-030 | 版・Hash・Image局所確認と実助言／実Task／取消を別評価。旧Patch Buildを再導入しない。 | 3・6・7 |
-| Workbench実Browser・Asset・画面非破損 | Human表示／Workbench Server＋Visual Preview | ERB-IT-018〜021、ERB-ST-019、ERB-ST-022、OAG-IT-005 | 既存27条件とPure CSR根拠を保持。変更意味から必要Profileを選び、全Profile再評価の要否・N/A理由を段階3で明記。新画面設計は対象外。 | 3・6・7 |
+| Workbench実Browser・Asset・画面非破損 | Human表示／Workbench Server＋Visual Preview | ERB-IT-018〜021、ERB-ST-019、ERB-ST-022、OAG-IT-005 | 既存27条件とPure CSR根拠を保持。新構成の本番Server／Assetで既存27条件を再観測する。汎用Webの評価範囲を無断で絞らず、未確認・不適合を人間許容なしにPassへ変更しない。新画面設計は対象外。 | 3・6・7 |
 
 この表は試験結果ではない。詳細設計で現在IDの適用を確定できないものは、Quality Analysisで導出不能／不足として処置する。記載したIDの実在だけをCoverage Passにしない。共通の全利用側移管はRCM-IT-003／004／009、RCM-ST-012、全回帰の登録・実行一致はCQS-IT-011／012、CQS-ST-012へ接続する。
 

@@ -5,6 +5,8 @@
 状態: Candidate
 維持責任者: Qual-Lab
 
+CHG-000082の再編後の実装親Folderは`workbench-server`とする。以下の既存実測は旧配置の成立範囲を示し、CROS RESTをMCPへ置き換えた新経路の完成証明ではない。Browser向けWorkbench API、React＋ViteのCSR、既存画面とVisual Baselineを維持し、今回の再編でUX／IAを独断で再設計しない。
+
 ## 基本設計との関係
 
 | Architecture定義 | この領域が具体化する責務 | Relation状態 |
@@ -104,12 +106,12 @@ Browser
             │ fixed Document Shell + safe JSON Read Model + Action POST
             ▼
    Workbench Application Adapter
-      ├ Project Operation／CROS Port
-      ├ Version Control Port
-      ├ AI Runtime Port
-      ├ Project Runtime State Query Port
-      ├ Owner Artifact Read Port
-      └ Official Asset Port
+      ├ Domain Model公開API（Context／Topic／Meeting／Owner読取り）
+      ├ CROS共通能力（認可付き内部呼出し／MCP Client）
+      ├ Version Control公開API
+      ├ Coordinator公開API（単体AI依頼）
+      ├ Orchestrator公開API（上位Task／候補採用／状態照会）
+      └ Official Asset公開API
             │
             ▼
 既存の公開Application Contract／Adapter
@@ -123,7 +125,13 @@ Browser
 | View Model Renderer | 公開結果をVisual Stateへ変換 | 欠測、制限、結果不明の推測補完 |
 | Interaction Adapter | 利用者操作を既存Application Requestへ変換 | Authority、Retry許可、Effect成功の生成 |
 | Workbench HTTP Server | localhost listener、静的Asset、Application request、shutdown | Project／Git／Credentialの意味 |
-| Consumer Ports | CROS、Project Operation、Version Control、AI Runtimeの公開契約を隔離 | 具象Adapterの内部型を画面へ漏らすこと |
+| Consumer Adapter | Domain Model、CROS、Version Control、Coordinator、Orchestratorの公開契約を画面要求へ適合する | 具象内部型や秘密を画面へ漏らすこと。下位からWorkbenchをimportさせる逆依存 |
+
+### 3.1. Packageと公開入口
+
+`40_Develop/workbench-server`のsrcは用途別に`client`、`server`、`application`、`connection`、`view-model`、`asset`へ分け、src配下は二階層以内とする。Browser Componentだけが`.tsx`とReactのvalue importを所有し、Server Graphへ混ぜない。Rootの`index.ts`は起動・終了の公開入口、`types.ts`は公開型とし、Screen Component全数をServer入口から再exportしない。`bin/workbench.ts`は一つの起動入口、反復検証はscripts、fixtureはtestsに置く。tools入口は本体へ配送し、表示・業務・構成を複製しない。
+
+本体構成Rootが下位の公開APIへ直接依存する。ここでいうAdapterは要求・結果の局所変換であり、下位へWorkbench専用Portを注入するFrameworkではない。AI Profile本体はAI Adapter、認可付き管理はCROS、共通実行はCoordinator、上位Objective／候補採用はOrchestrator、成果物CRUDはDomain Modelが所有する。
 
 ## 4. 実行・配置モデル
 
@@ -131,9 +139,12 @@ Browser
 [Local Repository Mode]
 React Browser UI ── localhost ── Node Workbench Server ── Repository-local Ports
 
+[Local CROS Mode]
+React Browser UI ── Workbench API ── 認可済みCROS共通能力（同一Process）
+
 [Remote CROS Mode]
-React Browser UI ── Workbench Surface ── authenticated CROS Transport
-                                  └ granted Workspace only
+React Browser UI ── Workbench API ── MCP Client ── MCP Server ── CROS共通能力
+                                                         └ granted Workspace only
 
 [Build]
 React／TypeScript Source ── Vite ── fixed Browser Bundle
@@ -142,12 +153,34 @@ React／TypeScript Source ── Vite ── fixed Browser Bundle
 
 - Local Serverはloopbackだけで待ち受け、任意Interfaceへ公開しない。
 - Repository単体利用はCROS Credentialを要求しない。
-- Remote CROS利用時だけ、既存CredentialとSession Grantを接続へ渡す。
-- Browser BundleはViteで生成する派生物であり、React／TypeScript Sourceとは別の設計正本にしない。一方、署名配布物がBuild Toolchainなしで直接起動できるよう、固定Path `40_Develop/workbench/dist/client/assets/workbench-client.js` の生成結果をSource Commitと署名対象Treeへ収載する。Build不能、追跡集合外、Asset欠落またはallowlist外Asset要求では候補固定、起動または配信を拒否する。
+- CROS利用時は既存CredentialとSession Grantを接続へ渡す。同一Processの直接呼出しでも現在の認可・Exposureを確認し、認可を省略するLocal特例を作らない。Repository単体利用は別の範囲であり、CROS認可へ暗黙昇格しない。
+- Browser BundleはViteで生成する派生物であり、React／TypeScript Sourceとは別の設計正本にしない。固定Pathは再編後の`40_Develop/workbench-server/dist/client/assets/workbench-client.js`へ移し、Buildなしで起動可能な配布物へ含める。Coordinatorから到達する実行閉包にWorkbench Bundleを無条件で加えず、Workbench配布・公開Assetの完全性とCoordinator署名範囲を区別する。Build不能、配布集合外、Asset欠落またはallowlist外要求では固定・起動・配信を拒否する。旧Pathは移行前のEvidenceとしてのみ扱う。
 - Node Serverは空のDocument Shell、固定AssetおよびJSON Read Modelだけを配信し、Browser Clientが全画面DOMをClient-side Reactで構築する。JSONはCredential verifier、Remote接続Bearer、Private Key、Host Pathおよび永続Authorityを含まず、同一Originの明示POST用のProcess限定Action TokenとCredential操作直後の一回表示Tokenだけを用途限定Fieldで扱う。SSR、Hydration、Raw HTML Fragmentおよび既存DOMの再読取りは行わない。
 - React要素を生成するPanelと共通表示ComponentはBrowser Clientだけがvalue importする。Node CLI／Serverから到達するRuntime依存GraphはApplication、Read Model生成、Authority、HTTPおよび固定Asset配信だけを含み、React／React DOMまたはBrowser描画Moduleへ到達しない。型参照はRuntime依存として扱わないが、value import／再Export／dynamic importは配布候補固定前に閉集合で検査する。
 - Browserを閉じたことだけでServer終了を推定しない。明示shutdownまたはOwner Process終了でlistenerと進行中requestを回収する。
 - Next.js／Server Action、Desktop wrapper、OS tray、auto update、installerは`N/A`: 現在の利用者成果に必要な根拠がなく、Node側の既存Authority境界と責務が重複する。
+
+### 4.1. 接続と操作の移管
+
+Workbench Serverは別ProcessのCROSに対してMCP Clientとなる。BrowserからRemote MCPへ直接Bearerを渡さず、Server内の接続だけで使用する。接続先は明示した完全なMCP Endpoint一つへ固定し、旧`baseUrl`／`mcpBaseUrl`二系統、暗黙`/mcp`付与、接続先推定とREST Fallbackを新構成に残さない。旧設定の分割・参照更新はフロントAIが行い、Runtime互換Readerは持たない。
+
+| 操作 | 現行Sourceで確認した入口 | 再編後の接続先 | 維持する結果・制約 |
+|---|---|---|---|
+| 接続／更新、Portfolio取得 | `workbench-server.ts`の`readRemotePortfolio` | MCPの既存Project一覧・Context取得を共通Portfolio表示へ適合 | 検索・状態・Query拘束Cursor、五場面、Source Coverage、欠測を保持。部分取得を完全Portfolioへ畳まない。 |
+| AI Profile一覧・変更 | `readRemoteAiProfileCatalog`／`executeRemoteAiProfileMutation` | CROS共通認可からAI Adapter管理へ接続するMCP操作 | 管理可否、expectedRevision、登録済みModel、削除確認を維持。Catalog未接続と権限拒否を同じ成功の空一覧にしない。 |
+| Runtime Activity | `readRemoteRuntimeActivity` | CROS認可付きActivity MCP操作 | Project限定の現在状態とEvent、順序、Cursor、Continuationと独立したunknownを保持。 |
+| Topic／Meeting | `remote-topic-meeting.ts`の既存MCP呼出し | 同じEndpointの既存Tool、CROS Routing→Domain Model | Repository指定、CRUD、Relation Owner、競合、Outcome処置、Close条件と非開示を維持。 |
+| Credential管理 | 既存Credential Administration | 同一Processでは共通CROS API、別Processでは認可付きMCP操作 | Token一度表示、失効・rotation、管理権限≠内容Grantを維持。Host限定の全喪失回復はRemote公開しない。 |
+
+接続入力はEndpointとCredentialの検証→Protocol／能力一覧→許可Portfolio取得→現在接続への置換の順に行う。候補接続の失敗で既存接続を成功扱いせず、旧ProjectionをCurrentとして表示しない。新接続・切断ごとに世代を変え、旧Requestの遅延結果を新接続へ反映しない。Refreshは現在Credential・Exposureを再確認し、失効したSourceの選択と編集操作を解除する。
+
+切断・Server終了は新規要求を止め、進行中MCP要求の取消・join、Client／Socket回収、Credential参照と表示Snapshotの破棄を順に行う。Remote側の保存済みEffectを切断で取り消したことにせず、結果不明を既存操作Identityへ結び、暗黙再送しない。CredentialはProcess memoryだけに保持し、Endpointのuserinfo／query、Browser履歴、Storage、設定、Repository、logへ残さない。
+
+現在の`crdd.list_projects`はProject ID・状態・Source数だけを返し、完全Portfolioではない。再編候補では[MCPのPortfolio契約](../mcp/01_Architecture.md#32-portfolioの一覧詳細契約)に従い、同じToolへ検索・状態・Query拘束Cursor・limitとページ内Sourceを接続する。Workbenchは返されたページだけを表示し、独自の二重ページングや未取得Sourceの検索を行わない。詳細取得は毎回現在認可を再確認する。複数Requestの結果を一つの原子的snapshotと偽らず、全Source取得済みでない表示を完全Portfolioにしない。公開SchemaとReaderの本番接続は未完了である。
+
+Credential発行／rotationは[MCPのv0.22採用範囲](../mcp/01_Architecture.md#33-credential管理の公開境界--v022の採用範囲)に従い、Hostまたは同一Processの管理へ限定する。Remote Workbenchでは一覧・Grant変更・失効だけを提供し、発行／rotationは利用不能と理由付きで表示する。一般MCP Clientへ生Tokenを返さず、未提供の操作を対応済みとしない。
+
+起動時の`--cros`で単体／CROS利用を明示する。指定なしは現在Rootに固定し、`crdd.list_repositories`から得る唯一のIDを自動選択して切替操作を出さない。CROS指定時は同じ一覧・repositoryId入力で許可対象から選択し、初期化済みだからという理由で自動移行しない。同一Process CROSでは構成設定、別Process接続では明示MCP Endpointを用い、CredentialをCLI引数へ置かない。CROS設定不正・接続不能時は単体へFallbackしない。サーバー起動用CRDDリポも公開設定なしで対象に加えない。
 
 ## 5. Dataと状態
 
@@ -227,6 +260,8 @@ WorkbenchはCurrent Projectionを独自Databaseへ複製しない。将来Cache�
 
 ## 10. Reality Audit
 
+この表の旧配置での観測は保持する。再編後の同一Process CROS呼出し／Remote MCPへの置換は未実装であり、旧REST／Gatewayの`Covered`を新経路へ引き継がない。新配置の公開Graph、設定Reader、全操作と終了実測を段階6／7で再確認する。
+
 | 対象 | 現在状態 | 分類 | 処置 |
 |---|---|---|---|
 | Production Workbench package | `40_Develop/workbench`にClient-side React Application Shell、Vite Browser Build、localhost Node Server、固定Document Shell、用途限定Token以外の秘密・Authorityを含まないJSON Read Model、Project Surface、Repository Work、Topic／Meeting CRUDとMeeting Outcome処置、Credential管理Surface、Remote接続入力、Portfolioの検索・状態絞込み・Query拘束継続読込・Project別Source表示、Owner分離したRepository／CROS AI Profile管理、選択Profile IDと依頼種別付きの現在Session AI依頼Port、変更候補の確認・採用・破棄SurfaceおよびRuntime Activity Portが存在する。全画面DOMはBrowser側React Componentだけが所有し、Node Serverは認証・Authority・Repository Effect・JSON生成・固定Asset配信だけを所有する。SSR、Hydration、Raw HTML FragmentおよびDOM再読取りは存在しない。Repository単体Compositionは読取り助言を署名済み`workbench_advice` Runtimeへ、変更候補を明示許可Path付きの署名済みProject Runtime Single Taskへ接続する。候補はStoreから再読取りした安全なMetadataを表示し、別確認とProject Runtime Leaseを通った場合だけ採用する。Commit／Pushは行わない | Partial | CSRの型・Lint・Build、HTTP／JSON契約試験、15画面の実Browser Visual再確認および独立レビューは成立した。残るCodex／Claudeの実Provider E2Eを閉じるまで全体完了へ昇格しない |
@@ -251,6 +286,8 @@ WorkbenchはCurrent Projectionを独自Databaseへ複製しない。将来Cache�
 - Effectを伴う操作ではAuthority、要求、受理、Effect、結果、終了後状態を分ける。
 - 320〜1920 CSS px、100%／200%／400% Zoom、Keyboard順、文字下限、操作対象、ContrastをProduction DOMで評価する。
 - shutdown後にlistener、request、child process、一時AssetまたはCredentialが残らない。
+
+Checklist評価根拠: Remote MCP公開Schema、Local内部呼出し、Browser APIのConsumer対応を具体化した。Component、Interface、Data／StateおよびSequenceの設計を本番実接続と区別した。 QA-000001／004／007／009の追加観測条件へ操作・接続世代・失効・応答喪失・終了の義務を渡した。旧Gatewayと新MCP経路の実績を混同せず、新構成の実境界は未評価である。
 
 ## Checklist
 

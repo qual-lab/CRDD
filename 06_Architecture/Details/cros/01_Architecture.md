@@ -2,7 +2,9 @@
 
 成果物種別: Architecture詳細設計
 詳細設計領域: cros
-状態: Canonical
+状態: Candidate
+
+本詳細はCHG-000082の責務再編候補である。CROSは共通能力であり、専用REST Server、GatewayまたはShared Server Runtimeを新構成へ残さない。以下の現行実装照合は旧配置で成立した範囲を示し、新しいMCP／内部呼出しの接続済み証明ではない。公開操作、設定移行、全利用側とQAの確認後に段階4の独立設計レビューへ渡す。
 
 ## 基本設計との関係
 
@@ -84,7 +86,7 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | `src/runtime.ts` | Covered | Session snapshot、Repository非開示、Context Package、Handoff。Remote Portfolio、Project Context MCP、Topic／Meeting操作およびRuntime ActivityはBearer認証結果から現在Registry／Exposureを再検証する | N/A: 実Provider E2EはCoordinator／AI Runtimeの残存項目である |
 
 担当責任者: Qual-Lab
-最終更新日: 2026-09-27
+最終更新日: 2026-10-07
 関連:
 - [Project Operation Context](../project-operation/01_Architecture.md)
 - [Runtime Dataの目標Architecture](../runtime-data/01_Architecture.md)
@@ -224,35 +226,32 @@ Workspace ExposureはCROS Application内の公開境界である。Host UserがR
 
 ### 3.3. Shared Serverの公開配置
 
-Shared Serverは、公開TLSをCROS Process自身へ埋め込まず、同一Host上のTLS終端／Reverse Proxyとloopback限定Gatewayを組み合わせる。公開利用者から見えるOriginは一つであり、RESTとMCPは同じHTTPS Originの固定Pathへ配置する。
+共有配置はWorkbench Server、MCP Server、CROS能力とRepository群を同じHostへ配置する形態であり、第三のServerを意味しない。Browser向けWorkbench APIは維持する。WorkbenchとCROSが同一Processの場合は認可済み共通能力を直接呼び、別Processの場合は同じHostでもMCPを利用する。CROS RESTと専用Gatewayを廃止し、二つの公開入口に同一Originを強制しない。
 
 ```text
-Remote Client
-     │ HTTPS
-     ▼
-TLS Terminator / Reverse Proxy
-     │ x-forwarded-proto: https
-     │ x-forwarded-host: <configured public host>
-     ▼
-127.0.0.1 Shared Gateway
-     ├─ /v1/... → internal CROS REST listener
-     └─ /mcp    → internal MCP listener
+Human → Browser → Workbench Server → 認可済みCROS能力（同一Process）
+                         │
+                         └→ MCP Client → MCP Server → 同じCROS能力
+AI / Machine ──────────────────────────→ MCP Server
+
+共有Hostへの外部接続: TLS終端 → loopback限定Workbench / MCP Listener
 ```
 
-Gatewayは`127.0.0.1`以外へBindせず、`x-forwarded-proto=https`と設定済み公開Hostの完全一致を必須とする。Browserが`Origin`を送る場合も設定済みHTTPS Originとの完全一致を必須とする。TLS終端は受信したForwarded Headerを転送せず、配置設定の確定値で上書きする。Gatewayは固定RouteとHeader許可一覧だけを使用し、任意のProxy Target、Cookie、Host HeaderまたはBearer値をlog／応答へ搬送しない。
+外部TLS終端とReverse Proxyは配置先運用が所有する。各Serverはloopbackへ限定し、外部平文HTTPへFallbackしない。共有MCPでは設定済みHTTPS公開Origin、公開HostおよびTLS終端からの確定Headerを検証する。TLS終端はClient由来のForwarded Headerを除去して配置上の確定値で上書きする。直接内部接続からのHeader偽装を防ぐHost境界が成立しない配置は公開しない。Bearer値、任意Proxy Target、Cookieまたは非許可Headerをlog／応答へ転記しない。
 
-内部REST／MCP Listenerは公開Interfaceではない。Gateway停止時は外側Listener、内部Listener、実行中Proxy RequestおよびSocketを同じ終了操作で回収し、資源集合が空になったことを確認する。公開証明書の発行・更新、Port 443の所有およびHost Firewallは配置先運用の責務であり、CROS CredentialやRepository Contextの責務へ混ぜない。
+MCP Serverは自身のListener、実行中Request、Application取消・joinとSocketの終了を所有し、WorkbenchやTLS終端のProcessを終了しない。Workbenchは自身のBrowser接続と利用中MCP Clientを終了する。CROSはRequest snapshotを解放するが、ListenerやServer Processを所有しない。公開証明書の発行・更新、Port 443、Host FirewallとSupervisorは配置先運用に残す。旧Gatewayの終了試験成功だけを新しいServer終了保証に流用しない。
 
 ### 3.4. 固定運用設定とBootstrap
 
-Shared Server設定はOS管理のCROS設定Rootにある固定名`shared-server.json`だけを読む。CLI引数、環境変数またはRepository内Pathから任意設定ファイルを選択しない。
+設定はツール単位で分ける。CROSの複数Repository管理設定は既存OS管理CROS設定Rootの固定名`cros.json`、MCPの共有HTTP配置設定は同じ運用設定Rootの`mcp-server.json`とする。Repository単体stdio／localhost利用へCROS設定を要求しない。任意Pathの選択、他Repositoryの管理設定を現在Repositoryへ埋め込むこと、旧`shared-server.json`のRuntime互換Readerは追加しない。旧形式の確認・分割・清掃はフロントAIの移行手順で扱う。
 
-| 設定 | 意味 | 制約 |
+| 設定先 | 固定する内容 | 制約 |
 |---|---|---|
-| `public_origin` | TLS終端後に利用者へ見せるOrigin | Path／Query／Fragment／userinfoを持たないHTTPS Origin |
-| `listen_port` | loopback Gatewayの待受Port | 1〜65535 |
-| `repositories[].repository_root` | Serverが利用するRepository | 絶対Pathかつ検証済みGit Root。subdirectoryやsymlinkを拒否 |
-| `repositories[].workspace_ids[]` | Repositoryを公開するWorkspace | 空でない一意な集合 |
+| `cros.json` | 構成revision、`repositories[].repository_root`、`repositories[].workspace_ids[]` | Rootは絶対Pathかつ検証済みGit Root。Workspace集合は空でない一意な集合。Repository単位のBinding／Exposureを構成する。 |
+| `mcp-server.json` | 配置revision、`public_origin`、`listen_port`、許可Origin | 公開OriginはPath／Query／Fragment／userinfoなしのHTTPS、Portは1〜65535、内部Bind先はloopback固定。Repository集合やCredentialを重複保持しない。 |
+| Credential Registry | Verifier、Workspace Grant、管理可否、失効revision | 既存OS管理Runtime Root。Token、Token Hash、証明書、秘密鍵を上記二設定へ入れない。 |
+
+可視の設定例は配布toolsに置き、本体Readerはそれを暗黙に本番設定へ採用しない。現行`template/tools/cros-shared-server-config-example.json`は段階5で二設定の例へ分割し、利用案内と参照を同時更新する。設定例自体を消して既定値だけを隠す構成にはしない。起動前に両設定とRegistryを検証し、不整合時はListenerを開始しない。
 
 Repository IDとProject IDは設定へ複製せず、検証済みRootの固定`PROJECT_CONTEXT.md`から取得する。RevisionはProject Context内容Hashで固定し、未CommitでもProjectionを構成できる。設定にはToken、Token Hash、証明書または秘密鍵を含めない。Credential Registryは既存のOS管理Runtime Rootを正本とし、空Registryでは公開Serverを開始しない。
 
@@ -266,7 +265,7 @@ Host限定 crdd-cros-access-recovery
 通常Credential Registry
       │
       ▼
-crdd-cros-server --serve
+MCP Server / Workbench Server の構成Root
 ```
 
 Host回復はProduct Dataを変更せず、Remote入口から呼び出せない。通常起動後のTokenはRequest Headerからだけ受け取り、argv、環境変数、設定、Repository、Promptまたはlogへ保存しない。
@@ -376,6 +375,27 @@ MCP／CLI／Workbench
 ```
 
 Caller由来のFilesystem PathをRepository Resolverの代替として受理しない。内部Adapterも、Canonical Resolverを迂回してRepository Poolを直接読む入口を公開しない。各Repositoryの固定Project Contextを共通交換契約として使用し、Consumerごとの要約Storeを作らない。Projectionは利用できないRepositoryの内容、Artifact ID、件数または推定値を補完しない。
+
+### 6.1. 再編後の共通能力と公開入口
+
+`src/index.ts`は共通能力の入口とし、`startCrosRemoteTransport`とHTTP Client関数は廃止対象とする。HTTP処理から認可・結果構成を抽出して同じ能力をWorkbench内部呼出しとMCP Handlerから使う。抽出前のREST成功を新経路の成功証明にしない。
+
+| 能力 | 現行処理の対応元 | 新Ownerと入力・結果 | 保持する境界 |
+|---|---|---|---|
+| Project／Portfolio取得 | `remote-transport`のPortfolio処理、`createPortfolioProjection` | CROS。RequestのCredential、現在Exposure／Bindingを検証し、許可済みSourceの五場面・Coverage・欠測を返す。 | 非許可Sourceの存在・件数を開示せず、Project Contextを第二正本にしない。 |
+| Topic／Meeting操作・Relation解決 | MCP CROS Compositionの認可・Routing | CROSは対象Repositoryの解決、Domain Modelは本文CRUD／Outcome処置、MCPは入力変換。入力はrepositoryId、操作、expectedRevisionと必要な確認。 | 同じLogical Projectの許可集合だけでRelationを解決し、書込みは対象Owner一つへ限定する。 |
+| Runtime Activity参照 | `remote-transport`のActivity処理とReader | CROSはProject／許可Repository集合を解決し、Orchestrator状態QueryとExecution Intelligenceの公開結果をcursor／limit付きで合成する。 | 未観測を空の成功へ変えず、内部log・生Provider出力・Host Pathを返さない。 |
+| AI Profile一覧・変更 | `remote-transport`のProfile処理 | CROSは`system_admin`を再検証し、AI AdapterのCatalog／Profile管理へ委譲する。更新はexpectedRevisionと既存操作別入力を用いる。 | 管理可否を内容Grantへ昇格せず、任意CLI実行やProvider秘密登録へ広げない。 |
+| Credential一覧・発行・変更・失効・rotation | `connection-credential`公開操作 | CROSの既存Registry契約。管理操作とContent Grantを区別する。発行／rotationはHostまたは同一Process Workbenchに限定し、一覧・Grant変更・失効だけをRemote MCPへ公開する。 | 現在管理権限とRegistry revisionを各操作で再確認する。生Tokenは許可されたHost側結果で一度表示し、MCP結果・履歴・設定へ保存しない。 |
+| 管理資格喪失時の回復 | `credential-access-recovery`とHost CLI | CROSのHost限定対話入口。停止、対象確認、既存Registryの原子的変更と結果確認を保持する。 | Remote Toolとして公開しない。Product Dataを変更しない。 |
+
+公開Folderは`federation`、`access`、`activity`、`configuration`、`context`、`tool`へ責務別に分け、型だけの契約は`types.ts`に置く。Profile本体はAI Adapter、Topic／Meeting本文はDomain Modelに残す。Server Listener、Gateway、汎用`internal`、他Subsystem内部の再exportをCROSに置かず、src配下は二階層以内とする。
+
+同一Processの呼出しも毎回現在の認可を検証する。共通能力へRequest snapshotを固定した後、操作結果、保存確定、Transport response、取消・joinを別に観測する。response喪失時は既存操作Identityと結果照会へ戻り、Credential発行や本文作成を自動再実行しない。Serverの接続切断だけを保存Effect 0または取消完了へ読み替えない。
+
+2026-10-07の人間判断により、CROSの利用はWorkbench／MCP起動時の`--cros`で明示する。設定の存在から単体利用を自動切替しない。単体は検証済み起動Repositoryに固定し、CROS Registry登録・Credentialを要求しない。CROSでは現在のCredential・Exposure・Bindingから許可したRepositoryだけを対象とし、起動用CRDDリポを自動公開しない。対象一覧とRepository指定の共通入力は[MCP詳細](../mcp/01_Architecture.md#単体crosの明示選択とrepository一覧)を参照する。
+
+CROSの初期管理CredentialはHostでCROSを明示構築するときに発行する。MCP起動だけで発行せず、管理可・内容Grantなしを初期値とする。Remoteから秘密を受け渡す新しい配送機構は今回作らない。[Credential公開境界](../mcp/01_Architecture.md#33-credential管理の公開境界--v022の採用範囲)と同じ採用範囲をWorkbenchの操作可否へ反映する。
 
 ## 7. Connection CredentialとRequest Access Context
 
@@ -573,10 +593,10 @@ Secret value -x Repository／.crdd／Prompt／Projection
 - `system_admin: true`のCredentialだけがWorkspace、ExposureおよびCredentialを管理でき、管理可否からContent Accessを生成しない。
 - Credential発行、Workspace集合設定、Request認証および失効を区別できる。
 - Secret値がRepository、`.crdd`、Prompt、logまたはProjectionへ入らない。
-- RESTとMCPが一つのHTTPS公開Originで利用でき、Gatewayと内部Listenerがloopback外へBindしない。
+- CROS REST／Gateway／専用Serverを残さず、同一Processの内部呼出しと別ProcessのMCPで既存能力を利用できる。共有HTTP Listenerはloopbackへ限定し、外部TLS配置の保証を保つ。
 - TLS終端Headerと任意のBrowser Originを設定済み公開Originへ完全一致させ、不一致ではRepositoryまたはCredentialの存在を開示しない。
 - OS管理の固定設定だけから検証済みRepository、Workspace ExposureおよびProject Context Identityを構成し、Secretや証明書を設定へ含めない。
-- Server終了時にGateway、内部Listener、SocketおよびProxy Requestの残存がない。
+- Server終了時に各OwnerのListener、Request、Application、Client接続とSocketの回収が確認でき、片方のServer停止を他方の完了と誤認しない。
 - User Directory、Principal、汎用認証Adapter、認証Evidence、永続認証Session、独立Grant EntityまたはBootstrap専用CapabilityをCoreへ追加しない。
 - Registration、Project Binding、Workspace Exposure、UnexposeおよびUnbindが物理Repository削除と分離される。
 - `available`、`credential_required`、`restricted`、`unavailable`、`conflicting`および`unknown`を内容漏えいなしに投影できる。
@@ -638,13 +658,13 @@ Registry破損、Root未検証または排他取得不能では新Credentialを�
 
 ## 17. Shared Host配置境界
 
-v0.22のShared Profileは、一つのCROS Server Processを一つのTrust Domainへ固定する。Processは一つのOS管理Runtime Root、Credential Registry、Shared Server ConfigおよびRepository Poolだけを構成し、RequestからTrust Domainを選択・切替しない。
+v0.22の共有配置は、一つのServer構成を一つのTrust Domainへ固定する。Workbench／MCPの各構成Rootは同じDomainに属するOS管理Runtime Root、Credential Registry、CROS設定とRepository Poolだけを参照し、RequestからDomainを選択・切替しない。これは独立Trust Policy機構を新設する意味ではない。
 
 ```text
-[CROS Server Process A]
+[Workbench / MCP Server 構成 A]
    └─ [Trust Domain A Root] ── Workspace／Credential／Repository Pool A
 
-[CROS Server Process B]
+[Workbench / MCP Server 構成 B]
    └─ [Trust Domain B Root] ── Workspace／Credential／Repository Pool B
 
 Process A ──x── Trust Domain B Root
@@ -676,6 +696,8 @@ Workspace GrantはHost Shell、OS Accountまたは敵対的tenant間の強制隔
 担当Interaction Relation: `PRT-000004.spec-000002`、`PRT-000004.spec-000006`、`PRT-000004.spec-000007`、`PRT-000006.spec-000010`、`PRT-000006.spec-000031`、`PRT-000008.spec-000012`、`PRT-000009.spec-000013`、`PRT-000010.spec-000014`、`PRT-000010.spec-000015`、`PRT-000016.spec-000021`、`PRT-000016.spec-000026`、`PRT-000016.spec-000027`、`PRT-000017.spec-000022`
 
 本領域は上記Relationの配置責務を局所所有する。Detailを新しい要求として解釈せず、対応ARCH-IDが所有する配置・境界・状態・観測の制約として実現する。
+
+Checklist評価根拠: 共通能力の公開操作・認可とLocal／Remote利用側を具体化した。Component、Interface、Data／StateおよびSequenceの設計と実接続未評価を区別した。 QA-000001のProfile管理、QA-000004のActivity、QA-000007のCredential／TLS、QA-000009の入口比較／HTTP終端へ反証・観測・終了後条件を渡した。新構成の実境界は未評価である。
 
 ## Checklist
 

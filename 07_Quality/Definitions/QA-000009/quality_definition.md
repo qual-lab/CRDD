@@ -59,7 +59,7 @@ Quality ID: `QA-000009`
 | 正常 | Required | EST-IT-001、EST-ST-003 | 通常の成立経路を独立して確認する。 |
 | 境界 | Required | EST-IT-004、EST-UAT-006、EST-UAT-007、EST-UAT-008、EST-UAT-009、EST-IT-010、EST-ST-011 | 値、Authority、情報、責務または利用者判断の境界を確認する。 |
 | 準正常 | N/A | - | 継続可能な分岐または保留状態を持たない。 |
-| 異常 | Required | EST-IT-002、EST-ST-012 | 不正入力、故障または拒否経路を通常成功へ畳まない。 |
+| 異常 | Required | EST-IT-002、EST-ST-012、EST-ST-013 | 不正入力、故障または拒否経路を通常成功へ畳まない。 |
 | 回復 | Required | EST-ST-005 | 失敗・取消後に同じIdentityと義務で安全に再入場できることを確認する。 |
 
 ## 3. 検証項目
@@ -78,6 +78,17 @@ Quality ID: `QA-000009`
 | `EST-IT-010` | 境界 | IT | Surface Contract／Effect Equivalence | TS API・CLI・MCP・Workbench→同一Application Contract→正本 | Related 2 Blocks | 正常、拒否、部分結果、取消の同一固定入力と四入口 | 各入口から同じ操作を実行する | 入口Identity、Application Contract、構造結果、Authority判定、取消結果、正本差分、Effect件数を記録する | 全入口が同じ契約と共有実装を使い、結果意味と正本更新が一致し、独自Storeを作らない | EST-IT-010、入口別契約・結果・差分・Effect比較、Oracleを保存する | 入口固有Store 0、取消後残存資源0 | Automated |
 | `EST-ST-011` | 境界 | ST | Result Return／Correlation | 委譲実行→結果搬送→元Task・所有正本 | Related 2 Blocks | 正常帰還、拒否、帰還先消失、Revision競合、部分結果、再送を含む固定Task | 各結果を帰還先へ搬送し反映可否を判定する | Task・Request Identity、作成側、対象Revision、変更集合、Evidence参照、帰還先、Authority、Effect件数を相関する | 正常時だけ作成側・Revision・変更・Evidenceを保って元Task／正本へ帰還し、競合・再送を重複反映しない | EST-ST-011、全相関Identity、変更集合Hash、Evidence参照、判定理由、Effect件数を保存する | 拒否・競合・再送時の重複Effect 0 | Automated |
 | `EST-ST-012` | 異常 | ST | Stdio Transport Scenario | MCP stdio入口→Application→応答stream | System/E2E | UTF-8分割、EOF、取消競合、正常frameを含むProcess入力 | 実Process境界でframeを送受信する | byte列、frame、Application結果、取消・終了状態を記録する | framingを保ち分割・EOF・取消競合を成功応答へ畳まない | 入出力byte分類、結果、終了状態、判定 | handle／listener／child残存0 | Automated |
+| `EST-ST-013` | 異常 | ST | HTTP公開Process終了 | Workbench MCP Client→TLS終端／MCP HTTP公開入口→Application→Listener／Socket／Signal | System/E2E | 固定公開Launcher、正常TLS配置、Content-Length途中、slow body、idle keep-alive、Application実行中、重複Signal、close／join観測不能の各条件 | 実公開ProcessへHTTP要求を送り、各段階で終了を要求する。正常TLSと偽装Headerの試験は別scenarioにする | 受付停止、取消、Application join、body reader／handler／socket／listener終了、Signal登録解除、全Registry件数と最終終了結果を同じProcessへ相関する | 全所有資源の終端確認後だけ終了成功。未知を0へ畳まず、誤Host／Origin／偽装Forwarded HeaderではApplication Effect 0。終了中の新規受付0、同一依頼の再送0 | 固定候補・実TLS構成Identity、scenario、公開結果、各Registryと終了観測、未確認条件を保存する。Token・本文・生出力は保存しない | 全所有資源不存在、または正確な未解決義務保持。観測不能・取消未完了・close失敗を終了成功にしない | Automated |
+
+## 二Surface再編の追加観測条件
+
+導出元は[MCP詳細の公開Transportと終了契約](../../../06_Architecture/Details/mcp/01_Architecture.md)、[CROS共通能力](../../../06_Architecture/Details/cros/01_Architecture.md)、[Workbench接続](../../../06_Architecture/Details/workbench/01_Architecture.md)である。以下は既存義務の具体化と新しいHTTP終端義務であり、Source移管前の実測を新構成のPassへ流用しない。
+
+| Local Item | 入力・反証 | 観測と終了後条件 |
+|---|---|---|
+| `EST-IT-001/002` | 正常TLS終端、誤Host／Origin、偽装Forwarded Header、認証不正、Exposure改訂変更、body途中、slow body、idle接続、終了競合 | 認証・Origin・Header処置を実Application呼出しと相関する。拒否時Effect 0。読取り不能を空成功へ変えず、終了時reader／socket残存と未確認を区別する。実TLS配置と模擬Headerを別Evidenceにする。 |
+| `EST-IT-010` | 同一Activity／Profile要求をLocal内部呼出しとRemote MCPから処理。cursor／limit、expectedRevision、認可失効、保存後応答喪失 | 同じ入力、意味結果、欠測、現在認可と保存Effectを比較する。Transport変更で新Authorityを作らず、応答喪失による自動再送・二重保存0。内部呼出し成功だけでRemote接続成立としない。 |
+| `EST-ST-013` | body受信中・idle keep-alive・Application実行中の終了、重複Signal、close／join不明 | 受付停止→取消→join→Listener／Socket回収→Signal解除を公開Processから確認する。各Registryの空を実観測し、未知を不存在へ変更しない。stdioの`EST-ST-012`とは別に判定する。 |
 
 ## 4. 評価とEvidence
 

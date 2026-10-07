@@ -303,7 +303,26 @@ Source本文を読むだけの投影は書込み排他・作業Directoryを作�
 - 最初の保存失敗と排他解放失敗を独立に観測し、別Ownerのretryが旧回復義務を無視して書き込めないことを確認する。
 - 旧Meaning・QA導出キーは保持する。現在の`crdd-domain-library.*`、`project-operation.*`、`runtime-data.*`はPackage名ではなく既存の設計項目参照であり、改名だけで新IDを発行しない。
 
-OPEN: 新公開面のSymbol全数、各workerと実Consumerの接続、設定・配布閉包の固定、Front AI移行手順とQA Local Itemへの全数対応は段階3内で続ける。統合後のSource試験と実境界は段階5〜7で確認する。
+公開集合の移管先と既存QA義務は§9.3、全File／Consumerの予定処置は全ファイル対応、設定・配布とFront AI移行は各Ownerへ接続する。OPEN: 新公開面・worker・全Consumerの実装移管と実起動、設定例と配布物の実切替、統合後のSource試験と実境界は段階5〜7で確認する。
+
+### 9.3. 旧公開集合の移管先と検証義務
+
+旧三Packageの公開型は意味を保って各責務の`types.ts`へ移し、その責務の`index.ts`から明示再公開する。型だけのFileを`outcome.ts`と呼ぶ運用は追加しない。共通`outcome.ts`は既存の実行時検証`validateDomainOutcome`も持つため維持し、Package Rootは共通結果の型と検証だけの軽量入口にする。旧Rootの名前空間exportを巨大Barrelとして引き継がず、利用側importを能力別公開入口へ変更する。
+
+| 旧公開集合 | 移管先 | 利用側と確認する既存義務 |
+|---|---|---|
+| `parseMarkdownArtifact`、`buildArtifactGraph`、`validateArtifactSchema`とArtifact／Schema型 | `artifact/index.ts` | Checker、Semantic Coverage、成果物解析の利用側。`RCM-IT-009/013`で依存方向、`RCM-UT-014`で公開集合、`RCM-IT-003/004`でConsumer閉包を確認する。 |
+| `createRealitySymbolGraph`、`validateRealitySymbolManifest`、`discoverRealitySymbols`、`realitySymbolKinds`とSymbol型 | `reality-traceability/index.ts` | Checker、Semantic Coverage、Reality Audit。意味GraphとSymbol Graphを混同せず、旧七導出キーと実観測の不足区分を保持する。 |
+| `fixQualityCandidate`、`integrateQualityGate`、`reenterQualityReview`と品質Gate型 | `quality-change-control/index.ts` | 品質・変更の判定利用側。`RCM-IT-011/RCM-UT-016`で共通結果とChecker結果を分離し、品質GateからRelease Authorityを生成しない。 |
+| `createFilesystemStoreRoot`、`resolveFilesystemStorePath`、`withFilesystemStoreLock`、`observeFilesystemStoreLockOwnerAbsence`、`recoverFilesystemStoreLock`とRoot／Lock型 | `storage/index.ts` | 各Store Owner。worker起動URLは同じstorage配下の実workerへ接続する。`RDL-IT-001/003/004`でRoot・排他・再入場・回収を、`RCM-IT-003/004`で移管後の利用側を確認する。Lock Fileだけを実排他の証拠にしない。 |
+| `createFilesystemRepositoryObservationPort`、`observeRealitySymbolRepository`とRepository観測型 | `repository/index.ts` | Checker、Semantic Coverage、Repository表示。`RFD-IT-012`でRoot外・link・regular file・観測不能とHandle終了を確認する。 |
+| Runtime DataのPath解決・観測・ready検査、CWD起点の二resolverと`resolveCrosRuntimeRoots` | `repository/index.ts` | Coordinator、Orchestrator、Execution Intelligence、CROS、試験入口。CWDは対象Rootそのものではなく、Version Control境界で確定する入力として維持する。CROS Rootを単体Repository書込み許可へ拡張しない。`RDL-IT-001/003/004`と`RFD-ST-003`へ対応する。 |
+| Runtime Dataの領域作成、temporary operationの作成・再入場・終了、`verifyTemporaryOperationEvidencePromotion`とReceipt／Capability型 | `storage/index.ts` | 署名準備、各Runtimeと試験入口。操作状態・世代・exact参照と正式Evidence昇格確認を保持する。`RDL-IT-001/003/004`で未解決保護と終了後条件を確認する。 |
+| Manifest／Trust宣言、Tool設定の型・検査・読取り、用途別の固定Path／Schema定数 | `configuration/index.ts` | CROS、Checker、Tool設定利用側。既存Trust Schemaの検査能力は維持するが独立Trust Frameworkを有効化しない。`RCM-ST-012`で新設定・旧参照・全Consumerを照合する。 |
+| Project／Release／Quality投影、候補判断と全対応型 | `project-context/index.ts` | Workbench Server、MCP Server、CROS。`PPR-IT-001/002/PPR-ST-005/PPR-UT-006/PPR-UAT-015`で部分観測、出所、情報境界と表示意味を維持する。 |
+| Topic／Meeting Record、状態、昇格、Outcome、Repository／Application、Query／Page／Relation／Resultの全対応型 | `topic/index.ts`、`meeting/index.ts` | Workbench Server、MCP Server。共通保存実体は一つとし、各公開面で操作を限定する。`CPR-ST-005/CPR-IT-006/CPR-UAT-007/CPR-IT-008`で全CRUD・安全な削除・Outcome処置とCloseを維持する。 |
+
+各利用側のFile単位処置は[全ファイル対応](../../../99_Roadmap/Changes/CHG-000082/Evidence/261007_develop-file-inventory.md)に結合する。ここでの公開集合固定は移管方針であり、旧importの不存在、workerの実起動、各公開入口の本番接続と試験成功は段階5〜7で観測する。既存QAの件数・過去Passをこの表の追加で変更しない。
 
 ## 詳細成果物の適用判断
 
@@ -384,6 +403,8 @@ OPEN: 新公開面のSymbol全数、各workerと実Consumerの接続、設定・
 
 本領域は上記Relationの配置責務を局所所有する。Detailを新しい要求として解釈せず、対応ARCH-IDが所有する配置・境界・状態・観測の制約として実現する。
 
+Checklist評価根拠: §9の公開集合・保存Owner・呼出し順と全ファイル対応により、Component、Interface、Data／StateおよびSequenceを具体化した。実装移管と実起動は未評価である。 §9.3で旧三領域の公開集合を既存Local Itemへ対応し、対象・反証・観測・終了後条件をQualityへ渡した。設計の対応を試験Passと扱っていない。
+
 ## Checklist
 
 - [x] 関連するARCH-IDと担当する責務断面を明示した
@@ -392,12 +413,12 @@ OPEN: 新公開面のSymbol全数、各workerと実Consumerの接続、設定・
 - [x] N/AにArchitecture上の理由を記録した
 - [x] 8種類のEngineering Concernを全数評価した
 - [x] PASSを設計済みの意味に限定した
-- OPEN: 統合後の公開操作・保存Ownerを具体化した。公開Symbol全数と全利用側の照合を段階3内で続ける — Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
+- [x] Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
 - [x] Failure／Recovery、ObservabilityおよびSecurity Boundaryを具体化した
 - [x] 7種類のImplementation Structure観点を全数Applicability判定した
 - [x] 二つ目の具象実装がある責務で、共通契約への昇格または非昇格理由を評価した
 - [x] Qualityへ渡す設計項目を局所的な導出キーまたは同等に一意な参照へ接続した
-- OPEN: 旧三領域の導出キーと反証条件を保持した。統合公開面からQA Local Itemへの全数対応を段階3内で続ける — Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
+- [x] Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
 - [x] Human Inputの必要性とOpen／Gapを評価した
 - [x] 現行実装との照合をReality Auditとして分離した
 - [x] Source構造をCanonical詳細設計へ逆輸入していない
