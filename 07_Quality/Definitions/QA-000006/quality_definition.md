@@ -305,6 +305,28 @@ Native保存接続のCaseは、未保存・正常caller・独立binding差・取
 
 通常producerの保護付き作成は、署名Nativeの親観測→独立期待値付き初期化→Root／marker生成の順序を処置する。`ERB-IT-003`の追加局所Caseは、`host-recovery-namespace.integration.test.ts`で現在の本体を使った署名拒否・mode相関・部分処置・transport不明・通常入口の順序を、Native専用r3で本体の作成・再利用・親／利用者差・不適合拒否と個別終了を確認する。専用CLIの不正要求は実Processで取得前拒否を確認する。既存の明示親付き負例は下位primitiveを変更しておらず、署名拒否を元Oracleの代わりにしない。これは局所観測であり、署名付き正常保存、ACL移行、作成競合とAPI／close故障、全Recoveryは未観測のままとする。[接続と限界](../../../99_Roadmap/Changes/CHG-000082/Evidence/261002_host-orphan-recovery-design.md#通常作成入口と専用搬送の接続--2026-10-04)に従い、Local Itemの全体Passや件数を変更しない。
 
+
+## Docker回復・現在状態縮小の検証補強
+
+本節は[Coordinatorの現在状態Snapshot](../../../06_Architecture/Details/coordinator/01_Architecture.md#現在状態snapshotの構造)から既存Local Itemへ導出する。新しい試験IDを目的なく増やさず、以下のscenarioを同じ検証義務の中で個別に判定する。設計の追加を試験合格や本番接続済みと表示しない。
+
+| Local Item | 入力・反証scenario | 観測・Oracle | 終了後条件 |
+|---|---|---|---|
+| `ERB-IT-003` | 正常終了、取消中清掃、一次失敗後の清掃失敗、Process終了後の結果未受理。 | 一次失敗が不変で、cleanupと最終結果を別に保持する。結果受理前にoperationを除去しない。 | 未受理なら同じ結果を保持。清掃不明なら同じexact回復義務を保持。 |
+| `ERB-IT-003` | 元版pending、次版exact一致、同版別内容、元内容Hash差、別Owner、置換後のread-back失敗、初回previous null、正規Snapshot不存在かつprevious非null。 | 許可された同一更新だけ再入場し、既成立の更新は追加更新0。不一致・未知は上書き0。 | pending解決または同じ参照で停止。履歴からAuthority／state復元0。 |
+| `ERB-IT-003` | 結果保存後／Consumer受理前、ack保存後／元記録削除前、最終清掃失敗。 | 結果IdentityとConsumerが一致し、重複受理でも旧Task・Provider依頼を再活性化しない。 | 受理済み項目だけ回収。未解決義務はhistory整理から除外。 |
+| `ERB-IT-004` | 回復参照先不存在、別Attempt、Identity差、重複参照、複製Repository、移動Root。 | Snapshotを操作Authorityとして受理せず、現在のRoot／Owner／資源へ再結合できなければ拒否する。 | 外部Effect 0、別対象削除0、既知参照保持。 |
+| `ERB-IT-014` | 清掃済み旧参照＋未解決参照、対象追加・欠落・置換、現在稼働Owner、排他取得不能。 | 終了済み参照と現在の稼働を別に扱う。現在対象の閉集合・非稼働・全排他を確認する前に再起動しない。 | 競合時は再起動Effect 0。未選択Recovery変更0。 |
+| `ERB-IT-003`／`ERB-IT-014` | 認証Probe create unknown、遅延create、旧Ownerの遅延start、現在不存在、観測不能、共有書込みMount。 | 限定終了の全条件を個別に確認する。未知を不存在にせず、Provider開始後や送信不明へ一般化しない。 | 成立時も過去unknown維持・旧領域再利用0。未成立なら同じ参照で停止。 |
+| `ERB-ST-030` | 公開Task／Workbench助言の通常終了、取消、親Process喪失と新しい試行。 | 本番同等の保存・結果搬送・資源観測を組み合わせ、正常な新試行が旧Workspaceを利用しないことを確認する。 | 全所有資源不存在またはexact義務保持。再送・採用・Commit・Pushの暗黙発行0。 |
+| `ERB-UAT-007` | 自動回収成功と、再認証／Docker再起動が必要な停止。 | 普段意識しない内部File承認を要求せず、必要な具体操作と影響だけを説明する。 | 人間判断前の新Provider Effect 0。安全な拒否を全体完成へ表示しない。 |
+
+機械確認はSnapshotのshape、参照整合、revision／内容相関と固定purposeを扱う。意味上の限定終了、遅延要求と旧Owner停止の実保証はArchitecture／Qualityの独立確認および実境界の観測で扱う。Mockの返値だけでは実資源不存在や遅延create無害化を証明しない。
+
+PT／LT適用判断: 専用の大規模負荷実行はN/A。今回の変更は容量・履歴が増えても現在の受付や回復へ干渉しないことを結合試験で確認する。Snapshot上限・履歴設定が未確定なので最終容量境界はOPENであり、確定後に再評価する。専用PT／LTの実行は人間指定なしに開始しない。
+
+OPEN: 新SnapshotへのSource接続、限定終了の実境界反証、各scenarioの実行とEvidenceは未実施。本節の追加だけでLocal ItemをPassへ変更しない。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した

@@ -668,3 +668,13 @@ Nativeスクリプトの横断指摘は、三入口がGitを直接呼びReposito
 正本からSemantic Coverageを再生成し、17意味の実装Relation17、自動Test Relation16、手動確認待ち1となった。実装追加・過去Missingの実証解消・全体品質Passとは表示しない。過去CHGと監査の判定は履歴として維持する。
 
 限定独立レビューは2026-10-07にPass。適用表に残った旧AIT-IT-014参照を是正し、現行の必須参照不存在を再確認した。Semantic Coverageの16試験、独立読取り評価Gateの2試験、変更対象の形式・LintおよびCoordinatorの型検査はPass。全体Checkerは16指摘を検出し、このうち旧ID残存1件を今回是正した。他の既存リンク・Quality対応表／適用判定の残件は全体Passとして扱わない。署名・実Provider E2E・将来Trust起動接続の成立は主張しない。
+
+### Docker回復縮小の保存契約・反証具体化 — 2026-10-07
+
+Coordinator詳細設計に、現在状態の閉集合、保存途中の再入場、結果受理後の回収、および認証Probeに限定したunknown終了条件を具体化した。基本情報のOwnerを`operations`へ一本化し、回復と未受理結果は参照で接続する。旧作成結果のunknownは保持し、現在の資源不存在だけから過去成功や旧OwnerのEffect不能を推定しない。Runtime Dataの署名一時配置参照を現行`tmp/signature`へ合わせた。
+
+独立設計レビューの指摘に従い、保存途中のFileは正規Snapshotと同一形式・同一bytesとし、元revisionと元Fileのexact bytes Hashへ結合した。初回保存と既知元版喪失、保存済み更新と同版異内容を区別する。追加JournalやLock Frameworkは作らない。既存QA Local Itemへ中断・参照不整合・遅延Create・終了後不存在の反証を接続した。限定設計再レビューはPass、必須指摘0である。Source切替と実境界成立の判定ではない。
+
+既存回復状態機械、Recovery Runtime、Process Controllerの局所基準試験は215件成功、失敗・取消・skipは0だった。新保存方式の実装試験ではない。Coordinatorの整形、Production／Test型検査、Lintは成功したが、後続の能力Graph検査は`platform_provisioner_runtime_dependency_child_process_unbound`で停止した。全体Checkerの既存15指摘も残るため、全回帰Passとは表示しない。
+
+現在状態の本番保存接続、限定unknown終了の実装、通常履歴の保持設定、利用側の切替および実境界・署名E2Eは未完了である。今回、Docker再起動、実Provider依頼、実署名、旧回復記録の削除は行っていない。

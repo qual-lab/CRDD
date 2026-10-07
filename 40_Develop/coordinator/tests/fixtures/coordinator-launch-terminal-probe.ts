@@ -5,7 +5,9 @@ import { fileURLToPath } from "node:url";
 // No signature, credential, consent, Provider, Docker or repository mutation.
 // Run from an actual terminal; this is not a simulated isTTY test.
 assert.equal(process.stdout.isTTY, true, "terminal_required");
-const launcher = fileURLToPath(new URL("../../bin/coordinator.ts", import.meta.url));
+const launcher = fileURLToPath(
+  new URL("../../bin/coordinator.ts", import.meta.url),
+);
 for (const [args, expected] of [
   [["interactive", "--help"], 0],
   [["automation", "--help", "--json"], 64],

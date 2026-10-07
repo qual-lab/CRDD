@@ -176,7 +176,7 @@ Project Runtimeは、このRepositoryで旧試験記録の清掃と新形式へ�
 └ tmp/<operation-id>/work/    再生成可能な一時作業
 ```
 
-`state.pending.json`は保存更新中だけ必要な短命ファイル、`tmp/.../work/`は処理の中間物であり、用途と再入場Ownerを混同しない。新しい保存用子フォルダは作らない。既存`tmp/.operations/.staging/`、Release準備と他Ownerの領域は別契約であり、今回の子フォルダ廃止に含めない。
+`state.pending.json`は保存更新中だけ必要な短命ファイル、`tmp/.../work/`は処理の中間物であり、用途と再入場Ownerを混同しない。新しい保存用子フォルダは作らない。署名準備は最新の`tmp/signature/`へ切り替え済みであり、その保存・回収はCoordinatorの署名準備節が所有する。旧`tmp/.operations/.staging/`を維持しない。Docker現在状態の切替は別に処置する。
 
 状態のSchema、保存確定、履歴搬送と移行は[Project Runtime詳細設計](../project-runtime/02_Detailed_Design.md#compact-runtime-storage)および[Coordinator縮小設計](../coordinator/01_Architecture.md#現在状態と履歴を分ける縮小設計)が所有する。秘密、保護Decision、署名鍵、専用Provider Homeは保護境界を維持し、普通のRepository-local JSONへまとめない。既存のRepository外Candidate Storeも、Identity・保護・全利用側の移行確認前に移動・回収しない。
 

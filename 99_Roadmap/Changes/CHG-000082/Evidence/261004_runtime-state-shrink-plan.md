@@ -1,7 +1,7 @@
 # Coordinatorの実行記録・回復方式の縮小計画
 
 成果物種別: CHG設計検討記録。
-状態: 設計案。開発PCの旧状態リセットは完了。製品の回復契約、保存方式、ローテーションと移行は未実装。
+状態: Coordinator回復・保存方式は設計具体化中。Project Runtime／Execution Intelligenceの刷新は実施済み。Coordinatorの現在状態切替と限定回復は未実装。
 対象: CHG-000082で扱うCoordinatorのDocker実行、回復、終了記録と保存領域。
 
 ## 1. 結論
@@ -109,14 +109,14 @@ Repository固有のTask現在状態、回復、未搬送結果、診断は、検
 
 | 配置 | 意味 |
 |---|---|
-| `coordinator/state.json` | `activeOperations`、`unresolvedRecoveries`、`pendingDeliveries`を中心とする現在状態の閉集合。履歴・診断・Evidenceを追加し続けない。 |
+| `coordinator/state.json` | `operations`、`unresolvedRecoveries`、`pendingDeliveries`を中心とする現在状態の閉集合。履歴・診断・Evidenceを追加し続けない。 |
 | `coordinator/state.lock` | 状態更新用の実排他。Fileの存在だけで使用中と判定せず、取得・所有・解放を実観測する。 |
 | `coordinator/state.pending.json` | 保存確定のための短命な一時物。crash後の判定・清掃条件を持つ。 |
 | `coordinator/history.jsonl` | 終了要約と最小限の診断。件数・期間・byte上限を有限にし、実行や回復を許可する根拠にしない。 |
 
 Coordinator側のRepository単位の単一Writerを採用方針とし、排他取得後、同一Directoryの`state.pending.json`への保存・確認と`state.json`への置換を第一候補とする。保存確定、crash後の再入場、二重起動の拒否を実環境で確認する。atomic replaceを耐久確定と同一視しない。複数ConsumerはこのWriterへ接続し、新しい複数Writer用Lock Frameworkを作らない。
 
-`state.pending.json`は状態更新の内部処理であり、`tmp/<operation-id>/work/`は展開・変換・比較等の再生成可能な作業領域である。更新途中の状態を一般的な一時物として削除しない。残存pendingがある場合は新しい保存で上書きせず、排他下でSchema、Identity、元世代・新世代と現在値を照合して再入場する。既存の`tmp/.operations/.staging/`は別契約の配置であり、今回の名前合わせでは変更しない。
+`state.pending.json`は状態更新の内部処理であり、`tmp/<operation-id>/work/`は展開・変換・比較等の再生成可能な作業領域である。更新途中の状態を一般的な一時物として削除しない。残存pendingがある場合は新しい保存で上書きせず、排他下でSchema、Identity、元世代・新世代と現在値を照合して再入場する。署名準備の旧`tmp/.operations/.staging/`は既に廃止した。最新の`tmp/signature/`と完了時回収はCoordinator詳細設計の署名準備節が所有し、今回のDocker変更へ巻き込まない。
 
 状態更新用の排他を、AI実行中・人間判断待ちの全時間へ延長しない。長時間処理の所有・予約は現在状態で表し、各更新の直前に世代と所有を再確認する。Lock Fileが古いという理由だけで奪取・削除しない。OSの排他保証と異常終了時の解放を確認するまで`state.lock`を実装済みと扱わない。
 
@@ -142,7 +142,7 @@ Coordinator側のRepository単位の単一Writerを採用方針とし、排他�
 │  │  ├ complete.json
 │  │  └ artifacts/
 │  └ tmp/
-│     ├ .operations/                     # 現行の一時操作管理
+│     ├ signature/                       # 署名準備中だけ。適用・清掃後に回収
 │     └ <operation-id>/work/             # 必要な実行隔離。終了後清掃
 └ 99_Roadmap/Changes/CHG-000082/Evidence/  # 正式検証記録
 ```
@@ -176,7 +176,7 @@ Coordinatorの直接利用も維持し、Project Runtimeへの依存を必須化
 | Coordinator、署名処理、Native実装 | CRDD配布Treeの`40_Develop/coordinator/`、`40_Develop/artifact-signing/`、`40_Develop/platform-access/`。 | 固定改訂版の配布対象。利用側では`01_CRDD/`配下の配布Treeを参照する。 |
 | Launcherと固定設定 | CRDD配布Treeの`template/tools/`。 | Git管理する入口。実行記録や秘密値を置かない。 |
 | Coordinator署名Manifest | 配布Treeの`template/tools/coordinator/coordinator-package-manifest.json`。 | 現行の固定位置を維持する。コード・Native成果物等の配布Identityへ結合する。 |
-| 署名準備Tree | 作業Repositoryの`.crdd/release/<candidate-id>/`。 | Git管理外。署名対象Commitから固定Treeを展開し、ManifestはそのTree内の正規位置に生成する。準備物には終了・回収条件を持つ。 |
+| 署名準備 | 最新の`.crdd/tmp/signature/`。 | Git管理外。正式Manifest適用後に準備Rootを回収する。対象範囲・固定Identity・中断時の再入場はCoordinator詳細設計の署名準備節を参照し、旧Repository全体複製案を維持しない。 |
 | 署名秘密鍵 | 既存の明示指定されたRepository外の秘密鍵保存先。 | 今回移動しない。`.crdd`、配布Tree、候補、ログへコピーしない。 |
 | Codex／Claude認証Home | 現行Windowsの`%LOCALAPPDATA%/Qual-Lab/CRDD/ProviderHomes/{codex\|claude}`。 | User単位の秘密情報としてRepository外に維持する。一時Container投影は終了後に回収する。 |
 | 送信同意・Host共通の排他情報 | 既存Ownerと実際の共有範囲を全数確認する。 | Repository限定の内容は`.crdd`へ寄せる。Repository外保存が必要な項目だけ根拠付きで残す。配置は未確定。 |
@@ -320,5 +320,50 @@ Process不存在の確認は対象コマンドライン等の観測範囲に限�
 - [x] `staging/`・`logs/`新設案を撤回し、保存用`state.pending.json`と作業用`tmp/<operation-id>/work/`の役割・清掃条件を区別した。
 - [x] Project Runtime／Coordinator／Candidateの責務、結果受理後の搬送状態回収、直接利用の維持を明記した。
 - [ ] OPEN: 保存Producer／Consumerの全数分類と終了接続確認が未完了。実装範囲固定前に完了する。
-- [ ] OPEN: 保存Schema、保持初期値、旧未解決状態の移行方式は未確定。Canonical設計と利用側へ対応付けて確定する。
+- [x] 現在状態の閉集合、元版・exact bytesへの結合、保存途中の再入場をArchitectureとQualityへ具体化し、限定独立設計レビューで確認した。
+- [ ] OPEN: 通常履歴の保持初期値と旧未解決状態の移行方式は未確定。実装切替前に利用側へ対応付けて確定する。
 - [ ] OPEN: 製品実装、独立レビュー、局所実境界と署名E2Eは未実施。この計画を完成・全体Passとしない。
+
+## 13. Docker回復縮小の着手点 — 2026-10-07
+
+### 現在地
+
+Trust起動接続の範囲是正は独立レビューPassとなり、Commit `33c3b913`で記録した。その後、この縮小へ着手した。着手前の独立確認で、既存のProducer／Consumerと維持すべき保証を照合した。これは完成後レビューではない。
+
+| 対象 | 現在の成立 | 次に処置すること |
+|---|---|---|
+| 一次失敗と清掃結果 | `docker-process-controller.ts`で別々に保持・通知する。 | 現行処理を維持し、終了要約への保存・搬送を接続する。通知だけを耐久保存と扱わない。 |
+| Project Runtime | 一体state、結果受理後整理、受付世代、期間historyを接続済み。 | Coordinator結果搬送との接続を変更後にも確認する。②を未実装へ戻さない。 |
+| Execution Intelligence | 新しい履歴・設定と清掃を接続済み。 | Docker記録のOwnerにはせず、履歴へ実行Authorityを持たせない。 |
+| Coordinator現在状態 | `state.json`への本番接続は未実装。 | 稼働・未解決回復・未受理結果を閉集合として保存する。 |
+| 作成結果unknownの限定終了 | 未成立。現在資源不存在だけでは遅延要求の無害化を証明できない。 | 認証Probeで旧Ownerのstart不能、遅延createの実行不能、新試行との分離を確認する。 |
+| Docker再起動のScope | 回復一覧と使用中一覧の完全一致が現在もある。 | 終了参照と現在の稼働を分離して比較母集合を定義する。単純な部分一致へ変えない。 |
+
+### Producer／Consumerの置換対応
+
+| 現行の発生点・利用側 | 新しい所有先・処置 | 保持する保証・確認 |
+|---|---|---|
+| Process Controllerの要求、開始、完了、一次失敗、cleanup | Coordinatorの現在状態と終了要約。 | 一次失敗、後続清掃、最終結果を区別する。秘密値・生出力は保存しない。 |
+| Recovery Runtimeのsubmission／receipt／Host／Lease／absence | `operations`または`unresolvedRecoveries`へ必要情報を統合する。 | Effect前確定、exact Recovery Identity、Owner世代、資源ID、未確定要求を保持する。 |
+| Task RuntimeとWorkbench助言のfinalize | 既存の終端接続を新Ownerへ切り替える。追加GCは作らない。 | Host清掃確認、pointer終了、現在のHome／Runtime排他、終了後不存在を維持する。 |
+| Project compositionの結果消費・acknowledgement回収 | `pendingDeliveries`へ未受理結果を保持し、Projectの耐久受理後だけ回収する。 | 重複受理、中断、受理後の再入場で回復やProvider依頼を再活性化しない。 |
+| Coordinator直接利用・doctor | 同じ現在状態から結果を搬送する。Project Runtimeは必須化しない。 | 直接利用側の結果受理と終端を確認し、未受理結果をログだけへ落とさない。 |
+| Claude認証の終了記録、Docker Desktop修復記録 | 終了要約と未解決の現在状態を分ける。 | 認証Home、修復根拠、使用中参照は通常履歴の整理対象にしない。 |
+| 共通Docker Journal | Docker固有の段階Directory依存を外す。共通保存確定部品を無条件削除しない。 | 外部送信同意とProject判断Storeも利用するため、それらの保存・保護契約は変更しない。 |
+
+置換対象の実装入口は`docker-recovery-runtime-internal.ts`、`docker-process-controller.ts`、`coordinator-task-runtime.ts`、`workbench-ai-advice-production-runtime.ts`および`project-runtime-composition-root.ts`である。共通Journalの対象外利用側は`external-send-consent-runtime.ts`と`project-runtime-windows-decision-store.ts`である。ファイル単位の削除ではなく、上記の責務と利用側を一次キーにする。
+
+### Source切替前のGate
+
+- 認証Probe作成前後の限定終了を先に確認する。Provider開始後、外部送信不明、共有書込みMountの回復へ一般化しない。
+- 現在の対象Process／Container／Networkの不存在に加え、旧OwnerのEffect不能と遅延createの無害化を確認する。未確認なら同じ参照で停止する。
+- 再起動前の全対象Lock・非稼働・追加／欠落／置換拒否を維持し、再起動後の対象別回復とは分ける。除外可能な終了参照を先に定義する。
+- Repository内stateは非Authorityとする。保護Root、Native操作Authority、現在の資源照合をJSONやHashだけへ置き換えない。
+- 保存置換後の観測失敗、結果保存後／受理前、ack保存後／元記録削除前、最終清掃失敗を反証する。既知のexact参照を失わない。
+- 共通Journalを変更する場合はDocker Journal・Lock・公開投影だけでなく、外部送信同意とProject判断Storeも回帰する。
+- 旧Workspaceを新試行から再利用せず、引渡済み候補・署名・認証・同意・正式Evidenceを清掃対象から除外する。
+- 旧形式の停止、保全確認、清掃と新世代への切替はフロントAIが行う。Productionに旧形式の互換Readerを追加しない。
+
+現在状態の保存契約と限定終了の条件は、[Coordinator詳細設計](../../../../06_Architecture/Details/coordinator/01_Architecture.md#現在状態snapshotの構造)と既存QA Local Itemの反証へ具体化した。元版との結合とpending／正規Snapshotの同一形式に関する指摘を是正し、限定独立設計再レビューはPassとなった。既存局所基準試験215件は成功したが、新保存方式の実装試験ではない。結果と検査停止事項は[CHGの確認要約](../change.md#docker回復縮小の保存契約反証具体化--2026-10-07)へ記録する。
+
+次は既存Producer／Consumerの全数対応を確定し、現在状態保存と終端処置を本番へ接続する。Docker回復縮小、保存切替、実環境の再開または署名E2Eは未完了である。Coordinator通常履歴の保持設定は未確定であり、②の30日を無断で採用しない。

@@ -952,13 +952,71 @@ Docker Task Recoveryは元のRecovery IDと発行時Sessionの証拠を保持し
 
 | 情報 | 所有・終了条件 |
 |---|---|
-| `state.json` | `activeOperations / unresolvedRecoveries / pendingDeliveries`を中心とする現在の閉集合。完了・回収・受領を確認した項目は除き、過去の診断やEvidenceを追加し続けない。 |
+| `state.json` | `operations / unresolvedRecoveries / pendingDeliveries`を中心とする現在の閉集合。完了・回収・受領を確認した項目は除き、過去の診断やEvidenceを追加し続けない。 |
 | `state.lock / state.pending.json` | Coordinator側の単一Writerによる短期更新。実効排他、期待改訂版、保存確定、read-backと中断時の同一Identity再入場を確認する。複数Writer用の新Lock Frameworkは作らない。 |
 | `history.jsonl` | 時刻と相関Identityを含む有限な終了・診断要約。最初の失敗とcleanup／後続失敗を別々に残す。回復AuthorityやEvidenceの代わりにしない。 |
 
 通常の回復は内部で処置し、自動処置できず人間操作が必要な場合だけ「再認証」「Docker再起動」等の具体的な介入を要求する。未解決回復を自動期限切れにせず、大量の未解決蓄積はRuntime不具合として扱う。履歴上限値、状態から履歴への確定搬送、既存回復・利用側の移行はOPENであり、現行の診断通知を耐久搬送済みと主張しない。
 
 過去の作成結果がunknownであるAttemptの終了は、今回の限定Classだけを対象にする。Provider本体起動前、外部送信なし、共有書込みEffectなし、旧OwnerのEffect不能、遅延Createの無害化、現在の対象Process／Container／Network等の不存在をすべて確認する。観測不能は不存在ではない。条件を証明できない場合は閉鎖しない。過去unknownを保持した終了分類と新規受付の可否を別判定にし、通常cleanup成功、過去Effect不存在、Provider開始後の回復へ一般化しない。この終了経路の実接続・反証はOPENである。
+
+
+#### 現在状態Snapshotの構造
+
+以下は縮小後の保存契約であり、現行Runtimeへ未接続である。保存名は`state.json`を維持する。実行終了後も回復・結果搬送のために基本情報が必要なので、当初案の`activeOperations`を`operations`へ具体化する。稼働中かどうかは一覧の存在ではなく、その操作の現在phaseと実Ownerの観測で判断する。
+
+| 最上位field | 保存する内容 | 不変条件 |
+|---|---|---|
+| `schema` | 現行Snapshot形式の識別値。 | 最新形式のみを受理する。旧形式の移行はフロントAIが担当する。 |
+| `revision` | Snapshot更新の単調増加整数。 | 更新は期待する元版から次版へ一回だけ進む。同版別内容は拒否する。 |
+| `previous` | 元Snapshotの`revision`と`payloadSha256`。初回だけ`null`。 | Hashは元`state.json`のexact UTF-8 bytesに結合する。元内容を複製しない。 |
+| `repositoryBinding` | 検証済みRepository Identityと物理Rootへの結合。 | 複製・移動・別worktreeのSnapshotをそのまま操作許可へ使わない。 |
+| `operations` | 未終了の操作基本情報、現在phase、必要な資源checkpoint。 | 同一操作の基本情報を一箇所だけに保持する。終了済みだが未受理の操作も、削除条件成立まで残す。 |
+| `unresolvedRecoveries` | 操作参照、exact回復参照、残る回収義務と現在の停止理由。 | 必ず同じ`operations`項目へ結合する。期限や履歴件数で削除しない。 |
+| `pendingDeliveries` | 操作参照、結果Identity、Consumer、未受理の結果と受理checkpoint。 | Consumerの同一結果への耐久受理を確認した後だけ除去する。操作基本情報や資源記録を複製しない。 |
+
+`operations`の一項目は、Operation／Attempt／Recovery Identity、ProviderとProfile、発行時RuntimeとHomeの結合、現在のOwner世代、資源の種類・正確なID・要求状態、Host／Leaseの現在checkpoint、一次失敗、最終結果区分を保持する。秘密値、Prompt、Provider生出力、診断全文、過去の状態列は保持しない。書込み可能な共有Mountの有無は限定終了の判定に必要なため、省略して非該当と扱わない。
+
+資源要求は既存の五purpose（`create_subscription_auth_probe`、`create_internal_network`、`create_egress_network`、`create_proxy`、`create_provider`）に限定する。要求前、意図保存、要求発行、応答／ID確定、現在資源の存在・不存在・観測不能を区別する。意図保存からDocker受理を、空IDから不存在を、清掃要求から清掃完了を推定しない。動作を広げるための任意purposeや任意Pathは追加しない。
+
+基本情報の除去条件は、対象の資源終端、回復義務の解決、全結果受理、必要な終了要約の保存確認がすべて成立したことである。Process終了だけで除去しない。回復参照と搬送参照の重複、参照先不存在、別Attemptへの参照流用、immutable Identity差を拒否する。履歴を失っても操作Authorityを復元せず、同じ旧領域を新しいAttemptへ再利用しない。
+
+#### 更新・中断後の再入場
+
+Coordinatorは既存の短期排他と保存primitiveを利用し、Snapshotごとに新しいLockやJournalを増やさない。単一WriterはI/O直前にRepository結合、操作Owner、期待revisionを再確認する。長いProvider実行中や人間判断待ちに保存用Lockを保持し続けない。
+
+| 順序 | 処置 | 失敗時の扱い |
+|---|---|---|
+| 1 | 保存用排他を取得し、現在Root・元revision・Ownerを確認する。 | 不一致・観測不能では書込みと次Effectを発行しない。 |
+| 2 | `previous`へ元revisionと元bytes Hashを含めた次Snapshotのexact bytesを`state.pending.json`へ保存し、flush・read-backする。 | 中断残存を新しいpayloadで上書きしない。 |
+| 3 | 同一Directory内で`state.json`へ置換し、正確な完成payload・Root Identity・pending不存在を再確認する。 | 公開後観測失敗を未実行へ巻き戻さず、同じ操作／回復参照を保持して再入場する。 |
+| 4 | 保存確定後にだけ、記録へ結合した次の外部Effectまたは結果搬送へ進む。 | 記録の存在だけではAuthorityを発行せず、現在の実資源・許可も再確認する。 |
+
+残存pendingの処置は、元版／次版と正確な内容を比較する。
+
+| 現在の正規Snapshot | pendingとの関係 | 再入場 |
+|---|---|---|
+| 期待する元revision・元内容 | 次revisionとpayloadが正しい。 | 同じ保存を確定する。別Effectや新Attemptは発行しない。 |
+| 次revision・exact payload一致 | 既に同じ更新が成立している。 | 更新の再発行0で短命物を回収する。 |
+| 同revision別payload、別世代、参照不正、観測不能 | 更新の同一性を確認できない。 | 上書き0で同じ参照を保持して停止する。 |
+
+pendingと正規Snapshotは同一形式・同一bytesであり、wrapperからpayloadを別公開しない。初回は`revision: 1 / previous: null`とし、新しい保存Rootと正規Snapshotの明示不存在を確認する。初回pendingの再入場でも同じ条件とexact bytesを確認する。正規Snapshot不存在かつ`previous`がnullでない場合は、既知元版の喪失として停止し、履歴から復元しない。未清掃の旧形式Rootを初回として自動採用しない。元内容との結合も検証し、revision番号だけを同一更新の証拠にしない。Windowsでのflush、replace、read-backは、既存primitiveが提供するProcess中断後の再分類保証として扱う。Directory metadataを含む電源断耐久性が未確認の間は、それを保証したと表示しない。通常historyの欠損からSnapshotを復元しない。
+
+#### 使い捨て実行環境と限定終了
+
+回復の目的は旧Containerや旧Workspaceを復元することではなく、所有資源を安全に回収し、新しいIdentityの試行を開始できる状態に戻すことである。Provider処理や候補採用を回復から自動再送しない。
+
+| 現在の分類 | 処置 | 残す事実 |
+|---|---|---|
+| 所有資源を確定し、通常回収できる。 | 既存の停止・回収・結果搬送を行う。 | 一次失敗、清掃結果、最終結果。 |
+| 認証Probe作成結果だけがunknownで、限定終了の全条件を確認できる。 | 旧領域を再利用不能にし、過去結果不明の終了として閉じる。新Attemptは別操作で開始する。 | 作成結果unknownを維持し、通常成功や過去Effect不存在へ変更しない。 |
+| 旧Owner、遅延要求、実資源、共有書込み等が未確認。 | 新Effectを発行せず同じ回復参照で停止する。具体的な介入が必要な場合だけ利用者へ示す。 | 未確認の条件と残る義務。 |
+
+限定終了は、Provider本体未開始、外部送信なし、共有書込みEffectなし、旧Ownerの後発start不能、遅延createが実行を開始できないこと、現在の対象Process／Container／Network不存在、旧Workspace非再利用を全て確認する。単発の空一覧や、現在Processだけの終了で遅延Docker要求の無害化を証明しない。
+
+再起動は通常の終了要件ではない。限定終了を証明できない実際の未確認境界がある場合にだけ、既存の承認付きDocker再起動を候補とする。Windows再起動や汎用強制清掃を新設しない。再起動Scopeの変更では、現在の全稼働Ownerと未確定要求を閉集合として固定し、終了済み参照を除外する根拠を別に確認する。回復一覧の単純な部分集合判定へ置換しない。
+
+OPEN: Snapshotの実保存Port、Windows保存primitiveの保証との接続、旧Owner／遅延createを無害化する限定終了の実証、Coordinator履歴設定、全利用側と最終清掃のSource切替は未完了である。必要な条件を確認できないまま再起動条件だけを緩和しない。
 
 ## 12. 利用者との対話
 
@@ -1258,6 +1316,9 @@ OPEN: 保存確定、履歴上限、既存回復の移行と限定Classの実接
 制御記録はwork清掃後まで維持する。記録削除と空Root削除の間で失敗した場合は、残ったRootだけからIdentityを復元せず停止する。この窓を完全自動回復と主張せず、フロントAIが非使用と範囲を確認する。任意Path入力、新Lock Framework、汎用Recovery Frameworkは追加しない。
 
 ## Checklist
+
+- [x] 縮小Snapshotの基本情報・回復・搬送の相関と、元版／次版／exact bytesの保存形式を照合した。
+- [ ] OPEN: 縮小Snapshotの本番保存、限定終了と利用側の実接続・実境界反証は未完了。設計の自己確認を実装Passにしない。
 
 - [x] 関連するARCH-IDと担当する責務断面を明示した
 - [x] 10種類の詳細成果物を全数Applicability判定した
