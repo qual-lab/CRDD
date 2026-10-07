@@ -720,8 +720,11 @@ Tool名はここでは提案値であり、既存Protocol値を無断変更し�
 | V6署名・TTY・実子Process | Signing／Coordinator／Platform Access、F・7 | 前提一致した固定候補から外部対話端末・昇格・清掃まで確認する。 |
 | Workbench候補・Reviewerの未完了 | Workbench Server／Orchestrator／Coordinator、C・E・7 | 採用済み候補操作・Reviewer経路の必要な実E2Eと最終状態を確認する。 |
 | Activity／Profile本番未接続と共有MCP | CROS／MCP Server、D・E | 正式入口からReader／Storeへ到達し、Role・Exposure・Origin・取消・終了を確認する。 |
+| 回帰Runnerの登録／実行集合差 | verification-runner、F・6 | 登録18領域に対し実行一覧12領域。欠ける6領域・Catalog29試験Fileを含め、選択集合が実実行へ全数到達することを確認する。選択件数だけを全回帰成功へ畳まない。 |
 
 現在、人間の追加判断が必要な事項は確認していない。段階1の残りは、全Fileの本文・関数責務、非import利用側、能力と過去Evidenceの対応、必須実経路とQuality Local Itemの固定である。分母固定だけを段階1完了としてコミットしない。
+
+Provider／Workbench AIの39FileとDomain統合三領域について、[関数・責務単位の処置](261007_develop-file-inventory.md#providerとworkbench-aiの関数単位照合)を追加した。同表の粗い一次候補より、本文側の具体的境界を優先する。AI固有記述と実行Authorityを分け、取消受付をcleanup完了に読み替えず、Domainの長いFileを長さだけで分割しない。Sourceの移管・設計採用・完成後レビューは未実施である。
 
 ## Checklist
 

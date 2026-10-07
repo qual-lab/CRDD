@@ -5,6 +5,8 @@
 対象: CHG-000082、2026-10-07
 基準改訂版: `463dd4a1ffd86e8bf5c58bb37a92e2ba11984621`（Git object format: sha1）
 
+基準の意味: 上記は全830ファイルのSource固定版。初期提案の`76d2c036`、計画追記の`463dd4a1`、棚卸し中間コミットの`3b9e6be0`を区別する。後二版の差は計画・棚卸し文書だけであり、Sourceの母集団を差し替えたものではない。後続の実装変更時は、旧母集団と新Ownerの関係を保持して改訂する。
+
 ## 結論
 
 全18領域のGit管理対象830ファイルを一次キーとして固定した。下表は現在の計画から導いた処置案であり、ファイル本文・関数の責務・全利用側・過去根拠の照合前に移動や削除を許可するものではない。段階1は未完了である。実行結果の書庫ではなく、[再編計画](261007_develop-responsibility-mapping.md#23-責務再編を完了させる計画)の作業表として更新する。
@@ -245,50 +247,50 @@ Pathは基準版におけるRepository相対Pathである。同じFileの行を�
 | 40_Develop/coordinator/src/platform-access/platform-provisioner-release-identity.ts | 維持案 | 40_Develop/coordinator/src/platform-access/platform-provisioner-release-identity.ts | 内部配置・本文照合待ち |
 | 40_Develop/coordinator/src/platform-access/platform-provisioner-release-trust.ts | 維持案 | 40_Develop/coordinator/src/platform-access/platform-provisioner-release-trust.ts | 内部配置・本文照合待ち |
 | 40_Develop/coordinator/src/platform-access/platform-provisioner-trust-core.ts | 維持案 | 40_Develop/coordinator/src/platform-access/platform-provisioner-trust-core.ts | 内部配置・本文照合待ち |
-| 40_Develop/coordinator/src/project-runtime/docker-project-recovery-settlement.ts | 移管・分割案 | orchestratorの実行／判断／保存接続（§14・§23C） | Coordinator側の呼出し境界を本文照合 |
-| 40_Develop/coordinator/src/project-runtime/execution-intelligence-adapter.ts | 移管・分割案 | orchestratorの実行／判断／保存接続（§14・§23C） | Coordinator側の呼出し境界を本文照合 |
-| 40_Develop/coordinator/src/project-runtime/project-runtime-acceptance-authority-adapter.ts | 移管・分割案 | orchestratorの実行／判断／保存接続（§14・§23C） | Coordinator側の呼出し境界を本文照合 |
-| 40_Develop/coordinator/src/project-runtime/project-runtime-acceptance-decision-store.ts | 移管・分割案 | orchestratorの実行／判断／保存接続（§14・§23C） | Coordinator側の呼出し境界を本文照合 |
-| 40_Develop/coordinator/src/project-runtime/project-runtime-candidate-integration-adapter.ts | 移管・分割案 | orchestratorの実行／判断／保存接続（§14・§23C） | Coordinator側の呼出し境界を本文照合 |
-| 40_Develop/coordinator/src/project-runtime/project-runtime-composition-root.ts | 移管・分割案 | orchestratorの実行／判断／保存接続（§14・§23C） | Coordinator側の呼出し境界を本文照合 |
-| 40_Develop/coordinator/src/project-runtime/project-runtime-decision-capability-adapter.ts | 移管・分割案 | orchestratorの実行／判断／保存接続（§14・§23C） | Coordinator側の呼出し境界を本文照合 |
-| 40_Develop/coordinator/src/project-runtime/project-runtime-decision-recovery-store.ts | 移管・分割案 | orchestratorの実行／判断／保存接続（§14・§23C） | Coordinator側の呼出し境界を本文照合 |
-| 40_Develop/coordinator/src/project-runtime/project-runtime-durable-foundation.ts | 移管・分割案 | orchestratorの実行／判断／保存接続（§14・§23C） | Coordinator側の呼出し境界を本文照合 |
-| 40_Develop/coordinator/src/project-runtime/project-runtime-execution-authorization-adapter.ts | 移管・分割案 | orchestratorの実行／判断／保存接続（§14・§23C） | Coordinator側の呼出し境界を本文照合 |
-| 40_Develop/coordinator/src/project-runtime/project-runtime-execution-host-adapter.ts | 移管・分割案 | orchestratorの実行／判断／保存接続（§14・§23C） | Coordinator側の呼出し境界を本文照合 |
-| 40_Develop/coordinator/src/project-runtime/project-runtime-history.ts | 移管・分割案 | orchestratorの実行／判断／保存接続（§14・§23C） | Coordinator側の呼出し境界を本文照合 |
-| 40_Develop/coordinator/src/project-runtime/project-runtime-integration-record-adapter.ts | 移管・分割案 | orchestratorの実行／判断／保存接続（§14・§23C） | Coordinator側の呼出し境界を本文照合 |
-| 40_Develop/coordinator/src/project-runtime/project-runtime-objective-intake.ts | 移管・分割案 | orchestratorの実行／判断／保存接続（§14・§23C） | Coordinator側の呼出し境界を本文照合 |
-| 40_Develop/coordinator/src/project-runtime/project-runtime-public-adapter.ts | 移管・分割案 | orchestratorの実行／判断／保存接続（§14・§23C） | Coordinator側の呼出し境界を本文照合 |
-| 40_Develop/coordinator/src/project-runtime/project-runtime-single-task-adapter.ts | 移管・分割案 | orchestratorの実行／判断／保存接続（§14・§23C） | Coordinator側の呼出し境界を本文照合 |
-| 40_Develop/coordinator/src/project-runtime/project-runtime-task-recovery-adapter.ts | 移管・分割案 | orchestratorの実行／判断／保存接続（§14・§23C） | Coordinator側の呼出し境界を本文照合 |
-| 40_Develop/coordinator/src/project-runtime/project-runtime-windows-decision-store.ts | 移管・分割案 | orchestratorの実行／判断／保存接続（§14・§23C） | Coordinator側の呼出し境界を本文照合 |
-| 40_Develop/coordinator/src/project-runtime/project-runtime-windows-platform-adapter.ts | 移管・分割案 | orchestratorの実行／判断／保存接続（§14・§23C） | Coordinator側の呼出し境界を本文照合 |
-| 40_Develop/coordinator/src/provider/claude-docker-runtime-adapter.ts | 分割案 | Provider固有計画・出力はai-adapter、Docker資源・認証lifecycleはcoordinator | 関数単位の分割と逆依存照合待ち |
-| 40_Develop/coordinator/src/provider/claude-execution-plan.ts | 分割案 | Provider固有計画・出力はai-adapter、Docker資源・認証lifecycleはcoordinator | 関数単位の分割と逆依存照合待ち |
-| 40_Develop/coordinator/src/provider/claude-structured-result.ts | 分割案 | Provider固有計画・出力はai-adapter、Docker資源・認証lifecycleはcoordinator | 関数単位の分割と逆依存照合待ち |
-| 40_Develop/coordinator/src/provider/claude-subscription-authentication.ts | 分割案 | Provider固有計画・出力はai-adapter、Docker資源・認証lifecycleはcoordinator | 関数単位の分割と逆依存照合待ち |
-| 40_Develop/coordinator/src/provider/codex-advice-distribution.ts | 分割案 | Provider固有計画・出力はai-adapter、Docker資源・認証lifecycleはcoordinator | 関数単位の分割と逆依存照合待ち |
-| 40_Develop/coordinator/src/provider/codex-docker-runtime-adapter.ts | 分割案 | Provider固有計画・出力はai-adapter、Docker資源・認証lifecycleはcoordinator | 関数単位の分割と逆依存照合待ち |
-| 40_Develop/coordinator/src/provider/codex-execution-plan.ts | 分割案 | Provider固有計画・出力はai-adapter、Docker資源・認証lifecycleはcoordinator | 関数単位の分割と逆依存照合待ち |
-| 40_Develop/coordinator/src/provider/codex-executor-seccomp.ts | 分割案 | Provider固有計画・出力はai-adapter、Docker資源・認証lifecycleはcoordinator | 関数単位の分割と逆依存照合待ち |
-| 40_Develop/coordinator/src/provider/codex-structured-result.ts | 分割案 | Provider固有計画・出力はai-adapter、Docker資源・認証lifecycleはcoordinator | 関数単位の分割と逆依存照合待ち |
-| 40_Develop/coordinator/src/provider/delegation-route-selection.ts | 維持案 | 40_Develop/coordinator/src/provider/delegation-route-selection.ts | 内部配置・本文照合待ち |
-| 40_Develop/coordinator/src/provider/delegation-selection-grant-runtime.ts | 維持案 | 40_Develop/coordinator/src/provider/delegation-selection-grant-runtime.ts | 内部配置・本文照合待ち |
-| 40_Develop/coordinator/src/provider/provider-authority-runtime.ts | 維持案 | 40_Develop/coordinator/src/provider/provider-authority-runtime.ts | 内部配置・本文照合待ち |
-| 40_Develop/coordinator/src/provider/provider-billing-policy.ts | 維持案 | 40_Develop/coordinator/src/provider/provider-billing-policy.ts | 内部配置・本文照合待ち |
-| 40_Develop/coordinator/src/provider/provider-eligibility-runtime.ts | 維持案 | 40_Develop/coordinator/src/provider/provider-eligibility-runtime.ts | 内部配置・本文照合待ち |
-| 40_Develop/coordinator/src/provider/provider-home-mount-grant-runtime.ts | 維持案 | 40_Develop/coordinator/src/provider/provider-home-mount-grant-runtime.ts | 内部配置・本文照合待ち |
-| 40_Develop/coordinator/src/provider/provider-home-mount-grant.ts | 維持案 | 40_Develop/coordinator/src/provider/provider-home-mount-grant.ts | 内部配置・本文照合待ち |
-| 40_Develop/coordinator/src/provider/provider-home-observation.ts | 維持案 | 40_Develop/coordinator/src/provider/provider-home-observation.ts | 内部配置・本文照合待ち |
-| 40_Develop/coordinator/src/provider/provider-home-windows-adapter.ts | 維持案 | 40_Develop/coordinator/src/provider/provider-home-windows-adapter.ts | 内部配置・本文照合待ち |
-| 40_Develop/coordinator/src/provider/provider-home.ts | 維持案 | 40_Develop/coordinator/src/provider/provider-home.ts | 内部配置・本文照合待ち |
-| 40_Develop/coordinator/src/provider/provider-isolation-profile.ts | 維持案 | 40_Develop/coordinator/src/provider/provider-isolation-profile.ts | 内部配置・本文照合待ち |
-| 40_Develop/coordinator/src/provider/provider-lifecycle.ts | 維持案 | 40_Develop/coordinator/src/provider/provider-lifecycle.ts | 内部配置・本文照合待ち |
-| 40_Develop/coordinator/src/provider/provider-model-profile-runtime.ts | 維持案 | 40_Develop/coordinator/src/provider/provider-model-profile-runtime.ts | 内部配置・本文照合待ち |
-| 40_Develop/coordinator/src/provider/provider-model-selection-runtime.ts | 維持案 | 40_Develop/coordinator/src/provider/provider-model-selection-runtime.ts | 内部配置・本文照合待ち |
-| 40_Develop/coordinator/src/provider/provider-task-packet-runtime.ts | 維持案 | 40_Develop/coordinator/src/provider/provider-task-packet-runtime.ts | 内部配置・本文照合待ち |
-| 40_Develop/coordinator/src/provider/provider-task-structured-result.ts | 維持案 | 40_Develop/coordinator/src/provider/provider-task-structured-result.ts | 内部配置・本文照合待ち |
+| 40_Develop/coordinator/src/project-runtime/docker-project-recovery-settlement.ts | 関数分割 | orchestratorのProject相関＋coordinator公開単一実行／資源API | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
+| 40_Develop/coordinator/src/project-runtime/execution-intelligence-adapter.ts | 移管・責務整理 | orchestratorの進行／判断／現在状態保存 | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
+| 40_Develop/coordinator/src/project-runtime/project-runtime-acceptance-authority-adapter.ts | 移管・責務整理 | orchestratorの進行／判断／現在状態保存 | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
+| 40_Develop/coordinator/src/project-runtime/project-runtime-acceptance-decision-store.ts | 検証・型移管／旧Writer廃止 | orchestratorのsavedv2検証。旧保存Directoryは再導入しない | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
+| 40_Develop/coordinator/src/project-runtime/project-runtime-candidate-integration-adapter.ts | 関数分割 | orchestratorのProject相関＋coordinator公開単一実行／資源API | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
+| 40_Develop/coordinator/src/project-runtime/project-runtime-composition-root.ts | 移管・責務整理 | orchestratorの進行／判断／現在状態保存 | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
+| 40_Develop/coordinator/src/project-runtime/project-runtime-decision-capability-adapter.ts | 移管・責務整理 | orchestratorの進行／判断／現在状態保存 | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
+| 40_Develop/coordinator/src/project-runtime/project-runtime-decision-recovery-store.ts | 検証・型移管／旧Writer廃止 | orchestratorのsavedv2検証。旧保存Directoryは再導入しない | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
+| 40_Develop/coordinator/src/project-runtime/project-runtime-durable-foundation.ts | 移管・責務整理 | orchestratorの進行／判断／現在状態保存 | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
+| 40_Develop/coordinator/src/project-runtime/project-runtime-execution-authorization-adapter.ts | 関数分割 | orchestratorのProject相関＋coordinator公開単一実行／資源API | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
+| 40_Develop/coordinator/src/project-runtime/project-runtime-execution-host-adapter.ts | 関数分割 | orchestratorのProject相関＋coordinator公開単一実行／資源API | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
+| 40_Develop/coordinator/src/project-runtime/project-runtime-history.ts | 移管・責務整理 | orchestratorの進行／判断／現在状態保存 | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
+| 40_Develop/coordinator/src/project-runtime/project-runtime-integration-record-adapter.ts | 検証・型移管／旧Writer廃止 | orchestratorのsavedv2検証。旧保存Directoryは再導入しない | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
+| 40_Develop/coordinator/src/project-runtime/project-runtime-objective-intake.ts | 移管・責務整理 | orchestratorの進行／判断／現在状態保存 | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
+| 40_Develop/coordinator/src/project-runtime/project-runtime-public-adapter.ts | 移管・責務整理 | orchestratorの進行／判断／現在状態保存 | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
+| 40_Develop/coordinator/src/project-runtime/project-runtime-single-task-adapter.ts | 関数分割 | orchestratorのProject相関＋coordinator公開単一実行／資源API | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
+| 40_Develop/coordinator/src/project-runtime/project-runtime-task-recovery-adapter.ts | 関数分割 | orchestratorのProject相関＋coordinator公開単一実行／資源API | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
+| 40_Develop/coordinator/src/project-runtime/project-runtime-windows-decision-store.ts | 移管・責務整理 | orchestratorの進行／判断／現在状態保存 | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
+| 40_Develop/coordinator/src/project-runtime/project-runtime-windows-platform-adapter.ts | 関数分割 | orchestratorのProject相関＋coordinator公開単一実行／資源API | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
+| 40_Develop/coordinator/src/provider/claude-docker-runtime-adapter.ts | 関数分割 | ai-adapterの固有記述＋coordinatorの実実行・権限 | 本文のProvider関数表へ接続済み。具体配置・API・反証は段階3で固定 |
+| 40_Develop/coordinator/src/provider/claude-execution-plan.ts | 移管 | ai-adapterのProvider計画／出力／Profile | 本文のProvider関数表へ接続済み。具体配置・API・反証は段階3で固定 |
+| 40_Develop/coordinator/src/provider/claude-structured-result.ts | 移管 | ai-adapterのProvider計画／出力／Profile | 本文のProvider関数表へ接続済み。具体配置・API・反証は段階3で固定 |
+| 40_Develop/coordinator/src/provider/claude-subscription-authentication.ts | 関数分割 | ai-adapterの固有記述＋coordinatorの実実行・権限 | 本文のProvider関数表へ接続済み。具体配置・API・反証は段階3で固定 |
+| 40_Develop/coordinator/src/provider/codex-advice-distribution.ts | 移管 | ai-adapterのProvider計画／出力／Profile | 本文のProvider関数表へ接続済み。具体配置・API・反証は段階3で固定 |
+| 40_Develop/coordinator/src/provider/codex-docker-runtime-adapter.ts | 関数分割 | ai-adapterの固有記述＋coordinatorの実実行・権限 | 本文のProvider関数表へ接続済み。具体配置・API・反証は段階3で固定 |
+| 40_Develop/coordinator/src/provider/codex-execution-plan.ts | 移管 | ai-adapterのProvider計画／出力／Profile | 本文のProvider関数表へ接続済み。具体配置・API・反証は段階3で固定 |
+| 40_Develop/coordinator/src/provider/codex-executor-seccomp.ts | 関数分割 | ai-adapterの固有記述＋coordinatorの実実行・権限 | 本文のProvider関数表へ接続済み。具体配置・API・反証は段階3で固定 |
+| 40_Develop/coordinator/src/provider/codex-structured-result.ts | 移管 | ai-adapterのProvider計画／出力／Profile | 本文のProvider関数表へ接続済み。具体配置・API・反証は段階3で固定 |
+| 40_Develop/coordinator/src/provider/delegation-route-selection.ts | 維持・内部再配置 | coordinatorの実行権限／隔離／Host接続 | 本文のProvider関数表へ接続済み。具体配置・API・反証は段階3で固定 |
+| 40_Develop/coordinator/src/provider/delegation-selection-grant-runtime.ts | 維持・内部再配置 | coordinatorの実行権限／隔離／Host接続 | 本文のProvider関数表へ接続済み。具体配置・API・反証は段階3で固定 |
+| 40_Develop/coordinator/src/provider/provider-authority-runtime.ts | 維持・内部再配置 | coordinatorの実行権限／隔離／Host接続 | 本文のProvider関数表へ接続済み。具体配置・API・反証は段階3で固定 |
+| 40_Develop/coordinator/src/provider/provider-billing-policy.ts | 移管 | ai-adapterのProvider計画／出力／Profile | 本文のProvider関数表へ接続済み。具体配置・API・反証は段階3で固定 |
+| 40_Develop/coordinator/src/provider/provider-eligibility-runtime.ts | 関数分割 | ai-adapterの固有記述＋coordinatorの実実行・権限 | 本文のProvider関数表へ接続済み。具体配置・API・反証は段階3で固定 |
+| 40_Develop/coordinator/src/provider/provider-home-mount-grant-runtime.ts | 維持・内部再配置 | coordinatorの実行権限／隔離／Host接続 | 本文のProvider関数表へ接続済み。具体配置・API・反証は段階3で固定 |
+| 40_Develop/coordinator/src/provider/provider-home-mount-grant.ts | 維持・内部再配置 | coordinatorの実行権限／隔離／Host接続 | 本文のProvider関数表へ接続済み。具体配置・API・反証は段階3で固定 |
+| 40_Develop/coordinator/src/provider/provider-home-observation.ts | 維持・内部再配置 | coordinatorの実行権限／隔離／Host接続 | 本文のProvider関数表へ接続済み。具体配置・API・反証は段階3で固定 |
+| 40_Develop/coordinator/src/provider/provider-home-windows-adapter.ts | 維持・内部再配置 | coordinatorの実行権限／隔離／Host接続 | 本文のProvider関数表へ接続済み。具体配置・API・反証は段階3で固定 |
+| 40_Develop/coordinator/src/provider/provider-home.ts | 関数分割 | ai-adapterの固有記述＋coordinatorの実実行・権限 | 本文のProvider関数表へ接続済み。具体配置・API・反証は段階3で固定 |
+| 40_Develop/coordinator/src/provider/provider-isolation-profile.ts | 維持・内部再配置 | coordinatorの実行権限／隔離／Host接続 | 本文のProvider関数表へ接続済み。具体配置・API・反証は段階3で固定 |
+| 40_Develop/coordinator/src/provider/provider-lifecycle.ts | 関数分割 | ai-adapterの固有記述＋coordinatorの実実行・権限 | 本文のProvider関数表へ接続済み。具体配置・API・反証は段階3で固定 |
+| 40_Develop/coordinator/src/provider/provider-model-profile-runtime.ts | 移管 | ai-adapterのProvider計画／出力／Profile | 本文のProvider関数表へ接続済み。具体配置・API・反証は段階3で固定 |
+| 40_Develop/coordinator/src/provider/provider-model-selection-runtime.ts | 関数分割 | ai-adapterの固有記述＋coordinatorの実実行・権限 | 本文のProvider関数表へ接続済み。具体配置・API・反証は段階3で固定 |
+| 40_Develop/coordinator/src/provider/provider-task-packet-runtime.ts | 維持・内部再配置 | coordinatorの実行権限／隔離／Host接続 | 本文のProvider関数表へ接続済み。具体配置・API・反証は段階3で固定 |
+| 40_Develop/coordinator/src/provider/provider-task-structured-result.ts | 関数分割 | ai-adapterの固有記述＋coordinatorの実実行・権限 | 本文のProvider関数表へ接続済み。具体配置・API・反証は段階3で固定 |
 | 40_Develop/coordinator/src/repository-operation/coordinator-operation-creation-internal.ts | 維持案 | 40_Develop/coordinator/src/repository-operation/coordinator-operation-creation-internal.ts | 内部配置・本文照合待ち |
 | 40_Develop/coordinator/src/repository-operation/repository-operation-runtime.ts | 維持案 | 40_Develop/coordinator/src/repository-operation/repository-operation-runtime.ts | 内部配置・本文照合待ち |
 | 40_Develop/coordinator/src/repository-operation/repository-workspace-runtime.ts | 維持案 | 40_Develop/coordinator/src/repository-operation/repository-workspace-runtime.ts | 内部配置・本文照合待ち |
@@ -303,20 +305,20 @@ Pathは基準版におけるRepository相対Pathである。同じFileの行を�
 | 40_Develop/coordinator/src/task/coordinator-task-runtime.ts | 維持案 | 40_Develop/coordinator/src/task/coordinator-task-runtime.ts | 内部配置・本文照合待ち |
 | 40_Develop/coordinator/src/task/development-measurement-constraints.ts | 維持案 | 40_Develop/coordinator/src/task/development-measurement-constraints.ts | 内部配置・本文照合待ち |
 | 40_Develop/coordinator/src/task/development-measurement-session.ts | 維持案 | 40_Develop/coordinator/src/task/development-measurement-session.ts | 内部配置・本文照合待ち |
-| 40_Develop/coordinator/src/workbench-ai/workbench-ai-advice-dispatch-runtime.ts | 維持案 | 40_Develop/coordinator/src/workbench-ai/workbench-ai-advice-dispatch-runtime.ts | 内部配置・本文照合待ち |
-| 40_Develop/coordinator/src/workbench-ai/workbench-ai-advice-execution-plan.ts | 維持案 | 40_Develop/coordinator/src/workbench-ai/workbench-ai-advice-execution-plan.ts | 内部配置・本文照合待ち |
-| 40_Develop/coordinator/src/workbench-ai/workbench-ai-advice-production-runtime.ts | 維持案 | 40_Develop/coordinator/src/workbench-ai/workbench-ai-advice-production-runtime.ts | 内部配置・本文照合待ち |
-| 40_Develop/coordinator/src/workbench-ai/workbench-ai-advice-provider-command.ts | 移管案 | 40_Develop/ai-adapter/src/（Provider別接続） | 公開入力・結果契約の照合待ち |
-| 40_Develop/coordinator/src/workbench-ai/workbench-ai-advice-provider-executor.ts | 維持案 | 40_Develop/coordinator/src/workbench-ai/workbench-ai-advice-provider-executor.ts | 内部配置・本文照合待ち |
-| 40_Develop/coordinator/src/workbench-ai/workbench-ai-advice-provider-output.ts | 移管案 | 40_Develop/ai-adapter/src/（Provider別接続） | 公開入力・結果契約の照合待ち |
-| 40_Develop/coordinator/src/workbench-ai/workbench-ai-advice-result.ts | 維持案 | 40_Develop/coordinator/src/workbench-ai/workbench-ai-advice-result.ts | 内部配置・本文照合待ち |
-| 40_Develop/coordinator/src/workbench-ai/workbench-ai-advice-runtime-packet.ts | 維持案 | 40_Develop/coordinator/src/workbench-ai/workbench-ai-advice-runtime-packet.ts | 内部配置・本文照合待ち |
-| 40_Develop/coordinator/src/workbench-ai/workbench-ai-advice-task.ts | 維持案 | 40_Develop/coordinator/src/workbench-ai/workbench-ai-advice-task.ts | 内部配置・本文照合待ち |
-| 40_Develop/coordinator/src/workbench-ai/workbench-ai-change-candidate-runtime.ts | 維持案 | 40_Develop/coordinator/src/workbench-ai/workbench-ai-change-candidate-runtime.ts | 内部配置・本文照合待ち |
-| 40_Develop/coordinator/src/workbench-ai/workbench-ai-provider-adapter.ts | 維持案 | 40_Develop/coordinator/src/workbench-ai/workbench-ai-provider-adapter.ts | 内部配置・本文照合待ち |
-| 40_Develop/coordinator/src/workbench-ai/workbench-ai-repository-composition.ts | 維持案 | 40_Develop/coordinator/src/workbench-ai/workbench-ai-repository-composition.ts | 内部配置・本文照合待ち |
-| 40_Develop/coordinator/src/workbench-ai/workbench-ai-request-application.ts | 維持案 | 40_Develop/coordinator/src/workbench-ai/workbench-ai-request-application.ts | 内部配置・本文照合待ち |
-| 40_Develop/coordinator/src/workbench-ai/workbench-candidate-application.ts | 維持案 | 40_Develop/coordinator/src/workbench-ai/workbench-candidate-application.ts | 内部配置・本文照合待ち |
+| 40_Develop/coordinator/src/workbench-ai/workbench-ai-advice-dispatch-runtime.ts | 維持・用途整理 | coordinatorの単一助言実行／結果Contract | 本文の39File処置へ接続済み。取消受付と実終端を区別 |
+| 40_Develop/coordinator/src/workbench-ai/workbench-ai-advice-execution-plan.ts | 関数分割 | 本文のWorkbench AI関数境界 | 本文の39File処置へ接続済み。取消受付と実終端を区別 |
+| 40_Develop/coordinator/src/workbench-ai/workbench-ai-advice-production-runtime.ts | 維持・用途整理 | coordinatorの単一助言実行／結果Contract | 本文の39File処置へ接続済み。取消受付と実終端を区別 |
+| 40_Develop/coordinator/src/workbench-ai/workbench-ai-advice-provider-command.ts | 移管 | ai-adapterのCLI Plan／Envelope | 本文の39File処置へ接続済み。取消受付と実終端を区別 |
+| 40_Develop/coordinator/src/workbench-ai/workbench-ai-advice-provider-executor.ts | 維持・用途整理 | coordinatorの単一助言実行／結果Contract | 本文の39File処置へ接続済み。取消受付と実終端を区別 |
+| 40_Develop/coordinator/src/workbench-ai/workbench-ai-advice-provider-output.ts | 移管 | ai-adapterのCLI Plan／Envelope | 本文の39File処置へ接続済み。取消受付と実終端を区別 |
+| 40_Develop/coordinator/src/workbench-ai/workbench-ai-advice-result.ts | 維持・用途整理 | coordinatorの単一助言実行／結果Contract | 本文の39File処置へ接続済み。取消受付と実終端を区別 |
+| 40_Develop/coordinator/src/workbench-ai/workbench-ai-advice-runtime-packet.ts | 維持・用途整理 | coordinatorの単一助言実行／結果Contract | 本文の39File処置へ接続済み。取消受付と実終端を区別 |
+| 40_Develop/coordinator/src/workbench-ai/workbench-ai-advice-task.ts | 維持・用途整理 | coordinatorの単一助言実行／結果Contract | 本文の39File処置へ接続済み。取消受付と実終端を区別 |
+| 40_Develop/coordinator/src/workbench-ai/workbench-ai-change-candidate-runtime.ts | 関数分割 | 本文のWorkbench AI関数境界 | 本文の39File処置へ接続済み。取消受付と実終端を区別 |
+| 40_Develop/coordinator/src/workbench-ai/workbench-ai-provider-adapter.ts | 関数分割 | 本文のWorkbench AI関数境界 | 本文の39File処置へ接続済み。取消受付と実終端を区別 |
+| 40_Develop/coordinator/src/workbench-ai/workbench-ai-repository-composition.ts | 維持・用途整理 | coordinatorの単一助言実行／結果Contract | 本文の39File処置へ接続済み。取消受付と実終端を区別 |
+| 40_Develop/coordinator/src/workbench-ai/workbench-ai-request-application.ts | 維持・用途整理 | coordinatorの単一助言実行／結果Contract | 本文の39File処置へ接続済み。取消受付と実終端を区別 |
+| 40_Develop/coordinator/src/workbench-ai/workbench-candidate-application.ts | 移管・下位API接続 | orchestratorの候補採否／保存。本文操作はCoordinator API | 本文の39File処置へ接続済み。取消受付と実終端を区別 |
 | 40_Develop/coordinator/symbol.json | 維持＋参照更新案 | 40_Develop/coordinator/symbol.json | Owner移管と全Consumer・検査／配布閉包を追従 |
 | 40_Develop/coordinator/tests/fixtures/candidate-store-lock-owner.ts | 維持案 | 40_Develop/coordinator/tests/fixtures/candidate-store-lock-owner.ts | 対象責務・Local Item・実観測境界に基づき試験移管先を確定 |
 | 40_Develop/coordinator/tests/fixtures/claude-subscription-authentication-command-owner.ts | 維持案 | 40_Develop/coordinator/tests/fixtures/claude-subscription-authentication-command-owner.ts | 対象責務・Local Item・実観測境界に基づき試験移管先を確定 |
@@ -544,27 +546,27 @@ Pathは基準版におけるRepository相対Pathである。同じFileの行を�
 | 40_Develop/coordinator/tsconfig.tests.json | 維持＋参照更新案 | 40_Develop/coordinator/tsconfig.tests.json | Owner移管と全Consumer・検査／配布閉包を追従 |
 | 40_Develop/crdd-domain-library/package-lock.json | 統合・更新案 | 40_Develop/domain-model/package-lock.json | Owner移管と全Consumer・検査／配布閉包を追従 |
 | 40_Develop/crdd-domain-library/package.json | 統合・更新案 | 40_Develop/domain-model/package.json | Owner移管と全Consumer・検査／配布閉包を追従 |
-| 40_Develop/crdd-domain-library/src/artifact/artifact-graph.ts | 移管案 | 40_Develop/domain-model/src/artifact/artifact-graph.ts | 公開subpathと保存／Root境界を照合 |
-| 40_Develop/crdd-domain-library/src/artifact/artifact-model.ts | 移管案 | 40_Develop/domain-model/src/artifact/artifact-model.ts | 公開subpathと保存／Root境界を照合 |
-| 40_Develop/crdd-domain-library/src/artifact/index.ts | 移管案 | 40_Develop/domain-model/src/artifact/index.ts | 公開subpathと保存／Root境界を照合 |
-| 40_Develop/crdd-domain-library/src/artifact/markdown-artifact-parser.ts | 移管案 | 40_Develop/domain-model/src/artifact/markdown-artifact-parser.ts | 公開subpathと保存／Root境界を照合 |
-| 40_Develop/crdd-domain-library/src/artifact/schema-validator.ts | 移管案 | 40_Develop/domain-model/src/artifact/schema-validator.ts | 公開subpathと保存／Root境界を照合 |
-| 40_Develop/crdd-domain-library/src/filesystem-store-root/filesystem-store-kernel-lock-worker.ts | 移管案 | 40_Develop/domain-model/src/storage/filesystem-store-kernel-lock-worker.ts | 公開subpathと保存／Root境界を照合 |
-| 40_Develop/crdd-domain-library/src/filesystem-store-root/index.ts | 移管案 | 40_Develop/domain-model/src/storage/index.ts | 公開subpathと保存／Root境界を照合 |
-| 40_Develop/crdd-domain-library/src/index.ts | 移管案 | 40_Develop/domain-model/src/index.ts | 公開subpathと保存／Root境界を照合 |
-| 40_Develop/crdd-domain-library/src/outcome.ts | 移管案 | 40_Develop/domain-model/src/outcome.ts | 公開subpathと保存／Root境界を照合 |
-| 40_Develop/crdd-domain-library/src/quality-change-control/index.ts | 移管案 | 40_Develop/domain-model/src/quality-change-control/index.ts | 公開subpathと保存／Root境界を照合 |
-| 40_Develop/crdd-domain-library/src/quality-change-control/quality-gate.ts | 移管案 | 40_Develop/domain-model/src/quality-change-control/quality-gate.ts | 公開subpathと保存／Root境界を照合 |
-| 40_Develop/crdd-domain-library/src/reality-traceability/domain-issue.ts | 移管案 | 40_Develop/domain-model/src/reality-traceability/domain-issue.ts | 公開subpathと保存／Root境界を照合 |
-| 40_Develop/crdd-domain-library/src/reality-traceability/index.ts | 移管案 | 40_Develop/domain-model/src/reality-traceability/index.ts | 公開subpathと保存／Root境界を照合 |
-| 40_Develop/crdd-domain-library/src/reality-traceability/symbol-annotation.ts | 移管案 | 40_Develop/domain-model/src/reality-traceability/symbol-annotation.ts | 公開subpathと保存／Root境界を照合 |
-| 40_Develop/crdd-domain-library/src/reality-traceability/symbol-discovery.ts | 移管案 | 40_Develop/domain-model/src/reality-traceability/symbol-discovery.ts | 公開subpathと保存／Root境界を照合 |
-| 40_Develop/crdd-domain-library/src/reality-traceability/symbol-graph.ts | 移管案 | 40_Develop/domain-model/src/reality-traceability/symbol-graph.ts | 公開subpathと保存／Root境界を照合 |
-| 40_Develop/crdd-domain-library/src/reality-traceability/symbol-manifest-model.ts | 移管案 | 40_Develop/domain-model/src/reality-traceability/symbol-manifest-model.ts | 公開subpathと保存／Root境界を照合 |
-| 40_Develop/crdd-domain-library/src/reality-traceability/symbol-manifest-validator.ts | 移管案 | 40_Develop/domain-model/src/reality-traceability/symbol-manifest-validator.ts | 公開subpathと保存／Root境界を照合 |
-| 40_Develop/crdd-domain-library/src/repository-observation/filesystem-repository-observer.ts | 移管案 | 40_Develop/domain-model/src/repository/filesystem-repository-observer.ts | 公開subpathと保存／Root境界を照合 |
-| 40_Develop/crdd-domain-library/src/repository-observation/index.ts | 移管案 | 40_Develop/domain-model/src/repository/index.ts | 公開subpathと保存／Root境界を照合 |
-| 40_Develop/crdd-domain-library/src/repository-observation/reality-symbol-repository-observer.ts | 移管案 | 40_Develop/domain-model/src/repository/reality-symbol-repository-observer.ts | 公開subpathと保存／Root境界を照合 |
+| 40_Develop/crdd-domain-library/src/artifact/artifact-graph.ts | 移管 | domain-model/src/artifact | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
+| 40_Develop/crdd-domain-library/src/artifact/artifact-model.ts | 移管 | domain-model/src/artifact | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
+| 40_Develop/crdd-domain-library/src/artifact/index.ts | 移管 | domain-model/src/artifact | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
+| 40_Develop/crdd-domain-library/src/artifact/markdown-artifact-parser.ts | 移管 | domain-model/src/artifact | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
+| 40_Develop/crdd-domain-library/src/artifact/schema-validator.ts | 移管 | domain-model/src/artifact | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
+| 40_Develop/crdd-domain-library/src/filesystem-store-root/filesystem-store-kernel-lock-worker.ts | 移管 | domain-model/src/storage | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
+| 40_Develop/crdd-domain-library/src/filesystem-store-root/index.ts | 移管 | domain-model/src/storage | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
+| 40_Develop/crdd-domain-library/src/index.ts | 公開入口再構成 | domain-modelの責務別公開入口 | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
+| 40_Develop/crdd-domain-library/src/outcome.ts | 移管 | domain-model/src/outcome.ts | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
+| 40_Develop/crdd-domain-library/src/quality-change-control/index.ts | 移管 | domain-model/src/quality-change-control | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
+| 40_Develop/crdd-domain-library/src/quality-change-control/quality-gate.ts | 移管 | domain-model/src/quality-change-control | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
+| 40_Develop/crdd-domain-library/src/reality-traceability/domain-issue.ts | 移管 | domain-model/src/reality-traceability | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
+| 40_Develop/crdd-domain-library/src/reality-traceability/index.ts | 移管 | domain-model/src/reality-traceability | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
+| 40_Develop/crdd-domain-library/src/reality-traceability/symbol-annotation.ts | 移管 | domain-model/src/reality-traceability | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
+| 40_Develop/crdd-domain-library/src/reality-traceability/symbol-discovery.ts | 移管 | domain-model/src/reality-traceability | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
+| 40_Develop/crdd-domain-library/src/reality-traceability/symbol-graph.ts | 移管 | domain-model/src/reality-traceability | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
+| 40_Develop/crdd-domain-library/src/reality-traceability/symbol-manifest-model.ts | 移管 | domain-model/src/reality-traceability | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
+| 40_Develop/crdd-domain-library/src/reality-traceability/symbol-manifest-validator.ts | 移管 | domain-model/src/reality-traceability | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
+| 40_Develop/crdd-domain-library/src/repository-observation/filesystem-repository-observer.ts | 移管 | domain-model/src/repository | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
+| 40_Develop/crdd-domain-library/src/repository-observation/index.ts | 移管 | domain-model/src/repository | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
+| 40_Develop/crdd-domain-library/src/repository-observation/reality-symbol-repository-observer.ts | 移管 | domain-model/src/repository | 本文のDomain責務表へ接続済み。Worker・subpath・既存Identityを保持 |
 | 40_Develop/crdd-domain-library/symbol.json | 統合・更新案 | 40_Develop/domain-model/symbol.json | Owner移管と全Consumer・検査／配布閉包を追従 |
 | 40_Develop/crdd-domain-library/tests/fixtures/filesystem-store-lock-contender.ts | 移管案 | 40_Develop/domain-model/tests/fixtures/filesystem-store-lock-contender.ts | 対象責務・Local Item・実観測境界に基づき試験移管先を確定 |
 | 40_Develop/crdd-domain-library/tests/fixtures/filesystem-store-lock-owner.ts | 移管案 | 40_Develop/domain-model/tests/fixtures/filesystem-store-lock-owner.ts | 対象責務・Local Item・実観測境界に基づき試験移管先を確定 |
@@ -665,35 +667,35 @@ Pathは基準版におけるRepository相対Pathである。同じFileの行を�
 | 40_Develop/official-asset-governance/tests/integration/asset-governance.contract.test.ts | 維持案 | 40_Develop/official-asset-governance/tests/integration/asset-governance.contract.test.ts | 対象責務・Local Item・実観測境界に基づき試験移管先を確定 |
 | 40_Develop/official-asset-governance/tests/unit/revision-conflict.contract.test.ts | 維持案 | 40_Develop/official-asset-governance/tests/unit/revision-conflict.contract.test.ts | 対象責務・Local Item・実観測境界に基づき試験移管先を確定 |
 | 40_Develop/official-asset-governance/tsconfig.json | 維持＋参照更新案 | 40_Develop/official-asset-governance/tsconfig.json | Owner移管と全Consumer・検査／配布閉包を追従 |
-| 40_Develop/platform-access/.gitignore | 維持案 | 40_Develop/platform-access/.gitignore | Native内部責務とProtocol・Build閉包の本文照合 |
-| 40_Develop/platform-access/Cargo.lock | 維持＋参照更新案 | 40_Develop/platform-access/Cargo.lock | Owner移管と全Consumer・検査／配布閉包を追従 |
-| 40_Develop/platform-access/Cargo.toml | 維持＋参照更新案 | 40_Develop/platform-access/Cargo.toml | Owner移管と全Consumer・検査／配布閉包を追従 |
-| 40_Develop/platform-access/build.rs | 維持案 | 40_Develop/platform-access/build.rs | Native内部責務とProtocol・Build閉包の本文照合 |
-| 40_Develop/platform-access/rust-toolchain.toml | 維持＋参照更新案 | 40_Develop/platform-access/rust-toolchain.toml | Owner移管と全Consumer・検査／配布閉包を追従 |
-| 40_Develop/platform-access/src/docker_authenticode.rs | 維持案 | platform-access内：process／filesystem／docker-desktop／protocol（Rust名は維持） | Native内部責務とProtocol・Build閉包の本文照合 |
-| 40_Develop/platform-access/src/docker_repair.rs | 維持案 | platform-access内：process／filesystem／docker-desktop／protocol（Rust名は維持） | Native内部責務とProtocol・Build閉包の本文照合 |
-| 40_Develop/platform-access/src/host_namespace_protocol.rs | 維持案 | platform-access内：process／filesystem／docker-desktop／protocol（Rust名は維持） | Native内部責務とProtocol・Build閉包の本文照合 |
-| 40_Develop/platform-access/src/main.rs | 維持案 | platform-access内：process／filesystem／docker-desktop／protocol（Rust名は維持） | Native内部責務とProtocol・Build閉包の本文照合 |
-| 40_Develop/platform-access/src/protocol.rs | 維持案 | platform-access内：process／filesystem／docker-desktop／protocol（Rust名は維持） | Native内部責務とProtocol・Build閉包の本文照合 |
-| 40_Develop/platform-access/src/terminal_protocol.rs | 維持案 | platform-access内：process／filesystem／docker-desktop／protocol（Rust名は維持） | Native内部責務とProtocol・Build閉包の本文照合 |
-| 40_Develop/platform-access/src/windows.rs | 維持案 | platform-access内：process／filesystem／docker-desktop／protocol（Rust名は維持） | Native内部責務とProtocol・Build閉包の本文照合 |
-| 40_Develop/platform-access/src/windows_directory.rs | 維持案 | platform-access内：process／filesystem／docker-desktop／protocol（Rust名は維持） | Native内部責務とProtocol・Build閉包の本文照合 |
-| 40_Develop/platform-access/src/windows_owned_child.rs | 維持案 | platform-access内：process／filesystem／docker-desktop／protocol（Rust名は維持） | Native内部責務とProtocol・Build閉包の本文照合 |
-| 40_Develop/platform-access/src/windows_terminal.rs | 維持案 | platform-access内：process／filesystem／docker-desktop／protocol（Rust名は維持） | Native内部責務とProtocol・Build閉包の本文照合 |
-| 40_Develop/platform-access/symbol.json | 維持＋参照更新案 | 40_Develop/platform-access/symbol.json | Owner移管と全Consumer・検査／配布閉包を追従 |
-| 40_Develop/platform-access/tests/cli.rs | 維持案 | 40_Develop/platform-access/tests/cli.rs | 対象責務・Local Item・実観測境界に基づき試験移管先を確定 |
-| 40_Develop/platform-access/tests/fixtures/host_namespace_creation.rs | 維持案 | 40_Develop/platform-access/tests/fixtures/host_namespace_creation.rs | 対象責務・Local Item・実観測境界に基づき試験移管先を確定 |
-| 40_Develop/platform-access/tests/fixtures/windows_protection.rs | 維持案 | 40_Develop/platform-access/tests/fixtures/windows_protection.rs | 対象責務・Local Item・実観測境界に基づき試験移管先を確定 |
+| 40_Develop/platform-access/.gitignore | 維持・利用側追従 | 40_Develop/platform-access/.gitignore | 本文のNative19File表へ接続済み。固定worker名・五File Coverage・署名閉包を追従 |
+| 40_Develop/platform-access/Cargo.lock | 維持・利用側追従 | 40_Develop/platform-access/Cargo.lock | 本文のNative19File表へ接続済み。固定worker名・五File Coverage・署名閉包を追従 |
+| 40_Develop/platform-access/Cargo.toml | 維持・利用側追従 | 40_Develop/platform-access/Cargo.toml | 本文のNative19File表へ接続済み。固定worker名・五File Coverage・署名閉包を追従 |
+| 40_Develop/platform-access/build.rs | 維持・利用側追従 | 40_Develop/platform-access/build.rs | 本文のNative19File表へ接続済み。固定worker名・五File Coverage・署名閉包を追従 |
+| 40_Develop/platform-access/rust-toolchain.toml | 維持・利用側追従 | 40_Develop/platform-access/rust-toolchain.toml | 本文のNative19File表へ接続済み。固定worker名・五File Coverage・署名閉包を追従 |
+| 40_Develop/platform-access/src/docker_authenticode.rs | 内部移動 | platform-access/srcのprocess／filesystem／docker-desktop／protocol（Rust Fileはsnake_case） | 本文のNative19File表へ接続済み。固定worker名・五File Coverage・署名閉包を追従 |
+| 40_Develop/platform-access/src/docker_repair.rs | 関数分割・固定入口維持 | platform-access/srcのprocess／filesystem／docker-desktop／protocol（Rust Fileはsnake_case） | 本文のNative19File表へ接続済み。固定worker名・五File Coverage・署名閉包を追従 |
+| 40_Develop/platform-access/src/host_namespace_protocol.rs | 内部移動 | platform-access/srcのprocess／filesystem／docker-desktop／protocol（Rust Fileはsnake_case） | 本文のNative19File表へ接続済み。固定worker名・五File Coverage・署名閉包を追従 |
+| 40_Develop/platform-access/src/main.rs | 関数分割・固定入口維持 | platform-access/srcのprocess／filesystem／docker-desktop／protocol（Rust Fileはsnake_case） | 本文のNative19File表へ接続済み。固定worker名・五File Coverage・署名閉包を追従 |
+| 40_Develop/platform-access/src/protocol.rs | 内部移動 | platform-access/srcのprocess／filesystem／docker-desktop／protocol（Rust Fileはsnake_case） | 本文のNative19File表へ接続済み。固定worker名・五File Coverage・署名閉包を追従 |
+| 40_Develop/platform-access/src/terminal_protocol.rs | 内部移動 | platform-access/srcのprocess／filesystem／docker-desktop／protocol（Rust Fileはsnake_case） | 本文のNative19File表へ接続済み。固定worker名・五File Coverage・署名閉包を追従 |
+| 40_Develop/platform-access/src/windows.rs | 関数分割・固定入口維持 | platform-access/srcのprocess／filesystem／docker-desktop／protocol（Rust Fileはsnake_case） | 本文のNative19File表へ接続済み。固定worker名・五File Coverage・署名閉包を追従 |
+| 40_Develop/platform-access/src/windows_directory.rs | 内部移動 | platform-access/srcのprocess／filesystem／docker-desktop／protocol（Rust Fileはsnake_case） | 本文のNative19File表へ接続済み。固定worker名・五File Coverage・署名閉包を追従 |
+| 40_Develop/platform-access/src/windows_owned_child.rs | 内部移動 | platform-access/srcのprocess／filesystem／docker-desktop／protocol（Rust Fileはsnake_case） | 本文のNative19File表へ接続済み。固定worker名・五File Coverage・署名閉包を追従 |
+| 40_Develop/platform-access/src/windows_terminal.rs | 関数分割・固定入口維持 | platform-access/srcのprocess／filesystem／docker-desktop／protocol（Rust Fileはsnake_case） | 本文のNative19File表へ接続済み。固定worker名・五File Coverage・署名閉包を追従 |
+| 40_Develop/platform-access/symbol.json | 配置Relation更新 | 40_Develop/platform-access/symbol.json | 本文のNative19File表へ接続済み。固定worker名・五File Coverage・署名閉包を追従 |
+| 40_Develop/platform-access/tests/cli.rs | 維持・利用側追従 | 40_Develop/platform-access/tests/cli.rs | 本文のNative19File表へ接続済み。固定worker名・五File Coverage・署名閉包を追従 |
+| 40_Develop/platform-access/tests/fixtures/host_namespace_creation.rs | 維持・利用側追従 | 40_Develop/platform-access/tests/fixtures/host_namespace_creation.rs | 本文のNative19File表へ接続済み。固定worker名・五File Coverage・署名閉包を追従 |
+| 40_Develop/platform-access/tests/fixtures/windows_protection.rs | 維持・利用側追従 | 40_Develop/platform-access/tests/fixtures/windows_protection.rs | 本文のNative19File表へ接続済み。固定worker名・五File Coverage・署名閉包を追従 |
 | 40_Develop/project-operation/package-lock.json | 統合・更新案 | 40_Develop/domain-model/package-lock.json | Owner移管と全Consumer・検査／配布閉包を追従 |
 | 40_Develop/project-operation/package.json | 統合・更新案 | 40_Develop/domain-model/package.json | Owner移管と全Consumer・検査／配布閉包を追従 |
-| 40_Develop/project-operation/src/index.ts | 統合・分割案 | domain-modelのproject-context／topic／meeting／quality-change-control | TopicとMeetingの結合処置・候補判断を関数照合 |
-| 40_Develop/project-operation/src/project-operation.ts | 統合・分割案 | domain-modelのproject-context／topic／meeting／quality-change-control | TopicとMeetingの結合処置・候補判断を関数照合 |
-| 40_Develop/project-operation/src/repository-project-context.ts | 統合・分割案 | domain-modelのproject-context／topic／meeting／quality-change-control | TopicとMeetingの結合処置・候補判断を関数照合 |
-| 40_Develop/project-operation/src/repository-quality-projection.ts | 統合・分割案 | domain-modelのproject-context／topic／meeting／quality-change-control | TopicとMeetingの結合処置・候補判断を関数照合 |
-| 40_Develop/project-operation/src/repository-release-projection.ts | 統合・分割案 | domain-modelのproject-context／topic／meeting／quality-change-control | TopicとMeetingの結合処置・候補判断を関数照合 |
-| 40_Develop/project-operation/src/topic-meeting-application.ts | 統合・分割案 | domain-modelのproject-context／topic／meeting／quality-change-control | TopicとMeetingの結合処置・候補判断を関数照合 |
-| 40_Develop/project-operation/src/topic-meeting-repository.ts | 統合・分割案 | domain-modelのproject-context／topic／meeting／quality-change-control | TopicとMeetingの結合処置・候補判断を関数照合 |
-| 40_Develop/project-operation/src/topic-meeting.ts | 統合・分割案 | domain-modelのproject-context／topic／meeting／quality-change-control | TopicとMeetingの結合処置・候補判断を関数照合 |
+| 40_Develop/project-operation/src/index.ts | 公開入口再構成 | domain-modelのproject-context／topic／meeting公開入口 | 本文のDomain関数境界へ接続済み。Quality GateとContext候補を混同しない |
+| 40_Develop/project-operation/src/project-operation.ts | 関数分割・共通核維持 | domain-model/src/project-context | 本文のDomain関数境界へ接続済み。Quality GateとContext候補を混同しない |
+| 40_Develop/project-operation/src/repository-project-context.ts | 移管 | domain-model/src/project-context | 本文のDomain関数境界へ接続済み。Quality GateとContext候補を混同しない |
+| 40_Develop/project-operation/src/repository-quality-projection.ts | 移管 | domain-model/src/project-context | 本文のDomain関数境界へ接続済み。Quality GateとContext候補を混同しない |
+| 40_Develop/project-operation/src/repository-release-projection.ts | 移管 | domain-model/src/project-context | 本文のDomain関数境界へ接続済み。Quality GateとContext候補を混同しない |
+| 40_Develop/project-operation/src/topic-meeting-application.ts | 関数分割・共通核維持 | domain-modelのtopic／meeting。跨り共通核は複製しない | 本文のDomain関数境界へ接続済み。Quality GateとContext候補を混同しない |
+| 40_Develop/project-operation/src/topic-meeting-repository.ts | 関数分割・共通核維持 | domain-modelのtopic／meeting。跨り共通核は複製しない | 本文のDomain関数境界へ接続済み。Quality GateとContext候補を混同しない |
+| 40_Develop/project-operation/src/topic-meeting.ts | 関数分割・共通核維持 | domain-modelのtopic／meeting。跨り共通核は複製しない | 本文のDomain関数境界へ接続済み。Quality GateとContext候補を混同しない |
 | 40_Develop/project-operation/symbol.json | 統合・更新案 | 40_Develop/domain-model/symbol.json | Owner移管と全Consumer・検査／配布閉包を追従 |
 | 40_Develop/project-operation/tests/integration/candidate-adoption.contract.test.ts | 移管案 | 40_Develop/domain-model/tests/integration/candidate-adoption.contract.test.ts | 対象責務・Local Item・実観測境界に基づき試験移管先を確定 |
 | 40_Develop/project-operation/tests/integration/project-projection.contract.test.ts | 移管案 | 40_Develop/domain-model/tests/integration/project-projection.contract.test.ts | 対象責務・Local Item・実観測境界に基づき試験移管先を確定 |
@@ -752,11 +754,11 @@ Pathは基準版におけるRepository相対Pathである。同じFileの行を�
 | 40_Develop/project-runtime/tsconfig.json | 統合・更新案 | 40_Develop/orchestrator/tsconfig.json | Owner移管と全Consumer・検査／配布閉包を追従 |
 | 40_Develop/runtime-data/package-lock.json | 統合・更新案 | 40_Develop/domain-model/package-lock.json | Owner移管と全Consumer・検査／配布閉包を追従 |
 | 40_Develop/runtime-data/package.json | 統合・更新案 | 40_Develop/domain-model/package.json | Owner移管と全Consumer・検査／配布閉包を追従 |
-| 40_Develop/runtime-data/src/core/runtime-data-contract.ts | 統合・分割案 | domain-modelのconfiguration／repository／storage | 設定・Root・保存の責務を関数照合 |
-| 40_Develop/runtime-data/src/index.ts | 統合・分割案 | domain-modelのconfiguration／repository／storage | 設定・Root・保存の責務を関数照合 |
-| 40_Develop/runtime-data/src/platform/runtime-data-path-resolver.ts | 統合・分割案 | domain-modelのconfiguration／repository／storage | 設定・Root・保存の責務を関数照合 |
-| 40_Develop/runtime-data/src/platform/tool-runtime-config.ts | 統合・分割案 | domain-modelのconfiguration／repository／storage | 設定・Root・保存の責務を関数照合 |
-| 40_Develop/runtime-data/src/store/temporary-operation-store.ts | 統合・分割案 | domain-modelのconfiguration／repository／storage | 設定・Root・保存の責務を関数照合 |
+| 40_Develop/runtime-data/src/core/runtime-data-contract.ts | 関数分割 | domain-modelのrepository／storage／configuration公開入口 | 本文のDomain関数境界へ接続済み。署名Root・Fixture・Runtime保存Pathを照合 |
+| 40_Develop/runtime-data/src/index.ts | 公開入口再構成 | domain-modelのrepository／storage／configuration公開入口 | 本文のDomain関数境界へ接続済み。署名Root・Fixture・Runtime保存Pathを照合 |
+| 40_Develop/runtime-data/src/platform/runtime-data-path-resolver.ts | 関数分割 | domain-modelのrepository／storage／configuration公開入口 | 本文のDomain関数境界へ接続済み。署名Root・Fixture・Runtime保存Pathを照合 |
+| 40_Develop/runtime-data/src/platform/tool-runtime-config.ts | 移管 | domain-model/src/configuration | 本文のDomain関数境界へ接続済み。署名Root・Fixture・Runtime保存Pathを照合 |
+| 40_Develop/runtime-data/src/store/temporary-operation-store.ts | 移管 | domain-model/src/storage | 本文のDomain関数境界へ接続済み。署名Root・Fixture・Runtime保存Pathを照合 |
 | 40_Develop/runtime-data/symbol.json | 統合・更新案 | 40_Develop/domain-model/symbol.json | Owner移管と全Consumer・検査／配布閉包を追従 |
 | 40_Develop/runtime-data/tests/fixtures/create-temporary-operation-and-exit.ts | 移管案 | 40_Develop/domain-model/tests/fixtures/create-temporary-operation-and-exit.ts | 対象責務・Local Item・実観測境界に基づき試験移管先を確定 |
 | 40_Develop/runtime-data/tests/fixtures/resume-temporary-operation-and-exit.ts | 移管案 | 40_Develop/domain-model/tests/fixtures/resume-temporary-operation-and-exit.ts | 対象責務・Local Item・実観測境界に基づき試験移管先を確定 |
@@ -1055,6 +1057,217 @@ Pathは基準版におけるRepository相対Pathである。同じFileの行を�
 | 40_Develop/workbench/tests/system/workbench-visual.integration.test.ts | 40_Develop/version-control/src/repository-location.ts<br>40_Develop/visual-preview/src/index.ts |
 | template/tools/crdd-cros-server.ts | 40_Develop/cros/src/index.ts<br>40_Develop/mcp/src/index.ts<br>40_Develop/runtime-data/src/index.ts |
 | template/tools/crdd-mcp.ts | 40_Develop/coordinator/src/index.ts<br>40_Develop/mcp/src/index.ts<br>40_Develop/project-operation/src/index.ts<br>40_Develop/version-control/src/repository-location.ts |
+
+## ProviderとWorkbench AIの関数単位照合
+
+2026-10-07、読み取り専用の責務確認結果を統合した。対象は`coordinator/src/provider/`の25ファイルと`coordinator/src/workbench-ai/`の14ファイルである。以下は全ファイル表の粗い移管候補より優先する。完成後の独立レビューではなく、実装前の責務照合である。
+
+AI AdapterはCLIの引数・固定環境・モデル選択・認証方式・出力解釈を返す。実行権限、Host一時Path、Recovery Store、Docker資源の所有を移管しない。CoordinatorはAdapterを通常の関数呼出しで利用し、AdapterからCoordinatorへのimportや実行Callback注入による逆依存を作らない。
+
+### Provider配下
+
+現行Pathの接頭辞は`40_Develop/coordinator/src/provider/`である。
+
+| 現行ファイル | 確定する責務境界と予定処置 |
+|---|---|
+| codex-execution-plan.ts | AI Adapter。`planCodexReadOnlyProbe`／`planCodexIsolatedTask`のCLI、引数と要求する実行特性。要求をDocker実観測に読み替えない。 |
+| claude-execution-plan.ts | AI Adapter。Turn Budget、probe／Task CLI、SchemaとEnvelope契約。 |
+| codex-advice-distribution.ts | AI Adapter。配布Identityとinit必要性。Dockerへの実指定はCoordinator。 |
+| codex-executor-seccomp.ts | 分割。必要なProfile IdentityはAI Adapter。`resolveFixedCodexExecutorSeccompProfile`の実体・Hash・Path検証はCoordinatorの隔離資産検証。 |
+| codex-structured-result.ts | AI Adapter。`normalizeCodexStructuredResult`と補助処理。 |
+| claude-structured-result.ts | AI Adapter。Envelope正規化。`parseUnambiguousJsonDocument`は同AdapterのProvider共通Parserへ分離。 |
+| provider-billing-policy.ts | AI Adapter。Offering、Subscription、API fallback接続制約。Authorityは発行しない。 |
+| provider-model-profile-runtime.ts | AI AdapterのProfile管理へ統合。Catalog解決を一本化。 |
+| provider-model-selection-runtime.ts | 分割。Family／Effort／Tier解決はAI Adapter。Risk／WorkClass等の選択根拠は呼出し側入力。Objective計画は移管しない。 |
+| provider-eligibility-runtime.ts | 分割。認証・Quota・配布対応の意味はAI Adapter。実環境・Home・Policyとの観測組立てはCoordinator。現行preflight要求を認証済みへ昇格しない。 |
+| delegation-route-selection.ts | Coordinator。Executor／Reviewer、Depth、Ancestor、独立性の選定。モデル解決のみAI Adapterを利用。 |
+| delegation-selection-grant-runtime.ts | Coordinator。Operation結合、30秒有効期限、単一消費と失効。 |
+| provider-authority-runtime.ts | Coordinator。Authority発行・消費・失効、実行直前再検証。 |
+| provider-home-mount-grant.ts | Coordinator。Grant状態、Operation／Profile／Home Identity結合。 |
+| provider-home-mount-grant-runtime.ts | Coordinator。Lease、Mount使用、完了と失効。 |
+| provider-home-windows-adapter.ts | CoordinatorのHost接続。Native署名、helper起動、opaque観測とMount source消費。接続方式だけAI Adapterへ問い合わせる。 |
+| provider-home-observation.ts | CoordinatorのNative接続／Protocol。Candidate StoreとRuntime Stateの観測も含み、AI Adapterへ移さない。 |
+| provider-home.ts | 分割。Provider固有Home選択・認証方式はAI Adapter。OS Root、保護、Mountと`observeRuntimeOwnedWindowsProviderHomeCandidate`はCoordinator。 |
+| provider-isolation-profile.ts | Coordinator。Authority、Mount Grant、Egress結合。Provider情報のみAI Adapterを利用。 |
+| provider-lifecycle.ts | 分割。`AUTH_POLICIES`はAI Adapter。共通実行制約、模擬Provider観測、期限・取消・不存在はCoordinator。 |
+| provider-task-packet-runtime.ts | Coordinator。外部送信Grant、Repository投影、秘密検査と単一使用。`promptFor`もProvider非依存のTask Contractとして維持。 |
+| provider-task-structured-result.ts | 分割。`structuredValue`のJSONL／Envelope／Turns・Usage解釈はAI Adapter。Executor／Reviewer結果、Review整合性とRemediation CapabilityはCoordinator。 |
+| codex-docker-runtime-adapter.ts | 分割後にCoordinatorの汎用Docker準備へ統合。`prepare`／`cancel`／`consumePreparedPlan`とCapability Storeを維持。`buildPlan`のCLI、認証引数、固定環境、init／seccomp要求をAI Adapterの記述から取得。 |
+| claude-docker-runtime-adapter.ts | 同じ境界で分割・統合。CLIとTurn BudgetはAI Adapter。Container／Network／Proxy Token／Mount、PreparedPlan、取消・消費はCoordinator。 |
+| claude-subscription-authentication.ts | 分割。login／status引数と`probeConfirmed`はAI Adapter。`runDockerCommandWithAuthority`、`cleanAuthenticationResources`、不存在、Home LockとRecovery記録はCoordinator。 |
+
+### Workbench AI配下
+
+現行Pathの接頭辞は`40_Develop/coordinator/src/workbench-ai/`である。
+
+| 現行ファイル | 確定する責務境界と予定処置 |
+|---|---|
+| workbench-ai-advice-provider-command.ts | AI Adapter。Codex／Claude助言CLI Plan。結果の意味Schemaは中立入力として渡し、Coordinatorを逆importしない。 |
+| workbench-ai-advice-provider-output.ts | AI Adapter。Provider Envelopeとevent抽出。 |
+| workbench-ai-advice-execution-plan.ts | 分割。Profile／CLI解決はAI Adapter。Repository非共有、tools禁止等の実行条件・Authority照合はCoordinator。 |
+| workbench-ai-provider-adapter.ts | 分割。Profile／CLI Plan検証はAI Adapter。Executor選択・実呼出しはCoordinatorの組立て。 |
+| workbench-ai-advice-provider-executor.ts | Coordinator。`safePlan`、取消、Effectとcleanupの相関。 |
+| workbench-ai-advice-production-runtime.ts | Coordinator。Operation、Home観測、Grant、Docker開始・取消、Host cleanup、Recoveryと失敗相関。Provider分岐は共通記述へ置換。 |
+| workbench-ai-advice-runtime-packet.ts | Coordinator。Operation／commandHash結合の単一使用Capability。Command型のみAI Adapterから利用。 |
+| workbench-ai-advice-dispatch-runtime.ts | Coordinator。外部送信確認、Single Request Grantと取消・cleanup相関。 |
+| workbench-ai-advice-task.ts | Coordinator。投影、秘密検査、許可Reference、Task HashとProvider非依存Prompt。 |
+| workbench-ai-advice-result.ts | Coordinator。事実／共有分析／追加推論／次候補と許可Referenceの意味Contract。Provider Envelopeではない。 |
+| workbench-ai-request-application.ts | Coordinator。一依頼の開始・観測・取消。Objective／Queue／採否とは分ける。 |
+| workbench-ai-repository-composition.ts | Coordinator。Repository限定助言Packet組立て。現在入力はPROJECT_CONTEXT.md一つ。Root検証はVersion Control、ProfileはAI Adapter。 |
+| workbench-ai-change-candidate-runtime.ts | 分割。単一Candidate TaskはCoordinator公開API。現行Project Runtime内部依存を撤去し、Attempt／Project進行の組立てはOrchestratorへ。 |
+| workbench-candidate-application.ts | Orchestrator。採用、Persistence、Integration RecordとSnapshot維持。本文read／discardはCoordinator公開Candidate APIを利用。 |
+
+### Architecture／Qualityへ持ち越す具体的な差
+
+- `workbench-ai-request-application.ts`は取消要求時に即座にSnapshotを`cancelled`へ変え、後続結果を捨てる。これは実停止・cleanup完了の証拠ではない。段階2・3で取消受付と終端の表示契約を分け、段階5・6で公開入口の観測まで検証する。
+- Provider結果の正規化を移管しても、Review判断・Remediation AuthorityをAI Adapterへ移管しない。
+- Coordinator内のCandidate採用がProject Runtime内部を呼ぶ逆依存を撤去する。候補生成だけを採用済みと表示しない。
+- 汎用DI、Capability Store注入、Docker callback Frameworkは新設しない。純粋な記述／ParserとCoordinator実行所有の分離で処置する。
+
+## Domain三領域の責務照合
+
+読み取り専用確認では統合方針は維持できるが、全Sourceを一律分割する一次案は粗いと確認した。以下を全ファイル表より優先する。配置統合とRuntime保存Path変更は別であり、`.crdd/config`、Canonical Topic／Meeting配置、保持期間をこの再編だけで変更しない。
+
+| 現行のまとまり | 新責務入口／処置 |
+|---|---|
+| crdd-domain-library/src/artifact全5File | artifactへ丸ごと移管。Model、Markdown解析、SchemaとGraphを維持。 |
+| crdd-domain-library/src/outcome.ts | outcomeへ移管。complete／partial／invalid／unobservableとIssueの意味を維持。 |
+| crdd-domain-library/src/reality-traceability全7File | reality-traceabilityへ移管。Annotation、Discovery、Symbol検証、GraphとIssue。 |
+| crdd-domain-library/src/quality-change-control全2File | quality-change-controlへ移管。固定候補、必須監査集合、結果統合と再入場。 |
+| crdd-domain-library/src/filesystem-store-rootの入口とWorker | storageへ移管。Root Capability、Kernel Lock、Owner不存在証明。新Store Frameworkへ置換しない。 |
+| crdd-domain-library/src/repository-observation全3File | repositoryへ移管。Version Controlの検証済みRootを利用し、依存方向を逆転しない。 |
+| project-operation/src/repository-project-context.ts | project-contextへ丸ごと移管。固定Markdown契約。 |
+| project-operation/src/repository-release-projection.ts | project-contextへ丸ごと移管。Release投影の解析であり判断を発行しない。 |
+| project-operation/src/repository-quality-projection.ts | project-contextへ丸ごと移管。Quality投影をQuality Gateへ統合しない。 |
+| project-operation/src/project-operation.ts | 分割。Source型と`projectProjectOperationSources`はproject-context。`applyProjectOperationCandidateDecision`と型は同入口内のContext候補採否契約として分離する。Quality専用Gateへ混ぜず、Task一般採否へ拡張しない。 |
+| project-operation/src/topic-meeting.ts | Topic型／Parser／Promotionはtopic、Meeting型／Parser／Outcome処置はmeeting。小さい表読取り共通核のみ共用し、新Parser Frameworkを作らない。 |
+| project-operation/src/topic-meeting-application.ts／topic-meeting-repository.ts | 責務別公開入口を分ける。Paging、Cursor、Relation、削除確認、Revision競合、保存確定、CHG存在確認の共通核は複製しない。跨り操作は一方向の内部呼出しにし、両indexの循環importを禁止。 |
+| runtime-data/src/tool-runtime-config.ts | configurationへ丸ごと移管。長いことだけを理由に分割しない。設定読取りと保持処置のOwnerを区別。 |
+| runtime-data/src/temporary-operation-store.ts | storageへ丸ごと移管。一時Operationの世代・Lock・再入場・promotion・終了の閉集合を維持。 |
+| runtime-data/src/runtime-data-contract.ts | 分割。Repository Manifestはrepositoryの単一Owner、Trust Policy Schema検査はconfiguration。後者を未採用のTrust Authorityへ有効化しない。 |
+| runtime-data/src/runtime-data-path-resolver.ts | 分割。Root検証／用途Path／観測はrepository、Directory作成／ignore／readyとCROS OS Rootはstorage。署名Root解決の`resolveBundledRepositoryRuntimeDataPathsForProtectedSigning`を用途限定の接続として明示。移動後import.meta.urlの祖先数を再計算・検証。 |
+| 三つのsrc/index.ts | 責務別公開入口へ再構成。CheckerやSemantic CoverageにTopic Store／Workerを巨大barrel経由で読み込ませない。 |
+| 三領域のpackage／lock／tsconfig | domain-modelへ統合。旧試験scriptsの集合を減らさない。 |
+| 三つのsymbol.json | PathとSubsystem Ownerを統合。配置名だけを理由に安定Symbol Identityを再発行しない。 |
+| 全契約試験と四Fixture | 新責務のtestsへ移管。跨り試験は維持。Filesystem Lock Owner／Contender、Temporary Operation Create／Resumeの子Process入口とcwdも追従。 |
+
+固定Workerは`new URL(..., import.meta.url)`、Fixtureは`path.resolve`またはspawnSyncで参照される。相対import変更だけでは閉じない。Manifestの子入口閉包、Runner分類、配布入口にも同時処置を与える。CHG-000074のArtifact／Symbol Foundation、CHG-000082のProject Context／Topic・Meeting CRUD／一時操作清掃の過去保証は保持し、履歴Evidenceの旧Path自体は書き換えない。
+
+Context候補採否のpure関数は現在public exportと契約試験があり、Source上の`ownerEffectIssued`返却値を実Filesystem採用の観測へ読み替えない。新Ownerで必要な本番接続または用途限定内部契約の処置を段階2・3で照合する。着手前確認だけで全69Fileの意味監査・能力保持Passを主張しない。
+
+## Orchestratorの本番接続と旧保存の処置
+
+現行接頭辞は`40_Develop/coordinator/src/project-runtime/`。全19Fileの公開関数・本番factory・利用側を読み取り専用で照合した。durable-foundation内部の全遷移を逐行監査した結果ではない。新構成への配置案は次のとおり。
+
+| 現行ファイル | 新Owner／予定処置 |
+|---|---|
+| docker-project-recovery-settlement.ts | OrchestratorでProject／世代／Task／Attempt／Operationとsettled義務を照合。資源回復receiptの消費はCoordinator公開API。 |
+| execution-intelligence-adapter.ts | Orchestrator。Task Attempt観測の記録変換。Coordinator共通観測の記録と重複させない。 |
+| project-runtime-acceptance-authority-adapter.ts | Orchestrator。Project／Milestone／Principalと採用判断権限。Provider実行権限とは別。 |
+| project-runtime-acceptance-decision-store.ts | v2で使う型・検証のみOrchestrator。旧acceptance-decisions世代Directory Writerは撤去。 |
+| project-runtime-candidate-integration-adapter.ts | 分割。候補統合、基準Revision、採用・rollbackはOrchestrator。候補Bodyのread／persist／publishはCoordinator公開API。 |
+| project-runtime-composition-root.ts | Orchestrator。Objective／Decision／Acceptance／State Queryの組立て。Coordinator private start／cancel／Capability／Recoveryを公開操作へ置換。診断streamは上位Ownerで終了。 |
+| project-runtime-decision-capability-adapter.ts | Orchestrator。判断継続用の単一使用SecretとHash。平文Secretを保存しない。 |
+| project-runtime-decision-recovery-store.ts | v2で使うIntent型・検証のみOrchestrator。旧recovery/decisions Writerは撤去。 |
+| project-runtime-durable-foundation.ts | Orchestratorの現在codec／state／Queue／Lease／受付世代と履歴に責務分割。旧schema／reader／writerの恒久互換処理を移管しない。保存primitiveはdomain-model／Nativeの既存入口を利用。 |
+| project-runtime-execution-authorization-adapter.ts | 分割。Project／Task／Attempt／Revision結合はOrchestrator。単一実行Capability発行・未使用失効はCoordinator。 |
+| project-runtime-execution-host-adapter.ts | 分割。Project用Clock／IDはOrchestrator。Process世代観測・終了不明時の実行不能化はCoordinatorのHost公開操作。 |
+| project-runtime-history.ts | Orchestrator。終了記録・時刻・一次失敗／cleanup・保持期間・重複の意味。 |
+| project-runtime-integration-record-adapter.ts | v2型・結果検証のみOrchestrator。旧results/integration／adoption WriterとReaderは撤去。 |
+| project-runtime-objective-intake.ts | Orchestrator。受付Epoch、既受付ID拒否、Objective／Queue、持続状態と終了後maintenance。 |
+| project-runtime-public-adapter.ts | Orchestrator公開入口。Coordinator indexから再exportしない。Principal実観測のみ下位公開操作へ。 |
+| project-runtime-single-task-adapter.ts | 分割。開始／取消／完了待機／listener解除／終了結果とexact Recovery検証はCoordinator。Project入力・結果変換はOrchestrator。Workbench候補も共通単一実行を利用する。 |
+| project-runtime-task-recovery-adapter.ts | Project義務・相関はOrchestrator。実Recovery／ack／finalizeはCoordinator公開操作。 |
+| project-runtime-windows-decision-store.ts | Orchestrator。判断状態保存、Principal観測、保護Root、排他、CASを保持。保護方式変更に拡張しない。 |
+| project-runtime-windows-platform-adapter.ts | 分割。Project Lease／RootはOrchestrator。子Process環境、Provider Home、Docker cleanupとNative観測はCoordinator。partialを全面対応へ変えない。 |
+
+関数分割の一次キーは`runProjectRuntimeSingleTaskAttempt`、`consumeProjectSettledDockerRecoveryWithRuntimeBoundary`、`createRuntimeOwnedProjectCandidateIntegrationAdapter`、`createProjectRuntimeExecutionHostAdapters`、`createCurrentPersistencePorts`／`createProjectRuntimeSnapshotPersistencePorts`。開始前取消、開始観測失敗後の取消と完了待機、遅延Abort、exact Identityを保持する。旧factory丸ごとの移動ではなく、現在のsavedv2本番factoryとcodecから新接続を組み直す。
+
+追加ConsumerはCoordinatorのdocker-recovery-runtime、Workbench候補application／runtime、Coordinator index、CLI、template/tools/crdd-mcp.ts、Workbench runtime-activity、固定19Pathを持つconsumer-closure試験と配布閉包／改ざん試験である。特にDocker回復本体のProject state照合を上位へ移し、Coordinator→Orchestrator importを残さない。
+
+保持根拠は[②保存刷新](261005_project-runtime-phase2.md)の本番初期化2/2・Host36/36、受付世代／Queue／Lease／30日履歴である。Portableの2266 Pass・6失敗・5 Skipと限定是正35/35を一つの全回帰Passへ合算しない。[全E2E収集](261004_all-e2e-collection.md)のReviewer未起動／create outcome unknown、[正式要約](261006_release-test-retention-phase4.md)の旧四経路と回復は未解決範囲・過去版として保持する。
+
+### CLI入口の分離案
+
+親のSource再確認では単一Coordinator binが共通launch判定後にcoordinator-commandを起動し、同commandがProject本番composition／初期化を直接importしている。`runProjectCommand`はbounded stdin、取消Signal登録・解除、JSONと終了値を持つため、単なるexport変更では足りない。
+
+予定は、Project command本体をOrchestratorの単一bin／cliへ移し、Coordinator binは単体Task・診断・候補・署名等の起動だけを所有すること。既存配布入口の`crdd-coordinator.ts`は用途振分けだけの薄い入口としてProjectをOrchestratorへ接続する。入口名を理由にCoordinator本体へOrchestrator依存を残さない。interactive／automationの端末・JSON条件、stdin上限、Signal解除、終了値と現在のdevelopment_candidate表示を維持する。具体的な共通入力・報告関数の公開subpathは段階3で固定し、入力本文をRouterで先読みしたり新Processを挟んだりしない。
+
+## Platform Accessの19FileとNative関数境界
+
+単一Rust package／bin／固定Protocolを維持する。Folderはkebab-case、Rust module FileはCoding Standardsに従うsnake_case。Edition、依存、toolchain、panic方針を再編理由で更新しない。
+
+| 現行のまとまり | 同package内の予定配置・処置 |
+|---|---|
+| .gitignore／Cargo.lock／Cargo.toml／build.rs／rust-toolchain.toml | 維持。target除外、固定Windows toolchain、Worker Hash埋込みを保持。 |
+| src/main.rs | 入口と限定Modeを維持。Host frame搬送のみprotocol/dispatch.rsへの限定分割候補。新Modeを作らない。 |
+| src/protocol.rs／host_namespace_protocol.rs／terminal_protocol.rs | protocol/access.rs／host_namespace.rs／host_record.rs。bytes、magic、revision、flagsを不変にする。terminalはHost終端記録であり対話端末ではない。 |
+| src/windows_owned_child.rs | process/owned_child.rs。spawn／wait／terminated_cleanupとOutcome型を同じOwnerに保つ。 |
+| src/windows_directory.rs | filesystem/windows_directory.rs。Known Folderの実API観測も同責務へ。環境変数だけの解決に置換しない。 |
+| src/windows.rs | Token／SID観測はprocess/principal.rs、Handle／Volume／Reparse／ACL／Identity primitiveはfilesystem/protection.rs、固定Home／Candidate／Runtime Namespaceはfilesystem/provider_home.rs。observeは薄いProtocol dispatchへ。 |
+| src/windows_terminal.rs | 保護作成・Flush・読戻し・同Identity公開・closeはfilesystem/protected_file.rs、固定Namespaceと対象観測はhost_namespace.rs、容量・予約・記録在否・save／readはhost_record.rsへ分割。任意Path保存APIへ一般化しない。 |
+| src/docker_authenticode.rs | docker-desktop/publisher.rs。Docker publisherの限定検査。 |
+| src/docker_repair.rs | signed artifact／Process Path・作成時刻・scope照合はdocker-desktop/identity.rs、Mutex・停止・開始・再起動はrepair.rs。Engine readinessとTask義務はCoordinatorに残す。 |
+| symbol.json | File／関数／test所属を追従。Relationを改名だけで失わない。 |
+| tests/cli.rs／fixtures/host_namespace_creation.rs／windows_protection.rs | 維持。Module参照と固定worker文字列を同時追従。自己生成fixtureの範囲を拡張しない。 |
+
+`TerminalStage::{create,publish,verify_identity,close}`、bounded readと同Handle保護検査が保存primitiveの分割キー。`terminal_capacity_name`、`with_terminal_capacity`、`finish_terminal_capacity`、inventory／reservation／save／read、`ObservedTerminalRecord`等は専用記録の分割キー。publishは既存名非上書きでありstate atomic replaceと同じ意味ではない。NT rename pending中のbuffer／IO_STATUS_BLOCK生存、不存在と観測不能、保存とHandle終了、capacity unknownの保持を変更しない。
+
+固定非import依存はNative保護scriptの`windows::protection_tests::terminal_protection_fixture_observes_handle_sharing`、子worker名とcold worker名、`check-platform-access-coverage.ts`の五File母集合（main／protocol／windows／docker_repair／tests/cli）、Native frame Adapter、固定exe配布Pathと署名閉包である。Module移動と同時に全数追従し、移動行をCoverage分母から落とさない。明示targetと共有target Directoryを維持し、無印debug／releaseを標準で生成しない。
+
+[過去Native要約](261006_release-test-retention-phase4.md)は正常・拒否、Root／run／exe／cwd不一致、Handle／worker終了・fixture不存在までの根拠であり、本番統合・厳密期限・親喪失後回復・署名E2Eの成立ではない。新配置の実測前に旧結果をPassへ流用しない。
+
+## 非import利用側と回帰実行の照合
+
+基準Sourceのpackage公開入口、scripts、配布入口および回帰実行側を確認した。ファイル名の移動だけでは次の経路は追従しないため、段階3の設計と段階5の同時切替対象へ含める。
+
+| 利用側 | 現在の接続 | 新配置での予定処置・確認方法 |
+|---|---|---|
+| package公開入口 | 17 Node packageのname／exports。Coordinatorは`./cli`のみで、他領域は主にsrc/index.ts。domain-libraryは7 subpath | 16領域への統合後も責務別subpathを維持。公開呼出し側から型・実行を確認し、巨大barrelとprivate importを増やさない。RustはCargo入口を維持。 |
+| template/tools/crdd-coordinator.ts | Coordinatorの単一binをimport | 入口名を維持し、Repository開発Root／利用側01_CRDD内Rootの両方で本体接続を確認。 |
+| template/tools/crdd-mcp.ts | mcp、project-operation公開入口 | MCP Server／domain-model公開入口へ同時切替。Repository単体操作をCROS Credential必須へ変えない。 |
+| template/tools/crdd-cros-server.ts | MCP内Shared Serverとruntime-dataのCROS Root型 | 採用能力をMCP Server入口へ置換してから撤去。独立CROS REST／Gatewayを残さず、認可・TLS配置条件・管理者回復を失わない。 |
+| template/tools/cros-shared-server-config-example.json | 人間から見える設定例 | CROS登録・ExposureとMCP Server配置へ責務分離。正式設定例は見える実ファイルとして残し、局所隠し値だけに置換しない。 |
+| Coordinator package scripts | 個別Coverage、Native build／lint／Host試験、Traceability／Graph、署名実境界検証 | Source移管と同じ変更でPath／試験Owner／閉包を更新。Nativeの明示target、Portable／Host分離、外部AI自動非実行を維持。 |
+| Workbench package scripts | Vite build、prestart／pretest build、Node Server、Visual system test | workbench-serverへRoot変更。CSRのbuild資産とServer配信閉包を同時更新し、27表示条件・終了後Process Treeを再観測。 |
+| verification-runner/catalog/test-catalog.ts | Owner18種、engine表、試験Path正規表現、changedPath判定 | 新16領域と分割後試験のOwnerを全数対応。移管前後の選択集合と実行集合を照合し、分類だけを変更しない。 |
+| verification-runner/application/regression-runner.ts | 固定Node Owner実行一覧、static checks、`--all`の固定変更Path | 選択されたOwnerを実行できる単一の一覧へ接続。NodeとCargoの方式は維持し、不対応Ownerは成功扱いせず停止。 |
+| 署名／配布／Promotion | Coordinator scripts、Native配布実体、template/tools/coordinatorのManifest | V6固定Git実行閉包、新package／Asset Path、外部TTY、署名後のmanifest-only昇格へ対応。現署名の結果を新閉包へ流用しない。詳細は再編計画§24の未確認義務を維持。 |
+
+### 検出した既存の回帰実行欠落
+
+`RUNNER_SUPPORTED_OWNERS`は18領域を許可するが、`runLevelStage`のNode実行一覧は11領域に限られる。`ai-runtime`、`cros`、`official-asset-governance`、`project-operation`、`visual-preview`、`workbench`の6領域はその実行一覧にない。`runStaticStage`も同6領域を処理しない。`--all`の固定変更Pathは9領域であり、全18領域そのものを列挙していない。これは新配置による回帰ではなく、基準版に既にある実装上の集合差である。
+
+選択件数やstage成功だけでは全選択試験の実行を証明できない。段階5でOwner一覧の重複を除き、段階6では「選択した全試験が実際の実行要求へ一度ずつ到達する」「不対応Ownerを成功へ丸めない」を反証する。現在の全回帰Passは主張しない。元の各package試験を削除せず、新Ownerへ維持する。人間の追加判断を必要とする新機能ではなく、計画済みの回帰Runner追従と全域検証の欠落是正として扱う。
+
+静的な集合比較も再実行した。登録18領域に対しNode実行11＋Cargo実行1で12領域、差は上記6領域で一致した。現在Catalogで対応する試験FileはAI Runtime 3、CROS 12、Official Asset Governance 2、Project Operation 6、Visual Preview 2、Workbench 4の計29Fileである。これはFile数でありTest Case数ではない。今回の比較はSourceとCatalogの読取りだけで、試験実行・Provider送信・Docker操作は発行していない。
+
+## 基準能力・新Owner・保持根拠の対応
+
+package数とARCH-IDは一対一ではない。下表は現行18領域の能力を新Ownerへ対応するもので、ARCHをFolderごとに新設する一覧ではない。実行結果は記載された過去版だけに適用される。新構成の確認は段階6・7で再実施する。
+
+| 現行領域 | 保持する能力／新Owner | 現在の主利用側 | 過去根拠・現在の限界／新構成で必要な確認 |
+|---|---|---|---|
+| ai-runtime | Catalog、Profile解決・CRUD・Revision／ai-adapter | Coordinator、CROS、MCP、Workbench | [Profile契約](260927-2157_ai-profile-catalog.md)。未観測を認証済みにしない。固有CLI分離後のProfile一致と認証・取消実境界を確認。 |
+| artifact-signing | 署名入力・鍵利用・固定結果／artifact-signing | Coordinator署名scripts | [署名・結果集約](261006_release-test-retention-phase4.md)。V6 TTY・実子Processと新閉包は未評価。重い署名範囲をChecker等へ拡張しない。 |
+| checker | 決定論的構造／Coverage検査、FindingとCLI／checker | 配布入口、回帰Runner、開発者 | [Symbol Foundation変更](../../CHG-000074/change.md#4-検証と残るgate)。旧試験Passは新Owner反映の証拠ではない。実採用Repository入口と同じFinding意味を確認。 |
+| coordinator | 単体Task、Executor／Reviewer、候補本体、取消・回収・一次失敗／coordinator | 単体CLI、Orchestrator、Workbench | [旧四経路・回復](261006_release-test-retention-phase4.md)、[未完了E2E](261004_all-e2e-collection.md)。公式CLI切替後・新署名で全必要経路と実終端を確認。 |
+| crdd-domain-library | Artifact／Graph／Symbol／保存Root／品質変更Gate／domain-model責務別入口 | Checker、Semantic Coverage、Store利用側 | [CHG-000074](../../CHG-000074/change.md)、[責務整理の旧検証](../../CHG-000076/change.md)。Worker・Root・不存在とGraph非部分発行を維持。 |
+| cros | 登録Repository、Credential／Session／Exposure、権限内Federation・管理者回復／cros | MCP Server、同Process Workbench | [Remote Context](260927-2029_phase4-remote-project-context-mcp.md)、[旧Shared運用](260928-1114_phase5-shared-server-production-boundary.md)。REST撤去後のMCP・内部呼出しで同じ認可を検証。契約試験のみのContext Package等は本番成立へ昇格しない。 |
+| execution-intelligence | 観測記録・照会・評価候補、欠測と30日保持／execution-intelligence | Coordinator、Orchestrator、Workbench／CROS投影 | [③刷新](261006_execution-intelligence-phase3.md)。記録生成と読取りの意味を区別し、移管後の時刻・重複なし・保持設定を確認。 |
+| mcp | Repository単体stdio、認可されたHTTP Machine入口・Topic／Meeting操作／mcp-server | AI／Machine、Remote Workbench | [Repository Context MCP](260927-2014_phase4-project-context-mcp.md)、[CRUD](260927-2055_topic-meeting-workbench-mcp-crud.md)。Activity／Profile本番接続、Origin／TLS配置・取消を新入口で確認。 |
+| official-asset-governance | 素材の権利・用途・収録判定／official-asset-governance | 公式素材Tooling | ARCH-000017と現契約試験を保持。Source／入口維持で他領域統合を読み込ませない。過去署名Provider試験を素材権利のEvidenceにしない。 |
+| platform-access | Windows世代／ACL／Handle／Job／固定Native Protocol／platform-access | Coordinator Native Adapterと署名・Host試験 | [Native正式要約](261006_release-test-retention-phase4.md)。内部移動後に固定frame、Worker、Hash、終了と拒否を再実測。本番統合・期限・親喪失後回復の未成立を保持。 |
+| project-operation | Context投影、Topic／Meeting CRUD・Relation・Promotion／domain-model | Workbench、Repository単体MCP、CROS | [CRUD](260927-2055_topic-meeting-workbench-mcp-crud.md)、[Remote操作](260928-0325_phase5-remote-workbench-topic-meeting.md)。跨り更新・完結条件・削除確認・Revision競合・非開示を維持。 |
+| project-runtime | Objective／Task／Decision／Acceptance／Queue／savedv2／orchestrator | CLI、MCP、Workbench、Activity投影 | [②完了範囲](261005_project-runtime-phase2.md)。旧Writerを再導入せず本番保存・再入場と単一実行の相関を確認。Provider停止・未実行は[全体収集](261004_all-e2e-collection.md)から引継ぎ。 |
+| runtime-data | Root／Manifest／設定／一時操作・所有者／domain-model | 各Owner Store、署名入口、配布起動 | [①保存境界](261005_runtime-data-phase1.md)、[③のPath閉包是正](261006_execution-intelligence-phase3.md)。署名Root・Fixture／Worker・用途限定清掃と設定既定値を維持。 |
+| semantic-coverage | 決定論的IR、片側Relation、生成Bundle／semantic-coverage | Checker・現実照合と生成入口 | [Semantic Foundation](../../CHG-000075/change.md)、[現在の現実照合](261006_phase2-reality-audit.md)。Domain subpath移行、実体参照、決定性・原子的公開を再確認。生成RelationをTest Passとしない。 |
+| verification-runner | Catalog・変更影響・段階選択・実行／verification-runner | 開発Workflow、全回帰 | [過去責務整理](../../CHG-000076/change.md)。上記6領域の実行欠落が現基準にある。新16Ownerの選択と実実行の全数一致を反証し、旧選択数を全実行根拠にしない。 |
+| version-control | Root／Revision／Tree／Diff、Snapshot／Publication／version-control | 各Root検証、Workbench Git操作、Orchestrator採用 | [変更公開IT](260927-1836_phase3-change-publication-it.md)、[旧責務検証](../../CHG-000076/change.md)。Domain CRUDがCommit／Pushを発行しない境界と新呼出し側を確認。 |
+| visual-preview | 局所配信、Browser Zoom、Visual確認の終了／visual-preview | Visual検証Workflow、Workbench画面確認 | [実Browser表示](260928-1028_phase5-workbench-actual-browser-visual.md)、[CSR終端確認](260928-2354_phase5-pure-csr-runtime-closure.md)。維持領域。Server常駐を理由に製品機能へ変えず、実Browser／Process終了を再確認。 |
+| workbench | 純粋CSR、Browser API、五場面とOwner情報・Git・AI接続／workbench-server | Human Browser | [純粋CSR](260928-1745_phase5-workbench-pure-csr.md)、[Remote操作](260928-0325_phase5-remote-workbench-topic-meeting.md)。Browser RESTは維持、Server間RESTのみ撤去。画面27条件と単体／Remote AIの未完了義務を別に確認。 |
+
+未知または未接続の利用側は、CROSの契約のみのContext Package／Handoff／AI計画、Activity／Profileの本番接続、V6実端末、現行Snapshot本番Writer／Host終端、Workbench候補・Reviewer、全域Graphと明示した。これらは能力不存在や今回の対象外ではなく、設計・実装・検証の後続Gateで処置する必須集合である。Trust Policy独立Framework、Linux自動Deploy、第三Surface、Workbench UX再探索は人間が採用していない実装範囲として区別する。
 
 ## Checklist
 
