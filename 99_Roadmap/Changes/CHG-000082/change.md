@@ -3,7 +3,7 @@
 変更ID: `CHG-000082`
 状態（Status）: `In Progress`
 担当責任者: Qual-Lab
-最終更新日: 2026-10-06
+最終更新日: 2026-10-07
 
 ## 現在状態
 
@@ -11,6 +11,7 @@
 |---|---|
 | 現在の変更状態 | Phase 5のProduction Closureを進行中。画面・共有Server・Topic／Meeting・Version ControlとAIのProduction接続は既存Evidenceに保持する。署名Runtime `45254e2b`と独立レビュー済みTool `1b756ac2`による公開MCP実Provider E2EはRun `2e55c8cd2897464b`で合格した。正常二経路、取消、親Process喪失後のexact Recovery、再入場時の人間採用判断待ちおよび最終在庫清掃を観測した。Observer接続是正の静的検査と局所158／158も合格した。この合格をWorkbench実Provider経路、Quality移管母集団および未観測の検証義務全体またはRelease可能状態へ拡張しない |
 | 対象改訂版 | `v0.22.0` |
+| 責務再編の現在順序 | [新しい1〜8の完了計画](Evidence/261007_develop-responsibility-mapping.md#23-責務再編を完了させる計画)を同じCHG内で実施する。段階1は完了。全18領域・830File、分割関数、利用側・過去能力根拠、必須実経路と現在QA項目・不足を[棚卸し](Evidence/261007_develop-file-inventory.md)へ固定した。次は段階2のArchitecture基本設計更新。棚卸しGate確認は完成後独立レビューではなく、実装・全回帰・署名E2E・Release可能状態は未成立。人間指定により各段階完了時にコミットし、人間判断が必要なときだけ停止する。プッシュ・統合・Releaseは別の許可に従う |
 | 保存方式刷新② | 完了。実装、受付世代接続、終了整理、本番v2保存Port、Repository切替、現署名・production初期化、全回帰結果の処置とArchitecture／Quality最終独立レビューを完了し、コミット・プッシュ済み。全品質項目・全製品E2Eの成立とは分離する。[完了判定](Evidence/261005_project-runtime-phase2.md#36-②の完了判定) |
 | 保存方式刷新③ | Execution IntelligenceのJSONL化、安全診断・実績割当・一般Operation、30日既定のTool別設定と新形式切替を完了。独立再レビュー二観点Pass、必須是正0件。移行済み旧領域は人間指示により清掃済み、未解決10件は新履歴で保護。追加指定の既知閉包6指摘も反証・直接回帰・独立再レビューで解消した。署名E2Eは未完了のまま維持する。[③の完了判定](Evidence/261006_execution-intelligence-phase3.md#③の完了判定--2026-10-06)、[追加是正の判定](Evidence/261006_execution-intelligence-phase3.md#検証と完了判定) |
 | 成立済み | G1〜G5のScreen Architecture、Direction A、5画面のSecondary展開、Production Shell、公式ロゴ、Project Context共通Reader、Topic／Meeting Record ReaderとRepository CRUD Core、共通Applicationの検索・絞込み・安定並び順・Query拘束Cursor、WorkbenchのTopic／Meeting独立Detail、Workbench／Repository単体MCPのTopic／Meeting CRUDと同一Repository内Meeting Outcome処置、Remote CROSのCredential／Workspace／Exposure／Repository Revision再検証付きTopic／Meeting Routing、同じSessionとExposure Snapshotに限定したRepository間Owner Relation解決、Workbenchの許可済みPortfolio Source明示選択・Remote Topic／Meeting MCP読書き・Owner Repository付きRelation遷移・Local fallback禁止、許可済みPortfolio Federation、Repository mode／CROS federation表示、Project Portfolioの検索・状態絞込み・20件単位Query拘束継続読込・Source別五場面Detail・欠測保持、作業ツリー読取り、選択Stage／Unstage／Commit／確認済み通常Push、拒否・通信断・結果不明・再観測、Role別Credential Core、Token非保存、永続Registry、Workbench Credential管理Surface、Bearer Remote Transport、Workbench Remote接続／更新／切断、Project Runtime状態Toolの非曖昧化、CROS CredentialによるRemote Project Context MCP、Host限定Access Recovery、AI Profileの閉じた共通Schema・一意解決・四軸Availability・Owner別耐久Snapshot・改訂競合付き採用Core・Repository／CROS WorkbenchのProfile限定管理・`systemAdmin`以外へのCatalog非開示・Coordinator／Workbench Consumer接続、Workbenchの現在Session限定AI依頼Port、読取り助言／変更候補の明示、開始／観測／取消、事実／共有済み分析／追加推論／次の選択肢の分離表示、Coordinatorの依頼種別別Mode Router・現在Process内観測・取消・未知状態非推測、読取り助言の利用者依頼・Profile・内容Hash付き許可済み投影をEffect 0で固定する専用Task Packet、許可参照へ拘束した専用Result Parser、Workbench選択Profile IDのCoordinator Task Request→Route Candidate→Executor Selection Grantへのexact搬送とReviewerへの非伝播、Runtime ActivityのRepository実構成、Execution Intelligence EventのProject限定継続読込、Remote CROSのCredential／Exposure再検証付きActivity投影、未接続／absent／unknown／observedの分離表示 |

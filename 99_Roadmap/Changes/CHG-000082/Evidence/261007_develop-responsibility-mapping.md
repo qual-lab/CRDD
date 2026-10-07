@@ -683,7 +683,7 @@ Tool名はここでは提案値であり、既存Protocol値を無断変更し�
 
 ## 24. 段階1の基準母集団と着手前確認 — 2026-10-07
 
-段階1は進行中である。基準Commit `463dd4a1ffd86e8bf5c58bb37a92e2ba11984621`の全18領域・830Fileを[ファイル棚卸し](261007_develop-file-inventory.md)へ固定した。各行は処置案であり、本文・関数単位の確認後に確定する。相対importで取得した312関係・173利用側は型／値、動的起動、設定・Manifest等の全Consumer集合を意味しない。
+段階1の棚卸しを完了した。基準Commit `463dd4a1ffd86e8bf5c58bb37a92e2ba11984621`の全18領域・830Fileを[ファイル棚卸し](261007_develop-file-inventory.md)へ固定し、全Fileの予定処置、分割対象の関数責務、非import利用側、能力・過去Evidence・新Owner、必須実経路と現在QA項目を対応させた。各行は設計前の移管計画であり、公開API・詳細配置は段階3で確定する。相対importの312関係・173利用側だけを全Consumer集合と扱わず、追加した起動・設定・配布・署名・Workflowの対応も用いる。
 
 ### 着手前整合確認
 
@@ -722,7 +722,7 @@ Tool名はここでは提案値であり、既存Protocol値を無断変更し�
 | Activity／Profile本番未接続と共有MCP | CROS／MCP Server、D・E | 正式入口からReader／Storeへ到達し、Role・Exposure・Origin・取消・終了を確認する。 |
 | 回帰Runnerの登録／実行集合差 | verification-runner、F・6 | 登録18領域に対し実行一覧12領域。欠ける6領域・Catalog29試験Fileを含め、選択集合が実実行へ全数到達することを確認する。選択件数だけを全回帰成功へ畳まない。 |
 
-現在、人間の追加判断が必要な事項は確認していない。段階1の残りは、全Fileの本文・関数責務、非import利用側、能力と過去Evidenceの対応、必須実経路とQuality Local Itemの固定である。分母固定だけを段階1完了としてコミットしない。
+現在、人間の追加判断が必要な事項は確認していない。段階1の固定集合には、現在QA項目だけで具体経路を覆えないActivity／Profile、共有TLS・HTTP終了、縮小目標と不一致な旧Recovery／改造CLI義務も識別し、段階3のQuality補強と段階6／7の実確認へ接続した。次は段階2のArchitecture基本設計を更新する。棚卸し完了を設計採用・Source移管・全体Passにしない。
 
 Provider／Workbench AIの39FileとDomain統合三領域について、[関数・責務単位の処置](261007_develop-file-inventory.md#providerとworkbench-aiの関数単位照合)を追加した。同表の粗い一次候補より、本文側の具体的境界を優先する。AI固有記述と実行Authorityを分け、取消受付をcleanup完了に読み替えず、Domainの長いFileを長さだけで分割しない。Sourceの移管・設計採用・完成後レビューは未実施である。
 
@@ -756,5 +756,5 @@ Provider／Workbench AIの39FileとDomain統合三領域について、[関数�
 - [x] 基本設計からSource・署名E2E・完了までの成果物、依存順、通過条件と現在Gapの扱いを計画した。
 - [x] 未確定Owner・実行依存の未調査範囲をOPENとして明示した。
 - [x] N/A: 本作業はDraft計画の記録のみ。Source回帰・署名・実E2Eは実行していない。
-- [ ] OPEN: ファイル／関数単位の確定移管表、全Consumerと過去Capability Evidenceの照合は後続作業である。
+- [x] 段階1の全File予定処置、分割関数、Consumer、保持能力・過去Evidence、必須実経路と現在QA項目を棚卸しへ対応させた。詳細API・配置の確定は段階3へ残す。
 - [ ] OPEN: Architecture採用・完成後独立レビューは未実施。Draft整合確認を完成レビューとして扱わない。
