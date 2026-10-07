@@ -706,3 +706,9 @@ Coordinator詳細設計に、現在状態の閉集合、保存途中の再入場
 改訂間では固定Identity、確認済み資源ID、一次失敗、結果と受理参照を保持する。回復と搬送の変更も操作Ownerへ結合し、unknownを未発行へ変更しない。終端証明が未接続の間は操作・回復・搬送の削除を拒否する。独立レビューの指摘を是正し、初回準備前のOwner照合と排他解放未確認時の初期化証拠失効も追加した。
 
 型検査、対象Biome、単体三件と実Windows Filesystemの保存・再入場一件はPass、作業差分とstaged差分の形式検査もPass。公開後の状態消失、同内容の実体差し替え、hardlink、別pending、Owner失効、unknown負方向の反証を含む。実装・Architectureの限定再レビューはPass、必須実装指摘0である。ただし追加二指摘の専用反例試験（別Owner初回候補のEffect0と領域未作成、公開前保存失敗と排他解放失敗後の初回再試行拒否）は未完了であり、保存Slice全体の検証完了とは表示しない。本番Producer、doctor再入場、Host終端、旧保存撤去、履歴設定、署名E2Eは引き続き未完了。Docker操作、Provider依頼、署名と旧実物削除は行っていない。
+
+### 責務再編・Architecture Closureの完了計画 — 2026-10-07
+
+人間との確認に基づく親フォルダ統合・AI固有処理分離・CROS REST／Gateway廃止・Native内部整理を、同じCHGの責務再編として扱う。[対応案と完了計画](./Evidence/261007_develop-responsibility-mapping.md#23-責務再編を完了させる計画)に、全能力・File照合、ARCH基本設計、Details／Quality、設計独立確認、依存順の実装、全体回帰・Reality Audit、固定候補署名E2E、完了判定の順序とGateを記録した。計画はCommit `3389345e`と後続具体化案を基準とする。
+
+現在は計画・調査段階で、Architecture正本・Source移管は未着手。既存Snapshot／回復縮小等の未完了義務は対応付けて維持し、この計画で解消済み・全体Pass・Release可能とは表示しない。PR統合・Release判断は別に保持する。

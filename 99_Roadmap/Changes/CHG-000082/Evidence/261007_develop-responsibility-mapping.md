@@ -556,6 +556,131 @@ MCP Serverだけを公開する共有起動とWorkbench起動を分け、MCPがW
 
 現在は移管案の具体化までである。Tool名・設定契約・本番Activity Reader・共通認可公開API・過去Evidence全数照合はOPEN。次はこれらの正本設計と照合を行い、親フォルダ内部の全File棚卸しへ接続する。Source撤去、設定変更、署名、Docker操作、実E2Eは実行していない。
 
+## 22. 公開能力・設定・本番接続の具体化案
+
+この節はCommit `3389345e`で記録した案の次段階であり、Source実装前の契約候補である。新しい要求を追加する目的ではなく、旧RESTが提供していた能力と既存採用能力を二入口へ接続する。
+
+### CROS共通呼出し境界
+
+LocalとMCPは同じCROS公開能力を呼び、Requestごとの認証・利用範囲検証を共通化する。公開能力は認証済みAccess Contextと現在のExposureから対象を解決する。入力のRepository IDやsystemAdmin flagだけでアクセスを許可しない。Raw Tokenは接続境界で検証し、Source投影・結果・ログへ返さない。
+
+| 能力 | 入力・結果の責務 | 具象の接続先 |
+|---|---|---|
+| Project一覧・Context取得 | 許可されたPortfolio、Project別Context、不完全性・Owner Relation | 既存CROS Federation＋domain-model/project-context |
+| Topic／Meeting操作 | 明示Repository、CRUD・Relation・Outcome・昇格と結果 | domain-model/topic／meeting。現行MCP経路の認可保証を保持。 |
+| Runtime Activity取得 | Project、Cursor、limit、Source別公開可能な現在状態・Event・欠測 | Orchestrator公開状態Query＋Execution Intelligence公開記録。CROSが許可Repositoryだけを渡す。 |
+| AI Profile管理 | 管理能力、採用Revision、一覧・作成・更新・削除、保存結果 | ai-adapter内のProfile管理とCROS Owner Store。systemAdminから内容Accessを作らない。 |
+
+能力ごとの関数・結果を用い、すべてを任意commandの汎用executeへまとめない。共通認可は既存Credential／Session／Exposure処理の合流を優先し、新たな権限Frameworkや永続Session DBを作らない。取消と待機後の結果・保存Effectは既存能力の意味を引き継ぎ、取消されたという通知だけで書込みEffect 0を主張しない。
+
+### MCP操作の候補
+
+| 操作候補 | 入力 | 適用・保持条件 |
+|---|---|---|
+| 既存crdd.list_projects／crdd.get_project_context | 既存Schemaを維持 | Portfolio表示に必要な結果の対応を確認。新Portfolio Toolを重複追加しない。 |
+| 既存Topic／Meeting Tool群 | 既存Repository指定・操作Schema | Domain統合後も同じ能力へ接続。Transportの都合で安定IDを変えない。 |
+| crdd.get_runtime_activity（新名称候補） | projectId、任意cursor、limit（既定20・最大50） | Project Context、Runtime State Query、Event一覧の意味を区別し、欠測・継続読込を保持。 |
+| crdd.list_ai_profiles（新名称候補） | 一覧用入力 | CROS管理能力で検証。Token・Credential verifier・Host Pathは返さない。 |
+| crdd.create_ai_profile／crdd.update_ai_profile／crdd.delete_ai_profile（新名称候補） | Profile操作、expectedRevision、必要な削除確認 | 既存Administrationの操作と確認条件を正確に搬送。任意Provider・実行Path・CLI引数の登録機能へ広げない。 |
+
+Tool名はここでは提案値であり、既存Protocol値を無断変更しない。新操作はtools/list、Routing、入力検査、結果検査、Role別可視性とAuthorityの全対応を固定してから追加する。既存Profile Mutationを一つの汎用更新Toolへする案と上表を比較し、既存操作の意味と利用側可読性を保つ最小契約を選ぶ。
+
+### 設定の分担案
+
+| 設定単位 | 内容 | 保持場所・移行の境界 |
+|---|---|---|
+| CROS構成（cros.json候補） | revision、Repository RootとWorkspace公開範囲。検証後にRegistry／Exposureを生成する。 | 既存OS管理CROS Config Rootを基本とする。Repositoryに他Repositoryの管理構成を埋め込まない。Credential Storeとは別。 |
+| MCP Server配置（mcp-server.json候補） | listenPort、共有配置のpublicOrigin、許可Origin等の必要なHTTP配置値 | 同じ共有Hostの運用Config Rootが候補。Repository単体stdio／localhost利用にこのFileを必須化しない。 |
+| Workbench Remote接続 | 明示MCP Endpoint、接続・切断、CredentialのProcess内扱い | REST baseUrlとmcpBaseUrlの二重管理を廃止。自動接続先推定・Fallbackはしない。 |
+| 配布する設定例 | CROS構成例、MCP配置例を見えるJSONとして提供 | template/toolsの現行規則へ照合し、実Fileを維持する。例はRuntime実設定ではない。 |
+
+二Fileに分ける理由はCROSの公開Repository構成とMCPのHTTP配置のOwner・変更理由が異なるためであり、機能ごとの小Fileを大量に追加するためではない。最終名、JSON key、Rootと読取り順はArchitecture更新時に確定する。Front AIは旧shared-server.jsonを読んで非秘密構成を分け、Credential／Root検証・参照を確認して旧Fileを清掃する。Sourceに旧Schema読取りFallbackを作らない。
+
+### TLS・Origin接続の最小案
+
+共有Hostでは外部のTLS終端が/mcpだけを固定loopback MCP Listenerへ転送する構成を第一候補とする。REST RouteとCRDD固有Gatewayを置かない。Server間Machine ClientはBrowser Originを必須にはしないが、Origin付きRequestは現在の許可Originへ照合する。Forwarded値を無条件に信用せず、TLS終端で上書きされる配置条件とMCP側のHost／Origin検証を対応付ける。既定localhost Modeは現在の制限を維持する。
+
+これはReverse Proxy製品選択、TLS鍵管理、自動Linux Deployまたは任意Network公開の実装許可ではない。外部TLS配置と実Hostの受入条件を確定できなければ共有起動の成立を主張しない。
+
+### 本番接続で検出した欠落とOwner
+
+現行非試験Sourceを調査すると、CrosRuntimeActivityReaderは型・依存・呼出しだけで、専用の本番具象Readerを確認できなかった。Workbenchのruntime-activity.tsにはRepository状態QueryとExecution Intelligence読取りがあるが、画面View Model・Git公開観測も同Fileに含む。そのままCROSへimportするとCROS → Workbenchの逆依存を作るため採用しない。
+
+| 対象 | 是正案 | 確認方法 |
+|---|---|---|
+| Activity本番Reader | Orchestrator状態とExecution Intelligence記録の公開Queryを用いる具象接続をCROS能力組立てへ用意。Workbench表示変換はWorkbenchに残す。 | 正式MCP起動入口から実Repositoryの状態・記録を読み、欠測とCursor継続を確認する。 |
+| Profile本番Store | 既存CROS Owner Profile Store／Administrationをai-adapterへ移管しMCPの管理能力へ接続。 | 正式入口から管理者のCRUDと非管理者拒否、Revision競合・保存失敗を確認する。 |
+| 認可共通化 | Portfolio／Topic／Meeting／ActivityのRepository解決と、ProfileのsystemAdmin判定を適切に共有する。 | 同一ProcessとMCPで同じRole・Exposure条件を与え、非開示・拒否が一致することを確認する。 |
+| 起動・終了 | MCP自身の一ListenerとRequest／Socket lifecycleへ必要な保証を対応付ける。 | 部分初期化失敗、切断・取消・終了要求、待機後の資源状態を観測する。 |
+
+現在、人間の追加判断が必要な事項を新たに確定してはいない。上記は既存目的に沿った具体案であり、未確定Schema・TLS配置・操作名称は正本設計と独立確認で処置する。実装着手前には複数Ownerの着手前整合確認を更新し、旧能力の過去Evidenceとの全数対応を完了する。
+
+## 23. 責務再編を完了させる計画
+
+計画対象: CHG-000082内のv0.22責務再編・Architecture Closure。計画基準: Commit `3389345e`と、その後の§22の契約具体化案。状態: 計画作成済み、正本反映・Source移管未着手。本節の段階番号は既存CHG Phase番号を置換せず、今回の作業順を示す。
+
+### 完了の意味と範囲
+
+今回の完了は、了承された責務構成がArchitecture・Quality・Source・Test・設定・配布入口へ一致して伝播し、既存採用能力と必要な実境界の成立を確認できた状態とする。単なる移動完了、型検査Pass、旧経路の安全な拒否から全体完了を推定しない。完了後に人間がPR／統合／Releaseを判断できる状態へ渡すが、本計画だけでそれらの実行許可を推定しない。
+
+対象は全18現行領域の内部配置照合と、16親フォルダを目標とする採用済み再編である。動かす必要がない領域は「維持＋理由」を対応表へ残し、件数を減らすために変更しない。主な変更は次のとおり。
+
+- Domain Library／Project Operation／Runtime Dataをdomain-modelへ統合し、責務別Moduleへ整理する。
+- ai-runtimeのProfile管理とCoordinator内のProvider固有実装をai-adapterへまとめる。
+- Orchestrator → Coordinator → AI Adapterの依存と単体Coordinator利用を成立させる。
+- Workbench／MCPをServer名称へ揃え、Browser APIを維持しCROS REST／Gateway／専用Shared Server入口を廃止する。
+- Platform Accessは既存Native検査と実行物境界を保ち、名称・内部Moduleを整理する。
+- Execution Intelligence、Version Controlと各呼出し側の責務・公開依存を整理する。
+
+新しいAI機能、User Account、Trust Policy Framework、Event Bus、汎用Recovery Framework、Repository自動Deploy、Backup、汎用REST／Gatewayは対象外。Workbench UX／IAの新たな追込みも別の目的であり、今回の接続維持と画面非破損確認に混ぜない。
+
+### 段階・成果物・通過条件
+
+| 順序 | 作業 | 成果物・担当Owner | 次へ進む条件 |
+|---|---|---|---|
+| 1. 基準能力と影響範囲の固定 | 全18領域の公開能力、利用側、過去Evidence、現在Gapを棚卸し。全Fileを維持／改名／移動／分割／統合／廃止へ処置する。 | 本計画の対応表とCHG現在範囲。Fileを一次キーにし、分割時はSymbol／関数まで指定する。 | 採用能力に移管先または維持理由がある。未知Consumer・必須Gateに影響する未処置Gapを識別できる。 |
+| 2. ARCH基本設計の更新 | ARCH Definitionsの責務・境界・主要Component・依存・Handoffを照合更新。REQ／UX／IA／UI／SPECへは不一致箇所だけ戻る。 | 06_Architecture/Definitionsと必要なAnalysis／Relation。 | 合意した責務・二入口・CROS共有配置の意味が正本へ反映。単なるFolder変更でARCH-IDを新設しない。 |
+| 3. Details・配置・Qualityの具体化 | 各領域の公開API、内部File配置、保存Owner、起動・終了・取消、MCP操作、設定、Front AI移行を固定する。 | Architecture Details、Coding Standardsの必要差分、Quality Analysis／Definitions、Workflow・設定例の更新計画。 | 全File／Consumer対応、実装順、必須評価Checklist、失敗・欠測・後条件の検証義務が揃う。Sourceを先に正解にしない。 |
+| 4. 設計の独立確認 | 固定設計を責務・依存／Capability保持、文書・直接伝播、不足・影響の観点で確認する。 | 独立レビューと適用監査、統合した是正表。 | 必須確認を全件完了し、是正後の固定版がPass。未処置事項を「担当あり」だけでPassにしない。 |
+| 5. 依存順の実装・局所検証 | 下記の順序で本体・公開入口・試験・設定・Symbol・配布閉包を同時に移管する。 | 40_Develop、薄いtemplate/tools入口、関連正本。 | 各まとまりで型・整形・Lint・構造／Trace検査、正常・境界・失敗・取消の局所試験が成功。旧経路を残す互換Frameworkを作らない。 |
+| 6. 全体回帰・現実照合・独立再レビュー | Portable／Host試験を分けて実行し、新構成の能力・Relation・公開入口・保存・終了条件を監査する。 | Quality／Reality Audit現在投影、必要な正式結果要約。 | 対象全回帰、Checker、宣言能力の本番接続、固定Source独立レビュー・必要監査がPass。実環境未評価は識別し、全体Passへ畳まない。 |
+| 7. 固定候補の署名・実E2E | 署名前提を先に検査し、人間の外部端末で必要なCoordinator閉包だけ署名。最終候補の実経路を確認する。 | 署名Manifest、実境界結果とQualityのEvidence接続。 | 必須実E2Eと回収後条件が成立。失敗は一次原因を保持し、同じ不明状態で全E2Eを繰返さない。 |
+| 8. 完了処置 | 旧参照・未接続・現在Gapの処置、文書・Reality Audit・CHG現在地、Front AI移行手順を確定する。 | CHGの完了判定、正本・品質現在値、変更Summary。 | 必須Gate未達0。残存事項は現在の採用範囲と影響を明示。人間の判断前に統合・Release済みと表示しない。 |
+
+段階1〜3は内部棚卸しを並行してよいが、基本設計→詳細設計→検証義務の依存を維持する。全Fileの完了表は同じ文書内で更新し、実行ごとの巨大なEvidence書庫を増やさない。
+
+### 実装順序
+
+| 順序 | まとまり | 先行条件・保持する能力 |
+|---|---|---|
+| A | domain-model統合、Version Control公開境界の必要整理 | Root検証・Lock・設定・Artifact・Symbol・Topic／Meetingの意味を保持。基盤を先に作りConsumer移管へ接続する。 |
+| B | ai-adapter（ProfileとProvider接続）、Platform Access内部整理 | Coordinator逆importなし。Codex／Claudeの実行入力・結果・認証・取消差、Native検査・Protocolを維持。独立可能な配置変更だけ先行できる。 |
+| C | Coordinator共通実行、Orchestrator移管、実行記録 | 単体／上位経由の両経路、公開通知、取消・回収、state／history・Queue・判断・候補採否を接続。既存Docker回復縮小の残件をここへ対応付ける。 |
+| D | CROS共通能力、MCP Server本番接続・共有配置 | Activity Reader／Profile Store、Role・Exposure、MCP HTTP／TLS配置、全能力一覧を接続。現行REST能力の置換を先に成立させる。 |
+| E | Workbench ServerのLocal／Remote接続、REST／Gateway撤去 | 表示API・純粋CSR・画面意味を維持し、MCP経路と同一Process経路を確認後に旧実装・設定・入口を廃止する。 |
+| F | 残る領域・全Consumer・配布側の締め | Checker、Semantic Coverage、Signing、Runner、Visual Preview、素材管理等を対応表どおり更新または維持。旧Package名・Path参照、型／値／子Process／設定／署名入力を全照合する。 |
+
+途中のCommitは、局所確認と整合した設計・Source・試験を含む安全なまとまりで行う。中間Commitの存在を全体完成としない。Pushは人間の指定に従い、PR統合・Releaseは別の判断とする。
+
+### 最終実境界の確認集合
+
+- Coordinator単体の採用済みCodex／Claude実行・Review経路、必要な組合せ、取消・回収。
+- OrchestratorのObjective→Task、状態照会、判断、候補生成・採否・再入場と、Coordinator接続。
+- Workbenchの助言／候補、Local／RemoteのContext・Topic／Meeting・Activity・Profile操作、Role別拒否と秘密非開示。
+- MCPのRepository単体stdio／HTTPと共有CROS接続、TLS／Origin／Exposure、切断・終了後の資源状態。
+- 影響する実Windows Native保存・Process・ACL境界、署名閉包と公式CLIの実利用。
+- Workbenchの構成・Asset・表示に影響した範囲の実Browser確認。全Visual Profileの再評価要否は変更した意味と既存義務から決め、コード移動だけで新画面を作らない。
+
+対象経路を段階1で現在のQuality Local Itemと採用能力へ全数対応付け、固定集合として扱う。Provider送信は現在有効な許可境界を確認し、不足する承認だけ人間へ求める。Pass取得のためにモデル・Provider・Timeout・回復機構を場当たり的に変更しない。Linux配置が採用能力の必須実境界なら、その実環境確認が必要でありWindows試験で代替済みとしない。利用環境・Authority不足は明示して判断へ戻す。
+
+### 既存Gap・失敗時の扱い
+
+現在CHGに残るSnapshot本番Writer、Host終端接続、旧保存撤去、限定unknown終了、Graph停止、専用反例試験等を段階1で採用範囲と照合し、今回のOwner・試験へ対応付ける。既知Gapを名称変更で消さず、現在の必須義務と無関係な将来候補も自動吸収しない。Reality Auditの件数は再実行結果から更新し、未実行の旧数値を新構成の現在値にしない。
+
+失敗時は最初の失敗境界を局所再現してから是正し、その意味から影響回帰を導出する。新しいState／Authority／保存場所／Consumerを追加する是正は設計へ戻し、必要な着手前照合と独立確認をやり直す。単なる反復でGateを増やさず、過去unknownの消去や未実施をPassにすることで収束させない。
+
+完了計画に新しい日程を捏造しない。既存v0.22目標日2026-10-03は経過しており、現在の期限リスクを保持する。段階1〜3の対応量と実環境条件が確定した時点で所要見通しを提示する。現在の次の着手点は段階1の全File／Capability対応と、段階2のArchitecture正本照合である。
+
 ## Checklist
 
 - [x] 全18領域を一次対応表へ処置した。
@@ -581,6 +706,9 @@ MCP Serverだけを公開する共有起動とWorkbench起動を分け、MCPがW
 - [x] Browser表示APIとServer間Integrationを区別し、同一Process直接呼出し／別Process MCPの共通認可境界を記録した。
 - [x] REST／Gatewayの廃止目標、関数単位の移管案、設定・配布・文書の対応と完成Gateを記録した。
 - [x] 既存MCPのlocalhost制限を確認し、Gateway削除だけでは共有TLS配置が完成しないことを明示した。
+- [x] 共通CROS能力、MCP操作候補、ツール単位設定と本番Reader／Storeの接続案を具体化した。
+- [x] Activityの画面実装をCROSへそのまま移す逆依存を避け、調査で本番Readerを確認できなかった範囲を明記した。
+- [x] 基本設計からSource・署名E2E・完了までの成果物、依存順、通過条件と現在Gapの扱いを計画した。
 - [x] 未確定Owner・実行依存の未調査範囲をOPENとして明示した。
 - [x] N/A: 本作業はDraft計画の記録のみ。Source回帰・署名・実E2Eは実行していない。
 - [ ] OPEN: ファイル／関数単位の確定移管表、全Consumerと過去Capability Evidenceの照合は後続作業である。
