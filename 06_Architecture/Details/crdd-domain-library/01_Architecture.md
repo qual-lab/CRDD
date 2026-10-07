@@ -223,10 +223,11 @@ Domain IssueはChecker severity、Rule名、exit codeを持たない。MCP／Wor
 | 実行形態 | launcherの位置 | 実装解決先 | 判定 |
 |---|---|---|---|
 | CRDD標準の開発 | `CRDD Root/template/tools/` | `CRDD Root/40_Develop/` | Repository Manifestで開発Rootを検証する |
-| CRDD採用Repository | `<Project>/<CRDD基準版Directory>/template/tools/` | 同じ基準版Directoryの`40_Develop/` | 署名済みRelease Manifestと配布全体Identityを検証する |
+| CRDD採用Repositoryの一般Tool | `<Project>/<CRDD基準版Directory>/template/tools/` | 同じ基準版Directoryの`40_Develop/` | 同じCRDD基準版Root、宣言した公開入口と当該Toolが必要とする配布Identityを検証する。Coordinator署名や全Repository Tree検証を一律要求しない |
+| Coordinatorの保護実行 | 同じ基準版DirectoryのCoordinator入口 | 検証済みCoordinator実行閉包と固定Native | [CoordinatorのV6署名契約](../coordinator/01_Architecture.md#署名範囲の縮小--v6方式と再編後の閉包)へ接続し、Manifest、選択した実行閉包とNativeのIdentityを検証する |
 | launcherだけの単独コピー | Project Root等 | なし | 対象外。代替Pathを推定せずEffect 0で停止する |
 
-Root候補はlauncher実Pathの`template/tools`からexactに2階層上だけを採用する。launcher、候補Root、Manifestおよび実装入口はregular file／directoryであり、symbolic link、junctionまたはRoot外解決を含んではならない。単独配布Artifactが必要な場合は`40_Develop`の正本からRelease工程で決定論的に生成し、`template/tools`に二つ目の手編集実装を作らない。
+Root候補はlauncher実Pathの`template/tools`からexactに2階層上だけを採用する。launcher、候補Root、当該Toolが読むIdentity入力および実装入口はregular file／directoryであり、symbolic link、junctionまたはRoot外解決を含んではならない。Coordinator保護実行の署名Manifestも同じ実体確認へ含めるが、一般Toolへ署名Manifestの存在を一律要求しない。必要なIdentity入力が不存在・不一致・観測不能なら代替Rootや署名免除を推測せず停止する。単独配布Artifactが必要な場合は`40_Develop`の正本からRelease工程で決定論的に生成し、`template/tools`に二つ目の手編集実装を作らない。
 
 ## 7. Consumer Closure
 

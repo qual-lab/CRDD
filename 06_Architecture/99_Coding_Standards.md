@@ -102,7 +102,7 @@ Platform Adapterの追加は、新しいBuild、配布、Threat Model、移行�
 
 ### 3.1. 基本形式
 
-Toolの既定書込みRootは現在のリポジトリ内に限定する。現在のリポジトリは、Current Working Directoryではなく、対象Projectと正規化・実体確認した最寄りのVersion Control worktree Rootから解決する。Toolをsubdirectoryから起動しても、そのDirectoryをRepository Rootとして扱わない。Repository-localな非正本状態が必要な場合は、検証済みRoot直下の用途別`.crdd`配下へ集約し、候補Revision、Provider mountおよびGit管理対象から除外する。Repository-local `.crdd`はignore-by-defaultとし、Runtime状態、候補、log、一時成果物または生成物を個別列挙だけで追跡対象から外す設計にしない。Commit固定された内容自体がRuntimeの検証入力になる非秘密のRepository設定だけを、用途と正本性を確認した明示allowlistとして追跡してよい。選択Userに永続するProvider Home、Candidate Store、Recoveryその他のRuntime状態は、OS Known Folderから導出し保護を検証した固定Runtime Rootへ置く。Repository-local状態とUser／Host Runtime状態を混在させない。
+Toolの既定書込みRootは現在のリポジトリ内に限定する。現在のリポジトリは、Current Working Directoryではなく、対象Projectと正規化・実体確認した最寄りのVersion Control worktree Rootから解決する。Toolをsubdirectoryから起動しても、そのDirectoryをRepository Rootとして扱わない。Repository-localな非正本状態が必要な場合は、検証済みRoot直下の用途別`.crdd`配下へ集約し、候補Revision、Provider mountおよびGit管理対象から除外する。Repository-local `.crdd`はignore-by-defaultとし、Runtime状態、候補、log、一時成果物または生成物を個別列挙だけで追跡対象から外す設計にしない。Commit固定された内容自体がRuntimeの検証入力になる非秘密のRepository設定だけを、用途と正本性を確認した明示allowlistとして追跡してよい。Repositoryが所有する候補、現在状態、回復参照は、[保存配置のOwner契約](Details/runtime-data/01_Architecture.md)と[Coordinator詳細](Details/coordinator/01_Architecture.md)に従いRepository-local `.crdd`へ置く。Provider Home、秘密およびCROS Repository Registry等、Repositoryではなく選択User／Hostが所有する状態だけは、OS Known Folderから導出し保護を検証した用途限定Rootへ置く。CandidateまたはRecoveryという名前だけでOS Rootを選ばず、Repository-local状態とUser／Host Runtime状態を混在させない。
 
 親Directory、兄弟Repository、別Repository、OS一時Directoryまたはcaller supplied absolute Pathへ書き込む実装は、現在DirectoryやPath文字列だけから許可しない。用途限定Rootの事前許可またはOperationごとの人間承認、Root Identity、所有主体、保持期間、容量、cleanup／Recoveryおよび残存確認をEffect前に強制する。試験、release staging、Git worktree、archive、logおよび診断物も例外にしない。一時物は一つのOperation所有Rootへ集約し、正常・失敗・取消・親Process喪失の全経路と次回安全入口での回収を試験する。
 
@@ -129,20 +129,20 @@ Toolの既定書込みRootは現在のリポジトリ内に限定する。現在
 
 `src/`直下を第一階層、Capability配下を第二階層として、CRDD所有SourceのDirectoryは原則として二階層以内に収める（MUST）。Package名または親Capabilityですでに表現できる`domain/`、`repository/`、`application/`等を形式的に重ねてはならない（MUST NOT）。第三階層が必要な場合は、独立した変更理由、利用側、公開境界および試験境界を説明し、独立Subsystemへの分離または第二階層への平坦化を先に検討する。
 
-型だけを持つFileも、`outcome.ts`、`artifact-model.ts`のように所有する概念で命名する。複数責務の型を集める`types.ts`を既定の置場にせず、同じ変更理由と利用側を持つ一つの概念だけを扱う場合は概念名を使用する。`index.ts`は型本体の代替ではなく、Architectureが宣言した公開Symbolの明示的な再公開だけを所有する。
+型専用Fileは、Architectureが宣言した一つの責務別Directoryまたは公開契約の範囲に閉じる`types.ts`へ統一する。同じ変更理由と利用側を持つ型だけを置き、無関係な責務の型集積へ使用してはならない（MUST NOT）。実行時の検証、変換、定数または資源操作を持つFileは型専用ではなく、`outcome.ts`等の実責務を表す名前を維持する。`index.ts`は型本体の代替ではなく、Architectureが宣言した公開Symbolの明示的な再公開だけを所有する。
 
 Source File名は主要責務を表す。次の標準Suffixへ自然に該当する場合はそのSuffixを使用し、該当しないFileを分類のためだけに無理に改名してはならない（MUST NOT）。
 
 | Suffix | 所有する責務 | 判断する問い |
 |---|---|---|
 | `-model.ts` | Domain概念、Data構造または状態の表現 | 何であるか |
-| `-types.ts` | 同じ責務に属する補助型集合 | どの型を一緒に使うか |
+| `types.ts` | 宣言した責務別範囲に閉じる型専用集合 | どの型を一緒に使うか |
 | `-store.ts` | 状態またはDataの保持、永続化および取得 | 何を保持するか |
 | `-policy.ts` | Rule、Authority、選択、許可または適用判断 | 何を判断するか |
 | `-adapter.ts` | 外部System、Platform、Providerまたは別Capabilityとの境界変換 | 何と接続するか |
 | `-factory.ts` | 実装選択、Dependency Injectionまたは複数Dependencyの組立て | どう生成するか |
 
-`-types.ts`は責務名を前置し、同じ変更理由と利用側を持つ補助型だけに限定する。裸の`types.ts`、複数責務を跨ぐ型集積および独立したDomain概念の退避先として使用してはならない（MUST NOT）。独立した意味を持つ概念は`-model.ts`または責務を直接表す具体名を使用する。
+型専用Fileの責務名は所有Directoryまたは宣言した公開契約で示し、同じ責務の`types.ts`へ置く。複数責務を跨ぐ型集積、実行値・実処理の混在、およびOwner不明の退避先として使用してはならない（MUST NOT）。`-types.ts`は移管前の名称として扱い、型の意味や公開Symbolを変えずに責務別配置へ移行する。実行時処理も所有する独立した概念は`-model.ts`または責務を直接表す具体名を使用する。
 
 `-store.ts`はMemory、FilesystemまたはDatabaseという永続化方式ではなく、保持責務によって判断する。登録、索引または検索が主目的でも保持責務を所有する場合は、新しい標準Suffixとして`-registry.ts`を増やす前に`-store.ts`への統合を検討する。`-factory.ts`は単純なObject生成関数が存在するだけでは使用せず、生成判断が独立した責務を持つ場合だけ使用する。
 
@@ -525,7 +525,7 @@ Rust等の言語またはFrameworkの標準配置を維持する場合は、物�
 - Rust sourceは固定toolchainの`rustfmt --check`、rustc、Clippy Warning拒否、`cargo test --locked`、locked buildおよび固定`llvm-tools-preview`によるcoverageで検査する。stable toolchainがbranch mappingを生成せず分母0を返す場合は率へ換算せず`Not Available`とし、region／function／line実測とセキュリティ判断上の検証義務を別の確認として記録する。coverage runnerは実Directoryとして検証したcrate直下の`target`へrun固有Directoryを作り、既存treeを削除または再利用しない。
 - CheckerとCoordinatorのprivate packageが所有する`lint`は、Repository rootのBiome設定を`--error-on-warnings`付きで実行し、Warningが1件以上ある場合は各packageの`check`を失敗させる。Infoはこの継続Gateの失敗条件ではなく、固定版ごとの検証結果として区別する。
 - Checker packageの命名contract testは、ファイル／フォルダの検査母集団を`40_Develop/**`と`template/tools/**`の全Pathとし、未知のsubfolderまたは後続packageも同じ規則へ含める。型付き識別子の検査母集団は、固定TypeScript 7.0.2でCRDD所有の全TypeScript packageが宣言する`tsconfig*.json`から取得する。現在の対象はartifact-signing、checker、coordinator、crdd-domain-library、cros、execution-intelligence、mcp、official-asset-governance、project-operation、project-runtime、runtime-data、semantic-coverage、verification-runnerおよびversion-controlである。実Pathで重複を除いたproject source集合と両Path配下のTypeScript実ファイル集合を完全一致させ、固定件数を母集団Identityの代用にせず、未所属source、project外実体、symbolic link、取得不能または未分類構文を成功扱いにしない。各packageの再生成可能な依存Directoryである`node_modules`はRepository Rootの`.gitignore`で全階層を既定除外し、lockfileだけを追跡する。Checker試験runnerはpackage root以下の`.test.ts`をnested folderまで安全に再帰列挙し、正規化したrelative Pathのordinal順で実行する。root外解決、重複または大文字小文字だけが異なるPath、symbolic link／junction、未対応entryを拒否し、`node_modules`はexact名かつ実Directoryと確認できた場合だけ除外する。runner列挙集合と`40_Develop/checker/tsconfig.json`が所有するChecker試験集合を件数ではなくPathの完全一致で検査し、0件、欠落または余剰を成功扱いにしない。Rust sourceは`40_Develop/platform-access/src/**`と`40_Develop/platform-access/tests/**`の閉集合として別に扱い、固定件数ではなく許可Rootへの包含と空集合拒否を確認し、TypeScript projectへ算入しない。型から完全判定できない動詞句、責務名および自然言語上の妥当性は独立reviewで確認し、機械検査だけを規約全体の完全証明としない。
-- 同じ命名contract testは、曖昧なSource File名、裸の`types.ts`、公開`index.ts`のPackage Headerおよび無名Barrel Exportも全母集団へ検査する。Git管理から除外した再生成可能な依存Directory `node_modules`とBrowser Build出力Directory `dist`はSource母集団へ含めず、Sourceと生成JavaScriptを二重検査しない。公開Header本文の意味、`@trace`が示す設計との一致、条件付きtagの十分性および非公開Symbolの公開漏れは、機械検査の成功だけで成立済みとせず独立reviewで確認する。
+- 同じ命名contract testは、曖昧なSource File名、型専用Fileの`types.ts`命名と実行値・実処理の非混在、公開`index.ts`のPackage Headerおよび無名Barrel Exportを全母集団へ検査する。責務別配置と無関係な型集積の不存在はArchitectureとの照合・独立reviewでも確認する。Git管理から除外した再生成可能な依存Directory `node_modules`とBrowser Build出力Directory `dist`はSource母集団へ含めず、Sourceと生成JavaScriptを二重検査しない。公開Header本文の意味、`@trace`が示す設計との一致、条件付きtagの十分性および非公開Symbolの公開漏れは、機械検査の成功だけで成立済みとせず独立reviewで確認する。CHG-000082の責務再編では実検査と全Sourceの追従を段階5で行い、それまでは新しい型配置規約の検査実装済み・全体成功と表示しない。
 - `template/tools/**`の実行入口は、その入口を実装する責務の型検査Projectへexactに一度だけ所属させる。Checker入口`template/tools/crdd-check.ts`は`40_Develop/checker/tsconfig.json`が所有する。Coordinator入口`template/tools/crdd-coordinator.ts`とMCP入口`template/tools/crdd-mcp.ts`は、配布対象を増やさない`40_Develop/checker/template-tools-tsconfig.json`が所有し、通常のChecker source projectへ混在させない。新しい入口を追加する場合は、実体の追加と同じ変更で所有Projectを明示し、未所属または複数Projectへの重複所属を許可しない。
 - Runtime実行Identityへ含めるDirectoryには、実行時に読み取る設定、Policy、Schema、Native成果物その他の実依存だけを置く。設計対応、試験台帳、Coverage、監査入力その他の検証専用投影は`07_Quality`へ置き、実行時Directoryへ混在させない。配布Toolであることだけを理由にCoordinatorのRuntime実行Identityへ含めず、公開入口または正式な署名・検証入口から到達する依存閉包で判定する。誤配置を是正して実行集合が変わる場合は、その一回のIdentity変更を検証し、以後の文書・検証投影更新がRuntime再署名を発火しないことを確認する。
 - 型検査、Lint、Formatter、Coordinator試験、Checker試験およびRepository全体Checkerを別の合否軸として維持する。
