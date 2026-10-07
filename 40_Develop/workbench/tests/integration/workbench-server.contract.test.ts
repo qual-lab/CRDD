@@ -41,7 +41,7 @@ import {
   createAiProfileCatalogAdministration,
   createAiProfileCatalogRegistry,
   createRepositoryAiProfileCatalogStore,
-} from "../../../ai-runtime/src/index.ts";
+} from "../../../ai-adapter/src/profile/index.ts";
 import {
   createTaskAttemptSettledEvent,
   usageNotObserved,

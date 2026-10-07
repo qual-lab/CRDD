@@ -269,7 +269,7 @@ async function runNativeTerminalNamespace(): Promise<void> {
     const child = spawn(
       binary,
       [
-        "windows::terminal::tests::terminal_namespace_fixture",
+        "filesystem::host_record::tests::terminal_namespace_fixture",
         "--exact",
         "--ignored",
         "--nocapture",

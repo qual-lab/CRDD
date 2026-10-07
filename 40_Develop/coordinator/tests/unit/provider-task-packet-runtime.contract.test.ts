@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
 import { createSignedGeneralTaskVerificationRequest } from "../../scripts/verify-signed-general-task.ts";
-import { planClaudeIsolatedTask } from "../../src/provider/claude-execution-plan.ts";
+import { planClaudeIsolatedTask } from "../../../ai-adapter/src/claude/index.ts";
 
 import {
   cleanupOwnedOperationDirectories,

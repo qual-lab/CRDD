@@ -7,7 +7,7 @@
 import { createHash } from "node:crypto";
 
 import { decodeCanonicalAuthorityRegistryBytes } from "./authority-grant-verifier.ts";
-import { snapshotPlainRecord } from "../plain-data-snapshot.ts";
+import { snapshotPlainRecord } from "../../../domain-model/src/plain-data/index.ts";
 import { PROVIDER_INPUT_LIMITS } from "../provider/provider-isolation-profile.ts";
 
 export const AUTHORITY_TRUST_POLICY_CONTRACT =

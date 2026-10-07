@@ -18,7 +18,7 @@ import { verifyOwnedOperationManagementCapability } from "../host-runtime/execut
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "../plain-data-snapshot.ts";
+} from "../../../domain-model/src/plain-data/index.ts";
 import {
   inspectFixedDevelopmentCoordinatorPackageCandidate,
   inspectVerifiedNativeDistributionCandidate,

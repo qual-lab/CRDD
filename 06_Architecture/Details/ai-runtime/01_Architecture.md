@@ -9,7 +9,7 @@
 
 AI Adapterは、Adapter、Model、Profileの構成契約とProvider固有の起動・認証方式・結果変換を所有する。実装は旧`ai-runtime`とCoordinator内のProvider固有差を`ai-adapter`へ統合する。任意実行Path・任意CLI引数・秘密値をCatalogへ持たず、実行Authorityの発行、Docker／Processの所有、外部送信許可と共通の回収判定はCoordinatorに残す。
 
-新配置のSource接続は未実施である。既存Profile能力と旧Production Compositionの成立範囲を保持し、再編後の接続・実境界確認と区別する。
+Profile管理、Provider計画・CLI固有引数・認証方式・構造化結果のSourceは`ai-adapter`へ接続済みである。Coordinatorには、AI Adapter記述とMount・Egress・選定Identity・実行Capabilityを結ぶ共通実行組立てが残り、段階5Cで統合する。Source移管の局所成立と、再編後の署名・実Provider境界の未評価を区別する。再編の進捗と検証結果は[CHG-000082の移管計画](../../../99_Roadmap/Changes/CHG-000082/Evidence/261007_develop-responsibility-mapping.md)で追跡する。
 
 | Architecture定義 | この領域が具体化する責務 | Relation状態 |
 |---|---|---|
@@ -144,6 +144,8 @@ CROS設定 ────────────┼─→ 設定Adapter ─→ AI
 ├ index.ts             共通のProfile・計画・結果契約
 ├ catalog/             Catalog検証、一意解決、既定JSON
 ├ profile/             Owner別設定Store、登録・編集・削除
+├ advice/              助言CLI計画・Provider出力変換。共通結果Schemaは呼出し側から受け取る
+├ output/              曖昧でないJSON解析とTask EnvelopeのProvider差変換
 ├ codex/               公式Codexの計画・認証方式・出力変換
 └ claude/              Claude Codeの計画・認証方式・出力変換
 ```
@@ -155,11 +157,16 @@ DirectoryはProviderまたは具体責務を表し、`internal/`、`application/
 | `validateAiProfileCatalog`、`resolveAiProfile`、`resolveAiProfileById`、`evaluateAiProfileAvailability` | `catalog/index.ts` | 明示Snapshot・条件・独立した観測軸／検証・一意解決・利用可能性 | 純粋処理。unknownを実行可能へ補正せず、Authorityを発行しない |
 | `createAiProfileCatalogRegistry`、`createAiProfileCatalogAdministration`、Owner別Store生成 | `profile/index.ts` | 期待Revision、登録済みAdapter／Model、明示管理操作／採用Snapshot・競合拒否 | 許可Ownerの設定だけ保存。CROS管理権限とContent Accessを分離し、秘密や任意実行入口を受理しない |
 | `planCodexReadOnlyProbe`、`planCodexIsolatedTask` | `codex/index.ts` | Mode、Role、effort等の固定入力／固定公式CLIの起動計画 | 外部Effectなし。計画はcandidateであり、起動・外部送信・Mount Authorityを含まない |
-| `planClaudeReadOnlyProbe`、`planClaudeIsolatedTask`、`planClaudeTaskTurnBudget` | `claude/index.ts` | Mode、Role、Task予算／固定CLI計画・Turn予算 | 外部Effectなし。Turn完了とProcess終了・資源不存在を同一視しない |
+| `planClaudeReadOnlyProbe`、`planClaudeIsolatedTask`、`planClaudeTaskTurnBudget`、`buildClaudeExecutionArguments` | `claude/index.ts` | Mode、Role、Task予算、照合済みModel・effort／固定CLI計画・Turn予算・完成argv | 外部Effectなし。Model受理と選定IdentityはCoordinator、Claude固有オプションと固定argv順序はAI Adapter。Turn完了とProcess終了・資源不存在を同一視しない |
 | `normalizeCodexStructuredResult`、`normalizeClaudeStructuredResult` | 各Providerの`index.ts` | 対応固定CLIの出力Envelope／共通の構造化入力または拒否 | 生出力を公開しない。候補採否・共通Task判定・是正Capabilityの発行はCoordinator |
+| `parseUnambiguousJsonDocument` | `output/index.ts` | 未信頼JSON文字列／構造化値または拒否 | 重複key、不正文法、BOM、末尾データを拒否する純粋解析。Codex・Claude・助言から共有し、Provider固有入口を経由しない |
+| `extractProviderTaskEnvelope` | `output/index.ts` | Provider、Role、受理Turn上限、CLI出力／構造化入力・固定拒否理由・本文非公開の実行観測 | Codex JSONL、Claude Result・Turns・Usageの解釈だけを所有する。共通Schema、Reviewer判断、Remediation Capability、実Process終了・cleanup判定はCoordinator |
+| `evaluateProviderEligibility` | `index.ts`から`profile/eligibility.ts`へ接続 | Capability、認証、Quota、公式配布、Policyの五軸観測／利用可能性候補 | 観測取得はCoordinatorが所有する。欠落・不正・未観測を確認済みへ補正せず、実行直前確認の候補を認証成立・実行Authorityへ昇格しない |
+| `providerProfileSupportsExecution`、`providerProfileMatchesExecutionIdentity` | 共通入口から`profile/profile-execution.ts`へ接続 | 解決済みProfile、呼出し側の必要Role、明示実行Identity／Subscription条件とexact一致の真偽 | 純粋な既存条件の照合。Task対応、Catalog改訂・Hash・Prompt検査、実行条件、Executor呼出しと取消・回収はCoordinator。真偽値を認証成立や送信Authorityとしない |
+| `normalizeProviderExactModelId`、`prepareProviderFixedEnvironment` | 共通入口から`profile/profile-execution.ts`、`profile/provider-environment.ts`へ接続 | Model文字列、Providerと固定CLI環境／構文一致値・順序付き環境組またはnull | Provider禁止名と値を一回取得して検査する。Docker引数化、Proxy値、Mount、Prepared Capability、取消・回収はCoordinator。構文一致を提供Modelや実行権限の成立としない |
 | `planWorkbenchAiAdviceProviderCommand` | 共通入口から対応Providerの計画関数へ直接分岐 | exact Profile Identity／Provider別の助言コマンド計画 | Promptはstdin用。任意argv、API-key・有料APIへのFallbackを追加しない |
 | `extractWorkbenchAiAdviceProviderOutput` | 共通入口から対応Providerの変換関数へ直接分岐 | Provider、固定CLI stdout／助言JSONまたは閉じた拒否理由 | Providerの通知分類・Envelope差だけを処理。共通助言Schema・開示範囲・採用判断はCoordinator |
-| Provider認証方式・Probe計画・Provider固有終了解釈 | 各Providerの用途限定公開入口 | 固定配布物・認証方式・観測／検証済み計画と分類 | 秘密値は既存専用Homeに残す。実Home観測、対話Process、Docker、Lock・回復記録はCoordinator／Native |
+| Provider認証方式・Probe計画・Provider固有終了解釈 | 各Providerの用途限定公開入口 | Codexのlogin status／CODEX_HOME、Claudeのlogin／status・固定認証環境、Provider別禁止環境変数／固定記述と分類 | 秘密値は既存専用Homeに残す。実Home観測、対話Process、Docker、Lock・回復記録はCoordinator／Native。記述自体を認証確認済みとしない |
 
 Contract文字列、改訂値、理由値、固定CLI配布IdentityはFolder改名だけで変更しない。計画・変換が混在する既存Fileは責務単位で分割し、共通Packet／GrantをProvider側へ移さない。新Providerを予測したPlugin Registryや動的実行Frameworkは作らず、現在のCodex／Claudeの二つ目の具象から共通契約を固定する。
 

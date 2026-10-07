@@ -9,7 +9,7 @@ import { types as utilTypes } from "node:util";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "../plain-data-snapshot.ts";
+} from "../../../domain-model/src/plain-data/index.ts";
 import {
   PLATFORM_ACCESS_EXECUTABLE_MAXIMUM_BYTES,
   PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,

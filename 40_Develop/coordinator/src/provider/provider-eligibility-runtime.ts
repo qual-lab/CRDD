@@ -4,26 +4,11 @@
  * @responsibility Providerを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000010
  */
-import { snapshotPlainRecord } from "../plain-data-snapshot.ts";
+import { evaluateProviderEligibility } from "../../../ai-adapter/src/index.ts";
 
 export const PROVIDER_ELIGIBILITY_RUNTIME_CONTRACT =
   "crdd-coordinator/provider-eligibility-runtime";
 export const PROVIDER_ELIGIBILITY_RUNTIME_CONTRACT_REVISION = 4;
-
-const OBSERVATION_KEYS = new Set([
-  "requiredCapability",
-  "subscriptionAuth",
-  "subscriptionQuota",
-  "officialDistribution",
-  "policy",
-]);
-const OBSERVATION_STATES = new Set([
-  "confirmed",
-  "runtime_preflight_required",
-  "bounded_request_check",
-  "unavailable",
-  "unknown",
-]);
 
 /**
  * provider-eligibility-runtimeで使用するProviderの値契約を定義する。
@@ -38,41 +23,6 @@ const OBSERVATION_STATES = new Set([
  */
 type Provider = "codex" | "claude";
 /**
- * provider-eligibility-runtimeで使用するObservation 状態の値契約を定義する。
- *
- * @responsibility Observation 状態のProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000010
- * @shape ObservationStateが表すProperty、識別子およびRelationを型として固定する。
- * @invariant ObservationStateで宣言した値と責務の対応を維持する。
- * @boundary N/A: ObservationStateの宣言は外部境界を開かない。
- * @security ObservationStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility ObservationStateの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type ObservationState =
-  | "confirmed"
-  | "runtime_preflight_required"
-  | "bounded_request_check"
-  | "unavailable"
-  | "unknown";
-/**
- * provider-eligibility-runtimeで使用するProvider Observationの値契約を定義する。
- *
- * @responsibility Provider ObservationのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000010
- * @shape ProviderObservationが表すProperty、識別子およびRelationを型として固定する。
- * @invariant ProviderObservationで宣言した値と責務の対応を維持する。
- * @boundary N/A: ProviderObservationの宣言は外部境界を開かない。
- * @security ProviderObservationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility ProviderObservationの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type ProviderObservation = Readonly<{
-  requiredCapability: ObservationState;
-  subscriptionAuth: ObservationState;
-  subscriptionQuota: ObservationState;
-  officialDistribution: ObservationState;
-  policy: ObservationState;
-}>;
-/**
  * provider-eligibility-runtimeで使用するRuntime Dependenciesの値契約を定義する。
  *
  * @responsibility Runtime DependenciesのProperty、Identity、状態制約を型境界として所有する。
@@ -86,148 +36,6 @@ type ProviderObservation = Readonly<{
 type RuntimeDependencies = Readonly<{
   observeProvider: (provider: Provider) => unknown;
 }>;
-
-/**
- * Provider Observationを所有Snapshotへ変換する。
- *
- * @responsibility Provider Observationの取得範囲、plain-data制約、拒否境界を所有する。
- * @trace ARCH-000010
- * @input rawObservation: unknown
- * @returns snapshotProviderObservationの計算結果を返す。
- * @precondition 「rawObservation: unknown」がsnapshotProviderObservationの入力契約を満たす。
- * @postcondition snapshotProviderObservationの責務を完了した結果だけを返す。
- * @effect N/A: snapshotProviderObservationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: snapshotProviderObservationは独自の失敗分岐を所有しない。
- * @invariant snapshotProviderObservationは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: snapshotProviderObservationはProcess内の同一Subsystemで完結する。
- * @security snapshotProviderObservationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: snapshotProviderObservationは共有非同期状態を持たない同期処理である。
- */
-function snapshotProviderObservation(rawObservation: unknown) {
-  const observation = snapshotPlainRecord(rawObservation, OBSERVATION_KEYS);
-  if (
-    !observation ||
-    !OBSERVATION_STATES.has(observation.requiredCapability as string) ||
-    !OBSERVATION_STATES.has(observation.subscriptionAuth as string) ||
-    !OBSERVATION_STATES.has(observation.subscriptionQuota as string) ||
-    !OBSERVATION_STATES.has(observation.officialDistribution as string) ||
-    !OBSERVATION_STATES.has(observation.policy as string)
-  ) {
-    return null;
-  }
-  return Object.freeze({
-    requiredCapability: observation.requiredCapability as ObservationState,
-    subscriptionAuth: observation.subscriptionAuth as ObservationState,
-    subscriptionQuota: observation.subscriptionQuota as ObservationState,
-    officialDistribution: observation.officialDistribution as ObservationState,
-    policy: observation.policy as ObservationState,
-  });
-}
-
-/**
- * Eligibilityを構築する。
- *
- * @responsibility Eligibilityの構築入力、生成結果、不正入力の拒否境界を所有する。
- * @trace ARCH-000010
- * @input provider: Provider、observation: ProviderObservation | null
- * @returns createEligibilityの計算結果を返す。
- * @precondition 「provider: Provider、observation: ProviderObservation | null」がcreateEligibilityの入力契約を満たす。
- * @postcondition createEligibilityの責務を完了した結果だけを返す。
- * @effect N/A: createEligibilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: createEligibilityは独自の失敗分岐を所有しない。
- * @invariant createEligibilityは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: createEligibilityはProcess内の同一Subsystemで完結する。
- * @security createEligibilityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: createEligibilityは共有非同期状態を持たない同期処理である。
- */
-function createEligibility(
-  provider: Provider,
-  observation: ProviderObservation | null,
-) {
-  if (!observation) {
-    return Object.freeze({
-      provider,
-      status: "ineligible" as const,
-      reason: "observation_unavailable" as const,
-    });
-  }
-  if (observation.requiredCapability === "unavailable") {
-    return Object.freeze({
-      provider,
-      status: "ineligible" as const,
-      reason: "required_capability_unavailable" as const,
-    });
-  }
-  if (observation.subscriptionAuth === "unavailable") {
-    return Object.freeze({
-      provider,
-      status: "ineligible" as const,
-      reason: "subscription_auth_unavailable" as const,
-    });
-  }
-  if (observation.subscriptionQuota === "unavailable") {
-    return Object.freeze({
-      provider,
-      status: "ineligible" as const,
-      reason: "subscription_quota_unavailable" as const,
-    });
-  }
-  if (observation.officialDistribution === "unavailable") {
-    return Object.freeze({
-      provider,
-      status: "ineligible" as const,
-      reason: "provider_distribution_unavailable" as const,
-    });
-  }
-  if (observation.policy === "unavailable") {
-    return Object.freeze({
-      provider,
-      status: "ineligible" as const,
-      reason: "policy_blocked" as const,
-    });
-  }
-  if (
-    observation.requiredCapability === "confirmed" &&
-    ["confirmed", "runtime_preflight_required"].includes(
-      observation.officialDistribution,
-    ) &&
-    ["confirmed", "runtime_preflight_required"].includes(observation.policy) &&
-    ["confirmed", "runtime_preflight_required"].includes(
-      observation.subscriptionAuth,
-    ) &&
-    ["confirmed", "bounded_request_check"].includes(
-      observation.subscriptionQuota,
-    ) &&
-    (observation.subscriptionAuth === "runtime_preflight_required" ||
-      observation.subscriptionQuota === "bounded_request_check" ||
-      observation.officialDistribution === "runtime_preflight_required" ||
-      observation.policy === "runtime_preflight_required")
-  ) {
-    return Object.freeze({
-      provider,
-      status: "eligible" as const,
-      reason: "runtime_preflight_required" as const,
-    });
-  }
-  if (
-    observation.requiredCapability !== "confirmed" ||
-    observation.subscriptionAuth !== "confirmed" ||
-    observation.subscriptionQuota !== "confirmed" ||
-    observation.officialDistribution !== "confirmed" ||
-    observation.policy !== "confirmed"
-  ) {
-    return Object.freeze({
-      provider,
-      status: "ineligible" as const,
-      reason: "observation_unavailable" as const,
-    });
-  }
-  return Object.freeze({
-    provider,
-    status: "eligible" as const,
-    reason: "ready" as const,
-  });
-}
 
 /**
  * Eligibilityを観測する。
@@ -248,12 +56,12 @@ function createEligibility(
 function observeEligibility(dependencies: RuntimeDependencies) {
   const observe = (provider: Provider) => {
     try {
-      return createEligibility(
+      return evaluateProviderEligibility(
         provider,
-        snapshotProviderObservation(dependencies.observeProvider(provider)),
+        dependencies.observeProvider(provider),
       );
     } catch {
-      return createEligibility(provider, null);
+      return evaluateProviderEligibility(provider, null);
     }
   };
   return Object.freeze([observe("codex"), observe("claude")]);

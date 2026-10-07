@@ -72,7 +72,7 @@ import {
   type AiProfileDefinition,
   type AiReasoningEffort,
   type AiSelectionRole,
-} from "../../ai-runtime/src/index.ts";
+} from "../../ai-adapter/src/profile/index.ts";
 import {
   createDefaultWorkbenchAiProfileSurface,
   createWorkbenchAiProfileSurface,

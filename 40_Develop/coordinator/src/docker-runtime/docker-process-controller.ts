@@ -9,12 +9,10 @@ import type { Writable } from "node:stream";
 import { types as utilTypes } from "node:util";
 
 import { consumeRuntimeOwnedClaudeDockerPlanForProcessController } from "../provider/claude-docker-runtime-adapter.ts";
-import {
-  normalizeClaudeStructuredResult,
-  parseUnambiguousJsonDocument,
-} from "../provider/claude-structured-result.ts";
+import { normalizeClaudeStructuredResult } from "../../../ai-adapter/src/claude/index.ts";
+import { parseUnambiguousJsonDocument } from "../../../ai-adapter/src/output/index.ts";
 import { consumeRuntimeOwnedCodexDockerPlanForProcessController } from "../provider/codex-docker-runtime-adapter.ts";
-import { normalizeCodexStructuredResult } from "../provider/codex-structured-result.ts";
+import { normalizeCodexStructuredResult } from "../../../ai-adapter/src/codex/index.ts";
 import {
   cleanupRuntimeOwnedDockerResources,
   startRuntimeOwnedDockerCommand,
@@ -42,7 +40,7 @@ import { consumeRuntimeOwnedProviderAuthority } from "../provider/provider-autho
 import { completeRuntimeOwnedProviderHomeMount } from "../provider/provider-home-mount-grant-runtime.ts";
 import { normalizeProviderTaskStructuredResult } from "../provider/provider-task-structured-result.ts";
 import { verifyRuntimeOwnedRepositoryOperation } from "../repository-operation/repository-operation-runtime.ts";
-import { extractWorkbenchAiAdviceProviderOutput } from "../workbench-ai/workbench-ai-advice-provider-output.ts";
+import { extractWorkbenchAiAdviceProviderOutput } from "../../../ai-adapter/src/index.ts";
 
 export const DOCKER_PROCESS_CONTROLLER_CONTRACT =
   "crdd-coordinator/docker-process-controller";

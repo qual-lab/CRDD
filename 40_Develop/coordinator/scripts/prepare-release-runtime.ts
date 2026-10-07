@@ -27,7 +27,7 @@ import {
   type VerifiedRepositoryRoot,
 } from "../../version-control/src/repository-location.ts";
 import { PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH } from "../src/diagnostics/platform-access-release.ts";
-import { snapshotPlainRecord } from "../src/plain-data-snapshot.ts";
+import { snapshotPlainRecord } from "../../domain-model/src/plain-data/index.ts";
 import { inspectRuntimeDistributionSigningFilesCandidate } from "../src/platform-access/platform-provisioner-package-filesystem.ts";
 import { inspectPlatformProvisionerRuntimeGitProvenanceCandidate } from "../src/platform-access/platform-provisioner-release-identity.ts";
 

@@ -15,7 +15,7 @@ import {
   resolveAiProfileById,
   type AiProfileCatalogStore,
   type AiProfileCatalogSnapshot,
-} from "../../../ai-runtime/src/index.ts";
+} from "../../../ai-adapter/src/index.ts";
 import { gitRepositoryRevisionAdapter } from "../../../version-control/src/git/fixed-revision-adapter.ts";
 import {
   resolveVerifiedRepositoryRoot,

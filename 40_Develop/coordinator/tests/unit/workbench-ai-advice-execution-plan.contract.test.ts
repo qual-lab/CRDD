@@ -14,8 +14,8 @@ import test from "node:test";
 import {
   DEFAULT_AI_PROFILE_CATALOG,
   resolveAiProfileById,
-} from "../../../ai-runtime/src/catalog.ts";
-import type { ResolvedAiProfileIdentity } from "../../../ai-runtime/src/ai-profile-types.ts";
+} from "../../../ai-adapter/src/catalog/catalog.ts";
+import type { ResolvedAiProfileIdentity } from "../../../ai-adapter/src/catalog/types.ts";
 import type { WorkbenchAiProviderExecutionInput } from "../../src/workbench-ai/workbench-ai-advice-execution-plan.ts";
 import { prepareWorkbenchAiAdviceExecutionPlan } from "../../src/workbench-ai/workbench-ai-advice-execution-plan.ts";
 

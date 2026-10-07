@@ -19,7 +19,7 @@ import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { renderDockerRecoveryDoctorReport } from "../../src/diagnostics/docker-recovery-command-report.ts";
 import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "../../src/host-runtime/candidate-store-kernel-lock.ts";
-import { describeCodexAdviceDistributionIdentity } from "../../src/provider/codex-advice-distribution.ts";
+import { describeCodexAdviceDistributionIdentity } from "../../../ai-adapter/src/codex/index.ts";
 import {
   dockerRecoveryCommitName,
   inspectDockerRecoveryJournalDirectory,

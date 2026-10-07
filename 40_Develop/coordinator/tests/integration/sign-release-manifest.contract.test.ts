@@ -372,7 +372,7 @@ function uniqueReleaseCandidate(prefix: string, fixedSignature = false) {
 function runtimeDistributionFixture(prefix: string, fixedSignature = false) {
   const distributionRoot = uniqueReleaseCandidate(prefix, fixedSignature);
   for (const component of [
-    "ai-runtime",
+    "ai-adapter",
     "artifact-signing",
     "coordinator",
     "cros",

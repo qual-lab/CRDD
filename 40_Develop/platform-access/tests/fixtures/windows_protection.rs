@@ -9,6 +9,8 @@
 //! @boundary Node所有診断→Native試験Process→Windows Filesystem／handle／別Process。既定実行しない。
 
 use super::*;
+use crate::filesystem::protection::security_descriptor;
+use crate::protocol::access::FileIdentity;
 use std::fs;
 use std::io::{Read, Write};
 use std::os::windows::io::{FromRawHandle, IntoRawHandle};
@@ -281,7 +283,7 @@ fn protection_fixture_context() -> Result<
 /// @cleanup 既存OwnedChildの終端処理を使い、不明ではfixture清掃と次Workerを許可しない。Job等の全handle checked-closeは主張しない。
 /// @boundary 親Native試験Process→Windows Job→同利用者の別Native試験Process。
 fn run_protection_probe_worker(role: &str, cutoff: u64) -> Result<(), &'static str> {
-    use crate::windows_owned_child::{Completion, OwnedChild};
+    use crate::process::owned_child::{Completion, OwnedChild};
     let expected_exit = match role {
         "held" => 71,
         "released" => 72,
@@ -293,7 +295,7 @@ fn run_protection_probe_worker(role: &str, cutoff: u64) -> Result<(), &'static s
         return Err("worker_start_cutoff");
     }
     let command = format!(
-        "\"{}\" --exact windows::protection_tests::terminal_protection_fixture_worker --ignored --nocapture --test-threads=1",
+        "\"{}\" --exact filesystem::host_record::protection_tests::terminal_protection_fixture_worker --ignored --nocapture --test-threads=1",
         executable.display()
     );
     let environment = format!(

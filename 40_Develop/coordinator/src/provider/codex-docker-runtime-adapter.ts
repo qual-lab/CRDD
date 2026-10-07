@@ -4,14 +4,37 @@
  * @responsibility OperationBindingを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000015
  */
+import {
+  buildProviderDockerCommandPlan,
+  createProviderDockerMount,
+} from "../docker-runtime/provider-docker-command-plan.ts";
+import type { ProviderDockerCommand as Command } from "../docker-runtime/types.ts";
+import {
+  createProviderDockerRandomHex,
+  createProviderDockerResourceNames,
+} from "../docker-runtime/provider-docker-resource-plan.ts";
+import {
+  prepareProviderDockerCandidate,
+  createIsolatedProviderDockerPreparationAdapter,
+} from "../docker-runtime/provider-docker-preparation.ts";
 import { randomBytes } from "node:crypto";
+import {
+  cancelProviderDockerPreparation,
+  consumeProviderDockerPreparation,
+  PROVIDER_PREPARATION_LIFETIME_MS,
+} from "../docker-runtime/provider-preparation-lifecycle.ts";
+import {
+  normalizeProviderExactModelId,
+  prepareProviderFixedEnvironment,
+} from "../../../ai-adapter/src/index.ts";
 import { performance } from "node:perf_hooks";
 
-import { codexAdviceProviderInitRequired } from "./codex-advice-distribution.ts";
+import { codexAdviceProviderInitRequired } from "../../../ai-adapter/src/codex/index.ts";
 import {
   planCodexIsolatedTask,
   planCodexReadOnlyProbe,
-} from "./codex-execution-plan.ts";
+  describeCodexSubscriptionAuthenticationCli,
+} from "../../../ai-adapter/src/codex/index.ts";
 import { resolveFixedCodexExecutorSeccompProfile } from "./codex-executor-seccomp.ts";
 import { consumeRuntimeOwnedDelegationSelectionGrant } from "./delegation-selection-grant-runtime.ts";
 import { describeEgressProxyTopology } from "../external-send/egress-proxy-policy.ts";
@@ -39,22 +62,10 @@ export const CODEX_DOCKER_RUNTIME_ADAPTER_CONTRACT =
   "crdd-coordinator/codex-docker-runtime-adapter";
 export const CODEX_DOCKER_RUNTIME_ADAPTER_CONTRACT_REVISION = 8;
 
-const PREPARED_LIFETIME_MS = 30_000;
 const PROVIDER_HOME_DESTINATION = "/provider-home";
 const TMP_DESTINATION = "/tmp";
 const WORKSPACE_DESTINATION = "/work";
-const MAXIMUM_IDENTIFIER_LENGTH = 63;
-const FORBIDDEN_ENVIRONMENT_NAMES = new Set([
-  "OPENAI_API_KEY",
-  "CODEX_API_KEY",
-  "OPENAI_BASE_URL",
-  "OPENAI_ORG_ID",
-  "OPENAI_PROJECT_ID",
-  "HTTPS_PROXY",
-  "HTTP_PROXY",
-  "ALL_PROXY",
-  "NO_PROXY",
-]);
+const authenticationCli = describeCodexSubscriptionAuthenticationCli();
 
 /**
  * codex-docker-runtime-adapterで使用するOperation Bindingの値契約を定義する。
@@ -71,22 +82,6 @@ type OperationBinding = Readonly<{
   operationId: string;
   createdAt: string;
   mounts: OwnedMountPaths;
-}>;
-
-/**
- * codex-docker-runtime-adapterで使用するCommandの値契約を定義する。
- *
- * @responsibility CommandのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000015
- * @shape Commandが表すProperty、識別子およびRelationを型として固定する。
- * @invariant Commandで宣言した値と責務の対応を維持する。
- * @boundary N/A: Commandの宣言は外部境界を開かない。
- * @security CommandはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility Commandの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type Command = Readonly<{
-  purpose: string;
-  argv: readonly string[];
 }>;
 
 /**
@@ -379,131 +374,6 @@ function performSafely<T>(reason: string, action: () => T) {
 }
 
 /**
- * Random Hexを構築する。
- *
- * @responsibility Random Hexの構築入力、生成結果、不正入力の拒否境界を所有する。
- * @trace ARCH-000015
- * @input state: RuntimeState、bytes: number
- * @returns createRandomHexの計算結果を返す。
- * @precondition 「state: RuntimeState、bytes: number」がcreateRandomHexの入力契約を満たす。
- * @postcondition createRandomHexの責務を完了した結果だけを返す。
- * @effect N/A: createRandomHexは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: createRandomHexは独自の失敗分岐を所有しない。
- * @invariant createRandomHexは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security createRandomHexはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: createRandomHexは共有非同期状態を持たない同期処理である。
- */
-function createRandomHex(state: RuntimeState, bytes: number) {
-  const value = state.randomBytes(bytes);
-  return Buffer.isBuffer(value) && value.byteLength === bytes
-    ? value.toString("hex")
-    : null;
-}
-
-/**
- * Safe Mountを構築する。
- *
- * @responsibility Safe Mountの構築入力、生成結果、不正入力の拒否境界を所有する。
- * @trace ARCH-000015
- * @input source: string、destination: string
- * @returns createSafeMountの計算結果を返す。
- * @precondition 「source: string、destination: string」がcreateSafeMountの入力契約を満たす。
- * @postcondition createSafeMountの責務を完了した結果だけを返す。
- * @effect N/A: createSafeMountは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: createSafeMountは独自の失敗分岐を所有しない。
- * @invariant createSafeMountは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security createSafeMountはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: createSafeMountは共有非同期状態を持たない同期処理である。
- */
-function createSafeMount(source: string, destination: string) {
-  if (
-    source.length === 0 ||
-    source.includes(",") ||
-    source.includes("\0") ||
-    source.includes("\r") ||
-    source.includes("\n")
-  ) {
-    return null;
-  }
-  return `type=bind,src=${source},dst=${destination},bind-propagation=rprivate`;
-}
-
-/**
- * Commandを構築する。
- *
- * @responsibility Commandの構築入力、生成結果、不正入力の拒否境界を所有する。
- * @trace ARCH-000015
- * @input purpose: string、argv: readonly string[]
- * @returns Commandを返す。
- * @precondition 「purpose: string、argv: readonly string[]」がcreateCommandの入力契約を満たす。
- * @postcondition createCommandの責務を完了した結果だけを返す。
- * @effect N/A: createCommandは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: createCommandは独自の失敗分岐を所有しない。
- * @invariant createCommandは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security createCommandはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: createCommandは共有非同期状態を持たない同期処理である。
- */
-function createCommand(purpose: string, argv: readonly string[]): Command {
-  return Object.freeze({ purpose, argv: Object.freeze([...argv]) });
-}
-
-/**
- * Exact Fixed Environmentを構築する。
- *
- * @responsibility Exact Fixed Environmentの構築入力、生成結果、不正入力の拒否境界を所有する。
- * @trace ARCH-000015
- * @input environment: Readonly<Record<string, string>>
- * @returns buildExactFixedEnvironmentの計算結果を返す。
- * @precondition 「environment: Readonly<Record<string, string>>」がbuildExactFixedEnvironmentの入力契約を満たす。
- * @postcondition buildExactFixedEnvironmentの責務を完了した結果だけを返す。
- * @effect N/A: buildExactFixedEnvironmentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: buildExactFixedEnvironmentは独自の失敗分岐を所有しない。
- * @invariant buildExactFixedEnvironmentは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security buildExactFixedEnvironmentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: buildExactFixedEnvironmentは共有非同期状態を持たない同期処理である。
- */
-function buildExactFixedEnvironment(
-  environment: Readonly<Record<string, string>>,
-) {
-  const entries = Object.entries(environment);
-  if (
-    entries.some(
-      ([name, value]) =>
-        FORBIDDEN_ENVIRONMENT_NAMES.has(name) ||
-        typeof value !== "string" ||
-        value.includes("\0"),
-    )
-  ) {
-    return null;
-  }
-  return entries.flatMap(([name, value]) => ["--env", `${name}=${value}`]);
-}
-
-/**
- * Exact Model Idを固定Schemaへ正規化する。
- *
- * @responsibility Exact Model Idの入力検証、正規化規則、不正値の拒否境界を所有する。
- * @trace ARCH-000015
- * @input model: string
- * @returns normalizeExactModelIdの計算結果を返す。
- * @precondition 「model: string」がnormalizeExactModelIdの入力契約を満たす。
- * @postcondition normalizeExactModelIdの責務を完了した結果だけを返す。
- * @effect N/A: normalizeExactModelIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: normalizeExactModelIdは独自の失敗分岐を所有しない。
- * @invariant normalizeExactModelIdは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security normalizeExactModelIdはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: normalizeExactModelIdは共有非同期状態を持たない同期処理である。
- */
-function normalizeExactModelId(model: string) {
-  return /^[a-z0-9][a-z0-9._-]{0,127}$/.test(model) ? model : null;
-}
-
-/**
  * Planを構築する。
  *
  * @responsibility Planの構築入力、生成結果、不正入力の拒否境界を所有する。
@@ -542,7 +412,10 @@ function buildPlan(
   taskPacket: ConsumedTaskPacket | null,
   advicePacket: WorkbenchAiAdviceRuntimePacket | null,
   recoveryCorrelationId: string | null,
-) {
+): Omit<
+  PreparedPlan,
+  "authorityUseCapability" | "authorityControlCapability"
+> | null {
   const codex = taskPacket
     ? planCodexIsolatedTask({
         provider: "codex",
@@ -573,7 +446,7 @@ function buildPlan(
       consumedModelSelection.selectionRecordId,
     ) ||
     codex.status !== "candidate" ||
-    !normalizeExactModelId(consumedModelSelection.model) ||
+    !normalizeProviderExactModelId(consumedModelSelection.model) ||
     consumedModelSelection.model !==
       (advicePacket?.providerCommand.exactModelId ?? codex.exactModel) ||
     codex.provider !== "codex" ||
@@ -599,9 +472,11 @@ function buildPlan(
   ) {
     return null;
   }
-  const fixedEnvironmentEntries = buildExactFixedEnvironment(
-    advicePacket?.providerCommand.environment ?? codex.environment,
-  );
+  const fixedEnvironmentEntries =
+    prepareProviderFixedEnvironment(
+      "codex",
+      advicePacket?.providerCommand.environment ?? codex.environment,
+    )?.flatMap(([name, value]) => ["--env", `${name}=${value}`]) ?? null;
   const executorSeccompProfile =
     taskPacket?.taskRole === "executor"
       ? (
@@ -612,16 +487,19 @@ function buildPlan(
           codex.distributionBinding.identity.executorSeccompProfileBytes,
         )
       : null;
-  const providerHomeMount = createSafeMount(
+  const providerHomeMount = createProviderDockerMount(
     providerHomeSourcePath,
     PROVIDER_HOME_DESTINATION,
   );
-  const tmpMount = createSafeMount(binding.mounts.tmp, TMP_DESTINATION);
+  const tmpMount = createProviderDockerMount(
+    binding.mounts.tmp,
+    TMP_DESTINATION,
+  );
   const workspaceMount = taskPacket
-    ? createSafeMount(binding.mounts.workspace, WORKSPACE_DESTINATION)
+    ? createProviderDockerMount(binding.mounts.workspace, WORKSPACE_DESTINATION)
     : null;
-  const suffix = createRandomHex(state, 8);
-  const proxyToken = createRandomHex(state, 32);
+  const suffix = createProviderDockerRandomHex(state, 8);
+  const proxyToken = createProviderDockerRandomHex(state, 32);
   if (
     !fixedEnvironmentEntries ||
     (taskPacket?.taskRole === "executor" && !executorSeccompProfile) ||
@@ -633,25 +511,20 @@ function buildPlan(
   ) {
     return null;
   }
-  const internalNetworkName = `crdd-internal-${suffix}`;
-  const egressNetworkName = `crdd-egress-${suffix}`;
-  const proxyContainerName = `crdd-proxy-${suffix}`;
-  const authContainerName = `crdd-auth-${suffix}`;
-  if (!/^[a-f0-9]{64}$/u.test(activation.grant.providerHomeIdentityHash))
-    return null;
-  const providerContainerName = `crdd-codex-${activation.grant.providerHomeIdentityHash.slice(0, 16)}`;
-  if (
-    [
-      internalNetworkName,
-      egressNetworkName,
-      proxyContainerName,
-      authContainerName,
-      providerContainerName,
-    ].some((value) => value.length > MAXIMUM_IDENTIFIER_LENGTH)
-  ) {
-    return null;
-  }
-  const ownershipLabel = `crdd.coordinator.runtime=${suffix}`;
+  const resourceNames = createProviderDockerResourceNames(
+    "codex",
+    activation.grant.providerHomeIdentityHash,
+    suffix,
+  );
+  if (!resourceNames) return null;
+  const {
+    internalNetworkName,
+    egressNetworkName,
+    proxyContainerName,
+    authContainerName,
+    providerContainerName,
+    ownershipLabel,
+  } = resourceNames;
   const providerImageDigest =
     advicePacket?.providerCommand.fixedImageDigest ??
     codex.distributionBinding.fixedImageDigest;
@@ -672,131 +545,35 @@ function buildPlan(
     "NO_PROXY=",
     ...fixedEnvironmentEntries,
   ];
-  const commands = Object.freeze([
-    createCommand("create_subscription_auth_probe", [
-      "create",
-      "--pull=never",
-      "--network=none",
-      "--read-only",
-      "--name",
-      authContainerName,
-      "--label",
-      ownershipLabel,
-      "--cap-drop=ALL",
-      "--security-opt=no-new-privileges",
-      "--pids-limit=32",
-      "--user=65534:65534",
+  const commands = buildProviderDockerCommandPlan({
+    provider: "codex",
+    authContainerName,
+    providerContainerName,
+    proxyContainerName,
+    internalNetworkName,
+    egressNetworkName,
+    ownershipLabel,
+    providerImageDigest,
+    proxyImageDigest,
+    providerHomeMount,
+    tmpMount,
+    workspaceMount,
+    proxyToken,
+    providerEnvironmentEntries,
+    authenticationEnvironmentArguments: [
       "--env",
-      `HOME=${PROVIDER_HOME_DESTINATION}`,
-      "--env",
-      `CODEX_HOME=${PROVIDER_HOME_DESTINATION}`,
-      "--mount",
-      `${providerHomeMount},readonly`,
+      `${authenticationCli.homeEnvironmentVariable}=${PROVIDER_HOME_DESTINATION}`,
+    ],
+    authenticationArgv: authenticationCli.statusArgv,
+    providerArgv: advicePacket?.providerCommand.argv ?? codex.argv,
+    interactive: Boolean(taskPacket || advicePacket),
+    taskRole: taskPacket?.taskRole ?? null,
+    initRequired: codexAdviceProviderInitRequired(
+      advicePacket ? "workbench_advice" : "isolated_task",
       providerImageDigest,
-      "login",
-      "status",
-    ]),
-    createCommand("start_subscription_auth_probe_attached", [
-      "start",
-      "--attach",
-      authContainerName,
-    ]),
-    createCommand("create_internal_network", [
-      "network",
-      "create",
-      "--driver=bridge",
-      "--internal",
-      "--label",
-      ownershipLabel,
-      internalNetworkName,
-    ]),
-    createCommand("create_egress_network", [
-      "network",
-      "create",
-      "--driver=bridge",
-      "--label",
-      ownershipLabel,
-      egressNetworkName,
-    ]),
-    createCommand("create_proxy", [
-      "create",
-      "--pull=never",
-      "--network",
-      internalNetworkName,
-      "--network-alias",
-      "proxy",
-      "--read-only",
-      "--name",
-      proxyContainerName,
-      "--label",
-      ownershipLabel,
-      "--cap-drop=ALL",
-      "--security-opt=no-new-privileges",
-      "--pids-limit=64",
-      "--user=65534:65534",
-      "--tmpfs",
-      "/tmp:rw,noexec,nosuid,size=16777216",
-      "--env",
-      `CRDD_PROXY_AUTH=${proxyToken}`,
-      "--env",
-      "CRDD_PROXY_PROFILE=codex",
-      proxyImageDigest,
-    ]),
-    createCommand("connect_proxy_egress", [
-      "network",
-      "connect",
-      egressNetworkName,
-      proxyContainerName,
-    ]),
-    createCommand("create_provider", [
-      "create",
-      ...(codexAdviceProviderInitRequired(
-        advicePacket ? "workbench_advice" : "isolated_task",
-        providerImageDigest,
-      )
-        ? ["--init"]
-        : []),
-      ...(taskPacket || advicePacket ? ["--interactive"] : []),
-      "--pull=never",
-      "--network",
-      internalNetworkName,
-      "--read-only",
-      "--name",
-      providerContainerName,
-      "--label",
-      ownershipLabel,
-      "--cap-drop=ALL",
-      "--security-opt=no-new-privileges",
-      ...(executorSeccompProfile
-        ? [`--security-opt=seccomp=${executorSeccompProfile}`]
-        : []),
-      "--pids-limit=64",
-      "--user=65534:65534",
-      "--workdir=/work",
-      ...providerEnvironmentEntries,
-      "--mount",
-      providerHomeMount,
-      "--mount",
-      tmpMount,
-      ...(taskPacket && workspaceMount
-        ? [
-            "--mount",
-            taskPacket.taskRole === "reviewer"
-              ? `${workspaceMount},readonly`
-              : workspaceMount,
-          ]
-        : []),
-      providerImageDigest,
-      ...(advicePacket?.providerCommand.argv ?? codex.argv),
-    ]),
-    createCommand("start_proxy", ["start", proxyContainerName]),
-    createCommand("start_provider_attached", [
-      "start",
-      "--attach",
-      ...(taskPacket || advicePacket ? ["--interactive"] : []),
-      providerContainerName,
-    ]),
-  ]);
+    ),
+    executorSeccompProfile,
+  });
   return Object.freeze({
     provider: "codex" as const,
     operationId: binding.operationId,
@@ -848,20 +625,58 @@ function buildPlan(
 }
 
 /**
+ * 照合済み候補のProvider別公開prepared結果を生成する。
+ *
+ * @responsibility 既存fieldの有無と値を維持し、内部Planをそのまま公開しない。
+ * @trace ARCH-000015
+ * @input plan: 保存済み計画。preparedCapability: 不透明候補参照。bindingとactivation: 照合済み操作・Grant。
+ * @returns 既存Provider別prepared結果。
+ * @precondition 共通準備OwnerがAuthority照合と二Store保存を完了している。
+ * @postcondition 公開結果にHost Path、Proxy秘密や内部commandを含めない。
+ * @effect N/A: 結果値の生成だけで追加Authorityを発行しない。
+ * @failure N/A: 受理・回収判断は共通準備Ownerが所有する。
+ * @invariant Candidateを実Provider実行成功と表示しない。
+ * @boundary 内部準備Planと既存利用側結果の間。
+ * @security 不透明参照以外の内部Authorityを公開しない。
+ * @concurrency N/A: 同期の値生成でStoreを変更しない。
+ */
+function createPreparedResult(
+  plan: PreparedPlan,
+  preparedCapability: object,
+  binding: OperationBinding,
+  activation: Readonly<{ grant: Readonly<{ grantRef: string }> }>,
+) {
+  return Object.freeze({
+    ...createBlockedResult("codex_docker_runtime_prepared"),
+    status: "prepared" as const,
+    reason: "codex_docker_runtime_prepared",
+    preparedCapability,
+    operationId: binding.operationId,
+    grantRef: activation.grant.grantRef,
+    selectionRecordId: plan.selectionRecordId,
+    selectedModel: plan.selectedModel,
+    selectedEffort: plan.selectedEffort,
+    selectedModelTier: plan.selectedModelTier,
+    selectionNotice: plan.selectionNotice,
+    providerHomeMountLeaseActive: true,
+  });
+}
+
+/**
  * codex-docker-runtime-adapterを実行前候補として準備する。
  *
  * @responsibility codex-docker-runtime-adapterの準備条件、候補Identity、Effect前の拒否境界を所有する。
  * @trace ARCH-000015
  * @input state: RuntimeState、managementCapability: unknown、mountCapability: unknown、mountAuthorizationCapability: unknown、selectionUseCapability: unknown、taskPacketUseCapability: unknown、recoveryCorrelationId: unknown
- * @returns prepareの計算結果を返す。
- * @precondition 「state: RuntimeState、managementCapability: unknown、mountCapability: unknown、mountAuthorizationCapability: unknown、selectionUseCapability: unknown、taskPacketUseCapability: unknown、recoveryCorrelationId: unknown」がprepareの入力契約を満たす。
- * @postcondition prepareの責務を完了した結果だけを返す。
- * @effect N/A: prepareは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure prepareは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant prepareは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security prepareはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: prepareは共有非同期状態を持たない同期処理である。
+ * @returns Provider別の準備済み候補または既存の拒否結果。
+ * @precondition stateは同じProviderのMount・Packet・Authorityと候補Storeを所有する。
+ * @postcondition 検査済み候補だけを同じ管理参照へ保存して返す。
+ * @effect 共通準備処理を通じてMount有効化、Packet消費、Authority発行・失効、lease解放と候補保存を行う。
+ * @failure 入力・Mount・Packet・計画・Authorityの拒否を区別し、例外は失効・lease解放後に搬送する。
+ * @invariant Docker要求を発行せず、Provider別計画と結果を共通準備の固定順序へ接続する。
+ * @boundary Coordinator内のProvider別計画と共通準備Lifecycleの接続境界。
+ * @security Authority照合前に準備済み候補を公開しない。
+ * @concurrency 同期処理で既存候補Storeと管理対応を連続更新する。
  */
 function prepare(
   state: RuntimeState,
@@ -874,358 +689,23 @@ function prepare(
   advicePacketUseCapability: unknown = null,
   advicePacketOwnerCapability: unknown = null,
 ) {
-  if (
-    (advicePacketUseCapability === null) !==
-      (advicePacketOwnerCapability === null) ||
-    (taskPacketUseCapability !== null && advicePacketUseCapability !== null)
-  )
-    return createBlockedResult("codex_docker_runtime_input_mode_ambiguous");
-  if (
-    recoveryCorrelationId !== null &&
-    (typeof recoveryCorrelationId !== "string" ||
-      !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(recoveryCorrelationId))
-  )
-    return createBlockedResult(
-      "codex_docker_runtime_recovery_correlation_invalid",
-    );
-  const binding = state.verifyOperationMount(
+  return prepareProviderDockerCandidate(
+    state,
+    "codex",
+    {
+      blockedResult: createBlockedResult,
+      buildPlan: (...args) => buildPlan(state, ...args),
+      preparedResult: createPreparedResult,
+    },
     managementCapability,
     mountCapability,
-  );
-  const activation = state.activateMount(
     mountAuthorizationCapability,
-    managementCapability,
+    selectionUseCapability,
+    taskPacketUseCapability,
+    recoveryCorrelationId,
+    advicePacketUseCapability,
+    advicePacketOwnerCapability,
   );
-  if (
-    activation.status !== "activated" ||
-    !activation.grant ||
-    !activation.activeMountCapability
-  ) {
-    return createBlockedResult(
-      "codex_docker_runtime_mount_authorization_invalid",
-    );
-  }
-  const activeMountCapability = activation.activeMountCapability;
-  let issuedAuthorityControlCapability: object | null = null;
-  const activatedMount = Object.freeze({
-    grant: activation.grant,
-    activeMountCapability,
-  });
-  if (
-    activation.grant.provider !== "codex" ||
-    activation.grant.operationId !== binding.operationId
-  ) {
-    state.completeMount(activeMountCapability, managementCapability);
-    return createBlockedResult(
-      "codex_docker_runtime_mount_authorization_invalid",
-    );
-  }
-  try {
-    const consumedModelSelection = state.consumeModelSelection(
-      selectionUseCapability,
-      managementCapability,
-    );
-    if (!consumedModelSelection) {
-      state.completeMount(activeMountCapability, managementCapability);
-      return createBlockedResult(
-        "codex_docker_runtime_model_selection_invalid",
-      );
-    }
-    const taskPacket =
-      taskPacketUseCapability === null
-        ? null
-        : (state.consumeTaskPacket?.(
-            taskPacketUseCapability,
-            managementCapability,
-          ) ?? null);
-    if (taskPacketUseCapability !== null && !taskPacket) {
-      state.completeMount(activeMountCapability, managementCapability);
-      return createBlockedResult("codex_docker_runtime_task_packet_invalid");
-    }
-    const advicePacket =
-      advicePacketUseCapability === null
-        ? null
-        : (state.consumeAdvicePacket?.(
-            advicePacketUseCapability,
-            advicePacketOwnerCapability,
-          ) ?? null);
-    if (advicePacketUseCapability !== null && !advicePacket) {
-      state.completeMount(activeMountCapability, managementCapability);
-      return createBlockedResult("codex_docker_runtime_advice_packet_invalid");
-    }
-    const providerHomeSourcePath = state.borrowMountSource(
-      activeMountCapability,
-      managementCapability,
-    );
-    const preparedWallClockMs = state.wallNow();
-    const preparedMonotonicMs = state.monotonicNow();
-    const planCandidate =
-      typeof providerHomeSourcePath === "string" &&
-      Number.isFinite(preparedWallClockMs) &&
-      Number.isFinite(preparedMonotonicMs) &&
-      preparedWallClockMs >= 0 &&
-      preparedMonotonicMs >= 0
-        ? buildPlan(
-            state,
-            binding,
-            activatedMount,
-            consumedModelSelection,
-            providerHomeSourcePath,
-            preparedWallClockMs,
-            preparedMonotonicMs,
-            taskPacket,
-            advicePacket,
-            recoveryCorrelationId,
-          )
-        : null;
-    if (!planCandidate) {
-      state.completeMount(activeMountCapability, managementCapability);
-      return createBlockedResult("codex_docker_runtime_plan_invalid");
-    }
-    const authority = state.issueProviderAuthority(
-      managementCapability,
-      activeMountCapability,
-    );
-    if (authority.status === "issued" && authority.controlCapability) {
-      issuedAuthorityControlCapability = authority.controlCapability;
-    }
-    if (
-      authority.status !== "issued" ||
-      !authority.useCapability ||
-      !authority.controlCapability ||
-      authority.operationId !== binding.operationId ||
-      authority.provider !== "codex" ||
-      authority.profileId !== activation.grant.profileId ||
-      authority.providerHomeMountGrantRef !== activation.grant.grantRef ||
-      authority.runtimeAuthorityIssued !== true
-    ) {
-      if (issuedAuthorityControlCapability) {
-        state.revokeProviderAuthority(
-          issuedAuthorityControlCapability,
-          managementCapability,
-        );
-        issuedAuthorityControlCapability = null;
-      }
-      state.completeMount(activeMountCapability, managementCapability);
-      return createBlockedResult("codex_docker_runtime_authority_invalid");
-    }
-    const plan = Object.freeze({
-      ...planCandidate,
-      authorityUseCapability: authority.useCapability,
-      authorityControlCapability: authority.controlCapability,
-    });
-    const preparedCapability = Object.freeze({});
-    state.prepared.set(preparedCapability, plan);
-    state.managementCapabilities.set(
-      preparedCapability,
-      managementCapability as object,
-    );
-    return Object.freeze({
-      ...createBlockedResult("codex_docker_runtime_prepared"),
-      status: "prepared" as const,
-      reason: "codex_docker_runtime_prepared",
-      preparedCapability,
-      operationId: binding.operationId,
-      grantRef: activation.grant.grantRef,
-      selectionRecordId: plan.selectionRecordId,
-      selectedModel: plan.selectedModel,
-      selectedEffort: plan.selectedEffort,
-      selectedModelTier: plan.selectedModelTier,
-      selectionNotice: plan.selectionNotice,
-      providerHomeMountLeaseActive: true,
-    });
-  } catch (error) {
-    if (issuedAuthorityControlCapability) {
-      state.revokeProviderAuthority(
-        issuedAuthorityControlCapability,
-        managementCapability,
-      );
-    }
-    state.completeMount(activeMountCapability, managementCapability);
-    throw error;
-  }
-}
-
-/**
- * Stored Planを検索する。
- *
- * @responsibility Stored Planの検索範囲、一致条件、未検出結果の境界を所有する。
- * @trace ARCH-000015
- * @input state: RuntimeState、preparedCapability: unknown、managementCapability: unknown
- * @returns findStoredPlanの計算結果を返す。
- * @precondition 「state: RuntimeState、preparedCapability: unknown、managementCapability: unknown」がfindStoredPlanの入力契約を満たす。
- * @postcondition findStoredPlanの責務を完了した結果だけを返す。
- * @effect N/A: findStoredPlanは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: findStoredPlanは独自の失敗分岐を所有しない。
- * @invariant findStoredPlanは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security findStoredPlanはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: findStoredPlanは共有非同期状態を持たない同期処理である。
- */
-function findStoredPlan(
-  state: RuntimeState,
-  preparedCapability: unknown,
-  managementCapability: unknown,
-) {
-  if (!preparedCapability || typeof preparedCapability !== "object")
-    return null;
-  const plan = state.prepared.get(preparedCapability);
-  const management = state.managementCapabilities.get(preparedCapability);
-  if (!plan || management !== managementCapability) return null;
-  return plan;
-}
-
-/**
- * Plan Freshかを判定する。
- *
- * @responsibility Plan Freshの判定条件とtrue／false境界を所有する。
- * @trace ARCH-000015
- * @input state: RuntimeState、plan: PreparedPlan
- * @returns isPlanFreshの計算結果を返す。
- * @precondition 「state: RuntimeState、plan: PreparedPlan」がisPlanFreshの入力契約を満たす。
- * @postcondition isPlanFreshの責務を完了した結果だけを返す。
- * @effect N/A: isPlanFreshは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: isPlanFreshは独自の失敗分岐を所有しない。
- * @invariant isPlanFreshは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security isPlanFreshはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: isPlanFreshは共有非同期状態を持たない同期処理である。
- */
-function isPlanFresh(state: RuntimeState, plan: PreparedPlan) {
-  const wallAge = state.wallNow() - plan.preparedWallClockMs;
-  const monotonicAge = state.monotonicNow() - plan.preparedMonotonicMs;
-  return !(
-    !Number.isFinite(wallAge) ||
-    !Number.isFinite(monotonicAge) ||
-    wallAge < 0 ||
-    monotonicAge < 0 ||
-    wallAge >= PREPARED_LIFETIME_MS ||
-    monotonicAge >= PREPARED_LIFETIME_MS
-  );
-}
-
-/**
- * Preparedを除去する。
- *
- * @responsibility Preparedの対象Identity、除去条件、終了後状態の境界を所有する。
- * @trace ARCH-000015
- * @input state: RuntimeState、preparedCapability: object
- * @returns N/A: removePreparedは戻り値を返さない。
- * @precondition 「state: RuntimeState、preparedCapability: object」がremovePreparedの入力契約を満たす。
- * @postcondition removePreparedの責務を完了して呼出し元へ制御を戻す。
- * @effect N/A: removePreparedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: removePreparedは独自の失敗分岐を所有しない。
- * @invariant removePreparedは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security removePreparedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: removePreparedは共有非同期状態を持たない同期処理である。
- */
-function removePrepared(state: RuntimeState, preparedCapability: object) {
-  state.prepared.delete(preparedCapability);
-  state.managementCapabilities.delete(preparedCapability);
-}
-
-/**
- * codex-docker-runtime-adapterを取り消す。
- *
- * @responsibility codex-docker-runtime-adapterの取消条件、終了状態、残存Effectの境界を所有する。
- * @trace ARCH-000015
- * @input state: RuntimeState、preparedCapability: unknown、managementCapability: unknown
- * @returns cancelの計算結果を返す。
- * @precondition 「state: RuntimeState、preparedCapability: unknown、managementCapability: unknown」がcancelの入力契約を満たす。
- * @postcondition cancelの責務を完了した結果だけを返す。
- * @effect N/A: cancelは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: cancelは独自の失敗分岐を所有しない。
- * @invariant cancelは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security cancelはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: cancelは共有非同期状態を持たない同期処理である。
- */
-function cancel(
-  state: RuntimeState,
-  preparedCapability: unknown,
-  managementCapability: unknown,
-) {
-  const plan = findStoredPlan(state, preparedCapability, managementCapability);
-  if (!plan || !preparedCapability || typeof preparedCapability !== "object") {
-    return createBlockedResult(
-      "codex_docker_runtime_prepared_capability_invalid",
-    );
-  }
-  const revoked = state.revokeProviderAuthority(
-    plan.authorityControlCapability,
-    managementCapability,
-  );
-  const completed = state.completeMount(
-    plan.activeMountCapability,
-    managementCapability,
-  );
-  if (completed.status !== "completed") {
-    return createBlockedResult(
-      "codex_docker_runtime_mount_release_unconfirmed",
-    );
-  }
-  removePrepared(state, preparedCapability);
-  if (revoked.status !== "revoked") {
-    return createBlockedResult("codex_docker_runtime_authority_revoke_invalid");
-  }
-  const isExpired = !isPlanFresh(state, plan);
-  return Object.freeze({
-    ...createBlockedResult(
-      isExpired
-        ? "codex_docker_runtime_preparation_expired"
-        : "codex_docker_runtime_preparation_cancelled",
-    ),
-    status: isExpired ? ("expired" as const) : ("cancelled" as const),
-    reason: isExpired
-      ? "codex_docker_runtime_preparation_expired"
-      : "codex_docker_runtime_preparation_cancelled",
-    operationId: plan.operationId,
-    grantRef: plan.grantRef,
-  });
-}
-
-/**
- * Prepared Planを一回限りで消費する。
- *
- * @responsibility Prepared Planの消費条件、再利用防止、無効Capabilityの拒否境界を所有する。
- * @trace ARCH-000015
- * @input state: RuntimeState、preparedCapability: unknown、managementCapability: unknown
- * @returns consumePreparedPlanの計算結果を返す。
- * @precondition 「state: RuntimeState、preparedCapability: unknown、managementCapability: unknown」がconsumePreparedPlanの入力契約を満たす。
- * @postcondition consumePreparedPlanの責務を完了した結果だけを返す。
- * @effect N/A: consumePreparedPlanは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: consumePreparedPlanは独自の失敗分岐を所有しない。
- * @invariant consumePreparedPlanは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security consumePreparedPlanはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: consumePreparedPlanは共有非同期状態を持たない同期処理である。
- */
-function consumePreparedPlan(
-  state: RuntimeState,
-  preparedCapability: unknown,
-  managementCapability: unknown,
-) {
-  const plan = findStoredPlan(state, preparedCapability, managementCapability);
-  if (!plan || !preparedCapability || typeof preparedCapability !== "object") {
-    return null;
-  }
-  if (!isPlanFresh(state, plan)) {
-    state.revokeProviderAuthority(
-      plan.authorityControlCapability,
-      managementCapability,
-    );
-    const completed = state.completeMount(
-      plan.activeMountCapability,
-      managementCapability,
-    );
-    if (completed.status === "completed") {
-      removePrepared(state, preparedCapability);
-    }
-    return null;
-  }
-  removePrepared(state, preparedCapability);
-  return plan;
 }
 
 /**
@@ -1363,7 +843,13 @@ export function cancelRuntimeOwnedCodexDockerCandidate(
   managementCapability: unknown,
 ) {
   return performSafely("codex_docker_runtime_cancellation_failed_closed", () =>
-    cancel(productionState, preparedCapability, managementCapability),
+    cancelProviderDockerPreparation(
+      productionState,
+      "codex",
+      createBlockedResult,
+      preparedCapability,
+      managementCapability,
+    ),
   );
 }
 
@@ -1388,7 +874,7 @@ export function consumeRuntimeOwnedCodexDockerPlanForProcessController(
   managementCapability: unknown,
 ) {
   try {
-    return consumePreparedPlan(
+    return consumeProviderDockerPreparation(
       productionState,
       preparedCapability,
       managementCapability,
@@ -1418,84 +904,41 @@ export function createIsolatedCodexDockerRuntimeAdapterCandidate(
   dependencies: Omit<RuntimeState, "prepared" | "managementCapabilities">,
 ) {
   const state = createRuntimeState(dependencies);
-  return Object.freeze({
-    productionAuthority: false as const,
+  return createIsolatedProviderDockerPreparationAdapter("codex", {
     prepare: (
-      managementCapability: unknown,
-      mountCapability: unknown,
-      mountAuthorizationCapability: unknown,
-      selectionUseCapability: unknown,
+      management,
+      mount,
+      authorization,
+      selection,
+      task = null,
+      recovery = null,
+      advice = null,
+      owner = null,
     ) =>
-      performSafely("codex_docker_runtime_preparation_failed_closed", () =>
-        prepare(
-          state,
-          managementCapability,
-          mountCapability,
-          mountAuthorizationCapability,
-          selectionUseCapability,
-        ),
+      prepare(
+        state,
+        management,
+        mount,
+        authorization,
+        selection,
+        task,
+        recovery,
+        advice,
+        owner,
       ),
-    prepareTask: (
-      managementCapability: unknown,
-      mountCapability: unknown,
-      mountAuthorizationCapability: unknown,
-      selectionUseCapability: unknown,
-      taskPacketUseCapability: unknown,
-    ) =>
-      performSafely("codex_docker_runtime_task_preparation_failed_closed", () =>
-        prepare(
-          state,
-          managementCapability,
-          mountCapability,
-          mountAuthorizationCapability,
-          selectionUseCapability,
-          taskPacketUseCapability,
-        ),
+    blocked: createBlockedResult,
+    cancel: (prepared, management) =>
+      cancelProviderDockerPreparation(
+        state,
+        "codex",
+        createBlockedResult,
+        prepared,
+        management,
       ),
-    prepareAdvice: (
-      managementCapability: unknown,
-      mountCapability: unknown,
-      mountAuthorizationCapability: unknown,
-      selectionUseCapability: unknown,
-      advicePacketUseCapability: unknown,
-      advicePacketOwnerCapability: unknown,
-    ) =>
-      performSafely(
-        "codex_docker_runtime_advice_preparation_failed_closed",
-        () =>
-          prepare(
-            state,
-            managementCapability,
-            mountCapability,
-            mountAuthorizationCapability,
-            selectionUseCapability,
-            null,
-            null,
-            advicePacketUseCapability,
-            advicePacketOwnerCapability,
-          ),
-      ),
-    cancel: (preparedCapability: unknown, managementCapability: unknown) =>
-      performSafely("codex_docker_runtime_cancellation_failed_closed", () =>
-        cancel(state, preparedCapability, managementCapability),
-      ),
-    consumeForProcessController: (
-      preparedCapability: unknown,
-      managementCapability: unknown,
-    ) => {
-      try {
-        return consumePreparedPlan(
-          state,
-          preparedCapability,
-          managementCapability,
-        );
-      } catch {
-        return null;
-      }
-    },
+    consume: (prepared, management) =>
+      consumeProviderDockerPreparation(state, prepared, management),
   });
 }
-
 /**
  * Codex Docker Runtime Adapter 契約の公開契約を記述する。
  *
@@ -1532,7 +975,7 @@ export function describeCodexDockerRuntimeAdapterContract() {
       "consumed_mount_authorization_and_native_known_folder_source_hash",
     providerAuthority:
       "runtime_owned_short_lived_use_capability_required_in_prepared_plan",
-    preparedLifetimeMs: PREPARED_LIFETIME_MS,
+    preparedLifetimeMs: PROVIDER_PREPARATION_LIFETIME_MS,
     providerImage: "fixed_digest_only_pull_never",
     proxyImage: "fixed_digest_only_pull_never",
     parentEnvironmentInherited: false,

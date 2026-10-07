@@ -42,9 +42,17 @@ const summaryPath = path.join(coverageRoot, "coverage-summary.json");
 const expectedSources = new Set(
   [
     path.join(crateRoot, "src", "main.rs"),
-    path.join(crateRoot, "src", "protocol.rs"),
-    path.join(crateRoot, "src", "windows.rs"),
-    path.join(crateRoot, "src", "docker_repair.rs"),
+    path.join(crateRoot, "src", "protocol", "access.rs"),
+    path.join(crateRoot, "src", "filesystem", "root_observation.rs"),
+    path.join(crateRoot, "src", "filesystem", "protection.rs"),
+    path.join(crateRoot, "src", "filesystem", "provider_home.rs"),
+    path.join(crateRoot, "src", "filesystem", "host_record.rs"),
+    path.join(crateRoot, "src", "filesystem", "protected_file.rs"),
+    path.join(crateRoot, "src", "filesystem", "host_namespace.rs"),
+    path.join(crateRoot, "src", "process", "principal.rs"),
+    path.join(crateRoot, "src", "filesystem", "windows_directory.rs"),
+    path.join(crateRoot, "src", "docker-desktop", "repair.rs"),
+    path.join(crateRoot, "src", "docker-desktop", "identity.rs"),
     path.join(crateRoot, "tests", "cli.rs"),
   ].map(path.normalize),
 );

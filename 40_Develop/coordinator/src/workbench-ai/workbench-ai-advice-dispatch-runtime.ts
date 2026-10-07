@@ -8,7 +8,7 @@
  * @effect 明示確認済みの一依頼につきProvider Adapterを最大一回呼び出す。
  * @security Task Packet、Catalog改訂およびexact ProfileをAuthority Scopeへ固定し、生Provider出力を公開しない。
  */
-import type { ResolvedAiProfileIdentity } from "../../../ai-runtime/src/ai-profile-types.ts";
+import type { ResolvedAiProfileIdentity } from "../../../ai-adapter/src/catalog/types.ts";
 import type {
   WorkbenchAiAdviceDispatch,
   WorkbenchAiAdviceDispatchInput,

@@ -33,7 +33,7 @@ import {
   loadHostRecoveryRecordByToken,
   parseHostRecoveryToken,
 } from "../host-runtime/host-recovery-record.ts";
-import { snapshotPlainRecord } from "../plain-data-snapshot.ts";
+import { snapshotPlainRecord } from "../../../domain-model/src/plain-data/index.ts";
 
 const PROBE_IMAGE =
   "python@sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047";

@@ -7,7 +7,7 @@
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "../plain-data-snapshot.ts";
+} from "../../../domain-model/src/plain-data/index.ts";
 import { selectProviderModelCandidate } from "./provider-model-selection-runtime.ts";
 
 export const DELEGATION_ROUTE_SELECTION_CONTRACT =

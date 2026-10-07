@@ -15,7 +15,7 @@ import {
   displayVerificationRecording,
   runRecordedVerification,
 } from "./verification-result-record.ts";
-import { snapshotPlainArray } from "../src/plain-data-snapshot.ts";
+import { snapshotPlainArray } from "../../domain-model/src/plain-data/index.ts";
 import {
   runSignedGeneralTaskVerification,
   SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT,

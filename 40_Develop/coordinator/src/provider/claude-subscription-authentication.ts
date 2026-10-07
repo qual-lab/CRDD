@@ -12,7 +12,11 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
-import { describeClaudeExecutionPlanContract } from "./claude-execution-plan.ts";
+import {
+  describeClaudeExecutionPlanContract,
+  describeClaudeSubscriptionAuthenticationCli,
+  isClaudeSubscriptionAuthenticationConfirmed,
+} from "../../../ai-adapter/src/claude/index.ts";
 import { acquireRuntimeOwnedLogicalProviderHomeKernelLock } from "../host-runtime/candidate-store-kernel-lock.ts";
 import {
   observeTrustedDockerCli,
@@ -615,6 +619,7 @@ export function createClaudeSubscriptionAuthenticationPlan(
   )
     return null;
   const claude = describeClaudeExecutionPlanContract();
+  const authenticationCli = describeClaudeSubscriptionAuthenticationCli();
   const egress = describeEgressProxyTopology("claude");
   const providerImageDigest = claude.distribution.binding.fixedImageDigest;
   const proxyImageDigest = egress.verificationAdapter.imageDigest;
@@ -640,16 +645,9 @@ export function createClaudeSubscriptionAuthenticationPlan(
     "TMPDIR=/tmp",
     "--env",
     `HTTPS_PROXY=${proxyUrl}`,
-    "--env",
-    "DISABLE_AUTOUPDATER=1",
-    "--env",
-    "DISABLE_UPDATES=1",
-    "--env",
-    "DISABLE_TELEMETRY=1",
-    "--env",
-    "DISABLE_ERROR_REPORTING=1",
-    "--env",
-    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1",
+    ...Object.entries(authenticationCli.environment).flatMap(
+      ([name, value]) => ["--env", `${name}=${value}`],
+    ),
   ];
   const command = (
     purpose: string,
@@ -733,9 +731,7 @@ export function createClaudeSubscriptionAuthenticationPlan(
       "--tmpfs",
       "/tmp:rw,noexec,nosuid,size=33554432",
       providerImageDigest,
-      "auth",
-      "login",
-      "--claudeai",
+      ...authenticationCli.loginArgv,
     ]),
     command(
       "start_login_attached",
@@ -760,9 +756,7 @@ export function createClaudeSubscriptionAuthenticationPlan(
       "--mount",
       `${homeMount},readonly`,
       providerImageDigest,
-      "auth",
-      "status",
-      "--json",
+      ...authenticationCli.statusArgv,
     ]),
     command("start_probe_attached", ["start", "--attach", probeContainerName]),
   ]);
@@ -853,36 +847,6 @@ export function createClaudeSubscriptionAuthenticationPlan(
     cleanupCommands,
     absenceCommands,
   });
-}
-
-/**
- * Claude認証ProbeがMax契約を確認したか判定する。
- *
- * @responsibility Provider出力を固定4 Propertyの成功条件へ縮約する。
- * @trace ARCH-000010
- * @input stdout: network-none ProbeのJSON出力
- * @returns exactなClaude Max状態だけでtrueを返す。
- * @precondition 出力は未信頼文字列として扱う。
- * @postcondition trueは四つの固定値がすべて一致した場合に限る。
- * @effect N/A: 入力文字列だけを解析する。
- * @failure JSON不正や値不一致はfalseへ閉じる。
- * @invariant 部分一致や追加の認証方式を成功へ昇格しない。
- * @boundary Claude CLI出力から認証Domain判定への境界。
- * @security 生出力を例外または公開結果へ含めない。
- * @concurrency N/A: 共有状態を変更しない同期判定である。
- */
-function probeConfirmed(stdout: string) {
-  try {
-    const value = JSON.parse(stdout) as Record<string, unknown>;
-    return (
-      value.loggedIn === true &&
-      value.authMethod === "claude.ai" &&
-      value.apiProvider === "firstParty" &&
-      value.subscriptionType === "max"
-    );
-  } catch {
-    return false;
-  }
 }
 
 /**
@@ -1178,7 +1142,7 @@ export async function authenticateClaudeSubscription(
         break;
       }
       if (command.purpose === "start_probe_attached") {
-        if (!probeConfirmed(result.stdout)) {
+        if (!isClaudeSubscriptionAuthenticationConfirmed(result.stdout)) {
           reason = "claude_subscription_authentication_not_confirmed";
           break;
         }

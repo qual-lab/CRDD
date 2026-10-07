@@ -14,7 +14,7 @@ import test from "node:test";
 import {
   DEFAULT_AI_PROFILE_CATALOG,
   type AiProfileCatalogStore,
-} from "../../../ai-runtime/src/index.ts";
+} from "../../../ai-adapter/src/index.ts";
 import {
   createCoordinatorWorkbenchAiRequestApplication,
   type CoordinatorAiRequestInput,

@@ -16,6 +16,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import * as domainLibrary from "../../src/index.ts";
+import * as plainData from "../../src/plain-data/index.ts";
 import * as reality from "../../src/reality-traceability/index.ts";
 import * as artifact from "../../src/artifact/index.ts";
 import * as repository from "../../src/repository/index.ts";
@@ -93,6 +94,10 @@ function typescriptFiles(root: string): readonly string[] {
  * @boundary RCM-UT-014=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("Package Rootは共通結果だけを公開する", () => {
+  assert.deepEqual(Object.keys(plainData).sort(), [
+    "snapshotPlainArray",
+    "snapshotPlainRecord",
+  ]);
   assert.deepEqual(Object.keys(domainLibrary).sort(), [
     "validateDomainOutcome",
   ]);

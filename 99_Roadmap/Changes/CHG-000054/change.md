@@ -435,7 +435,7 @@ Human: Idea / value / decision authority / accountability
 - [`40_Develop/platform-access/Cargo.toml`](<../../../40_Develop/platform-access/Cargo.toml>)
 - [`40_Develop/platform-access/rust-toolchain.toml`](<../../../40_Develop/platform-access/rust-toolchain.toml>)
 - `40_Develop/platform-access/src/bin/coordinator.rs`（削除または旧Path）
-- [`40_Develop/platform-access/src/docker_repair.rs`](<../../../40_Develop/platform-access/src/docker_repair.rs>)
+- [`40_Develop/platform-access/src/docker-desktop/repair.rs`](<../../../40_Develop/platform-access/src/docker-desktop/repair.rs>)
 - [`40_Develop/platform-access/src/main.rs`](<../../../40_Develop/platform-access/src/main.rs>)
 - `40_Develop/platform-access/src/native_bootstrap_core.rs`（削除または旧Path）
 - [`40_Develop/platform-access/src/protocol.rs`](<../../../40_Develop/platform-access/src/protocol.rs>)

@@ -11,7 +11,7 @@ import {
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "../plain-data-snapshot.ts";
+} from "../../../domain-model/src/plain-data/index.ts";
 
 const recoveryObservationKeys = new Set([
   "status",

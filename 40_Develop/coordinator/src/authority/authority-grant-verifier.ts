@@ -8,7 +8,7 @@ import { createHash } from "node:crypto";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "../plain-data-snapshot.ts";
+} from "../../../domain-model/src/plain-data/index.ts";
 import { isProviderHomeMountGrantRef } from "../provider/provider-home-mount-grant.ts";
 import {
   PROVIDER_INPUT_LIMITS,

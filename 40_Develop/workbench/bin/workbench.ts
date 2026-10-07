@@ -10,7 +10,7 @@
  * @security Credentialを受け取らず、公開URL以外のHost情報を表示しない。
  */
 import { readWorkbenchProjectSurface, startWorkbench } from "../src/index.ts";
-import { createRepositoryAiProfileCatalogStore } from "../../ai-runtime/src/index.ts";
+import { createRepositoryAiProfileCatalogStore } from "../../ai-adapter/src/profile/index.ts";
 import { createRepositoryWorkbenchCandidateApplication } from "../../coordinator/src/workbench-ai/workbench-candidate-application.ts";
 import { createRepositoryWorkbenchAiRequestApplication } from "../../coordinator/src/workbench-ai/workbench-ai-repository-composition.ts";
 import { createWorkbenchAiAdviceDispatchRuntime } from "../../coordinator/src/workbench-ai/workbench-ai-advice-dispatch-runtime.ts";

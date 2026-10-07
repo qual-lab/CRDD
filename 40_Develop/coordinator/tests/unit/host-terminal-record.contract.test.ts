@@ -53,7 +53,7 @@ import {
   saveHostTerminalWindowsRecord,
   saveKnownFileHostTerminalWindowsRecord,
 } from "../../src/host-runtime/host-terminal-windows-adapter.ts";
-import { snapshotPlainRecord } from "../../src/plain-data-snapshot.ts";
+import { snapshotPlainRecord } from "../../../domain-model/src/plain-data/index.ts";
 
 /**
  * 限定保守と既存の世代排他が同じ結合値を使うことを確認する。

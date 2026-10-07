@@ -17,7 +17,7 @@ import test from "node:test";
 import {
   DEFAULT_AI_PROFILE_CATALOG,
   createRepositoryAiProfileCatalogStore,
-} from "../../../ai-runtime/src/index.ts";
+} from "../../../ai-adapter/src/profile/index.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/repository-location.ts";
 import { createRepositoryWorkbenchAiRequestApplication } from "../../src/workbench-ai/workbench-ai-repository-composition.ts";
 import { createWorkbenchAiAdviceDispatchRuntime } from "../../src/workbench-ai/workbench-ai-advice-dispatch-runtime.ts";

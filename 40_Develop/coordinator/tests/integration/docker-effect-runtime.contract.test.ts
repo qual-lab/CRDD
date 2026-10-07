@@ -8,6 +8,7 @@
  * @scope docker、effect、runtime
  * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
  */
+import { describeWorkbenchAiAdviceResultSchema } from "../../src/workbench-ai/workbench-ai-advice-result.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -23,7 +24,7 @@ import {
   describeDockerEffectRuntimeContract,
 } from "../../src/docker-runtime/docker-effect-runtime.ts";
 import type { OwnedCommandHandle } from "../../src/docker-runtime/docker-owned-process.ts";
-import { planWorkbenchAiAdviceProviderCommand } from "../../src/workbench-ai/workbench-ai-advice-provider-command.ts";
+import { planWorkbenchAiAdviceProviderCommand } from "../../../ai-adapter/src/index.ts";
 
 /**
  * createPlanFixtureのTest準備責務を実行する。
@@ -150,11 +151,14 @@ function createPlanFixture(
         promptTransport: "provider_stdin_only" as const,
       }),
     consumeAdvicePacket: () => {
-      const providerCommand = planWorkbenchAiAdviceProviderCommand({
-        provider,
-        exactModelId: model,
-        reasoningEffort: "low",
-      });
+      const providerCommand = planWorkbenchAiAdviceProviderCommand(
+        {
+          provider,
+          exactModelId: model,
+          reasoningEffort: "low",
+        },
+        describeWorkbenchAiAdviceResultSchema(),
+      );
       return Object.freeze({
         contract: "crdd-coordinator/workbench-ai-advice-runtime-packet",
         contractRevision: 1,

@@ -8,15 +8,16 @@
  * @scope coordinator、contract、node_process
  * @boundary Catalog IdentityとProvider CLI計画の局所境界。
  */
+import { describeWorkbenchAiAdviceResultSchema } from "../../src/workbench-ai/workbench-ai-advice-result.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
   codexAdviceProviderInitRequired,
   describeCodexAdviceDistributionIdentity,
-} from "../../src/provider/codex-advice-distribution.ts";
-import { describeCodexExecutionPlanContract } from "../../src/provider/codex-execution-plan.ts";
-import { planWorkbenchAiAdviceProviderCommand } from "../../src/workbench-ai/workbench-ai-advice-provider-command.ts";
+} from "../../../ai-adapter/src/codex/index.ts";
+import { describeCodexExecutionPlanContract } from "../../../ai-adapter/src/codex/index.ts";
+import { planWorkbenchAiAdviceProviderCommand } from "../../../ai-adapter/src/index.ts";
 
 /**
  * Codex助言をToolなし・Repository非共有の標準入力計画へ固定するを検証する。
@@ -31,11 +32,14 @@ import { planWorkbenchAiAdviceProviderCommand } from "../../src/workbench-ai/wor
  * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Codex助言をToolなし・Repository非共有の標準入力計画へ固定する", () => {
-  const plan = planWorkbenchAiAdviceProviderCommand({
-    provider: "codex",
-    exactModelId: "gpt-6.1-sol",
-    reasoningEffort: "medium",
-  });
+  const plan = planWorkbenchAiAdviceProviderCommand(
+    {
+      provider: "codex",
+      exactModelId: "gpt-6.1-sol",
+      reasoningEffort: "medium",
+    },
+    describeWorkbenchAiAdviceResultSchema(),
+  );
 
   assert.equal(plan.provider, "codex");
   assert.equal(plan.exactModelId, "gpt-6.1-sol");
@@ -123,11 +127,14 @@ test("Codex助言をToolなし・Repository非共有の標準入力計画へ固�
  * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Claude助言をSchema付き・Toolなしの標準入力計画へ固定する", () => {
-  const plan = planWorkbenchAiAdviceProviderCommand({
-    provider: "claude",
-    exactModelId: "opus",
-    reasoningEffort: "high",
-  });
+  const plan = planWorkbenchAiAdviceProviderCommand(
+    {
+      provider: "claude",
+      exactModelId: "opus",
+      reasoningEffort: "high",
+    },
+    describeWorkbenchAiAdviceResultSchema(),
+  );
 
   assert.equal(plan.provider, "claude");
   assert.equal(plan.exactModelId, "opus");
@@ -143,6 +150,22 @@ test("Claude助言をSchema付き・Toolなしの標準入力計画へ固定す�
     false,
   );
   assert.equal(plan.argv.includes("--json-schema"), true);
+  assert.deepEqual(
+    JSON.parse(plan.argv[plan.argv.indexOf("--json-schema") + 1] ?? "null"),
+    describeWorkbenchAiAdviceResultSchema(),
+  );
+  const callerSchema = Object.freeze({ type: "string", maxLength: 17 });
+  const callerPlan = planWorkbenchAiAdviceProviderCommand(
+    { provider: "claude", exactModelId: "opus", reasoningEffort: "high" },
+    callerSchema,
+  );
+  assert.deepEqual(
+    JSON.parse(
+      callerPlan.argv[callerPlan.argv.indexOf("--json-schema") + 1] ?? "null",
+    ),
+    callerSchema,
+  );
+  assert.deepEqual(callerSchema, { type: "string", maxLength: 17 });
   assert.equal(plan.argv.filter((value) => value === "--max-turns").length, 1);
   assert.equal(plan.argv[plan.argv.indexOf("--max-turns") + 1], "2");
   assert.equal(plan.argv.includes("--no-session-persistence"), true);
@@ -166,16 +189,22 @@ test("Claude助言をSchema付き・Toolなしの標準入力計画へ固定す�
  */
 test("ProviderコマンドにPrompt本文やWorkspace Pathを埋め込まない", () => {
   for (const plan of [
-    planWorkbenchAiAdviceProviderCommand({
-      provider: "codex",
-      exactModelId: "gpt-5.6-sol",
-      reasoningEffort: "low",
-    }),
-    planWorkbenchAiAdviceProviderCommand({
-      provider: "claude",
-      exactModelId: "opus",
-      reasoningEffort: "low",
-    }),
+    planWorkbenchAiAdviceProviderCommand(
+      {
+        provider: "codex",
+        exactModelId: "gpt-5.6-sol",
+        reasoningEffort: "low",
+      },
+      describeWorkbenchAiAdviceResultSchema(),
+    ),
+    planWorkbenchAiAdviceProviderCommand(
+      {
+        provider: "claude",
+        exactModelId: "opus",
+        reasoningEffort: "low",
+      },
+      describeWorkbenchAiAdviceResultSchema(),
+    ),
   ]) {
     const commandLine = [plan.command, ...plan.argv].join(" ");
     assert.doesNotMatch(commandLine, /providerPrompt|taskHash|projectionHash/u);

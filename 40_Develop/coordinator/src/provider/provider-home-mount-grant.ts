@@ -4,7 +4,7 @@
  * @responsibility blockedを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000010
  */
-import { snapshotPlainRecord } from "../plain-data-snapshot.ts";
+import { snapshotPlainRecord } from "../../../domain-model/src/plain-data/index.ts";
 
 export const PROVIDER_HOME_MOUNT_GRANT_CONTRACT =
   "crdd-coordinator/provider-home-mount-grant";

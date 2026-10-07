@@ -10,7 +10,7 @@ import net from "node:net";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "../plain-data-snapshot.ts";
+} from "../../../domain-model/src/plain-data/index.ts";
 import { validateProviderIsolationProfile } from "../provider/provider-isolation-profile.ts";
 
 export const EGRESS_PROXY_CONTRACT = "crdd-coordinator/provider-egress-proxy";

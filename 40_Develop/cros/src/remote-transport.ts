@@ -26,7 +26,7 @@ import {
   type AiProfileCatalogMutationResult,
   type AiProfileCatalogSnapshot,
   type AiProfileDefinition,
-} from "../../ai-runtime/src/index.ts";
+} from "../../ai-adapter/src/index.ts";
 import {
   inspectProjectRuntimeProjection,
   type ProjectRuntimeProjection,

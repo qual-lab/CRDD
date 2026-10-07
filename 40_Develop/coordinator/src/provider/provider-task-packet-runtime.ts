@@ -14,7 +14,7 @@ import {
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "../plain-data-snapshot.ts";
+} from "../../../domain-model/src/plain-data/index.ts";
 import { consumeProviderTaskRemediation } from "./provider-task-structured-result.ts";
 import {
   containsRecognizedSecretMaterial,

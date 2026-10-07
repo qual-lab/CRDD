@@ -35,7 +35,7 @@ test("動的Fake coverageは生成器と共有LCOV parserを含むexact母集団
     "40_Develop/coordinator/src/provider/provider-lifecycle.ts",
     "40_Develop/coordinator/src/host-runtime/execution-environment.ts",
     "40_Develop/coordinator/src/host-runtime/host-recovery-record.ts",
-    "40_Develop/coordinator/src/plain-data-snapshot.ts",
+    "40_Develop/domain-model/src/plain-data/plain-data-snapshot.ts",
     "40_Develop/coordinator/src/diagnostics/doctor.ts",
     "40_Develop/coordinator/scripts/verify-dynamic-fake-provider-failures.ts",
     "40_Develop/coordinator/scripts/verify-dynamic-fake-provider-cancellation.ts",

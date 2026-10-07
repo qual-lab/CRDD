@@ -7,6 +7,7 @@
     ".": "./src/index.ts",
     "./outcome": "./src/outcome.ts",
     "./artifact": "./src/artifact/index.ts",
+    "./plain-data": "./src/plain-data/index.ts",
     "./project-context": "./src/project-context/index.ts",
     "./configuration": "./src/configuration/index.ts",
     "./topic": "./src/topic/index.ts",

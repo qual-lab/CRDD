@@ -8,7 +8,7 @@ import { createHash } from "node:crypto";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "../plain-data-snapshot.ts";
+} from "../../../domain-model/src/plain-data/index.ts";
 
 export const PROVIDER_ISOLATION_CONTRACT =
   "crdd-coordinator/provider-isolation-profile";

@@ -40,7 +40,7 @@ import {
   saveHostTerminalWindowsRecord,
   saveKnownFileHostTerminalWindowsRecord,
 } from "./host-terminal-windows-adapter.ts";
-import { snapshotPlainRecord } from "../plain-data-snapshot.ts";
+import { snapshotPlainRecord } from "../../../domain-model/src/plain-data/index.ts";
 
 const MAX_ENTRIES = 1_024;
 const MAX_BYTES = 8 * 1_024 * 1_024;

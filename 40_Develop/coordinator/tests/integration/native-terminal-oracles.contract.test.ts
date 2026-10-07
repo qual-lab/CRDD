@@ -27,7 +27,7 @@ import {
  * @precondition N/A: 純粋な固定fixture判定で外部資源を使わない。
  * @stimulus 固定packetと契約を破る単一変更を判定入口へ渡す。
  * @observation 判定入口のboolean返却。
- * @oracle windows_terminal.rsのterminal_target_fixtureが生成する164行と同じ理由・位置・handle数を保持する。
+ * @oracle filesystem/host_record.rsのterminal_target_fixtureが生成する164行と同じ理由・位置・handle数を保持する。
  * @cleanup N/A: メモリ内の同期判定だけ。
  * @boundary 未知JSON値からpacket判定まで。OS観測とProcess終端は対象外。
  */

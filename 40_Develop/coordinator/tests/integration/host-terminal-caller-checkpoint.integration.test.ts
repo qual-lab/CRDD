@@ -46,7 +46,7 @@ import {
   createHostTerminalReadRequest,
   createHostTerminalSaveRequest,
 } from "../../src/host-runtime/host-terminal-windows-adapter.ts";
-import { snapshotPlainRecord } from "../../src/plain-data-snapshot.ts";
+import { snapshotPlainRecord } from "../../../domain-model/src/plain-data/index.ts";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 

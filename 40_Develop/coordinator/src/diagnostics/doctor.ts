@@ -26,7 +26,7 @@ import {
   credentialEnvironmentNamesPresent,
   describeFilesystemPolicy,
 } from "../host-runtime/execution-environment.ts";
-import { snapshotPlainArray } from "../plain-data-snapshot.ts";
+import { snapshotPlainArray } from "../../../domain-model/src/plain-data/index.ts";
 import { describeProviderIsolationContract } from "../provider/provider-isolation-profile.ts";
 import { describeProviderLifecycleContract } from "../provider/provider-lifecycle.ts";
 import { describeRepositoryLocationContract } from "../../../version-control/src/repository-location.ts";

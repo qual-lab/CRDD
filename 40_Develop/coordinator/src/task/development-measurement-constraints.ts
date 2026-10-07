@@ -7,7 +7,7 @@
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "../plain-data-snapshot.ts";
+} from "../../../domain-model/src/plain-data/index.ts";
 
 const HASH_PATTERN = /^[a-f0-9]{64}$/;
 const MAX_DURATION_MS = 3_600_000;

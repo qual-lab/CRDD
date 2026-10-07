@@ -17,8 +17,8 @@ import {
   describeProviderModelProfileRuntimeContract,
   resolveRuntimeOwnedProviderModelProfile,
   resolveRuntimeOwnedProviderModelProfileFromCatalog,
-} from "../../src/provider/provider-model-profile-runtime.ts";
-import { DEFAULT_AI_PROFILE_CATALOG } from "../../../ai-runtime/src/index.ts";
+} from "../../../ai-adapter/src/index.ts";
+import { DEFAULT_AI_PROFILE_CATALOG } from "../../../ai-adapter/src/index.ts";
 
 /**
  * createRequestのTest準備責務を実行する。

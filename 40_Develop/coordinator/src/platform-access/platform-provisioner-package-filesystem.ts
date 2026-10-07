@@ -16,7 +16,7 @@ import {
   isRuntimeProcessEffectBlocked,
   isRuntimeProcessPoisoned,
 } from "../host-runtime/runtime-process-safety-state.ts";
-import { snapshotPlainRecord } from "../plain-data-snapshot.ts";
+import { snapshotPlainRecord } from "../../../domain-model/src/plain-data/index.ts";
 import {
   beginPlatformAccessArtifactSigningObservation,
   verifyPlatformAccessArtifactSigningObservation,
@@ -1937,7 +1937,7 @@ const runtimeExternalProcessCallsites = Object.freeze(
       "runNativeTerminalNamespace",
       "spawn",
       ["binary"],
-      ["[", "windows::terminal::tests::terminal_namespace_fixture"],
+      ["[", "filesystem::host_record::tests::terminal_namespace_fixture"],
     ],
     [
       "scripts/verify-native-terminal-fixtures.ts",
@@ -2429,8 +2429,8 @@ const exactExternalProcessCalls = Object.freeze(
       "runNativeTerminalNamespace",
       "spawn",
       1,
-      "3d3728d3a18d652c333cf3483daf9c692ace977c3b6c655ff2cf882a5cd13cb9",
-      "d9bde1e791c6f66f6df97be15bcf0a894f8a84c6260a3e76d715dadad2f581a4",
+      "82371969a3e65864ca464dabada29418979c3bcf3b489f9e5e29ff70be309e0e",
+      "903a97461220b7ef70543a7fe81d9a44975259bd6df42c26e840e1b4bfa52976",
       "child",
     ],
     [
@@ -2490,7 +2490,7 @@ const exactExternalProcessCalls = Object.freeze(
       "spawn",
       1,
       "16429410d7ff75d7d0a2c8b71f3e317136ede0d2f7abb108a0fd01789d446fdd",
-      "2e1567bd22905d1683f3267fe360f5155a0540182d7526deca90226127c4e2b2",
+      "70b02483a43dd5ecb0f372ae5a37c8e73de7ecc61151e8e11804edf2018498bd",
       "child",
     ],
     [
@@ -2883,7 +2883,7 @@ const exactAuditedFunctionFlows = Object.freeze(
       "verification_tool",
       "scripts/verify-native-terminal-namespace.ts",
       "runNativeTerminalNamespace",
-      "d9bde1e791c6f66f6df97be15bcf0a894f8a84c6260a3e76d715dadad2f581a4",
+      "903a97461220b7ef70543a7fe81d9a44975259bd6df42c26e840e1b4bfa52976",
     ],
     [
       "verification_tool",
@@ -2931,7 +2931,7 @@ const exactAuditedFunctionFlows = Object.freeze(
       "verification_tool",
       "scripts/verify-native-protection.ts",
       "runNativeProtection",
-      "2e1567bd22905d1683f3267fe360f5155a0540182d7526deca90226127c4e2b2",
+      "70b02483a43dd5ecb0f372ae5a37c8e73de7ecc61151e8e11804edf2018498bd",
     ],
     [
       "verification_tool",
@@ -3154,7 +3154,7 @@ const exactAuditedSemanticGraphSha256 = Object.freeze(
     ],
     [
       "scripts/verify-native-terminal-namespace.ts\0runNativeTerminalNamespace",
-      "d6f123c2e4eb423a331af38a2bd4b6f8eea174a53af1d0bfcfed1c2f83ed3322",
+      "5aab6b95ff63d9209dc8ee96d0d381b83347005e3e3b5d5eaf0ab1ca501c3467",
     ],
     [
       "scripts/verify-native-terminal-fixtures.ts\0runNativeTerminalFixtures",
@@ -3186,7 +3186,7 @@ const exactAuditedSemanticGraphSha256 = Object.freeze(
     ],
     [
       "scripts/verify-native-protection.ts\0runNativeProtection",
-      "2a1023188890af8be6bac47dde9934698ea4e5587e8dc854b0793a3a71ca8e81",
+      "426f8a4616ba457c19d49dfe63318662df18d7e9eb55b17574d0e2260bd38ccb",
     ],
     [
       "scripts/prepare-release-candidate.ts\0runPromotion",
@@ -9415,9 +9415,9 @@ const RUNTIME_SIBLING_COMPONENTS = Object.freeze([
     packageName: "@qual-lab/crdd-domain-model",
   }),
   Object.freeze({
-    sourcePrefix: "40_Develop/ai-runtime/src/",
-    packagePath: "40_Develop/ai-runtime/package.json",
-    packageName: "@qual-lab/crdd-ai-runtime",
+    sourcePrefix: "40_Develop/ai-adapter/src/",
+    packagePath: "40_Develop/ai-adapter/package.json",
+    packageName: "@qual-lab/crdd-ai-adapter",
   }),
   Object.freeze({
     sourcePrefix: "40_Develop/artifact-signing/src/",

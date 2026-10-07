@@ -18,8 +18,9 @@ import {
   CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION,
   describeClaudeExecutionPlanContract,
   planClaudeIsolatedTask,
+  buildClaudeExecutionArguments,
   planClaudeReadOnlyProbe,
-} from "../../src/provider/claude-execution-plan.ts";
+} from "../../../ai-adapter/src/claude/index.ts";
 
 /**
  * Claude配布候補は固定絶対pathと同じexact artifact Identityへ結合するを検証する。
@@ -34,6 +35,21 @@ import {
  * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Claude配布候補は固定絶対pathと同じexact artifact Identityへ結合する", () => {
+  const fixedArgv = Object.freeze(["--output-format", "json", "-p"]);
+  const combined = buildClaudeExecutionArguments(
+    "claude-sonnet-4-6",
+    "low",
+    fixedArgv,
+  );
+  assert.deepEqual(combined, [
+    "--model",
+    "claude-sonnet-4-6",
+    "--effort",
+    "low",
+    ...fixedArgv,
+  ]);
+  assert.equal(Object.isFrozen(combined), true);
+  assert.deepEqual(fixedArgv, ["--output-format", "json", "-p"]);
   const contract = describeClaudeExecutionPlanContract();
   const binding = contract.distribution.binding;
   const identity = binding.identity;

@@ -17,7 +17,7 @@ import {
   type AiProfileCatalogStore,
   type AiProfileCatalogSnapshot,
   type ResolvedAiProfileIdentity,
-} from "../../../ai-runtime/src/index.ts";
+} from "../../../ai-adapter/src/index.ts";
 
 import {
   resolveVerifiedRepositoryRoot,

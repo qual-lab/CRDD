@@ -16,7 +16,7 @@ import { coordinatorTaskPublicReasons } from "../../src/task/coordinator-task-re
 import {
   extractWorkbenchAiAdviceProviderOutput,
   WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_REASONS,
-} from "../../src/workbench-ai/workbench-ai-advice-provider-output.ts";
+} from "../../../ai-adapter/src/index.ts";
 
 const ADVICE = Object.freeze({
   contract: "crdd-coordinator/workbench-ai-advice-result",

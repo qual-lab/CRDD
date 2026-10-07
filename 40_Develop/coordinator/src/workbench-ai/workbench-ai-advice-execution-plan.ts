@@ -9,14 +9,16 @@
  * @effect N/A: 実行計画を生成するだけでProvider Effectを発行しない。
  * @security Promptは標準入力だけで搬送し、Repository、Workspace、Tool、Session、API Key fallbackを許可しない。
  */
+import { describeWorkbenchAiAdviceResultSchema } from "./workbench-ai-advice-result.ts";
 import type {
   AiReasoningEffort,
   ResolvedAiProfileIdentity,
-} from "../../../ai-runtime/src/ai-profile-types.ts";
+} from "../../../ai-adapter/src/catalog/types.ts";
 import {
   planWorkbenchAiAdviceProviderCommand,
+  providerProfileMatchesExecutionIdentity,
   type WorkbenchAiAdviceProviderCommand,
-} from "./workbench-ai-advice-provider-command.ts";
+} from "../../../ai-adapter/src/index.ts";
 
 export const WORKBENCH_AI_ADVICE_EXECUTION_PLAN_CONTRACT =
   "crdd-coordinator/workbench-ai-advice-execution-plan";
@@ -154,12 +156,13 @@ export function prepareWorkbenchAiAdviceExecutionPlan(
 
   if (
     !profile.selectionRoles.includes("coordinator") ||
-    profile.profileId !== input.profileId ||
-    profile.provider !== input.provider ||
-    profile.exactModelId !== input.exactModelId ||
-    profile.defaultReasoningEffort !== input.reasoningEffort ||
-    profile.offering !== input.offering ||
-    !profile.allowedReasoningEfforts.includes(input.reasoningEffort)
+    !providerProfileMatchesExecutionIdentity(profile, {
+      profileId: input.profileId,
+      provider: input.provider,
+      exactModelId: input.exactModelId,
+      reasoningEffort: input.reasoningEffort,
+      offering: input.offering,
+    })
   )
     return blocked();
 
@@ -186,11 +189,14 @@ export function prepareWorkbenchAiAdviceExecutionPlan(
       sessionPersistenceAllowed: false as const,
       apiKeyFallbackAllowed: false as const,
       paidApiFallbackAllowed: false as const,
-      providerCommand: planWorkbenchAiAdviceProviderCommand({
-        provider: input.provider,
-        exactModelId: input.exactModelId,
-        reasoningEffort: input.reasoningEffort,
-      }),
+      providerCommand: planWorkbenchAiAdviceProviderCommand(
+        {
+          provider: input.provider,
+          exactModelId: input.exactModelId,
+          reasoningEffort: input.reasoningEffort,
+        },
+        describeWorkbenchAiAdviceResultSchema(),
+      ),
     }),
   });
 }

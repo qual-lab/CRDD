@@ -27,7 +27,7 @@ import {
   PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
   verifyPlatformAccessArtifactSigningObservation,
 } from "../diagnostics/platform-access-release.ts";
-import { snapshotPlainRecord } from "../plain-data-snapshot.ts";
+import { snapshotPlainRecord } from "../../../domain-model/src/plain-data/index.ts";
 import {
   canonicalPackageFileContent,
   inspectRuntimeDistributionSigningFilesCandidate,

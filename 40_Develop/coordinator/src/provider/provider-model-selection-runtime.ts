@@ -4,7 +4,8 @@
  * @responsibility Providerを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000010
  */
-import { snapshotPlainRecord } from "../plain-data-snapshot.ts";
+import { selectProviderFamilyPreference } from "../../../ai-adapter/src/index.ts";
+import { snapshotPlainRecord } from "../../../domain-model/src/plain-data/index.ts";
 
 export const PROVIDER_MODEL_SELECTION_RUNTIME_CONTRACT =
   "crdd-coordinator/provider-model-selection-runtime";
@@ -128,26 +129,6 @@ function createBlockedResult(reason: string) {
  */
 function isBoolean(value: unknown): value is boolean {
   return typeof value === "boolean";
-}
-
-/**
- * Family Preferenceを選択する。
- *
- * @responsibility Family Preferenceの候補集合、選択理由、選択不能時の境界を所有する。
- * @trace ARCH-000010
- * @input provider: Provider
- * @returns selectFamilyPreferenceの計算結果を返す。
- * @precondition 「provider: Provider」がselectFamilyPreferenceの入力契約を満たす。
- * @postcondition selectFamilyPreferenceの責務を完了した結果だけを返す。
- * @effect N/A: selectFamilyPreferenceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: selectFamilyPreferenceは独自の失敗分岐を所有しない。
- * @invariant selectFamilyPreferenceは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: selectFamilyPreferenceはProcess内の同一Subsystemで完結する。
- * @security selectFamilyPreferenceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: selectFamilyPreferenceは共有非同期状態を持たない同期処理である。
- */
-function selectFamilyPreference(provider: Provider) {
-  return provider === "codex" ? "sol" : "opus";
 }
 
 /**
@@ -334,7 +315,7 @@ export function selectProviderModelCandidate(candidate: unknown) {
   }
   const provider = value.provider as Provider;
   const role = value.role as string;
-  const family = selectFamilyPreference(provider);
+  const family = selectProviderFamilyPreference(provider);
   const rationaleCodes = selectRationaleCodes(value);
   const requestedEffort = rationaleCodes.some((reason) =>
     HIGH_COST_REASON_CODES.has(reason),

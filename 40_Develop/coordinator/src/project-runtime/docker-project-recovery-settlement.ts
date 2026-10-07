@@ -4,7 +4,7 @@
  * @responsibility ProjectSettledDockerRecoveryを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000008
  */
-import { snapshotPlainRecord } from "../plain-data-snapshot.ts";
+import { snapshotPlainRecord } from "../../../domain-model/src/plain-data/index.ts";
 import { readCurrentProjectRuntimeState as readProjectRuntimeState } from "./project-runtime-durable-foundation.ts";
 
 /**

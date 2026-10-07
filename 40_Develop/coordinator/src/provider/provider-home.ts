@@ -5,9 +5,11 @@
  * @trace ARCH-000010
  */
 import path from "node:path";
+import { describeCodexSubscriptionAuthenticationCli } from "../../../ai-adapter/src/codex/index.ts";
+import { describeClaudeSubscriptionAuthenticationCli } from "../../../ai-adapter/src/claude/index.ts";
 
 import { isSupportedWindowsAbsolutePathCandidate } from "../authority/authority-root-path-lexical.ts";
-import { snapshotPlainRecord } from "../plain-data-snapshot.ts";
+import { snapshotPlainRecord } from "../../../domain-model/src/plain-data/index.ts";
 import { describeProviderHomeMountGrantContract } from "./provider-home-mount-grant.ts";
 import { describeProviderHomeMountGrantRuntimeContract } from "./provider-home-mount-grant-runtime.ts";
 import { describeProviderHomeObservationContract } from "./provider-home-observation.ts";
@@ -26,6 +28,10 @@ export const PROVIDER_HOME_ROOT_SEGMENTS = Object.freeze([
 ]);
 
 const PROVIDERS = Object.freeze(["codex", "claude"] as const);
+const PROVIDER_DIRECTORY_NAMES = Object.freeze({
+  codex: describeCodexSubscriptionAuthenticationCli().homeDirectoryName,
+  claude: describeClaudeSubscriptionAuthenticationCli().homeDirectoryName,
+});
 const INPUT_KEYS = new Set(["provider", "localAppDataRoot"]);
 
 /**
@@ -109,7 +115,10 @@ function resolveLayoutForValidation(
   );
   return Object.freeze({
     root,
-    providerHome: path.win32.join(root, selectedProvider),
+    providerHome: path.win32.join(
+      root,
+      PROVIDER_DIRECTORY_NAMES[selectedProvider],
+    ),
   });
 }
 
@@ -226,7 +235,7 @@ export function describeProviderHomeContract() {
     requiredEffectRootSource:
       "windows_known_folder_local_app_data_at_explicit_bootstrap_time",
     rootSegments: PROVIDER_HOME_ROOT_SEGMENTS,
-    providerDirectoryNames: Object.freeze({ codex: "codex", claude: "claude" }),
+    providerDirectoryNames: PROVIDER_DIRECTORY_NAMES,
     scope: "local_os_user_and_provider",
     persistentAcrossOperations: true,
     sharedAcrossRepositoriesForSameOsUser: true,

@@ -11,7 +11,7 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-責務再編は段階1〜4と段階5AのDomain Model統合・局所検証を完了した。旧三Packageを用途別公開入口へ統合し、利用側・Symbol・試験Catalog・配布閉包へ接続した。Domain全105試験、Coordinator公開静的検査（整形・型・Lint・全Tool Graph・二つの設計トレース）、移管Graph反証5試験と配布閉包全133契約が成功した。旧配置Fixtureと署名反証の空振りは是正済みである。利用側8Packageの型接続、Catalog20試験、Runner41試験と署名契約21試験の先行成功は確認範囲を分けて保持し、RunnerのUAT一件は未実行である。次は段階5BのAI Adapter／Platform Access再編。段階5B〜F、全親フォルダのFile名・責務・配置精査、全体回帰・Source独立レビュー・署名E2E・Release判断は未完了。段階4時点の全体Checkerは1,572件Fail、設計集合は13定義・172検証項目で、三観点の設計再レビューはPassだった。局所成功を全体品質Passとしない。[現在の順序と確認範囲](99_Roadmap/Changes/CHG-000082/change.md)と[段階5Aの局所完了判定](99_Roadmap/Changes/CHG-000082/Evidence/261007_develop-responsibility-mapping.md#段階5aの局所完了判定--2026-10-08)を参照する。
+責務再編は段階1〜4、5AのDomain Model統合、5BのAI Adapter／Platform Access移管と局所検証を完了した。Domainの用途別公開面、Provider固有計画・CLI引数・認証・結果・Profile、Native内部配置を新Ownerへ接続した。最新5B Sourceの配布閉包全133契約、AI Adapter全13契約、Coordinatorの型・固定計画と両Provider準備42契約が成功した。Native通常50試験と全target Clippy、利用側八Packageの型接続も確認済みである。実環境専用Native23件、RunnerのUAT一件、署名・実Provider E2Eは未実行として区別する。次は5CのCoordinator共通実行・Orchestrator・実行記録であり、Provider別組立てを最終配置として残さない。5C〜Fの移管後、全親フォルダのFile名・責務・配置精査に入る前に一旦停止して人間へ報告する。全体回帰・固定Source独立レビュー・Reality Audit・署名E2E・Release判断は未完了。段階4時点の全体Checkerは1,572件Fail、設計集合は13定義・172検証項目で、三観点の設計再レビューはPassだった。局所成功を全体品質Passとしない。[現在の順序と確認範囲](99_Roadmap/Changes/CHG-000082/change.md)と[段階5Bの局所完了判定](99_Roadmap/Changes/CHG-000082/Evidence/261007_develop-responsibility-mapping.md#段階5bの局所完了判定--2026-10-08)を参照する。
 
 Docker回復記録の縮小は本番切替前の保存境界を具体化している。Repository結合と短期排他、保存途中の再入場分類、既存内容検証の分離に続き、現在状態の本文と操作・資源・回復参照の構造検査を追加した。新codecの関連単体14件と限定再レビューはPassである。分離時の局所回帰218件とは確認範囲を区別する。最新Snapshotの本番保存、Host回収前提の接続、旧保存撤去と実E2Eは未完了で、全体能力Graphの既知停止も維持する。[現在の範囲](99_Roadmap/Changes/CHG-000082/change.md#現在状態codecの構造相関--2026-10-07)を参照する。
 

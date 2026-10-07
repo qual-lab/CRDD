@@ -4,19 +4,20 @@
  * @responsibility Commandを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000008
  */
+import { describeWorkbenchAiAdviceResultSchema } from "../workbench-ai/workbench-ai-advice-result.ts";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { codexAdviceProviderInitRequired } from "../provider/codex-advice-distribution.ts";
+import { codexAdviceProviderInitRequired } from "../../../ai-adapter/src/codex/index.ts";
 import { dockerContainerInitObservationMatches } from "./docker-container-init-observation.ts";
 import {
   planClaudeIsolatedTask,
   planClaudeReadOnlyProbe,
-} from "../provider/claude-execution-plan.ts";
+} from "../../../ai-adapter/src/claude/index.ts";
 import {
   planCodexIsolatedTask,
   planCodexReadOnlyProbe,
-} from "../provider/codex-execution-plan.ts";
+} from "../../../ai-adapter/src/codex/index.ts";
 import { resolveFixedCodexExecutorSeccompProfile } from "../provider/codex-executor-seccomp.ts";
 import {
   DOCKER_CLI_EXECUTABLE,
@@ -34,7 +35,7 @@ import {
 import { inspectRuntimeOwnedDockerResourceReceipts } from "./docker-recovery-runtime.ts";
 import { describeEgressProxyTopology } from "../external-send/egress-proxy-policy.ts";
 import { borrowOwnedDockerExecutionPaths } from "../host-runtime/execution-environment.ts";
-import { planWorkbenchAiAdviceProviderCommand } from "../workbench-ai/workbench-ai-advice-provider-command.ts";
+import { planWorkbenchAiAdviceProviderCommand } from "../../../ai-adapter/src/index.ts";
 
 export const DOCKER_EFFECT_RUNTIME_CONTRACT =
   "crdd-coordinator/docker-effect-runtime";
@@ -352,11 +353,14 @@ function expectedCommands(
 ): readonly Command[] | null {
   const adviceCommand =
     plan.operationMode === "workbench_advice"
-      ? planWorkbenchAiAdviceProviderCommand({
-          provider: plan.provider,
-          exactModelId: plan.selectedModel,
-          reasoningEffort: plan.selectedEffort,
-        })
+      ? planWorkbenchAiAdviceProviderCommand(
+          {
+            provider: plan.provider,
+            exactModelId: plan.selectedModel,
+            reasoningEffort: plan.selectedEffort,
+          },
+          describeWorkbenchAiAdviceResultSchema(),
+        )
       : null;
   const providerPlan =
     plan.provider === "codex"
@@ -620,11 +624,14 @@ function expectedCommands(
 function validatePlan(plan: PreparedPlan, tmpSourcePath: string) {
   const isAdvicePlan = plan.operationMode === "workbench_advice";
   const expectedAdviceCommand = isAdvicePlan
-    ? planWorkbenchAiAdviceProviderCommand({
-        provider: plan.provider,
-        exactModelId: plan.selectedModel,
-        reasoningEffort: plan.selectedEffort,
-      })
+    ? planWorkbenchAiAdviceProviderCommand(
+        {
+          provider: plan.provider,
+          exactModelId: plan.selectedModel,
+          reasoningEffort: plan.selectedEffort,
+        },
+        describeWorkbenchAiAdviceResultSchema(),
+      )
     : null;
   const expectedAdviceCommandHash = expectedAdviceCommand
     ? createHash("sha256")

@@ -11,7 +11,7 @@
  */
 import { createHash, randomBytes } from "node:crypto";
 
-import type { WorkbenchAiAdviceProviderCommand } from "./workbench-ai-advice-provider-command.ts";
+import type { WorkbenchAiAdviceProviderCommand } from "../../../ai-adapter/src/index.ts";
 
 export const WORKBENCH_AI_ADVICE_RUNTIME_PACKET_CONTRACT =
   "crdd-coordinator/workbench-ai-advice-runtime-packet";

@@ -8,7 +8,7 @@
  * @effect N/A: 文字列を検証・正規化するだけで外部Effectを発行しない。
  * @security 生出力を公開せず、許可済み読取り投影にない参照を拒否する。
  */
-import { parseUnambiguousJsonDocument } from "../provider/claude-structured-result.ts";
+import { parseUnambiguousJsonDocument } from "../../../ai-adapter/src/output/index.ts";
 
 export const WORKBENCH_AI_ADVICE_RESULT_CONTRACT =
   "crdd-coordinator/workbench-ai-advice-result";
@@ -335,4 +335,91 @@ function isExactRecord<const Keys extends readonly string[]>(
     return false;
   const actualKeys = Object.keys(value);
   return actualKeys.length === keys.length && keys.every((key) => key in value);
+}
+
+const adviceResultSchema = Object.freeze({
+  type: "object",
+  properties: Object.freeze({
+    contract: Object.freeze({
+      const: "crdd-coordinator/workbench-ai-advice-result",
+    }),
+    contractRevision: Object.freeze({ const: 1 }),
+    status: Object.freeze({ const: "completed" }),
+    facts: itemArraySchema(),
+    sharedAnalysis: itemArraySchema(),
+    additionalInferences: itemArraySchema(),
+    nextOptions: itemArraySchema(),
+  }),
+  required: Object.freeze([
+    "contract",
+    "contractRevision",
+    "status",
+    "facts",
+    "sharedAnalysis",
+    "additionalInferences",
+    "nextOptions",
+  ]),
+  additionalProperties: false,
+});
+
+/**
+ * Providerの出力制約へ渡す共通助言結果Schemaを公開する。
+ *
+ * @responsibility 四区分の結果意味と項目制約をCoordinatorで所有し、ProviderのCLI計画には中立な値として渡す。
+ * @trace ARCH-000015
+ * @input N/A: 現行の固定結果契約を投影する。
+ * @returns 不変な助言結果JSON Schema。
+ * @precondition N/A: Authorityや外部入力を要求しない。
+ * @postcondition 共通Normalizerと同じ結果契約・改訂・四区分を保持する。
+ * @effect N/A: 固定Objectを返すだけである。
+ * @failure N/A: 失敗分岐を持たない。
+ * @invariant Provider差によって結果の意味を変更しない。
+ * @boundary Coordinatorの意味契約とAI AdapterのCLI出力制約の間。
+ * @security 許可参照集合の最終確認はCoordinatorに残す。
+ * @concurrency N/A: 共有可変状態を持たない。
+ */
+export function describeWorkbenchAiAdviceResultSchema() {
+  return adviceResultSchema;
+}
+
+/**
+ * 助言項目配列のJSON Schemaを生成する。
+ *
+ * @responsibility 四区分で共通利用する本文と根拠参照の閉じたSchemaを一か所で所有する。
+ * @trace ARCH-000015
+ * @input N/A: 固定Schemaだけを生成する。
+ * @returns 助言項目配列のJSON Schema。
+ * @precondition N/A: 呼出し条件を持たない。
+ * @postcondition 余分Property、空参照および過大配列を許可しない。
+ * @effect N/A: 固定Objectを生成するだけである。
+ * @failure N/A: 失敗分岐を持たない。
+ * @invariant Result Normalizerより強い意味主張を追加しない。
+ * @boundary ProviderのSchema制約とCoordinatorの最終検証の間。
+ * @security 参照の許可集合確認はProviderでなくCoordinatorが所有する。
+ * @concurrency N/A: 共有状態を持たない同期処理である。
+ */
+function itemArraySchema() {
+  return Object.freeze({
+    type: "array",
+    maxItems: 64,
+    items: Object.freeze({
+      type: "object",
+      properties: Object.freeze({
+        text: Object.freeze({ type: "string", minLength: 1, maxLength: 8192 }),
+        references: Object.freeze({
+          type: "array",
+          minItems: 1,
+          maxItems: 16,
+          uniqueItems: true,
+          items: Object.freeze({
+            type: "string",
+            minLength: 1,
+            maxLength: 512,
+          }),
+        }),
+      }),
+      required: Object.freeze(["text", "references"]),
+      additionalProperties: false,
+    }),
+  });
 }

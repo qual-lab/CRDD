@@ -19,7 +19,7 @@ import {
   verifyRepositoryRoot,
 } from "../../version-control/src/repository-location.ts";
 import { isDockerIsolationRecoveryIdCandidate } from "../src/docker-runtime/docker-isolation.ts";
-import { snapshotPlainArray } from "../src/plain-data-snapshot.ts";
+import { snapshotPlainArray } from "../../domain-model/src/plain-data/index.ts";
 import { coordinatorTaskPublicReasons } from "../src/task/coordinator-task-result-reasons.ts";
 import { inspectRepositoryRevisionCandidate } from "../src/repository-operation/repository-operation-runtime.ts";
 import { isCanonicalSignedRunnerRecoveryId } from "../src/diagnostics/signed-runner-safety-observation.ts";

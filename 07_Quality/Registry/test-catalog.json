@@ -15,7 +15,7 @@
     "longevity"
   ],
   "runnerProfiles": {
-    "ai-runtime": "node_test",
+    "ai-adapter": "node_test",
     "artifact-signing": "node_test",
     "checker": "node_test",
     "coordinator": "node_test",
@@ -35,7 +35,7 @@
   "integrationBlocks": [
     {
       "id": "ai-runtime:catalog-to-consumers",
-      "owner": "ai-runtime",
+      "owner": "ai-adapter",
       "architectureAnchor": "06_Architecture/Details/ai-runtime/01_Architecture.md#3-公開入口と依存方向",
       "responsibilities": [
         "profile_catalog_validation",
@@ -762,8 +762,8 @@
     },
     {
       "id": "ai-runtime:unit:profile-catalog",
-      "owner": "ai-runtime",
-      "path": "40_Develop/ai-runtime/tests/ai-profile-catalog.contract.test.ts",
+      "owner": "ai-adapter",
+      "path": "40_Develop/ai-adapter/tests/ai-profile-catalog.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -787,8 +787,8 @@
     },
     {
       "id": "ai-runtime:integration:catalog-store",
-      "owner": "ai-runtime",
-      "path": "40_Develop/ai-runtime/tests/integration/ai-profile-catalog-store.integration.test.ts",
+      "owner": "ai-adapter",
+      "path": "40_Develop/ai-adapter/tests/integration/ai-profile-catalog-store.integration.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -811,8 +811,8 @@
     },
     {
       "id": "ai-runtime:integration:profile-consumers",
-      "owner": "ai-runtime",
-      "path": "40_Develop/ai-runtime/tests/integration/ai-profile-consumers.integration.test.ts",
+      "owner": "ai-adapter",
+      "path": "40_Develop/ai-adapter/tests/integration/ai-profile-consumers.integration.test.ts",
       "level": "integration",
       "kind": "integration",
       "semanticTags": [
@@ -5669,7 +5669,7 @@
     {
       "id": "platform-access:unit:protocol",
       "owner": "platform-access",
-      "path": "40_Develop/platform-access/src/protocol.rs",
+      "path": "40_Develop/platform-access/src/protocol/access.rs",
       "level": "unit",
       "kind": "unit",
       "semanticTags": [
@@ -5687,7 +5687,7 @@
     {
       "id": "platform-access:unit:terminal-protocol",
       "owner": "platform-access",
-      "path": "40_Develop/platform-access/src/terminal_protocol.rs",
+      "path": "40_Develop/platform-access/src/protocol/host_record.rs",
       "level": "unit",
       "kind": "unit",
       "semanticTags": ["protocol", "recovery"],
@@ -5700,7 +5700,7 @@
     {
       "id": "platform-access:unit:docker_repair",
       "owner": "platform-access",
-      "path": "40_Develop/platform-access/src/docker_repair.rs",
+      "path": "40_Develop/platform-access/src/docker-desktop/repair.rs",
       "level": "unit",
       "kind": "unit",
       "semanticTags": [
@@ -5738,7 +5738,7 @@
     {
       "id": "platform-access:unit:windows",
       "owner": "platform-access",
-      "path": "40_Develop/platform-access/src/windows.rs",
+      "path": "40_Develop/platform-access/src/filesystem/root_observation.rs",
       "level": "unit",
       "kind": "unit",
       "semanticTags": [
@@ -5758,7 +5758,7 @@
     {
       "id": "platform-access:integration:windows_terminal",
       "owner": "platform-access",
-      "path": "40_Develop/platform-access/src/windows_terminal.rs",
+      "path": "40_Develop/platform-access/src/filesystem/host_record.rs",
       "level": "integration",
       "kind": "contract",
       "semanticTags": ["windows", "filesystem", "recovery"],
@@ -5784,7 +5784,7 @@
     {
       "id": "platform-access:integration:host_namespace_protocol",
       "owner": "platform-access",
-      "path": "40_Develop/platform-access/src/host_namespace_protocol.rs",
+      "path": "40_Develop/platform-access/src/protocol/host_namespace.rs",
       "level": "integration",
       "kind": "contract",
       "semanticTags": ["host", "namespace", "protocol", "partial-result"],
@@ -6021,7 +6021,7 @@
     {
       "id": "platform-access:unit:docker_authenticode",
       "owner": "platform-access",
-      "path": "40_Develop/platform-access/src/docker_authenticode.rs",
+      "path": "40_Develop/platform-access/src/docker-desktop/publisher.rs",
       "level": "unit",
       "kind": "unit",
       "semanticTags": [
@@ -6040,7 +6040,7 @@
     {
       "id": "platform-access:unit:windows_directory",
       "owner": "platform-access",
-      "path": "40_Develop/platform-access/src/windows_directory.rs",
+      "path": "40_Develop/platform-access/src/filesystem/windows_directory.rs",
       "level": "unit",
       "kind": "unit",
       "semanticTags": ["windows", "environment", "bootstrap"],
@@ -6053,7 +6053,7 @@
     {
       "id": "platform-access:unit:windows_owned_child",
       "owner": "platform-access",
-      "path": "40_Develop/platform-access/src/windows_owned_child.rs",
+      "path": "40_Develop/platform-access/src/process/owned_child.rs",
       "level": "unit",
       "kind": "unit",
       "semanticTags": [

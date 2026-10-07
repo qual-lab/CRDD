@@ -17,7 +17,7 @@ import {
   createAiProfileCatalogAdministration,
   createAiProfileCatalogRegistry,
   DEFAULT_AI_PROFILE_CATALOG,
-} from "../../../ai-runtime/src/index.ts";
+} from "../../../ai-adapter/src/profile/index.ts";
 import { parseRepositoryProjectContextMarkdown } from "../../../domain-model/src/project-context/index.ts";
 import {
   createMemoryConnectionCredentialRegistry,

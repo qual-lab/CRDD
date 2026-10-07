@@ -138,7 +138,7 @@ async function runNativeProtection(): Promise<void> {
     repository +
     "/40_Develop/platform-access/tests/fixtures/windows_protection.rs";
   const exactTest =
-    "windows::protection_tests::terminal_protection_fixture_observes_handle_sharing";
+    "filesystem::host_record::protection_tests::terminal_protection_fixture_observes_handle_sharing";
   const crateRoot = repository + "/40_Develop/platform-access";
   const buildRoot = crateRoot + "/target";
   nodeIdentity(crateRoot);

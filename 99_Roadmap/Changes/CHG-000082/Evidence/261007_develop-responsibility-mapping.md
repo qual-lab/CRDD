@@ -711,6 +711,8 @@ Tool名はここでは提案値であり、既存Protocol値を無断変更し�
 
 人間の追加指示により、段階5のA〜Fによる全体の改名・移管が終わった後、段階6の全体回帰前に、目標構成の全親フォルダを一つずつ精査する。既存のCHG意図である責務再編の詳細化として扱い、親フォルダ名の変更だけで再編完了としない。
 
+開始前の停止条件: 2026-10-08の人間指示により、段階5A〜Fの改名・移管と必要な局所確認が一通り終わった時点で、File責務精査へ自動移行せず作業を止める。移管の完了状況、残件、精査対象の親フォルダ一覧を人間へ提示し、再開指示を待つ。この停止はCHG全体の完了を意味しない。現在は段階5Bの移管中であり、この停止地点には未到達である。
+
 各親フォルダについて、現在の実Source・公開入口・呼出し側を確認して次の対応表を作り、処置後の局所検証まで終えてから次へ進む。既存の一次棚卸しは調査入力とし、移管後の実体に対する精査結果として流用しない。
 
 | 対象File | 実際の責務・利用側 | File名の評価 | 責務の評価 | 配置の評価 | 処置と確認方法 |
@@ -991,6 +993,140 @@ ConfigurationはManifest／設定、RepositoryはRoot観測、Storageは保存�
 修正後の配布閉包契約は全133件成功、失敗・取消・skip・todoは0、所要628,450.998msで終了した。旧配置Fixtureと空振りする署名反証の失敗は、現行Sourceへ作用する負例として再確認済みである。Domain公開`npm test`の静的検査＋105件、利用側8Packageの型接続、Catalog20件、Runner41件成功・UAT一件未実行、移管Graph反証5件、Coordinator公開静的検査の確認範囲を合わせ、段階5Aの実装移管と局所検証を完了とする。
 
 旧三Packageの実装importと旧三フォルダは不存在、69Fileの対応表を実移管先へ更新した。公開Rootは共通Outcomeだけを維持し、Topic／Meeting・保存・観測・設定を用途別入口へ接続した。未実行UAT、全体回帰・Reality Audit・固定Source独立レビュー、実Native・署名・実Provider E2Eは段階6／7へ保持し、段階5Aの局所完了を全体完成・Release可能へ読み替えない。段階5Bの共通Snapshot正本補正は着手準備であり、実体移管はまだ未実施である。
+
+### 段階5B着手 — 共通入力Snapshotの単一移管
+
+段階5AはCommit `3373192`へ固定した。続いて共通入力Snapshotの本文を変更せず、Domain Modelの`plain-data`へ移管した。Coordinatorの55File・58箇所のimport／固定検証Pathを用途別公開入口と新実体へ対応し、strict型検査の旧File登録も更新した。既存Symbol IDとARCH Relationを保持してManifest Ownerだけを移した。旧入口shim・コピー実装は追加していない。
+
+DomainとCoordinatorの公開静的検査が成功した。両Provider計画・Snapshot反証24件、Domain公開面12件、既存Coverage登録6件が成功し、新入口は既存二関数だけを公開する。本文のLF正規化後同一性を確認した。段階5BのProvider固有実装・Profile管理・全Consumer・配布閉包・Native整理は未完了であり、この部分移管を段階5B完了としない。固定候補のSource独立レビュー・実署名E2Eは引き続き段階6／7で行う。
+
+### 段階5BのProfile・Provider純粋処理移管 — 2026-10-08
+
+旧AI Runtimeの14Fileと、CoordinatorのProvider計画・結果変換・課金方針の6FileをAI Adapterへ移管した。Catalog、Profile管理、Codex、Claudeの用途別入口を分け、Rootは純粋なCatalog・Provider記述・Profile解決・助言変換を公開する。保存・管理操作をRootへ戻さず、既存Symbol IDとQA IDを保持して実装のManifest Ownerと試験カタログの物理Owner／Pathを更新した。
+
+新配置のAI Adapter公開`npm test`は静的確認と全13件が成功した。純粋公開集合の完全一致、保存・管理操作を含めないRoot、同梱JSONの欠落・破損拒否を確認した。試験カタログとRunner契約37件、既存利用側からの両Provider計画・結果変換・課金方針31件も成功した。旧Fixtureの参照位置だけを新配置へ追従し、拒否条件を弱めていない。
+
+さらに助言CLI計画とProvider出力抽出の二FileをAI Adapterの`advice`へ移し、11利用側を共通公開入口へ接続した。結果Schemaと項目SchemaはCoordinatorの結果Ownerに残して明示入力で搬送する。Provider側が共通結果の意味を所有する逆依存を作っていない。二Symbolの安定IDも保持した。実配置と旧実体不存在を確認して、棚卸しの22行を予定から実移管へ更新した。
+
+Coordinatorの型・公開静的検査、助言CLI／出力／Packet／実行計画／両Docker準備の60契約が成功した。Schemaの内容一致に加え、別の明示Schemaを渡すとその値がCLIへ搬送される反証を既存契約へ追加し、三契約を再確認した。実Provider・Dockerを起動した結果ではない。公開静的検査の既存Lint情報54件は維持する。
+
+Profile解決File、Provider別Family選好と固定認証方針、Claudeのlogin／status引数とProbe判定をAI Adapterへ移した。Coordinatorは作業分類・リスク・推論強度、実観測、実行権限、Home・Lock・Process・回収を保持する。旧Profile Symbol IDはOwnerだけ移し、分割した認証方針・Probeには新FileのSymbolと既存QA試験のRelationを接続した。AI Adapterの静的検査と全13件、Coordinatorの選択・認証・Lifecycle関連48件が成功した。認証CLI記述の不変性と四条件の部分一致・欠落・解析不能拒否を追加し、認証の15契約も成功した。更新後のCoordinator公開静的検査は全段成功、既存Lint情報54件は維持する。これは局所検証であり、実認証・実Dockerを行った結果ではない。
+
+Provider間の共通JSON解析をClaude Fileから`ai-adapter/src/output`へ抽出した。解析本文は維持し、専用型は`types.ts`へ分けた。Codex・Claude・助言とCoordinatorの全利用側は`output/index.ts`へ直接依存し、Claude公開面からの再exportを残さない。両Providerの結果、助言抽出、Task構造化結果の38契約と型接続が成功した。共通解析の重複key、escape同値key、入れ子重複、末尾データと不正文法の反証を追加し、既存QA項目から新Symbolへ接続した。MCP等の別Parserは今回一括統合しない。
+
+二Providerの禁止環境変数集合を各CLI計画Ownerへ移し、Codexのlogin status／CODEX_HOMEとClaudeのauth statusをAI Adapterの固定認証記述へ接続した。Claude再認証の五つの固定環境値も同じ認証Ownerへ移管し、値と順序を保持する。Docker側は固定記述を消費するだけとし、Home、Mount、権限、Prepared Capability、取消・回収はCoordinatorに残す。両Providerの準備・認証・CLI計画64契約と型接続が成功した。新しいCodex認証記述には既存QA試験からSymbol Relationを接続し、CLI引数・環境値の完全一致と不変性を追加した31契約も成功した。
+
+Provider利用可能性の五軸判定と観測Snapshot検査をAI Adapterの`profile/eligibility.ts`へ分離した。Coordinatorは観測の組立てとRuntime候補の公開を保持し、既存公開契約・理由値を変更していない。AI Adapterの静的検査と13契約、Coordinatorの型接続と選択・判定33契約が成功した。未観測、accessor・Proxy、余分なkey、観測例外の拒否と、認証preflight／Quota確認を確認済みへ昇格しない条件を維持する。新Symbolと既存QA試験のRelationを接続した。
+
+Task結果のProvider固有搬送解釈を`ai-adapter/src/output/task-envelope.ts`へ移した。Codex JSONLのイベント・Command終了分類とClaude ResultのTurn・Usage・Reviewer本文搬送を同じ処理本文で保持し、共通Executor／Reviewer Schema、Review整合性とRemediation CapabilityはCoordinatorに残す。元関数と移管後の処理本文の同一性、公開集合、Symbol／QA接続を確認した。両Provider出力・Task結果28契約、Coordinator型接続、AI Adapter静的検査・13契約が成功した。実Provider・Dockerの実行結果ではない。
+
+Provider専用Homeの相対名を各認証記述へ接続した。CoordinatorのOS Root、保護、Mount、排他・回収は移管しない。関連46契約と型接続、AI Adapter静的検査・13契約が成功した。Codex seccomp要求の固定Identityは既にAI AdapterのCLI計画へ移管されており、Coordinatorの実体・Hash・Path検証は維持する。
+
+NativeのDocker発行元検証を`docker-desktop/publisher.rs`へ移管した。Windows APIによる検査本文を変更せず、同Packageの`docker_desktop::publisher`へ参照、設計、Symbolと試験台帳を追従した。旧Fileと移管後の内容同一性、旧Native参照の不存在を確認した。明示Windows targetの型確認とFormatter検査、通常Native44件とCLI6件、試験台帳20契約が成功し、専用Ownerからの明示起動を要する23件は未実行として保持する。実Docker起動・再起動・署名は行っていない。
+
+Nativeの三つの固定搬送形式を`protocol/access.rs`、`host_namespace.rs`、`host_record.rs`へ移した。Rootの旧Moduleは残さず、実装・fixture・入口の参照、安定Symbolと試験台帳のPath、既存Coverage対象のPathを新配置へ接続した。Protocolのbyte・magic・revision・flagsと判定本文は変更していない。Windows向け型確認、Formatter、通常Native44件とCLI6件、試験台帳20契約が成功した。明示起動専用23件は未実行であり、Coverage率や実署名の成功を主張しない。
+
+Nativeの所有子Processを`process/owned_child.rs`、system directory観測を`filesystem/windows_directory.rs`へ移した。spawn／wait／取消／timeout／Owner handle closeと終了観測の本文を保持し、子試験のexact Module名を追従した。Windows API観測を環境変数解決へ置換していない。Module参照名と整形を除く内容同一性、旧実体不存在を確認した。通常Native44件とCLI6件、試験台帳20契約、Formatter・Clippyが再成功した。
+
+続いて固定Known Folderの四つの取得関数と共通取得処理を`filesystem/windows_directory.rs`へ分離した。Shell API、固定GUID、UTF-16長さ上限とShell割当メモリの解放を保持し、Docker利用側は新Ownerを直接参照する。五関数の基準版との本文同一性と旧実装不存在を確認した。Coverage対象へ移管先を追加し、移動によって既存対象の検証母集団を減らしていない。通常Native44件とCLI6件、試験台帳20契約、Formatter・全target Clippyが成功した。明示起動専用23件とCoverage計測、署名・実Provider E2Eは未実行である。
+
+Handle／Descriptor／hash resource所有、Directory IdentityとACL AccessCheckの九関数を`filesystem/protection.rs`、Token／SID／認証Session／主体分類の十二関数を`process/principal.rs`へ分離した。利用側は同じOS検査を使用し、Docker mutexは主体Ownerを直接参照する。21関数の本文を基準版と全数照合し、限定可視性と整形以外の変更、旧位置の重複実装がないことを確認した。Coverage母集団へ二移管先を追加した。通常Native44件とCLI6件、全target Clippyが成功した。
+
+固定Home／Candidate Store／Runtime Stateの十関数と関連型を`filesystem/provider_home.rs`へ分離し、Native入口は新Ownerを直接呼ぶ。共有のACE内SID読取りを`filesystem/protection.rs`へ移した。十一関数の本文を基準Commitと照合し、既存Protocol Module移管への参照追従・整形以外の本文変更と旧位置の重複定義がないことを確認した。CoverageとSymbol Relationを追従し、通常Native44件・CLI6件、全target Clippy、試験台帳20件とCoordinator公開静的検査が成功した。静的検査の既存Lint info 54件は失敗・警告ではない。Host保存処理の分割、Root dispatch整理、段階5B全体確認は残る。ignoredの実環境23件、署名・実Provider E2Eと独立Sourceレビューは今回の局所成功に含めない。
+
+Docker Desktop修復の本体を`docker-desktop/repair.rs`へ移管し、固定Native入口、exact子試験名、CoordinatorのSource確認試験、安定試験ID、Symbol、Coverage対象と文書リンクを新配置へ接続した。続いてArtifactの固定Path・署名・ハッシュ・実体照合とProcessのPath・作成時刻・scope観測を`identity.rs`へ分離した。限定停止・開始・再起動、mutexと固定Protocolは`repair.rs`が保持し、Engine readinessとTask義務をNativeへ移していない。Module参照・同一親内の限定可視性と整形を除く基準版との本文同一性、旧実体と重複実装の不存在を確認した。Coverage母集団へ移動先を追加し、任意Path／Process操作APIを公開していない。通常Native44件とCLI6件、全target Clippy、関連Coordinator契約93件、試験台帳20契約が成功した。明示起動専用23件、Coverage計測、Docker実操作・署名・実Provider E2Eは未実行である。
+
+Host処理の実体を`filesystem/host_record.rs`へ移し、旧`windows_terminal.rs`を撤去した。windows親へのglob依存を明示importに置き換え、入口から直接接続した。fixture所属・exact子起動名・静的Graph／本文／起動引数Hash・台帳・Symbolを追従した。Module参照・限定可視性・整形を正規化して、本番処理全体の本文一致を確認した。旧windowsに適用していたfixture専用dead-code許容はHost処理だけへ保持した。通常Native44件・CLI6件、全target Clippy、台帳・Oracle23件、Coordinator公開静的検査が成功した。保護付き保存の`protected_file.rs`、固定Namespace・対象観測の`host_namespace.rs`への分割は残り、この物理移動を最終配置としない。
+
+残るProvider固有処理とDocker実行Adapter、全File対応、全利用側型確認、配布閉包およびNative整理は残る。これらの局所成功を段階5B完了、Source独立レビュー、実署名または実Provider E2Eの成功へ読み替えない。段階5A〜F完了後は、人間指定どおりFile責務精査の開始前に停止して報告する。
+
+### 段階5BのHost低位操作・Namespace値判定の分離 — 2026-10-08
+
+保護付きHandle操作・ACL照合・Descriptor構成・上限付き読取りの九関数を`filesystem/protected_file.rs`へ、固定NamespaceのIdentity型と値・対象名・一時親Pathの三判定を`filesystem/host_namespace.rs`へ移した。十二関数を基準Commitと照合し、Module参照・限定可視性・整形以外の本文変更がないことを確認した。設計、Symbol Relation、Coverage対象を新Ownerへ接続した。
+
+通常Native44件・CLI6件、全target Clippy、試験台帳・Oracle23件とCoordinator公開静的検査が成功した。実環境専用23件は未実行、Coverage率・署名・実Provider E2Eは未確認である。保存Stage・OS Namespace観測の分離と段階5B全体確認は残る。全体移管後、親FolderごとのFile責務精査を開始する前に人間へ報告して停止する。
+
+### 段階5BのRoot観測移管 — 2026-10-08
+
+Root用途別観測を`filesystem/root_observation.rs`へ移し、旧Rootの`windows.rs`を撤去した。Native入口から用途別Ownerを直接呼び、台帳の安定ID、Coverage対象と設計参照を追従した。Root観測関数の本文一致、通常Native44件・CLI6件、全target Clippyと台帳・Oracle23件を確認した。これはRoot dispatchの移管確認であり、Host保存Stage・OS Namespace観測の分離と段階5B全体の完了は残る。
+
+### 段階5Bの保存Stage・親guard移管 — 2026-10-08
+
+保存Stageと部分処置receipt／失敗型を`filesystem/protected_file.rs`へ、保持Directory chainと部分取得失敗型を`filesystem/host_namespace.rs`へ移した。共有の終了不明状態はNamespace guard側に一つだけ保持し、記録の容量判定も同じ状態へ接続する。公開Protocol・理由・flagを変更せず、必要な可視性を同filesystem内へ限定した。既存fixture専用の二つの親guard入口は`cfg(test)`へ限定した。
+
+五型・二実装・名前生成関数の本文を基準Commitと照合し、既存Module移管、限定可視性、fixture入口分類と整形以外の変更がないことを確認した。Native通常44件・CLI6件、全target Clippy、台帳・Oracle23件が成功した。固定child初期化・対象観測の移管と段階5B全体確認、実環境専用試験は未完了である。
+
+### 段階5Bの固定Namespace初期化移管 — 2026-10-08
+
+固定child種別、初期化の部分receipt／失敗型、作成本体とNamespace専用要求を`filesystem/host_namespace.rs`へ移した。公開Native入口は同Ownerを直接呼ぶ。存在・不存在・観測不能の二判定は`filesystem/protected_file.rs`へ移し、旧値や失敗理由を保持した。三型・六関数の本文一致、Native通常44件・CLI6件、全target Clippyと台帳・Oracle23件が成功した。Namespace初期化fixtureの安定ID・exact起動名は変更せず、新実装OwnerへのRelationを追加した。対象観測と段階5B全体確認は残る。
+
+### 段階5Bの対象観測移管 — 2026-10-08
+
+十一／十二実体のSnapshot・部分取得・終了結果の四型と、対象照合・観測・既知file照合の八関数を`filesystem/host_namespace.rs`へ移した。記録受付は同Ownerの観測結果を既存Protocolへ搬送する。四型・八関数の本文一致、Native通常44件・CLI6件、全target Clippy、台帳・Oracle23件を確認した。fixture専用の八対象終了合成wrapperだけを`cfg(test)`へ限定した。Native内部の予定分割を配置表へ反映したが、残るProvider固有Adapter・利用側・配布閉包を含む段階5B全体は未完了である。
+
+### 段階5Bの助言Profile照合移管 — 2026-10-08
+
+承認済みのProvider差分離に従い、Workbench助言のRole・Model・推論強度・Provider／Offering検査と五項目のexact Identity照合を、AI Adapterの`profile/profile-execution.ts`へ移した。CoordinatorはTaskのProfile対応、Catalog改訂・Hash・Prompt、Repository非共有・Tool禁止、Executor呼出しと取消・回収を保持する。照合へ渡すIdentityは五項目だけに限定し、Task・Prompt・Path・Authorityを渡さない。受理・拒否条件、既存契約文字列と理由値は変更せず、新Frameworkや実行Capabilityを追加していない。
+
+着手前に公開契約、二Consumer、Rootの完全一致試験、Symbolと既存ERB-UT-023の対応を照合した。正常値、Offering不一致、Roleなし、空Model、推論強度許可集合なし、全五項目の単独不一致とTask不一致を反証した。AI Adapterの整形・型・Lintと全13試験、Coordinatorの助言計画・Provider Command・Executor・本番組立て33試験が成功した。Coordinator公開静的検査も成功し、既存Lint情報54件は維持する。最終の限定搬送・Task反例追加後の型接続と差分の空白検査も成功した。段階5Bの残るDocker準備統合・利用側・配布閉包、段階6の固定Source独立レビューと段階7の署名E2Eは未完了である。File責務の全面精査へは移行していない。
+
+### 段階5Bの固定Model・環境値検査移管 — 2026-10-08
+
+両Docker Adapterに重複していたModel構文検査と固定環境検査を、AI Adapterの`profile/profile-execution.ts`と`profile/provider-environment.ts`へ単一化した。小文字識別子・128文字上限、Provider別禁止名、非文字列・NULの拒否を維持する。環境は一回の`Object.entries`で取得した組を元順序で返す。Coordinator側は同じ組をDocker引数へ変換し、Proxy・Home・Mount・資源名、権限、取消と回収を保持する。禁止集合のコピー、Provider別検査関数、互換shimは残していない。
+
+公開集合とSymbol・ERB-UT-023・Details・全File対応を追従した。AI Adapterの静的検査と全13試験、両ProviderのDocker準備・CLI計画とProfile反証54試験が成功した。Coordinatorの公開静的検査・Tool Graph・二つの設計トレースも成功し、既存Lint情報54件を維持した。差分の空白検査と旧検査実体の不存在を確認した。構文の128／129文字境界、禁止名全数、空環境・空文字値、非文字列・NUL、順序、一回取得を局所確認した。これらは実Docker・実Provider・資源不存在の実測ではない。汎用Docker準備の統合、全Consumer・配布閉包と段階5B全体の完了判定は残る。全親フォルダのFile責務精査には入っていない。
+
+### 段階5Bの共通準備Lifecycle移管 — 2026-10-08
+
+両Providerの取消・二時計期限・一回消費を`docker-runtime/provider-preparation-lifecycle.ts`へ単一化した。既存二WeakMapを直接操作し、管理Capabilityの参照一致、30秒境界、失効→Mount解放→所定の参照除去の順序とProvider別結果を維持する。解放未確認の参照保持、失効不成立時の既存処置、具体計画型の一回返却も変更していない。新しい保存状態や回復Frameworkは追加していない。
+
+両Provider、管理不一致、期限直前／期限到達、単調時計期限、逆行・非有限時刻、Mount解放未確認、失効不成立と再消費を局所確認した。Coordinator公開静的検査と関連48試験が成功し、既存Lint情報54件を維持した。両Providerの既存試験Symbolを共通実体へ接続した。Dockerコマンド組立て・準備統合、全利用側・配布閉包と段階5B全体は未完了であり、実資源不存在・独立Sourceレビュー・署名E2Eの成立を示さない。File責務の全面精査には入っていない。
+
+### 段階5Bの共通Dockerコマンド移管 — 2026-10-08
+
+両Providerに重複していたbind Mountと九コマンドの組立てを`docker-runtime/provider-docker-command-plan.ts`へ移した。Provider固有の認証環境・CLI・init要求・検証済みSeccomp条件は呼出し側で取得し、共通処理は既存Docker引数と順序だけを所有する。Prompt搬送、モデル照合、Authority発行、Home Leaseと実Process所有は今回変更していない。独立した実行Frameworkや汎用外部command入口は追加していない。
+
+移管直前の実コマンド本文と新実体をメモリ内で比較し、両Providerのprobe／Executor／Reviewer／助言、init・Seccompの組合せ32配列で全九コマンドの同値性を確認した。各配列・コマンド・argvの凍結、Mountの五拒否例も確認した。整形・型・公開静的検査と両Provider関連50試験、試験台帳20試験が成功し、既存Lint情報54件を維持した。Symbol、Detailsと全File対応を追従した。汎用準備の統合、全利用側・配布閉包と段階5B全体の完了判定は残り、実Docker・署名E2EやSource独立レビューの成立は主張しない。全親FolderのFile責務精査の開始前に停止する指定は維持する。
+
+### 段階5Bの共通Docker資源名移管 — 2026-10-08
+
+両Providerの同じ乱数型・byte長検査と資源名生成を`docker-runtime/provider-docker-resource-plan.ts`へ単一化した。乱数Owner・取得回数、8／32byte、64桁小文字Home Hash、Provider別prefix、63文字上限と既存labelを維持した。Mount・Model・Authorityと実要求は移しておらず、名前から実資源所有・不存在や削除権限を推定しない。旧二つの乱数関数と命名ブロックは撤去した。
+
+両ProviderのHome形式、資源名の63／64文字境界、Buffer以外、byte長違い、一回取得、取得例外を既存PRL-UT-014へ追加した。Coordinator公開静的検査と両Provider準備・取消関連33試験が成功し、既存Lint情報54件を維持した。Details・全File配置表・Symbolを同じOwnerへ対応した。準備本体ではClaudeの作業量確認と成功結果の追加項目が差として残るため、これらを保持して共通資源・Authority処理を統合する。段階5B全体、利用側・配布閉包と後続段階は未完了であり、全面的なFile責務精査には入っていない。
+
+### 段階5Bの共通準備本体移管 — 2026-10-08
+
+両Providerの受理・Mount有効化・Packet消費・Home取得・計画生成・Authority照合・候補保存を`docker-runtime/provider-docker-preparation.ts`へ単一化した。二つの固定呼出し側はProvider別計画・拒否結果・成功結果とClaude作業量確認を接続する。既存二WeakMap、opaque参照、例外時の失効→Mount解放→再throwを保持し、新しいStore、動的接続FrameworkまたはDocker要求を追加していない。呼出し側Header、Details、Symbol／既存QA試験Relationと配置表を実処理へ対応した。
+
+移管直前の二実装と共通処理をメモリ内で64条件比較し、結果field、例外、失効・解放・保存の順序の一致を確認した。mode不一致、回復参照、Mount、Packet、時計、計画、Authority各field、取得・発行・保存例外を含む。両Provider準備、委譲結合と境界Matrixの37試験、Coordinator公開静的検査が成功し、既存Lint情報54件を維持した。実Docker・Provider実行や資源不存在の実測ではない。残る計画構築・Factory、全利用側と配布閉包を含む段階5B全体は未完了。段階5A〜F後のFile責務精査前停止を維持する。
+
+### 段階5Bの利用側・配布閉包確認 — 2026-10-08
+
+共通準備本体移管後、AI Adapterの公開静的検査と全13試験、CROS／MCP／Workbench／Project Runtime／Checker／Artifact Signing／Semantic Coverage／Version Controlの八Package型接続が成功した。試験台帳20契約と配布閉包の関連16契約も成功し、Domain固定Worker、分離後componentの実行Identity、開発版実体照合、子入口迂回の拒否を確認した。配布閉包の全契約は次の確認として実行し、関連集合の成功だけで全件成功や段階5B完了としない。
+
+残るProvider別の`buildPlan`とFactoryには、Provider固有CLIの直接実装ではなく、AI Adapter記述とCoordinatorのMount・Egress・Capabilityを結ぶ組立てが残っている。Coordinator共通実行への統合予定とAI固有差の取り残しを区別して照合する。今回の確認は移管接続の局所結果であり、実Native専用試験、Source独立レビュー、署名・実Provider E2Eの未評価は維持する。
+
+### 段階5Bの全配布閉包確認と共通Factory移管 — 2026-10-08
+
+共通準備本体移管後の配布閉包全133契約は成功した。失敗・取消・未実行・TODOは0、所要時間は724,369.6623msである。関連16契約だけの確認とは区別し、この固定Sourceにおける全集合の結果として保持する。Native通常44件・CLI6件と全target Clippyは成功したが、実環境専用23件は未実行であり、署名・実Provider E2Eの成功は主張しない。
+
+その後、両Providerに重複していた局所検証Factoryを既存の`provider-docker-preparation.ts`へ移した。準備三モード、取消と消費の引数順序、Provider別失敗理由、凍結、本番Authorityなしを保持し、新しい接続Frameworkや保存状態を追加していない。旧二実装とのメモリ内20条件比較で正常・例外の結果と呼出し順序が一致した。初回の型推論で具体結果型が失われたため是正し、最終のCoordinator公開静的検査と関連37契約が成功した。既存Lint情報54件は失敗・Warningと区別して維持する。
+
+全133契約はFactory移管前の結果であり、最新差分の全件再実行結果へ流用しない。残る計画構築と共通実行組立て、段階5B全体の完了判定、5C〜F、Source独立レビュー・全体回帰・署名E2Eは未完了。全移管後、File責務精査へ入る前に止める人間指定を維持する。
+
+### 段階5BのClaude固有引数移管 — 2026-10-08
+
+Coordinatorに残っていたClaudeのModel・effortオプションと固定argvの結合を、AI Adapterの既存`claude-execution-plan.ts`へ移した。選定・Model構文・Task／助言Identityの受理はCoordinator、CLI固有の引数順序はAI Adapterとして境界を保持する。助言専用argvは既存の固定Commandを使い、この結合を通さない。新しい拒否条件、Model変更、fallback、実行権限は追加していない。
+
+元配列の不変、完成argvの順序と凍結を既存ERB-IT-001の契約試験へ接続した。Coordinatorの型と固定計画・両Provider準備42試験、AI Adapterの静的検査と全13試験が成功した。共通計画構築と段階5B全体の完了判定は継続中であり、実Docker・Provider実行・署名E2Eの成功は主張しない。
+
+### 段階5Bの局所完了判定 — 2026-10-08
+
+最新の共通Factory・Claude固有引数を含む固定Sourceで、配布閉包全133契約が成功した。失敗・取消・未実行・TODOは0、所要時間648,235.2783msである。前回724,369.6623msの結果とは対象差分を区別する。AI Adapter全13契約と静的検査、Coordinatorの型・計画・両Provider準備42契約、Factory20条件の同値比較、共通準備64条件の同値比較を確認した。Native内部は通常44件・CLI6件、全target Clippy、Protocolと既存本文の配置照合が成功している。Native実環境専用23件、署名・実Provider E2Eは今回の局所Gateに含めず、段階6／7の義務を維持する。
+
+段階5Bの予定範囲であるProfile・Provider固有の計画、入力、認証方式、結果変換とPlatform Access内部配置は移管済みである。AI AdapterからCoordinatorへの逆Source importは追加していない。Provider別のCLI固有実装をCoordinatorへ残さず、現行の二つのDocker AdapterはAI Adapter記述とCoordinatorのMount・Egress・選定Identity・Capability・公開結果を結ぶ組立てとして残る。この共通実行の統合は§23で当初から段階5Cへ置いた責務であり、最終目標から除外しない。二つのProvider専用組立てFileを移管全体の完成配置として固定しない。
+
+段階5Bの局所Gateを完了とし、次は段階5CのCoordinator共通実行、Orchestrator移管と実行記録へ進む。全親フォルダの改名・移管完了、全面File責務精査、Source独立レビュー、Reality Audit、署名E2E、CHG全体完了を意味しない。5A〜Fの移管と必要な局所確認が終わった時点で一旦止める人間指定を維持する。
 
 ## Checklist
 

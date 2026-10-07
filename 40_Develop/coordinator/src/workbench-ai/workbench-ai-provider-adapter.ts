@@ -9,6 +9,7 @@
  * @effect 選択された一つのProvider Executorだけを最大一回呼び出す。
  * @security 任意実行Path、任意CLI引数、API Key fallbackおよび自動Provider切替を受理しない。
  */
+import { providerProfileSupportsExecution } from "../../../ai-adapter/src/index.ts";
 import type {
   WorkbenchAiAdviceProviderAdapter,
   WorkbenchAiAdviceProviderInput,
@@ -171,14 +172,6 @@ export function describeWorkbenchAiProviderAdapterContract() {
 function profileExecutionIsValid(input: WorkbenchAiAdviceProviderInput) {
   return (
     input.taskPacket.profileId === input.profile.profileId &&
-    input.profile.selectionRoles.includes("coordinator") &&
-    input.profile.exactModelId.length > 0 &&
-    input.profile.allowedReasoningEfforts.includes(
-      input.profile.defaultReasoningEffort,
-    ) &&
-    ((input.profile.provider === "codex" &&
-      input.profile.offering === "chatgpt_subscription_oauth") ||
-      (input.profile.provider === "claude" &&
-        input.profile.offering === "claude_max"))
+    providerProfileSupportsExecution(input.profile, "coordinator")
   );
 }

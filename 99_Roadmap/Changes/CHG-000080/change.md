@@ -472,7 +472,7 @@ CoordinatorとProject Runtimeでは、詳細設計の境界、状態、順序、
 - [`40_Develop/mcp/tests/system/streamable-http-transport.integration.test.ts`](../../../40_Develop/mcp/tests/system/streamable-http-transport.integration.test.ts)
 - [`40_Develop/mcp/tests/unit/project-runtime-adapter.contract.test.ts`](../../../40_Develop/mcp/tests/unit/project-runtime-adapter.contract.test.ts)
 - [`40_Develop/platform-access/src/docker_authenticode.rs`](../../../40_Develop/platform-access/src/docker_authenticode.rs)
-- [`40_Develop/platform-access/src/docker_repair.rs`](../../../40_Develop/platform-access/src/docker_repair.rs)
+- [`40_Develop/platform-access/src/docker-desktop/repair.rs`](../../../40_Develop/platform-access/src/docker-desktop/repair.rs)
 - [`40_Develop/platform-access/src/main.rs`](../../../40_Develop/platform-access/src/main.rs)
 - [`40_Develop/platform-access/src/protocol.rs`](../../../40_Develop/platform-access/src/protocol.rs)
 - [`40_Develop/platform-access/src/windows.rs`](../../../40_Develop/platform-access/src/windows.rs)

@@ -12,6 +12,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  describeClaudeSubscriptionAuthenticationCli,
+  isClaudeSubscriptionAuthenticationConfirmed,
+} from "../../../ai-adapter/src/claude/index.ts";
+
+import {
   authenticateClaudeSubscription,
   CLAUDE_SUBSCRIPTION_AUTHENTICATION_INPUT_NOTICE,
   createClaudeSubscriptionAuthenticationPlan,
@@ -112,6 +117,21 @@ test("再認証は秘密codeの非表示と一回入力を事前案内する", (
  * @boundary ERB-UT-016=Direct Boundary: coordinator Test Source→対象契約
  */
 test("再認証Planは専用Provider Home以外をmountしない", () => {
+  const cli = describeClaudeSubscriptionAuthenticationCli();
+  assert.deepEqual(cli.loginArgv, ["auth", "login", "--claudeai"]);
+  assert.deepEqual(cli.statusArgv, ["auth", "status", "--json"]);
+  assert.equal(cli.homeDirectoryName, "claude");
+  assert.ok(Object.isFrozen(cli));
+  assert.ok(Object.isFrozen(cli.loginArgv));
+  assert.ok(Object.isFrozen(cli.statusArgv));
+  assert.ok(Object.isFrozen(cli.environment));
+  assert.deepEqual(cli.environment, {
+    DISABLE_AUTOUPDATER: "1",
+    DISABLE_UPDATES: "1",
+    DISABLE_TELEMETRY: "1",
+    DISABLE_ERROR_REPORTING: "1",
+    CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
+  });
   const plan = createClaudeSubscriptionAuthenticationPlan(
     "C:\\runtime-owned\\ProviderHomes\\claude",
     AUTHENTICATION_SUFFIX,
@@ -132,6 +152,51 @@ test("再認証Planは専用Provider Home以外をmountしない", () => {
   assert.equal(plan.cleanupCommands.length, 5);
   assert.equal(plan.ownershipCommands.length, 5);
   assert.equal(plan.absenceCommands.length, 5);
+});
+
+/**
+ * 分離したClaude認証判定が四つの成立条件を保持することを検証する。
+ *
+ * @responsibility Provider固有の出力解釈を実行・回収の成功条件と混同しない。
+ * @trace ERB-UT-016
+ * @precondition 入力は未信頼なProbe出力文字列である。
+ * @stimulus 正常値、各Propertyの不一致、欠落および不正JSONを渡す。
+ * @observation 固定四条件の一致時だけtrueとなることを観測する。
+ * @oracle 部分成立、別認証方式、別Offeringおよび解析不能を受理しない。
+ * @cleanup N/A: 純粋判定だけを呼び外部資源を作成しない。
+ * @boundary ERB-UT-016=Direct Boundary: Coordinator試験からAI AdapterのProbe判定。
+ */
+test("認証Probe判定は四条件の完全一致だけを受理する", () => {
+  const confirmed = {
+    loggedIn: true,
+    authMethod: "claude.ai",
+    apiProvider: "firstParty",
+    subscriptionType: "max",
+  };
+  assert.equal(
+    isClaudeSubscriptionAuthenticationConfirmed(JSON.stringify(confirmed)),
+    true,
+  );
+  for (const [key, value] of Object.entries(confirmed)) {
+    const missing = { ...confirmed } as Record<string, unknown>;
+    delete missing[key];
+    assert.equal(
+      isClaudeSubscriptionAuthenticationConfirmed(JSON.stringify(missing)),
+      false,
+    );
+    assert.equal(
+      isClaudeSubscriptionAuthenticationConfirmed(
+        JSON.stringify({
+          ...confirmed,
+          [key]: typeof value === "boolean" ? false : "other",
+        }),
+      ),
+      false,
+    );
+  }
+  for (const invalid of ["", "not-json", "null", "[]", "{}"]) {
+    assert.equal(isClaudeSubscriptionAuthenticationConfirmed(invalid), false);
+  }
 });
 
 /**

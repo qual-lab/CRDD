@@ -34,7 +34,7 @@ import {
   coordinatorTaskPublicReasons,
   type CoordinatorTaskPublicReason,
 } from "../src/task/coordinator-task-result-reasons.ts";
-import { snapshotPlainArray } from "../src/plain-data-snapshot.ts";
+import { snapshotPlainArray } from "../../domain-model/src/plain-data/index.ts";
 import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../src/platform-access/platform-provisioner-package-filesystem.ts";
 import {
   isCanonicalCrddGitObjectId,

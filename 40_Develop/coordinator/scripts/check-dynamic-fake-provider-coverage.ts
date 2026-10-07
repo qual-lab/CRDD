@@ -24,7 +24,7 @@ export const DYNAMIC_FAKE_PROVIDER_COVERAGE_SOURCES = Object.freeze([
   "40_Develop/coordinator/src/provider/provider-lifecycle.ts",
   "40_Develop/coordinator/src/host-runtime/execution-environment.ts",
   "40_Develop/coordinator/src/host-runtime/host-recovery-record.ts",
-  "40_Develop/coordinator/src/plain-data-snapshot.ts",
+  "40_Develop/domain-model/src/plain-data/plain-data-snapshot.ts",
   "40_Develop/coordinator/src/diagnostics/doctor.ts",
   "40_Develop/coordinator/scripts/verify-dynamic-fake-provider-failures.ts",
   "40_Develop/coordinator/scripts/verify-dynamic-fake-provider-cancellation.ts",
@@ -109,7 +109,7 @@ const coverageObligations = Object.freeze({
     "record canonicality、Hash、state transition、置換、失敗および再利用拒否試験",
     "Host recovery schemaまたは遷移変更時",
   ),
-  "40_Develop/coordinator/src/plain-data-snapshot.ts": obligation(
+  "40_Develop/domain-model/src/plain-data/plain-data-snapshot.ts": obligation(
     "未到達分岐がある場合はreflection failureの稀な順序である",
     "動的入力の一部を実行する可能性",
     "record／arrayのshape、accessor、Proxy、reflection failureおよび上限試験",

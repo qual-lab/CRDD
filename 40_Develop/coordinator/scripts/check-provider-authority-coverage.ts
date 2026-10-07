@@ -25,7 +25,7 @@ export const PROVIDER_AUTHORITY_COVERAGE_SOURCES = Object.freeze([
   "40_Develop/coordinator/src/authority/authority-prelaunch-verifier.ts",
   "40_Develop/coordinator/src/authority/local-personal-authority-runtime.ts",
   "40_Develop/coordinator/src/provider/provider-authority-runtime.ts",
-  "40_Develop/coordinator/src/plain-data-snapshot.ts",
+  "40_Develop/domain-model/src/plain-data/plain-data-snapshot.ts",
 ]);
 
 export const PROVIDER_AUTHORITY_COVERAGE_TESTS = Object.freeze([
@@ -117,7 +117,7 @@ const coverageObligations = Object.freeze({
       "隔離dependencyによるRelease確認、固定Profile、source期限、Grant期限、Provider差、時計差およびproduction source checkout停止試験",
       "Release manifest verifier、固定Profile、Authority source lifetimeまたはLocal Personal Trust境界変更時",
     ),
-  "40_Develop/coordinator/src/plain-data-snapshot.ts": obligation(
+  "40_Develop/domain-model/src/plain-data/plain-data-snapshot.ts": obligation(
     "未到達分岐なし",
     "現固定版では追加残存riskなし",
     "record／arrayのshape、accessor、Proxy、reflection failureおよび上限試験",

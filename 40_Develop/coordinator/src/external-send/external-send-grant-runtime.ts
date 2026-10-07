@@ -30,7 +30,7 @@ import { verifyRuntimeOwnedExternalSendPolicy } from "./external-send-policy-run
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "../plain-data-snapshot.ts";
+} from "../../../domain-model/src/plain-data/index.ts";
 import { verifyRuntimeOwnedRepositoryBindingCapability } from "../repository-operation/repository-operation-runtime.ts";
 import { containsRecognizedSecretScope } from "../authority/secret-material-policy.ts";
 

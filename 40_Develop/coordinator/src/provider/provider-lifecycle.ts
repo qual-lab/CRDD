@@ -7,8 +7,11 @@
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "../plain-data-snapshot.ts";
-import { describeProviderBillingPolicyContract } from "./provider-billing-policy.ts";
+} from "../../../domain-model/src/plain-data/index.ts";
+import {
+  describeProviderBillingPolicyContract,
+  PROVIDER_AUTHENTICATION_POLICIES as AUTH_POLICIES,
+} from "../../../ai-adapter/src/index.ts";
 import { describeProviderHomeContract } from "./provider-home.ts";
 import { describeProviderHomeMountGrantContract } from "./provider-home-mount-grant.ts";
 
@@ -59,42 +62,6 @@ export const PROVIDER_LIFECYCLE_LIMITS = Object.freeze({
   stdoutBytes: 1_048_576,
   stderrBytes: 262_144,
   resultCount: 1,
-});
-
-const AUTH_POLICIES = Object.freeze({
-  codex: Object.freeze({
-    provider: "codex",
-    loginPolicy: "existing_chatgpt_plan_subscription_oauth",
-    accountCardinality: 1,
-    billingMode: "subscription_only",
-    usageSource: "selected_chatgpt_plan_included_usage",
-    automaticPlanSwitchAllowed: false,
-    exactCliVersionRequired: true,
-    exactCliVersionConfigured: false,
-    quotaProbe: "not_implemented",
-    billingProbe: "not_implemented",
-    dedicatedHomeScope: "local_os_user_and_provider",
-    paidApiProfileSelected: false,
-  }),
-  claude: Object.freeze({
-    provider: "claude",
-    loginPolicy: "existing_subscription_oauth",
-    accountCardinality: 1,
-    billingMode: "subscription_only",
-    usageSource: "selected_subscription_included_usage",
-    selectedAccountOfferingObserved: false,
-    authenticatedServiceTermsIdentity: "unresolved",
-    automatedSubscriptionUsePermission: "unresolved",
-    humanAccountAuthorityConfirmed: false,
-    accountAuthorityBinding: "not_implemented",
-    automaticPlanSwitchAllowed: false,
-    exactCliVersionRequired: true,
-    exactCliVersionConfigured: false,
-    quotaProbe: "not_implemented",
-    billingProbe: "not_implemented",
-    dedicatedHomeScope: "local_os_user_and_provider",
-    paidApiProfileSelected: false,
-  }),
 });
 
 /**

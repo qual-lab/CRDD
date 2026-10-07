@@ -4,7 +4,7 @@
  * @responsibility responseを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000014
  */
-import { snapshotPlainRecord } from "../plain-data-snapshot.ts";
+import { snapshotPlainRecord } from "../../../domain-model/src/plain-data/index.ts";
 import { verifyPlatformProvisionerManifestCandidate } from "./platform-provisioner-trust-core.ts";
 
 const INPUT_KEYS = new Set([

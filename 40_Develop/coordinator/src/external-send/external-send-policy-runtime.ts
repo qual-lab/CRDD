@@ -11,12 +11,12 @@ import { readFixedSnapshotFile } from "../../../version-control/src/fixed-snapsh
 import { gitFixedSnapshotAdapter } from "../../../version-control/src/git/fixed-snapshot-adapter.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/repository-location.ts";
 
-import { parseUnambiguousJsonDocument } from "../provider/claude-structured-result.ts";
+import { parseUnambiguousJsonDocument } from "../../../ai-adapter/src/output/index.ts";
 import { verifyOwnedOperationManagementCapability } from "../host-runtime/execution-environment.ts";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "../plain-data-snapshot.ts";
+} from "../../../domain-model/src/plain-data/index.ts";
 import {
   borrowRuntimeOwnedRepositorySource,
   verifyRuntimeOwnedRepositoryBindingCapability,

@@ -18,7 +18,7 @@ import {
   consumeRuntimeOwnedRuntimeStateRootCapability,
   inspectRuntimeOwnedWindowsRuntimeState,
 } from "../candidate/candidate-store-windows-adapter.ts";
-import { codexAdviceProviderInitRequired } from "../provider/codex-advice-distribution.ts";
+import { codexAdviceProviderInitRequired } from "../../../ai-adapter/src/codex/index.ts";
 import {
   borrowRuntimeOwnedDevelopmentNativeObservation,
   inspectRuntimeOwnedDevelopmentOperationContext,

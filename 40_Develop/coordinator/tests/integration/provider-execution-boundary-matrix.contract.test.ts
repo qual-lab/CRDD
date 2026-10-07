@@ -14,8 +14,8 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
-import { planClaudeIsolatedTask } from "../../src/provider/claude-execution-plan.ts";
-import { planCodexIsolatedTask } from "../../src/provider/codex-execution-plan.ts";
+import { planClaudeIsolatedTask } from "../../../ai-adapter/src/claude/index.ts";
+import { planCodexIsolatedTask } from "../../../ai-adapter/src/codex/index.ts";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../..");
 

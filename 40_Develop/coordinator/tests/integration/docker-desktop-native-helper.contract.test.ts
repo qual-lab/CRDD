@@ -289,7 +289,10 @@ test("native helperはPIDでなく同じkernel handleを停止authorityにする
  */
 test("Native終了待機はCoordinatorの応答期限より短い全体期限へ収束する", () => {
   const nativeSource = fs.readFileSync(
-    new URL("../../../platform-access/src/docker_repair.rs", import.meta.url),
+    new URL(
+      "../../../platform-access/src/docker-desktop/repair.rs",
+      import.meta.url,
+    ),
     "utf8",
   );
   const lifecycleSource = fs.readFileSync(

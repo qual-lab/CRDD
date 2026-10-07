@@ -14,7 +14,7 @@ import test from "node:test";
 import {
   planClaudeIsolatedTask,
   planClaudeTaskTurnBudget,
-} from "../../src/provider/claude-execution-plan.ts";
+} from "../../../ai-adapter/src/claude/index.ts";
 import {
   describeProviderTaskStructuredResultContract,
   normalizeProviderTaskStructuredResult,

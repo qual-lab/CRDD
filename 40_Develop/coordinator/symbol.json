@@ -4,6 +4,36 @@
   "subsystem": "coordinator",
   "symbols": [
     {
+      "symbolId": "coordinator.docker-runtime.provider-docker-preparation",
+      "kind": "file",
+      "path": "src/docker-runtime/provider-docker-preparation.ts",
+      "archIds": ["ARCH-000015"]
+    },
+    {
+      "symbolId": "coordinator.docker-runtime.provider-docker-resource-plan",
+      "kind": "file",
+      "path": "src/docker-runtime/provider-docker-resource-plan.ts",
+      "archIds": ["ARCH-000015"]
+    },
+    {
+      "symbolId": "coordinator.docker-runtime.provider-docker-command-plan",
+      "kind": "file",
+      "path": "src/docker-runtime/provider-docker-command-plan.ts",
+      "archIds": ["ARCH-000015"]
+    },
+    {
+      "symbolId": "coordinator.docker-runtime.provider-preparation-lifecycle",
+      "kind": "file",
+      "path": "src/docker-runtime/provider-preparation-lifecycle.ts",
+      "archIds": ["ARCH-000015"]
+    },
+    {
+      "symbolId": "coordinator.docker-runtime.types",
+      "kind": "file",
+      "path": "src/docker-runtime/types.ts",
+      "archIds": ["ARCH-000015"]
+    },
+    {
       "symbolId": "coordinator.source.src.security.host.recovery.namespace.windows.adapter",
       "kind": "file",
       "path": "src/host-runtime/host-recovery-namespace-windows-adapter.ts",
@@ -251,6 +281,8 @@
       "verifies": [
         "coordinator.provider-authority-runtime",
         "coordinator.source.src.security.claude.docker.runtime.adapter",
+        "coordinator.docker-runtime.provider-preparation-lifecycle",
+        "coordinator.docker-runtime.types",
         "coordinator.source.src.security.delegation.selection.grant.runtime",
         "coordinator.source.src.security.docker.process.controller"
       ]
@@ -1575,6 +1607,11 @@
       ],
       "verifies": [
         "coordinator.source.src.security.claude.docker.runtime.adapter",
+        "coordinator.docker-runtime.provider-docker-preparation",
+        "coordinator.docker-runtime.provider-docker-resource-plan",
+        "coordinator.docker-runtime.provider-docker-command-plan",
+        "coordinator.docker-runtime.provider-preparation-lifecycle",
+        "coordinator.docker-runtime.types",
         "coordinator.source.src.security.delegation.selection.grant.runtime"
       ]
     },
@@ -1604,7 +1641,8 @@
         "ERB-UT-016"
       ],
       "verifies": [
-        "coordinator.source.src.security.claude.subscription.authentication"
+        "coordinator.source.src.security.claude.subscription.authentication",
+        "ai-adapter.claude.authentication"
       ]
     },
     {
@@ -1618,7 +1656,8 @@
         "RCM-UT-016"
       ],
       "verifies": [
-        "coordinator.source.src.security.claude.structured.result"
+        "coordinator.source.src.security.claude.structured.result",
+        "ai-adapter.output.unambiguous-json-document"
       ]
     },
     {
@@ -1633,6 +1672,12 @@
       ],
       "verifies": [
         "coordinator.source.src.security.codex.docker.runtime.adapter",
+        "coordinator.docker-runtime.provider-docker-preparation",
+        "coordinator.docker-runtime.provider-docker-resource-plan",
+        "coordinator.docker-runtime.provider-docker-command-plan",
+        "coordinator.docker-runtime.provider-preparation-lifecycle",
+        "coordinator.docker-runtime.types",
+        "ai-adapter.codex.authentication",
         "coordinator.source.src.security.delegation.selection.grant.runtime",
         "coordinator.source.src.security.docker.effect.runtime"
       ]
@@ -2158,7 +2203,8 @@
       ],
       "verifies": [
         "coordinator.source.src.security.delegation.route.selection",
-        "coordinator.source.src.security.provider.eligibility.runtime"
+        "coordinator.source.src.security.provider.eligibility.runtime",
+        "ai-adapter.profile.eligibility"
       ]
     },
     {
@@ -2260,7 +2306,8 @@
         "PRL-UT-006"
       ],
       "verifies": [
-        "coordinator.source.src.security.provider.lifecycle"
+        "coordinator.source.src.security.provider.lifecycle",
+        "ai-adapter.authentication-policy"
       ]
     },
     {
@@ -2320,7 +2367,8 @@
         "ERB-UT-023"
       ],
       "verifies": [
-        "coordinator.source.src.security.workbench.ai.advice.execution.plan"
+        "coordinator.source.src.security.workbench.ai.advice.execution.plan",
+        "ai-adapter.profile.profile-execution"
       ]
     },
     {
@@ -2435,7 +2483,9 @@
         "ERB-UT-023"
       ],
       "verifies": [
-        "coordinator.source.src.security.workbench.ai.provider.adapter"
+        "coordinator.source.src.security.workbench.ai.provider.adapter",
+        "ai-adapter.profile.profile-execution",
+        "ai-adapter.profile.provider-environment"
       ]
     },
     {
@@ -2469,7 +2519,8 @@
       ],
       "verifies": [
         "coordinator.source.src.security.claude.execution.plan",
-        "coordinator.source.src.security.provider.task.structured.result"
+        "coordinator.source.src.security.provider.task.structured.result",
+        "ai-adapter.output.task-envelope"
       ]
     },
     {
@@ -2746,14 +2797,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.source.src.security.claude.execution.plan",
-      "kind": "file",
-      "path": "src/provider/claude-execution-plan.ts",
-      "archIds": [
-        "ARCH-000010"
-      ]
-    },
-    {
       "symbolId": "coordinator.source.src.security.claude.subscription.authentication",
       "kind": "file",
       "path": "src/provider/claude-subscription-authentication.ts",
@@ -2783,14 +2826,6 @@
       "path": "src/diagnostics/docker-recovery-command-report.ts",
       "archIds": [
         "ARCH-000003"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.codex.execution.plan",
-      "kind": "file",
-      "path": "src/provider/codex-execution-plan.ts",
-      "archIds": [
-        "ARCH-000010"
       ]
     },
     {
@@ -3066,14 +3101,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.source.src.security.claude.structured.result",
-      "kind": "file",
-      "path": "src/provider/claude-structured-result.ts",
-      "archIds": [
-        "ARCH-000015"
-      ]
-    },
-    {
       "symbolId": "coordinator.source.scripts.generate.release.key",
       "kind": "module",
       "path": "scripts/generate-release-key.ts",
@@ -3324,23 +3351,6 @@
       "path": "src/workbench-ai/workbench-ai-advice-execution-plan.ts",
       "archIds": [
         "ARCH-000010",
-        "ARCH-000015"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.workbench.ai.advice.provider.command",
-      "kind": "file",
-      "path": "src/workbench-ai/workbench-ai-advice-provider-command.ts",
-      "archIds": [
-        "ARCH-000010",
-        "ARCH-000015"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.workbench.ai.advice.provider.output",
-      "kind": "file",
-      "path": "src/workbench-ai/workbench-ai-advice-provider-output.ts",
-      "archIds": [
         "ARCH-000015"
       ]
     },
@@ -3702,14 +3712,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.source.src.security.codex.structured.result",
-      "kind": "file",
-      "path": "src/provider/codex-structured-result.ts",
-      "archIds": [
-        "ARCH-000015"
-      ]
-    },
-    {
       "symbolId": "coordinator.source.src.security.coordinator.operation.creation.internal",
       "kind": "file",
       "path": "src/repository-operation/coordinator-operation-creation-internal.ts",
@@ -3822,14 +3824,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.source.src.security.plain.data.snapshot",
-      "kind": "file",
-      "path": "src/plain-data-snapshot.ts",
-      "archIds": [
-        "ARCH-000014"
-      ]
-    },
-    {
       "symbolId": "coordinator.source.src.security.platform.access.adapter",
       "kind": "file",
       "path": "src/platform-access/platform-access-adapter.ts",
@@ -3902,14 +3896,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.source.src.security.provider.billing.policy",
-      "kind": "file",
-      "path": "src/provider/provider-billing-policy.ts",
-      "archIds": [
-        "ARCH-000010"
-      ]
-    },
-    {
       "symbolId": "coordinator.source.src.security.provider.eligibility.runtime",
       "kind": "file",
       "path": "src/provider/provider-eligibility-runtime.ts",
@@ -3955,14 +3941,6 @@
       "path": "src/provider/provider-lifecycle.ts",
       "archIds": [
         "ARCH-000004"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.provider.model.profile.runtime",
-      "kind": "file",
-      "path": "src/provider/provider-model-profile-runtime.ts",
-      "archIds": [
-        "ARCH-000010"
       ]
     },
     {

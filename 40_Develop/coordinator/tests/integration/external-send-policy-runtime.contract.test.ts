@@ -16,7 +16,7 @@ import path from "node:path";
 import test, { type TestContext } from "node:test";
 import { deflateSync } from "node:zlib";
 
-import { parseUnambiguousJsonDocument } from "../../src/provider/claude-structured-result.ts";
+import { parseUnambiguousJsonDocument } from "../../../ai-adapter/src/output/index.ts";
 import {
   compileExternalSendPolicyCandidate,
   describeExternalSendPolicyRuntimeContract,

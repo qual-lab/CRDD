@@ -14,7 +14,7 @@ import {
 } from "./delegation-route-selection.ts";
 import { verifyOwnedOperationManagementCapability } from "../host-runtime/execution-environment.ts";
 import { observeRuntimeOwnedProviderEligibility } from "./provider-eligibility-runtime.ts";
-import { resolveRuntimeOwnedProviderModelProfile } from "./provider-model-profile-runtime.ts";
+import { resolveRuntimeOwnedProviderModelProfile } from "../../../ai-adapter/src/index.ts";
 import { verifyRuntimeOwnedRepositoryOperation } from "../repository-operation/repository-operation-runtime.ts";
 
 export const DELEGATION_SELECTION_GRANT_RUNTIME_CONTRACT =

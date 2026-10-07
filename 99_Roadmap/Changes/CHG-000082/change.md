@@ -716,6 +716,6 @@ Coordinator詳細設計に、現在状態の閉集合、保存途中の再入場
 
 ### 責務再編の現在地 — 2026-10-08
 
-段階1〜4と段階5AのDomain Model統合・局所検証は完了した。旧三Packageの責務を用途別公開入口へ移し、利用側・Symbol・試験Catalog・配布閉包を接続した。Domain全105試験、Coordinator公開静的検査、移管Graph反証5試験に加え、旧配置Fixtureと署名反証の空振りを是正した配布閉包全133契約が成功した。全体回帰・固定Source独立レビュー・実署名E2Eの完了ではない。次は段階5BのAI Adapter／Platform Access再編を進める。[計画と検証範囲](Evidence/261007_develop-responsibility-mapping.md)を正本とする。
+段階1〜4、段階5AのDomain Model統合と5BのAI Adapter／Platform Access移管は局所検証まで完了した。最新5B Sourceの配布閉包全133契約、AI Adapter全13契約、Coordinatorの型・固定計画と両Provider準備42契約が成功した。Native通常50試験・全target Clippy、利用側八Package型接続は確認済みだが、実環境専用Native23件、全体回帰・固定Source独立レビュー・署名E2Eは別に残る。次は5CのCoordinator共通実行・Orchestrator移管・実行記録。残るProvider別組立てを最終配置として固定しない。[計画と検証範囲](Evidence/261007_develop-responsibility-mapping.md#段階5bの局所完了判定--2026-10-08)を正本とする。
 
-段階5B〜F、全親フォルダのFile名・責務・配置精査、段階6〜8は未完了である。局所成功や設計独立確認を、全Sourceの独立レビュー・実E2E・Release準備完了へ拡張しない。
+段階5C〜F、全親フォルダのFile名・責務・配置精査、段階6〜8は未完了である。局所成功や設計独立確認を、全Sourceの独立レビュー・実E2E・Release準備完了へ拡張しない。

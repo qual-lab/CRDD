@@ -13,7 +13,7 @@ import {
   consumeRuntimeOwnedCandidateStoreRootCapability,
   inspectRuntimeOwnedWindowsCandidateStore,
 } from "./candidate-store-windows-adapter.ts";
-import { parseUnambiguousJsonDocument } from "../provider/claude-structured-result.ts";
+import { parseUnambiguousJsonDocument } from "../../../ai-adapter/src/output/index.ts";
 import { inspectRuntimeOwnedDevelopmentOperationContext } from "../task/development-measurement-session.ts";
 import { containsRecognizedSecretMaterial } from "../authority/secret-material-policy.ts";
 

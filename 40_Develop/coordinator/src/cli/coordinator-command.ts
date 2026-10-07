@@ -38,7 +38,7 @@ import {
   recoverRuntimeOwnedCandidateStore,
   runRuntimeOwnedCandidateStoreStartupGc,
 } from "../candidate/candidate-bundle-store.ts";
-import { parseUnambiguousJsonDocument } from "../provider/claude-structured-result.ts";
+import { parseUnambiguousJsonDocument } from "../../../ai-adapter/src/output/index.ts";
 import {
   cancelRuntimeOwnedCoordinatorTask,
   startRuntimeOwnedCoordinatorTask,

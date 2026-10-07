@@ -14,7 +14,7 @@
  * @security exactな固定値だけを公開し、診断本文を公開しない。
  * @concurrency N/A: 不変の固定値だけを公開する。
  */
-import { WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_REASONS } from "../workbench-ai/workbench-ai-advice-provider-output.ts";
+import { WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_REASONS } from "../../../ai-adapter/src/index.ts";
 
 export const dockerProcessControllerPublicCompletionReasons = Object.freeze([
   "provider_deadline_exceeded",

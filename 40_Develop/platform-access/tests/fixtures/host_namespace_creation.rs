@@ -110,7 +110,7 @@ fn host_namespace_creation_fixture() {
     fs::create_dir(&connected_parent).unwrap();
     let connected_identity = fixture_identity(&connected_parent);
     cleanup.push((connected_parent.clone(), connected_identity));
-    let capture_request = crate::host_namespace_protocol::NamespaceRequest {
+    let capture_request = crate::protocol::host_namespace::NamespaceRequest {
         nonce: [7; 32],
         expected: None,
     };
@@ -120,8 +120,8 @@ fn host_namespace_creation_fixture() {
         captured.identities[0],
         Some(terminal_identity_fields(connected_identity))
     );
-    assert!(crate::host_namespace_protocol::encode_response(&captured).is_some());
-    let initialize_request = crate::host_namespace_protocol::NamespaceRequest {
+    assert!(crate::protocol::host_namespace::encode_response(&captured).is_some());
+    let initialize_request = crate::protocol::host_namespace::NamespaceRequest {
         nonce: [8; 32],
         expected: Some((
             captured.identities[0].unwrap(),
@@ -137,7 +137,7 @@ fn host_namespace_creation_fixture() {
                 && receipt.created == Some(true)
                 && receipt.close == Some(true)))
     );
-    assert!(crate::host_namespace_protocol::encode_response(&initialized).is_some());
+    assert!(crate::protocol::host_namespace::encode_response(&initialized).is_some());
     let connected_recovery = connected_parent.join("crdd-coordinator-recovery-v1");
     let connected_terminal = connected_recovery.join("terminal-v1");
     for (index, target) in [connected_recovery, connected_terminal]
@@ -160,9 +160,9 @@ fn host_namespace_creation_fixture() {
                 && receipt.created == Some(false)
                 && receipt.close == Some(true)))
     );
-    assert!(crate::host_namespace_protocol::encode_response(&reused).is_some());
+    assert!(crate::protocol::host_namespace::encode_response(&reused).is_some());
     for changed in [true, false] {
-        let mut bad_request = crate::host_namespace_protocol::NamespaceRequest {
+        let mut bad_request = crate::protocol::host_namespace::NamespaceRequest {
             nonce: [9; 32],
             expected: initialize_request.expected,
         };
@@ -183,7 +183,7 @@ fn host_namespace_creation_fixture() {
             }
         );
         assert!(rejected.children.iter().all(Option::is_none));
-        assert!(crate::host_namespace_protocol::encode_response(&rejected).is_some());
+        assert!(crate::protocol::host_namespace::encode_response(&rejected).is_some());
     }
 
     for (case, is_file) in [("incompatible", false), ("file", true)] {
@@ -217,13 +217,13 @@ fn host_namespace_creation_fixture() {
         assert_eq!(failure.receipt.child_close_confirmed, Some(true));
         assert!(rejected.close());
         assert_eq!(fixture_identity(&target), before);
-        let request = crate::host_namespace_protocol::NamespaceRequest {
+        let request = crate::protocol::host_namespace::NamespaceRequest {
             nonce: [10; 32],
             expected: None,
         };
         let captured = host_namespace_at_parent(&request, &parent);
         assert_eq!(captured.status, 1);
-        let request = crate::host_namespace_protocol::NamespaceRequest {
+        let request = crate::protocol::host_namespace::NamespaceRequest {
             nonce: [11; 32],
             expected: Some((
                 captured.identities[0].unwrap(),
@@ -238,7 +238,7 @@ fn host_namespace_creation_fixture() {
                 .as_ref()
                 .is_some_and(|receipt| !receipt.create_issued && receipt.close == Some(true))
         );
-        assert!(crate::host_namespace_protocol::encode_response(&rejected).is_some());
+        assert!(crate::protocol::host_namespace::encode_response(&rejected).is_some());
         assert_eq!(fixture_identity(&target), before);
         if is_file {
             assert_eq!(fs::read(&target).unwrap(), b"BEFORE\n");

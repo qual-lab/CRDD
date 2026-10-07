@@ -117,29 +117,43 @@ Coordinatorの用途別Adapter
 Coordinatorの用途別Adapter（許可・耐久記録・全体結果の所有者）
   ↓ 固定binaryへの要求
 受付・dispatch [main.rs]
-  ├→ Root／Home／Store／State要求・応答 [protocol.rs]
-  │     └→ 主体・保護・実体観測／限定初期化 [windows.rs]
+  ├→ Root／Home／Store／State要求・応答 [protocol/access.rs]
+  │     ├→ Root用途別観測 [filesystem/root_observation.rs]
+  │     └→ 固定Home／Store／State観測・限定初期化 [filesystem/provider_home.rs]
+  │          ├→ 主体・Token観測 [process/principal.rs]
+  │          └→ 保護・実体観測 [filesystem/protection.rs]
   │                                         ↓
   │                                      Windows API
-  └→ Docker操作 [docker_repair.rs]
+  ├→ Host Namespace／対象／記録要求 [protocol/host_namespace.rs・host_record.rs]
+  │     └→ 固定親・初期化 [filesystem/host_namespace.rs] → 保護保存 [filesystem/protected_file.rs]／記録処理 [filesystem/host_record.rs]
+  └→ Docker操作 [docker-desktop/repair.rs]
         ├ 障害修復protocol
         ├ 検証付き再起動protocol（Source接続済み・実機未完了）
-        │   └→ 公式停止CLI → 子Process・Job所有 [windows_owned_child.rs]
-        ├ artifact固定・Process観測／限定操作
-        ├→ 発行元署名検証 [docker_authenticode.rs] → Windows署名検証API
-        └→ Known Folder・選択ユーザー情報 [windows.rs]
+        │   └→ 公式停止CLI → 子Process・Job所有 [process/owned_child.rs]
+        ├→ artifact固定・Process観測 [docker-desktop/identity.rs]
+        ├ 限定停止・起動操作
+        ├→ 発行元署名検証 [docker-desktop/publisher.rs] → Windows署名検証API
+        └→ Known Folder [filesystem/windows_directory.rs]・選択ユーザー情報 [process/principal.rs]
   ↓ 閉じた応答frameとProcess終了
 Coordinator側で再検証 → 診断／回復結果
 ```
 
 | 内部ブロック | Source群 | 所有範囲 |
 |---|---|---|
-| 受付・応答形式 | `src/main.rs`、`src/protocol.rs` | mode選択、要求形式、Root／Home系応答の符号化 |
-| Windows観測 | `src/windows.rs` | OS主体、ACL、Known Folder、Filesystem実体と限定初期化 |
-| Host保護の結合試験 | `tests/fixtures/windows_protection.rs` | `windows::protection_tests`の試験専用子module。自己生成対象の共有拒否・別Process観測だけを所有し、一般UTから分離する。ignored試験は既定実行しない。正式Node入口がfresh runとCargo返却の一意なtest実行物を固定し、親と子は同じrun・実行物・期限を再確認する |
-| Docker操作 | `src/docker_repair.rs` | 用途別protocol、mutex、固定artifact、Process確認・限定操作 |
-| 発行元検証 | `src/docker_authenticode.rs` | 開いたDocker artifactのWindows署名・発行元検証 |
-| 停止CLIの子Process所有 | `src/windows_owned_child.rs` | 停止前生成、Jobへの割当、実行、有限待機、取消と終了観測 |
+| 受付・応答形式 | `src/main.rs`、`src/protocol/access.rs` | mode選択、要求形式、Root／Home系応答の符号化 |
+| Windowsフォルダ観測 | `src/filesystem/windows_directory.rs` | System Directoryと固定Known FolderのOS API観測 |
+| Windows主体観測 | `src/process/principal.rs` | Token／SID／認証Sessionと主体分類のOS観測 |
+| Windows保護・実体観測 | `src/filesystem/protection.rs` | Handle・Descriptor所有、Directory Identity、固定入力のopen、ACL AccessCheckとhash resourceの解放 |
+| Windows Root観測 | `src/filesystem/root_observation.rs` | Rootの用途別要求を主体・保護の観測へ接続する。Native入口は用途別Ownerを直接呼び出す |
+| 固定Home観測 | `src/filesystem/provider_home.rs` | Provider Home／Candidate Store／Runtime Stateの固定親、構成、限定初期化と主体・保護Bindingを照合する |
+| Host記録処理 | `src/filesystem/host_record.rs` | 容量・予約・保存・読戻しを保護付きFileとNamespace対象観測へ接続し、専用公開結果と部分処置を搬送する |
+| 保護付きFile操作 | `src/filesystem/protected_file.rs` | 同期Handleのopen・close、実体・ACL照合、Descriptor構成、上限付き読取り、保存Stageのwrite・flush・同一実体への非置換公開と部分receipt |
+| Host Namespace観測 | `src/filesystem/host_namespace.rs` | 固定NamespaceのIdentity型、実体値照合、対象名・一時親Path判定、保持Directory chainの取得・検証・個別終了、期待値付き固定child初期化と専用公開要求、十一／十二実体の対象観測・部分取得・逆順終了 |
+| Host保護の結合試験 | `tests/fixtures/windows_protection.rs` | `filesystem::host_record::protection_tests`の試験専用子module。自己生成対象の共有拒否・別Process観測だけを所有し、一般UTから分離する。ignored試験は既定実行しない。正式Node入口がfresh runとCargo返却の一意なtest実行物を固定し、親と子は同じrun・実行物・期限を再確認する |
+| Docker実体検証 | `src/docker-desktop/identity.rs` | 固定artifactの署名・ハッシュ・同一実体とProcess Path・作成時刻・scope観測。停止・起動を所有しない |
+| Docker操作 | `src/docker-desktop/repair.rs` | 用途別protocol、mutex、検証済みartifactとProcessを使う限定停止・開始・再起動 |
+| 発行元検証 | `src/docker-desktop/publisher.rs` | 開いたDocker artifactのWindows署名・発行元検証 |
+| 停止CLIの子Process所有 | `src/process/owned_child.rs` | 停止前生成、Jobへの割当、実行、有限待機、取消と終了観測 |
 
 Host保護試験の反復入口は`40_Develop/coordinator/scripts/verify-native-protection.ts`とする。Repository Rootから起動し、Buildは`40_Develop/platform-access/target/`を共有し、検証済みRoot直下の`.crdd/tests/native-protection-<UUID>/`へ一時対象・結果だけを保存する。任意Path、実行物またはcommandを引数で受け付けず、旧診断実行物のsuffixや先頭Fileから対象を選ばない。親Case一件、閉じたNative結果、両Workerの役割別終了、明示handle終了、Source／実行物不変とfixture不存在の全条件を共同評価する。中断・未知・失敗は成功へ畳まずrunを保持する。旧残存の回収、OS固定保存場所、署名Runtime、本番回復と他Native試験の成立は対象外である。
 
@@ -147,9 +161,9 @@ Host保護試験の反復入口は`40_Develop/coordinator/scripts/verify-native-
 
 | 経路 | 実装上の所有者 | 条件・効果・限界 |
 |---|---|---|
-| Provider Home観測 | `windows.rs`の`observe_provider_home` | Codex／Claudeの選択HomeをOS Known Folderから結合する。Credential本文は読まず、既存Homeを修復しない |
+| Provider Home観測 | `filesystem/provider_home.rs`の`observe_provider_home` | Codex／Claudeの選択HomeをOS Known Folderから結合する。Credential本文は読まず、既存Homeを修復しない |
 | Store／State初期化 | `initialize_runtime_owned_directory_if_missing` | 明示されたRuntime-owned directoryの最終Directoryだけを保護付きで作る。既存物を推測修復しない |
-| Docker Desktop最終復旧 | `docker_repair.rs` | 固定Policy、artifact、mutex、対象Process確認、終了および固定Desktop起動を扱う。耐久記録、Directory rename、再開判断はTypeScript側が所有する |
+| Docker Desktop最終復旧 | `docker-desktop/repair.rs` | 固定Policy、artifact、mutex、対象Process確認、終了および固定Desktop起動を扱う。耐久記録、Directory rename、再開判断はTypeScript側が所有する |
 
 RootやHomeの観測結果は、用途別Adapterが同じOperationのRepository、選択ユーザー、署名済み配布物およびRecovery状態と再結合して初めて利用できる。別Operationへ持ち回らない。
 
@@ -291,7 +305,7 @@ Host終端記録のSchema、参照、容量、Authority、再入場と清掃は[
 
 ## 4. バイナリ境界
 
-Root／Home／Store／Stateのbyte・flag定義は[protocol.rs](../../../40_Develop/platform-access/src/protocol.rs)、Docker復旧のcommand・応答は[docker_repair.rs](../../../40_Develop/platform-access/src/docker_repair.rs)を正本とする。
+Root／Home／Store／Stateのbyte・flag定義は[protocol/access.rs](../../../40_Develop/platform-access/src/protocol/access.rs)、Docker復旧のcommand・応答は[docker-desktop/repair.rs](../../../40_Develop/platform-access/src/docker-desktop/repair.rs)を正本とする。
 
 | protocol | 識別と長さ | 確認事項 |
 |---|---|---|
@@ -385,8 +399,8 @@ Docker復旧helperは固定mutexとartifact handleを保持し、検証済み対
 |---|---|
 | 要求・応答とCLI | [Rust CLI試験](../../../40_Develop/platform-access/tests/cli.rs)、protocol内試験、[TS Adapter試験](../../../40_Develop/coordinator/tests/unit/platform-access-adapter.contract.test.ts) |
 | 配布物・署名 | [成果物試験](../../../40_Develop/coordinator/tests/integration/platform-access-release.contract.test.ts)、[Trust Core試験](../../../40_Develop/coordinator/tests/unit/platform-provisioner-trust-core.contract.test.ts)、[Release Identity試験](../../../40_Develop/coordinator/tests/integration/platform-provisioner-release-identity.contract.test.ts) |
-| Home／Store／State | windows.rs内試験、[Home観測試験](../../../40_Develop/coordinator/tests/unit/provider-home-observation.contract.test.ts)、[Store Adapter試験](../../../40_Develop/coordinator/tests/unit/candidate-store-windows-adapter.contract.test.ts) |
-| Docker復旧 | docker_repair.rs内試験、[復旧Runtime試験](../../../40_Develop/coordinator/tests/integration/docker-desktop-runtime-repair.contract.test.ts) |
+| Home／Store／State | `filesystem/root_observation.rs`内試験、[Home観測試験](../../../40_Develop/coordinator/tests/unit/provider-home-observation.contract.test.ts)、[Store Adapter試験](../../../40_Develop/coordinator/tests/unit/candidate-store-windows-adapter.contract.test.ts) |
+| Docker復旧 | docker-desktop/repair.rs内試験、[復旧Runtime試験](../../../40_Develop/coordinator/tests/integration/docker-desktop-runtime-repair.contract.test.ts) |
 
 単体試験の合格から、本物のDocker Desktop復旧、署名済み配布物の実行または終了後資源0を推定しない。本番同等入口のE2Eと回復行列を別に実測する。
 

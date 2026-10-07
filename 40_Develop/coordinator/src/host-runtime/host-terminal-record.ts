@@ -9,7 +9,7 @@ import { types as utilTypes } from "node:util";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "../plain-data-snapshot.ts";
+} from "../../../domain-model/src/plain-data/index.ts";
 
 const MAX_BYTES = 8_192;
 const HASH = /^[a-f0-9]{64}$/u;

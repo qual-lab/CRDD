@@ -6,7 +6,7 @@
  */
 import { createHash } from "node:crypto";
 
-import { snapshotPlainRecord } from "../plain-data-snapshot.ts";
+import { snapshotPlainRecord } from "../../../domain-model/src/plain-data/index.ts";
 import { describePlatformAccessAdapterContract } from "../platform-access/platform-access-adapter.ts";
 
 export const ROOT_IDENTITY_OBSERVATION_CONTRACT =

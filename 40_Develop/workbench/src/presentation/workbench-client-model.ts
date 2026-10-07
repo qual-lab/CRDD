@@ -26,7 +26,7 @@ import type { PortfolioProjection } from "../../../cros/src/index.ts";
 import type {
   AiProfileCatalogMutationResult,
   AiProfileCatalogSnapshot,
-} from "../../../ai-runtime/src/index.ts";
+} from "../../../ai-adapter/src/index.ts";
 import type { WorkbenchAiProfileSurface } from "../ai-profile-surface.ts";
 import type {
   WorkbenchAiRequestSnapshot,

@@ -5,7 +5,7 @@
  * @trace ARCH-000014
  */
 
-import { snapshotPlainRecord } from "../plain-data-snapshot.ts";
+import { snapshotPlainRecord } from "../../../domain-model/src/plain-data/index.ts";
 
 const INPUT_KEYS = new Set([
   "artifactIdentity",

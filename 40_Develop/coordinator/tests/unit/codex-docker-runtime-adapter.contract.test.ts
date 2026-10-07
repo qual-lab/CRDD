@@ -8,8 +8,17 @@
  * @scope codex、docker、runtime、adapter
  * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
+import { describeWorkbenchAiAdviceResultSchema } from "../../src/workbench-ai/workbench-ai-advice-result.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
+import {
+  createProviderDockerRandomHex,
+  createProviderDockerResourceNames,
+} from "../../src/docker-runtime/provider-docker-resource-plan.ts";
+import {
+  cancelProviderDockerPreparation,
+  consumeProviderDockerPreparation,
+} from "../../src/docker-runtime/provider-preparation-lifecycle.ts";
 import { fileURLToPath } from "node:url";
 
 import {
@@ -20,7 +29,8 @@ import {
 } from "../../src/provider/codex-docker-runtime-adapter.ts";
 import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../src/provider/delegation-selection-grant-runtime.ts";
 import { createIsolatedDockerEffectRuntimeCandidate } from "../../src/docker-runtime/docker-effect-runtime.ts";
-import { planWorkbenchAiAdviceProviderCommand } from "../../src/workbench-ai/workbench-ai-advice-provider-command.ts";
+import { planWorkbenchAiAdviceProviderCommand } from "../../../ai-adapter/src/index.ts";
+import { describeCodexSubscriptionAuthenticationCli } from "../../../ai-adapter/src/codex/index.ts";
 
 const MODEL_SELECTION = Object.freeze({
   selectionRecordId: "MODELSEL-12345678",
@@ -216,11 +226,14 @@ function createFixture(
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Workbench助言をRepository非共有のCodex Planへ固定する", () => {
-  const providerCommand = planWorkbenchAiAdviceProviderCommand({
-    provider: "codex",
-    exactModelId: "gpt-5.5",
-    reasoningEffort: "low",
-  });
+  const providerCommand = planWorkbenchAiAdviceProviderCommand(
+    {
+      provider: "codex",
+      exactModelId: "gpt-5.5",
+      reasoningEffort: "low",
+    },
+    describeWorkbenchAiAdviceResultSchema(),
+  );
   const fixture = createFixture(
     {
       consumeAdvicePacket: () =>
@@ -311,6 +324,14 @@ test("Codex Executorの正規seccomp commandをDocker Effect利用側も同じ�
   assert.ok(plan);
   const firstCommand = plan.commands[0];
   assert.ok(firstCommand);
+  const authenticationCli = describeCodexSubscriptionAuthenticationCli();
+  assert.ok(Object.isFrozen(authenticationCli));
+  assert.ok(Object.isFrozen(authenticationCli.statusArgv));
+  assert.deepEqual(authenticationCli.statusArgv, ["login", "status"]);
+  assert.equal(authenticationCli.homeEnvironmentVariable, "CODEX_HOME");
+  assert.equal(authenticationCli.homeDirectoryName, "codex");
+  assert.deepEqual(firstCommand.argv.slice(-2), authenticationCli.statusArgv);
+  assert.ok(firstCommand.argv.includes("CODEX_HOME=/provider-home"));
 
   let closed = false;
   const effect = createIsolatedDockerEffectRuntimeCandidate({
@@ -1002,5 +1023,211 @@ test("公開契約はCoordinator選定とProvider fallbackを分離する", () =
   assert.equal(
     contract.processController,
     "production_runtime_owned_controller_and_fixed_docker_effect_connected",
+  );
+});
+
+/**
+ * 共通準備Lifecycleは参照一致・二時計・回収順序を保持する。
+ *
+ * @responsibility 共通化による管理不一致の受理、期限緩和、回収未確認の参照消失を反証する。
+ * @trace PRL-UT-014
+ * @precondition Providerごとの独立した二WeakMapと同期回収観測を用意する。
+ * @stimulus 管理不一致、新鮮消費、30秒境界と逆行・不明時計、回収失敗を適用する。
+ * @observation 計画Identity、二Storeの残存、失効とMount解放の順序を観測する。
+ * @oracle 新鮮値だけを一回消費し、期限切れは回収順序を維持し、Mount未確認では参照を残す。
+ * @cleanup N/A: WeakMapだけを操作し、実AuthorityやMountを発行しない。
+ * @boundary PRL-UT-014=Direct Boundary: Provider準備Owner→共通Lifecycle
+ */
+test("共通準備Lifecycleは管理一致・二時計境界・回収未確認の保持を両Providerで維持する", () => {
+  for (const provider of ["codex", "claude"] as const) {
+    for (const scenario of [
+      "fresh",
+      "expired",
+      "monotonic_expired",
+      "reversed",
+      "unknown",
+      "mount_unknown",
+      "revoke_failed",
+    ] as const) {
+      const capability = {};
+      const management = {};
+      const plan = Object.freeze({
+        operationId: "fixture-operation",
+        grantRef: "fixture-grant",
+        activeMountCapability: {},
+        authorityControlCapability: {},
+        preparedWallClockMs: 0,
+        preparedMonotonicMs: 0,
+        provider,
+      });
+      const effects: string[] = [];
+      const state = {
+        prepared: new WeakMap([[capability, plan]]),
+        managementCapabilities: new WeakMap([[capability, management]]),
+        wallNow: () =>
+          scenario === "fresh" || scenario === "monotonic_expired"
+            ? 29_999
+            : scenario === "reversed"
+              ? -1
+              : scenario === "unknown"
+                ? Number.NaN
+                : 30_000,
+        monotonicNow: () => (scenario === "fresh" ? 29_999 : 30_000),
+        revokeProviderAuthority: () => {
+          effects.push("revoke");
+          return {
+            status: scenario === "revoke_failed" ? "blocked" : "revoked",
+          };
+        },
+        completeMount: () => {
+          effects.push("mount");
+          return {
+            status: scenario === "mount_unknown" ? "unknown" : "completed",
+          };
+        },
+      };
+      assert.equal(
+        consumeProviderDockerPreparation(state, capability, {}),
+        null,
+      );
+      assert.deepEqual(effects, []);
+      assert.strictEqual(state.prepared.get(capability), plan);
+      if (scenario === "mount_unknown" || scenario === "revoke_failed") {
+        const result = cancelProviderDockerPreparation(
+          state,
+          provider,
+          (reason) => ({
+            status: "blocked" as const,
+            reason,
+            operationId: null,
+            grantRef: null,
+          }),
+          capability,
+          management,
+        );
+        assert.equal(
+          result.reason,
+          `${provider}_docker_runtime_${scenario === "mount_unknown" ? "mount_release_unconfirmed" : "authority_revoke_invalid"}`,
+        );
+        assert.equal(result.status, "blocked");
+        assert.deepEqual(effects, ["revoke", "mount"]);
+        assert.equal(
+          state.prepared.has(capability),
+          scenario === "mount_unknown",
+        );
+        assert.equal(
+          state.managementCapabilities.has(capability),
+          scenario === "mount_unknown",
+        );
+      } else {
+        const consumed = consumeProviderDockerPreparation(
+          state,
+          capability,
+          management,
+        );
+        assert.strictEqual(consumed, scenario === "fresh" ? plan : null);
+        assert.deepEqual(
+          effects,
+          scenario === "fresh" ? [] : ["revoke", "mount"],
+        );
+        assert.equal(state.prepared.has(capability), false);
+        assert.equal(state.managementCapabilities.has(capability), false);
+        assert.equal(
+          consumeProviderDockerPreparation(state, capability, management),
+          null,
+        );
+      }
+    }
+  }
+});
+
+/**
+ * 共通資源名と乱数検査が既存境界を両Providerで維持することを確認する。
+ *
+ * @responsibility Provider prefix、Home形式、63文字上限とBuffer取得長を反証する。
+ * @trace PRL-UT-014
+ * @precondition 実Docker・外部AIを使わず固定値を共通準備処理へ渡す。
+ * @stimulus 両Providerの正常値、不正Home、名前長境界と乱数型・長さ違反を与える。
+ * @observation 返却資源名、null、例外および乱数取得回数。
+ * @oracle 既存prefixと上限を維持し、不正取得を補完しない。
+ * @cleanup N/A: 局所値だけで実資源やStoreを作成しない。
+ * @boundary N/A: Process内の値生成だけを確認する。
+ */
+test("共通Docker資源名はHome形式・63文字境界と乱数長を維持する", () => {
+  for (const provider of ["codex", "claude"] as const) {
+    const names = createProviderDockerResourceNames(
+      provider,
+      "a".repeat(64),
+      "b".repeat(16),
+    );
+    assert.deepEqual(names, {
+      internalNetworkName: `crdd-internal-${"b".repeat(16)}`,
+      egressNetworkName: `crdd-egress-${"b".repeat(16)}`,
+      proxyContainerName: `crdd-proxy-${"b".repeat(16)}`,
+      authContainerName: `crdd-auth-${"b".repeat(16)}`,
+      providerContainerName: `crdd-${provider}-${"a".repeat(16)}`,
+      ownershipLabel: `crdd.coordinator.runtime=${"b".repeat(16)}`,
+    });
+    for (const home of [
+      "",
+      "a".repeat(63),
+      "a".repeat(65),
+      "A".repeat(64),
+      "g".repeat(64),
+    ])
+      assert.equal(
+        createProviderDockerResourceNames(provider, home, "b".repeat(16)),
+        null,
+      );
+    const maximumSuffix = 63 - "crdd-internal-".length;
+    assert.equal(
+      createProviderDockerResourceNames(
+        provider,
+        "a".repeat(64),
+        "b".repeat(maximumSuffix),
+      )?.internalNetworkName.length,
+      63,
+    );
+    assert.equal(
+      createProviderDockerResourceNames(
+        provider,
+        "a".repeat(64),
+        "b".repeat(maximumSuffix + 1),
+      ),
+      null,
+    );
+  }
+  let calls = 0;
+  const state = {
+    randomBytes: (size: number) => {
+      calls += 1;
+      return Buffer.alloc(size, 0xab);
+    },
+  };
+  assert.equal(createProviderDockerRandomHex(state, 8), "ab".repeat(8));
+  assert.equal(createProviderDockerRandomHex(state, 32), "ab".repeat(32));
+  assert.equal(calls, 2);
+  assert.equal(
+    createProviderDockerRandomHex({ randomBytes: () => Buffer.alloc(7) }, 8),
+    null,
+  );
+  assert.equal(
+    createProviderDockerRandomHex(
+      { randomBytes: () => new Uint8Array(8) as unknown as Buffer },
+      8,
+    ),
+    null,
+  );
+  assert.throws(
+    () =>
+      createProviderDockerRandomHex(
+        {
+          randomBytes: () => {
+            throw new Error("fixed_random_failure");
+          },
+        },
+        8,
+      ),
+    /fixed_random_failure/u,
   );
 });

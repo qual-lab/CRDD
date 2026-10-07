@@ -19,7 +19,7 @@ import {
 } from "node:http";
 import type { Socket } from "node:net";
 
-import type { AiProfileCatalogAdministration } from "../../../ai-runtime/src/index.ts";
+import type { AiProfileCatalogAdministration } from "../../../ai-adapter/src/index.ts";
 import {
   startCrosRemoteTransport,
   type ConnectionCredentialRegistry,

@@ -10,7 +10,7 @@ import {
   decodeCanonicalAuthorityTrustPolicyBytes,
   loadAuthorityRegistryTrustCandidate,
 } from "./authority-trust-loader.ts";
-import { snapshotPlainRecord } from "../plain-data-snapshot.ts";
+import { snapshotPlainRecord } from "../../../domain-model/src/plain-data/index.ts";
 import { PROVIDER_INPUT_LIMITS } from "../provider/provider-isolation-profile.ts";
 import { ROOT_PROTECTION_POLICY_CONTRACT } from "../repository-operation/root-protection-policy.ts";
 

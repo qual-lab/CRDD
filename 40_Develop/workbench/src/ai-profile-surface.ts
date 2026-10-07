@@ -12,7 +12,7 @@ import {
   DEFAULT_AI_PROFILE_CATALOG,
   type AiProfileAvailabilityObservation,
   type AiProfileCatalog,
-} from "../../ai-runtime/src/index.ts";
+} from "../../ai-adapter/src/index.ts";
 
 /**
  * Profile Catalog一件の観測値をBrowserへ渡すRead Modelの構造を固定する。

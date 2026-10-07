@@ -4,15 +4,87 @@
   "subsystem": "platform-access",
   "symbols": [
     {
+      "symbolId": "platform-access.source.protected-file",
+      "kind": "module",
+      "path": "src/filesystem/protected_file.rs",
+      "archIds": ["ARCH-000008", "ARCH-000011"]
+    },
+    {
+      "symbolId": "platform-access.source.host-namespace",
+      "kind": "module",
+      "path": "src/filesystem/host_namespace.rs",
+      "archIds": ["ARCH-000008", "ARCH-000011"]
+    },
+    {
+      "symbolId": "platform-access.source.provider-home",
+      "kind": "module",
+      "path": "src/filesystem/provider_home.rs",
+      "archIds": ["ARCH-000008", "ARCH-000011"]
+    },
+    {
+      "symbolId": "platform-access.source.process",
+      "kind": "module",
+      "path": "src/process/mod.rs",
+      "archIds": ["ARCH-000008", "ARCH-000011"]
+    },
+    {
+      "symbolId": "platform-access.source.principal",
+      "kind": "module",
+      "path": "src/process/principal.rs",
+      "archIds": ["ARCH-000008", "ARCH-000011"]
+    },
+    {
+      "symbolId": "platform-access.source.protection",
+      "kind": "module",
+      "path": "src/filesystem/protection.rs",
+      "archIds": ["ARCH-000008", "ARCH-000011"]
+    },
+    {
+      "symbolId": "platform-access.source.filesystem",
+      "kind": "module",
+      "path": "src/filesystem/mod.rs",
+      "archIds": ["ARCH-000008", "ARCH-000011"]
+    },
+    {
+      "symbolId": "platform-access.source.windows-directory",
+      "kind": "module",
+      "path": "src/filesystem/windows_directory.rs",
+      "archIds": ["ARCH-000008", "ARCH-000011"]
+    },
+    {
+      "symbolId": "platform-access.source.protocol",
+      "kind": "module",
+      "path": "src/protocol/mod.rs",
+      "archIds": ["ARCH-000004", "ARCH-000008", "ARCH-000011"]
+    },
+    {
+      "symbolId": "platform-access.source.docker-desktop",
+      "kind": "module",
+      "path": "src/docker-desktop/mod.rs",
+      "archIds": ["ARCH-000008", "ARCH-000014"]
+    },
+    {
+      "symbolId": "platform-access.source.docker-repair",
+      "kind": "module",
+      "path": "src/docker-desktop/repair.rs",
+      "archIds": ["ARCH-000008"]
+    },
+    {
+      "symbolId": "platform-access.source.docker-identity",
+      "kind": "module",
+      "path": "src/docker-desktop/identity.rs",
+      "archIds": ["ARCH-000008", "ARCH-000014"]
+    },
+    {
       "symbolId": "platform-access.source.host-namespace-protocol",
       "kind": "module",
-      "path": "src/host_namespace_protocol.rs",
+      "path": "src/protocol/host_namespace.rs",
       "archIds": ["ARCH-000008", "ARCH-000011"]
     },
     {
       "symbolId": "platform-access.test.integration.host-namespace-protocol",
       "kind": "test-suite",
-      "path": "src/host_namespace_protocol.rs",
+      "path": "src/protocol/host_namespace.rs",
       "qaIds": ["QA-000006"],
       "localTestIds": ["ERB-IT-003"],
       "verifies": ["platform-access.source.host-namespace-protocol"]
@@ -23,18 +95,18 @@
       "path": "tests/fixtures/host_namespace_creation.rs",
       "qaIds": ["QA-000006"],
       "localTestIds": ["ERB-IT-003"],
-      "verifies": ["platform-access.source.windows-terminal", "platform-access.source.host-namespace-protocol"]
+      "verifies": ["platform-access.source.windows-terminal", "platform-access.source.host-namespace", "platform-access.source.host-namespace-protocol"]
     },
     {
       "symbolId": "platform-access.source.terminal-protocol",
       "kind": "module",
-      "path": "src/terminal_protocol.rs",
+      "path": "src/protocol/host_record.rs",
       "archIds": ["ARCH-000008", "ARCH-000011"]
     },
     {
       "symbolId": "platform-access.test.unit.terminal-protocol",
       "kind": "test-suite",
-      "path": "src/terminal_protocol.rs",
+      "path": "src/protocol/host_record.rs",
       "qaIds": ["QA-000003"],
       "localTestIds": ["PRL-UT-006"],
       "verifies": ["platform-access.source.terminal-protocol"]
@@ -50,17 +122,19 @@
     {
       "symbolId": "platform-access.source.windows-terminal",
       "kind": "module",
-      "path": "src/windows_terminal.rs",
+      "path": "src/filesystem/host_record.rs",
       "archIds": ["ARCH-000008", "ARCH-000011", "ARCH-000015"]
     },
     {
       "symbolId": "platform-access.test.integration.windows-terminal",
       "kind": "test-suite",
-      "path": "src/windows_terminal.rs",
+      "path": "src/filesystem/host_record.rs",
       "qaIds": ["QA-000006"],
       "localTestIds": ["ERB-IT-001", "ERB-IT-002", "ERB-IT-003"],
       "verifies": [
         "platform-access.source.windows-terminal",
+        "platform-access.source.protected-file",
+        "platform-access.source.host-namespace",
         "coordinator.source.src.security.candidate.store.kernel.lock"
       ]
     },
@@ -77,7 +151,7 @@
     {
       "symbolId": "platform-access.test.unit.protocol",
       "kind": "test-suite",
-      "path": "src/protocol.rs",
+      "path": "src/protocol/access.rs",
       "qaIds": [
         "QA-000001"
       ],
@@ -91,7 +165,7 @@
     {
       "symbolId": "platform-access.test.unit.docker-repair",
       "kind": "test-suite",
-      "path": "src/docker_repair.rs",
+      "path": "src/docker-desktop/repair.rs",
       "qaIds": [
         "QA-000003"
       ],
@@ -99,7 +173,9 @@
         "PRL-UT-006"
       ],
       "verifies": [
-        "platform-access.native-entry"
+        "platform-access.native-entry",
+        "platform-access.source.docker-repair",
+        "platform-access.source.docker-identity"
       ]
     },
     {
@@ -119,7 +195,7 @@
     {
       "symbolId": "platform-access.test.unit.windows",
       "kind": "test-suite",
-      "path": "src/windows.rs",
+      "path": "src/filesystem/root_observation.rs",
       "qaIds": [
         "QA-000008"
       ],
@@ -127,7 +203,10 @@
         "RDL-UT-005"
       ],
       "verifies": [
-        "platform-access.native-entry"
+        "platform-access.native-entry",
+        "platform-access.source.principal",
+        "platform-access.source.protection",
+        "platform-access.source.provider-home"
       ]
     },
     {
@@ -148,7 +227,7 @@
     {
       "symbolId": "platform-access.test.unit.docker-authenticode",
       "kind": "test-suite",
-      "path": "src/docker_authenticode.rs",
+      "path": "src/docker-desktop/publisher.rs",
       "qaIds": [
         "QA-000010"
       ],
@@ -162,7 +241,7 @@
     {
       "symbolId": "platform-access.test.unit.windows-directory",
       "kind": "test-suite",
-      "path": "src/windows_directory.rs",
+      "path": "src/filesystem/windows_directory.rs",
       "qaIds": [
         "QA-000008"
       ],
@@ -170,13 +249,14 @@
         "RDL-UT-005"
       ],
       "verifies": [
-        "platform-access.native-entry"
+        "platform-access.native-entry",
+        "platform-access.source.windows-directory"
       ]
     },
     {
       "symbolId": "platform-access.test.unit.windows-owned-child",
       "kind": "test-suite",
-      "path": "src/windows_owned_child.rs",
+      "path": "src/process/owned_child.rs",
       "qaIds": [
         "QA-000008"
       ],

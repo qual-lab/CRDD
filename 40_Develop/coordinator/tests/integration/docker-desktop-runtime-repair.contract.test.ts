@@ -6778,7 +6778,8 @@ test("Contractは自動fallback・全WSL停止・削除・PID killを許可し�
   assert.equal(contract.providerEffectIssued, false);
   const sources = [
     "../../src/docker-desktop/docker-desktop-runtime-repair.ts",
-    "../../../platform-access/src/docker_repair.rs",
+    "../../../platform-access/src/docker-desktop/repair.rs",
+    "../../../platform-access/src/docker-desktop/identity.rs",
   ].map((relative) =>
     fs.readFileSync(new URL(relative, import.meta.url), "utf8"),
   );

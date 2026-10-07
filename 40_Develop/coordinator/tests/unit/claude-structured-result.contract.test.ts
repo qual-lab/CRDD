@@ -11,10 +11,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { parseUnambiguousJsonDocument } from "../../../ai-adapter/src/output/index.ts";
+
 import {
   describeClaudeStructuredResultContract,
   normalizeClaudeStructuredResult,
-} from "../../src/provider/claude-structured-result.ts";
+} from "../../../ai-adapter/src/claude/index.ts";
 
 /**
  * createEnvelopeのTest準備責務を実行する。
@@ -42,6 +44,38 @@ function createEnvelope(overrides: Record<string, unknown> = {}) {
     ...overrides,
   });
 }
+
+/**
+ * 共通JSON解析の移管後も曖昧な入力を拒否することを検証する。
+ *
+ * @responsibility Provider固有Envelopeに依存しない構文拒否条件を固定する。
+ * @trace RCM-UT-016
+ * @precondition 入力は未信頼なJSON文字列である。
+ * @stimulus 正常な入れ子と重複key、escape同値key、末尾データ、不正文法を渡す。
+ * @observation 解析された値またはnullを観測する。
+ * @oracle 正常値は保持し、曖昧・不正入力はnullとなる。
+ * @cleanup N/A: 純粋解析で外部資源を作らない。
+ * @boundary RCM-UT-016=Direct Boundary: Coordinator試験→AI Adapter共通出力解析。
+ */
+test("共通JSON解析はProviderに依存せず曖昧な構文を拒否する", () => {
+  assert.deepEqual(
+    parseUnambiguousJsonDocument(' {"items":[{"value":1},true,"x"]} \n'),
+    { items: [{ value: 1 }, true, "x"] },
+  );
+  for (const raw of [
+    '{"key":1,"key":2}',
+    '{"key":1,"\\u006bey":2}',
+    '{"nested":[{"key":1,"key":2}]}',
+    '{"ok":true} trailing',
+    '{"ok":true}{"other":false}',
+    '{"key":1,}',
+    "[1,]",
+    '\uFEFF{"ok":true}',
+    "",
+  ]) {
+    assert.equal(parseUnambiguousJsonDocument(raw), null);
+  }
+});
 
 /**
  * Claude JSON Envelopeからexact boolean Resultだけを正規化するを検証する。

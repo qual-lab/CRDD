@@ -5,32 +5,24 @@
 //! @trace ARCH-000008
 //! @trace ARCH-000011
 
-mod host_namespace_protocol;
 mod protocol;
-mod terminal_protocol;
 
 #[cfg(windows)]
-mod windows_directory;
-
-#[allow(dead_code)]
-#[cfg(windows)]
-mod windows;
+mod filesystem;
 
 #[cfg(windows)]
-mod docker_repair;
-
-#[cfg(windows)]
-mod docker_authenticode;
+#[path = "docker-desktop/mod.rs"]
+mod docker_desktop;
 
 #[allow(dead_code)]
 #[cfg(windows)]
-mod windows_owned_child;
+mod process;
 
 use std::ffi::OsStr;
 use std::fs::OpenOptions;
 use std::io::{Read, Write};
 
-use protocol::{
+use protocol::access::{
     Provider, ProviderHomeReason, ProviderHomeResponse, Reason, Response, RootRole,
     parse_provider_home_request, parse_request, read_framed_request_from, read_request_from,
     write_provider_home_response_to, write_response_to,
@@ -108,7 +100,7 @@ fn invalid_provider_home_response() -> ProviderHomeResponse {
 fn execute_bytes(request_bytes: &[u8], writer: &mut impl Write) -> i32 {
     if let Some(request) = parse_provider_home_request(request_bytes) {
         #[cfg(windows)]
-        let response = windows::observe_provider_home(&request);
+        let response = filesystem::provider_home::observe_provider_home(&request);
 
         #[cfg(not(windows))]
         let response = ProviderHomeResponse {
@@ -139,7 +131,7 @@ fn execute_bytes(request_bytes: &[u8], writer: &mut impl Write) -> i32 {
     };
 
     #[cfg(windows)]
-    let response = windows::observe(&request);
+    let response = filesystem::root_observation::observe(&request);
 
     #[cfg(not(windows))]
     let response = Response {
@@ -209,23 +201,23 @@ fn execute_host_recovery_namespace(
 ) -> i32 {
     let mut bytes = Vec::new();
     let response = if reader
-        .take((host_namespace_protocol::MAX_REQUEST_BYTES + 1) as u64)
+        .take((protocol::host_namespace::MAX_REQUEST_BYTES + 1) as u64)
         .read_to_end(&mut bytes)
         .is_err()
     {
-        host_namespace_protocol::blocked([0; 32], "terminal_namespace_request_read_failed")
-    } else if let Some(request) = host_namespace_protocol::parse_request(&bytes, initialize) {
+        protocol::host_namespace::blocked([0; 32], "terminal_namespace_request_read_failed")
+    } else if let Some(request) = protocol::host_namespace::parse_request(&bytes, initialize) {
         #[cfg(windows)]
-        let response = windows::host_recovery_namespace_request(&request);
+        let response = filesystem::host_namespace::host_recovery_namespace_request(&request);
         #[cfg(not(windows))]
         let response =
-            host_namespace_protocol::blocked(request.nonce, "terminal_platform_unsupported");
+            protocol::host_namespace::blocked(request.nonce, "terminal_platform_unsupported");
         response
     } else {
-        host_namespace_protocol::blocked([0; 32], "terminal_namespace_request_invalid")
+        protocol::host_namespace::blocked([0; 32], "terminal_namespace_request_invalid")
     };
     let completed = response.status != 0;
-    let Some(encoded) = host_namespace_protocol::encode_response(&response) else {
+    let Some(encoded) = protocol::host_namespace::encode_response(&response) else {
         return 3;
     };
     if writer
@@ -255,19 +247,19 @@ fn execute_host_recovery_namespace(
 fn execute_host_terminal_observation(reader: &mut impl Read, writer: &mut impl Write) -> i32 {
     let mut bytes = Vec::new();
     let response = if reader.take(343).read_to_end(&mut bytes).is_err() {
-        terminal_protocol::rejected([0; 32], "terminal_request_read_failed", 1)
-    } else if let Some(request) = terminal_protocol::parse_request(&bytes) {
+        protocol::host_record::rejected([0; 32], "terminal_request_read_failed", 1)
+    } else if let Some(request) = protocol::host_record::parse_request(&bytes) {
         #[cfg(windows)]
-        let response = windows::observe_host_terminal_target(&request);
+        let response = filesystem::host_record::observe_target_request(&request);
         #[cfg(not(windows))]
         let response =
-            terminal_protocol::rejected(request.nonce, "terminal_platform_unsupported", 5);
+            protocol::host_record::rejected(request.nonce, "terminal_platform_unsupported", 5);
         response
     } else {
-        terminal_protocol::rejected([0; 32], "terminal_request_invalid", 1)
+        protocol::host_record::rejected([0; 32], "terminal_request_invalid", 1)
     };
     let completed = response.snapshot.is_some();
-    let Some(encoded) = terminal_protocol::encode_response(&response) else {
+    let Some(encoded) = protocol::host_record::encode_response(&response) else {
         return 3;
     };
     if writer
@@ -300,19 +292,22 @@ fn execute_known_file_host_terminal_observation(
 ) -> i32 {
     let mut bytes = Vec::new();
     let response = if reader.take(343).read_to_end(&mut bytes).is_err() {
-        terminal_protocol::rejected([0; 32], "terminal_request_read_failed", 1)
-    } else if let Some(request) = terminal_protocol::parse_known_file_request(&bytes) {
+        protocol::host_record::rejected([0; 32], "terminal_request_read_failed", 1)
+    } else if let Some(request) = protocol::host_record::parse_known_file_request(&bytes) {
         #[cfg(windows)]
-        let response = windows::observe_known_file_host_terminal_target(&request);
+        let response = filesystem::host_record::observe_known_file_target_request(&request);
         #[cfg(not(windows))]
-        let response =
-            terminal_protocol::rejected(request.target.nonce, "terminal_platform_unsupported", 5);
+        let response = protocol::host_record::rejected(
+            request.target.nonce,
+            "terminal_platform_unsupported",
+            5,
+        );
         response
     } else {
-        terminal_protocol::rejected([0; 32], "terminal_request_invalid", 1)
+        protocol::host_record::rejected([0; 32], "terminal_request_invalid", 1)
     };
     let completed = response.snapshot.is_some();
-    let Some(encoded) = terminal_protocol::encode_known_file_response(&response) else {
+    let Some(encoded) = protocol::host_record::encode_known_file_response(&response) else {
         return 3;
     };
     if writer
@@ -344,11 +339,11 @@ fn execute_host_terminal_save(reader: &mut impl Read, writer: &mut impl Write) -
     execute_terminal_record_save(
         reader,
         writer,
-        terminal_protocol::MAX_SAVE_REQUEST_BYTES,
-        terminal_protocol::parse_save_request,
-        terminal_protocol::encode_save_response,
+        protocol::host_record::MAX_SAVE_REQUEST_BYTES,
+        protocol::host_record::parse_save_request,
+        protocol::host_record::encode_save_response,
         #[cfg(windows)]
-        windows::save_host_terminal_target,
+        filesystem::host_record::save_target_request,
     )
 }
 
@@ -371,11 +366,11 @@ fn execute_known_file_host_terminal_save(reader: &mut impl Read, writer: &mut im
     execute_terminal_record_save(
         reader,
         writer,
-        terminal_protocol::MAX_KNOWN_FILE_RECORD_REQUEST_BYTES,
-        terminal_protocol::parse_known_file_save_request,
-        terminal_protocol::encode_known_file_save_response,
+        protocol::host_record::MAX_KNOWN_FILE_RECORD_REQUEST_BYTES,
+        protocol::host_record::parse_known_file_save_request,
+        protocol::host_record::encode_known_file_save_response,
         #[cfg(windows)]
-        windows::save_known_file_host_terminal_target,
+        filesystem::host_record::save_known_file_target_request,
     )
 }
 
@@ -397,11 +392,11 @@ fn execute_terminal_record_save<S>(
     reader: &mut impl Read,
     writer: &mut impl Write,
     maximum: usize,
-    parse: fn(&[u8]) -> Option<terminal_protocol::TerminalSaveRequest<S>>,
-    encode: fn(&terminal_protocol::TerminalSaveResponse<S>) -> Option<Vec<u8>>,
+    parse: fn(&[u8]) -> Option<protocol::host_record::TerminalSaveRequest<S>>,
+    encode: fn(&protocol::host_record::TerminalSaveResponse<S>) -> Option<Vec<u8>>,
     #[cfg(windows)] perform: fn(
-        &terminal_protocol::TerminalSaveRequest<S>,
-    ) -> terminal_protocol::TerminalSaveResponse<S>,
+        &protocol::host_record::TerminalSaveRequest<S>,
+    ) -> protocol::host_record::TerminalSaveResponse<S>,
 ) -> i32 {
     let mut bytes = Vec::new();
     let parsed = if reader
@@ -417,11 +412,11 @@ fn execute_terminal_record_save<S>(
         #[cfg(windows)]
         let response = perform(&request);
         #[cfg(not(windows))]
-        let response = terminal_protocol::TerminalSaveResponse {
+        let response = protocol::host_record::TerminalSaveResponse {
             reference: Some(request.reference),
             saved: false,
             reasons: ["terminal_platform_unsupported", "", "", "", ""],
-            observation: terminal_protocol::rejected(
+            observation: protocol::host_record::rejected(
                 request.nonce,
                 "terminal_platform_unsupported",
                 5,
@@ -430,11 +425,15 @@ fn execute_terminal_record_save<S>(
         };
         response
     } else {
-        terminal_protocol::TerminalSaveResponse {
+        protocol::host_record::TerminalSaveResponse {
             reference: None,
             saved: false,
             reasons: ["terminal_save_request_invalid", "", "", "", ""],
-            observation: terminal_protocol::rejected([0; 32], "terminal_save_request_invalid", 1),
+            observation: protocol::host_record::rejected(
+                [0; 32],
+                "terminal_save_request_invalid",
+                1,
+            ),
             receipt: None,
         }
     };
@@ -471,11 +470,11 @@ fn execute_host_terminal_read(reader: &mut impl Read, writer: &mut impl Write) -
     execute_terminal_record_read(
         reader,
         writer,
-        terminal_protocol::MAX_SAVE_REQUEST_BYTES,
-        terminal_protocol::parse_read_request,
-        terminal_protocol::encode_read_response,
+        protocol::host_record::MAX_SAVE_REQUEST_BYTES,
+        protocol::host_record::parse_read_request,
+        protocol::host_record::encode_read_response,
         #[cfg(windows)]
-        windows::read_host_terminal_record,
+        filesystem::host_record::read_record_request,
     )
 }
 
@@ -498,11 +497,11 @@ fn execute_known_file_host_terminal_read(reader: &mut impl Read, writer: &mut im
     execute_terminal_record_read(
         reader,
         writer,
-        terminal_protocol::MAX_KNOWN_FILE_RECORD_REQUEST_BYTES,
-        terminal_protocol::parse_known_file_read_request,
-        terminal_protocol::encode_known_file_read_response,
+        protocol::host_record::MAX_KNOWN_FILE_RECORD_REQUEST_BYTES,
+        protocol::host_record::parse_known_file_read_request,
+        protocol::host_record::encode_known_file_read_response,
         #[cfg(windows)]
-        windows::read_known_file_host_terminal_record,
+        filesystem::host_record::read_known_file_record_request,
     )
 }
 
@@ -524,11 +523,11 @@ fn execute_terminal_record_read<S>(
     reader: &mut impl Read,
     writer: &mut impl Write,
     maximum: usize,
-    parse: fn(&[u8]) -> Option<terminal_protocol::TerminalSaveRequest<S>>,
-    encode: fn(&terminal_protocol::TerminalReadResponse<S>) -> Option<Vec<u8>>,
+    parse: fn(&[u8]) -> Option<protocol::host_record::TerminalSaveRequest<S>>,
+    encode: fn(&protocol::host_record::TerminalReadResponse<S>) -> Option<Vec<u8>>,
     #[cfg(windows)] perform: fn(
-        &terminal_protocol::TerminalSaveRequest<S>,
-    ) -> terminal_protocol::TerminalReadResponse<S>,
+        &protocol::host_record::TerminalSaveRequest<S>,
+    ) -> protocol::host_record::TerminalReadResponse<S>,
 ) -> i32 {
     let mut bytes = Vec::new();
     let parsed = if reader
@@ -540,7 +539,7 @@ fn execute_terminal_record_read<S>(
     } else {
         None
     };
-    let rejected = |reference, nonce, reason, phase| terminal_protocol::TerminalReadResponse {
+    let rejected = |reference, nonce, reason, phase| protocol::host_record::TerminalReadResponse {
         reference,
         observed: false,
         state: 0,
@@ -552,7 +551,7 @@ fn execute_terminal_record_read<S>(
         reader_close: None,
         generation_acquired: false,
         generation_close: None,
-        observation: terminal_protocol::rejected(nonce, reason, phase),
+        observation: protocol::host_record::rejected(nonce, reason, phase),
     };
     let response = if let Some(request) = parsed {
         #[cfg(windows)]
@@ -759,7 +758,7 @@ fn main() {
         Ok(InvocationMode::WindowsDirectory) => {
             #[cfg(windows)]
             {
-                windows_directory::run(&mut std::io::stdout())
+                filesystem::windows_directory::run(&mut std::io::stdout())
             }
             #[cfg(not(windows))]
             {
@@ -781,7 +780,7 @@ fn main() {
         Ok(InvocationMode::DockerDesktopRepair) => {
             #[cfg(windows)]
             {
-                docker_repair::run(&mut std::io::stdin(), &mut std::io::stdout())
+                docker_desktop::repair::run(&mut std::io::stdin(), &mut std::io::stdout())
             }
             #[cfg(not(windows))]
             {
@@ -791,7 +790,7 @@ fn main() {
         Ok(InvocationMode::DockerDesktopRestart) => {
             #[cfg(windows)]
             {
-                docker_repair::run_restart(&mut std::io::stdin(), &mut std::io::stdout())
+                docker_desktop::repair::run_restart(&mut std::io::stdin(), &mut std::io::stdout())
             }
             #[cfg(not(windows))]
             {

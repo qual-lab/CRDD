@@ -4,6 +4,14 @@
   "subsystem": "domain-model",
   "symbols": [
     {
+      "symbolId": "coordinator.source.src.security.plain.data.snapshot",
+      "kind": "file",
+      "path": "src/plain-data/plain-data-snapshot.ts",
+      "archIds": [
+        "ARCH-000014"
+      ]
+    },
+    {
       "symbolId": "domain-model.project-context-types",
       "kind": "file",
       "path": "src/project-context/types.ts",

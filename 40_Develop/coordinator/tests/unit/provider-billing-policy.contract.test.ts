@@ -15,7 +15,7 @@ import {
   describeProviderBillingPolicyContract,
   PROVIDER_BILLING_POLICY_CONTRACT,
   PROVIDER_BILLING_POLICY_CONTRACT_REVISION,
-} from "../../src/provider/provider-billing-policy.ts";
+} from "../../../ai-adapter/src/index.ts";
 
 /**
  * 標準ProfileはSubscriptionだけを許し有料APIへfallbackしないを検証する。

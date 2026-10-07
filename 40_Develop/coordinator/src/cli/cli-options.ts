@@ -5,7 +5,7 @@
  * @trace ARCH-000004
  */
 import { parseDockerTaskRecoveryId } from "../docker-runtime/docker-recovery-identity.ts";
-import { snapshotPlainArray } from "../plain-data-snapshot.ts";
+import { snapshotPlainArray } from "../../../domain-model/src/plain-data/index.ts";
 
 const MAXIMUM_ARGUMENTS = 16;
 const MAXIMUM_ARGUMENT_LENGTH = 4_096;

@@ -61,7 +61,7 @@ export const integrationLifecycleProfiles = [
 export type TestCatalogEntry = Readonly<{
   id: string;
   owner:
-    | "ai-runtime"
+    | "ai-adapter"
     | "artifact-signing"
     | "checker"
     | "coordinator"
@@ -107,7 +107,7 @@ export type TestCatalog = Readonly<{
   regressionIsSelection: true;
   resourceIntensiveLevels: readonly ["performance", "longevity"];
   runnerProfiles: Readonly<{
-    "ai-runtime": "node_test";
+    "ai-adapter": "node_test";
     "artifact-signing": "node_test";
     checker: "node_test";
     coordinator: "node_test";
@@ -156,7 +156,7 @@ const RESOURCE_INTENSIVE_LEVELS = new Set<TestLevel>([
   "longevity",
 ]);
 const RUNNER_SUPPORTED_OWNERS = new Set([
-  "ai-runtime",
+  "ai-adapter",
   "artifact-signing",
   "checker",
   "coordinator",
@@ -174,7 +174,7 @@ const RUNNER_SUPPORTED_OWNERS = new Set([
   "workbench",
 ]);
 const RUNNER_PROFILES = Object.freeze({
-  "ai-runtime": "node_test",
+  "ai-adapter": "node_test",
   "artifact-signing": "node_test",
   checker: "node_test",
   coordinator: "node_test",
@@ -341,7 +341,7 @@ function walkFiles(root: string, directory: string): string[] {
  */
 export function discoverRepositoryTestFiles(repositoryRoot: string): string[] {
   const nodeTests = [
-    "ai-runtime",
+    "ai-adapter",
     "artifact-signing",
     "checker",
     "coordinator",
@@ -414,7 +414,7 @@ function isTestLevel(value: unknown): value is TestLevel {
  */
 function expectedNodeLevel(entryPath: string): string | null {
   return (
-    /^40_Develop\/(?:ai-runtime|artifact-signing|checker|coordinator|domain-model|cros|execution-intelligence|mcp|official-asset-governance|project-runtime|semantic-coverage|verification-runner|version-control|visual-preview|workbench)\/tests\/([^/]+)\//u.exec(
+    /^40_Develop\/(?:ai-adapter|artifact-signing|checker|coordinator|domain-model|cros|execution-intelligence|mcp|official-asset-governance|project-runtime|semantic-coverage|verification-runner|version-control|visual-preview|workbench)\/tests\/([^/]+)\//u.exec(
       entryPath,
     )?.[1] ?? null
   );
@@ -1038,7 +1038,7 @@ export function inspectResourceIntensiveTestAuthority(
  * @concurrency N/A: ownerForPathは共有非同期状態を持たない同期処理である。
  */
 function ownerForPath(changedPath: string): TestCatalogEntry["owner"] | null {
-  if (changedPath.startsWith("40_Develop/ai-runtime/")) return "ai-runtime";
+  if (changedPath.startsWith("40_Develop/ai-adapter/")) return "ai-adapter";
   if (changedPath.startsWith("40_Develop/artifact-signing/"))
     return "artifact-signing";
   if (changedPath.startsWith("40_Develop/coordinator/")) return "coordinator";

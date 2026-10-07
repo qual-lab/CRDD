@@ -8,11 +8,12 @@
  * @scope coordinator、contract、node_process
  * @boundary Unit TestとPacket Runtimeの公開APIの間。
  */
+import { describeWorkbenchAiAdviceResultSchema } from "../../src/workbench-ai/workbench-ai-advice-result.ts";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import type { WorkbenchAiAdviceProviderCommand } from "../../src/workbench-ai/workbench-ai-advice-provider-command.ts";
-import { planWorkbenchAiAdviceProviderCommand } from "../../src/workbench-ai/workbench-ai-advice-provider-command.ts";
+import type { WorkbenchAiAdviceProviderCommand } from "../../../ai-adapter/src/index.ts";
+import { planWorkbenchAiAdviceProviderCommand } from "../../../ai-adapter/src/index.ts";
 import {
   consumeRuntimeOwnedWorkbenchAiAdvicePacket,
   describeWorkbenchAiAdviceRuntimePacketContract,
@@ -42,11 +43,14 @@ function input() {
     taskHash: sha,
     projectionHash: "b".repeat(64),
     providerPrompt: "Read the bounded projection and return structured advice.",
-    providerCommand: planWorkbenchAiAdviceProviderCommand({
-      provider: "codex",
-      exactModelId: "gpt-6-sol",
-      reasoningEffort: "medium",
-    }),
+    providerCommand: planWorkbenchAiAdviceProviderCommand(
+      {
+        provider: "codex",
+        exactModelId: "gpt-6-sol",
+        reasoningEffort: "medium",
+      },
+      describeWorkbenchAiAdviceResultSchema(),
+    ),
   };
 }
 

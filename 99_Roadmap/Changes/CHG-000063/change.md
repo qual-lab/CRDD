@@ -369,7 +369,7 @@ v0.20の実Docker結合試験で、検証付き再起動が正常な停止・起
 - [`40_Develop/mcp/tests/unit/project-runtime-adapter.contract.test.ts`](<../../../40_Develop/mcp/tests/unit/project-runtime-adapter.contract.test.ts>)
 - [`40_Develop/platform-access/Cargo.toml`](<../../../40_Develop/platform-access/Cargo.toml>)
 - [`40_Develop/platform-access/src/docker_authenticode.rs`](<../../../40_Develop/platform-access/src/docker_authenticode.rs>)
-- [`40_Develop/platform-access/src/docker_repair.rs`](<../../../40_Develop/platform-access/src/docker_repair.rs>)
+- [`40_Develop/platform-access/src/docker-desktop/repair.rs`](<../../../40_Develop/platform-access/src/docker-desktop/repair.rs>)
 - [`40_Develop/platform-access/src/main.rs`](<../../../40_Develop/platform-access/src/main.rs>)
 - [`40_Develop/platform-access/src/windows_directory.rs`](<../../../40_Develop/platform-access/src/windows_directory.rs>)
 - [`40_Develop/platform-access/src/windows_owned_child.rs`](<../../../40_Develop/platform-access/src/windows_owned_child.rs>)

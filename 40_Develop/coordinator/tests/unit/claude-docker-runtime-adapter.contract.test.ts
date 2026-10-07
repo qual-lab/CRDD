@@ -8,6 +8,7 @@
  * @scope claude、docker、runtime、adapter
  * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
+import { describeWorkbenchAiAdviceResultSchema } from "../../src/workbench-ai/workbench-ai-advice-result.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -18,7 +19,7 @@ import {
   prepareRuntimeOwnedClaudeDockerCandidate,
 } from "../../src/provider/claude-docker-runtime-adapter.ts";
 import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../src/provider/delegation-selection-grant-runtime.ts";
-import { planWorkbenchAiAdviceProviderCommand } from "../../src/workbench-ai/workbench-ai-advice-provider-command.ts";
+import { planWorkbenchAiAdviceProviderCommand } from "../../../ai-adapter/src/index.ts";
 
 const MODEL_SELECTION = Object.freeze({
   selectionRecordId: "MODELSEL-12345678",
@@ -201,11 +202,14 @@ function createFixture(
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Workbench助言をRepository非共有のClaude Planへ固定する", () => {
-  const providerCommand = planWorkbenchAiAdviceProviderCommand({
-    provider: "claude",
-    exactModelId: "claude-opus-test-profile",
-    reasoningEffort: "low",
-  });
+  const providerCommand = planWorkbenchAiAdviceProviderCommand(
+    {
+      provider: "claude",
+      exactModelId: "claude-opus-test-profile",
+      reasoningEffort: "low",
+    },
+    describeWorkbenchAiAdviceResultSchema(),
+  );
   const fixture = createFixture({
     consumeAdvicePacket: () =>
       Object.freeze({

@@ -39,7 +39,7 @@ type FixtureCase = {
 const cases: readonly FixtureCase[] = [
   {
     kind: "interop",
-    test: "windows::terminal::tests::terminal_generation_node_interoperation",
+    test: "filesystem::host_record::tests::terminal_generation_node_interoperation",
     env: "CRDD_TERMINAL_INTEROP_RUN",
     run: "current-node-native-interop",
     child: "interop",
@@ -47,7 +47,7 @@ const cases: readonly FixtureCase[] = [
   },
   {
     kind: "target",
-    test: "windows::terminal::tests::terminal_target_fixture",
+    test: "filesystem::host_record::tests::terminal_target_fixture",
     env: "CRDD_TERMINAL_TARGET_RUN",
     run: "target.261004.9da03fb1.r3",
     child: "target-r3",
@@ -55,7 +55,7 @@ const cases: readonly FixtureCase[] = [
   },
   {
     kind: "save",
-    test: "windows::terminal::tests::terminal_save_fixture",
+    test: "filesystem::host_record::tests::terminal_save_fixture",
     env: "CRDD_TERMINAL_SAVE_RUN",
     run: "save.261003.c8d1092a.r1",
     child: "save-r1",
@@ -63,7 +63,7 @@ const cases: readonly FixtureCase[] = [
   },
   {
     kind: "capacity",
-    test: "windows::terminal::tests::terminal_capacity_fixture",
+    test: "filesystem::host_record::tests::terminal_capacity_fixture",
     env: "CRDD_TERMINAL_CAPACITY_RUN",
     run: "capacity.261003.c8d1092a.r3-before",
     child: "capacity-r3-before",
@@ -72,7 +72,7 @@ const cases: readonly FixtureCase[] = [
   },
   {
     kind: "capacity",
-    test: "windows::terminal::tests::terminal_capacity_fixture",
+    test: "filesystem::host_record::tests::terminal_capacity_fixture",
     env: "CRDD_TERMINAL_CAPACITY_RUN",
     run: "capacity.261003.c8d1092a.r3-after",
     child: "capacity-r3-after",
@@ -81,7 +81,7 @@ const cases: readonly FixtureCase[] = [
   },
   {
     kind: "current",
-    test: "windows::terminal::tests::terminal_current_candidate_fixture",
+    test: "filesystem::host_record::tests::terminal_current_candidate_fixture",
     env: "CRDD_TERMINAL_CURRENT_RUN",
     run: "current.261003.73c9d18f.r1",
     child: "fixture-current-r1",
@@ -89,7 +89,7 @@ const cases: readonly FixtureCase[] = [
   },
   {
     kind: "cold",
-    test: "windows::terminal::tests::terminal_cold_observation_fixture",
+    test: "filesystem::host_record::tests::terminal_cold_observation_fixture",
     env: "CRDD_TERMINAL_COLD_RUN",
     run: "cold.261003.219b9b53.r1",
     child: "fixture-cold-r1",
@@ -97,7 +97,7 @@ const cases: readonly FixtureCase[] = [
   },
   {
     kind: "rename",
-    test: "windows::terminal::tests::terminal_rename_candidate_fixture",
+    test: "filesystem::host_record::tests::terminal_rename_candidate_fixture",
     env: "CRDD_TERMINAL_PUBLICATION_RUN",
     run: "rename.261003.219b9b53.r1",
     child: "fixture-rename-r1",
@@ -105,7 +105,7 @@ const cases: readonly FixtureCase[] = [
   },
   {
     kind: "publication",
-    test: "windows::terminal::tests::terminal_publication_fixture",
+    test: "filesystem::host_record::tests::terminal_publication_fixture",
     env: "CRDD_TERMINAL_PUBLICATION_RUN",
     run: "publication.261003.219b9b53.r4",
     child: "fixture-r4",
@@ -113,7 +113,7 @@ const cases: readonly FixtureCase[] = [
   },
   {
     kind: "disposition",
-    test: "windows::terminal::tests::terminal_disposition_fixture",
+    test: "filesystem::host_record::tests::terminal_disposition_fixture",
     env: "CRDD_TERMINAL_DISPOSITION_RUN",
     run: "disposition.261004.61d28f4a.r3",
     child: "disposition-r3",
@@ -121,7 +121,7 @@ const cases: readonly FixtureCase[] = [
   },
   {
     kind: "known-file",
-    test: "windows::terminal::tests::terminal_known_file_fixture",
+    test: "filesystem::host_record::tests::terminal_known_file_fixture",
     env: "CRDD_TERMINAL_KNOWN_FILE_RUN",
     run: "known-file.261004.f17052e1.r1",
     child: "known-file-r1",

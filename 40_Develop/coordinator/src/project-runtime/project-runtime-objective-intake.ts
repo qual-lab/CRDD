@@ -14,7 +14,7 @@ import {
   type ProjectRuntimeState,
   runProjectRuntimeObjectiveApplication,
 } from "../../../project-runtime/src/index.ts";
-import { snapshotPlainRecord } from "../plain-data-snapshot.ts";
+import { snapshotPlainRecord } from "../../../domain-model/src/plain-data/index.ts";
 import {
   createProjectRuntimeSnapshotPersistencePorts,
   inspectProjectRuntimeSnapshotIntake,

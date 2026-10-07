@@ -22,7 +22,7 @@ import {
   runRuntimeOwnedCandidateStoreStartupGc,
 } from "../candidate/candidate-bundle-store.ts";
 import { prepareRuntimeOwnedClaudeDockerTaskCandidate } from "../provider/claude-docker-runtime-adapter.ts";
-import { CLAUDE_RESULT_ACCEPTANCE_MAXIMUM_TURNS } from "../provider/claude-execution-plan.ts";
+import { CLAUDE_RESULT_ACCEPTANCE_MAXIMUM_TURNS } from "../../../ai-adapter/src/claude/index.ts";
 import { prepareRuntimeOwnedCodexDockerTaskCandidate } from "../provider/codex-docker-runtime-adapter.ts";
 import {
   classifyOwnedCoordinatorOperationCreationFailure,
@@ -71,7 +71,7 @@ import { resolveRuntimeOwnedExternalSendPolicy } from "../external-send/external
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "../plain-data-snapshot.ts";
+} from "../../../domain-model/src/plain-data/index.ts";
 import { consumeRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../platform-access/platform-provisioner-package-filesystem.ts";
 import {
   consumeRuntimeOwnedProviderHomeMountGrant,

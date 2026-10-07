@@ -582,7 +582,7 @@ Qual-Labの人間の決定権限者は、次の境界でv0.16.0候補の実装�
 - [`40_Develop/platform-access/Cargo.toml`](<../../../40_Develop/platform-access/Cargo.toml>)
 - [`40_Develop/platform-access/rust-toolchain.toml`](<../../../40_Develop/platform-access/rust-toolchain.toml>)
 - `40_Develop/platform-access/src/bin/coordinator.rs`（削除または旧Path）
-- [`40_Develop/platform-access/src/docker_repair.rs`](<../../../40_Develop/platform-access/src/docker_repair.rs>)
+- [`40_Develop/platform-access/src/docker-desktop/repair.rs`](<../../../40_Develop/platform-access/src/docker-desktop/repair.rs>)
 - [`40_Develop/platform-access/src/main.rs`](<../../../40_Develop/platform-access/src/main.rs>)
 - `40_Develop/platform-access/src/native_bootstrap_core.rs`（削除または旧Path）
 - [`40_Develop/platform-access/src/protocol.rs`](<../../../40_Develop/platform-access/src/protocol.rs>)
