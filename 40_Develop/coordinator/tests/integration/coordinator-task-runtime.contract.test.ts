@@ -19,8 +19,8 @@ import path from "node:path";
 import type { TestContext } from "node:test";
 import test from "node:test";
 import { types as utilTypes } from "node:util";
-import { createDevelopmentExecutionTiming } from "../../src/core/development-execution-timing.ts";
-import { createIsolatedRuntimeProcessSafetyStateCandidate } from "../../src/core/runtime-process-safety-state.ts";
+import { createDevelopmentExecutionTiming } from "../../src/diagnostics/development-execution-timing.ts";
+import { createIsolatedRuntimeProcessSafetyStateCandidate } from "../../src/host-runtime/runtime-process-safety-state.ts";
 import {
   classifyCoordinatorTaskTerminalLifecycleState,
   createIsolatedCoordinatorTaskOperationCreationCandidate,
@@ -28,10 +28,10 @@ import {
   describeCoordinatorTaskRuntimeContract,
   projectDevelopmentTaskResultAfterOuterCleanup,
   startRuntimeOwnedCoordinatorTask,
-} from "../../src/security/coordinator-task-runtime.ts";
-import { coordinatorTaskPublicReasons } from "../../src/security/coordinator-task-result-reasons.ts";
-import { selectDelegationRouteCandidate } from "../../src/security/delegation-route-selection.ts";
-import { dockerProcessControllerPublicCompletionReasons } from "../../src/security/docker-process-controller-result-reasons.ts";
+} from "../../src/task/coordinator-task-runtime.ts";
+import { coordinatorTaskPublicReasons } from "../../src/task/coordinator-task-result-reasons.ts";
+import { selectDelegationRouteCandidate } from "../../src/provider/delegation-route-selection.ts";
+import { dockerProcessControllerPublicCompletionReasons } from "../../src/docker-runtime/docker-process-controller-result-reasons.ts";
 import {
   cleanupOwnedOperationDirectories,
   createIsolatedOwnedOperationDirectoryCreationFailureCandidate,
@@ -41,8 +41,8 @@ import {
   createOwnedOperationManagementCapability,
   getOwnedHostRecoveryId,
   verifyOwnedOperationManagementCapability,
-} from "../../src/security/execution-environment.ts";
-import { inspectRepositoryObjectFormatCandidate } from "../../src/security/repository-operation-runtime.ts";
+} from "../../src/host-runtime/execution-environment.ts";
+import { inspectRepositoryObjectFormatCandidate } from "../../src/repository-operation/repository-operation-runtime.ts";
 import {
   assertRuntimeTraceCase,
   assertRuntimeTraceExecutionCoverage,

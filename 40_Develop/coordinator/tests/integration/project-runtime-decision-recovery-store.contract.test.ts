@@ -15,7 +15,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { createProjectRuntimeDecisionRecoveryStore } from "../../src/security/project-runtime-decision-recovery-store.ts";
+import { createProjectRuntimeDecisionRecoveryStore } from "../../src/project-runtime/project-runtime-decision-recovery-store.ts";
 import type { ProjectRuntimeDecisionRecoveryIntent } from "../../../project-runtime/src/index.ts";
 
 /**

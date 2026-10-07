@@ -1,7 +1,7 @@
 import type { ChildProcess } from "node:child_process";
 
-import type { InteractiveConsoleReadOutcome } from "../../src/core/interactive-console.ts";
-import { runInteractiveConsoleReaderLifecycle } from "../../src/core/interactive-console-reader-lifecycle-internal.ts";
+import type { InteractiveConsoleReadOutcome } from "../../src/cli/interactive-console.ts";
+import { runInteractiveConsoleReaderLifecycle } from "../../src/cli/interactive-console-reader-lifecycle-internal.ts";
 
 export function readInteractiveConsoleLineOutcomeUsingAdapter(
   inputDescriptor: number,

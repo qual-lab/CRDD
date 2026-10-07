@@ -27,7 +27,7 @@ import {
   acquireRuntimeOwnedLogicalProviderHomeKernelLock,
   acquireRuntimeOwnedProjectRuntimeStateKernelLock,
   describeCandidateStoreKernelLockContract,
-} from "../../src/security/candidate-store-kernel-lock.ts";
+} from "../../src/host-runtime/candidate-store-kernel-lock.ts";
 import {
   acquireHostOperationSupervisorLockUsingChildFactory,
   acquireInteractiveConsoleKernelLockOutcomeUsingFactory,
@@ -1007,11 +1007,11 @@ test("同期Lock取得timeoutは本番Worker終了後に遅延取得を残さず
   timeout: 30_000,
 }, async (t) => {
   const moduleUrl = new URL(
-    "../../src/security/candidate-store-kernel-lock.ts",
+    "../../src/host-runtime/candidate-store-kernel-lock.ts",
     import.meta.url,
   ).href;
   const workerUrl = new URL(
-    "../../src/security/candidate-store-lock-worker.ts",
+    "../../src/host-runtime/candidate-store-lock-worker.ts",
     import.meta.url,
   ).href;
   const protectionHash = createHash("sha256")
@@ -1352,7 +1352,7 @@ test("Host Operation Supervisorのcleanup不明は遅延通知で降格せずexa
 test("Host Operation Supervisor entrypointはexact argvとIPCなしでlistenしない", () => {
   const entrypoint = fileURLToPath(
     new URL(
-      "../../src/security/host-operation-lock-supervisor.ts",
+      "../../src/host-runtime/host-operation-lock-supervisor.ts",
       import.meta.url,
     ),
   );
@@ -1389,7 +1389,7 @@ test("Host Operation Supervisor entrypointはexact argvとIPCなしでlistenし�
 test("Host Operation Supervisor entrypointはclosing中の親command違反をnonzeroへ単調化する", async () => {
   const entrypoint = fileURLToPath(
     new URL(
-      "../../src/security/host-operation-lock-supervisor.ts",
+      "../../src/host-runtime/host-operation-lock-supervisor.ts",
       import.meta.url,
     ),
   );
@@ -1435,7 +1435,7 @@ test("Host Operation Supervisor entrypointはclosing中の親command違反をnon
 test("Host Operation Supervisor entrypointはconfirm-release後の違反を成功へ戻さない", async () => {
   const entrypoint = fileURLToPath(
     new URL(
-      "../../src/security/host-operation-lock-supervisor.ts",
+      "../../src/host-runtime/host-operation-lock-supervisor.ts",
       import.meta.url,
     ),
   );
@@ -1497,7 +1497,7 @@ test("Host Operation Supervisor entrypointはconfirm-release後の違反を成�
 test("Host Operation Supervisor entrypointはconfirm-release直後の親disconnectを成功にしない", async () => {
   const entrypoint = fileURLToPath(
     new URL(
-      "../../src/security/host-operation-lock-supervisor.ts",
+      "../../src/host-runtime/host-operation-lock-supervisor.ts",
       import.meta.url,
     ),
   );

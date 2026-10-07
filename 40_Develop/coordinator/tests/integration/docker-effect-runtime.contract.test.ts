@@ -15,15 +15,15 @@ import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { createIsolatedClaudeDockerRuntimeAdapterCandidate } from "../../src/security/claude-docker-runtime-adapter.ts";
-import { createIsolatedCodexDockerRuntimeAdapterCandidate } from "../../src/security/codex-docker-runtime-adapter.ts";
-import { dockerContainerInitObservationMatches } from "../../src/security/docker-container-init-observation.ts";
+import { createIsolatedClaudeDockerRuntimeAdapterCandidate } from "../../src/provider/claude-docker-runtime-adapter.ts";
+import { createIsolatedCodexDockerRuntimeAdapterCandidate } from "../../src/provider/codex-docker-runtime-adapter.ts";
+import { dockerContainerInitObservationMatches } from "../../src/docker-runtime/docker-container-init-observation.ts";
 import {
   createIsolatedDockerEffectRuntimeCandidate,
   describeDockerEffectRuntimeContract,
-} from "../../src/security/docker-effect-runtime.ts";
-import type { OwnedCommandHandle } from "../../src/security/docker-owned-process.ts";
-import { planWorkbenchAiAdviceProviderCommand } from "../../src/security/workbench-ai-advice-provider-command.ts";
+} from "../../src/docker-runtime/docker-effect-runtime.ts";
+import type { OwnedCommandHandle } from "../../src/docker-runtime/docker-owned-process.ts";
+import { planWorkbenchAiAdviceProviderCommand } from "../../src/workbench-ai/workbench-ai-advice-provider-command.ts";
 
 /**
  * createPlanFixtureのTest準備責務を実行する。
@@ -519,7 +519,10 @@ test("実config清掃後はClaudeからCodexへ同じ管理領域を再利用で
   const codexCommand = codex.commands[0];
   assert.ok(claudeCommand && codexCommand);
   const source = fs.readFileSync(
-    new URL("../../src/security/docker-effect-runtime.ts", import.meta.url),
+    new URL(
+      "../../src/docker-runtime/docker-effect-runtime.ts",
+      import.meta.url,
+    ),
     "utf8",
   );
   // Productionへ試験専用Exportを追加せず、固定Sourceの三private関数だけを使用する。

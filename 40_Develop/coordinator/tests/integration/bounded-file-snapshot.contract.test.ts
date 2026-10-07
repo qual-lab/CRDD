@@ -14,7 +14,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { readStableBoundedFileSnapshot } from "../../src/security/bounded-file-snapshot.ts";
+import { readStableBoundedFileSnapshot } from "../../src/state-storage/bounded-file-snapshot.ts";
 
 /**
  * temporaryFileのTest準備責務を実行する。

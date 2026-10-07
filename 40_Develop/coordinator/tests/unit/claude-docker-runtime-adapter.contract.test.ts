@@ -16,9 +16,9 @@ import {
   createIsolatedClaudeDockerRuntimeAdapterCandidate,
   describeClaudeDockerRuntimeAdapterContract,
   prepareRuntimeOwnedClaudeDockerCandidate,
-} from "../../src/security/claude-docker-runtime-adapter.ts";
-import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../src/security/delegation-selection-grant-runtime.ts";
-import { planWorkbenchAiAdviceProviderCommand } from "../../src/security/workbench-ai-advice-provider-command.ts";
+} from "../../src/provider/claude-docker-runtime-adapter.ts";
+import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../src/provider/delegation-selection-grant-runtime.ts";
+import { planWorkbenchAiAdviceProviderCommand } from "../../src/workbench-ai/workbench-ai-advice-provider-command.ts";
 
 const MODEL_SELECTION = Object.freeze({
   selectionRecordId: "MODELSEL-12345678",

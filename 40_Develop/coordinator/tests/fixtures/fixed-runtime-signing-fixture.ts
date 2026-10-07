@@ -13,8 +13,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { deflateSync } from "node:zlib";
 import { verifyRepositoryRoot } from "../../../version-control/src/repository-location.ts";
-import { PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH } from "../../src/security/platform-access-release.ts";
-import { inspectRuntimeDistributionSigningFilesCandidate } from "../../src/security/platform-provisioner-package-filesystem.ts";
+import { PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH } from "../../src/diagnostics/platform-access-release.ts";
+import { inspectRuntimeDistributionSigningFilesCandidate } from "../../src/platform-access/platform-provisioner-package-filesystem.ts";
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 /**
  * 選択RuntimeとNativeのbytes、固定Commit/Tree、未変更署名Toolを用意する。

@@ -10,12 +10,12 @@ import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../version
 import {
   isRuntimeProcessPoisoned,
   poisonRuntimeProcessAfterCleanupUnknown,
-} from "../src/core/runtime-process-safety-state.ts";
+} from "../src/host-runtime/runtime-process-safety-state.ts";
 import {
   displayVerificationRecording,
   runRecordedVerification,
-} from "../src/core/verification-result-record.ts";
-import { snapshotPlainArray } from "../src/security/plain-data-snapshot.ts";
+} from "./verification-result-record.ts";
+import { snapshotPlainArray } from "../src/plain-data-snapshot.ts";
 import {
   runSignedGeneralTaskVerification,
   SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT,

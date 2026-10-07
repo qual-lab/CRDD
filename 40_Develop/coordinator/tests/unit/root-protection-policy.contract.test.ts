@@ -14,7 +14,7 @@ import test from "node:test";
 import {
   describeRootProtectionPolicyContract,
   evaluateRootProtectionPolicyCandidate,
-} from "../../src/security/root-protection-policy.ts";
+} from "../../src/repository-operation/root-protection-policy.ts";
 import { assertPresent } from "../support/test-support.ts";
 
 /**

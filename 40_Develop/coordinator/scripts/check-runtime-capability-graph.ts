@@ -7,7 +7,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { assertVerificationToolCapabilityGraphForVerification } from "../src/security/platform-provisioner-package-filesystem.ts";
+import { assertVerificationToolCapabilityGraphForVerification } from "../src/platform-access/platform-provisioner-package-filesystem.ts";
 
 const scriptsRoot = path.resolve(import.meta.dirname);
 const sources: Record<string, string> = {};

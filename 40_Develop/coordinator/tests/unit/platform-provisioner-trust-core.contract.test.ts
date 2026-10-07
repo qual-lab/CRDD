@@ -23,8 +23,8 @@ import {
   describePlatformProvisionerTrustCoreContract,
   verifyHistoricalPlatformProvisionerManifestCandidate,
   verifyPlatformProvisionerManifestCandidate,
-} from "../../src/security/platform-provisioner-trust-core.ts";
-import { canonicalizeProvisioningJsonValueCandidate } from "../../src/security/provisioning-signature-primitives.ts";
+} from "../../src/platform-access/platform-provisioner-trust-core.ts";
+import { canonicalizeProvisioningJsonValueCandidate } from "../../src/diagnostics/provisioning-signature-primitives.ts";
 
 /**
  * fixtureのTest準備責務を実行する。

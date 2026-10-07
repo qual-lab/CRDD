@@ -21,13 +21,13 @@ import {
   evaluateRuntimeStateObservationResponseCandidate,
   PROVIDER_HOME_OBSERVATION_REQUEST_BYTES,
   PROVIDER_HOME_OBSERVATION_RESPONSE_BYTES,
-} from "../../src/security/provider-home-observation.ts";
+} from "../../src/provider/provider-home-observation.ts";
 import {
   consumeRuntimeOwnedProviderHomeObservationCapability,
   describeProviderHomeWindowsAdapterContract,
   inspectRuntimeOwnedWindowsProviderHomeCandidate,
-} from "../../src/security/provider-home-windows-adapter.ts";
-import { WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE } from "../../src/core/windows-child-environment.ts";
+} from "../../src/provider/provider-home-windows-adapter.ts";
+import { WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE } from "../../src/host-runtime/windows-child-environment.ts";
 
 /**
  * responseのTest準備責務を実行する。

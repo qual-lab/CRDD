@@ -16,7 +16,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { createRuntimeProcessRecoveryIdentity } from "../../src/core/runtime-process-safety-state.ts";
+import { createRuntimeProcessRecoveryIdentity } from "../../src/host-runtime/runtime-process-safety-state.ts";
 
 import {
   createProjectRuntimePersistencePorts,
@@ -25,14 +25,14 @@ import {
   readProjectRuntimeState,
   reconcileProjectRuntimeLeaseOwnerLoss,
   writeProjectRuntimeState,
-} from "../../src/security/project-runtime-durable-foundation.ts";
+} from "../../src/project-runtime/project-runtime-durable-foundation.ts";
 import {
   describeProjectRuntimeExecutionContract,
   runProjectRuntimeOperation as runProjectRuntimeOperationWithPorts,
 } from "../../../project-runtime/src/index.ts";
-import { createProjectRuntimeExecutionHostPorts } from "../../src/security/project-runtime-execution-host-adapter.ts";
-import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../src/security/project-runtime-execution-authorization-adapter.ts";
-import { runProjectRuntimeSingleTaskAttempt } from "../../src/security/project-runtime-single-task-adapter.ts";
+import { createProjectRuntimeExecutionHostPorts } from "../../src/project-runtime/project-runtime-execution-host-adapter.ts";
+import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../src/project-runtime/project-runtime-execution-authorization-adapter.ts";
+import { runProjectRuntimeSingleTaskAttempt } from "../../src/project-runtime/project-runtime-single-task-adapter.ts";
 import {
   createProjectRuntimeState,
   type ProjectRuntimeSingleTaskResult,

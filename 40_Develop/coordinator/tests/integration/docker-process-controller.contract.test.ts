@@ -11,13 +11,13 @@
 import assert from "node:assert/strict";
 import { Writable } from "node:stream";
 import test from "node:test";
-import { bindTaskCliCancellationSignals } from "../../src/core/task-cli-cancellation.ts";
+import { bindTaskCliCancellationSignals } from "../../src/cli/task-cli-cancellation.ts";
 import {
   projectRuntimeOwnedDockerProcessCompletionForTask,
   projectRuntimeOwnedDockerProcessStartForTask,
-} from "../../src/security/coordinator-task-runtime.ts";
-import { createDevelopmentMeasurementConstraints } from "../../src/security/development-measurement-constraints.ts";
-import type { OwnedCommandHandle } from "../../src/security/docker-owned-process.ts";
+} from "../../src/task/coordinator-task-runtime.ts";
+import { createDevelopmentMeasurementConstraints } from "../../src/task/development-measurement-constraints.ts";
+import type { OwnedCommandHandle } from "../../src/docker-runtime/docker-owned-process.ts";
 import {
   cancelRuntimeOwnedDockerProcessController,
   createIsolatedDockerProcessControllerCandidate,
@@ -26,7 +26,7 @@ import {
   projectDockerProcessControllerCompletionResult,
   projectDockerProcessControllerStartResult,
   startRuntimeOwnedDockerProcessController,
-} from "../../src/security/docker-process-controller.ts";
+} from "../../src/docker-runtime/docker-process-controller.ts";
 import { createOwnedProcessTreeFixture } from "../fixtures/docker-owned-process-test-support.ts";
 
 /**

@@ -17,10 +17,10 @@ import {
   createIsolatedCodexDockerRuntimeAdapterCandidate,
   describeCodexDockerRuntimeAdapterContract,
   prepareRuntimeOwnedCodexDockerCandidate,
-} from "../../src/security/codex-docker-runtime-adapter.ts";
-import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../src/security/delegation-selection-grant-runtime.ts";
-import { createIsolatedDockerEffectRuntimeCandidate } from "../../src/security/docker-effect-runtime.ts";
-import { planWorkbenchAiAdviceProviderCommand } from "../../src/security/workbench-ai-advice-provider-command.ts";
+} from "../../src/provider/codex-docker-runtime-adapter.ts";
+import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../src/provider/delegation-selection-grant-runtime.ts";
+import { createIsolatedDockerEffectRuntimeCandidate } from "../../src/docker-runtime/docker-effect-runtime.ts";
+import { planWorkbenchAiAdviceProviderCommand } from "../../src/workbench-ai/workbench-ai-advice-provider-command.ts";
 
 const MODEL_SELECTION = Object.freeze({
   selectionRecordId: "MODELSEL-12345678",

@@ -16,14 +16,14 @@ import {
 import {
   loadPlatformProvisionerManifestEnvelopeForVerification,
   PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH,
-} from "../src/security/platform-provisioner-manifest-loader.ts";
-import { inspectVerifiedNativeDistributionCandidate } from "../src/security/platform-provisioner-package-filesystem.ts";
-import { inspectPlatformProvisionerRuntimeGitProvenanceCandidate } from "../src/security/platform-provisioner-release-identity.ts";
-import { getPinnedPlatformProvisionerReleaseSignerSpkiDer } from "../src/security/platform-provisioner-release-trust.ts";
+} from "../src/platform-access/platform-provisioner-manifest-loader.ts";
+import { inspectVerifiedNativeDistributionCandidate } from "../src/platform-access/platform-provisioner-package-filesystem.ts";
+import { inspectPlatformProvisionerRuntimeGitProvenanceCandidate } from "../src/platform-access/platform-provisioner-release-identity.ts";
+import { getPinnedPlatformProvisionerReleaseSignerSpkiDer } from "../src/platform-access/platform-provisioner-release-trust.ts";
 import {
   compilePlatformProvisionerManifestPayloadCandidate,
   verifyHistoricalPlatformProvisionerManifestCandidate,
-} from "../src/security/platform-provisioner-trust-core.ts";
+} from "../src/platform-access/platform-provisioner-trust-core.ts";
 import {
   beginReleaseManifestPromotionSession,
   promoteReleaseManifestBytes,

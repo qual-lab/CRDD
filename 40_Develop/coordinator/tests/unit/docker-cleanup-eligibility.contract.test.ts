@@ -11,7 +11,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { evaluateManagedDockerCleanupEligibility } from "../../src/core/docker-cleanup-eligibility.ts";
+import { evaluateManagedDockerCleanupEligibility } from "../../src/docker-runtime/docker-cleanup-eligibility.ts";
 
 /**
  * exactAtのTest準備責務を実行する。

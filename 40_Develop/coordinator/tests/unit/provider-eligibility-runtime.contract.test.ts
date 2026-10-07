@@ -11,12 +11,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { selectDelegationRouteCandidate } from "../../src/security/delegation-route-selection.ts";
+import { selectDelegationRouteCandidate } from "../../src/provider/delegation-route-selection.ts";
 import {
   createIsolatedProviderEligibilityRuntimeCandidate,
   describeProviderEligibilityRuntimeContract,
   observeRuntimeOwnedProviderEligibility,
-} from "../../src/security/provider-eligibility-runtime.ts";
+} from "../../src/provider/provider-eligibility-runtime.ts";
 
 type Axis =
   | "requiredCapability"

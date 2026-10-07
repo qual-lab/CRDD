@@ -15,7 +15,7 @@ import {
   decodeCoordinatorStateSnapshot,
   encodeCoordinatorStateValue,
   validateCoordinatorStateTransition,
-} from "../../src/security/coordinator-state-model.ts";
+} from "../../src/state-storage/coordinator-state-model.ts";
 
 const binding = "a".repeat(64);
 const empty = {

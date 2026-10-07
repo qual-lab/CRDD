@@ -19,7 +19,7 @@ import {
   describeClaudeExecutionPlanContract,
   planClaudeIsolatedTask,
   planClaudeReadOnlyProbe,
-} from "../../src/security/claude-execution-plan.ts";
+} from "../../src/provider/claude-execution-plan.ts";
 
 /**
  * Claude配布候補は固定絶対pathと同じexact artifact Identityへ結合するを検証する。

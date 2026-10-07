@@ -16,8 +16,8 @@ import {
   resolveAiProfileById,
 } from "../../../ai-runtime/src/catalog.ts";
 import type { ResolvedAiProfileIdentity } from "../../../ai-runtime/src/ai-profile-types.ts";
-import type { WorkbenchAiProviderExecutionInput } from "../../src/security/workbench-ai-advice-execution-plan.ts";
-import { prepareWorkbenchAiAdviceExecutionPlan } from "../../src/security/workbench-ai-advice-execution-plan.ts";
+import type { WorkbenchAiProviderExecutionInput } from "../../src/workbench-ai/workbench-ai-advice-execution-plan.ts";
+import { prepareWorkbenchAiAdviceExecutionPlan } from "../../src/workbench-ai/workbench-ai-advice-execution-plan.ts";
 
 const taskHash = "a".repeat(64);
 const projectionHash = "b".repeat(64);

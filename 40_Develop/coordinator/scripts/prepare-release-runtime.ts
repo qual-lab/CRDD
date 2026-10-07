@@ -26,10 +26,10 @@ import {
   resolveVerifiedRepositoryRoot,
   type VerifiedRepositoryRoot,
 } from "../../version-control/src/repository-location.ts";
-import { PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH } from "../src/security/platform-access-release.ts";
-import { snapshotPlainRecord } from "../src/security/plain-data-snapshot.ts";
-import { inspectRuntimeDistributionSigningFilesCandidate } from "../src/security/platform-provisioner-package-filesystem.ts";
-import { inspectPlatformProvisionerRuntimeGitProvenanceCandidate } from "../src/security/platform-provisioner-release-identity.ts";
+import { PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH } from "../src/diagnostics/platform-access-release.ts";
+import { snapshotPlainRecord } from "../src/plain-data-snapshot.ts";
+import { inspectRuntimeDistributionSigningFilesCandidate } from "../src/platform-access/platform-provisioner-package-filesystem.ts";
+import { inspectPlatformProvisionerRuntimeGitProvenanceCandidate } from "../src/platform-access/platform-provisioner-release-identity.ts";
 
 const SESSION_BRAND: unique symbol = Symbol("release-runtime-preparation");
 /**

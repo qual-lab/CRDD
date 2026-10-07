@@ -35,8 +35,8 @@ import {
   inspectFixedDevelopmentCoordinatorPackageCandidate,
   inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate,
   verifyInstalledCoordinatorPackageCandidate,
-} from "../../src/security/platform-provisioner-package-filesystem.ts";
-import { canonicalizeProvisioningJsonValueCandidate } from "../../src/security/provisioning-signature-primitives.ts";
+} from "../../src/platform-access/platform-provisioner-package-filesystem.ts";
+import { canonicalizeProvisioningJsonValueCandidate } from "../../src/diagnostics/provisioning-signature-primitives.ts";
 import { validateArtifactSignatureResult } from "../../../artifact-signing/src/index.ts";
 import { createFixedRuntimeSigningFixture } from "../fixtures/fixed-runtime-signing-fixture.ts";
 
@@ -747,9 +747,9 @@ test("Release stagingの非秘密検査はpassphrase入力より前に完了す�
 test("Runtime依存閉包の欠落を秘密鍵読取りより前の署名preflightで拒否する", () => {
   const cases = [
     "40_Develop/coordinator/bin/coordinator.ts",
-    "40_Develop/coordinator/src/core/interactive-console-reader.ts",
-    "40_Develop/coordinator/src/security/candidate-store-lock-worker.ts",
-    "40_Develop/coordinator/src/security/host-operation-lock-supervisor.ts",
+    "40_Develop/coordinator/src/cli/interactive-console-reader.ts",
+    "40_Develop/coordinator/src/host-runtime/candidate-store-lock-worker.ts",
+    "40_Develop/coordinator/src/host-runtime/host-operation-lock-supervisor.ts",
     "40_Develop/coordinator/scripts/verify-signed-recovery-matrix.ts",
     "template/tools/crdd-mcp.ts",
     "40_Develop/mcp/package.json",
@@ -861,46 +861,46 @@ test("実行primitive閉包の代表違反を全公開Consumerと署名CLIで秘
     {
       name: "node_self_classification",
       relativePath:
-        "40_Develop/coordinator/src/security/docker-owned-process.ts",
+        "40_Develop/coordinator/src/docker-runtime/docker-owned-process.ts",
       source: 'spawn(process["argv0"], ["./unregistered-child.ts"]);\n',
     },
     {
       name: "lifecycle_consumer",
       relativePath:
-        "40_Develop/coordinator/src/security/docker-owned-process.ts",
+        "40_Develop/coordinator/src/docker-runtime/docker-owned-process.ts",
       source:
-        'import { runInteractiveConsoleReaderLifecycle } from "../core/interactive-console-reader-lifecycle-internal.ts"; void runInteractiveConsoleReaderLifecycle;\n',
+        'import { runInteractiveConsoleReaderLifecycle } from "../cli/interactive-console-reader-lifecycle-internal.ts"; void runInteractiveConsoleReaderLifecycle;\n',
     },
     {
       name: "loader_namespace",
       relativePath:
-        "40_Develop/coordinator/src/security/candidate-store-kernel-lock.ts",
+        "40_Develop/coordinator/src/host-runtime/candidate-store-kernel-lock.ts",
       source:
         'import * as moduleBuiltin from "node:module"; void moduleBuiltin.createRequire;\n',
     },
     {
       name: "loader_bracket",
       relativePath:
-        "40_Develop/coordinator/src/security/candidate-store-kernel-lock.ts",
+        "40_Develop/coordinator/src/host-runtime/candidate-store-kernel-lock.ts",
       source: 'void process["getBuiltinModule"]?.("node:child_process");\n',
     },
     {
       name: "loader_reconstructed",
       relativePath:
-        "40_Develop/coordinator/src/security/candidate-store-kernel-lock.ts",
+        "40_Develop/coordinator/src/host-runtime/candidate-store-kernel-lock.ts",
       source: 'void import(["node:", "child_", "process"].join(""));\n',
     },
     {
       name: "external_process_conditional_target",
       relativePath:
-        "40_Develop/coordinator/src/security/candidate-store-windows-adapter.ts",
+        "40_Develop/coordinator/src/candidate/candidate-store-windows-adapter.ts",
       source:
         "spawnSync(selectedExecutable || process.argv0, [], { shell: false });\n",
     },
     {
       name: "injected_wrapper_property_call",
       relativePath:
-        "40_Develop/coordinator/src/security/docker-effect-runtime.ts",
+        "40_Develop/coordinator/src/docker-runtime/docker-effect-runtime.ts",
       source:
         "dependencies.startProcess(process.execPath, [], createDockerProcessEnvironment(), null);\n",
     },
@@ -964,7 +964,7 @@ test("実行primitive閉包の代表違反を全公開Consumerと署名CLIで秘
             "40_Develop",
             "coordinator",
             "src",
-            "security",
+            "platform-access",
             "platform-provisioner-package-filesystem.ts",
           ),
         );
@@ -972,7 +972,7 @@ test("実行primitive閉包の代表違反を全公開Consumerと署名CLIで秘
           "closure",
           randomBytes(8).toString("hex"),
         );
-        const copiedImplementation: typeof import("../../src/security/platform-provisioner-package-filesystem.ts") =
+        const copiedImplementation: typeof import("../../src/platform-access/platform-provisioner-package-filesystem.ts") =
           await import(copiedModuleUrl.href);
         const issued =
           copiedImplementation.issueRuntimeOwnedVerifiedCoordinatorPackageCapability(

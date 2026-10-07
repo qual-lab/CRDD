@@ -14,9 +14,9 @@ import { type ChildProcess, spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { renderSafeHumanCommandReport } from "../../src/core/command-report.ts";
-import { bindTaskCliCancellationSignals } from "../../src/core/task-cli-cancellation.ts";
-import { createIsolatedCoordinatorTaskRuntimeCandidate } from "../../src/security/coordinator-task-runtime.ts";
+import { renderSafeHumanCommandReport } from "../../src/cli/command-report.ts";
+import { bindTaskCliCancellationSignals } from "../../src/cli/task-cli-cancellation.ts";
+import { createIsolatedCoordinatorTaskRuntimeCandidate } from "../../src/task/coordinator-task-runtime.ts";
 import {
   cleanupOwnedOperationDirectoriesAsync,
   createOwnedMountCapability,
@@ -26,7 +26,7 @@ import {
   getOwnedHostRecoveryId,
   verifyOwnedOperationCleanupOutcome,
   verifyOwnedOperationManagementCapability,
-} from "../../src/security/execution-environment.ts";
+} from "../../src/host-runtime/execution-environment.ts";
 import { createTaskControllerCancellationFixture } from "../fixtures/task-controller-cancellation-fixture.ts";
 
 // This is an isolated Task orchestration test, not a signed CLI, Docker,

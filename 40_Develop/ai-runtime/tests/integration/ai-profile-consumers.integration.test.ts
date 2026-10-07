@@ -11,7 +11,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { resolveRuntimeOwnedProviderModelProfile } from "../../../coordinator/src/security/provider-model-profile-runtime.ts";
+import { resolveRuntimeOwnedProviderModelProfile } from "../../../coordinator/src/provider/provider-model-profile-runtime.ts";
 import { createDefaultWorkbenchAiProfileSurface } from "../../../workbench/src/ai-profile-surface.ts";
 import { DEFAULT_AI_PROFILE_CATALOG } from "../../src/index.ts";
 

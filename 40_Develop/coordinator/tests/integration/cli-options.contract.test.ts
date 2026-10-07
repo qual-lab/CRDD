@@ -18,8 +18,8 @@ import {
   parseCandidateArguments,
   parseDoctorArguments,
   parseTaskArguments,
-} from "../../src/core/cli-options.ts";
-import { renderDockerRecoveryDoctorReport } from "../../src/core/docker-recovery-command-report.ts";
+} from "../../src/cli/cli-options.ts";
+import { renderDockerRecoveryDoctorReport } from "../../src/diagnostics/docker-recovery-command-report.ts";
 import { assertPresent } from "../support/test-support.ts";
 import { withUnsignedRuntimeFixture } from "../support/unsigned-runtime-fixture.ts";
 

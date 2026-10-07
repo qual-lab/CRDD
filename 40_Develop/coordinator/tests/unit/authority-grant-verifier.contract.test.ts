@@ -17,12 +17,12 @@ import {
   describeAuthorityGrantVerifierContract,
   evaluateAuthorityGrantCandidate,
   validateAuthorityRegistryCandidate,
-} from "../../src/security/authority-grant-verifier.ts";
+} from "../../src/authority/authority-grant-verifier.ts";
 import {
   PROVIDER_INPUT_LIMITS,
   PROVIDER_ISOLATION_CONTRACT,
   validateProviderIsolationProfile,
-} from "../../src/security/provider-isolation-profile.ts";
+} from "../../src/provider/provider-isolation-profile.ts";
 
 /**
  * profileのTest準備責務を実行する。

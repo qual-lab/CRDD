@@ -263,8 +263,8 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     expectedTrace: "ARCH-000004",
     requiredTags: ["boundary", "effect", "security"],
     exportedModules: [
-      "./composition/project-runtime-public-adapter.ts",
-      "./core/node-runtime-version.ts",
+      "./project-runtime/project-runtime-public-adapter.ts",
+      "./host-runtime/node-runtime-version.ts",
     ],
   },
   {

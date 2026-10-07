@@ -26,17 +26,17 @@ import {
 import {
   beginPlatformAccessArtifactSigningObservation,
   PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
-} from "../../src/security/platform-access-release.ts";
+} from "../../src/diagnostics/platform-access-release.ts";
 import {
   canonicalPackageFileContent,
   inspectRuntimeDistributionSigningFilesCandidate,
-} from "../../src/security/platform-provisioner-package-filesystem.ts";
+} from "../../src/platform-access/platform-provisioner-package-filesystem.ts";
 
 import {
   describePlatformProvisionerReleaseIdentityContract,
   inspectPlatformProvisionerReleaseIdentityCandidate,
   inspectPlatformProvisionerRuntimeGitProvenanceCandidate,
-} from "../../src/security/platform-provisioner-release-identity.ts";
+} from "../../src/platform-access/platform-provisioner-release-identity.ts";
 
 /**
  * 選択Runtime集合のGit出所と非Runtime除外を実Git objectで検証する。

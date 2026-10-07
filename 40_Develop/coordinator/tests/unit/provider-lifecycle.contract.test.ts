@@ -17,7 +17,7 @@ import {
   PROVIDER_LIFECYCLE_CONTRACT,
   PROVIDER_LIFECYCLE_CONTRACT_REVISION,
   PROVIDER_LIFECYCLE_LIMITS,
-} from "../../src/security/provider-lifecycle.ts";
+} from "../../src/provider/provider-lifecycle.ts";
 
 const COMPLETE_STATES = Object.freeze([
   "prepared",

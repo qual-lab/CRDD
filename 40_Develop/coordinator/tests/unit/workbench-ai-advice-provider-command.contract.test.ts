@@ -14,9 +14,9 @@ import test from "node:test";
 import {
   codexAdviceProviderInitRequired,
   describeCodexAdviceDistributionIdentity,
-} from "../../src/security/codex-advice-distribution.ts";
-import { describeCodexExecutionPlanContract } from "../../src/security/codex-execution-plan.ts";
-import { planWorkbenchAiAdviceProviderCommand } from "../../src/security/workbench-ai-advice-provider-command.ts";
+} from "../../src/provider/codex-advice-distribution.ts";
+import { describeCodexExecutionPlanContract } from "../../src/provider/codex-execution-plan.ts";
+import { planWorkbenchAiAdviceProviderCommand } from "../../src/workbench-ai/workbench-ai-advice-provider-command.ts";
 
 /**
  * Codex助言をToolなし・Repository非共有の標準入力計画へ固定するを検証する。

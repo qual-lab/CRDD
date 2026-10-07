@@ -22,7 +22,7 @@ import {
   persistDockerDesktopRepairContinuationIntent,
   persistDockerDesktopRepairContinuationRecovered,
   persistDockerDesktopRepairContinuationSettlement,
-} from "../../src/security/docker-desktop-repair-continuation-store.ts";
+} from "../../src/docker-desktop/docker-desktop-repair-continuation-store.ts";
 import {
   createDockerDesktopRepairOperation,
   type DockerDesktopRepairDirectoryIdentity,
@@ -32,7 +32,7 @@ import {
   inventoryDockerDesktopRepairOperations,
   persistDockerDesktopRepairHistoricalAdoption,
   persistDockerDesktopRepairStage,
-} from "../../src/security/docker-desktop-repair-record-store.ts";
+} from "../../src/docker-desktop/docker-desktop-repair-record-store.ts";
 
 const identity = (value: string): DockerDesktopRepairDirectoryIdentity =>
   Object.freeze({ dev: value, ino: value, birthtimeNs: value });

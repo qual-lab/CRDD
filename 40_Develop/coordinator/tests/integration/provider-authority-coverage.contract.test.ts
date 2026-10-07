@@ -34,12 +34,12 @@ const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
  */
 test("Provider Authority coverageはexact 6 sourceと9 testを所有する", () => {
   assert.deepEqual(PROVIDER_AUTHORITY_COVERAGE_SOURCES, [
-    "40_Develop/coordinator/src/security/provider-isolation-profile.ts",
-    "40_Develop/coordinator/src/security/authority-grant-verifier.ts",
-    "40_Develop/coordinator/src/security/authority-prelaunch-verifier.ts",
-    "40_Develop/coordinator/src/security/local-personal-authority-runtime.ts",
-    "40_Develop/coordinator/src/security/provider-authority-runtime.ts",
-    "40_Develop/coordinator/src/security/plain-data-snapshot.ts",
+    "40_Develop/coordinator/src/provider/provider-isolation-profile.ts",
+    "40_Develop/coordinator/src/authority/authority-grant-verifier.ts",
+    "40_Develop/coordinator/src/authority/authority-prelaunch-verifier.ts",
+    "40_Develop/coordinator/src/authority/local-personal-authority-runtime.ts",
+    "40_Develop/coordinator/src/provider/provider-authority-runtime.ts",
+    "40_Develop/coordinator/src/plain-data-snapshot.ts",
   ]);
   assert.deepEqual(PROVIDER_AUTHORITY_COVERAGE_TESTS, [
     "40_Develop/coordinator/tests/unit/plain-data-snapshot.contract.test.ts",

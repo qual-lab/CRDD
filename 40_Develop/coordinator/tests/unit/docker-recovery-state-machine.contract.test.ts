@@ -11,7 +11,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createIsolatedDockerRecoveryLockControllerCandidate } from "../../src/security/docker-recovery-lock-controller.ts";
+import { createIsolatedDockerRecoveryLockControllerCandidate } from "../../src/docker-runtime/docker-recovery-lock-controller.ts";
 import {
   classifyCleanupDirectoryState,
   classifyCommittedPairDeleteState,
@@ -19,7 +19,7 @@ import {
   classifyCoordinatorSnapshotReentry,
   describeDockerRecoveryStateMachineContract,
   releaseRecoverySynchronizations,
-} from "../../src/security/docker-recovery-state-machine.ts";
+} from "../../src/docker-runtime/docker-recovery-state-machine.ts";
 
 /**
  * delete state machineは到達可能3状態だけを回復するを検証する。

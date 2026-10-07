@@ -23,7 +23,7 @@ import {
   readProjectOperationQueueState,
   selectNextProjectOperation,
   updateProjectOperationQueueState,
-} from "../../src/security/project-runtime-durable-foundation.ts";
+} from "../../src/project-runtime/project-runtime-durable-foundation.ts";
 
 const revision = "a".repeat(40);
 /**

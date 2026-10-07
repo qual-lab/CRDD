@@ -15,6 +15,6 @@ export {
   runProjectRuntimePublicDecision,
   runProjectRuntimePublicObjective,
   runProjectRuntimePublicStateQuery,
-} from "./composition/project-runtime-public-adapter.ts";
+} from "./project-runtime/project-runtime-public-adapter.ts";
 
-export { isSupportedCoordinatorNodeRuntime } from "./core/node-runtime-version.ts";
+export { isSupportedCoordinatorNodeRuntime } from "./host-runtime/node-runtime-version.ts";

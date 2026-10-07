@@ -17,8 +17,8 @@ import { runInNewContext } from "node:vm";
 import {
   decodeHostRecoveryNamespaceResponse,
   type initializeHostRecoveryNamespaceWindows,
-} from "../../src/security/host-recovery-namespace-windows-adapter.ts";
-import { assertRuntimeSourceDeclaredGraphBoundaryForVerification } from "../../src/security/platform-provisioner-package-filesystem.ts";
+} from "../../src/host-runtime/host-recovery-namespace-windows-adapter.ts";
+import { assertRuntimeSourceDeclaredGraphBoundaryForVerification } from "../../src/platform-access/platform-provisioner-package-filesystem.ts";
 
 /**
  * 独立offsetから正常・部分処置の試験応答を作る。
@@ -195,7 +195,7 @@ test("共有初期化frameはmode・実体・個別終了を共同検証する",
 test("共有初期化Adapterは署名拒否と部分処置を同じ本体で保持する", () => {
   const source = readFileSync(
     new URL(
-      "../../src/security/host-recovery-namespace-windows-adapter.ts",
+      "../../src/host-runtime/host-recovery-namespace-windows-adapter.ts",
       import.meta.url,
     ),
     "utf8",
@@ -204,7 +204,7 @@ test("共有初期化Adapterは署名拒否と部分処置を同じ本体で保�
     "export function initializeHostRecoveryNamespaceWindows(",
   );
   assertRuntimeSourceDeclaredGraphBoundaryForVerification(
-    "src/security/host-recovery-namespace-windows-adapter.ts",
+    "src/host-runtime/host-recovery-namespace-windows-adapter.ts",
     source,
   );
   for (const changed of [
@@ -214,7 +214,7 @@ test("共有初期化Adapterは署名拒否と部分処置を同じ本体で保�
     assert.notEqual(changed, source);
     assert.throws(() =>
       assertRuntimeSourceDeclaredGraphBoundaryForVerification(
-        "src/security/host-recovery-namespace-windows-adapter.ts",
+        "src/host-runtime/host-recovery-namespace-windows-adapter.ts",
         changed,
       ),
     );
@@ -381,7 +381,7 @@ test("共有初期化Adapterは署名拒否と部分処置を同じ本体で保�
 test("通常producerはWindows保護検証をRoot・marker生成より先に行う", () => {
   const source = readFileSync(
     new URL(
-      "../../src/security/coordinator-operation-creation-internal.ts",
+      "../../src/repository-operation/coordinator-operation-creation-internal.ts",
       import.meta.url,
     ),
     "utf8",

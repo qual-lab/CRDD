@@ -9,12 +9,12 @@
 import {
   authenticateClaudeSubscription,
   CLAUDE_SUBSCRIPTION_AUTHENTICATION_INPUT_NOTICE,
-} from "../src/security/claude-subscription-authentication.ts";
+} from "../src/provider/claude-subscription-authentication.ts";
 import {
   consumeRuntimeOwnedProviderHomeMountSourceCapability,
   consumeRuntimeOwnedProviderHomeObservationCapability,
   inspectRuntimeOwnedWindowsProviderHomeCandidate,
-} from "../src/security/provider-home-windows-adapter.ts";
+} from "../src/provider/provider-home-windows-adapter.ts";
 
 if (process.stdin.isTTY !== true || process.stdout.isTTY !== true) {
   process.stderr.write("claude_authentication_interactive_terminal_required\n");

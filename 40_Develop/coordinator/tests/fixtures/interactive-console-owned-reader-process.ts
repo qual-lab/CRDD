@@ -1,4 +1,4 @@
-import { readOwnedInteractiveConsoleLineOutcomeUsingAdapter } from "../../src/core/interactive-console-reader.ts";
+import { readOwnedInteractiveConsoleLineOutcomeUsingAdapter } from "../../src/cli/interactive-console-reader.ts";
 
 let readBuffer: Buffer | null = null;
 let readCallback:

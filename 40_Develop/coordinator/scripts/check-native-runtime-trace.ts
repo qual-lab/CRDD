@@ -6,7 +6,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { inspectNativeRuntimeTrace } from "../src/security/native-runtime-trace.ts";
+import { inspectNativeRuntimeTrace } from "../src/diagnostics/native-runtime-trace.ts";
 
 const MAXIMUM_EVENT_BYTES = 128 * 1024 * 1024;
 const MAXIMUM_STATISTICS_BYTES = 1024 * 1024;

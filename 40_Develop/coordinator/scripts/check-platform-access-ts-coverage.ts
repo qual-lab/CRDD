@@ -24,16 +24,16 @@ export const PLATFORM_ACCESS_TS_COVERAGE_SOURCES = Object.freeze([
   "40_Develop/coordinator/scripts/release-manifest-promotion.ts",
   "40_Develop/coordinator/scripts/promote-release-manifest.ts",
   "40_Develop/coordinator/scripts/sign-release-manifest.ts",
-  "40_Develop/coordinator/src/core/doctor.ts",
-  "40_Develop/coordinator/src/security/authority-root-path-lexical.ts",
-  "40_Develop/coordinator/src/security/bounded-file-snapshot.ts",
-  "40_Develop/coordinator/src/security/platform-access-adapter.ts",
-  "40_Develop/coordinator/src/security/platform-access-release.ts",
-  "40_Develop/coordinator/src/security/platform-provisioner-manifest-loader.ts",
-  "40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts",
-  "40_Develop/coordinator/src/security/platform-provisioner-release-identity.ts",
-  "40_Develop/coordinator/src/security/platform-provisioner-trust-core.ts",
-  "40_Develop/coordinator/src/security/root-observation.ts",
+  "40_Develop/coordinator/src/diagnostics/doctor.ts",
+  "40_Develop/coordinator/src/authority/authority-root-path-lexical.ts",
+  "40_Develop/coordinator/src/state-storage/bounded-file-snapshot.ts",
+  "40_Develop/coordinator/src/platform-access/platform-access-adapter.ts",
+  "40_Develop/coordinator/src/diagnostics/platform-access-release.ts",
+  "40_Develop/coordinator/src/platform-access/platform-provisioner-manifest-loader.ts",
+  "40_Develop/coordinator/src/platform-access/platform-provisioner-package-filesystem.ts",
+  "40_Develop/coordinator/src/platform-access/platform-provisioner-release-identity.ts",
+  "40_Develop/coordinator/src/platform-access/platform-provisioner-trust-core.ts",
+  "40_Develop/coordinator/src/repository-operation/root-observation.ts",
 ]);
 
 export const PLATFORM_ACCESS_TS_COVERAGE_TESTS = Object.freeze([
@@ -162,73 +162,75 @@ const sourceCoverageObligations: Readonly<Record<string, CoverageObligation>> =
       "固定Trust source検査、署名不一致負例および配置helper契約試験",
       "本番署名E2EまたはRelease handoff着手時",
     ),
-    "40_Develop/coordinator/src/core/doctor.ts": obligation(
+    "40_Develop/coordinator/src/diagnostics/doctor.ts": obligation(
       "既存doctor全分岐を本変更専用coverage母集団で再到達していない",
       "状態投影の稀なblocked理由の回帰",
       "doctor契約試験、公開情報最小化試験および全Coordinator test",
       "doctor投影、blockerまたはevidence母集団変更時",
     ),
-    "40_Develop/coordinator/src/security/authority-root-path-lexical.ts":
+    "40_Develop/coordinator/src/authority/authority-root-path-lexical.ts":
       obligation(
         "host OS dispatcherの反対側分岐を単一OS runで到達していない",
         "OS別dispatcherとpure字句判定の接続差",
         "Windows/POSIX pure validatorの正負・境界契約試験",
         "対応OS、字句subsetまたはdispatcher変更時",
       ),
-    "40_Develop/coordinator/src/security/bounded-file-snapshot.ts": obligation(
-      "close failureと全Filesystem raceを同一coverage runで到達していない",
-      "成果物のgrowth、truncate、leafまたはparent差替えの誤受理",
-      "上限exact／+1、growth、truncate、同長leaf／parent replacement契約試験とproduction caller試験",
-      "読取り上限、Filesystem API、Identity fieldまたはcaller変更時",
-    ),
-    "40_Develop/coordinator/src/security/platform-access-adapter.ts":
+    "40_Develop/coordinator/src/state-storage/bounded-file-snapshot.ts":
+      obligation(
+        "close failureと全Filesystem raceを同一coverage runで到達していない",
+        "成果物のgrowth、truncate、leafまたはparent差替えの誤受理",
+        "上限exact／+1、growth、truncate、同長leaf／parent replacement契約試験とproduction caller試験",
+        "読取り上限、Filesystem API、Identity fieldまたはcaller変更時",
+      ),
+    "40_Develop/coordinator/src/platform-access/platform-access-adapter.ts":
       obligation(
         "入力正規化の全failure形を同一runで到達していない",
         "wire不正値の誤受理",
         "revision、nonce、role、全bit、主体HashおよびProxy負例",
         "wire protocolまたはproduction process再導入時",
       ),
-    "40_Develop/coordinator/src/security/platform-access-release.ts":
+    "40_Develop/coordinator/src/diagnostics/platform-access-release.ts":
       obligation(
         "成果物観測の全OS例外とIdentity failureを同一runで到達していない",
         "Release artifact差替えの検出漏れ",
         "同一handle観測、同長上書き、短縮、追記およびRoot差試験",
         "Release artifactまたはFilesystem API変更時",
       ),
-    "40_Develop/coordinator/src/security/platform-provisioner-manifest-loader.ts":
+    "40_Develop/coordinator/src/platform-access/platform-provisioner-manifest-loader.ts":
       obligation(
         "全read failure、上限およびIdentity差を同一runで到達していない",
         "manifest loaderのfail-closed回帰",
         "canonical byte、上限、同一handleおよびIdentity差契約試験",
         "manifest Schemaまたはloader変更時",
       ),
-    "40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts":
+    "40_Develop/coordinator/src/platform-access/platform-provisioner-package-filesystem.ts":
       obligation(
         "全inventory、descriptorおよびFilesystem failureを同一runで到達していない",
         "package closureまたは同一handle検証の見落とし",
         "余分・欠落・改変・link・Identity差の契約試験",
         "package inventoryまたはstaging copy実装時",
       ),
-    "40_Develop/coordinator/src/security/platform-provisioner-release-identity.ts":
+    "40_Develop/coordinator/src/platform-access/platform-provisioner-release-identity.ts":
       obligation(
         "全Git object、FilesystemおよびIdentity failureを同一runで到達していない",
         "署名Release Identityと配布Treeの不一致見落とし",
         "Root Tree再計算、除外Path、改変およびIdentity差契約試験",
         "Release archiveまたはIdentity contract変更時",
       ),
-    "40_Develop/coordinator/src/security/platform-provisioner-trust-core.ts":
+    "40_Develop/coordinator/src/platform-access/platform-provisioner-trust-core.ts":
       obligation(
         "manifest exact Schemaと署名Coreの一部failure branchを未到達とする",
         "不正署名payloadまたは未知fieldの誤受理",
         "全field差、固定公開鍵、専用Rust成果物および署名domain契約試験",
         "manifest Schema、署名domainまたはTrust変更時",
       ),
-    "40_Develop/coordinator/src/security/root-observation.ts": obligation(
-      "Rust結果からRoot観測へのproduction写像は未実装である",
-      "未確認主体またはProtection値の補完",
-      "selected-user binding必須、exact inputおよび固定blocked契約試験",
-      "Root観測mapping実装時",
-    ),
+    "40_Develop/coordinator/src/repository-operation/root-observation.ts":
+      obligation(
+        "Rust結果からRoot観測へのproduction写像は未実装である",
+        "未確認主体またはProtection値の補完",
+        "selected-user binding必須、exact inputおよび固定blocked契約試験",
+        "Root観測mapping実装時",
+      ),
   });
 
 /**

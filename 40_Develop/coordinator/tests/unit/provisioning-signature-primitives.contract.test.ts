@@ -21,7 +21,7 @@ import {
   verifyProvisioningEd25519Base64urlCandidate,
   verifyProvisioningEd25519PrimitiveCandidate,
   verifyProvisioningP256Base64urlCandidate,
-} from "../../src/security/provisioning-signature-primitives.ts";
+} from "../../src/diagnostics/provisioning-signature-primitives.ts";
 import { assertCanonicalCandidate } from "../support/test-support.ts";
 
 const RFC_8032_PUBLIC_KEY =

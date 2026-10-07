@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
 
-import { validateDockerHostTransitionLineage } from "../../src/security/docker-host-transition-state.ts";
+import { validateDockerHostTransitionLineage } from "../../src/docker-runtime/docker-host-transition-state.ts";
 
 const ROOT_NAME = "crdd-coordinator-doctor-fixture";
 const NONCE = "01234567-89ab-cdef-0123-456789abcdef";

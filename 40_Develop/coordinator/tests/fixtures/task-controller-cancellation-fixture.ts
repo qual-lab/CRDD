@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import {
   projectRuntimeOwnedDockerProcessCompletionForTask,
   projectRuntimeOwnedDockerProcessStartForTask,
-} from "../../src/security/coordinator-task-runtime.ts";
-import { createIsolatedDockerProcessControllerCandidate } from "../../src/security/docker-process-controller.ts";
-import type { OwnedCommandHandle } from "../../src/security/docker-owned-process.ts";
+} from "../../src/task/coordinator-task-runtime.ts";
+import { createIsolatedDockerProcessControllerCandidate } from "../../src/docker-runtime/docker-process-controller.ts";
+import type { OwnedCommandHandle } from "../../src/docker-runtime/docker-owned-process.ts";
 import { createOwnedProcessTreeFixture } from "./docker-owned-process-test-support.ts";
 
 // Only Node descendants are real. Docker, authentication and durable recovery

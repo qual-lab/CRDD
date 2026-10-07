@@ -7,12 +7,12 @@
  */
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { assertSupportedCoordinatorNodeRuntime } from "../src/core/node-runtime-version.ts";
+import { assertSupportedCoordinatorNodeRuntime } from "../src/host-runtime/node-runtime-version.ts";
 import {
   isCanonicalCrddUtcTimestamp,
   isCanonicalCrddVersion,
   isSupportedCrddRuntimeGitObjectId,
-} from "../src/security/release-identity-grammar.ts";
+} from "../src/diagnostics/release-identity-grammar.ts";
 import { main as runReleaseManifestCommand } from "./sign-release-manifest.ts";
 
 /**

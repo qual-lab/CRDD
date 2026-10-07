@@ -15,7 +15,7 @@ import {
   assertSupportedCoordinatorNodeRuntime,
   describeCoordinatorNodeRuntimeVersionContract,
   isSupportedCoordinatorNodeRuntime,
-} from "../../src/core/node-runtime-version.ts";
+} from "../../src/host-runtime/node-runtime-version.ts";
 
 /**
  * Node 24.12.0以上だけをCoordinator保守Runtime候補にするを検証する。

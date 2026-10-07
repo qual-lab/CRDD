@@ -11,12 +11,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { dockerProcessControllerPublicCompletionReasons } from "../../src/security/docker-process-controller-result-reasons.ts";
-import { coordinatorTaskPublicReasons } from "../../src/security/coordinator-task-result-reasons.ts";
+import { dockerProcessControllerPublicCompletionReasons } from "../../src/docker-runtime/docker-process-controller-result-reasons.ts";
+import { coordinatorTaskPublicReasons } from "../../src/task/coordinator-task-result-reasons.ts";
 import {
   extractWorkbenchAiAdviceProviderOutput,
   WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_REASONS,
-} from "../../src/security/workbench-ai-advice-provider-output.ts";
+} from "../../src/workbench-ai/workbench-ai-advice-provider-output.ts";
 
 const ADVICE = Object.freeze({
   contract: "crdd-coordinator/workbench-ai-advice-result",

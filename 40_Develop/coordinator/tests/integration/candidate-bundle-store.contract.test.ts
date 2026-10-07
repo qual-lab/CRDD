@@ -18,7 +18,7 @@ import test from "node:test";
 import {
   createCandidateBundleStoreTestingAdapter,
   describeCandidateBundleStoreContract,
-} from "../../src/security/candidate-bundle-store.ts";
+} from "../../src/candidate/candidate-bundle-store.ts";
 
 const PERSISTENCE_POLICY = Object.freeze({
   candidatePersistenceAllowed: true,

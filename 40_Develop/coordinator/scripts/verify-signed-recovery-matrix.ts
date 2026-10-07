@@ -13,19 +13,19 @@ import { fileURLToPath } from "node:url";
 import {
   isSupportedCoordinatorNodeRuntime,
   MINIMUM_COORDINATOR_NODE_VERSION,
-} from "../src/core/node-runtime-version.ts";
-import { spawnRuntimeLocalTypeScriptChild } from "../src/core/runtime-local-typescript-child-entrypoints.ts";
+} from "../src/host-runtime/node-runtime-version.ts";
+import { spawnRuntimeLocalTypeScriptChild } from "../src/host-runtime/runtime-local-typescript-child-entrypoints.ts";
 import {
   displayVerificationRecording,
   runRecordedVerification,
-} from "../src/core/verification-result-record.ts";
-import { createInteractiveConsoleReaderEnvironment } from "../src/core/windows-child-environment.ts";
+} from "./verification-result-record.ts";
+import { createInteractiveConsoleReaderEnvironment } from "../src/host-runtime/windows-child-environment.ts";
 import {
   createDynamicFakeProviderRecoverableResidue,
   recoverDockerIsolationProbe,
-} from "../src/security/docker-isolation.ts";
-import { createOwnedOperationDirectories } from "../src/security/execution-environment.ts";
-import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../src/security/platform-provisioner-package-filesystem.ts";
+} from "../src/docker-runtime/docker-isolation.ts";
+import { createOwnedOperationDirectories } from "../src/host-runtime/execution-environment.ts";
+import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../src/platform-access/platform-provisioner-package-filesystem.ts";
 import { verifyDynamicFakeProviderCancellation } from "./verify-dynamic-fake-provider-cancellation.ts";
 import { verifyDynamicFakeProviderFailures } from "./verify-dynamic-fake-provider-failures.ts";
 

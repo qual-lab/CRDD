@@ -7,7 +7,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { revokeRuntimeOwnedExternalSendConsent } from "../src/security/external-send-consent-runtime.ts";
+import { revokeRuntimeOwnedExternalSendConsent } from "../src/external-send/external-send-consent-runtime.ts";
 
 export const EXTERNAL_SEND_CONSENT_REVOCATION_CONTRACT =
   "crdd-coordinator/external-send-consent-revocation";

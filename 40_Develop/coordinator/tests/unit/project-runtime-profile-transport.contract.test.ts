@@ -11,8 +11,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { inspectProjectRuntimeObjectiveRequest } from "../../../project-runtime/src/index.ts";
-import { buildProjectRuntimeCoordinatorTaskRequest } from "../../src/composition/project-runtime-composition-root.ts";
-import { snapshotCoordinatorTaskRequest } from "../../src/security/coordinator-task-request.ts";
+import { buildProjectRuntimeCoordinatorTaskRequest } from "../../src/project-runtime/project-runtime-composition-root.ts";
+import { snapshotCoordinatorTaskRequest } from "../../src/task/coordinator-task-request.ts";
 
 const objective = Object.freeze({
   requestId: "request-1",

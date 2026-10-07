@@ -218,7 +218,7 @@ test("通常回帰はUT／IT／STだけを実行可能集合へ選ぶ", () => {
  */
 test("外部Provider試験を含む変更でもEffect 0の計画表示は停止しない", () => {
   const changedPath =
-    "40_Develop/coordinator/src/security/external-send-policy-runtime.ts";
+    "40_Develop/coordinator/src/external-send/external-send-policy-runtime.ts";
   const planned = invokeRunner(["--changed", changedPath, "--plan"]);
   assert.equal(planned.error, undefined);
   assert.equal(planned.status, 0);

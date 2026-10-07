@@ -7,7 +7,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { inspectCoordinatorRuntimeTraceability } from "../src/core/runtime-traceability.ts";
+import { inspectCoordinatorRuntimeTraceability } from "./runtime-traceability.ts";
 
 const MAXIMUM_TEXT_BYTES = 8 * 1024 * 1024;
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));

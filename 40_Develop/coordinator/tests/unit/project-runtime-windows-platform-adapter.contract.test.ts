@@ -15,16 +15,16 @@ import test from "node:test";
 import {
   createWindowsDockerCliEnvironment,
   createWindowsNativeHelperEnvironment,
-} from "../../src/core/windows-child-environment.ts";
-import { inspectRuntimeOwnedDockerTaskRecoveryState } from "../../src/security/docker-recovery-runtime.ts";
+} from "../../src/host-runtime/windows-child-environment.ts";
+import { inspectRuntimeOwnedDockerTaskRecoveryState } from "../../src/docker-runtime/docker-recovery-runtime.ts";
 import { resolveProjectRuntimePlatformAdapter } from "../../../project-runtime/src/index.ts";
 import {
   createProjectRuntimeWindowsPlatformAdapter,
   observeProjectRuntimePlatformFamily,
-} from "../../src/security/project-runtime-windows-platform-adapter.ts";
-import { inspectRuntimeOwnedWindowsProviderHomeCandidate } from "../../src/security/provider-home-windows-adapter.ts";
+} from "../../src/project-runtime/project-runtime-windows-platform-adapter.ts";
+import { inspectRuntimeOwnedWindowsProviderHomeCandidate } from "../../src/provider/provider-home-windows-adapter.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
-import { compileWindowsRootObservationCandidate } from "../../src/security/root-observation.ts";
+import { compileWindowsRootObservationCandidate } from "../../src/repository-operation/root-observation.ts";
 
 const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
 

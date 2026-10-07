@@ -13,13 +13,13 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
-import { startRuntimeOwnedCoordinatorTask } from "../../src/security/coordinator-task-runtime.ts";
+import { startRuntimeOwnedCoordinatorTask } from "../../src/task/coordinator-task-runtime.ts";
 import {
   describeProjectRuntimeSingleTaskAdapterContract,
   PROJECT_RUNTIME_SINGLE_TASK_PRE_EFFECT_REJECTIONS,
   type ProjectRuntimeSingleTaskDependencies,
   runProjectRuntimeSingleTaskAttempt,
-} from "../../src/security/project-runtime-single-task-adapter.ts";
+} from "../../src/project-runtime/project-runtime-single-task-adapter.ts";
 
 const CONTRACT = "crdd-coordinator/project-runtime-single-task-adapter";
 const ATTEMPT_ID = "attempt-0001";
@@ -982,7 +982,7 @@ test("Effect前拒否母集団はv0.18 Runtimeの実throw経路と一致する",
   const runtimeSource = fs.readFileSync(
     path.resolve(
       import.meta.dirname,
-      "../../src/security/coordinator-task-runtime.ts",
+      "../../src/task/coordinator-task-runtime.ts",
     ),
     "utf8",
   );

@@ -10,11 +10,11 @@ import path from "node:path";
 import {
   beginPlatformAccessArtifactSigningObservation,
   verifyPlatformAccessArtifactSigningObservation,
-} from "../src/security/platform-access-release.ts";
+} from "../src/diagnostics/platform-access-release.ts";
 import {
   PLATFORM_PROVISIONER_MANIFEST_MAXIMUM_BYTES,
   PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH,
-} from "../src/security/platform-provisioner-manifest-loader.ts";
+} from "../src/platform-access/platform-provisioner-manifest-loader.ts";
 
 const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(
   Object.getPrototypeOf(Uint8Array.prototype),

@@ -21,7 +21,7 @@ import test from "node:test";
 import {
   describePlatformProvisionerPackageGateContract,
   evaluatePlatformProvisionerPackageGateCandidate,
-} from "../../src/security/platform-provisioner-package-gate.ts";
+} from "../../src/platform-access/platform-provisioner-package-gate.ts";
 import {
   calculatePlatformProvisionerPackageContentRootCandidate,
   calculateRuntimeExecutionIdentityCandidate,
@@ -29,8 +29,8 @@ import {
   PLATFORM_PROVISIONER_MANIFEST_DOMAIN,
   PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT,
   PLATFORM_PROVISIONER_MANIFEST_REVISION,
-} from "../../src/security/platform-provisioner-trust-core.ts";
-import { canonicalizeProvisioningJsonValueCandidate } from "../../src/security/provisioning-signature-primitives.ts";
+} from "../../src/platform-access/platform-provisioner-trust-core.ts";
+import { canonicalizeProvisioningJsonValueCandidate } from "../../src/diagnostics/provisioning-signature-primitives.ts";
 import { assertCanonicalCandidate } from "../support/test-support.ts";
 
 const fixturePrivateKeys = new WeakMap<object, KeyObject>();

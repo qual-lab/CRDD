@@ -77,7 +77,7 @@ try {
     });
   }
   const environmentModule = await import(
-    "../../src/core/windows-child-environment.ts"
+    "../../src/host-runtime/windows-child-environment.ts"
   );
   isEnvironmentNull =
     environmentModule.createWindowsNativeHelperEnvironment() === null;

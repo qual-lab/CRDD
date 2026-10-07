@@ -289,7 +289,7 @@ test("import走査は解釈できない取り込み構文をFail Closedで検出
  */
 test("Windows AdapterはCore閉集合の外にあり、CoreはAdapterを参照しない", () => {
   const windowsAdapterPath =
-    "40_Develop/coordinator/src/security/project-runtime-windows-platform-adapter.ts";
+    "40_Develop/coordinator/src/project-runtime/project-runtime-windows-platform-adapter.ts";
   assert.ok(
     fs.existsSync(path.join(repositoryRoot, windowsAdapterPath)),
     "windows adapter module must exist",

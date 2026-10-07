@@ -17,8 +17,8 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { createCandidateBundleStoreTestingAdapter } from "../../src/security/candidate-bundle-store.ts";
-import { createRuntimeOwnedProjectCandidateIntegrationAdapter } from "../../src/security/project-runtime-candidate-integration-adapter.ts";
+import { createCandidateBundleStoreTestingAdapter } from "../../src/candidate/candidate-bundle-store.ts";
+import { createRuntimeOwnedProjectCandidateIntegrationAdapter } from "../../src/project-runtime/project-runtime-candidate-integration-adapter.ts";
 import { createProjectRuntimeState } from "../../../project-runtime/src/index.ts";
 import { gitFixedSnapshotAdapter } from "../../../version-control/src/git/fixed-snapshot-adapter.ts";
 

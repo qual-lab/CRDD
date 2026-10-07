@@ -5,7 +5,7 @@ import {
   publishRepairHistoryFileUsingOperations,
   type RepairHistoryPublicationFaultPoint,
   type RepairHistoryPublicationOperations,
-} from "../../../src/security/docker-desktop-repair-history-publication.ts";
+} from "../../../src/docker-desktop/docker-desktop-repair-history-publication.ts";
 
 const MAXIMUM_BYTES = 65_536;
 

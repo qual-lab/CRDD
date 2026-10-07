@@ -21,17 +21,17 @@ import { createSignedRouteMatrixCliFailureResult } from "../../scripts/verify-si
 import {
   projectVerificationResult,
   runRecordedVerification,
-} from "../../src/core/verification-result-record.ts";
+} from "../../scripts/verification-result-record.ts";
 import {
   SIGNED_GENERAL_TASK_PUBLIC_REASONS,
   SIGNED_ROUTE_MATRIX_REASONS,
-} from "../../src/core/verification-result-reasons.ts";
-import { coordinatorTaskPublicReasons } from "../../src/security/coordinator-task-result-reasons.ts";
+} from "../../scripts/verification-result-reasons.ts";
+import { coordinatorTaskPublicReasons } from "../../src/task/coordinator-task-result-reasons.ts";
 import {
   formatDockerIsolationRecoveryToken,
   isDockerIsolationRecoveryIdCandidate,
-} from "../../src/security/docker-isolation.ts";
-import { formatHostRecoveryToken } from "../../src/security/host-recovery-record.ts";
+} from "../../src/docker-runtime/docker-isolation.ts";
+import { formatHostRecoveryToken } from "../../src/host-runtime/host-recovery-record.ts";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 const packageRoot = path.resolve(import.meta.dirname, "../..");
@@ -771,7 +771,7 @@ test("実子が開始後に終了してもstartedが残り、成功記録は生�
   const root = fixture(t);
   const entry = path.join(root, "abrupt-exit.ts");
   const moduleUrl = pathToFileURL(
-    path.join(packageRoot, "src/core/verification-result-record.ts"),
+    path.join(packageRoot, "scripts/verification-result-record.ts"),
   ).href;
   fs.writeFileSync(
     entry,

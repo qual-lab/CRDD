@@ -15,7 +15,7 @@ import {
   compileWindowsRootObservationCandidate,
   describeRootObservationContract,
   inspectWindowsRootObservationCandidate,
-} from "../../src/security/root-observation.ts";
+} from "../../src/repository-operation/root-observation.ts";
 
 /**
  * observationのTest準備責務を実行する。

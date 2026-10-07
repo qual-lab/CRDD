@@ -19,7 +19,7 @@
 
 [利用体験](../02_UX/01_User_Experience.md)と[情報構造](../03_IA/01_Information_Architecture.md)から、現行のコマンドライン（CLI）とMCP投影に必要な入力・認識・フィードバック・回復を整理する。§8「Project Runtimeの状態表示」はv0.19.0の公開契約を扱う。§9はv0.22のProject Operationと最小CROS Workbenchが満たす表示契約を扱う。固定GUI Framework、装飾またはWorkbench固有の業務ロジックを設計した文書ではない。
 
-以下の「現行」は[公開Coordinator入口](../template/tools/crdd-coordinator.ts)、[公開MCP入口](../template/tools/crdd-mcp.ts)、[公開CLI](../40_Develop/coordinator/bin/coordinator.ts)、[結果表示](../40_Develop/coordinator/src/core/command-report.ts)、[対話入力](../40_Develop/coordinator/src/core/interactive-console.ts)、[配布Checker](../template/tools/crdd-check.ts)のソースを照合した内容である。実端末で見た結果、UX成立、人間の採用とは区別する。「要求」は既存の人間判断・上位設計から求める状態、「既知差」は今回未解消の差を示す。
+以下の「現行」は[公開Coordinator入口](../template/tools/crdd-coordinator.ts)、[公開MCP入口](../template/tools/crdd-mcp.ts)、[公開CLI](../40_Develop/coordinator/bin/coordinator.ts)、[結果表示](../40_Develop/coordinator/src/cli/command-report.ts)、[対話入力](../40_Develop/coordinator/src/cli/interactive-console.ts)、[配布Checker](../template/tools/crdd-check.ts)のソースを照合した内容である。実端末で見た結果、UX成立、人間の採用とは区別する。「要求」は既存の人間判断・上位設計から求める状態、「既知差」は今回未解消の差を示す。
 
 ## 2. 操作接点と表示構造
 
@@ -99,11 +99,11 @@ Process再起動の必要性: あり
 | 操作単位 | UIが所有する確認 | SPECが所有する条件・結果 | 実装・試験の接続 |
 |---|---|---|---|
 | 診断・導入判断 | 通常利用可能と構文候補を識別 | [診断・回復](../05_SPEC/07_Current_Behavior_Reference.md#診断回復の公開境界) | [公開CLI](../40_Develop/coordinator/bin/coordinator.ts)、[診断試験](../40_Develop/coordinator/tests/unit/doctor.contract.test.ts) |
-| 初回同意・再利用・失効 | 対象、期限、変更点、入力要否が分かる | [公開Task](../05_SPEC/07_Current_Behavior_Reference.md#公開taskの入力結果取消) | [同意Runtime](../40_Develop/coordinator/src/security/external-send-consent-runtime.ts)、[同意試験](../40_Develop/coordinator/tests/integration/external-send-consent-runtime.contract.test.ts) |
+| 初回同意・再利用・失効 | 対象、期限、変更点、入力要否が分かる | [公開Task](../05_SPEC/07_Current_Behavior_Reference.md#公開taskの入力結果取消) | [同意Runtime](../40_Develop/coordinator/src/external-send/external-send-consent-runtime.ts)、[同意試験](../40_Develop/coordinator/tests/integration/external-send-consent-runtime.contract.test.ts) |
 | Task入力・選定・待機 | 不正入力と処理中を分離、担当と理由 | [公開Task](../05_SPEC/07_Current_Behavior_Reference.md#公開taskの入力結果取消) | [公開CLI](../40_Develop/coordinator/bin/coordinator.ts)、[引数試験](../40_Develop/coordinator/tests/integration/cli-options.contract.test.ts) |
 | 候補の公開・export・discard | 候補ID、期限、未採用、次操作 | [利用者接点の境界](../05_SPEC/07_Current_Behavior_Reference.md#user-interface-contract) | [候補Store試験](../40_Develop/coordinator/tests/integration/candidate-bundle-store.contract.test.ts)、[表示試験](../40_Develop/coordinator/tests/unit/command-report.contract.test.ts) |
-| 取消・遅延終了 | 要求と完了を区別し最終結果まで待つ | [公開Task](../05_SPEC/07_Current_Behavior_Reference.md#公開taskの入力結果取消) | [取消接続](../40_Develop/coordinator/src/core/task-cli-cancellation.ts)、[取消試験](../40_Develop/coordinator/tests/integration/task-cli-cancellation.contract.test.ts) |
-| 回復・Process再起動 | 複数ID、IDなし不明、再起動を欠落させない | [利用者接点の境界](../05_SPEC/07_Current_Behavior_Reference.md#user-interface-contract) | [結果表示](../40_Develop/coordinator/src/core/command-report.ts)、[回復CLI結合試験](../40_Develop/coordinator/tests/system/coordinator-docker-recovery-cli.integration.test.ts) |
+| 取消・遅延終了 | 要求と完了を区別し最終結果まで待つ | [公開Task](../05_SPEC/07_Current_Behavior_Reference.md#公開taskの入力結果取消) | [取消接続](../40_Develop/coordinator/src/cli/task-cli-cancellation.ts)、[取消試験](../40_Develop/coordinator/tests/integration/task-cli-cancellation.contract.test.ts) |
+| 回復・Process再起動 | 複数ID、IDなし不明、再起動を欠落させない | [利用者接点の境界](../05_SPEC/07_Current_Behavior_Reference.md#user-interface-contract) | [結果表示](../40_Develop/coordinator/src/cli/command-report.ts)、[回復CLI結合試験](../40_Develop/coordinator/tests/system/coordinator-docker-recovery-cli.integration.test.ts) |
 | Checker実行 | 指摘・範囲・未確認を読み分ける。引数エラーでは手順へ戻る | [Checker契約](../05_SPEC/07_Current_Behavior_Reference.md#checker-contract) | [配布本体](../template/tools/crdd-check.ts)、[契約試験](../40_Develop/checker/tests/integration/crdd-check.contract.test.ts)、[操作手順](../19_Workflows/02_Checker.md) |
 | Windows内部部品の結果 | binary応答ではなく、上位の診断・回収・再起動表示として影響を理解する | [内部部品契約](../05_SPEC/07_Current_Behavior_Reference.md#platform-access-contract) | [nativeとAdapterの分担・試験](../06_Architecture/Details/platform-access/01_Architecture.md#6-呼出し元との分担)。部品単体の成功を利用者のTask完了にしない |
 | 開発検証・公式署名 | 入力する人・目的・失敗段階を識別 | [実行基盤](../05_SPEC/07_Current_Behavior_Reference.md#runtime-10の実行基盤)と[発行手順](../19_Workflows/01_Coordinator_Runtime.md) | 開発検証結果と正式署名結果を[品質状態](../07_Quality/01_Quality_Center.md)で分離 |

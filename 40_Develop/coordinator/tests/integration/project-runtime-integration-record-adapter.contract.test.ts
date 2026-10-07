@@ -19,7 +19,7 @@ import { fileURLToPath } from "node:url";
 import {
   createProjectRuntimeIntegrationRecordAdapter,
   readLegacyProjectRuntimeResultInputs,
-} from "../../src/security/project-runtime-integration-record-adapter.ts";
+} from "../../src/project-runtime/project-runtime-integration-record-adapter.ts";
 import {
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
   requireReadyRepositoryRuntimeDataArea,

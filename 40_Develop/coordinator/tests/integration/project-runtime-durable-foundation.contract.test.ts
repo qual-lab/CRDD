@@ -50,7 +50,7 @@ import {
   inspectProjectRuntimeSnapshotIntake,
   maintainProjectRuntimeSnapshot,
   createCurrentProjectRuntimePersistencePorts,
-} from "../../src/security/project-runtime-durable-foundation.ts";
+} from "../../src/project-runtime/project-runtime-durable-foundation.ts";
 import {
   createProjectRuntimeState,
   adoptProjectRuntimeExistingCandidate,
@@ -62,7 +62,7 @@ import {
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
   requireReadyRepositoryRuntimeDataArea,
 } from "../../../runtime-data/src/index.ts";
-import { acquireRuntimeOwnedProjectRuntimeStateKernelLock } from "../../src/security/candidate-store-kernel-lock.ts";
+import { acquireRuntimeOwnedProjectRuntimeStateKernelLock } from "../../src/host-runtime/candidate-store-kernel-lock.ts";
 
 const MAX_RECORD_BYTES = 16 * 1024 * 1024;
 
@@ -4108,7 +4108,7 @@ test("PR-A-04 reconciles an exited lease owner without starting new work", (t) =
     "completed",
   );
   const moduleUrl = new URL(
-    "../../src/security/project-runtime-durable-foundation.ts",
+    "../../src/project-runtime/project-runtime-durable-foundation.ts",
     import.meta.url,
   ).href;
   execFileSync(
@@ -4195,7 +4195,7 @@ test("PR-A-04 recovers a lease acquisition interrupted before Queue ownership", 
     "completed",
   );
   const moduleUrl = new URL(
-    "../../src/security/project-runtime-durable-foundation.ts",
+    "../../src/project-runtime/project-runtime-durable-foundation.ts",
     import.meta.url,
   ).href;
   execFileSync(
@@ -4299,7 +4299,7 @@ if (lease.status !== "completed") process.exit(20);`,
 test("PR-A-04 recovers canonical-adoption acquisition across Queue callers", (t) => {
   const { root } = fixture(t);
   const moduleUrl = new URL(
-    "../../src/security/project-runtime-durable-foundation.ts",
+    "../../src/project-runtime/project-runtime-durable-foundation.ts",
     import.meta.url,
   ).href;
   execFileSync(
@@ -4694,7 +4694,7 @@ test("PR-A-04 reconciles release intent created before Queue ownership", (t) => 
     "completed",
   );
   const moduleUrl = new URL(
-    "../../src/security/project-runtime-durable-foundation.ts",
+    "../../src/project-runtime/project-runtime-durable-foundation.ts",
     import.meta.url,
   ).href;
   execFileSync(
@@ -4762,7 +4762,7 @@ if (lease.status !== "completed") process.exit(20);`,
 test("PR-A-04 leaves mismatched acquisition and release identities unchanged", (t) => {
   const { root } = fixture(t);
   const moduleUrl = new URL(
-    "../../src/security/project-runtime-durable-foundation.ts",
+    "../../src/project-runtime/project-runtime-durable-foundation.ts",
     import.meta.url,
   ).href;
   execFileSync(

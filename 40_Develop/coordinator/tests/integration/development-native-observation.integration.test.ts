@@ -86,8 +86,17 @@ async function runProbe(target: string, scenario: string) {
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
    * @boundary ERB-IT-004=Direct Boundary: coordinator Test Source→対象契約
    */
-  const moduleUrl = (name: string) =>
-    new URL(`../../src/security/${name}.ts`, import.meta.url).href;
+  const moduleUrl = (name: string) => {
+    const folders: Record<string, string> = {
+      "repository-operation-runtime": "repository-operation",
+      "execution-environment": "host-runtime",
+      "platform-provisioner-package-filesystem": "platform-access",
+      "platform-access-release": "diagnostics",
+    };
+    assert.ok(folders[name], name);
+    return new URL(`../../src/${folders[name]}/${name}.ts`, import.meta.url)
+      .href;
+  };
   await mock.module(moduleUrl("repository-operation-runtime"), {
     namedExports: {
       inspectRepositoryIdentityCandidate: () => ({
@@ -149,8 +158,10 @@ async function runProbe(target: string, scenario: string) {
     },
   });
   await mock.module(
-    new URL("../../src/core/windows-child-environment.ts", import.meta.url)
-      .href,
+    new URL(
+      "../../src/host-runtime/windows-child-environment.ts",
+      import.meta.url,
+    ).href,
     {
       namedExports: {
         createWindowsNativeHelperEnvironment: () =>
@@ -215,13 +226,13 @@ async function runProbe(target: string, scenario: string) {
     },
   });
   const session = await import(
-    "../../src/security/development-measurement-session.ts"
+    "../../src/task/development-measurement-session.ts"
   );
   const provider = await import(
-    "../../src/security/provider-home-windows-adapter.ts"
+    "../../src/provider/provider-home-windows-adapter.ts"
   );
   const store = await import(
-    "../../src/security/candidate-store-windows-adapter.ts"
+    "../../src/candidate/candidate-store-windows-adapter.ts"
   );
   const tasks = ["codex", "claude"].map((executor) => ({
     frontProvider: executor === "codex" ? "claude" : "codex",

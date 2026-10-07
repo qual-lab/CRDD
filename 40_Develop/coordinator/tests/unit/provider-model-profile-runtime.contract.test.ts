@@ -11,13 +11,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../src/security/delegation-selection-grant-runtime.ts";
+import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../src/provider/delegation-selection-grant-runtime.ts";
 
 import {
   describeProviderModelProfileRuntimeContract,
   resolveRuntimeOwnedProviderModelProfile,
   resolveRuntimeOwnedProviderModelProfileFromCatalog,
-} from "../../src/security/provider-model-profile-runtime.ts";
+} from "../../src/provider/provider-model-profile-runtime.ts";
 import { DEFAULT_AI_PROFILE_CATALOG } from "../../../ai-runtime/src/index.ts";
 
 /**

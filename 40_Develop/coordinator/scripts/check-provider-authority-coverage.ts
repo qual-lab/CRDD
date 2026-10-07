@@ -20,12 +20,12 @@ const coordinatorRoot = path.resolve(import.meta.dirname, "..");
 const repositoryRoot = path.resolve(coordinatorRoot, "../..");
 
 export const PROVIDER_AUTHORITY_COVERAGE_SOURCES = Object.freeze([
-  "40_Develop/coordinator/src/security/provider-isolation-profile.ts",
-  "40_Develop/coordinator/src/security/authority-grant-verifier.ts",
-  "40_Develop/coordinator/src/security/authority-prelaunch-verifier.ts",
-  "40_Develop/coordinator/src/security/local-personal-authority-runtime.ts",
-  "40_Develop/coordinator/src/security/provider-authority-runtime.ts",
-  "40_Develop/coordinator/src/security/plain-data-snapshot.ts",
+  "40_Develop/coordinator/src/provider/provider-isolation-profile.ts",
+  "40_Develop/coordinator/src/authority/authority-grant-verifier.ts",
+  "40_Develop/coordinator/src/authority/authority-prelaunch-verifier.ts",
+  "40_Develop/coordinator/src/authority/local-personal-authority-runtime.ts",
+  "40_Develop/coordinator/src/provider/provider-authority-runtime.ts",
+  "40_Develop/coordinator/src/plain-data-snapshot.ts",
 ]);
 
 export const PROVIDER_AUTHORITY_COVERAGE_TESTS = Object.freeze([
@@ -82,41 +82,42 @@ function obligation(
 }
 
 const coverageObligations = Object.freeze({
-  "40_Develop/coordinator/src/security/provider-isolation-profile.ts":
+  "40_Develop/coordinator/src/provider/provider-isolation-profile.ts":
     obligation(
       "複合fail-closed述語の全短絡順序と防御的catchを同一runで到達していない",
       "Profile shapeまたは専用Homeマウント許可参照の稀な不正形を同じ固定reasonへ閉じる分岐の退行",
       "Profile revision 3、旧revision、namespace、Provider・Profile・Operation結合、上限および動的入力の正負・境界試験",
       "Profile Schema、専用Homeマウント許可またはplain-data境界変更時",
     ),
-  "40_Develop/coordinator/src/security/authority-grant-verifier.ts": obligation(
-    "複合fail-closed述語の全短絡順序と防御的catchを同一runで到達していない",
-    "Registry、Grant、contextまたは四者結合の稀な不正形を同じ固定reasonへ閉じる分岐の退行",
-    "Registry revision 3、参照重複、時刻、Provider・Profile・Operation・Scope・mount参照結合および上限試験",
-    "Registry Schema、Authority context、Grant評価またはplain-data境界変更時",
-  ),
-  "40_Develop/coordinator/src/security/authority-prelaunch-verifier.ts":
+  "40_Develop/coordinator/src/authority/authority-grant-verifier.ts":
+    obligation(
+      "複合fail-closed述語の全短絡順序と防御的catchを同一runで到達していない",
+      "Registry、Grant、contextまたは四者結合の稀な不正形を同じ固定reasonへ閉じる分岐の退行",
+      "Registry revision 3、参照重複、時刻、Provider・Profile・Operation・Scope・mount参照結合および上限試験",
+      "Registry Schema、Authority context、Grant評価またはplain-data境界変更時",
+    ),
+  "40_Develop/coordinator/src/authority/authority-prelaunch-verifier.ts":
     obligation(
       "Runtime時計failure、全Bundle failureおよび全context短絡を同一runで到達していない",
       "起動直前のAuthority contextまたはBundle結合の稀なfailureを誤分類する可能性",
       "Provider・Profile・Operation・Scope・mount参照の正負・境界、Bundle不一致、失効Grantおよび動的入力試験",
       "Prelaunch context、Runtime時計、File BundleまたはProvider launch結合変更時",
     ),
-  "40_Develop/coordinator/src/security/provider-authority-runtime.ts":
+  "40_Develop/coordinator/src/provider/provider-authority-runtime.ts":
     obligation(
       "防御的catch、乱数衝突および全ての不正shape短絡を同一runで到達していない",
       "短命Capabilityの発行・消費・失効または再検証の稀なfailureを誤分類する可能性",
       "発行・一回消費・失効、5秒境界、時計後退、Authority差替え、Mount失効、binding不一致およびproduction停止試験",
       "Runtime Authority lifetime、Authority source loader、Mount inspectionまたはProvider Effect結合変更時",
     ),
-  "40_Develop/coordinator/src/security/local-personal-authority-runtime.ts":
+  "40_Develop/coordinator/src/authority/local-personal-authority-runtime.ts":
     obligation(
       "署名済み配布物の実production成功分岐と暗号乱数失敗をcomponent coverageで到達していない",
       "公式署名Releaseへの結合または短命Local Personal Bundle生成の稀なfailureを誤分類する可能性",
       "隔離dependencyによるRelease確認、固定Profile、source期限、Grant期限、Provider差、時計差およびproduction source checkout停止試験",
       "Release manifest verifier、固定Profile、Authority source lifetimeまたはLocal Personal Trust境界変更時",
     ),
-  "40_Develop/coordinator/src/security/plain-data-snapshot.ts": obligation(
+  "40_Develop/coordinator/src/plain-data-snapshot.ts": obligation(
     "未到達分岐なし",
     "現固定版では追加残存riskなし",
     "record／arrayのshape、accessor、Proxy、reflection failureおよび上限試験",

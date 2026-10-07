@@ -13,7 +13,7 @@ import test from "node:test";
 import {
   observeDockerWslState,
   type WslListCompletion,
-} from "../../src/security/docker-wsl-state.ts";
+} from "../../src/docker-desktop/docker-wsl-state.ts";
 
 const completed = (stdout: Uint8Array): WslListCompletion => ({
   status: 0,

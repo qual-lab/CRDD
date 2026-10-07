@@ -17,7 +17,7 @@ import {
   OWNED_ATTACH_TERMINATION_FIXTURE_SCENARIOS,
   runDynamicFakeProviderCancellationVerification,
   verifyOwnedAttachTerminationForFixture,
-} from "../../src/security/docker-isolation.ts";
+} from "../../src/docker-runtime/docker-isolation.ts";
 import { verifyDynamicFakeProviderCancellation } from "../../scripts/verify-dynamic-fake-provider-cancellation.ts";
 
 const MOUNTS = Object.freeze({

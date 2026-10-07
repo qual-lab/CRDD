@@ -15,14 +15,14 @@ import {
   PROVIDER_INPUT_LIMITS,
   PROVIDER_ISOLATION_CONTRACT,
   validateProviderIsolationProfile,
-} from "../../src/security/provider-isolation-profile.ts";
+} from "../../src/provider/provider-isolation-profile.ts";
 import {
   compileEgressProxyPolicyCandidate,
   describeEgressProxyTopology,
   describeSpecialPurposeRegistrySnapshot,
   evaluateProxyConnectForFixture,
   evaluateResolvedAddressesForFixture,
-} from "../../src/security/egress-proxy-policy.ts";
+} from "../../src/external-send/egress-proxy-policy.ts";
 
 /**
  * rawProfileのTest準備責務を実行する。

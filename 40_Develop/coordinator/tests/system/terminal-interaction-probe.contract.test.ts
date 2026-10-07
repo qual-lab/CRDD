@@ -17,7 +17,7 @@ import { fileURLToPath } from "node:url";
 import {
   type InteractiveConsoleReadOutcome,
   withInteractiveConsoleAsyncOutcomeUsingAdapter,
-} from "../../src/core/interactive-console.ts";
+} from "../../src/cli/interactive-console.ts";
 import {
   runTerminalInteractionProbeUsingAdapter,
   type TerminalInteractionProbeAdapter,
@@ -468,6 +468,6 @@ test("実子の不正引数入口は非対話でJSONを返し、追加Enterを�
   assert.ok(source.includes("readLine: readInteractiveConsoleLineOutcome"));
   assert.deepEqual(
     [...source.matchAll(/from "([^"]+)"/g)].map((match) => match[1]),
-    ["node:path", "node:url", "../../src/core/interactive-console.ts"],
+    ["node:path", "node:url", "../../src/cli/interactive-console.ts"],
   );
 });

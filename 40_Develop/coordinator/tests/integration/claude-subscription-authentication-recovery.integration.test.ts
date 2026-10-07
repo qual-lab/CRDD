@@ -16,7 +16,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { acquireRuntimeOwnedLogicalProviderHomeKernelLock } from "../../src/security/candidate-store-kernel-lock.ts";
+import { acquireRuntimeOwnedLogicalProviderHomeKernelLock } from "../../src/host-runtime/candidate-store-kernel-lock.ts";
 import {
   authenticateClaudeSubscription,
   beginClaudeSubscriptionAuthenticationRecovery,
@@ -24,7 +24,7 @@ import {
   createClaudeSubscriptionAuthenticationRecoveryRecord,
   setClaudeSubscriptionAuthenticationRecoveryCommandState,
   settleClaudeSubscriptionAuthenticationRecovery,
-} from "../../src/security/claude-subscription-authentication.ts";
+} from "../../src/provider/claude-subscription-authentication.ts";
 
 const hash = randomBytes(32).toString("hex");
 const suffix = hash.slice(0, 16);

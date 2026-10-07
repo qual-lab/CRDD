@@ -38,12 +38,12 @@ import type {
 } from "typescript/unstable/ast";
 import type { Project } from "typescript/unstable/sync";
 
-import { renderSafeHumanCommandReport } from "../../src/core/command-report.ts";
+import { renderSafeHumanCommandReport } from "../../src/cli/command-report.ts";
 import {
   bindTaskCliCancellationSignalsForTesting,
   createTaskCliCancellationLatch,
   projectTaskCliCancellationFailure,
-} from "../../src/core/task-cli-cancellation.ts";
+} from "../../src/cli/task-cli-cancellation.ts";
 
 /**
  * CLI取消latchは重複signalを同じPromiseと一つのobserverへ収束するを検証する。
@@ -572,17 +572,17 @@ function inspectTaskCliCancellationWiring(
   const helperImports = namedImportIdentifier(
     sourceFile,
     "bindTaskCliCancellationSignals",
-    "../core/task-cli-cancellation.ts",
+    "./task-cli-cancellation.ts",
   );
   const cancelImports = namedImportIdentifier(
     sourceFile,
     "cancelRuntimeOwnedCoordinatorTask",
-    "../security/coordinator-task-runtime.ts",
+    "../task/coordinator-task-runtime.ts",
   );
   const projectorImports = namedImportIdentifier(
     sourceFile,
     "projectTaskCliCancellationFailure",
-    "../core/task-cli-cancellation.ts",
+    "./task-cli-cancellation.ts",
   );
   if (helperImports.length !== 1) failures.push("helper_import_not_exact");
   if (cancelImports.length !== 1) failures.push("cancel_import_not_exact");
@@ -792,7 +792,7 @@ test("公開CLIはproduction helperの単一bindingとfinally解除をAST・symb
       assert.ok(project);
       const sourceFile = projectSourceFile(
         project,
-        path.join(coordinatorRoot, "src", "core", "coordinator-command.ts"),
+        path.join(coordinatorRoot, "src", "cli", "coordinator-command.ts"),
       );
       assert.deepEqual(
         inspectTaskCliCancellationWiring(project, sourceFile),
@@ -825,7 +825,7 @@ test("CLI AST契約はshadow・二重binding・直接signal・finally外解除�
       "..",
       "..",
       "src",
-      "core",
+      "cli",
       "coordinator-command.ts",
     ),
     "utf8",

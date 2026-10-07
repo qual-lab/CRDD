@@ -1,4 +1,4 @@
-import { acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome } from "../../src/security/candidate-store-kernel-lock.ts";
+import { acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome } from "../../src/host-runtime/candidate-store-kernel-lock.ts";
 
 let outcome = await acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome();
 for (

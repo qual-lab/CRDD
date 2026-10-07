@@ -13,10 +13,8 @@ const artifact = Object.freeze({
 let spawnCalls = 0;
 
 await mock.module(
-  new URL(
-    "../../src/security/development-measurement-session.ts",
-    import.meta.url,
-  ).href,
+  new URL("../../src/task/development-measurement-session.ts", import.meta.url)
+    .href,
   {
     namedExports: {
       borrowRuntimeOwnedDevelopmentNativeObservation: () => null,
@@ -32,7 +30,10 @@ await mock.module("node:child_process", {
   },
 });
 await mock.module(
-  new URL("../../src/core/windows-child-environment.ts", import.meta.url).href,
+  new URL(
+    "../../src/host-runtime/windows-child-environment.ts",
+    import.meta.url,
+  ).href,
   {
     namedExports: {
       createWindowsNativeHelperEnvironment: () => null,
@@ -43,7 +44,7 @@ await mock.module(
 );
 await mock.module(
   new URL(
-    "../../src/security/platform-provisioner-package-filesystem.ts",
+    "../../src/platform-access/platform-provisioner-package-filesystem.ts",
     import.meta.url,
   ).href,
   {
@@ -61,7 +62,7 @@ await mock.module(
   },
 );
 await mock.module(
-  new URL("../../src/security/platform-access-release.ts", import.meta.url)
+  new URL("../../src/diagnostics/platform-access-release.ts", import.meta.url)
     .href,
   {
     namedExports: {
@@ -80,10 +81,10 @@ await mock.module(
 );
 
 const providerAdapter = await import(
-  "../../src/security/provider-home-windows-adapter.ts"
+  "../../src/provider/provider-home-windows-adapter.ts"
 );
 const candidateAdapter = await import(
-  "../../src/security/candidate-store-windows-adapter.ts"
+  "../../src/candidate/candidate-store-windows-adapter.ts"
 );
 const now = new Date().toISOString();
 const providerOutcome =

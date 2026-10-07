@@ -14,7 +14,7 @@ import test from "node:test";
 import {
   describeProviderModelSelectionRuntimeContract,
   selectProviderModelCandidate,
-} from "../../src/security/provider-model-selection-runtime.ts";
+} from "../../src/provider/provider-model-selection-runtime.ts";
 
 /**
  * createBoundedImplementationのTest準備責務を実行する。

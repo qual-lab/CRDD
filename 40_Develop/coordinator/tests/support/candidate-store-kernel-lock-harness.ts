@@ -4,12 +4,12 @@ import {
   type HostOperationSupervisorLockOutcome,
   type InteractiveConsoleKernelLockOutcome,
   prepareHostOperationSupervisorLockRequest,
-} from "../../src/security/candidate-store-kernel-lock.ts";
+} from "../../src/host-runtime/candidate-store-kernel-lock.ts";
 import {
   prepareInteractiveConsoleKernelLockRequest,
   runHostOperationSupervisorLifecycle,
   runInteractiveConsoleKernelLockLifecycle,
-} from "../../src/security/candidate-store-kernel-lock-lifecycle-internal.ts";
+} from "../../src/host-runtime/candidate-store-kernel-lock-lifecycle-internal.ts";
 
 type InteractiveWorker = Parameters<
   typeof runInteractiveConsoleKernelLockLifecycle

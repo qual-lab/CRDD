@@ -11,7 +11,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createDevelopmentMeasurementConstraints } from "../../src/security/development-measurement-constraints.ts";
+import { createDevelopmentMeasurementConstraints } from "../../src/task/development-measurement-constraints.ts";
 import { assertPresent } from "../support/test-support.ts";
 
 const BINDING_HASH =

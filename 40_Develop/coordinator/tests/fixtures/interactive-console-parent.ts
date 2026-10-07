@@ -1,10 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { runInteractiveConsoleReaderLifecycle } from "../../src/core/interactive-console-reader-lifecycle-internal.ts";
-import { spawnRuntimeLocalTypeScriptChild } from "../../src/core/runtime-local-typescript-child-entrypoints.ts";
-import { createInteractiveConsoleReaderEnvironment } from "../../src/core/windows-child-environment.ts";
-import { acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome } from "../../src/security/candidate-store-kernel-lock.ts";
+import { runInteractiveConsoleReaderLifecycle } from "../../src/cli/interactive-console-reader-lifecycle-internal.ts";
+import { spawnRuntimeLocalTypeScriptChild } from "../../src/host-runtime/runtime-local-typescript-child-entrypoints.ts";
+import { createInteractiveConsoleReaderEnvironment } from "../../src/host-runtime/windows-child-environment.ts";
+import { acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome } from "../../src/host-runtime/candidate-store-kernel-lock.ts";
 
 const lockOutcome =
   await acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome();

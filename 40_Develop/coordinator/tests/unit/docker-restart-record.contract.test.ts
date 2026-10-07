@@ -16,7 +16,7 @@ import {
   dockerRestartPhases,
   parseDockerRestartRecord,
   validateDockerRestartRecordChain,
-} from "../../src/security/docker-restart-record.ts";
+} from "../../src/docker-desktop/docker-restart-record.ts";
 
 const hash = "a".repeat(64);
 const binding: DockerRestartBinding = {

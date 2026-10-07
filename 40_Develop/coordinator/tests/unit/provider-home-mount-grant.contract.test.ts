@@ -20,7 +20,7 @@ import {
   PROVIDER_HOME_MOUNT_GRANT_CONTRACT,
   PROVIDER_HOME_MOUNT_GRANT_CONTRACT_REVISION,
   PROVIDER_HOME_MOUNT_GRANT_MAXIMUM_LIFETIME_MS,
-} from "../../src/security/provider-home-mount-grant.ts";
+} from "../../src/provider/provider-home-mount-grant.ts";
 
 const homeIdentityHash = "a".repeat(64);
 const homeProtectionHash = "b".repeat(64);

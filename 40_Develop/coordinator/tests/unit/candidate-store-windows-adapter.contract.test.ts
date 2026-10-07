@@ -18,8 +18,8 @@ import { withUnsignedRuntimeFixture } from "../support/unsigned-runtime-fixture.
 import {
   describeCandidateStoreWindowsAdapterContract,
   inspectRuntimeOwnedWindowsCandidateStore,
-} from "../../src/security/candidate-store-windows-adapter.ts";
-import { WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE } from "../../src/core/windows-child-environment.ts";
+} from "../../src/candidate/candidate-store-windows-adapter.ts";
+import { WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE } from "../../src/host-runtime/windows-child-environment.ts";
 
 /**
  * 明示未署名配布はCandidate Store Effectを開始しないを検証する。
@@ -41,7 +41,7 @@ test("明示未署名配布はCandidate Store Effectを開始しない", () => {
         "40_Develop",
         "coordinator",
         "src",
-        "security",
+        "candidate",
         "candidate-store-windows-adapter.ts",
       ),
     ).href;

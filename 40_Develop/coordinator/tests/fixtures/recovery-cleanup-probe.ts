@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
-import { removeCommittedDockerRecoveryJson } from "../../src/security/docker-recovery-journal.ts";
+import { removeCommittedDockerRecoveryJson } from "../../src/state-storage/docker-recovery-journal.ts";
 
 import {
   abandonRuntimeOwnedDockerRecovery,
@@ -13,7 +13,7 @@ import {
   recordRuntimeOwnedDockerAbsence,
   recordRuntimeOwnedNormalMountCompletion,
   recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver,
-} from "../../src/security/docker-recovery-runtime-internal.ts";
+} from "../../src/docker-runtime/docker-recovery-runtime-internal.ts";
 import {
   abandonOwnedHostOperationGenerationLock,
   cleanupOwnedOperationDirectoriesAsync,
@@ -23,8 +23,8 @@ import {
   createOwnedOperationManagementCapability,
   getOwnedHostRecoveryIdByManagementCapability,
   verifyOwnedOperationManagementCapability,
-} from "../../src/security/execution-environment.ts";
-import { loadHostRecoveryRecordByToken } from "../../src/security/host-recovery-record.ts";
+} from "../../src/host-runtime/execution-environment.ts";
+import { loadHostRecoveryRecordByToken } from "../../src/host-runtime/host-recovery-record.ts";
 
 function verifiedRoot(rootPath: string) {
   return Object.freeze({

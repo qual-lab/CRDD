@@ -14,11 +14,11 @@ import test from "node:test";
 import {
   planClaudeIsolatedTask,
   planClaudeTaskTurnBudget,
-} from "../../src/security/claude-execution-plan.ts";
+} from "../../src/provider/claude-execution-plan.ts";
 import {
   describeProviderTaskStructuredResultContract,
   normalizeProviderTaskStructuredResult,
-} from "../../src/security/provider-task-structured-result.ts";
+} from "../../src/provider/provider-task-structured-result.ts";
 
 const EXECUTOR = JSON.stringify({
   status: "completed",

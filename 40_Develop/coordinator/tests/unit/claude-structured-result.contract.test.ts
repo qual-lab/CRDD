@@ -14,7 +14,7 @@ import test from "node:test";
 import {
   describeClaudeStructuredResultContract,
   normalizeClaudeStructuredResult,
-} from "../../src/security/claude-structured-result.ts";
+} from "../../src/provider/claude-structured-result.ts";
 
 /**
  * createEnvelopeのTest準備責務を実行する。

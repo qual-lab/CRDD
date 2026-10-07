@@ -12,7 +12,7 @@
  */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { initializeProjectRuntimeSnapshot } from "../../src/security/project-runtime-durable-foundation.ts";
+import { initializeProjectRuntimeSnapshot } from "../../src/project-runtime/project-runtime-durable-foundation.ts";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import {
@@ -36,10 +36,10 @@ import {
   executeProjectRuntimePublicAcceptanceDecision,
   projectRuntimeDataBoundaryBlocked,
   PROJECT_RUNTIME_EXECUTION_INTELLIGENCE_PREFIX,
-} from "../../src/composition/project-runtime-composition-root.ts";
+} from "../../src/project-runtime/project-runtime-composition-root.ts";
 import { RepositoryRuntimeDataAreaBlockedError } from "../../../runtime-data/src/index.ts";
-import { recordProjectRuntimeExecutionEvent } from "../../src/security/execution-intelligence-adapter.ts";
-import { createProjectRuntimeWindowsDecisionStoreTestingAdapter } from "../../src/security/project-runtime-windows-decision-store.ts";
+import { recordProjectRuntimeExecutionEvent } from "../../src/project-runtime/execution-intelligence-adapter.ts";
+import { createProjectRuntimeWindowsDecisionStoreTestingAdapter } from "../../src/project-runtime/project-runtime-windows-decision-store.ts";
 import {
   readExecutionIntelligence,
   verifyExecutionIntelligenceRepositoryRoot,

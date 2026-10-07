@@ -6,7 +6,7 @@ import {
   createDockerProcessEnvironment,
   startOwnedProcess,
   type OwnedCommandHandle,
-} from "../../src/security/docker-owned-process.ts";
+} from "../../src/docker-runtime/docker-owned-process.ts";
 import { createRepositoryTestTemporaryDirectory } from "./repository-test-directory-fixture.ts";
 
 const repositoryRoot = fileURLToPath(new URL("../../../../", import.meta.url));

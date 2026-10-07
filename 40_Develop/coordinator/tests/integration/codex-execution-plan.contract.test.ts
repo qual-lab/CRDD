@@ -16,8 +16,8 @@ import {
   describeCodexExecutionPlanContract,
   planCodexIsolatedTask,
   planCodexReadOnlyProbe,
-} from "../../src/security/codex-execution-plan.ts";
-import { resolveFixedCodexExecutorSeccompProfile } from "../../src/security/codex-executor-seccomp.ts";
+} from "../../src/provider/codex-execution-plan.ts";
+import { resolveFixedCodexExecutorSeccompProfile } from "../../src/provider/codex-executor-seccomp.ts";
 
 /**
  * 公式Codex artifactとSubscription限定のread-only計画を固定するを検証する。

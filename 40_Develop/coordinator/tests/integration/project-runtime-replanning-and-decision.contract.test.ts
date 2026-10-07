@@ -22,11 +22,11 @@ import {
   readProjectOperationQueueState,
   readProjectRuntimeState,
   writeProjectRuntimeState,
-} from "../../src/security/project-runtime-durable-foundation.ts";
-import { createProjectRuntimeDecisionCapabilityAdapter } from "../../src/security/project-runtime-decision-capability-adapter.ts";
+} from "../../src/project-runtime/project-runtime-durable-foundation.ts";
+import { createProjectRuntimeDecisionCapabilityAdapter } from "../../src/project-runtime/project-runtime-decision-capability-adapter.ts";
 import { runProjectRuntimeOperation as runProjectRuntimeOperationWithPorts } from "../../../project-runtime/src/index.ts";
-import { createProjectRuntimeExecutionHostPorts } from "../../src/security/project-runtime-execution-host-adapter.ts";
-import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../src/security/project-runtime-execution-authorization-adapter.ts";
+import { createProjectRuntimeExecutionHostPorts } from "../../src/project-runtime/project-runtime-execution-host-adapter.ts";
+import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../src/project-runtime/project-runtime-execution-authorization-adapter.ts";
 import {
   applyProjectRuntimeHumanDecision,
   invalidateProjectRuntimeHumanDecision,

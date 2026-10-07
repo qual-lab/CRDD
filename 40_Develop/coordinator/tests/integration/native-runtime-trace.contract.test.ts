@@ -13,8 +13,8 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { createWindowsHostOperationSupervisorEnvironment } from "../../src/core/windows-child-environment.ts";
-import { inspectNativeRuntimeTrace } from "../../src/security/native-runtime-trace.ts";
+import { createWindowsHostOperationSupervisorEnvironment } from "../../src/host-runtime/windows-child-environment.ts";
+import { inspectNativeRuntimeTrace } from "../../src/diagnostics/native-runtime-trace.ts";
 
 const OPTIONS = Object.freeze({
   targetProcessName: "crdd-platform-access.exe",

@@ -15,12 +15,12 @@ import {
   classifyOwnedCoordinatorOperationCreationFailure,
   createIsolatedCoordinatorOperationCreationCandidate,
   createRuntimeOwnedCoordinatorOperation,
-} from "../../src/security/coordinator-operation-creation-internal.ts";
+} from "../../src/repository-operation/coordinator-operation-creation-internal.ts";
 import {
   cleanupOwnedOperationDirectories,
   createIsolatedOwnedOperationDirectoryCreationFailureCandidate,
   getOwnedHostRecoveryId,
-} from "../../src/security/execution-environment.ts";
+} from "../../src/host-runtime/execution-environment.ts";
 
 /**
  * fixtureのTest準備責務を実行する。

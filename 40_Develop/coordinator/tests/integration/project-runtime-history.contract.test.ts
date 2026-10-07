@@ -25,12 +25,12 @@ import {
   readProjectRuntimeSnapshot,
   transferProjectRuntimeSnapshotHistory,
   writeProjectRuntimeSnapshot,
-} from "../../src/security/project-runtime-durable-foundation.ts";
+} from "../../src/project-runtime/project-runtime-durable-foundation.ts";
 import {
   inspectProjectRuntimeHistorySettlement,
   updateProjectRuntimeHistoryOwned,
   updateProjectRuntimeHistoryPilot,
-} from "../../src/security/project-runtime-history.ts";
+} from "../../src/project-runtime/project-runtime-history.ts";
 
 const DAY = 24 * 60 * 60 * 1000;
 const referenceTime = Date.parse("2026-10-05T00:00:00.000Z");

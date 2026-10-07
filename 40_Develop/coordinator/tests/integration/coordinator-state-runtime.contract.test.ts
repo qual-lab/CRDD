@@ -18,22 +18,22 @@ import {
   COORDINATOR_STATE_SCHEMA,
   coordinatorStateContentHash,
   encodeCoordinatorStateValue,
-} from "../../src/security/coordinator-state-model.ts";
+} from "../../src/state-storage/coordinator-state-model.ts";
 import {
   prepareRuntimeOwnedCoordinatorStateInitialization,
   writeRuntimeOwnedCoordinatorStateSnapshot,
-} from "../../src/security/coordinator-state-runtime.ts";
+} from "../../src/state-storage/coordinator-state-runtime.ts";
 import {
   cleanupOwnedOperationDirectories,
   createOwnedMountCapability,
   createOwnedOperationContextCapability,
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
-} from "../../src/security/execution-environment.ts";
+} from "../../src/host-runtime/execution-environment.ts";
 import {
   bindRuntimeOwnedRepositoryOperation,
   borrowRuntimeOwnedCoordinatorStateRepository,
-} from "../../src/security/repository-operation-runtime.ts";
+} from "../../src/repository-operation/repository-operation-runtime.ts";
 
 /**
  * 固定二File保存と同じ更新の再入場、保全停止を確認する。

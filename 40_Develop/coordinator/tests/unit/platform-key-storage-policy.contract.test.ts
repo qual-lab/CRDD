@@ -15,7 +15,7 @@ import test from "node:test";
 import {
   describePlatformKeyStoragePolicyContract,
   evaluatePlatformKeyStoragePolicyCandidate,
-} from "../../src/security/platform-key-storage-policy.ts";
+} from "../../src/platform-access/platform-key-storage-policy.ts";
 
 /**
  * p256SpkiのTest準備責務を実行する。

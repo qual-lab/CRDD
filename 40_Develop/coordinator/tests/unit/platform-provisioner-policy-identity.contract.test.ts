@@ -14,7 +14,7 @@ import test from "node:test";
 import {
   describePlatformProvisionerPolicyIdentityContract,
   getPlatformProvisionerPolicyIdentity,
-} from "../../src/security/platform-provisioner-policy-identity.ts";
+} from "../../src/platform-access/platform-provisioner-policy-identity.ts";
 
 /**
  * Root保護と鍵保存の正本contractをcanonical SHA-256へ固定するを検証する。

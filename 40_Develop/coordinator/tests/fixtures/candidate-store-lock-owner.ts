@@ -2,7 +2,7 @@ import {
   acquireRuntimeOwnedCandidateStoreKernelLock,
   acquireRuntimeOwnedHostOperationKernelLock,
   acquireRuntimeOwnedHostOperationSupervisorLock,
-} from "../../src/security/candidate-store-kernel-lock.ts";
+} from "../../src/host-runtime/candidate-store-kernel-lock.ts";
 
 const mode = process.argv[2];
 const supervisorOutcome =

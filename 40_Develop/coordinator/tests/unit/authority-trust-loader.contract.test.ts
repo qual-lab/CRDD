@@ -15,18 +15,18 @@ import {
   AUTHORITY_REGISTRY_CONTRACT,
   AUTHORITY_REGISTRY_INPUT_LIMITS,
   validateAuthorityRegistryCandidate,
-} from "../../src/security/authority-grant-verifier.ts";
+} from "../../src/authority/authority-grant-verifier.ts";
 import {
   AUTHORITY_TRUST_POLICY_CONTRACT,
   AUTHORITY_TRUST_POLICY_INPUT_LIMITS,
   decodeCanonicalAuthorityTrustPolicyBytes,
   describeAuthorityTrustLoaderContract,
   loadAuthorityRegistryTrustCandidate,
-} from "../../src/security/authority-trust-loader.ts";
+} from "../../src/authority/authority-trust-loader.ts";
 import {
   PROVIDER_ISOLATION_CONTRACT,
   validateProviderIsolationProfile,
-} from "../../src/security/provider-isolation-profile.ts";
+} from "../../src/provider/provider-isolation-profile.ts";
 import { assertPresent, canonicalJson } from "../support/test-support.ts";
 
 /**

@@ -69,7 +69,7 @@ async function createReleaseKeyDistributionFixture(t: TestContext) {
   const distributionRoot = path.join(parent, "distribution");
   const relativePaths = [
     "40_Develop/coordinator/scripts/generate-release-key.ts",
-    "40_Develop/coordinator/src/core/node-runtime-version.ts",
+    "40_Develop/coordinator/src/host-runtime/node-runtime-version.ts",
     "40_Develop/artifact-signing/src/index.ts",
     "40_Develop/artifact-signing/src/one-shot-authorization.ts",
     "40_Develop/artifact-signing/src/private-key-signing.ts",

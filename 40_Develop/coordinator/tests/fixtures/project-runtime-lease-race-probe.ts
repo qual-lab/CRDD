@@ -1,6 +1,6 @@
 import fs from "node:fs";
 
-import { acquireProjectRuntimeLease } from "../../src/security/project-runtime-durable-foundation.ts";
+import { acquireProjectRuntimeLease } from "../../src/project-runtime/project-runtime-durable-foundation.ts";
 
 const [workingDirectory, barrier, projectId, queueId] = process.argv.slice(2);
 if (!workingDirectory || !barrier || !projectId || !queueId)

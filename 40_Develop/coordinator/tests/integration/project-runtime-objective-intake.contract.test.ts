@@ -18,13 +18,13 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { consumeDockerRecoveryReceiptAfterProjectSettlement } from "../../src/security/docker-recovery-runtime.ts";
-import { consumeProjectSettledDockerRecoveryWithRuntimeBoundary } from "../../src/security/docker-project-recovery-settlement.ts";
-import { acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot } from "../../src/security/docker-recovery-runtime-internal.ts";
+import { consumeDockerRecoveryReceiptAfterProjectSettlement } from "../../src/docker-runtime/docker-recovery-runtime.ts";
+import { consumeProjectSettledDockerRecoveryWithRuntimeBoundary } from "../../src/project-runtime/docker-project-recovery-settlement.ts";
+import { acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot } from "../../src/docker-runtime/docker-recovery-runtime-internal.ts";
 import {
   dockerRecoveryCommitName,
   writeCommittedDockerRecoveryJson,
-} from "../../src/security/docker-recovery-journal.ts";
+} from "../../src/state-storage/docker-recovery-journal.ts";
 
 import {
   acquireProjectRuntimeLease,
@@ -36,12 +36,12 @@ import {
   updateProjectOperationQueueState,
   writeProjectRuntimeState,
 } from "../fixtures/project-runtime-current-ports.ts";
-import { initializeProjectRuntimeSnapshot } from "../../src/security/project-runtime-durable-foundation.ts";
+import { initializeProjectRuntimeSnapshot } from "../../src/project-runtime/project-runtime-durable-foundation.ts";
 import {
   inspectProjectRuntimeObjectiveRequest,
   runProjectRuntimeObjective as runProjectRuntimeObjectiveWithPorts,
-} from "../../src/security/project-runtime-objective-intake.ts";
-import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../src/security/project-runtime-execution-authorization-adapter.ts";
+} from "../../src/project-runtime/project-runtime-objective-intake.ts";
+import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../src/project-runtime/project-runtime-execution-authorization-adapter.ts";
 import {
   markProjectTaskRecoveryObligationRecovering,
   type ProjectRuntimeSingleTaskAttemptInput,

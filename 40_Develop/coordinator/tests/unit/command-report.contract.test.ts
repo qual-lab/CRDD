@@ -14,7 +14,7 @@ import test from "node:test";
 import {
   describeCommandReportContract,
   renderSafeHumanCommandReport,
-} from "../../src/core/command-report.ts";
+} from "../../src/cli/command-report.ts";
 
 const digestA = "a".repeat(64);
 const digestB = "b".repeat(64);

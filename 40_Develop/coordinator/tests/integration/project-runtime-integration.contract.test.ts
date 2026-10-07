@@ -22,12 +22,12 @@ import {
   initializeProjectRuntimeSnapshot,
   readProjectRuntimeSnapshot,
   createProjectRuntimeSnapshotIntegrationRecordPort as createProjectRuntimeIntegrationRecordAdapter,
-} from "../../src/security/project-runtime-durable-foundation.ts";
+} from "../../src/project-runtime/project-runtime-durable-foundation.ts";
 import { readProjectOperationQueueState } from "../fixtures/project-runtime-current-ports.ts";
 import { integrateProjectRuntimeOperation } from "../../../project-runtime/src/index.ts";
 import { inspectMcpProjectRuntimeObjectiveResult } from "../../../mcp/src/index.ts";
-import { runProjectRuntimeObjective } from "../../src/security/project-runtime-objective-intake.ts";
-import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../src/security/project-runtime-execution-authorization-adapter.ts";
+import { runProjectRuntimeObjective } from "../../src/project-runtime/project-runtime-objective-intake.ts";
+import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../src/project-runtime/project-runtime-execution-authorization-adapter.ts";
 
 const revision = "a".repeat(40);
 /**

@@ -15,7 +15,7 @@ import test from "node:test";
 import {
   describePlatformProvisionerReleaseTrustContract,
   getPinnedPlatformProvisionerReleaseSignerSpkiDer,
-} from "../../src/security/platform-provisioner-release-trust.ts";
+} from "../../src/platform-access/platform-provisioner-release-trust.ts";
 
 /**
  * Qual-Lab Release公開鍵exact 1本をcanonical Ed25519 SPKIとして固定するを検証する。

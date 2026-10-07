@@ -15,11 +15,11 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { withUnsignedRuntimeFixture } from "../support/unsigned-runtime-fixture.ts";
 
-import { reverifyAuthorityBeforeProviderLaunch } from "../../src/security/authority-prelaunch-verifier.ts";
+import { reverifyAuthorityBeforeProviderLaunch } from "../../src/authority/authority-prelaunch-verifier.ts";
 import {
   createIsolatedLocalPersonalAuthorityRuntimeCandidate,
   describeLocalPersonalAuthorityRuntimeContract,
-} from "../../src/security/local-personal-authority-runtime.ts";
+} from "../../src/authority/local-personal-authority-runtime.ts";
 
 /**
  * confirmedReleaseのTest準備責務を実行する。
@@ -265,7 +265,7 @@ test("明示未署名配布のproduction loaderは停止する", () => {
         "40_Develop",
         "coordinator",
         "src",
-        "security",
+        "authority",
         "local-personal-authority-runtime.ts",
       ),
     ).href;

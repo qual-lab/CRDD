@@ -14,7 +14,7 @@ import test from "node:test";
 import {
   createDevelopmentExecutionTiming,
   writeDevelopmentMeasurementProgress,
-} from "../../src/core/development-execution-timing.ts";
+} from "../../src/diagnostics/development-execution-timing.ts";
 
 /**
  * 状態区間は非重複で、初期予約と最終候補処置も時間へ含めるを検証する。
@@ -205,7 +205,7 @@ test("未知状態・大量通知・任意文字列を公開しない", () => {
  */
 test("実子ProcessのUTF-8表示を同期結果へ投影する", () => {
   const moduleUrl = new URL(
-    "../../src/core/development-execution-timing.ts",
+    "../../src/diagnostics/development-execution-timing.ts",
     import.meta.url,
   ).href;
   const text = "[進行状況] 受付・実行条件の確認\n";

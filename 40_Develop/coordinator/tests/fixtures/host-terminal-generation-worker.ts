@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 import {
   acquireRuntimeOwnedHostOperationKernelLock,
   acquireRuntimeOwnedHostOperationSupervisorLock,
-} from "../../src/security/candidate-store-kernel-lock.ts";
+} from "../../src/host-runtime/candidate-store-kernel-lock.ts";
 
 const [rootName, nonce, mode, extra] = process.argv.slice(2);
 assert.equal(extra, undefined);

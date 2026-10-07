@@ -17,17 +17,17 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { renderDockerRecoveryDoctorReport } from "../../src/core/docker-recovery-command-report.ts";
+import { renderDockerRecoveryDoctorReport } from "../../src/diagnostics/docker-recovery-command-report.ts";
 import {
   createDockerDesktopRepairContinuation,
   inspectDockerDesktopRepairContinuation,
   persistDockerDesktopRepairContinuationIntent,
   persistDockerDesktopRepairContinuationSettlement,
-} from "../../src/security/docker-desktop-repair-continuation-store.ts";
+} from "../../src/docker-desktop/docker-desktop-repair-continuation-store.ts";
 import type {
   DockerDesktopRepairLedgerSnapshot,
   DockerDesktopRepairOperation,
-} from "../../src/security/docker-desktop-repair-record-store.ts";
+} from "../../src/docker-desktop/docker-desktop-repair-record-store.ts";
 import {
   classifyCanonicalDockerDesktopRepairHistoricalOperation,
   createDockerDesktopRepairOperation,
@@ -38,7 +38,7 @@ import {
   persistDockerDesktopRepairHistoricalAdoption,
   persistDockerDesktopRepairHistoricalClosure,
   persistDockerDesktopRepairStage,
-} from "../../src/security/docker-desktop-repair-record-store.ts";
+} from "../../src/docker-desktop/docker-desktop-repair-record-store.ts";
 import {
   adoptWindowsDockerDesktopRepairUsingDependencies,
   awaitDockerDesktopEngineUsing,
@@ -52,7 +52,7 @@ import {
   repairWindowsDockerDesktopRuntimeUsingDependencies,
   validateDockerDesktopRepairHistoricalAdoptionResult,
   validateDockerDesktopRepairHistoricalClosureResult,
-} from "../../src/security/docker-desktop-runtime-repair.ts";
+} from "../../src/docker-desktop/docker-desktop-runtime-repair.ts";
 import {
   assertRuntimeTraceCase,
   assertRuntimeTraceExecutionCoverage,
@@ -1346,7 +1346,7 @@ test("Canonical履歴分類は全modeと非plain・余分field・疎配列・nes
   );
   const runtimeSource = fs.readFileSync(
     new URL(
-      "../../src/security/docker-desktop-runtime-repair.ts",
+      "../../src/docker-desktop/docker-desktop-runtime-repair.ts",
       import.meta.url,
     ),
     "utf8",
@@ -6777,7 +6777,7 @@ test("Contractは自動fallback・全WSL停止・削除・PID killを許可し�
   assert.equal(contract.staleDirectoryDeletion, false);
   assert.equal(contract.providerEffectIssued, false);
   const sources = [
-    "../../src/security/docker-desktop-runtime-repair.ts",
+    "../../src/docker-desktop/docker-desktop-runtime-repair.ts",
     "../../../platform-access/src/docker_repair.rs",
   ].map((relative) =>
     fs.readFileSync(new URL(relative, import.meta.url), "utf8"),

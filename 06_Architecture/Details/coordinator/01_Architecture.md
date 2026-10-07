@@ -81,20 +81,40 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 
 ### 内部ブロック図
 
-以下は主要責務の接続を示す。`security/`は現在も複数責務を含むため、一つの箱にせずファイル名のまとまりと役割で分ける。新しいDirectory配置を要求する図ではない。
+以下は主要責務の接続を示す。Sourceは`src`直下の用途別Directoryへ配置し、権限判断だけを`authority/`へ置く。`core/`、`security/`、`composition/`を汎用の置場として残さない。全数の移動対応は[配置対応表](../../../99_Roadmap/Changes/CHG-000082/Evidence/261007_coordinator-source-layout-plan.md)で追跡する。
+
+| Source Directory | 所有する責務 |
+|---|---|
+| `cli/` | 引数、対話入力、表示、CLI取消と用途の振り分け |
+| `task/` | 一般Taskの受付、Executor／Reviewerの実行調整、現在Runtimeへ接続する開発計測 |
+| `provider/` | Provider選択、Home、Provider固有の実行計画と結果変換 |
+| `external-send/` | 外部送信の同意、許可、一回消費と出口制御 |
+| `authority/` | Grant、事前許可、Trust読取り、秘密情報拒否の判断 |
+| `repository-operation/` | Repository／Workspaceと操作Ownerの結合 |
+| `host-runtime/` | Host資源、固定子Process入口、端末、共有する実効排他 |
+| `docker-runtime/` | TaskのDocker隔離実行と資源回収 |
+| `docker-desktop/` | Docker Desktop／Engineの明示運用処置 |
+| `platform-access/` | Native／Platform Provisionerと保護配布閉包への接続 |
+| `state-storage/` | Coordinator現在状態と共有保存primitive |
+| `candidate/` | 候補本体の保存、確認、回収とNative接続 |
+| `project-runtime/` | 別packageのProject Runtimeへ実行・保存・判断等のPortを接続する構成 |
+| `workbench-ai/` | Workbenchの助言・変更候補依頼、取消と候補操作 |
+| `diagnostics/` | 環境、配布物、実行時間の診断 |
+
+`src/plain-data-snapshot.ts`は純粋な値取込みを所有する。公開Symbol集合は`src/index.ts`に維持する。通常Runtimeから実装依存を持たない検査・E2E結果記録は`scripts/`、試験と試験専用支援は`tests/`が所有する。この配置を機能変更、旧回復処理の廃止または新しい公開入口の宣言として扱わない。
 
 ```text
 CLI・共通Launcher（bin/）
   ├→ Task実行編成（coordinator-task-*）
-  │    ├→ 入力・選定・結果判定（core/ のTask・Provider群）
+  │    ├→ 入力・選定・結果判定（task/・provider/）
   │    ├→ 実行許可・署名検証（Authority・package検証群）
   │    ├→ Provider実行（codex-* / claude-*）
   │    │    └→ Docker・Process制御（docker-* / 実行環境群）
   │    └→ 候補・Repository操作（candidate-* / repository-*）
   │
-  ├→ Project接続（composition/）
+  ├→ Project接続（project-runtime/）
   │    ├→ Project Runtime【別package：意味・状態・調停】
-  │    └→ Port実装（security/project-runtime-*）
+  │    └→ Port実装（project-runtime/ の接続群）
   │         実行・永続化・Lease・判断・候補統合・回復
   │
   └→ 診断・明示回復
@@ -122,7 +142,7 @@ CLI・共通Launcher（bin/）
 
 Local Personalは永続的なRuntime有効化状態、Platform Provisioningまたは事前Activation Recordを持たない。削除済みの有効化・無効化・準備commandは、parser、help、実装、互換shimまたは失敗専用入口として残さない。
 
-利用者向けの安定入口`template/tools/crdd-coordinator.ts`は、同じ改訂版の共通起動入口`bin/coordinator.ts`へ接続する。共通起動入口は用途、Node版、stdio接続および引数を確認し、同じProcessで対応する既存mainへ接続する。通常処理はsrc/core/coordinator-command.tsが所有し、従来のdoctor／project／capabilities／candidate／taskの直接入力と終了値を維持する。bin配下の実行入口はcoordinator.ts一つとする。新しいShell、cwd変更、stdio横取りまたはsignal ownerを作らない。MCP Serverは`template/tools/crdd-mcp.ts`が別の構成Rootとして所有し、Coordinator CLIのsubcommandにしない。
+利用者向けの安定入口`template/tools/crdd-coordinator.ts`は、同じ改訂版の共通起動入口`bin/coordinator.ts`へ接続する。共通起動入口は用途、Node版、stdio接続および引数を確認し、同じProcessで対応する既存mainへ接続する。通常処理はsrc/cli/coordinator-command.tsが所有し、従来のdoctor／project／capabilities／candidate／taskの直接入力と終了値を維持する。bin配下の実行入口はcoordinator.ts一つとする。新しいShell、cwd変更、stdio横取りまたはsignal ownerを作らない。MCP Serverは`template/tools/crdd-mcp.ts`が別の構成Rootとして所有し、Coordinator CLIのsubcommandにしない。
 
 <a id="3-主実行シーケンス"></a>
 
@@ -481,7 +501,7 @@ Docker Desktopの破損時は通常Taskと分離した最終復旧経路を使�
 | 耐久的な進行記録と再入場 | Repository-local `.crdd`を使う場合は非Authorityのcheckpointに限定し、再入場ごとにfreshな人間承認と保護済み対象へ再結合する。次Processの削除許可を発行する記録は別の保護済みRecovery Authorityであり、自己申告JSONから発行しない。 | 別対象への再結合、承認範囲の拡張および欠測の成功化を拒否する。 |
 | 処置後の直接観測 | 将来の処置実装では非再帰の限定削除後に六child、Root、markerの明示不存在、handle／observer／Lockの解放と記録の終端を確認する。 | 部分処置または観測不能は回復義務と処置事実を保持する。Effect発行後をEffect 0と表示しない。 |
 
-候補判定は[内部Policy](../../../40_Develop/coordinator/src/security/host-orphan-recovery-policy.ts)が所有する。十一条件の値を閉じたSchemaで照合するだけで、根拠の実在性を証明しない。`candidate_ready`でも`authorityConferred:false`、`cleanupConfirmed:false`、`productionConnected:false`を維持し、回復Token、Pathまたは削除Capabilityを返さない。この診断断面をARCH-000008へ接続し、実処置はその診断Authorityへ追加しない。
+候補判定は[内部Policy](../../../40_Develop/coordinator/src/host-runtime/host-orphan-recovery-policy.ts)が所有する。十一条件の値を閉じたSchemaで照合するだけで、根拠の実在性を証明しない。`candidate_ready`でも`authorityConferred:false`、`cleanupConfirmed:false`、`productionConnected:false`を維持し、回復Token、Pathまたは削除Capabilityを返さない。この診断断面をARCH-000008へ接続し、実処置はその診断Authorityへ追加しない。
 
 後段の接続順序は、対象観測→人間へのexact対象提示→限定承認→連続排他とfresh再確認→限定処置→不存在・資源解放観測である。部分処置後の再入場は事前固定した対象と許可した進行だけを扱い、初回snapshotと同じ完全存在を要求して回復不能にしない。
 

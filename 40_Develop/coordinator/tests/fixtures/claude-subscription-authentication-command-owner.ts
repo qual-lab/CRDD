@@ -11,7 +11,7 @@
 import readline from "node:readline";
 import fs from "node:fs";
 
-import { acquireRuntimeOwnedLogicalProviderHomeKernelLock } from "../../src/security/candidate-store-kernel-lock.ts";
+import { acquireRuntimeOwnedLogicalProviderHomeKernelLock } from "../../src/host-runtime/candidate-store-kernel-lock.ts";
 import {
   authenticateClaudeSubscription,
   beginClaudeSubscriptionAuthenticationRecovery,
@@ -19,7 +19,7 @@ import {
   createClaudeSubscriptionAuthenticationRecoveryRecord,
   setClaudeSubscriptionAuthenticationRecoveryCommandState,
   settleClaudeSubscriptionAuthenticationRecovery,
-} from "../../src/security/claude-subscription-authentication.ts";
+} from "../../src/provider/claude-subscription-authentication.ts";
 
 const [stableLogicalHomeBindingHash, providerHome, token] =
   process.argv.slice(2);

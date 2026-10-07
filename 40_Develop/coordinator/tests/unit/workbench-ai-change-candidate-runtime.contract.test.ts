@@ -20,7 +20,7 @@ import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,
 } from "../../../version-control/src/repository-location.ts";
-import { createIsolatedWorkbenchAiChangeCandidateExecutorForDevelopment } from "../../src/security/workbench-ai-change-candidate-runtime.ts";
+import { createIsolatedWorkbenchAiChangeCandidateExecutorForDevelopment } from "../../src/workbench-ai/workbench-ai-change-candidate-runtime.ts";
 
 const candidateId = `candidate.${"6".repeat(64)}.${"7".repeat(64)}`;
 const profileStore = Object.freeze({

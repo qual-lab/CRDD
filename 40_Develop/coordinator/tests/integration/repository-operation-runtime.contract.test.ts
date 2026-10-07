@@ -25,7 +25,7 @@ import {
   createOwnedOperationContextCapability,
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
-} from "../../src/security/execution-environment.ts";
+} from "../../src/host-runtime/execution-environment.ts";
 import {
   bindRuntimeOwnedRepositoryOperation,
   borrowRuntimeOwnedCoordinatorStateRepository,
@@ -33,7 +33,7 @@ import {
   inspectRepositoryObjectFormatCandidate,
   verifyRuntimeOwnedRepositoryBindingCapability,
   verifyRuntimeOwnedRepositoryOperation,
-} from "../../src/security/repository-operation-runtime.ts";
+} from "../../src/repository-operation/repository-operation-runtime.ts";
 
 const firstRevision = "1".repeat(40);
 const secondRevision = "2".repeat(40);

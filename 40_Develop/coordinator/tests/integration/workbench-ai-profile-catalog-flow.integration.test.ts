@@ -19,10 +19,10 @@ import {
   createRepositoryAiProfileCatalogStore,
 } from "../../../ai-runtime/src/index.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/repository-location.ts";
-import { createRepositoryWorkbenchAiRequestApplication } from "../../src/composition/workbench-ai-repository-composition.ts";
-import { createWorkbenchAiAdviceDispatchRuntime } from "../../src/security/workbench-ai-advice-dispatch-runtime.ts";
-import type { WorkbenchAiAdviceExecutionPlan } from "../../src/security/workbench-ai-advice-execution-plan.ts";
-import { createWorkbenchAiProviderAdapter } from "../../src/security/workbench-ai-provider-adapter.ts";
+import { createRepositoryWorkbenchAiRequestApplication } from "../../src/workbench-ai/workbench-ai-repository-composition.ts";
+import { createWorkbenchAiAdviceDispatchRuntime } from "../../src/workbench-ai/workbench-ai-advice-dispatch-runtime.ts";
+import type { WorkbenchAiAdviceExecutionPlan } from "../../src/workbench-ai/workbench-ai-advice-execution-plan.ts";
+import { createWorkbenchAiProviderAdapter } from "../../src/workbench-ai/workbench-ai-provider-adapter.ts";
 
 const canonicalRepositoryRoot = path.resolve(
   import.meta.dirname,

@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
 
 import { runSignedGeneralTaskVerification } from "../../scripts/verify-signed-general-task.ts";
-import { isRuntimeProcessPoisoned } from "../../src/core/runtime-process-safety-state.ts";
-import { requestRuntimeOwnedExternalSendGrant } from "../../src/security/external-send-grant-runtime.ts";
-import { startRuntimeOwnedCoordinatorTask } from "../../src/security/coordinator-task-runtime.ts";
-import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../../src/security/platform-provisioner-package-filesystem.ts";
+import { isRuntimeProcessPoisoned } from "../../src/host-runtime/runtime-process-safety-state.ts";
+import { requestRuntimeOwnedExternalSendGrant } from "../../src/external-send/external-send-grant-runtime.ts";
+import { startRuntimeOwnedCoordinatorTask } from "../../src/task/coordinator-task-runtime.ts";
+import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../../src/platform-access/platform-provisioner-package-filesystem.ts";
 
 const scenario = process.argv[2] ?? "completed_true";
 const TARGET_PATH =

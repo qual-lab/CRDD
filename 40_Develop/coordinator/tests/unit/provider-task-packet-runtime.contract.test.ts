@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
 import { createSignedGeneralTaskVerificationRequest } from "../../scripts/verify-signed-general-task.ts";
-import { planClaudeIsolatedTask } from "../../src/security/claude-execution-plan.ts";
+import { planClaudeIsolatedTask } from "../../src/provider/claude-execution-plan.ts";
 
 import {
   cleanupOwnedOperationDirectories,
@@ -20,13 +20,13 @@ import {
   createOwnedOperationContextCapability,
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
-} from "../../src/security/execution-environment.ts";
+} from "../../src/host-runtime/execution-environment.ts";
 import {
   createIsolatedProviderTaskPacketRuntimeCandidate,
   describeProviderTaskPacketRuntimeContract,
-} from "../../src/security/provider-task-packet-runtime.ts";
-import { compileExternalSendScopeHash } from "../../src/security/external-send-grant-runtime.ts";
-import { normalizeProviderTaskStructuredResult } from "../../src/security/provider-task-structured-result.ts";
+} from "../../src/provider/provider-task-packet-runtime.ts";
+import { compileExternalSendScopeHash } from "../../src/external-send/external-send-grant-runtime.ts";
+import { normalizeProviderTaskStructuredResult } from "../../src/provider/provider-task-structured-result.ts";
 
 /**
  * operationのTest準備責務を実行する。

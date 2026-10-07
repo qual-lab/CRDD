@@ -15,15 +15,15 @@ import {
   DEFAULT_AI_PROFILE_CATALOG,
   resolveAiProfileById,
 } from "../../../ai-runtime/src/catalog.ts";
-import { prepareWorkbenchAiAdviceExecutionPlan } from "../../src/security/workbench-ai-advice-execution-plan.ts";
+import { prepareWorkbenchAiAdviceExecutionPlan } from "../../src/workbench-ai/workbench-ai-advice-execution-plan.ts";
 import {
   createIsolatedWorkbenchAiAdviceRuntimeCandidate,
   createIsolatedWorkbenchAiOperationCandidate,
   classifyWorkbenchAiAdviceHostFailure,
   type WorkbenchAiAdviceRuntimeDependencies,
-} from "../../src/security/workbench-ai-advice-production-runtime.ts";
-import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../src/security/delegation-selection-grant-runtime.ts";
-import { createIsolatedCoordinatorOperationCreationCandidate } from "../../src/security/coordinator-operation-creation-internal.ts";
+} from "../../src/workbench-ai/workbench-ai-advice-production-runtime.ts";
+import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../src/provider/delegation-selection-grant-runtime.ts";
+import { createIsolatedCoordinatorOperationCreationCandidate } from "../../src/repository-operation/coordinator-operation-creation-internal.ts";
 
 const profile = resolveAiProfileById(
   DEFAULT_AI_PROFILE_CATALOG,

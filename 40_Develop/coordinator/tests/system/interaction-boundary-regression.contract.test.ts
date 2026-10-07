@@ -31,18 +31,18 @@ import {
   writeInteractiveConsoleTextUsingAdapter,
   writeWindowsTerminalTextOutcomeUsingStream,
   writeWindowsTerminalTextUsingStream,
-} from "../../src/core/interactive-console.ts";
+} from "../../src/cli/interactive-console.ts";
 import {
   INTERACTIVE_CONSOLE_READER_CONTRACT,
   INTERACTIVE_CONSOLE_READER_CONTRACT_REVISION,
   parseInteractiveConsoleLine,
   readOwnedInteractiveConsoleLineOutcomeUsingAdapter,
-} from "../../src/core/interactive-console-reader.ts";
+} from "../../src/cli/interactive-console-reader.ts";
 import {
   describeCoordinatorNodeRuntimeVersionContract,
   MINIMUM_COORDINATOR_NODE_VERSION,
-} from "../../src/core/node-runtime-version.ts";
-import { isRuntimeProcessPoisoned } from "../../src/core/runtime-process-safety-state.ts";
+} from "../../src/host-runtime/node-runtime-version.ts";
+import { isRuntimeProcessPoisoned } from "../../src/host-runtime/runtime-process-safety-state.ts";
 import {
   createInteractiveConsoleReaderEnvironment,
   createWindowsDockerCliEnvironment,
@@ -55,8 +55,8 @@ import {
   describeWindowsChildEnvironmentContract,
   WINDOWS_CHILD_ENVIRONMENT_CONTRACT,
   WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
-} from "../../src/core/windows-child-environment.ts";
-import { acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome } from "../../src/security/candidate-store-kernel-lock.ts";
+} from "../../src/host-runtime/windows-child-environment.ts";
+import { acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome } from "../../src/host-runtime/candidate-store-kernel-lock.ts";
 import { readInteractiveConsoleLineOutcomeUsingAdapter } from "../support/interactive-console-child-harness.ts";
 
 const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
@@ -199,15 +199,15 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
   }
 
   const parentConsoleSource = fs.readFileSync(
-    path.join(coordinatorRoot, "src", "core", "interactive-console.ts"),
+    path.join(coordinatorRoot, "src", "cli", "interactive-console.ts"),
     "utf8",
   );
   const readerSource = fs.readFileSync(
-    path.join(coordinatorRoot, "src", "core", "interactive-console-reader.ts"),
+    path.join(coordinatorRoot, "src", "cli", "interactive-console-reader.ts"),
     "utf8",
   );
   const cliSource = fs.readFileSync(
-    path.join(coordinatorRoot, "src", "core", "coordinator-command.ts"),
+    path.join(coordinatorRoot, "src", "cli", "coordinator-command.ts"),
     "utf8",
   );
   assert.equal(parentConsoleSource.includes("process.stdin"), false);
@@ -1113,7 +1113,7 @@ test("固定Console readerは厳密な一行protocolと非TTY拒否へ閉じる"
   const readerEntrypoint = path.join(
     coordinatorRoot,
     "src",
-    "core",
+    "cli",
     "interactive-console-reader.ts",
   );
   const result = spawnSync(process.execPath, [readerEntrypoint], {
@@ -1363,7 +1363,12 @@ test("中立化した親ProcessからもAuthenticode検査用PowerShellを初期
     path.join(profile, "AppData", "Local", "Temp"),
   );
   const moduleUrl = pathToFileURL(
-    path.join(coordinatorRoot, "src", "core", "windows-child-environment.ts"),
+    path.join(
+      coordinatorRoot,
+      "src",
+      "host-runtime",
+      "windows-child-environment.ts",
+    ),
   ).href;
   const source = [
     'import { spawnSync } from "node:child_process";',
@@ -1720,7 +1725,7 @@ test("Windows実ProcessでTask stdin pipeと固定Console readerを分離する"
   try {
     assert.equal(tty.isatty(outputDescriptor), true);
     const moduleUrl = pathToFileURL(
-      path.join(coordinatorRoot, "src", "core", "interactive-console.ts"),
+      path.join(coordinatorRoot, "src", "cli", "interactive-console.ts"),
     ).href;
     const taskBytes = Buffer.from('{"task":"transport-only"}\n', "utf8");
     const inlineScript = `
@@ -2558,7 +2563,7 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
 
   for (const relative of [
     "scripts/sign-release-manifest.ts",
-    "src/core/doctor.ts",
+    "src/diagnostics/doctor.ts",
   ]) {
     const source = fs.readFileSync(
       path.join(coordinatorRoot, relative),
@@ -2579,32 +2584,35 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
     )
     .map((file) => path.relative(coordinatorRoot, file).replaceAll("\\", "/"))
     .sort();
-  assert.deepEqual(productionChildProcessOwners, [
-    "src/core/interactive-console-reader-lifecycle-internal.ts",
-    "src/core/interactive-console.ts",
-    "src/core/runtime-local-typescript-child-entrypoints.ts",
-    "src/security/candidate-store-kernel-lock-lifecycle-internal.ts",
-    "src/security/candidate-store-kernel-lock.ts",
-    "src/security/candidate-store-windows-adapter.ts",
-    // Human-only Claude authentication owns one exact interactive Docker child.
-    // Repository input and shell transport remain forbidden by its contract test.
-    "src/security/claude-subscription-authentication.ts",
-    "src/security/docker-cli-trust.ts",
-    "src/security/docker-desktop-repair-native-process-lifecycle.ts",
-    "src/security/docker-desktop-repair-native-process.ts",
-    "src/security/docker-desktop-runtime-repair.ts",
-    "src/security/docker-isolation.ts",
-    "src/security/docker-owned-process.ts",
-    "src/security/docker-recovery-runtime-internal.ts",
-    // queryWsl: fixed OS enumeration only; no WSL termination spawn.
-    // queryDockerEngine/queryContainersAbsent: trusted fixed CLI observations only.
-    // Their argument/provenance closure is owned by the protected-path graph.
-    "src/security/docker-restart-machine.ts",
-    "src/security/host-recovery-namespace-windows-adapter.ts",
-    "src/security/host-terminal-windows-adapter.ts",
-    "src/security/provider-home-windows-adapter.ts",
-    "src/security/windows-directory-bootstrap.ts",
-  ]);
+  assert.deepEqual(
+    productionChildProcessOwners,
+    [
+      "src/cli/interactive-console-reader-lifecycle-internal.ts",
+      "src/cli/interactive-console.ts",
+      "src/host-runtime/runtime-local-typescript-child-entrypoints.ts",
+      "src/host-runtime/candidate-store-kernel-lock-lifecycle-internal.ts",
+      "src/host-runtime/candidate-store-kernel-lock.ts",
+      "src/candidate/candidate-store-windows-adapter.ts",
+      // Human-only Claude authentication owns one exact interactive Docker child.
+      // Repository input and shell transport remain forbidden by its contract test.
+      "src/provider/claude-subscription-authentication.ts",
+      "src/docker-runtime/docker-cli-trust.ts",
+      "src/docker-desktop/docker-desktop-repair-native-process-lifecycle.ts",
+      "src/docker-desktop/docker-desktop-repair-native-process.ts",
+      "src/docker-desktop/docker-desktop-runtime-repair.ts",
+      "src/docker-runtime/docker-isolation.ts",
+      "src/docker-runtime/docker-owned-process.ts",
+      "src/docker-runtime/docker-recovery-runtime-internal.ts",
+      // queryWsl: fixed OS enumeration only; no WSL termination spawn.
+      // queryDockerEngine/queryContainersAbsent: trusted fixed CLI observations only.
+      // Their argument/provenance closure is owned by the protected-path graph.
+      "src/docker-desktop/docker-restart-machine.ts",
+      "src/host-runtime/host-recovery-namespace-windows-adapter.ts",
+      "src/host-runtime/host-terminal-windows-adapter.ts",
+      "src/provider/provider-home-windows-adapter.ts",
+      "src/host-runtime/windows-directory-bootstrap.ts",
+    ].sort(),
+  );
 
   const productionFactorySeams = [
     /\bcreateChild\b/u,
@@ -2681,7 +2689,7 @@ test("非同期の対話・正式Runner entrypointはtop-levelでmain完了を�
 test("保護操作は別名でも裸Runtimeのpackage aliasへ公開しない", () => {
   const protectedEntrypoints = [
     "bin/coordinator.ts",
-    "src/core/coordinator-command.ts",
+    "src/cli/coordinator-command.ts",
     "scripts/generate-release-key.ts",
     "scripts/sign-release-manifest.ts",
     "scripts/verify-signed-general-task.ts",
@@ -2763,7 +2771,7 @@ test("Node版GateはPATHをAuthorityにせずEffect前に停止する", () => {
   });
 
   const guardedEntrypoints = [
-    "src/core/coordinator-command.ts",
+    "src/cli/coordinator-command.ts",
     "scripts/generate-release-key.ts",
     "scripts/sign-release-manifest.ts",
     "scripts/verify-signed-general-task.ts",

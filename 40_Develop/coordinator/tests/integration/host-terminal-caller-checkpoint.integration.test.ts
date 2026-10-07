@@ -36,19 +36,19 @@ import {
   readKnownFileHostTerminalRecoveryCheckpoint,
   saveHostTerminalCallerCheckpoint,
   saveKnownFileHostTerminalCallerCheckpoint,
-} from "../../src/security/host-terminal-caller-checkpoint.ts";
-import { acquireHostTerminalCallerLease } from "../../src/security/host-terminal-caller-lease.ts";
+} from "../../src/host-runtime/host-terminal-caller-checkpoint.ts";
+import { acquireHostTerminalCallerLease } from "../../src/host-runtime/host-terminal-caller-lease.ts";
 import {
   type EncodedKnownFixtureHostTerminalIntent,
   encodeHostTerminalIntent,
   encodeKnownFixtureHostTerminalIntent,
   resolveHostTerminalLegacyGeneration,
-} from "../../src/security/host-terminal-record.ts";
+} from "../../src/host-runtime/host-terminal-record.ts";
 import {
   createHostTerminalReadRequest,
   createHostTerminalSaveRequest,
-} from "../../src/security/host-terminal-windows-adapter.ts";
-import { snapshotPlainRecord } from "../../src/security/plain-data-snapshot.ts";
+} from "../../src/host-runtime/host-terminal-windows-adapter.ts";
+import { snapshotPlainRecord } from "../../src/plain-data-snapshot.ts";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 
@@ -68,7 +68,7 @@ const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 test("Host Windows: caller接続は前後のreader終了未確認理由を保持する", async (context) => {
   const source = fs.readFileSync(
     new URL(
-      "../../src/security/host-terminal-caller-checkpoint.ts",
+      "../../src/host-runtime/host-terminal-caller-checkpoint.ts",
       import.meta.url,
     ),
     "utf8",
@@ -591,7 +591,7 @@ test("Host Windows: 既知file callerは十二実体を保持し旧形式と混�
   const bytes = fs.readFileSync(canonical);
   const source = fs.readFileSync(
     new URL(
-      "../../src/security/host-terminal-caller-checkpoint.ts",
+      "../../src/host-runtime/host-terminal-caller-checkpoint.ts",
       import.meta.url,
     ),
     "utf8",
@@ -1112,7 +1112,7 @@ test("Host Windows: caller checkpointは同参照と独立bytesを保持する",
   const readerUrl = pathToFileURL(
     path.resolve(
       import.meta.dirname,
-      "../../src/security/host-terminal-caller-checkpoint.ts",
+      "../../src/host-runtime/host-terminal-caller-checkpoint.ts",
     ),
   ).href;
   const rootUrl = pathToFileURL(
@@ -1321,7 +1321,7 @@ test("Host Windows: caller mutation leaseは競合を拒否しProcess喪失で�
   const leaseUrl = pathToFileURL(
     path.resolve(
       import.meta.dirname,
-      "../../src/security/host-terminal-caller-lease.ts",
+      "../../src/host-runtime/host-terminal-caller-lease.ts",
     ),
   ).href;
   const rootUrl = pathToFileURL(

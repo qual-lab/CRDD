@@ -17,7 +17,7 @@ import {
   describeProviderAuthorityRuntimeContract,
   issueRuntimeOwnedProviderAuthority,
   revokeRuntimeOwnedProviderAuthority,
-} from "../../src/security/provider-authority-runtime.ts";
+} from "../../src/provider/provider-authority-runtime.ts";
 
 /**
  * createFixtureのTest準備責務を実行する。

@@ -15,7 +15,7 @@ import {
   isDockerRestartEngineReady,
   observeDockerRestartEnginePipe,
   observeDockerRestartEngineResult,
-} from "../../src/security/docker-restart-machine.ts";
+} from "../../src/docker-desktop/docker-restart-machine.ts";
 
 /**
  * fixtureのTest準備責務を実行する。

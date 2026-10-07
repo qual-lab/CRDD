@@ -11,14 +11,14 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import type { WorkbenchAiAdviceProviderCommand } from "../../src/security/workbench-ai-advice-provider-command.ts";
-import { planWorkbenchAiAdviceProviderCommand } from "../../src/security/workbench-ai-advice-provider-command.ts";
+import type { WorkbenchAiAdviceProviderCommand } from "../../src/workbench-ai/workbench-ai-advice-provider-command.ts";
+import { planWorkbenchAiAdviceProviderCommand } from "../../src/workbench-ai/workbench-ai-advice-provider-command.ts";
 import {
   consumeRuntimeOwnedWorkbenchAiAdvicePacket,
   describeWorkbenchAiAdviceRuntimePacketContract,
   issueRuntimeOwnedWorkbenchAiAdvicePacket,
   revokeRuntimeOwnedWorkbenchAiAdvicePacket,
-} from "../../src/security/workbench-ai-advice-runtime-packet.ts";
+} from "../../src/workbench-ai/workbench-ai-advice-runtime-packet.ts";
 
 const sha = "a".repeat(64);
 

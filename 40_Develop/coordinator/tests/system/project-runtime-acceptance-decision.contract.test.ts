@@ -30,13 +30,13 @@ import {
 import {
   executeProjectRuntimePublicAcceptanceDecision,
   executeProjectRuntimePublicStateQuery,
-} from "../../src/composition/project-runtime-composition-root.ts";
+} from "../../src/project-runtime/project-runtime-composition-root.ts";
 import {
   createCurrentProjectRuntimePersistencePorts,
   initializeProjectRuntimeSnapshot,
-} from "../../src/security/project-runtime-durable-foundation.ts";
-import { createProjectRuntimeAcceptanceDecisionStore } from "../../src/security/project-runtime-acceptance-decision-store.ts";
-import { createProjectRuntimeWindowsDecisionStoreTestingAdapter } from "../../src/security/project-runtime-windows-decision-store.ts";
+} from "../../src/project-runtime/project-runtime-durable-foundation.ts";
+import { createProjectRuntimeAcceptanceDecisionStore } from "../../src/project-runtime/project-runtime-acceptance-decision-store.ts";
+import { createProjectRuntimeWindowsDecisionStoreTestingAdapter } from "../../src/project-runtime/project-runtime-windows-decision-store.ts";
 
 /**
  * Git管理された固定Repositoryを構築する。

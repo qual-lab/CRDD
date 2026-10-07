@@ -8,7 +8,7 @@ import {
   readInteractiveConsoleLineOutcome,
   withInteractiveConsoleAsyncOutcome,
   writeInteractiveConsoleTextOutcome,
-} from "../../src/core/interactive-console.ts";
+} from "../../src/cli/interactive-console.ts";
 
 const PROBE_VALUE = "123456";
 const INPUT_TIMEOUT_MS = 60_000;

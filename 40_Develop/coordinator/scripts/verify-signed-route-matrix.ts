@@ -11,21 +11,21 @@ import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../version
 import {
   isRuntimeProcessPoisoned,
   poisonRuntimeProcessAfterCleanupUnknown,
-} from "../src/core/runtime-process-safety-state.ts";
+} from "../src/host-runtime/runtime-process-safety-state.ts";
 import {
   displayVerificationRecording,
   runRecordedVerification,
-} from "../src/core/verification-result-record.ts";
-import { SIGNED_ROUTE_MATRIX_REASONS } from "../src/core/verification-result-reasons.ts";
-import { snapshotPlainArray } from "../src/security/plain-data-snapshot.ts";
+} from "./verification-result-record.ts";
+import { SIGNED_ROUTE_MATRIX_REASONS } from "./verification-result-reasons.ts";
+import { snapshotPlainArray } from "../src/plain-data-snapshot.ts";
 import {
   isCanonicalCrddVersion,
   isSupportedCrddRuntimeGitObjectId,
-} from "../src/security/release-identity-grammar.ts";
+} from "../src/diagnostics/release-identity-grammar.ts";
 import {
   evaluateSignedRunnerSafetyObservation,
   salvageSignedRunnerRecoveryPair,
-} from "../src/security/signed-runner-safety-observation.ts";
+} from "../src/diagnostics/signed-runner-safety-observation.ts";
 import {
   runSignedGeneralTaskVerification,
   SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT,

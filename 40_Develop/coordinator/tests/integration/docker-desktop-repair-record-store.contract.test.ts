@@ -30,8 +30,8 @@ import {
   persistDockerDesktopRepairHistoricalAdoption,
   persistDockerDesktopRepairHistoricalClosure,
   persistDockerDesktopRepairStage,
-} from "../../src/security/docker-desktop-repair-record-store.ts";
-import { inspectDockerRecoveryRootSnapshotWithLock } from "../../src/security/docker-recovery-runtime-internal.ts";
+} from "../../src/docker-desktop/docker-desktop-repair-record-store.ts";
+import { inspectDockerRecoveryRootSnapshotWithLock } from "../../src/docker-runtime/docker-recovery-runtime-internal.ts";
 
 /**
  * fixtureのTest準備責務を実行する。

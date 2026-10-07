@@ -11,7 +11,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { OwnedOperationManagementBinding } from "../../src/security/execution-environment.ts";
+import type { OwnedOperationManagementBinding } from "../../src/host-runtime/execution-environment.ts";
 import {
   consumeRuntimeOwnedProviderHomeMountGrant,
   createIsolatedProviderHomeMountGrantRuntimeCandidate,
@@ -22,8 +22,8 @@ import {
   PROVIDER_HOME_MOUNT_GRANT_RUNTIME_CONTRACT,
   PROVIDER_HOME_MOUNT_GRANT_RUNTIME_CONTRACT_REVISION,
   revokeRuntimeOwnedProviderHomeMountGrant,
-} from "../../src/security/provider-home-mount-grant-runtime.ts";
-import { PROVIDER_HOME_MOUNT_GRANT_MAXIMUM_LIFETIME_MS } from "../../src/security/provider-home-mount-grant.ts";
+} from "../../src/provider/provider-home-mount-grant-runtime.ts";
+import { PROVIDER_HOME_MOUNT_GRANT_MAXIMUM_LIFETIME_MS } from "../../src/provider/provider-home-mount-grant.ts";
 
 const identityHash = "1".repeat(64);
 const protectionHash = "2".repeat(64);

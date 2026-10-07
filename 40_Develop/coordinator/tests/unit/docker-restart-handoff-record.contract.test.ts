@@ -14,12 +14,12 @@ import {
   createDockerRestartHandoffRecord,
   parseDockerRestartHandoffRecord,
   validateDockerRestartHandoffChain,
-} from "../../src/security/docker-restart-handoff-record.ts";
+} from "../../src/docker-desktop/docker-restart-handoff-record.ts";
 import {
   createDockerRestartRecord,
   type DockerRestartBinding,
   dockerRestartPhases,
-} from "../../src/security/docker-restart-record.ts";
+} from "../../src/docker-desktop/docker-restart-record.ts";
 
 /**
  * hのTest準備責務を実行する。

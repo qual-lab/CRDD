@@ -31,7 +31,7 @@ import {
   resumeDockerRecoveryJournalDirectory,
   writeCommittedDockerRecoveryJson,
   writeOrResumeCommittedDockerRecoveryJson,
-} from "../../src/security/docker-recovery-journal.ts";
+} from "../../src/state-storage/docker-recovery-journal.ts";
 
 const scopedRuntimeStateBinding = Object.freeze({
   runtimeStateIdentityHash: "1".repeat(64),
@@ -73,7 +73,7 @@ function crashWriter(
   boundary: "fsync" | "rename-1" | "rename-2",
 ) {
   const moduleUrl = pathToFileURL(
-    path.resolve("src/security/docker-recovery-journal.ts"),
+    path.resolve("src/state-storage/docker-recovery-journal.ts"),
   ).href;
   const source = `
     import fs from "node:fs";
@@ -142,7 +142,7 @@ function crashMutation(
     | "rmdir",
 ) {
   const moduleUrl = pathToFileURL(
-    path.resolve("src/security/docker-recovery-journal.ts"),
+    path.resolve("src/state-storage/docker-recovery-journal.ts"),
   ).href;
   const source = `
     import fs from "node:fs";
@@ -246,7 +246,7 @@ function crashMutation(
  */
 function deletionObservationFailure(directory: string) {
   const moduleUrl = pathToFileURL(
-    path.resolve("src/security/docker-recovery-journal.ts"),
+    path.resolve("src/state-storage/docker-recovery-journal.ts"),
   ).href;
   const source = `
     import fs from "node:fs";
@@ -316,7 +316,7 @@ function deletionObservationFailure(directory: string) {
  */
 function crashScopedCleanup(root: string, discriminator: "a" | "b") {
   const moduleUrl = pathToFileURL(
-    path.resolve("src/security/docker-recovery-journal.ts"),
+    path.resolve("src/state-storage/docker-recovery-journal.ts"),
   ).href;
   const source = `
     import fs from "node:fs";
@@ -370,7 +370,7 @@ function crashRecoveryIdentityIntent(
   discriminator: "1" | "a" | "b" = "1",
 ) {
   const moduleUrl = pathToFileURL(
-    path.resolve("src/security/docker-recovery-journal.ts"),
+    path.resolve("src/state-storage/docker-recovery-journal.ts"),
   ).href;
   const stable = discriminator.repeat(64);
   const nonce = (discriminator === "1" ? "2" : discriminator).repeat(64);

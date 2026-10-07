@@ -17,7 +17,7 @@ import {
   confirmInteractiveConsoleChallengeUsingAdapter,
   createIsolatedExternalSendGrantRuntimeCandidate,
   describeExternalSendGrantRuntimeContract,
-} from "../../src/security/external-send-grant-runtime.ts";
+} from "../../src/external-send/external-send-grant-runtime.ts";
 
 const SCOPE = Object.freeze({
   objective: "Update only the bounded fixture.",

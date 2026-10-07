@@ -11,8 +11,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createProjectRuntimeExecutionHostPorts } from "../../src/security/project-runtime-execution-host-adapter.ts";
-import { createProjectRuntimeTaskRecoveryAdapter } from "../../src/security/project-runtime-task-recovery-adapter.ts";
+import { createProjectRuntimeExecutionHostPorts } from "../../src/project-runtime/project-runtime-execution-host-adapter.ts";
+import { createProjectRuntimeTaskRecoveryAdapter } from "../../src/project-runtime/project-runtime-task-recovery-adapter.ts";
 
 /**
  * Host Adapterは時刻と安定IdentityをProject Runtime Portへ閉じるを検証する。

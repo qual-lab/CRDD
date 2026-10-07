@@ -17,7 +17,7 @@ import { fileURLToPath } from "node:url";
 import {
   COORDINATOR_LAUNCH_ENTRIES,
   resolveCoordinatorLaunch,
-} from "../../src/core/coordinator-launch.ts";
+} from "../../src/cli/coordinator-launch.ts";
 
 const packageRoot = fileURLToPath(new URL("../../", import.meta.url));
 const repositoryRoot = path.resolve(packageRoot, "../..");
@@ -43,9 +43,9 @@ const terminal = {
  */
 test("共通Launcherの実行入口を一つの正本から解決する", () => {
   assert.deepEqual(COORDINATOR_LAUNCH_ENTRIES, {
-    task: "../src/core/coordinator-command.ts",
-    interactive: "../src/core/coordinator-command.ts",
-    automation: "../src/core/coordinator-command.ts",
+    task: "../src/cli/coordinator-command.ts",
+    interactive: "../src/cli/coordinator-command.ts",
+    automation: "../src/cli/coordinator-command.ts",
     "verify-routes": "../scripts/verify-signed-route-matrix.ts",
     "verify-recovery": "../scripts/verify-signed-recovery-matrix.ts",
     "sign-release": "../scripts/sign-release-manifest.ts",
@@ -347,14 +347,14 @@ test("実子で同一PID・引数・stdin byte・cwd・終了コードを保持�
   try {
     for (const relative of [
       "bin/coordinator.ts",
-      "src/core/coordinator-launch.ts",
-      "src/core/node-runtime-version.ts",
+      "src/cli/coordinator-launch.ts",
+      "src/host-runtime/node-runtime-version.ts",
     ]) {
       const target = path.join(root, relative);
       fs.mkdirSync(path.dirname(target), { recursive: true });
       fs.copyFileSync(path.join(packageRoot, relative), target);
     }
-    const entry = path.join(root, "src/core/coordinator-command.ts");
+    const entry = path.join(root, "src/cli/coordinator-command.ts");
     fs.writeFileSync(
       entry,
       `import { fileURLToPath } from 'node:url';

@@ -11,7 +11,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { DYNAMIC_FAKE_PROVIDER_FAILURE_SCENARIOS } from "../../src/security/docker-isolation.ts";
+import { DYNAMIC_FAKE_PROVIDER_FAILURE_SCENARIOS } from "../../src/docker-runtime/docker-isolation.ts";
 import { verifyDynamicFakeProviderFailures } from "../../scripts/verify-dynamic-fake-provider-failures.ts";
 
 /**

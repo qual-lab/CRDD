@@ -16,9 +16,9 @@ import path from "node:path";
 import test from "node:test";
 import { pathToFileURL } from "node:url";
 import { withUnsignedRuntimeFixture } from "../support/unsigned-runtime-fixture.ts";
-import { dispatchDockerDesktopRepairDoctorCommand } from "../../src/core/docker-desktop-repair-doctor-dispatch.ts";
-import { renderDockerRecoveryDoctorReport } from "../../src/core/docker-recovery-command-report.ts";
-import { inspectDockerRecoveryRootSnapshotWithLock } from "../../src/security/docker-recovery-runtime-internal.ts";
+import { dispatchDockerDesktopRepairDoctorCommand } from "../../src/diagnostics/docker-desktop-repair-doctor-dispatch.ts";
+import { renderDockerRecoveryDoctorReport } from "../../src/diagnostics/docker-recovery-command-report.ts";
+import { inspectDockerRecoveryRootSnapshotWithLock } from "../../src/docker-runtime/docker-recovery-runtime-internal.ts";
 
 const recoveryId = `docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".repeat(64)}`;
 const hostRecoveryId = `host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc.${"a".repeat(64)}`;
@@ -71,7 +71,7 @@ function addCleanupRecovery(root: string, discriminator: string) {
     `cleanup-docker-task-${discriminator.repeat(64)}-${discriminator.repeat(64)}-${discriminator.repeat(64)}`,
   );
   const journalUrl = pathToFileURL(
-    path.resolve("src/security/docker-recovery-journal.ts"),
+    path.resolve("src/state-storage/docker-recovery-journal.ts"),
   ).href;
   const source = `
     import fs from "node:fs";

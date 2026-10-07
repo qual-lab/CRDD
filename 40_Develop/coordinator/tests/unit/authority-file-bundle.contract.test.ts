@@ -18,20 +18,20 @@ import {
   AUTHORITY_FILE_BUNDLE_INPUT_LIMITS,
   describeAuthorityFileBundleContract,
   loadAuthorityFileBundleCandidate,
-} from "../../src/security/authority-file-bundle.ts";
+} from "../../src/authority/authority-file-bundle.ts";
 import {
   AUTHORITY_REGISTRY_CONTRACT,
   validateAuthorityRegistryCandidate,
-} from "../../src/security/authority-grant-verifier.ts";
+} from "../../src/authority/authority-grant-verifier.ts";
 import {
   AUTHORITY_TRUST_POLICY_CONTRACT,
   AUTHORITY_TRUST_POLICY_INPUT_LIMITS,
   decodeCanonicalAuthorityTrustPolicyBytes,
-} from "../../src/security/authority-trust-loader.ts";
+} from "../../src/authority/authority-trust-loader.ts";
 import {
   PROVIDER_ISOLATION_CONTRACT,
   validateProviderIsolationProfile,
-} from "../../src/security/provider-isolation-profile.ts";
+} from "../../src/provider/provider-isolation-profile.ts";
 import { canonicalJson } from "../support/test-support.ts";
 
 /**

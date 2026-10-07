@@ -1,5 +1,5 @@
-import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "../../src/security/candidate-store-kernel-lock.ts";
-import { createDockerRecoveryRuntimeStateLockController } from "../../src/security/docker-recovery-lock-controller.ts";
+import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "../../src/host-runtime/candidate-store-kernel-lock.ts";
+import { createDockerRecoveryRuntimeStateLockController } from "../../src/docker-runtime/docker-recovery-lock-controller.ts";
 
 const mode = process.argv[2];
 const binding = process.argv[3];

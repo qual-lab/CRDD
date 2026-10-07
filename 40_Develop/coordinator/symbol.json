@@ -6,7 +6,7 @@
     {
       "symbolId": "coordinator.source.src.security.host.recovery.namespace.windows.adapter",
       "kind": "file",
-      "path": "src/security/host-recovery-namespace-windows-adapter.ts",
+      "path": "src/host-runtime/host-recovery-namespace-windows-adapter.ts",
       "archIds": [
         "ARCH-000008",
         "ARCH-000011"
@@ -30,7 +30,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.container.init.observation",
       "kind": "file",
-      "path": "src/security/docker-container-init-observation.ts",
+      "path": "src/docker-runtime/docker-container-init-observation.ts",
       "archIds": [
         "ARCH-000008"
       ],
@@ -57,7 +57,7 @@
     {
       "symbolId": "coordinator.task-runtime",
       "kind": "file",
-      "path": "src/security/coordinator-task-runtime.ts",
+      "path": "src/task/coordinator-task-runtime.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008",
@@ -74,7 +74,7 @@
     {
       "symbolId": "coordinator.provider-authority-runtime",
       "kind": "file",
-      "path": "src/security/provider-authority-runtime.ts",
+      "path": "src/provider/provider-authority-runtime.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000015"
@@ -86,7 +86,7 @@
     {
       "symbolId": "coordinator.provider-model-selection-runtime",
       "kind": "file",
-      "path": "src/security/provider-model-selection-runtime.ts",
+      "path": "src/provider/provider-model-selection-runtime.ts",
       "archIds": [
         "ARCH-000010"
       ],
@@ -97,7 +97,7 @@
     {
       "symbolId": "coordinator.native-runtime-trace",
       "kind": "file",
-      "path": "src/security/native-runtime-trace.ts",
+      "path": "src/diagnostics/native-runtime-trace.ts",
       "archIds": [
         "ARCH-000008"
       ],
@@ -108,7 +108,7 @@
     {
       "symbolId": "coordinator.provider-home-observation",
       "kind": "file",
-      "path": "src/security/provider-home-observation.ts",
+      "path": "src/provider/provider-home-observation.ts",
       "archIds": [
         "ARCH-000010",
         "ARCH-000015"
@@ -117,7 +117,7 @@
     {
       "symbolId": "coordinator.docker-desktop-runtime-repair",
       "kind": "file",
-      "path": "src/security/docker-desktop-runtime-repair.ts",
+      "path": "src/docker-desktop/docker-desktop-runtime-repair.ts",
       "archIds": [
         "ARCH-000008",
         "ARCH-000015"
@@ -2724,7 +2724,7 @@
     {
       "symbolId": "coordinator.source.src.security.bounded.file.snapshot",
       "kind": "file",
-      "path": "src/security/bounded-file-snapshot.ts",
+      "path": "src/state-storage/bounded-file-snapshot.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -2732,7 +2732,7 @@
     {
       "symbolId": "coordinator.source.src.security.candidate.bundle.store",
       "kind": "file",
-      "path": "src/security/candidate-bundle-store.ts",
+      "path": "src/candidate/candidate-bundle-store.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -2740,7 +2740,7 @@
     {
       "symbolId": "coordinator.source.src.security.candidate.store.kernel.lock",
       "kind": "file",
-      "path": "src/security/candidate-store-kernel-lock.ts",
+      "path": "src/host-runtime/candidate-store-kernel-lock.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -2748,7 +2748,7 @@
     {
       "symbolId": "coordinator.source.src.security.claude.execution.plan",
       "kind": "file",
-      "path": "src/security/claude-execution-plan.ts",
+      "path": "src/provider/claude-execution-plan.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -2756,7 +2756,7 @@
     {
       "symbolId": "coordinator.source.src.security.claude.subscription.authentication",
       "kind": "file",
-      "path": "src/security/claude-subscription-authentication.ts",
+      "path": "src/provider/claude-subscription-authentication.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008",
@@ -2772,7 +2772,7 @@
     {
       "symbolId": "coordinator.source.src.core.cli.options",
       "kind": "file",
-      "path": "src/core/cli-options.ts",
+      "path": "src/cli/cli-options.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -2780,7 +2780,7 @@
     {
       "symbolId": "coordinator.source.src.core.docker.recovery.command.report",
       "kind": "file",
-      "path": "src/core/docker-recovery-command-report.ts",
+      "path": "src/diagnostics/docker-recovery-command-report.ts",
       "archIds": [
         "ARCH-000003"
       ]
@@ -2788,7 +2788,7 @@
     {
       "symbolId": "coordinator.source.src.security.codex.execution.plan",
       "kind": "file",
-      "path": "src/security/codex-execution-plan.ts",
+      "path": "src/provider/codex-execution-plan.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -2796,7 +2796,7 @@
     {
       "symbolId": "coordinator.source.src.security.codex.executor.seccomp",
       "kind": "file",
-      "path": "src/security/codex-executor-seccomp.ts",
+      "path": "src/provider/codex-executor-seccomp.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -2804,7 +2804,7 @@
     {
       "symbolId": "coordinator.source.src.security.claude.docker.runtime.adapter",
       "kind": "file",
-      "path": "src/security/claude-docker-runtime-adapter.ts",
+      "path": "src/provider/claude-docker-runtime-adapter.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -2812,7 +2812,7 @@
     {
       "symbolId": "coordinator.source.src.security.delegation.selection.grant.runtime",
       "kind": "file",
-      "path": "src/security/delegation-selection-grant-runtime.ts",
+      "path": "src/provider/delegation-selection-grant-runtime.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -2820,7 +2820,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.process.controller",
       "kind": "file",
-      "path": "src/security/docker-process-controller.ts",
+      "path": "src/docker-runtime/docker-process-controller.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -2828,7 +2828,7 @@
     {
       "symbolId": "coordinator.source.src.core.command.report",
       "kind": "file",
-      "path": "src/core/command-report.ts",
+      "path": "src/cli/command-report.ts",
       "archIds": [
         "ARCH-000003"
       ]
@@ -2836,7 +2836,7 @@
     {
       "symbolId": "coordinator.source.src.core.task.cli.cancellation",
       "kind": "file",
-      "path": "src/core/task-cli-cancellation.ts",
+      "path": "src/cli/task-cli-cancellation.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -2844,7 +2844,7 @@
     {
       "symbolId": "coordinator.source.src.security.execution.environment",
       "kind": "file",
-      "path": "src/security/execution-environment.ts",
+      "path": "src/host-runtime/execution-environment.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -2852,7 +2852,7 @@
     {
       "symbolId": "coordinator.source.src.core.development.execution.timing",
       "kind": "file",
-      "path": "src/core/development-execution-timing.ts",
+      "path": "src/diagnostics/development-execution-timing.ts",
       "archIds": [
         "ARCH-000018"
       ]
@@ -2860,7 +2860,7 @@
     {
       "symbolId": "coordinator.source.src.core.runtime.process.safety.state",
       "kind": "file",
-      "path": "src/core/runtime-process-safety-state.ts",
+      "path": "src/host-runtime/runtime-process-safety-state.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -2868,7 +2868,7 @@
     {
       "symbolId": "coordinator.source.src.security.delegation.route.selection",
       "kind": "file",
-      "path": "src/security/delegation-route-selection.ts",
+      "path": "src/provider/delegation-route-selection.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -2876,7 +2876,7 @@
     {
       "symbolId": "coordinator.source.src.security.repository.operation.runtime",
       "kind": "file",
-      "path": "src/security/repository-operation-runtime.ts",
+      "path": "src/repository-operation/repository-operation-runtime.ts",
       "archIds": [
         "ARCH-000009"
       ]
@@ -2884,7 +2884,7 @@
     {
       "symbolId": "coordinator.source.src.security.development.measurement.session",
       "kind": "file",
-      "path": "src/security/development-measurement-session.ts",
+      "path": "src/task/development-measurement-session.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -2892,7 +2892,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.home.windows.adapter",
       "kind": "file",
-      "path": "src/security/provider-home-windows-adapter.ts",
+      "path": "src/provider/provider-home-windows-adapter.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -2900,7 +2900,7 @@
     {
       "symbolId": "coordinator.source.src.security.candidate.store.windows.adapter",
       "kind": "file",
-      "path": "src/security/candidate-store-windows-adapter.ts",
+      "path": "src/candidate/candidate-store-windows-adapter.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -2908,7 +2908,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.desktop.repair.history.publication",
       "kind": "file",
-      "path": "src/security/docker-desktop-repair-history-publication.ts",
+      "path": "src/docker-desktop/docker-desktop-repair-history-publication.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -2916,7 +2916,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.desktop.current.artifact.trust",
       "kind": "file",
-      "path": "src/security/docker-desktop-current-artifact-trust.ts",
+      "path": "src/docker-desktop/docker-desktop-current-artifact-trust.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -2924,7 +2924,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.desktop.repair.native.process",
       "kind": "file",
-      "path": "src/security/docker-desktop-repair-native-process.ts",
+      "path": "src/docker-desktop/docker-desktop-repair-native-process.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -2932,7 +2932,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.desktop.repair.native.process.lifecycle",
       "kind": "file",
-      "path": "src/security/docker-desktop-repair-native-process-lifecycle.ts",
+      "path": "src/docker-desktop/docker-desktop-repair-native-process-lifecycle.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -2940,7 +2940,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.desktop.repair.continuation.store",
       "kind": "file",
-      "path": "src/security/docker-desktop-repair-continuation-store.ts",
+      "path": "src/docker-desktop/docker-desktop-repair-continuation-store.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -2948,7 +2948,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.desktop.repair.record.store",
       "kind": "file",
-      "path": "src/security/docker-desktop-repair-record-store.ts",
+      "path": "src/docker-desktop/docker-desktop-repair-record-store.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -2956,7 +2956,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.recovery.runtime.internal",
       "kind": "file",
-      "path": "src/security/docker-recovery-runtime-internal.ts",
+      "path": "src/docker-runtime/docker-recovery-runtime-internal.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -2964,7 +2964,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.owned.process",
       "kind": "file",
-      "path": "src/security/docker-owned-process.ts",
+      "path": "src/docker-runtime/docker-owned-process.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -2972,7 +2972,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.effect.runtime",
       "kind": "file",
-      "path": "src/security/docker-effect-runtime.ts",
+      "path": "src/docker-runtime/docker-effect-runtime.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -2980,7 +2980,7 @@
     {
       "symbolId": "coordinator.source.src.security.development.measurement.constraints",
       "kind": "file",
-      "path": "src/security/development-measurement-constraints.ts",
+      "path": "src/task/development-measurement-constraints.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -2988,7 +2988,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.recovery.journal",
       "kind": "file",
-      "path": "src/security/docker-recovery-journal.ts",
+      "path": "src/state-storage/docker-recovery-journal.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -2996,7 +2996,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.recovery.lock.controller",
       "kind": "file",
-      "path": "src/security/docker-recovery-lock-controller.ts",
+      "path": "src/docker-runtime/docker-recovery-lock-controller.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3004,7 +3004,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.recovery.runtime",
       "kind": "file",
-      "path": "src/security/docker-recovery-runtime.ts",
+      "path": "src/docker-runtime/docker-recovery-runtime.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3012,7 +3012,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.restart.continuation.record",
       "kind": "file",
-      "path": "src/security/docker-restart-continuation-record.ts",
+      "path": "src/docker-desktop/docker-restart-continuation-record.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3020,7 +3020,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.restart.handoff.record",
       "kind": "file",
-      "path": "src/security/docker-restart-handoff-record.ts",
+      "path": "src/docker-desktop/docker-restart-handoff-record.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3028,7 +3028,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.restart.record",
       "kind": "file",
-      "path": "src/security/docker-restart-record.ts",
+      "path": "src/docker-desktop/docker-restart-record.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3036,7 +3036,7 @@
     {
       "symbolId": "coordinator.source.src.security.host.recovery.record",
       "kind": "file",
-      "path": "src/security/host-recovery-record.ts",
+      "path": "src/host-runtime/host-recovery-record.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3044,7 +3044,7 @@
     {
       "symbolId": "coordinator.source.src.security.external.send.consent.runtime",
       "kind": "file",
-      "path": "src/security/external-send-consent-runtime.ts",
+      "path": "src/external-send/external-send-consent-runtime.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -3052,7 +3052,7 @@
     {
       "symbolId": "coordinator.source.src.security.external.send.policy.runtime",
       "kind": "file",
-      "path": "src/security/external-send-policy-runtime.ts",
+      "path": "src/external-send/external-send-policy-runtime.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -3068,7 +3068,7 @@
     {
       "symbolId": "coordinator.source.src.security.claude.structured.result",
       "kind": "file",
-      "path": "src/security/claude-structured-result.ts",
+      "path": "src/provider/claude-structured-result.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -3084,7 +3084,7 @@
     {
       "symbolId": "coordinator.source.src.security.secret.material.policy",
       "kind": "file",
-      "path": "src/security/secret-material-policy.ts",
+      "path": "src/authority/secret-material-policy.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -3092,7 +3092,7 @@
     {
       "symbolId": "coordinator.source.src.core.windows.child.environment",
       "kind": "file",
-      "path": "src/core/windows-child-environment.ts",
+      "path": "src/host-runtime/windows-child-environment.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3108,7 +3108,7 @@
     {
       "symbolId": "coordinator.source.src.security.platform.access.release",
       "kind": "file",
-      "path": "src/security/platform-access-release.ts",
+      "path": "src/diagnostics/platform-access-release.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -3124,7 +3124,7 @@
     {
       "symbolId": "coordinator.source.src.security.platform.provisioner.manifest.loader",
       "kind": "file",
-      "path": "src/security/platform-provisioner-manifest-loader.ts",
+      "path": "src/platform-access/platform-provisioner-manifest-loader.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -3132,7 +3132,7 @@
     {
       "symbolId": "coordinator.source.src.security.provisioning.signature.primitives",
       "kind": "file",
-      "path": "src/security/provisioning-signature-primitives.ts",
+      "path": "src/diagnostics/provisioning-signature-primitives.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -3140,7 +3140,7 @@
     {
       "symbolId": "coordinator.source.src.core.runtime.local.typescript.child.entrypoints",
       "kind": "file",
-      "path": "src/core/runtime-local-typescript-child-entrypoints.ts",
+      "path": "src/host-runtime/runtime-local-typescript-child-entrypoints.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3148,7 +3148,7 @@
     {
       "symbolId": "coordinator.source.src.security.platform.provisioner.package.filesystem",
       "kind": "file",
-      "path": "src/security/platform-provisioner-package-filesystem.ts",
+      "path": "src/platform-access/platform-provisioner-package-filesystem.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -3156,7 +3156,7 @@
     {
       "symbolId": "coordinator.source.src.security.platform.provisioner.trust.core",
       "kind": "file",
-      "path": "src/security/platform-provisioner-trust-core.ts",
+      "path": "src/platform-access/platform-provisioner-trust-core.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -3164,7 +3164,7 @@
     {
       "symbolId": "coordinator.source.src.security.platform.provisioner.release.identity",
       "kind": "file",
-      "path": "src/security/platform-provisioner-release-identity.ts",
+      "path": "src/platform-access/platform-provisioner-release-identity.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -3172,7 +3172,7 @@
     {
       "symbolId": "coordinator.source.src.security.project.runtime.candidate.integration.adapter",
       "kind": "file",
-      "path": "src/security/project-runtime-candidate-integration-adapter.ts",
+      "path": "src/project-runtime/project-runtime-candidate-integration-adapter.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -3180,7 +3180,7 @@
     {
       "symbolId": "coordinator.source.src.security.project.runtime.decision.recovery.store",
       "kind": "file",
-      "path": "src/security/project-runtime-decision-recovery-store.ts",
+      "path": "src/project-runtime/project-runtime-decision-recovery-store.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3188,7 +3188,7 @@
     {
       "symbolId": "coordinator.source.src.core.project.runtime.design.traceability",
       "kind": "file",
-      "path": "src/core/project-runtime-design-traceability.ts",
+      "path": "scripts/project-runtime-design-traceability.ts",
       "archIds": [
         "ARCH-000002"
       ]
@@ -3196,7 +3196,7 @@
     {
       "symbolId": "coordinator.source.src.security.project.runtime.durable.foundation",
       "kind": "file",
-      "path": "src/security/project-runtime-durable-foundation.ts",
+      "path": "src/project-runtime/project-runtime-durable-foundation.ts",
       "archIds": [
         "ARCH-000004"
       ],
@@ -3208,7 +3208,7 @@
     {
       "symbolId": "coordinator.source.src.security.project.runtime.execution.host.adapter",
       "kind": "file",
-      "path": "src/security/project-runtime-execution-host-adapter.ts",
+      "path": "src/project-runtime/project-runtime-execution-host-adapter.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3216,7 +3216,7 @@
     {
       "symbolId": "coordinator.source.src.security.project.runtime.execution.authorization.adapter",
       "kind": "file",
-      "path": "src/security/project-runtime-execution-authorization-adapter.ts",
+      "path": "src/project-runtime/project-runtime-execution-authorization-adapter.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3224,7 +3224,7 @@
     {
       "symbolId": "coordinator.source.src.security.project.runtime.single.task.adapter",
       "kind": "file",
-      "path": "src/security/project-runtime-single-task-adapter.ts",
+      "path": "src/project-runtime/project-runtime-single-task-adapter.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3232,7 +3232,7 @@
     {
       "symbolId": "coordinator.source.src.security.execution.intelligence.adapter",
       "kind": "file",
-      "path": "src/security/execution-intelligence-adapter.ts",
+      "path": "src/project-runtime/execution-intelligence-adapter.ts",
       "archIds": [
         "ARCH-000007"
       ]
@@ -3240,7 +3240,7 @@
     {
       "symbolId": "coordinator.source.src.security.project.runtime.integration.record.adapter",
       "kind": "file",
-      "path": "src/security/project-runtime-integration-record-adapter.ts",
+      "path": "src/project-runtime/project-runtime-integration-record-adapter.ts",
       "archIds": [
         "ARCH-000005"
       ]
@@ -3248,7 +3248,7 @@
     {
       "symbolId": "coordinator.source.src.security.project.runtime.objective.intake",
       "kind": "file",
-      "path": "src/security/project-runtime-objective-intake.ts",
+      "path": "src/project-runtime/project-runtime-objective-intake.ts",
       "archIds": [
         "ARCH-000004"
       ],
@@ -3259,7 +3259,7 @@
     {
       "symbolId": "coordinator.source.src.security.project.runtime.decision.capability.adapter",
       "kind": "file",
-      "path": "src/security/project-runtime-decision-capability-adapter.ts",
+      "path": "src/project-runtime/project-runtime-decision-capability-adapter.ts",
       "archIds": [
         "ARCH-000005"
       ]
@@ -3267,7 +3267,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.project.recovery.settlement",
       "kind": "file",
-      "path": "src/security/docker-project-recovery-settlement.ts",
+      "path": "src/project-runtime/docker-project-recovery-settlement.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3275,7 +3275,7 @@
     {
       "symbolId": "coordinator.source.src.composition.project.runtime.composition.root",
       "kind": "file",
-      "path": "src/composition/project-runtime-composition-root.ts",
+      "path": "src/project-runtime/project-runtime-composition-root.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3283,7 +3283,7 @@
     {
       "symbolId": "coordinator.source.src.composition.workbench.ai.request.application",
       "kind": "file",
-      "path": "src/composition/workbench-ai-request-application.ts",
+      "path": "src/workbench-ai/workbench-ai-request-application.ts",
       "archIds": [
         "ARCH-000010",
         "ARCH-000015"
@@ -3292,7 +3292,7 @@
     {
       "symbolId": "coordinator.source.src.composition.workbench.ai.repository.composition",
       "kind": "file",
-      "path": "src/composition/workbench-ai-repository-composition.ts",
+      "path": "src/workbench-ai/workbench-ai-repository-composition.ts",
       "archIds": [
         "ARCH-000009",
         "ARCH-000015"
@@ -3301,7 +3301,7 @@
     {
       "symbolId": "coordinator.source.src.composition.workbench.candidate.application",
       "kind": "file",
-      "path": "src/composition/workbench-candidate-application.ts",
+      "path": "src/workbench-ai/workbench-candidate-application.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000015"
@@ -3313,7 +3313,7 @@
     {
       "symbolId": "coordinator.source.src.security.workbench.ai.advice.result",
       "kind": "file",
-      "path": "src/security/workbench-ai-advice-result.ts",
+      "path": "src/workbench-ai/workbench-ai-advice-result.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -3321,7 +3321,7 @@
     {
       "symbolId": "coordinator.source.src.security.workbench.ai.advice.execution.plan",
       "kind": "file",
-      "path": "src/security/workbench-ai-advice-execution-plan.ts",
+      "path": "src/workbench-ai/workbench-ai-advice-execution-plan.ts",
       "archIds": [
         "ARCH-000010",
         "ARCH-000015"
@@ -3330,7 +3330,7 @@
     {
       "symbolId": "coordinator.source.src.security.workbench.ai.advice.provider.command",
       "kind": "file",
-      "path": "src/security/workbench-ai-advice-provider-command.ts",
+      "path": "src/workbench-ai/workbench-ai-advice-provider-command.ts",
       "archIds": [
         "ARCH-000010",
         "ARCH-000015"
@@ -3339,7 +3339,7 @@
     {
       "symbolId": "coordinator.source.src.security.workbench.ai.advice.provider.output",
       "kind": "file",
-      "path": "src/security/workbench-ai-advice-provider-output.ts",
+      "path": "src/workbench-ai/workbench-ai-advice-provider-output.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -3347,7 +3347,7 @@
     {
       "symbolId": "coordinator.source.src.security.workbench.ai.advice.provider.executor",
       "kind": "file",
-      "path": "src/security/workbench-ai-advice-provider-executor.ts",
+      "path": "src/workbench-ai/workbench-ai-advice-provider-executor.ts",
       "archIds": [
         "ARCH-000010",
         "ARCH-000015"
@@ -3356,7 +3356,7 @@
     {
       "symbolId": "coordinator.source.src.security.workbench.ai.advice.production.runtime",
       "kind": "file",
-      "path": "src/security/workbench-ai-advice-production-runtime.ts",
+      "path": "src/workbench-ai/workbench-ai-advice-production-runtime.ts",
       "archIds": [
         "ARCH-000008",
         "ARCH-000010",
@@ -3366,7 +3366,7 @@
     {
       "symbolId": "coordinator.source.src.security.workbench.ai.advice.runtime.packet",
       "kind": "file",
-      "path": "src/security/workbench-ai-advice-runtime-packet.ts",
+      "path": "src/workbench-ai/workbench-ai-advice-runtime-packet.ts",
       "archIds": [
         "ARCH-000010",
         "ARCH-000015"
@@ -3375,7 +3375,7 @@
     {
       "symbolId": "coordinator.source.src.security.workbench.ai.change.candidate.runtime",
       "kind": "file",
-      "path": "src/security/workbench-ai-change-candidate-runtime.ts",
+      "path": "src/workbench-ai/workbench-ai-change-candidate-runtime.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000010",
@@ -3385,7 +3385,7 @@
     {
       "symbolId": "coordinator.source.src.security.workbench.ai.advice.dispatch.runtime",
       "kind": "file",
-      "path": "src/security/workbench-ai-advice-dispatch-runtime.ts",
+      "path": "src/workbench-ai/workbench-ai-advice-dispatch-runtime.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -3393,7 +3393,7 @@
     {
       "symbolId": "coordinator.source.src.security.workbench.ai.provider.adapter",
       "kind": "file",
-      "path": "src/security/workbench-ai-provider-adapter.ts",
+      "path": "src/workbench-ai/workbench-ai-provider-adapter.ts",
       "archIds": [
         "ARCH-000010",
         "ARCH-000015"
@@ -3402,7 +3402,7 @@
     {
       "symbolId": "coordinator.source.src.security.workbench.ai.advice.task",
       "kind": "file",
-      "path": "src/security/workbench-ai-advice-task.ts",
+      "path": "src/workbench-ai/workbench-ai-advice-task.ts",
       "archIds": [
         "ARCH-000014",
         "ARCH-000015"
@@ -3411,7 +3411,7 @@
     {
       "symbolId": "coordinator.source.src.security.project.runtime.windows.decision.store",
       "kind": "file",
-      "path": "src/security/project-runtime-windows-decision-store.ts",
+      "path": "src/project-runtime/project-runtime-windows-decision-store.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3419,7 +3419,7 @@
     {
       "symbolId": "coordinator.project-runtime.acceptance-authority-adapter",
       "kind": "file",
-      "path": "src/security/project-runtime-acceptance-authority-adapter.ts",
+      "path": "src/project-runtime/project-runtime-acceptance-authority-adapter.ts",
       "archIds": [
         "ARCH-000005"
       ],
@@ -3430,7 +3430,7 @@
     {
       "symbolId": "coordinator.project-runtime.acceptance-decision-store",
       "kind": "file",
-      "path": "src/security/project-runtime-acceptance-decision-store.ts",
+      "path": "src/project-runtime/project-runtime-acceptance-decision-store.ts",
       "archIds": [
         "ARCH-000005"
       ],
@@ -3483,7 +3483,7 @@
     {
       "symbolId": "coordinator.source.src.security.repository.workspace.runtime",
       "kind": "file",
-      "path": "src/security/repository-workspace-runtime.ts",
+      "path": "src/repository-operation/repository-workspace-runtime.ts",
       "archIds": [
         "ARCH-000013"
       ]
@@ -3491,7 +3491,7 @@
     {
       "symbolId": "coordinator.source.src.security.external.send.grant.runtime",
       "kind": "file",
-      "path": "src/security/external-send-grant-runtime.ts",
+      "path": "src/external-send/external-send-grant-runtime.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -3499,7 +3499,7 @@
     {
       "symbolId": "coordinator.source.src.core.runtime.traceability",
       "kind": "file",
-      "path": "src/core/runtime-traceability.ts",
+      "path": "scripts/runtime-traceability.ts",
       "archIds": [
         "ARCH-000018"
       ]
@@ -3536,7 +3536,7 @@
     {
       "symbolId": "coordinator.source.src.core.docker.desktop.repair.doctor.dispatch",
       "kind": "file",
-      "path": "src/core/docker-desktop-repair-doctor-dispatch.ts",
+      "path": "src/diagnostics/docker-desktop-repair-doctor-dispatch.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3544,7 +3544,7 @@
     {
       "symbolId": "coordinator.source.src.core.coordinator.launch",
       "kind": "file",
-      "path": "src/core/coordinator-launch.ts",
+      "path": "src/cli/coordinator-launch.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3552,7 +3552,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.isolation",
       "kind": "file",
-      "path": "src/security/docker-isolation.ts",
+      "path": "src/docker-runtime/docker-isolation.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3576,7 +3576,7 @@
     {
       "symbolId": "coordinator.source.src.core.interactive.console",
       "kind": "file",
-      "path": "src/core/interactive-console.ts",
+      "path": "src/cli/interactive-console.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3584,7 +3584,7 @@
     {
       "symbolId": "coordinator.source.src.core.interactive.console.reader",
       "kind": "file",
-      "path": "src/core/interactive-console-reader.ts",
+      "path": "src/cli/interactive-console-reader.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3592,7 +3592,7 @@
     {
       "symbolId": "coordinator.source.src.core.node.runtime.version",
       "kind": "file",
-      "path": "src/core/node-runtime-version.ts",
+      "path": "src/host-runtime/node-runtime-version.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3640,7 +3640,7 @@
     {
       "symbolId": "coordinator.source.src.core.verification.result.record",
       "kind": "file",
-      "path": "src/core/verification-result-record.ts",
+      "path": "scripts/verification-result-record.ts",
       "archIds": [
         "ARCH-000003"
       ]
@@ -3648,7 +3648,7 @@
     {
       "symbolId": "coordinator.source.src.security.authority.file.bundle",
       "kind": "file",
-      "path": "src/security/authority-file-bundle.ts",
+      "path": "src/authority/authority-file-bundle.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -3656,7 +3656,7 @@
     {
       "symbolId": "coordinator.source.src.security.authority.grant.verifier",
       "kind": "file",
-      "path": "src/security/authority-grant-verifier.ts",
+      "path": "src/authority/authority-grant-verifier.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -3664,7 +3664,7 @@
     {
       "symbolId": "coordinator.source.src.security.authority.trust.loader",
       "kind": "file",
-      "path": "src/security/authority-trust-loader.ts",
+      "path": "src/authority/authority-trust-loader.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -3672,7 +3672,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.isolation.profile",
       "kind": "file",
-      "path": "src/security/provider-isolation-profile.ts",
+      "path": "src/provider/provider-isolation-profile.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -3680,7 +3680,7 @@
     {
       "symbolId": "coordinator.source.src.security.authority.prelaunch.verifier",
       "kind": "file",
-      "path": "src/security/authority-prelaunch-verifier.ts",
+      "path": "src/authority/authority-prelaunch-verifier.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -3688,7 +3688,7 @@
     {
       "symbolId": "coordinator.source.src.security.authority.root.path.lexical",
       "kind": "file",
-      "path": "src/security/authority-root-path-lexical.ts",
+      "path": "src/authority/authority-root-path-lexical.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -3696,7 +3696,7 @@
     {
       "symbolId": "coordinator.source.src.security.codex.docker.runtime.adapter",
       "kind": "file",
-      "path": "src/security/codex-docker-runtime-adapter.ts",
+      "path": "src/provider/codex-docker-runtime-adapter.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -3704,7 +3704,7 @@
     {
       "symbolId": "coordinator.source.src.security.codex.structured.result",
       "kind": "file",
-      "path": "src/security/codex-structured-result.ts",
+      "path": "src/provider/codex-structured-result.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -3712,7 +3712,7 @@
     {
       "symbolId": "coordinator.source.src.security.coordinator.operation.creation.internal",
       "kind": "file",
-      "path": "src/security/coordinator-operation-creation-internal.ts",
+      "path": "src/repository-operation/coordinator-operation-creation-internal.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3736,7 +3736,7 @@
     {
       "symbolId": "coordinator.source.src.security.coordinator.task.request",
       "kind": "file",
-      "path": "src/security/coordinator-task-request.ts",
+      "path": "src/task/coordinator-task-request.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3744,7 +3744,7 @@
     {
       "symbolId": "coordinator.source.src.core.docker.cleanup.eligibility",
       "kind": "file",
-      "path": "src/core/docker-cleanup-eligibility.ts",
+      "path": "src/docker-runtime/docker-cleanup-eligibility.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3752,7 +3752,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.host.transition.state",
       "kind": "file",
-      "path": "src/security/docker-host-transition-state.ts",
+      "path": "src/docker-runtime/docker-host-transition-state.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3760,7 +3760,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.recovery.public.projection",
       "kind": "file",
-      "path": "src/security/docker-recovery-public-projection.ts",
+      "path": "src/docker-runtime/docker-recovery-public-projection.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3768,7 +3768,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.recovery.state.machine",
       "kind": "file",
-      "path": "src/security/docker-recovery-state-machine.ts",
+      "path": "src/docker-runtime/docker-recovery-state-machine.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3776,7 +3776,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.runtime.state.binding",
       "kind": "file",
-      "path": "src/security/docker-runtime-state-binding.ts",
+      "path": "src/docker-runtime/docker-runtime-state-binding.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3784,7 +3784,7 @@
     {
       "symbolId": "coordinator.source.src.core.doctor",
       "kind": "file",
-      "path": "src/core/doctor.ts",
+      "path": "src/diagnostics/doctor.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3800,7 +3800,7 @@
     {
       "symbolId": "coordinator.source.src.security.egress.proxy.policy",
       "kind": "file",
-      "path": "src/security/egress-proxy-policy.ts",
+      "path": "src/external-send/egress-proxy-policy.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -3808,7 +3808,7 @@
     {
       "symbolId": "coordinator.source.src.core.host.generation.loss.transition",
       "kind": "file",
-      "path": "src/core/host-generation-loss-transition.ts",
+      "path": "src/host-runtime/host-generation-loss-transition.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3816,7 +3816,7 @@
     {
       "symbolId": "coordinator.source.src.security.local.personal.authority.runtime",
       "kind": "file",
-      "path": "src/security/local-personal-authority-runtime.ts",
+      "path": "src/authority/local-personal-authority-runtime.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -3824,7 +3824,7 @@
     {
       "symbolId": "coordinator.source.src.security.plain.data.snapshot",
       "kind": "file",
-      "path": "src/security/plain-data-snapshot.ts",
+      "path": "src/plain-data-snapshot.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -3832,7 +3832,7 @@
     {
       "symbolId": "coordinator.source.src.security.platform.access.adapter",
       "kind": "file",
-      "path": "src/security/platform-access-adapter.ts",
+      "path": "src/platform-access/platform-access-adapter.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3840,7 +3840,7 @@
     {
       "symbolId": "coordinator.source.src.security.platform.key.storage.policy",
       "kind": "file",
-      "path": "src/security/platform-key-storage-policy.ts",
+      "path": "src/platform-access/platform-key-storage-policy.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -3848,7 +3848,7 @@
     {
       "symbolId": "coordinator.source.src.security.platform.provisioner.package.gate",
       "kind": "file",
-      "path": "src/security/platform-provisioner-package-gate.ts",
+      "path": "src/platform-access/platform-provisioner-package-gate.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -3856,7 +3856,7 @@
     {
       "symbolId": "coordinator.source.src.security.runtime.trust.evaluator",
       "kind": "file",
-      "path": "src/security/runtime-trust-evaluator.ts",
+      "path": "src/authority/runtime-trust-evaluator.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -3864,7 +3864,7 @@
     {
       "symbolId": "coordinator.source.src.security.platform.provisioner.policy.identity",
       "kind": "file",
-      "path": "src/security/platform-provisioner-policy-identity.ts",
+      "path": "src/platform-access/platform-provisioner-policy-identity.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -3872,7 +3872,7 @@
     {
       "symbolId": "coordinator.source.src.security.platform.provisioner.release.trust",
       "kind": "file",
-      "path": "src/security/platform-provisioner-release-trust.ts",
+      "path": "src/platform-access/platform-provisioner-release-trust.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -3880,7 +3880,7 @@
     {
       "symbolId": "coordinator.source.src.security.project.runtime.task.recovery.adapter",
       "kind": "file",
-      "path": "src/security/project-runtime-task-recovery-adapter.ts",
+      "path": "src/project-runtime/project-runtime-task-recovery-adapter.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3888,7 +3888,7 @@
     {
       "symbolId": "coordinator.source.src.security.project.runtime.windows.platform.adapter",
       "kind": "file",
-      "path": "src/security/project-runtime-windows-platform-adapter.ts",
+      "path": "src/project-runtime/project-runtime-windows-platform-adapter.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3896,7 +3896,7 @@
     {
       "symbolId": "coordinator.source.src.security.root.observation",
       "kind": "file",
-      "path": "src/security/root-observation.ts",
+      "path": "src/repository-operation/root-observation.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3904,7 +3904,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.billing.policy",
       "kind": "file",
-      "path": "src/security/provider-billing-policy.ts",
+      "path": "src/provider/provider-billing-policy.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -3912,7 +3912,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.eligibility.runtime",
       "kind": "file",
-      "path": "src/security/provider-eligibility-runtime.ts",
+      "path": "src/provider/provider-eligibility-runtime.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -3928,7 +3928,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.home.mount.grant.runtime",
       "kind": "file",
-      "path": "src/security/provider-home-mount-grant-runtime.ts",
+      "path": "src/provider/provider-home-mount-grant-runtime.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -3936,7 +3936,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.home.mount.grant",
       "kind": "file",
-      "path": "src/security/provider-home-mount-grant.ts",
+      "path": "src/provider/provider-home-mount-grant.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -3944,7 +3944,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.home",
       "kind": "file",
-      "path": "src/security/provider-home.ts",
+      "path": "src/provider/provider-home.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -3952,7 +3952,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.lifecycle",
       "kind": "file",
-      "path": "src/security/provider-lifecycle.ts",
+      "path": "src/provider/provider-lifecycle.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3960,7 +3960,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.model.profile.runtime",
       "kind": "file",
-      "path": "src/security/provider-model-profile-runtime.ts",
+      "path": "src/provider/provider-model-profile-runtime.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -3968,7 +3968,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.task.packet.runtime",
       "kind": "file",
-      "path": "src/security/provider-task-packet-runtime.ts",
+      "path": "src/provider/provider-task-packet-runtime.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -3976,7 +3976,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.task.structured.result",
       "kind": "file",
-      "path": "src/security/provider-task-structured-result.ts",
+      "path": "src/provider/provider-task-structured-result.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -3984,7 +3984,7 @@
     {
       "symbolId": "coordinator.source.src.security.release.identity.grammar",
       "kind": "file",
-      "path": "src/security/release-identity-grammar.ts",
+      "path": "src/diagnostics/release-identity-grammar.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -3992,7 +3992,7 @@
     {
       "symbolId": "coordinator.source.src.security.root.protection.policy",
       "kind": "file",
-      "path": "src/security/root-protection-policy.ts",
+      "path": "src/repository-operation/root-protection-policy.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -4000,7 +4000,7 @@
     {
       "symbolId": "coordinator.source.src.security.signed.runner.safety.observation",
       "kind": "file",
-      "path": "src/security/signed-runner-safety-observation.ts",
+      "path": "src/diagnostics/signed-runner-safety-observation.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -4008,7 +4008,7 @@
     {
       "symbolId": "coordinator.source.src.core.docker.restart.execution",
       "kind": "file",
-      "path": "src/core/docker-restart-execution.ts",
+      "path": "src/docker-desktop/docker-restart-execution.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -4016,7 +4016,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.restart.machine",
       "kind": "file",
-      "path": "src/security/docker-restart-machine.ts",
+      "path": "src/docker-desktop/docker-restart-machine.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -4024,7 +4024,7 @@
     {
       "symbolId": "coordinator.source.src.security.windows.directory.bootstrap",
       "kind": "file",
-      "path": "src/security/windows-directory-bootstrap.ts",
+      "path": "src/host-runtime/windows-directory-bootstrap.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -4032,7 +4032,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.restart.runtime",
       "kind": "file",
-      "path": "src/security/docker-restart-runtime.ts",
+      "path": "src/docker-desktop/docker-restart-runtime.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -4040,7 +4040,7 @@
     {
       "symbolId": "coordinator.source.src.core.docker.restart.state",
       "kind": "file",
-      "path": "src/core/docker-restart-state.ts",
+      "path": "src/docker-desktop/docker-restart-state.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -4048,7 +4048,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.wsl.state",
       "kind": "file",
-      "path": "src/security/docker-wsl-state.ts",
+      "path": "src/docker-desktop/docker-wsl-state.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -4080,7 +4080,7 @@
     {
       "symbolId": "coordinator.source.src.security.host.orphan.recovery.policy",
       "kind": "file",
-      "path": "src/security/host-orphan-recovery-policy.ts",
+      "path": "src/host-runtime/host-orphan-recovery-policy.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -4088,7 +4088,7 @@
     {
       "symbolId": "coordinator.source.src.security.host.operation.inprocess.lease.internal",
       "kind": "file",
-      "path": "src/security/host-operation-inprocess-lease-internal.ts",
+      "path": "src/host-runtime/host-operation-inprocess-lease-internal.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -4111,7 +4111,7 @@
     {
       "symbolId": "coordinator.source.src.security.host.terminal.record",
       "kind": "file",
-      "path": "src/security/host-terminal-record.ts",
+      "path": "src/host-runtime/host-terminal-record.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -4119,7 +4119,7 @@
     {
       "symbolId": "coordinator.source.src.security.host.terminal.windows.adapter",
       "kind": "file",
-      "path": "src/security/host-terminal-windows-adapter.ts",
+      "path": "src/host-runtime/host-terminal-windows-adapter.ts",
       "archIds": [
         "ARCH-000008",
         "ARCH-000011"
@@ -4128,7 +4128,7 @@
     {
       "symbolId": "coordinator.source.src.security.host.terminal.caller.lease",
       "kind": "file",
-      "path": "src/security/host-terminal-caller-lease.ts",
+      "path": "src/host-runtime/host-terminal-caller-lease.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -4136,7 +4136,7 @@
     {
       "symbolId": "coordinator.source.src.security.host.terminal.caller.checkpoint",
       "kind": "file",
-      "path": "src/security/host-terminal-caller-checkpoint.ts",
+      "path": "src/host-runtime/host-terminal-caller-checkpoint.ts",
       "archIds": [
         "ARCH-000008",
         "ARCH-000011"
@@ -4192,7 +4192,7 @@
     {
       "symbolId": "coordinator.source.src.security.project.runtime.history",
       "kind": "file",
-      "path": "src/security/project-runtime-history.ts",
+      "path": "src/project-runtime/project-runtime-history.ts",
       "archIds": [
         "ARCH-000004"
       ]

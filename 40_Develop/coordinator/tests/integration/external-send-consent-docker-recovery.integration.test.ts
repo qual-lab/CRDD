@@ -18,9 +18,9 @@ import {
   compileExternalSendConsentBoundaryHash,
   createIsolatedExternalSendConsentRuntimeCandidate,
   EXTERNAL_SEND_ACTIVE_CONSENT_PREFIX,
-} from "../../src/security/external-send-consent-runtime.ts";
-import { inspectDockerRecoveryRootSnapshotWithLock } from "../../src/security/docker-recovery-runtime-internal.ts";
-import type { ExternalSendPolicy } from "../../src/security/external-send-policy-runtime.ts";
+} from "../../src/external-send/external-send-consent-runtime.ts";
+import { inspectDockerRecoveryRootSnapshotWithLock } from "../../src/docker-runtime/docker-recovery-runtime-internal.ts";
+import type { ExternalSendPolicy } from "../../src/external-send/external-send-policy-runtime.ts";
 
 /**
  * policyのTest準備責務を実行する。

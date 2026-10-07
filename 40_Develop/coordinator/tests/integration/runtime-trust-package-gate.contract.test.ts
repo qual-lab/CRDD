@@ -11,8 +11,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { consumeRuntimeTrustDecisionForPackageGate } from "../../src/security/platform-provisioner-package-gate.ts";
-import { evaluateRuntimeTrust } from "../../src/security/runtime-trust-evaluator.ts";
+import { consumeRuntimeTrustDecisionForPackageGate } from "../../src/platform-access/platform-provisioner-package-gate.ts";
+import { evaluateRuntimeTrust } from "../../src/authority/runtime-trust-evaluator.ts";
 
 const artifactIdentity = "a".repeat(64);
 

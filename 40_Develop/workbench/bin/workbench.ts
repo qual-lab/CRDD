@@ -11,14 +11,14 @@
  */
 import { readWorkbenchProjectSurface, startWorkbench } from "../src/index.ts";
 import { createRepositoryAiProfileCatalogStore } from "../../ai-runtime/src/index.ts";
-import { createRepositoryWorkbenchCandidateApplication } from "../../coordinator/src/composition/workbench-candidate-application.ts";
-import { createRepositoryWorkbenchAiRequestApplication } from "../../coordinator/src/composition/workbench-ai-repository-composition.ts";
-import { createWorkbenchAiAdviceDispatchRuntime } from "../../coordinator/src/security/workbench-ai-advice-dispatch-runtime.ts";
-import { createWorkbenchAiAdviceProviderExecutor } from "../../coordinator/src/security/workbench-ai-advice-provider-executor.ts";
-import { createRuntimeOwnedWorkbenchAiAdviceProductionRuntime } from "../../coordinator/src/security/workbench-ai-advice-production-runtime.ts";
-import { createRuntimeOwnedWorkbenchAiChangeCandidateExecutor } from "../../coordinator/src/security/workbench-ai-change-candidate-runtime.ts";
-import { createWorkbenchAiProviderAdapter } from "../../coordinator/src/security/workbench-ai-provider-adapter.ts";
-import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../../coordinator/src/security/platform-provisioner-package-filesystem.ts";
+import { createRepositoryWorkbenchCandidateApplication } from "../../coordinator/src/workbench-ai/workbench-candidate-application.ts";
+import { createRepositoryWorkbenchAiRequestApplication } from "../../coordinator/src/workbench-ai/workbench-ai-repository-composition.ts";
+import { createWorkbenchAiAdviceDispatchRuntime } from "../../coordinator/src/workbench-ai/workbench-ai-advice-dispatch-runtime.ts";
+import { createWorkbenchAiAdviceProviderExecutor } from "../../coordinator/src/workbench-ai/workbench-ai-advice-provider-executor.ts";
+import { createRuntimeOwnedWorkbenchAiAdviceProductionRuntime } from "../../coordinator/src/workbench-ai/workbench-ai-advice-production-runtime.ts";
+import { createRuntimeOwnedWorkbenchAiChangeCandidateExecutor } from "../../coordinator/src/workbench-ai/workbench-ai-change-candidate-runtime.ts";
+import { createWorkbenchAiProviderAdapter } from "../../coordinator/src/workbench-ai/workbench-ai-provider-adapter.ts";
+import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../../coordinator/src/platform-access/platform-provisioner-package-filesystem.ts";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,

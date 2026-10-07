@@ -17,15 +17,15 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import test from "node:test";
-import { acquireRuntimeOwnedDockerDesktopRestartNativeHelper } from "../../src/security/docker-desktop-repair-native-process.ts";
-import { createDockerRestartMachine } from "../../src/security/docker-restart-machine.ts";
-import { observePlatformAccessReleaseArtifactCandidate } from "../../src/security/platform-access-release.ts";
-import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "../../src/security/candidate-store-kernel-lock.ts";
-import { observeSystemWindowsDirectory } from "../../src/security/windows-directory-bootstrap.ts";
+import { acquireRuntimeOwnedDockerDesktopRestartNativeHelper } from "../../src/docker-desktop/docker-desktop-repair-native-process.ts";
+import { createDockerRestartMachine } from "../../src/docker-desktop/docker-restart-machine.ts";
+import { observePlatformAccessReleaseArtifactCandidate } from "../../src/diagnostics/platform-access-release.ts";
+import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "../../src/host-runtime/candidate-store-kernel-lock.ts";
+import { observeSystemWindowsDirectory } from "../../src/host-runtime/windows-directory-bootstrap.ts";
 import {
   createInteractiveConsoleReaderEnvironment,
   createWindowsNativeHelperEnvironment,
-} from "../../src/core/windows-child-environment.ts";
+} from "../../src/host-runtime/windows-child-environment.ts";
 
 /**
  * 中立化したRuntime子Processから実Docker CLIのPublisher Trustを確認できるを検証する。
@@ -52,7 +52,7 @@ test("中立化したRuntime子Processから実Docker CLIのPublisher Trustを�
     path.join(profile, "AppData", "Local", "Temp"),
   );
   const moduleUrl = pathToFileURL(
-    path.resolve("src", "security", "docker-cli-trust.ts"),
+    path.resolve("src", "docker-runtime", "docker-cli-trust.ts"),
   ).href;
   const source = [
     `import { observeTrustedDockerCli } from ${JSON.stringify(moduleUrl)};`,

@@ -13,40 +13,40 @@ import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../version
 import {
   isSupportedCoordinatorNodeRuntime,
   MINIMUM_COORDINATOR_NODE_VERSION,
-} from "../src/core/node-runtime-version.ts";
+} from "../src/host-runtime/node-runtime-version.ts";
 import {
   SIGNED_GENERAL_TASK_PUBLIC_REASONS,
   type SignedGeneralTaskPublicReason,
-} from "../src/core/verification-result-reasons.ts";
+} from "./verification-result-reasons.ts";
 import {
   isRuntimeProcessPoisoned,
   poisonRuntimeProcessAfterCleanupUnknown,
-} from "../src/core/runtime-process-safety-state.ts";
+} from "../src/host-runtime/runtime-process-safety-state.ts";
 import {
   discardRuntimeOwnedCandidateBundle,
   readRuntimeOwnedCandidateBundle,
-} from "../src/security/candidate-bundle-store.ts";
+} from "../src/candidate/candidate-bundle-store.ts";
 import {
   cancelRuntimeOwnedCoordinatorTask,
   startRuntimeOwnedCoordinatorTask,
-} from "../src/security/coordinator-task-runtime.ts";
+} from "../src/task/coordinator-task-runtime.ts";
 import {
   coordinatorTaskPublicReasons,
   type CoordinatorTaskPublicReason,
-} from "../src/security/coordinator-task-result-reasons.ts";
-import { snapshotPlainArray } from "../src/security/plain-data-snapshot.ts";
-import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../src/security/platform-provisioner-package-filesystem.ts";
+} from "../src/task/coordinator-task-result-reasons.ts";
+import { snapshotPlainArray } from "../src/plain-data-snapshot.ts";
+import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../src/platform-access/platform-provisioner-package-filesystem.ts";
 import {
   isCanonicalCrddGitObjectId,
   isCanonicalCrddVersion,
   isSupportedCrddRuntimeGitObjectId,
-} from "../src/security/release-identity-grammar.ts";
-import { inspectRepositoryRevisionCandidate } from "../src/security/repository-operation-runtime.ts";
+} from "../src/diagnostics/release-identity-grammar.ts";
+import { inspectRepositoryRevisionCandidate } from "../src/repository-operation/repository-operation-runtime.ts";
 import {
   evaluateSignedRunnerSafetyObservation,
   salvageSignedRunnerNullableRecovery,
   salvageSignedRunnerRecoveryPair,
-} from "../src/security/signed-runner-safety-observation.ts";
+} from "../src/diagnostics/signed-runner-safety-observation.ts";
 
 export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-general-task-verification";

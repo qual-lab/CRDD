@@ -15,7 +15,7 @@ import {
   describePlatformAccessAdapterContract,
   evaluatePlatformAccessResponseCandidate,
   inspectWindowsPlatformAccessCandidate,
-} from "../../src/security/platform-access-adapter.ts";
+} from "../../src/platform-access/platform-access-adapter.ts";
 
 /**
  * responseのTest準備責務を実行する。

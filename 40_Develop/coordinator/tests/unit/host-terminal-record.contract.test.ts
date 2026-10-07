@@ -15,8 +15,8 @@ import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import { compileFunction, runInNewContext } from "node:vm";
-import { hostOperationGenerationBindingHash } from "../../src/security/candidate-store-kernel-lock.ts";
-import type { HostTerminalCheckpointPreparation } from "../../src/security/host-terminal-caller-checkpoint.ts";
+import { hostOperationGenerationBindingHash } from "../../src/host-runtime/candidate-store-kernel-lock.ts";
+import type { HostTerminalCheckpointPreparation } from "../../src/host-runtime/host-terminal-caller-checkpoint.ts";
 import {
   decodeHostTerminalIntent,
   decodeKnownFixtureHostTerminalIntent,
@@ -24,7 +24,7 @@ import {
   encodeKnownFixtureHostTerminalIntent,
   type HostTerminalWindowsIdentity,
   resolveHostTerminalLegacyGeneration,
-} from "../../src/security/host-terminal-record.ts";
+} from "../../src/host-runtime/host-terminal-record.ts";
 import {
   createHostTerminalCurrentObservationRequest,
   createHostTerminalObservationRequest,
@@ -52,8 +52,8 @@ import {
   readKnownFileHostTerminalWindowsRecord,
   saveHostTerminalWindowsRecord,
   saveKnownFileHostTerminalWindowsRecord,
-} from "../../src/security/host-terminal-windows-adapter.ts";
-import { snapshotPlainRecord } from "../../src/security/plain-data-snapshot.ts";
+} from "../../src/host-runtime/host-terminal-windows-adapter.ts";
+import { snapshotPlainRecord } from "../../src/plain-data-snapshot.ts";
 
 /**
  * 限定保守と既存の世代排他が同じ結合値を使うことを確認する。
@@ -132,7 +132,10 @@ function identity(index: number): HostTerminalWindowsIdentity {
  */
 test("Host専用環境はcanonical親を両一時fieldへ結び不明を補完しない", () => {
   const source = readFileSync(
-    new URL("../../src/core/windows-child-environment.ts", import.meta.url),
+    new URL(
+      "../../src/host-runtime/windows-child-environment.ts",
+      import.meta.url,
+    ),
     "utf8",
   );
   const start = source.indexOf(
@@ -405,7 +408,7 @@ function knownFixture() {
 test("Host候補の共同照合は全十二fieldと部分失敗を保持する", () => {
   const source = readFileSync(
     new URL(
-      "../../src/security/host-terminal-windows-adapter.ts",
+      "../../src/host-runtime/host-terminal-windows-adapter.ts",
       import.meta.url,
     ),
     "utf8",
@@ -646,7 +649,7 @@ test("Host既知file候補は専用Currentだけを要求する", () => {
 test("Host記録準備は旧新選択Hashと保存後の同参照を保持する", async () => {
   const source = readFileSync(
     new URL(
-      "../../src/security/host-terminal-caller-checkpoint.ts",
+      "../../src/host-runtime/host-terminal-caller-checkpoint.ts",
       import.meta.url,
     ),
     "utf8",
@@ -1822,7 +1825,7 @@ test("Host保存Adapterは偽参照・取消・未検証ContextでEffect 0を保
 test("Host記録Adapterはexit不一致の部分receiptを保持して停止する", () => {
   const source = readFileSync(
     new URL(
-      "../../src/security/host-terminal-windows-adapter.ts",
+      "../../src/host-runtime/host-terminal-windows-adapter.ts",
       import.meta.url,
     ),
     "utf8",
@@ -2015,7 +2018,7 @@ test("Host記録Adapterはexit不一致の部分receiptを保持して停止す�
 test("Host既知file保存要求は十二実体と完全本文を専用配置へ保持する", () => {
   const source = readFileSync(
     new URL(
-      "../../src/security/host-terminal-windows-adapter.ts",
+      "../../src/host-runtime/host-terminal-windows-adapter.ts",
       import.meta.url,
     ),
     "utf8",

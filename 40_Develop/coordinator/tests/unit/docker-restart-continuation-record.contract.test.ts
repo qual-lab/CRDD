@@ -18,8 +18,8 @@ import {
   resolveDockerRestartHistory,
   createDockerRestartMigrationRecord,
   createDockerRestartMigratedPhase,
-} from "../../src/security/docker-restart-continuation-record.ts";
-import { createDockerRestartRecord } from "../../src/security/docker-restart-record.ts";
+} from "../../src/docker-desktop/docker-restart-continuation-record.ts";
+import { createDockerRestartRecord } from "../../src/docker-desktop/docker-restart-record.ts";
 
 const hash = "a".repeat(64);
 const binding = {

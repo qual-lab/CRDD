@@ -235,7 +235,7 @@ test("ブロック間結合は実在Sequence、二段以内の経路、IT、全b
  */
 test("変更した意味に対応する試験を選び、未分類の実装変更はOwner全件へ閉じる", () => {
   const focusedEntries = selectRegressionTests(catalog, [
-    "40_Develop/coordinator/src/security/provider-lifecycle.ts",
+    "40_Develop/coordinator/src/provider/provider-lifecycle.ts",
   ]);
   const coordinatorEntries = catalog.tests.filter(
     (entry) =>
@@ -468,7 +468,7 @@ test("production・support・fixture変更はownerのUT／IT／ST全件へ閉じ
       ["unit", "integration", "system"].includes(entry.level),
   ).length;
   for (const changedPath of [
-    "40_Develop/coordinator/src/core/command-report.ts",
+    "40_Develop/coordinator/src/cli/command-report.ts",
     "40_Develop/coordinator/tests/support/test-support.ts",
     "40_Develop/coordinator/tests/fixtures/example.ts",
   ])

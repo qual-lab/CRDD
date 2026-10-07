@@ -19,8 +19,8 @@ import {
   loadHistoricalV2PlatformProvisionerManifestEnvelopeForVerification,
   inspectPlatformProvisionerManifestFileCandidate,
   loadPlatformProvisionerManifestEnvelopeForVerification,
-} from "../../src/security/platform-provisioner-manifest-loader.ts";
-import { canonicalizeProvisioningJsonValueCandidate } from "../../src/security/provisioning-signature-primitives.ts";
+} from "../../src/platform-access/platform-provisioner-manifest-loader.ts";
+import { canonicalizeProvisioningJsonValueCandidate } from "../../src/diagnostics/provisioning-signature-primitives.ts";
 
 /**
  * fixtureEnvelopeのTest準備責務を実行する。
@@ -151,8 +151,8 @@ test("履歴Recoveryは新旧manifest配置のexact一方だけを受理する",
  */
 test("履歴Recoveryの全producerは新旧配置のexact-one loaderへ接続する", () => {
   for (const relativePath of [
-    "src/security/docker-desktop-runtime-repair.ts",
-    "src/security/docker-recovery-runtime-internal.ts",
+    "src/docker-desktop/docker-desktop-runtime-repair.ts",
+    "src/docker-runtime/docker-recovery-runtime-internal.ts",
   ]) {
     const source = fs.readFileSync(
       path.resolve(import.meta.dirname, "../..", relativePath),

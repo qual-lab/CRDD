@@ -54,7 +54,7 @@ if (mode === "pause-before-publish") {
 }
 
 const foundation = await import(
-  "../../src/security/project-runtime-durable-foundation.ts"
+  "../../src/project-runtime/project-runtime-durable-foundation.ts"
 );
 const acquireProjectRuntimeLease = fs.existsSync(
   `${workingDirectory}/.crdd/project-runtime/state.json`,

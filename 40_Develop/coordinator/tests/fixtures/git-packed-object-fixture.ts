@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { crc32, deflateSync, inflateSync } from "node:zlib";
-import { createDockerProcessEnvironment } from "../../src/security/docker-owned-process.ts";
+import { createDockerProcessEnvironment } from "../../src/docker-runtime/docker-owned-process.ts";
 import { createRepositoryTestTemporaryDirectory } from "./repository-test-directory-fixture.ts";
 
 const GIT_EXECUTABLE = "C:\\Program Files\\Git\\cmd\\git.exe";

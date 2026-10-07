@@ -16,7 +16,7 @@ import {
   PROVIDER_ISOLATION_CONTRACT,
   describeProviderIsolationContract,
   validateProviderIsolationProfile,
-} from "../../src/security/provider-isolation-profile.ts";
+} from "../../src/provider/provider-isolation-profile.ts";
 
 type ProfileFixture = Record<string, unknown> & {
   contract: string;

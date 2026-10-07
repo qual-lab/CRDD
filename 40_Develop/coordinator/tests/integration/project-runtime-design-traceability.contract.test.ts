@@ -13,7 +13,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
-import { inspectProjectRuntimeDesignTraceability } from "../../src/core/project-runtime-design-traceability.ts";
+import { inspectProjectRuntimeDesignTraceability } from "../../scripts/project-runtime-design-traceability.ts";
 
 const repositoryRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),

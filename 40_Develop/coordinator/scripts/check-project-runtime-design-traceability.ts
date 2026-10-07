@@ -7,7 +7,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { inspectProjectRuntimeDesignTraceability } from "../src/core/project-runtime-design-traceability.ts";
+import { inspectProjectRuntimeDesignTraceability } from "./project-runtime-design-traceability.ts";
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(scriptDirectory, "../../..");

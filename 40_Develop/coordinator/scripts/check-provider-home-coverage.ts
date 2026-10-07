@@ -21,12 +21,12 @@ const coordinatorRoot = path.resolve(import.meta.dirname, "..");
 const repositoryRoot = path.resolve(coordinatorRoot, "../..");
 
 export const PROVIDER_HOME_COVERAGE_SOURCES = Object.freeze([
-  "40_Develop/coordinator/src/security/authority-root-path-lexical.ts",
-  "40_Develop/coordinator/src/security/plain-data-snapshot.ts",
-  "40_Develop/coordinator/src/security/provider-home.ts",
-  "40_Develop/coordinator/src/security/provider-home-mount-grant.ts",
-  "40_Develop/coordinator/src/security/provider-lifecycle.ts",
-  "40_Develop/coordinator/src/core/doctor.ts",
+  "40_Develop/coordinator/src/authority/authority-root-path-lexical.ts",
+  "40_Develop/coordinator/src/plain-data-snapshot.ts",
+  "40_Develop/coordinator/src/provider/provider-home.ts",
+  "40_Develop/coordinator/src/provider/provider-home-mount-grant.ts",
+  "40_Develop/coordinator/src/provider/provider-lifecycle.ts",
+  "40_Develop/coordinator/src/diagnostics/doctor.ts",
   "40_Develop/coordinator/scripts/check-platform-access-ts-coverage.ts",
   "40_Develop/coordinator/scripts/check-provider-home-coverage.ts",
 ]);
@@ -84,39 +84,39 @@ function obligation(
 }
 
 const coverageObligations = Object.freeze({
-  "40_Develop/coordinator/src/security/authority-root-path-lexical.ts":
+  "40_Develop/coordinator/src/authority/authority-root-path-lexical.ts":
     obligation(
       "実行OSと反対側のplatform dispatchおよび全複合短絡を同一runで到達していない",
       "将来のPath規則変更で反対OSのdispatchまたは稀な不正segmentを誤分類する可能性",
       "Windows／POSIXの正負・境界fixture、予約名限定mapping全件およびProvider HomeのWindows利用側試験",
       "Path lexical規則、platform dispatchまたはProvider Home Root source変更時",
     ),
-  "40_Develop/coordinator/src/security/plain-data-snapshot.ts": obligation(
+  "40_Develop/coordinator/src/plain-data-snapshot.ts": obligation(
     "未到達分岐がある場合はreflection failureの稀な順序である",
     "動的入力の一部を実行する可能性",
     "record／arrayのshape、accessor、Proxy、reflection failureおよび上限試験",
     "plain-data snapshot実装変更時",
   ),
-  "40_Develop/coordinator/src/security/provider-home.ts": obligation(
+  "40_Develop/coordinator/src/provider/provider-home.ts": obligation(
     "未到達分岐なし",
     "現固定版のpure配置候補には追加残存riskなし",
     "Codex／Claude、Root境界、Path非出力、長さ、動的入力および非昇格試験",
     "Provider Home layout、Root source、Provider集合または保護Effect着手時",
   ),
-  "40_Develop/coordinator/src/security/provider-home-mount-grant.ts":
+  "40_Develop/coordinator/src/provider/provider-home-mount-grant.ts":
     obligation(
       "未到達分岐なしを目標に専用coverageで別途確認する",
       "一回限り遷移、bindingまたは期限判定の退行",
       "全状態、正規遷移、再利用拒否、binding差、期限境界、動的入力および非Effect試験",
       "Mount Grant record、遷移、利用判定またはEffect Adapter変更時",
     ),
-  "40_Develop/coordinator/src/security/provider-lifecycle.ts": obligation(
+  "40_Develop/coordinator/src/provider/provider-lifecycle.ts": obligation(
     "合成候補の複合fail-closed述語の全短絡順序を同一runで到達していない",
     "入力shapeまたは上限の稀な不正形を同じ固定reasonへ閉じる分岐の退行",
     "Provider、mode、状態、入出力、deadline、cancel、結果、quotaおよび専用Home投影試験",
     "Provider lifecycle、Provider Homeまたは実Provider binding変更時",
   ),
-  "40_Develop/coordinator/src/core/doctor.ts": obligation(
+  "40_Develop/coordinator/src/diagnostics/doctor.ts": obligation(
     "実Docker、全Git／Provider discovery形式および全cleanup failureを同一runで到達していない",
     "private reportのProvider Home状態またはreason投影が稀な環境で不一致になる可能性",
     "passive／isolation、discovery、readiness、runtime request、Fake lifecycleおよびexact report contract試験",

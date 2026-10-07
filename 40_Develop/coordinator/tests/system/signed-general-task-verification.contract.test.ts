@@ -547,8 +547,8 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
     "scripts/verify-signed-general-task.ts",
   );
   const source = fs.readFileSync(runnerPath, "utf8");
-  const forbiddenConsoleModule = "../src/core/interactive-console.ts";
-  const equivalentConsoleModule = "../src/core/./INTERACTIVE-console.ts";
+  const forbiddenConsoleModule = "../src/cli/interactive-console.ts";
+  const equivalentConsoleModule = "../src/cli/./INTERACTIVE-console.ts";
   const mutationImports = importedModuleSpecifiers(
     `import { interactiveConsoleAvailable as renamed } from ${JSON.stringify(forbiddenConsoleModule)};\n` +
       `export { interactiveConsoleAvailabilityOutcome } from ${JSON.stringify(forbiddenConsoleModule)};\n` +
@@ -580,7 +580,7 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   assert.equal(
     resolvesToForbiddenWindowsAsciiModule(
       runnerPath,
-      "../src/core/interactive-console-reader.ts",
+      "../src/cli/interactive-console-reader.ts",
       forbiddenConsoleModule,
     ),
     false,

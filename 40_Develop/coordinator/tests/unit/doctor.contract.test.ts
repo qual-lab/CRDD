@@ -11,7 +11,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { DiagnosticCheck } from "../../src/core/doctor.ts";
+import type { DiagnosticCheck } from "../../src/diagnostics/doctor.ts";
 import {
   CHECK_STATUS,
   discoverCommand,
@@ -20,7 +20,7 @@ import {
   REQUIRED_CHECK_IDS,
   renderDoctorCommandFailure,
   runDoctor,
-} from "../../src/core/doctor.ts";
+} from "../../src/diagnostics/doctor.ts";
 
 /**
  * Node基準は24.12.0以上だけを受理するを検証する。

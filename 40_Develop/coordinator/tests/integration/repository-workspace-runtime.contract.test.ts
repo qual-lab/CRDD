@@ -23,8 +23,8 @@ import {
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
   verifyOwnedOperationManagementMountBinding,
-} from "../../src/security/execution-environment.ts";
-import { bindRuntimeOwnedRepositoryOperation } from "../../src/security/repository-operation-runtime.ts";
+} from "../../src/host-runtime/execution-environment.ts";
+import { bindRuntimeOwnedRepositoryOperation } from "../../src/repository-operation/repository-operation-runtime.ts";
 import {
   captureRuntimeOwnedCandidateRevision,
   describeRepositoryWorkspaceRuntimeContract,
@@ -32,7 +32,7 @@ import {
   persistRuntimeOwnedCandidateRevision,
   projectRuntimeOwnedCandidateReadContent,
   verifyRuntimeOwnedCandidateRevision,
-} from "../../src/security/repository-workspace-runtime.ts";
+} from "../../src/repository-operation/repository-workspace-runtime.ts";
 
 /**
  * writeObjectのTest準備責務を実行する。

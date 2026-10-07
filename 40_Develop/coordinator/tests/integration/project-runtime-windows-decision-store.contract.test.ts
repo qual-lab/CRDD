@@ -15,7 +15,7 @@ import path from "node:path";
 import test from "node:test";
 
 import type { ProjectRuntimeDecisionRecord } from "../../../project-runtime/src/index.ts";
-import { createProjectRuntimeWindowsDecisionStoreTestingAdapter } from "../../src/security/project-runtime-windows-decision-store.ts";
+import { createProjectRuntimeWindowsDecisionStoreTestingAdapter } from "../../src/project-runtime/project-runtime-windows-decision-store.ts";
 
 /**
  * recordのTest準備責務を実行する。

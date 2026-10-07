@@ -11,7 +11,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { isExactDockerRuntimeStateMutationBoundary } from "../../src/security/docker-runtime-state-binding.ts";
+import { isExactDockerRuntimeStateMutationBoundary } from "../../src/docker-runtime/docker-runtime-state-binding.ts";
 
 const recoveryId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
 const binding = Object.freeze({

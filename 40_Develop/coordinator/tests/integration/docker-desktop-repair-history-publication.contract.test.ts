@@ -16,7 +16,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { createScanner, SyntaxKind } from "typescript/unstable/ast";
-import type { RepairHistoryPublicationFaultPoint } from "../../src/security/docker-desktop-repair-history-publication.ts";
+import type { RepairHistoryPublicationFaultPoint } from "../../src/docker-desktop/docker-desktop-repair-history-publication.ts";
 import { createRepairHistoryPublicationTestingAdapter } from "../support/helpers/docker-desktop-repair-history-publication-testing.ts";
 import {
   assertRuntimeTraceCase,
@@ -608,7 +608,7 @@ test("回復可能な公開: 全成功分岐は共通の最終確定述語だけ
   const source = fs.readFileSync(
     fileURLToPath(
       new URL(
-        "../../src/security/docker-desktop-repair-history-publication.ts",
+        "../../src/docker-desktop/docker-desktop-repair-history-publication.ts",
         import.meta.url,
       ),
     ),

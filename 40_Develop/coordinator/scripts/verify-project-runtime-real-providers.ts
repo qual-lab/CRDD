@@ -18,8 +18,8 @@ import {
 import {
   inspectBundledCoordinatorPackageFilesystemCandidate,
   inspectVerifiedNativeDistributionCandidate,
-} from "../src/security/platform-provisioner-package-filesystem.ts";
-import { inspectRepositoryIdentityCandidate } from "../src/security/repository-operation-runtime.ts";
+} from "../src/platform-access/platform-provisioner-package-filesystem.ts";
+import { inspectRepositoryIdentityCandidate } from "../src/repository-operation/repository-operation-runtime.ts";
 import {
   buildProjectRuntimeRealProviderReport,
   captureCanonicalRepositorySnapshot,
@@ -319,7 +319,7 @@ async function main() {
     pathToFileURL(
       path.join(
         distributionRoot,
-        "40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts",
+        "40_Develop/coordinator/src/platform-access/platform-provisioner-package-filesystem.ts",
       ),
     ).href
   )) as {
@@ -366,7 +366,7 @@ async function main() {
     pathToFileURL(
       path.join(
         distributionRoot,
-        "40_Develop/coordinator/src/security/docker-recovery-runtime.ts",
+        "40_Develop/coordinator/src/docker-runtime/docker-recovery-runtime.ts",
       ),
     ).href
   )) as {

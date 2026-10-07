@@ -185,7 +185,7 @@ Package Rootへ任意の`.ts` Sourceを平置きしてはならない（MUST NOT
 | `scripts/` | 開発、生成、移行または診断の用途限定Script | 公開Runtime入口、通常利用で必須の実装 |
 | `tests/` | 試験、試験Runnerおよび試験専用支援 | Production Consumerが利用する実装 |
 
-`bin/`と`scripts/`も、実装本体を再定義せず`src/`または他Subsystemの宣言済み公開入口を利用する。Package Rootには`package.json`、TypeScript設定、lockfileその他のecosystemがRoot配置を要求する設定だけを置く。単一Fileの便宜を理由に例外化せず、Root配置が外部ecosystem契約として必要な場合だけ、exact filenameと理由を本節または対象Architectureへ追加する。
+`bin/`は、実装本体を再定義せず`src/`または他Subsystemの宣言済み公開入口を利用する。`scripts/`も通常Runtimeの実装を複製しない。ただし、通常Runtimeの実装依存にならない開発用検査・実測・検証結果記録に固有の実装は、同じ用途の入口とともに`scripts/`が所有できる。通常Runtimeと共有する実装は`src/`へ置き、`src/`から`scripts/`または`tests/`を通常Runtimeの実装依存としてimport／再exportしてはならない（MUST NOT）。Architectureで宣言した用途限定の検証子入口のPath登録は実装依存と区別し、任意Script起動の許可へ広げない。Package Rootには`package.json`、TypeScript設定、lockfileその他のecosystemがRoot配置を要求する設定だけを置く。単一Fileの便宜を理由に例外化せず、Root配置が外部ecosystem契約として必要な場合だけ、exact filenameと理由を本節または対象Architectureへ追加する。
 
 ### 3.3. ecosystem予約名
 

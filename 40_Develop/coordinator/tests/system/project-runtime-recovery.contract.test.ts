@@ -19,14 +19,14 @@ import {
   type ProjectRuntimeSingleTaskResult,
   settleProjectTaskRecoveryObligation,
 } from "../../../project-runtime/src/index.ts";
-import { consumeDockerRecoveryReceiptAfterProjectSettlement } from "../../src/security/docker-recovery-runtime.ts";
+import { consumeDockerRecoveryReceiptAfterProjectSettlement } from "../../src/docker-runtime/docker-recovery-runtime.ts";
 import {
   readProjectRuntimeState,
   writeProjectRuntimeState,
 } from "../fixtures/project-runtime-current-ports.ts";
-import { initializeProjectRuntimeSnapshot } from "../../src/security/project-runtime-durable-foundation.ts";
-import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../src/security/project-runtime-execution-authorization-adapter.ts";
-import { runProjectRuntimeObjective as runProjectRuntimeObjectiveWithPorts } from "../../src/security/project-runtime-objective-intake.ts";
+import { initializeProjectRuntimeSnapshot } from "../../src/project-runtime/project-runtime-durable-foundation.ts";
+import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../src/project-runtime/project-runtime-execution-authorization-adapter.ts";
+import { runProjectRuntimeObjective as runProjectRuntimeObjectiveWithPorts } from "../../src/project-runtime/project-runtime-objective-intake.ts";
 
 const revision = "a".repeat(40);
 let fixtureIntakeEpoch = "fixture-epoch";

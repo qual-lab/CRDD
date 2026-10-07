@@ -16,7 +16,7 @@ import {
   CLAUDE_SUBSCRIPTION_AUTHENTICATION_INPUT_NOTICE,
   createClaudeSubscriptionAuthenticationPlan,
   runDockerCommandWithAuthority,
-} from "../../src/security/claude-subscription-authentication.ts";
+} from "../../src/provider/claude-subscription-authentication.ts";
 
 const AUTHENTICATION_SUFFIX = "0123456789abcdef";
 const token = "a".repeat(64);

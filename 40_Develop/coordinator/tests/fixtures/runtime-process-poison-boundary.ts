@@ -13,14 +13,14 @@ import {
   withInteractiveConsoleAsync,
   withInteractiveConsoleAsyncOutcome,
   withInteractiveConsoleOutcome,
-} from "../../src/core/interactive-console.ts";
-import { isRuntimeProcessPoisoned } from "../../src/core/runtime-process-safety-state.ts";
-import { startRuntimeOwnedCoordinatorTask } from "../../src/security/coordinator-task-runtime.ts";
+} from "../../src/cli/interactive-console.ts";
+import { isRuntimeProcessPoisoned } from "../../src/host-runtime/runtime-process-safety-state.ts";
+import { startRuntimeOwnedCoordinatorTask } from "../../src/task/coordinator-task-runtime.ts";
 import {
   confirmRuntimeOwnedExternalSendUsingConsole,
   requestRuntimeOwnedExternalSendGrant,
-} from "../../src/security/external-send-grant-runtime.ts";
-import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../../src/security/platform-provisioner-package-filesystem.ts";
+} from "../../src/external-send/external-send-grant-runtime.ts";
+import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../../src/platform-access/platform-provisioner-package-filesystem.ts";
 
 const MODES = new Set([
   "descriptor_close",

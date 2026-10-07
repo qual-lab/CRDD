@@ -19,8 +19,8 @@ import {
   createCoordinatorWorkbenchAiRequestApplication,
   type CoordinatorAiRequestInput,
   type CoordinatorAiRequestResult,
-} from "../../src/composition/workbench-ai-request-application.ts";
-import { createRepositoryWorkbenchAiRequestApplication } from "../../src/composition/workbench-ai-repository-composition.ts";
+} from "../../src/workbench-ai/workbench-ai-request-application.ts";
+import { createRepositoryWorkbenchAiRequestApplication } from "../../src/workbench-ai/workbench-ai-repository-composition.ts";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,
@@ -29,12 +29,12 @@ import {
   describeWorkbenchAiAdviceResultContract,
   normalizeWorkbenchAiAdviceResult,
   WORKBENCH_AI_ADVICE_RESULT_CONTRACT,
-} from "../../src/security/workbench-ai-advice-result.ts";
+} from "../../src/workbench-ai/workbench-ai-advice-result.ts";
 import {
   describeWorkbenchAiAdviceTaskContract,
   prepareWorkbenchAiAdviceTask,
   WORKBENCH_AI_ADVICE_TASK_CONTRACT,
-} from "../../src/security/workbench-ai-advice-task.ts";
+} from "../../src/workbench-ai/workbench-ai-advice-task.ts";
 
 /**
  * request用の試験入力または観測処理を提供する。

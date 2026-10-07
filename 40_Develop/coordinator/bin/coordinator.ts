@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import {
   coordinatorLaunchFailureMessage,
   resolveCoordinatorLaunch,
-} from "../src/core/coordinator-launch.ts";
+} from "../src/cli/coordinator-launch.ts";
 
 const args = process.argv.slice(2);
 if (
@@ -25,7 +25,7 @@ if (
     ].includes(args[0]))
 ) {
   // Preserve the existing direct command contract, including optional JSON output.
-  await import("../src/core/coordinator-command.ts");
+  await import("../src/cli/coordinator-command.ts");
 } else if (args.length === 1 && args[0] === "--help") {
   process.stdout.write(
     [
@@ -72,7 +72,7 @@ if (
         case "task":
         case "interactive":
         case "automation":
-          await import("../src/core/coordinator-command.ts");
+          await import("../src/cli/coordinator-command.ts");
           break;
         case "verify-routes":
           await import("../scripts/verify-signed-route-matrix.ts");

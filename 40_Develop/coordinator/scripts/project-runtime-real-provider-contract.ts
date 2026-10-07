@@ -11,9 +11,9 @@ import path from "node:path";
 import { StringDecoder } from "node:string_decoder";
 import { inspectMcpProjectRuntimeObjectiveResult } from "../../mcp/src/index.ts";
 import { inspectProjectRuntimeStateQueryResult } from "../../project-runtime/src/public-contract/project-state-query.ts";
-import { startOwnedWindowsProcessTreeTermination } from "../src/security/docker-owned-process.ts";
-import { dockerProcessControllerPublicCompletionReasons } from "../src/security/docker-process-controller-result-reasons.ts";
-import { inspectRepositoryIdentityCandidate } from "../src/security/repository-operation-runtime.ts";
+import { startOwnedWindowsProcessTreeTermination } from "../src/docker-runtime/docker-owned-process.ts";
+import { dockerProcessControllerPublicCompletionReasons } from "../src/docker-runtime/docker-process-controller-result-reasons.ts";
+import { inspectRepositoryIdentityCandidate } from "../src/repository-operation/repository-operation-runtime.ts";
 
 /**
  * project-runtime-real-provider-contractで使用するJson 記録の値契約を定義する。

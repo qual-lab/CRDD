@@ -14,7 +14,7 @@ import test from "node:test";
 import {
   evaluateSignedRunnerSafetyObservation,
   salvageSignedRunnerRecoveryPair,
-} from "../../src/security/signed-runner-safety-observation.ts";
+} from "../../src/diagnostics/signed-runner-safety-observation.ts";
 
 const hostA = `host.crdd-coordinator-doctor-a.12345678-1234-4234-8234-123456789abc.${"a".repeat(64)}`;
 const hostB = `host.crdd-coordinator-doctor-b.12345678-1234-4234-8234-123456789abc.${"b".repeat(64)}`;

@@ -15,8 +15,8 @@ import {
   DEFAULT_AI_PROFILE_CATALOG,
   resolveAiProfileById,
 } from "../../../ai-runtime/src/index.ts";
-import { createWorkbenchAiAdviceDispatchRuntime } from "../../src/security/workbench-ai-advice-dispatch-runtime.ts";
-import { prepareWorkbenchAiAdviceTask } from "../../src/security/workbench-ai-advice-task.ts";
+import { createWorkbenchAiAdviceDispatchRuntime } from "../../src/workbench-ai/workbench-ai-advice-dispatch-runtime.ts";
+import { prepareWorkbenchAiAdviceTask } from "../../src/workbench-ai/workbench-ai-advice-task.ts";
 
 const resolvedProfile = resolveAiProfileById(
   DEFAULT_AI_PROFILE_CATALOG,

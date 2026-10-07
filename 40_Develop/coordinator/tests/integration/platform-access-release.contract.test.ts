@@ -21,7 +21,7 @@ import {
   describePlatformAccessReleaseContract,
   observePlatformAccessReleaseArtifactCandidate,
   verifyPlatformAccessArtifactSigningObservation,
-} from "../../src/security/platform-access-release.ts";
+} from "../../src/diagnostics/platform-access-release.ts";
 
 /**
  * fixtureのTest準備責務を実行する。

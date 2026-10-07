@@ -8,8 +8,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { runDynamicFakeProviderCancellationVerification } from "../src/security/docker-isolation.ts";
-import { createOwnedOperationDirectories } from "../src/security/execution-environment.ts";
+import { runDynamicFakeProviderCancellationVerification } from "../src/docker-runtime/docker-isolation.ts";
+import { createOwnedOperationDirectories } from "../src/host-runtime/execution-environment.ts";
 
 /**
  * Dynamic Fake Provider Cancellationを検証する。

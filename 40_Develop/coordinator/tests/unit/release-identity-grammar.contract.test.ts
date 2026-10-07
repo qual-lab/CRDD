@@ -17,7 +17,7 @@ import {
   isCanonicalCrddUtcTimestamp,
   isCanonicalCrddVersion,
   isSupportedCrddRuntimeGitObjectId,
-} from "../../src/security/release-identity-grammar.ts";
+} from "../../src/diagnostics/release-identity-grammar.ts";
 
 /**
  * Release IdentityはSHA-1／SHA-256 Git IDとprereleaseを同じ正本で受理するを検証する。

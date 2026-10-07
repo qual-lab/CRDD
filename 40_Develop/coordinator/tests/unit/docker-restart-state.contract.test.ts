@@ -14,7 +14,7 @@ import {
   classifyDockerRestartProgress,
   type DockerRestartObservation,
   type DockerRestartPhase,
-} from "../../src/core/docker-restart-state.ts";
+} from "../../src/docker-desktop/docker-restart-state.ts";
 
 const CONFIRMED_OBSERVATION: DockerRestartObservation = Object.freeze({
   boundaryMatches: true,

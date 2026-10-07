@@ -14,7 +14,7 @@ import test from "node:test";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "../../src/security/plain-data-snapshot.ts";
+} from "../../src/plain-data-snapshot.ts";
 import { assertPresent } from "../support/test-support.ts";
 
 /**
