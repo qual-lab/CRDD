@@ -681,6 +681,48 @@ Tool名はここでは提案値であり、既存Protocol値を無断変更し�
 
 完了計画に新しい日程を捏造しない。既存v0.22目標日2026-10-03は経過しており、現在の期限リスクを保持する。段階1〜3の対応量と実環境条件が確定した時点で所要見通しを提示する。現在の次の着手点は段階1の全File／Capability対応と、段階2のArchitecture正本照合である。
 
+## 24. 段階1の基準母集団と着手前確認 — 2026-10-07
+
+段階1は進行中である。基準Commit `463dd4a1ffd86e8bf5c58bb37a92e2ba11984621`の全18領域・830Fileを[ファイル棚卸し](261007_develop-file-inventory.md)へ固定した。各行は処置案であり、本文・関数単位の確認後に確定する。相対importで取得した312関係・173利用側は型／値、動的起動、設定・Manifest等の全Consumer集合を意味しない。
+
+### 着手前整合確認
+
+変更分類は責務・公開境界・保存・配布・移行をまたぐ非自明な再編である。Architecture、Quality、Coding Standards、Workflowと実装利用側を照合する。必要な確認は責務／依存とCapability保持の独立レビュー、文書・直接伝播監査、不足／影響監査である。準拠基準自体の変更は現時点で含まず、準拠監査を一律追加しない。Filesystem書込み範囲は現在Repositoryのみ。外部送信・Docker操作・署名・Releaseは今回の棚卸しでは行わない。
+
+読み取り専用確認者は段階1の範囲を妥当としたが、完成後独立レビューPassではない。次の指摘を棚卸しへ取り込む。
+
+| 確認対象 | 確認した現在の根拠 | 保持・追加する処置 |
+|---|---|---|
+| 回帰Runnerの分類 | verification-runnerのtest-catalogとregression-runner | Owner union、正規表現、changedPath分類、実行Root、engine、Host集合を新16領域へ接続する。importだけを更新して試験脱落を起こさない。 |
+| Coordinator公開入口 | coordinator/src/index.tsは現在Project Runtime操作中心 | 単体実行、上位利用、bin、配布入口、private importを別に照合する。公開API追加だけを旧逆依存撤去済みとしない。 |
+| CROS管理者回復 | credential-access-recovery本体・保存Adapter・CLI | administrator_recovery／full_access_reset、Host限定判断、stale計画、保存・記録失敗をREST撤去に巻き込まない。 |
+| CROS契約能力 | runtime、tool-registryの公開Export | Context Package、Handoff／再開、Repository操作、AI計画、登録Toolを維持または理由付き内部限定へ処置する。試験Consumerしか確認できないものを本番接続済みとしない。 |
+| 低頻度利用側 | 署名準備・対話署名・Manifest・Promotion・Graph・Trace・Nativeのscripts | 固定閉包、新Owner／Path、取消・再入場まで対応させる。通常実行だけで署名経路を閉じない。 |
+| 過去四経路と回復 | [正式結果要約](261006_release-test-retention-phase4.md) | 四経路履歴、送信確認Timeout、模擬Provider回復と実Provider取消を分ける。欠ける署名Identityを推測補完しない。 |
+| 現在品質の分母 | [Quality Center](../../../../07_Quality/01_Quality_Center.md) | 設計177 Local Item、移管46中13観測／33未観測、全体算定OPENを維持。過去176項目・Symbol616等を現在値として流用しない。 |
+
+### 履歴から保持する保証と限界
+
+- [Shared運用根拠](260928-1114_phase5-shared-server-production-boundary.md)はloopback、模擬TLS Header契約、Origin拒否と終了後資源までである。Internet／LAN、証明書運用、特定Reverse Proxy、Linux実配置を確認した根拠ではない。
+- [Remote Context MCP根拠](260927-2029_phase4-remote-project-context-mcp.md)はProject Runtime Toolを意図的に公開しない構成を確認している。Activity／Profile追加時も許可Tool一覧、管理権限と内容Accessの分離、Requestごとの失効／Exposure再観測を保持する。
+- PROJECT_CONTEXTの旧投影を現在Sourceの成立証明にしない。各Owner Evidenceの対象版・観測限界から現構成への適用を再評価する。
+
+### 既存Gapの引継ぎ
+
+| 残件 | 今回のOwner／順序 | 閉じるための根拠 |
+|---|---|---|
+| Snapshot本番Writerと最新現在状態保存 | Coordinator、C | 実Producerから保存・読戻し・再入場への接続。codec単体Passで代替しない。 |
+| Host終端と旧保存撤去 | Coordinator／Platform Access、B・C | 本番経路から終端条件を作り、現在状態への反映と旧保存非使用を観測する。 |
+| 限定unknown終了とDocker回復縮小 | Coordinator、C | 過去unknownを消さず、現在実資源・旧Owner再入場抑止と限定処置を検証する。汎用Recoveryを追加しない。 |
+| 専用反例二件 | domain-model保存／Coordinator、A・C | 別Ownerの最初の候補ではEffect 0・領域なし、公開前保存失敗＋Lock解放失敗では最初のretry拒否をそれぞれ観測する。 |
+| 全体Graph停止 | Coordinator／全Consumer、F・6 | 未結合子Processと必要な閉包を実接続へ照合し、Graph検査を再実行する。 |
+| 公式CLI切替後の認証・取消 | AI Adapter／Coordinator、B・C・7 | 未改造公式実行物の実認証・取消・回収を確認する。旧専用Buildの結果を流用しない。 |
+| V6署名・TTY・実子Process | Signing／Coordinator／Platform Access、F・7 | 前提一致した固定候補から外部対話端末・昇格・清掃まで確認する。 |
+| Workbench候補・Reviewerの未完了 | Workbench Server／Orchestrator／Coordinator、C・E・7 | 採用済み候補操作・Reviewer経路の必要な実E2Eと最終状態を確認する。 |
+| Activity／Profile本番未接続と共有MCP | CROS／MCP Server、D・E | 正式入口からReader／Storeへ到達し、Role・Exposure・Origin・取消・終了を確認する。 |
+
+現在、人間の追加判断が必要な事項は確認していない。段階1の残りは、全Fileの本文・関数責務、非import利用側、能力と過去Evidenceの対応、必須実経路とQuality Local Itemの固定である。分母固定だけを段階1完了としてコミットしない。
+
 ## Checklist
 
 - [x] 全18領域を一次対応表へ処置した。
