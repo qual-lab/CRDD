@@ -1,8 +1,8 @@
 # CRDD参照Toolのアーキテクチャ
 
-Status: Candidate (v0.22.0, 保存方式刷新の確認中)
+Status: Candidate (v0.22.0, 責務再編の基本設計を更新中)
 Owner: Qual-Lab
-Last Updated: 2026-10-06
+Last Updated: 2026-10-07
 
 ## 1. 目的と現在状態
 
@@ -62,6 +62,33 @@ REQ、UXおよびIAは由来確認に限って参照する。現行Architecture�
 | [過去情報と現在有効な意図](Definitions/ARCH-000016/architecture_definition.md) | 出所、発生時点、対象改訂版、現在／履歴／置換済み／不明の解決 | UI-000017 | SPEC-000022 | Context Provenance Resolver |
 | [公式素材の権利・用途確認](Definitions/ARCH-000017/architecture_definition.md) | 出所、権利確認、許可用途、対象版、決定権限者の記録 | UI-000019 | SPEC-000024 | 公式Repositoryの素材収載判断 |
 | [実行事実の記録](Definitions/ARCH-000018/architecture_definition.md) | Canonical Event検査、複数作成側、並行公開、途中失敗、Effect不明時の回復 | UI-000020 | SPEC-000030 | 実行記録Writerと不変Store |
+
+### v0.22責務再編の実装Owner
+
+台帳の状態Ownerは入力に対する論理責務を表す。次表は採用済みの責務再編における実装担当を示し、ARCH-IDをPackage IDへ変更しない。基準版の成立能力は[CHG-000082の棚卸し](../99_Roadmap/Changes/CHG-000082/Evidence/261007_develop-file-inventory.md)と対応させる。基本設計更新、詳細設計、独立レビュー、Source移管、実境界確認は別段階であり、現在は基本設計を更新中である。
+
+| ARCH-ID | 実装担当・引渡し | 保持する境界 |
+|---|---|---|
+| ARCH-000001 | Checker | 機械確認から意味採否・独立レビューを生成しない。 |
+| ARCH-000002 | 移行手順と各Consumer Owner | 全利用側・配布・署名経路を処置する。旧形式の移行はFront AIへ渡す。 |
+| ARCH-000003 | Quality／変更追跡と検証Runner | 試験登録と実行集合の一致を確認し、部分Passを全体Readyとしない。 |
+| ARCH-000004 | Orchestrator → Coordinator → AI Adapter | 上位Task、単一実行・資源、AI固有差を分離する。 |
+| ARCH-000005 | Domain Modelの読取り投影、Orchestratorの限定受入判断 | 読取りから書込みAuthorityを生成しない。 |
+| ARCH-000006 | Domain ModelのTopic／Meeting API | 業務状態と人間の採否を共通保存へ吸収しない。 |
+| ARCH-000007 | Execution Intelligence Reader | 観測・欠測と評価候補を分ける。 |
+| ARCH-000008 | Coordinator診断、AI Adapter分類、Platform AccessのOS保証 | 診断から修復Authorityを発行しない。 |
+| ARCH-000009 | Version ControlとRoot観測 | Domain CRUDからCommit／Pushを自動発行しない。 |
+| ARCH-000010 | Capability Registry、AI AdapterのProfile管理 | 能力発見・Profile選択と実行Authorityを分離する。 |
+| ARCH-000011 | 各状態Owner、Domain Modelの保存・設定部品 | 現在状態、通常履歴、候補、正式Evidenceの用途を分ける。 |
+| ARCH-000012 | MCP Server、運用CLI、Workbench表示API | 入力意味を保持し、SPEC-000011のlocalhost範囲を無断拡張しない。 |
+| ARCH-000013 | CROS共通認可能力、MCP Server | 同Processは認可済み直接呼出し、別ProcessはMCP。 |
+| ARCH-000014 | 各実行境界の独立評価とArtifact Signing | 独立評価軸を保持する。汎用Trust Policy Frameworkは今回採用しない。 |
+| ARCH-000015 | Coordinatorの候補本体、Orchestratorの採用、AI Adapterの搬送差 | 同意・送信・受領・採用のAuthorityを相互流用しない。 |
+| ARCH-000016 | Domain ModelのContext／Artifact由来解決 | 履歴から現在方針を自動採用しない。 |
+| ARCH-000017 | 公式素材管理と利用側 | 権利・用途・対象版の根拠を維持する。 |
+| ARCH-000018 | Execution Intelligence Writer、Coordinator／Orchestratorの観測作成 | Event不変性と通常履歴の保持期間を区別する。 |
+
+Workbench ServerとMCP Serverを二つの公開Serverとし、Browser向けRESTは維持する。独立CROS REST／Gateway／Shared Server Runtimeは能力・認可・終了保証を新Ownerへ移管してから撤去する。Linux等のShared利用は配置形態であり、今回新しいDeploy／Backup製品を追加しない。
 
 ## Architecture横断モデル
 

@@ -16,6 +16,8 @@ verified／trusted／quality_assuredを別軸にし、Qual-Lab署名を実行資
 | 所有しない責務 | 利用者に代わる信頼判断、外部送信、候補採用 |
 | 主な外部境界 | Runtime Artifact、署名検証、Deployment OwnerのTrust Policy |
 
+準拠、完全性、Publisher、利用者判断、品質の独立軸は維持する。v0.22では既存のCoordinator実行閉包・署名検証と各公開境界の採用済み確認を保持し、汎用Trust Policy Frameworkの本番接続を今回の必須実装へ追加しない。未実装・未評価をtrustedやquality_assuredへ畳まず、署名があることだけで全Toolへ実行Authorityを発行しない。独立Policyの将来採用と現版の必須Gateを混同しない。
+
 ## 2. UI観点の入力
 
 | UI分析 | 守る利用者向けの約束 |
@@ -133,7 +135,7 @@ Detailは第2・3節のDefinition入力を置き換えず、その意味を実�
 - [x] Failure Boundary、Recovery責任および観測を明示した
 - [x] Security／TrustとQuality Constraintを評価した
 - [x] Human Inputの必要性とOpen／Gapを評価した
-- [x] DetailsへのHandoffを明示した
+- OPEN: 基本責務と検証意図は提示済み。新Ownerの詳細API・利用側対応は段階3で確認する — DetailsへのHandoffを明示した
 - [x] Qualityへ渡すVerification Intentを明示した
 - [x] 現行Sourceや実装構造から意味を逆輸入していない
 - [x] 上流の観測可能な振る舞いをArchitectureで変更していない

@@ -129,15 +129,15 @@ IA固有の追加人間判断はない。これは入力UXの未確認事項が�
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [Topic・Meeting Lifecycleと正本への引渡しのArchitecture定義](../../Definitions/ARCH-000006/architecture_definition.md) | Project Operation Context | 通常更新、候補採否、物理削除を分け、削除は影響表示後の人間による明示確認を必要とする | Topic／Meeting本文、Relation、候補処置、Action状態を更新し得る。対象外を連鎖削除しない | 競合改訂版、権限不足、部分更新、Relation不整合、削除結果不明を成功へ畳まない |
+| [Topic・Meeting Lifecycleと正本への引渡しのArchitecture定義](../../Definitions/ARCH-000006/architecture_definition.md) | Domain ModelのTopic／Meeting責務 | 通常更新、候補採否、物理削除を分け、削除は影響表示後の人間による明示確認を必要とする | Topic／Meeting本文、Relation、候補処置、Action状態を更新し得る。対象外を連鎖削除しない | 競合改訂版、権限不足、部分更新、Relation不整合、削除結果不明を成功へ畳まない |
 
 ### 観点別評価
 
 | 観点 | 判定 | 根拠・引渡し |
 |---|---|---|
 | Responsibility | 評価済み | [Topic・Meeting Lifecycleと正本への引渡しのArchitecture定義](../../Definitions/ARCH-000006/architecture_definition.md)へ入力Contractを意味変更せず渡す。 |
-| Boundary／Component／Interface | 評価済み | 状態OwnerはProject Operation Context。公開境界は入力定義のAuthority・Effect・制約を越えない。 |
-| Data／State Ownership | 評価済み | Project Operation ContextをOwner候補とし、UI表示またはSPEC結果と内部状態を同一視しない。 |
+| Boundary／Component／Interface | 評価済み | 状態OwnerはDomain ModelのTopic／Meeting責務。公開境界は入力定義のAuthority・Effect・制約を越えない。 |
+| Data／State Ownership | 評価済み | Domain ModelのTopic／Meeting責務をOwner候補とし、UI表示またはSPEC結果と内部状態を同一視しない。 |
 | Failure／Recovery | 評価済み | 部分成功では本文・Relation・処置結果の既知状態を返し、同じ対象を再観測する。削除前後のRelation整合を確認できなければ完了にしない。 |
 | Security／Trust | 評価済み | 入力定義のAuthority、開示、Effect 0および非推定条件を保持する。 |
 | Quality Constraint | 評価済み | 未観測・不明・制限・失敗を成功または不存在へ丸めない。 |

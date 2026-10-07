@@ -20,7 +20,7 @@
 |---|---|
 | 現在の作業 | 読取り調査と対応案の記録。Source、公開API、保存形式、Authorityは変更しない。 |
 | 後続の変更分類 | 複数Subsystemの責務・公開境界・利用側へ影響する再編。単なる配置変更とは区別する。 |
-| 正本 | [Architecture](../../../06_Architecture/01_Architecture.md)、各Details、[Coding Standards](../../../06_Architecture/99_Coding_Standards.md)。本案で正本を置換しない。 |
+| 正本 | [Architecture](../../../../06_Architecture/01_Architecture.md)、各Details、[Coding Standards](../../../../06_Architecture/99_Coding_Standards.md)。本案で正本を置換しない。 |
 | 着手前整合確認 | 親が既存正本と公開入口を照合し、読み取り専用確認者が重点三境界を確認した。Draftの方向は整合。完成後独立レビューではない。 |
 | 後続の独立確認 | 責務・依存・Capability保持の独立レビュー、文書／直接伝播確認、不足／影響監査。固定候補と対象集合を確定して実施する。 |
 | 今行わない確認 | Source不変のため回帰・実E2E・署名を実行しない。工程契約・準拠基準自体は変更しないため、準拠監査を自動追加しない。 |
@@ -725,6 +725,41 @@ Tool名はここでは提案値であり、既存Protocol値を無断変更し�
 現在、人間の追加判断が必要な事項は確認していない。段階1の固定集合には、現在QA項目だけで具体経路を覆えないActivity／Profile、共有TLS・HTTP終了、縮小目標と不一致な旧Recovery／改造CLI義務も識別し、段階3のQuality補強と段階6／7の実確認へ接続した。次は段階2のArchitecture基本設計を更新する。棚卸し完了を設計採用・Source移管・全体Passにしない。
 
 Provider／Workbench AIの39FileとDomain統合三領域について、[関数・責務単位の処置](261007_develop-file-inventory.md#providerとworkbench-aiの関数単位照合)を追加した。同表の粗い一次候補より、本文側の具体的境界を優先する。AI固有記述と実行Authorityを分け、取消受付をcleanup完了に読み替えず、Domainの長いFileを長さだけで分割しない。Sourceの移管・設計採用・完成後レビューは未実施である。
+
+## 25. 段階2の着手前整合確認と現在処置 — 2026-10-07
+
+読み取り専用の確認者は、採用済みOwner・依存・Handoffを基本設計へ反映する範囲を着手可とした。追加の人間判断は確認していない。確認対象は横断モデルと18 ARCH定義、上流の正式入力とAuthority／Effect境界であり、完成後の段階4独立レビューとは区別する。
+
+| 照合結果 | 編集時に保持する条件 |
+|---|---|
+| CoreとApplicationの依存 | 意味Coreの独立性を維持し、ApplicationのOrchestrator → Coordinator → AI Adapter直接呼出しを明示する。Port／DI Frameworkを追加しない。 |
+| 搬送と共有認可 | SPEC-000011のstdio／localhost HTTP入力をRemote全域へ書き換えない。共有MCP・認可はARCH-000013との共同成立条件として扱う。 |
+| Domain統合 | Package統合だけを理由にTopic／Meeting／Project状態Ownerを統合しない。CRUDからCommit／Pushを発行しない。 |
+| Trustと候補 | 独立評価軸を保持し、Trust Policy Framework未採用と混同しない。候補本体はCoordinator、採用はOrchestrator、人間の採否Authorityは別に保つ。 |
+| 記録と回復 | 実行観測とAttempt観測を分け、AI Adapterを共通Writerにしない。Primary Failureをcleanup結果で上書きせず、限定unknown終了を一般化しない。 |
+
+発火例は同一Processでの認可済みCROS内部利用、非発火例はCROS設定を要求しないRepository単体利用、境界例は同一Hostでも別ProcessならMCP利用、情報不足例はRoot・認可・実状態不明でEffect前停止である。Browser向けRESTは維持する。
+
+更新した10定義について、正式入力の第2・3節を基準Commitと文字列比較し、全10件で不変を確認した。作業差分の空白検査も成功した。これは正式入力を無断変更していない限定確認であり、意味妥当性・全伝播・独立レビューPassを示さない。
+
+Component／依存、Interface／公開Surface、状態・データ流れ、故障／回復、配置／実行の横断モデル、14定義の担当境界、固定入口の全18責務の担当表、Analysis15文書の担当欄46箇所を更新した。担当欄以外の正式入力本文・Authority・Effect・失敗条件は維持した。基本状態遷移の旧矛盾（回復再入場から新規実行、一律completed）はSPEC-000004／005／028へ照合して是正した。Source・試験・署名の変更は行っていない。
+
+読み取り専用の段階2引渡し確認は、責務・依存・二Surface・保存／候補／履歴・回復遷移の基本設計を段階3へ渡せるとした。指摘したChecklistの評価結果、正本リンク二件、途中状態の記録を是正する。Checklistは固定項目を増やさず、既存Handoff項目へ正式な理由付きOPENを記録し、詳細API・利用側接続・段階4レビューを未完了として保持する。これは完成後の独立設計レビューPassではない。
+
+全Checkerは2026-10-07に1,176 Markdown、18,575リンク、2,373アンカーを検査し1,591件Failとなった。多数の旧移動リンク、Quality集合・適用不整合、既存Details未評価と今回のChecklist形式指摘を分ける。全体品質Passを主張せず、今回の形式・リンク是正後の局所再確認と、段階3〜6での残件処置へ接続する。
+
+### 段階2の完了判定
+
+段階2の基本設計更新を完了し、段階3へ引き渡す。読み取り専用確認の全結果を統合して是正し、Checkerを再実行した結果、全体は1,579件Fail、今回の変更対象に対するFindingは0件だった。Definitionの固定Checklist契約は維持し、詳細HandoffのOPENは理由付き評価結果として残した。独立設計レビュー、Details／API／QA具体化、Source移管、全回帰・実境界・署名E2Eは未完了である。
+
+| 段階2の条件 | 確認結果 |
+|---|---|
+| 全責務の実装担当 | 固定入口で18 ARCH-IDを全数対応。14定義を更新し、残るChecker／契約移行／品質閉包／素材管理の四責務は意味Ownerを維持した。 |
+| 正式入力・Authority・Effectの保持 | 更新定義とAnalysisの正式入力を基準版と比較。Analysis15文書46担当欄の変更は上流契約へ波及していない。 |
+| 依存・公開境界・Handoff | 5横断モデルで直接依存、二Surface、共有配置、候補・状態・記録・保存・限定回復を対応させた。 |
+| 基本状態の反証 | 回復再入場によるProvider新規実行と一律成功化を排除し、SPEC-000004／005／028へ照合した。 |
+| 機械確認 | 全体Failは保持。変更対象Finding 0、差分空白検査成功、Source変更0。 |
+| 次工程 | 段階3で詳細API、配置、全Consumer、設定・移行、QA義務を具体化し、段階4の固定設計監査へ渡す。 |
 
 ## Checklist
 

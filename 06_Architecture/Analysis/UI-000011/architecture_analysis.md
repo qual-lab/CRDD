@@ -206,15 +206,15 @@ IA固有の追加人間判断はない。これは入力UXの未確認事項が�
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [Runtime Dataの配置・保持・清掃のArchitecture定義](../../Definitions/ARCH-000011/architecture_definition.md) | Runtime Data Contract | UI契約はAuthorityを発行しない。利用者操作: 保持内容を見る／清掃する／保留する。 | UI契約はEffectを定義しない。状態・導線: 一時（temporary）／保持必要（durable）／回復必要（recovery_required）／清掃可能（eligible_for_cleanup）／不明（unknown） / 作業→データ用途→保持判断→清掃→不存在確認 / ；存在（present）／不存在（absent）／不明（unknown）、回復可能（recoverable）／清掃可能（cleanup_eligible） / 停止→残存観測→同一の回復対象識別子→回復・清掃→不存在確認 / ；存在（present）／不存在（absent）／不明（unknown）、回復可能（recoverable）／清掃可能（cleanup_eligible） / 停止→残存観測→同一の回復対象識別子→回復処置・清掃→不存在確認→義務解消 /  | subdirectoryや別基点フォルダへ同名データを作る／名前や経過時間だけで由来不明物を削除する |
+| [Runtime Dataの配置・保持・清掃のArchitecture定義](../../Definitions/ARCH-000011/architecture_definition.md) | 各状態Owner／Domain Model保存部品 | UI契約はAuthorityを発行しない。利用者操作: 保持内容を見る／清掃する／保留する。 | UI契約はEffectを定義しない。状態・導線: 一時（temporary）／保持必要（durable）／回復必要（recovery_required）／清掃可能（eligible_for_cleanup）／不明（unknown） / 作業→データ用途→保持判断→清掃→不存在確認 / ；存在（present）／不存在（absent）／不明（unknown）、回復可能（recoverable）／清掃可能（cleanup_eligible） / 停止→残存観測→同一の回復対象識別子→回復・清掃→不存在確認 / ；存在（present）／不存在（absent）／不明（unknown）、回復可能（recoverable）／清掃可能（cleanup_eligible） / 停止→残存観測→同一の回復対象識別子→回復処置・清掃→不存在確認→義務解消 /  | subdirectoryや別基点フォルダへ同名データを作る／名前や経過時間だけで由来不明物を削除する |
 
 ### 観点別評価
 
 | 観点 | 判定 | 根拠・引渡し |
 |---|---|---|
 | Responsibility | 評価済み | [Runtime Dataの配置・保持・清掃のArchitecture定義](../../Definitions/ARCH-000011/architecture_definition.md)へ入力Contractを意味変更せず渡す。 |
-| Boundary／Component／Interface | 評価済み | 状態OwnerはRuntime Data Contract。公開境界は入力定義のAuthority・Effect・制約を越えない。 |
-| Data／State Ownership | 評価済み | Runtime Data ContractをOwner候補とし、UI表示またはSPEC結果と内部状態を同一視しない。 |
+| Boundary／Component／Interface | 評価済み | 状態Ownerは各状態Owner／Domain Model保存部品。公開境界は入力定義のAuthority・Effect・制約を越えない。 |
+| Data／State Ownership | 評価済み | 各状態Owner／Domain Model保存部品をOwner候補とし、UI表示またはSPEC結果と内部状態を同一視しない。 |
 | Failure／Recovery | 評価済み | subdirectoryや別基点フォルダへ同名データを作る／名前や経過時間だけで由来不明物を削除する。Recoveryは入力定義にある場合だけ保持する。 |
 | Security／Trust | 評価済み | 入力定義のAuthority、開示、Effect 0および非推定条件を保持する。 |
 | Quality Constraint | 評価済み | 未観測・不明・制限・失敗を成功または不存在へ丸めない。 |

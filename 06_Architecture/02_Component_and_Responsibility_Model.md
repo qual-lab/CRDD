@@ -1,8 +1,8 @@
 # Component／責務モデル
 
-Status: Stable (v0.21.0)
+Status: Candidate (v0.22 responsibility reorganization)
 Owner: Qual-Lab
-Last Updated: 2026-09-15
+Last Updated: 2026-10-07
 
 ## 1. この成果物が所有すること
 
@@ -68,25 +68,51 @@ Last Updated: 2026-09-15
 ## 4. 依存方向
 
 ```text
-Transport Adapter ────────┐
-Workspace Resolver ───────┼──> Public Application Contract
-Capability Resolver ──────┘                │
-                                           ▼
-                                     Project Runtime
-                                           │
-                 ┌─────────────────────────┼────────────────────────┐
-                 ▼                         ▼                        ▼
-          Read Projection             Execution Port         Context Promotion Port
-                 │                         │                        │
-                 └─────────────────────────┼────────────────────────┘
-                                           ▼
-                              Repository／Runtime Ports
+利用者入口
+  Workbench Server ／ MCP Server ／ 運用CLI
+      │               │
+      │ 編成要求      └── 認可済みCROS能力・Domain API
+      ▼
+  Orchestrator
+      │ Coordinator公開APIを直接呼出し
+      ▼
+  Coordinator ◀── 単体実行の入口
+      │ Provider固有契約
+      ▼
+  AI Adapter
 
-横断評価Component <── 公開された状態・根拠・Identity
-横断評価Component ──X──> 業務Authorityの新規発行
+用途を限定して利用する基盤
+  Domain Model          意味・CRUD・Root観測・保存・設定
+  Version Control       Root／Revision検証・明示Git操作
+  Platform Access       OS固有のProcess／Filesystem保証
+  Execution Intelligence 実行観測の記録・読取り
+
+禁止: Coordinator → Orchestratorのimport
+禁止: Domain CRUD → Git Commit／Pushの自動発行
+禁止: 評価・読取り → 業務Authorityの新規発行
 ```
 
-CoreはAdapter、OS、外部Providerまたは特定Transportを参照しない。AdapterはPortを実装できるが、Coreの意味契約を再定義しない。
+意味を定義するCoreはAdapter、OS、外部Providerまたは特定Transportを参照しない。Applicationは必要な公開APIを直接呼び出せる。両者を混同して、Applicationの呼出しまで逆向きのPort注入へ変更しない。Adapterは交換契約を実装できるが、Coreの意味契約を再定義しない。
+
+### v0.22で採用する実装Ownerと直接依存
+
+次の表は上記の論理責務を実装Ownerへ割り当てる。18 ARCH-IDの統合・増設や、一つのPackageへの全業務状態の集約を意味しない。Sourceの移管は未実施であり、詳細APIと配置は段階3、実装は段階5で確定・検証する。
+
+| 実装Owner | 担当する論理責務 | 境界・所有禁止 |
+|---|---|---|
+| `workbench-server` | Browserの表示API、純粋CSR用データ、利用者操作と明示確認 | Browser向けRESTは維持する。独立したCROS REST／Gatewayを所有しない。 |
+| `mcp-server` | Machine向け搬送、Repository単体stdio／localhost HTTP、認可された共有CROS操作 | SPEC-000011の入力範囲を無断拡張しない。共有認可はARCH-000013との共同契約である。 |
+| `orchestrator` | Objective／Taskの編成、状態、判断記録、候補採用、再入場 | 人間の採否判断を自動生成しない。Provider実行・Docker資源のOwnerではない。 |
+| `coordinator` | 単一の実行・Review・取消、Docker資源、候補本体の隔離・読取り・破棄 | 単体利用できる。Orchestratorをimportせず、上位状態・候補採用を所有しない。 |
+| `ai-adapter` | Profile解決・管理、Provider別CLI／入力／出力／認証差 | 実行Authority、Docker資源、共通実行履歴Writerを所有しない。 |
+| `domain-model` | Artifact／Context／Topic／Meeting／品質変更の意味とCRUD、Repository観測・保存・設定の共通部品 | 業務状態のOwnerは各用途に残す。CRUDからGit Commit／PushやProvider Effectを発行しない。 |
+| `execution-intelligence` | 実行記録の保存・読取り・評価候補 | Coordinatorの実行観測とOrchestratorのAttempt観測を区別する。Event内容の不変性を永久保持と解釈しない。 |
+| `version-control` | Root／Revisionの検証と明示されたGit操作 | Domainの保存をCommitへ自動変換しない。 |
+| `platform-access` | OS固有のProcess・Filesystem・ACL・Protocol保証 | Nodeで成立する共通処理やCoordinatorの業務状態を移管しない。 |
+
+実行の直接依存は `orchestrator → coordinator公開API → ai-adapter` とする。OrchestratorはCoordinatorが定義した通知関数を登録し、Coordinatorが実行事実を通知する。通知は上位状態の更新完了や資源回収完了そのものではなく、各Ownerが確定した結果へ接続する。新しいEvent Bus、DIまたは汎用Port Frameworkは追加しない。
+
+Workbench／MCPは必要な内部Capabilityを利用する。同一ProcessのCROS利用は認可を維持した直接呼出し、別Processは同じHostでもMCPを利用する。Shared Serverは配置形態であり、第三の公開Runtimeではない。CROS REST／Gatewayの既存能力は移管・検証後に撤去し、名前の削除だけを置換完了としない。
 
 ## 5. QAへ渡す検証単位
 
@@ -99,3 +125,11 @@ CoreはAdapter、OS、外部Providerまたは特定Transportを参照しない�
 | Repository／Runtime基盤 | Root、Binding、Data Lifecycle | 別Root書込み、残存誤削除 | 実境界IT |
 
 Qualityはこの表を試験ID台帳として使わず、各検証設計で対象ARCH定義、境界、状態および終了条件へ接続する。
+
+## Checklist
+
+- [x] 18 ARCH-IDの意味を維持し、論理責務と実装Ownerを区別した。
+- [x] OrchestratorからCoordinatorへの直接依存とCoordinator単体利用を明示した。
+- [x] Provider差、実行Authority、業務状態、記録Writerを分離した。
+- [x] Browser RESTの維持とCROS REST／Gatewayの撤去目標を区別した。
+- [ ] OPEN: 詳細API・全利用側への伝播は段階3、固定設計の独立レビューは段階4で確認する。Source移管・実境界成立は未評価である。

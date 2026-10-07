@@ -1,8 +1,8 @@
 # Runtime／Data Flowモデル
 
-Status: Stable (v0.21.0)
+Status: Candidate (v0.22 responsibility reorganization)
 Owner: Qual-Lab
-Last Updated: 2026-09-19
+Last Updated: 2026-10-07
 
 ## 1. この成果物が所有すること
 
@@ -54,18 +54,28 @@ Projectの入力から状態、実行、観測、投影および候補採用ま�
         │
         │ {internal} Canonical Request
         ▼
-(P2: Project Runtimeの状態・実行判断)
+(P2: Orchestratorの上位状態・実行判断)
         │                         │
         │ {internal}             │ {internal}
         │ Execution Request      │ Project／Task State
         ▼                         ▼
-(P3: Execution Port)       [(D1: Runtime Data)]
+(P3: Coordinator公開API)   [(D1: 上位現在状態／履歴)]
         │
         │ {internal} Execution Result／Unknown
         └───────────────────────────────> (P2)
 ```
 
-`P3`は実行事実SourceのWriterではない。`P2`がProject／Task状態を所有し、実行委譲の結果または不明状態を同じTask Identityへ戻す。
+`P2`の実装OwnerはOrchestrator、`P3`はCoordinator公開APIである。`P2`がProject／Task状態を所有し、実行委譲の結果または不明状態を同じTask Identityへ戻す。Coordinatorは実行観測をExecution Intelligenceの共通Writerへ渡し、Orchestratorは上位Attemptの観測を用途を分けて渡す。`P3`の結果を受けただけで上位受入判断やcleanup成立を生成しない。
+
+| データ・状態 | 業務Owner | 保存・利用の境界 |
+|---|---|---|
+| Project／Task、判断点、受付世代、上位Attempt | Orchestrator | 現在状態と終了履歴を分離し、解決済み項目を現在状態へ蓄積しない。 |
+| 単一実行、Docker資源、未解決回復、未搬送結果 | Coordinator | 現在状態の閉集合を単一Writerで保存する。記録の存在だけで実資源の存在・不存在を推定しない。 |
+| 候補本体 | Coordinator | 隔離・read／discardを扱う。採用・Repository反映はOrchestratorの別操作である。 |
+| 実行観測と履歴 | Execution Intelligence | Coordinator／Orchestratorの観測を区別する。Readerから事実を生成しない。 |
+| 共通Root観測・保存・設定 | Domain Model | 各業務Ownerの意味とAuthorityを持たず、CRUDからGit確定を発行しない。 |
+
+以下のRuntime Dataはデータ分類の総称であり、独立Packageや単一の業務状態Ownerではない。上位再入場と下位資源終了を分け、回復完了からProviderの再実行を自動発行しない。現在状態、通常履歴、候補本体、正式Evidence、短命な保存途中ファイルは、同じ永続記録へまとめない。
 
 ### 2.3 B — 読取り・Project投影
 
@@ -201,8 +211,11 @@ Projectの入力から状態、実行、観測、投影および候補採用ま�
     └─ cleanup観測不能 ───────────────────> [S5: 回復待ち]
 
 [S5: 回復待ち]
-    ├─ exact IdentityでRecovery再入場 ────> [S2: 実行中]
-    └─ 結果・cleanup確定 ─────────────────> [completed]
+    ├─ exact Identityで再観測・限定処置 ─> [S5: 回復待ち]
+    └─ 結果・cleanup確定 ────────────────> [元Attemptの確定結果]
+
+元Attemptの確定結果: completed／failed／cancelledを実際の結果で選別する。
+回復完了だけでcompletedや新しいProvider実行を生成しない。
 
 禁止経路
   S1: 受付済み -- Authority不明の実行要求 --x Provider／Process Effect
@@ -220,8 +233,8 @@ Projectの入力から状態、実行、観測、投影および候補採用ま�
 | 実行中 | 実行観測 | Effect不明または残存あり | Recovery義務保持 | 追加Effect 0 | 回復待ち | 回復待ちを維持 | exact Identityを保持 | 結果またはRecovery義務 |
 | 取消処理中 | 終了観測 | exact Task | Resource settlement確認 | 取消済みEffectの観測 | cancelled | 観測不能は回復待ち | 逆順cleanup | Process／Resource不存在または不明 |
 | 取消処理中 | cleanup観測 | 観測不能 | Recovery義務保持 | 追加Effect 0 | 回復待ち | 回復待ちを維持 | exact Identityを保持 | cleanup不明を明示 |
-| 回復待ち | Recovery再入場 | exact Identityと新鮮な観測 | 重複Effect拒否 | 確認済み処置だけ | 実行中 | 不明なら回復待ち | 同じRecovery Identity | 新しいAttemptを混入しない |
-| 回復待ち | 終了確認 | 結果とcleanup確定 | Recovery義務解消 | 追加Effect 0 | completed | 不明なら回復待ち | Authority失効 | 義務解消を観測 |
+| 回復待ち | Recovery再入場 | exact Identityと新鮮な観測 | 重複Effect拒否、現在資源の再観測と限定処置 | 確認済み回復処置だけ。Provider新規実行0 | 回復待ち | 不明なら回復待ち | 同じRecovery Identity | 新しいAttemptを混入しない |
+| 回復待ち | 終了確認 | 元Attemptの結果とcleanup確定 | Recovery義務解消と元結果の確定 | 追加Effect 0 | 元結果に応じcompleted／failed／cancelled | 結果または資源不明なら回復待ち | Authority失効 | 義務解消と元結果を別々に観測する |
 | 受付済み | 実行要求 | Authority不明 | 拒否 | Effect 0 | 受付済み | 同じ | 非該当。Effect未発行 | Provider／Process Effect 0 |
 
 ### 外部情報
@@ -418,3 +431,11 @@ Relationはアクセス権や採用Authorityを自動生成しない。`Project 
 - 同じIdentity系列内で別Attempt、別Repository、別Workspaceが混入しないことを反証する。
 - DataがTrust／Process／Repository／外部境界を越える箇所は、内容、Authority、保存、cleanupを結合して確認する。
 - 受入判断は根拠表示、明示Authority、限定記録、終了後観測を分け、読取りProjection、Task作成およびProvider EffectとのEffect隔離を確認する。
+
+## Checklist
+
+- [x] Project状態、単一実行、候補本体、実行履歴の実装Ownerを分離した。
+- [x] 上位受入判断を下位完了・通知・回復完了から生成しない。
+- [x] 共通保存部品を全業務状態のOwnerとして扱っていない。
+- [x] 基本状態遷移とAnalysis担当欄を照合し、回復再入場・義務解消から新規実行や一律成功を生成する矛盾を是正した。
+- OPEN: 詳細API・全利用側・検証設計の具体化は段階3、固定設計の独立レビューは段階4へ残る。実装・実境界成立は未評価である。

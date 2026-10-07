@@ -11,10 +11,12 @@ Architecture ID: `ARCH-000018`
 
 | 区分 | 内容 |
 |---|---|
-| 状態Owner | 実行記録Writer、不変Store、記録Attempt |
+| 状態Owner | Execution Intelligenceの記録Writer／Store。観測の作成責任はCoordinatorとOrchestrator |
 | 所有する責務 | Canonical Event検査、同一性、並行公開、衝突再読取り、Effect不明時の回復参照 |
 | 所有しない責務 | Provider実行、Task状態更新、評価採用、読取りProjection、保存内容からの品質断定 |
 | 主な外部境界 | 実行基盤／TypeScript API、記録Port、耐久Store、読取りProjection |
+
+Coordinatorは単一実行・資源の観測、Orchestratorは上位Task Attemptの観測を作成する。Execution Intelligenceの共通Writerへ用途を識別して渡し、AI Adapterへ二重の履歴Writerを置かない。不変とは確定したEvent内容を後から成功へ改変しないことであり、通常履歴全体の永久保存を意味しない。時刻・出所・対象Identityを維持し、設定された保持期間の整理と正式Evidenceの保全を分ける。回収未確認を時刻だけで処置済みに変換しない。
 
 ## 2. UI観点の入力
 
@@ -129,7 +131,7 @@ Detailは第2・3節のDefinition入力を置き換えず、その意味を実�
 - [x] Failure Boundary、Recovery責任および観測を明示した
 - [x] Security／TrustとQuality Constraintを評価した
 - [x] Human Inputの必要性とOpen／Gapを評価した
-- [x] DetailsへのHandoffを明示した
+- OPEN: 基本責務と検証意図は提示済み。新Ownerの詳細API・利用側対応は段階3で確認する — DetailsへのHandoffを明示した
 - [x] Qualityへ渡すVerification Intentを明示した
 - [x] 現行Sourceや実装構造から意味を逆輸入していない
 - [x] 上流の観測可能な振る舞いをArchitectureで変更していない

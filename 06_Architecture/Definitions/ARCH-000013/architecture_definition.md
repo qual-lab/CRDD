@@ -16,6 +16,10 @@ Role別Credentialの発行・失効・ローテーション、Credential→Sessi
 | 所有しない責務 | User Accountまたは個人別Role割当、Repository内部ACL、System AdminからContent Accessの推定 |
 | 主な外部境界 | Remote Client、Credential Store、複数Repository |
 
+CROSは複数Repository横断の能力領域であり、第三の公開Serverではない。同一ProcessのWorkbenchからは認可済み共通能力を直接利用し、別Processでは同じHostでもMCPを利用する。Local呼出しでもRole、操作権限、Exposure、失効と現在状態を再確認する。管理権限からRepository内容Accessを生成しない。
+
+共有Linux Host等はWorkbench Server／MCP Server／CROS能力／Repository群の配置形態として扱う。CROS REST、Gateway、Shared Server専用Lifecycleを独立Runtimeとして残さないが、Credential回復・操作一覧・非開示・Origin・TLS・終了保証を撤去に巻き込まない。Repository単体利用へCROS設定を必須化しない。Remote設定とCredential管理はツール単位で分離し、秘密値をRepository投影へ含めない。
+
 ## 2. UI観点の入力
 
 | UI分析 | 守る利用者向けの約束 |
@@ -132,7 +136,7 @@ Detailは第2・3節のDefinition入力を置き換えず、その意味を実�
 - [x] Failure Boundary、Recovery責任および観測を明示した
 - [x] Security／TrustとQuality Constraintを評価した
 - [x] Human Inputの必要性とOpen／Gapを評価した
-- [x] DetailsへのHandoffを明示した
+- OPEN: 基本責務と検証意図は提示済み。新Ownerの詳細API・利用側対応は段階3で確認する — DetailsへのHandoffを明示した
 - [x] Qualityへ渡すVerification Intentを明示した
 - [x] 現行Sourceや実装構造から意味を逆輸入していない
 - [x] 上流の観測可能な振る舞いをArchitectureで変更していない

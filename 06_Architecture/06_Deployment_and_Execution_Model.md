@@ -1,8 +1,8 @@
 # 配置／実行モデル
 
-Status: Stable (v0.21.0)
+Status: Candidate (v0.22 responsibility reorganization)
 Owner: Qual-Lab
-Last Updated: 2026-09-15
+Last Updated: 2026-10-07
 
 ## 1. この成果物が所有すること
 
@@ -34,7 +34,20 @@ Canonical責務を実行時に分離する論理単位、Resource、並行性お
 └───────────────────────────────────────────────────────────────┘
 ```
 
-各箱は別Processを意味しない。別Process化の要否は、Trust境界、Failure Isolation、並行性、Resource Owner、資格情報、配置先または独立更新の必要性から後段で決める。
+各箱は別Processを意味しない。別Process化の要否は、Trust境界、Failure Isolation、並行性、Resource Owner、資格情報、配置先または独立更新の必要性から決める。図のWorkbench候補は採用済みWorkbench Serverへ、Project Runtimeの実装OwnerはOrchestratorへ具体化する。公開SurfaceはWorkbench ServerとMCP Serverの二系統であり、CLIは運用入口として維持するが第三のServer Runtimeを新設しない。
+
+### Localと共有配置
+
+| 配置形態 | 公開入口 | 内部接続 | 検証・未評価の境界 |
+|---|---|---|---|
+| Repository単体Local | Workbench、Repository単体MCP／CLI | 検証済みRootの能力を利用する。CROS設定は不要である。 | Rootと書込み範囲、取消・終了を確認する。 |
+| CROSを同一Processへ組み込む | WorkbenchまたはMCP | 認可済みの共通CROS能力を直接呼ぶ。内部RESTやMCP Loopbackを追加しない。 | Transportを省略してもRole／Exposure／失効確認を維持する。 |
+| CROSを別Processで利用する | Workbench ServerからMCP、または外部MCP Client | 同一Hostでも別ProcessならMCPで接続する。 | Remote接続、情報最小化、認可、切断・取消と終了後状態を確認する。 |
+| Linux等の共有Host | Workbench Server、MCP Server | CROS能力とRepository群を配置する。TLS終端等はDeployment Concernである。 | Linux実配置、証明書運用、特定Proxyは既存loopback／模擬Header試験では確認済みとしない。 |
+
+Shared Server、CROS REST、Gatewayを独立Runtimeとして残さない。既存の認可・Origin・TLS境界・操作・終了保証をMCPと内部能力へ移管した後に撤去する。共有HostへのRepository自動Deploy／Clone／Backup機能は追加しない。WorkbenchのBrowser向けRESTはこの撤去に含めない。
+
+Coordinatorは単体の実行Runtimeとして利用でき、Orchestratorはその公開APIを呼ぶ。Provider差はAI Adapter、実Docker資源はCoordinator、OS固有保証はPlatform Accessが所有する。Docker CLIを使うことだけで全処理をNativeへ移管せず、署名するCoordinator実行閉包と、各Toolの実行・試験環境を区別する。
 
 ## 3. 実行単位とResource
 
@@ -99,3 +112,11 @@ Canonical Architectureが独立レビューで閉じた後に、次を照合す�
 - 同じProcessやstreamを複数役割で使う場合、役割ごとの所有者と終了条件を反証する。
 - OS／Runtime／外部CLIのVersion差は、危険な意味変化を検出して停止する。無関係なHash差やVersion差だけで恒久拒否しない。
 - Physical deploymentが未確定な箇所は未確認として保持し、CanonicalなProcess数や配置を捏造しない。
+
+## Checklist
+
+- [x] 論理Component、PackageとProcess配置を区別した。
+- [x] 二つの公開Serverと運用CLIを区別し、Shared Serverを配置形態として扱った。
+- [x] 同一Processと別ProcessのCROS接続・認可境界を明示した。
+- [x] Linux・TLS実運用の未評価を既存Local試験で代替していない。
+- [ ] OPEN: 詳細配置・設定・配布入口の対応は段階3、設計レビューは段階4、移管後の実境界確認は段階6／7に残る。

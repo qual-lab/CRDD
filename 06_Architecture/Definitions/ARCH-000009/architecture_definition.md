@@ -16,6 +16,8 @@ verified／unverified／ambiguous／unavailableを分け、local／cross-source�
 | 所有しない責務 | 通常作業全体へCommitを要求すること、Force Push、Branch作成、Merge、Rebase、Remote設定管理、Tool選択、Runtime Data清掃 |
 | 主な外部境界 | Version Control、Filesystem、Repository Manifest |
 
+Version Controlは検証済みRoot／Revision型と明示Git操作のOwnerを維持する。Domain ModelはRoot観測・Repository CRUD・保存に必要な公開契約を利用できるが、Commit／Pushを自動発行しない。Workbench Serverが利用者の明示Git操作、Orchestratorが候補採用の整合を扱い、Coordinatorの読取りSnapshotを業務CRUDのOwnerへ拡張しない。Root型をDomain側へ移してVersion Controlから逆依存させる配置にしない。
+
 ## 2. UI観点の入力
 
 | UI分析 | 守る利用者向けの約束 |
@@ -141,7 +143,7 @@ Detailは第2・3節のDefinition入力を置き換えず、その意味を実�
 - [x] Failure Boundary、Recovery責任および観測を明示した
 - [x] Security／TrustとQuality Constraintを評価した
 - [x] Human Inputの必要性とOpen／Gapを評価した
-- [x] DetailsへのHandoffを明示した
+- OPEN: 基本責務と検証意図は提示済み。新Ownerの詳細API・利用側対応は段階3で確認する — DetailsへのHandoffを明示した
 - [x] Qualityへ渡すVerification Intentを明示した
 - [x] 現行Sourceや実装構造から意味を逆輸入していない
 - [x] 上流の観測可能な振る舞いをArchitectureで変更していない

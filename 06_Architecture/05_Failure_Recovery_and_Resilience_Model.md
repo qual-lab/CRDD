@@ -1,8 +1,8 @@
 # 故障／回復／耐障害モデル
 
-Status: Stable (v0.21.0)
+Status: Candidate (v0.22 responsibility reorganization)
 Owner: Qual-Lab
-Last Updated: 2026-09-15
+Last Updated: 2026-10-07
 
 ## 1. この成果物が所有すること
 
@@ -63,6 +63,25 @@ Last Updated: 2026-09-15
 
 ## 5. 段階的な故障確認
 
+### 故障・終了処置のOwner
+
+| Owner | 保持する事実・処置 | 代替してはならないこと |
+|---|---|---|
+| Orchestrator | Task／Attemptの停止、判断待ち、候補採否、上位再入場 | 下位の成功・取消受付だけをTask完了や資源回収成立へ変換しない。 |
+| Coordinator | 最初の失敗境界、実行・資源の現在観測、取消・回収、限定した終了処置 | cleanupの結果で最初の失敗理由を上書きしない。上位の判断を生成しない。 |
+| AI Adapter | Provider別の入力・起動・出力・認証の結果分類 | Provider終了をDocker資源不存在と同一視しない。回復Authorityを発行しない。 |
+| Platform Access | OS固有のProcess／handle／Filesystemの実観測と限定処置 | 観測不能を不存在へ変換しない。業務状態・再実行を所有しない。 |
+
+最初の失敗（Primary Failure）、cleanup／回復の結果、最終公開状態は別々に保持する。要求未発行、作成拒否、応答未観測、結果確定失敗を区別し、後続の清掃失敗で原因境界を失わない。診断にProvider本文・秘密値・未許可Pathを複製しない。
+
+### 使い捨てDocker Runtimeと限定unknown終了
+
+Docker Runtimeは使い捨てを基本とし、旧Containerの復元や過去のunknownを成功へ書き換えることを目指さない。回復は現在の実資源を安全に終了・確認し、旧Owner・旧作業領域の再利用を防いだ後、上位が必要条件を再評価して新しいAttemptを開始できる状態へ戻す。回復処置自体は新しいProvider依頼を発行しない。
+
+作成結果unknownの終了は、今回採用した限定Classに限る。Provider本体の開始前、外部送信なし、共有書込みEffectなし、旧OwnerのEffect不能、遅延Createの無害化、現在の対象実資源不存在を確認できる条件を詳細設計で結合する。一つでも不明なら終了済みへ畳まず停止する。他の失敗Classや任意の残骸へ一般化しない。終了後も過去の作成結果unknownは履歴の事実として保持するが、現在状態へ永久蓄積しない。
+
+通常の自動終了処置は利用者へRecovery内部情報の判断を求めない。自動処置不能の場合だけ、再認証や必要性を確認したDocker再起動など具体的な操作を提示する。Windows再起動を通常の終了証明にせず、追加の回復Frameworkも作らない。現在の状態、通常履歴、正式Evidenceと候補本体は保存Owner・保持条件を分ける。
+
 ```text
 Component内部の異常
         ↓
@@ -84,3 +103,11 @@ Component内部の異常
 - ProjectionからAcceptance Decision Portへ到達できないこと、SPEC-000002の明示判断だけが限定記録されること、および判断記録からTask作成・Provider Effectが発生しないことを確認する。
 - 実Docker、外部CLI、Filesystem等の実境界では、起動だけでなく停止、故障、回復、再開、清掃までLifecycle全体を確認する。
 - 長時間・高費用の負荷試験は人間の明示指示なしに実行せず、未実施を通常のArchitecture Ready阻害にしない。
+
+## Checklist
+
+- [x] 最初の失敗、cleanup結果、最終状態を別の事実として扱った。
+- [x] 上位Task状態と下位実行・資源のOwnerを分離した。
+- [x] 限定unknown終了を汎用Recoveryへ一般化していない。
+- [x] 回復からのProvider再依頼と過去unknownの成功化を禁止した。
+- [ ] OPEN: 限定終了の全条件・本番観測・反例の詳細対応は段階3、設計の独立確認は段階4、実装・実境界は段階5〜7で確認する。

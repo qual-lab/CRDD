@@ -11,10 +11,12 @@ Toolのavailable／unavailable／unverified／blockedと、モデル構成のval
 
 | 区分 | 内容 |
 |---|---|
-| 状態Owner | Capability RegistryとModel Configuration Resolver |
+| 状態Owner | Tool能力発見: Capability Registry。AI Profile／モデル構成: AI Adapter |
 | 所有する責務 | Repositoryに適合するTool能力の発見、AIモデル構成の検証・選択理由 |
 | 所有しない責務 | Tool実行、Provider利用可能性の捏造、Repository Binding |
 | 主な外部境界 | Repository設定、Tool Package、Provider Preflight |
+
+AI Adapterは外部JSONのProfile、モデル・推論設定の解決・管理とProvider固有の入力／出力・認証差を所有する。Tool能力発見とAI構成は一つの実行許可へまとめない。Profile選択やPreflight成功からCoordinatorの送信・実行Authority、Docker資源、Repository書込みAuthorityを生成しない。Callerは作業目的と許可範囲を保持し、Adapterはその範囲を拡張しない。
 
 ## 2. UI観点の入力
 
@@ -141,7 +143,7 @@ Detailは第2・3節のDefinition入力を置き換えず、その意味を実�
 - [x] Failure Boundary、Recovery責任および観測を明示した
 - [x] Security／TrustとQuality Constraintを評価した
 - [x] Human Inputの必要性とOpen／Gapを評価した
-- [x] DetailsへのHandoffを明示した
+- OPEN: 基本責務と検証意図は提示済み。新Ownerの詳細API・利用側対応は段階3で確認する — DetailsへのHandoffを明示した
 - [x] Qualityへ渡すVerification Intentを明示した
 - [x] 現行Sourceや実装構造から意味を逆輸入していない
 - [x] 上流の観測可能な振る舞いをArchitectureで変更していない

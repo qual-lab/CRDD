@@ -18,6 +18,8 @@ Project／Portfolioの状態を根拠と不完全性付きで読む責務と、T
 
 責務全体を一つの書込み可能なComponentとして扱わない。公開Portは次の二つに分ける。
 
+実装では読取り投影・Source解決をDomain Modelの用途別APIへ、Objective／Milestoneの明示判断記録をOrchestratorへ割り当てる。同じ利用者入口やPackage編成でも読取りと書込みの契約を分け、投影の参照・Task完了から受入判断を生成しない。以下のPortは交換契約の区分であり、新しい汎用Port Frameworkの導入を要求しない。
+
 | Port | Owner | 許可する処置 | 禁止する処置 |
 |---|---|---|---|
 | Project Management Projection Port | Project Management Projection | Project／Milestone／Objective／Task状態と複数Project比較を読取り投影する | Project正本の変更、受入判断の記録、優先順位の自動決定 |
@@ -179,7 +181,7 @@ Detailは第2・3節のDefinition入力を置き換えず、その意味を実�
 - [x] Failure Boundary、Recovery責任および観測を明示した
 - [x] Security／TrustとQuality Constraintを評価した
 - [x] Human Inputの必要性とOpen／Gapを評価した
-- [x] DetailsへのHandoffを明示した
+- OPEN: 基本責務と検証意図は提示済み。新Ownerの詳細API・利用側対応は段階3で確認する — DetailsへのHandoffを明示した
 - [x] Qualityへ渡すVerification Intentを明示した
 - [x] 現行Sourceや実装構造から意味を逆輸入していない
 - [x] 上流の観測可能な振る舞いをArchitectureで変更していない

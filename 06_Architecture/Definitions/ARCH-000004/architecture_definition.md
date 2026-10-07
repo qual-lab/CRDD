@@ -11,10 +11,14 @@ Architecture ID: `ARCH-000004`
 
 | 区分 | 内容 |
 |---|---|
-| 状態Owner | Project Runtime |
+| 状態Owner | 上位Project／Task状態: Orchestrator。単一実行・資源状態: Coordinator |
 | 所有する責務 | Objective／Task受付、Project-level状態、判断待ち、取消、Recovery義務、再入場、結果 |
 | 所有しない責務 | Provider選定、OS操作、Transport、人間の採用判断 |
-| 主な外部境界 | Coordinator Execution Port、状態Store、人間判断 |
+| 主な外部境界 | Coordinator公開API、状態Store、人間判断 |
+
+実装Ownerは、上位の編成（Orchestrator）、単一実行（Coordinator）、AI固有接続（AI Adapter）へ分ける。OrchestratorはObjective／Taskの進行、判断点、再入場と結果を所有し、Coordinator公開APIを直接呼ぶ。Coordinatorは単体利用でき、実行・Review・取消・Docker資源の終了を所有する。Provider別CLI・認証・入力／出力・ProfileはAI Adapterへ閉じるが、実行Authorityと資源回収を移管しない。
+
+通知はCoordinatorが定義する関数をOrchestratorが登録する。CoordinatorからOrchestratorへのimport、上位型の注入Frameworkや汎用Event Busを追加しない。取消の受付、Process終了、資源回収、上位Taskの確定は別の結果であり、通知一件だけで全体完了としない。以下の入力表に残るProject Runtimeは上流の論理状態責務を表し、旧Packageの存続を要求する名称ではない。
 
 ## 2. UI観点の入力
 
@@ -181,7 +185,7 @@ Detailは第2・3節のDefinition入力を置き換えず、その意味を実�
 
 ## 10. 実装と検証への引き渡し
 
-- 実装は「Objective／Task受付、Project-level状態、判断待ち、取消、Recovery義務、再入場、結果」を所有するCoreと、外部境界を扱うPort／Adapterを分ける。
+- 実装はObjective／Task・判断・上位再入場をOrchestrator、単一実行と資源終了をCoordinator、AI固有差をAI Adapterへ割り当てる。意味Coreの独立性とApplicationからの公開API直接呼出しを区別する。
 - 受付→実行→結果→判断／完了、または失敗分類→Recovery→settlementを段階的な結合試験で確認する。
 - 範囲拡張、状態の別Task混入、Effect不明の再試行、cleanup要求だけの完了化を理由別に反証する。
 - なし。外部Effectを伴うため完全Lifecycleを必要とする。
@@ -206,7 +210,7 @@ Detailは第2・3節のDefinition入力を置き換えず、その意味を実�
 - [x] Failure Boundary、Recovery責任および観測を明示した
 - [x] Security／TrustとQuality Constraintを評価した
 - [x] Human Inputの必要性とOpen／Gapを評価した
-- [x] DetailsへのHandoffを明示した
+- OPEN: 基本責務と検証意図は提示済み。新Ownerの詳細API・利用側対応は段階3で確認する — DetailsへのHandoffを明示した
 - [x] Qualityへ渡すVerification Intentを明示した
 - [x] 現行Sourceや実装構造から意味を逆輸入していない
 - [x] 上流の観測可能な振る舞いをArchitectureで変更していない

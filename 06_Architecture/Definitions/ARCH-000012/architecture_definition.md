@@ -11,10 +11,12 @@ Architecture ID: `ARCH-000012`
 
 | 区分 | 内容 |
 |---|---|
-| 状態Owner | MCP／CLI Transport Adapter |
+| 状態Owner | MCP Serverと運用CLIの搬送Adapter。Workbench表示APIは同じ意味契約を利用する |
 | 所有する責務 | decode／encode、接続Lifecycle、公開Application Contractへの搬送 |
 | 所有しない責務 | Project Runtimeの意味契約、Authority追加、Provider実行 |
-| 主な外部境界 | CLI、MCP stdio、localhost HTTP、将来のWorkbench |
+| 主な外部境界 | CLI、MCP stdio、localhost HTTP、Workbench表示API |
+
+SPEC-000011のstdio／localhost HTTPという正式入力を維持する。共有Remote MCPの認可・Exposure・TLS／OriginはARCH-000013との共同成立条件として扱い、localhostの意味を無断でRemote全域へ拡張しない。MCPはAI専用ではなくMachine向け公開境界であり、別ProcessのWorkbench ServerもClientになれる。Browser向けRESTはWorkbench Serverに残し、独立CROS REST／Gatewayは既存能力を移管・確認した後に撤去する。
 
 ## 2. UI観点の入力
 
@@ -133,7 +135,7 @@ Detailは第2・3節のDefinition入力を置き換えず、その意味を実�
 - [x] Failure Boundary、Recovery責任および観測を明示した
 - [x] Security／TrustとQuality Constraintを評価した
 - [x] Human Inputの必要性とOpen／Gapを評価した
-- [x] DetailsへのHandoffを明示した
+- OPEN: 基本責務と検証意図は提示済み。新Ownerの詳細API・利用側対応は段階3で確認する — DetailsへのHandoffを明示した
 - [x] Qualityへ渡すVerification Intentを明示した
 - [x] 現行Sourceや実装構造から意味を逆輸入していない
 - [x] 上流の観測可能な振る舞いをArchitectureで変更していない

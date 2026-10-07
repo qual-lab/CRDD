@@ -11,10 +11,12 @@ Architecture ID: `ARCH-000007`
 
 | 区分 | 内容 |
 |---|---|
-| 状態Owner | 実行記録読取りProjection |
+| 状態Owner | Execution Intelligenceの実行記録読取りProjection |
 | 所有する責務 | 利用可能な実行記録の解決、欠測を保つ読取り集約、非Authority評価候補 |
 | 所有しない責務 | 実行記録の生成・永続化、Task状態の更新、Provider実行、評価の自動採用、故障修復 |
 | 主な外部境界 | 既存の実行記録Source、読取りPort、利用側 |
+
+Execution IntelligenceのReaderはARCH-000018のWriterと分離する。Coordinatorの単一実行観測とOrchestratorの上位Attempt観測をSourceの責務として区別し、AI Adapterが共通記録を二重生成しない。通常履歴は設定された保持期間で整理できるため、欠測を「過去に実行されなかった」へ変換しない。正式Evidenceの保持と通常履歴の保持を同一視しない。
 
 ## 2. UI観点の入力
 
@@ -132,7 +134,7 @@ Detailは第2・3節のDefinition入力を置き換えず、その意味を実�
 - [x] Failure Boundary、Recovery責任および観測を明示した
 - [x] Security／TrustとQuality Constraintを評価した
 - [x] Human Inputの必要性とOpen／Gapを評価した
-- [x] DetailsへのHandoffを明示した
+- OPEN: 基本責務と検証意図は提示済み。新Ownerの詳細API・利用側対応は段階3で確認する — DetailsへのHandoffを明示した
 - [x] Qualityへ渡すVerification Intentを明示した
 - [x] 現行Sourceや実装構造から意味を逆輸入していない
 - [x] 上流の観測可能な振る舞いをArchitectureで変更していない

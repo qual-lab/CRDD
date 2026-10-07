@@ -197,15 +197,15 @@ IA固有の追加人間判断はない。これは入力UXの未確認事項が�
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [Tool CapabilityとAIモデル構成のArchitecture定義](../../Definitions/ARCH-000010/architecture_definition.md) | Capability RegistryとModel Configuration Resolver | UI契約はAuthorityを発行しない。利用者操作: 選ぶ／構成を検証する／更新する。 | UI契約はEffectを定義しない。状態・導線: 利用可能（available）／利用不能（unavailable）／未確認（unverified）／停止（blocked） / 仕事→必要能力→登録Tool→配布根拠→起動 / ；有効（valid）／無効（invalid）／利用可能（available）／利用不能（unavailable）／選択済み（selected） / 設定→検証→利用可能候補→選択→理由・再選定条件 /  | 版不一致・欠落実行基盤・改ざんManifestを対応版と誤認する／未知または非対応のモデルを実行可能と表示する |
+| [Tool CapabilityとAIモデル構成のArchitecture定義](../../Definitions/ARCH-000010/architecture_definition.md) | Capability RegistryとAI AdapterのProfile解決 | UI契約はAuthorityを発行しない。利用者操作: 選ぶ／構成を検証する／更新する。 | UI契約はEffectを定義しない。状態・導線: 利用可能（available）／利用不能（unavailable）／未確認（unverified）／停止（blocked） / 仕事→必要能力→登録Tool→配布根拠→起動 / ；有効（valid）／無効（invalid）／利用可能（available）／利用不能（unavailable）／選択済み（selected） / 設定→検証→利用可能候補→選択→理由・再選定条件 /  | 版不一致・欠落実行基盤・改ざんManifestを対応版と誤認する／未知または非対応のモデルを実行可能と表示する |
 
 ### 観点別評価
 
 | 観点 | 判定 | 根拠・引渡し |
 |---|---|---|
 | Responsibility | 評価済み | [Tool CapabilityとAIモデル構成のArchitecture定義](../../Definitions/ARCH-000010/architecture_definition.md)へ入力Contractを意味変更せず渡す。 |
-| Boundary／Component／Interface | 評価済み | 状態OwnerはCapability RegistryとModel Configuration Resolver。公開境界は入力定義のAuthority・Effect・制約を越えない。 |
-| Data／State Ownership | 評価済み | Capability RegistryとModel Configuration ResolverをOwner候補とし、UI表示またはSPEC結果と内部状態を同一視しない。 |
+| Boundary／Component／Interface | 評価済み | 状態OwnerはCapability RegistryとAI AdapterのProfile解決。公開境界は入力定義のAuthority・Effect・制約を越えない。 |
+| Data／State Ownership | 評価済み | Capability RegistryとAI AdapterのProfile解決をOwner候補とし、UI表示またはSPEC結果と内部状態を同一視しない。 |
 | Failure／Recovery | 評価済み | 版不一致・欠落実行基盤・改ざんManifestを対応版と誤認する／未知または非対応のモデルを実行可能と表示する。Recoveryは入力定義にある場合だけ保持する。 |
 | Security／Trust | 評価済み | 入力定義のAuthority、開示、Effect 0および非推定条件を保持する。 |
 | Quality Constraint | 評価済み | 未観測・不明・制限・失敗を成功または不存在へ丸めない。 |

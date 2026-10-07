@@ -1,8 +1,8 @@
 # 境界／Interfaceモデル
 
-Status: Stable (v0.21.0)
+Status: Candidate (v0.22 responsibility reorganization)
 Owner: Qual-Lab
-Last Updated: 2026-09-15
+Last Updated: 2026-10-07
 
 ## 1. この成果物が所有すること
 
@@ -38,19 +38,35 @@ Component間、外部System、Platform、Repository、Trust境界と、境界を
 └──────────────────┬─────────────────────┘
                    │ 意味を保持
                    ▼
-┌─ Project Runtime ──────────────────────────────────────────────┐
-│ Project State / Task State / Decision Wait / Recovery          │
-│ Objective／Milestone Acceptance Decision Record               │
-└───────┬──────────────┬────────────────┬─────────────────────┬──┘
-        │              │                │                     │
-        ▼              ▼                ▼                     ▼
- Execution Port   State Source Port  Acceptance Decision Port  Runtime Data Port
-        ▲              ▲                ▲                     ▲
-        │ implements   │ implements     │ explicit decision   │ implements
- Coordinator等    Projection Source  Project運営者           Repository／OS Adapter
+┌─ Orchestrator ───────────────────────────────────────────────┐
+│ Project／Task状態・判断待ち・上位再入場・限定受入判断記録     │
+└───────┬─────────────────────────────┬────────────────────────┘
+        │ 公開API直接呼出し          │ 上位状態の保存／照会
+        ▼                            ▼
+  Coordinator                     Domain API／Store
+  実行・Review・取消・資源終了      各Ownerの意味を維持
+        │                            ▲
+        │ Provider固有契約           │ 明示判断だけを記録
+        ▼                            │
+  AI Adapter                      Project運営者
+
+Coordinatorの通知関数をOrchestratorが登録する。
+下位の通知から上位判断・状態確定・cleanup成立を推定しない。
 ```
 
-`implements`は物理実装候補を示すが、Adapter名や既存FolderをCanonical Componentの根拠にしない。
+`implements`は交換契約の実装候補を示すが、Adapter名や既存FolderをCanonical Componentの根拠にしない。図のProject Runtimeの実装OwnerはOrchestrator、Execution Portの実装OwnerはCoordinatorである。実装ではOrchestratorがCoordinator公開APIを直接呼び出し、Coordinatorが定義する通知関数を登録する。CoordinatorからOrchestratorへのimportや、上位が所有するPort型を下位へ注入するFrameworkは追加しない。
+
+### 公開SurfaceとCROS境界
+
+| 経路 | 境界を受け持つOwner | 維持する条件 |
+|---|---|---|
+| Browser → Workbench Server | Workbench表示API | Browser向けREST、認証・入力検証、Process限定操作確認を維持する。 |
+| Workbench Server → 同一ProcessのCROS | CROSの共通認可能力 | Transportを省略してもCredential／Role／Exposureと操作ごとの再観測を省略しない。 |
+| Workbench Server → 別ProcessのCROS | MCP Server | 同一Hostでも別ProcessならMCP経路とする。独立CROS REST／Gatewayは撤去する。 |
+| AI／Machine → MCP Server | MCP搬送とCROSの共通認可能力 | MCPはAI専用ではない。Repository単体stdio／localhost HTTPの契約と共有CROS認可契約を区別する。 |
+| Repository単体利用 | 検証済みRepository Rootと各能力 | CROS設定・Credentialを機械的に要求しない。Rootが不明ならEffect前に停止する。 |
+
+共有配置はWorkbench／MCPと内部Capabilityの配置形態であり、新しい公開Serverや自動Repository Deployを追加しない。Remote境界で認可・現在状態が不明な場合は操作を停止し、未許可Sourceの存在・Identityを開示しない。撤去対象が現在提供する操作・認可・終了保証を新経路へ対応付けるまで、置換済みと表示しない。
 
 ## 4. 主要なブロック間シーケンス
 
@@ -109,3 +125,11 @@ Component間、外部System、Platform、Repository、Trust境界と、境界を
 - restricted、unknown、not_observed、blockedを成功や不存在へ畳まない。
 - Project Management Projectionから受入判断の書込みAuthorityが生じず、SPEC-000006／SPEC-000007がAcceptance Decision Portへ到達できないことを確認する。
 - Acceptance Decision PortはSPEC-000002の明示判断だけを記録し、Task作成・Provider Effect・下位完了からの上位受入推定を行わないことを確認する。
+
+## Checklist
+
+- [x] 交換値、Authority、状態Ownerと実装の直接依存を区別した。
+- [x] 同一Processの内部呼出しと別ProcessのMCP境界でも認可を維持した。
+- [x] SPEC-000011のstdio／localhost HTTPを共有Remote契約へ読み替えていない。
+- [x] Browser向けRESTと廃止するCROS REST／Gatewayを区別した。
+- [ ] OPEN: 各公開操作・Callback・取消・終了後条件の詳細対応は段階3、固定設計の独立レビューは段階4で確認する。

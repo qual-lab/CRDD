@@ -207,15 +207,15 @@ IA固有の追加人間判断はない。これは入力UXの未確認事項が�
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [Project実行のArchitecture定義](../../Definitions/ARCH-000004/architecture_definition.md) | Project Runtime | UI契約はAuthorityを発行しない。利用者操作: 再試行する／回復する／清掃する。 | UI契約はEffectを定義しない。状態・導線: 失敗後の作用なし／作用済み／不明、回復要／不要 / 失敗→作用状態→同じ依頼の結果→回復処置または再試行 / ；存在（present）／不存在（absent）／不明（unknown）、回復可能（recoverable）／清掃可能（cleanup_eligible） / 停止→残存観測→同一の回復対象識別子→回復処置・清掃→不存在確認→義務解消 / ；存在（present）／不存在（absent）／不明（unknown）、回復可能（recoverable）／清掃可能（cleanup_eligible） / 停止→残存観測→同一の回復対象識別子→回復・清掃→不存在確認 /  | 結果不明の処理を新規実行して外部作用（Effect）の二重実行を起こす／名前や経過時間だけで由来不明物を削除する |
+| [Project実行のArchitecture定義](../../Definitions/ARCH-000004/architecture_definition.md) | 上位状態Orchestrator／単一実行Coordinator | UI契約はAuthorityを発行しない。利用者操作: 再試行する／回復する／清掃する。 | UI契約はEffectを定義しない。状態・導線: 失敗後の作用なし／作用済み／不明、回復要／不要 / 失敗→作用状態→同じ依頼の結果→回復処置または再試行 / ；存在（present）／不存在（absent）／不明（unknown）、回復可能（recoverable）／清掃可能（cleanup_eligible） / 停止→残存観測→同一の回復対象識別子→回復処置・清掃→不存在確認→義務解消 / ；存在（present）／不存在（absent）／不明（unknown）、回復可能（recoverable）／清掃可能（cleanup_eligible） / 停止→残存観測→同一の回復対象識別子→回復・清掃→不存在確認 /  | 結果不明の処理を新規実行して外部作用（Effect）の二重実行を起こす／名前や経過時間だけで由来不明物を削除する |
 
 ### 観点別評価
 
 | 観点 | 判定 | 根拠・引渡し |
 |---|---|---|
 | Responsibility | 評価済み | [Project実行のArchitecture定義](../../Definitions/ARCH-000004/architecture_definition.md)へ入力Contractを意味変更せず渡す。 |
-| Boundary／Component／Interface | 評価済み | 状態OwnerはProject Runtime。公開境界は入力定義のAuthority・Effect・制約を越えない。 |
-| Data／State Ownership | 評価済み | Project RuntimeをOwner候補とし、UI表示またはSPEC結果と内部状態を同一視しない。 |
+| Boundary／Component／Interface | 評価済み | 状態Ownerは上位状態Orchestrator／単一実行Coordinator。公開境界は入力定義のAuthority・Effect・制約を越えない。 |
+| Data／State Ownership | 評価済み | 上位状態Orchestrator／単一実行CoordinatorをOwner候補とし、UI表示またはSPEC結果と内部状態を同一視しない。 |
 | Failure／Recovery | 評価済み | 結果不明の処理を新規実行して外部作用（Effect）の二重実行を起こす／名前や経過時間だけで由来不明物を削除する。Recoveryは入力定義にある場合だけ保持する。 |
 | Security／Trust | 評価済み | 入力定義のAuthority、開示、Effect 0および非推定条件を保持する。 |
 | Quality Constraint | 評価済み | 未観測・不明・制限・失敗を成功または不存在へ丸めない。 |

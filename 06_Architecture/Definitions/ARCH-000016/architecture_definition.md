@@ -16,6 +16,8 @@ Architecture ID: `ARCH-000016`
 | 所有しない責務 | 履歴参照からの現在方針採用、内容の正しさの自動判断 |
 | 主な外部境界 | Git履歴、Communication、Decision、現在正本 |
 
+実装はDomain ModelのContext／Artifact由来解決へ割り当てる。Git情報はVersion Controlの公開契約から必要な範囲を取得し、Domain CRUDからCommit／Pushを発行しない。現在Project Contextの投影、通常の運用履歴、正式Decision／CHGの根拠を分け、共通の履歴Storeへすべてを永久蓄積しない。現在の意図を採用するAuthorityは各正本の判断者に残す。
+
 ## 2. UI観点の入力
 
 | UI分析 | 守る利用者向けの約束 |
@@ -133,7 +135,7 @@ Detailは第2・3節のDefinition入力を置き換えず、その意味を実�
 - [x] Failure Boundary、Recovery責任および観測を明示した
 - [x] Security／TrustとQuality Constraintを評価した
 - [x] Human Inputの必要性とOpen／Gapを評価した
-- [x] DetailsへのHandoffを明示した
+- OPEN: 基本責務と検証意図は提示済み。新Ownerの詳細API・利用側対応は段階3で確認する — DetailsへのHandoffを明示した
 - [x] Qualityへ渡すVerification Intentを明示した
 - [x] 現行Sourceや実装構造から意味を逆輸入していない
 - [x] 上流の観測可能な振る舞いをArchitectureで変更していない

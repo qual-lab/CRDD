@@ -11,10 +11,12 @@ Topicの現在状態とMeetingの時点記録を分け、CRUD・終了・訂正�
 
 | 区分 | 内容 |
 |---|---|
-| 状態Owner | Project Operation Context |
+| 状態Owner | Domain ModelのTopic／Meeting責務。各成果物の状態はそれぞれのOwnerが所有する |
 | 所有する責務 | Topic／MeetingのIdentity・改訂版・Relation・Lifecycle、Meeting Outcome処置、Action追跡先、安全な物理削除 |
 | 所有しない責務 | Meeting本文の意味決定、候補の自動採用、各所有正本の内部規則、正当な履歴の物理削除 |
 | 主な外部境界 | Meeting正本、Topic／Decision等の所有正本、人間判断 |
+
+実装は`domain-model`の用途別Topic／Meeting APIへ統合する。共通部品はIdentity・改訂版・Relation・保存の整合を扱うが、Meeting Outcome、Topic現在状態、Project Taskを一つの汎用状態機械へまとめない。Workbench／MCPは同じ業務契約を利用し、保存の成功からGit Commit／Pushを自動発行しない。候補の採否と正本更新は人間の決定権限を維持する。
 
 ## 2. UI観点の入力
 
@@ -132,7 +134,7 @@ Detailは第2・3節のDefinition入力を置き換えず、その意味を実�
 - [x] Failure Boundary、Recovery責任および観測を明示した
 - [x] Security／TrustとQuality Constraintを評価した
 - [x] Human Inputの必要性とOpen／Gapを評価した
-- [x] DetailsへのHandoffを明示した
+- OPEN: 基本責務と検証意図は提示済み。新Ownerの詳細API・利用側対応は段階3で確認する — DetailsへのHandoffを明示した
 - [x] Qualityへ渡すVerification Intentを明示した
 - [x] 現行Sourceや実装構造から意味を逆輸入していない
 - [x] 上流の観測可能な振る舞いをArchitectureで変更していない

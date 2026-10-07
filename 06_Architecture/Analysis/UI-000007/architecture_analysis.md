@@ -158,15 +158,15 @@ IA固有の追加人間判断はない。これは入力UXの未確認事項が�
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [公開Transportの意味同一性のArchitecture定義](../../Definitions/ARCH-000012/architecture_definition.md) | MCP／CLI Transport Adapter | UI契約はAuthorityを発行しない。利用者操作: 依頼する／結果を受け取る／別入口で続ける。 | UI契約はEffectを定義しない。状態・導線: 受付前／受付済み／作用前失敗／作用後失敗／結果あり / 入口→同じ公開要求→Runtime→同じ結果 /  | 通信方式によって入力・権限判断・状態・結果の意味が変わる |
+| [公開Transportの意味同一性のArchitecture定義](../../Definitions/ARCH-000012/architecture_definition.md) | MCP Server／運用CLI搬送Adapter | UI契約はAuthorityを発行しない。利用者操作: 依頼する／結果を受け取る／別入口で続ける。 | UI契約はEffectを定義しない。状態・導線: 受付前／受付済み／作用前失敗／作用後失敗／結果あり / 入口→同じ公開要求→Runtime→同じ結果 /  | 通信方式によって入力・権限判断・状態・結果の意味が変わる |
 
 ### 観点別評価
 
 | 観点 | 判定 | 根拠・引渡し |
 |---|---|---|
 | Responsibility | 評価済み | [公開Transportの意味同一性のArchitecture定義](../../Definitions/ARCH-000012/architecture_definition.md)へ入力Contractを意味変更せず渡す。 |
-| Boundary／Component／Interface | 評価済み | 状態OwnerはMCP／CLI Transport Adapter。公開境界は入力定義のAuthority・Effect・制約を越えない。 |
-| Data／State Ownership | 評価済み | MCP／CLI Transport AdapterをOwner候補とし、UI表示またはSPEC結果と内部状態を同一視しない。 |
+| Boundary／Component／Interface | 評価済み | 状態OwnerはMCP Server／運用CLI搬送Adapter。公開境界は入力定義のAuthority・Effect・制約を越えない。 |
+| Data／State Ownership | 評価済み | MCP Server／運用CLI搬送AdapterをOwner候補とし、UI表示またはSPEC結果と内部状態を同一視しない。 |
 | Failure／Recovery | 評価済み | 通信方式によって入力・権限判断・状態・結果の意味が変わる。Recoveryは入力定義にある場合だけ保持する。 |
 | Security／Trust | 評価済み | 入力定義のAuthority、開示、Effect 0および非推定条件を保持する。 |
 | Quality Constraint | 評価済み | 未観測・不明・制限・失敗を成功または不存在へ丸めない。 |

@@ -16,6 +16,8 @@ not_authorized→authorized→sent→returned→candidate→adoptedを別Authori
 | 所有しない責務 | 送信同意からの結果採用、外部AIへの決定権限移譲、所有正本の無断更新 |
 | 主な外部境界 | 外部AI／API／MCP、Candidate Store、所有正本、人間判断 |
 
+候補本体の隔離・読取り・破棄と下位実行はCoordinator、Projectの採否記録・Repositoryへの反映はOrchestratorが所有する。AI AdapterはProvider固有の搬送・抽出を行うが、送信同意、候補採用、Repository更新Authorityを発行しない。人間の採用判断はOrchestratorによる自動選択で代替しない。Topic／Meetingの候補処置は各Domain APIの業務契約を維持し、同じ候補という語だけで全用途を汎用採用機構へ統合しない。
+
 読取り助言は所有正本Effect 0の結果として帰還させる。変更候補は未信頼候補として隔離し、人間判断による採用と所有正本更新を別Authorityにする。入口、TransportまたはProfile変更を理由に依頼種別を暗黙変更しない。
 
 結果は、確認済み事実、共有済み分析、追加推論および次の選択肢を区分し、各項目を本文と一件以上の正本参照の組として帰還させる。読取り助言では、利用者依頼、選択Profileおよび許可済み読取り投影を内容Hash付きの専用Task Packetへ固定してから送信Authorityへ渡す。Packet生成は外部Effect 0であり、投影本文を指示またはAuthorityとして扱わない。結果境界は型宣言だけに依存せず閉じたSchemaを実行時検証し、根拠参照のない項目、余分なKeyまたは過大な値を部分採用しない。参照はProvenanceであり、Repository読取りAuthorityではない。
@@ -155,7 +157,7 @@ Detailは第2・3節のDefinition入力を置き換えず、その意味を実�
 - [x] Failure Boundary、Recovery責任および観測を明示した
 - [x] Security／TrustとQuality Constraintを評価した
 - [x] Human Inputの必要性とOpen／Gapを評価した
-- [x] DetailsへのHandoffを明示した
+- OPEN: 基本責務と検証意図は提示済み。新Ownerの詳細API・利用側対応は段階3で確認する — DetailsへのHandoffを明示した
 - [x] Qualityへ渡すVerification Intentを明示した
 - [x] 現行Sourceや実装構造から意味を逆輸入していない
 - [x] 上流の観測可能な振る舞いをArchitectureで変更していない

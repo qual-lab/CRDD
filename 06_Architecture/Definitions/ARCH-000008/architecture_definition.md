@@ -11,10 +11,12 @@ Architecture ID: `ARCH-000008`
 
 | 区分 | 内容 |
 |---|---|
-| 状態Owner | Platform Access診断Port |
+| 状態Owner | Coordinatorの境界診断。OS固有の観測保証はPlatform Access |
 | 所有する責務 | 外部境界ごとの到達、受理、開始、結果搬送、終了状態の観測 |
 | 所有しない責務 | Provider Task、Docker修復、再起動、結果採用 |
 | 主な外部境界 | OS Process、Docker、Network、外部CLI |
+
+Coordinatorは診断結果の相関と公開範囲を所有し、AI AdapterはProvider固有の構成・出力の分類、Platform AccessはOS固有のProcess・handle・ACL等の保証を提供する。Docker CLIや通常Node処理を使うことだけで全診断をNativeへ移管しない。最初の失敗境界とcleanup結果を別々に保持し、診断成功・Provider終了・資源不存在を相互代替しない。診断だけから再起動や削除Authorityは生成しない。
 
 ## 2. UI観点の入力
 
@@ -133,7 +135,7 @@ Detailは第2・3節のDefinition入力を置き換えず、その意味を実�
 - [x] Failure Boundary、Recovery責任および観測を明示した
 - [x] Security／TrustとQuality Constraintを評価した
 - [x] Human Inputの必要性とOpen／Gapを評価した
-- [x] DetailsへのHandoffを明示した
+- OPEN: 基本責務と検証意図は提示済み。新Ownerの詳細API・利用側対応は段階3で確認する — DetailsへのHandoffを明示した
 - [x] Qualityへ渡すVerification Intentを明示した
 - [x] 現行Sourceや実装構造から意味を逆輸入していない
 - [x] 上流の観測可能な振る舞いをArchitectureで変更していない

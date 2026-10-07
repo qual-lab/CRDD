@@ -215,15 +215,15 @@ IA固有の追加人間判断はない。これは入力UXの未確認事項が�
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [Project実行のArchitecture定義](../../Definitions/ARCH-000004/architecture_definition.md) | Project Runtime | UI契約はAuthorityを発行しない。利用者操作: 委任を提案する／委任範囲を確認して受け付ける／拒否する／拒否理由から同じ提案の範囲を見直す／取消す／判断を返す。 | UI契約はEffectを定義しない。状態・導線: 準備中／許可待ち／実行中／停止。権限発行前後を分ける。提案／受付可能／受付済み／拒否は受付Feedbackとして別に示す / 目的→範囲と担い手→許可→実行。拒否時は同じ提案の範囲見直しへ戻る。受付後の結果不明はLifecycleへ追加せず、同じ依頼識別情報の再観測条件として示す / ；開始可能（ready）／実行中（running）／入力・判断待ち（waiting）／停止（blocked）／完了（completed）／失敗（failed） / Task→現在状態→判断要否→待機・入力・取消・回復 / ；開始可能（ready）／実行中（running）／入力・判断待ち（waiting）／停止（blocked）／完了（completed）／失敗（failed）に加え、取消要求済み（cancel_requested）／取消完了（cancelled）／取消結果不明・回復必要（cancel_unknown／recovery_required）を区別する / Task→現在状態→判断要否→待機・入力・取消要求→終了状態確認／同じ回復対象識別子（Recovery Identity）の再観測 /  | 暗黙の範囲拡張、拒否後の別依頼化、回復不能／古い観測や取消要求の受理だけを進捗・完了と誤認する |
+| [Project実行のArchitecture定義](../../Definitions/ARCH-000004/architecture_definition.md) | 上位状態Orchestrator／単一実行Coordinator | UI契約はAuthorityを発行しない。利用者操作: 委任を提案する／委任範囲を確認して受け付ける／拒否する／拒否理由から同じ提案の範囲を見直す／取消す／判断を返す。 | UI契約はEffectを定義しない。状態・導線: 準備中／許可待ち／実行中／停止。権限発行前後を分ける。提案／受付可能／受付済み／拒否は受付Feedbackとして別に示す / 目的→範囲と担い手→許可→実行。拒否時は同じ提案の範囲見直しへ戻る。受付後の結果不明はLifecycleへ追加せず、同じ依頼識別情報の再観測条件として示す / ；開始可能（ready）／実行中（running）／入力・判断待ち（waiting）／停止（blocked）／完了（completed）／失敗（failed） / Task→現在状態→判断要否→待機・入力・取消・回復 / ；開始可能（ready）／実行中（running）／入力・判断待ち（waiting）／停止（blocked）／完了（completed）／失敗（failed）に加え、取消要求済み（cancel_requested）／取消完了（cancelled）／取消結果不明・回復必要（cancel_unknown／recovery_required）を区別する / Task→現在状態→判断要否→待機・入力・取消要求→終了状態確認／同じ回復対象識別子（Recovery Identity）の再観測 /  | 暗黙の範囲拡張、拒否後の別依頼化、回復不能／古い観測や取消要求の受理だけを進捗・完了と誤認する |
 
 ### 観点別評価
 
 | 観点 | 判定 | 根拠・引渡し |
 |---|---|---|
 | Responsibility | 評価済み | [Project実行のArchitecture定義](../../Definitions/ARCH-000004/architecture_definition.md)へ入力Contractを意味変更せず渡す。 |
-| Boundary／Component／Interface | 評価済み | 状態OwnerはProject Runtime。公開境界は入力定義のAuthority・Effect・制約を越えない。 |
-| Data／State Ownership | 評価済み | Project RuntimeをOwner候補とし、UI表示またはSPEC結果と内部状態を同一視しない。 |
+| Boundary／Component／Interface | 評価済み | 状態Ownerは上位状態Orchestrator／単一実行Coordinator。公開境界は入力定義のAuthority・Effect・制約を越えない。 |
+| Data／State Ownership | 評価済み | 上位状態Orchestrator／単一実行CoordinatorをOwner候補とし、UI表示またはSPEC結果と内部状態を同一視しない。 |
 | Failure／Recovery | 評価済み | 暗黙の範囲拡張、拒否後の別依頼化、回復不能／古い観測や取消要求の受理だけを進捗・完了と誤認する。Recoveryは入力定義にある場合だけ保持する。 |
 | Security／Trust | 評価済み | 入力定義のAuthority、開示、Effect 0および非推定条件を保持する。 |
 | Quality Constraint | 評価済み | 未観測・不明・制限・失敗を成功または不存在へ丸めない。 |

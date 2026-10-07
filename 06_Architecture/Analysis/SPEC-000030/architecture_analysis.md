@@ -134,15 +134,15 @@ IA固有の追加人間判断はない。これは入力UXの未確認事項が�
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [実行事実の記録のArchitecture定義](../../Definitions/ARCH-000018/architecture_definition.md) | 実行記録Writerと不変Store | 許可された記録作成側。Task実行、評価採用または別Sourceの変更Authorityを含まない | 許可された実行記録領域への不変な記録だけ。Task、Provider、評価または他Sourceを変更しない。 | Identity不明、Schema不一致、並行衝突、途中失敗、保存結果の観測不能を成功へ畳まない。 |
+| [実行事実の記録のArchitecture定義](../../Definitions/ARCH-000018/architecture_definition.md) | Execution Intelligence記録Writerと不変Store | 許可された記録作成側。Task実行、評価採用または別Sourceの変更Authorityを含まない | 許可された実行記録領域への不変な記録だけ。Task、Provider、評価または他Sourceを変更しない。 | Identity不明、Schema不一致、並行衝突、途中失敗、保存結果の観測不能を成功へ畳まない。 |
 
 ### 観点別評価
 
 | 観点 | 判定 | 根拠・引渡し |
 |---|---|---|
 | Responsibility | 評価済み | [実行事実の記録のArchitecture定義](../../Definitions/ARCH-000018/architecture_definition.md)へ入力Contractを意味変更せず渡す。 |
-| Boundary／Component／Interface | 評価済み | 状態Ownerは実行記録Writerと不変Store。公開境界は入力定義のAuthority・Effect・制約を越えない。 |
-| Data／State Ownership | 評価済み | 実行記録Writerと不変StoreをOwner候補とし、UI表示またはSPEC結果と内部状態を同一視しない。 |
+| Boundary／Component／Interface | 評価済み | 状態OwnerはExecution Intelligence記録Writerと不変Store。公開境界は入力定義のAuthority・Effect・制約を越えない。 |
+| Data／State Ownership | 評価済み | Execution Intelligence記録Writerと不変StoreをOwner候補とし、UI表示またはSPEC結果と内部状態を同一視しない。 |
 | Failure／Recovery | 評価済み | Identity不明、Schema不一致、並行衝突、途中失敗、保存結果の観測不能を成功へ畳まない。Recoveryは入力定義にある場合だけ保持する。 |
 | Security／Trust | 評価済み | 入力定義のAuthority、開示、Effect 0および非推定条件を保持する。 |
 | Quality Constraint | 評価済み | 未観測・不明・制限・失敗を成功または不存在へ丸めない。 |

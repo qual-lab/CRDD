@@ -210,15 +210,15 @@ IA固有の追加人間判断はない。これは入力UXの未確認事項が�
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [Project実行のArchitecture定義](../../Definitions/ARCH-000004/architecture_definition.md) | Project Runtime | UI契約はAuthorityを発行しない。利用者操作: 引き継ぐ／再接続する／結果を戻す。 | UI契約はEffectを定義しない。状態・導線: 準備済み（prepared）／送信済み（sent）／受領済み（received）／返却済み（returned）／停止（blocked） / 情報源→選択→仕事用情報一式（Context Package）→Task→結果（Result）→元の仕事 / ；進行中（active）／切断（disconnected）／結果取得可能（result_available）／回復必要（recovery_required）／確定済み（settled） / 再接続→同じ依頼（Request）→現在権限→状態・結果→回復義務 / ；進行中（active）／切断（disconnected）／結果取得可能（result_available）／回復必要（recovery_required）／確定済み（settled） / 再接続→同じ依頼（Request）→現在権限→状態・結果→回復義務 /  | 全量投入・秘密情報混入・古い仮説の現在値化／Timeoutを未実行とみなし新規外部作用（Effect）を起こす |
+| [Project実行のArchitecture定義](../../Definitions/ARCH-000004/architecture_definition.md) | 上位状態Orchestrator／単一実行Coordinator | UI契約はAuthorityを発行しない。利用者操作: 引き継ぐ／再接続する／結果を戻す。 | UI契約はEffectを定義しない。状態・導線: 準備済み（prepared）／送信済み（sent）／受領済み（received）／返却済み（returned）／停止（blocked） / 情報源→選択→仕事用情報一式（Context Package）→Task→結果（Result）→元の仕事 / ；進行中（active）／切断（disconnected）／結果取得可能（result_available）／回復必要（recovery_required）／確定済み（settled） / 再接続→同じ依頼（Request）→現在権限→状態・結果→回復義務 / ；進行中（active）／切断（disconnected）／結果取得可能（result_available）／回復必要（recovery_required）／確定済み（settled） / 再接続→同じ依頼（Request）→現在権限→状態・結果→回復義務 /  | 全量投入・秘密情報混入・古い仮説の現在値化／Timeoutを未実行とみなし新規外部作用（Effect）を起こす |
 
 ### 観点別評価
 
 | 観点 | 判定 | 根拠・引渡し |
 |---|---|---|
 | Responsibility | 評価済み | [Project実行のArchitecture定義](../../Definitions/ARCH-000004/architecture_definition.md)へ入力Contractを意味変更せず渡す。 |
-| Boundary／Component／Interface | 評価済み | 状態OwnerはProject Runtime。公開境界は入力定義のAuthority・Effect・制約を越えない。 |
-| Data／State Ownership | 評価済み | Project RuntimeをOwner候補とし、UI表示またはSPEC結果と内部状態を同一視しない。 |
+| Boundary／Component／Interface | 評価済み | 状態Ownerは上位状態Orchestrator／単一実行Coordinator。公開境界は入力定義のAuthority・Effect・制約を越えない。 |
+| Data／State Ownership | 評価済み | 上位状態Orchestrator／単一実行CoordinatorをOwner候補とし、UI表示またはSPEC結果と内部状態を同一視しない。 |
 | Failure／Recovery | 評価済み | 全量投入・秘密情報混入・古い仮説の現在値化／Timeoutを未実行とみなし新規外部作用（Effect）を起こす。Recoveryは入力定義にある場合だけ保持する。 |
 | Security／Trust | 評価済み | 入力定義のAuthority、開示、Effect 0および非推定条件を保持する。 |
 | Quality Constraint | 評価済み | 未観測・不明・制限・失敗を成功または不存在へ丸めない。 |
