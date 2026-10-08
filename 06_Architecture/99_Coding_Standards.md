@@ -1,8 +1,8 @@
 # CRDD内部ツール・コーディング規約
 
-Status: Stable (v0.21.0)
+Status: Draft (v0.22.0 Source構造改訂。実装・機械検査の移行は未完了)
 Owner: Qual-Lab
-Last Updated: 2026-09-06
+Last Updated: 2026-10-09
 Scope: `40_Develop/**`の実装と、CRDDが配布する`template/tools/**`の現行Tool本体・起動入口・設定・Schema。v0.21移行目標は本文で区別する
 
 ## 1. 目的と正本
@@ -125,54 +125,62 @@ Toolの既定書込みRootは現在のリポジトリ内に限定する。現在
 
 ### 3.2. Sourceの責務別配置と公開境界
 
-`40_Develop/<subsystem>/src`の物理Directoryは、公開／非公開ではなくCapability、責務または外部境界を表す（MUST）。`internal/`、`common/`、`utils/`または`helpers/`のように、責務を示さず利用可否だけを表す汎用DirectoryをCRDD所有Sourceへ新設してはならない（MUST NOT）。既存の汎用Directoryを変更する場合は、同じ変更で全Consumerを責務別Directoryへ移行する。
+Source Treeを、人間とAIが探索・理解・変更するための情報構造（Information Architecture）として扱う。Packageは製品・Subsystemの責務、Folderは「何について」の責務・Capability・概念・外部境界・所有状態、Fileは「そこで何をするか」、SymbolはCode上で単独参照しても意味が通るIdentityを表す（MUST）。配置はPackage→Folder→File→Symbol→公開APIの順で判断し、Architecture Pattern名を機械的にSourceへ投影しない。
+
+`40_Develop/<subsystem>/src`の物理Directoryは、公開／非公開ではなく具体的な責務を表す（MUST）。`application/`、`domain/`、`core/`、`internal/`、`services/`、`utils/`、`helpers/`、`common/`、`logic/`、`misc/`、`ports/`を形式的なLayerや雑多な置場として新設してはならない（MUST NOT）。`domain`等の語自体を禁止するのではなく、その名が製品上の具体的Identityを持つ場合はArchitectureで意味と範囲を説明する。既存の汎用Directoryを変更する場合は、全Consumerの移行を同じ変更で照合する。
 
 `src/`直下を第一階層、Capability配下を第二階層として、CRDD所有SourceのDirectoryは原則として二階層以内に収める（MUST）。Package名または親Capabilityですでに表現できる`domain/`、`repository/`、`application/`等を形式的に重ねてはならない（MUST NOT）。第三階層が必要な場合は、独立した変更理由、利用側、公開境界および試験境界を説明し、独立Subsystemへの分離または第二階層への平坦化を先に検討する。
 
-型専用Fileは、Architectureが宣言した一つの責務別Directoryまたは公開契約の範囲に閉じる`types.ts`へ統一する。同じ変更理由と利用側を持つ型だけを置き、無関係な責務の型集積へ使用してはならない（MUST NOT）。実行時の検証、変換、定数または資源操作を持つFileは型専用ではなく、`outcome.ts`等の実責務を表す名前を維持する。`index.ts`は型本体の代替ではなく、Architectureが宣言した公開Symbolの明示的な再公開だけを所有する。
+一Fileだけで使う型はそのFile内へ置く。同じ責務・変更理由・利用範囲を持ち、複数Fileで共有する型だけを責務Folderの`types.ts`へ置く（MUST）。Package外へ公開する型も責務を所有するSourceで定義し、公開入口から明示exportする。型であること、File数削減または置場不明を理由に無関係な型を集積してはならない（MUST NOT）。実行時の検証、変換、定数または資源操作を持つFileは型専用ではなく、`outcome.ts`等の実責務を表す名前を維持する。`index.ts`は型本体の代替ではない。
 
-Source File名は主要責務を表す。次の標準Suffixへ自然に該当する場合はそのSuffixを使用し、該当しないFileを分類のためだけに無理に改名してはならない（MUST NOT）。
+Source File名はFolderのContextを前提として主要な機能・操作・判断を表し、Folderが示すIdentityを不必要に重複させない（MUST）。例えば`credential/credential-issuer.ts`ではなく`credential/issue.ts`とする。異なるFolderの`types.ts`や`state.ts`はPathで識別できるため許容する。一方Symbol名は`CredentialState`、`RepositoryState`のようにFolder Contextなしでも意味が通る名前とする。File名を標準Suffixの閉集合へ押し込まず、次の責務名、具体的操作名またはDomain固有名から実態に合うものを選ぶ。
 
-| Suffix | 所有する責務 | 判断する問い |
+| File名の例 | 所有する責務 | 判断する問い |
 |---|---|---|
-| `-model.ts` | Domain概念、Data構造または状態の表現 | 何であるか |
+| `model.ts`、`state.ts` | 概念・Data構造、状態と状態遷移 | 何であり、どう変化するか |
 | `types.ts` | 宣言した責務別範囲に閉じる型専用集合 | どの型を一緒に使うか |
-| `-store.ts` | 状態またはDataの保持、永続化および取得 | 何を保持するか |
-| `-policy.ts` | Rule、Authority、選択、許可または適用判断 | 何を判断するか |
-| `-adapter.ts` | 外部System、Platform、Providerまたは別Capabilityとの境界変換 | 何と接続するか |
-| `-factory.ts` | 実装選択、Dependency Injectionまたは複数Dependencyの組立て | どう生成するか |
+| `store.ts` | 保存・取得・永続化 | どう保存・取得するか |
+| `registry.ts` | Identity付き集合の登録・索引・解決 | 何を登録・解決するか |
+| `catalog.ts` | 定義済み候補・利用可能構成の参照集合 | どの候補を提供するか |
+| `policy.ts` | Rule、Authority、選択、許可または適用判断 | 何を判断するか |
+| `projection.ts` | 情報源から読取り用Modelを生成 | 何を投影するか |
+| `protocol.ts`、`transport.ts` | Wire契約、接続・Session・Data搬送 | 何をどの契約で搬送するか |
+| `adapter.ts` | 異なる外部System・Platform・Provider・Transport契約や方式の変換 | どの契約間を変換するか |
+| `client.ts`、`server.ts` | 外部Server接続、ListenerとServer lifecycle | どこへ接続し、何を公開するか |
 
-型専用Fileの責務名は所有Directoryまたは宣言した公開契約で示し、同じ責務の`types.ts`へ置く。複数責務を跨ぐ型集積、実行値・実処理の混在、およびOwner不明の退避先として使用してはならない（MUST NOT）。`-types.ts`は移管前の名称として扱い、型の意味や公開Symbolを変えずに責務別配置へ移行する。実行時処理も所有する独立した概念は`-model.ts`または責務を直接表す具体名を使用する。
+具体的操作名には`issue.ts`、`revoke.ts`、`rotate.ts`、`resolve.ts`、`parse.ts`、`validate.ts`、`verify.ts`、`select.ts`、`plan.ts`、`observe.ts`、`publish.ts`、`load.ts`、`sign.ts`、`promote.ts`、`recover.ts`、`cleanup.ts`、`dispatch.ts`、`route.ts`、`query.ts`等を使用できる。Domain固有名には`journal.ts`、`cursor.ts`、`manifest.ts`、`lease.ts`、`lock.ts`、`graph.ts`、`contract.ts`、`request.ts`、`result.ts`、`identity.ts`、`snapshot.ts`、`record.ts`、`outcome.ts`等を使用できる。列挙は命名allowlistではなく例であり、Folderとの組合せで責務が明確であることを優先する。
 
-`-store.ts`はMemory、FilesystemまたはDatabaseという永続化方式ではなく、保持責務によって判断する。登録、索引または検索が主目的でも保持責務を所有する場合は、新しい標準Suffixとして`-registry.ts`を増やす前に`-store.ts`への統合を検討する。`-factory.ts`は単純なObject生成関数が存在するだけでは使用せず、生成判断が独立した責務を持つ場合だけ使用する。
+Store、Registry、Catalogは保存方式ではなく責務によって区別する。Registryを保存するStoreは存在し得るが、登録・索引・解決を保存処理へ混同しない。名前が違うという理由だけで三Fileへ分割せず、独立した変更理由で判断する。Adapterは入力・出力契約の変換と外部方式への接続を所有し、新しい業務Ruleを生成しない。同じ責務内の単なる関数分割をAdapterと呼ばない。
 
-`-service.ts`、`-runner.ts`、`-registry.ts`、`-errors.ts`および`-cli.ts`は標準Suffixにしない。既存のecosystem入口、公開契約またはError taxonomy等で必要な場合は、所有責務と適用範囲をArchitectureまたは変更トレースで説明する。標準Suffixへ分類できない場合は、`checker-pipeline.ts`、`semantic-coverage.ts`、`runtime-recovery.ts`、`artifact-parser.ts`のように責務を直接表す具体名を使用する。
+`application`、`runtime`、`core`、`internal`、`service`、`manager`、`helper`、`helpers`、`utils`、`common`、`logic`、`misc`、`port`を、主要責務を隠すFile名として新設してはならない（MUST NOT）。禁止語の機械置換ではなく、所有する状態保持、判断、境界変換、生成、解析、回復等へ改名または分割する。
 
-`*-utils.ts`、`*-helper.ts`、`*-common.ts`および`*-manager.ts`は、主要責務を隠すため新設または維持してはならない（MUST NOT）。禁止語を別名へ機械置換せず、状態保持、判断、境界変換、生成、解析、回復等、そのFileがOwnerとして持つ責務へ分解または改名する。外部製品の正式名称、Protocol fieldその他の変更不能な語彙は対象外だが、内部Source File名へ同じ曖昧語を流用しない。
+`runtime`は実行環境・Process・lifecycle自体が製品上の対象であり、他の具体名では表現できない理由を説明できる場合だけ許容する。例えば`node-runtime-version.ts`はRuntimeそのものを対象とする。関連処理の寄せ集めを`*-runtime.ts`にしてはならない。`ports/`、`*-port.ts`、`FooPort`は抽象化の種類しか示さないため原則使用せず、`TaskExecutor`、`IntegrationRecordWriter`、`ExecutionObserver`、`LeaseController`等の提供能力で命名する。InterfaceやTypeによる抽象契約・依存反転、およびArchitecture説明語としてのPortは許容する。外部製品の正式名称、外部固定契約・ecosystemの要求語彙は第2節・3.3節に従い、内部aliasへ無条件に流用しない。
 
 ```text
 src/
-├ index.ts          Rootを公開境界にする場合の明示allowlist
-├ <capability>/     Product／Domain上の責務
-├ adapters/         外部契約と内部契約の変換
-├ boundary/         信頼境界の入力検査・正規化
-├ migrations/       期限と削除条件を持つ移行処理
-├ ports/            外部Effectまたは実装差を反転する契約
-└ ...               Architectureで責務を定義したDirectoryだけ
+├ index.ts          Packageの標準公開API。Symbolを明示列挙
+├ credential/       Credentialに関する責務
+│  ├ issue.ts       発行
+│  ├ revoke.ts      失効
+│  └ types.ts       同じ責務で共有する型
+└ repository/       Repositoryに関する責務
+   └ resolve.ts     解決
 ```
 
-表中のDirectoryを全Subsystemへ形式的に作らない。実在する責務だけを作り、Subsystem固有のCapability名を優先する。`domain/`、`application/`、`repository/`、`protocol/`、`transports/`等を使う場合も、各名称の意味をArchitectureで固定する。同じfilenameまたは似たalgorithmが複数Subsystemにあることだけを共通化の根拠にせず、同じ意味契約、変更理由、利用側および検証境界を独立して説明できる場合だけ共通Ownerへ移す。
+例のFolderを全Subsystemへ形式的に作らない。実在する責務だけを作り、Subsystem固有のCapability名を優先する。同じfilenameまたは似たalgorithmが複数Subsystemにあることだけを共通化の根拠にせず、同じ意味契約、変更理由、利用側および検証境界を独立して説明できる場合だけ共通Ownerへ移す。
 
 | 境界 | 規則 |
 |---|---|
-| 公開Symbol | Architectureが指定したRootまたはCapability境界の`index.ts`から明示exportした集合だけを公開面とする |
+| 公開Symbol | Package標準入口`src/index.ts`から明示exportした集合を公開面とする。正式な公開Subpathだけを例外とする |
 | 非公開実装 | Architecture宣言済みの公開`index.ts`からexportしない。`internal/`というPath名を非公開性の根拠にしない |
 | Subsystem内参照 | 責務別Directory間の明示Pathを許可する。循環依存とOwner不明の共通置場を作らない |
-| Subsystem間参照 | Architectureが相手Subsystemに宣言したexactなRoot／Capability `index.ts`だけを使用し、Source deep importを禁止する |
-| 試験 | 公開契約試験は`index.ts`を使う。非公開単位の試験だけが同一Subsystemの実装Pathを参照できる |
+| Subsystem間参照 | 相手Packageの宣言済み標準公開APIまたは正式な公開Subpathだけを使い、非公開Sourceへのdeep importを禁止する |
+| 試験 | 公開契約試験は公開APIを使う。同じPackageの非公開単位を直接検証するUnit Testだけが内部Sourceを直接参照できる |
 | 移行 | 旧Path、新Path、全Consumer、削除条件および公開export集合を同じ変更で照合する |
 
-公開面は近傍にある任意の`index.ts`の存在だけで成立しない。Architectureが公開入口としてexact Pathを宣言したRootまたはCapability `index.ts`だけを入口とし、宣言した公開Symbol集合と実export集合を契約試験で完全一致させる。未宣言export、宣言漏れ、他Subsystemからのdeep importおよび旧Path残存を拒否する。CLI、MCP、Workbench、試験または生成Toolを例外Consumerにしない。巨大なRoot Barrelを新設せず、独立した変更理由と利用側を持つCapabilityはCapability別入口を維持する。
+Packageの標準Programmatic公開入口は`src/index.ts`一つとし、利用してよいCapabilityの明示的なAPI Mapを所有する（MUST）。責務Folder内には意味の薄い再export中継用`index.ts`を原則置かない。責務Folderそのものが正式な公開Subpathであり、Architecture上の公開契約、利用側、exact Path、公開Symbol集合とpackageの公開解決定義を対応付けた場合だけFolder内`index.ts`を許容する。既存正式SubpathをRootへ無差別再公開せず、例外の必要性と契約を評価する。
+
+公開面は任意の`index.ts`の存在だけで成立しない。宣言した公開Symbol集合と実export集合を契約試験で完全一致させ、未宣言export、宣言漏れ、Package間deep importと旧Path残存を拒否する。CLI、MCP、Workbench、別Packageの試験・Scriptを例外Consumerにしない。`bin/`や試験を公開入口へ揃えるためだけに、非公開Capabilityを公開してはならない（MUST NOT）。公開APIの不足はArchitectureと実利用側から評価する。
 
 公開`index.ts`はSymbolを明示して再公開し、無名の`export * from`を使用してはならない（MUST NOT）。Architectureがnamespace自体を公開契約として定義する場合の`export * as <namespace> from`は、namespace名と利用側を契約試験で固定した場合だけ使用できる。`internal`その他の非公開実装Pathを公開してはならず、公開入口に追加するSymbolはArchitectureの公開集合と同じ変更で更新する。
 
@@ -185,7 +193,50 @@ Package Rootへ任意の`.ts` Sourceを平置きしてはならない（MUST NOT
 | `scripts/` | 開発、生成、移行または診断の用途限定Script | 公開Runtime入口、通常利用で必須の実装 |
 | `tests/` | 試験、試験Runnerおよび試験専用支援 | Production Consumerが利用する実装 |
 
-`bin/`は、実装本体を再定義せず`src/`または他Subsystemの宣言済み公開入口を利用する。`scripts/`も通常Runtimeの実装を複製しない。ただし、通常Runtimeの実装依存にならない開発用検査・実測・検証結果記録に固有の実装は、同じ用途の入口とともに`scripts/`が所有できる。通常Runtimeと共有する実装は`src/`へ置き、`src/`から`scripts/`または`tests/`を通常Runtimeの実装依存としてimport／再exportしてはならない（MUST NOT）。Architectureで宣言した用途限定の検証子入口のPath登録は実装依存と区別し、任意Script起動の許可へ広げない。Package Rootには`package.json`、TypeScript設定、lockfileその他のecosystemがRoot配置を要求する設定だけを置く。単一Fileの便宜を理由に例外化せず、Root配置が外部ecosystem契約として必要な場合だけ、exact filenameと理由を本節または対象Architectureへ追加する。
+`bin/`は独立Processの薄い起動入口であり、主要な判断・状態管理・Domain処理を所有せず、自Packageの`src/index.ts`を基本的に利用する（MUST）。多数の内部Fileを直接組み立てる場合は公開APIと責務境界を再検討する。通常経路は`bin/`→`src/index.ts`→責務Sourceとする。
+
+`scripts/`は開発・保守・生成・署名・診断・実測の定型作業を所有する。開発・診断の必要性がある場合、同じPackageの内部Sourceを直接参照できるが、Script利用だけのために内部Capabilityを公開APIへ追加してはならない（MUST NOT）。通常Runtimeの実装を複製せず、共有する製品実装は`src/`へ置く。`src/`から`scripts/`または`tests/`を通常Runtimeの実装依存としてimport／再exportしてはならない（MUST NOT）。Architectureで宣言した用途限定の検証子入口のPath登録は実装依存と区別し、任意Script起動の許可へ広げない。Package Rootには`package.json`、TypeScript設定、lockfileその他のecosystemがRoot配置を要求する設定だけを置く。Root配置が外部ecosystem契約として必要な場合は、exact filenameと理由を本節または対象Architectureへ固定する。
+
+CRDD所有APIはNamed Exportを基本とし、Default Exportは明確な理由がある場合だけ使用する。`src/index.ts`では公開Symbolと型を明示列挙する。Frameworkが要求する設定入口等のDefault Exportは理由付き例外として扱い、その例外を製品API全体へ広げない。
+
+#### File・Functionの責務と分割
+
+Function／Methodは何をするかを示す動詞句とする。`process()`、`handle()`、`execute()`、`run()`、`manage()`だけでは対象・動作を説明できない場合、`handleProviderResult()`等の具体名にする。呼出し箇所から対象と処理内容が明確な既存契約や外部overrideは、第2節の固定語彙境界と合わせて評価する。
+
+Fileの公開責務は原則一つとするが、公開Symbol数を一つに制限する意味ではない。一つの操作の入力型・結果型・実現関数と、それを成立させるprivate Functionは同居してよい。発行・失効・一覧取得等、独立した操作が同居する場合は改名または分割を評価する。File・Functionを行数やサイズだけで分割してはならず、短いFunctionを大量に作ることを目的にしない（MUST NOT）。
+
+| 対象 | 必ず評価する問い |
+|---|---|
+| Function | 一つの動作として説明できるか。途中で別の意味判断へ切り替わらないか |
+| Function | 純粋計算とEffectが過度に混在していないか。独立した失敗境界・変更理由があるか |
+| Function | 分割に名前を与えることで上位の意味が明確になるか。同じ責務として再利用する実在の理由があるか |
+| File | 名前から主要責務を予測でき、実際の責務が名前に収まるか |
+| File | 変更理由、所有状態とEffectが一系統か。異なるなら分割・改名が必要か |
+
+意味境界がある場合に分割し、長さではなく責務と変更理由で判断する。複数の評価が不成立なら改名または分割を検討し、同居を維持する場合も理由を取得可能にする。
+
+#### Source構造の評価Checklist
+
+Sourceの新設・実質変更・再編では、次を評価し、`Applicable: 内容`、`N/A: 理由`または`OPEN: 未解決理由・確認先・再開条件`へ明示する（MUST）。未記載を非該当と解釈しない。結果は既存のArchitecture、Source Header、変更トレースまたはレビューから取得できればよく、全Fileに新しい定型台帳や重複Headerを追加しない。
+
+- [ ] Packageの所有責務と、Folderの具体的Identityを説明できる。
+- [ ] Fileの主要責務と変更理由を説明でき、Pathから予測できる。
+- [ ] Fileの所有状態、Effect、依存、公開APIをそれぞれ評価した。
+- [ ] Folder ContextとFile名の重複、Symbol単体の意味、曖昧語の使用理由を評価した。
+- [ ] File／Functionの意味・失敗・変更理由の境界を評価し、分割または同居の理由を説明できる。
+- [ ] 局所型と共有型を区別し、`types.ts`が無関係な型の退避先になっていない。
+- [ ] 標準公開API、正式Subpathの例外、明示export、Named Exportの原則を評価した。
+- [ ] `bin/`、`scripts/`、`src/`、`tests/`の所有範囲と参照経路が整合する。
+- [ ] Package間deep importがなく、Script／Testによる同Package内部参照は、それぞれの許可範囲に閉じる。
+- [ ] Store／Registry／Catalog、Adapter、Runtime・Portの名称が実責務と一致する。
+- [ ] 変更する場合は公開Symbol、全Consumer、試験・配布・設定・現在文書への伝播を照合した。
+- [ ] 未移行Source、未実装の機械検査、判断不能な責務を完成扱いせず追跡した。
+
+#### 規約改訂と実装移行の境界
+
+規約改訂と既存Sourceの適合・機械検査実装は別に扱う。規約更新だけで移行済み・機械検査済みと表示せず、未移行差分と対応範囲を変更トレースで追跡する。今回の段階・対象範囲は[CHG-000082](../99_Roadmap/Changes/CHG-000082/change.md)を参照する。
+
+既存の正式Subpathは必要性と公開契約を確認して維持・変更を判断し、一律に削除しない。内部Filesystem／lifecycleを直接検証する既存Integration Testは、新規約との未移行差分として追跡する。規約に合わせるためだけに試験を削除したり、Unit Testへ表示変更したり、非公開Capabilityを公開したりしない。既存違反を恒久例外で隠さず、移行時には期待保証と実境界を保持する。Rust、生成物、外部固定語彙へこのTypeScript再編規則を機械適用しない。
 
 ### 3.3. ecosystem予約名
 
@@ -459,7 +510,7 @@ Test Levelを含むLocal Item IDとTest Fileの論理配置が不一致の場合
 
 ## 5. 曖昧な名前
 
-次の単独名を新設または維持しない。
+次の単独名で対象や責務を隠してはならない。既存名の移行と外部固定語彙は第2節・3.2節に従う。
 
 - `helper`
 - `util`
@@ -472,7 +523,7 @@ Test Levelを含むLocal Item IDとTest Fileの論理配置が不一致の場合
 - `run`
 - `execute`
 
-`runChecker`、`executionResult`、`commonGitDirectory`のように、責務を一意にするcompound nameは許可する。外部APIが要求するoverride名またはmachine keyは適用境界外だが、内部aliasには責務名を使用する。
+`runChecker`、`executionResult`、`commonGitDirectory`のように責務を一意にするcompound nameは許可するが、File／Folderの曖昧語禁止をcompound化だけで回避しない。関数・メソッドの単独動詞は呼出し箇所から対象と処理内容が明確かを3.2節で評価する。外部APIが要求するoverride名またはmachine keyは適用境界外だが、内部aliasには責務名を使用する。
 
 ## 6. 試験名
 
@@ -525,7 +576,7 @@ Rust等の言語またはFrameworkの標準配置を維持する場合は、物�
 - Rust sourceは固定toolchainの`rustfmt --check`、rustc、Clippy Warning拒否、`cargo test --locked`、locked buildおよび固定`llvm-tools-preview`によるcoverageで検査する。stable toolchainがbranch mappingを生成せず分母0を返す場合は率へ換算せず`Not Available`とし、region／function／line実測とセキュリティ判断上の検証義務を別の確認として記録する。coverage runnerは実Directoryとして検証したcrate直下の`target`へrun固有Directoryを作り、既存treeを削除または再利用しない。
 - CheckerとCoordinatorのprivate packageが所有する`lint`は、Repository rootのBiome設定を`--error-on-warnings`付きで実行し、Warningが1件以上ある場合は各packageの`check`を失敗させる。Infoはこの継続Gateの失敗条件ではなく、固定版ごとの検証結果として区別する。
 - Checker packageの命名contract testは、ファイル／フォルダの検査母集団を`40_Develop/**`と`template/tools/**`の全Pathとし、未知のsubfolderまたは後続packageも同じ規則へ含める。型付き識別子の検査母集団は、固定TypeScript 7.0.2でCRDD所有の全TypeScript packageが宣言する`tsconfig*.json`から取得する。現在の対象はartifact-signing、checker、coordinator、crdd-domain-library、cros、execution-intelligence、mcp、official-asset-governance、project-operation、project-runtime、runtime-data、semantic-coverage、verification-runnerおよびversion-controlである。実Pathで重複を除いたproject source集合と両Path配下のTypeScript実ファイル集合を完全一致させ、固定件数を母集団Identityの代用にせず、未所属source、project外実体、symbolic link、取得不能または未分類構文を成功扱いにしない。各packageの再生成可能な依存Directoryである`node_modules`はRepository Rootの`.gitignore`で全階層を既定除外し、lockfileだけを追跡する。Checker試験runnerはpackage root以下の`.test.ts`をnested folderまで安全に再帰列挙し、正規化したrelative Pathのordinal順で実行する。root外解決、重複または大文字小文字だけが異なるPath、symbolic link／junction、未対応entryを拒否し、`node_modules`はexact名かつ実Directoryと確認できた場合だけ除外する。runner列挙集合と`40_Develop/checker/tsconfig.json`が所有するChecker試験集合を件数ではなくPathの完全一致で検査し、0件、欠落または余剰を成功扱いにしない。Rust sourceは`40_Develop/platform-access/src/**`と`40_Develop/platform-access/tests/**`の閉集合として別に扱い、固定件数ではなく許可Rootへの包含と空集合拒否を確認し、TypeScript projectへ算入しない。型から完全判定できない動詞句、責務名および自然言語上の妥当性は独立reviewで確認し、機械検査だけを規約全体の完全証明としない。
-- 同じ命名contract testは、曖昧なSource File名、型専用Fileの`types.ts`命名と実行値・実処理の非混在、公開`index.ts`のPackage Headerおよび無名Barrel Exportを全母集団へ検査する。責務別配置と無関係な型集積の不存在はArchitectureとの照合・独立reviewでも確認する。Git管理から除外した再生成可能な依存Directory `node_modules`とBrowser Build出力Directory `dist`はSource母集団へ含めず、Sourceと生成JavaScriptを二重検査しない。公開Header本文の意味、`@trace`が示す設計との一致、条件付きtagの十分性および非公開Symbolの公開漏れは、機械検査の成功だけで成立済みとせず独立reviewで確認する。CHG-000082の責務再編では実検査と全Sourceの追従を段階5で行い、それまでは新しい型配置規約の検査実装済み・全体成功と表示しない。
+- 命名contract testの移行先は3.2節を正本とし、曖昧なSource File名、責務単位の共有型の`types.ts`配置と実行値・実処理の非混在、公開`index.ts`のPackage Headerおよび無名Barrel Exportを検査する。局所型を一律に別Fileへ移す判定を使用しない。責務別配置と無関係な型集積の不存在はArchitectureとの照合・独立reviewでも確認する。Git管理から除外した再生成可能な依存Directory `node_modules`とBrowser Build出力Directory `dist`はSource母集団へ含めず、Sourceと生成JavaScriptを二重検査しない。公開Header本文の意味、`@trace`が示す設計との一致、固定tagと非該当理由の十分性および非公開Symbolの公開漏れは、機械検査の成功だけで成立済みとせず独立reviewで確認する。今回の規約改訂で検査実装は変更していない。旧検査条件と新規約の差分、対象母集団と未移行をCHG-000082で追跡し、新規約の検査実装済み・全Source適合と表示しない。
 - `template/tools/**`の実行入口は、その入口を実装する責務の型検査Projectへexactに一度だけ所属させる。Checker入口`template/tools/crdd-check.ts`は`40_Develop/checker/tsconfig.json`が所有する。Coordinator入口`template/tools/crdd-coordinator.ts`とMCP入口`template/tools/crdd-mcp.ts`は、配布対象を増やさない`40_Develop/checker/template-tools-tsconfig.json`が所有し、通常のChecker source projectへ混在させない。新しい入口を追加する場合は、実体の追加と同じ変更で所有Projectを明示し、未所属または複数Projectへの重複所属を許可しない。
 - Runtime実行Identityへ含めるDirectoryには、実行時に読み取る設定、Policy、Schema、Native成果物その他の実依存だけを置く。設計対応、試験台帳、Coverage、監査入力その他の検証専用投影は`07_Quality`へ置き、実行時Directoryへ混在させない。配布Toolであることだけを理由にCoordinatorのRuntime実行Identityへ含めず、公開入口または正式な署名・検証入口から到達する依存閉包で判定する。誤配置を是正して実行集合が変わる場合は、その一回のIdentity変更を検証し、以後の文書・検証投影更新がRuntime再署名を発火しないことを確認する。
 - 型検査、Lint、Formatter、Coordinator試験、Checker試験およびRepository全体Checkerを別の合否軸として維持する。

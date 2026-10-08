@@ -7,6 +7,8 @@
 
 ## 現在状態
 
+Source構造規約の第1段階の文書整備・限定独立再レビューは完了した。対象は[コーディング規約](../../../06_Architecture/99_Coding_Standards.md#32-sourceの責務別配置と公開境界)の規則・評価Checklistと直接影響の記録に限定する。実Sourceの責務精査・改名・分割・API移行とChecker実装はまだ開始せず、親フォルダ移動後の停止点を維持する。規約・既存実装・旧検査の差分は[第1段階の記録](Evidence/261007_develop-responsibility-mapping.md#source構造規約の第1段階--2026-10-09)で追跡する。
+
 | 項目 | 記載内容 |
 |---|---|
 | 現在の変更状態 | Phase 5の責務再編は未完了。Orchestrator／Coordinator／Dockerの追加是正と依存検証を人間承認により大規模改修へ持ち越す。局所結果と旧対象版のEvidenceを最新Tree全体の完成へ拡張しない。[現在の判断](#持ち越し判断--orchestratorcoordinatordocker2026-10-09) |

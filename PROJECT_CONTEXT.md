@@ -66,7 +66,7 @@ v0.21.0は公開済み、v0.22.0とCHG-000082は未完了である。責務再�
 |---|---|---|
 | 5D〜Fの独立した整理を切り分ける | CROS／MCP／Workbench等を一括保留せず、Runtime依存を着手前に確認する。依存する処置・署名E2Eは持ち越す。 | [処置表](99_Roadmap/Changes/CHG-000082/Evidence/261007_develop-responsibility-mapping.md#持ち越しの処置--2026-10-09) |
 | 大規模改修の入力を再評価する | 確認済みCapability、未接続・未観測範囲、反例を新責務へ対応付ける。再開は人間判断を経て行う。 | [持ち越し判断](99_Roadmap/Changes/CHG-000082/change.md#持ち越し判断--orchestratorcoordinatordocker2026-10-09) |
-| 親フォルダ移動後にFile責務を精査する | MCP／Workbenchをserver名へ移動し、物理移動の区切りで停止。個別File名・責務・配置精査は未着手。機能再編全体の完了とは区別する。 | [移動の到達点](99_Roadmap/Changes/CHG-000082/Evidence/261007_develop-responsibility-mapping.md#親フォルダ移動の到達点--2026-10-09) |
+| Source構造規約を先に整備する | 第1段階の文書整備・限定独立再レビューは完了。個別File名・責務・配置精査、公開APIとChecker移行は未着手。機能再編全体の完了とは区別する。 | [第1段階](99_Roadmap/Changes/CHG-000082/Evidence/261007_develop-responsibility-mapping.md#source構造規約の第1段階--2026-10-09) |
 
 ## Checklist
 

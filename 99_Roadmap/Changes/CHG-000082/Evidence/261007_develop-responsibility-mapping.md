@@ -6,7 +6,52 @@
 基準改訂版: `76d2c03603922512fa128a60f81b615073dc3a73`
 維持責任者・採用決定権限: Qual-Lab
 
+## Source構造規約の第1段階 — 2026-10-09
+
+人間から提供された「CRDD Coding Standards 改修案 — Source Structure / Naming / Responsibility」の25観点を、規約・評価Checklistへ反映する。基準Commitは`6fbd234c`。対象は`06_Architecture/99_Coding_Standards.md`とこの変更トレース、現在投影だけ。実Source・Package設定・公開Symbol・固定Protocol・Checker実装・試験段階・Header Schema・Rust・生成物を変更しない。第2段階の具体範囲を今回固定しない。
+
+変更分類は実装規約の非自明な改訂。着手前整合確認で現行3.2と利用側を照合し、読取り専用確認者の結果を統合した。文書内整合、直接利用側への不足／影響確認と限定独立レビューを実施する。Source実装・Runtimeの保証変更がないため、全製品回帰・署名・Docker／Provider E2E・Release／準拠監査は実施せず、その完成を主張しない。書込みは現在Repository内だけ。追加の人間判断は現時点で不要であり、別意図・公開能力変更が必要になった場合は停止する。
+
+| 提供案の観点 | 規約上の対応 |
+|---|---|
+| 1、22〜25: 構造の目的・判断順序・情報構造・まとめ | 3.2冒頭のPackage／Folder／File／Symbol／公開APIと配置判断順序 |
+| 2: bin／scripts／src／tests | 3.2の所有Directory表・参照契約 |
+| 3〜4: 標準公開入口・Folder index・Package間参照 | 3.2の標準`src/index.ts`、正式Subpath例外・deep import禁止 |
+| 5〜6: Folder・File命名 | 3.2の具体責務、Context重複排除 |
+| 7〜8: File名の種類・曖昧名 | 3.2の責務名・操作名・Domain固有名と曖昧語境界 |
+| 9〜10: runtime／port | 3.2のRuntime対象例外、能力名による抽象契約 |
+| 11〜12: 同名File・Symbol名 | 3.2のPath Identityと単独でも意味が通るSymbol |
+| 13: export | 3.2のNamed Export・明示列挙とFramework例外 |
+| 14: 型配置 | 3.2の局所型・共有型・公開型と無関係な集積禁止 |
+| 15〜19: 関数命名・分割・File配置・責務確認 | 3.2の分割評価表・Checklist、4節の識別子文法、5節の曖昧名 |
+| 20〜21: Store／Registry／Catalog・Adapter | 3.2の責務区別・契約変換に限定したAdapter |
+
+探索は現行規約3.2・4・5・8、Checker命名契約、Domain Modelの正式Subpath宣言とpackage exports、直接Workflow参照に限定した。現行維持ではRoot入口・型局所性・Registryの意味が提供案と衝突するため不採用。一律Root集約は不要公開・推移依存を増やす反例があるため、正式Subpath例外を維持する。行数・Suffix・Public Symbol数の閉集合による分割は責務を誤るため採用しない。新しい台帳・Header項目・一般Frameworkは追加せず、既存成果物から評価を取得する。
+
+| 既知の利用側 | 第1段階の処置・残る差分 |
+|---|---|
+| Checker命名契約・規約8節 | 検査実装を変更しない。型専用Fileの一律`types.ts`要求、曖昧語・公開indexの旧検査条件と新規約の差分を移行入力として保持。新規約検査済みとは表示しない。 |
+| Domain Model等のArchitecture／package exports | 既存正式Subpathを無断撤去しない。Root標準化・Subpath例外の宣言と実exportの対応はSource移行時に再照合する。 |
+| binとPackage間Consumer | 旧deep importを規約更新だけで解消扱いにしない。必要なAPIを評価し、入口の都合だけで内部Symbolを公開しない。 |
+| 内部Filesystem／lifecycle IT | 直接内部参照の既存ITは未移行。削除・UT表示変更・保証低下で準拠扱いにしない。 |
+| Header・Rust・Framework／生成物 | 既存Header Schemaは維持。Vite等の固定Default Exportは理由付き例外。TypeScript再編をRust／生成物へ強制しない。 |
+| WorkflowとAI入口 | 規約参照を維持。今回実行Path・コマンドを変更しない。 |
+
+発火例は新設`credential/credential-issuer.ts`のContext重複と内部向け`FooPort`名。非発火例は`credential/issue.ts`と外部固定API語彙。境界例は`node-runtime-version.ts`の具体的Runtime対象、正式な`domain-model`公開Subpath。責務を名前から確定できない例は`OPEN`として確認先・再開条件を残し、AI推測で改名しない。
+
+第1段階の完了条件は、提供案25観点の対応、文書内競合の解消、必須評価Checklist、直接利用側の未移行差分の記録、固定文書の限定独立レビューである。Source／API／Checker移行、5C、全体回帰とE2Eはその完了条件に混ぜず、既存の未完了状態を保持する。
+
+第1段階の文書整備は完了。固定4文書の限定独立レビューで、同Package製品Source参照への過剰制限とCHG計画の規約側重複を検出し、一意是正した。再レビューPass・必須指摘0件、規約の始終Hash一致（`60B4200B…48C3B34C`）。差分空白確認とProject Contextの五場面Reader確認は成功。以下の評価済み範囲だけを完了とし、第2段階には進んでいない。
+
+- [x] 提供案25観点を規約の所有節へ対応付けた。
+- [x] 公開入口、型配置、命名とStore／Registryの旧規則競合を解消した。
+- [x] 必須評価Checklistと非該当・判断不能の処置を定義した。
+- [x] 既存Subpath・内部試験・Checkerの未移行差分を保持した。
+- [x] 文書整合・直接影響の限定独立レビューと是正後確認を完了した。
+
 ## 親フォルダ移動の到達点 — 2026-10-09
+
+個別File責務精査の前に、上記の規約整備だけを追加した。物理移管の到達点と機能未完成の判定は変更しない。
 
 人間の指示に従い、個別File責務精査より先に残る親フォルダ移動を実施した。`40_Develop/mcp`を`40_Develop/mcp-server`へ、`40_Develop/workbench`を`40_Develop/workbench-server`へ移動した。移動前後60Fileの対応を照合し、欠落0件。MCPの30Fileは内容不変、Workbenchの24Fileは内容不変、6Fileは物理Path参照・表示例・生成Bundleの更新である。package名、Protocol、Tool、SymbolおよびCanonical IDは変更していない。
 
