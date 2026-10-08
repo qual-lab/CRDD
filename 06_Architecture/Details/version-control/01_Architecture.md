@@ -93,6 +93,8 @@ Release／Signing ──────┘                 ▼
 
 ## 2. 責務境界
 
+Git Adapter内部では、`src/git/layout.ts`がRepository配置・実体Identityの観測と共通再検証を所有し、`src/git/local-ignore-adapter.ts`が除外設定の内容生成・Lock・書込み・atomic確定・readback・清掃結果を所有する。更新側は同じ実体確認primitiveを利用し、配置観測を複製しない。これらの内部named exportをPackage Rootの公開APIへ追加しない。配置の分離によってLock名、更新順序、結果値、観測不能と不存在の区別を変更しない。
+
 | Owner | 所有すること | 所有しないこと |
 |---|---|---|
 | 利用側Component | 必要な意味、許可する操作、失敗時の処置 | Gitコマンド、`.git`配置、Object形式の再解釈 |

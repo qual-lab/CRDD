@@ -16,14 +16,14 @@ import path from "node:path";
 import test from "node:test";
 
 import { gitFixedRevisionIdentityAdapter } from "../../src/git/revision-adapter.ts";
-import { gitRepositoryLocalIgnoreAdapter } from "../../src/git/local-ignore-adapter.ts";
+import {
+  gitRepositoryLocalIgnoreAdapter,
+  writeRepositoryLocalExclude,
+} from "../../src/git/local-ignore-adapter.ts";
 import { observeFixedRevisionIdentity } from "../../src/fixed-revision.ts";
 import { registerRepositoryLocalIgnore } from "../../src/repository/local-ignore.ts";
 import { verifyRepositoryRoot } from "../../src/repository/location.ts";
-import {
-  resolveRepositoryGitLayout,
-  writeRepositoryLocalExclude,
-} from "../../src/git/layout.ts";
+import { resolveRepositoryGitLayout } from "../../src/git/layout.ts";
 
 /**
  * gitのTest準備責務を実行する。

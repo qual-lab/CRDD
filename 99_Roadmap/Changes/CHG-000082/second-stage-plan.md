@@ -1,7 +1,7 @@
 # 第二段階：責務・状態所有・実行境界の再編計画
 
 成果物種別: 変更計画
-状態: Draft（実装着手・Architecture採用前）
+状態: In Progress（1〜5の着手許可。未決Architecture候補は未採用）
 対象変更: [CHG-000082](change.md)
 基準改訂版: `98cab6e3278a61684c557a6499cfb602e2d19111`
 維持責任者・採用決定権限: Qual-Lab
@@ -15,7 +15,7 @@
 
 | 項目 | 今回の扱い |
 |---|---|
-| 人間の許可 | 第二段階の計画作成。添付の未決候補を一括採用したとは扱わない |
+| 人間の許可 | 第二段階の計画作成に続き、2026-10-09に計画Commit後の1〜5着手を許可。添付の未決候補を一括採用したとは扱わない |
 | 変更分類 | 非自明な責務再編。公開入口・保存契約・安全境界を変更する箇所は破壊的変更として個別に影響を提示する |
 | 変更意図 | 既存採用Capabilityを保持し、重複状態・不要中継・過剰管理を削り、構造を説明可能にする |
 | 書込み範囲 | 現在のCRDD Repository。外部Runtime、認証領域、別Repositoryの変更は本計画だけでは許可しない |
@@ -113,11 +113,32 @@ Packageの限定完了は未検証の全体をPassと表示しない。既知の
 
 ## 7. レビュー・監査と収束
 
-現在は計画Draftの作成であり、Architectureの採用・全Sourceの監査・実境界試験を完了したとは扱わない。順序0の固定計画ではArchitecture／Qualityの独立確認を行う。各Packageでは変更した責務に対する独立レビューと、必要な文書・不足影響監査を選ぶ。準拠基準自体を変更する場合だけ準拠監査を追加する。Communication／市場探索は公開訴求を変更しない段階には追加しない。
+現在は1〜5へ着手しているが、未決Architecture候補の採用・全Sourceの監査・全体の実境界試験を完了したとは扱わない。順序0の全体照合は継続し、既存設計に整合する限定内部整理から進める。未決契約の削除・置換は照合と判断前に行わない。各Packageでは変更した責務に対する独立レビューと、必要な文書・不足影響監査を選ぶ。準拠基準自体を変更する場合だけ準拠監査を追加する。Communication／市場探索は公開訴求を変更しない段階には追加しない。
 
 最終確認は変更した意味から全回帰面を導出する。正式Evidenceは判断に必要な結論・対象版・条件・根拠参照へ集約し、実行ごとの巨大ログをCHGへ保存しない。通常履歴・一時物の保持と、正式Evidenceの保持を分ける。
 
 収束条件は、採用済みCapabilityの全対象にOwner・利用側・検証が対応し、重複状態と不要中継の処置が説明でき、未決の必須条件を将来へ隠していないことである。理想構造の完成や試験量の最大化を目的にしない。
+
+## 8. 1〜5の着手結果 — 2026-10-09
+
+計画Commitは`459d598d`。現行設計・Source・直接利用側から処置を具体化し、未決の実行系改修は前倒ししていない。
+
+| 順序 | 現在の処置 | 次の確認 |
+|---|---|---|
+| 1 Version Control | 除外設定更新を既存`git/local-ignore-adapter.ts`へ移し、Layoutは観測・共通再検証へ限定した。公開API、128KiB上限、関数本体、結果型、Lock・更新順序を維持。限定独立レビュー指摘0 | この限定移管は確認済み。worktree方式変更・採用境界の設計変更は未採用で、別途比較する |
+| 2 Domain Model | Topic／Meeting検索・更新が`storage/topic-meeting-operations.ts`にあり、`storage/types.ts`には活動契約と一時Operation契約が混在。`project-context/source-projection.ts`は読取り投影と候補採否を所有している | 活動操作・一時保存・投影・候補判断のOwnerを詳細設計と照合し、型の利用側を列挙してから移管する。共通CRUDをTopic／Meetingへ重複実装しない |
+| 3 Execution Intelligence | `record/event-and-summary.ts`の末尾に改善候補の提案があり、事実記録・要約との責務差を確認した | 提案判断を評価Ownerへ分離し、同じEvent検査・Summaryを利用する。事実・提案・Authority非付与の既存値を維持する |
+| 4 AI Adapter | Profile・Provider計画・結果変換の配置を確認。公式CLIのDockerfile／seccomp参照は現行CoordinatorのRuntime配置へ結合している | Provider差の残存と利用側を全数照合。隔離資産の移管は後半のDocker Owner確定まで先行させず、旧契約値を単なる名前整理で変更しない |
+| 5 Platform Access | Protocol、Filesystem保護、Process、Docker Desktopの責務集合を確認。WindowsのIdentity／権限観測を提供している | 実呼出し・必要保証・Node代替可否を対応付ける。Docker Desktop部品の撤去とNative廃止を既定にせず、後半実行系に依存する判断は明示して残す |
+
+### Version Controlの限定確認
+
+- 基準Package回帰46件全件Pass。移管後に所有者分離の契約試験を追加し、最終47件全件Pass、Skip／Failとも0。
+- Formatter、型検査、LintはPass。通常／linked worktree、七つの更新失敗段階、実Process競合、再入場、公開Symbol・Consumer閉包の既存試験を維持した。
+- 移動したブロックを基準`98cab6e3`と機械比較し、Owner名の説明・末尾改行以外は一致。関数本体・結果形式の変更なし。
+- 着手前の独立確認と変更後の限定独立レビューを実施。指摘0。既存両Fileと試験SuiteのSymbol登録は変更不要。
+- 実Git試験の一時RootはRepository内`.crdd/tests/stage2-version-control`へ限定。Docker／Provider依頼、認証領域変更、署名・Release操作は行っていない。
+- これは除外更新Owner移管の成立根拠であり、第二段階全体の完了・新方式Candidate採用・署名配布の成立根拠ではない。
 
 Related:
 - [現行の責務対応と第一段階結果](Evidence/261007_develop-responsibility-mapping.md)

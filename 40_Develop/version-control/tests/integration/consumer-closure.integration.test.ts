@@ -709,3 +709,40 @@ test("GitによるLocal Change Set観測能力はVersion Control Adapterだけ�
     "40_Develop/version-control/src/git/local-change-set-adapter.ts",
   ]);
 });
+
+/**
+ * 配置観測と除外設定更新の所有者が分離されていることを検証する。
+ *
+ * @responsibility 書込み入口の単一OwnerとPackage公開APIの非拡張を確認する。
+ * @trace RCM-IT-004
+ * @precondition 現行PackageのSourceを読取り可能である。
+ * @stimulus Layout、除外更新Adapter、Package公開入口を読み取る。
+ * @observation 関数宣言、Filesystem更新呼出し、公開exportを取得する。
+ * @oracle 更新入口と書込みはAdapterだけに存在し、内部primitiveをRootへ公開しない。
+ * @cleanup N/A: Sourceの読取りだけで資源を生成しない。
+ * @boundary RCM-IT-004=Related 2 Blocks: Layout観測→除外更新Adapter
+ */
+test("Git配置観測は除外更新を所有せず内部primitiveをRootへ公開しない", () => {
+  const sourceRoot = path.join(developRoot, "version-control", "src");
+  const layout = fs.readFileSync(
+    path.join(sourceRoot, "git/layout.ts"),
+    "utf8",
+  );
+  const update = fs.readFileSync(
+    path.join(sourceRoot, "git/local-ignore-adapter.ts"),
+    "utf8",
+  );
+  const root = fs.readFileSync(path.join(sourceRoot, "index.ts"), "utf8");
+  assert.doesNotMatch(layout, /function writeRepositoryLocalExclude/u);
+  assert.doesNotMatch(layout, /fs\.(?:writeSync|renameSync|unlinkSync)\(/u);
+  assert.match(update, /export function writeRepositoryLocalExclude\(/u);
+  assert.match(update, /fs\.renameSync\(lockPath, excludePath\)/u);
+  for (const internalName of [
+    "writeRepositoryLocalExclude",
+    "verifyLayoutForWrite",
+    "readStableFileBytes",
+    "verifyEntitySnapshot",
+  ]) {
+    assert.ok(!publicExportNames(root).includes(internalName));
+  }
+});
