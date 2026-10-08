@@ -9,37 +9,238 @@
  * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-
-import { createRuntimeProcessRecoveryIdentity } from "../../src/host-runtime/runtime-process-safety-state.ts";
-
 import {
-  createProjectRuntimePersistencePorts,
+  createProjectRuntimeExecutionAuthorizationAdapter,
+  createProjectRuntimeExecutionHostPorts,
+  createProjectRuntimeState,
+  describeProjectRuntimeExecutionContract,
+  type ProjectRuntimeSingleTaskResult,
+  type ProjectTaskDefinition,
+  runProjectRuntimeOperation as runProjectRuntimeOperationWithPorts,
+  runProjectRuntimeSingleTaskAttempt,
+} from "../../../orchestrator/src/index.ts";
+import {
+  createCurrentProjectRuntimePersistencePorts as createProjectRuntimePersistencePorts,
+  initializeProjectRuntimeSnapshot,
+} from "../../../orchestrator/src/storage/current-state-store.ts";
+import { createProjectResultAcceptanceReader } from "../../../orchestrator/src/task/docker-recovery-settlement.ts";
+import { createRuntimeProcessRecoveryIdentity } from "../../src/host-runtime/runtime-process-safety-state.ts";
+import {
   enqueueProjectOperation,
   readProjectOperationQueueState,
   readProjectRuntimeState,
-  reconcileProjectRuntimeLeaseOwnerLoss,
   writeProjectRuntimeState,
-} from "../../src/project-runtime/project-runtime-durable-foundation.ts";
-import {
-  describeProjectRuntimeExecutionContract,
-  runProjectRuntimeOperation as runProjectRuntimeOperationWithPorts,
-} from "../../../project-runtime/src/index.ts";
-import { createProjectRuntimeExecutionHostPorts } from "../../src/project-runtime/project-runtime-execution-host-adapter.ts";
-import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../src/project-runtime/project-runtime-execution-authorization-adapter.ts";
-import { runProjectRuntimeSingleTaskAttempt } from "../../src/project-runtime/project-runtime-single-task-adapter.ts";
-import {
-  createProjectRuntimeState,
-  type ProjectRuntimeSingleTaskResult,
-  type ProjectTaskDefinition,
-} from "../../../project-runtime/src/index.ts";
+} from "../fixtures/project-runtime-current-ports.ts";
 
 const revision = "a".repeat(40);
+
+/**
+ * 通常Taskの結果集合を上位保存後だけ受理し、部分失敗を元Task結果と分ける。
+ * @responsibility 実Snapshotと模擬下位配送の本番Application接続を検証する。
+ * @trace PRL-IT-012
+ * @precondition 新版Git Root、Queue、状態保存と固定ACK Readerを用意する。
+ * @stimulus 二結果、0件、読取り失敗、二重通知、保存失敗、片方ACK失敗を実行する。
+ * @observation Task起動数、ACK保存、下位complete回数、Task終端、結果fieldを確認する。
+ * @oracle 全件読取り→同世代保存→固定Reader照合→整理の順で、失敗時にTaskを再実行しない。
+ * @cleanup 自己所有fixtureを終了hookで回収する。Docker/Providerは使用しない。
+ * @boundary PRL-IT-012=Direct Boundary: Application→実Snapshot→固定Reader→模擬終了Owner。
+ */
+test("通常結果配送は上位実保存後だけ整理しTask結果を保持する", async (t) => {
+  for (const mode of [
+    "normal",
+    "none",
+    "read_failure",
+    "double_notification",
+    "save_failure",
+    "partial_complete",
+    "missing_capture",
+    "wrong_operation",
+    "duplicate_reference",
+    "reader_throw",
+    "save_after_effect",
+    "cancelled",
+  ] as const) {
+    const { root, input } = fixture(t, [task("task-a")], 1);
+    const persistence = createProjectRuntimePersistencePorts(root, "binding-a");
+    let starts = 0;
+    let reads = 0;
+    let completes = 0;
+    const outcome = await runProjectRuntimeOperationWithPorts(
+      {
+        ...createProjectRuntimeExecutionHostPorts({}),
+        authorization: createProjectRuntimeExecutionAuthorizationAdapter({
+          issueRuntimeCapability: () => Object.freeze({}),
+          revokeRuntimeCapability: () => true,
+        }),
+        persistence: {
+          ...persistence,
+          state: {
+            ...persistence.state,
+            writeState: (state, generation) => {
+              if (
+                (mode === "save_failure" || mode === "save_after_effect") &&
+                state.tasks.some((item) => item.resultAcceptances.length > 0)
+              ) {
+                if (mode === "save_after_effect")
+                  assert.equal(
+                    persistence.state.writeState(state, generation).status,
+                    "completed",
+                  );
+                return {
+                  status: "blocked",
+                  reason: "fixture_ack_save_failure",
+                  value: null,
+                  manualRecoveryRequired: true,
+                  recoveryId: null,
+                };
+              }
+              return persistence.state.writeState(state, generation);
+            },
+          },
+        },
+        resultDelivery: {
+          repositoryBindingId: "binding-a",
+          createAcceptanceReader: (acceptance) => {
+            if (mode === "reader_throw")
+              throw new Error("fixture_reader_failed");
+            return createProjectResultAcceptanceReader({
+              workingDirectory: root,
+              repositoryBindingId: acceptance.repositoryBindingId,
+              projectId: acceptance.projectId,
+              milestoneId: acceptance.milestoneId,
+              taskId: acceptance.taskId,
+              attemptId: acceptance.attemptId,
+              operationId: acceptance.operationId,
+              recoveryId: acceptance.recoveryId,
+            });
+          },
+        },
+        runSingleTaskAttempt: async (attempt) => {
+          starts += 1;
+          const delivery = Object.freeze({
+            readResults: () => {
+              reads += 1;
+              if (mode === "none")
+                return { status: "not_required" as const, results: null };
+              if (mode === "read_failure")
+                return { status: "blocked" as const, results: null };
+              return {
+                status: "completed" as const,
+                results: [1, 2].map((index) => ({
+                  repositoryBinding: "a".repeat(64),
+                  operationId:
+                    mode === "wrong_operation"
+                      ? "other-operation"
+                      : attempt.operationId,
+                  recoveryId: `result-recovery-${mode === "duplicate_reference" ? 1 : index}`,
+                  resultId: String(index).repeat(64),
+                  consumer: "project_runtime" as const,
+                })),
+              };
+            },
+            complete: (recoveryId: unknown, reader: unknown) => {
+              completes += 1;
+              assert.equal(typeof reader, "function");
+              const accepted = (
+                reader as () => {
+                  recoveryId: string;
+                  settlementGeneration: number;
+                } | null
+              )();
+              assert.ok(accepted);
+              assert.equal(accepted.recoveryId, recoveryId);
+              const stored = persistence.state.readState("project-a");
+              assert.equal(stored.status, "completed");
+              assert.ok(stored.value);
+              assert.equal(
+                stored.value.tasks[0]?.state,
+                mode === "cancelled" ? "cancelled" : "completed",
+              );
+              assert.equal(stored.value.tasks[0]?.resultAcceptances.length, 2);
+              assert.equal(
+                accepted.settlementGeneration,
+                stored.value.generation,
+              );
+              return {
+                status:
+                  mode === "partial_complete" && completes === 2
+                    ? ("blocked" as const)
+                    : ("completed" as const),
+                reason: "fixture_delivery",
+                filesystemEffectIssued: true,
+                snapshotConfirmed: true,
+                lockReleased: true,
+                revision: 1,
+                payloadSha256: "d".repeat(64),
+                recoveryIds: Object.freeze([]),
+              };
+            },
+          });
+          if (mode !== "missing_capture")
+            attempt.observeResultDelivery?.(delivery);
+          if (mode === "double_notification")
+            attempt.observeResultDelivery?.(delivery);
+          const result = await completed(attempt);
+          return mode === "cancelled"
+            ? { ...result, status: "cancelled", reason: "fixture_cancelled" }
+            : result;
+        },
+      },
+      input,
+    );
+    assert.equal(starts, 1);
+    assert.equal(
+      completes,
+      mode === "normal" || mode === "partial_complete" || mode === "cancelled"
+        ? 2
+        : 0,
+      JSON.stringify(outcome),
+    );
+    assert.equal(
+      reads,
+      mode === "double_notification" || mode === "missing_capture" ? 0 : 1,
+    );
+    assert.equal(
+      outcome.status,
+      mode === "cancelled"
+        ? "cancelled"
+        : mode === "normal" || mode === "none"
+          ? "completed"
+          : "blocked",
+      JSON.stringify(outcome),
+    );
+    const stored = persistence.state.readState("project-a");
+    assert.ok(stored.value);
+    assert.equal(
+      stored.value.tasks[0]?.state,
+      mode === "cancelled"
+        ? "cancelled"
+        : mode === "normal" ||
+            mode === "none" ||
+            mode === "partial_complete" ||
+            mode === "save_after_effect"
+          ? "completed"
+          : "running",
+    );
+    assert.equal(
+      stored.value.tasks[0]?.resultAcceptances.length,
+      mode === "normal" ||
+        mode === "partial_complete" ||
+        mode === "save_after_effect" ||
+        mode === "cancelled"
+        ? 2
+        : 0,
+    );
+    assert.ok(
+      Object.values(outcome).every((value) => typeof value !== "function"),
+    );
+  }
+});
 
 type BoundExecutionDependencies = Omit<
   Parameters<typeof runProjectRuntimeOperationWithPorts>[0],
@@ -167,11 +368,15 @@ function fixture(
   tasks: readonly ProjectTaskDefinition[],
   maximumConcurrency = 5,
 ) {
-  const root = fs.mkdtempSync(
-    path.join(os.tmpdir(), "crdd-project-execution-"),
-  );
+  const tests = path.resolve(import.meta.dirname, "../../../../.crdd/tests");
+  fs.mkdirSync(tests, { recursive: true });
+  const root = fs.mkdtempSync(path.join(tests, "project-execution-"));
   execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  assert.equal(
+    initializeProjectRuntimeSnapshot(root, "binding-a").status,
+    "completed",
+  );
   const created = createProjectRuntimeState({
     projectId: "project-a",
     milestoneId: "milestone-a",
@@ -430,22 +635,40 @@ test("PR-N-01 uses the existing Single Task adapter without widening its authori
       runSingleTaskAttempt: (attempt) =>
         runProjectRuntimeSingleTaskAttempt(
           {
-            startTask: () => {
+            startTask: (
+              _request,
+              _root,
+              _capability,
+              _correlation,
+              notifyStarted,
+            ) => {
               starts += 1;
               return {
                 status: "started",
                 controlCapability: {},
-                completion: Promise.resolve({
-                  status: "completed",
-                  reason: "coordinator_task_completed",
-                  cleanupConfirmed: true,
-                  manualRecoveryRequired: false,
-                  processRestartRequired: false,
-                  candidateId: null,
-                  hostRecoveryId: null,
-                  dockerRecoveryIds: [],
-                  candidateRecoveryId: null,
-                  candidateStoreRecoveryId: null,
+                completion: Promise.resolve().then(async () => {
+                  assert.ok(notifyStarted);
+                  assert.equal(
+                    await notifyStarted({
+                      event: "coordinator_provider_process_started",
+                      taskRole: "executor",
+                      provider: "claude",
+                      operationId: "OP-execution-fixture",
+                    }),
+                    true,
+                  );
+                  return {
+                    status: "completed",
+                    reason: "coordinator_task_completed",
+                    cleanupConfirmed: true,
+                    manualRecoveryRequired: false,
+                    processRestartRequired: false,
+                    candidateId: null,
+                    hostRecoveryId: null,
+                    dockerRecoveryIds: [],
+                    candidateRecoveryId: null,
+                    candidateStoreRecoveryId: null,
+                  };
                 }),
               };
             },
@@ -1051,48 +1274,54 @@ test("下位実行へ委譲後のthrowは開始観測の有無にかかわらず
  */
 test("PR-A-04 releases the physical lease when a post-acquire Queue write becomes unobservable", async (t) => {
   const { root, input } = fixture(t, [task("task-a")], 1);
-  const queueDirectory = path.join(
-    root,
-    ".crdd",
-    "project-runtime",
-    "queues",
-    "queue-a",
-  );
-  const residue = path.join(queueDirectory, "unexpected-record.json");
-  const outcome = await runProjectRuntimeOperation(
-    {
-      runSingleTaskAttempt: async (attempt) => {
-        fs.writeFileSync(residue, "{}\n", "utf8");
-        return completed(attempt);
+  const location = path.join(root, ".crdd", "orchestrator", "state.json");
+  const original = fs.openSync;
+  let injected = false;
+  let outcome: Awaited<ReturnType<typeof runProjectRuntimeOperation>>;
+  try {
+    outcome = await runProjectRuntimeOperation(
+      {
+        runSingleTaskAttempt: async (attempt) => {
+          Reflect.set(fs, "openSync", ((
+            ...args: Parameters<typeof fs.openSync>
+          ) => {
+            if (!injected && String(args[0]) === location) {
+              injected = true;
+              Reflect.set(fs, "openSync", original);
+              throw new Error("snapshot_read_unconfirmed");
+            }
+            return Reflect.apply(original, fs, args);
+          }) as typeof fs.openSync);
+          return completed(attempt);
+        },
       },
-    },
-    input,
-  );
+      input,
+    );
+  } finally {
+    Reflect.set(fs, "openSync", original);
+  }
+  assert.equal(injected, true);
   assert.equal(outcome.status, "blocked");
   assert.equal(outcome.manualRecoveryRequired, true);
-  const locks = path.join(root, ".crdd", "project-runtime", "work", "locks");
+  const locks = path.join(root, ".crdd", "tmp", "orchestrator-leases");
   assert.deepEqual(
     fs
       .readdirSync(locks)
       .filter((name) => name.startsWith("project-operation-project-a-queue-a")),
     [],
   );
-  fs.rmSync(residue);
   const before = readProjectOperationQueueState(root, "binding-a", "queue-a");
   assert.equal(before.status, "completed");
-  assert.notEqual(
+  assert.equal(
     before.status === "completed" && before.value.ownerGeneration,
     null,
   );
-  const reconciled = reconcileProjectRuntimeLeaseOwnerLoss(
+  const reconciled = createProjectRuntimePersistencePorts(
     root,
     "binding-a",
-    "project-a",
-    "queue-a",
-    () => {
-      throw new Error("released evidence must avoid owner observation");
-    },
-  );
+  ).lease.reconcileOperationOwnerLoss("project-a", "queue-a", () => {
+    throw new Error("released evidence must avoid owner observation");
+  });
   assert.equal(reconciled.status, "completed");
   assert.equal(
     reconciled.status === "completed" && reconciled.value.ownerGeneration,

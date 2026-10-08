@@ -26,7 +26,7 @@ export const PLATFORM_ACCESS_TS_COVERAGE_SOURCES = Object.freeze([
   "40_Develop/coordinator/scripts/sign-release-manifest.ts",
   "40_Develop/coordinator/src/diagnostics/doctor.ts",
   "40_Develop/coordinator/src/authority/authority-root-path-lexical.ts",
-  "40_Develop/coordinator/src/state-storage/bounded-file-snapshot.ts",
+  "40_Develop/domain-model/src/storage/bounded-file-snapshot.ts",
   "40_Develop/coordinator/src/platform-access/platform-access-adapter.ts",
   "40_Develop/coordinator/src/diagnostics/platform-access-release.ts",
   "40_Develop/coordinator/src/platform-access/platform-provisioner-manifest-loader.ts",
@@ -175,13 +175,12 @@ const sourceCoverageObligations: Readonly<Record<string, CoverageObligation>> =
         "Windows/POSIX pure validatorの正負・境界契約試験",
         "対応OS、字句subsetまたはdispatcher変更時",
       ),
-    "40_Develop/coordinator/src/state-storage/bounded-file-snapshot.ts":
-      obligation(
-        "close failureと全Filesystem raceを同一coverage runで到達していない",
-        "成果物のgrowth、truncate、leafまたはparent差替えの誤受理",
-        "上限exact／+1、growth、truncate、同長leaf／parent replacement契約試験とproduction caller試験",
-        "読取り上限、Filesystem API、Identity fieldまたはcaller変更時",
-      ),
+    "40_Develop/domain-model/src/storage/bounded-file-snapshot.ts": obligation(
+      "close failureと全Filesystem raceを同一coverage runで到達していない",
+      "成果物のgrowth、truncate、leafまたはparent差替えの誤受理",
+      "上限exact／+1、growth、truncate、同長leaf／parent replacement契約試験とproduction caller試験",
+      "読取り上限、Filesystem API、Identity fieldまたはcaller変更時",
+    ),
     "40_Develop/coordinator/src/platform-access/platform-access-adapter.ts":
       obligation(
         "入力正規化の全failure形を同一runで到達していない",

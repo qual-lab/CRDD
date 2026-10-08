@@ -163,7 +163,7 @@ Related:
 | 基準配置 | 再編後の固定配置 | 移行担当と保持する意味 |
 |---|---|---|
 | `.crdd/project-runtime/` | `.crdd/orchestrator/` | フロントAIが旧受付・資源・未解決参照を確認し、新受付世代で初期化する。Runtimeへ旧Path探索を残さない。四Fileの保存・再入場保証は維持する。 |
-| `.crdd/config/project-runtime.json` | `.crdd/config/orchestrator.json` | 非秘密のTool別設定。保持日数の確認・値引継ぎと明示Git allowlist更新を行う。 |
+| `.crdd/config/orchestrator.json` | `.crdd/config/orchestrator.json` | 非秘密のTool別設定。保持日数の確認・値引継ぎと明示Git allowlist更新を行う。 |
 | project-runtime設定例・Schema | orchestrator設定例・Schema | 配布側と実Reader、Checker、回帰Runnerを同時更新する。別の共通期間設定へ統合しない。 |
 | `.crdd/coordinator/`、`.crdd/execution-intelligence/` | 同名を維持 | 下位実行、上位編成、実行知の現在状態・履歴Ownerを混同しない。 |
 
@@ -474,11 +474,11 @@ Consumer集合は手書き一覧だけを正本としない。実Sourceからraw
 
 責務再編後は、共通設定ReaderをDomain Modelの設定部品へ移管し、各履歴Ownerが自分の設定だけを利用する。新配置は`.crdd/config/orchestrator.json`、`.crdd/config/execution-intelligence.json`、`.crdd/config/coordinator.json`である。Coordinatorの現在状態・回復・終了要約の条件は[Coordinator詳細の縮小設計](../coordinator/01_Architecture.md#現在状態と履歴を分ける縮小設計)を正本とし、本節で再定義しない。以下のProject Runtime Reader名とPathは切替前の基準であり、新Runtimeへ旧設定探索を残す指示ではない。対応する配布例・SchemaもTool名に揃え、Source・設定実物の切替は段階5で行う。
 
-履歴所有者が通常履歴を整理するときは、`readProjectRuntimeConfig`または`readExecutionIntelligenceConfig`から自分のTool設定を読み取る。Runtime Dataは設定の検証と読取りだけを所有し、記録の削除判断は各履歴所有者が行う。他Toolの設定は読取り条件にしない。
+履歴所有者が通常履歴を整理するときは、`readOrchestratorConfig`、`readExecutionIntelligenceConfig`または`readCoordinatorConfig`から自分のTool設定を読み取る。Runtime Dataは設定の検証と読取りだけを所有し、記録の削除判断は各履歴所有者が行う。他Toolの設定は読取り条件にしない。
 
 | 項目 | 契約 |
 |---|---|
-| 配置 | Repository-local `.crdd/config/project-runtime.json`と`.crdd/config/execution-intelligence.json`。非秘密のTool別設定として明示allowlistでGit管理する。 |
+| 配置 | Repository-local `.crdd/config/`の`orchestrator.json`、`execution-intelligence.json`、`coordinator.json`。非秘密のTool別設定として明示allowlistでGit管理する。 |
 | 固定形式 | 各ファイルに`schemaRevision: 1`と`historyRetentionDays`を必須とする。未評価の設定項目を先回りして追加しない。 |
 | 既定 | 当該Toolの設定ファイルが存在しない場合だけ30日。他Toolの設定状態に依存しない。 |
 | 指定値 | ミリ秒へ安全に変換できる正の整数日数。所有者別に指定する。 |
@@ -486,7 +486,7 @@ Consumer集合は手書き一覧だけを正本としない。実Sourceからraw
 | 保護範囲 | 未解決の回復義務、実行中の状態、Candidate、秘密情報および正式Evidenceを通常履歴の期間で削除しない。 |
 | 変更時 | 一回の整理処理は一つの設定Snapshotを用いる。過去の終了判断に必要な保持期間はProject Runtime側が判断時の記録へ固定し、後の設定変更で過去の根拠を書き換えない。 |
 
-設定例は`template/.crdd/config/project-runtime.example.json`と`execution-intelligence.example.json`、Schemaは`template/tools/schemas/project-runtime-config-schema.json`と`execution-intelligence-config-schema.json`で提供する。設定を自動作成せず、不存在だけを既定値の適用根拠とする。共通の期間設定ファイルや旧形式Readerは追加しない。
+設定例は`template/.crdd/config/`の`orchestrator.example.json`、`execution-intelligence.example.json`、`coordinator.example.json`、Schemaは`template/tools/schemas/`の各Tool名に対応する`*-config-schema.json`で提供する。設定を自動作成せず、不存在だけを既定値の適用根拠とする。共通の期間設定ファイルや旧形式Readerは追加しない。Coordinator設定Readerの提供は履歴Writer・終了整理の本番接続完了を意味しない。
 
 ### 設定の配置と管理境界
 

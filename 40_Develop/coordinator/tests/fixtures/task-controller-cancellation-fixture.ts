@@ -36,6 +36,7 @@ export function createTaskControllerCancellationFixture(
   ];
   const plan = Object.freeze({
     provider: "claude" as const,
+    consumer: "project_runtime" as const,
     operationId,
     grantRef: "PHMGRANT-123456",
     profileId: "PROFILE-200001",

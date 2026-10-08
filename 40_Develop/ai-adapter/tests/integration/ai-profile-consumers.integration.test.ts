@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { resolveRuntimeOwnedProviderModelProfile } from "../../src/index.ts";
-import { createDefaultWorkbenchAiProfileSurface } from "../../../workbench/src/ai-profile-surface.ts";
+import { createDefaultWorkbenchAiProfileSurface } from "../../../workbench-server/src/ai-profile-surface.ts";
 import { DEFAULT_AI_PROFILE_CATALOG } from "../../src/index.ts";
 
 /**

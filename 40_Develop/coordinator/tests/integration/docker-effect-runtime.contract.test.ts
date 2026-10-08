@@ -8,7 +8,7 @@
  * @scope docker、effect、runtime
  * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
  */
-import { describeWorkbenchAiAdviceResultSchema } from "../../src/workbench-ai/workbench-ai-advice-result.ts";
+
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -16,15 +16,17 @@ import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { createIsolatedClaudeDockerRuntimeAdapterCandidate } from "../../src/provider/claude-docker-runtime-adapter.ts";
-import { createIsolatedCodexDockerRuntimeAdapterCandidate } from "../../src/provider/codex-docker-runtime-adapter.ts";
+import { planWorkbenchAiAdviceProviderCommand } from "../../../ai-adapter/src/index.ts";
 import { dockerContainerInitObservationMatches } from "../../src/docker-runtime/docker-container-init-observation.ts";
 import {
   createIsolatedDockerEffectRuntimeCandidate,
   describeDockerEffectRuntimeContract,
+  verifyRuntimeOwnedDockerCleanupOutcome,
 } from "../../src/docker-runtime/docker-effect-runtime.ts";
 import type { OwnedCommandHandle } from "../../src/docker-runtime/docker-owned-process.ts";
-import { planWorkbenchAiAdviceProviderCommand } from "../../../ai-adapter/src/index.ts";
+import { createIsolatedClaudeDockerRuntimeAdapterCandidate } from "../../src/provider/claude-docker-runtime-adapter.ts";
+import { createIsolatedCodexDockerRuntimeAdapterCandidate } from "../../src/provider/codex-docker-runtime-adapter.ts";
+import { describeWorkbenchAiAdviceResultSchema } from "../../src/workbench-ai/workbench-ai-advice-result.ts";
 
 /**
  * createPlanFixtureのTest準備責務を実行する。
@@ -257,6 +259,9 @@ function createEffectFixture(
     authReceiptId?: string;
     proxyReceiptId?: string;
     providerReceiptId?: string;
+    missingReceiptPurpose?: string;
+    withFullReceipts?: boolean;
+    unknownReceiptPurpose?: string;
     handleForInvocation?: (
       invocationIndex: number,
     ) => OwnedCommandHandle | null;
@@ -339,31 +344,53 @@ function createEffectFixture(
     ...(options.internalNetworkReceiptId ||
     options.authReceiptId ||
     options.proxyReceiptId ||
-    options.providerReceiptId
+    options.providerReceiptId ||
+    options.missingReceiptPurpose ||
+    options.withFullReceipts
       ? {
           inspectReceipts: () =>
-            Object.freeze({
-              create_subscription_auth_probe: Object.freeze({
-                submitted: options.authReceiptId !== undefined,
-                dockerId: options.authReceiptId ?? null,
-              }),
-              create_internal_network: Object.freeze({
-                submitted: options.internalNetworkReceiptId !== undefined,
-                dockerId: options.internalNetworkReceiptId ?? null,
-              }),
-              create_egress_network: Object.freeze({
-                submitted: false,
-                dockerId: null,
-              }),
-              create_proxy: Object.freeze({
-                submitted: options.proxyReceiptId !== undefined,
-                dockerId: options.proxyReceiptId ?? null,
-              }),
-              create_provider: Object.freeze({
-                submitted: options.providerReceiptId !== undefined,
-                dockerId: options.providerReceiptId ?? null,
-              }),
-            }),
+            // 欠落fieldの負例を維持し、型保証ではなくRuntime検査へ渡す。
+            Object.freeze(
+              Object.fromEntries(
+                Object.entries({
+                  create_subscription_auth_probe: Object.freeze({
+                    submitted: options.authReceiptId !== undefined,
+                    dockerId: options.authReceiptId ?? null,
+                  }),
+                  create_internal_network: Object.freeze({
+                    submitted: options.internalNetworkReceiptId !== undefined,
+                    dockerId: options.internalNetworkReceiptId ?? null,
+                  }),
+                  create_egress_network: Object.freeze({
+                    submitted: false,
+                    dockerId: null,
+                  }),
+                  create_proxy: Object.freeze({
+                    submitted: options.proxyReceiptId !== undefined,
+                    dockerId: options.proxyReceiptId ?? null,
+                  }),
+                  create_provider: Object.freeze({
+                    submitted: options.providerReceiptId !== undefined,
+                    dockerId: options.providerReceiptId ?? null,
+                  }),
+                })
+                  .filter(
+                    ([purpose]) => purpose !== options.missingReceiptPurpose,
+                  )
+                  .map(([purpose, receipt]) => [
+                    purpose,
+                    purpose === options.unknownReceiptPurpose
+                      ? Object.freeze({ submitted: true, dockerId: null })
+                      : receipt,
+                  ]),
+              ),
+            ) as unknown as ReturnType<
+              NonNullable<
+                Parameters<
+                  typeof createIsolatedDockerEffectRuntimeCandidate
+                >[0]["inspectReceipts"]
+              >
+            >,
         }
       : {}),
   });
@@ -855,6 +882,53 @@ test("Taskの上限改変と同じ上限になる作業量の差替えを拒否�
 });
 
 /**
+ * 全purposeの未評価を未要求・不存在へ補完しないことを確認する。
+ *
+ * @responsibility Receipt欠測時の資源処置停止と診断領域保持を反証する。
+ * @trace ERB-IT-004
+ * @precondition 模擬Dockerと完全Receiptを生成する自己所有Fixtureを使う。
+ * @stimulus 五purposeを一つずつ欠測させ、通常清掃を呼ぶ。
+ * @observation 清掃結果、Docker要求数、config保持を確認する。
+ * @oracle 欠測は回収未確認であり、削除要求とconfig除去を発行しない。
+ * @cleanup N/A: FixtureはProcessとFilesystemを模擬し、実Docker資源を作らない。
+ * @boundary ERB-IT-004=Direct Boundary: 清掃利用側と完全Receipt契約。
+ */
+test("通常Effect cleanupは一purposeのReceipt欠測を未要求へ補完しない", async () => {
+  for (const missingReceiptPurpose of [
+    "create_provider",
+    "create_proxy",
+    "create_subscription_auth_probe",
+    "create_internal_network",
+    "create_egress_network",
+  ]) {
+    const fixture = createEffectFixture({ missingReceiptPurpose });
+    const cleanup = await fixture.runtime.cleanupOwnedResources(
+      fixture.plan,
+      fixture.recoveryCapability,
+      fixture.managementCapability,
+    );
+    assert.equal(cleanup.confirmed, false);
+    assert.equal(cleanup.containersAbsent, false);
+    assert.equal(cleanup.networksAbsent, false);
+    assert.equal(cleanup.resourceObservations, null);
+    assert.equal(fixture.invocations.length, 0);
+    assert.equal(fixture.counts().configRemoved, 0);
+    const command = fixture.plan.commands[0];
+    assert.ok(command);
+    assert.throws(
+      () =>
+        fixture.runtime.startCommand(
+          command,
+          fixture.plan,
+          fixture.managementCapability,
+        ),
+      /docker_effect_attempt_stopped/u,
+    );
+    assert.equal(fixture.invocations.length, 0);
+  }
+});
+
+/**
  * cleanupは全handle終了と所有resource不存在後だけconfigを除去するを検証する。
  *
  * @responsibility cleanupは全handle終了と所有resource不存在後だけconfigを除去するの合否判定を所有する。
@@ -886,12 +960,155 @@ test("cleanupは全handle終了と所有resource不存在後だけconfigを除�
     processTreeTerminated: true,
     containersAbsent: true,
     networksAbsent: true,
+    resourceObservations: null,
   });
+  const invocationCount = fixture.invocations.length;
+  assert.throws(
+    () =>
+      fixture.runtime.startCommand(
+        firstCommand,
+        fixture.plan,
+        fixture.managementCapability,
+      ),
+    /docker_effect_attempt_stopped/u,
+  );
+  assert.equal(fixture.invocations.length, invocationCount);
   assert.deepEqual(fixture.counts(), {
     configCreated: 1,
     configRemoved: 1,
   });
   assert.equal(fixture.invocations.length, 6);
+});
+
+/**
+ * 実清掃返却と操作・計画の相関を確認する。
+ *
+ * @responsibility 清掃成功のコピーや別Ownerの返却を終端根拠から排除する。
+ * @trace ERB-IT-004
+ * @precondition 全五purposeを未要求として模擬する独立Runtimeを使う。
+ * @stimulus 清掃後に同じ返却、コピー、別Capabilityと別計画を照合する。
+ * @observation 五purpose観測またはnullとDocker要求数を確認する。
+ * @oracle 同じRuntime・対象だけが観測を返し、本番Ownerは模擬結果を拒否する。
+ * @cleanup N/A: Process・Filesystem・Dockerを模擬し実資源を作らない。
+ * @boundary ERB-IT-004=Direct Boundary: 実清掃返却→終端相関。
+ */
+test("清掃結果の真正相関はコピー・別操作・別計画・別Runtimeを拒否する", async () => {
+  const fixture = createEffectFixture({ withFullReceipts: true });
+  const result = await fixture.runtime.cleanupOwnedResources(
+    fixture.plan,
+    fixture.recoveryCapability,
+    fixture.managementCapability,
+  );
+  assert.equal(result.confirmed, true);
+  const verify = fixture.runtime.verifyCleanupOutcome;
+  assert.equal(
+    verify(
+      result,
+      fixture.plan,
+      fixture.recoveryCapability,
+      fixture.managementCapability,
+    ),
+    result.resourceObservations,
+  );
+  assert.equal(result.resourceObservations?.length, 5);
+  for (const [value, plan, recovery, management] of [
+    [
+      { ...result },
+      fixture.plan,
+      fixture.recoveryCapability,
+      fixture.managementCapability,
+    ],
+    [result, fixture.plan, {}, fixture.managementCapability],
+    [result, fixture.plan, fixture.recoveryCapability, {}],
+    [
+      result,
+      { ...fixture.plan, operationId: "OP-654321" },
+      fixture.recoveryCapability,
+      fixture.managementCapability,
+    ],
+  ] as const)
+    assert.equal(verify(value, plan, recovery, management), null);
+  assert.equal(
+    verifyRuntimeOwnedDockerCleanupOutcome(
+      result,
+      fixture.plan,
+      fixture.recoveryCapability,
+      fixture.managementCapability,
+    ),
+    null,
+  );
+  const other = createEffectFixture({ withFullReceipts: true });
+  assert.equal(
+    other.runtime.verifyCleanupOutcome(
+      result,
+      fixture.plan,
+      fixture.recoveryCapability,
+      fixture.managementCapability,
+    ),
+    null,
+  );
+  assert.equal(fixture.invocations.length, 0);
+});
+
+/**
+ * Process終端後も結果不明のCreateを成功根拠にしない。
+ *
+ * @responsibility 五purposeのID不明を未要求や不存在へ丸めないことを確認する。
+ * @trace ERB-IT-004
+ * @precondition 一種類だけ発行済み・ID不明で、他の四種類は未要求である。
+ * @stimulus 全Handle終了可能なFixtureで通常清掃と真正結果照合を行う。
+ * @observation 清掃状態、対象観測、結果借用、同じ計画の再要求と発行数。
+ * @oracle 全purposeで不明が維持され、成功根拠と再要求を拒否する。
+ * @cleanup Fixtureは実Docker、Process、Filesystem資源を作成しない。
+ * @boundary Effect OwnerのCreate結果不明から終端根拠への境界。
+ */
+test("五purposeのCreate結果不明はProcess終端だけで清掃成功にならない", async () => {
+  for (const purpose of [
+    "create_egress_network",
+    "create_internal_network",
+    "create_provider",
+    "create_proxy",
+    "create_subscription_auth_probe",
+  ]) {
+    const fixture = createEffectFixture({
+      withFullReceipts: true,
+      unknownReceiptPurpose: purpose,
+    });
+    const result = await fixture.runtime.cleanupOwnedResources(
+      fixture.plan,
+      fixture.recoveryCapability,
+      fixture.managementCapability,
+    );
+    assert.equal(result.processTreeTerminated, true);
+    assert.equal(result.confirmed, false);
+    assert.equal(
+      result.resourceObservations?.find((value) => value.purpose === purpose)
+        ?.observation,
+      "unknown",
+    );
+    assert.equal(
+      fixture.runtime.verifyCleanupOutcome(
+        result,
+        fixture.plan,
+        fixture.recoveryCapability,
+        fixture.managementCapability,
+      ),
+      null,
+    );
+    assert.equal(fixture.counts().configRemoved, 0);
+    const command = fixture.plan.commands[0];
+    assert.ok(command);
+    assert.throws(
+      () =>
+        fixture.runtime.startCommand(
+          command,
+          fixture.plan,
+          fixture.managementCapability,
+        ),
+      /docker_effect_attempt_stopped/u,
+    );
+    assert.equal(fixture.invocations.length, 0);
+  }
 });
 
 /**
@@ -1011,6 +1228,16 @@ test("candidate/receipt cleanup中のrunShort errorもcloseまで所有し設定
     assert.equal(first.networksAbsent, true);
     assert.equal(first.processTreeTerminated, false);
     assert.equal(first.confirmed, false);
+    if (shouldUseReceipts) {
+      assert.equal(
+        first.resourceObservations?.find(
+          (resource) => resource.purpose === "create_subscription_auth_probe",
+        )?.observation,
+        "unknown",
+      );
+    } else {
+      assert.equal(first.resourceObservations, null);
+    }
     assert.equal(fixture.counts().configRemoved, 0);
     assert.equal(terminationCalls, 1);
     const second = await fixture.runtime.cleanupOwnedResources(
@@ -1189,6 +1416,38 @@ test("通常Effect cleanupは実測同形の認証Probe none Networkだけを回
     processTreeTerminated: true,
     containersAbsent: true,
     networksAbsent: true,
+    resourceObservations: [
+      {
+        purpose: "create_egress_network",
+        plannedResourceName: fixture.plan.egressNetworkName,
+        dockerId: null,
+        observation: "not_requested",
+      },
+      {
+        purpose: "create_internal_network",
+        plannedResourceName: fixture.plan.internalNetworkName,
+        dockerId: null,
+        observation: "not_requested",
+      },
+      {
+        purpose: "create_provider",
+        plannedResourceName: fixture.plan.providerContainerName,
+        dockerId: null,
+        observation: "not_requested",
+      },
+      {
+        purpose: "create_proxy",
+        plannedResourceName: fixture.plan.proxyContainerName,
+        dockerId: null,
+        observation: "not_requested",
+      },
+      {
+        purpose: "create_subscription_auth_probe",
+        plannedResourceName: fixture.plan.authContainerName,
+        dockerId,
+        observation: "absent",
+      },
+    ],
   });
   assert.equal(
     fixture.invocations.some(

@@ -371,6 +371,78 @@ function fixture(
 }
 
 /**
+ * 助言終了へ元結果を搬送し、Host Protocol失敗を成功へ変更しない。
+ *
+ * @responsibility Host清掃分類と元結果搬送の共同条件を検証する。
+ * @trace ERB-UT-023
+ * @precondition 固定助言と同じRuntimeの模擬Controller・Host結果を使用する。
+ * @stimulus 清掃成功、Protocol失敗の清掃確認、分類不能を順に実行する。
+ * @observation 記録callbackの引数同一性、呼出し数、公開結果を取得する。
+ * @oracle 成功分類だけ元結果を搬送し、Protocol失敗はblocked、分類不能は記録0。
+ * @cleanup N/A: 外部資源を生成しない。
+ * @boundary 助言Ownerと模擬Host／Controllerの終了境界。
+ */
+test("助言終了は元結果を搬送しProtocol失敗と分類不能を成功へ変更しない", async () => {
+  for (const classification of [
+    "completed",
+    "protocol_failure_cleanup_confirmed",
+    null,
+  ] as const) {
+    const current = fixture();
+    let dockerCompletion: unknown;
+    let hostCleanupOutcome: unknown;
+    let receipts = 0;
+    const runtime = createIsolatedWorkbenchAiAdviceRuntimeCandidate({
+      ...current.dependencies,
+      startProcess(...args) {
+        const started = current.dependencies.startProcess(...args);
+        const completion = (
+          started as { completion: Promise<unknown> }
+        ).completion.then((result) => {
+          dockerCompletion = result;
+          return result;
+        });
+        return Object.freeze({ ...started, completion }) as typeof started;
+      },
+      async cleanupOperation(...args) {
+        hostCleanupOutcome = await current.dependencies.cleanupOperation(
+          ...args,
+        );
+        return hostCleanupOutcome as Awaited<
+          ReturnType<WorkbenchAiAdviceRuntimeDependencies["cleanupOperation"]>
+        >;
+      },
+      classifyOperationCleanup: () => classification,
+      recordDockerHostCleanupReceipt(_capability, completion) {
+        receipts += 1;
+        assert.equal(Object.isFrozen(completion), true);
+        assert.equal(completion.hostCleanupOutcome, hostCleanupOutcome);
+        assert.equal(completion.dockerCompletion, dockerCompletion);
+        return true;
+      },
+    });
+    const result = await runtime.run(
+      plan,
+      new AbortController().signal,
+      Object.freeze({}),
+    );
+    assert.equal(
+      result.status,
+      classification === "completed" ? "completed" : "blocked",
+    );
+    assert.equal(receipts, classification === null ? 0 : 1);
+    assert.equal(
+      current.calls.includes("finalize-docker-recovery"),
+      classification !== null,
+    );
+    if (classification === "protocol_failure_cleanup_confirmed") {
+      assert.equal(result.reason, "workbench_ai_advice_host_generation_lost");
+      assert.equal(result.cleanupConfirmed, true);
+    }
+  }
+});
+
+/**
  * 署名確認からHost／Docker cleanup完了後にだけ助言JSONを返すを検証する。
  *
  * @responsibility 署名確認からHost／Docker cleanup完了後にだけ助言JSONを返すを検証するの検証責務を所有する。

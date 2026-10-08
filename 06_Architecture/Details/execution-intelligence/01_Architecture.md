@@ -231,7 +231,7 @@ Record PortとQueryはTypeScript APIとして同じ契約を公開し、CLI、MC
 
 `history.jsonl`は1行1Eventの構造化記録である。Eventの内容は不変とし、同一ID同内容の再送は再読取りで収束、異内容は拒否する。Repository内の履歴全体を一つの`history.lock`で排他し、完成した履歴を`history.pending.jsonl`へ書込み・flushした後、atomic replaceと再読取りで保存確定を確認する。短い書込み、公開済み／未公開／不明、cleanup不明を分け、所有不明のLockやpendingを時刻だけで奪取しない。ReaderはLock・pendingを作成せず、完全なSnapshotを読取り、部分JSONL・重複・破損・更新不明を完全履歴として返さない。
 
-通常記録の既定保持期間は人間が採用した30日とする。Execution Intelligenceは`<verified-repository-root>/.crdd/config/execution-intelligence.json`、Project Runtimeは別の`project-runtime.json`を用いる。各Toolは自分の設定だけを読み、もう一方の設定状態に依存しない。非秘密の設定はGit管理し、未設定は各30日、不正設定や観測不能は当該Toolの整理を停止する。設定の読取り・構造検査はRuntime Data、何を削除できるかは各履歴Ownerが所有する。
+通常記録の既定保持期間は人間が採用した30日とする。Execution Intelligenceは`<verified-repository-root>/.crdd/config/execution-intelligence.json`、Orchestratorは別の`orchestrator.json`を用いる。各Toolは自分の設定だけを読み、もう一方の設定状態に依存しない。非秘密の設定はGit管理し、未設定は各30日、不正設定や観測不能は当該Toolの整理を停止する。設定の読取り・構造検査はRuntime Data、何を削除できるかは各履歴Ownerが所有する。
 
 回収未確認、手動回復が必要、Effect不明または再起動が必要な記録を、期限だけで削除しない。正式Evidenceは履歴ではなく品質／CHGのOwner成果物として保全する。期間外の通常Eventを新規公開・再公開せず、期限による未記録を明示する。期間抽出は物理削除ではない。結果には観測した範囲と欠測を保持し、古い記録がないことを実行なしへ変換しない。
 

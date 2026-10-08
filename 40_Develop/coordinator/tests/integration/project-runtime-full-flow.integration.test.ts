@@ -31,10 +31,11 @@ import {
   initializeProjectRuntimeSnapshot,
   createProjectRuntimeSnapshotIntegrationRecordPort as createProjectRuntimeIntegrationRecordAdapter,
   createProjectRuntimeSnapshotAcceptanceDecisionStore as createProjectRuntimeAcceptanceDecisionStore,
-} from "../../src/project-runtime/project-runtime-durable-foundation.ts";
-import { recordProjectRuntimeExecutionEvent } from "../../src/project-runtime/execution-intelligence-adapter.ts";
+} from "../../../orchestrator/src/storage/current-state-store.ts";
+import { recordProjectRuntimeExecutionEvent } from "../../../orchestrator/src/index.ts";
 import {
   resolveProjectRuntimeReplan as resolveProjectRuntimeReplanWithPort,
+  createProjectRuntimeAcceptanceAuthorityAdapter,
   integrateProjectRuntimeOperation,
   issueProjectRuntimeHumanDecision,
   PROJECT_RUNTIME_ACCEPTANCE_DECISION_CONTRACT,
@@ -43,11 +44,10 @@ import {
   type ProjectRuntimeDecisionRecord,
   type ProjectRuntimeReplanClassifier,
   type ProjectRuntimeReplanInput,
-} from "../../../project-runtime/src/index.ts";
-import { runProjectRuntimeObjective } from "../../src/project-runtime/project-runtime-objective-intake.ts";
-import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../src/project-runtime/project-runtime-execution-authorization-adapter.ts";
-import { createProjectRuntimeDecisionCapabilityAdapter } from "../../src/project-runtime/project-runtime-decision-capability-adapter.ts";
-import { createProjectRuntimeAcceptanceAuthorityAdapter } from "../../src/project-runtime/project-runtime-acceptance-authority-adapter.ts";
+} from "../../../orchestrator/src/index.ts";
+import { runProjectRuntimeObjective } from "../../../orchestrator/src/task/objective-intake.ts";
+import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../../orchestrator/src/index.ts";
+import { createProjectRuntimeDecisionCapabilityAdapter } from "../../../orchestrator/src/index.ts";
 
 const revision = "a".repeat(40);
 

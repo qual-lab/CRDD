@@ -34,9 +34,9 @@ import {
   revokeRuntimeOwnedVerifiedCoordinatorPackageCapability,
 } from "../platform-access/platform-provisioner-package-filesystem.ts";
 import {
-  type ProjectRuntimeSingleTaskDependencies,
-  runProjectRuntimeSingleTaskAttempt,
-} from "../project-runtime/project-runtime-single-task-adapter.ts";
+  type CoordinatorTaskDependencies,
+  runCoordinatorTaskAttempt,
+} from "../task/index.ts";
 
 /**
  * Repository単体Workbench用の変更候補Executorを生成する。
@@ -48,10 +48,10 @@ import {
  * @returns Coordinator AI依頼Applicationへ接続可能な変更候補Executor。
  * @precondition Root CapabilityとCatalog Storeは現在Repositoryに対応する。
  * @postcondition 成功時も未信頼・未採用のCandidate IDだけを返し、所有正本を変更しない。
- * @effect Project Runtime Single Taskを最大一回開始する。
+ * @effect Coordinatorの単一Taskを最大一回開始する。
  * @failure 入力、Revision、Profile、署名またはcleanupを確認できなければ成功を返さない。
  * @invariant 指定Path、Profile ID、ProviderおよびRepository Revisionを暗黙に変更しない。
- * @boundary Workbench Production CompositionとProject Runtimeの境界。
+ * @boundary Workbench Production CompositionとCoordinator共通Task実行の境界。
  * @security 外部送信確認がなく、または許可Pathが空ならEffect 0で停止する。
  * @concurrency 一依頼一Task Attemptとし、取消を同じControl Capabilityへ転送する。
  */
@@ -70,7 +70,15 @@ export function createRuntimeOwnedWorkbenchAiChangeCandidateExecutor(
         }).capability,
       revokeRuntimeCapability:
         revokeRuntimeOwnedVerifiedCoordinatorPackageCapability,
-      startTask: startRuntimeOwnedCoordinatorTask,
+      startTask: (request, root, capability, correlation, observer) =>
+        startRuntimeOwnedCoordinatorTask(
+          request,
+          root,
+          capability,
+          correlation,
+          observer,
+          "workbench",
+        ),
       cancelTask: cancelRuntimeOwnedCoordinatorTask,
     }),
   );
@@ -100,8 +108,8 @@ export function createIsolatedWorkbenchAiChangeCandidateExecutorForDevelopment(
     observeRevision: typeof gitRepositoryRevisionAdapter;
     issueRuntimeCapability: () => object | null;
     revokeRuntimeCapability: (capability: object) => boolean;
-    startTask: ProjectRuntimeSingleTaskDependencies["startTask"];
-    cancelTask: ProjectRuntimeSingleTaskDependencies["cancelTask"];
+    startTask: CoordinatorTaskDependencies["startTask"];
+    cancelTask: CoordinatorTaskDependencies["cancelTask"];
   }>,
 ): CoordinatorAiRequestExecutor {
   return async (request, cancellationSignal) => {
@@ -140,18 +148,15 @@ export function createIsolatedWorkbenchAiChangeCandidateExecutorForDevelopment(
     if (runtimeCapability === null)
       return empty("blocked", "coordinator_task_release_verification_required");
     const identity = randomUUID();
-    let result: Awaited<ReturnType<typeof runProjectRuntimeSingleTaskAttempt>>;
+    let result: Awaited<ReturnType<typeof runCoordinatorTaskAttempt>>;
     try {
-      result = await runProjectRuntimeSingleTaskAttempt(
+      result = await runCoordinatorTaskAttempt(
         {
           startTask: dependencies.startTask,
           cancelTask: dependencies.cancelTask,
         },
         {
-          attemptId: `workbench-attempt-${identity}`,
           operationId: `workbench-operation-${identity}`,
-          authorityBindingId: `workbench-authority-${identity}`,
-          repositoryRevision: revision.revisionIdentity,
           runtimeExecutionCapability: runtimeCapability,
           repositoryRoot,
           cancellationSignal,

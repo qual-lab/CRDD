@@ -40,29 +40,55 @@ export function withUnsignedRuntimeFixture<T>(verify: (root: string) => T): T {
     windowsHide: true,
   }).trim();
   assert.equal(fs.realpathSync.native(gitRoot), repositoryRoot);
-  const temporaryRoot = path.join(repositoryRoot, ".crdd", "tmp");
+  const temporaryRoot = path.join(repositoryRoot, ".crdd", "tests");
   fs.mkdirSync(temporaryRoot, { recursive: true });
   assert.equal(fs.realpathSync.native(temporaryRoot), temporaryRoot);
   const root = fs.mkdtempSync(path.join(temporaryRoot, "unsigned-runtime-"));
   try {
     const components = new Set([
-      "ai-runtime",
+      "ai-adapter",
       "artifact-signing",
       "coordinator",
       "domain-model",
       "cros",
-      "mcp",
-      "project-runtime",
+      "mcp-server",
+      "orchestrator",
       "execution-intelligence",
       "version-control",
     ]);
-    const entries = execFileSync("git", ["ls-files", "-z", "40_Develop"], {
-      cwd: repositoryRoot,
-      encoding: "utf8",
-      windowsHide: true,
-    })
-      .split("\0")
-      .filter(Boolean);
+    const deleted = new Set(
+      execFileSync("git", ["ls-files", "--deleted", "-z", "40_Develop"], {
+        cwd: repositoryRoot,
+        encoding: "utf8",
+        windowsHide: true,
+      })
+        .split("\0")
+        .filter(Boolean),
+    );
+    const entries = [
+      ...new Set(
+        execFileSync(
+          "git",
+          [
+            "ls-files",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+            "-z",
+            "40_Develop",
+          ],
+          {
+            cwd: repositoryRoot,
+            encoding: "utf8",
+            windowsHide: true,
+          },
+        )
+          .split("\0")
+          .filter(Boolean),
+      ),
+    ]
+      .filter((relative) => !deleted.has(relative))
+      .sort();
     for (const relative of entries) {
       const parts = relative.split("/");
       if (

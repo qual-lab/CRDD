@@ -557,8 +557,8 @@ function runtimeTypeScriptSources() {
   for (const root of ["bin", "src", "scripts"])
     visit(path.join(coordinatorRoot, root), root);
   visit(
-    path.resolve(coordinatorRoot, "../project-runtime/src"),
-    "40_Develop/project-runtime/src",
+    path.resolve(coordinatorRoot, "../orchestrator/src"),
+    "40_Develop/orchestrator/src",
   );
   return sources;
 }
@@ -676,10 +676,10 @@ function developmentFixture(omittedEntrypoint: string | null = null) {
     "40_Develop/artifact-signing/src",
     "40_Develop/cros/package.json",
     "40_Develop/cros/src",
-    "40_Develop/mcp/package.json",
-    "40_Develop/mcp/src",
-    "40_Develop/project-runtime/package.json",
-    "40_Develop/project-runtime/src",
+    "40_Develop/mcp-server/package.json",
+    "40_Develop/mcp-server/src",
+    "40_Develop/orchestrator/package.json",
+    "40_Develop/orchestrator/src",
     "40_Develop/execution-intelligence/package.json",
     "40_Develop/execution-intelligence/src",
     "40_Develop/domain-model/package.json",
@@ -1474,8 +1474,8 @@ test("Runtime Package Capabilityの宣言集合と全実利用側を完全一致
   );
 
   const missing = { ...sources };
-  missing["src/project-runtime/project-runtime-composition-root.ts"] =
-    sources["src/project-runtime/project-runtime-composition-root.ts"]?.replace(
+  missing["40_Develop/orchestrator/src/task/composition-root.ts"] =
+    sources["40_Develop/orchestrator/src/task/composition-root.ts"]?.replace(
       "revokeRuntimeExecutionAuthorization:\n      revokeRuntimeOwnedVerifiedCoordinatorPackageCapability,",
       "revokeRuntimeExecutionAuthorization: () => false,",
     ) ?? "";
@@ -1645,31 +1645,31 @@ test("実行能力の反証は利用側伝播の意図したphaseで拒否する
   const cases = [
     {
       phase: "consumer_import",
-      path: "src/project-runtime/project-runtime-composition-root.ts",
+      path: "40_Develop/orchestrator/src/task/composition-root.ts",
       from: "issueRuntimeOwnedVerifiedCoordinatorPackageCapability,",
       to: "issueRuntimeOwnedVerifiedCoordinatorPackageCapability as issueCapability,",
     },
     {
       phase: "consumer_handoff",
-      path: "src/project-runtime/project-runtime-execution-authorization-adapter.ts",
+      path: "40_Develop/orchestrator/src/task/execution-authorization-adapter.ts",
       from: "value: capability,",
       to: "value: { ...capability },",
     },
     {
       phase: "consumer_handoff",
-      path: "src/project-runtime/project-runtime-execution-authorization-adapter.ts",
+      path: "40_Develop/orchestrator/src/task/execution-authorization-adapter.ts",
       from: 'reason: "project_runtime_execution_authorization_revoked",\n              value: null,',
       to: 'reason: "project_runtime_execution_authorization_revoked",\n              value: capability,',
     },
     {
       phase: "consumer_handoff",
-      path: "40_Develop/project-runtime/src/application/project-runtime-execution.ts",
+      path: "40_Develop/orchestrator/src/application/project-runtime-execution.ts",
       from: "? issuedAuthorization.value\n              : null;",
       to: "? {}\n              : null;",
     },
     {
       phase: "consumer_handoff",
-      path: "40_Develop/project-runtime/src/application/project-runtime-execution.ts",
+      path: "40_Develop/orchestrator/src/application/project-runtime-execution.ts",
       from: "runtimeExecutionCapability,\n            taskRequest:",
       to: "runtimeExecutionCapability: {},\n            taskRequest:",
     },
@@ -3446,7 +3446,10 @@ test("caller選択Rootは非Authorityのまま内容変更をcontent rootへ反�
         version: "0.0.0-development",
         private: true,
         type: "module",
-        exports: { "./cli": "./bin/coordinator.ts" },
+        exports: {
+          "./cli": "./bin/coordinator.ts",
+          "./host-runtime": "./src/host-runtime/index.ts",
+        },
         scripts: {},
         engines: {},
         devDependencies: {},
@@ -3501,7 +3504,10 @@ test("文書・試験はRuntime Execution Identityへ入らず、実行sourceは
         version: "0.0.0-development",
         private: true,
         type: "module",
-        exports: { "./cli": "./bin/coordinator.ts" },
+        exports: {
+          "./cli": "./bin/coordinator.ts",
+          "./host-runtime": "./src/host-runtime/index.ts",
+        },
         scripts: {},
         engines: {},
         devDependencies: {},
@@ -3560,13 +3566,13 @@ test("責務分離後のRuntime componentを静的依存閉包として実行Ide
     const projectRuntimeRoot = path.join(
       root,
       "40_Develop",
-      "project-runtime",
+      "orchestrator",
       "src",
     );
     const projectRuntimePackagePath = path.join(
       root,
       "40_Develop",
-      "project-runtime",
+      "orchestrator",
       "package.json",
     );
     const projectRuntimeMetadata = JSON.parse(
@@ -3754,7 +3760,10 @@ test("非正規表記または実行集合外へのrelative importを署名候�
         version: "0.0.0-development",
         private: true,
         type: "module",
-        exports: { "./cli": "./bin/coordinator.ts" },
+        exports: {
+          "./cli": "./bin/coordinator.ts",
+          "./host-runtime": "./src/host-runtime/index.ts",
+        },
         scripts: {},
         engines: {},
         devDependencies: {},
@@ -3809,7 +3818,10 @@ test("共通Launcherの署名・4経路・Recovery入口と静的依存だけを
         version: "0.0.0-development",
         private: true,
         type: "module",
-        exports: { "./cli": "./bin/coordinator.ts" },
+        exports: {
+          "./cli": "./bin/coordinator.ts",
+          "./host-runtime": "./src/host-runtime/index.ts",
+        },
         scripts: {},
         engines: {},
         devDependencies: {},
@@ -3959,7 +3971,10 @@ test("実行Identityのmodule構文を字句解析し、コメント・非relati
         version: "0.0.0-development",
         private: true,
         type: "module",
-        exports: { "./cli": "./bin/coordinator.ts" },
+        exports: {
+          "./cli": "./bin/coordinator.ts",
+          "./host-runtime": "./src/host-runtime/index.ts",
+        },
         scripts: {},
         engines: {},
         devDependencies: {},
@@ -4139,7 +4154,10 @@ test("Repository textのLFとCRLFは同じ正本内容として検証し、意�
       version: "0.0.0-development",
       private: true,
       type: "module",
-      exports: { "./cli": "./bin/coordinator.ts" },
+      exports: {
+        "./cli": "./bin/coordinator.ts",
+        "./host-runtime": "./src/host-runtime/index.ts",
+      },
       scripts: {},
       engines: {},
       devDependencies: {},
@@ -4238,7 +4256,10 @@ test("入れ子directoryの走査中にentryを追加・削除・型変更して
         version: "0.0.0-development",
         private: true,
         type: "module",
-        exports: { "./cli": "./bin/coordinator.ts" },
+        exports: {
+          "./cli": "./bin/coordinator.ts",
+          "./host-runtime": "./src/host-runtime/index.ts",
+        },
         scripts: {},
         engines: {},
         devDependencies: {},

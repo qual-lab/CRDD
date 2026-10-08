@@ -15,7 +15,7 @@ import {
   startMcpStreamableHttp,
   type McpApplicationDependencies,
   type McpProjectRuntimeDependencies,
-} from "../../40_Develop/mcp/src/index.ts";
+} from "../../40_Develop/mcp-server/src/index.ts";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { createTopicApplication } from "../../40_Develop/domain-model/src/topic/index.ts";
@@ -23,12 +23,12 @@ import { createMeetingApplication } from "../../40_Develop/domain-model/src/meet
 import { parseRepositoryProjectContextMarkdown } from "../../40_Develop/domain-model/src/project-context/index.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../40_Develop/version-control/src/repository-location.ts";
 import {
-  isSupportedCoordinatorNodeRuntime,
   observeRuntimeOwnedProjectClientPrincipal,
   runProjectRuntimePublicDecision,
   runProjectRuntimePublicObjective,
   runProjectRuntimePublicStateQuery,
-} from "../../40_Develop/coordinator/src/index.ts";
+} from "../../40_Develop/orchestrator/src/task/public-adapter.ts";
+import { isSupportedCoordinatorNodeRuntime } from "../../40_Develop/coordinator/src/index.ts";
 
 /**
  * MCP入口の利用方法を標準出力へ表示する。

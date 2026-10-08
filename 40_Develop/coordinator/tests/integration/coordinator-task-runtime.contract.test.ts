@@ -20,17 +20,6 @@ import type { TestContext } from "node:test";
 import test from "node:test";
 import { types as utilTypes } from "node:util";
 import { createDevelopmentExecutionTiming } from "../../src/diagnostics/development-execution-timing.ts";
-import { createIsolatedRuntimeProcessSafetyStateCandidate } from "../../src/host-runtime/runtime-process-safety-state.ts";
-import {
-  classifyCoordinatorTaskTerminalLifecycleState,
-  createIsolatedCoordinatorTaskOperationCreationCandidate,
-  createIsolatedCoordinatorTaskRuntimeCandidate,
-  describeCoordinatorTaskRuntimeContract,
-  projectDevelopmentTaskResultAfterOuterCleanup,
-  startRuntimeOwnedCoordinatorTask,
-} from "../../src/task/coordinator-task-runtime.ts";
-import { coordinatorTaskPublicReasons } from "../../src/task/coordinator-task-result-reasons.ts";
-import { selectDelegationRouteCandidate } from "../../src/provider/delegation-route-selection.ts";
 import { dockerProcessControllerPublicCompletionReasons } from "../../src/docker-runtime/docker-process-controller-result-reasons.ts";
 import {
   cleanupOwnedOperationDirectories,
@@ -42,7 +31,18 @@ import {
   getOwnedHostRecoveryId,
   verifyOwnedOperationManagementCapability,
 } from "../../src/host-runtime/execution-environment.ts";
+import { createIsolatedRuntimeProcessSafetyStateCandidate } from "../../src/host-runtime/runtime-process-safety-state.ts";
+import { selectDelegationRouteCandidate } from "../../src/provider/delegation-route-selection.ts";
 import { inspectRepositoryObjectFormatCandidate } from "../../src/repository-operation/repository-operation-runtime.ts";
+import { coordinatorTaskPublicReasons } from "../../src/task/coordinator-task-result-reasons.ts";
+import {
+  classifyCoordinatorTaskTerminalLifecycleState,
+  createIsolatedCoordinatorTaskOperationCreationCandidate,
+  createIsolatedCoordinatorTaskRuntimeCandidate,
+  describeCoordinatorTaskRuntimeContract,
+  projectDevelopmentTaskResultAfterOuterCleanup,
+  startRuntimeOwnedCoordinatorTask,
+} from "../../src/task/coordinator-task-runtime.ts";
 import {
   assertRuntimeTraceCase,
   assertRuntimeTraceExecutionCoverage,
@@ -594,6 +594,7 @@ function fixture(
     beginInvocation?: Parameters<
       typeof createIsolatedCoordinatorTaskRuntimeCandidate
     >[0]["beginInvocation"];
+    observeStartRegistration?: (observer: unknown) => void;
     reviewerDecision?: "approved" | "changes_requested";
     finalReviewerDecision?: "approved" | "changes_requested";
     executorChangedPaths?: readonly string[];
@@ -656,6 +657,10 @@ function fixture(
     dockerIntentFailsAt?: number;
     dockerReceiptFailsAt?: number;
     dockerFinalizeFailsAt?: number;
+    dockerProjectReadFailsAt?: number;
+    dockerProjectReadLockUnknownAt?: number;
+    dockerProjectReadWrongIdAt?: number;
+    dockerProjectCompleteFailsAt?: number;
     slateExecutorProvider?: "codex" | "claude";
     slateReviewerProvider?: "codex" | "claude";
     reviewerIndependence?:
@@ -716,6 +721,7 @@ function fixture(
   const externalSendPolicyCapability = Object.freeze({});
   const cleanupCompleted = Object.freeze({});
   const cleanupProtocolFailure = Object.freeze({});
+  const processCompletionResults = new Map<object, object>();
   const operationCreationError = new Error("fixture_operation_creation_failed");
   const packetAssignments = new WeakMap<
     object,
@@ -731,6 +737,7 @@ function fixture(
   const externalSendNotices: Array<Record<string, unknown>> = [];
   const authorizedProviderSets: Array<readonly ("codex" | "claude")[]> = [];
   const events: string[] = [];
+  const preparedConsumers: unknown[] = [];
   const selectionLifecycleEvents: string[] = [];
   const lifecycleStates: string[] = [];
   const lifecycleSnapshots: TraceSnapshot[] = [];
@@ -1292,7 +1299,10 @@ function fixture(
       _authorization: object,
       _selection: object,
       taskUse: object,
+      _correlation: string | null,
+      consumer: unknown,
     ) => {
+      preparedConsumers.push(consumer);
       const assignment = packetAssignments.get(taskUse);
       assert.ok(assignment);
       const role = assignment.role;
@@ -1323,7 +1333,9 @@ function fixture(
         recoveryId: unknown,
       ) => boolean,
       commandRestriction?: unknown,
+      observeProviderStarted?: unknown,
     ) => {
+      options.observeStartRegistration?.(observeProviderStarted);
       if (commandRestriction !== undefined) {
         assert.equal(typeof commandRestriction, "function");
         assert.equal(
@@ -1492,6 +1504,7 @@ function fixture(
       if (cleanupFails && options.processFailureRecoveryMode === "missing")
         delete completedResultFields.recoveryId;
       const completedResult = Object.freeze(completedResultFields);
+      processCompletionResults.set(recoveryCapability, completedResult);
       const rawCompletion =
         options.completionRejectRole === role
           ? Promise.reject(new Error("unexpected_completion_rejection"))
@@ -1618,7 +1631,24 @@ function fixture(
             if (options.dockerIntentFailsAt === dockerIntentCount) return null;
             return options.dockerHostCleanupId ?? "host.fixture.cleanup.intent";
           },
-          recordDockerHostCleanupReceipt: () => {
+          recordDockerHostCleanupReceipt: (
+            capability: object,
+            completion: Readonly<{
+              hostCleanupOutcome: unknown;
+              dockerCompletion: unknown;
+            }>,
+          ) => {
+            assert.equal(Object.isFrozen(completion), true);
+            assert.equal(
+              completion.hostCleanupOutcome,
+              options.cleanupProtocolFailure
+                ? cleanupProtocolFailure
+                : cleanupCompleted,
+            );
+            assert.equal(
+              completion.dockerCompletion,
+              processCompletionResults.get(capability),
+            );
             events.push("docker-host-cleanup-receipt");
             dockerReceiptCount += 1;
             return options.dockerReceiptFailsAt !== dockerReceiptCount;
@@ -1638,6 +1668,53 @@ function fixture(
   };
   if (options.admissionRecoveryMissing)
     Reflect.deleteProperty(dependencies, "prepareDockerRecoveryState");
+  let dockerProjectReadCount = 0;
+  let dockerProjectCompleteCount = 0;
+  if (options.hostCleanupWal) {
+    Object.assign(dependencies, {
+      readDockerProjectResult: (capability: object) => {
+        assert.equal(processCompletionResults.has(capability), true);
+        dockerProjectReadCount += 1;
+        const role = Reflect.get(capability, "role");
+        return Object.freeze({
+          status:
+            options.dockerProjectReadFailsAt === dockerProjectReadCount
+              ? "blocked"
+              : "completed",
+          lockReleased:
+            options.dockerProjectReadLockUnknownAt !== dockerProjectReadCount,
+          value: Object.freeze({
+            repositoryBinding: "a".repeat(64),
+            operationId: "upper-operation",
+            recoveryId: fixtureDockerRecoveryId(
+              options.dockerProjectReadWrongIdAt === dockerProjectReadCount
+                ? "foreign.active"
+                : `${role}.active`,
+            ),
+            resultId: (role === "executor" ? "b" : "c").repeat(64),
+            consumer: "project_runtime",
+          }),
+        });
+      },
+      completeDockerProjectResultDelivery: (
+        capability: object,
+        reader: unknown,
+      ) => {
+        assert.equal(processCompletionResults.has(capability), true);
+        dockerProjectCompleteCount += 1;
+        const accepted =
+          typeof reader === "function" &&
+          reader() !== null &&
+          options.dockerProjectCompleteFailsAt !== dockerProjectCompleteCount;
+        return Object.freeze({
+          status: accepted ? "completed" : "blocked",
+          filesystemEffectIssued: accepted,
+          snapshotConfirmed: accepted,
+          lockReleased: accepted,
+        });
+      },
+    });
+  }
   const baseRuntime = createIsolatedCoordinatorTaskRuntimeCandidate(
     dependencies as unknown as Parameters<
       typeof createIsolatedCoordinatorTaskRuntimeCandidate
@@ -1651,9 +1728,11 @@ function fixture(
       return started;
     },
     cancel: baseRuntime.cancel,
+    captureResultDelivery: baseRuntime.captureResultDelivery,
   });
   return {
     runtime,
+    preparedConsumers,
     slateRequests,
     selectionRequests,
     selectionNotices,
@@ -1690,6 +1769,8 @@ function fixture(
     dockerIntentCount: () => dockerIntentCount,
     dockerReceiptCount: () => dockerReceiptCount,
     dockerFinalizeCount: () => dockerFinalizeCount,
+    dockerProjectReadCount: () => dockerProjectReadCount,
+    dockerProjectCompleteCount: () => dockerProjectCompleteCount,
     externalCancellationSignal: () => externalCancellationSignal,
     releaseExternalAuthorization: () => {
       assert.ok(releaseExternalAuthorization);
@@ -1765,6 +1846,165 @@ test("開発版の呼出し枠はExecutor・Reviewer・一回是正へ同じ入�
   assert.equal(consumptionCount, 4);
   assert.equal(settlementCount, 4);
   assert.equal(harness.cleanupCount(), 1);
+});
+
+/**
+ * 固定利用側をExecutor・Reviewerへ同じ値で伝播する。
+ *
+ * @responsibility 相関IDから独立した用途搬送と未知用途のEffect前拒否を確認する。
+ * @trace ERB-IT-006
+ * @precondition Task共通Runtimeの模擬依存と固定要求を用意する。
+ * @stimulus 三利用側のTaskと不正利用側のTaskを開始する。
+ * @observation Provider準備の利用側とOperation作成回数を読む。
+ * @oracle 全役割の利用側が同じ定数で、不正用途はOperation作成0で拒否する。
+ * @cleanup 模擬Runtimeが既存の所有資源終了経路を実行する。
+ * @boundary ERB-IT-006=Direct Boundary: 共通開始→Executor／Reviewer準備。
+ */
+test("固定利用側を全Task役割へ伝播し不正用途はEffect前に拒否する", async () => {
+  for (const consumer of [
+    "coordinator_cli",
+    "workbench",
+    "project_runtime",
+  ] as const) {
+    const harness = fixture();
+    const result = await harness.runtime.start(
+      request(),
+      "C:\\repository",
+      "2026-08-25T00:00:00.000Z",
+      "correlation-present",
+      undefined,
+      consumer,
+    ).completion;
+    assert.equal(result.status, "completed");
+    assert.deepEqual(harness.preparedConsumers, [consumer, consumer]);
+  }
+  const harness = fixture();
+  assert.throws(
+    () =>
+      harness.runtime.start(
+        request(),
+        "C:\\repository",
+        "2026-08-25T00:00:00.000Z",
+        null,
+        undefined,
+        "unknown" as never,
+      ),
+    /coordinator_task_consumer_invalid/u,
+  );
+  assert.equal(harness.operationCreateCount(), 0);
+});
+
+/**
+ * Taskの開始観測登録を各Provider開始境界へそのまま渡す。
+ *
+ * @responsibility Task受付だけで通知せず、登録した関数をExecutorとReviewerのControllerへ接続する。
+ * @trace PRL-IT-012
+ * @precondition 実Dockerを使わない既存のTask fixtureを使用する。
+ * @stimulus 通知登録あり、未登録、準備失敗のTaskを実行する。
+ * @observation 下位開始境界に届いた関数Identity、通知回数、完了結果を取得する。
+ * @oracle 同じ関数だけが二段階へ届き、受付と準備失敗では通知しない。
+ * @cleanup fixture内の既存回収を確認し、外部資源は生成しない。
+ * @boundary Coordinator TaskからDocker Controller開始引数へのProcess内境界。
+ */
+test("Task開始観測登録はControllerへ搬送され受付では通知されない", async () => {
+  const registrations: unknown[] = [];
+  let notices = 0;
+  const observer = () => {
+    notices += 1;
+    return true;
+  };
+  const harness = fixture({
+    observeStartRegistration: (value) => registrations.push(value),
+  });
+  const started = harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+    "caller-attempt",
+    observer,
+  );
+  assert.equal(notices, 0);
+  assert.equal((await started.completion).status, "completed");
+  assert.deepEqual(registrations, [observer, observer]);
+  assert.equal(notices, 0);
+  assert.equal(harness.cleanupCount(), 1);
+
+  const withoutObserver: unknown[] = [];
+  const standalone = fixture({
+    observeStartRegistration: (value) => withoutObserver.push(value),
+  });
+  assert.equal(
+    (
+      await standalone.runtime.start(
+        request(),
+        "C:\\repository",
+        "2026-08-25T00:00:00.000Z",
+      ).completion
+    ).status,
+    "completed",
+  );
+  assert.deepEqual(withoutObserver, [undefined, undefined]);
+
+  const rejected = fixture({
+    prepareFailureReason: "fixture_preparation_failed",
+    observeStartRegistration: () =>
+      assert.fail("準備失敗後に開始境界へ到達した"),
+  });
+  assert.equal(
+    (
+      await rejected.runtime.start(
+        request(),
+        "C:\\repository",
+        "2026-08-25T00:00:00.000Z",
+        "caller-attempt",
+        observer,
+      ).completion
+    ).status,
+    "blocked",
+  );
+  assert.equal(notices, 0);
+});
+
+/**
+ * 不正な通知登録はTask受付と署名Capability消費前に拒否する。
+ *
+ * @responsibility 通知の不正を開始後の観測不能へ変換せず、入力境界で止める。
+ * @trace PRL-IT-012
+ * @precondition 不正な関数値と実Effectを持たないfixtureを使用する。
+ * @stimulus 試験用入口と本番入口へ不正な通知登録を渡す。
+ * @observation 例外理由とfixtureの開始回数を取得する。
+ * @oracle 通知入力の拒否理由が署名拒否より先に返り、開始は0回。
+ * @cleanup N/A: Task、Docker、Filesystemを作成しない。
+ * @boundary Coordinator Taskの入力検証境界。
+ */
+test("Task開始観測の不正登録はEffect前に拒否する", () => {
+  const harness = fixture();
+  const invalid = false as unknown as NonNullable<
+    Parameters<typeof harness.runtime.start>[4]
+  >;
+  assert.throws(
+    () =>
+      harness.runtime.start(
+        request(),
+        "C:\\repository",
+        "2026-08-25T00:00:00.000Z",
+        null,
+        invalid,
+      ),
+    /coordinator_task_start_observer_invalid/u,
+  );
+  assert.equal(harness.processStartCount(), 0);
+  assert.throws(
+    () =>
+      startRuntimeOwnedCoordinatorTask(
+        request(),
+        "C:\\repository",
+        Object.freeze({}),
+        null,
+        invalid,
+      ),
+    /coordinator_task_start_observer_invalid/u,
+  );
 });
 
 /**
@@ -3222,6 +3462,138 @@ test("清掃済みProvider失敗もHost cleanup後にDocker回復記録をfinali
     "docker-host-cleanup-receipt",
     "docker-finalize",
   ]);
+});
+
+/**
+ * 耐久結果配送は元Control・終端・全件相関・fresh ACKを要求する。
+ * @responsibility Task寿命と上位保存寿命の分離で配送権限が拡大しないことを検証する。
+ * @trace PRL-IT-012
+ * @precondition HostとDocker Ownerを明示した隔離fixtureを使用する。
+ * @stimulus 終端前後の捕捉・集合読取り・ACK未確認と再入場を実行する。
+ * @observation 元capability、呼出し数、集合結果、Control失効を観測する。
+ * @oracle 部分集合や別Task配送を返さず、ACK失敗を保持し同じ参照で再入場できる。
+ * @cleanup fixtureは外部Docker・Provider・Filesystem Effectを発行しない。
+ * @boundary PRL-IT-012=Task→元終了Ownerの明示模擬境界。実Dockerと上位保存は対象外。
+ */
+test("耐久結果配送は捕捉済み元Controlから終端後にだけ進む", async () => {
+  const harness = fixture({
+    hostCleanupWal: true,
+    dockerProjectCompleteFailsAt: 1,
+  });
+  const started = harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+    "upper-operation",
+    undefined,
+    "project_runtime",
+  );
+  assert.equal(harness.runtime.captureResultDelivery({}), null);
+  assert.equal(
+    harness.runtime.captureResultDelivery({ ...started.controlCapability }),
+    null,
+  );
+  const delivery = harness.runtime.captureResultDelivery(
+    started.controlCapability,
+  );
+  assert.ok(delivery);
+  assert.deepEqual(delivery.readResults(), {
+    status: "blocked",
+    results: null,
+  });
+  assert.equal(
+    delivery.complete(fixtureDockerRecoveryId("executor.active"), () => ({}))
+      .status,
+    "blocked",
+  );
+  assert.equal(harness.dockerProjectReadCount(), 0);
+  assert.equal(harness.dockerProjectCompleteCount(), 0);
+  assert.equal((await started.completion).status, "completed");
+  assert.equal(
+    harness.runtime.captureResultDelivery(started.controlCapability),
+    null,
+  );
+  await harness.observeLastControlInvalid();
+  const observed = delivery.readResults();
+  assert.equal(observed.status, "completed");
+  assert.equal(observed.results?.length, 2);
+  assert.equal(
+    delivery.complete(fixtureDockerRecoveryId("other-task.active"), () => ({}))
+      .status,
+    "blocked",
+  );
+  assert.equal(harness.dockerProjectCompleteCount(), 0);
+  const executorId = observed.results?.[0]?.recoveryId;
+  let acceptancePresent = false;
+  const reader = () =>
+    acceptancePresent ? Object.freeze({ accepted: true }) : null;
+  assert.equal(delivery.complete(executorId, reader).status, "blocked");
+  acceptancePresent = true;
+  assert.equal(delivery.complete(executorId, reader).status, "completed");
+  acceptancePresent = false;
+  assert.equal(delivery.complete(executorId, reader).status, "blocked");
+  acceptancePresent = true;
+  assert.equal(delivery.complete(executorId, reader).status, "completed");
+  assert.equal(harness.dockerProjectCompleteCount(), 4);
+  for (const options of [
+    { dockerProjectReadFailsAt: 2 },
+    { dockerProjectReadLockUnknownAt: 2 },
+    { dockerProjectReadWrongIdAt: 2 },
+    { dockerFinalizeFailsAt: 2 },
+  ]) {
+    const partial = fixture({ hostCleanupWal: true, ...options });
+    const attempt = partial.runtime.start(
+      request(),
+      "C:\\repository",
+      "2026-08-25T00:00:00.000Z",
+      "upper-operation",
+      undefined,
+      "project_runtime",
+    );
+    const captured = partial.runtime.captureResultDelivery(
+      attempt.controlCapability,
+    );
+    assert.ok(captured);
+    await attempt.completion;
+    assert.deepEqual(captured.readResults(), {
+      status: "blocked",
+      results: null,
+    });
+  }
+  for (const consumer of ["coordinator_cli", "workbench"] as const) {
+    const transient = fixture({ hostCleanupWal: true });
+    const attempt = transient.runtime.start(
+      request(),
+      "C:\\repository",
+      "2026-08-25T00:00:00.000Z",
+      null,
+      undefined,
+      consumer,
+    );
+    assert.equal(
+      transient.runtime.captureResultDelivery(attempt.controlCapability),
+      null,
+    );
+    await attempt.completion;
+  }
+  const empty = fixture({ hostCleanupWal: true, externalSendDenied: true });
+  const denied = empty.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+    "upper-operation",
+    undefined,
+    "project_runtime",
+  );
+  const emptyDelivery = empty.runtime.captureResultDelivery(
+    denied.controlCapability,
+  );
+  assert.ok(emptyDelivery);
+  await denied.completion;
+  assert.deepEqual(emptyDelivery.readResults(), {
+    status: "not_required",
+    results: null,
+  });
 });
 
 /**
@@ -4928,16 +5300,28 @@ test("Host confirmedでもProvider取消終了不明ならunknownへ昇格して
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("分類不能なopaque cleanup outcomeはcleanup unknownへ閉じる", async () => {
-  const harness = fixture({ cleanupOutcomeUnverified: true });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
-  assert.equal(result.status, "blocked");
-  assert.equal(result.manualRecoveryRequired, true);
-  assert.equal(result.cleanupConfirmed, false);
-  assert.equal(result.hostRecoveryId, "host.fixture.recovery.record");
+  for (const hostCleanupWal of [false, true]) {
+    const cleanupIntentId = "host.fixture.opaque-cleanup.intent";
+    const harness = fixture({
+      cleanupOutcomeUnverified: true,
+      hostCleanupWal,
+      dockerHostCleanupId: cleanupIntentId,
+    });
+    const result = await harness.runtime.start(
+      request(),
+      "C:\\repository",
+      "2026-08-25T00:00:00.000Z",
+    ).completion;
+    assert.equal(result.status, "blocked");
+    assert.equal(result.manualRecoveryRequired, true);
+    assert.equal(result.cleanupConfirmed, false);
+    assert.equal(
+      result.hostRecoveryId,
+      hostCleanupWal ? cleanupIntentId : "host.fixture.recovery.record",
+    );
+    assert.equal(harness.events.includes("docker-host-cleanup-receipt"), false);
+    assert.equal(harness.events.includes("docker-finalize"), false);
+  }
 });
 
 /**

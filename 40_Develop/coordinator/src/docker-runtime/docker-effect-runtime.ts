@@ -5,6 +5,7 @@
  * @trace ARCH-000008
  */
 import { describeWorkbenchAiAdviceResultSchema } from "../workbench-ai/workbench-ai-advice-result.ts";
+import type { ProviderDockerResourceCleanupObservation } from "./types.ts";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -791,6 +792,16 @@ function planIdentity(plan: PreparedPlan) {
  */
 function createRuntime(dependencies: RuntimeDependencies) {
   const contexts = new WeakMap<object, ExecutionContext>();
+  const stoppedAttempts = new WeakMap<object, Set<string>>();
+  const cleanupResults = new WeakMap<
+    object,
+    Readonly<{
+      managementCapability: object;
+      recoveryCapability: object;
+      planIdentity: string;
+      observations: readonly ProviderDockerResourceCleanupObservation[];
+    }>
+  >();
 
   /**
    * context Forを決定する。
@@ -862,6 +873,8 @@ function createRuntime(dependencies: RuntimeDependencies) {
   ): OwnedCommandHandle {
     if (!managementCapability || typeof managementCapability !== "object")
       throw new Error("docker_effect_management_required");
+    if (stoppedAttempts.get(managementCapability)?.has(planIdentity(plan)))
+      throw new Error("docker_effect_attempt_stopped");
     const context = contextFor(plan, managementCapability);
     const expected = plan.commands.find(
       (candidate) => candidate.purpose === command.purpose,
@@ -1358,12 +1371,12 @@ function createRuntime(dependencies: RuntimeDependencies) {
    * @trace ARCH-000008
    * @input plan: PreparedPlan、recoveryCapability: object、managementCapability: unknown
    * @returns cleanupOwnedResourcesの計算結果を返す。
-   * @precondition 「plan: PreparedPlan、recoveryCapability: object、managementCapability: unknown」がcleanupOwnedResourcesの入力契約を満たす。
+   * @precondition planと現在管理Ownerが一致し、本番Receipt読取りは五purposeを明示評価する。
    * @postcondition cleanupOwnedResourcesの責務を完了した結果だけを返す。
-   * @effect N/A: cleanupOwnedResourcesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+   * @effect 所有handleを終端し、検証済みexact Docker資源を回収する。全回収確認後だけ所有configを除去する。
    * @failure cleanupOwnedResourcesは入力不正または下位処理の失敗を呼出し側へ返す。
-   * @invariant cleanupOwnedResourcesは入力から導いた結果以外の共有状態を変更しない。
-   * @boundary N/A: cleanupOwnedResourcesはProcess内の同一Subsystemで完結する。
+   * @invariant Receipt欠測を未要求・不存在へ補完せず、別Identityや観測不能を回収成功にしない。
+   * @boundary Coordinator所有のProcess、Docker資源とconfigの回収境界。
    * @security cleanupOwnedResourcesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
    * @concurrency cleanupOwnedResourcesは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
    */
@@ -1383,6 +1396,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
         processTreeTerminated: false,
         containersAbsent: false,
         networksAbsent: false,
+        resourceObservations: null,
       });
     }
     let context: ExecutionContext;
@@ -1394,8 +1408,13 @@ function createRuntime(dependencies: RuntimeDependencies) {
         processTreeTerminated: false,
         containersAbsent: false,
         networksAbsent: false,
+        resourceObservations: null,
       });
     }
+    const stoppedPlans =
+      stoppedAttempts.get(managementCapability) ?? new Set<string>();
+    stoppedPlans.add(context.planIdentity);
+    stoppedAttempts.set(managementCapability, stoppedPlans);
     let processTreeTerminated = true;
     for (const handle of [...context.handles]) {
       if (!(await handle.terminateAndWait(5_000)) || !handle.closed())
@@ -1464,21 +1483,33 @@ function createRuntime(dependencies: RuntimeDependencies) {
         processTreeTerminated,
         containersAbsent,
         networksAbsent,
+        resourceObservations: null,
       });
     }
-    if (!receipts) {
+    const providerReceipt = receipts?.create_provider;
+    const authReceipt = receipts?.create_subscription_auth_probe;
+    const proxyReceipt = receipts?.create_proxy;
+    const internalReceipt = receipts?.create_internal_network;
+    const egressReceipt = receipts?.create_egress_network;
+    if (
+      !providerReceipt ||
+      !authReceipt ||
+      !proxyReceipt ||
+      !internalReceipt ||
+      !egressReceipt
+    ) {
       return Object.freeze({
         confirmed: false,
         processTreeTerminated,
         containersAbsent: false,
         networksAbsent: false,
+        resourceObservations: null,
       });
     }
     const providerAbsent = await removeExactResource(
       context,
       "container",
-      receipts.create_provider ??
-        Object.freeze({ submitted: false, dockerId: null }),
+      providerReceipt,
       plan.providerContainerName,
       plan.ownershipLabel,
       plan.providerImageDigest,
@@ -1489,8 +1520,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
     const authAbsent = await removeExactResource(
       context,
       "container",
-      receipts.create_subscription_auth_probe ??
-        Object.freeze({ submitted: false, dockerId: null }),
+      authReceipt,
       plan.authContainerName,
       plan.ownershipLabel,
       plan.providerImageDigest,
@@ -1501,8 +1531,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
     const proxyAbsent = await removeExactResource(
       context,
       "container",
-      receipts.create_proxy ??
-        Object.freeze({ submitted: false, dockerId: null }),
+      proxyReceipt,
       plan.proxyContainerName,
       plan.ownershipLabel,
       plan.proxyImageDigest,
@@ -1513,8 +1542,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
     const internalAbsent = await removeExactResource(
       context,
       "network",
-      receipts.create_internal_network ??
-        Object.freeze({ submitted: false, dockerId: null }),
+      internalReceipt,
       plan.internalNetworkName,
       plan.ownershipLabel,
       null,
@@ -1525,8 +1553,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
     const egressAbsent = await removeExactResource(
       context,
       "network",
-      receipts.create_egress_network ??
-        Object.freeze({ submitted: false, dockerId: null }),
+      egressReceipt,
       plan.egressNetworkName,
       plan.ownershipLabel,
       null,
@@ -1559,15 +1586,118 @@ function createRuntime(dependencies: RuntimeDependencies) {
       containersAbsent &&
       networksAbsent &&
       configRemoved;
-    return Object.freeze({
+    const resourceObservations: readonly ProviderDockerResourceCleanupObservation[] =
+      Object.freeze(
+        (
+          [
+            [
+              "create_egress_network",
+              plan.egressNetworkName,
+              egressReceipt,
+              egressAbsent,
+            ],
+            [
+              "create_internal_network",
+              plan.internalNetworkName,
+              internalReceipt,
+              internalAbsent,
+            ],
+            [
+              "create_provider",
+              plan.providerContainerName,
+              providerReceipt,
+              providerAbsent,
+            ],
+            [
+              "create_proxy",
+              plan.proxyContainerName,
+              proxyReceipt,
+              proxyAbsent,
+            ],
+            [
+              "create_subscription_auth_probe",
+              plan.authContainerName,
+              authReceipt,
+              authAbsent,
+            ],
+          ] as const
+        ).map(([purpose, plannedResourceName, receipt, absent]) =>
+          Object.freeze({
+            purpose,
+            plannedResourceName,
+            dockerId: receipt.dockerId,
+            observation:
+              !receipt.submitted && receipt.dockerId === null
+                ? "not_requested"
+                : absent
+                  ? "absent"
+                  : "unknown",
+          }),
+        ),
+      );
+    const result = Object.freeze({
       confirmed,
       processTreeTerminated,
       containersAbsent,
       networksAbsent,
+      resourceObservations,
     });
+    if (confirmed) {
+      cleanupResults.set(
+        result,
+        Object.freeze({
+          managementCapability,
+          recoveryCapability,
+          planIdentity: context.planIdentity,
+          observations: resourceObservations,
+        }),
+      );
+    }
+    return result;
   }
 
-  return Object.freeze({ startCommand, cleanupOwnedResources });
+  /**
+   * 同じ操作・計画の実清掃結果から終端観測を取得する。
+   *
+   * @responsibility このRuntimeが返した清掃結果のobject同一性と操作相関を照合する。
+   * @trace ARCH-000008
+   * @input result、plan、recoveryCapability、managementCapability: 照合する実結果と対象。
+   * @returns 同じ計画の五purpose観測。不一致ならnull。
+   * @precondition 結果は同じRuntimeの実清掃返却である。
+   * @postcondition コピー・別操作・別計画の結果を受理しない。
+   * @effect N/A: 内部WeakMapの読取りだけで外部処置を発行しない。
+   * @failure 未登録・不一致の結果はnullへ閉じる。
+   * @invariant 清掃結果の保持は実行Authorityを発行しない。
+   * @boundary Runtime自身の返却と利用側の終端照合の境界。
+   * @security 模擬Runtimeと本番Runtimeの根拠集合を共有しない。
+   * @concurrency N/A: awaitを含まない同期照合である。
+   */
+  function verifyCleanupOutcome(
+    result: unknown,
+    plan: PreparedPlan,
+    recoveryCapability: unknown,
+    managementCapability: unknown,
+  ) {
+    if (!result || typeof result !== "object") return null;
+    const recorded = cleanupResults.get(result);
+    if (
+      !recorded ||
+      recorded.managementCapability !== managementCapability ||
+      recorded.recoveryCapability !== recoveryCapability ||
+      recorded.planIdentity !== planIdentity(plan) ||
+      !stoppedAttempts
+        .get(recorded.managementCapability)
+        ?.has(recorded.planIdentity)
+    )
+      return null;
+    return recorded.observations;
+  }
+
+  return Object.freeze({
+    startCommand,
+    cleanupOwnedResources,
+    verifyCleanupOutcome,
+  });
 }
 
 const productionRuntime = createRuntime(
@@ -1638,6 +1768,36 @@ export function cleanupRuntimeOwnedDockerResources(
 }
 
 /**
+ * 本番Docker清掃結果を同じ操作・計画へ照合する。
+ *
+ * @responsibility 本番Effect Ownerの実返却だけから五purposeの終端観測を返す。
+ * @trace ARCH-000008
+ * @input result、plan、recoveryCapability、managementCapability: 本番清掃結果と対象相関。
+ * @returns 同じ本番結果の観測、またはnull。
+ * @precondition 本番清掃結果と元の計画・Capabilityを渡す。
+ * @postcondition 模擬Runtimeやコピーした成功結果を拒否する。
+ * @effect N/A: 本番Ownerの保持値の照合だけを行う。
+ * @failure 相関が成立しない場合はnullを返す。
+ * @invariant 新しい処置AuthorityやLease解放根拠を生成しない。
+ * @boundary 本番Effect Ownerから終端保存利用側への根拠搬送。
+ * @security Provider本文やHost Pathを返さない。
+ * @concurrency N/A: 同期照合であり外部待機を行わない。
+ */
+export function verifyRuntimeOwnedDockerCleanupOutcome(
+  result: unknown,
+  plan: PreparedPlan,
+  recoveryCapability: unknown,
+  managementCapability: unknown,
+) {
+  return productionRuntime.verifyCleanupOutcome(
+    result,
+    plan,
+    recoveryCapability,
+    managementCapability,
+  );
+}
+
+/**
  * Isolated Docker Effect Runtime 候補を構築する。
  *
  * @responsibility Isolated Docker Effect Runtime 候補の構築入力、生成結果、不正入力の拒否境界を所有する。
@@ -1661,6 +1821,7 @@ export function createIsolatedDockerEffectRuntimeCandidate(
     productionAuthority: false as const,
     startCommand: runtime.startCommand,
     cleanupOwnedResources: runtime.cleanupOwnedResources,
+    verifyCleanupOutcome: runtime.verifyCleanupOutcome,
   });
 }
 

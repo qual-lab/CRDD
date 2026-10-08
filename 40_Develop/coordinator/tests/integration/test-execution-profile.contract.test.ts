@@ -16,6 +16,18 @@ const HOST_WINDOWS_PREFIX = "Host Windows:";
 const portableTestDirectories = ["unit", "integration", "system"] as const;
 const gateFiles = [
   {
+    file: "integration/candidate-store-kernel-lock.contract.test.ts",
+    prefixOccurrences: 1,
+    expandedCases: 1,
+    expansion: /test\("Host Windows:/,
+  },
+  {
+    file: "integration/coordinator-state-runtime.contract.test.ts",
+    prefixOccurrences: 1,
+    expandedCases: 1,
+    expansion: /test\("Host Windows:/,
+  },
+  {
     file: "integration/coordinator-task-process.integration.test.ts",
     prefixOccurrences: 1,
     expandedCases: 2,
@@ -47,8 +59,8 @@ const gateFiles = [
   },
   {
     file: "integration/project-runtime-history.contract.test.ts",
-    prefixOccurrences: 9,
-    expandedCases: 9,
+    prefixOccurrences: 10,
+    expandedCases: 10,
     expansion: /test\("Host Windows:/,
   },
 ] as const;
@@ -97,18 +109,18 @@ function discoverGateFiles(
 }
 
 /**
- * Portable試験とHost Windows試験は同じ36件の閉集合を重複なく所有するを検証する。
+ * Portable試験とHost Windows試験は同じ実環境専用の閉集合を重複なく所有することを検証する。
  *
- * @responsibility Portable試験とHost Windows試験は同じ36件の閉集合を重複なく所有するの合否判定を所有する。
+ * @responsibility Portable試験とHost Windows試験は同じ実環境専用の閉集合を重複なく所有するの合否判定を所有する。
  * @trace CQS-IT-011
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Portable試験とHost Windows試験は同じ36件の閉集合を重複なく所有するの対象操作を実行する。
+ * @stimulus Portable試験とHost Windows試験は同じ実環境専用の閉集合を重複なく所有するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary CQS-IT-011=Direct Boundary: coordinator Test Source→対象契約
  */
-test("Portable試験とHost Windows試験は同じ36件の閉集合を重複なく所有する", () => {
+test("Portable試験とHost Windows試験は同じ実環境専用の閉集合を重複なく所有する", () => {
   const scripts = packageJson.scripts ?? {};
   assert.equal(
     scripts["test:portable"],
@@ -116,7 +128,7 @@ test("Portable試験とHost Windows試験は同じ36件の閉集合を重複な�
   );
   assert.equal(
     scripts["test:host-windows"],
-    'node --test --test-concurrency=1 "--test-name-pattern=^Host Windows:" ./tests/integration/coordinator-task-process.integration.test.ts ./tests/integration/docker-owned-process.integration.test.ts ./tests/integration/docker-process-controller.contract.test.ts ./tests/integration/host-terminal-caller-checkpoint.integration.test.ts ./tests/integration/project-runtime-durable-foundation.contract.test.ts ./tests/integration/project-runtime-history.contract.test.ts',
+    'node --experimental-test-module-mocks --test --test-concurrency=1 "--test-name-pattern=^Host Windows:" ./tests/integration/candidate-store-kernel-lock.contract.test.ts ./tests/integration/coordinator-state-runtime.contract.test.ts ./tests/integration/coordinator-task-process.integration.test.ts ./tests/integration/docker-owned-process.integration.test.ts ./tests/integration/docker-process-controller.contract.test.ts ./tests/integration/host-terminal-caller-checkpoint.integration.test.ts ./tests/integration/project-runtime-durable-foundation.contract.test.ts ./tests/integration/project-runtime-history.contract.test.ts',
   );
   assert.equal(scripts.test, "npm run check && npm run test:run");
   assert.equal(scripts["test:run"], "npm run test:portable");
@@ -155,7 +167,7 @@ test("Portable試験とHost Windows試験は同じ36件の閉集合を重複な�
     gateCount += expandedCases;
     assert.match(scripts["test:host-windows"] ?? "", new RegExp(file));
   }
-  assert.equal(gateCount, 36);
+  assert.equal(gateCount, 39);
 });
 
 /**

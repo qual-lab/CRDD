@@ -585,7 +585,7 @@
     {
       "producerOwner": "project-runtime",
       "producerPaths": [
-        "40_Develop/project-runtime/src"
+        "40_Develop/orchestrator/src"
       ],
       "consumerOwner": "coordinator",
       "consumerStatic": true,
@@ -605,7 +605,7 @@
     {
       "producerOwner": "project-runtime",
       "producerPaths": [
-        "40_Develop/project-runtime/src"
+        "40_Develop/orchestrator/src"
       ],
       "consumerOwner": "mcp",
       "consumerStatic": true,
@@ -668,6 +668,20 @@
     }
   ],
   "tests": [
+    {
+      "id": "coordinator:integration:docker-recovery-owner-reentry",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/docker-recovery-owner-reentry.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["coordinator-state", "owner-reentry", "mocked-boundary"],
+      "environment": "local_component_boundary",
+      "executionProfiles": ["restricted_process"],
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["mocked_boundary_owner_reentry_observed", "original_input_identity_preserved", "duplicate_effect_rejected"],
+      "mandatoryByDefault": true
+    },
     {
       "id": "coordinator:integration:coordinator-state-runtime",
       "owner": "coordinator",
@@ -1418,7 +1432,7 @@
     {
       "id": "mcp:integration:transport-lifecycle",
       "owner": "mcp",
-      "path": "40_Develop/mcp/tests/integration/transport-lifecycle.contract.test.ts",
+      "path": "40_Develop/mcp-server/tests/integration/transport-lifecycle.contract.test.ts",
       "level": "integration",
       "kind": "integration",
       "semanticTags": ["mcp", "transport", "lifecycle", "cancellation", "cleanup"],
@@ -2985,7 +2999,7 @@
     {
       "id": "mcp:system:stdio",
       "owner": "mcp",
-      "path": "40_Develop/mcp/tests/system/stdio-transport.integration.test.ts",
+      "path": "40_Develop/mcp-server/tests/system/stdio-transport.integration.test.ts",
       "level": "system",
       "kind": "integration",
       "semanticTags": [
@@ -3007,7 +3021,7 @@
     {
       "id": "mcp:integration:cros-project-context",
       "owner": "mcp",
-      "path": "40_Develop/mcp/tests/integration/cros-project-context-mcp.integration.test.ts",
+      "path": "40_Develop/mcp-server/tests/integration/cros-project-context-mcp.integration.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": ["mcp", "cros", "credential", "project-context", "topic-meeting", "repository-routing", "owner-relation", "http"],
@@ -3020,7 +3034,7 @@
     {
       "id": "mcp:integration:cros-shared-server",
       "owner": "mcp",
-      "path": "40_Develop/mcp/tests/integration/cros-shared-server.integration.test.ts",
+      "path": "40_Develop/mcp-server/tests/integration/cros-shared-server.integration.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": ["cros", "mcp", "shared-server", "same-origin", "tls", "bearer", "cleanup"],
@@ -3594,7 +3608,7 @@
     {
       "id": "mcp:system:streamable-http",
       "owner": "mcp",
-      "path": "40_Develop/mcp/tests/system/streamable-http-transport.integration.test.ts",
+      "path": "40_Develop/mcp-server/tests/system/streamable-http-transport.integration.test.ts",
       "level": "system",
       "kind": "integration",
       "semanticTags": [
@@ -3616,7 +3630,7 @@
     {
       "id": "mcp:system:cros-projection-non-disclosure",
       "owner": "mcp",
-      "path": "40_Develop/mcp/tests/system/cros-projection-non-disclosure.contract.test.ts",
+      "path": "40_Develop/mcp-server/tests/system/cros-projection-non-disclosure.contract.test.ts",
       "level": "system",
       "kind": "contract",
       "semanticTags": ["cros", "mcp", "shared-server", "credential", "exposure", "repository", "non-disclosure"],
@@ -3629,7 +3643,7 @@
     {
       "id": "mcp:system:cros-shared-server-entry",
       "owner": "mcp",
-      "path": "40_Develop/mcp/tests/system/cros-shared-server-entry.integration.test.ts",
+      "path": "40_Develop/mcp-server/tests/system/cros-shared-server-entry.integration.test.ts",
       "level": "system",
       "kind": "integration",
       "semanticTags": ["cros", "mcp", "shared-server", "public-entry", "runtime-config", "process-cleanup"],
@@ -3685,7 +3699,7 @@
     {
       "id": "project-runtime:unit:human-decision-application",
       "owner": "project-runtime",
-      "path": "40_Develop/project-runtime/tests/unit/human-decision-application.contract.test.ts",
+      "path": "40_Develop/orchestrator/tests/unit/human-decision-application.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -3704,7 +3718,7 @@
     {
       "id": "project-runtime:unit:integration-application",
       "owner": "project-runtime",
-      "path": "40_Develop/project-runtime/tests/unit/integration-application.contract.test.ts",
+      "path": "40_Develop/orchestrator/tests/unit/integration-application.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -3723,7 +3737,7 @@
     {
       "id": "project-runtime:unit:candidate-adoption-application",
       "owner": "project-runtime",
-      "path": "40_Develop/project-runtime/tests/unit/candidate-adoption-application.contract.test.ts",
+      "path": "40_Develop/orchestrator/tests/unit/candidate-adoption-application.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -3745,9 +3759,39 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "project-runtime:integration:docker-recovery-settlement",
+      "owner": "project-runtime",
+      "path": "40_Develop/orchestrator/tests/integration/docker-recovery-settlement.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["project-runtime", "recovery", "result-acceptance", "fixed-repository"],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["fixed_repository_binding_preserved", "stored_ack_only", "closed_completion_result", "no_legacy_receipt_fallback"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "project-runtime:integration:public-owner-boundary",
+      "owner": "project-runtime",
+      "path": "40_Develop/orchestrator/tests/integration/public-owner-boundary.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["project-runtime", "public-owner", "cli-dispatch"],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "business_exports_owned_by_orchestrator",
+        "coordinator_has_no_upper_business_dispatch",
+        "cli_input_rejections_preserved"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "project-runtime:integration:acceptance-decision-application",
       "owner": "project-runtime",
-      "path": "40_Develop/project-runtime/tests/integration/acceptance-decision-application.integration.test.ts",
+      "path": "40_Develop/orchestrator/tests/integration/acceptance-decision-application.integration.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -4079,7 +4123,7 @@
     {
       "id": "mcp:unit:project-context",
       "owner": "mcp",
-      "path": "40_Develop/mcp/tests/unit/project-context-adapter.contract.test.ts",
+      "path": "40_Develop/mcp-server/tests/unit/project-context-adapter.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4102,7 +4146,7 @@
     {
       "id": "mcp:unit:project-runtime",
       "owner": "mcp",
-      "path": "40_Develop/mcp/tests/unit/project-runtime-adapter.contract.test.ts",
+      "path": "40_Develop/mcp-server/tests/unit/project-runtime-adapter.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4123,7 +4167,7 @@
     {
       "id": "mcp:integration:topic-meeting",
       "owner": "mcp",
-      "path": "40_Develop/mcp/tests/integration/topic-meeting-adapter.contract.test.ts",
+      "path": "40_Develop/mcp-server/tests/integration/topic-meeting-adapter.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -4307,7 +4351,7 @@
     {
       "id": "project-runtime:unit:execution-observation-port",
       "owner": "project-runtime",
-      "path": "40_Develop/project-runtime/tests/unit/execution-observation-port.contract.test.ts",
+      "path": "40_Develop/orchestrator/tests/unit/execution-observation-port.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4328,7 +4372,7 @@
     {
       "id": "project-runtime:unit:objective-intake",
       "owner": "project-runtime",
-      "path": "40_Develop/project-runtime/tests/unit/objective-intake.contract.test.ts",
+      "path": "40_Develop/orchestrator/tests/unit/objective-intake.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4349,7 +4393,7 @@
     {
       "id": "project-runtime:unit:public-contract",
       "owner": "project-runtime",
-      "path": "40_Develop/project-runtime/tests/unit/public-contract.contract.test.ts",
+      "path": "40_Develop/orchestrator/tests/unit/public-contract.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4369,7 +4413,7 @@
     {
       "id": "project-runtime:unit:state-query",
       "owner": "project-runtime",
-      "path": "40_Develop/project-runtime/tests/unit/project-state-query.contract.test.ts",
+      "path": "40_Develop/orchestrator/tests/unit/project-state-query.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4390,7 +4434,7 @@
     {
       "id": "project-runtime:unit:platform-contract",
       "owner": "project-runtime",
-      "path": "40_Develop/project-runtime/tests/unit/platform-contract.contract.test.ts",
+      "path": "40_Develop/orchestrator/tests/unit/platform-contract.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4409,7 +4453,7 @@
     {
       "id": "project-runtime:unit:state",
       "owner": "project-runtime",
-      "path": "40_Develop/project-runtime/tests/unit/project-runtime-state.contract.test.ts",
+      "path": "40_Develop/orchestrator/tests/unit/project-runtime-state.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -5111,7 +5155,7 @@
     {
       "id": "workbench:integration:production-shell",
       "owner": "workbench",
-      "path": "40_Develop/workbench/tests/integration/workbench-server.contract.test.ts",
+      "path": "40_Develop/workbench-server/tests/integration/workbench-server.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -5185,7 +5229,7 @@
     {
       "id": "workbench:system:actual-browser-visual",
       "owner": "workbench",
-      "path": "40_Develop/workbench/tests/system/workbench-visual.integration.test.ts",
+      "path": "40_Develop/workbench-server/tests/system/workbench-visual.integration.test.ts",
       "level": "system",
       "kind": "integration",
       "semanticTags": [
@@ -5504,7 +5548,7 @@
     {
       "id": "workbench:integration:node-dependency-closure",
       "owner": "workbench",
-      "path": "40_Develop/workbench/tests/integration/workbench-node-dependency-closure.contract.test.ts",
+      "path": "40_Develop/workbench-server/tests/integration/workbench-node-dependency-closure.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": ["workbench", "node-runtime", "browser-client", "dependency-closure"],
@@ -5517,7 +5561,7 @@
     {
       "id": "workbench:integration:project-surface",
       "owner": "workbench",
-      "path": "40_Develop/workbench/tests/integration/project-surface.contract.test.ts",
+      "path": "40_Develop/workbench-server/tests/integration/project-surface.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": ["workbench", "project-context", "topic", "meeting", "read-model"],

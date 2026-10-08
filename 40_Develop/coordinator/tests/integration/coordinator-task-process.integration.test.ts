@@ -5,9 +5,10 @@
  * @responsibility coordinator:integration:coordinator-task-processが所有する検証責務を実行する。
  * @trace ERB-IT-001
  * @trace ERB-IT-002
+ * @trace ERB-IT-003
  * @level IT
  * @scope coordinator、task、process
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container / ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container / ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer / ERB-IT-003=Direct Boundary: Host清掃Owner→実Filesystem。
  */
 import assert from "node:assert/strict";
 import { type ChildProcess, spawn } from "node:child_process";
@@ -19,6 +20,7 @@ import { bindTaskCliCancellationSignals } from "../../src/cli/task-cli-cancellat
 import { createIsolatedCoordinatorTaskRuntimeCandidate } from "../../src/task/coordinator-task-runtime.ts";
 import {
   cleanupOwnedOperationDirectoriesAsync,
+  captureOwnedOperationCleanupVerification,
   createOwnedMountCapability,
   createOwnedOperationContextCapability,
   createOwnedOperationDirectories,
@@ -228,7 +230,20 @@ function createProcessHarness(
         "Host cleanup must follow actual child close",
       );
       cleanupCount += 1;
-      return cleanupOwnedOperationDirectoriesAsync(target);
+      const outcome = await cleanupOwnedOperationDirectoriesAsync(target);
+      assert.equal(
+        verifyOwnedOperationCleanupOutcome(outcome, target),
+        "completed",
+      );
+      assert.equal(verifyOwnedOperationCleanupOutcome(outcome, {}), null);
+      assert.equal(
+        verifyOwnedOperationCleanupOutcome(
+          Object.freeze({ kind: "owned_operation_cleanup_outcome" }),
+          target,
+        ),
+        null,
+      );
+      return outcome;
     },
     classifyOperationCleanup: verifyOwnedOperationCleanupOutcome,
     abandonOperation: async () => "released",
@@ -490,6 +505,56 @@ function createProcessHarness(
     },
   };
 }
+
+/**
+ * 真正なHost清掃結果を元操作だけへ結合する。
+ * @responsibility 別操作の真正結果と偽造結果を清掃確認として拒否する。
+ * @trace ERB-IT-003
+ * @precondition 自己生成した二操作だけを使用する。
+ * @stimulus 両操作を実清掃し、同じ結果を同一・別対象へ照合する。
+ * @observation 結果分類、操作Owner失効、作業領域不存在を確認する。
+ * @oracle 同じ対象だけcompletedとなり、別対象と偽造結果はnullとなる。
+ * @cleanup 未清掃の自己生成操作だけを登録hookで閉じる。
+ * @boundary ERB-IT-003=Direct Boundary: Host清掃Owner→真正結果と実Filesystem。
+ */
+test("Host清掃結果はOwner失効後も元操作だけへ結合する", async (t) => {
+  const first = createOwnedOperationDirectories();
+  const second = createOwnedOperationDirectories();
+  t.after(async () => {
+    for (const owned of [first, second])
+      if (fs.existsSync(owned.root))
+        await cleanupOwnedOperationDirectoriesAsync(owned);
+  });
+  const management = createOwnedOperationManagementCapability(
+    createOwnedOperationContextCapability(first),
+    createOwnedMountCapability(first),
+  );
+  const verifyCleanup = captureOwnedOperationCleanupVerification(management);
+  assert.ok(verifyCleanup);
+  assert.equal(verifyCleanup({}), null);
+  const firstOutcome = await cleanupOwnedOperationDirectoriesAsync(first);
+  const secondOutcome = await cleanupOwnedOperationDirectoriesAsync(second);
+  assert.equal(fs.existsSync(first.root), false);
+  assert.equal(fs.existsSync(second.root), false);
+  assert.throws(() => verifyOwnedOperationManagementCapability(management));
+  assert.equal(captureOwnedOperationCleanupVerification(management), null);
+  assert.equal(verifyCleanup(firstOutcome), "completed");
+  assert.equal(verifyCleanup(secondOutcome), null);
+  assert.equal(
+    verifyOwnedOperationCleanupOutcome(firstOutcome, first),
+    "completed",
+  );
+  assert.equal(
+    verifyOwnedOperationCleanupOutcome(secondOutcome, second),
+    "completed",
+  );
+  assert.equal(verifyOwnedOperationCleanupOutcome(firstOutcome, second), null);
+  assert.equal(verifyOwnedOperationCleanupOutcome(secondOutcome, first), null);
+  assert.equal(
+    verifyOwnedOperationCleanupOutcome({ ...firstOutcome }, first),
+    null,
+  );
+});
 
 // No OS Ctrl+C delivery or real Docker resource claims: the registered CLI
 // callback traverses Task + Controller + the production-owned Node process tree.

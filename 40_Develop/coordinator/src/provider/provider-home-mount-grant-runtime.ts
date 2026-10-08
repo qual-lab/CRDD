@@ -123,6 +123,15 @@ type Observation = NonNullable<
  * @compatibility RuntimeStateの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 type RuntimeState = Readonly<{
+  mountCompletions: WeakMap<
+    object,
+    Readonly<{
+      managementCapability: unknown;
+      activeMountCapability: object;
+      operationId: string;
+      stableLogicalHomeBindingHash: string;
+    }>
+  >;
   aliases: WeakMap<
     object,
     Readonly<{ role: AliasRole; runtimeGrant: RuntimeGrant }>
@@ -169,6 +178,7 @@ function createRuntimeState(
   >,
 ): RuntimeState {
   return Object.freeze({
+    mountCompletions: new WeakMap(),
     aliases: new WeakMap(),
     activeGrants: new Map(),
     activeHomeBindings: new Map(),
@@ -972,13 +982,60 @@ function completeMount(
   runtimeGrant.activeMountSourcePath = null;
   state.activeHomeBindings.delete(logicalHomeBinding);
   removeAlias(state, runtimeGrant, activeMountCapability);
-  return Object.freeze({
+  const result = Object.freeze({
     ...blocked("provider_home_mount_completed"),
     status: "completed" as const,
     grant: runtimeGrant.grant,
     grantRef: runtimeGrant.grant.grantRef,
     providerHomeMountGrantIssued: true,
   });
+  state.mountCompletions.set(
+    result,
+    Object.freeze({
+      managementCapability,
+      activeMountCapability,
+      operationId: runtimeGrant.grant.operationId,
+      stableLogicalHomeBindingHash: logicalHomeBinding,
+    }),
+  );
+  return result;
+}
+
+/**
+ * 同じMount Ownerが返した完了結果を対象操作へ照合する。
+ *
+ * @responsibility 元結果の出自とMount・操作・Homeの一致を確認する。
+ * @trace ARCH-000010
+ * @input state: 結果Owner。result: 元結果。managementCapability、activeMountCapability、operationId、stableLogicalHomeBindingHash: 対象。
+ * @returns 元のMount完了を確認できた場合だけtrue。
+ * @precondition 完了は同じRuntimeのcompleteMountから返却されている。
+ * @postcondition コピー、別Owner、別操作と別Mountを拒否する。
+ * @effect N/A: Process内WeakMapの同期読取りだけ。
+ * @failure 未登録または相関不一致はfalse。
+ * @invariant Mount完了だけからDocker資源不存在や回復全体の完了を推定しない。
+ * @boundary Mount所有者から同じ操作の終了処理への非Authority観測。
+ * @security 保存値やCaller supplied結果から完了根拠を作らない。
+ * @concurrency N/A: 待機と再発行を伴わない同期照合。
+ */
+function verifyMountCompletion(
+  state: RuntimeState,
+  result: unknown,
+  managementCapability: unknown,
+  activeMountCapability: unknown,
+  operationId: unknown,
+  stableLogicalHomeBindingHash: unknown,
+): boolean {
+  const recorded =
+    result && typeof result === "object"
+      ? state.mountCompletions.get(result)
+      : undefined;
+  return (
+    !!recorded &&
+    recorded.managementCapability === managementCapability &&
+    recorded.activeMountCapability === activeMountCapability &&
+    recorded.operationId === operationId &&
+    recorded.stableLogicalHomeBindingHash === stableLogicalHomeBindingHash
+  );
 }
 
 /**
@@ -1331,6 +1388,39 @@ export function completeRuntimeOwnedProviderHomeMount(
 }
 
 /**
+ * 本番Mount所有者の元完了結果を同じ対象へ照合する。
+ *
+ * @responsibility 模擬Runtimeの結果と本番結果を分離して終了根拠を搬送する。
+ * @trace ARCH-000010
+ * @input result: 元結果。managementCapability、activeMountCapability、operationId、stableLogicalHomeBindingHash: 対象。
+ * @returns 同じ本番Mountの完了が確認できた場合だけtrue。
+ * @precondition 実結果は本番Mount Ownerが返している。
+ * @postcondition コピー・別Runtime・別対象を拒否する。
+ * @effect N/A: 内部の結果相関の読取りだけ。
+ * @failure 未登録または相関不一致はfalse。
+ * @invariant Authorityを発行せず、Docker不存在やHome Lease解放へ保証を拡大しない。
+ * @boundary 本番Mount Ownerと同じ操作の終了処理。
+ * @security Path・秘密値・管理Capabilityを返却しない。
+ * @concurrency N/A: 同期照合のみ。
+ */
+export function verifyRuntimeOwnedProviderHomeMountCompletion(
+  result: unknown,
+  managementCapability: unknown,
+  activeMountCapability: unknown,
+  operationId: unknown,
+  stableLogicalHomeBindingHash: unknown,
+): boolean {
+  return verifyMountCompletion(
+    productionState,
+    result,
+    managementCapability,
+    activeMountCapability,
+    operationId,
+    stableLogicalHomeBindingHash,
+  );
+}
+
+/**
  * Isolated Provider Home Mount Grant Runtime 候補を構築する。
  *
  * @responsibility Isolated Provider Home Mount Grant Runtime 候補の構築入力、生成結果、不正入力の拒否境界を所有する。
@@ -1436,6 +1526,21 @@ export function createIsolatedProviderHomeMountGrantRuntimeCandidate(
     ) =>
       failClosed("provider_home_mount_completion_failed_closed", () =>
         completeMount(state, activeMountCapability, managementCapability),
+      ),
+    verifyMountCompletion: (
+      result: unknown,
+      managementCapability: unknown,
+      activeMountCapability: unknown,
+      operationId: unknown,
+      stableLogicalHomeBindingHash: unknown,
+    ) =>
+      verifyMountCompletion(
+        state,
+        result,
+        managementCapability,
+        activeMountCapability,
+        operationId,
+        stableLogicalHomeBindingHash,
       ),
     revoke: (controlCapability: unknown, managementCapability: unknown) =>
       failClosed(

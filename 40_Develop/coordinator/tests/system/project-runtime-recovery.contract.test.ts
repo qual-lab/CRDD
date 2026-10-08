@@ -18,15 +18,15 @@ import {
   markProjectTaskRecoveryObligationRecovering,
   type ProjectRuntimeSingleTaskResult,
   settleProjectTaskRecoveryObligation,
-} from "../../../project-runtime/src/index.ts";
-import { consumeDockerRecoveryReceiptAfterProjectSettlement } from "../../src/docker-runtime/docker-recovery-runtime.ts";
+} from "../../../orchestrator/src/index.ts";
+import { consumeDockerRecoveryReceiptAfterProjectSettlement } from "../../../orchestrator/src/task/docker-recovery-settlement.ts";
 import {
   readProjectRuntimeState,
   writeProjectRuntimeState,
 } from "../fixtures/project-runtime-current-ports.ts";
-import { initializeProjectRuntimeSnapshot } from "../../src/project-runtime/project-runtime-durable-foundation.ts";
-import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../src/project-runtime/project-runtime-execution-authorization-adapter.ts";
-import { runProjectRuntimeObjective as runProjectRuntimeObjectiveWithPorts } from "../../src/project-runtime/project-runtime-objective-intake.ts";
+import { initializeProjectRuntimeSnapshot } from "../../../orchestrator/src/storage/current-state-store.ts";
+import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../../orchestrator/src/index.ts";
+import { runProjectRuntimeObjective as runProjectRuntimeObjectiveWithPorts } from "../../../orchestrator/src/task/objective-intake.ts";
 
 const revision = "a".repeat(40);
 let fixtureIntakeEpoch = "fixture-epoch";
@@ -316,14 +316,11 @@ test("外部Effect不明後もexact Recovery Identityで再入場してretryす�
         status: "completed" as const,
         reason: "acknowledged",
         acknowledgement: {
-          runtimeStateBinding: {
-            runtimeStateIdentityHash: "1".repeat(64),
-            runtimeStateProtectionHash: "2".repeat(64),
-            localUserBindingHash: "3".repeat(64),
-            runtimeStateBindingHash: "4".repeat(64),
-          },
-          receiptContentHash: "5".repeat(64),
-          receiptContentIdentity: "1:2:3",
+          repositoryBinding: "1".repeat(64),
+          resultId: "5".repeat(64),
+          operationId: settlement.operationId,
+          recoveryId: settlement.recoveryId,
+          consumer: "project_runtime",
         },
       };
     },

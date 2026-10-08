@@ -16,7 +16,7 @@ import {
   createCredentialRegistryFileAdapter,
   readCrosSharedServerOperationalConfig,
 } from "../../40_Develop/cros/src/index.ts";
-import { startCrosSharedServer } from "../../40_Develop/mcp/src/index.ts";
+import { startCrosSharedServer } from "../../40_Develop/mcp-server/src/index.ts";
 import type { CrosRootInput } from "../../40_Develop/domain-model/src/repository/index.ts";
 
 /**

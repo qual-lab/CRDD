@@ -6,21 +6,18 @@
  * @trace ARCH-000004
  */
 
-import fs from "node:fs";
-import { createHash } from "node:crypto";
 import { types as utilTypes } from "node:util";
+import {
+  UsageError,
+  readBoundedTaskRequestFromStdin,
+} from "./request-input.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/repository-location.ts";
-import { runProjectRuntimePublicObjective } from "../project-runtime/project-runtime-composition-root.ts";
-import { initializeProjectRuntimeSnapshot } from "../project-runtime/project-runtime-durable-foundation.ts";
 import {
   parseCandidateArguments,
   parseDoctorArguments,
   parseTaskArguments,
 } from "./cli-options.ts";
-import {
-  renderSafeHumanCommandReport,
-  type SafeCommandReport,
-} from "./command-report.ts";
+import { printCommandReport } from "./command-report.ts";
 import { dispatchDockerDesktopRepairDoctorCommand } from "../diagnostics/docker-desktop-repair-doctor-dispatch.ts";
 import { renderDockerRecoveryDoctorReport } from "../diagnostics/docker-recovery-command-report.ts";
 import {
@@ -38,7 +35,6 @@ import {
   recoverRuntimeOwnedCandidateStore,
   runRuntimeOwnedCandidateStoreStartupGc,
 } from "../candidate/candidate-bundle-store.ts";
-import { parseUnambiguousJsonDocument } from "../../../ai-adapter/src/output/index.ts";
 import {
   cancelRuntimeOwnedCoordinatorTask,
   startRuntimeOwnedCoordinatorTask,
@@ -58,26 +54,6 @@ import {
 import { restartRuntimeOwnedDockerForRecovery } from "../docker-desktop/docker-restart-runtime.ts";
 import { recoverOwnedOperationDirectories } from "../host-runtime/execution-environment.ts";
 import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../platform-access/platform-provisioner-package-filesystem.ts";
-
-/**
- * UsageErrorが担う状態と操作を提供する。
- *
- * @responsibility UsageErrorに属する状態と操作の所有境界をまとめる。
- * @trace ARCH-000004
- * @construction UsageErrorの生成に必要な依存と初期状態をConstructor契約で固定する。
- * @lifecycle UsageErrorが所有する状態と資源を生成から終了まで同じInstanceで管理する。
- * @effect N/A: UsageErrorの宣言自体は実行時Effectを発行しない。
- * @failure N/A: UsageErrorの宣言自体は実行時失敗を所有しない。
- * @invariant UsageErrorで宣言した値と責務の対応を維持する。
- * @boundary N/A: UsageErrorの宣言は外部境界を開かない。
- * @security N/A: UsageErrorはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: UsageErrorは共有非同期状態を持たない同期処理である。
- */
-class UsageError extends Error {
-  readonly usage = true;
-}
-
-const MAXIMUM_TASK_REQUEST_BYTES = 128 * 1024;
 
 /**
  * 記録をPlain Dataとして検証する。
@@ -145,9 +121,6 @@ function printHelp() {
     `  coordinator task --request-stdin [--json]  # verifies prerequisites per operation\n`,
   );
   process.stdout.write(`  coordinator capabilities --json\n`);
-  process.stdout.write(
-    `  coordinator project --initialize --json  # explicit fresh-state setup\n`,
-  );
   process.stdout.write(`  coordinator doctor [--json] [--isolation]\n`);
   process.stdout.write(
     `  coordinator doctor --recover-isolation <recovery-id> [--json]\n`,
@@ -226,158 +199,10 @@ function runCapabilitiesCommand(args: readonly string[]) {
         }),
         Object.freeze({ command: "doctor", availability: "available" }),
         Object.freeze({ command: "candidate", availability: "available" }),
-        Object.freeze({
-          command: "project",
-          availability: "development_candidate",
-          invocation: "project --request-stdin --json",
-        }),
       ]),
     })}\n`,
   );
   process.exitCode = 0;
-}
-
-/**
- * Project Commandを実行する。
- *
- * @responsibility Project Commandの実行条件、Effect範囲、終了結果の境界を所有する。
- * @trace ARCH-000004
- * @input args: readonly string[]
- * @returns runProjectCommandの計算結果を返す。
- * @precondition 「args: readonly string[]」がrunProjectCommandの入力契約を満たす。
- * @postcondition runProjectCommandの責務を完了した結果だけを返す。
- * @effect runProjectCommandは外部ProcessまたはRuntime境界の操作を呼び出す。
- * @failure runProjectCommandは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant runProjectCommandは宣言した境界以外へEffectを拡張しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security N/A: runProjectCommandはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency runProjectCommandは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
- */
-async function runProjectCommand(args: readonly string[]) {
-  if (args.length === 2 && args[0] === "--initialize" && args[1] === "--json") {
-    try {
-      const root = resolveVerifiedRepositoryRootFromWorkingDirectory(
-        process.cwd(),
-      );
-      const binding = `binding-${createHash("sha256").update(root).digest("hex").slice(0, 40)}`;
-      const result = initializeProjectRuntimeSnapshot(root, binding);
-      process.stdout.write(
-        `${JSON.stringify({ command: "project initialize", ...result })}\n`,
-      );
-      process.exitCode = result.status === "completed" ? 0 : 2;
-    } catch {
-      process.stdout.write(
-        `${JSON.stringify({ command: "project initialize", status: "blocked", reason: "project_runtime_repository_root_not_verified" })}\n`,
-      );
-      process.exitCode = 2;
-    }
-    return;
-  }
-  if (
-    args.length !== 2 ||
-    args[0] !== "--request-stdin" ||
-    args[1] !== "--json"
-  ) {
-    printCommandReport(
-      Object.freeze({
-        command: "project",
-        status: "blocked",
-        reason: "project_arguments_invalid",
-      }),
-      true,
-    );
-    process.exitCode = 64;
-    return;
-  }
-  let request: unknown;
-  try {
-    request = readBoundedTaskRequestFromStdin();
-  } catch (rawError) {
-    printCommandReport(
-      Object.freeze({
-        command: "project",
-        status: "blocked",
-        reason:
-          rawError instanceof UsageError
-            ? rawError.message
-            : "project_request_invalid",
-      }),
-      true,
-    );
-    process.exitCode = rawError instanceof UsageError ? 64 : 2;
-    return;
-  }
-  const controller = new AbortController();
-  const binding = bindTaskCliCancellationSignals(async () =>
-    controller.abort(),
-  );
-  let result: Awaited<ReturnType<typeof runProjectRuntimePublicObjective>>;
-  let released: ReturnType<typeof binding.unbind> | undefined;
-  try {
-    result = await runProjectRuntimePublicObjective(request, controller.signal);
-  } finally {
-    released = binding.unbind();
-  }
-  if (binding.status !== "bound" || released.status !== "released") {
-    printCommandReport(
-      Object.freeze({
-        command: "project",
-        status: "blocked",
-        reason: "project_cli_cancellation_binding_failed",
-        cleanupConfirmed: false,
-        manualRecoveryRequired: true,
-      }),
-      true,
-    );
-    process.exitCode = 2;
-    return;
-  }
-  process.stdout.write(
-    `${JSON.stringify({ command: "project", ...result })}\n`,
-  );
-  process.exitCode = result.status === "completed" ? 0 : 2;
-}
-
-/**
- * Bounded Task Request From Stdinを読み取る。
- *
- * @responsibility Bounded Task Request From Stdinの読取り元、上限、読取不能時の結果境界を所有する。
- * @trace ARCH-000004
- * @input N/A: 実行時引数を受け取らない。
- * @returns readBoundedTaskRequestFromStdinの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がreadBoundedTaskRequestFromStdinの入力契約を満たす。
- * @postcondition readBoundedTaskRequestFromStdinの責務を完了した結果だけを返す。
- * @effect readBoundedTaskRequestFromStdinはFilesystemの読取りまたは書込みを実行する。
- * @failure readBoundedTaskRequestFromStdinは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant readBoundedTaskRequestFromStdinは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security N/A: readBoundedTaskRequestFromStdinはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: readBoundedTaskRequestFromStdinは共有非同期状態を持たない同期処理である。
- */
-function readBoundedTaskRequestFromStdin() {
-  const chunks: Buffer[] = [];
-  let totalBytes = 0;
-  const buffer = Buffer.alloc(8 * 1024);
-  for (;;) {
-    const readBytes = fs.readSync(0, buffer, 0, buffer.length, null);
-    if (readBytes === 0) break;
-    totalBytes += readBytes;
-    if (totalBytes > MAXIMUM_TASK_REQUEST_BYTES) {
-      throw new UsageError("task_request_too_large");
-    }
-    chunks.push(Buffer.from(buffer.subarray(0, readBytes)));
-  }
-  let source: string;
-  try {
-    source = new TextDecoder("utf-8", { fatal: true }).decode(
-      Buffer.concat(chunks, totalBytes),
-    );
-  } catch {
-    throw new UsageError("task_request_invalid_utf8");
-  }
-  const parsed = parseUnambiguousJsonDocument(source);
-  if (!parsed) throw new UsageError("task_request_invalid_json");
-  return parsed;
 }
 
 /**
@@ -618,33 +443,6 @@ function runCandidateCommand(args: readonly string[]) {
     : 2;
 }
 
-/**
- * Command Reportを人間向け表示へ出力する。
- *
- * @responsibility Command Reportの表示内容、機密除外、出力先境界を所有する。
- * @trace ARCH-000004
- * @input report: SafeCommandReport、shouldOutputJson: boolean
- * @returns N/A: printCommandReportは戻り値を返さない。
- * @precondition 「report: SafeCommandReport、shouldOutputJson: boolean」がprintCommandReportの入力契約を満たす。
- * @postcondition printCommandReportの責務を完了して呼出し元へ制御を戻す。
- * @effect printCommandReportは外部ProcessまたはRuntime境界の操作を呼び出す。
- * @failure N/A: printCommandReportは独自の失敗分岐を所有しない。
- * @invariant printCommandReportは宣言した境界以外へEffectを拡張しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security N/A: printCommandReportはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: printCommandReportは共有非同期状態を持たない同期処理である。
- */
-function printCommandReport(
-  report: SafeCommandReport,
-  shouldOutputJson: boolean,
-) {
-  if (shouldOutputJson) {
-    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
-  } else {
-    process.stdout.write(renderSafeHumanCommandReport(report));
-  }
-}
-
 const [, , command, ...args] = process.argv;
 
 if (!isSupportedCoordinatorNodeRuntime(process.versions.node)) {
@@ -670,8 +468,6 @@ if (!isSupportedCoordinatorNodeRuntime(process.versions.node)) {
   process.exitCode = 0;
 } else if (command === "task") {
   await runTaskCommand(args);
-} else if (command === "project") {
-  await runProjectCommand(args);
 } else if (command === "capabilities") {
   runCapabilitiesCommand(args);
 } else if (command === "candidate") {

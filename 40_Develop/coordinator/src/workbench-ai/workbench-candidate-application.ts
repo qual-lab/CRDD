@@ -14,7 +14,7 @@ import { createHash } from "node:crypto";
 import {
   adoptProjectRuntimeExistingCandidate,
   type ProjectRuntimeCandidateAdoptionResult,
-} from "../../../project-runtime/src/index.ts";
+} from "../../../orchestrator/src/index.ts";
 import {
   resolveVerifiedRepositoryRoot,
   type VerifiedRepositoryRoot,
@@ -23,16 +23,16 @@ import {
   discardRuntimeOwnedCandidateBundle,
   readRuntimeOwnedCandidateBundle,
 } from "../candidate/candidate-bundle-store.ts";
-import { createRuntimeOwnedProjectCandidateIntegrationAdapter } from "../project-runtime/project-runtime-candidate-integration-adapter.ts";
+import { createRuntimeOwnedProjectCandidateIntegrationAdapter } from "../../../orchestrator/src/task/candidate-integration-adapter.ts";
 import {
   createCurrentProjectRuntimePersistencePorts as createProjectRuntimePersistencePorts,
   createProjectRuntimeSnapshotIntegrationRecordPort as createProjectRuntimeIntegrationRecordAdapter,
   maintainProjectRuntimeSnapshot,
-} from "../project-runtime/project-runtime-durable-foundation.ts";
+} from "../../../orchestrator/src/storage/index.ts";
 import {
   createProjectRuntimeWindowsPlatformAdapter,
   observeProjectRuntimePlatformFamily,
-} from "../project-runtime/project-runtime-windows-platform-adapter.ts";
+} from "../../../orchestrator/src/task/windows-platform-adapter.ts";
 
 const CANDIDATE_ID = /^candidate\.[0-9a-f]{64}\.[0-9a-f]{64}$/u;
 const STABLE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,511}$/u;

@@ -324,3 +324,30 @@ export function describeCommandReportContract() {
     credentialReported: false,
   });
 }
+
+/**
+ * Command Reportを人間向け表示へ出力する。
+ *
+ * @responsibility Command Reportの表示内容、機密除外、出力先境界を所有する。
+ * @trace ARCH-000004
+ * @input report: SafeCommandReport、shouldOutputJson: boolean
+ * @returns N/A: printCommandReportは戻り値を返さない。
+ * @precondition 「report: SafeCommandReport、shouldOutputJson: boolean」がprintCommandReportの入力契約を満たす。
+ * @postcondition printCommandReportの責務を完了して呼出し元へ制御を戻す。
+ * @effect printCommandReportは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: printCommandReportは独自の失敗分岐を所有しない。
+ * @invariant printCommandReportは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: printCommandReportはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: printCommandReportは共有非同期状態を持たない同期処理である。
+ */
+export function printCommandReport(
+  report: SafeCommandReport,
+  shouldOutputJson: boolean,
+) {
+  if (shouldOutputJson) {
+    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+  } else {
+    process.stdout.write(renderSafeHumanCommandReport(report));
+  }
+}

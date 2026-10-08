@@ -3,25 +3,25 @@
 変更ID: `CHG-000082`
 状態（Status）: `In Progress`
 担当責任者: Qual-Lab
-最終更新日: 2026-10-07
+最終更新日: 2026-10-09
 
 ## 現在状態
 
 | 項目 | 記載内容 |
 |---|---|
-| 現在の変更状態 | Phase 5のProduction Closureを進行中。画面・共有Server・Topic／Meeting・Version ControlとAIのProduction接続は既存Evidenceに保持する。署名Runtime `45254e2b`と独立レビュー済みTool `1b756ac2`による公開MCP実Provider E2EはRun `2e55c8cd2897464b`で合格した。正常二経路、取消、親Process喪失後のexact Recovery、再入場時の人間採用判断待ちおよび最終在庫清掃を観測した。Observer接続是正の静的検査と局所158／158も合格した。この合格をWorkbench実Provider経路、Quality移管母集団および未観測の検証義務全体またはRelease可能状態へ拡張しない |
+| 現在の変更状態 | Phase 5の責務再編は未完了。Orchestrator／Coordinator／Dockerの追加是正と依存検証を人間承認により大規模改修へ持ち越す。局所結果と旧対象版のEvidenceを最新Tree全体の完成へ拡張しない。[現在の判断](#持ち越し判断--orchestratorcoordinatordocker2026-10-09) |
 | 対象改訂版 | `v0.22.0` |
-| 責務再編の現在順序 | [新しい1〜8の完了計画](Evidence/261007_develop-responsibility-mapping.md#23-責務再編を完了させる計画)を同じCHG内で実施する。段階1〜4を完了し、全18領域・830Fileの予定処置、基本設計、詳細API・利用側・保存・設定／移行・QA引渡しと独立設計レビューを固定した。三観点の是正後再レビューはPass・必須残件0件。設計集合は13定義・172項目。全体Checkerは1,572件Failで、全体Passとしない。[段階4の完了判定](Evidence/261007_develop-responsibility-mapping.md#段階4の完了判定--2026-10-08)から、段階5AのDomain統合へ進む。段階5以降のSource移管・全回帰・署名E2E・Release可能状態は未成立。各段階完了時にコミットし、人間判断が必要なときだけ停止する。プッシュ・統合・Releaseは別の許可に従う |
+| 責務再編の現在順序 | 段階1〜4、5A／5Bは局所完了。5C追加是正は持ち越し。MCP／Workbenchをserver名へ移動し、物理的な親フォルダ移動の区切りで停止した。個別File責務精査は未着手。5D〜Fの機能再編、6〜8とCHG全体は未完了。[移動の到達点](Evidence/261007_develop-responsibility-mapping.md#親フォルダ移動の到達点--2026-10-09)と[処置表](Evidence/261007_develop-responsibility-mapping.md#持ち越しの処置--2026-10-09)を優先する。段階完了時のコミット方針は保持し、プッシュ・統合・Releaseは別許可に従う |
 | 保存方式刷新② | 完了。実装、受付世代接続、終了整理、本番v2保存Port、Repository切替、現署名・production初期化、全回帰結果の処置とArchitecture／Quality最終独立レビューを完了し、コミット・プッシュ済み。全品質項目・全製品E2Eの成立とは分離する。[完了判定](Evidence/261005_project-runtime-phase2.md#36-②の完了判定) |
 | 保存方式刷新③ | Execution IntelligenceのJSONL化、安全診断・実績割当・一般Operation、30日既定のTool別設定と新形式切替を完了。独立再レビュー二観点Pass、必須是正0件。移行済み旧領域は人間指示により清掃済み、未解決10件は新履歴で保護。追加指定の既知閉包6指摘も反証・直接回帰・独立再レビューで解消した。署名E2Eは未完了のまま維持する。[③の完了判定](Evidence/261006_execution-intelligence-phase3.md#③の完了判定--2026-10-06)、[追加是正の判定](Evidence/261006_execution-intelligence-phase3.md#検証と完了判定) |
 | 成立済み | G1〜G5のScreen Architecture、Direction A、5画面のSecondary展開、Production Shell、公式ロゴ、Project Context共通Reader、Topic／Meeting Record ReaderとRepository CRUD Core、共通Applicationの検索・絞込み・安定並び順・Query拘束Cursor、WorkbenchのTopic／Meeting独立Detail、Workbench／Repository単体MCPのTopic／Meeting CRUDと同一Repository内Meeting Outcome処置、Remote CROSのCredential／Workspace／Exposure／Repository Revision再検証付きTopic／Meeting Routing、同じSessionとExposure Snapshotに限定したRepository間Owner Relation解決、Workbenchの許可済みPortfolio Source明示選択・Remote Topic／Meeting MCP読書き・Owner Repository付きRelation遷移・Local fallback禁止、許可済みPortfolio Federation、Repository mode／CROS federation表示、Project Portfolioの検索・状態絞込み・20件単位Query拘束継続読込・Source別五場面Detail・欠測保持、作業ツリー読取り、選択Stage／Unstage／Commit／確認済み通常Push、拒否・通信断・結果不明・再観測、Role別Credential Core、Token非保存、永続Registry、Workbench Credential管理Surface、Bearer Remote Transport、Workbench Remote接続／更新／切断、Project Runtime状態Toolの非曖昧化、CROS CredentialによるRemote Project Context MCP、Host限定Access Recovery、AI Profileの閉じた共通Schema・一意解決・四軸Availability・Owner別耐久Snapshot・改訂競合付き採用Core・Repository／CROS WorkbenchのProfile限定管理・`systemAdmin`以外へのCatalog非開示・Coordinator／Workbench Consumer接続、Workbenchの現在Session限定AI依頼Port、読取り助言／変更候補の明示、開始／観測／取消、事実／共有済み分析／追加推論／次の選択肢の分離表示、Coordinatorの依頼種別別Mode Router・現在Process内観測・取消・未知状態非推測、読取り助言の利用者依頼・Profile・内容Hash付き許可済み投影をEffect 0で固定する専用Task Packet、許可参照へ拘束した専用Result Parser、Workbench選択Profile IDのCoordinator Task Request→Route Candidate→Executor Selection Grantへのexact搬送とReviewerへの非伝播、Runtime ActivityのRepository実構成、Execution Intelligence EventのProject限定継続読込、Remote CROSのCredential／Exposure再検証付きActivity投影、未接続／absent／unknown／observedの分離表示 |
-| 未成立 | Workbenchの読取り助言／変更候補の実Codex／Claude検証、必要な四経路E2E、残るQuality義務の個別処置、および最新Treeの最終配布固定・署名・照合。公開MCP E2Eと最終回復在庫確認は今回成立済みであり、旧失敗結果は履歴Evidenceとして保持する。画面Visual成立、公開MCP成立および局所試験からWorkbench全体の実境界成立を推定しない |
+| 未成立 | 最新Treeの本番利用側一体接続、実Docker回復、必要な実AI／署名E2E、Quality義務、全体回帰・独立確認・配布固定は未完了。持ち越しは免除でない。旧対象版の公開MCP E2E等は履歴根拠として保持する |
 | Phase／Gate適用判断 | `Applicable`: 画面Shell、読取り投影、書込みEffect、Remote接続を分けて成立確認する必要がある |
-| 現在Phase | `Phase 5 — Production Closure` |
+| 現在Phase | `Phase 5 — Production Closure`: 責務再編中、5C追加是正は持ち越し |
 | 現在Gate | `Passed: Phase 4`: User Accountを追加せず、Role Credentialから許可範囲だけのSessionを作り、Repository単体／Remote CROS、Repository／CROS Profile Ownerおよび非管理者へのCatalog非開示を分離した |
-| 次のGate | 人間の最新指定により、是正前に全E2Eの結果を収集する。最新の両助言は成功したが、送信確認の時間切れ、Project RuntimeのProvider開始前停止と未実行経路が残る。残りの実行と結果保存→根本原因ごとの是正計画→必要な是正・再検証→残るQuality義務の個別処置→最終候補の回帰・独立確認→配布固定・再署名・最終照合→人間の採用・Release判断へ進む。旧三件を削除せず、未成立の回復機能や品質義務を免除しない。[全体確認の途中結果](Evidence/261004_all-e2e-collection.md) |
+| 次のGate | 5D〜Fの独立処置とRuntime依存を確認する。持ち越した5C・署名実E2Eを直ちに再実行しない。全移管後はFile責務精査前に人間へ報告する。全体回帰・Reality Audit・固定Sourceレビュー・署名E2E・人間の採用／Release判断の未達Gateは維持する |
 
-共有管理フォルダのACL移行を前提に復旧設計を広げる案は取り下げ、現在の承認質問にしない。2026-10-04の人間の確認により、まずE2Eを実行し、再現性のある問題だけ対応を検討する。実アクセス権変更・共有環境の初期化・Process停止・旧三件削除は行っていない。以前の局所設計・実装・試験は履歴として保持し、回復全体の成立またはRelease可能とは扱わない。[再開方針と確認結果](Evidence/261004_workbench-e2e-restart.md)を現在の案内とする。
+2026-10-04当時は、共有管理フォルダのACL移行を前提に復旧設計を広げる案を取り下げ、まずE2Eを実行し、再現性のある問題だけ対応を検討する方針だった。当時の記録では実アクセス権変更・共有環境の初期化・Process停止・旧三件削除は行っていない。局所設計・実装・試験を履歴として保持し、回復全体の成立またはRelease可能とは扱わない。[当時の再開記録](Evidence/261004_workbench-e2e-restart.md)は経緯であり、現在の処置は[持ち越し判断](#持ち越し判断--orchestratorcoordinatordocker2026-10-09)に従う。
 
 ## 契機 / 起点
 
@@ -716,6 +716,34 @@ Coordinator詳細設計に、現在状態の閉集合、保存途中の再入場
 
 ### 責務再編の現在地 — 2026-10-08
 
+#### 持ち越し判断 — Orchestrator／Coordinator／Docker（2026-10-09）
+
+Qual-Labは、大規模改修で実装が変わる見込みを理由に、5Cの追加是正とそれに依存する検証を持ち越すことを承認した。確認済みの局所結果と未解決事項を保持し、大規模改修の入力とする。Sourceの追加変更、巻戻し、削除、新しい回復管理機構の追加は今回行わない。実施版・期限は未設定である。
+
+5C、責務再編の段階5全体、段階6〜8およびCHG全体は未完了を維持する。持ち越しはGate免除、残存リスクの受容、Release範囲の変更または新Architectureの採用を意味しない。CROS／MCP／Workbench等の独立した整理を一括保留せず、5D〜Fの各処置についてRuntime依存を確認する。全移管後、親フォルダ内のFile名・責務・配置精査前に停止して人間へ報告する条件も維持する。
+
+担当責任者・再開判断者はQual-Lab。大規模改修の目的・責務・成立済みCapabilityの維持範囲が確認されたとき、または現行Runtimeを必要とする計画・Release判断時に、残件と検証義務を再評価する。自動再開しない。残件と段階1〜8への影響は[持ち越しの処置表](Evidence/261007_develop-responsibility-mapping.md#持ち越しの処置--2026-10-09)を参照する。
+
+以下の進捗・次手順は各記録時点の経緯であり、現在の追加実装・E2E再実行指示ではない。
+
+#### 未採用の設計候補 — 終了履歴整理後の配送再入場（2026-10-09）
+
+状態: 未採用・未実装のまま大規模改修への入力として持ち越し。決定権限者: Qual-Lab。今回の持ち越し承認は履歴必須条件の変更承認ではなく、現在の実装条件を維持する。
+
+現在の整理済み配送観測は、固定上位ACK・現在参照不存在に加え、短期履歴の対象行と結果Hashを必須としている。履歴保持期限後はこの相関を取得できず、配送残件がなくても再入場を終了できない。読み取り専用の設計確認では、過去の成功証明ではなく現在の配送残件不存在だけへ保証を限定し、真正な上位耐久ACKと現在Snapshotを必須とする最小案が成立し得ると判断した。ただし既承認の履歴必須条件を変更するため、人間承認なしに採用しない。
+
+提案は、正規・安定読取り可能な履歴に対象行がない場合も、固定上位ACKと同じRepository・Task・Attempt・回復参照を照合し、現在の操作・回復・配送参照が明示不存在であれば配送残件なしと確認すること。対象行がある場合のHash矛盾、履歴File欠落・破損・重複・観測不能、ACK不明、対象残存、保存途中、観測変更、排他解放未確認は拒否を維持する。対象行欠測を期限切れと断定せず、過去の正常終了・Producer ACK保存・実資源回収を新しく証明しない。新しい台帳・領収書・Lockを追加せず、Taskを再実行しない。
+
+承認時はCoordinator／Orchestratorの正本とQA期待値を先に更新し、最小実装・反証・独立レビューへ進む。不採用または保留時は、履歴相関欠測後の再入場停止が残る。現在の自動継続は本方針の承認を意味しない。
+
+5Cの本番未採用Draft操作Identityへ固定Consumerを必須化し、既存Hash・回復ID・不変遷移とSettlement Contextへ結合した。consumer欠落版を自動補完せず、旧state／pendingは新品扱いせず保全停止する。同じoperation-identity/v1のDraft更新であり、旧固定結果を新版の根拠へ流用しない。用途別の結果登録・終了候補・限定Writerを接続し、Orchestratorだけfresh耐久ACKを必要とする。最新六局所契約・型・Lintは成功した。Docker終端・上位Reader出口は模擬であり、実返却・耐久ACK保存・本番Producerへの一体切替はまだ未完了である。
+
+5Cの結果受領方式は、人間判断により用途別へ整理した。単体CLI／Workbenchは既存返却境界への一時的な引渡し、Orchestratorは後続再開用の耐久ACKを要求する。Producerの資源回収をConsumerの閲覧・任意保存へ依存させず、Candidate・一次失敗・未解決Recoveryは責務Ownerが別に保全する。新しい耐久結果Storeは追加しない。固定Consumerから方式を導出し、任意入力や空集合からOrchestratorを降格しない。Architecture／QA006へ反例と変更禁止範囲を伝播した。本番切替・実返却／ACK・全体回帰は未完了であり、方針採用と実装完了を区別する。
+
 段階1〜4、段階5AのDomain Model統合と5BのAI Adapter／Platform Access移管は局所検証まで完了した。最新5B Sourceの配布閉包全133契約、AI Adapter全13契約、Coordinatorの型・固定計画と両Provider準備42契約が成功した。Native通常50試験・全target Clippy、利用側八Package型接続は確認済みだが、実環境専用Native23件、全体回帰・固定Source独立レビュー・署名E2Eは別に残る。次は5CのCoordinator共通実行・Orchestrator移管・実行記録。残るProvider別組立てを最終配置として固定しない。[計画と検証範囲](Evidence/261007_develop-responsibility-mapping.md#段階5bの局所完了判定--2026-10-08)を正本とする。
 
 段階5C〜F、全親フォルダのFile名・責務・配置精査、段階6〜8は未完了である。局所成功や設計独立確認を、全Sourceの独立レビュー・実E2E・Release準備完了へ拡張しない。
+
+5Cの同Process本番Task配送を、元Control捕捉→全結果読取り→上位終端とACKの同世代保存→固定Reader→下位整理へ接続した。新Processの上位受領・終了、保存途中の再入場に加え、履歴相関が残る整理後再入場も実Filesystem・上位接続の三契約と限定独立レビューで確認した。保存後応答不明・部分整理失敗でも元Task結果とACKを保持し、Taskを再実行しない。新しい台帳やLockを作らず、Task完了時のControl削除も維持する。保持期限後の相関欠測、下位出版後marker残存、実資源回収の旧入口切替、旧二試験Fileの18型指摘、実Dockerと5C全体は残る。[今回の接続と確認限界](Evidence/261007_develop-responsibility-mapping.md#新processの再開接続の順序--2026-10-09)を参照する。
+
+5Cの過去実行unknownと現在回収義務を分離する限定方針は人間承認済みであり、v2終了要約・履歴と通常整理の限定変更をモデル四契約・実Filesystem二契約・限定独立レビューで確認した。さらにProvider要求前の同期評価保存を本番Controllerと既存Ownerへ接続し、局所109契約・Source型・Lint・限定独立レビューが成功した。元の終端Contextへの同期受領Readerの一回結合も、最新実Filesystem二契約・型・Lint・限定独立確認で成功した。新しい共有管理機構は追加していない。上位ACKの本番一体接続、fresh Process再入場、旧試験移行、実Docker一体確認と全5Cは残る。[今回の本番接続と証明範囲](Evidence/261007_develop-responsibility-mapping.md#実行評価の発生点への本番接続--2026-10-08)と[同Process受領Reader接続](Evidence/261007_develop-responsibility-mapping.md#耐久受領readerの同process結合--2026-10-08)を参照する。

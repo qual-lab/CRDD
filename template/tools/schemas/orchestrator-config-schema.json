@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Orchestrator設定",
+  "description": ".crdd/config/orchestrator.jsonの非秘密設定。削除許可と未解決義務の解除はOrchestratorが判断する。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaRevision", "historyRetentionDays"],
+  "properties": {
+    "schemaRevision": { "const": 1 },
+    "historyRetentionDays": { "type": "integer", "minimum": 1, "maximum": 104249991, "description": "上限はミリ秒への安全な整数変換限界。" }
+  }
+}

@@ -457,11 +457,6 @@ test("公開Capability表示はLocal Personalの成立済み入口だけを返�
       },
       { command: "doctor", availability: "available" },
       { command: "candidate", availability: "available" },
-      {
-        command: "project",
-        availability: "development_candidate",
-        invocation: "project --request-stdin --json",
-      },
     ],
   });
 });
@@ -509,7 +504,13 @@ test("template toolsの安定入口はCoordinator共通Launcherへ同一Process�
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("削除したcommandは互換処理へ入らず未知commandとして拒否される", () => {
-  for (const command of ["activate", "disable", "provision", "mcp"]) {
+  for (const command of [
+    "activate",
+    "disable",
+    "provision",
+    "mcp",
+    "project",
+  ]) {
     const result = spawnSync(
       process.execPath,
       [coordinatorExecutable, command, "--json"],

@@ -50,21 +50,19 @@ const expectedAreaConsumers = [
   "40_Develop/coordinator/scripts/prepare-codex-advice-image.ts",
   "40_Develop/coordinator/scripts/verification-result-record.ts",
   "40_Develop/coordinator/src/host-runtime/host-terminal-caller-checkpoint.ts",
-  "40_Develop/coordinator/src/project-runtime/project-runtime-acceptance-decision-store.ts",
-  "40_Develop/coordinator/src/project-runtime/project-runtime-candidate-integration-adapter.ts",
-  "40_Develop/coordinator/src/project-runtime/project-runtime-decision-recovery-store.ts",
-  "40_Develop/coordinator/src/project-runtime/project-runtime-durable-foundation.ts",
-  "40_Develop/coordinator/src/project-runtime/project-runtime-history.ts",
   "40_Develop/execution-intelligence/src/store/execution-intelligence-store.ts",
+  "40_Develop/orchestrator/src/storage/current-state-store.ts",
+  "40_Develop/orchestrator/src/storage/history-store.ts",
+  "40_Develop/orchestrator/src/task/candidate-integration-adapter.ts",
   "40_Develop/visual-preview/src/browser-zoom-verifier.ts",
 ] as const;
 const PUBLIC_PROJECT_RUNTIME_BOUNDARY =
-  "40_Develop/coordinator/src/project-runtime/project-runtime-composition-root.ts";
-const PROJECT_RUNTIME_STORE_CONSUMERS = new Set([
-  "40_Develop/coordinator/src/project-runtime/project-runtime-acceptance-decision-store.ts",
-  "40_Develop/coordinator/src/project-runtime/project-runtime-decision-recovery-store.ts",
-  "40_Develop/coordinator/src/project-runtime/project-runtime-durable-foundation.ts",
-]);
+  "40_Develop/orchestrator/src/task/composition-root.ts";
+const PROJECT_RUNTIME_STORE_FACTORIES = [
+  "createProjectRuntimePersistencePorts",
+  "createProjectRuntimeDecisionRecoveryStore",
+  "createProjectRuntimeAcceptanceDecisionStore",
+] as const;
 const EXECUTION_INTELLIGENCE_CONSUMER =
   "40_Develop/execution-intelligence/src/store/execution-intelligence-store.ts";
 const blockedMeaningFields = [
@@ -81,7 +79,7 @@ const SEMANTIC_ROOT_LITERAL_OWNERS = new Set([
 ]);
 const ALLOWED_TOP_LEVEL_AREAS = new Set([
   "config",
-  "project-runtime",
+  "orchestrator",
   "coordinator",
   "execution-intelligence",
   "candidates",
@@ -321,12 +319,9 @@ function violations(sources: SourceSet): string[] {
   if (
     !projectRuntimeBoundary.includes("RepositoryRuntimeDataAreaBlockedError") ||
     !projectRuntimeBoundary.includes("projectRuntimeDataBoundaryBlocked") ||
-    ![...PROJECT_RUNTIME_STORE_CONSUMERS].every((item) => {
-      const symbol = item.includes("decision-recovery")
-        ? "createProjectRuntimeDecisionRecoveryStore"
-        : "createProjectRuntimePersistencePorts";
-      return projectRuntimeBoundary.includes(symbol);
-    }) ||
+    !PROJECT_RUNTIME_STORE_FACTORIES.every((symbol) =>
+      projectRuntimeBoundary.includes(symbol),
+    ) ||
     !blockedMeaningFields.every((field) =>
       projectRuntimeBoundary.includes(
         field === "recoveryReference" ? "recoveryIds" : field,

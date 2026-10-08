@@ -2,7 +2,7 @@
 
 Status: Non-normative Open Work Registry
 Owner: Qual-Lab
-Last Updated: 2026-10-06
+Last Updated: 2026-10-09
 Related:
 - [CRDD標準自身のDiscovery](../01_Discovery/01_Product_Discovery.md)
 - [Product候補登録](../01_Discovery/02_Product_Candidates.md)
@@ -49,7 +49,9 @@ v0.21.0はGroup AだけをRelease範囲とする。Group B以降のCanonical設�
 | 目標リリース日 | `2026-10-03` | 2026-09-25にQual-Labが設定 |
 | 個別Roadmap項目の期限 | 未設定 | 項目ごとに必要性を確認し、設定しない項目は日程リスクを未評価とする |
 | 初期の日程リスク | 高い | 目標日まで8日でDiscoveryを開始し、候補Scopeと解決案が未確定である。現Scopeの維持、分離またはリスク許容はDiscovery結果を基に人間が判断する |
-| 現在の日程状態 | 目標日経過・Release完了未成立 | 2026-10-04（日本時間）の確認時点でCHG-000082はPhase 5進行中。Host残存の回収、Workbench実Provider経路、残る品質項目と最終検証が未完了である。目標日を履歴として保持し、新しい期限やScope縮小をAIだけで設定しない |
+| 現在の日程状態 | 目標日経過・Release完了未成立 | 2026-10-09時点でCHG-000082は未完了。Orchestrator／Coordinator／Dockerの追加是正と依存検証は大規模改修への持ち越しを人間が承認した。実施版・期限は未設定。目標日を履歴として保持し、持ち越しをRelease Gate免除またはRelease範囲変更としない |
+
+責務再編の段階5Cの残件は[CHG-000082の持ち越し判断](Changes/CHG-000082/change.md#持ち越し判断--orchestratorcoordinatordocker2026-10-09)で追跡する。CROS／MCP／Workbench等の独立した整理まで一括保留せず、Runtime依存を確認して処置を分ける。次版や新しい期限、新Architectureの採用は今回確定しない。
 
 次のGroupは別々のRelease範囲ではなく、v0.22.0を一つの完成形へ収束させる候補範囲である。ただし、既存の設計、WIPおよび採用済み項目名から解決形を確定しない。最初にDiscoveryで、利用者の困りごと、現在の代替、望ましい変化、利用頻度および判断価値を再確認する。そこで必要性が確認された項目だけを依存順へ確定し、後続工程へ渡す。
 

@@ -8,7 +8,7 @@
  * @scope project-runtime、snapshot、lock
  * @boundary PRL-IT-005=Direct Boundary: 独立Process→Windows Named Pipe。
  */
-import { acquireProjectRuntimeSnapshotPilotLock } from "../../src/project-runtime/project-runtime-durable-foundation.ts";
+import { acquireProjectRuntimeSnapshotPilotLock } from "../../../orchestrator/src/storage/current-state-store.ts";
 
 const result = acquireProjectRuntimeSnapshotPilotLock(process.argv[2] ?? "");
 if (result.status !== "completed") {

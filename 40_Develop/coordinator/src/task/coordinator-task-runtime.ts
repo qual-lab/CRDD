@@ -5,43 +5,25 @@
  * @trace ARCH-000004
  */
 import { types as utilTypes } from "node:util";
+import { CLAUDE_RESULT_ACCEPTANCE_MAXIMUM_TURNS } from "../../../ai-adapter/src/claude/index.ts";
 import {
-  createDevelopmentExecutionTiming,
-  writeDevelopmentMeasurementProgress,
-} from "../diagnostics/development-execution-timing.ts";
-import { evaluateManagedDockerCleanupEligibility } from "../docker-runtime/docker-cleanup-eligibility.ts";
-import {
-  isRuntimeProcessEffectBlocked,
-  isRuntimeProcessPoisoned,
-  poisonRuntimeProcessAfterCleanupUnknown,
-} from "../host-runtime/runtime-process-safety-state.ts";
+  snapshotPlainArray,
+  snapshotPlainRecord,
+} from "../../../domain-model/src/plain-data/index.ts";
 import {
   discardRuntimeOwnedCandidateBundle,
   inspectRuntimeOwnedDevelopmentCandidateStore,
   publishRuntimeOwnedCandidateBundle,
   runRuntimeOwnedCandidateStoreStartupGc,
 } from "../candidate/candidate-bundle-store.ts";
-import { prepareRuntimeOwnedClaudeDockerTaskCandidate } from "../provider/claude-docker-runtime-adapter.ts";
-import { CLAUDE_RESULT_ACCEPTANCE_MAXIMUM_TURNS } from "../../../ai-adapter/src/claude/index.ts";
-import { prepareRuntimeOwnedCodexDockerTaskCandidate } from "../provider/codex-docker-runtime-adapter.ts";
 import {
-  classifyOwnedCoordinatorOperationCreationFailure,
-  createRuntimeOwnedCoordinatorOperation,
-} from "../repository-operation/coordinator-operation-creation-internal.ts";
-import { snapshotCoordinatorTaskRequest } from "./coordinator-task-request.ts";
-import {
-  COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS,
-  type CoordinatorTaskPublicReason,
-  projectCoordinatorTaskPublicReason,
-} from "./coordinator-task-result-reasons.ts";
-import {
-  issueRuntimeOwnedDelegationSelectionGrant,
-  preflightRuntimeOwnedDelegationExecutionSlate,
-  revokeRuntimeOwnedDelegationSelectionGrant,
-} from "../provider/delegation-selection-grant-runtime.ts";
-import { reserveRuntimeOwnedDevelopmentMeasurementTask } from "./development-measurement-session.ts";
+  createDevelopmentExecutionTiming,
+  writeDevelopmentMeasurementProgress,
+} from "../diagnostics/development-execution-timing.ts";
+import { evaluateManagedDockerCleanupEligibility } from "../docker-runtime/docker-cleanup-eligibility.ts";
 import {
   cancelRuntimeOwnedDockerProcessController,
+  type ProviderProcessStartedNotice,
   projectDockerProcessControllerCompletionResult,
   projectDockerProcessControllerStartResult,
   startRuntimeOwnedDockerProcessController,
@@ -52,11 +34,16 @@ import {
 } from "../docker-runtime/docker-recovery-public-projection.ts";
 import {
   abandonRuntimeOwnedDockerRecovery,
+  completeRuntimeOwnedDockerProjectResultDelivery,
   finalizeRuntimeOwnedDockerRecovery,
   inspectRuntimeOwnedDockerTaskRecoveryState,
   prepareRuntimeOwnedDockerHostCleanup,
+  readRuntimeOwnedDockerProjectResult,
   recordRuntimeOwnedDockerHostCleanupReceipt,
 } from "../docker-runtime/docker-recovery-runtime.ts";
+import { getRuntimeOwnedProviderDockerAdapter } from "../docker-runtime/provider-docker-runtime.ts";
+import { requestRuntimeOwnedExternalSendGrant } from "../external-send/external-send-grant-runtime.ts";
+import { resolveRuntimeOwnedExternalSendPolicy } from "../external-send/external-send-policy-runtime.ts";
 import {
   abandonOwnedHostOperationGenerationLock,
   activateOwnedHostOperationGenerationLock,
@@ -66,13 +53,17 @@ import {
   observeOwnedHostOperationGenerationLoss,
   verifyOwnedOperationCleanupOutcome,
 } from "../host-runtime/execution-environment.ts";
-import { requestRuntimeOwnedExternalSendGrant } from "../external-send/external-send-grant-runtime.ts";
-import { resolveRuntimeOwnedExternalSendPolicy } from "../external-send/external-send-policy-runtime.ts";
 import {
-  snapshotPlainArray,
-  snapshotPlainRecord,
-} from "../../../domain-model/src/plain-data/index.ts";
+  isRuntimeProcessEffectBlocked,
+  isRuntimeProcessPoisoned,
+  poisonRuntimeProcessAfterCleanupUnknown,
+} from "../host-runtime/runtime-process-safety-state.ts";
 import { consumeRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../platform-access/platform-provisioner-package-filesystem.ts";
+import {
+  issueRuntimeOwnedDelegationSelectionGrant,
+  preflightRuntimeOwnedDelegationExecutionSlate,
+  revokeRuntimeOwnedDelegationSelectionGrant,
+} from "../provider/delegation-selection-grant-runtime.ts";
 import {
   consumeRuntimeOwnedProviderHomeMountGrant,
   issueRuntimeOwnedProviderHomeMountGrant,
@@ -84,6 +75,10 @@ import {
   revokeRuntimeOwnedProviderTaskPacket,
 } from "../provider/provider-task-packet-runtime.ts";
 import {
+  classifyOwnedCoordinatorOperationCreationFailure,
+  createRuntimeOwnedCoordinatorOperation,
+} from "../repository-operation/coordinator-operation-creation-internal.ts";
+import {
   bindRuntimeOwnedRepositoryOperation,
   inspectRepositoryObjectFormatCandidate,
 } from "../repository-operation/repository-operation-runtime.ts";
@@ -94,6 +89,13 @@ import {
   projectRuntimeOwnedCandidateReadContent,
   verifyRuntimeOwnedCandidateRevision,
 } from "../repository-operation/repository-workspace-runtime.ts";
+import { snapshotCoordinatorTaskRequest } from "./coordinator-task-request.ts";
+import {
+  COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS,
+  type CoordinatorTaskPublicReason,
+  projectCoordinatorTaskPublicReason,
+} from "./coordinator-task-result-reasons.ts";
+import { reserveRuntimeOwnedDevelopmentMeasurementTask } from "./development-measurement-session.ts";
 
 /**
  * Runtime 所有 Docker Process Start For Taskを公開結果へ投影する。
@@ -555,7 +557,10 @@ type RuntimeDependencies = Readonly<{
     error: unknown,
   ) => ProductionOperationFailure | null;
   cleanupOperation: (owned: object) => unknown | Promise<unknown>;
-  classifyOperationCleanup: (outcome: unknown) => HostCleanupStatus | null;
+  classifyOperationCleanup: (
+    outcome: unknown,
+    owned: unknown,
+  ) => HostCleanupStatus | null;
   abandonOperation: (managementCapability: object) => Promise<unknown>;
   poisonProcessAfterCleanupUnknown?: () => void;
   isProcessPoisoned?: () => boolean;
@@ -645,6 +650,7 @@ type RuntimeDependencies = Readonly<{
     selectionUseCapability: object,
     taskPacketUseCapability: object,
     recoveryCorrelationId: string | null,
+    consumer: "coordinator_cli" | "workbench" | "project_runtime",
   ) => RuntimeRecord;
   startProcess: (
     preparedCapability: object,
@@ -654,6 +660,9 @@ type RuntimeDependencies = Readonly<{
       recoveryId: unknown,
     ) => boolean,
     commandRestriction?: unknown,
+    observeProviderStarted?: (
+      notice: ProviderProcessStartedNotice,
+    ) => boolean | Promise<boolean>,
   ) => RuntimeRecord;
   cancelProcess: (
     controlCapability: object,
@@ -682,8 +691,16 @@ type RuntimeDependencies = Readonly<{
   discardCandidate: (candidateId: string) => RuntimeRecord;
   publishCandidate: (candidateRecoveryId: string) => RuntimeRecord | null;
   finalizeDockerRecovery?: (capability: object) => RuntimeRecord;
+  readDockerProjectResult?: typeof readRuntimeOwnedDockerProjectResult;
+  completeDockerProjectResultDelivery?: typeof completeRuntimeOwnedDockerProjectResultDelivery;
   prepareDockerHostCleanup?: (capability: object) => string | null;
-  recordDockerHostCleanupReceipt?: (capability: object) => boolean;
+  recordDockerHostCleanupReceipt?: (
+    capability: object,
+    completion: Readonly<{
+      hostCleanupOutcome: unknown;
+      dockerCompletion: unknown;
+    }>,
+  ) => boolean;
   abandonDockerRecovery?: (capability: object) => boolean;
   isolatedCancellationAckTimeoutMs?: number;
 }>;
@@ -724,7 +741,11 @@ type ControlRecord = {
   hostGenerationFailureObserved: boolean;
   releaseHostGenerationDrain: (() => boolean) | null;
   dockerFinalizations: Array<
-    Readonly<{ capability: object; recoveryId: string }>
+    Readonly<{
+      capability: object;
+      recoveryId: string;
+      dockerCompletion: unknown;
+    }>
   >;
   dockerHandoffs: Array<{
     capability: object;
@@ -732,6 +753,10 @@ type ControlRecord = {
     state: "active" | "finalizable" | "finalized" | "abandoned";
   }>;
   recoveryCorrelationId: string | null;
+  consumer: "coordinator_cli" | "workbench" | "project_runtime";
+  observeProviderStarted:
+    | ((notice: ProviderProcessStartedNotice) => boolean | Promise<boolean>)
+    | undefined;
 };
 /**
  * coordinator-task-runtimeで使用するRuntime 状態の値契約を定義する。
@@ -2133,6 +2158,7 @@ async function executeStageBody(
       refreshedSelectionUse,
       taskUse,
       control.recoveryCorrelationId,
+      control.consumer,
     );
     selectionControl = null;
     taskControl = null;
@@ -2167,6 +2193,7 @@ async function executeStageBody(
         return true;
       },
       commandRestriction,
+      control.observeProviderStarted,
     );
     const isProductionProcessContract =
       state.dependencies.startProcess ===
@@ -2270,6 +2297,7 @@ async function executeStageBody(
           Object.freeze({
             capability: finalizationCapability,
             recoveryId: startedDockerRecoveryId,
+            dockerCompletion: rawResult,
           }),
         );
       } else if (!state.dependencies.finalizeDockerRecovery && handoff) {
@@ -3302,24 +3330,17 @@ const productionDependencies: RuntimeDependencies = Object.freeze({
     selectionUseCapability,
     taskPacketUseCapability,
     recoveryCorrelationId,
+    consumer,
   ) =>
-    provider === "codex"
-      ? prepareRuntimeOwnedCodexDockerTaskCandidate(
-          managementCapability,
-          mountCapability,
-          mountAuthorizationCapability,
-          selectionUseCapability,
-          taskPacketUseCapability,
-          recoveryCorrelationId,
-        )
-      : prepareRuntimeOwnedClaudeDockerTaskCandidate(
-          managementCapability,
-          mountCapability,
-          mountAuthorizationCapability,
-          selectionUseCapability,
-          taskPacketUseCapability,
-          recoveryCorrelationId,
-        ),
+    getRuntimeOwnedProviderDockerAdapter(provider).prepareTask(
+      managementCapability,
+      mountCapability,
+      mountAuthorizationCapability,
+      selectionUseCapability,
+      taskPacketUseCapability,
+      recoveryCorrelationId,
+      consumer,
+    ),
   startProcess: startRuntimeOwnedDockerProcessController,
   cancelProcess: cancelRuntimeOwnedDockerProcessController,
   captureCandidate: captureRuntimeOwnedCandidateRevision,
@@ -3328,6 +3349,9 @@ const productionDependencies: RuntimeDependencies = Object.freeze({
   discardCandidate: discardRuntimeOwnedCandidateBundle,
   publishCandidate: publishRuntimeOwnedCandidateBundle,
   finalizeDockerRecovery: finalizeRuntimeOwnedDockerRecovery,
+  readDockerProjectResult: readRuntimeOwnedDockerProjectResult,
+  completeDockerProjectResultDelivery:
+    completeRuntimeOwnedDockerProjectResultDelivery,
   prepareDockerHostCleanup: prepareRuntimeOwnedDockerHostCleanup,
   recordDockerHostCleanupReceipt: recordRuntimeOwnedDockerHostCleanupReceipt,
   abandonDockerRecovery: abandonRuntimeOwnedDockerRecovery,
@@ -3391,7 +3415,25 @@ function createRuntime(dependencies: RuntimeDependencies) {
       repositoryRoot: unknown,
       evaluationTime: unknown,
       recoveryCorrelationId: unknown = null,
+      observeProviderStarted?: (
+        notice: ProviderProcessStartedNotice,
+      ) => boolean | Promise<boolean>,
+      consumer:
+        | "coordinator_cli"
+        | "workbench"
+        | "project_runtime" = "coordinator_cli",
     ) => {
+      if (
+        consumer !== "coordinator_cli" &&
+        consumer !== "workbench" &&
+        consumer !== "project_runtime"
+      )
+        throw new Error("coordinator_task_consumer_invalid");
+      if (
+        observeProviderStarted !== undefined &&
+        typeof observeProviderStarted !== "function"
+      )
+        throw new Error("coordinator_task_start_observer_invalid");
       if (
         recoveryCorrelationId !== null &&
         (typeof recoveryCorrelationId !== "string" ||
@@ -3422,6 +3464,8 @@ function createRuntime(dependencies: RuntimeDependencies) {
         dockerFinalizations: [],
         dockerHandoffs: [],
         recoveryCorrelationId,
+        consumer,
+        observeProviderStarted,
       };
       try {
         state.dependencies.observeLifecycleState?.("STATE-ADMISSION");
@@ -3518,6 +3562,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
             }
           }
           try {
+            let hostCleanupOutcome: unknown = null;
             let isHostProtocolFailure =
               control.hostGenerationLossOutcome === "cleanup_confirmed_failure";
             control.retainOperationRoot ||=
@@ -3551,10 +3596,12 @@ function createRuntime(dependencies: RuntimeDependencies) {
               control.hostRecoveryId = hostRecoveryId;
             }
             if (control.ownedOperation && !control.retainOperationRoot) {
+              const cleanupTarget = control.ownedOperation;
+              const rawCleanup =
+                await state.dependencies.cleanupOperation(cleanupTarget);
               const cleanup = state.dependencies.classifyOperationCleanup(
-                await state.dependencies.cleanupOperation(
-                  control.ownedOperation,
-                ),
+                rawCleanup,
+                cleanupTarget,
               );
               if (!cleanup)
                 throw new Error(
@@ -3562,6 +3609,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
                 );
               if (cleanup === "protocol_failure_cleanup_confirmed")
                 isHostProtocolFailure = true;
+              hostCleanupOutcome = rawCleanup;
               control.hostCleanupCompleted = true;
               control.hostRecoveryId = null;
               control.ownedOperation = null;
@@ -3599,8 +3647,14 @@ function createRuntime(dependencies: RuntimeDependencies) {
               ? control.dockerFinalizations
               : []) {
               if (
+                hostCleanupOutcome === null ||
+                hostCleanupOutcome === undefined ||
                 !state.dependencies.recordDockerHostCleanupReceipt?.(
                   finalization.capability,
+                  Object.freeze({
+                    hostCleanupOutcome,
+                    dockerCompletion: finalization.dockerCompletion,
+                  }),
                 )
               ) {
                 await retainRuntimeRecoveryState(state, control);
@@ -3896,6 +3950,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
           } catch {
             result = finalProjectionFailure(result, control);
           } finally {
+            control.observeProviderStarted = undefined;
             state.controls.delete(controlCapability);
           }
           advanceLifecycleState(
@@ -3916,6 +3971,13 @@ function createRuntime(dependencies: RuntimeDependencies) {
         credentialAbsenceVerified: false,
       });
     },
+    captureResultDelivery: (controlCapability: unknown) => {
+      if (!controlCapability || typeof controlCapability !== "object")
+        return null;
+      const control = state.controls.get(controlCapability);
+      if (control?.consumer !== "project_runtime") return null;
+      return captureProjectTaskResultDelivery(state, control);
+    },
     cancel: (controlCapability: unknown) => {
       if (!controlCapability || typeof controlCapability !== "object") {
         return Promise.resolve(INVALID_CONTROL_CANCELLATION_RESULT);
@@ -3929,14 +3991,127 @@ function createRuntime(dependencies: RuntimeDependencies) {
   });
 }
 
+/**
+ * 元Taskの終端結果だけを耐久保存Ownerへ渡す。
+ * @responsibility 捕捉したControlと元Docker終了Ownerの対応を毎回照合する。
+ * @trace ARCH-000004
+ * @input state: 元Runtime、control: 実行中に捕捉したproject_runtimeのControl。
+ * @returns fresh結果集合の読取りと、保存済みACKによる一配送終了の同期閉包。
+ * @precondition 捕捉はcontrols削除前に行い、利用はHost清掃と全handoff終了後に限る。
+ * @postcondition 結果集合は全件確認後にだけ返し、開始・取消権限を追加しない。
+ * @effect completeだけが既存Ownerの受理保存・終了整理を呼ぶ。
+ * @failure 終端前、相関不一致、部分読取り、排他未解放、ACK不明を拒否する。
+ * @invariant IDからOwnerを再生成せず、元capabilityと回復IDの一意な対を保持する。
+ * @boundary 同ProcessのTaskとOrchestrator耐久受領。
+ * @security 閉包を公開Requestや永続Stateへ格納しない。
+ * @concurrency Control削除後も捕捉済み参照だけを使い、各利用時に現在条件を再確認する。
+ */
+function captureProjectTaskResultDelivery(
+  state: RuntimeState,
+  control: ControlRecord,
+) {
+  const ready = () =>
+    control.consumer === "project_runtime" &&
+    control.hostCleanupCompleted &&
+    control.ownedOperation === null &&
+    (control.lifecycleState === "STATE-RESULT-PUBLISHED" ||
+      control.lifecycleState === "STATE-BLOCKED-CLEAN") &&
+    control.dockerFinalizations.length === control.dockerHandoffs.length &&
+    control.dockerFinalizations.every(
+      (item, index, all) =>
+        all.findIndex((other) => other.recoveryId === item.recoveryId) ===
+          index &&
+        all.findIndex((other) => other.capability === item.capability) ===
+          index &&
+        control.dockerHandoffs.filter(
+          (handoff) =>
+            handoff.capability === item.capability &&
+            handoff.recoveryId === item.recoveryId &&
+            handoff.state === "finalized",
+        ).length === 1,
+    );
+  return Object.freeze({
+    readResults: () => {
+      if (!ready())
+        return Object.freeze({ status: "blocked" as const, results: null });
+      if (control.dockerFinalizations.length === 0)
+        return Object.freeze({
+          status: "not_required" as const,
+          results: null,
+        });
+      if (!state.dependencies.readDockerProjectResult)
+        return Object.freeze({ status: "blocked" as const, results: null });
+      const results = [];
+      for (const item of control.dockerFinalizations) {
+        const observed = state.dependencies.readDockerProjectResult(
+          item.capability,
+        );
+        if (
+          observed.status !== "completed" ||
+          !observed.lockReleased ||
+          observed.value?.consumer !== "project_runtime" ||
+          observed.value.recoveryId !== item.recoveryId
+        )
+          return Object.freeze({ status: "blocked" as const, results: null });
+        results.push(observed.value);
+      }
+      return Object.freeze({
+        status: "completed" as const,
+        results: Object.freeze(results),
+      });
+    },
+    complete: (recoveryId: unknown, readProjectAcceptance: unknown) => {
+      const item =
+        ready() && typeof recoveryId === "string"
+          ? control.dockerFinalizations.find(
+              (entry) => entry.recoveryId === recoveryId,
+            )
+          : undefined;
+      if (!item || !state.dependencies.completeDockerProjectResultDelivery)
+        return Object.freeze({
+          status: "blocked" as const,
+          reason: "coordinator_task_result_delivery_not_available",
+          filesystemEffectIssued: false,
+          snapshotConfirmed: false,
+          lockReleased: false,
+        });
+      return state.dependencies.completeDockerProjectResultDelivery(
+        item.capability,
+        readProjectAcceptance,
+      );
+    },
+  });
+}
+
 const productionRuntime = createRuntime(productionDependencies);
+
+/**
+ * 実行中の元Taskから耐久結果配送の参照を捕捉する。
+ * @responsibility project_runtimeの真正Controlだけを固定結果配送へ接続する。
+ * @trace ARCH-000004
+ * @input controlCapability: 起動結果で受け取った元Control。
+ * @returns 同Processの結果配送閉包、またはnull。
+ * @precondition Task完了によるControl削除前に呼ぶ。
+ * @postcondition 完了後の再捕捉とCLI・Workbenchへの提供を拒否する。
+ * @effect N/A: 捕捉は既存参照だけを保持し、保存や外部処理を行わない。
+ * @failure 偽Control、完了済みControl、別Consumerはnull。
+ * @invariant 新しい台帳・Lock・回復Identityを作らない。
+ * @boundary Taskの実行寿命と上位耐久保存の寿命。
+ * @security 開始・取消・通常回復のAuthorityを返さない。
+ * @concurrency 捕捉後も終端条件を各利用時に再確認する。
+ */
+export function captureRuntimeOwnedCoordinatorTaskResultDelivery(
+  controlCapability: unknown,
+) {
+  return productionRuntime.captureResultDelivery(controlCapability);
+}
 
 /**
  * Runtime 所有 Coordinator Taskを開始する。
  *
  * @responsibility Runtime 所有 Coordinator Taskの開始条件、Effect発行、開始失敗時の終了境界を所有する。
  * @trace ARCH-000004
- * @input rawRequest: unknown、repositoryRoot: unknown、verifiedPackageCapability: unknown、recoveryCorrelationId: unknown
+ * @input Task要求、Repository Root、検証済み実行Capability、回復相関ID、任意のProvider接続用Host Process開始確認と本番組立ての固定利用側。JSON要求から利用側を取得しない。
  * @returns startRuntimeOwnedCoordinatorTaskの計算結果を返す。
  * @precondition 「rawRequest: unknown、repositoryRoot: unknown、verifiedPackageCapability: unknown、recoveryCorrelationId: unknown」がstartRuntimeOwnedCoordinatorTaskの入力契約を満たす。
  * @postcondition startRuntimeOwnedCoordinatorTaskの責務を完了した結果だけを返す。
@@ -3952,7 +4127,25 @@ export function startRuntimeOwnedCoordinatorTask(
   repositoryRoot: unknown,
   verifiedPackageCapability: unknown,
   recoveryCorrelationId: unknown = null,
+  observeProviderStarted?: (
+    notice: ProviderProcessStartedNotice,
+  ) => boolean | Promise<boolean>,
+  consumer:
+    | "coordinator_cli"
+    | "workbench"
+    | "project_runtime" = "coordinator_cli",
 ) {
+  if (
+    consumer !== "coordinator_cli" &&
+    consumer !== "workbench" &&
+    consumer !== "project_runtime"
+  )
+    throw new Error("coordinator_task_consumer_invalid");
+  if (
+    observeProviderStarted !== undefined &&
+    typeof observeProviderStarted !== "function"
+  )
+    throw new Error("coordinator_task_start_observer_invalid");
   if (isRuntimeProcessEffectBlocked()) {
     throw new Error(
       isRuntimeProcessPoisoned()
@@ -3972,6 +4165,8 @@ export function startRuntimeOwnedCoordinatorTask(
     repositoryRoot,
     new Date().toISOString(),
     recoveryCorrelationId,
+    observeProviderStarted,
+    consumer,
   );
 }
 
@@ -4047,7 +4242,7 @@ export function projectDevelopmentTaskResultAfterOuterCleanup(
  *
  * @responsibility Runtime 所有 Development Taskの開始条件、Effect発行、開始失敗時の終了境界を所有する。
  * @trace ARCH-000004
- * @input rawRequest: unknown、repositoryRoot: unknown、sessionCapability: object、candidateDisposition: "discard" | "project_runtime_owned"、recoveryCorrelationId: unknown
+ * @input Task要求、Repository Root、開発Session、候補処置、回復相関IDと任意のProvider接続用Host Process開始確認。
  * @returns startRuntimeOwnedDevelopmentTaskの計算結果を返す。
  * @precondition 「rawRequest: unknown、repositoryRoot: unknown、sessionCapability: object、candidateDisposition: "discard" | "project_runtime_owned"、recoveryCorrelationId: unknown」がstartRuntimeOwnedDevelopmentTaskの入力契約を満たす。
  * @postcondition startRuntimeOwnedDevelopmentTaskの責務を完了した結果だけを返す。
@@ -4064,7 +4259,16 @@ function startRuntimeOwnedDevelopmentTask(
   sessionCapability: object,
   candidateDisposition: "discard" | "project_runtime_owned",
   recoveryCorrelationId: unknown = null,
+  observeProviderStarted?: (
+    notice: ProviderProcessStartedNotice,
+  ) => boolean | Promise<boolean>,
+  consumer: "coordinator_cli" | "project_runtime" = "coordinator_cli",
 ) {
+  if (
+    observeProviderStarted !== undefined &&
+    typeof observeProviderStarted !== "function"
+  )
+    throw new Error("coordinator_task_start_observer_invalid");
   const timing = createDevelopmentExecutionTiming(
     undefined,
     writeDevelopmentMeasurementProgress,
@@ -4150,6 +4354,8 @@ function startRuntimeOwnedDevelopmentTask(
     boundary.repositoryRoot,
     new Date().toISOString(),
     recoveryCorrelationId,
+    observeProviderStarted,
+    consumer,
   );
   const cancel = () => runtime.cancel(started.controlCapability);
   let cancellation: Promise<unknown> | null = null;
@@ -4231,7 +4437,7 @@ function startRuntimeOwnedDevelopmentTask(
  *
  * @responsibility Runtime 所有 Development Coordinator Taskの開始条件、Effect発行、開始失敗時の終了境界を所有する。
  * @trace ARCH-000004
- * @input rawRequest: unknown、repositoryRoot: unknown、sessionCapability: object
+ * @input Task要求、Repository Root、開発Sessionと任意のProvider接続用Host Process開始確認。
  * @returns startRuntimeOwnedDevelopmentCoordinatorTaskの計算結果を返す。
  * @precondition 「rawRequest: unknown、repositoryRoot: unknown、sessionCapability: object」がstartRuntimeOwnedDevelopmentCoordinatorTaskの入力契約を満たす。
  * @postcondition startRuntimeOwnedDevelopmentCoordinatorTaskの責務を完了した結果だけを返す。
@@ -4246,6 +4452,9 @@ export function startRuntimeOwnedDevelopmentCoordinatorTask(
   rawRequest: unknown,
   repositoryRoot: unknown,
   sessionCapability: object,
+  observeProviderStarted?: (
+    notice: ProviderProcessStartedNotice,
+  ) => boolean | Promise<boolean>,
 ) {
   return startRuntimeOwnedDevelopmentTask(
     rawRequest,
@@ -4253,6 +4462,7 @@ export function startRuntimeOwnedDevelopmentCoordinatorTask(
     sessionCapability,
     "discard",
     null,
+    observeProviderStarted,
   );
 }
 
@@ -4261,7 +4471,7 @@ export function startRuntimeOwnedDevelopmentCoordinatorTask(
  *
  * @responsibility Runtime 所有 Development Project Runtime Taskの開始条件、Effect発行、開始失敗時の終了境界を所有する。
  * @trace ARCH-000004
- * @input rawRequest: unknown、repositoryRoot: unknown、sessionCapability: object、recoveryCorrelationId: unknown
+ * @input Task要求、Repository Root、開発Session、回復相関IDと任意のProvider接続用Host Process開始確認。
  * @returns startRuntimeOwnedDevelopmentProjectRuntimeTaskの計算結果を返す。
  * @precondition 「rawRequest: unknown、repositoryRoot: unknown、sessionCapability: object、recoveryCorrelationId: unknown」がstartRuntimeOwnedDevelopmentProjectRuntimeTaskの入力契約を満たす。
  * @postcondition startRuntimeOwnedDevelopmentProjectRuntimeTaskの責務を完了した結果だけを返す。
@@ -4277,6 +4487,9 @@ export function startRuntimeOwnedDevelopmentProjectRuntimeTask(
   repositoryRoot: unknown,
   sessionCapability: object,
   recoveryCorrelationId: unknown = null,
+  observeProviderStarted?: (
+    notice: ProviderProcessStartedNotice,
+  ) => boolean | Promise<boolean>,
 ) {
   const started = startRuntimeOwnedDevelopmentTask(
     rawRequest,
@@ -4284,6 +4497,8 @@ export function startRuntimeOwnedDevelopmentProjectRuntimeTask(
     sessionCapability,
     "project_runtime_owned",
     recoveryCorrelationId,
+    observeProviderStarted,
+    "project_runtime",
   );
   return Object.freeze({
     status: started.status,

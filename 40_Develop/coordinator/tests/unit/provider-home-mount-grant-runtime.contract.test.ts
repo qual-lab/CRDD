@@ -22,6 +22,7 @@ import {
   PROVIDER_HOME_MOUNT_GRANT_RUNTIME_CONTRACT,
   PROVIDER_HOME_MOUNT_GRANT_RUNTIME_CONTRACT_REVISION,
   revokeRuntimeOwnedProviderHomeMountGrant,
+  verifyRuntimeOwnedProviderHomeMountCompletion,
 } from "../../src/provider/provider-home-mount-grant-runtime.ts";
 import { PROVIDER_HOME_MOUNT_GRANT_MAXIMUM_LIFETIME_MS } from "../../src/provider/provider-home-mount-grant.ts";
 
@@ -318,12 +319,54 @@ test("fresh観測でconsumeし、productionから隔離されたMount Authorizat
     h.runtime.revoke(issued.controlCapability, h.managementCapability).reason,
     "provider_home_mount_grant_runtime_unmount_required",
   );
+  const completion = h.runtime.completeMount(
+    activated.activeMountCapability,
+    h.managementCapability,
+  );
+  assert.equal(completion.status, "completed");
+  assert.ok(completion.grant);
+  const completionArguments = [
+    completion,
+    h.managementCapability,
+    activated.activeMountCapability,
+    completion.grant.operationId,
+    completion.grant.stableLogicalHomeBindingHash,
+  ] as const;
+  assert.equal(h.runtime.verifyMountCompletion(...completionArguments), true);
+  assert.equal(h.runtime.verifyMountCompletion(...completionArguments), true);
   assert.equal(
-    h.runtime.completeMount(
-      activated.activeMountCapability,
-      h.managementCapability,
-    ).status,
-    "completed",
+    verifyRuntimeOwnedProviderHomeMountCompletion(...completionArguments),
+    false,
+  );
+  assert.equal(
+    harness().runtime.verifyMountCompletion(...completionArguments),
+    false,
+  );
+  for (const [index, invalid] of [
+    [0, { ...completion }],
+    [0, null],
+    [1, h.otherManagementCapability],
+    [2, Object.freeze({})],
+    [3, "OP-999999"],
+    [4, "f".repeat(64)],
+  ] as const) {
+    const args: [unknown, unknown, unknown, unknown, unknown] = [
+      ...completionArguments,
+    ];
+    args[index] = invalid;
+    assert.equal(h.runtime.verifyMountCompletion(...args), false);
+  }
+  const duplicateCompletion = h.runtime.completeMount(
+    activated.activeMountCapability,
+    h.managementCapability,
+  );
+  assert.equal(duplicateCompletion.status, "blocked");
+  assert.equal(
+    h.runtime.verifyMountCompletion(
+      duplicateCompletion,
+      ...(completionArguments.slice(1) as [unknown, unknown, unknown, unknown]),
+    ),
+    false,
   );
   assert.equal(
     h.runtime.inspectActiveMount(

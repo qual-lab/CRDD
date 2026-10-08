@@ -179,7 +179,13 @@ export type WorkbenchAiAdviceRuntimeDependencies = Readonly<{
   prepareDockerHostCleanup: typeof prepareRuntimeOwnedDockerHostCleanup;
   cleanupOperation: typeof cleanupOwnedOperationDirectoriesAsync;
   classifyOperationCleanup: typeof verifyOwnedOperationCleanupOutcome;
-  recordDockerHostCleanupReceipt: typeof recordRuntimeOwnedDockerHostCleanupReceipt;
+  recordDockerHostCleanupReceipt: (
+    capability: unknown,
+    completion: Readonly<{
+      hostCleanupOutcome: unknown;
+      dockerCompletion: unknown;
+    }>,
+  ) => boolean;
   finalizeDockerRecovery: typeof finalizeRuntimeOwnedDockerRecovery;
   abandonDockerRecovery: typeof abandonRuntimeOwnedDockerRecovery;
   abandonOperation: typeof abandonOwnedHostOperationGenerationLock;
@@ -544,9 +550,11 @@ function createWorkbenchAiAdviceRuntime(
         throw new AdviceRuntimeError(
           "workbench_ai_advice_host_cleanup_intent_unconfirmed",
         );
-      const hostCleanup = dependencies.classifyOperationCleanup(
-        await dependencies.cleanupOperation(operation.owned),
+      const hostCleanupOutcome = await dependencies.cleanupOperation(
+        operation.owned,
       );
+      const hostCleanup =
+        dependencies.classifyOperationCleanup(hostCleanupOutcome);
       if (!hostCleanup)
         throw new AdviceRuntimeError(
           "workbench_ai_advice_operation_cleanup_unconfirmed",
@@ -555,6 +563,7 @@ function createWorkbenchAiAdviceRuntime(
       if (
         !dependencies.recordDockerHostCleanupReceipt(
           recoveryFinalizationCapability,
+          Object.freeze({ hostCleanupOutcome, dockerCompletion: result }),
         ) ||
         dependencies.finalizeDockerRecovery(recoveryFinalizationCapability)
           .status !== "completed"
@@ -565,6 +574,8 @@ function createWorkbenchAiAdviceRuntime(
       recoveryCapability = null;
       recoveryFinalizationCapability = null;
       operation.releaseHostGenerationDrain?.();
+      if (hostCleanup === "protocol_failure_cleanup_confirmed")
+        return blocked("workbench_ai_advice_host_generation_lost", true, true);
       if (providerCompletionReason !== null)
         return blocked(providerCompletionReason, true, true);
       if (adviceJson === null)

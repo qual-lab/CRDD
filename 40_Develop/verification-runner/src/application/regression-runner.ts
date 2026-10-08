@@ -340,7 +340,15 @@ function runNodeTests(
   }> = {},
 ): number {
   if (entries.length === 0) return 0;
-  const root = path.join(repositoryRoot, "40_Develop", owner);
+  const root = path.join(
+    repositoryRoot,
+    "40_Develop",
+    owner === "project-runtime"
+      ? "orchestrator"
+      : owner === "mcp"
+        ? "mcp-server"
+        : owner,
+  );
   const testPaths = entries.map(
     (entry) =>
       `./${path
@@ -458,7 +466,15 @@ function runStaticStage(
     if (owners.has(owner)) {
       const status = runNpmScript(
         "check",
-        path.join(repositoryRoot, "40_Develop", owner),
+        path.join(
+          repositoryRoot,
+          "40_Develop",
+          owner === "project-runtime"
+            ? "orchestrator"
+            : owner === "mcp"
+              ? "mcp-server"
+              : owner,
+        ),
       );
       if (status !== 0) return status;
     }
@@ -614,8 +630,8 @@ export function runRegression(
           "40_Develop/checker/package.json",
           "40_Develop/verification-runner/package.json",
           "40_Develop/execution-intelligence/package.json",
-          "40_Develop/mcp/package.json",
-          "40_Develop/project-runtime/package.json",
+          "40_Develop/mcp-server/package.json",
+          "40_Develop/orchestrator/package.json",
           "40_Develop/version-control/package.json",
           "40_Develop/platform-access/Cargo.toml",
         ]

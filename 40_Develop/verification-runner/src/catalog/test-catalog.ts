@@ -359,7 +359,18 @@ export function discoverRepositoryTestFiles(repositoryRoot: string): string[] {
   ].flatMap((owner) =>
     walkFiles(
       repositoryRoot,
-      path.join(repositoryRoot, "40_Develop", owner, "tests"),
+      path.join(
+        repositoryRoot,
+        "40_Develop",
+        owner === "project-runtime"
+          ? "orchestrator"
+          : owner === "mcp"
+            ? "mcp-server"
+            : owner === "workbench"
+              ? "workbench-server"
+              : owner,
+        "tests",
+      ),
     )
       .filter((file) => file.endsWith(".test.ts"))
       .map((file) => repositoryPath(repositoryRoot, file)),
@@ -414,7 +425,7 @@ function isTestLevel(value: unknown): value is TestLevel {
  */
 function expectedNodeLevel(entryPath: string): string | null {
   return (
-    /^40_Develop\/(?:ai-adapter|artifact-signing|checker|coordinator|domain-model|cros|execution-intelligence|mcp|official-asset-governance|project-runtime|semantic-coverage|verification-runner|version-control|visual-preview|workbench)\/tests\/([^/]+)\//u.exec(
+    /^40_Develop\/(?:ai-adapter|artifact-signing|checker|coordinator|domain-model|cros|execution-intelligence|mcp-server|official-asset-governance|orchestrator|semantic-coverage|verification-runner|version-control|visual-preview|workbench-server)\/tests\/([^/]+)\//u.exec(
       entryPath,
     )?.[1] ?? null
   );
@@ -765,7 +776,9 @@ export function inspectTestCatalog(
       binding.producerPaths.some(
         (entry) =>
           !isSafeRepositoryPath(entry) ||
-          !entry.startsWith(`40_Develop/${binding.producerOwner}/`),
+          !entry.startsWith(
+            `40_Develop/${binding.producerOwner === "project-runtime" ? "orchestrator" : binding.producerOwner === "mcp" ? "mcp-server" : binding.producerOwner === "workbench" ? "workbench-server" : binding.producerOwner}/`,
+          ),
       )
     )
       failures.push(`invalid_consumer_producer_paths:${index}`);
@@ -1051,10 +1064,10 @@ function ownerForPath(changedPath: string): TestCatalogEntry["owner"] | null {
   if (changedPath.startsWith("40_Develop/cros/")) return "cros";
   if (changedPath.startsWith("40_Develop/execution-intelligence/"))
     return "execution-intelligence";
-  if (changedPath.startsWith("40_Develop/mcp/")) return "mcp";
+  if (changedPath.startsWith("40_Develop/mcp-server/")) return "mcp";
   if (changedPath.startsWith("40_Develop/official-asset-governance/"))
     return "official-asset-governance";
-  if (changedPath.startsWith("40_Develop/project-runtime/"))
+  if (changedPath.startsWith("40_Develop/orchestrator/"))
     return "project-runtime";
   if (changedPath.startsWith("40_Develop/semantic-coverage/"))
     return "semantic-coverage";
@@ -1062,7 +1075,8 @@ function ownerForPath(changedPath: string): TestCatalogEntry["owner"] | null {
     return "version-control";
   if (changedPath.startsWith("40_Develop/platform-access/"))
     return "platform-access";
-  if (changedPath.startsWith("40_Develop/workbench/")) return "workbench";
+  if (changedPath.startsWith("40_Develop/workbench-server/"))
+    return "workbench";
   return null;
 }
 

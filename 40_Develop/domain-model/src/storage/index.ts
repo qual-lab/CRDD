@@ -32,3 +32,8 @@ export type {
   TemporaryOperationCapability,
   TemporaryOperationRecoveryReference,
 } from "./types.ts";
+export {
+  readStableBoundedFileSnapshot,
+  sameStableFileIdentity,
+  type StableFileIdentity,
+} from "./bounded-file-snapshot.ts";

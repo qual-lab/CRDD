@@ -11,7 +11,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createProjectRuntimeDecisionCapabilityAdapter } from "../../src/project-runtime/project-runtime-decision-capability-adapter.ts";
+import { createProjectRuntimeDecisionCapabilityAdapter } from "../../../orchestrator/src/index.ts";
 
 /**
  * 判断Capability Adapterは秘密値とHashを別の値として発行するを検証する。

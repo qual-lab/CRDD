@@ -249,23 +249,23 @@ Pathは基準版におけるRepository相対Pathである。同じFileの行を�
 | 40_Develop/coordinator/src/platform-access/platform-provisioner-release-identity.ts | 維持案 | 40_Develop/coordinator/src/platform-access/platform-provisioner-release-identity.ts | 内部配置・本文照合待ち |
 | 40_Develop/coordinator/src/platform-access/platform-provisioner-release-trust.ts | 維持案 | 40_Develop/coordinator/src/platform-access/platform-provisioner-release-trust.ts | 内部配置・本文照合待ち |
 | 40_Develop/coordinator/src/platform-access/platform-provisioner-trust-core.ts | 維持案 | 40_Develop/coordinator/src/platform-access/platform-provisioner-trust-core.ts | 内部配置・本文照合待ち |
-| 40_Develop/coordinator/src/project-runtime/docker-project-recovery-settlement.ts | 関数分割 | orchestratorのProject相関＋coordinator公開単一実行／資源API | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
-| 40_Develop/coordinator/src/project-runtime/execution-intelligence-adapter.ts | 移管・責務整理 | orchestratorの進行／判断／現在状態保存 | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
-| 40_Develop/coordinator/src/project-runtime/project-runtime-acceptance-authority-adapter.ts | 移管・責務整理 | orchestratorの進行／判断／現在状態保存 | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
-| 40_Develop/coordinator/src/project-runtime/project-runtime-acceptance-decision-store.ts | 検証・型移管／旧Writer廃止 | orchestratorのsavedv2検証。旧保存Directoryは再導入しない | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
+| 40_Develop/coordinator/src/project-runtime/docker-project-recovery-settlement.ts | 移管済み | project-runtime/src/task/docker-recovery-settlement.ts（改名後orchestrator） | 上位exact状態照合を物理移管。下位内部資源処置の公開範囲は拡大しない。本番組立ての全移管と段階6確認は未完了 |
+| 40_Develop/coordinator/src/project-runtime/execution-intelligence-adapter.ts | 移管・責務整理 | orchestratorの上位Attempt記録 | 段階5Cで現行project-runtime/src/task/execution-intelligence-adapter.tsへ移管。公開入口へ利用側を接続。親改名・全本番組立ては継続中 |
+| 40_Develop/coordinator/src/project-runtime/project-runtime-acceptance-authority-adapter.ts | 移管・責務整理 | orchestratorの受入判断権限 | 段階5Cで現行project-runtime/src/decision/acceptance-authority-adapter.tsへ移管。公開入口へ本番組立て・試験を接続。親改名・全保存移管は継続中 |
+| 40_Develop/coordinator/src/project-runtime/project-runtime-acceptance-decision-store.ts | 検証・型を移管済み／旧Writer撤去済み | 40_Develop/project-runtime/src/decision/acceptance-decision-record.ts | 試験は現行Snapshot Storeへ切替。保存処理は耐久基盤に一本化し、基盤の物理移管は継続中 |
 | 40_Develop/coordinator/src/project-runtime/project-runtime-candidate-integration-adapter.ts | 関数分割 | orchestratorのProject相関＋coordinator公開単一実行／資源API | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
 | 40_Develop/coordinator/src/project-runtime/project-runtime-composition-root.ts | 移管・責務整理 | orchestratorの進行／判断／現在状態保存 | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
-| 40_Develop/coordinator/src/project-runtime/project-runtime-decision-capability-adapter.ts | 移管・責務整理 | orchestratorの進行／判断／現在状態保存 | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
-| 40_Develop/coordinator/src/project-runtime/project-runtime-decision-recovery-store.ts | 検証・型移管／旧Writer廃止 | orchestratorのsavedv2検証。旧保存Directoryは再導入しない | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
-| 40_Develop/coordinator/src/project-runtime/project-runtime-durable-foundation.ts | 移管・責務整理 | orchestratorの進行／判断／現在状態保存 | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
-| 40_Develop/coordinator/src/project-runtime/project-runtime-execution-authorization-adapter.ts | 関数分割 | orchestratorのProject相関＋coordinator公開単一実行／資源API | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
-| 40_Develop/coordinator/src/project-runtime/project-runtime-execution-host-adapter.ts | 関数分割 | orchestratorのProject相関＋coordinator公開単一実行／資源API | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
+| 40_Develop/coordinator/src/project-runtime/project-runtime-decision-capability-adapter.ts | 移管・責務整理 | orchestratorの人間判断用秘密値・Hash生成 | 段階5Cで現行project-runtime/src/decision/decision-capability-adapter.tsへ移管。全直接利用側を公開入口へ接続し、既存生成・一回判断契約を維持 |
+| 40_Develop/coordinator/src/project-runtime/project-runtime-decision-recovery-store.ts | Intent検証を移管済み／旧Writer撤去済み | 40_Develop/project-runtime/src/decision/decision-recovery-record.ts | 試験は現行Snapshot Storeへ切替。保存処理は耐久基盤に一本化し、基盤の物理移管は継続中 |
+| 40_Develop/coordinator/src/project-runtime/project-runtime-durable-foundation.ts | 移管済み／旧移行Reader・旧Writer・未使用部分形式codec撤去済み | 40_Develop/project-runtime/src/storage/current-state-store.ts | 旧形式移行はフロントAIへ限定。現行読取り・未解決Lease結合・State保存反例・Queue優先順位と実行・再計画の接続を新版Portで確認。保存Root・設定と本番組立ての切替は残件 |
+| 40_Develop/coordinator/src/project-runtime/project-runtime-execution-authorization-adapter.ts | 移管・下位接続維持 | orchestratorのProject相関＋coordinatorのCapability発行・失効 | 段階5Cで現行project-runtime/src/task/execution-authorization-adapter.tsへ移管。下位発行・失効は既存callbackに委譲し、Source閉包と全直接利用側を新Pathへ接続 |
+| 40_Develop/project-runtime/src/task/execution-host-adapter.ts | 関数分割 | orchestratorのProject相関＋coordinator公開単一実行／資源API | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
 | 40_Develop/coordinator/src/project-runtime/project-runtime-history.ts | 移管・責務整理 | orchestratorの進行／判断／現在状態保存 | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
-| 40_Develop/coordinator/src/project-runtime/project-runtime-integration-record-adapter.ts | 検証・型移管／旧Writer廃止 | orchestratorのsavedv2検証。旧保存Directoryは再導入しない | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
+| 40_Develop/coordinator/src/project-runtime/project-runtime-integration-record-adapter.ts | 旧Writer・Reader撤去済み／現行保存へ試験切替 | 40_Develop/project-runtime/src/storage/result-record.ts と storage/types.ts、現行Snapshot保存 | 結果値検査を上位公開入口へ移管し、同一再送・完全な候補ID・衝突拒否を単一状態保存で確認。旧形式移行ReaderはフロントAIの移行方針に従い撤去 |
 | 40_Develop/coordinator/src/project-runtime/project-runtime-objective-intake.ts | 移管・責務整理 | orchestratorの進行／判断／現在状態保存 | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
 | 40_Develop/coordinator/src/project-runtime/project-runtime-public-adapter.ts | 移管・責務整理 | orchestratorの進行／判断／現在状態保存 | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
-| 40_Develop/coordinator/src/project-runtime/project-runtime-single-task-adapter.ts | 関数分割 | orchestratorのProject相関＋coordinator公開単一実行／資源API | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
-| 40_Develop/coordinator/src/project-runtime/project-runtime-task-recovery-adapter.ts | 関数分割 | orchestratorのProject相関＋coordinator公開単一実行／資源API | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
+| 40_Develop/project-runtime/src/task/single-task-adapter.ts | 関数分割 | orchestratorのProject相関＋coordinator公開単一実行／資源API | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
+| 40_Develop/project-runtime/src/task/task-recovery-adapter.ts | 関数分割 | orchestratorのProject相関＋coordinator公開単一実行／資源API | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
 | 40_Develop/coordinator/src/project-runtime/project-runtime-windows-decision-store.ts | 移管・責務整理 | orchestratorの進行／判断／現在状態保存 | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
 | 40_Develop/coordinator/src/project-runtime/project-runtime-windows-platform-adapter.ts | 関数分割 | orchestratorのProject相関＋coordinator公開単一実行／資源API | 本文の19File処置とsavedv2過去保証へ接続済み。内部遷移は段階3・6で照合 |
 | 40_Develop/coordinator/src/provider/claude-docker-runtime-adapter.ts | 関数分割 | ai-adapterの固有記述＋coordinatorの実実行・権限 | 本文のProvider関数表へ接続済み。具体配置・API・反証は段階3で固定 |
@@ -298,7 +298,7 @@ Pathは基準版におけるRepository相対Pathである。同じFileの行を�
 | 40_Develop/coordinator/src/repository-operation/repository-workspace-runtime.ts | 維持案 | 40_Develop/coordinator/src/repository-operation/repository-workspace-runtime.ts | 内部配置・本文照合待ち |
 | 40_Develop/coordinator/src/repository-operation/root-observation.ts | 維持案 | 40_Develop/coordinator/src/repository-operation/root-observation.ts | 内部配置・本文照合待ち |
 | 40_Develop/coordinator/src/repository-operation/root-protection-policy.ts | 維持案 | 40_Develop/coordinator/src/repository-operation/root-protection-policy.ts | 内部配置・本文照合待ち |
-| 40_Develop/coordinator/src/state-storage/bounded-file-snapshot.ts | 維持案 | 40_Develop/coordinator/src/state-storage/bounded-file-snapshot.ts | 内部配置・本文照合待ち |
+| 40_Develop/coordinator/src/state-storage/bounded-file-snapshot.ts | 共通保存部品へ移管 | 40_Develop/domain-model/src/storage/bounded-file-snapshot.ts | 上位状態を持たない安定読取り。利用側はstorage公開入口へ接続 |
 | 40_Develop/coordinator/src/state-storage/coordinator-state-model.ts | 維持案 | 40_Develop/coordinator/src/state-storage/coordinator-state-model.ts | 内部配置・本文照合待ち |
 | 40_Develop/coordinator/src/state-storage/coordinator-state-runtime.ts | 維持案 | 40_Develop/coordinator/src/state-storage/coordinator-state-runtime.ts | 内部配置・本文照合待ち |
 | 40_Develop/coordinator/src/state-storage/docker-recovery-journal.ts | 維持案 | 40_Develop/coordinator/src/state-storage/docker-recovery-journal.ts | 内部配置・本文照合待ち |
@@ -932,12 +932,12 @@ Pathは基準版におけるRepository相対Pathである。同じFileの行を�
 | 40_Develop/coordinator/src/project-runtime/project-runtime-decision-recovery-store.ts | 40_Develop/project-runtime/src/index.ts<br>40_Develop/runtime-data/src/index.ts |
 | 40_Develop/coordinator/src/project-runtime/project-runtime-durable-foundation.ts | 40_Develop/project-runtime/src/boundary/repository-relative-path.ts<br>40_Develop/project-runtime/src/index.ts<br>40_Develop/runtime-data/src/index.ts<br>40_Develop/version-control/src/repository-location.ts |
 | 40_Develop/coordinator/src/project-runtime/project-runtime-execution-authorization-adapter.ts | 40_Develop/project-runtime/src/index.ts |
-| 40_Develop/coordinator/src/project-runtime/project-runtime-execution-host-adapter.ts | 40_Develop/project-runtime/src/index.ts |
+| 40_Develop/project-runtime/src/task/execution-host-adapter.ts | 40_Develop/project-runtime/src/index.ts |
 | 40_Develop/coordinator/src/project-runtime/project-runtime-history.ts | 40_Develop/runtime-data/src/index.ts<br>40_Develop/version-control/src/repository-location.ts |
 | 40_Develop/coordinator/src/project-runtime/project-runtime-integration-record-adapter.ts | 40_Develop/project-runtime/src/index.ts<br>40_Develop/runtime-data/src/index.ts<br>40_Develop/version-control/src/repository-location.ts |
 | 40_Develop/coordinator/src/project-runtime/project-runtime-objective-intake.ts | 40_Develop/project-runtime/src/index.ts |
-| 40_Develop/coordinator/src/project-runtime/project-runtime-single-task-adapter.ts | 40_Develop/project-runtime/src/index.ts |
-| 40_Develop/coordinator/src/project-runtime/project-runtime-task-recovery-adapter.ts | 40_Develop/project-runtime/src/index.ts |
+| 40_Develop/project-runtime/src/task/single-task-adapter.ts | 40_Develop/project-runtime/src/index.ts |
+| 40_Develop/project-runtime/src/task/task-recovery-adapter.ts | 40_Develop/project-runtime/src/index.ts |
 | 40_Develop/coordinator/src/project-runtime/project-runtime-windows-decision-store.ts | 40_Develop/project-runtime/src/index.ts |
 | 40_Develop/coordinator/src/project-runtime/project-runtime-windows-platform-adapter.ts | 40_Develop/project-runtime/src/index.ts<br>40_Develop/version-control/src/repository-location.ts |
 | 40_Develop/coordinator/src/provider/provider-model-profile-runtime.ts | 40_Develop/ai-runtime/src/ai-profile-types.ts<br>40_Develop/ai-runtime/src/catalog.ts |
@@ -1316,5 +1316,5 @@ package数とARCH-IDは一対一ではない。下表は現行18領域の能力�
 - [x] 分割対象の本文・関数責務、全18領域の保持能力・新Owner・過去Evidenceと現在限界を対応させた。公開API確定・Source移管は後続Gateである。
 - [x] package script、子Process、設定、署名、Manifest、Workflowと移行利用側の横断処置を追加し、Runnerの既存実行欠落を識別した。
 - [x] 計画の必須実経路を現在QA項目へ全数対応させ、適用不足・旧義務との不一致と後続Gateを明示した。
-- [ ] OPEN: 段階2・3の正本設計とQuality補強は完了。段階4の独立確認集合は結果統合済みだが、必要な是正と再確認が未完了。棚卸し・設計の完了をSource移管・能力成立へ昇格しない。
+- [ ] OPEN: 段階2・3の正本設計とQuality補強、段階4の固定設計独立確認・是正後再確認は完了。段階5のSource移管を継続中であり、棚卸し・設計の完了を全移管・能力成立へ昇格しない。最新状態は責務対応計画の各段階記録を参照する。
 - [x] N/A: 本表は棚卸し中の計画。Source変更・Runtime試験・外部Effectは発行していない。

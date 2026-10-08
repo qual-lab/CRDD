@@ -7,8 +7,8 @@
  * @scope 新版保存の試験接続。
  * @boundary PRL-IT-005=Direct Boundary: 試験から統合保存。
  */
-import { createCurrentProjectRuntimePersistencePorts } from "../../src/project-runtime/project-runtime-durable-foundation.ts";
-import { createProjectRuntimeState } from "../../../project-runtime/src/index.ts";
+import { createCurrentProjectRuntimePersistencePorts } from "../../../orchestrator/src/storage/current-state-store.ts";
+import { createProjectRuntimeState } from "../../../orchestrator/src/index.ts";
 /**
  * 新版PortのwriteStateを試験から呼ぶ。
  * @responsibility 旧保存方式を使わず既存の検証入力を搬送する。

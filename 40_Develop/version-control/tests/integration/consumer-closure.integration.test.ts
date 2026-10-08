@@ -203,8 +203,8 @@ test("Fixed SnapshotとFixed Revisionの既知Consumer集合が宣言と一致�
       "40_Develop/coordinator/src/external-send/external-send-policy-runtime.ts",
       "40_Develop/coordinator/src/platform-access/platform-provisioner-package-filesystem.ts",
       "40_Develop/coordinator/src/platform-access/platform-provisioner-release-identity.ts",
-      "40_Develop/coordinator/src/project-runtime/project-runtime-candidate-integration-adapter.ts",
       "40_Develop/coordinator/src/repository-operation/repository-workspace-runtime.ts",
+      "40_Develop/orchestrator/src/task/candidate-integration-adapter.ts",
     ],
   );
   assert.deepEqual(
@@ -297,17 +297,17 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
       "40_Develop/coordinator/scripts/verify-signed-general-task.ts",
       "40_Develop/coordinator/scripts/verify-signed-reviewer-boundary.ts",
       "40_Develop/coordinator/scripts/verify-signed-route-matrix.ts",
-      "40_Develop/coordinator/src/project-runtime/project-runtime-composition-root.ts",
+      "40_Develop/orchestrator/src/task/composition-root.ts",
       "40_Develop/coordinator/src/cli/coordinator-command.ts",
       "40_Develop/coordinator/src/diagnostics/doctor.ts",
       "40_Develop/coordinator/scripts/verification-result-record.ts",
       "40_Develop/coordinator/src/external-send/external-send-policy-runtime.ts",
       "40_Develop/coordinator/src/platform-access/platform-provisioner-package-filesystem.ts",
-      "40_Develop/coordinator/src/project-runtime/project-runtime-candidate-integration-adapter.ts",
-      "40_Develop/coordinator/src/project-runtime/project-runtime-durable-foundation.ts",
-      "40_Develop/coordinator/src/project-runtime/project-runtime-history.ts",
-      "40_Develop/coordinator/src/project-runtime/project-runtime-integration-record-adapter.ts",
-      "40_Develop/coordinator/src/project-runtime/project-runtime-windows-platform-adapter.ts",
+      "40_Develop/orchestrator/src/task/candidate-integration-adapter.ts",
+      "40_Develop/orchestrator/src/cli/project-command.ts",
+      "40_Develop/orchestrator/src/storage/current-state-store.ts",
+      "40_Develop/orchestrator/src/storage/history-store.ts",
+      "40_Develop/orchestrator/src/task/windows-platform-adapter.ts",
       "40_Develop/coordinator/src/repository-operation/repository-operation-runtime.ts",
       "40_Develop/coordinator/src/repository-operation/repository-workspace-runtime.ts",
       "40_Develop/coordinator/src/state-storage/coordinator-state-runtime.ts",
@@ -318,10 +318,10 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
       "40_Develop/semantic-coverage/bin/compile-semantic-coverage-pilot.ts",
       "40_Develop/verification-runner/src/execution/regression-execution.ts",
       "40_Develop/visual-preview/src/preview-server.ts",
-      "40_Develop/workbench/bin/workbench.ts",
-      "40_Develop/workbench/src/project-surface.ts",
-      "40_Develop/workbench/src/runtime-activity.ts",
-      "40_Develop/workbench/src/workbench-server.ts",
+      "40_Develop/workbench-server/bin/workbench.ts",
+      "40_Develop/workbench-server/src/project-surface.ts",
+      "40_Develop/workbench-server/src/runtime-activity.ts",
+      "40_Develop/workbench-server/src/workbench-server.ts",
     ].sort(),
   );
   assert.deepEqual(
@@ -501,7 +501,7 @@ test("Local Change Setと狭いVersion Control公開入口のConsumer集合が�
     .sort();
   assert.deepEqual(localChangeSetConsumers, [
     "40_Develop/verification-runner/src/execution/regression-execution.ts",
-    "40_Develop/workbench/src/project-surface.ts",
+    "40_Develop/workbench-server/src/project-surface.ts",
   ]);
 
   const checkerObservationConsumers = sources

@@ -5,6 +5,75 @@
  * @trace ARCH-000015
  */
 import type { OwnedMountPaths } from "../host-runtime/execution-environment.ts";
+import type { WorkbenchAiAdviceRuntimePacket } from "../workbench-ai/workbench-ai-advice-runtime-packet.ts";
+
+/**
+ * 実清掃が確認した一資源の終端観測を搬送する。
+ *
+ * @responsibility 明示未要求、exact不存在と観測不能を区別する。
+ * @trace ARCH-000008
+ * @shape 固定purpose、予定資源名、作成IDと三値の終了観測。
+ * @invariant 欠測を未要求または不存在へ補完しない。
+ * @boundary Docker Effectの回収とCoordinator保存Ownerの間。
+ * @security Authority、認証情報、Host PathまたはProvider本文を含めない。
+ * @compatibility 最新Snapshotの資源別相関へ接続し、集約boolから再構成しない。
+ */
+export type ProviderDockerResourceCleanupObservation = Readonly<{
+  purpose:
+    | "create_egress_network"
+    | "create_internal_network"
+    | "create_provider"
+    | "create_proxy"
+    | "create_subscription_auth_probe";
+  plannedResourceName: string;
+  dockerId: string | null;
+  observation: "not_requested" | "absent" | "unknown";
+}>;
+
+/**
+ * 共通実行計画が照合する消費済みModel選定の値契約。
+ *
+ * @responsibility 操作・Profile・Providerと選定結果の相関を保持する。
+ * @trace ARCH-000015
+ * @shape 選定ID、操作ID、実行Provider、Profile、Model、根拠、努力量、速度と通知。
+ * @invariant 選定の発行・消費は既存Ownerが行い、この型から権限を導出しない。
+ * @boundary 選定OwnerとCoordinatorの実行計画構築の間。
+ * @security 不透明Capabilityや認証情報を含めない。
+ * @compatibility 既存消費結果の使用fieldだけを構造的に受理する。
+ */
+export type ProviderDockerModelSelection = Readonly<{
+  selectionRecordId: string;
+  operationId: string;
+  executorProvider: "codex" | "claude";
+  profileId: string;
+  model: string;
+  basis: unknown;
+  effort: "low" | "medium" | "high";
+  modelTier: string;
+  speedMode: "normal";
+  selectionNotice: string;
+}>;
+
+/**
+ * 共通実行計画へ渡す消費済みTaskの値契約。
+ *
+ * @responsibility 操作・役割・Packet参照とstdin専用入力を保持する。
+ * @trace ARCH-000015
+ * @shape 操作ID、Packet参照・Hash、実行役割、Promptと任意のClaude仕事量。
+ * @invariant Taskと助言を同時に実行する計画へ変換しない。
+ * @boundary Task Packet OwnerとCoordinatorの実行計画構築の間。
+ * @security Promptをcommand引数や公開結果へ移さない。
+ * @compatibility 既存両Providerの消費済みTaskから使用fieldを受け取る。
+ */
+export type ProviderDockerTaskPacket = Readonly<{
+  operationId: string;
+  taskPacketRef: string;
+  taskRole: "executor" | "reviewer";
+  taskWorkload?: unknown;
+  taskPacketHash: string;
+  prompt: string;
+  promptTransport: "provider_stdin_only";
+}>;
 
 /**
  * 準備候補の取消・期限・消費へ必要な値契約。
@@ -268,6 +337,210 @@ export type ProviderDockerPreparationState<
 }>;
 
 /**
+ * Providerで識別する準備済みDocker計画を定義する。
+ *
+ * @responsibility 操作・Home・Packet・Modelと実行コマンドの相関を一つの型Ownerへまとめる。
+ * @trace ARCH-000015
+ * @shape 共通計画fieldとProvider別購読種別、Claudeだけの作業量。
+ * @invariant CodexへClaude作業量を追加せず、発行済みAuthorityと実行成功を区別する。
+ * @boundary CoordinatorのDocker準備・計画・Lifecycleの型境界。
+ * @security Capability、PathとProvider入力を公開・永続化する権限を持たない。
+ * @compatibility 既存Provider別のfield有無と具体型を保持する。
+ */
+export type ProviderDockerPreparedPlan<P extends "codex" | "claude"> =
+  Readonly<{
+    provider: P;
+    operationId: string;
+    recoveryCorrelationId: string | null;
+    consumer: "coordinator_cli" | "workbench" | "project_runtime";
+    grantRef: string;
+    profileId: string;
+    activeMountCapability: object;
+    authorityUseCapability: object;
+    authorityControlCapability: object;
+    providerHomeSourcePath: string;
+    providerHomeIdentityHash: string;
+    providerHomeProtectionHash: string;
+    localUserBindingHash: string;
+    stableLogicalHomeBindingHash: string;
+    preparedWallClockMs: number;
+    preparedMonotonicMs: number;
+    authContainerName: string;
+    providerContainerName: string;
+    proxyContainerName: string;
+    internalNetworkName: string;
+    egressNetworkName: string;
+    ownershipLabel: string;
+    providerImageDigest: string;
+    proxyImageDigest: string;
+    selectionRecordId: string;
+    subscriptionOffering: P extends "codex"
+      ? "chatgpt_subscription_oauth"
+      : "claude_max";
+    selectedModel: string;
+    selectedEffort: "low" | "medium" | "high";
+    selectedModelTier: string;
+    selectionNotice: string;
+    operationMode: "boolean_probe" | "isolated_task" | "workbench_advice";
+    taskRole: "executor" | "reviewer" | null;
+    taskPacketRef: string | null;
+    taskPacketHash: string | null;
+    advicePacketRef: string | null;
+    advicePacketHash: string | null;
+    adviceCommandHash: string | null;
+    providerInput: string | null;
+    workspaceSourcePath: string | null;
+    workspaceMountMode: "read_write" | "read_only" | null;
+    commands: readonly ProviderDockerCommand[];
+  }> &
+    (P extends "claude"
+      ? Readonly<{ taskWorkload: unknown }>
+      : Readonly<Record<never, never>>);
+
+/**
+ * 準備Ownerが消費したModel選定の完全な値契約を定義する。
+ *
+ * @responsibility 共通計画の使用fieldと既存の委譲相関fieldを保持する。
+ * @trace ARCH-000015
+ * @shape 選定値、Front Provider、routeと委譲深度。
+ * @invariant 選定の消費・再選定判断を型宣言から発行しない。
+ * @boundary CoordinatorのDocker準備・計画・Lifecycleの型境界。
+ * @security Capability、PathとProvider入力を公開・永続化する権限を持たない。
+ * @compatibility 既存Provider別のfield有無と具体型を保持する。
+ */
+export type ProviderDockerConsumedModelSelection =
+  ProviderDockerModelSelection &
+    Readonly<{
+      frontProvider: "codex" | "claude";
+      route: string;
+      delegationDepth: number;
+    }>;
+
+/**
+ * Providerごとの消費済みTask Packetを定義する。
+ *
+ * @responsibility stdin専用本文とProvider固有作業量の既存field有無を保持する。
+ * @trace ARCH-000015
+ * @shape 共通PacketとClaudeだけに必要なtaskWorkload。
+ * @invariant 同じ操作・役割のPacket以外へ付け替えない。
+ * @boundary CoordinatorのDocker準備・計画・Lifecycleの型境界。
+ * @security Capability、PathとProvider入力を公開・永続化する権限を持たない。
+ * @compatibility 既存Provider別のfield有無と具体型を保持する。
+ */
+export type ProviderDockerConsumedTaskPacket<P extends "codex" | "claude"> =
+  Omit<ProviderDockerTaskPacket, "taskWorkload"> &
+    (P extends "claude"
+      ? Readonly<{ taskWorkload: unknown }>
+      : Readonly<Record<never, never>>);
+
+/**
+ * 共通Docker準備のProvider別状態を定義する。
+ *
+ * @responsibility 同じ準備操作群に独立した候補Storeと具体計画型を接続する。
+ * @trace ARCH-000015
+ * @shape 共通準備状態、乱数と任意の固定Seccomp検証。
+ * @invariant ProviderごとのStoreと管理対応を共有せず、取消後に再利用しない。
+ * @boundary CoordinatorのDocker準備・計画・Lifecycleの型境界。
+ * @security Capability、PathとProvider入力を公開・永続化する権限を持たない。
+ * @compatibility 既存Provider別のfield有無と具体型を保持する。
+ */
+export type ProviderDockerRuntimeStateBase<P extends "codex" | "claude"> =
+  ProviderDockerPreparationState<
+    ProviderDockerConsumedModelSelection,
+    ProviderDockerConsumedTaskPacket<P>,
+    WorkbenchAiAdviceRuntimePacket,
+    Omit<
+      ProviderDockerPreparedPlan<P>,
+      "authorityUseCapability" | "authorityControlCapability"
+    >
+  > &
+    ProviderDockerRandomSource;
+
+/**
+ * 共通状態に固定Providerの計画検証依存を加える。
+ *
+ * @responsibility 共通Store契約とProvider固有依存の型境界を保持する。
+ * @trace ARCH-000015
+ * @shape 共通状態とCodexだけの固定Seccomp検証。
+ * @invariant Storeと公開結果のProvider相関を維持する。
+ * @boundary 共通準備とProvider固有計画の間。
+ * @security 検証依存からAuthorityを生成しない。
+ * @compatibility 既存Providerの依存fieldを保持する。
+ */
+export type ProviderDockerRuntimeState<P extends "codex" | "claude"> =
+  ProviderDockerRuntimeStateBase<P> &
+    (P extends "codex"
+      ? Readonly<{
+          verifyExecutorSeccompProfile?: (
+            expectedSha256: string,
+            expectedBytes: number,
+          ) => string | null;
+        }>
+      : Readonly<Record<never, never>>);
+
+/**
+ * 共通準備Runtimeへ渡す固定Provider依存を定義する。
+ *
+ * @responsibility 状態Storeを外から渡さず既存操作だけを受け取る。
+ * @trace ARCH-000015
+ * @shape Provider別RuntimeStateから二Storeを除いた依存。
+ * @invariant 候補Storeの共有や持込みを型の入力契約にしない。
+ * @boundary 共通準備Runtimeと本番・局所試験の組立て境界。
+ * @security Capabilityをこの型から生成・永続化しない。
+ * @compatibility 既存二ProviderのFactory依存を維持する。
+ */
+export type ProviderDockerRuntimeDependencies<P extends "codex" | "claude"> =
+  Omit<
+    ProviderDockerRuntimeStateBase<P>,
+    "prepared" | "managementCapabilities"
+  > &
+    Pick<
+      ProviderDockerRuntimeState<P>,
+      Exclude<
+        keyof ProviderDockerRuntimeState<P>,
+        keyof ProviderDockerRuntimeStateBase<P>
+      >
+    >;
+
+/**
+ * 照合済みDocker準備候補の公開結果を定義する。
+ *
+ * @responsibility 内部計画と公開可能な準備結果の境界を固定する。
+ * @trace ARCH-000015
+ * @shape 準備参照、操作・選定値、Lease状態とEffect前の固定値。Claudeだけに作業量を持つ。
+ * @invariant preparedをProvider実行完了へ読み替えない。
+ * @boundary 準備Storeと既存利用側の結果境界。
+ * @security Path、秘密、commandと内部Authorityを公開しない。
+ * @compatibility Provider別結果のfield有無と値を維持する。
+ */
+export type ProviderDockerPreparedResult<P extends "codex" | "claude"> =
+  Readonly<{
+    status: "prepared";
+    reason: string;
+    preparedCapability: object;
+    operationId: string;
+    grantRef: string;
+    selectionRecordId: string;
+    selectedModel: string;
+    selectedEffort: "low" | "medium" | "high";
+    selectedModelTier: string;
+    selectionNotice: string;
+    providerHomeMountLeaseActive: true;
+    dockerEffectIssued: false;
+    filesystemEffectIssued: false;
+    networkEffectIssued: false;
+    processEffectIssued: false;
+    providerRequestIssued: false;
+    runtimeAuthorityIssued: false;
+    operationCapabilityIssued: false;
+    hostPathReported: false;
+    proxyCredentialReported: false;
+  }> &
+    (P extends "claude"
+      ? Readonly<{ taskWorkload: unknown }>
+      : Readonly<Record<never, never>>);
+
+/**
  * 二Providerの具体計画・局所検査・公開値生成を接続する型契約。
  *
  * @responsibility 共通準備の順序を変えず、具体値型と既存結果を保持する。
@@ -301,6 +574,7 @@ export type ProviderDockerPreparationCallbacks<
     task: T | null,
     advice: A | null,
     recoveryCorrelationId: string | null,
+    consumer: "coordinator_cli" | "workbench" | "project_runtime",
   ) => P | null;
   preparedResult: (
     plan: P & ProviderDockerPreparedAuthority,

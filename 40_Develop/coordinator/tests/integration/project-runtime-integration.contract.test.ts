@@ -22,12 +22,12 @@ import {
   initializeProjectRuntimeSnapshot,
   readProjectRuntimeSnapshot,
   createProjectRuntimeSnapshotIntegrationRecordPort as createProjectRuntimeIntegrationRecordAdapter,
-} from "../../src/project-runtime/project-runtime-durable-foundation.ts";
+} from "../../../orchestrator/src/storage/current-state-store.ts";
 import { readProjectOperationQueueState } from "../fixtures/project-runtime-current-ports.ts";
-import { integrateProjectRuntimeOperation } from "../../../project-runtime/src/index.ts";
-import { inspectMcpProjectRuntimeObjectiveResult } from "../../../mcp/src/index.ts";
-import { runProjectRuntimeObjective } from "../../src/project-runtime/project-runtime-objective-intake.ts";
-import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../src/project-runtime/project-runtime-execution-authorization-adapter.ts";
+import { integrateProjectRuntimeOperation } from "../../../orchestrator/src/index.ts";
+import { inspectMcpProjectRuntimeObjectiveResult } from "../../../mcp-server/src/index.ts";
+import { runProjectRuntimeObjective } from "../../../orchestrator/src/task/objective-intake.ts";
+import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../../orchestrator/src/index.ts";
 
 const revision = "a".repeat(40);
 /**
@@ -468,7 +468,7 @@ test("canonical adoption preserves malformed acquisition evidence and exposes it
   assert.equal(fs.existsSync(signal), true);
   child.kill();
   await new Promise<void>((resolve) => child.once("exit", () => resolve()));
-  const leaseRoot = path.join(root, ".crdd", "tmp", "project-runtime-leases");
+  const leaseRoot = path.join(root, ".crdd", "tmp", "orchestrator-leases");
   const names = fs
     .readdirSync(leaseRoot)
     .filter((name) => name.endsWith(".lock"));

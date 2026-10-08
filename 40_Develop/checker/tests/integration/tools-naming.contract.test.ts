@@ -35,8 +35,11 @@ import {
   isGetAccessorDeclaration,
   isIdentifier,
   isInterfaceDeclaration,
+  isImportDeclaration,
   isMethodDeclaration,
   isNewExpression,
+  isNamedImports,
+  isNamedExports,
   isNonNullExpression,
   isNoSubstitutionTemplateLiteral,
   isObjectLiteralExpression,
@@ -220,9 +223,9 @@ const sourceOwnershipRoots = Object.freeze([
   path.join(repositoryRoot, "40_Develop", "domain-model"),
   path.join(repositoryRoot, "40_Develop", "cros"),
   path.join(repositoryRoot, "40_Develop", "execution-intelligence"),
-  path.join(repositoryRoot, "40_Develop", "mcp"),
+  path.join(repositoryRoot, "40_Develop", "mcp-server"),
   path.join(repositoryRoot, "40_Develop", "official-asset-governance"),
-  path.join(repositoryRoot, "40_Develop", "project-runtime"),
+  path.join(repositoryRoot, "40_Develop", "orchestrator"),
   path.join(repositoryRoot, "40_Develop", "semantic-coverage"),
   path.join(repositoryRoot, "40_Develop", "verification-runner"),
   path.join(repositoryRoot, "40_Develop", "version-control"),
@@ -261,7 +264,7 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     expectedTrace: "ARCH-000004",
     requiredTags: ["boundary", "effect", "security"],
     exportedModules: [
-      "./project-runtime/project-runtime-public-adapter.ts",
+      "./task/index.ts",
       "./host-runtime/node-runtime-version.ts",
     ],
   },
@@ -305,6 +308,7 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     expectedTrace: "ARCH-000011",
     requiredTags: ["boundary", "effect", "security"],
     exportedModules: [
+      "./bounded-file-snapshot.ts",
       "./filesystem-store-root.ts",
       "./runtime-data-area.ts",
       "./temporary-operation-store.ts",
@@ -356,7 +360,7 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     ],
   },
   {
-    relativePath: "40_Develop/mcp/src/index.ts",
+    relativePath: "40_Develop/mcp-server/src/index.ts",
     expectedTrace: "ARCH-000012",
     requiredTags: ["boundary", "concurrency", "effect", "security"],
     exportedModules: [
@@ -419,7 +423,7 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     ],
   },
   {
-    relativePath: "40_Develop/project-runtime/src/index.ts",
+    relativePath: "40_Develop/orchestrator/src/index.ts",
     expectedTrace: "ARCH-000004",
     requiredTags: ["boundary", "concurrency", "effect", "security"],
     exportedModules: [
@@ -434,6 +438,10 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./application/project-runtime-state-query.ts",
       "./core/project-runtime-queue.ts",
       "./core/project-runtime-state.ts",
+      "./decision/acceptance-authority-adapter.ts",
+      "./decision/acceptance-decision-record.ts",
+      "./decision/decision-capability-adapter.ts",
+      "./decision/decision-recovery-record.ts",
       "./ports/acceptance-decision-port.ts",
       "./ports/candidate-port.ts",
       "./ports/clock-identity-port.ts",
@@ -454,7 +462,42 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./public-contract/objective-request.ts",
       "./public-contract/project-state-query.ts",
       "./public-contract/runtime-result.ts",
+      "./storage/result-record.ts",
+      "./storage/types.ts",
+      "./task/execution-authorization-adapter.ts",
+      "./task/execution-host-adapter.ts",
+      "./task/execution-intelligence-adapter.ts",
+      "./task/single-task-adapter.ts",
+      "./task/task-recovery-adapter.ts",
     ],
+  },
+  {
+    relativePath: "40_Develop/coordinator/src/host-runtime/index.ts",
+    expectedTrace: "ARCH-000004",
+    requiredTags: [],
+    exportedModules: ["./candidate-store-kernel-lock.ts"],
+  },
+  {
+    relativePath: "40_Develop/coordinator/src/task/index.ts",
+    expectedTrace: "ARCH-000004",
+    requiredTags: ["boundary", "effect", "security"],
+    exportedModules: [
+      "./task-attempt-runtime.ts",
+      "./types.ts",
+      "../host-runtime/runtime-process-safety-state.ts",
+    ],
+  },
+  {
+    relativePath: "40_Develop/orchestrator/src/storage/index.ts",
+    expectedTrace: "ARCH-000004",
+    requiredTags: [],
+    exportedModules: ["./current-state-store.ts"],
+  },
+  {
+    relativePath: "40_Develop/orchestrator/src/task/public-adapter.ts",
+    expectedTrace: "ARCH-000004",
+    requiredTags: ["boundary", "effect", "security"],
+    exportedModules: [],
   },
   {
     relativePath: "40_Develop/domain-model/src/configuration/index.ts",
@@ -546,8 +589,8 @@ const projectConfigs = Object.freeze([
     "execution-intelligence",
     "tsconfig.json",
   ),
-  path.join(repositoryRoot, "40_Develop", "project-runtime", "tsconfig.json"),
-  path.join(repositoryRoot, "40_Develop", "mcp", "tsconfig.json"),
+  path.join(repositoryRoot, "40_Develop", "orchestrator", "tsconfig.json"),
+  path.join(repositoryRoot, "40_Develop", "mcp-server", "tsconfig.json"),
   path.join(
     repositoryRoot,
     "40_Develop",
@@ -1193,11 +1236,6 @@ function assertFileName(file: string): void {
       name,
       AMBIGUOUS_SOURCE_FILE,
       `TypeScript filename must express its owned responsibility: ${file}`,
-    );
-    assert.doesNotMatch(
-      name,
-      BARE_TYPES_SOURCE_FILE,
-      `TypeScript type collection must include its responsibility: ${file}`,
     );
     return;
   }
@@ -2944,6 +2982,61 @@ function inspectResponsibilityHeader(
 }
 
 /**
+ * types.tsが型契約だけを所有することを構文から確認する。
+ * @responsibility 型宣言と型専用Import／Exportを許可し、実行値の混在を拒否する。
+ * @trace RCM-IT-005
+ * @precondition 固定TypeScript APIが取得したSourceFileを渡す。
+ * @stimulus 全ての最上位文の構文種別を照合する。
+ * @observation 型宣言数と実行値・副作用を持つ文の有無。
+ * @oracle 型宣言を一つ以上持ち、全ての文が型専用の閉集合に属する場合だけ受理する。
+ * @cleanup N/A: 構文の読取りだけで資源を作成しない。
+ * @boundary RCM-IT-005=Direct Boundary: Source構文→型専用配置規則。
+ */
+function assertTypeOnlySourceFile(sourceFile: SourceFile): void {
+  let typeDeclarationCount = 0;
+  for (const statement of sourceFile.statements) {
+    if (
+      isInterfaceDeclaration(statement) ||
+      isTypeAliasDeclaration(statement)
+    ) {
+      typeDeclarationCount += 1;
+      continue;
+    }
+    if (isImportDeclaration(statement)) {
+      const clause = statement.importClause;
+      if (clause?.phaseModifier === SyntaxKind.TypeKeyword) continue;
+      const bindings = clause?.namedBindings;
+      if (
+        !clause?.name &&
+        bindings &&
+        isNamedImports(bindings) &&
+        bindings.elements.length > 0 &&
+        bindings.elements.every((element) => element.isTypeOnly)
+      )
+        continue;
+    }
+    if (isExportDeclaration(statement)) {
+      if (statement.isTypeOnly) continue;
+      const clause = statement.exportClause;
+      if (
+        clause &&
+        isNamedExports(clause) &&
+        clause.elements.length > 0 &&
+        clause.elements.every((element) => element.isTypeOnly)
+      )
+        continue;
+    }
+    assert.fail(
+      `types.ts must contain type-only declarations: ${sourceFile.fileName}:${statement.getStart()}`,
+    );
+  }
+  assert.ok(
+    typeDeclarationCount > 0,
+    `types.ts must declare an owned type: ${sourceFile.fileName}`,
+  );
+}
+
+/**
  * inspectSourceFileのTest準備責務を実行する。
  *
  * @responsibility inspectSourceFileがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
@@ -2960,6 +3053,8 @@ function inspectSourceFile(
   checker: Checker,
   ownershipRoots: readonly string[] = sourceOwnershipRoots,
 ): NamingViolation[] {
+  if (path.basename(sourceFile.fileName) === "types.ts")
+    assertTypeOnlySourceFile(sourceFile);
   const violations: NamingViolation[] = [
     ...inspectProductionFileHeader(sourceFile),
   ];
@@ -3525,18 +3620,18 @@ test("40_Develop配下のREADMEを拒否し、説明の正本分離を維持す�
 });
 
 /**
- * Source Fileは曖昧な責務名と裸のtypesを使用しないを検証する。
+ * Source Fileの曖昧名を拒否し、型専用名の内容検査を分離する。
  *
- * @responsibility Source Fileは曖昧な責務名と裸のtypesを使用しないの合否判定を所有する。
+ * @responsibility 曖昧なSource名の拒否とtypes.tsの構文検査への分離を確認する。
  * @trace RCM-IT-005
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Source Fileは曖昧な責務名と裸のtypesを使用しないの対象操作を実行する。
+ * @stimulus 責務名、曖昧名、types.tsとtypes.tsxを命名判定へ渡す。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
-test("Source Fileは曖昧な責務名と裸のtypesを使用しない", () => {
+test("Source Fileは曖昧な責務名を拒否し、types.tsは内容検査へ渡す", () => {
   for (const validName of [
     "runtime-state-model.ts",
     "provider-types.ts",
@@ -3546,6 +3641,7 @@ test("Source Fileは曖昧な責務名と裸のtypesを使用しない", () => {
     "runtime-context-factory.ts",
     "checker-pipeline.ts",
     "semantic-coverage.ts",
+    "types.ts",
   ])
     assert.doesNotThrow(() =>
       assertFileName(
@@ -3553,7 +3649,7 @@ test("Source Fileは曖昧な責務名と裸のtypesを使用しない", () => {
       ),
     );
   for (const invalidName of [
-    "types.ts",
+    "types.tsx",
     "runtime-utils.ts",
     "runtime-helper.ts",
     "runtime-common.ts",
@@ -3566,6 +3662,110 @@ test("Source Fileは曖昧な責務名と裸のtypesを使用しない", () => {
         ),
       /must express its owned responsibility|must include its responsibility/u,
     );
+});
+
+/**
+ * 型専用Fileに実行値を混在させる反例を拒否する。
+ * @responsibility types.tsの許可構文と副作用・値・空集合の拒否を確認する。
+ * @trace RCM-IT-005
+ * @precondition Repository-local tests Rootが実Directoryである。
+ * @stimulus 型宣言、型Import／Export、定数、関数、Class、namespace、副作用Importと値Exportを解析する。
+ * @observation 固定TypeScript APIから取得した各Sourceの受理または拒否。
+ * @oracle 型宣言を持つ型専用構文だけを受理し、未知の文は拒否する。
+ * @cleanup 自己生成したexact Rootを回収し不存在を確認する。
+ * @boundary RCM-IT-005=Direct Boundary: TypeScript AST→型専用配置規則。
+ */
+test("types.tsは型宣言だけを許可し実行値と空集合を拒否する", () => {
+  const parent = path.join(repositoryRoot, ".crdd", "tests");
+  assert.equal(fs.lstatSync(parent).isSymbolicLink(), false);
+  assert.equal(fs.lstatSync(parent).isDirectory(), true);
+  assert.equal(fs.realpathSync.native(parent), parent);
+  const root = fs.mkdtempSync(path.join(parent, "types-contract-"));
+  const cases = [
+    { valid: true, body: "export interface Contract { value: string }" },
+    {
+      valid: true,
+      body: "export type Contract = Readonly<{ value: string }>;",
+    },
+    {
+      valid: true,
+      body: 'import type { Value } from "./dependency.ts"; export type Contract = Value;',
+    },
+    {
+      valid: true,
+      body: 'import type Value from "./dependency.ts"; export type Contract = Value;',
+    },
+    {
+      valid: true,
+      body: 'import type * as Dependency from "./dependency.ts"; export type Contract = Dependency.Value;',
+    },
+    {
+      valid: true,
+      body: 'import { type Value } from "./dependency.ts"; export interface Contract {} export { type Value };',
+    },
+    {
+      valid: true,
+      body: 'export interface Contract {} export type * from "./dependency.ts";',
+    },
+    ...[
+      "",
+      "export const VALUE = 1;",
+      "export function operation() {}",
+      "export class Contract {}",
+      "declare const VALUE: string;",
+      "export namespace Contract {}",
+      "export enum Contract { Value }",
+      'import "./effect.ts"; export interface Contract {}',
+      'import { Value } from "./dependency.ts"; export type Contract = typeof Value;',
+      'export interface Contract {} export { Value } from "./dependency.ts";',
+      'export interface Contract {} export * from "./dependency.ts";',
+      "export interface Contract {} void 0;",
+      "export type Contract = string; export {};",
+    ].map((body) => ({ valid: false, body })),
+  ];
+  try {
+    const files = cases.map((fixture, index) => {
+      const file = path.join(root, `fixture-${index}.ts`);
+      fs.writeFileSync(file, fixture.body);
+      return file;
+    });
+    const config = path.join(root, "tsconfig.json");
+    fs.writeFileSync(
+      config,
+      JSON.stringify({
+        compilerOptions: { module: "NodeNext", target: "ESNext" },
+        files,
+      }),
+    );
+    const api = new API({ cwd: checkerRoot });
+    try {
+      const snapshot = api.updateSnapshot({ openProjects: [config] });
+      try {
+        const project = snapshot.getProjects()[0];
+        assert.ok(project);
+        for (const [index, fixture] of cases.entries()) {
+          const source = project.program.getSourceFile(files[index]);
+          assert.ok(source);
+          if (fixture.valid)
+            assert.doesNotThrow(() => assertTypeOnlySourceFile(source));
+          else
+            assert.throws(
+              () => assertTypeOnlySourceFile(source),
+              /types\.ts must/u,
+            );
+        }
+      } finally {
+        snapshot.dispose();
+      }
+    } finally {
+      api.close();
+    }
+  } finally {
+    assert.equal(fs.realpathSync.native(root), root);
+    assert.equal(path.dirname(root), parent);
+    fs.rmSync(root, { recursive: true });
+    assert.equal(fs.existsSync(root), false);
+  }
 });
 
 /**
@@ -3827,7 +4027,15 @@ test("公開indexは設計由来の説明と明示的なExport Allowlistを持�
       profile,
     );
 
-  const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-index-"));
+  const fixtureParent = path.join(repositoryRoot, ".crdd", "tests");
+  for (const directory of [path.dirname(fixtureParent), fixtureParent]) {
+    if (!fs.existsSync(directory)) fs.mkdirSync(directory);
+    const stat = fs.lstatSync(directory);
+    assert.equal(stat.isDirectory() && !stat.isSymbolicLink(), true);
+  }
+  const temporaryRoot = fs.mkdtempSync(
+    path.join(fixtureParent, "checker-index-"),
+  );
   try {
     const invalidIndex = path.join(temporaryRoot, "index.ts");
     fs.writeFileSync(
@@ -3943,6 +4151,7 @@ test("公開indexは設計由来の説明と明示的なExport Allowlistを持�
     );
   } finally {
     fs.rmSync(temporaryRoot, { force: true, recursive: true });
+    if (fs.readdirSync(fixtureParent).length === 0) fs.rmdirSync(fixtureParent);
   }
 });
 

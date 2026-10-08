@@ -1,20 +1,19 @@
 /**
- * Coordinatorが外部利用者へ公開するProject Runtime操作境界。
+ * Coordinatorが上位利用側へ公開する単一Taskの実行境界。
  * @packageDocumentation
- * @responsibility 認証済み主体の要求を公開Contractへ接続する。
+ * @responsibility 共通Taskの開始・取消・完了とNode実行条件を公開する。
  * @trace ARCH-000004
- * @boundary 利用者入口とCoordinator Runtimeの境界。
- * @effect 許可されたProject Runtime操作から状態更新または外部実行を発行し得る。
- * @security 観測済み主体と許可されたOperationだけをRuntimeへ接続する。
+ * @boundary Orchestrator等の上位利用側とCoordinator単一Taskの境界。
+ * @effect 検証済み入力の単一Task実行を既存Runtimeへ委譲する。
+ * @security 上位業務状態を読み込まず、不透明な実行Capabilityの検証を維持する。
  */
 export {
-  executeProjectRuntimePublicAcceptanceDecision,
-  executeProjectRuntimePublicStateQuery,
-  observeRuntimeOwnedProjectClientPrincipal,
-  runProjectRuntimePublicAcceptanceDecision,
-  runProjectRuntimePublicDecision,
-  runProjectRuntimePublicObjective,
-  runProjectRuntimePublicStateQuery,
-} from "./project-runtime/project-runtime-public-adapter.ts";
+  runCoordinatorTaskAttempt,
+  COORDINATOR_TASK_PRE_EFFECT_REJECTIONS,
+  type CoordinatorTaskDependencies,
+  type CoordinatorTaskAttemptInput,
+  type CoordinatorTaskAttemptResult,
+  type CoordinatorTaskRecoveryObligation,
+} from "./task/index.ts";
 
 export { isSupportedCoordinatorNodeRuntime } from "./host-runtime/node-runtime-version.ts";

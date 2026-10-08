@@ -17,18 +17,16 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { renderDockerRecoveryDoctorReport } from "../../src/diagnostics/docker-recovery-command-report.ts";
-import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "../../src/host-runtime/candidate-store-kernel-lock.ts";
 import { describeCodexAdviceDistributionIdentity } from "../../../ai-adapter/src/codex/index.ts";
+import { collectDockerRecoveryAcknowledgementAfterProjectRecord } from "../../../orchestrator/src/task/docker-recovery-settlement.ts";
+import { renderDockerRecoveryDoctorReport } from "../../src/diagnostics/docker-recovery-command-report.ts";
 import {
-  dockerRecoveryCommitName,
-  inspectDockerRecoveryJournalDirectory,
-  moveCommittedDockerRecoveryJson,
-  readCommittedDockerRecoveryJson,
-  removeCommittedDockerRecoveryJson,
-  resumeDockerRecoveryJournalDirectoryForRecovery,
-  writeCommittedDockerRecoveryJson,
-} from "../../src/state-storage/docker-recovery-journal.ts";
+  createDockerRestartContinuationRecord,
+  createDockerRestartMigratedPhase,
+  createDockerRestartMigrationRecord,
+} from "../../src/docker-desktop/docker-restart-continuation-record.ts";
+import { createDockerRestartHandoffRecord } from "../../src/docker-desktop/docker-restart-handoff-record.ts";
+import { createDockerRestartRecord } from "../../src/docker-desktop/docker-restart-record.ts";
 import * as DockerRecoveryRuntime from "../../src/docker-runtime/docker-recovery-runtime.ts";
 import {
   abandonRuntimeOwnedDockerRecovery,
@@ -54,15 +52,10 @@ import {
   releaseRuntimeOwnedDockerRestartPreparation,
   resolveRuntimeOwnedDockerTaskRecoveryCorrelationsFromVerifiedRootWithObserver,
   selectPendingDockerSubmissionNamesFromInventory,
+  verifyRuntimeOwnedDockerHomeLeaseRelease,
   verifyRuntimeOwnedDockerRestartPreparation,
 } from "../../src/docker-runtime/docker-recovery-runtime-internal.ts";
-import {
-  createDockerRestartContinuationRecord,
-  createDockerRestartMigratedPhase,
-  createDockerRestartMigrationRecord,
-} from "../../src/docker-desktop/docker-restart-continuation-record.ts";
-import { createDockerRestartHandoffRecord } from "../../src/docker-desktop/docker-restart-handoff-record.ts";
-import { createDockerRestartRecord } from "../../src/docker-desktop/docker-restart-record.ts";
+import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "../../src/host-runtime/candidate-store-kernel-lock.ts";
 import {
   abandonOwnedHostOperationGenerationLock,
   acquireHostOperationRecoveryGenerationByIdentity,
@@ -79,6 +72,15 @@ import {
   loadHostRecoveryRecordByToken,
   parseHostRecoveryToken,
 } from "../../src/host-runtime/host-recovery-record.ts";
+import {
+  dockerRecoveryCommitName,
+  inspectDockerRecoveryJournalDirectory,
+  moveCommittedDockerRecoveryJson,
+  readCommittedDockerRecoveryJson,
+  removeCommittedDockerRecoveryJson,
+  resumeDockerRecoveryJournalDirectoryForRecovery,
+  writeCommittedDockerRecoveryJson,
+} from "../../src/state-storage/docker-recovery-journal.ts";
 import {
   assertRuntimeTraceCase,
   assertRuntimeTraceExecutionCoverage,
@@ -208,7 +210,7 @@ test("Project記録後のDocker確認資源回収は入れ子accessorとProxyを
     },
   });
   assert.deepEqual(
-    DockerRecoveryRuntime.collectDockerRecoveryAcknowledgementAfterProjectRecord(
+    collectDockerRecoveryAcknowledgementAfterProjectRecord(
       accessorInput as never,
     ),
     {
@@ -226,9 +228,10 @@ test("Project記録後のDocker確認資源回収は入れ子accessorとProxyを
     },
   );
   assert.deepEqual(
-    DockerRecoveryRuntime.collectDockerRecoveryAcknowledgementAfterProjectRecord(
-      { ...input, acknowledgement: proxy },
-    ),
+    collectDockerRecoveryAcknowledgementAfterProjectRecord({
+      ...input,
+      acknowledgement: proxy,
+    }),
     {
       status: "blocked",
       reason: "docker_task_recovery_acknowledgement_gc_authority_invalid",
@@ -280,9 +283,7 @@ test("Project記録後のDocker確認資源回収はfile identityをhashと誤�
     },
   };
   assert.deepEqual(
-    DockerRecoveryRuntime.collectDockerRecoveryAcknowledgementAfterProjectRecord(
-      input,
-    ),
+    collectDockerRecoveryAcknowledgementAfterProjectRecord(input),
     {
       status: "blocked",
       reason: "docker_task_recovery_acknowledgement_gc_not_verified",
@@ -1377,6 +1378,7 @@ test("Desktop修復namespaceはTask残件を隠さず未知名と型置換を拒
 function productionPlan(operationId: string, stableHome: string) {
   return Object.freeze({
     provider: "claude" as const,
+    consumer: "project_runtime" as const,
     operationId,
     grantRef: "PHMGRANT-123456",
     profileId: "PROFILE-123456",
@@ -2091,6 +2093,7 @@ function createKilledFullProductionRecoveryRoot(
         ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
         providerImageDigest: advice ? ${JSON.stringify(describeCodexAdviceDistributionIdentity().fixedImageDigest)} : "sha256:" + "a".repeat(64),
         proxyImageDigest: "sha256:" + "b".repeat(64),
+        consumer: advice ? "workbench" : "project_runtime",
         operationMode: advice ? "workbench_advice" : "isolated_task",
         workspaceMountMode: "read_write",
         ...(recoveryCorrelationId ? { recoveryCorrelationId } : {}),
@@ -3044,6 +3047,67 @@ test("Production Docker Recoveryは不完全なTask planをEffect前に拒否す
 });
 
 /**
+ * 固定利用形態が欠けた計画を環境観測前に拒否する。
+ * @responsibility 下位Ownerまでの利用形態伝播と観測未発行を検証する。
+ * @trace PRL-IT-013
+ * @precondition 他項目が有効な計画と観測回数を記録するModule差替えを使用する。
+ * @stimulus 欠落・未知・非文字列のconsumerで本番開始を呼ぶ。
+ * @observation 拒否結果とProvider Home／Runtime State観測回数を取得する。
+ * @oracle 全負例がnullとなり、観測は0回である。
+ * @cleanup Module差替えを復元する。外部資源は生成しない。
+ * @boundary PRL-IT-013=本番開始入口→環境観測前の計画判定。
+ */
+test("Production Docker Recoveryは不正Consumerを環境観測前に拒否する", async (t) => {
+  let observations = 0;
+  const observe = () => {
+    observations += 1;
+    throw new Error("unexpected_environment_observation");
+  };
+  const providerMock = t.mock.module(
+    "../../src/provider/provider-home-windows-adapter.ts",
+    {
+      namedExports: {
+        inspectRuntimeOwnedWindowsProviderHomeCandidate: observe,
+        consumeRuntimeOwnedProviderHomeObservationCapability: observe,
+      },
+    },
+  );
+  const stateMock = t.mock.module(
+    "../../src/candidate/candidate-store-windows-adapter.ts",
+    {
+      namedExports: {
+        inspectRuntimeOwnedWindowsRuntimeState: observe,
+        consumeRuntimeOwnedRuntimeStateRootCapability: observe,
+      },
+    },
+  );
+  try {
+    const runtime = await import(
+      new URL(
+        "../../src/docker-runtime/docker-recovery-runtime-internal.ts?consumer-preflight",
+        import.meta.url,
+      ).href
+    );
+    const valid = productionPlan("OP-123456", "5".repeat(64));
+    for (const consumer of [undefined, null, "unknown", 1, {}, true]) {
+      const plan = { ...valid, consumer };
+      if (consumer === undefined) Reflect.deleteProperty(plan, "consumer");
+      assert.equal(
+        runtime.beginRuntimeOwnedDockerRecovery(
+          Object.freeze(plan),
+          Object.freeze({}),
+        ),
+        null,
+      );
+    }
+    assert.equal(observations, 0);
+  } finally {
+    stateMock.restore();
+    providerMock.restore();
+  }
+});
+
+/**
  * production facadeとpackage exportsはcaller Root／observer／runner seamを閉じるを検証する。
  *
  * @responsibility production facadeとpackage exportsはcaller Root／observer／runner seamを閉じるの合否判定を所有する。
@@ -3059,11 +3123,23 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
   const packageJson = JSON.parse(
     fs.readFileSync(path.resolve("package.json"), "utf8"),
   );
-  assert.deepEqual(packageJson.exports, { "./cli": "./bin/coordinator.ts" });
+  assert.deepEqual(packageJson.exports, {
+    "./cli": "./bin/coordinator.ts",
+    "./host-runtime": "./src/host-runtime/index.ts",
+  });
+  const hostFacade = fs.readFileSync(
+    path.resolve("src/host-runtime/index.ts"),
+    "utf8",
+  );
+  assert.equal(
+    /docker-recovery|Acknowledgement|RecoveryCompletion/u.test(hostFacade),
+    false,
+  );
   const facade = fs.readFileSync(
     path.resolve("src/docker-runtime/docker-recovery-runtime.ts"),
     "utf8",
   );
+  assert.equal(/project-runtime|readProjectRuntimeState/u.test(facade), false);
   for (const symbol of [
     "beginRuntimeOwnedDockerRecoveryWithHostBeginObserver",
     "beginRuntimeOwnedDockerRecoveryWithPendingBaseObserver",
@@ -3079,7 +3155,7 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
   ])
     assert.equal(facade.includes(symbol), false, symbol);
   const internalConsumers: string[] = [];
-  for (const root of ["src", "bin"]) {
+  for (const root of ["src", "bin", "../orchestrator/src"]) {
     const pendingSourcePaths = [path.resolve(root)];
     while (pendingSourcePaths.length > 0) {
       const current = pendingSourcePaths.pop();
@@ -3102,8 +3178,9 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
     }
   }
   assert.deepEqual(internalConsumers.sort(), [
-    "src/docker-runtime/docker-recovery-runtime.ts",
+    "../orchestrator/src/task/docker-recovery-settlement.ts",
     "src/docker-desktop/docker-restart-runtime.ts",
+    "src/docker-runtime/docker-recovery-runtime.ts",
   ]);
   const composition = fs.readFileSync(
     path.resolve("src/docker-desktop/docker-restart-runtime.ts"),
@@ -3111,7 +3188,7 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
   );
   const imports = [
     ...composition.matchAll(
-      /import\s*\{([^{}]+)\}\s*from\s*["']\.\/docker-recovery-runtime-internal\.ts["']/gu,
+      /import\s*\{([^{}]+)\}\s*from\s*["']\.\.\/docker-runtime\/docker-recovery-runtime-internal\.ts["']/gu,
     ),
   ];
   assert.equal(imports.length, 1);
@@ -6603,6 +6680,15 @@ test("production正常完了経路はHost cleanup receipt後だけfinalizeして
     );
     assert.ok(begun && begun.status === "ready");
     recoveryCapability = begun.recoveryCapability;
+    assert.equal(
+      verifyRuntimeOwnedDockerHomeLeaseRelease(
+        recoveryCapability,
+        management,
+        plan.operationId,
+        begun.recoveryId,
+      ),
+      false,
+    );
     assert.equal(recordRuntimeOwnedDockerAbsence(recoveryCapability), true);
     assert.equal(
       recordRuntimeOwnedNormalMountCompletion(recoveryCapability),
@@ -6613,6 +6699,36 @@ test("production正常完了経路はHost cleanup receipt後だけfinalizeして
       management,
     );
     assert.equal(completed.status, "completed");
+    assert.equal(
+      verifyRuntimeOwnedDockerHomeLeaseRelease(
+        recoveryCapability,
+        management,
+        plan.operationId,
+        begun.recoveryId,
+      ),
+      true,
+    );
+    for (const [capability, owner, operationId, recoveryId] of [
+      [
+        { ...recoveryCapability },
+        management,
+        plan.operationId,
+        begun.recoveryId,
+      ],
+      [recoveryCapability, {}, plan.operationId, begun.recoveryId],
+      [recoveryCapability, management, "other-operation", begun.recoveryId],
+      [recoveryCapability, management, plan.operationId, "other-recovery"],
+    ]) {
+      assert.equal(
+        verifyRuntimeOwnedDockerHomeLeaseRelease(
+          capability,
+          owner,
+          operationId,
+          recoveryId,
+        ),
+        false,
+      );
+    }
     assert.equal(
       finalizeRuntimeOwnedDockerRecovery(recoveryCapability).status,
       "blocked",
@@ -6636,6 +6752,15 @@ test("production正常完了経路はHost cleanup receipt後だけfinalizeして
     assert.deepEqual(finalizeRuntimeOwnedDockerRecovery(recoveryCapability), {
       status: "completed",
     });
+    assert.equal(
+      verifyRuntimeOwnedDockerHomeLeaseRelease(
+        recoveryCapability,
+        management,
+        plan.operationId,
+        begun.recoveryId,
+      ),
+      true,
+    );
     recoveryCapability = null;
     assertOnlyCompletedRecoveryEvidence(runtimeRootPath);
     assert.equal(fs.existsSync(owned.root), false);
@@ -6693,6 +6818,15 @@ test("Project Operation correlation resolves the exact durable Docker Recovery I
     recoveryCapability = begun.recoveryCapability;
     const recoveryId = begun.recoveryId;
     assert.equal(abandonRuntimeOwnedDockerRecovery(recoveryCapability), true);
+    assert.equal(
+      verifyRuntimeOwnedDockerHomeLeaseRelease(
+        recoveryCapability,
+        management,
+        plan.operationId,
+        recoveryId,
+      ),
+      false,
+    );
     recoveryCapability = null;
     assert.equal(
       await abandonOwnedHostOperationGenerationLock(management),

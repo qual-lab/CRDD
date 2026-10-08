@@ -9,8 +9,9 @@
 /.crdd/config/*
 !/.crdd/config/repository-manifest.json
 !/.crdd/config/external-send-policy.json
-!/.crdd/config/project-runtime.json
+!/.crdd/config/orchestrator.json
 !/.crdd/config/execution-intelligence.json
+!/.crdd/config/coordinator.json
 
 # Configuration examples are distribution artifacts, not runtime state.
 !/template/.crdd/

@@ -11,37 +11,38 @@
  * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
-import { initializeProjectRuntimeSnapshot } from "../../src/project-runtime/project-runtime-durable-foundation.ts";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
-import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/storage/index.ts";
-import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/repository/index.ts";
 import path from "node:path";
 import { Writable } from "node:stream";
 import test from "node:test";
-
+import {
+  RepositoryRuntimeDataAreaBlockedError,
+  requireReadyRepositoryRuntimeDataArea,
+} from "../../../domain-model/src/repository/index.ts";
+import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/storage/index.ts";
+import {
+  readExecutionIntelligence,
+  verifyExecutionIntelligenceRepositoryRoot,
+} from "../../../execution-intelligence/src/index.ts";
 import {
   handleMcpProjectRuntimeRequest,
   MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL,
   MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
   MCP_PROJECT_RUNTIME_STATE_TOOL,
-} from "../../../mcp/src/index.ts";
+} from "../../../mcp-server/src/index.ts";
+import { recordProjectRuntimeExecutionEvent } from "../../../orchestrator/src/index.ts";
+import { initializeProjectRuntimeSnapshot } from "../../../orchestrator/src/storage/current-state-store.ts";
+import { createProjectRuntimeWindowsDecisionStoreTestingAdapter } from "../../../orchestrator/src/storage/protected-decision-store.ts";
 import {
   createDevelopmentProjectRuntimePublicObjectiveCandidate,
   createProjectRuntimeExecutionIntelligenceDiagnosticReporter,
   createProjectRuntimeRecoveryDiagnosticReporter,
   executeProjectRuntimePublicAcceptanceDecision,
-  projectRuntimeDataBoundaryBlocked,
   PROJECT_RUNTIME_EXECUTION_INTELLIGENCE_PREFIX,
-} from "../../src/project-runtime/project-runtime-composition-root.ts";
-import { RepositoryRuntimeDataAreaBlockedError } from "../../../domain-model/src/repository/index.ts";
-import { recordProjectRuntimeExecutionEvent } from "../../src/project-runtime/execution-intelligence-adapter.ts";
-import { createProjectRuntimeWindowsDecisionStoreTestingAdapter } from "../../src/project-runtime/project-runtime-windows-decision-store.ts";
-import {
-  readExecutionIntelligence,
-  verifyExecutionIntelligenceRepositoryRoot,
-} from "../../../execution-intelligence/src/index.ts";
+  projectRuntimeDataBoundaryBlocked,
+} from "../../../orchestrator/src/task/composition-root.ts";
 
 /**
  * Runtime Data失敗を公開Project Runtime結果まで意味変更せず投影するを検証する。
@@ -147,14 +148,32 @@ test("development composition uses the explicitly supplied candidate integration
   const publicationObservations: object[] = [];
   const runtime = createDevelopmentProjectRuntimePublicObjectiveCandidate({
     issueRuntimeExecutionAuthorization: () => Object.freeze({}),
-    startTask: () => {
+    captureResultDelivery: () =>
+      Object.freeze({
+        readResults: () =>
+          Object.freeze({ status: "not_required" as const, results: null }),
+        complete: () => {
+          throw new Error("fixture_has_no_docker_result");
+        },
+      }),
+    startTask: (_request, _root, _capability, _correlation, notifyStarted) => {
       taskStarts += 1;
       return Object.freeze({
         status: "started" as const,
         reason: "coordinator_task_started" as const,
         controlCapability: Object.freeze({}),
-        completion: Promise.resolve(
-          Object.freeze({
+        completion: Promise.resolve().then(async () => {
+          assert.ok(notifyStarted);
+          assert.equal(
+            await notifyStarted({
+              event: "coordinator_provider_process_started",
+              taskRole: "executor",
+              provider: "codex",
+              operationId: `OP-fixture-${taskStarts}`,
+            }),
+            true,
+          );
+          return Object.freeze({
             status: "completed" as const,
             reason: "coordinator_task_completed",
             cleanupConfirmed: true,
@@ -170,8 +189,8 @@ test("development composition uses the explicitly supplied candidate integration
             executorProvider: "codex",
             reviewerProvider: "claude",
             canonicalRepositoryChanged: false,
-          }),
-        ),
+          });
+        }),
         rawOutputReported: false as const,
         hostPathReported: false as const,
         untrustedProviderTextReported: false as const,

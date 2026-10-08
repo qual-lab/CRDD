@@ -554,7 +554,7 @@ test("設定した保持日数を使用し不正設定では既存履歴を変�
   );
   fs.mkdirSync(path.join(root, ".crdd", "config"));
   fs.writeFileSync(
-    path.join(root, ".crdd", "config", "project-runtime.json"),
+    path.join(root, ".crdd", "config", "orchestrator.json"),
     "invalid-other-tool-setting",
   );
   const configPath = path.join(

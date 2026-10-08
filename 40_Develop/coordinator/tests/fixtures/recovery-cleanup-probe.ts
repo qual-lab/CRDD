@@ -2,9 +2,6 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-
-import { removeCommittedDockerRecoveryJson } from "../../src/state-storage/docker-recovery-journal.ts";
-
 import {
   abandonRuntimeOwnedDockerRecovery,
   beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserver,
@@ -25,6 +22,7 @@ import {
   verifyOwnedOperationManagementCapability,
 } from "../../src/host-runtime/execution-environment.ts";
 import { loadHostRecoveryRecordByToken } from "../../src/host-runtime/host-recovery-record.ts";
+import { removeCommittedDockerRecoveryJson } from "../../src/state-storage/docker-recovery-journal.ts";
 
 function verifiedRoot(rootPath: string) {
   return Object.freeze({
@@ -39,6 +37,7 @@ function verifiedRoot(rootPath: string) {
 function plan(operationId: string) {
   return Object.freeze({
     provider: "claude" as const,
+    consumer: "project_runtime" as const,
     operationId,
     grantRef: "PHMGRANT-123456",
     profileId: "PROFILE-123456",

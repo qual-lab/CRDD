@@ -10,13 +10,23 @@
  */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
-import { createProjectRuntimeDecisionRecoveryStore } from "../../src/project-runtime/project-runtime-decision-recovery-store.ts";
-import type { ProjectRuntimeDecisionRecoveryIntent } from "../../../project-runtime/src/index.ts";
+import {
+  acquireProjectRuntimeSnapshotPilotLock,
+  createProjectRuntimeSnapshotDecisionRecoveryStore,
+  writeProjectRuntimeSnapshot,
+} from "../../../orchestrator/src/storage/current-state-store.ts";
+import {
+  createProjectRuntimeState,
+  type ProjectRuntimeDecisionRecoveryIntent,
+} from "../../../orchestrator/src/index.ts";
+import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/storage/index.ts";
+import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/repository/index.ts";
 
 /**
  * fixtureのTest準備責務を実行する。
@@ -31,11 +41,83 @@ import type { ProjectRuntimeDecisionRecoveryIntent } from "../../../project-runt
  * @boundary PRL-IT-013=Direct Boundary: coordinator Test Source→対象契約
  */
 function fixture(t: test.TestContext) {
-  const root = fs.mkdtempSync(
-    path.join(os.tmpdir(), "crdd-decision-recovery-"),
-  );
+  const temporary = requireReadyRepositoryRuntimeDataArea(
+    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+      fileURLToPath(new URL("../../../../", import.meta.url)),
+      "tmp",
+    ),
+    "fixture_repository_root_invalid",
+  ).directory;
+  const root = fs.mkdtempSync(path.join(temporary, "crdd-decision-recovery-"));
   execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  t.after(() => {
+    assert.equal(path.dirname(root), temporary);
+    assert.equal(fs.realpathSync.native(root), root);
+    fs.rmSync(root, { recursive: true, force: true });
+    assert.equal(fs.existsSync(root), false);
+  });
+  const state = createProjectRuntimeState({
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    repositoryRevision: "a".repeat(40),
+    maximumConcurrency: 2,
+    milestoneAcceptanceCriteria: ["accepted"],
+    objectives: [{ id: "objective-a", acceptanceCriteria: ["done"] }],
+    tasks: [
+      {
+        id: "task-a",
+        objectiveId: "objective-a",
+        dependencies: [],
+        allowedPaths: ["src/a.ts"],
+        conflictKeys: [],
+      },
+    ],
+    ownerGeneration: "owner-a",
+  });
+  assert.equal(state.status, "completed");
+  if (state.status !== "completed") throw new Error("fixture_state_invalid");
+  const held = acquireProjectRuntimeSnapshotPilotLock(root);
+  assert.equal(held.status, "completed");
+  if (held.status !== "completed") throw new Error("fixture_lock_invalid");
+  const rootHash = held.value.repositoryRootHash;
+  assert.equal(held.value.release(), true);
+  const payload = {
+    schema: "crdd-coordinator/project-runtime-snapshot/v2",
+    schemaRevision: 2,
+    repositoryRootHash: rootHash,
+    repositoryBindingId: "binding-a",
+    snapshotRevision: 1,
+    intakeEpoch: "epoch-a",
+    intakeBindings: [{ queueId: "queue-a", epoch: "epoch-a" }],
+    projects: [state.state],
+    queueEntries: [
+      {
+        queueId: "queue-a",
+        projectId: "project-a",
+        milestoneId: "milestone-a",
+        requestHash: "b".repeat(64),
+        originLane: "interactive",
+        repositoryRevision: "a".repeat(40),
+        scopeHash: "c".repeat(64),
+        state: "queued",
+        generation: 1,
+        ownerGeneration: null,
+        resumeCondition: null,
+        resultReference: null,
+      },
+    ],
+    leaseEvidence: [],
+    leaseIntents: [],
+    results: [],
+    historyPending: [],
+    acceptanceDecisions: [],
+    decisionRecoveries: [],
+  };
+  assert.equal(
+    writeProjectRuntimeSnapshot(root, "binding-a", JSON.stringify(payload), 0)
+      .status,
+    "completed",
+  );
   return root;
 }
 /**
@@ -80,10 +162,16 @@ function intent(): ProjectRuntimeDecisionRecoveryIntent {
  */
 test("independent decision recovery intent survives a fresh store and settles by CAS", (t) => {
   const root = fixture(t);
-  const first = createProjectRuntimeDecisionRecoveryStore(root);
+  const first = createProjectRuntimeSnapshotDecisionRecoveryStore(
+    root,
+    "binding-a",
+  );
   const value = intent();
   assert.equal((first.create(value) as { status: string }).status, "completed");
-  const reopened = createProjectRuntimeDecisionRecoveryStore(root);
+  const reopened = createProjectRuntimeSnapshotDecisionRecoveryStore(
+    root,
+    "binding-a",
+  );
   assert.deepEqual(
     (reopened.read(value.recoveryId) as { value: unknown }).value,
     value,
@@ -112,9 +200,15 @@ test("independent decision recovery intent survives a fresh store and settles by
  * @boundary PRL-IT-013=Direct Boundary: coordinator Test Source→対象契約
  */
 test("recovery intent store rejects duplicate creation and a stale CAS", (t) => {
-  const store = createProjectRuntimeDecisionRecoveryStore(fixture(t));
+  const root = fixture(t);
+  const store = createProjectRuntimeSnapshotDecisionRecoveryStore(
+    root,
+    "binding-a",
+  );
   const value = intent();
   assert.equal((store.create(value) as { status: string }).status, "completed");
+  const file = path.join(root, ".crdd", "orchestrator", "state.json");
+  const before = fs.readFileSync(file);
   assert.equal((store.create(value) as { status: string }).status, "blocked");
   const stale = Object.freeze({ ...value, unknownBoundary: "queue_update" });
   assert.equal(
@@ -126,45 +220,54 @@ test("recovery intent store rejects duplicate creation and a stale CAS", (t) => 
     ).status,
     "blocked",
   );
+  assert.deepEqual(fs.readFileSync(file), before);
+  assert.deepEqual(
+    (store.read(value.recoveryId) as { value: unknown }).value,
+    value,
+  );
 });
 
 /**
- * unknown files fail closed without replacing the recovery historyを検証する。
+ * 未知の判断回復欄を含む現在状態が読取り停止になることを検証する。
  *
- * @responsibility unknown files fail closed without replacing the recovery historyの合否判定を所有する。
+ * @responsibility 未知欄の拒否と破損bytesの保全を確認する。
  * @trace PRL-IT-013
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus unknown files fail closed without replacing the recovery historyの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
+ * @precondition 対象Queueへ結合した回復記録が現行Snapshotに確定している。
+ * @stimulus 回復値へ未知欄を挿入し外側の内容Hashだけは一致させる。
+ * @observation 新しいStoreの返却理由と状態Fileのbytesを観測する。
+ * @oracle 内容契約不正として回復を要求し、不正保存を置換しない。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-013=Direct Boundary: coordinator Test Source→対象契約
  */
-test("unknown files fail closed without replacing the recovery history", (t) => {
+test("未知の判断回復欄は現在状態を置換せず停止する", (t) => {
   const root = fixture(t);
-  const store = createProjectRuntimeDecisionRecoveryStore(root);
+  const store = createProjectRuntimeSnapshotDecisionRecoveryStore(
+    root,
+    "binding-a",
+  );
   const value = intent();
   assert.equal((store.create(value) as { status: string }).status, "completed");
-  const identity = fs
-    .readdirSync(
-      path.join(root, ".crdd", "project-runtime", "recovery", "decisions"),
-    )
-    .find((entry) => !entry.endsWith(".lock"));
-  assert.ok(identity);
-  fs.writeFileSync(
-    path.join(
-      root,
-      ".crdd",
-      "project-runtime",
-      "recovery",
-      "decisions",
-      identity,
-      "unexpected",
-    ),
-    "x",
-  );
+  const file = path.join(root, ".crdd", "orchestrator", "state.json");
+  const saved = JSON.parse(fs.readFileSync(file, "utf8"));
+  saved.payload.decisionRecoveries[0].value.unexpected = true;
+  saved.contentHash = createHash("sha256")
+    .update(JSON.stringify(saved.payload))
+    .digest("hex");
+  fs.writeFileSync(file, JSON.stringify(saved));
+  const before = fs.readFileSync(file);
+  const observed = createProjectRuntimeSnapshotDecisionRecoveryStore(
+    root,
+    "binding-a",
+  ).read(value.recoveryId) as {
+    status: string;
+    reason: string;
+    manualRecoveryRequired: boolean;
+  };
+  assert.equal(observed.status, "blocked");
   assert.equal(
-    (store.read(value.recoveryId) as { status: string }).status,
-    "blocked",
+    observed.reason,
+    "project_runtime_snapshot_invalid_or_unconfirmed",
   );
+  assert.equal(observed.manualRecoveryRequired, true);
+  assert.deepEqual(fs.readFileSync(file), before);
 });

@@ -9,17 +9,18 @@
  * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 import assert from "node:assert/strict";
+import { getEventListeners } from "node:events";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-
-import { startRuntimeOwnedCoordinatorTask } from "../../src/task/coordinator-task-runtime.ts";
 import {
   describeProjectRuntimeSingleTaskAdapterContract,
   PROJECT_RUNTIME_SINGLE_TASK_PRE_EFFECT_REJECTIONS,
   type ProjectRuntimeSingleTaskDependencies,
   runProjectRuntimeSingleTaskAttempt,
-} from "../../src/project-runtime/project-runtime-single-task-adapter.ts";
+} from "../../../orchestrator/src/index.ts";
+import { startRuntimeOwnedCoordinatorTask } from "../../src/task/coordinator-task-runtime.ts";
+import { observeCoordinatorTaskCompletion } from "../../src/task/task-completion-observation.ts";
 
 const CONTRACT = "crdd-coordinator/project-runtime-single-task-adapter";
 const ATTEMPT_ID = "attempt-0001";
@@ -27,6 +28,342 @@ const OPERATION_ID = "operation-0001";
 const AUTHORITY_BINDING_ID = "authority-0001";
 const repositoryRevisionValue = "a".repeat(40);
 const dockerRecoveryId = `docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".repeat(64)}`;
+
+/**
+ * 元Controlをawait前に捕捉し、通知失敗でも元Taskの完了観測を維持する。
+ * @responsibility 同Processの配送捕捉と公開結果の境界を確認する。
+ * @trace PRL-IT-005
+ * @precondition 未完了Promiseと元Controlを持つ模擬Taskを用意する。
+ * @stimulus 捕捉成功、捕捉例外、通知例外を実行する。
+ * @observation 捕捉順序、通知、元完了結果と公開fieldを取得する。
+ * @oracle 捕捉は同期区間で実施し、例外をEffectなしへ変換せず、関数を公開しない。
+ * @cleanup 全Promiseを終端し、外部Processは起動しない。
+ * @boundary Orchestrator Adapter→元Coordinator Task Control。
+ */
+test("結果配送捕捉はawait前で失敗時も元Taskを待つ", async () => {
+  for (const mode of [
+    "success",
+    "capture_throw",
+    "notification_throw",
+  ] as const) {
+    let resolve!: (value: unknown) => void;
+    const completion = new Promise<unknown>((done) => {
+      resolve = done;
+    });
+    const { dependencies, controlCapability } = harness({ completion });
+    const order: string[] = [];
+    const delivery = Object.freeze({
+      readResults: () =>
+        Object.freeze({ status: "not_required" as const, results: null }),
+      complete: () => {
+        throw new Error("no_result");
+      },
+    });
+    let returned = false;
+    const pending = runProjectRuntimeSingleTaskAttempt(
+      {
+        ...dependencies,
+        captureResultDelivery: (control) => {
+          assert.equal(control, controlCapability);
+          order.push("capture");
+          if (mode === "capture_throw") throw new Error("capture_failed");
+          return delivery;
+        },
+      },
+      validInput({
+        observeResultDelivery: (captured: unknown) => {
+          order.push("notification");
+          assert.equal(captured, mode === "capture_throw" ? null : delivery);
+          if (mode === "notification_throw")
+            throw new Error("notification_failed");
+        },
+      }),
+    ).then((outcome) => {
+      returned = true;
+      return outcome;
+    });
+    assert.deepEqual(order, ["capture", "notification"]);
+    await Promise.resolve();
+    assert.equal(returned, false);
+    resolve(completionRecord());
+    const outcome = await pending;
+    assert.equal(outcome.status, "completed");
+    assert.equal(outcome.effectState, "settled");
+    assert.ok(
+      Object.values(outcome).every((value) => typeof value !== "function"),
+    );
+    assert.equal(Object.hasOwn(outcome, "delivery"), false);
+  }
+});
+
+/**
+ * 開始通知だけが上位状態保存を一回発火し、終端後は発火しない。
+ *
+ * @responsibility 受付、Executor開始、Reviewer開始と終了後を区別する。
+ * @trace PRL-IT-005
+ * @precondition 未完了Taskと通知を明示発行できる模擬開始境界を用意する。
+ * @stimulus 初回・重複・Reviewer・是正Executor・終端後の通知を渡す。
+ * @observation 上位確認回数、通知の返却値と最終結果を取得する。
+ * @oracle 上位確認は一回だけで、終端後通知はfalse、正常完了は維持する。
+ * @cleanup 元の完了Promiseを終端する。外部資源を作成しない。
+ * @boundary Task通知からOrchestratorの開始保存Callbackへの境界。
+ */
+test("開始通知は初回Executorだけを保存し受付・重複・終端後を区別する", async () => {
+  let settle!: (value: unknown) => void;
+  let saves = 0;
+  const completion = new Promise<unknown>((resolve) => {
+    settle = resolve;
+  });
+  const { dependencies, startCalls } = harness({ completion });
+  const pending = runProjectRuntimeSingleTaskAttempt(
+    dependencies,
+    validInput({
+      observeStarted: async () => {
+        saves += 1;
+        return true;
+      },
+    }),
+  );
+  assert.equal(saves, 0);
+  const notify = startCalls[0]?.[4] as NonNullable<
+    Parameters<ProjectRuntimeSingleTaskDependencies["startTask"]>[4]
+  >;
+  assert.equal(typeof notify, "function");
+  const notice = Object.freeze({
+    event: "coordinator_provider_process_started" as const,
+    taskRole: "executor" as const,
+    provider: "claude" as const,
+    operationId: "OP-lower-executor",
+  });
+  assert.equal(await notify(notice), true);
+  assert.equal(await notify(notice), true);
+  assert.equal(
+    await notify({
+      ...notice,
+      taskRole: "reviewer",
+      operationId: "OP-lower-reviewer",
+      provider: "codex",
+    }),
+    true,
+  );
+  assert.equal(
+    await notify({ ...notice, operationId: "OP-remediation-executor" }),
+    true,
+  );
+  assert.equal(saves, 1);
+  settle(completionRecord());
+  assert.equal((await pending).status, "completed");
+  assert.equal(await notify(notice), false);
+  assert.equal(saves, 1);
+});
+
+/**
+ * 通知の欠落や上位保存失敗を完了成功へ丸めない。
+ *
+ * @responsibility 通知必須の呼出しで模擬成功だけが返る反例を拒否する。
+ * @trace PRL-IT-005
+ * @precondition 資源回収済みの模擬完了と拒否・例外の保存Callbackを使用する。
+ * @stimulus 通知なし、通知false、通知例外の結果を評価する。
+ * @observation 完了status、理由、候補公開と回収状態を取得する。
+ * @oracle 成功や候補を返さず、確認済み回収を不明へ書き換えない。
+ * @cleanup 模擬Taskの元の完了を待つ。外部Effectはない。
+ * @boundary 上位開始確認とTask結果公開の境界。
+ */
+test("必須開始通知の欠落・保存拒否・例外を成功へ補正しない", async () => {
+  const missing = await runProjectRuntimeSingleTaskAttempt(
+    harness().dependencies,
+    validInput({ observeStarted: async () => true }),
+  );
+  assert.equal(missing.status, "blocked");
+  assert.equal(missing.reason, "single_task_start_notification_missing");
+  assert.equal(missing.cleanupConfirmed, true);
+  assert.equal(missing.manualRecoveryRequired, false);
+  assert.equal(missing.candidateId, null);
+  for (const throws of [false, true]) {
+    const dependencies: ProjectRuntimeSingleTaskDependencies = {
+      startTask: (_request, _root, _capability, _correlation, notify) => ({
+        status: "started",
+        controlCapability: Object.freeze({}),
+        completion: Promise.resolve().then(async () => {
+          assert.equal(
+            await notify?.({
+              event: "coordinator_provider_process_started",
+              taskRole: "executor",
+              provider: "claude",
+              operationId: "OP-executor",
+            }),
+            false,
+          );
+          return completionRecord({
+            status: "blocked",
+            reason: "provider_start_observation_failed",
+            candidateId: null,
+          });
+        }),
+      }),
+      cancelTask: () => null,
+    };
+    const outcome = await runProjectRuntimeSingleTaskAttempt(
+      dependencies,
+      validInput({
+        observeStarted: async () => {
+          if (throws) throw new Error("fixture_save_failed");
+          return false;
+        },
+      }),
+    );
+    assert.equal(outcome.status, "blocked");
+    assert.equal(outcome.reason, "provider_start_observation_failed");
+    assert.equal(outcome.cleanupConfirmed, true);
+  }
+});
+
+/**
+ * 上位保存待ちでも取消監視が接続済みである。
+ *
+ * @responsibility 開始確認待機が同じTaskの取消と元の完了を切り離さないことを確認する。
+ * @trace PRL-IT-005
+ * @precondition 開始確認を未完了にし、取消後に回収済み結果を返す模擬Taskを使用する。
+ * @stimulus 通知待機中にabortし、保存を解放して完了を待つ。
+ * @observation exact制御参照への取消回数、完了結果、abort監視残存を取得する。
+ * @oracle 取消一回、回収確認付きcancelled、終端後監視0。
+ * @cleanup 保存・完了Promiseを解放し、監視を解除する。
+ * @boundary 開始保存待機と同じTaskの取消境界。
+ */
+test("開始通知の保存待機中も取消を一回搬送して元の完了を待つ", async () => {
+  const controller = new AbortController();
+  const controlCapability = Object.freeze({});
+  const calls: object[] = [];
+  let releaseSave!: (value: boolean) => void;
+  const save = new Promise<boolean>((resolve) => {
+    releaseSave = resolve;
+  });
+  let notify!: NonNullable<
+    Parameters<ProjectRuntimeSingleTaskDependencies["startTask"]>[4]
+  >;
+  let settle!: (value: unknown) => void;
+  const completion = new Promise<unknown>((resolve) => {
+    settle = resolve;
+  });
+  const dependencies: ProjectRuntimeSingleTaskDependencies = {
+    startTask: (_request, _root, _capability, _correlation, observer) => {
+      assert.ok(observer);
+      notify = observer;
+      return { status: "started", controlCapability, completion };
+    },
+    cancelTask: (control) => {
+      calls.push(control);
+      return null;
+    },
+  };
+  const pending = runProjectRuntimeSingleTaskAttempt(
+    dependencies,
+    validInput({
+      cancellationSignal: controller.signal,
+      observeStarted: () => save,
+    }),
+  );
+  const observation = notify({
+    event: "coordinator_provider_process_started",
+    taskRole: "executor",
+    provider: "claude",
+    operationId: "OP-executor",
+  });
+  await Promise.resolve();
+  assert.equal(getEventListeners(controller.signal, "abort").length, 1);
+  controller.abort();
+  controller.abort();
+  assert.deepEqual(calls, [controlCapability]);
+  releaseSave(true);
+  await observation;
+  settle(
+    completionRecord({
+      status: "blocked",
+      reason: "coordinator_task_cancelled_after_provider_cleanup",
+      candidateId: null,
+    }),
+  );
+  const outcome = await pending;
+  assert.equal(outcome.status, "cancelled");
+  assert.equal(outcome.cleanupConfirmed, true);
+  assert.equal(getEventListeners(controller.signal, "abort").length, 0);
+});
+
+/**
+ * 完了待機中に呼出し元入力が変わっても開始時の上位相関を維持する。
+ *
+ * @responsibility 上位Adapter移管後のAttempt・判断権限・Revision固定を反証する。
+ * @trace PRL-IT-005
+ * @precondition 開始時に有効な可変入力と未完了Promiseを用意する。
+ * @stimulus Task開始後に入力の相関値を変更して完了させる。
+ * @observation 最終結果のAttempt・判断権限・Revisionを取得する。
+ * @oracle 開始時の相関値だけが結果へ残る。
+ * @cleanup 局所Promiseを終端し、Task観測を待つ。
+ * @boundary PRL-IT-005=上位相関とCoordinator完了待機の境界。
+ */
+test("完了待機中の入力変更で上位相関を置き換えない", async () => {
+  let settleCompletion!: (value: unknown) => void;
+  const completion = new Promise<unknown>((resolve) => {
+    settleCompletion = resolve;
+  });
+  const input = { ...validInput() };
+  const { dependencies } = harness({ completion });
+  const pending = runProjectRuntimeSingleTaskAttempt(dependencies, input);
+  input.attemptId = "another-attempt";
+  input.authorityBindingId = "another-authority";
+  input.repositoryRevision = "b".repeat(40);
+  settleCompletion(completionRecord());
+  const result = await pending;
+  assert.equal(result.attemptId, ATTEMPT_ID);
+  assert.equal(result.authorityBindingId, AUTHORITY_BINDING_ID);
+  assert.equal(result.repositoryRevision, repositoryRevisionValue);
+});
+
+/**
+ * 完了観測が成功と拒否の両方で取消監視を解除することを確認する。
+ *
+ * @responsibility 共通Task観測の監視残存と取消搬送回数を直接検証する。
+ * @trace PRL-IT-005
+ * @precondition 実AbortSignalと局所完了Promiseを使用する。
+ * @stimulus Signalを二回取消し、元の完了Promiseを成功または拒否で終端する。
+ * @observation 取消搬送回数、同一制御参照、監視数と返却statusを観測する。
+ * @oracle 取消搬送は一度で、終端後abort監視は0件、拒否はunknownとなる。
+ * @cleanup 元のPromiseを終端し、観測関数が登録した監視を解除する。
+ * @boundary PRL-IT-005=Task完了待機と取消SignalのProcess内境界。
+ */
+test("Task completion observation releases abort listeners on resolve and reject", async () => {
+  for (const rejectCompletion of [false, true]) {
+    const controller = new AbortController();
+    const controlCapability = Object.freeze({});
+    const calls: object[] = [];
+    let resolveCompletion!: (value: unknown) => void;
+    let rejectObservedCompletion!: (reason: Error) => void;
+    const completion = new Promise<unknown>((resolve, reject) => {
+      resolveCompletion = resolve;
+      rejectObservedCompletion = reject;
+    });
+    const pending = observeCoordinatorTaskCompletion(
+      { controlCapability, completion },
+      (control) => {
+        calls.push(control);
+        return Promise.reject(new Error("cancel_entry_failed"));
+      },
+      controller.signal,
+    );
+    assert.equal(getEventListeners(controller.signal, "abort").length, 1);
+    controller.abort();
+    controller.abort();
+    if (rejectCompletion)
+      rejectObservedCompletion(new Error("completion_unknown"));
+    else resolveCompletion(Object.freeze({ status: "blocked" }));
+    const observed = await pending;
+    assert.deepEqual(calls, [controlCapability]);
+    assert.equal(observed.status, rejectCompletion ? "unknown" : "observed");
+    assert.equal(getEventListeners(controller.signal, "abort").length, 0);
+    if (observed.status === "observed")
+      assert.equal(observed.cancellationTransferred, true);
+  }
+});
 
 /**
  * completionRecordのTest準備責務を実行する。

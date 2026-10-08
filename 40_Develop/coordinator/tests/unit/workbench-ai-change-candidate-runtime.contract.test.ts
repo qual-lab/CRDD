@@ -113,7 +113,7 @@ test("明示Pathだけで未信頼・未採用Candidateを返す", async () => {
       profileId: "PROFILE-100003",
       prompt: "Workbenchの表示を改善する",
       contextReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
-      allowedPaths: Object.freeze(["40_Develop/workbench/src"]),
+      allowedPaths: Object.freeze(["40_Develop/workbench-server/src"]),
       externalSendConfirmed: true,
     }),
     new AbortController().signal,
@@ -125,7 +125,7 @@ test("明示Pathだけで未信頼・未採用Candidateを返す", async () => {
   });
   assert.deepEqual(
     (taskRequest as { allowedPaths: readonly string[] }).allowedPaths,
-    ["40_Develop/workbench/src"],
+    ["40_Develop/workbench-server/src"],
   );
   assert.equal(
     (taskRequest as { requestedProfileId: string }).requestedProfileId,
@@ -236,7 +236,7 @@ test("送信確認不可の未選択拒否をWorkbench結果へ保持する", as
       profileId: "PROFILE-100003",
       prompt: "固定候補の検証",
       contextReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
-      allowedPaths: Object.freeze(["40_Develop/workbench/src"]),
+      allowedPaths: Object.freeze(["40_Develop/workbench-server/src"]),
       externalSendConfirmed: true,
     }),
     new AbortController().signal,

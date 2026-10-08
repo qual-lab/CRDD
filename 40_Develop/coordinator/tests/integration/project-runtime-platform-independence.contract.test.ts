@@ -33,7 +33,7 @@ const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 function discoverProjectRuntimeModules(): readonly string[] {
   const sourceRoot = path.join(
     repositoryRoot,
-    "40_Develop/project-runtime/src",
+    "40_Develop/orchestrator/src",
   );
   const modules: string[] = [];
   const pendingDirectories = [sourceRoot];
@@ -92,7 +92,21 @@ function normalize(relativePath: string): string {
   return relativePath.replaceAll("\\", "/");
 }
 
-const coreModules = discoverProjectRuntimeModules();
+const allModules = discoverProjectRuntimeModules();
+// Architectureの純粋業務契約を走査する。Subsystemへ移管した保存・具象
+// Adapter・組立てはCoreではないが、未知の領域を無言で除外しない。
+const coreAreas = [
+  "application",
+  "boundary",
+  "core",
+  "ports",
+  "public-contract",
+];
+const adapterAreas = ["cli", "decision", "storage", "task"];
+const sourcePrefix = "40_Develop/orchestrator/src/";
+const coreModules = allModules.filter((module) =>
+  coreAreas.some((area) => module.startsWith(`${sourcePrefix}${area}/`)),
+);
 
 /**
  * readRuntimeSourceのTest準備責務を実行する。
@@ -168,6 +182,15 @@ function importSpecifierScan(source: string): Readonly<{
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Project Runtime CoreのimportはPlatform非依存の閉集合に一致する", () => {
+  assert.ok(coreModules.length > 0);
+  for (const module of allModules)
+    assert.ok(
+      module === `${sourcePrefix}index.ts` ||
+        [...coreAreas, ...adapterAreas].some((area) =>
+          module.startsWith(`${sourcePrefix}${area}/`),
+        ),
+      `${module} has no declared Core or Adapter classification`,
+    );
   const allowedModules = new Set(coreModules);
   const allowedBuiltins = new Set(ALLOWED_NODE_BUILTINS);
   const visitedModules = new Set<string>();
@@ -289,7 +312,7 @@ test("import走査は解釈できない取り込み構文をFail Closedで検出
  */
 test("Windows AdapterはCore閉集合の外にあり、CoreはAdapterを参照しない", () => {
   const windowsAdapterPath =
-    "40_Develop/coordinator/src/project-runtime/project-runtime-windows-platform-adapter.ts";
+    "40_Develop/coordinator/src/host-runtime/windows-platform-observation.ts";
   assert.ok(
     fs.existsSync(path.join(repositoryRoot, windowsAdapterPath)),
     "windows adapter module must exist",
@@ -297,7 +320,7 @@ test("Windows AdapterはCore閉集合の外にあり、CoreはAdapterを参照�
   for (const moduleRelativePath of coreModules) {
     const source = readRuntimeSource(moduleRelativePath);
     assert.equal(
-      source.includes("project-runtime-windows-platform-adapter"),
+      /windows-platform-(?:adapter|observation)/u.test(source),
       false,
       `${moduleRelativePath} must not reference the windows adapter`,
     );

@@ -23,12 +23,12 @@ import {
   readProjectRuntimeSnapshot,
   transferProjectRuntimeSnapshotHistory,
   writeProjectRuntimeSnapshot,
-} from "../../src/project-runtime/project-runtime-durable-foundation.ts";
+} from "../../../orchestrator/src/storage/current-state-store.ts";
 import {
   inspectProjectRuntimeHistorySettlement,
   updateProjectRuntimeHistoryOwned,
   updateProjectRuntimeHistoryPilot,
-} from "../../src/project-runtime/project-runtime-history.ts";
+} from "../../../orchestrator/src/storage/history-store.ts";
 
 const DAY = 24 * 60 * 60 * 1000;
 const referenceTime = Date.parse("2026-10-05T00:00:00.000Z");
@@ -48,7 +48,7 @@ test("Host Windows: 保持期間は設定可能で保存時の期限根拠を維
   const f = fixture(t);
   const config = path.join(f.root, ".crdd", "config");
   fs.mkdirSync(config, { recursive: true });
-  const file = path.join(config, "project-runtime.json");
+  const file = path.join(config, "orchestrator.json");
   fs.writeFileSync(
     path.join(config, "execution-intelligence.json"),
     "invalid_other_tool",
@@ -358,7 +358,7 @@ function fixture(t: test.TestContext) {
     fs.rmSync(root, { recursive: true, force: true });
     assert.equal(fs.existsSync(root), false);
   });
-  const directory = path.join(root, ".crdd", "project-runtime");
+  const directory = path.join(root, ".crdd", "orchestrator");
   return {
     root,
     directory,

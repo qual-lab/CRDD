@@ -12,9 +12,11 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
+import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/storage/index.ts";
+import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/repository/index.ts";
 
 import {
   createProjectRuntimeState,
@@ -26,17 +28,17 @@ import {
   type ProjectRuntimeAcceptanceDecision,
   type ProjectRuntimeAcceptanceDecisionRecord,
   type ProjectRuntimeState,
-} from "../../../project-runtime/src/index.ts";
+} from "../../../orchestrator/src/index.ts";
 import {
   executeProjectRuntimePublicAcceptanceDecision,
   executeProjectRuntimePublicStateQuery,
-} from "../../src/project-runtime/project-runtime-composition-root.ts";
+} from "../../../orchestrator/src/task/composition-root.ts";
 import {
   createCurrentProjectRuntimePersistencePorts,
+  createProjectRuntimeSnapshotAcceptanceDecisionStore,
   initializeProjectRuntimeSnapshot,
-} from "../../src/project-runtime/project-runtime-durable-foundation.ts";
-import { createProjectRuntimeAcceptanceDecisionStore } from "../../src/project-runtime/project-runtime-acceptance-decision-store.ts";
-import { createProjectRuntimeWindowsDecisionStoreTestingAdapter } from "../../src/project-runtime/project-runtime-windows-decision-store.ts";
+} from "../../../orchestrator/src/storage/current-state-store.ts";
+import { createProjectRuntimeWindowsDecisionStoreTestingAdapter } from "../../../orchestrator/src/storage/protected-decision-store.ts";
 
 /**
  * Git管理された固定Repositoryを構築する。
@@ -50,8 +52,21 @@ import { createProjectRuntimeWindowsDecisionStoreTestingAdapter } from "../../sr
  * @cleanup 呼出し側のTest hookがRootを再帰削除する。
  * @boundary PRL-ST-009=Direct Boundary: coordinator Test Source→対象契約
  */
-function createRepository() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-acceptance-st-"));
+function createRepository(t: test.TestContext) {
+  const temporary = requireReadyRepositoryRuntimeDataArea(
+    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+      fileURLToPath(new URL("../../../../", import.meta.url)),
+      "tmp",
+    ),
+    "fixture_repository_root_invalid",
+  ).directory;
+  const root = fs.mkdtempSync(path.join(temporary, "crdd-acceptance-st-"));
+  t.after(() => {
+    assert.equal(path.dirname(root), temporary);
+    assert.equal(fs.realpathSync.native(root), root);
+    fs.rmSync(root, { recursive: true, force: true });
+    assert.equal(fs.existsSync(root), false);
+  });
   execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
   execFileSync(
     "git",
@@ -234,8 +249,7 @@ function decisionRequest(
  * @boundary PRL-ST-009=Direct Boundary: coordinator Test Source→対象契約
  */
 test("公開入口からObjective受入後のMilestone三判断を一度だけ記録し投影する", (t) => {
-  const repository = createRepository();
-  t.after(() => fs.rmSync(repository.root, { recursive: true, force: true }));
+  const repository = createRepository(t);
   const decisionRoot = path.join(repository.root, ".authenticated-principal");
   fs.mkdirSync(decisionRoot);
   const authenticationStore =
@@ -359,15 +373,50 @@ test("公開入口からObjective受入後のMilestone三判断を一度だけ�
  * @precondition prepared→finalizedの二世代Recordを耐久化済みである。
  * @stimulus generation 2のpreviousHashを別の有効なSHA-256値へ置換してreadする。
  * @observation Storeの状態、理由および手動回復要否を観測する。
- * @oracle history_invalidでblockedとなり、改ざん後Recordを返さない。
+ * @oracle Snapshotの内容不正としてblockedとなり、改ざん後Recordを返さず保存bytesも変更しない。
  * @cleanup Test終了時にRepository-local Runtime Dataを削除する。
  * @boundary PRL-ST-009=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Acceptance Decisionの前世代Hash改ざんを拒否する", (t) => {
-  const repository = createRepository();
-  t.after(() => fs.rmSync(repository.root, { recursive: true, force: true }));
+  const repository = createRepository(t);
   const bindingId = "binding-hash-chain";
-  const store = createProjectRuntimeAcceptanceDecisionStore(
+  assert.equal(
+    initializeProjectRuntimeSnapshot(repository.root, bindingId).status,
+    "completed",
+  );
+  const created = createProjectRuntimeState({
+    projectId: "project-hash-chain",
+    milestoneId: "milestone-hash-chain",
+    repositoryRevision: repository.revision,
+    maximumConcurrency: 1,
+    milestoneAcceptanceCriteria: ["criterion-hash-chain"],
+    objectives: [
+      {
+        id: "objective-hash-chain",
+        acceptanceCriteria: ["criterion-hash-chain"],
+      },
+    ],
+    tasks: [
+      {
+        id: "task-hash-chain",
+        objectiveId: "objective-hash-chain",
+        dependencies: [],
+        allowedPaths: ["README.md"],
+        conflictKeys: [],
+      },
+    ],
+    ownerGeneration: "owner-hash-chain",
+  });
+  assert.equal(created.status, "completed");
+  if (created.status !== "completed") throw new Error("fixture_state_invalid");
+  assert.equal(
+    createCurrentProjectRuntimePersistencePorts(
+      repository.root,
+      bindingId,
+    ).state.writeState(created.state, 0).status,
+    "completed",
+  );
+  const store = createProjectRuntimeSnapshotAcceptanceDecisionStore(
     repository.root,
     bindingId,
   );
@@ -394,29 +443,33 @@ test("Acceptance Decisionの前世代Hash改ざんを拒否する", (t) => {
   });
   assert.equal(store.create(prepared).status, "completed");
   assert.equal(store.compareAndSet(prepared, finalized).status, "completed");
-  const recordDirectory = path.join(
+  const statePath = path.join(
     repository.root,
     ".crdd",
-    "project-runtime",
-    "state",
-    "acceptance-decisions",
-    createHash("sha256")
-      .update(prepared.recordId, "utf8")
-      .digest("hex")
-      .slice(0, 40),
+    "orchestrator",
+    "state.json",
   );
-  const secondPath = path.join(recordDirectory, "generation-2.json");
-  const second = JSON.parse(fs.readFileSync(secondPath, "utf8")) as Record<
-    string,
-    unknown
-  >;
+  const saved = JSON.parse(fs.readFileSync(statePath, "utf8"));
+  const second = saved.payload.acceptanceDecisions.find(
+    (entry: { recordId: string; generation: number }) =>
+      entry.recordId === prepared.recordId && entry.generation === 2,
+  );
+  assert.ok(second);
   second.previousHash = "f".repeat(64);
-  fs.writeFileSync(secondPath, `${JSON.stringify(second)}\n`, "utf8");
-  const observed = store.read(prepared.recordId);
+  saved.contentHash = createHash("sha256")
+    .update(JSON.stringify(saved.payload))
+    .digest("hex");
+  fs.writeFileSync(statePath, `${JSON.stringify(saved)}\n`, "utf8");
+  const before = fs.readFileSync(statePath);
+  const observed = createProjectRuntimeSnapshotAcceptanceDecisionStore(
+    repository.root,
+    bindingId,
+  ).read(prepared.recordId);
   assert.equal(observed.status, "blocked");
   assert.equal(
     observed.reason,
-    "project_runtime_acceptance_record_history_invalid",
+    "project_runtime_snapshot_invalid_or_unconfirmed",
   );
   assert.equal(observed.manualRecoveryRequired, true);
+  assert.deepEqual(fs.readFileSync(statePath), before);
 });

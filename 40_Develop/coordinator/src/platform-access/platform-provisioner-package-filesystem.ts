@@ -7195,14 +7195,14 @@ const exactRuntimePackageCapabilityConsumers = Object.freeze(
       1,
     ],
     [
-      "src/project-runtime/project-runtime-composition-root.ts",
+      "40_Develop/orchestrator/src/task/composition-root.ts",
       "issueRuntimeOwnedVerifiedCoordinatorPackageCapability",
       "issueRuntimeExecutionAuthorization",
       "call",
       1,
     ],
     [
-      "src/project-runtime/project-runtime-composition-root.ts",
+      "40_Develop/orchestrator/src/task/composition-root.ts",
       "revokeRuntimeOwnedVerifiedCoordinatorPackageCapability",
       "module",
       "reference",
@@ -7400,7 +7400,7 @@ function assertRuntimePackageCapabilityHandoffClosure(
     return Object.freeze({ tokens, index: matches[0] as number });
   };
   exact(
-    "src/project-runtime/project-runtime-composition-root.ts",
+    "40_Develop/orchestrator/src/task/composition-root.ts",
     [
       "issueRuntimeCapability",
       ":",
@@ -7411,7 +7411,7 @@ function assertRuntimePackageCapabilityHandoffClosure(
     "composition_issue",
   );
   exact(
-    "src/project-runtime/project-runtime-composition-root.ts",
+    "40_Develop/orchestrator/src/task/composition-root.ts",
     [
       "revokeRuntimeCapability",
       ":",
@@ -7422,7 +7422,7 @@ function assertRuntimePackageCapabilityHandoffClosure(
     "composition_revoke",
   );
   exact(
-    "src/project-runtime/project-runtime-execution-authorization-adapter.ts",
+    "40_Develop/orchestrator/src/task/execution-authorization-adapter.ts",
     [
       "const",
       "capability",
@@ -7436,7 +7436,7 @@ function assertRuntimePackageCapabilityHandoffClosure(
     "adapter_issue",
   );
   exact(
-    "src/project-runtime/project-runtime-execution-authorization-adapter.ts",
+    "40_Develop/orchestrator/src/task/execution-authorization-adapter.ts",
     [
       "status",
       ":",
@@ -7455,7 +7455,7 @@ function assertRuntimePackageCapabilityHandoffClosure(
     "adapter_issue_projection",
   );
   exact(
-    "src/project-runtime/project-runtime-execution-authorization-adapter.ts",
+    "40_Develop/orchestrator/src/task/execution-authorization-adapter.ts",
     [
       "dependencies",
       ".",
@@ -7472,7 +7472,7 @@ function assertRuntimePackageCapabilityHandoffClosure(
     "adapter_revoke",
   );
   exact(
-    "src/project-runtime/project-runtime-execution-authorization-adapter.ts",
+    "40_Develop/orchestrator/src/task/execution-authorization-adapter.ts",
     [
       "reason",
       ":",
@@ -7485,7 +7485,7 @@ function assertRuntimePackageCapabilityHandoffClosure(
     "adapter_revoke_projection",
   );
   exact(
-    "40_Develop/project-runtime/src/application/project-runtime-execution.ts",
+    "40_Develop/orchestrator/src/application/project-runtime-execution.ts",
     [
       "const",
       "issuedAuthorization",
@@ -7500,7 +7500,7 @@ function assertRuntimePackageCapabilityHandoffClosure(
     "project_runtime_issue",
   );
   exact(
-    "40_Develop/project-runtime/src/application/project-runtime-execution.ts",
+    "40_Develop/orchestrator/src/application/project-runtime-execution.ts",
     [
       "const",
       "runtimeExecutionCapability",
@@ -7522,7 +7522,7 @@ function assertRuntimePackageCapabilityHandoffClosure(
     "project_runtime_issue_result",
   );
   exact(
-    "40_Develop/project-runtime/src/application/project-runtime-execution.ts",
+    "40_Develop/orchestrator/src/application/project-runtime-execution.ts",
     [
       "dependencies",
       ".",
@@ -7537,7 +7537,7 @@ function assertRuntimePackageCapabilityHandoffClosure(
     "project_runtime_revoke",
   );
   exact(
-    "40_Develop/project-runtime/src/application/project-runtime-execution.ts",
+    "40_Develop/orchestrator/src/application/project-runtime-execution.ts",
     [
       "runtimeExecutionCapability",
       ",",
@@ -9288,14 +9288,15 @@ function packageMetadata(bytes: Buffer | null) {
   );
   const exportsValue = snapshotPlainRecord(
     metadata?.exports,
-    new Set(["./cli"]),
+    new Set(["./cli", "./host-runtime"]),
   );
   if (
     metadata?.name !== "@qual-lab/crdd-coordinator" ||
     typeof metadata.version !== "string" ||
     metadata.private !== true ||
     metadata.type !== "module" ||
-    exportsValue?.["./cli"] !== "./bin/coordinator.ts"
+    exportsValue?.["./cli"] !== "./bin/coordinator.ts" ||
+    exportsValue?.["./host-runtime"] !== "./src/host-runtime/index.ts"
   ) {
     throw new Error("platform_provisioner_package_metadata_invalid");
   }
@@ -9430,14 +9431,14 @@ const RUNTIME_SIBLING_COMPONENTS = Object.freeze([
     packageName: "@qual-lab/crdd-cros",
   }),
   Object.freeze({
-    sourcePrefix: "40_Develop/mcp/src/",
-    packagePath: "40_Develop/mcp/package.json",
+    sourcePrefix: "40_Develop/mcp-server/src/",
+    packagePath: "40_Develop/mcp-server/package.json",
     packageName: "@qual-lab/crdd-mcp",
   }),
   Object.freeze({
-    sourcePrefix: "40_Develop/project-runtime/src/",
-    packagePath: "40_Develop/project-runtime/package.json",
-    packageName: "@qual-lab/crdd-project-runtime",
+    sourcePrefix: "40_Develop/orchestrator/src/",
+    packagePath: "40_Develop/orchestrator/package.json",
+    packageName: "@qual-lab/crdd-orchestrator",
   }),
   Object.freeze({
     sourcePrefix: "40_Develop/execution-intelligence/src/",

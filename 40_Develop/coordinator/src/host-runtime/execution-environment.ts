@@ -2540,23 +2540,28 @@ function activeOwnedTransitionInputsForOwned(
   state: OperationGenerationState;
   identity: OwnedIdentity;
 }> {
-  const loaded = loadHostRecoveryRecord(currentToken);
-  if (loaded.record.state !== expectedState)
-    throw new Error("host_recovery_state_invalid");
-  const root = path.join(loaded.parent, loaded.parsed.rootName);
-  const state = operationGenerationByRoot.get(root);
+  const identity = ownedIdentities.get(owned);
+  if (!identity) throw new Error(bindingError);
+  validateOwnedOperationIdentity(owned, identity);
+  const parsed = parseHostRecoveryToken(currentToken);
+  const state = operationGenerationByRoot.get(identity.root);
   if (!state || state.owned !== owned || state.retired)
     throw new Error(bindingError);
-  const identity = ownedIdentities.get(state.owned);
-  if (!identity) throw new Error(bindingError);
-  validateOwnedOperationIdentity(state.owned, identity);
   if (
-    loaded.parsed.nonce !== state.nonce ||
-    loaded.parsed.recordHash !== state.currentRecordHash ||
-    loaded.marker !== identity.hostRecovery.record ||
+    parsed.rootName !== path.basename(identity.root) ||
+    parsed.nonce !== state.nonce ||
+    parsed.recordHash !== state.currentRecordHash ||
     identity.hostRecovery.state !== expectedState
   )
     throw new Error("host_recovery_generation_mismatch");
+  const record = validatePrivateHostRecoveryRecord(identity, expectedState);
+  const loaded = Object.freeze({
+    parsed,
+    parent: identity.parent,
+    recovery: Object.freeze({ directory: identity.root }),
+    marker: identity.hostRecovery.record,
+    record,
+  });
   return Object.freeze({ loaded, state, identity });
 }
 
@@ -3202,6 +3207,54 @@ export function getOwnedHostRecoveryIdByManagementCapability(
     ownedOperationFromManagementCapability(managementCapability);
   validatePrivateHostRecoveryRecord(identity, identity.hostRecovery.state);
   return expectedHostRecoveryToken(identity);
+}
+
+/**
+ * 同じ操作Ownerが保持するHost記録の現在投影を読み取る。
+ *
+ * @responsibility 任意PathやOS一時Rootの逆算を使わず、所有済みHostの相関を搬送する。
+ * @trace ARCH-000008
+ * @input managementCapability: 同じProcessで発行済みの操作管理Capability。
+ * @returns 検証済みHost Snapshotと、そのOwnerが保持するRoot・Marker Path。
+ * @precondition 管理Capabilityが現在の所有者に結合している。
+ * @postcondition 記録Hash・実体Identity・現在状態を確認した値だけを返す。
+ * @effect 所有済みHost記録とFilesystem metadataの読取りのみ。
+ * @failure 未発行Capability、記録差替え、Hash・実体不一致は例外として返す。
+ * @invariant 保存・回復・削除のAuthorityを新設しない。
+ * @boundary Coordinator内部のHost Ownerから現在状態構築への読取り搬送。
+ * @security Pathは所有者由来の観測値であり、呼出し側の任意Pathを受け付けない。
+ * @concurrency 読取り前後で現在記録を検証し、保存直前の検証は利用側Writerが行う。
+ */
+export function borrowOwnedHostRecoverySnapshot(managementCapability: unknown) {
+  const { identity } =
+    ownedOperationFromManagementCapability(managementCapability);
+  const record = validatePrivateHostRecoveryRecord(
+    identity,
+    identity.hostRecovery.state,
+  );
+  const directory = fs.lstatSync(identity.root, { bigint: true });
+  const marker = fs.lstatSync(identity.hostRecovery.record, { bigint: true });
+  if (
+    !directory.isDirectory() ||
+    directory.isSymbolicLink() ||
+    !marker.isFile() ||
+    marker.isSymbolicLink()
+  )
+    throw new Error("host_recovery_record_mismatch");
+  validatePrivateHostRecoveryRecord(identity, identity.hostRecovery.state);
+  return Object.freeze({
+    snapshot: Object.freeze({
+      token: expectedHostRecoveryToken(identity),
+      recordHash: identity.hostRecovery.recordHash,
+      directoryIdentity: `${directory.dev}:${directory.ino}:${directory.birthtimeNs}`,
+      markerIdentity: `${marker.dev}:${marker.ino}:${marker.birthtimeNs}`,
+      record,
+    }),
+    hostPaths: Object.freeze({
+      root: identity.root,
+      marker: identity.hostRecovery.record,
+    }),
+  });
 }
 
 /**
@@ -4220,8 +4273,10 @@ export async function cleanupOwnedOperationDirectoriesAsync(owned: unknown) {
   if (release === "cleanup_confirmed_failure")
     return createOwnedOperationCleanupOutcome(
       "protocol_failure_cleanup_confirmed",
+      owned,
+      identity,
     );
-  return createOwnedOperationCleanupOutcome("completed");
+  return createOwnedOperationCleanupOutcome("completed", owned, identity);
 }
 
 /**
@@ -4240,7 +4295,13 @@ type OwnedOperationCleanupStatus =
   | "protocol_failure_cleanup_confirmed";
 const ownedOperationCleanupOutcomes = new WeakMap<
   object,
-  OwnedOperationCleanupStatus
+  Readonly<{
+    status: OwnedOperationCleanupStatus;
+    owned: unknown;
+    operationId: string;
+    root: string;
+    nonce: string;
+  }>
 >();
 
 /**
@@ -4248,7 +4309,7 @@ const ownedOperationCleanupOutcomes = new WeakMap<
  *
  * @responsibility 所有 Operation 清掃 Outcomeの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
- * @input status: OwnedOperationCleanupStatus
+ * @input status: 清掃結果、owned: 実際の対象、identity: 清掃前に検証した内部Identity。
  * @returns createOwnedOperationCleanupOutcomeの計算結果を返す。
  * @precondition 「status: OwnedOperationCleanupStatus」がcreateOwnedOperationCleanupOutcomeの入力契約を満たす。
  * @postcondition createOwnedOperationCleanupOutcomeの責務を完了した結果だけを返す。
@@ -4261,9 +4322,20 @@ const ownedOperationCleanupOutcomes = new WeakMap<
  */
 function createOwnedOperationCleanupOutcome(
   status: OwnedOperationCleanupStatus,
+  owned: unknown,
+  identity: OwnedIdentity,
 ) {
   const outcome = Object.freeze({ kind: "owned_operation_cleanup_outcome" });
-  ownedOperationCleanupOutcomes.set(outcome, status);
+  ownedOperationCleanupOutcomes.set(
+    outcome,
+    Object.freeze({
+      status,
+      owned,
+      operationId: identity.operationId,
+      root: identity.root,
+      nonce: identity.hostRecovery.nonce,
+    }),
+  );
   return outcome;
 }
 
@@ -4272,23 +4344,85 @@ function createOwnedOperationCleanupOutcome(
  *
  * @responsibility 所有 Operation 清掃 Outcomeの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000008
- * @input outcome: unknown
+ * @input outcome: 真正な清掃結果、expectedOwned: 指定した場合は同じ清掃対象を要求する。
  * @returns OwnedOperationCleanupStatus | nullを返す。
  * @precondition 「outcome: unknown」がverifyOwnedOperationCleanupOutcomeの入力契約を満たす。
  * @postcondition verifyOwnedOperationCleanupOutcomeの責務を完了した結果だけを返す。
  * @effect N/A: verifyOwnedOperationCleanupOutcomeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: verifyOwnedOperationCleanupOutcomeは独自の失敗分岐を所有しない。
- * @invariant verifyOwnedOperationCleanupOutcomeは入力から導いた結果以外の共有状態を変更しない。
+ * @invariant 結果に保持した操作・Root・nonce結合を失わず、別対象の真正結果を一致へ分類しない。
  * @boundary N/A: verifyOwnedOperationCleanupOutcomeはProcess内の同一Subsystemで完結する。
  * @security verifyOwnedOperationCleanupOutcomeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: verifyOwnedOperationCleanupOutcomeは共有非同期状態を持たない同期処理である。
  */
 export function verifyOwnedOperationCleanupOutcome(
   outcome: unknown,
+  expectedOwned?: unknown,
 ): OwnedOperationCleanupStatus | null {
-  return isObject(outcome)
-    ? (ownedOperationCleanupOutcomes.get(outcome) ?? null)
+  const record = isObject(outcome)
+    ? ownedOperationCleanupOutcomes.get(outcome)
     : null;
+  return record &&
+    (expectedOwned === undefined || record.owned === expectedOwned)
+    ? record.status
+    : null;
+}
+
+/**
+ * 清掃前Ownerから同じ操作の清掃結果照合を固定する。
+ * @responsibility Owner失効後も元操作・Root・nonceに一致する真正結果だけを受理する。
+ * @trace ARCH-000008
+ * @input managementCapability: 清掃前に有効な管理Owner。
+ * @returns 真正結果の内部照合関数、またはnull。
+ * @precondition 同じHost操作Ownerが有効である。
+ * @postcondition 返却関数はProvider・Filesystem処置を許可しない。
+ * @effect 準備時のHost Identity検証だけ。
+ * @failure 不正・失効Ownerはnull。別結果は照合null。
+ * @invariant Root・nonce・操作IDを利用側入力から再構成しない。
+ * @boundary Host清掃Ownerから終端保存の結果照合。
+ * @security Path・内部Identityを公開しない。
+ * @concurrency 保存Ownerが清掃前に取得して同じAttemptで使用する。
+ */
+export function captureOwnedOperationCleanupVerification(
+  managementCapability: unknown,
+) {
+  try {
+    verifyOwnedOperationManagementCapability(managementCapability);
+    const binding = isObject(managementCapability)
+      ? operationManagementCapabilities.get(managementCapability)
+      : null;
+    const identity = binding ? ownedIdentities.get(binding.owned) : null;
+    if (!binding || !identity) return null;
+    /**
+     * 固定した元操作へ真正清掃結果を照合する。
+     * @responsibility 失効後も対象の取り違えを拒否する。
+     * @trace ARCH-000008
+     * @input outcome: 清掃Ownerのopaque結果。
+     * @returns 同じ対象の清掃statusだけ、またはnull。
+     * @precondition 清掃前の照合Context内で使用する。
+     * @postcondition 別対象や偽造結果は受理しない。
+     * @effect N/A: 内部WeakMapの照合だけ。
+     * @failure 不一致はnull。
+     * @invariant 既知の操作・Root・nonceを変更しない。
+     * @boundary Host結果と終端保存。
+     * @security 新しい処置Authorityを発行しない。
+     * @concurrency N/A: 同期の値照合だけ。
+     */
+    return (outcome: unknown) => {
+      const record = isObject(outcome)
+        ? ownedOperationCleanupOutcomes.get(outcome)
+        : null;
+      return record &&
+        record.owned === binding.owned &&
+        record.operationId === identity.operationId &&
+        record.root === identity.root &&
+        record.nonce === identity.hostRecovery.nonce
+        ? record.status
+        : null;
+    };
+  } catch {
+    return null;
+  }
 }
 
 /**

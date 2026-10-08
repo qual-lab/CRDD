@@ -17,11 +17,11 @@ import {
   createWindowsNativeHelperEnvironment,
 } from "../../src/host-runtime/windows-child-environment.ts";
 import { inspectRuntimeOwnedDockerTaskRecoveryState } from "../../src/docker-runtime/docker-recovery-runtime.ts";
-import { resolveProjectRuntimePlatformAdapter } from "../../../project-runtime/src/index.ts";
+import { resolveProjectRuntimePlatformAdapter } from "../../../orchestrator/src/index.ts";
 import {
   createProjectRuntimeWindowsPlatformAdapter,
   observeProjectRuntimePlatformFamily,
-} from "../../src/project-runtime/project-runtime-windows-platform-adapter.ts";
+} from "../../../orchestrator/src/task/windows-platform-adapter.ts";
 import { inspectRuntimeOwnedWindowsProviderHomeCandidate } from "../../src/provider/provider-home-windows-adapter.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import { compileWindowsRootObservationCandidate } from "../../src/repository-operation/root-observation.ts";

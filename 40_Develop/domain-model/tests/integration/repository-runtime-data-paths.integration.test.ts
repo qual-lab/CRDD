@@ -190,7 +190,7 @@ test("検証済みRepository Rootだけから全Repository-local Pathを解決�
   );
   assert.deepEqual(paths?.allowedTopLevelAreas, [
     "config",
-    "project-runtime",
+    "orchestrator",
     "coordinator",
     "execution-intelligence",
     "candidates",

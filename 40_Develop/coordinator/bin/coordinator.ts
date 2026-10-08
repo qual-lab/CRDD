@@ -14,15 +14,9 @@ const args = process.argv.slice(2);
 if (
   args.length === 0 ||
   (args[0] &&
-    [
-      "task",
-      "doctor",
-      "project",
-      "capabilities",
-      "candidate",
-      "help",
-      "-h",
-    ].includes(args[0]))
+    ["task", "doctor", "capabilities", "candidate", "help", "-h"].includes(
+      args[0],
+    ))
 ) {
   // Preserve the existing direct command contract, including optional JSON output.
   await import("../src/cli/coordinator-command.ts");

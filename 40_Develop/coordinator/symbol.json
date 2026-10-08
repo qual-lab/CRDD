@@ -4,6 +4,99 @@
   "subsystem": "coordinator",
   "symbols": [
     {
+      "symbolId": "coordinator.test.integration.docker-recovery-owner-reentry",
+      "kind": "test-suite",
+      "path": "tests/integration/docker-recovery-owner-reentry.contract.test.ts",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-IT-003"],
+      "verifies": ["coordinator.source.src.security.docker.recovery.runtime.internal", "coordinator.state-storage.coordinator-state-runtime"]
+    },
+    {
+      "symbolId": "coordinator.state-storage.coordinator-state-runtime",
+      "kind": "file",
+      "path": "src/state-storage/coordinator-state-runtime.ts",
+      "archIds": ["ARCH-000008"]
+    },
+    {
+      "symbolId": "coordinator.test.integration.coordinator-state-runtime",
+      "kind": "test-suite",
+      "path": "tests/integration/coordinator-state-runtime.contract.test.ts",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-IT-003"],
+      "verifies": ["coordinator.state-storage.coordinator-state-runtime", "coordinator.state-storage.coordinator-state-model"]
+    },
+    {
+      "symbolId": "coordinator.state-storage.coordinator-state-model",
+      "kind": "file",
+      "path": "src/state-storage/coordinator-state-model.ts",
+      "archIds": ["ARCH-000008"]
+    },
+    {
+      "symbolId": "coordinator.test.unit.coordinator-state-model",
+      "kind": "test-suite",
+      "path": "tests/unit/coordinator-state-model.contract.test.ts",
+      "qaIds": ["QA-000003"],
+      "localTestIds": ["PRL-UT-006"],
+      "verifies": ["coordinator.state-storage.coordinator-state-model"]
+    },
+    {
+      "symbolId": "coordinator.cli.request-input",
+      "kind": "file",
+      "path": "src/cli/request-input.ts",
+      "archIds": ["ARCH-000004"]
+    },
+    {
+      "symbolId": "coordinator.host-runtime.public",
+      "kind": "file",
+      "path": "src/host-runtime/index.ts",
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "coordinator.task.index",
+      "kind": "file",
+      "path": "src/task/index.ts",
+      "archIds": ["ARCH-000004"]
+    },
+    {
+      "symbolId": "coordinator.task.task-attempt-runtime",
+      "kind": "file",
+      "path": "src/task/task-attempt-runtime.ts",
+      "archIds": ["ARCH-000004"]
+    },
+    {
+      "symbolId": "coordinator.task.task-completion-observation",
+      "kind": "file",
+      "path": "src/task/task-completion-observation.ts",
+      "archIds": ["ARCH-000004"]
+    },
+    {
+      "symbolId": "coordinator.task.types",
+      "kind": "file",
+      "path": "src/task/types.ts",
+      "archIds": ["ARCH-000004"]
+    },
+    {
+      "symbolId": "coordinator.docker-runtime.provider-docker-execution-plan",
+      "kind": "file",
+      "path": "src/docker-runtime/provider-docker-execution-plan.ts",
+      "archIds": ["ARCH-000015"]
+    },
+    {
+      "symbolId": "coordinator.docker-runtime.provider-docker-composition",
+      "kind": "file",
+      "path": "src/docker-runtime/provider-docker-composition.ts",
+      "archIds": ["ARCH-000015"]
+    },
+    {
+      "symbolId": "coordinator.docker-runtime.provider-docker-runtime",
+      "kind": "file",
+      "path": "src/docker-runtime/provider-docker-runtime.ts",
+      "archIds": ["ARCH-000015"]
+    },
+    {
       "symbolId": "coordinator.docker-runtime.provider-docker-preparation",
       "kind": "file",
       "path": "src/docker-runtime/provider-docker-preparation.ts",
@@ -296,7 +389,8 @@
       ],
       "localTestIds": [
         "ERB-IT-001",
-        "ERB-IT-002"
+        "ERB-IT-002",
+        "ERB-IT-003"
       ],
       "verifies": [
         "coordinator.source.src.core.command.report",
@@ -532,6 +626,7 @@
         "coordinator.source.src.security.docker.recovery.journal",
         "coordinator.source.src.security.docker.recovery.runtime",
         "coordinator.source.src.security.docker.recovery.runtime.internal",
+        "coordinator.source.src.security.docker.project.recovery.settlement",
         "coordinator.source.src.security.docker.restart.continuation.record",
         "coordinator.source.src.security.docker.restart.handoff.record",
         "coordinator.source.src.security.docker.restart.record",
@@ -820,8 +915,9 @@
         "PRL-IT-013"
       ],
       "verifies": [
-        "coordinator.source.src.security.project.runtime.decision.recovery.store",
-        "project-runtime.source.src.ports.decision.port"
+        "coordinator.source.src.security.project.runtime.durable.foundation",
+        "project-runtime.source.src.ports.decision.port",
+        "orchestrator.decision.decision-recovery-record"
       ]
     },
     {
@@ -892,7 +988,6 @@
         "coordinator.source.src.security.project.runtime.decision.capability.adapter",
         "coordinator.source.src.security.project.runtime.durable.foundation",
         "coordinator.source.src.security.project.runtime.execution.authorization.adapter",
-        "coordinator.source.src.security.project.runtime.integration.record.adapter",
         "coordinator.source.src.security.project.runtime.objective.intake",
         "execution-intelligence.source.src.core.bounded.integrated.result.evaluation",
         "execution-intelligence.source.src.core.execution.intelligence",
@@ -901,7 +996,9 @@
         "project-runtime.human-decision-application",
         "project-runtime.integration-application",
         "project-runtime.replanning-application",
-        "project-runtime.source.src.ports.decision.port"
+        "project-runtime.source.src.ports.decision.port",
+        "orchestrator.decision.acceptance-decision-record",
+        "orchestrator.decision.decision-recovery-record"
       ]
     },
     {
@@ -917,7 +1014,6 @@
       "verifies": [
         "coordinator.source.src.security.project.runtime.durable.foundation",
         "coordinator.source.src.security.project.runtime.execution.authorization.adapter",
-        "coordinator.source.src.security.project.runtime.integration.record.adapter",
         "coordinator.source.src.security.project.runtime.objective.intake",
         "mcp.source.src.adapters.project.runtime.adapter",
         "project-runtime.integration-application"
@@ -1038,6 +1134,8 @@
       ],
       "verifies": [
         "coordinator.source.src.security.project.runtime.single.task.adapter",
+        "coordinator.task.task-completion-observation",
+        "coordinator.task.task-attempt-runtime",
         "coordinator.task-runtime"
       ]
     },
@@ -1607,7 +1705,10 @@
       ],
       "verifies": [
         "coordinator.source.src.security.claude.docker.runtime.adapter",
+        "coordinator.docker-runtime.provider-docker-composition",
+        "coordinator.docker-runtime.provider-docker-runtime",
         "coordinator.docker-runtime.provider-docker-preparation",
+        "coordinator.docker-runtime.provider-docker-execution-plan",
         "coordinator.docker-runtime.provider-docker-resource-plan",
         "coordinator.docker-runtime.provider-docker-command-plan",
         "coordinator.docker-runtime.provider-preparation-lifecycle",
@@ -1672,7 +1773,10 @@
       ],
       "verifies": [
         "coordinator.source.src.security.codex.docker.runtime.adapter",
+        "coordinator.docker-runtime.provider-docker-composition",
+        "coordinator.docker-runtime.provider-docker-runtime",
         "coordinator.docker-runtime.provider-docker-preparation",
+        "coordinator.docker-runtime.provider-docker-execution-plan",
         "coordinator.docker-runtime.provider-docker-resource-plan",
         "coordinator.docker-runtime.provider-docker-command-plan",
         "coordinator.docker-runtime.provider-preparation-lifecycle",
@@ -1750,7 +1854,9 @@
         "PRL-IT-005"
       ],
       "verifies": [
-        "coordinator.source.src.security.project.runtime.integration.record.adapter"
+        "coordinator.source.src.security.project.runtime.durable.foundation",
+        "orchestrator.storage.result-record",
+        "orchestrator.storage.types"
       ]
     },
     {
@@ -2455,7 +2561,8 @@
         "ERB-UT-023"
       ],
       "verifies": [
-        "coordinator.source.src.security.workbench.ai.change.candidate.runtime"
+        "coordinator.source.src.security.workbench.ai.change.candidate.runtime",
+        "coordinator.task.task-attempt-runtime"
       ]
     },
     {
@@ -2770,14 +2877,6 @@
       ],
       "verifies": [
         "coordinator.source.src.security.docker.wsl.state"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.bounded.file.snapshot",
-      "kind": "file",
-      "path": "src/state-storage/bounded-file-snapshot.ts",
-      "archIds": [
-        "ARCH-000014"
       ]
     },
     {
@@ -3197,114 +3296,11 @@
       ]
     },
     {
-      "symbolId": "coordinator.source.src.security.project.runtime.candidate.integration.adapter",
-      "kind": "file",
-      "path": "src/project-runtime/project-runtime-candidate-integration-adapter.ts",
-      "archIds": [
-        "ARCH-000015"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.project.runtime.decision.recovery.store",
-      "kind": "file",
-      "path": "src/project-runtime/project-runtime-decision-recovery-store.ts",
-      "archIds": [
-        "ARCH-000008"
-      ]
-    },
-    {
       "symbolId": "coordinator.source.src.core.project.runtime.design.traceability",
       "kind": "file",
       "path": "scripts/project-runtime-design-traceability.ts",
       "archIds": [
         "ARCH-000002"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.project.runtime.durable.foundation",
-      "kind": "file",
-      "path": "src/project-runtime/project-runtime-durable-foundation.ts",
-      "archIds": [
-        "ARCH-000004"
-      ],
-      "implements": [
-        "project-runtime.project-state-projection",
-        "project-runtime.queue-lease-lifecycle"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.project.runtime.execution.host.adapter",
-      "kind": "file",
-      "path": "src/project-runtime/project-runtime-execution-host-adapter.ts",
-      "archIds": [
-        "ARCH-000004"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.project.runtime.execution.authorization.adapter",
-      "kind": "file",
-      "path": "src/project-runtime/project-runtime-execution-authorization-adapter.ts",
-      "archIds": [
-        "ARCH-000004"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.project.runtime.single.task.adapter",
-      "kind": "file",
-      "path": "src/project-runtime/project-runtime-single-task-adapter.ts",
-      "archIds": [
-        "ARCH-000004"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.execution.intelligence.adapter",
-      "kind": "file",
-      "path": "src/project-runtime/execution-intelligence-adapter.ts",
-      "archIds": [
-        "ARCH-000007"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.project.runtime.integration.record.adapter",
-      "kind": "file",
-      "path": "src/project-runtime/project-runtime-integration-record-adapter.ts",
-      "archIds": [
-        "ARCH-000005"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.project.runtime.objective.intake",
-      "kind": "file",
-      "path": "src/project-runtime/project-runtime-objective-intake.ts",
-      "archIds": [
-        "ARCH-000004"
-      ],
-      "implements": [
-        "project-runtime.task-authority-narrowing"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.project.runtime.decision.capability.adapter",
-      "kind": "file",
-      "path": "src/project-runtime/project-runtime-decision-capability-adapter.ts",
-      "archIds": [
-        "ARCH-000005"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.docker.project.recovery.settlement",
-      "kind": "file",
-      "path": "src/project-runtime/docker-project-recovery-settlement.ts",
-      "archIds": [
-        "ARCH-000008"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.composition.project.runtime.composition.root",
-      "kind": "file",
-      "path": "src/project-runtime/project-runtime-composition-root.ts",
-      "archIds": [
-        "ARCH-000004"
       ]
     },
     {
@@ -3419,36 +3415,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.source.src.security.project.runtime.windows.decision.store",
-      "kind": "file",
-      "path": "src/project-runtime/project-runtime-windows-decision-store.ts",
-      "archIds": [
-        "ARCH-000004"
-      ]
-    },
-    {
-      "symbolId": "coordinator.project-runtime.acceptance-authority-adapter",
-      "kind": "file",
-      "path": "src/project-runtime/project-runtime-acceptance-authority-adapter.ts",
-      "archIds": [
-        "ARCH-000005"
-      ],
-      "implements": [
-        "project-runtime.acceptance-decision-authority"
-      ]
-    },
-    {
-      "symbolId": "coordinator.project-runtime.acceptance-decision-store",
-      "kind": "file",
-      "path": "src/project-runtime/project-runtime-acceptance-decision-store.ts",
-      "archIds": [
-        "ARCH-000005"
-      ],
-      "implements": [
-        "project-runtime.acceptance-decision-authority"
-      ]
-    },
-    {
       "symbolId": "coordinator.test.system.project-runtime-acceptance-decision",
       "kind": "test-suite",
       "path": "tests/system/project-runtime-acceptance-decision.contract.test.ts",
@@ -3460,10 +3426,11 @@
       ],
       "verifies": [
         "coordinator.project-runtime.acceptance-authority-adapter",
-        "coordinator.project-runtime.acceptance-decision-store",
+        "coordinator.source.src.security.project.runtime.durable.foundation",
         "coordinator.source.src.composition.project.runtime.composition.root",
         "project-runtime.acceptance-decision-application",
-        "project-runtime.state-core"
+        "project-runtime.state-core",
+        "orchestrator.decision.acceptance-decision-record"
       ]
     },
     {
@@ -3872,17 +3839,9 @@
       ]
     },
     {
-      "symbolId": "coordinator.source.src.security.project.runtime.task.recovery.adapter",
-      "kind": "file",
-      "path": "src/project-runtime/project-runtime-task-recovery-adapter.ts",
-      "archIds": [
-        "ARCH-000008"
-      ]
-    },
-    {
       "symbolId": "coordinator.source.src.security.project.runtime.windows.platform.adapter",
       "kind": "file",
-      "path": "src/project-runtime/project-runtime-windows-platform-adapter.ts",
+      "path": "src/host-runtime/windows-platform-observation.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -4165,14 +4124,6 @@
       ],
       "verifies": [
         "coordinator.source.src.security.host.orphan.recovery.policy"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.project.runtime.history",
-      "kind": "file",
-      "path": "src/project-runtime/project-runtime-history.ts",
-      "archIds": [
-        "ARCH-000004"
       ]
     },
     {

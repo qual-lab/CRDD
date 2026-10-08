@@ -48,6 +48,40 @@ test("実在試験、登録試験、実行可能Ownerをexactに照合する", (
 });
 
 /**
+ * 改名後のServer配下でも試験段階の不一致を拒否する。
+ *
+ * @responsibility 物理Parent名の変更による段階検査の脱落を検出する。
+ * @trace CQS-UT-010
+ * @precondition 現行台帳に両Serverのintegration試験が存在する。
+ * @stimulus 同じ実在Pathの申告段階だけをunitへ変更する。
+ * @observation directory_level_mismatchを観測する。
+ * @oracle 正しい台帳は受理し、両Serverの誤申告は拒否する。
+ * @cleanup N/A: 入力値だけを変更しFilesystemへ書き込まない。
+ * @boundary CQS-UT-010=Direct Boundary: Test Catalog→Path段階検査
+ */
+test("改名後のServer配下でも試験段階の不一致を拒否する", () => {
+  assert.deepEqual(inspectTestCatalog(repositoryRoot, catalog), []);
+  for (const parent of ["mcp-server", "workbench-server"]) {
+    const target = catalog.tests.find((entry) =>
+      entry.path.startsWith(`40_Develop/${parent}/tests/integration/`),
+    );
+    assert.ok(target, parent);
+    const invalid = {
+      ...catalog,
+      tests: catalog.tests.map((entry) =>
+        entry.path === target.path ? { ...entry, level: "unit" } : entry,
+      ),
+    };
+    assert.ok(
+      inspectTestCatalog(repositoryRoot, invalid).includes(
+        `directory_level_mismatch:${target.path}`,
+      ),
+      parent,
+    );
+  }
+});
+
+/**
  * 全Toolの結合ブロックはArchitecture、Lifecycle、実在ITへ閉じるを検証する。
  *
  * @responsibility 全Toolの結合ブロックはArchitecture、Lifecycle、実在ITへ閉じるの合否判定を所有する。

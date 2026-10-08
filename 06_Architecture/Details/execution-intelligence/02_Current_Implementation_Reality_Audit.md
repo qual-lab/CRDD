@@ -72,7 +72,7 @@
 
 実行知（Execution Intelligence）は、CRDDへ明示的に結合した仕事について、実行時に観測できた事実をProject、Milestone、Objective、TaskおよびAttemptへ接続し、改善判断に使える形で保持する。Coordinator専用品ではなく、AI APIを利用するTypeScriptアプリケーションや別Runtimeから組み込めるProvider非依存ライブラリを第一の利用境界とする。LLM監視製品、会話履歴、推論全文、Project Stateの第二正本または自動最適化機構は作らない。
 
-[進捗管理](../../../15_Progress.md#execution-intelligence-observation)がCRDD共通の意味と評価境界を所有する。本書は実行知そのもののEvent、保存、集約、保持、利用側Adapterおよび完成境界を所有する。実装は独立した[公開入口](../../../40_Develop/execution-intelligence/src/index.ts)、[共通Eventと集約](../../../40_Develop/execution-intelligence/src/core/execution-intelligence.ts)、[Repository-local Store](../../../40_Develop/execution-intelligence/src/store/execution-intelligence-store.ts)へ分離する。Coordinatorは[専用Adapter](../../../40_Develop/coordinator/src/project-runtime/execution-intelligence-adapter.ts)から接続し、共通SchemaへSingle Task Runtime固有の意味を持ち込まない。
+[進捗管理](../../../15_Progress.md#execution-intelligence-observation)がCRDD共通の意味と評価境界を所有する。本書は実行知そのもののEvent、保存、集約、保持、利用側Adapterおよび完成境界を所有する。実装は独立した[公開入口](../../../40_Develop/execution-intelligence/src/index.ts)、[共通Eventと集約](../../../40_Develop/execution-intelligence/src/core/execution-intelligence.ts)、[Repository-local Store](../../../40_Develop/execution-intelligence/src/store/execution-intelligence-store.ts)へ分離する。Coordinatorは[専用Adapter](../../../40_Develop/project-runtime/src/task/execution-intelligence-adapter.ts)から接続し、共通SchemaへSingle Task Runtime固有の意味を持ち込まない。
 
 ```text
 Coordinator / MCP / HTTP / 外部AI APIを使う採用Repository

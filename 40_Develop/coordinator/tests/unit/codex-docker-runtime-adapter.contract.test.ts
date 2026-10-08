@@ -12,6 +12,12 @@ import { describeWorkbenchAiAdviceResultSchema } from "../../src/workbench-ai/wo
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  createProviderDockerRuntimeDependencies,
+  createProviderDockerRuntimeState,
+} from "../../src/docker-runtime/provider-docker-composition.ts";
+import { createProviderDockerBlockedResult } from "../../src/docker-runtime/provider-docker-preparation.ts";
+import { getRuntimeOwnedProviderDockerAdapter } from "../../src/docker-runtime/provider-docker-runtime.ts";
+import {
   createProviderDockerRandomHex,
   createProviderDockerResourceNames,
 } from "../../src/docker-runtime/provider-docker-resource-plan.ts";
@@ -31,6 +37,101 @@ import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../sr
 import { createIsolatedDockerEffectRuntimeCandidate } from "../../src/docker-runtime/docker-effect-runtime.ts";
 import { planWorkbenchAiAdviceProviderCommand } from "../../../ai-adapter/src/index.ts";
 import { describeCodexSubscriptionAuthenticationCli } from "../../../ai-adapter/src/codex/index.ts";
+
+/**
+ * 共通本番依存の組立てと拒否結果が準備状態を追加しないことを確認する。
+ *
+ * @responsibility 関数参照、凍結と外部Effect前の固定結果を照合する。
+ * @trace PRL-UT-014
+ * @precondition 同じCoordinator改訂版から共通組立てを読み込む。
+ * @stimulus 本番依存を二回取得し、固定拒否結果を構築する。
+ * @observation field集合、関数参照、時計、結果の凍結とEffect field。
+ * @oracle 固定依存だけを保持し、StoreやCapabilityを生成せず、拒否結果は全Effect false。
+ * @cleanup N/A: 関数参照と値だけを組み立て、資源取得関数を実行しない。
+ * @boundary PRL-UT-014=Direct Boundary: 準備依存の共通組立て。
+ */
+test("共通Provider本番組立てはStoreを共有せず固定依存とEffect前拒否を保持する", () => {
+  const productionCodex = getRuntimeOwnedProviderDockerAdapter("codex");
+  const productionClaude = getRuntimeOwnedProviderDockerAdapter("claude");
+  assert.strictEqual(
+    productionCodex,
+    getRuntimeOwnedProviderDockerAdapter("codex"),
+  );
+  assert.strictEqual(
+    productionClaude,
+    getRuntimeOwnedProviderDockerAdapter("claude"),
+  );
+  assert.notStrictEqual(productionCodex, productionClaude);
+  assert.equal(Object.isFrozen(productionCodex), true);
+  assert.equal(Object.isFrozen(productionClaude), true);
+  const first = createProviderDockerRuntimeDependencies();
+  const second = createProviderDockerRuntimeDependencies();
+  assert.equal(Object.isFrozen(first), true);
+  assert.notEqual(first, second);
+  assert.deepEqual(
+    Object.keys(first).sort(),
+    [
+      "activateMount",
+      "borrowMountSource",
+      "completeMount",
+      "consumeAdvicePacket",
+      "consumeModelSelection",
+      "consumeTaskPacket",
+      "issueProviderAuthority",
+      "monotonicNow",
+      "randomBytes",
+      "revokeProviderAuthority",
+      "verifyOperationMount",
+      "wallNow",
+    ].sort(),
+  );
+  for (const key of Object.keys(first) as (keyof typeof first)[]) {
+    assert.equal(typeof first[key], "function");
+    if (key !== "monotonicNow") assert.equal(first[key], second[key]);
+  }
+  assert.equal(Number.isFinite(first.wallNow()), true);
+  assert.equal(Number.isFinite(first.monotonicNow()), true);
+  const codexOwner = createProviderDockerRuntimeState<"codex">(first);
+  const otherCodexOwner = createProviderDockerRuntimeState<"codex">(first);
+  const claudeOwner = createProviderDockerRuntimeState<"claude">(first);
+  const prepared = Object.freeze({});
+  const management = Object.freeze({});
+  codexOwner.managementCapabilities.set(prepared, management);
+  assert.equal(codexOwner.managementCapabilities.get(prepared), management);
+  for (const other of [otherCodexOwner, claudeOwner]) {
+    assert.equal(Object.isFrozen(other), true);
+    assert.notEqual(codexOwner.prepared, other.prepared);
+    assert.notEqual(
+      codexOwner.managementCapabilities,
+      other.managementCapabilities,
+    );
+    assert.equal(other.managementCapabilities.has(prepared), false);
+  }
+  const result = createProviderDockerBlockedResult("fixed_preparation_failure");
+  assert.equal(Object.isFrozen(result), true);
+  assert.deepEqual(result, {
+    status: "blocked",
+    reason: "fixed_preparation_failure",
+    preparedCapability: null,
+    operationId: null,
+    grantRef: null,
+    selectionRecordId: null,
+    selectedModel: null,
+    selectedEffort: null,
+    selectedModelTier: null,
+    selectionNotice: null,
+    providerHomeMountLeaseActive: false,
+    dockerEffectIssued: false,
+    filesystemEffectIssued: false,
+    networkEffectIssued: false,
+    processEffectIssued: false,
+    providerRequestIssued: false,
+    runtimeAuthorityIssued: false,
+    operationCapabilityIssued: false,
+    hostPathReported: false,
+    proxyCredentialReported: false,
+  });
+});
 
 const MODEL_SELECTION = Object.freeze({
   selectionRecordId: "MODELSEL-12345678",
@@ -273,6 +374,7 @@ test("Workbench助言をRepository非共有のCodex Planへ固定する", () => 
   );
   assert.ok(plan);
   assert.equal(plan.operationMode, "workbench_advice");
+  assert.equal(plan.consumer, "workbench");
   assert.equal(
     plan.advicePacketRef,
     "ADVICEPKT-00112233445566778899AABBCCDDEEFF",
@@ -532,6 +634,7 @@ test("Task Packetをstdin専用入力と隔離workspace RW mountへ結合する"
     fixture.mountAuthorizationCapability,
     fixture.selectionUseCapability,
     Object.freeze({}),
+    "recovery.fixture-executor",
   );
   assert.equal(prepared.status, "prepared");
   assert.equal(prepared.selectedModel, "gpt-5.5");
@@ -542,6 +645,8 @@ test("Task Packetをstdin専用入力と隔離workspace RW mountへ結合する"
   assert.ok(plan);
   assert.equal(plan.operationMode, "isolated_task");
   assert.equal(plan.taskRole, "executor");
+  assert.equal(plan.recoveryCorrelationId, "recovery.fixture-executor");
+  assert.equal(plan.consumer, "coordinator_cli");
   assert.equal(plan.workspaceMountMode, "read_write");
   assert.equal(plan.providerInput, "Implement the bounded local candidate.");
   const argv = plan.commands.flatMap((command) => command.argv);
@@ -1230,4 +1335,69 @@ test("共通Docker資源名はHome形式・63文字境界と乱数長を維持�
       ),
     /fixed_random_failure/u,
   );
+});
+
+/**
+ * 固定利用側を相関IDから独立して計画へ搬送し、不正値を準備前に拒否する。
+ *
+ * @responsibility 三利用側の搬送と不正値時のMount・Authority非発行を確認する。
+ * @trace PRL-UT-014
+ * @precondition 固定Task Packetと模擬Mountを持つ準備Adapterを使用する。
+ * @stimulus 各利用側を相関あり・なしで準備し、不正値も渡す。
+ * @observation 消費した計画、Mount有効化回数と返却理由を読む。
+ * @oracle 利用側は入力定数と一致し、不正値時はMount有効化0で拒否する。
+ * @cleanup N/A: Process外資源を生成しない。
+ * @boundary PRL-UT-014=Direct Boundary: Task準備入口→固定Provider計画。
+ */
+test("固定利用側は相関IDと独立し不正値はMount有効化前に拒否する", () => {
+  for (const consumer of [
+    "coordinator_cli",
+    "workbench",
+    "project_runtime",
+  ] as const) {
+    for (const correlation of [null, "task-correlation"]) {
+      const fixture = createFixture({}, true);
+      const prepared = fixture.adapter.prepareTask(
+        fixture.managementCapability,
+        fixture.mountCapability,
+        fixture.mountAuthorizationCapability,
+        fixture.selectionUseCapability,
+        Object.freeze({}),
+        correlation,
+        consumer,
+      );
+      assert.equal(prepared.status, "prepared");
+      const plan = fixture.adapter.consumeForProcessController(
+        prepared.preparedCapability,
+        fixture.managementCapability,
+      );
+      assert.ok(plan);
+      assert.equal(plan.consumer, consumer);
+      assert.equal(plan.recoveryCorrelationId, correlation);
+    }
+  }
+  for (const consumer of [null, "transient", "durable", {}, 0]) {
+    let activationCount = 0;
+    const fixture = createFixture(
+      {
+        activateMount: () => {
+          activationCount += 1;
+          throw new Error("unexpected_mount_activation");
+        },
+      },
+      true,
+    );
+    const result = fixture.adapter.prepareTask(
+      fixture.managementCapability,
+      fixture.mountCapability,
+      fixture.mountAuthorizationCapability,
+      fixture.selectionUseCapability,
+      Object.freeze({}),
+      null,
+      consumer,
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(result.reason, "codex_docker_runtime_consumer_invalid");
+    assert.equal(activationCount, 0);
+  }
 });

@@ -14,8 +14,8 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import type { ProjectRuntimeDecisionRecord } from "../../../project-runtime/src/index.ts";
-import { createProjectRuntimeWindowsDecisionStoreTestingAdapter } from "../../src/project-runtime/project-runtime-windows-decision-store.ts";
+import type { ProjectRuntimeDecisionRecord } from "../../../orchestrator/src/index.ts";
+import { createProjectRuntimeWindowsDecisionStoreTestingAdapter } from "../../../orchestrator/src/storage/protected-decision-store.ts";
 
 /**
  * recordのTest準備責務を実行する。

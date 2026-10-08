@@ -12,21 +12,23 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
 import {
-  createProjectRuntimePersistencePorts,
+  createCurrentProjectRuntimePersistencePorts as createProjectRuntimePersistencePorts,
+  initializeProjectRuntimeSnapshot,
+} from "../../../orchestrator/src/storage/current-state-store.ts";
+import {
   enqueueProjectOperation,
   readProjectOperationQueueState,
   readProjectRuntimeState,
   writeProjectRuntimeState,
-} from "../../src/project-runtime/project-runtime-durable-foundation.ts";
-import { createProjectRuntimeDecisionCapabilityAdapter } from "../../src/project-runtime/project-runtime-decision-capability-adapter.ts";
-import { runProjectRuntimeOperation as runProjectRuntimeOperationWithPorts } from "../../../project-runtime/src/index.ts";
-import { createProjectRuntimeExecutionHostPorts } from "../../src/project-runtime/project-runtime-execution-host-adapter.ts";
-import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../src/project-runtime/project-runtime-execution-authorization-adapter.ts";
+} from "../fixtures/project-runtime-current-ports.ts";
+import { createProjectRuntimeDecisionCapabilityAdapter } from "../../../orchestrator/src/index.ts";
+import { runProjectRuntimeOperation as runProjectRuntimeOperationWithPorts } from "../../../orchestrator/src/index.ts";
+import { createProjectRuntimeExecutionHostPorts } from "../../../orchestrator/src/index.ts";
+import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../../orchestrator/src/index.ts";
 import {
   applyProjectRuntimeHumanDecision,
   invalidateProjectRuntimeHumanDecision,
@@ -40,7 +42,7 @@ import {
   type ProjectRuntimeDecisionRecoveryIntent,
   type ProjectRuntimeReplanClassifier,
   type ProjectRuntimeReplanInput,
-} from "../../../project-runtime/src/index.ts";
+} from "../../../orchestrator/src/index.ts";
 
 const revision = "a".repeat(40);
 
@@ -156,9 +158,15 @@ function resolveProjectRuntimeReplan(
  * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 function fixture(t: test.TestContext) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-project-replan-"));
+  const tests = path.resolve(import.meta.dirname, "../../../../.crdd/tests");
+  fs.mkdirSync(tests, { recursive: true });
+  const root = fs.mkdtempSync(path.join(tests, "project-replan-"));
   execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  assert.equal(
+    initializeProjectRuntimeSnapshot(root, "binding-a").status,
+    "completed",
+  );
   const created = createProjectRuntimeState({
     projectId: "project-a",
     milestoneId: "milestone-a",

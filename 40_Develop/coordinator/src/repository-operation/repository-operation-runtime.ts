@@ -13,13 +13,17 @@ import {
   gitRepositoryFormatAdapter,
   gitRepositoryRevisionAdapter,
 } from "../../../version-control/src/git/fixed-revision-adapter.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/repository-location.ts";
+import {
+  resolveVerifiedRepositoryRoot,
+  type VerifiedRepositoryRoot,
+  verifyRepositoryRoot,
+} from "../../../version-control/src/repository-location.ts";
 import {
   inspectRepositoryFormat,
   observeRepositoryRevision,
 } from "../../../version-control/src/repository-revision.ts";
-import { verifyOwnedOperationManagementCapability } from "../host-runtime/execution-environment.ts";
 import { isSupportedCrddRuntimeGitObjectId } from "../diagnostics/release-identity-grammar.ts";
+import { verifyOwnedOperationManagementCapability } from "../host-runtime/execution-environment.ts";
 
 export const REPOSITORY_OPERATION_RUNTIME_CONTRACT =
   "crdd-coordinator/repository-operation-runtime";
@@ -358,17 +362,11 @@ export function borrowRuntimeOwnedCoordinatorStateRepository(
       repositoryRoot: binding.repositoryRoot,
       logicalRepositoryIdentity: binding.logicalRepositoryIdentity,
       repositoryInstanceIdentity: binding.repositoryInstanceIdentity,
-      repositoryBinding: createHash("sha256")
-        .update("crdd-coordinator-repository-state-binding-v1\0")
-        .update(
-          JSON.stringify([
-            binding.repositoryRoot,
-            binding.logicalRepositoryIdentity,
-            binding.repositoryInstanceIdentity,
-          ]),
-          "utf8",
-        )
-        .digest("hex"),
+      repositoryBinding: deriveCoordinatorRepositoryStateBinding(
+        binding.repositoryRoot,
+        binding.logicalRepositoryIdentity,
+        binding.repositoryInstanceIdentity,
+      ),
       revision: binding.revision,
       /**
        * 同じ操作OwnerとRepository結合が現在も成立するか再観測する。
@@ -396,6 +394,173 @@ export function borrowRuntimeOwnedCoordinatorStateRepository(
   } catch {
     return null;
   }
+}
+
+/**
+ * 既存Coordinator保存結合のHashを同じ符号化で導出する。
+ * @responsibility 通常操作と再入場のRepository・Lock結合を共通化する。
+ * @trace ARCH-000009
+ * @input repositoryRoot: 検証済みRoot、logicalIdentity: 論理Identity、instanceIdentity: 実体Identity。
+ * @returns 既存domain prefixと順序を維持したSHA-256。
+ * @precondition 入力は既存Repository観測で確定している。
+ * @postcondition 保存先とLock名の既存結合を変更しない。
+ * @effect N/A: 局所Hash計算だけ。
+ * @failure N/A: 観測不能は呼出し元が計算前に拒否する。
+ * @invariant Path・論理・実体の順序とUTF-8符号化を維持する。
+ * @boundary Repository観測と現在状態の結合。
+ * @security Hashは処置Authorityではない。
+ * @concurrency N/A: 同期の値計算だけ。
+ */
+function deriveCoordinatorRepositoryStateBinding(
+  repositoryRoot: string,
+  logicalIdentity: string,
+  instanceIdentity: string,
+) {
+  return createHash("sha256")
+    .update("crdd-coordinator-repository-state-binding-v1\0")
+    .update(
+      JSON.stringify([repositoryRoot, logicalIdentity, instanceIdentity]),
+      "utf8",
+    )
+    .digest("hex");
+}
+
+/**
+ * 検証済みRootを再入場の現在状態読取りへ借用する。
+ * @responsibility 新ProcessのRoot論理・実体・現在Revisionを内部Readerへ固定する。
+ * @trace ARCH-000009
+ * @input rootCapability: 既存Version Control Ownerが検証したRoot。
+ * @returns 内部読取り結合、またはnull。
+ * @precondition 呼出し元のCLIまたは上位組立てが対象Rootを固定している。
+ * @postcondition 操作管理Capability、書込み・回収Authorityを生成しない。
+ * @effect 現在RootとGit Identityの読取りだけ。
+ * @failure 偽Root、失効、観測不能はnull。
+ * @invariant 過去の保存値やAppDataからRootを復元しない。
+ * @boundary 検証済みRepository Rootと再入場Reader。
+ * @security 全Snapshotは内部限定で、公開は既存診断投影が所有する。
+ * @concurrency Readerの前後で同じ実体と捕捉した現在Revisionを再確認する。
+ */
+export function borrowRuntimeOwnedCoordinatorRecoveryRepository(
+  rootCapability: unknown,
+) {
+  try {
+    if (!rootCapability || typeof rootCapability !== "object") return null;
+    const repositoryRoot = resolveVerifiedRepositoryRoot(
+      rootCapability as VerifiedRepositoryRoot,
+    );
+    if (!repositoryRoot) return null;
+    const initial = observe(repositoryRoot);
+    return Object.freeze({
+      repositoryRoot,
+      repositoryBinding: deriveCoordinatorRepositoryStateBinding(
+        repositoryRoot,
+        initial.logicalRepositoryIdentity,
+        initial.repositoryInstanceIdentity,
+      ),
+      /**
+       * 再入場Readerが捕捉した現在Rootを再確認する。
+       * @responsibility 読取り途中の実体・Revision変更を拒否する。
+       * @trace ARCH-000009
+       * @input N/A: 検証済みRootと初回観測を閉包から使う。
+       * @returns 同じ観測を確認できた場合だけtrue。
+       * @precondition 同じ借用の読取り中だけ使用する。
+       * @postcondition 過去操作のAuthorityを復元しない。
+       * @effect RootとGit Identityを読取る。
+       * @failure 観測不能または変化はfalse。
+       * @invariant 別Rootへ再結合しない。
+       * @boundary 再入場Readerと現在Repository。
+       * @security 成功は削除やProvider起動の許可ではない。
+       * @concurrency 更新排他は既存Readerが別途所有する。
+       */
+      revalidate() {
+        try {
+          if (
+            resolveVerifiedRepositoryRoot(
+              rootCapability as VerifiedRepositoryRoot,
+            ) !== repositoryRoot
+          )
+            return false;
+          const current = observe(repositoryRoot);
+          return (
+            current.repositoryKind === initial.repositoryKind &&
+            current.logicalRepositoryIdentity ===
+              initial.logicalRepositoryIdentity &&
+            current.repositoryInstanceIdentity ===
+              initial.repositoryInstanceIdentity &&
+            current.revision === initial.revision
+          );
+        } catch {
+          return false;
+        }
+      },
+    });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 清掃前のRepository結合を終端保存に限って固定する。
+ * @responsibility 通常Ownerの失効と独立した現在Repository実体の再検証を所有する。
+ * @trace ARCH-000009
+ * @input managementCapability: 清掃前の現在Owner。既存の操作結合を内部から取得する。
+ * @returns 同じRepositoryの内部保存結合、またはnull。
+ * @precondition 操作Ownerが現在のRepository実体と発行revisionへ結合している。
+ * @postcondition 通常Ownerの検証・失効条件は変更しない。
+ * @effect Repository実体を読取り、作成・削除は行わない。
+ * @failure 結合・実体不一致と観測不能はnullまたは再検証false。
+ * @invariant revision変化から旧操作Authorityを復元しない。
+ * @boundary Repository OperationからCoordinatorの終端保存だけ。
+ * @security Pathは内部限定。返却値をProvider起動や一般書込みに用いない。
+ * @concurrency Writerは既存短期排他下で実体を再検証する。
+ */
+export function borrowRuntimeOwnedCoordinatorSettlementRepository(
+  managementCapability: unknown,
+) {
+  const ordinary =
+    borrowRuntimeOwnedCoordinatorStateRepository(managementCapability);
+  const binding =
+    ordinary && managementCapability && typeof managementCapability === "object"
+      ? bindings.get(managementCapability)
+      : null;
+  if (
+    !binding ||
+    !ordinary ||
+    binding.managementCapability !== managementCapability
+  )
+    return null;
+  return Object.freeze({
+    ...ordinary,
+    /**
+     * 終端保存先の現在実体だけを再確認する。
+     * @responsibility 失効済み操作権限を復活させず保存先置換を拒否する。
+     * @trace ARCH-000009
+     * @input N/A: 発行時の内部結合を使用する。
+     * @returns 現在実体一致だけtrue。
+     * @precondition 終端限定Writerからだけ使用する。
+     * @postcondition 同じ論理・実体Identityを維持する。
+     * @effect 現在Repositoryの読取り。
+     * @failure 観測不能はfalse。
+     * @invariant 旧revision一致を清掃や再実行の根拠にしない。
+     * @boundary 終端WriterとRepository実体。
+     * @security 新しい操作Authorityを返さない。
+     * @concurrency 短期排他はWriterが所有する。
+     */
+    revalidate() {
+      try {
+        const current = observe(binding.repositoryRoot);
+        return (
+          current.repositoryKind === binding.repositoryKind &&
+          current.logicalRepositoryIdentity ===
+            binding.logicalRepositoryIdentity &&
+          current.repositoryInstanceIdentity ===
+            binding.repositoryInstanceIdentity
+        );
+      } catch {
+        return false;
+      }
+    },
+  });
 }
 
 /**

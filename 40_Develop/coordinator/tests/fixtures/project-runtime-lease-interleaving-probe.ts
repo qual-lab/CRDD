@@ -27,7 +27,7 @@ if (mode === "pause-before-publish") {
   ) => {
     const result = originalMkdirSync(target, options);
     if (
-      String(target).includes("project-runtime-leases") &&
+      String(target).includes("orchestrator-leases") &&
       String(target).endsWith(".lock")
     ) {
       fs.writeFileSync(signalPath, "ready\n", "utf8");
@@ -39,29 +39,12 @@ if (mode === "pause-before-publish") {
     }
     return result;
   }) as typeof fs.mkdirSync;
-  const originalLinkSync = fs.linkSync;
-  fs.linkSync = ((source: fs.PathLike, destination: fs.PathLike) => {
-    if (String(destination).endsWith(".acquire-pending")) {
-      fs.writeFileSync(signalPath, "ready\n", "utf8");
-      const deadline = Date.now() + 10_000;
-      while (!fs.existsSync(`${signalPath}.go`)) {
-        if (Date.now() >= deadline) throw new Error("probe_signal_timeout");
-        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5);
-      }
-    }
-    return originalLinkSync(source, destination);
-  }) as typeof fs.linkSync;
 }
 
 const foundation = await import(
-  "../../src/project-runtime/project-runtime-durable-foundation.ts"
+  "../../../orchestrator/src/storage/current-state-store.ts"
 );
-const acquireProjectRuntimeLease = fs.existsSync(
-  `${workingDirectory}/.crdd/project-runtime/state.json`,
-)
-  ? foundation.acquireProjectRuntimeSnapshotLease
-  : foundation.acquireProjectRuntimeLease;
-const result = acquireProjectRuntimeLease(
+const result = foundation.acquireProjectRuntimeSnapshotLease(
   workingDirectory,
   "binding-a",
   projectId,

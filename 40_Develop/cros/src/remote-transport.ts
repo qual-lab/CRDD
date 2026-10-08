@@ -30,7 +30,7 @@ import {
 import {
   inspectProjectRuntimeProjection,
   type ProjectRuntimeProjection,
-} from "../../project-runtime/src/index.ts";
+} from "../../orchestrator/src/index.ts";
 
 import {
   authenticateConnectionCredential,

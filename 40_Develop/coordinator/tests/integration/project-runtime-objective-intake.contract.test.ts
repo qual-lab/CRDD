@@ -18,8 +18,8 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { consumeDockerRecoveryReceiptAfterProjectSettlement } from "../../src/docker-runtime/docker-recovery-runtime.ts";
-import { consumeProjectSettledDockerRecoveryWithRuntimeBoundary } from "../../src/project-runtime/docker-project-recovery-settlement.ts";
+import { consumeDockerRecoveryReceiptAfterProjectSettlement } from "../../../orchestrator/src/task/docker-recovery-settlement.ts";
+import { consumeProjectSettledDockerRecoveryWithRuntimeBoundary } from "../../../orchestrator/src/task/docker-recovery-settlement.ts";
 import { acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot } from "../../src/docker-runtime/docker-recovery-runtime-internal.ts";
 import {
   dockerRecoveryCommitName,
@@ -36,19 +36,19 @@ import {
   updateProjectOperationQueueState,
   writeProjectRuntimeState,
 } from "../fixtures/project-runtime-current-ports.ts";
-import { initializeProjectRuntimeSnapshot } from "../../src/project-runtime/project-runtime-durable-foundation.ts";
+import { initializeProjectRuntimeSnapshot } from "../../../orchestrator/src/storage/current-state-store.ts";
 import {
   inspectProjectRuntimeObjectiveRequest,
   runProjectRuntimeObjective as runProjectRuntimeObjectiveWithPorts,
-} from "../../src/project-runtime/project-runtime-objective-intake.ts";
-import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../src/project-runtime/project-runtime-execution-authorization-adapter.ts";
+} from "../../../orchestrator/src/task/objective-intake.ts";
+import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../../orchestrator/src/index.ts";
 import {
   markProjectTaskRecoveryObligationRecovering,
   type ProjectRuntimeSingleTaskAttemptInput,
   type ProjectRuntimeSingleTaskResult,
   reserveProjectTaskStart,
   settleProjectTaskRecoveryObligation,
-} from "../../../project-runtime/src/index.ts";
+} from "../../../orchestrator/src/index.ts";
 
 const revision = "a".repeat(40);
 let fixtureIntakeEpoch = "fixture-epoch";
@@ -92,15 +92,23 @@ function runProjectRuntimeObjective(
     cancellationSignal,
   );
 }
-const dockerAcknowledgement = Object.freeze({
-  runtimeStateBinding: Object.freeze({
-    runtimeStateIdentityHash: "1".repeat(64),
-    runtimeStateProtectionHash: "2".repeat(64),
-    localUserBindingHash: "3".repeat(64),
-    runtimeStateBindingHash: "4".repeat(64),
-  }),
-  receiptContentHash: "5".repeat(64),
-  receiptContentIdentity: "1:2:3",
+/**
+ * 固定結果参照の試験本文を同じ上位操作へ結合する。
+ * @responsibility 新しい受理本文の入力投影を構築する。
+ * @trace PRL-IT-005
+ * @precondition 対象の操作・回復参照を渡す。
+ * @stimulus 固定Hashと対象Identityを投影する。
+ * @observation 閉じた五項目を返す。
+ * @oracle 渡された操作・回復参照を変更しない。
+ * @cleanup N/A: 実行資源を作らない。
+ * @boundary PRL-IT-005=Mock Boundary: 本番結果投影の代替。
+ */
+const dockerAcknowledgement = (identity: { operationId: string; recoveryId: string }) => Object.freeze({
+  repositoryBinding: "1".repeat(64),
+  resultId: "5".repeat(64),
+  operationId: identity.operationId,
+  recoveryId: identity.recoveryId,
+  consumer: "project_runtime" as const,
 });
 /**
  * finalizedAcknowledgementのTest準備責務を実行する。
@@ -622,7 +630,7 @@ test("public Objective re-entry reconciles a pre-publication owner loss before e
 test("public Objective re-entry preserves malformed snapshot without inventing a recovery identity", async (t) => {
   for (const count of [1, 2]) {
     const workingDirectory = root(t);
-    const locks = path.join(workingDirectory, ".crdd", "project-runtime");
+    const locks = path.join(workingDirectory, ".crdd", "orchestrator");
     fs.mkdirSync(locks, { recursive: true });
     const createdItems = Array.from({ length: count }, (_unused, index) =>
       path.join(locks, index === 0 ? "state.json" : "state.pending.json"),
@@ -723,7 +731,7 @@ test("public Objective classifies foreign, missing, and mismatched acquisition q
       const record = path.join(
         workingDirectory,
         ".crdd",
-        "project-runtime",
+        "orchestrator",
         "state.json",
       );
       const envelope = JSON.parse(fs.readFileSync(record, "utf8"));
@@ -1235,10 +1243,45 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
         : {
             status: "completed",
             reason: "acknowledged",
-            acknowledgement: dockerAcknowledgement,
+            acknowledgement: dockerAcknowledgement(settlement),
           };
     },
-    finalizeTaskRecoveryAcknowledgement: finalizedAcknowledgement,
+    finalizeTaskRecoveryAcknowledgement: (settlement: { taskId: string }) => {
+      const stored = readProjectRuntimeState(workingDirectory, "binding-a", "project-a");
+      assert.equal(stored.status, "completed");
+      assert.ok(stored.value);
+      const state = stored.value;
+      const target = state.tasks.find((item) => item.definition.id === settlement.taskId);
+      const accepted = target?.recoveryObligations.find((item) => item.kind === "docker")?.acknowledgement;
+      assert.ok(accepted);
+      for (const invalid of [
+        { ...accepted, projectId: "other-project" },
+        { ...accepted, milestoneId: "other-milestone" },
+        { ...accepted, taskId: "other-task" },
+        { ...accepted, settlementGeneration: state.generation + 2 },
+        { ...accepted, runtimeStateBinding: "legacy" },
+      ]) {
+        const candidate = {
+          ...state,
+          generation: state.generation + 1,
+          tasks: state.tasks.map((task) => task.definition.id === settlement.taskId ? {
+            ...task,
+            recoveryObligations: task.recoveryObligations.map((item) => item.kind === "docker" ? {
+              ...item, acknowledgement: invalid,
+            } : item),
+          } : task),
+        };
+        const rejected = writeProjectRuntimeState(
+          workingDirectory, "binding-a", candidate, state.generation,
+        );
+        assert.equal(rejected.status, "blocked");
+        assert.deepEqual(
+          readProjectRuntimeState(workingDirectory, "binding-a", "project-a").value,
+          state,
+        );
+      }
+      return finalizedAcknowledgement();
+    },
     observeRecoveryTransition: async () => {
       recoveryObservationAttempts += 1;
       throw new Error("diagnostic_unavailable");
@@ -1515,12 +1558,12 @@ test("混在RecoveryはDockerをsettleして外部義務を型付きで返す", 
           manualRecoveryRequired: false,
         };
       },
-      acknowledgeTaskRecovery: (identity: { recoveryId: string }) => {
+      acknowledgeTaskRecovery: (identity: { operationId: string; recoveryId: string }) => {
         acknowledgementIds.push(identity.recoveryId);
         return {
           status: "completed",
           reason: "acknowledged",
-          acknowledgement: dockerAcknowledgement,
+          acknowledgement: dockerAcknowledgement(identity),
         };
       },
       finalizeTaskRecoveryAcknowledgement: finalizedAcknowledgement,
@@ -1858,10 +1901,10 @@ for (const interruption of [
           manualRecoveryRequired: false,
         };
       },
-      acknowledgeTaskRecovery: () => ({
+      acknowledgeTaskRecovery: (identity: { operationId: string; recoveryId: string }) => ({
         status: "completed",
         reason: "acknowledged",
-        acknowledgement: dockerAcknowledgement,
+        acknowledgement: dockerAcknowledgement(identity),
       }),
       finalizeTaskRecoveryAcknowledgement: finalizedAcknowledgement,
       execution: {

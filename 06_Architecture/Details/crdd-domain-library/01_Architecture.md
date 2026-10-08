@@ -149,7 +149,7 @@ Repository／Version Control Infrastructure
 | Package Root `domain-model/src/index.ts` | `DomainStatus`、`DomainIssue`、`DomainOutcome<T>`、`DomainLocation`、`validateDomainOutcome`だけ | なし | namespace経由でCRUD、Filesystem Writer、設定Readerを推移的に読み込むこと |
 | Artifact `domain-model/src/artifact/index.ts` | Artifact Model、Schema検証、Relation Graphの公開型と決定論的関数 | なし | Checker Finding、利用者向けmessage |
 | Plain Data `domain-model/src/plain-data/index.ts` | `snapshotPlainRecord`、`snapshotPlainArray`だけ。exact own key・prototype・data descriptorを検査し、浅い所有Snapshotまたは既存拒否結果を返す | なし | getter／Proxy trapの実行、nested値全体の安全性保証、Authority発行、Store／Writer・Provider実行への依存 |
-| Storage `domain-model/src/storage/index.ts` | 検証済みStore Root、Root内Path解決、Kernel排他、exact Lock回復、短命操作の作成・再入場・終了 | 用途限定Root内の保存・回収とKernel Endpoint | 任意絶対PathのAuthority化、個別Domain判断、Filesystem Recordだけによる排他推定 |
+| Storage `domain-model/src/storage/index.ts` | 検証済みStore Root、Root内Path解決、Kernel排他、exact Lock回復、短命操作の作成・再入場・終了、上限付き安定ファイル読取り | 用途限定Root内の保存・回収とKernel Endpoint。安定読取りは読取り専用descriptorを使用する | 任意絶対PathのAuthority化、個別Domain判断、Filesystem Recordだけによる排他推定 |
 | Configuration `domain-model/src/configuration/index.ts` | Manifest／設定Schema検証、Repository別Tool設定読取り | 設定読取りだけ。Root作成と設定の自動書込みなし | Policyの採用、Trust Framework、Credential・Authorityの発行 |
 | Project Context `domain-model/src/project-context/index.ts` | Project Context／Release／Qualityの構造化Reader、Source投影、Context固有候補判断 | 本文の解析・意味変換はEffectなし | Roadmap・品質・実行状態の第二正本、一般Task候補の採用 |
 | Topic `domain-model/src/topic/index.ts` | Topic解析・状態変換・登録・編集・取得・一覧・昇格・誤登録削除 | 認可済みRepository内の明示CRUDだけ | Meeting本文・CHG本文の複製、Git Commit／Push、別Repositoryの自動選択 |
@@ -195,6 +195,8 @@ CRDD Domain Library
 ```
 
 純粋な解析・意味変換は`node:fs`実装へ依存せず、Repositoryの観測結果または呼出し側が取得した内容を受け取る。統合Package内のCRUDと設定読取りは責務別のRepository／保存公開面を利用し、純粋Coreから暗黙に呼び出さない。Checker AdapterがDomainの構造化Issueを`CheckerFinding`へ変換し、RuleとPipelineが最終結果を構成する。
+
+`storage/bounded-file-snapshot.ts`は容量上限、開いた実体とPathの読取り前後の同一性を確認し、descriptorを終了する共通読取り部品である。Coordinator現在状態とOrchestrator保存は同じstorage公開入口を利用する。読取り可能なPathを保存・回復Authorityへ昇格せず、Root選択と用途・内容の判定は各利用側が保持する。読取り上限超過、増減、同長の実体差替えと親Directory差替えを拒否し、書込みや状態遷移は所有しない。
 
 ## 5. 結果と失敗の境界
 
@@ -283,7 +285,7 @@ MCPとWorkbenchの旧公開入口利用は移管対象である。新Packageへ�
 | `createTopicApplication`（内部の共通Repository／ApplicationからTopic操作だけを公開） | `topic/index.ts` | 選定・認可済みRootまたは同じ保存契約、対象ID、期待改訂、Relation／CRUD結果・Cursor付き一覧 | Workbench Server、MCP Server。CROSは認可済みBindingを供給 | 対象Repositoryだけに保存。誤登録削除は影響確認と明示承認が必要 |
 | `createMeetingApplication`、`MeetingOutcomeCommandResult` | `meeting/index.ts` | 選定・認可済みRootまたは同じ保存契約、Meeting／Outcome、期待改訂／処置結果 | Workbench Server、MCP Server | 同一Repositoryの原子的次版。別Repository処置はCROSの認可・Routingが成立するまで発行しない |
 | `inspectRepositoryManifest`、`inspectCrosTrustPolicy` | `configuration/index.ts` | 明示した宣言／検査結果 | CROS、Checker、各設定利用側 | 宣言の検証のみ。既存Schemaの移管をTrust Policy Framework採用と扱わない |
-| `readProjectRuntimeConfig`、`readExecutionIntelligenceConfig` | `configuration/index.ts` | 検証済みRootと当該Tool／検証済み設定Snapshot | Orchestrator、Execution Intelligence | 設定読取り。不存在だけ既定30日、不正・読取り不能は整理を停止 |
+| `readOrchestratorConfig`、`readExecutionIntelligenceConfig` | `configuration/index.ts` | 検証済みRootと当該Tool／検証済み設定Snapshot | Orchestrator、Execution Intelligence | 設定読取り。不存在だけ既定30日、不正・読取り不能は整理を停止 |
 | `resolveRepositoryRuntimeDataPaths`、`observeRepositoryRuntimeDataArea` | `repository/index.ts` | 検証済みRoot／用途別Pathと境界観測 | Runtime各Owner、Execution Intelligence、診断 | 読取りだけ。`not_observed`と`blocked`を区別し、Rootを逆算しない |
 | `ensureRepositoryRuntimeDataArea`、`createCoordinatorRuntimeDataArea`、`createTemporaryOperation`／`resumeTemporaryOperation`／`settleTemporaryOperation` | `storage/index.ts` | 許可Root、用途、exact Identity／保存Capability・終了／回復結果 | Coordinator、Orchestrator、試験・署名準備 | 宣言用途だけ作成・回収。由来不明・使用中・観測不能ではEffect前停止 |
 

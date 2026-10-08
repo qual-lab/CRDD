@@ -365,7 +365,7 @@
         ],
         "implementationSymbolIds": [
           "coordinator.project-runtime.acceptance-authority-adapter",
-          "coordinator.project-runtime.acceptance-decision-store",
+          "coordinator.source.src.security.project.runtime.durable.foundation",
           "project-runtime.acceptance-decision-application",
           "project-runtime.state-core"
         ],

@@ -7,19 +7,24 @@
 import { createHash } from "node:crypto";
 import type { Writable } from "node:stream";
 import { types as utilTypes } from "node:util";
-
-import { consumeRuntimeOwnedClaudeDockerPlanForProcessController } from "../provider/claude-docker-runtime-adapter.ts";
 import { normalizeClaudeStructuredResult } from "../../../ai-adapter/src/claude/index.ts";
-import { parseUnambiguousJsonDocument } from "../../../ai-adapter/src/output/index.ts";
-import { consumeRuntimeOwnedCodexDockerPlanForProcessController } from "../provider/codex-docker-runtime-adapter.ts";
 import { normalizeCodexStructuredResult } from "../../../ai-adapter/src/codex/index.ts";
+import { extractWorkbenchAiAdviceProviderOutput } from "../../../ai-adapter/src/index.ts";
+import { parseUnambiguousJsonDocument } from "../../../ai-adapter/src/output/index.ts";
+import { consumeRuntimeOwnedClaudeDockerPlanForProcessController } from "../provider/claude-docker-runtime-adapter.ts";
+import { consumeRuntimeOwnedCodexDockerPlanForProcessController } from "../provider/codex-docker-runtime-adapter.ts";
+import { consumeRuntimeOwnedProviderAuthority } from "../provider/provider-authority-runtime.ts";
+import { completeRuntimeOwnedProviderHomeMount } from "../provider/provider-home-mount-grant-runtime.ts";
+import { normalizeProviderTaskStructuredResult } from "../provider/provider-task-structured-result.ts";
+import { verifyRuntimeOwnedRepositoryOperation } from "../repository-operation/repository-operation-runtime.ts";
 import {
   cleanupRuntimeOwnedDockerResources,
   startRuntimeOwnedDockerCommand,
+  verifyRuntimeOwnedDockerCleanupOutcome,
 } from "./docker-effect-runtime.ts";
 import {
-  dockerProcessControllerPublicCompletionReasons,
   type DockerProcessControllerPublicCompletionReason,
+  dockerProcessControllerPublicCompletionReasons,
 } from "./docker-process-controller-result-reasons.ts";
 import { parseDockerTaskRecoveryId } from "./docker-recovery-identity.ts";
 import {
@@ -29,18 +34,18 @@ import {
 import {
   abandonRuntimeOwnedDockerRecovery,
   beginRuntimeOwnedDockerRecovery,
+  bindRuntimeOwnedDockerInitializationFailure,
   completeRuntimeOwnedDockerRecovery,
   markRuntimeOwnedDockerResourceSubmission,
   recordRuntimeOwnedDockerAbsence,
+  recordRuntimeOwnedDockerProviderSubmission,
+  recordRuntimeOwnedDockerResourceNotIssued,
   recordRuntimeOwnedDockerResourceReceipt,
   recordRuntimeOwnedNormalMountCompletion,
+  verifyRuntimeOwnedDockerHomeLeaseRelease,
   verifyRuntimeOwnedDockerRecoveryBinding,
 } from "./docker-recovery-runtime.ts";
-import { consumeRuntimeOwnedProviderAuthority } from "../provider/provider-authority-runtime.ts";
-import { completeRuntimeOwnedProviderHomeMount } from "../provider/provider-home-mount-grant-runtime.ts";
-import { normalizeProviderTaskStructuredResult } from "../provider/provider-task-structured-result.ts";
-import { verifyRuntimeOwnedRepositoryOperation } from "../repository-operation/repository-operation-runtime.ts";
-import { extractWorkbenchAiAdviceProviderOutput } from "../../../ai-adapter/src/index.ts";
+import type { ProviderDockerResourceCleanupObservation } from "./types.ts";
 
 export const DOCKER_PROCESS_CONTROLLER_CONTRACT =
   "crdd-coordinator/docker-process-controller";
@@ -207,6 +212,7 @@ type Command = Readonly<{ purpose: string; argv: readonly string[] }>;
 type PreparedPlan = Readonly<{
   provider: "codex" | "claude";
   operationId: string;
+  consumer: "coordinator_cli" | "workbench" | "project_runtime";
   recoveryCorrelationId?: string | null;
   grantRef: string;
   profileId: string;
@@ -326,6 +332,9 @@ type CleanupObservation = Readonly<{
   processTreeTerminated: boolean;
   containersAbsent: boolean;
   networksAbsent: boolean;
+  resourceObservations?:
+    | readonly ProviderDockerResourceCleanupObservation[]
+    | null;
 }>;
 /**
  * docker-process-controllerで使用するProvider Process Started Noticeの値契約を定義する。
@@ -338,7 +347,7 @@ type CleanupObservation = Readonly<{
  * @security ProviderProcessStartedNoticeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @compatibility ProviderProcessStartedNoticeの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-type ProviderProcessStartedNotice = Readonly<{
+export type ProviderProcessStartedNotice = Readonly<{
   event: "coordinator_provider_process_started";
   taskRole: "executor" | "reviewer" | null;
   provider: "codex" | "claude";
@@ -451,6 +460,7 @@ type RuntimeDependencies = Readonly<{
     managementCapability: unknown,
   ) => Recovery | BlockedRecovery | null;
   abandonRecovery?: (recoveryCapability: object) => boolean;
+  bindInitializationFailure?: typeof bindRuntimeOwnedDockerInitializationFailure;
   verifyRecoveryBinding: (
     recoveryCapability: unknown,
     recoveryId: unknown,
@@ -467,6 +477,12 @@ type RuntimeDependencies = Readonly<{
     recoveryCapability: object,
     managementCapability: unknown,
   ) => Promise<CleanupObservation>;
+  verifyCleanupOutcome?: (
+    result: unknown,
+    plan: PreparedPlan,
+    recoveryCapability: unknown,
+    managementCapability: unknown,
+  ) => CleanupObservation["resourceObservations"];
   completeMount: (
     activeMountCapability: unknown,
     managementCapability: unknown,
@@ -474,21 +490,47 @@ type RuntimeDependencies = Readonly<{
   completeRecovery: (
     recoveryCapability: object,
     managementCapability: unknown,
+    completion: Readonly<{
+      plan: PreparedPlan;
+      cleanupOutcome: CleanupObservation;
+      mountCompletion: Readonly<{ status: string }>;
+    }>,
   ) => Readonly<{
     status: string;
     recoveryFinalizationCapability?: object;
   }>;
+  verifyHomeLeaseRelease?: (
+    recoveryCapability: unknown,
+    managementCapability: unknown,
+    operationId: unknown,
+    recoveryId: unknown,
+  ) => boolean;
   markResourceSubmission?: (
     recoveryCapability: object,
     purpose: string,
+  ) => boolean;
+  recordProviderSubmission?: (
+    recoveryCapability: object,
+    notice: object,
+  ) => boolean;
+  recordResourceNotIssued?: (
+    recoveryCapability: object,
+    purpose: string,
+    notice: object,
   ) => boolean;
   recordResourceReceipt?: (
     recoveryCapability: object,
     purpose: string,
     dockerId: string,
   ) => boolean;
-  recordDockerAbsence?: (recoveryCapability: object) => boolean;
-  recordMountCompletion?: (recoveryCapability: object) => boolean;
+  recordDockerAbsence?: (
+    recoveryCapability: object,
+    observations: CleanupObservation["resourceObservations"],
+  ) => boolean;
+  recordMountCompletion?: (
+    recoveryCapability: object,
+    mountCompletion: Readonly<{ status: string }>,
+  ) => boolean;
   reportProviderProcessStarted?: (
     notice: ProviderProcessStartedNotice,
   ) => Promise<boolean>;
@@ -523,6 +565,9 @@ type RuntimeDependencies = Readonly<{
 type ExecutionRecord = {
   managementCapability: object;
   commandRestriction: unknown;
+  observeProviderStarted:
+    | ((notice: ProviderProcessStartedNotice) => boolean | Promise<boolean>)
+    | null;
   cancellationRequested: boolean;
   activeHandle: CommandHandle | null;
   completion: Promise<ExecutionResult> | null;
@@ -541,6 +586,30 @@ type ExecutionRecord = {
 type RuntimeState = Readonly<{
   dependencies: RuntimeDependencies;
   controls: WeakMap<object, ExecutionRecord>;
+  terminalObservations: WeakMap<
+    object,
+    Readonly<{
+      managementCapability: object;
+      operationId: string;
+      recoveryId: string;
+      resources: NonNullable<CleanupObservation["resourceObservations"]>;
+      primaryFailure: PrimaryFailureDiagnostic | null;
+      mountLeaseReleased: boolean;
+      recoveryCompleted: boolean;
+      homeLeaseReleased: boolean;
+    }>
+  >;
+  submissionNotices: WeakMap<
+    object,
+    Readonly<{
+      managementCapability: unknown;
+      recoveryCapability: object;
+      operationId: string;
+      recoveryId: string;
+      purpose: string;
+      kind: "resource_not_issued" | "provider_submission";
+    }>
+  >;
 }>;
 /**
  * docker-process-controllerで使用するExecution 結果の値契約を定義する。
@@ -1158,11 +1227,25 @@ function snapshotBlockedRecoveryWithExactId(
   expectedStableLogicalHomeBindingHash: string,
 ) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  if (utilTypes.isProxy(value)) return null;
+  let hasOwner = false;
   try {
+    const keys = Object.keys(value).sort().join("\0");
+    hasOwner =
+      keys ===
+      [
+        "reason",
+        "recoveryId",
+        "status",
+        "recoveryCapability",
+        "manualRecoveryRequired",
+      ]
+        .sort()
+        .join("\0");
     if (
       Object.getPrototypeOf(value) !== Object.prototype ||
-      Object.keys(value).sort().join("\0") !==
-        ["reason", "recoveryId", "status"].sort().join("\0")
+      (keys !== ["reason", "recoveryId", "status"].sort().join("\0") &&
+        !hasOwner)
     )
       return null;
   } catch {
@@ -1174,12 +1257,26 @@ function snapshotBlockedRecoveryWithExactId(
     ownDataValue(value, "recoveryId"),
   );
   const parsed = parseDockerTaskRecoveryId(recoveryId);
+  const capability = ownDataValue(value, "recoveryCapability");
+  if (
+    hasOwner &&
+    (!capability ||
+      typeof capability !== "object" ||
+      utilTypes.isProxy(capability) ||
+      ownDataValue(value, "manualRecoveryRequired") !== true)
+  )
+    return null;
   return status === "blocked" &&
     typeof reason === "string" &&
     recoveryId &&
     parsed?.stableLogicalHomeBindingHash ===
       expectedStableLogicalHomeBindingHash
-    ? Object.freeze({ status, reason, recoveryId })
+    ? Object.freeze({
+        status,
+        reason,
+        recoveryId,
+        recoveryCapability: capability ?? null,
+      })
     : null;
 }
 
@@ -1367,6 +1464,9 @@ function isPlanValid(plan: PreparedPlan) {
   const isAdvicePlan = plan.operationMode === "workbench_advice";
   return (
     (plan.provider === "codex" || plan.provider === "claude") &&
+    (plan.consumer === "coordinator_cli" ||
+      plan.consumer === "workbench" ||
+      plan.consumer === "project_runtime") &&
     /^OP-[0-9]{6,}$/u.test(plan.operationId) &&
     (plan.recoveryCorrelationId == null ||
       /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(plan.recoveryCorrelationId)) &&
@@ -1793,18 +1893,6 @@ async function executePlan(
         break;
       }
       const isProvider = command.purpose === "start_provider_attached";
-      if (
-        CREATE_PURPOSES.has(command.purpose) &&
-        state.dependencies.markResourceSubmission &&
-        !state.dependencies.markResourceSubmission(
-          recovery.recoveryCapability,
-          command.purpose,
-        )
-      ) {
-        requestedStatus = "blocked";
-        reason = "docker_resource_submission_record_unavailable";
-        break;
-      }
       diagnosticStage = "command_restriction";
       if (
         !commandRestrictionAllows(record.commandRestriction, command.purpose)
@@ -1819,6 +1907,92 @@ async function executePlan(
         requestedStatus = "cancelled";
         reason = "provider_operation_cancelled";
         break;
+      }
+      diagnosticStage = "submission_record";
+      if (
+        CREATE_PURPOSES.has(command.purpose) &&
+        state.dependencies.markResourceSubmission &&
+        !state.dependencies.markResourceSubmission(
+          recovery.recoveryCapability,
+          command.purpose,
+        )
+      ) {
+        requestedStatus = "blocked";
+        reason = "docker_resource_submission_record_unavailable";
+        break;
+      }
+      if (record.cancellationRequested) {
+        if (
+          CREATE_PURPOSES.has(command.purpose) &&
+          state.dependencies.markResourceSubmission &&
+          state.dependencies.recordResourceNotIssued
+        ) {
+          const notice = Object.freeze({});
+          state.submissionNotices.set(
+            notice,
+            Object.freeze({
+              managementCapability: record.managementCapability,
+              recoveryCapability: recovery.recoveryCapability,
+              operationId: plan.operationId,
+              recoveryId: recovery.recoveryId,
+              purpose: command.purpose,
+              kind: "resource_not_issued",
+            }),
+          );
+          let recorded = false;
+          try {
+            recorded =
+              state.dependencies.recordResourceNotIssued(
+                recovery.recoveryCapability,
+                command.purpose,
+                notice,
+              ) === true;
+          } finally {
+            state.submissionNotices.delete(notice);
+          }
+          if (!recorded) {
+            requestedStatus = "blocked";
+            reason = "docker_resource_submission_record_unavailable";
+            break;
+          }
+        }
+        requestedStatus = "cancelled";
+        reason = "provider_operation_cancelled";
+        break;
+      }
+      if (isProvider && state.dependencies.recordProviderSubmission) {
+        const notice = Object.freeze({});
+        state.submissionNotices.set(
+          notice,
+          Object.freeze({
+            managementCapability: record.managementCapability,
+            recoveryCapability: recovery.recoveryCapability,
+            operationId: plan.operationId,
+            recoveryId: recovery.recoveryId,
+            purpose: command.purpose,
+            kind: "provider_submission",
+          }),
+        );
+        let recorded = false;
+        try {
+          recorded =
+            state.dependencies.recordProviderSubmission(
+              recovery.recoveryCapability,
+              notice,
+            ) === true;
+        } finally {
+          state.submissionNotices.delete(notice);
+        }
+        if (!recorded) {
+          requestedStatus = "blocked";
+          reason = "docker_resource_submission_record_unavailable";
+          break;
+        }
+        if (record.cancellationRequested) {
+          requestedStatus = "cancelled";
+          reason = "provider_operation_cancelled";
+          break;
+        }
       }
       diagnosticStage = "command_start";
       const handle = state.dependencies.startCommand(
@@ -1850,16 +2024,19 @@ async function executePlan(
         providerRequestStarted = true;
         let isStartObserved = true;
         try {
+          const notice: ProviderProcessStartedNotice = Object.freeze({
+            event: "coordinator_provider_process_started",
+            taskRole: plan.taskRole,
+            provider: plan.provider,
+            operationId: plan.operationId,
+          });
           isStartObserved =
             !state.dependencies.reportProviderProcessStarted ||
-            (await state.dependencies.reportProviderProcessStarted(
-              Object.freeze({
-                event: "coordinator_provider_process_started",
-                taskRole: plan.taskRole,
-                provider: plan.provider,
-                operationId: plan.operationId,
-              }),
-            )) === true;
+            (await state.dependencies.reportProviderProcessStarted(notice)) ===
+              true;
+          if (isStartObserved && record.observeProviderStarted)
+            isStartObserved =
+              (await record.observeProviderStarted(notice)) === true;
         } catch {
           isStartObserved = false;
         }
@@ -2046,8 +2223,24 @@ async function executePlan(
       networksAbsent: false,
     });
   }
+  let verifiedResourceObservations = cleanup.resourceObservations;
+  if (state.dependencies.verifyCleanupOutcome) {
+    try {
+      verifiedResourceObservations = state.dependencies.verifyCleanupOutcome(
+        cleanup,
+        plan,
+        recovery.recoveryCapability,
+        record.managementCapability,
+      );
+    } catch {
+      verifiedResourceObservations = null;
+    }
+  }
   const processTreeTerminationConfirmed =
-    cleanup.confirmed && cleanup.processTreeTerminated;
+    cleanup.confirmed &&
+    cleanup.processTreeTerminated &&
+    (!state.dependencies.verifyCleanupOutcome ||
+      verifiedResourceObservations != null);
   let mountLeaseReleased = false;
   let recoveryCompleted = false;
   if (
@@ -2058,23 +2251,30 @@ async function executePlan(
     try {
       const dockerAbsenceRecorded =
         !state.dependencies.recordDockerAbsence ||
-        state.dependencies.recordDockerAbsence(recovery.recoveryCapability);
+        state.dependencies.recordDockerAbsence(
+          recovery.recoveryCapability,
+          verifiedResourceObservations,
+        );
       if (!dockerAbsenceRecorded)
         throw new Error("docker_absence_record_failed");
-      mountLeaseReleased =
-        state.dependencies.completeMount(
-          plan.activeMountCapability,
-          record.managementCapability,
-        ).status === "completed";
+      const mountCompletion = state.dependencies.completeMount(
+        plan.activeMountCapability,
+        record.managementCapability,
+      );
+      mountLeaseReleased = mountCompletion.status === "completed";
       if (mountLeaseReleased) {
         const mountCompletionRecorded =
           !state.dependencies.recordMountCompletion ||
-          state.dependencies.recordMountCompletion(recovery.recoveryCapability);
+          state.dependencies.recordMountCompletion(
+            recovery.recoveryCapability,
+            mountCompletion,
+          );
         if (!mountCompletionRecorded)
           throw new Error("mount_completion_record_failed");
         const completion = state.dependencies.completeRecovery(
           recovery.recoveryCapability,
           record.managementCapability,
+          Object.freeze({ plan, cleanupOutcome: cleanup, mountCompletion }),
         );
         recoveryFinalizationCapability =
           completion.status === "completed" &&
@@ -2140,19 +2340,94 @@ async function executePlan(
         recoveryCompleted,
     }),
   );
-  return createFinalResult(requestedStatus, reason, plan, recovery.recoveryId, {
-    providerRequestStarted,
-    cancellationRequested: record.cancellationRequested,
-    processTreeTerminationConfirmed,
-    containersAbsent: cleanup.containersAbsent,
-    networksAbsent: cleanup.networksAbsent,
-    mountLeaseReleased,
-    recoveryCompleted,
-    resultSha256,
-    resultBytes,
-    normalizedResult,
-    subscriptionAuthConfirmed: isSubscriptionAuthConfirmed,
-    recoveryFinalizationCapability,
+  const finalResult = createFinalResult(
+    requestedStatus,
+    reason,
+    plan,
+    recovery.recoveryId,
+    {
+      providerRequestStarted,
+      cancellationRequested: record.cancellationRequested,
+      processTreeTerminationConfirmed,
+      containersAbsent: cleanup.containersAbsent,
+      networksAbsent: cleanup.networksAbsent,
+      mountLeaseReleased,
+      recoveryCompleted,
+      resultSha256,
+      resultBytes,
+      normalizedResult,
+      subscriptionAuthConfirmed: isSubscriptionAuthConfirmed,
+      recoveryFinalizationCapability,
+    },
+  );
+  let homeLeaseReleased = false;
+  try {
+    homeLeaseReleased =
+      state.dependencies.verifyHomeLeaseRelease?.(
+        recovery.recoveryCapability,
+        record.managementCapability,
+        plan.operationId,
+        recovery.recoveryId,
+      ) === true;
+  } catch {
+    homeLeaseReleased = false;
+  }
+  if (verifiedResourceObservations != null) {
+    state.terminalObservations.set(
+      finalResult,
+      Object.freeze({
+        managementCapability: record.managementCapability,
+        operationId: plan.operationId,
+        recoveryId: recovery.recoveryId,
+        resources: verifiedResourceObservations,
+        primaryFailure,
+        mountLeaseReleased,
+        recoveryCompleted,
+        homeLeaseReleased,
+      }),
+    );
+  }
+  return finalResult;
+}
+
+/**
+ * 同じ完了結果へ結合した終端観測を借用する。
+ *
+ * @responsibility Controller終了後も同じ操作・回復参照の非Authority観測を保持する。
+ * @trace ARCH-000008
+ * @input state、result、managementCapability、operationId、recoveryId: Ownerと照合対象。
+ * @returns 資源・Mount・回復の観測、またはnull。
+ * @precondition 同じControllerの元の完了結果と操作相関を渡す。
+ * @postcondition コピー結果と別操作・別Ownerの借用を拒否する。
+ * @effect N/A: 私有WeakMapの読取りだけを行う。
+ * @failure 未登録・相関不一致ではnullを返す。
+ * @invariant 借用はProvider起動、Host清掃、現在状態除去の許可を生成しない。
+ * @boundary 完了結果から同じ操作の終端保存への搬送。
+ * @security 管理Capabilityを返却観測へ複製しない。
+ * @concurrency N/A: 同期照合であり外部待機を持たない。
+ */
+function borrowTerminalObservations(
+  state: RuntimeState,
+  result: unknown,
+  managementCapability: unknown,
+  operationId: unknown,
+  recoveryId: unknown,
+) {
+  if (!result || typeof result !== "object") return null;
+  const observation = state.terminalObservations.get(result);
+  if (
+    !observation ||
+    observation.managementCapability !== managementCapability ||
+    observation.operationId !== operationId ||
+    observation.recoveryId !== recoveryId
+  )
+    return null;
+  return Object.freeze({
+    resources: observation.resources,
+    primaryFailure: observation.primaryFailure,
+    mountLeaseReleased: observation.mountLeaseReleased,
+    recoveryCompleted: observation.recoveryCompleted,
+    homeLeaseReleased: observation.homeLeaseReleased,
   });
 }
 
@@ -2217,9 +2492,14 @@ function start(
   managementCapability: unknown,
   registerRecoveryHandoff: unknown,
   commandRestriction: unknown,
+  observeProviderStarted?: (
+    notice: ProviderProcessStartedNotice,
+  ) => boolean | Promise<boolean>,
 ) {
   if (
     !state.dependencies.effectExecutorAvailable ||
+    (observeProviderStarted !== undefined &&
+      typeof observeProviderStarted !== "function") ||
     !managementCapability ||
     typeof managementCapability !== "object"
   ) {
@@ -2281,6 +2561,38 @@ function start(
       recovery,
       plan.stableLogicalHomeBindingHash,
     );
+    if (exactBlocked?.recoveryCapability) {
+      const stopped = createBlockedStart(
+        publicDockerRecoveryStartReason(exactBlocked.reason),
+        false,
+        exactBlocked.recoveryId,
+        true,
+      );
+      let verified = false;
+      try {
+        verified =
+          state.dependencies.bindInitializationFailure?.(
+            exactBlocked.recoveryCapability,
+            exactBlocked.recoveryId,
+            managementCapability,
+            plan.stableLogicalHomeBindingHash,
+            exactBlocked.reason,
+            stopped,
+          ) === true;
+      } catch {}
+      if (verified) {
+        try {
+          state.dependencies.abandonRecovery?.(exactBlocked.recoveryCapability);
+        } catch {}
+        try {
+          state.dependencies.completeMount(
+            plan.activeMountCapability,
+            managementCapability,
+          );
+        } catch {}
+        return stopped;
+      }
+    }
     if (!malformedCapability && exactBlocked) {
       const completed = state.dependencies.completeMount(
         plan.activeMountCapability,
@@ -2354,6 +2666,7 @@ function start(
   const record: ExecutionRecord = {
     managementCapability,
     commandRestriction,
+    observeProviderStarted: observeProviderStarted ?? null,
     cancellationRequested: false,
     activeHandle: null,
     completion: null,
@@ -2361,6 +2674,7 @@ function start(
   state.controls.set(controlCapability, record);
   const completion = executePlan(state, record, plan, readyRecovery).finally(
     () => {
+      record.observeProviderStarted = null;
       state.controls.delete(controlCapability);
     },
   );
@@ -2443,13 +2757,18 @@ const productionState: RuntimeState = Object.freeze({
         managementCapability,
       ),
     beginRecovery: beginRuntimeOwnedDockerRecovery,
+    bindInitializationFailure: bindRuntimeOwnedDockerInitializationFailure,
     abandonRecovery: abandonRuntimeOwnedDockerRecovery,
     verifyRecoveryBinding: verifyRuntimeOwnedDockerRecoveryBinding,
     startCommand: startRuntimeOwnedDockerCommand,
     cleanupOwnedResources: cleanupRuntimeOwnedDockerResources,
+    verifyCleanupOutcome: verifyRuntimeOwnedDockerCleanupOutcome,
     completeMount: completeRuntimeOwnedProviderHomeMount,
     completeRecovery: completeRuntimeOwnedDockerRecovery,
+    verifyHomeLeaseRelease: verifyRuntimeOwnedDockerHomeLeaseRelease,
     markResourceSubmission: markRuntimeOwnedDockerResourceSubmission,
+    recordProviderSubmission: recordRuntimeOwnedDockerProviderSubmission,
+    recordResourceNotIssued: recordRuntimeOwnedDockerResourceNotIssued,
     recordResourceReceipt: recordRuntimeOwnedDockerResourceReceipt,
     recordDockerAbsence: recordRuntimeOwnedDockerAbsence,
     recordMountCompletion: recordRuntimeOwnedNormalMountCompletion,
@@ -2462,7 +2781,117 @@ const productionState: RuntimeState = Object.freeze({
     consumeProviderAuthority: consumeRuntimeOwnedProviderAuthority,
   }),
   controls: new WeakMap(),
+  terminalObservations: new WeakMap(),
+  submissionNotices: new WeakMap(),
 });
+
+/**
+ * 作成予定後の取消が実要求前に確定した元通知を照合する。
+ * @responsibility 同期保存callback中だけ有効な未発行根拠の出自を確認する。
+ * @trace ARCH-000008
+ * @input state: 実行Owner、notice: 元通知、recoveryCapability: 元回復Owner、managementCapability: 元操作Owner、purpose: 資源用途、operationId: 実操作、recoveryId: exact参照。
+ * @returns 全結合と通知の有効期間が一致する場合だけtrue。
+ * @precondition 要求予定保存後、startCommand呼出し前の取消をControllerが確認している。
+ * @postcondition コピー、別Owner、別用途、保存callback後の再利用を拒否する。
+ * @effect N/A: Process内の元通知照合だけ。
+ * @failure 登録欠落または結合不一致はfalse。
+ * @invariant 要求呼出し後の例外・handle欠測を未発行根拠にしない。
+ * @boundary Controllerの同期待機なし処理と現在状態保存Owner。
+ * @security 通知は新しい要求・削除・回復Authorityを発行しない。
+ * @concurrency 元保存callbackの終了時に失効し、別Processで再構成しない。
+ */
+function verifyUnissuedNotice(
+  state: RuntimeState,
+  notice: unknown,
+  recoveryCapability: unknown,
+  managementCapability: unknown,
+  purpose: unknown,
+  operationId: unknown,
+  recoveryId: unknown,
+  kind: "resource_not_issued" | "provider_submission" = "resource_not_issued",
+) {
+  const value =
+    notice && typeof notice === "object"
+      ? state.submissionNotices.get(notice)
+      : null;
+  return (
+    !!value &&
+    value.kind === kind &&
+    value.recoveryCapability === recoveryCapability &&
+    value.managementCapability === managementCapability &&
+    value.purpose === purpose &&
+    value.operationId === operationId &&
+    value.recoveryId === recoveryId
+  );
+}
+
+/**
+ * 本番Controllerの元未発行通知を保存Ownerへ照合する。
+ * @responsibility isolated試験の通知を本番根拠に混入させない。
+ * @trace ARCH-000008
+ * @input notice: 元通知、recoveryCapability: 元回復Owner、managementCapability: 元操作Owner、purpose: 用途、operationId: 実操作、recoveryId: exact参照。
+ * @returns 本番の同期callback中に全結合が一致する場合だけtrue。
+ * @precondition 本番Controllerの未発行保存callback中に呼び出す。
+ * @postcondition callback後、コピーと別操作の通知はfalse。
+ * @effect N/A: Process内の非Authority照合だけ。
+ * @failure 根拠不在はfalse。保存・要求を再発行しない。
+ * @invariant 過去unknownから未発行を推論しない。
+ * @boundary 本番Controllerと現在状態Writer。
+ * @security 返却値は操作Authorityではない。
+ * @concurrency 同期callbackの寿命だけを使用する。
+ */
+export function verifyRuntimeOwnedDockerUnissuedNotice(
+  notice: unknown,
+  recoveryCapability: unknown,
+  managementCapability: unknown,
+  purpose: unknown,
+  operationId: unknown,
+  recoveryId: unknown,
+) {
+  return verifyUnissuedNotice(
+    productionState,
+    notice,
+    recoveryCapability,
+    managementCapability,
+    purpose,
+    operationId,
+    recoveryId,
+  );
+}
+
+/**
+ * Provider要求直前だけ有効な元通知を照合する。
+ * @responsibility 実行評価の保存根拠を同じController・操作・回復参照へ限定する。
+ * @trace ARCH-000008
+ * @input notice: 元通知、recoveryCapability: 元Owner、managementCapability: 操作Owner、operationId: 操作ID、recoveryId: exact参照。
+ * @returns 本番の同期保存中に全相関が一致する場合だけtrue。
+ * @precondition Provider要求をまだ発行していない同じControllerから呼び出す。
+ * @postcondition コピー・別操作・失効通知と未発行通知の流用を拒否する。
+ * @effect N/A: 既存私有通知の照合だけ。
+ * @failure 根拠不在・相関不一致はfalse。
+ * @invariant 保存予定をProvider実開始・外部送信成立と同一視しない。
+ * @boundary Controllerと現在状態保存Owner。
+ * @security 通知から実行・回復Authorityを発行しない。
+ * @concurrency 同期保存callback終了時に失効する。
+ */
+export function verifyRuntimeOwnedDockerProviderSubmissionNotice(
+  notice: unknown,
+  recoveryCapability: unknown,
+  managementCapability: unknown,
+  operationId: unknown,
+  recoveryId: unknown,
+) {
+  return verifyUnissuedNotice(
+    productionState,
+    notice,
+    recoveryCapability,
+    managementCapability,
+    "start_provider_attached",
+    operationId,
+    recoveryId,
+    "provider_submission",
+  );
+}
 
 /**
  * Runtime 所有 Docker Process Controllerを開始する。
@@ -2485,6 +2914,9 @@ export function startRuntimeOwnedDockerProcessController(
   managementCapability: unknown,
   registerRecoveryHandoff?: unknown,
   commandRestriction?: unknown,
+  observeProviderStarted?: (
+    notice: ProviderProcessStartedNotice,
+  ) => boolean | Promise<boolean>,
 ) {
   try {
     return start(
@@ -2493,6 +2925,7 @@ export function startRuntimeOwnedDockerProcessController(
       managementCapability,
       registerRecoveryHandoff,
       commandRestriction,
+      observeProviderStarted,
     );
   } catch {
     return createBlockedStart("docker_process_controller_start_failed_closed");
@@ -2531,6 +2964,37 @@ export async function cancelRuntimeOwnedDockerProcessController(
 }
 
 /**
+ * 本番Controllerの同じ完了結果から終端観測を借用する。
+ *
+ * @responsibility 本番の終端観測と同じ操作・回復参照の照合を所有する。
+ * @trace ARCH-000008
+ * @input result、managementCapability、operationId、recoveryId: 本番結果と対象。
+ * @returns 保持中の非Authority観測、またはnull。
+ * @precondition 同じ本番Controllerの元の結果を渡す。
+ * @postcondition 模擬Runtime・コピー・別操作の結果を拒否する。
+ * @effect N/A: 本番Ownerの私有保持値だけを読む。
+ * @failure 未登録・相関不一致ではnullへ閉じる。
+ * @invariant 終端観測を清掃・保存・削除Authorityへ昇格しない。
+ * @boundary Controller完了から同じ操作の終端保存への内部搬送。
+ * @security 管理CapabilityやProvider本文を返さない。
+ * @concurrency N/A: 同期照合だけであり外部待機を行わない。
+ */
+export function borrowRuntimeOwnedDockerTerminalObservations(
+  result: unknown,
+  managementCapability: unknown,
+  operationId: unknown,
+  recoveryId: unknown,
+) {
+  return borrowTerminalObservations(
+    productionState,
+    result,
+    managementCapability,
+    operationId,
+    recoveryId,
+  );
+}
+
+/**
  * Isolated Docker Process Controller 候補を構築する。
  *
  * @responsibility Isolated Docker Process Controller 候補の構築入力、生成結果、不正入力の拒否境界を所有する。
@@ -2552,14 +3016,53 @@ export function createIsolatedDockerProcessControllerCandidate(
   const state: RuntimeState = Object.freeze({
     dependencies: Object.freeze(dependencies),
     controls: new WeakMap(),
+    terminalObservations: new WeakMap(),
+    submissionNotices: new WeakMap(),
   });
   return Object.freeze({
     productionAuthority: false as const,
+    verifyProviderSubmissionNotice: (
+      notice: unknown,
+      recoveryCapability: unknown,
+      managementCapability: unknown,
+      operationId: unknown,
+      recoveryId: unknown,
+    ) =>
+      verifyUnissuedNotice(
+        state,
+        notice,
+        recoveryCapability,
+        managementCapability,
+        "start_provider_attached",
+        operationId,
+        recoveryId,
+        "provider_submission",
+      ),
+    verifyUnissuedNotice: (
+      notice: unknown,
+      recoveryCapability: unknown,
+      managementCapability: unknown,
+      purpose: unknown,
+      operationId: unknown,
+      recoveryId: unknown,
+    ) =>
+      verifyUnissuedNotice(
+        state,
+        notice,
+        recoveryCapability,
+        managementCapability,
+        purpose,
+        operationId,
+        recoveryId,
+      ),
     start: (
       preparedCapability: unknown,
       managementCapability: unknown,
       registerRecoveryHandoff: unknown = () => true,
       commandRestriction?: unknown,
+      observeProviderStarted?: (
+        notice: ProviderProcessStartedNotice,
+      ) => boolean | Promise<boolean>,
     ) => {
       try {
         return start(
@@ -2568,6 +3071,7 @@ export function createIsolatedDockerProcessControllerCandidate(
           managementCapability,
           registerRecoveryHandoff,
           commandRestriction,
+          observeProviderStarted,
         );
       } catch {
         return createBlockedStart(
@@ -2577,6 +3081,19 @@ export function createIsolatedDockerProcessControllerCandidate(
     },
     cancel: (controlCapability: unknown, managementCapability: unknown) =>
       cancel(state, controlCapability, managementCapability),
+    borrowTerminalObservations: (
+      result: unknown,
+      managementCapability: unknown,
+      operationId: unknown,
+      recoveryId: unknown,
+    ) =>
+      borrowTerminalObservations(
+        state,
+        result,
+        managementCapability,
+        operationId,
+        recoveryId,
+      ),
   });
 }
 

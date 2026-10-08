@@ -10,6 +10,47 @@ import type {
 } from "./types.ts";
 
 /**
+ * Blocked 結果を構築する。
+ *
+ * @responsibility Blocked 結果の構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000015
+ * @input reason: string
+ * @returns createProviderDockerBlockedResultの計算結果を返す。
+ * @precondition 「reason: string」がcreateProviderDockerBlockedResultの入力契約を満たす。
+ * @postcondition createProviderDockerBlockedResultの責務を完了した結果だけを返す。
+ * @effect N/A: createProviderDockerBlockedResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createProviderDockerBlockedResultは独自の失敗分岐を所有しない。
+ * @invariant createProviderDockerBlockedResultは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security createProviderDockerBlockedResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createProviderDockerBlockedResultは共有非同期状態を持たない同期処理である。
+ */
+export function createProviderDockerBlockedResult(reason: string) {
+  return Object.freeze({
+    status: "blocked" as const,
+    reason,
+    preparedCapability: null,
+    operationId: null,
+    grantRef: null,
+    selectionRecordId: null,
+    selectedModel: null,
+    selectedEffort: null,
+    selectedModelTier: null,
+    selectionNotice: null,
+    providerHomeMountLeaseActive: false,
+    dockerEffectIssued: false,
+    filesystemEffectIssued: false,
+    networkEffectIssued: false,
+    processEffectIssued: false,
+    providerRequestIssued: false,
+    runtimeAuthorityIssued: false,
+    operationCapabilityIssued: false,
+    hostPathReported: false,
+    proxyCredentialReported: false,
+  });
+}
+
+/**
  * 二Providerの局所検証用準備入口を同じ固定操作へ接続する。
  *
  * @responsibility probe・Task・助言の引数搬送、失敗分類、取消と一回消費の検証入口をまとめる。
@@ -66,7 +107,17 @@ export function createIsolatedProviderDockerPreparationAdapter<R, B, C, P>(
       selection: unknown,
     ) =>
       safely(`${provider}_docker_runtime_preparation_failed_closed`, () =>
-        callbacks.prepare(management, mount, authorization, selection),
+        callbacks.prepare(
+          management,
+          mount,
+          authorization,
+          selection,
+          null,
+          null,
+          null,
+          null,
+          "coordinator_cli",
+        ),
       ),
     prepareTask: (
       management: unknown,
@@ -74,9 +125,21 @@ export function createIsolatedProviderDockerPreparationAdapter<R, B, C, P>(
       authorization: unknown,
       selection: unknown,
       packet: unknown,
+      recovery: unknown = null,
+      consumer: unknown = "coordinator_cli",
     ) =>
       safely(`${provider}_docker_runtime_task_preparation_failed_closed`, () =>
-        callbacks.prepare(management, mount, authorization, selection, packet),
+        callbacks.prepare(
+          management,
+          mount,
+          authorization,
+          selection,
+          packet,
+          recovery,
+          null,
+          null,
+          consumer,
+        ),
       ),
     prepareAdvice: (
       management: unknown,
@@ -98,6 +161,7 @@ export function createIsolatedProviderDockerPreparationAdapter<R, B, C, P>(
             null,
             packet,
             owner,
+            "workbench",
           ),
       ),
     cancel: (prepared: unknown, management: unknown) =>
@@ -142,7 +206,16 @@ export function prepareProviderDockerCandidate<M, T, A, P extends object, B, R>(
   recoveryCorrelationId: unknown = null,
   advicePacketUseCapability: unknown = null,
   advicePacketOwnerCapability: unknown = null,
+  consumer: unknown = null,
 ) {
+  if (
+    consumer !== "coordinator_cli" &&
+    consumer !== "workbench" &&
+    consumer !== "project_runtime"
+  )
+    return callbacks.blockedResult(
+      `${provider}_docker_runtime_consumer_invalid`,
+    );
   if (
     (advicePacketUseCapability === null) !==
       (advicePacketOwnerCapability === null) ||
@@ -257,6 +330,7 @@ export function prepareProviderDockerCandidate<M, T, A, P extends object, B, R>(
             taskPacket,
             advicePacket,
             recoveryCorrelationId,
+            consumer,
           )
         : null;
     if (!planCandidate) {

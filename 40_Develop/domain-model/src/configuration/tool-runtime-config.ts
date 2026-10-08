@@ -86,7 +86,7 @@ function component(value: unknown) {
  */
 function readToolRuntimeConfig(
   capability: VerifiedRepositoryRoot,
-  tool: "project-runtime" | "execution-intelligence",
+  tool: "orchestrator" | "execution-intelligence" | "coordinator",
 ): ToolRuntimeConfigResult {
   try {
     const paths = resolveRepositoryRuntimeDataPathsForInternalUse(capability);
@@ -201,13 +201,13 @@ function readToolRuntimeConfig(
 }
 
 /**
- * Project Runtime専用の設定を取得する。
- * @responsibility 他ツールの不正設定でProject Runtimeを停止させない。
+ * Orchestrator専用の設定を取得する。
+ * @responsibility 他ツールの不正設定でOrchestratorを停止させない。
  * @trace ARCH-000011
  * @input 検証済みRoot Capability。
  * @returns 自ツールの設定Snapshotまたはblocked。
- * @precondition Project Runtime所有者が必要な排他を保持する。
- * @postcondition project-runtime.jsonだけを読取り済み。
+ * @precondition Orchestrator所有者が必要な排他を保持する。
+ * @postcondition orchestrator.jsonだけを読取り済み。
  * @effect 読取りのみ。設定を作成・修正しない。
  * @failure 不正設定・観測不能はblocked。
  * @invariant 他ツールの設定を読まない。
@@ -215,10 +215,10 @@ function readToolRuntimeConfig(
  * @security 秘密値とAuthorityを扱わない。
  * @concurrency Snapshotを一処理内で固定する。
  */
-export function readProjectRuntimeConfig(
+export function readOrchestratorConfig(
   capability: VerifiedRepositoryRoot,
 ): ToolRuntimeConfigResult {
-  return readToolRuntimeConfig(capability, "project-runtime");
+  return readToolRuntimeConfig(capability, "orchestrator");
 }
 
 /**
@@ -240,4 +240,25 @@ export function readExecutionIntelligenceConfig(
   capability: VerifiedRepositoryRoot,
 ): ToolRuntimeConfigResult {
   return readToolRuntimeConfig(capability, "execution-intelligence");
+}
+
+/**
+ * Coordinator専用の履歴保持設定を取得する。
+ * @responsibility 他Toolの設定を流用せずCoordinatorの保持期間だけを返す。
+ * @trace ARCH-000011
+ * @input capability: 検証済みRepository Root。
+ * @returns 自Toolの設定Snapshotまたはblocked。
+ * @precondition Coordinator履歴Ownerが必要な排他を保持する。
+ * @postcondition coordinator.jsonだけを読取り済み。
+ * @effect 読取りのみ。設定を作成・修正しない。
+ * @failure 不正設定・観測不能はblocked。
+ * @invariant 未解決状態やCandidateの削除許可を発行しない。
+ * @boundary Repository-local config。
+ * @security 秘密値・Authorityを設定へ持たせない。
+ * @concurrency Snapshotを一処理内で固定する。
+ */
+export function readCoordinatorConfig(
+  capability: VerifiedRepositoryRoot,
+): ToolRuntimeConfigResult {
+  return readToolRuntimeConfig(capability, "coordinator");
 }

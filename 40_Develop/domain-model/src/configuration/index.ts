@@ -21,8 +21,9 @@ export {
   TESTS_RELATIVE_PATH,
 } from "./runtime-data-paths.ts";
 export {
-  readProjectRuntimeConfig,
+  readOrchestratorConfig,
   readExecutionIntelligenceConfig,
+  readCoordinatorConfig,
 } from "./tool-runtime-config.ts";
 export type {
   RepositoryManifest,

@@ -17,58 +17,14 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
-  createProjectRuntimeIntegrationRecordAdapter,
-  readLegacyProjectRuntimeResultInputs,
-} from "../../src/project-runtime/project-runtime-integration-record-adapter.ts";
+  acquireProjectRuntimeSnapshotPilotLock,
+  createProjectRuntimeSnapshotIntegrationRecordPort,
+  readProjectRuntimeSnapshot,
+  writeProjectRuntimeSnapshot,
+} from "../../../orchestrator/src/storage/current-state-store.ts";
+import { createProjectRuntimeState } from "../../../orchestrator/src/index.ts";
 import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/storage/index.ts";
 import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/repository/index.ts";
-
-/**
- * 空の旧結果でもAreaの途中置換を拒否する。
- * @responsibility 開始と終了の境界Identityを相関させる。
- * @trace PRL-IT-005
- * @precondition 自己所有Repositoryに空results領域を作る。
- * @stimulus 列挙中にproject-runtimeを別Directoryへ置換する。
- * @observation Readerの停止結果と両Directoryの存在を確認する。
- * @oracle 空結果をcompletedにせず、いずれの実体も削除しない。
- * @cleanup Mockを復元しfixtureがexact Rootだけを回収する。
- * @boundary PRL-IT-005=Direct Boundary: 共通Area観測→旧結果Reader
- */
-test("空の旧結果もAreaの途中置換を正常観測へ畳まない", (t) => {
-  const { root } = fixture(t);
-  const area = requireReadyRepositoryRuntimeDataArea(
-    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
-      root,
-      "project-runtime",
-    ),
-    "fixture_area_invalid",
-  );
-  const directory = path.join(area.directory, "results");
-  fs.mkdirSync(directory);
-  const displaced = path.join(root, "displaced-runtime");
-  const readdir = fs.readdirSync;
-  let isReplaced = false;
-  const mocked = t.mock.method(fs, "readdirSync", ((
-    location: fs.PathLike,
-    ...args: unknown[]
-  ) => {
-    if (String(location) === directory && !isReplaced) {
-      fs.renameSync(area.directory, displaced);
-      fs.mkdirSync(directory, { recursive: true });
-      isReplaced = true;
-      return [];
-    }
-    return Reflect.apply(readdir, fs, [location, ...args]);
-  }) as typeof fs.readdirSync);
-  try {
-    assert.equal(readLegacyProjectRuntimeResultInputs(root).status, "blocked");
-    assert.equal(isReplaced, true);
-    assert.equal(fs.existsSync(displaced), true);
-    assert.equal(fs.existsSync(directory), true);
-  } finally {
-    mocked.mock.restore();
-  }
-});
 
 /**
  * fixtureのTest準備責務を実行する。
@@ -102,266 +58,70 @@ function fixture(t: test.TestContext) {
     fs.rmSync(root, { recursive: true, force: true });
     assert.equal(fs.existsSync(root), false);
   });
+  const created = createProjectRuntimeState({
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    repositoryRevision: "a".repeat(40),
+    maximumConcurrency: 1,
+    milestoneAcceptanceCriteria: ["accepted"],
+    objectives: [{ id: "objective-a", acceptanceCriteria: ["done"] }],
+    tasks: [
+      {
+        id: "task-a",
+        objectiveId: "objective-a",
+        dependencies: [],
+        allowedPaths: ["result.txt"],
+        conflictKeys: [],
+      },
+    ],
+    ownerGeneration: "owner-a",
+  });
+  assert.equal(created.status, "completed");
+  if (created.status !== "completed") throw new Error("fixture_state_invalid");
+  const held = acquireProjectRuntimeSnapshotPilotLock(root);
+  assert.equal(held.status, "completed");
+  if (held.status !== "completed") throw new Error("fixture_lock_invalid");
+  const rootHash = held.value.repositoryRootHash;
+  assert.equal(held.value.release(), true);
+  const payload = {
+    schema: "crdd-coordinator/project-runtime-snapshot/v2",
+    schemaRevision: 2,
+    repositoryRootHash: rootHash,
+    repositoryBindingId: "binding-a",
+    snapshotRevision: 1,
+    intakeEpoch: "epoch-a",
+    intakeBindings: [{ queueId: "queue-a", epoch: "epoch-a" }],
+    projects: [created.state],
+    queueEntries: [
+      {
+        queueId: "queue-a",
+        projectId: "project-a",
+        milestoneId: "milestone-a",
+        requestHash: "b".repeat(64),
+        originLane: "interactive",
+        repositoryRevision: "a".repeat(40),
+        scopeHash: "c".repeat(64),
+        state: "queued",
+        generation: 1,
+        ownerGeneration: null,
+        resumeCondition: null,
+        resultReference: null,
+      },
+    ],
+    leaseEvidence: [],
+    leaseIntents: [],
+    results: [],
+    historyPending: [],
+    acceptanceDecisions: [],
+    decisionRecoveries: [],
+  };
+  assert.equal(
+    writeProjectRuntimeSnapshot(root, "binding-a", JSON.stringify(payload), 0)
+      .status,
+    "completed",
+  );
   return { root };
 }
-
-/**
- * 本番Writerの公開結果を変更せず全件抽出する。
- *
- * @responsibility kindとProjectをまたぐ結果・元Byte列Hashの保持を確認する。
- * @trace PRL-IT-005
- * @precondition 自己所有Repositoryへ本番Writerで記録を作る。
- * @stimulus 抽出入口を二度呼ぶ。
- * @observation 全値、導出元Hash、読取り前後Byte列を比較する。
- * @oracle valueと結合は不変で、migrationCommittedはfalse。
- * @cleanup fixtureのRootだけを回収する。
- * @boundary 旧Writer→Filesystem→移行入力。
- */
-test("旧結果の全kind・Projectを非変更で抽出し、受領済みとは扱わない", (t) => {
-  const { root } = fixture(t);
-  for (const kind of ["integration", "adoption"] as const) {
-    for (const project of ["project-a", "project-b"]) {
-      assert.equal(
-        adapter(root, project).write({
-          kind,
-          identity: `record-${kind}`,
-          value: { status: kind, applied: kind === "adoption" },
-        }).status,
-        "completed",
-      );
-    }
-  }
-  const read = readLegacyProjectRuntimeResultInputs(root);
-  assert.equal(read.status, "completed");
-  if (read.status !== "completed") throw new Error("read_failed");
-  assert.equal(read.value.records.length, 4);
-  assert.equal(read.value.sourceRecords.length, 4);
-  assert.equal(read.value.migrationCommitted, false);
-  for (const source of read.value.sourceRecords) {
-    const bytes = fs.readFileSync(
-      path.join(root, ".crdd", "project-runtime", source.relativePath),
-    );
-    assert.equal(
-      source.sha256,
-      createHash("sha256").update(bytes).digest("hex"),
-    );
-  }
-  assert.deepEqual(readLegacyProjectRuntimeResultInputs(root), read);
-});
-
-/**
- * 破損・結合差・残存候補を黙って捨てないことを確認する。
- *
- * @responsibility 不正結果を空入力へ畳まず既存Byte列を保全する。
- * @trace PRL-IT-005
- * @precondition 本番Writerが保存した結果を使う。
- * @stimulus 未知key、kind、Project、Identity、Hash、pending、hardlinkを注入する。
- * @observation 停止結果とFile内容を確認する。
- * @oracle 一件でも不正なら全体を停止し移行候補を返さない。
- * @cleanup fixtureのRootだけを回収する。
- * @boundary 旧結果の全数検証。
- */
-test("旧結果のHash・結合・未知項目とpending・hardlinkを拒否し保全する", (t) => {
-  const { root } = fixture(t);
-  assert.equal(
-    adapter(root).write({
-      kind: "adoption",
-      identity: "receipt-a",
-      value: { applied: true },
-    }).status,
-    "completed",
-  );
-  const directory = path.join(
-    root,
-    ".crdd",
-    "project-runtime",
-    "results",
-    "adoption",
-    "project-a",
-  );
-  const target = path.join(directory, "receipt-a.json");
-  const original = fs.readFileSync(target, "utf8");
-  for (const change of [
-    { extra: true },
-    { kind: "integration" },
-    { projectId: "project-b" },
-    { identity: "receipt-b" },
-    { contentHash: "0".repeat(64) },
-    { value: { applied: false } },
-  ]) {
-    const invalid = JSON.stringify({ ...JSON.parse(original), ...change });
-    fs.writeFileSync(target, invalid);
-    const result = readLegacyProjectRuntimeResultInputs(root);
-    assert.equal(result.status, "blocked");
-    assert.equal(
-      result.status === "blocked" && result.manualRecoveryRequired,
-      false,
-    );
-    assert.equal(fs.readFileSync(target, "utf8"), invalid);
-  }
-  fs.writeFileSync(target, original);
-  const pending = path.join(directory, ".pending-trial.tmp");
-  fs.writeFileSync(pending, "unfinished");
-  assert.equal(readLegacyProjectRuntimeResultInputs(root).status, "blocked");
-  assert.equal(fs.readFileSync(pending, "utf8"), "unfinished");
-  fs.unlinkSync(pending);
-  const link = path.join(root, "receipt-hardlink");
-  fs.linkSync(target, link);
-  assert.equal(readLegacyProjectRuntimeResultInputs(root).status, "blocked");
-  fs.unlinkSync(link);
-  assert.equal(readLegacyProjectRuntimeResultInputs(root).status, "completed");
-});
-
-/**
- * 真正不存在と観測不能・列挙後消失・親aliasを区別する。
- *
- * @responsibility 不明を空結果へ読み替えない。
- * @trace PRL-IT-005
- * @precondition 自己所有の試験Repositoryを使う。
- * @stimulus ENOENT、EACCES、親junctionと上限超過を注入する。
- * @observation 空結果と停止結果、元Fileの保全を確認する。
- * @oracle 親の真正不存在だけ成功し、他は停止する。
- * @cleanup Mockを復元しfixtureのRootだけを回収する。
- * @boundary Repository Root・親領域・個別File読取り。
- */
-test("旧結果は真正不存在だけ空とし、観測不能・途中消失・alias・超過を停止する", (t) => {
-  const { root } = fixture(t);
-  const absent = readLegacyProjectRuntimeResultInputs(root);
-  assert.equal(absent.status, "completed");
-  if (absent.status !== "completed") throw new Error("absent_failed");
-  assert.equal(absent.value.records.length, 0);
-  assert.equal(fs.existsSync(path.join(root, ".crdd")), false);
-  assert.equal(
-    adapter(root).write({
-      kind: "integration",
-      identity: "candidate-a",
-      value: {},
-    }).status,
-    "completed",
-  );
-  const target = path.join(
-    root,
-    ".crdd",
-    "project-runtime",
-    "results",
-    "integration",
-    "project-a",
-    "candidate-a.json",
-  );
-  const lstat = fs.lstatSync;
-  for (const code of ["EACCES", "ENOENT"]) {
-    const mock = t.mock.method(fs, "lstatSync", ((
-      location: fs.PathLike,
-      ...args: unknown[]
-    ) => {
-      if (String(location) === target)
-        throw Object.assign(new Error("injected"), { code });
-      return Reflect.apply(lstat, fs, [location, ...args]);
-    }) as typeof fs.lstatSync);
-    try {
-      assert.equal(
-        readLegacyProjectRuntimeResultInputs(root).status,
-        "blocked",
-      );
-    } finally {
-      mock.mock.restore();
-    }
-  }
-  const original = fs.readFileSync(target);
-  fs.writeFileSync(target, "x".repeat(16 * 1024 * 1024 + 1));
-  assert.equal(readLegacyProjectRuntimeResultInputs(root).status, "blocked");
-  fs.writeFileSync(target, original);
-  const project = path.dirname(target);
-  const displaced = path.join(root, "displaced");
-  fs.renameSync(project, displaced);
-  fs.symlinkSync(
-    displaced,
-    project,
-    process.platform === "win32" ? "junction" : "dir",
-  );
-  assert.equal(readLegacyProjectRuntimeResultInputs(root).status, "blocked");
-  fs.unlinkSync(project);
-  fs.renameSync(displaced, project);
-  assert.equal(readLegacyProjectRuntimeResultInputs(root).status, "completed");
-});
-
-/**
- * 観測済み祖先の消失と不正encodingを正常入力へ畳まない。
- *
- * @responsibility 存在確認後の失敗と置換文字を使ったHash一致の反証を固定する。
- * @trace PRL-IT-005
- * @precondition 本番Writer結果と自己所有Repositoryを使う。
- * @stimulus 親realpathのENOENT、空返却前祖先EACCES、不正UTF-8を注入する。
- * @observation 停止結果と元bytesの不変を確認する。
- * @oracle いずれも空入力や受理へ変換しない。
- * @cleanup Mockを復元しfixtureのRootだけを回収する。
- * @boundary Filesystem観測とJSON復号。
- */
-test("旧結果は親の途中消失・祖先再確認失敗・不正UTF8を拒否する", (t) => {
-  const { root } = fixture(t);
-  const lstat = fs.lstatSync;
-  let rootReads = 0;
-  const ancestorMock = t.mock.method(fs, "lstatSync", ((
-    location: fs.PathLike,
-    ...args: unknown[]
-  ) => {
-    if (String(location) === root && ++rootReads >= 2)
-      throw Object.assign(new Error("injected"), { code: "EACCES" });
-    return Reflect.apply(lstat, fs, [location, ...args]);
-  }) as typeof fs.lstatSync);
-  try {
-    assert.equal(readLegacyProjectRuntimeResultInputs(root).status, "blocked");
-  } finally {
-    ancestorMock.mock.restore();
-  }
-  assert.equal(
-    adapter(root).write({
-      kind: "integration",
-      identity: "candidate-a",
-      value: { text: "\uFFFD" },
-    }).status,
-    "completed",
-  );
-  const parent = path.join(root, ".crdd");
-  const realpath = fs.realpathSync.native;
-  const parentMock = t.mock.method(fs.realpathSync, "native", ((
-    location: fs.PathLike,
-    ...args: unknown[]
-  ) => {
-    if (String(location) === parent)
-      throw Object.assign(new Error("injected"), { code: "ENOENT" });
-    return Reflect.apply(realpath, fs.realpathSync, [location, ...args]);
-  }) as typeof fs.realpathSync.native);
-  try {
-    assert.equal(readLegacyProjectRuntimeResultInputs(root).status, "blocked");
-  } finally {
-    parentMock.mock.restore();
-  }
-  const target = path.join(
-    root,
-    ".crdd",
-    "project-runtime",
-    "results",
-    "integration",
-    "project-a",
-    "candidate-a.json",
-  );
-  const original = fs.readFileSync(target);
-  const replacement = Buffer.from("\uFFFD");
-  const index = original.indexOf(replacement);
-  assert.notEqual(index, -1);
-  const invalid = Buffer.concat([
-    original.subarray(0, index),
-    Buffer.from([0xff]),
-    original.subarray(index + replacement.length),
-  ]);
-  assert.equal(invalid.toString("utf8"), original.toString("utf8"));
-  fs.writeFileSync(target, invalid);
-  assert.equal(readLegacyProjectRuntimeResultInputs(root).status, "blocked");
-  assert.deepEqual(fs.readFileSync(target), invalid);
-  fs.writeFileSync(target, original);
-  assert.equal(readLegacyProjectRuntimeResultInputs(root).status, "completed");
-});
 
 /**
  * adapterのTest準備責務を実行する。
@@ -376,7 +136,7 @@ test("旧結果は親の途中消失・祖先再確認失敗・不正UTF8を拒�
  * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 function adapter(root: string, projectId = "project-a") {
-  return createProjectRuntimeIntegrationRecordAdapter({
+  return createProjectRuntimeSnapshotIntegrationRecordPort({
     workingDirectory: root,
     repositoryBindingId: "binding-a",
     projectId,
@@ -406,20 +166,17 @@ test("integration records are immutable and an identical retry is idempotent", (
     value: { status: "candidate", changedPaths: ["result.txt"] },
   };
   assert.equal(records.write(record).status, "completed");
+  const file = path.join(root, ".crdd", "orchestrator", "state.json");
+  const before = fs.readFileSync(file);
   assert.equal(records.write(record).status, "completed");
-  const target = path.join(
-    root,
-    ".crdd",
-    "project-runtime",
-    "results",
-    "integration",
-    "project-a",
-    "candidate-a.json",
-  );
-  assert.equal(fs.existsSync(target), true);
+  assert.deepEqual(fs.readFileSync(file), before);
+  const observed = readProjectRuntimeSnapshot(root, "binding-a");
+  assert.equal(observed.status, "completed");
+  assert.equal(observed.value?.results.length, 1);
+  assert.equal(observed.value?.results[0]?.identity, "candidate-a");
   assert.equal(
-    JSON.parse(fs.readFileSync(target, "utf8")).identity,
-    "candidate-a",
+    fs.existsSync(path.join(root, ".crdd", "orchestrator", "results")),
+    false,
   );
 });
 
@@ -445,22 +202,10 @@ test("canonical candidate identity is preserved by the integration record", (t) 
     value: { status: "candidate", changedPaths: ["result.txt"] },
   });
   assert.equal(result.status, "completed");
-  const target = path.join(
-    root,
-    ".crdd",
-    "project-runtime",
-    "results",
-    "integration",
-    "project-a",
-    `${candidateId}.json`,
-  );
-  assert.equal(
-    JSON.parse(fs.readFileSync(target, "utf8")).identity,
-    candidateId,
-  );
-  assert.deepEqual(fs.readdirSync(path.dirname(target)), [
-    `${candidateId}.json`,
-  ]);
+  const observed = readProjectRuntimeSnapshot(root, "binding-a");
+  assert.equal(observed.status, "completed");
+  assert.equal(observed.value?.results.length, 1);
+  assert.equal(observed.value?.results[0]?.identity, candidateId);
 });
 
 /**
@@ -484,27 +229,19 @@ test("an identity collision is blocked without replacing the first record", (t) 
     value: { afterRevision: "a".repeat(40) },
   };
   assert.equal(records.write(first).status, "completed");
-  const directory = path.join(
-    root,
-    ".crdd",
-    "project-runtime",
-    "results",
-    "adoption",
-    "project-a",
-  );
-  const target = path.join(directory, "receipt-a.json");
+  const target = path.join(root, ".crdd", "orchestrator", "state.json");
   const original = fs.readFileSync(target);
   const collision = records.write({
     ...first,
     value: { afterRevision: "b".repeat(40) },
   });
   assert.equal(collision.status, "blocked");
-  assert.equal(
-    collision.status === "blocked" && collision.manualRecoveryRequired,
-    true,
-  );
+  assert.equal(collision.reason, "project_runtime_result_identity_conflict");
   assert.deepEqual(fs.readFileSync(target), original);
-  assert.deepEqual(fs.readdirSync(directory), ["receipt-a.json"]);
+  const observed = readProjectRuntimeSnapshot(root, "binding-a");
+  assert.equal(observed.status, "completed");
+  assert.equal(observed.value?.results.length, 1);
+  assert.equal(observed.value?.results[0]?.identity, "receipt-a");
 });
 
 /**
@@ -523,12 +260,61 @@ test("invalid path identities fail before creating a record directory", (t) => {
   const { root } = fixture(t);
   const escaped = `escape-${path.basename(root)}`;
   const outside = path.join(root, "..", escaped);
+  const file = path.join(root, ".crdd", "orchestrator", "state.json");
+  const before = fs.readFileSync(file);
   const result = adapter(root, `../${escaped}`).write({
     kind: "integration",
     identity: "candidate-a",
     value: {},
   });
   assert.equal(result.status, "blocked");
-  assert.equal(fs.existsSync(path.join(root, ".crdd")), false);
+  assert.equal(result.reason, "project_runtime_result_invalid");
+  assert.deepEqual(fs.readFileSync(file), before);
   assert.equal(fs.existsSync(outside), false);
+});
+
+/**
+ * 未知欄・結果Hash・Queue結合の破損を現在保存から拒否する。
+ * @responsibility 外側Hashだけの一致を結果契約の証明にしないことを確認する。
+ * @trace PRL-IT-005
+ * @precondition 対象Queueに結合した候補結果が単一状態に保存済みである。
+ * @stimulus 結果の未知欄、内容Hash、Queue結合を個別に破損する。
+ * @observation 読取りの状態と保存bytesを確認する。
+ * @oracle 観測不能として停止し不正保存を置換しない。
+ * @cleanup 登録済みhookが自己所有Repositoryを回収する。
+ * @boundary 結果Port→現在Snapshotの内容検査。
+ */
+test("現行結果保存は未知欄・Hash・Queue結合破損を拒否して保全する", (t) => {
+  const { root } = fixture(t);
+  assert.equal(
+    adapter(root).write({
+      kind: "integration",
+      identity: "candidate-a",
+      value: { status: "candidate" },
+    }).status,
+    "completed",
+  );
+  const file = path.join(root, ".crdd", "orchestrator", "state.json");
+  const original = fs.readFileSync(file, "utf8");
+  for (const change of [
+    { unexpected: true },
+    { contentHash: "f".repeat(64) },
+    { milestoneId: "milestone-mismatch" },
+  ]) {
+    const saved = JSON.parse(original);
+    Object.assign(saved.payload.results[0], change);
+    saved.contentHash = createHash("sha256")
+      .update(JSON.stringify(saved.payload))
+      .digest("hex");
+    fs.writeFileSync(file, JSON.stringify(saved));
+    const before = fs.readFileSync(file);
+    const observed = readProjectRuntimeSnapshot(root, "binding-a");
+    assert.equal(observed.status, "blocked", JSON.stringify(change));
+    assert.equal(
+      observed.reason,
+      "project_runtime_snapshot_invalid_or_unconfirmed",
+    );
+    assert.equal(observed.manualRecoveryRequired, true);
+    assert.deepEqual(fs.readFileSync(file), before);
+  }
 });

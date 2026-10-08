@@ -55,7 +55,7 @@ const request = (mode: "read_only_advice" | "change_candidate") =>
     prompt: "現在状態を確認する",
     contextReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
     allowedPaths: Object.freeze(
-      mode === "change_candidate" ? ["40_Develop/workbench/src"] : [],
+      mode === "change_candidate" ? ["40_Develop/workbench-server/src"] : [],
     ),
     externalSendConfirmed: true,
   });
