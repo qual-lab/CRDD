@@ -12,7 +12,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { parseRepositoryProjectContextMarkdown } from "../../../domain-model/src/project-context/index.ts";
+import { parseRepositoryProjectContextMarkdown } from "../../../domain-model/src/index.ts";
 import {
   createMemoryConnectionCredentialRegistry,
   issueConnectionCredential,
@@ -20,7 +20,7 @@ import {
 } from "../../../cros/src/index.ts";
 import {
   MCP_PROJECT_CONTEXT_GET_TOOL,
-  MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
+  MCP_ORCHESTRATOR_PROTOCOL_VERSION,
   startCrosSharedServer,
 } from "../../src/index.ts";
 
@@ -133,7 +133,7 @@ function callProjectContext(baseUrl: string, token: string): Promise<Response> {
       authorization: `Bearer ${token}`,
       accept: "application/json, text/event-stream",
       "content-type": "application/json",
-      "mcp-protocol-version": MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
+      "mcp-protocol-version": MCP_ORCHESTRATOR_PROTOCOL_VERSION,
       "mcp-method": "tools/call",
       "mcp-name": MCP_PROJECT_CONTEXT_GET_TOOL,
     }),
@@ -146,7 +146,7 @@ function callProjectContext(baseUrl: string, token: string): Promise<Response> {
         arguments: { projectId: "PRJ-SHARED" },
         _meta: {
           "io.modelcontextprotocol/protocolVersion":
-            MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
+            MCP_ORCHESTRATOR_PROTOCOL_VERSION,
           "io.modelcontextprotocol/clientCapabilities": {},
         },
       },

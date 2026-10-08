@@ -10,7 +10,7 @@ import path from "node:path";
 import {
   resolveVerifiedRepositoryRoot,
   type VerifiedRepositoryRoot,
-} from "./repository-location.ts";
+} from "./repository/location.ts";
 
 export const FIXED_SNAPSHOT_CONTRACT = "crdd-version-control/fixed-snapshot/v1";
 export const FIXED_SNAPSHOT_CONTRACT_REVISION = 1;

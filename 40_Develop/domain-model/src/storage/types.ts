@@ -21,9 +21,9 @@ import type {
  * @security Repository選定・認可は構成側が確認し、型からAuthorityを推定しない。
  * @compatibility 専用操作の結果契約を保持し、旧汎用操作への互換Aliasを提供しない。
  */
-export type TopicMeetingApplications = Readonly<{
-  topic: import("../topic/types.ts").TopicApplication;
-  meeting: import("../meeting/types.ts").MeetingApplication;
+export type TopicMeetingAccess = Readonly<{
+  topic: import("../topic/types.ts").TopicOperations;
+  meeting: import("../meeting/types.ts").MeetingOperations;
 }>;
 
 /**
@@ -37,17 +37,17 @@ export type TopicMeetingApplications = Readonly<{
  * @security 任意PathやRepository Rootを公開結果へ含めない。
  * @compatibility 共通Applicationの既存結果型を維持し、種別の指定だけを公開面から除く。
  */
-export type TopicMeetingScopedApplication = Readonly<{
+export type ScopedTopicMeetingOperations = Readonly<{
   list(
-    input: Omit<Parameters<TopicMeetingApplication["list"]>[0], "kind">,
+    input: Omit<Parameters<TopicMeetingOperations["list"]>[0], "kind">,
   ): TopicMeetingPage;
   get(id: string): ProjectOperationRecord | null;
   getDocument(id: string): TopicMeetingDocument | null;
   relations(id: string): readonly TopicMeetingRelation[];
-  hasRelationTarget: TopicMeetingApplication["hasRelationTarget"];
+  hasRelationTarget: TopicMeetingOperations["hasRelationTarget"];
   create(markdown: string): TopicMeetingWriteResult;
   update(
-    input: Omit<Parameters<TopicMeetingApplication["update"]>[0], "kind">,
+    input: Omit<Parameters<TopicMeetingOperations["update"]>[0], "kind">,
   ): TopicMeetingWriteResult;
   inspectDeletion(
     id: string,
@@ -182,7 +182,7 @@ export type TopicMeetingListQuery = Readonly<{
 }>;
 
 /**
- * Topic／Meetingの検索・更新Application境界で使用するTopicMeetingApplicationの構造を固定する。
+ * Topic／Meetingの検索・更新Application境界で使用するTopicMeetingOperationsの構造を固定する。
  *
  * @responsibility Topic／Meetingの検索・更新Application境界が受け渡す値、状態および制約を一つの型契約として保持する。
  * @trace ARCH-000006
@@ -193,7 +193,7 @@ export type TopicMeetingListQuery = Readonly<{
  * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
  */
 
-export type TopicMeetingApplication = Readonly<{
+export type TopicMeetingOperations = Readonly<{
   list(input: {
     kind: ProjectOperationRecordKind;
     cursor?: string;

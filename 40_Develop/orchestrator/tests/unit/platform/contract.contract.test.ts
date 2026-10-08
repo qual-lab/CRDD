@@ -1,0 +1,689 @@
+/**
+ * orchestrator:unit:platform-contractの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility orchestrator:unit:platform-contractが所有する検証責務を実行する。
+ * @trace PRL-UT-014
+ * @level UT
+ * @scope project、runtime、platform
+ * @boundary PRL-UT-014=N/A: Orchestrator Application Portは外部実行境界を持たない。
+ */
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import {
+  describeOrchestratorPlatformContract,
+  ORCHESTRATOR_PLATFORM_BOUNDARIES,
+  ORCHESTRATOR_PLATFORM_BOUNDARY_GUARANTEES,
+  ORCHESTRATOR_PLATFORM_BOUNDARY_OPERATIONS,
+  ORCHESTRATOR_PLATFORM_CONTRACT,
+  ORCHESTRATOR_PLATFORM_CONTRACT_REVISION,
+  type OrchestratorPlatformAdapter,
+  type OrchestratorPlatformBoundary,
+  resolveOrchestratorPlatformAdapter,
+} from "../../../src/platform/contract.ts";
+
+const resolvableBoundaries = Object.freeze(
+  ORCHESTRATOR_PLATFORM_BOUNDARIES.filter(
+    (boundary) =>
+      ORCHESTRATOR_PLATFORM_BOUNDARY_OPERATIONS[boundary].length > 0,
+  ),
+);
+
+/**
+ * canonicalOperationsのTest準備責務を実行する。
+ *
+ * @responsibility canonicalOperationsがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-UT-014
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus canonicalOperationsを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=Direct Boundary: orchestrator Test Source→対象契約
+ */
+function canonicalOperations(
+  boundary: OrchestratorPlatformBoundary,
+): Readonly<object> {
+  const group: Record<string, unknown> = {};
+  for (const operationName of ORCHESTRATOR_PLATFORM_BOUNDARY_OPERATIONS[
+    boundary
+  ])
+    group[operationName] = () => Object.freeze({ status: "blocked" });
+  return Object.freeze(group);
+}
+
+/**
+ * syntheticAdapterのTest準備責務を実行する。
+ *
+ * @responsibility syntheticAdapterがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-UT-014
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus syntheticAdapterを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=Direct Boundary: orchestrator Test Source→対象契約
+ */
+function syntheticAdapter(
+  platformFamily: string,
+  supportedBoundaries: readonly OrchestratorPlatformBoundary[],
+  operationOverrides: Readonly<
+    Partial<Record<OrchestratorPlatformBoundary, Readonly<object>>>
+  > = Object.freeze({}),
+): OrchestratorPlatformAdapter {
+  const operations: Partial<
+    Record<OrchestratorPlatformBoundary, Readonly<object>>
+  > = {};
+  for (const boundary of supportedBoundaries) {
+    operations[boundary] =
+      operationOverrides[boundary] ?? canonicalOperations(boundary);
+  }
+  return Object.freeze({
+    describe: () =>
+      Object.freeze({
+        contract: ORCHESTRATOR_PLATFORM_CONTRACT,
+        contractRevision: ORCHESTRATOR_PLATFORM_CONTRACT_REVISION,
+        platformFamily,
+        supportedBoundaries,
+        satisfiedGuarantees: Object.freeze(
+          Object.fromEntries(
+            supportedBoundaries.map((boundary) => [
+              boundary,
+              ORCHESTRATOR_PLATFORM_BOUNDARY_GUARANTEES[boundary],
+            ]),
+          ),
+        ),
+        authorityGeneration: "none" as const,
+        unsupportedPlatformFallback: "none" as const,
+      }),
+    operations: Object.freeze(operations),
+  });
+}
+
+/**
+ * Platform契約は境界母集団・操作名対応・非fallbackを閉集合で公開するを検証する。
+ *
+ * @responsibility Platform契約は境界母集団・操作名対応・非fallbackを閉集合で公開するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Platform契約は境界母集団・操作名対応・非fallbackを閉集合で公開するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=Direct Boundary: orchestrator Test Source→対象契約
+ */
+test("Platform契約は境界母集団・操作名対応・非fallbackを閉集合で公開する", () => {
+  assert.deepEqual(describeOrchestratorPlatformContract(), {
+    contract: "crdd-coordinator/orchestrator-platform-contract",
+    contractRevision: 1,
+    boundaries: [
+      "principal_provider_home",
+      "filesystem_repository",
+      "lock_lease",
+      "process_cancellation",
+      "container_host",
+      "runtime_root_recovery",
+    ],
+    boundaryOperations: {
+      principal_provider_home: ["observeProviderHomeCandidate"],
+      filesystem_repository: ["resolveRepositoryRoot"],
+      lock_lease: ["observeLeaseOwner"],
+      process_cancellation: ["deriveChildEnvironment"],
+      container_host: ["observeContainerHostRecoveryState"],
+      runtime_root_recovery: ["compileRootObservationCandidate"],
+    },
+    boundaryGuarantees: {
+      principal_provider_home: [
+        "selected_principal_identity",
+        "stable_provider_home_identity",
+        "owner_writer_protection",
+        "non_link_chain",
+      ],
+      filesystem_repository: [
+        "repository_root_identity",
+        "repository_revision",
+        "bounded_path_resolution",
+        "atomic_update",
+        "isolation",
+      ],
+      lock_lease: [
+        "os_exclusivity",
+        "owner_generation",
+        "owner_liveness",
+        "non_time_only_takeover",
+      ],
+      process_cancellation: [
+        "argv",
+        "environment",
+        "process_tree",
+        "cancellation_signal",
+        "termination_observation",
+        "owner_loss",
+      ],
+      container_host: ["fixed_image", "network", "mount", "process", "cleanup"],
+      runtime_root_recovery: [
+        "managed_root",
+        "protection",
+        "resource_identity",
+        "recovery_absence",
+      ],
+    },
+    boundarySupport:
+      "declared_boundary_and_all_architecture_guarantees_and_exact_operation_name_match",
+    emptyOperationPopulation: "unresolvable_never_trivially_satisfied",
+    authorityGeneration: "none",
+    unsupportedPlatformFallback: "none",
+    unresolvedPlatformEffect: "zero_project_task_and_provider_effect",
+  });
+});
+
+/**
+ * Platform Identity不明はfallbackなしのEffect 0で停止するを検証する。
+ *
+ * @responsibility Platform Identity不明はfallbackなしのEffect 0で停止するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Platform Identity不明はfallbackなしのEffect 0で停止するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=Direct Boundary: orchestrator Test Source→対象契約
+ */
+test("Platform Identity不明はfallbackなしのEffect 0で停止する", () => {
+  const windows = syntheticAdapter("windows", resolvableBoundaries);
+  for (const observedFamily of [
+    null,
+    undefined,
+    "",
+    7,
+    {},
+    Symbol("windows"),
+    "w".repeat(129),
+    "win\0dows",
+  ])
+    assert.deepEqual(
+      resolveOrchestratorPlatformAdapter(
+        observedFamily,
+        [windows],
+        ["filesystem_repository"],
+      ),
+      {
+        status: "blocked",
+        reason: "platform_identity_unknown",
+        unsupportedBoundaries: [],
+      },
+    );
+});
+
+/**
+ * Adapter不在の既知Platformは別PlatformへfallbackせずEffect 0で停止するを検証する。
+ *
+ * @responsibility Adapter不在の既知Platformは別PlatformへfallbackせずEffect 0で停止するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Adapter不在の既知Platformは別PlatformへfallbackせずEffect 0で停止するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=Direct Boundary: orchestrator Test Source→対象契約
+ */
+test("Adapter不在の既知Platformは別PlatformへfallbackせずEffect 0で停止する", () => {
+  const windows = syntheticAdapter("windows", resolvableBoundaries);
+  const resolution = resolveOrchestratorPlatformAdapter(
+    "linux",
+    [windows],
+    ["filesystem_repository"],
+  );
+  assert.deepEqual(resolution, {
+    status: "blocked",
+    reason: "platform_adapter_unavailable",
+    unsupportedBoundaries: [],
+  });
+});
+
+/**
+ * 必要境界の保証未成立はEffect 0で停止し未成立境界を返すを検証する。
+ *
+ * @responsibility 必要境界の保証未成立はEffect 0で停止し未成立境界を返すの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 必要境界の保証未成立はEffect 0で停止し未成立境界を返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=Direct Boundary: orchestrator Test Source→対象契約
+ */
+test("必要境界の保証未成立はEffect 0で停止し未成立境界を返す", () => {
+  const partial = syntheticAdapter("windows", [
+    "filesystem_repository",
+    "container_host",
+  ]);
+  const resolution = resolveOrchestratorPlatformAdapter(
+    "windows",
+    [partial],
+    ["filesystem_repository", "lock_lease", "process_cancellation"],
+  );
+  assert.deepEqual(resolution, {
+    status: "blocked",
+    reason: "platform_boundary_unsupported",
+    unsupportedBoundaries: ["lock_lease", "process_cancellation"],
+  });
+});
+
+/**
+ * lock_leaseはowner観測のexact operationと全保証が揃った場合だけ解決するを検証する。
+ *
+ * @responsibility lock_leaseはowner観測のexact operationと全保証が揃った場合だけ解決するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus lock_leaseはowner観測のexact operationと全保証が揃った場合だけ解決するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=Direct Boundary: orchestrator Test Source→対象契約
+ */
+test("lock_leaseはowner観測のexact operationと全保証が揃った場合だけ解決する", () => {
+  const claimingLockLease = syntheticAdapter(
+    "windows",
+    resolvableBoundaries,
+    Object.freeze({
+      lock_lease: Object.freeze({ observeLeaseOwner: () => null }),
+    }),
+  );
+  assert.equal(
+    resolveOrchestratorPlatformAdapter(
+      "windows",
+      [claimingLockLease],
+      ["lock_lease"],
+    ).status,
+    "resolved",
+  );
+});
+
+/**
+ * 宣言済み境界でも操作名がexact一致しない場合は保証未成立として停止するを検証する。
+ *
+ * @responsibility 宣言済み境界でも操作名がexact一致しない場合は保証未成立として停止するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 宣言済み境界でも操作名がexact一致しない場合は保証未成立として停止するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=Direct Boundary: orchestrator Test Source→対象契約
+ */
+test("宣言済み境界でも操作名がexact一致しない場合は保証未成立として停止する", () => {
+  const missingOperation = syntheticAdapter(
+    "windows",
+    ["filesystem_repository"],
+    Object.freeze({ filesystem_repository: Object.freeze({}) }),
+  );
+  const renamedOperation = syntheticAdapter(
+    "windows",
+    ["filesystem_repository"],
+    Object.freeze({
+      filesystem_repository: Object.freeze({ resolveRoot: () => null }),
+    }),
+  );
+  const extraOperation = syntheticAdapter(
+    "windows",
+    ["filesystem_repository"],
+    Object.freeze({
+      filesystem_repository: Object.freeze({
+        resolveRepositoryRoot: () => null,
+        unexpectedExtra: () => null,
+      }),
+    }),
+  );
+  const accessorOperation = Object.freeze({
+    describe: syntheticAdapter("windows", ["filesystem_repository"]).describe,
+    operations: Object.freeze(
+      Object.defineProperty({}, "filesystem_repository", {
+        enumerable: true,
+        get: () =>
+          Object.freeze({ resolveRepositoryRoot: () => null }) as object,
+      }),
+    ),
+  }) as unknown as OrchestratorPlatformAdapter;
+  for (const adapter of [
+    missingOperation,
+    renamedOperation,
+    extraOperation,
+    accessorOperation,
+  ])
+    assert.deepEqual(
+      resolveOrchestratorPlatformAdapter(
+        "windows",
+        [adapter],
+        ["filesystem_repository"],
+      ),
+      {
+        status: "blocked",
+        reason: "platform_boundary_unsupported",
+        unsupportedBoundaries: ["filesystem_repository"],
+      },
+    );
+});
+
+/**
+ * 同一Platformの複数Adapterは競合としてEffect 0で停止するを検証する。
+ *
+ * @responsibility 同一Platformの複数Adapterは競合としてEffect 0で停止するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 同一Platformの複数Adapterは競合としてEffect 0で停止するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=Direct Boundary: orchestrator Test Source→対象契約
+ */
+test("同一Platformの複数Adapterは競合としてEffect 0で停止する", () => {
+  const first = syntheticAdapter("windows", resolvableBoundaries);
+  const second = syntheticAdapter("windows", resolvableBoundaries);
+  assert.deepEqual(
+    resolveOrchestratorPlatformAdapter(
+      "windows",
+      [first, second],
+      ["filesystem_repository"],
+    ),
+    {
+      status: "blocked",
+      reason: "platform_adapter_conflict",
+      unsupportedBoundaries: [],
+    },
+  );
+});
+
+/**
+ * 不正なresolve要求は入力拒否としてEffect 0で停止するを検証する。
+ *
+ * @responsibility 不正なresolve要求は入力拒否としてEffect 0で停止するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 不正なresolve要求は入力拒否としてEffect 0で停止するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=Direct Boundary: orchestrator Test Source→対象契約
+ */
+test("不正なresolve要求は入力拒否としてEffect 0で停止する", () => {
+  const windows = syntheticAdapter("windows", resolvableBoundaries);
+  const invalidRequests: readonly (readonly [unknown, unknown])[] = [
+    [[windows], []],
+    [[windows], ["unknown_boundary"]],
+    [[windows], ["filesystem_repository", "filesystem_repository"]],
+    [[windows], "filesystem_repository"],
+    [null, ["filesystem_repository"]],
+  ];
+  for (const [adapters, boundaries] of invalidRequests)
+    assert.deepEqual(
+      resolveOrchestratorPlatformAdapter(
+        "windows",
+        adapters as readonly OrchestratorPlatformAdapter[],
+        boundaries as readonly OrchestratorPlatformBoundary[],
+      ),
+      {
+        status: "blocked",
+        reason: "platform_request_invalid",
+        unsupportedBoundaries: [],
+      },
+    );
+});
+
+/**
+ * 契約・改訂・Authority宣言が異なるAdapterへは解決しないを検証する。
+ *
+ * @responsibility 契約・改訂・Authority宣言が異なるAdapterへは解決しないの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 契約・改訂・Authority宣言が異なるAdapterへは解決しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=Direct Boundary: orchestrator Test Source→対象契約
+ */
+test("契約・改訂・Authority宣言が異なるAdapterへは解決しない", () => {
+  const foreignContract: OrchestratorPlatformAdapter = Object.freeze({
+    describe: () =>
+      Object.freeze({
+        contract: ORCHESTRATOR_PLATFORM_CONTRACT,
+        contractRevision: ORCHESTRATOR_PLATFORM_CONTRACT_REVISION + 1,
+        platformFamily: "windows",
+        supportedBoundaries: resolvableBoundaries,
+        satisfiedGuarantees: Object.freeze(
+          Object.fromEntries(
+            resolvableBoundaries.map((boundary) => [
+              boundary,
+              ORCHESTRATOR_PLATFORM_BOUNDARY_GUARANTEES[boundary],
+            ]),
+          ),
+        ),
+        authorityGeneration: "none" as const,
+        unsupportedPlatformFallback: "none" as const,
+      }),
+    operations: Object.freeze({}),
+  });
+  const authorityClaiming = Object.freeze({
+    describe: () =>
+      Object.freeze({
+        contract: ORCHESTRATOR_PLATFORM_CONTRACT,
+        contractRevision: ORCHESTRATOR_PLATFORM_CONTRACT_REVISION,
+        platformFamily: "windows",
+        supportedBoundaries: resolvableBoundaries,
+        satisfiedGuarantees: Object.freeze(
+          Object.fromEntries(
+            resolvableBoundaries.map((boundary) => [
+              boundary,
+              ORCHESTRATOR_PLATFORM_BOUNDARY_GUARANTEES[boundary],
+            ]),
+          ),
+        ),
+        authorityGeneration: "adapter_issued",
+        unsupportedPlatformFallback: "none" as const,
+      }),
+    operations: Object.freeze({}),
+  }) as unknown as OrchestratorPlatformAdapter;
+  const throwingDescribe = Object.freeze({
+    describe: () => {
+      throw new Error("describe_failed");
+    },
+    operations: Object.freeze({}),
+  }) as unknown as OrchestratorPlatformAdapter;
+  const accessorFamily = Object.freeze({
+    describe: () =>
+      Object.defineProperty(
+        {
+          contract: ORCHESTRATOR_PLATFORM_CONTRACT,
+          contractRevision: ORCHESTRATOR_PLATFORM_CONTRACT_REVISION,
+          supportedBoundaries: resolvableBoundaries,
+          satisfiedGuarantees: Object.freeze({}),
+          authorityGeneration: "none",
+          unsupportedPlatformFallback: "none",
+        },
+        "platformFamily",
+        { enumerable: true, get: () => "windows" },
+      ),
+    operations: Object.freeze({}),
+  }) as unknown as OrchestratorPlatformAdapter;
+  for (const adapter of [
+    foreignContract,
+    authorityClaiming,
+    throwingDescribe,
+    accessorFamily,
+  ])
+    assert.deepEqual(
+      resolveOrchestratorPlatformAdapter(
+        "windows",
+        [adapter],
+        ["filesystem_repository"],
+      ),
+      {
+        status: "blocked",
+        reason: "platform_adapter_unavailable",
+        unsupportedBoundaries: [],
+      },
+    );
+});
+
+/**
+ * describeは候補ごとに一度だけ呼ばれ、解決は検証済みsnapshotだけを使うを検証する。
+ *
+ * @responsibility describeは候補ごとに一度だけ呼ばれ、解決は検証済みsnapshotだけを使うの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus describeは候補ごとに一度だけ呼ばれ、解決は検証済みsnapshotだけを使うの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=Direct Boundary: orchestrator Test Source→対象契約
+ */
+test("describeは候補ごとに一度だけ呼ばれ、解決は検証済みsnapshotだけを使う", () => {
+  let describeCallCount = 0;
+  const counting: OrchestratorPlatformAdapter = Object.freeze({
+    describe: () => {
+      describeCallCount += 1;
+      return Object.freeze({
+        contract: ORCHESTRATOR_PLATFORM_CONTRACT,
+        contractRevision: ORCHESTRATOR_PLATFORM_CONTRACT_REVISION,
+        platformFamily: "windows",
+        supportedBoundaries: resolvableBoundaries,
+        satisfiedGuarantees: Object.freeze(
+          Object.fromEntries(
+            resolvableBoundaries.map((boundary) => [
+              boundary,
+              ORCHESTRATOR_PLATFORM_BOUNDARY_GUARANTEES[boundary],
+            ]),
+          ),
+        ),
+        authorityGeneration: "none" as const,
+        unsupportedPlatformFallback: "none" as const,
+      });
+    },
+    operations: Object.freeze({
+      principal_provider_home: canonicalOperations("principal_provider_home"),
+      filesystem_repository: canonicalOperations("filesystem_repository"),
+      lock_lease: canonicalOperations("lock_lease"),
+      process_cancellation: canonicalOperations("process_cancellation"),
+      container_host: canonicalOperations("container_host"),
+      runtime_root_recovery: canonicalOperations("runtime_root_recovery"),
+    }),
+  });
+  const resolution = resolveOrchestratorPlatformAdapter(
+    "windows",
+    [counting],
+    [...resolvableBoundaries],
+  );
+  assert.equal(resolution.status, "resolved");
+  assert.equal(describeCallCount, 1);
+});
+
+/**
+ * 解決結果は登録済みAdapterのexact一致だけを返すを検証する。
+ *
+ * @responsibility 解決結果は登録済みAdapterのexact一致だけを返すの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 解決結果は登録済みAdapterのexact一致だけを返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=Direct Boundary: orchestrator Test Source→対象契約
+ */
+test("解決結果は登録済みAdapterのexact一致だけを返す", () => {
+  const windows = syntheticAdapter("windows", resolvableBoundaries);
+  const linux = syntheticAdapter("linux", resolvableBoundaries);
+  const resolution = resolveOrchestratorPlatformAdapter(
+    "windows",
+    [linux, windows],
+    [...resolvableBoundaries],
+  );
+  assert.equal(resolution.status, "resolved");
+  if (resolution.status === "resolved") {
+    assert.notEqual(resolution.adapter, windows);
+    assert.deepEqual(resolution.adapter.describe().supportedBoundaries, [
+      "principal_provider_home",
+      "filesystem_repository",
+      "lock_lease",
+      "process_cancellation",
+      "container_host",
+      "runtime_root_recovery",
+    ]);
+    assert.ok(Object.isFrozen(resolution.adapter));
+    assert.ok(Object.isFrozen(resolution.adapter.operations));
+  }
+});
+
+/**
+ * 解決後は検証済みoperation参照を固定し元Adapterの差替えを受けないを検証する。
+ *
+ * @responsibility 解決後は検証済みoperation参照を固定し元Adapterの差替えを受けないの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 解決後は検証済みoperation参照を固定し元Adapterの差替えを受けないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=Direct Boundary: orchestrator Test Source→対象契約
+ */
+test("解決後は検証済みoperation参照を固定し元Adapterの差替えを受けない", () => {
+  /**
+   * originalのTest準備責務を実行する。
+   *
+   * @responsibility originalがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace PRL-UT-014
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus originalを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary PRL-UT-014=Direct Boundary: orchestrator Test Source→対象契約
+   */
+  const original = () => Object.freeze({ status: "original" });
+  /**
+   * replacementのTest準備責務を実行する。
+   *
+   * @responsibility replacementがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace PRL-UT-014
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus replacementを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary PRL-UT-014=Direct Boundary: orchestrator Test Source→対象契約
+   */
+  const replacement = () => Object.freeze({ status: "replacement" });
+  const group: { resolveRepositoryRoot: () => Readonly<{ status: string }> } = {
+    resolveRepositoryRoot: original,
+  };
+  const operations = { filesystem_repository: group };
+  const mutable = {
+    describe: () => ({
+      contract: ORCHESTRATOR_PLATFORM_CONTRACT,
+      contractRevision: ORCHESTRATOR_PLATFORM_CONTRACT_REVISION,
+      platformFamily: "windows",
+      supportedBoundaries: ["filesystem_repository"],
+      satisfiedGuarantees: {
+        filesystem_repository:
+          ORCHESTRATOR_PLATFORM_BOUNDARY_GUARANTEES.filesystem_repository,
+      },
+      authorityGeneration: "none" as const,
+      unsupportedPlatformFallback: "none" as const,
+    }),
+    operations,
+  } as unknown as OrchestratorPlatformAdapter;
+  const resolution = resolveOrchestratorPlatformAdapter(
+    "windows",
+    [mutable],
+    ["filesystem_repository"],
+  );
+  assert.equal(resolution.status, "resolved");
+  group.resolveRepositoryRoot = replacement;
+  if (resolution.status === "resolved") {
+    const resolvedGroup = resolution.adapter.operations
+      .filesystem_repository as Readonly<Record<string, () => unknown>>;
+    assert.deepEqual(resolvedGroup.resolveRepositoryRoot?.(), {
+      status: "original",
+    });
+  }
+});

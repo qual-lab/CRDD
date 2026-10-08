@@ -65,7 +65,7 @@
     {
       "symbolId": "semantic-coverage.source.src.infrastructure.filesystem.semantic.bundle.publisher",
       "kind": "file",
-      "path": "src/infrastructure/filesystem-semantic-bundle-publisher.ts",
+      "path": "src/bundle/filesystem-publisher.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -73,7 +73,7 @@
     {
       "symbolId": "semantic-coverage.source.src.application.semantic.coverage",
       "kind": "file",
-      "path": "src/application/semantic-coverage.ts",
+      "path": "src/compilation/from-repository.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -81,7 +81,7 @@
     {
       "symbolId": "semantic-coverage.source.src.migrations.legacy.runtime.inventory",
       "kind": "file",
-      "path": "src/migrations/legacy-runtime-inventory.ts",
+      "path": "src/migration/inventory-legacy-fields.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -89,7 +89,7 @@
     {
       "symbolId": "semantic-coverage.source.src.compilation.index",
       "kind": "file",
-      "path": "src/compilation/index.ts",
+      "path": "src/index.ts",
       "archIds": [
         "ARCH-000008"
       ]

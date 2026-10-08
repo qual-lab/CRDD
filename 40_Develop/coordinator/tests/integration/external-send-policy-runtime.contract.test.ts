@@ -16,21 +16,21 @@ import path from "node:path";
 import test, { type TestContext } from "node:test";
 import { deflateSync } from "node:zlib";
 
-import { parseUnambiguousJsonDocument } from "../../../ai-adapter/src/output/index.ts";
+import { parseUnambiguousJsonDocument } from "../../../ai-adapter/src/index.ts";
 import {
   compileExternalSendPolicyCandidate,
   describeExternalSendPolicyRuntimeContract,
   EXTERNAL_SEND_POLICY_FILE,
   resolveRuntimeOwnedExternalSendPolicy,
-} from "../../src/external-send/external-send-policy-runtime.ts";
+} from "../../src/external-send/policy.ts";
 import {
   cleanupOwnedOperationDirectories,
   createOwnedMountCapability,
   createOwnedOperationContextCapability,
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
-} from "../../src/host-runtime/execution-environment.ts";
-import { bindRuntimeOwnedRepositoryOperation } from "../../src/repository-operation/repository-operation-runtime.ts";
+} from "../../src/host-execution/operation-workspace-lifecycle.ts";
+import { bindRuntimeOwnedRepositoryOperation } from "../../src/repository-operation/binding.ts";
 
 const revision = "1".repeat(40);
 const fileHash = "2".repeat(64);

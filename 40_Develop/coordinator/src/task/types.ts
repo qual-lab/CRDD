@@ -14,6 +14,7 @@
  * @invariant observedはTask成功や資源回収の成立を意味しない。
  * @boundary Process内の完了観測と上位結果検証の境界。
  * @security rawCompletionを公開結果やログへ直接搬送しない。
+ * @compatibility 利用側はstatusで分岐し、未検証値を正式なTask結果として扱わない。
  */
 export type TaskCompletionObservation =
   | Readonly<{
@@ -24,9 +25,9 @@ export type TaskCompletionObservation =
   | Readonly<{ status: "unknown" }>;
 
 /**
- * execution-portで使用するProject Runtime Single Task Attempt 入力の値契約を定義する。
+ * execution-portで使用するOrchestrator Single Task Attempt 入力の値契約を定義する。
  *
- * @responsibility Project Runtime Single Task Attempt 入力のProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Orchestrator Single Task Attempt 入力のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape CoordinatorTaskAttemptInputが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CoordinatorTaskAttemptInputで宣言した値と責務の対応を維持する。
@@ -44,9 +45,9 @@ export type CoordinatorTaskAttemptInput = Readonly<{
 }>;
 
 /**
- * execution-portで使用するProject Runtime Single Task 回復 Obligationの値契約を定義する。
+ * execution-portで使用するOrchestrator Single Task 回復 Obligationの値契約を定義する。
  *
- * @responsibility Project Runtime Single Task 回復 ObligationのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Orchestrator Single Task 回復 ObligationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape CoordinatorTaskRecoveryObligationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CoordinatorTaskRecoveryObligationで宣言した値と責務の対応を維持する。
@@ -60,9 +61,9 @@ export type CoordinatorTaskRecoveryObligation = Readonly<{
 }>;
 
 /**
- * execution-portで使用するProject Runtime Single Task 結果の値契約を定義する。
+ * execution-portで使用するOrchestrator Single Task 結果の値契約を定義する。
  *
- * @responsibility Project Runtime Single Task 結果のProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Orchestrator Single Task 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape CoordinatorTaskAttemptResultが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CoordinatorTaskAttemptResultで宣言した値と責務の対応を維持する。

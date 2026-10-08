@@ -100,7 +100,7 @@ fn invalid_provider_home_response() -> ProviderHomeResponse {
 fn execute_bytes(request_bytes: &[u8], writer: &mut impl Write) -> i32 {
     if let Some(request) = parse_provider_home_request(request_bytes) {
         #[cfg(windows)]
-        let response = filesystem::provider_home::observe_provider_home(&request);
+        let response = filesystem::protected_root::observe_provider_home(&request);
 
         #[cfg(not(windows))]
         let response = ProviderHomeResponse {
@@ -847,7 +847,7 @@ mod tests {
     /// @observation 結果、状態、Effectおよび終了後条件を観測する。
     /// @oracle Test本文のassertionが期待条件を満たす。
     /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
-    /// @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+    /// @boundary N/A: Orchestrator Application Portは外部実行境界を持たない。
     #[test]
     fn accepts_only_fixed_local_appcontainer_pipe_names() {
         assert!(valid_appcontainer_pipe_name(

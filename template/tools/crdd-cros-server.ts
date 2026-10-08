@@ -17,7 +17,7 @@ import {
   readCrosSharedServerOperationalConfig,
 } from "../../40_Develop/cros/src/index.ts";
 import { startCrosSharedServer } from "../../40_Develop/mcp-server/src/index.ts";
-import type { CrosRootInput } from "../../40_Develop/domain-model/src/repository/index.ts";
+import type { CrosRootInput } from "../../40_Develop/domain-model/src/index.ts";
 
 /**
  * Shared Server入口の利用方法を表示する。
@@ -196,7 +196,7 @@ async function main(): Promise<0 | 2 | 64> {
     port: config.port,
     registry: credentialAdapter.registry,
     readExposureSnapshot: () => config.exposureSnapshot,
-    resolveTopicMeetingApplication: config.resolveTopicMeetingApplication,
+    resolveTopicMeetingAccess: config.resolveTopicMeetingAccess,
   });
   process.stderr.write(
     `CROS Shared Server is ready: public=${server.publicOrigin}, local=${server.localGatewayUrl}, REST=${server.restPortfolioPath}, MCP=${server.mcpPath}\n`,

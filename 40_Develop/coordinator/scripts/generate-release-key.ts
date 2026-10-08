@@ -10,7 +10,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { readHiddenLine } from "../../artifact-signing/src/index.ts";
-import { assertSupportedCoordinatorNodeRuntime } from "../src/host-runtime/node-runtime-version.ts";
+import { assertSupportedCoordinatorNodeRuntime } from "../src/host-execution/node-runtime-version.ts";
 
 const repositoryRoot = fileURLToPath(new URL("../../../", import.meta.url));
 const PRIVATE_KEY_FILE = "crdd-release-v1-private.pem";

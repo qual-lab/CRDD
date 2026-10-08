@@ -1,3 +1,13 @@
+/**
+ * Native Helper環境を取得できない状態を模擬する。
+ *
+ * @packageDocumentation
+ * @responsibility 固定ArtifactとModule差替えで環境観測不能時のEffect前拒否を確認する。
+ * @trace EST-ST-003
+ * @level ST
+ * @scope Native Helper環境の観測不能
+ * @boundary 試験Module差替え→環境準備境界。実Native操作は発行しない。
+ */
 import assert from "node:assert/strict";
 import { mock } from "node:test";
 
@@ -31,7 +41,7 @@ await mock.module("node:child_process", {
 });
 await mock.module(
   new URL(
-    "../../src/host-runtime/windows-child-environment.ts",
+    "../../src/host-execution/windows-child-environment.ts",
     import.meta.url,
   ).href,
   {
@@ -43,10 +53,8 @@ await mock.module(
   },
 );
 await mock.module(
-  new URL(
-    "../../src/platform-access/platform-provisioner-package-filesystem.ts",
-    import.meta.url,
-  ).href,
+  new URL("../../src/platform-access/package-verification.ts", import.meta.url)
+    .href,
   {
     namedExports: {
       inspectVerifiedNativeDistributionCandidate: () => ({ status: "blocked" }),
@@ -81,10 +89,10 @@ await mock.module(
 );
 
 const providerAdapter = await import(
-  "../../src/provider/provider-home-windows-adapter.ts"
+  "../../src/provider/home-windows-adapter.ts"
 );
 const candidateAdapter = await import(
-  "../../src/candidate/candidate-store-windows-adapter.ts"
+  "../../src/platform-access/protected-root-windows-adapter.ts"
 );
 const now = new Date().toISOString();
 const providerOutcome =

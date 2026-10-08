@@ -11,7 +11,7 @@
 import readline from "node:readline";
 import fs from "node:fs";
 
-import { acquireRuntimeOwnedLogicalProviderHomeKernelLock } from "../../src/host-runtime/candidate-store-kernel-lock.ts";
+import { acquireRuntimeOwnedLogicalProviderHomeKernelLock } from "../../src/host-execution/kernel-lock.ts";
 import {
   authenticateClaudeSubscription,
   beginClaudeSubscriptionAuthenticationRecovery,

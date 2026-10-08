@@ -14,7 +14,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { readStableBoundedFileSnapshot } from "../../../domain-model/src/storage/index.ts";
+import { readStableBoundedFileSnapshot } from "../../../domain-model/src/index.ts";
 
 /**
  * temporaryFileのTest準備責務を実行する。

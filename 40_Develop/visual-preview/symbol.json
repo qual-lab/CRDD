@@ -14,7 +14,7 @@
     {
       "symbolId": "visual-preview.server",
       "kind": "file",
-      "path": "src/preview-server.ts",
+      "path": "src/server.ts",
       "archIds": [
         "ARCH-000003"
       ]
@@ -22,7 +22,7 @@
     {
       "symbolId": "visual-preview.browser-zoom-verifier",
       "kind": "file",
-      "path": "src/browser-zoom-verifier.ts",
+      "path": "src/browser/verify-visual.ts",
       "archIds": [
         "ARCH-000003"
       ]
@@ -58,7 +58,7 @@
     {
       "symbolId": "visual-preview.application.local-web-visual-verifier",
       "kind": "function",
-      "path": "src/browser-zoom-verifier.ts",
+      "path": "src/browser/verify-visual.ts",
       "archIds": [
         "ARCH-000003"
       ]

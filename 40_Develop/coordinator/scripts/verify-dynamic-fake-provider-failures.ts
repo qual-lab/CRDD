@@ -12,8 +12,8 @@ import {
   DYNAMIC_FAKE_PROVIDER_FAILURE_SCENARIOS,
   expectedDynamicFakeProviderFailureReason,
   runDynamicFakeProviderFailureScenario,
-} from "../src/docker-runtime/docker-isolation.ts";
-import { createOwnedOperationDirectories } from "../src/host-runtime/execution-environment.ts";
+} from "../src/docker-execution/isolation-probe.ts";
+import { createOwnedOperationDirectories } from "../src/host-execution/operation-workspace-lifecycle.ts";
 
 /**
  * Dynamic Fake Provider Failuresを検証する。

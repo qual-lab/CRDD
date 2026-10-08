@@ -22,7 +22,7 @@ Quality ID: `QA-000011`
 | 詳細設計領域 | 受け取る成立条件 |
 |---|---|
 | [official-asset-governance](../../../06_Architecture/Details/official-asset-governance/01_Architecture.md) | 出所、権利、用途、収載・再配布Authority |
-| [workbench](../../../06_Architecture/Details/workbench/01_Architecture.md) | 左上Application Brandでの承認済みCRDD公式ロゴ利用 |
+| [workbench](../../../06_Architecture/Details/workbench-server/01_Architecture.md) | 左上Application Brandでの承認済みCRDD公式ロゴ利用 |
 
 ## 2. 試験段階と外部境界の適用
 

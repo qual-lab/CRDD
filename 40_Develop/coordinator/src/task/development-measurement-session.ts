@@ -11,22 +11,22 @@ import { fileURLToPath } from "node:url";
 import { types as utilTypes } from "node:util";
 import { createDevelopmentExecutionTiming } from "../diagnostics/development-execution-timing.ts";
 
-import { isRuntimeProcessEffectBlocked } from "../host-runtime/runtime-process-safety-state.ts";
-import { snapshotCoordinatorTaskRequest } from "./coordinator-task-request.ts";
+import { isRuntimeProcessEffectBlocked } from "../host-execution/process-safety-state.ts";
+import { snapshotCoordinatorTaskRequest } from "./request.ts";
 import { createDevelopmentMeasurementConstraints } from "./development-measurement-constraints.ts";
-import { verifyOwnedOperationManagementCapability } from "../host-runtime/execution-environment.ts";
+import { verifyOwnedOperationManagementCapability } from "../host-execution/operation-workspace-lifecycle.ts";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "../../../domain-model/src/plain-data/index.ts";
+} from "../../../domain-model/src/index.ts";
 import {
   inspectFixedDevelopmentCoordinatorPackageCandidate,
   inspectVerifiedNativeDistributionCandidate,
-} from "../platform-access/platform-provisioner-package-filesystem.ts";
+} from "../platform-access/package-verification.ts";
 import {
   borrowRuntimeOwnedRepositorySource,
   inspectRepositoryIdentityCandidate,
-} from "../repository-operation/repository-operation-runtime.ts";
+} from "../repository-operation/binding.ts";
 
 const CONFIG_KEYS = new Set([
   "repositoryRoot",

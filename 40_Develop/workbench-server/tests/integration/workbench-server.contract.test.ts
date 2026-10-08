@@ -30,18 +30,18 @@ import {
 import { createServer, request as httpRequest } from "node:http";
 import path from "node:path";
 import test from "node:test";
-import { createWorkbenchAiVerificationHttpApplication } from "../../scripts/workbench-ai-verification-http.ts";
+import { createWorkbenchAiVerificationHttpClient } from "../../scripts/ai-verification-http.ts";
 import {
   inspectWorkbenchClientModel,
   type WorkbenchClientModel,
-} from "../../src/presentation/workbench-client-model.ts";
+} from "../../src/browser/client-model.ts";
 
 import {
   DEFAULT_AI_PROFILE_CATALOG,
   createAiProfileCatalogAdministration,
   createAiProfileCatalogRegistry,
   createRepositoryAiProfileCatalogStore,
-} from "../../../ai-adapter/src/profile/index.ts";
+} from "../../../ai-adapter/src/index.ts";
 import {
   createTaskAttemptSettledEvent,
   usageNotObserved,
@@ -56,26 +56,26 @@ import {
   type CrosRuntimeActivityReader,
   type RequestAccessContext,
 } from "../../../cros/src/index.ts";
-import { createTopicApplication } from "../../../domain-model/src/topic/index.ts";
-import { createMeetingApplication } from "../../../domain-model/src/meeting/index.ts";
+import { createTopicOperations } from "../../../domain-model/src/index.ts";
+import { createMeetingOperations } from "../../../domain-model/src/index.ts";
 import {
   createCrosProjectContextMcpResolver,
   startMcpAuthenticatedStreamableHttp,
 } from "../../../mcp-server/src/index.ts";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/repository-location.ts";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/repository/location.ts";
 import {
   readWorkbenchProjectSurface,
-  createRepositoryWorkbenchRuntimeActivityApplication,
+  createRepositoryWorkbenchActivityReader,
   startWorkbench,
-  type WorkbenchAiRequestApplication,
+  type WorkbenchAiRequests,
   type WorkbenchAiRequestCommand,
-  type WorkbenchCandidateApplication,
-  type WorkbenchRuntimeActivityApplication,
+  type WorkbenchCandidateActions,
+  type WorkbenchActivityReader,
 } from "../../src/index.ts";
 import {
   executeRemoteTopicMeetingAction,
   type RemoteTopicMeetingAction,
-} from "../../src/remote-topic-meeting.ts";
+} from "../../src/topic-meeting/mcp-adapter.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
   import.meta.dirname,
@@ -1547,15 +1547,15 @@ test("Remote Workbenchは明示RepositoryのTopicをMCP経由で表示・更新�
     [
       "REMOTE-DEV",
       Object.freeze({
-        topic: createTopicApplication(devRoot),
-        meeting: createMeetingApplication(devRoot),
+        topic: createTopicOperations(devRoot),
+        meeting: createMeetingOperations(devRoot),
       }),
     ],
     [
       "REMOTE-MGMT",
       Object.freeze({
-        topic: createTopicApplication(mgmtRoot),
-        meeting: createMeetingApplication(mgmtRoot),
+        topic: createTopicOperations(mgmtRoot),
+        meeting: createMeetingOperations(mgmtRoot),
       }),
     ],
   ]);
@@ -1567,7 +1567,7 @@ test("Remote Workbenchは明示RepositoryのTopicをMCP経由で表示・更新�
     createCrosProjectContextMcpResolver({
       registry,
       readExposureSnapshot: snapshot,
-      resolveTopicMeetingApplication: (repository) =>
+      resolveTopicMeetingAccess: (repository) =>
         applications.get(repository.repositoryId) ?? null,
     }),
     { port: 0 },
@@ -2377,7 +2377,7 @@ test("実Provider検証HTTPの受付後故障は再送せず不明結果と同�
       const baseUrl = `http://127.0.0.1:${address.port}`;
       try {
         const application =
-          await createWorkbenchAiVerificationHttpApplication(baseUrl);
+          await createWorkbenchAiVerificationHttpClient(baseUrl);
         const begunAt = Date.now();
         let diagnostic: unknown;
         try {
@@ -2594,10 +2594,10 @@ test("WorkbenchからMeeting Outcomeを処置してCloseする", async () => {
 test("WorkbenchのAI依頼を現在Sessionだけで開始し意味区分を表示する", async () => {
   let received: WorkbenchAiRequestCommand | null = null;
   const candidateId = `candidate.${"6".repeat(64)}.${"7".repeat(64)}`;
-  const candidateActions: Array<
+  const observedCandidateActions: Array<
     Readonly<{ operation: string; confirmed: boolean }>
   > = [];
-  const application: WorkbenchAiRequestApplication = Object.freeze({
+  const application: WorkbenchAiRequests = Object.freeze({
     start: async (request) => {
       received = request;
       return Object.freeze({
@@ -2659,7 +2659,7 @@ test("WorkbenchのAI依頼を現在Sessionだけで開始し意味区分を表�
         candidate: null,
       }),
   });
-  const candidateApplication: WorkbenchCandidateApplication = Object.freeze({
+  const candidateActions: WorkbenchCandidateActions = Object.freeze({
     review: async (requestedCandidateId) =>
       Object.freeze({
         status: requestedCandidateId === candidateId ? "available" : "blocked",
@@ -2677,13 +2677,15 @@ test("WorkbenchのAI依頼を現在Sessionだけで開始し意味区分を表�
                 candidateHash: "b".repeat(64),
                 patchHash: "c".repeat(64),
                 changedPaths: Object.freeze([
-                  "40_Develop/workbench-server/src/ai-request.ts",
+                  "40_Develop/workbench-server/src/ai-request/types.ts",
                 ]),
               })
             : null,
       }),
     adopt: async (requestedCandidateId, confirmed) => {
-      candidateActions.push(Object.freeze({ operation: "adopt", confirmed }));
+      observedCandidateActions.push(
+        Object.freeze({ operation: "adopt", confirmed }),
+      );
       return Object.freeze({
         operation: "adopt" as const,
         status: confirmed ? ("completed" as const) : ("blocked" as const),
@@ -2700,7 +2702,9 @@ test("WorkbenchのAI依頼を現在Sessionだけで開始し意味区分を表�
       });
     },
     discard: async (requestedCandidateId, confirmed) => {
-      candidateActions.push(Object.freeze({ operation: "discard", confirmed }));
+      observedCandidateActions.push(
+        Object.freeze({ operation: "discard", confirmed }),
+      );
       return Object.freeze({
         operation: "discard" as const,
         status: confirmed ? ("completed" as const) : ("blocked" as const),
@@ -2719,8 +2723,8 @@ test("WorkbenchのAI依頼を現在Sessionだけで開始し意味区分を表�
   });
   const handle = await startWorkbench({
     workingDirectory: repositoryRoot,
-    aiRequestApplication: application,
-    candidateApplication,
+    aiRequests: application,
+    candidateActions,
   });
   try {
     const initial = await requestMainModel(handle.baseUrl);
@@ -2818,7 +2822,7 @@ test("WorkbenchのAI依頼を現在Sessionだけで開始し意味区分を表�
     );
     assert.ok(
       candidateCompleted.aiRequest.candidateReview?.candidate?.changedPaths.includes(
-        "40_Develop/workbench-server/src/ai-request.ts",
+        "40_Develop/workbench-server/src/ai-request/types.ts",
       ),
     );
 
@@ -2833,7 +2837,7 @@ test("WorkbenchのAI依頼を現在Sessionだけで開始し意味区分を表�
       }).toString(),
     );
     assert.equal(adoptWithoutConfirmation.status, 303);
-    assert.deepEqual(candidateActions.at(-1), {
+    assert.deepEqual(observedCandidateActions.at(-1), {
       operation: "adopt",
       confirmed: false,
     });
@@ -2850,7 +2854,7 @@ test("WorkbenchのAI依頼を現在Sessionだけで開始し意味区分を表�
       }).toString(),
     );
     assert.equal(adoptDifferentCandidate.status, 400);
-    assert.equal(candidateActions.length, 1);
+    assert.equal(observedCandidateActions.length, 1);
 
     const adopted = await requestRaw(
       handle.baseUrl,
@@ -2864,7 +2868,7 @@ test("WorkbenchのAI依頼を現在Sessionだけで開始し意味区分を表�
       }).toString(),
     );
     assert.equal(adopted.status, 303);
-    assert.deepEqual(candidateActions.at(-1), {
+    assert.deepEqual(observedCandidateActions.at(-1), {
       operation: "adopt",
       confirmed: true,
     });
@@ -2890,7 +2894,7 @@ test("WorkbenchのAI依頼を現在Sessionだけで開始し意味区分を表�
       }).toString(),
     );
     assert.equal(discarded.status, 303);
-    assert.deepEqual(candidateActions.at(-1), {
+    assert.deepEqual(observedCandidateActions.at(-1), {
       operation: "discard",
       confirmed: true,
     });
@@ -2900,7 +2904,7 @@ test("WorkbenchのAI依頼を現在Sessionだけで開始し意味区分を表�
 });
 
 /**
- * WorkbenchがProject Runtimeの現在投影を独立した実行状況面へ表示することを検証する。
+ * WorkbenchがOrchestratorの現在投影を独立した実行状況面へ表示することを検証する。
  *
  * @responsibility Objective／Task、判断待ち、Recoveryおよび次処置を未接続や空状態へ畳まない合否判定を所有する。
  * @trace ERB-IT-021
@@ -2911,12 +2915,12 @@ test("WorkbenchのAI依頼を現在Sessionだけで開始し意味区分を表�
  * @cleanup Workbench Handleを閉じる。
  * @boundary ERB-IT-021=Direct Boundary: workbench Test Source→対象契約
  */
-test("WorkbenchはProject Runtimeの現在投影を実行状況として表示する", async () => {
-  const application: WorkbenchRuntimeActivityApplication = Object.freeze({
+test("WorkbenchはOrchestratorの現在投影を実行状況として表示する", async () => {
+  const application: WorkbenchActivityReader = Object.freeze({
     observe: async (projectId) =>
       Object.freeze({
         state: "observed" as const,
-        reason: "project_runtime_state_observed",
+        reason: "orchestrator_state_observed",
         projection: Object.freeze({
           projectId,
           milestoneId: "MILESTONE-000001",
@@ -2957,7 +2961,7 @@ test("WorkbenchはProject Runtimeの現在投影を実行状況として表示�
   });
   const handle = await startWorkbench({
     workingDirectory: repositoryRoot,
-    runtimeActivityApplication: application,
+    activityReader: application,
   });
   try {
     const model = await requestMainModel(handle.baseUrl);
@@ -3084,8 +3088,7 @@ test("WorkbenchはRepository EventをProject限定で継続読込する", async 
       ).status,
       "completed",
     );
-    const application =
-      createRepositoryWorkbenchRuntimeActivityApplication(fixture);
+    const application = createRepositoryWorkbenchActivityReader(fixture);
     const first = await application.observe("project-a", { limit: 1 });
     assert.equal(first.eventState, "observed");
     assert.equal(first.events[0]?.taskId, "task-new");
@@ -3369,7 +3372,7 @@ test("実Provider検証のHTTP接続部は同意と同じ依頼Identityを公開
   let cancels = 0;
   let received: WorkbenchAiRequestCommand | null = null;
   let status: "running" | "cancelled" = "running";
-  const application: WorkbenchAiRequestApplication = {
+  const application: WorkbenchAiRequests = {
     start: async (request) => {
       starts += 1;
       received = request;
@@ -3395,10 +3398,10 @@ test("実Provider検証のHTTP接続部は同意と同じ依頼Identityを公開
   };
   const handle = await startWorkbench({
     workingDirectory: repositoryRoot,
-    aiRequestApplication: application,
+    aiRequests: application,
   });
   try {
-    const transport = await createWorkbenchAiVerificationHttpApplication(
+    const transport = await createWorkbenchAiVerificationHttpClient(
       handle.baseUrl,
     );
     const command: WorkbenchAiRequestCommand = {
@@ -3484,7 +3487,7 @@ test("実Provider検証HTTPの候補操作は確認とIdentityを保持して採
   let adopts = 0;
   const candidateId = "candidate-http-001";
   let reviewId: string | null = null;
-  const application: WorkbenchAiRequestApplication = {
+  const application: WorkbenchAiRequests = {
     start: async () => ({
       status: "accepted",
       requestId: "AIREQ-CANDIDATE-001",
@@ -3504,7 +3507,7 @@ test("実Provider検証HTTPの候補操作は確認とIdentityを保持して採
     }),
     cancel: async (requestId) => application.observe(requestId),
   };
-  const candidateApplication: WorkbenchCandidateApplication = {
+  const candidateActions: WorkbenchCandidateActions = {
     review: async () =>
       reviewId === null
         ? {
@@ -3522,7 +3525,9 @@ test("実Provider検証HTTPの候補操作は確認とIdentityを保持して採
               baseRevision: "a".repeat(40),
               candidateHash: "b".repeat(64),
               patchHash: "c".repeat(64),
-              changedPaths: ["40_Develop/workbench-server/src/ai-request.ts"],
+              changedPaths: [
+                "40_Develop/workbench-server/src/ai-request/types.ts",
+              ],
             },
           },
     adopt: async () => {
@@ -3547,11 +3552,11 @@ test("実Provider検証HTTPの候補操作は確認とIdentityを保持して採
   };
   const handle = await startWorkbench({
     workingDirectory: repositoryRoot,
-    aiRequestApplication: application,
-    candidateApplication,
+    aiRequests: application,
+    candidateActions,
   });
   try {
-    const transport = await createWorkbenchAiVerificationHttpApplication(
+    const transport = await createWorkbenchAiVerificationHttpClient(
       handle.baseUrl,
     );
     assert.equal("adopt" in transport, false);
@@ -3560,7 +3565,7 @@ test("実Provider検証HTTPの候補操作は確認とIdentityを保持して採
       profileId: "PROFILE-100003",
       prompt: "固定候補検証",
       contextReferences: ["PROJECT_CONTEXT.md"],
-      allowedPaths: ["40_Develop/workbench-server/src/ai-request.ts"],
+      allowedPaths: ["40_Develop/workbench-server/src/ai-request/types.ts"],
       externalSendConfirmed: true,
     });
     assert.equal((await transport.review(candidateId)).status, "blocked");
@@ -3599,7 +3604,7 @@ test("実Provider検証HTTPの候補操作は確認とIdentityを保持して採
       );
       const address = faultServer.address();
       assert.ok(address !== null && typeof address !== "string");
-      const faultTransport = await createWorkbenchAiVerificationHttpApplication(
+      const faultTransport = await createWorkbenchAiVerificationHttpClient(
         `http://127.0.0.1:${address.port}/`,
       );
       await assert.rejects(
@@ -3657,10 +3662,9 @@ test("実Provider検証HTTPの候補操作は確認とIdentityを保持して採
           );
           const bound = staleServer.address();
           assert.ok(bound !== null && typeof bound !== "string");
-          const staleTransport =
-            await createWorkbenchAiVerificationHttpApplication(
-              `http://127.0.0.1:${bound.port}/`,
-            );
+          const staleTransport = await createWorkbenchAiVerificationHttpClient(
+            `http://127.0.0.1:${bound.port}/`,
+          );
           await assert.rejects(
             staleTransport.discard(candidateId, true),
             (error: unknown) => {

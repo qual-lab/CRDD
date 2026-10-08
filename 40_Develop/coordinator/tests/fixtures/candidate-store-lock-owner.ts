@@ -1,8 +1,19 @@
+/**
+ * Kernel Lockを所有する固定試験Processを実行する。
+ *
+ * @packageDocumentation
+ * @responsibility 指定した試験ModeでStore・Host・SupervisorのLockを取得し、競合観測の前提を作る。
+ * @trace CPR-IT-001
+ * @trace ERB-IT-003
+ * @level IT
+ * @scope Store／Host Lockの所有と競合
+ * @boundary 試験Process→Native Lock。利用側試験が終了とLock解放を確認する。
+ */
 import {
   acquireRuntimeOwnedCandidateStoreKernelLock,
   acquireRuntimeOwnedHostOperationKernelLock,
   acquireRuntimeOwnedHostOperationSupervisorLock,
-} from "../../src/host-runtime/candidate-store-kernel-lock.ts";
+} from "../../src/host-execution/kernel-lock.ts";
 
 const mode = process.argv[2];
 const supervisorOutcome =

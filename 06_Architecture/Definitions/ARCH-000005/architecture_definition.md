@@ -164,10 +164,10 @@ Detailは第2・3節のDefinition入力を置き換えず、その意味を実�
 
 正式入力は第2・3節のArchitecture分析だけである。次は成立済み能力とGapを照合するためにだけ参照する。
 
-- [現行照合先](../../Details/project-operation/01_Architecture.md)
+- [現行照合先](../../Details/domain-model/02_Activity_Context.md)
 - [現行照合先](../../Details/cros/01_Architecture.md)
-- [現行照合先](../../Details/project-runtime/01_Architecture.md)
-- [現行照合先](../../Details/mcp/01_Architecture.md)
+- [現行照合先](../../Details/orchestrator/01_Architecture.md)
+- [現行照合先](../../Details/mcp-server/01_Architecture.md)
 
 ## Checklist
 

@@ -82,7 +82,7 @@ Version ControlはRuntime Dataの保存内容ではない。Runtime Dataは「�
 Checker ───────────────┐
 Runtime Data ──────────┤
 Execution Intelligence ┤
-Project Runtime ───────┼──→ 目的別Version Control Port
+Orchestrator ───────┼──→ 目的別Version Control Port
 Coordinator ───────────┤                 │
 Release／Signing ──────┘                 ▼
                                       Git Adapter
@@ -112,7 +112,7 @@ Release／Signing ──────┘                 ▼
 | Repository Worktree View | 検証済みRoot、Directory、Cursor、選択File | Directory直下Entry、変更区分、Query拘束Continuation、Prepared／Working Patchと切詰め状態 | いいえ | Workbench |
 | Change Publication | 検証済みRoot、選択差分、Commit内容、確認済みRemote・Branch・送信Commit、人間Authority | Stage／Unstage、Commit、通常Pushの各結果と終了後状態 | いいえ | Workbench |
 | Fixed Snapshot Read | 検証済みRoot、明示Revision、対象Path | Revision／Snapshot Identity付きの固定内容または観測不能 | はい | 固定履歴、外部送信Policy、候補生成 |
-| Candidate Materialization | 固定Snapshot、許可Path、空で安定した出力Directoryから発行したopaque Capability | 隔離された候補と内容Identity。失敗時は部分生成の不存在またはcleanup観測不能 | はい | Coordinator、Project Runtime統合 |
+| Candidate Materialization | 固定Snapshot、許可Path、空で安定した出力Directoryから発行したopaque Capability | 隔離された候補と内容Identity。失敗時は部分生成の不存在またはcleanup観測不能 | はい | Coordinator、Orchestrator統合 |
 | Fixed Revision Identity | 検証済みRoot、固定候補 | Revision／Snapshot／Object FormatのIdentity | はい | 署名、Release準備 |
 | Repository-local Ignore Registration | 検証済みRoot、固定のignore entry | `registered`／`blocked`、原子的・冪等な登録結果、適用前後の内容Identity、Effect発行・確認・cleanup状態 | いいえ | Runtime用Repository-local除外の登録 |
 
@@ -162,11 +162,11 @@ Git Adapterが本番RuntimeでGit CLIを起動する場合、その子Process境
 
 ### 3.2 用途を限定した公開入口
 
-Root公開入口はVersion Control全体を扱う利用側向けに維持する。一方、Checker、Semantic Coverage、Domain Libraryのように一部の能力だけを必要とする利用側は、不要なGit Process Adapterを依存閉包へ取り込まないため、次の用途限定入口を使う。用途限定入口は内部実装Pathではなく、Version Controlが所有する正式な公開契約である。
+標準公開入口は`src/index.ts`に統合する。以下は別Fileの入口ではなく、Root公開API内の用途別Symbol集合である。Checker、Semantic Coverage、Domain Model等の利用側は必要なNamed Symbolだけをimportする。Rootの静的依存閉包には他用途のModuleも含まれ得るため、用途別importだけから狭い物理閉包や外部Effect不存在を推定しない。Module読込みと操作実行を区別し、Git内部実装への直接依存は禁止する。
 
 #### Checker Observation
 
-公開入口: 40_Develop/version-control/src/checker-observation/index.ts
+公開入口: 40_Develop/version-control/src/index.ts（Checker観測の公開Symbol）
 
 | Capability | 公開Symbol |
 |---|---|
@@ -174,7 +174,7 @@ Root公開入口はVersion Control全体を扱う利用側向けに維持する�
 
 #### Repository Identity
 
-公開入口: 40_Develop/version-control/src/repository-identity/index.ts
+公開入口: 40_Develop/version-control/src/index.ts（Repository Identityの公開Symbol）
 
 | Capability | 公開Symbol |
 |---|---|
@@ -206,14 +206,14 @@ dirty、untrackedまたはdetachedであることだけを不正としない。�
 | Runtime Data | Repository RootをGit CLIから直接取得する処理 | Repository Location | 1 | Root能力をPortから取得し、旧Root Ownerと直接Git依存が0 |
 | Coordinator Repository Security | Repository Root／Layout／Operationの直接解釈 | Repository Location、Repository-local Ignore Registration | 1 | Root／Layout解釈をPortへ一本化し、Runtime Data領域作成時のignore登録を新Portへ接続 |
 | Coordinator公式CLI配置準備 | 配置入力・一時領域の起点Root | Repository Location。領域作成はRuntime Dataを経由する | 1 | `prepare-codex-advice-image.ts`がexact Rootを検証し、そのRoot直下の`.crdd/tmp`だけに新しいContextを作成する。未改造公式実行物だけを配置し、既存ContextとRuntime配布物は変更しない |
-| Checker Current Tree | Root、index、HEAD、historical objectの直接観測 | Checker Observation用途限定入口。Repository Identityが必要な別責務はRepository Identity用途限定入口を使う | 2 | 開発・採用の両経路が検証済みCRDD基準版Rootの用途限定公開入口だけを利用し、Root公開入口とGit内部実装への依存が0 |
+| Checker Current Tree | Root、index、HEAD、historical objectの直接観測 | Root公開APIのChecker Observation集合。Repository Identityが必要な責務は同Rootの対応集合を使う | 2 | 開発・採用の両経路が検証済みCRDD基準版のRoot公開APIを利用し、旧中継入口とGit内部実装への直接依存が0 |
 | Regression Selection | 変更集合の直接導出 | Local Change Set Observation | 2 | 変更集合の意味をPortへ一本化し、実Git境界の反証を持つ |
 | Coordinator Snapshot | Object Reader、Workspace、Candidate IntegrationによるGit内部構造の直接解釈 | Fixed Snapshot Read、Candidate Materialization | 3 | Object ReaderをAdapter内部へ隔離し、旧Owner Consumerが0 |
 | Policy／Provisioning | Policy／Provisioningによる固定Snapshotの直接解釈 | Fixed Snapshot Read | 3 | 保護対象の依存閉包をexact Port／Adapter importで固定 |
 | Release／Signing | Release／SigningによるRevision・Snapshotの直接解釈 | Fixed Revision Identity、Fixed Snapshot Read。Release Identityは利用側で合成する | 4 | 署名前のConsumer閉包、実行primitive、固定SnapshotとRelease Identityを反証できる |
 | Doctor／公開診断 | Repository Git Layoutの直接説明 | Repository Locationの公開Projection | 4 | Git内部構造ではなく、Portが許可した公開Projectionだけを返す |
 
-Execution IntelligenceはRuntime DataのRoot Capabilityを利用しているため、Runtime Data移行後に間接利用側として回帰を確認する。Project RuntimeはCoordinator Adapter経由のSnapshot／Candidate利用を確認し、Gitへ直接依存させない。
+Execution IntelligenceはRuntime DataのRoot Capabilityを利用しているため、Runtime Data移行後に間接利用側として回帰を確認する。OrchestratorはCoordinator Adapter経由のSnapshot／Candidate利用を確認し、Gitへ直接依存させない。
 
 ## 6. 段階移行
 

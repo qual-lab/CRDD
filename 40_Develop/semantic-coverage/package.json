@@ -13,8 +13,8 @@
     "lint": "biome lint . --error-on-warnings",
     "test": "npm run check && npm run test:run",
     "test:run": "node --test ./tests/**/*.test.ts",
-    "pilot": "node ./bin/compile-semantic-coverage-pilot.ts",
-    "pilot:write": "node ./bin/compile-semantic-coverage-pilot.ts --write",
+    "pilot": "node ./scripts/compile-pilot.ts",
+    "pilot:write": "node ./scripts/compile-pilot.ts --write",
     "typecheck": "tsc -p ./tsconfig.json"
   },
   "engines": {

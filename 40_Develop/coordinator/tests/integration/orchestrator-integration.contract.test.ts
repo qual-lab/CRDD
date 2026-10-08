@@ -1,0 +1,516 @@
+/**
+ * coordinator:integration:orchestrator-integrationの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:orchestrator-integrationが所有する検証責務を実行する。
+ * @trace PRL-IT-012
+ * @level IT
+ * @scope project、runtime
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Orchestrator Application Port→Core
+ */
+import assert from "node:assert/strict";
+import { execFileSync, spawn } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import test from "node:test";
+import { fileURLToPath } from "node:url";
+
+import {
+  createCurrentOrchestratorPersistencePorts as createOrchestratorPersistencePorts,
+  readCurrentOrchestratorState as readOrchestratorState,
+  initializeOrchestratorSnapshot,
+  readOrchestratorSnapshot,
+  createOrchestratorSnapshotIntegrationRecordPort as createOrchestratorIntegrationRecordAdapter,
+} from "../../../orchestrator/src/storage/current-state.ts";
+import { readProjectOperationQueueState } from "../fixtures/orchestrator-persistence-fixture.ts";
+import { integrateOrchestratorOperation } from "../../../orchestrator/src/index.ts";
+import { inspectMcpOrchestratorObjectiveResult } from "../../../mcp-server/src/index.ts";
+import { runOrchestratorObjective } from "../../../orchestrator/src/objective/intake-dependencies.ts";
+import { createOrchestratorExecutionAuthorizationAdapter } from "../../../orchestrator/src/index.ts";
+
+const revision = "a".repeat(40);
+/**
+ * preparedのTest準備責務を実行する。
+ *
+ * @responsibility preparedがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus preparedを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+async function prepared(t: test.TestContext) {
+  const root = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-project-integration-"),
+  );
+  execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
+  const initialized = initializeOrchestratorSnapshot(root, "binding-a");
+  assert.equal(initialized.status, "completed");
+  if (initialized.status !== "completed")
+    throw new Error("fixture_bootstrap_failed");
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const result = await runOrchestratorObjective(
+    {
+      authenticatedPrincipalId: "principal-integration",
+      verifyProjectBinding: () => ({
+        status: "verified",
+        repositoryBindingId: "binding-a",
+        repositoryRevision: revision,
+        workingDirectory: root,
+        repositoryRoot: root,
+        bindingCapability: {},
+      }),
+      planObjective: () => ({
+        milestoneAcceptanceCriteria: ["milestone-evidence"],
+        objectives: [
+          { id: "objective-a", acceptanceCriteria: ["objective-evidence"] },
+        ],
+        tasks: [
+          {
+            id: "task-a",
+            objectiveId: "objective-a",
+            dependencies: [],
+            allowedPaths: ["result.txt"],
+            conflictKeys: [],
+          },
+        ],
+      }),
+      createTaskExecutions: () => [
+        {
+          taskId: "task-a",
+          taskRequest: {},
+          repositoryRoot: root,
+        },
+      ],
+      observeLeaseOwner: () => ({ status: "absent" }),
+      execution: {
+        authorization: createOrchestratorExecutionAuthorizationAdapter({
+          issueRuntimeCapability: () => Object.freeze({}),
+          revokeRuntimeCapability: () => true,
+        }),
+        runSingleTaskAttempt: async (input) => {
+          assert.equal(await input.observeStarted?.(), true);
+          return {
+            contract: "crdd-coordinator/orchestrator-single-task-adapter",
+            attemptId: input.attemptId,
+            operationId: input.operationId,
+            authorityBindingId: input.authorityBindingId,
+            repositoryRevision: input.repositoryRevision,
+            status: "completed",
+            reason: "task_completed",
+            effectState: "settled",
+            cleanupConfirmed: true,
+            manualRecoveryRequired: false,
+            processRestartRequired: false,
+            candidateId: "task-candidate-a",
+            recoveryIds: [],
+          };
+        },
+      },
+    },
+    {
+      requestId: "request-a",
+      projectId: "project-a",
+      milestoneId: "milestone-a",
+      repositoryRevision: revision,
+      objective: "Create result",
+      acceptanceCriteria: ["accepted"],
+      allowedPaths: ["result.txt"],
+      readPaths: ["README.md"],
+      maximumConcurrency: 1,
+      maximumReplans: 1,
+      originLane: "interactive",
+      adoptResult: false,
+      intakeEpoch: initialized.value,
+    },
+    new AbortController().signal,
+  );
+  assert.equal(result.status, "completed");
+  return { root, queueId: result.queueId ?? "invalid" };
+}
+/**
+ * candidateのTest準備責務を実行する。
+ *
+ * @responsibility candidateがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus candidateを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+function candidate(conflicts: readonly string[] = []) {
+  return {
+    status: "candidate",
+    candidateId: "integrated-a",
+    candidateHash: "b".repeat(64),
+    baseRevision: revision,
+    changedPaths: ["result.txt"],
+    objectiveEvidence: { "objective-a": ["evidence-objective"] },
+    milestoneEvidence: ["evidence-milestone"],
+    conflicts,
+    cleanupConfirmed: true,
+  };
+}
+
+/**
+ * integrationDependenciesのTest準備責務を実行する。
+ *
+ * @responsibility integrationDependenciesがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus integrationDependenciesを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+function integrationDependencies(
+  root: string,
+  queueId: string,
+  candidatePort: Parameters<
+    typeof integrateOrchestratorOperation
+  >[0]["candidate"],
+) {
+  return {
+    candidate: candidatePort,
+    records: createOrchestratorIntegrationRecordAdapter({
+      workingDirectory: root,
+      repositoryBindingId: "binding-a",
+      projectId: "project-a",
+      milestoneId: "milestone-a",
+      queueId,
+    }),
+    persistence: createOrchestratorPersistencePorts(root, "binding-a"),
+  };
+}
+
+/**
+ * Task完了と候補生成だけではObjective／Milestoneを受け入れないことを検証する。
+ *
+ * @responsibility Integration Applicationが候補生成と受入判断を分ける境界の合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 完了Taskの候補生成を実行する。
+ * @observation 結果理由、Objective／Milestone状態、Queue状態および候補記録を観測する。
+ * @oracle 候補生成は完了するがObjectiveは統合待ち、Milestoneは実行中のままで、受入判断待ち理由を返す。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("Task完了と候補生成だけではObjective／Milestoneを受け入れない", async (t) => {
+  const { root, queueId } = await prepared(t);
+  let adoptions = 0;
+  const result = await integrateOrchestratorOperation(
+    integrationDependencies(root, queueId, {
+      createCandidate: async () => candidate(),
+      observeCanonicalRepository: () => ({
+        status: "observed",
+        repositoryRevision: revision,
+        dirty: false,
+        observedPaths: [],
+      }),
+      observeLeaseOwner: (owner) => ({ ...owner, status: "absent" }),
+      adoptCandidate: async () => {
+        adoptions += 1;
+        return null;
+      },
+    }),
+    {
+      projectId: "project-a",
+      milestoneId: "milestone-a",
+      queueId,
+      taskCandidateIds: ["task-candidate-a"],
+      allowedPaths: ["result.txt"],
+      adoptionAuthorized: false,
+    },
+  );
+  assert.equal(result.status, "completed");
+  assert.equal(result.reason, "orchestrator_acceptance_decision_required");
+  assert.equal(adoptions, 0);
+  const state = readOrchestratorState(root, "binding-a", "project-a");
+  const queue = readProjectOperationQueueState(root, "binding-a", queueId);
+  assert.equal(
+    state.status === "completed" && state.value?.milestone.state,
+    "executing",
+  );
+  assert.equal(
+    state.status === "completed" && state.value?.objectives[0]?.state,
+    "integration_pending",
+  );
+  assert.equal(queue.status === "completed" && queue.value.state, "completed");
+  assert.equal(
+    readOrchestratorSnapshot(root, "binding-a").value?.results.some(
+      (record) =>
+        record.kind === "integration" && record.identity === "integrated-a",
+    ),
+    true,
+  );
+});
+
+/**
+ * explicit adoption is serialized and requires a fresh matching repository observationを検証する。
+ *
+ * @responsibility explicit adoption is serialized and requires a fresh matching repository observationの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus explicit adoption is serialized and requires a fresh matching repository observationの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("explicit adoption is serialized and requires a fresh matching repository observation", async (t) => {
+  const { root, queueId } = await prepared(t);
+  const signal = path.join(root, "canonical-pre-publication-ready");
+  const probe = path.join(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "..",
+    "fixtures",
+    "orchestrator-lease-interleaving-probe.ts",
+  );
+  const child = spawn(
+    process.execPath,
+    [
+      probe,
+      root,
+      signal,
+      "pause-before-publish",
+      "canonical-adoption",
+      "canonical",
+    ],
+    { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] },
+  );
+  t.after(() => {
+    if (child.exitCode === null) child.kill();
+  });
+  const deadline = Date.now() + 10_000;
+  while (!fs.existsSync(signal) && Date.now() < deadline)
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.equal(fs.existsSync(signal), true);
+  child.kill();
+  await new Promise<void>((resolve) => child.once("exit", () => resolve()));
+  let adoptions = 0;
+  const result = await integrateOrchestratorOperation(
+    integrationDependencies(root, queueId, {
+      createCandidate: async () => candidate(),
+      observeCanonicalRepository: () => ({
+        status: "observed",
+        repositoryRevision: revision,
+        dirty: false,
+        observedPaths: [],
+      }),
+      observeLeaseOwner: (owner) => ({ ...owner, status: "absent" }),
+      adoptCandidate: async () => {
+        adoptions += 1;
+        return {
+          status: "completed",
+          receiptId: "receipt-a",
+          beforeRevision: revision,
+          afterRevision: "c".repeat(40),
+          changedPaths: ["result.txt"],
+          cleanupConfirmed: true,
+        };
+      },
+    }),
+    {
+      projectId: "project-a",
+      milestoneId: "milestone-a",
+      queueId,
+      taskCandidateIds: ["task-candidate-a"],
+      allowedPaths: ["result.txt"],
+      adoptionAuthorized: true,
+    },
+  );
+  assert.equal(result.status, "completed");
+  assert.equal(result.receiptId, "receipt-a");
+  assert.equal(adoptions, 1);
+});
+
+/**
+ * integration conflict stops before adoption and requests a human decisionを検証する。
+ *
+ * @responsibility integration conflict stops before adoption and requests a human decisionの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus integration conflict stops before adoption and requests a human decisionの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("integration conflict stops before adoption and requests a human decision", async (t) => {
+  const { root, queueId } = await prepared(t);
+  let adoptions = 0;
+  const result = await integrateOrchestratorOperation(
+    integrationDependencies(root, queueId, {
+      createCandidate: async () => candidate(["semantic-conflict"]),
+      observeCanonicalRepository: () => {
+        throw new Error("not_expected");
+      },
+      adoptCandidate: async () => {
+        adoptions += 1;
+      },
+    }),
+    {
+      projectId: "project-a",
+      milestoneId: "milestone-a",
+      queueId,
+      taskCandidateIds: ["task-candidate-a"],
+      allowedPaths: ["result.txt"],
+      adoptionAuthorized: true,
+    },
+  );
+  assert.equal(result.reason, "orchestrator_integration_conflict");
+  assert.equal(adoptions, 0);
+  const queue = readProjectOperationQueueState(root, "binding-a", queueId);
+  assert.equal(
+    queue.status === "completed" && queue.value.state,
+    "human_decision_required",
+  );
+});
+
+/**
+ * revision mismatch blocks canonical adoption and releases its leaseを検証する。
+ *
+ * @responsibility revision mismatch blocks canonical adoption and releases its leaseの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus revision mismatch blocks canonical adoption and releases its leaseの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("revision mismatch blocks canonical adoption and releases its lease", async (t) => {
+  const { root, queueId } = await prepared(t);
+  const input = {
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    queueId,
+    taskCandidateIds: ["task-candidate-a"],
+    allowedPaths: ["result.txt"],
+    adoptionAuthorized: true,
+  } as const;
+  const dependencies = integrationDependencies(root, queueId, {
+    createCandidate: async () => candidate(),
+    observeCanonicalRepository: () => ({
+      status: "observed",
+      repositoryRevision: "d".repeat(40),
+      dirty: false,
+      observedPaths: [],
+    }),
+    observeLeaseOwner: (
+      owner: Readonly<{
+        ownerProcessId: number;
+        ownerGeneration: string;
+      }>,
+    ) => ({ ...owner, status: "absent" }),
+    adoptCandidate: async () => {
+      throw new Error("not_expected");
+    },
+  });
+  const first = await integrateOrchestratorOperation(dependencies, input);
+  const second = await integrateOrchestratorOperation(dependencies, input);
+  assert.equal(
+    first.reason,
+    "orchestrator_adoption_revision_or_scope_mismatch",
+  );
+  assert.equal(
+    second.reason,
+    "orchestrator_adoption_revision_or_scope_mismatch",
+  );
+  assert.equal(first.manualRecoveryRequired, false);
+});
+
+/**
+ * canonical adoption preserves malformed acquisition evidence and exposes its recovery referenceを検証する。
+ *
+ * @responsibility canonical adoption preserves malformed acquisition evidence and exposes its recovery referenceの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus canonical adoption preserves malformed acquisition evidence and exposes its recovery referenceの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("canonical adoption preserves malformed acquisition evidence and exposes its recovery reference", async (t) => {
+  const { root, queueId } = await prepared(t);
+  const signal = path.join(root, "malformed-canonical-ready");
+  const probe = fileURLToPath(
+    new URL(
+      "../fixtures/orchestrator-lease-interleaving-probe.ts",
+      import.meta.url,
+    ),
+  );
+  const child = spawn(
+    process.execPath,
+    [
+      probe,
+      root,
+      signal,
+      "pause-before-publish",
+      "canonical-adoption",
+      "canonical",
+    ],
+    { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] },
+  );
+  t.after(() => {
+    if (child.exitCode === null) child.kill();
+  });
+  const deadline = Date.now() + 10_000;
+  while (!fs.existsSync(signal) && Date.now() < deadline)
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.equal(fs.existsSync(signal), true);
+  child.kill();
+  await new Promise<void>((resolve) => child.once("exit", () => resolve()));
+  const leaseRoot = path.join(root, ".crdd", "tmp", "orchestrator-leases");
+  const names = fs
+    .readdirSync(leaseRoot)
+    .filter((name) => name.endsWith(".lock"));
+  assert.equal(names.length, 1);
+  const marker = path.join(leaseRoot, names[0] ?? "invalid");
+  assert.equal(fs.realpathSync.native(marker), marker);
+  fs.rmdirSync(marker);
+  fs.writeFileSync(marker, "not-json\n", "utf8");
+  let adoptions = 0;
+  const result = await integrateOrchestratorOperation(
+    integrationDependencies(root, queueId, {
+      createCandidate: async () => candidate(),
+      observeCanonicalRepository: () => ({
+        status: "observed",
+        repositoryRevision: revision,
+        dirty: false,
+        observedPaths: [],
+      }),
+      observeLeaseOwner: (owner) => ({ ...owner, status: "unknown" }),
+      adoptCandidate: async () => {
+        adoptions += 1;
+        return null;
+      },
+    }),
+    {
+      projectId: "project-a",
+      milestoneId: "milestone-a",
+      queueId,
+      taskCandidateIds: ["task-candidate-a"],
+      allowedPaths: ["result.txt"],
+      adoptionAuthorized: true,
+    },
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.match(
+    result.recoveryIds[0] ?? "",
+    /^lease-acquisition-[0-9a-f]{40}$/u,
+  );
+  assert.equal(adoptions, 0);
+  assert.equal(fs.existsSync(marker), true);
+  const publicProjection = inspectMcpOrchestratorObjectiveResult(result);
+  assert.ok(publicProjection);
+  assert.deepEqual(publicProjection.recoveryIds, result.recoveryIds);
+});

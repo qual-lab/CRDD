@@ -16,7 +16,7 @@ import test, { type TestContext } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { generateReleaseKeyPair } from "../../scripts/generate-release-key.ts";
-import { ensureRepositoryRuntimeDataArea } from "../../../domain-model/src/storage/index.ts";
+import { ensureRepositoryRuntimeDataArea } from "../../../domain-model/src/index.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 
 const TEST_PASSPHRASE = "test-only-passphrase-0123456789";
@@ -69,7 +69,7 @@ async function createReleaseKeyDistributionFixture(t: TestContext) {
   const distributionRoot = path.join(parent, "distribution");
   const relativePaths = [
     "40_Develop/coordinator/scripts/generate-release-key.ts",
-    "40_Develop/coordinator/src/host-runtime/node-runtime-version.ts",
+    "40_Develop/coordinator/src/host-execution/node-runtime-version.ts",
     "40_Develop/artifact-signing/src/index.ts",
     "40_Develop/artifact-signing/src/one-shot-authorization.ts",
     "40_Develop/artifact-signing/src/private-key-signing.ts",

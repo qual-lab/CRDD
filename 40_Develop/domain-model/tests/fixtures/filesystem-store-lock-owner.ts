@@ -13,7 +13,7 @@ import fs from "node:fs";
 import {
   createFilesystemStoreRoot,
   withFilesystemStoreLock,
-} from "../../src/storage/index.ts";
+} from "../../src/storage/root-and-lock.ts";
 
 const [root, readyFile] = process.argv.slice(2);
 if (!root || !readyFile)

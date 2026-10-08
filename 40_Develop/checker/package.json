@@ -11,7 +11,7 @@
     "test": "npm run check && npm run verify:repository && npm run test:run",
     "test:run": "node ./tests/test-runner.ts",
     "typecheck": "tsc -p ./tsconfig.json && tsc -p ./template-tools-tsconfig.json",
-    "verify:repository": "node ./bin/crdd-check.ts --root ../.. --json --summary"
+    "verify:repository": "node ./bin/checker.ts --root ../.. --json --summary"
   },
   "engines": {
     "node": ">=24.12"

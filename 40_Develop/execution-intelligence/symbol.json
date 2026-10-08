@@ -97,7 +97,7 @@
     {
       "symbolId": "execution-intelligence.source.src.application.execution.intelligence.recorder",
       "kind": "file",
-      "path": "src/application/execution-intelligence-recorder.ts",
+      "path": "src/record/create-recorder.ts",
       "archIds": [
         "ARCH-000007"
       ]
@@ -105,7 +105,7 @@
     {
       "symbolId": "execution-intelligence.source.src.application.record.projection",
       "kind": "file",
-      "path": "src/application/record-projection.ts",
+      "path": "src/projection/temporal-records.ts",
       "archIds": [
         "ARCH-000007",
         "ARCH-000016"
@@ -114,7 +114,7 @@
     {
       "symbolId": "execution-intelligence.source.src.application.execution.record.projection",
       "kind": "file",
-      "path": "src/application/execution-record-projection.ts",
+      "path": "src/projection/execution-records.ts",
       "archIds": [
         "ARCH-000007"
       ]
@@ -122,7 +122,7 @@
     {
       "symbolId": "execution-intelligence.source.src.store.execution.intelligence.store",
       "kind": "file",
-      "path": "src/store/execution-intelligence-store.ts",
+      "path": "src/store/events.ts",
       "archIds": [
         "ARCH-000007"
       ]
@@ -130,7 +130,7 @@
     {
       "symbolId": "execution-intelligence.source.src.core.bounded.integrated.result.evaluation",
       "kind": "file",
-      "path": "src/core/bounded-integrated-result-evaluation.ts",
+      "path": "src/evaluation/integrated-result.ts",
       "archIds": [
         "ARCH-000007"
       ]
@@ -138,7 +138,7 @@
     {
       "symbolId": "execution-intelligence.source.src.core.execution.intelligence",
       "kind": "file",
-      "path": "src/core/execution-intelligence.ts",
+      "path": "src/record/event-and-summary.ts",
       "archIds": [
         "ARCH-000007"
       ]
@@ -146,7 +146,7 @@
     {
       "symbolId": "execution-intelligence.source.src.core.temporal.provenance",
       "kind": "file",
-      "path": "src/core/temporal-provenance.ts",
+      "path": "src/provenance/classify.ts",
       "archIds": [
         "ARCH-000016"
       ]
@@ -154,7 +154,7 @@
     {
       "symbolId": "execution-intelligence.source.src.store.verified.repository.root",
       "kind": "file",
-      "path": "src/store/verified-repository-root.ts",
+      "path": "src/store/verify-repository-root.ts",
       "archIds": [
         "ARCH-000007"
       ]

@@ -17,15 +17,15 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import test from "node:test";
-import { acquireRuntimeOwnedDockerDesktopRestartNativeHelper } from "../../src/docker-desktop/docker-desktop-repair-native-process.ts";
-import { createDockerRestartMachine } from "../../src/docker-desktop/docker-restart-machine.ts";
+import { acquireRuntimeOwnedDockerDesktopRestartNativeHelper } from "../../src/docker-desktop/repair-native-process.ts";
+import { createDockerRestartMachine } from "../../src/docker-desktop/restart-machine.ts";
 import { observePlatformAccessReleaseArtifactCandidate } from "../../src/diagnostics/platform-access-release.ts";
-import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "../../src/host-runtime/candidate-store-kernel-lock.ts";
-import { observeSystemWindowsDirectory } from "../../src/host-runtime/windows-directory-bootstrap.ts";
+import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "../../src/host-execution/kernel-lock.ts";
+import { observeSystemWindowsDirectory } from "../../src/host-execution/windows-directory-bootstrap.ts";
 import {
   createInteractiveConsoleReaderEnvironment,
   createWindowsNativeHelperEnvironment,
-} from "../../src/host-runtime/windows-child-environment.ts";
+} from "../../src/host-execution/windows-child-environment.ts";
 
 /**
  * 中立化したRuntime子Processから実Docker CLIのPublisher Trustを確認できるを検証する。

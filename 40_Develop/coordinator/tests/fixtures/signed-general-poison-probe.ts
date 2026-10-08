@@ -1,10 +1,24 @@
+/**
+ * 署名一般Task検証のPoison拒否を模擬する。
+ *
+ * @packageDocumentation
+ * @responsibility 固定された検証入力と操作差替えで、Poison後の新Task・送信・Capability発行の拒否を観測する。
+ * @trace ERB-ST-005
+ * @trace EST-ST-003
+ * @trace PRL-ST-001
+ * @trace PRL-ST-003
+ * @trace PRL-ST-004
+ * @level ST
+ * @scope 署名一般Task検証の停止境界
+ * @boundary 模擬操作→署名検証Tool。実署名・実Provider E2Eの代替にはしない。
+ */
 import { createHash } from "node:crypto";
 
 import { runSignedGeneralTaskVerification } from "../../scripts/verify-signed-general-task.ts";
-import { isRuntimeProcessPoisoned } from "../../src/host-runtime/runtime-process-safety-state.ts";
-import { requestRuntimeOwnedExternalSendGrant } from "../../src/external-send/external-send-grant-runtime.ts";
-import { startRuntimeOwnedCoordinatorTask } from "../../src/task/coordinator-task-runtime.ts";
-import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../../src/platform-access/platform-provisioner-package-filesystem.ts";
+import { isRuntimeProcessPoisoned } from "../../src/host-execution/process-safety-state.ts";
+import { requestRuntimeOwnedExternalSendGrant } from "../../src/external-send/grant.ts";
+import { startRuntimeOwnedCoordinatorTask } from "../../src/task/execution.ts";
+import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../../src/platform-access/package-verification.ts";
 
 const scenario = process.argv[2] ?? "completed_true";
 const TARGET_PATH =

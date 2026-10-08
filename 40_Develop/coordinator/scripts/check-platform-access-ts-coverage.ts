@@ -25,28 +25,28 @@ export const PLATFORM_ACCESS_TS_COVERAGE_SOURCES = Object.freeze([
   "40_Develop/coordinator/scripts/promote-release-manifest.ts",
   "40_Develop/coordinator/scripts/sign-release-manifest.ts",
   "40_Develop/coordinator/src/diagnostics/doctor.ts",
-  "40_Develop/coordinator/src/authority/authority-root-path-lexical.ts",
+  "40_Develop/coordinator/src/authority/root-path-lexical.ts",
   "40_Develop/domain-model/src/storage/bounded-file-snapshot.ts",
-  "40_Develop/coordinator/src/platform-access/platform-access-adapter.ts",
+  "40_Develop/coordinator/src/platform-access/adapter.ts",
   "40_Develop/coordinator/src/diagnostics/platform-access-release.ts",
-  "40_Develop/coordinator/src/platform-access/platform-provisioner-manifest-loader.ts",
-  "40_Develop/coordinator/src/platform-access/platform-provisioner-package-filesystem.ts",
-  "40_Develop/coordinator/src/platform-access/platform-provisioner-release-identity.ts",
-  "40_Develop/coordinator/src/platform-access/platform-provisioner-trust-core.ts",
+  "40_Develop/coordinator/src/platform-access/manifest-loader.ts",
+  "40_Develop/coordinator/src/platform-access/package-verification.ts",
+  "40_Develop/coordinator/src/platform-access/release-identity.ts",
+  "40_Develop/coordinator/src/platform-access/manifest-trust.ts",
   "40_Develop/coordinator/src/repository-operation/root-observation.ts",
 ]);
 
 export const PLATFORM_ACCESS_TS_COVERAGE_TESTS = Object.freeze([
-  "40_Develop/coordinator/tests/unit/authority-root-path-lexical.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/authority/root-path-lexical.contract.test.ts",
   "40_Develop/coordinator/tests/integration/bounded-file-snapshot.contract.test.ts",
   "40_Develop/coordinator/tests/unit/doctor.contract.test.ts",
-  "40_Develop/coordinator/tests/unit/platform-access-adapter.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/platform-access/adapter.contract.test.ts",
   "40_Develop/coordinator/tests/integration/platform-access-release.contract.test.ts",
   "40_Develop/coordinator/tests/integration/platform-access-ts-coverage.contract.test.ts",
   "40_Develop/coordinator/tests/integration/platform-provisioner-manifest-loader.contract.test.ts",
   "40_Develop/coordinator/tests/integration/platform-provisioner-package-filesystem.contract.test.ts",
   "40_Develop/coordinator/tests/integration/platform-provisioner-release-identity.contract.test.ts",
-  "40_Develop/coordinator/tests/unit/platform-provisioner-trust-core.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/platform-access/manifest-trust.contract.test.ts",
   "40_Develop/coordinator/tests/unit/root-observation.contract.test.ts",
   "40_Develop/coordinator/tests/integration/release-manifest-promotion.contract.test.ts",
   "40_Develop/coordinator/tests/integration/sign-release-manifest.contract.test.ts",
@@ -168,26 +168,24 @@ const sourceCoverageObligations: Readonly<Record<string, CoverageObligation>> =
       "doctor契約試験、公開情報最小化試験および全Coordinator test",
       "doctor投影、blockerまたはevidence母集団変更時",
     ),
-    "40_Develop/coordinator/src/authority/authority-root-path-lexical.ts":
-      obligation(
-        "host OS dispatcherの反対側分岐を単一OS runで到達していない",
-        "OS別dispatcherとpure字句判定の接続差",
-        "Windows/POSIX pure validatorの正負・境界契約試験",
-        "対応OS、字句subsetまたはdispatcher変更時",
-      ),
+    "40_Develop/coordinator/src/authority/root-path-lexical.ts": obligation(
+      "host OS dispatcherの反対側分岐を単一OS runで到達していない",
+      "OS別dispatcherとpure字句判定の接続差",
+      "Windows/POSIX pure validatorの正負・境界契約試験",
+      "対応OS、字句subsetまたはdispatcher変更時",
+    ),
     "40_Develop/domain-model/src/storage/bounded-file-snapshot.ts": obligation(
       "close failureと全Filesystem raceを同一coverage runで到達していない",
       "成果物のgrowth、truncate、leafまたはparent差替えの誤受理",
       "上限exact／+1、growth、truncate、同長leaf／parent replacement契約試験とproduction caller試験",
       "読取り上限、Filesystem API、Identity fieldまたはcaller変更時",
     ),
-    "40_Develop/coordinator/src/platform-access/platform-access-adapter.ts":
-      obligation(
-        "入力正規化の全failure形を同一runで到達していない",
-        "wire不正値の誤受理",
-        "revision、nonce、role、全bit、主体HashおよびProxy負例",
-        "wire protocolまたはproduction process再導入時",
-      ),
+    "40_Develop/coordinator/src/platform-access/adapter.ts": obligation(
+      "入力正規化の全failure形を同一runで到達していない",
+      "wire不正値の誤受理",
+      "revision、nonce、role、全bit、主体HashおよびProxy負例",
+      "wire protocolまたはproduction process再導入時",
+    ),
     "40_Develop/coordinator/src/diagnostics/platform-access-release.ts":
       obligation(
         "成果物観測の全OS例外とIdentity failureを同一runで到達していない",
@@ -195,34 +193,32 @@ const sourceCoverageObligations: Readonly<Record<string, CoverageObligation>> =
         "同一handle観測、同長上書き、短縮、追記およびRoot差試験",
         "Release artifactまたはFilesystem API変更時",
       ),
-    "40_Develop/coordinator/src/platform-access/platform-provisioner-manifest-loader.ts":
-      obligation(
-        "全read failure、上限およびIdentity差を同一runで到達していない",
-        "manifest loaderのfail-closed回帰",
-        "canonical byte、上限、同一handleおよびIdentity差契約試験",
-        "manifest Schemaまたはloader変更時",
-      ),
-    "40_Develop/coordinator/src/platform-access/platform-provisioner-package-filesystem.ts":
+    "40_Develop/coordinator/src/platform-access/manifest-loader.ts": obligation(
+      "全read failure、上限およびIdentity差を同一runで到達していない",
+      "manifest loaderのfail-closed回帰",
+      "canonical byte、上限、同一handleおよびIdentity差契約試験",
+      "manifest Schemaまたはloader変更時",
+    ),
+    "40_Develop/coordinator/src/platform-access/package-verification.ts":
       obligation(
         "全inventory、descriptorおよびFilesystem failureを同一runで到達していない",
         "package closureまたは同一handle検証の見落とし",
         "余分・欠落・改変・link・Identity差の契約試験",
         "package inventoryまたはstaging copy実装時",
       ),
-    "40_Develop/coordinator/src/platform-access/platform-provisioner-release-identity.ts":
+    "40_Develop/coordinator/src/platform-access/release-identity.ts":
       obligation(
         "全Git object、FilesystemおよびIdentity failureを同一runで到達していない",
         "署名Release Identityと配布Treeの不一致見落とし",
         "Root Tree再計算、除外Path、改変およびIdentity差契約試験",
         "Release archiveまたはIdentity contract変更時",
       ),
-    "40_Develop/coordinator/src/platform-access/platform-provisioner-trust-core.ts":
-      obligation(
-        "manifest exact Schemaと署名Coreの一部failure branchを未到達とする",
-        "不正署名payloadまたは未知fieldの誤受理",
-        "全field差、固定公開鍵、専用Rust成果物および署名domain契約試験",
-        "manifest Schema、署名domainまたはTrust変更時",
-      ),
+    "40_Develop/coordinator/src/platform-access/manifest-trust.ts": obligation(
+      "manifest exact Schemaと署名Coreの一部failure branchを未到達とする",
+      "不正署名payloadまたは未知fieldの誤受理",
+      "全field差、固定公開鍵、専用Rust成果物および署名domain契約試験",
+      "manifest Schema、署名domainまたはTrust変更時",
+    ),
     "40_Develop/coordinator/src/repository-operation/root-observation.ts":
       obligation(
         "Rust結果からRoot観測へのproduction写像は未実装である",

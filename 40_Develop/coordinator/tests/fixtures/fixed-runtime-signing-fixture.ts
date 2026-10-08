@@ -12,9 +12,9 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { deflateSync } from "node:zlib";
-import { verifyRepositoryRoot } from "../../../version-control/src/repository-location.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/repository/location.ts";
 import { PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH } from "../../src/diagnostics/platform-access-release.ts";
-import { inspectRuntimeDistributionSigningFilesCandidate } from "../../src/platform-access/platform-provisioner-package-filesystem.ts";
+import { inspectRuntimeDistributionSigningFilesCandidate } from "../../src/platform-access/package-verification.ts";
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 /**
  * 選択RuntimeとNativeのbytes、固定Commit/Tree、未変更署名Toolを用意する。
@@ -60,11 +60,11 @@ export function createFixedRuntimeSigningFixture(
     assert.equal(fs.realpathSync.native(target), target);
     return true;
   }
-  const observed = boundaries.map(observeDirectory);
-  assert.equal(observed[0], true);
+  const observedEntries = boundaries.map(observeDirectory);
+  assert.equal(observedEntries[0], true);
   assert.equal(verifyRepositoryRoot(repositoryRoot).status, "completed");
   for (let index = 1; index < boundaries.length; index += 1) {
-    if (!observed[index]) {
+    if (!observedEntries[index]) {
       for (const ancestor of boundaries.slice(0, index))
         assert.equal(observeDirectory(ancestor), true);
       fs.mkdirSync(boundaries[index] as string);
@@ -190,7 +190,7 @@ export function createFixedRuntimeSigningFixture(
             });
         }
       }
-      const ordered = [...entries].sort(([left, a], [right, b]) =>
+      const orderedEntries = [...entries].sort(([left, a], [right, b]) =>
         Buffer.compare(
           Buffer.from(`${left}${a.mode === "40000" ? "/" : ""}`),
           Buffer.from(`${right}${b.mode === "40000" ? "/" : ""}`),
@@ -199,7 +199,7 @@ export function createFixedRuntimeSigningFixture(
       return writeObject(
         "tree",
         Buffer.concat(
-          ordered.flatMap(([name, entry]) => [
+          orderedEntries.flatMap(([name, entry]) => [
             Buffer.from(`${entry.mode} ${name}\0`, "utf8"),
             Buffer.from(entry.oid, "hex"),
           ]),

@@ -30,13 +30,13 @@ import {
 import {
   canonicalPackageFileContent,
   inspectRuntimeDistributionSigningFilesCandidate,
-} from "../../src/platform-access/platform-provisioner-package-filesystem.ts";
+} from "../../src/platform-access/package-verification.ts";
 
 import {
   describePlatformProvisionerReleaseIdentityContract,
   inspectPlatformProvisionerReleaseIdentityCandidate,
   inspectPlatformProvisionerRuntimeGitProvenanceCandidate,
-} from "../../src/platform-access/platform-provisioner-release-identity.ts";
+} from "../../src/platform-access/release-identity.ts";
 
 /**
  * 選択Runtime集合のGit出所と非Runtime除外を実Git objectで検証する。
@@ -59,15 +59,20 @@ test("選択Runtime Git出所は全Tree不要で閉包とNativeの混入を拒�
   const testsRoot = path.join(repository, ".crdd", "tests");
   fs.mkdirSync(testsRoot, { recursive: true });
   assert.equal(fs.realpathSync.native(testsRoot), testsRoot);
-  const run = fs.mkdtempSync(path.join(testsRoot, "git-provenance-"));
+  const verificationOperation = fs.mkdtempSync(
+    path.join(testsRoot, "git-provenance-"),
+  );
   t.after(() => {
-    assert.equal(path.dirname(run), testsRoot);
-    assert.equal(fs.realpathSync.native(run), run);
-    fs.rmSync(run, { recursive: true, force: true });
-    assert.equal(fs.existsSync(run), false);
+    assert.equal(path.dirname(verificationOperation), testsRoot);
+    assert.equal(
+      fs.realpathSync.native(verificationOperation),
+      verificationOperation,
+    );
+    fs.rmSync(verificationOperation, { recursive: true, force: true });
+    assert.equal(fs.existsSync(verificationOperation), false);
   });
-  const source = path.join(run, "source");
-  const distribution = path.join(run, "distribution");
+  const source = path.join(verificationOperation, "source");
+  const distribution = path.join(verificationOperation, "distribution");
   fs.mkdirSync(path.join(source, ".git", "objects"), { recursive: true });
   fs.mkdirSync(path.join(source, ".git", "refs", "heads"), { recursive: true });
   fs.writeFileSync(
@@ -154,7 +159,7 @@ test("選択Runtime Git出所は全Tree不要で閉包とNativeの混入を拒�
           });
       }
     }
-    const ordered = [...entries].sort(([left, a], [right, b]) =>
+    const orderedEntries = [...entries].sort(([left, a], [right, b]) =>
       Buffer.compare(
         Buffer.from(`${left}${a.mode === "40000" ? "/" : ""}`),
         Buffer.from(`${right}${b.mode === "40000" ? "/" : ""}`),
@@ -163,7 +168,7 @@ test("選択Runtime Git出所は全Tree不要で閉包とNativeの混入を拒�
     return writeObject(
       "tree",
       Buffer.concat(
-        ordered.flatMap(([name, entry]) => [
+        orderedEntries.flatMap(([name, entry]) => [
           Buffer.from(`${entry.mode} ${name}\0`, "utf8"),
           Buffer.from(entry.oid, "hex"),
         ]),
@@ -222,7 +227,7 @@ test("選択Runtime Git出所は全Tree不要で閉包とNativeの混入を拒�
   assert.equal(success.status, "candidate");
   assert.equal(success.filesystemEffectIssued, false);
   assert.equal(success.runtimeCapabilityIssued, false);
-  assert.equal(JSON.stringify(success).includes(run), false);
+  assert.equal(JSON.stringify(success).includes(verificationOperation), false);
   fs.writeFileSync(
     path.join(distribution, "README.md"),
     "unsigned non-runtime document\n",

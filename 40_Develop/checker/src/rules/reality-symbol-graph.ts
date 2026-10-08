@@ -9,10 +9,10 @@ import path from "node:path";
 import {
   createRealitySymbolGraph,
   discoverRealitySymbolManifests,
-} from "../adapters/reality-traceability.ts";
-import { readRegisteredRealityTests } from "../adapters/reality-test-catalog.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/repository-identity/index.ts";
-import type { CheckerRule } from "./rule-registry.ts";
+} from "../reality/symbol-traceability.ts";
+import { readRegisteredRealityTests } from "../reality/test-catalog.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import type { CheckerRule } from "./registry.ts";
 
 /**
  * Test SourceがskipされたPlaceholderを含むか判定する。

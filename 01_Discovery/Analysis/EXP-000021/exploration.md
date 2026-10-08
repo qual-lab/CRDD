@@ -3,9 +3,9 @@
 成果物種別: Discovery分析
 探索ID: `EXP-000021`
 状態: 要求採用
-主な情報源: 現行MCP、Project Runtime、Workbench構想
+主な情報源: 現行MCP、Orchestrator、Workbench構想
 判断する人: Qual-Lab
-記録の性質: Workbench／MCP構想、現行Project RuntimeおよびUX対話から再構成
+記録の性質: Workbench／MCP構想、現行OrchestratorおよびUX対話から再構成
 時系列根拠: 2026-09-13に固定したv0.21構想群で、リポジトリ横断統合を利用する入口の依存順とした。
 
 ## きっかけ
@@ -20,13 +20,13 @@
 
 ## 置いた仮説
 
-Project Runtimeが公開する一つのアプリケーション契約（Application Contract）を先に決め、Workbench、MCP、CLIをその利用者にする。
+Orchestratorが公開する一つのアプリケーション契約（Application Contract）を先に決め、Workbench、MCP、CLIをその利用者にする。
 
 <a id="workbench-mcp-as-is-to-be"></a>
 
 ```text
 Workbench ─ TS API ───────────┐
-AI ─────── MCP ───────────────┼→ 同じProject Runtimeの公開契約
+AI ─────── MCP ───────────────┼→ 同じOrchestratorの公開契約
 CLI／外部ツール ─ CLI／TS API ──┘
 ```
 
@@ -59,7 +59,7 @@ WorkbenchとMCPは別の入口として持ち、仕事の意味だけを共有�
 
 | 入力元 | 入力 | 処理 | 出力 | 利用者 |
 |---|---|---|---|---|
-| リポジトリ、Project Runtime、CROS | プロジェクトと限定された要求 | 入口で検証し、同じ公開契約へ渡す | 出典・改訂版・不足を含む結果 | Workbench、AI、CLI、外部ツール |
+| リポジトリ、Orchestrator、CROS | プロジェクトと限定された要求 | 入口で検証し、同じ公開契約へ渡す | 出典・改訂版・不足を含む結果 | Workbench、AI、CLI、外部ツール |
 
 ## 採用した要求
 

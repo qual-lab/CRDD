@@ -98,12 +98,12 @@
       "contract": "crdd/semantic-ir-pilot",
       "contractRevision": 0,
       "stability": "pilot",
-      "subsystem": "project-runtime",
-      "sourceDocument": "06_Architecture/Details/project-runtime/02_Detailed_Design.md",
+      "subsystem": "orchestrator",
+      "sourceDocument": "06_Architecture/Details/orchestrator/02_Detailed_Design.md",
       "sourceSha256": "0a4513b277b97fb6f44575fcceb251b884a8c3f927e8485854b47a77b909f8ef",
       "meanings": [
         {
-          "semanticKey": "project-runtime.acceptance-decision-authority",
+          "semanticKey": "orchestrator.acceptance-decision-authority",
           "kind": "authority",
           "statement": "Objective／Milestoneの受入、差戻し、判断待ちをProject運営者の明示判断として記録し、下位完了やProjectionから受入Authorityを生成しない。",
           "archIds": [
@@ -114,7 +114,7 @@
           "notApplicableReason": null
         },
         {
-          "semanticKey": "project-runtime.candidate-adoption",
+          "semanticKey": "orchestrator.candidate-adoption",
           "kind": "authority",
           "statement": "同一候補の再読取り、明示採用Authority、Leaseと現在Revision／dirty Scopeの確認を通じて正本へ採用し、Receiptを耐久記録する。拒否時は正本Effect 0、settlement不明時は同じRecovery義務を保持し、Commit／Pushを伴わない。",
           "archIds": [
@@ -125,7 +125,7 @@
           "notApplicableReason": null
         },
         {
-          "semanticKey": "project-runtime.durable-before-effect",
+          "semanticKey": "orchestrator.durable-before-effect",
           "kind": "persistence",
           "statement": "Task Effectまたは判断適用の前に、Intent、Authority結合、Operation Identityおよび必要なRecovery情報を耐久化する。",
           "archIds": [
@@ -136,7 +136,7 @@
           "notApplicableReason": null
         },
         {
-          "semanticKey": "project-runtime.execution-intelligence-read-model",
+          "semanticKey": "orchestrator.execution-intelligence-read-model",
           "kind": "projection",
           "statement": "Execution Intelligenceを読取り専用Portとして利用し、実行事実と評価候補をProjectのAuthorityや受入判断へ変換しない。",
           "archIds": [
@@ -147,7 +147,7 @@
           "notApplicableReason": null
         },
         {
-          "semanticKey": "project-runtime.objective-task-lifecycle",
+          "semanticKey": "orchestrator.objective-task-lifecycle",
           "kind": "lifecycle",
           "statement": "ObjectiveをTaskへ分解し、依存、実行、統合、受入、取消、判断待ちおよび回復をProject-levelの状態として管理する。",
           "archIds": [
@@ -158,7 +158,7 @@
           "notApplicableReason": null
         },
         {
-          "semanticKey": "project-runtime.project-state-projection",
+          "semanticKey": "orchestrator.project-state-projection",
           "kind": "projection",
           "statement": "Task、Queue、Decision、Recovery、ObjectiveおよびMilestoneの状態を、根拠と観測不能を保持したProject Stateへ投影する。",
           "archIds": [
@@ -169,7 +169,7 @@
           "notApplicableReason": null
         },
         {
-          "semanticKey": "project-runtime.queue-lease-lifecycle",
+          "semanticKey": "orchestrator.queue-lease-lifecycle",
           "kind": "resource",
           "statement": "Queue、Project Operation Lease、Scheduler Slotおよび競合予約のOwnerと終了条件を固定し、cleanup不明の資源を再利用しない。",
           "archIds": [
@@ -180,7 +180,7 @@
           "notApplicableReason": null
         },
         {
-          "semanticKey": "project-runtime.recovery-obligation",
+          "semanticKey": "orchestrator.recovery-obligation",
           "kind": "recovery",
           "statement": "Effectまたはcleanupが不明なTask／Decisionをexact Recovery Identityへ結び、同じ義務の解消または人間移送まで保持する。",
           "archIds": [
@@ -191,7 +191,7 @@
           "notApplicableReason": null
         },
         {
-          "semanticKey": "project-runtime.task-authority-narrowing",
+          "semanticKey": "orchestrator.task-authority-narrowing",
           "kind": "authority",
           "statement": "Project／Milestone／Objective／Task／Attempt／Repository RevisionからTask Authorityを狭め、Coordinatorへ渡した後に拡大させない。",
           "archIds": [
@@ -202,7 +202,7 @@
           "notApplicableReason": null
         },
         {
-          "semanticKey": "project-runtime.transport-neutral-application-contract",
+          "semanticKey": "orchestrator.transport-neutral-application-contract",
           "kind": "boundary",
           "statement": "CLI、MCPその他のTransportがProject Authorityや成功意味を新設せず、Core所有の公開Application Contractを同じ意味で提供する。",
           "archIds": [
@@ -359,15 +359,15 @@
         "testObservation": "observed"
       },
       {
-        "semanticKey": "project-runtime.acceptance-decision-authority",
+        "semanticKey": "orchestrator.acceptance-decision-authority",
         "archIds": [
           "ARCH-000005"
         ],
         "implementationSymbolIds": [
-          "coordinator.project-runtime.acceptance-authority-adapter",
-          "coordinator.source.src.security.project.runtime.durable.foundation",
-          "project-runtime.acceptance-decision-application",
-          "project-runtime.state-core"
+          "coordinator.orchestrator.acceptance-authority-adapter",
+          "coordinator.source.src.security.orchestrator.durable.foundation",
+          "orchestrator.acceptance-decision-application",
+          "orchestrator.state-core"
         ],
         "implementationObservation": "observed",
         "qualityLocalIds": [
@@ -377,21 +377,21 @@
         ],
         "verificationMode": "automated",
         "testSymbolIds": [
-          "coordinator.test.integration.project-runtime-composition-root",
-          "coordinator.test.system.project-runtime-acceptance-decision",
-          "project-runtime.test.integration.acceptance-decision-application",
-          "project-runtime.test.unit.state"
+          "coordinator.test.integration.orchestrator-composition-root",
+          "coordinator.test.system.orchestrator-acceptance-decision",
+          "orchestrator.test.integration.acceptance-decision-application",
+          "orchestrator.test.unit.state"
         ],
         "testObservation": "observed"
       },
       {
-        "semanticKey": "project-runtime.candidate-adoption",
+        "semanticKey": "orchestrator.candidate-adoption",
         "archIds": [
           "ARCH-000004"
         ],
         "implementationSymbolIds": [
           "coordinator.source.src.composition.workbench.candidate.application",
-          "project-runtime.candidate-adoption-application"
+          "orchestrator.candidate-adoption-application"
         ],
         "implementationObservation": "observed",
         "qualityLocalIds": [
@@ -400,18 +400,18 @@
         ],
         "verificationMode": "automated",
         "testSymbolIds": [
-          "project-runtime.test.unit.candidate-adoption-application"
+          "orchestrator.test.unit.candidate-adoption-application"
         ],
         "testObservation": "observed"
       },
       {
-        "semanticKey": "project-runtime.durable-before-effect",
+        "semanticKey": "orchestrator.durable-before-effect",
         "archIds": [
           "ARCH-000004"
         ],
         "implementationSymbolIds": [
-          "project-runtime.execution",
-          "project-runtime.objective-application"
+          "orchestrator.execution",
+          "orchestrator.objective-application"
         ],
         "implementationObservation": "observed",
         "qualityLocalIds": [
@@ -419,18 +419,18 @@
         ],
         "verificationMode": "automated",
         "testSymbolIds": [
-          "coordinator.test.system.project-runtime-real-provider-verification-script",
-          "coordinator.test.system.project-runtime-recovery"
+          "coordinator.test.system.orchestrator-real-provider-verification-script",
+          "coordinator.test.system.orchestrator-recovery"
         ],
         "testObservation": "observed"
       },
       {
-        "semanticKey": "project-runtime.execution-intelligence-read-model",
+        "semanticKey": "orchestrator.execution-intelligence-read-model",
         "archIds": [
           "ARCH-000007"
         ],
         "implementationSymbolIds": [
-          "project-runtime.execution-observation-port"
+          "orchestrator.execution-observation-port"
         ],
         "implementationObservation": "observed",
         "qualityLocalIds": [
@@ -441,15 +441,15 @@
         "testObservation": "manual_pending"
       },
       {
-        "semanticKey": "project-runtime.objective-task-lifecycle",
+        "semanticKey": "orchestrator.objective-task-lifecycle",
         "archIds": [
           "ARCH-000004"
         ],
         "implementationSymbolIds": [
-          "project-runtime.integration-application",
-          "project-runtime.objective-application",
-          "project-runtime.replanning-application",
-          "project-runtime.state-core"
+          "orchestrator.integration-application",
+          "orchestrator.objective-application",
+          "orchestrator.replanning-application",
+          "orchestrator.state-core"
         ],
         "implementationObservation": "observed",
         "qualityLocalIds": [
@@ -457,19 +457,19 @@
         ],
         "verificationMode": "automated",
         "testSymbolIds": [
-          "coordinator.test.system.project-runtime-real-provider-verification-script"
+          "coordinator.test.system.orchestrator-real-provider-verification-script"
         ],
         "testObservation": "observed"
       },
       {
-        "semanticKey": "project-runtime.project-state-projection",
+        "semanticKey": "orchestrator.project-state-projection",
         "archIds": [
           "ARCH-000005"
         ],
         "implementationSymbolIds": [
-          "coordinator.source.src.security.project.runtime.durable.foundation",
-          "project-runtime.state-core",
-          "project-runtime.state-query-application"
+          "coordinator.source.src.security.orchestrator.durable.foundation",
+          "orchestrator.state-core",
+          "orchestrator.state-query-application"
         ],
         "implementationObservation": "observed",
         "qualityLocalIds": [
@@ -477,21 +477,21 @@
         ],
         "verificationMode": "automated",
         "testSymbolIds": [
-          "coordinator.test.integration.project-runtime-composition-root",
-          "coordinator.test.integration.project-runtime-full-flow"
+          "coordinator.test.integration.orchestrator-composition-root",
+          "coordinator.test.integration.orchestrator-full-flow"
         ],
         "testObservation": "observed"
       },
       {
-        "semanticKey": "project-runtime.queue-lease-lifecycle",
+        "semanticKey": "orchestrator.queue-lease-lifecycle",
         "archIds": [
           "ARCH-000004"
         ],
         "implementationSymbolIds": [
-          "coordinator.source.src.security.project.runtime.durable.foundation",
-          "project-runtime.objective-application",
-          "project-runtime.queue-core",
-          "project-runtime.state-core"
+          "coordinator.source.src.security.orchestrator.durable.foundation",
+          "orchestrator.objective-application",
+          "orchestrator.queue-core",
+          "orchestrator.state-core"
         ],
         "implementationObservation": "observed",
         "qualityLocalIds": [
@@ -499,19 +499,19 @@
         ],
         "verificationMode": "automated",
         "testSymbolIds": [
-          "coordinator.test.integration.project-runtime-queue-priority"
+          "coordinator.test.integration.orchestrator-queue-priority"
         ],
         "testObservation": "observed"
       },
       {
-        "semanticKey": "project-runtime.recovery-obligation",
+        "semanticKey": "orchestrator.recovery-obligation",
         "archIds": [
           "ARCH-000004"
         ],
         "implementationSymbolIds": [
-          "project-runtime.integration-application",
-          "project-runtime.objective-application",
-          "project-runtime.state-core"
+          "orchestrator.integration-application",
+          "orchestrator.objective-application",
+          "orchestrator.state-core"
         ],
         "implementationObservation": "observed",
         "qualityLocalIds": [
@@ -519,19 +519,19 @@
         ],
         "verificationMode": "automated",
         "testSymbolIds": [
-          "coordinator.test.system.project-runtime-real-provider-verification-script",
-          "coordinator.test.system.project-runtime-recovery"
+          "coordinator.test.system.orchestrator-real-provider-verification-script",
+          "coordinator.test.system.orchestrator-recovery"
         ],
         "testObservation": "observed"
       },
       {
-        "semanticKey": "project-runtime.task-authority-narrowing",
+        "semanticKey": "orchestrator.task-authority-narrowing",
         "archIds": [
           "ARCH-000004"
         ],
         "implementationSymbolIds": [
-          "coordinator.source.src.security.project.runtime.objective.intake",
-          "project-runtime.objective-intake"
+          "coordinator.source.src.security.orchestrator.objective.intake",
+          "orchestrator.objective-intake"
         ],
         "implementationObservation": "observed",
         "qualityLocalIds": [
@@ -539,17 +539,17 @@
         ],
         "verificationMode": "automated",
         "testSymbolIds": [
-          "coordinator.test.integration.project-runtime-objective-intake"
+          "coordinator.test.integration.orchestrator-objective-intake"
         ],
         "testObservation": "observed"
       },
       {
-        "semanticKey": "project-runtime.transport-neutral-application-contract",
+        "semanticKey": "orchestrator.transport-neutral-application-contract",
         "archIds": [
           "ARCH-000012"
         ],
         "implementationSymbolIds": [
-          "project-runtime.public-api"
+          "orchestrator.public-api"
         ],
         "implementationObservation": "observed",
         "qualityLocalIds": [
@@ -557,7 +557,7 @@
         ],
         "verificationMode": "automated",
         "testSymbolIds": [
-          "coordinator.test.integration.project-runtime-platform-independence"
+          "coordinator.test.integration.orchestrator-platform-independence"
         ],
         "testObservation": "observed"
       }

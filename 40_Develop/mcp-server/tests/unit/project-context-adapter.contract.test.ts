@@ -13,17 +13,16 @@ import test from "node:test";
 
 import type { PortfolioProjection } from "../../../cros/src/index.ts";
 import {
-  handleMcpApplicationRequest,
+  routeMcpRequest,
   handleMcpProjectContextRequest,
   MCP_PROJECT_CONTEXT_GET_TOOL,
   MCP_PROJECT_CONTEXT_LIST_TOOL,
-  MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
-  type McpApplicationDependencies,
+  MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+  type McpRequestRoutingDependencies,
 } from "../../src/index.ts";
 
 const META = Object.freeze({
-  "io.modelcontextprotocol/protocolVersion":
-    MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
+  "io.modelcontextprotocol/protocolVersion": MCP_ORCHESTRATOR_PROTOCOL_VERSION,
   "io.modelcontextprotocol/clientCapabilities": Object.freeze({}),
 });
 
@@ -205,21 +204,21 @@ test("Project Context MCP lists only the supplied portfolio", async () => {
  * @precondition Runtime依存はTool一覧では呼び出されない。
  * @stimulus tools/listを合成Adapterへ渡す。
  * @observation 公開Tool名を取得する。
- * @oracle Project Context二ToolとProject Runtime三Toolが一度ずつ存在する。
+ * @oracle Project Context二ToolとOrchestrator三Toolが一度ずつ存在する。
  * @cleanup N/A: 外部資源を作成しない。
  * @boundary PPR-UT-006=Direct Boundary: mcp Test Source→対象契約
  */
 test("MCP application publishes runtime and context tools without conflating them", async () => {
   const dependencies = {
-    projectRuntime: {
+    orchestrator: {
       authenticateClient: () => ({ status: "unknown" as const }),
       runObjective: async () => ({}),
       submitDecision: async () => ({}),
       getProjectState: async () => ({}),
     },
     projectContext: { readPortfolio: async () => portfolio() },
-  } satisfies McpApplicationDependencies;
-  const response = await handleMcpApplicationRequest(
+  } satisfies McpRequestRoutingDependencies;
+  const response = await routeMcpRequest(
     Object.freeze({
       jsonrpc: "2.0",
       id: 1,

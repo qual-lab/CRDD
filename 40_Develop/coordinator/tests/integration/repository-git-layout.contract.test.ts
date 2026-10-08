@@ -18,9 +18,9 @@ import type { TestContext } from "node:test";
 import {
   describeGitRepositoryLayoutAdapterContract,
   inspectGitRepositoryLayoutCandidate,
-} from "../../../version-control/src/git/repository-layout-adapter.ts";
-import { inspectRepositoryGitObjectFormatCandidate } from "../../../version-control/src/git/repository-layout.ts";
-import { assertPresent, errorCode } from "../support/test-support.ts";
+} from "../../../version-control/src/git/layout-adapter.ts";
+import { inspectRepositoryGitObjectFormatCandidate } from "../../../version-control/src/git/layout.ts";
+import { assertPresent, errorCode } from "../support/contract-assertions.ts";
 
 /**
  * temporaryRootのTest準備責務を実行する。

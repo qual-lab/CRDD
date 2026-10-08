@@ -50,7 +50,7 @@ Migration note (v0.20.0 → v0.20.1): update the complete CRDD clone or submodul
 
 ### v0.20.0 — 2026-09-11
 
-This release separates the local Project Runtime into explicit application, execution-orchestration, transport, platform, and observation responsibilities. Project Runtime owns objective lifecycle and public application semantics; Coordinator implements execution orchestration through ports; MCP transports the public contract without owning it; Platform Access contains operating-system boundaries; and Execution Intelligence is an independent TypeScript component that can also be embedded by other AI-enabled applications.
+This release separates the local Orchestrator into explicit application, execution-orchestration, transport, platform, and observation responsibilities. Orchestrator owns objective lifecycle and public application semantics; Coordinator implements execution orchestration through ports; MCP transports the public contract without owning it; Platform Access contains operating-system boundaries; and Execution Intelligence is an independent TypeScript component that can also be embedded by other AI-enabled applications.
 
 Testing is organized by unit, integration, system, user acceptance, performance, and long-running responsibilities. Regression is a change-impact selection over those levels rather than a separate test level. Deterministic test catalogs and runners detect missing registration and select affected consumers. Optional performance and long-running tests require explicit human authorization and do not block ordinary audit or release unless a current requirement or release gate explicitly requires their execution.
 
@@ -64,7 +64,7 @@ v0.20.0 is composed of four independently traceable changes:
 |---|---|
 | [CHG-000061](./99_Roadmap/Changes/CHG-000061/change.md) | Define test-level responsibilities, optional PT/LT authority, test catalogs, and change-impact regression selection |
 | [CHG-000062](./99_Roadmap/Changes/CHG-000062/change.md) | Add the provider-independent Execution Intelligence component and bounded integrated-result evaluation |
-| [CHG-000063](./99_Roadmap/Changes/CHG-000063/change.md) | Separate Project Runtime, Coordinator, MCP, Platform Access, and observation responsibilities without compatibility stubs |
+| [CHG-000063](./99_Roadmap/Changes/CHG-000063/change.md) | Separate Orchestrator, Coordinator, MCP, Platform Access, and observation responsibilities without compatibility stubs |
 | [CHG-000064](./99_Roadmap/Changes/CHG-000064/change.md) | Add read-only project-state projection and authenticated localhost MCP Streamable HTTP |
 
 Adoption impact: the combined release is `breaking` for adopters that update their CRDD baseline because CHG-000061 changes normative verification selection and CHG-000063 removes internal legacy import paths instead of maintaining dual canonical entries. The public clone/submodule launcher remains the supported distribution entry. Execution Intelligence, bounded parallel execution, state projection, and HTTP are opt-in capabilities.
@@ -91,7 +91,7 @@ The dogfooding-wide change also makes assurance cost, planned and actual change 
 
 The official Source A-to-B release path now promotes the signed manifest as opaque stable bytes through the launcher contained in the signed staging distribution itself. It verifies the execution-source topology, signature, Source A commit and tree, closed runtime dependency set, policy, native artifact, target repository HEAD, destination state, byte length, and SHA-256. An unsigned launcher in the working checkout cannot select an arbitrary staging path, and untracked working-copy dependencies do not contaminate the signed distribution-tree check. The complete staging file is published atomically through an exclusive same-filesystem hard link; the final path never exposes a partial write. The staging name is retained for a separate explicit discard so path races cannot delete another file. Interrupted runs resume only from source-only, same-file dual-name, or explicitly discarded destination-only states. Manual editing, JSON reserialization, text pipelines, and newline normalization are no longer valid promotion paths, and changed or unobservable files are not deleted automatically.
 
-The Project Runtime repository-binding lease now writes, flushes, closes, and reads back a unique preparation file before publishing the complete marker bytes through an exclusive same-filesystem hard link. A late or concurrent acquisition that observes preparation, publication, or lock-ownership state stops as unavailable without effect or manual-recovery claims. Only the dedicated fresh owner-loss reconciliation may establish owner absence and connect retained preparation, published markers, and legacy temporary files to the exact recovery obligation; acquisition never infers owner loss from another process's marker.
+The Orchestrator repository-binding lease now writes, flushes, closes, and reads back a unique preparation file before publishing the complete marker bytes through an exclusive same-filesystem hard link. A late or concurrent acquisition that observes preparation, publication, or lock-ownership state stops as unavailable without effect or manual-recovery claims. Only the dedicated fresh owner-loss reconciliation may establish owner absence and connect retained preparation, published markers, and legacy temporary files to the exact recovery obligation; acquisition never infers owner loss from another process's marker.
 
 The public Objective and canonical-adoption entries now inspect shared lease-acquisition resources before acquisition, resolve the actual source Queue from exact evidence, and invoke owner-loss reconciliation only after a fresh Platform owner observation. Live or unobservable ownership is left unchanged, while malformed or ambiguous evidence is retained and exposed through the exact non-authority recovery reference. Public re-entry Process tests verify that the recovery implementation is reachable from its real consumers rather than only through direct low-level tests.
 
@@ -117,10 +117,10 @@ Migration note (v0.18.1 → v0.19.0):
 - Required for every existing-baseline update: evaluate adoption of the new baseline; inventory every active, resumed, or otherwise governed asset; decide each asset's disposition including an explicit none-applicable result; complete required treatment; and independently confirm that the migration preserves meaning before declaring the baseline update complete.
 - Required: assess active or resumed consumers of reasoning context, Communication, Change Trace, Quality Assurance, Documentation, Agent guidance, Architecture, and Document Audit. Preserve historical decisions and hypotheses; identify the current intent; do not claim overall completion when a required perspective remains unevaluated.
 - Required when execution-environment semantics affect a guarantee: identify the required stage from request through durable settlement, confirm the target Runtime/version/source or mark it unsupported or unevaluated, and derive remediation regression checks from the changed contract and affected consumers. Do not retroactively apply this to completed historical work or require a spike for deterministic local changes.
-- Conditional: Project Runtime adopters verify the Repository binding and authenticated local principal, use the durable queue and exact recovery identity, and keep the v0.18.1 single-task command available until the Project Runtime release gate is satisfied. Projects that do not enable Project Runtime need no Runtime migration.
+- Conditional: Orchestrator adopters verify the Repository binding and authenticated local principal, use the durable queue and exact recovery identity, and keep the v0.18.1 single-task command available until the Orchestrator release gate is satisfied. Projects that do not enable Orchestrator need no Runtime migration.
 - Not required: retrospectively rewrite completed artifacts, create dedicated reasoning files or databases, introduce a new audit type, adopt the brand icon in a UI, or change existing trademark permissions.
-- Rollback / recovery: before returning from an activated Project Runtime, stop new objectives, settle every exact task, candidate, queue, decision, and recovery obligation, and retain evidence whose observation remains unknown. Restore the clone or submodule to the official v0.18.1 tag as one distribution.
-- Known risk if deferred: current work may lose decision-relevant context, overstate readiness, or apply a partially connected Project Runtime as complete. Runtime users may also create competing work or abandon an exact recovery obligation.
+- Rollback / recovery: before returning from an activated Orchestrator, stop new objectives, settle every exact task, candidate, queue, decision, and recovery obligation, and retain evidence whose observation remains unknown. Restore the clone or submodule to the official v0.18.1 tag as one distribution.
+- Known risk if deferred: current work may lose decision-relevant context, overstate readiness, or apply a partially connected Orchestrator as complete. Runtime users may also create competing work or abandon an exact recovery obligation.
 - Verification: the final candidate requires the repository-wide checker, deterministic and real-process tests, authenticated MCP, cancellation, parent-loss, recovery-settlement, and interactive/scheduled-conflict evidence, followed by independent review and applicable audits on one fixed revision. Provider and signed E2E are required only when the Runtime execution identity changes or the final Runtime candidate is fixed.
 - Known limitation: v0.19.0 remains single-Repository and single-Project in responsibility. It does not establish multi-project scheduling, Linux or macOS availability, a permanent autonomous service, a universal reasoning schema, or legal clearance of third-party brand rights.
 
@@ -1010,7 +1010,7 @@ Runtime code、Native成果物、Policy、Schemaおよび閉じたRuntime Execut
 
 ### v0.20.0 — 2026-09-11
 
-本版は、ローカルProject RuntimeをApplication、実行編成、Transport、Platformおよび観測の責務へ分離する。Project RuntimeはObjective lifecycleと公開Applicationの意味を所有し、CoordinatorはPortを介して実行を編成し、MCPは公開契約を所有せず搬送し、Platform AccessはOS境界を、実行知は独立した観測コンポーネントを担う。実行知は、他のAI利用TypeScriptアプリケーションからも組み込める。
+本版は、ローカルOrchestratorをApplication、実行編成、Transport、Platformおよび観測の責務へ分離する。OrchestratorはObjective lifecycleと公開Applicationの意味を所有し、CoordinatorはPortを介して実行を編成し、MCPは公開契約を所有せず搬送し、Platform AccessはOS境界を、実行知は独立した観測コンポーネントを担う。実行知は、他のAI利用TypeScriptアプリケーションからも組み込める。
 
 試験を単体、結合、総合、受入、性能および長時間の責務へ整理した。回帰試験は独立した試験レベルではなく、変更影響に応じて各レベルの試験を選択・再実行する方式である。決定論的な試験カタログとRunnerは登録漏れを検出し、影響する利用側を選択する。任意の性能試験と長時間試験は人間の明示許可を必要とし、現在の要求またはRelease Gateが実測を必須にしない限り、通常監査やReleaseを停止しない。
 
@@ -1024,7 +1024,7 @@ v0.20.0は、独立して追跡できる次の4変更から構成する。
 |---|---|
 | [CHG-000061](./99_Roadmap/Changes/CHG-000061/change.md) | 試験レベルの責務、任意PT／LTのAuthority、試験カタログおよび変更影響型回帰選択を定義する |
 | [CHG-000062](./99_Roadmap/Changes/CHG-000062/change.md) | Provider非依存の実行知コンポーネントと限定分散の統合結果評価を追加する |
-| [CHG-000063](./99_Roadmap/Changes/CHG-000063/change.md) | 互換stubを残さずProject Runtime、Coordinator、MCP、Platform Accessおよび観測責務を分離する |
+| [CHG-000063](./99_Roadmap/Changes/CHG-000063/change.md) | 互換stubを残さずOrchestrator、Coordinator、MCP、Platform Accessおよび観測責務を分離する |
 | [CHG-000064](./99_Roadmap/Changes/CHG-000064/change.md) | 読み取り専用Project State投影と認証済みlocalhost MCP Streamable HTTPを追加する |
 
 採用影響: CHG-000061が規範的な検証選択を変更し、CHG-000063が内部旧Pathを二重の正規入口として残さず削除するため、CRDD基準版を更新する採用者にとって全体分類は`breaking`である。clone／submoduleに同梱する公開Launcherは引き続き正式な配布入口である。実行知、限定並列実行、状態投影およびHTTPは任意能力である。
@@ -1051,7 +1051,7 @@ Dogfoodingからの横断改善として、採用可能な結果までの保証�
 
 公式ReleaseのSource AからBへの経路は、署名済みstaging自身に含まれる専用Launcherへ固定し、Manifestを不透明な安定byteとして扱う。実行元の配置、署名、Source AのCommit／Tree、staging内の閉じたRuntime依存集合、Policy、Native成果物、配置先Repositoryの現在HEAD、配置状態、byte数およびSHA-256を検証する。作業Checkoutの未署名Launcherから任意のstaging Pathを選べず、Git管理外の依存物を署名済み配布Treeの検査へ混入させない。完成済みのstaging fileを同一Filesystemの排他的hard linkでatomicに公開し、最終Pathへ部分byteを見せない。staging側の名前は公開Effectで削除せず、所有Rootを確認する別の明示破棄へ委ねる。中断後はsourceのみ、同一fileの二名、明示破棄後のdestinationのみから再開し、別Identity、内容変化または観測不能を自動削除しない。手動編集、JSON再serialize、text pipelineまたは改行正規化は正式経路にしない。
 
-Project RuntimeのRepository Binding単位Leaseは、一意な準備fileをwrite、flush、close、readbackした後、同一Filesystemの排他的hard linkで完全な取得中Markerを最終Pathへ公開する。準備中、公開済みまたはLock所有中の状態へ後着した取得は、回復残存と推定せず、手動回復不要、Effect 0の取得不可へ閉じる。owner不存在の確定と準備file、公開済みMarkerまたは旧実装の一時fileからexact Recoveryへの接続は、freshな専用reconciliationだけが所有する。
+OrchestratorのRepository Binding単位Leaseは、一意な準備fileをwrite、flush、close、readbackした後、同一Filesystemの排他的hard linkで完全な取得中Markerを最終Pathへ公開する。準備中、公開済みまたはLock所有中の状態へ後着した取得は、回復残存と推定せず、手動回復不要、Effect 0の取得不可へ閉じる。owner不存在の確定と準備file、公開済みMarkerまたは旧実装の一時fileからexact Recoveryへの接続は、freshな専用reconciliationだけが所有する。
 
 公開Objective入口と正本採用入口は、Lease取得前に共有取得資源を確認し、exactな証跡から実際の元Queueを解決して、freshなPlatform owner観測後だけowner喪失reconciliationへ進む。生存・観測不能の所有状態は変更せず、不正または複数の証跡は保持したままexactな非Authority回復参照を返す。公開再入場のProcess試験により、低層回復関数の直接試験だけでなく実際の利用側からの到達性を確認する。
 
@@ -1079,10 +1079,10 @@ v0.19.0は、独立して追跡できる次の4変更から構成する。
 - 既存基準版から更新するすべての採用先で必須: 新しい基準版の採用を評価し、現在、再開対象または管理対象となる全資産を棚卸しし、該当なしを含め各資産の処遇を決定する。必要な処置を完了し、意味欠損がないことを独立確認してから基準版更新の完了を表示する。
 - 必須: 現在または再開対象の推論Context、外部コミュニケーション、変更トレース、品質保証、文書化、エージェント案内、アーキテクチャおよび文書監査の利用側を適用判定する。当時の判断・仮説を上書きせず、現在有効な意図を識別し、必須観点が未評価の結果を全体完了と表示しない。
 - 実行環境の意味が保証へ影響する場合に必須: 要求から耐久的確定までの必要段階を特定し、対象Runtime・版・情報源を確認する。確定できなければ未対応／未評価または限定確認へ閉じ、変更した契約と利用側から是正後の回帰確認を導出する。完了済み履歴へ遡及適用せず、決定的なローカル変更へ小規模実測を一律要求しない。
-- 条件付き: Project Runtime採用時はRepository Bindingと認証済みLocal Principalを確認し、耐久Queueとexact Recovery Identityを使用する。Project RuntimeのRelease Gateが成立するまでv0.18.1のSingle Task commandを維持する。Project Runtimeを有効化しないProjectにRuntime移行は不要である。
+- 条件付き: Orchestrator採用時はRepository Bindingと認証済みLocal Principalを確認し、耐久Queueとexact Recovery Identityを使用する。OrchestratorのRelease Gateが成立するまでv0.18.1のSingle Task commandを維持する。Orchestratorを有効化しないProjectにRuntime移行は不要である。
 - 不要: 完了済み成果物の遡及改稿、専用の推論File／Database、新しい監査種別、ブランドアイコンのUI組込み、または既存商標許可の変更。
-- 切戻し／復旧: 有効化したProject Runtimeから戻す前に新しいObjectiveを停止し、exact Task、Candidate、Queue、DecisionおよびRecovery義務をすべて解消する。観測不能の根拠は保持し、cloneまたはsubmoduleを公式v0.18.1 tagへ一つの配布物として戻す。
-- 延期時の既知リスク: 現在作業で判断に必要なContextを失い、準備状態を過大表示し、または部分接続のProject Runtimeを完成扱いする可能性がある。Runtime利用者が競合作業を開始したり、exact Recovery義務を放棄したりする可能性もある。
+- 切戻し／復旧: 有効化したOrchestratorから戻す前に新しいObjectiveを停止し、exact Task、Candidate、Queue、DecisionおよびRecovery義務をすべて解消する。観測不能の根拠は保持し、cloneまたはsubmoduleを公式v0.18.1 tagへ一つの配布物として戻す。
+- 延期時の既知リスク: 現在作業で判断に必要なContextを失い、準備状態を過大表示し、または部分接続のOrchestratorを完成扱いする可能性がある。Runtime利用者が競合作業を開始したり、exact Recovery義務を放棄したりする可能性もある。
 - 検証: 最終候補は、一つの固定改訂版に対するRepository全体Checker、決定論的試験、実Process試験、認証済みMCP、取消、親Process喪失、Recovery settlementおよび対話／スケジュール競合の根拠を必要とし、その後に独立レビューと適用する監査を行う。Provider／署名E2EはRuntime実行Identityが変わる場合または最終Runtime候補固定時だけ要求する。
 - 既知の制限: v0.19.0の責務は単一Repository／単一Projectに限定する。複数Projectのスケジュール、Linux／macOSでの利用可能性、常設自律Service、普遍的推論Schemaまたは第三者ブランド権利の法的確認を成立させない。
 

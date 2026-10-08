@@ -11,9 +11,17 @@ export {
   runCoordinatorTaskAttempt,
   COORDINATOR_TASK_PRE_EFFECT_REJECTIONS,
   type CoordinatorTaskDependencies,
-  type CoordinatorTaskAttemptInput,
-  type CoordinatorTaskAttemptResult,
-  type CoordinatorTaskRecoveryObligation,
-} from "./task/index.ts";
-
-export { isSupportedCoordinatorNodeRuntime } from "./host-runtime/node-runtime-version.ts";
+} from "./task/attempt.ts";
+export type {
+  CoordinatorTaskAttemptInput,
+  CoordinatorTaskAttemptResult,
+  CoordinatorTaskRecoveryObligation,
+} from "./task/types.ts";
+export { isSupportedCoordinatorNodeRuntime } from "./host-execution/node-runtime-version.ts";
+export {
+  createRuntimeProcessRecoveryIdentity,
+  getRuntimeProcessInstanceIdentity,
+  inspectRuntimeProcessRecoveryIdentity,
+  poisonRuntimeProcessAfterCleanupUnknown,
+} from "./host-execution/process-safety-state.ts";
+export { acquireRuntimeOwnedOrchestratorStateKernelLock } from "./host-execution/kernel-lock.ts";

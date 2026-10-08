@@ -15,7 +15,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import test from "node:test";
 import * as coordinator from "../../../coordinator/src/index.ts";
-import * as application from "../../src/task/public-adapter.ts";
+import * as orchestrator from "../../src/index.ts";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 
@@ -27,26 +27,137 @@ const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
  * @precondition 移管後の二つの公開Moduleを読込み済みである。
  * @stimulus 公開値とPackage exportsを列挙する。
  * @observation Export名、関数型と業務入口の解決先を取得する。
- * @oracle 業務七操作だけがOrchestrator側へ存在し、Coordinatorに業務操作がない。
+ * @oracle 既存Root公開集合に七業務操作だけを加え、Coordinatorに業務操作がない。
  * @cleanup N/A: Sourceを読み取るだけで実行、書込みや資源取得を発行しない。
  * @boundary PRL-IT-012=Direct Boundary: 公開ModuleとPackage設定。
  */
 test("業務公開操作はOrchestratorが所有しCoordinatorから再公開しない", () => {
-  assert.deepEqual(Object.keys(application).sort(), [
-    "executeProjectRuntimePublicAcceptanceDecision",
-    "executeProjectRuntimePublicStateQuery",
+  assert.deepEqual(Object.keys(orchestrator).sort(), [
+    "ORCHESTRATOR_ACCEPTANCE_DECISION_CONTRACT",
+    "ORCHESTRATOR_ACCEPTANCE_DECISION_STORE_CONTRACT",
+    "ORCHESTRATOR_CANDIDATE_ADOPTION_CONTRACT",
+    "ORCHESTRATOR_EXECUTION_CONTRACT",
+    "ORCHESTRATOR_HUMAN_DECISION_CONTRACT",
+    "ORCHESTRATOR_INTEGRATION_BASE_RESULT_FIELDS",
+    "ORCHESTRATOR_INTEGRATION_CONTRACT",
+    "ORCHESTRATOR_MAXIMUM_CONCURRENCY",
+    "ORCHESTRATOR_MAXIMUM_OBJECTIVES",
+    "ORCHESTRATOR_MAXIMUM_TASKS",
+    "ORCHESTRATOR_OBJECTIVE_INTAKE_CONTRACT",
+    "ORCHESTRATOR_PLATFORM_BOUNDARIES",
+    "ORCHESTRATOR_PLATFORM_BOUNDARY_GUARANTEES",
+    "ORCHESTRATOR_PLATFORM_BOUNDARY_OPERATIONS",
+    "ORCHESTRATOR_PLATFORM_CONTRACT",
+    "ORCHESTRATOR_PLATFORM_CONTRACT_REVISION",
+    "ORCHESTRATOR_PUBLIC_RUNTIME_CONTRACT",
+    "ORCHESTRATOR_REPLANNING_CONTRACT",
+    "ORCHESTRATOR_SINGLE_TASK_ADAPTER_CONTRACT",
+    "ORCHESTRATOR_SINGLE_TASK_ADAPTER_CONTRACT_REVISION",
+    "ORCHESTRATOR_SINGLE_TASK_PRE_EFFECT_REJECTIONS",
+    "ORCHESTRATOR_STATE_CONTRACT",
+    "ORCHESTRATOR_STATE_QUERY_CONTRACT",
+    "acknowledgeProjectDockerRecoveryObligation",
+    "adoptOrchestratorExistingCandidate",
+    "applyOrchestratorAcceptanceDecision",
+    "applyOrchestratorHumanDecision",
+    "applyOrchestratorPartialReplan",
+    "createCurrentOrchestratorPersistencePorts",
+    "createOrchestratorAcceptanceAuthorityAdapter",
+    "createOrchestratorDecisionCapabilityAdapter",
+    "createOrchestratorExecutionAuthorizationAdapter",
+    "createOrchestratorExecutionHostPorts",
+    "createOrchestratorObjectiveResult",
+    "createOrchestratorSnapshotAcceptanceDecisionStore",
+    "createOrchestratorSnapshotDecisionRecoveryStore",
+    "createOrchestratorSnapshotIntegrationRecordPort",
+    "createOrchestratorSnapshotPersistencePorts",
+    "createOrchestratorState",
+    "createOrchestratorTaskAttemptEvent",
+    "createOrchestratorTaskExecutionSet",
+    "createOrchestratorTaskRecoveryAdapter",
+    "describeOrchestratorExecutionContract",
+    "describeOrchestratorIntegrationContract",
+    "describeOrchestratorObjectiveIntakeContract",
+    "describeOrchestratorPlatformContract",
+    "describeOrchestratorSingleTaskAdapterContract",
+    "describeOrchestratorStateContract",
+    "executeOrchestratorObjective",
+    "executeOrchestratorPublicAcceptanceDecision",
+    "executeOrchestratorPublicStateQuery",
+    "initializeOrchestratorSnapshot",
+    "inspectOrchestratorDecisionRequest",
+    "inspectOrchestratorExistingCandidate",
+    "inspectOrchestratorIntegrationResult",
+    "inspectOrchestratorObjectivePlan",
+    "inspectOrchestratorObjectiveRequest",
+    "inspectOrchestratorProjection",
+    "inspectOrchestratorSnapshotIntake",
+    "inspectOrchestratorStateQuery",
+    "inspectOrchestratorStateQueryResult",
+    "integrateOrchestratorOperation",
+    "invalidateOrchestratorHumanDecision",
+    "isOrchestratorDecisionRecord",
+    "isOrchestratorObjectiveProjectionCorrelationValid",
+    "isOrchestratorProjectionSemanticallyValid",
+    "isOrchestratorRecoveryIdentity",
+    "issueOrchestratorHumanDecision",
+    "maintainOrchestratorSnapshot",
+    "markProjectTaskRecoveryObligationRecovering",
+    "observeProjectTaskStarted",
     "observeRuntimeOwnedProjectClientPrincipal",
-    "runProjectRuntimePublicAcceptanceDecision",
-    "runProjectRuntimePublicDecision",
-    "runProjectRuntimePublicObjective",
-    "runProjectRuntimePublicStateQuery",
+    "orchestratorDecisionRecordId",
+    "orchestratorIntegrationResultFields",
+    "prepareProjectTaskHandoff",
+    "projectOrchestratorState",
+    "queryOrchestratorState",
+    "readCurrentOrchestratorState",
+    "readOrchestratorSnapshot",
+    "recordOrchestratorAcceptanceDecision",
+    "recordOrchestratorExecutionEvent",
+    "recordProjectTaskOwnerLossRecoveries",
+    "recoverOrchestratorHumanDecision",
+    "replaceOrchestratorHumanDecision",
+    "requestOrchestratorHumanDecision",
+    "reserveProjectTaskStart",
+    "resolveOrchestratorPlatformAdapter",
+    "resolveOrchestratorReplan",
+    "retryOrchestratorTask",
+    "retrySettledProjectTaskRecoveries",
+    "runOrchestratorOperation",
+    "runOrchestratorPublicAcceptanceDecision",
+    "runOrchestratorPublicDecision",
+    "runOrchestratorPublicObjective",
+    "runOrchestratorPublicStateQuery",
+    "runOrchestratorSingleTaskAttempt",
+    "selectSchedulableProjectTasks",
+    "settleProjectTask",
+    "settleProjectTaskBeforeEffect",
+    "settleProjectTaskRecoveryObligation",
+    "submitOrchestratorHumanDecision",
+    "validOrchestratorAcceptanceDecisionEnvelope",
+    "validOrchestratorAcceptanceDecisionRecord",
+    "validOrchestratorDecisionRecoveryIntent",
+    "validOrchestratorResultRecord",
   ]);
-  for (const value of Object.values(application)) {
+  for (const value of [
+    orchestrator.executeOrchestratorPublicAcceptanceDecision,
+    orchestrator.executeOrchestratorPublicStateQuery,
+    orchestrator.observeRuntimeOwnedProjectClientPrincipal,
+    orchestrator.runOrchestratorPublicAcceptanceDecision,
+    orchestrator.runOrchestratorPublicDecision,
+    orchestrator.runOrchestratorPublicObjective,
+    orchestrator.runOrchestratorPublicStateQuery,
+  ]) {
     assert.equal(typeof value, "function");
   }
   assert.deepEqual(Object.keys(coordinator).sort(), [
     "COORDINATOR_TASK_PRE_EFFECT_REJECTIONS",
+    "acquireRuntimeOwnedOrchestratorStateKernelLock",
+    "createRuntimeProcessRecoveryIdentity",
+    "getRuntimeProcessInstanceIdentity",
+    "inspectRuntimeProcessRecoveryIdentity",
     "isSupportedCoordinatorNodeRuntime",
+    "poisonRuntimeProcessAfterCleanupUnknown",
     "runCoordinatorTaskAttempt",
   ]);
   const metadata = JSON.parse(
@@ -55,10 +166,8 @@ test("業務公開操作はOrchestratorが所有しCoordinatorから再公開し
       "utf8",
     ),
   );
-  assert.equal(
-    metadata.exports["./application"],
-    "./src/task/public-adapter.ts",
-  );
+  assert.equal(metadata.exports["."], "./src/index.ts");
+  assert.equal(metadata.exports["./application"], undefined);
 });
 
 /**
@@ -78,19 +187,19 @@ test("WorkbenchとMCPは業務Ownerへ直接接続する", () => {
     path.join(repositoryRoot, "40_Develop/coordinator/src/index.ts"),
     "utf8",
   );
-  assert.doesNotMatch(root, /project-runtime|ProjectRuntimePublic/);
+  assert.doesNotMatch(root, /orchestrator|OrchestratorPublic/);
   for (const relativePath of [
-    "40_Develop/workbench-server/src/runtime-activity.ts",
-    "template/tools/crdd-mcp.ts",
+    "40_Develop/workbench-server/src/activity/observe.ts",
+    "template/tools/crdd-mcp-server.ts",
   ]) {
     const source = fs.readFileSync(
       path.join(repositoryRoot, relativePath),
       "utf8",
     );
-    assert.match(source, /orchestrator\/src\/task\/public-adapter\.ts/);
+    assert.match(source, /orchestrator\/src\/index\.ts/);
     assert.doesNotMatch(
       source,
-      /import\s*\{[^}]*runProjectRuntimePublic[^}]*\}\s*from\s*["'][^"']*coordinator\/src\/index\.ts["']/s,
+      /import\s*\{[^}]*runOrchestratorPublic[^}]*\}\s*from\s*["'][^"']*coordinator\/src\/index\.ts["']/s,
     );
   }
 });
@@ -146,15 +255,12 @@ test("配布CLIの上位配送は入力拒否契約を保持する", () => {
     assert.equal(JSON.parse(result.stdout).reason, example.reason);
   }
   const commandSource = fs.readFileSync(
-    path.join(
-      repositoryRoot,
-      "40_Develop/coordinator/src/cli/coordinator-command.ts",
-    ),
+    path.join(repositoryRoot, "40_Develop/coordinator/src/cli/command.ts"),
     "utf8",
   );
   assert.doesNotMatch(
     commandSource,
-    /orchestrator\/src|runProjectCommand|initializeProjectRuntime/,
+    /orchestrator\/src|runProjectCommand|initializeOrchestrator/,
   );
   // Node拒否を模擬するだけで、Project処理や外部Effectへ進めない。
   for (const example of [

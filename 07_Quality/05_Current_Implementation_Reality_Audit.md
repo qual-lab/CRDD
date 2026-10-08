@@ -72,7 +72,7 @@
 | 署名配布物、期限、Manifest昇格、Trust | QA-000010 | 現行Source／Test／Evidenceが署名対象、鍵境界、改変拒否、昇格後状態をどこまで証明するか |
 | Checker、Windows native部品、Version Control | QA-000001／QA-000006／QA-000013 | 決定論的検査、OS境界、Repository境界、利用側閉包の実対応 |
 | Tool結合block、Docker／CLI／Provider境界 | QA-000006／QA-000009 | 直接境界から関連2 blocks、System／E2Eまでの段階到達と全lifecycle |
-| Project Runtime、取消、判断返却、回復 | QA-000003 | Taskの受付から終了後状態、exact Recovery、再入場までの実対応 |
+| Orchestrator、取消、判断返却、回復 | QA-000003 | Taskの受付から終了後状態、exact Recovery、再入場までの実対応 |
 | 実行記録の生成・保存・読取り | QA-000004／QA-000012 | 読取り責務と基準版Writer／Store能力を分け、削除・置換前のCapabilityを確認する |
 | 推論コンテキストと工程引継ぎ | QA-000013 | 成果物の理解、判断理由、意味伝播および人間確認の現実対応 |
 
@@ -80,7 +80,7 @@
 
 ## 6. 基準版から引き継ぐ実行知の能力
 
-v0.20.1の実行知はEvent生成、Repository-local Storeへの不変保存、並行Writerの競合処理、Repository Root確認、Project Runtimeからの記録および限定並列実行の評価を成立済み能力として持つ。これらは現在のread-onlyなCanonical実行知へ逆輸入せず、削除または置換判断の前に過去Evidenceと現行実装を照合する。
+v0.20.1の実行知はEvent生成、Repository-local Storeへの不変保存、並行Writerの競合処理、Repository Root確認、Orchestratorからの記録および限定並列実行の評価を成立済み能力として持つ。これらは現在のread-onlyなCanonical実行知へ逆輸入せず、削除または置換判断の前に過去Evidenceと現行実装を照合する。
 
 | 成立済み能力候補 | 現行照合先 | 現在判定 |
 |---|---|---|
@@ -88,7 +88,7 @@ v0.20.1の実行知はEvent生成、Repository-local Storeへの不変保存、�
 | 不変保存、再送冪等、衝突拒否 | Repository-local Store試験 | 未照合 |
 | 並行Writer、Lock、一時file、失敗残存 | Storeの実Process／故障注入試験 | 未照合 |
 | 検証済みRepository Rootへの保存 | Version Control境界とStore結合試験 | 未照合 |
-| Project Runtimeからの記録と再読取り | Coordinator利用側結合試験 | 未照合 |
+| Orchestratorからの記録と再読取り | Coordinator利用側結合試験 | 未照合 |
 | 限定並列Attemptと統合結果の評価 | bounded integration試験 | 未照合 |
 
 基準版の詳細根拠は[CHG-000062の検証結果](../99_Roadmap/Changes/CHG-000062/Evidence/260905_execution-intelligence-verification.md)から辿る。過去の合格をv0.21の合格へ流用せず、Capability、Owner、置換実装、利用側および必要な実境界検証を対応付ける。
@@ -102,7 +102,7 @@ v0.20.1の実行知はEvent生成、Repository-local Storeへの不変保存、�
 - PT／LTは人間が対象、環境、上限、費用、中止およびcleanupを明示した場合だけ実行する。
 - 現在の品質状態は本書の集計ではなく、Local Itemと最新EvidenceからQuality Centerへ投影する。
 
-## 8. Coordinator／Project Runtime Pilot
+## 8. Coordinator／Orchestrator Pilot
 
 照合開始の基準改訂版はCommit `3f2567bd54f00fe638bfc8ff9e7f3695fd8eba66`であり、現在の再照合候補はCommit `1973542`以後のTest Source Contract是正を含む。Canonical入力からSemantic Coverage Bundleを再生成し、Test Fileを一つの代表Local Itemへ縮約した誤りを解消した。FileはCase／Helper Relationの和集合、Caseは対応する1件、Helperは支援する1件以上を保持し、`symbol.json`だけが正方向Relationを所有する。旧Relationをそのまま戻さず、物理試験段階、個別Test責務、実装SymbolおよびLocal Itemが同時に一致するRelationだけを観測済みとした。
 
@@ -115,15 +115,15 @@ v0.20.1の実行知はEvent生成、Repository-local Storeへの不変保存、�
 | `coordinator.provider-effect-authority` | observed | observed | `Covered Candidate`: Authority契約試験を局所実行で確認 |
 | `coordinator.provider-selection-boundary` | observed | observed | `Covered Candidate`: Model Selection契約試験を局所実行で確認 |
 | `coordinator.recovery-obligation` | observed | observed | `Covered Candidate`: Runtime契約試験とRecovery Matrix契約試験を局所実行で確認 |
-| `project-runtime.acceptance-decision-authority` | observed | observed | `Covered Candidate`: 判断ApplicationとState契約試験を局所実行で確認 |
-| `project-runtime.durable-before-effect` | observed | observed | `Covered Candidate`: Project RuntimeのEffect前耐久化を`PRL-ST-004`へ接続したSystem Test Relationで確認 |
-| `project-runtime.execution-intelligence-read-model` | observed | manual_pending | `Pending`: 読取りPortの実装Relationはあるが、利用者受入を所有する`PPR-UAT-008`は未実施でありUnit TestをUATへ昇格しない |
-| `project-runtime.objective-task-lifecycle` | observed | observed | `Covered Candidate`: Objective、State、Integrationの契約試験を局所実行で確認 |
-| `project-runtime.project-state-projection` | observed | observed | `Covered Candidate`: State QueryとState契約試験を局所実行で確認 |
-| `project-runtime.queue-lease-lifecycle` | observed | observed | `Covered Candidate`: State契約試験を局所実行で確認 |
-| `project-runtime.recovery-obligation` | observed | observed | `Covered Candidate`: Project Runtimeの同一Identity再入場を`PRL-ST-004`へ接続したSystem Test Relationで確認 |
-| `project-runtime.task-authority-narrowing` | observed | observed | `Covered Candidate`: Objective Intake契約試験を`PRL-IT-005`へ接続し局所実行で確認 |
-| `project-runtime.transport-neutral-application-contract` | observed | observed | `Covered Candidate`: Public Contract契約試験を局所実行で確認 |
+| `orchestrator.acceptance-decision-authority` | observed | observed | `Covered Candidate`: 判断ApplicationとState契約試験を局所実行で確認 |
+| `orchestrator.durable-before-effect` | observed | observed | `Covered Candidate`: OrchestratorのEffect前耐久化を`PRL-ST-004`へ接続したSystem Test Relationで確認 |
+| `orchestrator.execution-intelligence-read-model` | observed | manual_pending | `Pending`: 読取りPortの実装Relationはあるが、利用者受入を所有する`PPR-UAT-008`は未実施でありUnit TestをUATへ昇格しない |
+| `orchestrator.objective-task-lifecycle` | observed | observed | `Covered Candidate`: Objective、State、Integrationの契約試験を局所実行で確認 |
+| `orchestrator.project-state-projection` | observed | observed | `Covered Candidate`: State QueryとState契約試験を局所実行で確認 |
+| `orchestrator.queue-lease-lifecycle` | observed | observed | `Covered Candidate`: State契約試験を局所実行で確認 |
+| `orchestrator.recovery-obligation` | observed | observed | `Covered Candidate`: Orchestratorの同一Identity再入場を`PRL-ST-004`へ接続したSystem Test Relationで確認 |
+| `orchestrator.task-authority-narrowing` | observed | observed | `Covered Candidate`: Objective Intake契約試験を`PRL-IT-005`へ接続し局所実行で確認 |
+| `orchestrator.transport-neutral-application-contract` | observed | observed | `Covered Candidate`: Public Contract契約試験を局所実行で確認 |
 
 `observed`はRelationの存在だけを示す。Source責務、反例、終了後条件、試験実行およびEvidenceが揃う前に`Covered`へ昇格しない。
 
@@ -163,7 +163,7 @@ Sandbox内ではProcess列挙が`Access denied`となり、取消試験も子Pro
 | official-asset-governance | `40_Develop/official-asset-governance` | 静的確認Pass、11／11 Pass | Partial | 判断完全性、Revision競合、exact残存Lock回復義務、不完全Lockの観測不能分離、Store Effect後のcleanup不明と`issued`／`not_issued`／`unknown`の公開搬送、および収載Relationを確認した。公開・撤回のSystem境界と人間受入4件は未観測を維持する |
 | platform-access | `40_Develop/platform-access` | Rust 29 Pass、8 Explicit Ignore | Partial | Process／Docker境界試験は存在するが、`PRL-ST-003`、`ERB-IT-002`のRelationを確認して接続する。Ignore 8件は明示実環境試験として別扱い |
 | project-operation | `40_Develop/project-operation` | 7／7 Pass | Partial | Project ContextとTopic／Meetingの固定Readerは成立した。永続CRUD、Outcome移管、Authorityおよび安全な削除は後続Phaseで継続する |
-| project-runtime | `40_Develop/project-runtime` | 66／66 Pass | Partial | 14期待Local Itemのうち9件を接続。Transport同等性、取消、判断待ち再開、受入Scenario／UATが残る |
+| orchestrator | `40_Develop/orchestrator` | 66／66 Pass | Partial | 14期待Local Itemのうち9件を接続。Transport同等性、取消、判断待ち再開、受入Scenario／UATが残る |
 | quality-change-control | 保守／監査工程 | 専用Runnerなし | Process-owned Partial | 独立Runtimeは要求しない。監査集合統合、是正再入場と3 Local Itemを実レビュー／監査Evidenceへ接続する |
 | runtime-data | `40_Develop/runtime-data` | 35／35 Pass | Partial | 6期待Local Itemのうち4件を接続。Project View分類とCredential→Session Grantを伴うCROS Root利用は別Ownerの成立が必要 |
 | runtime-trust | なし | v0.21対象外 | Deferred to v0.22 | 利用者所有Trust Policy、Policy activationおよびProvider launch結合はGroup Cとしてv0.22へ移管した |
@@ -182,7 +182,7 @@ Sandbox内ではProcess列挙が`Access denied`となり、取消試験も子Pro
 | Platform Access | 29 Pass、8 Explicit Ignore | 8件はinstalled Docker等の明示実環境観測であり、未実行をPassへ畳まない |
 | Checker Repository検査 | 今回差分由来のFinding 0、1 expected error、0 warning | 現在のv0.22 Feature候補の固定Treeに対する同一検査結果。Error 1件は公開済みv0.21.0 tagと作業HEADの不一致であり、現行Repository構造、版移管およびRelation更新の破損ではない。実行ごとに変わるInventory件数は固定Treeから再現し、この総括へ複製しない。v0.22 Release候補固定後にtag identityを再評価する |
 | Checker全試験 | 375／375 Pass | Current Profile、工程契約、Source／Test Header、Symbol GraphおよびReality Relationを同じ候補で確認した |
-| Coordinator静的確認 | Format／Type／Lint／3 Traceability GateすべてPass | Runtime Capability Graph、Coordinator Runtime Traceability、Project Runtime Design Traceabilityを確認した |
+| Coordinator静的確認 | Format／Type／Lint／3 Traceability GateすべてPass | Runtime Capability Graph、Coordinator Runtime Traceability、Orchestrator Design Traceabilityを確認した |
 | Coordinator Windows Process Gate | 現在の未署名固定Treeでは未実施 | 以前のv0.22候補の7／8 Pass・1 Blockedとv0.21固定候補の8／8 Passは履歴Evidenceとして保持するが、現在Treeの成立根拠へ流用しない。再署名後の実境界Gateで再観測する |
 | Coordinator全回帰 | Production Selection契約是正後のPortable実行は2,117件中2,112 Pass、5 Explicit Skip、0 Fail。Selection対象試験35／35 Pass。独立レビュー・文書監査・Gap影響監査はFinding 0 | 5件のSkipはHostまたは人間入力を必要とする明示的な条件付き実行である。旧Manifest削除後に前提不成立となっていた署名拒否fixtureも現在のManifestでPassした。Commitと署名実境界は未完了のため、Quality Readyへは昇格しない |
 
@@ -191,24 +191,24 @@ Sandbox内ではProcess列挙が`Access denied`となり、取消試験も子Pro
 対象は次の2ファイルである。
 
 - `07_Quality/Registry/coordinator-runtime-traceability.json`
-- `07_Quality/Registry/project-runtime-design-traceability.json`
+- `07_Quality/Registry/orchestrator-design-traceability.json`
 
 移行判定の結果は、**Retained — Migration Required**である。現形式を全Subsystemへ増殖させず、現時点では削除もしない。両ファイルは現在もCoordinatorの静的検査、契約試験、Architecture参照およびSemantic Coverage移行棚卸しの入力である。一方、現在の正本責務では複数Ownerの情報を一つに重複保持しており、恒久的な手編集正本にはしない。
 
 ### 11.1 Propertyの新Owner
 
-| 旧Property | 現在のOwner | Coordinator | Project Runtime | 移行判定 |
+| 旧Property | 現在のOwner | Coordinator | Orchestrator | 移行判定 |
 |---|---|---:|---:|---|
-| Resource／State／Transition／Invariant等の設計意味 | Architecture Details | 10 Resource、32 State、31 Transition、5分類、12 Invariant | 9 Interface、10 Record、14 Resource、4 Lock、7 Authority、9 Effect、7 State Machine、54 Action Binding、33 Invariant、16 Failure Injection | Project Runtimeは構造化済み。Coordinatorは一部が文章から決定論的に再生成できず、Details補強が必要 |
+| Resource／State／Transition／Invariant等の設計意味 | Architecture Details | 10 Resource、32 State、31 Transition、5分類、12 Invariant | 9 Interface、10 Record、14 Resource、4 Lock、7 Authority、9 Effect、7 State Machine、54 Action Binding、33 Invariant、16 Failure Injection | Orchestratorは構造化済み。Coordinatorは一部が文章から決定論的に再生成できず、Details補強が必要 |
 | Effect観測範囲 | Architecture Detailsの状態遷移契約 | `transition_delta` | 非該当 | Coordinatorの遷移観測規則としてDetailsへ明示してから生成する |
 | Implementation Binding | `40_Develop/*/symbol.json` | 旧JSONでは独立集合なし | 9件 | Symbol側へ移行し、旧JSONへ二重記録しない |
 | Verification Binding | Quality Definition＋Test Symbol | 25件 | 23件 | Local ItemとTest Symbolへ移行する |
 | Binding別Boundary Map | 生成Global Graph | 25件 | 非該当 | Canonical入力から生成する |
 | Schema／Revision／参照先 | 生成契約のHeader | あり | あり | 生成物のIdentityとしてのみ保持する |
 
-Propertyの全数はCoordinator 11件、Project Runtime 16件である。Semantic CoverageのMigration Inventoryは、上表の配列とObjectだけでなく、`schema`、`schemaRevision`、参照先および`effectObservationScope`を含むルートProperty全件にOwnerを必須化する。未分類Propertyが追加された場合はMigration Inventoryを発行しない。
+Propertyの全数はCoordinator 11件、Orchestrator 16件である。Semantic CoverageのMigration Inventoryは、上表の配列とObjectだけでなく、`schema`、`schemaRevision`、参照先および`effectObservationScope`を含むルートProperty全件にOwnerを必須化する。未分類Propertyが追加された場合はMigration Inventoryを発行しない。
 
-2026-10-04の[読み取り専用再確認](../99_Roadmap/Changes/CHG-000082/Evidence/261002_quality-item-reconciliation.md#旧traceability-jsonの廃止条件再確認--2026-10-04)では、上表の現行件数とID欠落0を確認した。ただし、Migration Inventoryの`identityCoverage: complete`は識別子の所在を確認した結果であり、各項目の値・関係が正本と同等であることを証明しない。メモリ上だけでProject Runtimeの`interfaces[0].owner`を変えてもInventoryが変わらない反例を確認した。`semanticShape: structured`も移行済みの判定ではない。値・関係の同等性と全利用側の移行は、§11.3の廃止Gateで引き続き確認する。
+2026-10-04の[読み取り専用再確認](../99_Roadmap/Changes/CHG-000082/Evidence/261002_quality-item-reconciliation.md#旧traceability-jsonの廃止条件再確認--2026-10-04)では、上表の現行件数とID欠落0を確認した。ただし、Migration Inventoryの`identityCoverage: complete`は識別子の所在を確認した結果であり、各項目の値・関係が正本と同等であることを証明しない。メモリ上だけでOrchestratorの`interfaces[0].owner`を変えてもInventoryが変わらない反例を確認した。`semanticShape: structured`も移行済みの判定ではない。値・関係の同等性と全利用側の移行は、§11.3の廃止Gateで引き続き確認する。
 
 ### 11.2 現在のConsumer
 
@@ -231,9 +231,9 @@ CHGや過去EvidenceのPath参照は当時の履歴であり、現行Consumer移
 2. 旧JSONにしか存在しないCanonicalな設計意味が0件になる。
 3. Coordinatorの2 checker script、契約試験、Architecture参照およびTest Catalogの全Consumerが新入口へ移る。
 4. 旧JSONと新しい生成投影について、集合、RelationおよびFail Closed条件の同等性を決定論的に確認する。
-5. 削除後にCoordinator／Project Runtimeの成立済みCapabilityと過去Evidenceを逆引きできる。
+5. 削除後にCoordinator／Orchestratorの成立済みCapabilityと過去Evidenceを逆引きできる。
 
-Project RuntimeはArchitecture Detailsの構造化が進んでいるため、生成器とConsumer移行後に先行廃止できる可能性が高い。Coordinatorは固有MeaningをDetailsへ戻すまで削除不可である。他Subsystemには旧JSONの複製を作らず、必要な機械投影を各Architecture Detailsから生成する。
+OrchestratorはArchitecture Detailsの構造化が進んでいるため、生成器とConsumer移行後に先行廃止できる可能性が高い。Coordinatorは固有MeaningをDetailsへ戻すまで削除不可である。他Subsystemには旧JSONの複製を作らず、必要な機械投影を各Architecture Detailsから生成する。
 
 ## 12. Relation是正結果
 
@@ -302,7 +302,7 @@ v0.21の固定Baseline108件観測済み・22件未観測を履歴として維�
 | official-asset-governance | 4／8 | `OAG-ST-003`、`OAG-UAT-001`、`OAG-UAT-002`、`OAG-UAT-004` |
 | platform-access | 1／6 | `ERB-IT-002`、`ERB-IT-014`、`ERB-ST-009`、`PRL-ST-003`、`RDL-ST-002` |
 | project-operation | 0／8 | `CPR-IT-006`、`CPR-ST-005`、`CPR-UAT-007`、`PPR-IT-001`、`PPR-IT-002`、`PPR-ST-005`、`PPR-UAT-015`、`PPR-UT-006` |
-| project-runtime | 10／15 | `EST-IT-001`、`PRL-ST-003`、`PRL-ST-004`、`PRL-UAT-002`、`PRL-UAT-010` |
+| orchestrator | 10／15 | `EST-IT-001`、`PRL-ST-003`、`PRL-ST-004`、`PRL-UAT-002`、`PRL-UAT-010` |
 | quality-change-control | 0／5 | `CQS-IT-001`、`CQS-IT-003`、`CQS-IT-004`、`CQS-IT-008`、`CQS-IT-009` |
 | runtime-data | 3／6 | `PPR-UT-006`、`RDL-ST-002`、`RFD-ST-003` |
 | runtime-trust | 0／4 | `AIT-IT-001`、`AIT-IT-003`、`AIT-ST-004`、`AIT-UT-005` |
@@ -385,7 +385,7 @@ Hybrid項目は、機械化可能な前提確認と、独立した意味評価�
 | `OAG-UAT-001` | 公式収載の決定権限者 | 完全な素材Identity、出所、権利、用途、版、判断Authority | 許可範囲を確認して収載を判断する | 公式素材UAT時。判断EvidenceなしではQuality Readyを停止する |
 | `OAG-UAT-002` | 公式収載の決定権限者 | 権利未確認・第三者模倣疑義の固定候補 | 権利を推定せず隔離を判断する | 公式素材UAT時。公式収載Effect 0を確認できなければQuality Readyを停止する |
 | `OAG-UAT-004` | 公式収載の決定権限者 | 権利者・許可文言・判断者・対象版の不足候補 | 不足を明示して判断権限者へ戻す | 公式素材UAT時。候補変更・削除または不足の隠蔽ではQuality Readyを停止する |
-| `PRL-UAT-002` | Project Runtime利用者と判断権限者 | 判断待ち状態、同一Task／Request Identity、再開Authority | 自動継続せず判断を返し、同じTaskを一度だけ再開する | Project Runtime UAT時。別Task結合または重複settleではQuality Readyを停止する |
+| `PRL-UAT-002` | Orchestrator利用者と判断権限者 | 判断待ち状態、同一Task／Request Identity、再開Authority | 自動継続せず判断を返し、同じTaskを一度だけ再開する | Orchestrator UAT時。別Task結合または重複settleではQuality Readyを停止する |
 | `RCM-ST-012` | Release／移行担当と独立実行者 | 宣言済みConsumer集合、固定Snapshot、各production consumer probe | 公開・署名・Release・Recovery入口を実行し、実観測集合を宣言集合と照合する | 署名E2EとRelease Readiness時。手書き観測配列だけではQuality Readyを停止する |
 
 ### 13.4 Manual項目の実施条件

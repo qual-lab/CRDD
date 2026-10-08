@@ -1,6 +1,16 @@
+/**
+ * CLI取消の例外・不正応答・未完了を局所試験する。
+ *
+ * @packageDocumentation
+ * @responsibility 固定Scenarioの取消結果を注入し、信号処置と停止結果を利用側へ返す。
+ * @trace ERB-IT-003
+ * @level IT
+ * @scope CLI取消と未確認結果
+ * @boundary Signal模擬入力→Task CLI取消制御。実Provider取消成立を証明しない。
+ */
 import { EventEmitter } from "node:events";
 
-import { bindTaskCliCancellationSignalsForTesting } from "../../src/cli/task-cli-cancellation.ts";
+import { bindTaskCliCancellationSignalsForTesting } from "../../src/cli/task-cancellation.ts";
 
 const scenario = process.argv[2];
 if (

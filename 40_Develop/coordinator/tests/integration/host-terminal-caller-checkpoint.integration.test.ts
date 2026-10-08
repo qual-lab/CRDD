@@ -19,8 +19,8 @@ import path from "node:path";
 import test from "node:test";
 import { pathToFileURL } from "node:url";
 import { compileFunction, runInNewContext } from "node:vm";
-import { ensureRepositoryRuntimeDataArea } from "../../../domain-model/src/storage/index.ts";
-import { resolveRepositoryRuntimeDataPaths } from "../../../domain-model/src/repository/index.ts";
+import { ensureRepositoryRuntimeDataArea } from "../../../domain-model/src/index.ts";
+import { resolveRepositoryRuntimeDataPaths } from "../../../domain-model/src/index.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import {
   type HostTerminalCheckpointPreparation,
@@ -34,19 +34,19 @@ import {
   readKnownFileHostTerminalRecoveryCheckpoint,
   saveHostTerminalCallerCheckpoint,
   saveKnownFileHostTerminalCallerCheckpoint,
-} from "../../src/host-runtime/host-terminal-caller-checkpoint.ts";
-import { acquireHostTerminalCallerLease } from "../../src/host-runtime/host-terminal-caller-lease.ts";
+} from "../../src/host-execution/terminal-caller-checkpoint.ts";
+import { acquireHostTerminalCallerLease } from "../../src/host-execution/terminal-caller-lease.ts";
 import {
   type EncodedKnownFixtureHostTerminalIntent,
   encodeHostTerminalIntent,
   encodeKnownFixtureHostTerminalIntent,
   resolveHostTerminalLegacyGeneration,
-} from "../../src/host-runtime/host-terminal-record.ts";
+} from "../../src/host-execution/terminal-record.ts";
 import {
   createHostTerminalReadRequest,
   createHostTerminalSaveRequest,
-} from "../../src/host-runtime/host-terminal-windows-adapter.ts";
-import { snapshotPlainRecord } from "../../../domain-model/src/plain-data/index.ts";
+} from "../../src/host-execution/terminal-windows-adapter.ts";
+import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 
@@ -66,7 +66,7 @@ const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 test("Host Windows: caller接続は前後のreader終了未確認理由を保持する", async (context) => {
   const source = fs.readFileSync(
     new URL(
-      "../../src/host-runtime/host-terminal-caller-checkpoint.ts",
+      "../../src/host-execution/terminal-caller-checkpoint.ts",
       import.meta.url,
     ),
     "utf8",
@@ -589,7 +589,7 @@ test("Host Windows: 既知file callerは十二実体を保持し旧形式と混�
   const bytes = fs.readFileSync(canonical);
   const source = fs.readFileSync(
     new URL(
-      "../../src/host-runtime/host-terminal-caller-checkpoint.ts",
+      "../../src/host-execution/terminal-caller-checkpoint.ts",
       import.meta.url,
     ),
     "utf8",
@@ -1110,7 +1110,7 @@ test("Host Windows: caller checkpointは同参照と独立bytesを保持する",
   const readerUrl = pathToFileURL(
     path.resolve(
       import.meta.dirname,
-      "../../src/host-runtime/host-terminal-caller-checkpoint.ts",
+      "../../src/host-execution/terminal-caller-checkpoint.ts",
     ),
   ).href;
   const rootUrl = pathToFileURL(
@@ -1319,7 +1319,7 @@ test("Host Windows: caller mutation leaseは競合を拒否しProcess喪失で�
   const leaseUrl = pathToFileURL(
     path.resolve(
       import.meta.dirname,
-      "../../src/host-runtime/host-terminal-caller-lease.ts",
+      "../../src/host-execution/terminal-caller-lease.ts",
     ),
   ).href;
   const rootUrl = pathToFileURL(

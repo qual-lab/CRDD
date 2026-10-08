@@ -15,7 +15,7 @@ import {
   observeFilesystemStoreLockOwnerAbsence,
   recoverFilesystemStoreLock,
   withFilesystemStoreLock,
-} from "../../src/storage/index.ts";
+} from "../../src/storage/root-and-lock.ts";
 
 const [mode, root, identity, readyFile, goFile, resultFile, releaseFile] =
   process.argv.slice(2);

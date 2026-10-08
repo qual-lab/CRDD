@@ -18,9 +18,9 @@ import {
   createTemporaryOperation,
   resumeTemporaryOperation,
   settleTemporaryOperation,
-  type TemporaryOperationRecoveryReference,
-} from "../../src/storage/index.ts";
-import { resolveRepositoryRuntimeDataPaths } from "../../src/repository/index.ts";
+} from "../../src/storage/temporary-operation.ts";
+import type { TemporaryOperationRecoveryReference } from "../../src/storage/types.ts";
+import { resolveRepositoryRuntimeDataPaths } from "../../src/repository/resolve-storage-paths.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");

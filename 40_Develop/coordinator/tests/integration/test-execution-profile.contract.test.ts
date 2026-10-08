@@ -52,13 +52,13 @@ const gateFiles = [
     expansion: /test\("Host Windows:/,
   },
   {
-    file: "integration/project-runtime-durable-foundation.contract.test.ts",
+    file: "integration/orchestrator-durable-foundation.contract.test.ts",
     prefixOccurrences: 9,
     expandedCases: 9,
     expansion: /test\("Host Windows:/,
   },
   {
-    file: "integration/project-runtime-history.contract.test.ts",
+    file: "integration/orchestrator-history.contract.test.ts",
     prefixOccurrences: 10,
     expandedCases: 10,
     expansion: /test\("Host Windows:/,
@@ -128,7 +128,7 @@ test("Portable試験とHost Windows試験は同じ実環境専用の閉集合を
   );
   assert.equal(
     scripts["test:host-windows"],
-    'node --experimental-test-module-mocks --test --test-concurrency=1 "--test-name-pattern=^Host Windows:" ./tests/integration/candidate-store-kernel-lock.contract.test.ts ./tests/integration/coordinator-state-runtime.contract.test.ts ./tests/integration/coordinator-task-process.integration.test.ts ./tests/integration/docker-owned-process.integration.test.ts ./tests/integration/docker-process-controller.contract.test.ts ./tests/integration/host-terminal-caller-checkpoint.integration.test.ts ./tests/integration/project-runtime-durable-foundation.contract.test.ts ./tests/integration/project-runtime-history.contract.test.ts',
+    'node --experimental-test-module-mocks --test --test-concurrency=1 "--test-name-pattern=^Host Windows:" ./tests/integration/candidate-store-kernel-lock.contract.test.ts ./tests/integration/coordinator-state-runtime.contract.test.ts ./tests/integration/coordinator-task-process.integration.test.ts ./tests/integration/docker-owned-process.integration.test.ts ./tests/integration/docker-process-controller.contract.test.ts ./tests/integration/host-terminal-caller-checkpoint.integration.test.ts ./tests/integration/orchestrator-durable-foundation.contract.test.ts ./tests/integration/orchestrator-history.contract.test.ts',
   );
   assert.equal(scripts.test, "npm run check && npm run test:run");
   assert.equal(scripts["test:run"], "npm run test:portable");

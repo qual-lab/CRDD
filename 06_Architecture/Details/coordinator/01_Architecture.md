@@ -4,7 +4,7 @@
 詳細設計領域: coordinator
 状態: Candidate
 
-本候補は責務再編後のCoordinator詳細設計である。公開API・依存は本書、Provider固有差は[AI Adapter詳細](../ai-runtime/01_Architecture.md)、上位状態と採用は[Orchestrator詳細](../project-runtime/01_Architecture.md)が所有する。旧回復・署名方式の記述は移管前の保証と利用側を照合する基準として区別し、新配置・縮小方式の実装済み根拠にしない。未移管の保証を削除・置換済みとは扱わない。
+本候補は責務再編後のCoordinator詳細設計である。公開API・依存は本書、Provider固有差は[AI Adapter詳細](../ai-adapter/01_Architecture.md)、上位状態と採用は[Orchestrator詳細](../orchestrator/01_Architecture.md)が所有する。旧回復・署名方式の記述は移管前の保証と利用側を照合する基準として区別し、新配置・縮小方式の実装済み根拠にしない。未移管の保証を削除・置換済みとは扱わない。
 
 ## 基本設計との関係
 
@@ -99,7 +99,7 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | `platform-access/` | Native／Platform Provisionerと保護配布閉包への接続 |
 | `state-storage/` | Coordinator現在状態のSchema・遷移・保存Owner。共有保存primitiveはDomain Modelへ移す |
 | `candidate/` | 候補本体の保存、確認、回収とNative接続 |
-| `project-runtime/` | 廃止する配置。上位状態・Queue・判断・採用・CompositionはOrchestrator、共通保存部品はDomain Modelへ移す。下位Task・資源回復は対応するCoordinator責務へ残す |
+| `orchestrator/` | 廃止する配置。上位状態・Queue・判断・採用・CompositionはOrchestrator、共通保存部品はDomain Modelへ移す。下位Task・資源回復は対応するCoordinator責務へ残す |
 | `workbench-ai/` | 助言・変更候補Mode、送信確認、一回Packet、実行・取消・共通結果。Provider固有計画・出力抽出はAI Adapter、画面・依頼受付はWorkbench Serverへ移す |
 | `diagnostics/` | 環境、配布物、実行時間の診断 |
 
@@ -113,7 +113,7 @@ Task専用公開入口は`task/index.ts`であり、旧上位公開Adapterを推
 
 同入口は既存のProcess世代参照、回復参照の生成・照合、終了不明時の実行停止操作も公開する。Process安全状態は従来のHost Ownerが一つだけ保持する。Orchestrator向けの時刻・識別子組立てとRepository結合の回復Adapterは上位へ移し、CoordinatorにProject固有のPort型を残さない。これらの公開を新しい外部Transportや回復Authorityの発行へ拡張しない。
 
-Docker回復入口はCoordinator所有の固定操作だけを公開し、OrchestratorのTask状態を読み込まない。上位の確定世代・Task・Attempt・Operation・回復参照と耐久応答の一致は、Project Runtime（改名後のOrchestrator）の`src/task/docker-recovery-settlement.ts`が照合する。同ファイルと保存基盤は上位Ownerへ物理移管済みであり、残る本番組立ての移管は別に確認する。下位の応答確認・終了整理は既存の内部Runtime所有操作へ委譲する。この二操作を下位公開入口から直接公開せず、Root、観測器や実行器を呼出し側から渡す入口も追加しない。
+Docker回復入口はCoordinator所有の固定操作だけを公開し、OrchestratorのTask状態を読み込まない。上位の確定世代・Task・Attempt・Operation・回復参照と耐久応答の一致は、Orchestrator（改名後のOrchestrator）の`src/task/docker-recovery-settlement.ts`が照合する。同ファイルと保存基盤は上位Ownerへ物理移管済みであり、残る本番組立ての移管は別に確認する。下位の応答確認・終了整理は既存の内部Runtime所有操作へ委譲する。この二操作を下位公開入口から直接公開せず、Root、観測器や実行器を呼出し側から渡す入口も追加しない。
 
 ```text
 単体CLI / Orchestrator / Workbench Server
@@ -159,7 +159,7 @@ Local Personalは永続的なRuntime有効化状態、Platform Provisioningま�
 | 候補読取り／export／破棄 | 既存Candidate Storeと公開candidate操作 | 正規Identity、許可済み利用側、現在Store → 同じ候補本文・Metadataまたは処置結果。上位の正本採用・Commit・Pushを発行しない。 |
 | 診断／exact回復 | 既存doctor・Task回復の意味操作 | 現在Repository・Runtime結合、exact参照、必要な介入承認 → 診断・資源終端または未解決。新しいProvider依頼を発行しない。 |
 | 署名済みRuntime検証 | 既存Manifest・閉包・Native検証 | 固定入力と現在実行物 → 不透明な一回実行Capabilityまたは拒否。呼出し元の任意Pathを実行Authorityにしない。 |
-| 保存用Host排他 | `host-runtime/index.ts`から既存`acquireRuntimeOwnedProjectRuntimeStateKernelLock`を公開 | 上位が確認したRootのHash → 保持確認・解放handleまたはnull。既存OS名前空間と取消・終了確認を維持し、Project状態・履歴・業務Writerは読み込まない。HashをRoot確認やAuthorityへ昇格しない。 |
+| 保存用Host排他 | `host-runtime/index.ts`から既存`acquireRuntimeOwnedOrchestratorStateKernelLock`を公開 | 上位が確認したRootのHash → 保持確認・解放handleまたはnull。既存OS名前空間と取消・終了確認を維持し、Project状態・履歴・業務Writerは読み込まない。HashをRoot確認やAuthorityへ昇格しない。 |
 
 APIの具体的な型・呼出し点・利用側全数は棚卸しの関数単位対応へ接続する。公開入口の実接続、署名閉包、QA全数照合はOPENであり、現在の内部関数が存在するだけで公開能力の完成としない。
 
@@ -188,7 +188,7 @@ Taskの既存型契約は`startRuntimeOwnedCoordinatorTask`の引数・戻り値
 |---|---|---|
 | `cli/coordinator-command.ts`のTask処理 | CoordinatorのCLIから下位公開Task操作へ接続 | Runtime検証とRoot確認、開始拒否、Signal登録、完了待機、Signal解除、最終結果を保持する。単体利用にOrchestratorを要求しない。 |
 | `workbench-ai/workbench-ai-change-candidate-runtime.ts` | Coordinatorの候補実行処理から同じTask操作へ接続 | Workbench受付は上位へ分離しても、候補生成時のTask開始・取消・回収は重複実装しない。正本採用・Commit・Pushを発行しない。 |
-| `project-runtime/project-runtime-composition-root.ts`の`productionExecutionDependencies.startTask/cancelTask` | Orchestratorの本番構成からCoordinator公開入口をimport | 下位から上位へのimportを撤去する。署名実行Capabilityの発行・失効、Task取消、上位結果保存、slot解除の責務を混ぜない。 |
+| `orchestrator/orchestrator-composition-root.ts`の`productionExecutionDependencies.startTask/cancelTask` | Orchestratorの本番構成からCoordinator公開入口をimport | 下位から上位へのimportを撤去する。署名実行Capabilityの発行・失効、Task取消、上位結果保存、slot解除の責務を混ぜない。 |
 | `scripts/verify-signed-general-task.ts` | Coordinatorの検証スクリプトから同じ公開Task操作へ接続 | 本番と同じ開始・取消・完了境界を検証する。開発factoryだけの成功を公開入口の成功にしない。 |
 | `tests/fixtures/*poison-probe.ts`等の拒否試験とTask契約試験 | Coordinatorの試験から新公開入口または用途限定の試験入口へ接続 | 無効Capability、終了後control、Process利用不能状態の拒否を保持する。開発用Task factoryを本番公開入口へ追加しない。 |
 | `platform-access/platform-provisioner-package-filesystem.ts`のTask Symbol照合 | Coordinator配布閉包の照合として維持し、Native OS処理と混同しない | Symbol文字列・実行入口・配布物の対応を更新する。名前が一致するだけで本番接続済みとはしない。 |
@@ -486,7 +486,7 @@ Workbenchで利用者が明示したAI Profileによる助言実行は、Front A
 | 形式と利用側 | 新しい意味をManifest revision 6と署名domain V6で識別し、署名／検証を同時に変更する。 | V5署名をV6の現在実行許可へ読み替えない。必要な旧履歴専用検証は旧domainのまま分離する。 |
 | 一時配置 | 通常試験は作業Sourceで実行する。署名・原子配置に必要な最小集合だけを固定`tmp/signature/work/`へ配置する。 | 全Repositoryコピー、恒久候補Directoryの累積、新しい清掃Frameworkは作らない。 |
 
-署名準備はProject RuntimeのAI実行キューとは別の入口であり、キューへの保存を回復参照の保持根拠にしない。起動するフロントAIが最初の作成前に`operationId`と`identity`を確定・保持し、CLIから準備処理へ同じ値を渡す。初期参照は既存Runtime Dataの固定Owner `coordinator-release-runtime`と世代`1`へ結合する。内部生成後の端末表示だけに依存せず、既存の一時操作記録とexact参照による再入場を利用する。識別子から操作能力を復元せず、新しいstate・キュー・回復DBを作らない。
+署名準備はOrchestratorのAI実行キューとは別の入口であり、キューへの保存を回復参照の保持根拠にしない。起動するフロントAIが最初の作成前に`operationId`と`identity`を確定・保持し、CLIから準備処理へ同じ値を渡す。初期参照は既存Runtime Dataの固定Owner `coordinator-release-runtime`と世代`1`へ結合する。内部生成後の端末表示だけに依存せず、既存の一時操作記録とexact参照による再入場を利用する。識別子から操作能力を復元せず、新しいstate・キュー・回復DBを作らない。
 
 公開入口から、集合抽出、出所確認、秘密入力前の検査、同じ固定入力の再観測、署名、opaqueなManifest bytesの原子公開、結果受理と終了清掃までを一つの経路として接続する。失敗・中断時はexactな未解決対象をOwnerが再確認し、不明を不存在や成功へ畳まない。配置後のManifest一致だけで署名元Runtime・実際の起動物・現在Authorityの一致を推定しない。
 
@@ -511,7 +511,7 @@ CRDDはGit clone／submoduleだけでRuntimeを利用できる配布構造を採
 - リリースIdentity（Release Identity）は、Version、tag、Repository Commit／Tree、文書、移行およびCHANGELOGを含み、「このCRDD Releaseは何か」を示す。
 - Runtime実行Identity（Runtime Execution Identity）は、実行に影響する閉じた依存集合、Security Policyおよび固定Platform Access成果物を含み、「何の実行へAuthorityを与えるか」を示す。
 
-manifest revision 5は、Coordinatorのproduction distribution allowlistである`bin/**`、`src/**`、`runtime/**`、`policies/**`および`package.json`全体に加え、共通Launcherの正本が選ぶ署名・4経路・Recovery入口と、そこから静的に到達する選択済み`script`依存を自動走査する。2つの公開Launcherと、責務分離されたMCP、Project Runtimeおよび実行知（Execution Intelligence）は、公開入口からcanonicalな静的importで到達する許可済み`src/**`と、そのNode module解釈を決める各componentの`package.json`を同じ実行閉包へ含める。したがってallowlist内の未参照Coordinator production sourceはIdentityを変えるが、未到達の兄弟Component、文書、試験およびbuild-only sourceは変えない。到達した兄弟Component／Launcher／protocol source、または到達Componentのpackage名・版・`private`・module種別を含むmetadataはIdentityを変える。package metadataの欠落・不正と実行集合外importは拒否する。このcontent root、Root Protection／Key Storage Policy Hash、Platform Access成果物のPath・target・protocol・toolchain・byte長・SHA-256からRuntime実行Identityを決定論的に算出し、Ed25519署名へ結合する。
+manifest revision 5は、Coordinatorのproduction distribution allowlistである`bin/**`、`src/**`、`runtime/**`、`policies/**`および`package.json`全体に加え、共通Launcherの正本が選ぶ署名・4経路・Recovery入口と、そこから静的に到達する選択済み`script`依存を自動走査する。2つの公開Launcherと、責務分離されたMCP、Orchestratorおよび実行知（Execution Intelligence）は、公開入口からcanonicalな静的importで到達する許可済み`src/**`と、そのNode module解釈を決める各componentの`package.json`を同じ実行閉包へ含める。したがってallowlist内の未参照Coordinator production sourceはIdentityを変えるが、未到達の兄弟Component、文書、試験およびbuild-only sourceは変えない。到達した兄弟Component／Launcher／protocol source、または到達Componentのpackage名・版・`private`・module種別を含むmetadataはIdentityを変える。package metadataの欠落・不正と実行集合外importは拒否する。このcontent root、Root Protection／Key Storage Policy Hash、Platform Access成果物のPath・target・protocol・toolchain・byte長・SHA-256からRuntime実行Identityを決定論的に算出し、Ed25519署名へ結合する。
 
 兄弟Componentは名称やDirectoryの存在ではなく、固定公開入口と登録された検証・子入口からの実際の依存だけで署名閉包へ入る。再編後はAI AdapterのProfile／Provider計画、Domain Modelの用途別公開入口、実行知とVersion Controlの到達部分を新Path・metadataへ接続する。Orchestrator／MCP Server／CROSは検証入口から必要な部分を含めるが、Coordinator本体から上位操作を再公開する理由にしない。WorkbenchのBrowser BundleやReactを閉包へ無条件に加えない。公開入口は軽量な責務別exportを用い、Catalog解決だけでStore・管理画面・全Domainを引き込まない。新しい閉包は実装後に抽出・照合し、以下の旧母集団を改名するだけで一致済みとしない。
 
@@ -519,7 +519,7 @@ manifest revision 5は、Coordinatorのproduction distribution allowlistであ�
 |---|---|---|
 | ai-runtime | ai-adapterの到達したProfile／Provider公開操作とmetadata | Coordinator実行・署名準備・検証入口。秘密Homeや外部CLI本体は別Ownerの実物検証を保持。 |
 | project-operation／runtime-dataの宣言とcrdd-domain-libraryの利用側 | domain-modelの用途別公開操作と一つのpackage metadata | Root／保存／署名一時操作と、検証入口が使用する成果物操作。現在の宣言外利用も不足として照合し、未到達の全機能を追加しない。 |
-| project-runtime | orchestratorの検証入口が到達した操作 | 本体の逆依存を撤去し、署名検証の実入口から下位呼出しまでを確認。 |
+| orchestrator | orchestratorの検証入口が到達した操作 | 本体の逆依存を撤去し、署名検証の実入口から下位呼出しまでを確認。 |
 | mcp | mcp-serverの登録検証入口からの到達部分 | 配布Launcher、stdio／HTTP試験入口、CROS能力接続。旧REST／Gatewayは撤去。 |
 | artifact-signing／cros／execution-intelligence／version-control | 維持するOwnerの到達部分とmetadata | 既存の暗号・認可・記録・Git意味と新利用側の接続を保持。 |
 
@@ -600,7 +600,7 @@ Docker Desktopの破損時は通常Taskと分離した最終復旧経路を使�
 | 耐久的な進行記録と再入場 | Repository-local `.crdd`を使う場合は非Authorityのcheckpointに限定し、再入場ごとにfreshな人間承認と保護済み対象へ再結合する。次Processの削除許可を発行する記録は別の保護済みRecovery Authorityであり、自己申告JSONから発行しない。 | 別対象への再結合、承認範囲の拡張および欠測の成功化を拒否する。 |
 | 処置後の直接観測 | 将来の処置実装では非再帰の限定削除後に六child、Root、markerの明示不存在、handle／observer／Lockの解放と記録の終端を確認する。 | 部分処置または観測不能は回復義務と処置事実を保持する。Effect発行後をEffect 0と表示しない。 |
 
-候補判定は[内部Policy](../../../40_Develop/coordinator/src/host-runtime/host-orphan-recovery-policy.ts)が所有する。十一条件の値を閉じたSchemaで照合するだけで、根拠の実在性を証明しない。`candidate_ready`でも`authorityConferred:false`、`cleanupConfirmed:false`、`productionConnected:false`を維持し、回復Token、Pathまたは削除Capabilityを返さない。この診断断面をARCH-000008へ接続し、実処置はその診断Authorityへ追加しない。
+候補判定は[内部Policy](../../../40_Develop/coordinator/src/host-execution/orphan-recovery-policy.ts)が所有する。十一条件の値を閉じたSchemaで照合するだけで、根拠の実在性を証明しない。`candidate_ready`でも`authorityConferred:false`、`cleanupConfirmed:false`、`productionConnected:false`を維持し、回復Token、Pathまたは削除Capabilityを返さない。この診断断面をARCH-000008へ接続し、実処置はその診断Authorityへ追加しない。
 
 後段の接続順序は、対象観測→人間へのexact対象提示→限定承認→連続排他とfresh再確認→限定処置→不存在・資源解放観測である。部分処置後の再入場は事前固定した対象と許可した進行だけを扱い、初回snapshotと同じ完全存在を要求して回復不能にしない。
 
@@ -716,7 +716,7 @@ namespace初期化の失敗ではexact Token回復へ接続できない。Token�
 | 耐久範囲 | 公開各段階のProcess喪失と再入場を確認する。 | Directory自身の耐久化、OS喪失・電源断後の残存は別の未保証条件。file flushだけで全耐久性を宣言しない。 |
 | 容量と受付 | 初期候補値は一文書8KiB、stage／公開先を合わせた物理entry上限1024件、総byte上限8MiB。併存する二名の両方を計数する。 | 全producer共通の予約・計数で並行超過を防ぐ。上限／計数不明では新Root取得前に停止する。既存参照の読取りは継続できるが、新記録が必要な回復Effectは上限を迂回しない。値は接続前の固定候補レビューで確認し、削除許可にしない。 |
 
-保存原理は[Runtime Dataの一時Operation管理](../runtime-data/01_Architecture.md#42-operation所有契約)と照合するが、その実装をHost清掃へ接続済みとは扱わない。Nodeのfile modeはWindowsで利用者別アクセス制御を表さず、現在方式のno-replace公開と保持中保護はNativeの実境界で反証する。旧hardlink二名は新方式へ自動収束させず、保存方式／producer版との再入場対応をOPENとして残す。stage不存在は観測時点の事実であり、親保持だけから後続のstage新規作成禁止やclose後不変性を主張しない。
+保存原理は[Runtime Dataの一時Operation管理](../domain-model/03_Repository_Storage.md#42-operation所有契約)と照合するが、その実装をHost清掃へ接続済みとは扱わない。Nodeのfile modeはWindowsで利用者別アクセス制御を表さず、現在方式のno-replace公開と保持中保護はNativeの実境界で反証する。旧hardlink二名は新方式へ自動収束させず、保存方式／producer版との再入場対応をOPENとして残す。stage不存在は観測時点の事実であり、親保持だけから後続のstage新規作成禁止やclose後不変性を主張しない。
 
 | producer | 結合元 | 禁止する推定 |
 |---|---|---|
@@ -738,7 +738,7 @@ namespace初期化の失敗ではexact Token回復へ接続できない。Token�
 
 固定保存境界の読取り部品は[Platform Details](../platform-access/01_Architecture.md#固定保存境界の私有観測)へ具体化している。固定保存境界では三Directoryの独立期待値と利用者を照合し、十一実体のCurrent／Known観測は[Platformの私有読取り接続](../platform-access/01_Architecture.md#対象一式の私有読取り接続)へ具体化している。Source上では専用の読取り確認Protocolと`host-terminal-windows-adapter.ts`を接続する。Adapterは完全intentから三独立期待値・利用者と固定名を搬送し、nonce、応答形状、十一実体の型・相異、最初の三期待値、全資源close、実child終了と成果物前後一致を確認する。Generic Platform Adapterを置換せず、成功でも清掃Authorityを発行しない。回復Ownerからの実呼出し、初回期待値の取得、保存先初期化、記録公開・同参照の本番再入場と署名配布物の成立は未接続である。所在候補の取得を許可済み保存先や新しいAuthorityの発行にしない。
 
-元Taskを確定できない限定保守では、Project RuntimeのTaskRecordへ回復情報を後付けしない。Coordinator自身が、検証済みRepository Rootから解決する`.crdd/coordinator/recovery/host-terminal/`に、同じ非Authority参照と完全intentを保持する。実行知の`task_attempt_settled`を保守記録へ流用せず、新しい汎用Storeや独立Subsystemも作らない。
+元Taskを確定できない限定保守では、OrchestratorのTaskRecordへ回復情報を後付けしない。Coordinator自身が、検証済みRepository Rootから解決する`.crdd/coordinator/recovery/host-terminal/`に、同じ非Authority参照と完全intentを保持する。実行知の`task_attempt_settled`を保守記録へ流用せず、新しい汎用Storeや独立Subsystemも作らない。
 
 | 段階 | 所有する処理 | 次へ進む条件 | 停止時に保持するもの |
 |---|---|---|---|
@@ -1079,7 +1079,7 @@ Docker Task Recoveryは元のRecovery IDと発行時Sessionの証拠を保持し
 
 ### 現在状態と履歴を分ける縮小設計
 
-切替前の設計として、Repository Rootを検証した`.crdd/coordinator/`へ`state.json`、`state.lock`、`state.pending.json`、`history.jsonl`を置く。配置の共通責務は[Runtime Data](../runtime-data/01_Architecture.md#compact-owner-layout)、Project側の仕事の保存は[Project Runtime詳細設計](../project-runtime/02_Detailed_Design.md#compact-runtime-storage)が所有する。既存の回復記録とcaller接続を置換済みとは扱わない。
+切替前の設計として、Repository Rootを検証した`.crdd/coordinator/`へ`state.json`、`state.lock`、`state.pending.json`、`history.jsonl`を置く。配置の共通責務は[Runtime Data](../domain-model/03_Repository_Storage.md#compact-owner-layout)、Project側の仕事の保存は[Orchestrator詳細設計](../orchestrator/02_Detailed_Design.md#compact-runtime-storage)が所有する。既存の回復記録とcaller接続を置換済みとは扱わない。
 
 | 情報 | 所有・終了条件 |
 |---|---|
@@ -1230,7 +1230,7 @@ Controllerの元の完了結果へ、同じ管理Capability・操作ID・回復�
 
 2026-10-08の受領方式採用に伴い、本番未採用Draftの`operation-identity/v1`へ必須`consumer`を追加する。同じ識別子のDraftを最新形態だけへ更新し、欠落版の自動補完・互換Readerは設けない。過去固定試験の結果を新版の根拠へ流用しない。新しい固定本文からIdentity Hash・exact回復ID・結果要約を導出し、旧記録や旧IDは付け替えない。保存済みIdentityは更新不能であり、Consumer変更後にHashと回復IDを再計算しても同じ操作の更新として拒否する。Settlement Contextの利用側は保存Identityの`consumer`と一致しなければならない。旧形式入りstate／pendingは新品として初期化せず保全停止する。これは本番組立ての切替や配送・完了の成立証明ではない。
 
-結果登録の必要集合も保存Identityから導出する。Orchestratorは厳密に`[project_runtime]`、CLI／Workbenchは厳密に空集合とし、登録入力の欠落、別Consumer、重複、余分な値を補完しない。現在状態の`pendingDeliveries`は`project_runtime`だけを許可し、対応操作の保存Consumerとの一致を要求する。CLI／Workbenchの空集合は真正終端・固定要約の確認後に元Snapshotを返すだけで、改訂増加・ACK・新しい配送待ちを生成しない。この段階では一時返却の実接続・終了確認をまだ持たず、空集合を完了の証明にしない。以前の全Consumer耐久登録の試験正例は新版へ流用せず、他Consumer混入はモデル／decoderで拒否する。
+結果登録の必要集合も保存Identityから導出する。Orchestratorは厳密に`[orchestrator]`、CLI／Workbenchは厳密に空集合とし、登録入力の欠落、別Consumer、重複、余分な値を補完しない。現在状態の`pendingDeliveries`は`orchestrator`だけを許可し、対応操作の保存Consumerとの一致を要求する。CLI／Workbenchの空集合は真正終端・固定要約の確認後に元Snapshotを返すだけで、改訂増加・ACK・新しい配送待ちを生成しない。この段階では一時返却の実接続・終了確認をまだ持たず、空集合を完了の証明にしない。以前の全Consumer耐久登録の試験正例は新版へ流用せず、他Consumer混入はモデル／decoderで拒否する。
 
 同じProcessで所有しているHostの開始・完了遷移も、管理Capabilityから確認したRoot・記録を使用する。tokenはそのOwnerのRoot名・nonce・現在Hash・世代に一致するかを検査するために用い、保存先の逆算や新しいRoot Authorityには使用しない。未発行Owner、別操作、古いtokenは遷移前に拒否する。この所有中の遷移経路と、別Processでの回復観測・現在状態Writerへの意図／結果保存接続は別に判定する。
 
@@ -1269,9 +1269,9 @@ Orchestratorの受理に含む`operationId`は上位Task／Attemptの論理操�
 
 保存済み終端の終了処理は、真正な`recovered` Contextから固定元版・候補・処置種別を私有Writer optionへ渡す。受理処置は対象配送のACK Hashだけ、整理処置は対象操作と対応する回復・配送参照の除去だけを許す。更新Lock内で現在本文が固定元版または自分の候補に完全一致し、同じモデルの候補再導出、現在Root再確認、固定上位Readerのfresh読戻し、固定履歴Hash・存在する行の相関・pending履歴なしを確認する。履歴保持期間で回収済みの行は再追加しない。受理保存の`completed / snapshotConfirmed / lockReleased`が揃った候補だけを整理の元版とする。保存後応答不明・解放不明・整理失敗では元版と候補を保持し、同Contextの再入場でもReaderと履歴の確認を省略しない。除去後の新Contextは作成できず、対象欠落だけで成功しない。元実行Owner用の真正Host・Controller条件を変更せず、保存値をその代用品にしない。新Processでの保存途中再構成は次段落の終了限定入口へ接続し、残存実資源回収とは区別する。
 
-保存済み終端配送の結合は`prepareRuntimeOwnedCoordinatorRecoveredSettlement`で準備する。現在Rootの真正な結合、exact回復参照、登録済み`project_runtime`結果、固定要約および履歴確認済みを照合し、五資源・Host・Lease・旧Ownerの終端条件を満たす場合だけ既存の私有Context集合へ保持する。実行操作IDは保存対象の相関値として保持するだけで、管理Capability・清掃結果・Controller観測を復元しない。元Owner用の全入口は`live`種別だけを受理し、保存済み終端用の`recovered`種別とコピーを拒否する。保存途中の候補がない場合、準備時はReaderを呼び出さない。保存途中の場合だけ同じRoot・排他内で固定Readerを読み、同じ受理候補または受理済み現在版からの同じ整理候補へ完全一致する候補を既存Writerへ結合する。Reader不明・別候補・観測中変更では保全停止し、通常Readerの保存途中拒否は維持する。準備では状態・履歴の本文を変更しない。上位ACKの保存・操作整理は終了限定Writerへ接続済みであり、局所検証対象とする。本番上位の受領・終了二経路は接続済みだが、保存途中の共同接続と整理後の上位確定中断の確認は未完了である。更新時は固定Readerのfresh読戻し、元版または自分の候補との完全一致、同じモデルでの候補再導出、既存履歴相関および他操作不変を要求する。保存途中からの新Process再入場は局所検証対象であり、実資源回収・整理後の上位確定中断・保持期限後の再開をこの結合だけで完成扱いしない。
+保存済み終端配送の結合は`prepareRuntimeOwnedCoordinatorRecoveredSettlement`で準備する。現在Rootの真正な結合、exact回復参照、登録済み`orchestrator`結果、固定要約および履歴確認済みを照合し、五資源・Host・Lease・旧Ownerの終端条件を満たす場合だけ既存の私有Context集合へ保持する。実行操作IDは保存対象の相関値として保持するだけで、管理Capability・清掃結果・Controller観測を復元しない。元Owner用の全入口は`live`種別だけを受理し、保存済み終端用の`recovered`種別とコピーを拒否する。保存途中の候補がない場合、準備時はReaderを呼び出さない。保存途中の場合だけ同じRoot・排他内で固定Readerを読み、同じ受理候補または受理済み現在版からの同じ整理候補へ完全一致する候補を既存Writerへ結合する。Reader不明・別候補・観測中変更では保全停止し、通常Readerの保存途中拒否は維持する。準備では状態・履歴の本文を変更しない。上位ACKの保存・操作整理は終了限定Writerへ接続済みであり、局所検証対象とする。本番上位の受領・終了二経路は接続済みだが、保存途中の共同接続と整理後の上位確定中断の確認は未完了である。更新時は固定Readerのfresh読戻し、元版または自分の候補との完全一致、同じモデルでの候補再導出、既存履歴相関および他操作不変を要求する。保存途中からの新Process再入場は局所検証対象であり、実資源回収・整理後の上位確定中断・保持期限後の再開をこの結合だけで完成扱いしない。
 
-新Processの結果参照読取りは`readRuntimeOwnedCoordinatorRecoveryResult`が所有する。明示選択して検証済みの現在Rootから通常と同じSnapshot Reader・短期排他を使用し、exact回復参照と`project_runtime`固定Consumerを照合する。同Processの結果Readerと登録済み搬送先・固定要約・必要集合の投影検査を共有し、元bytesと同一の検査結果だけを五項目参照へ投影する。未登録、非終端、未確定資源要求、要約・集合不一致、保存途中、Root変更または読取り・排他解放不明では値を返さない。元操作Capabilityや真正清掃結果を保存値から復元せず、履歴出版未確認や受理済み参照の読取りは既存契約を維持する。この入口は結果参照だけであり、fresh ProcessのACK受理・操作整理・実資源回復の成立を意味しない。保存本文を更新しないが、短命Lockの取得・解放をFilesystem Effectとして区別する。
+新Processの結果参照読取りは`readRuntimeOwnedCoordinatorRecoveryResult`が所有する。明示選択して検証済みの現在Rootから通常と同じSnapshot Reader・短期排他を使用し、exact回復参照と`orchestrator`固定Consumerを照合する。同Processの結果Readerと登録済み搬送先・固定要約・必要集合の投影検査を共有し、元bytesと同一の検査結果だけを五項目参照へ投影する。未登録、非終端、未確定資源要求、要約・集合不一致、保存途中、Root変更または読取り・排他解放不明では値を返さない。元操作Capabilityや真正清掃結果を保存値から復元せず、履歴出版未確認や受理済み参照の読取りは既存契約を維持する。この入口は結果参照だけであり、fresh ProcessのACK受理・操作整理・実資源回復の成立を意味しない。保存本文を更新しないが、短命Lockの取得・解放をFilesystem Effectとして区別する。
 
 Provider開始要求の直前には、同じControllerが元操作・回復参照へ結合した短命通知を同期保存中だけ保持する。既存Ownerは元通知を照合して六fieldのlifecycle checkpointを保存し、開始前の`providerStart / externalSend / sharedWrite`を`unknown`へ進める。既知評価は巻き戻さず、他のlifecycle値を保持する。保存確定と排他解放のいずれかが未確認ならProvider要求を発行しない。保存後の同期再入取消でも要求を停止し、保存済みunknownを未発行へ戻さない。認証Probe・Create・Network準備にはこの通知を発火せず、資源要求前取消の未発行通知と用途を混同しない。OSのDocker CLI開始、正常出力、清掃成功はProvider実開始・外部送信・共有書込み成立の根拠ではなく、評価を既知化しない。要約固定後・終端・偽通知・別操作・失効通知は保存前に拒否する。新しい共有State、Registry、LockやProvider内部観測機構は追加しない。
 
@@ -1285,7 +1285,7 @@ Host清掃後の最終保存には、通常の操作Ownerを延命して使用�
 
 操作終端の結果IDは、固定操作要約（`crdd-coordinator/operation-summary/v2`）を正規JSON・UTF-8・末尾LFで符号化したSHA-256とする。操作・回復参照、固定Identity、一次失敗、実行評価、終端結果、Host清掃、Lease状態を含み、履歴時刻、Snapshot改訂番号、File Identityを含めない。これは下位操作の終端結果であり、AI候補の採用やTask全体の成功を表さない。真正なHost清掃結果と同じController終端結果を照合し、更新排他内で同じ要約と搬送先集合を再導出して未受理として登録する。同じ登録の再入場では結果ID・必要集合・受理状態を変更しない。state.jsonの更新が不要でも、短命state.lockの作成・回収をFilesystem操作として報告する。利用形態別の必要集合、上位耐久受理と本番一体切替は別に接続・確認する。
 
-Orchestratorの耐久受理は、既存のRepository・Project・Milestone・Task・Attempt・操作・回復参照と最初の受理世代を保持し、新Repository結合・固定結果ID・`consumer: project_runtime`へ結合する。受理本文の閉集合は`repositoryBindingId / projectId / milestoneId / taskId / attemptId / operationId / recoveryId / settlementGeneration / repositoryBinding / resultId / consumer`とし、正規JSON・UTF-8・末尾LFのSHA-256を下位の受理Hashとする。Hash自身、現在state全体、時刻、一時File Identity、再試行回数を本文へ追加しない。再入場で最初の受理世代を書き換えない。
+Orchestratorの耐久受理は、既存のRepository・Project・Milestone・Task・Attempt・操作・回復参照と最初の受理世代を保持し、新Repository結合・固定結果ID・`consumer: orchestrator`へ結合する。受理本文の閉集合は`repositoryBindingId / projectId / milestoneId / taskId / attemptId / operationId / recoveryId / settlementGeneration / repositoryBinding / resultId / consumer`とし、正規JSON・UTF-8・末尾LFのSHA-256を下位の受理Hashとする。Hash自身、現在state全体、時刻、一時File Identity、再試行回数を本文へ追加しない。再入場で最初の受理世代を書き換えない。
 
 上位Writerの保存・排他解放後、既存の本番Readerで同じTask・Attempt・操作・回復義務と保存済み受理本文を再確認する。同じReaderへ固定した内部接続をCoordinator更新排他内でも再確認し、対象一搬送の未受理から同じ受理Hashへの変更だけを許可する。任意callbackや任意Hashを外部入力で受け付けず、Coordinatorから上位型・実装をimportしない。上位保存Lockを保持したまま下位更新へ入らない。読み戻し不能、解放不明、別結果・対象・世代競合は受理未反映とし、同じ回復参照を保持する。終了候補は空でない全搬送の受理に加え、全結果IDと固定終端要約IDの一致を確認する。受理だけから資源不存在や操作除去成立を推定しない。この上位受理の具体契約は切替設計であり、旧ACK・Receiptの本番利用側を残したまま新型だけを有効化しない。
 
@@ -1297,11 +1297,11 @@ Orchestratorの`createProjectResultAcceptanceReader`は、本番組立ての固�
 
 同Processでは、清掃前に取得した元のContextへ、Orchestrator本番組立てが保持する同期Readerを`bindRuntimeOwnedCoordinatorProjectAcceptanceReader`で一度だけ結合できる。同じexact回復参照・耐久Consumerと私有Contextを照合し、同じ関数の再入場だけを許可する。別関数への差替え、一時返却Consumer、偽Contextと別参照は拒否する。結合処理はReaderを実行せず、ACK受理・資源不存在・操作除去を証明しない。清掃後に操作CapabilityやContextを再生成せず、保存済みACKのfresh照合と元の真正終端結果による終了は既存処理へ委譲する。この内部接続の追加だけでは本番Orchestrator一体接続やfresh Process回復を完了としない。
 
-本番Docker終了Ownerは、同じProcessで保持した`project_runtime`の元Contextから固定五項目の結果参照をfresh取得する。過去の返却値だけを再使用せず、保存読取りと排他解放の成功を要求する。保存Ownerからの固定Readerを一度結合し、元Host清掃結果・元Controller結果で受理保存と操作整理を順に実行する。受理保存の`completed / snapshotConfirmed / lockReleased`がすべて成立した元結果だけを既存Owner内に保持し、整理の再入場では受理保存を再発行せず、既存整理処理の元版・候補・fresh ACK照合を毎回行う。完了結果のキャッシュから成功を返さない。新しい台帳・Lock・共有状態は設けず、同Processの元Owner寿命に限定する。CLI／Workbenchの一時返却経路、元結果、一次失敗、実資源の回収条件は変更しない。上位TaskはACK後に旧finalizeを二重発行せず、この終了経路へ一意に接続する。本番Task／Orchestratorへの接続とfresh Process回復は別の未完了項目である。
+本番Docker終了Ownerは、同じProcessで保持した`orchestrator`の元Contextから固定五項目の結果参照をfresh取得する。過去の返却値だけを再使用せず、保存読取りと排他解放の成功を要求する。保存Ownerからの固定Readerを一度結合し、元Host清掃結果・元Controller結果で受理保存と操作整理を順に実行する。受理保存の`completed / snapshotConfirmed / lockReleased`がすべて成立した元結果だけを既存Owner内に保持し、整理の再入場では受理保存を再発行せず、既存整理処理の元版・候補・fresh ACK照合を毎回行う。完了結果のキャッシュから成功を返さない。新しい台帳・Lock・共有状態は設けず、同Processの元Owner寿命に限定する。CLI／Workbenchの一時返却経路、元結果、一次失敗、実資源の回収条件は変更しない。上位TaskはACK後に旧finalizeを二重発行せず、この終了経路へ一意に接続する。本番Task／Orchestratorへの接続とfresh Process回復は別の未完了項目である。
 
-Taskの本番Runtimeは、実行中の真正な`project_runtime` Controlから同Process限定の結果配送閉包を捕捉できる。Task完了時のControl削除は維持し、完了後の再捕捉、CLI／Workbenchへの提供を拒否する。捕捉済み閉包の各利用時に、Host清掃・旧操作なし・終端状態・全handoff終了と、元終了capability／回復IDの一意な対応を再確認する。結果集合は全件のfresh読取り・排他解放・利用形態・回復ID一致を確認した後だけ返し、対象0件や部分成功を耐久配送成立にしない。上位は集合を保存してから各結果をACKで終了し、部分終了後の再入場でも保存済み参照と同じ閉包を使う。新しい台帳・Registry・Lockを作らず、IDから元Ownerを生成しない。このTask内接続は局所確認対象であり、Orchestratorの実保存との一体接続と新Process回復は未完了である。
+Taskの本番Runtimeは、実行中の真正な`orchestrator` Controlから同Process限定の結果配送閉包を捕捉できる。Task完了時のControl削除は維持し、完了後の再捕捉、CLI／Workbenchへの提供を拒否する。捕捉済み閉包の各利用時に、Host清掃・旧操作なし・終端状態・全handoff終了と、元終了capability／回復IDの一意な対応を再確認する。結果集合は全件のfresh読取り・排他解放・利用形態・回復ID一致を確認した後だけ返し、対象0件や部分成功を耐久配送成立にしない。上位は集合を保存してから各結果をACKで終了し、部分終了後の再入場でも保存済み参照と同じ閉包を使う。新しい台帳・Registry・Lockを作らず、IDから元Ownerを生成しない。このTask内接続は局所確認対象であり、Orchestratorの実保存との一体接続と新Process回復は未完了である。
 
-Snapshot排他は既存のWindows名前付きPipe primitiveを用い、検証済みRepository Root HashをCoordinator専用namespaceへ結合する。同じRootのWriterだけを競合させ、Project Runtimeの排他とは分離する。排他取得だけでRoot・File Identityの検証を省略しない。長時間の外部I/OやNative処置をSnapshot排他内で待機しない。
+Snapshot排他は既存のWindows名前付きPipe primitiveを用い、検証済みRepository Root HashをCoordinator専用namespaceへ結合する。同じRootのWriterだけを競合させ、Orchestratorの排他とは分離する。排他取得だけでRoot・File Identityの検証を省略しない。長時間の外部I/OやNative処置をSnapshot排他内で待機しない。
 
 取得順は、実行側のHost／Home／Runtime所有権を確定した後、必要な一更新だけSnapshot排他を取得し、保存・読戻し・排他解放を完了してから外部要求へ戻る順とする。Snapshot排他を保持して新たなHost／Home／Runtime排他を取得せず、Provider完了、通知ハンドラー、上位保存、Docker応答または人間操作を待たない。現在状態の読取りから外部回収を始める場合も、短期読取りを終えて排他を解放し、実行側の所有権と現在資源を確認してから新しい短期更新で元revisionを再照合する。間に別更新が成立した場合は最新の実体を再評価し、古い保存候補を盲目的に再試行しない。
 
@@ -1345,7 +1345,7 @@ Producerの資源回収lifecycleは、Consumerの表示、閲覧または任意�
 |---|---|---|---|
 | 単体CLI（`coordinator_cli`） | 一時的な返却（`transient`） | 既存CLI返却境界への同じ結果の引渡し。 | 閲覧、stdout先の耐久保存、Process終了後の回答再取得。 |
 | Workbench（`workbench`） | 一時的な返却（`transient`） | 既存AI依頼Applicationへの同じ結果の引渡し。 | 人間の閲覧、任意のSession履歴、Server再起動後の一時回答再取得。 |
-| Orchestrator（`project_runtime`） | 耐久受領（`durable`） | 保存Ownerが同じTask／Attempt／結果を確認して発行するACK。 | ACKだけを実資源不存在やTask全体成功の証明にすること。 |
+| Orchestrator（`orchestrator`） | 耐久受領（`durable`） | 保存Ownerが同じTask／Attempt／結果を確認して発行するACK。 | ACKだけを実資源不存在やTask全体成功の証明にすること。 |
 
 固定対応は本番組立てが操作へ結合する。`coordinatorConsumerCompletionPolicy`はこの対応の値判定を一か所で所有する。Request、任意のpolicy値、保存JSONの宣言、Consumer欠落や空集合から耐久受領を一時返却へ降格しない。正当な単体利用と登録漏れを、固定された利用形態の照合で区別する。任意の利用側が任意の方式を選べる新Frameworkは作らない。
 
@@ -1357,7 +1357,7 @@ Producerの資源回収lifecycleは、Consumerの表示、閲覧または任意�
 
 この節が全Consumer耐久受理を要求していた途中実装の置換先である。終了候補・限定Writerへの方式適用と、本番Producerの接続・実測は別に判定する。新方式の本番接続と検証は未完了であり、値判定や終了整理の局所成功だけでcleanup、返却や耐久ACKの実成立を主張しない。
 
-利用側は本番の呼出し組立てで固定する。通常CLIは`coordinator_cli`、Workbench候補・助言は`workbench`、Orchestrator Taskは`project_runtime`を使用し、要求JSON、相関IDの有無または候補の処置から推測しない。同じTaskのExecutor／Reviewer／是正でも管理情報に保持した値を計画へ渡す。不正利用側は処理開始またはMount有効化前に拒否する。署名Capabilityの消費と本番開始の支配関係は維持する。独立probeの検証用入口を、本番の受理・終了接続の成立根拠と扱わない。
+利用側は本番の呼出し組立てで固定する。通常CLIは`coordinator_cli`、Workbench候補・助言は`workbench`、Orchestrator Taskは`orchestrator`を使用し、要求JSON、相関IDの有無または候補の処置から推測しない。同じTaskのExecutor／Reviewer／是正でも管理情報に保持した値を計画へ渡す。不正利用側は処理開始またはMount有効化前に拒否する。署名Capabilityの消費と本番開始の支配関係は維持する。独立probeの検証用入口を、本番の受理・終了接続の成立根拠と扱わない。
 
 新しい開始Identityの組立てでは、計画に明示した利用側と開始Ownerが固定した利用側の一致をRepository／Host借用前に確認する。欠落・未知値・別用途をCLI等へ補完しない。実OP、相関ID、Home・Host、資源名、nonceと回復参照の導出は維持する。この組立て・保存の局所確認を、旧本番beginの置換済みという主張に用いない。
 
@@ -1599,11 +1599,11 @@ Provider境界のLifecycle診断は、`coordinator_provider_boundary_configured`
 | `coordinator.recovery-obligation` | `recovery` | Effectまたはcleanupが不明な場合はexact Recovery IdentityとEvidenceを保持し、別Taskへの再発行や不明状態の正常化を行わない。 | `ARCH-000004`<br>`ARCH-000008`<br>`ARCH-000015` | `Required` | `## 11. 取消と回復` | — |
 | `coordinator.cleanup-before-result` | `resource` | Process、stream、Container、network、Mount、lock、候補一時領域の終了後状態を確認し、cleanup未確認のまま完了結果を公開しない。 | `ARCH-000004`<br>`ARCH-000008` | `Required` | `## 5. 資源所有` | — |
 
-<a id="project-runtime-integration"></a>
+<a id="orchestrator-integration"></a>
 
-## 14. Project Runtimeとの接続
+## 14. Orchestratorとの接続
 
-この見出しは既存参照の解決用に保持する。再編後はOrchestratorがCoordinator公開APIを直接呼び、Coordinatorは単体利用も成立させる。Provider選定の実行Gate、単一Task、候補生成、Review、exact回復情報とcleanup結果を下位の責務として返す。Project、Milestone、Objective、Task Graph、統合、受入とProject状態は[Orchestrator詳細](../project-runtime/01_Architecture.md)が所有する。
+この見出しは既存参照の解決用に保持する。再編後はOrchestratorがCoordinator公開APIを直接呼び、Coordinatorは単体利用も成立させる。Provider選定の実行Gate、単一Task、候補生成、Review、exact回復情報とcleanup結果を下位の責務として返す。Project、Milestone、Objective、Task Graph、統合、受入とProject状態は[Orchestrator詳細](../orchestrator/01_Architecture.md)が所有する。
 
 ```text
 Orchestrator / 単体利用側
@@ -1627,7 +1627,7 @@ Coordinator
 | Recovery | Project／Taskとの相関を保持する | 実行資源のexact Recovery情報を返す |
 | 完成 | 明示Authorityと根拠からObjective／Milestoneの判断を記録する | Task結果とcleanupを別軸で報告する |
 
-CoordinatorはProject状態を再定義せず、Orchestratorをimport・構成・再exportしない。OrchestratorはProvider、OS、Containerや候補Storeの内部実装へ依存せず、公開APIから必要な結果を受ける。通知型はCoordinatorが定義し、Orchestratorがハンドラーを登録する。意味契約は[状態・資源詳細](../project-runtime/02_Detailed_Design.md)、実装・試験接続は既存の機械投影と契約試験で照合する。旧上位Adapterに存在する結果検査を捨てず、下位共通結果検査と上位結合検査へ分けて移す。
+CoordinatorはProject状態を再定義せず、Orchestratorをimport・構成・再exportしない。OrchestratorはProvider、OS、Containerや候補Storeの内部実装へ依存せず、公開APIから必要な結果を受ける。通知型はCoordinatorが定義し、Orchestratorがハンドラーを登録する。意味契約は[状態・資源詳細](../orchestrator/02_Detailed_Design.md)、実装・試験接続は既存の機械投影と契約試験で照合する。旧上位Adapterに存在する結果検査を捨てず、下位共通結果検査と上位結合検査へ分けて移す。
 
 単一Taskの拒否結果では、実効Executor Providerが未選択の場合の`executorProvider: null`を正当な未選択として受け取る。上位の省略可能なProvider項目へは投影せず、元の拒否理由、cleanup、再起動要否およびexact回復参照を保持する。未選択だけからEffect 0や資源不存在を推定しない。成功結果のnull、未知Provider、ProxyまたはAccessorは拒否し、欠測・data `undefined`の既存互換は維持する。Accessorを欠測へ読み替えず、Getterを実行しない。
 

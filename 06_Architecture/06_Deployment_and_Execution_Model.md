@@ -21,7 +21,7 @@ Canonical責務を実行時に分離する論理単位、Resource、並行性お
                           ▼
 ┌─ Application Runtime ─────────────────────────────────────────┐
 │ Public Application Contract                                  │
-│ Project Runtime / Projection / Acceptance Decision / Federation│
+│ Orchestrator / Projection / Acceptance Decision / Federation│
 └──────────────┬──────────────────────┬─────────────────────────┘
                ▼                      ▼
 ┌─ Execution Boundary ────────┐  ┌─ Data Boundary ──────────────┐
@@ -34,7 +34,7 @@ Canonical責務を実行時に分離する論理単位、Resource、並行性お
 └───────────────────────────────────────────────────────────────┘
 ```
 
-各箱は別Processを意味しない。別Process化の要否は、Trust境界、Failure Isolation、並行性、Resource Owner、資格情報、配置先または独立更新の必要性から決める。図のWorkbench候補は採用済みWorkbench Serverへ、Project Runtimeの実装OwnerはOrchestratorへ具体化する。公開SurfaceはWorkbench ServerとMCP Serverの二系統であり、CLIは運用入口として維持するが第三のServer Runtimeを新設しない。
+各箱は別Processを意味しない。別Process化の要否は、Trust境界、Failure Isolation、並行性、Resource Owner、資格情報、配置先または独立更新の必要性から決める。図のWorkbench候補は採用済みWorkbench Serverへ、Orchestratorの実装OwnerはOrchestratorへ具体化する。公開SurfaceはWorkbench ServerとMCP Serverの二系統であり、CLIは運用入口として維持するが第三のServer Runtimeを新設しない。
 
 ### Localと共有配置
 
@@ -94,14 +94,14 @@ Canonical Architectureが独立レビューで閉じた後に、次を照合す�
 | 照合対象 | 確認すること | 参照先 |
 |---|---|---|
 | Coordinator | Execution Port実装、Provider編成、取消・回復 | [Coordinator](Details/coordinator/01_Architecture.md) |
-| Project Runtime | Application Contract、Task状態、Recovery | [Project Runtime](Details/project-runtime/01_Architecture.md) |
-| MCP／CLI | Transport parity、接続Lifecycle | [MCP](Details/mcp/01_Architecture.md) |
+| Orchestrator | Application Contract、Task状態、Recovery | [Orchestrator](Details/orchestrator/01_Architecture.md) |
+| MCP／CLI | Transport parity、接続Lifecycle | [MCP](./Details/mcp-server/01_Architecture.md) |
 | Execution Intelligence | 実行事実の生成・保存と読取りPort | [実行知](Details/execution-intelligence/01_Architecture.md) |
 | Platform Access | OS／Process／Containerの意味、診断、回復 | [Platform Access](Details/platform-access/01_Architecture.md) |
 | Version Control | Root検証、Binding、差替え可能なPort | [Version Control](Details/version-control/01_Architecture.md) |
 | Artifact Signing | 秘密入力、署名、Manifest、配布Root | [成果物署名](Details/artifact-signing/01_Architecture.md) |
 | Checker | Generic Core、現行Profile、終了・回帰 | [Checker](Details/checker/01_Architecture.md) |
-| CROS／Project Operation | Federation、Projection、候補Lifecycle | [CROS](Details/cros/01_Architecture.md)、[Project Operation](Details/project-operation/01_Architecture.md) |
+| CROS／Project Operation | Federation、Projection、候補Lifecycle | [CROS](Details/cros/01_Architecture.md)、[Project Operation](./Details/domain-model/02_Activity_Context.md) |
 | Source／Tests | Canonical責務との対応、未実装、旧Owner残存 | `40_Develop/**`、`template/tools/**`、`07_Quality/**` |
 
 ## 6. Qualityへの引渡し

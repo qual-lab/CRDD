@@ -17,10 +17,10 @@ export {
   type OfficialAssetState,
   type OfficialInclusionRecord,
   verifyOfficialAssetInclusion,
-} from "./official-asset-governance.ts";
+} from "./decisions.ts";
 export {
   createFileOfficialAssetStore,
   executeOfficialAssetDecision,
   type OfficialAssetAuthorityPort,
   type OfficialAssetStore,
-} from "./official-asset-store.ts";
+} from "./store.ts";

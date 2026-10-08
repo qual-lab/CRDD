@@ -15,7 +15,7 @@
     {
       "symbolId": "checker.artifact-relation-adapter",
       "kind": "module",
-      "path": "src/adapters/artifact-relation.ts",
+      "path": "src/findings/artifact-issues.ts",
       "archIds": [
         "ARCH-000001",
         "ARCH-000002"
@@ -24,7 +24,7 @@
     {
       "symbolId": "checker.pipeline",
       "kind": "module",
-      "path": "src/pipeline/checker-pipeline.ts",
+      "path": "src/inspection/pipeline.ts",
       "archIds": [
         "ARCH-000001",
         "ARCH-000002"
@@ -33,7 +33,7 @@
     {
       "symbolId": "checker.finding-model",
       "kind": "module",
-      "path": "src/findings/finding-model.ts",
+      "path": "src/findings/collector.ts",
       "archIds": [
         "ARCH-000001"
       ]
@@ -41,7 +41,7 @@
     {
       "symbolId": "checker.rule-registry",
       "kind": "module",
-      "path": "src/rules/rule-registry.ts",
+      "path": "src/rules/registry.ts",
       "archIds": [
         "ARCH-000001",
         "ARCH-000002"
@@ -129,7 +129,7 @@
     {
       "symbolId": "checker.test.unit.checker-core",
       "kind": "test-suite",
-      "path": "tests/unit/checker-core.contract.test.ts",
+      "path": "tests/unit/inspection/pipeline.contract.test.ts",
       "qaIds": [
         "QA-000001"
       ],
@@ -145,7 +145,7 @@
     {
       "symbolId": "checker.test.unit.symbol-graph",
       "kind": "test-suite",
-      "path": "tests/unit/symbol-graph.contract.test.ts",
+      "path": "tests/unit/reality/symbol-graph.contract.test.ts",
       "qaIds": [
         "QA-000004"
       ],
@@ -162,7 +162,7 @@
     {
       "symbolId": "checker.domain-outcome-adapter",
       "kind": "file",
-      "path": "src/adapters/domain-outcome.ts",
+      "path": "src/findings/domain-outcome.ts",
       "archIds": [
         "ARCH-000001"
       ]
@@ -170,7 +170,7 @@
     {
       "symbolId": "checker.source.src.adapters.reality.test.catalog",
       "kind": "file",
-      "path": "src/adapters/reality-test-catalog.ts",
+      "path": "src/reality/test-catalog.ts",
       "archIds": [
         "ARCH-000001"
       ]
@@ -178,7 +178,7 @@
     {
       "symbolId": "checker.source.src.adapters.reality.traceability",
       "kind": "file",
-      "path": "src/adapters/reality-traceability.ts",
+      "path": "src/reality/symbol-traceability.ts",
       "archIds": [
         "ARCH-000001"
       ]

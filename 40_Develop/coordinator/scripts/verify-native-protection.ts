@@ -18,7 +18,7 @@ import { fileURLToPath } from "node:url";
 import {
   verifyRepositoryRoot,
   resolveVerifiedRepositoryRoot,
-} from "../../version-control/src/repository-location.ts";
+} from "../../version-control/src/repository/location.ts";
 
 /**
  * 試験境界のDirectory Identityを観測する。
@@ -117,8 +117,8 @@ async function runNativeProtection(): Promise<void> {
   if (presence(testsRoot) === "absent") fs.mkdirSync(testsRoot);
   nodeIdentity(testsRoot);
   assertNoPreviousNativeRuns(testsRoot);
-  const run = "native-protection-" + randomUUID();
-  const runRoot = testsRoot + "/" + run;
+  const verificationOperation = "native-protection-" + randomUUID();
+  const runRoot = testsRoot + "/" + verificationOperation;
   fs.mkdirSync(runRoot);
   nodeIdentity(runRoot);
   fs.writeFileSync(
@@ -126,13 +126,18 @@ async function runNativeProtection(): Promise<void> {
     JSON.stringify({
       contract: "crdd-coordinator/native-protection-probe-started",
       contractRevision: 1,
-      run,
+      run: verificationOperation,
       startedAt: new Date().toISOString(),
       status: "started",
     }) + "\n",
     { flag: "wx" },
   );
-  console.log(JSON.stringify({ event: "native_protection_started", run }));
+  console.log(
+    JSON.stringify({
+      event: "native_protection_started",
+      run: verificationOperation,
+    }),
+  );
   fs.mkdirSync(runRoot + "/tmp");
   const source =
     repository +
@@ -143,7 +148,7 @@ async function runNativeProtection(): Promise<void> {
   const buildRoot = crateRoot + "/target";
   nodeIdentity(crateRoot);
   if (presence(buildRoot) === "absent") fs.mkdirSync(buildRoot);
-  const buildBoundaryBefore = [crateRoot, buildRoot].map(nodeIdentity);
+  const previousBuildBoundaries = [crateRoot, buildRoot].map(nodeIdentity);
   const sources = [
     crateRoot + "/Cargo.toml",
     crateRoot + "/Cargo.lock",
@@ -270,7 +275,7 @@ async function runNativeProtection(): Promise<void> {
   );
   assert.deepEqual(
     [crateRoot, buildRoot].map(nodeIdentity),
-    buildBoundaryBefore,
+    previousBuildBoundaries,
   );
   const executableStat = fs.lstatSync(binary);
   assert.equal(
@@ -327,7 +332,7 @@ async function runNativeProtection(): Promise<void> {
     `${repository}/.crdd/tests`,
     runRoot,
   ];
-  const before = boundaries.map(nodeIdentity);
+  const previousEntries = boundaries.map(nodeIdentity);
   const fixtureNames = ["fixture", "fixture-renamed"].map((name) =>
     path.join(runRoot, name),
   );
@@ -345,7 +350,7 @@ async function runNativeProtection(): Promise<void> {
     {
       case: "root_mismatch",
       root: repository,
-      run,
+      run: verificationOperation,
       exe: binary,
       cwd: repository,
     },
@@ -359,11 +364,17 @@ async function runNativeProtection(): Promise<void> {
     {
       case: "exe_mismatch",
       root: runRoot,
-      run,
+      run: verificationOperation,
       exe: binary + ".other",
       cwd: repository,
     },
-    { case: "cwd_mismatch", root: runRoot, run, exe: binary, cwd: runRoot },
+    {
+      case: "cwd_mismatch",
+      root: runRoot,
+      run: verificationOperation,
+      exe: binary,
+      cwd: runRoot,
+    },
   ];
   for (const guard of guardCases) {
     /**
@@ -400,7 +411,7 @@ async function runNativeProtection(): Promise<void> {
       );
     }
     const attempt = executeNativeProtectionGuard();
-    const rejected =
+    const isRejected =
       attempt.error === undefined &&
       attempt.status === 101 &&
       /running 1 test/u.test(attempt.stdout) &&
@@ -408,9 +419,13 @@ async function runNativeProtection(): Promise<void> {
     const fixtureAbsent = fixtureNames
       .map(presence)
       .every((value) => value === "absent");
-    guardResults.push({ case: guard.case, rejected, fixtureAbsent });
-    assert.equal(rejected && fixtureAbsent, true, "native_guard_unconfirmed");
-    assert.deepEqual(boundaries.map(nodeIdentity), before);
+    guardResults.push({
+      case: guard.case,
+      rejected: isRejected,
+      fixtureAbsent,
+    });
+    assert.equal(isRejected && fixtureAbsent, true, "native_guard_unconfirmed");
+    assert.deepEqual(boundaries.map(nodeIdentity), previousEntries);
   }
   /**
    * 固定ゼロケース反例だけを同期実行する。
@@ -458,7 +473,7 @@ async function runNativeProtection(): Promise<void> {
       stdio: ["ignore", "pipe", "pipe"],
       env: {
         ...process.env,
-        CRDD_NATIVE_PROTECTION_RUN: run,
+        CRDD_NATIVE_PROTECTION_RUN: verificationOperation,
         CRDD_NATIVE_PROTECTION_ROOT: runRoot,
         CRDD_NATIVE_PROTECTION_EXE: binary,
         TEMP: `${runRoot}/tmp`,
@@ -466,23 +481,23 @@ async function runNativeProtection(): Promise<void> {
       },
     },
   );
-  let stopped = false;
-  let timedOut = false;
+  let isStopped = false;
+  let isTimedOut = false;
   const stop = () => {
-    stopped = true;
+    isStopped = true;
     child.kill();
   };
   process.once("SIGINT", stop);
   process.once("SIGTERM", stop);
   const deadline = setTimeout(() => {
-    timedOut = true;
+    isTimedOut = true;
     stop();
   }, 30_000);
   let bytes = 0;
   let output = "";
   let outputExceeded = false;
-  let errorObserved = false;
-  let exitObserved = false;
+  let isErrorObserved = false;
+  let isExitObserved = false;
   let exitCode: number | null = null;
   let exitSignal: NodeJS.Signals | null = null;
   for (const stream of [child.stdout, child.stderr]) {
@@ -497,30 +512,30 @@ async function runNativeProtection(): Promise<void> {
     });
   }
   child.on("error", () => {
-    errorObserved = true;
+    isErrorObserved = true;
   });
   child.on("exit", (code, signal) => {
-    exitObserved = true;
+    isExitObserved = true;
     exitCode = code;
     exitSignal = signal;
   });
   await new Promise<void>((resolve) => {
     child.once("close", () => resolve());
   });
-  const closeObserved = true;
+  const isCloseObserved = true;
   clearTimeout(deadline);
   process.removeListener("SIGINT", stop);
   process.removeListener("SIGTERM", stop);
-  const matching = output
+  const matchingEntries = output
     .split(/\r?\n/u)
     .filter((line) =>
       line.startsWith('{"contract":"crdd-native/terminal-protection-fixture"'),
     );
   let native: unknown = null;
   let parseConfirmed = false;
-  if (!outputExceeded && matching.length === 1) {
+  if (!outputExceeded && matchingEntries.length === 1) {
     try {
-      native = JSON.parse(matching[0] ?? "");
+      native = JSON.parse(matchingEntries[0] ?? "");
       parseConfirmed = true;
     } catch {
       /* No raw Native output is emitted. */
@@ -610,7 +625,7 @@ async function runNativeProtection(): Promise<void> {
     "released_worker",
     "cleanup",
   ]);
-  const nativeSupported =
+  const isNativeSupported =
     parseConfirmed &&
     typeof native === "object" &&
     native !== null &&
@@ -619,7 +634,7 @@ async function runNativeProtection(): Promise<void> {
     "revision" in native &&
     native.revision === 2 &&
     "run" in native &&
-    native.run === run &&
+    native.run === verificationOperation &&
     "status" in native &&
     (native.status === "observed" || native.status === "failed_retained") &&
     "reason" in native &&
@@ -641,7 +656,7 @@ async function runNativeProtection(): Promise<void> {
     "strictDeadlineClaimed" in native &&
     native.strictDeadlineClaimed === false &&
     Object.keys(native).length === 12;
-  const nativeRecord = nativeSupported
+  const nativeRecord = isNativeSupported
     ? (native as {
         status: "observed" | "failed_retained";
         reason: string;
@@ -667,55 +682,55 @@ async function runNativeProtection(): Promise<void> {
     nativeRecord.reason !== "fixed_fixture_verified" &&
     !nativeRecord.fixtureHandleClosuresConfirmed &&
     !nativeRecord.separateProcessProtectionVerified;
-  const after = boundaries.map(nodeIdentity);
-  const fixturePresence = fixtureNames.map(presence);
-  const sourceInputsUnchanged = areInputsUnchanged(sourceInputHashes);
+  const subsequentEntries = boundaries.map(nodeIdentity);
+  const fixturePresences = fixtureNames.map(presence);
+  const isSourceInputsUnchanged = areInputsUnchanged(sourceInputHashes);
   const caseCountConfirmed =
     /running 1 test/u.test(output) &&
     /test result: ok\. 1 passed; 0 failed;/u.test(output);
-  const inputUnchanged =
+  const isInputUnchanged =
     ownerSha256 ===
       createHash("sha256").update(fs.readFileSync(ownerFile)).digest("hex") &&
-    sourceInputsUnchanged &&
+    isSourceInputsUnchanged &&
     sourceSha256 ===
       createHash("sha256").update(fs.readFileSync(source)).digest("hex") &&
     binarySha256 ===
       createHash("sha256").update(fs.readFileSync(binary)).digest("hex");
-  const boundaryUnchanged =
-    JSON.stringify(before) === JSON.stringify(after) &&
-    JSON.stringify(buildBoundaryBefore) ===
+  const isBoundaryUnchanged =
+    JSON.stringify(previousEntries) === JSON.stringify(subsequentEntries) &&
+    JSON.stringify(previousBuildBoundaries) ===
       JSON.stringify([crateRoot, buildRoot].map(nodeIdentity));
-  const completed =
+  const isCompleted =
     nativeConfirmed &&
     caseCountConfirmed &&
-    !stopped &&
-    !timedOut &&
-    exitObserved &&
-    closeObserved &&
+    !isStopped &&
+    !isTimedOut &&
+    isExitObserved &&
+    isCloseObserved &&
     exitCode === 0 &&
     exitSignal === null &&
-    !errorObserved &&
+    !isErrorObserved &&
     !outputExceeded &&
-    inputUnchanged &&
-    boundaryUnchanged &&
-    fixturePresence.every((value) => value === "absent");
+    isInputUnchanged &&
+    isBoundaryUnchanged &&
+    fixturePresences.every((value) => value === "absent");
   const result = {
     contract: "crdd-coordinator/native-protection-probe-result",
     contractRevision: 3,
     ownerSha256,
     guardResults,
     zeroCaseRejectedAsPass: true,
-    run,
+    run: verificationOperation,
     startedAt: new Date(started).toISOString(),
     completedAt: new Date().toISOString(),
     caseCountConfirmed,
-    timedOut,
-    stopped,
+    timedOut: isTimedOut,
+    stopped: isStopped,
     sourceInputs: sourceInputHashes.map(({ file, sha256 }) => ({
       path: path.relative(repository, file).replaceAll("\\", "/"),
       sha256,
     })),
-    status: completed ? "observed" : "failed_or_unconfirmed",
+    status: isCompleted ? "observed" : "failed_or_unconfirmed",
     nativeObservation:
       nativeRecord !== null && (nativeConfirmed || failureConfirmed)
         ? {
@@ -735,17 +750,17 @@ async function runNativeProtection(): Promise<void> {
     nativeFailureConfirmed: failureConfirmed,
     sourceSha256,
     binarySha256,
-    inputUnchanged,
-    nodeBoundaryUnchanged: boundaryUnchanged,
+    inputUnchanged: isInputUnchanged,
+    nodeBoundaryUnchanged: isBoundaryUnchanged,
     nativeAndNodeIdentitiesEquated: false,
-    exitObserved,
-    closeObserved,
+    exitObserved: isExitObserved,
+    closeObserved: isCloseObserved,
     exitCode,
     exitSignal,
-    errorObserved,
+    errorObserved: isErrorObserved,
     outputExceeded,
     outputBytes: bytes,
-    fixturePresence,
+    fixturePresence: fixturePresences,
     durationMilliseconds: Date.now() - started,
     rawNativeOutputReported: false,
     productionIntegrationVerified: false,
@@ -758,7 +773,7 @@ async function runNativeProtection(): Promise<void> {
     { flag: "wx" },
   );
   console.log(JSON.stringify(result));
-  process.exitCode = completed ? 0 : 2;
+  process.exitCode = isCompleted ? 0 : 2;
 }
 
 if (path.resolve(process.argv[1] ?? "") === fileURLToPath(import.meta.url)) {

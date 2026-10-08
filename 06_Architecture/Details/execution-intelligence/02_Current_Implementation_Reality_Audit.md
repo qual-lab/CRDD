@@ -72,7 +72,7 @@
 
 実行知（Execution Intelligence）は、CRDDへ明示的に結合した仕事について、実行時に観測できた事実をProject、Milestone、Objective、TaskおよびAttemptへ接続し、改善判断に使える形で保持する。Coordinator専用品ではなく、AI APIを利用するTypeScriptアプリケーションや別Runtimeから組み込めるProvider非依存ライブラリを第一の利用境界とする。LLM監視製品、会話履歴、推論全文、Project Stateの第二正本または自動最適化機構は作らない。
 
-[進捗管理](../../../15_Progress.md#execution-intelligence-observation)がCRDD共通の意味と評価境界を所有する。本書は実行知そのもののEvent、保存、集約、保持、利用側Adapterおよび完成境界を所有する。実装は独立した[公開入口](../../../40_Develop/execution-intelligence/src/index.ts)、[共通Eventと集約](../../../40_Develop/execution-intelligence/src/core/execution-intelligence.ts)、[Repository-local Store](../../../40_Develop/execution-intelligence/src/store/execution-intelligence-store.ts)へ分離する。Coordinatorは[専用Adapter](../../../40_Develop/project-runtime/src/task/execution-intelligence-adapter.ts)から接続し、共通SchemaへSingle Task Runtime固有の意味を持ち込まない。
+[進捗管理](../../../15_Progress.md#execution-intelligence-observation)がCRDD共通の意味と評価境界を所有する。本書は実行知そのもののEvent、保存、集約、保持、利用側Adapterおよび完成境界を所有する。実装は独立した[公開入口](../../../40_Develop/execution-intelligence/src/index.ts)、[共通Eventと集約](../../../40_Develop/execution-intelligence/src/record/event-and-summary.ts)、[Repository-local Store](../../../40_Develop/execution-intelligence/src/store/events.ts)へ分離する。Coordinatorは[専用Adapter](../../../40_Develop/orchestrator/src/task/execution-intelligence-adapter.ts)から接続し、共通SchemaへSingle Task Runtime固有の意味を持ち込まない。
 
 ```text
 Coordinator / MCP / HTTP / 外部AI APIを使う採用Repository
@@ -142,12 +142,12 @@ v0.20の最小Eventは、一つのTask Attemptが終了した観測である。
 
 観測値は`observed`、`not_observed`、`not_applicable`のいずれかで表す。`observed`は値とSource、その他は理由を必須とする。利用量は一括した観測にせず、入力Token、出力Token、Cache読取りToken、Cache書込みTokenおよび費用／Creditの各fieldへ同じ三状態を適用する。費用／Creditは非負の量と単位を組にし、単位が異なる値を集約側で暗黙変換しない。未知field、Raw Provider出力、Prompt、Response、Credential、Capabilityおよび内部推論はEvent Schemaへ入れない。
 
-RoleとProviderは特定のCoordinatorまたはProvider名へ固定せず、安定した識別子として検証する。各Adapterは実効値を観測できた場合だけ`observed`を構成する。現行Coordinator Adapterは、Single Task結果から検証済みの実効Executor Providerを取得できる場合だけ記録する。Model、Token、費用および人間時間はまだ返さないため未観測とする。要求されたProviderを実効Providerとして代用しない。入力戦略はProject Runtimeが実際に構成したSingle Task Request契約への参照、時間はAttempt委譲の前後で観測した値だけを記録する。
+RoleとProviderは特定のCoordinatorまたはProvider名へ固定せず、安定した識別子として検証する。各Adapterは実効値を観測できた場合だけ`observed`を構成する。現行Coordinator Adapterは、Single Task結果から検証済みの実効Executor Providerを取得できる場合だけ記録する。Model、Token、費用および人間時間はまだ返さないため未観測とする。要求されたProviderを実効Providerとして代用しない。入力戦略はOrchestratorが実際に構成したSingle Task Request契約への参照、時間はAttempt委譲の前後で観測した値だけを記録する。
 
 ## 3. 発行と失敗境界
 
 ```text
-Project RuntimeがTask Attemptを予約
+OrchestratorがTask Attemptを予約
   ↓
 Single Task Runtimeへ委譲
   ↓
@@ -184,7 +184,7 @@ Event内容の署名、共有Database、全Eventのグローバル順序およ�
 
 改善候補は`proposal`、`authorityConferred: false`、`automaticChangeAllowed: false`を必須とする。現在は非完了Attemptの調査とProvider Identity観測の改善だけを候補化する。Provider順位、Runtime Rule変更、Prompt変更、正本更新または外部Effectは自動発行しない。
 
-限定分散実行の評価では、対象Project／Milestone、予定Task集合、Task Attempt EventおよびProject Runtimeが観測した統合結果を同じ評価Identityへ結合する。全Taskの成功を統合受入へ読み替えず、統合結果と予定TaskのAttemptがともに観測できた場合だけ評価を完了する。別Project、別Milestone、予定外Task、重複Eventまたは未知fieldは混在したまま集約しない。Provider別件数は実効Providerを観測できたAttemptだけから算出し、欠測を推定配分しない。
+限定分散実行の評価では、対象Project／Milestone、予定Task集合、Task Attempt EventおよびOrchestratorが観測した統合結果を同じ評価Identityへ結合する。全Taskの成功を統合受入へ読み替えず、統合結果と予定TaskのAttemptがともに観測できた場合だけ評価を完了する。別Project、別Milestone、予定外Task、重複Eventまたは未知fieldは混在したまま集約しない。Provider別件数は実効Providerを観測できたAttemptだけから算出し、欠測を推定配分しない。
 
 完成時間、人間の実作業時間、Review Loop、是正、再試行、統合競合および統合後Findingは、実測できた値とSourceを持つ観測だけを使う。未観測値は0へ補正しない。評価は非Authorityであり、統合受入、再実行、Provider変更、追加課金または正本更新を生成しない。
 
@@ -202,4 +202,4 @@ v0.20はEventの保持状態を読み取れるため、Runtime外で非Authority
 
 共通コンポーネントのSource、公開入口、保存契約またはtoolchainが変わった場合は、試験台帳に登録した利用側契約と利用側の静的検査も同じ自動回帰計画へ含める。利用側の静的検査は、実行する試験levelを限定した場合も除外しない。利用側契約試験自体は指定levelへ従い、指定外の試験まで実行しない。実行知の静的検査は自身のpackageと固定lockfileが所有するtoolchainで実行し、Coordinatorの開発依存へfallbackしない。利用側は共通コンポーネントの内部Pathではなく公開入口だけを使用する。登録外の新しいProducer Pathは、既知の利用側契約全件へ安全側に閉じる。実Provider、Token／費用取得、人間時間、品質受入、共有Store、Viewer UI、運用成果および事業成果は未接続であり、本変更の完成から推定しない。
 
-v0.20の本変更が成立するのは、共通Event、Git管理外Store、欠測を保持する集約、非Authorityな改善候補、Project Runtime発行、および清掃候補生成・物理削除が公開されていないことが、決定論的な試験と独立レビューを通過した場合である。
+v0.20の本変更が成立するのは、共通Event、Git管理外Store、欠測を保持する集約、非Authorityな改善候補、Orchestrator発行、および清掃候補生成・物理削除が公開されていないことが、決定論的な試験と独立レビューを通過した場合である。

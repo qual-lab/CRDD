@@ -11,13 +11,13 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../src/storage/index.ts";
-import { requireReadyRepositoryRuntimeDataArea } from "../../src/repository/index.ts";
+import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../src/storage/ensure-area.ts";
+import { requireReadyRepositoryRuntimeDataArea } from "../../src/repository/require-storage-area.ts";
 import {
   readOrchestratorConfig,
   readExecutionIntelligenceConfig,
   readCoordinatorConfig,
-} from "../../src/configuration/index.ts";
+} from "../../src/configuration/read-tool-config.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 
 /**
@@ -130,7 +130,7 @@ test("保持設定は読取り専用で閉じたSchemaと真正不存在を区�
   const file = path.join(config, "orchestrator.json");
   const eiFile = path.join(config, "execution-intelligence.json");
   const coordinatorFile = path.join(config, "coordinator.json");
-  const retiredFile = path.join(config, "project-runtime.json");
+  const retiredFile = path.join(config, "unregistered-tool.json");
   fs.writeFileSync(retiredFile, "retired_config_must_not_be_read");
   const currentDefault = readConfig(verified.capability);
   assert.equal(currentDefault.status, "ready");

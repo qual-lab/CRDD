@@ -11,49 +11,49 @@
 export type {
   CredentialAdministration,
   CredentialAdministrationResult,
-} from "./credential-administration.ts";
+} from "./credential/administration.ts";
 export {
   createDefaultWorkbenchAiProfileSurface,
   createWorkbenchAiProfileSurface,
   type WorkbenchAiProfileObservation,
   type WorkbenchAiProfileSurface,
-} from "./ai-profile-surface.ts";
+} from "./ai-profile/projection.ts";
 export type {
-  WorkbenchAiRequestApplication,
+  WorkbenchAiRequests,
   WorkbenchAiRequestCommand,
   WorkbenchAiRequestMode,
   WorkbenchAiResultItem,
   WorkbenchAiRequestSnapshot,
   WorkbenchAiRequestStartResult,
   WorkbenchCandidateActionResult,
-  WorkbenchCandidateApplication,
+  WorkbenchCandidateActions,
   WorkbenchCandidateReview,
   WorkbenchCandidateReviewResult,
-} from "./ai-request.ts";
+} from "./ai-request/types.ts";
 export {
-  createRepositoryWorkbenchRuntimeActivityApplication,
-  type WorkbenchRuntimeActivityApplication,
+  createRepositoryWorkbenchActivityReader,
+  type WorkbenchActivityReader,
   type WorkbenchRuntimeActivityObservation,
   type WorkbenchRuntimeActivityPageRequest,
   type WorkbenchRuntimeActivityProjection,
   type WorkbenchRuntimeEventProjection,
-} from "./runtime-activity.ts";
+} from "./activity/observe.ts";
 export {
   readWorkbenchOwnerArtifact,
   readWorkbenchOwnerArtifactCatalog,
   type WorkbenchOwnerArtifact,
   type WorkbenchOwnerArtifactCatalog,
-} from "./owner-artifact-surface.ts";
-export type { WorkbenchProjectPlanObservation } from "./project-plan-surface.ts";
-export type { WorkbenchQualityObservation } from "./quality-surface.ts";
+} from "./owner-artifact/read.ts";
+export type { WorkbenchProjectPlanObservation } from "./project-plan/types.ts";
+export type { WorkbenchQualityObservation } from "./quality/types.ts";
 export {
   type WorkbenchHandle,
   type WorkbenchStartRequest,
   startWorkbench,
-} from "./workbench-server.ts";
+} from "./server.ts";
 export {
   readWorkbenchProjectSurface,
   type WorkbenchCapabilityState,
   type WorkbenchProjectSurface,
   type WorkbenchRecordCollection,
-} from "./project-surface.ts";
+} from "./project/surface.ts";

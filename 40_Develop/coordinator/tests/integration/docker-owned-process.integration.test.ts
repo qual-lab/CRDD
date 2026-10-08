@@ -24,7 +24,7 @@ import {
   startOwnedWindowsProcessTreeTermination,
   STDERR_LIMIT_BYTES,
   STDOUT_LIMIT_BYTES,
-} from "../../src/docker-runtime/docker-owned-process.ts";
+} from "../../src/docker-execution/owned-process.ts";
 import {
   createOwnedProcessTreeFixture,
   ownedProcessWorker,

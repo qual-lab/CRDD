@@ -16,7 +16,7 @@ import {
   settleTemporaryOperation,
   type TemporaryOperationCapability,
   type TemporaryOperationRecoveryReference,
-} from "../../domain-model/src/storage/index.ts";
+} from "../../domain-model/src/index.ts";
 import {
   materializeFixedSnapshotCandidate,
   verifyCandidateOutputDirectory,
@@ -25,11 +25,11 @@ import { gitFixedSnapshotAdapter } from "../../version-control/src/git/fixed-sna
 import {
   resolveVerifiedRepositoryRoot,
   type VerifiedRepositoryRoot,
-} from "../../version-control/src/repository-location.ts";
+} from "../../version-control/src/repository/location.ts";
 import { PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH } from "../src/diagnostics/platform-access-release.ts";
-import { snapshotPlainRecord } from "../../domain-model/src/plain-data/index.ts";
-import { inspectRuntimeDistributionSigningFilesCandidate } from "../src/platform-access/platform-provisioner-package-filesystem.ts";
-import { inspectPlatformProvisionerRuntimeGitProvenanceCandidate } from "../src/platform-access/platform-provisioner-release-identity.ts";
+import { snapshotPlainRecord } from "../../domain-model/src/index.ts";
+import { inspectRuntimeDistributionSigningFilesCandidate } from "../src/platform-access/package-verification.ts";
+import { inspectPlatformProvisionerRuntimeGitProvenanceCandidate } from "../src/platform-access/release-identity.ts";
 
 const SESSION_BRAND: unique symbol = Symbol("release-runtime-preparation");
 /**
@@ -114,7 +114,7 @@ export function prepareReleaseRuntime(
       recoveryReference: null,
       session: null,
     });
-  const selected = [
+  const selectedFiles = [
     ...before.files.map((file) => file.path),
     PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
   ].sort();
@@ -148,7 +148,7 @@ export function prepareReleaseRuntime(
       fixedCommitTree.commit,
       operation.capability,
       output.capability,
-      selected,
+      selectedFiles,
       null,
       gitFixedSnapshotAdapter,
     );
@@ -156,7 +156,7 @@ export function prepareReleaseRuntime(
       materialized?.status !== "materialized" ||
       materialized.baseRevisionIdentity !== fixedCommitTree.commit ||
       materialized.baseSnapshotIdentity !== fixedCommitTree.tree ||
-      materialized.fileCount !== selected.length
+      materialized.fileCount !== selectedFiles.length
     )
       throw new Error("materialization_invalid");
     const after = inspectRuntimeDistributionSigningFilesCandidate(
@@ -172,7 +172,7 @@ export function prepareReleaseRuntime(
       JSON.stringify(after.files) !== JSON.stringify(before.files) ||
       after.packageContentRootSha256 !== before.packageContentRootSha256 ||
       fixedAfter.nativeHash !== provenance.nativeHash ||
-      fixedAfter.fileCount !== selected.length
+      fixedAfter.fileCount !== selectedFiles.length
     )
       throw new Error("prepared_content_invalid");
     return Object.freeze({
@@ -183,7 +183,7 @@ export function prepareReleaseRuntime(
       crddCommit: fixedCommitTree.commit,
       crddTree: fixedCommitTree.tree,
       runtimeContentRootSha256: after.packageContentRootSha256,
-      fileCount: selected.length,
+      fileCount: selectedFiles.length,
       nativeHash: fixedAfter.nativeHash,
       runtimeAuthorityConferred: false,
     });
@@ -248,15 +248,15 @@ export function recoverAppliedReleaseRuntimePreparation(
   );
   if (resumed.status !== "completed") return resumed;
   try {
-    const relative = [
+    const relativePaths = [
       "template",
       "tools",
       "coordinator",
       "coordinator-package-manifest.json",
     ];
     const paths = [
-      path.join(resumed.workDirectory, ...relative),
-      path.join(repository, ...relative),
+      path.join(resumed.workDirectory, ...relativePaths),
+      path.join(repository, ...relativePaths),
     ];
     const hashes: string[] = [];
     for (const target of paths) {

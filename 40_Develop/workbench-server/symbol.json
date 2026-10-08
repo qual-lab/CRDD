@@ -1,7 +1,7 @@
 {
   "contract": "crdd/reality-symbol-manifest",
   "contractRevision": 1,
-  "subsystem": "workbench",
+  "subsystem": "workbench-server",
   "symbols": [
     {
       "symbolId": "workbench.test.integration.node-dependency-closure",
@@ -26,7 +26,7 @@
     {
       "symbolId": "workbench.server",
       "kind": "file",
-      "path": "src/workbench-server.ts",
+      "path": "src/server.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000012",
@@ -37,7 +37,7 @@
     {
       "symbolId": "workbench.presentation.react-shell",
       "kind": "file",
-      "path": "src/presentation/workbench-shell.ts",
+      "path": "src/browser/shell.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000012",
@@ -47,7 +47,7 @@
     {
       "symbolId": "workbench.presentation.browser-client",
       "kind": "file",
-      "path": "client/entry-client.tsx",
+      "path": "src/browser/entry-client.tsx",
       "archIds": [
         "ARCH-000012"
       ]
@@ -55,7 +55,7 @@
     {
       "symbolId": "workbench.presentation.browser-application",
       "kind": "file",
-      "path": "client/workbench-app.tsx",
+      "path": "src/browser/app.tsx",
       "archIds": [
         "ARCH-000005",
         "ARCH-000012",
@@ -66,7 +66,7 @@
     {
       "symbolId": "workbench.presentation.client-model",
       "kind": "file",
-      "path": "src/presentation/workbench-client-model.ts",
+      "path": "src/browser/client-model.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000012",
@@ -76,7 +76,7 @@
     {
       "symbolId": "workbench.presentation.components",
       "kind": "file",
-      "path": "src/presentation/workbench-components.ts",
+      "path": "src/browser/components.ts",
       "archIds": [
         "ARCH-000012",
         "ARCH-000017"
@@ -85,7 +85,7 @@
     {
       "symbolId": "workbench.application.project-surface",
       "kind": "file",
-      "path": "src/project-surface.ts",
+      "path": "src/project/surface.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000012"
@@ -94,7 +94,7 @@
     {
       "symbolId": "workbench.application.credential-administration",
       "kind": "file",
-      "path": "src/credential-administration.ts",
+      "path": "src/credential/administration.ts",
       "archIds": [
         "ARCH-000013"
       ]
@@ -102,7 +102,7 @@
     {
       "symbolId": "workbench.application.ai-profile-surface",
       "kind": "file",
-      "path": "src/ai-profile-surface.ts",
+      "path": "src/ai-profile/projection.ts",
       "archIds": [
         "ARCH-000010",
         "ARCH-000012"
@@ -111,7 +111,7 @@
     {
       "symbolId": "workbench.application.ai-request",
       "kind": "file",
-      "path": "src/ai-request.ts",
+      "path": "src/ai-request/types.ts",
       "archIds": [
         "ARCH-000010",
         "ARCH-000015"
@@ -120,7 +120,7 @@
     {
       "symbolId": "workbench.application.runtime-activity",
       "kind": "file",
-      "path": "src/runtime-activity.ts",
+      "path": "src/activity/observe.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000007",
@@ -130,7 +130,7 @@
     {
       "symbolId": "workbench.application.owner-artifact-surface",
       "kind": "file",
-      "path": "src/owner-artifact-surface.ts",
+      "path": "src/owner-artifact/read.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000012",
@@ -140,7 +140,7 @@
     {
       "symbolId": "workbench.application.project-plan-surface",
       "kind": "file",
-      "path": "src/project-plan-surface.ts",
+      "path": "src/project-plan/types.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000012"
@@ -149,7 +149,7 @@
     {
       "symbolId": "workbench.application.quality-surface",
       "kind": "file",
-      "path": "src/quality-surface.ts",
+      "path": "src/quality/types.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000012"
@@ -158,7 +158,7 @@
     {
       "symbolId": "workbench.adapter.remote-topic-meeting",
       "kind": "file",
-      "path": "src/remote-topic-meeting.ts",
+      "path": "src/topic-meeting/mcp-adapter.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000006",
@@ -169,7 +169,7 @@
     {
       "symbolId": "workbench.cli",
       "kind": "file",
-      "path": "bin/workbench.ts",
+      "path": "bin/workbench-server.ts",
       "archIds": [
         "ARCH-000012"
       ]

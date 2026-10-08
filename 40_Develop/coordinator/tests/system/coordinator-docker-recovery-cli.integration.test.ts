@@ -6,7 +6,7 @@
  * @trace PRL-ST-001
  * @level ST
  * @scope coordinator、docker、recovery、cli
- * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Orchestrator→Execution→受入
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -18,7 +18,7 @@ import { pathToFileURL } from "node:url";
 import { withUnsignedRuntimeFixture } from "../support/unsigned-runtime-fixture.ts";
 import { dispatchDockerDesktopRepairDoctorCommand } from "../../src/diagnostics/docker-desktop-repair-doctor-dispatch.ts";
 import { renderDockerRecoveryDoctorReport } from "../../src/diagnostics/docker-recovery-command-report.ts";
-import { inspectDockerRecoveryRootSnapshotWithLock } from "../../src/docker-runtime/docker-recovery-runtime-internal.ts";
+import { inspectDockerRecoveryRootSnapshotWithLock } from "../../src/docker-execution/recovery-lifecycle.ts";
 
 const recoveryId = `docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".repeat(64)}`;
 const hostRecoveryId = `host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc.${"a".repeat(64)}`;

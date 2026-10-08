@@ -11,7 +11,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { createFilesystemStoreRoot } from "../../../domain-model/src/storage/index.ts";
+import { createFilesystemStoreRoot } from "../../../domain-model/src/index.ts";
 import {
   createFileOfficialAssetStore,
   executeOfficialAssetDecision,

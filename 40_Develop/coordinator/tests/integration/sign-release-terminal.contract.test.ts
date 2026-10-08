@@ -389,8 +389,44 @@ test("画面保持は既存Listenerを保全しraw modeを変えない", async (
       rawModeCalls += 1;
     },
   });
+  /**
+   * 既存data ListenerのIdentityを試験用に保持する。
+   *
+   * @responsibility 画面保持処理が既存Listenerを除去しないことを確認する。
+   * @trace AIT-IT-015
+   * @precondition fixtureのstreamのdataへこの固定関数を登録する。
+   * @stimulus 署名終了後の画面保持処理を実行しEnterを入力する。
+   * @observation 終了後のlisteners("data")から関数Identityを取得する。
+   * @oracle 同じ登録済み関数が残り、新しいListenerは残らない。
+   * @cleanup t.afterのfixture.disposeで試験所有streamを回収する。
+   * @boundary 画面保持処理と既存streamのdata Listener集合。
+   */
   const existingDataListener = () => {};
+  /**
+   * 既存end ListenerのIdentityを試験用に保持する。
+   *
+   * @responsibility 画面保持処理が既存Listenerを除去しないことを確認する。
+   * @trace AIT-IT-015
+   * @precondition fixtureのstreamのendへこの固定関数を登録する。
+   * @stimulus 署名終了後の画面保持処理を実行しEnterを入力する。
+   * @observation 終了後のlisteners("end")から関数Identityを取得する。
+   * @oracle 同じ登録済み関数が残り、新しいListenerは残らない。
+   * @cleanup t.afterのfixture.disposeで試験所有streamを回収する。
+   * @boundary 画面保持処理と既存streamのend Listener集合。
+   */
   const existingEndListener = () => {};
+  /**
+   * 既存error ListenerのIdentityを試験用に保持する。
+   *
+   * @responsibility 画面保持処理が既存Listenerを除去しないことを確認する。
+   * @trace AIT-IT-015
+   * @precondition fixtureのstreamのerrorへこの固定関数を登録する。
+   * @stimulus 署名終了後の画面保持処理を実行しEnterを入力する。
+   * @observation 終了後のlisteners("error")から関数Identityを取得する。
+   * @oracle 同じ登録済み関数が残り、新しいListenerは残らない。
+   * @cleanup t.afterのfixture.disposeで試験所有streamを回収する。
+   * @boundary 画面保持処理と既存streamのerror Listener集合。
+   */
   const existingErrorListener = () => {};
   fixture.input.on("data", existingDataListener);
   fixture.input.on("end", existingEndListener);
@@ -459,6 +495,18 @@ for (const stage of [
       },
     });
     t.after(() => failingOutput.destroy());
+    /**
+     * 非同期出力エラーの既存通知回数を観測する。
+     *
+     * @responsibility 既存Listenerを保全し、出力エラーを通知できることを確認する。
+     * @trace AIT-IT-015
+     * @precondition errorNotificationsを0にしfailingOutputへ登録する。
+     * @stimulus 各出力段階に非同期errorを発生させ画面保持の終了を待つ。
+     * @observation errorNotifications、処理結果と既存Listener残存を取得する。
+     * @oracle error通知は一回、既存Listenerを保持し、画面出力の失敗でCommandの元終了Codeを上書きしない。
+     * @cleanup t.afterでfailingOutput.destroyとfixture.disposeを実行する。
+     * @boundary 出力streamのerror通知と画面保持の終了処理。
+     */
     const existingErrorListener = () => {
       errorNotifications += 1;
     };

@@ -17,14 +17,14 @@ import {
   inspectGitCommitTreeCandidate,
   materializeGitCommitTreeCandidate as materializeVersionControlTree,
   readGitCommitFileCandidate,
-} from "../../../version-control/src/git/object-reader.ts";
+} from "../../../version-control/src/git/commit-tree.ts";
 import { gitFixedSnapshotAdapter } from "../../../version-control/src/git/fixed-snapshot-adapter.ts";
 import {
   materializeFixedSnapshotCandidate,
   verifyCandidateOutputDirectory,
 } from "../../../version-control/src/fixed-snapshot.ts";
-import { resolveRepositoryGitLayout } from "../../../version-control/src/git/repository-layout.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/repository-location.ts";
+import { resolveRepositoryGitLayout } from "../../../version-control/src/git/layout.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/repository/location.ts";
 import {
   cleanupOwnedOperationDirectories,
   createOwnedMountCapability,
@@ -32,12 +32,12 @@ import {
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
   verifyOwnedOperationManagementMountBinding,
-} from "../../src/host-runtime/execution-environment.ts";
+} from "../../src/host-execution/operation-workspace-lifecycle.ts";
 import {
   bindRuntimeOwnedRepositoryOperation,
   borrowRuntimeOwnedRepositorySource,
   inspectRepositoryRevisionCandidate,
-} from "../../src/repository-operation/repository-operation-runtime.ts";
+} from "../../src/repository-operation/binding.ts";
 import { containsRecognizedSecretMaterial } from "../../src/authority/secret-material-policy.ts";
 import {
   createGitPackedObjectFixture,

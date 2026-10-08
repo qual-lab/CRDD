@@ -19,7 +19,7 @@ import test from "node:test";
 import {
   resolveCrosRuntimeRoots,
   type CrosRootInput,
-} from "../../../domain-model/src/repository/index.ts";
+} from "../../../domain-model/src/index.ts";
 import { readCrosSharedServerOperationalConfig } from "../../src/index.ts";
 
 /**
@@ -163,7 +163,7 @@ test("OS管理Configから検証済みShared Server Snapshotを構成する", ()
     const repository = config.exposureSnapshot.repositories[0];
     assert.notEqual(repository, undefined);
     if (repository !== undefined)
-      assert.notEqual(config.resolveTopicMeetingApplication(repository), null);
+      assert.notEqual(config.resolveTopicMeetingAccess(repository), null);
   } finally {
     rmSync(base, { recursive: true, force: true });
   }

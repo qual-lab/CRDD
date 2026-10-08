@@ -16,8 +16,8 @@ import {
   parseReleaseCandidateArguments,
 } from "../../scripts/prepare-release-candidate.ts";
 
-const COMMIT = "a".repeat(40);
-const TREE = "b".repeat(40);
+const commit = "a".repeat(40);
+const tree = "b".repeat(40);
 const RECOVERY = Object.freeze({
   operationId: "11111111-1111-4111-8111-111111111111",
   owner: "coordinator-release-runtime",
@@ -45,9 +45,9 @@ function parsed() {
     "--release-sequence",
     "2026100601",
     "--crdd-commit",
-    COMMIT,
+    commit,
     "--crdd-tree",
-    TREE,
+    tree,
     "--operation-id",
     RECOVERY.operationId,
     "--operation-identity",
@@ -76,8 +76,8 @@ function preparedResult() {
     session: SESSION,
     workDirectory: "C:\\repo\\.crdd\\tmp\\operation\\work",
     recoveryReference: RECOVERY,
-    crddCommit: COMMIT,
-    crddTree: TREE,
+    crddCommit: commit,
+    crddTree: tree,
     runtimeContentRootSha256: "c".repeat(64),
     fileCount: 10,
     nativeHash: "d".repeat(64),
@@ -106,9 +106,9 @@ function terminalArguments() {
     "--release-sequence",
     "2026100601",
     "--crdd-commit",
-    COMMIT,
+    commit,
     "--crdd-tree",
-    TREE,
+    tree,
     "--issued-at",
     "2026-10-06T00:00:00.000Z",
     "--no-expiry",
@@ -136,7 +136,7 @@ test("公開CLIは固定CommitとTreeを含む署名引数だけを受理する"
     accepted.signerArguments.includes("--operation-identity"),
     false,
   );
-  const valid = [
+  const validArguments = [
     ...accepted.signerArguments,
     "--operation-id",
     RECOVERY.operationId,
@@ -145,13 +145,18 @@ test("公開CLIは固定CommitとTreeを含む署名引数だけを受理する"
   ];
   assert.equal(parseReleaseCandidateArguments(accepted.signerArguments), null);
   assert.equal(
-    parseReleaseCandidateArguments([...valid, "--operation-id", "other"]),
+    parseReleaseCandidateArguments([
+      ...validArguments,
+      "--operation-id",
+      "other",
+    ]),
     null,
   );
   for (const invalid of ["../outside", "", "a".repeat(129)]) {
-    const input = [...valid];
-    input[input.indexOf("--operation-identity") + 1] = invalid;
-    assert.equal(parseReleaseCandidateArguments(input), null);
+    const inputArguments = [...validArguments];
+    inputArguments[inputArguments.indexOf("--operation-identity") + 1] =
+      invalid;
+    assert.equal(parseReleaseCandidateArguments(inputArguments), null);
   }
   assert.ok(parsed());
   assert.equal(
@@ -163,9 +168,9 @@ test("公開CLIは固定CommitとTreeを含む署名引数だけを受理する"
       "--release-sequence",
       "1",
       "--crdd-commit",
-      COMMIT,
+      commit,
       "--crdd-tree",
-      TREE,
+      tree,
       "--no-expiry",
     ]),
     null,
@@ -177,9 +182,9 @@ test("公開CLIは固定CommitとTreeを含む署名引数だけを受理する"
       "--release-sequence",
       "1",
       "--crdd-commit",
-      COMMIT,
+      commit,
       "--crdd-tree",
-      TREE,
+      tree,
       "--valid-for-days",
       "1",
       "--no-expiry",
@@ -212,8 +217,8 @@ test("準備した同じworkを署名と昇格へ渡し昇格後に片付ける"
       prepareRuntime: ((_root: unknown, input: unknown) => {
         calls.push("prepare");
         assert.deepEqual(input, {
-          commit: COMMIT,
-          tree: TREE,
+          commit: commit,
+          tree: tree,
           operationId: RECOVERY.operationId,
           identity: RECOVERY.identity,
         });

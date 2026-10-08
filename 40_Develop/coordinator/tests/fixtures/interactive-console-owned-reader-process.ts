@@ -1,3 +1,13 @@
+/**
+ * 所有Readerの取消と未完了入力を試験する。
+ *
+ * @packageDocumentation
+ * @responsibility 注入した読取りCallback・Bufferを保持し、取消後の応答と所有終了を観測する。
+ * @trace EST-ST-003
+ * @level ST
+ * @scope 所有対話Readerの取消
+ * @boundary 試験Adapter→Reader制御。実端末の秘密値は取得しない。
+ */
 import { readOwnedInteractiveConsoleLineOutcomeUsingAdapter } from "../../src/cli/interactive-console-reader.ts";
 
 let readBuffer: Buffer | null = null;

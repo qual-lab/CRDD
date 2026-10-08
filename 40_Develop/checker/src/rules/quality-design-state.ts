@@ -4,7 +4,7 @@
  * @responsibility normalizedStateを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000001
  */
-import type { CheckerRule } from "./rule-registry.ts";
+import type { CheckerRule } from "./registry.ts";
 
 /**
  * 状態を固定Schemaへ正規化する。

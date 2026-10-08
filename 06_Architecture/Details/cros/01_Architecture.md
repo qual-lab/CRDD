@@ -88,9 +88,9 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 担当責任者: Qual-Lab
 最終更新日: 2026-10-07
 関連:
-- [Project Operation Context](../project-operation/01_Architecture.md)
-- [Runtime Dataの目標Architecture](../runtime-data/01_Architecture.md)
-- [MCP Architecture](../mcp/01_Architecture.md)
+- [Project Operation Context](../domain-model/02_Activity_Context.md)
+- [Runtime Dataの目標Architecture](../domain-model/03_Repository_Storage.md)
+- [MCP Architecture](../mcp-server/01_Architecture.md)
 - [v0.22 Roadmap](../../../99_Roadmap/01_Roadmap.md#12-v0220--project運営複数repository)
 
 ## 1. 結論と対象
@@ -393,9 +393,9 @@ Caller由来のFilesystem PathをRepository Resolverの代替として受理し�
 
 同一Processの呼出しも毎回現在の認可を検証する。共通能力へRequest snapshotを固定した後、操作結果、保存確定、Transport response、取消・joinを別に観測する。response喪失時は既存操作Identityと結果照会へ戻り、Credential発行や本文作成を自動再実行しない。Serverの接続切断だけを保存Effect 0または取消完了へ読み替えない。
 
-2026-10-07の人間判断により、CROSの利用はWorkbench／MCP起動時の`--cros`で明示する。設定の存在から単体利用を自動切替しない。単体は検証済み起動Repositoryに固定し、CROS Registry登録・Credentialを要求しない。CROSでは現在のCredential・Exposure・Bindingから許可したRepositoryだけを対象とし、起動用CRDDリポを自動公開しない。対象一覧とRepository指定の共通入力は[MCP詳細](../mcp/01_Architecture.md#単体crosの明示選択とrepository一覧)を参照する。
+2026-10-07の人間判断により、CROSの利用はWorkbench／MCP起動時の`--cros`で明示する。設定の存在から単体利用を自動切替しない。単体は検証済み起動Repositoryに固定し、CROS Registry登録・Credentialを要求しない。CROSでは現在のCredential・Exposure・Bindingから許可したRepositoryだけを対象とし、起動用CRDDリポを自動公開しない。対象一覧とRepository指定の共通入力は[MCP詳細](../mcp-server/01_Architecture.md#単体crosの明示選択とrepository一覧)を参照する。
 
-CROSの初期管理CredentialはHostでCROSを明示構築するときに発行する。MCP起動だけで発行せず、管理可・内容Grantなしを初期値とする。Remoteから秘密を受け渡す新しい配送機構は今回作らない。[Credential公開境界](../mcp/01_Architecture.md#33-credential管理の公開境界--v022の採用範囲)と同じ採用範囲をWorkbenchの操作可否へ反映する。
+CROSの初期管理CredentialはHostでCROSを明示構築するときに発行する。MCP起動だけで発行せず、管理可・内容Grantなしを初期値とする。Remoteから秘密を受け渡す新しい配送機構は今回作らない。[Credential公開境界](../mcp-server/01_Architecture.md#33-credential管理の公開境界--v022の採用範囲)と同じ採用範囲をWorkbenchの操作可否へ反映する。
 
 ## 7. Connection CredentialとRequest Access Context
 

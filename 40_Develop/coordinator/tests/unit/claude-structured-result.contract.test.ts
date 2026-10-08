@@ -11,12 +11,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { parseUnambiguousJsonDocument } from "../../../ai-adapter/src/output/index.ts";
+import { parseUnambiguousJsonDocument } from "../../../ai-adapter/src/index.ts";
 
 import {
   describeClaudeStructuredResultContract,
   normalizeClaudeStructuredResult,
-} from "../../../ai-adapter/src/claude/index.ts";
+} from "../../../ai-adapter/src/index.ts";
 
 /**
  * createEnvelopeのTest準備責務を実行する。

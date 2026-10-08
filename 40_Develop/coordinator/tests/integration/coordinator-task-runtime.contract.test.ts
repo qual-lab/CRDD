@@ -9,7 +9,7 @@
  * @trace PRL-IT-012
  * @level IT
  * @scope coordinator、task、runtime
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store / PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store / PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Orchestrator Application Port→Core
  */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -20,7 +20,7 @@ import type { TestContext } from "node:test";
 import test from "node:test";
 import { types as utilTypes } from "node:util";
 import { createDevelopmentExecutionTiming } from "../../src/diagnostics/development-execution-timing.ts";
-import { dockerProcessControllerPublicCompletionReasons } from "../../src/docker-runtime/docker-process-controller-result-reasons.ts";
+import { dockerProcessControllerPublicCompletionReasons } from "../../src/docker-execution/process-controller-result-reasons.ts";
 import {
   cleanupOwnedOperationDirectories,
   createIsolatedOwnedOperationDirectoryCreationFailureCandidate,
@@ -30,11 +30,11 @@ import {
   createOwnedOperationManagementCapability,
   getOwnedHostRecoveryId,
   verifyOwnedOperationManagementCapability,
-} from "../../src/host-runtime/execution-environment.ts";
-import { createIsolatedRuntimeProcessSafetyStateCandidate } from "../../src/host-runtime/runtime-process-safety-state.ts";
+} from "../../src/host-execution/operation-workspace-lifecycle.ts";
+import { createIsolatedRuntimeProcessSafetyStateCandidate } from "../../src/host-execution/process-safety-state.ts";
 import { selectDelegationRouteCandidate } from "../../src/provider/delegation-route-selection.ts";
-import { inspectRepositoryObjectFormatCandidate } from "../../src/repository-operation/repository-operation-runtime.ts";
-import { coordinatorTaskPublicReasons } from "../../src/task/coordinator-task-result-reasons.ts";
+import { inspectRepositoryObjectFormatCandidate } from "../../src/repository-operation/binding.ts";
+import { coordinatorTaskPublicReasons } from "../../src/task/result-reasons.ts";
 import {
   classifyCoordinatorTaskTerminalLifecycleState,
   createIsolatedCoordinatorTaskOperationCreationCandidate,
@@ -42,7 +42,7 @@ import {
   describeCoordinatorTaskRuntimeContract,
   projectDevelopmentTaskResultAfterOuterCleanup,
   startRuntimeOwnedCoordinatorTask,
-} from "../../src/task/coordinator-task-runtime.ts";
+} from "../../src/task/execution.ts";
 import {
   assertRuntimeTraceCase,
   assertRuntimeTraceExecutionCoverage,
@@ -1692,7 +1692,7 @@ function fixture(
                 : `${role}.active`,
             ),
             resultId: (role === "executor" ? "b" : "c").repeat(64),
-            consumer: "project_runtime",
+            consumer: "orchestrator",
           }),
         });
       },
@@ -1702,15 +1702,15 @@ function fixture(
       ) => {
         assert.equal(processCompletionResults.has(capability), true);
         dockerProjectCompleteCount += 1;
-        const accepted =
+        const isAccepted =
           typeof reader === "function" &&
           reader() !== null &&
           options.dockerProjectCompleteFailsAt !== dockerProjectCompleteCount;
         return Object.freeze({
-          status: accepted ? "completed" : "blocked",
-          filesystemEffectIssued: accepted,
-          snapshotConfirmed: accepted,
-          lockReleased: accepted,
+          status: isAccepted ? "completed" : "blocked",
+          filesystemEffectIssued: isAccepted,
+          snapshotConfirmed: isAccepted,
+          lockReleased: isAccepted,
         });
       },
     });
@@ -1864,7 +1864,7 @@ test("固定利用側を全Task役割へ伝播し不正用途はEffect前に拒�
   for (const consumer of [
     "coordinator_cli",
     "workbench",
-    "project_runtime",
+    "orchestrator",
   ] as const) {
     const harness = fixture();
     const result = await harness.runtime.start(
@@ -1909,6 +1909,18 @@ test("固定利用側を全Task役割へ伝播し不正用途はEffect前に拒�
 test("Task開始観測登録はControllerへ搬送され受付では通知されない", async () => {
   const registrations: unknown[] = [];
   let notices = 0;
+  /**
+   * Controllerへ渡した開始通知の呼出し回数を観測する。
+   *
+   * @responsibility 同じ通知関数の搬送と、受付だけでは通知しないことを確認する。
+   * @trace PRL-IT-012
+   * @precondition noticesを0にし開始登録を記録するTask fixtureを用意する。
+   * @stimulus 通知あり、未登録、準備失敗のTask開始を実行する。
+   * @observation 登録された関数Identityとnoticesを取得する。
+   * @oracle 同じ関数が二段階へ届き受付や準備失敗では通知しない。
+   * @cleanup Process内fixtureだけを使用し外部Docker／Providerは生成しない。
+   * @boundary Task開始入口と模擬Controllerの開始通知登録。
+   */
   const observer = () => {
     notices += 1;
     return true;
@@ -1929,9 +1941,9 @@ test("Task開始観測登録はControllerへ搬送され受付では通知され
   assert.equal(notices, 0);
   assert.equal(harness.cleanupCount(), 1);
 
-  const withoutObserver: unknown[] = [];
+  const startRegistrations: unknown[] = [];
   const standalone = fixture({
-    observeStartRegistration: (value) => withoutObserver.push(value),
+    observeStartRegistration: (value) => startRegistrations.push(value),
   });
   assert.equal(
     (
@@ -1943,7 +1955,7 @@ test("Task開始観測登録はControllerへ搬送され受付では通知され
     ).status,
     "completed",
   );
-  assert.deepEqual(withoutObserver, [undefined, undefined]);
+  assert.deepEqual(startRegistrations, [undefined, undefined]);
 
   const rejected = fixture({
     prepareFailureReason: "fixture_preparation_failed",
@@ -3486,7 +3498,7 @@ test("耐久結果配送は捕捉済み元Controlから終端後にだけ進む"
     "2026-08-25T00:00:00.000Z",
     "upper-operation",
     undefined,
-    "project_runtime",
+    "orchestrator",
   );
   assert.equal(harness.runtime.captureResultDelivery({}), null);
   assert.equal(
@@ -3525,6 +3537,18 @@ test("耐久結果配送は捕捉済み元Controlから終端後にだけ進む"
   assert.equal(harness.dockerProjectCompleteCount(), 0);
   const executorId = observed.results?.[0]?.recoveryId;
   let acceptancePresent = false;
+  /**
+   * 上位受領の有無を切り替える結果Readerを構築する。
+   *
+   * @responsibility 受領状態に応じた配送終了と再入場を検証する。
+   * @trace PRL-IT-012
+   * @precondition 元Controlで配送を捕捉しacceptancePresentをfalseにする。
+   * @stimulus 同じ配送のcompleteへReaderを渡し受領有無を切り替える。
+   * @observation completeの状態とdockerProjectCompleteCountを取得する。
+   * @oracle 未受領時はblocked、受領時だけcompletedとなり同じ参照で再入場できる。
+   * @cleanup 模擬Task fixtureだけを使用し外部資源は生成しない。
+   * @boundary 捕捉済み結果配送と上位受領Reader。
+   */
   const reader = () =>
     acceptancePresent ? Object.freeze({ accepted: true }) : null;
   assert.equal(delivery.complete(executorId, reader).status, "blocked");
@@ -3548,7 +3572,7 @@ test("耐久結果配送は捕捉済み元Controlから終端後にだけ進む"
       "2026-08-25T00:00:00.000Z",
       "upper-operation",
       undefined,
-      "project_runtime",
+      "orchestrator",
     );
     const captured = partial.runtime.captureResultDelivery(
       attempt.controlCapability,
@@ -3583,7 +3607,7 @@ test("耐久結果配送は捕捉済み元Controlから終端後にだけ進む"
     "2026-08-25T00:00:00.000Z",
     "upper-operation",
     undefined,
-    "project_runtime",
+    "orchestrator",
   );
   const emptyDelivery = empty.runtime.captureResultDelivery(
     denied.controlCapability,
@@ -5300,11 +5324,11 @@ test("Host confirmedでもProvider取消終了不明ならunknownへ昇格して
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("分類不能なopaque cleanup outcomeはcleanup unknownへ閉じる", async () => {
-  for (const hostCleanupWal of [false, true]) {
+  for (const isHostCleanupWal of [false, true]) {
     const cleanupIntentId = "host.fixture.opaque-cleanup.intent";
     const harness = fixture({
       cleanupOutcomeUnverified: true,
-      hostCleanupWal,
+      hostCleanupWal: isHostCleanupWal,
       dockerHostCleanupId: cleanupIntentId,
     });
     const result = await harness.runtime.start(
@@ -5317,7 +5341,7 @@ test("分類不能なopaque cleanup outcomeはcleanup unknownへ閉じる", asyn
     assert.equal(result.cleanupConfirmed, false);
     assert.equal(
       result.hostRecoveryId,
-      hostCleanupWal ? cleanupIntentId : "host.fixture.recovery.record",
+      isHostCleanupWal ? cleanupIntentId : "host.fixture.recovery.record",
     );
     assert.equal(harness.events.includes("docker-host-cleanup-receipt"), false);
     assert.equal(harness.events.includes("docker-finalize"), false);

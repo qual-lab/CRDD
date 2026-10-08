@@ -19,7 +19,7 @@ export {
   type CrosRemoteRuntimeEventProjection,
   type CrosRemoteTransportHandle,
   type CrosRuntimeActivityReader,
-} from "./remote-transport.ts";
+} from "./connection/http.ts";
 export {
   closeCrosSession,
   createContextPackage,
@@ -36,14 +36,14 @@ export {
   type CrosHandoff,
   type CrosRepository,
   type CrosSession,
-} from "./runtime.ts";
+} from "./access/session-context.ts";
 export {
   createPortfolioProjection,
   resolveAuthorizedRepositories,
   type FederatedProjectProjection,
   type FederatedProjectSource,
   type PortfolioProjection,
-} from "./project-federation.ts";
+} from "./federation/project.ts";
 export {
   executeRegisteredTool,
   inspectRegisteredTool,
@@ -51,18 +51,18 @@ export {
   type ToolImplementationResult,
   type ToolExecutionRequest,
   type ToolSurface,
-} from "./tool-registry.ts";
+} from "./tool/registry.ts";
 export {
   bindOperationSurface,
-  createSurfaceApplicationContract,
+  createSurfaceOperationHandler,
   settleDelegatedResult,
   type CanonicalOperationOwner,
   type DelegatedResult,
   type OperationSurface,
-  type SurfaceApplicationContract,
+  type SurfaceOperationHandler,
   type SurfaceOperationRequest,
   type SurfaceOperationResult,
-} from "./application-contract.ts";
+} from "./surface/operation.ts";
 export {
   authenticateConnectionCredential,
   createMemoryConnectionCredentialRegistry,
@@ -84,11 +84,11 @@ export {
   type ConnectionCredentialRotationResult,
   type CredentialRandomBytes,
   type RequestAccessContext,
-} from "./connection-credential.ts";
+} from "./access/credential.ts";
 export {
   createCredentialRegistryFileAdapter,
   type CredentialRegistryFileAdapterResult,
-} from "./credential-registry-file-adapter.ts";
+} from "./access/registry-file-adapter.ts";
 export {
   applyCredentialAccessRecovery,
   planCredentialAccessRecovery,
@@ -97,16 +97,16 @@ export {
   type CredentialAccessRecoveryPlanResult,
   type CredentialAccessRecoveryRecorder,
   type CredentialAccessRecoveryResult,
-} from "./credential-access-recovery.ts";
+} from "./access/recovery.ts";
 export {
   createCredentialAccessRecoveryFileAdapter,
   type CredentialAccessRecoveryFileAdapterResult,
-} from "./credential-access-recovery-file-adapter.ts";
+} from "./access/recovery-file-adapter.ts";
 export {
   runCredentialAccessRecoveryCli,
   type CredentialAccessRecoveryCliIo,
-} from "./credential-access-recovery-cli.ts";
+} from "./access/recovery-cli.ts";
 export {
   readCrosSharedServerOperationalConfig,
   type CrosSharedServerOperationalConfig,
-} from "./shared-server-config-file-adapter.ts";
+} from "./configuration/shared-server-file-adapter.ts";

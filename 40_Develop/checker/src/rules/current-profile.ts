@@ -4,7 +4,7 @@
  * @responsibility CurrentProfileRuleCallbacksを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000001
  */
-import type { CheckerRule } from "./rule-registry.ts";
+import type { CheckerRule } from "./registry.ts";
 
 /**
  * current-profileで使用するCurrent Profile Rule Callbacksの値契約を定義する。

@@ -1,29 +1,29 @@
 /**
- * promote-release-manifestに属する責務をまとめる。
+ * 検証済みRelease Manifestを正式配置へ昇格する署名後処理を提供する。
  *
- * @responsibility resolveReleaseManifestPromotionTopologyForVerificationを中心とする実装、型および境界を同じModuleで所有する。
+ * @responsibility 候補／正式Repositoryの配置検証、Runtime Git出所・署名検証とManifest昇格を同じ入口で接続する。
  * @trace ARCH-000004
  */
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { observeRepositoryRuntimeDataArea } from "../../domain-model/src/repository/index.ts";
+import { observeRepositoryRuntimeDataArea } from "../../domain-model/src/index.ts";
 import {
   verifyRepositoryRoot,
   type VerifiedRepositoryRoot,
-} from "../../version-control/src/repository-location.ts";
+} from "../../version-control/src/repository/location.ts";
 
 import {
   loadPlatformProvisionerManifestEnvelopeForVerification,
   PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH,
-} from "../src/platform-access/platform-provisioner-manifest-loader.ts";
-import { inspectVerifiedNativeDistributionCandidate } from "../src/platform-access/platform-provisioner-package-filesystem.ts";
-import { inspectPlatformProvisionerRuntimeGitProvenanceCandidate } from "../src/platform-access/platform-provisioner-release-identity.ts";
-import { getPinnedPlatformProvisionerReleaseSignerSpkiDer } from "../src/platform-access/platform-provisioner-release-trust.ts";
+} from "../src/platform-access/manifest-loader.ts";
+import { inspectVerifiedNativeDistributionCandidate } from "../src/platform-access/package-verification.ts";
+import { inspectPlatformProvisionerRuntimeGitProvenanceCandidate } from "../src/platform-access/release-identity.ts";
+import { getPinnedPlatformProvisionerReleaseSignerSpkiDer } from "../src/platform-access/release-trust.ts";
 import {
   compilePlatformProvisionerManifestPayloadCandidate,
   verifyHistoricalPlatformProvisionerManifestCandidate,
-} from "../src/platform-access/platform-provisioner-trust-core.ts";
+} from "../src/platform-access/manifest-trust.ts";
 import {
   beginReleaseManifestPromotionSession,
   promoteReleaseManifestBytes,
@@ -227,6 +227,9 @@ function expectedRelease(distributionRoot: string, evaluationTime: string) {
  * @effect N/A: 読取りと比較だけを行い、FilesystemまたはGitへEffectを発行しない。
  * @failure 観測不能、固定Snapshot不一致、選択FileのBlob/Mode/Canonical Bytes不一致またはNative不一致をfalseへ畳み、呼出し元が昇格を拒否する。
  * @authority N/A: 検証済みRepository Root Capabilityを消費するだけで、新しいAuthorityを発行しない。
+ * @invariant 署名Manifestが固定したCommit／TreeとRuntime Closureの対応を維持する。
+ * @boundary 検証済みRepositoryのGit Snapshot、Runtime FileとNative配布Identityの読取り境界。
+ * @security 観測不能や不一致を一致として受理せず、昇格を拒否する。
  * @recovery N/A: Effectを発行しないためRecoveryを作成しない。
  * @concurrency N/A: 共有可変状態を持たない同期検証である。
  */

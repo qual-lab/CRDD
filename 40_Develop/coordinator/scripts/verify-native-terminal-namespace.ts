@@ -19,7 +19,7 @@ import { fileURLToPath } from "node:url";
 import {
   verifyRepositoryRoot,
   resolveVerifiedRepositoryRoot,
-} from "../../version-control/src/repository-location.ts";
+} from "../../version-control/src/repository/location.ts";
 import { nodeIdentity } from "./verify-native-protection.ts";
 
 /**
@@ -35,13 +35,13 @@ import { nodeIdentity } from "./verify-native-protection.ts";
  */
 export function areNativeTerminalBoundariesUnchanged(
   boundaries: readonly string[],
-  expected: readonly string[],
+  expectedEntries: readonly string[],
 ): boolean {
-  if (boundaries.length !== expected.length || boundaries.length === 0)
+  if (boundaries.length !== expectedEntries.length || boundaries.length === 0)
     return false;
   try {
     return boundaries.every(
-      (directory, index) => nodeIdentity(directory) === expected[index],
+      (directory, index) => nodeIdentity(directory) === expectedEntries[index],
     );
   } catch {
     return false;
@@ -103,7 +103,7 @@ async function runNativeTerminalNamespace(): Promise<void> {
       .filter((name) => name.endsWith(".rs")))
       sources.push(path.join(directory, file).replaceAll("\\", "/"));
   }
-  const sourceBefore = sources.map(inputIdentity);
+  const previousSources = sources.map(inputIdentity);
   /**
    * 固定終端namespace試験の実行物をCargo出力として取得する。
    *
@@ -174,7 +174,7 @@ async function runNativeTerminalNamespace(): Promise<void> {
   fs.mkdirSync(runRoot);
   fs.mkdirSync(runRoot + "/tmp");
   const fixture = runRoot + "/namespace-r2";
-  const run = "namespace.261003.b17f28d1.r2";
+  const verificationOperation = "namespace.261003.b17f28d1.r2";
   const boundaries = [
     repository,
     repository + "/40_Develop",
@@ -188,14 +188,14 @@ async function runNativeTerminalNamespace(): Promise<void> {
     runRoot,
     runRoot + "/tmp",
   ];
-  const boundaryBefore = boundaries.map(nodeIdentity);
+  const previousBoundaries = boundaries.map(nodeIdentity);
   fs.writeFileSync(
     runRoot + "/started.json",
     JSON.stringify({
       contract: "crdd-coordinator/native-terminal-namespace-started",
       contractRevision: 1,
       startedAt: new Date().toISOString(),
-      run,
+      run: verificationOperation,
     }) + "\n",
     { flag: "wx" },
   );
@@ -247,7 +247,7 @@ async function runNativeTerminalNamespace(): Promise<void> {
   }
 
   const inputs = [...sources, binary];
-  const before = inputs.map(inputIdentity);
+  const previousEntries = inputs.map(inputIdentity);
   assert.equal(
     createHash("sha256").update(fs.readFileSync(binary)).digest("hex"),
     expectedHash,
@@ -261,9 +261,9 @@ async function runNativeTerminalNamespace(): Promise<void> {
   let error: Error | undefined;
   let status: number | null = null;
   let signal: NodeJS.Signals | null = null;
-  let exitObserved = false;
-  let closeObserved = false;
-  let timedOut = false;
+  let isExitObserved = false;
+  let isCloseObserved = false;
+  let isTimedOut = false;
   let outputExceeded = false;
   await new Promise<void>((resolve) => {
     const child = spawn(
@@ -281,7 +281,7 @@ async function runNativeTerminalNamespace(): Promise<void> {
         windowsHide: true,
         env: {
           ...process.env,
-          CRDD_TERMINAL_NAMESPACE_RUN: run,
+          CRDD_TERMINAL_NAMESPACE_RUN: verificationOperation,
           CRDD_TERMINAL_NAMESPACE_ROOT: fixture,
           TEMP: fixture,
           TMP: fixture,
@@ -290,7 +290,7 @@ async function runNativeTerminalNamespace(): Promise<void> {
       },
     );
     const timer = setTimeout(() => {
-      timedOut = true;
+      isTimedOut = true;
       child.kill();
     }, 15000);
     child.stdout?.on("data", (chunk: Buffer) => {
@@ -321,12 +321,12 @@ async function runNativeTerminalNamespace(): Promise<void> {
       error = failure;
     });
     child.once("exit", (code, termination) => {
-      exitObserved = true;
+      isExitObserved = true;
       status = code;
       signal = termination;
     });
     child.once("close", () => {
-      closeObserved = true;
+      isCloseObserved = true;
       clearTimeout(timer);
       resolve();
     });
@@ -369,13 +369,13 @@ async function runNativeTerminalNamespace(): Promise<void> {
   const rows = Array.isArray(native?.rejections)
     ? (native.rejections as Record<string, unknown>[])
     : [];
-  const nativeVerified =
+  const isNativeVerified =
     native !== null &&
     Object.keys(native).length === fields.length &&
     Object.keys(native).every((key) => fields.includes(key)) &&
     native.contract === "crdd-native/terminal-namespace-fixture" &&
     native.contractRevision === 1 &&
-    native.run === run &&
+    native.run === verificationOperation &&
     native.observed === true &&
     native.phase === "complete" &&
     native.normalVerified === true &&
@@ -390,7 +390,7 @@ async function runNativeTerminalNamespace(): Promise<void> {
     native.osFaultInjectionVerified === false &&
     rows.length === 19 &&
     rows.every((row, index) => {
-      const expectedReason =
+      const expectedReasons =
         index < 15
           ? [
               "terminal_namespace_identity_mismatch",
@@ -405,7 +405,7 @@ async function runNativeTerminalNamespace(): Promise<void> {
         row !== null &&
         typeof row === "object" &&
         Object.keys(row).length === 6 &&
-        expectedReason.includes(String(row.reason)) &&
+        expectedReasons.includes(String(row.reason)) &&
         row.operationReason === row.reason &&
         row.tokensAcquired === (index === 16 ? 0 : 2) &&
         Array.isArray(row.tokenCloses) &&
@@ -418,63 +418,65 @@ async function runNativeTerminalNamespace(): Promise<void> {
         row.directoryCloses.every((closed) => closed === true)
       );
     });
-  const after = inputs.map((target) => {
+  const subsequentEntries = inputs.map((target) => {
     try {
       return inputIdentity(target);
     } catch {
       return "unknown";
     }
   });
-  const inputUnchanged = before.every((value, index) => value === after[index]);
-  const fixturePresence = presence(fixture);
-  const boundaryUnchanged = areNativeTerminalBoundariesUnchanged(
-    boundaries,
-    boundaryBefore,
+  const isInputUnchanged = previousEntries.every(
+    (value, index) => value === subsequentEntries[index],
   );
-  const success =
+  const fixturePresence = presence(fixture);
+  const isBoundaryUnchanged = areNativeTerminalBoundariesUnchanged(
+    boundaries,
+    previousBoundaries,
+  );
+  const isSuccess =
     !result.error &&
-    exitObserved &&
-    closeObserved &&
-    !timedOut &&
+    isExitObserved &&
+    isCloseObserved &&
+    !isTimedOut &&
     !outputExceeded &&
     /test result: ok[.] 1 passed; 0 failed;/u.test(stdout) &&
-    sourceBefore.every(
+    previousSources.every(
       (value, index) => value === inputIdentity(sources[index] ?? ""),
     ) &&
-    boundaryUnchanged &&
+    isBoundaryUnchanged &&
     result.status === 0 &&
     result.signal === null &&
-    nativeVerified &&
-    inputUnchanged &&
+    isNativeVerified &&
+    isInputUnchanged &&
     fixturePresence === "absent";
   const observation = {
     contract: "crdd-coordinator/native-terminal-namespace-observation",
     contractRevision: 1,
-    status: success ? "observed" : "unconfirmed",
+    status: isSuccess ? "observed" : "unconfirmed",
     utcStarted,
     utcFinished: new Date().toISOString(),
     durationMilliseconds: Math.round(performance.now() - started),
     binarySha256: expectedHash,
-    before,
-    after,
-    inputUnchanged,
-    boundaryUnchanged,
-    nativeVerified,
+    before: previousEntries,
+    after: subsequentEntries,
+    inputUnchanged: isInputUnchanged,
+    boundaryUnchanged: isBoundaryUnchanged,
+    nativeVerified: isNativeVerified,
     native,
     exitCode: result.status,
     signal: result.signal,
     launchOrTimeoutError:
       result.error && "code" in result.error ? result.error.code : null,
     fixturePresence,
-    exitObserved,
-    closeObserved,
-    timedOut,
+    exitObserved: isExitObserved,
+    closeObserved: isCloseObserved,
+    timedOut: isTimedOut,
     outputExceeded,
     rawNativeOutputReported: false,
     productionIntegrationVerified: false,
     fullE2eVerified: false,
   };
-  if (!areNativeTerminalBoundariesUnchanged(boundaries, boundaryBefore)) {
+  if (!areNativeTerminalBoundariesUnchanged(boundaries, previousBoundaries)) {
     console.log(
       JSON.stringify({
         ...observation,
@@ -494,8 +496,8 @@ async function runNativeTerminalNamespace(): Promise<void> {
     },
   );
   console.log(JSON.stringify(observation));
-  if (success) {
-    if (!areNativeTerminalBoundariesUnchanged(boundaries, boundaryBefore)) {
+  if (isSuccess) {
+    if (!areNativeTerminalBoundariesUnchanged(boundaries, previousBoundaries)) {
       process.exitCode = 2;
       return;
     }
@@ -504,7 +506,7 @@ async function runNativeTerminalNamespace(): Promise<void> {
     fs.unlinkSync(runRoot + "/result.json");
     fs.rmdirSync(runRoot);
   }
-  process.exitCode = success ? 0 : 2;
+  process.exitCode = isSuccess ? 0 : 2;
 }
 
 if (path.resolve(process.argv[1] ?? "") === fileURLToPath(import.meta.url)) {

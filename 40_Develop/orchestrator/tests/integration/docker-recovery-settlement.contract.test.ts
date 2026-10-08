@@ -63,7 +63,7 @@ test("回復結果の受領・終了は固定Repositoryと保存済みACKだけ�
     settlementGeneration: 6,
     repositoryBinding: "a".repeat(64),
     resultId: "b".repeat(64),
-    consumer: "project_runtime" as const,
+    consumer: "orchestrator" as const,
   };
   const obligation = {
     kind: "docker",
@@ -90,102 +90,100 @@ test("回復結果の受領・終了は固定Repositoryと保存済みACKだけ�
   let rootReads = 0;
   let lowerReads = 0;
   let writes = 0;
-  let rootVerified = true;
+  let isRootVerified = true;
   let lockReleased = true;
   let resultOperation = settlement.operationId;
   let writerConfirmed = true;
-  let readerChanged = false;
+  let isReaderChanged = false;
   let targetRemoved = false;
-  let absenceObserved = false;
+  let isAbsenceObserved = false;
   let mutateInput: typeof settlement | null = null;
-  t.mock.module("../../../version-control/src/repository-location.ts", {
+  t.mock.module("../../../version-control/src/repository/location.ts", {
     namedExports: {
+      ...(await import("../../../version-control/src/repository/location.ts")),
       resolveVerifiedRepositoryRootFromWorkingDirectory: () => {
         rootReads += 1;
         return fixed.repositoryRoot;
       },
       verifyRepositoryRoot: () => ({
-        status: rootVerified ? "completed" : "blocked",
-        capability: rootVerified ? capability : null,
+        status: isRootVerified ? "completed" : "blocked",
+        capability: isRootVerified ? capability : null,
       }),
     },
   });
-  t.mock.module("../../src/storage/index.ts", {
+  t.mock.module("../../src/storage/current-state.ts", {
     namedExports: {
-      readCurrentProjectRuntimeState: () => {
+      readCurrentOrchestratorState: () => {
         upperReads += 1;
         return { status: "completed", value: state };
       },
     },
   });
-  t.mock.module(
-    "../../../coordinator/src/state-storage/coordinator-state-runtime.ts",
-    {
-      namedExports: {
-        readRuntimeOwnedCoordinatorRecoveryResult: (
-          root: unknown,
-          id: unknown,
-        ) => {
-          assert.equal(root, capability);
-          assert.equal(id, settlement.recoveryId);
-          lowerReads += 1;
-          if (mutateInput) mutateInput.operationId = "changed-during-read";
-          return {
-            status: "completed",
-            reason: "observed",
-            lockReleased,
-            value: {
-              repositoryBinding: acknowledgement.repositoryBinding,
-              operationId: resultOperation,
-              recoveryId: id,
-              resultId: acknowledgement.resultId,
-              consumer: "project_runtime",
-            },
-          };
-        },
-        prepareRuntimeOwnedCoordinatorRecoveredSettlement: (
-          root: unknown,
-          id: unknown,
-          reader: () => unknown,
-        ) => {
-          assert.equal(root, capability);
-          assert.equal(id, settlement.recoveryId);
-          if (readerChanged) obligation.phase = "settled";
-          const saved = reader();
-          return saved && !targetRemoved ? { reader } : null;
-        },
-        completeRuntimeOwnedCoordinatorRecoveredSettlement: () => {
-          writes += 1;
-          return {
-            status: "completed",
-            reason: "completed",
-            snapshotConfirmed: writerConfirmed,
-            lockReleased,
-            filesystemEffectIssued: true,
-          };
-        },
-        observeRuntimeOwnedCoordinatorCompletedDelivery: (
-          root: unknown,
-          id: unknown,
-          reader: () => unknown,
-        ) => {
-          assert.equal(root, capability);
-          assert.equal(id, settlement.recoveryId);
-          const saved = reader();
-          return {
-            status: saved ? "completed" : "blocked",
-            reason: "remaining_observation",
-            deliveryAbsentObserved: absenceObserved && saved !== null,
-            lockReleased,
-          };
-        },
+  t.mock.module("../../../coordinator/src/state-storage/settlement-store.ts", {
+    namedExports: {
+      readRuntimeOwnedCoordinatorRecoveryResult: (
+        root: unknown,
+        id: unknown,
+      ) => {
+        assert.equal(root, capability);
+        assert.equal(id, settlement.recoveryId);
+        lowerReads += 1;
+        if (mutateInput) mutateInput.operationId = "changed-during-read";
+        return {
+          status: "completed",
+          reason: "observed",
+          lockReleased,
+          value: {
+            repositoryBinding: acknowledgement.repositoryBinding,
+            operationId: resultOperation,
+            recoveryId: id,
+            resultId: acknowledgement.resultId,
+            consumer: "orchestrator",
+          },
+        };
+      },
+      prepareRuntimeOwnedCoordinatorRecoveredSettlement: (
+        root: unknown,
+        id: unknown,
+        reader: () => unknown,
+      ) => {
+        assert.equal(root, capability);
+        assert.equal(id, settlement.recoveryId);
+        if (isReaderChanged) obligation.phase = "settled";
+        const saved = reader();
+        return saved && !targetRemoved ? { reader } : null;
+      },
+      completeRuntimeOwnedCoordinatorRecoveredSettlement: () => {
+        writes += 1;
+        return {
+          status: "completed",
+          reason: "completed",
+          snapshotConfirmed: writerConfirmed,
+          lockReleased,
+          filesystemEffectIssued: true,
+        };
+      },
+      observeRuntimeOwnedCoordinatorCompletedDelivery: (
+        root: unknown,
+        id: unknown,
+        reader: () => unknown,
+      ) => {
+        assert.equal(root, capability);
+        assert.equal(id, settlement.recoveryId);
+        const saved = reader();
+        return {
+          status: saved ? "completed" : "blocked",
+          reason: "remaining_observation",
+          deliveryAbsentObserved: isAbsenceObserved && saved !== null,
+          lockReleased,
+        };
       },
     },
-  );
+  });
   const {
     consumeDockerRecoveryReceiptAfterProjectSettlement: consume,
     collectDockerRecoveryAcknowledgementAfterProjectRecord: collect,
-  } = await import("../../src/task/docker-recovery-settlement.ts");
+  } = await import("../../src/task/settle-docker-recovery.ts");
   let getterCalls = 0;
   const getterInput = { ...settlement };
   Object.defineProperty(getterInput, "workingDirectory", {
@@ -215,9 +213,9 @@ test("回復結果の受領・終了は固定Repositoryと保存済みACKだけ�
     "blocked",
   );
   assert.equal(upperReads, 0);
-  rootVerified = false;
+  isRootVerified = false;
   assert.equal(consume(settlement, fixed).status, "blocked");
-  rootVerified = true;
+  isRootVerified = true;
   for (const changed of [
     { stateGeneration: 8 },
     { attemptId: "other" },
@@ -270,10 +268,10 @@ test("回復結果の受領・終了は固定Repositoryと保存済みACKだけ�
     "blocked",
   );
   assert.equal(writes, 0);
-  readerChanged = true;
+  isReaderChanged = true;
   assert.equal(collect(input, fixed).status, "blocked");
   assert.equal(writes, 0);
-  readerChanged = false;
+  isReaderChanged = false;
   obligation.phase = "acknowledged";
   writerConfirmed = false;
   assert.equal(collect(input, fixed).status, "blocked");
@@ -290,7 +288,7 @@ test("回復結果の受領・終了は固定Repositoryと保存済みACKだけ�
   assert.equal(writes, 3);
   targetRemoved = true;
   assert.equal(collect(input, fixed).status, "blocked");
-  absenceObserved = true;
+  isAbsenceObserved = true;
   lockReleased = false;
   assert.equal(collect(input, fixed).status, "blocked");
   lockReleased = true;
@@ -298,7 +296,7 @@ test("回復結果の受領・終了は固定Repositoryと保存済みACKだけ�
   assert.equal(absentCompletion.status, "completed");
   assert.deepEqual(Object.keys(absentCompletion).sort(), ["reason", "status"]);
   assert.equal(writes, 3);
-  readerChanged = true;
+  isReaderChanged = true;
   assert.equal(collect(input, fixed).status, "blocked");
   assert.equal(writes, 3);
 });

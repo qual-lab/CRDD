@@ -43,7 +43,7 @@ import {
   bindTaskCliCancellationSignalsForTesting,
   createTaskCliCancellationLatch,
   projectTaskCliCancellationFailure,
-} from "../../src/cli/task-cli-cancellation.ts";
+} from "../../src/cli/task-cancellation.ts";
 
 /**
  * CLI取消latchは重複signalを同じPromiseと一つのobserverへ収束するを検証する。

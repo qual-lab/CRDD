@@ -14,10 +14,10 @@ Component間、外部System、Platform、Repository、Trust境界と、境界を
 |---|---|---|---|---|---|
 | Public Transport | Human／Agent／Client | Public Application Contract | 検証済み入力、相関Identity、構造化結果 | Transport固有のAuthority、内部Path | Effect前に拒否 |
 | Workspace Exposure | 接続Session | Federation Resolver | Session Grant、Workspace、許可Source | 未許可Repositoryの存在・内容 | unavailable／restrictedを区別 |
-| Project Execution | Application Contract | Project Runtime | Objective、Task操作、Human Input、取消 | Provider選択、OS操作 | 同じTaskを保持して停止 |
+| Project Execution | Application Contract | Orchestrator | Objective、Task操作、Human Input、取消 | Provider選択、OS操作 | 同じTaskを保持して停止 |
 | Project Projection | 許可されたProject Source | Project Management Projection Port | Source、Currentness、Coverage、状態 | 正本変更Authority、受入判断Authority | unknown／partialのまま返す |
 | Acceptance Decision | Project運営者の明示判断 | Objective／Milestone Acceptance Decision Port | 対象Identity、受入／差戻し／判断待ち | Task作成、Provider Effect、下位完了からの上位受入推定 | Effect 0で判断待ちを保持 |
-| Execution Port | Project Runtime | 実行編成Adapter | exact Task、Capability、取消要求、結果 | Project状態の所有権 | Effect不明ならRecovery |
+| Execution Port | Orchestrator | 実行編成Adapter | exact Task、Capability、取消要求、結果 | Project状態の所有権 | Effect不明ならRecovery |
 | Repository Binding | Runtime／Tool | Version Control Port | 開始Path、検証済みRoot、Repository Identity | commit必須性、別Root Authority | Effect 0 |
 | Runtime Data | 各Runtime Component | Runtime Data Contract | Owner、用途、耐久性、Retention、Cleanup条件 | 任意Path、由来不明削除 | 保持して人間判断 |
 | External Information | 内部候補 | 外部Provider／外部結果 | 許可済み最小情報、Request Identity、未信頼結果 | Secret、採用Authority | 送信0／候補隔離 |
@@ -54,7 +54,7 @@ Coordinatorの通知関数をOrchestratorが登録する。
 下位の通知から上位判断・状態確定・cleanup成立を推定しない。
 ```
 
-`implements`は交換契約の実装候補を示すが、Adapter名や既存FolderをCanonical Componentの根拠にしない。図のProject Runtimeの実装OwnerはOrchestrator、Execution Portの実装OwnerはCoordinatorである。実装ではOrchestratorがCoordinator公開APIを直接呼び出し、Coordinatorが定義する通知関数を登録する。CoordinatorからOrchestratorへのimportや、上位が所有するPort型を下位へ注入するFrameworkは追加しない。
+`implements`は交換契約の実装候補を示すが、Adapter名や既存FolderをCanonical Componentの根拠にしない。図のOrchestratorの実装OwnerはOrchestrator、Execution Portの実装OwnerはCoordinatorである。実装ではOrchestratorがCoordinator公開APIを直接呼び出し、Coordinatorが定義する通知関数を登録する。CoordinatorからOrchestratorへのimportや、上位が所有するPort型を下位へ注入するFrameworkは追加しない。
 
 ### 公開SurfaceとCROS境界
 
@@ -73,7 +73,7 @@ Coordinatorの通知関数をOrchestratorが登録する。
 ### Task受付から完了または回復まで
 
 ```text
-利用者        Transport       Project Runtime      Execution Port      Runtime Data
+利用者        Transport       Orchestrator      Execution Port      Runtime Data
   │               │                 │                    │                  │
   │ Objective     │                 │                    │                  │
   ├──────────────>│ decode/validate │                    │                  │
@@ -105,9 +105,9 @@ Coordinatorの通知関数をOrchestratorが登録する。
 
 | 情報 | Canonical Owner | Writer | Reader | 所有禁止 |
 |---|---|---|---|---|
-| Project／Task状態 | Project Runtime | Project Runtime | Projection、Transport | Adapterによる状態生成 |
-| Objective／Milestone受入判断 | Objective／Milestone Acceptance Decision Record | Acceptance Decision Port | Project Runtime、Projection | Projectionからの書込み、Task作成、Provider Effect、下位完了からの推定 |
-| Public Result | Public Application Contract | Project Runtimeの結果変換 | Transport、Client | Transport固有意味の追加 |
+| Project／Task状態 | Orchestrator | Orchestrator | Projection、Transport | Adapterによる状態生成 |
+| Objective／Milestone受入判断 | Objective／Milestone Acceptance Decision Record | Acceptance Decision Port | Orchestrator、Projection | Projectionからの書込み、Task作成、Provider Effect、下位完了からの推定 |
+| Public Result | Public Application Contract | Orchestratorの結果変換 | Transport、Client | Transport固有意味の追加 |
 | Session Grant／Exposure | Workspace Resolver | 認証・管理境界 | Federation、Projection | Repository Relationからの権限生成 |
 | Repository Binding | Binding Resolver | 検証済みVersion Control Port | Runtime、Tool | Path文字列からの再構成 |
 | Runtime Data Metadata | Runtime Data Contract | 各Ownerの限定Writer | Recovery、Cleanup | Tool固有Top-levelの無秩序追加 |

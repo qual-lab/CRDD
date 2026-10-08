@@ -10,7 +10,7 @@ Last Updated: 2026-09-28
 |---|---|---|---|---|---|---|---|---|
 | Use Case／振る舞いFlow | 公開Task | 入力、受理、実行、結果、取消の主分岐 | 作成不能 | [公開Taskの入力・結果・取消](#公開taskの入力結果取消)は入力例と規則であり、端から端のFlowではない | v0.22 Candidate | 未作成 | 入力から取消・結果までの順序と分岐 | Group BのSPECでWorkbench対象と合わせて作成する |
 | 状態遷移表／状態遷移図 | Task、候補、取消、回復 | 状態と許可される遷移の固定 | 作成不能 | 結果意味表と取消規則はあるが、状態と許可遷移を一つに固定する表または図ではない | v0.22 Candidate | 未作成 | 状態、遷移条件、禁止遷移、終端状態 | Group BのSPECで対象状態を確定して作成する |
-| Actor／System間Sequence図 | 一般TaskとWorkbench | Actor、Browser、Node Runtime、Provider、Reviewerの順序 | 既存参照 | [Coordinator一般Taskの主シーケンス](../06_Architecture/Details/coordinator/01_Architecture.md#3-一般taskの主シーケンス)と[Workbench Architecture](../06_Architecture/Details/workbench/01_Architecture.md) | v0.22 Candidate | WorkbenchのCSR Read・POST・AI依頼経路を実装済み | 実Provider E2E | 実Provider閉包またはSequence変更時に再評価する |
+| Actor／System間Sequence図 | 一般TaskとWorkbench | Actor、Browser、Node Runtime、Provider、Reviewerの順序 | 既存参照 | [Coordinator一般Taskの主シーケンス](../06_Architecture/Details/coordinator/01_Architecture.md#3-一般taskの主シーケンス)と[Workbench Architecture](../06_Architecture/Details/workbench-server/01_Architecture.md) | v0.22 Candidate | WorkbenchのCSR Read・POST・AI依頼経路を実装済み | 実Provider E2E | 実Provider閉包またはSequence変更時に再評価する |
 | Error／Effect分岐図 | 診断・回復 | Effect前停止と回復義務の分岐 | 作成不能 | [診断・回復の公開境界](#診断回復の公開境界)は条件説明であり、ErrorとEffectの分岐図ではない | v0.22 Candidate | 未作成 | Effect前後の失敗、結果、回復義務の分岐 | Group BのSPECで操作対象と合わせて作成する |
 | UI／SPEC対応図 | 現行Tool操作 | UI表示・操作と本仕様の対応 | 既存参照 | [Workbench UI／SPEC Detail対応](Details/02_UI_SPEC_Detail_Correspondence.md)。[UI側の概観](../04_UI/06_Current_Interface_Reference.md#6-uiと振る舞い仕様の対応)は補助投影 | v0.22 Candidate | Workbench実装とHTTP／Browser試験へ接続済み | AI関連2画面の実Provider E2E | 対応またはBehavior変更時に共同レビューする |
 
@@ -18,7 +18,7 @@ Last Updated: 2026-09-28
 
 本書はCRDD参照Runtimeの入力、利用条件、結果、停止・回復、および現在の実装範囲を所有する。上位の[エージェント組織](../04_Agent_Organization.md)や人間の決定権限を再定義しない。実行手順は[作業手順](../19_Workflows/01_Coordinator_Runtime.md)、成立方式は[アーキテクチャ](../06_Architecture/01_Architecture.md)、検証の現在状態は[品質確認](../07_Quality/01_Quality_Center.md)へ分離する。
 
-Project Runtime節より前は既存実装を責務別に整理したv0.18.1 Stable Baselineである。Local Personal一般Taskは各操作で必要な境界を検証し、永続的なRuntime有効化やPlatform Provisioningを公開Capabilityとして持たない。Project Runtimeはv0.19.0で公開し、v0.20.0で責務分離、限定並列実行、状態投影およびローカルMCP HTTPを追加した。現在状態は[CHG-000057](../99_Roadmap/Changes/CHG-000057/change.md)、[v0.20変更](../99_Roadmap/Changes/CHG-000063/change.md)および[品質確認](../07_Quality/01_Quality_Center.md)で追跡する。公開済みかどうかは公式タグまたは同等の不変なRelease識別子から確認する。
+Orchestrator節より前は既存実装を責務別に整理したv0.18.1 Stable Baselineである。Local Personal一般Taskは各操作で必要な境界を検証し、永続的なRuntime有効化やPlatform Provisioningを公開Capabilityとして持たない。Orchestratorはv0.19.0で公開し、v0.20.0で責務分離、限定並列実行、状態投影およびローカルMCP HTTPを追加した。現在状態は[CHG-000057](../99_Roadmap/Changes/CHG-000057/change.md)、[v0.20変更](../99_Roadmap/Changes/CHG-000063/change.md)および[品質確認](../07_Quality/01_Quality_Center.md)で追跡する。公開済みかどうかは公式タグまたは同等の不変なRelease識別子から確認する。
 
 利用者の目的は[利用体験](../02_UX/01_User_Experience.md)、対象と導線は[情報構造](../03_IA/01_Information_Architecture.md)、表示・操作と本仕様の共同確認は[UIと仕様の対応](../04_UI/06_Current_Interface_Reference.md#ui-spec-mapping)へ接続する。既存実装から再構成した対象の採用は[人間の内容採用記録](../99_Roadmap/Changes/CHG-000014/change.md#candidate-adoption-20260901)に基づき、現在の公開準備や新しい期限契約の検証完了とは区別する。
 
@@ -49,7 +49,7 @@ RuntimeはCRDDのAuthority、固定改訂版、検証、ReviewおよびCurrent D
 
 ## 共通起動入口
 
-利用者は`template/tools/crdd-coordinator.ts`を安定した公開Coordinator入口として使用する。この入口は同じ配布物の`40_Develop/coordinator/bin/launch.ts`へだけ接続する。内部共通起動入口は既存の実行入口を選ぶ一回限りのCLIであり、任意script、別Node、別配布物を選択する機能ではない。MCP Serverは別の公開入口`template/tools/crdd-mcp.ts`が所有し、Coordinatorのsubcommandとして起動しない。
+利用者は`template/tools/crdd-coordinator.ts`を安定した公開Coordinator入口として使用する。この入口は同じ配布物の`40_Develop/coordinator/bin/launch.ts`へだけ接続する。内部共通起動入口は既存の実行入口を選ぶ一回限りのCLIであり、任意script、別Node、別配布物を選択する機能ではない。MCP Serverは別の公開入口`template/tools/crdd-mcp-server.ts`が所有し、Coordinatorのsubcommandとして起動しない。
 
 | 用途 | 接続先 | 入出力条件 |
 |---|---|---|
@@ -462,13 +462,13 @@ Local Personalで接続済みのHome／State観測と、未接続の保護済み
 | Checker | 配布本体を公式Repositoryの入口から呼び出す。通常`--json`は指摘配列、`--json --summary`は対象・件数・未確認を含む報告。エラーありはexit 1、エラーなしはexit 0 | 警告、未確認、限定範囲、実行不能を0件によって消さない。機械検査は意味上の準拠・専門品質を認定しない |
 
 上表は既存公開契約を利用者操作へ接続した概要であり、Runtime内部のAuthorityや成功条件を変更しない。UIと仕様の対応確認は両工程の完了を代替せず、[成果物の理解と工程引継ぎ](../07_Quality/Definitions/QA-000013/quality_definition.md)と[現行実装との照合](../07_Quality/05_Current_Implementation_Reality_Audit.md)に未確認範囲を残す。
-<a id="project-runtime-contract"></a>
+<a id="orchestrator-contract"></a>
 
-## Project Runtime契約
+## Orchestrator契約
 
-本節はv0.19.0で公開したProject Runtime契約を定義する。人間または許可されたMCP／CLI入口から一つのProjectとMilestoneを受け取り、複数ObjectiveとTask Graphへ計画し、Single Task Runtimeを実行単位として使用して、統合済み結果とProject Stateを返す。MCPとCLIは同じ意味契約へ到達し、Transport固有入力からAuthority、Project正本または追加のEffect権限を生成しない。共通Objective入口、対話優先Queue、同一計画の再試行・部分再計画・人間判断移送、Task候補の耐久状態への受渡し、OS管理Rootの判断記録、MCP標準入出力Process、実Candidate Storeの統合候補・明示採用・受入を接続した。公開MCPの実Provider 2経路、実Provider開始後の取消、親Process消失後のexact Recoveryとfresh再入場は最終署名E2Eで確認した。任意Project検索、複数Repository横断、Linux／macOS実装、実電源断および無制限規模の運用保証は含まない。
+本節はv0.19.0で公開したOrchestrator契約を定義する。人間または許可されたMCP／CLI入口から一つのProjectとMilestoneを受け取り、複数ObjectiveとTask Graphへ計画し、Single Task Runtimeを実行単位として使用して、統合済み結果とProject Stateを返す。MCPとCLIは同じ意味契約へ到達し、Transport固有入力からAuthority、Project正本または追加のEffect権限を生成しない。共通Objective入口、対話優先Queue、同一計画の再試行・部分再計画・人間判断移送、Task候補の耐久状態への受渡し、OS管理Rootの判断記録、MCP標準入出力Process、実Candidate Storeの統合候補・明示採用・受入を接続した。公開MCPの実Provider 2経路、実Provider開始後の取消、親Process消失後のexact Recoveryとfresh再入場は最終署名E2Eで確認した。任意Project検索、複数Repository横断、Linux／macOS実装、実電源断および無制限規模の運用保証は含まない。
 
-Project RuntimeはTask総数を5件へ制限しないが、同時にRunningとなるTaskを最大5件に制限する。Dependency、共有資源、許可Path、仕様・判断の競合、Lock、Provider利用枠またはIntegration Boundaryが独立実行を許さない場合は5未満を選ぶ。利用可能な枠があっても実行可能性を確認できないTaskを開始しない。
+OrchestratorはTask総数を5件へ制限しないが、同時にRunningとなるTaskを最大5件に制限する。Dependency、共有資源、許可Path、仕様・判断の競合、Lock、Provider利用枠またはIntegration Boundaryが独立実行を許さない場合は5未満を選ぶ。利用可能な枠があっても実行可能性を確認できないTaskを開始しない。
 
 Task失敗時は、現在Planを維持できる、影響部分の再計画が必要、人間判断が必要、の三結果へ分類する。再計画は承認済みMilestone Scope、Authority、費用・回数上限および保持する意図の内側だけで行う。Scope拡張、価値判断、Authority不足、重大Risk受容またはMilestone Acceptanceの変更を自動再計画しない。
 
@@ -476,7 +476,7 @@ Task失敗時は、現在Planを維持できる、影響部分の再計画が必
 
 Project Stateは、現在のMilestone／Objective、Task総数、Running／Ready／Waiting／Completed、Dependency、Blocker、Risk、Human Decision、Critical Path、Next Action、Integration State、Quality StateおよびCompletion Forecastを取得可能にする。未観測値を0または完了へ補正せず、Work ProgressとQualityを別に表示する。
 
-Project Runtimeへの入力は、Project Identity、Repository BindingとRevision、Milestone目的と受入条件、許可された読取り／変更範囲、Provider送信境界、費用・回数・時間上限、最大同時実行数および再計画上限を明示する。最大同時実行数は1～5の範囲に限定し、省略時の既定値は実装が固定して表示する。MCP／CLI Adapterはこの入力を追加Authorityへ変換しない。
+Orchestratorへの入力は、Project Identity、Repository BindingとRevision、Milestone目的と受入条件、許可された読取り／変更範囲、Provider送信境界、費用・回数・時間上限、最大同時実行数および再計画上限を明示する。最大同時実行数は1～5の範囲に限定し、省略時の既定値は実装が固定して表示する。MCP／CLI Adapterはこの入力を追加Authorityへ変換しない。
 
 v0.19のMCP公開面は`crdd.run_objective`と`crdd.submit_decision`だけとする。`crdd.run_objective`は検証済みProject Binding、現在Revision、Milestone Authorityおよび宣言済み上限へObjective要求を結合する。同じ選択ユーザー、Project／Milestoneおよびrequest identityの再送は新しいOperationを作らず、最新Project State、現在の判断要求または終端結果を返す。別主体、別Project／Milestoneまたは別request identityを状態取得へ流用しない。`crdd.submit_decision`は`decisionId`、`projectId`、`milestoneId`、`generation`、`revision`、`selectedOption`、Runtime発行のopaqueな一回限り・期限付きの継続Capabilityおよび任意の`comment`を受け取り、`run_objective`受付時に検証した選択ユーザーのOS principal、既存Milestone Authorityと現在の判断要求を照合する。Capabilityのraw値はClientへ一度だけ返し、Runtimeは対象、主体、世代、改訂版、有限期限へ結合したhashと消費状態だけをRepository外のOS管理・Runtime保護Rootへ先に耐久化する。Platform AdapterがRoot identity、選択ユーザー、固定Volume、非reparse chain、Owner／Protectionまたはatomic updateを確認できない場合はEffect 0にする。Repository側は非AuthorityのRecord IDだけを持つ。人間へ手入力を要求せず、raw値をRepository、Provider、Task Packet、ログ、永続RecordまたはMCP metadataへ保存・転送しない。
 
@@ -488,7 +488,7 @@ Task状態の`completed`はTask結果と資源回収の確認、Objective／Mile
 
 SchedulerはTask開始前に、現在のProject世代、Dependency、Task Authority、変更範囲、共有資源、Conflict reservation、Provider利用条件および実行中枠を再確認する。`starting`、`running`および実行資源が残る`cleanup_pending`を最大5枠へ数え、cleanup不明のTaskを空き枠へ補正しない。開始判断を耐久化する前、または開始直前の再確認に失敗した場合はProvider Effectを発行しない。
 
-Project Runtimeは、Taskごとに一意なattempt IDとSingle Task Operation Identityを保持する。再試行、部分再計画、Parent再開またはMCP request再送で同じTask Effectを二重発行しない。古い世代、別attempt、別Projectまたは別Repository Revisionの結果を現在Taskへ適用しない。
+Orchestratorは、Taskごとに一意なattempt IDとSingle Task Operation Identityを保持する。再試行、部分再計画、Parent再開またはMCP request再送で同じTask Effectを二重発行しない。古い世代、別attempt、別Projectまたは別Repository Revisionの結果を現在Taskへ適用しない。
 
 取消は取消要求、Taskへの通知、Task終了、資源回収およびProject State反映を別々に観測する。MCP切断、Parent Process喪失、Promise完了または子Processへのsignal送信だけを取消完了としない。cleanup、Lock解放またはRecoveryが不明なら、取得できたIdentityと未確認事項を保持して通常成功を返さない。
 

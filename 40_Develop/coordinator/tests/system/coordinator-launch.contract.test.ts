@@ -6,7 +6,7 @@
  * @trace PRL-ST-001
  * @level ST
  * @scope coordinator、launch
- * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Orchestrator→Execution→受入
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -17,7 +17,7 @@ import { fileURLToPath } from "node:url";
 import {
   COORDINATOR_LAUNCH_ENTRIES,
   resolveCoordinatorLaunch,
-} from "../../src/cli/coordinator-launch.ts";
+} from "../../src/cli/launch.ts";
 
 const packageRoot = fileURLToPath(new URL("../../", import.meta.url));
 const repositoryRoot = path.resolve(packageRoot, "../..");
@@ -347,14 +347,14 @@ test("実子で同一PID・引数・stdin byte・cwd・終了コードを保持�
   try {
     for (const relative of [
       "bin/coordinator.ts",
-      "src/cli/coordinator-launch.ts",
-      "src/host-runtime/node-runtime-version.ts",
+      "src/cli/launch.ts",
+      "src/host-execution/node-runtime-version.ts",
     ]) {
       const target = path.join(root, relative);
       fs.mkdirSync(path.dirname(target), { recursive: true });
       fs.copyFileSync(path.join(packageRoot, relative), target);
     }
-    const entry = path.join(root, "src/cli/coordinator-command.ts");
+    const entry = path.join(root, "src/cli/command.ts");
     fs.writeFileSync(
       entry,
       `import { fileURLToPath } from 'node:url';

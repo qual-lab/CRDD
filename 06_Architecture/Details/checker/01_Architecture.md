@@ -82,7 +82,7 @@ Checker固有のPipeline、Finding、Rule RegistryおよびProfile本体は`40_D
 |---|---|---|
 | [配布入口](../../../template/tools/crdd-check.ts) | 安定CLI名から同じ基準版Root内の公式Repository CLIへ相対接続する | 採用Repository向け入口を維持しつつ、検査意味を`template`に二重管理しない |
 | [Checker実装正本](../../../40_Develop/checker) | Checker固有Finding、Rule、Profile、Pipeline、CLIおよび結果報告を所有する | Rule追加のたびにlauncherを変更せず、共通能力をChecker専有にしない |
-| [公式Repository CLI](../../../40_Develop/checker/bin/crdd-check.ts) | 同じChecker公開APIへ接続する | 実装工程から発見できる入口を持ち、コピーを作らない |
+| [公式Repository CLI](../../../40_Develop/checker/bin/checker.ts) | 同じChecker公開APIへ接続する | 実装工程から発見できる入口を持ち、コピーを作らない |
 | [private package](../../../40_Develop/checker/package.json) | 型・命名・静的解析・試験の開発環境 | 開発依存を採用先の必須導入物へ広げない |
 | [試験runner](../../../40_Develop/checker/tests/test-runner.ts) | 安全に列挙した試験を子Processで実行する | 通常Checkerの検査と、fixtureを作る開発試験を分ける |
 
@@ -100,7 +100,7 @@ Checkerは一つの配布入口から開始し、検査基盤は`40_Develop/chec
        ├─────────────────┐
        │                                 │
 公式Repository CLI                   採用Repository入口
-[40_Develop/checker/bin/crdd-check.ts]       [<CRDD基準版Directory>/template/tools/crdd-check.ts]
+[40_Develop/checker/bin/checker.ts]       [<CRDD基準版Directory>/template/tools/crdd-check.ts]
        │                                 │
        └─────────────────┘
                          │ Checker公開API
@@ -138,7 +138,7 @@ Checkerは一つの配布入口から開始し、検査基盤は`40_Develop/chec
 
 | 内部ブロック | Source群・関数群 | 役割 |
 |---|---|---|
-| 開発用接続部 | `40_Develop/checker/bin/crdd-check.ts` | `40_Develop/checker/src/index.ts`へ接続し、launcherへ検査実装を複製しない |
+| 開発用接続部 | `40_Develop/checker/bin/checker.ts` | `40_Develop/checker/src/index.ts`へ接続し、launcherへ検査実装を複製しない |
 | 発見・参照・範囲 | `40_Develop/checker/src/`のRepository発見、`anchorsFor*`、`resolveLocalTarget`と範囲選択部 | 確認する文書集合と参照先を構成する |
 | Artifact変換 | `markdown-artifact-parser.ts`、`artifact-model.ts` | Markdown表現を検査用の意味Modelへ一度だけ変換する |
 | 構造・関係検査 | `schema-validator.ts`、`relation-engine.ts` | 単一成果物の決定論的構造と成果物間Relationを分けて検査する |

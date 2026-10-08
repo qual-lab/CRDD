@@ -12,7 +12,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import * as qualityChangeControl from "../../src/quality-change-control/index.ts";
+import * as qualityChangeControl from "../../src/index.ts";
 
 /**
  * 必須確認が揃わない候補をRelease可能と表示しないことを検証する。

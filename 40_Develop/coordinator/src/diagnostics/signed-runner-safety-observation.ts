@@ -6,7 +6,7 @@
  */
 import { types as utilTypes } from "node:util";
 
-import { snapshotPlainArray } from "../../../domain-model/src/plain-data/index.ts";
+import { snapshotPlainArray } from "../../../domain-model/src/index.ts";
 
 /**
  * signed-runner-safety-observationで使用するSigned Runner Safety Schemaの値契約を定義する。

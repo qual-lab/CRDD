@@ -142,7 +142,7 @@ pub fn observe(request: &Request) -> Response {
 #[cfg(test)]
 mod tests {
     use crate::filesystem::protection::{DirectoryIdentity, bounded_ace_sid};
-    use crate::filesystem::provider_home::{
+    use crate::filesystem::protected_root::{
         provider_home_identity_hash, provider_home_mount_source_hash,
     };
     use crate::process::principal::REQUIRED_SELECTED_USER_PRINCIPAL_FLAGS;

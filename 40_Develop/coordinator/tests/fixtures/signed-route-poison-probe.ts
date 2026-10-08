@@ -1,7 +1,17 @@
-import { requestRuntimeOwnedExternalSendGrant } from "../../src/external-send/external-send-grant-runtime.ts";
-import { startRuntimeOwnedCoordinatorTask } from "../../src/task/coordinator-task-runtime.ts";
-import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../../src/platform-access/platform-provisioner-package-filesystem.ts";
-import { isRuntimeProcessPoisoned } from "../../src/host-runtime/runtime-process-safety-state.ts";
+/**
+ * 署名Route検証のPoison拒否を模擬する。
+ *
+ * @packageDocumentation
+ * @responsibility Task開始・送信Grant・Package Capabilityを差し替えて、Poison後のRoute開始拒否を観測する。
+ * @trace AIT-ST-004
+ * @level ST
+ * @scope 署名Route検証の停止境界
+ * @boundary 模擬操作→Route検証Tool。実Provider依頼や署名を発行するFixtureではない。
+ */
+import { requestRuntimeOwnedExternalSendGrant } from "../../src/external-send/grant.ts";
+import { startRuntimeOwnedCoordinatorTask } from "../../src/task/execution.ts";
+import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../../src/platform-access/package-verification.ts";
+import { isRuntimeProcessPoisoned } from "../../src/host-execution/process-safety-state.ts";
 import { runSignedRouteMatrixVerification } from "../../scripts/verify-signed-route-matrix.ts";
 import {
   SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT,

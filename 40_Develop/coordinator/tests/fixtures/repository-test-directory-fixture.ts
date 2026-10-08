@@ -1,3 +1,14 @@
+/**
+ * Repository内の試験領域を生成・清掃する。
+ *
+ * @packageDocumentation
+ * @responsibility 所有ProcessとGit Pack試験のNamespaceを固定し、自己生成Directoryの境界を検査する。
+ * @trace ERB-IT-002
+ * @trace RFD-IT-012
+ * @level IT
+ * @scope Process／Git Fixtureの試験領域
+ * @boundary 試験Fixture→Repository内Filesystem。由来不明の領域や本番成果物は清掃しない。
+ */
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";

@@ -21,7 +21,7 @@ import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,
   verifyRepositoryRootFromWorkingDirectory,
-} from "../../src/index.ts";
+} from "../../src/repository/location.ts";
 
 /**
  * gitのTest準備責務を実行する。

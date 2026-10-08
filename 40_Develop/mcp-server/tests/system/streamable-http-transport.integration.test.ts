@@ -19,16 +19,15 @@ import { fileURLToPath } from "node:url";
 
 import {
   closeMcpHttpOnProcessSignal,
-  MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
-  startMcpProjectRuntimeStreamableHttp,
-  type McpProjectRuntimeDependencies,
+  MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+  startMcpOrchestratorStreamableHttp,
+  type McpOrchestratorDependencies,
 } from "../../src/index.ts";
 
 const TOKEN = "local-development-token-0123456789abcdef";
 const revision = "a".repeat(40);
 const META = Object.freeze({
-  "io.modelcontextprotocol/protocolVersion":
-    MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
+  "io.modelcontextprotocol/protocolVersion": MCP_ORCHESTRATOR_PROTOCOL_VERSION,
   "io.modelcontextprotocol/clientCapabilities": Object.freeze({}),
 });
 
@@ -45,8 +44,8 @@ const META = Object.freeze({
  * @boundary EST-ST-003=Direct Boundary: mcp Test Source→対象契約
  */
 function dependencies(
-  overrides: Partial<McpProjectRuntimeDependencies> = {},
-): McpProjectRuntimeDependencies {
+  overrides: Partial<McpOrchestratorDependencies> = {},
+): McpOrchestratorDependencies {
   return {
     authenticateClient: () => ({
       status: "verified",
@@ -55,9 +54,9 @@ function dependencies(
     runObjective: async () => assert.fail("objective not expected"),
     submitDecision: async () => assert.fail("decision not expected"),
     getProjectState: async (request) => ({
-      contract: "crdd-coordinator/project-runtime-state-query/v1",
+      contract: "crdd-coordinator/orchestrator-state-query/v1",
       status: "completed",
-      reason: "project_runtime_state_absent",
+      reason: "orchestrator_state_absent",
       requestId: request.requestId,
       projectId: request.projectId,
       repositoryRevision: request.repositoryRevision,
@@ -89,7 +88,7 @@ function headers(method: string, name?: string) {
     authorization: `Bearer ${TOKEN}`,
     accept: "application/json, text/event-stream",
     "content-type": "application/json",
-    "mcp-protocol-version": MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
+    "mcp-protocol-version": MCP_ORCHESTRATOR_PROTOCOL_VERSION,
     "mcp-method": method,
     ...(name ? { "mcp-name": name } : {}),
   };
@@ -182,7 +181,7 @@ function waitForListeningPort(child: ReturnType<typeof spawn>) {
  */
 test("template toolsの公開入口はlocalhost HTTP discoveryへ到達する", async () => {
   const entry = fileURLToPath(
-    new URL("../../../../template/tools/crdd-mcp.ts", import.meta.url),
+    new URL("../../../../template/tools/crdd-mcp-server.ts", import.meta.url),
   );
   const child = spawn(process.execPath, [entry, "--http", "--port", "0"], {
     cwd: path.dirname(entry),
@@ -232,7 +231,7 @@ test("template toolsの公開入口はlocalhost HTTP discoveryへ到達する", 
  * @boundary EST-ST-003=Direct Boundary: mcp Test Source→対象契約
  */
 test("localhost HTTPは認証済み状態参照を同じ公開契約へ搬送する", async () => {
-  const server = await startMcpProjectRuntimeStreamableHttp(dependencies(), {
+  const server = await startMcpOrchestratorStreamableHttp(dependencies(), {
     port: 0,
     bearerToken: TOKEN,
   });
@@ -243,7 +242,7 @@ test("localhost HTTPは認証済み状態参照を同じ公開契約へ搬送す
       method: "tools/call",
       params: {
         _meta: META,
-        name: "crdd.get_project_runtime_state",
+        name: "crdd.get_orchestrator_state",
         arguments: {
           requestId: "query-a",
           projectId: "project-a",
@@ -289,7 +288,7 @@ test("localhost HTTPは認証済み状態参照を同じ公開契約へ搬送す
  */
 test("HTTP終了は受信途中のbodyとidle socketを回収して冪等に完了する", async () => {
   let semanticEffects = 0;
-  const server = await startMcpProjectRuntimeStreamableHttp(
+  const server = await startMcpOrchestratorStreamableHttp(
     dependencies({
       runObjective: async () => {
         semanticEffects += 1;
@@ -313,7 +312,7 @@ test("HTTP終了は受信途中のbodyとidle socketを回収して冪等に完�
       `Authorization: Bearer ${TOKEN}`,
       "Accept: application/json, text/event-stream",
       "Content-Type: application/json",
-      `MCP-Protocol-Version: ${MCP_PROJECT_RUNTIME_PROTOCOL_VERSION}`,
+      `MCP-Protocol-Version: ${MCP_ORCHESTRATOR_PROTOCOL_VERSION}`,
       "MCP-Method: tools/call",
       "MCP-Name: crdd.run_objective",
       "Content-Length: 1000",
@@ -354,7 +353,7 @@ test("HTTP終了は受信途中のbodyとidle socketを回収して冪等に完�
  */
 test("HTTPは認証・Origin・mirror header不一致をApplication前で拒否する", async () => {
   let effects = 0;
-  const server = await startMcpProjectRuntimeStreamableHttp(
+  const server = await startMcpOrchestratorStreamableHttp(
     dependencies({
       getProjectState: async () => {
         effects += 1;
@@ -369,7 +368,7 @@ test("HTTPは認証・Origin・mirror header不一致をApplication前で拒否�
     method: "tools/call",
     params: {
       _meta: META,
-      name: "crdd.get_project_runtime_state",
+      name: "crdd.get_orchestrator_state",
       arguments: {
         requestId: "query-a",
         projectId: "project-a",
@@ -424,7 +423,7 @@ test("HTTPは認証・Origin・mirror header不一致をApplication前で拒否�
  */
 test("HTTPは不正UTF-8・重複key・容量超過を意味処理前に拒否する", async () => {
   let effects = 0;
-  const server = await startMcpProjectRuntimeStreamableHttp(
+  const server = await startMcpOrchestratorStreamableHttp(
     dependencies({
       getProjectState: async () => {
         effects += 1;
@@ -433,17 +432,14 @@ test("HTTPは不正UTF-8・重複key・容量超過を意味処理前に拒否�
     { port: 0, bearerToken: TOKEN },
   );
   const url = new URL(`http://${server.host}:${server.port}${server.endpoint}`);
-  const requestHeaders = headers(
-    "tools/call",
-    "crdd.get_project_runtime_state",
-  );
+  const requestHeaders = headers("tools/call", "crdd.get_orchestrator_state");
   try {
     assert.equal(
       await sendRaw(url, requestHeaders, Buffer.from([0xc3, 0x28])),
       400,
     );
     const duplicate = Buffer.from(
-      `{"jsonrpc":"2.0","id":1,"id":2,"method":"tools/call","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"${MCP_PROJECT_RUNTIME_PROTOCOL_VERSION}","io.modelcontextprotocol/clientCapabilities":{}},"name":"crdd.get_project_runtime_state","arguments":{}}}`,
+      `{"jsonrpc":"2.0","id":1,"id":2,"method":"tools/call","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"${MCP_ORCHESTRATOR_PROTOCOL_VERSION}","io.modelcontextprotocol/clientCapabilities":{}},"name":"crdd.get_orchestrator_state","arguments":{}}}`,
       "utf8",
     );
     assert.equal(await sendRaw(url, requestHeaders, duplicate), 400);
@@ -475,7 +471,7 @@ test("HTTP response切断は進行中Objectiveへ取消を伝播して終了時�
   const started = new Promise<void>((resolve) => {
     markStarted = resolve;
   });
-  const server = await startMcpProjectRuntimeStreamableHttp(
+  const server = await startMcpOrchestratorStreamableHttp(
     dependencies({
       runObjective: async (_request, signal) =>
         new Promise((resolve) => {
@@ -495,9 +491,9 @@ test("HTTP response切断は進行中Objectiveへ取消を伝播して終了時�
           const cancel = () => {
             isCancellationObserved = true;
             resolve({
-              contract: "crdd-coordinator/project-runtime-objective-intake/v1",
+              contract: "crdd-coordinator/orchestrator-objective-intake/v1",
               status: "cancelled",
-              reason: "project_runtime_transport_disconnected",
+              reason: "orchestrator_transport_disconnected",
               requestId: "objective-a",
               projectId: "project-a",
               milestoneId: "milestone-a",
@@ -580,7 +576,7 @@ test("公開Launcherのsignal所有は実行中Applicationの取消とjoin完了
   const aborted = new Promise<void>((resolve) => {
     markAborted = resolve;
   });
-  const server = await startMcpProjectRuntimeStreamableHttp(
+  const server = await startMcpOrchestratorStreamableHttp(
     dependencies({
       runObjective: async (_request, signal) =>
         new Promise((resolve) => {
@@ -601,10 +597,9 @@ test("公開Launcherのsignal所有は実行中Applicationの取消とjoin完了
             markAborted?.();
             releaseHandler = () =>
               resolve({
-                contract:
-                  "crdd-coordinator/project-runtime-objective-intake/v1",
+                contract: "crdd-coordinator/orchestrator-objective-intake/v1",
                 status: "cancelled",
-                reason: "project_runtime_transport_shutdown",
+                reason: "orchestrator_transport_shutdown",
                 requestId: "objective-signal",
                 projectId: "project-a",
                 milestoneId: "milestone-a",

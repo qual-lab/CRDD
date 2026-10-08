@@ -16,13 +16,15 @@ import test from "node:test";
 
 import {
   createGitChangePublicationAdapter,
-  executeChangePublication,
   gitChangePublicationAdapter,
   gitChangePublicationTargetObservationAdapter,
+} from "../../src/git/change-publication-adapter.ts";
+import {
+  executeChangePublication,
   observeChangePublicationTarget,
-  verifyRepositoryRoot,
-} from "../../src/index.ts";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../src/repository-location.ts";
+} from "../../src/change-publication.ts";
+import { verifyRepositoryRoot } from "../../src/repository/location.ts";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../src/repository/location.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
   import.meta.dirname,

@@ -11,7 +11,7 @@
 import {
   resolveVerifiedRepositoryRoot,
   type VerifiedRepositoryRoot,
-} from "./repository-location.ts";
+} from "./repository/location.ts";
 
 /**
  * 変更公開で許可する操作入力を定義する。

@@ -14,7 +14,7 @@
     {
       "symbolId": "cros.runtime",
       "kind": "file",
-      "path": "src/runtime.ts",
+      "path": "src/access/session-context.ts",
       "archIds": [
         "ARCH-000009",
         "ARCH-000015"
@@ -23,7 +23,7 @@
     {
       "symbolId": "cros.tool-registry",
       "kind": "file",
-      "path": "src/tool-registry.ts",
+      "path": "src/tool/registry.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -31,7 +31,7 @@
     {
       "symbolId": "cros.application-contract",
       "kind": "file",
-      "path": "src/application-contract.ts",
+      "path": "src/surface/operation.ts",
       "archIds": [
         "ARCH-000010",
         "ARCH-000015"
@@ -40,7 +40,7 @@
     {
       "symbolId": "cros.project-federation",
       "kind": "file",
-      "path": "src/project-federation.ts",
+      "path": "src/federation/project.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000013"
@@ -49,7 +49,7 @@
     {
       "symbolId": "cros.remote-transport",
       "kind": "file",
-      "path": "src/remote-transport.ts",
+      "path": "src/connection/http.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000007",
@@ -59,7 +59,7 @@
     {
       "symbolId": "cros.shared-server-config-file-adapter",
       "kind": "file",
-      "path": "src/shared-server-config-file-adapter.ts",
+      "path": "src/configuration/shared-server-file-adapter.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000011",
@@ -69,7 +69,7 @@
     {
       "symbolId": "cros.connection-credential",
       "kind": "file",
-      "path": "src/connection-credential.ts",
+      "path": "src/access/credential.ts",
       "archIds": [
         "ARCH-000013"
       ]
@@ -77,7 +77,7 @@
     {
       "symbolId": "cros.credential-registry-file-adapter",
       "kind": "file",
-      "path": "src/credential-registry-file-adapter.ts",
+      "path": "src/access/registry-file-adapter.ts",
       "archIds": [
         "ARCH-000011",
         "ARCH-000013"
@@ -86,7 +86,7 @@
     {
       "symbolId": "cros.credential-access-recovery",
       "kind": "file",
-      "path": "src/credential-access-recovery.ts",
+      "path": "src/access/recovery.ts",
       "archIds": [
         "ARCH-000013"
       ]
@@ -94,7 +94,7 @@
     {
       "symbolId": "cros.credential-access-recovery-file-adapter",
       "kind": "file",
-      "path": "src/credential-access-recovery-file-adapter.ts",
+      "path": "src/access/recovery-file-adapter.ts",
       "archIds": [
         "ARCH-000011",
         "ARCH-000013"
@@ -103,7 +103,7 @@
     {
       "symbolId": "cros.credential-access-recovery-cli",
       "kind": "file",
-      "path": "src/credential-access-recovery-cli.ts",
+      "path": "src/access/recovery-cli.ts",
       "archIds": [
         "ARCH-000013"
       ]
@@ -111,7 +111,7 @@
     {
       "symbolId": "cros.test.integration.core",
       "kind": "test-suite",
-      "path": "tests/integration/cros-core.contract.test.ts",
+      "path": "tests/integration/local-operation-ai-plan.contract.test.ts",
       "qaIds": [
         "QA-000007"
       ],

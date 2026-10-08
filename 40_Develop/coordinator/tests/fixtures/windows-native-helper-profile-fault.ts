@@ -1,3 +1,13 @@
+/**
+ * Native Helper構成・主体観測の故障入力を生成する。
+ *
+ * @packageDocumentation
+ * @responsibility 固定Modeの欠落・リンク・取得不能を自己生成環境へ注入する。
+ * @trace EST-ST-003
+ * @level ST
+ * @scope Windows Native Helperの構成故障
+ * @boundary 試験用環境→Native Helper前提検査。実利用者の認証・Profileを変更しない。
+ */
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -77,7 +87,7 @@ try {
     });
   }
   const environmentModule = await import(
-    "../../src/host-runtime/windows-child-environment.ts"
+    "../../src/host-execution/windows-child-environment.ts"
   );
   isEnvironmentNull =
     environmentModule.createWindowsNativeHelperEnvironment() === null;

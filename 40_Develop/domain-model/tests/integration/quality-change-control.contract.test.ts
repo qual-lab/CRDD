@@ -18,7 +18,7 @@ import {
   fixQualityCandidate,
   integrateQualityGate,
   reenterQualityReview,
-} from "../../src/quality-change-control/index.ts";
+} from "../../src/quality-change-control/gate.ts";
 
 /**
  * 同じ固定改訂版の全必須確認だけをverifiedへ統合することを検証する。

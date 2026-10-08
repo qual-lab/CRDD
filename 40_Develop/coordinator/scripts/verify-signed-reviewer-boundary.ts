@@ -6,16 +6,16 @@
  */
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../version-control/src/repository-location.ts";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../version-control/src/repository/location.ts";
 import {
   isRuntimeProcessPoisoned,
   poisonRuntimeProcessAfterCleanupUnknown,
-} from "../src/host-runtime/runtime-process-safety-state.ts";
+} from "../src/host-execution/process-safety-state.ts";
 import {
   displayVerificationRecording,
   runRecordedVerification,
 } from "./verification-result-record.ts";
-import { snapshotPlainArray } from "../../domain-model/src/plain-data/index.ts";
+import { snapshotPlainArray } from "../../domain-model/src/index.ts";
 import {
   runSignedGeneralTaskVerification,
   SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT,

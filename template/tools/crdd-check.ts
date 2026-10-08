@@ -7,4 +7,4 @@
  * @trace ARCH-000001
  */
 
-import "../../40_Develop/checker/bin/crdd-check.ts";
+import "../../40_Develop/checker/bin/checker.ts";

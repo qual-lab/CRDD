@@ -22,10 +22,10 @@ import {
   endRuntimeProcessEffectDrain,
   getRuntimeProcessInstanceIdentity,
   inspectRuntimeProcessRecoveryIdentity,
-} from "../../src/host-runtime/runtime-process-safety-state.ts";
-import { startRuntimeOwnedCoordinatorTask } from "../../src/task/coordinator-task-runtime.ts";
-import { requestRuntimeOwnedExternalSendGrant } from "../../src/external-send/external-send-grant-runtime.ts";
-import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../../src/platform-access/platform-provisioner-package-filesystem.ts";
+} from "../../src/host-execution/process-safety-state.ts";
+import { startRuntimeOwnedCoordinatorTask } from "../../src/task/execution.ts";
+import { requestRuntimeOwnedExternalSendGrant } from "../../src/external-send/grant.ts";
+import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../../src/platform-access/package-verification.ts";
 
 /**
  * 対話cleanup不明は同一Process stateを不可逆にpoisonするを検証する。

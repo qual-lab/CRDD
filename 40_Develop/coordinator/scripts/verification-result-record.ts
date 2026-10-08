@@ -8,22 +8,22 @@ import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { types as utilTypes } from "node:util";
-import { ensureRepositoryRuntimeDataArea } from "../../domain-model/src/storage/index.ts";
+import { ensureRepositoryRuntimeDataArea } from "../../domain-model/src/index.ts";
 import {
   RepositoryRuntimeDataAreaBlockedError,
   requireReadyRepositoryRuntimeDataArea,
-} from "../../domain-model/src/repository/index.ts";
-import { TESTS_RELATIVE_PATH } from "../../domain-model/src/configuration/index.ts";
+} from "../../domain-model/src/index.ts";
+import { TESTS_RELATIVE_PATH } from "../../domain-model/src/index.ts";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,
-} from "../../version-control/src/repository-location.ts";
-import { isDockerIsolationRecoveryIdCandidate } from "../src/docker-runtime/docker-isolation.ts";
-import { snapshotPlainArray } from "../../domain-model/src/plain-data/index.ts";
-import { coordinatorTaskPublicReasons } from "../src/task/coordinator-task-result-reasons.ts";
-import { inspectRepositoryRevisionCandidate } from "../src/repository-operation/repository-operation-runtime.ts";
+} from "../../version-control/src/repository/location.ts";
+import { isDockerIsolationRecoveryIdCandidate } from "../src/docker-execution/isolation-probe.ts";
+import { snapshotPlainArray } from "../../domain-model/src/index.ts";
+import { coordinatorTaskPublicReasons } from "../src/task/result-reasons.ts";
+import { inspectRepositoryRevisionCandidate } from "../src/repository-operation/binding.ts";
 import { isCanonicalSignedRunnerRecoveryId } from "../src/diagnostics/signed-runner-safety-observation.ts";
-import { isSupportedCoordinatorNodeRuntime } from "../src/host-runtime/node-runtime-version.ts";
+import { isSupportedCoordinatorNodeRuntime } from "../src/host-execution/node-runtime-version.ts";
 import {
   SIGNED_GENERAL_TASK_PUBLIC_REASONS,
   SIGNED_ROUTE_MATRIX_REASONS,

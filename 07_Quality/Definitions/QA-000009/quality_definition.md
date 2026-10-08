@@ -31,7 +31,7 @@ Quality ID: `QA-000009`
 | [SPEC-000017](../../../05_SPEC/Definitions/SPEC-000017/spec_definition.md) | `spec-000017.qa-000009` | SPEC Definition（正常・境界・失敗・観測不能・副作用） | 正常: 情報搬送と実行、結果生成と結果帰還を別状態として返す。境界: Request Identity一致／不一致、接続中／切断、結果あり／未取得を分け、別依頼を再発行しない。失敗: 応答喪失を未実行とみなさず、別依頼として再発行しない。観測不能: 不明を正常・不存在・完了へ丸めず、実際の副作用「許可時だけ情報搬送または結果取得を行う。応答喪失後はProvider Effectを再発行しない」と矛盾する結果を返さない。失敗: 応答喪失を未実行とみなさず、別依頼として再発行しない。副作用: 許可時だけ情報搬送または結果取得を行う。応答喪失後はProvider Effectを再発行しない。応答喪失またはEffect不明では同じ識別情報で再確認し、終了後確認まで回復義務を保持する | IT／ST／UAT | `EST-ST-005`、`EST-IT-004`、`EST-ST-003`、`EST-UAT-009` |
 | [SPEC-000021](../../../05_SPEC/Definitions/SPEC-000021/spec_definition.md) | `spec-000021.qa-000009` | SPEC Definition（正常・境界・失敗・観測不能・副作用） | 正常: 送信前検査と送信Effectを区別し、利用した同意範囲を結果へ結合する。境界: 同意範囲内／範囲外、有効／期限切れ／不明を分け、範囲外では送信Effectを発行しない。失敗: 期限切れ・範囲変更・不明な同意ではEffect 0で停止する。観測不能: 不明を正常・不存在・完了へ丸めず、実際の副作用「許可範囲の外部送信Effectを発行し、送信時の依頼識別情報と同意範囲を結果へ結合する」と矛盾する結果を返さない。失敗: 期限切れ・範囲変更・不明な同意ではEffect 0で停止する。副作用: 許可範囲の外部送信Effectを発行し、送信時の依頼識別情報と同意範囲を結果へ結合する。本SPEC固有の回復経路は設けず、失敗理由と安全な戻り先を返す | IT／ST／UAT | `EST-ST-005`、`EST-IT-004`、`EST-ST-003`、`EST-UAT-006` |
 | [SPEC-000026](../../../05_SPEC/Definitions/SPEC-000026/spec_definition.md) | `spec-000026.qa-000009` | SPEC Definition（正常・境界・失敗・観測不能・副作用） | 正常: 結果受領と候補採用を分け、元の依頼と出所に結合した未信頼候補を返す。境界: 依頼Identity一致／欠落／曖昧を分け、結合不能な応答を採用可能候補へしない。失敗: 送信時の識別情報へ結合できない結果は採用可能な候補へしない。観測不能: 不明を正常・不存在・完了へ丸めず、実際の副作用「受領した結果を元Taskへ結合し、未信頼候補として返す。Provider Effectを再発行しない」と矛盾する結果を返さない。失敗: 送信時の識別情報へ結合できない結果は採用可能な候補へしない。副作用: 受領した結果を元Taskへ結合し、未信頼候補として返す。Provider Effectを再発行しない。本SPEC固有の回復経路は設けず、失敗理由と安全な戻り先を返す | IT／ST／UAT | `EST-IT-004`、`EST-ST-005`、`EST-ST-003`、`EST-UAT-006` |
-| [ARCH-000012](../../../06_Architecture/Definitions/ARCH-000012/architecture_definition.md) | `arch-000012.qa-000009` | Architecture Definition（責務・境界・状態・故障） | 受付前／受付済／Effect前後の失敗／結果ありを入口間で同じ意味に保つ。Transport固有Schemaを公開意味契約として再定義しない。所有する責務: decode／encode、接続Lifecycle、公開Application Contractへの搬送。所有しない責務: Project Runtimeの意味契約、Authority追加、Provider実行。主な外部境界: CLI、MCP stdio、localhost HTTP、将来のWorkbench。SPEC-000011: Transport固有値を意味契約へ混入せず、未対応入口を成立済みと表示しない。Effect: Transport自体は意味を変更しない。下流Effectは同じApplication契約で制御する。入力SPECが固有Recoveryを定義しない場合、Architectureから追加しない。結果には最後に確認できた状態、観測時点、不足および次の安全な行動を、入力契約が必要とする範囲で含める | IT／UAT | `EST-IT-001`、`EST-IT-002`、`EST-IT-004`、`EST-UAT-007` |
+| [ARCH-000012](../../../06_Architecture/Definitions/ARCH-000012/architecture_definition.md) | `arch-000012.qa-000009` | Architecture Definition（責務・境界・状態・故障） | 受付前／受付済／Effect前後の失敗／結果ありを入口間で同じ意味に保つ。Transport固有Schemaを公開意味契約として再定義しない。所有する責務: decode／encode、接続Lifecycle、公開Application Contractへの搬送。所有しない責務: Orchestratorの意味契約、Authority追加、Provider実行。主な外部境界: CLI、MCP stdio、localhost HTTP、将来のWorkbench。SPEC-000011: Transport固有値を意味契約へ混入せず、未対応入口を成立済みと表示しない。Effect: Transport自体は意味を変更しない。下流Effectは同じApplication契約で制御する。入力SPECが固有Recoveryを定義しない場合、Architectureから追加しない。結果には最後に確認できた状態、観測時点、不足および次の安全な行動を、入力契約が必要とする範囲で含める | IT／UAT | `EST-IT-001`、`EST-IT-002`、`EST-IT-004`、`EST-UAT-007` |
 | [ARCH-000015](../../../06_Architecture/Definitions/ARCH-000015/architecture_definition.md) | `arch-000015.qa-000009` | Architecture Definition（責務・境界・状態・故障） | not_authorized→authorized→sent→returned→candidate→adoptedを別AuthorityとEffectにし、送信、受領、採用を相互流用しない。所有する責務: 目的限定の送信同意、最小化送信、同じ依頼への結果帰還、候補隔離、採否。所有しない責務: 送信同意からの結果採用、外部AIへの決定権限移譲、所有正本の無断更新。主な外部境界: 外部AI／API／MCP、Candidate Store、所有正本、人間判断。SPEC-000021: 期限切れ・範囲変更・不明な同意ではEffect 0で停止する。Effect: 許可範囲の外部送信Effectを発行し、送信時の依頼識別情報と同意範囲を結果へ結合する。SPEC-000026: 送信時の識別情報へ結合できない結果は採用可能な候補へしない。Effect: 受領した結果を元Taskへ結合し、未信頼候補として返す。Provider Effectを再発行しない。SPEC-000027: 結果受領や送信許可を候補採用Authorityへ流用しない。Effect: 採用時だけ所有正本を更新する。却下・保留では正本Effect 0。入力SPECが固有Recoveryを定義しない場合、Architectureから追加しない。結果には最後に確認できた状態、観測時点、不足および次の安全な行動を、入力契約が必要とする範囲で含める | IT／ST／UAT | `EST-ST-003`、`EST-IT-004`、`EST-IT-001`、`EST-UAT-006` |
 ### Architecture詳細設計入力
 
@@ -39,9 +39,9 @@ Quality ID: `QA-000009`
 |---|---|
 | [coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md) | 実行編成、Authority、外部Effect、候補、回収・回復 |
 | [cros](../../../06_Architecture/Details/cros/01_Architecture.md) | Repository横断解決、Grant、投影、外部接続、候補処置 |
-| [mcp](../../../06_Architecture/Details/mcp/01_Architecture.md) | Transport変換、公開Schema、Session、結果搬送 |
-| [project-runtime](../../../06_Architecture/Details/project-runtime/01_Architecture.md) | Objective、Task、判断、取消、回復、公開結果 |
-| [workbench](../../../06_Architecture/Details/workbench/01_Architecture.md) | Repository単体／Local CROS／Remote CROSの入口差とAI依頼の外部送信境界 |
+| [mcp](../../../06_Architecture/Details/mcp-server/01_Architecture.md) | Transport変換、公開Schema、Session、結果搬送 |
+| [orchestrator](../../../06_Architecture/Details/orchestrator/01_Architecture.md) | Objective、Task、判断、取消、回復、公開結果 |
+| [workbench](../../../06_Architecture/Details/workbench-server/01_Architecture.md) | Repository単体／Local CROS／Remote CROSの入口差とAI依頼の外部送信境界 |
 
 ## 2. 試験段階と外部境界の適用
 
@@ -82,7 +82,7 @@ Quality ID: `QA-000009`
 
 ## 二Surface再編の追加観測条件
 
-導出元は[MCP詳細の公開Transportと終了契約](../../../06_Architecture/Details/mcp/01_Architecture.md)、[CROS共通能力](../../../06_Architecture/Details/cros/01_Architecture.md)、[Workbench接続](../../../06_Architecture/Details/workbench/01_Architecture.md)である。以下は既存義務の具体化と新しいHTTP終端義務であり、Source移管前の実測を新構成のPassへ流用しない。
+導出元は[MCP詳細の公開Transportと終了契約](../../../06_Architecture/Details/mcp-server/01_Architecture.md)、[CROS共通能力](../../../06_Architecture/Details/cros/01_Architecture.md)、[Workbench接続](../../../06_Architecture/Details/workbench-server/01_Architecture.md)である。以下は既存義務の具体化と新しいHTTP終端義務であり、Source移管前の実測を新構成のPassへ流用しない。
 
 | Local Item | 入力・反証 | 観測と終了後条件 |
 |---|---|---|

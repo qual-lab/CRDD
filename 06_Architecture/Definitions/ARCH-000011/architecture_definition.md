@@ -122,8 +122,8 @@ Detailは第2・3節のDefinition入力を置き換えず、その意味を実�
 
 正式入力は第2・3節のArchitecture分析だけである。次は成立済み能力とGapを照合するためにだけ参照する。
 
-- [現行照合先](../../Details/runtime-data/02_Current_Path_Reality_Audit.md)
-- [現行照合先](../../Details/runtime-data/01_Architecture.md)
+- [現行照合先](../../Details/domain-model/04_Storage_Path_Reality_Audit.md)
+- [現行照合先](../../Details/domain-model/03_Repository_Storage.md)
 
 ## Checklist
 

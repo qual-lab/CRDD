@@ -9,11 +9,11 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { types as utilTypes } from "node:util";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../version-control/src/repository-location.ts";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../version-control/src/repository/location.ts";
 import {
   isSupportedCoordinatorNodeRuntime,
   MINIMUM_COORDINATOR_NODE_VERSION,
-} from "../src/host-runtime/node-runtime-version.ts";
+} from "../src/host-execution/node-runtime-version.ts";
 import {
   SIGNED_GENERAL_TASK_PUBLIC_REASONS,
   type SignedGeneralTaskPublicReason,
@@ -21,27 +21,27 @@ import {
 import {
   isRuntimeProcessPoisoned,
   poisonRuntimeProcessAfterCleanupUnknown,
-} from "../src/host-runtime/runtime-process-safety-state.ts";
+} from "../src/host-execution/process-safety-state.ts";
 import {
   discardRuntimeOwnedCandidateBundle,
   readRuntimeOwnedCandidateBundle,
-} from "../src/candidate/candidate-bundle-store.ts";
+} from "../src/candidate/bundle-store.ts";
 import {
   cancelRuntimeOwnedCoordinatorTask,
   startRuntimeOwnedCoordinatorTask,
-} from "../src/task/coordinator-task-runtime.ts";
+} from "../src/task/execution.ts";
 import {
   coordinatorTaskPublicReasons,
   type CoordinatorTaskPublicReason,
-} from "../src/task/coordinator-task-result-reasons.ts";
-import { snapshotPlainArray } from "../../domain-model/src/plain-data/index.ts";
-import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../src/platform-access/platform-provisioner-package-filesystem.ts";
+} from "../src/task/result-reasons.ts";
+import { snapshotPlainArray } from "../../domain-model/src/index.ts";
+import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../src/platform-access/package-verification.ts";
 import {
   isCanonicalCrddGitObjectId,
   isCanonicalCrddVersion,
   isSupportedCrddRuntimeGitObjectId,
 } from "../src/diagnostics/release-identity-grammar.ts";
-import { inspectRepositoryRevisionCandidate } from "../src/repository-operation/repository-operation-runtime.ts";
+import { inspectRepositoryRevisionCandidate } from "../src/repository-operation/binding.ts";
 import {
   evaluateSignedRunnerSafetyObservation,
   salvageSignedRunnerNullableRecovery,
@@ -1275,7 +1275,7 @@ export function createSignedGeneralTaskVerificationRequest(
     ]),
     allowedPaths: Object.freeze([TARGET_PATH]),
     readPaths: Object.freeze([
-      "06_Architecture/Details/coordinator/01_Architecture.md",
+      "06_Architecture/Details/coordinator/02_Activity_Context.md",
       TARGET_PATH,
     ]),
     workClass:

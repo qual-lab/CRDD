@@ -24,7 +24,7 @@ import {
   createRuntimeLocalTypeScriptWorker,
   runtimeLocalTypeScriptChildRegistrySnapshotForPackageObserver,
   spawnRuntimeLocalTypeScriptChild,
-} from "../../src/host-runtime/runtime-local-typescript-child-entrypoints.ts";
+} from "../../src/host-execution/typescript-child-entrypoints.ts";
 import { createDevelopmentMeasurementConstraints } from "../../src/task/development-measurement-constraints.ts";
 import {
   assertReleaseSigningConsumerClosureForVerification,
@@ -46,16 +46,16 @@ import {
   runtimePackageCapabilityConsumerGraphDiagnosticForVerification,
   runtimeNamedFunctionGraphSnapshotForVerification,
   verifyBundledCoordinatorPackageCandidate,
-} from "../../src/platform-access/platform-provisioner-package-filesystem.ts";
+} from "../../src/platform-access/package-verification.ts";
 import {
   calculateRuntimeExecutionIdentityCandidate,
   PLATFORM_PROVISIONER_MANIFEST_CONTRACT,
   PLATFORM_PROVISIONER_MANIFEST_DOMAIN,
   PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT,
   PLATFORM_PROVISIONER_MANIFEST_REVISION,
-} from "../../src/platform-access/platform-provisioner-trust-core.ts";
-import { canonicalizeProvisioningJsonValueCandidate } from "../../src/diagnostics/provisioning-signature-primitives.ts";
-import { assertCanonicalCandidate } from "../support/test-support.ts";
+} from "../../src/platform-access/manifest-trust.ts";
+import { canonicalizeProvisioningJsonValueCandidate } from "../../src/platform-access/signature-primitives.ts";
+import { assertCanonicalCandidate } from "../support/contract-assertions.ts";
 
 const developmentFixtureRoots = new Set<string>();
 const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
@@ -74,9 +74,8 @@ const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
  * @boundary Partial Boundary: 配布Source→保存Workerの静的接続。実Worker lifecycleは既存保存排他試験が所有する。
  */
 test("Domain保存Workerの固定参照だけを受理し改変を拒否する", () => {
-  const owner = "40_Develop/domain-model/src/storage/filesystem-store-root.ts";
-  const worker =
-    "40_Develop/domain-model/src/storage/filesystem-store-kernel-lock-worker.ts";
+  const owner = "40_Develop/domain-model/src/storage/root-and-lock.ts";
+  const worker = "40_Develop/domain-model/src/storage/kernel-lock-worker.ts";
   const source = fs.readFileSync(
     path.resolve(coordinatorRoot, "../../", owner),
     "utf8",
@@ -92,11 +91,8 @@ test("Domain保存Workerの固定参照だけを受理し改変を拒否する",
     assertRuntimeSourceModuleBoundaryForVerification(worker, workerSource),
   );
   for (const [before, after] of [
-    ["./filesystem-store-kernel-lock-worker.ts", "./other-worker.ts"],
-    [
-      "./filesystem-store-kernel-lock-worker.ts",
-      "./filesystem-store-kernel-lock-worker.ts?alias",
-    ],
+    ["./kernel-lock-worker.ts", "./other-worker.ts"],
+    ["./kernel-lock-worker.ts", "./kernel-lock-worker.ts?alias"],
     ["new Worker(", "new OtherWorker("],
     ["import { Worker }", "import { Worker as OtherWorker }"],
     ['import { Worker } from "node:worker_threads";', ""],
@@ -106,7 +102,7 @@ test("Domain保存Workerの固定参照だけを受理し改変を拒否する",
     ],
     [
       "const worker = new Worker(",
-      'const extra = new Worker(new URL("./filesystem-store-kernel-lock-worker.ts", import.meta.url), {}); const worker = new Worker(',
+      'const extra = new Worker(new URL("./kernel-lock-worker.ts", import.meta.url), {}); const worker = new Worker(',
     ],
   ] as const) {
     assert.ok(source.includes(before), before);
@@ -122,7 +118,7 @@ test("Domain保存Workerの固定参照だけを受理し改変を拒否する",
   assert.throws(
     () =>
       assertRuntimeSourceModuleBoundaryForVerification(
-        owner.replace("filesystem-store-root.ts", "other-root.ts"),
+        owner.replace("root-and-lock.ts", "other-root.ts"),
         source,
       ),
     /child_worker_unbound|child_url_unbound/u,
@@ -167,15 +163,16 @@ test("Native保護検証Toolの五固定起動と所有関係の改変を拒否�
     "executeNativeProtectionGuard",
     "executeNativeProtectionZeroCase",
   ];
-  const graph = runtimeNamedFunctionGraphSnapshotForVerification(
+  const graphEntries = runtimeNamedFunctionGraphSnapshotForVerification(
     sourcePath,
     source,
     [...helpers, "runNativeProtection"],
   );
-  assert.equal(graph.length, 5);
-  for (const helper of helpers)
+  assert.equal(graphEntries.length, 5);
+  for (const helperFunctionName of helpers)
     assert.equal(
-      graph.find((node) => node.name === helper)?.lexicalScope,
+      graphEntries.find((node) => node.name === helperFunctionName)
+        ?.lexicalScope,
       "runNativeProtection",
     );
   for (const [before, after] of [
@@ -227,7 +224,7 @@ test("Native保護検証Toolの五固定起動と所有関係の改変を拒否�
  * @boundary Source→署名対象の起動点と呼出し元の静的検査。
  */
 test("Host回復Nativeの二搬送と六wrapperの閉グラフを確認する", () => {
-  const sourcePath = "src/host-runtime/host-terminal-windows-adapter.ts";
+  const sourcePath = "src/host-execution/terminal-windows-adapter.ts";
   const source = fs.readFileSync(
     path.join(coordinatorRoot, sourcePath),
     "utf8",
@@ -361,10 +358,7 @@ test("名前付き関数の型引数終端と文字列を区別する", () => {
  */
 test("Runtime sibling component宣言は各Identityを一度だけ所有する", () => {
   const source = fs.readFileSync(
-    path.join(
-      coordinatorRoot,
-      "src/platform-access/platform-provisioner-package-filesystem.ts",
-    ),
+    path.join(coordinatorRoot, "src/platform-access/package-verification.ts"),
     "utf8",
   );
   const declaration = source.match(
@@ -398,7 +392,7 @@ test("Runtime sibling component宣言は各Identityを一度だけ所有する",
  * @boundary AIT-IT-013=Direct Boundary: coordinator Test Source→対象契約
  */
 test("restart machineのWSL対象とDocker観測引数は閉集合で保持する", () => {
-  const sourcePath = "src/docker-desktop/docker-restart-machine.ts";
+  const sourcePath = "src/docker-desktop/restart-machine.ts";
   const source = fs.readFileSync(
     path.join(coordinatorRoot, sourcePath),
     "utf8",
@@ -450,8 +444,7 @@ test("restart machineのWSL対象とDocker観測引数は閉集合で保持す�
  * @boundary AIT-IT-013=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Native repair/restart spawnは同じ署名観測所有者と閉じた引数集合を要求する", () => {
-  const sourcePath =
-    "src/docker-desktop/docker-desktop-repair-native-process.ts";
+  const sourcePath = "src/docker-desktop/repair-native-process.ts";
   const source = fs.readFileSync(
     path.join(coordinatorRoot, sourcePath),
     "utf8",
@@ -931,7 +924,7 @@ test("loader能力のnamespace・bracket取得と文字列再構成を直接の�
  * @boundary AIT-IT-013=Direct Boundary: coordinator Test Source→対象契約
  */
 test("宣言済みProcess利用側は実ソースのcall・scope・引数から完全一致を要求する", () => {
-  const sourcePath = "src/candidate/candidate-store-windows-adapter.ts";
+  const sourcePath = "src/platform-access/protected-root-windows-adapter.ts";
   const source = fs.readFileSync(
     path.join(coordinatorRoot, sourcePath),
     "utf8",
@@ -1214,8 +1207,8 @@ test("検証Toolの全Sourceと実Process起動点を独立グラフとして完
   const loaderResultReplaced = { ...sources };
   for (const [before, after] of [
     [
-      "40_Develop/coordinator/src/docker-runtime/docker-recovery-runtime.ts",
-      "40_Develop/coordinator/src/docker-runtime/docker-recovery-runtime-internal.ts",
+      "40_Develop/coordinator/src/docker-execution/recovery-lifecycle.ts",
+      "40_Develop/coordinator/src/docker-execution/recovery-state-machine.ts",
     ],
     [
       "recoveryModule.inspectRuntimeOwnedDockerTaskRecoveryState()",
@@ -1228,9 +1221,9 @@ test("検証Toolの全Sourceと実Process起動点を独立グラフとして完
   ] as const) {
     const recoveryLoaderChanged = { ...sources };
     const original =
-      sources["scripts/verify-project-runtime-real-providers.ts"] ?? "";
+      sources["scripts/verify-orchestrator-real-providers.ts"] ?? "";
     assert.ok(original.includes(before));
-    recoveryLoaderChanged["scripts/verify-project-runtime-real-providers.ts"] =
+    recoveryLoaderChanged["scripts/verify-orchestrator-real-providers.ts"] =
       original.replace(before, after);
     assert.throws(
       () =>
@@ -1240,8 +1233,8 @@ test("検証Toolの全Sourceと実Process起動点を独立グラフとして完
       /runtime_dependency_(?:loader|child_process|capability_flow)_unbound/u,
     );
   }
-  loaderResultReplaced["scripts/verify-project-runtime-real-providers.ts"] =
-    sources["scripts/verify-project-runtime-real-providers.ts"]?.replace(
+  loaderResultReplaced["scripts/verify-orchestrator-real-providers.ts"] =
+    sources["scripts/verify-orchestrator-real-providers.ts"]?.replace(
       "const native =\n    nativeModule.verifyBundledCoordinatorPackageFromFixedManifestCandidate({",
       'const native = Object.freeze({ status: "candidate", reason: "decoy" });\n    void nativeModule.verifyBundledCoordinatorPackageFromFixedManifestCandidate({',
     ) ?? "";
@@ -1304,7 +1297,7 @@ test("候補昇格の固定Graphは統合後の単一Coordinator入口へ接続�
  * @boundary AIT-IT-013=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Process wrapper注入後のproperty callと内部lifecycle callを利用側閉包へ含める", () => {
-  const dockerPath = "src/docker-runtime/docker-effect-runtime.ts";
+  const dockerPath = "src/docker-execution/command-effects.ts";
   const dockerSource = fs.readFileSync(
     path.join(coordinatorRoot, dockerPath),
     "utf8",
@@ -1365,7 +1358,7 @@ test("Process wrapper注入後のproperty callと内部lifecycle callを利用�
 test("非同期子Processは同期完了・所有保持・lifecycle移管のいずれかを証明する", () => {
   const cases = [
     {
-      path: "src/host-runtime/runtime-local-typescript-child-entrypoints.ts",
+      path: "src/host-execution/typescript-child-entrypoints.ts",
       mutate: (source: string) =>
         source.replace(
           "return spawn(process.execPath,",
@@ -1373,12 +1366,12 @@ test("非同期子Processは同期完了・所有保持・lifecycle移管のい�
         ),
     },
     {
-      path: "src/docker-runtime/docker-owned-process.ts",
+      path: "src/docker-execution/owned-process.ts",
       mutate: (source: string) =>
         source.replace('child.once("spawn",', 'child.on("spawn",'),
     },
     {
-      path: "src/docker-desktop/docker-desktop-repair-native-process.ts",
+      path: "src/docker-desktop/repair-native-process.ts",
       mutate: (source: string) =>
         source.replace("const created =", "const ignored ="),
     },
@@ -1412,8 +1405,7 @@ test("非同期子Processは同期完了・所有保持・lifecycle移管のい�
  * @boundary AIT-IT-013=Direct Boundary: coordinator Test Source→対象契約
  */
 test("配布観測から開発・署名・導入・Capability利用側までを実ソースから閉じる", () => {
-  const sourcePath =
-    "src/platform-access/platform-provisioner-package-filesystem.ts";
+  const sourcePath = "src/platform-access/package-verification.ts";
   const source = fs.readFileSync(
     path.join(coordinatorRoot, sourcePath),
     "utf8",
@@ -1474,8 +1466,8 @@ test("Runtime Package Capabilityの宣言集合と全実利用側を完全一致
   );
 
   const missing = { ...sources };
-  missing["40_Develop/orchestrator/src/task/composition-root.ts"] =
-    sources["40_Develop/orchestrator/src/task/composition-root.ts"]?.replace(
+  missing["40_Develop/orchestrator/src/operation-composition.ts"] =
+    sources["40_Develop/orchestrator/src/operation-composition.ts"]?.replace(
       "revokeRuntimeExecutionAuthorization:\n      revokeRuntimeOwnedVerifiedCoordinatorPackageCapability,",
       "revokeRuntimeExecutionAuthorization: () => false,",
     ) ?? "";
@@ -1485,8 +1477,8 @@ test("Runtime Package Capabilityの宣言集合と全実利用側を完全一致
   );
 
   const additional = { ...sources };
-  additional["src/task/coordinator-task-runtime.ts"] =
-    sources["src/task/coordinator-task-runtime.ts"]?.replace(
+  additional["src/task/execution.ts"] =
+    sources["src/task/execution.ts"]?.replace(
       "!consumeRuntimeOwnedVerifiedCoordinatorPackageCapability(",
       "!consumeRuntimeOwnedVerifiedCoordinatorPackageCapability(consumeRuntimeOwnedVerifiedCoordinatorPackageCapability({}),) && !consumeRuntimeOwnedVerifiedCoordinatorPackageCapability(",
     ) ?? "";
@@ -1511,10 +1503,7 @@ test("Runtime Package Capabilityの宣言集合と全実利用側を完全一致
  */
 test("Runtime Package Capabilityの旧版集合へ新Host利用側を混ぜない", () => {
   const source = fs.readFileSync(
-    path.join(
-      coordinatorRoot,
-      "src/platform-access/platform-provisioner-package-filesystem.ts",
-    ),
+    path.join(coordinatorRoot, "src/platform-access/package-verification.ts"),
     "utf8",
   );
   const table = source.match(
@@ -1556,18 +1545,18 @@ test("Runtime Package Capabilityの旧版集合へ新Host利用側を混ぜな�
   assert.ok(scope.check);
   const hostGraphs = scope.current.filter((item) =>
     [
-      "src/host-runtime/host-recovery-namespace-windows-adapter.ts",
-      "src/host-runtime/host-terminal-windows-adapter.ts",
+      "src/host-execution/recovery-namespace-windows-adapter.ts",
+      "src/host-execution/terminal-windows-adapter.ts",
     ].includes(item.source),
   );
   assert.equal(hostGraphs.length, 3);
   const legacyGraphs = scope.current.filter(
     (item) =>
       ![
-        "src/workbench-ai/workbench-ai-advice-production-runtime.ts",
-        "src/workbench-ai/workbench-ai-change-candidate-runtime.ts",
-        "src/host-runtime/host-recovery-namespace-windows-adapter.ts",
-        "src/host-runtime/host-terminal-windows-adapter.ts",
+        "src/workbench-ai/advice-execution.ts",
+        "src/workbench-ai/change-candidate-executor.ts",
+        "src/host-execution/recovery-namespace-windows-adapter.ts",
+        "src/host-execution/terminal-windows-adapter.ts",
       ].includes(item.source),
   );
   scope.observed = scope.current;
@@ -1599,7 +1588,7 @@ test("Runtime Package Capabilityの旧版集合へ新Host利用側を混ぜな�
  */
 test("旧修復と新再起動のRuntime Identityは所有関数ごとにCanonical検証値を要求する", () => {
   const sources = runtimeTypeScriptSources();
-  const sourcePath = "src/docker-runtime/docker-recovery-runtime-internal.ts";
+  const sourcePath = "src/docker-execution/recovery-lifecycle.ts";
   const source = sources[sourcePath];
   assert.ok(source);
   for (const owner of [
@@ -1645,43 +1634,43 @@ test("実行能力の反証は利用側伝播の意図したphaseで拒否する
   const cases = [
     {
       phase: "consumer_import",
-      path: "40_Develop/orchestrator/src/task/composition-root.ts",
+      path: "40_Develop/orchestrator/src/operation-composition.ts",
       from: "issueRuntimeOwnedVerifiedCoordinatorPackageCapability,",
       to: "issueRuntimeOwnedVerifiedCoordinatorPackageCapability as issueCapability,",
     },
     {
       phase: "consumer_handoff",
-      path: "40_Develop/orchestrator/src/task/execution-authorization-adapter.ts",
+      path: "40_Develop/orchestrator/src/task/authorization-adapter.ts",
       from: "value: capability,",
       to: "value: { ...capability },",
     },
     {
       phase: "consumer_handoff",
-      path: "40_Develop/orchestrator/src/task/execution-authorization-adapter.ts",
-      from: 'reason: "project_runtime_execution_authorization_revoked",\n              value: null,',
-      to: 'reason: "project_runtime_execution_authorization_revoked",\n              value: capability,',
+      path: "40_Develop/orchestrator/src/task/authorization-adapter.ts",
+      from: 'reason: "orchestrator_execution_authorization_revoked",\n              value: null,',
+      to: 'reason: "orchestrator_execution_authorization_revoked",\n              value: capability,',
     },
     {
       phase: "consumer_handoff",
-      path: "40_Develop/orchestrator/src/application/project-runtime-execution.ts",
+      path: "40_Develop/orchestrator/src/task/dispatch.ts",
       from: "? issuedAuthorization.value\n              : null;",
       to: "? {}\n              : null;",
     },
     {
       phase: "consumer_handoff",
-      path: "40_Develop/orchestrator/src/application/project-runtime-execution.ts",
+      path: "40_Develop/orchestrator/src/task/dispatch.ts",
       from: "runtimeExecutionCapability,\n            taskRequest:",
       to: "runtimeExecutionCapability: {},\n            taskRequest:",
     },
     {
       phase: "consumer_import",
-      path: "src/task/coordinator-task-runtime.ts",
+      path: "src/task/execution.ts",
       from: "!consumeRuntimeOwnedVerifiedCoordinatorPackageCapability(\n      verifiedPackageCapability,",
       to: "!decoy.consumeRuntimeOwnedVerifiedCoordinatorPackageCapability(\n      verifiedPackageCapability,",
     },
     {
       phase: "consumer_handoff",
-      path: "src/task/coordinator-task-runtime.ts",
+      path: "src/task/execution.ts",
       from: "  if (\n    !consumeRuntimeOwnedVerifiedCoordinatorPackageCapability(",
       to: "  void productionRuntime.start(rawRequest, repositoryRoot, new Date().toISOString(), recoveryCorrelationId);\n  if (\n    !consumeRuntimeOwnedVerifiedCoordinatorPackageCapability(",
     },
@@ -1699,13 +1688,13 @@ test("実行能力の反証は利用側伝播の意図したphaseで拒否する
     },
     {
       phase: "assurance_consumer",
-      path: "src/docker-runtime/docker-recovery-runtime-internal.ts",
+      path: "src/docker-execution/recovery-lifecycle.ts",
       from: "crddManifestHash: verification.manifestHash,",
       to: 'crddManifestHash: "forged",',
     },
     {
       phase: "assurance_consumer",
-      path: "src/docker-runtime/docker-recovery-runtime-internal.ts",
+      path: "src/docker-execution/recovery-lifecycle.ts",
       from: "runtimeExecutionIdentitySha256:\n          verification.runtimeExecutionIdentitySha256,",
       to: 'runtimeExecutionIdentitySha256: "forged",',
     },
@@ -1912,8 +1901,7 @@ test("署名の反証は意図した保護phaseで最初に拒否しEffect経路
  * @boundary AIT-IT-013=Direct Boundary: coordinator Test Source→対象契約
  */
 test("公開結果はCanonical観測値を欠落・再解釈・混合せず投影する", () => {
-  const sourcePath =
-    "src/platform-access/platform-provisioner-package-filesystem.ts";
+  const sourcePath = "src/platform-access/package-verification.ts";
   const source = fs.readFileSync(
     path.join(coordinatorRoot, sourcePath),
     "utf8",
@@ -1958,7 +1946,7 @@ test("公開結果はCanonical観測値を欠落・再解釈・混合せず投�
  * @boundary AIT-IT-013=Direct Boundary: coordinator Test Source→対象契約
  */
 test("利用者向けCoordinatorまたはMCP Launcherの欠落をRuntime候補として受理しない", () => {
-  for (const launcher of ["crdd-coordinator.ts", "crdd-mcp.ts"]) {
+  for (const launcher of ["crdd-coordinator.ts", "crdd-mcp-server.ts"]) {
     const fixture = developmentFixture();
     try {
       fs.unlinkSync(
@@ -2673,7 +2661,7 @@ for (const scenario of [
             [
               name,
               {
-                relativePath: "src/host-runtime/candidate-store-kernel-lock.ts",
+                relativePath: "src/host-execution/kernel-lock.ts",
                 reason: /runtime_dependency_child_process_unbound/u,
               },
             ] as const,
@@ -2681,7 +2669,7 @@ for (const scenario of [
         [
           "absolute_node_allowed_owner",
           {
-            relativePath: "src/docker-runtime/docker-owned-process.ts",
+            relativePath: "src/docker-execution/owned-process.ts",
             reason: /runtime_dependency_child_process_unbound/u,
           },
         ],
@@ -2693,7 +2681,7 @@ for (const scenario of [
             [
               name,
               {
-                relativePath: "src/host-runtime/candidate-store-kernel-lock.ts",
+                relativePath: "src/host-execution/kernel-lock.ts",
                 reason: /runtime_dependency_child_worker_unbound/u,
               },
             ] as const,
@@ -2707,7 +2695,7 @@ for (const scenario of [
             [
               name,
               {
-                relativePath: "src/docker-runtime/docker-owned-process.ts",
+                relativePath: "src/docker-execution/owned-process.ts",
                 reason: /runtime_dependency_child_process_unbound/u,
               },
             ] as const,
@@ -2722,7 +2710,7 @@ for (const scenario of [
             [
               name,
               {
-                relativePath: "src/docker-runtime/docker-owned-process.ts",
+                relativePath: "src/docker-execution/owned-process.ts",
                 reason: /runtime_dependency_child_lifecycle_unbound/u,
               },
             ] as const,
@@ -2831,7 +2819,7 @@ test("内部lifecycleまたはProcess wrapperを正規leafから再転送しな�
   assert.throws(
     () =>
       assertRuntimeSourceModuleBoundaryForVerification(
-        "src/docker-runtime/docker-effect-runtime.ts",
+        "src/docker-execution/command-effects.ts",
         `${dockerEffectSource}\nconst leakedStartProcess = startOwnedProcess; void leakedStartProcess;\n`,
       ),
     /runtime_dependency_child_process_unbound/u,
@@ -3409,7 +3397,7 @@ test("固定Coordinator packageをPath非公開で一覧化する", () => {
 test("Host Operation Supervisor sourceは再帰Package inventoryのexact non-link fileである", () => {
   const entrypoint = path.resolve(
     import.meta.dirname,
-    "../../src/host-runtime/host-operation-lock-supervisor.ts",
+    "../../src/host-execution/operation-lock-supervisor.ts",
   );
   const metadata = fs.lstatSync(entrypoint);
   assert.equal(metadata.isFile(), true);
@@ -3448,7 +3436,7 @@ test("caller選択Rootは非Authorityのまま内容変更をcontent rootへ反�
         type: "module",
         exports: {
           "./cli": "./bin/coordinator.ts",
-          "./host-runtime": "./src/host-runtime/index.ts",
+          ".": "./src/index.ts",
         },
         scripts: {},
         engines: {},
@@ -3506,7 +3494,7 @@ test("文書・試験はRuntime Execution Identityへ入らず、実行sourceは
         type: "module",
         exports: {
           "./cli": "./bin/coordinator.ts",
-          "./host-runtime": "./src/host-runtime/index.ts",
+          ".": "./src/index.ts",
         },
         scripts: {},
         engines: {},
@@ -3563,23 +3551,23 @@ test("責務分離後のRuntime componentを静的依存閉包として実行Ide
   const root = fixture.distributionRoot;
   try {
     const coordinatorRoot = path.join(root, "40_Develop", "coordinator");
-    const projectRuntimeRoot = path.join(
+    const orchestratorRoot = path.join(
       root,
       "40_Develop",
       "orchestrator",
       "src",
     );
-    const projectRuntimePackagePath = path.join(
+    const orchestratorPackagePath = path.join(
       root,
       "40_Develop",
       "orchestrator",
       "package.json",
     );
-    const projectRuntimeMetadata = JSON.parse(
-      fs.readFileSync(projectRuntimePackagePath, "utf8"),
+    const orchestratorMetadata = JSON.parse(
+      fs.readFileSync(orchestratorPackagePath, "utf8"),
     ) as Record<string, unknown>;
     const valuePath = path.join(
-      projectRuntimeRoot,
+      orchestratorRoot,
       "public-contract",
       "integration-result.ts",
     );
@@ -3593,7 +3581,7 @@ test("責務分離後のRuntime componentを静的依存閉包として実行Ide
       "export const unusedProduction = 1;\n",
     );
     const unusedSiblingPath = path.join(
-      projectRuntimeRoot,
+      orchestratorRoot,
       "core",
       "unused-sibling.ts",
     );
@@ -3605,7 +3593,7 @@ test("責務分離後のRuntime componentを静的依存閉包として実行Ide
     fs.writeFileSync(
       valuePath,
       [
-        'import { spawnRuntimeLocalTypeScriptChild } from "../../../coordinator/src/host-runtime/runtime-local-typescript-child-entrypoints.ts";',
+        'import { spawnRuntimeLocalTypeScriptChild } from "../../src/host-execution/typescript-child-entrypoints.ts";',
         'spawnRuntimeLocalTypeScriptChild("interactive_console_reader", [], {});',
         "export const value = 1;",
         "",
@@ -3642,31 +3630,31 @@ test("責務分離後のRuntime componentを静的依存閉包として実行Ide
     );
 
     fs.writeFileSync(
-      projectRuntimePackagePath,
-      JSON.stringify({ ...projectRuntimeMetadata, type: "commonjs" }),
+      orchestratorPackagePath,
+      JSON.stringify({ ...orchestratorMetadata, type: "commonjs" }),
     );
     const incompatibleMetadata =
       inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(root);
     assert.equal(incompatibleMetadata.status, "blocked");
     assert.equal(incompatibleMetadata.runtimeAuthorityConferred, false);
     fs.writeFileSync(
-      projectRuntimePackagePath,
-      JSON.stringify(projectRuntimeMetadata),
+      orchestratorPackagePath,
+      JSON.stringify(orchestratorMetadata),
     );
 
-    fs.rmSync(projectRuntimePackagePath);
+    fs.rmSync(orchestratorPackagePath);
     const missingMetadata =
       inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(root);
     assert.equal(missingMetadata.status, "blocked");
     assert.equal(missingMetadata.runtimeAuthorityConferred, false);
     fs.writeFileSync(
-      projectRuntimePackagePath,
-      JSON.stringify(projectRuntimeMetadata),
+      orchestratorPackagePath,
+      JSON.stringify(orchestratorMetadata),
     );
 
     fs.writeFileSync(
-      projectRuntimePackagePath,
-      JSON.stringify({ ...projectRuntimeMetadata, version: "0.0.1" }),
+      orchestratorPackagePath,
+      JSON.stringify({ ...orchestratorMetadata, version: "0.0.1" }),
     );
     const metadataChanged =
       inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(root);
@@ -3676,8 +3664,8 @@ test("責務分離後のRuntime componentを静的依存閉包として実行Ide
       first.packageContentRootSha256,
     );
     fs.writeFileSync(
-      projectRuntimePackagePath,
-      JSON.stringify(projectRuntimeMetadata),
+      orchestratorPackagePath,
+      JSON.stringify(orchestratorMetadata),
     );
 
     fs.writeFileSync(unusedSiblingPath, "export const unusedSibling = 2;\n");
@@ -3702,7 +3690,7 @@ test("責務分離後のRuntime componentを静的依存閉包として実行Ide
     );
 
     fs.appendFileSync(
-      path.join(root, "template", "tools", "crdd-mcp.ts"),
+      path.join(root, "template", "tools", "crdd-mcp-server.ts"),
       "// public launcher changed\n",
     );
     const launcherChanged =
@@ -3762,7 +3750,7 @@ test("非正規表記または実行集合外へのrelative importを署名候�
         type: "module",
         exports: {
           "./cli": "./bin/coordinator.ts",
-          "./host-runtime": "./src/host-runtime/index.ts",
+          ".": "./src/index.ts",
         },
         scripts: {},
         engines: {},
@@ -3820,7 +3808,7 @@ test("共通Launcherの署名・4経路・Recovery入口と静的依存だけを
         type: "module",
         exports: {
           "./cli": "./bin/coordinator.ts",
-          "./host-runtime": "./src/host-runtime/index.ts",
+          ".": "./src/index.ts",
         },
         scripts: {},
         engines: {},
@@ -3831,7 +3819,7 @@ test("共通Launcherの署名・4経路・Recovery入口と静的依存だけを
       path.join(root, "bin", "coordinator.ts"),
       [
         'import "../src/entry.ts";',
-        'await import("../src/cli/coordinator-command.ts");',
+        'await import("../src/cli/command.ts");',
         'await import("../scripts/verify-signed-route-matrix.ts");',
         'await import("../scripts/verify-signed-recovery-matrix.ts");',
         'await import("../scripts/sign-release-manifest.ts");',
@@ -3973,7 +3961,7 @@ test("実行Identityのmodule構文を字句解析し、コメント・非relati
         type: "module",
         exports: {
           "./cli": "./bin/coordinator.ts",
-          "./host-runtime": "./src/host-runtime/index.ts",
+          ".": "./src/index.ts",
         },
         scripts: {},
         engines: {},
@@ -3983,7 +3971,7 @@ test("実行Identityのmodule構文を字句解析し、コメント・非relati
     fs.writeFileSync(
       path.join(root, "bin", "coordinator.ts"),
       [
-        'await import("../src/cli/coordinator-command.ts");',
+        'await import("../src/cli/command.ts");',
         'await import("../scripts/verify-signed-route-matrix.ts");',
         'await import("../scripts/verify-signed-recovery-matrix.ts");',
         'await import("../scripts/sign-release-manifest.ts");',
@@ -4156,7 +4144,7 @@ test("Repository textのLFとCRLFは同じ正本内容として検証し、意�
       type: "module",
       exports: {
         "./cli": "./bin/coordinator.ts",
-        "./host-runtime": "./src/host-runtime/index.ts",
+        ".": "./src/index.ts",
       },
       scripts: {},
       engines: {},
@@ -4258,7 +4246,7 @@ test("入れ子directoryの走査中にentryを追加・削除・型変更して
         type: "module",
         exports: {
           "./cli": "./bin/coordinator.ts",
-          "./host-runtime": "./src/host-runtime/index.ts",
+          ".": "./src/index.ts",
         },
         scripts: {},
         engines: {},
@@ -4434,7 +4422,7 @@ test("package Filesystem contractは観測をTrustおよびEffectから分離す
   const source = fs.readFileSync(
     path.resolve(
       import.meta.dirname,
-      "../../src/platform-access/platform-provisioner-package-filesystem.ts",
+      "../../src/platform-access/package-verification.ts",
     ),
     "utf8",
   );

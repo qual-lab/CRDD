@@ -15,7 +15,7 @@ import test from "node:test";
 import {
   inspectMigrationSystemClosure,
   type MigrationConsumerObservation,
-} from "../../src/index.ts";
+} from "../../src/migration-closure.ts";
 
 const SNAPSHOT_ID = "snapshot-1";
 const CONTRACT_ID = "contract-v2";

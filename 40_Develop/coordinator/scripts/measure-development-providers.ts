@@ -8,17 +8,17 @@ import fs from "node:fs";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
-import { ensureRepositoryRuntimeDataArea } from "../../domain-model/src/storage/index.ts";
+import { ensureRepositoryRuntimeDataArea } from "../../domain-model/src/index.ts";
 import {
   RepositoryRuntimeDataAreaBlockedError,
   requireReadyRepositoryRuntimeDataArea,
-} from "../../domain-model/src/repository/index.ts";
+} from "../../domain-model/src/index.ts";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,
-} from "../../version-control/src/repository-location.ts";
-import { assertSupportedCoordinatorNodeRuntime } from "../src/host-runtime/node-runtime-version.ts";
-import { startRuntimeOwnedDevelopmentCoordinatorTask } from "../src/task/coordinator-task-runtime.ts";
+} from "../../version-control/src/repository/location.ts";
+import { assertSupportedCoordinatorNodeRuntime } from "../src/host-execution/node-runtime-version.ts";
+import { startRuntimeOwnedDevelopmentCoordinatorTask } from "../src/task/execution.ts";
 import {
   cancelRuntimeOwnedDevelopmentMeasurementSession,
   inspectRuntimeOwnedDevelopmentMeasurementSession,

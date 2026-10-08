@@ -8,12 +8,12 @@
 
 | Architecture定義 | この領域が具体化する責務 | Relation状態 |
 |---|---|---|
-| [ARCH-000004](../../Definitions/ARCH-000004/architecture_definition.md) | Coordinator／Project Runtimeのlifecycle、Authority、Effect、Recoveryの設計意味を現実側へ接続するPilot。 | Covered |
+| [ARCH-000004](../../Definitions/ARCH-000004/architecture_definition.md) | Coordinator／Orchestratorのlifecycle、Authority、Effect、Recoveryの設計意味を現実側へ接続するPilot。 | Covered |
 | [ARCH-000008](../../Definitions/ARCH-000008/architecture_definition.md) | 外部境界と故障境界の検証可能な意味を、実装・試験の観測点へ接続するPilot。 | Covered |
 
 本領域は既存Subsystemの設計意味を再定義しない。各SubsystemのArchitecture Detailsを入力として、機械利用可能な意味の生成とRelationの成立条件を所有する。
 
-共通Outcome、Reality TraceabilityおよびRepository Observationとの境界は[CRDD Domain Libraryの責務境界](../crdd-domain-library/01_Architecture.md)、入力編成とBundle公開は[Semantic Coverage Architecture](01_Architecture.md)を正本とする。本書はSemantic IR、RelationおよびCoverage Graphの詳細契約を具体化する。
+共通Outcome、Reality TraceabilityおよびRepository Observationとの境界は[CRDD Domain Libraryの責務境界](../domain-model/01_Architecture.md)、入力編成とBundle公開は[Semantic Coverage Architecture](01_Architecture.md)を正本とする。本書はSemantic IR、RelationおよびCoverage Graphの詳細契約を具体化する。
 
 ## 1. 目的と責務
 
@@ -69,7 +69,7 @@ Semantic IRがArchitecture Detailsと一致しない場合、Semantic IRを手�
 
 ## 3. Pilotで確認する抽出可能性
 
-### 3.1 Project Runtime
+### 3.1 Orchestrator
 
 | 旧JSON field | 現在のOwner候補 | Architecture Detailsからの抽出 | Pilot処置 |
 |---|---|---|---|
@@ -112,7 +112,7 @@ Pilotでは、Architecture Details内の可視表を入力とする。自由文�
 | 根拠 | 同じArchitecture Details内のAnchor |
 | `N/A`理由 | 検証不要とするArchitecture上の理由 |
 
-Semantic Keyの文字列規則と種別集合はPilot用であり、Coordinator／Project Runtimeの両方から安定して抽出・利用できた後に固定する。
+Semantic Keyの文字列規則と種別集合はPilot用であり、Coordinator／Orchestratorの両方から安定して抽出・利用できた後に固定する。
 
 ## 5. Relationと生成Graph
 
@@ -190,7 +190,7 @@ Test SymbolとQuality Local Itemの結合単位は`QA-ID/Local-ID`である。Lo
 - [x] 旧Runtime JSONを正本にしていない
 - [x] Relationの正方向Ownerを一つに限定した
 - [x] 逆Relationを生成Projectionとした
-- [x] CoordinatorとProject Runtimeの抽出可能性を分けて評価した
+- [x] CoordinatorとOrchestratorの抽出可能性を分けて評価した
 - [x] 生成不能時にAI推測で補完しない
 - [x] 部分Graphを正式結果として発行しない
 - [x] Reality Auditを本基盤の後続に分けた

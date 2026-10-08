@@ -70,7 +70,7 @@ Taskを持たない記事・画像・評価等は、同じRecorderの`recordOper
 
 ## 履歴保持期間の設定
 
-設定は機能別でなくTool別に持つ。`template/.crdd/config/execution-intelligence.example.json`を参考に、次を`<verified-repository-root>/.crdd/config/execution-intelligence.json`へ置く。Project Runtimeは別の`orchestrator.json`と対応する設定例を用いる。非秘密のRepository設定として両ファイルをGit管理できる。実行履歴、Lock、一時物、秘密およびCandidateは追跡しない。
+設定は機能別でなくTool別に持つ。`template/.crdd/config/execution-intelligence.example.json`を参考に、次を`<verified-repository-root>/.crdd/config/execution-intelligence.json`へ置く。Orchestratorは別の`orchestrator.json`と対応する設定例を用いる。非秘密のRepository設定として両ファイルをGit管理できる。実行履歴、Lock、一時物、秘密およびCandidateは追跡しない。
 
 ```json
 {

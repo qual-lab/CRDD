@@ -18,7 +18,7 @@ Architecture ID: `ARCH-000004`
 
 実装Ownerは、上位の編成（Orchestrator）、単一実行（Coordinator）、AI固有接続（AI Adapter）へ分ける。OrchestratorはObjective／Taskの進行、判断点、再入場と結果を所有し、Coordinator公開APIを直接呼ぶ。Coordinatorは単体利用でき、実行・Review・取消・Docker資源の終了を所有する。Provider別CLI・認証・入力／出力・ProfileはAI Adapterへ閉じるが、実行Authorityと資源回収を移管しない。
 
-通知はCoordinatorが定義する関数をOrchestratorが登録する。CoordinatorからOrchestratorへのimport、上位型の注入Frameworkや汎用Event Busを追加しない。取消の受付、Process終了、資源回収、上位Taskの確定は別の結果であり、通知一件だけで全体完了としない。以下の入力表に残るProject Runtimeは上流の論理状態責務を表し、旧Packageの存続を要求する名称ではない。
+通知はCoordinatorが定義する関数をOrchestratorが登録する。CoordinatorからOrchestratorへのimport、上位型の注入Frameworkや汎用Event Busを追加しない。取消の受付、Process終了、資源回収、上位Taskの確定は別の結果であり、通知一件だけで全体完了としない。以下の入力表に残るOrchestratorは上流の論理状態責務を表し、旧Packageの存続を要求する名称ではない。
 
 ## 2. UI観点の入力
 
@@ -46,9 +46,9 @@ Architecture ID: `ARCH-000004`
 
 | 入力 | 観点 | State Owner | Authority | Effect／非該当 | Failure Boundary | Lifecycle |
 |---|---|---|---|---|---|---|
-| UI-000002 | UI | Project Runtime | UI契約はAuthorityを発行しない。利用者操作: 委任を提案する／委任範囲を確認して受け付ける／拒否する／拒否理由から同じ提案の範囲を見直す／取消す／判断を返す。 | UI契約はEffectを定義しない | 暗黙の範囲拡張、拒否後の別依頼化、回復不能／古い観測や取消要求の受理だけを進捗・完了と誤認する | 準備中／許可待ち／実行中／停止。権限発行前後を分ける。提案／受付可能／受付済み／拒否は受付Feedbackとして別に示す / 目的→範囲と担い手→許可→実行。拒否時は同じ提案の範囲見直しへ戻る。受付後の結果不明はLifecycleへ追加せず、同じ依頼識別情報の再観測条件として示す / ；開始可能（ready）／実行中（running）／入力・判断待ち（waiting）／停止（blocked）／完了（completed）／失敗（failed） / Task→現在状態→判断要否→待機・入力・取消・回復 / ；開始可能（ready）／実行中（running）／入力・判断待ち（waiting）／停止（blocked）／完了（completed）／失敗（failed）に加え、取消要求済み（cancel_requested）／取消完了（cancelled）／取消結果不明・回復必要（cancel_unknown／recovery_required）を区別する / Task→現在状態→判断要否→待機・入力・取消要求→終了状態確認／同じ回復対象識別子（Recovery Identity）の再観測 /  |
-| UI-000003 | UI | Project Runtime | UI契約はAuthorityを発行しない。利用者操作: 再試行する／回復する／清掃する。 | UI契約はEffectを定義しない | 結果不明の処理を新規実行して外部作用（Effect）の二重実行を起こす／名前や経過時間だけで由来不明物を削除する | 失敗後の作用なし／作用済み／不明、回復要／不要 / 失敗→作用状態→同じ依頼の結果→回復処置または再試行 / ；存在（present）／不存在（absent）／不明（unknown）、回復可能（recoverable）／清掃可能（cleanup_eligible） / 停止→残存観測→同一の回復対象識別子→回復処置・清掃→不存在確認→義務解消 / ；存在（present）／不存在（absent）／不明（unknown）、回復可能（recoverable）／清掃可能（cleanup_eligible） / 停止→残存観測→同一の回復対象識別子→回復・清掃→不存在確認 /  |
-| UI-000012 | UI | Project Runtime | UI契約はAuthorityを発行しない。利用者操作: 引き継ぐ／再接続する／結果を戻す。 | UI契約はEffectを定義しない | 全量投入・秘密情報混入・古い仮説の現在値化／Timeoutを未実行とみなし新規外部作用（Effect）を起こす | 準備済み（prepared）／送信済み（sent）／受領済み（received）／返却済み（returned）／停止（blocked） / 情報源→選択→仕事用情報一式（Context Package）→Task→結果（Result）→元の仕事 / ；進行中（active）／切断（disconnected）／結果取得可能（result_available）／回復必要（recovery_required）／確定済み（settled） / 再接続→同じ依頼（Request）→現在権限→状態・結果→回復義務 / ；進行中（active）／切断（disconnected）／結果取得可能（result_available）／回復必要（recovery_required）／確定済み（settled） / 再接続→同じ依頼（Request）→現在権限→状態・結果→回復義務 /  |
+| UI-000002 | UI | Orchestrator | UI契約はAuthorityを発行しない。利用者操作: 委任を提案する／委任範囲を確認して受け付ける／拒否する／拒否理由から同じ提案の範囲を見直す／取消す／判断を返す。 | UI契約はEffectを定義しない | 暗黙の範囲拡張、拒否後の別依頼化、回復不能／古い観測や取消要求の受理だけを進捗・完了と誤認する | 準備中／許可待ち／実行中／停止。権限発行前後を分ける。提案／受付可能／受付済み／拒否は受付Feedbackとして別に示す / 目的→範囲と担い手→許可→実行。拒否時は同じ提案の範囲見直しへ戻る。受付後の結果不明はLifecycleへ追加せず、同じ依頼識別情報の再観測条件として示す / ；開始可能（ready）／実行中（running）／入力・判断待ち（waiting）／停止（blocked）／完了（completed）／失敗（failed） / Task→現在状態→判断要否→待機・入力・取消・回復 / ；開始可能（ready）／実行中（running）／入力・判断待ち（waiting）／停止（blocked）／完了（completed）／失敗（failed）に加え、取消要求済み（cancel_requested）／取消完了（cancelled）／取消結果不明・回復必要（cancel_unknown／recovery_required）を区別する / Task→現在状態→判断要否→待機・入力・取消要求→終了状態確認／同じ回復対象識別子（Recovery Identity）の再観測 /  |
+| UI-000003 | UI | Orchestrator | UI契約はAuthorityを発行しない。利用者操作: 再試行する／回復する／清掃する。 | UI契約はEffectを定義しない | 結果不明の処理を新規実行して外部作用（Effect）の二重実行を起こす／名前や経過時間だけで由来不明物を削除する | 失敗後の作用なし／作用済み／不明、回復要／不要 / 失敗→作用状態→同じ依頼の結果→回復処置または再試行 / ；存在（present）／不存在（absent）／不明（unknown）、回復可能（recoverable）／清掃可能（cleanup_eligible） / 停止→残存観測→同一の回復対象識別子→回復処置・清掃→不存在確認→義務解消 / ；存在（present）／不存在（absent）／不明（unknown）、回復可能（recoverable）／清掃可能（cleanup_eligible） / 停止→残存観測→同一の回復対象識別子→回復・清掃→不存在確認 /  |
+| UI-000012 | UI | Orchestrator | UI契約はAuthorityを発行しない。利用者操作: 引き継ぐ／再接続する／結果を戻す。 | UI契約はEffectを定義しない | 全量投入・秘密情報混入・古い仮説の現在値化／Timeoutを未実行とみなし新規外部作用（Effect）を起こす | 準備済み（prepared）／送信済み（sent）／受領済み（received）／返却済み（returned）／停止（blocked） / 情報源→選択→仕事用情報一式（Context Package）→Task→結果（Result）→元の仕事 / ；進行中（active）／切断（disconnected）／結果取得可能（result_available）／回復必要（recovery_required）／確定済み（settled） / 再接続→同じ依頼（Request）→現在権限→状態・結果→回復義務 / ；進行中（active）／切断（disconnected）／結果取得可能（result_available）／回復必要（recovery_required）／確定済み（settled） / 再接続→同じ依頼（Request）→現在権限→状態・結果→回復義務 /  |
 | SPEC-000002 | SPEC | 委任受付 | Project運営者が委任範囲を判断する。Runtimeは範囲を拡張しない | 受理前はEffect 0。受理後はTask作成だけを許し、Provider Effectは別状態とする | 不足・競合・未承認範囲はEffect前に停止する。明示拒否は再発行しない。受付後の結果不明は同じRequestを再観測する | 提案→検証→受理／拒否→Task作成→実行状態または同じRequestの再観測 |
 | SPEC-000003 | SPEC | Project状態照会 | Taskを閲覧できる主体。状態照会から取消・回復Authorityを推定しない | 読取り専用。TaskやProvider Processを変更しない。 | 観測不能や古い状態を進行中・完了へ推定しない。 | [ready] -> [running] -> [waiting／blocked／completed／failed] 各状態は観測時点と次の行動を伴う |
 | SPEC-000004 | SPEC | 再試行・回復分類 | 回復または再試行を選ぶ決定権限者。分類結果だけではEffectを発行しない | 本SPECは次の行動を分類する。実際の回復Effectは別のCapability取得後に限る。 | 古い権限、曖昧な識別情報、作用不明では再発行を拒否する。 | [失敗／切断] --Effect観測--> [なし／済み／不明]   ├ なし  -> [再試行候補]   ├ 済み  -> [結果再取得]   └ 不明  -> [回復／再確認必須] |
@@ -91,9 +91,9 @@ Architecture ID: `ARCH-000004`
 
 | 入力 | State Owner | Authority | Effect／非該当 |
 |---|---|---|---|
-| UI-000002 | Project Runtime | UI契約はAuthorityを発行しない。利用者操作: 委任を提案する／委任範囲を確認して受け付ける／拒否する／拒否理由から同じ提案の範囲を見直す／取消す／判断を返す。 | UI契約はEffectを定義しない |
-| UI-000003 | Project Runtime | UI契約はAuthorityを発行しない。利用者操作: 再試行する／回復する／清掃する。 | UI契約はEffectを定義しない |
-| UI-000012 | Project Runtime | UI契約はAuthorityを発行しない。利用者操作: 引き継ぐ／再接続する／結果を戻す。 | UI契約はEffectを定義しない |
+| UI-000002 | Orchestrator | UI契約はAuthorityを発行しない。利用者操作: 委任を提案する／委任範囲を確認して受け付ける／拒否する／拒否理由から同じ提案の範囲を見直す／取消す／判断を返す。 | UI契約はEffectを定義しない |
+| UI-000003 | Orchestrator | UI契約はAuthorityを発行しない。利用者操作: 再試行する／回復する／清掃する。 | UI契約はEffectを定義しない |
+| UI-000012 | Orchestrator | UI契約はAuthorityを発行しない。利用者操作: 引き継ぐ／再接続する／結果を戻す。 | UI契約はEffectを定義しない |
 | SPEC-000002 | 委任受付 | Project運営者が委任範囲を判断する。Runtimeは範囲を拡張しない | 受理前はEffect 0。受理後はTask作成だけを許し、Provider Effectは別状態とする |
 | SPEC-000003 | Project状態照会 | Taskを閲覧できる主体。状態照会から取消・回復Authorityを推定しない | 読取り専用。TaskやProvider Processを変更しない。 |
 | SPEC-000004 | 再試行・回復分類 | 回復または再試行を選ぶ決定権限者。分類結果だけではEffectを発行しない | 本SPECは次の行動を分類する。実際の回復Effectは別のCapability取得後に限る。 |
@@ -179,7 +179,7 @@ Detailは第2・3節のDefinition入力を置き換えず、その意味を実�
 
 | 基準版Capability | 旧Owner／現行照合先 | 新Owner | 保持状態 | Evidence | Gap／移行 |
 |---|---|---|---|---|---|
-| v0.20.1のProject Runtime、Coordinator、取消、判断再開、Recovery | Project Runtime／Coordinator | Project Runtime | 保持・責務分離 | [project-runtime:unit:objective-intake](../../../07_Quality/Registry/test-catalog.json)、[project-runtime:unit:state-query](../../../07_Quality/Registry/test-catalog.json)、[coordinator:integration:project-runtime-full-flow](../../../07_Quality/Registry/test-catalog.json) | 取消／判断再開の実装Evidence対応とWorkbench／CROS入口との接続は詳細設計で再確認する |
+| v0.20.1のOrchestrator、Coordinator、取消、判断再開、Recovery | Orchestrator／Coordinator | Orchestrator | 保持・責務分離 | [orchestrator:unit:objective-intake](../../../07_Quality/Registry/test-catalog.json)、[orchestrator:unit:state-query](../../../07_Quality/Registry/test-catalog.json)、[coordinator:integration:orchestrator-full-flow](../../../07_Quality/Registry/test-catalog.json) | 取消／判断再開の実装Evidence対応とWorkbench／CROS入口との接続は詳細設計で再確認する |
 
 現行設計はこの比較だけに使い、UI／SPECにない望ましい意味を補わない。新規責務は基準版能力や実装Evidenceが存在するように表示しない。
 
@@ -194,7 +194,7 @@ Detailは第2・3節のDefinition入力を置き換えず、その意味を実�
 
 正式入力は第2・3節のArchitecture分析だけである。次は成立済み能力とGapを照合するためにだけ参照する。
 
-- [現行照合先](../../Details/project-runtime/01_Architecture.md)
+- [現行照合先](../../Details/orchestrator/01_Architecture.md)
 - [現行照合先](../../Details/coordinator/01_Architecture.md)
 - [現行照合先](../../Details/platform-access/01_Architecture.md)
 

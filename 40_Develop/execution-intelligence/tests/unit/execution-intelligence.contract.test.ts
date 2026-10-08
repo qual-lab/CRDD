@@ -985,7 +985,7 @@ function evaluationInput() {
     integratedResult: {
       state: "observed" as const,
       value: { result: "accepted" as const, evidenceIds: ["evidence-a"] },
-      source: "project_runtime_integration",
+      source: "orchestrator_integration",
     },
     measurements: {
       timeToAcceptedResultMs: observedCount(1_200),

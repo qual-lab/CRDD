@@ -7,17 +7,17 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { types as utilTypes } from "node:util";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../version-control/src/repository-location.ts";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../version-control/src/repository/location.ts";
 import {
   isRuntimeProcessPoisoned,
   poisonRuntimeProcessAfterCleanupUnknown,
-} from "../src/host-runtime/runtime-process-safety-state.ts";
+} from "../src/host-execution/process-safety-state.ts";
 import {
   displayVerificationRecording,
   runRecordedVerification,
 } from "./verification-result-record.ts";
 import { SIGNED_ROUTE_MATRIX_REASONS } from "./verification-result-reasons.ts";
-import { snapshotPlainArray } from "../../domain-model/src/plain-data/index.ts";
+import { snapshotPlainArray } from "../../domain-model/src/index.ts";
 import {
   isCanonicalCrddVersion,
   isSupportedCrddRuntimeGitObjectId,

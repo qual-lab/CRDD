@@ -8,7 +8,7 @@ Discoveryでの判断: 要求採用
 
 ## 要求
 
-利用者は、Project Context、Roadmap、Topic、Meeting、Decision／Action、Quality、DocumentationおよびProject Runtime Stateを理解・操作しながら、同じRepositoryの現在Tree、差分、Stage状態、CommitおよびPushを一つのWorkbenchから扱えなければならない。
+利用者は、Project Context、Roadmap、Topic、Meeting、Decision／Action、Quality、DocumentationおよびOrchestrator Stateを理解・操作しながら、同じRepositoryの現在Tree、差分、Stage状態、CommitおよびPushを一つのWorkbenchから扱えなければならない。
 
 WorkbenchはMCPで公開するProject情報と同じApplication Capabilityを利用し、Project Context ViewerまたはMCP操作一覧に限定してはならない。複数のOwner情報からAttention、関係・経緯、依存、比較・変化および次の仕事を人間の判断場面へ投影し、各結論から所有正本へ戻れなければならない。
 

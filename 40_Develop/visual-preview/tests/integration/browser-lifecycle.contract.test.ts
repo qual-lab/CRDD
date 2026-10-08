@@ -19,7 +19,7 @@ import {
   runVisualCleanupStages,
   stopOwnedBrowser,
   terminateRemainingOwnedBrowserProcesses,
-} from "../../src/browser-zoom-verifier.ts";
+} from "../../src/browser/verify-visual.ts";
 
 /**
  * Listenerの接続成立・明示的拒否・不正入力を三値で区別することを検証する。

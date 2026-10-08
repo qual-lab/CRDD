@@ -24,7 +24,7 @@
     "execution-intelligence": "node_test",
     "mcp": "node_test",
     "official-asset-governance": "node_test",
-    "project-runtime": "node_test",
+    "orchestrator": "node_test",
     "semantic-coverage": "node_test",
     "version-control": "node_test",
     "platform-access": "cargo_test",
@@ -36,7 +36,7 @@
     {
       "id": "ai-runtime:catalog-to-consumers",
       "owner": "ai-adapter",
-      "architectureAnchor": "06_Architecture/Details/ai-runtime/01_Architecture.md#3-公開入口と依存方向",
+      "architectureAnchor": "06_Architecture/Details/ai-adapter/01_Architecture.md#3-公開入口と依存方向",
       "responsibilities": [
         "profile_catalog_validation",
         "profile_catalog_limited_administration",
@@ -69,7 +69,7 @@
     {
       "id": "crdd-domain-library:reality-and-repository-boundary",
       "owner": "domain-model",
-      "architectureAnchor": "06_Architecture/Details/crdd-domain-library/01_Architecture.md#3-公開入口と依存方向",
+      "architectureAnchor": "06_Architecture/Details/domain-model/02_Activity_Context.md#3-公開入口と依存方向",
       "responsibilities": ["reality_symbol_contract", "reality_relation_graph", "repository_regular_entry_observation"],
       "externalBoundaries": ["repository_filesystem"],
       "lifecycleProfile": "read_only_boundary",
@@ -119,7 +119,7 @@
     {
       "id": "project-operation:projection-and-candidate",
       "owner": "domain-model",
-      "architectureAnchor": "06_Architecture/Details/project-operation/01_Architecture.md#12-identityprojectioncandidate契約",
+      "architectureAnchor": "06_Architecture/Details/domain-model/02_Activity_Context.md#12-identityprojectioncandidate契約",
       "responsibilities": ["project_projection", "candidate_decision", "owner_revision_conflict"],
       "externalBoundaries": ["source_reader", "candidate_store", "owner_writer"],
       "lifecycleProfile": "pure_component",
@@ -169,7 +169,7 @@
     {
       "id": "runtime-data:repository-storage",
       "owner": "domain-model",
-      "architectureAnchor": "06_Architecture/Details/runtime-data/01_Architecture.md#2-repository-local構成と切替境界",
+      "architectureAnchor": "06_Architecture/Details/domain-model/03_Repository_Storage.md#2-repository-local構成と切替境界",
       "responsibilities": ["repository_root_binding", "runtime_path_resolution", "temporary_operation_lifecycle"],
       "externalBoundaries": ["git_worktree", "repository_filesystem", "os_managed_root"],
       "lifecycleProfile": "durable_operation",
@@ -219,7 +219,7 @@
     {
       "id": "workbench:production-shell",
       "owner": "workbench",
-      "architectureAnchor": "06_Architecture/Details/workbench/01_Architecture.md#6-interfaceとinteraction境界",
+      "architectureAnchor": "06_Architecture/Details/workbench-server/01_Architecture.md#6-interfaceとinteraction境界",
       "responsibilities": ["loopback_shell_delivery", "official_logo_delivery", "project_context_read_model", "unconfigured_capability_classification", "credential_administration", "one_time_secret_display", "candidate_review_and_disposition", "route_allowlist", "listener_cleanup"],
       "externalBoundaries": ["repository_filesystem", "localhost_http", "browser_consumer", "credential_registry", "candidate_application"],
       "lifecycleProfile": "read_only_boundary",
@@ -227,33 +227,33 @@
       "postconditions": ["repository_content_unchanged_without_explicit_candidate_adoption", "official_logo_exact", "project_context_five_scenes_exact", "unconfigured_capability_not_zero", "credential_secret_not_stored", "credential_secret_displayed_once", "repository_mode_credential_optional", "remote_revocation_stale_projection_absent", "candidate_identity_reverified", "candidate_confirmation_required", "candidate_commit_and_push_absent", "listener_absent", "connection_absent"]
     },
     {
-      "id": "project-runtime:objective-task-lifecycle",
-      "owner": "project-runtime",
-      "architectureAnchor": "06_Architecture/Details/project-runtime/01_Architecture.md#6-状態authority資源",
+      "id": "orchestrator:objective-task-lifecycle",
+      "owner": "orchestrator",
+      "architectureAnchor": "06_Architecture/Details/orchestrator/01_Architecture.md#6-状態authority資源",
       "responsibilities": ["objective_intake", "task_state_transition", "execution_port_coordination"],
       "externalBoundaries": ["execution_port", "state_port", "host_identity_port"],
       "lifecycleProfile": "durable_operation",
-      "testIds": ["project-runtime:unit:objective-intake", "coordinator:integration:project-runtime-objective-intake", "coordinator:integration:project-runtime-full-flow"],
+      "testIds": ["orchestrator:unit:objective-intake", "coordinator:integration:orchestrator-objective-intake", "coordinator:integration:orchestrator-full-flow"],
       "postconditions": ["generation_reverified", "task_authority_narrowed", "unknown_effect_requires_recovery"]
     },
     {
-      "id": "project-runtime:decision-recovery",
-      "owner": "project-runtime",
-      "architectureAnchor": "06_Architecture/Details/project-runtime/01_Architecture.md#9-移行と検証",
+      "id": "orchestrator:decision-recovery",
+      "owner": "orchestrator",
+      "architectureAnchor": "06_Architecture/Details/orchestrator/01_Architecture.md#9-移行と検証",
       "responsibilities": ["human_decision_wait", "acceptance_decision", "replanning", "recovery_reentry"],
       "externalBoundaries": ["decision_port", "acceptance_decision_store", "state_port", "task_recovery_port", "lease_port"],
       "lifecycleProfile": "durable_operation",
-      "testIds": ["project-runtime:unit:human-decision-application", "project-runtime:integration:acceptance-decision-application", "coordinator:integration:project-runtime-replanning-and-decision", "coordinator:integration:project-runtime-decision-recovery-store", "coordinator:system:project-runtime-acceptance-decision"],
+      "testIds": ["orchestrator:unit:human-decision-application", "orchestrator:integration:acceptance-decision-application", "coordinator:integration:orchestrator-replanning-and-decision", "coordinator:integration:orchestrator-decision-recovery-store", "coordinator:system:orchestrator-acceptance-decision"],
       "postconditions": ["decision_authority_single_use", "recovery_identity_exact", "stale_generation_rejected"]
     },
     {
-      "id": "project-runtime:integration-projection",
-      "owner": "project-runtime",
-      "architectureAnchor": "06_Architecture/Details/project-runtime/01_Architecture.md#7-公開アプリケーション契約",
+      "id": "orchestrator:integration-projection",
+      "owner": "orchestrator",
+      "architectureAnchor": "06_Architecture/Details/orchestrator/01_Architecture.md#7-公開アプリケーション契約",
       "responsibilities": ["candidate_integration", "existing_candidate_adoption", "accepted_result", "read_only_state_projection"],
       "externalBoundaries": ["candidate_port", "integration_record", "public_application_contract"],
       "lifecycleProfile": "durable_operation",
-      "testIds": ["project-runtime:unit:integration-application", "project-runtime:unit:candidate-adoption-application", "coordinator:integration:project-runtime-integration", "coordinator:integration:project-runtime-candidate-integration-adapter"],
+      "testIds": ["orchestrator:unit:integration-application", "orchestrator:unit:candidate-adoption-application", "coordinator:integration:orchestrator-integration", "coordinator:integration:orchestrator-candidate-integration-adapter"],
       "postconditions": ["candidate_and_result_correlated", "adoption_authority_explicit", "adoption_lease_released_or_recovery_reported", "projection_effect_zero", "unaccepted_candidate_not_published"]
     },
     {
@@ -281,9 +281,9 @@
       "owner": "coordinator",
       "architectureAnchor": "06_Architecture/Details/coordinator/01_Architecture.md#10-provider実行と候補",
       "responsibilities": ["candidate_snapshot", "candidate_store", "integration_publication"],
-      "externalBoundaries": ["repository_filesystem", "candidate_store", "project_runtime_candidate_port"],
+      "externalBoundaries": ["repository_filesystem", "candidate_store", "orchestrator_candidate_port"],
       "lifecycleProfile": "durable_operation",
-      "testIds": ["coordinator:integration:candidate-bundle-store", "coordinator:integration:candidate-store-kernel-lock", "coordinator:integration:project-runtime-candidate-integration-adapter"],
+      "testIds": ["coordinator:integration:candidate-bundle-store", "coordinator:integration:candidate-store-kernel-lock", "coordinator:integration:orchestrator-candidate-integration-adapter"],
       "postconditions": ["canonical_repository_unchanged_before_acceptance", "candidate_identity_exact", "failed_candidate_disposition_known"]
     },
     {
@@ -323,7 +323,7 @@
       "responsibilities": ["event_validation", "non_authority_publication", "consumer_observation"],
       "externalBoundaries": ["runtime_event_producer", "execution_intelligence_public_api", "consumer_adapter"],
       "lifecycleProfile": "pure_component",
-      "testIds": ["execution-intelligence:unit:event-contract", "coordinator:integration:project-runtime-execution"],
+      "testIds": ["execution-intelligence:unit:event-contract", "coordinator:integration:orchestrator-execution"],
       "postconditions": ["event_never_becomes_authority", "invalid_event_not_published", "producer_result_unchanged"]
     },
     {
@@ -333,27 +333,27 @@
       "responsibilities": ["repository_root_binding", "immutable_event_publish", "retention_cleanup_classification"],
       "externalBoundaries": ["repository_filesystem", "process_lock", "execution_intelligence_consumer"],
       "lifecycleProfile": "durable_operation",
-      "testIds": ["execution-intelligence:integration:store", "coordinator:integration:project-runtime-composition-root"],
+      "testIds": ["execution-intelligence:integration:store", "coordinator:integration:orchestrator-composition-root"],
       "postconditions": ["event_not_overwritten", "collision_reobserved", "cleanup_candidate_not_authority"]
     },
     {
       "id": "mcp:public-contract-adapter",
       "owner": "mcp",
-      "architectureAnchor": "06_Architecture/Details/mcp/01_Architecture.md#3-依存と所有権",
+      "architectureAnchor": "06_Architecture/Details/mcp-server/01_Architecture.md#3-依存と所有権",
       "responsibilities": ["transport_decode_encode", "public_contract_projection", "project_context_projection", "closed_result_mapping"],
-      "externalBoundaries": ["mcp_request", "project_runtime_public_contract", "project_context_read_model", "mcp_response"],
+      "externalBoundaries": ["mcp_request", "orchestrator_public_contract", "project_context_read_model", "mcp_response"],
       "lifecycleProfile": "pure_component",
-      "testIds": ["mcp:unit:project-context", "mcp:unit:project-runtime", "mcp:integration:cros-project-context", "mcp:integration:cros-shared-server", "mcp:integration:transport-lifecycle", "mcp:system:cros-projection-non-disclosure", "mcp:system:stdio", "coordinator:integration:project-runtime-composition-root"],
+      "testIds": ["mcp:unit:project-context", "mcp:unit:orchestrator", "mcp:integration:cros-project-context", "mcp:integration:cros-shared-server", "mcp:integration:transport-lifecycle", "mcp:system:cros-projection-non-disclosure", "mcp:system:stdio", "coordinator:integration:orchestrator-composition-root"],
       "postconditions": ["transport_does_not_issue_authority", "canonical_result_not_reinterpreted", "unknown_field_rejected"]
     },
     {
       "id": "mcp:transport-session",
       "owner": "mcp",
-      "architectureAnchor": "06_Architecture/Details/mcp/01_Architecture.md#5-transport-lifecycle",
+      "architectureAnchor": "06_Architecture/Details/mcp-server/01_Architecture.md#5-transport-lifecycle",
       "responsibilities": ["stdio_session", "localhost_http_session", "cancellation_and_connection_close"],
       "externalBoundaries": ["stdio", "localhost_http", "client_disconnect"],
       "lifecycleProfile": "transport_session",
-      "testIds": ["mcp:integration:cros-shared-server", "mcp:integration:transport-lifecycle", "mcp:system:cros-projection-non-disclosure", "mcp:system:cros-shared-server-entry", "mcp:system:stdio", "mcp:system:streamable-http", "coordinator:integration:project-runtime-composition-root"],
+      "testIds": ["mcp:integration:cros-shared-server", "mcp:integration:transport-lifecycle", "mcp:system:cros-projection-non-disclosure", "mcp:system:cros-shared-server-entry", "mcp:system:stdio", "mcp:system:streamable-http", "coordinator:integration:orchestrator-composition-root"],
       "postconditions": ["rest_and_mcp_same_origin", "tls_termination_contract_verified", "listener_closed", "inflight_request_classified", "disconnect_not_reported_success"]
     },
     {
@@ -380,7 +380,7 @@
   "integrationCorridors": [
     {
       "id": "ai-runtime:catalog-to-workbench",
-      "architectureAnchor": "06_Architecture/Details/ai-runtime/01_Architecture.md#3-公開入口と依存方向",
+      "architectureAnchor": "06_Architecture/Details/ai-adapter/01_Architecture.md#3-公開入口と依存方向",
       "blockPath": [
         "ai-runtime:catalog-to-consumers",
         "workbench:production-shell"
@@ -404,7 +404,7 @@
     },
     {
       "id": "crdd-domain-library:reality-to-checker",
-      "architectureAnchor": "06_Architecture/Details/crdd-domain-library/01_Architecture.md#7-consumer-closure",
+      "architectureAnchor": "06_Architecture/Details/domain-model/02_Activity_Context.md#7-consumer-closure",
       "blockPath": ["crdd-domain-library:reality-and-repository-boundary", "checker:repository-verification"],
       "testIds": ["crdd-domain-library:integration:reality-repository", "checker:integration:crdd-check"],
       "postconditions": ["compatibility_shim_connection_observed", "checker_consumer_result_preserved", "final_consumer_migration_not_claimed"]
@@ -439,9 +439,9 @@
     },
     {
       "id": "project-operation:candidate-to-project-view",
-      "architectureAnchor": "06_Architecture/Details/project-operation/01_Architecture.md#12-identityprojectioncandidate契約",
+      "architectureAnchor": "06_Architecture/Details/domain-model/02_Activity_Context.md#12-identityprojectioncandidate契約",
       "blockPath": ["coordinator:candidate-publication", "project-operation:projection-and-candidate"],
-      "testIds": ["coordinator:integration:project-runtime-candidate-integration-adapter", "project-operation:integration:candidate-adoption", "project-operation:integration:project-projection"],
+      "testIds": ["coordinator:integration:orchestrator-candidate-integration-adapter", "project-operation:integration:candidate-adoption", "project-operation:integration:project-projection"],
       "postconditions": ["candidate_identity_preserved", "adoption_authority_not_inferred", "partial_project_state_preserved"]
     },
     {
@@ -467,30 +467,30 @@
     },
     {
       "id": "project-operation:context-to-workbench",
-      "architectureAnchor": "06_Architecture/Details/workbench/01_Architecture.md#6-interfaceとinteraction境界",
+      "architectureAnchor": "06_Architecture/Details/workbench-server/01_Architecture.md#6-interfaceとinteraction境界",
       "blockPath": ["project-operation:projection-and-candidate", "workbench:production-shell"],
       "testIds": ["project-operation:integration:repository-project-context", "workbench:integration:project-surface", "workbench:integration:production-shell"],
       "postconditions": ["project_context_five_scenes_exact", "unconfigured_capability_not_zero", "listener_absent"]
     },
     {
       "id": "cros:credential-to-project-context-mcp",
-      "architectureAnchor": "06_Architecture/Details/mcp/01_Architecture.md#3-依存と所有権",
+      "architectureAnchor": "06_Architecture/Details/mcp-server/01_Architecture.md#3-依存と所有権",
       "blockPath": ["cros:workspace-federation-and-handoff", "mcp:public-contract-adapter", "mcp:transport-session"],
       "testIds": ["cros:integration:remote-transport", "cros:integration:shared-server-config", "mcp:integration:cros-project-context", "mcp:integration:cros-shared-server", "mcp:system:cros-projection-non-disclosure", "mcp:system:cros-shared-server-entry"],
       "postconditions": ["authorized_projection_only", "credential_secret_not_stored", "grant_outside_repository_not_disclosed", "rest_and_mcp_same_origin", "tls_termination_contract_verified", "listener_absent"]
     },
     {
       "id": "version-control:change-publication-to-workbench",
-      "architectureAnchor": "06_Architecture/Details/workbench/01_Architecture.md#6-interfaceとinteraction境界",
+      "architectureAnchor": "06_Architecture/Details/workbench-server/01_Architecture.md#6-interfaceとinteraction境界",
       "blockPath": ["version-control:change-publication", "workbench:production-shell"],
       "testIds": ["version-control:integration:change-publication", "workbench:integration:production-shell"],
       "postconditions": ["selected_changes_only", "automatic_retry_absent", "confirmed_publication_reobserved"]
     },
     {
       "id": "runtime-data:repository-to-consumers",
-      "architectureAnchor": "06_Architecture/Details/runtime-data/01_Architecture.md#2-repository-local構成と切替境界",
-      "blockPath": ["runtime-data:repository-storage", "execution-intelligence:durable-store", "project-runtime:objective-task-lifecycle"],
-      "testIds": ["runtime-data:integration:repository-paths", "execution-intelligence:integration:store", "coordinator:integration:project-runtime-composition-root"],
+      "architectureAnchor": "06_Architecture/Details/domain-model/03_Repository_Storage.md#2-repository-local構成と切替境界",
+      "blockPath": ["runtime-data:repository-storage", "execution-intelligence:durable-store", "orchestrator:objective-task-lifecycle"],
+      "testIds": ["runtime-data:integration:repository-paths", "execution-intelligence:integration:store", "coordinator:integration:orchestrator-composition-root"],
       "postconditions": ["repository_root_identity_preserved", "canonical_paths_not_reinterpreted", "consumer_storage_stays_repository_local"]
     },
     {
@@ -502,9 +502,9 @@
     },
     {
       "id": "runtime:objective-to-candidate",
-      "architectureAnchor": "06_Architecture/Details/coordinator/01_Architecture.md#14-project-runtimeとの接続",
-      "blockPath": ["project-runtime:objective-task-lifecycle", "coordinator:provider-task-lifecycle", "coordinator:candidate-publication"],
-      "testIds": ["coordinator:integration:project-runtime-full-flow", "coordinator:integration:project-runtime-execution", "coordinator:integration:project-runtime-candidate-integration-adapter"],
+      "architectureAnchor": "06_Architecture/Details/coordinator/01_Architecture.md#14-orchestratorとの接続",
+      "blockPath": ["orchestrator:objective-task-lifecycle", "coordinator:provider-task-lifecycle", "coordinator:candidate-publication"],
+      "testIds": ["coordinator:integration:orchestrator-full-flow", "coordinator:integration:orchestrator-execution", "coordinator:integration:orchestrator-candidate-integration-adapter"],
       "postconditions": ["authority_narrowing_preserved", "attempt_identity_preserved", "candidate_not_published_before_settlement"]
     },
     {
@@ -516,14 +516,14 @@
     },
     {
       "id": "runtime:candidate-to-mcp-result",
-      "architectureAnchor": "06_Architecture/Details/mcp/01_Architecture.md#3-依存と所有権",
-      "blockPath": ["coordinator:candidate-publication", "project-runtime:integration-projection", "mcp:public-contract-adapter"],
-      "testIds": ["coordinator:integration:project-runtime-candidate-integration-adapter", "coordinator:integration:project-runtime-integration", "mcp:integration:transport-lifecycle"],
+      "architectureAnchor": "06_Architecture/Details/mcp-server/01_Architecture.md#3-依存と所有権",
+      "blockPath": ["coordinator:candidate-publication", "orchestrator:integration-projection", "mcp:public-contract-adapter"],
+      "testIds": ["coordinator:integration:orchestrator-candidate-integration-adapter", "coordinator:integration:orchestrator-integration", "mcp:integration:transport-lifecycle"],
       "postconditions": ["canonical_result_not_reinterpreted", "recovery_references_preserved", "unaccepted_candidate_not_exposed"]
     },
     {
       "id": "mcp:contract-to-transport",
-      "architectureAnchor": "06_Architecture/Details/mcp/01_Architecture.md#5-transport-lifecycle",
+      "architectureAnchor": "06_Architecture/Details/mcp-server/01_Architecture.md#5-transport-lifecycle",
       "blockPath": ["mcp:public-contract-adapter", "mcp:transport-session"],
       "testIds": ["mcp:integration:transport-lifecycle", "mcp:system:stdio", "mcp:system:streamable-http"],
       "postconditions": ["request_identity_preserved", "disconnect_cancellation_joined", "transport_resources_absent"]
@@ -531,15 +531,15 @@
     {
       "id": "runtime:attempt-to-durable-observation",
       "architectureAnchor": "06_Architecture/Details/execution-intelligence/02_Current_Implementation_Reality_Audit.md#3-発行と失敗境界",
-      "blockPath": ["project-runtime:objective-task-lifecycle", "execution-intelligence:event-publication", "execution-intelligence:durable-store"],
-      "testIds": ["coordinator:integration:project-runtime-execution", "execution-intelligence:integration:store", "coordinator:integration:project-runtime-composition-root"],
+      "blockPath": ["orchestrator:objective-task-lifecycle", "execution-intelligence:event-publication", "execution-intelligence:durable-store"],
+      "testIds": ["coordinator:integration:orchestrator-execution", "execution-intelligence:integration:store", "coordinator:integration:orchestrator-composition-root"],
       "postconditions": ["task_result_unchanged_by_observation", "event_identity_preserved", "store_failure_not_hidden"]
     },
     {
       "id": "runtime:decision-to-docker-recovery",
       "architectureAnchor": "06_Architecture/Details/coordinator/01_Architecture.md#11-取消と回復",
-      "blockPath": ["project-runtime:decision-recovery", "coordinator:docker-task-recovery", "coordinator:docker-desktop-repair"],
-      "testIds": ["coordinator:integration:project-runtime-decision-recovery-store", "coordinator:integration:docker-recovery-runtime", "coordinator:integration:docker-desktop-runtime-repair"],
+      "blockPath": ["orchestrator:decision-recovery", "coordinator:docker-task-recovery", "coordinator:docker-desktop-repair"],
+      "testIds": ["coordinator:integration:orchestrator-decision-recovery-store", "coordinator:integration:docker-recovery-runtime", "coordinator:integration:docker-desktop-runtime-repair"],
       "postconditions": ["exact_recovery_identity_preserved", "unknown_effect_not_reissued", "reentry_requires_fresh_observation"]
     },
     {
@@ -573,7 +573,7 @@
     {
       "producerOwner": "cros",
       "producerPaths": [
-        "40_Develop/cros/src/project-federation.ts",
+        "40_Develop/cros/src/federation/project.ts",
         "40_Develop/cros/src/index.ts"
       ],
       "consumerOwner": "mcp",
@@ -583,34 +583,34 @@
       ]
     },
     {
-      "producerOwner": "project-runtime",
+      "producerOwner": "orchestrator",
       "producerPaths": [
         "40_Develop/orchestrator/src"
       ],
       "consumerOwner": "coordinator",
       "consumerStatic": true,
       "testIds": [
-        "coordinator:integration:project-runtime-candidate-integration-adapter",
-        "coordinator:integration:project-runtime-durable-foundation",
-        "coordinator:integration:project-runtime-execution",
-        "coordinator:integration:project-runtime-full-flow",
-        "coordinator:integration:project-runtime-integration",
-        "coordinator:integration:project-runtime-objective-intake",
-        "coordinator:integration:project-runtime-composition-root",
-        "coordinator:integration:project-runtime-replanning-and-decision",
-        "coordinator:integration:project-runtime-single-task-adapter",
-        "coordinator:unit:project-runtime-windows-platform-adapter"
+        "coordinator:integration:orchestrator-candidate-integration-adapter",
+        "coordinator:integration:orchestrator-durable-foundation",
+        "coordinator:integration:orchestrator-execution",
+        "coordinator:integration:orchestrator-full-flow",
+        "coordinator:integration:orchestrator-integration",
+        "coordinator:integration:orchestrator-objective-intake",
+        "coordinator:integration:orchestrator-composition-root",
+        "coordinator:integration:orchestrator-replanning-and-decision",
+        "coordinator:integration:orchestrator-single-task-adapter",
+        "coordinator:unit:orchestrator-windows-platform-adapter"
       ]
     },
     {
-      "producerOwner": "project-runtime",
+      "producerOwner": "orchestrator",
       "producerPaths": [
         "40_Develop/orchestrator/src"
       ],
       "consumerOwner": "mcp",
       "consumerStatic": true,
       "testIds": [
-        "mcp:unit:project-runtime",
+        "mcp:unit:orchestrator",
         "mcp:system:stdio",
         "mcp:system:streamable-http"
       ]
@@ -624,8 +624,8 @@
       "consumerOwner": "coordinator",
       "consumerStatic": true,
       "testIds": [
-        "coordinator:integration:project-runtime-execution",
-        "coordinator:integration:project-runtime-full-flow"
+        "coordinator:integration:orchestrator-execution",
+        "coordinator:integration:orchestrator-full-flow"
       ]
     },
     {
@@ -639,7 +639,7 @@
       "consumerOwner": "coordinator",
       "consumerStatic": true,
       "testIds": [
-        "coordinator:integration:project-runtime-composition-root"
+        "coordinator:integration:orchestrator-composition-root"
       ]
     },
     {
@@ -662,7 +662,7 @@
       "consumerStatic": true,
       "testIds": [
         "coordinator:integration:external-send-policy-runtime",
-        "coordinator:integration:project-runtime-durable-foundation",
+        "coordinator:integration:orchestrator-durable-foundation",
         "coordinator:integration:sign-release-manifest"
       ]
     }
@@ -751,7 +751,7 @@
     {
       "id": "coordinator:unit:coordinator-state-model",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/coordinator-state-model.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/state-storage/model.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": ["coordinator-state", "snapshot", "correlation", "hostile-input"],
@@ -777,7 +777,7 @@
     {
       "id": "ai-runtime:unit:profile-catalog",
       "owner": "ai-adapter",
-      "path": "40_Develop/ai-adapter/tests/ai-profile-catalog.contract.test.ts",
+      "path": "40_Develop/ai-adapter/tests/unit/catalog/resolve.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -848,7 +848,7 @@
     {
       "id": "cros:integration:core",
       "owner": "cros",
-      "path": "40_Develop/cros/tests/integration/cros-core.contract.test.ts",
+      "path": "40_Develop/cros/tests/integration/local-operation-ai-plan.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": ["local-equivalence", "ai-entry", "handoff", "authority"],
@@ -1017,7 +1017,7 @@
     {
       "id": "crdd-domain-library:unit:filesystem-store-root",
       "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/filesystem-store-root.contract.test.ts",
+      "path": "40_Develop/domain-model/tests/unit/storage/root-and-lock.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": ["repository", "filesystem", "store-root", "capability", "boundary"],
@@ -1069,7 +1069,7 @@
     {
       "id": "crdd-domain-library:unit:repository-observation",
       "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/repository-observation.contract.test.ts",
+      "path": "40_Develop/domain-model/tests/unit/repository/filesystem-observer.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": ["repository", "filesystem", "boundary", "negative-control"],
@@ -1095,7 +1095,7 @@
     {
       "id": "official-asset-governance:unit:revision-conflict",
       "owner": "official-asset-governance",
-      "path": "40_Develop/official-asset-governance/tests/unit/revision-conflict.contract.test.ts",
+      "path": "40_Develop/official-asset-governance/tests/unit/decisions.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -1202,7 +1202,7 @@
     {
       "id": "project-operation:integration:topic-meeting-application",
       "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/integration/topic-meeting-application.contract.test.ts",
+      "path": "40_Develop/domain-model/tests/integration/topic-meeting-operations.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": ["project", "topic", "meeting", "application", "pagination", "outcome-transfer", "close-invariant"],
@@ -1345,7 +1345,7 @@
     {
       "id": "runtime-data:unit:contract",
       "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/runtime-data-contract.contract.test.ts",
+      "path": "40_Develop/domain-model/tests/unit/configuration/validate-declarations.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": ["runtime-data", "manifest", "trust-policy"],
@@ -1358,7 +1358,7 @@
     {
       "id": "runtime-data:unit:path-resolver",
       "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/runtime-data-path-resolver.contract.test.ts",
+      "path": "40_Develop/domain-model/tests/unit/repository/resolve-storage-paths.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": ["runtime-data", "windows", "linux", "path"],
@@ -1371,7 +1371,7 @@
     {
       "id": "runtime-data:integration:repository-paths",
       "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/integration/repository-runtime-data-paths.integration.test.ts",
+      "path": "40_Develop/domain-model/tests/integration/repository-storage-paths.integration.test.ts",
       "level": "integration",
       "kind": "integration",
       "semanticTags": ["runtime-data", "repository-root", "path"],
@@ -1384,7 +1384,7 @@
     {
       "id": "runtime-data:integration:consumer-closure",
       "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/integration/runtime-data-consumer-closure.integration.test.ts",
+      "path": "40_Develop/domain-model/tests/integration/storage-consumer-closure.integration.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": ["runtime-data", "consumer-closure", "repository-root", "signing"],
@@ -2340,9 +2340,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:integration:project-runtime-candidate-integration-adapter",
+      "id": "coordinator:integration:orchestrator-candidate-integration-adapter",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/project-runtime-candidate-integration-adapter.integration.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/orchestrator-candidate-integration-adapter.integration.test.ts",
       "level": "integration",
       "kind": "integration",
       "semanticTags": [
@@ -2361,9 +2361,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:integration:project-runtime-decision-recovery-store",
+      "id": "coordinator:integration:orchestrator-decision-recovery-store",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/project-runtime-decision-recovery-store.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/orchestrator-decision-recovery-store.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -2383,9 +2383,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:integration:project-runtime-design-traceability",
+      "id": "coordinator:integration:orchestrator-design-traceability",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/project-runtime-design-traceability.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/orchestrator-design-traceability.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -2404,9 +2404,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:integration:project-runtime-history",
+      "id": "coordinator:integration:orchestrator-history",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/project-runtime-history.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/orchestrator-history.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -2425,9 +2425,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:integration:project-runtime-durable-foundation",
+      "id": "coordinator:integration:orchestrator-durable-foundation",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/project-runtime-durable-foundation.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/orchestrator-durable-foundation.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -2447,9 +2447,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:integration:project-runtime-execution",
+      "id": "coordinator:integration:orchestrator-execution",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/project-runtime-execution.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/orchestrator-execution.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -2467,9 +2467,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:integration:project-runtime-full-flow",
+      "id": "coordinator:integration:orchestrator-full-flow",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/project-runtime-full-flow.integration.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/orchestrator-full-flow.integration.test.ts",
       "level": "integration",
       "kind": "integration",
       "semanticTags": [
@@ -2491,9 +2491,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:integration:project-runtime-integration",
+      "id": "coordinator:integration:orchestrator-integration",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/project-runtime-integration.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/orchestrator-integration.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -2510,9 +2510,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:integration:project-runtime-objective-intake",
+      "id": "coordinator:integration:orchestrator-objective-intake",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/project-runtime-objective-intake.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/orchestrator-objective-intake.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -2531,9 +2531,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:integration:project-runtime-platform-independence",
+      "id": "coordinator:integration:orchestrator-platform-independence",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/project-runtime-platform-independence.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/orchestrator-platform-independence.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -2552,9 +2552,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:integration:project-runtime-composition-root",
+      "id": "coordinator:integration:orchestrator-composition-root",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/project-runtime-composition-root.integration.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/orchestrator-composition-root.integration.test.ts",
       "level": "integration",
       "kind": "integration",
       "semanticTags": [
@@ -2574,9 +2574,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:integration:project-runtime-queue-priority",
+      "id": "coordinator:integration:orchestrator-queue-priority",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/project-runtime-queue-priority.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/orchestrator-queue-priority.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -2595,9 +2595,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:integration:project-runtime-replanning-and-decision",
+      "id": "coordinator:integration:orchestrator-replanning-and-decision",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/project-runtime-replanning-and-decision.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/orchestrator-replanning-and-decision.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -2617,9 +2617,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:integration:project-runtime-single-task-adapter",
+      "id": "coordinator:integration:orchestrator-single-task-adapter",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/project-runtime-single-task-adapter.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/orchestrator-single-task-adapter.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -2639,9 +2639,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:integration:project-runtime-windows-decision-store",
+      "id": "coordinator:integration:orchestrator-windows-decision-store",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/project-runtime-windows-decision-store.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/orchestrator-windows-decision-store.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -3090,9 +3090,9 @@
       "mandatoryByDefault": false
     },
     {
-      "id": "coordinator:system:project-runtime-real-provider-verification-script",
+      "id": "coordinator:system:orchestrator-real-provider-verification-script",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/system/project-runtime-real-provider-verification-script.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/system/orchestrator-real-provider-verification-script.contract.test.ts",
       "level": "system",
       "kind": "contract",
       "semanticTags": [
@@ -3113,9 +3113,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:system:project-runtime-recovery",
+      "id": "coordinator:system:orchestrator-recovery",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/system/project-runtime-recovery.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/system/orchestrator-recovery.contract.test.ts",
       "level": "system",
       "kind": "contract",
       "semanticTags": [
@@ -3284,7 +3284,7 @@
     {
       "id": "coordinator:unit:authority-file-bundle",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/authority-file-bundle.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/authority/file-bundle.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -3303,7 +3303,7 @@
     {
       "id": "coordinator:unit:authority-grant-verifier",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/authority-grant-verifier.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/authority/grant-verifier.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -3322,7 +3322,7 @@
     {
       "id": "coordinator:unit:authority-prelaunch-verifier",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/authority-prelaunch-verifier.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/authority/prelaunch-verifier.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -3341,7 +3341,7 @@
     {
       "id": "coordinator:unit:authority-root-path-lexical",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/authority-root-path-lexical.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/authority/root-path-lexical.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -3361,7 +3361,7 @@
     {
       "id": "coordinator:unit:authority-trust-loader",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/authority-trust-loader.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/authority/trust-loader.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -3380,7 +3380,7 @@
     {
       "id": "coordinator:unit:candidate-store-windows-adapter",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/candidate-store-windows-adapter.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/platform-access/protected-root-windows-adapter.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -3400,7 +3400,7 @@
     {
       "id": "coordinator:unit:claude-docker-runtime-adapter",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/claude-docker-runtime-adapter.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/provider/claude-docker-adapter.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -3488,7 +3488,7 @@
     {
       "id": "coordinator:unit:codex-docker-runtime-adapter",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/codex-docker-runtime-adapter.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/provider/codex-docker-adapter.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -3545,7 +3545,7 @@
     {
       "id": "coordinator:unit:coordinator-operation-creation-internal",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/coordinator-operation-creation-internal.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/repository-operation/create.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -3654,9 +3654,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:integration:project-runtime-integration-record-adapter",
+      "id": "coordinator:integration:orchestrator-integration-record-adapter",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/project-runtime-integration-record-adapter.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/orchestrator-integration-record-adapter.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -3676,9 +3676,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:system:project-runtime-acceptance-decision",
+      "id": "coordinator:system:orchestrator-acceptance-decision",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/system/project-runtime-acceptance-decision.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/system/orchestrator-acceptance-decision.contract.test.ts",
       "level": "system",
       "kind": "contract",
       "semanticTags": [
@@ -3697,13 +3697,13 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "project-runtime:unit:human-decision-application",
-      "owner": "project-runtime",
-      "path": "40_Develop/orchestrator/tests/unit/human-decision-application.contract.test.ts",
+      "id": "orchestrator:unit:human-decision-application",
+      "owner": "orchestrator",
+      "path": "40_Develop/orchestrator/tests/unit/decision/lifecycle.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
-        "project-runtime",
+        "orchestrator",
         "human-decision",
         "application"
       ],
@@ -3716,13 +3716,13 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "project-runtime:unit:integration-application",
-      "owner": "project-runtime",
-      "path": "40_Develop/orchestrator/tests/unit/integration-application.contract.test.ts",
+      "id": "orchestrator:unit:integration-application",
+      "owner": "orchestrator",
+      "path": "40_Develop/orchestrator/tests/unit/candidate/integrate.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
-        "project-runtime",
+        "orchestrator",
         "integration",
         "application"
       ],
@@ -3735,13 +3735,13 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "project-runtime:unit:candidate-adoption-application",
-      "owner": "project-runtime",
-      "path": "40_Develop/orchestrator/tests/unit/candidate-adoption-application.contract.test.ts",
+      "id": "orchestrator:unit:candidate-adoption-application",
+      "owner": "orchestrator",
+      "path": "40_Develop/orchestrator/tests/unit/candidate/adopt.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
-        "project-runtime",
+        "orchestrator",
         "candidate-adoption",
         "authority",
         "lease",
@@ -3759,12 +3759,12 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "project-runtime:integration:docker-recovery-settlement",
-      "owner": "project-runtime",
+      "id": "orchestrator:integration:docker-recovery-settlement",
+      "owner": "orchestrator",
       "path": "40_Develop/orchestrator/tests/integration/docker-recovery-settlement.contract.test.ts",
       "level": "integration",
       "kind": "contract",
-      "semanticTags": ["project-runtime", "recovery", "result-acceptance", "fixed-repository"],
+      "semanticTags": ["orchestrator", "recovery", "result-acceptance", "fixed-repository"],
       "environment": "local_component_boundary",
       "externalProviderEffect": false,
       "humanInput": false,
@@ -3772,12 +3772,12 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "project-runtime:integration:public-owner-boundary",
-      "owner": "project-runtime",
+      "id": "orchestrator:integration:public-owner-boundary",
+      "owner": "orchestrator",
       "path": "40_Develop/orchestrator/tests/integration/public-owner-boundary.contract.test.ts",
       "level": "integration",
       "kind": "contract",
-      "semanticTags": ["project-runtime", "public-owner", "cli-dispatch"],
+      "semanticTags": ["orchestrator", "public-owner", "cli-dispatch"],
       "environment": "local_component_boundary",
       "externalProviderEffect": false,
       "humanInput": false,
@@ -3789,13 +3789,13 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "project-runtime:integration:acceptance-decision-application",
-      "owner": "project-runtime",
-      "path": "40_Develop/orchestrator/tests/integration/acceptance-decision-application.integration.test.ts",
+      "id": "orchestrator:integration:acceptance-decision-application",
+      "owner": "orchestrator",
+      "path": "40_Develop/orchestrator/tests/integration/acceptance-decision.integration.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
-        "project-runtime",
+        "orchestrator",
         "acceptance",
         "decision",
         "recovery"
@@ -3831,7 +3831,7 @@
     {
       "id": "coordinator:unit:delegation-selection-grant-runtime",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/delegation-selection-grant-runtime.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/provider/delegation-selection-grant.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -3908,7 +3908,7 @@
     {
       "id": "coordinator:unit:docker-cleanup-eligibility",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/docker-cleanup-eligibility.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/docker-execution/cleanup-eligibility.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -3927,7 +3927,7 @@
     {
       "id": "coordinator:unit:docker-host-transition-state",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/docker-host-transition-state.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/docker-execution/host-transition-state.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -3947,7 +3947,7 @@
     {
       "id": "coordinator:unit:docker-recovery-public-projection",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/docker-recovery-public-projection.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/docker-execution/recovery-public-projection.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -3967,7 +3967,7 @@
     {
       "id": "coordinator:unit:docker-recovery-state-machine",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/docker-recovery-state-machine.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/docker-execution/recovery-state-machine.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -3987,7 +3987,7 @@
     {
       "id": "coordinator:unit:docker-runtime-state-binding",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/docker-runtime-state-binding.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/docker-execution/state-binding.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4063,7 +4063,7 @@
     {
       "id": "coordinator:unit:external-send-grant-runtime",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/external-send-grant-runtime.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/external-send/grant.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4083,7 +4083,7 @@
     {
       "id": "coordinator:unit:host-generation-loss-transition",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/host-generation-loss-transition.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/host-execution/generation-loss-transition.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4103,7 +4103,7 @@
     {
       "id": "coordinator:unit:local-personal-authority-runtime",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/local-personal-authority-runtime.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/authority/local-personal-grant.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4144,9 +4144,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "mcp:unit:project-runtime",
+      "id": "mcp:unit:orchestrator",
       "owner": "mcp",
-      "path": "40_Develop/mcp-server/tests/unit/project-runtime-adapter.contract.test.ts",
+      "path": "40_Develop/mcp-server/tests/unit/orchestrator-adapter.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4194,7 +4194,7 @@
     {
       "id": "coordinator:unit:node-runtime-version",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/node-runtime-version.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/host-execution/node-runtime-version.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4232,7 +4232,7 @@
     {
       "id": "coordinator:unit:platform-access-adapter",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/platform-access-adapter.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/platform-access/adapter.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4251,7 +4251,7 @@
     {
       "id": "coordinator:unit:platform-key-storage-policy",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/platform-key-storage-policy.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/platform-access/key-storage-policy.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4271,7 +4271,7 @@
     {
       "id": "coordinator:unit:platform-provisioner-package-gate",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/platform-provisioner-package-gate.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/platform-access/package-gate.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4291,7 +4291,7 @@
     {
       "id": "coordinator:unit:platform-provisioner-policy-identity",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/platform-provisioner-policy-identity.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/platform-access/policy-identity.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4311,7 +4311,7 @@
     {
       "id": "coordinator:unit:platform-provisioner-release-trust",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/platform-provisioner-release-trust.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/platform-access/release-trust.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4331,7 +4331,7 @@
     {
       "id": "coordinator:unit:platform-provisioner-trust-core",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/platform-provisioner-trust-core.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/platform-access/manifest-trust.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4349,9 +4349,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "project-runtime:unit:execution-observation-port",
-      "owner": "project-runtime",
-      "path": "40_Develop/orchestrator/tests/unit/execution-observation-port.contract.test.ts",
+      "id": "orchestrator:unit:execution-observation-port",
+      "owner": "orchestrator",
+      "path": "40_Develop/orchestrator/tests/unit/task/intelligence-adapter.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4370,9 +4370,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "project-runtime:unit:objective-intake",
-      "owner": "project-runtime",
-      "path": "40_Develop/orchestrator/tests/unit/objective-intake.contract.test.ts",
+      "id": "orchestrator:unit:objective-intake",
+      "owner": "orchestrator",
+      "path": "40_Develop/orchestrator/tests/unit/objective/plan.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4391,8 +4391,8 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "project-runtime:unit:public-contract",
-      "owner": "project-runtime",
+      "id": "orchestrator:unit:public-contract",
+      "owner": "orchestrator",
       "path": "40_Develop/orchestrator/tests/unit/public-contract.contract.test.ts",
       "level": "unit",
       "kind": "contract",
@@ -4411,9 +4411,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "project-runtime:unit:state-query",
-      "owner": "project-runtime",
-      "path": "40_Develop/orchestrator/tests/unit/project-state-query.contract.test.ts",
+      "id": "orchestrator:unit:state-query",
+      "owner": "orchestrator",
+      "path": "40_Develop/orchestrator/tests/unit/state/query.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4432,9 +4432,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "project-runtime:unit:platform-contract",
-      "owner": "project-runtime",
-      "path": "40_Develop/orchestrator/tests/unit/platform-contract.contract.test.ts",
+      "id": "orchestrator:unit:platform-contract",
+      "owner": "orchestrator",
+      "path": "40_Develop/orchestrator/tests/unit/platform/contract.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4451,9 +4451,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "project-runtime:unit:state",
-      "owner": "project-runtime",
-      "path": "40_Develop/orchestrator/tests/unit/project-runtime-state.contract.test.ts",
+      "id": "orchestrator:unit:state",
+      "owner": "orchestrator",
+      "path": "40_Develop/orchestrator/tests/unit/state/transitions.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4470,9 +4470,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:unit:project-runtime-execution-authorization-adapter",
+      "id": "coordinator:unit:orchestrator-execution-authorization-adapter",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/project-runtime-execution-authorization-adapter.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/orchestrator-execution-authorization-adapter.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4491,9 +4491,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:unit:project-runtime-execution-host-adapter",
+      "id": "coordinator:unit:orchestrator-execution-host-adapter",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/project-runtime-execution-host-adapter.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/orchestrator-execution-host-adapter.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4513,9 +4513,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:unit:project-runtime-decision-capability-adapter",
+      "id": "coordinator:unit:orchestrator-decision-capability-adapter",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/project-runtime-decision-capability-adapter.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/orchestrator-decision-capability-adapter.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4534,9 +4534,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:unit:project-runtime-windows-platform-adapter",
+      "id": "coordinator:unit:orchestrator-windows-platform-adapter",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/project-runtime-windows-platform-adapter.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/orchestrator-windows-platform-adapter.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4557,7 +4557,7 @@
     {
       "id": "coordinator:unit:provider-authority-runtime",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/provider-authority-runtime.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/provider/authority-grant.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4595,7 +4595,7 @@
     {
       "id": "coordinator:unit:provider-eligibility-runtime",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/provider-eligibility-runtime.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/provider/eligibility-observation.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4633,7 +4633,7 @@
     {
       "id": "coordinator:unit:provider-home-mount-grant-runtime",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/provider-home-mount-grant-runtime.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/provider/home-mount-authorization.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4654,7 +4654,7 @@
     {
       "id": "coordinator:unit:provider-home-mount-grant",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/provider-home-mount-grant.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/provider/home-mount-grant.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4674,7 +4674,7 @@
     {
       "id": "coordinator:unit:provider-home-observation",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/provider-home-observation.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/platform-access/protected-root-protocol.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4693,7 +4693,7 @@
     {
       "id": "coordinator:unit:provider-home",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/provider-home.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/provider/home.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4711,7 +4711,7 @@
     {
       "id": "coordinator:unit:provider-isolation-profile",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/provider-isolation-profile.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/provider/isolation-profile.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4730,7 +4730,7 @@
     {
       "id": "coordinator:unit:provider-lifecycle",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/provider-lifecycle.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/provider/lifecycle.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4766,9 +4766,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:unit:project-runtime-profile-transport",
+      "id": "coordinator:unit:orchestrator-profile-transport",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/project-runtime-profile-transport.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/orchestrator-profile-transport.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4802,7 +4802,7 @@
     {
       "id": "coordinator:unit:host-terminal-record",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/host-terminal-record.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/host-execution/terminal-record.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": ["host", "terminal", "record", "codec"],
@@ -4815,7 +4815,7 @@
     {
       "id": "coordinator:unit:host-orphan-recovery-policy",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/host-orphan-recovery-policy.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/host-execution/orphan-recovery-policy.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4836,7 +4836,7 @@
     {
       "id": "coordinator:unit:provider-model-selection-runtime",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/provider-model-selection-runtime.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/provider/model-selection.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4856,7 +4856,7 @@
     {
       "id": "coordinator:unit:provider-task-packet-runtime",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/provider-task-packet-runtime.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/provider/task-packet.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4876,7 +4876,7 @@
     {
       "id": "coordinator:unit:provider-task-structured-result",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/provider-task-structured-result.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/provider/task-structured-result.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4896,7 +4896,7 @@
     {
       "id": "coordinator:unit:provisioning-signature-primitives",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/provisioning-signature-primitives.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/platform-access/signature-primitives.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -5265,7 +5265,7 @@
     {
       "id": "coordinator:unit:workbench-ai-request-application",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/workbench-ai-request-application.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/workbench-ai/request-lifecycle.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -5301,7 +5301,7 @@
     {
       "id": "coordinator:unit:workbench-ai-advice-execution-plan",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/workbench-ai-advice-execution-plan.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/workbench-ai/advice-execution-plan.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -5380,7 +5380,7 @@
     {
       "id": "coordinator:unit:workbench-ai-advice-provider-executor",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/workbench-ai-advice-provider-executor.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/workbench-ai/advice-provider-executor.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -5406,7 +5406,7 @@
     {
       "id": "coordinator:unit:workbench-ai-advice-production-runtime",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/workbench-ai-advice-production-runtime.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/workbench-ai/advice-execution.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -5432,7 +5432,7 @@
     {
       "id": "coordinator:unit:workbench-ai-advice-runtime-packet",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/workbench-ai-advice-runtime-packet.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/workbench-ai/advice-packet.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -5457,7 +5457,7 @@
     {
       "id": "coordinator:unit:workbench-ai-change-candidate-runtime",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/workbench-ai-change-candidate-runtime.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/workbench-ai/change-candidate-executor.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -5481,7 +5481,7 @@
     {
       "id": "coordinator:unit:workbench-ai-advice-dispatch-runtime",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/workbench-ai-advice-dispatch-runtime.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/workbench-ai/advice-dispatch.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -5510,7 +5510,7 @@
     {
       "id": "coordinator:unit:workbench-ai-provider-adapter",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/workbench-ai-provider-adapter.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/workbench-ai/provider-adapter.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -5616,7 +5616,7 @@
     {
       "id": "verification-runner:unit:test-catalog",
       "owner": "verification-runner",
-      "path": "40_Develop/verification-runner/tests/unit/test-catalog.contract.test.ts",
+      "path": "40_Develop/verification-runner/tests/unit/catalog/inspect.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -5634,7 +5634,7 @@
     {
       "id": "checker:unit:checker-core",
       "owner": "checker",
-      "path": "40_Develop/checker/tests/unit/checker-core.contract.test.ts",
+      "path": "40_Develop/checker/tests/unit/inspection/pipeline.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -5655,7 +5655,7 @@
     {
       "id": "checker:unit:symbol-graph",
       "owner": "checker",
-      "path": "40_Develop/checker/tests/unit/symbol-graph.contract.test.ts",
+      "path": "40_Develop/checker/tests/unit/reality/symbol-graph.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -5968,7 +5968,7 @@
     {
       "id": "coordinator:unit:docker-restart-continuation-record",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/docker-restart-continuation-record.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/docker-desktop/restart-continuation-record.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -5988,7 +5988,7 @@
     {
       "id": "coordinator:unit:docker-restart-handoff-record",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/docker-restart-handoff-record.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/docker-desktop/restart-handoff-record.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -6008,7 +6008,7 @@
     {
       "id": "coordinator:unit:docker-restart-record",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/docker-restart-record.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/docker-desktop/restart-record.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -6027,7 +6027,7 @@
     {
       "id": "coordinator:unit:docker-restart-state",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/docker-restart-state.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/docker-desktop/restart-state.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -6046,7 +6046,7 @@
     {
       "id": "coordinator:unit:docker-wsl-state",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/docker-wsl-state.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/docker-desktop/wsl-state.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [

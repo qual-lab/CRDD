@@ -10,8 +10,8 @@ import net from "node:net";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "../../../domain-model/src/plain-data/index.ts";
-import { validateProviderIsolationProfile } from "../provider/provider-isolation-profile.ts";
+} from "../../../domain-model/src/index.ts";
+import { validateProviderIsolationProfile } from "../provider/isolation-profile.ts";
 
 export const EGRESS_PROXY_CONTRACT = "crdd-coordinator/provider-egress-proxy";
 export const EGRESS_PROXY_CONTRACT_REVISION = 1;

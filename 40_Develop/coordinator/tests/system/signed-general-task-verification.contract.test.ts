@@ -10,7 +10,7 @@
  * @trace PRL-ST-004
  * @level ST
  * @scope signed、general、task、verification
- * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還 / PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還 / PRL-ST-001=System/E2E: 公開入口→Orchestrator→Execution→受入
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -471,7 +471,7 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
     ],
     allowedPaths: [TARGET_PATH],
     readPaths: [
-      "06_Architecture/Details/coordinator/01_Architecture.md",
+      "06_Architecture/Details/coordinator/02_Activity_Context.md",
       TARGET_PATH,
     ],
     workClass: "bounded_implementation",

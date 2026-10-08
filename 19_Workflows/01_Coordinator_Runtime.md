@@ -57,7 +57,7 @@ Last Updated: 2026-10-06
 
 ## 毎回の起動方法を組み立てない
 
-通常操作は、検証済みNodeから同じ配布物の`template/tools/crdd-coordinator.ts`を起動する。MCP Clientの接続は別の公開入口`template/tools/crdd-mcp.ts`と[MCP Serverの利用手順](04_MCP_Server.md)を使う。AIが実行ごとにwrapper、JSON pipeline、出力転送または別の入力readerを作り直さない。一般TaskはCoordinatorの第一級の`task`入口を使う。利用可能なCoordinator入口は`capabilities --json`から取得し、MCPや準備commandをCoordinatorのsubcommandとして推測しない。以下は絶対Pathの置換だけを行い、Shell文字列へ組み立て直さない。
+通常操作は、検証済みNodeから同じ配布物の`template/tools/crdd-coordinator.ts`を起動する。MCP Clientの接続は別の公開入口`template/tools/crdd-mcp-server.ts`と[MCP Serverの利用手順](04_MCP_Server.md)を使う。AIが実行ごとにwrapper、JSON pipeline、出力転送または別の入力readerを作り直さない。一般TaskはCoordinatorの第一級の`task`入口を使う。利用可能なCoordinator入口は`capabilities --json`から取得し、MCPや準備commandをCoordinatorのsubcommandとして推測しない。以下は絶対Pathの置換だけを行い、Shell文字列へ組み立て直さない。
 
 ```powershell
 & "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\40_Develop\coordinator\bin\coordinator.ts" task --request-stdin --json
@@ -82,7 +82,7 @@ Last Updated: 2026-10-06
 
 この記録には会話、確認コード、passphrase、Provider生出力は残らない。未知の停止理由は`unknown`となるため、完全な調査ログの代替ではない。自動的な再実行・回復・署名承認に使わない。画面を閉じた後に結果を読むための一時記録であり、正式Evidenceや永久保管場所ではない。Runtimeは容量超過時にも古い記録を削除しない。Gitは非追跡とし、旧署名配布物にはこの保存機能を継ぎ足さない。
 
-フロントAIは検証終了時に結果を受理し、必要な根拠を対象CHG／Releaseの`Evidence/`へ記録するか、不要の理由を確定する。原Artifactのbytesが必要ならその本体も正式保持先へ保存する。その後、現行入力・未解決参照・実行中利用がないことを確認し、一時作業物・診断を清掃して不存在を確認する。中断した実行は次回開始時に確認する。保持の設計は[Runtime Dataの終了契約](../06_Architecture/Details/runtime-data/01_Architecture.md#311-試験結果の受理と清掃)に従い、完了記録だけで清掃を許可しない。これは年齢による自動削除機能ではない。
+フロントAIは検証終了時に結果を受理し、必要な根拠を対象CHG／Releaseの`Evidence/`へ記録するか、不要の理由を確定する。原Artifactのbytesが必要ならその本体も正式保持先へ保存する。その後、現行入力・未解決参照・実行中利用がないことを確認し、一時作業物・診断を清掃して不存在を確認する。中断した実行は次回開始時に確認する。保持の設計は[Runtime Dataの終了契約](../06_Architecture/Details/domain-model/03_Repository_Storage.md#311-試験結果の受理と清掃)に従い、完了記録だけで清掃を許可しない。これは年齢による自動削除機能ではない。
 
 一回の検証のたびに恒久Launcherや診断Directoryを増設しない。繰り返し使用する検証は正式な実装・試験入口へ接続し、一時的な組立て物は所有Operationの作業領域へ置いて終端で回収する。旧固定Path入力を移行途中で保全する場合は、その有限集合、責任者と再評価契機を記録し、同じ場所へ新しい物を追加しない。古いScriptを保管場所へ移しただけで、現在の再実行入口として案内しない。
 
@@ -92,12 +92,12 @@ Last Updated: 2026-10-06
 
 ## 実行記録の保存方式を刷新するとき
 
-今回の保存構成刷新全体（Coordinator、Project Runtime、Execution Intelligence、設定、ログ、候補、署名準備、一時領域と試験結果）では、実装は採用済みの最新構成だけを扱う。旧配置探索、移行目的の旧Reader／Writer、二重書込みやFallbackは組み込まない。旧構成の棚卸し、必要情報のOwnerへの移行、停止・非使用確認後の清掃はフロントAIが担当する。旧署名の真正性確認など、移行とは別に成立が必要な現行Capabilityを互換処理と混同して削除しない。
+今回の保存構成刷新全体（Coordinator、Orchestrator、Execution Intelligence、設定、ログ、候補、署名準備、一時領域と試験結果）では、実装は採用済みの最新構成だけを扱う。旧配置探索、移行目的の旧Reader／Writer、二重書込みやFallbackは組み込まない。旧構成の棚卸し、必要情報のOwnerへの移行、停止・非使用確認後の清掃はフロントAIが担当する。旧署名の真正性確認など、移行とは別に成立が必要な現行Capabilityを互換処理と混同して削除しない。
 
-Coordinator／Project Runtime／Dockerの短命な実行記録は、長期の互換資産として扱わない。今回の新版保存へ切り替える際は、フロントAIが以下を実施する。具体的な新入口が接続・検証されるまで切替を実行せず、この手順の存在だけで②完了としない。
+Coordinator／Orchestrator／Dockerの短命な実行記録は、長期の互換資産として扱わない。今回の新版保存へ切り替える際は、フロントAIが以下を実施する。具体的な新入口が接続・検証されるまで切替を実行せず、この手順の存在だけで②完了としない。
 
 1. 対象Repository Root、旧版と新版、掃除するexact Pathを確認し、新しいTask受付を止める。旧Runtimeと同じ保存先へ新版を同時接続しない。
-2. Coordinator／Project Runtimeの現在処理と、その処理が所有するDocker資源を確認する。通常終了・回収できるものは既存入口で終了する。Docker永続データ、他用途のContainer／Network、認証Homeをこの整理で削除しない。共有Dockerを停止・再起動する必要がある場合は、影響を示して承認を得る。
+2. Coordinator／Orchestratorの現在処理と、その処理が所有するDocker資源を確認する。通常終了・回収できるものは既存入口で終了する。Docker永続データ、他用途のContainer／Network、認証Homeをこの整理で削除しない。共有Dockerを停止・再起動する必要がある場合は、影響を示して承認を得る。
 3. 候補Patch、未完了の採用・結果保存、有効な保護判断と正式Evidenceを確認する。必要な成果物をそれぞれのOwnerへ保全し、仕事の終了と記録清掃を区別する。旧記録をそのまま新Snapshotの有効仕事として復元しない。
 4. 停止・非使用と範囲を確認した旧実行記録・世代File・一時作業物を回収する。削除前に実体Pathが許可した用途別Root内であることを確認し、alias、用途不明、参照中または観測不能の対象は残して理由を返す。単に名前がCoordinator／Dockerに似ているという理由で消さない。
 5. 検証済みRepository Rootから新版の公開入口で `node template/tools/crdd-coordinator.ts automation project --initialize --json` を実行し、`status=completed`と発行された受付世代を確認する。有効なv2保存の再初期化は同じ世代を返し、旧形式や未知残存がある場合は保全停止する。CLI／MCPの状態取得は初期化しない。新Requestは認証済み状態取得の`intakeEpoch`を発行時に固定し、再入場では元の値を維持する。旧Reader／Writer／Fallbackを再接続せず、初回の状態保存、Queue受付、途中停止からの再入場と終了後の整理を確認する。
@@ -315,11 +315,11 @@ v0.19.0では、Bの署名済みRuntimeに対する最終E2Eと人間のRelease�
 - 最終E2E記録: `99_Roadmap/Releases/v0.19.0/Evidence/260903_project-runtime-final-signed-e2e.md`、`99_Roadmap/Releases/v0.19.0/Evidence/260903_project-runtime-final-signed-e2e.json`
 - 公開入口と履歴: `README.md`、`CHANGELOG.md`、`99_Roadmap/02_Changes.md`、`99_Roadmap/01_Roadmap.md`
 - 品質・手順: `07_Quality/01_Quality_Center.md`、`07_Quality/03_Verification_Design.md`、`19_Workflows/01_Coordinator_Runtime.md`
-- Project Runtimeの利用・設計表示: `02_UX/01_User_Experience.md`、`03_IA/01_Information_Architecture.md`、`04_UI/01_User_Interface.md`、`05_SPEC/01_Behavior_Specification.md`、`06_Architecture/Details/project-runtime/01_Architecture.md`
+- Orchestratorの利用・設計表示: `02_UX/01_User_Experience.md`、`03_IA/01_Information_Architecture.md`、`04_UI/01_User_Interface.md`、`05_SPEC/01_Behavior_Specification.md`、`06_Architecture/Details/orchestrator/01_Architecture.md`
 - Release対象CHG: `99_Roadmap/Changes/CHG-000057/change.md`、`99_Roadmap/Changes/CHG-000058/change.md`、`99_Roadmap/Changes/CHG-000059/change.md`、`99_Roadmap/Changes/CHG-000060/change.md`
 - v0.19.0のCandidateからStableへ機械的に遷移するCRDD正本: `00_Overview.md`、`01_Principles.md`、`02_Terminology.md`、`03_Documentation.md`、`04_Agent_Organization.md`、`05_Autonomous_Operation.md`、`10_Agent.md`、`11_Skill.md`、`12_Change.md`、`13_Release.md`、`14_Workflow.md`、`15_Progress.md`、`16_Quality_Assurance.md`、`17_Communication.md`、`18_Context_Dependency.md`、`19_Maintenance.md`、`21_Discovery.md`、`22_UX.md`、`23_IA.md`、`24_UI_Behavior_Specification.md`、`25_UI.md`、`26_Behavior_Specification.md`、`27_Architecture.md`、`28_Implementation.md`、`29_Verification.md`、`51_Document_Audit.md`、`52_Conformance_Audit.md`、`53_Gap_Impact_Audit.md`
 
-正本の機械的遷移は`Status: Candidate`を`Status: Stable`へ変え、`Released Baseline`行を削除し、Release日だけを更新する。Project Runtime固有文書はCandidate／未実装表示をStable／利用可能範囲の表示へ変える。CHGは`Released`と対象tagへ、Roadmapは完了項目の除去と残件だけの表示へ、CHANGELOGとREADMEは候補表示から公開版・公開日へ変える。ここにない本文変更、規範追加、実装変更または新しい成果物はCommit Cへ含めない。
+正本の機械的遷移は`Status: Candidate`を`Status: Stable`へ変え、`Released Baseline`行を削除し、Release日だけを更新する。Orchestrator固有文書はCandidate／未実装表示をStable／利用可能範囲の表示へ変える。CHGは`Released`と対象tagへ、Roadmapは完了項目の除去と残件だけの表示へ、CHANGELOGとREADMEは候補表示から公開版・公開日へ変える。ここにない本文変更、規範追加、実装変更または新しい成果物はCommit Cへ含めない。
 
 ### v0.20.0のCommit C許可Path
 
@@ -328,7 +328,7 @@ v0.20.0では、Bの署名済みRuntimeに対する最終E2Eと人間のRelease�
 - 最終E2E結果: `07_Quality/Verification_Results/2026-09-06_V020_Final_Signed_E2E.md`、`07_Quality/Verification_Results/2026-09-06_V020_Final_Signed_E2E.json`
 - 品質と手順: `07_Quality/01_Quality_Center.md`、`07_Quality/03_Verification_Design.md`、`19_Workflows/01_Coordinator_Runtime.md`
 - v0.20の候補からStableへ機械的に遷移するCRDD正本: `00_Overview.md`、`01_Principles.md`、`02_Terminology.md`、`03_Documentation.md`、`04_Agent_Organization.md`、`05_Autonomous_Operation.md`、`10_Agent.md`、`11_Skill.md`、`12_Change.md`、`13_Release.md`、`14_Workflow.md`、`15_Progress.md`、`16_Quality_Assurance.md`、`17_Communication.md`、`18_Context_Dependency.md`、`19_Maintenance.md`、`21_Discovery.md`、`22_UX.md`、`23_IA.md`、`24_UI_Behavior_Specification.md`、`25_UI.md`、`26_Behavior_Specification.md`、`27_Architecture.md`、`28_Implementation.md`、`29_Verification.md`、`51_Document_Audit.md`、`52_Conformance_Audit.md`、`53_Gap_Impact_Audit.md`
-- v0.20のTool表示: `04_UI/01_User_Interface.md`、`05_SPEC/01_Behavior_Specification.md`、`06_Architecture/01_Architecture.md`、`06_Architecture/99_Coding_Standards.md`、`06_Architecture/Details/coordinator/01_Architecture.md`、`06_Architecture/Details/coordinator/02_Threat_Model.md`、`06_Architecture/Details/execution-intelligence/01_Architecture.md`、`06_Architecture/Details/mcp/01_Architecture.md`、`06_Architecture/Details/platform-access/01_Architecture.md`、`06_Architecture/Details/project-runtime/01_Architecture.md`
+- v0.20のTool表示: `04_UI/01_User_Interface.md`、`05_SPEC/01_Behavior_Specification.md`、`06_Architecture/01_Architecture.md`、`06_Architecture/99_Coding_Standards.md`、`06_Architecture/Details/coordinator/01_Architecture.md`、`06_Architecture/Details/coordinator/02_Threat_Model.md`、`06_Architecture/Details/execution-intelligence/01_Architecture.md`、`06_Architecture/Details/mcp-server/01_Architecture.md`、`06_Architecture/Details/platform-access/01_Architecture.md`、`06_Architecture/Details/orchestrator/01_Architecture.md`
 - Release対象CHG: `99_Roadmap/Changes/CHG-000061/change.md`、`99_Roadmap/Changes/CHG-000062/change.md`、`99_Roadmap/Changes/CHG-000063/change.md`、`99_Roadmap/Changes/CHG-000064/change.md`、`99_Roadmap/Changes/CHG-000065/change.md`
 - 公開案内と残件: `README.md`、`CHANGELOG.md`、`99_Roadmap/02_Changes.md`、`99_Roadmap/01_Roadmap.md`
 
@@ -344,7 +344,7 @@ v0.21.0では、Bの署名済みRuntimeに対する最終Recovery Matrix、4経�
 - 利用・検証手順: `19_Workflows/01_Coordinator_Runtime.md`、`19_Workflows/04_MCP_Server.md`
 - 工程の候補表示: `02_UX/01_User_Experience.md`、`02_UX/02_Personas.md`、`02_UX/03_Experience_Map.md`、`02_UX/04_Service_Blueprint.md`、`02_UX/05_Quality_Expectations.md`、`03_IA/01_Information_Architecture.md`、`04_UI/01_User_Interface.md`、`05_SPEC/01_Behavior_Specification.md`
 - v0.21の候補からStableへ機械的に遷移するCRDD正本: `00_Overview.md`、`01_Principles.md`、`02_Terminology.md`、`03_Documentation.md`、`04_Agent_Organization.md`、`05_Autonomous_Operation.md`、`10_Agent.md`、`11_Skill.md`、`12_Change.md`、`13_Release.md`、`14_Workflow.md`、`15_Progress.md`、`16_Quality_Assurance.md`、`17_Communication.md`、`18_Context_Dependency.md`、`19_Maintenance.md`、`21_Discovery.md`、`22_UX.md`、`23_IA.md`、`24_UI_Behavior_Specification.md`、`25_UI.md`、`26_Behavior_Specification.md`、`27_Architecture.md`、`28_Implementation.md`、`29_Verification.md`、`51_Document_Audit.md`、`52_Conformance_Audit.md`、`53_Gap_Impact_Audit.md`
-- v0.21の候補表示を持つ工程成果物: `04_UI/06_Current_Interface_Reference.md`、`05_SPEC/07_Current_Behavior_Reference.md`、`06_Architecture/01_Architecture.md`、`06_Architecture/02_Component_and_Responsibility_Model.md`、`06_Architecture/03_Boundary_and_Interface_Model.md`、`06_Architecture/04_Runtime_and_Data_Flow_Model.md`、`06_Architecture/05_Failure_Recovery_and_Resilience_Model.md`、`06_Architecture/06_Deployment_and_Execution_Model.md`、`06_Architecture/99_Coding_Standards.md`、`06_Architecture/Details/coordinator/02_Threat_Model.md`、`06_Architecture/Details/crdd-domain-library/01_Architecture.md`、`06_Architecture/Details/runtime-data/02_Current_Path_Reality_Audit.md`
+- v0.21の候補表示を持つ工程成果物: `04_UI/06_Current_Interface_Reference.md`、`05_SPEC/07_Current_Behavior_Reference.md`、`06_Architecture/01_Architecture.md`、`06_Architecture/02_Component_and_Responsibility_Model.md`、`06_Architecture/03_Boundary_and_Interface_Model.md`、`06_Architecture/04_Runtime_and_Data_Flow_Model.md`、`06_Architecture/05_Failure_Recovery_and_Resilience_Model.md`、`06_Architecture/06_Deployment_and_Execution_Model.md`、`06_Architecture/99_Coding_Standards.md`、`06_Architecture/Details/coordinator/02_Threat_Model.md`、`06_Architecture/Details/domain-model/02_Activity_Context.md`、`06_Architecture/Details/domain-model/04_Storage_Path_Reality_Audit.md`
 - Release対象CHG: `99_Roadmap/Changes/CHG-000066/change.md`、`99_Roadmap/Changes/CHG-000068/change.md`、`99_Roadmap/Changes/CHG-000070/change.md`、`99_Roadmap/Changes/CHG-000071/change.md`、`99_Roadmap/Changes/CHG-000072/change.md`、`99_Roadmap/Changes/CHG-000073/change.md`、`99_Roadmap/Changes/CHG-000074/change.md`、`99_Roadmap/Changes/CHG-000075/change.md`、`99_Roadmap/Changes/CHG-000076/change.md`、`99_Roadmap/Changes/CHG-000077/change.md`、`99_Roadmap/Changes/CHG-000078/change.md`、`99_Roadmap/Changes/CHG-000079/change.md`、`99_Roadmap/Changes/CHG-000080/change.md`
 
 正本と工程成果物の機械的遷移は、v0.21.0のCandidate表示をStableへ変え、`Released Baseline`を除去し、Release日または最終更新日だけを更新する。CHGは`Released`と対象tagへ、Roadmapはv0.21完了項目を除去してv0.22以降の残件だけへ、CHANGELOGとREADMEは候補表示から公開版・公開日へ変える。QualityとReality Auditは、実行済みEvidenceへ接続した項目、未観測のまま残す項目およびv0.22へ移管した項目を分け、未実行項目をPassへ変更しない。ここにない本文変更、規範追加、実装変更、manifest変更、Runtime実行集合変更または新しい成果物はCommit Cへ含めない。

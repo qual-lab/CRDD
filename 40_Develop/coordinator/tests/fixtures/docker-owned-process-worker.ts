@@ -1,3 +1,13 @@
+/**
+ * 所有Process Tree試験のWorkerを実行する。
+ *
+ * @packageDocumentation
+ * @responsibility 試験Modeに応じて子Processと準備完了通知を生成し、終端を観測可能にする。
+ * @trace ERB-IT-002
+ * @level IT
+ * @scope Process Treeと準備完了通知
+ * @boundary 固定Worker→自己生成子Process。安全期限による終了を取消成功の証拠にはしない。
+ */
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";

@@ -23,7 +23,7 @@ import {
   createRegressionStageExecutor,
   collectChangedPaths,
   executeRegressionStages,
-} from "../../src/execution/regression-execution.ts";
+} from "../../src/regression/stages.ts";
 
 const verificationRunnerRoot = path.resolve(import.meta.dirname, "../..");
 const runner = path.join(verificationRunnerRoot, "bin", "regression-runner.ts");
@@ -63,7 +63,7 @@ function invokeRunner(runnerArguments: readonly string[]) {
 test("PT／LTは全Authority条件が揃う前に試験Processを開始しない", () => {
   const result = invokeRunner([
     "--changed",
-    "40_Develop/verification-runner/src/catalog/test-catalog.ts",
+    "40_Develop/verification-runner/src/catalog/inspect.ts",
     "--levels",
     "performance",
     "--plan",
@@ -92,7 +92,7 @@ test("PT／LTは全Authority条件が揃う前に試験Processを開始しない
 test("Credit 0を含む明示AuthorityはPTの計画だけを許可する", () => {
   const result = invokeRunner([
     "--changed",
-    "40_Develop/verification-runner/src/catalog/test-catalog.ts",
+    "40_Develop/verification-runner/src/catalog/inspect.ts",
     "--levels",
     "performance",
     "--resource-intensive-authorized",
@@ -140,7 +140,7 @@ test("Credit 0を含む明示AuthorityはPTの計画だけを許可する", () =
 test("明示AuthorityがあってもPT／LTは上限強制実装まで計画だけとする", () => {
   const result = invokeRunner([
     "--changed",
-    "40_Develop/verification-runner/src/catalog/test-catalog.ts",
+    "40_Develop/verification-runner/src/catalog/inspect.ts",
     "--levels",
     "performance,unit",
     "--resource-intensive-authorized",
@@ -185,7 +185,7 @@ test("明示AuthorityがあってもPT／LTは上限強制実装まで計画だ�
 test("通常回帰はUT／IT／STだけを実行可能集合へ選ぶ", () => {
   const result = invokeRunner([
     "--changed",
-    "40_Develop/verification-runner/src/catalog/test-catalog.ts",
+    "40_Develop/verification-runner/src/catalog/inspect.ts",
     "--plan",
   ]);
   assert.equal(result.error, undefined);
@@ -200,7 +200,7 @@ test("通常回帰はUT／IT／STだけを実行可能集合へ選ぶ", () => {
   assert.deepEqual(plan.selected, [
     "40_Develop/verification-runner/tests/integration/regression-runner.contract.test.ts",
     "40_Develop/verification-runner/tests/system/resource-intensive-gate.contract.test.ts",
-    "40_Develop/verification-runner/tests/unit/test-catalog.contract.test.ts",
+    "40_Develop/verification-runner/tests/unit/catalog/inspect.contract.test.ts",
   ]);
 });
 
@@ -217,8 +217,7 @@ test("通常回帰はUT／IT／STだけを実行可能集合へ選ぶ", () => {
  * @boundary CQS-IT-011=Direct Boundary: verification-runner Test Source→対象契約
  */
 test("外部Provider試験を含む変更でもEffect 0の計画表示は停止しない", () => {
-  const changedPath =
-    "40_Develop/coordinator/src/external-send/external-send-policy-runtime.ts";
+  const changedPath = "40_Develop/coordinator/src/external-send/policy.ts";
   const planned = invokeRunner(["--changed", changedPath, "--plan"]);
   assert.equal(planned.error, undefined);
   assert.equal(planned.status, 0);
@@ -371,7 +370,7 @@ test("Tool配下MarkdownもCheckerとRepository静的検査へ接続する", () 
 test("共通component変更は利用側契約と利用側静的検査を同じ計画へ含める", () => {
   const result = invokeRunner([
     "--changed",
-    "40_Develop/execution-intelligence/src/store/execution-intelligence-store.ts",
+    "40_Develop/execution-intelligence/src/store/events.ts",
     "--plan",
   ]);
   assert.equal(result.status, 0);
@@ -382,7 +381,7 @@ test("共通component変更は利用側契約と利用側静的検査を同じ�
   };
   assert.ok(
     plan.selected?.includes(
-      "40_Develop/coordinator/tests/integration/project-runtime-composition-root.integration.test.ts",
+      "40_Develop/coordinator/tests/integration/orchestrator-composition-root.integration.test.ts",
     ),
   );
   const staticStage = plan.stages?.find((entry) => entry.stage === "static");
@@ -407,7 +406,7 @@ test("共通component変更は利用側契約と利用側静的検査を同じ�
 test("利用側静的検査はunit限定でも残し、利用側ITは実行しない", () => {
   const result = invokeRunner([
     "--changed",
-    "40_Develop/execution-intelligence/src/store/execution-intelligence-store.ts",
+    "40_Develop/execution-intelligence/src/store/events.ts",
     "--levels",
     "unit",
     "--plan",

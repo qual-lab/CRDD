@@ -6,7 +6,7 @@
  * @trace ARCH-000010
  * @boundary Coordinatorから明示的に渡された観測値と利用可能性候補の間。
  */
-import { snapshotPlainRecord } from "../../../domain-model/src/plain-data/index.ts";
+import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
 import type { AiProvider } from "../catalog/types.ts";
 import type { ProviderObservation, ObservationState } from "./types.ts";
 

@@ -148,7 +148,7 @@ Repository分離Project
 
 ## 後から分かったこと
 
-Project ContextとProject Runtime Stateの区別を整理したことで、Topic／MeetingもProject Context内へ埋め込む情報ではなく、Project Contextから詳細へ進む独立能力だと明確になった。
+Project ContextとOrchestrator Stateの区別を整理したことで、Topic／MeetingもProject Context内へ埋め込む情報ではなく、Project Contextから詳細へ進む独立能力だと明確になった。
 
 また、既存REQ-000012はMeetingから候補を経てTopicまたは正本へ反映する流れを所有するが、Topic／Meeting自体の全操作を所有していない。既存要求へ無理に吸収せず、理解確認後に独立要求へ昇格する必要がある。
 

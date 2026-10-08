@@ -16,7 +16,7 @@ import {
   describeCodexExecutionPlanContract,
   planCodexIsolatedTask,
   planCodexReadOnlyProbe,
-} from "../../../ai-adapter/src/codex/index.ts";
+} from "../../../ai-adapter/src/index.ts";
 import { resolveFixedCodexExecutorSeccompProfile } from "../../src/provider/codex-executor-seccomp.ts";
 
 /**

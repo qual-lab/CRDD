@@ -18,7 +18,7 @@
     {
       "symbolId": "platform-access.source.provider-home",
       "kind": "module",
-      "path": "src/filesystem/provider_home.rs",
+      "path": "src/filesystem/protected_root.rs",
       "archIds": ["ARCH-000008", "ARCH-000011"]
     },
     {

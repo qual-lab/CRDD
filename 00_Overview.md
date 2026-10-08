@@ -182,10 +182,10 @@ UIと振る舞い仕様は直列工程ではない。両者は[`24_UI_Behavior_S
 | `CHANGELOG.md` | CRDD標準自体のバージョン間変更履歴。プロダクト固有のCHANGELOGとは別に扱う |
 | `template/` | プロジェクトへCRDDを導入するためのひな型とAI入口ファイル |
 | `template/tools/crdd-check.ts` | 現行の採用プロジェクト向けChecker配布正本。v0.21では[CHG-000076](99_Roadmap/Changes/CHG-000076/change.md)により、自身が属する検証済みCRDD基準版Rootの`40_Develop/checker`へ接続する薄い起動入口へ移行する |
-| `template/tools/crdd-coordinator.ts` | clone／submodule利用者向けの安定したCoordinator起動入口。実行編成、診断、候補およびProject RuntimeのCLI操作へ接続する |
-| `template/tools/crdd-mcp.ts` | clone／submodule利用者向けの安定したMCP Server起動入口。stdioまたはlocalhost HTTPをProject Runtime公開契約へ接続する |
+| `template/tools/crdd-coordinator.ts` | clone／submodule利用者向けの安定したCoordinator起動入口。実行編成、診断、候補およびOrchestratorのCLI操作へ接続する |
+| `template/tools/crdd-mcp-server.ts` | clone／submodule利用者向けの安定したMCP Server起動入口。stdioまたはlocalhost HTTPをOrchestrator公開契約へ接続する |
 | `template/tools/crdd-visual-preview.ts` | Repository内のVisual成果物を実Browserで確認するためのlocalhost限定・読取り専用Preview入口。Visual評価、合否およびEvidenceは所有しない |
-| `40_Develop/checker/bin/crdd-check.ts` | Checker公開Use Caseを呼び出すCRDD標準リポジトリ用の薄いCLI入口。実装正本は`40_Develop/checker/src`に置く |
+| `40_Develop/checker/bin/checker.ts` | Checker公開Use Caseを呼び出すCRDD標準リポジトリ用の薄いCLI入口。実装正本は`40_Develop/checker/src`に置く |
 | `06_Architecture/99_Coding_Standards.md` | CRDD公式Repositoryの内部ツールに適用するファイル、フォルダ、TypeScript／Rust識別子、試験名および機械識別子（machine identifier）の命名正本 |
 | `40_Develop/platform-access/` | OS固有の読み取り専用アクセス観測だけを所有するprivate Rust crate。CRDD本体・CLI・Policy・契約はTypeScriptに保持し、単独配布または公開CLIにしない |
 

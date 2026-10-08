@@ -11,10 +11,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createIsolatedClaudeDockerRuntimeAdapterCandidate } from "../../src/provider/claude-docker-runtime-adapter.ts";
-import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../src/provider/delegation-selection-grant-runtime.ts";
-import { createIsolatedDockerProcessControllerCandidate } from "../../src/docker-runtime/docker-process-controller.ts";
-import { createIsolatedProviderAuthorityRuntimeCandidate } from "../../src/provider/provider-authority-runtime.ts";
+import { createIsolatedClaudeDockerRuntimeAdapterCandidate } from "../../src/provider/claude-docker-adapter.ts";
+import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../src/provider/delegation-selection-grant.ts";
+import { createIsolatedDockerProcessControllerCandidate } from "../../src/docker-execution/process-controller.ts";
+import { createIsolatedProviderAuthorityRuntimeCandidate } from "../../src/provider/authority-grant.ts";
 
 /**
  * Codex frontから選定理由付きClaude委譲をcleanup済みResultまで接続するを検証する。

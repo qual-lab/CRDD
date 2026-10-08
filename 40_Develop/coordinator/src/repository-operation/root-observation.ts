@@ -6,8 +6,8 @@
  */
 import { createHash } from "node:crypto";
 
-import { snapshotPlainRecord } from "../../../domain-model/src/plain-data/index.ts";
-import { describePlatformAccessAdapterContract } from "../platform-access/platform-access-adapter.ts";
+import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
+import { describePlatformAccessAdapterContract } from "../platform-access/adapter.ts";
 
 export const ROOT_IDENTITY_OBSERVATION_CONTRACT =
   "crdd-coordinator/root-identity-observation";

@@ -14,8 +14,8 @@ export {
   providerProfileMatchesExecutionIdentity,
   providerProfileSupportsExecution,
   normalizeProviderExactModelId,
-} from "./profile/profile-execution.ts";
-export { prepareProviderFixedEnvironment } from "./profile/provider-environment.ts";
+} from "./profile/execution-identity.ts";
+export { prepareProviderFixedEnvironment } from "./profile/environment.ts";
 export type { ProviderProfileExecutionIdentity } from "./profile/types.ts";
 export {
   PROVIDER_MODEL_PROFILE_RUNTIME_CONTRACT,
@@ -24,34 +24,32 @@ export {
   resolveRuntimeOwnedProviderModelProfileFromCatalog,
   describeProviderModelProfileRuntimeContract,
   selectProviderFamilyPreference,
-} from "./profile/provider-model-profile.ts";
+} from "./profile/model.ts";
 export {
   WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT,
   WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT_REVISION,
   planWorkbenchAiAdviceProviderCommand,
-} from "./advice/advice-provider-command.ts";
-export type {
-  WorkbenchAiAdviceProviderCommandInput,
-  WorkbenchAiAdviceProviderCommand,
-} from "./advice/advice-provider-command.ts";
+  type WorkbenchAiAdviceProviderCommandInput,
+  type WorkbenchAiAdviceProviderCommand,
+} from "./advice/provider-command.ts";
 export {
   WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_CONTRACT,
   WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_CONTRACT_REVISION,
   WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_REASONS,
   extractWorkbenchAiAdviceProviderOutput,
-} from "./advice/advice-provider-output.ts";
+} from "./advice/provider-output.ts";
 export {
   describeProviderBillingPolicyContract,
   PROVIDER_BILLING_POLICY_CONTRACT,
   PROVIDER_BILLING_POLICY_CONTRACT_REVISION,
-} from "./profile/provider-billing-policy.ts";
+} from "./profile/billing-policy.ts";
 export {
   DEFAULT_AI_PROFILE_CATALOG,
   evaluateAiProfileAvailability,
   resolveAiProfile,
   resolveAiProfileById,
   validateAiProfileCatalog,
-} from "./catalog/catalog.ts";
+} from "./catalog/resolve.ts";
 export type {
   AiAdapterDefinition,
   AiModelTier,
@@ -75,3 +73,51 @@ export type {
   ResolvedAiProfile,
   ResolvedAiProfileIdentity,
 } from "./catalog/types.ts";
+export { createAiProfileCatalogRegistry } from "./profile/registry.ts";
+export { createAiProfileCatalogAdministration } from "./profile/administration.ts";
+export {
+  createCrosAiProfileCatalogStore,
+  createRepositoryAiProfileCatalogStore,
+} from "./profile/store.ts";
+export { parseUnambiguousJsonDocument } from "./output/unambiguous-json-document.ts";
+export { extractProviderTaskEnvelope } from "./output/task-envelope.ts";
+export {
+  CODEX_FORBIDDEN_ENVIRONMENT_NAMES,
+  CODEX_EXECUTION_PLAN_CONTRACT,
+  CODEX_EXECUTION_PLAN_CONTRACT_REVISION,
+  planCodexReadOnlyProbe,
+  planCodexIsolatedTask,
+  describeCodexExecutionPlanContract,
+} from "./codex/execution-plan.ts";
+export { describeCodexSubscriptionAuthenticationCli } from "./codex/authentication.ts";
+export {
+  CODEX_STRUCTURED_RESULT_CONTRACT,
+  CODEX_STRUCTURED_RESULT_CONTRACT_REVISION,
+  normalizeCodexStructuredResult,
+  describeCodexStructuredResultContract,
+} from "./codex/structured-result.ts";
+export {
+  describeCodexAdviceDistributionIdentity,
+  codexAdviceProviderInitRequired,
+} from "./codex/advice-distribution.ts";
+export {
+  describeClaudeSubscriptionAuthenticationCli,
+  isClaudeSubscriptionAuthenticationConfirmed,
+} from "./claude/authentication.ts";
+export {
+  CLAUDE_EXECUTION_PLAN_CONTRACT,
+  CLAUDE_FORBIDDEN_ENVIRONMENT_NAMES,
+  CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION,
+  CLAUDE_RESULT_ACCEPTANCE_MAXIMUM_TURNS,
+  planClaudeTaskTurnBudget,
+  buildClaudeExecutionArguments,
+  planClaudeReadOnlyProbe,
+  planClaudeIsolatedTask,
+  describeClaudeExecutionPlanContract,
+} from "./claude/execution-plan.ts";
+export {
+  CLAUDE_STRUCTURED_RESULT_CONTRACT,
+  CLAUDE_STRUCTURED_RESULT_CONTRACT_REVISION,
+  normalizeClaudeStructuredResult,
+  describeClaudeStructuredResultContract,
+} from "./claude/structured-result.ts";

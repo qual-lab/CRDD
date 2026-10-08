@@ -21,9 +21,9 @@ import path from "node:path";
 import test, { after } from "node:test";
 import { pathToFileURL } from "node:url";
 
-import { mapArtifactDomainIssueToCheckerFinding } from "../../src/adapters/artifact-relation.ts";
-import { runCheckerPipeline } from "../../src/pipeline/checker-pipeline.ts";
-import { RuleRegistry } from "../../src/rules/rule-registry.ts";
+import { mapArtifactDomainIssueToCheckerFinding } from "../../src/findings/artifact-issues.ts";
+import { runCheckerPipeline } from "../../src/inspection/pipeline.ts";
+import { RuleRegistry } from "../../src/rules/registry.ts";
 
 const testEntry = process.argv[1];
 if (testEntry === undefined) throw new Error("checker_test_entry_missing");
@@ -51,12 +51,12 @@ const faultInjector = pathToFileURL(
  */
 test("Checker固有Moduleは40_Develop/checkerだけが所有する", () => {
   const expectedModules = [
-    "src/findings/finding-model.ts",
-    "src/pipeline/checker-pipeline.ts",
+    "src/findings/collector.ts",
+    "src/inspection/pipeline.ts",
     "src/rules/current-profile.ts",
     "src/rules/quality-design-state.ts",
     "src/rules/reality-symbol-graph.ts",
-    "src/rules/rule-registry.ts",
+    "src/rules/registry.ts",
   ] as const;
   for (const modulePath of expectedModules)
     assert.equal(
@@ -285,7 +285,7 @@ test("主要工程ひな型は工程責務と構造表現を維持する", () =>
     "template/03_IA/01_Information_Architecture.md",
     "template/04_UI/01_User_Interface.md",
     "template/05_SPEC/01_Behavior_Specification.md",
-    "template/06_Architecture/01_Architecture.md",
+    "template/06_Architecture/02_Activity_Context.md",
   ];
   for (const relativePath of phaseTemplates) {
     const content = fs.readFileSync(
@@ -494,7 +494,7 @@ test("主要工程ひな型は工程責務と構造表現を維持する", () =>
       ],
     ],
     [
-      "template/06_Architecture/01_Architecture.md",
+      "template/06_Architecture/02_Activity_Context.md",
       [
         "全体／内部ブロック図",
         "状態遷移表／状態遷移図",
@@ -543,7 +543,7 @@ test("主要工程ひな型は工程責務と構造表現を維持する", () =>
   }
 
   const architectureTemplate = fs.readFileSync(
-    path.join(repositoryRoot, "template/06_Architecture/01_Architecture.md"),
+    path.join(repositoryRoot, "template/06_Architecture/02_Activity_Context.md"),
     "utf8",
   );
   assert.ok(
@@ -783,7 +783,7 @@ test("checker packageのRepository検証はRepository rootを明示する", () =
   );
   assert.equal(
     Object.getOwnPropertyDescriptor(scripts, "verify:repository")?.value,
-    "node ./bin/crdd-check.ts --root ../.. --json --summary",
+    "node ./bin/checker.ts --root ../.. --json --summary",
   );
   assert.equal(path.resolve(checkerRoot, "../.."), repositoryRoot);
 });
@@ -828,7 +828,7 @@ test("CRDD所有packageの全回帰入口は静的検査後にだけ試験本体
     "coordinator",
     "execution-intelligence",
     "mcp",
-    "project-runtime",
+    "orchestrator",
     "version-control",
   ];
   for (const packageRoot of packageRoots) {
@@ -5239,7 +5239,7 @@ test("Architecture横断モデルは責務・境界・流れ・故障・配置�
   );
 
   root = architectureReconstructionFixtureRoot();
-  const indexPath = path.join(root, "06_Architecture", "01_Architecture.md");
+  const indexPath = path.join(root, "06_Architecture", "02_Activity_Context.md");
   write(
     indexPath,
     fs
@@ -5376,7 +5376,7 @@ test("Architecture詳細設計はARCH-IDとの多対多Relationと適用判断�
       "06_Architecture",
       "Details",
       "sample",
-      "01_Architecture.md",
+      "02_Activity_Context.md",
     ),
   );
   const missing = runChecker(root);
@@ -5393,7 +5393,7 @@ test("Architecture詳細設計はARCH-IDとの多対多Relationと適用判断�
     "06_Architecture",
     "Details",
     "sample",
-    "01_Architecture.md",
+    "02_Activity_Context.md",
   );
   write(
     detailPath,
@@ -5418,7 +5418,7 @@ test("Architecture詳細設計はARCH-IDとの多対多Relationと適用判断�
     "06_Architecture",
     "Details",
     "sample",
-    "01_Architecture.md",
+    "02_Activity_Context.md",
   );
   write(
     incompleteDetailPath,
@@ -5443,7 +5443,7 @@ test("Architecture詳細設計はARCH-IDとの多対多Relationと適用判断�
     "06_Architecture",
     "Details",
     "sample",
-    "01_Architecture.md",
+    "02_Activity_Context.md",
   );
   write(
     weakQualityPath,
@@ -5468,7 +5468,7 @@ test("Architecture詳細設計はARCH-IDとの多対多Relationと適用判断�
     "06_Architecture",
     "Details",
     "sample",
-    "01_Architecture.md",
+    "02_Activity_Context.md",
   );
   write(
     duplicatePath,
@@ -5515,7 +5515,7 @@ test("Architecture詳細設計はARCH-IDとの多対多Relationと適用判断�
   const readyRootPath = path.join(
     root,
     "06_Architecture",
-    "01_Architecture.md",
+    "02_Activity_Context.md",
   );
   write(
     readyRootPath,
@@ -5528,7 +5528,7 @@ test("Architecture詳細設計はARCH-IDとの多対多Relationと適用判断�
     "06_Architecture",
     "Details",
     "sample",
-    "01_Architecture.md",
+    "02_Activity_Context.md",
   );
   write(
     readyDetailPath,
@@ -5551,7 +5551,7 @@ test("Architecture詳細設計はARCH-IDとの多対多Relationと適用判断�
   const readyWithoutCoveredRootPath = path.join(
     root,
     "06_Architecture",
-    "01_Architecture.md",
+    "02_Activity_Context.md",
   );
   write(
     readyWithoutCoveredRootPath,
@@ -5564,7 +5564,7 @@ test("Architecture詳細設計はARCH-IDとの多対多Relationと適用判断�
     "06_Architecture",
     "Details",
     "sample",
-    "01_Architecture.md",
+    "02_Activity_Context.md",
   );
   write(
     partialOnlyDetailPath,
@@ -5586,7 +5586,7 @@ test("Architecture詳細設計はARCH-IDとの多対多Relationと適用判断�
     "06_Architecture",
     "Details",
     "sample",
-    "01_Architecture.md",
+    "02_Activity_Context.md",
   );
   write(
     fakeAnchorPath,
@@ -5613,8 +5613,8 @@ test("Architecture詳細設計はARCH-IDとの多対多Relationと適用判断�
     fs
       .readFileSync(mapPath, "utf8")
       .replace(
-        "| [sample](Details/sample/01_Architecture.md) | ARCH-000001 |",
-        "| [sample](Details/sample/01_Architecture.md) | ARCH-999999 |",
+        "| [sample](Details/sample/02_Activity_Context.md) | ARCH-000001 |",
+        "| [sample](Details/sample/02_Activity_Context.md) | ARCH-999999 |",
       ),
   );
   const relationMismatch = runChecker(root);
@@ -5644,7 +5644,7 @@ test("Architecture成果物は責務別の可視Checklistを必要とする", ()
     "06_Architecture/Analysis/UI-000001/architecture_analysis.md",
     "06_Architecture/Analysis/SPEC-000001/architecture_analysis.md",
     "06_Architecture/Definitions/ARCH-000001/architecture_definition.md",
-    "06_Architecture/Details/sample/01_Architecture.md",
+    "06_Architecture/Details/sample/02_Activity_Context.md",
   ]) {
     const root = architectureReconstructionFixtureRoot();
     const target = path.join(root, relativePath);
@@ -5684,7 +5684,7 @@ test("ArchitectureとQualityのひな型はUI／SPEC Detail Relationを保持す
       "architecture-detail-relation-contract-missing",
     ],
     [
-      "template/06_Architecture/Details/area/01_Architecture.md",
+      "template/06_Architecture/Details/area/02_Activity_Context.md",
       "## 上流UI／SPEC Detailとの関係",
       "architecture-detail-owner-mapping-missing",
     ],
@@ -5753,7 +5753,7 @@ test("Architecture詳細設計は8種類のEngineering Concernを全数評価す
     "06_Architecture",
     "Details",
     "sample",
-    "01_Architecture.md",
+    "02_Activity_Context.md",
   );
   write(
     target,
@@ -5789,7 +5789,7 @@ test("Architecture詳細設計のConcern根拠は実在節へ接続する", () =
     "06_Architecture",
     "Details",
     "sample",
-    "01_Architecture.md",
+    "02_Activity_Context.md",
   );
   write(
     target,
@@ -5825,7 +5825,7 @@ test("Architecture詳細設計のImplementation Structureは全観点に判定�
     "06_Architecture",
     "Details",
     "sample",
-    "01_Architecture.md",
+    "02_Activity_Context.md",
   );
   write(
     target,
@@ -5872,7 +5872,7 @@ test("Architecture候補は理由付きOPEN／FAILを保持でき、Readyでは�
       "architecture-definition-contract-invalid",
     ],
     [
-      "06_Architecture/Details/sample/01_Architecture.md",
+      "06_Architecture/Details/sample/02_Activity_Context.md",
       "architecture-detail-contract-invalid",
     ],
   ] as const;
@@ -5898,7 +5898,7 @@ test("Architecture候補は理由付きOPEN／FAILを保持でき、Readyでは�
       const indexPath = path.join(
         root,
         "06_Architecture",
-        "01_Architecture.md",
+        "02_Activity_Context.md",
       );
       write(
         indexPath,
@@ -6033,7 +6033,7 @@ test("Architecture詳細設計のConcern OPEN／FAILは候補で保持しReady�
     const root = architectureReconstructionFixtureRoot();
     const target = path.join(
       root,
-      "06_Architecture/Details/sample/01_Architecture.md",
+      "06_Architecture/Details/sample/02_Activity_Context.md",
     );
     write(
       target,
@@ -6051,7 +6051,7 @@ test("Architecture詳細設計のConcern OPEN／FAILは候補で保持しReady�
       ),
       `${decision}\n${candidate.stdout}\n${candidate.stderr}`,
     );
-    const indexPath = path.join(root, "06_Architecture/01_Architecture.md");
+    const indexPath = path.join(root, "06_Architecture/02_Activity_Context.md");
     write(
       indexPath,
       fs
@@ -6093,7 +6093,7 @@ test("Architecture分析・定義・詳細設計の意味構造欠落を拒否�
       "architecture-definition-contract-invalid",
     ],
     [
-      "06_Architecture/Details/sample/01_Architecture.md",
+      "06_Architecture/Details/sample/02_Activity_Context.md",
       /^- `PASS`:.*\r?\n/mu,
       "architecture-detail-contract-invalid",
     ],
@@ -6195,7 +6195,7 @@ test("Architecture台帳・分析・定義の責務関係は完全一致する",
  */
 test("Architecture台帳の入力関係も分析・定義と完全一致する", () => {
   const root = architectureReconstructionFixtureRoot();
-  const file = path.join(root, "06_Architecture", "01_Architecture.md");
+  const file = path.join(root, "06_Architecture", "02_Activity_Context.md");
   write(
     file,
     fs.readFileSync(file, "utf8").replace("SPEC-000001 |", "SPEC-000002 |"),
@@ -7468,7 +7468,7 @@ function detailRelationClosureFixtureRoot(): string {
       "06_Architecture",
       "Details",
       "checker",
-      "01_Architecture.md",
+      "02_Activity_Context.md",
     ),
     "# checker\n\n| Detail Source | UI／SPEC Definition | この領域が担当するSCR／PRT／Interaction／BHV | Relation状態 | 未解決Gap／戻し先 |\n|---|---|---|---|---|\n| [UI／SPEC Detail Architecture Traceability](../../08_UI_SPEC_Detail_Traceability.md) | ARCH-000001のSource Definition | 全Detail | Covered | なし |\n\n担当Interaction Relation: `PRT-000001.spec-000001`\n",
   );
@@ -7572,7 +7572,7 @@ Architecture固有の追加人間判断はない。入力契約が変わる場�
   const definition = `# 試験責務のArchitecture定義\n\n成果物種別: Architecture定義\nArchitecture ID: \`ARCH-000001\`\n\n## 1. 責務と境界\n\n利用者へ根拠付き状態を返し、表示と状態更新を分離する。\n\n| 観点 | 契約 |\n|---|---|\n| 状態Owner | 試験Core |\n| 所有する責務 | 状態の読取りと根拠付き結果 |\n| 所有しない責務 | UI表示と外部Effect |\n| 主な外部境界 | 状態Sourceと利用側 |\n\n## 2. UI観点の入力\n\n[UI-000001](../../Analysis/UI-000001/architecture_analysis.md)\n\n## 3. SPEC観点の入力\n\n[SPEC-000001](../../Analysis/SPEC-000001/architecture_analysis.md)\n\n## 4. 両観点の統合判断\n\n| 入力 | 観点 | State Owner | Authority | Effect／非該当 | Failure Boundary | Lifecycle |\n|---|---|---|---|---|---|---|\n| UI-000001 | UI | 試験Core | Authorityを発行しない | 表示だけ | 不完全性を隠さない | 確認→判断 |\n| SPEC-000001 | SPEC | 試験Core | 閲覧Authority | 読取りだけ | 欠測を補完しない | 要求→読取り→結果 |\n\n## 5. 構造と依存方向\n\n\`\`\`text\n[利用側] -> [試験Core] -> [状態Source]\n\`\`\`\n\n## 6. データ・状態・Interface\n\n| 入力 | State Owner | Authority | Effect／非該当 |\n|---|---|---|---|\n| UI-000001 | 試験Core | なし | 表示だけ |\n| SPEC-000001 | 試験Core | 閲覧 | 読取りだけ |\n\n## 7. 失敗・回復・観測\n\n欠測と観測不能を分け、入力固有の失敗理由を返す。\n\n## 8. 品質・保護・運用\n\n| 入力 | 保護する失敗境界 | 検証可能性 |\n|---|---|---|\n| UI-000001 | 不完全性の隠蔽 | 状態差を確認 |\n| SPEC-000001 | 欠測の補完 | Effect 0を確認 |\n\n## 9. 互換性・移行・成立済み能力\n\n| 基準版Capability | 旧Owner／現行照合先 | 新Owner | 保持状態 | Evidence | Gap／移行 |\n|---|---|---|---|---|---|\n| 基準版なし | なし | 試験Core | 新規 | 未作成 | 実装待ち |\n\n## 10. 実装と検証への引き渡し\n\n入力ごとのAuthority、Effect、失敗理由および終了状態を理由別に反証する。\n\n## 11. 情報源と現行照合\n\n正式入力は第2節と第3節の分析であり、現行実装は能力比較だけに使う。\n`;
   const definitionWithChecklist = `${withArchitectureDefinitionContracts(definition)}\n${evaluatedChecklist(checklistItemsFromEvaluatedArtifact("06_Architecture/Definitions/ARCH-000001/architecture_definition.md"))}\n`;
   write(
-    path.join(root, "06_Architecture", "01_Architecture.md"),
+    path.join(root, "06_Architecture", "02_Activity_Context.md"),
     "# Architecture\n\nStatus: Candidate\n\n## Architecture定義台帳\n\n| Architecture定義 | 責務 | UI入力 | SPEC入力 |\n|---|---|---|---|\n| [試験責務](Definitions/ARCH-000001/architecture_definition.md) | 試験 | UI-000001 | SPEC-000001 |\n\n## Architecture横断モデル\n\n| 成果物 |\n|---|\n| [Component](02_Component_and_Responsibility_Model.md) |\n| [Boundary](03_Boundary_and_Interface_Model.md) |\n| [Flow](04_Runtime_and_Data_Flow_Model.md) |\n| [Failure](05_Failure_Recovery_and_Resilience_Model.md) |\n| [Deployment](06_Deployment_and_Execution_Model.md) |\n",
   );
   write(
@@ -7607,7 +7607,7 @@ Architecture固有の追加人間判断はない。入力契約が変わる場�
   );
   write(
     path.join(root, "06_Architecture", "07_Detail_Architecture_Map.md"),
-    "# Detail Map\n\n成果物種別: Architecture詳細設計の統合投影\n\n## 2. 詳細設計領域\n\n| 詳細設計領域 | 対応Architecture定義 | 責務 | 状態 |\n|---|---|---|---|\n| [sample](Details/sample/01_Architecture.md) | ARCH-000001 | 試験責務 | Candidate |\n\n## 3. Architecture定義の閉包\n\n| Architecture定義 | 基本設計 | 接続する詳細設計領域 |\n|---|---|---|\n| ARCH-000001 | [試験責務](Definitions/ARCH-000001/architecture_definition.md) | sample |\n\n## 4. Qualityへの引渡し\n\n検証対象を渡す。\n\n## 5. Reality Audit境界\n\n実装は後から照合する。\n",
+    "# Detail Map\n\n成果物種別: Architecture詳細設計の統合投影\n\n## 2. 詳細設計領域\n\n| 詳細設計領域 | 対応Architecture定義 | 責務 | 状態 |\n|---|---|---|---|\n| [sample](Details/sample/02_Activity_Context.md) | ARCH-000001 | 試験責務 | Candidate |\n\n## 3. Architecture定義の閉包\n\n| Architecture定義 | 基本設計 | 接続する詳細設計領域 |\n|---|---|---|\n| ARCH-000001 | [試験責務](Definitions/ARCH-000001/architecture_definition.md) | sample |\n\n## 4. Qualityへの引渡し\n\n検証対象を渡す。\n\n## 5. Reality Audit境界\n\n実装は後から照合する。\n",
   );
   write(
     path.join(
@@ -7615,7 +7615,7 @@ Architecture固有の追加人間判断はない。入力契約が変わる場�
       "06_Architecture",
       "Details",
       "sample",
-      "01_Architecture.md",
+      "02_Activity_Context.md",
     ),
     "# Sample Detail\n\n成果物種別: Architecture詳細設計\n詳細設計領域: sample\n状態: Candidate\n\n## 基本設計との関係\n\n| Architecture定義 | この領域が具体化する責務 | Relation状態 |\n|---|---|---|\n| [ARCH-000001](../../Definitions/ARCH-000001/architecture_definition.md) | 試験責務 | Covered |\n\n## 詳細成果物の適用判断\n\n| 詳細成果物 | 判定 | 理由 | 正本節／成果物 |\n|---|---|---|---|\n| Component Model | Required | 責務を分ける | [§1](#1-component-model) |\n| Interface Model | Required | 契約を分ける | [§2](#2-interface-model) |\n| Data Flow | Required | Dataを追跡する | [§3](#3-data-flow) |\n| State Model | Required | 状態を分ける | [§4](#4-state-model) |\n| Sequence | Required | 順序を固定する | [§5](#5-sequence) |\n| Failure／Recovery | Required | 失敗を分ける | [§6](#6-failurerecovery) |\n| Deployment | N/A | Process配置を持たない | [§7](#7-deployment) |\n| Observability | Required | 結果を観測する | [§8](#8-observability) |\n| Security Boundary | Required | Authorityを分ける | [§9](#9-security-boundary) |\n| Implementation Structure | Required | 実装責務を分ける | [§10](#10-implementation-structure) |\n\n## Engineering Concern評価\n\n| Concern | Result | Rationale | Evidence／Related ID |\n|---|---|---|---|\n| Concurrency | N/A | 共有状態がない | [§1](#1-component-model) |\n| Timing | N/A | 時間制約がない | [§5](#5-sequence) |\n| Resource Lifecycle | PASS | Run単位で回収する | [§4](#4-state-model) |\n| External Boundary | PASS | 境界を分ける | [§2](#2-interface-model) |\n| Failure／Recovery | PASS | 失敗を返す | [§6](#6-failurerecovery) |\n\n## Qualityへの引渡し\n\n| 導出キー | 設計項目種別 | 対象 | 正常条件 | 反証する失敗 | 主な試験段階 | 外部境界の段階 | 観測 | 終了後条件 | 未確認 |\n|---|---|---|---|---|---|---|---|---|---|\n| `sample.core` | Component／Interface | Core | 根拠付き結果 | 欠測補完 | IT | Direct Boundary | result | Effect 0 | なし |\n\n## 現行実装との照合\n\n実装は後から照合する。\n\n## 1. Component Model\n\nCore。\n\n## 2. Interface Model\n\n契約。\n\n## 3. Data Flow\n\nFlow。\n\n## 4. State Model\n\nState。\n\n## 5. Sequence\n\nSequence。\n\n## 6. Failure／Recovery\n\nFailure。\n\n## 7. Deployment\n\nN/A。\n\n## 8. Observability\n\nObservation。\n\n## 9. Security Boundary\n\nBoundary。\n\n## 10. Implementation Structure\n\n| 観点 | 適用 | 判定理由 | 成立させる構造 | 局所責務・不変条件 | 失敗・変更時の影響 | Qualityへの導出キー |\n|---|---|---|---|---|---|---|\n| Variation | N/A | 単一実装であるため | 単一実装 | 代替実装を持たない | なし | `sample.core` |\n| Common Contract | N/A | 同一責務の複数具象を持たないため | 単一実装だけであり、共通契約へ昇格する具象差を持たない | Coreの責務を局所契約として保つ | 二つ目の同一責務実装を追加する場合に再評価する | N/A |\n| Creation／Selection | Required | 具象選択責務があるため | Factory | 正しいCoreを生成する | 不正Coreを拒否する | `sample.core` |\n| State-dependent Behavior | N/A | 状態分岐を持たないため | 状態分岐なし | 入力だけで決まる | なし | `sample.core` |\n| Composition／Recursion | N/A | 再帰構造を持たないため | 再帰構造なし | 単一Core | なし | `sample.core` |\n| Lifecycle Ownership | Required | Run資源を所有するため | Run owner | Run終了時に回収する | 資源残存 | `sample.core` |\n| External Boundary | Required | 外部Portを所有するため | Port | 外部境界をPortへ限定する | 境界逸脱 | `sample.core` |\n",
   );
@@ -7624,7 +7624,7 @@ Architecture固有の追加人間判断はない。入力契約が変わる場�
     "06_Architecture",
     "Details",
     "sample",
-    "01_Architecture.md",
+    "02_Activity_Context.md",
   );
   write(
     detailFixturePath,
@@ -7637,7 +7637,7 @@ Architecture固有の追加人間判断はない。入力契約が変わる場�
       .replace(
         "\n## Qualityへの引渡し",
         "\n結果語彙は次の意味に限定する。\n\n- `PASS`: 詳細設計上の処置と根拠節が揃った状態。実装済み・試験済みを意味しない。\n- `N/A`: Architecture上、そのConcern自体が存在しない状態。未検討や後工程送りを意味しない。\n- `OPEN`: 未解決の設計事項が残る状態。\n- `FAIL`: 必須設計と矛盾する、または必要な設計が未充足の状態。\n\n## Qualityへの引渡し",
-      )}\n${evaluatedChecklist(checklistItemsFromEvaluatedArtifact("06_Architecture/Details/artifact-signing/01_Architecture.md"))}\n`,
+      )}\n${evaluatedChecklist(checklistItemsFromEvaluatedArtifact("06_Architecture/Details/artifact-signing/02_Activity_Context.md"))}\n`,
   );
   for (const model of [
     "02_Component_and_Responsibility_Model.md",
@@ -7659,7 +7659,7 @@ Architecture固有の追加人間判断はない。入力契約が変わる場�
     "template/06_Architecture/Analysis/SPEC-XXXXXX/architecture_analysis.md",
     "template/06_Architecture/Definitions/ARCH-XXXXXX/architecture_definition.md",
     "template/06_Architecture/07_Detail_Architecture_Map.md",
-    "template/06_Architecture/Details/area/01_Architecture.md",
+    "template/06_Architecture/Details/area/02_Activity_Context.md",
   ])
     write(
       path.join(root, relativePath),
@@ -7685,7 +7685,7 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
   const architectureIndexPath = path.join(
     root,
     "06_Architecture",
-    "01_Architecture.md",
+    "02_Activity_Context.md",
   );
   write(
     architectureIndexPath,
@@ -7736,7 +7736,7 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
   for (const fileName of [
     "test-catalog.json",
     "coordinator-runtime-traceability.json",
-    "project-runtime-design-traceability.json",
+    "orchestrator-design-traceability.json",
   ])
     write(path.join(root, "07_Quality", "Registry", fileName), "{}\n");
   const mappingPath = path.join(
@@ -7778,7 +7778,7 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
 
 | 詳細設計領域 | 検証単位 | 接続する検証目標 | Local Item | 処置状態 | 未確認／再評価条件 |
 |---|---|---|---|---|---|
-| [sample](../../../06_Architecture/Details/sample/01_Architecture.md) | \`sample.core\` | [sample](../../Definitions/QA-000001/quality_definition.md) | \`SAMPLE-IT-001\` | Covered | なし |
+| [sample](../../../06_Architecture/Details/sample/02_Activity_Context.md) | \`sample.core\` | [sample](../../Definitions/QA-000001/quality_definition.md) | \`SAMPLE-IT-001\` | Covered | なし |
 
 ### 4.3. 検証項目の閉包
 
@@ -7923,7 +7923,7 @@ Quality ID: \`QA-000001\`
 
 | 詳細設計領域 | 受け取る成立条件 |
 |---|---|
-| [sample](../../../06_Architecture/Details/sample/01_Architecture.md) | 境界を確認する |
+| [sample](../../../06_Architecture/Details/sample/02_Activity_Context.md) | 境界を確認する |
 
 ## 2. 試験段階と外部境界の適用
 
@@ -8836,7 +8836,7 @@ Quality ID: \`QA-000002\`
 
 | 詳細設計領域 | 受け取る成立条件 |
 |---|---|
-| [sample](../../../06_Architecture/Details/sample/01_Architecture.md) | 第二の境界を確認する |
+| [sample](../../../06_Architecture/Details/sample/02_Activity_Context.md) | 第二の境界を確認する |
 
 ## 2. 試験段階と外部境界の適用
 
@@ -8949,7 +8949,7 @@ ${evaluatedChecklist(checklistItemsFromTemplate("template/07_Quality/Definitions
   write(
     definitionPath,
     definition.replace(
-      "| [sample](../../../06_Architecture/Details/sample/01_Architecture.md) | 境界を確認する |\n",
+      "| [sample](../../../06_Architecture/Details/sample/02_Activity_Context.md) | 境界を確認する |\n",
       "",
     ),
   );
@@ -9020,8 +9020,8 @@ ${evaluatedChecklist(checklistItemsFromTemplate("template/07_Quality/Definitions
 
   writeQualityMapping(
     mapping.replace(
-      "../../../06_Architecture/Details/sample/01_Architecture.md",
-      "../../../06_Architecture/Details/unknown/01_Architecture.md",
+      "../../../06_Architecture/Details/sample/02_Activity_Context.md",
+      "../../../06_Architecture/Details/unknown/02_Activity_Context.md",
     ),
   );
   result = runChecker(root);
@@ -10737,7 +10737,7 @@ function stableReleaseClosureFixture() {
 test("Stable最終候補に残った現行MarkdownのCandidate表示を拒否する", () => {
   const root = stableReleaseClosureFixture();
   write(
-    path.join(root, "06_Architecture", "01_Architecture.md"),
+    path.join(root, "06_Architecture", "02_Activity_Context.md"),
     "# 設計\n\n状態: Candidate（v0.17.0、Released Baseline: v0.16.0）\n",
   );
   const result = runChecker(root);
@@ -10983,7 +10983,7 @@ test("次版Candidateは公開済み基準版のtag不一致や候補残存と�
   });
   assert.equal(tagged.status, 0, tagged.stderr);
   write(
-    path.join(root, "06_Architecture", "01_Architecture.md"),
+    path.join(root, "06_Architecture", "02_Activity_Context.md"),
     "# 設計\n\n状態: Candidate（v0.18.0、Released Baseline: v0.17.0）\n",
   );
   commit("start v0.18.0");

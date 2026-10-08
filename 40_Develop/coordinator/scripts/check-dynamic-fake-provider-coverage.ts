@@ -20,11 +20,11 @@ const coordinatorRoot = path.resolve(import.meta.dirname, "..");
 const repositoryRoot = path.resolve(coordinatorRoot, "../..");
 
 export const DYNAMIC_FAKE_PROVIDER_COVERAGE_SOURCES = Object.freeze([
-  "40_Develop/coordinator/src/docker-runtime/docker-isolation.ts",
-  "40_Develop/coordinator/src/provider/provider-lifecycle.ts",
-  "40_Develop/coordinator/src/host-runtime/execution-environment.ts",
-  "40_Develop/coordinator/src/host-runtime/host-recovery-record.ts",
-  "40_Develop/domain-model/src/plain-data/plain-data-snapshot.ts",
+  "40_Develop/coordinator/src/docker-execution/isolation-probe.ts",
+  "40_Develop/coordinator/src/provider/lifecycle.ts",
+  "40_Develop/coordinator/src/host-execution/operation-workspace-lifecycle.ts",
+  "40_Develop/coordinator/src/host-execution/recovery-record.ts",
+  "40_Develop/domain-model/src/plain-data/snapshot.ts",
   "40_Develop/coordinator/src/diagnostics/doctor.ts",
   "40_Develop/coordinator/scripts/verify-dynamic-fake-provider-failures.ts",
   "40_Develop/coordinator/scripts/verify-dynamic-fake-provider-cancellation.ts",
@@ -36,7 +36,7 @@ export const DYNAMIC_FAKE_PROVIDER_COVERAGE_TESTS = Object.freeze([
   "40_Develop/coordinator/tests/unit/doctor.contract.test.ts",
   "40_Develop/coordinator/tests/system/dynamic-fake-provider-failure-verification.contract.test.ts",
   "40_Develop/coordinator/tests/system/dynamic-fake-provider-cancellation-verification.contract.test.ts",
-  "40_Develop/coordinator/tests/unit/provider-lifecycle.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/provider/lifecycle.contract.test.ts",
   "40_Develop/coordinator/tests/unit/plain-data-snapshot.contract.test.ts",
   "40_Develop/coordinator/tests/integration/platform-access-ts-coverage.contract.test.ts",
   "40_Develop/coordinator/tests/unit/dynamic-fake-provider-coverage.contract.test.ts",
@@ -84,32 +84,32 @@ function obligation(
 }
 
 const coverageObligations = Object.freeze({
-  "40_Develop/coordinator/src/docker-runtime/docker-isolation.ts": obligation(
+  "40_Develop/coordinator/src/docker-execution/isolation-probe.ts": obligation(
     "実Docker、敵対的置換、全recovery分岐および同期process errorの全短絡をunit runで到達していない",
     "稀なDocker failureでcontainer不存在またはHost cleanupを誤分類する可能性",
     "Docker normalizer、Identity、inspect、submission、3軸absence、cleanupおよびrecoveryの正負・境界試験と固定環境integration",
     "Docker CLI／image／mount／lifecycle／recovery変更時",
   ),
-  "40_Develop/coordinator/src/provider/provider-lifecycle.ts": obligation(
+  "40_Develop/coordinator/src/provider/lifecycle.ts": obligation(
     "合成候補の複合fail-closed述語の全短絡順序を同一runで到達していない",
     "入力shapeまたは上限の稀な不正形を同じ固定reasonへ閉じる分岐の退行",
     "Provider、mode、状態、入出力、deadline、cancel、結果およびquotaの正負・境界試験",
     "Provider lifecycle contractまたは上限変更時",
   ),
-  "40_Develop/coordinator/src/host-runtime/execution-environment.ts":
+  "40_Develop/coordinator/src/host-execution/operation-workspace-lifecycle.ts":
     obligation(
       "OS別link／junction、回復recordおよび全cleanup failureを同一runで到達していない",
       "mount元置換または部分回復時に所有外entryへ影響する可能性",
       "owned root／child Identity、unknown entry、link置換、部分削除およびHost recovery試験",
       "Operation directory、mount capabilityまたはcleanup変更時",
     ),
-  "40_Develop/coordinator/src/host-runtime/host-recovery-record.ts": obligation(
+  "40_Develop/coordinator/src/host-execution/recovery-record.ts": obligation(
     "全Filesystem errorとrecord置換競合を同一runで到達していない",
     "回復状態またはrecord Identityの稀な差を誤分類する可能性",
     "record canonicality、Hash、state transition、置換、失敗および再利用拒否試験",
     "Host recovery schemaまたは遷移変更時",
   ),
-  "40_Develop/domain-model/src/plain-data/plain-data-snapshot.ts": obligation(
+  "40_Develop/domain-model/src/plain-data/snapshot.ts": obligation(
     "未到達分岐がある場合はreflection failureの稀な順序である",
     "動的入力の一部を実行する可能性",
     "record／arrayのshape、accessor、Proxy、reflection failureおよび上限試験",

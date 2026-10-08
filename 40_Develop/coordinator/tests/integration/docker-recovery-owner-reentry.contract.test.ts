@@ -9,13 +9,13 @@
  */
 import assert from "node:assert/strict";
 import { mock, test } from "node:test";
-import * as controller from "../../src/docker-runtime/docker-process-controller.ts";
-import * as locks from "../../src/host-runtime/candidate-store-kernel-lock.ts";
-import * as hostRuntime from "../../src/host-runtime/execution-environment.ts";
-import * as homes from "../../src/provider/provider-home-windows-adapter.ts";
-import * as repository from "../../src/repository-operation/repository-operation-runtime.ts";
-import * as stateModel from "../../src/state-storage/coordinator-state-model.ts";
-import * as stateRuntime from "../../src/state-storage/coordinator-state-runtime.ts";
+import * as controller from "../../src/docker-execution/process-controller.ts";
+import * as locks from "../../src/host-execution/kernel-lock.ts";
+import * as hostRuntime from "../../src/host-execution/operation-workspace-lifecycle.ts";
+import * as homes from "../../src/provider/home-windows-adapter.ts";
+import * as repository from "../../src/repository-operation/binding.ts";
+import * as stateModel from "../../src/state-storage/model.ts";
+import * as stateRuntime from "../../src/state-storage/settlement-store.ts";
 import * as development from "../../src/task/development-measurement-session.ts";
 
 /**
@@ -69,7 +69,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
   let startSaveFails = false;
   let contextFails = false;
   let hostBeginFails = false;
-  let releaseSucceeds = true;
+  let isReleaseSucceeds = true;
   let startCalls = 0;
   let fixedInputs: unknown[] | null = null;
   let fixedCandidate: unknown = null;
@@ -77,7 +77,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
   let savedLifecycle: unknown = null;
   let lifecycleConfirmed = true;
   let lifecycleLockReleased = true;
-  let projectDelivery = false;
+  let isProjectDelivery = false;
   let resultReadLockReleased = true;
   let acceptanceConfirmed = true;
   let acceptanceLockReleased = true;
@@ -92,8 +92,20 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
     operationId: "upper-operation",
     recoveryId: "exact-id",
     resultId: "b".repeat(64),
-    consumer: "project_runtime",
+    consumer: "orchestrator",
   });
+  /**
+   * 上位受領の有無を切り替え、Reader呼出し数を観測する。
+   *
+   * @responsibility 受領済みのfixtureだけを返し、未受領時はnullを返す。
+   * @trace ERB-IT-003
+   * @precondition upperAcceptancePresentと固定projectResultを用意する。
+   * @stimulus 同じ終了OwnerへReaderを渡し受領有無を切り替える。
+   * @observation acceptanceReaderCallsとprojectResultまたはnullを取得する。
+   * @oracle 未受領を受領済みと扱わず元結果だけで終了処理が進む。
+   * @cleanup finallyでModule差替えを復元する。外部資源は生成しない。
+   * @boundary 本番終了Ownerと模擬上位受領ReaderのProcess内境界。
+   */
   const projectReader = () => {
     acceptanceReaderCalls++;
     return upperAcceptancePresent ? projectResult : null;
@@ -101,7 +113,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
   const mocks = [
     mock.module(
       new URL(
-        "../../src/docker-runtime/docker-process-controller.ts",
+        "../../src/docker-execution/process-controller.ts",
         import.meta.url,
       ).href,
       {
@@ -122,10 +134,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
       },
     ),
     mock.module(
-      new URL(
-        "../../src/state-storage/coordinator-state-model.ts",
-        import.meta.url,
-      ).href,
+      new URL("../../src/state-storage/model.ts", import.meta.url).href,
       {
         namedExports: {
           ...stateModel,
@@ -159,10 +168,8 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
       },
     ),
     mock.module(
-      new URL(
-        "../../src/provider/provider-home-windows-adapter.ts",
-        import.meta.url,
-      ).href,
+      new URL("../../src/provider/home-windows-adapter.ts", import.meta.url)
+        .href,
       {
         namedExports: {
           ...homes,
@@ -175,27 +182,22 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
       },
     ),
     mock.module(
-      new URL(
-        "../../src/host-runtime/candidate-store-kernel-lock.ts",
-        import.meta.url,
-      ).href,
+      new URL("../../src/host-execution/kernel-lock.ts", import.meta.url).href,
       {
         namedExports: {
           ...locks,
           acquireRuntimeOwnedLogicalProviderHomeKernelLock: () => ({
             release: () => {
               releaseCalls++;
-              return releaseSucceeds;
+              return isReleaseSucceeds;
             },
           }),
         },
       },
     ),
     mock.module(
-      new URL(
-        "../../src/repository-operation/repository-operation-runtime.ts",
-        import.meta.url,
-      ).href,
+      new URL("../../src/repository-operation/binding.ts", import.meta.url)
+        .href,
       {
         namedExports: {
           ...repository,
@@ -209,7 +211,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
     ),
     mock.module(
       new URL(
-        "../../src/host-runtime/execution-environment.ts",
+        "../../src/host-execution/operation-workspace-lifecycle.ts",
         import.meta.url,
       ).href,
       {
@@ -234,10 +236,8 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
       },
     ),
     mock.module(
-      new URL(
-        "../../src/state-storage/coordinator-state-runtime.ts",
-        import.meta.url,
-      ).href,
+      new URL("../../src/state-storage/settlement-store.ts", import.meta.url)
+        .href,
       {
         namedExports: {
           ...stateRuntime,
@@ -288,7 +288,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
             consumer: unknown,
           ) => {
             assert.equal(receivedContext, context);
-            assert.equal(consumer, "project_runtime");
+            assert.equal(consumer, "orchestrator");
             return {
               status: "completed",
               lockReleased: resultReadLockReleased,
@@ -424,7 +424,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
             return {
               status: driverFails ? "blocked" : "completed",
               filesystemEffectIssued: true,
-              deliveryPending: projectDelivery,
+              deliveryPending: isProjectDelivery,
             };
           },
         },
@@ -433,13 +433,13 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
   ];
   try {
     const runtimeUrl = new URL(
-      "../../src/docker-runtime/docker-recovery-runtime-internal.ts",
+      "../../src/docker-execution/recovery-lifecycle.ts",
       import.meta.url,
     );
     runtimeUrl.search = "?owner-reentry";
     const runtime = (await import(
       runtimeUrl.href
-    )) as typeof import("../../src/docker-runtime/docker-recovery-runtime-internal.ts");
+    )) as typeof import("../../src/docker-execution/recovery-lifecycle.ts");
     const begun = runtime.beginRuntimeOwnedDockerRecovery(plan, management);
     assert.ok(begun && "recoveryCapability" in begun);
     const capability = begun.recoveryCapability;
@@ -620,8 +620,8 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
     hostState = "host_only";
     fixedInputs = null;
     fixedCandidate = null;
-    projectDelivery = true;
-    const projectPlan = { ...plan, consumer: "project_runtime" as const };
+    isProjectDelivery = true;
+    const projectPlan = { ...plan, consumer: "orchestrator" as const };
     const projectBegun = runtime.beginRuntimeOwnedDockerRecovery(
       projectPlan,
       management,
@@ -754,14 +754,14 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
       ).status,
       "blocked",
     );
-    projectDelivery = false;
+    isProjectDelivery = false;
     for (const failure of ["save", "context", "host"]) {
       operations = [];
       hostState = "host_only";
       startSaveFails = failure === "save";
       contextFails = failure === "context";
       hostBeginFails = failure === "host";
-      releaseSucceeds = false;
+      isReleaseSucceeds = false;
       const startsBefore = startCalls;
       const failed = runtime.beginRuntimeOwnedDockerRecovery(plan, management);
       assert.ok(failed && "recoveryCapability" in failed);
@@ -785,7 +785,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
         ),
         true,
       );
-      for (const [owner, reference, manager, home, reason] of [
+      for (const [owner, reference, coordinatorManager, home, reason] of [
         [{}, "exact-id", management, hash, failureReason],
         [failedCapability, "other-id", management, hash, failureReason],
         [failedCapability, "exact-id", {}, hash, failureReason],
@@ -803,7 +803,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
           runtime.bindRuntimeOwnedDockerInitializationFailure(
             owner,
             reference,
-            manager,
+            coordinatorManager,
             home,
             reason,
             null,
@@ -850,7 +850,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
         runtime.abandonRuntimeOwnedDockerRecovery(failedCapability),
         false,
       );
-      releaseSucceeds = true;
+      isReleaseSucceeds = true;
       assert.equal(
         runtime.abandonRuntimeOwnedDockerRecovery(failedCapability),
         true,

@@ -7,7 +7,7 @@
  * @effect Process内の採用済みSnapshotだけを更新する。永続化とAuthority判定は呼出し側Adapterが所有する。
  * @security Catalogから秘密値、任意実行Pathおよび任意引数を受理しない。
  */
-import { validateAiProfileCatalog } from "../catalog/catalog.ts";
+import { validateAiProfileCatalog } from "../catalog/resolve.ts";
 import type {
   AiProfileCatalogRegistry,
   AiProfileCatalogSnapshot,

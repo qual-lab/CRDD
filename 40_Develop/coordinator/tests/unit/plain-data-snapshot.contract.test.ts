@@ -14,8 +14,8 @@ import test from "node:test";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "../../../domain-model/src/plain-data/index.ts";
-import { assertPresent } from "../support/test-support.ts";
+} from "../../../domain-model/src/index.ts";
+import { assertPresent } from "../support/contract-assertions.ts";
 
 /**
  * record snapshotはdata descriptorだけを一度固定するを検証する。

@@ -14,11 +14,11 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { createTopicApplication } from "../../../domain-model/src/topic/index.ts";
-import { createMeetingApplication } from "../../../domain-model/src/meeting/index.ts";
+import { createTopicOperations } from "../../../domain-model/src/index.ts";
+import { createMeetingOperations } from "../../../domain-model/src/index.ts";
 import {
-  handleMcpApplicationRequest,
-  MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
+  routeMcpRequest,
+  MCP_ORCHESTRATOR_PROTOCOL_VERSION,
   MCP_MEETING_TREAT_OUTCOME_TOOL,
   MCP_TOPIC_CREATE_TOOL,
   MCP_TOPIC_GET_TOOL,
@@ -28,8 +28,7 @@ import {
 } from "../../src/index.ts";
 
 const META = Object.freeze({
-  "io.modelcontextprotocol/protocolVersion":
-    MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
+  "io.modelcontextprotocol/protocolVersion": MCP_ORCHESTRATOR_PROTOCOL_VERSION,
   "io.modelcontextprotocol/clientCapabilities": Object.freeze({}),
 });
 
@@ -126,8 +125,8 @@ test("MCPからTopicを登録・一覧・取得・更新する", async () => {
   const root = mkdtempSync(path.join(tmpdir(), "crdd-mcp-topic-"));
   try {
     const topicMeeting = Object.freeze({
-      topic: createTopicApplication(root),
-      meeting: createMeetingApplication(root),
+      topic: createTopicOperations(root),
+      meeting: createMeetingOperations(root),
     });
     const dependencies = {
       projectContext: {
@@ -139,17 +138,17 @@ test("MCPからTopicを登録・一覧・取得・更新する", async () => {
       },
       topicMeeting,
     };
-    const created = await handleMcpApplicationRequest(
+    const created = await routeMcpRequest(
       call(MCP_TOPIC_CREATE_TOOL, { markdown: topic(1) }),
       dependencies,
     );
     assert.equal(result(created).result.isError, false);
-    const listed = await handleMcpApplicationRequest(
+    const listed = await routeMcpRequest(
       call(MCP_TOPIC_LIST_TOOL, { limit: 20 }),
       dependencies,
     );
     assert.equal(result(listed).result.structuredContent.records?.length, 1);
-    const fetched = await handleMcpApplicationRequest(
+    const fetched = await routeMcpRequest(
       call(MCP_TOPIC_GET_TOOL, { id: "TOPIC-000042" }),
       dependencies,
     );
@@ -157,7 +156,7 @@ test("MCPからTopicを登録・一覧・取得・更新する", async () => {
       String(result(fetched).result.structuredContent.markdown),
       /MCP接続を検証/u,
     );
-    const updated = await handleMcpApplicationRequest(
+    const updated = await routeMcpRequest(
       call(MCP_TOPIC_UPDATE_TOOL, {
         id: "TOPIC-000042",
         expectedRevision: 1,
@@ -187,11 +186,11 @@ test("MCPからMeeting Outcomeを処置してCloseする", async () => {
   const root = mkdtempSync(path.join(tmpdir(), "crdd-mcp-meeting-outcome-"));
   try {
     const topicMeeting = Object.freeze({
-      topic: createTopicApplication(root),
-      meeting: createMeetingApplication(root),
+      topic: createTopicOperations(root),
+      meeting: createMeetingOperations(root),
     });
     topicMeeting.meeting.create(meeting());
-    const response = await handleMcpApplicationRequest(
+    const response = await routeMcpRequest(
       call(MCP_MEETING_TREAT_OUTCOME_TOOL, {
         meetingId: "MTG-000042",
         expectedRevision: 1,
@@ -240,8 +239,8 @@ test("MCPからTopicを実在CHGへ昇格接続する", async () => {
   const root = mkdtempSync(path.join(tmpdir(), "crdd-mcp-topic-promote-"));
   try {
     const topicMeeting = Object.freeze({
-      topic: createTopicApplication(root),
-      meeting: createMeetingApplication(root),
+      topic: createTopicOperations(root),
+      meeting: createMeetingOperations(root),
     });
     topicMeeting.topic.create(topic(1));
     const changeDirectory = path.join(
@@ -256,7 +255,7 @@ test("MCPからTopicを実在CHGへ昇格接続する", async () => {
       "# Change\n",
       "utf8",
     );
-    const response = await handleMcpApplicationRequest(
+    const response = await routeMcpRequest(
       call(MCP_TOPIC_PROMOTE_TOOL, {
         topicId: "TOPIC-000042",
         expectedRevision: 1,

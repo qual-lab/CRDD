@@ -11,7 +11,7 @@ import path from "node:path";
 import {
   PLATFORM_PROVISIONER_MANIFEST_MAXIMUM_BYTES,
   PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH,
-} from "../src/platform-access/platform-provisioner-manifest-loader.ts";
+} from "../src/platform-access/manifest-loader.ts";
 
 /**
  * release-manifest-promotionで使用するIdentityの値契約を定義する。

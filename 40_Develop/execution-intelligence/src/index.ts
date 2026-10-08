@@ -29,18 +29,18 @@ export {
   type ExecutionUsage,
   type TaskAttemptSettledEventInput,
   usageNotObserved,
-} from "./core/execution-intelligence.ts";
+} from "./record/event-and-summary.ts";
 
 export {
   createExecutionIntelligenceRecorder,
   type ExecutionIntelligenceRecorder,
-} from "./application/execution-intelligence-recorder.ts";
+} from "./record/create-recorder.ts";
 
 export {
   projectExecutionRecords,
   type ExecutionRecordProjectionInput,
   type ExecutionRecordProjectionResult,
-} from "./application/execution-record-projection.ts";
+} from "./projection/execution-records.ts";
 
 export {
   projectTemporalRecords,
@@ -49,7 +49,7 @@ export {
   type TemporalClockSource,
   type TemporalRecordProjectionInput,
   type TemporalRecordProjectionResult,
-} from "./application/record-projection.ts";
+} from "./projection/temporal-records.ts";
 
 export {
   BOUNDED_INTEGRATED_RESULT_EVALUATION_CONTRACT,
@@ -58,21 +58,21 @@ export {
   inspectBoundedIntegratedResultEvaluationInput,
   type BoundedIntegratedResultEvaluation,
   type BoundedIntegratedResultEvaluationInput,
-} from "./core/bounded-integrated-result-evaluation.ts";
+} from "./evaluation/integrated-result.ts";
 
 export {
   classifyTemporalProvenance,
   type TemporalProvenanceInput,
   type TemporalProvenanceResult,
-} from "./core/temporal-provenance.ts";
+} from "./provenance/classify.ts";
 
 export {
   readExecutionIntelligence,
   writeExecutionIntelligenceEvent,
   type ExecutionIntelligencePublicationResult,
-} from "./store/execution-intelligence-store.ts";
+} from "./store/events.ts";
 
 export {
   verifyExecutionIntelligenceRepositoryRoot,
   type VerifiedExecutionRepositoryRoot,
-} from "./store/verified-repository-root.ts";
+} from "./store/verify-repository-root.ts";

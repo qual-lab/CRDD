@@ -5,17 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./outcome": "./src/outcome.ts",
-    "./artifact": "./src/artifact/index.ts",
-    "./plain-data": "./src/plain-data/index.ts",
-    "./project-context": "./src/project-context/index.ts",
-    "./configuration": "./src/configuration/index.ts",
-    "./topic": "./src/topic/index.ts",
-    "./meeting": "./src/meeting/index.ts",
-    "./storage": "./src/storage/index.ts",
-    "./quality-change-control": "./src/quality-change-control/index.ts",
-    "./reality-traceability": "./src/reality-traceability/index.ts",
-    "./repository": "./src/repository/index.ts"
+    "./outcome": "./src/outcome.ts"
   },
   "scripts": {
     "check": "npm run format:check && npm run typecheck && npm run lint",

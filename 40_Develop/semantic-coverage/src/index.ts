@@ -10,31 +10,33 @@
  */
 export {
   compileQualitySemanticRelations,
-  compileSemanticIr,
   type QualitySemanticRelation,
+} from "./compilation/compile-quality-relations.ts";
+export {
+  compileSemanticIr,
   type SemanticIr,
   type SemanticIrMeaning,
   type SemanticSourceDocument,
-} from "./compilation/index.ts";
+} from "./compilation/compile-ir.ts";
 export {
   createSemanticBundle,
   type SemanticBundleContent,
   type SemanticCoverageBundle,
   type SemanticCoverageGraph,
   type SemanticCoverageProjection,
-} from "./coverage/index.ts";
+} from "./coverage/graph-and-bundle.ts";
 export {
   compileQualitySemanticRelationsFromRepository,
   compileSemanticIrFromRepository,
-  createSemanticCoverageGraph,
+  createSemanticCoverageGraphResult,
   mapSemanticDomainIssueToDiagnostic,
   type SemanticCoverageDiagnostic,
-} from "./application/semantic-coverage.ts";
+} from "./compilation/from-repository.ts";
 export {
   publishSemanticCoverage,
   type PublishSemanticCoverageRequest,
   type PublishSemanticCoverageResult,
-} from "./application/semantic-bundle.ts";
+} from "./bundle/publish.ts";
 export {
   createFilesystemSemanticBundlePublisher,
   publishSemanticCoverageBundleWithHooks,
@@ -42,4 +44,4 @@ export {
   type SemanticBundlePublishReceipt,
   type SemanticBundlePublishRequest,
   type SemanticBundleWriterHooks,
-} from "./infrastructure/filesystem-semantic-bundle-publisher.ts";
+} from "./bundle/filesystem-publisher.ts";

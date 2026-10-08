@@ -1,7 +1,7 @@
 import fs from "node:fs";
 
-import { resolveRepositoryGitLayout } from "../../src/git/repository-layout.ts";
-import { writeRepositoryLocalExclude } from "../../src/git/repository-layout.ts";
+import { resolveRepositoryGitLayout } from "../../src/git/layout.ts";
+import { writeRepositoryLocalExclude } from "../../src/git/layout.ts";
 
 const [repositoryRoot, entry, readyPath, startPath, resultPath] =
   process.argv.slice(2);

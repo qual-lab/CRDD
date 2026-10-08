@@ -69,6 +69,6 @@ export type TopicRecord = Readonly<{
  * @security 保存結果へ秘密値や任意Pathを追加しない。
  * @compatibility 既存CRUD結果と改訂競合・削除確認を保持する。
  */
-export type TopicApplication =
-  import("../storage/types.ts").TopicMeetingScopedApplication &
-    Pick<import("../storage/types.ts").TopicMeetingApplication, "promoteTopic">;
+export type TopicOperations =
+  import("../storage/types.ts").ScopedTopicMeetingOperations &
+    Pick<import("../storage/types.ts").TopicMeetingOperations, "promoteTopic">;

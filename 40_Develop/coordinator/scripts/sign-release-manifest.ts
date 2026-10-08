@@ -16,22 +16,22 @@ import {
   validateArtifactSignatureResult,
   type PrivateKeyReferenceAuthorization,
 } from "../../artifact-signing/src/index.ts";
-import { resolveBundledRepositoryRuntimeDataPathsForProtectedSigning } from "../../domain-model/src/repository/runtime-data-path-resolver.ts";
+import { resolveBundledRepositoryRuntimeDataPathsForProtectedSigning } from "../../domain-model/src/repository/resolve-storage-paths.ts";
 import { inspectRepositoryFixedSnapshot } from "../../version-control/src/git/fixed-snapshot-adapter.ts";
-import { verifyRepositoryRoot } from "../../version-control/src/repository-location.ts";
-import { assertSupportedCoordinatorNodeRuntime } from "../src/host-runtime/node-runtime-version.ts";
-import { inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate } from "../src/platform-access/platform-provisioner-package-filesystem.ts";
-import { getPlatformProvisionerPolicyIdentity } from "../src/platform-access/platform-provisioner-policy-identity.ts";
-import { inspectPlatformProvisionerRuntimeGitProvenanceCandidate } from "../src/platform-access/platform-provisioner-release-identity.ts";
-import { getPinnedPlatformProvisionerReleaseSignerSpkiDer } from "../src/platform-access/platform-provisioner-release-trust.ts";
+import { verifyRepositoryRoot } from "../../version-control/src/repository/location.ts";
+import { assertSupportedCoordinatorNodeRuntime } from "../src/host-execution/node-runtime-version.ts";
+import { inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate } from "../src/platform-access/package-verification.ts";
+import { getPlatformProvisionerPolicyIdentity } from "../src/platform-access/policy-identity.ts";
+import { inspectPlatformProvisionerRuntimeGitProvenanceCandidate } from "../src/platform-access/release-identity.ts";
+import { getPinnedPlatformProvisionerReleaseSignerSpkiDer } from "../src/platform-access/release-trust.ts";
 import {
   calculateRuntimeExecutionIdentityCandidate,
   compilePlatformProvisionerManifestPayloadCandidate,
   PLATFORM_PROVISIONER_MANIFEST_CONTRACT,
   PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT,
   PLATFORM_PROVISIONER_MANIFEST_REVISION,
-} from "../src/platform-access/platform-provisioner-trust-core.ts";
-import { canonicalizeProvisioningJsonValueCandidate } from "../src/diagnostics/provisioning-signature-primitives.ts";
+} from "../src/platform-access/manifest-trust.ts";
+import { canonicalizeProvisioningJsonValueCandidate } from "../src/platform-access/signature-primitives.ts";
 import {
   isCanonicalCrddUtcTimestamp,
   isCanonicalCrddVersion,

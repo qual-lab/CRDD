@@ -10,7 +10,7 @@ import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { verifyRepositoryRoot } from "../../version-control/src/repository-location.ts";
+import { verifyRepositoryRoot } from "../../version-control/src/repository/location.ts";
 import {
   prepareReleaseRuntime,
   recoverAppliedReleaseRuntimePreparation,
@@ -38,7 +38,7 @@ const VALUE_ARGUMENTS = new Set([
   "--operation-identity",
 ]);
 const FLAG_ARGUMENTS = new Set(["--no-expiry"]);
-const REQUIRED_VALUE_ARGUMENTS = [
+const requiredValueArguments = [
   "--crdd-version",
   "--release-sequence",
   "--crdd-commit",
@@ -162,7 +162,7 @@ export function parseReleaseCandidateArguments(
 ): ParsedReleaseCandidateArguments | null {
   const parsed = argumentMap(args);
   if (!parsed) return null;
-  if (REQUIRED_VALUE_ARGUMENTS.some((name) => !parsed.values.has(name))) {
+  if (requiredValueArguments.some((name) => !parsed.values.has(name))) {
     return null;
   }
   const hasDays = parsed.values.has("--valid-for-days");
@@ -224,9 +224,9 @@ function replaceDistributionRoot(
   if (index < 0 || index + 1 >= args.length) {
     throw new Error("release_candidate_distribution_root_missing");
   }
-  const replaced = [...args];
-  replaced[index + 1] = workDirectory;
-  return replaced;
+  const replacedEntries = [...args];
+  replacedEntries[index + 1] = workDirectory;
+  return replacedEntries;
 }
 
 /**

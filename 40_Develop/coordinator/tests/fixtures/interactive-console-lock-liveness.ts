@@ -1,4 +1,15 @@
-import { acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome } from "../../src/host-runtime/candidate-store-kernel-lock.ts";
+/**
+ * 対話Kernel Lockの生存と再取得を別Processで観測する。
+ *
+ * @packageDocumentation
+ * @responsibility 固定回数の取得試行で所有者の終了後にLockが再取得できるかを返す。
+ * @trace CPR-IT-001
+ * @trace ERB-IT-003
+ * @level IT
+ * @scope 対話Lockの生存・解放
+ * @boundary 試験Process→Native Kernel Lock。取得不能を正常終了へ丸めない。
+ */
+import { acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome } from "../../src/host-execution/kernel-lock.ts";
 
 let outcome = await acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome();
 for (

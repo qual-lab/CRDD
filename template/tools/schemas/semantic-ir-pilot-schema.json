@@ -18,11 +18,11 @@
     "contractRevision": { "const": 0 },
     "stability": { "const": "pilot" },
     "subsystem": {
-      "enum": ["coordinator", "project-runtime"]
+      "enum": ["coordinator", "orchestrator"]
     },
     "sourceDocument": {
       "type": "string",
-      "pattern": "^06_Architecture/Details/(?:coordinator|project-runtime)/[^/]+\\.md$"
+      "pattern": "^06_Architecture/Details/(?:coordinator|orchestrator)/[^/]+\\.md$"
     },
     "sourceSha256": {
       "type": "string",
@@ -50,7 +50,7 @@
       "properties": {
         "semanticKey": {
           "type": "string",
-          "pattern": "^(?:coordinator|project-runtime)\\.[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+          "pattern": "^(?:coordinator|orchestrator)\\.[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
         },
         "kind": {
           "type": "string",

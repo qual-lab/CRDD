@@ -23,17 +23,17 @@ Architecture Detail Area
 | UI Detail | Source UI | Architecture定義 | 詳細設計領域 | Coverage |
 |---|---|---|---|---|
 | [SCR-000001／PRT-000001](../04_UI/Details/Areas/operation/SCR-000001/screen.md) | UI-000001 | ARCH-000001 | checker、crdd-domain-library | Covered |
-| [SCR-000002／PRT-000002](../04_UI/Details/Areas/operation/SCR-000002/screen.md) | UI-000002 | ARCH-000004 | project-runtime、coordinator、platform-access | Covered |
-| [SCR-000003／PRT-000003](../04_UI/Details/Areas/operation/SCR-000003/screen.md) | UI-000003 | ARCH-000004 | project-runtime、coordinator、platform-access | Covered |
-| [SCR-000004／PRT-000004](../04_UI/Details/Areas/project-context/SCR-000004/screen.md) | UI-000004 | ARCH-000005 | project-runtime、project-operation、cros、mcp | Covered |
-| [SCR-000005／PRT-000005](../04_UI/Details/Areas/operation/SCR-000005/screen.md) | UI-000005 | ARCH-000007、ARCH-000008 | execution-intelligence、project-runtime、coordinator、platform-access、crdd-domain-library、semantic-coverage | Covered |
+| [SCR-000002／PRT-000002](../04_UI/Details/Areas/operation/SCR-000002/screen.md) | UI-000002 | ARCH-000004 | orchestrator、coordinator、platform-access | Covered |
+| [SCR-000003／PRT-000003](../04_UI/Details/Areas/operation/SCR-000003/screen.md) | UI-000003 | ARCH-000004 | orchestrator、coordinator、platform-access | Covered |
+| [SCR-000004／PRT-000004](../04_UI/Details/Areas/project-context/SCR-000004/screen.md) | UI-000004 | ARCH-000005 | orchestrator、project-operation、cros、mcp | Covered |
+| [SCR-000005／PRT-000005](../04_UI/Details/Areas/operation/SCR-000005/screen.md) | UI-000005 | ARCH-000007、ARCH-000008 | execution-intelligence、orchestrator、coordinator、platform-access、crdd-domain-library、semantic-coverage | Covered |
 | [SCR-000006／PRT-000006](../04_UI/Details/Areas/project-context/SCR-000006/screen.md) | UI-000006 | ARCH-000009 | version-control、runtime-data、cros、crdd-domain-library | Covered |
-| [SCR-000007／PRT-000007](../04_UI/Details/Areas/operation/SCR-000007/screen.md) | UI-000007 | ARCH-000012 | mcp、project-runtime | Covered |
+| [SCR-000007／PRT-000007](../04_UI/Details/Areas/operation/SCR-000007/screen.md) | UI-000007 | ARCH-000012 | mcp、orchestrator | Covered |
 | [SCR-000008／PRT-000008](../04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md) | UI-000008 | ARCH-000013 | cros、mcp、runtime-data | Covered |
 | [SCR-000009／PRT-000009](../04_UI/Details/Areas/project-context/SCR-000009/screen.md) | UI-000009 | ARCH-000006 | project-operation、cros | Covered |
 | [SCR-000010／PRT-000010](../04_UI/Details/Areas/configuration-trust/SCR-000010/screen.md) | UI-000010 | ARCH-000010 | coordinator、cros | Covered |
 | [SCR-000011／PRT-000011](../04_UI/Details/Areas/configuration-trust/SCR-000011/screen.md) | UI-000011 | ARCH-000011 | runtime-data、platform-access | Covered |
-| [SCR-000012／PRT-000012](../04_UI/Details/Areas/operation/SCR-000012/screen.md) | UI-000012 | ARCH-000004 | project-runtime、coordinator、platform-access | Covered |
+| [SCR-000012／PRT-000012](../04_UI/Details/Areas/operation/SCR-000012/screen.md) | UI-000012 | ARCH-000004 | orchestrator、coordinator、platform-access | Covered |
 | [SCR-000013／PRT-000013](../04_UI/Details/Areas/configuration-trust/SCR-000013/screen.md) | UI-000013 | ARCH-000014 | runtime-trust、artifact-signing、coordinator、version-control | Covered |
 | [SCR-000014／PRT-000014](../04_UI/Details/Areas/governance/SCR-000014/screen.md) | UI-000014 | ARCH-000002 | contract-migration、checker、version-control、crdd-domain-library | Covered |
 | [SCR-000015／PRT-000015](../04_UI/Details/Areas/governance/SCR-000015/screen.md) | UI-000015 | ARCH-000003 | quality-change-control、verification-runner | Covered |
@@ -48,23 +48,23 @@ Architecture Detail Area
 | SPEC Detail | Source SPEC | Architecture定義 | 詳細設計領域 | Coverage |
 |---|---|---|---|---|
 | [BHV-000001](../05_SPEC/Details/BHV-000001/behavior.md) | SPEC-000001 | ARCH-000001 | checker、crdd-domain-library | Covered |
-| [BHV-000002](../05_SPEC/Details/BHV-000002/behavior.md) | SPEC-000002 | ARCH-000004、ARCH-000005 | project-runtime、coordinator、platform-access、project-operation、cros、mcp | Covered |
-| [BHV-000003](../05_SPEC/Details/BHV-000003/behavior.md) | SPEC-000003 | ARCH-000004 | project-runtime、coordinator、platform-access | Covered |
-| [BHV-000004](../05_SPEC/Details/BHV-000004/behavior.md) | SPEC-000004 | ARCH-000004 | project-runtime、coordinator、platform-access | Covered |
-| [BHV-000005](../05_SPEC/Details/BHV-000005/behavior.md) | SPEC-000005 | ARCH-000004 | project-runtime、coordinator、platform-access | Covered |
-| [BHV-000006](../05_SPEC/Details/BHV-000006/behavior.md) | SPEC-000006 | ARCH-000005 | project-runtime、project-operation、cros、mcp | Covered |
-| [BHV-000007](../05_SPEC/Details/BHV-000007/behavior.md) | SPEC-000007 | ARCH-000005 | project-runtime、project-operation、cros、mcp | Covered |
-| [BHV-000008](../05_SPEC/Details/BHV-000008/behavior.md) | SPEC-000008 | ARCH-000007 | execution-intelligence、project-runtime | Covered |
+| [BHV-000002](../05_SPEC/Details/BHV-000002/behavior.md) | SPEC-000002 | ARCH-000004、ARCH-000005 | orchestrator、coordinator、platform-access、project-operation、cros、mcp | Covered |
+| [BHV-000003](../05_SPEC/Details/BHV-000003/behavior.md) | SPEC-000003 | ARCH-000004 | orchestrator、coordinator、platform-access | Covered |
+| [BHV-000004](../05_SPEC/Details/BHV-000004/behavior.md) | SPEC-000004 | ARCH-000004 | orchestrator、coordinator、platform-access | Covered |
+| [BHV-000005](../05_SPEC/Details/BHV-000005/behavior.md) | SPEC-000005 | ARCH-000004 | orchestrator、coordinator、platform-access | Covered |
+| [BHV-000006](../05_SPEC/Details/BHV-000006/behavior.md) | SPEC-000006 | ARCH-000005 | orchestrator、project-operation、cros、mcp | Covered |
+| [BHV-000007](../05_SPEC/Details/BHV-000007/behavior.md) | SPEC-000007 | ARCH-000005 | orchestrator、project-operation、cros、mcp | Covered |
+| [BHV-000008](../05_SPEC/Details/BHV-000008/behavior.md) | SPEC-000008 | ARCH-000007 | execution-intelligence、orchestrator | Covered |
 | [BHV-000009](../05_SPEC/Details/BHV-000009/behavior.md) | SPEC-000009 | ARCH-000008 | coordinator、platform-access、crdd-domain-library、semantic-coverage | Covered |
 | [BHV-000010](../05_SPEC/Details/BHV-000010/behavior.md) | SPEC-000010 | ARCH-000009 | version-control、runtime-data、cros、crdd-domain-library | Covered |
-| [BHV-000031](../05_SPEC/Details/BHV-000031/behavior.md) | SPEC-000031 | ARCH-000009 | version-control、project-runtime | Covered |
-| [BHV-000011](../05_SPEC/Details/BHV-000011/behavior.md) | SPEC-000011 | ARCH-000012 | mcp、project-runtime | Covered |
+| [BHV-000031](../05_SPEC/Details/BHV-000031/behavior.md) | SPEC-000031 | ARCH-000009 | version-control、orchestrator | Covered |
+| [BHV-000011](../05_SPEC/Details/BHV-000011/behavior.md) | SPEC-000011 | ARCH-000012 | mcp、orchestrator | Covered |
 | [BHV-000012](../05_SPEC/Details/BHV-000012/behavior.md) | SPEC-000012 | ARCH-000013 | cros、mcp、runtime-data | Covered |
 | [BHV-000013](../05_SPEC/Details/BHV-000013/behavior.md) | SPEC-000013 | ARCH-000006 | project-operation、cros | Covered |
 | [BHV-000014](../05_SPEC/Details/BHV-000014/behavior.md) | SPEC-000014 | ARCH-000010 | coordinator、cros | Covered |
 | [BHV-000015](../05_SPEC/Details/BHV-000015/behavior.md) | SPEC-000015 | ARCH-000010 | coordinator、cros | Covered |
 | [BHV-000016](../05_SPEC/Details/BHV-000016/behavior.md) | SPEC-000016 | ARCH-000011 | runtime-data、platform-access | Covered |
-| [BHV-000017](../05_SPEC/Details/BHV-000017/behavior.md) | SPEC-000017 | ARCH-000004 | project-runtime、coordinator、platform-access | Covered |
+| [BHV-000017](../05_SPEC/Details/BHV-000017/behavior.md) | SPEC-000017 | ARCH-000004 | orchestrator、coordinator、platform-access | Covered |
 | [BHV-000018](../05_SPEC/Details/BHV-000018/behavior.md) | SPEC-000018 | ARCH-000014 | runtime-trust、artifact-signing、coordinator、version-control | Covered |
 | [BHV-000019](../05_SPEC/Details/BHV-000019/behavior.md) | SPEC-000019 | ARCH-000002 | contract-migration、checker、version-control、crdd-domain-library | Covered |
 | [BHV-000020](../05_SPEC/Details/BHV-000020/behavior.md) | SPEC-000020 | ARCH-000003 | quality-change-control、verification-runner | Covered |
@@ -74,8 +74,8 @@ Architecture Detail Area
 | [BHV-000024](../05_SPEC/Details/BHV-000024/behavior.md) | SPEC-000024 | ARCH-000017 | official-asset-governance | Covered |
 | [BHV-000026](../05_SPEC/Details/BHV-000026/behavior.md) | SPEC-000026 | ARCH-000015 | coordinator、cros、mcp | Covered |
 | [BHV-000027](../05_SPEC/Details/BHV-000027/behavior.md) | SPEC-000027 | ARCH-000015 | coordinator、cros、mcp | Covered |
-| [BHV-000028](../05_SPEC/Details/BHV-000028/behavior.md) | SPEC-000028 | ARCH-000004 | project-runtime、coordinator、platform-access | Covered |
-| [BHV-000029](../05_SPEC/Details/BHV-000029/behavior.md) | SPEC-000029 | ARCH-000004 | project-runtime、coordinator、platform-access | Covered |
+| [BHV-000028](../05_SPEC/Details/BHV-000028/behavior.md) | SPEC-000028 | ARCH-000004 | orchestrator、coordinator、platform-access | Covered |
+| [BHV-000029](../05_SPEC/Details/BHV-000029/behavior.md) | SPEC-000029 | ARCH-000004 | orchestrator、coordinator、platform-access | Covered |
 | [BHV-000030](../05_SPEC/Details/BHV-000030/behavior.md) | SPEC-000030 | ARCH-000018 | execution-intelligence | Covered |
 
 ## 4. Interaction Relationの全数対応
@@ -85,27 +85,27 @@ Architecture Detail Area
 | Interaction Relation | BHV | Architecture Relation Owner | Owner Mode | 詳細設計領域 | Coverage |
 |---|---|---|---|---|---|
 | `PRT-000001.spec-000001` | BHV-000001 | ARCH-000001 | Single | checker、crdd-domain-library | Covered |
-| `PRT-000002.spec-000002` | BHV-000002 | ARCH-000004 | Single | project-runtime、coordinator、platform-access | Covered |
-| `PRT-000002.spec-000003` | BHV-000003 | ARCH-000004 | Single | project-runtime、coordinator、platform-access | Covered |
-| `PRT-000002.spec-000028` | BHV-000028 | ARCH-000004 | Single | project-runtime、coordinator、platform-access | Covered |
-| `PRT-000002.spec-000029` | BHV-000029 | ARCH-000004 | Single | project-runtime、coordinator、platform-access | Covered |
-| `PRT-000003.spec-000004` | BHV-000004 | ARCH-000004 | Single | project-runtime、coordinator、platform-access | Covered |
-| `PRT-000003.spec-000005` | BHV-000005 | ARCH-000004 | Single | project-runtime、coordinator、platform-access | Covered |
-| `PRT-000004.spec-000002` | BHV-000002 | ARCH-000005 | Single | project-runtime、project-operation、cros、mcp | Covered |
-| `PRT-000004.spec-000006` | BHV-000006 | ARCH-000005 | Single | project-runtime、project-operation、cros、mcp | Covered |
-| `PRT-000004.spec-000007` | BHV-000007 | ARCH-000005 | Single | project-runtime、project-operation、cros、mcp | Covered |
-| `PRT-000005.spec-000008` | BHV-000008 | ARCH-000007 | Single | execution-intelligence、project-runtime | Covered |
+| `PRT-000002.spec-000002` | BHV-000002 | ARCH-000004 | Single | orchestrator、coordinator、platform-access | Covered |
+| `PRT-000002.spec-000003` | BHV-000003 | ARCH-000004 | Single | orchestrator、coordinator、platform-access | Covered |
+| `PRT-000002.spec-000028` | BHV-000028 | ARCH-000004 | Single | orchestrator、coordinator、platform-access | Covered |
+| `PRT-000002.spec-000029` | BHV-000029 | ARCH-000004 | Single | orchestrator、coordinator、platform-access | Covered |
+| `PRT-000003.spec-000004` | BHV-000004 | ARCH-000004 | Single | orchestrator、coordinator、platform-access | Covered |
+| `PRT-000003.spec-000005` | BHV-000005 | ARCH-000004 | Single | orchestrator、coordinator、platform-access | Covered |
+| `PRT-000004.spec-000002` | BHV-000002 | ARCH-000005 | Single | orchestrator、project-operation、cros、mcp | Covered |
+| `PRT-000004.spec-000006` | BHV-000006 | ARCH-000005 | Single | orchestrator、project-operation、cros、mcp | Covered |
+| `PRT-000004.spec-000007` | BHV-000007 | ARCH-000005 | Single | orchestrator、project-operation、cros、mcp | Covered |
+| `PRT-000005.spec-000008` | BHV-000008 | ARCH-000007 | Single | execution-intelligence、orchestrator | Covered |
 | `PRT-000005.spec-000009` | BHV-000009 | ARCH-000008 | Single | coordinator、platform-access、crdd-domain-library、semantic-coverage | Covered |
 | `PRT-000006.spec-000010` | BHV-000010 | ARCH-000009 | Single | version-control、runtime-data、cros、crdd-domain-library | Covered |
 | `PRT-000006.spec-000031` | BHV-000031 | ARCH-000009 | Single | version-control、runtime-data、cros、crdd-domain-library | Covered |
-| `PRT-000007.spec-000011` | BHV-000011 | ARCH-000012 | Single | mcp、project-runtime | Covered |
+| `PRT-000007.spec-000011` | BHV-000011 | ARCH-000012 | Single | mcp、orchestrator | Covered |
 | `PRT-000008.spec-000012` | BHV-000012 | ARCH-000013 | Single | cros、mcp、runtime-data | Covered |
 | `PRT-000009.spec-000013` | BHV-000013 | ARCH-000006 | Single | project-operation、cros | Covered |
 | `PRT-000010.spec-000014` | BHV-000014 | ARCH-000010 | Single | coordinator、cros | Covered |
 | `PRT-000010.spec-000015` | BHV-000015 | ARCH-000010 | Single | coordinator、cros | Covered |
-| `PRT-000011.spec-000005` | BHV-000005 | ARCH-000004、ARCH-000011 | Joint | project-runtime、coordinator、platform-access、runtime-data | Covered |
+| `PRT-000011.spec-000005` | BHV-000005 | ARCH-000004、ARCH-000011 | Joint | orchestrator、coordinator、platform-access、runtime-data | Covered |
 | `PRT-000011.spec-000016` | BHV-000016 | ARCH-000011 | Single | runtime-data、platform-access | Covered |
-| `PRT-000012.spec-000017` | BHV-000017 | ARCH-000004 | Single | project-runtime、coordinator、platform-access | Covered |
+| `PRT-000012.spec-000017` | BHV-000017 | ARCH-000004 | Single | orchestrator、coordinator、platform-access | Covered |
 | `PRT-000013.spec-000018` | BHV-000018 | ARCH-000014 | Single | runtime-trust、artifact-signing、coordinator、version-control | Covered |
 | `PRT-000014.spec-000019` | BHV-000019 | ARCH-000002 | Single | contract-migration、checker、version-control、crdd-domain-library | Covered |
 | `PRT-000015.spec-000020` | BHV-000020 | ARCH-000003 | Single | quality-change-control、verification-runner | Covered |

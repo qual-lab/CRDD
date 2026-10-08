@@ -62,9 +62,9 @@ Provider出力、Repository内文書、Docker出力および外部入力は、�
 | Console入力競合・文字化け | 誤承認、停止不能 | runtime-owned reader、入力種別の明示、一回入力、UTF-8機械結果と人間表示の分離 | reader／pipe／child終了 |
 | Cost目的の不適格model選択 | 品質低下、利用枠浪費 | 適格性を先に判定し、難易度・Risk・判断影響・Costから説明可能に選択 | Provider Effect前の選定記録 |
 
-### 4.1 v0.19 Project Runtimeの脅威
+### 4.1 v0.19 Orchestratorの脅威
 
-次はv0.19.0 Project Runtimeに対する設計上のControlである。実装段階ごとに検証へ接続し、該当Controlと終了時観測が成立した範囲だけを公開能力とする。
+次はv0.19.0 Orchestratorに対する設計上のControlである。実装段階ごとに検証へ接続し、該当Controlと終了時観測が成立した範囲だけを公開能力とする。
 
 | 脅威 | 失敗影響 | 設計上のControl | 実装後に必要な終了時観測 |
 |---|---|---|---|
@@ -79,7 +79,7 @@ Provider出力、Repository内文書、Docker出力および外部入力は、�
 | 人間判断commentの注入・漏洩 | Prompt injection、Secret漏洩、表示崩れ | bounded UTF-8単一行として検証し、Authority・Scope・選択肢から分離。raw値をProvider、Task Packet、ログ、永続Record、通常結果へ渡さない | comment有無で判断結果不変、拒否時Effect 0、外部送信・永続化・反射0 |
 | 個別Task成功のProject成功化 | 未統合成果物の採用、受入誤判定 | Task、Objective、Milestoneを別状態・別世代とし、受入EvidenceとCross-task整合を要求 | Integration前のMilestone受入0 |
 | Integration候補の正本混入 | 未承認変更、既存変更の上書き | 隔離Workspace、固定候補hash、Adoption Authority、fresh Revision、短時間Adoption Lock | 採用前の正本Effect 0 |
-| 未対応Platformへの暗黙fallback | 保証低下、別OS機構での未観測Effect | Project Runtime CoreをPlatform Contractへ限定し、Adapter不在・保証未成立をFail Closed | Project／Task／Provider Effect 0 |
+| 未対応Platformへの暗黙fallback | 保証低下、別OS機構での未観測Effect | Orchestrator CoreをPlatform Contractへ限定し、Adapter不在・保証未成立をFail Closed | Project／Task／Provider Effect 0 |
 | Project取消・Parent喪失後の部分残存 | slot誤解放、後続Task起動、Recovery衝突 | 対象Taskごとの終了・cleanup・Project State投影を分離し、unknownをexact Recoveryへ保持 | 全資源照合前のQueue完了0 |
 
 保護更新ごとの回復母集団には、初回作成、prepare、finalize、失効および期限更新のCAS未成立、成立後の応答喪失、readback不明を含める。fresh確認で、exactな`absent`＋raw未返却＋Project未適用はEffect 0で回復意図だけを終端し、`issued`は失効、`prepared`は回復待ち、matching newはfinalized、verified old/unappliedはinvalidated、`expired`＋Project未適用はexpiredのまま安全に終端する。不明・競合では観測できた継続状態を変えず、独立Recovery Intentをrequiredに保持する。
@@ -94,7 +94,7 @@ Release秘密鍵はRelease署名時だけHuman-only入力として使用し、�
 
 署名処理では、秘密入力前のP検査が一回限りの不透明な能力を発行し、その能力を消費したS検査だけが秘密鍵読取りと署名へ到達できる。P検査の省略、別入力への差替え、能力の偽造・再利用、P観測値の署名への流用、S検査後の値再解釈、および署名・配置後の結果field差替えを脅威として扱う。保護経路の反証は単に最終結果が拒否されたことではなく、期待した検査段階と理由が最初の拒否であり、Capability未発行かつEffect 0であることを確認する。
 
-実行能力の利用側は、Project RuntimeのExecution Authorization Port、Coordinator Adapter、能力消費、最初のProvider Effect、取消、回復および公開結果までを同じ利用側閉包として検査する。Producerまたは代表利用側だけの更新を完成とせず、Actual利用側集合と独立したExpected集合を完全一致させる。CanonicalなCapability、Path、IdentityまたはStateを利用側で再構成、fallback、混合または別名化しない。
+実行能力の利用側は、OrchestratorのExecution Authorization Port、Coordinator Adapter、能力消費、最初のProvider Effect、取消、回復および公開結果までを同じ利用側閉包として検査する。Producerまたは代表利用側だけの更新を完成とせず、Actual利用側集合と独立したExpected集合を完全一致させる。CanonicalなCapability、Path、IdentityまたはStateを利用側で再構成、fallback、混合または別名化しない。
 
 ## 6. Provider Homeと外部送信
 
@@ -139,6 +139,6 @@ Providerの終了、Promiseの完了または取消要求の受理はcleanup完�
 - timeout、cancel、Provider失敗、owner loss、cleanup不明、Recovery競合を注入し、終了後資源を確認する。
 - 外部送信許可の再利用と失効条件、model fallbackおよび同一Provider例外を検証する。
 - 削除したcommand、module、Native成果物およびmanifest fieldがhelp、parser、配布物、文書から再出現しないことを契約試験で固定する。
-- Project Runtimeでは[現在のアーキテクチャ](../project-runtime/01_Architecture.md)と[詳細設計](../project-runtime/02_Detailed_Design.md)が示す状態、資源、Lock、Authority、Effectおよび失敗注入点を、[機械可読な設計対応](../../../07_Quality/Registry/project-runtime-design-traceability.json)によって正常・準正常・異常の`PR-*`検証へ接続する。古い世代、重複request、容量競合、Queue owner喪失、Parent喪失、Transport切断、Integration conflict、採用直前Revision差およびPlatform不在を含める。
+- Orchestratorでは[現在のアーキテクチャ](../orchestrator/01_Architecture.md)と[詳細設計](../orchestrator/02_Detailed_Design.md)が示す状態、資源、Lock、Authority、Effectおよび失敗注入点を、[機械可読な設計対応](../../../07_Quality/Registry/orchestrator-design-traceability.json)によって正常・準正常・異常の`PR-*`検証へ接続する。古い世代、重複request、容量競合、Queue owner喪失、Parent喪失、Transport切断、Integration conflict、採用直前Revision差およびPlatform不在を含める。
 
 機械試験は独立したArchitecture／Security Review、文書監査、不足／影響監査および準拠監査を代替しない。

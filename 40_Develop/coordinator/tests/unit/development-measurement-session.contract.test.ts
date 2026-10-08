@@ -15,14 +15,14 @@ import { fileURLToPath } from "node:url";
 import {
   inspectRuntimeOwnedWindowsCandidateStore,
   inspectRuntimeOwnedWindowsRuntimeState,
-} from "../../src/candidate/candidate-store-windows-adapter.ts";
-import { startRuntimeOwnedDevelopmentCoordinatorTask } from "../../src/task/coordinator-task-runtime.ts";
+} from "../../src/platform-access/protected-root-windows-adapter.ts";
+import { startRuntimeOwnedDevelopmentCoordinatorTask } from "../../src/task/execution.ts";
 import {
   createIsolatedDevelopmentMeasurementSessionCandidate,
   inspectRuntimeOwnedDevelopmentMeasurementSession,
 } from "../../src/task/development-measurement-session.ts";
-import { inspectRuntimeOwnedWindowsProviderHomeCandidate } from "../../src/provider/provider-home-windows-adapter.ts";
-import { assertPresent } from "../support/test-support.ts";
+import { inspectRuntimeOwnedWindowsProviderHomeCandidate } from "../../src/provider/home-windows-adapter.ts";
+import { assertPresent } from "../support/contract-assertions.ts";
 
 const repositoryRoot = path.resolve(
   fileURLToPath(new URL("../../../..", import.meta.url)),

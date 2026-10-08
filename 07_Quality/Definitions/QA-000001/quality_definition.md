@@ -37,10 +37,10 @@ Quality ID: `QA-000001`
 
 | 詳細設計領域 | 受け取る成立条件 |
 |---|---|
-| [ai-runtime](../../../06_Architecture/Details/ai-runtime/01_Architecture.md) | 閉じたProfile Catalog、Owner別不変Snapshot、一意解決、四軸Availability、限定管理と拒否時Effect 0 |
+| [ai-runtime](../../../06_Architecture/Details/ai-adapter/01_Architecture.md) | 閉じたProfile Catalog、Owner別不変Snapshot、一意解決、四軸Availability、限定管理と拒否時Effect 0 |
 | [checker](../../../06_Architecture/Details/checker/01_Architecture.md) | 決定論的検査、必要図とRelationの機械確認、未確認の分離、意味判断の非所有 |
 | [contract-migration](../../../06_Architecture/Details/contract-migration/01_Architecture.md) | Producer、全Consumer、派生物、署名・Release経路の閉包 |
-| [crdd-domain-library](../../../06_Architecture/Details/crdd-domain-library/01_Architecture.md) | Capability別公開入口、禁止依存、Domain IssueとChecker Findingの分離、既知Consumerの閉包 |
+| [crdd-domain-library](../../../06_Architecture/Details/domain-model/02_Activity_Context.md) | Capability別公開入口、禁止依存、Domain IssueとChecker Findingの分離、既知Consumerの閉包 |
 | [version-control](../../../06_Architecture/Details/version-control/01_Architecture.md) | Repository境界、Revision、差し替え可能な履歴管理Adapter |
 
 ## 2. 情報源と網羅条件
@@ -103,7 +103,7 @@ v0.22のWorkbench AI Profile Catalogでは、`RCM-IT-005`により、永続Snaps
 
 ## 二Surface再編のProfile管理条件
 
-[AI Adapter](../../../06_Architecture/Details/ai-runtime/01_Architecture.md)と[MCP公開操作](../../../06_Architecture/Details/mcp/01_Architecture.md)から、次の条件を既存義務へ導く。新構成のSource・実境界確認は未実施であり、旧経路のPassを継承しない。
+[AI Adapter](../../../06_Architecture/Details/ai-adapter/01_Architecture.md)と[MCP公開操作](../../../06_Architecture/Details/mcp-server/01_Architecture.md)から、次の条件を既存義務へ導く。新構成のSource・実境界確認は未実施であり、旧経路のPassを継承しない。
 
 | Local Item | 入力・反証 | 観測・終了後条件 |
 |---|---|---|

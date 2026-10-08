@@ -16,8 +16,8 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { verifyRepositoryRoot } from "../../../version-control/src/repository-identity/index.ts";
-import { publishSemanticCoverageBundleWithHooks } from "../../src/infrastructure/filesystem-semantic-bundle-publisher.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import { publishSemanticCoverageBundleWithHooks } from "../../src/bundle/filesystem-publisher.ts";
 
 /**
  * Semantic Bundle公開前の失敗は既存Snapshotを置換しないを検証する。

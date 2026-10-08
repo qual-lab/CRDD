@@ -7,7 +7,7 @@
 import {
   resolveVerifiedRepositoryRoot,
   type VerifiedRepositoryRoot,
-} from "./repository-location.ts";
+} from "./repository/location.ts";
 
 export const LOCAL_CHANGE_SET_CONTRACT =
   "crdd-version-control/local-change-set/v1";

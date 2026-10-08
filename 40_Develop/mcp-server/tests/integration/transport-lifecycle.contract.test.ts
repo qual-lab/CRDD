@@ -16,9 +16,9 @@ import { PassThrough, Writable } from "node:stream";
 import test from "node:test";
 
 import {
-  runMcpProjectRuntimeStdio,
-  startMcpProjectRuntimeStreamableHttp,
-  type McpProjectRuntimeDependencies,
+  runMcpOrchestratorStdio,
+  startMcpOrchestratorStreamableHttp,
+  type McpOrchestratorDependencies,
 } from "../../src/index.ts";
 
 const TOKEN = "integration-boundary-token-0123456789abcdef";
@@ -36,8 +36,8 @@ const TOKEN = "integration-boundary-token-0123456789abcdef";
  * @boundary EST-IT-001=Direct Boundary: mcp Test Source→対象契約
  */
 function dependencies(
-  overrides: Partial<McpProjectRuntimeDependencies> = {},
-): McpProjectRuntimeDependencies {
+  overrides: Partial<McpOrchestratorDependencies> = {},
+): McpOrchestratorDependencies {
   return {
     authenticateClient: () => ({
       status: "verified",
@@ -93,7 +93,7 @@ test("stdio blockはparent EOFで進行要求を取消してjoin後に終了す�
   const started = new Promise<void>((resolve) => {
     markStarted = resolve;
   });
-  const running = runMcpProjectRuntimeStdio(
+  const running = runMcpOrchestratorStdio(
     dependencies({
       runObjective: async (_request, signal) =>
         new Promise((resolve) => {
@@ -113,9 +113,9 @@ test("stdio blockはparent EOFで進行要求を取消してjoin後に終了す�
           const cancel = () => {
             wasCancelled = true;
             resolve({
-              contract: "crdd-coordinator/project-runtime-objective-intake/v1",
+              contract: "crdd-coordinator/orchestrator-objective-intake/v1",
               status: "cancelled",
-              reason: "project_runtime_parent_lost",
+              reason: "orchestrator_parent_lost",
               requestId: "integration-request",
               projectId: "integration-project",
               milestoneId: "integration-milestone",
@@ -170,7 +170,7 @@ test("stdio blockはparent EOFで進行要求を取消してjoin後に終了す�
   const result = await running;
   assert.equal(wasCancelled, true);
   assert.equal(result.status, "completed");
-  assert.match(sink.read(), /project_runtime_parent_lost/u);
+  assert.match(sink.read(), /orchestrator_parent_lost/u);
 });
 
 /**
@@ -186,7 +186,7 @@ test("stdio blockはparent EOFで進行要求を取消してjoin後に終了す�
  * @boundary EST-IT-002=Direct Boundary: mcp Test Source→対象契約
  */
 test("HTTP blockはidle接続とlistenerをcloseで回収し、再接続を拒否する", async () => {
-  const server = await startMcpProjectRuntimeStreamableHttp(dependencies(), {
+  const server = await startMcpOrchestratorStreamableHttp(dependencies(), {
     port: 0,
     bearerToken: TOKEN,
   });

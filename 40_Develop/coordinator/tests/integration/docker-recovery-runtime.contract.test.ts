@@ -17,17 +17,17 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { describeCodexAdviceDistributionIdentity } from "../../../ai-adapter/src/codex/index.ts";
-import { collectDockerRecoveryAcknowledgementAfterProjectRecord } from "../../../orchestrator/src/task/docker-recovery-settlement.ts";
+import { describeCodexAdviceDistributionIdentity } from "../../../ai-adapter/src/index.ts";
+import { collectDockerRecoveryAcknowledgementAfterProjectRecord } from "../../../orchestrator/src/task/settle-docker-recovery.ts";
 import { renderDockerRecoveryDoctorReport } from "../../src/diagnostics/docker-recovery-command-report.ts";
 import {
   createDockerRestartContinuationRecord,
   createDockerRestartMigratedPhase,
   createDockerRestartMigrationRecord,
-} from "../../src/docker-desktop/docker-restart-continuation-record.ts";
-import { createDockerRestartHandoffRecord } from "../../src/docker-desktop/docker-restart-handoff-record.ts";
-import { createDockerRestartRecord } from "../../src/docker-desktop/docker-restart-record.ts";
-import * as DockerRecoveryRuntime from "../../src/docker-runtime/docker-recovery-runtime.ts";
+} from "../../src/docker-desktop/restart-continuation-record.ts";
+import { createDockerRestartHandoffRecord } from "../../src/docker-desktop/restart-handoff-record.ts";
+import { createDockerRestartRecord } from "../../src/docker-desktop/restart-record.ts";
+import * as DockerRecoveryRuntime from "../../src/docker-execution/recovery-lifecycle.ts";
 import {
   abandonRuntimeOwnedDockerRecovery,
   acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot,
@@ -54,8 +54,8 @@ import {
   selectPendingDockerSubmissionNamesFromInventory,
   verifyRuntimeOwnedDockerHomeLeaseRelease,
   verifyRuntimeOwnedDockerRestartPreparation,
-} from "../../src/docker-runtime/docker-recovery-runtime-internal.ts";
-import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "../../src/host-runtime/candidate-store-kernel-lock.ts";
+} from "../../src/docker-execution/recovery-lifecycle.ts";
+import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "../../src/host-execution/kernel-lock.ts";
 import {
   abandonOwnedHostOperationGenerationLock,
   acquireHostOperationRecoveryGenerationByIdentity,
@@ -67,11 +67,11 @@ import {
   recoverOwnedOperationDirectories,
   releaseHostOperationRecoveryGeneration,
   verifyOwnedOperationManagementCapability,
-} from "../../src/host-runtime/execution-environment.ts";
+} from "../../src/host-execution/operation-workspace-lifecycle.ts";
 import {
   loadHostRecoveryRecordByToken,
   parseHostRecoveryToken,
-} from "../../src/host-runtime/host-recovery-record.ts";
+} from "../../src/host-execution/recovery-record.ts";
 import {
   dockerRecoveryCommitName,
   inspectDockerRecoveryJournalDirectory,
@@ -537,7 +537,7 @@ test("Operation Directory生成primitiveはEffect前失敗とrollback確認済�
  */
 test("Operation初期化中のProcess消失は耐久Intentから自動回復または手動回復へ閉じる", () => {
   const moduleUrl = pathToFileURL(
-    path.resolve("src/host-runtime/execution-environment.ts"),
+    path.resolve("src/host-execution/operation-workspace-lifecycle.ts"),
   ).href;
   /**
    * runCrashのTest準備責務を実行する。
@@ -1378,7 +1378,7 @@ test("Desktop修復namespaceはTask残件を隠さず未知名と型置換を拒
 function productionPlan(operationId: string, stableHome: string) {
   return Object.freeze({
     provider: "claude" as const,
-    consumer: "project_runtime" as const,
+    consumer: "orchestrator" as const,
     operationId,
     grantRef: "PHMGRANT-123456",
     profileId: "PROFILE-123456",
@@ -1953,7 +1953,7 @@ function spawnLogicalHomeLockHolder(stableHome: string) {
   );
   const ready = path.join(readyDirectory, "ready");
   const lockUrl = pathToFileURL(
-    path.resolve("src/host-runtime/candidate-store-kernel-lock.ts"),
+    path.resolve("src/host-execution/kernel-lock.ts"),
   ).href;
   const source = `
     import fs from "node:fs";
@@ -2011,13 +2011,13 @@ function createKilledFullProductionRecoveryRoot(
   const handoff = path.join(parent, "handoff.json");
   fs.mkdirSync(root);
   const dockerRecoveryUrl = pathToFileURL(
-    path.resolve("src/docker-runtime/docker-recovery-runtime-internal.ts"),
+    path.resolve("src/docker-execution/recovery-lifecycle.ts"),
   ).href;
   const executionEnvironmentUrl = pathToFileURL(
-    path.resolve("src/host-runtime/execution-environment.ts"),
+    path.resolve("src/host-execution/operation-workspace-lifecycle.ts"),
   ).href;
   const hostRecoveryRecordUrl = pathToFileURL(
-    path.resolve("src/host-runtime/host-recovery-record.ts"),
+    path.resolve("src/host-execution/recovery-record.ts"),
   ).href;
   const source = `
     import fs from "node:fs";
@@ -2093,7 +2093,7 @@ function createKilledFullProductionRecoveryRoot(
         ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
         providerImageDigest: advice ? ${JSON.stringify(describeCodexAdviceDistributionIdentity().fixedImageDigest)} : "sha256:" + "a".repeat(64),
         proxyImageDigest: "sha256:" + "b".repeat(64),
-        consumer: advice ? "workbench" : "project_runtime",
+        consumer: advice ? "workbench" : "orchestrator",
         operationMode: advice ? "workbench_advice" : "isolated_task",
         workspaceMountMode: "read_write",
         ...(recoveryCorrelationId ? { recoveryCorrelationId } : {}),
@@ -2418,7 +2418,7 @@ function crashHostPrecleanupFinalizationInFreshProcess(
     | "host_cleanup_receipt_committed",
 ) {
   const moduleUrl = pathToFileURL(
-    path.resolve("src/docker-runtime/docker-recovery-runtime-internal.ts"),
+    path.resolve("src/docker-execution/recovery-lifecycle.ts"),
   ).href;
   const handoff = path.join(
     path.dirname(fixture.root),
@@ -3059,12 +3059,24 @@ test("Production Docker Recoveryは不完全なTask planをEffect前に拒否す
  */
 test("Production Docker Recoveryは不正Consumerを環境観測前に拒否する", async (t) => {
   let observations = 0;
+  /**
+   * 不正Consumer時の環境観測を例外で検出する。
+   *
+   * @responsibility 観測の呼出しがないことを回数と例外で確認する。
+   * @trace PRL-IT-013
+   * @precondition observationsを0にしHome／Runtime観測をこの関数へ差し替える。
+   * @stimulus 欠落、未知、非文字列のconsumerで本番開始を呼ぶ。
+   * @observation 開始のnull結果とobservationsを取得する。
+   * @oracle 全負例でobservationsは0となり観測例外は発生しない。
+   * @cleanup TestContextのModule差替えを復元する。外部資源は生成しない。
+   * @boundary 開始前の計画判定と環境観測未発行の境界。
+   */
   const observe = () => {
     observations += 1;
     throw new Error("unexpected_environment_observation");
   };
   const providerMock = t.mock.module(
-    "../../src/provider/provider-home-windows-adapter.ts",
+    "../../src/provider/home-windows-adapter.ts",
     {
       namedExports: {
         inspectRuntimeOwnedWindowsProviderHomeCandidate: observe,
@@ -3073,7 +3085,7 @@ test("Production Docker Recoveryは不正Consumerを環境観測前に拒否す�
     },
   );
   const stateMock = t.mock.module(
-    "../../src/candidate/candidate-store-windows-adapter.ts",
+    "../../src/platform-access/protected-root-windows-adapter.ts",
     {
       namedExports: {
         inspectRuntimeOwnedWindowsRuntimeState: observe,
@@ -3084,7 +3096,7 @@ test("Production Docker Recoveryは不正Consumerを環境観測前に拒否す�
   try {
     const runtime = await import(
       new URL(
-        "../../src/docker-runtime/docker-recovery-runtime-internal.ts?consumer-preflight",
+        "../../src/docker-execution/recovery-lifecycle.ts?consumer-preflight",
         import.meta.url,
       ).href
     );
@@ -3125,21 +3137,18 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
   );
   assert.deepEqual(packageJson.exports, {
     "./cli": "./bin/coordinator.ts",
-    "./host-runtime": "./src/host-runtime/index.ts",
+    ".": "./src/index.ts",
   });
-  const hostFacade = fs.readFileSync(
-    path.resolve("src/host-runtime/index.ts"),
-    "utf8",
-  );
+  const hostFacade = fs.readFileSync(path.resolve("src/index.ts"), "utf8");
   assert.equal(
     /docker-recovery|Acknowledgement|RecoveryCompletion/u.test(hostFacade),
     false,
   );
   const facade = fs.readFileSync(
-    path.resolve("src/docker-runtime/docker-recovery-runtime.ts"),
+    path.resolve("src/docker-execution/recovery-lifecycle.ts"),
     "utf8",
   );
-  assert.equal(/project-runtime|readProjectRuntimeState/u.test(facade), false);
+  assert.equal(/orchestrator|readOrchestratorState/u.test(facade), false);
   for (const symbol of [
     "beginRuntimeOwnedDockerRecoveryWithHostBeginObserver",
     "beginRuntimeOwnedDockerRecoveryWithPendingBaseObserver",
@@ -3179,11 +3188,11 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
   }
   assert.deepEqual(internalConsumers.sort(), [
     "../orchestrator/src/task/docker-recovery-settlement.ts",
-    "src/docker-desktop/docker-restart-runtime.ts",
-    "src/docker-runtime/docker-recovery-runtime.ts",
+    "src/docker-desktop/restart-recovery.ts",
+    "src/docker-execution/recovery-lifecycle.ts",
   ]);
   const composition = fs.readFileSync(
-    path.resolve("src/docker-desktop/docker-restart-runtime.ts"),
+    path.resolve("src/docker-desktop/restart-recovery.ts"),
     "utf8",
   );
   const imports = [
@@ -3213,7 +3222,7 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
     [
       "--input-type=module",
       "-e",
-      'await import("@qual-lab/crdd-coordinator/src/docker-runtime/docker-recovery-runtime-internal.ts")',
+      'await import("@qual-lab/crdd-coordinator/src/docker-execution/recovery-lifecycle.ts")',
     ],
     { cwd: path.resolve("."), encoding: "utf8", windowsHide: true },
   );

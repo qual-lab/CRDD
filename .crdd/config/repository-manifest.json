@@ -5,7 +5,7 @@
   "displayName": "CRDD",
   "repositoryRole": "crdd-standard",
   "capabilities": [
-    "project-runtime",
+    "orchestrator",
     "coordinator",
     "mcp",
     "execution-intelligence",

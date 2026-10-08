@@ -14,11 +14,9 @@ import path from "node:path";
 import test from "node:test";
 
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
-import {
-  parseRepositoryProjectContextMarkdown,
-  parseRepositoryQualityProjectionMarkdown,
-  parseRepositoryReleaseProjectionMarkdown,
-} from "../../src/project-context/index.ts";
+import { parseRepositoryProjectContextMarkdown } from "../../src/project-context/parse-context.ts";
+import { parseRepositoryQualityProjectionMarkdown } from "../../src/project-context/parse-quality.ts";
+import { parseRepositoryReleaseProjectionMarkdown } from "../../src/project-context/parse-release.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
   import.meta.dirname,

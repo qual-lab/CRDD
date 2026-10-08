@@ -14,14 +14,14 @@
     "types": ["node"]
   },
   "include": [
-    "./bin/crdd-check.ts",
+    "./bin/checker.ts",
     "./src/index.ts",
-    "./src/application/checker-command.ts",
+    "./src/profiles/current.ts",
     "./tests/integration/crdd-check.contract.test.ts",
     "./tests/integration/tools-naming.contract.test.ts",
     "./tests/integration/domain-outcome-adapter.contract.test.ts",
-    "./tests/unit/checker-core.contract.test.ts",
-    "./tests/unit/symbol-graph.contract.test.ts",
+    "./tests/unit/inspection/pipeline.contract.test.ts",
+    "./tests/unit/reality/symbol-graph.contract.test.ts",
     "./tests/support/test-discovery.ts",
     "./tests/support/fault-injector.ts",
     "./tests/test-runner.ts",

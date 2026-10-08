@@ -200,7 +200,7 @@ Record PortとQueryはTypeScript APIとして同じ契約を公開し、CLI、MC
 
 | 種別 | 必須Identity | 対象 |
 |---|---|---|
-| `task_attempt_settled` | Project／Milestone／Objective／Task／Attempt／Operation | Project RuntimeのTask試行 |
+| `task_attempt_settled` | Project／Milestone／Objective／Task／Attempt／Operation | OrchestratorのTask試行 |
 | `operation_settled` | Project／Operation／Execution | 生成・評価・画像・補正等の一般Operation。Taskを捏造しない |
 
 共通の役割、Provider、Model、所要時間、使用量、実行結果、品質観測に、Profile ID／Revision、推論量、個別上書き有無、親Executionと安全化した診断の観測状態を接続する。補正やModel変更は新しいExecutionとして記録し、旧Eventを改変しない。Profile指定と実際のModel観測は別の根拠であり、設定値から実績を補完しない。
@@ -214,7 +214,7 @@ Record PortとQueryはTypeScript APIとして同じ契約を公開し、CLI、MC
 | 契約 | Owner／Writer | Reader／試験 | 所有しないもの |
 |---|---|---|---|
 | 共通Eventと閉じた観測 | Execution Intelligence。利用側Adapterが実測値から構成する | 公開Recorder、Store、集計、閉Schema・欠測・不正値試験 | Provider実行、承認、認証、課金、品質採用 |
-| Task試行 | Project Runtime／Coordinator Adapter | Task専用Projection・統合評価・Workbench Activity | 一般Operationに架空Taskを付与すること |
+| Task試行 | Orchestrator／Coordinator Adapter | Task専用Projection・統合評価・Workbench Activity | 一般Operationに架空Taskを付与すること |
 | 一般Operation | 採用RuntimeのAdapterと`recordOperation` | 公開Reader・集計・保存往復試験 | Communicationへの接続済み・実Provider検証済みの主張 |
 | 履歴保存 | Storeの単一履歴排他 | 不変内容、競合、途中故障、Reader Effect 0の試験 | Taskキュー、実行Authority、回復状態DB |
 

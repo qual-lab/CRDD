@@ -7,7 +7,7 @@
  */
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { assertSupportedCoordinatorNodeRuntime } from "../src/host-runtime/node-runtime-version.ts";
+import { assertSupportedCoordinatorNodeRuntime } from "../src/host-execution/node-runtime-version.ts";
 import {
   isCanonicalCrddUtcTimestamp,
   isCanonicalCrddVersion,

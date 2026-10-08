@@ -14,8 +14,8 @@ import {
   createIsolatedDevelopmentProviderMeasurementCandidate,
   projectDevelopmentMeasurementEntryFailure,
 } from "../../scripts/measure-development-providers.ts";
-import { RepositoryRuntimeDataAreaBlockedError } from "../../../domain-model/src/repository/index.ts";
-import { snapshotCoordinatorTaskRequest } from "../../src/task/coordinator-task-request.ts";
+import { RepositoryRuntimeDataAreaBlockedError } from "../../../domain-model/src/index.ts";
+import { snapshotCoordinatorTaskRequest } from "../../src/task/request.ts";
 
 type Dependencies = Parameters<
   typeof createIsolatedDevelopmentProviderMeasurementCandidate

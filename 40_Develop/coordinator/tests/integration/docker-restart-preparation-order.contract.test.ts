@@ -14,24 +14,21 @@ import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { createDockerRestartHandoffRecord } from "../../src/docker-desktop/docker-restart-handoff-record.ts";
+import { createDockerRestartHandoffRecord } from "../../src/docker-desktop/restart-handoff-record.ts";
 import {
   createDockerRestartMigrationRecord,
   resolveDockerRestartHistory,
-} from "../../src/docker-desktop/docker-restart-continuation-record.ts";
+} from "../../src/docker-desktop/restart-continuation-record.ts";
 import {
   createDockerRestartRecord,
   parseDockerRestartRecord,
   validateDockerRestartRecordChain,
-} from "../../src/docker-desktop/docker-restart-record.ts";
+} from "../../src/docker-desktop/restart-record.ts";
 
 // Execute the production preparation body with observed read/write seams. This
 // does not substitute for signed Windows integration or confer capabilities.
 const source = fs.readFileSync(
-  new URL(
-    "../../src/docker-runtime/docker-recovery-runtime-internal.ts",
-    import.meta.url,
-  ),
+  new URL("../../src/docker-execution/recovery-lifecycle.ts", import.meta.url),
   "utf8",
 );
 const start = source.indexOf(

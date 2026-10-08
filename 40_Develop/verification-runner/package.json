@@ -13,8 +13,8 @@
     "lint": "biome lint . --error-on-warnings",
     "test": "npm run check && npm run test:run",
     "test:run": "node --test ./tests/**/*.test.ts",
-    "test:plan": "node ./bin/regression-runner.ts --base main --plan",
-    "test:regression": "node ./bin/regression-runner.ts --base main",
+    "test:plan": "node ./bin/verification-runner.ts --base main --plan",
+    "test:regression": "node ./bin/verification-runner.ts --base main",
     "typecheck": "tsc -p ./tsconfig.json"
   },
   "engines": {

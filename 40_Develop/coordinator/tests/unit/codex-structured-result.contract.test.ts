@@ -14,7 +14,7 @@ import test from "node:test";
 import {
   describeCodexStructuredResultContract,
   normalizeCodexStructuredResult,
-} from "../../../ai-adapter/src/codex/index.ts";
+} from "../../../ai-adapter/src/index.ts";
 
 /**
  * Codexの単一exact Resultだけを正規化するを検証する。

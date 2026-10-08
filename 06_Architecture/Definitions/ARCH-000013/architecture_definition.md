@@ -20,7 +20,7 @@ CROSは複数Repository横断の能力領域であり、第三の公開Serverで
 
 共有Linux Host等はWorkbench Server／MCP Server／CROS能力／Repository群の配置形態として扱う。CROS REST、Gateway、Shared Server専用Lifecycleを独立Runtimeとして残さないが、Credential回復・操作一覧・非開示・Origin・TLS・終了保証を撤去に巻き込まない。Repository単体利用へCROS設定を必須化しない。Remote設定とCredential管理はツール単位で分離し、秘密値をRepository投影へ含めない。
 
-2026-10-07の人間判断により、単体／CROSは起動時に明示選択し、設定の存在から自動切替しない。単体は検証済み起動Repository一つ、CROSは現在許可されたRepository集合を扱う。Repository対象操作の入力形式は両形態でそろえ、対象IDからAuthorityを生成しない。Credential発行・ローテーションは今回Hostまたは同一Process Workbenchへ限定し、Remote MCPは非秘密の一覧・Grant変更・失効を提供する。初期管理CredentialはCROSの明示構築時に発行し、内容Grantを自動付与しない。詳細な入力・結果・起動条件は[CROS詳細](../../Details/cros/01_Architecture.md#61-再編後の共通能力と公開入口)と[MCP詳細](../../Details/mcp/01_Architecture.md#単体crosの明示選択とrepository一覧)を正本とする。
+2026-10-07の人間判断により、単体／CROSは起動時に明示選択し、設定の存在から自動切替しない。単体は検証済み起動Repository一つ、CROSは現在許可されたRepository集合を扱う。Repository対象操作の入力形式は両形態でそろえ、対象IDからAuthorityを生成しない。Credential発行・ローテーションは今回Hostまたは同一Process Workbenchへ限定し、Remote MCPは非秘密の一覧・Grant変更・失効を提供する。初期管理CredentialはCROSの明示構築時に発行し、内容Grantを自動付与しない。詳細な入力・結果・起動条件は[CROS詳細](../../Details/cros/01_Architecture.md#61-再編後の共通能力と公開入口)と[MCP詳細](../../Details/mcp-server/01_Architecture.md#単体crosの明示選択とrepository一覧)を正本とする。
 
 ## 2. UI観点の入力
 
@@ -118,7 +118,7 @@ Detailは第2・3節のDefinition入力を置き換えず、その意味を実�
 - 実装はCredential Metadata・Digest・Role Grant・失効・Recovery Identityを所有するCoreと、Secret表示、Server Host Authority、Repository Exposureおよび外部入口を扱うPort／Adapterを分ける。
 - 接続→認証→Grant確定→Exposure照合→Repository解決→切断時失効を段階的な結合試験で確認する。
 - 接続成功からの過剰Grant、Repo名・Pathの漏洩、stale Exposure、管理者への暗黙Content Accessを理由別に反証する。
-- Project Task Recoveryは非該当。Session切断後のTaskはProject Runtimeの再取得契約へ渡す。
+- Project Task Recoveryは非該当。Session切断後のTaskはOrchestratorの再取得契約へ渡す。
 
 ## 11. 情報源と現行照合
 

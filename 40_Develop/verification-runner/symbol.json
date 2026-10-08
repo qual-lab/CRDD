@@ -32,7 +32,7 @@
     {
       "symbolId": "verification-runner.test.unit.test-catalog",
       "kind": "test-suite",
-      "path": "tests/unit/test-catalog.contract.test.ts",
+      "path": "tests/unit/catalog/inspect.contract.test.ts",
       "qaIds": [
         "QA-000002"
       ],
@@ -65,7 +65,7 @@
     {
       "symbolId": "verification-runner.source.src.execution.regression.execution",
       "kind": "file",
-      "path": "src/execution/regression-execution.ts",
+      "path": "src/regression/stages.ts",
       "archIds": [
         "ARCH-000003"
       ]
@@ -73,7 +73,7 @@
     {
       "symbolId": "verification-runner.source.src.catalog.test.catalog",
       "kind": "file",
-      "path": "src/catalog/test-catalog.ts",
+      "path": "src/catalog/inspect.ts",
       "archIds": [
         "ARCH-000003"
       ]

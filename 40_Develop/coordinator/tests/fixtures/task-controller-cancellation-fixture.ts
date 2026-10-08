@@ -1,10 +1,22 @@
+/**
+ * Task Controller取消のProcess構成を試験へ提供する。
+ *
+ * @packageDocumentation
+ * @responsibility 自己生成Process Treeの開始・完了・取消をTask Controllerへ接続する。
+ * @trace ERB-IT-001
+ * @trace ERB-IT-002
+ * @trace ERB-IT-003
+ * @level IT
+ * @scope Task Controllerと所有Process
+ * @boundary Task Controller→自己生成Process Tree。実ProviderやDocker Daemonを利用するFixtureではない。
+ */
 import assert from "node:assert/strict";
 import {
-  projectRuntimeOwnedDockerProcessCompletionForTask,
-  projectRuntimeOwnedDockerProcessStartForTask,
-} from "../../src/task/coordinator-task-runtime.ts";
-import { createIsolatedDockerProcessControllerCandidate } from "../../src/docker-runtime/docker-process-controller.ts";
-import type { OwnedCommandHandle } from "../../src/docker-runtime/docker-owned-process.ts";
+  orchestratorOwnedDockerProcessCompletionForTask,
+  orchestratorOwnedDockerProcessStartForTask,
+} from "../../src/task/execution.ts";
+import { createIsolatedDockerProcessControllerCandidate } from "../../src/docker-execution/process-controller.ts";
+import type { OwnedCommandHandle } from "../../src/docker-execution/owned-process.ts";
 import { createOwnedProcessTreeFixture } from "./docker-owned-process-test-support.ts";
 
 // Only Node descendants are real. Docker, authentication and durable recovery
@@ -36,7 +48,7 @@ export function createTaskControllerCancellationFixture(
   ];
   const plan = Object.freeze({
     provider: "claude" as const,
-    consumer: "project_runtime" as const,
+    consumer: "orchestrator" as const,
     operationId,
     grantRef: "PHMGRANT-123456",
     profileId: "PROFILE-200001",
@@ -206,7 +218,7 @@ export function createTaskControllerCancellationFixture(
         registerHandoff,
         restriction,
       );
-      const projected = projectRuntimeOwnedDockerProcessStartForTask(
+      const projected = orchestratorOwnedDockerProcessStartForTask(
         raw,
         recoveryId,
         operationId,
@@ -219,7 +231,7 @@ export function createTaskControllerCancellationFixture(
       return {
         ...projected,
         completion: projected.completion.then((result: unknown) => {
-          const completion = projectRuntimeOwnedDockerProcessCompletionForTask(
+          const completion = orchestratorOwnedDockerProcessCompletionForTask(
             result,
             recoveryId,
             operationId,

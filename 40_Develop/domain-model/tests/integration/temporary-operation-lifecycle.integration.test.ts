@@ -18,18 +18,16 @@ import test, { mock, type TestContext } from "node:test";
 
 import {
   createTemporaryOperation,
-  ensureRepositoryRuntimeDataArea,
   resumeTemporaryOperation,
   settleTemporaryOperation,
-  type TemporaryOperationRecoveryReference,
   verifyTemporaryOperationEvidencePromotion,
-} from "../../src/storage/index.ts";
-import {
-  requireReadyRepositoryRuntimeDataArea,
-  resolveRepositoryRuntimeDataPaths,
-} from "../../src/repository/index.ts";
+} from "../../src/storage/temporary-operation.ts";
+import { ensureRepositoryRuntimeDataArea } from "../../src/storage/ensure-area.ts";
+import type { TemporaryOperationRecoveryReference } from "../../src/storage/types.ts";
+import { requireReadyRepositoryRuntimeDataArea } from "../../src/repository/require-storage-area.ts";
+import { resolveRepositoryRuntimeDataPaths } from "../../src/repository/resolve-storage-paths.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
-import { settleTemporaryOperationWithRemovalForVerification } from "../../src/storage/temporary-operation-store.ts";
+import { settleTemporaryOperationWithRemovalForVerification } from "../../src/storage/temporary-operation.ts";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 

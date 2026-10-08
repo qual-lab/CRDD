@@ -41,8 +41,8 @@ import {
 import {
   describeCoordinatorNodeRuntimeVersionContract,
   MINIMUM_COORDINATOR_NODE_VERSION,
-} from "../../src/host-runtime/node-runtime-version.ts";
-import { isRuntimeProcessPoisoned } from "../../src/host-runtime/runtime-process-safety-state.ts";
+} from "../../src/host-execution/node-runtime-version.ts";
+import { isRuntimeProcessPoisoned } from "../../src/host-execution/process-safety-state.ts";
 import {
   createInteractiveConsoleReaderEnvironment,
   createWindowsDockerCliEnvironment,
@@ -55,8 +55,8 @@ import {
   describeWindowsChildEnvironmentContract,
   WINDOWS_CHILD_ENVIRONMENT_CONTRACT,
   WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
-} from "../../src/host-runtime/windows-child-environment.ts";
-import { acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome } from "../../src/host-runtime/candidate-store-kernel-lock.ts";
+} from "../../src/host-execution/windows-child-environment.ts";
+import { acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome } from "../../src/host-execution/kernel-lock.ts";
 import { readInteractiveConsoleLineOutcomeUsingAdapter } from "../support/interactive-console-child-harness.ts";
 
 const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
@@ -2554,7 +2554,7 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
   const developmentE2e = packageDocument.scripts?.["development-e2e:verify"];
   assert.equal(
     developmentE2e,
-    "node --test --test-concurrency=1 ./tests/system/coordinator-launch.contract.test.ts ./tests/system/verification-result-record.contract.test.ts ./tests/system/interaction-boundary-regression.contract.test.ts ./tests/integration/claude-execution-plan.contract.test.ts ./tests/unit/claude-docker-runtime-adapter.contract.test.ts ./tests/unit/claude-subscription-authentication.contract.test.ts ./tests/integration/claude-subscription-authentication-recovery.integration.test.ts ./tests/integration/codex-execution-plan.contract.test.ts ./tests/unit/codex-docker-runtime-adapter.contract.test.ts ./tests/integration/coordinator-task-runtime.contract.test.ts ./tests/integration/coordinator-task-process.integration.test.ts ./tests/system/signed-general-task-verification.contract.test.ts ./tests/system/signed-reviewer-boundary-verification.contract.test.ts ./tests/system/signed-route-matrix-verification.contract.test.ts ./tests/system/signed-recovery-matrix-verification.contract.test.ts",
+    "node --test --test-concurrency=1 ./tests/system/coordinator-launch.contract.test.ts ./tests/system/verification-result-record.contract.test.ts ./tests/system/interaction-boundary-regression.contract.test.ts ./tests/integration/claude-execution-plan.contract.test.ts ./tests/unit/provider/claude-docker-adapter.contract.test.ts ./tests/unit/claude-subscription-authentication.contract.test.ts ./tests/integration/claude-subscription-authentication-recovery.integration.test.ts ./tests/integration/codex-execution-plan.contract.test.ts ./tests/unit/provider/codex-docker-adapter.contract.test.ts ./tests/integration/coordinator-task-runtime.contract.test.ts ./tests/integration/coordinator-task-process.integration.test.ts ./tests/system/signed-general-task-verification.contract.test.ts ./tests/system/signed-reviewer-boundary-verification.contract.test.ts ./tests/system/signed-route-matrix-verification.contract.test.ts ./tests/system/signed-recovery-matrix-verification.contract.test.ts",
   );
   assert.equal(
     /sign-release|release-key|passphrase/u.test(developmentE2e),
@@ -2587,30 +2587,30 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
   assert.deepEqual(
     productionChildProcessOwners,
     [
-      "src/cli/interactive-console-reader-lifecycle-internal.ts",
+      "src/cli/interactive-console-reader-lifecycle.ts",
       "src/cli/interactive-console.ts",
-      "src/host-runtime/runtime-local-typescript-child-entrypoints.ts",
-      "src/host-runtime/candidate-store-kernel-lock-lifecycle-internal.ts",
-      "src/host-runtime/candidate-store-kernel-lock.ts",
-      "src/candidate/candidate-store-windows-adapter.ts",
+      "src/host-execution/typescript-child-entrypoints.ts",
+      "src/host-execution/kernel-lock-lifecycle.ts",
+      "src/host-execution/kernel-lock.ts",
+      "src/platform-access/protected-root-windows-adapter.ts",
       // Human-only Claude authentication owns one exact interactive Docker child.
       // Repository input and shell transport remain forbidden by its contract test.
       "src/provider/claude-subscription-authentication.ts",
-      "src/docker-runtime/docker-cli-trust.ts",
-      "src/docker-desktop/docker-desktop-repair-native-process-lifecycle.ts",
-      "src/docker-desktop/docker-desktop-repair-native-process.ts",
-      "src/docker-desktop/docker-desktop-runtime-repair.ts",
-      "src/docker-runtime/docker-isolation.ts",
-      "src/docker-runtime/docker-owned-process.ts",
-      "src/docker-runtime/docker-recovery-runtime-internal.ts",
+      "src/docker-execution/cli-trust.ts",
+      "src/docker-desktop/repair-native-process-lifecycle.ts",
+      "src/docker-desktop/repair-native-process.ts",
+      "src/docker-desktop/repair.ts",
+      "src/docker-execution/isolation-probe.ts",
+      "src/docker-execution/owned-process.ts",
+      "src/docker-execution/recovery-lifecycle.ts",
       // queryWsl: fixed OS enumeration only; no WSL termination spawn.
       // queryDockerEngine/queryContainersAbsent: trusted fixed CLI observations only.
       // Their argument/provenance closure is owned by the protected-path graph.
-      "src/docker-desktop/docker-restart-machine.ts",
-      "src/host-runtime/host-recovery-namespace-windows-adapter.ts",
-      "src/host-runtime/host-terminal-windows-adapter.ts",
-      "src/provider/provider-home-windows-adapter.ts",
-      "src/host-runtime/windows-directory-bootstrap.ts",
+      "src/docker-desktop/restart-machine.ts",
+      "src/host-execution/recovery-namespace-windows-adapter.ts",
+      "src/host-execution/terminal-windows-adapter.ts",
+      "src/provider/home-windows-adapter.ts",
+      "src/host-execution/windows-directory-bootstrap.ts",
     ].sort(),
   );
 
@@ -2689,7 +2689,7 @@ test("非同期の対話・正式Runner entrypointはtop-levelでmain完了を�
 test("保護操作は別名でも裸Runtimeのpackage aliasへ公開しない", () => {
   const protectedEntrypoints = [
     "bin/coordinator.ts",
-    "src/cli/coordinator-command.ts",
+    "src/cli/command.ts",
     "scripts/generate-release-key.ts",
     "scripts/sign-release-manifest.ts",
     "scripts/verify-signed-general-task.ts",
@@ -2771,7 +2771,7 @@ test("Node版GateはPATHをAuthorityにせずEffect前に停止する", () => {
   });
 
   const guardedEntrypoints = [
-    "src/cli/coordinator-command.ts",
+    "src/cli/command.ts",
     "scripts/generate-release-key.ts",
     "scripts/sign-release-manifest.ts",
     "scripts/verify-signed-general-task.ts",

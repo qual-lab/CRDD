@@ -16,13 +16,13 @@ import {
   describeClaudeExecutionPlanContract,
   describeClaudeSubscriptionAuthenticationCli,
   isClaudeSubscriptionAuthenticationConfirmed,
-} from "../../../ai-adapter/src/claude/index.ts";
-import { acquireRuntimeOwnedLogicalProviderHomeKernelLock } from "../host-runtime/candidate-store-kernel-lock.ts";
+} from "../../../ai-adapter/src/index.ts";
+import { acquireRuntimeOwnedLogicalProviderHomeKernelLock } from "../host-execution/kernel-lock.ts";
 import {
   observeTrustedDockerCli,
   verifyTrustedDockerCliSnapshot,
-} from "../docker-runtime/docker-cli-trust.ts";
-import { createDockerProcessEnvironment } from "../docker-runtime/docker-owned-process.ts";
+} from "../docker-execution/cli-trust.ts";
+import { createDockerProcessEnvironment } from "../docker-execution/owned-process.ts";
 import { describeEgressProxyTopology } from "../external-send/egress-proxy-policy.ts";
 
 export const CLAUDE_SUBSCRIPTION_AUTHENTICATION_CONTRACT =

@@ -12,11 +12,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  applyProjectOperationCandidateDecision,
-  type ProjectOperationCandidate,
-  type ProjectOperationCandidateDecision,
-} from "../../src/project-context/index.ts";
+import { applyProjectOperationCandidateDecision } from "../../src/project-context/source-projection.ts";
+import type {
+  ProjectOperationCandidate,
+  ProjectOperationCandidateDecision,
+} from "../../src/project-context/types.ts";
 
 /**
  * 候補採否試験用の候補を構築する。

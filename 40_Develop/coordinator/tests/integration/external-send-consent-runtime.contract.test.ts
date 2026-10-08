@@ -20,9 +20,9 @@ import {
   createIsolatedExternalSendConsentRuntimeCandidate,
   describeExternalSendConsentRuntimeContract,
   EXTERNAL_SEND_ACTIVE_CONSENT_PREFIX,
-} from "../../src/external-send/external-send-consent-runtime.ts";
+} from "../../src/external-send/consent-store.ts";
 import { dockerRecoveryCommitName } from "../../src/state-storage/docker-recovery-journal.ts";
-import type { ExternalSendPolicy } from "../../src/external-send/external-send-policy-runtime.ts";
+import type { ExternalSendPolicy } from "../../src/external-send/policy.ts";
 
 /**
  * policyのTest準備責務を実行する。

@@ -13,9 +13,9 @@ import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import test from "node:test";
-import { describeDockerDesktopCurrentArtifactTrustContract } from "../../src/docker-desktop/docker-desktop-current-artifact-trust.ts";
-import { describeDockerDesktopRepairNativeHelperContract } from "../../src/docker-desktop/docker-desktop-repair-native-process.ts";
-import { createDockerDesktopRepairNativeHelperLifecycle } from "../../src/docker-desktop/docker-desktop-repair-native-process-lifecycle.ts";
+import { describeDockerDesktopCurrentArtifactTrustContract } from "../../src/docker-desktop/current-artifact-trust.ts";
+import { describeDockerDesktopRepairNativeHelperContract } from "../../src/docker-desktop/repair-native-process.ts";
+import { createDockerDesktopRepairNativeHelperLifecycle } from "../../src/docker-desktop/repair-native-process-lifecycle.ts";
 
 for (const status of ["N", "T", "P", "X"] as const) {
   /**
@@ -297,7 +297,7 @@ test("Native終了待機はCoordinatorの応答期限より短い全体期限へ
   );
   const lifecycleSource = fs.readFileSync(
     new URL(
-      "../../src/docker-desktop/docker-desktop-repair-native-process-lifecycle.ts",
+      "../../src/docker-desktop/repair-native-process-lifecycle.ts",
       import.meta.url,
     ),
     "utf8",
@@ -339,7 +339,7 @@ test("現在の障害修復と再起動はDocker更新を許容し操作中の�
   assert.equal(contract.sameIdentityAndHashRequiredWithinOperation, true);
   const adapter = fs.readFileSync(
     new URL(
-      "../../src/docker-desktop/docker-desktop-repair-native-process.ts",
+      "../../src/docker-desktop/repair-native-process.ts",
       import.meta.url,
     ),
     "utf8",

@@ -107,7 +107,7 @@
 ```text
 目的と受入条件を示す
           ↓
-Project Runtimeがタスクへ分解・実行
+Orchestratorがタスクへ分解・実行
           ↓
 部分結果を統合し、品質を確認
           ↓

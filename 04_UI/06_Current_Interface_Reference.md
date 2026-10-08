@@ -11,15 +11,15 @@
 |---|---|---|---|---|---|---|---|---|
 | 論理画面／領域構成図 | CROS Workbench | Project概要、Source Coverage、操作領域の配置 | 既存参照 | [UI Detail](Details/01_UI_Detail.md)と[Workbench Screen Architecture](Details/02_Workbench_Screen_Architecture.md) | v0.22 Candidate | 15画面を実装・実Browser観測済み | 人間UATとAI関連2画面の実Provider成立 | UATまたはScreen Contract変更時に再評価する |
 | 画面／操作Flow | Agent Handoff | 対話、構築、判断待ち、再開の操作順序 | 作成不能 | [Agent Handoffの表示](#91-agent-handoffの表示)は判断待ちの単一表示例であり、操作順序のFlowではない | v0.22 Candidate | 未作成 | 対話から構築、判断待ち、再開までの操作遷移 | Group BのUIで作成し、SPECと共同確認する |
-| 表示状態／Variant図 | Project Runtime結果 | 完了、停止、回復、判断待ちの表示差 | 作成不能 | [Project Runtimeの状態表示](#8-project-runtimeの状態表示)は表示原則であり、状態Variantの対応図ではない | v0.22 Candidate | 未作成 | 状態ごとの表示差、優先度、操作可能性 | Group BのUIで作成する |
-| 主要Component関係図 | CROS Workbench | 表示Componentと責務境界の関係 | 既存参照 | [Workbench Screen Architecture](Details/02_Workbench_Screen_Architecture.md)、[Workbench Architecture](../06_Architecture/Details/workbench/01_Architecture.md)および[Workbench視覚基準](Details/Visual/workbench-hero/visual-baseline.md) | v0.22 Candidate | Browser ReactとNode Authorityを分離済み | 人間UATと実Provider境界 | 責務境界または画面構成変更時に再評価する |
+| 表示状態／Variant図 | Orchestrator結果 | 完了、停止、回復、判断待ちの表示差 | 作成不能 | [Orchestratorの状態表示](#8-orchestratorの状態表示)は表示原則であり、状態Variantの対応図ではない | v0.22 Candidate | 未作成 | 状態ごとの表示差、優先度、操作可能性 | Group BのUIで作成する |
+| 主要Component関係図 | CROS Workbench | 表示Componentと責務境界の関係 | 既存参照 | [Workbench Screen Architecture](Details/02_Workbench_Screen_Architecture.md)、[Workbench Architecture](../06_Architecture/Details/workbench-server/01_Architecture.md)および[Workbench視覚基準](Details/Visual/workbench-hero/visual-baseline.md) | v0.22 Candidate | Browser ReactとNode Authorityを分離済み | 人間UATと実Provider境界 | 責務境界または画面構成変更時に再評価する |
 | UI／SPEC対応図 | 現行Tool操作 | 表示・入力と振る舞い契約の対応 | 既存参照 | [Workbench UI／SPEC Detail対応](../05_SPEC/Details/02_UI_SPEC_Detail_Correspondence.md)。本書の[概観](#6-uiと振る舞い仕様の対応)は補助投影 | v0.22 Candidate | Workbench実装とHTTP／Browser試験へ接続済み | AI関連2画面の実Provider E2E | 対応またはBehavior変更時に共同レビューする |
 
 ## 1. 対象と読み方
 
-[利用体験](../02_UX/01_User_Experience.md)と[情報構造](../03_IA/01_Information_Architecture.md)から、現行のコマンドライン（CLI）とMCP投影に必要な入力・認識・フィードバック・回復を整理する。§8「Project Runtimeの状態表示」はv0.19.0の公開契約を扱う。§9はv0.22のProject Operationと最小CROS Workbenchが満たす表示契約を扱う。固定GUI Framework、装飾またはWorkbench固有の業務ロジックを設計した文書ではない。
+[利用体験](../02_UX/01_User_Experience.md)と[情報構造](../03_IA/01_Information_Architecture.md)から、現行のコマンドライン（CLI）とMCP投影に必要な入力・認識・フィードバック・回復を整理する。§8「Orchestratorの状態表示」はv0.19.0の公開契約を扱う。§9はv0.22のProject Operationと最小CROS Workbenchが満たす表示契約を扱う。固定GUI Framework、装飾またはWorkbench固有の業務ロジックを設計した文書ではない。
 
-以下の「現行」は[公開Coordinator入口](../template/tools/crdd-coordinator.ts)、[公開MCP入口](../template/tools/crdd-mcp.ts)、[公開CLI](../40_Develop/coordinator/bin/coordinator.ts)、[結果表示](../40_Develop/coordinator/src/cli/command-report.ts)、[対話入力](../40_Develop/coordinator/src/cli/interactive-console.ts)、[配布Checker](../template/tools/crdd-check.ts)のソースを照合した内容である。実端末で見た結果、UX成立、人間の採用とは区別する。「要求」は既存の人間判断・上位設計から求める状態、「既知差」は今回未解消の差を示す。
+以下の「現行」は[公開Coordinator入口](../template/tools/crdd-coordinator.ts)、[公開MCP入口](../template/tools/crdd-mcp-server.ts)、[公開CLI](../40_Develop/coordinator/bin/coordinator.ts)、[結果表示](../40_Develop/coordinator/src/cli/command-report.ts)、[対話入力](../40_Develop/coordinator/src/cli/interactive-console.ts)、[配布Checker](../template/tools/crdd-check.ts)のソースを照合した内容である。実端末で見た結果、UX成立、人間の採用とは区別する。「要求」は既存の人間判断・上位設計から求める状態、「既知差」は今回未解消の差を示す。
 
 ## 2. 操作接点と表示構造
 
@@ -99,10 +99,10 @@ Process再起動の必要性: あり
 | 操作単位 | UIが所有する確認 | SPECが所有する条件・結果 | 実装・試験の接続 |
 |---|---|---|---|
 | 診断・導入判断 | 通常利用可能と構文候補を識別 | [診断・回復](../05_SPEC/07_Current_Behavior_Reference.md#診断回復の公開境界) | [公開CLI](../40_Develop/coordinator/bin/coordinator.ts)、[診断試験](../40_Develop/coordinator/tests/unit/doctor.contract.test.ts) |
-| 初回同意・再利用・失効 | 対象、期限、変更点、入力要否が分かる | [公開Task](../05_SPEC/07_Current_Behavior_Reference.md#公開taskの入力結果取消) | [同意Runtime](../40_Develop/coordinator/src/external-send/external-send-consent-runtime.ts)、[同意試験](../40_Develop/coordinator/tests/integration/external-send-consent-runtime.contract.test.ts) |
+| 初回同意・再利用・失効 | 対象、期限、変更点、入力要否が分かる | [公開Task](../05_SPEC/07_Current_Behavior_Reference.md#公開taskの入力結果取消) | [同意Runtime](../40_Develop/coordinator/src/external-send/consent-store.ts)、[同意試験](../40_Develop/coordinator/tests/integration/external-send-consent-runtime.contract.test.ts) |
 | Task入力・選定・待機 | 不正入力と処理中を分離、担当と理由 | [公開Task](../05_SPEC/07_Current_Behavior_Reference.md#公開taskの入力結果取消) | [公開CLI](../40_Develop/coordinator/bin/coordinator.ts)、[引数試験](../40_Develop/coordinator/tests/integration/cli-options.contract.test.ts) |
 | 候補の公開・export・discard | 候補ID、期限、未採用、次操作 | [利用者接点の境界](../05_SPEC/07_Current_Behavior_Reference.md#user-interface-contract) | [候補Store試験](../40_Develop/coordinator/tests/integration/candidate-bundle-store.contract.test.ts)、[表示試験](../40_Develop/coordinator/tests/unit/command-report.contract.test.ts) |
-| 取消・遅延終了 | 要求と完了を区別し最終結果まで待つ | [公開Task](../05_SPEC/07_Current_Behavior_Reference.md#公開taskの入力結果取消) | [取消接続](../40_Develop/coordinator/src/cli/task-cli-cancellation.ts)、[取消試験](../40_Develop/coordinator/tests/integration/task-cli-cancellation.contract.test.ts) |
+| 取消・遅延終了 | 要求と完了を区別し最終結果まで待つ | [公開Task](../05_SPEC/07_Current_Behavior_Reference.md#公開taskの入力結果取消) | [取消接続](../40_Develop/coordinator/src/cli/task-cancellation.ts)、[取消試験](../40_Develop/coordinator/tests/integration/task-cli-cancellation.contract.test.ts) |
 | 回復・Process再起動 | 複数ID、IDなし不明、再起動を欠落させない | [利用者接点の境界](../05_SPEC/07_Current_Behavior_Reference.md#user-interface-contract) | [結果表示](../40_Develop/coordinator/src/cli/command-report.ts)、[回復CLI結合試験](../40_Develop/coordinator/tests/system/coordinator-docker-recovery-cli.integration.test.ts) |
 | Checker実行 | 指摘・範囲・未確認を読み分ける。引数エラーでは手順へ戻る | [Checker契約](../05_SPEC/07_Current_Behavior_Reference.md#checker-contract) | [配布本体](../template/tools/crdd-check.ts)、[契約試験](../40_Develop/checker/tests/integration/crdd-check.contract.test.ts)、[操作手順](../19_Workflows/02_Checker.md) |
 | Windows内部部品の結果 | binary応答ではなく、上位の診断・回収・再起動表示として影響を理解する | [内部部品契約](../05_SPEC/07_Current_Behavior_Reference.md#platform-access-contract) | [nativeとAdapterの分担・試験](../06_Architecture/Details/platform-access/01_Architecture.md#6-呼出し元との分担)。部品単体の成功を利用者のTask完了にしない |
@@ -125,9 +125,9 @@ Process再起動の必要性: あり
 | 詳細設計の読み解き | SPEC・実行設計・脅威モデルの責務分離と再構成、設計文書の改名、設計・実装・試験の横断整合を完成評価で確認 | [完成評価](../99_Roadmap/Changes/CHG-000015/Evidence/260901_coordinator-completion-review.md#completion-assessment-147fb29)と[CHGの処置](../99_Roadmap/Changes/CHG-000017/change.md#tool-experience-design)で追跡。全読者の理解度を実測したとはしない |
 
 UIとSPECの共同レビュー、UI専門品質、対象端末の限定確認は完了し、WT-SCOPE-01は追加実測・独立確認で解消した。その後、Qual-Labが候補内容・移行方針を採用し、PR #32でmainへ統合した。[公開準備と最終確認](../99_Roadmap/Changes/CHG-000014/change.md#release-preparation-20260901)は別に追跡する。表示の「読めた」という観測と、その後の採用判断を区別し、全アクセシビリティ対応やRelease完了を実証済みとしない。
-## 8. Project Runtimeの状態表示
+## 8. Orchestratorの状態表示
 
-本節はv0.19.0で公開したProject RuntimeのCLI／MCP表示契約を定義する。内部Task操作や任意Project検索は公開しない。
+本節はv0.19.0で公開したOrchestratorのCLI／MCP表示契約を定義する。内部Task操作や任意Project検索は公開しない。
 
 v0.19の主要表示は、内部WorkerのLogではなくMilestoneの現在状態とする。最初にProject、Milestone、完了Objective数、Current Objective、Task内訳、Critical Path、Blocker、Risk、Human Decision、QualityおよびNext Actionを示す。機械ID、Provider出力、回復詳細は必要な場合に段階的に表示するが、重大な停止・回収不明・人間判断を詳細へ隠さない。
 

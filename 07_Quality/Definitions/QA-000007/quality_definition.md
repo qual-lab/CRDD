@@ -44,11 +44,11 @@ Quality ID: `QA-000007`
 | 詳細設計領域 | 受け取る成立条件 |
 |---|---|
 | [cros](../../../06_Architecture/Details/cros/01_Architecture.md) | Repository横断解決、Grant、投影、外部接続、候補処置 |
-| [crdd-domain-library](../../../06_Architecture/Details/crdd-domain-library/01_Architecture.md) | 検証済みRoot内のregular file／directory観測、Root外・link境界の拒否、観測不能と不存在の分離 |
-| [mcp](../../../06_Architecture/Details/mcp/01_Architecture.md) | Transport変換、公開Schema、Session、結果搬送 |
-| [runtime-data](../../../06_Architecture/Details/runtime-data/01_Architecture.md) | Repository-local／OS管理Root、用途、保持、清掃、回復 |
+| [crdd-domain-library](../../../06_Architecture/Details/domain-model/02_Activity_Context.md) | 検証済みRoot内のregular file／directory観測、Root外・link境界の拒否、観測不能と不存在の分離 |
+| [mcp](../../../06_Architecture/Details/mcp-server/01_Architecture.md) | Transport変換、公開Schema、Session、結果搬送 |
+| [runtime-data](../../../06_Architecture/Details/domain-model/03_Repository_Storage.md) | Repository-local／OS管理Root、用途、保持、清掃、回復 |
 | [version-control](../../../06_Architecture/Details/version-control/01_Architecture.md) | Repository境界、Revision、差し替え可能な履歴管理Adapter |
-| [workbench](../../../06_Architecture/Details/workbench/01_Architecture.md) | Repository Worktree操作、Local／Remote CROS Modeおよび既存Authorityの利用 |
+| [workbench](../../../06_Architecture/Details/workbench-server/01_Architecture.md) | Repository Worktree操作、Local／Remote CROS Modeおよび既存Authorityの利用 |
 
 ## 2. 試験段階と外部境界の適用
 
@@ -77,7 +77,7 @@ Quality ID: `QA-000007`
 | `RFD-IT-002` | 異常 | IT | Filesystem／Security | Path Observer→Version Control Adapter→Effect Gate | Related 2 Blocks | fake .git、reparse・link、不正中間Root、manifest不一致の各fixture | 各PathからRepository解決とEffectを要求する | RFD-IT-002として、「各PathからRepository解決とEffectを要求する」前後のPath Observer→Version Control Adapter→Effect Gateについて、Identity、phase／state遷移、結果field、Effect発行回数、資源残存数および失敗理由を記録する | Rootを推定せず理由と判定不能を返す | RFD-IT-002、固定した改訂版・環境・入力Identity、phase／state遷移、結果field、Effect／資源件数、Oracle判定「Rootを推定せず理由と判定不能を返す」および終了後条件「Filesystem／Git Effect 0」を保存する。Secret、鍵bytes、passphrase、生Provider出力および絶対Pathは保存しない | Filesystem／Git Effect 0 | Automated |
 | `RFD-ST-003` | 正常 | ST | Credential Lifecycle／Session | Workbench／MCP→Credential Service→Registry→Session Grant→Workspace→Repository | System/E2E | 三RoleのCredential、Workspace Exposure、失効・ローテーション | Credentialを発行・認証・失効・ローテーションし、各状態で接続を要求する | Secret表示回数、Credential状態、Role Grant、Session、解決Repository、終了後状態を記録する | Secretは一度だけ表示され、現在有効なRole Grantで許可Repositoryだけを解決する。管理能力と内容Accessを分ける | 固定Scenario、非秘密Identity、状態遷移、Grant、解決結果、Oracle、終了後状態。生Secretは保存しない | 生Secret残存0、切断後Session Grant失効、失効Credential Effect 0 | Hybrid |
 | `RFD-ST-004` | 境界 | ST | Authorization／Non-disclosure | Session→Workspace→Exposure→Repository Projection | System/E2E | Grant外Workspace、古いExposure、管理Capabilityだけを持つSession | 対象Repositoryの解決と内容取得を要求する | RFD-ST-004として、「対象Repositoryの解決と内容取得を要求する」前後のSession→Workspace→Exposure→Repository Projectionについて、Identity、phase／state遷移、結果field、Effect発行回数、資源残存数および失敗理由を記録する | Repositoryの名前・Path・存在を漏らさず拒否。管理権限をContent Accessにしない | RFD-ST-004、固定した改訂版・環境・入力Identity、phase／state遷移、結果field、Effect／資源件数、Oracle判定「Repositoryの名前・Path・存在を漏らさず拒否。管理権限をContent Accessにしない」および終了後条件「対象Repository Effect 0」を保存する。Secret、鍵bytes、passphrase、生Provider出力および絶対Pathは保存しない | 対象Repository Effect 0 | Automated |
-| `RFD-IT-005` | 正常 | IT | Adapter／Compatibility | Project Runtime Port→Version Control Adapter | Direct Boundary | Commit済み・未Commitの同値Treeと、同じPortを実装するVersion Control Adapter | 両状態・両Adapterで同じRepository操作を実行する | RFD-IT-005として、「両状態・両Adapterで同じRepository操作を実行する」前後のProject Runtime Port→Version Control Adapterについて、Identity、phase／state遷移、結果field、Effect発行回数、資源残存数および失敗理由を記録する | Commit SHAだけに依存せず、Port契約の必要情報で成立 | RFD-IT-005、固定した改訂版・環境・入力Identity、phase／state遷移、結果field、Effect／資源件数、Oracle判定「Commit SHAだけに依存せず、Port契約の必要情報で成立」および終了後条件「Git固有機能をCoreへ漏らさない」を保存する。Secret、鍵bytes、passphrase、生Provider出力および絶対Pathは保存しない | Git固有機能をCoreへ漏らさない | Automated |
+| `RFD-IT-005` | 正常 | IT | Adapter／Compatibility | Orchestrator Port→Version Control Adapter | Direct Boundary | Commit済み・未Commitの同値Treeと、同じPortを実装するVersion Control Adapter | 両状態・両Adapterで同じRepository操作を実行する | RFD-IT-005として、「両状態・両Adapterで同じRepository操作を実行する」前後のOrchestrator Port→Version Control Adapterについて、Identity、phase／state遷移、結果field、Effect発行回数、資源残存数および失敗理由を記録する | Commit SHAだけに依存せず、Port契約の必要情報で成立 | RFD-IT-005、固定した改訂版・環境・入力Identity、phase／state遷移、結果field、Effect／資源件数、Oracle判定「Commit SHAだけに依存せず、Port契約の必要情報で成立」および終了後条件「Git固有機能をCoreへ漏らさない」を保存する。Secret、鍵bytes、passphrase、生Provider出力および絶対Pathは保存しない | Git固有機能をCoreへ漏らさない | Automated |
 | `RFD-UT-006` | 境界 | UT | Identity／Revision Policy | Project・Repository・Binding・Grant・Exposure・改訂版要否の判定規則 | N/A | 単一・複数Repository、重複Identity、範囲外Grant、未Exposure、未Commit通常操作、未固定Release／Evidence操作の各入力 | 対象Project、利用可能Repository集合および操作ごとの改訂版要否を判定する | Identity判定、操作種別、改訂版有無、許可範囲および拒否理由を記録する | Identityを混同せず、通常操作は未Commitで成立し、Release／Evidence境界だけ未固定改訂版を拒否する | 入力Identity、操作種別、改訂版状態、判定結果、拒否理由および終了後Effect 0。絶対Pathは保存しない | Filesystem・Session・Repository Effect 0 | Automated |
 | `RFD-UAT-007` | 境界 | UAT | Acceptance／Scope | Project・Repository・Workspace・利用可能範囲→利用者判断 | User Acceptance | 単一Repository、複数Repository、利用可能・非開示・判定不能を含むProject View | 利用者が対象Repositoryと実行範囲を選ぶ | 表示された対象、利用可能範囲、不完全性および利用者判断を記録する | Project、Repository、基点フォルダを取り違えず、許可された範囲だけを選べる | RFD-UAT-007の対象表示、Grant／Exposure判定、利用者判断および終了後状態 | 許可外Repository・Filesystem Effect 0 | Manual |
 | `RFD-IT-008` | 境界 | IT | Snapshot／Consistency | Version Control Port→working tree・revision Observer→単一Snapshot | Direct Boundary | 同じRepositoryの固定状態と、観測途中でworking tree／revisionを変更する競合fixture | Snapshotを一回取得し全利用側へ渡す | Snapshot Identity、working tree状態、revision、observed_at、各Consumer受領Identity、途中変更前後の値、一時出力件数を記録する | 一回の観測結果だけを全Consumerが使い、観測途中の変更を同一Snapshotへ混在させない | RFD-IT-008、Snapshot Identity、working tree・revision・observed_at、Consumer受領集合、競合検出、Oracle判定を保存する。絶対Pathは保存しない | 一時出力0、Repository Effect 0 | Automated |
@@ -92,7 +92,7 @@ Quality ID: `QA-000007`
 
 ## 二Surface再編のCredential・共有配置条件
 
-[MCPのHost限定Credential方針](../../../06_Architecture/Details/mcp/01_Architecture.md)と[CROS認可](../../../06_Architecture/Details/cros/01_Architecture.md)から、以下を既存義務へ導く。
+[MCPのHost限定Credential方針](../../../06_Architecture/Details/mcp-server/01_Architecture.md)と[CROS認可](../../../06_Architecture/Details/cros/01_Architecture.md)から、以下を既存義務へ導く。
 
 | Local Item | 入力・反証 | 観測・終了後条件 |
 |---|---|---|

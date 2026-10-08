@@ -1,0 +1,1841 @@
+/**
+ * coordinator:integration:orchestrator-executionの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:orchestrator-executionが所有する検証責務を実行する。
+ * @trace PRL-IT-012
+ * @level IT
+ * @scope project、runtime、execution
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Orchestrator Application Port→Core
+ */
+import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
+import test from "node:test";
+import {
+  createOrchestratorExecutionAuthorizationAdapter,
+  createOrchestratorExecutionHostPorts,
+  createOrchestratorState,
+  describeOrchestratorExecutionContract,
+  type OrchestratorSingleTaskResult,
+  type ProjectTaskDefinition,
+  runOrchestratorOperation as runOrchestratorOperationWithPorts,
+  runOrchestratorSingleTaskAttempt,
+} from "../../../orchestrator/src/index.ts";
+import {
+  createCurrentOrchestratorPersistencePorts as createOrchestratorPersistencePorts,
+  initializeOrchestratorSnapshot,
+} from "../../../orchestrator/src/storage/current-state.ts";
+import { createProjectResultAcceptanceReader } from "../../../orchestrator/src/task/settle-docker-recovery.ts";
+import { createRuntimeProcessRecoveryIdentity } from "../../src/host-execution/process-safety-state.ts";
+import {
+  enqueueProjectOperation,
+  readProjectOperationQueueState,
+  readOrchestratorState,
+  writeOrchestratorState,
+} from "../fixtures/orchestrator-persistence-fixture.ts";
+
+const revision = "a".repeat(40);
+
+/**
+ * 通常Taskの結果集合を上位保存後だけ受理し、部分失敗を元Task結果と分ける。
+ * @responsibility 実Snapshotと模擬下位配送の本番Application接続を検証する。
+ * @trace PRL-IT-012
+ * @precondition 新版Git Root、Queue、状態保存と固定ACK Readerを用意する。
+ * @stimulus 二結果、0件、読取り失敗、二重通知、保存失敗、片方ACK失敗を実行する。
+ * @observation Task起動数、ACK保存、下位complete回数、Task終端、結果fieldを確認する。
+ * @oracle 全件読取り→同世代保存→固定Reader照合→整理の順で、失敗時にTaskを再実行しない。
+ * @cleanup 自己所有fixtureを終了hookで回収する。Docker/Providerは使用しない。
+ * @boundary PRL-IT-012=Direct Boundary: Application→実Snapshot→固定Reader→模擬終了Owner。
+ */
+test("通常結果配送は上位実保存後だけ整理しTask結果を保持する", async (t) => {
+  for (const mode of [
+    "normal",
+    "none",
+    "read_failure",
+    "double_notification",
+    "save_failure",
+    "partial_complete",
+    "missing_capture",
+    "wrong_operation",
+    "duplicate_reference",
+    "reader_throw",
+    "save_after_effect",
+    "cancelled",
+  ] as const) {
+    const { root, input } = fixture(t, [task("task-a")], 1);
+    const persistence = createOrchestratorPersistencePorts(root, "binding-a");
+    let starts = 0;
+    let reads = 0;
+    let completes = 0;
+    const outcome = await runOrchestratorOperationWithPorts(
+      {
+        ...createOrchestratorExecutionHostPorts({}),
+        authorization: createOrchestratorExecutionAuthorizationAdapter({
+          issueRuntimeCapability: () => Object.freeze({}),
+          revokeRuntimeCapability: () => true,
+        }),
+        persistence: {
+          ...persistence,
+          state: {
+            ...persistence.state,
+            writeState: (state, generation) => {
+              if (
+                (mode === "save_failure" || mode === "save_after_effect") &&
+                state.tasks.some((item) => item.resultAcceptances.length > 0)
+              ) {
+                if (mode === "save_after_effect")
+                  assert.equal(
+                    persistence.state.writeState(state, generation).status,
+                    "completed",
+                  );
+                return {
+                  status: "blocked",
+                  reason: "fixture_ack_save_failure",
+                  value: null,
+                  manualRecoveryRequired: true,
+                  recoveryId: null,
+                };
+              }
+              return persistence.state.writeState(state, generation);
+            },
+          },
+        },
+        resultDelivery: {
+          repositoryBindingId: "binding-a",
+          createAcceptanceReader: (acceptance) => {
+            if (mode === "reader_throw")
+              throw new Error("fixture_reader_failed");
+            return createProjectResultAcceptanceReader({
+              workingDirectory: root,
+              repositoryBindingId: acceptance.repositoryBindingId,
+              projectId: acceptance.projectId,
+              milestoneId: acceptance.milestoneId,
+              taskId: acceptance.taskId,
+              attemptId: acceptance.attemptId,
+              operationId: acceptance.operationId,
+              recoveryId: acceptance.recoveryId,
+            });
+          },
+        },
+        runSingleTaskAttempt: async (attempt) => {
+          starts += 1;
+          const delivery = Object.freeze({
+            readResults: () => {
+              reads += 1;
+              if (mode === "none")
+                return { status: "not_required" as const, results: null };
+              if (mode === "read_failure")
+                return { status: "blocked" as const, results: null };
+              return {
+                status: "completed" as const,
+                results: [1, 2].map((index) => ({
+                  repositoryBinding: "a".repeat(64),
+                  operationId:
+                    mode === "wrong_operation"
+                      ? "other-operation"
+                      : attempt.operationId,
+                  recoveryId: `result-recovery-${mode === "duplicate_reference" ? 1 : index}`,
+                  resultId: String(index).repeat(64),
+                  consumer: "orchestrator" as const,
+                })),
+              };
+            },
+            complete: (recoveryId: unknown, reader: unknown) => {
+              completes += 1;
+              assert.equal(typeof reader, "function");
+              const accepted = (
+                reader as () => {
+                  recoveryId: string;
+                  settlementGeneration: number;
+                } | null
+              )();
+              assert.ok(accepted);
+              assert.equal(accepted.recoveryId, recoveryId);
+              const stored = persistence.state.readState("project-a");
+              assert.equal(stored.status, "completed");
+              assert.ok(stored.value);
+              assert.equal(
+                stored.value.tasks[0]?.state,
+                mode === "cancelled" ? "cancelled" : "completed",
+              );
+              assert.equal(stored.value.tasks[0]?.resultAcceptances.length, 2);
+              assert.equal(
+                accepted.settlementGeneration,
+                stored.value.generation,
+              );
+              return {
+                status:
+                  mode === "partial_complete" && completes === 2
+                    ? ("blocked" as const)
+                    : ("completed" as const),
+                reason: "fixture_delivery",
+                filesystemEffectIssued: true,
+                snapshotConfirmed: true,
+                lockReleased: true,
+                revision: 1,
+                payloadSha256: "d".repeat(64),
+                recoveryIds: Object.freeze([]),
+              };
+            },
+          });
+          if (mode !== "missing_capture")
+            attempt.observeResultDelivery?.(delivery);
+          if (mode === "double_notification")
+            attempt.observeResultDelivery?.(delivery);
+          const result = await completed(attempt);
+          return mode === "cancelled"
+            ? { ...result, status: "cancelled", reason: "fixture_cancelled" }
+            : result;
+        },
+      },
+      input,
+    );
+    assert.equal(starts, 1);
+    assert.equal(
+      completes,
+      mode === "normal" || mode === "partial_complete" || mode === "cancelled"
+        ? 2
+        : 0,
+      JSON.stringify(outcome),
+    );
+    assert.equal(
+      reads,
+      mode === "double_notification" || mode === "missing_capture" ? 0 : 1,
+    );
+    assert.equal(
+      outcome.status,
+      mode === "cancelled"
+        ? "cancelled"
+        : mode === "normal" || mode === "none"
+          ? "completed"
+          : "blocked",
+      JSON.stringify(outcome),
+    );
+    const stored = persistence.state.readState("project-a");
+    assert.ok(stored.value);
+    assert.equal(
+      stored.value.tasks[0]?.state,
+      mode === "cancelled"
+        ? "cancelled"
+        : mode === "normal" ||
+            mode === "none" ||
+            mode === "partial_complete" ||
+            mode === "save_after_effect"
+          ? "completed"
+          : "running",
+    );
+    assert.equal(
+      stored.value.tasks[0]?.resultAcceptances.length,
+      mode === "normal" ||
+        mode === "partial_complete" ||
+        mode === "save_after_effect" ||
+        mode === "cancelled"
+        ? 2
+        : 0,
+    );
+    assert.ok(
+      Object.values(outcome).every((value) => typeof value !== "function"),
+    );
+  }
+});
+
+type BoundExecutionDependencies = Omit<
+  Parameters<typeof runOrchestratorOperationWithPorts>[0],
+  "persistence" | "clockIdentity" | "processSafety" | "authorization"
+> &
+  Readonly<{
+    now?: () => Readonly<{ monotonicMs: number; iso: string }>;
+    poisonProcessAfterExecutionAuthorizationRevocationUnknown?: () => void;
+    issueRuntimeExecutionAuthorization?: () => object | null;
+    revokeRuntimeExecutionAuthorization?: (capability: object) => boolean;
+  }>;
+type BoundExecutionInput = Parameters<
+  typeof runOrchestratorOperationWithPorts
+>[1] &
+  Readonly<{ workingDirectory: string; repositoryBindingId: string }>;
+
+/**
+ * runOrchestratorOperationのTest準備責務を実行する。
+ *
+ * @responsibility runOrchestratorOperationがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus runOrchestratorOperationを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+function runOrchestratorOperation(
+  dependencies: BoundExecutionDependencies,
+  input: BoundExecutionInput,
+) {
+  const { workingDirectory, repositoryBindingId, ...applicationInput } = input;
+  const {
+    now,
+    poisonProcessAfterExecutionAuthorizationRevocationUnknown,
+    issueRuntimeExecutionAuthorization,
+    revokeRuntimeExecutionAuthorization,
+    ...applicationDependencies
+  } = dependencies;
+  return runOrchestratorOperationWithPorts(
+    {
+      ...applicationDependencies,
+      ...createOrchestratorExecutionHostPorts({
+        ...(now ? { now } : {}),
+        ...(poisonProcessAfterExecutionAuthorizationRevocationUnknown
+          ? {
+              poisonAfterCleanupUnknown:
+                poisonProcessAfterExecutionAuthorizationRevocationUnknown,
+            }
+          : {}),
+      }),
+      authorization: createOrchestratorExecutionAuthorizationAdapter({
+        issueRuntimeCapability:
+          issueRuntimeExecutionAuthorization ?? (() => Object.freeze({})),
+        revokeRuntimeCapability:
+          revokeRuntimeExecutionAuthorization ?? (() => true),
+      }),
+      persistence: createOrchestratorPersistencePorts(
+        workingDirectory,
+        repositoryBindingId,
+      ),
+    },
+    applicationInput,
+  );
+}
+
+/**
+ * hashのTest準備責務を実行する。
+ *
+ * @responsibility hashがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus hashを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+function hash(value: string) {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+/**
+ * taskのTest準備責務を実行する。
+ *
+ * @responsibility taskがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus taskを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+function task(
+  id: string,
+  dependencies: readonly string[] = [],
+  allowedPaths: readonly string[] = [`work/${id}.txt`],
+  conflictKeys: readonly string[] = [],
+): ProjectTaskDefinition {
+  return {
+    id,
+    objectiveId: "objective-a",
+    dependencies,
+    allowedPaths,
+    conflictKeys,
+  };
+}
+
+/**
+ * fixtureのTest準備責務を実行する。
+ *
+ * @responsibility fixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus fixtureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+function fixture(
+  t: test.TestContext,
+  tasks: readonly ProjectTaskDefinition[],
+  maximumConcurrency = 5,
+) {
+  const tests = path.resolve(import.meta.dirname, "../../../../.crdd/tests");
+  fs.mkdirSync(tests, { recursive: true });
+  const root = fs.mkdtempSync(path.join(tests, "project-execution-"));
+  execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  assert.equal(
+    initializeOrchestratorSnapshot(root, "binding-a").status,
+    "completed",
+  );
+  const created = createOrchestratorState({
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    repositoryRevision: revision,
+    maximumConcurrency,
+    milestoneAcceptanceCriteria: ["accepted"],
+    objectives: [{ id: "objective-a", acceptanceCriteria: ["done"] }],
+    tasks,
+    ownerGeneration: "owner-a",
+  });
+  assert.equal(created.status, "completed");
+  if (created.status !== "completed") throw new Error("fixture_failed");
+  assert.equal(
+    writeOrchestratorState(root, "binding-a", created.state, 0).status,
+    "completed",
+  );
+  assert.equal(
+    enqueueProjectOperation(root, "binding-a", {
+      queueId: "queue-a",
+      projectId: "project-a",
+      milestoneId: "milestone-a",
+      requestHash: hash("request"),
+      originLane: "interactive",
+      repositoryRevision: revision,
+      scopeHash: hash("scope"),
+    }).status,
+    "completed",
+  );
+  const input = {
+    workingDirectory: root,
+    repositoryBindingId: "binding-a",
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    queueId: "queue-a",
+    taskExecutions: tasks.map((entry) => ({
+      taskId: entry.id,
+      authorityBindingId: `authority-${entry.id}`,
+      taskRequest: { taskId: entry.id },
+      repositoryRoot: root,
+    })),
+    cancellationSignal: new AbortController().signal,
+  };
+  return { root, input };
+}
+
+/**
+ * completedのTest準備責務を実行する。
+ *
+ * @responsibility completedがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus completedを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+async function completed(
+  input: Parameters<
+    Parameters<typeof runOrchestratorOperation>[0]["runSingleTaskAttempt"]
+  >[0],
+): Promise<OrchestratorSingleTaskResult> {
+  assert.equal(await input.observeStarted?.(), true);
+  return completedAfterStart(input);
+}
+
+/**
+ * completedAfterStartのTest準備責務を実行する。
+ *
+ * @responsibility completedAfterStartがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus completedAfterStartを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+function completedAfterStart(
+  input: Parameters<
+    Parameters<typeof runOrchestratorOperation>[0]["runSingleTaskAttempt"]
+  >[0],
+): OrchestratorSingleTaskResult {
+  return {
+    contract: "crdd-coordinator/orchestrator-single-task-adapter",
+    attemptId: input.attemptId,
+    operationId: input.operationId,
+    authorityBindingId: input.authorityBindingId,
+    repositoryRevision: input.repositoryRevision,
+    status: "completed",
+    reason: "task_completed",
+    effectState: "settled",
+    cleanupConfirmed: true,
+    manualRecoveryRequired: false,
+    processRestartRequired: false,
+    candidateId: null,
+    recoveryIds: [],
+  };
+}
+
+/**
+ * recordedのTest準備責務を実行する。
+ *
+ * @responsibility recordedがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus recordedを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+function recorded(eventId: string) {
+  return Object.freeze({
+    status: "completed" as const,
+    reason: "execution_event_recorded" as const,
+    eventId,
+    effectState: "settled" as const,
+    cleanupConfirmed: true as const,
+    retryAllowed: false as const,
+    manualRecoveryRequired: false as const,
+    residualArtifactIds: Object.freeze([]) as readonly [],
+  });
+}
+
+/**
+ * PR-N-01 connects one durable Project task to the Single Task boundaryを検証する。
+ *
+ * @responsibility PR-N-01 connects one durable Project task to the Single Task boundaryの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-N-01 connects one durable Project task to the Single Task boundaryの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("PR-N-01 connects one durable Project task to the Single Task boundary", async (t) => {
+  const { root, input } = fixture(t, [task("task-a")], 1);
+  let effects = 0;
+  const outcome = await runOrchestratorOperation(
+    {
+      runSingleTaskAttempt: async (attempt) => {
+        effects += 1;
+        return completed(attempt);
+      },
+    },
+    input,
+  );
+  assert.equal(outcome.status, "completed", JSON.stringify(outcome));
+  assert.equal(
+    outcome.reason,
+    "orchestrator_tasks_completed_integration_pending",
+  );
+  assert.equal(effects, 1);
+  const state = readOrchestratorState(root, "binding-a", "project-a");
+  assert.equal(state.status, "completed");
+  assert.ok(state.value);
+  assert.equal(
+    state.status === "completed" && state.value.tasks[0]?.state,
+    "completed",
+  );
+  const queue = readProjectOperationQueueState(root, "binding-a", "queue-a");
+  assert.equal(queue.status, "completed");
+  assert.equal(
+    queue.status === "completed" && queue.value.state,
+    "integration_pending",
+  );
+  assert.equal(
+    queue.status === "completed" && queue.value.ownerGeneration,
+    null,
+  );
+
+  const replay = await runOrchestratorOperation(
+    {
+      runSingleTaskAttempt: async (attempt) => {
+        effects += 1;
+        return completed(attempt);
+      },
+    },
+    input,
+  );
+  assert.equal(replay.reason, "orchestrator_tasks_already_integration_pending");
+  assert.equal(effects, 1);
+});
+
+/**
+ * interactive Queue wins a fresh binding-wide selection before a scheduled caller can claimを検証する。
+ *
+ * @responsibility interactive Queue wins a fresh binding-wide selection before a scheduled caller can claimの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus interactive Queue wins a fresh binding-wide selection before a scheduled caller can claimの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("interactive Queue wins a fresh binding-wide selection before a scheduled caller can claim", async (t) => {
+  const { root, input } = fixture(t, [task("task-a")], 1);
+  assert.equal(
+    enqueueProjectOperation(root, "binding-a", {
+      queueId: "queue-scheduled",
+      projectId: "project-a",
+      milestoneId: "milestone-a",
+      requestHash: hash("scheduled-request"),
+      originLane: "scheduled",
+      repositoryRevision: revision,
+      scopeHash: hash("scheduled-scope"),
+    }).status,
+    "completed",
+  );
+  let effects = 0;
+  const dependencies = {
+    runSingleTaskAttempt: async (attempt: Parameters<typeof completed>[0]) => {
+      effects += 1;
+      return completed(attempt);
+    },
+  };
+  const scheduled = await runOrchestratorOperation(dependencies, {
+    ...input,
+    queueId: "queue-scheduled",
+  });
+  assert.equal(scheduled.status, "blocked");
+  assert.equal(scheduled.reason, "orchestrator_queue_claim_priority_changed");
+  assert.equal(scheduled.effectState, "no_effect");
+  assert.equal(effects, 0);
+  const interactive = await runOrchestratorOperation(dependencies, input);
+  assert.equal(interactive.status, "completed");
+  assert.equal(effects, 1);
+});
+
+/**
+ * PR-N-01 uses the existing Single Task adapter without widening its authorityを検証する。
+ *
+ * @responsibility PR-N-01 uses the existing Single Task adapter without widening its authorityの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-N-01 uses the existing Single Task adapter without widening its authorityの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("PR-N-01 uses the existing Single Task adapter without widening its authority", async (t) => {
+  const { input } = fixture(t, [task("task-a")], 1);
+  let starts = 0;
+  const outcome = await runOrchestratorOperation(
+    {
+      runSingleTaskAttempt: (attempt) =>
+        runOrchestratorSingleTaskAttempt(
+          {
+            startTask: (
+              _request,
+              _root,
+              _capability,
+              _correlation,
+              notifyStarted,
+            ) => {
+              starts += 1;
+              return {
+                status: "started",
+                controlCapability: {},
+                completion: Promise.resolve().then(async () => {
+                  assert.ok(notifyStarted);
+                  assert.equal(
+                    await notifyStarted({
+                      event: "coordinator_provider_process_started",
+                      taskRole: "executor",
+                      provider: "claude",
+                      operationId: "OP-execution-fixture",
+                    }),
+                    true,
+                  );
+                  return {
+                    status: "completed",
+                    reason: "coordinator_task_completed",
+                    cleanupConfirmed: true,
+                    manualRecoveryRequired: false,
+                    processRestartRequired: false,
+                    candidateId: null,
+                    hostRecoveryId: null,
+                    dockerRecoveryIds: [],
+                    candidateRecoveryId: null,
+                    candidateStoreRecoveryId: null,
+                  };
+                }),
+              };
+            },
+            cancelTask: () => undefined,
+          },
+          attempt,
+        ),
+    },
+    input,
+  );
+  assert.equal(outcome.status, "completed");
+  assert.equal(starts, 1);
+});
+
+/**
+ * PR-N-02 runs at most five independent tasks and then drains the remainderを検証する。
+ *
+ * @responsibility PR-N-02 runs at most five independent tasks and then drains the remainderの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-N-02 runs at most five independent tasks and then drains the remainderの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("PR-N-02 runs at most five independent tasks and then drains the remainder", async (t) => {
+  const tasks = Array.from({ length: 7 }, (_unused, index) =>
+    task(`task-${index + 1}`),
+  );
+  const { root, input } = fixture(t, tasks, 5);
+  let active = 0;
+  let maximumActive = 0;
+  let preparedAtFirstEffect: number | null = null;
+  let authorizationsIssued = 0;
+  const observedAuthorizations = new Set<object>();
+  const outcome = await runOrchestratorOperation(
+    {
+      issueRuntimeExecutionAuthorization: () => {
+        authorizationsIssued += 1;
+        return Object.freeze({ sequence: authorizationsIssued });
+      },
+      runSingleTaskAttempt: async (attempt) => {
+        observedAuthorizations.add(attempt.runtimeExecutionCapability);
+        if (preparedAtFirstEffect === null) {
+          const observed = readOrchestratorState(
+            root,
+            "binding-a",
+            "project-a",
+          );
+          assert.equal(observed.status, "completed");
+          assert.ok(observed.value);
+          preparedAtFirstEffect =
+            observed.value?.tasks.filter(
+              (entry) =>
+                entry.state === "starting" &&
+                entry.startPhase === "handoff_prepared",
+            ).length ?? null;
+        }
+        assert.equal(await attempt.observeStarted?.(), true);
+        active += 1;
+        maximumActive = Math.max(maximumActive, active);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        active -= 1;
+        return completedAfterStart(attempt);
+      },
+    },
+    input,
+  );
+  assert.equal(outcome.status, "completed");
+  assert.equal(preparedAtFirstEffect, 5);
+  assert.equal(maximumActive, 5);
+  assert.equal(outcome.completedTaskIds.length, 7);
+  assert.equal(authorizationsIssued, 7);
+  assert.equal(observedAuthorizations.size, 7);
+});
+
+/**
+ * PR-N-03 and PR-Q-01 enforce dependency and conflict reservations across wavesを検証する。
+ *
+ * @responsibility PR-N-03 and PR-Q-01 enforce dependency and conflict reservations across wavesの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-N-03 and PR-Q-01 enforce dependency and conflict reservations across wavesの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("PR-N-03 and PR-Q-01 enforce dependency and conflict reservations across waves", async (t) => {
+  const tasks = [
+    task("task-a", [], ["shared"]),
+    task("task-b", ["task-a"]),
+    task("task-c", [], ["shared/file.txt"]),
+    task("task-d", [], ["other.txt"]),
+  ];
+  const { input } = fixture(t, tasks, 5);
+  const startedItems: string[] = [];
+  const outcome = await runOrchestratorOperation(
+    {
+      runSingleTaskAttempt: async (attempt) => {
+        const taskId = (attempt.taskRequest as { taskId: string }).taskId;
+        startedItems.push(taskId);
+        await new Promise((resolve) => setTimeout(resolve, 2));
+        return completed(attempt);
+      },
+    },
+    input,
+  );
+  assert.equal(outcome.status, "completed");
+  assert.deepEqual(startedItems.slice(0, 2), ["task-a", "task-d"]);
+  assert.ok(
+    outcome.completedTaskIds.indexOf("task-a") <
+      outcome.completedTaskIds.indexOf("task-b"),
+  );
+  assert.ok(
+    outcome.completedTaskIds.indexOf("task-a") <
+      outcome.completedTaskIds.indexOf("task-c"),
+  );
+  assert.equal(new Set(outcome.completedTaskIds).size, 4);
+});
+
+/**
+ * PR-A-03 rejects a result from another attempt without projecting successを検証する。
+ *
+ * @responsibility PR-A-03 rejects a result from another attempt without projecting successの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-A-03 rejects a result from another attempt without projecting successの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("PR-A-03 rejects a result from another attempt without projecting success", async (t) => {
+  const { root, input } = fixture(t, [task("task-a")], 1);
+  const outcome = await runOrchestratorOperation(
+    {
+      runSingleTaskAttempt: async (attempt) => ({
+        ...(await completed(attempt)),
+        attemptId: "another-attempt",
+      }),
+    },
+    input,
+  );
+  assert.equal(outcome.status, "blocked");
+  assert.equal(outcome.reason, "orchestrator_task_recovery_required");
+  assert.equal(outcome.manualRecoveryRequired, true);
+  const state = readOrchestratorState(root, "binding-a", "project-a");
+  assert.equal(state.status, "completed");
+  assert.ok(state.value);
+  assert.equal(
+    state.status === "completed" && state.value.tasks[0]?.state,
+    "recovery_required",
+  );
+});
+
+/**
+ * PR-A-03 rejects malformed and differently bound Single Task resultsを検証する。
+ *
+ * @responsibility PR-A-03 rejects malformed and differently bound Single Task resultsの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-A-03 rejects malformed and differently bound Single Task resultsの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("PR-A-03 rejects malformed and differently bound Single Task results", async (t) => {
+  const cases = [
+    ["contract", { contract: "wrong-contract" }],
+    ["operation", { operationId: "other-operation" }],
+    ["authority", { authorityBindingId: "other-authority" }],
+    ["missing-recovery", { recoveryIds: undefined }],
+    ["extra-field", { extra: true }],
+  ] as const;
+  for (const [name, override] of cases) {
+    await t.test(name, async (subtest) => {
+      const { root, input } = fixture(subtest, [task("task-a")], 1);
+      const outcome = await runOrchestratorOperation(
+        {
+          runSingleTaskAttempt: async (attempt) =>
+            ({
+              ...(await completed(attempt)),
+              ...override,
+            }) as OrchestratorSingleTaskResult,
+        },
+        input,
+      );
+      assert.equal(outcome.status, "blocked");
+      assert.equal(outcome.reason, "orchestrator_task_recovery_required");
+      const state = readOrchestratorState(root, "binding-a", "project-a");
+      assert.equal(state.status, "completed");
+      assert.ok(state.value);
+      assert.ok(state.value);
+      assert.equal(
+        state.status === "completed" && state.value?.tasks[0]?.state,
+        "recovery_required",
+      );
+    });
+  }
+});
+
+/**
+ * PR-A-03 rejects recovery identifiers that durable Project State cannot storeを検証する。
+ *
+ * @responsibility PR-A-03 rejects recovery identifiers that durable Project State cannot storeの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-A-03 rejects recovery identifiers that durable Project State cannot storeの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("PR-A-03 rejects recovery identifiers that durable Project State cannot store", async (t) => {
+  for (const recoveryId of [
+    "recovery/a",
+    "recovery id",
+    "recovery\u0001id",
+    `r${"x".repeat(512)}`,
+  ]) {
+    await t.test(JSON.stringify(recoveryId).slice(0, 40), async (subtest) => {
+      const { root, input } = fixture(subtest, [task("task-a")], 1);
+      const outcome = await runOrchestratorOperation(
+        {
+          runSingleTaskAttempt: async (attempt) => ({
+            ...(await completed(attempt)),
+            status: "blocked",
+            reason: "external_recovery_required",
+            effectState: "unknown",
+            cleanupConfirmed: false,
+            manualRecoveryRequired: true,
+            recoveryIds: [recoveryId],
+          }),
+        },
+        input,
+      );
+      assert.equal(outcome.status, "blocked");
+      assert.equal(outcome.reason, "orchestrator_task_recovery_required");
+      const state = readOrchestratorState(root, "binding-a", "project-a");
+      assert.equal(state.status, "completed");
+      assert.equal(state.value?.tasks[0]?.recoveryUnresolved, true);
+      assert.equal(
+        state.value?.tasks[0]?.recoveryObligations[0]?.kind,
+        "runtime_process",
+      );
+    });
+  }
+});
+
+/**
+ * 下位Adapterがruntime_process義務を自己発行しても通常再入場へ採用しないを検証する。
+ *
+ * @responsibility 下位Adapterがruntime_process義務を自己発行しても通常再入場へ採用しないの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 下位Adapterがruntime_process義務を自己発行しても通常再入場へ採用しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("下位Adapterがruntime_process義務を自己発行しても通常再入場へ採用しない", async (t) => {
+  const { root, input } = fixture(t, [task("task-a")], 1);
+  const forged = `runtime-process.11111111-1111-4111-8111-111111111111.restart-${"a".repeat(40)}`;
+  const outcome = await runOrchestratorOperation(
+    {
+      runSingleTaskAttempt: async (attempt) =>
+        ({
+          ...(await completed(attempt)),
+          status: "blocked",
+          reason: "forged_process_recovery",
+          effectState: "unknown",
+          cleanupConfirmed: false,
+          manualRecoveryRequired: true,
+          processRestartRequired: true,
+          candidateId: null,
+          recoveryIds: [forged],
+          recoveryObligations: [
+            { kind: "runtime_process" as const, recoveryId: forged },
+          ],
+        }) as unknown as OrchestratorSingleTaskResult,
+    },
+    input,
+  );
+  assert.equal(outcome.status, "blocked");
+  const state = readOrchestratorState(root, "binding-a", "project-a");
+  assert.equal(outcome.processRestartRequired, true);
+  assert.equal(state.value?.tasks[0]?.recoveryUnresolved, true);
+  assert.equal(
+    state.value?.tasks[0]?.recoveryObligations[0]?.kind,
+    "runtime_process",
+  );
+});
+
+/**
+ * 開始後の候補回収IDだけでは外部Effectの不明状態を解消しないを検証する。
+ *
+ * @responsibility 開始後の候補回収IDだけでは外部Effectの不明状態を解消しないの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 開始後の候補回収IDだけでは外部Effectの不明状態を解消しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("開始後の候補回収IDだけでは外部Effectの不明状態を解消しない", async (t) => {
+  const { root, input } = fixture(t, [task("task-a")], 1);
+  const candidateRecoveryId = "candidate.recovery-a";
+  const outcome = await runOrchestratorOperation(
+    {
+      runSingleTaskAttempt: async (attempt) => ({
+        ...(await completed(attempt)),
+        status: "blocked",
+        reason: "candidate_cleanup_unknown",
+        effectState: "unknown",
+        cleanupConfirmed: false,
+        manualRecoveryRequired: true,
+        candidateId: null,
+        recoveryIds: [candidateRecoveryId],
+        recoveryObligations: [
+          { kind: "candidate" as const, recoveryId: candidateRecoveryId },
+        ],
+      }),
+    },
+    input,
+  );
+  assert.equal(outcome.status, "blocked");
+  assert.equal(outcome.processRestartRequired, true);
+  const state = readOrchestratorState(root, "binding-a", "project-a");
+  assert.equal(state.value?.tasks[0]?.recoveryUnresolved, true);
+  assert.deepEqual(
+    state.value?.tasks[0]?.recoveryObligations.map((entry) => entry.kind),
+    ["candidate", "runtime_process"],
+  );
+});
+
+/**
+ * PR-A-03 enforces result correlations and propagates process restartを検証する。
+ *
+ * @responsibility PR-A-03 enforces result correlations and propagates process restartの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-A-03 enforces result correlations and propagates process restartの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("PR-A-03 enforces result correlations and propagates process restart", async (t) => {
+  const cases = [
+    {
+      name: "completed-no-effect",
+      override: { effectState: "no_effect" as const },
+      restart: true,
+    },
+    {
+      name: "completed-restart",
+      override: { processRestartRequired: true },
+      restart: true,
+    },
+    {
+      name: "unknown-with-cleanup",
+      override: {
+        status: "blocked" as const,
+        effectState: "unknown" as const,
+        cleanupConfirmed: true,
+        manualRecoveryRequired: true,
+      },
+      restart: true,
+    },
+    {
+      name: "blocked-restart",
+      override: {
+        status: "blocked" as const,
+        reason: "restart_required",
+        effectState: "no_effect" as const,
+        processRestartRequired: true,
+      },
+      restart: true,
+    },
+    {
+      name: "cancelled-no-effect-after-start",
+      override: {
+        status: "cancelled" as const,
+        reason: "cancelled_after_effect_start",
+        effectState: "no_effect" as const,
+      },
+      restart: true,
+    },
+  ];
+  for (const scenario of cases) {
+    await t.test(scenario.name, async (subtest) => {
+      const { root, input } = fixture(subtest, [task("task-a")], 1);
+      const outcome = await runOrchestratorOperation(
+        {
+          runSingleTaskAttempt: async (attempt) => ({
+            ...(await completed(attempt)),
+            ...scenario.override,
+          }),
+        },
+        input,
+      );
+      assert.equal(outcome.status, "blocked");
+      assert.equal(outcome.manualRecoveryRequired, true);
+      assert.equal(outcome.processRestartRequired, scenario.restart);
+      const state = readOrchestratorState(root, "binding-a", "project-a");
+      assert.ok(state.value);
+      assert.equal(
+        state.status === "completed" && state.value.tasks[0]?.state,
+        "recovery_required",
+      );
+      if (scenario.restart && state.status === "completed") {
+        assert.equal(state.value.tasks[0]?.recoveryUnresolved, true);
+        assert.equal(
+          state.value.tasks[0]?.recoveryObligations[0]?.kind,
+          "runtime_process",
+        );
+        assert.match(
+          state.value.tasks[0]?.recoveryObligations[0]?.recoveryId ?? "",
+          /^runtime-process\.[0-9a-f-]{36}\.restart-[0-9a-f]{40}$/u,
+        );
+      }
+    });
+  }
+});
+
+/**
+ * PR-A-03 stops later waves when a Task requires process restartを検証する。
+ *
+ * @responsibility PR-A-03 stops later waves when a Task requires process restartの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-A-03 stops later waves when a Task requires process restartの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("PR-A-03 stops later waves when a Task requires process restart", async (t) => {
+  const { input } = fixture(t, [task("task-a"), task("task-b")], 1);
+  const startedItems: string[] = [];
+  const outcome = await runOrchestratorOperation(
+    {
+      runSingleTaskAttempt: async (attempt) => {
+        startedItems.push((attempt.taskRequest as { taskId: string }).taskId);
+        return {
+          ...(await completed(attempt)),
+          status: "blocked",
+          reason: "restart_required",
+          effectState: "no_effect",
+          processRestartRequired: true,
+        };
+      },
+    },
+    input,
+  );
+  assert.equal(outcome.status, "blocked");
+  assert.equal(outcome.processRestartRequired, true);
+  assert.deepEqual(startedItems, ["task-a"]);
+});
+
+/**
+ * runtime_process義務は同じTask attemptとoperationにだけ結合するを検証する。
+ *
+ * @responsibility runtime_process義務は同じTask attemptとoperationにだけ結合するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus runtime_process義務は同じTask attemptとoperationにだけ結合するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("runtime_process義務は同じTask attemptとoperationにだけ結合する", async (t) => {
+  const { root, input } = fixture(t, [task("task-a"), task("task-b")], 2);
+  let firstRecoveryId = "";
+  const outcome = await runOrchestratorOperation(
+    {
+      poisonProcessAfterExecutionAuthorizationRevocationUnknown: () =>
+        undefined,
+      runSingleTaskAttempt: async (attempt) => {
+        await attempt.observeStarted?.();
+        if ((attempt.taskRequest as { taskId: string }).taskId === "task-a") {
+          firstRecoveryId = createRuntimeProcessRecoveryIdentity(
+            attempt.attemptId,
+            attempt.operationId,
+          );
+          return {
+            ...completedAfterStart(attempt),
+            status: "blocked",
+            reason: "restart_required",
+            effectState: "unknown",
+            cleanupConfirmed: false,
+            manualRecoveryRequired: true,
+            processRestartRequired: true,
+          };
+        }
+        return {
+          ...completedAfterStart(attempt),
+          status: "blocked",
+          reason: "cross_task_recovery_replay",
+          effectState: "unknown",
+          cleanupConfirmed: false,
+          manualRecoveryRequired: true,
+          processRestartRequired: true,
+          recoveryIds: [firstRecoveryId],
+          recoveryObligations: [
+            { kind: "runtime_process" as const, recoveryId: firstRecoveryId },
+          ],
+        } as unknown as OrchestratorSingleTaskResult;
+      },
+    },
+    input,
+  );
+  assert.equal(outcome.status, "blocked");
+  assert.equal(outcome.processRestartRequired, true);
+  const state = readOrchestratorState(root, "binding-a", "project-a");
+  assert.equal(state.status, "completed");
+  const first = state.value?.tasks.find(
+    (entry) => entry.definition.id === "task-a",
+  );
+  const second = state.value?.tasks.find(
+    (entry) => entry.definition.id === "task-b",
+  );
+  assert.equal(first?.recoveryObligations[0]?.recoveryId, firstRecoveryId);
+  assert.notEqual(second?.recoveryObligations[0]?.recoveryId, firstRecoveryId);
+  assert.equal(second?.recoveryObligations[0]?.kind, "runtime_process");
+});
+
+/**
+ * 下位実行へ委譲後のthrowは開始観測の有無にかかわらずProcessを再利用しないを検証する。
+ *
+ * @responsibility 下位実行へ委譲後のthrowは開始観測の有無にかかわらずProcessを再利用しないの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 下位実行へ委譲後のthrowは開始観測の有無にかかわらずProcessを再利用しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("下位実行へ委譲後のthrowは開始観測の有無にかかわらずProcessを再利用しない", async (t) => {
+  await t.test("after-start", async (subtest) => {
+    const { root, input } = fixture(subtest, [task("task-a")], 1);
+    let poisoned = 0;
+    const outcome = await runOrchestratorOperation(
+      {
+        poisonProcessAfterExecutionAuthorizationRevocationUnknown: () => {
+          poisoned += 1;
+        },
+        runSingleTaskAttempt: async (attempt) => {
+          assert.equal(await attempt.observeStarted?.(), true);
+          throw new Error("runner_failed_after_effect_start");
+        },
+      },
+      input,
+    );
+    assert.equal(outcome.processRestartRequired, true);
+    assert.equal(poisoned, 1);
+    const state = readOrchestratorState(root, "binding-a", "project-a");
+    assert.equal(
+      state.value?.tasks[0]?.recoveryObligations[0]?.kind,
+      "runtime_process",
+    );
+  });
+  await t.test("before-start-observation", async (subtest) => {
+    const { root, input } = fixture(subtest, [task("task-a")], 1);
+    let poisoned = 0;
+    const outcome = await runOrchestratorOperation(
+      {
+        poisonProcessAfterExecutionAuthorizationRevocationUnknown: () => {
+          poisoned += 1;
+        },
+        runSingleTaskAttempt: async () => {
+          throw new Error("runner_failed_before_effect_start");
+        },
+      },
+      input,
+    );
+    assert.equal(outcome.processRestartRequired, true);
+    assert.equal(poisoned, 1);
+    assert.equal(outcome.effectState, "unknown");
+    const state = readOrchestratorState(root, "binding-a", "project-a");
+    assert.equal(state.value?.tasks[0]?.recoveryUnresolved, true);
+  });
+});
+
+/**
+ * PR-A-04 releases the physical lease when a post-acquire Queue write becomes unobservableを検証する。
+ *
+ * @responsibility PR-A-04 releases the physical lease when a post-acquire Queue write becomes unobservableの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-A-04 releases the physical lease when a post-acquire Queue write becomes unobservableの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("PR-A-04 releases the physical lease when a post-acquire Queue write becomes unobservable", async (t) => {
+  const { root, input } = fixture(t, [task("task-a")], 1);
+  const location = path.join(root, ".crdd", "orchestrator", "state.json");
+  const original = fs.openSync;
+  let isInjected = false;
+  let outcome: Awaited<ReturnType<typeof runOrchestratorOperation>>;
+  try {
+    outcome = await runOrchestratorOperation(
+      {
+        runSingleTaskAttempt: async (attempt) => {
+          Reflect.set(fs, "openSync", ((
+            ...args: Parameters<typeof fs.openSync>
+          ) => {
+            if (!isInjected && String(args[0]) === location) {
+              isInjected = true;
+              Reflect.set(fs, "openSync", original);
+              throw new Error("snapshot_read_unconfirmed");
+            }
+            return Reflect.apply(original, fs, args);
+          }) as typeof fs.openSync);
+          return completed(attempt);
+        },
+      },
+      input,
+    );
+  } finally {
+    Reflect.set(fs, "openSync", original);
+  }
+  assert.equal(isInjected, true);
+  assert.equal(outcome.status, "blocked");
+  assert.equal(outcome.manualRecoveryRequired, true);
+  const locks = path.join(root, ".crdd", "tmp", "orchestrator-leases");
+  assert.deepEqual(
+    fs
+      .readdirSync(locks)
+      .filter((name) => name.startsWith("project-operation-project-a-queue-a")),
+    [],
+  );
+  const before = readProjectOperationQueueState(root, "binding-a", "queue-a");
+  assert.equal(before.status, "completed");
+  assert.equal(
+    before.status === "completed" && before.value.ownerGeneration,
+    null,
+  );
+  const reconciled = createOrchestratorPersistencePorts(
+    root,
+    "binding-a",
+  ).lease.reconcileOperationOwnerLoss("project-a", "queue-a", () => {
+    throw new Error("released evidence must avoid owner observation");
+  });
+  assert.equal(reconciled.status, "completed");
+  assert.equal(
+    reconciled.status === "completed" && reconciled.value.ownerGeneration,
+    null,
+  );
+});
+
+/**
+ * PR-A-03 treats a synchronous failure after delegation as an unknown handoffを検証する。
+ *
+ * @responsibility PR-A-03 treats a synchronous failure after delegation as an unknown handoffの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-A-03 treats a synchronous failure after delegation as an unknown handoffの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("PR-A-03 treats a synchronous failure after delegation as an unknown handoff", async (t) => {
+  const { root, input } = fixture(t, [task("task-a")], 1);
+  const outcome = await runOrchestratorOperation(
+    {
+      runSingleTaskAttempt: () => {
+        throw new Error("synchronous runner failure");
+      },
+    },
+    input,
+  );
+  assert.equal(outcome.status, "blocked");
+  assert.equal(outcome.reason, "orchestrator_task_recovery_required");
+  assert.equal(outcome.cleanupConfirmed, false);
+  assert.equal(outcome.manualRecoveryRequired, true);
+  assert.equal(outcome.effectState, "unknown");
+  assert.equal(outcome.processRestartRequired, true);
+  const state = readOrchestratorState(root, "binding-a", "project-a");
+  assert.equal(state.status, "completed");
+  assert.ok(state.value);
+  assert.equal(
+    state.status === "completed" && state.value?.tasks[0]?.state,
+    "recovery_required",
+  );
+  assert.equal(state.value?.tasks[0]?.recoveryUnresolved, true);
+});
+
+/**
+ * PR-A-05 keeps capacity and conflict reserved when cleanup is unknownを検証する。
+ *
+ * @responsibility PR-A-05 keeps capacity and conflict reserved when cleanup is unknownの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-A-05 keeps capacity and conflict reserved when cleanup is unknownの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("PR-A-05 keeps capacity and conflict reserved when cleanup is unknown", async (t) => {
+  const { root, input } = fixture(
+    t,
+    [task("task-a", [], ["shared"]), task("task-b", [], ["shared/file.txt"])],
+    1,
+  );
+  const startedItems: string[] = [];
+  const outcome = await runOrchestratorOperation(
+    {
+      runSingleTaskAttempt: async (attempt) => {
+        startedItems.push((attempt.taskRequest as { taskId: string }).taskId);
+        return {
+          ...(await completed(attempt)),
+          status: "blocked",
+          reason: "cleanup_unknown",
+          effectState: "unknown",
+          cleanupConfirmed: false,
+          manualRecoveryRequired: true,
+        };
+      },
+    },
+    input,
+  );
+  assert.equal(outcome.status, "blocked");
+  assert.equal(outcome.manualRecoveryRequired, true);
+  assert.deepEqual(startedItems, ["task-a"]);
+  const state = readOrchestratorState(root, "binding-a", "project-a");
+  assert.equal(state.status, "completed");
+  assert.ok(state.value);
+  assert.equal(
+    state.status === "completed" && state.value.tasks[0]?.state,
+    "recovery_required",
+  );
+  assert.equal(
+    state.status === "completed" && state.value.tasks[1]?.state,
+    "ready",
+  );
+  const queue = readProjectOperationQueueState(root, "binding-a", "queue-a");
+  assert.equal(queue.status, "completed");
+  assert.equal(
+    queue.status === "completed" && queue.value.state,
+    "recovery_required",
+  );
+  assert.equal(
+    queue.status === "completed" && queue.value.ownerGeneration,
+    null,
+  );
+});
+
+/**
+ * PR-Q-04 cancels before Task effect and releases durable ownershipを検証する。
+ *
+ * @responsibility PR-Q-04 cancels before Task effect and releases durable ownershipの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-Q-04 cancels before Task effect and releases durable ownershipの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("PR-Q-04 cancels before Task effect and releases durable ownership", async (t) => {
+  const { root, input } = fixture(t, [task("task-a")], 1);
+  const controller = new AbortController();
+  controller.abort();
+  let effects = 0;
+  let authorizationsIssued = 0;
+  const outcome = await runOrchestratorOperation(
+    {
+      issueRuntimeExecutionAuthorization: () => {
+        authorizationsIssued += 1;
+        return {};
+      },
+      runSingleTaskAttempt: async (attempt) => {
+        effects += 1;
+        return completed(attempt);
+      },
+    },
+    { ...input, cancellationSignal: controller.signal },
+  );
+  assert.equal(outcome.status, "cancelled", JSON.stringify(outcome));
+  assert.equal(effects, 0);
+  assert.equal(authorizationsIssued, 0);
+  const queue = readProjectOperationQueueState(root, "binding-a", "queue-a");
+  assert.equal(queue.status, "completed");
+  assert.equal(queue.status === "completed" && queue.value.state, "cancelled");
+  assert.equal(
+    queue.status === "completed" && queue.value.ownerGeneration,
+    null,
+  );
+});
+
+/**
+ * PR-Q-04は実行許可発行直後の取消で未使用Capabilityを失効するを検証する。
+ *
+ * @responsibility PR-Q-04は実行許可発行直後の取消で未使用Capabilityを失効するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-Q-04は実行許可発行直後の取消で未使用Capabilityを失効するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("PR-Q-04は実行許可発行直後の取消で未使用Capabilityを失効する", async (t) => {
+  const { root, input } = fixture(t, [task("task-a")], 1);
+  const controller = new AbortController();
+  const runtimeCapability = {};
+  let effects = 0;
+  let revocations = 0;
+  const outcome = await runOrchestratorOperation(
+    {
+      issueRuntimeExecutionAuthorization: () => {
+        controller.abort();
+        return runtimeCapability;
+      },
+      revokeRuntimeExecutionAuthorization: (candidate) => {
+        assert.equal(candidate, runtimeCapability);
+        revocations += 1;
+        return true;
+      },
+      runSingleTaskAttempt: async (attempt) => {
+        effects += 1;
+        return completed(attempt);
+      },
+    },
+    { ...input, cancellationSignal: controller.signal },
+  );
+  assert.equal(outcome.status, "cancelled", JSON.stringify(outcome));
+  assert.equal(outcome.cleanupConfirmed, true);
+  assert.equal(outcome.manualRecoveryRequired, false);
+  assert.equal(effects, 0);
+  assert.equal(revocations, 1);
+  const queue = readProjectOperationQueueState(root, "binding-a", "queue-a");
+  assert.equal(queue.status, "completed");
+  assert.equal(queue.status === "completed" && queue.value.state, "cancelled");
+});
+
+/**
+ * Runtime実行許可の発行失敗はEffect 0でreplanへ閉じるを検証する。
+ *
+ * @responsibility Runtime実行許可の発行失敗はEffect 0でreplanへ閉じるの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Runtime実行許可の発行失敗はEffect 0でreplanへ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("Runtime実行許可の発行失敗はEffect 0でreplanへ閉じる", async (t) => {
+  const { root, input } = fixture(t, [task("task-a")], 1);
+  let effects = 0;
+  const outcome = await runOrchestratorOperation(
+    {
+      issueRuntimeExecutionAuthorization: () => null,
+      runSingleTaskAttempt: async (attempt) => {
+        effects += 1;
+        return completed(attempt);
+      },
+    },
+    input,
+  );
+  assert.equal(outcome.status, "blocked");
+  assert.equal(outcome.reason, "orchestrator_replan_required");
+  assert.equal(outcome.effectState, "no_effect");
+  assert.equal(outcome.processRestartRequired, false);
+  assert.equal(effects, 0);
+  const state = readOrchestratorState(root, "binding-a", "project-a");
+  assert.equal(state.value?.tasks[0]?.state, "failed");
+});
+
+/**
+ * 未使用の実行許可を失効できたか不明なら同一Processの再利用を禁止するを検証する。
+ *
+ * @responsibility 未使用の実行許可を失効できたか不明なら同一Processの再利用を禁止するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 未使用の実行許可を失効できたか不明なら同一Processの再利用を禁止するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("未使用の実行許可を失効できたか不明なら同一Processの再利用を禁止する", async (t) => {
+  const { root, input } = fixture(t, [task("task-a")], 1);
+  const controller = new AbortController();
+  let poisoned = 0;
+  let effects = 0;
+  const outcome = await runOrchestratorOperation(
+    {
+      issueRuntimeExecutionAuthorization: () => {
+        controller.abort();
+        return {};
+      },
+      revokeRuntimeExecutionAuthorization: () => false,
+      poisonProcessAfterExecutionAuthorizationRevocationUnknown: () => {
+        poisoned += 1;
+      },
+      runSingleTaskAttempt: async (attempt) => {
+        effects += 1;
+        return completed(attempt);
+      },
+    },
+    { ...input, cancellationSignal: controller.signal },
+  );
+  assert.equal(outcome.status, "blocked");
+  assert.equal(outcome.reason, "orchestrator_task_recovery_required");
+  assert.equal(outcome.cleanupConfirmed, false);
+  assert.equal(outcome.effectState, "unknown");
+  assert.equal(outcome.processRestartRequired, true);
+  assert.equal(poisoned, 1);
+  assert.equal(effects, 0);
+  const state = readOrchestratorState(root, "binding-a", "project-a");
+  assert.equal(state.value?.tasks[0]?.recoveryUnresolved, false);
+  assert.equal(
+    state.value?.tasks[0]?.recoveryObligations[0]?.kind,
+    "runtime_process",
+  );
+});
+
+/**
+ * contract remains a partial Orchestrator capabilityを検証する。
+ *
+ * @responsibility contract remains a partial Orchestrator capabilityの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus contract remains a partial Orchestrator capabilityの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("contract remains a partial Orchestrator capability", () => {
+  assert.deepEqual(describeOrchestratorExecutionContract(), {
+    contract: "crdd-coordinator/orchestrator-execution/v1",
+    maximumConcurrency: 5,
+    externalWaitWhileMutationLockHeld: false,
+    cleanupUnknownDisposition: "durable_recovery_and_reservation_retained",
+    staleOrOwnedQueueDisposition: "effect_zero_manual_reconciliation",
+    upperOrchestratorCapabilityComplete: false,
+  });
+});
+
+/**
+ * Task試行の終了を非Authorityの実行Eventとして一度記録するを検証する。
+ *
+ * @responsibility Task試行の終了を非Authorityの実行Eventとして一度記録するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Task試行の終了を非Authorityの実行Eventとして一度記録するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("Task試行の終了を非Authorityの実行Eventとして一度記録する", async (t) => {
+  const { input } = fixture(t, [task("task-a")]);
+  const events: unknown[] = [];
+  let clock = 0;
+  const outcome = await runOrchestratorOperation(
+    {
+      runSingleTaskAttempt: completed,
+      executionObservation: {
+        recordTaskAttempt: (event) => {
+          events.push(event);
+          return recorded("event-test");
+        },
+      },
+      now: () => ({
+        monotonicMs: clock++ * 25,
+        iso: "2026-09-05T00:00:01.000Z",
+      }),
+    },
+    input,
+  );
+  assert.equal(outcome.status, "completed");
+  assert.equal(events.length, 1);
+  const event = events[0] as {
+    identity: { objectiveId: string; taskId: string };
+    outcome: { status: string };
+    startedAtMs: number;
+    endedAtMs: number;
+  };
+  assert.equal(event.identity.objectiveId, "objective-a");
+  assert.equal(event.identity.taskId, "task-a");
+  assert.equal(event.outcome.status, "completed");
+  assert.equal(event.endedAtMs - event.startedAtMs, 25);
+});
+
+for (const mismatchedField of [
+  "attemptId",
+  "operationId",
+  "authorityBindingId",
+  "repositoryRevision",
+] as const) {
+  /**
+   * 別Task結果の${mismatchedField}を実行Eventへ転記しないを検証する。
+   *
+   * @responsibility 別Task結果の${mismatchedField}を実行Eventへ転記しないの合否判定を所有する。
+   * @trace PRL-IT-012
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 別Task結果の${mismatchedField}を実行Eventへ転記しないの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+   */
+  test(`別Task結果の${mismatchedField}を実行Eventへ転記しない`, async (t) => {
+    const { input } = fixture(t, [task("task-a")]);
+    const events: unknown[] = [];
+    await runOrchestratorOperation(
+      {
+        runSingleTaskAttempt: async (attempt) => ({
+          ...completedAfterStart(attempt),
+          [mismatchedField]:
+            mismatchedField === "repositoryRevision"
+              ? "b".repeat(40)
+              : `other-${mismatchedField}`,
+          executorProvider: "codex" as const,
+        }),
+        executionObservation: {
+          recordTaskAttempt: (event) => {
+            events.push(event);
+            return recorded("event-mismatch-test");
+          },
+        },
+      },
+      input,
+    );
+    assert.equal(events.length, 1);
+    const observed = events[0] as {
+      outcome: { status: string; reason: string };
+      provider?: "codex" | "claude";
+    };
+    assert.deepEqual(observed.outcome, {
+      status: "unknown",
+      reason: "task_attempt_result_not_observable",
+      effectState: "unknown",
+      cleanupConfirmed: false,
+      manualRecoveryRequired: true,
+      processRestartRequired: true,
+    });
+    assert.equal(observed.provider, undefined);
+  });
+}
+
+/**
+ * 実行Event記録と二次診断の失敗はTask結果を変えないを検証する。
+ *
+ * @responsibility 実行Event記録と二次診断の失敗はTask結果を変えないの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 実行Event記録と二次診断の失敗はTask結果を変えないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("実行Event記録と二次診断の失敗はTask結果を変えない", async (t) => {
+  const { input } = fixture(t, [task("task-a")]);
+  const publications: unknown[] = [];
+  const outcome = await runOrchestratorOperation(
+    {
+      runSingleTaskAttempt: completed,
+      executionObservation: {
+        recordTaskAttempt: () => {
+          throw new Error("recorder_failed");
+        },
+        observePublication: (observation) => {
+          publications.push(observation);
+          throw new Error("diagnostic_failed");
+        },
+      },
+    },
+    input,
+  );
+  assert.equal(outcome.status, "completed");
+  assert.deepEqual(publications, [
+    {
+      status: "unknown",
+      reason: "execution_event_recorder_threw",
+      effectState: "unknown",
+      cleanupConfirmed: false,
+    },
+  ]);
+});
+
+/**
+ * 記録未設定を記録成功へ丸めないを検証する。
+ *
+ * @responsibility 記録未設定を記録成功へ丸めないの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 記録未設定を記録成功へ丸めないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("記録未設定を記録成功へ丸めない", async (t) => {
+  const { input } = fixture(t, [task("task-a")]);
+  const publications: unknown[] = [];
+  const outcome = await runOrchestratorOperation(
+    {
+      runSingleTaskAttempt: completed,
+      executionObservation: {
+        observePublication: (observation) => publications.push(observation),
+      },
+    },
+    input,
+  );
+  assert.equal(outcome.status, "completed");
+  assert.equal(
+    (publications[0] as { status: string }).status,
+    "not_configured",
+  );
+});
+
+for (const invalidClock of [
+  { started: 20, ended: 10 },
+  { started: Number.NaN, ended: 10 },
+  { started: 10, ended: Number.POSITIVE_INFINITY },
+]) {
+  /**
+   * 不正な時間差を0msの観測値へ補正しないを検証する。
+   *
+   * @responsibility 不正な時間差を0msの観測値へ補正しないの合否判定を所有する。
+   * @trace PRL-IT-012
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 不正な時間差を0msの観測値へ補正しないの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+   */
+  test("不正な時間差を0msの観測値へ補正しない", async (t) => {
+    const { input } = fixture(t, [task("task-a")]);
+    const events: unknown[] = [];
+    let invocation = 0;
+    await runOrchestratorOperation(
+      {
+        runSingleTaskAttempt: completed,
+        executionObservation: {
+          recordTaskAttempt: (event) => {
+            events.push(event);
+            return recorded("event-clock-test");
+          },
+        },
+        now: () => {
+          invocation += 1;
+          return {
+            monotonicMs:
+              invocation === 1 ? invalidClock.started : invalidClock.ended,
+            iso: "2026-09-05T00:00:01.000Z",
+          };
+        },
+      },
+      input,
+    );
+    assert.equal(events.length, 1);
+    const observed = events[0] as { startedAtMs: number; endedAtMs: number };
+    assert.equal(observed.startedAtMs, invalidClock.started);
+    assert.equal(observed.endedAtMs, invalidClock.ended);
+  });
+}

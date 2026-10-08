@@ -42,13 +42,13 @@ Quality ID: `QA-000004`
 |---|---|
 | [cros](../../../06_Architecture/Details/cros/01_Architecture.md) | Repository横断解決、Grant、投影、外部接続、候補処置 |
 | [execution-intelligence](../../../06_Architecture/Details/execution-intelligence/01_Architecture.md) | Canonical記録、不変公開、並行Writer、実行事実、観測不能、出所と評価候補の分離 |
-| [mcp](../../../06_Architecture/Details/mcp/01_Architecture.md) | Transport変換、公開Schema、Session、結果搬送 |
-| [project-operation](../../../06_Architecture/Details/project-operation/01_Architecture.md) | Project運営状態、Meeting／Topic候補、正本への引渡し |
-| [project-runtime](../../../06_Architecture/Details/project-runtime/01_Architecture.md) | Objective、Task、判断、取消、回復、公開結果 |
-| [runtime-data](../../../06_Architecture/Details/runtime-data/01_Architecture.md) | Repository-local／OS管理Root、用途、保持、清掃、回復 |
+| [mcp](../../../06_Architecture/Details/mcp-server/01_Architecture.md) | Transport変換、公開Schema、Session、結果搬送 |
+| [project-operation](../../../06_Architecture/Details/domain-model/02_Activity_Context.md) | Project運営状態、Meeting／Topic候補、正本への引渡し |
+| [orchestrator](../../../06_Architecture/Details/orchestrator/01_Architecture.md) | Objective、Task、判断、取消、回復、公開結果 |
+| [runtime-data](../../../06_Architecture/Details/domain-model/03_Repository_Storage.md) | Repository-local／OS管理Root、用途、保持、清掃、回復 |
 | [semantic-coverage](../../../06_Architecture/Details/semantic-coverage/01_Architecture.md) | Architectureの意味単位、実装Symbol、Quality Local Itemおよび試験Symbolの対応関係を決定論的に投影する |
 | [version-control](../../../06_Architecture/Details/version-control/01_Architecture.md) | Repository境界、Revision、差し替え可能な履歴管理Adapter |
-| [workbench](../../../06_Architecture/Details/workbench/01_Architecture.md) | Project／Portfolio ProjectionのView State、欠測・制限・根拠表示 |
+| [workbench](../../../06_Architecture/Details/workbench-server/01_Architecture.md) | Project／Portfolio ProjectionのView State、欠測・制限・根拠表示 |
 
 ## 2. 試験段階と外部境界の適用
 
@@ -101,12 +101,12 @@ Quality ID: `QA-000004`
 
 | Local ID | Semantic Key |
 |---|---|
-| `PPR-IT-001` | `project-runtime.project-state-projection` |
-| `PPR-UAT-008` | `project-runtime.execution-intelligence-read-model` |
+| `PPR-IT-001` | `orchestrator.project-state-projection` |
+| `PPR-UAT-008` | `orchestrator.execution-intelligence-read-model` |
 
 ### 二Surface再編のActivity観測条件
 
-導出元は[CROSの現在Activity投影](../../../06_Architecture/Details/cros/01_Architecture.md)と[MCPのActivity操作](../../../06_Architecture/Details/mcp/01_Architecture.md)である。`PPR-IT-012`では本番の現在状態Readerと履歴Readerを分け、observed／absent／unknown、eventState／eventReason、現在値とeventContinuationを独立に観測する。状態を読めても履歴が観測不能なら、空の正常履歴へ変えない。
+導出元は[CROSの現在Activity投影](../../../06_Architecture/Details/cros/01_Architecture.md)と[MCPのActivity操作](../../../06_Architecture/Details/mcp-server/01_Architecture.md)である。`PPR-IT-012`では本番の現在状態Readerと履歴Readerを分け、observed／absent／unknown、eventState／eventReason、現在値とeventContinuationを独立に観測する。状態を読めても履歴が観測不能なら、空の正常履歴へ変えない。
 
 `PPR-IT-001/002`では同じProjectと現在許可されたRepositoryを対象に、Local内部呼出しとRemote MCP、limit既定20／境界1・50／不正値、Cursor一致／改ざん／改訂変化、欠測・競合を比較する。結果の出所・改訂版・部分観測を保持し、Cursorから読取りAuthorityを発行しない。認可失効後の再取得は本文・件数・対象存在を非開示にする。両入口の意味比較はQA-000009の`EST-IT-010`、利用者が不完全性を理解できることは`PPR-UAT-015`で確認する。投影処理による正本更新・暗黙再送は0とする。
 

@@ -35,8 +35,8 @@ import {
   inspectFixedDevelopmentCoordinatorPackageCandidate,
   inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate,
   verifyInstalledCoordinatorPackageCandidate,
-} from "../../src/platform-access/platform-provisioner-package-filesystem.ts";
-import { canonicalizeProvisioningJsonValueCandidate } from "../../src/diagnostics/provisioning-signature-primitives.ts";
+} from "../../src/platform-access/package-verification.ts";
+import { canonicalizeProvisioningJsonValueCandidate } from "../../src/platform-access/signature-primitives.ts";
 import { validateArtifactSignatureResult } from "../../../artifact-signing/src/index.ts";
 import { createFixedRuntimeSigningFixture } from "../fixtures/fixed-runtime-signing-fixture.ts";
 
@@ -326,11 +326,11 @@ test("期限なしは明示指定だけを受け、CLIの排他違反とundefine
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
  * @boundary AIT-IT-008=Direct Boundary: coordinator Test Source→対象契約
  */
-function uniqueReleaseCandidate(prefix: string, fixedSignature = false) {
+function uniqueReleaseCandidate(prefix: string, isFixedSignature = false) {
   fs.mkdirSync(releaseStagingRoot, { recursive: true });
   const value = path.join(
     releaseStagingRoot,
-    fixedSignature
+    isFixedSignature
       ? "signature"
       : `${prefix}-${randomBytes(8).toString("hex")}`,
   );
@@ -369,8 +369,8 @@ function uniqueReleaseCandidate(prefix: string, fixedSignature = false) {
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
  * @boundary AIT-IT-008=Direct Boundary: coordinator Test Source→対象契約
  */
-function runtimeDistributionFixture(prefix: string, fixedSignature = false) {
-  const distributionRoot = uniqueReleaseCandidate(prefix, fixedSignature);
+function runtimeDistributionFixture(prefix: string, isFixedSignature = false) {
+  const distributionRoot = uniqueReleaseCandidate(prefix, isFixedSignature);
   for (const component of [
     "ai-adapter",
     "artifact-signing",
@@ -398,7 +398,10 @@ function runtimeDistributionFixture(prefix: string, fixedSignature = false) {
   fs.mkdirSync(path.join(distributionRoot, "template", "tools"), {
     recursive: true,
   });
-  for (const launcher of ["crdd-coordinator.ts", "crdd-mcp.ts"] as const) {
+  for (const launcher of [
+    "crdd-coordinator.ts",
+    "crdd-mcp-server.ts",
+  ] as const) {
     fs.copyFileSync(
       path.join(repositoryRoot, "template", "tools", launcher),
       path.join(distributionRoot, "template", "tools", launcher),
@@ -747,16 +750,16 @@ test("Runtime依存閉包の欠落を秘密鍵読取りより前の署名preflig
   const cases = [
     "40_Develop/coordinator/bin/coordinator.ts",
     "40_Develop/coordinator/src/cli/interactive-console-reader.ts",
-    "40_Develop/coordinator/src/host-runtime/candidate-store-lock-worker.ts",
-    "40_Develop/coordinator/src/host-runtime/host-operation-lock-supervisor.ts",
+    "40_Develop/coordinator/src/host-execution/kernel-lock-worker.ts",
+    "40_Develop/coordinator/src/host-execution/operation-lock-supervisor.ts",
     "40_Develop/coordinator/scripts/verify-signed-recovery-matrix.ts",
-    "template/tools/crdd-mcp.ts",
+    "template/tools/crdd-mcp-server.ts",
     "40_Develop/mcp-server/package.json",
     "40_Develop/orchestrator/src/index.ts",
     "40_Develop/domain-model/package.json",
-    "40_Develop/domain-model/src/storage/index.ts",
-    "40_Develop/domain-model/src/storage/filesystem-store-kernel-lock-worker.ts",
-    "40_Develop/domain-model/src/repository/index.ts",
+    "40_Develop/domain-model/src/index.ts",
+    "40_Develop/domain-model/src/storage/kernel-lock-worker.ts",
+    "40_Develop/domain-model/src/index.ts",
   ] as const;
   const distributionRoot = runtimeDistributionFixture("contract-closure", true);
   try {
@@ -868,46 +871,43 @@ test("実行primitive閉包の代表違反を全公開Consumerと署名CLIで秘
     {
       name: "node_self_classification",
       relativePath:
-        "40_Develop/coordinator/src/docker-runtime/docker-owned-process.ts",
+        "40_Develop/coordinator/src/docker-execution/owned-process.ts",
       source: 'spawn(process["argv0"], ["./unregistered-child.ts"]);\n',
     },
     {
       name: "lifecycle_consumer",
       relativePath:
-        "40_Develop/coordinator/src/docker-runtime/docker-owned-process.ts",
+        "40_Develop/coordinator/src/docker-execution/owned-process.ts",
       source:
         'import { runInteractiveConsoleReaderLifecycle } from "../cli/interactive-console-reader-lifecycle-internal.ts"; void runInteractiveConsoleReaderLifecycle;\n',
     },
     {
       name: "loader_namespace",
-      relativePath:
-        "40_Develop/coordinator/src/host-runtime/candidate-store-kernel-lock.ts",
+      relativePath: "40_Develop/coordinator/src/host-execution/kernel-lock.ts",
       source:
         'import * as moduleBuiltin from "node:module"; void moduleBuiltin.createRequire;\n',
     },
     {
       name: "loader_bracket",
-      relativePath:
-        "40_Develop/coordinator/src/host-runtime/candidate-store-kernel-lock.ts",
+      relativePath: "40_Develop/coordinator/src/host-execution/kernel-lock.ts",
       source: 'void process["getBuiltinModule"]?.("node:child_process");\n',
     },
     {
       name: "loader_reconstructed",
-      relativePath:
-        "40_Develop/coordinator/src/host-runtime/candidate-store-kernel-lock.ts",
+      relativePath: "40_Develop/coordinator/src/host-execution/kernel-lock.ts",
       source: 'void import(["node:", "child_", "process"].join(""));\n',
     },
     {
       name: "external_process_conditional_target",
       relativePath:
-        "40_Develop/coordinator/src/candidate/candidate-store-windows-adapter.ts",
+        "40_Develop/coordinator/src/platform-access/protected-root-windows-adapter.ts",
       source:
         "spawnSync(selectedExecutable || process.argv0, [], { shell: false });\n",
     },
     {
       name: "injected_wrapper_property_call",
       relativePath:
-        "40_Develop/coordinator/src/docker-runtime/docker-effect-runtime.ts",
+        "40_Develop/coordinator/src/docker-execution/command-effects.ts",
       source:
         "dependencies.startProcess(process.execPath, [], createDockerProcessEnvironment(), null);\n",
     },
@@ -986,7 +986,7 @@ test("実行primitive閉包の代表違反を全公開Consumerと署名CLIで秘
             "closure",
             randomBytes(8).toString("hex"),
           );
-          const copiedImplementation: typeof import("../../src/platform-access/platform-provisioner-package-filesystem.ts") =
+          const copiedImplementation: typeof import("../../src/platform-access/package-verification.ts") =
             await import(copiedModuleUrl.href);
           const issued =
             copiedImplementation.issueRuntimeOwnedVerifiedCoordinatorPackageCapability(
@@ -1811,7 +1811,7 @@ test("固定Runtime fixtureはENOENT祖先だけを段階作成し再観測す�
   const originalLstat = fs.lstatSync;
   const crdd = path.join(repositoryRoot, ".crdd");
   const tests = path.join(crdd, "tests");
-  const created: string[] = [];
+  const createdEntries: string[] = [];
   const reread = new Set<string>();
   let writes = 0;
   const lstat = mock.method(
@@ -1819,7 +1819,7 @@ test("固定Runtime fixtureはENOENT祖先だけを段階作成し再観測す�
     "lstatSync",
     (...args: Parameters<typeof fs.lstatSync>) => {
       if (args[0] === crdd || args[0] === tests) {
-        if (!created.includes(args[0]))
+        if (!createdEntries.includes(args[0]))
           throw Object.assign(new Error("absent"), { code: "ENOENT" });
         reread.add(args[0]);
       }
@@ -1831,8 +1831,8 @@ test("固定Runtime fixtureはENOENT祖先だけを段階作成し再観測す�
     "mkdirSync",
     (target: fs.PathLike, options?: unknown) => {
       assert.equal(options, undefined);
-      assert.equal(target, created.length === 0 ? crdd : tests);
-      created.push(target as string);
+      assert.equal(target, createdEntries.length === 0 ? crdd : tests);
+      createdEntries.push(target as string);
     },
   );
   const mkdtemp = mock.method(fs, "mkdtempSync", () => {
@@ -1846,7 +1846,7 @@ test("固定Runtime fixtureはENOENT祖先だけを段階作成し再観測す�
       () => createFixedRuntimeSigningFixture(),
       /stop_after_prewrite_validation/u,
     );
-    assert.deepEqual(created, [crdd, tests]);
+    assert.deepEqual(createdEntries, [crdd, tests]);
     assert.deepEqual([...reread], [crdd, tests]);
     assert.equal(writes, 0);
   } finally {

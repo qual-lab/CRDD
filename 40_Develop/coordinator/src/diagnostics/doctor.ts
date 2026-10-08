@@ -7,32 +7,32 @@
 import fs from "node:fs";
 import path from "node:path";
 import { types as utilTypes } from "node:util";
-import { describeAuthorityFileBundleContract } from "../authority/authority-file-bundle.ts";
-import { describeAuthorityGrantVerifierContract } from "../authority/authority-grant-verifier.ts";
-import { describeAuthorityPrelaunchVerifierContract } from "../authority/authority-prelaunch-verifier.ts";
-import { describeAuthorityTrustLoaderContract } from "../authority/authority-trust-loader.ts";
+import { describeAuthorityFileBundleContract } from "../authority/file-bundle.ts";
+import { describeAuthorityGrantVerifierContract } from "../authority/grant-verifier.ts";
+import { describeAuthorityPrelaunchVerifierContract } from "../authority/prelaunch-verifier.ts";
+import { describeAuthorityTrustLoaderContract } from "../authority/trust-loader.ts";
 import {
   classifyOwnedCoordinatorOperationCreationFailure,
   createRuntimeOwnedCoordinatorOperation,
-} from "../repository-operation/coordinator-operation-creation-internal.ts";
+} from "../repository-operation/create.ts";
 import {
   DOCKER_ISOLATION_PROFILE,
   runDockerIsolationProbe,
-} from "../docker-runtime/docker-isolation.ts";
+} from "../docker-execution/isolation-probe.ts";
 import { describeEgressProxyTopology } from "../external-send/egress-proxy-policy.ts";
 import {
   cleanupOwnedOperationDirectories,
   createProviderEnvironment,
   credentialEnvironmentNamesPresent,
   describeFilesystemPolicy,
-} from "../host-runtime/execution-environment.ts";
-import { snapshotPlainArray } from "../../../domain-model/src/plain-data/index.ts";
-import { describeProviderIsolationContract } from "../provider/provider-isolation-profile.ts";
-import { describeProviderLifecycleContract } from "../provider/provider-lifecycle.ts";
-import { describeRepositoryLocationContract } from "../../../version-control/src/repository-location.ts";
-import { inspectRepositoryRevisionCandidate } from "../repository-operation/repository-operation-runtime.ts";
+} from "../host-execution/operation-workspace-lifecycle.ts";
+import { snapshotPlainArray } from "../../../domain-model/src/index.ts";
+import { describeProviderIsolationContract } from "../provider/isolation-profile.ts";
+import { describeProviderLifecycleContract } from "../provider/lifecycle.ts";
+import { describeRepositoryLocationContract } from "../../../version-control/src/repository/location.ts";
+import { inspectRepositoryRevisionCandidate } from "../repository-operation/binding.ts";
 import { describeRootProtectionPolicyContract } from "../repository-operation/root-protection-policy.ts";
-import { isSupportedCoordinatorNodeRuntime } from "../host-runtime/node-runtime-version.ts";
+import { isSupportedCoordinatorNodeRuntime } from "../host-execution/node-runtime-version.ts";
 
 export const CHECK_STATUS = Object.freeze([
   "confirmed",

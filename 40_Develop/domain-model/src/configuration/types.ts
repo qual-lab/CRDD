@@ -7,7 +7,7 @@
 import type {
   REPOSITORY_MANIFEST_SCHEMA,
   CROS_TRUST_POLICY_SCHEMA,
-} from "./runtime-data-contract.ts";
+} from "./validate-declarations.ts";
 
 /**
  * 一つのツール所有者の期間設定を固定する。

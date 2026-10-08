@@ -1,5 +1,15 @@
-import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "../../src/host-runtime/candidate-store-kernel-lock.ts";
-import { createDockerRecoveryRuntimeStateLockController } from "../../src/docker-runtime/docker-recovery-lock-controller.ts";
+/**
+ * Recovery Lockの競合を観測する固定Processを実行する。
+ *
+ * @packageDocumentation
+ * @responsibility 指定BindingのLockを所有・観測し、別Processとの排他条件を試験する。
+ * @trace PRL-IT-013
+ * @level IT
+ * @scope Recovery State Lockの所有と再取得
+ * @boundary 試験Process→Kernel Lock Controller。Docker復旧やProvider依頼は発行しない。
+ */
+import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "../../src/host-execution/kernel-lock.ts";
+import { createDockerRecoveryRuntimeStateLockController } from "../../src/docker-execution/recovery-lock-controller.ts";
 
 const mode = process.argv[2];
 const binding = process.argv[3];

@@ -16,8 +16,8 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { createScanner, SyntaxKind } from "typescript/unstable/ast";
-import type { RepairHistoryPublicationFaultPoint } from "../../src/docker-desktop/docker-desktop-repair-history-publication.ts";
-import { createRepairHistoryPublicationTestingAdapter } from "../support/helpers/docker-desktop-repair-history-publication-testing.ts";
+import type { RepairHistoryPublicationFaultPoint } from "../../src/docker-desktop/repair-history-publication.ts";
+import { createRepairHistoryPublicationTestingAdapter } from "../support/repair-history-publication-fixture.ts";
 import {
   assertRuntimeTraceCase,
   assertRuntimeTraceExecutionCoverage,
@@ -608,7 +608,7 @@ test("回復可能な公開: 全成功分岐は共通の最終確定述語だけ
   const source = fs.readFileSync(
     fileURLToPath(
       new URL(
-        "../../src/docker-desktop/docker-desktop-repair-history-publication.ts",
+        "../../src/docker-desktop/repair-history-publication.ts",
         import.meta.url,
       ),
     ),
@@ -1093,7 +1093,7 @@ test("回復可能な公開のtesting adapterは本番entrypointから到達せ�
   );
   const testingAdapter = fileURLToPath(
     new URL(
-      "../support/helpers/docker-desktop-repair-history-publication-testing.ts",
+      "../support/repair-history-publication-fixture.ts",
       import.meta.url,
     ),
   );

@@ -4,7 +4,7 @@
  * @responsibility Repository・Queue結合と候補公開／採用結果の形を固定する。
  * @trace ARCH-000005
  */
-import type { PROJECT_RUNTIME_INTEGRATION_CONTRACT } from "../public-contract/integration-result.ts";
+import type { ORCHESTRATOR_INTEGRATION_CONTRACT } from "../candidate/integration-result.ts";
 
 /**
  * 上位の結果保存に必要なRepository／Project／Milestone／Queue結合を定義する。
@@ -36,8 +36,8 @@ export type IntegrationRecordBinding = Readonly<{
  * @security 保護DecisionやAuthorityを追加しない。
  * @compatibility valueは既存PortのJSON値をそのまま保持する。
  */
-export type ProjectRuntimeResultRecord = Readonly<{
-  contract: typeof PROJECT_RUNTIME_INTEGRATION_CONTRACT;
+export type OrchestratorResultRecord = Readonly<{
+  contract: typeof ORCHESTRATOR_INTEGRATION_CONTRACT;
   kind: "integration" | "adoption";
   repositoryBindingId: string;
   projectId: string;

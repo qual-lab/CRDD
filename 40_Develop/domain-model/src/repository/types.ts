@@ -1,4 +1,12 @@
-import type { VerifiedRepositoryRoot } from "../../../version-control/src/repository-identity/index.ts";
+/**
+ * Repository内容とRuntime保存領域の値契約を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility 検証済みRepository Rootに結合した観測結果と保存領域の型を所有する。
+ * @trace ARCH-000008
+ * @trace ARCH-000009
+ */
+import type { VerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
 
 /**
  * Repository内容を副作用なしで観測する公開境界。
@@ -113,7 +121,7 @@ export type RepositoryObservationPort = Readonly<{
  * @compatibility RepositoryRootCapabilityの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 export type RepositoryRootCapability = VerifiedRepositoryRoot;
-import type { REPOSITORY_AREAS } from "../configuration/runtime-data-paths.ts";
+import type { REPOSITORY_AREAS } from "../configuration/storage-paths.ts";
 
 /**
  * runtime-data-path-resolverで使用するRepository Runtime Areaの値契約を定義する。

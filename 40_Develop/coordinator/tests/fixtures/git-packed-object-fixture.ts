@@ -1,10 +1,20 @@
+/**
+ * Git packed objectの正常・破損入力を試験へ提供する。
+ *
+ * @packageDocumentation
+ * @responsibility Repository内の試験領域へ固定Object・Packを構築し、読取り契約の反証入力を生成する。
+ * @trace RFD-IT-012
+ * @level IT
+ * @scope Git Object／Pack読取り
+ * @boundary 自己生成Git試験領域→Git CLI・Object読取り。現行RepositoryのObjectを変更しない。
+ */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { crc32, deflateSync, inflateSync } from "node:zlib";
-import { createDockerProcessEnvironment } from "../../src/docker-runtime/docker-owned-process.ts";
+import { createDockerProcessEnvironment } from "../../src/docker-execution/owned-process.ts";
 import { createRepositoryTestTemporaryDirectory } from "./repository-test-directory-fixture.ts";
 
 const GIT_EXECUTABLE = "C:\\Program Files\\Git\\cmd\\git.exe";

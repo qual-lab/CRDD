@@ -30,7 +30,7 @@ import {
   createFilesystemStoreRoot,
   observeFilesystemStoreLockOwnerAbsence,
   recoverFilesystemStoreLock,
-} from "../../../domain-model/src/storage/index.ts";
+} from "../../../domain-model/src/index.ts";
 
 /**
  * 統合試験用の候補素材を構築する。

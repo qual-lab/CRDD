@@ -2,7 +2,7 @@
 
 成果物種別: Discovery分析の補足資料
 探索ID: `EXP-000029`
-対象: Project Context、Project Runtime State、Topic、Meeting、MCP、Workbench
+対象: Project Context、Orchestrator State、Topic、Meeting、MCP、Workbench
 
 ## 1. 結論
 
@@ -18,7 +18,7 @@ Project Context
         ├─→ Decision／Action
         ├─→ Quality／Gap／Evidence
         ├─→ Documentation
-        └─→ Project Runtime State
+        └─→ Orchestrator State
 
 Project Contextは概要とOwner Relationを持つ。
 詳細本文、履歴、実行中状態は各Ownerが持つ。
@@ -37,7 +37,7 @@ MCPは同じ能力をAIへ公開する境界、Workbenchは人間がそれらを
 | 判断・Action | 誰が何を決めるか、何をいつ実行するか | Decision、Topic、Meeting、CHG等 | 足りない。現在の判断待ちだけを投影する |
 | 品質確認 | 何を保証でき、何が未観測で、どの根拠があるか | Quality、Evidence | 足りない。現在品質と主要Gapだけを投影する |
 | 文書探索 | どの正本を読めばよいか、関係する説明は何か | 各工程成果物 | 足りない。主要Relationだけを持つ |
-| 実行状況確認 | Objective／Task／Milestoneが現在どう動いているか | Project Runtime | 対象外。Repository変更なしに変化するLive状態である |
+| 実行状況確認 | Objective／Task／Milestoneが現在どう動いているか | Orchestrator | 対象外。Repository変更なしに変化するLive状態である |
 | Repository横断 | どのRepositoryが何を担当し、何が見えないか | Manifest、各Project Context、CROS | 単一Repository投影だけでは足りない |
 
 ## 3. 読取り能力と操作能力
@@ -47,12 +47,12 @@ MCPは同じ能力をAIへ公開する境界、Workbenchは人間がそれらを
 | 対象 | 読取り能力 | 操作能力の候補 | 現在の判断 |
 |---|---|---|---|
 | Project Context | Repositoryの固定Projectionを読む | N/A: Project Contextを直接編集する業務操作は持たない | MCP Resource候補 |
-| Project Runtime State | 実行中Runtimeの現在状態を問い合わせる | Objective開始、判断送信 | 既存状態取得名を`crdd.get_project_runtime_state`へ明確化する。移行契約はArchitectureで決める |
+| Orchestrator State | 実行中Runtimeの現在状態を問い合わせる | Objective開始、判断送信 | 既存状態取得名を`crdd.get_orchestrator_state`へ明確化する。移行契約はArchitectureで決める |
 | Topic | 一覧、詳細、Relation、現在状態を読む | 登録、編集、削除、終了、正式成果物への昇格候補 | 登録・編集・削除・一覧・取得を完成候補へ含め、削除の意味とAuthorityをDiscoveryで確認する |
 | Meeting | 一覧、詳細、参加主体、Decision／Action／Topic候補を読む | 登録、編集、削除、訂正、候補化、Owner Artifactへの反映候補 | 登録・編集・削除・一覧・取得を完成候補へ含め、時点記録を壊さない訂正・撤回境界を確認する |
 | Roadmap／Quality／Documentation | 一覧、詳細、Relationを読む | 各Ownerが許可する更新 | Project Context固有APIへ複製しない |
 
-ここでいうMCP Resource／Toolは解決方式の有力候補であり、URI、引数、返却Schemaおよび書込みToolの採用をDiscoveryだけで確定しない。ただし、`crdd.get_project_state`という名称をProject Contextへ転用しない。Project全体の投影とProject Runtimeの実行状態を名前でも区別する。
+ここでいうMCP Resource／Toolは解決方式の有力候補であり、URI、引数、返却Schemaおよび書込みToolの採用をDiscoveryだけで確定しない。ただし、`crdd.get_project_state`という名称をProject Contextへ転用しない。Project全体の投影とOrchestratorの実行状態を名前でも区別する。
 
 ## 4. TopicとMeetingの関係
 
@@ -94,7 +94,7 @@ Workbench
 ├ Quality／Gap／Evidence
 ├ Documentation／Owner Relations
 ├ Current Execution
-│  └ Project Runtime State
+│  └ Orchestrator State
 ├ Repositories／Coverage
 ├ Version Control
 │  ├ Repository／Branch／HEAD
@@ -199,7 +199,7 @@ MCPとWorkbenchは別々のProject Modelを作らない。ただし、MCP実装�
 | Topic一覧と詳細の情報構造 | Topicは継続判断が必要な論点であり、現在状態、関係、経緯、根拠および次の処置へ進める | UX／IA／UI Detail |
 | Meeting一覧と詳細の情報構造 | Meetingは時点記録であり、Outcome処置、Decision、Action、TopicおよびOwner Artifactへの接続を失わない | UX／IA／UI Detail |
 | Topic／Meetingの削除と書込みAuthority | Relationを持つ誤登録も人間確認後に削除できるが、連鎖削除やDangling Relationを残さない | [REQ-000039](../../Definitions/REQ-000039/requirement.md)、SPEC／Architecture |
-| Project Runtime Stateの旧公開名の利用実態 | Project ContextとProject Runtime Stateを別能力として扱う | Reality Audit／移行設計 |
+| Orchestrator Stateの旧公開名の利用実態 | Project ContextとOrchestrator Stateを別能力として扱う | Reality Audit／移行設計 |
 | Workbenchで常時見せる情報と必要時だけ見せる情報 | WorkbenchをProject Context Viewerまたは汎用Dashboardへ限定しない | UX／IA／UI Detail |
 | Workbench固有の横断Projection | Attention、関係・経緯、比較・変化および次の仕事をOwner Relation付きで投影する | UX／Dogfood |
 | Version Control操作範囲 | 閲覧、Stage／Unstage、Commitおよび確認付き通常Pushを初期範囲とし、破壊的操作は含めない | SPEC／Architecture |
@@ -207,7 +207,7 @@ MCPとWorkbenchは別々のProject Modelを作らない。ただし、MCP実装�
 
 ## Checklist
 
-- [x] Project ContextとProject Runtime Stateを別の能力として扱った。
+- [x] Project ContextとOrchestrator Stateを別の能力として扱った。
 - [x] TopicとMeetingを独立したOwnerおよびLifecycleとして扱った。
 - [x] 読取り能力と状態変更能力を区別した。
 - [x] MCP Resource／Toolの候補と、未確定の公開Schemaを区別した。

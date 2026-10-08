@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { createTopicMeetingRepository } from "../../src/storage/topic-meeting-repository.ts";
+import { createTopicMeetingRepository } from "../../src/storage/topic-meeting-store.ts";
 
 /** Topic Fixtureを指定Revisionで構築する。 */
 /**

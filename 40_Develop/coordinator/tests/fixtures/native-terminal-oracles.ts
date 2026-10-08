@@ -51,7 +51,7 @@ export type NativeTerminalFixtureKind =
  * @boundary Native返却packetの判定だけ。Process終端・入力不変・物理不存在は実行Ownerが確認する。
  */
 function validateTargetPacket(value: unknown): boolean {
-  const run = "target.261004.9da03fb1.r3";
+  const verificationOperation = "target.261004.9da03fb1.r3";
   const native =
     value !== null && typeof value === "object" && !Array.isArray(value)
       ? (value as Record<string, unknown>)
@@ -82,13 +82,13 @@ function validateTargetPacket(value: unknown): boolean {
   const rows = Array.isArray(native?.rejections)
     ? (native.rejections as Record<string, unknown>[])
     : [];
-  const nativeVerified =
+  const isNativeVerified =
     native !== null &&
     Object.keys(native).length === fields.length &&
     Object.keys(native).every((key) => fields.includes(key)) &&
     native.contract === "crdd-native/terminal-target-fixture" &&
     native.contractRevision === 2 &&
-    native.run === run &&
+    native.run === verificationOperation &&
     native.observed === true &&
     native.phase === "complete" &&
     native.normalObservations === 6 &&
@@ -176,7 +176,7 @@ function validateTargetPacket(value: unknown): boolean {
       );
     });
 
-  return Boolean(nativeVerified);
+  return Boolean(isNativeVerified);
 }
 
 /**
@@ -194,7 +194,7 @@ function validateTargetPacket(value: unknown): boolean {
  * @boundary Native返却packetの判定だけ。Process終端・入力不変・物理不存在は実行Ownerが確認する。
  */
 function validateSavePacket(value: unknown): boolean {
-  const run = "save.261003.c8d1092a.r1";
+  const verificationOperation = "save.261003.c8d1092a.r1";
   const native =
     value !== null && typeof value === "object" && !Array.isArray(value)
       ? (value as Record<string, unknown>)
@@ -221,29 +221,29 @@ function validateSavePacket(value: unknown): boolean {
     "productionIntegrationVerified",
     "osFaultInjectionVerified",
   ];
-  const parsed =
+  const isParsed =
     native !== null &&
     Object.keys(native).length === fields.length &&
     Object.keys(native).every((key) => fields.includes(key)) &&
     native.contract === "crdd-native/terminal-save-fixture" &&
     native.contractRevision === 1 &&
-    native.run === run &&
+    native.run === verificationOperation &&
     ["observed", "unconfirmed"].includes(String(native.status)) &&
     typeof native.phase === "string";
   const rows =
-    parsed && Array.isArray(native?.saves)
+    isParsed && Array.isArray(native?.saves)
       ? (native.saves as Record<string, unknown>[])
       : [];
-  const rejected =
-    parsed && Array.isArray(native?.rejections)
+  const rejectedEntries =
+    isParsed && Array.isArray(native?.rejections)
       ? (native.rejections as Record<string, unknown>[])
       : [];
   const inventories =
-    parsed && Array.isArray(native?.inventories)
+    isParsed && Array.isArray(native?.inventories)
       ? (native.inventories as Record<string, unknown>[])
       : [];
   const closes =
-    parsed && Array.isArray(native?.closes)
+    isParsed && Array.isArray(native?.closes)
       ? (native.closes as Record<string, unknown>[])
       : [];
   const reasons = [
@@ -254,8 +254,8 @@ function validateSavePacket(value: unknown): boolean {
     "terminal_inventory_size_invalid",
     "terminal_inventory_not_file",
   ];
-  const nativeVerified =
-    parsed &&
+  const isNativeVerified =
+    isParsed &&
     native?.status === "observed" &&
     native.phase === "complete" &&
     native.directoryCreated === true &&
@@ -299,8 +299,8 @@ function validateSavePacket(value: unknown): boolean {
     rows[1]?.beforeBytes === 8198 &&
     rows[2]?.beforeEntries === 6 &&
     rows[2]?.beforeBytes === 8201 &&
-    rejected.length === reasons.length &&
-    rejected.every(
+    rejectedEntries.length === reasons.length &&
+    rejectedEntries.every(
       (r, i) =>
         r !== null &&
         typeof r === "object" &&
@@ -328,7 +328,7 @@ function validateSavePacket(value: unknown): boolean {
       (c) => c !== null && typeof c === "object" && c.confirmed === true,
     );
 
-  return Boolean(nativeVerified);
+  return Boolean(isNativeVerified);
 }
 
 /**
@@ -350,7 +350,7 @@ function validateCapacityPacket(
   permissionMode?: "before" | "after",
 ): boolean {
   if (permissionMode !== "before" && permissionMode !== "after") return false;
-  const run = `capacity.261003.c8d1092a.r3-${permissionMode}`;
+  const verificationOperation = `capacity.261003.c8d1092a.r3-${permissionMode}`;
   const packet =
     value !== null && typeof value === "object" && !Array.isArray(value)
       ? (value as Record<string, unknown>)
@@ -381,12 +381,12 @@ function validateCapacityPacket(
     "releaseConfirmed",
     "closeConfirmed",
   ];
-  const parsed =
+  const isParsed =
     packet !== null &&
     Object.keys(packet).length === fields.length &&
     Object.keys(packet).every((key) => fields.includes(key)) &&
     packet.contract === "crdd-native/terminal-capacity-fixture" &&
-    packet.run === run &&
+    packet.run === verificationOperation &&
     typeof packet.phase === "string" &&
     packet.permissionMode === permissionMode &&
     (packet.gateOperationReason === null ||
@@ -439,11 +439,11 @@ function validateCapacityPacket(
       );
     });
   const gate =
-    parsed && Array.isArray(packet?.receipts)
+    isParsed && Array.isArray(packet?.receipts)
       ? (packet.receipts[6] as Record<string, unknown>)
       : null;
-  const nativeVerified =
-    parsed &&
+  const isNativeVerified =
+    isParsed &&
     packet?.observed === true &&
     packet.phase === "completed" &&
     packet.combinedFailureCases === 4 &&
@@ -469,7 +469,7 @@ function validateCapacityPacket(
     packet.closes.length > 0 &&
     packet.closes.every((r: Record<string, unknown>) => r.confirmed === true);
 
-  return Boolean(nativeVerified);
+  return Boolean(isNativeVerified);
 }
 
 /**
@@ -575,7 +575,7 @@ function validateCurrentPacket(value: unknown): boolean {
     );
   }
 
-  const parsedPacket =
+  const isParsedPacket =
     packet !== null &&
     Object.keys(packet).length === fields.length &&
     Object.keys(packet).every((key) => fields.includes(key)) &&
@@ -612,8 +612,8 @@ function validateCurrentPacket(value: unknown): boolean {
     Array.isArray(packet.closeResults) &&
     packet.closeResults.length <= 128 &&
     packet.closeResults.every(closeRow);
-  const nativeVerified =
-    parsedPacket &&
+  const isNativeVerified =
+    isParsedPacket &&
     packet?.status === "observed" &&
     packet.phase === "complete" &&
     packet.currentReadsVerified === 2 &&
@@ -628,7 +628,7 @@ function validateCurrentPacket(value: unknown): boolean {
     packet.closeResults.length > 0 &&
     packet.closeResults.every((row) => closeRow(row) && row.confirmed === true);
 
-  return Boolean(nativeVerified);
+  return Boolean(isNativeVerified);
 }
 
 /**
@@ -766,7 +766,7 @@ function validateColdPacket(value: unknown): boolean {
       typeof row.cleanupConfirmed === "boolean"
     );
   }
-  const packetParsed =
+  const isPacketParsed =
     packet !== null &&
     Object.keys(packet).length === fields.length &&
     Object.keys(packet).every((key) => fields.includes(key)) &&
@@ -798,8 +798,8 @@ function validateColdPacket(value: unknown): boolean {
   const closes = Array.isArray(packet?.closeResults)
     ? (packet.closeResults as Record<string, unknown>[])
     : [];
-  const nativeReplyVerified =
-    packetParsed &&
+  const isNativeReplyVerified =
+    isPacketParsed &&
     packet?.status === "observed" &&
     packet.phase === "complete" &&
     [
@@ -825,7 +825,7 @@ function validateColdPacket(value: unknown): boolean {
     workers[1]?.exitCode === 72 &&
     workers[1]?.cleanupConfirmed === true;
 
-  return Boolean(nativeReplyVerified);
+  return Boolean(isNativeReplyVerified);
 }
 
 /**
@@ -904,7 +904,7 @@ function validateRenamePacket(value: unknown): boolean {
     "stage_close",
     "directory_close",
   ];
-  const packetParsed =
+  const isPacketParsed =
     packet !== null &&
     Object.keys(packet).length === fields.length &&
     Object.keys(packet).every((key) => fields.includes(key)) &&
@@ -951,8 +951,8 @@ function validateRenamePacket(value: unknown): boolean {
         typeof row.confirmed === "boolean"
       );
     });
-  const nativeReplyVerified =
-    packetParsed &&
+  const isNativeReplyVerified =
+    isPacketParsed &&
     packet?.status === "observed" &&
     packet.phase === "complete" &&
     packet.osError === null &&
@@ -973,7 +973,7 @@ function validateRenamePacket(value: unknown): boolean {
       (row: Record<string, unknown>) => row.confirmed === true,
     );
 
-  return Boolean(nativeReplyVerified);
+  return Boolean(isNativeReplyVerified);
 }
 
 /**
@@ -1122,7 +1122,7 @@ function validatePublicationPacket(value: unknown): boolean {
     typeof packet?.collisionReceipt === "object"
       ? (packet.collisionReceipt as Record<string, unknown>)
       : null;
-  const packetParsed =
+  const isPacketParsed =
     packet !== null &&
     Object.keys(packet).length === fields.length &&
     Object.keys(packet).every((key) => fields.includes(key)) &&
@@ -1161,8 +1161,8 @@ function validatePublicationPacket(value: unknown): boolean {
         typeof row.confirmed === "boolean"
       );
     });
-  const nativeReplyVerified =
-    packetParsed &&
+  const isNativeReplyVerified =
+    isPacketParsed &&
     packet?.status === "observed" &&
     packet.phase === "complete" &&
     packet.osError === null &&
@@ -1204,7 +1204,7 @@ function validatePublicationPacket(value: unknown): boolean {
       (row: Record<string, unknown>) => row.confirmed === true,
     );
 
-  return Boolean(nativeReplyVerified);
+  return Boolean(isNativeReplyVerified);
 }
 
 /**
@@ -1369,14 +1369,14 @@ function validateKnownFilePacket(value: unknown): boolean {
     "reparse_reader",
     "workspace_guard",
   ];
-  const reparseVerified =
+  const isReparseVerified =
     value.reparseResult === "rejected" && value.reparseCreationOsError === null;
-  const reparseUnavailable =
+  const isReparseUnavailable =
     value.reparseResult === "creation_unavailable" &&
     Number.isInteger(value.reparseCreationOsError) &&
     Number(value.reparseCreationOsError) >= 0 &&
     Number(value.reparseCreationOsError) <= 2147483647;
-  if (reparseVerified) reasons.push("reparse");
+  if (isReparseVerified) reasons.push("reparse");
   return (
     value.contract === "crdd-native/terminal-known-file-fixture" &&
     value.status === "observed" &&
@@ -1389,7 +1389,7 @@ function validateKnownFilePacket(value: unknown): boolean {
       "productionRecoveryVerified",
       "legacyRootsTouched",
     ].every((key) => value[key] === false) &&
-    (reparseVerified || reparseUnavailable) &&
+    (isReparseVerified || isReparseUnavailable) &&
     Array.isArray(value.rejections) &&
     value.rejections.length === reasons.length &&
     value.rejections.every(

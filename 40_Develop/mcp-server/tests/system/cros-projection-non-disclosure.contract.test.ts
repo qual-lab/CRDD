@@ -19,14 +19,14 @@ import {
   type CrosExposureSnapshot,
   type RequestAccessContext,
 } from "../../../cros/src/index.ts";
-import type { TopicMeetingRepository } from "../../../domain-model/src/topic/index.ts";
-import { createTopicApplication } from "../../../domain-model/src/topic/index.ts";
-import { createMeetingApplication } from "../../../domain-model/src/meeting/index.ts";
-import { parseTopicMarkdown } from "../../../domain-model/src/topic/index.ts";
-import { parseRepositoryProjectContextMarkdown } from "../../../domain-model/src/project-context/index.ts";
+import type { TopicMeetingRepository } from "../../../domain-model/src/index.ts";
+import { createTopicOperations } from "../../../domain-model/src/index.ts";
+import { createMeetingOperations } from "../../../domain-model/src/index.ts";
+import { parseTopicMarkdown } from "../../../domain-model/src/index.ts";
+import { parseRepositoryProjectContextMarkdown } from "../../../domain-model/src/index.ts";
 import {
   MCP_PROJECT_CONTEXT_GET_TOOL,
-  MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
+  MCP_ORCHESTRATOR_PROTOCOL_VERSION,
   MCP_TOPIC_CREATE_TOOL,
   MCP_TOPIC_GET_TOOL,
   startCrosSharedServer,
@@ -243,8 +243,8 @@ function observedRepository() {
   return {
     counters,
     application: Object.freeze({
-      topic: createTopicApplication(port),
-      meeting: createMeetingApplication(port),
+      topic: createTopicOperations(port),
+      meeting: createMeetingOperations(port),
     }),
   };
 }
@@ -305,7 +305,7 @@ async function callTool(
       authorization: `Bearer ${token}`,
       accept: "application/json, text/event-stream",
       "content-type": "application/json",
-      "mcp-protocol-version": MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
+      "mcp-protocol-version": MCP_ORCHESTRATOR_PROTOCOL_VERSION,
       "mcp-method": "tools/call",
       "mcp-name": name,
     },
@@ -318,7 +318,7 @@ async function callTool(
         arguments: args,
         _meta: {
           "io.modelcontextprotocol/protocolVersion":
-            MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
+            MCP_ORCHESTRATOR_PROTOCOL_VERSION,
           "io.modelcontextprotocol/clientCapabilities": {},
         },
       },
@@ -412,7 +412,7 @@ test("Shared Gatewayは現在権限で内容取得を拒否しRepositoryの存�
      * @cleanup N/A: Process Memoryだけを使用し外部資源を取得しない。
      * @boundary Shared Gateway試験→Memory Fixture Port。
      */
-    resolveTopicMeetingApplication: () => {
+    resolveTopicMeetingAccess: () => {
       applicationResolutions += 1;
       return repository.application;
     },

@@ -6,7 +6,7 @@
  * @trace PRL-IT-012
  * @level IT
  * @scope repository、operation、runtime
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Orchestrator Application Port→Core
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -14,8 +14,8 @@ import os from "node:os";
 import path from "node:path";
 import type { TestContext } from "node:test";
 import test from "node:test";
-import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/storage/index.ts";
-import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/repository/index.ts";
+import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/index.ts";
+import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/index.ts";
 
 import {
   cleanupOwnedOperationDirectories,
@@ -23,7 +23,7 @@ import {
   createOwnedOperationContextCapability,
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
-} from "../../src/host-runtime/execution-environment.ts";
+} from "../../src/host-execution/operation-workspace-lifecycle.ts";
 import {
   bindRuntimeOwnedRepositoryOperation,
   borrowRuntimeOwnedCoordinatorStateRepository,
@@ -31,7 +31,7 @@ import {
   inspectRepositoryObjectFormatCandidate,
   verifyRuntimeOwnedRepositoryBindingCapability,
   verifyRuntimeOwnedRepositoryOperation,
-} from "../../src/repository-operation/repository-operation-runtime.ts";
+} from "../../src/repository-operation/binding.ts";
 
 const firstRevision = "1".repeat(40);
 const secondRevision = "2".repeat(40);
@@ -56,9 +56,9 @@ test("Coordinator保存先借用は現在Repositoryと有効Ownerだけに結合
     "coordinator_state_test_root_invalid",
   );
   const owned = createOwnedOperationDirectories(area.directory);
-  let cleaned = false;
+  let isCleaned = false;
   t.after(() => {
-    if (!cleaned) cleanupOwnedOperationDirectories(owned);
+    if (!isCleaned) cleanupOwnedOperationDirectories(owned);
   });
   const management = createOwnedOperationManagementCapability(
     createOwnedOperationContextCapability(owned),
@@ -78,7 +78,7 @@ test("Coordinator保存先借用は現在Repositoryと有効Ownerだけに結合
   assert.ok(publicResult);
   assert.equal("repositoryRoot" in publicResult, false);
   cleanupOwnedOperationDirectories(owned);
-  cleaned = true;
+  isCleaned = true;
   assert.equal(borrowed.revalidate(), false);
   assert.equal(borrowRuntimeOwnedCoordinatorStateRepository(management), null);
 });

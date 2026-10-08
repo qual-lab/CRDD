@@ -1,3 +1,13 @@
+/**
+ * Release Manifest昇格の競合Workerを実行する。
+ *
+ * @packageDocumentation
+ * @responsibility 固定試験Sessionに結合して昇格操作を交錯させ、確定と競合拒否を観測する。
+ * @trace AIT-IT-008
+ * @level IT
+ * @scope Manifest昇格・確定の競合
+ * @boundary 固定Worker→試験用Manifest配置。Release署名や本番Manifest採用は行わない。
+ */
 import fs from "node:fs";
 import path from "node:path";
 

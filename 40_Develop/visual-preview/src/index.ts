@@ -12,7 +12,7 @@ export {
   type VisualPreviewHandle,
   type VisualPreviewRequest,
   startVisualPreview,
-} from "./preview-server.ts";
+} from "./server.ts";
 export {
   type BrowserWindowSize,
   type BrowserVisualProfile,
@@ -25,4 +25,4 @@ export {
   observeLocalListener,
   verifyLocalWebApplicationVisual,
   verifyBrowserZoom,
-} from "./browser-zoom-verifier.ts";
+} from "./browser/verify-visual.ts";

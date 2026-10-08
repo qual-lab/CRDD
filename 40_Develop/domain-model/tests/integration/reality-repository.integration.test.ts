@@ -13,13 +13,11 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { verifyRepositoryRoot } from "../../../version-control/src/repository-identity/index.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 
-import {
-  createRealitySymbolGraph,
-  validateRealitySymbolManifest,
-} from "../../src/reality-traceability/index.ts";
-import { createFilesystemRepositoryObservationPort } from "../../src/repository/index.ts";
+import { createRealitySymbolGraph } from "../../src/reality-traceability/graph.ts";
+import { validateRealitySymbolManifest } from "../../src/reality-traceability/validate-manifest.ts";
+import { createFilesystemRepositoryObservationPort } from "../../src/repository/create-observer.ts";
 
 /**
  * Repository観測をReality Symbol契約へ渡してGraphを構築するを検証する。

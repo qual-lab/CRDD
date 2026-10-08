@@ -14,7 +14,7 @@
     {
       "symbolId": "official-asset-governance.domain.asset-decision",
       "kind": "file",
-      "path": "src/official-asset-governance.ts",
+      "path": "src/decisions.ts",
       "archIds": [
         "ARCH-000017"
       ]
@@ -22,7 +22,7 @@
     {
       "symbolId": "official-asset-governance.store.asset-decision",
       "kind": "file",
-      "path": "src/official-asset-store.ts",
+      "path": "src/store.ts",
       "archIds": [
         "ARCH-000017"
       ]
@@ -30,7 +30,7 @@
     {
       "symbolId": "official-asset-governance.test.unit.revision-conflict",
       "kind": "test-suite",
-      "path": "tests/unit/revision-conflict.contract.test.ts",
+      "path": "tests/unit/decisions.contract.test.ts",
       "qaIds": [
         "QA-000011"
       ],

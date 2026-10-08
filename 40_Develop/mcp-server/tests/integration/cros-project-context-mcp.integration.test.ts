@@ -16,9 +16,9 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { createTopicApplication } from "../../../domain-model/src/topic/index.ts";
-import { createMeetingApplication } from "../../../domain-model/src/meeting/index.ts";
-import { parseRepositoryProjectContextMarkdown } from "../../../domain-model/src/project-context/index.ts";
+import { createTopicOperations } from "../../../domain-model/src/index.ts";
+import { createMeetingOperations } from "../../../domain-model/src/index.ts";
+import { parseRepositoryProjectContextMarkdown } from "../../../domain-model/src/index.ts";
 import {
   createMemoryConnectionCredentialRegistry,
   issueConnectionCredential,
@@ -27,7 +27,7 @@ import {
 import {
   createCrosProjectContextMcpResolver,
   MCP_PROJECT_CONTEXT_GET_TOOL,
-  MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
+  MCP_ORCHESTRATOR_PROTOCOL_VERSION,
   startMcpAuthenticatedStreamableHttp,
 } from "../../src/index.ts";
 
@@ -98,7 +98,7 @@ async function callProjectContext(
       authorization: `Bearer ${token}`,
       accept: "application/json, text/event-stream",
       "content-type": "application/json",
-      "mcp-protocol-version": MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
+      "mcp-protocol-version": MCP_ORCHESTRATOR_PROTOCOL_VERSION,
       "mcp-method": "tools/call",
       "mcp-name": MCP_PROJECT_CONTEXT_GET_TOOL,
     },
@@ -111,7 +111,7 @@ async function callProjectContext(
         arguments: { projectId: "PRJ-MCP" },
         _meta: {
           "io.modelcontextprotocol/protocolVersion":
-            MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
+            MCP_ORCHESTRATOR_PROTOCOL_VERSION,
           "io.modelcontextprotocol/clientCapabilities": {},
         },
       },
@@ -144,7 +144,7 @@ async function createRemoteTopic(
       authorization: `Bearer ${token}`,
       accept: "application/json, text/event-stream",
       "content-type": "application/json",
-      "mcp-protocol-version": MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
+      "mcp-protocol-version": MCP_ORCHESTRATOR_PROTOCOL_VERSION,
       "mcp-method": "tools/call",
       "mcp-name": "crdd.create_topic",
     },
@@ -161,7 +161,7 @@ async function createRemoteTopic(
         },
         _meta: {
           "io.modelcontextprotocol/protocolVersion":
-            MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
+            MCP_ORCHESTRATOR_PROTOCOL_VERSION,
           "io.modelcontextprotocol/clientCapabilities": {},
         },
       },
@@ -213,7 +213,7 @@ async function getRemoteTopic(
       authorization: `Bearer ${token}`,
       accept: "application/json, text/event-stream",
       "content-type": "application/json",
-      "mcp-protocol-version": MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
+      "mcp-protocol-version": MCP_ORCHESTRATOR_PROTOCOL_VERSION,
       "mcp-method": "tools/call",
       "mcp-name": "crdd.get_topic",
     },
@@ -226,7 +226,7 @@ async function getRemoteTopic(
         arguments: { repositoryId, id: topicId },
         _meta: {
           "io.modelcontextprotocol/protocolVersion":
-            MCP_PROJECT_RUNTIME_PROTOCOL_VERSION,
+            MCP_ORCHESTRATOR_PROTOCOL_VERSION,
           "io.modelcontextprotocol/clientCapabilities": {},
         },
       },
@@ -329,8 +329,8 @@ test("CROS CredentialのWorkspace範囲だけをProject Context MCPへ搬送す�
 test("CROSは許可済みRepositoryだけへTopic書込みをRoutingする", async () => {
   const root = mkdtempSync(path.join(tmpdir(), "crdd-cros-topic-routing-"));
   const topicMeeting = Object.freeze({
-    topic: createTopicApplication(root),
-    meeting: createMeetingApplication(root),
+    topic: createTopicOperations(root),
+    meeting: createMeetingOperations(root),
   });
   const registry = createMemoryConnectionCredentialRegistry();
   const issued = issueConnectionCredential(registry, ADMINISTRATOR, {
@@ -375,7 +375,7 @@ test("CROSは許可済みRepositoryだけへTopic書込みをRoutingする", asy
         },
       ],
     }),
-    resolveTopicMeetingApplication: (repository) =>
+    resolveTopicMeetingAccess: (repository) =>
       repository.bindingId === "BIND-DEV" ? topicMeeting : null,
   });
   const server = await startMcpAuthenticatedStreamableHttp(resolver, {
@@ -420,12 +420,12 @@ test("CROSはRepository間Relationを許可済みOwnerへ解決する", async ()
   const devRoot = mkdtempSync(path.join(tmpdir(), "crdd-cros-rel-dev-"));
   const mgmtRoot = mkdtempSync(path.join(tmpdir(), "crdd-cros-rel-mgmt-"));
   const dev = Object.freeze({
-    topic: createTopicApplication(devRoot),
-    meeting: createMeetingApplication(devRoot),
+    topic: createTopicOperations(devRoot),
+    meeting: createMeetingOperations(devRoot),
   });
   const mgmt = Object.freeze({
-    topic: createTopicApplication(mgmtRoot),
-    meeting: createMeetingApplication(mgmtRoot),
+    topic: createTopicOperations(mgmtRoot),
+    meeting: createMeetingOperations(mgmtRoot),
   });
   assert.equal(
     dev.topic.create(relatedTopic("TOPIC-000101", "TOPIC-000201")).status,
@@ -479,7 +479,7 @@ test("CROSはRepository間Relationを許可済みOwnerへ解決する", async ()
       ],
       repositories,
     }),
-    resolveTopicMeetingApplication: (repository) =>
+    resolveTopicMeetingAccess: (repository) =>
       repository.repositoryId === "REPO-DEV"
         ? dev
         : repository.repositoryId === "REPO-MGMT"

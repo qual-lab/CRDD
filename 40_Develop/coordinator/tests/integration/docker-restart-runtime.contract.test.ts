@@ -13,17 +13,14 @@ import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { executeDockerRestart } from "../../src/docker-desktop/docker-restart-execution.ts";
-import { createDockerRestartMachineForVerification } from "../../src/docker-desktop/docker-restart-machine.ts";
-import { restartRuntimeOwnedDockerForRecovery } from "../../src/docker-desktop/docker-restart-runtime.ts";
+import { executeDockerRestart } from "../../src/docker-desktop/restart-execution.ts";
+import { createDockerRestartMachineForVerification } from "../../src/docker-desktop/restart-machine.ts";
+import { restartRuntimeOwnedDockerForRecovery } from "../../src/docker-desktop/restart-recovery.ts";
 
 // Run the source-owned composition with only external host/native boundaries
 // replaced. The production driver and machine are exercised together.
 const runtimeSource = fs.readFileSync(
-  new URL(
-    "../../src/docker-desktop/docker-restart-runtime.ts",
-    import.meta.url,
-  ),
+  new URL("../../src/docker-desktop/restart-recovery.ts", import.meta.url),
   "utf8",
 );
 const functionStart = runtimeSource.indexOf(

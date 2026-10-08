@@ -18,7 +18,7 @@ import fs from "node:fs";
 
 import path from "node:path";
 import test from "node:test";
-import { ensureRepositoryRuntimeDataArea } from "../../../domain-model/src/storage/index.ts";
+import { ensureRepositoryRuntimeDataArea } from "../../../domain-model/src/index.ts";
 
 import {
   createExecutionIntelligenceRecorder,
@@ -30,11 +30,11 @@ import {
   observed,
   type VerifiedExecutionRepositoryRoot,
 } from "../../src/index.ts";
-import { createBoundExecutionIntelligenceRecorder } from "../../src/application/execution-intelligence-recorder.ts";
+import { createBoundExecutionIntelligenceRecorder } from "../../src/record/create-recorder.ts";
 import {
   readExecutionIntelligenceWithRuntimeDataArea,
   writeExecutionIntelligenceEventWithRuntimeDataArea,
-} from "../../src/store/execution-intelligence-store.ts";
+} from "../../src/store/events.ts";
 
 const testingRepositoryRoot = path.resolve(
   execFileSync("git", ["rev-parse", "--show-toplevel"], {

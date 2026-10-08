@@ -16,11 +16,11 @@ import {
   createTemporaryOperation,
   resumeTemporaryOperation,
   settleTemporaryOperation,
-} from "../../../domain-model/src/storage/index.ts";
+} from "../../../domain-model/src/index.ts";
 import {
   verifyRepositoryRoot,
   type VerifiedRepositoryRoot,
-} from "../../../version-control/src/repository-location.ts";
+} from "../../../version-control/src/repository/location.ts";
 import {
   prepareReleaseRuntime,
   recoverAppliedReleaseRuntimePreparation,
@@ -406,7 +406,7 @@ test("synthetic fixed runtime prepares and settles with exact failure recovery r
     const formal = path.join(fixture.source, manifestRelative);
     fs.mkdirSync(path.dirname(formal), { recursive: true });
     fs.writeFileSync(formal, "fixture-only-envelope\n");
-    for (const matching of [false, true]) {
+    for (const isMatching of [false, true]) {
       const owned = createTemporaryOperation(verified.capability, {
         operationId: randomUUID(),
         identity: randomUUID(),
@@ -423,7 +423,7 @@ test("synthetic fixed runtime prepares and settles with exact failure recovery r
       fs.mkdirSync(path.dirname(candidate), { recursive: true });
       fs.writeFileSync(
         candidate,
-        matching ? "fixture-only-envelope\n" : "different-envelope\n",
+        isMatching ? "fixture-only-envelope\n" : "different-envelope\n",
       );
       settleTemporaryOperation(owned.capability, "parent_lost", null);
       const recovered = recoverAppliedReleaseRuntimePreparation(
@@ -431,9 +431,9 @@ test("synthetic fixed runtime prepares and settles with exact failure recovery r
         owned.recoveryReference,
         randomUUID(),
       );
-      assert.equal(recovered.status, matching ? "completed" : "blocked");
+      assert.equal(recovered.status, isMatching ? "completed" : "blocked");
       assert.equal(fs.readFileSync(formal, "utf8"), "fixture-only-envelope\n");
-      if (!matching) {
+      if (!isMatching) {
         assert.ok(recovered.recoveryReference);
         assert.equal(fs.existsSync(candidate), true);
         const cleanup = resumeTemporaryOperation(

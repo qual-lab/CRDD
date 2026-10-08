@@ -14,23 +14,23 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import type { SemanticIr } from "../../src/index.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/repository-identity/index.ts";
+import type { SemanticIr } from "../../src/compilation/compile-ir.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import {
   compileQualitySemanticRelationsFromRepository,
   compileSemanticIrFromRepository,
-  createSemanticCoverageGraph as createSemanticCoveragePilotGraph,
+  createSemanticCoverageGraphResult as createSemanticCoveragePilotGraph,
   mapSemanticDomainIssueToDiagnostic,
-} from "../../src/application/semantic-coverage.ts";
+} from "../../src/compilation/from-repository.ts";
 import {
   createLegacyRuntimeInventories as createInventories,
   createLegacyRuntimeInventoriesFromObservation,
-} from "../../src/migrations/legacy-runtime-inventory.ts";
-import { validateRealitySymbolManifest as validateDomainRealitySymbolManifest } from "../../../domain-model/src/reality-traceability/index.ts";
+} from "../../src/migration/inventory-legacy-fields.ts";
+import { validateRealitySymbolManifest as validateDomainRealitySymbolManifest } from "../../../domain-model/src/index.ts";
 import {
   createFilesystemRepositoryObservationPort,
   observeRealitySymbolRepository,
-} from "../../../domain-model/src/repository/index.ts";
+} from "../../../domain-model/src/index.ts";
 
 const checkerRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -246,11 +246,11 @@ test("旧Runtime JSONをRelation Owner別に分解してPilot Gapを観測する
   const coordinator = result.inventories.find(
     ({ subsystem }) => subsystem === "coordinator",
   );
-  const projectRuntime = result.inventories.find(
-    ({ subsystem }) => subsystem === "project-runtime",
+  const orchestrator = result.inventories.find(
+    ({ subsystem }) => subsystem === "orchestrator",
   );
   assert.ok(coordinator);
-  assert.ok(projectRuntime);
+  assert.ok(orchestrator);
 
   assert.ok(
     coordinator.fields
@@ -287,7 +287,7 @@ test("旧Runtime JSONをRelation Owner別に分解してPilot Gapを観測する
       .every(({ semanticShape }) => semanticShape === "partial"),
   );
   assert.ok(
-    projectRuntime.fields
+    orchestrator.fields
       .filter(({ owner }) => owner === "architecture-details")
       .every(
         ({ identityCoverage, semanticShape }) =>
@@ -295,7 +295,7 @@ test("旧Runtime JSONをRelation Owner別に分解してPilot Gapを観測する
       ),
   );
   assert.deepEqual(
-    projectRuntime.fields
+    orchestrator.fields
       .filter(({ owner }) => owner !== "architecture-details")
       .map(({ field, owner }) => ({ field, owner })),
     [
@@ -329,7 +329,7 @@ test("旧Runtime JSONをRelation Owner別に分解してPilot Gapを観測する
     ],
   );
   assert.equal(coordinator.fields.length, 11);
-  assert.equal(projectRuntime.fields.length, 16);
+  assert.equal(orchestrator.fields.length, 16);
 });
 
 /**
@@ -398,18 +398,18 @@ test("Pilot Inventoryは同じRepository入力から同じ結果を生成する"
 });
 
 /**
- * CoordinatorとProject Runtimeの可視表からPilot IRを決定論的に生成するを検証する。
+ * CoordinatorとOrchestratorの可視表からPilot IRを決定論的に生成するを検証する。
  *
- * @responsibility CoordinatorとProject Runtimeの可視表からPilot IRを決定論的に生成するの合否判定を所有する。
+ * @responsibility CoordinatorとOrchestratorの可視表からPilot IRを決定論的に生成するの合否判定を所有する。
  * @trace PPR-UT-016
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus CoordinatorとProject Runtimeの可視表からPilot IRを決定論的に生成するの対象操作を実行する。
+ * @stimulus CoordinatorとOrchestratorの可視表からPilot IRを決定論的に生成するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PPR-UT-016=Direct Boundary: semantic-coverage Test Source→対象契約
  */
-test("CoordinatorとProject Runtimeの可視表からPilot IRを決定論的に生成する", () => {
+test("CoordinatorとOrchestratorの可視表からPilot IRを決定論的に生成する", () => {
   const pilots = [
     {
       subsystem: "coordinator",
@@ -417,9 +417,9 @@ test("CoordinatorとProject Runtimeの可視表からPilot IRを決定論的に�
       expectedMeaningCount: 7,
     },
     {
-      subsystem: "project-runtime",
+      subsystem: "orchestrator",
       sourceDocument:
-        "06_Architecture/Details/project-runtime/02_Detailed_Design.md",
+        "06_Architecture/Details/orchestrator/02_Detailed_Design.md",
       expectedMeaningCount: 10,
     },
   ] as const;
@@ -457,8 +457,8 @@ test("CoordinatorとProject Runtimeの可視表からPilot IRを決定論的に�
 test("Pilot IRは自由文推測をせず構造欠落を拒否する", () => {
   const missingTable = compileSemanticIrPilot(
     repositoryRoot,
-    "06_Architecture/Details/project-runtime/01_Architecture.md",
-    "project-runtime",
+    "06_Architecture/Details/orchestrator/01_Architecture.md",
+    "orchestrator",
   );
   assert.equal(missingTable.ir, null);
   assert.deepEqual(
@@ -488,8 +488,8 @@ test("Pilot Semantic Keyを実装Symbol側のimplementsから解決する", () =
     ).ir,
     compileSemanticIrPilot(
       repositoryRoot,
-      "06_Architecture/Details/project-runtime/02_Detailed_Design.md",
-      "project-runtime",
+      "06_Architecture/Details/orchestrator/02_Detailed_Design.md",
+      "orchestrator",
     ).ir,
   ];
   assert.ok(semanticIrs.every((ir) => ir !== null));
@@ -519,12 +519,12 @@ test("Pilot Semantic Keyを実装Symbol側のimplementsから解決する", () =
   assert.equal(built.graph.qualityLocalIdsByMeaningKey.size, 17);
   assert.ok(
     built.graph.implementationIdsByMeaningKey
-      .get("project-runtime.candidate-adoption")
-      ?.includes("project-runtime.candidate-adoption-application"),
+      .get("orchestrator.candidate-adoption")
+      ?.includes("orchestrator.candidate-adoption-application"),
   );
   assert.deepEqual(
     built.graph.qualityLocalIdsByMeaningKey.get(
-      "project-runtime.candidate-adoption",
+      "orchestrator.candidate-adoption",
     ),
     ["QA-000005/CPR-IT-006", "QA-000005/CPR-UT-009"],
   );
@@ -546,27 +546,25 @@ test("Pilot Semantic Keyを実装Symbol側のimplementsから解決する", () =
   );
   assert.deepEqual(
     built.graph.qualityLocalIdsByMeaningKey.get(
-      "project-runtime.queue-lease-lifecycle",
+      "orchestrator.queue-lease-lifecycle",
     ),
     ["QA-000003/PRL-IT-011"],
   );
   assert.deepEqual(
     built.graph.testSymbolIdsByMeaningKey.get(
-      "project-runtime.objective-task-lifecycle",
+      "orchestrator.objective-task-lifecycle",
     ),
-    [
-      "coordinator.test.system.project-runtime-real-provider-verification-script",
-    ],
+    ["coordinator.test.system.orchestrator-real-provider-verification-script"],
   );
   assert.deepEqual(
     built.graph.testSymbolIdsByMeaningKey.get(
-      "project-runtime.queue-lease-lifecycle",
+      "orchestrator.queue-lease-lifecycle",
     ),
-    ["coordinator.test.integration.project-runtime-queue-priority"],
+    ["coordinator.test.integration.orchestrator-queue-priority"],
   );
   assert.deepEqual(
     built.graph.verificationModesByMeaningKey.get(
-      "project-runtime.execution-intelligence-read-model",
+      "orchestrator.execution-intelligence-read-model",
     ),
     ["manual"],
   );
@@ -770,8 +768,8 @@ test("Quality Local Itemが全Pilot Semantic Keyの正方向Relationを所有す
     ).ir,
     compileSemanticIrPilot(
       repositoryRoot,
-      "06_Architecture/Details/project-runtime/02_Detailed_Design.md",
-      "project-runtime",
+      "06_Architecture/Details/orchestrator/02_Detailed_Design.md",
+      "orchestrator",
     ).ir,
   ].filter((ir) => ir !== null);
   const compiled = compileQualitySemanticRelations(

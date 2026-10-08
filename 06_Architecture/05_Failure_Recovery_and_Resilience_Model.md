@@ -38,11 +38,11 @@ Last Updated: 2026-10-07
 |---|---|---|---|---|
 | 入力・構成 | Transport、Capability Resolver | 意味契約、選択理由 | Provider Effect前に拒否 | 修正済み入力で新規受付 |
 | Repository境界 | Binding Resolver | exact Root、Identity、書込み範囲 | Effect 0 | Root再検証 |
-| 判断不足 | Project Runtime | 同じTaskとHuman Authority | 判断待ち | exact Taskへの入力または取消 |
+| 判断不足 | Orchestrator | 同じTaskとHuman Authority | 判断待ち | exact Taskへの入力または取消 |
 | 受入判断 | Acceptance Decision Port | Objective／Milestone IdentityとHuman Authority | 推定書込みをEffect 0で拒否 | 同じ対象への明示判断または判断待ち維持 |
 | 実行開始前 | Execution Port／Platform Port | Capability非発行 | 失敗理由を返す | 条件変更後に再評価 |
 | 実行Effect後 | Execution Port | 重複Effect防止 | Recovery義務を耐久化 | 同じIdentityで観測・settlement |
-| 取消 | Project Runtime／Execution Port | 終了とResource回収 | 要求受付と完了を分離 | Process終了、handle／Resource 0 |
+| 取消 | Orchestrator／Execution Port | 終了とResource回収 | 要求受付と完了を分離 | Process終了、handle／Resource 0 |
 | Data永続化 | Runtime Data Contract | intent、receipt、evidence | 上書きせず残存を分類 | immutable publishまたはexact cleanup |
 | 投影・観測 | Projection／Diagnosis | 欠測、時点、根拠 | unknownを保持 | Source再取得または不足表示 |
 | 外部送信 | External Information Boundary | Consent Scope、Secret | Effect 0 | 新しい有効同意 |

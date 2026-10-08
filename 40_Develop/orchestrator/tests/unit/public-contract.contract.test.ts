@@ -1,27 +1,31 @@
 /**
- * project-runtime:unit:public-contractの検証範囲を定義する。
+ * orchestrator:unit:public-contractの検証範囲を定義する。
  *
  * @packageDocumentation
- * @responsibility project-runtime:unit:public-contractが所有する検証責務を実行する。
+ * @responsibility orchestrator:unit:public-contractが所有する検証責務を実行する。
  * @trace PRL-UT-014
  * @level UT
  * @scope project、runtime、public、contract
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Orchestrator Application Portは外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  inspectProjectRuntimeDecisionRequest,
-  inspectProjectRuntimeIntegrationResult,
-  inspectProjectRuntimeObjectiveRequest,
-  isProjectRuntimeDecisionRecord,
-  PROJECT_RUNTIME_HUMAN_DECISION_CONTRACT,
-  PROJECT_RUNTIME_INTEGRATION_CONTRACT,
-  PROJECT_RUNTIME_PUBLIC_RUNTIME_CONTRACT,
-  PROJECT_RUNTIME_SINGLE_TASK_ADAPTER_CONTRACT,
-  PROJECT_RUNTIME_SINGLE_TASK_ADAPTER_CONTRACT_REVISION,
-} from "../../src/index.ts";
+  inspectOrchestratorDecisionRequest,
+  ORCHESTRATOR_HUMAN_DECISION_CONTRACT,
+} from "../../src/decision/request.ts";
+import {
+  inspectOrchestratorIntegrationResult,
+  ORCHESTRATOR_INTEGRATION_CONTRACT,
+} from "../../src/candidate/integration-result.ts";
+import { inspectOrchestratorObjectiveRequest } from "../../src/objective/request.ts";
+import { isOrchestratorDecisionRecord } from "../../src/decision/records.ts";
+import { ORCHESTRATOR_PUBLIC_RUNTIME_CONTRACT } from "../../src/operation-result-contract.ts";
+import {
+  ORCHESTRATOR_SINGLE_TASK_ADAPTER_CONTRACT,
+  ORCHESTRATOR_SINGLE_TASK_ADAPTER_CONTRACT_REVISION,
+} from "../../src/task/executor.ts";
 
 const repositoryRevision = "a".repeat(40);
 
@@ -35,14 +39,14 @@ const repositoryRevision = "a".repeat(40);
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
+ * @boundary PRL-UT-014=Direct Boundary: orchestrator Test Source→対象契約
  */
 test("Execution Portは既存Single Task結果契約を意味変更せず所有する", () => {
   assert.equal(
-    PROJECT_RUNTIME_SINGLE_TASK_ADAPTER_CONTRACT,
-    "crdd-coordinator/project-runtime-single-task-adapter",
+    ORCHESTRATOR_SINGLE_TASK_ADAPTER_CONTRACT,
+    "crdd-coordinator/orchestrator-single-task-adapter",
   );
-  assert.equal(PROJECT_RUNTIME_SINGLE_TASK_ADAPTER_CONTRACT_REVISION, 2);
+  assert.equal(ORCHESTRATOR_SINGLE_TASK_ADAPTER_CONTRACT_REVISION, 2);
 });
 
 /**
@@ -55,7 +59,7 @@ test("Execution Portは既存Single Task結果契約を意味変更せず所有�
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
+ * @boundary PRL-UT-014=Direct Boundary: orchestrator Test Source→対象契約
  */
 function objectiveRequest() {
   return {
@@ -66,7 +70,7 @@ function objectiveRequest() {
     objective: "公開契約を検証する",
     acceptanceCriteria: ["閉じた入力だけを受理する"],
     allowedPaths: ["40_Develop/orchestrator"],
-    readPaths: ["06_Architecture/project-runtime"],
+    readPaths: ["06_Architecture/orchestrator"],
     maximumConcurrency: 2,
     maximumReplans: 1,
     originLane: "interactive",
@@ -85,11 +89,11 @@ function objectiveRequest() {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
+ * @boundary PRL-UT-014=Direct Boundary: orchestrator Test Source→対象契約
  */
 function integrationResult() {
   return {
-    contract: PROJECT_RUNTIME_INTEGRATION_CONTRACT,
+    contract: ORCHESTRATOR_INTEGRATION_CONTRACT,
     status: "completed",
     reason: "integration_completed",
     projectId: "project-1",
@@ -114,7 +118,7 @@ function integrationResult() {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
+ * @boundary PRL-UT-014=Direct Boundary: orchestrator Test Source→対象契約
  */
 function decisionRequest() {
   return {
@@ -139,15 +143,15 @@ function decisionRequest() {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
+ * @boundary PRL-UT-014=Direct Boundary: orchestrator Test Source→対象契約
  */
 test("Objective要求は閉じた公開契約へsnapshotする", () => {
   assert.equal(
-    PROJECT_RUNTIME_PUBLIC_RUNTIME_CONTRACT,
-    "crdd-coordinator/project-runtime-public-runtime/v1",
+    ORCHESTRATOR_PUBLIC_RUNTIME_CONTRACT,
+    "crdd-coordinator/orchestrator-public-runtime/v1",
   );
   const source = objectiveRequest();
-  const inspected = inspectProjectRuntimeObjectiveRequest(source);
+  const inspected = inspectOrchestratorObjectiveRequest(source);
   assert.ok(inspected);
   assert.notEqual(inspected, source);
   assert.ok(Object.isFrozen(inspected));
@@ -184,7 +188,7 @@ test("Objectiveの任意三項目は全八組合せでexactにsnapshotする", (
         (_entry, index) => (mask & (1 << index)) !== 0,
       ),
     );
-    const inspected = inspectProjectRuntimeObjectiveRequest(source);
+    const inspected = inspectOrchestratorObjectiveRequest(source);
     assert.ok(inspected, `mask=${mask}`);
     assert.deepEqual(inspected, source);
     assert.equal(
@@ -197,7 +201,7 @@ test("Objectiveの任意三項目は全八組合せでexactにsnapshotする", (
     ...objectiveRequest(),
     requestedProfileId: "PROFILE-999999",
   };
-  const inspected = inspectProjectRuntimeObjectiveRequest(source);
+  const inspected = inspectOrchestratorObjectiveRequest(source);
   assert.ok(inspected); // 形式受理は登録済み・利用可能の証明ではない。
   source.requestedProfileId = "PROFILE-100002";
   assert.equal(inspected.requestedProfileId, "PROFILE-999999");
@@ -228,7 +232,7 @@ test("ObjectiveのProfileは不正形式・Accessor・Proxyを実行せず拒否
     "PROFILE-100001/other",
   ]) {
     assert.equal(
-      inspectProjectRuntimeObjectiveRequest({
+      inspectOrchestratorObjectiveRequest({
         ...objectiveRequest(),
         requestedProfileId,
       }),
@@ -260,11 +264,11 @@ test("ObjectiveのProfileは不正形式・Accessor・Proxyを実行せず拒否
       },
     },
   );
-  assert.equal(inspectProjectRuntimeObjectiveRequest(accessor), null);
-  assert.equal(inspectProjectRuntimeObjectiveRequest(proxy), null);
+  assert.equal(inspectOrchestratorObjectiveRequest(accessor), null);
+  assert.equal(inspectOrchestratorObjectiveRequest(proxy), null);
   assert.equal(calls, 0);
   assert.equal(
-    inspectProjectRuntimeObjectiveRequest({
+    inspectOrchestratorObjectiveRequest({
       ...objectiveRequest(),
       requestedProfileId: "PROFILE-100001",
       selectionGrant: "not-authority",
@@ -283,15 +287,15 @@ test("ObjectiveのProfileは不正形式・Accessor・Proxyを実行せず拒否
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
+ * @boundary PRL-UT-014=Direct Boundary: orchestrator Test Source→対象契約
  */
 test("Objective要求は未知field・accessor・ProxyをEffect前に拒否する", () => {
   assert.equal(
-    inspectProjectRuntimeObjectiveRequest({ ...objectiveRequest(), extra: 1 }),
+    inspectOrchestratorObjectiveRequest({ ...objectiveRequest(), extra: 1 }),
     null,
   );
   assert.equal(
-    inspectProjectRuntimeObjectiveRequest(
+    inspectOrchestratorObjectiveRequest(
       Object.defineProperty({ ...objectiveRequest() }, "objective", {
         get: () => "shape-shifting",
         enumerable: true,
@@ -300,7 +304,7 @@ test("Objective要求は未知field・accessor・ProxyをEffect前に拒否す�
     null,
   );
   assert.equal(
-    inspectProjectRuntimeObjectiveRequest(new Proxy(objectiveRequest(), {})),
+    inspectOrchestratorObjectiveRequest(new Proxy(objectiveRequest(), {})),
     null,
   );
   const symbolExtended = { ...objectiveRequest() } as Record<
@@ -308,20 +312,20 @@ test("Objective要求は未知field・accessor・ProxyをEffect前に拒否す�
     unknown
   >;
   symbolExtended[Symbol("hidden")] = true;
-  assert.equal(inspectProjectRuntimeObjectiveRequest(symbolExtended), null);
+  assert.equal(inspectOrchestratorObjectiveRequest(symbolExtended), null);
   const nonEnumerableExtended = Object.defineProperty(
     { ...objectiveRequest() },
     "hidden",
     { value: true },
   );
   assert.equal(
-    inspectProjectRuntimeObjectiveRequest(nonEnumerableExtended),
+    inspectOrchestratorObjectiveRequest(nonEnumerableExtended),
     null,
   );
   const alteredCriteria = [...objectiveRequest().acceptanceCriteria];
   Object.setPrototypeOf(alteredCriteria, null);
   assert.equal(
-    inspectProjectRuntimeObjectiveRequest({
+    inspectOrchestratorObjectiveRequest({
       ...objectiveRequest(),
       acceptanceCriteria: alteredCriteria,
     }),
@@ -339,7 +343,7 @@ test("Objective要求は未知field・accessor・ProxyをEffect前に拒否す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
+ * @boundary PRL-UT-014=Direct Boundary: orchestrator Test Source→対象契約
  */
 test("Objective要求はRepository外を指すPath表現をEffect前に拒否する", () => {
   for (const pathValue of [
@@ -350,14 +354,14 @@ test("Objective要求はRepository外を指すPath表現をEffect前に拒否す
     "inside//file",
   ]) {
     assert.equal(
-      inspectProjectRuntimeObjectiveRequest({
+      inspectOrchestratorObjectiveRequest({
         ...objectiveRequest(),
         allowedPaths: [pathValue],
       }),
       null,
     );
     assert.equal(
-      inspectProjectRuntimeObjectiveRequest({
+      inspectOrchestratorObjectiveRequest({
         ...objectiveRequest(),
         readPaths: [pathValue],
       }),
@@ -376,15 +380,15 @@ test("Objective要求はRepository外を指すPath表現をEffect前に拒否す
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
+ * @boundary PRL-UT-014=Direct Boundary: orchestrator Test Source→対象契約
  */
 test("判断要求はTransportに依存しない閉じた公開契約へsnapshotする", () => {
   assert.equal(
-    PROJECT_RUNTIME_HUMAN_DECISION_CONTRACT,
-    "crdd-coordinator/project-runtime-human-decision/v1",
+    ORCHESTRATOR_HUMAN_DECISION_CONTRACT,
+    "crdd-coordinator/orchestrator-human-decision/v1",
   );
   const source = decisionRequest();
-  const inspected = inspectProjectRuntimeDecisionRequest(source);
+  const inspected = inspectOrchestratorDecisionRequest(source);
   assert.ok(inspected);
   assert.notEqual(inspected, source);
   assert.ok(Object.isFrozen(inspected));
@@ -392,18 +396,18 @@ test("判断要求はTransportに依存しない閉じた公開契約へsnapshot
 });
 
 /**
- * 判断Store RecordはProject Runtimeの閉じた意味契約で検証するを検証する。
+ * 判断Store RecordはOrchestratorの閉じた意味契約で検証するを検証する。
  *
- * @responsibility 判断Store RecordはProject Runtimeの閉じた意味契約で検証するの合否判定を所有する。
+ * @responsibility 判断Store RecordはOrchestratorの閉じた意味契約で検証するの合否判定を所有する。
  * @trace PRL-UT-014
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 判断Store RecordはProject Runtimeの閉じた意味契約で検証するの対象操作を実行する。
+ * @stimulus 判断Store RecordはOrchestratorの閉じた意味契約で検証するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
+ * @boundary PRL-UT-014=Direct Boundary: orchestrator Test Source→対象契約
  */
-test("判断Store RecordはProject Runtimeの閉じた意味契約で検証する", () => {
+test("判断Store RecordはOrchestratorの閉じた意味契約で検証する", () => {
   const record = {
     recordId: "decision-record-1",
     decisionId: "decision-1",
@@ -422,20 +426,20 @@ test("判断Store RecordはProject Runtimeの閉じた意味契約で検証す�
     newGeneration: null,
     replacementRequestId: null,
   } as const;
-  assert.equal(isProjectRuntimeDecisionRecord(record), true);
+  assert.equal(isOrchestratorDecisionRecord(record), true);
   assert.equal(
-    isProjectRuntimeDecisionRecord({ ...record, provider: "codex" }),
+    isOrchestratorDecisionRecord({ ...record, provider: "codex" }),
     false,
   );
   assert.equal(
-    isProjectRuntimeDecisionRecord({
+    isOrchestratorDecisionRecord({
       ...record,
       disposition: "completed",
     }),
     false,
   );
   assert.equal(
-    isProjectRuntimeDecisionRecord({
+    isOrchestratorDecisionRecord({
       ...record,
       selectedOption: "resume",
       newGeneration: 1,
@@ -443,7 +447,7 @@ test("判断Store RecordはProject Runtimeの閉じた意味契約で検証す�
     false,
   );
   assert.equal(
-    isProjectRuntimeDecisionRecord(
+    isOrchestratorDecisionRecord(
       new Proxy(record, {
         getPrototypeOf: () => {
           throw new Error("untrusted-record");
@@ -464,22 +468,22 @@ test("判断Store RecordはProject Runtimeの閉じた意味契約で検証す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
+ * @boundary PRL-UT-014=Direct Boundary: orchestrator Test Source→対象契約
  */
 test("判断要求は未知field・改行comment・不正世代をEffect前に拒否する", () => {
   assert.equal(
-    inspectProjectRuntimeDecisionRequest({ ...decisionRequest(), extra: 1 }),
+    inspectOrchestratorDecisionRequest({ ...decisionRequest(), extra: 1 }),
     null,
   );
   assert.equal(
-    inspectProjectRuntimeDecisionRequest({
+    inspectOrchestratorDecisionRequest({
       ...decisionRequest(),
       comment: "line1\nline2",
     }),
     null,
   );
   assert.equal(
-    inspectProjectRuntimeDecisionRequest({
+    inspectOrchestratorDecisionRequest({
       ...decisionRequest(),
       generation: 0,
     }),
@@ -497,14 +501,14 @@ test("判断要求は未知field・改行comment・不正世代をEffect前に�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
+ * @boundary PRL-UT-014=Direct Boundary: orchestrator Test Source→対象契約
  */
 test("統合結果は正常完了とRecovery付き停止を区別する", () => {
-  const completed = inspectProjectRuntimeIntegrationResult(integrationResult());
+  const completed = inspectOrchestratorIntegrationResult(integrationResult());
   assert.ok(completed);
   assert.equal(completed.status, "completed");
   const recoveryId = "runtime-process.recovery-1";
-  const blocked = inspectProjectRuntimeIntegrationResult({
+  const blocked = inspectOrchestratorIntegrationResult({
     ...integrationResult(),
     status: "blocked",
     reason: "integration_recovery_required",
@@ -516,10 +520,10 @@ test("統合結果は正常完了とRecovery付き停止を区別する", () => 
   });
   assert.ok(blocked);
   assert.deepEqual(blocked.recoveryIds, [recoveryId]);
-  const cleanupBlocked = inspectProjectRuntimeIntegrationResult({
+  const cleanupBlocked = inspectOrchestratorIntegrationResult({
     ...integrationResult(),
     status: "blocked",
-    reason: "project_runtime_candidate_base_cleanup_unconfirmed",
+    reason: "orchestrator_candidate_base_cleanup_unconfirmed",
     cleanupConfirmed: false,
     manualRecoveryRequired: true,
     recoveryIds: [],
@@ -530,7 +534,7 @@ test("統合結果は正常完了とRecovery付き停止を区別する", () => 
   assert.ok(cleanupBlocked);
   assert.equal(cleanupBlocked.recoveryIds.length, 0);
   assert.equal(cleanupBlocked.effectIssued, false);
-  const effectUnknown = inspectProjectRuntimeIntegrationResult({
+  const effectUnknown = inspectOrchestratorIntegrationResult({
     ...integrationResult(),
     status: "blocked",
     reason: "repository_runtime_data_ignore_registration_blocked",
@@ -557,12 +561,12 @@ test("統合結果は正常完了とRecovery付き停止を区別する", () => 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=Direct Boundary: project-runtime Test Source→対象契約
+ * @boundary PRL-UT-014=Direct Boundary: orchestrator Test Source→対象契約
  */
 test("統合結果は成功とRecoveryの矛盾・重複・未知fieldを拒否する", () => {
   const recoveryId = "runtime-process.recovery-1";
   assert.equal(
-    inspectProjectRuntimeIntegrationResult({
+    inspectOrchestratorIntegrationResult({
       ...integrationResult(),
       recoveryIds: [recoveryId],
     }),
@@ -595,7 +599,7 @@ test("統合結果は成功とRecoveryの矛盾・重複・未知fieldを拒否�
     },
   ])
     assert.equal(
-      inspectProjectRuntimeIntegrationResult({
+      inspectOrchestratorIntegrationResult({
         ...integrationResult(),
         status: "blocked",
         reason: "integration_boundary_invalid",
@@ -604,7 +608,7 @@ test("統合結果は成功とRecoveryの矛盾・重複・未知fieldを拒否�
       null,
     );
   assert.equal(
-    inspectProjectRuntimeIntegrationResult({
+    inspectOrchestratorIntegrationResult({
       ...integrationResult(),
       status: "blocked",
       cleanupConfirmed: false,
@@ -614,7 +618,7 @@ test("統合結果は成功とRecoveryの矛盾・重複・未知fieldを拒否�
     null,
   );
   assert.equal(
-    inspectProjectRuntimeIntegrationResult({
+    inspectOrchestratorIntegrationResult({
       ...integrationResult(),
       transportMetadata: "must-not-enter-public-contract",
     }),

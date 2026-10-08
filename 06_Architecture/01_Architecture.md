@@ -8,7 +8,7 @@ Last Updated: 2026-10-07
 
 本書はArchitecture工程の固定入口である。CanonicalなUI／SPECから導いた18件の責務定義と、それらをQualityが検証設計へ使える形に統合した横断モデルを案内する。個別定義の内容を再定義せず、対象、網羅状態、主要判断、未解決事項および次工程への引渡しを所有する。
 
-v0.21.0の基準版では、個別責務定義、横断モデルおよび15領域のCanonical詳細設計について、成果物別の可視Checklist、8種類のEngineering ConcernおよびTemplate／Checker契約を含む独立再レビューを完了し、Architecture Readyとした。現在のv0.22.0候補では、Coordinator／Project Runtimeの保存方式刷新とCRDD Domain Libraryの責務分離を追加確認中であり、基準版のReadyを現版全体の完成へ読み替えない。各領域の設計・実装・検証の成立範囲と未完了事項を局所成果物で区別し、現行実装との一致はQuality工程のReality Auditで判定する。
+v0.21.0の基準版では、個別責務定義、横断モデルおよび15領域のCanonical詳細設計について、成果物別の可視Checklist、8種類のEngineering ConcernおよびTemplate／Checker契約を含む独立再レビューを完了し、Architecture Readyとした。現在のv0.22.0候補では、Coordinator／Orchestratorの保存方式刷新とCRDD Domain Libraryの責務分離を追加確認中であり、基準版のReadyを現版全体の完成へ読み替えない。各領域の設計・実装・検証の成立範囲と未完了事項を局所成果物で区別し、現行実装との一致はQuality工程のReality Auditで判定する。
 
 ## 2. 工程入力と再構築方法
 
@@ -47,7 +47,7 @@ REQ、UXおよびIAは由来確認に限って参照する。現行Architecture�
 | [機械検査と文書検査](Definitions/ARCH-000001/architecture_definition.md) | 決定論的なRepository検査、文書構造検査、意味レビューへの案内 | UI-000001、UI-000018 | SPEC-000001、SPEC-000023 | Checker CoreとCRDD現行Profile |
 | [契約移行と利用側閉包](Definitions/ARCH-000002/architecture_definition.md) | 責務移動時のProducer、Consumer、派生物、署名・Release経路の閉包 | UI-000014 | SPEC-000019 | 変更影響分析とConsumer Closure契約 |
 | [変更・監査・試験・品質の閉包](Definitions/ARCH-000003/architecture_definition.md) | 同じ改訂版に対する指摘、是正、Evidence、未確認範囲、現在Gateの統合 | UI-000015 | SPEC-000020 | Quality Centerと変更追跡 |
-| [Project実行](Definitions/ARCH-000004/architecture_definition.md) | Objective／Task受付、Project状態、判断待ち、取消、Recovery、再入場、結果 | UI-000002、UI-000003、UI-000012 | SPEC-000002、SPEC-000003、SPEC-000004、SPEC-000005、SPEC-000017、SPEC-000028、SPEC-000029 | Project Runtime |
+| [Project実行](Definitions/ARCH-000004/architecture_definition.md) | Objective／Task受付、Project状態、判断待ち、取消、Recovery、再入場、結果 | UI-000002、UI-000003、UI-000012 | SPEC-000002、SPEC-000003、SPEC-000004、SPEC-000005、SPEC-000017、SPEC-000028、SPEC-000029 | Orchestrator |
 | [Project・Portfolio状態投影と受入判断記録](Definitions/ARCH-000005/architecture_definition.md) | Project Contextを含むProject／Milestone／Objective／Task状態と複数Project比較の読取り投影、およびObjective／Milestoneの受入・差戻し・判断待ちの限定記録 | UI-000004、UI-000007 | SPEC-000002、SPEC-000006、SPEC-000007、SPEC-000011 | Project Management Projection／Objective・Milestone Acceptance Decision Record |
 | [Topic・Meeting Lifecycleと正本への引渡し](Definitions/ARCH-000006/architecture_definition.md) | Topic／Meetingの日常操作、Outcome処置、Action移管、Relation整合および安全な削除を成立させる | UI-000009 | SPEC-000013 | Project Operation Context |
 | [実行事実と評価候補の取得](Definitions/ARCH-000007/architecture_definition.md) | 実行記録の解決、欠測を保つ読取り集約、非Authority評価候補 | UI-000005 | SPEC-000008 | 実行記録読取りProjection |
@@ -145,7 +145,7 @@ ARCH-IDは全体の基本設計Identityであり、詳細設計領域のIdentity
 
 ## 6. 保持する意図と対象外
 
-- Project RuntimeはProject-levelの意味と状態を所有し、Provider選定、Transport、OS操作を所有しない。
+- OrchestratorはProject-levelの意味と状態を所有し、Provider選定、Transport、OS操作を所有しない。
 - Transport、Execution編成、観測、Platform、Trust、Qualityを独立責務として保つ。
 - Workbenchは正本を複製せず、同じApplication Contractを使う薄い操作面とする。
 - Sourceや既存DirectoryからCanonical Componentを逆算しない。

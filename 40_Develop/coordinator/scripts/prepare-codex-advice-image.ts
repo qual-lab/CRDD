@@ -8,9 +8,9 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { ensureRepositoryRuntimeDataArea } from "../../domain-model/src/storage/index.ts";
-import { requireReadyRepositoryRuntimeDataArea } from "../../domain-model/src/repository/index.ts";
-import { verifyRepositoryRoot } from "../../version-control/src/repository-location.ts";
+import { ensureRepositoryRuntimeDataArea } from "../../domain-model/src/index.ts";
+import { requireReadyRepositoryRuntimeDataArea } from "../../domain-model/src/index.ts";
+import { verifyRepositoryRoot } from "../../version-control/src/repository/location.ts";
 
 /**
  * 明示した公式CLIとHostから有限のImage入力を作成する。

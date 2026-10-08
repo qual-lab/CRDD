@@ -15,7 +15,7 @@ import {
   describeRootProtectionPolicyContract,
   evaluateRootProtectionPolicyCandidate,
 } from "../../src/repository-operation/root-protection-policy.ts";
-import { assertPresent } from "../support/test-support.ts";
+import { assertPresent } from "../support/contract-assertions.ts";
 
 /**
  * observationsのTest準備責務を実行する。

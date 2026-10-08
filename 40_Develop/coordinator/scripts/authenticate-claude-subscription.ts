@@ -14,7 +14,7 @@ import {
   consumeRuntimeOwnedProviderHomeMountSourceCapability,
   consumeRuntimeOwnedProviderHomeObservationCapability,
   inspectRuntimeOwnedWindowsProviderHomeCandidate,
-} from "../src/provider/provider-home-windows-adapter.ts";
+} from "../src/provider/home-windows-adapter.ts";
 
 if (process.stdin.isTTY !== true || process.stdout.isTTY !== true) {
   process.stderr.write("claude_authentication_interactive_terminal_required\n");

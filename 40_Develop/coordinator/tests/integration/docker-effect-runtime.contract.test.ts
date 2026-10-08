@@ -17,16 +17,16 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { planWorkbenchAiAdviceProviderCommand } from "../../../ai-adapter/src/index.ts";
-import { dockerContainerInitObservationMatches } from "../../src/docker-runtime/docker-container-init-observation.ts";
+import { dockerContainerInitObservationMatches } from "../../src/docker-execution/container-init-observation.ts";
 import {
   createIsolatedDockerEffectRuntimeCandidate,
   describeDockerEffectRuntimeContract,
   verifyRuntimeOwnedDockerCleanupOutcome,
-} from "../../src/docker-runtime/docker-effect-runtime.ts";
-import type { OwnedCommandHandle } from "../../src/docker-runtime/docker-owned-process.ts";
-import { createIsolatedClaudeDockerRuntimeAdapterCandidate } from "../../src/provider/claude-docker-runtime-adapter.ts";
-import { createIsolatedCodexDockerRuntimeAdapterCandidate } from "../../src/provider/codex-docker-runtime-adapter.ts";
-import { describeWorkbenchAiAdviceResultSchema } from "../../src/workbench-ai/workbench-ai-advice-result.ts";
+} from "../../src/docker-execution/command-effects.ts";
+import type { OwnedCommandHandle } from "../../src/docker-execution/owned-process.ts";
+import { createIsolatedClaudeDockerRuntimeAdapterCandidate } from "../../src/provider/claude-docker-adapter.ts";
+import { createIsolatedCodexDockerRuntimeAdapterCandidate } from "../../src/provider/codex-docker-adapter.ts";
+import { describeWorkbenchAiAdviceResultSchema } from "../../src/workbench-ai/advice-result.ts";
 
 /**
  * createPlanFixtureのTest準備責務を実行する。
@@ -550,10 +550,7 @@ test("実config清掃後はClaudeからCodexへ同じ管理領域を再利用で
   const codexCommand = codex.commands[0];
   assert.ok(claudeCommand && codexCommand);
   const source = fs.readFileSync(
-    new URL(
-      "../../src/docker-runtime/docker-effect-runtime.ts",
-      import.meta.url,
-    ),
+    new URL("../../src/docker-execution/command-effects.ts", import.meta.url),
     "utf8",
   );
   // Productionへ試験専用Exportを追加せず、固定Sourceの三private関数だけを使用する。

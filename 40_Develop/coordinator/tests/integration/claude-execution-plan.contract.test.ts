@@ -20,7 +20,7 @@ import {
   planClaudeIsolatedTask,
   buildClaudeExecutionArguments,
   planClaudeReadOnlyProbe,
-} from "../../../ai-adapter/src/claude/index.ts";
+} from "../../../ai-adapter/src/index.ts";
 
 /**
  * Claude配布候補は固定絶対pathと同じexact artifact Identityへ結合するを検証する。
@@ -35,21 +35,21 @@ import {
  * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Claude配布候補は固定絶対pathと同じexact artifact Identityへ結合する", () => {
-  const fixedArgv = Object.freeze(["--output-format", "json", "-p"]);
-  const combined = buildClaudeExecutionArguments(
+  const fixedArguments = Object.freeze(["--output-format", "json", "-p"]);
+  const combinedArguments = buildClaudeExecutionArguments(
     "claude-sonnet-4-6",
     "low",
-    fixedArgv,
+    fixedArguments,
   );
-  assert.deepEqual(combined, [
+  assert.deepEqual(combinedArguments, [
     "--model",
     "claude-sonnet-4-6",
     "--effort",
     "low",
-    ...fixedArgv,
+    ...fixedArguments,
   ]);
-  assert.equal(Object.isFrozen(combined), true);
-  assert.deepEqual(fixedArgv, ["--output-format", "json", "-p"]);
+  assert.equal(Object.isFrozen(combinedArguments), true);
+  assert.deepEqual(fixedArguments, ["--output-format", "json", "-p"]);
   const contract = describeClaudeExecutionPlanContract();
   const binding = contract.distribution.binding;
   const identity = binding.identity;

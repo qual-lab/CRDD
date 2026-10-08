@@ -16,12 +16,6 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import * as domainLibrary from "../../src/index.ts";
-import * as plainData from "../../src/plain-data/index.ts";
-import * as reality from "../../src/reality-traceability/index.ts";
-import * as artifact from "../../src/artifact/index.ts";
-import * as repository from "../../src/repository/index.ts";
-import * as topic from "../../src/topic/index.ts";
-import * as meeting from "../../src/meeting/index.ts";
 
 /**
  * exportedNamesのTest準備責務を実行する。
@@ -82,9 +76,9 @@ function typescriptFiles(root: string): readonly string[] {
 }
 
 /**
- * Package Rootは共通結果だけを公開することを検証する。
+ * Package Rootの実行時・型を含む明示exportとPackage入口が宣言済み集合だけであることを検証する。
  *
- * @responsibility Package Rootから個別Capabilityの実装が公開されないことを確認する。
+ * @responsibility 採用済みRoot公開集合の欠落・追加と廃止Subpathの再導入を拒否する。
  * @trace RCM-UT-014
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Package Rootの実行時exportを列挙する。
@@ -93,47 +87,245 @@ function typescriptFiles(root: string): readonly string[] {
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary RCM-UT-014=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
-test("Package Rootは共通結果だけを公開する", () => {
-  assert.deepEqual(Object.keys(plainData).sort(), [
+test("Package Rootは宣言済みの公開集合だけを公開する", () => {
+  assert.deepEqual(Object.keys(domainLibrary).sort(), [
+    "CROS_DIRECTORY_ID",
+    "CROS_TRUST_POLICY_SCHEMA",
+    "EXTERNAL_SEND_POLICY_RELATIVE_PATH",
+    "REPOSITORY_MANIFEST_RELATIVE_PATH",
+    "REPOSITORY_MANIFEST_SCHEMA",
+    "RepositoryRuntimeDataAreaBlockedError",
+    "TESTS_RELATIVE_PATH",
+    "applyMeetingOutcomeTreatment",
+    "applyProjectOperationCandidateDecision",
+    "applyTopicPromotion",
+    "buildArtifactGraph",
+    "createCoordinatorRuntimeDataArea",
+    "createFilesystemRepositoryObservationPort",
+    "createFilesystemStoreRoot",
+    "createMeetingOperations",
+    "createRealitySymbolGraph",
+    "createTemporaryOperation",
+    "createTopicOperations",
+    "discoverRealitySymbols",
+    "ensureRepositoryRuntimeDataArea",
+    "ensureRepositoryRuntimeDataAreaFromWorkingDirectory",
+    "fixQualityCandidate",
+    "inspectCrosTrustPolicy",
+    "inspectRepositoryManifest",
+    "integrateQualityGate",
+    "observeFilesystemStoreLockOwnerAbsence",
+    "observeRealitySymbolRepository",
+    "observeRepositoryRuntimeDataArea",
+    "parseMarkdownArtifact",
+    "parseMeetingMarkdown",
+    "parseRepositoryProjectContextMarkdown",
+    "parseRepositoryQualityProjectionMarkdown",
+    "parseRepositoryReleaseProjectionMarkdown",
+    "parseTopicMarkdown",
+    "projectProjectOperationSources",
+    "readCoordinatorConfig",
+    "readExecutionIntelligenceConfig",
+    "readOrchestratorConfig",
+    "readStableBoundedFileSnapshot",
+    "realitySymbolKinds",
+    "recoverFilesystemStoreLock",
+    "reenterQualityReview",
+    "requireReadyRepositoryRuntimeDataArea",
+    "resolveCrosRuntimeRoots",
+    "resolveFilesystemStorePath",
+    "resolveRepositoryRuntimeDataPaths",
+    "resolveRepositoryRuntimeDataPathsFromWorkingDirectory",
+    "resumeTemporaryOperation",
+    "sameStableFileIdentity",
+    "settleTemporaryOperation",
     "snapshotPlainArray",
     "snapshotPlainRecord",
-  ]);
-  assert.deepEqual(Object.keys(domainLibrary).sort(), [
+    "validateArtifactSchema",
     "validateDomainOutcome",
+    "validateRealitySymbolManifest",
+    "verifyTemporaryOperationEvidencePromotion",
+    "withFilesystemStoreLock",
   ]);
+  assert.deepEqual(exportedNames("../../src/index.ts"), [
+    "ArtifactGraph",
+    "ArtifactGraphResult",
+    "ArtifactModel",
+    "ArtifactRelation",
+    "ArtifactSchema",
+    "ArtifactSchemaValidationResult",
+    "ArtifactSection",
+    "ArtifactSource",
+    "BuildArtifactGraphRequest",
+    "CROS_DIRECTORY_ID",
+    "CROS_TRUST_POLICY_SCHEMA",
+    "ChecklistResult",
+    "CrosRootInput",
+    "CrosTrustPolicy",
+    "DomainIssue",
+    "DomainLocation",
+    "DomainOutcome",
+    "DomainStatus",
+    "EXTERNAL_SEND_POLICY_RELATIVE_PATH",
+    "FilesystemStoreLockOwnerAbsenceProof",
+    "FilesystemStoreRoot",
+    "FixedQualityCandidate",
+    "IntegratedQualityGate",
+    "LoadedRealitySymbolManifest",
+    "MeetingOperations",
+    "MeetingOutcomeCommandResult",
+    "MeetingOutcomeDisposition",
+    "MeetingOutcomeTarget",
+    "MeetingOutcomeTreatment",
+    "MeetingRecord",
+    "MeetingState",
+    "ProjectOperationCandidate",
+    "ProjectOperationCandidateDecision",
+    "ProjectOperationCandidateDecisionResult",
+    "ProjectOperationProjection",
+    "ProjectOperationProjectionItem",
+    "ProjectOperationRecord",
+    "ProjectOperationRecordKind",
+    "ProjectOperationSource",
+    "ProjectOperationSourceState",
+    "QualityCheckResult",
+    "QualityCheckStatus",
+    "REPOSITORY_MANIFEST_RELATIVE_PATH",
+    "REPOSITORY_MANIFEST_SCHEMA",
+    "RealityRepositoryObservationIssue",
+    "RealitySymbol",
+    "RealitySymbolDiscoveryRequest",
+    "RealitySymbolDiscoveryResult",
+    "RealitySymbolDiscoverySource",
+    "RealitySymbolGraph",
+    "RealitySymbolKind",
+    "RealitySymbolManifest",
+    "RealitySymbolNode",
+    "RealitySymbolRepositoryObservation",
+    "RepositoryDirectoryEntry",
+    "RepositoryDirectoryObservation",
+    "RepositoryEntryKind",
+    "RepositoryFileObservation",
+    "RepositoryManifest",
+    "RepositoryObservationPort",
+    "RepositoryProjectContext",
+    "RepositoryProjectContextScene",
+    "RepositoryProjectContextSceneKey",
+    "RepositoryProjectContextTable",
+    "RepositoryQualityProjection",
+    "RepositoryReleaseDependency",
+    "RepositoryReleaseProjection",
+    "RepositoryReleaseScope",
+    "RepositoryRootCapability",
+    "RepositoryRuntimeArea",
+    "RepositoryRuntimeDataAreaBlockedError",
+    "RepositoryRuntimeDataAreaObservation",
+    "SourceLocation",
+    "StableFileIdentity",
+    "TESTS_RELATIVE_PATH",
+    "TemporaryEvidencePromotionReceipt",
+    "TemporaryOperationCapability",
+    "TemporaryOperationRecoveryReference",
+    "ToolRuntimeConfig",
+    "ToolRuntimeConfigResult",
+    "TopicMeetingAccess",
+    "TopicMeetingDocument",
+    "TopicMeetingListQuery",
+    "TopicMeetingListResult",
+    "TopicMeetingPage",
+    "TopicMeetingRelation",
+    "TopicMeetingRepository",
+    "TopicMeetingWriteResult",
+    "TopicOperations",
+    "TopicPromotion",
+    "TopicPromotionCommandResult",
+    "TopicRecord",
+    "TopicState",
+    "applyMeetingOutcomeTreatment",
+    "applyProjectOperationCandidateDecision",
+    "applyTopicPromotion",
+    "buildArtifactGraph",
+    "createCoordinatorRuntimeDataArea",
+    "createFilesystemRepositoryObservationPort",
+    "createFilesystemStoreRoot",
+    "createMeetingOperations",
+    "createRealitySymbolGraph",
+    "createTemporaryOperation",
+    "createTopicOperations",
+    "discoverRealitySymbols",
+    "ensureRepositoryRuntimeDataArea",
+    "ensureRepositoryRuntimeDataAreaFromWorkingDirectory",
+    "fixQualityCandidate",
+    "inspectCrosTrustPolicy",
+    "inspectRepositoryManifest",
+    "integrateQualityGate",
+    "observeFilesystemStoreLockOwnerAbsence",
+    "observeRealitySymbolRepository",
+    "observeRepositoryRuntimeDataArea",
+    "parseMarkdownArtifact",
+    "parseMeetingMarkdown",
+    "parseRepositoryProjectContextMarkdown",
+    "parseRepositoryQualityProjectionMarkdown",
+    "parseRepositoryReleaseProjectionMarkdown",
+    "parseTopicMarkdown",
+    "projectProjectOperationSources",
+    "readCoordinatorConfig",
+    "readExecutionIntelligenceConfig",
+    "readOrchestratorConfig",
+    "readStableBoundedFileSnapshot",
+    "realitySymbolKinds",
+    "recoverFilesystemStoreLock",
+    "reenterQualityReview",
+    "requireReadyRepositoryRuntimeDataArea",
+    "resolveCrosRuntimeRoots",
+    "resolveFilesystemStorePath",
+    "resolveRepositoryRuntimeDataPaths",
+    "resolveRepositoryRuntimeDataPathsFromWorkingDirectory",
+    "resumeTemporaryOperation",
+    "sameStableFileIdentity",
+    "settleTemporaryOperation",
+    "snapshotPlainArray",
+    "snapshotPlainRecord",
+    "validateArtifactSchema",
+    "validateDomainOutcome",
+    "validateRealitySymbolManifest",
+    "verifyTemporaryOperationEvidencePromotion",
+    "withFilesystemStoreLock",
+  ]);
+  const metadata = JSON.parse(
+    fs.readFileSync(
+      path.resolve(
+        path.dirname(fileURLToPath(import.meta.url)),
+        "../../package.json",
+      ),
+      "utf8",
+    ),
+  );
+  assert.deepEqual(metadata.exports, {
+    ".": "./src/index.ts",
+    "./outcome": "./src/outcome.ts",
+  });
 });
 
 /**
- * TopicとMeetingの意味処理が相互の専用操作を公開しないことを検証する。
+ * TopicとMeetingの宣言済み操作がRootから利用でき、内部解析操作が公開されないことを検証する。
  *
- * @responsibility 責務別公開入口に共通Markdown解析や他の活動種別の操作が漏れないことを確認する。
+ * @responsibility 活動種別ごとの公開操作を維持し、共通Markdown内部解析の公開を拒否する。
  * @trace RCM-UT-014
- * @precondition TopicとMeetingの公開入口を読み込む。
+ * @precondition Package Rootの公開入口を読み込む。
  * @stimulus 実行時exportを列挙し、各解析・更新操作の存在と禁止操作の不存在を照合する。
  * @observation Public ModuleのPropertyを観測する。
- * @oracle TopicはMeeting専用操作を、MeetingはTopic専用操作を公開せず、内部表解析も公開しない。
+ * @oracle TopicとMeetingの宣言済み操作は利用でき、内部表解析はRootに公開されない。
  * @cleanup N/A: 不変なModule exportだけを観測する。
  * @boundary RCM-UT-014=N/A: 同一Processの公開集合を検査し、外部資源を操作しない。
  */
-test("TopicとMeetingの意味処理は相互の専用操作を公開しない", () => {
-  assert.equal(typeof topic.parseTopicMarkdown, "function");
-  assert.equal(typeof topic.applyTopicPromotion, "function");
-  assert.equal(typeof meeting.parseMeetingMarkdown, "function");
-  assert.equal(typeof meeting.applyMeetingOutcomeTreatment, "function");
-  for (const name of [
-    "parseMeetingMarkdown",
-    "applyMeetingOutcomeTreatment",
-    "tableRange",
-    "readMetadata",
-  ])
-    assert.equal(name in topic, false, name);
-  for (const name of [
-    "parseTopicMarkdown",
-    "applyTopicPromotion",
-    "tableRange",
-    "readMetadata",
-  ])
-    assert.equal(name in meeting, false, name);
+test("TopicとMeetingの公開操作をRootから利用し内部解析は公開しない", () => {
+  assert.equal(typeof domainLibrary.parseTopicMarkdown, "function");
+  assert.equal(typeof domainLibrary.applyTopicPromotion, "function");
+  assert.equal(typeof domainLibrary.parseMeetingMarkdown, "function");
+  assert.equal(typeof domainLibrary.applyMeetingOutcomeTreatment, "function");
+  for (const name of ["tableRange", "readMetadata"])
+    assert.equal(name in domainLibrary, false, name);
 });
 
 /**
@@ -173,41 +365,19 @@ test("srcのDirectoryはCapability-firstかつ二階層以内に保つ", () => {
 });
 
 /**
- * Artifactは解析、Schema検証、関係Graphの公開契約だけを公開するを検証する。
+ * Artifactの公開操作から解析・Schema検証・関係Graphを利用するを検証する。
  *
- * @responsibility Artifactは解析、Schema検証、関係Graphの公開契約だけを公開するの合否判定を所有する。
+ * @responsibility Artifactの公開操作から解析・Schema検証・関係Graphを利用するの合否判定を所有する。
  * @trace RCM-UT-014
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Artifactは解析、Schema検証、関係Graphの公開契約だけを公開するの対象操作を実行する。
+ * @stimulus Artifactの公開操作から解析・Schema検証・関係Graphを利用するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary RCM-UT-014=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
-test("Artifactは解析、Schema検証、関係Graphの公開契約だけを公開する", () => {
-  assert.deepEqual(Object.keys(artifact).sort(), [
-    "buildArtifactGraph",
-    "parseMarkdownArtifact",
-    "validateArtifactSchema",
-  ]);
-  assert.deepEqual(exportedNames("../../src/artifact/index.ts"), [
-    "ArtifactGraph",
-    "ArtifactGraphResult",
-    "ArtifactModel",
-    "ArtifactRelation",
-    "ArtifactSchema",
-    "ArtifactSchemaValidationResult",
-    "ArtifactSection",
-    "ArtifactSource",
-    "BuildArtifactGraphRequest",
-    "ChecklistResult",
-    "SourceLocation",
-    "buildArtifactGraph",
-    "parseMarkdownArtifact",
-    "validateArtifactSchema",
-  ]);
-
-  const parsed = artifact.parseMarkdownArtifact({
+test("Artifactの公開操作から解析・Schema検証・関係Graphを利用する", () => {
+  const parsed = domainLibrary.parseMarkdownArtifact({
     path: "02_UX/Definitions/UX-000001/ux_definition.md",
     content: `# UX-000001 Sample
 
@@ -240,7 +410,7 @@ UX ID: UX-000001
     ["passed", "open"],
   );
 
-  const validation = artifact.validateArtifactSchema(parsed, {
+  const validation = domainLibrary.validateArtifactSchema(parsed, {
     id: "ux-definition",
     matches: () => true,
     requiredProperties: ["artifactType", "canonicalId", "status"],
@@ -276,7 +446,7 @@ UX ID: UX-000001
  */
 test("RelationはArtifact Graphと中立Issueだけを公開する", () => {
   assert.deepEqual(
-    exportedNames("../../src/artifact/index.ts").filter(
+    exportedNames("../../src/index.ts").filter(
       (name) => name.includes("ArtifactGraph") || name === "buildArtifactGraph",
     ),
     [
@@ -286,15 +456,15 @@ test("RelationはArtifact Graphと中立Issueだけを公開する", () => {
       "buildArtifactGraph",
     ],
   );
-  const source = artifact.parseMarkdownArtifact({
+  const source = domainLibrary.parseMarkdownArtifact({
     path: "one.md",
     content: "# REQ-000001 One\n\n要求ID: REQ-000001\n",
   });
-  const duplicate = artifact.parseMarkdownArtifact({
+  const duplicate = domainLibrary.parseMarkdownArtifact({
     path: "two.md",
     content: "# REQ-000001 Two\n\n要求ID: REQ-000001\n",
   });
-  const outcome = artifact.buildArtifactGraph({
+  const outcome = domainLibrary.buildArtifactGraph({
     artifacts: [source, duplicate],
   });
   assert.equal(outcome.status, "partial");
@@ -311,39 +481,22 @@ test("RelationはArtifact Graphと中立Issueだけを公開する", () => {
 });
 
 /**
- * Reality Traceabilityは宣言済み公開入口だけを公開するを検証する。
+ * Reality Traceabilityの宣言済み操作をRootから利用するを検証する。
  *
- * @responsibility Reality Traceabilityは宣言済み公開入口だけを公開するの合否判定を所有する。
+ * @responsibility Reality Traceabilityの宣言済み操作をRootから利用するの合否判定を所有する。
  * @trace RCM-UT-014
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Reality Traceabilityは宣言済み公開入口だけを公開するの対象操作を実行する。
+ * @stimulus Reality Traceabilityの宣言済み操作をRootから利用するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary RCM-UT-014=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
-test("Reality Traceabilityは宣言済み公開入口だけを公開する", () => {
-  assert.deepEqual(Object.keys(reality).sort(), [
-    "createRealitySymbolGraph",
-    "discoverRealitySymbols",
-    "realitySymbolKinds",
-    "validateRealitySymbolManifest",
-  ]);
-  assert.deepEqual(exportedNames("../../src/reality-traceability/index.ts"), [
-    "LoadedRealitySymbolManifest",
-    "RealitySymbol",
-    "RealitySymbolDiscoveryRequest",
-    "RealitySymbolDiscoveryResult",
-    "RealitySymbolDiscoverySource",
-    "RealitySymbolGraph",
-    "RealitySymbolKind",
-    "RealitySymbolManifest",
-    "RealitySymbolNode",
-    "createRealitySymbolGraph",
-    "discoverRealitySymbols",
-    "realitySymbolKinds",
-    "validateRealitySymbolManifest",
-  ]);
+test("Reality Traceabilityの宣言済み操作をRootから利用する", () => {
+  assert.equal(typeof domainLibrary.createRealitySymbolGraph, "function");
+  assert.equal(typeof domainLibrary.discoverRealitySymbols, "function");
+  assert.equal(typeof domainLibrary.validateRealitySymbolManifest, "function");
+  assert.ok(Array.isArray(domainLibrary.realitySymbolKinds));
 });
 
 /**
@@ -372,7 +525,7 @@ test("Reality DiscoveryはRepository観測済みSnapshotだけからManifestを�
       },
     ],
   };
-  const result = reality.discoverRealitySymbols({
+  const result = domainLibrary.discoverRealitySymbols({
     sources: [
       {
         subsystem: "sample",
@@ -414,7 +567,7 @@ test("Reality Annotationは公開Discovery経由で検証しinternalを公開し
       },
     ],
   };
-  const result = reality.discoverRealitySymbols({
+  const result = domainLibrary.discoverRealitySymbols({
     sources: [
       {
         subsystem: "sample",
@@ -497,7 +650,7 @@ test("Domain Libraryの利用側は宣言済み公開indexだけを利用する"
           relativeFile ===
             "40_Develop/coordinator/scripts/sign-release-manifest.ts" &&
           imported ===
-            "../../domain-model/src/repository/runtime-data-path-resolver.ts" &&
+            "../../domain-model/src/repository/resolve-storage-paths.ts" &&
           /import\s*\{\s*resolveBundledRepositoryRuntimeDataPathsForProtectedSigning\s*\}\s*from/u.test(
             source,
           );
@@ -523,7 +676,7 @@ test("Domain Libraryの利用側は宣言済み公開indexだけを利用する"
  * @boundary RCM-UT-016=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
 test("Reality Domain IssueはChecker語彙と絶対Pathを公開しない", () => {
-  const invalidContract = reality.validateRealitySymbolManifest(
+  const invalidContract = domainLibrary.validateRealitySymbolManifest(
     {
       contract: "wrong",
       contractRevision: 1,
@@ -554,7 +707,7 @@ test("Reality Domain IssueはChecker語彙と絶対Pathを公開しない", () =
   );
 
   const absolutePath = "C:\\secret\\symbol.json";
-  const invalidLocation = reality.validateRealitySymbolManifest(
+  const invalidLocation = domainLibrary.validateRealitySymbolManifest(
     {},
     absolutePath,
   );
@@ -563,54 +716,23 @@ test("Reality Domain IssueはChecker語彙と絶対Pathを公開しない", () =
 });
 
 /**
- * Repository観測はPort生成だけを実行入口として公開するを検証する。
+ * Repository観測はRootの公開操作から不正Capabilityを拒否するを検証する。
  *
- * @responsibility Repository観測はPort生成だけを実行入口として公開するの合否判定を所有する。
+ * @responsibility Repository観測はRootの公開操作から不正Capabilityを拒否するの合否判定を所有する。
  * @trace RCM-UT-014
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Repository観測はPort生成だけを実行入口として公開するの対象操作を実行する。
+ * @stimulus Repository観測はRootの公開操作から不正Capabilityを拒否するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary RCM-UT-014=Direct Boundary: crdd-domain-library Test Source→対象契約
  */
-test("Repository観測は宣言済み読取り操作だけを公開する", () => {
-  assert.deepEqual(Object.keys(repository).sort(), [
-    "RepositoryRuntimeDataAreaBlockedError",
-    "createFilesystemRepositoryObservationPort",
-    "observeRealitySymbolRepository",
-    "observeRepositoryRuntimeDataArea",
-    "requireReadyRepositoryRuntimeDataArea",
-    "resolveCrosRuntimeRoots",
-    "resolveRepositoryRuntimeDataPaths",
-    "resolveRepositoryRuntimeDataPathsFromWorkingDirectory",
-  ]);
-  assert.deepEqual(exportedNames("../../src/repository/index.ts"), [
-    "CrosRootInput",
-    "RealityRepositoryObservationIssue",
-    "RealitySymbolRepositoryObservation",
-    "RepositoryDirectoryEntry",
-    "RepositoryDirectoryObservation",
-    "RepositoryEntryKind",
-    "RepositoryFileObservation",
-    "RepositoryObservationPort",
-    "RepositoryRootCapability",
-    "RepositoryRuntimeArea",
-    "RepositoryRuntimeDataAreaBlockedError",
-    "RepositoryRuntimeDataAreaObservation",
-    "createFilesystemRepositoryObservationPort",
-    "observeRealitySymbolRepository",
-    "observeRepositoryRuntimeDataArea",
-    "requireReadyRepositoryRuntimeDataArea",
-    "resolveCrosRuntimeRoots",
-    "resolveRepositoryRuntimeDataPaths",
-    "resolveRepositoryRuntimeDataPathsFromWorkingDirectory",
-  ]);
+test("Repository観測はRootの公開操作から不正Capabilityを拒否する", () => {
   const forgedCapability = {
     contract: "crdd-version-control/repository-location/v1",
   } as never;
   assert.equal(
-    repository
+    domainLibrary
       .createFilesystemRepositoryObservationPort(forgedCapability)
       .observeDirectory("40_Develop").status,
     "unobservable",
@@ -618,16 +740,16 @@ test("Repository観測は宣言済み読取り操作だけを公開する", () =
   const repositoryEntrySource = fs.readFileSync(
     path.resolve(
       path.dirname(fileURLToPath(import.meta.url)),
-      "../../src/repository/repository-observation.ts",
+      "../../src/repository/create-observer.ts",
     ),
     "utf8",
   );
   assert.match(
     repositoryEntrySource,
-    /from "\.\.\/\.\.\/\.\.\/version-control\/src\/repository-identity\/index\.ts"/u,
+    /from "\.\.\/\.\.\/\.\.\/version-control\/src\/index\.ts"/u,
   );
   assert.doesNotMatch(
     repositoryEntrySource,
-    /version-control\/src\/(?!repository-identity\/index\.ts)/u,
+    /version-control\/src\/(?!index\.ts)/u,
   );
 });

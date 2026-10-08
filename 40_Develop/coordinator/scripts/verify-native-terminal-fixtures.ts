@@ -19,7 +19,7 @@ import { fileURLToPath } from "node:url";
 import {
   verifyRepositoryRoot,
   resolveVerifiedRepositoryRoot,
-} from "../../version-control/src/repository-location.ts";
+} from "../../version-control/src/repository/location.ts";
 import {
   type NativeTerminalFixtureKind,
   validateNativeTerminalFixture,
@@ -226,7 +226,7 @@ async function runNativeTerminalFixtures(): Promise<void> {
         .join(`${repository}/40_Develop/coordinator/src`, file)
         .replaceAll("\\", "/"),
     );
-  const sourceBefore = sources.map(inputIdentity);
+  const previousSources = sources.map(inputIdentity);
   /**
    * 固定終端能力試験の実行物をCargo出力として取得する。
    *
@@ -298,7 +298,7 @@ async function runNativeTerminalFixtures(): Promise<void> {
     fs.mkdirSync(runRoot);
     fs.mkdirSync(`${runRoot}/tmp`);
     const fixture = `${runRoot}/${fixtureCase.child}`;
-    const run = fixtureCase.run;
+    const verificationOperation = fixtureCase.run;
     const boundaries = [
       repository,
       `${repository}/40_Develop`,
@@ -312,14 +312,14 @@ async function runNativeTerminalFixtures(): Promise<void> {
       runRoot,
       `${runRoot}/tmp`,
     ];
-    const boundaryBefore = boundaries.map(nodeIdentity);
+    const previousBoundaries = boundaries.map(nodeIdentity);
     fs.writeFileSync(
       `${runRoot}/started.json`,
       `${JSON.stringify({
         contract: "crdd-coordinator/native-terminal-fixture-started",
         contractRevision: 1,
         startedAt: new Date().toISOString(),
-        run,
+        run: verificationOperation,
       })}\n`,
       { flag: "wx" },
     );
@@ -349,7 +349,7 @@ async function runNativeTerminalFixtures(): Promise<void> {
     }
 
     const inputs = [...sources, binary];
-    const before = inputs.map(inputIdentity);
+    const previousEntries = inputs.map(inputIdentity);
     assert.equal(
       createHash("sha256").update(fs.readFileSync(binary)).digest("hex"),
       expectedHash,
@@ -363,9 +363,9 @@ async function runNativeTerminalFixtures(): Promise<void> {
     let error: Error | undefined;
     let status: number | null = null;
     let signal: NodeJS.Signals | null = null;
-    let exitObserved = false;
-    let closeObserved = false;
-    let timedOut = false;
+    let isExitObserved = false;
+    let isCloseObserved = false;
+    let isTimedOut = false;
     let outputExceeded = false;
     await new Promise<void>((resolve) => {
       const child = spawn(
@@ -383,7 +383,7 @@ async function runNativeTerminalFixtures(): Promise<void> {
           windowsHide: true,
           env: {
             ...process.env,
-            [fixtureCase.env]: run,
+            [fixtureCase.env]: verificationOperation,
             CRDD_TERMINAL_FIXTURE_ROOT: runRoot,
             CRDD_TEST_NODE_BINARY: process.execPath,
             CRDD_TEST_NODE_SHA256: createHash("sha256")
@@ -396,7 +396,7 @@ async function runNativeTerminalFixtures(): Promise<void> {
         },
       );
       const timer = setTimeout(() => {
-        timedOut = true;
+        isTimedOut = true;
         child.kill();
       }, 15000);
       child.stdout?.on("data", (chunk: Buffer) => {
@@ -427,12 +427,12 @@ async function runNativeTerminalFixtures(): Promise<void> {
         error = failure;
       });
       child.once("exit", (code, termination) => {
-        exitObserved = true;
+        isExitObserved = true;
         status = code;
         signal = termination;
       });
       child.once("close", () => {
-        closeObserved = true;
+        isCloseObserved = true;
         clearTimeout(timer);
         resolve();
       });
@@ -455,7 +455,7 @@ async function runNativeTerminalFixtures(): Promise<void> {
       parsed !== null && typeof parsed === "object"
         ? (parsed as Record<string, unknown>)
         : null;
-    const nativeVerified =
+    const isNativeVerified =
       fixtureCase.kind === "interop"
         ? /test result: ok[.] 1 passed; 0 failed;/u.test(stdout)
         : validateNativeTerminalFixture(
@@ -463,50 +463,50 @@ async function runNativeTerminalFixtures(): Promise<void> {
             parsed,
             fixtureCase.mode,
           );
-    const after = inputs.map((target) => {
+    const subsequentEntries = inputs.map((target) => {
       try {
         return inputIdentity(target);
       } catch {
         return "unknown";
       }
     });
-    const inputUnchanged = before.every(
-      (value, index) => value === after[index],
+    const isInputUnchanged = previousEntries.every(
+      (value, index) => value === subsequentEntries[index],
     );
     const fixturePresence = presence(fixture);
-    const boundaryUnchanged = areNativeTerminalBoundariesUnchanged(
+    const isBoundaryUnchanged = areNativeTerminalBoundariesUnchanged(
       boundaries,
-      boundaryBefore,
+      previousBoundaries,
     );
-    const success =
+    const isSuccess =
       !result.error &&
-      exitObserved &&
-      closeObserved &&
-      !timedOut &&
+      isExitObserved &&
+      isCloseObserved &&
+      !isTimedOut &&
       !outputExceeded &&
       /test result: ok[.] 1 passed; 0 failed;/u.test(stdout) &&
-      sourceBefore.every(
+      previousSources.every(
         (value, index) => value === inputIdentity(sources[index] ?? ""),
       ) &&
-      boundaryUnchanged &&
+      isBoundaryUnchanged &&
       result.status === 0 &&
       result.signal === null &&
-      nativeVerified &&
-      inputUnchanged &&
+      isNativeVerified &&
+      isInputUnchanged &&
       fixturePresence === "absent";
     const observation = {
       contract: "crdd-coordinator/native-terminal-fixture-observation",
       contractRevision: 1,
-      status: success ? "observed" : "unconfirmed",
+      status: isSuccess ? "observed" : "unconfirmed",
       utcStarted,
       utcFinished: new Date().toISOString(),
       durationMilliseconds: Math.round(performance.now() - started),
       binarySha256: expectedHash,
-      before,
-      after,
-      inputUnchanged,
-      boundaryUnchanged,
-      nativeVerified,
+      before: previousEntries,
+      after: subsequentEntries,
+      inputUnchanged: isInputUnchanged,
+      boundaryUnchanged: isBoundaryUnchanged,
+      nativeVerified: isNativeVerified,
       native,
       kind: fixtureCase.kind,
       mode: fixtureCase.mode ?? null,
@@ -519,15 +519,15 @@ async function runNativeTerminalFixtures(): Promise<void> {
       launchOrTimeoutError:
         result.error && "code" in result.error ? result.error.code : null,
       fixturePresence,
-      exitObserved,
-      closeObserved,
-      timedOut,
+      exitObserved: isExitObserved,
+      closeObserved: isCloseObserved,
+      timedOut: isTimedOut,
       outputExceeded,
       rawNativeOutputReported: false,
       productionIntegrationVerified: false,
       fullE2eVerified: false,
     };
-    if (!areNativeTerminalBoundariesUnchanged(boundaries, boundaryBefore)) {
+    if (!areNativeTerminalBoundariesUnchanged(boundaries, previousBoundaries)) {
       console.log(
         JSON.stringify({
           ...observation,
@@ -547,8 +547,10 @@ async function runNativeTerminalFixtures(): Promise<void> {
       },
     );
     console.log(JSON.stringify(observation));
-    if (success) {
-      if (!areNativeTerminalBoundariesUnchanged(boundaries, boundaryBefore)) {
+    if (isSuccess) {
+      if (
+        !areNativeTerminalBoundariesUnchanged(boundaries, previousBoundaries)
+      ) {
         process.exitCode = 2;
         return;
       }
@@ -557,8 +559,8 @@ async function runNativeTerminalFixtures(): Promise<void> {
       fs.unlinkSync(`${runRoot}/result.json`);
       fs.rmdirSync(runRoot);
     }
-    process.exitCode = success ? 0 : 2;
-    if (!success) return;
+    process.exitCode = isSuccess ? 0 : 2;
+    if (!isSuccess) return;
   }
   console.log(
     JSON.stringify({

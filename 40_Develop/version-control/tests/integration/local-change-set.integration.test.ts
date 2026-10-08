@@ -7,7 +7,7 @@
  * @trace RFD-IT-008
  * @level IT
  * @scope version-control、change-set、regression
- * @boundary RFD-IT-005=Direct Boundary: Project Runtime Port→Version Control Adapter / RFD-IT-008=Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ * @boundary RFD-IT-005=Direct Boundary: Orchestrator Port→Version Control Adapter / RFD-IT-008=Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
  */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -18,10 +18,10 @@ import test from "node:test";
 import { createGitLocalChangeSetAdapter } from "../../src/git/local-change-set-adapter.ts";
 import {
   changedPaths,
-  gitLocalChangeSetAdapter,
   observeLocalChangeSet,
-  verifyRepositoryRoot,
-} from "../../src/index.ts";
+} from "../../src/local-change-set.ts";
+import { gitLocalChangeSetAdapter } from "../../src/git/local-change-set-adapter.ts";
+import { verifyRepositoryRoot } from "../../src/repository/location.ts";
 
 /**
  * gitのTest準備責務を実行する。

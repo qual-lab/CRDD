@@ -14,7 +14,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
-import { createDockerRecoveryRuntimeStateLockController } from "../../src/docker-runtime/docker-recovery-lock-controller.ts";
+import { createDockerRecoveryRuntimeStateLockController } from "../../src/docker-execution/recovery-lock-controller.ts";
 
 const ownerFixture = new URL(
   "../fixtures/docker-recovery-lock-owner.ts",

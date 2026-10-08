@@ -6,7 +6,349 @@
 基準改訂版: `76d2c03603922512fa128a60f81b615073dc3a73`
 維持責任者・採用決定権限: Qual-Lab
 
+## 棚卸し後の処置と分割判断 — 2026-10-09
+
+### 第一段階の残存検査指摘の棚卸し — 2026-10-09
+
+#### 識別子・Header・固定参照の追加是正
+
+型付きSymbol参照に基づき166宣言を改名し、Boolean判定、配列集合、入力の意味に一致させた。Objectの通信・保存Keyは明示shorthandで維持した。実型を再確認して子Process集合を`childProcesses`、Function名文字列を`helperFunctionName`とし、開始通知登録集合を`startRegistrations`とした。九つのNamed Test Helper Headerは、実際の前提・刺激・観測・Oracle・回収・境界へ具体化した。昇格処理のHeader三tagとFile Header、改名後のparameter説明も是正した。
+
+全数命名契約は389→191指摘。残りはNative検証用三Script／FixtureのProduction判定に伴う180指摘と、持ち越し済みRecovery旧APIの型不明11指摘であり、通常Sourceの識別子指摘は解消した。全Test Trace契約は、Catalogに存在してSymbolが未登録の四Suite（Native Protection Entry、Native Terminal Oracles、Prepare Release Runtime、Sign Release Terminal）の最初で停止する。これらの試験Source種別・実装Relationの確定は第二段階で扱い、推測SymbolやQA TraceのARCH置換で検査を通さない。端末専用ProbeのQA接続と5C旧APIの試験型18指摘も従来の保留を維持する。
+
+固定Graphは、Native三関数の識別子差分とpacket Key維持を独立確認した上で指紋を追従した。本体指紋一致の21関数はSourcePathを含むsemantic指紋の移管差を追従した。追加四関数はHEAD旧配置Bodyと現行Bodyが全Graph一致することを独立確認し、先行する固定値未追従を是正した。許可対象数、Process起動点、条件と負例は維持する。Domain Worker、起動用途一覧、子Worker／Supervisor Registry、Graphを適用する実体判定および固定import参照の旧Pathも現行配置へ追従した。診断用の一時出力は除去した。
+
+Coordinator本番strict型、Domain／Orchestratorの型・書式・警告拒否Lintが成功。検証Tool全37 Source、固定Process起動16件とRuntime起動26件のGraphが受理された。端末署名／Task Runtime／Native Entryの局所185試験、Graph負例六試験、開発依存閉包一試験、状態Model／回復Owner再入場／Orchestrator AdapterとQueue優先の39試験が成功した。現行有効Consumerへ潰れていた負例を未知Consumer拒否へ復元し、実装の許可集合は維持した。全回帰・署名・実Docker・Provider E2E成功を意味しない。独立レビューではHeader Oracleの記述一件を是正し、判定／データKeyの変更がないことを確認した。固定参照・Graph・負例の再レビューでも第一段階の確認範囲に残る必須是正なし。残る種別・責務判断を含む第二段階へは着手していない。
+
+#### 最初の是正単位
+
+Domain ModelのRepository型File Headerと一時保存実体の識別子、Orchestratorの受領集合・入力妥当性・配送通知・同Attempt照合の識別子と依存型Header、Coordinatorの完了観測型の互換条件を是正した。Booleanは判定の意味、配列は要素集合を示す名にし、返却Objectの`deliveryNotified / deliveryInvalid` Key、保存Field、Path、reason、通信契約は維持する。既存固定Consumer一覧の順序と、回復受領試験の移管前Mock参照三箇所も追従した。Mockは必要な二操作だけを差し替え、同じModuleの他exportは実体を保持する。
+
+Domain／Orchestratorの型・書式・警告拒否LintとCoordinator本番strict型・変更型FileのBiome確認が成功。Domain保存領域／Consumer十二試験、一時Operation二十四試験、Orchestrator状態遷移二十九試験と回復受領一試験の計六十六試験が成功した。実Docker、Provider、署名E2Eは実行していない。全数命名契約の再実行は389→360指摘となったが、なお未成功である。下表は是正前の棚卸しとして保持し、本段落に記した処置だけを是正済みとする。全Test Header、Native検証実体の種別判定、残り識別子、独立レビューと第一段階全体完了は残る。
+
+現行作業Treeで命名全数契約とTest Trace契約を再実行した。両契約は未成功。命名検査は389指摘を報告し、同じPath・行・Symbol・規則の重複を除くと382件、52Fileだった。件数は欠落tagを個別に含み、382個の独立欠陥や382Fileを意味しない。下表は修正待ちの対象一覧であり、処置済みを意味しない。先行移管の局所成功を全体成功へ読み替えない。
+
+処置順は、(1)現在名・実型から一意に決まる識別子改名と実在Ownerへ接続できるHeader、(2)型不明の原因を旧API参照と区別、(3)次の責務見直しで検証用Sourceの配置・種別を確定、とする。大規模Recovery改修、通信・保存契約の追加変更、過去Evidence更新は含めない。
+
+Native検証用三ScriptとFixtureはQA Local Itemを持つ試験用実体だが、Source命名検査がScriptをProductionとして評価するためARCH Trace／実行Header不足を報告する。QA TraceをARCHへ機械置換せず、第二段階で配置・用途・検査適用を照合する。名称指摘は本表に保持し、検査免除済みとは扱わない。
+
+| File | 重複除外指摘数 | 対象Symbolと行 | 処置区分 |
+|---|---:|---|---|
+| `40_Develop/domain-model/src/repository/types.ts` | 3 | types.ts:1 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/domain-model/src/storage/temporary-operation.ts` | 6 | signature:661、signature:965、signature:1225、observedNext:1368、recoveryStateUpdateAttempted:1743、remaining:1825 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/orchestrator/src/state/transitions.ts` | 2 | decoded:2008、frozen:2030 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/coordinator/src/docker-execution/provider-command-plan.ts` | 3 | authenticationArgv:101、providerArgv:102、interactive:103 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/coordinator/src/state-storage/model.ts` | 6 | PURPOSE_RESOURCE:161、COMMAND_PURPOSES:168、FAILURE_STAGES:175、FINAL_REASONS:186、existing:986、item:1328 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/coordinator/src/state-storage/settlement-store.ts` | 5 | durable:622、completed:1565、prepared:2025、initialRoot:2550、complete:3442 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/coordinator/src/docker-execution/recovery-lifecycle.ts` | 2 | transferred:1021、requireInitialized:1259 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/coordinator/src/docker-execution/command-effects.ts` | 1 | absent:1624 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/coordinator/src/docker-execution/process-controller.ts` | 3 | recorded:1942、recorded:1976、verified:2571 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/coordinator/src/task/execution.ts` | 1 | all:4021 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/orchestrator/src/task/dispatch.ts` | 3 | deliveryNotified:982、deliveryInvalid:983、notificationClosed:984 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/coordinator/src/task/types.ts` | 1 | TaskCompletionObservation:18 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/coordinator/src/task/attempt.ts` | 4 | notificationClosed:519、observed:558、missingRequiredStart:640、invalidCompletedNotification:642 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/orchestrator/src/task/execute-attempt.ts` | 9 | OrchestratorSingleTaskDependencies:21、valid:51 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/orchestrator/src/storage/current-state.ts` | 1 | sameAttempt:2452 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/orchestrator/src/task/settle-docker-recovery.ts` | 2 | normal:73、cleanTerminal:77 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/coordinator/src/provider/home.ts` | 1 | PROVIDER_DIRECTORY_NAMES:31 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/coordinator/src/platform-access/release-identity.ts` | 2 | selected:135、executable:169 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/coordinator/scripts/promote-release-manifest.ts` | 3 | runtimeGitProvenanceMatches:233 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `template/tools/crdd-coordinator.ts` | 2 | directProject:19、routedProject:20 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/coordinator/scripts/verify-native-protection.ts` | 99 | verify-native-protection.ts:1、nodeIdentity:34、assertNoPreviousNativeRuns:54、areInputsUnchanged:76、runNativeProtection:99、run:120、buildBoundaryBefore:146、lintNativeProtectionArtifact:176、buildNativeProtectionArtifact:220、presence:306、before:330、executeNativeProtectionGuard:380、rejected:403、executeNativeProtectionZeroCase:426、stopped:469、timedOut:470、errorObserved:484、exitObserved:485、closeObserved:510、matching:514、nativeSupported:613、after:670、fixturePresence:671、sourceInputsUnchanged:672、inputUnchanged:676、boundaryUnchanged:684、completed:688 | 第二段階: 検証用実体の種別・配置とHeader検査適用を照合 |
+| `40_Develop/coordinator/tests/fixtures/native-terminal-oracles.ts` | 19 | run:54、nativeVerified:85、run:197、parsed:224、rejected:237、nativeVerified:257、run:353、parsed:384、nativeVerified:445、parsedPacket:578、nativeVerified:615、packetParsed:769、nativeReplyVerified:801、packetParsed:907、nativeReplyVerified:954、packetParsed:1125、nativeReplyVerified:1164、reparseVerified:1372、reparseUnavailable:1374 | 第二段階: 検証用実体の種別・配置とHeader検査適用を照合 |
+| `40_Develop/coordinator/scripts/verify-native-terminal-namespace.ts` | 60 | verify-native-terminal-namespace.ts:1、areNativeTerminalBoundariesUnchanged:36、expected:38、runNativeTerminalNamespace:61、sourceBefore:106、buildNativeTerminalNamespaceArtifact:119、run:177、boundaryBefore:191、inputIdentity:214、presence:236、before:250、exitObserved:264、closeObserved:265、timedOut:266、nativeVerified:372、expectedReason:393、after:421、inputUnchanged:428、boundaryUnchanged:430、success:434 | 第二段階: 検証用実体の種別・配置とHeader検査適用を照合 |
+| `40_Develop/coordinator/scripts/verify-native-terminal-fixtures.ts` | 57 | verify-native-terminal-fixtures.ts:1、FixtureCase:30、inputIdentity:144、runNativeTerminalFixtures:165、sourceBefore:229、buildNativeTerminalFixtureArtifact:242、run:301、boundaryBefore:315、presence:338、before:352、exitObserved:366、closeObserved:367、timedOut:368、nativeVerified:458、after:466、inputUnchanged:473、boundaryUnchanged:477、success:481 | 第二段階: 検証用実体の種別・配置とHeader検査適用を照合 |
+| `40_Develop/coordinator/scripts/prepare-release-runtime.ts` | 2 | selected:117、relative:251 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/coordinator/scripts/prepare-release-candidate.ts` | 2 | REQUIRED_VALUE_ARGUMENTS:41、replaced:227 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/coordinator/tests/fixtures/fixed-runtime-signing-fixture.ts` | 2 | observed:63、ordered:193 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/coordinator/tests/fixtures/recovery-cleanup-probe.ts` | 1 | begun:93 | 第一段階: 識別子／Headerを責務・実型に基づき是正。旧APIに由来する型不明は5C持ち越しと区別 |
+| `40_Develop/coordinator/tests/integration/claude-execution-plan.contract.test.ts` | 2 | fixedArgv:38、combined:39 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/coordinator/tests/integration/coordinator-state-runtime.contract.test.ts` | 12 | cleaned:95、replaced:333、invalid:1124、completionReleaseObservationMissing:1253、projectAcceptanceChangeOnSecondRead:1298、recoveredReaderThrows:2501、changeOnSecondRead:2503、failedAcceptance:2548、completionPublishedThenLost:3111、failHostObservation:3810、writerRefused:4171、getterCalled:4337 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/coordinator/tests/integration/coordinator-task-runtime.contract.test.ts` | 3 | accepted:1705、withoutObserver:1932、hostCleanupWal:5303 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/coordinator/tests/integration/docker-process-controller.contract.test.ts` | 6 | received:698、throws:795、saved:2632、provider:2714、value:4952、finished:4970 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/coordinator/tests/integration/docker-recovery-owner-reentry.contract.test.ts` | 3 | releaseSucceeds:72、projectDelivery:80、manager:776 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/coordinator/tests/integration/docker-recovery-runtime.contract.test.ts` | 10 | begun:6671、capability:6708、owner:6708、operationId:6708、recoveryId:6708、begun:6807、recoveryId:6816、begun:6961、begun:7049、begun:7107 | 第一段階: 識別子／Headerを責務・実型に基づき是正。旧APIに由来する型不明は5C持ち越しと区別 |
+| `40_Develop/coordinator/tests/integration/native-protection-entry.contract.test.ts` | 5 | before:72、after:77、children:111、expected:182、permitted:192 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/coordinator/tests/integration/orchestrator-durable-foundation.contract.test.ts` | 3 | group:1897、injected:4347、injected:4437 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/coordinator/tests/integration/orchestrator-execution.contract.test.ts` | 1 | injected:1273 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/coordinator/tests/integration/orchestrator-platform-independence.contract.test.ts` | 1 | sourcePrefix:103 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/coordinator/tests/integration/orchestrator-queue-priority.contract.test.ts` | 2 | children:55、children:355 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/coordinator/tests/integration/orchestrator-single-task-adapter.contract.test.ts` | 5 | order:54、returned:62、throws:182、value:237、rejectCompletion:335 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/coordinator/tests/integration/platform-provisioner-package-filesystem.contract.test.ts` | 2 | graph:169、helper:175 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/coordinator/tests/integration/platform-provisioner-release-identity.contract.test.ts` | 2 | run:62、ordered:157 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/coordinator/tests/integration/prepare-release-runtime.contract.test.ts` | 1 | matching:409 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/coordinator/tests/integration/release-candidate-preparation.contract.test.ts` | 4 | COMMIT:19、TREE:20、valid:139、input:152 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/coordinator/tests/integration/repository-operation-runtime.contract.test.ts` | 1 | cleaned:59 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/coordinator/tests/integration/sign-release-manifest.contract.test.ts` | 3 | fixedSignature:329、fixedSignature:372、created:1811 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/coordinator/tests/unit/state-storage/model.contract.test.ts` | 5 | invoked:165、getterCalled:818、invalid:1676、cleanupGetterInvoked:1730、resourceGetterInvoked:1792 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/orchestrator/tests/integration/docker-recovery-settlement.contract.test.ts` | 3 | rootVerified:93、readerChanged:97、absenceObserved:99 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/orchestrator/tests/unit/state/transitions.contract.test.ts` | 2 | getterCalled:125、group:298 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/orchestrator/tests/unit/task/intelligence-adapter.contract.test.ts` | 1 | _provider:153 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/domain-model/tests/integration/repository-storage-paths.integration.test.ts` | 1 | before:439 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+| `40_Develop/domain-model/tests/integration/storage-consumer-closure.integration.test.ts` | 2 | RUNTIME_PUBLIC_ENTRIES:30、ORCHESTRATOR_STORE_FACTORIES:61 | 第一段階: 識別子／Headerを責務・実型に基づき是正 |
+
+Test Header契約は `docker-recovery-owner-reentry.contract.test.ts:97` で最初に停止した。登録済みTypeScript試験の同じ宣言候補・直前Headerの読取り走査では、次の9箇所に固定tagのない候補を検出した。Rust、tag理由の意味、Trace実在・集合一致までこの補助走査で成功したとは主張しない。
+
+| File（Coordinator tests/integration相対） | 行 | 実体 |
+|---|---|---|
+| `docker-recovery-owner-reentry.contract.test.ts` | 97 | 上位受領結果を返す局所Reader |
+| `coordinator-state-runtime.contract.test.ts` | 1321 | 遅延Readerの呼出し数観測 |
+| `sign-release-terminal.contract.test.ts` | 392、393、394、462 | 既存Listenerの保全・終了を観測する局所Callback |
+| `coordinator-task-runtime.contract.test.ts` | 1912、3528 | 開始通知Callback／受領結果Reader |
+| `docker-recovery-runtime.contract.test.ts` | 3062 | 環境観測未発行を反証するCallback |
+
+これらは個別Test Case Headerの欠落ではなく、名前を付けた局所関数を検査がHelper候補へ含めたものだった。独立した検証責務を持つHelperなら簡潔な実責務Headerを付け、独立責務のない局所CallbackならCoding Standardsの対象外契約との整合を確認する。Callbackを一律免除したり、推測Traceを付けたりせず、分類と代表反例を検査へ反映する。
+
+端末専用Probeは第二段階で削除・統合・手動試験化を判断する。QA接続未整理だけを理由に新Local Itemを追加して存続させない。今回の棚卸しから責務見直しの実装へは移行していない。
+
+### Topic／MeetingのMCP接続File名
+
+実責務を確認した人間の指定に従い、Workbenchの`src/topic-meeting/remote.ts`を`mcp-adapter.ts`へ改名した。Topic／Meeting操作を固定MCP Toolへ写像し、結果をWorkbench用Snapshotへ変換する実体であり、汎用MCP ClientやSession管理ではない。Source参照、試験参照、Symbol配置を追従し、公開関数名・通信契約・挙動は維持した。Workbenchの型・書式・Lintと、Remote Topic／Meetingの局所二試験が成功した。後掲の任意改名候補は当初の調査記録であり、本件の現在処置はこの節を優先する。
+
+### Header確認と検証整合の追加是正
+
+人間は初頭Headerを取得できなかった29Fileの確認・是正と、先行した命名・配置変更の検証整合を指定した。現行公開Rootへの統合を前提に、旧子入口の公開集合を要求する試験、古いConsumer Path、Architectureの入口説明および固定Graphの名称依存Fingerprintを同じ変更内で照合する。変更分類は既存移管の直接伝播・Documentation是正であり、公開能力、Wire値、保存形式、AuthorityとDocker／Recoveryの5C挙動は変更しない。現在の作業Treeを基準とし、過去Evidence・署名Manifest・Hashは維持する。
+
+着手前照合ではCoding StandardsのFile HeaderとQuality Trace契約、各Packageの公開Owner、固定Graphの明示許可集合を確認した。独立確認はHeader／Graph、Domain公開契約、Surface・Library公開契約の三観点へ分け、変更後の固定候補を確認する。文書参照・直接伝播と利用側影響をこの範囲で確認し、Release／全体準拠監査、署名・実Provider E2Eは実行しない。任意の改名三件と責務分割12件は実装対象外である。
+
+29件はCoordinatorのTypeScript Fixture／SupportのFile Header実欠落であり、Rust三件はRustdoc形式の取得漏れだった。FixtureのTraceは既存利用側のQuality Local Itemへ接続し、利用側が確認できない場合はGapとする。個別Test Case／Named HelperのHeaderまで今回の29件を全Documentation母集団の完了へ拡大解釈しない。
+
+今回の是正結果は次のとおり。後掲の先行した限定検証表は当時の結果として保持し、現在の処置判定は本表を優先する。
+
+| 対象 | 現在結果 | 残る境界 |
+|---|---|---|
+| 初頭Header29File | 実利用側からTraceを確認した28Fixture／Supportへ用途、Local Item、段階と境界を追記。コード本文は不変更。Rust三Fileは既存Rustdocを確認。 | `40_Develop/coordinator/tests/fixtures/coordinator-launch-terminal-probe.ts`のQA接続はOPEN。 |
+| Domain／AI／Version Control公開契約 | Rootの固定全公開集合、用途別Symbolと既知Consumer集合へ追従。三Packageの局所32件成功。VCはNamespace／動的import／再export等の迂回拒否も反証。 | 全体回帰・実境界成立を主張しない。 |
+| Checker公開入口 | 旧子入口相当の重複Profileを廃止。実Filesystemから収集した全15 Rootと固定集合を比較し、明示export元・星export禁止・Headerを維持。関連三契約成功。 | 全Sourceの識別子命名検査と全Test Case Header検査は別の既存違反で未成功。 |
+| 固定実行Graph | 旧名のメモリ復元／HEAD本文で旧値を再現した四指紋だけを更新。本番37Scripts受理、Graph局所契約一件成功。同一Module置換へ潰れていた負例も別非許可Moduleへの置換へ復元。 | 署名済みManifestや実Providerの根拠は更新していない。 |
+| 静的確認・独立確認 | 対象Packageの型・書式・警告拒否Lint、Coordinator本番strict型と対象Lint、差分空白を確認。分離した担当による限定レビューの指摘を是正・再確認。 | Coordinator全試験の型検査、5C、Release準備、全体準拠Passではない。 |
+
+残る端末Probeは`19_Workflows/01_Coordinator_Runtime.md`で実端末から直接実行する案内があるため、未使用として削除しない。現在のQA Local Itemへ適切に接続できるかは未確定であり、既存の`PRL-ST-001`を他の起動試験が利用していることだけからTraceを転記しない。確認先はQuality Analysis／検証設計である。起動用途・実端末結合・拒否の意味とその検証義務を照合してから再開し、このFileのDocumentation完了を主張しない。
+
+全Source命名と全Test Header検査の失敗を、今回の局所36件成功で打ち消さない。個別Test Case Header欠落の例は`tests/integration/docker-recovery-owner-reentry.contract.test.ts`であり、File Header29件とは別の母集団である。5Cに由来する旧Recovery API参照と試験型指摘18件は、人間が指定した持ち越しを維持する。新しい型例外、Header免除、Graph許可緩和、互換入口は追加していない。
+
+### 今回の処置範囲
+
+人間が指定した実装20件・試験9件を対象に、25件を改名・移動し、4件の不要Fileを廃止した。Principal観測は専用実体へ移し、単独利用の`ScanResult`はParser内へ戻した。旧Pathへの互換中継は追加しない。下の棚卸し表は処置前の観測記録として保持する。
+
+Orchestratorの六業務操作とPrincipal観測はPackage Rootへ明示公開し、`./application` subpathを廃止する。これはSource API Pathの変更であり、外部利用側はRootへ移行する。内部操作名、通信契約、保存形式、Authorityは変更しない。公開集合は既存Rootの集合にこの七操作だけを加え、開発用構築・診断関数を追加しない。現行の参照、Symbol配置、Test Catalog、固定Source Graphと利用側を追従させる。過去Evidence、署名済みManifest、Hashは改変しないため、旧署名は今回の変更後閉包の検証根拠ではない。
+
+Semantic Pilotの不存在入力は、実際に七Meaningを定義するCoordinator詳細設計`01_Architecture.md`へ接続する。Threat Modelへの代用やAI推測によるMeaning補完は行わない。
+
+### 責務混在12件：分割する理由・分割しない理由
+
+以下は判断資料であり、今回の29件へ便乗して分割を実装しない。Fileの大きさだけでは分割しない。同じ変更理由・不変条件・確定単位を保てるかで判断する。Pathは`40_Develop/`相対、配布入口だけRepository相対。
+
+| 対象 | 分割する理由 | 分割しない理由 | 推奨する最小処置 |
+|---|---|---|---|
+| `domain-model/src/project-context/source-projection.ts` | 読取り投影とAuthority・Revision付き候補採否は、Effect・判断権限・変更理由が異なる。 | 同じ投影値・候補契約を共有する。別の保存層まで追加すると中継や値変換が増える。 | 投影と候補判断だけを既存Ownerへ分ける。新しい保存Frameworkは作らない。 |
+| `domain-model/src/storage/topic-meeting-operations.ts` | 検索、Cursor、昇格、Meeting Outcomeは活動操作であり、共通保存Folderの責務ではない。 | TopicとMeetingの共通CRUDを無理に二分すると、同じ検査・保存契約を複製する。 | 内部分割より、File全体を活動Ownerへ移す。複合契約の必要性は利用側で確認する。 |
+| `domain-model/src/storage/types.ts` | 活動の値契約と一時Operation・Evidence昇格・回復参照は、利用側と変更理由が異なる。 | 型専用Fileとしては適切。型一つずつをFileへ分けると参照が散る。 | 二つの責務集合へ分ける。各集合内の型は同居させる。 |
+| `semantic-coverage/src/compilation/from-repository.ts` | Repository観測付きCompilerと純粋なGraph結果変換は入力境界が異なる。 | 共通診断変換を双方へコピーすると結果語彙が乖離する。 | 結果変換だけをCoverage Ownerへ移し、共通診断部品は一つに保つ。 |
+| `mcp-server/src/orchestrator/protocol.ts` | 共通JSON-RPC処理をOrchestratorが所有すると、他Capabilityが上位固有Folderへ依存する。 | 同じWire契約を複数Adapterで再定義すると相関・拒否条件が変わる。 | 共通要求・応答処理を共通Request Ownerへ移す。固有Tool定義とWire値は維持する。 |
+| `version-control/src/git/layout.ts` | Layout／Identity読取りとExclude保存・Lock・更新確定はEffectと変更理由が異なる。 | Root Identityと安全確認を別実装へ複製すると保証が弱まる。 | 保存本体を既存`local-ignore-adapter.ts`へ移す。Identity検査は共有実体を維持する。 |
+| `workbench-server/bin/workbench-server.ts` | CLI引数入口が署名Capability・Advice・Candidate組立てを所有し、薄い入口の規則から外れる。 | Coordinator公開契約不足を無差別Root exportで解決すると、内部保証が公開APIへ漏れる。 | 必要公開契約を先に照合し、本番組立てをSourceへ移す。binは起動だけにする。 |
+| `template/tools/crdd-mcp-server.ts` | 配布入口がPrincipal、Domain CRUD、Context読取り、Transport組立てまで所有する。 | そのまま巨大なbinへ移すだけでは責務整理にならず、Authority・終了処理の接続を失い得る。 | MCP Sourceが起動構成を所有し、binと配布入口を薄くする。処理を重複実装しない。 |
+| `official-asset-governance/src/store.ts` | File Storeと認可・Domain判断・実行順序は独立した変更理由を持つ。 | 同じ比較交換・確定単位に結合しており、分割でトランザクションを弱めてはならない。 | 保存と判断実行を二実体へ分ける。確定契約を保ち、第三の中継層は作らない。 |
+| `verification-runner/src/catalog/inspect.ts` | Catalog探索・検査、資源集約試験の許可、回帰選択は別の判断責務。 | Catalog読取り・検査は同じ入力と型を共有する。細分化で検査規則を重複させる利点はない。 | Catalog処理はまとめたまま、許可と回帰選択だけを実Ownerへ分ける。 |
+| `execution-intelligence/src/record/event-and-summary.ts` | Event／Summaryの事実記録と改善候補の提案判断は、事実と推論の異なる境界。 | 同じEventを使うSummary部品まで重複させると記録と提案の説明が乖離する。 | 提案判断だけを評価Ownerへ移す。入力EventとSummary契約を共有する。 |
+| `checker/src/profiles/current.ts` | CLI解釈、Root探索、工程Rule、出力はProfile定義とは異なる変更理由。 | 多数のRuleが共通検査Contextと順序に結合する。全面分割は第1段階の範囲を超え、回帰面が広い。 | 次段階で既存Inspection／Rule Ownerへ段階的に整理する。今は公開中継撤去だけ行う。 |
+
+現在、人間による追加判断は必要ない。12件の分割実装は、次の責務見直し段階で別途確認する。Docker／Recoveryの5C是正、署名・実Provider E2E、Release判断は今回の範囲外である。
+
+### 限定検証の結果と残る境界
+
+29件の処置と直接伝播は実施済み。独立確認で見つかったMock Path二箇所、Sourceに追従していなかったUT三件の配置、Semanticの試験／Inventory入力、Architectureの旧公開入口説明を是正した。先行移管で残っていたSymbol Path五件も現行実体へ合わせた。UT三件の追加追従は元の実装移管の利用側処置であり、29件に別の機能欠陥として加算しない。
+
+| 確認 | 現在結果 | 主張しないこと |
+|---|---|---|
+| Domain、Orchestrator、Semantic、AI Adapter、Workbench、Version Control、Checker、Visual Previewの型検査 | 八Packageで成功。Coordinator本番Sourceのstrict型検査も成功。 | Coordinator全試験の型検査成功ではない。 |
+| 移動対象・公開入口・利用側の局所試験 | Domain19、Orchestrator27、Semantic14、Coordinator18、CROS2、Visual10、AI1、Checker1、Workbench2の計94件で成功。 | 全回帰、Coverage Gate、実Provider E2EのPassではない。 |
+| Rust | `x86_64-pc-windows-msvc`指定のlocked checkが成功。 | Native実境界の実測・署名検証ではない。 |
+| Version Controlの追加確認 | 固定Snapshot／RevisionとIgnoreの動作確認は成功。Consumer Closureには既知の失敗五件が残る。 | 既知の設計／Consumer一覧不整合を今回の改名で解消したとは扱わない。 |
+| 固定実行Graph | 先行したMCP入口名変更に対する`startPublicMcpProcess`のspawn fingerprint不一致で停止。今回の対象Pathと狭い動的import条件は独立確認済み。 | 検査全体のPassではない。条件緩和、Fingerprintの無根拠更新は行わない。 |
+| Docker Recovery IT | 既知の`beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserver` export不存在でModule読込みが停止。今回のMock Pathは是正・再確認済み。 | 持ち越した5Cを是正済みとは扱わない。 |
+
+過去Evidence、署名Manifest、Hashは変更していない。Docker起動・再起動、外部AI依頼、署名、Commit／Pushは今回実行していない。責務分割12件は判断資料のままで、機能分割の実装や第1段階全体の完了を主張しない。
+
+## 全Sourceの名前・内容・配置の棚卸し — 2026-10-09
+
+### 結論と確認範囲
+
+現行Sourceには、名前・配置・不要中継の是正候補が実装20件、試験9件ある。単純改名では閉じない責務混在12件、現行名も成立する改善候補3件、不存在の固定入力参照1件を別に扱う。件数は対象File単位であり、必要な変更数、機能欠陥数または新設File数ではない。今回は調査と記録のみで、Sourceの改名・移動・分割は行っていない。
+
+対象はHEAD `b8fad5349f3882d89c4dbbc31a86a2cced05f3d8`に対する現在の作業Tree。`40_Develop/**`と`template/tools/**`のCRDD所有コード782件を列挙し、名前、宣言、export、責務Headerと試験対象を全数棚卸しした。疑わしいFileは本文と利用側を追加照合した。全782件の全行意味レビュー、動作レビュー、全体準拠Passまたは全欠陥不存在を主張しない。生成物、依存Source、`dist`、Cargo `target`、過去EvidenceとRuntime残存は対象外。Dockerfile4件と関連Catalog／設定も補助確認したが、782件へ加算しない。
+
+| Package／入口 | 実装・Script・設定コード | 試験・Fixture・Supportコード | 合計 |
+|---|---:|---:|---:|
+| ai-adapter | 25 | 3 | 28 |
+| artifact-signing | 5 | 2 | 7 |
+| checker | 14 | 8 | 22 |
+| coordinator | 188 | 220 | 408 |
+| cros | 13 | 12 | 25 |
+| domain-model | 44 | 23 | 67 |
+| execution-intelligence | 10 | 6 | 16 |
+| mcp-server | 16 | 10 | 26 |
+| official-asset-governance | 3 | 3 | 6 |
+| orchestrator | 55 | 12 | 67 |
+| platform-access | 21 | 3 | 24 |
+| semantic-coverage | 9 | 3 | 12 |
+| template/tools | 5 | 0 | 5 |
+| verification-runner | 5 | 4 | 9 |
+| version-control | 20 | 9 | 29 |
+| visual-preview | 4 | 2 | 6 |
+| workbench-server | 21 | 4 | 25 |
+| 合計 | 458 | 324 | 782 |
+
+調査経路は現行Coding Standards 3.2の責務・配置確認であり、現在の計画と公開集合を保持して読み取り専用のPackage別確認を統合した。Sourceの処置案は未実施・未採用として記録する。契約、Authority、安全保証、Protocol、過去Evidenceの変更、署名、Docker／Provider実Effect、全回帰、Release／準拠監査は行わない。調査結果を変更後の独立レビューとして流用しない。実装を開始するときは利用側・公開集合・依存閉包・必要な試験を改めて対応付ける。
+
+### 名前・配置・不要中継の是正候補：実装20件
+
+下表のPathは`40_Develop/`からの相対Path。行番号は今回観測した作業Treeの確認点であり、永久Identityではない。確信度は原則高。禁止語の機械置換ではなく、実責務との不一致を根拠とする。
+
+| 現在File・確認点 | 実際の内容と不一致 | 最小の処置案 |
+|---|---|---|
+| `coordinator/src/provider/home-observation.ts`：387、438、606、693行 | Provider HomeだけでなくCandidate Store／Runtime StateのNative要求・応答も扱う。 | `platform-access/protected-root-protocol.ts`へ移す。 |
+| `coordinator/src/candidate/store-windows-adapter.ts`：169、203、401行 | Candidate専用でなく、Candidate Store／Runtime State双方の保護Root観測を扱う。 | `platform-access/protected-root-windows-adapter.ts`へ移す。 |
+| `platform-access/src/filesystem/provider_home.rs`：45–46、266–268行 | Provider Home／Candidate Store／Runtime Stateの3Rootを扱う。 | `filesystem/protected_root.rs`へ改名する。 |
+| `coordinator/src/diagnostics/provisioning-signature-primitives.ts`：491、617、730行 | JCS、SPKI、署名検証の本番Trust部品。`platform-access/manifest-trust.ts`等が利用し、診断専用ではない。 | `platform-access/signature-primitives.ts`へ移す。 |
+| `coordinator/src/docker-execution/recovery.ts`：7–36行 | `recovery-lifecycle.ts`の純再export中継。 | 同Package利用側を実体へ接続して削除する。Package検証GraphのFacade特別処置も照合し、Rootへ無差別公開しない。 |
+| `coordinator/src/docker-execution/isolation.ts`：3528、3571、3874行 | 一般隔離方式ではなく隔離Probe・Fake Provider故障／取消検証と回収。 | `docker-execution/isolation-probe.ts`へ改名する。 |
+| `domain-model/src/project-context/read-context.ts`：113行 | File読取りでなく、引数Markdownの解析。 | `project-context/parse-context.ts`へ改名する。 |
+| `domain-model/src/project-context/read-quality.ts`：39行 | Quality Markdownの値解析。 | `project-context/parse-quality.ts`へ改名する。 |
+| `domain-model/src/project-context/read-release.ts`：117行 | Release Markdownの値解析。 | `project-context/parse-release.ts`へ改名する。 |
+| `orchestrator/src/objective/public-operations.ts`：14、23、46行 | 操作6関数の再exportとPrincipal観測が混在。`public`は責務でない。 | 中継を削除し、必要な公開操作だけRootから実体へ明示接続。観測は`identity/observe-principal.ts`へ移す。 |
+| `orchestrator/src/objective/operation-composition.ts`：925、1175、1333、1480行 | ObjectiveだけでなくDecision／Acceptance／State Queryと診断構成を持つ。 | 最小移動は`src/operation-composition.ts`。操作別分割は次段階で評価する。 |
+| `orchestrator/src/process/safety-observer.ts`：18–26行 | 観測契約に加え回復Identity生成・解析とProcess使用禁止の操作契約を持つ。 | `process/safety-contract.ts`へ改名する。 |
+| `semantic-coverage/bin/semantic-coverage.ts`：31–50、57–106行 | 汎用CLIではなくCRDD固定2Subsystem・固定QA・固定RegistryのPilot生成Script。 | `scripts/compile-pilot.ts`へ移し、既存Pilot Scriptから呼ぶ。架空の汎用binを作らない。 |
+| `workbench-server/src/project/context.ts`：90–95、368–403行 | ContextだけでなくTopic／Meeting／Plan／Quality／Owner Artifact／Gitを合成する。 | `project/surface.ts`へ改名する。 |
+| `version-control/src/git/object-reader.ts`：1127、1210–1216、1252行 | Object読取りだけでなくCommit Tree検証・選択・Workspaceへの書込み実体化。 | `git/commit-tree.ts`へ改名する。 |
+| `version-control/src/git/fixed-revision-adapter.ts`：219、251、260行 | 固定Revisionだけでなく現在RevisionとRepository Formatも観測する。 | `git/revision-adapter.ts`へ改名する。 |
+| `ai-adapter/src/output/types.ts`：20行 | `ScanResult`は同FolderのParser一Fileのprivate scannerだけで利用。共有型でない。 | Parser内へ型を戻してこのFileを削除する。 |
+| `checker/src/inspection/run.ts`：31行 | 本体へ一度転送するだけで、検証・構成・独立判断を持たない。 | `runChecker`の公開Identityを保持しつつ実体を直接公開する。別名の中継Fileへ置換しない。 |
+| `checker/src/findings/artifact-relation.ts`：51–88行 | RelationだけでなくSchemaのProperty／Section／Status違反もFindingへ変換する。 | `findings/artifact-issues.ts`へ改名する。 |
+| `visual-preview/src/browser/verify-zoom.ts`：1703、1818行 | Zoomに限定せず、全Screen Target×表示Profile×ZoomのWeb Visual検証を所有する。 | `browser/verify-visual.ts`へ改名する。Browser回収処理の分割は名前変更と別に評価する。 |
+
+`record.ts`、`model.ts`、`adapter.ts`等を一律に操作動詞へ変える方針ではない。名前から現在の処理・Effect・対象範囲を予測できるかで判断する。Headerの古い名前・定型説明も追従が必要だが、Headerだけを読んで実責務を確定していない。
+
+### 試験の名称・配置候補：9件
+
+UTは実対象Sourceを基準にする。IT以降は結合契約・シナリオ名を維持でき、Sourceの鏡像化を強制しない。
+
+| 現在File（`40_Develop/`相対） | 内容・根拠 | 処置案 |
+|---|---|---|
+| `coordinator/tests/support/helpers/docker-desktop-repair-history-publication-testing.ts` | 履歴公開専用のFilesystem操作注入。5–9行。 | `tests/support/repair-history-publication-fixture.ts`へ平坦化する。 |
+| `coordinator/tests/support/test-support.ts` | Record／Candidate assertion、canonical JSON等の契約試験支援。5、12、23、54行。名前が具体責務を隠す。 | `tests/support/contract-assertions.ts`候補。JSON生成も含むため最終名の確信度は中〜高。 |
+| `domain-model/tests/unit/filesystem-store-root.contract.test.ts` | `storage/root-and-lock.ts`のRoot／Lock／回復を検査。19–25行。 | `tests/unit/storage/root-and-lock.contract.test.ts`へ移す。 |
+| `domain-model/tests/unit/repository-observation.contract.test.ts` | `repository/filesystem-observer.ts`が実対象。19行。 | `tests/unit/repository/filesystem-observer.contract.test.ts`へ移す。 |
+| `orchestrator/tests/unit/execution-observation-port.contract.test.ts` | `task/intelligence-adapter.ts`とObserver型契約。14–20行。 | `tests/unit/task/intelligence-adapter.contract.test.ts`へ移し、副対象もScopeへ明示する。 |
+| `orchestrator/tests/unit/objective-intake.contract.test.ts` | `objective/plan.ts`が主対象、要求解析も利用。16–22行。 | `tests/unit/objective/plan.contract.test.ts`へ移す。 |
+| `orchestrator/tests/unit/platform-contract.contract.test.ts` | `platform/contract.ts`を検査。 | `tests/unit/platform/contract.contract.test.ts`へ移す。 |
+| `orchestrator/tests/unit/project-state-query.contract.test.ts` | `state/query.ts`とQuery Contract。20–25行。 | `tests/unit/state/query.contract.test.ts`へ移す。 |
+| `cros/tests/integration/cros-core.contract.test.ts` | Local操作同等性とAI Operating Planを検査。30、65行。`core`は対象を説明しない。 | `local-operation-ai-plan.contract.test.ts`へ改名する。 |
+
+### 単純改名で閉じない責務混在・配置：12件
+
+以下はFileの内部責務見直し入力であり、今回分割を開始しない。確定した同居範囲と、分割案の採用を区別する。特にCoordinator公開API不足や5C依存がある対象は、無差別公開・保証削減で通過させない。
+
+| File（`40_Develop/`相対。配布入口だけRepository相対） | 確認できた同居・誤配置 | 次に評価する処置 |
+|---|---|---|
+| `domain-model/src/project-context/source-projection.ts`：37、83行 | 投影とAuthority／Revision付き候補採否。 | 投影と候補判断を既存Ownerへ分ける。候補判断の配置案は`candidate/decide.ts`。 |
+| `domain-model/src/storage/topic-meeting-operations.ts`：4、16、25行 | 共通保存ではなく検索／Cursor／昇格／Meeting Outcomeの活動操作。 | 活動Context Ownerと照合して`activity/operations.ts`候補を評価する。 |
+| `domain-model/src/storage/types.ts`：24–357、404–440行 | 活動型と一時Operation／Evidence昇格／回復参照の型が同居。 | 同じ変更理由の型集合へ分ける。型専用である点は維持する。 |
+| `semantic-coverage/src/compilation/from-repository.ts`：331、367、401行 | Repository付きCompilerと、観測を行わないGraph結果変換。 | 結果変換を`coverage/create-result.ts`等の実Ownerへ移す。 |
+| `mcp-server/src/orchestrator/protocol.ts`：29–56、111–223、392行 | 全Capability共通JSON-RPC処理をOrchestrator Folderが所有。 | 共通処理を`request/protocol.ts`へ、固有Tool定義は現Ownerへ残す。 |
+| `version-control/src/git/layout.ts`：1192–1524行 | Layout／Identity解決とLocal Exclude保存・排他・更新確定。 | 保存本体を既存`git/local-ignore-adapter.ts`へ移す案を評価する。 |
+| `workbench-server/bin/workbench-server.ts`：14–21、36–68行 | 薄いCLI内に署名Capability／Advice／Candidateの本番Compositionがある。 | Sourceの起動構成へ移す。Coordinatorの必要公開契約をArchitectureと先に照合する。 |
+| `template/tools/crdd-mcp-server.ts`：78、159、191行 | 配布入口がPrincipal、Domain CRUD、Project Context読取り、Transport構成を所有。 | 本体をMCP Server側へ集約し、配布入口を薄くする。単純に別の長いbinへ移して完了としない。 |
+| `official-asset-governance/src/store.ts`：89、231行 | File StoreとAuthority確認・Domain判断・比較交換を順序付ける判断実行が同居。 | 保存と判断実行の変更理由を分け、`store.ts`と`apply-decision.ts`候補を評価する。 |
+| `verification-runner/src/catalog/inspect.ts`：342、450、627、1010、1179、1234行 | File探索／Catalog読取り・検査／PT-LT許可検査／回帰対象選択。 | Catalog処理、試験許可、回帰選択を実責務で分ける。名称だけを巨大な包括名へ変えない。 |
+| `execution-intelligence/src/record/event-and-summary.ts`：983、1175、1290行 | Event生成・Summaryと、改善候補の提案判断。 | 改善候補提案を評価Ownerへ分ける要否を確認する。事実と提案の境界を維持する。 |
+| `checker/src/profiles/current.ts`：320行以降 | Profile定義に限定されず、CLI解釈、Root／文書探索、工程Rule、結果出力まで持つ。 | 単純リネームより、既存InspectionとRule Ownerへの整理を評価する。行数だけを分割理由にしない。 |
+
+### 現行名も成立する改善候補：3件
+
+- `orchestrator/src/decision/acceptance-record.ts`：RecordとEnvelopeの値検査を持つ。`validate-acceptance-record.ts`はより具体的だが、`record`自体は禁止名でも誤りでもない。
+- `orchestrator/src/decision/recovery-record.ts`：Recovery Intentの値検査を持つ。`validate-recovery-record.ts`は改善候補であり、回復機構の新設を意味しない。
+- `workbench-server/src/topic-meeting/remote.ts`：Remote MCP Clientなので`mcp-client.ts`がより具体的。現在名もRemote境界を表しているため必須不一致とは数えない。
+
+### 命名とは別の参照不整合・限界
+
+`40_Develop/semantic-coverage/bin/semantic-coverage.ts`の34行は、固定入力として不存在の`06_Architecture/Details/coordinator/02_Activity_Context.md`を指している。Coordinatorにある`02_Threat_Model.md`へ単純置換しても同じMeaningを導出できるとは確認していない。正しいCompiler入力Ownerと実際のMeaning表を確認して是正する。入力参照だけを更新して正しく生成できたと主張しない。
+
+Coordinator／Platform Access試験223件中29件は初頭File Headerを取得できず、別途Documentation確認が必要。Headerの不存在とfilename不一致は別の問題であり、今回数に混ぜない。値・型専用`types.ts`への実処理混入は今回の走査では検出していない。AI Adapterの指摘は型の実行値混入ではなく、単独利用型の過剰分離である。
+
+Root `src/index.ts`、Rustの`main.rs`／`mod.rs`／`build.rs`、WorkbenchのVite設定は用途別入口として維持する。`shared-host/server.ts`、CROSのHTTP接続等は現実装に対する名前としては一致しており、旧REST／Gateway撤去要求を命名違反へ読み替えない。巨大なPackage検証・回復・Workspace管理Fileは、同じ保証へ結合する同居理由もあるため、サイズだけで確定指摘へ加えない。
+
 ## Source構造規約の第1段階 — 2026-10-09
+
+### 責務名と配置の追加整理 — 2026-10-09
+
+今回の範囲は既存1〜3の名称・配置・参照追従であり、5Cの回復機構や新たな抽象化を実装しない。過去Evidenceの名前・本文・署名・Hashは保持する。以下は現在Sourceの構造であり、過去の実E2E結果を現在Treeの完成根拠にしない。
+
+| 責務Folder（`40_Develop/`からの相対Path） | 主な公開型・関数 | 実際の責務・所有状態 |
+|---|---|---|
+| `domain-model/src/topic` | `TopicOperations`、`createTopicOperations` | Topicの種別固定CRUD、Relation、CHGへの昇格。状態はRepositoryが保存する。 |
+| `domain-model/src/meeting` | `MeetingOperations`、`createMeetingOperations` | Meetingの種別固定CRUD、Relation、Outcome処置。状態はRepositoryが保存する。 |
+| `domain-model/src/storage` | `TopicMeetingAccess`、`TopicMeetingRepository`、`createTopicMeetingRepository` | 共通保存とCRUD実体。AccessはTopicとMeetingの不変組であり、追加の実行・保存・認可を持たない。 |
+| `domain-model/src/configuration` | `inspectRepositoryManifest`、`inspectCrosTrustPolicy` | Repositoryの宣言とTrust Policyの検証。 |
+| `domain-model/src/repository` | `resolveCrosRuntimeRoots` | 用途・OSに応じた保存Rootの解決。 |
+| `orchestrator/src/objective` | `OrchestratorObjectiveExecutionDependencies`、`executeOrchestratorObjective` | Objective全体の受付・保存・Queue・Lease・Task実行を制御する。主要実装は`execute.ts`。 |
+| `coordinator/src/workbench-ai` | `createCoordinatorAiRequests`、`createRepositoryWorkbenchAiRequests`、`createRepositoryWorkbenchCandidateActions` | Process内のAI依頼状態と取消、Repositoryへ結合した候補の確認・採用・破棄。 |
+| `workbench-server/src/ai-request` | `WorkbenchAiRequests`、`WorkbenchCandidateActions` | Workbenchが要求する開始・観測・取消、および候補操作の型契約。 |
+| `workbench-server/src/activity` | `WorkbenchActivityReader`、`createRepositoryWorkbenchActivityReader` | 実行状況を読み取り、表示用投影へ変換する。書込みやRecovery Authorityを持たない。 |
+| `mcp-server/src/request` | `McpRequestRoutingDependencies`、`routeMcpRequest` | MCP要求を専門Adapterへ振り分ける。 |
+| `mcp-server/src/topic-meeting` | `TopicMeetingAccessResolver`、`handleMcpTopicMeetingRequest` | 認可済みRepositoryの操作を解決し、MCP入出力へ接続する。 |
+| `cros/src/surface` | `SurfaceOperationHandler`、`createSurfaceOperationHandler`、`bindOperationSurface` | 正本Ownerの更新を共通の要求・結果契約で処理する。 |
+
+Package外への公開は各`src/index.ts`で明示する。Folderごとの再export File、OperationsSet専用File、新しいManager／Controller層は追加していない。
+
+#### 維持・削減・互換性の境界
+
+- Topic／Meetingの種別固定入口は、別成果物の書込み選択を公開しない保証を持つため維持した。共通操作型もCRUD・Relation・昇格・Outcome処置の実体を持つため、単なる中継として削除しない。
+- `TopicMeetingAccess`はMCP・CROSの複数利用側が必要とする不変組として維持した。共通の種別固定操作型は内部だけで利用し、Rootへ再公開しない。
+- Coordinator側の重複した候補操作集合型を削除した。生成関数のメソッドへ具体的な引数・戻り値型を付与し、Workbenchの要求型への構造的適合を型検査で確認した。Producerの結果型とWorkbench表示契約を統合するための逆依存や新Packageは追加しない。
+- 生成関数、公開型、注入用TypeScript Propertyの改名はSource API上の変更である。現行のWorkbench／MCP／CROS／試験・Symbol参照を追従した。旧名Aliasは提供しない。
+- 今回の内部改名でHTTP／MCPの入力・結果Field、Schema、reason、status、永続payloadの形状は変更しない。既に人間が承認したProject Runtime→Orchestratorの契約移行とは区別する。
+- `WebApplication`はWebアプリ自身、Candidate／Recovery／Decisionの`Application`は変更や処置の「適用」を表すため維持した。
+
+#### 配置と検証の現在状態
+
+MCP配布入口は`template/tools/crdd-mcp-server.ts`へ統一した。旧`crdd-mcp.ts`は現在の入口として提供せず、現行の案内・型検査所属・配布検証whitelist・試験・利用側参照を追従した。CLI引数、`CRDD_MCP_HTTP_BEARER_TOKEN`、通信Protocolおよび結果Schemaは変更しない。改名後の実入口を使うStdio／localhost HTTPの15件は成功し、MCP本体の書式・型・Lint、Checkerが所有する配布入口の型検査、Coordinator本番型検査は成功した。ファイル名変更を含む新版配布物には新しい署名・実E2Eが必要であり、過去の署名ManifestやEvidenceは変更・流用しない。
+
+`semantic-coverage-pilot-schema.json`と`semantic-ir-pilot-schema.json`は、Coordinator／Orchestrator限定、改訂0、`stability: pilot`を要求する現行の試行契約として維持した。正式な汎用契約への昇格をファイル改名だけで行わない。
+
+Architectureは`ai-adapter`、`domain-model`、`mcp-server`、`workbench-server`へ移管した。Domain Modelの活動Contextと保存契約は同じOwner配下の別文書へ置いた。`contract-migration`、`quality-change-control`、`runtime-trust`は複数Subsystemに跨る概念設計として維持し、実装Package一つの責務へ縮めない。固定過去の保存Path棚卸しは配置・Owner参照だけを追従し、当時の評価値を変更しない。
+
+Domain Model、Orchestrator、MCP Server、Workbench Server、CROSの書式・型・Lintは成功した。局所回帰はDomain Model15、Orchestrator15、Workbench1、CROS1の計32件が成功した。全回帰、全Source独立レビュー、署名実E2Eの完了ではない。Coordinatorはproduction型検査が成功し、持ち越した旧Docker試験の型指摘18件は残る。
+
+旧`.crdd/project-runtime`は空状態の`state.json`と`state.lock`だけであることを確認した。現行公開初期化APIは`orchestrator_snapshot_lock_unavailable`で停止したため、新状態のReader受理前に旧2Fileを削除していない。旧Schema Readerや新しいRecovery機構は追加せず、保存領域移行は未完了として保持する。
+
+### 人間による範囲訂正と実Source移行
+
+現在の追加是正: Capability内の単なる再export集約を`public-api.ts`へ改名する案は撤回した。22件を削除し、Package外の参照はRoot公開入口、Package内の参照は実責務Fileへ接続した。公開Subpathを別名の集約Fileで維持せず、現在の公開集合と実Consumerを照合する。公開入口へ移った配置情報を追従する。
+
+### Orchestratorへの名称統一 — 人間判断による契約移行
+
+2026-10-09の人間判断により、現行の`project-runtime`名称を物理配置だけでなく通信契約、型名、Symbol ID、Semantic Key、Registryと直接Consumerまで`orchestrator`へ統一する。旧名を維持する当初計画はこの対象について撤回し、互換aliasを残さない。これは契約名を変更する移行であり、意味不変の物理改名だけとは分類しない。ARCH／QA／Local Item IDと操作・判定の意味は変更しない。
+
+過去Evidenceは当時の歴史的証跡として改名・内容変更をせず、署名・Hash・記録内容を保持する。過去Evidenceを現行仕様または新版の検証根拠へ昇格しない。現行文書の歴史的証跡への参照は実在する旧Pathを使用する。現行255ファイルの契約名・参照を移行し、Architecture領域、MCP接続、試験、検証ScriptとRegistryの物理名も変更した。移行後のSemantic Coverageは静的検査と16試験が成功し、Orchestrator／Domain Model／MCP／Workbench／Checkerの型検査も成功した。既知18件のCoordinator試験型指摘と公開集合試験の是正は未完了であり、全移行完了を主張しない。
+
+Semantic CoverageではGraph構築本体を`createSemanticCoverageGraph`、利用側向けの診断付き結果変換を`createSemanticCoverageGraphResult`として区別した。呼出し時のaliasだけで違いを隠さず、宣言・Root公開・CLI・試験を追従した。静的検査と全16試験は成功。これは第1段階全体の回帰・独立レビュー完了を意味しない。Coordinator production型検査は成功し、既知の試験型指摘18件は残る。
+
+公開入口統合後の回帰では、AI Adapterの部分公開集合、Domain Modelの責務別公開集合、Version Controlの狭い依存閉包、Orchestrator利用側Pathを前提とする旧oracleの不整合を検出した。AI Adapter／Domain Model／Orchestrator／Version Controlの書式・型・Lint確認は成功したが、回帰全体は不合格である。統合後の公開集合、現在の依存閉包、既知Consumer母集団と非公開Symbol非露出を正本へ対応付けてoracleを更新するまで、barrel移行または第1段階を完了としない。試験削除や部分集合だけの検査で不整合を隠さない。
+
+文書だけでは第1段階は完了しない。基準`b8fad5349`のTypeScript／TSX 774件を母集団として、全Sourceの命名・配置を規約3.2へ合わせる。読取り専用の着手前確認をCoordinator、Domain／Orchestrator、Surface／Libraryの三範囲で行い、Source 403件の対応を統合した。公開機能とARCH／QA／Local Item IDは維持する。公開入口とOrchestrator契約名は上記の追加人間判断に従って移行する。Rust、生成物と第三者SourceはTypeScript命名変更の対象外。
+
+UTは実import先を一次キーとして責務Pathに対応させる。IT／ST／UATは単一Sourceの鏡像ではなく、連携契約、公開機能、利用者成果を表すため原則として名前を維持し、import、Fixture、Catalog、実行入口を追従する。試験段階の変更や試験削除で移行済みに見せない。
+
+変更分類は実装配置・命名変更と、承認済みOrchestrator契約名の移行。型・静的参照・Build入力・試験Catalog・既存回帰・固定差分の独立レビューを確認する。Docker／Provider実Effect、署名およびReleaseは今回実施せず、既知18件の型指摘と5Cの持ち越しを保持する。名称・Path移行の完了を、巨大Fileの責務分割や全機能完成と混同しない。
+
+以下は文書整備時点の履歴であり、第1段階全体の現在完了判定ではない。
+
+人間による追加訂正: `bin/`の主要FileはPackage Folderと同名とし、`index.ts`は`src/index.ts`だけを許可する。既存のCapability内`index.ts`許容は撤回する。正式Subpath名と既存Symbol集合の維持は、具体的な責務Fileへの解決定義で扱う。規約のChecklistと移行計画へ反映し、実Sourceの適用・検証は進行中とする。
+
+追加訂正: Capability内の`index.ts`を`public-api.ts`へ単純改名した処置は不十分であり、完了としない。再exportだけの集約は削除してRootの`src/index.ts`へ明示exportを集約する。実処理を持つFileと純中継を区別し、公開集合、内部循環、利用側、署名対象の依存閉包を着手前に照合する。公開Subpathの存在だけを不要中継の恒久維持理由にしない。
 
 人間から提供された「CRDD Coding Standards 改修案 — Source Structure / Naming / Responsibility」の25観点を、規約・評価Checklistへ反映する。基準Commitは`6fbd234c`。対象は`06_Architecture/99_Coding_Standards.md`とこの変更トレース、現在投影だけ。実Source・Package設定・公開Symbol・固定Protocol・Checker実装・試験段階・Header Schema・Rust・生成物を変更しない。第2段階の具体範囲を今回固定しない。
 

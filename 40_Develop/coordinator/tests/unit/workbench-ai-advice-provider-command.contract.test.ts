@@ -8,15 +8,15 @@
  * @scope coordinator、contract、node_process
  * @boundary Catalog IdentityとProvider CLI計画の局所境界。
  */
-import { describeWorkbenchAiAdviceResultSchema } from "../../src/workbench-ai/workbench-ai-advice-result.ts";
+import { describeWorkbenchAiAdviceResultSchema } from "../../src/workbench-ai/advice-result.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
   codexAdviceProviderInitRequired,
   describeCodexAdviceDistributionIdentity,
-} from "../../../ai-adapter/src/codex/index.ts";
-import { describeCodexExecutionPlanContract } from "../../../ai-adapter/src/codex/index.ts";
+} from "../../../ai-adapter/src/index.ts";
+import { describeCodexExecutionPlanContract } from "../../../ai-adapter/src/index.ts";
 import { planWorkbenchAiAdviceProviderCommand } from "../../../ai-adapter/src/index.ts";
 
 /**

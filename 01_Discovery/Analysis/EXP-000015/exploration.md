@@ -1,4 +1,4 @@
-# 同じProject Runtimeを、複数の入口から使う
+# 同じOrchestratorを、複数の入口から使う
 
 成果物種別: Discovery分析
 探索ID: `EXP-000015`
@@ -10,9 +10,9 @@
 
 ## きっかけ
 
-Project RuntimeをAIや外部ツールから使うにはMCPが必要だった。AIツールと直接つなぐ標準入出力（stdio）だけでなく、このPC内のアプリから使うHTTP入口も求められた。しかし、入口ごとに別の処理や結果形式を作ると、同じProject Runtimeの仕事が入口によって変わってしまう。
+OrchestratorをAIや外部ツールから使うにはMCPが必要だった。AIツールと直接つなぐ標準入出力（stdio）だけでなく、このPC内のアプリから使うHTTP入口も求められた。しかし、入口ごとに別の処理や結果形式を作ると、同じOrchestratorの仕事が入口によって変わってしまう。
 
-当時の前提はLocalhost上の利用であり、リモート公開や独立した認証基盤を作ることではなかった。必要だったのは、MCP利用側の接続方式が違っても、同じProject Runtimeの操作と結果を利用できることである。
+当時の前提はLocalhost上の利用であり、リモート公開や独立した認証基盤を作ることではなかった。必要だったのは、MCP利用側の接続方式が違っても、同じOrchestratorの操作と結果を利用できることである。
 
 | 利用側 | 必要な入口 | 共通でなければ困ること |
 |---|---|---|
@@ -61,7 +61,7 @@ stdioとHTTPで正常時だけ一致しても十分ではない。不正入力�
 
 ## 採用した要求
 
-`REQ-000006`: 手元のstdio MCPとlocalhost HTTPはProject Runtimeの同じ公開アプリケーション契約（Application Contract）を利用し、通信方式固有の状態、権限判断または結果意味を持ってはならない。
+`REQ-000006`: 手元のstdio MCPとlocalhost HTTPはOrchestratorの同じ公開アプリケーション契約（Application Contract）を利用し、通信方式固有の状態、権限判断または結果意味を持ってはならない。
 
 
 ## Checklist

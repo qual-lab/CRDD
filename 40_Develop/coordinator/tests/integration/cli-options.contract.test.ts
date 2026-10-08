@@ -6,7 +6,7 @@
  * @trace PRL-IT-012
  * @level IT
  * @scope cli、options
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Orchestrator Application Port→Core
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -18,9 +18,9 @@ import {
   parseCandidateArguments,
   parseDoctorArguments,
   parseTaskArguments,
-} from "../../src/cli/cli-options.ts";
+} from "../../src/cli/options.ts";
 import { renderDockerRecoveryDoctorReport } from "../../src/diagnostics/docker-recovery-command-report.ts";
-import { assertPresent } from "../support/test-support.ts";
+import { assertPresent } from "../support/contract-assertions.ts";
 import { withUnsignedRuntimeFixture } from "../support/unsigned-runtime-fixture.ts";
 
 const coordinatorExecutable = path.resolve(

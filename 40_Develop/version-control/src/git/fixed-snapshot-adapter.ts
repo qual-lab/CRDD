@@ -8,14 +8,14 @@ import {
   type FixedSnapshotAdapter,
   inspectFixedSnapshot,
 } from "../fixed-snapshot.ts";
-import type { VerifiedRepositoryRoot } from "../repository-location.ts";
+import type { VerifiedRepositoryRoot } from "../repository/location.ts";
 import {
   inspectGitCommitTreeCandidate,
   materializeGitCommitTreeCandidate,
   materializeGitReleaseCandidateTree,
   readGitCommitFileCandidate,
-} from "./object-reader.ts";
-import { resolveRepositoryGitLayout } from "./repository-layout.ts";
+} from "./commit-tree.ts";
+import { resolveRepositoryGitLayout } from "./layout.ts";
 
 export const gitFixedSnapshotAdapter: FixedSnapshotAdapter = Object.freeze({
   /**

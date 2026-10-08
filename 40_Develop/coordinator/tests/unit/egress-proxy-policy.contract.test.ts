@@ -15,7 +15,7 @@ import {
   PROVIDER_INPUT_LIMITS,
   PROVIDER_ISOLATION_CONTRACT,
   validateProviderIsolationProfile,
-} from "../../src/provider/provider-isolation-profile.ts";
+} from "../../src/provider/isolation-profile.ts";
 import {
   compileEgressProxyPolicyCandidate,
   describeEgressProxyTopology,

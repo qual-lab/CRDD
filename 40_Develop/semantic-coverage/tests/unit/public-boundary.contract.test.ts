@@ -36,7 +36,7 @@ test("Semantic Coverageは宣言した公開Capabilityだけを公開する", ()
     "compileSemanticIrFromRepository",
     "createFilesystemSemanticBundlePublisher",
     "createSemanticBundle",
-    "createSemanticCoverageGraph",
+    "createSemanticCoverageGraphResult",
     "mapSemanticDomainIssueToDiagnostic",
     "publishSemanticCoverage",
     "publishSemanticCoverageBundleWithHooks",
@@ -59,7 +59,7 @@ test("Semantic Coverage CLIはSubsystem公開入口だけを利用する", () =>
   const source = fs.readFileSync(
     path.resolve(
       path.dirname(fileURLToPath(import.meta.url)),
-      "../../bin/compile-semantic-coverage-pilot.ts",
+      "../../scripts/compile-pilot.ts",
     ),
     "utf8",
   );

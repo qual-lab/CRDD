@@ -17,12 +17,12 @@ import test from "node:test";
 import {
   DEFAULT_AI_PROFILE_CATALOG,
   createRepositoryAiProfileCatalogStore,
-} from "../../../ai-adapter/src/profile/index.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/repository-location.ts";
-import { createRepositoryWorkbenchAiRequestApplication } from "../../src/workbench-ai/workbench-ai-repository-composition.ts";
-import { createWorkbenchAiAdviceDispatchRuntime } from "../../src/workbench-ai/workbench-ai-advice-dispatch-runtime.ts";
-import type { WorkbenchAiAdviceExecutionPlan } from "../../src/workbench-ai/workbench-ai-advice-execution-plan.ts";
-import { createWorkbenchAiProviderAdapter } from "../../src/workbench-ai/workbench-ai-provider-adapter.ts";
+} from "../../../ai-adapter/src/index.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/repository/location.ts";
+import { createRepositoryWorkbenchAiRequests } from "../../src/workbench-ai/repository-composition.ts";
+import { createWorkbenchAiAdviceDispatchRuntime } from "../../src/workbench-ai/advice-dispatch.ts";
+import type { WorkbenchAiAdviceExecutionPlan } from "../../src/workbench-ai/advice-execution-plan.ts";
+import { createWorkbenchAiProviderAdapter } from "../../src/workbench-ai/provider-adapter.ts";
 
 const canonicalRepositoryRoot = path.resolve(
   import.meta.dirname,
@@ -98,7 +98,7 @@ test("空のRepository Catalogをrevision 0から助言Dispatchと初回採用�
       ]),
       candidate: null,
     });
-    const application = createRepositoryWorkbenchAiRequestApplication(
+    const application = createRepositoryWorkbenchAiRequests(
       verified.capability,
       adapter.store,
       createWorkbenchAiAdviceDispatchRuntime(
@@ -243,7 +243,7 @@ test("不連続なRepository Catalogをrevision 0へ補正せずEffect前に拒�
         },
       }),
     );
-    const application = createRepositoryWorkbenchAiRequestApplication(
+    const application = createRepositoryWorkbenchAiRequests(
       verified.capability,
       adapter.store,
       dispatch,
@@ -341,7 +341,7 @@ test("連続Revisionの破損Repository Catalogをrevision 0へ補正せずEffec
         },
       }),
     );
-    const application = createRepositoryWorkbenchAiRequestApplication(
+    const application = createRepositoryWorkbenchAiRequests(
       verified.capability,
       adapter.store,
       dispatch,

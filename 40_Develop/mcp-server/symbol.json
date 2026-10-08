@@ -1,7 +1,7 @@
 {
   "contract": "crdd/reality-symbol-manifest",
   "contractRevision": 1,
-  "subsystem": "mcp",
+  "subsystem": "mcp-server",
   "symbols": [
     {
       "symbolId": "mcp.public-api",
@@ -66,7 +66,7 @@
         "EST-IT-002"
       ],
       "verifies": [
-        "mcp.source.src.adapters.project.runtime.adapter",
+        "mcp.source.src.adapters.orchestrator.adapter",
         "mcp.source.src.transports.stdio.transport",
         "mcp.source.src.transports.streamable.http.transport"
       ]
@@ -133,8 +133,8 @@
         "EST-ST-003"
       ],
       "verifies": [
-        "mcp.source.src.adapters.project.runtime.adapter",
-        "mcp.source.src.protocol.project.runtime.protocol",
+        "mcp.source.src.adapters.orchestrator.adapter",
+        "mcp.source.src.protocol.orchestrator.protocol",
         "mcp.source.src.transports.process.signal.shutdown",
         "mcp.source.src.transports.streamable.http.transport"
       ]
@@ -172,9 +172,9 @@
       ]
     },
     {
-      "symbolId": "mcp.test.unit.project-runtime",
+      "symbolId": "mcp.test.unit.orchestrator",
       "kind": "test-suite",
-      "path": "tests/unit/project-runtime-adapter.contract.test.ts",
+      "path": "tests/unit/orchestrator-adapter.contract.test.ts",
       "qaIds": [
         "QA-000003",
         "QA-000004"
@@ -184,14 +184,14 @@
         "PRL-UT-014"
       ],
       "verifies": [
-        "mcp.source.src.adapters.project.runtime.adapter",
-        "mcp.source.src.protocol.project.runtime.protocol"
+        "mcp.source.src.adapters.orchestrator.adapter",
+        "mcp.source.src.protocol.orchestrator.protocol"
       ]
     },
     {
       "symbolId": "mcp.source.src.adapters.application.adapter",
       "kind": "file",
-      "path": "src/adapters/application-adapter.ts",
+      "path": "src/request/route.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000012"
@@ -200,16 +200,16 @@
     {
       "symbolId": "mcp.source.src.adapters.project.context.adapter",
       "kind": "file",
-      "path": "src/adapters/project-context-adapter.ts",
+      "path": "src/project-context/adapter.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000012"
       ]
     },
     {
-      "symbolId": "mcp.source.src.adapters.project.runtime.adapter",
+      "symbolId": "mcp.source.src.adapters.orchestrator.adapter",
       "kind": "file",
-      "path": "src/adapters/project-runtime-adapter.ts",
+      "path": "src/orchestrator/adapter.ts",
       "archIds": [
         "ARCH-000012"
       ]
@@ -217,7 +217,7 @@
     {
       "symbolId": "mcp.source.src.adapters.topic.meeting.adapter",
       "kind": "file",
-      "path": "src/adapters/topic-meeting-adapter.ts",
+      "path": "src/topic-meeting/adapter.ts",
       "archIds": [
         "ARCH-000006",
         "ARCH-000012"
@@ -226,7 +226,7 @@
     {
       "symbolId": "mcp.source.src.protocol.project.context.protocol",
       "kind": "file",
-      "path": "src/protocol/project-context-protocol.ts",
+      "path": "src/project-context/protocol.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000012"
@@ -235,7 +235,7 @@
     {
       "symbolId": "mcp.source.src.composition.cros.project.context.application",
       "kind": "file",
-      "path": "src/composition/cros-project-context-application.ts",
+      "path": "src/project-context/cros-resolver.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000006",
@@ -246,7 +246,7 @@
     {
       "symbolId": "mcp.source.src.composition.cros.shared.server",
       "kind": "file",
-      "path": "src/composition/cros-shared-server.ts",
+      "path": "src/shared-host/server.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000012",
@@ -254,9 +254,9 @@
       ]
     },
     {
-      "symbolId": "mcp.source.src.protocol.project.runtime.protocol",
+      "symbolId": "mcp.source.src.protocol.orchestrator.protocol",
       "kind": "file",
-      "path": "src/protocol/project-runtime-protocol.ts",
+      "path": "src/orchestrator/protocol.ts",
       "archIds": [
         "ARCH-000012"
       ]
@@ -264,7 +264,7 @@
     {
       "symbolId": "mcp.source.src.protocol.topic.meeting.protocol",
       "kind": "file",
-      "path": "src/protocol/topic-meeting-protocol.ts",
+      "path": "src/topic-meeting/protocol.ts",
       "archIds": [
         "ARCH-000006",
         "ARCH-000012"
@@ -273,7 +273,7 @@
     {
       "symbolId": "mcp.source.src.transports.request.handler",
       "kind": "file",
-      "path": "src/transports/request-handler.ts",
+      "path": "src/transport/types.ts",
       "archIds": [
         "ARCH-000012"
       ]
@@ -281,7 +281,7 @@
     {
       "symbolId": "mcp.source.src.transports.stdio.transport",
       "kind": "file",
-      "path": "src/transports/stdio-transport.ts",
+      "path": "src/transport/stdio.ts",
       "archIds": [
         "ARCH-000012"
       ]
@@ -289,7 +289,7 @@
     {
       "symbolId": "mcp.source.src.transports.streamable.http.transport",
       "kind": "file",
-      "path": "src/transports/streamable-http-transport.ts",
+      "path": "src/transport/streamable-http.ts",
       "archIds": [
         "ARCH-000012"
       ]
@@ -297,7 +297,7 @@
     {
       "symbolId": "mcp.source.src.transports.process.signal.shutdown",
       "kind": "file",
-      "path": "src/transports/process-signal-shutdown.ts",
+      "path": "src/transport/process-signal-shutdown.ts",
       "archIds": [
         "ARCH-000012"
       ]

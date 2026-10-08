@@ -15,12 +15,12 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
+import { gitRepositoryWorktreeViewAdapter } from "../../src/git/worktree-view-adapter.ts";
 import {
-  gitRepositoryWorktreeViewAdapter,
   observeRepositoryWorktreeFileDiff,
   observeRepositoryWorktreeTree,
-  verifyRepositoryRoot,
-} from "../../src/index.ts";
+} from "../../src/repository/worktree-view.ts";
+import { verifyRepositoryRoot } from "../../src/repository/location.ts";
 
 /**
  * Test Repositoryへ固定Git Commandを実行する。

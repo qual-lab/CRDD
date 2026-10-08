@@ -14,12 +14,12 @@ import { copyFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/repository-location.ts";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/repository/location.ts";
+import { DEFAULT_AI_PROFILE_CATALOG } from "../../src/catalog/resolve.ts";
 import {
-  DEFAULT_AI_PROFILE_CATALOG,
   createCrosAiProfileCatalogStore,
   createRepositoryAiProfileCatalogStore,
-} from "../../src/profile/index.ts";
+} from "../../src/profile/store.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
   import.meta.dirname,
@@ -45,7 +45,7 @@ test("同梱JSONの欠落・構文不正・Schema不正はModule起動を停止�
   const jsonPath = path.join(fixture, "default-ai-profile-catalog.json");
   try {
     await copyFile(
-      path.join(sourceRoot, "catalog.ts"),
+      path.join(sourceRoot, "resolve.ts"),
       path.join(fixture, "catalog.ts"),
     );
     await writeFile(path.join(fixture, "package.json"), '{"type":"module"}');

@@ -12,7 +12,7 @@ import {
   classifyCleanupDirectoryState,
   classifyCommittedPairDeleteState,
   classifyCommittedPairMoveState,
-} from "../docker-runtime/docker-recovery-state-machine.ts";
+} from "../docker-execution/recovery-state-machine.ts";
 
 const MAX_RECORD_BYTES = 262_144;
 const COMMIT_SUFFIX = ".crdd-commit.json";

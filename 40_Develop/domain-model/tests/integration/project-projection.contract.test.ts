@@ -11,7 +11,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { projectProjectOperationSources } from "../../src/project-context/index.ts";
+import { projectProjectOperationSources } from "../../src/project-context/source-projection.ts";
 
 /**
  * 不完全状態を正常へ畳まず、制限Sourceの詳細を公開しないことを検証する。

@@ -1,15 +1,26 @@
+/**
+ * Candidate StoreのKernel Lock操作を試験用Processへ接続する。
+ *
+ * @packageDocumentation
+ * @responsibility Host・Supervisor・対話Lockの所有結果とReader操作を試験へ搬送する。
+ * @trace CPR-IT-001
+ * @trace ERB-IT-003
+ * @level IT
+ * @scope Candidate Store／Hostの排他
+ * @boundary 試験用子Process→Native Kernel Lock。実Storeの採用・変更は行わない。
+ */
 import type { ChildProcess } from "node:child_process";
 
 import {
   type HostOperationSupervisorLockOutcome,
   type InteractiveConsoleKernelLockOutcome,
   prepareHostOperationSupervisorLockRequest,
-} from "../../src/host-runtime/candidate-store-kernel-lock.ts";
+} from "../../src/host-execution/kernel-lock.ts";
 import {
   prepareInteractiveConsoleKernelLockRequest,
   runHostOperationSupervisorLifecycle,
   runInteractiveConsoleKernelLockLifecycle,
-} from "../../src/host-runtime/candidate-store-kernel-lock-lifecycle-internal.ts";
+} from "../../src/host-execution/kernel-lock-lifecycle.ts";
 
 type InteractiveWorker = Parameters<
   typeof runInteractiveConsoleKernelLockLifecycle

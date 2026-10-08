@@ -5,7 +5,7 @@
  * @trace ARCH-000004
  */
 import fs from "node:fs";
-import { parseUnambiguousJsonDocument } from "../../../ai-adapter/src/output/index.ts";
+import { parseUnambiguousJsonDocument } from "../../../ai-adapter/src/index.ts";
 
 /**
  * UsageErrorが担う状態と操作を提供する。

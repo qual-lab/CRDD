@@ -23,16 +23,16 @@ import {
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
   verifyOwnedOperationManagementMountBinding,
-} from "../../src/host-runtime/execution-environment.ts";
-import { bindRuntimeOwnedRepositoryOperation } from "../../src/repository-operation/repository-operation-runtime.ts";
+} from "../../src/host-execution/operation-workspace-lifecycle.ts";
+import { bindRuntimeOwnedRepositoryOperation } from "../../src/repository-operation/binding.ts";
 import {
   captureRuntimeOwnedCandidateRevision,
   describeRepositoryWorkspaceRuntimeContract,
   materializeRuntimeOwnedRepositoryWorkspace,
   persistRuntimeOwnedCandidateRevision,
-  projectRuntimeOwnedCandidateReadContent,
+  orchestratorOwnedCandidateReadContent,
   verifyRuntimeOwnedCandidateRevision,
-} from "../../src/repository-operation/repository-workspace-runtime.ts";
+} from "../../src/repository-operation/workspace.ts";
 
 /**
  * writeObjectのTest準備責務を実行する。
@@ -949,7 +949,7 @@ test("Reviewer向け内容投影をCandidate Identityへ結合し差替えを拒
   );
   assert.equal(candidate?.status, "candidate");
   assert.ok(candidate?.status === "candidate");
-  const projected = projectRuntimeOwnedCandidateReadContent(
+  const projected = orchestratorOwnedCandidateReadContent(
     materialized?.workspaceCapability,
     candidate.candidateCapability,
     runtime.bound.repositoryBindingCapability,
@@ -970,7 +970,7 @@ test("Reviewer向け内容投影をCandidate Identityへ結合し差替えを拒
   ]);
   fs.writeFileSync(path.join(runtime.workspace, "README.md"), "replaced\n");
   assert.equal(
-    projectRuntimeOwnedCandidateReadContent(
+    orchestratorOwnedCandidateReadContent(
       materialized?.workspaceCapability,
       candidate.candidateCapability,
       runtime.bound.repositoryBindingCapability,

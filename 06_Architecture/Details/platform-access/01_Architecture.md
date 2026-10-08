@@ -119,7 +119,7 @@ Coordinatorの用途別Adapter（許可・耐久記録・全体結果の所有�
 受付・dispatch [main.rs]
   ├→ Root／Home／Store／State要求・応答 [protocol/access.rs]
   │     ├→ Root用途別観測 [filesystem/root_observation.rs]
-  │     └→ 固定Home／Store／State観測・限定初期化 [filesystem/provider_home.rs]
+  │     └→ 固定Home／Store／State観測・限定初期化 [filesystem/protected_root.rs]
   │          ├→ 主体・Token観測 [process/principal.rs]
   │          └→ 保護・実体観測 [filesystem/protection.rs]
   │                                         ↓
@@ -145,7 +145,7 @@ Coordinator側で再検証 → 診断／回復結果
 | Windows主体観測 | `src/process/principal.rs` | Token／SID／認証Sessionと主体分類のOS観測 |
 | Windows保護・実体観測 | `src/filesystem/protection.rs` | Handle・Descriptor所有、Directory Identity、固定入力のopen、ACL AccessCheckとhash resourceの解放 |
 | Windows Root観測 | `src/filesystem/root_observation.rs` | Rootの用途別要求を主体・保護の観測へ接続する。Native入口は用途別Ownerを直接呼び出す |
-| 固定Home観測 | `src/filesystem/provider_home.rs` | Provider Home／Candidate Store／Runtime Stateの固定親、構成、限定初期化と主体・保護Bindingを照合する |
+| 固定Home観測 | `src/filesystem/protected_root.rs` | Provider Home／Candidate Store／Runtime Stateの固定親、構成、限定初期化と主体・保護Bindingを照合する |
 | Host記録処理 | `src/filesystem/host_record.rs` | 容量・予約・保存・読戻しを保護付きFileとNamespace対象観測へ接続し、専用公開結果と部分処置を搬送する |
 | 保護付きFile操作 | `src/filesystem/protected_file.rs` | 同期Handleのopen・close、実体・ACL照合、Descriptor構成、上限付き読取り、保存Stageのwrite・flush・同一実体への非置換公開と部分receipt |
 | Host Namespace観測 | `src/filesystem/host_namespace.rs` | 固定NamespaceのIdentity型、実体値照合、対象名・一時親Path判定、保持Directory chainの取得・検証・個別終了、期待値付き固定child初期化と専用公開要求、十一／十二実体の対象観測・部分取得・逆順終了 |
@@ -161,7 +161,7 @@ Host保護試験の反復入口は`40_Develop/coordinator/scripts/verify-native-
 
 | 経路 | 実装上の所有者 | 条件・効果・限界 |
 |---|---|---|
-| Provider Home観測 | `filesystem/provider_home.rs`の`observe_provider_home` | Codex／Claudeの選択HomeをOS Known Folderから結合する。Credential本文は読まず、既存Homeを修復しない |
+| Provider Home観測 | `filesystem/protected_root.rs`の`observe_provider_home` | Codex／Claudeの選択HomeをOS Known Folderから結合する。Credential本文は読まず、既存Homeを修復しない |
 | Store／State初期化 | `initialize_runtime_owned_directory_if_missing` | 明示されたRuntime-owned directoryの最終Directoryだけを保護付きで作る。既存物を推測修復しない |
 | Docker Desktop最終復旧 | `docker-desktop/repair.rs` | 固定Policy、artifact、mutex、対象Process確認、終了および固定Desktop起動を扱う。耐久記録、Directory rename、再開判断はTypeScript側が所有する |
 
@@ -397,9 +397,9 @@ Docker復旧helperは固定mutexとartifact handleを保持し、検証済み対
 
 | 対象 | 確認先 |
 |---|---|
-| 要求・応答とCLI | [Rust CLI試験](../../../40_Develop/platform-access/tests/cli.rs)、protocol内試験、[TS Adapter試験](../../../40_Develop/coordinator/tests/unit/platform-access-adapter.contract.test.ts) |
-| 配布物・署名 | [成果物試験](../../../40_Develop/coordinator/tests/integration/platform-access-release.contract.test.ts)、[Trust Core試験](../../../40_Develop/coordinator/tests/unit/platform-provisioner-trust-core.contract.test.ts)、[Release Identity試験](../../../40_Develop/coordinator/tests/integration/platform-provisioner-release-identity.contract.test.ts) |
-| Home／Store／State | `filesystem/root_observation.rs`内試験、[Home観測試験](../../../40_Develop/coordinator/tests/unit/provider-home-observation.contract.test.ts)、[Store Adapter試験](../../../40_Develop/coordinator/tests/unit/candidate-store-windows-adapter.contract.test.ts) |
+| 要求・応答とCLI | [Rust CLI試験](../../../40_Develop/platform-access/tests/cli.rs)、protocol内試験、[TS Adapter試験](../../../40_Develop/coordinator/tests/unit/platform-access/adapter.contract.test.ts) |
+| 配布物・署名 | [成果物試験](../../../40_Develop/coordinator/tests/integration/platform-access-release.contract.test.ts)、[Trust Core試験](../../../40_Develop/coordinator/tests/unit/platform-access/manifest-trust.contract.test.ts)、[Release Identity試験](../../../40_Develop/coordinator/tests/integration/platform-provisioner-release-identity.contract.test.ts) |
+| Home／Store／State | `filesystem/root_observation.rs`内試験、[Home観測試験](../../../40_Develop/coordinator/tests/unit/platform-access/protected-root-protocol.contract.test.ts)、[Store Adapter試験](../../../40_Develop/coordinator/tests/unit/platform-access/protected-root-windows-adapter.contract.test.ts) |
 | Docker復旧 | docker-desktop/repair.rs内試験、[復旧Runtime試験](../../../40_Develop/coordinator/tests/integration/docker-desktop-runtime-repair.contract.test.ts) |
 
 単体試験の合格から、本物のDocker Desktop復旧、署名済み配布物の実行または終了後資源0を推定しない。本番同等入口のE2Eと回復行列を別に実測する。

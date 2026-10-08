@@ -1,8 +1,6 @@
-import {
-  resumeTemporaryOperation,
-  type TemporaryOperationRecoveryReference,
-} from "../../src/storage/index.ts";
-import { resumeTemporaryOperationWithInterruptionForVerification } from "../../src/storage/temporary-operation-store.ts";
+import { resumeTemporaryOperation } from "../../src/storage/temporary-operation.ts";
+import type { TemporaryOperationRecoveryReference } from "../../src/storage/types.ts";
+import { resumeTemporaryOperationWithInterruptionForVerification } from "../../src/storage/temporary-operation.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 
 const [repositoryRoot, encodedReference, nextIdentity, mode] =

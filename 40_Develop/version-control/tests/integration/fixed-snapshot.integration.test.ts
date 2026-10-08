@@ -18,13 +18,13 @@ import test from "node:test";
 
 import {
   type CandidateOutputCapability,
-  gitFixedSnapshotAdapter,
   inspectFixedSnapshot,
   materializeFixedSnapshotCandidate,
   readFixedSnapshotFile,
   verifyCandidateOutputDirectory,
-  verifyRepositoryRoot,
-} from "../../src/index.ts";
+} from "../../src/fixed-snapshot.ts";
+import { gitFixedSnapshotAdapter } from "../../src/git/fixed-snapshot-adapter.ts";
+import { verifyRepositoryRoot } from "../../src/repository/location.ts";
 
 /**
  * gitのTest準備責務を実行する。

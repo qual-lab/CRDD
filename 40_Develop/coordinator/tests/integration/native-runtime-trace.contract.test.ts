@@ -13,7 +13,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { createWindowsHostOperationSupervisorEnvironment } from "../../src/host-runtime/windows-child-environment.ts";
+import { createWindowsHostOperationSupervisorEnvironment } from "../../src/host-execution/windows-child-environment.ts";
 import { inspectNativeRuntimeTrace } from "../../src/diagnostics/native-runtime-trace.ts";
 
 const OPTIONS = Object.freeze({

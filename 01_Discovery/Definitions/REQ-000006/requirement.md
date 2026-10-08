@@ -8,7 +8,7 @@ Discoveryでの判断: 要求採用
 
 ## 要求
 
-AIツールと直接つなぐ標準入出力のMCP（stdio MCP）と、このPCだけから接続できるHTTP（localhost HTTP）は、Project Runtimeの同じ公開アプリケーション契約（Application Contract）を利用し、通信方式固有の状態、権限判断または結果意味を持ってはならない。
+AIツールと直接つなぐ標準入出力のMCP（stdio MCP）と、このPCだけから接続できるHTTP（localhost HTTP）は、Orchestratorの同じ公開アプリケーション契約（Application Contract）を利用し、通信方式固有の状態、権限判断または結果意味を持ってはならない。
 
 ## 対象と利用状況
 

@@ -30,10 +30,10 @@ Quality ID: `QA-000005`
 | 詳細設計領域 | 受け取る成立条件 |
 |---|---|
 | [coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md) | 実行編成、Authority、外部Effect、候補、回収・回復 |
-| [mcp](../../../06_Architecture/Details/mcp/01_Architecture.md) | Transport変換、公開Schema、Session、結果搬送 |
-| [project-operation](../../../06_Architecture/Details/project-operation/01_Architecture.md) | Project運営状態、Meeting／Topic候補、正本への引渡し |
-| [project-runtime](../../../06_Architecture/Details/project-runtime/01_Architecture.md) | 公開済み候補の明示採用、Lease、Revision／Scope再観測、Receiptおよび回復義務 |
-| [workbench](../../../06_Architecture/Details/workbench/01_Architecture.md) | Topic／Meeting操作、候補採否、競合・部分成功・結果不明からの再入場 |
+| [mcp](../../../06_Architecture/Details/mcp-server/01_Architecture.md) | Transport変換、公開Schema、Session、結果搬送 |
+| [project-operation](../../../06_Architecture/Details/domain-model/02_Activity_Context.md) | Project運営状態、Meeting／Topic候補、正本への引渡し |
+| [orchestrator](../../../06_Architecture/Details/orchestrator/01_Architecture.md) | 公開済み候補の明示採用、Lease、Revision／Scope再観測、Receiptおよび回復義務 |
+| [workbench](../../../06_Architecture/Details/workbench-server/01_Architecture.md) | Topic／Meeting操作、候補採否、競合・部分成功・結果不明からの再入場 |
 
 ## 2. 成立の流れ
 
@@ -76,10 +76,10 @@ Quality ID: `QA-000005`
 | `CPR-UAT-003` | 準正常 | UAT | Acceptance／Decision | 候補表示→人間判断 | User Acceptance | 未採用候補と、却下または保留の理由・再評価条件 | 決定権限者が却下または保留を選ぶ | CPR-UAT-003として、利用者の選択、判断理由、参照した根拠、理解できなかった項目および未判断範囲を記録する | 正本を変更せず、理由と再評価条件を必要範囲で保持 | CPR-UAT-003、固定した参加条件と入力、利用者の選択・理由・参照根拠、未判断範囲、Oracle判定「正本を変更せず、理由と再評価条件を必要範囲で保持」および終了後条件「正本Effect 0」を保存する | 正本Effect 0 | Hybrid |
 | `CPR-IT-004` | 異常 | IT | Security／Authority | Candidate Store→Authority Gate→正本Writer | Related 2 Blocks | 権限なし自動採用、出所不明、別依頼結果、Owner不明の各反例 | 各反例から正本反映を要求する | CPR-IT-004として、「各反例から正本反映を要求する」前後のCandidate Store→Authority Gate→正本Writerについて、Identity、phase／state遷移、結果field、Effect発行回数、資源残存数および失敗理由を記録する | 採用を拒否し、候補の隔離と原の正本を保持 | CPR-IT-004、固定した改訂版・環境・入力Identity、phase／state遷移、結果field、Effect／資源件数、Oracle判定「採用を拒否し、候補の隔離と原の正本を保持」および終了後条件「追加送信・正本Effect 0」を保存する。Secret、鍵bytes、passphrase、生Provider出力および絶対Pathは保存しない | 追加送信・正本Effect 0 | Automated |
 | `CPR-ST-005` | 正常 | ST | Topic／Meeting Lifecycle | Workbench／MCP→Application→Topic・Meeting Store→Relation→所有正本 | System/E2E | TopicとMeetingの登録・編集・取得・一覧、処置済み／未処置Outcome、未完了Action、誤登録と参照Relation | CRUD、Outcome処置、Meeting Close、候補採否、訂正および削除確認を順に行う | 本文、改訂版、Outcome、Action追跡先、Relation、候補採否、削除影響、各Effectと終了後状態を記録する | Topic現在状態とMeeting時点記録を保ち、全Outcome処置後だけCloseする。採用分だけ所有正本へ一度反映し、確認なしの連鎖削除とdangling relationを生じない | 固定Scenario、操作、改訂版、Relation、判断、Effect、Oracle、終了後状態。生Transcriptと絶対Pathは保存しない | 未処置Outcome 0、重複反映0、dangling relation 0、対象外削除0 | Hybrid |
-| `CPR-IT-006` | 境界 | IT | Context Adoption Boundary | Workbench→Candidate Store→Project Runtime Adoption Lease→所有正本 | Related 2 Blocks | 採用、破棄、保留、確認なし、別Candidate ID、競合Revision、dirty Scope競合、許可外Pathおよび媒体名だけが同じ候補 | Storeから候補を再読取りし、操作ごとの明示確認を渡して採用または破棄する。採用時はLease取得後に現在Revision、dirty PathおよびScopeを再観測する | Candidate Identity、安全な確認Metadata、明示判断、Lease、現在Revision、dirty Path、許可Scope、Receipt、正本Effect、Commit／Push Effectおよび終了後Leaseを記録する | 同じCandidate IDへの明示採用だけが許可範囲を一度反映し、Receiptを残す。破棄・保留・確認なし・Identity不一致・Revision／Scope競合では正本Effect 0とする。採用操作はCommit／Pushを発行しない | Candidate、確認Metadata、判断、Lease、Revision、dirty Path、Scope、Receipt、Effect、拒否理由およびOracle判定を保存する。Candidate本文、絶対Pathおよび秘密値は保存しない | Lease 0または同じRecovery義務。未採用正本Effect 0、Commit 0、Push 0 | Automated |
+| `CPR-IT-006` | 境界 | IT | Context Adoption Boundary | Workbench→Candidate Store→Orchestrator Adoption Lease→所有正本 | Related 2 Blocks | 採用、破棄、保留、確認なし、別Candidate ID、競合Revision、dirty Scope競合、許可外Pathおよび媒体名だけが同じ候補 | Storeから候補を再読取りし、操作ごとの明示確認を渡して採用または破棄する。採用時はLease取得後に現在Revision、dirty PathおよびScopeを再観測する | Candidate Identity、安全な確認Metadata、明示判断、Lease、現在Revision、dirty Path、許可Scope、Receipt、正本Effect、Commit／Push Effectおよび終了後Leaseを記録する | 同じCandidate IDへの明示採用だけが許可範囲を一度反映し、Receiptを残す。破棄・保留・確認なし・Identity不一致・Revision／Scope競合では正本Effect 0とする。採用操作はCommit／Pushを発行しない | Candidate、確認Metadata、判断、Lease、Revision、dirty Path、Scope、Receipt、Effect、拒否理由およびOracle判定を保存する。Candidate本文、絶対Pathおよび秘密値は保存しない | Lease 0または同じRecovery義務。未採用正本Effect 0、Commit 0、Push 0 | Automated |
 | `CPR-UAT-007` | 境界 | UAT | Acceptance／Context Promotion | 候補→利用者判断→所有正本 | User Acceptance | Topic／Meeting／Communication候補と根拠、競合・不明候補 | 利用者が採用先と採否を判断する | 判断、理由、理解できない項目、保留範囲を記録する | 利用者が候補の意味と所有先を理解して採否を選べる | 参加条件、候補、判断、理由 | 判断前の正本Effect 0 | Manual |
 | `CPR-IT-008` | 正常 | IT | Record Contract／Read Model | Topic・Meeting Markdown→Project Operation Reader→Workbench／MCP | Direct Boundary | 正常Topic、未処置Outcomeを持つMeeting、全Outcome処置済みMeeting、Identity・状態・改訂・Outcome不正の反例 | 固定Markdownを一覧・詳細Read Modelへ変換する | Identity、状態、改訂、要約、開催日時、未処置Outcome件数および拒否理由を記録する | Topic現在状態とMeeting時点記録を分け、closed Meetingのpending Outcomeを拒否し、不正Recordを完全一覧へ混ぜない | 固定入力、Reader結果、拒否理由、Oracleおよび正本Effect 0 | Topic／Meeting正本Effect 0 | Automated |
-| `CPR-UT-009` | 境界 | UT | Candidate Adoption Application | Project Runtime Candidate Adoption Application→Candidate／Lease／Integration Record Port | Direct Boundary | 明示確認の有無、同一／別Candidate ID、基準／現在Revision、clean／dirty Scope、許可内／許可外Path、採用成功／失敗、記録成功／失敗およびLease解放成功／失敗 | Fake Portで既存候補の採用Applicationを一回実行する | Authority判定、候補再観測、Lease取得・解放、Revision、dirty Path、Scope、採用Effect、ReceiptおよびRecovery結果を記録する | 確認済み同一候補かつRevision・Scope一致時だけ一回採用する。確認なし・Identity不一致・競合・許可外Pathでは採用Effect 0とし、記録またはLease settlement不明では同じRecovery義務を返す | CPR-UT-009、固定入力分類、Port呼出し順、Effect件数、Receipt、Lease settlement、Recovery結果およびOracle判定を保存する。Candidate本文、絶対Pathおよび秘密値は保存しない | 成功時Lease 0・Receipt一件。拒否時正本Effect 0。settlement不明時は同じRecovery義務 | Automated |
+| `CPR-UT-009` | 境界 | UT | Candidate Adoption Application | Orchestrator Candidate Adoption Application→Candidate／Lease／Integration Record Port | Direct Boundary | 明示確認の有無、同一／別Candidate ID、基準／現在Revision、clean／dirty Scope、許可内／許可外Path、採用成功／失敗、記録成功／失敗およびLease解放成功／失敗 | Fake Portで既存候補の採用Applicationを一回実行する | Authority判定、候補再観測、Lease取得・解放、Revision、dirty Path、Scope、採用Effect、ReceiptおよびRecovery結果を記録する | 確認済み同一候補かつRevision・Scope一致時だけ一回採用する。確認なし・Identity不一致・競合・許可外Pathでは採用Effect 0とし、記録またはLease settlement不明では同じRecovery義務を返す | CPR-UT-009、固定入力分類、Port呼出し順、Effect件数、Receipt、Lease settlement、Recovery結果およびOracle判定を保存する。Candidate本文、絶対Pathおよび秘密値は保存しない | 成功時Lease 0・Receipt一件。拒否時正本Effect 0。settlement不明時は同じRecovery義務 | Automated |
 
 ## Semantic Coverage Pilot
 
@@ -88,8 +88,8 @@ Quality ID: `QA-000005`
 | Local ID | Semantic Key |
 |---|---|
 | `CPR-IT-001` | `coordinator.candidate-review-boundary` |
-| `CPR-IT-006` | `project-runtime.candidate-adoption` |
-| `CPR-UT-009` | `project-runtime.candidate-adoption` |
+| `CPR-IT-006` | `orchestrator.candidate-adoption` |
+| `CPR-UT-009` | `orchestrator.candidate-adoption` |
 
 ## 5. 評価とEvidence
 

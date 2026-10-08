@@ -69,14 +69,14 @@ test("Native protection: unchanged deps cannot hide intermediate directory repla
   fs.mkdirSync(middle);
   fs.mkdirSync(deps);
   const paths = [middle, deps].map((file) => file.replaceAll("\\", "/"));
-  const before = paths.map(nodeIdentity);
+  const previousEntries = paths.map(nodeIdentity);
   try {
     fs.renameSync(middle, old);
     fs.mkdirSync(middle);
     fs.renameSync(path.join(old, "deps"), deps);
-    const after = paths.map(nodeIdentity);
-    assert.equal(before[1], after[1]);
-    assert.notDeepEqual(before, after);
+    const subsequentEntries = paths.map(nodeIdentity);
+    assert.equal(previousEntries[1], subsequentEntries[1]);
+    assert.notDeepEqual(previousEntries, subsequentEntries);
   } finally {
     fs.rmdirSync(deps);
     fs.rmdirSync(middle);
@@ -108,13 +108,13 @@ test("Native protection: prior success, failed build and interrupted runs stop g
       const bytes = Buffer.from(JSON.stringify({ fixtureOnly: true, state }));
       fs.writeFileSync(started, bytes);
       if (state !== "interrupted") fs.writeFileSync(result, bytes);
-      const children = fs.readdirSync(root);
+      const childNames = fs.readdirSync(root);
       const files = fs.readdirSync(prior);
       assert.throws(
         () => assertNoPreviousNativeRuns(root),
         /previous_native_protection_run_requires_settlement/u,
       );
-      assert.deepEqual(fs.readdirSync(root), children);
+      assert.deepEqual(fs.readdirSync(root), childNames);
       assert.deepEqual(fs.readdirSync(prior), files);
       assert.deepEqual(fs.readFileSync(started), bytes);
       if (state !== "interrupted") {
@@ -179,9 +179,9 @@ test("Native terminal: failed result cannot bypass changed ancestor", () => {
   fs.mkdirSync(parent);
   fs.mkdirSync(destination);
   const normalized = parent.replaceAll("\\", "/");
-  const expected = [nodeIdentity(normalized)];
+  const expectedEntries = [nodeIdentity(normalized)];
   assert.equal(
-    areNativeTerminalBoundariesUnchanged([normalized], expected),
+    areNativeTerminalBoundariesUnchanged([normalized], expectedEntries),
     true,
   );
   fs.renameSync(parent, parent + "-old");
@@ -189,13 +189,13 @@ test("Native terminal: failed result cannot bypass changed ancestor", () => {
   try {
     for (const failure of ["timeout", "launch_failed"]) {
       assert.ok(failure);
-      const permitted = areNativeTerminalBoundariesUnchanged(
+      const isPermitted = areNativeTerminalBoundariesUnchanged(
         [normalized],
-        expected,
+        expectedEntries,
       );
-      assert.equal(permitted, false);
+      assert.equal(isPermitted, false);
       let writes = 0;
-      if (permitted) {
+      if (isPermitted) {
         writes++;
         fs.writeFileSync(path.join(parent, "result.json"), "{}");
       }
@@ -203,7 +203,10 @@ test("Native terminal: failed result cannot bypass changed ancestor", () => {
       assert.deepEqual(fs.readdirSync(destination), []);
     }
     assert.equal(
-      areNativeTerminalBoundariesUnchanged([normalized + "/missing"], expected),
+      areNativeTerminalBoundariesUnchanged(
+        [normalized + "/missing"],
+        expectedEntries,
+      ),
       false,
     );
   } finally {

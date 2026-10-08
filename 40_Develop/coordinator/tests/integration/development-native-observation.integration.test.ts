@@ -159,7 +159,7 @@ async function runProbe(target: string, scenario: string) {
   });
   await mock.module(
     new URL(
-      "../../src/host-runtime/windows-child-environment.ts",
+      "../../src/host-execution/windows-child-environment.ts",
       import.meta.url,
     ).href,
     {
@@ -228,11 +228,9 @@ async function runProbe(target: string, scenario: string) {
   const session = await import(
     "../../src/task/development-measurement-session.ts"
   );
-  const provider = await import(
-    "../../src/provider/provider-home-windows-adapter.ts"
-  );
+  const provider = await import("../../src/provider/home-windows-adapter.ts");
   const store = await import(
-    "../../src/candidate/candidate-store-windows-adapter.ts"
+    "../../src/platform-access/protected-root-windows-adapter.ts"
   );
   const tasks = ["codex", "claude"].map((executor) => ({
     frontProvider: executor === "codex" ? "claude" : "codex",

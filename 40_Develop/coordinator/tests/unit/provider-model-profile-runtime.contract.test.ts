@@ -6,12 +6,12 @@
  * @trace PRL-UT-014
  * @level UT
  * @scope provider、model、profile、runtime
- * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Orchestrator Application Portは外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../src/provider/delegation-selection-grant-runtime.ts";
+import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../src/provider/delegation-selection-grant.ts";
 
 import {
   describeProviderModelProfileRuntimeContract,

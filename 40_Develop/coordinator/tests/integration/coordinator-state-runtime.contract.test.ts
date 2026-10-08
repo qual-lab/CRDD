@@ -13,14 +13,14 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/repository/index.ts";
-import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/storage/index.ts";
-import * as projectStorage from "../../../orchestrator/src/storage/index.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/repository-location.ts";
-import * as dockerController from "../../src/docker-runtime/docker-process-controller.ts";
-import { prepareRuntimeOwnedRepositoryDockerOperationIdentity } from "../../src/docker-runtime/docker-recovery-runtime-internal.ts";
-import * as stateKernelLocks from "../../src/host-runtime/candidate-store-kernel-lock.ts";
-import * as executionEnvironment from "../../src/host-runtime/execution-environment.ts";
+import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/index.ts";
+import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/index.ts";
+import * as projectStorage from "../../../orchestrator/src/index.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/repository/location.ts";
+import * as dockerController from "../../src/docker-execution/process-controller.ts";
+import { prepareRuntimeOwnedRepositoryDockerOperationIdentity } from "../../src/docker-execution/recovery-lifecycle.ts";
+import * as stateKernelLocks from "../../src/host-execution/kernel-lock.ts";
+import * as executionEnvironment from "../../src/host-execution/operation-workspace-lifecycle.ts";
 import {
   beginOwnedDockerSubmissionRecovery,
   borrowOwnedHostRecoverySnapshot,
@@ -31,12 +31,12 @@ import {
   createOwnedOperationContextCapability,
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
-} from "../../src/host-runtime/execution-environment.ts";
+} from "../../src/host-execution/operation-workspace-lifecycle.ts";
 import {
   bindRuntimeOwnedRepositoryOperation,
   borrowRuntimeOwnedCoordinatorRecoveryRepository,
   borrowRuntimeOwnedCoordinatorStateRepository,
-} from "../../src/repository-operation/repository-operation-runtime.ts";
+} from "../../src/repository-operation/binding.ts";
 import {
   COORDINATOR_STATE_SCHEMA,
   coordinatorStateContentHash,
@@ -49,7 +49,7 @@ import {
   prepareCoordinatorStateProjectAcceptanceSnapshot,
   prepareCoordinatorStateReferencesSnapshot,
   prepareCoordinatorStateResourceSnapshot,
-} from "../../src/state-storage/coordinator-state-model.ts";
+} from "../../src/state-storage/model.ts";
 import {
   checkpointRuntimeOwnedCoordinatorCleanup,
   checkpointRuntimeOwnedCoordinatorHost,
@@ -68,7 +68,7 @@ import {
   writeRuntimeOwnedCoordinatorHistoryCheckpoint,
   writeRuntimeOwnedCoordinatorSettlement,
   writeRuntimeOwnedCoordinatorStateSnapshot,
-} from "../../src/state-storage/coordinator-state-runtime.ts";
+} from "../../src/state-storage/settlement-store.ts";
 
 /**
  * 固定二File保存と同じ更新の再入場、保全停止を確認する。
@@ -92,9 +92,9 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   );
   const root = fs.mkdtempSync(path.join(tests.directory, "coordinator-state-"));
   let owned: ReturnType<typeof createOwnedOperationDirectories> | null = null;
-  let cleaned = false;
+  let isCleaned = false;
   t.after(() => {
-    if (owned && !cleaned) cleanupOwnedOperationDirectories(owned);
+    if (owned && !isCleaned) cleanupOwnedOperationDirectories(owned);
     fs.rmSync(root, { recursive: true });
     if (fs.readdirSync(tests.directory).length === 0)
       fs.rmdirSync(tests.directory);
@@ -209,8 +209,8 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         "--experimental-strip-types",
         "-e",
         `(async () => {
-     const { verifyRepositoryRoot } = await import(${JSON.stringify(new URL("../../../version-control/src/repository-location.ts", import.meta.url).href)});
-     const { readRuntimeOwnedCoordinatorRecoverySnapshot } = await import(${JSON.stringify(new URL("../../src/state-storage/coordinator-state-runtime.ts", import.meta.url).href)});
+     const { verifyRepositoryRoot } = await import(${JSON.stringify(new URL("../../../version-control/src/repository/location.ts", import.meta.url).href)});
+     const { readRuntimeOwnedCoordinatorRecoverySnapshot } = await import(${JSON.stringify(new URL("../../src/state-storage/settlement-store.ts", import.meta.url).href)});
      const root = verifyRepositoryRoot(process.argv[1]);
      const result = readRuntimeOwnedCoordinatorRecoverySnapshot(root.capability);
      process.stdout.write(JSON.stringify({status: result.status, lockReleased: result.lockReleased, hash: result.value?.payloadSha256 ?? null}));
@@ -330,11 +330,11 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   const secondBytes = Buffer.from(`${encodeCoordinatorStateValue(second)}\n`);
   // 同じ本文への実体差し替えを、公開前の再観測で拒否する。
   const originalFsync = fs.fsyncSync;
-  let replaced = false;
+  let isReplaced = false;
   fs.fsyncSync = (fd) => {
     originalFsync(fd);
-    if (!replaced) {
-      replaced = true;
+    if (!isReplaced) {
+      isReplaced = true;
       const state = path.join(area.directory, "state.json");
       fs.renameSync(state, path.join(root, "replaced-state"));
       fs.writeFileSync(state, firstBytes, { flag: "wx" });
@@ -445,7 +445,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     schema: "crdd-coordinator/operation-identity/v1",
     operationNonce: "b".repeat(64),
     provider: "claude",
-    consumer: "project_runtime",
+    consumer: "orchestrator",
     operationId: repository.operationId,
     recoveryCorrelationId: "task-operation-a",
     grantRef: "PHMGRANT-FIXTURE",
@@ -513,10 +513,10 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   );
   try {
     const missingReleaseModuleUrl = new URL(
-      "../../src/state-storage/coordinator-state-runtime.ts?reader-release-observation",
+      "../../src/state-storage/settlement-store.ts?reader-release-observation",
       import.meta.url,
     ).href;
-    const missingReleaseRuntime: typeof import("../../src/state-storage/coordinator-state-runtime.ts") =
+    const missingReleaseRuntime: typeof import("../../src/state-storage/settlement-store.ts") =
       await import(missingReleaseModuleUrl);
     const stopped =
       missingReleaseRuntime.saveRuntimeOwnedCoordinatorOperationStart(
@@ -657,10 +657,10 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     },
   );
   try {
-    const unissuedRuntime: typeof import("../../src/state-storage/coordinator-state-runtime.ts") =
+    const unissuedRuntime: typeof import("../../src/state-storage/settlement-store.ts") =
       await import(
         new URL(
-          "../../src/state-storage/coordinator-state-runtime.ts?unissued-proof",
+          "../../src/state-storage/settlement-store.ts?unissued-proof",
           import.meta.url,
         ).href
       );
@@ -1039,7 +1039,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         operationNonce: identity.operationNonce,
         recoveryId: operation.recoveryId,
         resultId: "b".repeat(64),
-        consumer: "project_runtime",
+        consumer: "orchestrator",
         acceptanceSha256: null as string | null,
       },
     ],
@@ -1121,7 +1121,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       checkpointBytes,
     );
   }
-  for (const invalid of [
+  for (const invalidValues of [
     null,
     cleanupObservations.slice(1),
     cleanupObservations.map((item) => ({ ...item, observation: "absent" })),
@@ -1129,7 +1129,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     const rejected = checkpointRuntimeOwnedCoordinatorCleanup(
       management,
       operation.recoveryId,
-      invalid,
+      invalidValues,
     );
     assert.equal(rejected.status, "blocked");
     assert.equal(rejected.filesystemEffectIssued, false);
@@ -1188,7 +1188,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   const settlement = prepareRuntimeOwnedCoordinatorSettlement(
     management,
     operation.recoveryId,
-    "project_runtime",
+    "orchestrator",
   );
   assert.ok(settlement);
   // この追加経路だけDocker終了観測を模擬する。本番Controllerの肯定根拠ではない。
@@ -1250,7 +1250,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       },
     },
   });
-  let completionReleaseObservationMissing = false;
+  let isCompletionReleaseObservationMissing = false;
   let completionReleaseMissingAt = 1;
   let completionReleaseCount = 0;
   let completionActualReleaseConfirmed = false;
@@ -1269,7 +1269,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
             ...acquired,
             release: () => {
               const released = acquired.release();
-              if (completionReleaseObservationMissing) {
+              if (isCompletionReleaseObservationMissing) {
                 completionReleaseCount += 1;
                 // 出版後の再入場は保持候補を使い、更新Writerの解放だけ欠測にする。
                 if (completionReleaseCount === completionReleaseMissingAt) {
@@ -1286,25 +1286,28 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   );
   t.after(() => completionLockObservationMock.restore());
   const isolatedModuleUrl = new URL(
-    "../../src/state-storage/coordinator-state-runtime.ts?history-filesystem-fixture",
+    "../../src/state-storage/settlement-store.ts?history-filesystem-fixture",
     import.meta.url,
   );
   const historyRuntime = (await import(
     isolatedModuleUrl.href
-  )) as typeof import("../../src/state-storage/coordinator-state-runtime.ts");
+  )) as typeof import("../../src/state-storage/settlement-store.ts");
   let projectAcceptanceValue: unknown = null;
   let projectAcceptanceReads = 0;
   let projectAcceptanceThrow = false;
-  let projectAcceptanceChangeOnSecondRead = false;
+  let isProjectAcceptanceChangeOnSecondRead = false;
   const historySettlement =
     historyRuntime.prepareRuntimeOwnedCoordinatorSettlement(
       management,
       operation.recoveryId,
-      "project_runtime",
+      "orchestrator",
       () => {
         projectAcceptanceReads += 1;
         if (projectAcceptanceThrow) throw new Error("fixture_upper_reader");
-        if (projectAcceptanceChangeOnSecondRead && projectAcceptanceReads === 2)
+        if (
+          isProjectAcceptanceChangeOnSecondRead &&
+          projectAcceptanceReads === 2
+        )
           return null;
         return projectAcceptanceValue;
       },
@@ -1313,11 +1316,23 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     historyRuntime.prepareRuntimeOwnedCoordinatorSettlement(
       management,
       operation.recoveryId,
-      "project_runtime",
+      "orchestrator",
     );
   assert.ok(historySettlement);
   assert.ok(historySettlementAgain);
   let lateReaderCalls = 0;
+  /**
+   * 保存後に登録したReaderの呼出し回数を観測する。
+   *
+   * @responsibility 遅延登録を消費していないことをカウンターで確認する。
+   * @trace ERB-IT-003
+   * @precondition 終了予定を固定済みでlateReaderCallsを0にする。
+   * @stimulus 固定後のReader登録と同じ終了Contextへの再入場を試みる。
+   * @observation 登録の拒否、固定Reader IdentityとlateReaderCallsを取得する。
+   * @oracle 固定Readerを差し替えずlateReaderCallsは0のままである。
+   * @cleanup Case所有の保存fixtureとModule差替えを回収する。
+   * @boundary 保存済み終了予定と後から渡したReaderの登録境界。
+   */
   const lateReader = () => {
     lateReaderCalls += 1;
     return projectAcceptanceValue;
@@ -1326,7 +1341,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     historyRuntime.prepareRuntimeOwnedCoordinatorSettlement(
       management,
       operation.recoveryId,
-      "project_runtime",
+      "orchestrator",
     );
   assert.ok(lateSettlement);
   for (const context of [{}, { ...lateSettlement }])
@@ -1377,7 +1392,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     historyRuntime.prepareRuntimeOwnedCoordinatorSettlement(
       management,
       operation.recoveryId,
-      "project_runtime",
+      "orchestrator",
       () => projectAcceptanceValue,
     );
   assert.ok(identifiedSettlement);
@@ -1406,7 +1421,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     historyRuntime.prepareRuntimeOwnedCoordinatorSettlement(
       management,
       initialDriverRecoveryId,
-      "project_runtime",
+      "orchestrator",
       () => {
         projectAcceptanceReads += 1;
         return null;
@@ -1489,15 +1504,11 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     prepareRuntimeOwnedCoordinatorSettlement(
       {},
       operation.recoveryId,
-      "project_runtime",
+      "orchestrator",
     ),
     null,
   );
-  for (const consumer of [
-    undefined,
-    "durable",
-    { consumer: "project_runtime" },
-  ]) {
+  for (const consumer of [undefined, "durable", { consumer: "orchestrator" }]) {
     assert.equal(
       historyRuntime.prepareRuntimeOwnedCoordinatorSettlement(
         management,
@@ -1556,7 +1567,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   assert.equal(unconfirmed.status, "blocked");
   assert.equal(unconfirmed.filesystemEffectIssued, false);
   const cleanupOutcome = await cleanupOwnedOperationDirectoriesAsync(owned);
-  cleaned = true;
+  isCleaned = true;
   const terminalRead =
     readRuntimeOwnedCoordinatorSettlementSnapshot(settlement);
   assert.equal(terminalRead.status, "completed");
@@ -1587,7 +1598,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     prepareRuntimeOwnedCoordinatorSettlement(
       management,
       operation.recoveryId,
-      "project_runtime",
+      "orchestrator",
     ),
     null,
   );
@@ -1883,8 +1894,8 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   );
   const beforeResultRegistration = fs.readFileSync(stateFile);
   for (const [hostResult, completion, consumers] of [
-    [{ ...cleanupOutcome }, simulatedCompletion, ["project_runtime"]],
-    [cleanupOutcome, { ...simulatedCompletion }, ["project_runtime"]],
+    [{ ...cleanupOutcome }, simulatedCompletion, ["orchestrator"]],
+    [cleanupOutcome, { ...simulatedCompletion }, ["orchestrator"]],
     [cleanupOutcome, simulatedCompletion, []],
     [cleanupOutcome, simulatedCompletion, ["workbench", "workbench"]],
   ] as const) {
@@ -1908,14 +1919,14 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   const resultBeforeRegistration =
     historyRuntime.readRuntimeOwnedCoordinatorSettlementResult(
       historySettlement,
-      "project_runtime",
+      "orchestrator",
     );
   assert.equal(resultBeforeRegistration.status, "blocked");
   assert.equal(resultBeforeRegistration.value, null);
   const fixedBeforeRegistration = fs.readFileSync(stateFile);
   for (const consumers of [
     [],
-    ["project_runtime", "workbench"],
+    ["orchestrator", "workbench"],
     ["workbench", "workbench"],
     ["unknown"],
     { consumers: ["workbench"], resultId: "c".repeat(64) },
@@ -1936,7 +1947,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       historySettlement,
       cleanupOutcome,
       simulatedCompletion,
-      ["project_runtime"],
+      ["orchestrator"],
     );
   assert.equal(resultRegistered.status, "completed", resultRegistered.reason);
   assert.equal(resultRegistered.snapshotConfirmed, true);
@@ -1947,7 +1958,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   const observedResult =
     historyRuntime.readRuntimeOwnedCoordinatorSettlementResult(
       historySettlement,
-      "project_runtime",
+      "orchestrator",
     );
   assert.equal(observedResult.status, "completed", observedResult.reason);
   assert.equal(observedResult.lockReleased, true);
@@ -1956,7 +1967,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     operationId: identity.recoveryCorrelationId,
     recoveryId: operation.recoveryId,
     resultId: registeredResult.operations[0].summarySha256,
-    consumer: "project_runtime",
+    consumer: "orchestrator",
   });
   const recoveryResultRoot = verifyRepositoryRoot(root);
   assert.equal(recoveryResultRoot.status, "completed");
@@ -1971,8 +1982,8 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         "--experimental-strip-types",
         "-e",
         `(async () => {
-          const { verifyRepositoryRoot } = await import(${JSON.stringify(new URL("../../../version-control/src/repository-location.ts", import.meta.url).href)});
-          const { readRuntimeOwnedCoordinatorRecoveryResult } = await import(${JSON.stringify(new URL("../../src/state-storage/coordinator-state-runtime.ts", import.meta.url).href)});
+          const { verifyRepositoryRoot } = await import(${JSON.stringify(new URL("../../../version-control/src/repository/location.ts", import.meta.url).href)});
+          const { readRuntimeOwnedCoordinatorRecoveryResult } = await import(${JSON.stringify(new URL("../../src/state-storage/settlement-store.ts", import.meta.url).href)});
           const root = verifyRepositoryRoot(process.argv[1]);
           process.stdout.write(JSON.stringify(readRuntimeOwnedCoordinatorRecoveryResult(root.capability, process.argv[2])));
         })().catch(() => { process.exitCode = 1; });`,
@@ -2118,8 +2129,8 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   assert.equal(refusedAcceptance.snapshotConfirmed, false);
   assert.deepEqual(fs.readFileSync(stateFile), registeredResultBytes);
   for (const [context, consumer] of [
-    [{}, "project_runtime"],
-    [{ ...historySettlement }, "project_runtime"],
+    [{}, "orchestrator"],
+    [{ ...historySettlement }, "orchestrator"],
     [historySettlement, "coordinator_cli"],
     [historySettlement, "unknown"],
   ]) {
@@ -2140,14 +2151,14 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         acceptanceSha256: null;
       }) => [item.consumer, item.resultId, item.acceptanceSha256],
     ),
-    [["project_runtime", registeredResult.operations[0].summarySha256, null]],
+    [["orchestrator", registeredResult.operations[0].summarySha256, null]],
   );
   const registrationReplay =
     historyRuntime.registerRuntimeOwnedCoordinatorSettlementResultDeliveries(
       historySettlement,
       cleanupOutcome,
       simulatedCompletion,
-      ["project_runtime"],
+      ["orchestrator"],
     );
   assert.equal(
     registrationReplay.status,
@@ -2314,8 +2325,8 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       [
         "--experimental-strip-types",
         "-e",
-        `(async () => { const { verifyRepositoryRoot } = await import(${JSON.stringify(new URL("../../../version-control/src/repository-location.ts", import.meta.url).href)});
-     const runtime = await import(${JSON.stringify(new URL("../../src/state-storage/coordinator-state-runtime.ts", import.meta.url).href)});
+        `(async () => { const { verifyRepositoryRoot } = await import(${JSON.stringify(new URL("../../../version-control/src/repository/location.ts", import.meta.url).href)});
+     const runtime = await import(${JSON.stringify(new URL("../../src/state-storage/settlement-store.ts", import.meta.url).href)});
      const root = verifyRepositoryRoot(process.argv[1]);
      const context = runtime.prepareRuntimeOwnedCoordinatorRecoveredSettlement(root.capability, process.argv[2], () => null);
      const refused = runtime.completeRuntimeOwnedCoordinatorSettlement(context, null, null);
@@ -2388,7 +2399,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     settlementGeneration: 7,
     repositoryBinding: repository.repositoryBinding,
     resultId: confirmedState.operations[0].summarySha256,
-    consumer: "project_runtime",
+    consumer: "orchestrator",
   };
   {
     const before = fs.readFileSync(stateFile);
@@ -2399,8 +2410,8 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
           "--experimental-strip-types",
           "-e",
           `(async () => {
-        const { verifyRepositoryRoot } = await import(${JSON.stringify(new URL("../../../version-control/src/repository-location.ts", import.meta.url).href)});
-        const runtime = await import(${JSON.stringify(new URL("../../src/state-storage/coordinator-state-runtime.ts", import.meta.url).href)});
+        const { verifyRepositoryRoot } = await import(${JSON.stringify(new URL("../../../version-control/src/repository/location.ts", import.meta.url).href)});
+        const runtime = await import(${JSON.stringify(new URL("../../src/state-storage/settlement-store.ts", import.meta.url).href)});
         const root = verifyRepositoryRoot(process.argv[1]);
         const ack = JSON.parse(process.argv[3]);
         const context = runtime.prepareRuntimeOwnedCoordinatorRecoveredSettlement(root.capability, process.argv[2], () => ack);
@@ -2474,8 +2485,8 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     assert.equal(observeAbsent(() => logicalAcceptance).status, "blocked");
     fs.writeFileSync(stateFile, removed);
     const absentScript = `(async () => {
-      const { verifyRepositoryRoot } = await import(${JSON.stringify(new URL("../../../version-control/src/repository-location.ts", import.meta.url).href)});
-      const runtime = await import(${JSON.stringify(new URL("../../src/state-storage/coordinator-state-runtime.ts", import.meta.url).href)});
+      const { verifyRepositoryRoot } = await import(${JSON.stringify(new URL("../../../version-control/src/repository/location.ts", import.meta.url).href)});
+      const runtime = await import(${JSON.stringify(new URL("../../src/state-storage/settlement-store.ts", import.meta.url).href)});
       const root = verifyRepositoryRoot(process.argv[1]);
       const ack = JSON.parse(process.argv[3]);
       process.stdout.write(JSON.stringify(runtime.observeRuntimeOwnedCoordinatorCompletedDelivery(root.capability, process.argv[2], () => ack)));
@@ -2502,18 +2513,18 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     fs.writeFileSync(stateFile, before);
 
     let recoveredAck: unknown = null;
-    let recoveredReaderThrows = false;
+    let isRecoveredReaderThrows = false;
     let recoveredReads = 0;
-    let changeOnSecondRead = false;
+    let isChangeOnSecondRead = false;
     const context =
       historyRuntime.prepareRuntimeOwnedCoordinatorRecoveredSettlement(
         recoveryResultRoot.capability,
         operation.recoveryId,
         () => {
           recoveredReads += 1;
-          if (recoveredReaderThrows)
+          if (isRecoveredReaderThrows)
             throw new Error("fixture_recovered_reader");
-          return changeOnSecondRead && recoveredReads === 2
+          return isChangeOnSecondRead && recoveredReads === 2
             ? null
             : recoveredAck;
         },
@@ -2532,15 +2543,15 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         .status,
       "blocked",
     );
-    recoveredReaderThrows = true;
+    isRecoveredReaderThrows = true;
     assert.equal(
       historyRuntime.completeRuntimeOwnedCoordinatorRecoveredSettlement(context)
         .status,
       "blocked",
     );
-    recoveredReaderThrows = false;
+    isRecoveredReaderThrows = false;
     recoveredAck = logicalAcceptance;
-    changeOnSecondRead = true;
+    isChangeOnSecondRead = true;
     recoveredReads = 0;
     assert.equal(
       historyRuntime.completeRuntimeOwnedCoordinatorRecoveredSettlement(context)
@@ -2548,15 +2559,15 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       "blocked",
     );
     assert.deepEqual(fs.readFileSync(stateFile), before);
-    changeOnSecondRead = false;
-    let failedAcceptance = false;
+    isChangeOnSecondRead = false;
+    let isFailedAcceptance = false;
     fs.renameSync = (source, target) => {
       if (
         String(source) === pendingFile &&
         String(target) === stateFile &&
-        !failedAcceptance
+        !isFailedAcceptance
       ) {
-        failedAcceptance = true;
+        isFailedAcceptance = true;
         throw new Error("fixture_recovered_acceptance_publish");
       }
       return Reflect.apply(originalRename, fs, [source, target]);
@@ -2572,7 +2583,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     } finally {
       fs.renameSync = originalRename;
     }
-    assert.equal(failedAcceptance, true);
+    assert.equal(isFailedAcceptance, true);
     const pendingAck = fs.readFileSync(pendingFile);
     const pendingMarkerFile = path.join(path.dirname(stateFile), "state.lock");
     const pendingMarkerBytes = fs.readFileSync(pendingMarkerFile);
@@ -2615,8 +2626,8 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     assert.deepEqual(fs.readFileSync(stateFile), before);
     fs.writeFileSync(pendingFile, pendingAck);
     const pendingReentryScript = `(async () => {
-      const { verifyRepositoryRoot } = await import(${JSON.stringify(new URL("../../../version-control/src/repository-location.ts", import.meta.url).href)});
-      const runtime = await import(${JSON.stringify(new URL("../../src/state-storage/coordinator-state-runtime.ts", import.meta.url).href)});
+      const { verifyRepositoryRoot } = await import(${JSON.stringify(new URL("../../../version-control/src/repository/location.ts", import.meta.url).href)});
+      const runtime = await import(${JSON.stringify(new URL("../../src/state-storage/settlement-store.ts", import.meta.url).href)});
       const root = verifyRepositoryRoot(process.argv[1]);
       const ack = JSON.parse(process.argv[3]);
       let reads = 0;
@@ -2765,7 +2776,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       completionReleaseCount = 0;
       completionReleaseMissingAt = releaseAt;
       completionActualReleaseConfirmed = false;
-      completionReleaseObservationMissing = true;
+      isCompletionReleaseObservationMissing = true;
       let interrupted: ReturnType<
         typeof historyRuntime.completeRuntimeOwnedCoordinatorRecoveredSettlement
       >;
@@ -2775,7 +2786,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
             context,
           );
       } finally {
-        completionReleaseObservationMissing = false;
+        isCompletionReleaseObservationMissing = false;
       }
       assert.equal(completionActualReleaseConfirmed, true);
       assert.equal(interrupted.status, "blocked");
@@ -2836,7 +2847,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   assert.deepEqual(fs.readFileSync(stateFile), beforeProjectAcceptance);
   projectAcceptanceValue = logicalAcceptance;
   projectAcceptanceReads = 0;
-  projectAcceptanceChangeOnSecondRead = true;
+  isProjectAcceptanceChangeOnSecondRead = true;
   const changedReader =
     historyRuntime.acceptRuntimeOwnedCoordinatorProjectResult(
       historySettlement,
@@ -2847,7 +2858,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   assert.equal(changedReader.snapshotConfirmed, false);
   assert.equal(projectAcceptanceReads, 2);
   assert.deepEqual(fs.readFileSync(stateFile), beforeProjectAcceptance);
-  projectAcceptanceChangeOnSecondRead = false;
+  isProjectAcceptanceChangeOnSecondRead = false;
   let acceptancePublicationFailed = false;
   fs.renameSync = (from, to) => {
     if (
@@ -2910,7 +2921,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   );
   assert.equal(
     acceptedProjectState.pendingDeliveries.find(
-      (item: { consumer: string }) => item.consumer === "project_runtime",
+      (item: { consumer: string }) => item.consumer === "orchestrator",
     ).acceptanceSha256,
     createHash("sha256")
       .update(`${encodeCoordinatorStateValue(projectAcceptanceValue)}\n`)
@@ -2999,8 +3010,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     pendingDeliveries: JSON.parse(
       acceptedProjectBytes.toString("utf8"),
     ).pendingDeliveries.filter(
-      (delivery: { consumer: string }) =>
-        delivery.consumer === "project_runtime",
+      (delivery: { consumer: string }) => delivery.consumer === "orchestrator",
     ),
   };
   fs.writeFileSync(
@@ -3113,15 +3123,15 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   projectAcceptanceValue = savedProjectAcceptanceValue;
   // 整理された既確認履歴は再追加しない。不明I/Oとは区別する。
   fs.unlinkSync(historyFile);
-  let completionPublishedThenLost = false;
+  let isCompletionPublishedThenLost = false;
   fs.renameSync = (source, target) => {
     const result = Reflect.apply(originalRename, fs, [source, target]);
     if (
       String(source) === pendingFile &&
       String(target) === stateFile &&
-      !completionPublishedThenLost
+      !isCompletionPublishedThenLost
     ) {
-      completionPublishedThenLost = true;
+      isCompletionPublishedThenLost = true;
       throw new Error("fixture_completion_publication_result_lost");
     }
     return result;
@@ -3139,7 +3149,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   } finally {
     fs.renameSync = originalRename;
   }
-  assert.equal(completionPublishedThenLost, true);
+  assert.equal(isCompletionPublishedThenLost, true);
   assert.equal(publicationUnknown.status, "blocked");
   assert.equal(publicationUnknown.filesystemEffectIssued, true);
   assert.equal(publicationUnknown.snapshotConfirmed, false);
@@ -3156,7 +3166,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   );
   assert.deepEqual(fs.readFileSync(stateFile), removal);
   projectAcceptanceValue = savedProjectAcceptanceValue;
-  completionReleaseObservationMissing = true;
+  isCompletionReleaseObservationMissing = true;
   let completionReleaseUnknown: ReturnType<
     typeof historyRuntime.completeRuntimeOwnedCoordinatorSettlement
   >;
@@ -3168,7 +3178,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         simulatedCompletion,
       );
   } finally {
-    completionReleaseObservationMissing = false;
+    isCompletionReleaseObservationMissing = false;
   }
   assert.equal(completionReleaseCount, 1);
   assert.equal(completionActualReleaseConfirmed, true);
@@ -3521,7 +3531,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     assert.equal(generalRemoval.filesystemEffectIssued, false);
     assert.deepEqual(fs.readFileSync(stateFile), transientReady);
     const readsBeforeCompletion: number = projectAcceptanceReads;
-    completionReleaseObservationMissing = true;
+    isCompletionReleaseObservationMissing = true;
     completionReleaseCount = 0;
     completionReleaseMissingAt = 2;
     let transientComplete: ReturnType<
@@ -3535,7 +3545,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
           simulatedCompletion,
         );
     } finally {
-      completionReleaseObservationMissing = false;
+      isCompletionReleaseObservationMissing = false;
       completionReleaseMissingAt = 1;
     }
     assert.equal(transientComplete.status, "blocked", transientComplete.reason);
@@ -3638,7 +3648,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     assert.ok(freshRepository);
     const startPlan = {
       provider: "claude" as const,
-      consumer: "project_runtime" as const,
+      consumer: "orchestrator" as const,
       operationId: freshRepository.operationId,
       grantRef: identity.grantRef,
       profileId: identity.profileId,
@@ -3661,7 +3671,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       startPlan,
       freshManagement,
       "b".repeat(64),
-      "project_runtime",
+      "orchestrator",
     );
     assert.ok(freshIdentity);
     const freshIdentityValue = JSON.parse(freshIdentity);
@@ -3700,7 +3710,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
           plan,
           owner,
           nonce,
-          "project_runtime",
+          "orchestrator",
         ),
         null,
       );
@@ -3734,7 +3744,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
           { ...startPlan, consumer } as never,
           freshManagement,
           "b".repeat(64),
-          "project_runtime",
+          "orchestrator",
         ),
         null,
       );
@@ -3812,7 +3822,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     );
     let beginCalls = 0;
     let completeCalls = 0;
-    let failHostObservation = false;
+    let isFailHostObservation = false;
     let hostObservationCalls = 0;
     const cleanupResult = Object.freeze({
       confirmed: true,
@@ -3827,7 +3837,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       ...startPlan,
       activeMountCapability: Object.freeze({}),
     } as unknown as Parameters<
-      typeof import("../../src/state-storage/coordinator-state-runtime.ts").completeRuntimeOwnedCoordinatorHostSubmission
+      typeof import("../../src/state-storage/settlement-store.ts").completeRuntimeOwnedCoordinatorHostSubmission
     >[2];
     const cleanupObservations = (
       [
@@ -3844,10 +3854,10 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       observation: "not_requested",
     }));
     const dockerEffects = await import(
-      "../../src/docker-runtime/docker-effect-runtime.ts"
+      "../../src/docker-execution/command-effects.ts"
     );
     const mountRuntime = await import(
-      "../../src/provider/provider-home-mount-grant-runtime.ts"
+      "../../src/provider/home-mount-authorization.ts"
     );
     const cleanupMock = t.mock.module(
       "../../src/docker-runtime/docker-effect-runtime.ts",
@@ -3899,7 +3909,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         namedExports: {
           ...executionEnvironment,
           borrowOwnedHostRecoverySnapshot(owner: unknown) {
-            if (failHostObservation && ++hostObservationCalls === 2)
+            if (isFailHostObservation && ++hostObservationCalls === 2)
               throw new Error("host_observation_missing");
             return executionEnvironment.borrowOwnedHostRecoverySnapshot(owner);
           },
@@ -3938,10 +3948,10 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     );
     try {
       const hostStartModule = new URL(
-        "../../src/state-storage/coordinator-state-runtime.ts?host-start-reentry",
+        "../../src/state-storage/settlement-store.ts?host-start-reentry",
         import.meta.url,
       ).href;
-      const hostStartRuntime: typeof import("../../src/state-storage/coordinator-state-runtime.ts") =
+      const hostStartRuntime: typeof import("../../src/state-storage/settlement-store.ts") =
         await import(hostStartModule);
       const beforeHostRequest = fs.readFileSync(freshStateFile);
       const wrongOwner =
@@ -4057,11 +4067,11 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         }
       }
       acceptedCleanup = cleanupResult;
-      failHostObservation = true;
+      isFailHostObservation = true;
       hostObservationCalls = 0;
       const observedBeforeFailure = fs.readFileSync(freshStateFile);
       const observationFailed = completeHost();
-      failHostObservation = false;
+      isFailHostObservation = false;
       assert.equal(observationFailed.status, "blocked");
       assert.equal(observationFailed.filesystemEffectIssued, true);
       assert.equal(observationFailed.snapshotConfirmed, false);
@@ -4173,7 +4183,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   const originalReadDirectory = fs.readdirSync;
   const failedArea = path.join(failedRoot, ".crdd", "coordinator");
   let areaReads = 0;
-  let writerRefused = false;
+  let isWriterRefused = false;
   try {
     const failedManagement = createOwnedOperationManagementCapability(
       createOwnedOperationContextCapability(failedOwned),
@@ -4190,7 +4200,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       apply: (fn, receiver, args) => {
         const value = Reflect.apply(fn, receiver, args);
         if (args[0] === failedArea && ++areaReads === 2) {
-          writerRefused = true;
+          isWriterRefused = true;
           return ["fixture_unknown_content"];
         }
         return value;
@@ -4200,7 +4210,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       failedManagement,
       failedIdentity,
     );
-    assert.equal(writerRefused, true);
+    assert.equal(isWriterRefused, true);
     assert.equal(failedStart.status, "blocked");
     assert.equal(failedStart.snapshotConfirmed, false);
     assert.equal(failedStart.filesystemEffectIssued, true);
@@ -4247,7 +4257,7 @@ test("上位受理Readerは保存済みの同じAttemptだけを返す", async (
     settlementGeneration: 7,
     repositoryBinding: "a".repeat(64),
     resultId: "b".repeat(64),
-    consumer: "project_runtime",
+    consumer: "orchestrator",
   };
   const state = {
     projectId: binding.projectId,
@@ -4280,7 +4290,7 @@ test("上位受理Readerは保存済みの同じAttemptだけを返す", async (
   t.mock.module("../../../orchestrator/src/storage/index.ts", {
     namedExports: {
       ...projectStorage,
-      readCurrentProjectRuntimeState: (...args: unknown[]) => {
+      readCurrentOrchestratorState: (...args: unknown[]) => {
         calls.push(args);
         if (shouldThrow) throw new Error("fixture_read_failure");
         return observation;
@@ -4293,7 +4303,7 @@ test("上位受理Readerは保存済みの同じAttemptだけを返す", async (
   ).href;
   const { createProjectResultAcceptanceReader } = (await import(
     moduleUrl
-  )) as typeof import("../../../orchestrator/src/task/docker-recovery-settlement.ts");
+  )) as typeof import("../../../orchestrator/src/task/settle-docker-recovery.ts");
   const task = state.tasks[0];
   assert.ok(task);
   const obligation = task.recoveryObligations[0];
@@ -4339,18 +4349,18 @@ test("上位受理Readerは保存済みの同じAttemptだけを返す", async (
     createProjectResultAcceptanceReader({ ...binding, extra: true }),
     null,
   );
-  let getterCalled = false;
+  let isGetterCalled = false;
   assert.equal(
     createProjectResultAcceptanceReader({
       ...binding,
       get taskId() {
-        getterCalled = true;
+        isGetterCalled = true;
         return "task-a";
       },
     }),
     null,
   );
-  assert.equal(getterCalled, false);
+  assert.equal(isGetterCalled, false);
   assert.equal(
     createProjectResultAcceptanceReader(new Proxy(binding, {})),
     null,

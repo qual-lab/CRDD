@@ -1,3 +1,13 @@
+/**
+ * Poison状態での外部Effect禁止を局所試験する。
+ *
+ * @packageDocumentation
+ * @responsibility Process・Worker・対話操作を差し替え、Poison後に禁止操作へ到達しないことを観測する。
+ * @trace PRL-IT-005
+ * @level IT
+ * @scope Runtime Process Poison後の拒否
+ * @boundary 試験用差替え→Runtime拒否契約。実Providerや外部Processの正常実行は証明しない。
+ */
 import childProcess from "node:child_process";
 import { EventEmitter } from "node:events";
 import fs from "node:fs";
@@ -14,13 +24,13 @@ import {
   withInteractiveConsoleAsyncOutcome,
   withInteractiveConsoleOutcome,
 } from "../../src/cli/interactive-console.ts";
-import { isRuntimeProcessPoisoned } from "../../src/host-runtime/runtime-process-safety-state.ts";
-import { startRuntimeOwnedCoordinatorTask } from "../../src/task/coordinator-task-runtime.ts";
+import { isRuntimeProcessPoisoned } from "../../src/host-execution/process-safety-state.ts";
+import { startRuntimeOwnedCoordinatorTask } from "../../src/task/execution.ts";
 import {
   confirmRuntimeOwnedExternalSendUsingConsole,
   requestRuntimeOwnedExternalSendGrant,
-} from "../../src/external-send/external-send-grant-runtime.ts";
-import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../../src/platform-access/platform-provisioner-package-filesystem.ts";
+} from "../../src/external-send/grant.ts";
+import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../../src/platform-access/package-verification.ts";
 
 const MODES = new Set([
   "descriptor_close",

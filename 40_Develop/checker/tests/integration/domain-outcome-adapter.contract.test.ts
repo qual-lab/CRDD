@@ -11,8 +11,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { mapDomainOutcomeToCheckerResult } from "../../src/adapters/domain-outcome.ts";
-import { mapRealityDomainIssueToCheckerFinding } from "../../src/adapters/reality-traceability.ts";
+import { mapDomainOutcomeToCheckerResult } from "../../src/findings/domain-outcome.ts";
+import { mapRealityDomainIssueToCheckerFinding } from "../../src/reality/symbol-traceability.ts";
 
 const issue = {
   kind: "graph.symbol.identity-duplicate",

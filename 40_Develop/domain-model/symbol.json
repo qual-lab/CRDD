@@ -14,7 +14,7 @@
     {
       "symbolId": "coordinator.source.src.security.plain.data.snapshot",
       "kind": "file",
-      "path": "src/plain-data/plain-data-snapshot.ts",
+      "path": "src/plain-data/snapshot.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -39,7 +39,7 @@
     {
       "symbolId": "crdd-domain-library.artifact-entry",
       "kind": "module",
-      "path": "src/artifact/index.ts",
+      "path": "src/index.ts",
       "archIds": [
         "ARCH-000001"
       ]
@@ -47,7 +47,7 @@
     {
       "symbolId": "crdd-domain-library.reality-traceability-entry",
       "kind": "module",
-      "path": "src/reality-traceability/index.ts",
+      "path": "src/index.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -55,7 +55,7 @@
     {
       "symbolId": "crdd-domain-library.repository-entry",
       "kind": "module",
-      "path": "src/repository/index.ts",
+      "path": "src/index.ts",
       "archIds": [
         "ARCH-000009"
       ]
@@ -63,7 +63,7 @@
     {
       "symbolId": "crdd-domain-library.filesystem-store-root-entry",
       "kind": "module",
-      "path": "src/storage/index.ts",
+      "path": "src/index.ts",
       "archIds": [
         "ARCH-000009"
       ]
@@ -71,7 +71,7 @@
     {
       "symbolId": "crdd-domain-library.filesystem-store-kernel-lock-worker",
       "kind": "module",
-      "path": "src/storage/filesystem-store-kernel-lock-worker.ts",
+      "path": "src/storage/kernel-lock-worker.ts",
       "archIds": [
         "ARCH-000009"
       ]
@@ -79,7 +79,7 @@
     {
       "symbolId": "crdd-domain-library.quality-change-control-entry",
       "kind": "module",
-      "path": "src/quality-change-control/index.ts",
+      "path": "src/index.ts",
       "archIds": [
         "ARCH-000003"
       ]
@@ -156,7 +156,7 @@
     {
       "symbolId": "crdd-domain-library.test.unit.repository-observation",
       "kind": "test-suite",
-      "path": "tests/unit/repository-observation.contract.test.ts",
+      "path": "tests/unit/repository/filesystem-observer.contract.test.ts",
       "qaIds": [
         "QA-000004"
       ],
@@ -170,7 +170,7 @@
     {
       "symbolId": "crdd-domain-library.test.unit.filesystem-store-root",
       "kind": "test-suite",
-      "path": "tests/unit/filesystem-store-root.contract.test.ts",
+      "path": "tests/unit/storage/root-and-lock.contract.test.ts",
       "qaIds": [
         "QA-000007"
       ],
@@ -192,7 +192,7 @@
     {
       "symbolId": "crdd-domain-library.source.src.quality.change.control.quality.gate",
       "kind": "file",
-      "path": "src/quality-change-control/quality-gate.ts",
+      "path": "src/quality-change-control/gate.ts",
       "archIds": [
         "ARCH-000003"
       ]
@@ -200,7 +200,7 @@
     {
       "symbolId": "crdd-domain-library.source.src.repository.observation.filesystem.repository.observer",
       "kind": "file",
-      "path": "src/repository/filesystem-repository-observer.ts",
+      "path": "src/repository/filesystem-observer.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -208,7 +208,7 @@
     {
       "symbolId": "crdd-domain-library.source.src.reality.traceability.symbol.manifest.model",
       "kind": "file",
-      "path": "src/reality-traceability/symbol-manifest-model.ts",
+      "path": "src/reality-traceability/manifest.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -216,7 +216,7 @@
     {
       "symbolId": "crdd-domain-library.source.src.reality.traceability.symbol.graph",
       "kind": "file",
-      "path": "src/reality-traceability/symbol-graph.ts",
+      "path": "src/reality-traceability/graph.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -224,7 +224,7 @@
     {
       "symbolId": "crdd-domain-library.source.src.reality.traceability.symbol.manifest.validator",
       "kind": "file",
-      "path": "src/reality-traceability/symbol-manifest-validator.ts",
+      "path": "src/reality-traceability/validate-manifest.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -232,7 +232,7 @@
     {
       "symbolId": "crdd-domain-library.source.src.repository.observation.reality.symbol.repository.observer",
       "kind": "file",
-      "path": "src/repository/reality-symbol-repository-observer.ts",
+      "path": "src/repository/observe-symbols.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -240,7 +240,7 @@
     {
       "symbolId": "project-operation.domain.project-projection",
       "kind": "file",
-      "path": "src/project-context/project-operation.ts",
+      "path": "src/project-context/source-projection.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000016"
@@ -249,7 +249,7 @@
     {
       "symbolId": "project-operation.domain.repository-project-context",
       "kind": "file",
-      "path": "src/project-context/repository-project-context.ts",
+      "path": "src/project-context/parse-context.ts",
       "archIds": [
         "ARCH-000005"
       ]
@@ -257,7 +257,7 @@
     {
       "symbolId": "project-operation.domain.repository-release-projection",
       "kind": "file",
-      "path": "src/project-context/repository-release-projection.ts",
+      "path": "src/project-context/parse-release.ts",
       "archIds": [
         "ARCH-000005"
       ]
@@ -265,7 +265,7 @@
     {
       "symbolId": "project-operation.domain.repository-quality-projection",
       "kind": "file",
-      "path": "src/project-context/repository-quality-projection.ts",
+      "path": "src/project-context/parse-quality.ts",
       "archIds": [
         "ARCH-000005"
       ]
@@ -273,7 +273,7 @@
     {
       "symbolId": "project-operation.domain.candidate-lifecycle",
       "kind": "file",
-      "path": "src/project-context/project-operation.ts",
+      "path": "src/project-context/source-projection.ts",
       "archIds": [
         "ARCH-000016"
       ]
@@ -326,7 +326,7 @@
     {
       "symbolId": "domain-model.project-context-entry",
       "kind": "file",
-      "path": "src/project-context/index.ts",
+      "path": "src/index.ts",
       "archIds": [
         "ARCH-000005"
       ]
@@ -351,7 +351,7 @@
     {
       "symbolId": "domain-model.repository-observation",
       "kind": "file",
-      "path": "src/repository/repository-observation.ts",
+      "path": "src/repository/create-observer.ts",
       "archIds": [
         "ARCH-000008",
         "ARCH-000009"
@@ -360,7 +360,7 @@
     {
       "symbolId": "domain-model.filesystem-store-root",
       "kind": "file",
-      "path": "src/storage/filesystem-store-root.ts",
+      "path": "src/storage/root-and-lock.ts",
       "archIds": [
         "ARCH-000009"
       ]
@@ -399,7 +399,7 @@
     {
       "symbolId": "domain-model.activity-markdown",
       "kind": "file",
-      "path": "src/artifact/activity-markdown.ts",
+      "path": "src/artifact/activity-table.ts",
       "archIds": [
         "ARCH-000006"
       ]
@@ -407,7 +407,7 @@
     {
       "symbolId": "domain-model.topic-entry",
       "kind": "file",
-      "path": "src/topic/index.ts",
+      "path": "src/index.ts",
       "archIds": [
         "ARCH-000006"
       ]
@@ -415,7 +415,7 @@
     {
       "symbolId": "domain-model.meeting-entry",
       "kind": "file",
-      "path": "src/meeting/index.ts",
+      "path": "src/index.ts",
       "archIds": [
         "ARCH-000006"
       ]
@@ -423,7 +423,7 @@
     {
       "symbolId": "domain-model.topic-markdown",
       "kind": "file",
-      "path": "src/topic/topic-markdown.ts",
+      "path": "src/topic/markdown.ts",
       "archIds": [
         "ARCH-000006"
       ]
@@ -431,7 +431,7 @@
     {
       "symbolId": "domain-model.meeting-markdown",
       "kind": "file",
-      "path": "src/meeting/meeting-markdown.ts",
+      "path": "src/meeting/markdown.ts",
       "archIds": [
         "ARCH-000006"
       ]
@@ -439,7 +439,7 @@
     {
       "symbolId": "project-operation.repository.topic-meeting",
       "kind": "file",
-      "path": "src/storage/topic-meeting-repository.ts",
+      "path": "src/storage/topic-meeting-store.ts",
       "archIds": [
         "ARCH-000006"
       ]
@@ -447,7 +447,7 @@
     {
       "symbolId": "project-operation.application.topic-meeting",
       "kind": "file",
-      "path": "src/storage/topic-meeting-application.ts",
+      "path": "src/storage/topic-meeting-operations.ts",
       "archIds": [
         "ARCH-000006"
       ]
@@ -471,7 +471,7 @@
     {
       "symbolId": "project-operation.test.integration.topic-meeting-application",
       "kind": "test-suite",
-      "path": "tests/integration/topic-meeting-application.contract.test.ts",
+      "path": "tests/integration/topic-meeting-operations.contract.test.ts",
       "qaIds": [
         "QA-000005"
       ],
@@ -494,7 +494,7 @@
     {
       "symbolId": "domain-model.topic-application",
       "kind": "file",
-      "path": "src/topic/topic-application.ts",
+      "path": "src/topic/create-operations.ts",
       "archIds": [
         "ARCH-000006"
       ]
@@ -502,7 +502,7 @@
     {
       "symbolId": "domain-model.meeting-application",
       "kind": "file",
-      "path": "src/meeting/meeting-application.ts",
+      "path": "src/meeting/create-operations.ts",
       "archIds": [
         "ARCH-000006"
       ]
@@ -510,7 +510,7 @@
     {
       "symbolId": "runtime-data.test.unit.contract",
       "kind": "test-suite",
-      "path": "tests/unit/runtime-data-contract.contract.test.ts",
+      "path": "tests/unit/configuration/validate-declarations.contract.test.ts",
       "qaIds": [
         "QA-000008"
       ],
@@ -524,7 +524,7 @@
     {
       "symbolId": "runtime-data.test.unit.path-resolver",
       "kind": "test-suite",
-      "path": "tests/unit/runtime-data-path-resolver.contract.test.ts",
+      "path": "tests/unit/repository/resolve-storage-paths.contract.test.ts",
       "qaIds": [
         "QA-000008"
       ],
@@ -540,7 +540,7 @@
     {
       "symbolId": "runtime-data.test.integration.repository-paths",
       "kind": "test-suite",
-      "path": "tests/integration/repository-runtime-data-paths.integration.test.ts",
+      "path": "tests/integration/repository-storage-paths.integration.test.ts",
       "qaIds": [
         "QA-000008"
       ],
@@ -557,7 +557,7 @@
     {
       "symbolId": "runtime-data.test.integration.consumer-closure",
       "kind": "test-suite",
-      "path": "tests/integration/runtime-data-consumer-closure.integration.test.ts",
+      "path": "tests/integration/storage-consumer-closure.integration.test.ts",
       "qaIds": [
         "QA-000008"
       ],
@@ -613,7 +613,7 @@
     {
       "symbolId": "runtime-data.source.src.store.temporary.operation.store",
       "kind": "file",
-      "path": "src/storage/temporary-operation-store.ts",
+      "path": "src/storage/temporary-operation.ts",
       "archIds": [
         "ARCH-000011"
       ]
@@ -621,7 +621,7 @@
     {
       "symbolId": "runtime-data.source.src.core.runtime.data.contract",
       "kind": "file",
-      "path": "src/configuration/runtime-data-contract.ts",
+      "path": "src/configuration/validate-declarations.ts",
       "archIds": [
         "ARCH-000011"
       ]
@@ -629,7 +629,7 @@
     {
       "symbolId": "domain-model.runtime-data-path-reader",
       "kind": "file",
-      "path": "src/repository/runtime-data-path-resolver.ts",
+      "path": "src/repository/resolve-storage-paths.ts",
       "archIds": [
         "ARCH-000011"
       ]
@@ -637,7 +637,7 @@
     {
       "symbolId": "domain-model.runtime-data-area-writer",
       "kind": "file",
-      "path": "src/storage/runtime-data-area.ts",
+      "path": "src/storage/ensure-area.ts",
       "archIds": [
         "ARCH-000011"
       ]
@@ -645,7 +645,7 @@
     {
       "symbolId": "domain-model.runtime-area-result",
       "kind": "file",
-      "path": "src/repository/runtime-area-result.ts",
+      "path": "src/repository/require-storage-area.ts",
       "archIds": [
         "ARCH-000011"
       ]
@@ -653,7 +653,7 @@
     {
       "symbolId": "domain-model.configuration-entry",
       "kind": "module",
-      "path": "src/configuration/index.ts",
+      "path": "src/index.ts",
       "archIds": [
         "ARCH-000011"
       ]
@@ -661,7 +661,7 @@
     {
       "symbolId": "domain-model.runtime-data-paths",
       "kind": "module",
-      "path": "src/configuration/runtime-data-paths.ts",
+      "path": "src/configuration/storage-paths.ts",
       "archIds": [
         "ARCH-000011"
       ]
@@ -677,7 +677,7 @@
     {
       "symbolId": "domain-model.tool-runtime-config",
       "kind": "module",
-      "path": "src/configuration/tool-runtime-config.ts",
+      "path": "src/configuration/read-tool-config.ts",
       "archIds": [
         "ARCH-000011"
       ]

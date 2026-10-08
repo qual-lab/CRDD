@@ -32,13 +32,13 @@ export {
   gitFixedRevisionIdentityAdapter,
   gitRepositoryFormatAdapter,
   gitRepositoryRevisionAdapter,
-} from "./git/fixed-revision-adapter.ts";
+} from "./git/revision-adapter.ts";
 export {
   gitFixedSnapshotAdapter,
   inspectRepositoryFixedSnapshot,
 } from "./git/fixed-snapshot-adapter.ts";
 export { gitLocalChangeSetAdapter } from "./git/local-change-set-adapter.ts";
-export { gitRepositoryWorktreeViewAdapter } from "./git/repository-worktree-view-adapter.ts";
+export { gitRepositoryWorktreeViewAdapter } from "./git/worktree-view-adapter.ts";
 export {
   createGitChangePublicationAdapter,
   createGitChangePublicationTargetObservationAdapter,
@@ -66,14 +66,14 @@ export {
   readFixedSnapshotText,
   type RepositoryEntryObservation,
   resolveRevisionIdentity,
-} from "./git/checker-repository-observation-adapter.ts";
+} from "./git/checker-observation-adapter.ts";
 export {
   describeGitRepositoryLayoutAdapterContract,
   GIT_REPOSITORY_LAYOUT_ADAPTER_CONTRACT,
   GIT_REPOSITORY_LAYOUT_ADAPTER_CONTRACT_REVISION,
   inspectGitRepositoryLayoutCandidate,
-} from "./git/repository-layout-adapter.ts";
-export { gitRepositoryLocalIgnoreAdapter } from "./git/repository-local-ignore-adapter.ts";
+} from "./git/layout-adapter.ts";
+export { gitRepositoryLocalIgnoreAdapter } from "./git/local-ignore-adapter.ts";
 export {
   changedPaths,
   LOCAL_CHANGE_SET_CONTRACT,
@@ -89,7 +89,7 @@ export {
   type RepositoryLocalIgnoreAdapter,
   type RepositoryLocalIgnoreAdapterResult,
   registerRepositoryLocalIgnore,
-} from "./repository-local-ignore.ts";
+} from "./repository/local-ignore.ts";
 export {
   describeRepositoryLocationContract,
   REPOSITORY_LOCATION_CONTRACT,
@@ -99,14 +99,14 @@ export {
   type VerifiedRepositoryRoot,
   verifyRepositoryRoot,
   verifyRepositoryRootFromWorkingDirectory,
-} from "./repository-location.ts";
+} from "./repository/location.ts";
 export {
   inspectRepositoryFormat,
   observeRepositoryRevision,
   type RepositoryFormatAdapter,
   type RepositoryRevisionAdapter,
   type RepositoryRevisionObservation,
-} from "./repository-revision.ts";
+} from "./repository/revision.ts";
 export {
   observeRepositoryWorktreeFileDiff,
   observeRepositoryWorktreeTree,
@@ -115,4 +115,4 @@ export {
   type RepositoryWorktreeTreePage,
   type RepositoryWorktreeViewAdapter,
   type RepositoryWorktreeViewObservation,
-} from "./repository-worktree-view.ts";
+} from "./repository/worktree-view.ts";

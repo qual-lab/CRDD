@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   bindOperationSurface,
-  createSurfaceApplicationContract,
+  createSurfaceOperationHandler,
 } from "../../src/index.ts";
 
 /**
@@ -35,7 +35,7 @@ test("四入口が同じApplication ContractとCanonical Ownerを使用する", 
   }));
   const adapters = surfaces.map((surface, index) => {
     const store = stores[index] as (typeof stores)[number];
-    const contract = createSurfaceApplicationContract(
+    const contract = createSurfaceOperationHandler(
       {
         inspect: () => ({ revision: store.revision, value: store.value }),
         apply: (input) => {

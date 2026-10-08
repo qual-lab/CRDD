@@ -12,17 +12,17 @@
 import {
   coordinatorLaunchFailureMessage,
   resolveCoordinatorLaunch,
-} from "../../40_Develop/coordinator/src/cli/coordinator-launch.ts";
-import { isSupportedCoordinatorNodeRuntime } from "../../40_Develop/coordinator/src/host-runtime/node-runtime-version.ts";
+} from "../../40_Develop/coordinator/src/cli/launch.ts";
+import { isSupportedCoordinatorNodeRuntime } from "../../40_Develop/coordinator/src/host-execution/node-runtime-version.ts";
 
 const args = process.argv.slice(2);
-const directProject = args[0] === "project";
-const routedProject =
+const isDirectProject = args[0] === "project";
+const isRoutedProject =
   (args[0] === "interactive" || args[0] === "automation") &&
   args[1] === "project";
-if (directProject || routedProject) {
+if (isDirectProject || isRoutedProject) {
   if (
-    directProject &&
+    isDirectProject &&
     !isSupportedCoordinatorNodeRuntime(process.versions.node)
   ) {
     if (args.includes("--json")) {
@@ -36,7 +36,7 @@ if (directProject || routedProject) {
     }
     process.exitCode = 2;
   } else {
-    const plan = routedProject
+    const plan = isRoutedProject
       ? resolveCoordinatorLaunch(args, {
           nodeVersion: process.versions.node,
           stdinIsTty: process.stdin.isTTY === true,
@@ -54,7 +54,7 @@ if (directProject || routedProject) {
         plan?.status === "ready" ? plan.forwardedArgs : args;
       try {
         const { runProjectCommand } = await import(
-          "../../40_Develop/orchestrator/src/cli/project-command.ts"
+          "../../40_Develop/orchestrator/src/cli/command.ts"
         );
         await runProjectCommand(forwardedArgs.slice(1));
       } catch {

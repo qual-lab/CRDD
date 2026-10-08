@@ -1,3 +1,13 @@
+/**
+ * 所有Process Treeの生成と清掃を試験へ提供する。
+ *
+ * @packageDocumentation
+ * @responsibility 固定WorkerとRepository内試験領域を作り、Process終端と残存回収を確認する。
+ * @trace ERB-IT-002
+ * @level IT
+ * @scope 所有Processの開始・取消・終端
+ * @boundary Node子Process→固定Worker。Docker Daemonや実Providerを起動するFixtureではない。
+ */
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -6,7 +16,7 @@ import {
   createDockerProcessEnvironment,
   startOwnedProcess,
   type OwnedCommandHandle,
-} from "../../src/docker-runtime/docker-owned-process.ts";
+} from "../../src/docker-execution/owned-process.ts";
 import { createRepositoryTestTemporaryDirectory } from "./repository-test-directory-fixture.ts";
 
 const repositoryRoot = fileURLToPath(new URL("../../../../", import.meta.url));

@@ -1,3 +1,22 @@
+/**
+ * Runtimeの観測結果を共通の契約条件で判定する。
+ *
+ * @packageDocumentation
+ * @responsibility 各試験が取得した結果・Effect・回収状態を比較し、未観測を成功へ丸めない。
+ * @trace PPR-UT-006
+ * @trace CPR-IT-001
+ * @trace ERB-IT-001
+ * @trace ERB-IT-006
+ * @trace ERB-IT-008
+ * @trace ERB-IT-012
+ * @trace ERB-IT-014
+ * @trace PRL-IT-012
+ * @trace PRL-IT-013
+ * @level UT
+ * @level IT
+ * @scope 観測DTOと契約assertion
+ * @boundary N/A: 渡された観測値を判定するだけで、実資源の観測・回収自体は行わない。
+ */
 import assert from "node:assert/strict";
 import fs from "node:fs";
 

@@ -94,9 +94,9 @@ export type MeetingRecord = Readonly<{
  * @security 保存結果へ秘密値や任意Pathを追加しない。
  * @compatibility 既存CRUD結果と改訂競合・削除確認を保持する。
  */
-export type MeetingApplication =
-  import("../storage/types.ts").TopicMeetingScopedApplication &
+export type MeetingOperations =
+  import("../storage/types.ts").ScopedTopicMeetingOperations &
     Pick<
-      import("../storage/types.ts").TopicMeetingApplication,
+      import("../storage/types.ts").TopicMeetingOperations,
       "treatMeetingOutcome"
     >;

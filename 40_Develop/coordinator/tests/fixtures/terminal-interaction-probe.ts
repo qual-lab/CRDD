@@ -1,3 +1,13 @@
+/**
+ * 対話端末操作の構造化Probeを提供する。
+ *
+ * @packageDocumentation
+ * @responsibility 固定入力に対するReader・表示・取消結果を返し、端末境界の成功と拒否を区別する。
+ * @trace ERB-ST-005
+ * @level ST
+ * @scope 対話端末の入出力・取消
+ * @boundary 固定Probe→対話端末API。秘密値を検証出力へ含めない。
+ */
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 

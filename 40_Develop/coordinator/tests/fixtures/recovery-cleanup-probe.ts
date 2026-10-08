@@ -1,3 +1,13 @@
+/**
+ * Recoveryの開始・回収・異常経路を局所試験する。
+ *
+ * @packageDocumentation
+ * @responsibility 固定試験入力に対する回復操作と終了後状態を観測し、偽の回収完了を拒否する。
+ * @trace PRL-IT-013
+ * @level IT
+ * @scope Recoveryの回収と終了後条件
+ * @boundary 局所試験Process→Recovery契約。実Docker復旧の成功をこのProbeだけで主張しない。
+ */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -10,7 +20,7 @@ import {
   recordRuntimeOwnedDockerAbsence,
   recordRuntimeOwnedNormalMountCompletion,
   recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver,
-} from "../../src/docker-runtime/docker-recovery-runtime-internal.ts";
+} from "../../src/docker-execution/recovery-lifecycle.ts";
 import {
   abandonOwnedHostOperationGenerationLock,
   cleanupOwnedOperationDirectoriesAsync,
@@ -20,8 +30,8 @@ import {
   createOwnedOperationManagementCapability,
   getOwnedHostRecoveryIdByManagementCapability,
   verifyOwnedOperationManagementCapability,
-} from "../../src/host-runtime/execution-environment.ts";
-import { loadHostRecoveryRecordByToken } from "../../src/host-runtime/host-recovery-record.ts";
+} from "../../src/host-execution/operation-workspace-lifecycle.ts";
+import { loadHostRecoveryRecordByToken } from "../../src/host-execution/recovery-record.ts";
 import { removeCommittedDockerRecoveryJson } from "../../src/state-storage/docker-recovery-journal.ts";
 
 function verifiedRoot(rootPath: string) {
@@ -37,7 +47,7 @@ function verifiedRoot(rootPath: string) {
 function plan(operationId: string) {
   return Object.freeze({
     provider: "claude" as const,
-    consumer: "project_runtime" as const,
+    consumer: "orchestrator" as const,
     operationId,
     grantRef: "PHMGRANT-123456",
     profileId: "PROFILE-123456",

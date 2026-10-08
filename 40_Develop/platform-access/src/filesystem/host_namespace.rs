@@ -11,7 +11,7 @@ use crate::filesystem::protected_file::{
 use crate::filesystem::protection::{
     DirectoryIdentity, OwnedHandle, directory_identity, root_information, sha256,
 };
-use crate::filesystem::provider_home::DRIVE_FIXED;
+use crate::filesystem::protected_root::DRIVE_FIXED;
 use crate::process::principal::{
     local_system_sid_bytes, selected_user_token_binding, token_user_sid_bytes,
 };

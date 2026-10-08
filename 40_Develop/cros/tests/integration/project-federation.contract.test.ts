@@ -11,7 +11,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { parseRepositoryProjectContextMarkdown } from "../../../domain-model/src/project-context/index.ts";
+import { parseRepositoryProjectContextMarkdown } from "../../../domain-model/src/index.ts";
 import {
   createCrosSession,
   createPortfolioProjection,

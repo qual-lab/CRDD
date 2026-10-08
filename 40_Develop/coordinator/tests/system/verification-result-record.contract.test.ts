@@ -26,12 +26,12 @@ import {
   SIGNED_GENERAL_TASK_PUBLIC_REASONS,
   SIGNED_ROUTE_MATRIX_REASONS,
 } from "../../scripts/verification-result-reasons.ts";
-import { coordinatorTaskPublicReasons } from "../../src/task/coordinator-task-result-reasons.ts";
+import { coordinatorTaskPublicReasons } from "../../src/task/result-reasons.ts";
 import {
   formatDockerIsolationRecoveryToken,
   isDockerIsolationRecoveryIdCandidate,
-} from "../../src/docker-runtime/docker-isolation.ts";
-import { formatHostRecoveryToken } from "../../src/host-runtime/host-recovery-record.ts";
+} from "../../src/docker-execution/isolation-probe.ts";
+import { formatHostRecoveryToken } from "../../src/host-execution/recovery-record.ts";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 const packageRoot = path.resolve(import.meta.dirname, "../..");

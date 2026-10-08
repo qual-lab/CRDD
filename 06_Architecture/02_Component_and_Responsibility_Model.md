@@ -54,7 +54,7 @@ Last Updated: 2026-10-07
 | 公開入口 | [公開Transportの意味同一性](Definitions/ARCH-000012/architecture_definition.md) | MCP／CLI Transport Adapter | decode／encode、接続、Application Contractへの搬送 | 業務意味、Provider実行、Authority追加 |
 | 利用範囲 | [Workspace利用範囲とRepository Federation](Definitions/ARCH-000013/architecture_definition.md) | CROS Session／Workspace Resolver | Role別Credential Lifecycle、Session Grant、Exposure、Source-aware Federation、Host Access Recovery | User Account・個人別Role割当、Repository内部ACL |
 | 利用能力 | [Tool CapabilityとAIモデル構成](Definitions/ARCH-000010/architecture_definition.md) | Capability Registry、Model Configuration Resolver | Tool候補、構成検証、選択理由 | Tool実行、利用可能性の捏造 |
-| Project Application | [Project実行](Definitions/ARCH-000004/architecture_definition.md) | Project Runtime | Objective／Task、判断待ち、取消、Recovery、結果 | Provider選定、Transport、OS操作、人間判断 |
+| Project Application | [Project実行](Definitions/ARCH-000004/architecture_definition.md) | Orchestrator | Objective／Task、判断待ち、取消、Recovery、結果 | Provider選定、Transport、OS操作、人間判断 |
 | Project状態投影／受入判断記録 | [Project・Portfolio状態投影と受入判断記録](Definitions/ARCH-000005/architecture_definition.md) | Project Management Projection<br>Objective／Milestone Acceptance Decision Record | 投影: 正本を変えない現在状態・比較View<br>判断記録: Project運営者が明示したObjective／Milestoneの受入・差戻し・判断待ちの限定記録 | 投影: 受入判断の記録、その他の正本更新、優先順位の自動決定<br>判断記録: Task作成、Provider Effect、下位完了からの上位受入推定、読取りProjectionからのAuthority生成 |
 | 実行観測 | [実行事実と評価候補の取得](Definitions/ARCH-000007/architecture_definition.md)<br>[実行境界の診断](Definitions/ARCH-000008/architecture_definition.md)<br>[実行事実の記録](Definitions/ARCH-000018/architecture_definition.md) | 実行記録Writer／Store、読取りProjection、Platform Access診断Port | Canonical記録、不変公開、欠測を保つ事実取得、境界別診断 | Task更新、Provider実行、修復、評価採用 |
 | 運用Context | [Topic・Meeting Lifecycleと正本への引渡し](Definitions/ARCH-000006/architecture_definition.md) | Project Operation Context | Topic／Meeting CRUD、Outcome処置、Action移管、Relation整合、安全な削除 | Meeting本文の意味決定、自動採用、正当な履歴の物理削除 |
@@ -121,7 +121,7 @@ Workbench／MCPは必要な内部Capabilityを利用する。同一ProcessのCRO
 | Component内部契約 | 状態Owner、判定、変換、不変条件 | 隣接責務やAuthorityの混入 | UT／Component |
 | Port契約 | Coreと外部実装の交換値 | Canonical値の再解釈、unknownの正常化 | Contract／IT |
 | 横断評価 | Trust、Provenance、Closure、Quality | 評価から業務Authorityが生えること | Component／IT |
-| Public Application | TransportからProject Runtime | Transportごとの意味差、未接続操作 | IT／ST |
+| Public Application | TransportからOrchestrator | Transportごとの意味差、未接続操作 | IT／ST |
 | Repository／Runtime基盤 | Root、Binding、Data Lifecycle | 別Root書込み、残存誤削除 | 実境界IT |
 
 Qualityはこの表を試験ID台帳として使わず、各検証設計で対象ARCH定義、境界、状態および終了条件へ接続する。

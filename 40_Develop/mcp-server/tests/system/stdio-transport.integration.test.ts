@@ -15,7 +15,7 @@ import { PassThrough, Readable, Writable } from "node:stream";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { runMcpProjectRuntimeStdio } from "../../src/index.ts";
+import { runMcpOrchestratorStdio } from "../../src/index.ts";
 
 /**
  * outputのTest準備責務を実行する。
@@ -65,7 +65,7 @@ test("stdio process transports one bounded MCP request and closes on parent EOF"
       },
     },
   };
-  const result = await runMcpProjectRuntimeStdio(
+  const result = await runMcpOrchestratorStdio(
     {
       authenticateClient: () => ({
         status: "verified",
@@ -113,12 +113,12 @@ test("stdio process rejects trailing and oversized frames without semantic effec
       effects += 1;
     },
   };
-  const trailing = await runMcpProjectRuntimeStdio(
+  const trailing = await runMcpOrchestratorStdio(
     dependencies,
     Readable.from(["{}"]),
     output().stream,
   );
-  const oversized = await runMcpProjectRuntimeStdio(
+  const oversized = await runMcpOrchestratorStdio(
     dependencies,
     Readable.from(["x".repeat(128 * 1024 + 1)]),
     output().stream,
@@ -142,7 +142,7 @@ test("stdio process rejects trailing and oversized frames without semantic effec
  */
 test("template toolsの公開入口はbounded MCP stdio processを提供する", () => {
   const entry = fileURLToPath(
-    new URL("../../../../template/tools/crdd-mcp.ts", import.meta.url),
+    new URL("../../../../template/tools/crdd-mcp-server.ts", import.meta.url),
   );
   const request = JSON.stringify({
     jsonrpc: "2.0",
@@ -182,7 +182,7 @@ test("template toolsの公開入口はbounded MCP stdio processを提供する",
  */
 test("template toolsの公開入口はRepository Project Contextを取得する", async () => {
   const entry = fileURLToPath(
-    new URL("../../../../template/tools/crdd-mcp.ts", import.meta.url),
+    new URL("../../../../template/tools/crdd-mcp-server.ts", import.meta.url),
   );
   const request = JSON.stringify({
     jsonrpc: "2.0",
@@ -275,7 +275,7 @@ test("template toolsの公開入口はRepository Project Contextを取得する"
  */
 test("MCP公開Launcherは未知の起動形式を意味処理前に拒否する", () => {
   const entry = fileURLToPath(
-    new URL("../../../../template/tools/crdd-mcp.ts", import.meta.url),
+    new URL("../../../../template/tools/crdd-mcp-server.ts", import.meta.url),
   );
   const result = spawnSync(process.execPath, [entry, "--unknown"], {
     encoding: "utf8",
@@ -303,7 +303,7 @@ test("parent EOF aborts and joins an active semantic request before stdio closes
   const input = new PassThrough();
   const sink = output();
   let isCancellationObserved = false;
-  const running = runMcpProjectRuntimeStdio(
+  const running = runMcpOrchestratorStdio(
     {
       authenticateClient: () => ({
         status: "verified",
@@ -326,9 +326,9 @@ test("parent EOF aborts and joins an active semantic request before stdio closes
           const cancel = () => {
             isCancellationObserved = true;
             resolve({
-              contract: "crdd-coordinator/project-runtime-objective-intake/v1",
+              contract: "crdd-coordinator/orchestrator-objective-intake/v1",
               status: "cancelled",
-              reason: "project_runtime_parent_lost",
+              reason: "orchestrator_parent_lost",
               requestId: "request-parent-loss",
               projectId: "project-a",
               milestoneId: "milestone-a",
@@ -429,16 +429,16 @@ test("stdio preserves semantic cleanup uncertainty after transport cleanup", asy
       },
     },
   };
-  const result = await runMcpProjectRuntimeStdio(
+  const result = await runMcpOrchestratorStdio(
     {
       authenticateClient: () => ({
         status: "verified",
         principalId: "principal-a",
       }),
       runObjective: async () => ({
-        contract: "crdd-coordinator/project-runtime-public-runtime/v1",
+        contract: "crdd-coordinator/orchestrator-public-runtime/v1",
         status: "blocked",
-        reason: "project_runtime_task_recovery_required",
+        reason: "orchestrator_task_recovery_required",
         cleanupConfirmed: false,
         manualRecoveryRequired: true,
         effectState: "unknown",

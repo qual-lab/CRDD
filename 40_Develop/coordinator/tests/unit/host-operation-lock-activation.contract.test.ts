@@ -11,17 +11,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { recoverDockerIsolationProbe } from "../../src/docker-runtime/docker-isolation.ts";
-import { recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver } from "../../src/docker-runtime/docker-recovery-runtime-internal.ts";
+import { recoverDockerIsolationProbe } from "../../src/docker-execution/isolation-probe.ts";
+import { recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver } from "../../src/docker-execution/recovery-lifecycle.ts";
 import {
   createIsolatedHostOperationInProcessLeaseCandidate,
   type HostOperationLeaseDependencies,
   type HostOperationLeaseEvent,
-} from "../../src/host-runtime/host-operation-inprocess-lease-internal.ts";
+} from "../../src/host-execution/operation-lease-lifecycle.ts";
 import {
   createIsolatedHostOperationLockActivationCandidate,
   createIsolatedSharedHostRecoveryDirectoryCandidate,
-} from "../../src/host-runtime/execution-environment.ts";
+} from "../../src/host-execution/operation-workspace-lifecycle.ts";
 
 /**
  * 実資源を持たない通知依存を構築する。

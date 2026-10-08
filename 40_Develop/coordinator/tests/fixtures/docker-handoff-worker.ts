@@ -17,8 +17,8 @@ import {
   createDockerRestartMigratedPhase,
   createDockerRestartMigrationRecord,
   resolveDockerRestartHistory,
-} from "../../src/docker-desktop/docker-restart-continuation-record.ts";
-import { createDockerRestartRecord } from "../../src/docker-desktop/docker-restart-record.ts";
+} from "../../src/docker-desktop/restart-continuation-record.ts";
+import { createDockerRestartRecord } from "../../src/docker-desktop/restart-record.ts";
 
 const [command, root, rawBinding] = process.argv.slice(2);
 if (!command || !root || !rawBinding)

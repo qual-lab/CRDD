@@ -26,7 +26,7 @@ Quality ID: `QA-000010`
 |---|---|
 | [artifact-signing](../../../06_Architecture/Details/artifact-signing/01_Architecture.md) | 署名前検査、署名対象、鍵境界、配置後の検証 |
 | [coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md) | 実行編成、Authority、外部Effect、候補、回収・回復 |
-| [crdd-domain-library](../../../06_Architecture/Details/crdd-domain-library/01_Architecture.md) | launcher、署名済みRelease Manifest、実装正本およびNative Runtime Artifactを同じ配布全体Identityへ結合する境界 |
+| [crdd-domain-library](../../../06_Architecture/Details/domain-model/02_Activity_Context.md) | launcher、署名済みRelease Manifest、実装正本およびNative Runtime Artifactを同じ配布全体Identityへ結合する境界 |
 | [runtime-trust](../../../06_Architecture/Details/runtime-trust/01_Architecture.md) | 準拠、Integrity、Publisher、利用者所有Trust Policy |
 
 ## 2. 評価軸
@@ -85,7 +85,7 @@ Quality ID: `QA-000010`
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | `AIT-IT-015` | 境界 | IT | Terminal／Signing Entry | 固定端末入口→既存署名Command→画面保持 | Direct Boundary | 正常／未知／重複引数、期限／期限なし、TTY／非TTY、正常／失敗Command、EOF／取消 | 非秘密の固定入力でCommandと終了待ちを実行する | 搬送引数、単一UTC、Command呼出し回数、Reader接続順序、終了Code、Listener回収を観測する | 非TTY・不正入力はCommand呼出し0。秘密入力中は補助Readerなし。終了後だけ画面保持し、待機失敗が署名結果を上書きしない | 固定改訂版、非秘密入力、順序、Code、回収判定。秘密・実署名は試験に使用しない | Reader／Listener残存0、自動再試行0 | Automated |
 
-直接の導出元は[Coordinator詳細設計§9](../../../06_Architecture/Details/coordinator/01_Architecture.md#9-署名済み配布物)の配布用端末境界である。[ARCH-000004](../../../06_Architecture/Definitions/ARCH-000004/architecture_definition.md)はCoordinator領域への追跡参照であり、Project Runtimeの状態・Authorityを端末補助へ移すものではない。既存`AIT-IT-008`の秘密Bufferおよび`AIT-IT-009`のSigner結果責務を再定義しない。実Windows端末の表示確認と正式署名は、この非秘密ITの合格から推定しない。
+直接の導出元は[Coordinator詳細設計§9](../../../06_Architecture/Details/coordinator/01_Architecture.md#9-署名済み配布物)の配布用端末境界である。[ARCH-000004](../../../06_Architecture/Definitions/ARCH-000004/architecture_definition.md)はCoordinator領域への追跡参照であり、Orchestratorの状態・Authorityを端末補助へ移すものではない。既存`AIT-IT-008`の秘密Bufferおよび`AIT-IT-009`のSigner結果責務を再定義しない。実Windows端末の表示確認と正式署名は、この非秘密ITの合格から推定しない。
 
 ## Semantic Coverage Pilot
 

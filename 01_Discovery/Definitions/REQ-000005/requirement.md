@@ -12,7 +12,7 @@ Discoveryでの判断: 要求採用
 
 ## 対象と利用状況
 
-Project Runtime、Coordinator、MCP、実行観測、Platform境界を保守・利用する人が、一つの責務変更を行う場面。
+Orchestrator、Coordinator、MCP、実行観測、Platform境界を保守・利用する人が、一つの責務変更を行う場面。
 
 ## 解く問題と望ましい変化
 

@@ -11,7 +11,7 @@ pub(crate) mod host_namespace;
 pub(crate) mod host_record;
 pub(crate) mod protected_file;
 pub(crate) mod protection;
-pub(crate) mod provider_home;
+pub(crate) mod protected_root;
 #[allow(dead_code)]
 pub(crate) mod root_observation;
 pub(crate) mod windows_directory;

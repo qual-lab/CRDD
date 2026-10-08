@@ -13,10 +13,10 @@ import {
   INTERACTIVE_CONSOLE_READER_ORPHAN_FAILSAFE_MS,
   readInteractiveConsoleLineFromStream,
 } from "./interactive-console-reader.ts";
-import { runInteractiveConsoleReaderLifecycle } from "./interactive-console-reader-lifecycle-internal.ts";
-import { spawnRuntimeLocalTypeScriptChild } from "../host-runtime/runtime-local-typescript-child-entrypoints.ts";
-import { poisonRuntimeProcessAfterInteractiveCleanupUnknown } from "../host-runtime/runtime-process-safety-state.ts";
-import { createInteractiveConsoleReaderEnvironment } from "../host-runtime/windows-child-environment.ts";
+import { runInteractiveConsoleReaderLifecycle } from "./interactive-console-reader-lifecycle.ts";
+import { spawnRuntimeLocalTypeScriptChild } from "../host-execution/typescript-child-entrypoints.ts";
+import { poisonRuntimeProcessAfterInteractiveCleanupUnknown } from "../host-execution/process-safety-state.ts";
+import { createInteractiveConsoleReaderEnvironment } from "../host-execution/windows-child-environment.ts";
 
 export { readInteractiveConsoleLineFromStream as readTerminalLineUsingStream };
 

@@ -23,11 +23,11 @@ import {
   inspectDockerDesktopRepairContinuation,
   persistDockerDesktopRepairContinuationIntent,
   persistDockerDesktopRepairContinuationSettlement,
-} from "../../src/docker-desktop/docker-desktop-repair-continuation-store.ts";
+} from "../../src/docker-desktop/repair-continuation-store.ts";
 import type {
   DockerDesktopRepairLedgerSnapshot,
   DockerDesktopRepairOperation,
-} from "../../src/docker-desktop/docker-desktop-repair-record-store.ts";
+} from "../../src/docker-desktop/repair-record-store.ts";
 import {
   classifyCanonicalDockerDesktopRepairHistoricalOperation,
   createDockerDesktopRepairOperation,
@@ -38,7 +38,7 @@ import {
   persistDockerDesktopRepairHistoricalAdoption,
   persistDockerDesktopRepairHistoricalClosure,
   persistDockerDesktopRepairStage,
-} from "../../src/docker-desktop/docker-desktop-repair-record-store.ts";
+} from "../../src/docker-desktop/repair-record-store.ts";
 import {
   adoptWindowsDockerDesktopRepairUsingDependencies,
   awaitDockerDesktopEngineUsing,
@@ -52,7 +52,7 @@ import {
   repairWindowsDockerDesktopRuntimeUsingDependencies,
   validateDockerDesktopRepairHistoricalAdoptionResult,
   validateDockerDesktopRepairHistoricalClosureResult,
-} from "../../src/docker-desktop/docker-desktop-runtime-repair.ts";
+} from "../../src/docker-desktop/repair.ts";
 import {
   assertRuntimeTraceCase,
   assertRuntimeTraceExecutionCoverage,
@@ -1345,10 +1345,7 @@ test("Canonical履歴分類は全modeと非plain・余分field・疎配列・nes
     "invalid",
   );
   const runtimeSource = fs.readFileSync(
-    new URL(
-      "../../src/docker-desktop/docker-desktop-runtime-repair.ts",
-      import.meta.url,
-    ),
+    new URL("../../src/docker-desktop/repair.ts", import.meta.url),
     "utf8",
   );
   assert.equal(runtimeSource.includes("validOpenRepairHistory"), false);

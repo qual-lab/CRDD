@@ -13,7 +13,7 @@ import test from "node:test";
 import {
   type DockerRestartPorts,
   executeDockerRestart,
-} from "../../src/docker-desktop/docker-restart-execution.ts";
+} from "../../src/docker-desktop/restart-execution.ts";
 
 /**
  * restart driver waits for pending stop before cleanup after cancellationを検証する。

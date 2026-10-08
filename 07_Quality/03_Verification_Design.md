@@ -120,7 +120,7 @@ Release／採用判断
 
 ## 8. 現在の未評価範囲
 
-Canonical Quality設計と現行Source／Test／Evidenceの対応は未照合である。過去の検証設計に含まれていた個別Runtime、Tool、署名、Docker、Project Runtime、実行知および推論コンテキストの具体項目は、[現行実装との照合](05_Current_Implementation_Reality_Audit.md)で未照合候補として扱う。既存実装や過去の試験を新しいQuality Contractの根拠へ逆輸入しない。
+Canonical Quality設計と現行Source／Test／Evidenceの対応は未照合である。過去の検証設計に含まれていた個別Runtime、Tool、署名、Docker、Orchestrator、実行知および推論コンテキストの具体項目は、[現行実装との照合](05_Current_Implementation_Reality_Audit.md)で未照合候補として扱う。既存実装や過去の試験を新しいQuality Contractの根拠へ逆輸入しない。
 
 ## 9. 旧参照からの案内
 
@@ -130,9 +130,9 @@ Canonical Quality設計と現行Source／Test／Evidenceの対応は未照合で
 
 - Toolの利用体験と工程引継ぎ: [QA-000013](Definitions/QA-000013/quality_definition.md)
 
-<a id="project-runtime-verification"></a>
+<a id="orchestrator-verification"></a>
 
-- Project Runtime lifecycle: [QA-000003](Definitions/QA-000003/quality_definition.md)
+- Orchestrator lifecycle: [QA-000003](Definitions/QA-000003/quality_definition.md)
 
 <a id="execution-intelligence-verification"></a>
 

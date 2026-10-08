@@ -7,7 +7,7 @@
 import {
   resolveVerifiedRepositoryRoot,
   type VerifiedRepositoryRoot,
-} from "./repository-location.ts";
+} from "./repository/location.ts";
 
 export const FIXED_REVISION_IDENTITY_CONTRACT =
   "crdd-version-control/fixed-revision-identity/v1";
