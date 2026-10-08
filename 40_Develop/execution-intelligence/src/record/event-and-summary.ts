@@ -1,7 +1,7 @@
 /**
- * execution-intelligenceに属する責務をまとめる。
+ * 実行Eventの構成・検査と欠測を保った要約を提供する。
  *
- * @responsibility ExecutionObservationを中心とする実装、型および境界を同じModuleで所有する。
+ * @responsibility Provider非依存のEvent契約、入力検査と観測事実の集約を所有する。
  * @trace ARCH-000007
  */
 import { createHash } from "node:crypto";
@@ -1268,70 +1268,5 @@ export function summarizeExecutionIntelligence(
       (event) => event.execution.usage.costOrCredits.state === "observed",
     ).length,
     missingnessPreserved: true as const,
-  });
-}
-
-/**
- * propose Execution Improvement Candidatesを決定する。
- *
- * @responsibility propose Execution Improvement Candidatesの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000007
- * @input events: readonly unknown[]
- * @returns proposeExecutionImprovementCandidatesの計算結果を返す。
- * @precondition 「events: readonly unknown[]」がproposeExecutionImprovementCandidatesの入力契約を満たす。
- * @postcondition proposeExecutionImprovementCandidatesの責務を完了した結果だけを返す。
- * @effect N/A: proposeExecutionImprovementCandidatesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: proposeExecutionImprovementCandidatesは独自の失敗分岐を所有しない。
- * @invariant proposeExecutionImprovementCandidatesは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: proposeExecutionImprovementCandidatesはProcess内の同一Subsystemで完結する。
- * @security N/A: proposeExecutionImprovementCandidatesはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: proposeExecutionImprovementCandidatesは共有非同期状態を持たない同期処理である。
- */
-export function proposeExecutionImprovementCandidates(
-  events: readonly unknown[],
-) {
-  const inspectedEvents = events.map(inspectExecutionIntelligenceEvent);
-  if (inspectedEvents.some((event) => event === null)) return null;
-  const validEvents = inspectedEvents as ExecutionIntelligenceEvent[];
-  const summary = summarizeExecutionIntelligence(validEvents);
-  if (!summary) return null;
-  const candidates: Array<
-    Readonly<{ kind: string; basis: string; basisEventIds: readonly string[] }>
-  > = [];
-  if (summary.blockedCount + summary.unknownCount > 0)
-    candidates.push(
-      Object.freeze({
-        kind: "investigate_noncompleted_attempts",
-        basis: "blocked_or_unknown_attempt_observed",
-        basisEventIds: Object.freeze(
-          validEvents
-            .filter(
-              (event) =>
-                event.outcome.status === "blocked" ||
-                event.outcome.status === "unknown",
-            )
-            .map((event) => event.eventId),
-        ),
-      }),
-    );
-  if (summary.providerObservationCount < summary.eventCount)
-    candidates.push(
-      Object.freeze({
-        kind: "improve_provider_observation",
-        basis: "provider_identity_not_observed_for_all_attempts",
-        basisEventIds: Object.freeze(
-          validEvents
-            .filter((event) => event.execution.provider.state !== "observed")
-            .map((event) => event.eventId),
-        ),
-      }),
-    );
-  return Object.freeze({
-    contract: "crdd/execution-improvement-candidates/v1" as const,
-    status: "proposal" as const,
-    authorityConferred: false as const,
-    automaticChangeAllowed: false as const,
-    summary,
-    candidates: Object.freeze(candidates),
   });
 }

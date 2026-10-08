@@ -8,9 +8,9 @@
  */
 import {
   inspectExecutionIntelligenceEvent,
-  proposeExecutionImprovementCandidates,
   type ExecutionIntelligenceEvent,
 } from "../record/event-and-summary.ts";
+import { proposeExecutionImprovementCandidates } from "../evaluation/improvement-candidates.ts";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,

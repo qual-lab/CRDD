@@ -383,6 +383,7 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     requiredTags: ["boundary", "effect"],
     exportedModules: [
       "./record/event-and-summary.ts",
+      "./evaluation/improvement-candidates.ts",
       "./record/create-recorder.ts",
       "./projection/execution-records.ts",
       "./projection/temporal-records.ts",

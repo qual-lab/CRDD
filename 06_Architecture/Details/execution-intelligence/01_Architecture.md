@@ -92,6 +92,8 @@ Reader → 検査・相関・Aggregation → Read-only Projection
 
 Writerだけが検証済みRecord PortからStoreへの公開Effectを所有する。ReaderとProjectionは入力Sourceを変更しない。いずれもTask状態、Project状態、実行許可または評価採用を所有しない。
 
+実装配置では`record/event-and-summary.ts`がEventの構成・検査と事実の要約を所有し、`evaluation/improvement-candidates.ts`が同じ検査・要約を利用して非Authorityの改善候補を導出する。`projection/execution-records.ts`は両者を別の結果として返す。Package公開入口は`src/index.ts`に限定し、改善候補の採用や実行は追加しない。
+
 ## 2. Interface Model
 
 本書の`recorded`等は設計上の概念状態であり、公開APIの返却literalではない。公開Writerの成功判定は`ExecutionIntelligencePublicationResult`の`status: "completed"`を使用し、[利用手順](../../../19_Workflows/03_Execution_Intelligence.md#runtime-adapterからの利用)に従ってEffectと回収結果も確認する。

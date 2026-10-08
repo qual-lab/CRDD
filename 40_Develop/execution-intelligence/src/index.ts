@@ -17,7 +17,6 @@ export {
   notApplicable,
   notObserved,
   observed,
-  proposeExecutionImprovementCandidates,
   summarizeExecutionIntelligence,
   type ExecutionIntelligenceEvent,
   type TaskAttemptExecutionIntelligenceEvent,
@@ -30,6 +29,7 @@ export {
   type TaskAttemptSettledEventInput,
   usageNotObserved,
 } from "./record/event-and-summary.ts";
+export { proposeExecutionImprovementCandidates } from "./evaluation/improvement-candidates.ts";
 
 export {
   createExecutionIntelligenceRecorder,
