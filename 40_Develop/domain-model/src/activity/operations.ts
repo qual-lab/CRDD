@@ -1,5 +1,5 @@
 /**
- * Topic／Meetingの共通Application契約。
+ * Topic／Meetingの検索・更新操作。
  *
  * @packageDocumentation
  * @responsibility 一覧のCursor PaginationとCRUD Commandを、MCP／Workbenchに依存しない形で提供する。

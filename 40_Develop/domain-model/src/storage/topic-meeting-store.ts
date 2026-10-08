@@ -26,7 +26,7 @@ import type {
   ProjectOperationRecord,
   TopicMeetingWriteResult,
   TopicMeetingRepository,
-} from "./types.ts";
+} from "../activity/types.ts";
 import path from "node:path";
 
 import { parseTopicMarkdown } from "../topic/markdown.ts";

@@ -53,9 +53,10 @@
 │     ├ outcome.ts                 Capability横断の中立な処理結果契約
 │     ├ artifact/                  Artifact解析・Schema・Relation Graph
 │     ├ plain-data/                Record／Array入力の検査・浅い所有Snapshot
+│     ├ activity/                  Topic／Meeting共通操作と契約型（operations.ts／types.ts）
 │     ├ storage/                   用途限定Store Root、排他・短命保存
 │     ├ configuration/             Manifest・設定の検証と読取り
-│     ├ project-context/           正本の構造化投影とContext固有候補判断
+│     ├ project-context/           正本の読取り投影と候補判断（source-projection.ts／candidate-decision.ts）
 │     ├ topic/                     Topic状態・CRUD・昇格
 │     ├ meeting/                   Meeting記録・Outcome処置・CRUD
 │     ├ quality-change-control/    品質・変更の中立な意味判定

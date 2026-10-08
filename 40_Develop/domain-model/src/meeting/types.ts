@@ -95,8 +95,8 @@ export type MeetingRecord = Readonly<{
  * @compatibility 既存CRUD結果と改訂競合・削除確認を保持する。
  */
 export type MeetingOperations =
-  import("../storage/types.ts").ScopedTopicMeetingOperations &
+  import("../activity/types.ts").ScopedTopicMeetingOperations &
     Pick<
-      import("../storage/types.ts").TopicMeetingOperations,
+      import("../activity/types.ts").TopicMeetingOperations,
       "treatMeetingOutcome"
     >;

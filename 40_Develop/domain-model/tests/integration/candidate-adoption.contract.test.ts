@@ -12,7 +12,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { applyProjectOperationCandidateDecision } from "../../src/project-context/source-projection.ts";
+import { applyProjectOperationCandidateDecision } from "../../src/project-context/candidate-decision.ts";
 import type {
   ProjectOperationCandidate,
   ProjectOperationCandidateDecision,

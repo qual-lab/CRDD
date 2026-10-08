@@ -37,11 +37,13 @@ export type {
   TopicMeetingRepository,
   TopicMeetingListResult,
   TopicPromotionCommandResult,
+  MeetingOutcomeCommandResult,
+  MeetingOutcomeTarget,
+} from "./activity/types.ts";
+export type {
   TemporaryEvidencePromotionReceipt,
   TemporaryOperationCapability,
   TemporaryOperationRecoveryReference,
-  MeetingOutcomeCommandResult,
-  MeetingOutcomeTarget,
 } from "./storage/types.ts";
 export {
   snapshotPlainArray,
@@ -173,10 +175,8 @@ export {
   type RealitySymbolDiscoverySource,
   discoverRealitySymbols,
 } from "./reality-traceability/discover.ts";
-export {
-  applyProjectOperationCandidateDecision,
-  projectProjectOperationSources,
-} from "./project-context/source-projection.ts";
+export { applyProjectOperationCandidateDecision } from "./project-context/candidate-decision.ts";
+export { projectProjectOperationSources } from "./project-context/source-projection.ts";
 export { parseRepositoryProjectContextMarkdown } from "./project-context/parse-context.ts";
 export { parseRepositoryReleaseProjectionMarkdown } from "./project-context/parse-release.ts";
 export { parseRepositoryQualityProjectionMarkdown } from "./project-context/parse-quality.ts";

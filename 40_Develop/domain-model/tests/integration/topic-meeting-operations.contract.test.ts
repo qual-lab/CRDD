@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { createTopicMeetingOperations } from "../../src/storage/topic-meeting-operations.ts";
+import { createTopicMeetingOperations } from "../../src/activity/operations.ts";
 import { createTopicMeetingRepository } from "../../src/storage/topic-meeting-store.ts";
 import { createTopicOperations } from "../../src/topic/create-operations.ts";
 import { createMeetingOperations } from "../../src/meeting/create-operations.ts";

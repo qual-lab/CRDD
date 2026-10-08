@@ -273,8 +273,9 @@
     {
       "symbolId": "project-operation.domain.candidate-lifecycle",
       "kind": "file",
-      "path": "src/project-context/source-projection.ts",
+      "path": "src/project-context/candidate-decision.ts",
       "archIds": [
+        "ARCH-000006",
         "ARCH-000016"
       ]
     },
@@ -447,7 +448,7 @@
     {
       "symbolId": "project-operation.application.topic-meeting",
       "kind": "file",
-      "path": "src/storage/topic-meeting-operations.ts",
+      "path": "src/activity/operations.ts",
       "archIds": [
         "ARCH-000006"
       ]
@@ -486,9 +487,17 @@
     {
       "symbolId": "domain-model.activity-operation-types",
       "kind": "file",
-      "path": "src/storage/types.ts",
+      "path": "src/activity/types.ts",
       "archIds": [
         "ARCH-000006"
+      ]
+    },
+    {
+      "symbolId": "domain-model.temporary-operation-types",
+      "kind": "file",
+      "path": "src/storage/types.ts",
+      "archIds": [
+        "ARCH-000011"
       ]
     },
     {

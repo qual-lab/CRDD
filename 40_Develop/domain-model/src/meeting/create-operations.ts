@@ -4,10 +4,10 @@
  * @responsibility 共通CRUD実体へ固定種別で接続し、Meeting Outcome処置だけを専用操作として公開する。
  * @trace ARCH-000006
  */
-import { createTopicMeetingOperations } from "../storage/topic-meeting-operations.ts";
+import { createTopicMeetingOperations } from "../activity/operations.ts";
 import { createTopicMeetingRepository } from "../storage/topic-meeting-store.ts";
 import type { MeetingOperations } from "./types.ts";
-import type { TopicMeetingRepository } from "../storage/types.ts";
+import type { TopicMeetingRepository } from "../activity/types.ts";
 
 /**
  * 同じRepositoryに対するMeeting専用の操作集合を生成する。

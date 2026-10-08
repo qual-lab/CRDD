@@ -126,7 +126,7 @@ Packageの限定完了は未検証の全体をPassと表示しない。既知の
 | 順序 | 現在の処置 | 次の確認 |
 |---|---|---|
 | 1 Version Control | 除外設定更新を既存`git/local-ignore-adapter.ts`へ移し、Layoutは観測・共通再検証へ限定した。公開API、128KiB上限、関数本体、結果型、Lock・更新順序を維持。限定独立レビュー指摘0 | この限定移管は確認済み。worktree方式変更・採用境界の設計変更は未採用で、別途比較する |
-| 2 Domain Model | Topic／Meeting検索・更新が`storage/topic-meeting-operations.ts`にあり、`storage/types.ts`には活動契約と一時Operation契約が混在。`project-context/source-projection.ts`は読取り投影と候補採否を所有している | 活動操作・一時保存・投影・候補判断のOwnerを詳細設計と照合し、型の利用側を列挙してから移管する。共通CRUDをTopic／Meetingへ重複実装しない |
+| 2 Domain Model | 共通活動操作・型を`activity/operations.ts`／`activity/types.ts`へ移管。一時保存型は`storage/types.ts`へ限定し、投影と候補判断を同じContext領域の別Fileへ分離。限定独立レビュー指摘0 | 本体・型・公開集合一致、Package回帰106件とCROS／MCP／Workbench型接続を確認。全体Checkerの未変更Coordinator指摘は別残件として保持する |
 | 3 Execution Intelligence | `record/event-and-summary.ts`の末尾に改善候補の提案があり、事実記録・要約との責務差を確認した | 提案判断を評価Ownerへ分離し、同じEvent検査・Summaryを利用する。事実・提案・Authority非付与の既存値を維持する |
 | 4 AI Adapter | Profile・Provider計画・結果変換の配置を確認。公式CLIのDockerfile／seccomp参照は現行CoordinatorのRuntime配置へ結合している | Provider差の残存と利用側を全数照合。隔離資産の移管は後半のDocker Owner確定まで先行させず、旧契約値を単なる名前整理で変更しない |
 | 5 Platform Access | Protocol、Filesystem保護、Process、Docker Desktopの責務集合を確認。WindowsのIdentity／権限観測を提供している | 実呼出し・必要保証・Node代替可否を対応付ける。Docker Desktop部品の撤去とNative廃止を既定にせず、後半実行系に依存する判断は明示して残す |
@@ -139,6 +139,15 @@ Packageの限定完了は未検証の全体をPassと表示しない。既知の
 - 着手前の独立確認と変更後の限定独立レビューを実施。指摘0。既存両Fileと試験SuiteのSymbol登録は変更不要。
 - 実Git試験の一時RootはRepository内`.crdd/tests/stage2-version-control`へ限定。Docker／Provider依頼、認証領域変更、署名・Release操作は行っていない。
 - これは除外更新Owner移管の成立根拠であり、第二段階全体の完了・新方式Candidate採用・署名配布の成立根拠ではない。
+
+### Domain Modelの限定確認
+
+- 活動操作の実体は一つのまま保持。Topic／Meetingの種別固定操作、保存実装、Cursor、改訂競合、削除確認、昇格・Outcome処置は変更していない。
+- 読取り投影は`project-context/source-projection.ts`、候補採否判断は`project-context/candidate-decision.ts`が所有する。判断条件・結果値・保存形式は不変。新しい公開Symbolや中継層は追加していない。
+- 基準版と変更後のPackage回帰は各106件全件Pass、Skip／Failとも0。Formatter、型検査、Lint、CROS／MCP Server／Workbench Serverの型検査はPass。
+- 移管した関数本文、活動型・一時保存三型、Rootの公開Symbol集合を基準Commitと機械比較し一致した。直接参照、Symbol登録、Architectureの配置、Checkerの公開Path集合を追従した。
+- 着手前整合確認と変更後の限定独立レビューを実施し、指摘0。全体Checkerの公開入口検査はPassだが、未変更CoordinatorのNative試験Header・型分類・Test Symbol登録で二つの検査が失敗した。全体Passとは扱わず、後半の実行系整理へ残す。
+- Docker、外部Provider、署名・配布、保存Lifecycleの変更は対象外。候補判断関数の移動を正本Effectの実行検証とは扱わない。
 
 Related:
 - [現行の責務対応と第一段階結果](Evidence/261007_develop-responsibility-mapping.md)

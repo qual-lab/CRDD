@@ -70,5 +70,5 @@ export type TopicRecord = Readonly<{
  * @compatibility 既存CRUD結果と改訂競合・削除確認を保持する。
  */
 export type TopicOperations =
-  import("../storage/types.ts").ScopedTopicMeetingOperations &
-    Pick<import("../storage/types.ts").TopicMeetingOperations, "promoteTopic">;
+  import("../activity/types.ts").ScopedTopicMeetingOperations &
+    Pick<import("../activity/types.ts").TopicMeetingOperations, "promoteTopic">;
