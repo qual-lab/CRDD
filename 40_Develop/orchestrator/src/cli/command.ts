@@ -5,7 +5,7 @@
  * @trace ARCH-000004
  */
 import { createHash } from "node:crypto";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/repository/location.ts";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import { runOrchestratorPublicObjective } from "../index.ts";
 import { initializeOrchestratorSnapshot } from "../storage/current-state.ts";
 import {

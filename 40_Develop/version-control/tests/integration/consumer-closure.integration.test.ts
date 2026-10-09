@@ -54,35 +54,138 @@ function publicExportNames(source: string): readonly string[] {
  * @boundary N/A: 同一Process内のSource検査である。
  */
 function importedVersionControlNames(source: string): readonly string[] {
-  assert.doesNotMatch(
-    source,
-    /(?:import\s*\(\s*|import\s+)["'][^"']*version-control\/src\/index\.ts["']/u,
-    "Version Control Root requires a static Named import",
-  );
-  for (const declaration of source.matchAll(
-    /(?:^|\n)\s*(import|export)\s+([^;]*?)\s+from\s+["'][^"']*version-control\/src\/index\.ts["']/gu,
-  )) {
-    assert.equal(
-      declaration[1],
-      "import",
-      "Version Control Root re-export bypass is forbidden",
-    );
-    assert.match(
-      declaration[2] ?? "",
-      /^(?:type\s+)?\{[^{}]*\}$/u,
-      "Version Control Root requires a static Named import",
-    );
+  // 宣言とliteralだけを照合する。計算されたspecifierの解決は対象外。
+  const tokens: string[] = [];
+  const modes: (
+    | { kind: "code"; depth: number }
+    | { kind: "template"; tokenIndex: number }
+  )[] = [{ kind: "code", depth: -1 }];
+  const codeToken =
+    /\s+|\/\*[\s\S]*?\*\/|\/\/[^\r\n]*|"(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'|[A-Za-z_$][\w$]*|[\s\S]/uy;
+  for (let cursor = 0; cursor < source.length; ) {
+    const mode = modes.at(-1);
+    assert.ok(mode);
+    const character = source.charAt(cursor);
+    if (mode.kind === "template") {
+      if (character === "\\") {
+        tokens[mode.tokenIndex] += source.slice(cursor, cursor + 2);
+        cursor += 2;
+      } else if (character === "`") {
+        tokens[mode.tokenIndex] += "`";
+        modes.pop();
+        cursor += 1;
+      } else if (source.startsWith("${", cursor)) {
+        // biome-ignore lint/suspicious/noTemplateCurlyInString: テンプレート構文を解析対象の文字列として保持する。
+        tokens[mode.tokenIndex] += "${}";
+        modes.push({ kind: "code", depth: 0 });
+        cursor += 2;
+      } else {
+        tokens[mode.tokenIndex] += character;
+        cursor += 1;
+      }
+      continue;
+    }
+    if (character === "`") {
+      modes.push({ kind: "template", tokenIndex: tokens.length });
+      tokens.push("`");
+      cursor += 1;
+      continue;
+    }
+    // 正規表現本文のbacktick・波括弧をテンプレート構文へ読み替えない。
+    if (
+      character === "/" &&
+      !source.startsWith("//", cursor) &&
+      !source.startsWith("/*", cursor) &&
+      [
+        undefined,
+        "=",
+        "(",
+        "[",
+        ",",
+        ":",
+        "return",
+        "=>",
+        "!",
+        "&&",
+        "||",
+      ].includes(tokens.at(-1))
+    ) {
+      const literal = source
+        .slice(cursor)
+        .match(
+          /^\/(?:\\[^\r\n]|\[(?:\\[^\r\n]|[^\]\\\r\n])*\]|[^/\\[\r\n])+\/[a-z]*/u,
+        )?.[0];
+      if (literal) {
+        tokens.push(literal);
+        cursor += literal.length;
+        continue;
+      }
+    }
+    codeToken.lastIndex = cursor;
+    const match = codeToken.exec(source);
+    assert.ok(match);
+    const token = match[0];
+    cursor = codeToken.lastIndex;
+    if (/^\s/u.test(token) || token.startsWith("/*") || token.startsWith("//"))
+      continue;
+    if (mode.depth >= 0) {
+      if (token === "}" && mode.depth === 0) {
+        modes.pop();
+        continue;
+      }
+      if (token === "{") mode.depth += 1;
+      if (token === "}") mode.depth -= 1;
+    }
+    tokens.push(token);
   }
+  assert.equal(modes.length, 1, "Source template expression must be closed");
   const names: string[] = [];
-  for (const block of source.matchAll(
-    /import\s+(?:type\s+)?\{([^{}]*?)\}\s+from\s+["'][^"']*version-control\/src\/index\.ts["']/gu,
-  )) {
-    for (const raw of block[1]?.split(",") ?? []) {
-      const name = raw
-        .trim()
-        .replace(/^type\s+/u, "")
-        .split(/\s+as\s+/u)[0];
-      if (name) names.push(name);
+  for (let index = 0; index < tokens.length; index += 1) {
+    const kind = tokens[index];
+    if (kind !== "import" && kind !== "export") continue;
+    if (tokens[index - 1] === ".") continue;
+    const next = tokens[index + 1] ?? "";
+    if (next === "(" || /^["'`]/u.test(next)) {
+      const literal = next === "(" ? (tokens[index + 2] ?? "") : next;
+      assert.ok(
+        !literal.includes("version-control/src/"),
+        "Version Control Root requires a static Named import",
+      );
+      continue;
+    }
+    if (kind === "export" && !["{", "*", "type"].includes(next)) continue;
+    for (let cursor = index + 1; cursor < tokens.length; cursor += 1) {
+      const token = tokens[cursor];
+      if (token === ";" || token === "import" || token === "export") break;
+      if (token !== "from") continue;
+      const literal = tokens[cursor + 1] ?? "";
+      if (!/^["']/u.test(literal)) break;
+      const specifier = literal.slice(1, -1);
+      if (!specifier.includes("version-control/src/")) break;
+      assert.ok(
+        specifier.endsWith("version-control/src/index.ts"),
+        "Version Control Root is the only Package entrypoint",
+      );
+      assert.equal(
+        kind,
+        "import",
+        "Version Control Root re-export bypass is forbidden",
+      );
+      const clause = tokens.slice(index + 1, cursor).join(" ");
+      assert.match(
+        clause,
+        /^(?:type\s+)?\{[^{}]*\}$/u,
+        "Version Control Root requires a static Named import",
+      );
+      const bindings = clause.replace(/^type\s+/u, "").slice(1, -1);
+      for (const raw of bindings.split(",")) {
+        const name = raw
+          .trim()
+          .replace(/^type\s+/u, "")
+          .split(/\s+as\s+/u)[0];
+        if (name) names.push(name);
+      }
+      break;
     }
   }
   return [...new Set(names)].sort();
@@ -112,6 +215,31 @@ test("用途別Consumer抽出はNamed importを保持しRoot迂回を拒否す�
       "verifyRepositoryRoot",
     ],
   );
+  assert.deepEqual(
+    importedVersionControlNames(
+      `const before = 1; import/*comment*/ type { VerifiedRepositoryRoot } from/*comment*/ "${root}";`,
+    ),
+    ["VerifiedRepositoryRoot"],
+  );
+  assert.deepEqual(
+    importedVersionControlNames(
+      `// import { x } from "${root}";\nconst text = 'import { x } from "${root}"';`,
+    ),
+    [],
+  );
+  for (const source of [
+    "const pattern = /[`{}]/u; const quotient = value / divisor;",
+    'const text = `import("../../../version-control/src/repository/location.ts")`;',
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: テンプレート構文を解析対象の文字列として保持する。
+    'const text = `\\${import("../../../version-control/src/repository/location.ts")}`;',
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: テンプレート構文を解析対象の文字列として保持する。
+    "const text = `${'import(\"../../../version-control/src/repository/location.ts\")'}`;",
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: テンプレート構文を解析対象の文字列として保持する。
+    'const text = `${/* import("../../../version-control/src/repository/location.ts") */ 1}`;',
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: テンプレート構文を解析対象の文字列として保持する。
+    "const text = `${({ value: `plain ${1}` }).value}`;",
+  ])
+    assert.deepEqual(importedVersionControlNames(source), []);
   for (const source of [
     `import * as versionControl from "${root}";`,
     `import versionControl from "${root}";`,
@@ -121,6 +249,21 @@ test("用途別Consumer抽出はNamed importを保持しRoot迂回を拒否す�
     `export { verifyRepositoryRoot } from "${root}";`,
     `export * from "${root}";`,
     `export * as versionControl from "${root}";`,
+    'import { verifyRepositoryRoot } from "../../../version-control/src/repository/location.ts";',
+    'import type { VerifiedRepositoryRoot } from "../../../version-control/src/repository/location.ts";',
+    'import { verifyRepositoryRoot as verify } from "../../../version-control/src/repository/location.ts";',
+    'const versionControl = await import("../../../version-control/src/repository/location.ts");',
+    'export { verifyRepositoryRoot } from "../../../version-control/src/repository/location.ts";',
+    'const before = 1; import { verifyRepositoryRoot } from "../../../version-control/src/repository/location.ts";',
+    'import/*comment*/ { verifyRepositoryRoot } from "../../../version-control/src/repository/location.ts";',
+    'import { verifyRepositoryRoot } from/*comment*/ "../../../version-control/src/repository/location.ts";',
+    "const value = import(`../../../version-control/src/repository/location.ts`);",
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: テンプレート構文を解析対象の文字列として保持する。
+    'const value = `${await import("../../../version-control/src/repository/location.ts")}`;',
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: テンプレート構文を解析対象の文字列として保持する。
+    'const value = `${`nested ${await import("../../../version-control/src/repository/location.ts")}`}`;',
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: テンプレート構文を解析対象の文字列として保持する。
+    'const value = `${({ value: await import("../../../version-control/src/repository/location.ts") }).value}`;',
   ]) {
     assert.throws(
       () => importedVersionControlNames(source),
@@ -209,10 +352,8 @@ test("Repository Locationの旧Ownerと重複した能力発行入口を残さ�
  */
 test("保護対象Runtimeは正式公開契約を使いGit内部実装へ直接依存しない", () => {
   const protectedRoots = [
-    path.join(developRoot, "coordinator", "src"),
-    path.join(developRoot, "coordinator", "scripts"),
-    path.join(developRoot, "domain-model", "src"),
-    path.join(developRoot, "execution-intelligence", "src"),
+    developRoot,
+    path.join(repositoryRoot, "template", "tools"),
   ];
   const sources = protectedRoots
     .flatMap((root) => productionSources(root))
@@ -229,6 +370,7 @@ test("保護対象Runtimeは正式公開契約を使いGit内部実装へ直接�
       `${relativePath}: retired public intermediary`,
     );
     if (!relativePath.startsWith("40_Develop/version-control/")) {
+      importedVersionControlNames(source);
       assert.equal(
         /version-control\/src\/git\/(?:commit-tree|layout)\.ts/u.test(source),
         false,
@@ -236,6 +378,45 @@ test("保護対象Runtimeは正式公開契約を使いGit内部実装へ直接�
       );
     }
   }
+  const childConsumer = fs.readFileSync(
+    path.join(
+      developRoot,
+      "coordinator/tests/integration/coordinator-state-runtime.contract.test.ts",
+    ),
+    "utf8",
+  );
+  assert.doesNotMatch(
+    childConsumer,
+    /version-control\/src\/repository\/location\.ts/u,
+  );
+  assert.equal(
+    [
+      ...childConsumer.matchAll(
+        /new URL\("\.\.\/\.\.\/\.\.\/version-control\/src\/index\.ts", import\.meta\.url\)/gu,
+      ),
+    ].length,
+    6,
+    "fresh child Process uses the public Root in all six scenarios",
+  );
+  const mockConsumer = fs.readFileSync(
+    path.join(
+      developRoot,
+      "orchestrator/tests/integration/docker-recovery-settlement.contract.test.ts",
+    ),
+    "utf8",
+  );
+  assert.doesNotMatch(
+    mockConsumer,
+    /version-control\/src\/repository\/location\.ts/u,
+  );
+  assert.match(
+    mockConsumer,
+    /t\.mock\.module\("\.\.\/\.\.\/\.\.\/version-control\/src\/index\.ts"/u,
+  );
+  assert.match(
+    mockConsumer,
+    /await import\("\.\.\/\.\.\/\.\.\/version-control\/src\/index\.ts"\)/u,
+  );
 });
 
 /**
@@ -623,6 +804,47 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
   assert.deepEqual(
     repositoryIdentityConsumers,
     [
+      "40_Develop/coordinator/scripts/check-platform-access-coverage.ts",
+      "40_Develop/coordinator/scripts/measure-development-providers.ts",
+      "40_Develop/coordinator/scripts/prepare-codex-advice-image.ts",
+      "40_Develop/coordinator/scripts/prepare-release-candidate.ts",
+      "40_Develop/coordinator/scripts/prepare-release-runtime.ts",
+      "40_Develop/coordinator/scripts/promote-release-manifest.ts",
+      "40_Develop/coordinator/scripts/sign-release-manifest.ts",
+      "40_Develop/coordinator/scripts/verification-result-record.ts",
+      "40_Develop/coordinator/scripts/verify-native-protection.ts",
+      "40_Develop/coordinator/scripts/verify-native-terminal-fixtures.ts",
+      "40_Develop/coordinator/scripts/verify-native-terminal-namespace.ts",
+      "40_Develop/coordinator/scripts/verify-orchestrator-real-providers.ts",
+      "40_Develop/coordinator/scripts/verify-signed-general-task.ts",
+      "40_Develop/coordinator/scripts/verify-signed-reviewer-boundary.ts",
+      "40_Develop/coordinator/scripts/verify-signed-route-matrix.ts",
+      "40_Develop/coordinator/src/cli/command.ts",
+      "40_Develop/coordinator/src/diagnostics/doctor.ts",
+      "40_Develop/coordinator/src/external-send/policy.ts",
+      "40_Develop/coordinator/src/host-execution/terminal-caller-checkpoint.ts",
+      "40_Develop/coordinator/src/host-execution/terminal-caller-lease.ts",
+      "40_Develop/coordinator/src/platform-access/release-identity.ts",
+      "40_Develop/coordinator/src/repository-operation/binding.ts",
+      "40_Develop/coordinator/src/repository-operation/workspace.ts",
+      "40_Develop/coordinator/src/state-storage/settlement-store.ts",
+      "40_Develop/coordinator/src/workbench-ai/advice-execution.ts",
+      "40_Develop/coordinator/src/workbench-ai/candidate-actions.ts",
+      "40_Develop/coordinator/src/workbench-ai/change-candidate-executor.ts",
+      "40_Develop/coordinator/src/workbench-ai/repository-composition.ts",
+      "40_Develop/execution-intelligence/src/store/events.ts",
+      "40_Develop/orchestrator/src/candidate/integration-adapter.ts",
+      "40_Develop/orchestrator/src/cli/command.ts",
+      "40_Develop/orchestrator/src/operation-composition.ts",
+      "40_Develop/orchestrator/src/platform/windows-adapter.ts",
+      "40_Develop/orchestrator/src/storage/current-state.ts",
+      "40_Develop/orchestrator/src/storage/history.ts",
+      "40_Develop/orchestrator/src/task/settle-docker-recovery.ts",
+      "40_Develop/visual-preview/src/server.ts",
+      "40_Develop/workbench-server/bin/workbench-server.ts",
+      "40_Develop/workbench-server/src/activity/observe.ts",
+      "40_Develop/workbench-server/src/server.ts",
+      "template/tools/crdd-mcp-server.ts",
       "40_Develop/checker/src/reality/test-catalog.ts",
       "40_Develop/checker/src/reality/symbol-traceability.ts",
       "40_Develop/checker/src/profiles/current.ts",

@@ -18,9 +18,9 @@ import {
   type TaskAttemptExecutionIntelligenceEvent,
 } from "../../../execution-intelligence/src/index.ts";
 import { inspectOrchestratorStateQueryResult } from "../../../orchestrator/src/index.ts";
-import { observeChangePublicationTarget } from "../../../version-control/src/change-publication.ts";
-import { gitChangePublicationTargetObservationAdapter } from "../../../version-control/src/git/change-publication-adapter.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/repository/location.ts";
+import { observeChangePublicationTarget } from "../../../version-control/src/index.ts";
+import { gitChangePublicationTargetObservationAdapter } from "../../../version-control/src/index.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 
 /**
  * Workbenchが表示するOrchestrator現在投影の値契約。

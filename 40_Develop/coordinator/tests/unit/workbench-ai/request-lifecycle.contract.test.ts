@@ -24,7 +24,7 @@ import { createRepositoryWorkbenchAiRequests } from "../../../src/workbench-ai/r
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,
-} from "../../../../version-control/src/repository/location.ts";
+} from "../../../../version-control/src/index.ts";
 import {
   describeWorkbenchAiAdviceResultContract,
   normalizeWorkbenchAiAdviceResult,

@@ -16,11 +16,11 @@ import {
   type AiProfileCatalogStore,
   type AiProfileCatalogSnapshot,
 } from "../../../ai-adapter/src/index.ts";
-import { gitRepositoryRevisionAdapter } from "../../../version-control/src/git/revision-adapter.ts";
+import { gitRepositoryRevisionAdapter } from "../../../version-control/src/index.ts";
 import {
   resolveVerifiedRepositoryRoot,
   type VerifiedRepositoryRoot,
-} from "../../../version-control/src/repository/location.ts";
+} from "../../../version-control/src/index.ts";
 import type {
   CoordinatorAiRequestExecutor,
   CoordinatorAiRequestResult,

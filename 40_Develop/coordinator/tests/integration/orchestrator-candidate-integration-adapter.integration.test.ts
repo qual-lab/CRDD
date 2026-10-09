@@ -20,7 +20,7 @@ import test from "node:test";
 import { createCandidateBundleStoreTestingAdapter } from "../../src/candidate/bundle-store.ts";
 import { createRuntimeOwnedProjectCandidateIntegrationAdapter } from "../../../orchestrator/src/candidate/integration-adapter.ts";
 import { createOrchestratorState } from "../../../orchestrator/src/index.ts";
-import { gitFixedSnapshotAdapter } from "../../../version-control/src/git/fixed-snapshot-adapter.ts";
+import { gitFixedSnapshotAdapter } from "../../../version-control/src/index.ts";
 
 /**
  * 実候補の完全なIdentity照合、改変拒否と明示採用を検証する。

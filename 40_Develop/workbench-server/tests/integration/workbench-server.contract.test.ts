@@ -69,7 +69,7 @@ import {
   createCrosProjectContextMcpResolver,
   startMcpAuthenticatedStreamableHttp,
 } from "../../../mcp-server/src/index.ts";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/repository/location.ts";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import {
   readWorkbenchProjectSurface,
   createRepositoryWorkbenchActivityReader,

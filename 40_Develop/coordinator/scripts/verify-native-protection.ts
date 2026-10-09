@@ -18,7 +18,7 @@ import { fileURLToPath } from "node:url";
 import {
   verifyRepositoryRoot,
   resolveVerifiedRepositoryRoot,
-} from "../../version-control/src/repository/location.ts";
+} from "../../version-control/src/index.ts";
 
 /**
  * 試験境界のDirectory Identityを観測する。

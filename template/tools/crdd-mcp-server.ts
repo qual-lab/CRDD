@@ -21,7 +21,7 @@ import path from "node:path";
 import { createTopicOperations } from "../../40_Develop/domain-model/src/index.ts";
 import { createMeetingOperations } from "../../40_Develop/domain-model/src/index.ts";
 import { parseRepositoryProjectContextMarkdown } from "../../40_Develop/domain-model/src/index.ts";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../40_Develop/version-control/src/repository/location.ts";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../40_Develop/version-control/src/index.ts";
 import {
   observeRuntimeOwnedProjectClientPrincipal,
   runOrchestratorPublicDecision,

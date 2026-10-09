@@ -16,7 +16,7 @@ import test from "node:test";
 import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/index.ts";
 import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/index.ts";
 import * as projectStorage from "../../../orchestrator/src/index.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/repository/location.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import * as dockerController from "../../src/docker-execution/process-controller.ts";
 import { prepareRuntimeOwnedRepositoryDockerOperationIdentity } from "../../src/docker-execution/recovery-lifecycle.ts";
 import * as stateKernelLocks from "../../src/host-execution/kernel-lock.ts";
@@ -209,7 +209,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         "--experimental-strip-types",
         "-e",
         `(async () => {
-     const { verifyRepositoryRoot } = await import(${JSON.stringify(new URL("../../../version-control/src/repository/location.ts", import.meta.url).href)});
+     const { verifyRepositoryRoot } = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
      const { readRuntimeOwnedCoordinatorRecoverySnapshot } = await import(${JSON.stringify(new URL("../../src/state-storage/settlement-store.ts", import.meta.url).href)});
      const root = verifyRepositoryRoot(process.argv[1]);
      const result = readRuntimeOwnedCoordinatorRecoverySnapshot(root.capability);
@@ -1982,7 +1982,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         "--experimental-strip-types",
         "-e",
         `(async () => {
-          const { verifyRepositoryRoot } = await import(${JSON.stringify(new URL("../../../version-control/src/repository/location.ts", import.meta.url).href)});
+          const { verifyRepositoryRoot } = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
           const { readRuntimeOwnedCoordinatorRecoveryResult } = await import(${JSON.stringify(new URL("../../src/state-storage/settlement-store.ts", import.meta.url).href)});
           const root = verifyRepositoryRoot(process.argv[1]);
           process.stdout.write(JSON.stringify(readRuntimeOwnedCoordinatorRecoveryResult(root.capability, process.argv[2])));
@@ -2325,7 +2325,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       [
         "--experimental-strip-types",
         "-e",
-        `(async () => { const { verifyRepositoryRoot } = await import(${JSON.stringify(new URL("../../../version-control/src/repository/location.ts", import.meta.url).href)});
+        `(async () => { const { verifyRepositoryRoot } = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
      const runtime = await import(${JSON.stringify(new URL("../../src/state-storage/settlement-store.ts", import.meta.url).href)});
      const root = verifyRepositoryRoot(process.argv[1]);
      const context = runtime.prepareRuntimeOwnedCoordinatorRecoveredSettlement(root.capability, process.argv[2], () => null);
@@ -2410,7 +2410,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
           "--experimental-strip-types",
           "-e",
           `(async () => {
-        const { verifyRepositoryRoot } = await import(${JSON.stringify(new URL("../../../version-control/src/repository/location.ts", import.meta.url).href)});
+        const { verifyRepositoryRoot } = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
         const runtime = await import(${JSON.stringify(new URL("../../src/state-storage/settlement-store.ts", import.meta.url).href)});
         const root = verifyRepositoryRoot(process.argv[1]);
         const ack = JSON.parse(process.argv[3]);
@@ -2485,7 +2485,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     assert.equal(observeAbsent(() => logicalAcceptance).status, "blocked");
     fs.writeFileSync(stateFile, removed);
     const absentScript = `(async () => {
-      const { verifyRepositoryRoot } = await import(${JSON.stringify(new URL("../../../version-control/src/repository/location.ts", import.meta.url).href)});
+      const { verifyRepositoryRoot } = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
       const runtime = await import(${JSON.stringify(new URL("../../src/state-storage/settlement-store.ts", import.meta.url).href)});
       const root = verifyRepositoryRoot(process.argv[1]);
       const ack = JSON.parse(process.argv[3]);
@@ -2626,7 +2626,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     assert.deepEqual(fs.readFileSync(stateFile), before);
     fs.writeFileSync(pendingFile, pendingAck);
     const pendingReentryScript = `(async () => {
-      const { verifyRepositoryRoot } = await import(${JSON.stringify(new URL("../../../version-control/src/repository/location.ts", import.meta.url).href)});
+      const { verifyRepositoryRoot } = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
       const runtime = await import(${JSON.stringify(new URL("../../src/state-storage/settlement-store.ts", import.meta.url).href)});
       const root = verifyRepositoryRoot(process.argv[1]);
       const ack = JSON.parse(process.argv[3]);
@@ -4287,7 +4287,7 @@ test("上位受理Readerは保存済みの同じAttemptだけを返す", async (
   let observation: unknown = { status: "completed", value: state };
   let shouldThrow = false;
   const calls: unknown[][] = [];
-  t.mock.module("../../../orchestrator/src/storage/index.ts", {
+  t.mock.module("../../../orchestrator/src/storage/current-state.ts", {
     namedExports: {
       ...projectStorage,
       readCurrentOrchestratorState: (...args: unknown[]) => {
@@ -4298,7 +4298,7 @@ test("上位受理Readerは保存済みの同じAttemptだけを返す", async (
     },
   });
   const moduleUrl = new URL(
-    "../../../orchestrator/src/task/docker-recovery-settlement.ts?acceptance-reader-contract",
+    "../../../orchestrator/src/task/settle-docker-recovery.ts?acceptance-reader-contract",
     import.meta.url,
   ).href;
   const { createProjectResultAcceptanceReader } = (await import(

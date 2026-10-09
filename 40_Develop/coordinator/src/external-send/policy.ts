@@ -7,9 +7,9 @@
 import { createHash } from "node:crypto";
 
 import { EXTERNAL_SEND_POLICY_RELATIVE_PATH } from "../../../domain-model/src/index.ts";
-import { readFixedSnapshotFile } from "../../../version-control/src/fixed-snapshot.ts";
-import { gitFixedSnapshotAdapter } from "../../../version-control/src/git/fixed-snapshot-adapter.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/repository/location.ts";
+import { readFixedSnapshotFile } from "../../../version-control/src/index.ts";
+import { gitFixedSnapshotAdapter } from "../../../version-control/src/index.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 
 import { parseUnambiguousJsonDocument } from "../../../ai-adapter/src/index.ts";
 import { verifyOwnedOperationManagementCapability } from "../host-execution/operation-workspace-lifecycle.ts";

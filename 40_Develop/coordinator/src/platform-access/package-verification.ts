@@ -8196,12 +8196,8 @@ function assertReleaseSigningProtectedPath(source: string) {
         ],
       ],
       [
-        "../../version-control/src/git/fixed-snapshot-adapter.ts",
-        ["inspectRepositoryFixedSnapshot"],
-      ],
-      [
-        "../../version-control/src/repository/location.ts",
-        ["verifyRepositoryRoot"],
+        "../../version-control/src/index.ts",
+        ["inspectRepositoryFixedSnapshot", "verifyRepositoryRoot"],
       ],
       [
         "./release-staging-manifest.ts",

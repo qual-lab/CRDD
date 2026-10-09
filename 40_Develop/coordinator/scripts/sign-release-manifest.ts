@@ -17,8 +17,8 @@ import {
   type PrivateKeyReferenceAuthorization,
 } from "../../artifact-signing/src/index.ts";
 import { resolveBundledRepositoryRuntimeDataPathsForProtectedSigning } from "../../domain-model/src/repository/resolve-storage-paths.ts";
-import { inspectRepositoryFixedSnapshot } from "../../version-control/src/git/fixed-snapshot-adapter.ts";
-import { verifyRepositoryRoot } from "../../version-control/src/repository/location.ts";
+import { inspectRepositoryFixedSnapshot } from "../../version-control/src/index.ts";
+import { verifyRepositoryRoot } from "../../version-control/src/index.ts";
 import { assertSupportedCoordinatorNodeRuntime } from "../src/host-execution/node-runtime-version.ts";
 import { inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate } from "../src/platform-access/package-verification.ts";
 import { getPlatformProvisionerPolicyIdentity } from "../src/platform-access/policy-identity.ts";

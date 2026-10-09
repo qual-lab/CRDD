@@ -22,7 +22,7 @@ import {
   resolveVerifiedRepositoryRoot,
   verifyRepositoryRoot,
   verifyRepositoryRootFromWorkingDirectory,
-} from "../../../version-control/src/repository/location.ts";
+} from "../../../version-control/src/index.ts";
 import { normalizeRepositoryRelativePath } from "../input/repository-relative-path.ts";
 import { decodeProjectResultAcceptance } from "../state/transitions.ts";
 import type { ProjectQueueEntry, ProjectQueueState } from "../queue/types.ts";

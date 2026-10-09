@@ -19,7 +19,7 @@ import { gitRepositoryRevisionAdapter } from "../../../../version-control/src/in
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,
-} from "../../../../version-control/src/repository/location.ts";
+} from "../../../../version-control/src/index.ts";
 import { createIsolatedWorkbenchAiChangeCandidateExecutorForDevelopment } from "../../../src/workbench-ai/change-candidate-executor.ts";
 
 const candidateId = `candidate.${"6".repeat(64)}.${"7".repeat(64)}`;

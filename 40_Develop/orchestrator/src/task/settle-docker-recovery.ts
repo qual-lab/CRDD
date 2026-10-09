@@ -15,7 +15,7 @@ import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,
-} from "../../../version-control/src/repository/location.ts";
+} from "../../../version-control/src/index.ts";
 import { decodeProjectResultAcceptance } from "../state/transitions.ts";
 import { readCurrentOrchestratorState as readOrchestratorState } from "../storage/current-state.ts";
 

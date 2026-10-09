@@ -10,7 +10,7 @@ import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { verifyRepositoryRoot } from "../../version-control/src/repository/location.ts";
+import { verifyRepositoryRoot } from "../../version-control/src/index.ts";
 import {
   prepareReleaseRuntime,
   recoverAppliedReleaseRuntimePreparation,

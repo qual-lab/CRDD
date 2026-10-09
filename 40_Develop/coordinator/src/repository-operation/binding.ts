@@ -7,21 +7,21 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { observeFixedRevisionIdentity } from "../../../version-control/src/fixed-revision.ts";
+import { observeFixedRevisionIdentity } from "../../../version-control/src/index.ts";
 import {
   gitFixedRevisionIdentityAdapter,
   gitRepositoryFormatAdapter,
   gitRepositoryRevisionAdapter,
-} from "../../../version-control/src/git/revision-adapter.ts";
+} from "../../../version-control/src/index.ts";
 import {
   resolveVerifiedRepositoryRoot,
   type VerifiedRepositoryRoot,
   verifyRepositoryRoot,
-} from "../../../version-control/src/repository/location.ts";
+} from "../../../version-control/src/index.ts";
 import {
   inspectRepositoryFormat,
   observeRepositoryRevision,
-} from "../../../version-control/src/repository/revision.ts";
+} from "../../../version-control/src/index.ts";
 import { isSupportedCrddRuntimeGitObjectId } from "../diagnostics/release-identity-grammar.ts";
 import { verifyOwnedOperationManagementCapability } from "../host-execution/operation-workspace-lifecycle.ts";
 

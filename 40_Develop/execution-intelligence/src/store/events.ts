@@ -25,7 +25,7 @@ import {
   observeRepositoryRuntimeDataArea,
 } from "../../../domain-model/src/index.ts";
 import { readExecutionIntelligenceConfig } from "../../../domain-model/src/index.ts";
-import type { VerifiedRepositoryRoot } from "../../../version-control/src/repository/location.ts";
+import type { VerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
 
 const MAXIMUM_EVENTS = 10_000;
 const MAXIMUM_TOTAL_BYTES = 32 * 1024 * 1024;

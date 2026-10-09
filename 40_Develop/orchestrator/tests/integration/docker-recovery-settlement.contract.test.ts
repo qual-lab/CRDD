@@ -98,9 +98,9 @@ test("回復結果の受領・終了は固定Repositoryと保存済みACKだけ�
   let targetRemoved = false;
   let isAbsenceObserved = false;
   let mutateInput: typeof settlement | null = null;
-  t.mock.module("../../../version-control/src/repository/location.ts", {
+  t.mock.module("../../../version-control/src/index.ts", {
     namedExports: {
-      ...(await import("../../../version-control/src/repository/location.ts")),
+      ...(await import("../../../version-control/src/index.ts")),
       resolveVerifiedRepositoryRootFromWorkingDirectory: () => {
         rootReads += 1;
         return fixed.repositoryRoot;

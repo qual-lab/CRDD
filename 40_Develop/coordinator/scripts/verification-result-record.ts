@@ -17,7 +17,7 @@ import { TESTS_RELATIVE_PATH } from "../../domain-model/src/index.ts";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,
-} from "../../version-control/src/repository/location.ts";
+} from "../../version-control/src/index.ts";
 import { isDockerIsolationRecoveryIdCandidate } from "../src/docker-execution/isolation-probe.ts";
 import { snapshotPlainArray } from "../../domain-model/src/index.ts";
 import { coordinatorTaskPublicReasons } from "../src/task/result-reasons.ts";

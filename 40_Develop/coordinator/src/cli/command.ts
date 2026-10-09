@@ -11,7 +11,7 @@ import {
   UsageError,
   readBoundedTaskRequestFromStdin,
 } from "./request-input.ts";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/repository/location.ts";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import {
   parseCandidateArguments,
   parseDoctorArguments,

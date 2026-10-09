@@ -10,7 +10,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { ensureRepositoryRuntimeDataArea } from "../../domain-model/src/index.ts";
 import { requireReadyRepositoryRuntimeDataArea } from "../../domain-model/src/index.ts";
-import { verifyRepositoryRoot } from "../../version-control/src/repository/location.ts";
+import { verifyRepositoryRoot } from "../../version-control/src/index.ts";
 import {
   assertCoverageRunRoot,
   createCoverageRunRoot,

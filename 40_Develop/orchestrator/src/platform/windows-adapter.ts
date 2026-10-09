@@ -10,7 +10,7 @@ import {
   type OrchestratorPlatformAdapter,
   type OrchestratorPlatformBoundary,
 } from "./contract.ts";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/repository/location.ts";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import {
   deriveChildEnvironment,
   observeLeaseOwner,

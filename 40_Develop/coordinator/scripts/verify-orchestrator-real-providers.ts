@@ -14,7 +14,7 @@ import { resolveRepositoryRuntimeDataPaths } from "../../domain-model/src/index.
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,
-} from "../../version-control/src/repository/location.ts";
+} from "../../version-control/src/index.ts";
 import {
   inspectBundledCoordinatorPackageFilesystemCandidate,
   inspectVerifiedNativeDistributionCandidate,

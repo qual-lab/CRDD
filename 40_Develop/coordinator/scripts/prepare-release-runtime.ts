@@ -20,12 +20,12 @@ import {
 import {
   materializeFixedSnapshotCandidate,
   verifyCandidateOutputDirectory,
-} from "../../version-control/src/fixed-snapshot.ts";
-import { gitFixedSnapshotAdapter } from "../../version-control/src/git/fixed-snapshot-adapter.ts";
+} from "../../version-control/src/index.ts";
+import { gitFixedSnapshotAdapter } from "../../version-control/src/index.ts";
 import {
   resolveVerifiedRepositoryRoot,
   type VerifiedRepositoryRoot,
-} from "../../version-control/src/repository/location.ts";
+} from "../../version-control/src/index.ts";
 import { PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH } from "../src/diagnostics/platform-access-release.ts";
 import { snapshotPlainRecord } from "../../domain-model/src/index.ts";
 import { inspectRuntimeDistributionSigningFilesCandidate } from "../src/platform-access/package-verification.ts";

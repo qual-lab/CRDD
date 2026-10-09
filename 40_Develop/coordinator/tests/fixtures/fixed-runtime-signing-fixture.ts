@@ -12,7 +12,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { deflateSync } from "node:zlib";
-import { verifyRepositoryRoot } from "../../../version-control/src/repository/location.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import { PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH } from "../../src/diagnostics/platform-access-release.ts";
 import { inspectRuntimeDistributionSigningFilesCandidate } from "../../src/platform-access/package-verification.ts";
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");

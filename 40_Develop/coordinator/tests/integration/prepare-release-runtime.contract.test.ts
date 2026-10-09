@@ -20,7 +20,7 @@ import {
 import {
   verifyRepositoryRoot,
   type VerifiedRepositoryRoot,
-} from "../../../version-control/src/repository/location.ts";
+} from "../../../version-control/src/index.ts";
 import {
   prepareReleaseRuntime,
   recoverAppliedReleaseRuntimePreparation,

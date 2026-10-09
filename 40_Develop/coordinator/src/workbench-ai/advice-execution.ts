@@ -63,7 +63,7 @@ import {
 import {
   resolveVerifiedRepositoryRoot,
   type VerifiedRepositoryRoot,
-} from "../../../version-control/src/repository/location.ts";
+} from "../../../version-control/src/index.ts";
 
 export const WORKBENCH_AI_ADVICE_PRODUCTION_RUNTIME_CONTRACT =
   "crdd-coordinator/workbench-ai-advice-production-runtime";

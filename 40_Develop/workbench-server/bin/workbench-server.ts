@@ -22,7 +22,7 @@ import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../../coo
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,
-} from "../../version-control/src/repository/location.ts";
+} from "../../version-control/src/index.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
   process.cwd(),

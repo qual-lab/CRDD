@@ -11,9 +11,9 @@ import path from "node:path";
 import {
   materializeFixedSnapshotCandidate,
   verifyCandidateOutputDirectory,
-} from "../../../version-control/src/fixed-snapshot.ts";
-import { gitFixedSnapshotAdapter } from "../../../version-control/src/git/fixed-snapshot-adapter.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/repository/location.ts";
+} from "../../../version-control/src/index.ts";
+import { gitFixedSnapshotAdapter } from "../../../version-control/src/index.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 
 import { persistRuntimeOwnedCandidateBundle } from "../candidate/bundle-store.ts";
 import { verifyOwnedOperationManagementMountBinding } from "../host-execution/operation-workspace-lifecycle.ts";

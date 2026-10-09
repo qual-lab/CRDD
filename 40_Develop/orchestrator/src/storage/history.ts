@@ -14,7 +14,7 @@ import {
   requireReadyRepositoryRuntimeDataArea,
   resolveRepositoryRuntimeDataPathsFromWorkingDirectory,
 } from "../../../domain-model/src/index.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/repository/location.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import {
   acquireOrchestratorSnapshotPilotLock,
   isLiveOrchestratorSnapshotOwner,

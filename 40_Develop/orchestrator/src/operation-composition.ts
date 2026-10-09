@@ -21,7 +21,7 @@ import {
   startRuntimeOwnedCoordinatorTask,
 } from "../../coordinator/src/task/execution.ts";
 import { RepositoryRuntimeDataAreaBlockedError } from "../../domain-model/src/index.ts";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../version-control/src/repository/location.ts";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../version-control/src/index.ts";
 import type { OrchestratorExecutionPublicationObservation } from "./task/dispatch.ts";
 import { createOrchestratorAcceptanceAuthorityAdapter } from "./decision/authority-adapter.ts";
 import { createOrchestratorDecisionCapabilityAdapter } from "./decision/capability-adapter.ts";

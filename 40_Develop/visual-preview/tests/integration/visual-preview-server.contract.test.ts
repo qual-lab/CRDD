@@ -17,7 +17,7 @@ import { randomUUID } from "node:crypto";
 import { once } from "node:events";
 import { createConnection } from "node:net";
 
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/repository/location.ts";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import { observeLocalListener, startVisualPreview } from "../../src/index.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(

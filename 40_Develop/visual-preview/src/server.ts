@@ -10,7 +10,7 @@ import { createServer, type ServerResponse } from "node:http";
 import type { Socket } from "node:net";
 import path from "node:path";
 
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../version-control/src/repository/location.ts";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../version-control/src/index.ts";
 
 const HOST = "127.0.0.1" as const;
 const HEALTH_PATH = "/.well-known/crdd-visual-preview-health" as const;

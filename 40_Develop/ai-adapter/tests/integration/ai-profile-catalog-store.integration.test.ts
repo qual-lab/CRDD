@@ -14,7 +14,7 @@ import { copyFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/repository/location.ts";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import { DEFAULT_AI_PROFILE_CATALOG } from "../../src/catalog/resolve.ts";
 import {
   createCrosAiProfileCatalogStore,

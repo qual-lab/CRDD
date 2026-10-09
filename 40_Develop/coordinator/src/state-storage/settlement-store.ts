@@ -15,7 +15,7 @@ import {
   type StableFileIdentity,
   sameStableFileIdentity,
 } from "../../../domain-model/src/index.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/repository/location.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import { verifyRuntimeOwnedDockerCleanupOutcome } from "../docker-execution/command-effects.ts";
 import {
   borrowRuntimeOwnedDockerTerminalObservations,

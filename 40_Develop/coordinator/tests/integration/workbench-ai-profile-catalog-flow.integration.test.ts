@@ -18,7 +18,7 @@ import {
   DEFAULT_AI_PROFILE_CATALOG,
   createRepositoryAiProfileCatalogStore,
 } from "../../../ai-adapter/src/index.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/repository/location.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import { createRepositoryWorkbenchAiRequests } from "../../src/workbench-ai/repository-composition.ts";
 import { createWorkbenchAiAdviceDispatchRuntime } from "../../src/workbench-ai/advice-dispatch.ts";
 import type { WorkbenchAiAdviceExecutionPlan } from "../../src/workbench-ai/advice-execution-plan.ts";

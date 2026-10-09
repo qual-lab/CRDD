@@ -16,7 +16,7 @@ import {
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,
-} from "../../version-control/src/repository/location.ts";
+} from "../../version-control/src/index.ts";
 import { assertSupportedCoordinatorNodeRuntime } from "../src/host-execution/node-runtime-version.ts";
 import { startRuntimeOwnedDevelopmentCoordinatorTask } from "../src/task/execution.ts";
 import {

@@ -8,15 +8,15 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import { readFixedSnapshotFile } from "../../../version-control/src/fixed-snapshot.ts";
+import { readFixedSnapshotFile } from "../../../version-control/src/index.ts";
 import {
   gitFixedSnapshotAdapter,
   inspectRepositoryFixedSnapshot,
-} from "../../../version-control/src/git/fixed-snapshot-adapter.ts";
+} from "../../../version-control/src/index.ts";
 import {
   resolveVerifiedRepositoryRoot,
   type VerifiedRepositoryRoot,
-} from "../../../version-control/src/repository/location.ts";
+} from "../../../version-control/src/index.ts";
 
 import {
   EXTERNAL_SEND_POLICY_RELATIVE_PATH,
