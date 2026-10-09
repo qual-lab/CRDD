@@ -327,3 +327,9 @@ Topic／Meetingと登録／更新の4経路について、正常と9故障分類
 Coordinatorの三Suiteに残る旧Resolver参照を、実際の試験本文とOracleに基づいて処置する。鍵生成Suiteは保存領域をfixture準備に使うだけで保存保証を検証しないため、当該関係を削除する。Orchestrator Compositionと開発Provider測定Suiteは、実生成したDomainの停止Errorから理由・Effect・cleanup・retry・回復参照を保持する公開投影を検証するため、`domain-model.runtime-area-result`へ接続する。Reader／Writerへ機械置換せず、Source、試験本文、QA ID、他の関係と過去Evidenceは変更しない。静的確認と独立レビューが完了するまで、是正済みの検証結果とは扱わない。
 
 JSON解析・差分確認と旧参照0／新参照2の照合はPass。固定差分の実装・品質の独立レビューは双方指摘0。全体Checkerは3,038件で未合格だが、検証参照対象の欠落3件は解消した。残る内訳はbroken-link 3,032、broken-anchor 4、Project Context契約1、UI／SPEC Detail下流Coverage 1。試験本文とRuntimeは不変で、このMetadata是正のための実Provider・鍵生成・署名試験は実行していない。
+
+### 保存途中の部分書込み失敗
+
+短命Fileを排他的openで所有確定してから同じdescriptorへ書込み、close確認後だけrenameする。open失敗は他者Fileに触れず、write・close・rename失敗では所有する短命Fileだけを回収する。一次失敗、undefined例外、close／unlink併発を既存AggregateErrorへ保持し、新Recovery・Lock・再試行は追加しない。24組合せの反証を既存QA011へ接続する。親link、実Process競合、実OS close失敗と電源断耐久性はこの是正の成立根拠に含めない。実測・独立レビューは未完了である。
+
+実測結果: Domain Modelの書式・型・Lintと全110件、MCPの同静的確認と全51件、WorkbenchのBuild・同静的確認と全33件はPass、Skip／Fail 0。最初の追加試験はEEXIST注入の内部open再帰で失敗したため、他者Fileの準備を注入外のdescriptorで行うよう訂正し、静的確認から全回帰を再実行した。Runtimeの不足を注入の修正で隠したものではない。独立Sourceレビュー指摘0と品質Minor1を統合し、Detail分析表への直接伝播だけを是正した。両観点の再確認は指摘0。既存の40読戻し組合せと正常・rename故障Oracleは維持した。今回の処置で保存全体や1〜8全体を完了とは扱わない。

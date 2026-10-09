@@ -261,10 +261,34 @@ export function createTopicMeetingRepository(
       target.directory,
       `.${path.basename(target.file)}.${process.pid}.${Date.now()}.tmp`,
     );
-    writeFileSync(temporary, markdown, { encoding: "utf8", flag: "wx" });
+    const descriptor = openSync(temporary, "wx");
+    let failed = false;
+    let primaryFailure: unknown;
+    const cleanupFailures: unknown[] = [];
     try {
-      renameSync(temporary, target.file);
+      writeFileSync(descriptor, markdown, { encoding: "utf8" });
     } catch (error) {
+      failed = true;
+      primaryFailure = error;
+    }
+    try {
+      closeSync(descriptor);
+    } catch (error) {
+      if (failed) cleanupFailures.push(error);
+      else {
+        failed = true;
+        primaryFailure = error;
+      }
+    }
+    if (!failed) {
+      try {
+        renameSync(temporary, target.file);
+      } catch (error) {
+        failed = true;
+        primaryFailure = error;
+      }
+    }
+    if (failed) {
       try {
         unlinkSync(temporary);
       } catch (cleanupError) {
@@ -274,13 +298,15 @@ export function createTopicMeetingRepository(
           !("code" in cleanupError) ||
           cleanupError.code !== "ENOENT"
         )
-          throw new AggregateError(
-            [cleanupError],
-            "project_operation_record_publish_cleanup_failed",
-            { cause: error },
-          );
+          cleanupFailures.push(cleanupError);
       }
-      throw error;
+      if (cleanupFailures.length > 0)
+        throw new AggregateError(
+          cleanupFailures,
+          "project_operation_record_publish_cleanup_failed",
+          { cause: primaryFailure },
+        );
+      throw primaryFailure;
     }
     if (readDocument(kind, recordId(record), { record, markdown }) === null)
       throw new Error("project_operation_record_readback_missing");

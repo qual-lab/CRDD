@@ -20,6 +20,228 @@ import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../vers
 import { createTopicMeetingRepository } from "../../src/storage/topic-meeting-store.ts";
 
 /**
+ * 所有した短命Fileの部分書込み・close失敗を公開更新から検証する。
+ *
+ * @responsibility open成功後だけ回収し、一次失敗・cleanup・正本保持を共同確認する。
+ * @trace CPR-IT-011
+ * @precondition 検証済みRepository内の非link親に自己生成Rootを用意する。
+ * @stimulus Topic／Meeting登録・更新へ部分write、undefined、close、unlink、EEXISTを限定注入する。
+ * @observation descriptor回収、rename／読戻し到達、例外Identity、残存Fileと正本bytesを照合する。
+ * @oracle 失敗時は公開せず、所有Fileだけを回収し、他者Fileと既存正本を保持する。
+ * @cleanup mockを復元し、自己生成Rootをexactに回収して不存在を確認する。
+ * @boundary 公開CRUD→同期Filesystem。close注入は実close後の故障報告で実OS故障の証明ではない。
+ */
+test("部分書込みの失敗は所有tmpだけを回収し正本を保持する", (t) => {
+  const verified = resolveVerifiedRepositoryRootFromWorkingDirectory(
+    import.meta.dirname,
+  );
+  const parent = path.join(verified, ".crdd", "tests");
+  for (const directory of [path.dirname(parent), parent]) {
+    try {
+      const stat = fs.lstatSync(directory);
+      assert.ok(stat.isDirectory() && !stat.isSymbolicLink());
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      fs.mkdirSync(directory);
+    }
+  }
+  const originalOpen = fs.openSync;
+  const originalWrite = fs.writeFileSync;
+  const originalClose = fs.closeSync;
+  const originalUnlink = fs.unlinkSync;
+  const originalRead = fs.readFileSync;
+  const originalRename = fs.renameSync;
+  for (const kind of ["topic", "meeting"] as const) {
+    for (const operation of ["create", "update"] as const) {
+      for (const mode of [
+        "write",
+        "undefined",
+        "write-close",
+        "write-unlink",
+        "close",
+        "exists",
+      ] as const) {
+        const root = fs.mkdtempSync(path.join(parent, "topic-meeting-write-"));
+        try {
+          const repository = createTopicMeetingRepository(root);
+          const id = kind === "topic" ? "TOPIC-000042" : "MTG-000042";
+          const markdown = kind === "topic" ? topic : meeting;
+          const file = path.join(
+            root,
+            kind === "topic" ? "22_Topics" : "23_Meetings",
+            id,
+            `${kind}.md`,
+          );
+          if (operation === "update")
+            assert.equal(
+              repository.create(kind, markdown(1)).status,
+              "completed",
+            );
+          const before = operation === "update" ? originalRead(file) : null;
+          const primary = new Error("fixed_partial_write_failure");
+          const closeFailure = new Error("fixed_temporary_close_failure");
+          const unlinkFailure = new Error("fixed_temporary_unlink_failure");
+          const existsFailure = Object.assign(
+            new Error("fixed_temporary_exists"),
+            { code: "EEXIST" },
+          );
+          let temporary: string | undefined;
+          let descriptor: number | undefined;
+          let openHandles = 0;
+          let renameCalls = 0;
+          let readbackCalls = 0;
+          let unlinkCalls = 0;
+          let thrown = false;
+          let failure: unknown;
+          const openMock = t.mock.method(
+            fs,
+            "openSync",
+            (input: fs.PathLike, flags: fs.OpenMode, permissions?: fs.Mode) => {
+              if (String(input).endsWith(".tmp")) {
+                temporary = String(input);
+                if (mode === "exists") {
+                  const otherDescriptor = originalOpen(input, "wx");
+                  try {
+                    originalWrite(otherDescriptor, "not_owned");
+                  } finally {
+                    originalClose(otherDescriptor);
+                  }
+                  throw existsFailure;
+                }
+                descriptor = originalOpen(input, flags, permissions);
+                openHandles++;
+                return descriptor;
+              }
+              return originalOpen(input, flags, permissions);
+            },
+          );
+          const writeMock = t.mock.method(
+            fs,
+            "writeFileSync",
+            (
+              input: fs.PathOrFileDescriptor,
+              data: string | NodeJS.ArrayBufferView,
+              options?: fs.WriteFileOptions,
+            ) => {
+              if (
+                typeof input === "number" &&
+                input === descriptor &&
+                mode !== "close"
+              ) {
+                originalWrite(input, "partial");
+                if (mode === "undefined") throw undefined;
+                throw primary;
+              }
+              return originalWrite(input, data, options);
+            },
+          );
+          const closeMock = t.mock.method(fs, "closeSync", (input: number) => {
+            originalClose(input);
+            if (input === descriptor && openHandles > 0) {
+              openHandles--;
+              if (mode === "close" || mode === "write-close")
+                throw closeFailure;
+            }
+          });
+          const unlinkMock = t.mock.method(
+            fs,
+            "unlinkSync",
+            (input: fs.PathLike) => {
+              if (String(input) === temporary) {
+                unlinkCalls++;
+                if (mode === "write-unlink") throw unlinkFailure;
+              }
+              return originalUnlink(input);
+            },
+          );
+          const renameMock = t.mock.method(
+            fs,
+            "renameSync",
+            (source: fs.PathLike, target: fs.PathLike) => {
+              renameCalls++;
+              return originalRename(source, target);
+            },
+          );
+          const readMock = t.mock.method(
+            fs,
+            "readFileSync",
+            (input: fs.PathOrFileDescriptor) => {
+              if (String(input) === file && temporary !== undefined)
+                readbackCalls++;
+              return originalRead(input);
+            },
+          );
+          syncBuiltinESMExports();
+          try {
+            if (operation === "create") repository.create(kind, markdown(1));
+            else repository.update(kind, id, 1, markdown(2));
+          } catch (error) {
+            thrown = true;
+            failure = error;
+          } finally {
+            openMock.mock.restore();
+            writeMock.mock.restore();
+            closeMock.mock.restore();
+            unlinkMock.mock.restore();
+            renameMock.mock.restore();
+            readMock.mock.restore();
+            syncBuiltinESMExports();
+            if (openHandles > 0 && descriptor !== undefined)
+              originalClose(descriptor);
+          }
+          assert.ok(thrown, `${kind}/${operation}/${mode}`);
+          assert.equal(openHandles, 0);
+          assert.equal(renameCalls, 0);
+          assert.equal(readbackCalls, 0);
+          assert.equal(unlinkCalls, mode === "exists" ? 0 : 1);
+          if (mode === "write-close" || mode === "write-unlink") {
+            assert.ok(failure instanceof AggregateError);
+            assert.equal(failure.cause, primary);
+            assert.deepEqual(failure.errors, [
+              mode === "write-close" ? closeFailure : unlinkFailure,
+            ]);
+          } else
+            assert.equal(
+              failure,
+              mode === "undefined"
+                ? undefined
+                : mode === "exists"
+                  ? existsFailure
+                  : mode === "close"
+                    ? closeFailure
+                    : primary,
+            );
+          assert.ok(temporary);
+          const observedTemporary = temporary;
+          if (mode === "exists" || mode === "write-unlink")
+            assert.equal(
+              originalRead(temporary, "utf8"),
+              mode === "exists" ? "not_owned" : "partial",
+            );
+          else
+            assert.throws(() => fs.lstatSync(observedTemporary), {
+              code: "ENOENT",
+            });
+          if (before !== null) {
+            assert.deepEqual(originalRead(file), before);
+            assert.equal(repository.get(kind, id)?.revision, 1);
+          } else assert.equal(repository.get(kind, id), null);
+          const lock = path.join(
+            root,
+            kind === "topic" ? "22_Topics" : "23_Meetings",
+            `.${id}.lock`,
+          );
+          assert.throws(() => fs.lstatSync(lock), { code: "ENOENT" });
+        } finally {
+          fs.rmSync(root, { recursive: true, force: true });
+          assert.throws(() => fs.lstatSync(root), { code: "ENOENT" });
+        }
+      }
+    }
+  }
+});
+
+/**
  * topic用の試験入力または観測処理を提供する。
  *
  * @responsibility topic用の試験入力または観測処理を提供するの検証責務を所有する。
