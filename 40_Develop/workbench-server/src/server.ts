@@ -27,7 +27,11 @@ import type {
   TopicPromotionCommandResult,
   TopicMeetingWriteResult,
 } from "../../domain-model/src/index.ts";
-import { createTopicOperations } from "../../domain-model/src/index.ts";
+import {
+  createTopicOperations,
+  parseTopicMarkdown,
+  parseMeetingMarkdown,
+} from "../../domain-model/src/index.ts";
 import type { MeetingOutcomeCommandResult } from "../../domain-model/src/index.ts";
 import { createMeetingOperations } from "../../domain-model/src/index.ts";
 import {
@@ -858,6 +862,7 @@ export async function startWorkbench(
       const requestUrl = new URL(incoming.url ?? "/", `http://${HOST}`);
       const requestPath = requestUrl.pathname;
       if (method === "POST" && requestPath === "/topic-meeting/action") {
+        let actionDispatched = false;
         try {
           const form = await readActionForm(incoming);
           if (form.get("actionToken") !== actionToken)
@@ -866,6 +871,39 @@ export async function startWorkbench(
           const operation = form.get("operation");
           if (kind !== "topic" && kind !== "meeting")
             throw new Error("workbench_record_kind_invalid");
+          if (
+            !["create", "update", "delete"].includes(operation ?? "") &&
+            !(operation === "promote-topic" && kind === "topic") &&
+            !(operation === "treat-outcome" && kind === "meeting")
+          )
+            throw new Error("workbench_record_operation_invalid");
+          if (operation !== "create") {
+            const revision = Number(form.get("expectedRevision"));
+            if (
+              !new RegExp(
+                kind === "topic" ? "^TOPIC-\\d{6}$" : "^MTG-\\d{6}$",
+                "u",
+              ).test(form.get("id") ?? "") ||
+              !Number.isSafeInteger(revision) ||
+              revision < 1
+            )
+              throw new Error("workbench_record_input_invalid");
+          }
+          if (
+            (operation === "promote-topic" &&
+              !/^CHG-\d{6}$/u.test(form.get("changeId") ?? "")) ||
+            (operation === "treat-outcome" &&
+              ((form.get("targetKind") === "topic" &&
+                !/^TOPIC-\d{6}$/u.test(form.get("targetReference") ?? "")) ||
+                (form.get("targetKind") === "change" &&
+                  !/^CHG-\d{6}$/u.test(form.get("targetReference") ?? ""))))
+          )
+            throw new Error("workbench_record_reference_invalid");
+          if (operation === "create" || operation === "update") {
+            if (kind === "topic")
+              parseTopicMarkdown(form.get("markdown") ?? "");
+            else parseMeetingMarkdown(form.get("markdown") ?? "");
+          }
           const repositoryId = form.get("repositoryId") ?? "";
           if (remoteConnection !== undefined) {
             if (!isVisiblePortfolioRepository(portfolio, repositoryId))
@@ -932,6 +970,7 @@ export async function startWorkbench(
             } else {
               throw new Error("workbench_record_operation_invalid");
             }
+            actionDispatched = true;
             topicMeetingResult = inspectTopicMeetingActionResult(
               await executeRemoteTopicMeetingAction(
                 remoteConnection.mcpBaseUrl ?? remoteConnection.baseUrl,
@@ -941,16 +980,19 @@ export async function startWorkbench(
               ),
             );
           } else if (operation === "create") {
+            actionDispatched = true;
             topicMeetingResult = topicMeeting[kind].create(
               form.get("markdown") ?? "",
             );
           } else if (operation === "update") {
+            actionDispatched = true;
             topicMeetingResult = topicMeeting[kind].update({
               id: form.get("id") ?? "",
               expectedRevision: Number(form.get("expectedRevision")),
               markdown: form.get("markdown") ?? "",
             });
           } else if (operation === "delete") {
+            actionDispatched = true;
             topicMeetingResult = topicMeeting[kind].delete({
               id: form.get("id") ?? "",
               expectedRevision: Number(form.get("expectedRevision")),
@@ -958,6 +1000,7 @@ export async function startWorkbench(
               reason: "mistaken_registration",
             });
           } else if (operation === "treat-outcome" && kind === "meeting") {
+            actionDispatched = true;
             const outcome = topicMeeting.meeting.treatMeetingOutcome({
               meetingId: form.get("id") ?? "",
               expectedRevision: Number(form.get("expectedRevision")),
@@ -987,6 +1030,7 @@ export async function startWorkbench(
               relationPaths: Object.freeze([]),
             });
           } else if (operation === "promote-topic" && kind === "topic") {
+            actionDispatched = true;
             const promotion = topicMeeting.topic.promoteTopic({
               topicId: form.get("id") ?? "",
               expectedRevision: Number(form.get("expectedRevision")),
@@ -1012,8 +1056,12 @@ export async function startWorkbench(
           response.end();
         } catch {
           setCommonHeaders(response);
-          response.statusCode = 400;
-          response.end("topic_meeting_action_rejected\n");
+          response.statusCode = actionDispatched ? 500 : 400;
+          response.end(
+            actionDispatched
+              ? "topic_meeting_action_failed\n"
+              : "topic_meeting_action_rejected\n",
+          );
         }
         return;
       }

@@ -5,6 +5,8 @@
  * @responsibility Workbench Production Shellのloopback配信、公式ロゴ、固定RouteおよびListener清掃を直接境界で検証する。
  * @trace CPR-IT-006
  * @trace CPR-IT-008
+ * @trace CPR-IT-010
+ * @trace CPR-IT-012
  * @trace ERB-IT-021
  * @trace ERP-IT-001
  * @trace PPR-IT-002
@@ -15,19 +17,24 @@
  * @level IT
  * @scope workbench、localhost、official-logo、route-allowlist、cleanup
  * @boundary ERB-IT-021=Direct Boundary: Repository→Workbench Server→Browser相当Consumer
+ * @boundary CPR-IT-010=Workbench操作→Domain保存→改訂・状態・確認結果。
+ * @boundary CPR-IT-012=Workbench Form→Local保存先故障→固定HTTP応答。
  */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import {
   copyFile,
+  lstat,
   mkdir,
   mkdtemp,
   readFile,
+  readdir,
   rm,
   unlink,
   writeFile,
 } from "node:fs/promises";
 import { createServer, request as httpRequest } from "node:http";
+import { connect } from "node:net";
 import path from "node:path";
 import test from "node:test";
 import { createWorkbenchAiVerificationHttpClient } from "../../scripts/ai-verification-http.ts";
@@ -153,12 +160,15 @@ test("Workbench Clientは契約不正JSONを描画前に拒否する", () => {
  *
  * @responsibility 固定Routeと拒否RouteのResponseをURL正規化前のRequest Targetで観測する。
  * @trace ERB-IT-021
+ * @trace CPR-IT-012
+ * @trace CPR-IT-010
  * @precondition baseUrlが起動済みWorkbenchを指す。
  * @stimulus methodとrequestPathをNode HTTP Clientから送信する。
  * @observation Status、Headerおよび本文bytesを取得する。
  * @oracle 呼出し側が配信・拒否・Security Headerを判定できる。
  * @cleanup Request SocketはResponse完了時に閉じる。
  * @boundary ERB-IT-021=Direct Boundary: workbench Test Source→対象契約
+ * @boundary CPR-IT-012=Workbench Form→Local保存先故障→固定HTTP応答。
  */
 async function requestTransport(
   baseUrl: string,
@@ -212,12 +222,15 @@ async function requestTransport(
  *
  * @responsibility CSRが受け取るJSON Read ModelをHTTP境界から取得する。
  * @trace ERB-IT-021
+ * @trace CPR-IT-012
+ * @trace CPR-IT-010
  * @precondition baseUrlが起動済みWorkbenchを指す。
  * @stimulus UI RouteをJSON API Routeへ変換してGETする。
  * @observation StatusとJSON本文を取得する。
  * @oracle HTTP 200のWorkbenchClientModelを返す。
  * @cleanup Request SocketはResponse完了時に閉じる。
  * @boundary ERB-IT-021=Direct Boundary: Browser Route Query→JSON Read Model API
+ * @boundary CPR-IT-012=Workbench Form→Local保存先故障→固定HTTP応答。
  */
 async function requestClientModel(
   baseUrl: string,
@@ -244,12 +257,15 @@ async function requestClientModel(
  *
  * @responsibility Main View試験へ判別済みのJSON Read Modelだけを渡す。
  * @trace ERB-IT-021
+ * @trace CPR-IT-012
+ * @trace CPR-IT-010
  * @precondition requestClientModelがWorkbenchClientModelを返す。
  * @stimulus 指定RouteのJSON Read Modelを取得する。
  * @observation view Discriminantを確認する。
  * @oracle main以外を固定Errorで拒否し、main Modelを返す。
  * @cleanup N/A: requestClientModelの資源契約を継承する。
  * @boundary ERB-IT-021=Direct Boundary: WorkbenchClientModel→Main View Model
+ * @boundary CPR-IT-012=Workbench Form→Local保存先故障→固定HTTP応答。
  */
 async function requestMainModel(
   baseUrl: string,
@@ -266,12 +282,15 @@ async function requestMainModel(
  *
  * @responsibility Header、Statusおよび生本文を必要とする契約試験へResponseを渡す。
  * @trace ERB-IT-021
+ * @trace CPR-IT-012
+ * @trace CPR-IT-010
  * @precondition baseUrlが起動済みWorkbenchを指す。
  * @stimulus 指定method、pathおよび任意bodyを送信する。
  * @observation HTTP Responseを変換せず取得する。
  * @oracle 呼出し側が配信Headerと拒否本文を判定できる。
  * @cleanup Request SocketはResponse完了時に閉じる。
  * @boundary ERB-IT-021=Direct Boundary: Raw HTTP Request→Raw HTTP Response
+ * @boundary CPR-IT-012=Workbench Form→Local保存先故障→固定HTTP応答。
  */
 async function requestRaw(
   baseUrl: string,
@@ -293,6 +312,8 @@ async function requestRaw(
  *
  * @responsibility Production HTTP境界試験に必要なRepository初期状態だけを構築する。
  * @trace RFD-IT-014
+ * @trace CPR-IT-012
+ * @trace CPR-IT-010
  * @input cwdと固定Git引数を受け取る。
  * @returns UTF-8 stdoutを返す。
  * @precondition cwdはRepository-local試験領域内である。
@@ -307,6 +328,7 @@ async function requestRaw(
  * @boundary RFD-IT-014=Direct Boundary: workbench Test Source→対象契約
  * @security shellとCredentialを使わない。
  * @concurrency 同一Fixture内で直列実行する。
+ * @boundary CPR-IT-012=Workbench Form→Local保存先故障→固定HTTP応答。
  */
 function git(cwd: string, ...args: readonly string[]): string {
   return execFileSync("git", args, {
@@ -2059,30 +2081,44 @@ test("Token付きRepository操作で選択PathだけをStage・Commit・通常�
  * WorkbenchからTopicを登録・表示・編集・削除するを検証する。
  *
  * @responsibility WorkbenchからTopicを登録・表示・編集・削除するを検証するの検証責務を所有する。
- * @trace CPR-IT-008
+ * @trace CPR-IT-010
+ * @trace CPR-IT-012
  * @precondition 対象契約を再現できる固定入力と依存を用意する。
  * @stimulus WorkbenchからTopicを登録・表示・編集・削除するの対象操作を実行する。
  * @observation 返却値、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionがSummaryの期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
- * @boundary CPR-IT-008=Direct Boundary: workbench Test Source→対象契約
+ * @boundary CPR-IT-010=Direct Boundary: workbench Test Source→対象契約
+ * @boundary CPR-IT-012=Workbench Form→Local保存先故障→固定HTTP応答。
  */
 test("WorkbenchからTopicを登録・表示・編集・削除する", async () => {
   const testRoot = path.join(repositoryRoot, ".crdd", "tests");
-  await mkdir(testRoot, { recursive: true });
+  for (const directory of [path.join(repositoryRoot, ".crdd"), testRoot]) {
+    try {
+      const entry = await lstat(directory);
+      assert.equal(entry.isSymbolicLink(), false);
+      assert.equal(entry.isDirectory(), true);
+    } catch (error) {
+      if (error instanceof Error && "code" in error && error.code === "ENOENT")
+        await mkdir(directory);
+      else throw error;
+    }
+  }
   const fixture = await mkdtemp(path.join(testRoot, "workbench-topic-"));
   let handle: Awaited<ReturnType<typeof startWorkbench>> | null = null;
   /**
    * topic用の試験入力または観測処理を提供する。
    *
    * @responsibility topic用の試験入力または観測処理を提供するの検証責務を所有する。
-   * @trace CPR-IT-008
+   * @trace CPR-IT-010
+   * @trace CPR-IT-012
    * @precondition 対象契約を再現できる固定入力と依存を用意する。
    * @stimulus topicの対象操作を実行する。
    * @observation 返却値、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionがSummaryの期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
-   * @boundary CPR-IT-008=Direct Boundary: workbench Test Source→対象契約
+   * @boundary CPR-IT-010=Direct Boundary: workbench Test Source→対象契約
+   * @boundary CPR-IT-012=Workbench Form→Local保存先故障→固定HTTP応答。
    */
   const topic = (revision: number, state = "open") =>
     `# Workbench Topic\n\n成果物種別: Topic\nTopic ID: \`TOPIC-000042\`\nProject ID: \`PRJ-001\`\n状態: \`${state}\`\n改訂: \`${revision}\`\n維持責任者: \`Project Operator\`\n\n## 1. 現在の論点\n\n### 結論\n\nWorkbench CRUDを確認する。\n\n## 3. 関係\n\n| 関係種別 | 対象ID／参照 | このTopicとの関係 |\n|---|---|---|\n| candidate | \`CHG-000010\` | 採用候補 |\n| related | \`TOPIC-999999\` | 欠落Relationの明示 |\n\n## 4. 次の行動\n\n| 行動 | Owner | 期限／再評価契機 | 完了条件 | 状態 |\n|---|---|---|---|---|\n| 確認する | PM | 次回 | 判断する | \`open\` |\n\n## 5. 終了・昇格\n\n| 項目 | 内容 |\n|---|---|\n| 処置 | \`N/A: open／waitingでは未処置\` |\n| 昇格先 | \`N/A: 未昇格\` |\n| 終了理由 | \`N/A: 未終了\` |\n| 残る影響 | \`N/A: 未終了\` |\n`;
@@ -2194,6 +2230,26 @@ test("WorkbenchからTopicを登録・表示・編集・削除する", async () 
     assert.equal(update.status, 303);
     const updated = await requestMainModel(handle.baseUrl);
     assert.equal(updated.topic.page.records[0]?.state, "waiting");
+    const conflict = await requestRaw(
+      handle.baseUrl,
+      "/topic-meeting/action",
+      "POST",
+      new URLSearchParams({
+        actionToken: token,
+        kind: "topic",
+        operation: "update",
+        id: "TOPIC-000042",
+        expectedRevision: "1",
+        markdown: topic(3),
+      }).toString(),
+    );
+    assert.equal(conflict.status, 303);
+    const conflicted = await requestMainModel(handle.baseUrl);
+    assert.equal(
+      conflicted.topicMeetingResult?.reason,
+      "record_revision_conflict",
+    );
+    assert.equal(conflicted.topic.page.records[0]?.revision, 2);
     const promote = await requestRaw(
       handle.baseUrl,
       "/topic-meeting/action",
@@ -2223,6 +2279,26 @@ test("WorkbenchからTopicを登録・表示・編集・削除する", async () 
         ),
       );
     }
+    const unconfirmedDelete = await requestRaw(
+      handle.baseUrl,
+      "/topic-meeting/action",
+      "POST",
+      new URLSearchParams({
+        actionToken: token,
+        kind: "topic",
+        operation: "delete",
+        id: "TOPIC-000042",
+        expectedRevision: "3",
+        confirmed: "false",
+      }).toString(),
+    );
+    assert.equal(unconfirmedDelete.status, 303);
+    const unconfirmed = await requestMainModel(handle.baseUrl);
+    assert.equal(
+      unconfirmed.topicMeetingResult?.reason,
+      "record_delete_confirmation_required",
+    );
+    assert.equal(unconfirmed.topic.page.records[0]?.revision, 3);
     const remove = await requestRaw(
       handle.baseUrl,
       "/topic-meeting/action",
@@ -2243,9 +2319,138 @@ test("WorkbenchからTopicを登録・表示・編集・削除する", async () 
         (record) => !("topicId" in record) || record.topicId !== "TOPIC-000042",
       ),
     );
+    const topicDirectory = path.join(fixture, "22_Topics");
+    const directoryState = await lstat(topicDirectory);
+    assert.equal(directoryState.isSymbolicLink(), false);
+    assert.equal(directoryState.isDirectory(), true);
+    assert.deepEqual(await readdir(topicDirectory), []);
+    await rm(topicDirectory, { recursive: true });
+    const faultBytes = "owned-storage-fault\n";
+    await writeFile(topicDirectory, faultBytes, "utf8");
+    for (const invalid of [
+      {
+        actionToken: "invalid-token",
+        kind: "topic",
+        operation: "create",
+        markdown: topic(1),
+      },
+      {
+        actionToken: token,
+        kind: "unknown",
+        operation: "create",
+        markdown: topic(1),
+      },
+      {
+        actionToken: token,
+        kind: "topic",
+        operation: "unknown",
+        markdown: topic(1),
+      },
+      {
+        actionToken: token,
+        kind: "topic",
+        operation: "update",
+        id: "bad",
+        expectedRevision: "1",
+        markdown: topic(2),
+      },
+      {
+        actionToken: token,
+        kind: "topic",
+        operation: "update",
+        id: "TOPIC-000042",
+        expectedRevision: "0",
+        markdown: topic(2),
+      },
+      {
+        actionToken: token,
+        kind: "topic",
+        operation: "promote-topic",
+        id: "TOPIC-000042",
+        expectedRevision: "1",
+        changeId: "bad",
+      },
+      {
+        actionToken: token,
+        kind: "meeting",
+        operation: "treat-outcome",
+        id: "MTG-000042",
+        expectedRevision: "1",
+        targetKind: "topic",
+        targetReference: "bad",
+      },
+      {
+        actionToken: token,
+        kind: "topic",
+        operation: "create",
+        markdown: "invalid",
+      },
+      {
+        actionToken: token,
+        kind: "meeting",
+        operation: "create",
+        markdown: "invalid",
+      },
+    ]) {
+      const rejected = await requestRaw(
+        handle.baseUrl,
+        "/topic-meeting/action",
+        "POST",
+        new URLSearchParams(invalid).toString(),
+      );
+      assert.equal(rejected.status, 400);
+      assert.equal(
+        rejected.body.toString("utf8"),
+        "topic_meeting_action_rejected\n",
+      );
+      assert.equal(await readFile(topicDirectory, "utf8"), faultBytes);
+    }
+    const failed = await requestRaw(
+      handle.baseUrl,
+      "/topic-meeting/action",
+      "POST",
+      new URLSearchParams({
+        actionToken: token,
+        kind: "topic",
+        operation: "create",
+        markdown: topic(1),
+      }).toString(),
+    );
+    assert.equal(failed.status, 500);
+    assert.equal(failed.body.toString("utf8"), "topic_meeting_action_failed\n");
+    assert.equal(await readFile(topicDirectory, "utf8"), faultBytes);
+    const healthy = await requestRaw(
+      handle.baseUrl,
+      new URL(handle.healthUrl).pathname,
+    );
+    assert.equal(healthy.status, 200);
+    await unlink(topicDirectory);
+    const recoveredView = await requestMainModel(handle.baseUrl);
+    assert.equal(recoveredView.topic.page.records.length, 0);
   } finally {
-    await handle?.close();
-    await rm(fixture, { recursive: true, force: true });
+    try {
+      if (handle !== null) {
+        await handle.close();
+        const endpoint = new URL(handle.baseUrl);
+        await assert.rejects(
+          new Promise<void>((_resolve, reject) => {
+            const probe = connect({
+              host: endpoint.hostname,
+              port: Number(endpoint.port),
+            });
+            probe.once("connect", () => {
+              probe.destroy();
+              reject(new Error("closed_listener_still_available"));
+            });
+            probe.once("error", reject);
+          }),
+          { code: "ECONNREFUSED" },
+        );
+      }
+    } finally {
+      await rm(fixture, { recursive: true, force: true });
+      await assert.rejects(lstat(fixture), { code: "ENOENT" });
+    }
   }
 });
 
@@ -2461,13 +2666,13 @@ test("実Provider検証HTTPの受付後故障は再送せず不明結果と同�
  * WorkbenchからMeeting Outcomeを処置してCloseするを検証する。
  *
  * @responsibility WorkbenchからMeeting Outcomeを処置してCloseするを検証するの検証責務を所有する。
- * @trace CPR-IT-008
+ * @trace CPR-IT-010
  * @precondition 対象契約を再現できる固定入力と依存を用意する。
  * @stimulus WorkbenchからMeeting Outcomeを処置してCloseするの対象操作を実行する。
  * @observation 返却値、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionがSummaryの期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
- * @boundary CPR-IT-008=Direct Boundary: workbench Test Source→対象契約
+ * @boundary CPR-IT-010=Direct Boundary: workbench Test Source→対象契約
  */
 test("WorkbenchからMeeting Outcomeを処置してCloseする", async () => {
   const testRoot = path.join(repositoryRoot, ".crdd", "tests");

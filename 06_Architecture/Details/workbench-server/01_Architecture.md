@@ -230,6 +230,10 @@ WorkbenchはCurrent Projectionを独自Databaseへ複製しない。将来Cache�
 
 ## 8. FailureとRecovery
 
+Topic／Meeting POSTは、入力評価と操作配送を分ける。token、kind／operation、固定ID・期待Revision、操作別参照とDomain公開ParserによるMarkdown検証を配送前に評価し、不正は固定400 `topic_meeting_action_rejected`へ返す。createへID／Revisionを要求せず、owner／none参照へID制約を追加しない。既存のRemote可視性確認とLocal Repository選択意味は維持する。
+
+Local操作またはRemote要求の直前にだけ配送済みを記録し、その後の操作・保存、結果検査、投影再読取りの例外は固定500 `topic_meeting_action_failed`へ返す。この配送判定はEffect有無の証明ではない。例外本文・Path・秘密値を公開せず、500からrollback・未保存・Effect 0・cleanup成立を推定しない。Domainが返す競合・確認不足等のblocked結果は、従来の303と公開モデルを維持する。`QA-000005`／`CPR-IT-012`へ故障分類、010へ正常操作・競合・削除確認を接続する。
+
 | Failure | 保持するもの | 禁止 | Recovery |
 |---|---|---|---|
 | Projection partial／unavailable | 観測済み範囲、Source、Coverage | 完全状態への畳込み | 再投影、Owner Artifactへ移動 |

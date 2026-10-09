@@ -98,9 +98,9 @@ Quality ID: `QA-000005`
 
 ## 5. 評価とEvidence
 
-`CPR-IT-012`はMCP Adapterの局所検証から着手する。Workbench、Remote要求失敗、応答後の投影再読取り、実OSの保存確定・cleanupは未評価で、項目全体Passとはしない。保存後故障は実更新を行った注入例外で確認し、実OS故障の再現と同一視しない。
+`CPR-IT-012`はMCP AdapterとWorkbench Local POSTの局所検証へ接続する。MCPの保存後故障は実更新を行った注入例外で確認し、実OS故障の再現と同一視しない。Workbenchは自己生成の空Topic保存先を通常fileへ置換し、配送前400と保存開始時500、固定本文、file bytes不変、無関係なhealth応答、Listener終了と試験Root不存在を別々に観測する。Remote要求失敗、Workbench保存後故障・投影再読取り、実OS保存確定・cleanup全体は未評価で、項目全体Passとはしない。公開応答の具体化は[Workbench詳細設計§8](../../../06_Architecture/Details/workbench-server/01_Architecture.md#8-failureとrecovery)にも接続する。
 
-`CPR-IT-010`は部分検証である。`topic-meeting-operations.contract.test.ts`の既存7件は種別固定登録・取得・一覧・Cursor・検索・Relation・昇格・Outcome処置と保存前拒否を担当する。通常update、確認付きdelete、改訂競合の同Local Itemへの試験接続は未確認で、010全体Passとはしない。`CPR-IT-011`はRepository契約からの例外搬送だけを確認し、実OSの保存確定・Lock回収やTransport応答を保証しない。
+`CPR-IT-010`は部分検証である。`topic-meeting-operations.contract.test.ts`の既存7件は種別固定登録・取得・一覧・Cursor・検索・Relation・昇格・Outcome処置と保存前拒否を担当する。MCP正常3件とWorkbenchのTopic CRUD・Meeting Outcomeケースを同項目へ接続し、Topicの通常update、改訂競合、確認なし／確認付きdeleteと改訂・状態を観測する。Meeting CRUD等を含む全操作母集合の網羅判定は残り、010全体Passとはしない。`CPR-IT-011`はRepository契約からの例外搬送だけを確認し、実OSの保存確定・Lock回収全体を保証しない。
 
 候補生成の成功を正本反映の成功にしない。Evidenceは候補の出所、人間判断、対象Owner、実際の反映範囲、却下／失敗時のEffect 0を別々に記録する。
 
