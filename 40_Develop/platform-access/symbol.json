@@ -4,6 +4,12 @@
   "subsystem": "platform-access",
   "symbols": [
     {
+      "symbolId": "platform-access.source.terminal-target",
+      "kind": "module",
+      "path": "src/filesystem/terminal_target.rs",
+      "archIds": ["ARCH-000011"]
+    },
+    {
       "symbolId": "platform-access.source.protected-file",
       "kind": "module",
       "path": "src/filesystem/protected_file.rs",
@@ -133,6 +139,7 @@
       "localTestIds": ["ERB-IT-001", "ERB-IT-002", "ERB-IT-003"],
       "verifies": [
         "platform-access.source.windows-terminal",
+        "platform-access.source.terminal-target",
         "platform-access.source.protected-file",
         "platform-access.source.host-namespace",
         "coordinator.source.src.security.candidate.store.kernel.lock"

@@ -124,8 +124,12 @@ Coordinatorの用途別Adapter（許可・耐久記録・全体結果の所有�
   │          └→ 保護・実体観測 [filesystem/protection.rs]
   │                                         ↓
   │                                      Windows API
-  ├→ Host Namespace／対象／記録要求 [protocol/host_namespace.rs・host_record.rs]
-  │     └→ 固定親・初期化 [filesystem/host_namespace.rs] → 保護保存 [filesystem/protected_file.rs]／記録処理 [filesystem/host_record.rs]
+  ├→ Host Namespace要求 [protocol/host_namespace.rs]
+  │     └→ 固定親・初期化 [filesystem/host_namespace.rs]
+  ├→ Host対象／記録要求 [protocol/host_record.rs]
+  │     └→ 記録処理 [filesystem/host_record.rs]
+  │          ├→ 対象観測 [filesystem/terminal_target.rs] → Namespace guard [filesystem/host_namespace.rs]
+  │          └→ 保護保存 [filesystem/protected_file.rs]
   └→ Docker操作 [docker-desktop/repair.rs]
         ├ 障害修復protocol
         ├ 検証付き再起動protocol（Source接続済み・実機未完了）
@@ -148,7 +152,8 @@ Coordinator側で再検証 → 診断／回復結果
 | 固定Home観測 | `src/filesystem/protected_root.rs` | Provider Home／Candidate Store／Runtime Stateの固定親、構成、限定初期化と主体・保護Bindingを照合する |
 | Host記録処理 | `src/filesystem/host_record.rs` | 容量・予約・保存・読戻しを保護付きFileとNamespace対象観測へ接続し、専用公開結果と部分処置を搬送する |
 | 保護付きFile操作 | `src/filesystem/protected_file.rs` | 同期Handleのopen・close、実体・ACL照合、Descriptor構成、上限付き読取り、保存Stageのwrite・flush・同一実体への非置換公開と部分receipt |
-| Host Namespace観測 | `src/filesystem/host_namespace.rs` | 固定NamespaceのIdentity型、実体値照合、対象名・一時親Path判定、保持Directory chainの取得・検証・個別終了、期待値付き固定child初期化と専用公開要求、十一／十二実体の対象観測・部分取得・逆順終了 |
+| Host Namespace観測 | `src/filesystem/host_namespace.rs` | 固定NamespaceのIdentity型、実体値照合、対象名・一時親Path判定、保持Directory chainの取得・検証・個別終了、期待値付き固定child初期化と専用公開要求 |
+| Host対象観測 | `src/filesystem/terminal_target.rs` | 借用したNamespace guard上の十一／十二実体の観測・部分取得・逆順終了。対象観測をNamespace初期化・記録保存・回収Authorityから分け、共有する停止flagと個別終了条件を維持する |
 | Host保護の結合試験 | `tests/fixtures/windows_protection.rs` | `filesystem::host_record::protection_tests`の試験専用子module。自己生成対象の共有拒否・別Process観測だけを所有し、一般UTから分離する。ignored試験は既定実行しない。正式Node入口がfresh runとCargo返却の一意なtest実行物を固定し、親と子は同じrun・実行物・期限を再確認する |
 | Docker実体検証 | `src/docker-desktop/identity.rs` | 固定artifactの署名・ハッシュ・同一実体とProcess Path・作成時刻・scope観測。停止・起動を所有しない |
 | Docker操作 | `src/docker-desktop/repair.rs` | 用途別protocol、mutex、検証済みartifactとProcessを使う限定停止・開始・再起動 |

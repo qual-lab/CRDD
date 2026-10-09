@@ -4,21 +4,25 @@
 //! @trace ARCH-000008
 //! @trace ARCH-000011
 //! @trace ARCH-000015
+#[cfg(test)]
+use crate::filesystem::host_namespace::validate_terminal_target_names;
 use crate::filesystem::host_namespace::{
     CAPACITY_SETTLEMENT_UNKNOWN, TerminalDirectory, TerminalNamespaceIdentity,
-    TerminalTargetFailure, TerminalTargetObservation, TerminalTargetSnapshot,
-    observe_known_file_terminal_target, observe_terminal_target, terminal_identity_fields,
-};
-#[cfg(test)]
-use crate::filesystem::host_namespace::{
-    TERMINAL_TARGET_CHILDREN, TerminalKnownFileSnapshot, finish_terminal_target_observation,
-    observe_terminal_known_file, validate_terminal_target_identities,
-    validate_terminal_target_names,
+    terminal_identity_fields,
 };
 use crate::filesystem::protected_file::{
     TerminalReceipt, TerminalStage, close_terminal_handle, observe_terminal_presence,
     open_terminal_handle, terminal_identity, terminal_names, verify_terminal_object_protection,
     verify_terminal_protection, with_terminal_access_descriptor, with_terminal_descriptor,
+};
+#[cfg(test)]
+use crate::filesystem::terminal_target::{
+    TERMINAL_TARGET_CHILDREN, TerminalKnownFileSnapshot, finish_terminal_target_observation,
+    observe_terminal_known_file, validate_terminal_target_identities,
+};
+use crate::filesystem::terminal_target::{
+    TerminalTargetFailure, TerminalTargetObservation, TerminalTargetSnapshot,
+    observe_known_file_terminal_target, observe_terminal_target,
 };
 
 #[cfg(test)]

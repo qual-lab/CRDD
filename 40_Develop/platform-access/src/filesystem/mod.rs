@@ -10,8 +10,9 @@ pub(crate) mod host_namespace;
 #[allow(dead_code)]
 pub(crate) mod host_record;
 pub(crate) mod protected_file;
-pub(crate) mod protection;
 pub(crate) mod protected_root;
+pub(crate) mod protection;
 #[allow(dead_code)]
 pub(crate) mod root_observation;
+pub(crate) mod terminal_target;
 pub(crate) mod windows_directory;

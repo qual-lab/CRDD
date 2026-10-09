@@ -129,7 +129,7 @@ Packageの限定完了は未検証の全体をPassと表示しない。既知の
 | 2 Domain Model | 共通活動操作・型を`activity/operations.ts`／`activity/types.ts`へ移管。一時保存型は`storage/types.ts`へ限定し、投影と候補判断を同じContext領域の別Fileへ分離。限定独立レビュー指摘0 | 本体・型・公開集合一致、Package回帰106件とCROS／MCP／Workbench型接続を確認。全体Checkerの未変更Coordinator指摘は別残件として保持する |
 | 3 Execution Intelligence | 改善提案を`evaluation/improvement-candidates.ts`へ移管し、事実Eventの検査・Summaryを一方向に利用する。公開API・提案本文・結果値不変、限定独立レビュー指摘0 | 基準・変更後各82件のPackage回帰、公開入口契約、Orchestrator／Workbench型接続を確認。保存方式や採用Authorityは変更しない |
 | 4 AI Adapter | Provider認証Probeの出力判定・非正常終了分類をAI Adapterへ移し、Coordinatorの引数再検証を既存Provider記述へ接続。限定独立レビュー指摘0 | Package回帰13件、Controller／Effect結合126件を確認。隔離資産の移管は後半のDocker Owner確定まで先行させず、署名・実Provider境界の未評価を保持する |
-| 5 Platform Access | Protocol、Filesystem保護、Process、Docker Desktopの責務集合を確認。WindowsのIdentity／権限観測を提供している | 実呼出し・必要保証・Node代替可否を対応付ける。Docker Desktop部品の撤去とNative廃止を既定にせず、後半実行系に依存する判断は明示して残す |
+| 5 Platform Access | OS保証と実利用側を照合。Namespace初期化・親chainと対象観測を分離し、公開Protocol・権限・終了条件は維持 | 通常Native回帰と限定独立レビューで確認する。実OS専用fixture、Docker Desktop部品の撤去・Native廃止・再署名は局所整理の完了に含めず、後半実行系の判断へ対応付ける |
 
 ### Version Controlの限定確認
 
@@ -164,6 +164,28 @@ Packageの限定完了は未検証の全体をPassと表示しない。既知の
 - 引数再検証では既存の認証記述とClaude引数Builderを利用する。引数順序、助言経路の例外、Docker設定は不変。公開入口、Symbol、Controller試験の実装参照、Checker期待集合、Architectureを追従した。
 - AI Adapterの書式・型・Lint・回帰13件はPass。Controller／Effect結合試験126件はPass、Skip 0。変更SourceのLintとCoordinatorのSource型検査はPass。Coordinatorの試験型検査は未変更二Fileの既知18件で失敗し、全体Passとは扱わない。
 - 固定差分の限定独立レビューは指摘0。実Provider／Docker起動、認証操作、署名・配布は行っておらず、これらの実境界成立の証拠ではない。
+
+### Platform Accessの保証・利用側照合
+
+| 保証の所有範囲 | 現行利用側 | 今回の処置・Nodeへの置換評価 |
+|---|---|---|
+| RootのIdentity・アクセス観測 | CoordinatorのPlatform Access境界とRoot契約。検証済み実起動に未接続の入口は未接続のまま保持 | `root_observation`／`protection`を維持。NodeのPath文字列・stat・accessは同handleのWindows権限照合と同じ保証ではない。未接続を不要の根拠にしない |
+| Provider Home／Candidate Store／Runtime Stateの保護 | `provider/home-windows-adapter.ts`、`platform-access/protected-root-windows-adapter.ts` | `protected_root`／`principal`／`protection`を維持。固定Known Folder、利用者SID、非Reparse、同handle Identity・DACL、限定初期化を環境変数や通常File APIで代替しない |
+| System Directoryと最小子Process環境 | `host-execution/windows-directory-bootstrap.ts`と子Process環境構成 | `windows_directory`を維持。OS取得値と環境変数の文字列を同一視しない |
+| Host Namespaceと終端記録 | `host-execution/terminal-windows-adapter.ts`とcaller checkpoint | Namespaceの三実体・保護・初期化を`host_namespace`、十一／十二対象の読取り・再照合・終了を`terminal_target`、容量・予約・保存・読戻しを`host_record`へ分離。保存区間の排他・receiptは同じ同期Ownerへ保持し、追加Frameworkを作らない |
+| 固定Docker Desktop・署名Publisher・所有子Process | `docker-desktop/repair-native-process.ts`と既存修復・再起動入口 | WinVerifyTrust、Process実体、suspended→Job→resume、終了確認を維持。Node spawn・hashだけへの置換は同じ保証の根拠がない。修復削減は後半の実行系へ接続する |
+| 固定Protocolと結果搬送 | Native `main.rs`／`protocol`、上記TS Adapter | Rust側の未信頼入力検査とTS側の未信頼応答検査は異なる境界。片側だけ成功することを理由に重複として削除しない |
+
+上表は現在利用する保証とOwnerの照合であり、新しい保証の採用・実OS検証の完了ではない。Nodeへ移せる純粋なcodec・hashだけを抽出するための新APIは追加しない。必要性のない移管は依存と検証費用を増やすためである。
+
+### Platform Accessの限定確認
+
+- 対象観測の530行を`filesystem/terminal_target.rs`へ移管し、基準`9f6fd8c2`とブロック全体の機械比較で一致した。公開範囲、八／九handleの保持・逆順close、十一／十二実体の別契約、部分取得・元失敗と終了不明は不変。
+- Rust直接利用側は`host_record`へ保持し、既存fixtureの名前・実行条件を変更しない。Native公開入口、wire、TS Adapter、Docker修復処理は変更していない。
+- Architecture、Symbolと既存試験の実体参照、Module宣言、Coverageの明示Source集合を追従した。Coverage集合の存在しない旧`provider_home.rs`参照は現行`protected_root.rs`へ訂正した。
+- 基準・移管後の通常Native回帰は各44単体＋6CLIがPass、23件は明示ignored。Cargo書式確認・Clippy（warning拒否）はPass。ignoredの実OS専用fixture、計測Coverage、署名・実Dockerは今回実行していない。
+- 新Sourceは既存Native検証入口の再帰Source閉包へ含まれる。現行署名済み実行物を新Treeの検証証拠へ流用せず、後半で新しいBuild Identity・配布閉包・必要な署名境界を確認する。
+- 限定独立レビューの文書図1件を是正し、Namespaceの直接dispatchと対象／記録要求を実装に合わせて分けた。是正後の未解決指摘0。実装上の保証漏れ・本体変更は検出していない。
 
 Related:
 - [現行の責務対応と第一段階結果](Evidence/261007_develop-responsibility-mapping.md)
