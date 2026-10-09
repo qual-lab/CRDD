@@ -119,7 +119,7 @@ function walkMarkdown(root: string, current = root): string[] {
  * @input repositoryRootにVersion Control境界で検証済みの絶対Rootを受け取る。
  * @returns Topic／Meetingの取得・一覧・登録・編集・削除Portを返す。
  * @precondition Rootは実在Directoryで、現在の書込み許可Repositoryである。
- * @postcondition 書込み成功時は完全検証済みMarkdownだけがCanonical Pathへ存在する。
+ * @postcondition 登録・更新の成功時は保存後の同一読取りでbytes、ID、改訂とProject IDの一致を確認する。
  * @effect create、update、deleteだけがRepository Filesystemを一回変更する。
  * @failure Identity、Revision、Relationまたは確認不足ではEffect 0でblockedを返す。保存・cleanupの例外は失敗段階を保持し、実保存後もEffect 0へ変換しない。
  * @invariant Topicは`22_Topics/TOPIC-xxxxxx/topic.md`、Meetingは`23_Meetings/MTG-xxxxxx/meeting.md`だけを使う。
@@ -152,13 +152,27 @@ export function createTopicMeetingRepository(
     };
   };
 
-  const readDocument = (kind: ProjectOperationRecordKind, id: string) => {
+  const readDocument = (
+    kind: ProjectOperationRecordKind,
+    id: string,
+    expected?: { record: ProjectOperationRecord; markdown: string },
+  ) => {
     const target = location(kind, id);
     if (!existsSync(target.file)) return null;
     if (lstatSync(target.file).isSymbolicLink())
       throw new Error("project_operation_record_symlink_rejected");
-    const markdown = readFileSync(target.file, "utf8");
-    return Object.freeze({ record: parseRecord(kind, markdown), markdown });
+    const bytes = readFileSync(target.file);
+    const markdown = bytes.toString("utf8");
+    const record = parseRecord(kind, markdown);
+    if (
+      expected &&
+      (recordId(record) !== recordId(expected.record) ||
+        record.revision !== expected.record.revision ||
+        record.projectId !== expected.record.projectId ||
+        !bytes.equals(Buffer.from(expected.markdown, "utf8")))
+    )
+      throw new Error("project_operation_record_readback_mismatch");
+    return Object.freeze({ record, markdown });
   };
   const read = (kind: ProjectOperationRecordKind, id: string) =>
     readDocument(kind, id)?.record ?? null;
@@ -268,11 +282,13 @@ export function createTopicMeetingRepository(
       }
       throw error;
     }
+    if (readDocument(kind, recordId(record), { record, markdown }) === null)
+      throw new Error("project_operation_record_readback_missing");
   };
 
   return Object.freeze({
     get: read,
-    getDocument: readDocument,
+    getDocument: (kind, id) => readDocument(kind, id),
     list: (kind) => {
       const contract = KIND_CONTRACT[kind];
       const rootDirectory = path.join(root, contract.directory);

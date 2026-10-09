@@ -55,12 +55,13 @@ Project ID: \`PRJ-001\`
  *
  * @responsibility meeting用の試験入力または観測処理を提供するの検証責務を所有する。
  * @trace CPR-IT-010
+ * @trace CPR-IT-011
  * @precondition 対象契約を再現できる固定入力と依存を用意する。
  * @stimulus meetingの対象操作を実行する。
  * @observation 返却値、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionがSummaryの期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
- * @boundary CPR-IT-010=Direct Boundary: Repository Test Source→CRUD契約
+ * @boundary Repository試験入力→登録・更新と保存後失敗照合のDirect Boundary。
  */
 function meeting(revision: number) {
   return `# Weekly Sync
@@ -210,6 +211,7 @@ test("保存とcleanupの失敗を上書きせず実改訂と照合する", (t) 
     }
   }
   const originalRename = fs.renameSync;
+  const originalOpen = fs.openSync;
   const originalClose = fs.closeSync;
   const originalUnlink = fs.unlinkSync;
   for (const mode of [
@@ -242,6 +244,16 @@ test("保存とcleanupの失敗を上書きせず実改訂と照合する", (t) 
       const temporaryFails = ["temporary", "nested"].includes(mode);
       let thrown = false;
       let failure: unknown;
+      let lockDescriptor: number | undefined;
+      const openMock = t.mock.method(
+        fs,
+        "openSync",
+        (file: fs.PathLike, flags: fs.OpenMode, mode?: fs.Mode) => {
+          const descriptor = originalOpen(file, flags, mode);
+          if (String(file) === lockPath) lockDescriptor = descriptor;
+          return descriptor;
+        },
+      );
       const renameMock = t.mock.method(
         fs,
         "renameSync",
@@ -253,9 +265,11 @@ test("保存とcleanupの失敗を上書きせず実改訂と照合する", (t) 
         },
       );
       const closeMock = t.mock.method(fs, "closeSync", (descriptor: number) => {
-        attempts.push("close");
         originalClose(descriptor);
-        if (lockFails) throw closeFailure;
+        if (descriptor === lockDescriptor) {
+          attempts.push("close");
+          if (lockFails) throw closeFailure;
+        }
       });
       const unlinkMock = t.mock.method(
         fs,
@@ -276,6 +290,7 @@ test("保存とcleanupの失敗を上書きせず実改訂と照合する", (t) 
         failure = error;
       } finally {
         renameMock.mock.restore();
+        openMock.mock.restore();
         closeMock.mock.restore();
         unlinkMock.mock.restore();
         syncBuiltinESMExports();
@@ -315,6 +330,206 @@ test("保存とcleanupの失敗を上書きせず実改訂と照合する", (t) 
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
       assert.throws(() => fs.lstatSync(root), { code: "ENOENT" });
+    }
+  }
+});
+
+/**
+ * 登録・更新の同一読戻しと保存後失敗を照合する。
+ *
+ * @responsibility TopicとMeetingの保存済みbytes・Identity・改訂と公開成功／例外を相関する。
+ * @trace CPR-IT-010
+ * @trace CPR-IT-011
+ * @precondition 検証済みRepositoryの非link試験親に自己生成Rootを用意する。
+ * @stimulus create／updateを実保存し、保存後読取りの欠落・故障・内容差とLock回収故障を限定注入する。
+ * @observation rename後の読取り回数、Lock存在、実bytes・改訂、一次例外とcleanupを観測する。
+ * @oracle 一致時だけ成功し、保存後失敗は実保存を残したまま内部例外を返す。不正UTF-8を同一文字列として受理しない。
+ * @cleanup 注入を復元して自己生成Rootを回収し、Root不存在を確認する。
+ * @boundary 同期Repository保存→同一File読戻し。電源断・親差替え・実Process競合は対象外。
+ */
+test("登録・更新はLock内の同一読戻しを確認し保存後失敗を隠さない", (t) => {
+  const verified = resolveVerifiedRepositoryRootFromWorkingDirectory(
+    import.meta.dirname,
+  );
+  const parent = path.join(verified, ".crdd", "tests");
+  for (const directory of [path.dirname(parent), parent]) {
+    try {
+      const stat = fs.lstatSync(directory);
+      assert.ok(stat.isDirectory() && !stat.isSymbolicLink());
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      fs.mkdirSync(directory);
+    }
+  }
+  const originalRead = fs.readFileSync;
+  const originalRename = fs.renameSync;
+  const originalExists = fs.existsSync;
+  const originalUnlink = fs.unlinkSync;
+  for (const kind of ["topic", "meeting"] as const) {
+    for (const operation of ["create", "update"] as const) {
+      for (const mode of [
+        "normal",
+        "read-error",
+        "missing",
+        "bytes",
+        "identity",
+        "revision",
+        "project",
+        "utf8",
+        "parse",
+        "cleanup",
+      ] as const) {
+        const root = fs.mkdtempSync(
+          path.join(parent, "topic-meeting-readback-"),
+        );
+        try {
+          const repository = createTopicMeetingRepository(root);
+          const id = kind === "topic" ? "TOPIC-000042" : "MTG-000042";
+          const directory = path.join(
+            root,
+            kind === "topic" ? "22_Topics" : "23_Meetings",
+          );
+          const file = path.join(directory, id, `${kind}.md`);
+          const lock = path.join(directory, `.${id}.lock`);
+          const fixture = kind === "topic" ? topic : meeting;
+          if (operation === "update")
+            assert.equal(
+              repository.create(kind, fixture(1)).status,
+              "completed",
+            );
+          const revision = operation === "create" ? 1 : 2;
+          const markdown = fixture(revision).replace(
+            "### 結論",
+            "### 結論\n\n置換文字: \uFFFD",
+          );
+          const readFailure = new Error("fixed_readback_failure");
+          const cleanupFailure = new Error("fixed_readback_cleanup_failure");
+          let published = false;
+          let readCount = 0;
+          const renameMock = t.mock.method(
+            fs,
+            "renameSync",
+            (source: fs.PathLike, destination: fs.PathLike) => {
+              const result = originalRename(source, destination);
+              published = true;
+              return result;
+            },
+          );
+          const existsMock = t.mock.method(
+            fs,
+            "existsSync",
+            (target: fs.PathLike) =>
+              published && String(target) === file && mode === "missing"
+                ? false
+                : originalExists(target),
+          );
+          const readMock = t.mock.method(
+            fs,
+            "readFileSync",
+            (...args: Parameters<typeof fs.readFileSync>) => {
+              if (!published || String(args[0]) !== file)
+                return originalRead(...args);
+              readCount++;
+              assert.ok(originalExists(lock));
+              assert.equal(args[1], undefined);
+              if (mode === "read-error" || mode === "cleanup")
+                throw readFailure;
+              let observed = originalRead(file);
+              if (mode === "bytes") observed = Buffer.from(`${markdown}\n`);
+              if (mode === "identity")
+                observed = Buffer.from(
+                  markdown.replace(id, id.replace("042", "043")),
+                );
+              if (mode === "revision")
+                observed = Buffer.from(
+                  markdown.replace(`改訂: \`${revision}\``, "改訂: `3`"),
+                );
+              if (mode === "project")
+                observed = Buffer.from(markdown.replace("PRJ-001", "PRJ-002"));
+              if (mode === "parse") observed = Buffer.from("not a record");
+              if (mode === "utf8") {
+                const offset = observed.indexOf(Buffer.from("\uFFFD"));
+                assert.ok(offset >= 0);
+                observed = Buffer.concat([
+                  observed.subarray(0, offset),
+                  Buffer.from([0xff]),
+                  observed.subarray(offset + 3),
+                ]);
+                assert.equal(observed.toString("utf8"), markdown);
+              }
+              return observed;
+            },
+          );
+          const unlinkMock = t.mock.method(
+            fs,
+            "unlinkSync",
+            (target: fs.PathLike) => {
+              if (mode === "cleanup" && String(target) === lock)
+                throw cleanupFailure;
+              return originalUnlink(target);
+            },
+          );
+          syncBuiltinESMExports();
+          try {
+            /**
+             * 今回の登録または更新を一度実行する。
+             *
+             * @responsibility 同じ入力を正常返却と例外観測の両経路へ与える。
+             * @trace CPR-IT-010
+             * @trace CPR-IT-011
+             * @precondition 対象種別・ID・期待改訂と限定注入が設定済みである。
+             * @stimulus 選択したRepository create／updateを一度呼ぶ。
+             * @observation 返却結果または保存後の一次例外を呼出し側へ渡す。
+             * @oracle 外側のassertionで実保存・読戻し・cleanupとの相関を判定する。
+             * @cleanup 外側のfinallyが注入と自己生成Rootを回収する。
+             * @boundary Repository公開CRUD→実Filesystem保存と注入観測。
+             */
+            const attemptRecordWrite = () =>
+              operation === "create"
+                ? repository.create(kind, markdown)
+                : repository.update(kind, id, 1, markdown);
+            if (mode === "normal") {
+              const result = attemptRecordWrite();
+              assert.equal(result.status, "completed");
+              assert.equal(result.record?.revision, revision);
+            } else {
+              assert.throws(attemptRecordWrite, (error: unknown) => {
+                if (mode === "read-error") assert.equal(error, readFailure);
+                else if (mode === "cleanup") {
+                  assert.ok(error instanceof AggregateError);
+                  assert.equal(error.cause, readFailure);
+                  assert.deepEqual(error.errors, [cleanupFailure]);
+                } else {
+                  assert.ok(error instanceof Error);
+                  if (mode !== "parse")
+                    assert.equal(
+                      error.message,
+                      mode === "missing"
+                        ? "project_operation_record_readback_missing"
+                        : "project_operation_record_readback_mismatch",
+                    );
+                }
+                return true;
+              });
+            }
+            assert.ok(published);
+            assert.equal(readCount, mode === "missing" ? 0 : 1);
+          } finally {
+            renameMock.mock.restore();
+            readMock.mock.restore();
+            existsMock.mock.restore();
+            unlinkMock.mock.restore();
+            syncBuiltinESMExports();
+          }
+          assert.deepEqual(originalRead(file), Buffer.from(markdown));
+          assert.equal(repository.get(kind, id)?.revision, revision);
+          assert.equal(originalExists(lock), mode === "cleanup");
+          assert.deepEqual(fs.readdirSync(path.dirname(file)), [`${kind}.md`]);
+        } finally {
+          fs.rmSync(root, { recursive: true, force: true });
+          assert.throws(() => fs.lstatSync(root), { code: "ENOENT" });
+        }
+      }
     }
   }
 });

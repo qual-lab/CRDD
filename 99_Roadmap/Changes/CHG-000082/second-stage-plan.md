@@ -239,7 +239,7 @@ Related:
 | 対象 | 不足と最小処置 | 保持する条件・確認方法 | 現在状態 |
 |---|---|---|---|
 | Domain ModelのTopic／Meeting保存 | rename後のLock解放失敗を上位の入力不正・Effect 0へ丸める経路を除く。保存Ownerから一次失敗とcleanup結果を分離して搬送する | 正常CRUD・Revision・Relationは不変。rename後close／unlink故障と実ファイル・公開結果の相関を局所試験する。汎用Recovery Frameworkを追加しない | 一次失敗／cleanup分離とMCP／Workbenchの誤変換は局所是正済み。親link、部分write、読戻し、耐久性、実Process競合等の保存全体保証は次行で未完了を維持 |
-| Topic／Meetingの保存境界 | 親Directoryのlink経由を拒否し、保存確定・読戻しの観測を接続する | Root外書込み禁止、保存形式・ID・認可Ownerは不変。親link・途中置換・読戻し失敗・実Process競合を反証する | 未是正。既存primitiveの利用可否を先に照合する |
+| Topic／Meetingの保存境界 | 親Directoryのlink経由を拒否し、保存確定・読戻しの観測を接続する | Root外書込み禁止、保存形式・ID・認可Ownerは不変。親link・途中置換・読戻し失敗・実Process競合を反証する | 通常保存後の一回読戻しは接続済み。親link、部分write、実Process競合は未完了。非協調Processの親差替え防止は判断待ち |
 | Version Control公開入口 | 跨Packageの実体Path importを既存Root exportへ接続し、閉包試験へ禁止例を追加する | 新API・中継Fileは作らない。署名閉包のPath文字列とimportを区別する | 代表3利用側と既知Consumer集合を訂正済み。全利用側の閉包確認は残る |
 | 現在の設計・Header | Domainの廃止済み入口、AI Adapterの旧配置参照、純粋計画のEffect記載、EI WriterのEffect・排他記載を実体へ合わせる | 関数本文・公開結果・Authorityは不変。書式・型・Lintと限定独立確認を行う | 訂正済み。限定独立確認は指摘0 |
 | AI Adapter純粋試験3Suite | Codex／Claudeの構造化結果とBilling試験を実装Ownerへ移し、Symbol／Catalog／回帰入口を接続する | 14 caseの拒否例・Oracleを保持する。Coordinator結合試験は一括移管しない | 移管済み。14 case本文・Oracle不変、Package回帰27件と関連Consumer34件を確認 |
@@ -290,3 +290,11 @@ Topic昇格・Meeting Outcome処置のcatchを純粋Markdown変換だけへ限�
 Claude結果9件、Codex結果3件、課金方針2件を実装Ownerの試験Directoryへ移管した。コメント・import移設を除く本文・Oracleは基準Commit `5c33ba70`と完全一致し、Runtime Source、安定Symbol／Catalog IDと過去Evidenceは変更していない。ARCH-000004／000015の結果解釈からERB-UT-032、ARCH-000010と既存Subscription方針からERB-UT-033へ導出し、旧Domain Outcome／Trust軸への誤接続を解消した。
 
 独立レビュー3指摘はcoverage入口の旧Path、15 Headerの外部境界表記、容量契約値と実拒否観測の混同を是正し、再レビューは両観点とも指摘0。AI Adapterの書式・型・Lintと27件、Coordinator関連Consumerの限定strict型・書式・Lintと34件はPass、Skip／Fail 0。Coordinator全体checkは既存Checker試験の整形1件で停止、全体型検査は既知Recovery二Fileの18件で未合格。実Provider・Docker・認証・署名・費用・取消／cleanup・16KiB実逸脱拒否の成立をこの移管結果から主張しない。coverage入口の6試験Pathは実在を確認し、未実行の他試験をPassへ計上しない。
+
+### 通常保存後の読戻し確認
+
+登録・更新のrename後、既存Record Lockを保持したまま保存先を一回読み直す。同じ読取りから得たUTF-8 bytes、ID、改訂とProject IDを保存予定値へ照合し、欠落・読取り失敗・解析失敗・不一致は完了として返さない。保存済み正本の自動rollback、読戻し再試行、新しいLock／Recoveryは追加しない。人間が採用した通常保存＋読戻しの範囲に限定し、電源断耐久性は保証しない。
+
+Topic／Meetingと登録／更新の4経路について、正常と9故障分類の40組合せを一つの契約試験へ接続した。実bytes・改訂の保持、一次失敗とcleanup併発、Lock保持、読取り回数、不正UTF-8とmock復元・試験Root回収を確認する。既存close故障注入は所有Lock descriptorだけへ限定し、読戻しで使うFilesystem内部descriptorと混同しない。Domain Model全109件、MCP全51件、Workbench全33件と各Packageの書式・型・LintはPass、Skip／Fail 0。これは実Provider・Docker・実Browser・実OS故障や保存全体保証の完成根拠ではない。
+
+独立レビューのSource指摘0と品質Minor2件を統合し、Meeting helperの正常／異常TraceとQA011の登録・更新対象範囲だけを訂正した。実装・40組合せ・assertion・ID・Oracleは不変で、両観点の限定再レビューは指摘0。訂正後の書式・型・Lintと局所4CaseもPass。親link、write自体の部分失敗、実Process競合と非協調Processの親差替え範囲は引き続き未完了として扱う。

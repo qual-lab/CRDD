@@ -143,6 +143,8 @@
 | `ARCH-000006` Domain Model詳細設計§9.1、`SPEC-000013` | 公開操作と保存後RecordのIdentity・改訂・状態・Relationの相関 | `QA-000005`／`CPR-IT-010` | Reader専用の`CPR-IT-008`を更新成功の根拠にしない |
 | 同詳細設計の保存一次失敗と入力拒否の分離 | 変換拒否は更新0回。一次失敗のみは同一例外、cleanup併発はAggregateErrorのcauseに同じ一次例外、errorsにcleanup試行順を保持する。undefined・入れ子の失敗、実改訂・残存物を相関し、実更新を未保存へ丸めない | `QA-000005`／`CPR-IT-011` | OSの保存確定、Lock回収、親link保証、MCP／Workbench返却の全体完成は別途確認する |
 
+Domain Model詳細設計§9.1の通常保存完了は、同じLock内で一度取得したbytesと同一snapshotのID・改訂・Project IDの照合へ具体化する。`CPR-IT-010`の成功と`CPR-IT-011`の欠落・読取り／解析故障・値差・cleanup併発を分け、保存後内部故障から未保存やEffect 0を推定しない。不正UTF-8と正規置換文字の反例を含め、電源断耐久性は人間判断により対象外とする。親差替え・実Process競合は別の未完了保証として保持する。
+
 ## AI Adapterの純粋結果変換・課金方針からの追加導出
 
 容量については16KiBの契約値照合と実入力の逸脱拒否を区別する。移管14 Caseでは後者は未観測であり、容量拒否の設計義務を完了扱いにしない。
