@@ -1,7 +1,7 @@
 # 第二段階：責務・状態所有・実行境界の再編計画
 
 成果物種別: 変更計画
-状態: In Progress（1〜5の着手許可。未決Architecture候補は未採用）
+状態: In Progress（1〜8を継続。未決Architecture候補は未採用）
 対象変更: [CHG-000082](change.md)
 基準改訂版: `98cab6e3278a61684c557a6499cfb602e2d19111`
 維持責任者・採用決定権限: Qual-Lab
@@ -15,7 +15,7 @@
 
 | 項目 | 今回の扱い |
 |---|---|
-| 人間の許可 | 第二段階の計画作成に続き、2026-10-09に計画Commit後の1〜5着手を許可。添付の未決候補を一括採用したとは扱わない |
+| 人間の許可 | 第二段階の計画作成に続き、2026-10-09に計画Commit後の1〜5着手、続いて1〜8の完了までの継続を許可。CROS Package維持は別途承認済み。添付の未決候補を一括採用したとは扱わない |
 | 変更分類 | 非自明な責務再編。公開入口・保存契約・安全境界を変更する箇所は破壊的変更として個別に影響を提示する |
 | 変更意図 | 既存採用Capabilityを保持し、重複状態・不要中継・過剰管理を削り、構造を説明可能にする |
 | 書込み範囲 | 現在のCRDD Repository。外部Runtime、認証領域、別Repositoryの変更は本計画だけでは許可しない |
@@ -106,7 +106,7 @@ Packageの限定完了は未検証の全体をPassと表示しない。既知の
 | `docker-isolation`を独立Packageにするか | 現行File・資源Owner・AI Adapterとの依存、独立試験の実益、Package内Module案との比較 | 順序0、抽出前 |
 | worktreeか現行隔離Snapshotか | Canonical保護、候補採用・競合、共有Git metadataとMount境界、運用費用 | 順序1〜2の設計。採用まで新方式を作らない |
 | 署名・Native保証をどこまで削るか | 現在守る保証、具体的Consumer、Node／既存隔離による代替と残存Risk | 順序0で設計制約、順序5・12で具体的削除判断 |
-| CROS Package維持か廃止か | 必要なRegistry／認可／RoutingのOwnerと、移管で増える依存・中継 | 順序6の実装前 |
+| CROS Package維持か廃止か | 必要なRegistry／認可／RoutingのOwnerと、移管で増える依存・中継 | 2026-10-09に独立Package維持を承認。専用REST／Gateway／Shared Hostは廃止し、Workbench／MCPが内部機能を共用する |
 | Workbenchの利用導線・表示・Visual | 現行UX／IAとの比較、Screen Inventory／Flow、代表画面と代替 | 順序8の接続維持後、画面再設計前 |
 
 これらを一括質問せず、必要な根拠が揃った地点で推奨と影響を提示して止める。単なる内部File移動へ追加判断を要求しない。
@@ -191,7 +191,7 @@ Packageの限定完了は未検証の全体をPassと表示しない。既知の
 
 ### 結論と判断境界
 
-CROSの登録・認可・横断投影は独立した責務であるため、Packageは維持する案を推奨する。CROS専用REST／Gateway／Shared Hostは廃止対象であり、BrowserとWorkbench Server間のPresentation APIは維持する。Package維持の採否は人間判断待ちで、以下は移管案である。未採用の構成をSourceへ実装しない。
+CROSの登録・Credential・認可・横断投影は独立した責務として、2026-10-09の人間判断で独立Package維持を承認した。CROS専用REST／Gateway／Shared Hostは廃止対象であり、BrowserとWorkbench Server間のPresentation APIは維持する。以下の対応をArchitecture／Qualityと利用側へ具体化してから実装する。未決の実行系構成をこの判断から採用しない。
 
 着手前の読取り専用確認により、現行利用側、移管先の不足、保持保証と依存順を照合した。これは段階6の独立完成レビューや実装許可ではない。変更経路は既存CHG内の責務再編であり、実装時はArchitecture／Quality、直接利用側と配布入口の不足影響・文書確認、固定差分の独立レビューを行う。準拠基準・公開訴求・Release判断は変更しないため、準拠監査・市場探索・署名実E2Eをこの棚卸しへ追加しない。
 
@@ -211,8 +211,8 @@ CROSの登録・認可・横断投影は独立した責務であるため、Pack
 
 ### 削除までの依存順
 
-1. CROS Packageの採否後、共通契約と保持する認可・結果意味をArchitecture／Qualityで固定する。
-2. 未接続のProfile管理・Runtime活動をMCPへ接続し、正常、拒否、競合、欠測、取消と終了後状態を確認する。
+1. 承認済みCROS PackageをOwnerとして、共通契約と保持する認可・結果意味をArchitecture／Qualityで固定する。Exposure・Runtime観測／Reader型をHTTP Transportから分離し、Root export・設定Reader・MCP Resolver・Workbenchの直接利用側を追従する。
+2. 未接続のProfile管理・Runtime活動をMCPへ接続し、正常、拒否、競合、欠測、取消と終了後状態を確認する。本番Launcherの依存注入も閉じる。現行`crdd-cros-server.ts`と設定型は両能力を注入しておらず、optional Portとfixture成功を本番成立へ読み替えない。
 3. WorkbenchのREST利用四入口をMCPへ切替え、既存Topic／MeetingとBrowser APIを維持する。
 4. 代替接続・試験・設定・公開入口・Symbolを照合した後、CROS REST／Shared Host／Gatewayを撤去する。旧通信実装を互換Readerとして残さず、導入側移行はフロントAI手順へ接続する。
 
@@ -240,11 +240,11 @@ Related:
 |---|---|---|---|
 | Domain ModelのTopic／Meeting保存 | rename後のLock解放失敗を上位の入力不正・Effect 0へ丸める経路を除く。保存Ownerから一次失敗とcleanup結果を分離して搬送する | 正常CRUD・Revision・Relationは不変。rename後close／unlink故障と実ファイル・公開結果の相関を局所試験する。汎用Recovery Frameworkを追加しない | 一次失敗／cleanup分離、MCP／Workbenchの誤変換、部分write・一回読戻し・静的親link拒否は局所是正済み。実Process競合等の保存全体保証は次行で未完了を維持 |
 | Topic／Meetingの保存境界 | 親Directoryのlink経由を拒否し、保存確定・読戻しの観測を接続する | Root外書込み禁止、保存形式・ID・認可Ownerは不変。親link・途中置換・読戻し失敗・実Process競合を反証する | 通常保存後の一回読戻し、部分write失敗、静的親link拒否と取得順固定の協調Writer実Process競合は確認済み。非協調Processの親差替え防止は判断待ち。電源断耐久性は人間判断により今回対象外 |
-| Version Control公開入口 | 跨Packageの実体Path importを既存Root exportへ接続し、閉包試験へ禁止例を追加する | 新API・中継Fileは作らない。署名閉包のPath文字列とimportを区別する | 既知Consumer集合の接続・閉包確認は完了。固定47件と独立レビュー指摘0。Coordinator配布Suiteの試験側旧Path追従と全体確認は別に進行中 |
+| Version Control公開入口 | 跨Packageの実体Path importを既存Root exportへ接続し、閉包試験へ禁止例を追加する | 新API・中継Fileは作らない。署名閉包のPath文字列とimportを区別する | 既知Consumer集合の接続・閉包確認は完了。固定47件と独立レビュー指摘0。Coordinator配布Suiteの試験側旧Path追従も133件・独立レビュー指摘0で確認済み。Coordinator全Package完成ではない |
 | 現在の設計・Header | Domainの廃止済み入口、AI Adapterの旧配置参照、純粋計画のEffect記載、EI WriterのEffect・排他記載を実体へ合わせる | 関数本文・公開結果・Authorityは不変。書式・型・Lintと限定独立確認を行う | 訂正済み。限定独立確認は指摘0 |
 | AI Adapter純粋試験3Suite | Codex／Claudeの構造化結果とBilling試験を実装Ownerへ移し、Symbol／Catalog／回帰入口を接続する | 14 caseの拒否例・Oracleを保持する。Coordinator結合試験は一括移管しない | 移管済み。14 case本文・Oracle不変、Package回帰27件と関連Consumer34件を確認 |
 | 上記3SuiteのQA対応 | 現在のRCM-UT-016／AIT-UT-005はProvider結果／Billingの検証意味と一致しない。Canonicalから該当義務を再照合する | 物理移動を理由にQAの意味を改変しない。正しいLocal Itemへの接続を確定してから全体Passを評価する | ERB-UT-032／033へ訂正。移管と追加容量試験の限定独立レビューは指摘0。Codexの16KiB実入力境界を観測し、28件の回帰はPass |
-| Topic／Meeting操作試験のQA対応 | Reader専用のCPR-IT-008へ更新試験が混在していた。保存操作はCPR-IT-010、保存例外はCPR-IT-011へ分離する | Readerの正本Effect 0は維持し、新項目へ詳細設計§9.1・SPEC-000013、Suite Header、SymbolとCatalogを接続する | 是正中。010は既存7件の部分検証で、通常update・確認付きdelete・改訂競合の試験接続は未確認。公開面の保存故障応答と実OS cleanup全体は未評価 |
+| Topic／Meeting操作試験のQA対応 | Reader専用のCPR-IT-008へ更新試験が混在していた。保存操作はCPR-IT-010、保存例外はCPR-IT-011、公開故障応答はCPR-IT-012へ分離する | Readerの正本Effect 0は維持し、詳細設計§9.1・SPEC-000013、Suite Header、SymbolとCatalogを接続する | QA接続を訂正し、両種別のRepository／公開CRUDと協調Writer競合を確認済み。公開面の全操作母集合、Remote故障・投影再読取り・実OS cleanup全体の未評価は保持する |
 | Source／Symbol閉包 | 単純Path照合の候補を、代表入口への集約登録と個別責務の方針へ照合する | Path差を直ちに欠落と断定しない。実体・公開helperの対応で判定する | 現行TS候補10FileとJSON設定1Fileを再集計し、全候補に代表実装・内部補助・配布設定の処置を照合。下記対応を参照。個別条件の試験網羅や全Package完成を意味しない |
 
 実OS fixture、Coverage計測、新Build／署名閉包、実Provider・Docker、ST／UATと人間受入は未評価として後続の実境界確認へ接続する。局所回帰や安全な拒否を上位保証の完成へ昇格しない。過去Evidenceは当時の条件のまま保持する。
@@ -398,6 +398,8 @@ Oracle修正後は書式・型・LintとRepository Suite全7件Pass、Fail／Ski
 
 配布閉包試験の修正後独立再レビューは両観点とも指摘0。全Suiteは引き続き実行中で、終了前に全体Passへ更新しない。
 
+修正後の配布Filesystem Suiteは全133件Pass、Fail／Skip 0で終了した。実行入力のRuntime Sourceは不変で、実鍵・実署名・Provider・Docker操作は行っていない。今回の試験側移管追従は独立レビュー指摘0と全Suite結果により限定完了とする。Coordinator全Packageの型・既知Recovery・Host実環境の未評価を、この結果で解消しない。
+
 ### Topic／Meeting協調Writerの実Process確認
 
 既存の着手前条件を具体化し、固定ESM eval Sourceと固定import先、所有Root内の入力・結果Fileで実子Processを起動する。通常入口とevalで異なるargv位置は`slice(1)`へ固定した。第一子のexact Lock open後にreadyを発行し、第二子のcloseと拒否tuple、第一子保留と正本保持を確認してからreleaseする。子のclose、保存結果、改訂2／3、Lock・短命File不存在を共同確認する。Runtime・公開API・Lock形式は不変で、新Frameworkは作らない。
@@ -409,3 +411,17 @@ Oracle修正後は書式・型・LintとRepository Suite全7件Pass、Fail／Ski
 fixture是正後の書式・型・Lintと局所競合1件はPass、Fail／Skip 0。全113件は是正前候補の結果として区別し、修正後の限定再レビューへ渡す。実OS close失敗注入・非協調Writer・異常死は今回の確認対象外である。
 
 是正後の実装・品質再レビューは両観点とも指摘0。取得順を固定した協調Writerの競合・正本保持・Lock解放・後続更新再利用の確認は限定完了とする。公開操作全母集合と非協調親差替えの未決範囲は解消主張に含めない。自己生成domain-writer Rootの残存0を確認した。
+
+### Topic／Meeting公開CRUDの接続 — 着手前照合
+
+基準Commitは`0b5ae212`。Repository正常CRUDと公開種別固定の既存Caseを照合すると、公開Topic／Meeting面からの通常update・改訂競合・確認なし／確認付きdeleteが未観測である。既存`CPR-IT-010`の同Caseを両公開操作へ拡張し、本文bytes・改訂・拒否Effect 0・削除後の取得／一覧と実体不存在を確認する。種別誤用・専用操作の非公開・既存検索／Relation／昇格／OutcomeのOracleは保持し、正本種別を生成時に固定するRuntimeは変更しない。新fixture Rootは検証済みRepository-local `.crdd/tests`へ限定し、finally回収を観測する。これは通常CRUDの公開接続であり、全公開操作母集合・実OS故障・非協調Writerの完成主張ではない。静的確認、局所とPackage回帰、実装・品質の限定独立レビューを行う。
+
+初回確認は削除前確認の返却値に存在しないexistsを期待したため、型確認と局所試験が失敗した。実契約のrecord／relationPathsへ照合を訂正し、書式・型・Lintの成功後に局所1件を再実行してPass、Fail／Skip 0。Runtimeは不変で、自己生成Rootはfinallyで回収した。Package回帰と限定独立レビューは未完了である。
+
+補強後のDomain全113件と書式・型・LintはPass、Fail／Skip 0。限定レビューは品質指摘0、実装Minor1件で、競合・確認なし削除・確認付き削除のstatusが未観測だった。全結果統合後、既存reason／Effectとblocked／blocked／completedを共同確認する3assertの追加を両観点へ照合して是正した。Runtime・入力・正本bytes・QA IDは不変。最終局所確認と限定再レビューの結果を別記する。
+
+status相関追加後の書式・型・Lintと公開CRUD局所1件はPass、Fail／Skip 0。先の全113件と最終局所の対象を区別し、限定再レビューへ渡す。domain-public-crud Rootの残存0を確認した。
+
+是正後の実装・品質の限定再レビューは両観点とも指摘0。status・reason・Effectと実bytes／改訂の相関を確認し、Runtime・入力・QA IDは不変である。通常公開CRUDの補強を限定完了とし、全公開操作母集合や非協調Process・実OS故障の未確認範囲は保持する。
+
+最終status相関候補で`domain-model`の`npm test`を再実行し、書式・型・Lintと全113件がPass、Fail／Skip／取消0で終了した。これは今回の公開CRUD補強と既存Package回帰の結果であり、上記対象外の保証や実Provider・Docker・署名E2Eの成立を示さない。

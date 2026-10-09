@@ -15,6 +15,7 @@ import {
   lstatSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -34,14 +35,27 @@ import { createMeetingOperations } from "../../src/meeting/create-operations.ts"
  * @responsibility 共通実体の保存結果を保ち、別種別の専用操作と種別選択を公開しないことを検証する。
  * @trace CPR-IT-010
  * @precondition 空の試験Repositoryに両種別の公開Applicationを生成する。
- * @stimulus 各公開面から登録、一覧、取得および反対種別Markdownの登録を試みる。
+ * @stimulus 両公開面の登録・一覧・取得・更新・改訂競合・削除確認と誤種別入力を確認する。
  * @observation 正本の種別、結果、一覧と公開操作名を確認する。
  * @oracle 両登録が完了し、専用操作は相互非公開、誤種別登録は拒否される。
  * @cleanup 作成した試験Rootをfinallyで削除する。
  * @boundary Topic／Meeting公開面から同一Repository FilesystemへのDirect Boundary。
  */
 test("公開CRUDは生成した種別だけを操作する", () => {
-  const root = mkdtempSync(path.join(tmpdir(), "crdd-scoped-activity-"));
+  const verified = resolveVerifiedRepositoryRootFromWorkingDirectory(
+    import.meta.dirname,
+  );
+  const parent = path.join(verified, ".crdd", "tests");
+  for (const directory of [path.dirname(parent), parent]) {
+    try {
+      const metadata = lstatSync(directory);
+      assert.ok(metadata.isDirectory() && !metadata.isSymbolicLink());
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      mkdirSync(directory);
+    }
+  }
+  const root = mkdtempSync(path.join(parent, "domain-public-crud-"));
   try {
     const topics = createTopicOperations(root);
     const meetings = createMeetingOperations(root);
@@ -71,8 +85,69 @@ test("公開CRUDは生成した種別だけを操作する", () => {
     );
     assert.equal(topics.list({}).records.length, 1);
     assert.equal(meetings.list({}).records.length, 1);
+    for (const [operations, id, kind, initial] of [
+      [topics, "TOPIC-000001", "topic", topic("TOPIC-000001")],
+      [meetings, "MTG-000001", "meeting", meeting()],
+    ] as const) {
+      const file = path.join(
+        root,
+        kind === "topic" ? "22_Topics" : "23_Meetings",
+        id,
+        `${kind}.md`,
+      );
+      const next = initial.replace("改訂: `1`", "改訂: `2`");
+      assert.notEqual(next, initial);
+      assert.equal(readFileSync(file, "utf8"), initial);
+      assert.equal(operations.getDocument(id)?.markdown, initial);
+      const updated = operations.update({
+        id,
+        expectedRevision: 1,
+        markdown: next,
+      });
+      assert.equal(updated.status, "completed");
+      assert.equal(updated.reason, "record_updated");
+      assert.equal(updated.filesystemEffectCount, 1);
+      assert.equal(operations.get(id)?.revision, 2);
+      assert.equal(readFileSync(file, "utf8"), next);
+      const conflict = operations.update({
+        id,
+        expectedRevision: 1,
+        markdown: `${next}\n`,
+      });
+      assert.equal(conflict.status, "blocked");
+      assert.equal(conflict.reason, "record_revision_conflict");
+      assert.equal(conflict.filesystemEffectCount, 0);
+      assert.equal(readFileSync(file, "utf8"), next);
+      assert.equal(operations.get(id)?.revision, 2);
+      const deletion = operations.inspectDeletion(id);
+      assert.equal(deletion.record?.revision, 2);
+      assert.deepEqual(deletion.relationPaths, []);
+      const request = {
+        id,
+        expectedRevision: 2,
+        reason: "mistaken_registration" as const,
+      };
+      const unconfirmed = operations.delete({ ...request, confirmed: false });
+      assert.equal(unconfirmed.status, "blocked");
+      assert.equal(unconfirmed.reason, "record_delete_confirmation_required");
+      assert.equal(unconfirmed.filesystemEffectCount, 0);
+      assert.equal(readFileSync(file, "utf8"), next);
+      const deleted = operations.delete({ ...request, confirmed: true });
+      assert.equal(deleted.status, "completed");
+      assert.equal(deleted.reason, "record_deleted");
+      assert.equal(deleted.filesystemEffectCount, 1);
+      assert.equal(operations.get(id), null);
+      assert.equal(operations.list({}).records.length, 0);
+      assert.throws(() => lstatSync(path.dirname(file)), { code: "ENOENT" });
+      assert.throws(
+        () =>
+          lstatSync(path.join(path.dirname(path.dirname(file)), `.${id}.lock`)),
+        { code: "ENOENT" },
+      );
+    }
   } finally {
     rmSync(root, { recursive: true, force: true });
+    assert.throws(() => lstatSync(root), { code: "ENOENT" });
   }
 });
 

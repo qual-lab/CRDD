@@ -108,6 +108,8 @@ Repository正常CRUDは、両種別の登録・重複登録拒否・一覧・取
 
 協調Writer競合は同じ`CPR-IT-010`の別ケースで確認する。両種別について第一子Processの実Lock取得を通知後、第二子Processの同改訂更新を実行する。第二子の正常close・改訂競合結果・Effect 0と、第一子の保留・正本bytes／改訂不変・Lock存在を確認してから解放する。第一子の正常close・更新結果・改訂2と正本一致、Lockと短命File不存在、親Processによる改訂3更新を照合する。待機とjoinは期限付きとし、所有子の終了を確認できない場合はRootを削除せず一次失敗とcleanup失敗を分けて返す。取得順を固定した協調Writerの範囲であり、同時open勝者選択・異常死回復・非協調親差替え・電源断保証を含めない。
 
+公開CRUDの種別固定ケースでは、Topic／Meetingそれぞれの公開操作集合から通常update・古い改訂拒否・削除前確認・確認なし／確認付きdeleteも実行する。公開結果と実本文bytes・改訂・拒否Effect 0・削除後get／list・Record親／Lock不存在を共同確認する。誤種別の登録／取得拒否、反対種別の専用操作非公開は同じケースに保持する。新しい公開APIや保存方式は追加せず、通常CRUDの接続確認と検索・昇格・Outcome等の別ケースを区別する。
+
 候補生成の成功を正本反映の成功にしない。Evidenceは候補の出所、人間判断、対象Owner、実際の反映範囲、却下／失敗時のEffect 0を別々に記録する。
 
 静的な親link拒否は`CPR-IT-011`の追加確認へ接続する。両種別のRoot／種別親／Record親にあるjunction・dangling link・通常File、CHG参照の三親、EACCESとENOENT、mkdirのEEXIST後linkを反証する。Root拒否、CRUD・一覧・削除前確認・CHG参照の拒否と正本bytes・sentinel保持、Lock不存在を観測する。読戻しの不存在注入はexistsSyncのfalseではなくlstatのENOENTへ接続し、原Oracleを維持する。上記未評価の親link保証は非協調Processの同時差替えを含む保証であり、この静的拒否から成立を主張しない。
