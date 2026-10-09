@@ -321,3 +321,9 @@ Source対応表と容量試験・正本追従の固定5Fileは独立した二観
 Topic／Meetingと登録／更新の4経路について、正常と9故障分類の40組合せを一つの契約試験へ接続した。実bytes・改訂の保持、一次失敗とcleanup併発、Lock保持、読取り回数、不正UTF-8とmock復元・試験Root回収を確認する。既存close故障注入は所有Lock descriptorだけへ限定し、読戻しで使うFilesystem内部descriptorと混同しない。Domain Model全109件、MCP全51件、Workbench全33件と各Packageの書式・型・LintはPass、Skip／Fail 0。これは実Provider・Docker・実Browser・実OS故障や保存全体保証の完成根拠ではない。
 
 独立レビューのSource指摘0と品質Minor2件を統合し、Meeting helperの正常／異常TraceとQA011の登録・更新対象範囲だけを訂正した。実装・40組合せ・assertion・ID・Oracleは不変で、両観点の限定再レビューは指摘0。訂正後の書式・型・Lintと局所4CaseもPass。親link、write自体の部分失敗、実Process競合と非協調Processの親差替え範囲は引き続き未完了として扱う。
+
+### 旧Runtime Data検証参照の是正
+
+Coordinatorの三Suiteに残る旧Resolver参照を、実際の試験本文とOracleに基づいて処置する。鍵生成Suiteは保存領域をfixture準備に使うだけで保存保証を検証しないため、当該関係を削除する。Orchestrator Compositionと開発Provider測定Suiteは、実生成したDomainの停止Errorから理由・Effect・cleanup・retry・回復参照を保持する公開投影を検証するため、`domain-model.runtime-area-result`へ接続する。Reader／Writerへ機械置換せず、Source、試験本文、QA ID、他の関係と過去Evidenceは変更しない。静的確認と独立レビューが完了するまで、是正済みの検証結果とは扱わない。
+
+JSON解析・差分確認と旧参照0／新参照2の照合はPass。固定差分の実装・品質の独立レビューは双方指摘0。全体Checkerは3,038件で未合格だが、検証参照対象の欠落3件は解消した。残る内訳はbroken-link 3,032、broken-anchor 4、Project Context契約1、UI／SPEC Detail下流Coverage 1。試験本文とRuntimeは不変で、このMetadata是正のための実Provider・鍵生成・署名試験は実行していない。

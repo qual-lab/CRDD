@@ -711,7 +711,6 @@
       ],
       "verifies": [
         "coordinator.source.scripts.generate.release.key",
-        "runtime-data.source.src.platform.runtime.data.path.resolver",
         "version-control.source.src.repository.location"
       ]
     },
@@ -1085,7 +1084,7 @@
         "orchestrator.public-api",
         "orchestrator.state-core",
         "orchestrator.state-query-application",
-        "runtime-data.source.src.platform.runtime.data.path.resolver"
+        "domain-model.runtime-area-result"
       ]
     },
     {
@@ -1904,7 +1903,7 @@
       "verifies": [
         "coordinator.source.scripts.measure.development.providers",
         "coordinator.source.src.security.coordinator.task.request",
-        "runtime-data.source.src.platform.runtime.data.path.resolver"
+        "domain-model.runtime-area-result"
       ]
     },
     {
