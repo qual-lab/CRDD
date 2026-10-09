@@ -319,7 +319,7 @@ test("名前付き関数の型引数終端と文字列を区別する", () => {
     'function sample<T extends "<" | ">">(value: T) { return value; }',
   ]) {
     const graphs = runtimeNamedFunctionGraphSnapshotForVerification(
-      "src/host-runtime/generic-fixture.ts",
+      "src/host-execution/generic-fixture.ts",
       source,
       ["sample"],
     );
@@ -335,7 +335,7 @@ test("名前付き関数の型引数終端と文字列を区別する", () => {
   ]) {
     assert.throws(() => {
       const graphs = runtimeNamedFunctionGraphSnapshotForVerification(
-        "src/host-runtime/generic-fixture.ts",
+        "src/host-execution/generic-fixture.ts",
         source,
         ["sample"],
       );
@@ -815,12 +815,7 @@ test("実行能力を持たないchild_processのtype-only importはRuntime候�
   const fixture = developmentFixture();
   try {
     fs.appendFileSync(
-      path.join(
-        fixture.packageRoot,
-        "src",
-        "host-runtime",
-        "candidate-store-kernel-lock.ts",
-      ),
+      path.join(fixture.packageRoot, "src", "host-execution", "kernel-lock.ts"),
       [
         'import type { ChildProcess } from "node:child_process";',
         'import { type SpawnOptions } from "node:child_process";',
@@ -903,7 +898,7 @@ test("loader能力のnamespace・bracket取得と文字列再構成を直接の�
     assert.throws(
       () =>
         assertRuntimeSourceModuleBoundaryForVerification(
-          "src/host-runtime/loader-attack.ts",
+          "src/host-execution/loader-attack.ts",
           source,
         ),
       /runtime_dependency_(?:child_process|loader)_unbound/u,
@@ -1653,14 +1648,14 @@ test("実行能力の反証は利用側伝播の意図したphaseで拒否する
     {
       phase: "consumer_handoff",
       path: "40_Develop/orchestrator/src/task/dispatch.ts",
-      from: "? issuedAuthorization.value\n              : null;",
-      to: "? {}\n              : null;",
+      from: "? issuedAuthorization.value\n                : null;",
+      to: "? {}\n                : null;",
     },
     {
       phase: "consumer_handoff",
       path: "40_Develop/orchestrator/src/task/dispatch.ts",
-      from: "runtimeExecutionCapability,\n            taskRequest:",
-      to: "runtimeExecutionCapability: {},\n            taskRequest:",
+      from: "runtimeExecutionCapability,\n              taskRequest:",
+      to: "runtimeExecutionCapability: {},\n              taskRequest:",
     },
     {
       phase: "consumer_import",
@@ -2012,8 +2007,8 @@ test("新しいlocal TypeScript子entrypoint宣言の必須Registry登録漏れ�
       path.join(
         fixture.packageRoot,
         "src",
-        "host-runtime",
-        "runtime-local-typescript-child-entrypoints.ts",
+        "host-execution",
+        "typescript-child-entrypoints.ts",
       ),
       'declareLocalTypeScriptChildEntrypoint("candidate_store_lock_worker", "worker", "./unregistered-child.ts", import.meta.url,);\n',
     );
@@ -2021,7 +2016,7 @@ test("新しいlocal TypeScript子entrypoint宣言の必須Registry登録漏れ�
       path.join(
         fixture.packageRoot,
         "src",
-        "host-runtime",
+        "host-execution",
         "unregistered-child.ts",
       ),
       "export {};\n",
@@ -2133,14 +2128,14 @@ for (const scenario of [
       const declarationModule = path.join(
         fixture.packageRoot,
         "src",
-        "host-runtime",
-        "runtime-local-typescript-child-entrypoints.ts",
+        "host-execution",
+        "typescript-child-entrypoints.ts",
       );
       const consumer = path.join(
         fixture.packageRoot,
         "src",
-        "host-runtime",
-        "candidate-store-kernel-lock.ts",
+        "host-execution",
+        "kernel-lock.ts",
       );
       if (scenario === "variable_declaration")
         fs.appendFileSync(
@@ -2176,7 +2171,7 @@ for (const scenario of [
               "  declareLocalTypeScriptChildEntrypoint(",
               '    "host_operation_lock_supervisor",',
               '    "spawn",',
-              '    "./host-operation-lock-supervisor.ts",',
+              '    "./operation-lock-supervisor.ts",',
               "    import.meta.url,",
               "  ),",
               "",
@@ -2210,7 +2205,7 @@ for (const scenario of [
               "  declareLocalTypeScriptChildEntrypoint(",
               '    "host_operation_lock_supervisor",',
               '    "spawn",',
-              '    "./host-operation-lock-supervisor.ts",',
+              '    "./operation-lock-supervisor.ts",',
               "    import.meta.url,",
               "  ),",
               "",
@@ -2240,8 +2235,13 @@ for (const scenario of [
           declarationModule,
           source.replace(
             '"../cli/interactive-console-reader.ts"',
-            '"./host-operation-lock-supervisor.ts"',
+            '"./operation-lock-supervisor.ts"',
           ),
+        );
+        assert.notEqual(
+          fs.readFileSync(declarationModule, "utf8"),
+          source,
+          scenario,
         );
       }
       if (scenario === "wrong_wrapper_kind")
@@ -2272,12 +2272,12 @@ for (const scenario of [
       if (scenario === "wrapper_alias_import")
         fs.appendFileSync(
           consumer,
-          'import { createRuntimeLocalTypeScriptWorker as createWorker } from "./runtime-local-typescript-child-entrypoints.ts"; createWorker("candidate_store_lock_worker", {});\n',
+          'import { createRuntimeLocalTypeScriptWorker as createWorker } from "./typescript-child-entrypoints.ts"; createWorker("candidate_store_lock_worker", {});\n',
         );
       if (scenario === "wrapper_reexport")
         fs.appendFileSync(
           consumer,
-          'export { createRuntimeLocalTypeScriptWorker } from "./runtime-local-typescript-child-entrypoints.ts";\n',
+          'export { createRuntimeLocalTypeScriptWorker } from "./typescript-child-entrypoints.ts";\n',
         );
       if (scenario === "wrapper_function_value")
         fs.appendFileSync(
@@ -2302,7 +2302,7 @@ for (const scenario of [
       if (scenario === "observer_projection_import")
         fs.appendFileSync(
           consumer,
-          'import { runtimeLocalTypeScriptChildRegistrySnapshotForPackageObserver } from "./runtime-local-typescript-child-entrypoints.ts"; runtimeLocalTypeScriptChildRegistrySnapshotForPackageObserver();\n',
+          'import { runtimeLocalTypeScriptChildRegistrySnapshotForPackageObserver } from "./typescript-child-entrypoints.ts"; runtimeLocalTypeScriptChildRegistrySnapshotForPackageObserver();\n',
         );
       if (scenario === "recovery_direct_spawn")
         fs.appendFileSync(
@@ -2361,7 +2361,7 @@ for (const scenario of [
       if (scenario === "wrapper_type_import")
         fs.appendFileSync(
           consumer,
-          'import { type createRuntimeLocalTypeScriptWorker } from "./runtime-local-typescript-child-entrypoints.ts";\n',
+          'import { type createRuntimeLocalTypeScriptWorker } from "./typescript-child-entrypoints.ts";\n',
         );
       if (scenario === "query_specifier")
         fs.appendFileSync(consumer, 'import "./unregistered-child.ts?raw";\n');
@@ -2377,7 +2377,7 @@ for (const scenario of [
           path.join(
             fixture.packageRoot,
             "src",
-            "host-runtime",
+            "host-execution",
             "child-bridge.ts",
           ),
           'export { spawn as launch } from "node:child_process";\n',
@@ -2511,8 +2511,8 @@ for (const scenario of [
         const owner = path.join(
           fixture.packageRoot,
           "src",
-          "docker-runtime",
-          "docker-owned-process.ts",
+          "docker-execution",
+          "owned-process.ts",
         );
         fs.writeFileSync(
           owner,
@@ -2528,13 +2528,13 @@ for (const scenario of [
         );
         fs.appendFileSync(
           path.join(fixture.packageRoot, "src", "index.ts"),
-          'import "./docker-runtime/docker-owned-process.ts";\n',
+          'import "./docker-execution/owned-process.ts";\n',
         );
         fs.writeFileSync(
           path.join(
             fixture.packageRoot,
             "src",
-            "docker-runtime",
+            "docker-execution",
             "unregistered-child.ts",
           ),
           "export {};\n",
@@ -2551,30 +2551,30 @@ for (const scenario of [
         const sibling = path.join(
           fixture.packageRoot,
           "src",
-          "docker-runtime",
-          "docker-owned-process.ts",
+          "docker-execution",
+          "owned-process.ts",
         );
         const importSource =
           scenario === "internal_lifecycle_reexport"
-            ? 'export { runInteractiveConsoleReaderLifecycle } from "../cli/interactive-console-reader-lifecycle-internal.ts";\n'
+            ? 'export { runInteractiveConsoleReaderLifecycle } from "../cli/interactive-console-reader-lifecycle.ts";\n'
             : scenario === "internal_lifecycle_dynamic_import"
-              ? 'void import("../cli/interactive-console-reader-lifecycle-internal.ts");\n'
+              ? 'void import("../cli/interactive-console-reader-lifecycle.ts");\n'
               : scenario === "internal_lifecycle_alias_import"
-                ? 'import { runInteractiveConsoleReaderLifecycle as run } from "../cli/interactive-console-reader-lifecycle-internal.ts"; void run;\n'
-                : 'import { runInteractiveConsoleReaderLifecycle } from "../cli/interactive-console-reader-lifecycle-internal.ts"; void runInteractiveConsoleReaderLifecycle;\n';
+                ? 'import { runInteractiveConsoleReaderLifecycle as run } from "../cli/interactive-console-reader-lifecycle.ts"; void run;\n'
+                : 'import { runInteractiveConsoleReaderLifecycle } from "../cli/interactive-console-reader-lifecycle.ts"; void runInteractiveConsoleReaderLifecycle;\n';
         fs.writeFileSync(sibling, importSource);
         fs.writeFileSync(
           path.join(
             fixture.packageRoot,
             "src",
             "cli",
-            "interactive-console-reader-lifecycle-internal.ts",
+            "interactive-console-reader-lifecycle.ts",
           ),
           "export function runInteractiveConsoleReaderLifecycle() {}\n",
         );
         fs.appendFileSync(
           path.join(fixture.packageRoot, "src", "index.ts"),
-          'import "./docker-runtime/docker-owned-process.ts";\n',
+          'import "./docker-execution/owned-process.ts";\n',
         );
       }
       if (scenario === "escaped_child_process_specifier")
@@ -2607,22 +2607,22 @@ for (const scenario of [
           path.join(
             fixture.packageRoot,
             "src",
-            "docker-runtime",
-            "docker-owned-process.ts",
+            "docker-execution",
+            "owned-process.ts",
           ),
           "export function startOwnedProcess() {}\n",
         );
         fs.appendFileSync(
           consumer,
-          'import { startOwnedProcess } from "./docker-owned-process.ts"; void startOwnedProcess;\n',
+          'import { startOwnedProcess } from "../docker-execution/owned-process.ts"; void startOwnedProcess;\n',
         );
       }
       if (scenario === "absolute_node_allowed_owner") {
         const owner = path.join(
           fixture.packageRoot,
           "src",
-          "docker-runtime",
-          "docker-owned-process.ts",
+          "docker-execution",
+          "owned-process.ts",
         );
         fs.writeFileSync(
           owner,
@@ -2634,7 +2634,7 @@ for (const scenario of [
         );
         fs.appendFileSync(
           path.join(fixture.packageRoot, "src", "index.ts"),
-          'import "./docker-runtime/docker-owned-process.ts";\n',
+          'import "./docker-execution/owned-process.ts";\n',
         );
       }
       const directBoundaryExpectations = new Map<
@@ -2760,7 +2760,7 @@ for (const scenario of [
           path.join(
             fixture.packageRoot,
             "src",
-            "host-runtime",
+            "host-execution",
             "unregistered-child.ts",
           ),
           "export {};\n",
@@ -2812,12 +2812,7 @@ test("内部lifecycleまたはProcess wrapperを正規leafから再転送しな�
   );
 
   const dockerEffectSource = fs.readFileSync(
-    path.join(
-      coordinatorRoot,
-      "src",
-      "docker-runtime",
-      "docker-effect-runtime.ts",
-    ),
+    path.join(coordinatorRoot, "src", "docker-execution", "command-effects.ts"),
     "utf8",
   );
   assert.throws(
@@ -3572,7 +3567,7 @@ test("責務分離後のRuntime componentを静的依存閉包として実行Ide
     ) as Record<string, unknown>;
     const valuePath = path.join(
       orchestratorRoot,
-      "public-contract",
+      "candidate",
       "integration-result.ts",
     );
     const unusedCoordinatorPath = path.join(
@@ -3586,7 +3581,7 @@ test("責務分離後のRuntime componentを静的依存閉包として実行Ide
     );
     const unusedSiblingPath = path.join(
       orchestratorRoot,
-      "core",
+      "candidate",
       "unused-sibling.ts",
     );
     fs.writeFileSync(unusedSiblingPath, "export const unusedSibling = 1;\n");
@@ -3597,7 +3592,7 @@ test("責務分離後のRuntime componentを静的依存閉包として実行Ide
     fs.writeFileSync(
       valuePath,
       [
-        'import { spawnRuntimeLocalTypeScriptChild } from "../../src/host-execution/typescript-child-entrypoints.ts";',
+        'import { spawnRuntimeLocalTypeScriptChild } from "../../../coordinator/src/host-execution/typescript-child-entrypoints.ts";',
         'spawnRuntimeLocalTypeScriptChild("interactive_console_reader", [], {});',
         "export const value = 1;",
         "",
@@ -4192,7 +4187,7 @@ test("Coordinator packageはexact CLI-only exports境界を必須にする", () 
     undefined,
     {},
     { "./cli": "./bin/coordinator.ts", "./internal": "./src/internal.ts" },
-    { "./cli": "./src/docker-runtime/docker-recovery-runtime-internal.ts" },
+    { "./cli": "./src/docker-execution/docker-recovery-runtime-internal.ts" },
   ]) {
     const root = fs.mkdtempSync(
       path.join(os.tmpdir(), "crdd-package-exports-boundary-"),
