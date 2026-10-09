@@ -232,6 +232,12 @@ REST試験は機械的に削除せず、認可、管理、ページング、結�
 
 ### 段階6の型所有者分離 — 着手前照合
 
+後続の共通認可接続は、既存認証関数を置換せず、HTTPとMCPに重複する認証後のSnapshot／Session／許可Repository集合だけをCROS `access/resolve.ts`へ集約する。着手前確認で認証順序とSession失敗の入口別処置を照合した。Contentでは各認証一回・Snapshot一回、ProfileとContent POSTではSnapshot零回を維持する。Reader故障を認証失敗へ丸めず、管理権限だけでContentを開示しない。Rootへ新関数一つを意図的に公開するが、新Tool、Store、Authority、Frameworkは追加しない。既存HTTP／MCP回帰、観測回数と失敗反例、実装・品質独立レビューで確認する。検証完了は未確認である。
+
+共通化候補のCROS33件とMCP51件は成功したが、独立レビューは両観点で同じMinor1件を検出した。Readerを裸で渡すと従来のReceiverを失うため、HTTP二箇所・MCP一箇所だけを元入力への呼出しclosureへ訂正する。全結果統合と是正方針照合後、両入口の既存試験へ通常method Readerと観測回数のOracleを追加した。認証順序、失敗結果、公開集合、Authorityは変更せず、修正後候補で回帰と再レビューを行う。
+
+是正後の固定候補はCROS33件、MCP51件、Workbench33件と各静的確認・Workbench BuildがPass、Fail／Skip／取消0。MCPに存在しないformat scriptを指定した初回確認は失敗して試験へ到達せず、既存Biomeで対象二Fileを整形して静的確認から再実行した。九Pathの限定再レビューは実装・品質とも指摘0。認証後Scopeの共通Owner接続を限定完了とし、段階6〜8のTool登録・本番接続・旧REST撤去は継続する。実Provider／Docker／署名操作は行っていない。
+
 基準Commitは`3b3827a5`。既存HTTP内の四公開型だけを移す。認可Snapshotは`access/types.ts`、Runtime活動のEvent／観測／Readerは詳細設計§6.1と同じ`activity/types.ts`が所有する。Portfolioを扱う`federation`へ活動型を混在させない。HTTP lifecycle Handle、実関数、Validator、認可分岐、公開Symbol集合と型shapeは維持する。設定ReaderとRoot exportを同時に切替え、MCP Resolver／Shared Host／非開示試験、WorkbenchとCROS試験は既存Root参照で追従する。代表登録は`cros.public-api`と`cros.remote-transport`からの型依存閉包として照合し、毎Fileの新登録や新中継は作らない。
 
 着手前の読取り専用確認で型Ownerと全直接利用側を照合した。新しい状態・資源・Authority・Effect・取消経路は導入せず、既存HTTP回帰とCROS／MCP／Workbench静的確認を使う。公開型本文一致・公開集合保持・代表登録到達を確認し、固定差分を独立レビューへ渡す。新MCP接続・本番Launcher・旧REST撤去は後続に保持し、今回の型分離を段階6全体の完成としない。準拠基準・外部公開訴求を変更しないため、準拠監査・市場探索・署名実E2Eは今回非該当である。

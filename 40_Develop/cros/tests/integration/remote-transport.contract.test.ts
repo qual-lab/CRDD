@@ -150,7 +150,7 @@ async function rawRequest(
  * @trace RFD-IT-013
  * @precondition Developer Credential、DEV／MGMT Repositoryおよび別revisionのExposure Snapshotを用意する。
  * @stimulus 有効Tokenと無効TokenでPortfolio Routeを要求し、外部平文URLもClientへ与える。
- * @observation Project Source、HTTP拒否、Token非報告およびListener終了を観測する。
+ * @observation Project Source、認証／Snapshotの回数、故障の503、HTTP拒否、Token非報告およびListener終了を観測する。
  * @oracle DEVだけを返し、MGMTを非開示とし、認証失敗と外部HTTPをEffect前に拒否する。
  * @cleanup Transport Handleを閉じる。
  * @boundary RFD-IT-013=Direct Boundary: cros Test Source→対象契約
@@ -162,46 +162,82 @@ test("Bearer認証から許可済みPortfolioだけを取得する", async () =>
   });
   assert.equal(issued.status, "completed");
   if (issued.status !== "completed") return;
+  let authenticationReads = 0;
+  let snapshotReads = 0;
+  let snapshotFailure = false;
   const handle = await startCrosRemoteTransport({
-    registry,
-    readExposureSnapshot: () => ({
-      revision: "exposure-7",
-      exposures: [
-        {
-          workspaceId: "development",
-          repositoryId: "REPO-DEV",
-          repositoryRevision: "dev-1",
-          registryRevision: "exposure-7",
-          active: true,
-        },
-        {
-          workspaceId: "management",
-          repositoryId: "REPO-MGMT",
-          repositoryRevision: "mgmt-1",
-          registryRevision: "exposure-7",
-          active: true,
-        },
-      ],
-      repositories: [
-        {
-          projectId: "PRJ-REMOTE",
-          repositoryId: "REPO-DEV",
-          bindingId: "BIND-DEV",
-          revision: "dev-1",
-          content: { projectContext: context("REPO-DEV", "development") },
-        },
-        {
-          projectId: "PRJ-REMOTE",
-          repositoryId: "REPO-MGMT",
-          bindingId: "BIND-MGMT",
-          revision: "mgmt-1",
-          content: { projectContext: context("REPO-MGMT", "management") },
-        },
-      ],
-    }),
+    registry: {
+      inspect: () => {
+        authenticationReads += 1;
+        return registry.inspect();
+      },
+      publish: registry.publish,
+    },
+    /**
+     * 呼出し元を保持して公開範囲Fixtureを返す。
+     *
+     * @responsibility ReaderのReceiverと一回観測を検証する。
+     * @trace RFD-IT-013
+     * @input N/A: 引数を受け取らない。
+     * @returns 固定公開範囲Snapshot。
+     * @precondition Transport入力ObjectをReceiverとする。
+     * @postcondition 観測回数を一つ進める。
+     * @effect 試験内counterだけを更新する。
+     * @failure Receiver喪失と合成故障を拒否する。
+     * @invariant 正常時のSnapshot内容を変更しない。
+     * @stimulus HTTP経由でReaderを呼ぶ。
+     * @observation Receiverと呼出し回数を確認する。
+     * @oracle Receiverはregistryを持つ元の入力Objectである。
+     * @cleanup N/A: Process外資源を生成しない。
+     * @boundary Transportと公開範囲Readerの境界。
+     * @security 非秘密Fixtureだけを使用する。
+     * @concurrency N/A: Request内の同期処理である。
+     */
+    readExposureSnapshot() {
+      assert.equal(this.registry.publish, registry.publish);
+      snapshotReads += 1;
+      if (snapshotFailure) throw new Error("synthetic_snapshot_failure");
+      return {
+        revision: "exposure-7",
+        exposures: [
+          {
+            workspaceId: "development",
+            repositoryId: "REPO-DEV",
+            repositoryRevision: "dev-1",
+            registryRevision: "exposure-7",
+            active: true,
+          },
+          {
+            workspaceId: "management",
+            repositoryId: "REPO-MGMT",
+            repositoryRevision: "mgmt-1",
+            registryRevision: "exposure-7",
+            active: true,
+          },
+        ],
+        repositories: [
+          {
+            projectId: "PRJ-REMOTE",
+            repositoryId: "REPO-DEV",
+            bindingId: "BIND-DEV",
+            revision: "dev-1",
+            content: { projectContext: context("REPO-DEV", "development") },
+          },
+          {
+            projectId: "PRJ-REMOTE",
+            repositoryId: "REPO-MGMT",
+            bindingId: "BIND-MGMT",
+            revision: "mgmt-1",
+            content: { projectContext: context("REPO-MGMT", "management") },
+          },
+        ],
+      };
+    },
   });
   try {
     const portfolio = await readRemotePortfolio(handle.baseUrl, issued.token);
+    assert.equal(authenticationReads, 1);
+    assert.equal(snapshotReads, 1);
     assert.deepEqual(
       portfolio.projects[0]?.sources.map((source) => source.repositoryId),
       ["REPO-DEV"],
@@ -211,6 +247,22 @@ test("Bearer認証から許可済みPortfolioだけを取得する", async () =>
     assert.equal(blocked.status, 401);
     assert.match(blocked.body, /cros_remote_authentication_required/u);
     assert.doesNotMatch(blocked.body, /credential|REPO|workspace/iu);
+    assert.equal(authenticationReads, 2);
+    assert.equal(snapshotReads, 1);
+    const rejectedPost = await rawRequest(
+      handle.baseUrl,
+      `Bearer ${issued.token}`,
+      { method: "POST" },
+    );
+    assert.equal(rejectedPost.status, 405);
+    assert.equal(authenticationReads, 3);
+    assert.equal(snapshotReads, 1);
+    snapshotFailure = true;
+    const fault = await rawRequest(handle.baseUrl, `Bearer ${issued.token}`);
+    assert.equal(fault.status, 503);
+    assert.equal(authenticationReads, 4);
+    assert.equal(snapshotReads, 2);
+    assert.doesNotMatch(fault.body, /synthetic_snapshot_failure|REPO/iu);
     await assert.rejects(
       readRemotePortfolio("http://example.invalid", issued.token),
       /cros_remote_transport_tls_required/u,
@@ -408,11 +460,9 @@ test("systemAdminだけがRemote AI Profileを参照・変更する", async () =
   );
   const handle = await startCrosRemoteTransport({
     registry,
-    readExposureSnapshot: () => ({
-      revision: "exposure-profile-admin",
-      exposures: [],
-      repositories: [],
-    }),
+    readExposureSnapshot: () => {
+      throw new Error("profile_must_not_read_content_snapshot");
+    },
     aiProfileAdministration:
       createAiProfileCatalogAdministration(profileRegistry),
   });

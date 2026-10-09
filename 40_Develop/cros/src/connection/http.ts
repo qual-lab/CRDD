@@ -10,7 +10,6 @@
  * @effect loopback Listenerを開始・終了し、Repository内容は変更しない。
  * @security Bearer Tokenを保存・応答・log出力せず、認証失敗ではCredentialの存在を開示しない。
  */
-import { randomBytes } from "node:crypto";
 import {
   createServer,
   type IncomingMessage,
@@ -42,9 +41,8 @@ import {
 import {
   createPortfolioProjection,
   type PortfolioProjection,
-  resolveAuthorizedRepositories,
 } from "../federation/project.ts";
-import { createCrosSession } from "../access/session-context.ts";
+import { resolveCrosRequestScope } from "../access/resolve.ts";
 
 const HOST = "127.0.0.1";
 const PORTFOLIO_PATH = "/v1/portfolio";
@@ -187,27 +185,15 @@ export async function startCrosRemoteTransport(input: {
           response.end("method_not_allowed\n");
           return;
         }
-        const snapshot = input.readExposureSnapshot();
-        if (!snapshot.revision)
-          throw new Error("cros_exposure_snapshot_revision_invalid");
-        const session = createCrosSession(
-          randomBytes(16).toString("hex"),
-          {
-            credentialId: authentication.access.credentialId,
-            workspaceIds: authentication.access.workspaceIds,
-            systemAdmin: authentication.access.systemAdmin,
-            revoked: false,
-          },
-          snapshot.revision,
+        const scope = resolveCrosRequestScope(authentication.access, () =>
+          input.readExposureSnapshot(),
         );
-        if (session === null)
+        if (scope === null)
           throw new Error("cros_remote_session_creation_failed");
         const projectId = runtimeActivityMatch[1] ?? "";
-        const repositories = resolveAuthorizedRepositories(
-          session,
-          snapshot.exposures,
-          snapshot.repositories,
-        ).filter((repository) => repository.projectId === projectId);
+        const repositories = scope.authorizedRepositories.filter(
+          (repository) => repository.projectId === projectId,
+        );
         if (repositories.length === 0) {
           sendJson(response, method, 404, {
             contract: "cros/remote-transport/v1",
@@ -260,28 +246,12 @@ export async function startCrosRemoteTransport(input: {
         response.end("method_not_allowed\n");
         return;
       }
-      const snapshot = input.readExposureSnapshot();
-      if (!snapshot.revision)
-        throw new Error("cros_exposure_snapshot_revision_invalid");
-      const session = createCrosSession(
-        randomBytes(16).toString("hex"),
-        {
-          credentialId: authentication.access.credentialId,
-          workspaceIds: authentication.access.workspaceIds,
-          systemAdmin: authentication.access.systemAdmin,
-          revoked: false,
-        },
-        snapshot.revision,
+      const scope = resolveCrosRequestScope(authentication.access, () =>
+        input.readExposureSnapshot(),
       );
-      if (session === null)
+      if (scope === null)
         throw new Error("cros_remote_session_creation_failed");
-      const portfolio = createPortfolioProjection(
-        resolveAuthorizedRepositories(
-          session,
-          snapshot.exposures,
-          snapshot.repositories,
-        ),
-      );
+      const portfolio = createPortfolioProjection(scope.authorizedRepositories);
       sendJson(response, method, 200, {
         contract: "cros/remote-transport/v1",
         status: "available",

@@ -17,6 +17,7 @@ export {
   type CrosRemoteTransportHandle,
 } from "./connection/http.ts";
 export type { CrosExposureSnapshot } from "./access/types.ts";
+export { resolveCrosRequestScope } from "./access/resolve.ts";
 export type {
   CrosRemoteRuntimeActivityObservation,
   CrosRemoteRuntimeEventProjection,

@@ -253,43 +253,75 @@ test("CROS CredentialのWorkspace範囲だけをProject Context MCPへ搬送す�
   });
   assert.equal(issued.status, "completed");
   if (issued.status !== "completed") return;
+  let authenticationReads = 0;
+  let snapshotReads = 0;
   const resolver = createCrosProjectContextMcpResolver({
-    registry,
-    readExposureSnapshot: () => ({
-      revision: "exposure-mcp-1",
-      exposures: [
-        {
-          workspaceId: "development",
-          repositoryId: "REPO-DEV",
-          repositoryRevision: "dev-1",
-          registryRevision: "exposure-mcp-1",
-          active: true,
-        },
-        {
-          workspaceId: "management",
-          repositoryId: "REPO-MGMT",
-          repositoryRevision: "mgmt-1",
-          registryRevision: "exposure-mcp-1",
-          active: true,
-        },
-      ],
-      repositories: [
-        {
-          projectId: "PRJ-MCP",
-          repositoryId: "REPO-DEV",
-          bindingId: "BIND-DEV",
-          revision: "dev-1",
-          content: { projectContext: context("REPO-DEV", "development") },
-        },
-        {
-          projectId: "PRJ-MCP",
-          repositoryId: "REPO-MGMT",
-          bindingId: "BIND-MGMT",
-          revision: "mgmt-1",
-          content: { projectContext: context("REPO-MGMT", "management") },
-        },
-      ],
-    }),
+    registry: {
+      inspect: () => {
+        authenticationReads += 1;
+        return registry.inspect();
+      },
+      publish: registry.publish,
+    },
+    /**
+     * 元の入力Receiverを保持して公開範囲を観測する。
+     *
+     * @responsibility MCPの一Request一回観測とReceiver維持を検証する。
+     * @trace RFD-IT-013
+     * @input N/A: 引数を受け取らない。
+     * @returns 固定公開範囲Snapshot。
+     * @precondition Resolver入力ObjectがReceiverである。
+     * @postcondition 観測回数を一つ進める。
+     * @effect 試験内counterだけを更新する。
+     * @failure Receiver喪失はassertionで拒否する。
+     * @invariant Snapshot内容を変更しない。
+     * @stimulus MCP RequestからReaderを呼ぶ。
+     * @observation Receiverと呼出し回数を観測する。
+     * @oracle Receiverはregistryを持つ元の入力Objectである。
+     * @cleanup N/A: Process外資源を生成しない。
+     * @boundary MCP Resolverと公開範囲Readerの境界。
+     * @security 合成した非秘密値だけを使用する。
+     * @concurrency N/A: Request内の同期処理である。
+     */
+    readExposureSnapshot() {
+      assert.equal(this.registry.publish, registry.publish);
+      snapshotReads += 1;
+      return {
+        revision: "exposure-mcp-1",
+        exposures: [
+          {
+            workspaceId: "development",
+            repositoryId: "REPO-DEV",
+            repositoryRevision: "dev-1",
+            registryRevision: "exposure-mcp-1",
+            active: true,
+          },
+          {
+            workspaceId: "management",
+            repositoryId: "REPO-MGMT",
+            repositoryRevision: "mgmt-1",
+            registryRevision: "exposure-mcp-1",
+            active: true,
+          },
+        ],
+        repositories: [
+          {
+            projectId: "PRJ-MCP",
+            repositoryId: "REPO-DEV",
+            bindingId: "BIND-DEV",
+            revision: "dev-1",
+            content: { projectContext: context("REPO-DEV", "development") },
+          },
+          {
+            projectId: "PRJ-MCP",
+            repositoryId: "REPO-MGMT",
+            bindingId: "BIND-MGMT",
+            revision: "mgmt-1",
+            content: { projectContext: context("REPO-MGMT", "management") },
+          },
+        ],
+      };
+    },
   });
   const server = await startMcpAuthenticatedStreamableHttp(resolver, {
     port: 0,
@@ -297,6 +329,8 @@ test("CROS CredentialのWorkspace範囲だけをProject Context MCPへ搬送す�
   const baseUrl = `http://${server.host}:${server.port}`;
   try {
     const available = await callProjectContext(baseUrl, issued.token);
+    assert.equal(authenticationReads, 1);
+    assert.equal(snapshotReads, 1);
     assert.equal(available.status, 200);
     const body = JSON.stringify(await available.json());
     assert.match(body, /REPO-DEV/u);
@@ -307,6 +341,8 @@ test("CROS CredentialのWorkspace範囲だけをProject Context MCPへ搬送す�
       "invalid-token-value-that-is-long-enough-0000",
     );
     assert.equal(blocked.status, 401);
+    assert.equal(authenticationReads, 2);
+    assert.equal(snapshotReads, 1);
     assert.doesNotMatch(await blocked.text(), /REPO|workspace|credential/iu);
   } finally {
     const closed = await server.close();

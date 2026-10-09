@@ -624,6 +624,8 @@ Secret value -x Repository／.crdd／Prompt／Projection
 
 ## 15. RegistryとRequest snapshot
 
+認証後のContent参照範囲は`access/resolve.ts`の`resolveCrosRequestScope`が所有する。HTTPとMCPは既存のCredential検証をRequestごとに一回行い、認証済みAccessを渡す。共通処理はExposure Snapshotを一回だけ読み、一Sessionと許可Repository集合を構成する。Portfolio、Topic／MeetingとRelationは同じ結果を使う。管理専用Profile操作とContent POST拒否にはExposure読取りを追加しない。Reader例外と空改訂は故障として保持し、Session生成失敗のnullは各入口の既存結果へ写像する。永続Session、追加Authorityや共有Stateは作らない。
+
 | Registry | 必須field | Owner |
 |---|---|---|
 | Trust Domain | `trust_domain_id`、publisher／repository policy参照、`revision` | Server operator |

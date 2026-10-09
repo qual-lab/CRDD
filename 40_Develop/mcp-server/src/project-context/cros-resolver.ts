@@ -11,13 +11,10 @@
  * @concurrency Requestごとに現在Credentialと一つのExposure Snapshotを使用する。
  * @security Grant外Repositoryの存在をHandlerへ渡さず、生Tokenを保持しない。
  */
-import { randomBytes } from "node:crypto";
-
 import {
   authenticateConnectionCredential,
-  createCrosSession,
   createPortfolioProjection,
-  resolveAuthorizedRepositories,
+  resolveCrosRequestScope,
   resolveRepository,
   type ConnectionCredentialRegistry,
   type CrosExposureSnapshot,
@@ -157,32 +154,12 @@ export function createCrosProjectContextMcpResolver(input: {
       token,
     );
     if (authentication.status !== "available") return null;
-    const snapshot = input.readExposureSnapshot();
-    if (!snapshot.revision)
-      throw new Error("cros_exposure_snapshot_revision_invalid");
-    const session = createCrosSession(
-      randomBytes(16).toString("hex"),
-      {
-        credentialId: authentication.access.credentialId,
-        workspaceIds: authentication.access.workspaceIds,
-        systemAdmin: authentication.access.systemAdmin,
-        revoked: false,
-      },
-      snapshot.revision,
+    const scope = resolveCrosRequestScope(authentication.access, () =>
+      input.readExposureSnapshot(),
     );
-    if (session === null) return null;
-    const portfolio = createPortfolioProjection(
-      resolveAuthorizedRepositories(
-        session,
-        snapshot.exposures,
-        snapshot.repositories,
-      ),
-    );
-    const authorizedRepositories = resolveAuthorizedRepositories(
-      session,
-      snapshot.exposures,
-      snapshot.repositories,
-    );
+    if (scope === null) return null;
+    const { snapshot, session, authorizedRepositories } = scope;
+    const portfolio = createPortfolioProjection(authorizedRepositories);
     const authorizedTopicMeetingAccess =
       input.resolveTopicMeetingAccess === undefined
         ? Object.freeze([])
