@@ -8224,7 +8224,7 @@ function assertReleaseSigningProtectedPath(source: string) {
         ["getPinnedPlatformProvisionerReleaseSignerSpkiDer"],
       ],
       [
-        "../src/platform-access/trust-core.ts",
+        "../src/platform-access/manifest-trust.ts",
         [
           "compilePlatformProvisionerManifestPayloadCandidate",
           "calculateRuntimeExecutionIdentityCandidate",

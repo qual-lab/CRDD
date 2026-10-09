@@ -1742,6 +1742,10 @@ test("署名入口は配布観測結果を秘密入力前の検査と署名結�
   );
   for (const mutated of [
     source.replace(
+      'from "../src/platform-access/manifest-trust.ts";',
+      'from "../src/platform-access/trust-core.ts";',
+    ),
+    source.replace(
       "preflightReleaseManifest(options);",
       "void preflightReleaseManifest;",
     ),

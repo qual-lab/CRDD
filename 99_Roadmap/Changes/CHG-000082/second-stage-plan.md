@@ -370,6 +370,8 @@ Coordinator全体checkは既知Checker整形1件で停止し、型検査も既�
 
 限定した三Fileの独立レビューは実装・品質とも指摘0。関連Suite全体の実行結果は引き続き確認中であり、局所3件の成功を全体へ拡張しない。
 
+関連Suite全体はExit 1で終了した。今回対象の署名保護三件は全件成功したが、別Caseに残る旧`host-runtime`／`docker-runtime`とOrchestrator `src/core`等の参照でENOENTを検出し、意図した拒否phaseの不一致も残った。全SuiteをPassとは扱わず、試験側移管漏れとその他停止原因を分類して後続是正する。局所三件と独立レビュー指摘0を根拠に、保護import表の改名追従だけを限定完了とする。実署名・配布・Coordinator全体完成ではない。
+
 ### Topic／Meetingの正常CRUDと協調Writer競合 — 着手前照合
 
 変更対象は既存`CPR-IT-010`の正常CRUD網羅と保存排他の実Process観測で、保存Runtimeは変更しない。Topic／Meeting双方の登録・一覧・取得・更新・期待改訂拒否・確認なし削除拒否・確認付き削除を実bytesと改訂へ接続する。新しいfixtureは検証済みRepository-local `.crdd/tests`へ限定し、mock・子Processを回収してRoot不存在を確認する。既存Relation付き削除・変換・Outcome・昇格の試験を保持し、Repository CRUDだけで公開操作全体の完成を主張しない。
