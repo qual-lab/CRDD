@@ -1,34 +1,34 @@
 /**
- * coordinator:unit:claude-structured-resultの検証範囲を定義する。
+ * ai-adapter:unit:claude-structured-resultの検証範囲を定義する。
  *
  * @packageDocumentation
- * @responsibility coordinator:unit:claude-structured-resultが所有する検証責務を実行する。
- * @trace RCM-UT-016
+ * @responsibility ai-adapter:unit:claude-structured-resultが所有する検証責務を実行する。
+ * @trace ERB-UT-032
  * @level UT
  * @scope claude、structured、result
- * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ * @boundary ERB-UT-032=N/A: Provider結果の純粋解析・変換であり外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { parseUnambiguousJsonDocument } from "../../../ai-adapter/src/index.ts";
+import { parseUnambiguousJsonDocument } from "../../../src/index.ts";
 
 import {
   describeClaudeStructuredResultContract,
   normalizeClaudeStructuredResult,
-} from "../../../ai-adapter/src/index.ts";
+} from "../../../src/index.ts";
 
 /**
  * createEnvelopeのTest準備責務を実行する。
  *
  * @responsibility createEnvelopeがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
- * @trace RCM-UT-016
+ * @trace ERB-UT-032
  * @precondition 呼出し元Test Caseが必要な入力を渡す。
  * @stimulus createEnvelopeを呼び出す。
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-016=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-UT-032=N/A: AI Adapter内の純粋解析・変換。
  */
 function createEnvelope(overrides: Record<string, unknown> = {}) {
   return JSON.stringify({
@@ -49,13 +49,13 @@ function createEnvelope(overrides: Record<string, unknown> = {}) {
  * 共通JSON解析の移管後も曖昧な入力を拒否することを検証する。
  *
  * @responsibility Provider固有Envelopeに依存しない構文拒否条件を固定する。
- * @trace RCM-UT-016
+ * @trace ERB-UT-032
  * @precondition 入力は未信頼なJSON文字列である。
  * @stimulus 正常な入れ子と重複key、escape同値key、末尾データ、不正文法を渡す。
  * @observation 解析された値またはnullを観測する。
  * @oracle 正常値は保持し、曖昧・不正入力はnullとなる。
  * @cleanup N/A: 純粋解析で外部資源を作らない。
- * @boundary RCM-UT-016=Direct Boundary: Coordinator試験→AI Adapter共通出力解析。
+ * @boundary ERB-UT-032=N/A: AI Adapter内の純粋解析・変換。
  */
 test("共通JSON解析はProviderに依存せず曖昧な構文を拒否する", () => {
   assert.deepEqual(
@@ -81,13 +81,13 @@ test("共通JSON解析はProviderに依存せず曖昧な構文を拒否する",
  * Claude JSON Envelopeからexact boolean Resultだけを正規化するを検証する。
  *
  * @responsibility Claude JSON Envelopeからexact boolean Resultだけを正規化するの合否判定を所有する。
- * @trace RCM-UT-016
+ * @trace ERB-UT-032
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Claude JSON Envelopeからexact boolean Resultだけを正規化するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-016=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-UT-032=N/A: AI Adapter内の純粋解析・変換。
  */
 test("Claude JSON Envelopeからexact boolean Resultだけを正規化する", () => {
   const result = normalizeClaudeStructuredResult(`${createEnvelope()}\n`);
@@ -103,13 +103,13 @@ test("Claude JSON Envelopeからexact boolean Resultだけを正規化する", (
  * 失敗Envelope、turn超過とbudget超過を拒否するを検証する。
  *
  * @responsibility 失敗Envelope、turn超過とbudget超過を拒否するの合否判定を所有する。
- * @trace RCM-UT-016
+ * @trace ERB-UT-032
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 失敗Envelope、turn超過とbudget超過を拒否するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-016=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-UT-032=N/A: AI Adapter内の純粋解析・変換。
  */
 test("失敗Envelope、turn超過とbudget超過を拒否する", () => {
   for (const envelope of [
@@ -126,13 +126,13 @@ test("失敗Envelope、turn超過とbudget超過を拒否する", () => {
  * Structured Outputのfalse、余分なkeyと型差を拒否するを検証する。
  *
  * @responsibility Structured Outputのfalse、余分なkeyと型差を拒否するの合否判定を所有する。
- * @trace RCM-UT-016
+ * @trace ERB-UT-032
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Structured Outputのfalse、余分なkeyと型差を拒否するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-016=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-UT-032=N/A: AI Adapter内の純粋解析・変換。
  */
 test("Structured Outputのfalse、余分なkeyと型差を拒否する", () => {
   for (const structuredOutput of [
@@ -155,13 +155,13 @@ test("Structured Outputのfalse、余分なkeyと型差を拒否する", () => {
  * 重複key、複数document、BOMと不正JSONを曖昧入力として拒否するを検証する。
  *
  * @responsibility 重複key、複数document、BOMと不正JSONを曖昧入力として拒否するの合否判定を所有する。
- * @trace RCM-UT-016
+ * @trace ERB-UT-032
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 重複key、複数document、BOMと不正JSONを曖昧入力として拒否するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-016=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-UT-032=N/A: AI Adapter内の純粋解析・変換。
  */
 test("重複key、複数document、BOMと不正JSONを曖昧入力として拒否する", () => {
   const duplicateEnvelope =
@@ -181,13 +181,13 @@ test("重複key、複数document、BOMと不正JSONを曖昧入力として拒�
  * metadata内のJSON全型とescapeを走査しnested重複も拒否するを検証する。
  *
  * @responsibility metadata内のJSON全型とescapeを走査しnested重複も拒否するの合否判定を所有する。
- * @trace RCM-UT-016
+ * @trace ERB-UT-032
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus metadata内のJSON全型とescapeを走査しnested重複も拒否するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-016=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-UT-032=N/A: AI Adapter内の純粋解析・変換。
  */
 test("metadata内のJSON全型とescapeを走査しnested重複も拒否する", () => {
   const confirmed = normalizeClaudeStructuredResult(
@@ -228,13 +228,13 @@ test("metadata内のJSON全型とescapeを走査しnested重複も拒否する",
  * 不完全なstring、array、objectと数値tokenを例外なく拒否するを検証する。
  *
  * @responsibility 不完全なstring、array、objectと数値tokenを例外なく拒否するの合否判定を所有する。
- * @trace RCM-UT-016
+ * @trace ERB-UT-032
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 不完全なstring、array、objectと数値tokenを例外なく拒否するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-016=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-UT-032=N/A: AI Adapter内の純粋解析・変換。
  */
 test("不完全なstring、array、objectと数値tokenを例外なく拒否する", () => {
   for (const raw of [
@@ -263,13 +263,13 @@ test("不完全なstring、array、objectと数値tokenを例外なく拒否す�
  * Envelope型、欠落field、非有限相当と0境界を区別するを検証する。
  *
  * @responsibility Envelope型、欠落field、非有限相当と0境界を区別するの合否判定を所有する。
- * @trace RCM-UT-016
+ * @trace ERB-UT-032
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Envelope型、欠落field、非有限相当と0境界を区別するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-016=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-UT-032=N/A: AI Adapter内の純粋解析・変換。
  */
 test("Envelope型、欠落field、非有限相当と0境界を区別する", () => {
   assert.equal(normalizeClaudeStructuredResult(1).status, "blocked");
@@ -306,13 +306,13 @@ test("Envelope型、欠落field、非有限相当と0境界を区別する", () 
  * 公開契約は単一JSON、重複拒否、2 turnsと$0.10上限を固定するを検証する。
  *
  * @responsibility 公開契約は単一JSON、重複拒否、2 turnsと$0.10上限を固定するの合否判定を所有する。
- * @trace RCM-UT-016
+ * @trace ERB-UT-032
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 公開契約は単一JSON、重複拒否、2 turnsと$0.10上限を固定するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-016=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-UT-032=N/A: AI Adapter内の純粋解析・変換。
  */
 test("公開契約は単一JSON、重複拒否、2 turnsと$0.10上限を固定する", () => {
   const contract = describeClaudeStructuredResultContract();

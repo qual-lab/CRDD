@@ -1,12 +1,12 @@
 /**
- * coordinator:unit:codex-structured-resultの検証範囲を定義する。
+ * ai-adapter:unit:codex-structured-resultの検証範囲を定義する。
  *
  * @packageDocumentation
- * @responsibility coordinator:unit:codex-structured-resultが所有する検証責務を実行する。
- * @trace RCM-UT-016
+ * @responsibility ai-adapter:unit:codex-structured-resultが所有する検証責務を実行する。
+ * @trace ERB-UT-032
  * @level UT
  * @scope codex、structured、result
- * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ * @boundary ERB-UT-032=N/A: Provider結果の純粋解析・変換であり外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -14,19 +14,19 @@ import test from "node:test";
 import {
   describeCodexStructuredResultContract,
   normalizeCodexStructuredResult,
-} from "../../../ai-adapter/src/index.ts";
+} from "../../../src/index.ts";
 
 /**
  * Codexの単一exact Resultだけを正規化するを検証する。
  *
  * @responsibility Codexの単一exact Resultだけを正規化するの合否判定を所有する。
- * @trace RCM-UT-016
+ * @trace ERB-UT-032
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Codexの単一exact Resultだけを正規化するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-016=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-UT-032=N/A: AI Adapter内の純粋解析・変換。
  */
 test("Codexの単一exact Resultだけを正規化する", () => {
   const result = normalizeCodexStructuredResult('{"status":true}\n');
@@ -39,13 +39,13 @@ test("Codexの単一exact Resultだけを正規化する", () => {
  * false・余分なkey・重複key・複数documentを拒否するを検証する。
  *
  * @responsibility false・余分なkey・重複key・複数documentを拒否するの合否判定を所有する。
- * @trace RCM-UT-016
+ * @trace ERB-UT-032
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus false・余分なkey・重複key・複数documentを拒否するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-016=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-UT-032=N/A: AI Adapter内の純粋解析・変換。
  */
 test("false・余分なkey・重複key・複数documentを拒否する", () => {
   for (const raw of [
@@ -63,13 +63,13 @@ test("false・余分なkey・重複key・複数documentを拒否する", () => {
  * 公開契約はraw出力非公開とbyte上限を固定するを検証する。
  *
  * @responsibility 公開契約はraw出力非公開とbyte上限を固定するの合否判定を所有する。
- * @trace RCM-UT-016
+ * @trace ERB-UT-032
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 公開契約はraw出力非公開とbyte上限を固定するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-016=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-UT-032=N/A: AI Adapter内の純粋解析・変換。
  */
 test("公開契約はraw出力非公開とbyte上限を固定する", () => {
   const contract = describeCodexStructuredResultContract();

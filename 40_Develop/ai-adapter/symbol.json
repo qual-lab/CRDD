@@ -221,6 +221,49 @@
         "ai-runtime.catalog",
         "ai-runtime.public-api"
       ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.claude-structured-result",
+      "kind": "test-suite",
+      "path": "tests/unit/claude/structured-result.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-032"
+      ],
+      "verifies": [
+        "coordinator.source.src.security.claude.structured.result",
+        "ai-adapter.output.unambiguous-json-document"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.codex-structured-result",
+      "kind": "test-suite",
+      "path": "tests/unit/codex/structured-result.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-032"
+      ],
+      "verifies": [
+        "coordinator.source.src.security.codex.structured.result"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.provider-billing-policy",
+      "kind": "test-suite",
+      "path": "tests/unit/profile/billing-policy.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-033"
+      ],
+      "verifies": [
+        "coordinator.source.src.security.provider.billing.policy"
+      ]
     }
   ]
 }

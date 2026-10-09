@@ -1749,21 +1749,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.test.unit.claude-structured-result",
-      "kind": "test-suite",
-      "path": "tests/unit/claude-structured-result.contract.test.ts",
-      "qaIds": [
-        "QA-000001"
-      ],
-      "localTestIds": [
-        "RCM-UT-016"
-      ],
-      "verifies": [
-        "coordinator.source.src.security.claude.structured.result",
-        "ai-adapter.output.unambiguous-json-document"
-      ]
-    },
-    {
       "symbolId": "coordinator.test.unit.codex-docker-runtime-adapter",
       "kind": "test-suite",
       "path": "tests/unit/provider/codex-docker-adapter.contract.test.ts",
@@ -1786,20 +1771,6 @@
         "ai-adapter.codex.authentication",
         "coordinator.source.src.security.delegation.selection.grant.runtime",
         "coordinator.source.src.security.docker.effect.runtime"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.unit.codex-structured-result",
-      "kind": "test-suite",
-      "path": "tests/unit/codex-structured-result.contract.test.ts",
-      "qaIds": [
-        "QA-000001"
-      ],
-      "localTestIds": [
-        "RCM-UT-016"
-      ],
-      "verifies": [
-        "coordinator.source.src.security.codex.structured.result"
       ]
     },
     {
@@ -2283,20 +2254,6 @@
       ],
       "verifies": [
         "coordinator.provider-authority-runtime"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.unit.provider-billing-policy",
-      "kind": "test-suite",
-      "path": "tests/unit/provider-billing-policy.contract.test.ts",
-      "qaIds": [
-        "QA-000010"
-      ],
-      "localTestIds": [
-        "AIT-UT-005"
-      ],
-      "verifies": [
-        "coordinator.source.src.security.provider.billing.policy"
       ]
     },
     {

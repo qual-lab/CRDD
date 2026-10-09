@@ -3468,8 +3468,8 @@
     },
     {
       "id": "coordinator:unit:claude-structured-result",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/claude-structured-result.contract.test.ts",
+      "owner": "ai-adapter",
+      "path": "40_Develop/ai-adapter/tests/unit/claude/structured-result.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -3507,8 +3507,8 @@
     },
     {
       "id": "coordinator:unit:codex-structured-result",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/codex-structured-result.contract.test.ts",
+      "owner": "ai-adapter",
+      "path": "40_Develop/ai-adapter/tests/unit/codex/structured-result.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4579,8 +4579,8 @@
     },
     {
       "id": "coordinator:unit:provider-billing-policy",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/provider-billing-policy.contract.test.ts",
+      "owner": "ai-adapter",
+      "path": "40_Develop/ai-adapter/tests/unit/profile/billing-policy.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [

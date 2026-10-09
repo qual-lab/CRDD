@@ -159,6 +159,7 @@ DirectoryはProviderまたは具体責務を表し、`internal/`、`application/
 | `planCodexReadOnlyProbe`、`planCodexIsolatedTask` | Rootから`codex/execution-plan.ts` | Mode、Role、effort等の固定入力／固定公式CLIの起動計画 | 外部Effectなし。計画はcandidateであり、起動・外部送信・Mount Authorityを含まない |
 | `planClaudeReadOnlyProbe`、`planClaudeIsolatedTask`、`planClaudeTaskTurnBudget`、`buildClaudeExecutionArguments` | Rootから`claude/execution-plan.ts` | Mode、Role、Task予算、照合済みModel・effort／固定CLI計画・Turn予算・完成argv | 外部Effectなし。Model受理と選定IdentityはCoordinator、Claude固有オプションと固定argv順序はAI Adapter。Turn完了とProcess終了・資源不存在を同一視しない |
 | `normalizeCodexStructuredResult`、`normalizeClaudeStructuredResult` | Rootから各Providerの`structured-result.ts` | 対応固定CLIの出力Envelope／共通の構造化入力または拒否 | 生出力を公開しない。候補採否・共通Task判定・是正Capabilityの発行はCoordinator |
+| `describeProviderBillingPolicyContract`と課金方針定数 | Rootから`profile/billing-policy.ts` | 引数なし／Subscription限定の不変な方針記述 | 既存CoordinatorのAPI key課金fallback・追加購入非対応を記述する。Quota不足、構成選択や利用者設定から有料APIへの切替・実行Authorityを発行しない。将来の明示Profile、exact Provider／Account、専用Credential、予算、操作Authorityの5条件は未実装機能の要件記述であり、現実の課金防止やRuntime許可の証明ではない。 |
 | `parseUnambiguousJsonDocument` | Rootから`output/`の実体Source | 未信頼JSON文字列／構造化値または拒否 | 重複key、不正文法、BOM、末尾データを拒否する純粋解析。Codex・Claude・助言から共有し、Provider固有入口を経由しない |
 | `extractProviderTaskEnvelope` | Rootから`output/`の実体Source | Provider、Role、受理Turn上限、CLI出力／構造化入力・固定拒否理由・本文非公開の実行観測 | Codex JSONL、Claude Result・Turns・Usageの解釈だけを所有する。共通Schema、Reviewer判断、Remediation Capability、実Process終了・cleanup判定はCoordinator |
 | `isProviderSubscriptionAuthenticationConfirmed` | Rootから`profile/subscription-status.ts` | Provider、期待Offering、認証Probeの出力／固定条件の一致 | Process終了、出力量、取消はCoordinatorが評価する。対話認証とは判定契約を分け、出力の分類だけから実行Authorityを発行しない |
@@ -172,7 +173,7 @@ DirectoryはProviderまたは具体責務を表し、`internal/`、`application/
 
 Contract文字列、改訂値、理由値、固定CLI配布IdentityはFolder改名だけで変更しない。計画・変換が混在する既存Fileは責務単位で分割し、共通Packet／GrantをProvider側へ移さない。新Providerを予測したPlugin Registryや動的実行Frameworkは作らず、現在のCodex／Claudeの二つ目の具象から共通契約を固定する。
 
-Codex／Claude計画が利用する共通Record入力防御は、[Domain ModelのPlain Data公開契約](../domain-model/01_Architecture.md#33-capability別の公開契約)へ直接依存する。Coordinator内の実装を逆importせず、Provider側にもコピーしない。共通防御はRecord／Arrayの浅い検査と所有Snapshot化だけを所有し、Profile Store、Authority、Process・Docker・回復へ依存しない。既存の返却値と負例を維持し、Provider入力の個別契約と共通防御を混同しない。
+Codex／Claude計画が利用する共通Record入力防御は、[Domain ModelのPlain Data公開契約](../domain-model/01_Architecture.md#33-rootから公開する責務別契約)へ直接依存する。Coordinator内の実装を逆importせず、Provider側にもコピーしない。共通防御はRecord／Arrayの浅い検査と所有Snapshot化だけを所有し、Profile Store、Authority、Process・Docker・回復へ依存しない。既存の返却値と負例を維持し、Provider入力の個別契約と共通防御を混同しない。
 
 ### 7.2. 実行・取消・失敗の接続
 
@@ -191,6 +192,8 @@ Codex／Claude計画が利用する共通Record入力防御は、[Domain Model�
 ### 7.3. QA導出と残る照合
 
 既存`ai-runtime.*`の五導出キーはProfile意味の参照として保持する。Provider計画・出力変換はCoordinatorの既存`coord.provider-selection`、`coord.provider-attempt`から担当断面を分離して対応させる。導出キーの改名・QA-IDの追加をFolder変更だけで行わない。
+
+Provider構造化結果の純粋解析・拒否は`ERB-UT-032`、Subscription限定の課金方針記述は`ERB-UT-033`へ導出する。前者は単一exact結果、重複key・不正文法・不足Envelope・容量契約値とTurn／cost反例・生出力非公開を観測し、後者は固定方針fieldと設定だけでは実行Authorityを発行しないことを観測する。既存16KiB、Claudeの2 turns／0.10はnormalizerの固定契約値であり、Providerの費用・終了・課金防止を保証する値ではない。既存UT016再認証、UT023助言統合、IT／STの実CLI・資源終了義務は代替しない。旧Domain Outcome／Trust軸のLocal Itemを今回の純粋UTへ流用しない。 16KiB逸脱拒否は今回の移管14 Caseでは未観測であり、容量拒否の設計義務は残る。
 
 必要な反証は、曖昧Profile、Snapshot不一致、未知／不正Provider出力、CLI非ゼロ、出力不足、取消前後の遅延通知、認証未観測、cleanup不明である。計画関数の成功からProvider Effect、取消完了、資源不存在や実E2E Passを推定しない。
 
@@ -216,6 +219,8 @@ Provider公開操作、認証計画と実Home観測の分割、実Consumer、静
 | `ai-runtime.availability` | State／Observability | 実行環境観測→Availability Projection | 四軸を保って状態を投影する | unknownをavailableへ畳む | UT／IT | Direct Boundary | 四軸、status、reason | 実行Authority 0 | 実Host Observer |
 | `ai-runtime.catalog-adoption` | Lifecycle／Consistency | Owner別Candidate→不変Snapshot | Owner別の不変Snapshotだけを現在値として利用する | Candidate直接実行、競合上書き、Repository／CROS混在 | IT | Direct Boundary | Revision、Snapshot、Owner Root | 競合Effect 0、Provider Effect 0 | なし |
 | `ai-runtime.profile-administration` | Application／Authority | Workbench管理操作→Repository／CROS Store | 登録済みAdapter／Modelだけで作成・更新し確認済みProfileだけを削除する | 任意Adapter追加、未確認削除、古いRevision上書き、非管理Credentialへの開示 | UT／IT | Direct Boundary | Command、結果理由、Revision、Snapshot、systemAdmin | 拒否時Catalog Effect 0、Provider Effect 0、非管理開示0 | なし |
+| `coord.provider-attempt` | Interface／Result | Provider構造化結果の純粋解析・正規化 | 唯一のexact結果だけを受理し、生出力を公開しない | 曖昧JSON、不足Envelope、余分な値、既存上限逸脱の受理 | UT | N/A: Process内純粋変換 | 正規化値、拒否状態、固定契約field。`ERB-UT-032`へ接続 | 実Provider／Filesystem Effect 0 | 実CLI・終了・cleanupは既存IT／STで別評価 |
+| `coord.provider-selection` | Policy／Authority | Subscription限定の課金方針記述 | 暗黙有料API切替・追加購入・設定単独Authorityを否定する | 方針記述を実課金防止や未実装APIの許可へ昇格する | UT | N/A: Process内純粋記述 | 固定方針、未実装条件とAuthority非発行。`ERB-UT-033`へ接続 | 実Provider／課金Effect 0 | 現実の課金・認証・実行条件は別評価 |
 
 ## 現行実装との照合
 

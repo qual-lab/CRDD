@@ -242,8 +242,8 @@ Related:
 | Topic／Meetingの保存境界 | 親Directoryのlink経由を拒否し、保存確定・読戻しの観測を接続する | Root外書込み禁止、保存形式・ID・認可Ownerは不変。親link・途中置換・読戻し失敗・実Process競合を反証する | 未是正。既存primitiveの利用可否を先に照合する |
 | Version Control公開入口 | 跨Packageの実体Path importを既存Root exportへ接続し、閉包試験へ禁止例を追加する | 新API・中継Fileは作らない。署名閉包のPath文字列とimportを区別する | 代表3利用側と既知Consumer集合を訂正済み。全利用側の閉包確認は残る |
 | 現在の設計・Header | Domainの廃止済み入口、AI Adapterの旧配置参照、純粋計画のEffect記載、EI WriterのEffect・排他記載を実体へ合わせる | 関数本文・公開結果・Authorityは不変。書式・型・Lintと限定独立確認を行う | 訂正済み。限定独立確認は指摘0 |
-| AI Adapter純粋試験3Suite | Codex／Claudeの構造化結果とBilling試験を実装Ownerへ移し、Symbol／Catalog／回帰入口を接続する | 14 caseの拒否例・Oracleを保持する。Coordinator結合試験は一括移管しない | 未移管 |
-| 上記3SuiteのQA対応 | 現在のRCM-UT-016／AIT-UT-005はProvider結果／Billingの検証意味と一致しない。Canonicalから該当義務を再照合する | 物理移動を理由にQAの意味を改変しない。正しいLocal Itemへの接続を確定してから全体Passを評価する | 未是正 |
+| AI Adapter純粋試験3Suite | Codex／Claudeの構造化結果とBilling試験を実装Ownerへ移し、Symbol／Catalog／回帰入口を接続する | 14 caseの拒否例・Oracleを保持する。Coordinator結合試験は一括移管しない | 移管済み。14 case本文・Oracle不変、Package回帰27件と関連Consumer34件を確認 |
+| 上記3SuiteのQA対応 | 現在のRCM-UT-016／AIT-UT-005はProvider結果／Billingの検証意味と一致しない。Canonicalから該当義務を再照合する | 物理移動を理由にQAの意味を改変しない。正しいLocal Itemへの接続を確定してから全体Passを評価する | ERB-UT-032／033へ訂正。限定独立再レビューは指摘0。16KiB逸脱拒否の実入力観測は未完了 |
 | Topic／Meeting操作試験のQA対応 | Reader専用のCPR-IT-008へ更新試験が混在していた。保存操作はCPR-IT-010、保存例外はCPR-IT-011へ分離する | Readerの正本Effect 0は維持し、新項目へ詳細設計§9.1・SPEC-000013、Suite Header、SymbolとCatalogを接続する | 是正中。010は既存7件の部分検証で、通常update・確認付きdelete・改訂競合の試験接続は未確認。公開面の保存故障応答と実OS cleanup全体は未評価 |
 | Source／Symbol閉包 | 単純Path照合の未登録候補8Fileを、代表入口への集約登録と個別責務の方針へ照合する | 8件を直ちに欠落と断定しない。実体・公開helperの対応で判定する | 未確認 |
 
@@ -275,10 +275,18 @@ MCP 9件・Workbench 3件のCatalog Ownerだけを現行Packageへ訂正した�
 
 ### 保存保証の未決判断
 
-通常の保存完了＋読戻し確認と電源断耐久性、静的link拒否＋協調Writer競合と非協調Processの親Directory差替え防止を分け、必要範囲を人間へ確認中である。既存Path部品の事前／事後確認だけで競合置換防止・Root外Effect 0を主張しない。未回答を高い保証の採用や保証の免除へ読み替えず、独立した移管・試験整合を継続する。
+2026-10-09の人間判断: Topic／Meetingの保存完了は通常の保存＋内容・ID・改訂の読戻し一致までとする。電源断耐久性は今回の保証へ含めない。非協調Processの親Directory差替え防止の範囲は別の判断待ちであり、この決定から免除しない。
+
+通常の保存完了＋読戻し確認の範囲は上記判断で確定した。静的link拒否＋協調Writer競合と非協調Processの親Directory差替え防止を分け、後者の必要範囲のみ人間へ確認中である。既存Path部品の事前／事後確認だけで競合置換防止・Root外Effect 0を主張しない。未回答を高い保証の採用や保証の免除へ読み替えず、独立した移管・試験整合を継続する。
 
 Topic昇格・Meeting Outcome処置のcatchを純粋Markdown変換だけへ限定した。既存Repository契約へ更新前／実更新後の例外を注入し、両公開操作から同じ例外が伝播すること、実更新後のRevisionと状態を保持することを確認した。不正変換はblocked・既存理由・Effect 0と更新0回を別に確認した。新fault試験はVCS Rootを検証し、Repository-local `.crdd/tests`の非link親と自己生成領域だけを使用する。
 
 固定候補のDomain Model回帰107件、書式・型・LintはPass。実装・品質／文書の二つの独立レビューは是正後指摘0。QAの010は部分検証であり、保存Ownerの一次失敗／cleanup、読戻し、親link、MCP／Workbenchの内部故障応答は未完了のまま保持する。
 
 全体Checkerは未合格。2026-10-09の実行では3026件（broken-link 3002、broken-anchor 5、Catalog Owner不一致14、verifies対象欠落3、Project Context契約1、UI／SPEC Detail下流Coverage 1）を検出した。今回更新したDomain詳細設計、QA-000005、Detail分析、Domain Symbolと操作試験Pathへの指摘は0だが、これを全体完成の根拠にはしない。現在文書・Registryの移管不整合と、変更禁止の過去Evidenceに残る当時の参照を区別して後続処置を決める。
+
+### AI Adapter純粋試験と品質接続の移管
+
+Claude結果9件、Codex結果3件、課金方針2件を実装Ownerの試験Directoryへ移管した。コメント・import移設を除く本文・Oracleは基準Commit `5c33ba70`と完全一致し、Runtime Source、安定Symbol／Catalog IDと過去Evidenceは変更していない。ARCH-000004／000015の結果解釈からERB-UT-032、ARCH-000010と既存Subscription方針からERB-UT-033へ導出し、旧Domain Outcome／Trust軸への誤接続を解消した。
+
+独立レビュー3指摘はcoverage入口の旧Path、15 Headerの外部境界表記、容量契約値と実拒否観測の混同を是正し、再レビューは両観点とも指摘0。AI Adapterの書式・型・Lintと27件、Coordinator関連Consumerの限定strict型・書式・Lintと34件はPass、Skip／Fail 0。Coordinator全体checkは既存Checker試験の整形1件で停止、全体型検査は既知Recovery二Fileの18件で未合格。実Provider・Docker・認証・署名・費用・取消／cleanup・16KiB実逸脱拒否の成立をこの移管結果から主張しない。coverage入口の6試験Pathは実在を確認し、未実行の他試験をPassへ計上しない。

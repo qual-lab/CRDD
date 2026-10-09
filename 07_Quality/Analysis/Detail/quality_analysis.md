@@ -143,9 +143,18 @@
 | `ARCH-000006` Domain Model詳細設計§9.1、`SPEC-000013` | 公開操作と保存後RecordのIdentity・改訂・状態・Relationの相関 | `QA-000005`／`CPR-IT-010` | Reader専用の`CPR-IT-008`を更新成功の根拠にしない |
 | 同詳細設計の保存一次失敗と入力拒否の分離 | 変換拒否は更新0回。一次失敗のみは同一例外、cleanup併発はAggregateErrorのcauseに同じ一次例外、errorsにcleanup試行順を保持する。undefined・入れ子の失敗、実改訂・残存物を相関し、実更新を未保存へ丸めない | `QA-000005`／`CPR-IT-011` | OSの保存確定、Lock回収、親link保証、MCP／Workbench返却の全体完成は別途確認する |
 
-## Checklist
+## AI Adapterの純粋結果変換・課金方針からの追加導出
+
+容量については16KiBの契約値照合と実入力の逸脱拒否を区別する。移管14 Caseでは後者は未観測であり、容量拒否の設計義務を完了扱いにしない。
+
+| 導出元 | 必要な観測 | Quality所有の検証項目 | 対象外 |
+|---|---|---|---|
+| `ARCH-000004`／`ARCH-000015`、AI Adapter詳細設計§7.3の`coord.provider-attempt` | 単一exact結果、不正JSON／Envelope拒否、固定上限、正規化値と生出力非公開 | `QA-000006`／`ERB-UT-032` | 実CLI、費用、Process終了、取消、cleanup。既存IT／STを代替しない |
+| `ARCH-000010`、AI Adapter詳細設計§7.3の`coord.provider-selection`、CoordinatorのSubscription限定方針 | 固定課金方針、暗黙有料API切替・追加購入・設定単独Authorityの否定 | `QA-000006`／`ERB-UT-033` | 実課金防止と未実装有料APIの提供。旧Trust軸項目へ誤接続しない |
 
 追加導出: `ARCH-000006` Domain Model詳細設計§9.1と`SPEC-000013`の部分成功・故障分離から、`QA-000005`／`CPR-IT-012`へ公開応答の検証義務を渡す。MCP詳細設計§6とWorkbench詳細設計§8で入力拒否と内部故障の非開示応答を具体化する。Workbench Local POSTの保存開始時故障と、Remote失敗・保存後・再読取り・実OS全体の未評価を区別し、内部エラーから未保存・Effect 0・cleanup成立を推定しない。
+
+## Checklist
 
 - [x] 全20 SCRと20 PRTを処置した
 - [x] 全30 BHVを処置した
