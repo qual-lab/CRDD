@@ -41,10 +41,11 @@ v0.21.0は公開済み、v0.22.0とCHG-000082は未完了である。責務再�
 
 ### 結論
 
-今回の持ち越し記録について、追加の人間判断は必要ない。担当責任者・再開判断者はQual-Lab。大規模改修の目的・責務・維持Capabilityが確認されたとき、または現行Runtimeを必要とする計画・Release判断時に再評価する。
+持ち越し記録について追加判断は不要。次の責務再編では、CROS Packageを登録・認可・横断投影のOwnerとして維持し、専用REST／Gateway／Shared Hostだけを廃止する案が判断待ちである。担当責任者・採用判断者はQual-Lab。Docker／Coordinator／Orchestrator大改修は前倒ししない。
 
 | 判断項目 | 現在の処置 | Owner Relation |
 |---|---|---|
+| CROS Packageの維持／廃止 | 維持を推奨。WorkbenchのREST利用四入口の移管先を棚卸しし、Profile管理・Runtime活動のMCP未接続を確認した。判断前に構成変更を実装しない。 | [移管前照合と依存順](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#9-crosmcpworkbenchの移管前照合--2026-10-09) |
 | 5C追加是正の持ち越し | 承認済み。保証条件変更・Release範囲変更の承認ではない。 | [判断の正本](99_Roadmap/Changes/CHG-000082/change.md#持ち越し判断--orchestratorcoordinatordocker2026-10-09) |
 | 履歴相関を必須としない配送終了案 | 未採用・未実装のまま改修入力へ持ち越す。 | [未採用候補](99_Roadmap/Changes/CHG-000082/change.md) |
 | Repository IDの正式固定 | 暫定値を維持。契約固定時に人間が判断する。 | [要求](01_Discovery/Definitions/REQ-000038/requirement.md) |

@@ -133,7 +133,7 @@ function resolveLocalSource(importer: string, specifier: string): string {
  * @boundary ERB-IT-021=Direct Boundary: Workbench Node Entrypoint→Local TypeScript Dependency Graph
  */
 test("Workbench Node RuntimeはBrowser React value依存へ到達しない", () => {
-  const pending = [path.join(packageRoot, "bin", "workbench.ts")];
+  const pending = [path.join(packageRoot, "bin", "workbench-server.ts")];
   const visited = new Set<string>();
   const external = new Set<string>();
   while (pending.length > 0) {
@@ -149,18 +149,16 @@ test("Workbench Node RuntimeはBrowser React value依存へ到達しない", () 
       }
     }
   }
-  assert.ok(
-    [...visited].some((value) => value.endsWith("workbench-server.ts")),
-  );
+  assert.ok(visited.has(path.join(packageRoot, "src", "server.ts")));
   assert.equal(
-    [...visited].some((value) => value.endsWith("workbench-client-model.ts")),
+    visited.has(path.join(packageRoot, "src", "browser", "client-model.ts")),
     false,
   );
   assert.equal(
     [...visited].some(
       (value) =>
         value.endsWith(".tsx") ||
-        path.relative(packageRoot, value).split(path.sep).includes("client"),
+        path.relative(packageRoot, value).split(path.sep).includes("browser"),
     ),
     false,
   );

@@ -187,6 +187,45 @@ Packageの限定完了は未検証の全体をPassと表示しない。既知の
 - 新Sourceは既存Native検証入口の再帰Source閉包へ含まれる。現行署名済み実行物を新Treeの検証証拠へ流用せず、後半で新しいBuild Identity・配布閉包・必要な署名境界を確認する。
 - 限定独立レビューの文書図1件を是正し、Namespaceの直接dispatchと対象／記録要求を実装に合わせて分けた。是正後の未解決指摘0。実装上の保証漏れ・本体変更は検出していない。
 
+## 9. CROS／MCP／Workbenchの移管前照合 — 2026-10-09
+
+### 結論と判断境界
+
+CROSの登録・認可・横断投影は独立した責務であるため、Packageは維持する案を推奨する。CROS専用REST／Gateway／Shared Hostは廃止対象であり、BrowserとWorkbench Server間のPresentation APIは維持する。Package維持の採否は人間判断待ちで、以下は移管案である。未採用の構成をSourceへ実装しない。
+
+着手前の読取り専用確認により、現行利用側、移管先の不足、保持保証と依存順を照合した。これは段階6の独立完成レビューや実装許可ではない。変更経路は既存CHG内の責務再編であり、実装時はArchitecture／Quality、直接利用側と配布入口の不足影響・文書確認、固定差分の独立レビューを行う。準拠基準・公開訴求・Release判断は変更しないため、準拠監査・市場探索・署名実E2Eをこの棚卸しへ追加しない。
+
+### 現行利用側と移管案
+
+| 現行入口・利用側 | 移管先・処置案 | 保持する成立条件と現在の不足 |
+|---|---|---|
+| Workbench Server→`readRemotePortfolio`→CROS REST | 既存MCPの`crdd.list_projects`／`crdd.get_project_context`へ切替 | 一覧はProject ID・状態・Source数のみで、完全なPortfolioではない。個別取得との整合、許可Source、五場面、欠測・競合を保持する読取り手順を設計する。接続済みとは扱わない |
+| Workbench Server→`readRemoteAiProfileCatalog`／`executeRemoteAiProfileMutation`→CROS REST | Profile参照・管理をMCPの専門Adapterへ接続してから切替 | 現行MCPには未接続。systemAdmin限定、expectedRevision競合、削除確認、理由・現在Snapshotを保持する。管理権限からProject本文アクセスを生成しない |
+| Workbench Server→`readRemoteRuntimeActivity`→CROS REST | Runtime活動の読取りをMCPへ接続してから切替 | 現行MCPには未接続。要求ごとの現在Credential・Exposure、許可Repository集合、cursor、limit（既定20・1〜50）、`observed/absent/unknown`、Event欠測・継続を保持する。欠測を空一覧の正常状態へ畳まない |
+| Workbench Server→Topic／Meeting MCP Adapter | 既存MCP操作を維持 | 明示Repository、改訂競合、確認付き削除、Relationの非開示を保持。共通通信処理を整理する場合も汎用接続Frameworkを追加しない |
+| CROS `connection/http.ts`内の型とReader契約 | 認可・横断投影の実責務Ownerへ移す | Exposure Snapshotに加えRuntime observation／event／readerも対象。MCP resolver、設定Reader、Workbenchの直接利用側を同じ切替へ含める |
+| MCP `shared-host/server.ts`のREST・MCP・Gateway三Listener組立て | Shared Host／Gatewayを撤去し、MCP自身のHTTP lifecycleへ集約 | Origin、TLS終端、mirror header、Bearer、payload制限、切断・停止時の取消／join、Listener／Socket回収を維持する。Local呼出しはTransportを省いても認可を省かない |
+| `/.well-known/cros-health`、Shared Server起動・設定・運用入口 | 旧入口を撤去し、必要な受付観測をMCP自身へ対応付ける | Transport受付は認証、Project参照、Provider正常、実行能力の成立を証明しない。旧URLの利用側、公開Launcher、設定、試験・運用手順の全数照合は未完了 |
+| Credential発行・回復 | 既存Local管理入口に保持 | 秘密の発行能力をMCPへ新設しない。MCPは認証済み要求を認可へ接続する |
+| Browser→Workbench API | 維持 | Server→CROS RESTの廃止と混同しない。表示導線・Visualの再設計は別の人間確認へ戻す |
+
+### 削除までの依存順
+
+1. CROS Packageの採否後、共通契約と保持する認可・結果意味をArchitecture／Qualityで固定する。
+2. 未接続のProfile管理・Runtime活動をMCPへ接続し、正常、拒否、競合、欠測、取消と終了後状態を確認する。
+3. WorkbenchのREST利用四入口をMCPへ切替え、既存Topic／MeetingとBrowser APIを維持する。
+4. 代替接続・試験・設定・公開入口・Symbolを照合した後、CROS REST／Shared Host／Gatewayを撤去する。旧通信実装を互換Readerとして残さず、導入側移行はフロントAI手順へ接続する。
+
+REST試験は機械的に削除せず、認可、管理、ページング、結果検証、取消・終了のOracleを新Ownerの試験へ対応付ける。未対応Capabilityがある間は旧処理を置換済みと表示しない。Docker／Coordinator／Orchestrator大改修は前倒ししない。
+
+### 基準回帰の確認
+
+- CROS Packageの静的確認と回帰33件はPass、Skip／Fail 0。これは現行RESTを含む基準結果であり、新MCP接続の結果ではない。
+- MCP Packageは初回50件中1件が旧改名Path二箇所のENOENTで失敗した。試験の参照を現行`transport/stdio.ts`／`transport/streamable-http.ts`へ訂正後、静的確認と50件がPass、Skip／Fail 0。ProtocolがError envelopeを所有するassertionと対象数は不変である。
+- 上記実行対象はHEAD `d25f4851`とMCP試験の二Path訂正。実行結果はTool出力から確認し、再実行は各Packageの`npm test`を使用する。外部Provider・Docker・認証・署名操作は行っていない。巨大ログの複製は作らない。
+- Workbenchの基準回帰は33件中31件Pass・2件Fail。Node依存閉包の旧入口Pathと、現行Vite Build結果に未追従の追跡Bundleを検出した。入口・Server・Browser参照を現行配置へ訂正し、Bundleを再生成した。再BuildのSHA-256は`ffcecf344cbc6559b07e0a94a1d5615c08b34208fe0d4d865b7e5f2609f0d3ef`で一致。静的確認・対象二試験に続き、是正後の全回帰33件もPass、Skip／Fail 0。Browser実操作・Visual評価・実Provider成立を示す結果ではない。
+- MCP試験・Workbench依存試験・生成Bundle・本節の固定差分を限定独立レビューし、指摘0。試験参照更新の意味と保持条件、Bundle Hash／Index Blobの一致を確認した。独立確認者はBuild・試験を再実行しておらず、実行結果は親のTool出力から確認した。Repository内の専用試験一時Rootは終了後にcacheだけであることを確認して回収する。
+
 Related:
 - [現行の責務対応と第一段階結果](Evidence/261007_develop-responsibility-mapping.md)
 - [Orchestrator詳細設計](../../../06_Architecture/Details/orchestrator/01_Architecture.md)

@@ -1574,8 +1574,8 @@ test("JSON-RPC error envelopeはProtocolだけが所有しTransportは再定義�
   });
   const sourceRoot = fileURLToPath(new URL("../../src/", import.meta.url));
   for (const relative of [
-    "transports/stdio-transport.ts",
-    "transports/streamable-http-transport.ts",
+    "transport/stdio.ts",
+    "transport/streamable-http.ts",
   ]) {
     const source = fs.readFileSync(path.join(sourceRoot, relative), "utf8");
     assert.doesNotMatch(source, /jsonrpc\s*:/u, relative);
