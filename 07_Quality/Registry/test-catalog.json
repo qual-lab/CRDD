@@ -1205,11 +1205,11 @@
       "path": "40_Develop/domain-model/tests/integration/topic-meeting-operations.contract.test.ts",
       "level": "integration",
       "kind": "contract",
-      "semanticTags": ["project", "topic", "meeting", "application", "pagination", "outcome-transfer", "close-invariant"],
+      "semanticTags": ["project", "topic", "meeting", "application", "pagination", "outcome-transfer", "close-invariant", "store-failure-boundary"],
       "environment": "local_component_boundary",
       "externalProviderEffect": false,
       "humanInput": false,
-      "postconditions": ["cursor_page_stable", "bounded_page_size", "repository_contract_reused", "outcome_tables_updated_together", "pending_outcome_close_effect_zero", "same_project_topic_target_required"],
+      "postconditions": ["cursor_page_stable", "bounded_page_size", "repository_contract_reused", "outcome_tables_updated_together", "pending_outcome_close_effect_zero", "same_project_topic_target_required", "transformation_rejection_update_zero", "store_exception_identity_preserved", "published_revision_not_relabelled_no_effect"],
       "mandatoryByDefault": true
     },
     {

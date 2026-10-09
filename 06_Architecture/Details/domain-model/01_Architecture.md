@@ -305,6 +305,8 @@ MCPとWorkbenchの旧公開入口利用は移管対象である。新Packageへ�
 
 Source本文を読むだけの投影は書込み排他・作業Directoryを作らない。OrchestratorのQueue／判断／採用状態、Coordinatorの実行／回復状態は各Ownerの単一`state.json`へ保存し、Domain Modelへ中央の状態正本を新設しない。通常履歴のローテーション、候補の期限処置、署名準備の終了判断も各Ownerが行い、共通保存部品が用途を推測して削除しない。
 
+Topic昇格とMeeting Outcome処置では、Markdownの純粋な変換不正だけを保存前の入力拒否へ変換する。保存契約の呼出し以降に発生した例外は入力不正や`filesystemEffectCount: 0`へ変換せず、同じ一次例外を利用側へ渡す。MCP／Workbenchも入力拒否と内部の保存失敗を区別し、秘密値や内部Pathを返さない。例外の伝播だけを保存・cleanup全体の成立根拠とはしない。
+
 ### 9.2. 移管確認と反証
 
 - 旧三Packageの全公開Symbol、利用側、worker起動URL、固定fixture、Schema・配布閉包を新責務へ対応する。Rootの文字置換だけで接続済みとしない。

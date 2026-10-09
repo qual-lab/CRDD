@@ -477,7 +477,8 @@
         "QA-000005"
       ],
       "localTestIds": [
-        "CPR-IT-008"
+        "CPR-IT-010",
+        "CPR-IT-011"
       ],
       "verifies": [
         "project-operation.application.topic-meeting",

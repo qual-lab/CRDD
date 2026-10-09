@@ -136,6 +136,13 @@
 | Product固有GUIのVisual回帰 | OPEN | v0.22でHuman DirectionとVisual Baselineを採用した時に追加する |
 | 現行Detailの意味Coverage | Covered | 20 SCR、20 PRT、30 BHV、32 Interactionを既存QAへ接続した |
 
+## Topic／Meetingの保存境界からの追加導出
+
+| 導出元 | 必要な観測 | Quality所有の検証項目 | 対象外 |
+|---|---|---|---|
+| `ARCH-000006` Domain Model詳細設計§9.1、`SPEC-000013` | 公開操作と保存後RecordのIdentity・改訂・状態・Relationの相関 | `QA-000005`／`CPR-IT-010` | Reader専用の`CPR-IT-008`を更新成功の根拠にしない |
+| 同詳細設計の保存一次失敗と入力拒否の分離 | 変換拒否は更新0回。実更新後の例外を未保存へ丸めず同じ一次例外として搬送する | `QA-000005`／`CPR-IT-011` | OSの保存確定、Lock回収、親link保証、MCP／Workbench返却の全体完成は別途確認する |
+
 ## Checklist
 
 - [x] 全20 SCRと20 PRTを処置した

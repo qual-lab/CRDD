@@ -446,32 +446,33 @@ export function createTopicMeetingOperations(
         return blocked("record_revision_conflict");
       if (!repository.hasChange(input.changeId))
         return blocked("topic_promotion_target_not_found");
+      let markdown: string;
       try {
-        const markdown = applyTopicPromotion(current.markdown, {
+        markdown = applyTopicPromotion(current.markdown, {
           changeId: input.changeId,
           reason: input.reason,
           remainingResponsibility: input.remainingResponsibility,
         });
-        const updated = repository.update(
-          "topic",
-          input.topicId,
-          input.expectedRevision,
-          markdown,
-        );
-        return Object.freeze({
-          status: updated.status,
-          reason:
-            updated.status === "completed"
-              ? ("topic_promoted" as const)
-              : updated.reason === "record_revision_conflict"
-                ? ("record_revision_conflict" as const)
-                : ("topic_promotion_invalid" as const),
-          record: updated.record,
-          filesystemEffectCount: updated.filesystemEffectCount,
-        });
       } catch {
         return blocked("topic_promotion_invalid");
       }
+      const updated = repository.update(
+        "topic",
+        input.topicId,
+        input.expectedRevision,
+        markdown,
+      );
+      return Object.freeze({
+        status: updated.status,
+        reason:
+          updated.status === "completed"
+            ? ("topic_promoted" as const)
+            : updated.reason === "record_revision_conflict"
+              ? ("record_revision_conflict" as const)
+              : ("topic_promotion_invalid" as const),
+        record: updated.record,
+        filesystemEffectCount: updated.filesystemEffectCount,
+      });
     },
     treatMeetingOutcome: (input) => {
       const current = repository.getDocument("meeting", input.meetingId);
@@ -511,8 +512,9 @@ export function createTopicMeetingOperations(
       )
         return blocked("meeting_outcome_target_not_found");
 
+      let markdown: string;
       try {
-        const markdown = applyMeetingOutcomeTreatment(current.markdown, {
+        markdown = applyMeetingOutcomeTreatment(current.markdown, {
           outcomeId: input.outcomeId,
           disposition: input.disposition,
           owner: input.owner,
@@ -523,26 +525,26 @@ export function createTopicMeetingOperations(
           result: input.result,
           closeMeeting: input.closeMeeting,
         });
-        const updated = repository.update(
-          "meeting",
-          input.meetingId,
-          input.expectedRevision,
-          markdown,
-        );
-        return Object.freeze({
-          status: updated.status,
-          reason:
-            updated.status === "completed"
-              ? ("meeting_outcome_treated" as const)
-              : updated.reason === "record_revision_conflict"
-                ? ("record_revision_conflict" as const)
-                : ("meeting_outcome_invalid" as const),
-          record: updated.record,
-          filesystemEffectCount: updated.filesystemEffectCount,
-        });
       } catch {
         return blocked("meeting_outcome_invalid");
       }
+      const updated = repository.update(
+        "meeting",
+        input.meetingId,
+        input.expectedRevision,
+        markdown,
+      );
+      return Object.freeze({
+        status: updated.status,
+        reason:
+          updated.status === "completed"
+            ? ("meeting_outcome_treated" as const)
+            : updated.reason === "record_revision_conflict"
+              ? ("record_revision_conflict" as const)
+              : ("meeting_outcome_invalid" as const),
+        record: updated.record,
+        filesystemEffectCount: updated.filesystemEffectCount,
+      });
     },
   });
 }

@@ -3,16 +3,25 @@
  *
  * @packageDocumentation
  * @responsibility project-operation:integration:topic-meeting-applicationが宣言する検証責務と終了後条件を所有する。
- * @trace CPR-IT-008
+ * @trace CPR-IT-010
+ * @trace CPR-IT-011
  * @level IT
  * @scope project-operation、contract、local_component_boundary
- * @boundary CPR-IT-008=Direct Boundary: project-operation Test Source→対象契約
+ * @boundary CPR-IT-010=Direct Boundary: project-operation Test Source→対象契約
  */
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 
 import { createTopicMeetingOperations } from "../../src/activity/operations.ts";
 import { createTopicMeetingRepository } from "../../src/storage/topic-meeting-store.ts";
@@ -23,7 +32,7 @@ import { createMeetingOperations } from "../../src/meeting/create-operations.ts"
  * 公開CRUD面がTopicとMeetingの種別を固定することを確認する。
  *
  * @responsibility 共通実体の保存結果を保ち、別種別の専用操作と種別選択を公開しないことを検証する。
- * @trace CPR-IT-008
+ * @trace CPR-IT-010
  * @precondition 空の試験Repositoryに両種別の公開Applicationを生成する。
  * @stimulus 各公開面から登録、一覧、取得および反対種別Markdownの登録を試みる。
  * @observation 正本の種別、結果、一覧と公開操作名を確認する。
@@ -71,13 +80,13 @@ test("公開CRUDは生成した種別だけを操作する", () => {
  * topic用の試験入力または観測処理を提供する。
  *
  * @responsibility topic用の試験入力または観測処理を提供するの検証責務を所有する。
- * @trace CPR-IT-008
+ * @trace CPR-IT-010
  * @precondition 対象契約を再現できる固定入力と依存を用意する。
  * @stimulus topicの対象操作を実行する。
  * @observation 返却値、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionがSummaryの期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
- * @boundary CPR-IT-008=Direct Boundary: project-operation Test Source→対象契約
+ * @boundary CPR-IT-010=Direct Boundary: project-operation Test Source→対象契約
  */
 function topic(
   id: string,
@@ -95,13 +104,13 @@ function topic(
  * meeting用の試験入力または観測処理を提供する。
  *
  * @responsibility meeting用の試験入力または観測処理を提供するの検証責務を所有する。
- * @trace CPR-IT-008
+ * @trace CPR-IT-010
  * @precondition 対象契約を再現できる固定入力と依存を用意する。
  * @stimulus meetingの対象操作を実行する。
  * @observation 返却値、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionがSummaryの期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
- * @boundary CPR-IT-008=Direct Boundary: project-operation Test Source→対象契約
+ * @boundary CPR-IT-010=Direct Boundary: project-operation Test Source→対象契約
  */
 function meeting(
   outcomes: readonly string[] = ["OUT-001"],
@@ -157,13 +166,13 @@ ${actionRows}
  * ID CursorでTopic一覧を欠落なく分割するを検証する。
  *
  * @responsibility ID CursorでTopic一覧を欠落なく分割するを検証するの検証責務を所有する。
- * @trace CPR-IT-008
+ * @trace CPR-IT-010
  * @precondition 対象契約を再現できる固定入力と依存を用意する。
  * @stimulus ID CursorでTopic一覧を欠落なく分割するの対象操作を実行する。
  * @observation 返却値、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionがSummaryの期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
- * @boundary CPR-IT-008=Direct Boundary: project-operation Test Source→対象契約
+ * @boundary CPR-IT-010=Direct Boundary: project-operation Test Source→対象契約
  */
 test("ID CursorでTopic一覧を欠落なく分割する", () => {
   const root = mkdtempSync(path.join(tmpdir(), "crdd-topic-page-"));
@@ -201,13 +210,13 @@ test("ID CursorでTopic一覧を欠落なく分割する", () => {
  * TopicとMeetingを検索・絞込み・並び順付きCursorで取得するを検証する。
  *
  * @responsibility TopicとMeetingを検索・絞込み・並び順付きCursorで取得するを検証するの検証責務を所有する。
- * @trace CPR-IT-008
+ * @trace CPR-IT-010
  * @precondition 対象契約を再現できる固定入力と依存を用意する。
  * @stimulus TopicとMeetingを検索・絞込み・並び順付きCursorで取得するの対象操作を実行する。
  * @observation 返却値、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionがSummaryの期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
- * @boundary CPR-IT-008=Direct Boundary: project-operation Test Source→対象契約
+ * @boundary CPR-IT-010=Direct Boundary: project-operation Test Source→対象契約
  */
 test("TopicとMeetingを検索・絞込み・並び順付きCursorで取得する", () => {
   const root = mkdtempSync(path.join(tmpdir(), "crdd-topic-filter-"));
@@ -314,13 +323,13 @@ test("TopicとMeetingを検索・絞込み・並び順付きCursorで取得す�
  * Topic／Meeting／CHG Relationを安定IDと存在状態へ解決するを検証する。
  *
  * @responsibility Topic／Meeting／CHG Relationを安定IDと存在状態へ解決するを検証するの検証責務を所有する。
- * @trace CPR-IT-008
+ * @trace CPR-IT-010
  * @precondition 対象契約を再現できる固定入力と依存を用意する。
  * @stimulus Topic／Meeting／CHG Relationを安定IDと存在状態へ解決するの対象操作を実行する。
  * @observation 返却値、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionがSummaryの期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
- * @boundary CPR-IT-008=Direct Boundary: project-operation Test Source→対象契約
+ * @boundary CPR-IT-010=Direct Boundary: project-operation Test Source→対象契約
  */
 test("Topic／Meeting／CHG Relationを安定IDと存在状態へ解決する", () => {
   const root = mkdtempSync(path.join(tmpdir(), "crdd-topic-relations-"));
@@ -363,13 +372,13 @@ test("Topic／Meeting／CHG Relationを安定IDと存在状態へ解決する", 
  * Topicを実在CHGへ昇格し状態・Relation・改訂を同時更新するを検証する。
  *
  * @responsibility Topicを実在CHGへ昇格し状態・Relation・改訂を同時更新するを検証するの検証責務を所有する。
- * @trace CPR-IT-008
+ * @trace CPR-IT-010
  * @precondition 対象契約を再現できる固定入力と依存を用意する。
  * @stimulus Topicを実在CHGへ昇格し状態・Relation・改訂を同時更新するの対象操作を実行する。
  * @observation 返却値、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionがSummaryの期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
- * @boundary CPR-IT-008=Direct Boundary: project-operation Test Source→対象契約
+ * @boundary CPR-IT-010=Direct Boundary: project-operation Test Source→対象契約
  */
 test("Topicを実在CHGへ昇格し状態・Relation・改訂を同時更新する", () => {
   const root = mkdtempSync(path.join(tmpdir(), "crdd-topic-promote-"));
@@ -425,16 +434,158 @@ test("Topicを実在CHGへ昇格し状態・Relation・改訂を同時更新す�
 });
 
 /**
+ * 保存境界の例外を変換不正や未保存へ偽装しない。
+ *
+ * @responsibility 公開Topic／Meeting操作の変換拒否と更新前・実更新後の例外を区別する。
+ * @trace CPR-IT-011
+ * @input 更新前／更新後の固定故障点と正常・不正な処置入力。
+ * @returns N/A: assertionで判定する。
+ * @precondition 同じ試験RepositoryへTopic・Meeting・CHGを登録する。
+ * @stimulus 保存契約に同じ例外を注入して両公開操作を呼ぶ。
+ * @observation 保存呼出し件数、Record改訂、状態と伝播した例外Identity。
+ * @oracle 変換不正は保存0回、保存例外は同じ例外として伝播し、実更新後の改訂を保持する。
+ * @cleanup finallyで自己生成した試験Rootだけを回収する。
+ * @postcondition 全故障点を検証し、試験Rootを残さない。
+ * @effect 試験Root内のRecordだけを更新する。
+ * @failure assertion失敗を試験失敗として返す。
+ * @invariant 保存後の失敗からEffect 0結果を生成しない。
+ * @boundary Topic／Meeting公開操作→注入した保存契約→実Repository。
+ * @security 実Repository・認証・外部Providerへアクセスしない。
+ * @concurrency N/A: 故障点を同期・直列に評価する。
+ */
+test("Topic／Meetingの更新前・更新後例外を入力不正やEffect 0へ丸めない", () => {
+  const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
+    import.meta.dirname,
+  );
+  const testArea = path.join(repositoryRoot, ".crdd", "tests");
+  for (const directory of [path.join(repositoryRoot, ".crdd"), testArea]) {
+    if (existsSync(directory)) {
+      const entry = lstatSync(directory);
+      assert.equal(entry.isSymbolicLink(), false);
+      assert.equal(entry.isDirectory(), true);
+    } else {
+      mkdirSync(directory);
+    }
+  }
+  for (const failureStage of ["before", "after"] as const) {
+    const root = mkdtempSync(path.join(testArea, "crdd-record-failure-"));
+    try {
+      const repository = createTopicMeetingRepository(root);
+      repository.create("topic", topic("TOPIC-000001"));
+      repository.create("meeting", meeting());
+      const changeDirectory = path.join(
+        root,
+        "99_Roadmap",
+        "Changes",
+        "CHG-000010",
+      );
+      mkdirSync(changeDirectory, { recursive: true });
+      writeFileSync(path.join(changeDirectory, "change.md"), "# Change\n");
+      const failure = new Error("record_store_failure_fixture");
+      let updateCalls = 0;
+      const faultRepository = {
+        ...repository,
+        update: (...args: Parameters<typeof repository.update>) => {
+          updateCalls += 1;
+          if (failureStage === "after") {
+            const result = repository.update(...args);
+            assert.equal(result.status, "completed");
+          }
+          throw failure;
+        },
+      };
+      const topics = createTopicOperations(faultRepository);
+      const meetings = createMeetingOperations(faultRepository);
+      const promotion = {
+        topicId: "TOPIC-000001",
+        expectedRevision: 1,
+        changeId: "CHG-000010",
+        reason: "具体的な変更を採用した",
+        remainingResponsibility: "CHG完了後に再評価する",
+      };
+      const outcome = {
+        meetingId: "MTG-000001",
+        expectedRevision: 1,
+        outcomeId: "OUT-001",
+        disposition: "completed" as const,
+        owner: "PM",
+        reviewTrigger: "確認済み",
+        target: { kind: "none" as const, reference: "N/A: 完了" },
+        treatment: "処置完了",
+        completionCondition: "確認済み",
+        result: "完了",
+        closeMeeting: true,
+      };
+      const invalidPromotion = topics.promoteTopic({
+        ...promotion,
+        reason: "",
+      });
+      const invalidOutcome = meetings.treatMeetingOutcome({
+        ...outcome,
+        outcomeId: "OUT-999",
+      });
+      assert.deepEqual(
+        [
+          invalidPromotion.status,
+          invalidPromotion.reason,
+          invalidPromotion.filesystemEffectCount,
+        ],
+        ["blocked", "topic_promotion_invalid", 0],
+      );
+      assert.deepEqual(
+        [
+          invalidOutcome.status,
+          invalidOutcome.reason,
+          invalidOutcome.filesystemEffectCount,
+        ],
+        ["blocked", "meeting_outcome_invalid", 0],
+      );
+      assert.equal(updateCalls, 0);
+      assert.throws(
+        () => topics.promoteTopic(promotion),
+        (error) => error === failure,
+      );
+      assert.throws(
+        () => meetings.treatMeetingOutcome(outcome),
+        (error) => error === failure,
+      );
+      assert.equal(updateCalls, 2);
+      const expectedRevision = failureStage === "after" ? 2 : 1;
+      assert.equal(
+        repository.get("topic", "TOPIC-000001")?.revision,
+        expectedRevision,
+      );
+      assert.equal(
+        repository.get("meeting", "MTG-000001")?.revision,
+        expectedRevision,
+      );
+      if (failureStage === "after") {
+        assert.match(
+          repository.getDocument("topic", "TOPIC-000001")?.markdown ?? "",
+          /状態: `promoted`/u,
+        );
+        assert.match(
+          repository.getDocument("meeting", "MTG-000001")?.markdown ?? "",
+          /状態: `closed`/u,
+        );
+      }
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  }
+});
+
+/**
  * Meeting OutcomeをTopicへ移管し全件処置後にCloseするを検証する。
  *
  * @responsibility Meeting OutcomeをTopicへ移管し全件処置後にCloseするを検証するの検証責務を所有する。
- * @trace CPR-IT-008
+ * @trace CPR-IT-010
  * @precondition 対象契約を再現できる固定入力と依存を用意する。
  * @stimulus Meeting OutcomeをTopicへ移管し全件処置後にCloseするの対象操作を実行する。
  * @observation 返却値、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionがSummaryの期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
- * @boundary CPR-IT-008=Direct Boundary: project-operation Test Source→対象契約
+ * @boundary CPR-IT-010=Direct Boundary: project-operation Test Source→対象契約
  */
 test("Meeting OutcomeをTopicへ移管し全件処置後にCloseする", () => {
   const root = mkdtempSync(path.join(tmpdir(), "crdd-meeting-outcome-"));
@@ -478,13 +629,13 @@ test("Meeting OutcomeをTopicへ移管し全件処置後にCloseする", () => {
  * Outcome移管先不存在と未処置Outcomeを残すCloseをEffect 0で拒否するを検証する。
  *
  * @responsibility Outcome移管先不存在と未処置Outcomeを残すCloseをEffect 0で拒否するを検証するの検証責務を所有する。
- * @trace CPR-IT-008
+ * @trace CPR-IT-010
  * @precondition 対象契約を再現できる固定入力と依存を用意する。
  * @stimulus Outcome移管先不存在と未処置Outcomeを残すCloseをEffect 0で拒否するの対象操作を実行する。
  * @observation 返却値、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionがSummaryの期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
- * @boundary CPR-IT-008=Direct Boundary: project-operation Test Source→対象契約
+ * @boundary CPR-IT-010=Direct Boundary: project-operation Test Source→対象契約
  */
 test("Outcome移管先不存在と未処置Outcomeを残すCloseをEffect 0で拒否する", () => {
   const root = mkdtempSync(path.join(tmpdir(), "crdd-meeting-outcome-block-"));

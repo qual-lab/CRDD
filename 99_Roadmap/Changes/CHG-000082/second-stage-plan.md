@@ -238,14 +238,23 @@ Related:
 
 | 対象 | 不足と最小処置 | 保持する条件・確認方法 | 現在状態 |
 |---|---|---|---|
-| Domain ModelのTopic／Meeting保存 | rename後のLock解放失敗を上位の入力不正・Effect 0へ丸める経路を除く。保存Ownerから一次失敗とcleanup結果を分離して搬送する | 正常CRUD・Revision・Relationは不変。rename後close／unlink故障と実ファイル・公開結果の相関を局所試験する。汎用Recovery Frameworkを追加しない | 未是正。実装前に局所契約とQAの反証を固定する |
+| Domain ModelのTopic／Meeting保存 | rename後のLock解放失敗を上位の入力不正・Effect 0へ丸める経路を除く。保存Ownerから一次失敗とcleanup結果を分離して搬送する | 正常CRUD・Revision・Relationは不変。rename後close／unlink故障と実ファイル・公開結果の相関を局所試験する。汎用Recovery Frameworkを追加しない | 是正中。Domainのcatchを純粋変換へ限定し、更新前・実更新後の同じ例外と改訂を局所確認。保存Ownerの失敗分離とMCP／Workbenchの入力不正への誤変換は残る |
 | Topic／Meetingの保存境界 | 親Directoryのlink経由を拒否し、保存確定・読戻しの観測を接続する | Root外書込み禁止、保存形式・ID・認可Ownerは不変。親link・途中置換・読戻し失敗・実Process競合を反証する | 未是正。既存primitiveの利用可否を先に照合する |
 | Version Control公開入口 | 跨Packageの実体Path importを既存Root exportへ接続し、閉包試験へ禁止例を追加する | 新API・中継Fileは作らない。署名閉包のPath文字列とimportを区別する | 代表3利用側と既知Consumer集合を訂正済み。全利用側の閉包確認は残る |
 | 現在の設計・Header | Domainの廃止済み入口、AI Adapterの旧配置参照、純粋計画のEffect記載、EI WriterのEffect・排他記載を実体へ合わせる | 関数本文・公開結果・Authorityは不変。書式・型・Lintと限定独立確認を行う | 訂正済み。限定独立確認は指摘0 |
 | AI Adapter純粋試験3Suite | Codex／Claudeの構造化結果とBilling試験を実装Ownerへ移し、Symbol／Catalog／回帰入口を接続する | 14 caseの拒否例・Oracleを保持する。Coordinator結合試験は一括移管しない | 未移管 |
 | 上記3SuiteのQA対応 | 現在のRCM-UT-016／AIT-UT-005はProvider結果／Billingの検証意味と一致しない。Canonicalから該当義務を再照合する | 物理移動を理由にQAの意味を改変しない。正しいLocal Itemへの接続を確定してから全体Passを評価する | 未是正 |
+| Topic／Meeting操作試験のQA対応 | Reader専用のCPR-IT-008へ更新試験が混在していた。保存操作はCPR-IT-010、保存例外はCPR-IT-011へ分離する | Readerの正本Effect 0は維持し、新項目へ詳細設計§9.1・SPEC-000013、Suite Header、SymbolとCatalogを接続する | 是正中。010は既存7件の部分検証で、通常update・確認付きdelete・改訂競合の試験接続は未確認。公開面の保存故障応答と実OS cleanup全体は未評価 |
 | Source／Symbol閉包 | 単純Path照合の未登録候補8Fileを、代表入口への集約登録と個別責務の方針へ照合する | 8件を直ちに欠落と断定しない。実体・公開helperの対応で判定する | 未確認 |
 
 実OS fixture、Coverage計測、新Build／署名閉包、実Provider・Docker、ST／UATと人間受入は未評価として後続の実境界確認へ接続する。局所回帰や安全な拒否を上位保証の完成へ昇格しない。過去Evidenceは当時の条件のまま保持する。
 
 今回の参照・Header訂正後、Domain Model 106件、Execution Intelligence 82件、AI Adapter 13件、Workbench Server 33件、Version ControlのConsumer閉包12件は全件Pass、Skip／Fail 0。五Packageの書式・型・LintはPass。既知Consumer集合へ実利用側2件を追加し、厳密集合比較は維持した。限定独立レビューは指摘0。これらは上表の未是正の保存保証・QA対応を満たす根拠ではない。実Provider依頼、Docker操作、認証・署名・Release操作は行っていない。
+
+### 保存例外の局所是正と全体Checker再確認
+
+Topic昇格・Meeting Outcome処置のcatchを純粋Markdown変換だけへ限定した。既存Repository契約へ更新前／実更新後の例外を注入し、両公開操作から同じ例外が伝播すること、実更新後のRevisionと状態を保持することを確認した。不正変換はblocked・既存理由・Effect 0と更新0回を別に確認した。新fault試験はVCS Rootを検証し、Repository-local `.crdd/tests`の非link親と自己生成領域だけを使用する。
+
+固定候補のDomain Model回帰107件、書式・型・LintはPass。実装・品質／文書の二つの独立レビューは是正後指摘0。QAの010は部分検証であり、保存Ownerの一次失敗／cleanup、読戻し、親link、MCP／Workbenchの内部故障応答は未完了のまま保持する。
+
+全体Checkerは未合格。2026-10-09の実行では3026件（broken-link 3002、broken-anchor 5、Catalog Owner不一致14、verifies対象欠落3、Project Context契約1、UI／SPEC Detail下流Coverage 1）を検出した。今回更新したDomain詳細設計、QA-000005、Detail分析、Domain Symbolと操作試験Pathへの指摘は0だが、これを全体完成の根拠にはしない。現在文書・Registryの移管不整合と、変更禁止の過去Evidenceに残る当時の参照を区別して後続処置を決める。
