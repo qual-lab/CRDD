@@ -612,6 +612,8 @@ Secret value -x Repository／.crdd／Prompt／Projection
 
 次は意味契約を変更しない実装選択、または現在Scope外である。未確定だから安全条件を推測してよいという意味ではない。
 
+段階6の型所有者分離では、認可に用いるExposure／Repositoryの同一改訂Snapshotを`access/types.ts`、Runtime活動のEvent／観測／Readerを`activity/types.ts`へ置く。これらはHTTP固有契約ではなく、設定Reader、内部呼出し、MCPおよびWorkbenchが共有する公開型である。型shapeとPackage Rootの公開集合は変更せず、HTTPのListener／接続終了Handleとwire検証は`connection/http.ts`に保持する。この分離だけでは、新MCPの本番接続や旧REST撤去の成立を示さない。
+
 | 項目 | 固定した意味 | 後段で選べる範囲 |
 |---|---|---|
 | Registry保存形式 | v0.22はOS管理Runtime Rootの不変JSON Revision Snapshotを採用し、§15のfield、完全検証、競合拒否、不変publishを保持する | DB等へ差し替える場合も同じRegistry Portと失敗意味を維持する |

@@ -23,7 +23,7 @@ import {
 } from "../../../domain-model/src/index.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 
-import type { CrosExposureSnapshot } from "../connection/http.ts";
+import type { CrosExposureSnapshot } from "../access/types.ts";
 import type { CrosRepository } from "../access/session-context.ts";
 
 const CONFIG_FILE = "shared-server.json";

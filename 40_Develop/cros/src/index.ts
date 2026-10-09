@@ -14,12 +14,14 @@ export {
   readRemotePortfolio,
   readRemoteRuntimeActivity,
   startCrosRemoteTransport,
-  type CrosExposureSnapshot,
-  type CrosRemoteRuntimeActivityObservation,
-  type CrosRemoteRuntimeEventProjection,
   type CrosRemoteTransportHandle,
-  type CrosRuntimeActivityReader,
 } from "./connection/http.ts";
+export type { CrosExposureSnapshot } from "./access/types.ts";
+export type {
+  CrosRemoteRuntimeActivityObservation,
+  CrosRemoteRuntimeEventProjection,
+  CrosRuntimeActivityReader,
+} from "./activity/types.ts";
 export {
   closeCrosSession,
   createContextPackage,

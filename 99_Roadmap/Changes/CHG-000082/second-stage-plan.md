@@ -230,6 +230,16 @@ CROSの登録・Credential・認可・横断投影は独立した責務として
 
 REST試験は機械的に削除せず、認可、管理、ページング、結果検証、取消・終了のOracleを新Ownerの試験へ対応付ける。未対応Capabilityがある間は旧処理を置換済みと表示しない。Docker／Coordinator／Orchestrator大改修は前倒ししない。
 
+### 段階6の型所有者分離 — 着手前照合
+
+基準Commitは`3b3827a5`。既存HTTP内の四公開型だけを移す。認可Snapshotは`access/types.ts`、Runtime活動のEvent／観測／Readerは詳細設計§6.1と同じ`activity/types.ts`が所有する。Portfolioを扱う`federation`へ活動型を混在させない。HTTP lifecycle Handle、実関数、Validator、認可分岐、公開Symbol集合と型shapeは維持する。設定ReaderとRoot exportを同時に切替え、MCP Resolver／Shared Host／非開示試験、WorkbenchとCROS試験は既存Root参照で追従する。代表登録は`cros.public-api`と`cros.remote-transport`からの型依存閉包として照合し、毎Fileの新登録や新中継は作らない。
+
+着手前の読取り専用確認で型Ownerと全直接利用側を照合した。新しい状態・資源・Authority・Effect・取消経路は導入せず、既存HTTP回帰とCROS／MCP／Workbench静的確認を使う。公開型本文一致・公開集合保持・代表登録到達を確認し、固定差分を独立レビューへ渡す。新MCP接続・本番Launcher・旧REST撤去は後続に保持し、今回の型分離を段階6全体の完成としない。準拠基準・外部公開訴求を変更しないため、準拠監査・市場探索・署名実E2Eは今回非該当である。
+
+移管前CROS回帰は33件Pass。移管後は四型の宣言本文とRoot公開80 Symbolの集合一致、CROS／MCP／Workbenchの書式・型・Lint成功を確認した。初回静的確認の未使用importを除去後、CROS全回帰は32件Pass・1件Failとなったが、失敗は既存Config試験の準備中の`git init`異常終了であり、Config操作の拒否Oracleへ到達していない。同じ固定Sourceの局所再実行は1件Pass。これを無言で全Passへ補正せず、全回帰を再確認する。新型FileはRootの明示exportとHTTPのtype importへ直接接続し、代表Symbolから未到達の型として扱わない。
+
+同じ固定Sourceでの最終回帰はCROS全33件、MCP全51件、Workbench全33件がPass、Fail／Skip／取消0で終了した。各静的確認とWorkbench BuildもPass。最初の試験準備中の異常終了は原因未確定のまま保持し、最終成功をその原因解消の証明にはしない。固定七Pathの実装・品質の独立レビューは双方指摘0。型所有者分離を限定完了とし、新MCP Tool、本番Launcher接続、旧REST撤去および段階6全体の完成は主張しない。
+
 ### 基準回帰の確認
 
 - CROS Packageの静的確認と回帰33件はPass、Skip／Fail 0。これは現行RESTを含む基準結果であり、新MCP接続の結果ではない。

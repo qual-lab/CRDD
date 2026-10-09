@@ -27,10 +27,13 @@ import {
   type AiProfileCatalogSnapshot,
   type AiProfileDefinition,
 } from "../../../ai-adapter/src/index.ts";
-import {
-  inspectOrchestratorProjection,
-  type OrchestratorProjection,
-} from "../../../orchestrator/src/index.ts";
+import { inspectOrchestratorProjection } from "../../../orchestrator/src/index.ts";
+import type { CrosExposureSnapshot } from "../access/types.ts";
+import type {
+  CrosRemoteRuntimeActivityObservation,
+  CrosRemoteRuntimeEventProjection,
+  CrosRuntimeActivityReader,
+} from "../activity/types.ts";
 
 import {
   authenticateConnectionCredential,
@@ -41,11 +44,7 @@ import {
   type PortfolioProjection,
   resolveAuthorizedRepositories,
 } from "../federation/project.ts";
-import {
-  createCrosSession,
-  type CrosExposure,
-  type CrosRepository,
-} from "../access/session-context.ts";
+import { createCrosSession } from "../access/session-context.ts";
 
 const HOST = "127.0.0.1";
 const PORTFOLIO_PATH = "/v1/portfolio";
@@ -53,24 +52,6 @@ const AI_PROFILES_PATH = "/v1/ai-profiles";
 const RUNTIME_ACTIVITY_PATH =
   /^\/v1\/projects\/([A-Za-z0-9][A-Za-z0-9._-]{0,127})\/runtime-activity$/u;
 const HEALTH_PATH = "/.well-known/cros-health";
-
-/**
- * CROS Remote Transportの認証・公開境界で使用するCrosExposureSnapshotの構造を固定する。
- *
- * @responsibility CROS Remote Transportの認証・公開境界が受け渡す値、状態および制約を一つの型契約として保持する。
- * @trace ARCH-000005
- * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
- * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
- * @boundary 本ModuleとConsumerの型境界。
- * @security 秘密値または未許可のPathを公開値へ追加しない。
- * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
- */
-
-export type CrosExposureSnapshot = Readonly<{
-  revision: string;
-  exposures: readonly CrosExposure[];
-  repositories: readonly CrosRepository[];
-}>;
 
 /**
  * CROS Remote Transportの認証・公開境界で使用するCrosRemoteTransportHandleの構造を固定する。
@@ -87,76 +68,6 @@ export type CrosExposureSnapshot = Readonly<{
 export type CrosRemoteTransportHandle = Readonly<{
   baseUrl: string;
   close(): Promise<void>;
-}>;
-
-/**
- * Remote Runtime Activityへ公開するEvent要約。
- *
- * @responsibility CROS境界で搬送できる非秘密の実行結果Propertyを固定する。
- * @trace ARCH-000005
- * @trace ARCH-000007
- * @trace ARCH-000013
- * @shape Event、Objective、Task、Attempt、時刻、結果および回復要否を表す。
- * @invariant 生Provider入出力、Credential、PathおよびRecovery Authorityを含まない。
- * @boundary Repository Runtime Activity ReaderとRemote Consumerの型境界。
- * @security Content Grant外RepositoryのEventを入力にも結果にも含めない。
- * @compatibility Event Property追加時はRemote Response Validatorも同時に更新する。
- */
-export type CrosRemoteRuntimeEventProjection = Readonly<{
-  eventId: string;
-  occurredAt: string;
-  objectiveId: string;
-  taskId: string;
-  attemptId: string;
-  status: "completed" | "blocked" | "cancelled" | "unknown";
-  reason: string;
-  cleanupConfirmed: boolean;
-  manualRecoveryRequired: boolean;
-}>;
-
-/**
- * CROSがRemoteへ返すOrchestrator Activity観測。
- *
- * @responsibility 現在状態とEvent観測を独立させ、不完全性とContinuationを同じ結果へ閉じる。
- * @trace ARCH-000005
- * @trace ARCH-000007
- * @trace ARCH-000013
- * @shape 現在状態、Event状態、理由、投影、PageおよびContinuationを表す。
- * @invariant observedだけが現在投影を持ち、Event観測不能を空集合の意味へ変換しない。
- * @boundary CROS Runtime Activity Application PortとHTTP Responseの型境界。
- * @security 許可済みRepositoryから導出した表示Propertyだけを含む。
- * @compatibility Workbench等のConsumerは状態語彙を再定義しない。
- */
-export type CrosRemoteRuntimeActivityObservation = Readonly<{
-  state: "observed" | "absent" | "unknown";
-  reason: string;
-  projection: OrchestratorProjection | null;
-  eventState: "observed" | "unknown";
-  eventReason: string;
-  events: readonly CrosRemoteRuntimeEventProjection[];
-  eventContinuation: string | null;
-}>;
-
-/**
- * 認証後に呼び出すRuntime Activity Reader。
- *
- * @responsibility Project IDと許可済みRepository集合をRemote公開可能な一観測へ変換する。
- * @trace ARCH-000005
- * @trace ARCH-000007
- * @trace ARCH-000013
- * @shape read操作だけを持つ読取り専用Portを表す。
- * @invariant CROSはGrant外RepositoryをReaderへ渡さない。
- * @boundary CROS Request Access ContextとRepository Runtime Adapterの境界。
- * @security ReaderはBearer Token、Credential RecordまたはGrant外Identityを受け取らない。
- * @compatibility Runtime書込みまたはRecovery Authorityは別境界とする。
- */
-export type CrosRuntimeActivityReader = Readonly<{
-  read(input: {
-    projectId: string;
-    repositories: readonly CrosRepository[];
-    cursor?: string;
-    limit: number;
-  }): Promise<CrosRemoteRuntimeActivityObservation>;
 }>;
 
 /**
