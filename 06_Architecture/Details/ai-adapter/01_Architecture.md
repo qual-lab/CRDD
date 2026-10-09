@@ -193,7 +193,7 @@ Codex／Claude計画が利用する共通Record入力防御は、[Domain Model�
 
 既存`ai-runtime.*`の五導出キーはProfile意味の参照として保持する。Provider計画・出力変換はCoordinatorの既存`coord.provider-selection`、`coord.provider-attempt`から担当断面を分離して対応させる。導出キーの改名・QA-IDの追加をFolder変更だけで行わない。
 
-Provider構造化結果の純粋解析・拒否は`ERB-UT-032`、Subscription限定の課金方針記述は`ERB-UT-033`へ導出する。前者は単一exact結果、重複key・不正文法・不足Envelope・容量契約値とTurn／cost反例・生出力非公開を観測し、後者は固定方針fieldと設定だけでは実行Authorityを発行しないことを観測する。既存16KiB、Claudeの2 turns／0.10はnormalizerの固定契約値であり、Providerの費用・終了・課金防止を保証する値ではない。既存UT016再認証、UT023助言統合、IT／STの実CLI・資源終了義務は代替しない。旧Domain Outcome／Trust軸のLocal Itemを今回の純粋UTへ流用しない。 16KiB逸脱拒否は今回の移管14 Caseでは未観測であり、容量拒否の設計義務は残る。
+Provider構造化結果の純粋解析・拒否は`ERB-UT-032`、Subscription限定の課金方針記述は`ERB-UT-033`へ導出する。前者は単一exact結果、重複key・不正文法・不足Envelope・Codex容量境界とTurn／cost反例・生出力非公開を観測し、後者は固定方針fieldと設定だけでは実行Authorityを発行しないことを観測する。Codexの16KiB、Claudeの2 turns／0.10はnormalizerの固定契約値であり、Providerの費用・終了・課金防止を保証する値ではない。Codexの容量はUTF-8 bytesで判定し、16,383／16,384 bytesは受理、16,385 bytesは拒否する境界を実入力で確認する。この値をClaudeの容量契約へ適用しない。既存UT016再認証、UT023助言統合、IT／STの実CLI・資源終了義務は代替しない。旧Domain Outcome／Trust軸のLocal Itemを今回の純粋UTへ流用しない。
 
 必要な反証は、曖昧Profile、Snapshot不一致、未知／不正Provider出力、CLI非ゼロ、出力不足、取消前後の遅延通知、認証未観測、cleanup不明である。計画関数の成功からProvider Effect、取消完了、資源不存在や実E2E Passを推定しない。
 

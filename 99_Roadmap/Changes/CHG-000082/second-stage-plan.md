@@ -243,9 +243,9 @@ Related:
 | Version Control公開入口 | 跨Packageの実体Path importを既存Root exportへ接続し、閉包試験へ禁止例を追加する | 新API・中継Fileは作らない。署名閉包のPath文字列とimportを区別する | 代表3利用側と既知Consumer集合を訂正済み。全利用側の閉包確認は残る |
 | 現在の設計・Header | Domainの廃止済み入口、AI Adapterの旧配置参照、純粋計画のEffect記載、EI WriterのEffect・排他記載を実体へ合わせる | 関数本文・公開結果・Authorityは不変。書式・型・Lintと限定独立確認を行う | 訂正済み。限定独立確認は指摘0 |
 | AI Adapter純粋試験3Suite | Codex／Claudeの構造化結果とBilling試験を実装Ownerへ移し、Symbol／Catalog／回帰入口を接続する | 14 caseの拒否例・Oracleを保持する。Coordinator結合試験は一括移管しない | 移管済み。14 case本文・Oracle不変、Package回帰27件と関連Consumer34件を確認 |
-| 上記3SuiteのQA対応 | 現在のRCM-UT-016／AIT-UT-005はProvider結果／Billingの検証意味と一致しない。Canonicalから該当義務を再照合する | 物理移動を理由にQAの意味を改変しない。正しいLocal Itemへの接続を確定してから全体Passを評価する | ERB-UT-032／033へ訂正。限定独立再レビューは指摘0。16KiB逸脱拒否の実入力観測は未完了 |
+| 上記3SuiteのQA対応 | 現在のRCM-UT-016／AIT-UT-005はProvider結果／Billingの検証意味と一致しない。Canonicalから該当義務を再照合する | 物理移動を理由にQAの意味を改変しない。正しいLocal Itemへの接続を確定してから全体Passを評価する | ERB-UT-032／033へ訂正。移管と追加容量試験の限定独立レビューは指摘0。Codexの16KiB実入力境界を観測し、28件の回帰はPass |
 | Topic／Meeting操作試験のQA対応 | Reader専用のCPR-IT-008へ更新試験が混在していた。保存操作はCPR-IT-010、保存例外はCPR-IT-011へ分離する | Readerの正本Effect 0は維持し、新項目へ詳細設計§9.1・SPEC-000013、Suite Header、SymbolとCatalogを接続する | 是正中。010は既存7件の部分検証で、通常update・確認付きdelete・改訂競合の試験接続は未確認。公開面の保存故障応答と実OS cleanup全体は未評価 |
-| Source／Symbol閉包 | 単純Path照合の未登録候補8Fileを、代表入口への集約登録と個別責務の方針へ照合する | 8件を直ちに欠落と断定しない。実体・公開helperの対応で判定する | 未確認 |
+| Source／Symbol閉包 | 単純Path照合の候補を、代表入口への集約登録と個別責務の方針へ照合する | Path差を直ちに欠落と断定しない。実体・公開helperの対応で判定する | 現行TS候補10FileとJSON設定1Fileを再集計し、全候補に代表実装・内部補助・配布設定の処置を照合。下記対応を参照。個別条件の試験網羅や全Package完成を意味しない |
 
 実OS fixture、Coverage計測、新Build／署名閉包、実Provider・Docker、ST／UATと人間受入は未評価として後続の実境界確認へ接続する。局所回帰や安全な拒否を上位保証の完成へ昇格しない。過去Evidenceは当時の条件のまま保持する。
 
@@ -290,6 +290,29 @@ Topic昇格・Meeting Outcome処置のcatchを純粋Markdown変換だけへ限�
 Claude結果9件、Codex結果3件、課金方針2件を実装Ownerの試験Directoryへ移管した。コメント・import移設を除く本文・Oracleは基準Commit `5c33ba70`と完全一致し、Runtime Source、安定Symbol／Catalog IDと過去Evidenceは変更していない。ARCH-000004／000015の結果解釈からERB-UT-032、ARCH-000010と既存Subscription方針からERB-UT-033へ導出し、旧Domain Outcome／Trust軸への誤接続を解消した。
 
 独立レビュー3指摘はcoverage入口の旧Path、15 Headerの外部境界表記、容量契約値と実拒否観測の混同を是正し、再レビューは両観点とも指摘0。AI Adapterの書式・型・Lintと27件、Coordinator関連Consumerの限定strict型・書式・Lintと34件はPass、Skip／Fail 0。Coordinator全体checkは既存Checker試験の整形1件で停止、全体型検査は既知Recovery二Fileの18件で未合格。実Provider・Docker・認証・署名・費用・取消／cleanup・16KiB実逸脱拒否の成立をこの移管結果から主張しない。coverage入口の6試験Pathは実在を確認し、未実行の他試験をPassへ計上しない。
+
+### Sourceと代表Symbolの候補照合
+
+四Packageの`src/`とManifest Pathを再比較し、TS候補10FileとJSON設定1Fileを確認した。以前の8件を固定母集団にせず、現行実体を基準に再集計した。各HeaderのARCH、公開入口、内部importとTestの`verifies`を読取り専用で照合し、次の処置を確定した。個別File登録を増やすだけの変更は行わない。
+
+| Package／候補Path | 現在の登録・担当範囲 | 処置 |
+|---|---|---|
+| Version Control `repository/revision.ts` | `version-control.public-api`のRoot明示exportと登録済みGit Revision Adapterへ接続 | Revision観測・Format検査を代表範囲として維持 |
+| Domain Model `artifact/graph.ts`、`artifact/validate-schema.ts`、`artifact/parse-markdown.ts` | `crdd-domain-library.artifact-entry`とARCH-000008の`crdd-domain-library.source.src.index`。公開境界試験は双方を参照し実操作を検証 | 各実体をRootの代表範囲として維持 |
+| Domain Model `reality-traceability/discover.ts` | `crdd-domain-library.reality-traceability-entry`からRoot公開。公開境界試験へ接続 | Discoveryを代表範囲として維持 |
+| Domain Model `reality-traceability/issue.ts`、`reality-traceability/annotations.ts` | 登録済みGraph／Manifest検査とDiscoveryが使用する非公開の共通処理 | 内部補助として代表登録を維持 |
+| Execution Intelligence `input/plain-data-snapshot.ts` | 登録済みEvent・評価・Store・投影・時刻由来分類が使用する入力防御 | 内部補助として維持。新公開Symbolは作らない |
+| AI Adapter `profile/types.ts` | 登録済みProfile実行照合・Eligibilityが利用し、Rootが実行Identity型を公開 | 型契約の代表範囲として維持 |
+| AI Adapter `codex/advice-distribution.ts` | Root公開と登録済み助言Commandが固定配布Identity・初期化条件を利用 | Command代表の担当範囲として維持 |
+| AI Adapter `catalog/default-ai-profile-catalog.json` | 登録済みCatalog Resolverが静的import。詳細設計§5の配布設定・Schema・署名閉包対象 | TS Sourceではなく配布設定として維持 |
+
+この照合で個別登録の実欠落は検出していない。到達・担当範囲の確認を、全正常・拒否・故障条件の試験済みや配布・署名の実検証済みへ昇格しない。安定ID、Source、公開集合と正方向Relationは変更していない。
+
+### Codex容量境界の実入力確認
+
+既存normalizerは変更せず、単一exact JSONへ有効なASCII空白を加えた16,383／16,384／16,385 bytesの入力を渡す。上限以下の受理と超過拒否、正規化値、生出力非公開を確認した。追加後のAI Adapter全28件と書式・型・LintはPass、Skip／Fail 0。移管14 Caseの当時の限界は保持し、追加試験を新しい成立根拠として区別する。Claudeの容量契約、実Process出力制限、費用・取消・cleanupの成立には流用しない。
+
+Source対応表と容量試験・正本追従の固定5Fileは独立した二観点の確認で指摘0。全体Checkerは3,041件で未合格（broken-link 3,032、broken-anchor 4、Project Context契約1、verifies対象欠落3、UI／SPEC Detail下流Coverage 1）。今回の更新5Pathへの指摘は0で、過去CHGの旧試験Path参照は当時のEvidenceとして改名しない。verifies欠落3件はCoordinatorの旧Runtime Data Resolver参照であり、現在のDomain保存責務への対応を別途照合する。
 
 ### 通常保存後の読戻し確認
 

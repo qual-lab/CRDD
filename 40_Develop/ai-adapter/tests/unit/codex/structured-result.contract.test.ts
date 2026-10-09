@@ -78,3 +78,30 @@ test("公開契約はraw出力非公開とbyte上限を固定する", () => {
   assert.equal(contract.maximumBytes, 16_384);
   assert.equal(contract.rawOutputReported, false);
 });
+
+/**
+ * Codex結果の16KiB境界を実入力で確認する。
+ *
+ * @responsibility 容量契約値の記述と実際の受理・拒否境界が一致することを検証する。
+ * @trace ERB-UT-032
+ * @precondition 単一exact結果へJSONとして有効なASCII空白を付加する。
+ * @stimulus UTF-8で16,383、16,384、16,385 bytesの入力を渡す。
+ * @observation 入力bytes数、status、正規化値と生出力非公開を観測する。
+ * @oracle 上限以下は同じexact結果を受理し、上限超過は本文なしで拒否する。
+ * @cleanup N/A: 純粋な文字列解析で外部資源を生成しない。
+ * @boundary ERB-UT-032=N/A: AI Adapter内の純粋解析・変換。
+ */
+test("Codex結果は16KiBを含む上限以下だけを受理する", () => {
+  const document = '{"status":true}';
+  for (const bytes of [16_383, 16_384, 16_385]) {
+    const input = document + " ".repeat(bytes - Buffer.byteLength(document));
+    assert.equal(Buffer.byteLength(input, "utf8"), bytes);
+    const result = normalizeCodexStructuredResult(input);
+    assert.deepEqual(result, {
+      status: bytes <= 16_384 ? "confirmed" : "blocked",
+      normalizedResult: bytes <= 16_384 ? { status: true } : null,
+      rawOutputReported: false,
+    });
+    assert.equal("rawOutput" in result, false);
+  }
+});
