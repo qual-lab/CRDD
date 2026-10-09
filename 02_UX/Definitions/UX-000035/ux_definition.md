@@ -1,4 +1,4 @@
-# UX-000035 User管理なしでRemote Accessを維持・回復する
+# UX-000035 軽量なユーザー管理でRemote Accessを維持・回復する
 
 成果物種別: UX定義
 UX ID: `UX-000035`
@@ -7,16 +7,16 @@ UX ID: `UX-000035`
 
 ## 利用者成果
 
-CROS管理者がUser Accountを管理せずRole別Credentialを維持し、漏洩・喪失・認可破損後もProduct Dataを失わず通常管理へ戻れる。
+管理者が対象ユーザーを見分け、最小ユーザー情報・Role権限・Credentialを維持し、漏洩・喪失・認可破損後もProduct Dataを失わず通常管理へ戻れる。
 
 ```text
 CROS管理者／Server Host運用者
         │ Remote利用範囲を用意・回復する時
         ▼
-Role別Credentialを安全に維持する
+対象ユーザーとRole権限・Credentialを安全に維持する
         │
         ▼
-User管理なしで接続を継続し、管理不能時も再入場できる
+軽量な管理で接続を継続し、管理不能時も再入場できる
 ```
 
 ## 利用者・状況・目的
@@ -24,9 +24,9 @@ User管理なしで接続を継続し、管理不能時も再入場できる
 | 項目 | 内容 |
 |---|---|
 | 主な想定利用者／利用状況 | CROS管理者とServer Host運用者が、小規模な共有CROSの接続資格を維持する状況 |
-| 利用のきっかけ／場面 | 初期発行、追加発行、失効、ローテーション、漏洩、Administrator全喪失、認可状態破損 |
-| 目的 | 個人別User管理なしでRemote利用範囲を維持し、安全に通常管理へ戻る |
-| 得られる結果 | Role別Credentialを発行・失効・回復し、利用者へ必要な再設定だけを案内できる |
+| 利用のきっかけ／場面 | ユーザー登録、表示名／Role変更、資格発行・リセット、漏洩、管理資格全喪失、認可状態破損 |
+| 目的 | 誰向けの資格かを把握し、最小管理でRemote利用範囲を維持し、安全に通常管理へ戻る |
+| 得られる結果 | ユーザーの資格を発行・リセット・回復し、利用者へ必要な再設定だけを案内できる |
 
 ## 利用者に起きる変化
 
@@ -35,12 +35,16 @@ User管理なしで接続を継続し、管理不能時も再入場できる
 個人登録・申請を管理するか、全員へ広すぎるAccessを与える
         ↓
 変更後
-Role別Credentialだけを管理し、異常時はServer HostからCredential状態を復旧する
+安定ID・表示名・Roleで対象を識別し、管理不能時はHostからRole設定とCredentialを安全な状態へ戻す
 ```
 
 ## 成立条件
 
-- Administrator、Management、DeveloperのRole別Credentialを発行・失効・ローテーションできる。
+- ユーザーIDを作成し、管理者が表示名とRoleを設定・変更し、ユーザーのCredentialを発行・リセットできる。
+- 標準Roleは`administrator`／`manager`／`developer`とし、詳細権限はRoleが所有する。ユーザーやCredentialへ個別追加権限を持たせない。
+- 表示名の同名・改名でIDや権限が変わったと誤認せず、本人確認にも使わない。
+- リセットでID・Roleを保持し旧資格を以後の要求で拒否する。開始済み操作の取消完了とは区別する。
+- Role権限変更は次の認可へ反映し、Credentialへ古い権限を固定しない。
 - Secretは発行時に一度だけ受け取り、再表示やRepository保存をしない。
 - Administrator能力とManagement／Development内容へのアクセスを分ける。
 - Administrator RecoveryとFull Access ResetをServer Host上の対話操作から実行できる。
@@ -53,9 +57,9 @@ Role別Credentialだけを管理し、異常時はServer HostからCredential状
 ```text
 Credential状態を管理する
         ↓
-発行・失効・ローテーションを選ぶ
+対象ユーザーを確認し、表示名／Role変更・資格リセットを選ぶ
         │
-        ├─ ★ 重要場面: 全Administrator Credentialを失った時
+        ├─ ★ 重要場面: administrator Roleのユーザー資格をすべて失った時
         ├─ ⚠ 失敗: Remote認証へ依存する／Product Dataを削除する／Secretを記録する
         └─ ✓ 守る品質: Host Authorityと明示確認でAccessだけを安全に再構成する
         ↓
@@ -71,43 +75,46 @@ Bootstrap Credentialで通常管理へ戻る
 
 ### 体験品質への期待
 
-- 日常管理はRoleとCredentialだけで理解でき、User管理を要求しない。
+- 日常管理はID・表示名・Role・Credentialだけで理解でき、メール・Password・申請等を要求しない。
+- 処置前に対象のIDと表示名、変更するRoleまたはリセットの影響を確認できる。
 - 破壊的な失効範囲と保持するProduct Dataを実行前に理解できる。
 - 秘密値を含めず、Recoveryの現在地と次の行動を追跡できる。
 
 ## 必要な情報
 
-Role、Credential ID、Credential状態、有効期限、発行時のSecret一度表示、Repository Role、System管理能力、Recovery Identity、Recovery種別、失効対象、保持対象、結果、再入場方法。
+ユーザーID、表示名、自身表示／管理対象一覧の可視範囲、Role詳細権限、Credential ID、Credential状態、有効期限、発行時のSecret一度表示、Repository Role、System管理能力、Recovery Identity、Recovery種別、失効対象、保持対象、結果、再入場方法。
 
 ## 責任境界・制約・対象外
 
 - UXが定義すること: 管理者のGoal、通常管理と緊急復旧の体験、失敗、品質期待。
 - 下流工程へ残すこと: 情報構造、管理画面／CLI、Digest方式、認証Protocol、耐久記録および実装配置。
 - 制約: Administratorと内容Accessを分け、秘密値を正本・Prompt・会話へ複製しない。
-- 対象外: User Account、個人別申請、SSO、IdP、個人監査、Multi-tenant IAM。
+- 対象外: 最小情報を超える一般アカウント管理、本人確認、メール・Password・自己登録・自己編集・申請、SSO／IdP、個人行動監査製品。
+- 非管理者へ他ユーザー情報を開示せず、Remote管理能力とHost Recovery Authorityを同一視しない。
 
 ## 未確認事項と戻り条件
 
-- 未確認事項: 共有Credentialの配布負担、管理画面とCLIの分担、有効期限の既定値。
+- 未確認事項: 対象識別とリセット確認の負担、管理画面とCLIの分担、有効期限の既定値。
+- Host回復でのBootstrapとユーザーIDの結合、緊急時の最小ユーザー情報処置は後工程で確定する。通常リセットのID保持を緊急回復へ流用しない。
 - 現在判定: Pilotで確認する。現在のUX定義を止める事項ではない。
 - 確認事項: 小規模共有Serverで安全性と管理負担の均衡が成立するか。
 - 判断者: CROS管理者、Server Host運用者およびQual-Lab。
 - 未確認時の影響: 定量的期限、画面配置および配布手順を確定しない。
-- Discoveryへ戻す条件: 個人別失効・監査が必要、固定三Roleで運用不能、または共有Secret配布が許容不能な場合。
+- Discoveryへ戻す条件: 本人確認・自己管理・申請、複数Role、個別追加権限または個人行動監査が必要な場合。
 - UX分析へ戻す条件: Credential lifecycleとAccess Recoveryが一つの管理者成果として成立しない場合。
 
 ## 検証意図
 
-User登録なしでRole別Credentialを発行・失効・ローテーションし、全喪失または認可破損からProduct Dataを維持して再入場できることを観測する。Secret非保存、Administratorの内容非保有、途中失敗およびRepository単体非依存を含める。
+管理者が対象IDと表示名を区別して登録・変更・資格リセットし、同名・改名で認可が変わらず、リセット時にID・Roleが保たれて旧資格が拒否され、全喪失または認可破損からProduct Dataを維持して再入場できることを観測する。Secret非保存、Administratorの内容非保有、途中失敗およびRepository単体非依存を含める。
 
 ## 下流への引き渡し
 
 | 接続先 | 保持する意味 |
 |---|---|
-| IA（直後工程への正式な引き渡し） | Role、Credential metadata、Secret表示境界、Credential状態、管理能力、Recovery Identity、対象・保持範囲、結果、再入場 |
-| Quality Analysis / UX（伴走） | User非管理、Secret非保存、Role分離、通常ローテーション、全喪失・認可破損Recovery、Product Data保持 |
-| UI（後続Contract Relation） | 発行時一度表示、一覧、失効、再発行、Recovery確認、途中状態、再入場 |
-| SPEC（後続Contract Relation） | 発行・Digest保存・検証・失効・期限・ローテーション、Recovery Authority、耐久記録、Effect境界 |
+| IA（直後工程への正式な引き渡し） | ユーザーID、表示名、自身／管理対象の可視範囲、Role詳細権限、Credential metadata、Secret表示境界、Credential状態、管理能力、Recovery Identity、対象・保持範囲、結果、再入場 |
+| Quality Analysis / UX（伴走） | 名前非Authority、通常リセットのID・Role保持と旧資格拒否、Role変更の次認可反映、Secret非保存、Role分離、Host回復でのRole設定とCredential安全化、Product Data保持 |
+| UI（後続Contract Relation） | 管理者の対象識別・表示名／Role変更・リセットの影響確認、発行とリセット後の新Secret一度表示、一覧・失効、Host Recovery確認、途中状態、Bootstrap再発行後の再入場 |
+| SPEC（後続Contract Relation） | ユーザー相関、名前非Authority、Role権限変更、発行・Digest保存・検証・失効・期限・リセットと旧資格拒否、Host Recovery Authority、耐久記録、Effect境界 |
 
 ## 関係
 

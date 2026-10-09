@@ -1,8 +1,8 @@
 # CRDD／CROSの利用体験
 
-状態: 候補（v0.21.0、公開済みの基準版: v0.20.1）
+状態: 候補（v0.22.0、公開済みの基準版: v0.21.0）
 担当責任者: Qual-Lab
-最終更新日: 2026-09-14
+最終更新日: 2026-10-09
 工程規則: [UX](../22_UX.md)
 
 ## 1. 製品全体で目指す利用体験
@@ -79,7 +79,7 @@ Discoveryで採用した41要求を、一件ずつ利用者の立場から分析
 | `REQ-000038` | [Consumerに依存しない標準Project Context](Analysis/REQ-000038/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
 | `REQ-000039` | [TopicとMeetingの共通操作](Analysis/REQ-000039/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
 | `REQ-000040` | [Project情報と作業ツリーをつなぐWorkbench](Analysis/REQ-000040/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
-| `REQ-000041` | [Role別共有CredentialによるRemote CROS利用](Analysis/REQ-000041/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
+| `REQ-000041` | [最小ユーザー識別とRole権限によるRemote CROS利用](Analysis/REQ-000041/ux_analysis.md) | 最小ユーザー管理へ再分析済み・限定独立レビュー待ち |
 
 ### 2.2. 要求を利用者成果へまとめた結果
 
@@ -121,7 +121,7 @@ Discoveryで採用した41要求を、一件ずつ利用者の立場から分析
 | [UX-000032](Definitions/UX-000032/ux_definition.md) 実行事実を安全に記録して結果を確かめる | `REQ-000004` | 記録済み・未記録・結果不明を見分け、重複や上書きなく次の処置を選べる | 実行環境を運用する流れ | 同一再送、並行書込み、途中失敗、結果不明の再発行および許可外情報の記録を反証する | Execution、Source、Observation、Record Attempt、Publication Resultを分ける |
 | [UX-000033](Definitions/UX-000033/ux_definition.md) 論点と会議記録を安全に維持する | `REQ-000039` | 入口を変えても同じ記録を扱い、正当な履歴を残して誤登録だけを安全に除ける | Topic／Meeting 利用の流れ | 当時記録の上書き、誤削除、連鎖削除、無効な関係および部分成功を反証する | Topic、Meeting、時点、状態、関係、削除影響および復旧可能性を結ぶ |
 | [UX-000034](Definitions/UX-000034/ux_definition.md) Projectの意味と作業差分を一つの流れで扱う | `REQ-000040` | 状況理解から次の仕事、差分確認、Commit、通常Pushまで進み、Ownerや別入口へ戻れる | Project判断／日常作業の流れ | Workbench固有正本、誤った送信対象、未確認Pushおよび失敗状態の隠蔽を反証する | Project Context、Owner、作業差分、Commit、Remote、BranchおよびPush対象を結ぶ |
-| [UX-000035](Definitions/UX-000035/ux_definition.md) User管理なしでRemote Accessを維持・回復する | `REQ-000041` | Role別Credentialを維持し、漏洩・喪失・認可破損後もProduct Dataを失わず通常管理へ戻れる | Remote Access管理の流れ | User管理への拡張、Secret保存、内容権限混同およびProduct Data削除を反証する | Role、Credential状態、管理能力、Recovery Identity、対象・保持範囲および再入場を結ぶ |
+| [UX-000035](Definitions/UX-000035/ux_definition.md) 軽量なユーザー管理でRemote Accessを維持・回復する | `REQ-000041` | 対象ユーザーを見分けてRole権限とCredentialを維持し、管理不能時もProduct Dataを失わず再入場できる | Remote Access管理の流れ | 別ユーザーの処置、名前のAuthority化、一般アカウント管理への拡張、Secret保存、内容権限混同を反証する | 安定ID、表示名、Role詳細権限、資格状態、Host回復・保持範囲を区別する |
 
 ### 2.3. UX成果の横断構造
 

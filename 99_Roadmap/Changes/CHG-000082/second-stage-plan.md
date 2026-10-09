@@ -628,6 +628,8 @@ Domain Modelの`configuration/read-tool-config.ts`は保持期間設定のReader
 
 上流7文書の固定差分はArchitecture・品質の限定独立レビューで5指摘を統合是正し、両観点の再レビューで残指摘0。REQ-000011本文も現行認可境界へ揃え、旧Phase 4 Passを履歴へ限定した。差分空白確認は成功した。これはDiscovery更新の確認であり、下流伝播・Source・保存移行・実境界試験の完成証明ではない。
 
+UXの直接伝播はREQ-000011／041の分析、UX-000013／035の定義、工程横断の5文書へ反映した。既存UX IDを維持し、自身表示・非認証非開示・非管理者の他ユーザー非開示、通常リセットとHost回復の分離、Role詳細権限を保持した。9文書の固定差分をArchitecture・品質で独立確認し、指摘を統合是正した後、両観点の最終限定レビューは残指摘0。差分空白確認も成功した。これは今回のUX変更範囲の確認であり、全UX完成、実装やE2E成功ではない。次はIAへ正式伝播し、UI／SPEC、詳細設計、Architecture、Qualityと実装へ順に接続する。
+
 UUID版、表示名の構文・正規化・一意性、Role権限語彙、既存Credentialの移行／再発行、Bootstrapとの結合と緊急Recoveryの最小ユーザー情報処置は後工程で確定する。既存OS Root・秘密保護・単体利用のCredential不要・管理権限から内容権限を推定しない意味・Product Data保持は維持する。開始済み操作の取消をリセットの成功から推定しない。Source・実秘密Store・保存Schema・過去Evidenceは初回上流編集では変更しない。
 
 #### 採用前のInput整理（履歴）

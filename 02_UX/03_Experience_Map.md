@@ -1,8 +1,8 @@
 # CRDD／CROSの利用体験の全体像
 
-状態: 候補（v0.21.0、公開済みの基準版: v0.20.1）
+状態: 候補（v0.22.0、公開済みの基準版: v0.21.0）
 担当責任者: Qual-Lab
-最終更新日: 2026-09-14
+最終更新日: 2026-10-09
 工程規則: [UX](../22_UX.md)
 
 本書は、利用者がどこから仕事を始め、何を理解・判断し、どこへ進むかを製品全体の時間軸で示す。リポジトリ構造や画面遷移ではなく、利用者の仕事と得られる結果を主語にする。
@@ -149,7 +149,7 @@
 | [UX-000032](Definitions/UX-000032/ux_definition.md) | AIまたはToolの観測可能な実行段階が確定し、事実を後から比較できる形で残す時 | 記録の成否と不明状態を見分け、重複記録や別実行の上書きを起こさず次の処置を選べる | [REQ-000004](Analysis/REQ-000004/ux_analysis.md) |
 | [UX-000033](Definitions/UX-000033/ux_definition.md) | 論点や会議記録を扱う時、誤登録を見つけた時 | 入口を変えても同じ記録を扱い、正当な履歴を残して誤登録だけを安全に除ける | [REQ-000039](Analysis/REQ-000039/ux_analysis.md) |
 | [UX-000034](Definitions/UX-000034/ux_definition.md) | Projectの状況から次の仕事を選び、変更を確認・共有する時 | Projectの意味と作業差分を結び、状況理解から通常Pushまで一続きで進める | [REQ-000040](Analysis/REQ-000040/ux_analysis.md) |
-| [UX-000035](Definitions/UX-000035/ux_definition.md) | Credentialを発行・失効・回復する時 | User管理なしでRole別Credentialを維持し、管理不能時も安全に再入場できる | [REQ-000041](Analysis/REQ-000041/ux_analysis.md) |
+| [UX-000035](Definitions/UX-000035/ux_definition.md) | ユーザーとRole権限・Credentialを維持・回復する時 | 安定IDと表示名で対象を見分け、資格リセット後も同じユーザーで接続し、管理不能時も安全に再入場できる | [REQ-000041](Analysis/REQ-000041/ux_analysis.md) |
 
 ## 4. 体験をまたぐ分岐
 

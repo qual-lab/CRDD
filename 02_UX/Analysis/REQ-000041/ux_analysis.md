@@ -3,27 +3,27 @@
 成果物種別: UX分析
 
 状態: UX再統合済み・独立再レビュー待ち
-分析対象: [REQ-000041 Role別共有CredentialによるRemote CROS利用](../../../01_Discovery/Definitions/REQ-000041/requirement.md)
+分析対象: [REQ-000041 最小ユーザー識別とRole権限によるRemote CROS利用](../../../01_Discovery/Definitions/REQ-000041/requirement.md)
 
 ## 1. 要求の一次分析
 
 ```text
 Remote CROSでは利用範囲を分けたい
         ↓
-個人別User管理は導入・運用が重い
+誰向けの資格か分からないが、一般的なアカウント管理は重い
         ↓
 利用者に必要なこと
-利用者登録なしで適切な範囲へ接続し、管理者は接続資格を安全に維持・回復する
+利用者は自身と許可範囲を理解し、管理者は最小ユーザー情報と接続資格を維持・回復する
 ```
 
-本要求には二つの独立した利用者成果がある。Remote利用者は一度受け取った接続資格で許可範囲だけを継続利用したい。CROS管理者はUser Accountを管理せず、Role別の接続資格を発行・失効・復旧したい。Repository単体利用へCROS認証を持ち込まないことは両成果の共通制約である。
+本要求には二つの独立した利用者成果がある。Remote利用者は一度受け取った接続資格で許可範囲だけを継続利用したい。管理者は安定ユーザーIDと表示名で対象を識別し、Role詳細権限とユーザーのCredentialを維持したい。表示名は本人確認や権限ではない。Repository単体利用へCROS認証を持ち込まないことは両成果の共通制約である。
 
 | 観点 | 内容 |
 |---|---|
-| 解決する問題 | Remote利用範囲の分離を個人別User管理で実現すると、導入・管理画面・申請・監査が現在目的に対して重くなる |
-| 利用者に必要なこと | Remote利用者はRoleに対応する範囲だけを使い、管理者は共有Credentialを安全に発行・失効・回復する |
-| 対象範囲 | 三Role、Role別共有Credential、通常ローテーション、Server HostからのAccess Recovery |
-| 対象外 | User Account、個人別申請・承認、SSO、Multi-tenant IAM、Repository単体利用への認証強制 |
+| 解決する問題 | 共有資格だけでは対象を識別しにくいが、一般アカウント管理まで持つと導入・申請・本人確認等が現在目的に対して重い |
+| 利用者に必要なこと | Remote利用者はRoleに対応する範囲だけを使い、管理者はユーザーのCredentialを安全に発行・リセット・回復する |
+| 対象範囲 | 最小ユーザー識別と管理者設定の表示名、Role詳細権限、通常リセット、Server HostからのAccess Recovery |
+| 対象外 | 最小情報を超えるアカウント管理、メール・Password・本人確認・自己登録・自己編集・申請、SSO、Multi-tenant IAM、Repository単体利用への認証強制 |
 
 ## 2. 利用者・目標・成果
 
@@ -31,7 +31,7 @@ Remote CROSでは利用範囲を分けたい
 Remote利用者                         CROS管理者
     │ 接続する                          │ 利用範囲を維持する
     ▼                                  ▼
-Role範囲だけを利用する             User管理なしでCredentialを管理する
+Role範囲だけを利用する             対象ユーザーとCredentialを管理する
     │                                  │
     ▼                                  ▼
 再選択なしで安全に再接続する       漏洩・喪失後も通常管理へ戻る
@@ -41,11 +41,11 @@ Role範囲だけを利用する             User管理なしでCredentialを管�
 |---|---|
 | 主な想定利用者 | Remote CROS利用者、CROS管理者 |
 | 関係する利用者 | Server Hostの管理Authorityを持つ運用者、Credentialを安全な別経路で受け取る利用者 |
-| 利用場面 | 初回設定、再接続、発行、失効、ローテーション、Administrator全喪失または認可状態破損 |
-| 目的 | User管理なしでRemote利用範囲を分け、管理不能時もProduct Dataを失わず復旧する |
+| 利用場面 | ユーザー登録・表示名／Role変更、初回設定・再接続、資格発行・リセット、管理資格全喪失または認可状態破損 |
+| 目的 | 最小ユーザー管理でRemote利用範囲を分け、管理不能時もProduct Dataを失わず復旧する |
 | 得られる結果 | 利用者はRoleを毎回選ばず許可範囲だけを使い、管理者はCredential lifecycleを安全に閉じられる |
-| この要求に固有の差 | Credentialは人ではなくRoleへ紐づき、Administrator能力と内容閲覧を分け、緊急復旧をRemote認証から切り離す |
-| 根拠・確信度 | REQ-000041で人間確認済み。共有Secretの実運用負担はPilotで確認する |
+| この要求に固有の差 | Credentialはユーザーの安定IDへ紐づき、詳細権限はRoleが所有し、Administrator能力と内容閲覧を分け、緊急復旧をRemote認証から切り離す |
+| 根拠・確信度 | REQ-000041で人間確認済み。対象識別とCredentialリセットの実操作負担はPilotで確認する |
 
 ## 3. 利用者に起きる変化
 
@@ -54,8 +54,8 @@ Role範囲だけを利用する             User管理なしでCredentialを管�
 個人別登録・申請を作るか、Server接続者へ広すぎる範囲を与える
         ↓
 変更後
-管理者がRole別Credentialを発行し、利用者は一度設定して許可範囲だけを利用する
-管理不能時はServer HostからCredentialだけを安全に再構成する
+管理者が対象ユーザーとRoleを確認してCredentialを発行し、利用者は一度設定して許可範囲だけを利用する
+管理不能時はServer HostからRole設定とCredentialを安全な状態へ戻す
 ```
 
 Repositoryを直接利用できる人は従来どおりFilesystem／Git Accessの範囲で作業する。CROS Roleは同一Repository内のファイルを隠す仕組みにしない。
@@ -65,13 +65,13 @@ Repositoryを直接利用できる人は従来どおりFilesystem／Git Access�
 ```text
 REQ-000041
    ├─ Same → UX-000013 許可された作業領域だけをリモート利用する
-   └─ New  → UX-000035 User管理なしでRemote Accessを維持・回復する
+   └─ Same → UX-000035 軽量なユーザー管理でRemote Accessを維持・回復する
 ```
 
 | 利用者成果 | 処置 | 判断理由 | この要求が補う内容 |
 |---|---|---|---|
-| 許可された作業領域だけをリモート利用する | `Same → UX-000013` | Remote利用者が許可範囲だけを使い、非開示対象を推測しない成果は同じ | Workspace Grant方式を三Roleの共有Credential方式へ置き換える |
-| User管理なしでRemote Accessを維持・回復する | `New → UX-000035` | 発行・失効・ローテーション・緊急復旧は、Remote利用者の閲覧成果とは異なる管理者の独立したGoal／Outcomeである | Credential lifecycle、Secret一度表示、Digest保存、Bootstrap再入場、Product Data保持 |
+| 許可された作業領域だけをリモート利用する | `Same → UX-000013` | Remote利用者が許可範囲だけを使い、非開示対象を推測しない成果は同じ | 自身の表示名をAuthorityとせず、現行Role詳細権限を利用する |
+| 軽量なユーザー管理でRemote Accessを維持・回復する | `Same → UX-000035` | 管理者・維持／回復の場面・目的・成果は同じで、管理対象と成立条件を補強する。新UXを追加しない | 表示名／Role管理、IDを保持したCredentialリセット、秘密保護、Host回復、Product Data保持 |
 
 ### Same判断の比較
 
@@ -81,26 +81,41 @@ REQ-000041
 
 | 比較軸 | 既存UX | 現在の要求 | 差と統合判断 |
 |---|---|---|---|
-| 担い手 | Remote利用者 | Developer／Managementとして接続するRemote利用者 | Role名は増えるが成果の主体は同じ |
-| 利用のきっかけ | Remote接続・再接続 | Role別Credentialの初回登録・再接続 | Credential方式の具体化である |
+| 担い手 | Remote利用者 | `developer`／`manager`等のRoleで接続するRemote利用者 | 成果の主体は同じ |
+| 利用のきっかけ | Remote接続・再接続 | ユーザーCredentialの初回設定・再接続 | Credential方式の具体化である |
+| 目的 | 許可範囲の情報と作業を安全に利用する | 現行Roleの許可範囲の情報と作業を安全に利用する | 同じ利用目的である |
 | 得られる結果 | 許可された範囲だけを利用できる | Roleが許すRepository Contextだけを利用できる | 同じ利用者成果である |
 | 避ける失敗 | 非開示対象の存在・内容漏えい | Role外Repositoryの存在漏えい、Administratorからの内容権限推定 | 同じ失敗類型を補強する |
 
-統合理由: Role別共有CredentialはUX-000013の実現境界を置き換えるが、Remote利用者が得る成果は変えない。
+統合理由: 最小ユーザー識別とRole詳細権限はUX-000013の実現境界を変えるが、Remote利用者が得る成果は変えない。
+
+#### 軽量なユーザー管理でRemote Accessを維持・回復する
+
+比較対象: `UX-000035`の変更前の利用者成果。
+
+| 比較軸 | 変更前の成果 | 現在の要求 | 差と統合判断 |
+|---|---|---|---|
+| 担い手 | CROS管理者、Host運用者 | 同じ管理者とHost運用者 | 主体は同じ。Remote管理とHost Authorityを分ける |
+| 利用のきっかけ | 資格の維持、漏洩・喪失・認可破損 | 対象ユーザーを識別して資格を維持し、管理不能時に回復する | 対象識別と通常リセットは既存の維持場面の補強 |
+| 目的 | 軽量な管理でRemote Accessを維持し、管理不能時に通常管理へ戻る | 最小ユーザー管理でRemote Accessを維持し、管理不能時に通常管理へ戻る | 管理対象の具体化であり、目的は同じ |
+| 得られる結果 | 接続を維持し、Product Dataを保って通常管理へ再入場する | 最小管理で接続を維持し、IDを保ったリセットと安全な再入場を行う | 目的・成果は同じ。IDと表示名は成立条件を補う |
+| 避ける失敗 | 秘密漏えい、管理と内容権限の混同、Product Data削除 | 同じ失敗に加え、別ユーザー処置と表示名のAuthority化を防ぐ | 既存成果の安全な成立条件を補強する |
+
+したがって`Same → UX-000035`として既存IDを維持する。一般的なアカウント管理を新しい成果として追加しない。
 
 ## 5. 重要な体験
 
 ### この要求での利用の流れ
 
 ```text
-管理者がRole別Credentialを発行する
+管理者が対象ユーザーのID・表示名・Roleを確認してCredentialを発行する
         ↓
 利用者が秘密値を一度登録して接続する
         ↓
 Role範囲だけを利用する
         │
         ├─ ★ 重要場面: 漏洩・全喪失・認可破損を検出した時
-        ├─ ⚠ 失敗: User管理へ拡張する／秘密値を保存・再表示する／Product Dataを消す
+        ├─ ⚠ 失敗: 別ユーザーをリセットする／名前を本人確認に使う／秘密値を記録する／Product Dataを消す
         └─ ✓ 守る品質: 通常失効とServer-local Recoveryを分け、安全な再入場を示す
         ↓
 新Credentialを配布し通常管理へ戻る
@@ -116,17 +131,17 @@ Role範囲だけを利用する
         ▼
 【利用者接点】Workbench管理画面または管理CLI／接続設定
         ├─ 時間差: 発行・配布・登録・接続、失効要求・失効確定、Recovery開始・終了後確認を分ける
-        ├─ 完了時: Credential ID、Role、状態、期限、次の配布・接続手順
-        └─ 失敗時: 秘密値を再表示せず、失効・再発行・Host Recoveryへの安全な導線
+        ├─ 完了時: ユーザーID、表示名、Role、Credential状態、期限、次の配布・接続手順
+        └─ 失敗時: 保存済み秘密値を再表示せず、失効・通常リセット・Host Recoveryへの安全な導線
                      ↓
              【回復・判断する人】CROS管理者またはServer Host運用者
-                     └─ 次の行動: 通常失効・再発行、または同じRecovery IDでHost Recoveryへ再入場する
+                     └─ 次の行動: 通常リセット（同じuserId・Roleを保持し、旧資格失効・新Secret一度表示）、または同じRecovery IDでHost Recoveryへ再入場する
 
 ---------------- 可視境界 ----------------
                      │ 時間関係: Remote利用とHost RecoveryのAuthority・開始・完了を分ける
                      ↓
 【提供側】CROS Access管理能力
-        └─ Userを作らず、Secret Digest、Role、状態、Recovery記録を管理する
+        └─ 最小ユーザー情報とRole権限を管理し、Credentialをユーザーへ結び、生Secretを記録しない
 ```
 
 ### 製品全体の整理への接続
@@ -139,33 +154,36 @@ Role範囲だけを利用する
 | 担い手 | この要求で担うこと | 越えてはならない境界 |
 |---|---|---|
 | Remote利用者 | 渡されたCredentialを秘密値管理へ保存し、漏洩時に利用を止める | RoleやRepository範囲を自己申告で拡張しない |
-| CROS管理者 | Role別Credentialを発行・失効・ローテーションする | User Accountを作らず、Administrator能力から内容閲覧を得ない |
+| CROS管理者 | ユーザーIDを作成し、表示名・Role・詳細権限とCredentialを管理する | 一般アカウント管理へ拡張せず、管理能力から内容閲覧を得ない |
 | Server Host運用者 | Remote認証不能時にローカル対話CLIでAccess Recoveryを行う | Product Dataを削除せず、秘密値を耐久記録へ残さない |
 
 ### 補足する品質
 
 - Secretは発行時一度だけ表示し、ServerはDigestだけを保持する。
-- 通常ローテーションと緊急Recoveryを別の判断・Authorityとして示す。
+- 通常リセットとHost緊急Recoveryを別の判断・Authorityとして示す。リセットでIDとRoleを保持し旧資格を拒否するが、開始済み操作の取消完了を保証しない。
+- 同名・改名からIDや権限の変化を推定しない。Role権限変更は次の認可へ反映し、自身表示と管理者の対象一覧を分ける。
+- 認証済み利用者の自身表示を許可し、非認証入口へユーザー情報を開示せず、管理権限のない入口へ他ユーザー一覧・存在・件数を開示しない。
 - Recoveryの対象、保持するProduct Data、結果および再入場方法を秘密値なしで追跡できる。
 
 ## 6. 下流への引き渡し
 
 | 接続先 | この要求から保持する意味 |
 |---|---|
-| IA（直後工程への正式な引き渡し） | Role、Credential metadata、Secret表示境界、Credential状態、Repository Role、管理能力、Recovery Identity、対象範囲、耐久結果 |
-| Quality Analysis / UX（伴走） | Role範囲、非開示、User非管理、Secret非保存、ローテーション、全喪失・認可破損Recovery、Repository単体非依存 |
-| UI（後続Contract Relation） | 初回登録、発行時一度表示、Credential一覧・失効・再発行、Recovery確認と再入場 |
-| SPEC（後続Contract Relation） | 認証、Role解決、Digest検証、発行・失効・期限・ローテーション、Recovery AuthorityとProduct Data保持 |
+| IA（直後工程への正式な引き渡し） | ユーザーID、表示名、自身／管理対象の可視範囲、Role詳細権限、Credential metadata、Secret表示境界、Credential状態、Repository Role、管理能力、Recovery Identity、対象範囲、耐久結果 |
+| Quality Analysis / UX（伴走） | Role範囲、三つのユーザー可視境界、同名・改名による権限不変、通常リセット時ID・Role保持と旧資格拒否、Secret非保存、Host回復、Repository単体非依存 |
+| UI（後続Contract Relation） | 現在ユーザー表示、管理者の対象識別・名前／Role変更・資格リセット、Credential一覧・失効、発行時と通常リセット後の新Secret一度表示、Recovery確認と再入場 |
+| SPEC（後続Contract Relation） | ユーザー相関、名前非Authority、現行Role権限の認可、Digest検証、発行・失効・期限・リセットと旧Credential拒否、Host Recovery AuthorityとProduct Data保持 |
 
 ### 妥当性確認と未確認事項
 
-- 確認する観測: 三Roleでの初回接続、通常再接続、発行・失効・ローテーション、全喪失Recovery。
-- 未確認事項: 共有Credentialの配布負担、管理画面とCLIの分担、有効期限の既定値。
+- 確認する観測: 自身の接続主体と許可範囲の理解、管理者の対象識別・表示名／Role変更、IDを維持した資格リセット、Role権限変更後の利用、管理不能時のHost回復。
+- 未確認事項: 対象識別とリセット確認の負担、管理画面とCLIの分担、有効期限の既定値。UUID版・表示名の構文／一意性・保存Schema・権限語彙は下流で決める。
+- Host回復でのBootstrapとユーザーIDの結合、および緊急時の最小ユーザー情報処置は後工程で確定する。通常リセットのID保持を緊急回復へ流用しない。
 - 現在判定: 後続確認が必要。UX定義を進めることは妨げない。
-- 確認事項: 小規模共有Serverで個人管理なしに安全かつ理解可能に運用できるか。
+- 確認事項: 最小管理だけで対象と処置影響を理解できるか。
 - 判断者: CROS管理者、Remote利用者およびQual-Lab。
 - 未確認時の影響: 定量的な期限、画面配置および配布手順を確定しない。
-- Discoveryへ戻す条件: 個人別失効・監査が必要、固定三Roleで運用不能、または共有Secret配布が許容不能な場合。
+- Discoveryへ戻す条件: 本人確認・自己管理・申請、複数Role、個別追加権限または個人行動監査が必要な場合。
 
 ## Checklist
 

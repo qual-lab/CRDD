@@ -1,8 +1,8 @@
 # CRDD／CROSの体験品質期待
 
-状態: 候補（v0.21.0、公開済みの基準版: v0.20.1）
+状態: 候補（v0.22.0、公開済みの基準版: v0.21.0）
 担当責任者: Qual-Lab
-最終更新日: 2026-09-14
+最終更新日: 2026-10-09
 工程規則: [UX](../22_UX.md)
 
 本書は、利用者や運用者へ現れる品質を製品全体で統合する。数値閾値、状態Schema、プロトコルおよび実現方式は下流工程が具体化する。
@@ -52,7 +52,7 @@
 | [UX-000010](Definitions/UX-000010/ux_definition.md) | 手元を既定にし横断を任意に保つ |
 | [UX-000011](Definitions/UX-000011/ux_definition.md) | 各識別情報と物理基点フォルダの結合を明示する |
 | [UX-000012](Definitions/UX-000012/ux_definition.md) | 公開契約・入力・権限判断・状態・結果を通信方式間で一致させる |
-| [UX-000013](Definitions/UX-000013/ux_definition.md) | 現在の利用許可範囲（Grant）だけを開示し不足を補完しない |
+| [UX-000013](Definitions/UX-000013/ux_definition.md) | 現行Role詳細権限・Exposure・実アクセスを満たす範囲だけを開示し、不足を補完しない |
 | [UX-000014](Definitions/UX-000014/ux_definition.md) | 候補・判断・反映結果を区別する |
 | [UX-000015](Definitions/UX-000015/ux_definition.md) | 比較値から根拠・古さ・不足へ戻れる |
 | [UX-000016](Definitions/UX-000016/ux_definition.md) | Commit・配布集合・Manifest・実行基盤の対応を検証する |
@@ -74,7 +74,7 @@
 | [UX-000032](Definitions/UX-000032/ux_definition.md) | 同じ識別情報で再観測し、結果不明を保つ |
 | [UX-000033](Definitions/UX-000033/ux_definition.md) | 当時記録と現在状態、終了・訂正と誤登録削除を分け、削除影響と復旧可能性を示す |
 | [UX-000034](Definitions/UX-000034/ux_definition.md) | 結論からOwnerと作業差分へ戻り、外部Effect前に送信対象を確認する |
-| [UX-000035](Definitions/UX-000035/ux_definition.md) | Userを管理せず、Secret・管理能力・内容Access・Recovery範囲を混同しない |
+| [UX-000035](Definitions/UX-000035/ux_definition.md) | 安定IDと表示名、Role詳細権限とCredential、通常リセットとHost回復を区別し、秘密値・内容Access・保持範囲を混同しない |
 
 ## 4. 利用の流れの中の重要場面
 
