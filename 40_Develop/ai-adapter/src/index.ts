@@ -51,6 +51,7 @@ export {
   resolveAiProfile,
   resolveAiProfileById,
   validateAiProfileCatalog,
+  validateAiProfileDefinition,
 } from "./catalog/resolve.ts";
 export type {
   AiAdapterDefinition,
@@ -76,7 +77,10 @@ export type {
   ResolvedAiProfileIdentity,
 } from "./catalog/types.ts";
 export { createAiProfileCatalogRegistry } from "./profile/registry.ts";
-export { createAiProfileCatalogAdministration } from "./profile/administration.ts";
+export {
+  createAiProfileCatalogAdministration,
+  validateAiProfileMutationResult,
+} from "./profile/administration.ts";
 export {
   createCrosAiProfileCatalogStore,
   createRepositoryAiProfileCatalogStore,

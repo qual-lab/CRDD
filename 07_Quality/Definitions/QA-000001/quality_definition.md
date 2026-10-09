@@ -111,6 +111,8 @@ v0.22のWorkbench AI Profile Catalogでは、`RCM-IT-005`により、永続Snaps
 | `RCM-IT-010` | 管理可否、許可失効、認証・Host・Quota・Authorityの独立観測、unknown、Local内部呼出し／Remote MCP | Profile管理権限をContent Grantへ変換しない。四軸のunknownをavailableへ補正せず、操作時に現在認可を再確認する。秘密値・任意Path／CLI引数・Provider実行Effect 0。 |
 | `RCM-ST-012` | 新公開入口・新設定の全宣言Consumer、旧import／別Snapshot／Remote未登録反例 | 同じCatalogと意味契約が新公開入口へ接続したことを確認する。全集合未観測を全体Passにせず、入口比較はQA-000009の`EST-IT-010`と独立に判定する。 |
 
+Profile管理の追加MCP確認では、`RCM-IT-005`へ実HTTPの一覧・作成・更新・改訂競合・確認付き削除と、直接Adapterの採用後応答故障／取消を接続する。`RCM-IT-010`では管理者とDeveloperを比較し、Content Snapshot読取り0と非管理操作0を観測する。メモリCatalogの初期改訂1と、未保存の耐久Storeの既定改訂0を混同しない。この局所確認は本番Launcher、耐久StoreのRemote接続、失効・全状態軸・入口全比較の完成根拠ではない。
+
 ## 5.1 UI／SPEC Detailからの観測条件
 
 Source Definition由来の検証義務を維持し、Detailは具体的な観測境界として同じ検証目標へ統合する。

@@ -25,6 +25,11 @@ export {
 } from "./request/route.ts";
 export { createCrosProjectContextMcpResolver } from "./project-context/cros-resolver.ts";
 export {
+  MCP_AI_PROFILE_TOOLS,
+  getMcpAiProfileToolDefinitions,
+  handleMcpAiProfileRequest,
+} from "./ai-profile/adapter.ts";
+export {
   MCP_RUNTIME_ACTIVITY_TOOL,
   getMcpRuntimeActivityToolDefinitions,
   handleMcpRuntimeActivityRequest,

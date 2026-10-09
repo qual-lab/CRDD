@@ -4,6 +4,10 @@
  * @responsibility 登録済みAdapterとProfileの閉じた関係、曖昧解決の拒否、利用可能性の分離を所有する。
  * @trace ARCH-000010
  */
+import {
+  snapshotPlainRecord,
+  snapshotPlainArray,
+} from "../../../domain-model/src/index.ts";
 import type {
   AiAdapterDefinition,
   AiModelTier,
@@ -139,7 +143,33 @@ function parseStringArray(
  * @security HTTPS Origin以外を拒否し、Credentialを持たない。
  * @concurrency N/A: 共有状態を持たない同期処理である。
  */
-function parseAdapter(value: unknown): AiAdapterDefinition | null {
+function parseAdapter(candidate: unknown): AiAdapterDefinition | null {
+  const record = snapshotPlainRecord(
+    candidate,
+    new Set([
+      "adapterId",
+      "provider",
+      "offering",
+      "authorityOrigin",
+      "allowedModelIds",
+      "allowedReasoningEfforts",
+    ]),
+  );
+  if (!record) return null;
+  const models = snapshotPlainArray(
+    record.allowedModelIds,
+    Number.MAX_SAFE_INTEGER,
+  );
+  const efforts = snapshotPlainArray(
+    record.allowedReasoningEfforts,
+    EFFORTS.size,
+  );
+  if (models.status !== "ok" || efforts.status !== "ok") return null;
+  const value: Record<string, unknown> = {
+    ...record,
+    allowedModelIds: models.value,
+    allowedReasoningEfforts: efforts.value,
+  };
   if (
     !isRecord(value) ||
     !hasExactKeys(value, [
@@ -202,7 +232,33 @@ function parseAdapter(value: unknown): AiAdapterDefinition | null {
  * @security Credential、Path、任意引数を受理しない。
  * @concurrency N/A: 共有状態を持たない同期処理である。
  */
-function parseProfile(value: unknown): AiProfileDefinition | null {
+export function validateAiProfileDefinition(
+  candidate: unknown,
+): AiProfileDefinition | null {
+  const record = snapshotPlainRecord(
+    candidate,
+    new Set([
+      "profileId",
+      "adapterId",
+      "family",
+      "exactModelId",
+      "selectionRoles",
+      "modelTiers",
+      "speedMode",
+      "billingMode",
+      "defaultReasoningEffort",
+      "compatibilityReason",
+    ]),
+  );
+  if (!record) return null;
+  const roles = snapshotPlainArray(record.selectionRoles, ROLES.size);
+  const tiers = snapshotPlainArray(record.modelTiers, TIERS.size);
+  if (roles.status !== "ok" || tiers.status !== "ok") return null;
+  const value: Record<string, unknown> = {
+    ...record,
+    selectionRoles: roles.value,
+    modelTiers: tiers.value,
+  };
   if (
     !isRecord(value) ||
     !hasExactKeys(value, [
@@ -277,6 +333,26 @@ function parseProfile(value: unknown): AiProfileDefinition | null {
 export function validateAiProfileCatalog(
   candidate: unknown,
 ): AiProfileCatalog | null {
+  const record = snapshotPlainRecord(
+    candidate,
+    new Set(["contract", "contractRevision", "adapters", "profiles"]),
+  );
+  if (!record) return null;
+  const adapterValues = snapshotPlainArray(
+    record.adapters,
+    Number.MAX_SAFE_INTEGER,
+  );
+  const profileValues = snapshotPlainArray(
+    record.profiles,
+    Number.MAX_SAFE_INTEGER,
+  );
+  if (adapterValues.status !== "ok" || profileValues.status !== "ok")
+    return null;
+  candidate = {
+    ...record,
+    adapters: [...adapterValues.value],
+    profiles: [...profileValues.value],
+  };
   if (
     !isRecord(candidate) ||
     !hasExactKeys(candidate, [
@@ -294,7 +370,7 @@ export function validateAiProfileCatalog(
   )
     return null;
   const adapters = candidate.adapters.map(parseAdapter);
-  const profiles = candidate.profiles.map(parseProfile);
+  const profiles = candidate.profiles.map(validateAiProfileDefinition);
   if (
     adapters.some((item) => item === null) ||
     profiles.some((item) => item === null)

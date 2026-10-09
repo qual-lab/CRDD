@@ -12,6 +12,12 @@
  */
 import { snapshotPlainRecord } from "./snapshot.ts";
 import {
+  MCP_AI_PROFILE_TOOLS,
+  getMcpAiProfileToolDefinitions,
+  handleMcpAiProfileRequest,
+} from "../ai-profile/adapter.ts";
+import type { AiProfileCatalogAdministration } from "../../../ai-adapter/src/index.ts";
+import {
   getMcpRuntimeActivityToolDefinitions,
   handleMcpRuntimeActivityRequest,
   MCP_RUNTIME_ACTIVITY_TOOL,
@@ -71,6 +77,7 @@ export type McpRequestRoutingDependencies = Readonly<{
   orchestrator?: McpOrchestratorDependencies;
   projectContext: McpProjectContextDependencies;
   runtimeActivity?: McpRuntimeActivityDependencies;
+  aiProfileAdministration?: AiProfileCatalogAdministration;
   topicMeeting?: TopicMeetingAccess;
   topicMeetingRepositoryResolver?: TopicMeetingAccessResolver;
 }>;
@@ -125,6 +132,9 @@ export async function routeMcpRequest(
               ? []
               : getMcpOrchestratorToolDefinitions()),
             ...getMcpProjectContextToolDefinitions(),
+            ...(dependencies.aiProfileAdministration === undefined
+              ? []
+              : getMcpAiProfileToolDefinitions()),
             ...(dependencies.runtimeActivity === undefined
               ? []
               : getMcpRuntimeActivityToolDefinitions()),
@@ -144,6 +154,14 @@ export async function routeMcpRequest(
   if (request.method !== "tools/call")
     return protocolError(request.id, -32601, "Method not found");
   const params = snapshotPlainRecord(request.params, callKeys);
+  if (Object.values(MCP_AI_PROFILE_TOOLS).includes(params?.name as never))
+    return dependencies.aiProfileAdministration === undefined
+      ? protocolError(request.id, -32601, "Method not found")
+      : handleMcpAiProfileRequest(
+          rawRequest,
+          dependencies.aiProfileAdministration,
+          signal,
+        );
   if (!params || !inspectMcpEnvelope(params._meta))
     return protocolError(request.id, -32602, "Invalid params");
   if (params.name === MCP_RUNTIME_ACTIVITY_TOOL)

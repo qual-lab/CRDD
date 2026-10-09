@@ -20,6 +20,10 @@ export type { CrosExposureSnapshot } from "./access/types.ts";
 export { resolveCrosRequestScope } from "./access/resolve.ts";
 export { readCrosRuntimeActivity } from "./activity/read.ts";
 export {
+  resolveCrosAiProfileAdministration,
+  parseCrosAiProfileMutation,
+} from "./profile/administration.ts";
+export {
   inspectCrosRuntimeActivityObservation,
   parseCrosRuntimeActivityObservation,
 } from "./activity/validate.ts";

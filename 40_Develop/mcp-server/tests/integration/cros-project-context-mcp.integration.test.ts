@@ -8,6 +8,8 @@
  * @trace RFD-IT-013
  * @trace EST-IT-002
  * @trace EST-IT-014
+ * @trace RCM-IT-005
+ * @trace RCM-IT-010
  * @level IT
  * @scope mcp、cros、credential、project-context、http
  * @boundary Bearer HTTP→Credential→Workspace Exposure→Portfolio→MCP
@@ -17,6 +19,12 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
+import {
+  DEFAULT_AI_PROFILE_CATALOG,
+  createAiProfileCatalogRegistry,
+  createAiProfileCatalogAdministration,
+  type AiProfileCatalogMutationResult,
+} from "../../../ai-adapter/src/index.ts";
 
 import { createTopicOperations } from "../../../domain-model/src/index.ts";
 import { createMeetingOperations } from "../../../domain-model/src/index.ts";
@@ -32,6 +40,8 @@ import {
   createCrosProjectContextMcpResolver,
   MCP_PROJECT_CONTEXT_GET_TOOL,
   MCP_RUNTIME_ACTIVITY_TOOL,
+  MCP_AI_PROFILE_TOOLS,
+  handleMcpAiProfileRequest,
   routeMcpRequest,
   MCP_ORCHESTRATOR_PROTOCOL_VERSION,
   startMcpAuthenticatedStreamableHttp,
@@ -43,6 +53,494 @@ const ADMINISTRATOR: RequestAccessContext = Object.freeze({
   workspaceIds: Object.freeze([]),
   systemAdmin: true,
   credentialRegistryRevision: 0,
+});
+
+/**
+ * Profile管理を認証済みHTTPから既存Catalogへ接続する。
+ *
+ * @responsibility 管理権限、通常CRUD、改訂競合とContent観測不要を共同確認する。
+ * @trace RCM-IT-005
+ * @trace RCM-IT-010
+ * @precondition 管理者とDeveloper Credential、独立Catalogを用意する。
+ * @stimulus 一覧、登録、更新、競合、確認なし削除、確認付き削除と不正入力を送る。
+ * @observation HTTP結果、Store改訂、保存内容、操作回数とListener終了を観測する。
+ * @oracle 管理者だけが操作し、拒否時に改訂を進めず、Content Readerを呼ばない。
+ * @cleanup finallyでListenerとSocketを回収する。
+ * @boundary 実HTTP認証→CROS管理権限→MCP→AI Adapter Catalog。
+ */
+test("Profile管理MCPはContent Grantなしで管理CRUDと改訂競合を保持する", async () => {
+  const baseProfile = DEFAULT_AI_PROFILE_CATALOG.profiles[0];
+  assert.ok(baseProfile);
+  const registry = createMemoryConnectionCredentialRegistry();
+  const admin = issueConnectionCredential(registry, ADMINISTRATOR, {
+    profile: "administrator",
+  });
+  const developer = issueConnectionCredential(registry, ADMINISTRATOR, {
+    profile: "developer",
+  });
+  assert.equal(admin.status, "completed");
+  assert.equal(developer.status, "completed");
+  if (admin.status !== "completed" || developer.status !== "completed") return;
+  const store = createAiProfileCatalogRegistry(DEFAULT_AI_PROFILE_CATALOG);
+  const administration = createAiProfileCatalogAdministration(store);
+  let contentReads = 0;
+  let mutations = 0;
+  let catalogReads = 0;
+  const resolver = createCrosProjectContextMcpResolver({
+    registry,
+    readExposureSnapshot: () => {
+      contentReads += 1;
+      throw new Error("content_must_not_be_read");
+    },
+    aiProfileAdministration: {
+      snapshot: () => {
+        catalogReads += 1;
+        return administration.snapshot();
+      },
+      execute: (mutation) => {
+        mutations += 1;
+        return administration.execute(mutation);
+      },
+    },
+  });
+  const server = await startMcpAuthenticatedStreamableHttp(resolver, {
+    port: 0,
+  });
+  const baseUrl = `http://${server.host}:${server.port}`;
+  const profile = {
+    ...baseProfile,
+    profileId: "PROFILE-900001",
+    family: "mcp-test",
+  };
+  try {
+    for (const [token, expectedCount] of [
+      [admin.token, 4],
+      [developer.token, 0],
+    ] as const) {
+      const handler = await resolver(token);
+      assert.ok(handler);
+      const listed = await handler(
+        {
+          jsonrpc: "2.0",
+          id: 1,
+          method: "tools/list",
+          params: {
+            _meta: {
+              "io.modelcontextprotocol/protocolVersion":
+                MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+              "io.modelcontextprotocol/clientCapabilities": {},
+            },
+          },
+        },
+        new AbortController().signal,
+      );
+      const body = JSON.parse(JSON.stringify(listed));
+      assert.equal(
+        body.result.tools.filter((item: { name: string }) =>
+          Object.values(MCP_AI_PROFILE_TOOLS).includes(
+            item.name as typeof MCP_AI_PROFILE_TOOLS.list,
+          ),
+        ).length,
+        expectedCount,
+      );
+    }
+    assert.equal(catalogReads, 0);
+    const denied = await callCrosTool(
+      baseUrl,
+      developer.token,
+      MCP_AI_PROFILE_TOOLS.list,
+      {},
+    );
+    assert.equal((await denied.json()).error.code, -32601);
+    assert.equal(mutations, 0);
+    assert.equal(catalogReads, 0);
+    const initial = await callCrosTool(
+      baseUrl,
+      admin.token,
+      MCP_AI_PROFILE_TOOLS.list,
+      {},
+    );
+    assert.equal((await initial.json()).result.structuredContent.revision, 1);
+    const created = await callCrosTool(
+      baseUrl,
+      admin.token,
+      MCP_AI_PROFILE_TOOLS.create,
+      { expectedRevision: 1, profile },
+    );
+    assert.equal(
+      (await created.json()).result.structuredContent.reason,
+      "profile_created",
+    );
+    assert.equal(store.snapshot().revision, 2);
+    const conflict = await callCrosTool(
+      baseUrl,
+      admin.token,
+      MCP_AI_PROFILE_TOOLS.update,
+      { expectedRevision: 1, profile: { ...profile, family: "rejected" } },
+    );
+    assert.equal(
+      (await conflict.json()).result.structuredContent.reason,
+      "revision_conflict",
+    );
+    assert.equal(store.snapshot().revision, 2);
+    assert.equal(
+      store
+        .snapshot()
+        .catalog.profiles.find((item) => item.profileId === profile.profileId)
+        ?.family,
+      "mcp-test",
+    );
+    const updated = await callCrosTool(
+      baseUrl,
+      admin.token,
+      MCP_AI_PROFILE_TOOLS.update,
+      { expectedRevision: 2, profile: { ...profile, family: "updated" } },
+    );
+    assert.equal(
+      (await updated.json()).result.structuredContent.reason,
+      "profile_updated",
+    );
+    assert.equal(store.snapshot().revision, 3);
+    assert.equal(
+      store
+        .snapshot()
+        .catalog.profiles.find((item) => item.profileId === profile.profileId)
+        ?.family,
+      "updated",
+    );
+    const unconfirmed = await callCrosTool(
+      baseUrl,
+      admin.token,
+      MCP_AI_PROFILE_TOOLS.delete,
+      { expectedRevision: 3, profileId: profile.profileId, confirmed: false },
+    );
+    assert.equal(
+      (await unconfirmed.json()).result.structuredContent.reason,
+      "profile_delete_confirmation_required",
+    );
+    assert.equal(store.snapshot().revision, 3);
+    const beforeInvalid = mutations;
+    for (const args of [
+      { expectedRevision: -1, profile },
+      { expectedRevision: 2, profile, operation: "delete" },
+      { expectedRevision: 2, profile: { ...profile, command: "forbidden" } },
+    ]) {
+      const invalid = await callCrosTool(
+        baseUrl,
+        admin.token,
+        MCP_AI_PROFILE_TOOLS.create,
+        args,
+      );
+      assert.equal((await invalid.json()).error.code, -32602);
+    }
+    assert.equal(mutations, beforeInvalid);
+    const deleted = await callCrosTool(
+      baseUrl,
+      admin.token,
+      MCP_AI_PROFILE_TOOLS.delete,
+      { expectedRevision: 3, profileId: profile.profileId, confirmed: true },
+    );
+    assert.equal(
+      (await deleted.json()).result.structuredContent.reason,
+      "profile_deleted",
+    );
+    assert.equal(store.snapshot().revision, 4);
+    assert.equal(
+      store
+        .snapshot()
+        .catalog.profiles.some((item) => item.profileId === profile.profileId),
+      false,
+    );
+    assert.equal(contentReads, 0);
+  } finally {
+    assert.equal((await server.close()).cleanupConfirmed, true);
+  }
+});
+
+/**
+ * 保存後の応答故障と取消を保存取消へ読み替えない。
+ *
+ * @responsibility 管理操作一回と再観測を確認し、暗黙再試行を禁止する。
+ * @trace RCM-IT-005
+ * @trace EST-IT-002
+ * @precondition 独立Catalogと応答故障または取消を発生する同期管理操作を用意する。
+ * @stimulus 事前取消、保存後例外、保存後取消を固定Requestへ与える。
+ * @observation 呼出し回数、Store改訂、保存値とProtocol Errorを観測する。
+ * @oracle 事前取消は操作0、保存後故障・取消は変更を保持し内部例外を公開しない。
+ * @cleanup N/A: メモリCatalogだけを使用する。
+ * @boundary MCP Adapter→同期Catalog採用→応答。
+ */
+test("Profile管理MCPは保存後故障と取消で自動再実行しない", async () => {
+  const baseProfile = DEFAULT_AI_PROFILE_CATALOG.profiles[0];
+  assert.ok(baseProfile);
+  const store = createAiProfileCatalogRegistry(DEFAULT_AI_PROFILE_CATALOG);
+  const administration = createAiProfileCatalogAdministration(store);
+  const abort = new AbortController();
+  let calls = 0;
+  const profile = {
+    ...baseProfile,
+    profileId: "PROFILE-900002",
+    family: "fault-test",
+  };
+  const request = {
+    jsonrpc: "2.0",
+    id: 1,
+    method: "tools/call",
+    params: {
+      name: MCP_AI_PROFILE_TOOLS.create,
+      arguments: { expectedRevision: 1, profile },
+      _meta: {
+        "io.modelcontextprotocol/protocolVersion":
+          MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+        "io.modelcontextprotocol/clientCapabilities": {},
+      },
+    },
+  };
+  const port = {
+    snapshot: administration.snapshot,
+    execute: (mutation: Parameters<typeof administration.execute>[0]) => {
+      calls += 1;
+      administration.execute(mutation);
+      throw new Error("private_error_secret");
+    },
+  };
+  abort.abort();
+  const cancelled = await handleMcpAiProfileRequest(
+    request,
+    port,
+    abort.signal,
+  );
+  assert.ok("error" in cancelled);
+  assert.equal(cancelled.error.code, -32800);
+  assert.equal(calls, 0);
+  const failure = await handleMcpAiProfileRequest(
+    request,
+    port,
+    new AbortController().signal,
+  );
+  assert.ok("error" in failure);
+  assert.equal(failure.error.code, -32603);
+  assert.doesNotMatch(JSON.stringify(failure), /private_error_secret/u);
+  assert.equal(calls, 1);
+  assert.equal(store.snapshot().revision, 2);
+  assert.equal(
+    store
+      .snapshot()
+      .catalog.profiles.some((item) => item.profileId === profile.profileId),
+    true,
+  );
+  const afterAdoption = new AbortController();
+  const final = await handleMcpAiProfileRequest(
+    {
+      ...request,
+      params: {
+        ...request.params,
+        name: MCP_AI_PROFILE_TOOLS.update,
+        arguments: {
+          expectedRevision: 2,
+          profile: { ...profile, family: "cancelled-after-save" },
+        },
+      },
+    },
+    {
+      snapshot: administration.snapshot,
+      execute: (mutation) => {
+        calls += 1;
+        const result = administration.execute(mutation);
+        afterAdoption.abort();
+        return result;
+      },
+    },
+    afterAdoption.signal,
+  );
+  assert.ok("error" in final);
+  assert.equal(final.error.code, -32800);
+  assert.equal(calls, 2);
+  assert.equal(store.snapshot().revision, 3);
+  assert.equal(
+    store
+      .snapshot()
+      .catalog.profiles.find((item) => item.profileId === profile.profileId)
+      ?.family,
+    "cancelled-after-save",
+  );
+});
+
+/**
+ * Profile管理の矛盾した成功・拒否を公開しない。
+ *
+ * @responsibility 操作・改訂・対象Profileの相関と所有結果を反証する。
+ * @trace RCM-IT-005
+ * @trace EST-IT-002
+ * @precondition 正常Catalogと矛盾結果を返す合成管理操作を用意する。
+ * @stimulus 対象欠落、旧値、削除後残存、誤改訂、誤拒否理由と実行可能Propertyを返す。
+ * @observation Error、操作回数、hook回数と返却後の値を観測する。
+ * @oracle 矛盾は内部故障、execute一回、hook0、正常応答は元値変更を受けない。
+ * @cleanup N/A: 局所値だけを使用する。
+ * @boundary MCP→Catalog操作結果→公開Snapshot。
+ */
+test("Profile管理MCPは結果相関の矛盾と実行可能Propertyを拒否する", async () => {
+  const baseProfile = DEFAULT_AI_PROFILE_CATALOG.profiles[0];
+  assert.ok(baseProfile);
+  const profile = {
+    ...baseProfile,
+    profileId: "PROFILE-900003",
+    family: "owned-result",
+  };
+  const validCatalog = structuredClone({
+    ...DEFAULT_AI_PROFILE_CATALOG,
+    profiles: [...DEFAULT_AI_PROFILE_CATALOG.profiles, profile],
+  });
+  const valid = {
+    status: "completed",
+    reason: "profile_created",
+    snapshot: { revision: 2, catalog: validCatalog },
+  };
+  let hooks = 0;
+  const getterResult = { ...valid };
+  Object.defineProperty(getterResult, "snapshot", {
+    enumerable: true,
+    get: () => {
+      hooks += 1;
+      return valid.snapshot;
+    },
+  });
+  const proxyCatalog = new Proxy(validCatalog, {
+    ownKeys: () => {
+      hooks += 1;
+      return Reflect.ownKeys(validCatalog);
+    },
+  });
+  const cases = [
+    [
+      MCP_AI_PROFILE_TOOLS.create,
+      { expectedRevision: 1, profile },
+      {
+        ...valid,
+        snapshot: { revision: 2, catalog: DEFAULT_AI_PROFILE_CATALOG },
+      },
+    ],
+    [
+      MCP_AI_PROFILE_TOOLS.create,
+      { expectedRevision: 1, profile },
+      { ...valid, snapshot: { revision: 1, catalog: validCatalog } },
+    ],
+    [
+      MCP_AI_PROFILE_TOOLS.update,
+      { expectedRevision: 1, profile: { ...baseProfile, family: "changed" } },
+      {
+        status: "completed",
+        reason: "profile_updated",
+        snapshot: { revision: 2, catalog: DEFAULT_AI_PROFILE_CATALOG },
+      },
+    ],
+    [
+      MCP_AI_PROFILE_TOOLS.delete,
+      {
+        expectedRevision: 1,
+        profileId: baseProfile.profileId,
+        confirmed: true,
+      },
+      {
+        status: "completed",
+        reason: "profile_deleted",
+        snapshot: { revision: 2, catalog: DEFAULT_AI_PROFILE_CATALOG },
+      },
+    ],
+    [
+      MCP_AI_PROFILE_TOOLS.create,
+      { expectedRevision: 1, profile },
+      {
+        ...valid,
+        status: "rejected",
+        reason: "profile_delete_confirmation_required",
+        snapshot: { revision: 1, catalog: validCatalog },
+      },
+    ],
+    [
+      MCP_AI_PROFILE_TOOLS.create,
+      { expectedRevision: 1, profile },
+      {
+        ...valid,
+        status: "rejected",
+        reason: "profile_already_exists",
+        snapshot: { revision: 1, catalog: DEFAULT_AI_PROFILE_CATALOG },
+      },
+    ],
+    [
+      MCP_AI_PROFILE_TOOLS.create,
+      { expectedRevision: 1, profile },
+      getterResult,
+    ],
+    [
+      MCP_AI_PROFILE_TOOLS.create,
+      { expectedRevision: 1, profile },
+      { ...valid, snapshot: { revision: 2, catalog: proxyCatalog } },
+    ],
+  ] as const;
+  for (const [name, args, raw] of cases) {
+    let calls = 0;
+    const reply = await handleMcpAiProfileRequest(
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: {
+          name,
+          arguments: args,
+          _meta: {
+            "io.modelcontextprotocol/protocolVersion":
+              MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+            "io.modelcontextprotocol/clientCapabilities": {},
+          },
+        },
+      },
+      {
+        snapshot: () => {
+          throw new Error("unexpected_read");
+        },
+        execute: () => {
+          calls += 1;
+          return raw as unknown as AiProfileCatalogMutationResult;
+        },
+      },
+      new AbortController().signal,
+    );
+    assert.ok("error" in reply);
+    assert.equal(reply.error.code, -32603);
+    assert.equal(calls, 1);
+  }
+  assert.equal(hooks, 0);
+  const owned = await handleMcpAiProfileRequest(
+    {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: {
+        name: MCP_AI_PROFILE_TOOLS.create,
+        arguments: { expectedRevision: 1, profile },
+        _meta: {
+          "io.modelcontextprotocol/protocolVersion":
+            MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+          "io.modelcontextprotocol/clientCapabilities": {},
+        },
+      },
+    },
+    {
+      snapshot: () => {
+        throw new Error("unexpected_read");
+      },
+      execute: () => valid as AiProfileCatalogMutationResult,
+    },
+    new AbortController().signal,
+  );
+  assert.ok("result" in owned);
+  const before = JSON.stringify(owned);
+  const originalRoles = validCatalog.profiles.at(-1)?.selectionRoles;
+  assert.ok(originalRoles);
+  (originalRoles as string[]).push("executor");
+  validCatalog.profiles.pop();
+  assert.equal(JSON.stringify(owned), before);
 });
 
 /**
@@ -516,12 +1014,14 @@ function context(repositoryId: string, repositoryRole: string) {
  * @trace PPR-IT-002
  * @trace RFD-IT-013
  * @trace EST-IT-002
+ * @trace RCM-IT-005
+ * @trace RCM-IT-010
  * @precondition 対象契約を再現できる固定入力と依存を用意する。
  * @stimulus callCrosToolの対象操作を実行する。
  * @observation 返却値、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionがSummaryの期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
- * @boundary PPR-IT-002／RFD-IT-013／EST-IT-002=Direct Boundary: HTTPからProject ContextとRuntime活動MCPを搬送する。
+ * @boundary PPR-IT-002／RFD-IT-013／EST-IT-002／RCM-IT-005／RCM-IT-010=Direct Boundary: HTTPからProject Context、Runtime活動とProfile管理MCPを搬送する。
  */
 async function callCrosTool(
   baseUrl: string,

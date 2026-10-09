@@ -262,6 +262,16 @@ Related:
 
 ## 10. 段階1〜5の全体照合と是正対象 — 2026-10-09
 
+### Profile管理のMCP接続 — 着手前照合
+
+基準は`b5733c6e`。既存CROS RESTの管理権限判定と操作別Mutation検査をCROS `profile/administration.ts`へ移し、AI Adapterの既存Catalog管理・保存・改訂競合は再利用する。MCPの一覧・作成・更新・削除を同時登録し、現在systemAdminでない主体へ管理ToolとCatalogを開示しない。管理RequestはContent Exposureを読まないよう、既存ResolverのContent Scopeを必要な操作で一回だけ解決する。既存Profileの構造ValidatorはAI Adapterから再利用できる入口にし、MCPでRole／Model語彙を別定義しない。未知入力拒否、非管理dispatch零回、改訂競合、未確認削除、保存後故障・取消の非再送を確認する。同期採用済み変更は応答取消で巻き戻さない。RESTと本番Launcher／Workbenchの代替接続・撤去は後続であり、新Store・DTO・Lock・Recoveryを作らない。関連Package回帰と実装・品質の独立レビューを行う。実Provider・Docker・署名はこの接続に不要で実行しない。
+
+Profile四ToolとCROSの認可接続を実装し、管理者／Developerの一覧全件対照、非管理Catalog読取り0、Content読取り0、正常CRUD、期待改訂競合、未確認削除、未知入力、事前取消と採用後故障／取消の非再Mutationを確認した。初回試験はメモリRegistryの初期改訂1を0と誤認して失敗したため試験入力を訂正した。AI Adapter既存試験は新公開SymbolとDomain共通Validator依存のfixture追従漏れ2件を検出し、公開集合とfixtureの検証済み依存先だけを同期した。旧Storeの初期改訂0やRuntime契約は変更していない。
+
+独立レビューは結果の相関不足Major1と、Helper Trace・非管理読取りの否定観測・Resolver HeaderのMinor3を返した。全結果と是正方針を両観点へ統合し、AI Adapterの既存Profile管理責務で操作／理由／改訂／対象Profileを共同検査する。成功は期待改訂+1とexact対象反映または削除後不存在、拒否は操作・理由固有の存在条件と改訂を満たす場合だけ公開する。Proxy／accessor非実行と所有済みCatalogを維持し、追加snapshot／executeは呼ばない。矛盾した成功・拒否、元値の後続変更を反証した。MCP全56件、AI Adapter全29件、CROS全33件と書式・型・LintはPass、Fail／Skip／取消0。Workbench全33件とBuildは相関是正前候補でPassしており、是正後の利用側回帰と独立再レビューは未完了である。本番Launcher・耐久Store Remote接続・失効全母集合・入口比較・旧REST撤去はこの局所結果で閉じない。
+
+是正後Workbench全33件、Build・書式・型・LintもPass、Fail／Skip／取消0で終了した。実装再レビュー指摘0と品質Minor1（拒否反例二つの原因混在）を統合し、二Snapshotの改訂だけを一致させ、操作不一致と対象不存在を独立して反証した。Source・正常Case・QA IDは不変。最終静的確認、局所3件とMCP全56件はPass、両観点の限定再確認も指摘0。Profile管理のMCP Adapter接続を限定完了とする。CROS／MCPの公開Launcher構成、WorkbenchのRemote切替、Credential非秘密管理、設定分離と旧REST／Shared Host撤去は未完了である。巨大実行ログは保存せず、再実行可能なPackage試験と対象差分へ根拠を集約する。
+
 ### Runtime活動の共通OwnerとMCP接続 — 着手前照合
 
 次の固定候補は、既存HTTPの活動検査をCROS `activity/validate.ts`へ、許可Project選択・Reader呼出し・結果検査を`activity/read.ts`へ移す。新MCP `crdd.get_runtime_activity`は設計済みprojectId／cursor／limit契約だけを搬送し、一覧とRoutingを同時接続する。現在Requestで解決した許可集合だけをReaderへ渡し、非許可はReader零回、Reader不在・故障・不正結果を空成功にしない。既存Readerは取消Signalを持たないためPromise競争を追加せず、取消前は呼ばず、開始後はReader完了をjoinしてから取消応答へ戻す。Reader自体の中断・実Provider取消を保証しない。新State／Frameworkを作らず、旧REST・本番Launcher・Workbench切替は代替接続完了まで維持する。Source境界の既存回帰、新Toolの入力／結果／非開示／待機取消反例と独立レビューで確認する。

@@ -24,10 +24,13 @@ import {
   type AiProfileCatalogMutation,
   type AiProfileCatalogMutationResult,
   type AiProfileCatalogSnapshot,
-  type AiProfileDefinition,
 } from "../../../ai-adapter/src/index.ts";
 import { parseCrosRuntimeActivityObservation } from "../activity/validate.ts";
 import { readCrosRuntimeActivity } from "../activity/read.ts";
+import {
+  resolveCrosAiProfileAdministration,
+  parseCrosAiProfileMutation,
+} from "../profile/administration.ts";
 import type { CrosExposureSnapshot } from "../access/types.ts";
 import type {
   CrosRemoteRuntimeActivityObservation,
@@ -149,10 +152,11 @@ export async function startCrosRemoteTransport(input: {
         return;
       }
       if (requestPath === AI_PROFILES_PATH) {
-        if (
-          input.aiProfileAdministration === undefined ||
-          !authentication.access.systemAdmin
-        ) {
+        const administration = resolveCrosAiProfileAdministration(
+          authentication.access,
+          input.aiProfileAdministration,
+        );
+        if (administration === null) {
           sendJson(response, method, 403, {
             contract: "cros/remote-transport/v1",
             status: "blocked",
@@ -164,12 +168,12 @@ export async function startCrosRemoteTransport(input: {
           sendJson(response, method, 200, {
             contract: "cros/remote-transport/v1",
             status: "available",
-            snapshot: input.aiProfileAdministration.snapshot(),
+            snapshot: administration.snapshot(),
           });
           return;
         }
         const mutation = await readAiProfileMutation(request);
-        const result = input.aiProfileAdministration.execute(mutation);
+        const result = administration.execute(mutation);
         sendJson(response, method, 200, {
           contract: "cros/remote-transport/v1",
           status: result.status,
@@ -321,40 +325,9 @@ async function readAiProfileMutation(
     chunks.push(buffer);
   }
   const value: unknown = JSON.parse(Buffer.concat(chunks).toString("utf8"));
-  if (typeof value !== "object" || value === null || Array.isArray(value))
-    throw new Error("cros_ai_profile_mutation_invalid");
-  const record = value as Record<string, unknown>;
-  const keys = Object.keys(record).sort();
-  if (
-    record.operation === "delete" &&
-    JSON.stringify(keys) ===
-      JSON.stringify(
-        ["confirmed", "expectedRevision", "operation", "profileId"].sort(),
-      ) &&
-    Number.isInteger(record.expectedRevision) &&
-    typeof record.profileId === "string" &&
-    typeof record.confirmed === "boolean"
-  )
-    return Object.freeze({
-      operation: "delete",
-      expectedRevision: record.expectedRevision as number,
-      profileId: record.profileId,
-      confirmed: record.confirmed,
-    });
-  if (
-    (record.operation === "create" || record.operation === "update") &&
-    JSON.stringify(keys) ===
-      JSON.stringify(["expectedRevision", "operation", "profile"].sort()) &&
-    Number.isInteger(record.expectedRevision) &&
-    typeof record.profile === "object" &&
-    record.profile !== null
-  )
-    return Object.freeze({
-      operation: record.operation,
-      expectedRevision: record.expectedRevision as number,
-      profile: record.profile as AiProfileDefinition,
-    });
-  throw new Error("cros_ai_profile_mutation_invalid");
+  const mutation = parseCrosAiProfileMutation(value);
+  if (mutation === null) throw new Error("cros_ai_profile_mutation_invalid");
+  return mutation;
 }
 
 /**

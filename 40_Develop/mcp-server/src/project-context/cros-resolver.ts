@@ -15,6 +15,7 @@ import {
   authenticateConnectionCredential,
   createPortfolioProjection,
   readCrosRuntimeActivity,
+  resolveCrosAiProfileAdministration,
   resolveCrosRequestScope,
   resolveRepository,
   type ConnectionCredentialRegistry,
@@ -29,6 +30,7 @@ import type {
 } from "../../../domain-model/src/index.ts";
 
 import { routeMcpRequest } from "../request/route.ts";
+import type { AiProfileCatalogAdministration } from "../../../ai-adapter/src/index.ts";
 import type { McpAuthenticatedRequestHandlerResolver } from "../transport/types.ts";
 
 /**
@@ -128,18 +130,18 @@ function federateTopicMeetingRelations(
 /**
  * CROS Project Context MCP Resolverを作成する。
  *
- * @responsibility 有効Credentialだけを、許可済みPortfolioへ固定したMCP Handlerへ変換する。
+ * @responsibility 現在CredentialからContent遅延解決と構成済みProfile管理を権限別Handlerへ接続する。
  * @trace ARCH-000005
  * @trace ARCH-000012
  * @trace ARCH-000013
- * @input Credential RegistryとExposure Snapshot Readerを受け取る。
+ * @input Credential Registry、Content Snapshot Readerおよび構成済み活動・Profile管理を受け取る。
  * @returns Request単位の認証済みHandler Resolverを返す。
  * @precondition Snapshot ReaderはExposureとRepositoryを同じ観測単位で返す。
- * @postcondition 認証成功時のHandlerは許可済みProject Context Toolだけを公開する。
- * @effect RegistryとSnapshotを一回ずつ読取る。
+ * @postcondition Handlerは許可Content操作と管理権限で選択したProfile管理だけを公開する。
+ * @effect Registryを一回読み、Content操作時だけExposure Snapshotを一回読む。管理操作は既存Catalog Ownerへ委譲する。
  * @failure 無効・失効Credentialはnullで非開示拒否する。
  * @invariant systemAdminだけからContent Accessを生成しない。
- * @boundary Bearer Credential→Workspace Grant→Portfolio→MCP。
+ * @boundary Bearer Credential→Content Grantまたは管理権限→MCP。
  * @security TokenをSession、Portfolio、応答またはErrorへ含めない。
  * @concurrency Request間でSessionまたはPortfolioを共有しない。
  */
@@ -147,6 +149,7 @@ export function createCrosProjectContextMcpResolver(input: {
   registry: ConnectionCredentialRegistry;
   readExposureSnapshot(): CrosExposureSnapshot;
   runtimeActivityReader?: CrosRuntimeActivityReader;
+  aiProfileAdministration?: AiProfileCatalogAdministration;
   resolveTopicMeetingAccess?(
     repository: CrosRepository,
   ): TopicMeetingAccess | null;
@@ -157,35 +160,54 @@ export function createCrosProjectContextMcpResolver(input: {
       token,
     );
     if (authentication.status !== "available") return null;
-    const scope = resolveCrosRequestScope(authentication.access, () =>
-      input.readExposureSnapshot(),
+    let scope: ReturnType<typeof resolveCrosRequestScope> | undefined;
+    /**
+     * Content操作が必要なときだけ現在Scopeを一回解決する。
+     *
+     * @responsibility Profile管理へContent観測を要求せず、Content操作には同一Snapshotを渡す。
+     * @trace ARCH-000005
+     * @trace ARCH-000013
+     * @input N/A: 認証済みRequestの構成を使用する。
+     * @returns 当該Requestの現在Scope。
+     * @precondition Credential検証が完了している。
+     * @postcondition Readerは一回だけ呼ばれる。
+     * @effect 初回だけExposure Snapshotを読む。
+     * @failure Scope解決不能は例外で内部故障へ搬送する。
+     * @invariant 管理能力からContentを生成しない。
+     * @boundary CROS認証とContent解決の境界。
+     * @security 未許可RepositoryをConsumerへ渡さない。
+     * @concurrency Request内だけで結果を保持する。
+     */
+    const contentScope = () => {
+      if (scope === undefined)
+        scope = resolveCrosRequestScope(authentication.access, () =>
+          input.readExposureSnapshot(),
+        );
+      if (scope === null) throw new Error("cros_request_scope_unavailable");
+      return scope;
+    };
+    const administration = resolveCrosAiProfileAdministration(
+      authentication.access,
+      input.aiProfileAdministration,
     );
-    if (scope === null) return null;
-    const { snapshot, session, authorizedRepositories } = scope;
-    const portfolio = createPortfolioProjection(authorizedRepositories);
-    const authorizedTopicMeetingAccess =
-      input.resolveTopicMeetingAccess === undefined
-        ? Object.freeze([])
-        : Object.freeze(
-            authorizedRepositories.flatMap((repository) => {
-              const application = input.resolveTopicMeetingAccess?.(repository);
-              return application === null || application === undefined
-                ? []
-                : [Object.freeze({ repository, application })];
-            }),
-          );
     return (request, signal) =>
       routeMcpRequest(
         request,
         {
-          projectContext: { readPortfolio: async () => portfolio },
+          projectContext: {
+            readPortfolio: async () =>
+              createPortfolioProjection(contentScope().authorizedRepositories),
+          },
+          ...(administration === null
+            ? {}
+            : { aiProfileAdministration: administration }),
           ...(input.runtimeActivityReader === undefined
             ? {}
             : {
                 runtimeActivity: {
                   read: (query) =>
                     readCrosRuntimeActivity(
-                      authorizedRepositories,
+                      contentScope().authorizedRepositories,
                       query,
                       input.runtimeActivityReader,
                     ),
@@ -195,6 +217,16 @@ export function createCrosProjectContextMcpResolver(input: {
             ? {}
             : {
                 topicMeetingRepositoryResolver: (repositoryId: string) => {
+                  const { snapshot, session, authorizedRepositories } =
+                    contentScope();
+                  const authorizedTopicMeetingAccess =
+                    authorizedRepositories.flatMap((repository) => {
+                      const application =
+                        input.resolveTopicMeetingAccess?.(repository);
+                      return application == null
+                        ? []
+                        : [Object.freeze({ repository, application })];
+                    });
                   const resolved = resolveRepository(
                     session,
                     repositoryId,

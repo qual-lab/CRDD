@@ -10,8 +10,16 @@
  */
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { copyFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import {
+  copyFile,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import test from "node:test";
 
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
@@ -44,9 +52,25 @@ test("同梱JSONの欠落・構文不正・Schema不正はModule起動を停止�
   const sourceRoot = path.resolve(import.meta.dirname, "../../src/catalog");
   const jsonPath = path.join(fixture, "default-ai-profile-catalog.json");
   try {
-    await copyFile(
-      path.join(sourceRoot, "resolve.ts"),
+    const source = await readFile(path.join(sourceRoot, "resolve.ts"), "utf8");
+    const dependency = '"../../../domain-model/src/index.ts"';
+    assert.equal(source.split(dependency).length, 2);
+    await writeFile(
       path.join(fixture, "catalog.ts"),
+      source.replace(
+        dependency,
+        JSON.stringify(
+          pathToFileURL(
+            path.join(
+              repositoryRoot,
+              "40_Develop",
+              "domain-model",
+              "src",
+              "index.ts",
+            ),
+          ).href,
+        ),
+      ),
     );
     await writeFile(path.join(fixture, "package.json"), '{"type":"module"}');
     for (const scenario of ["normal", "missing", "syntax", "schema"] as const) {

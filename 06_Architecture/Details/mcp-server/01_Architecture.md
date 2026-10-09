@@ -167,6 +167,8 @@ Repository単体MCPでは、Topic／Meetingの一覧、取得、登録、編集�
 
 ### 単体／CROSの明示選択とRepository一覧
 
+AI Profile管理は`crdd.list_ai_profiles`、`crdd.create_ai_profile`、`crdd.update_ai_profile`、`crdd.delete_ai_profile`の四ToolをCROS管理権限から接続する。非管理Requestでは一覧にも管理Toolを含めず、呼出しは未構成と同じ拒否へ閉じる。入力と応答は既存AI Adapter Catalog契約を使い、Content Snapshotを読むための権限とは分離する。操作は一回だけ委譲し、採用後の応答失敗・取消でも巻戻しや再Mutationを行わず、現在Snapshotを再観測する。公開LauncherへのStore構成とWorkbench利用側は別途接続確認を必要とする。
+
 人間が2026-10-07に確認した利用モデルでは、`--cros`なしは起動Repository一つ、`--cros`ありはCROSの登録・公開・Credentialで許可したRepositoryを扱う。設定Fileの存在や初期化済み状態からModeを自動切替しない。CROS設定不正時に単体へ戻さず、単体起動で兄弟Repositoryを探索しない。
 
 | 操作・状態 | 単体Mode | CROS Mode |

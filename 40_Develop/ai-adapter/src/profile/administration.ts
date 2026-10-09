@@ -16,6 +16,99 @@ import type {
   AiProfileCatalogStore,
   AiProfileDefinition,
 } from "../catalog/types.ts";
+import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
+import {
+  validateAiProfileCatalog,
+  validateAiProfileDefinition,
+} from "../catalog/resolve.ts";
+
+/**
+ * Profile操作の結果と保存後Snapshotを共同検査する。
+ *
+ * @responsibility 操作・理由・改訂・対象値の矛盾を公開成功へ変換しない。
+ * @trace ARCH-000010
+ * @input mutation: 実行した操作、raw: 一回の管理結果。
+ * @returns 所有済み結果、相関不正ならnull。
+ * @precondition mutationは閉じた入力検査を通過している。
+ * @postcondition 成功は改訂増加と対象反映、拒否は理由固有の状態を満たす。
+ * @effect N/A: 結果だけを検査しStoreを再読取りしない。
+ * @failure 不正field、実行可能Property、矛盾した理由・改訂・対象はnull。
+ * @invariant 保存の巻戻しと暗黙再Mutationを行わない。
+ * @boundary Catalog管理Ownerと利用側の公開結果。
+ * @security Proxy／accessorを評価せずCatalogを所有値へ固定する。
+ * @concurrency 同期取得した一回の結果だけを使用する。
+ */
+export function validateAiProfileMutationResult(
+  mutation: AiProfileCatalogMutation,
+  raw: unknown,
+): AiProfileCatalogMutationResult | null {
+  const record = snapshotPlainRecord(
+    raw,
+    new Set(["status", "reason", "snapshot"]),
+  );
+  const observed = snapshotPlainRecord(
+    record?.snapshot,
+    new Set(["revision", "catalog"]),
+  );
+  if (
+    !record ||
+    !observed ||
+    !Number.isSafeInteger(observed.revision) ||
+    Number(observed.revision) < 0
+  )
+    return null;
+  const catalog = validateAiProfileCatalog(observed.catalog);
+  if (!catalog) return null;
+  const revision = Number(observed.revision);
+  const id =
+    mutation.operation === "delete"
+      ? mutation.profileId
+      : mutation.profile.profileId;
+  const target = catalog.profiles.find((item) => item.profileId === id);
+  if (record.status === "completed") {
+    const reason =
+      mutation.operation === "create"
+        ? "profile_created"
+        : mutation.operation === "update"
+          ? "profile_updated"
+          : "profile_deleted";
+    if (record.reason !== reason || revision !== mutation.expectedRevision + 1)
+      return null;
+    if (mutation.operation === "delete") {
+      if (!mutation.confirmed || target) return null;
+    } else {
+      const profile = validateAiProfileDefinition(mutation.profile);
+      if (
+        !profile ||
+        !target ||
+        JSON.stringify(profile) !== JSON.stringify(target)
+      )
+        return null;
+    }
+  } else if (record.status === "rejected") {
+    if (record.reason === "revision_conflict") {
+      if (revision === mutation.expectedRevision) return null;
+    } else {
+      if (revision !== mutation.expectedRevision) return null;
+      if (record.reason === "profile_already_exists") {
+        if (mutation.operation !== "create" || !target) return null;
+      } else if (record.reason === "profile_not_found") {
+        if (mutation.operation === "create" || target) return null;
+      } else if (record.reason === "profile_delete_confirmation_required") {
+        if (mutation.operation !== "delete" || mutation.confirmed || !target)
+          return null;
+      } else if (record.reason === "catalog_invalid") {
+        if (mutation.operation === "create" ? !!target : !target) return null;
+        if (mutation.operation === "delete" && !mutation.confirmed) return null;
+      } else return null;
+    }
+  } else return null;
+  return Object.freeze({
+    status: record.status as "completed" | "rejected",
+    reason: record.reason as AiProfileCatalogMutationResult["reason"],
+    snapshot: Object.freeze({ revision, catalog }),
+  });
+}
 
 /**
  * Owner別Catalog StoreへProfile限定の管理操作を接続する。

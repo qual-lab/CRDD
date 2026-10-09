@@ -22,9 +22,56 @@ import {
   resolveAiProfile,
   resolveAiProfileById,
   validateAiProfileCatalog,
+  validateAiProfileDefinition,
 } from "../../../src/catalog/resolve.ts";
 import { createAiProfileCatalogAdministration } from "../../../src/profile/administration.ts";
 import { createAiProfileCatalogRegistry } from "../../../src/profile/registry.ts";
+
+/**
+ * Profile構造の取得で実行可能なPropertyを評価しない。
+ *
+ * @responsibility 共通Validatorが未信頼Profileを所有済み値へ固定することを確認する。
+ * @trace RCM-UT-002
+ * @precondition 既定Profileの独立複製とProxy／accessorを用意する。
+ * @stimulus 正常、Proxy、accessor、未知fieldを検査し取得後に元配列を変更する。
+ * @observation hook回数、検査結果と所有済み配列を観測する。
+ * @oracle 不正値はnull、hook0、正常値は元入力の変更を受けない。
+ * @cleanup N/A: 局所値だけを使用する。
+ * @boundary 未信頼ProfileとAI Adapterの構造契約。
+ */
+test("Profile構造検査はProxyとaccessorを実行せず値を所有する", () => {
+  const profile = structuredClone(DEFAULT_AI_PROFILE_CATALOG.profiles[0]);
+  assert.ok(profile);
+  let hooks = 0;
+  const proxy = new Proxy(profile, {
+    ownKeys: () => {
+      hooks += 1;
+      return Reflect.ownKeys(profile);
+    },
+  });
+  assert.equal(validateAiProfileDefinition(proxy), null);
+  const accessor = { ...profile };
+  Object.defineProperty(accessor, "family", {
+    enumerable: true,
+    get: () => {
+      hooks += 1;
+      return "executed";
+    },
+  });
+  assert.equal(validateAiProfileDefinition(accessor), null);
+  assert.equal(
+    validateAiProfileDefinition({ ...profile, command: "forbidden" }),
+    null,
+  );
+  assert.equal(hooks, 0);
+  const owned = validateAiProfileDefinition(profile);
+  assert.ok(owned);
+  const roles = [...owned.selectionRoles];
+  (profile.selectionRoles as string[]).push("later-change");
+  assert.deepEqual(owned.selectionRoles, roles);
+  assert.equal(Object.isFrozen(owned), true);
+  assert.equal(Object.isFrozen(owned.selectionRoles), true);
+});
 
 /**
  * 同梱JSONを検証済みの不変Catalogとして公開する。
@@ -103,6 +150,8 @@ test("同梱JSONの全値を保持して深い不変Catalogを公開する", () 
     "resolveRuntimeOwnedProviderModelProfileFromCatalog",
     "selectProviderFamilyPreference",
     "validateAiProfileCatalog",
+    "validateAiProfileDefinition",
+    "validateAiProfileMutationResult",
   ]);
   assert.deepEqual(DEFAULT_AI_PROFILE_CATALOG, defaultCatalogData);
   assert.notEqual(DEFAULT_AI_PROFILE_CATALOG, defaultCatalogData);
