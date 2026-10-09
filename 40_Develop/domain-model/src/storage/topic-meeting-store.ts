@@ -121,7 +121,7 @@ function walkMarkdown(root: string, current = root): string[] {
  * @precondition Rootは実在Directoryで、現在の書込み許可Repositoryである。
  * @postcondition 書込み成功時は完全検証済みMarkdownだけがCanonical Pathへ存在する。
  * @effect create、update、deleteだけがRepository Filesystemを一回変更する。
- * @failure Identity、Revision、Relationまたは確認不足ではEffect 0でblockedを返す。
+ * @failure Identity、Revision、Relationまたは確認不足ではEffect 0でblockedを返す。保存・cleanupの例外は失敗段階を保持し、実保存後もEffect 0へ変換しない。
  * @invariant Topicは`22_Topics/TOPIC-xxxxxx/topic.md`、Meetingは`23_Meetings/MTG-xxxxxx/meeting.md`だけを使う。
  * @boundary 検証済みRepository RootとTopic／Meeting Canonical Pathの境界。
  * @security Root外Path、Symlink Recordおよび未確認削除を拒否する。
@@ -196,12 +196,31 @@ export function createTopicMeetingRepository(
         return null;
       throw error;
     }
+    let outcome: { failed: false; value: T } | { failed: true; error: unknown };
     try {
-      return operation();
-    } finally {
-      closeSync(descriptor);
-      unlinkSync(lockPath);
+      outcome = { failed: false, value: operation() };
+    } catch (error) {
+      outcome = { failed: true, error };
     }
+    const cleanupFailures: unknown[] = [];
+    try {
+      closeSync(descriptor);
+    } catch (error) {
+      cleanupFailures.push(error);
+    }
+    try {
+      unlinkSync(lockPath);
+    } catch (error) {
+      cleanupFailures.push(error);
+    }
+    if (cleanupFailures.length > 0)
+      throw new AggregateError(
+        cleanupFailures,
+        "project_operation_record_lock_cleanup_failed",
+        outcome.failed ? { cause: outcome.error } : undefined,
+      );
+    if (outcome.failed) throw outcome.error;
+    return outcome.value;
   };
 
   const blocked = (
@@ -232,7 +251,21 @@ export function createTopicMeetingRepository(
     try {
       renameSync(temporary, target.file);
     } catch (error) {
-      if (existsSync(temporary)) unlinkSync(temporary);
+      try {
+        unlinkSync(temporary);
+      } catch (cleanupError) {
+        if (
+          typeof cleanupError !== "object" ||
+          cleanupError === null ||
+          !("code" in cleanupError) ||
+          cleanupError.code !== "ENOENT"
+        )
+          throw new AggregateError(
+            [cleanupError],
+            "project_operation_record_publish_cleanup_failed",
+            { cause: error },
+          );
+      }
       throw error;
     }
   };

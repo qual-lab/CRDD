@@ -1192,11 +1192,11 @@
       "path": "40_Develop/domain-model/tests/integration/topic-meeting-repository.contract.test.ts",
       "level": "integration",
       "kind": "contract",
-      "semanticTags": ["project", "topic", "meeting", "crud", "repository", "revision", "deletion"],
+      "semanticTags": ["project", "topic", "meeting", "crud", "repository", "revision", "deletion", "primary-cleanup-failure"],
       "environment": "local_component_boundary",
       "externalProviderEffect": false,
       "humanInput": false,
-      "postconditions": ["canonical_path_exact", "revision_conflict_effect_zero", "related_delete_effect_zero", "confirmed_target_only_delete", "temporary_file_absent"],
+      "postconditions": ["canonical_path_exact", "revision_conflict_effect_zero", "related_delete_effect_zero", "confirmed_target_only_delete", "primary_failure_identity_preserved", "cleanup_failures_ordered", "published_revision_not_relabelled_no_effect", "owned_fixture_absent"],
       "mandatoryByDefault": true
     },
     {

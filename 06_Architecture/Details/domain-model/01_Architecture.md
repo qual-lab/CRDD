@@ -307,6 +307,8 @@ Source本文を読むだけの投影は書込み排他・作業Directoryを作�
 
 Topic昇格とMeeting Outcome処置では、Markdownの純粋な変換不正だけを保存前の入力拒否へ変換する。保存契約の呼出し以降に発生した例外は入力不正や`filesystemEffectCount: 0`へ変換せず、同じ一次例外を利用側へ渡す。MCP／Workbenchも入力拒否と内部の保存失敗を区別し、秘密値や内部Pathを返さない。例外の伝播だけを保存・cleanup全体の成立根拠とはしない。
 
+Topic／Meeting保存では一次処理とcleanupを別に評価する。一次失敗だけなら同じ例外をthrowし、cleanupも失敗した場合は標準`AggregateError`の`cause`に一次例外、`errors`に試行順のcleanup例外を保持する。例外値が`undefined`でも失敗の有無を別に保持する。保存成功後のcleanup失敗はcauseに架空の一次失敗を作らず例外を返し、実保存をrollback・Effect 0へ読み替えない。Lock closeとunlinkは独立に試み、rename失敗後はexact短命Fileのunlinkを試みてENOENTだけを不存在として扱う。試行をcleanup成立と同一視せず、入れ子の失敗はcause chainを保持する。既存同期Lock形式と正常CRUD・改訂・Relationは不変で、新しいRecoveryやKernel Lock Frameworkをこの局所是正へ追加しない。親link、読戻し、write自体の部分失敗、耐久性と実Process競合は別の未完了保証として残る。
+
 ### 9.2. 移管確認と反証
 
 - 旧三Packageの全公開Symbol、利用側、worker起動URL、固定fixture、Schema・配布閉包を新責務へ対応する。Rootの文字置換だけで接続済みとしない。

@@ -238,7 +238,7 @@ Related:
 
 | 対象 | 不足と最小処置 | 保持する条件・確認方法 | 現在状態 |
 |---|---|---|---|
-| Domain ModelのTopic／Meeting保存 | rename後のLock解放失敗を上位の入力不正・Effect 0へ丸める経路を除く。保存Ownerから一次失敗とcleanup結果を分離して搬送する | 正常CRUD・Revision・Relationは不変。rename後close／unlink故障と実ファイル・公開結果の相関を局所試験する。汎用Recovery Frameworkを追加しない | 是正中。Domainのcatchを純粋変換へ限定し、更新前・実更新後の同じ例外と改訂を局所確認。保存Ownerの失敗分離とMCP／Workbenchの入力不正への誤変換は残る |
+| Domain ModelのTopic／Meeting保存 | rename後のLock解放失敗を上位の入力不正・Effect 0へ丸める経路を除く。保存Ownerから一次失敗とcleanup結果を分離して搬送する | 正常CRUD・Revision・Relationは不変。rename後close／unlink故障と実ファイル・公開結果の相関を局所試験する。汎用Recovery Frameworkを追加しない | 一次失敗／cleanup分離とMCP／Workbenchの誤変換は局所是正済み。親link、部分write、読戻し、耐久性、実Process競合等の保存全体保証は次行で未完了を維持 |
 | Topic／Meetingの保存境界 | 親Directoryのlink経由を拒否し、保存確定・読戻しの観測を接続する | Root外書込み禁止、保存形式・ID・認可Ownerは不変。親link・途中置換・読戻し失敗・実Process競合を反証する | 未是正。既存primitiveの利用可否を先に照合する |
 | Version Control公開入口 | 跨Packageの実体Path importを既存Root exportへ接続し、閉包試験へ禁止例を追加する | 新API・中継Fileは作らない。署名閉包のPath文字列とimportを区別する | 代表3利用側と既知Consumer集合を訂正済み。全利用側の閉包確認は残る |
 | 現在の設計・Header | Domainの廃止済み入口、AI Adapterの旧配置参照、純粋計画のEffect記載、EI WriterのEffect・排他記載を実体へ合わせる | 関数本文・公開結果・Authorityは不変。書式・型・Lintと限定独立確認を行う | 訂正済み。限定独立確認は指摘0 |
@@ -264,6 +264,10 @@ MCP公開応答の次段階では、明示Schema拒否と保存境界の内部�
 入力評価後、Local操作／Remote要求の直前にだけ配送段階を記録する。前段拒否は既存400、配送以降の内部故障は固定500へ分離し、正常blocked結果の303は維持する。自己生成の空Topic保存先を通常fileへ変え、入力不正と保存開始時故障を対比する。通常Topic CRUDへ改訂競合・削除確認の反例も接続する。Listenerの終了は新しいTCP接続で確認し、HTTP keep-aliveの既存接続切断とは分ける。試験Root回収は観測assertionが失敗してもfinallyで実行する。
 
 この局所処置はRemote故障、Workbench保存後故障・投影再読取り、実OS保存確定・cleanup全体の完成ではない。Workbench全回帰33件、局所2件、書式・型・LintはPass。Sourceと品質／文書の独立レビューは指摘0。全体Checkerは3024件で未合格であり、今回SuiteのCatalog Owner不一致1件を解消した。Workbenchの別Suiteに残る既知Owner不一致3件は未是正として区別する。実Provider、Docker、署名、実Browser操作の検証根拠にはしない。
+
+### Topic／Meeting保存Ownerの失敗分離
+
+既存同期Lockと短命Fileの形式を維持し、一次処理とcleanupの失敗を標準AggregateErrorで分離する。close失敗でもunlinkを試み、rename失敗後の短命Fileはexact unlinkのENOENTだけを不存在として扱う。新Recovery／Kernel Lock Frameworkは導入しない。Repository SuiteをReader用008から正常010・故障011へ訂正し、旧Reader Oracleは維持する。独立レビュー2指摘は試験所属RepositoryへのRoot固定と分析の失敗構造記述へ是正し、再レビューは両方指摘0。訂正前の全回帰108件と、訂正後の局所3件・書式・型・LintのPassを区別する。最終全体Checkerは3024件で未合格、今回の変更Pathへの指摘0。親link、読戻し、write自体の部分失敗、耐久性、実Process競合は未完了であり、保存全体完成とは表示しない。注入closeは実Handleを閉じた後の失敗報告で、実OS close失敗時のHandle回収を証明しない。実Provider・Docker・認証・署名・公開操作は行っていない。
 
 Topic昇格・Meeting Outcome処置のcatchを純粋Markdown変換だけへ限定した。既存Repository契約へ更新前／実更新後の例外を注入し、両公開操作から同じ例外が伝播すること、実更新後のRevisionと状態を保持することを確認した。不正変換はblocked・既存理由・Effect 0と更新0回を別に確認した。新fault試験はVCS Rootを検証し、Repository-local `.crdd/tests`の非link親と自己生成領域だけを使用する。
 
