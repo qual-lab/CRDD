@@ -756,12 +756,12 @@ export function writeExecutionIntelligenceEventWithRuntimeDataArea(
  * @returns ExecutionIntelligencePublicationResultを返す。
  * @precondition 「rootCapability: VerifiedExecutionRepositoryRoot、value: unknown」がwriteExecutionIntelligenceEventの入力契約を満たす。
  * @postcondition writeExecutionIntelligenceEventの責務を完了した結果だけを返す。
- * @effect N/A: writeExecutionIntelligenceEventは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: writeExecutionIntelligenceEventは独自の失敗分岐を所有しない。
- * @invariant writeExecutionIntelligenceEventは入力から導いた結果以外の共有状態を変更しない。
+ * @effect Repository-local履歴領域を作成し、history.lockの排他取得、pending書込み、履歴のatomic置換と保持期間整理を実行する。
+ * @failure 入力不正、保存・観測・排他・回収の失敗を下位保存Ownerの結果として返し、Effect不明を未発行へ畳まない。
+ * @invariant 検証済みRoot内の履歴だけを変更し、同じEvent IDの内容不変と未解決記録の保持を守る。
  * @boundary FilesystemとProcess内Domain処理の境界。
- * @security N/A: writeExecutionIntelligenceEventはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: writeExecutionIntelligenceEventは共有非同期状態を持たない同期処理である。
+ * @security 検証済みRootの宣言領域へ書込みを限定し、未所有Lockやpendingを自動回収しない。
+ * @concurrency history.lockを排他的に取得し、保存確定と読戻し後に所有Lockの解放結果を確認する。
  */
 export function writeExecutionIntelligenceEvent(
   rootCapability: VerifiedExecutionRepositoryRoot,

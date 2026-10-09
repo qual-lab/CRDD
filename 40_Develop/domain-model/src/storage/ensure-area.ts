@@ -5,11 +5,11 @@
  * @trace ARCH-000011
  */
 import fs from "node:fs";
-import { gitRepositoryLocalIgnoreAdapter } from "../../../version-control/src/git/local-ignore-adapter.ts";
+import { gitRepositoryLocalIgnoreAdapter } from "../../../version-control/src/index.ts";
 import {
   registerRepositoryLocalIgnore,
   type RepositoryLocalIgnoreAdapter,
-} from "../../../version-control/src/repository/local-ignore.ts";
+} from "../../../version-control/src/index.ts";
 import {
   verifyRepositoryRootFromWorkingDirectory,
   type VerifiedRepositoryRoot,

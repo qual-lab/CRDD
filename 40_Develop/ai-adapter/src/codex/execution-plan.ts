@@ -99,7 +99,7 @@ const billingPolicy = describeProviderBillingPolicyContract();
  * @returns blockedの計算結果を返す。
  * @precondition 「reason: string」がblockedの入力契約を満たす。
  * @postcondition blockedの責務を完了した結果だけを返す。
- * @effect blockedは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @effect N/A: 停止結果の値だけを構築し、Process・Filesystem・外部送信を開始しない。
  * @failure N/A: blockedは独自の失敗分岐を所有しない。
  * @invariant blockedは宣言した境界以外へEffectを拡張しない。
  * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
@@ -126,7 +126,7 @@ function blocked(reason: string) {
  * @returns planCodexReadOnlyProbeの計算結果を返す。
  * @precondition 「candidate: unknown」がplanCodexReadOnlyProbeの入力契約を満たす。
  * @postcondition planCodexReadOnlyProbeの責務を完了した結果だけを返す。
- * @effect planCodexReadOnlyProbeは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @effect N/A: 検証用の起動計画を構築するだけで、Process・Filesystem・外部送信を開始しない。
  * @failure N/A: planCodexReadOnlyProbeは独自の失敗分岐を所有しない。
  * @invariant planCodexReadOnlyProbeは宣言した境界以外へEffectを拡張しない。
  * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
@@ -207,7 +207,7 @@ export function planCodexReadOnlyProbe(candidate: unknown) {
  * @returns planCodexIsolatedTaskの計算結果を返す。
  * @precondition 「candidate: unknown」がplanCodexIsolatedTaskの入力契約を満たす。
  * @postcondition planCodexIsolatedTaskの責務を完了した結果だけを返す。
- * @effect planCodexIsolatedTaskは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @effect N/A: Taskの起動計画を構築するだけで、Process・Filesystem・外部送信を開始しない。
  * @failure N/A: planCodexIsolatedTaskは独自の失敗分岐を所有しない。
  * @invariant planCodexIsolatedTaskは宣言した境界以外へEffectを拡張しない。
  * @boundary 外部ProcessまたはTransportとProcess内処理の境界。

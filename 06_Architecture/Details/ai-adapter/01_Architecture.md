@@ -196,8 +196,8 @@ Codex／Claude計画が利用する共通Record入力防御は、[Domain Model�
 
 | 分割する操作・型 | 実利用側と再編後の接続 | 既存の検証義務と担当断面 |
 |---|---|---|
-| Codex／Claudeのread-only probe・isolated task計画 | `docker-effect-runtime.ts`と二Provider Docker Adapterの`buildPlan`がAI Adapterの各Provider公開入口を利用する。Container名・Network・Mount・PreparedPlanの所有はCoordinatorに残す。 | `ERB-IT-001/006`で実CLI契約と固定入力・Profile・計画拒否、`ERB-ST-005/030`で公開結果・取消・回収を確認する。Codex公式配布だけの追加確認は`ERB-IT-031`とし、Claude起動の根拠へ流用しない。 |
-| `planClaudeTaskTurnBudget`、Provider別構造化出力変換 | Claude Docker Adapter、`provider-task-structured-result.ts`、`docker-process-controller.ts`から各Provider公開入口を利用する。共通Executor／Reviewer Schemaと是正判断はCoordinatorに残す。 | `ERB-IT-001/002`で曖昧・不足・不正Envelopeと失敗分類、`ERB-ST-005/030`で実Processの終了・取消・回収を確認する。助言の通知分類は別に`ERB-UT-023`へ対応する。Turn終了だけをProcess終了にしない。 |
+| Codex／Claudeのread-only probe・isolated task計画 | Coordinatorの`docker-execution/provider-execution-plan.ts`と`command-effects.ts`がAI Adapterの各Provider公開入口を利用する。二Provider Docker Adapterの`buildPlan`を含め、Container名・Network・Mount・PreparedPlanの所有はCoordinatorに残す。 | `ERB-IT-001/006`で実CLI契約と固定入力・Profile・計画拒否、`ERB-ST-005/030`で公開結果・取消・回収を確認する。Codex公式配布だけの追加確認は`ERB-IT-031`とし、Claude起動の根拠へ流用しない。 |
+| `planClaudeTaskTurnBudget`、Provider別構造化出力変換 | Claude Docker Adapter、Coordinatorの`provider/task-structured-result.ts`、`docker-execution/process-controller.ts`から各Provider公開入口を利用する。共通Executor／Reviewer Schemaと是正判断はCoordinatorに残す。 | `ERB-IT-001/002`で曖昧・不足・不正Envelopeと失敗分類、`ERB-ST-005/030`で実Processの終了・取消・回収を確認する。助言の通知分類は別に`ERB-UT-023`へ対応する。Turn終了だけをProcess終了にしない。 |
 | `planWorkbenchAiAdviceProviderCommand`、`extractWorkbenchAiAdviceProviderOutput` | Workbench助言実行計画、Docker Effect Runtime、Docker Process Controllerから共通計画・変換入口を利用する。Workbench ServerからProvider内部Fileをimportしない。 | `ERB-UT-023`の助言入力・結果拒否、`ERB-IT-031`の実CLI、`ERB-ST-030`の実終了条件へ分ける。Providerエラーをtool操作へ誤分類しないが、不正結果を部分公開しない。 |
 | `createClaudeSubscriptionAuthenticationPlan`のlogin／status argvと`probeConfirmed` | AI Adapterは純粋なCLI・方式・結果分類を返す。`authenticate-claude-subscription.ts`はCoordinatorの認証実行を呼び、Home・Docker・Lock・cleanup・回復記録を保持する。 | `ERB-UT-016`で再認証計画と結果分類、`ERB-IT-008/017`でHome・fresh Process再入場・回収を確認する。秘密コードと認証出力は固定Task、Catalog、診断へ複製しない。 |
 | Catalog検証・Profile解決・Availabilityおよび全公開Profile型 | Profile型は`catalog/types.ts`と`profile/types.ts`が所有し、AI AdapterのRootから明示公開する。Coordinator、CROS、Workbench Server、MCP Serverは公開型と入口へ依存する。 | `ai-runtime.catalog-validation`→`RCM-UT-001/002`、`profile-resolution`→`RCM-UT-001/RCM-IT-005`、`availability`→`RCM-UT-001/RCM-IT-010`を保持する。 |
@@ -221,7 +221,7 @@ Provider公開操作、認証計画と実Home観測の分割、実Consumer、静
 
 | 対象 | 現在状態 | 分類 | 次の処置 |
 |---|---|---|---|
-| `40_Develop/ai-runtime` | Catalog Schema、既定Catalog、解決、Availability、Owner別File Adapterを所有 | Covered | Consumer追加時も同じ公開入口を使う |
+| `40_Develop/ai-adapter` | Catalog Schema、既定Catalog、解決、Availability、Owner別File Adapterを所有 | Covered | Consumer追加時も同じ公開入口を使う |
 | Coordinator Profile解決 | Repository Ownerの採用済みCatalog Snapshotを依頼ごとに一回観測し、選択IDを同じSnapshotのAdapter、Model、Reasoningへ解決してCatalog Revisionとともに読取り助言Dispatchへ渡す。未登録または非Coordinator ProfileはDispatch前に拒否する | Covered | 再署名した候補の直接起動と実Provider E2Eで同じIdentityの搬送を確認する |
 | Workbench読取り助言Dispatch | 一依頼の明示確認をTask Hash、Catalog Revision、Profile ID、Providerへ結合して一回消費し、取消、Effect、cleanup、結果Schemaを分離して判定する。Provider Adapterはexact ProfileをCodex／Claudeの一方へだけ渡し、Execution PlanとProvider Command Planでstdin搬送、Repository／Tool／Session非共有およびfallback禁止を固定する。Executor CoreはProvider固有出力を助言JSONだけへ抽出し、Tool Eventやcleanup不明を拒否する | Covered | 是正後の候補を再署名・直接起動し、Codex／Claudeの実Provider E2Eを閉じる |
 | Workbench AI Profiles | 設定と四軸の未観測状態を表示し、Repository OwnerとCROS Ownerを分離したProfile限定管理を接続 | Partial | 実Observerを接続する |

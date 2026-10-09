@@ -159,7 +159,7 @@ Repository／Version Control Infrastructure
 | Reality Traceability `domain-model/src/index.ts` | Symbol Manifest、Annotation解釈、Graphの公開型と決定論的な生成・検証関数 | なし。Path APIはRepository相対表記の構文検査だけに用いる | Repository走査、Checker Finding変換、Reality Audit実行、Test合格、実装完成 |
 | Repository `domain-model/src/index.ts` | 検証済みRoot内のRepository観測、名前付きPath解決、保存領域の読取り専用観測 | Filesystem読取りだけ | Directory作成、設定自動生成、Git確定・公開、採用判断 |
 | Semantic Coverage `semantic-coverage/src/index.ts` | Repository入力の編成、診断、Bundle生成・公開 | 明示したBundle公開 | Architecture・Quality・実装の意味採否、部分公開の成功扱い |
-| Version Control `version-control/src/checker-observation/index.ts`、`version-control/src/repository-identity/index.ts` | [Version Control用途限定公開入口](../version-control/01_Architecture.md#32-用途を限定した公開入口) | 宣言されたRepository観測とIdentity確認 | Domain意味、未Commit通常操作の拒否、利用しないGit Adapterの依存閉包への混入 |
+| Version Control `version-control/src/index.ts` | [Version Control用途限定公開入口](../version-control/01_Architecture.md#32-用途を限定した公開入口)のNamed Symbolを明示利用 | 宣言されたRepository観測とIdentity確認 | Domain意味、未Commit通常操作の拒否、利用しないGit Adapterの依存閉包への混入 |
 | Checker `checker/src/index.ts` | `CheckerRunRequest`、`CheckerResult`、`CheckerFinding`、`runChecker` | Repository読取りのみ | Domain Issueの改変、意味採否、外部Effect許可 |
 | Verification Runner `verification-runner/src/index.ts` | `RegressionRunRequest`、`RegressionRunResult`、`runRegression` | 宣言された試験段階の選択と子Process実行 | Checker規則、CLI表示、`process.argv`解釈、`process.exitCode`設定 |
 

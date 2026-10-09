@@ -8,7 +8,7 @@ import {
   resolveVerifiedRepositoryRoot,
   verifyRepositoryRoot,
   type VerifiedRepositoryRoot,
-} from "../../../version-control/src/repository/location.ts";
+} from "../../../version-control/src/index.ts";
 
 /**
  * verified-repository-rootで使用するVerified Execution Repository Rootの値契約を定義する。

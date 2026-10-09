@@ -25,17 +25,17 @@ import {
   parseRepositoryReleaseProjectionMarkdown,
   type RepositoryProjectContext,
 } from "../../../domain-model/src/index.ts";
-import { gitLocalChangeSetAdapter } from "../../../version-control/src/git/local-change-set-adapter.ts";
-import { gitChangePublicationTargetObservationAdapter } from "../../../version-control/src/git/change-publication-adapter.ts";
+import { gitLocalChangeSetAdapter } from "../../../version-control/src/index.ts";
+import { gitChangePublicationTargetObservationAdapter } from "../../../version-control/src/index.ts";
 import {
   observeLocalChangeSet,
   type LocalChangeSet,
-} from "../../../version-control/src/local-change-set.ts";
+} from "../../../version-control/src/index.ts";
 import {
   observeChangePublicationTarget,
   type ChangePublicationTargetObservation,
-} from "../../../version-control/src/change-publication.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/repository/location.ts";
+} from "../../../version-control/src/index.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import {
   readWorkbenchOwnerArtifactCatalog,
   type WorkbenchOwnerArtifactCatalog,

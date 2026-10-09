@@ -472,7 +472,7 @@ const ACTIVATION_BLOCKERS = Object.freeze([] as string[]);
  * @returns blockedの計算結果を返す。
  * @precondition 「reason: string」がblockedの入力契約を満たす。
  * @postcondition blockedの責務を完了した結果だけを返す。
- * @effect blockedは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @effect N/A: 停止結果の値だけを構築し、Process・Filesystem・外部送信を開始しない。
  * @failure N/A: blockedは独自の失敗分岐を所有しない。
  * @invariant blockedは宣言した境界以外へEffectを拡張しない。
  * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
@@ -500,7 +500,7 @@ function blocked(reason: string) {
  * @returns planClaudeReadOnlyProbeの計算結果を返す。
  * @precondition 「candidate: unknown」がplanClaudeReadOnlyProbeの入力契約を満たす。
  * @postcondition planClaudeReadOnlyProbeの責務を完了した結果だけを返す。
- * @effect planClaudeReadOnlyProbeは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @effect N/A: 検証用の起動計画を構築するだけで、Process・Filesystem・外部送信を開始しない。
  * @failure N/A: planClaudeReadOnlyProbeは独自の失敗分岐を所有しない。
  * @invariant planClaudeReadOnlyProbeは宣言した境界以外へEffectを拡張しない。
  * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
@@ -591,7 +591,7 @@ export function planClaudeReadOnlyProbe(candidate: unknown) {
  * @returns planClaudeIsolatedTaskの計算結果を返す。
  * @precondition 「candidate: unknown」がplanClaudeIsolatedTaskの入力契約を満たす。
  * @postcondition planClaudeIsolatedTaskの責務を完了した結果だけを返す。
- * @effect planClaudeIsolatedTaskは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @effect N/A: Taskの起動計画を構築するだけで、Process・Filesystem・外部送信を開始しない。
  * @failure N/A: planClaudeIsolatedTaskは独自の失敗分岐を所有しない。
  * @invariant planClaudeIsolatedTaskは宣言した境界以外へEffectを拡張しない。
  * @boundary 外部ProcessまたはTransportとProcess内処理の境界。

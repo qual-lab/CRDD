@@ -635,11 +635,13 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/domain-model/src/repository/types.ts",
       "40_Develop/domain-model/src/storage/ensure-area.ts",
       "40_Develop/domain-model/src/storage/temporary-operation.ts",
+      "40_Develop/execution-intelligence/src/store/verify-repository-root.ts",
       "40_Develop/semantic-coverage/scripts/compile-pilot.ts",
       "40_Develop/semantic-coverage/src/compilation/from-repository.ts",
       "40_Develop/semantic-coverage/src/bundle/filesystem-publisher.ts",
       "40_Develop/semantic-coverage/src/migration/inventory-legacy-fields.ts",
       "40_Develop/verification-runner/src/regression/stages.ts",
+      "40_Develop/workbench-server/src/project/surface.ts",
     ].sort(),
   );
 });
