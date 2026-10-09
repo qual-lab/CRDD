@@ -12,6 +12,12 @@
  */
 import { snapshotPlainRecord } from "./snapshot.ts";
 import {
+  getMcpRuntimeActivityToolDefinitions,
+  handleMcpRuntimeActivityRequest,
+  MCP_RUNTIME_ACTIVITY_TOOL,
+  type McpRuntimeActivityDependencies,
+} from "../runtime-activity/adapter.ts";
+import {
   handleMcpProjectContextRequest,
   type McpProjectContextDependencies,
 } from "../project-context/adapter.ts";
@@ -64,6 +70,7 @@ import {
 export type McpRequestRoutingDependencies = Readonly<{
   orchestrator?: McpOrchestratorDependencies;
   projectContext: McpProjectContextDependencies;
+  runtimeActivity?: McpRuntimeActivityDependencies;
   topicMeeting?: TopicMeetingAccess;
   topicMeetingRepositoryResolver?: TopicMeetingAccessResolver;
 }>;
@@ -118,6 +125,9 @@ export async function routeMcpRequest(
               ? []
               : getMcpOrchestratorToolDefinitions()),
             ...getMcpProjectContextToolDefinitions(),
+            ...(dependencies.runtimeActivity === undefined
+              ? []
+              : getMcpRuntimeActivityToolDefinitions()),
             ...(dependencies.topicMeeting === undefined &&
             dependencies.topicMeetingRepositoryResolver === undefined
               ? []
@@ -136,6 +146,14 @@ export async function routeMcpRequest(
   const params = snapshotPlainRecord(request.params, callKeys);
   if (!params || !inspectMcpEnvelope(params._meta))
     return protocolError(request.id, -32602, "Invalid params");
+  if (params.name === MCP_RUNTIME_ACTIVITY_TOOL)
+    return dependencies.runtimeActivity === undefined
+      ? protocolError(request.id, -32601, "Method not found")
+      : handleMcpRuntimeActivityRequest(
+          rawRequest,
+          dependencies.runtimeActivity,
+          signal,
+        );
   if (MCP_TOPIC_MEETING_TOOLS.includes(params.name as never))
     return dependencies.topicMeetingRepositoryResolver !== undefined
       ? handleMcpRoutedTopicMeetingRequest(

@@ -4,6 +4,12 @@
   "subsystem": "mcp-server",
   "symbols": [
     {
+      "symbolId": "mcp.runtime-activity-adapter",
+      "kind": "file",
+      "path": "src/runtime-activity/adapter.ts",
+      "archIds": ["ARCH-000005", "ARCH-000007", "ARCH-000012"]
+    },
+    {
       "symbolId": "mcp.public-api",
       "kind": "module",
       "path": "src/index.ts",
@@ -21,19 +27,23 @@
       "qaIds": [
         "QA-000004",
         "QA-000005",
-        "QA-000007"
+        "QA-000007",
+        "QA-000009"
       ],
       "localTestIds": [
         "CPR-IT-008",
         "PPR-IT-002",
-        "RFD-IT-013"
+        "RFD-IT-013",
+        "EST-IT-002",
+        "EST-IT-014"
       ],
       "verifies": [
         "mcp.source.src.adapters.application.adapter",
         "mcp.source.src.adapters.topic.meeting.adapter",
         "mcp.source.src.composition.cros.project.context.application",
         "mcp.source.src.protocol.topic.meeting.protocol",
-        "mcp.source.src.transports.streamable.http.transport"
+        "mcp.source.src.transports.streamable.http.transport",
+        "mcp.runtime-activity-adapter"
       ]
     },
     {

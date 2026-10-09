@@ -198,6 +198,8 @@ Remote CROSのTopic／Meeting取得結果は、本文に記録された安定ID 
 
 Project一覧・Context取得とTopic／Meetingの既存Tool名・安定IDは維持する。Host限定Credential全喪失回復をRemote Toolにしない。新しい管理操作を一部登録しただけでCROS管理Surface全体を完成としない。
 
+段階6〜7の活動接続では、`runtime-activity/adapter.ts`が`crdd.get_runtime_activity`のSchema・入力／結果検査を所有し、`request/route.ts`が実Readerを接続した場合だけ一覧とCallへ同時登録する。CROS Resolverは現在認可集合を`readCrosRuntimeActivity`へ渡す。Readerに取消APIを捏造せず、開始前取消は呼出し零回、開始後取消はReader完了をjoinしてから取消結果を返す。本番Launcher、Workbench Remote Client、Profile管理四Toolと旧REST撤去は別の未完了接続であり、このToolの局所成立から全体完成を推定しない。
+
 ### 3.2. Portfolioの一覧・詳細契約
 
 完全Portfolio用の重複Toolを増やさず、既存`crdd.list_projects`をページ単位の許可済みProjectionへ補強する。新形式だけを本体へ接続し、旧Consumerの移行はフロントAI手順と利用側更新で扱う。現在の入力が空Object・結果がSummaryだけという実装を、完成済みの新契約とはみなさない。

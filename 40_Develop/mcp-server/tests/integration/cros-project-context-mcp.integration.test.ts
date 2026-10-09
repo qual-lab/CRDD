@@ -6,6 +6,8 @@
  * @trace CPR-IT-008
  * @trace PPR-IT-002
  * @trace RFD-IT-013
+ * @trace EST-IT-002
+ * @trace EST-IT-014
  * @level IT
  * @scope mcp、cros、credential、project-context、http
  * @boundary Bearer HTTP→Credential→Workspace Exposure→Portfolio→MCP
@@ -22,11 +24,15 @@ import { parseRepositoryProjectContextMarkdown } from "../../../domain-model/src
 import {
   createMemoryConnectionCredentialRegistry,
   issueConnectionCredential,
+  type CrosRuntimeActivityReader,
+  type CrosRemoteRuntimeActivityObservation,
   type RequestAccessContext,
 } from "../../../cros/src/index.ts";
 import {
   createCrosProjectContextMcpResolver,
   MCP_PROJECT_CONTEXT_GET_TOOL,
+  MCP_RUNTIME_ACTIVITY_TOOL,
+  routeMcpRequest,
   MCP_ORCHESTRATOR_PROTOCOL_VERSION,
   startMcpAuthenticatedStreamableHttp,
 } from "../../src/index.ts";
@@ -37,6 +43,434 @@ const ADMINISTRATOR: RequestAccessContext = Object.freeze({
   workspaceIds: Object.freeze([]),
   systemAdmin: true,
   credentialRegistryRevision: 0,
+});
+
+/**
+ * Runtime活動MCPの認可・入力・欠測・故障を検証する。
+ *
+ * @responsibility 実HTTPとCROS認可から活動Readerへ到達する公開接続を確認する。
+ * @trace RFD-IT-013
+ * @trace EST-IT-002
+ * @precondition DEV／MGMT、Developer／Admin Credentialと合成活動Readerを用意する。
+ * @stimulus 正常、非許可、境界入力、観測不能、余剰結果と故障をToolへ渡す。
+ * @observation Reader入力・回数、MCP結果、HTTP認証拒否とListener終了を観測する。
+ * @oracle DEVだけを読み、Admin-onlyは読取り0、不正入力はdispatch0、故障を空成功にしない。
+ * @cleanup 全経路でListenerと所有Socketを閉じ、終了後再接続を拒否する。
+ * @boundary Bearer HTTP→MCP→CROS認可Scope→活動Reader。
+ */
+test("Runtime活動MCPは現在Grantと閉じた観測契約を保持する", async () => {
+  const registry = createMemoryConnectionCredentialRegistry();
+  const developer = issueConnectionCredential(registry, ADMINISTRATOR, {
+    profile: "developer",
+  });
+  const admin = issueConnectionCredential(registry, ADMINISTRATOR, {
+    profile: "administrator",
+  });
+  assert.equal(developer.status, "completed");
+  assert.equal(admin.status, "completed");
+  if (developer.status !== "completed" || admin.status !== "completed") return;
+  const clean: CrosRemoteRuntimeActivityObservation = {
+    state: "absent",
+    reason: "no_current_task",
+    projection: null,
+    eventState: "observed",
+    eventReason: "no_events",
+    events: [],
+    eventContinuation: null,
+  };
+  const inputs: unknown[] = [];
+  let result: unknown = clean;
+  let failed = false;
+  const reader: CrosRuntimeActivityReader = {
+    read: async (query) => {
+      inputs.push(query);
+      if (failed) throw new Error("private_reader_failure");
+      return result as CrosRemoteRuntimeActivityObservation;
+    },
+  };
+  const resolver = createCrosProjectContextMcpResolver({
+    registry,
+    readExposureSnapshot: () => ({
+      revision: "activity-1",
+      exposures: [
+        {
+          workspaceId: "development",
+          repositoryId: "REPO-DEV",
+          repositoryRevision: "r1",
+          registryRevision: "activity-1",
+          active: true,
+        },
+        {
+          workspaceId: "management",
+          repositoryId: "REPO-MGMT",
+          repositoryRevision: "r1",
+          registryRevision: "activity-1",
+          active: true,
+        },
+      ],
+      repositories: [
+        {
+          projectId: "PRJ-MCP",
+          repositoryId: "REPO-DEV",
+          bindingId: "BIND-DEV",
+          revision: "r1",
+          content: { projectContext: context("REPO-DEV", "development") },
+        },
+        {
+          projectId: "PRJ-MCP",
+          repositoryId: "REPO-MGMT",
+          bindingId: "BIND-MGMT",
+          revision: "r1",
+          content: { projectContext: context("REPO-MGMT", "management") },
+        },
+      ],
+    }),
+    runtimeActivityReader: reader,
+  });
+  const server = await startMcpAuthenticatedStreamableHttp(resolver, {
+    port: 0,
+  });
+  const baseUrl = `http://${server.host}:${server.port}`;
+  try {
+    const handler = await resolver(developer.token);
+    assert.ok(handler);
+    const listed = await handler(
+      {
+        jsonrpc: "2.0",
+        id: "activity-tools",
+        method: "tools/list",
+        params: {
+          _meta: {
+            "io.modelcontextprotocol/protocolVersion":
+              MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+            "io.modelcontextprotocol/clientCapabilities": {},
+          },
+        },
+      },
+      new AbortController().signal,
+    );
+    assert.ok("result" in listed);
+    const listResult = listed.result;
+    assert.ok(
+      listResult && typeof listResult === "object" && "tools" in listResult,
+    );
+    assert.ok(Array.isArray(listResult.tools));
+    assert.equal(
+      listResult.tools.filter(
+        (tool: unknown) =>
+          tool !== null &&
+          typeof tool === "object" &&
+          "name" in tool &&
+          tool.name === MCP_RUNTIME_ACTIVITY_TOOL,
+      ).length,
+      1,
+    );
+    assert.equal(inputs.length, 0);
+    const available = await callCrosTool(
+      baseUrl,
+      developer.token,
+      MCP_RUNTIME_ACTIVITY_TOOL,
+    );
+    assert.equal(available.status, 200);
+    const body = await available.json();
+    assert.deepEqual(body.result.structuredContent, clean);
+    assert.equal(body.result.isError, false);
+    assert.deepEqual(inputs, [
+      {
+        projectId: "PRJ-MCP",
+        limit: 20,
+        repositories: [
+          {
+            projectId: "PRJ-MCP",
+            repositoryId: "REPO-DEV",
+            bindingId: "BIND-DEV",
+            revision: "r1",
+            content: { projectContext: context("REPO-DEV", "development") },
+          },
+        ],
+      },
+    ]);
+    for (const args of [
+      { projectId: "PRJ-HIDDEN" },
+      { projectId: "PRJ-MCP", limit: 0 },
+      { projectId: "PRJ-MCP", limit: 51 },
+      { projectId: "PRJ-MCP", limit: 1.5 },
+      { projectId: "PRJ-MCP", cursor: 4 },
+      { projectId: "PRJ-MCP", extra: true },
+    ]) {
+      const refused = await callCrosTool(
+        baseUrl,
+        developer.token,
+        MCP_RUNTIME_ACTIVITY_TOOL,
+        args,
+      );
+      const reply = await refused.json();
+      assert.equal(inputs.length, 1);
+      if (args.projectId === "PRJ-HIDDEN")
+        assert.equal(reply.result.isError, true);
+      else assert.equal(reply.error.code, -32602);
+      assert.doesNotMatch(JSON.stringify(reply), /REPO-MGMT|PRJ-HIDDEN/u);
+    }
+    const denied = await callCrosTool(
+      baseUrl,
+      admin.token,
+      MCP_RUNTIME_ACTIVITY_TOOL,
+    );
+    assert.equal((await denied.json()).result.isError, true);
+    assert.equal(inputs.length, 1);
+    result = {
+      ...clean,
+      state: "unknown",
+      reason: "observation_unknown",
+      eventState: "unknown",
+      eventReason: "event_observation_unknown",
+    };
+    const unknown = await callCrosTool(
+      baseUrl,
+      developer.token,
+      MCP_RUNTIME_ACTIVITY_TOOL,
+      { projectId: "PRJ-MCP", cursor: "page-2", limit: 50 },
+    );
+    assert.deepEqual((await unknown.json()).result.structuredContent, result);
+    const pageInput: unknown = inputs.at(1);
+    assert.ok(
+      pageInput &&
+        typeof pageInput === "object" &&
+        "cursor" in pageInput &&
+        "limit" in pageInput,
+    );
+    assert.equal(pageInput.cursor, "page-2");
+    assert.equal(pageInput.limit, 50);
+    const event = {
+      eventId: `execution-${"a".repeat(64)}`,
+      occurredAt: "2026-10-09T00:00:00.000Z",
+      objectiveId: "OBJ-1",
+      taskId: "TASK-1",
+      attemptId: "ATTEMPT-1",
+      status: "completed",
+      reason: "completed",
+      cleanupConfirmed: true,
+      manualRecoveryRequired: false,
+    };
+    let getterCalls = 0;
+    let proxyCalls = 0;
+    const accessor = { ...clean };
+    Object.defineProperty(accessor, "reason", {
+      enumerable: true,
+      get() {
+        getterCalls += 1;
+        return "privateData";
+      },
+    });
+    const proxy = new Proxy(
+      { ...clean },
+      {
+        ownKeys(target) {
+          proxyCalls += 1;
+          return Reflect.ownKeys(target);
+        },
+      },
+    );
+    for (const invalid of [
+      { ...clean, privateData: "must_not_escape" },
+      { ...clean, state: "observed" },
+      { ...clean, eventState: "unknown", events: [{}] },
+      {
+        ...clean,
+        state: { toString: () => "absent", privateData: "must_not_escape" },
+      },
+      { ...clean, eventState: { toString: () => "observed" } },
+      {
+        ...clean,
+        events: [{ ...event, status: { toString: () => "completed" } }],
+      },
+      { ...clean, events: [{ ...event, privateData: "must_not_escape" }] },
+      { ...clean, projection: {} },
+      accessor,
+      proxy,
+    ]) {
+      result = invalid;
+      const rejected = await callCrosTool(
+        baseUrl,
+        developer.token,
+        MCP_RUNTIME_ACTIVITY_TOOL,
+      );
+      const reply = await rejected.json();
+      assert.equal(reply.error.code, -32603);
+      assert.doesNotMatch(
+        JSON.stringify(reply),
+        /must_not_escape|privateData/u,
+      );
+    }
+    assert.equal(getterCalls, 0);
+    assert.equal(proxyCalls, 0);
+    const mutable = { ...clean, events: [{ ...event }] };
+    const ownedReply = await routeMcpRequest(
+      {
+        jsonrpc: "2.0",
+        id: "owned-result",
+        method: "tools/call",
+        params: {
+          name: MCP_RUNTIME_ACTIVITY_TOOL,
+          arguments: { projectId: "PRJ-MCP" },
+          _meta: {
+            "io.modelcontextprotocol/protocolVersion":
+              MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+            "io.modelcontextprotocol/clientCapabilities": {},
+          },
+        },
+      },
+      {
+        projectContext: {
+          readPortfolio: async () => ({
+            projects: [],
+            retainedAsSourceOfTruth: false,
+          }),
+        },
+        runtimeActivity: {
+          read: async () => mutable as CrosRemoteRuntimeActivityObservation,
+        },
+      },
+    );
+    assert.ok("result" in ownedReply);
+    mutable.reason = "must_not_escape";
+    const mutableEvent = mutable.events[0];
+    assert.ok(mutableEvent);
+    mutableEvent.reason = "must_not_escape";
+    Object.defineProperty(mutable, "privateData", {
+      enumerable: true,
+      value: "must_not_escape",
+    });
+    assert.doesNotMatch(
+      JSON.stringify(ownedReply),
+      /must_not_escape|privateData/u,
+    );
+    assert.ok(
+      ownedReply.result &&
+        typeof ownedReply.result === "object" &&
+        "structuredContent" in ownedReply.result,
+    );
+    assert.ok(Object.isFrozen(ownedReply.result.structuredContent));
+    failed = true;
+    const fault = await callCrosTool(
+      baseUrl,
+      developer.token,
+      MCP_RUNTIME_ACTIVITY_TOOL,
+    );
+    const faultReply = await fault.json();
+    assert.equal(faultReply.error.code, -32603);
+    assert.doesNotMatch(JSON.stringify(faultReply), /private_reader_failure/u);
+    const unauthenticated = await callCrosTool(
+      baseUrl,
+      "invalid",
+      MCP_RUNTIME_ACTIVITY_TOOL,
+    );
+    assert.equal(unauthenticated.status, 401);
+  } finally {
+    assert.equal((await server.close()).cleanupConfirmed, true);
+  }
+  await assert.rejects(
+    callCrosTool(baseUrl, developer.token, MCP_RUNTIME_ACTIVITY_TOOL),
+  );
+});
+
+/**
+ * Runtime活動の読取り中取消をjoin後に返すことを検証する。
+ *
+ * @responsibility 取消応答と読取り完了を混同しないProtocol境界を確認する。
+ * @trace EST-IT-014
+ * @precondition 解放まで保留するReaderとAbortControllerを用意する。
+ * @stimulus Tool開始後に取消し、その後Readerを解放する。
+ * @observation 応答保留、Reader完了と取消結果を確認する。
+ * @oracle Reader完了前に結果を返さず、完了後-32800を返す。
+ * @cleanup 保留gateをfinallyで解放し、開始済みPromiseをjoinする。
+ * @boundary MCP Adapterと非取消Readerの境界。
+ */
+test("Runtime活動MCPは開始済みReaderをjoinしてから取消を返す", async () => {
+  const controller = new AbortController();
+  let release: () => void = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let readStarted = false;
+  let readCompleted = false;
+  let responseSettled = false;
+  const request = {
+    jsonrpc: "2.0",
+    id: 1,
+    method: "tools/call",
+    params: {
+      name: MCP_RUNTIME_ACTIVITY_TOOL,
+      arguments: { projectId: "PRJ-MCP" },
+      _meta: {
+        "io.modelcontextprotocol/protocolVersion":
+          MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+        "io.modelcontextprotocol/clientCapabilities": {},
+      },
+    },
+  };
+  const alreadyCancelled = new AbortController();
+  alreadyCancelled.abort();
+  let cancelledReadCount = 0;
+  const refused = await routeMcpRequest(
+    request,
+    {
+      projectContext: {
+        readPortfolio: async () => ({
+          projects: [],
+          retainedAsSourceOfTruth: false,
+        }),
+      },
+      runtimeActivity: {
+        read: async () => {
+          cancelledReadCount += 1;
+          return null;
+        },
+      },
+    },
+    alreadyCancelled.signal,
+  );
+  assert.ok("error" in refused);
+  assert.equal(refused.error.code, -32800);
+  assert.equal(cancelledReadCount, 0);
+  const pending = routeMcpRequest(
+    request,
+    {
+      projectContext: {
+        readPortfolio: async () => ({
+          projects: [],
+          retainedAsSourceOfTruth: false,
+        }),
+      },
+      runtimeActivity: {
+        read: async () => {
+          readStarted = true;
+          await gate;
+          readCompleted = true;
+          return null;
+        },
+      },
+    },
+    controller.signal,
+  );
+  void pending.then(() => {
+    responseSettled = true;
+  });
+  try {
+    assert.equal(readStarted, true);
+    controller.abort();
+    await Promise.resolve();
+    assert.equal(responseSettled, false);
+    assert.equal(readCompleted, false);
+    release();
+    const reply = await pending;
+    assert.equal(readCompleted, true);
+    assert.ok("error" in reply);
+    assert.equal(reply.error.code, -32800);
+  } finally {
+    release();
+    await pending;
+  }
 });
 
 /** 五場面を持つProject Context Fixtureを作る。 */
@@ -76,21 +510,24 @@ function context(repositoryId: string, repositoryRole: string) {
 
 /** MCP Tool CallをBearer HTTPで送信する。 */
 /**
- * callProjectContext用の試験入力または観測処理を提供する。
+ * callCrosTool用の試験入力または観測処理を提供する。
  *
- * @responsibility callProjectContext用の試験入力または観測処理を提供するの検証責務を所有する。
+ * @responsibility callCrosTool用の試験入力または観測処理を提供するの検証責務を所有する。
  * @trace PPR-IT-002
  * @trace RFD-IT-013
+ * @trace EST-IT-002
  * @precondition 対象契約を再現できる固定入力と依存を用意する。
- * @stimulus callProjectContextの対象操作を実行する。
+ * @stimulus callCrosToolの対象操作を実行する。
  * @observation 返却値、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionがSummaryの期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
- * @boundary PPR-IT-002／RFD-IT-013=Direct Boundary: mcp Test Source→対象契約
+ * @boundary PPR-IT-002／RFD-IT-013／EST-IT-002=Direct Boundary: HTTPからProject ContextとRuntime活動MCPを搬送する。
  */
-async function callProjectContext(
+async function callCrosTool(
   baseUrl: string,
   token: string,
+  tool: string = MCP_PROJECT_CONTEXT_GET_TOOL,
+  args: Readonly<Record<string, unknown>> = { projectId: "PRJ-MCP" },
 ): Promise<Response> {
   return fetch(`${baseUrl}/mcp`, {
     method: "POST",
@@ -100,15 +537,15 @@ async function callProjectContext(
       "content-type": "application/json",
       "mcp-protocol-version": MCP_ORCHESTRATOR_PROTOCOL_VERSION,
       "mcp-method": "tools/call",
-      "mcp-name": MCP_PROJECT_CONTEXT_GET_TOOL,
+      "mcp-name": tool,
     },
     body: JSON.stringify({
       jsonrpc: "2.0",
       id: 1,
       method: "tools/call",
       params: {
-        name: MCP_PROJECT_CONTEXT_GET_TOOL,
-        arguments: { projectId: "PRJ-MCP" },
+        name: tool,
+        arguments: args,
         _meta: {
           "io.modelcontextprotocol/protocolVersion":
             MCP_ORCHESTRATOR_PROTOCOL_VERSION,
@@ -328,7 +765,7 @@ test("CROS CredentialのWorkspace範囲だけをProject Context MCPへ搬送す�
   });
   const baseUrl = `http://${server.host}:${server.port}`;
   try {
-    const available = await callProjectContext(baseUrl, issued.token);
+    const available = await callCrosTool(baseUrl, issued.token);
     assert.equal(authenticationReads, 1);
     assert.equal(snapshotReads, 1);
     assert.equal(available.status, 200);
@@ -336,7 +773,7 @@ test("CROS CredentialのWorkspace範囲だけをProject Context MCPへ搬送す�
     assert.match(body, /REPO-DEV/u);
     assert.doesNotMatch(body, /REPO-MGMT/u);
 
-    const blocked = await callProjectContext(
+    const blocked = await callCrosTool(
       baseUrl,
       "invalid-token-value-that-is-long-enough-0000",
     );

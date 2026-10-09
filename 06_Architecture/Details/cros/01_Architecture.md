@@ -378,6 +378,8 @@ Caller由来のFilesystem PathをRepository Resolverの代替として受理し�
 
 ### 6.1. 再編後の共通能力と公開入口
 
+Runtime活動の公開結果検査は`activity/validate.ts`、現在認可ScopeからのProject選択とReader呼出しは`activity/read.ts`が所有する。HTTP、MCPとWorkbenchの結果検査は同じ閉じた観測契約を使い、Transport固有envelopeを共通結果へ持ち込まない。公開時は既存のplain-data SnapshotでProxy／accessorを拒否し、EventとProjectionを含む所有済みの固定値だけを返す。検査後にReader由来Objectをそのまま搬送しない。Readerの保留中は開始後の処理をjoinし、応答取消だけからReader中断を主張しない。
+
 `src/index.ts`は共通能力の入口とし、`startCrosRemoteTransport`とHTTP Client関数は廃止対象とする。HTTP処理から認可・結果構成を抽出して同じ能力をWorkbench内部呼出しとMCP Handlerから使う。抽出前のREST成功を新経路の成功証明にしない。
 
 | 能力 | 現行処理の対応元 | 新Ownerと入力・結果 | 保持する境界 |

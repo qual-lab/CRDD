@@ -25,6 +25,12 @@ export {
 } from "./request/route.ts";
 export { createCrosProjectContextMcpResolver } from "./project-context/cros-resolver.ts";
 export {
+  MCP_RUNTIME_ACTIVITY_TOOL,
+  getMcpRuntimeActivityToolDefinitions,
+  handleMcpRuntimeActivityRequest,
+  type McpRuntimeActivityDependencies,
+} from "./runtime-activity/adapter.ts";
+export {
   startCrosSharedServer,
   type CrosSharedServerHandle,
   type CrosSharedServerInput,

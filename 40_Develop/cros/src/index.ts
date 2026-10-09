@@ -18,6 +18,11 @@ export {
 } from "./connection/http.ts";
 export type { CrosExposureSnapshot } from "./access/types.ts";
 export { resolveCrosRequestScope } from "./access/resolve.ts";
+export { readCrosRuntimeActivity } from "./activity/read.ts";
+export {
+  inspectCrosRuntimeActivityObservation,
+  parseCrosRuntimeActivityObservation,
+} from "./activity/validate.ts";
 export type {
   CrosRemoteRuntimeActivityObservation,
   CrosRemoteRuntimeEventProjection,

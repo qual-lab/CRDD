@@ -14,11 +14,13 @@
 import {
   authenticateConnectionCredential,
   createPortfolioProjection,
+  readCrosRuntimeActivity,
   resolveCrosRequestScope,
   resolveRepository,
   type ConnectionCredentialRegistry,
   type CrosExposureSnapshot,
   type CrosRepository,
+  type CrosRuntimeActivityReader,
 } from "../../../cros/src/index.ts";
 import type {
   ProjectOperationRecordKind,
@@ -144,6 +146,7 @@ function federateTopicMeetingRelations(
 export function createCrosProjectContextMcpResolver(input: {
   registry: ConnectionCredentialRegistry;
   readExposureSnapshot(): CrosExposureSnapshot;
+  runtimeActivityReader?: CrosRuntimeActivityReader;
   resolveTopicMeetingAccess?(
     repository: CrosRepository,
   ): TopicMeetingAccess | null;
@@ -176,6 +179,18 @@ export function createCrosProjectContextMcpResolver(input: {
         request,
         {
           projectContext: { readPortfolio: async () => portfolio },
+          ...(input.runtimeActivityReader === undefined
+            ? {}
+            : {
+                runtimeActivity: {
+                  read: (query) =>
+                    readCrosRuntimeActivity(
+                      authorizedRepositories,
+                      query,
+                      input.runtimeActivityReader,
+                    ),
+                },
+              }),
           ...(input.resolveTopicMeetingAccess === undefined
             ? {}
             : {

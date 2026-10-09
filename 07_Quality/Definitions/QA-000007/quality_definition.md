@@ -101,6 +101,8 @@ Quality ID: `QA-000007`
 
 HTTP公開Processの終了はQA-000009の`EST-ST-013`で確認する。Credentialの認証成功、単一要求の非開示、Listener closeの返却は、Serverの全handler／socket／Application資源終端の証明ではない。
 
+Runtime活動MCPも`RFD-IT-013`へ接続する。現在GrantのDEVだけをReaderへ渡し、Admin-only・未許可ProjectではReader零回。ページ境界と未知fieldは入力拒否、Reader故障・余剰Property・現在状態相関不正は内部故障として区別し、unknown／Event欠測を空成功にしない。Tool一覧とCallの接続を同じ候補で照合する。
+
 `RFD-IT-013`の共通認可接続では、HTTP／MCPのContent RequestごとにCredential検証一回、Exposure Snapshot一回、同じSessionと許可集合の利用を確認する。非認証、Profile管理およびContent POST拒否ではSnapshotを読まない。Reader故障を401や空成功へ変えず、各入口の既存故障結果を保持する。管理専用CredentialからContent Grantを生成しない。この局所確認は新MCP Toolや公開Launcher全体の接続完了を示さない。
 
 ## 4. 評価とEvidence

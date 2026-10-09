@@ -262,6 +262,14 @@ Related:
 
 ## 10. 段階1〜5の全体照合と是正対象 — 2026-10-09
 
+### Runtime活動の共通OwnerとMCP接続 — 着手前照合
+
+次の固定候補は、既存HTTPの活動検査をCROS `activity/validate.ts`へ、許可Project選択・Reader呼出し・結果検査を`activity/read.ts`へ移す。新MCP `crdd.get_runtime_activity`は設計済みprojectId／cursor／limit契約だけを搬送し、一覧とRoutingを同時接続する。現在Requestで解決した許可集合だけをReaderへ渡し、非許可はReader零回、Reader不在・故障・不正結果を空成功にしない。既存Readerは取消Signalを持たないためPromise競争を追加せず、取消前は呼ばず、開始後はReader完了をjoinしてから取消応答へ戻す。Reader自体の中断・実Provider取消を保証しない。新State／Frameworkを作らず、旧REST・本番Launcher・Workbench切替は代替接続完了まで維持する。Source境界の既存回帰、新Toolの入力／結果／非開示／待機取消反例と独立レビューで確認する。
+
+活動Toolの初回回帰は51件Pass・2件Failで、任意cursor／limitを必須扱いした入力Snapshotを検出した。既存plain-data取得と明示した許可field検査へ是正し、試験コードの型指摘も訂正した。独立レビューはReader由来Objectの検査後変更・Proxyによる余剰情報透過と、取消joinを入力拒否義務へ混在させた問題を検出した。CROSに新Frameworkを作らず既存Domain Modelのplain-data SnapshotとOrchestratorのProjection copyを利用し、所有済みの固定結果だけを公開する。Proxy／accessor非実行、primitive語彙、nested余剰値、元Object変更の非透過を反証する。取消joinは導出元付き`EST-IT-014`へ分離し、HeaderとSymbolへ接続した。初回Lintの非null断言一件と、再レビューの表空行・Event Header二点も限定是正した。
+
+最終Runtime候補のCROS全33件、MCP全53件、Workbench全33件と各書式・型・Lint、Workbench BuildはPass、Fail／Skip／取消0。両独立再レビューは指摘0で、元結果の暗黙文字列化と検査後透過を許容していない。全体Checkerは既知と同じ3,038件で未合格であり、この局所成功で解消しない。公開Launcher、Workbench本番MCP接続、Profile管理四Tool、旧REST撤去、実Reader取消・公開Process終端と実Providerは未完了である。実Provider、Docker起動、秘密鍵・署名操作は行っていない。
+
 限定移管と局所回帰は成立しているが、Package全体の完了は未確定である。二つの読取り専用確認を統合し、以下を全数追跡する。CROSの採否待ちを理由に独立した是正を停止せず、後半の実行系大改修も前倒ししない。
 
 | 対象 | 不足と最小処置 | 保持する条件・確認方法 | 現在状態 |

@@ -26,11 +26,11 @@ import {
   type AiProfileCatalogSnapshot,
   type AiProfileDefinition,
 } from "../../../ai-adapter/src/index.ts";
-import { inspectOrchestratorProjection } from "../../../orchestrator/src/index.ts";
+import { parseCrosRuntimeActivityObservation } from "../activity/validate.ts";
+import { readCrosRuntimeActivity } from "../activity/read.ts";
 import type { CrosExposureSnapshot } from "../access/types.ts";
 import type {
   CrosRemoteRuntimeActivityObservation,
-  CrosRemoteRuntimeEventProjection,
   CrosRuntimeActivityReader,
 } from "../activity/types.ts";
 
@@ -225,14 +225,11 @@ export async function startCrosRemoteTransport(input: {
           });
           return;
         }
-        const observation = await input.runtimeActivityReader.read({
-          projectId,
+        const observation = await readCrosRuntimeActivity(
           repositories,
-          ...(cursor === null ? {} : { cursor }),
-          limit,
-        });
-        if (!inspectRemoteRuntimeActivityObservation(observation))
-          throw new Error("cros_runtime_activity_observation_invalid");
+          { projectId, ...(cursor === null ? {} : { cursor }), limit },
+          input.runtimeActivityReader,
+        );
         sendJson(response, method, 200, {
           contract: "cros/remote-transport/v1",
           status: "available",
@@ -291,122 +288,6 @@ export async function startCrosRemoteTransport(input: {
       );
     },
   });
-}
-
-/**
- * Remote Runtime Activity観測の閉じた構造を検証する。
- *
- * @responsibility Application ReaderまたはHTTP Responseの未信頼値を公開契約へ入る前に検証する。
- * @trace ARCH-000005
- * @trace ARCH-000007
- * @trace ARCH-000013
- * @input valueに観測候補を受け取る。
- * @returns 契約へ適合する場合trueを返す。
- * @precondition valueを信頼済み型と仮定しない。
- * @postcondition Property、状態相関、Event上限およびContinuationを検査する。
- * @effect N/A: 値を観測するだけである。
- * @failure 不正値はfalseで拒否する。
- * @invariant observedとprojectionの相関を崩さない。
- * @boundary Runtime Activity Reader／HTTP JSONとCROS公開契約の境界。
- * @security 余剰Propertyを受理して秘密値を透過しない。
- * @concurrency N/A: 共有状態を持たない同期処理である。
- */
-function inspectRemoteRuntimeActivityObservation(
-  value: unknown,
-): value is CrosRemoteRuntimeActivityObservation {
-  if (typeof value !== "object" || value === null || Array.isArray(value))
-    return false;
-  const record = value as Record<string, unknown>;
-  if (
-    JSON.stringify(Object.keys(record).sort()) !==
-    JSON.stringify(
-      [
-        "state",
-        "reason",
-        "projection",
-        "eventState",
-        "eventReason",
-        "events",
-        "eventContinuation",
-      ].sort(),
-    )
-  )
-    return false;
-  if (
-    !["observed", "absent", "unknown"].includes(String(record.state)) ||
-    typeof record.reason !== "string" ||
-    record.reason.length === 0 ||
-    !["observed", "unknown"].includes(String(record.eventState)) ||
-    typeof record.eventReason !== "string" ||
-    record.eventReason.length === 0 ||
-    !Array.isArray(record.events) ||
-    record.events.length > 50 ||
-    (record.eventContinuation !== null &&
-      typeof record.eventContinuation !== "string")
-  )
-    return false;
-  const projection = inspectOrchestratorProjection(record.projection);
-  if ((record.state === "observed") !== (projection !== null)) return false;
-  if (record.eventState === "unknown" && record.events.length !== 0)
-    return false;
-  return record.events.every(inspectRemoteRuntimeEventProjection);
-}
-
-/**
- * Remote Runtime Event要約を検証する。
- *
- * @responsibility Event要約のProperty、Identity、時刻、状態および真偽値を閉じたSchemaで検査する。
- * @trace ARCH-000005
- * @trace ARCH-000007
- * @trace ARCH-000013
- * @input valueにEvent要約候補を受け取る。
- * @returns 契約へ適合する場合trueを返す。
- * @precondition valueを信頼済みObjectと仮定しない。
- * @postcondition 余剰Propertyのない安全なEvent要約だけを受理する。
- * @effect N/A: 値を観測するだけである。
- * @failure 不正値はfalseで拒否する。
- * @invariant Event時刻と結果を補正しない。
- * @boundary Remote JSONとCROS Event投影の境界。
- * @security 任意Objectまたは生Provider情報を透過しない。
- * @concurrency N/A: 共有状態を持たない同期処理である。
- */
-function inspectRemoteRuntimeEventProjection(
-  value: unknown,
-): value is CrosRemoteRuntimeEventProjection {
-  if (typeof value !== "object" || value === null || Array.isArray(value))
-    return false;
-  const record = value as Record<string, unknown>;
-  const expectedKeys = [
-    "eventId",
-    "occurredAt",
-    "objectiveId",
-    "taskId",
-    "attemptId",
-    "status",
-    "reason",
-    "cleanupConfirmed",
-    "manualRecoveryRequired",
-  ].sort();
-  return (
-    JSON.stringify(Object.keys(record).sort()) ===
-      JSON.stringify(expectedKeys) &&
-    typeof record.eventId === "string" &&
-    /^execution-[0-9a-f]{64}$/u.test(record.eventId) &&
-    typeof record.occurredAt === "string" &&
-    Number.isFinite(Date.parse(record.occurredAt)) &&
-    ["objectiveId", "taskId", "attemptId"].every(
-      (key) =>
-        typeof record[key] === "string" &&
-        /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(record[key] as string),
-    ) &&
-    ["completed", "blocked", "cancelled", "unknown"].includes(
-      String(record.status),
-    ) &&
-    typeof record.reason === "string" &&
-    record.reason.length > 0 &&
-    typeof record.cleanupConfirmed === "boolean" &&
-    typeof record.manualRecoveryRequired === "boolean"
-  );
 }
 
 /**
@@ -565,15 +446,15 @@ export async function readRemoteRuntimeActivity(
     Array.isArray(value) ||
     (value as Record<string, unknown>).contract !==
       "cros/remote-transport/v1" ||
-    (value as Record<string, unknown>).status !== "available" ||
-    !inspectRemoteRuntimeActivityObservation(
-      (value as Record<string, unknown>).observation,
-    )
+    (value as Record<string, unknown>).status !== "available"
   )
     throw new Error("cros_remote_runtime_activity_contract_invalid");
-  return (
-    value as Readonly<{ observation: CrosRemoteRuntimeActivityObservation }>
-  ).observation;
+  const observation = parseCrosRuntimeActivityObservation(
+    (value as Record<string, unknown>).observation,
+  );
+  if (observation === null)
+    throw new Error("cros_remote_runtime_activity_contract_invalid");
+  return observation;
 }
 
 /**
