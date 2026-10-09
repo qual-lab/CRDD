@@ -10,11 +10,13 @@
  * @boundary Application CRUD→Repository Filesystem→Canonical Markdown
  */
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import fs, { mkdtempSync, rmSync } from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 
 import { createTopicMeetingRepository } from "../../src/storage/topic-meeting-store.ts";
@@ -570,6 +572,239 @@ Project ID: \`PRJ-001\`
 | \`OUT-001\` | Action | 運用担当へ確認 | \`transferred\` | PM | 次回会議 | \`TOPIC-000042\` |
 `;
 }
+
+/**
+ * 既存Record Lockの協調Writer競合を実子Processで確認する。
+ * @responsibility Lock保留中の拒否・正本保持と、解放後の更新再利用を照合する。
+ * @trace CPR-IT-010
+ * @precondition 検証済みRepository内の自己生成Rootに両種別の正本を用意する。
+ * @stimulus 第一子の実Lock取得後、第二子の同改訂更新を実行し、第一子を解放する。
+ * @observation 子のclose、結果、正本bytes・改訂、Lockと短命Fileの不存在を確認する。
+ * @oracle 第二子はEffect 0で拒否され、第一子と後続更新だけが改訂を進める。
+ * @cleanup releaseを試み、所有子をjoinしてから自己生成Rootを回収する。
+ * @boundary 取得順を固定した協調Writer競合。異常死・同時open勝者・親差替え・電源断は対象外。
+ */
+test("TopicとMeetingの協調Writer競合とLock解放後の再利用を実Processで確認する", async () => {
+  const verified = resolveVerifiedRepositoryRootFromWorkingDirectory(
+    import.meta.dirname,
+  );
+  const parent = path.join(verified, ".crdd", "tests");
+  for (const directory of [path.dirname(parent), parent]) {
+    try {
+      const metadata = fs.lstatSync(directory);
+      assert.ok(metadata.isDirectory() && !metadata.isSymbolicLink());
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      fs.mkdirSync(directory);
+    }
+  }
+  // eval Sourceとimport先は試験が固定し、入力は所有Root内のFileだけで渡す。
+  const workerSource = `
+import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
+const [root, kind, id, input, ready, release, result, lock, mode] = process.argv.slice(1);
+if (mode === "hold") {
+  const originalOpen = fs.openSync;
+  fs.openSync = (...args) => {
+    const descriptor = originalOpen(...args);
+    if (args[0] === lock && args[1] === "wx") {
+      try {
+        fs.writeFileSync(ready, "lock_acquired", { flag: "wx" });
+        const deadline = Date.now() + 10000;
+        const wait = new Int32Array(new SharedArrayBuffer(4));
+        while (!fs.existsSync(release)) {
+          if (Date.now() >= deadline) throw new Error("fixture_release_timeout");
+          Atomics.wait(wait, 0, 0, 10);
+        }
+      } catch (error) {
+        try {
+          fs.closeSync(descriptor);
+        } catch (closeError) {
+          throw new AggregateError([closeError], "fixture_lock_close_failed", { cause: error });
+        }
+        throw error;
+      }
+    }
+    return descriptor;
+  };
+  syncBuiltinESMExports();
+}
+const { createTopicMeetingRepository } = await import(${JSON.stringify(new URL("../../src/storage/topic-meeting-store.ts", import.meta.url).href)});
+const outcome = createTopicMeetingRepository(root).update(kind, id, 1, fs.readFileSync(input, "utf8"));
+fs.writeFileSync(result, JSON.stringify(outcome), { flag: "wx" });
+`;
+  for (const kind of ["topic", "meeting"] as const) {
+    const scope = fs.mkdtempSync(path.join(parent, "domain-writer-"));
+    const root = path.join(scope, "repository");
+    const id = kind === "topic" ? "TOPIC-000042" : "MTG-000042";
+    const category = kind === "topic" ? "22_Topics" : "23_Meetings";
+    const initial = kind === "topic" ? topic(1) : meeting(1);
+    const next = kind === "topic" ? topic(2, "waiting") : meeting(2);
+    const file = path.join(root, category, id, `${kind}.md`);
+    const lock = path.join(root, category, `.${id}.lock`);
+    const input = path.join(scope, "input.md");
+    const ready = path.join(scope, "ready");
+    const release = path.join(scope, "release");
+    const children: Array<{
+      child: ReturnType<typeof spawn>;
+      closed: boolean;
+      done: Promise<{
+        code: number | null;
+        signal: string | null;
+        error: Error | null;
+      }>;
+    }> = [];
+    let failure: unknown;
+    let failed = false;
+    try {
+      fs.mkdirSync(root);
+      const repository = createTopicMeetingRepository(root);
+      assert.equal(repository.create(kind, initial).status, "completed");
+      fs.writeFileSync(input, next);
+      for (const mode of ["hold", "compete"] as const) {
+        const result = path.join(scope, `${mode}.json`);
+        const child = spawn(
+          process.execPath,
+          [
+            "--input-type=module",
+            "--eval",
+            workerSource,
+            root,
+            kind,
+            id,
+            input,
+            ready,
+            release,
+            result,
+            lock,
+            mode,
+          ],
+          { stdio: "ignore" },
+        );
+        const observed = {
+          child,
+          closed: false,
+          done: Promise.resolve({
+            code: null as number | null,
+            signal: null as string | null,
+            error: null as Error | null,
+          }),
+        };
+        observed.done = new Promise((resolve) => {
+          let spawnError: Error | null = null;
+          child.once("error", (error) => {
+            spawnError = error;
+          });
+          child.once("close", (code, signal) => {
+            observed.closed = true;
+            resolve({ code, signal, error: spawnError });
+          });
+        });
+        children.push(observed);
+        const deadline = Date.now() + 10000;
+        if (mode === "hold") {
+          while (!fs.existsSync(ready)) {
+            assert.equal(
+              observed.closed,
+              false,
+              "Lock取得前に第一子が終了しない",
+            );
+            assert.ok(Date.now() < deadline, "Lock取得通知の期限");
+            await delay(10);
+          }
+          assert.equal(fs.readFileSync(ready, "utf8"), "lock_acquired");
+          assert.ok(fs.lstatSync(lock).isFile());
+        } else {
+          while (!observed.closed) {
+            assert.ok(Date.now() < deadline, "第二子closeの期限");
+            await delay(10);
+          }
+          assert.deepEqual(await observed.done, {
+            code: 0,
+            signal: null,
+            error: null,
+          });
+          const outcome = JSON.parse(fs.readFileSync(result, "utf8"));
+          assert.equal(outcome.status, "blocked");
+          assert.equal(outcome.reason, "record_revision_conflict");
+          assert.equal(outcome.filesystemEffectCount, 0);
+          assert.equal(children[0]?.closed, false);
+          assert.equal(fs.readFileSync(file, "utf8"), initial);
+          assert.equal(repository.get(kind, id)?.revision, 1);
+          assert.ok(fs.lstatSync(lock).isFile());
+          fs.writeFileSync(release, "release", { flag: "wx" });
+        }
+      }
+      const first = children[0];
+      assert.ok(first);
+      const deadline = Date.now() + 10000;
+      while (!first.closed) {
+        assert.ok(Date.now() < deadline, "第一子closeの期限");
+        await delay(10);
+      }
+      assert.deepEqual(await first.done, {
+        code: 0,
+        signal: null,
+        error: null,
+      });
+      const accepted = JSON.parse(
+        fs.readFileSync(path.join(scope, "hold.json"), "utf8"),
+      );
+      assert.equal(accepted.status, "completed");
+      assert.equal(accepted.reason, "record_updated");
+      assert.equal(accepted.record.revision, 2);
+      assert.equal(accepted.filesystemEffectCount, 1);
+      assert.equal(fs.readFileSync(file, "utf8"), next);
+      assert.equal(repository.get(kind, id)?.revision, 2);
+      assert.throws(() => fs.lstatSync(lock), { code: "ENOENT" });
+      assert.deepEqual(fs.readdirSync(path.dirname(file)), [`${kind}.md`]);
+      const third = kind === "topic" ? topic(3) : meeting(3);
+      assert.equal(repository.update(kind, id, 2, third).status, "completed");
+      assert.equal(repository.get(kind, id)?.revision, 3);
+      assert.equal(fs.readFileSync(file, "utf8"), third);
+      assert.throws(() => fs.lstatSync(lock), { code: "ENOENT" });
+      assert.deepEqual(fs.readdirSync(path.dirname(file)), [`${kind}.md`]);
+    } catch (error) {
+      failed = true;
+      failure = error;
+    }
+    const cleanupErrors: unknown[] = [];
+    try {
+      fs.writeFileSync(release, "release");
+    } catch (error) {
+      cleanupErrors.push(error);
+    }
+    for (const observed of children) {
+      if (!observed.closed) {
+        try {
+          observed.child.kill();
+        } catch (error) {
+          cleanupErrors.push(error);
+        }
+      }
+      const deadline = Date.now() + 10000;
+      while (!observed.closed && Date.now() < deadline) await delay(10);
+      if (!observed.closed)
+        cleanupErrors.push(new Error(`fixture_child_join_unknown:${scope}`));
+      else await observed.done;
+    }
+    if (children.every((observed) => observed.closed)) {
+      try {
+        fs.rmSync(scope, { recursive: true, force: true });
+        assert.throws(() => fs.lstatSync(scope), { code: "ENOENT" });
+      } catch (error) {
+        cleanupErrors.push(error);
+      }
+    }
+    if (cleanupErrors.length > 0)
+      throw new AggregateError(
+        cleanupErrors,
+        "fixture_cleanup_failed",
+        failed ? { cause: failure } : undefined,
+      );
+    if (failed) throw failure;
+  }
+});
 
 /**
  * TopicとMeetingのCRUDを同じRepository契約で処理する。

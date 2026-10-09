@@ -239,8 +239,8 @@ Related:
 | 対象 | 不足と最小処置 | 保持する条件・確認方法 | 現在状態 |
 |---|---|---|---|
 | Domain ModelのTopic／Meeting保存 | rename後のLock解放失敗を上位の入力不正・Effect 0へ丸める経路を除く。保存Ownerから一次失敗とcleanup結果を分離して搬送する | 正常CRUD・Revision・Relationは不変。rename後close／unlink故障と実ファイル・公開結果の相関を局所試験する。汎用Recovery Frameworkを追加しない | 一次失敗／cleanup分離、MCP／Workbenchの誤変換、部分write・一回読戻し・静的親link拒否は局所是正済み。実Process競合等の保存全体保証は次行で未完了を維持 |
-| Topic／Meetingの保存境界 | 親Directoryのlink経由を拒否し、保存確定・読戻しの観測を接続する | Root外書込み禁止、保存形式・ID・認可Ownerは不変。親link・途中置換・読戻し失敗・実Process競合を反証する | 通常保存後の一回読戻し、部分write失敗、静的親link拒否は接続済み。協調Writerの実Process競合は未完了。非協調Processの親差替え防止は判断待ち。電源断耐久性は人間判断により今回対象外 |
-| Version Control公開入口 | 跨Packageの実体Path importを既存Root exportへ接続し、閉包試験へ禁止例を追加する | 新API・中継Fileは作らない。署名閉包のPath文字列とimportを区別する | 代表3利用側と既知Consumer集合を訂正済み。全利用側の閉包確認は残る |
+| Topic／Meetingの保存境界 | 親Directoryのlink経由を拒否し、保存確定・読戻しの観測を接続する | Root外書込み禁止、保存形式・ID・認可Ownerは不変。親link・途中置換・読戻し失敗・実Process競合を反証する | 通常保存後の一回読戻し、部分write失敗、静的親link拒否と取得順固定の協調Writer実Process競合は確認済み。非協調Processの親差替え防止は判断待ち。電源断耐久性は人間判断により今回対象外 |
+| Version Control公開入口 | 跨Packageの実体Path importを既存Root exportへ接続し、閉包試験へ禁止例を追加する | 新API・中継Fileは作らない。署名閉包のPath文字列とimportを区別する | 既知Consumer集合の接続・閉包確認は完了。固定47件と独立レビュー指摘0。Coordinator配布Suiteの試験側旧Path追従と全体確認は別に進行中 |
 | 現在の設計・Header | Domainの廃止済み入口、AI Adapterの旧配置参照、純粋計画のEffect記載、EI WriterのEffect・排他記載を実体へ合わせる | 関数本文・公開結果・Authorityは不変。書式・型・Lintと限定独立確認を行う | 訂正済み。限定独立確認は指摘0 |
 | AI Adapter純粋試験3Suite | Codex／Claudeの構造化結果とBilling試験を実装Ownerへ移し、Symbol／Catalog／回帰入口を接続する | 14 caseの拒否例・Oracleを保持する。Coordinator結合試験は一括移管しない | 移管済み。14 case本文・Oracle不変、Package回帰27件と関連Consumer34件を確認 |
 | 上記3SuiteのQA対応 | 現在のRCM-UT-016／AIT-UT-005はProvider結果／Billingの検証意味と一致しない。Canonicalから該当義務を再照合する | 物理移動を理由にQAの意味を改変しない。正しいLocal Itemへの接続を確定してから全体Passを評価する | ERB-UT-032／033へ訂正。移管と追加容量試験の限定独立レビューは指摘0。Codexの16KiB実入力境界を観測し、28件の回帰はPass |
@@ -385,3 +385,27 @@ Coordinator全体checkは既知Checker整形1件で停止し、型検査も既�
 Oracle修正後は書式・型・LintとRepository Suite全7件Pass、Fail／Skip 0。先の112件全回帰の対象と、この修正後局所再実行の対象を区別する。その他Package入力・Runtimeは不変で、固定候補の限定再レビューで是正解消を確認する。
 
 修正後の限定再レビューは両観点とも指摘0で、Repository正常CRUDの補強は確認済み。協調Writer実Process競合と公開操作母集合の網羅は引き続き残件である。
+
+### 配布閉包試験の旧Path追従 — 着手前照合
+
+基準Commitは`0b2b49a6`。関連Suite全体で発見した試験側の参照漏れを処置する。`host-runtime`は`host-execution`、kernel-lock・子entrypoint・Lock supervisorは現行Fileへ、`docker-runtime`は`docker-execution`のowned-process／command-effectsへ、CLI lifecycleは現行非internal Fileへ対応させる。Orchestratorのintegration-resultと未使用sibling fixtureは現行candidate Folderへ置く。架空攻撃File名、状態・reason、役割IDと既存拒否Oracleは維持し、廃止Folderをわざわざ作って試験を通さない。
+
+実行能力伝播反例の局所再現では、dispatchの正本を置換できず、意図した変異が未発火であった。現行Sourceと空白だけが異なるfrom／toを同期し、既存の変異発火assertion・拒否phaseを保持する。Runtime・公開API・Authorityは変更しない。Source対応と静的確認、速い伝播反例、実fixture利用側を確認した後に関連Suite全体を再実行する。実装と品質の限定独立レビューを行い、別の契約不足があればPath同期へ混ぜず分類する。実Provider・Docker・実鍵・実署名は使わない。
+
+旧Path同期後の伝播反例・内部lifecycle反例は局所2件Pass。固定候補の実装・品質レビューは同じ原因のMinor2件を返した。攻撃側と許可対照の相対importが実fixtureへ接続していないため、それぞれ実Docker Process OwnerとCoordinator子入口へ同期する。duplicate_path置換には書込み直後の発火assertionを追加する。両結果を統合してから限定是正し、Runtime・許可集合・既存拒否理由とcandidate対照は維持する。修正前候補の全Suiteは是正前に停止したため、完走・全体Passの根拠には使用しない。是正後は該当3ケースを先に確認し、新しい固定候補で再レビューと全Suiteを行う。
+
+是正後の書式・Lint、差分空白確認はPass。duplicate_pathの変異発火と拒否、実Ownerを指すsibling importの直接拒否、実Coordinator wrapperを指す許可対照を含む該当3ケースは3件Pass、Fail／Skip 0。局所成功は配布Suite全体や実署名の成立ではなく、全Suiteと修正後独立再レビューは未完了である。
+
+配布閉包試験の修正後独立再レビューは両観点とも指摘0。全Suiteは引き続き実行中で、終了前に全体Passへ更新しない。
+
+### Topic／Meeting協調Writerの実Process確認
+
+既存の着手前条件を具体化し、固定ESM eval Sourceと固定import先、所有Root内の入力・結果Fileで実子Processを起動する。通常入口とevalで異なるargv位置は`slice(1)`へ固定した。第一子のexact Lock open後にreadyを発行し、第二子のcloseと拒否tuple、第一子保留と正本保持を確認してからreleaseする。子のclose、保存結果、改訂2／3、Lock・短命File不存在を共同確認する。Runtime・公開API・Lock形式は不変で、新Frameworkは作らない。
+
+初回局所試験はfixtureのRepository子Root作成漏れで失敗した。実Operation開始前の不足であり、自己生成の空Rootを確認して回収した。Root作成とRepository構築をcleanup対象のtry内へ移し、書式・型・Lintと局所1件はPass。最終Oracleへstatus／reasonと後続更新後の短命File不存在を追加して全回帰・独立レビューへ渡す。取得順を固定した協調Writer以外の保証を追加しない。
+
+追加後のDomain Model全113件と書式・型・LintはPass、Fail／Skip 0。実装・品質の独立レビューは同じMinor1件を返した。子hookがdescriptorを返す前の一次失敗にclose失敗が併発すると上書きするため、closeを一度だけ別tryへ置き、AggregateErrorのcauseに元失敗を保持する。両結果統合後に試験fixtureだけを是正し、Runtime・Lock形式・取得順・正常Oracleは維持する。実OS close失敗の回収保証へ拡張しない。
+
+fixture是正後の書式・型・Lintと局所競合1件はPass、Fail／Skip 0。全113件は是正前候補の結果として区別し、修正後の限定再レビューへ渡す。実OS close失敗注入・非協調Writer・異常死は今回の確認対象外である。
+
+是正後の実装・品質再レビューは両観点とも指摘0。取得順を固定した協調Writerの競合・正本保持・Lock解放・後続更新再利用の確認は限定完了とする。公開操作全母集合と非協調親差替えの未決範囲は解消主張に含めない。自己生成domain-writer Rootの残存0を確認した。
