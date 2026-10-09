@@ -209,6 +209,18 @@ CROSの登録・Credential・認可・横断投影は独立した責務として
 | Credential発行・回復 | 既存Local管理入口に保持 | 秘密の発行能力をMCPへ新設しない。MCPは認証済み要求を認可へ接続する |
 | Browser→Workbench API | 維持 | Server→CROS RESTの廃止と混同しない。表示導線・Visualの再設計は別の人間確認へ戻す |
 
+### 現行Ownerと本番未接続の区別
+
+読取り専用の移管前確認を完了し、次の三能力を旧RESTから新Ownerへ対応付けた。下表は実装前の処置であり、新MCP接続の完成根拠ではない。
+
+| 能力 | 意味・操作の現行Owner | 保持する試験と移管時の不足 |
+|---|---|---|
+| Portfolio | CROS `federation/project.ts`の`createPortfolioProjection`／`resolveAuthorizedRepositories` | CROSの許可Source・無効Bearer非開示、MCPのWorkspace限定搬送、WorkbenchのCoverage・失効後Current表示拒否を保持。一覧と個別取得の間で別Snapshotを混入させない読取り契約が必要 |
+| AI Profile管理 | AI Adapter `catalog/types.ts`と`profile/administration.ts`の`createAiProfileCatalogAdministration`。CROSは管理可否を判定する | AI Adapterの競合・確認付き削除Oracle、CROSの非管理者403・Catalog非開示、Workbenchの管理者限定表示を保持。MCP Schema／route／Resolverは未接続。本番CROS LauncherもAdministrationを注入していない |
+| Runtime活動 | 現行CROS `connection/http.ts`の観測・Event・Reader契約。実状態はOrchestratorが所有する | CROSのReader入力を許可Repositoryに限定するOracleと非開示Project拒否、WorkbenchのRemote活動表示を保持。型・読取り契約をTransportから分離する。MCPと本番CROS LauncherのReader注入は未接続 |
+
+現行の主なOracleはCROS `remote-transport.contract.test.ts`、MCP `cros-project-context-mcp.integration.test.ts`、Workbench `workbench-server.contract.test.ts`およびAI AdapterのCatalog／Administration試験にある。REST試験の成功だけでは管理操作全体を網羅しない。`template/tools/crdd-cros-server.ts`はRegistry・Exposure・Topic／Meetingだけを組み立て、設定型にもAdministration／Runtime Readerがない。したがって、本番未接続を単なるTransport移動で解消済みと扱わない。Credential発行・回復は既存Local管理入口に保持する。
+
 ### 削除までの依存順
 
 1. 承認済みCROS PackageをOwnerとして、共通契約と保持する認可・結果意味をArchitecture／Qualityで固定する。Exposure・Runtime観測／Reader型をHTTP Transportから分離し、Root export・設定Reader・MCP Resolver・Workbenchの直接利用側を追従する。
