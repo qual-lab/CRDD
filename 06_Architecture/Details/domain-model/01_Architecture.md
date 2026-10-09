@@ -296,6 +296,8 @@ MCPとWorkbenchの旧公開入口利用は移管対象である。新Packageへ�
 
 ### 9.1. 状態保存と呼出し順
 
+保存PathはRootから種別親・Record親まで既存Directoryを順にlstatし、link／junction・非Directoryを拒否する。ENOENTだけを未作成とし、観測不能は不存在へ畳まない。作成は一階層ずつ行い、EEXIST後も再観測する。Lockと短命Fileの作成前、rename・削除・cleanup前にも該当chainを確認する。listは安定Record ID名のlinkを黙って除外せず拒否し、hasChangeも固定CHG親を同じ観測へ接続する。Relation探索の無関係なlink非追跡は維持する。以下で未完了とする親link保証は非協調Processの同時差替えを含む保証であり、静的な親link拒否とは区別する。この事前観測は観測直後の差替えを防止せず、Root外Effect 0の同時競合保証を証明しない。その必要範囲は人間判断待ちとして別に保持する。
+
 | 順序 | 所有者と処置 | 失敗・取消・中断時 |
 |---|---|---|
 | 1 | Workbench Server／MCP Serverが操作入力を受付。共有利用ではCROSが対象Binding、Credential、許可範囲を再確認 | 認可不明なら本文・件数・対象存在を開示せず、CRUD Effectを発行しない |

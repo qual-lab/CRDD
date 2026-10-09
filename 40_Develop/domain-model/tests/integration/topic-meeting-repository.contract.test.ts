@@ -20,6 +20,267 @@ import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../vers
 import { createTopicMeetingRepository } from "../../src/storage/topic-meeting-store.ts";
 
 /**
+ * 既存の保存先chainにあるlink・非Directory・観測不能を拒否する。
+ * @responsibility Topic／Meetingの全Repository操作を同じ親境界へ接続する。
+ * @trace CPR-IT-011
+ * @precondition 検証済みRepository内の自己生成領域だけに正本と別保存先を用意する。
+ * @stimulus Root、種別親、Record親をjunction・dangling link・通常Fileへ置換する。
+ * @observation 拒否例外と退避正本bytesを照合し、観測不能とENOENTを区別する。
+ * @oracle 固定親を辿らず別保存先と正本を保持する。観測不能をnullへ畳まない。
+ * @cleanup mockを復元し、自己生成Root全体の不存在を確認する。
+ * @boundary 静的な保存先chainと公開CRUD。観測直後の同時差替え防止の証明ではない。
+ */
+test("保存先の親linkと観測不能を全操作で拒否する", (t) => {
+  const verified = resolveVerifiedRepositoryRootFromWorkingDirectory(
+    import.meta.dirname,
+  );
+  const parent = path.join(verified, ".crdd", "tests");
+  for (const directory of [path.dirname(parent), parent]) {
+    try {
+      const metadata = fs.lstatSync(directory);
+      assert.ok(metadata.isDirectory() && !metadata.isSymbolicLink());
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      fs.mkdirSync(directory);
+    }
+  }
+  for (const kind of ["topic", "meeting"] as const) {
+    for (const level of ["root", "area", "record"] as const) {
+      for (const mode of ["junction", "dangling", "file"] as const) {
+        const scope = fs.mkdtempSync(path.join(parent, "topic-meeting-chain-"));
+        try {
+          const root = path.join(scope, "repository");
+          const id = kind === "topic" ? "TOPIC-000042" : "MTG-000042";
+          const markdown = kind === "topic" ? topic : meeting;
+          const area = kind === "topic" ? "22_Topics" : "23_Meetings";
+          const replaced =
+            level === "root"
+              ? root
+              : level === "area"
+                ? path.join(root, area)
+                : path.join(root, area, id);
+          const retained = path.join(scope, "retained");
+          const retainedFile = path.join(
+            retained,
+            ...(level === "root" ? [area, id] : level === "area" ? [id] : []),
+            `${kind}.md`,
+          );
+          fs.mkdirSync(path.dirname(retainedFile), { recursive: true });
+          fs.writeFileSync(retainedFile, markdown(1));
+          fs.mkdirSync(path.dirname(replaced), { recursive: true });
+          const before = fs.readFileSync(retainedFile);
+          if (mode === "file") fs.writeFileSync(replaced, "not_a_directory");
+          else
+            fs.symlinkSync(
+              mode === "junction" ? retained : path.join(scope, "missing"),
+              replaced,
+              "junction",
+            );
+          if (level === "root")
+            assert.throws(
+              () => createTopicMeetingRepository(root),
+              /project_operation_repository_root_invalid/u,
+            );
+          else {
+            const repository = createTopicMeetingRepository(root);
+            for (const operation of [
+              () => repository.get(kind, id),
+              () => repository.getDocument(kind, id),
+              () => repository.list(kind),
+              () => repository.inspectDeletion(kind, id),
+              () => repository.create(kind, markdown(1)),
+              () => repository.update(kind, id, 1, markdown(2)),
+              () =>
+                repository.delete({
+                  kind,
+                  id,
+                  expectedRevision: 1,
+                  confirmed: true,
+                  reason: "mistaken_registration",
+                }),
+            ])
+              assert.throws(
+                operation,
+                /project_operation_.*(?:invalid|symlink_rejected)/u,
+              );
+          }
+          assert.deepEqual(fs.readFileSync(retainedFile), before);
+          assert.deepEqual(fs.readdirSync(path.dirname(retainedFile)), [
+            `${kind}.md`,
+          ]);
+        } finally {
+          fs.rmSync(scope, { recursive: true, force: true });
+          assert.throws(() => fs.lstatSync(scope), { code: "ENOENT" });
+        }
+      }
+    }
+  }
+  const scope = fs.mkdtempSync(path.join(parent, "topic-meeting-observation-"));
+  try {
+    const repository = createTopicMeetingRepository(scope);
+    assert.equal(repository.get("topic", "TOPIC-000042"), null);
+    assert.equal(repository.list("topic").status, "not_configured");
+    const failure = Object.assign(
+      new Error("fixed_parent_observation_failure"),
+      { code: "EACCES" },
+    );
+    const originalLstat = fs.lstatSync;
+    const mocked = t.mock.method(
+      fs,
+      "lstatSync",
+      (...args: Parameters<typeof fs.lstatSync>) => {
+        if (String(args[0]) === path.join(scope, "22_Topics")) throw failure;
+        return originalLstat(...args);
+      },
+    );
+    syncBuiltinESMExports();
+    try {
+      for (const operation of [
+        () => repository.get("topic", "TOPIC-000042"),
+        () => repository.list("topic"),
+        () => repository.create("topic", topic(1)),
+      ])
+        assert.throws(operation, (error) => error === failure);
+    } finally {
+      mocked.mock.restore();
+      syncBuiltinESMExports();
+    }
+    assert.deepEqual(fs.readdirSync(scope), []);
+  } finally {
+    fs.rmSync(scope, { recursive: true, force: true });
+    assert.throws(() => fs.lstatSync(scope), { code: "ENOENT" });
+  }
+});
+
+/**
+ * CHG参照の親境界と競合作成後の再観測を確認する。
+ * @responsibility hasChangeと保存mkdirを同じ非link・観測不能拒否へ接続する。
+ * @trace CPR-IT-011
+ * @precondition Repository-localの自己生成Rootとsentinelを用意する。
+ * @stimulus CHG親junction、観測不能、mkdirのEEXIST後linkを与える。
+ * @observation 参照拒否、sentinel保持、正本未作成とLock不存在を確認する。
+ * @oracle 曖昧な親を不存在へ丸めず、競合作成を通常Directoryと推定しない。
+ * @cleanup mockを復元し、自己生成Rootを回収して不存在を確認する。
+ * @boundary 固定CHG Pathと一階層mkdirの静的拒否。非協調同時置換保証ではない。
+ */
+test("CHG親とmkdir競合後のlinkを拒否する", (t) => {
+  const verified = resolveVerifiedRepositoryRootFromWorkingDirectory(
+    import.meta.dirname,
+  );
+  const parent = path.join(verified, ".crdd", "tests");
+  assert.ok(
+    fs.lstatSync(parent).isDirectory() &&
+      !fs.lstatSync(parent).isSymbolicLink(),
+  );
+  for (const level of ["99_Roadmap", "Changes", "CHG-000042"] as const) {
+    const scope = fs.mkdtempSync(
+      path.join(parent, "topic-meeting-change-chain-"),
+    );
+    try {
+      const root = path.join(scope, "repository");
+      const change = path.join(root, "99_Roadmap", "Changes", "CHG-000042");
+      const replaced =
+        level === "99_Roadmap"
+          ? path.join(root, level)
+          : level === "Changes"
+            ? path.join(root, "99_Roadmap", level)
+            : change;
+      const retained = path.join(scope, "retained");
+      const retainedFile = path.join(
+        retained,
+        ...(level === "99_Roadmap"
+          ? ["Changes", "CHG-000042"]
+          : level === "Changes"
+            ? ["CHG-000042"]
+            : []),
+        "change.md",
+      );
+      fs.mkdirSync(path.dirname(retainedFile), { recursive: true });
+      fs.writeFileSync(retainedFile, "sentinel");
+      fs.mkdirSync(path.dirname(replaced), { recursive: true });
+      fs.symlinkSync(retained, replaced, "junction");
+      const repository = createTopicMeetingRepository(root);
+      assert.throws(
+        () => repository.hasChange("CHG-000042"),
+        /symlink_rejected/u,
+      );
+      assert.equal(fs.readFileSync(retainedFile, "utf8"), "sentinel");
+    } finally {
+      fs.rmSync(scope, { recursive: true, force: true });
+      assert.throws(() => fs.lstatSync(scope), { code: "ENOENT" });
+    }
+  }
+  const scope = fs.mkdtempSync(path.join(parent, "topic-meeting-mkdir-race-"));
+  try {
+    const root = path.join(scope, "repository");
+    const retained = path.join(scope, "retained");
+    fs.mkdirSync(root);
+    fs.mkdirSync(retained);
+    fs.writeFileSync(path.join(retained, "sentinel"), "unchanged");
+    const repository = createTopicMeetingRepository(root);
+    const originalMkdir = fs.mkdirSync;
+    const originalLstat = fs.lstatSync;
+    const failure = Object.assign(
+      new Error("fixed_change_observation_failure"),
+      { code: "EACCES" },
+    );
+    const observeMock = t.mock.method(
+      fs,
+      "lstatSync",
+      (...args: Parameters<typeof fs.lstatSync>) => {
+        if (String(args[0]) === path.join(root, "99_Roadmap")) throw failure;
+        return originalLstat(...args);
+      },
+    );
+    syncBuiltinESMExports();
+    try {
+      assert.throws(
+        () => repository.hasChange("CHG-000042"),
+        (error) => error === failure,
+      );
+    } finally {
+      observeMock.mock.restore();
+      syncBuiltinESMExports();
+    }
+    const mocked = t.mock.method(
+      fs,
+      "mkdirSync",
+      (...args: Parameters<typeof fs.mkdirSync>) => {
+        if (String(args[0]) === path.join(root, "22_Topics", "TOPIC-000042")) {
+          fs.symlinkSync(retained, args[0], "junction");
+          throw Object.assign(new Error("fixed_creation_conflict"), {
+            code: "EEXIST",
+          });
+        }
+        return originalMkdir(...args);
+      },
+    );
+    syncBuiltinESMExports();
+    try {
+      assert.throws(
+        () => repository.create("topic", topic(1)),
+        /symlink_rejected/u,
+      );
+    } finally {
+      mocked.mock.restore();
+      syncBuiltinESMExports();
+    }
+    assert.deepEqual(fs.readdirSync(retained), ["sentinel"]);
+    assert.equal(
+      fs.readFileSync(path.join(retained, "sentinel"), "utf8"),
+      "unchanged",
+    );
+    assert.throws(
+      () => fs.lstatSync(path.join(root, "22_Topics", ".TOPIC-000042.lock")),
+      { code: "ENOENT" },
+    );
+  } finally {
+    fs.rmSync(scope, { recursive: true, force: true });
+    assert.throws(() => fs.lstatSync(scope), { code: "ENOENT" });
+  }
+});
+
+/**
  * 所有した短命Fileの部分書込み・close失敗を公開更新から検証する。
  *
  * @responsibility open成功後だけ回収し、一次失敗・cleanup・正本保持を共同確認する。
@@ -528,7 +789,13 @@ test("保存とcleanupの失敗を上書きせず実改訂と照合する", (t) 
           assert.deepEqual(failure.errors, [closeFailure, lockFailure]);
         else assert.deepEqual(failure.errors, [temporaryFailure]);
         if (mode === "published")
-          assert.equal(Object.hasOwn(failure, "cause"), false);
+          assert.equal(
+            Object.hasOwn(failure, "cause"),
+            false,
+            failure.cause instanceof Error
+              ? failure.cause.stack
+              : String(failure.cause),
+          );
         else if (mode === "nested") {
           assert.ok(failure.cause instanceof AggregateError);
           assert.equal(failure.cause.cause, primary);
@@ -586,6 +853,7 @@ test("登録・更新はLock内の同一読戻しを確認し保存後失敗を�
   const originalRead = fs.readFileSync;
   const originalRename = fs.renameSync;
   const originalExists = fs.existsSync;
+  const originalLstat = fs.lstatSync;
   const originalUnlink = fs.unlinkSync;
   for (const kind of ["topic", "meeting"] as const) {
     for (const operation of ["create", "update"] as const) {
@@ -637,13 +905,16 @@ test("登録・更新はLock内の同一読戻しを確認し保存後失敗を�
               return result;
             },
           );
-          const existsMock = t.mock.method(
+          const lstatMock = t.mock.method(
             fs,
-            "existsSync",
-            (target: fs.PathLike) =>
-              published && String(target) === file && mode === "missing"
-                ? false
-                : originalExists(target),
+            "lstatSync",
+            (...args: Parameters<typeof fs.lstatSync>) => {
+              if (published && String(args[0]) === file && mode === "missing")
+                throw Object.assign(new Error("fixed_readback_missing"), {
+                  code: "ENOENT",
+                });
+              return originalLstat(...args);
+            },
           );
           const readMock = t.mock.method(
             fs,
@@ -739,7 +1010,7 @@ test("登録・更新はLock内の同一読戻しを確認し保存後失敗を�
           } finally {
             renameMock.mock.restore();
             readMock.mock.restore();
-            existsMock.mock.restore();
+            lstatMock.mock.restore();
             unlinkMock.mock.restore();
             syncBuiltinESMExports();
           }

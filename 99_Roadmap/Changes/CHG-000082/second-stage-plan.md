@@ -238,8 +238,8 @@ Related:
 
 | 対象 | 不足と最小処置 | 保持する条件・確認方法 | 現在状態 |
 |---|---|---|---|
-| Domain ModelのTopic／Meeting保存 | rename後のLock解放失敗を上位の入力不正・Effect 0へ丸める経路を除く。保存Ownerから一次失敗とcleanup結果を分離して搬送する | 正常CRUD・Revision・Relationは不変。rename後close／unlink故障と実ファイル・公開結果の相関を局所試験する。汎用Recovery Frameworkを追加しない | 一次失敗／cleanup分離とMCP／Workbenchの誤変換は局所是正済み。親link、部分write、読戻し、耐久性、実Process競合等の保存全体保証は次行で未完了を維持 |
-| Topic／Meetingの保存境界 | 親Directoryのlink経由を拒否し、保存確定・読戻しの観測を接続する | Root外書込み禁止、保存形式・ID・認可Ownerは不変。親link・途中置換・読戻し失敗・実Process競合を反証する | 通常保存後の一回読戻しは接続済み。親link、部分write、実Process競合は未完了。非協調Processの親差替え防止は判断待ち |
+| Domain ModelのTopic／Meeting保存 | rename後のLock解放失敗を上位の入力不正・Effect 0へ丸める経路を除く。保存Ownerから一次失敗とcleanup結果を分離して搬送する | 正常CRUD・Revision・Relationは不変。rename後close／unlink故障と実ファイル・公開結果の相関を局所試験する。汎用Recovery Frameworkを追加しない | 一次失敗／cleanup分離、MCP／Workbenchの誤変換、部分write・一回読戻し・静的親link拒否は局所是正済み。実Process競合等の保存全体保証は次行で未完了を維持 |
+| Topic／Meetingの保存境界 | 親Directoryのlink経由を拒否し、保存確定・読戻しの観測を接続する | Root外書込み禁止、保存形式・ID・認可Ownerは不変。親link・途中置換・読戻し失敗・実Process競合を反証する | 通常保存後の一回読戻し、部分write失敗、静的親link拒否は接続済み。協調Writerの実Process競合は未完了。非協調Processの親差替え防止は判断待ち。電源断耐久性は人間判断により今回対象外 |
 | Version Control公開入口 | 跨Packageの実体Path importを既存Root exportへ接続し、閉包試験へ禁止例を追加する | 新API・中継Fileは作らない。署名閉包のPath文字列とimportを区別する | 代表3利用側と既知Consumer集合を訂正済み。全利用側の閉包確認は残る |
 | 現在の設計・Header | Domainの廃止済み入口、AI Adapterの旧配置参照、純粋計画のEffect記載、EI WriterのEffect・排他記載を実体へ合わせる | 関数本文・公開結果・Authorityは不変。書式・型・Lintと限定独立確認を行う | 訂正済み。限定独立確認は指摘0 |
 | AI Adapter純粋試験3Suite | Codex／Claudeの構造化結果とBilling試験を実装Ownerへ移し、Symbol／Catalog／回帰入口を接続する | 14 caseの拒否例・Oracleを保持する。Coordinator結合試験は一括移管しない | 移管済み。14 case本文・Oracle不変、Package回帰27件と関連Consumer34件を確認 |
@@ -333,3 +333,11 @@ JSON解析・差分確認と旧参照0／新参照2の照合はPass。固定差�
 短命Fileを排他的openで所有確定してから同じdescriptorへ書込み、close確認後だけrenameする。open失敗は他者Fileに触れず、write・close・rename失敗では所有する短命Fileだけを回収する。一次失敗、undefined例外、close／unlink併発を既存AggregateErrorへ保持し、新Recovery・Lock・再試行は追加しない。24組合せの反証を既存QA011へ接続する。親link、実Process競合、実OS close失敗と電源断耐久性はこの是正の成立根拠に含めない。実測・独立レビューは未完了である。
 
 実測結果: Domain Modelの書式・型・Lintと全110件、MCPの同静的確認と全51件、WorkbenchのBuild・同静的確認と全33件はPass、Skip／Fail 0。最初の追加試験はEEXIST注入の内部open再帰で失敗したため、他者Fileの準備を注入外のdescriptorで行うよう訂正し、静的確認から全回帰を再実行した。Runtimeの不足を注入の修正で隠したものではない。独立Sourceレビュー指摘0と品質Minor1を統合し、Detail分析表への直接伝播だけを是正した。両観点の再確認は指摘0。既存の40読戻し組合せと正常・rename故障Oracleは維持した。今回の処置で保存全体や1〜8全体を完了とは扱わない。
+
+### 静的な保存先親linkの拒否
+
+既存Adapter内のDirectory観測をCRUD・一覧・CHG参照へ接続し、recursive mkdirを一階層作成へ置換する。Root・種別親・Record親のlink／junction・通常Fileを拒否し、ENOENTだけをmissingとする。Lock・短命File・rename・削除・cleanupの前に該当chainを確認し、新Lock・Recovery・公開Capabilityは作らない。観測直後の非協調Process置換はこの変更では防止せず、必要範囲の人間判断待ちを維持する。固定候補の回帰・独立確認は未完了である。
+
+1〜5の再照合では、Version ControlのRoot公開入口への全Consumer追従が実未完了と判明した。代表3件の是正を全Consumer完成へ拡張せず、この親link処置後に実importと配布閉包のPath文字列を分類して全利用側を接続する。Domainの協調Writer実Process競合も残る。Execution IntelligenceとAI Adapterの追加必須Source是正は今回特定しておらず、Platformの実OS専用fixture・新Build／署名は後半の実境界に対応付ける。CROS Packageの採否待ちは段階6実装の停止条件であり、他の独立した残件を止める理由にはしない。
+
+固定候補の実測結果: Domain Model全112件、MCP全51件、Workbench全33件と各Packageの書式・型・Lint、Workbench BuildはPass、Fail／Skip 0。実装と品質の独立レビューは双方指摘0。初回局所試験では既存published故障試験のcause不存在assertionが一度失敗したが、以降の局所・全回帰では再現せず、原因未確定として保持する。新fixtureのDirectory改名後junction作成はWindowsでEBUSYとなったため、初期状態から静的linkを置くfixtureへ訂正した。Productionの再試行やOracle緩和は行っていない。この結果は非協調Processの差替え防止、実OS close故障、電源断耐久性、実Provider／Docker／署名の根拠ではない。

@@ -106,6 +106,8 @@ Repository保存の読戻しは、Topic／Meetingそれぞれのcreate／update�
 
 候補生成の成功を正本反映の成功にしない。Evidenceは候補の出所、人間判断、対象Owner、実際の反映範囲、却下／失敗時のEffect 0を別々に記録する。
 
+静的な親link拒否は`CPR-IT-011`の追加確認へ接続する。両種別のRoot／種別親／Record親にあるjunction・dangling link・通常File、CHG参照の三親、EACCESとENOENT、mkdirのEEXIST後linkを反証する。Root拒否、CRUD・一覧・削除前確認・CHG参照の拒否と正本bytes・sentinel保持、Lock不存在を観測する。読戻しの不存在注入はexistsSyncのfalseではなくlstatのENOENTへ接続し、原Oracleを維持する。上記未評価の親link保証は非協調Processの同時差替えを含む保証であり、この静的拒否から成立を主張しない。
+
 ## 追加試験種別の適用
 
 | 種別 | 適用 | 確認する範囲 | 実行許可 | 未実行時の扱い |

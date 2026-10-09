@@ -9,7 +9,7 @@
  * @security 検証済みRepository Root外へPathを解決せず、Symlinkを辿らない。
  */
 import {
-  existsSync,
+  type Stats,
   closeSync,
   lstatSync,
   mkdirSync,
@@ -131,8 +131,83 @@ export function createTopicMeetingRepository(
   repositoryRoot: string,
 ): TopicMeetingRepository {
   const root = path.resolve(repositoryRoot);
-  if (!path.isAbsolute(repositoryRoot) || !lstatSync(root).isDirectory())
+  const rootMetadata = lstatSync(root);
+  if (
+    !path.isAbsolute(repositoryRoot) ||
+    !rootMetadata.isDirectory() ||
+    rootMetadata.isSymbolicLink()
+  )
     throw new Error("project_operation_repository_root_invalid");
+
+  /**
+   * 保存先の既存Directory部品を順に観測する。
+   * @responsibility linkを辿らず、ENOENTだけを未作成として扱う。
+   * @trace ARCH-000006
+   * @input directory: Root内の固定Directory、create: 未作成部品の作成許可。
+   * @returns 全部品が通常Directoryならtrue、作成しない不存在ならfalse。
+   * @precondition directoryはこのAdapterが固定Pathから導出する。
+   * @postcondition 観測した各部品は非linkのDirectoryである。
+   * @effect create時はRoot配下の未作成部品を一階層ずつ作成する。
+   * @failure Root外、link、非Directory、観測不能は例外を返す。
+   * @invariant Root自身を作成せず、recursive mkdirを使用しない。
+   * @boundary Repository Rootと保存Directory chain。
+   * @security 観測直後の非協調Process差替え防止を保証しない。
+   * @concurrency EEXIST後も実体を再観測し、競合作成を成功と推定しない。
+   */
+  const observeDirectoryChain = (
+    directory: string,
+    create = false,
+  ): boolean => {
+    const relative = path.relative(root, directory);
+    if (
+      path.isAbsolute(relative) ||
+      relative === ".." ||
+      relative.startsWith(`..${path.sep}`)
+    )
+      throw new Error("project_operation_record_path_invalid");
+    const components = [root];
+    let current = root;
+    for (const part of relative.split(path.sep).filter(Boolean)) {
+      current = path.join(current, part);
+      components.push(current);
+    }
+    for (const component of components) {
+      let metadata: Stats;
+      try {
+        metadata = lstatSync(component);
+      } catch (error) {
+        if (
+          typeof error !== "object" ||
+          error === null ||
+          !("code" in error) ||
+          error.code !== "ENOENT"
+        )
+          throw error;
+        if (component === root)
+          throw new Error("project_operation_repository_root_invalid", {
+            cause: error,
+          });
+        if (!create) return false;
+        try {
+          mkdirSync(component);
+        } catch (creationError) {
+          if (
+            typeof creationError !== "object" ||
+            creationError === null ||
+            !("code" in creationError) ||
+            creationError.code !== "EEXIST"
+          )
+            throw creationError;
+        }
+        metadata = lstatSync(component);
+      }
+      if (metadata.isSymbolicLink())
+        throw new Error("project_operation_record_symlink_rejected");
+      if (!metadata.isDirectory())
+        throw new Error("project_operation_record_directory_invalid");
+    }
+    return true;
+  };
 
   const location = (kind: ProjectOperationRecordKind, id: string) => {
     const contract = KIND_CONTRACT[kind];
@@ -145,6 +220,7 @@ export function createTopicMeetingRepository(
     );
     if (!file.startsWith(`${root}${path.sep}`))
       throw new Error("project_operation_record_path_invalid");
+    observeDirectoryChain(directory);
     return {
       directory,
       file,
@@ -158,9 +234,23 @@ export function createTopicMeetingRepository(
     expected?: { record: ProjectOperationRecord; markdown: string },
   ) => {
     const target = location(kind, id);
-    if (!existsSync(target.file)) return null;
-    if (lstatSync(target.file).isSymbolicLink())
+    let metadata: Stats;
+    try {
+      metadata = lstatSync(target.file);
+    } catch (error) {
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        error.code === "ENOENT"
+      )
+        return null;
+      throw error;
+    }
+    if (metadata.isSymbolicLink())
       throw new Error("project_operation_record_symlink_rejected");
+    if (!metadata.isFile())
+      throw new Error("project_operation_record_path_invalid");
     const bytes = readFileSync(target.file);
     const markdown = bytes.toString("utf8");
     const record = parseRecord(kind, markdown);
@@ -195,7 +285,8 @@ export function createTopicMeetingRepository(
     operation: () => T,
   ): T | null => {
     const target = location(kind, id);
-    mkdirSync(target.rootDirectory, { recursive: true });
+    if (!observeDirectoryChain(target.rootDirectory, true))
+      throw new Error("project_operation_record_directory_invalid");
     const lockPath = path.join(target.rootDirectory, `.${id}.lock`);
     let descriptor: number;
     try {
@@ -223,6 +314,8 @@ export function createTopicMeetingRepository(
       cleanupFailures.push(error);
     }
     try {
+      if (!observeDirectoryChain(target.rootDirectory))
+        throw new Error("project_operation_record_directory_invalid");
       unlinkSync(lockPath);
     } catch (error) {
       cleanupFailures.push(error);
@@ -256,7 +349,8 @@ export function createTopicMeetingRepository(
     markdown: string,
   ) => {
     const target = location(kind, recordId(record));
-    mkdirSync(target.directory, { recursive: true });
+    if (!observeDirectoryChain(target.directory, true))
+      throw new Error("project_operation_record_directory_invalid");
     const temporary = path.join(
       target.directory,
       `.${path.basename(target.file)}.${process.pid}.${Date.now()}.tmp`,
@@ -282,6 +376,8 @@ export function createTopicMeetingRepository(
     }
     if (!failed) {
       try {
+        if (!observeDirectoryChain(target.directory))
+          throw new Error("project_operation_record_directory_invalid");
         renameSync(temporary, target.file);
       } catch (error) {
         failed = true;
@@ -290,6 +386,8 @@ export function createTopicMeetingRepository(
     }
     if (failed) {
       try {
+        if (!observeDirectoryChain(target.directory))
+          throw new Error("project_operation_record_directory_invalid");
         unlinkSync(temporary);
       } catch (cleanupError) {
         if (
@@ -318,13 +416,17 @@ export function createTopicMeetingRepository(
     list: (kind) => {
       const contract = KIND_CONTRACT[kind];
       const rootDirectory = path.join(root, contract.directory);
-      if (!existsSync(rootDirectory))
+      if (!observeDirectoryChain(rootDirectory))
         return Object.freeze({
           status: "not_configured" as const,
           records: Object.freeze([]),
         });
       const records = readdirSync(rootDirectory, { withFileTypes: true })
-        .filter((entry) => entry.isDirectory())
+        .filter(
+          (entry) =>
+            entry.isDirectory() ||
+            new RegExp(`^${contract.prefix}-\\d{6}$`, "u").test(entry.name),
+        )
         .map((entry) => read(kind, entry.name))
         .filter((record): record is ProjectOperationRecord => record !== null)
         .sort((left, right) => recordId(left).localeCompare(recordId(right)));
@@ -337,10 +439,26 @@ export function createTopicMeetingRepository(
       if (!/^CHG-\d{6}$/u.test(id))
         throw new Error("project_operation_change_id_invalid");
       const file = path.resolve(root, "99_Roadmap", "Changes", id, "change.md");
-      if (!file.startsWith(`${root}${path.sep}`) || !existsSync(file))
-        return false;
-      if (lstatSync(file).isSymbolicLink())
+      if (!file.startsWith(`${root}${path.sep}`))
+        throw new Error("project_operation_record_path_invalid");
+      if (!observeDirectoryChain(path.dirname(file))) return false;
+      let metadata: Stats;
+      try {
+        metadata = lstatSync(file);
+      } catch (error) {
+        if (
+          typeof error === "object" &&
+          error !== null &&
+          "code" in error &&
+          error.code === "ENOENT"
+        )
+          return false;
+        throw error;
+      }
+      if (metadata.isSymbolicLink())
         throw new Error("project_operation_record_symlink_rejected");
+      if (!metadata.isFile())
+        throw new Error("project_operation_record_path_invalid");
       return true;
     },
     create: (kind, markdown) => {
@@ -409,6 +527,8 @@ export function createTopicMeetingRepository(
         if (!confirmed)
           return blocked("record_delete_confirmation_required", current);
         const target = location(kind, id);
+        if (!observeDirectoryChain(target.directory))
+          throw new Error("project_operation_record_directory_invalid");
         unlinkSync(target.file);
         rmdirSync(target.directory);
         return Object.freeze({
