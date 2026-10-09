@@ -15,7 +15,7 @@
 
 | 項目 | 今回の扱い |
 |---|---|
-| 人間の許可 | 第二段階の計画作成に続き、2026-10-09に計画Commit後の1〜5着手、続いて1〜8の完了までの継続を許可。CROS Package維持は別途承認済み。添付の未決候補を一括採用したとは扱わない |
+| 人間の許可 | 第二段階の計画作成に続き、2026-10-09に計画Commit後の1〜5着手、続いて1〜8の完了までの継続を許可。CROS Package維持判断は同日の後続判断で見直し、Access Managementへの責務再編を進める。移管の具体Ownerは§11で照合し、未決候補を一括採用したとは扱わない |
 | 変更分類 | 非自明な責務再編。公開入口・保存契約・安全境界を変更する箇所は破壊的変更として個別に影響を提示する |
 | 変更意図 | 既存採用Capabilityを保持し、重複状態・不要中継・過剰管理を削り、構造を説明可能にする |
 | 書込み範囲 | 現在のCRDD Repository。外部Runtime、認証領域、別Repositoryの変更は本計画だけでは許可しない |
@@ -58,7 +58,7 @@
 | 3 | `execution-intelligence` | 実行事実・要約と評価候補を分離。時刻、欠測、保持設定と最小Event契約を確認 | 実行系再編に先立ち、記録する事実と記録Ownerを決める。実行制御を持たせない |
 | 4 | `ai-adapter` | ProfileとProvider固有要求・CLI引数・結果変換・エラーを整理。公式CLIを未改造で使う | CoordinatorからProvider差を外す。AdapterからTask進行や履歴保存を発行しない |
 | 5 | `platform-access` | 実行系が本当に必要とするOS保証と呼出し側を全数照合。必要Native部品だけ整理し、Nodeで同じ保証を満たせる部分は置換候補にする | Docker／Processの設計前にOS保証を確認。Package廃止やRust全面置換は事前決定しない |
-| 6 | `cros` | Registry／Credential／Exposure／認可／Routingの必要責務を確定。重複Context意味生成を整理し、CROS REST／Gatewayを廃止して必要機能を移管 | Domainと現行実行APIを利用して横断境界を先に整理する。Package維持／廃止は別途判断する |
+| 6 | 現行`cros` → `access-management`／`domain-model`等 | 認証・認可・管理回復と接続RegistryをAccess Managementへ再編し、Context集約・通信・実行判断を分離する。全Source・公開API・利用側の対応とArchitecture／Qualityを固定してから移管する | CROSを全体システム概念とPackage名に分ける。単純改名で現行責務全部をAccess Managementへ吸収せず、旧Package撤去は全責務と利用側の接続後とする |
 | 7 | `mcp-server` | Machine向け公開契約とstdio／HTTP lifecycleを閉じる。Shared Host所有と配布入口の巨大組立てを整理 | CROSの責務整理を受けて公開入口を整理。実行内部は現行契約を維持し、単一RepositoryとCROSで操作Schemaを不用意に分岐させない |
 | 8 | `workbench-server` | 本番組立てをbinからSourceへ移し、Browser API／Local呼出し／Remote MCPを接続。変更通知・編集中入力保護を具体化 | 公開入口の責務整理を実行系大改修より先に閉じる。UX／IA・Visualの人間確認とBackend整理を区別する |
 | 9 | `docker-isolation`候補／現行Coordinatorの隔離処理 | 採用した境界で隔離実行・取消・観測・清掃・必要最小の再入場を移す。使い捨て資源、一次失敗と清掃結果の分離を実環境で確認 | 後半の大改修では最初に資源Ownerを閉じる。Coordinator／Orchestratorの業務状態を持たせない |
@@ -106,7 +106,7 @@ Packageの限定完了は未検証の全体をPassと表示しない。既知の
 | `docker-isolation`を独立Packageにするか | 現行File・資源Owner・AI Adapterとの依存、独立試験の実益、Package内Module案との比較 | 順序0、抽出前 |
 | worktreeか現行隔離Snapshotか | Canonical保護、候補採用・競合、共有Git metadataとMount境界、運用費用 | 順序1〜2の設計。採用まで新方式を作らない |
 | 署名・Native保証をどこまで削るか | 現在守る保証、具体的Consumer、Node／既存隔離による代替と残存Risk | 順序0で設計制約、順序5・12で具体的削除判断 |
-| CROS Package維持か廃止か | 必要なRegistry／認可／RoutingのOwnerと、移管で増える依存・中継 | 2026-10-09に独立Package維持を承認。専用REST／Gateway／Shared Hostは廃止し、Workbench／MCPが内部機能を共用する |
+| CROS Package維持か廃止か | 必要なRegistry／認可／RoutingのOwnerと、移管で増える依存・中継 | 2026-10-09の維持判断は後続の人間判断で見直し。認証・認可を`access-management`へ再編し、その他責務を実Ownerへ移した後に旧`cros`を撤去する。専用REST／Gateway／Shared Host廃止方針は維持する |
 | Workbenchの利用導線・表示・Visual | 現行UX／IAとの比較、Screen Inventory／Flow、代表画面と代替 | 順序8の接続維持後、画面再設計前 |
 
 これらを一括質問せず、必要な根拠が揃った地点で推奨と影響を提示して止める。単なる内部File移動へ追加判断を要求しない。
@@ -188,6 +188,8 @@ Packageの限定完了は未検証の全体をPassと表示しない。既知の
 - 限定独立レビューの文書図1件を是正し、Namespaceの直接dispatchと対象／記録要求を実装に合わせて分けた。是正後の未解決指摘0。実装上の保証漏れ・本体変更は検出していない。
 
 ## 9. CROS／MCP／Workbenchの移管前照合 — 2026-10-09
+
+本節はPackage維持判断変更前の照合・実測履歴である。維持判断と以下の実施順は§11で見直された。現在のOwner方針と再開Gateは§11を優先し、本節の維持前提を現在の実装許可へ流用しない。過去の判断・観測・検証結果自体は変更しない。
 
 ### 結論と判断境界
 
@@ -271,6 +273,16 @@ Profile四ToolとCROSの認可接続を実装し、管理者／Developerの一�
 独立レビューは結果の相関不足Major1と、Helper Trace・非管理読取りの否定観測・Resolver HeaderのMinor3を返した。全結果と是正方針を両観点へ統合し、AI Adapterの既存Profile管理責務で操作／理由／改訂／対象Profileを共同検査する。成功は期待改訂+1とexact対象反映または削除後不存在、拒否は操作・理由固有の存在条件と改訂を満たす場合だけ公開する。Proxy／accessor非実行と所有済みCatalogを維持し、追加snapshot／executeは呼ばない。矛盾した成功・拒否、元値の後続変更を反証した。MCP全56件、AI Adapter全29件、CROS全33件と書式・型・LintはPass、Fail／Skip／取消0。Workbench全33件とBuildは相関是正前候補でPassしており、是正後の利用側回帰と独立再レビューは未完了である。本番Launcher・耐久Store Remote接続・失効全母集合・入口比較・旧REST撤去はこの局所結果で閉じない。
 
 是正後Workbench全33件、Build・書式・型・LintもPass、Fail／Skip／取消0で終了した。実装再レビュー指摘0と品質Minor1（拒否反例二つの原因混在）を統合し、二Snapshotの改訂だけを一致させ、操作不一致と対象不存在を独立して反証した。Source・正常Case・QA IDは不変。最終静的確認、局所3件とMCP全56件はPass、両観点の限定再確認も指摘0。Profile管理のMCP Adapter接続を限定完了とする。CROS／MCPの公開Launcher構成、WorkbenchのRemote切替、Credential非秘密管理、設定分離と旧REST／Shared Host撤去は未完了である。巨大実行ログは保存せず、再実行可能なPackage試験と対象差分へ根拠を集約する。
+
+### 非秘密Credential管理のMCP接続 — 着手前照合
+
+この着手前案は後続の人間判断（§11）により停止した。Source編集・試験追加は未実施であり、旧CROS Owner前提の確認を移管後の実装許可・完成根拠へ流用しない。三操作の保持義務は新Owner計画へ引き継ぐ。
+
+基準Commitは`2f398f0a`。変更分類は承認済み二Surface再編内の既存能力接続である。MCP詳細設計§3.3の一覧・Grant変更・失効を既存CROS関数へ一回だけ直接委譲する。Request Resolverが現在Credentialを認証し、systemAdminの場合だけ三Toolを公開する。管理操作はContent Exposureを読まず、Profile名から管理権限を生成しない。発行・rotation・Host回復、Registry保存形式、Content認可、旧REST、公開Launcherは変更しない。追加State／Lock／任意結果Portや結果防御Frameworkは作らない。
+
+正常管理、非管理者非開示、自己demote／失効の次Request反映、未知対象、不正field／型／Proxy／accessor、publish競合・例外、処置前取消と採用後取消を確認する。取消・応答故障で保存を巻き戻さず、追加inspect・publish・自動再試行を行わない。発火例は現在systemAdmin、非発火例は有効Developer、境界例は自己権限変更、判定不能例はRegistry例外であり、それぞれ三操作公開、Tool非公開、次Request反映、内部故障非開示へ閉じる。
+
+着手前の実装・品質確認では、既存Owner再利用と三Toolの閉じた入力へ整合を確認する。Credential操作全体はQA-000007の`RFD-ST-003`、局所HTTP認可接続は`RFD-IT-013`、入力・故障・取消はQA-000009の`EST-IT-002`へ対応する。IT結果をST全体の成立へ流用せず、Local／Remote本番Launcher、耐久Store、Workbench移管と秘密発行は未完了として維持する。固定差分の実装・品質の独立レビューと直接文書伝播を行い、準拠基準・公開訴求・Release判断は変更しないため準拠監査・市場探索・署名実E2Eは行わない。
 
 ### Runtime活動の共通OwnerとMCP接続 — 着手前照合
 
@@ -471,3 +483,100 @@ status相関追加後の書式・型・Lintと公開CRUD局所1件はPass、Fail
 是正後の実装・品質の限定再レビューは両観点とも指摘0。status・reason・Effectと実bytes／改訂の相関を確認し、Runtime・入力・QA IDは不変である。通常公開CRUDの補強を限定完了とし、全公開操作母集合や非協調Process・実OS故障の未確認範囲は保持する。
 
 最終status相関候補で`domain-model`の`npm test`を再実行し、書式・型・Lintと全113件がPass、Fail／Skip／取消0で終了した。これは今回の公開CRUD補強と既存Package回帰の結果であり、上記対象外の保証や実Provider・Docker・署名E2Eの成立を示さない。
+
+## 11. Access Managementへの再編 — 2026-10-09の途中見直し
+
+### 結論と変更境界
+
+人間は独立`cros` Package維持の先の判断を変更し、認証・認可・権限管理を`access-management`へ再編する方向を提示した。CROSはRepository群と専門Capabilityが連携して成立する全体システムの概念とし、一Packageの名称と同一視しない。Package数削減ではなく、名前・配置から責務を予測できる構造を目的とする。本節はSource照合と移管計画であり、正式Architectureの反映・新Packageの実装・旧Packageの廃止は未完了である。
+
+基準は`2f398f0a`。直前の非秘密Credential MCP接続は計画のみで停止し、Sourceへ追加していない。既に接続したProfile／活動MCPの現行能力を保持し、新Ownerへの追従と新しい検証を行う。旧維持判断と旧基準の独立レビューは履歴として残し、新構成の採用・完成判定へ流用しない。1〜5の確認済み範囲は撤回せず、Domainへの移管影響がある公開集合・型・Consumerだけを再確認する。段階9〜11の実行系大改修は前倒ししない。
+
+### 現行全Fileと移管候補
+
+現行`cros/src`の18 TS Fileと`bin/cros.ts`を列挙し、公開入口、実import、主要関数と利用側を照合した。候補先は現行命名規約に従い、`src/<責務>/<file>.ts`までとする。子index・再export専用File、新しい空Folderは追加しない。以下の候補名は移管前のArchitecture／Quality照合で固定し、機械的な名前変更だけを完成としない。
+
+| 現行Path（`40_Develop/cros/`起点） | 現在の実責務 | 処置・新Owner候補 | 保持するもの／追加確認 |
+|---|---|---|---|
+| `src/access/credential.ts` | Credential発行・認証・一覧・Grant変更・失効・rotation | `access-management/src/credential/operations.ts` | 明示Grant、管理とContentの分離、非秘密Metadata、inspect／publish競合。秘密発行はHost／Local限定 |
+| `src/access/registry-file-adapter.ts` | Credential Registryの不変Revision保存 | `access-management/src/credential/file-store.ts` | 完全Snapshot検査、競合、現在OS Rootと保護条件。不必要な保存方式変更はしない |
+| `src/access/recovery.ts` | 管理資格喪失時の計画・対象再照合・限定回復 | `access-management/src/recovery/operations.ts` | 同一回復Identity、管理者確認、Content Grant非発行。Docker回復や汎用Recoveryへ統合しない |
+| `src/access/recovery-file-adapter.ts` | 回復prepare／settleの不変記録 | `access-management/src/recovery/file-store.ts` | 現行保存先・排他作成・flush／読戻し。履歴保持の変更は今回の改名へ混ぜない |
+| `src/access/recovery-cli.ts` | Hostの対話回復操作 | `access-management/src/recovery/cli.ts` | 人間確認・秘密の一回表示・Remote非公開 |
+| `bin/cros.ts` | 回復mode／OS Root入力・端末I/O | `access-management/bin/access-management.ts` | Package同名の主要入口。一つのbin。OS領域変更なし。公開コマンド名・環境名の移行は別に対応付ける |
+| `src/access/resolve.ts` | 認証済みAccess→同一Exposure Snapshot→許可集合 | `access-management/src/access/resolve.ts` | Request一回観測、現在Credential、systemAdminからContent非生成 |
+| `src/access/types.ts` | ExposureとRepositoryの同一観測型 | `access-management/src/access/types.ts` | DomainのContext型と認可Snapshotを混同しない。Domain→Access Management依存を作らない |
+| `src/access/session-context.ts`（Credential／Session／Exposure／Repository解決） | Credential SnapshotとSession、Binding／改訂を使う認可 | `access-management/src/access/session.ts`／`resolve.ts`／`types.ts`へ責務分離 | 型と関数名を実責務へ合わせる。RepositoryのDomain情報と認可用Bindingを分け、必要な型だけRoot公開 |
+| 同File（ContextItem／ContextPackage／createContextPackage） | 目的・Source・改訂・欠測を持つContext集約 | `domain-model/src/project-context/package.ts`候補 | restrictedの非開示は保持。認可判断をDomainへ移さず、認可済み情報だけ受ける |
+| 同File（Handoff／resume、局所操作、AI行動計画） | Task相関・Authority照合、疑似局所更新、共通計画投影 | REVIEW。Context値はDomain候補、Task再開判断はOrchestrator候補、疑似操作は削除候補 | 現在は固有契約試験のみの利用を確認。ARCH-000009／015の義務と現行実Ownerへ照合してから処置。試験専用という理由だけでは削除しない |
+| `src/federation/project.ts`（resolveAuthorizedRepositories） | Grant／Exposure／改訂の認可フィルタ | `access-management/src/access/resolve.ts` | 認可済みRepository集合を返す。Portfolio生成は行わない |
+| 同File（createPortfolioProjection・3公開型） | Context Identity照合、Project集約、欠測・競合の投影 | `domain-model/src/project-context/portfolio.ts` | DomainはCredential／Sessionを入力にせず、認可済みDomain情報を入力にする。MCP／WorkbenchのPortfolio型も新Ownerへ追従 |
+| `src/profile/administration.ts`（resolve） | systemAdminによるAI Profile管理可否 | `access-management/src/access/administration.ts`候補 | AI AdapterのCatalog管理実体を再実装しない。Content観測不要・非管理非開示 |
+| 同File（parseMutation） | 閉じたMutation入力の検査 | AI Adapterの既存Profile管理責務へ統合候補 | operation／Revision／Profile語彙はAI Adapter、Transport envelopeはMCP。認可Packageへ業務入力Schemaを残さない |
+| `src/activity/read.ts` | 許可集合のProject選択、Reader待機・結果検査 | 分離候補。対象認可はAccess Management、観測・結果契約はOrchestrator | 任意Repository探索禁止、unknown／欠測、Reader joinと取消限界を保持。Orchestratorの内部大改修はしない |
+| `src/activity/types.ts` | Orchestrator投影・Runtime Event・Reader入力型 | Orchestratorの既存活動公開領域へ統合候補 | Repository型依存をDomainの非認可情報へ限定。実行事実の正本をExecution Intelligenceへ勝手に変更しない |
+| `src/activity/validate.ts` | Orchestrator状態相関と活動応答の閉包検査 | Orchestratorの既存公開投影Validatorへ統合候補 | MCP／Workbenchで共有。Access Managementへ上位Task意味検査を持たせない |
+| `src/configuration/shared-server-file-adapter.ts` | Origin／Port、接続設定、Root検証、Context解析、Exposure、Topic／Meeting生成が混在 | SPLIT。接続・Exposure設定はAccess Management、ContextはDomain、Listener設定と本番組立てはMCP／Workbench | 設定の存在によるMode切替禁止。現在Binding／Context改訂検査を維持し、単体から兄弟Repoを探索しない |
+| `src/connection/http.ts` | CROS REST ServerとRemote Client、入力stream・応答変換 | 代替MCPと本番Consumer成立後DELETE | Browser↔Workbench RESTは対象外。認可・競合・活動欠測・終了保証は新経路で実証 |
+| `src/tool/registry.ts` | Tool実装一覧、公開可否、取消・結果分類 | REVIEW。MCP等の実登録先に統合または未使用中継を削除 | 現行本番Consumerは検索で見つからず自Package試験のみ。Tool登録契約とARCH-000010／012を先に照合し、新汎用Registryは作らない |
+| `src/surface/operation.ts` | 汎用Ownerへのinspect／apply、Surface転送、委譲結果相関 | REVIEW。固有意味を持つ実Ownerへ統合またはDELETE | 本番Consumerは検索で見つからず自Package試験のみ。Handoff／Result義務を消さず、値の投影とTask採用判断を分ける |
+| `src/index.ts` | 上記責務全体の明示公開 | 全移管後DELETE。新Ownerの`src/index.ts`から必要Symbolだけ公開 | 同型DTOや互換barrelを追加しない。未対応の公開契約を消さない |
+
+### 保存正本の実照合
+
+現行RootはDomainの`repository/resolve-storage-paths.ts`にある`resolveCrosRuntimeRoots`で決まり、Windowsでは`<LOCALAPPDATA>/<publisher>/cros/<trustDomainId>/`、Linuxでは既存XDG config／stateの同じ三segmentを用いる。Credentialはstate直下の`credential-registry/registry-<revision>.json`、管理回復は`credential-access-recovery/`、接続設定はconfig直下の`shared-server.json`から読む。これはSource上の配置規則の確認であり、利用者の実秘密Fileを読んだ結果ではない。
+
+現行には独立したRepository Connection Registry保存Adapterが見当たらず、`shared-server.json`のrepositories／workspaceIdsを読んでBindingとExposureを構成している。「Registry」という名称だけから新Storeを作らない。接続設定のOwnerをAccess Managementへ定め、HTTP設定と分ける際にも既存Host Rootと秘密の保護を維持する。将来の設定File名変更はFrontend AIの明示移行へ接続し、Sourceへ旧互換Readerを追加しない。Package改名を理由に`cros`というOS Path segment、Token version、秘密Verifier、保存改訂を変更しない。
+
+共有Rootは複数Ownerが利用するCROS全体の配置契約であり、Access Management固有の内容所有へ集約しない。現時点の物理Providerは`domain-model/src/repository/resolve-storage-paths.ts`であるが、それをDomainの意味Owner確定と扱わない。現在の配置とPath Identityを維持し、将来のProvider変更またはOwner別Rootへの移行は、全Consumer・保存Path・保護・移行を対応付けた別判断とする。Access ManagementがAI Profile内容を所有する構造や、AI AdapterからAccess Managementへの保存依存を作らない。
+
+| 保存内容 | 現行Path（既存Root起点） | 内容Owner／利用側 | 今回の処置 |
+|---|---|---|---|
+| Credential Registry | state内`credential-registry/` | Access Management候補 | Path・秘密保護・不変Revisionを維持 |
+| 管理回復記録 | state内`credential-access-recovery/` | Access Management候補 | Path・限定回復契約を維持 |
+| 接続・公開・Listener設定 | config内`shared-server.json` | Access Management／MCP／Workbenchへ責務分離候補 | 内容分離とFile移行を対応付け、Rootは変更しない |
+| AI Profile Catalog | config内`ai-profile-catalog/` | AI Adapterの`profile/store.ts` | 内容・Schema・保存先を維持。管理可否だけAccess Management |
+
+### 利用側・検証の移管母集合
+
+| 利用側／成果物 | 必要な処置 |
+|---|---|
+| MCP `project-context/adapter.ts`とResolver | Portfolio型・生成はDomain、Credential／ScopeはAccess Management。Requestごとの認可を必ず経由 |
+| MCP Profile／Runtime活動Adapter | Profile入力はAI Adapter、管理可否はAccess Management、活動型・検査は実Ownerへ接続 |
+| Workbench `server.ts`／`credential/administration.ts`／`browser/client-model.ts` | Local認可と非秘密管理をAccess Managementへ、表示型はDomainへ、Remote ClientはMCPへ切替。Browser REST維持 |
+| `template/tools/crdd-cros-server.ts`とMCP Shared Host | 新MCP正式入口・設定・Reader注入とWorkbench代替を確認後に撤去。旧起動能力を先に消さない |
+| CROSの12試験File、MCP／WorkbenchのCROS結合・System試験 | 検証義務のOwnerと観測境界で移管・補強する。過去結果を新配置へ流用せず、新しい対象で実行 |
+| Checker命名、Version Control Consumer閉包、Coordinator配布閉包 | package名・SourcePrefix・公開集合・実依存に追従。配布のためだけにAccess Management全体を署名閉包へ追加しない |
+| 共有Rootの全利用側 | DomainのRoot公開API・契約試験、AI AdapterのProfile Store・保存試験、CROSのCredential／Recovery／設定試験、MCPのShared Server入口試験を照合。移管後の新候補でPath Identityと保護条件を再検証 |
+| Package metadata／build契約 | `package.json`のname・exports・bin・scripts、`tsconfig.json`、`symbol.json`を新Ownerへ対応付ける。`package-lock.json`は採用Package graphとmanifestから再生成する派生物であり、独立正本・手編集対象としない。旧名の実利用と歴史記録を区別し、全接続・bin案内・検証成立後だけ旧Packageを撤去 |
+| Domain公開Trust Policy契約 | `inspectCrosTrustPolicy`／`CrosTrustPolicy`／`CROS_TRUST_POLICY_SCHEMA`は既存宣言Validatorとして現状維持し、Domain試験・Architecture・公開集合・履歴を照合する。改名／廃止は別判断。新しい運用必須Policy、Coordinator Authorityへの統合、Schema変更は行わない |
+| Architecture／Quality／symbol／Template設定／案内／Project Context | 現行Owner・導出元・新API・配置と一致させる。過去Evidenceは変更しない |
+
+以下は現行12試験Fileの全数対応である。Pathは`40_Develop/cros/tests/`起点、各名称には`.contract.test.ts`が付く。現Traceは正式QA適合判定ではなく照合入力であり、QA ID・本文・Oracle・過去結果はこの計画更新で変更しない。一Fileを一Ownerへ強制せず、複合責務は分割候補とする。保持Oracleは新Ownerで再実行し、過去Passや自己Package試験だけを代替能力の成立・削除根拠にしない。
+
+| 現行試験File | 現Trace | 対象責務 | 移管・分割・代替候補 | 保持Oracle／未決 |
+|---|---|---|---|---|
+| `integration/connection-credential` | RFD-IT-013 | Credential・要求認可 | Access Managementへ移管 | 明示Grant、失効、秘密非保持、管理とContent分離。公開MCP／Workbench結合は別確認 |
+| `integration/credential-access-recovery-file-adapter` | RFD-IT-013 | 管理回復の保存・再入場 | Access Management回復へ移管 | 人間確認、同一Identity、Registry確定、秘密非保持、再入場 |
+| `integration/credential-registry-file-adapter` | RFD-IT-013 | Registry保存 | Access Management保存へ移管 | OS Root、別Adapter読戻し、Revision競合、保存保護 |
+| `integration/local-operation-ai-plan` | RFD-IT-009／RFD-IT-011 | 局所操作・AI計画・Handoff | REVIEW。Domain／Orchestratorの実Ownerへ分割または代替 | availability、局所同等性、AI入口制約。疑似操作のCanonical義務・本番代替は未確定 |
+| `integration/project-federation` | PPR-IT-002 | 認可集合・Portfolio | Access Management認可／Domain投影へ分割 | 許可集合外非読取り、欠測、Identity不一致、競合 |
+| `integration/remote-transport` | PPR-IT-002／RFD-IT-013 | Remote認可・情報非開示 | MCPの実経路で代替後に旧REST試験撤去 | Request毎認可、Workspace非開示、Registry改訂、Token非報告。代替本番検証は未完了 |
+| `integration/shared-server-config-file-adapter` | PPR-IT-002／RFD-IT-013 | Host設定・Root・Context・Exposure | Access Management／Domain／MCP設定へ分割 | 不正Root・Context拒否、Binding、Grant不一致、現在Path Identity |
+| `integration/surface-contract` | EST-IT-010 | Surface間Owner・結果・取消 | REVIEW。実Owner・本番Surface試験へ代替 | 同一Owner、Authority、Effect、取消、結果相関。抽象FixtureだけでServer成立を主張しない |
+| `integration/tool-registry` | RCM-IT-010 | 登録・公開・実装接続 | REVIEW。実登録先へ統合または代替 | 公開可否、Host availability、Authority、取消、cleanup。新汎用Registryは追加しない |
+| `system/context-handoff` | ERB-ST-013／RFD-ST-010 | Context引渡し・再入場 | REVIEW。Domain値／Orchestrator判断へ分割 | Source・対象Identity、改訂、Authority、必要Context、再入場。値関数から本番ST成立を推定しない |
+| `system/result-return` | EST-ST-011 | 結果引渡し・再実行制御 | REVIEW。実Orchestratorの結果受領へ対応 | createdBy、改訂、差分、Evidence、返却先、Authority、replay。新汎用DTOは作らない |
+| `system/session-access` | RFD-ST-003／RFD-ST-004 | Session・Exposure・公開操作 | Access Managementへ移管しMCP／Workbench実Surfaceを補強 | Session終了、失効、Workspace／Repository認可、非開示。新Surface接続の検証は未完了 |
+
+Tool Registry等の本番未使用判定は、今回のTS Source検索による確認であり、動的参照・設定・公開案内・Git履歴・過去VerificationとCanonical義務を含む削除Gateは未完了である。
+
+### 実施順・再開Gate
+
+1. 本表の未決候補をSource・Canonical義務・過去Capabilityから確定し、基本／詳細ArchitectureとQAを新Ownerへ対応付ける。必要な人間判断だけを提示する。
+2. Credential・認可・限定Access Recovery・接続設定をAccess Managementへ移す。DomainのPortfolio／Context処理を分け、Root明示公開・型依存・試験を同時追従する。
+3. 業務入力・活動投影・Tool／Surface／Handoffの残存責務を既存Ownerへ統合または削除する。段階9〜11の大改修が不可欠なものは依存を示し、段階6〜8の完成へ隠さない。
+4. MCP／WorkbenchのLocal・Remote本番Consumer、単体／CROS Mode、設定と公開入口を接続する。認可前読取り0、非開示、改訂競合、処置前／後取消、終了後状態を新経路で確認する。
+5. 全責務・公開集合・利用側・代替実測が閉じた後、旧REST／Gateway／Shared Hostと`cros`Packageを撤去する。全回帰・独立レビュー・Reality Auditと現在投影を更新する。
+
+実装前整合確認と固定候補前照合を新Ownerでやり直す。独立した実装・品質観点で本計画を確認し、全結果を統合して是正する。保存Path・Token・Grantの意味を変える必要が判明した場合は改名へ混ぜず影響と人間判断へ戻す。新IAM Platform、User Account、汎用Registry／Lock／Gateway／互換Serverは対象外。現時点で全1〜8の完成・Release可能は主張しない。

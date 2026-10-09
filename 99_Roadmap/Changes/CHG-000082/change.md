@@ -7,6 +7,8 @@
 
 ## 現在状態
 
+2026-10-09の途中見直し: 人間が第二段階の独立CROS Package維持判断を変更した。CROSを全体システム概念として維持し、認証・認可・管理回復を`access-management`へ再編する。Context集約、業務入力、Runtime投影、通信と汎用中継は実Ownerへ照合し、丸ごと改名しない。現行18 Source File・bin入口・12試験Fileと直接Consumerの初回棚卸しを[第二段階計画§11](second-stage-plan.md#11-access-managementへの再編--2026-10-09の途中見直し)へ記録した。具体Ownerの候補、正式Architecture／Quality反映とSource移管は未完了。直前の非秘密Credential MCP接続案はSource編集前に停止した。既存保存Root、Credential保護、過去Evidenceは変更せず、旧REST／Gateway／Shared Hostと旧Packageの撤去は代替能力の本番接続後とする。1〜8の継続範囲を維持し、段階9〜11の大改修は前倒ししない。
+
 2026-10-09: 第一段階の名称・参照整理後の基準Commit `98cab6e3`から、[第二段階の責務再編計画](second-stage-plan.md)をDraftとして作成した。現行CRDDの工程順序を維持し、Package単位で実行系を含む責務再編を計画する。添付の未決Architecture候補を一括採用せず、Source実装へはまだ着手しない。旧5Cの持ち越しは新Ownerと必要保証へ照合し、旧方式の完成を先行条件にしない。
 
 Source構造規約の第1段階は未完了。文書整備・限定独立再レビューだけを完了し、人間による範囲訂正に従って全Sourceの命名・配置とUT対応を移行中である。機能分割、公開API集合の変更、5Cの追加是正はこの改名へ混ぜない。規約・既存実装・旧検査の差分は[第1段階の記録](Evidence/261007_develop-responsibility-mapping.md#source構造規約の第1段階--2026-10-09)で追跡する。

@@ -11,7 +11,7 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-第二段階は[Package別の責務再編計画](99_Roadmap/Changes/CHG-000082/second-stage-plan.md)の1〜8を進行中。Version Controlの公開入口・既知Consumerは47件、Domain Modelの保存・通常公開CRUD・協調Writer競合は113件、Execution Intelligenceの記録と提案判断の分離は82件、AI Adapterは28件のPackage回帰と限定独立レビューまで確認した。Coordinator配布試験の移管追従は133件成功したが、全Package完成ではない。Platform Accessの対象観測分離は通常回帰50件と限定独立レビューで確認した（専用実OS等23件は未実行）。次は承認済みCROS維持方針でMCP／Workbenchの接続を閉じ、専用REST／Gateway／Shared Hostを廃止する。Docker／Coordinator／Orchestratorの大改修はその後へ置く。これはv0.22全体の完成・Release可能を意味しない。
+第二段階は[Package別の責務再編計画](99_Roadmap/Changes/CHG-000082/second-stage-plan.md)の1〜8を進行中。Version Controlの公開入口・既知Consumerは47件、Domain Modelの保存・通常公開CRUD・協調Writer競合は113件、Execution Intelligenceの記録と提案判断の分離は82件、AI Adapterは29件のPackage回帰と限定独立レビューまで確認した。Coordinator配布試験の移管追従は133件成功したが、全Package完成ではない。Platform Accessの対象観測分離は通常回帰50件と限定独立レビューで確認した（専用実OS等23件は未実行）。MCPの活動・Profile管理は局所接続と全56件まで確認済み。人間がCROS Package維持判断を変更したため、次は認証・認可をAccess Managementへ、Context集約等を実Ownerへ分ける設計・移管を先行する。専用REST／Gateway／Shared Host廃止は代替本番接続後、Docker／Coordinator／Orchestrator大改修はその後へ置く。これはv0.22全体の完成・Release可能を意味しない。
 
 v0.21.0は公開済み、v0.22.0とCHG-000082は未完了である。責務再編の段階1〜4、5AのDomain Model統合、5BのAI Adapter／Platform Access移管は局所確認まで完了した。5CのOrchestrator／Coordinator／Docker追加是正は、大規模改修で実装が変わる見込みから、人間承認により持ち越した。
 
@@ -34,7 +34,7 @@ v0.21.0は公開済み、v0.22.0とCHG-000082は未完了である。責務再�
 |---|---|---|
 | 現在事実 | 履歴保持期間後の相関欠測、下位出版後marker残存、実資源回復の旧入口切替、本番利用側の一体接続は未完了。旧二試験Fileの型指摘18件も保持する。 | [持ち越し残件](99_Roadmap/Changes/CHG-000082/Evidence/261007_develop-responsibility-mapping.md#持ち越しの処置--2026-10-09) |
 | 現在事実 | 全体回帰・Reality Audit・固定全Sourceレビュー・最新候補の署名実E2Eは未完了。局所成功からQuality ReadyやRelease可能を推定しない。 | [CHG](99_Roadmap/Changes/CHG-000082/change.md)、[Quality Center](07_Quality/01_Quality_Center.md) |
-| 現在事実 | Profile管理・Runtime活動はMCPと現行公開Launcherの接続が未成立。optional契約・fixture成功を本番成立へ昇格しない。Domain保存の非協調Processによる親Directory差替え保証も未決である。 | [移管前照合](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#9-crosmcpworkbenchの移管前照合--2026-10-09)、[保存保証の未決判断](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#保存保証の未決判断) |
+| 現在事実 | Profile管理・Runtime活動のMCP Adapterは局所接続済みだが、公開Launcher・Workbench本番接続は未成立。Access Management再編の正式Architecture反映・移管も未完了。Domain保存の非協調Processによる親Directory差替え保証は未決である。 | [新Owner計画](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#11-access-managementへの再編--2026-10-09の途中見直し)、[保存保証の未決判断](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#保存保証の未決判断) |
 | 履歴事実 | 2026-10-06のReality Auditは13QA・176項目、Test Relationあり132・なし44、Symbol616。2026-10-07の採用範囲照合は17意味、実装Relation17・自動Test Relation16・手動確認待ち1。現在Treeの再実行値でも品質Pass数でもない。 | [対象版と限界](99_Roadmap/Changes/CHG-000082/Evidence/261006_phase2-reality-audit.md)、[採用範囲照合](99_Roadmap/Changes/CHG-000082/change.md) |
 | 共有分析 | 大規模改修前に5Cを積み増すと再実装・再検証負担が増えるため、確認済み結果と反例を改修入力にする。未成立を消さない。 | [持ち越し判断](99_Roadmap/Changes/CHG-000082/change.md#持ち越し判断--orchestratorcoordinatordocker2026-10-09) |
 
@@ -42,11 +42,11 @@ v0.21.0は公開済み、v0.22.0とCHG-000082は未完了である。責務再�
 
 ### 結論
 
-持ち越し記録について追加判断は不要。CROS Packageを登録・Credential・認可・横断投影のOwnerとして維持し、専用REST／Gateway／Shared Hostを廃止する方針は承認済み。Domain保存で、非協調Processの親Directory差替えまで防ぐ保証を要求するかは判断待ちである。通常保存＋読戻し、静的link拒否と協調Writer競合は確認済みだが、競合差替え防止の証明ではない。担当責任者・採用判断者はQual-Lab。Docker／Coordinator／Orchestrator大改修は前倒ししない。
+持ち越し記録について追加判断は不要。CROS Package維持の先の判断は人間が変更し、認証・認可をAccess Managementへ再編する方向となった。Context集約・接続Registry・活動等の具体OwnerはSource照合後にArchitecture／Qualityへ反映する。未決候補を採用済み実装と扱わない。Domain保存で、非協調Processの親Directory差替えまで防ぐ保証を要求するかは判断待ちである。通常保存＋読戻し、静的link拒否と協調Writer競合は確認済みだが、競合差替え防止の証明ではない。担当責任者・採用判断者はQual-Lab。Docker／Coordinator／Orchestrator大改修は前倒ししない。
 
 | 判断項目 | 現在の処置 | Owner Relation |
 |---|---|---|
-| CROS Packageの維持／廃止 | 2026-10-09に維持を承認。WorkbenchとMCPが内部機能を共用する。Profile管理・Runtime活動の本番未接続を閉じてから旧REST等を撤去する。 | [移管前照合と依存順](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#9-crosmcpworkbenchの移管前照合--2026-10-09) |
+| CROS Packageの責務再編 | 維持判断を人間が変更。認証・認可を`access-management`へ、Context・通信等は実Ownerへ移し、全責務・代替本番接続後に旧Packageを撤去する。Source移管は未着手。 | [新Owner対応とGate](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#11-access-managementへの再編--2026-10-09の途中見直し) |
 | 非協調Processの親Directory差替え保証 | 必要範囲を確認中。未回答を高い保証の採用や免除へ読み替えず、独立した接続整理を継続する。 | [保存保証の未決判断](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#保存保証の未決判断) |
 | 5C追加是正の持ち越し | 承認済み。保証条件変更・Release範囲変更の承認ではない。 | [判断の正本](99_Roadmap/Changes/CHG-000082/change.md#持ち越し判断--orchestratorcoordinatordocker2026-10-09) |
 | 履歴相関を必須としない配送終了案 | 未採用・未実装のまま改修入力へ持ち越す。 | [未採用候補](99_Roadmap/Changes/CHG-000082/change.md) |
