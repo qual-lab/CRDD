@@ -19,7 +19,7 @@
 | 変更分類 | 非自明な責務再編。公開入口・保存契約・安全境界を変更する箇所は破壊的変更として個別に影響を提示する |
 | 変更意図 | 既存採用Capabilityを保持し、重複状態・不要中継・過剰管理を削り、構造を説明可能にする |
 | 書込み範囲 | 現在のCRDD Repository。外部Runtime、認証領域、別Repositoryの変更は本計画だけでは許可しない |
-| 対象外 | 新しいAI機能、汎用Recovery／Lock Framework、Event Bus、共有実行Registry、先行したLinux配備、新しいUser Account |
+| 対象外 | 新しいAI機能、汎用Recovery／Lock Framework、Event Bus、共有実行Registry、先行したLinux配備、氏名・メール・Password・登録申請・IdPを持つ汎用User Account。UUID・表示専用名・Role・Credential紐付けの最小管理は§11で採用済み、正式伝播中 |
 | 歴史的Evidence | 当時の名称・署名・Hash・内容を保持。新構成の成立根拠には流用しない |
 | 旧形式の移行 | フロントAIの確認・清掃手順が所有する。本番Sourceへ旧形式互換Readerを追加しない。未解決資源・参照を名前だけで消さない |
 | v1.0との関係 | 添付は方向性であり、全候補をv0.22必須へ昇格しない。Release範囲・期限は別の人間判断 |
@@ -579,4 +579,69 @@ Tool Registry等の本番未使用判定は、今回のTS Source検索による�
 4. MCP／WorkbenchのLocal・Remote本番Consumer、単体／CROS Mode、設定と公開入口を接続する。認可前読取り0、非開示、改訂競合、処置前／後取消、終了後状態を新経路で確認する。
 5. 全責務・公開集合・利用側・代替実測が閉じた後、旧REST／Gateway／Shared Hostと`cros`Packageを撤去する。全回帰・独立レビュー・Reality Auditと現在投影を更新する。
 
-実装前整合確認と固定候補前照合を新Ownerでやり直す。独立した実装・品質観点で本計画を確認し、全結果を統合して是正する。保存Path・Token・Grantの意味を変える必要が判明した場合は改名へ混ぜず影響と人間判断へ戻す。新IAM Platform、User Account、汎用Registry／Lock／Gateway／互換Serverは対象外。現時点で全1〜8の完成・Release可能は主張しない。
+実装前整合確認と固定候補前照合を新Ownerでやり直す。独立した実装・品質観点で本計画を確認し、全結果を統合して是正する。保存Path・Token・Grantの意味を変える必要が判明した場合は改名へ混ぜず影響と人間判断へ戻す。新IAM Platform、氏名・メール・Password・登録申請・IdPを持つ汎用User Account、汎用Registry／Lock／Gateway／互換Serverは対象外。最小ユーザー管理は後述の現在採用判断に従い正式伝播する。現時点で全1〜8の完成・Release可能は主張しない。
+
+### 正式Architecture着手前の照合結果
+
+本節の照合表・二案は追加Input採用前の履歴である。現在の採用範囲は[現在の採用判断](#現在の採用判断)とREQ-000041を優先する。表の判断待ちを現在の停止条件として扱わない。
+
+基準Commit `fd7ae93a`でArchitectureと品質の読み取り専用確認を完了した。これは移管後の独立レビューや完成判定ではない。全結果を統合すると、Package名の変更とは別に、認可方式の正本間矛盾が存在する。以下を処置するまで、認可方式を固定したSource移管と旧Owner撤去は開始しない。
+
+| 照合事項 | 確認した差・必要な処置 | 現在状態 |
+|---|---|---|
+| 認可方式 | REQ-000041は固定三RoleとRole別共有Credentialを採用し、Credentialごとの任意Workspace Grantを不採用としている。UX-000013／035、IA-000009、UI-000008、SPEC-000012はこの意味を継承する。一方、CROS詳細設計§2・保存／保守契約・現行`credential.ts`は固定名をCredential Profileとし、明示Workspace集合と管理可否を実効権限としている。現在Sourceを根拠に上流を改変せず、同一CHG内でQual-Labの判断を確認する | 判断待ち。今回のPackage再編承認は認可方式変更の承認ではない |
+| 専門Capabilityの詳細設計 | `Details/access-management/01_Architecture.md`を認証・要求認可・Credential保存・限定Host回復・接続設定の設計Ownerとする。`Details/cros/01_Architecture.md`はシステム連携の設計として残し、同じSchemaや認可規則を再定義しない | 設計反映未実施。永続Userを追加しないという条件は追加Input前の前提。新IAM Platform・汎用User Account・永続Sessionは対象外を維持し、最小の耐久User IdentityとRole／Credential紐付けは後述の追加Inputの認識確認待ち |
+| 直接伝播の範囲 | ARCH-000013、Architecture入口・Component／Interface／Data Flow／Detail Map／Traceability、Domain保存契約、MCP／Workbench／AI Adapter詳細設計を照合する。CROS詳細設計のIdentity、設定、Credential、登録、完了条件、回復、実装構造も対象とし、一部のOwner表だけで閉じない | 移管候補表を入力とし、意味と保存契約を維持して反映する。過去Evidenceは不変 |
+| 設定と保存Root | 接続・公開設定は`access-management.json`、Transport設定は`mcp-server.json`へ分離する候補。前者は接続Repository RootとWorkspace集合、後者はOrigin／Port等を所有する。旧`shared-server.json`からの移行はフロントAIの手順とする。既存OS Root・秘密Store・AI Profile Storeは変更しない | 内容と正本を設計で確定してから実装。新Registry Store・旧互換Readerは作らない |
+| 品質の導出元 | QA-000001／004／007／009に加え、QA-000006のERB-ST-013もContext引渡しと実再開の区別へ追従する。既存Local Itemを保持し、Portfolio値生成、要求認可、活動値の検査、実行停止／再開の観測を別の保証として扱う | QA更新未実施。値関数や自己Package試験を本番Surface・実取消・再開の完成根拠にしない |
+
+以下は、ユーザー・Role・Credential分離の追加Inputを受ける前に提示した二案である。現在の選択肢をこの二案へ限定せず、後述の追加Inputを優先して認識確認する。両案ともユーザー登録なし、Bearer Secretの別経路配布、管理権限から内容閲覧権限を推定しないことを維持する。
+
+| 案 | 利用者・管理者への影響 | 必要な処置 |
+|---|---|---|
+| 採用済み固定三Roleを維持 | DeveloperはDevelopment、ManagementはDevelopmentとManagement、Administratorは管理のみ。Credential単位の任意の範囲設定を通常管理へ増やさない | 上流は維持。詳細設計・Source・QAを採用済みの三範囲へ一致させ、保存済み設定への影響を確認する |
+| 現行の明示Grant方式を採用 | 固定三Profile名は選択・表示の補助で、CredentialごとにWorkspace集合と管理可否を設定できる。柔軟だが管理対象が増える | REQ-000041の不採用判断を人間が変更し、UX→IA→UI／SPEC→ARCH→QAへ正式伝播する。Sourceが存在するだけでは採用しない |
+
+人間への推奨は、現在の軽量運用意図と既存要求に従い固定三Roleを維持する案である。ただしこの推奨を採用判断と扱わない。回答前は上流の権限意味、Token・Verifier・保存改訂、認可Source、秘密値、実Host設定を変更しない。設計Ownerの候補整理は継続可能だが、新Ownerの完成や旧Packageの廃止を表示しない。
+
+この照合結果・二案と現在投影の三文書差分は、Architectureと品質の限定独立レビューで双方指摘0。差分空白確認も成功した。確認対象は判断待ちの記録であり、認可方式の採用、正式Architectureの移管、Source・QA完成または回帰成功を示さない。
+
+### Tool／Surface中継の責務照合
+
+認可方式の判断待ちと独立して、基準Commit `fd7ae93a`の二Sourceと三試験、公開型の利用、ARCH-000010／015、QA-000001／009を読み取りで照合した。`40_Develop`と`template`のTS／JSONにおける関数・公開型の参照は、定義・Root export・自Package試験だけだった。これは現在の静的な利用集合の観測であり、外部Consumerや任意の動的参照の不存在証明ではない。Git履歴には第一段階改名とv0.21の境界検証変更が存在するため、過去試験を不要扱いせず、変更・削除前に当時の保証範囲を確認する。
+
+| 現行Source／試験 | 実際に成立する範囲 | 移管・撤去の処置候補と保持する義務 |
+|---|---|---|
+| `cros/src/tool/registry.ts`／`integration/tool-registry` | Callerが与えた登録配列の状態照会と実装関数呼出し。登録一覧は試験内で組み立てており、Repositoryの実Tool発見や公開Server登録とは未接続 | Access Managementへ移さない。能力発見はARCH-000010、要求ごとの認可はAccess Management、実登録と起動は各公開入口・実行Ownerへ分ける。RCM-IT-010の状態軸・未許可Effect 0・取消と回収を実能力で置換確認後、未使用の汎用実行Registryを撤去する候補。新Registry Packageは作らない |
+| `cros/src/surface/operation.ts`の共通操作Handler／`integration/surface-contract` | Callerが与えた同期Ownerを呼ぶ。試験は四つのSurface名に対し別々のメモリOwnerを作り、同じ結果を比較する。本番CLI・HTTP・MCP・Workbench接続や外部取消資源の観測ではない | 汎用Handlerを別Packageへ横流ししない。Topic／Meeting、Profile、活動等の既存業務APIと本番AdapterをEST-IT-010へ接続して同等性を確認する。文字列のSurface名や固定残存件数から実入口・cleanupの成立を推定しない。代替確認後の削除候補とする |
+| 同Fileの`settleDelegatedResult`／`system/result-return` | Task・Request・Authority・Revision・既処置集合・complete値を同期判定する。`effectCount: 1`は返却値で、実Task保存・Candidate反映・既処置集合更新を発行しない。試験は`producerId`、変更Hash、Evidenceの保存先への搬送を観測していない | 結果受領・Taskへの結合はARCH-000015が定める既存Coordinator／Orchestratorへ対応付ける。EST-ST-011の実帰還・相関保持・再送による重複Effect 0を観測するまで、この値判定を本番ST成立としない。単純な型移管や同名関数追加で新しい結果受領Ownerを増やさない |
+
+Domain Modelの`configuration/read-tool-config.ts`は保持期間設定のReaderであり、名称にToolを含むだけで能力Registryの代替にしない。Orchestratorの`candidate/integration-result.ts`は既存の結果Schema検査を所有するが、上記委譲結果と同じSchemaではないため機械的な統合やDTOの複製をしない。実接続を追跡して保持保証を対応付ける。これらの照合でSource・QA・過去Evidenceは変更しておらず、新しい回帰成功・削除許可・段階6〜8完了を主張しない。
+
+### 追加Input — ユーザー・Role・Credentialの分離
+
+#### 現在の採用判断
+
+2026-10-09、人間は最小ユーザー管理をv0.22へ採用した。ユーザーは`userId`（UUID）、管理者が設定・変更する`username`、Roleを持ち、Credentialをユーザーへ紐づける。表示名は管理対象の識別とWorkbenchの現在認証ユーザー表示だけに使用し、認証・本人確認・認可の根拠にしない。標準Roleは`developer`／`manager`／`administrator`、詳細権限はRoleに置く。リセットはユーザーIDとRoleを保ち旧Credentialを拒否する。氏名・メール・Password・申請・自己編集・SSO／IdP・一般IAMへ拡張しない。
+
+初回の正式伝播としてEXP-000036に旧判断履歴と採用変更を分離し、REQ-000041を現在モデルへ更新した。Discovery入口も追従した。これで採用範囲の認識確認待ちは解消したが、UX／IA／UI／SPEC／BHV／SCR／ARCH／QA、Source、保存Schema、既存設定移行、回帰は未追従である。先の認可方式照合表と二案は変更前の診断・提案履歴であり、現行方式として採用しない。認可Source移管は新要求の下流設計を固定してから行う。
+
+上流7文書の固定差分はArchitecture・品質の限定独立レビューで5指摘を統合是正し、両観点の再レビューで残指摘0。REQ-000011本文も現行認可境界へ揃え、旧Phase 4 Passを履歴へ限定した。差分空白確認は成功した。これはDiscovery更新の確認であり、下流伝播・Source・保存移行・実境界試験の完成証明ではない。
+
+UUID版、表示名の構文・正規化・一意性、Role権限語彙、既存Credentialの移行／再発行、Bootstrapとの結合と緊急Recoveryの最小ユーザー情報処置は後工程で確定する。既存OS Root・秘密保護・単体利用のCredential不要・管理権限から内容権限を推定しない意味・Product Data保持は維持する。開始済み操作の取消をリセットの成功から推定しない。Source・実秘密Store・保存Schema・過去Evidenceは初回上流編集では変更しない。
+
+#### 採用前のInput整理（履歴）
+
+以下の未確定表示は追加Inputを受けた時点の記録であり、現在の採用範囲は上記を優先する。
+
+人間は、接続主体、`developer`／`manager`／`administrator`のRole、およびRoleに対する詳細権限設定を分ける構造を希望した。さらにユーザーの独立IDとCredentialの紐付け、Credentialのリセットを提示した。これは既存の「ユーザー管理なし・Role別共有Credential」とも、現行Sourceの「Credential単位の明示Grant」とも異なる方向であり、Package改名だけの変更として扱わない。先の固定三Role維持というAI推奨を、この新Inputの採用判断へ流用しない。
+
+| 項目 | 人間から確認できた方向 | AIの具体化候補／未確定事項 |
+|---|---|---|
+| 接続主体 | Credentialとは独立したユーザーIDにCredentialを紐付ける | 非秘密の`userId`をUUIDとする。UUIDの具体版、表示名、発行・無効化の操作は未確定 |
+| Roleと権限 | ユーザーのRoleとRoleに対する詳細権限設定を分ける | Repository／Workspace／操作範囲と管理能力をRole設定へ置き、Credential単位で任意の追加権限を作らない案。権限語彙・一ユーザーに割り当てるRole数は未確定 |
+| Role識別名 | 人間は`developer`／`manager`／`administrator`を提示した | 既存`management`から`manager`への正式識別子変更と保存移行は未実施。名前の置換だけで権限意味を変更しない |
+| Credentialリセット | ユーザーへの紐付けを持ち、リセット可能にする | ユーザーID・Roleを保持し、旧Credentialを失効して新しい秘密値を発行する。旧Credentialの以後の接続を拒否する案。既存の進行中操作の取消を自動的に保証せず、開始済みEffect・再認可の境界は設計で照合する |
+| 管理規模 | 詳細な登録Workflowは今回のInputでは要求されていない | 最小構成はユーザーID・Role・Credential紐付けのみとし、氏名・メール・Password・登録申請・外部IdPを追加しない提案。v0.22に含める最小範囲について認識確認待ち |
+
+担当責任者・採用判断者はQual-Lab。このInputは同じCHGのAccess Management再編へ接続し、新しいCHGやIAM Frameworkを作らない。正式採用時はREQ-000041のUser／Principal管理対象外と任意Grant不採用判断を確認して、UX／IA／UI／SPEC／ARCH／QAへ伝播する。既存CredentialをUUIDユーザーへ機械的に移すか、再発行するかは保存・秘密保護の影響を確認して決める。実秘密値を調査資料・Git・Project Contextへ複製しない。Source、秘密Store、保存Schema、Roleの意味、過去Evidenceはこの記録更新では変更していない。

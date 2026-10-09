@@ -59,7 +59,7 @@ UXへ引き渡す
 | [EXP-000033 Project情報と作業ツリーを一つの入口で扱う](Analysis/EXP-000033/exploration.md) | Project情報とVersion Controlが分かれ、利用者が状況・差分・次の仕事を頭の中で結び直している | 要求採用 |
 | [EXP-000034 10月3日までにv0.22として何を成立させるか](Analysis/EXP-000034/exploration.md) | 設定済みの目標日に対し、Repository内、Project横断、AI利用構成、自動実行の候補範囲と完成条件が未分離 | Repository内＋Project横断＋AI利用構成を採用。自律Operationは後続へ分離 |
 | [EXP-000035 Project横断には二つの異なる見方がある](Analysis/EXP-000035/exploration.md) | 同じProjectの複数Repository統合と複数Project比較を一つの横断機能へ畳むと、単位とAuthorityが混ざる | 既存要求を維持。Federation後に読み取り専用Portfolioを投影 |
-| [EXP-000036 ユーザー管理なしでRemote CROSの利用範囲を分ける](Analysis/EXP-000036/exploration.md) | 個人別の接続申請とCredential管理はCROSを重いUser管理製品にする | Role別共有Credentialを採用。User／Principal管理は対象外 |
+| [EXP-000036 最小ユーザー識別とRoleでRemote CROSの利用範囲を分ける](Analysis/EXP-000036/exploration.md) | 一般的なアカウント管理は重いが、共有Credentialだけでは誰向けのIDか分からない | UUID・管理者用表示名・Role・Credential紐付けを最小採用。詳細権限はRoleが所有 |
 
 本台帳は探索の版別対象範囲や実装順を分類しない。まだ探索を始めない長期候補は[将来候補一覧](02_Product_Candidates.md)、版と作業状態は[Roadmap](../99_Roadmap/01_Roadmap.md)が所有する。
 
@@ -111,7 +111,7 @@ UXへ引き渡す
 | [REQ-000038](Definitions/REQ-000038/requirement.md) | Consumerに依存しない標準Project Context Projection | [EXP-000029](Analysis/EXP-000029/exploration.md) | 要求採用 | UX、IA、Documentation、Front AI、MCP、CROS、Workbench |
 | [REQ-000039](Definitions/REQ-000039/requirement.md) | TopicとMeetingの共通操作 | [EXP-000032](Analysis/EXP-000032/exploration.md) | 要求採用 | UX、IA、UI／SPEC、Architecture、MCP、Workbench |
 | [REQ-000040](Definitions/REQ-000040/requirement.md) | Project情報と作業ツリーをつなぐWorkbench | [EXP-000033](Analysis/EXP-000033/exploration.md) | 要求採用 | UX、IA、UI／SPEC Detail、Architecture、Version Control、Workbench |
-| [REQ-000041](Definitions/REQ-000041/requirement.md) | Role別共有CredentialによるRemote CROS利用 | [EXP-000036](Analysis/EXP-000036/exploration.md) | 要求採用 | UX、Threat、SPEC、Architecture、Remote MCP、Workbench |
+| [REQ-000041](Definitions/REQ-000041/requirement.md) | 最小ユーザー識別とRole権限によるRemote CROS利用 | [EXP-000036](Analysis/EXP-000036/exploration.md) | 要求採用 | UX、Threat、SPEC、Architecture、Remote MCP、Workbench |
 
 <a id="current-discovery-relations"></a>
 
@@ -181,7 +181,7 @@ Roadmap、既存ArchitectureおよびWIPは、探索対象を見落とさない�
 | [EXP-000033](Analysis/EXP-000033/exploration.md) | WorkbenchはProject Contextと定型操作を表示する | MCP能力に加えてTree、Diff、Stage、Commit、通常Pushまで一つの仕事へ接続する | Chat Agentのみ、Git Clientのみ、Project Context Viewer、フルIDE | Project仕事と簡易Version ControlをつなぐWorkbenchを採用 |
 | [EXP-000034](Analysis/EXP-000034/exploration.md) | v0.22候補を一括して閉じる | Repository内、Project横断、AI利用構成までとし、自律Operationは後続へ分離する | Repository内だけ、全候補一括、自律Operation込み | B+ Scopeと2026-10-03目標を採用 |
 | [EXP-000035](Analysis/EXP-000035/exploration.md) | Project横断を一つの統合機能として扱う | 同一ProjectのRepository Federationと複数ProjectのPortfolioを分ける | 中央Project正本、Repository直接比較、自動優先順位付け | Federation後のLogical Project Contextを読み取り専用Portfolioへ投影する |
-| [EXP-000036](Analysis/EXP-000036/exploration.md) | Credentialごとに接続主体とGrantを管理する | Userを管理せず、Remote CROSだけRole別共有Credentialを使う | User Account、Principal、Credential別Grant | Repository単体はCredential不要、Remote CROSは三RoleとAccess Recoveryを採用 |
+| [EXP-000036](Analysis/EXP-000036/exploration.md) | 以前のRole別共有Credentialを維持する | ユーザーIDを分け、管理者用表示名だけを追加し、CredentialリセットでもIDを維持する | 共有Credentialだけでは対象を識別できない。一般的なアカウント管理とCredential別Grantは不要 | Repository単体はCredential不要。Remoteは最小ユーザー識別・Role詳細権限・Credential・Host Recoveryを採用 |
 
 <a id="current-discovery-decisions"></a>
 
@@ -197,7 +197,7 @@ Roadmap、既存ArchitectureおよびWIPは、探索対象を見落とさない�
 | 複数プロジェクトの一覧 | 読取り専用とし、根拠プロジェクトへ戻れる | PM／経営・管理層に必要な情報が足りるか |
 | 人とAIの入口 | Workbench、MCP、CLIは同じApplication Capabilityを使い、入口固有の正本を作らない | 各入口で同じ意味と結果になるか |
 | Workbench | Project情報、Topic／Meeting、Attention、関係・経緯、作業Tree、Diff、Stage、Commitおよび確認付き通常Pushを一つの仕事へ接続する | Chat Agent＋MCPまたは既存Git Clientより判断負担を減らせるか |
-| リモート利用 | Repository単体利用へCredentialを要求せず、Remote CROSだけRole別共有Credential、非開示、失効、再発行およびServerローカルRecoveryを扱う | 実Networkと長期接続単位で成立するか |
+| リモート利用 | Repository単体はCredential不要。Remoteは最小ユーザー識別・Role詳細権限・表示専用名、非開示、CredentialリセットおよびHost限定Recoveryを扱う | 下流の正式伝播、実Network・保存・利用側での成立は未完了 |
 | AI利用構成 | 安定した仕事Profileを、登録済みProvider Adapter、Modelおよび推論設定へ決定論的に解決し、ローカル設定とServer設定のOwnerを分ける | 追加Profileと複数の検証済み実行環境で運用負担が許容できるか |
 | UI／SPEC Detail | Definitionから画面・具体領域・詳しい振る舞いを導き、良い具体を人間が選んだ後に反復からPattern／Componentを見つける | Workbench PilotでVisual Quality、成果物負担および双方向Coverageが成立するか |
 

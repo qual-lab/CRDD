@@ -7,6 +7,10 @@
 
 ## 現在状態
 
+認可方式の途中見直しとして、人間はUUIDによる安定ユーザーID、管理者が設定・変更する表示専用名、Roleと詳細権限、ユーザーへ紐付くCredentialとリセットをv0.22へ採用した。[現在の採用判断](second-stage-plan.md#現在の採用判断)とREQ-000041へ反映し、EXP-000036には旧判断履歴を保持した。一般的なアカウント管理は追加しない。採用方向の確認待ちは解消したが、UX以降の設計・Quality・Source・Schema・移行・回帰は未追従である。
+
+Access Management再編の正式Architecture着手前には、要求のRole別共有Credentialと詳細設計・SourceのCredential別Grantが不一致と判明した。[照合結果と二案](second-stage-plan.md#正式architecture着手前の照合結果)は当時の診断・提案履歴として保持する。人間の新採用は旧二案のいずれでもない。要求から下流へ新方式を伝播して設計を固定した後、認可Source移管・旧Owner撤去へ進む。秘密値・実保存先・過去Evidenceは変更していない。
+
 2026-10-09の途中見直し: 人間が第二段階の独立CROS Package維持判断を変更した。CROSを全体システム概念として維持し、認証・認可・管理回復を`access-management`へ再編する。Context集約、業務入力、Runtime投影、通信と汎用中継は実Ownerへ照合し、丸ごと改名しない。現行18 Source File・bin入口・12試験Fileと直接Consumerの初回棚卸しを[第二段階計画§11](second-stage-plan.md#11-access-managementへの再編--2026-10-09の途中見直し)へ記録した。具体Ownerの候補、正式Architecture／Quality反映とSource移管は未完了。直前の非秘密Credential MCP接続案はSource編集前に停止した。既存保存Root、Credential保護、過去Evidenceは変更せず、旧REST／Gateway／Shared Hostと旧Packageの撤去は代替能力の本番接続後とする。1〜8の継続範囲を維持し、段階9〜11の大改修は前倒ししない。
 
 2026-10-09: 第一段階の名称・参照整理後の基準Commit `98cab6e3`から、[第二段階の責務再編計画](second-stage-plan.md)をDraftとして作成した。現行CRDDの工程順序を維持し、Package単位で実行系を含む責務再編を計画する。添付の未決Architecture候補を一括採用せず、Source実装へはまだ着手しない。旧5Cの持ち越しは新Ownerと必要保証へ照合し、旧方式の完成を先行条件にしない。
@@ -24,8 +28,8 @@ Source構造規約の第1段階は未完了。文書整備・限定独立再レ�
 | 未成立 | 最新Treeの本番利用側一体接続、実Docker回復、必要な実AI／署名E2E、Quality義務、全体回帰・独立確認・配布固定は未完了。持ち越しは免除でない。旧対象版の公開MCP E2E等は履歴根拠として保持する |
 | Phase／Gate適用判断 | `Applicable`: 画面Shell、読取り投影、書込みEffect、Remote接続を分けて成立確認する必要がある |
 | 現在Phase | `Phase 5 — Production Closure`: 責務再編中、5C追加是正は持ち越し |
-| 現在Gate | `Passed: Phase 4`: User Accountを追加せず、Role Credentialから許可範囲だけのSessionを作り、Repository単体／Remote CROS、Repository／CROS Profile Ownerおよび非管理者へのCatalog非開示を分離した |
-| 次のGate | 5D〜Fの独立処置とRuntime依存を確認する。持ち越した5C・署名実E2Eを直ちに再実行しない。全移管後はFile責務精査前に人間へ報告する。全体回帰・Reality Audit・固定Sourceレビュー・署名E2E・人間の採用／Release判断の未達Gateは維持する |
+| 現在Gate | 旧REQ-000041契約でのPhase 4 Passは履歴。最小ユーザー識別契約の認可部分は正式伝播・再評価待ちで、現在のPass根拠にしない。無関係な旧成立能力と過去Evidenceは維持する |
+| 次のGate | 新認可方式をUX以降へ正式伝播し、設計・QA、Source・移行・回帰を接続する。5D〜Fの独立処置とRuntime依存を確認する。持ち越した5C・署名実E2Eを直ちに再実行しない。全移管後はFile責務精査前に人間へ報告する。全体回帰・Reality Audit・固定Sourceレビュー・署名E2E・人間の採用／Release判断の未達Gateは維持する |
 
 2026-10-04当時は、共有管理フォルダのACL移行を前提に復旧設計を広げる案を取り下げ、まずE2Eを実行し、再現性のある問題だけ対応を検討する方針だった。当時の記録では実アクセス権変更・共有環境の初期化・Process停止・旧三件削除は行っていない。局所設計・実装・試験を履歴として保持し、回復全体の成立またはRelease可能とは扱わない。[当時の再開記録](Evidence/261004_workbench-e2e-restart.md)は経緯であり、現在の処置は[持ち越し判断](#持ち越し判断--orchestratorcoordinatordocker2026-10-09)に従う。
 

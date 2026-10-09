@@ -1,14 +1,49 @@
-# ユーザー管理なしでRemote CROSの利用範囲を分ける
+# 最小ユーザー識別とRoleでRemote CROSの利用範囲を分ける
 
 成果物種別: Discovery分析
 探索ID: `EXP-000036`
 状態: 要求採用
 主な情報源・根拠: Remote CROSの利用境界、Credential発行と管理画面に関する人間理解の確認
 判断する人: Qual-Lab
-記録の性質: v0.22再Discoveryで簡素化したRemote接続モデル
-下流の主要CHG: [CHG-000081](../../../99_Roadmap/Changes/CHG-000081/change.md)
+記録の性質: v0.22再Discoveryの判断履歴と2026-10-09の途中見直し
+下流の主要CHG: [CHG-000082 現在の途中見直し](../../../99_Roadmap/Changes/CHG-000082/change.md)
+元の導入CHG: [CHG-000081 履歴](../../../99_Roadmap/Changes/CHG-000081/change.md)
 
-> CROSへ人間のアカウント管理を持ち込まない。Roleに紐づく共有Credentialを、安全に配布・保存・失効できる最小構造にする。
+> 現在の採用は、安定ユーザーID・管理者用表示名・Role・Credential紐付けに限定した最小管理である。一般的なアカウント管理へ拡張しない。
+
+## 現在の採用判断 — 2026-10-09
+
+CHG-000082第二段階のAccess Management再編に際し、人間は、ユーザーIDとCredentialを分け、Roleに詳細権限を持たせ、Credentialをリセットできる構造を提示した。続いて「誰向けのIDか分かるユーザーネームだけを持たせ、管理者が登録・変更し、Workbenchで認証ユーザーを見せるために使う。これ以上は拡充しない」と範囲を限定した。AIがUUID・表示専用名・Role・Credential紐付けの最小構成を返し、人間が継続を指示して採用した。
+
+```text
+Credential
+    ↓
+userId（UUID）── username（管理者用・Workbench表示用）
+    ↓                 認証・権限判定には使用しない
+Role
+    ↓
+Role詳細権限
+    ↓
+Exposureと実アクセスを満たす許可範囲
+```
+
+| 判断 | 現在の処置と理由 |
+|---|---|
+| Role別共有Credentialだけの運用 | 以前の採用。誰向けに発行したかを識別できず、ユーザーIDを保持したリセットの意図を満たさないため変更する |
+| 最小ユーザー識別 | 採用。`userId`はUUIDで安定させ、管理者が表示名とRoleを設定する。リセットでID・Roleを保ち、旧Credentialを拒否する |
+| 詳細権限のOwner | Roleに置く。Credentialやユーザーごとの追加権限を増やさず、次の認可で現行Role設定を使う |
+| 一般的なアカウント管理 | 不採用。メール、Password、本人確認、自己登録・自己編集、申請、SSO／IdP、個人行動監査製品は現在の目的を超える |
+| 保持する意図 | 軽量運用、Repository単体のCredential不要、管理能力から内容アクセスを推定しないこと、Secret保護、Host限定緊急Recovery、Product Data保持 |
+
+現在の要求正本は[REQ-000041](../../Definitions/REQ-000041/requirement.md)。UUID版、表示名の構文・一意性、保存Schema、旧Credentialの移行／再発行、Bootstrapとユーザーの結合、詳細権限の語彙は後工程で決める。表示名は自然人の本人確認ではなく、同名や改名からIdentity・Authorityを推定しない。リセットだけで開始済み操作の取消を成立扱いしない。
+
+この更新は要求の採用変更であり、UX／IA／UI／SPEC／詳細設計／Architecture／Quality、Source、保存Schemaと移行は未追従である。全工程の完成や既存Credentialの変更を意味しない。
+
+## 以前の採用判断の記録
+
+以下は途中見直し前の判断履歴であり、現在の認可仕様ではない。当時の「User管理なし」「Role別共有Credential」およびRole表記は履歴として保持する。現行仕様は上記の採用判断とREQ-000041を参照する。
+
+> 当時の方針: CROSへ人間のアカウント管理を持ち込まない。Roleに紐づく共有Credentialを、安全に配布・保存・失効できる最小構造にする。
 
 ## 事前入力の理解確認
 
