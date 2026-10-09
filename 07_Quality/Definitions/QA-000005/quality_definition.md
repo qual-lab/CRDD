@@ -104,6 +104,8 @@ Quality ID: `QA-000005`
 
 Repository保存の読戻しは、Topic／Meetingそれぞれのcreate／updateで、rename後の一回のraw bytes取得と同じsnapshotからの解析をLock保持中に行う。010の一致時成功と、011の欠落・読取り例外・解析例外・bytes／ID／改訂／Project ID差・読取り一次失敗＋Lock cleanup失敗を区別する。不正UTF-8 bytesが正規の置換文字と同じ文字列へ復号される反例も含める。保存後失敗時に実bytes・改訂を残して内部例外を返すこと、短命FileがなくLock残存がcleanup結果へ対応することを観測する。注入は実OS故障の証明ではなく、親差替え・実Process競合・電源断保証や項目全体Passへ拡張しない。
 
+Repository正常CRUDは、両種別の登録・重複登録拒否・一覧・取得・更新・古い改訂拒否・確認なし削除拒否・確認付き削除を同じ自己生成Rootで照合する。保存本文と改訂、拒否時Effect 0、削除後のRecord親・Lock不存在と一覧からの消失を確認する。Meetingを先に削除してTopicへの既存Relationを解消し、Relation条件を迂回しない。試験Rootは検証済みRepository-local `.crdd/tests`から作成し回収する。この確認はRepositoryの通常経路を補うもので、公開操作全母集合・協調Writer実Process競合・異常死回復の成立根拠ではない。
+
 候補生成の成功を正本反映の成功にしない。Evidenceは候補の出所、人間判断、対象Owner、実際の反映範囲、却下／失敗時のEffect 0を別々に記録する。
 
 静的な親link拒否は`CPR-IT-011`の追加確認へ接続する。両種別のRoot／種別親／Record親にあるjunction・dangling link・通常File、CHG参照の三親、EACCESとENOENT、mkdirのEEXIST後linkを反証する。Root拒否、CRUD・一覧・削除前確認・CHG参照の拒否と正本bytes・sentinel保持、Lock不存在を観測する。読戻しの不存在注入はexistsSyncのfalseではなくlstatのENOENTへ接続し、原Oracleを維持する。上記未評価の親link保証は非協調Processの同時差替えを含む保証であり、この静的拒否から成立を主張しない。

@@ -361,3 +361,25 @@ Coordinator全体checkは既知Checker整形1件で停止し、型検査も既�
 是正後のVersion Controlは書式・型・Lintと全47件Pass、Fail／Skip 0。新しい固定候補の独立再レビューへ渡す。他Packageの結果は各入力が不変の範囲に限って保持し、Coordinator全体静的・署名経路・Host Windows六経路の残件は解消扱いにしない。
 
 固定57Fileの最終独立再レビューは実装・品質とも指摘0。Version Control公開入口への今回の利用側接続是正は限定範囲で完了とする。段階1〜5全体の完了ではない。次の署名局所是正は、現行`manifest-trust.ts`に存在する二Symbolに対し、保護import表が廃止済み`trust-core.ts`を要求する第一段階改名の追従漏れである。現行Sourceを確認し、署名保証を維持した別の固定候補として処置する。
+
+### 署名保護import表の改名追従 — 着手前照合
+
+基準Commitは`9b99331f`。変更分類は第一段階改名の接続漏れ是正であり、保護表のimport元だけを現行`manifest-trust.ts`へ同期する。二Symbolの必須性、同名decoy・alias・欠落・重複・事前Effectの拒否、署名入力とAuthorityは維持する。正常Source受理、旧Pathへ戻した入力の拒否、既存保護flow反例を確認する。実鍵・署名・Docker・Providerは使わず、Source契約試験と静的確認、実装／品質の限定独立レビューで確認する。新しい保証や許可集合の拡大が必要なら停止し、単純なPath同期へ混ぜない。
+
+保護import表の一Pathを同期し、既存Caseへ旧Path拒否の反例を追加した。変更二Sourceの書式・Lint、production strict型検査はPass。署名保護flow局所三件は3件Pass、Fail／Skip 0。関連Suite全体は実行中で、独立レビューとともに完了未確認。既知Recovery試験の型不足やCoordinator全体静的の未合格は解消主張に含めない。
+
+限定した三Fileの独立レビューは実装・品質とも指摘0。関連Suite全体の実行結果は引き続き確認中であり、局所3件の成功を全体へ拡張しない。
+
+### Topic／Meetingの正常CRUDと協調Writer競合 — 着手前照合
+
+変更対象は既存`CPR-IT-010`の正常CRUD網羅と保存排他の実Process観測で、保存Runtimeは変更しない。Topic／Meeting双方の登録・一覧・取得・更新・期待改訂拒否・確認なし削除拒否・確認付き削除を実bytesと改訂へ接続する。新しいfixtureは検証済みRepository-local `.crdd/tests`へ限定し、mock・子Processを回収してRoot不存在を確認する。既存Relation付き削除・変換・Outcome・昇格の試験を保持し、Repository CRUDだけで公開操作全体の完成を主張しない。
+
+実Process競合は第一子がexact既存Lockを実openした後に自己生成readyを発行し、第二子の更新拒否と終了・正本不変を確認してから第一子を解放する。spawn直後にerror／closeを観測し、保留・joinには期限を設ける。fixtureがdescriptorを返す前に失敗した場合は自身で回収する。finallyでは所有子のclose確認後だけRootを回収し、join不能やcleanup併発を一次失敗で隠さない。通常の協調Writer更新を対象とし、異常死回復、同時open勝者選択、非協調親差替え、電源断保証へ拡張しない。新Lock、Recovery、公開APIや共有Stateは作らない。
+
+正常CRUDの既存Caseを両種別の全操作へ補強し、Repository-local fixtureへ切り替えた。Domain Model全112件と書式・型・LintはPass、Fail／Skip 0。保存Runtimeは不変で、協調Writer実Process競合はこのCaseでは未実装・未確認。QA-000005へ通常経路の追加観測と限界を直接接続し、限定独立レビューへ渡す。
+
+両独立レビューは同一原因のMinor1を返した。古改訂入力が保存済み本文と同じでは誤保存を検出できないため、有効な異bytes候補を渡し、拒否直後の正本bytesと改訂保持を両種別でassertする。全結果統合と両観点の是正方針照合後に限定修正し、Runtime・QA ID・正常更新・Relation解消と削除Oracleは保持する。
+
+Oracle修正後は書式・型・LintとRepository Suite全7件Pass、Fail／Skip 0。先の112件全回帰の対象と、この修正後局所再実行の対象を区別する。その他Package入力・Runtimeは不変で、固定候補の限定再レビューで是正解消を確認する。
+
+修正後の限定再レビューは両観点とも指摘0で、Repository正常CRUDの補強は確認済み。協調Writer実Process競合と公開操作母集合の網羅は引き続き残件である。

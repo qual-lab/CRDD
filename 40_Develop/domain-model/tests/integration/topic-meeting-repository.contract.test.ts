@@ -577,35 +577,87 @@ Project ID: \`PRJ-001\`
  * @responsibility CRUD結果、RevisionおよびCanonical Pathを検証する。
  * @trace CPR-IT-010
  * @precondition 空の検証用Repository Rootを作る。
- * @stimulus TopicとMeetingを登録し、Topicを更新して一覧・取得する。
+ * @stimulus 両種別の登録・一覧・取得・更新・改訂競合・確認なし／確認付き削除を実行する。
  * @observation 結果、改訂およびFilesystem Effect件数を観測する。
  * @oracle 各正本は固定Pathへ一件だけ存在し、競合更新はEffect 0となる。
  * @cleanup 検証用Rootを削除する。
  * @boundary CPR-IT-010=Direct Boundary: Repository Test Source→CRUD契約
  */
-test("TopicとMeetingの登録・編集・一覧・取得を同じ契約で処理する", () => {
-  const root = mkdtempSync(path.join(tmpdir(), "crdd-topic-meeting-"));
+test("TopicとMeetingの登録・編集・削除・一覧・取得を同じ契約で処理する", () => {
+  const verified = resolveVerifiedRepositoryRootFromWorkingDirectory(
+    import.meta.dirname,
+  );
+  const parent = path.join(verified, ".crdd", "tests");
+  for (const directory of [path.dirname(parent), parent]) {
+    try {
+      const metadata = fs.lstatSync(directory);
+      assert.ok(metadata.isDirectory() && !metadata.isSymbolicLink());
+    } catch (error) {
+      if (
+        typeof error !== "object" ||
+        error === null ||
+        !("code" in error) ||
+        error.code !== "ENOENT"
+      )
+        throw error;
+      fs.mkdirSync(directory);
+    }
+  }
+  const root = mkdtempSync(path.join(parent, "domain-crud-"));
   try {
     const repository = createTopicMeetingRepository(root);
     assert.equal(repository.list("topic").status, "not_configured");
+    assert.equal(repository.list("meeting").status, "not_configured");
     assert.equal(repository.create("topic", topic(1)).status, "completed");
     assert.equal(repository.create("meeting", meeting(1)).status, "completed");
-    assert.equal(repository.list("topic").records.length, 1);
-    assert.equal(repository.get("meeting", "MTG-000042")?.revision, 1);
-
-    const updated = repository.update(
-      "topic",
-      "TOPIC-000042",
-      1,
-      topic(2, "waiting"),
-    );
-    assert.equal(updated.status, "completed");
-    assert.equal(repository.get("topic", "TOPIC-000042")?.revision, 2);
-    const conflicted = repository.update("topic", "TOPIC-000042", 1, topic(2));
-    assert.equal(conflicted.reason, "record_revision_conflict");
-    assert.equal(conflicted.filesystemEffectCount, 0);
+    // Meetingを先に削除してTopicへの既存Relationを正当に解消する。
+    for (const kind of ["meeting", "topic"] as const) {
+      const id = kind === "topic" ? "TOPIC-000042" : "MTG-000042";
+      const initial = kind === "topic" ? topic(1) : meeting(1);
+      const next = kind === "topic" ? topic(2, "waiting") : meeting(2);
+      const category = kind === "topic" ? "22_Topics" : "23_Meetings";
+      const file = path.join(root, category, id, `${kind}.md`);
+      assert.equal(repository.list(kind).records.length, 1);
+      assert.equal(repository.get(kind, id)?.revision, 1);
+      assert.equal(fs.readFileSync(file, "utf8"), initial);
+      const duplicate = repository.create(kind, initial);
+      assert.equal(duplicate.reason, "record_already_exists");
+      assert.equal(duplicate.filesystemEffectCount, 0);
+      const updated = repository.update(kind, id, 1, next);
+      assert.equal(updated.status, "completed");
+      assert.equal(updated.reason, "record_updated");
+      assert.equal(updated.filesystemEffectCount, 1);
+      assert.equal(repository.get(kind, id)?.revision, 2);
+      assert.equal(fs.readFileSync(file, "utf8"), next);
+      const conflicted = repository.update(kind, id, 1, `${next}\n`);
+      assert.equal(conflicted.reason, "record_revision_conflict");
+      assert.equal(conflicted.filesystemEffectCount, 0);
+      assert.equal(fs.readFileSync(file, "utf8"), next);
+      assert.equal(repository.get(kind, id)?.revision, 2);
+      const request = {
+        kind,
+        id,
+        expectedRevision: 2,
+        reason: "mistaken_registration" as const,
+      };
+      const unconfirmed = repository.delete({ ...request, confirmed: false });
+      assert.equal(unconfirmed.reason, "record_delete_confirmation_required");
+      assert.equal(unconfirmed.filesystemEffectCount, 0);
+      assert.equal(fs.readFileSync(file, "utf8"), next);
+      const deleted = repository.delete({ ...request, confirmed: true });
+      assert.equal(deleted.reason, "record_deleted");
+      assert.equal(deleted.filesystemEffectCount, 1);
+      assert.equal(repository.get(kind, id), null);
+      assert.equal(repository.list(kind).records.length, 0);
+      assert.throws(() => fs.lstatSync(path.dirname(file)), { code: "ENOENT" });
+      assert.throws(
+        () => fs.lstatSync(path.join(root, category, `.${id}.lock`)),
+        { code: "ENOENT" },
+      );
+    }
   } finally {
     rmSync(root, { recursive: true, force: true });
+    assert.throws(() => fs.lstatSync(root), { code: "ENOENT" });
   }
 });
 
