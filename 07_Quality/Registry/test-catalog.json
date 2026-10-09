@@ -1431,7 +1431,7 @@
     },
     {
       "id": "mcp:integration:transport-lifecycle",
-      "owner": "mcp",
+      "owner": "mcp-server",
       "path": "40_Develop/mcp-server/tests/integration/transport-lifecycle.contract.test.ts",
       "level": "integration",
       "kind": "integration",
@@ -2998,7 +2998,7 @@
     },
     {
       "id": "mcp:system:stdio",
-      "owner": "mcp",
+      "owner": "mcp-server",
       "path": "40_Develop/mcp-server/tests/system/stdio-transport.integration.test.ts",
       "level": "system",
       "kind": "integration",
@@ -3020,7 +3020,7 @@
     },
     {
       "id": "mcp:integration:cros-project-context",
-      "owner": "mcp",
+      "owner": "mcp-server",
       "path": "40_Develop/mcp-server/tests/integration/cros-project-context-mcp.integration.test.ts",
       "level": "integration",
       "kind": "contract",
@@ -3033,7 +3033,7 @@
     },
     {
       "id": "mcp:integration:cros-shared-server",
-      "owner": "mcp",
+      "owner": "mcp-server",
       "path": "40_Develop/mcp-server/tests/integration/cros-shared-server.integration.test.ts",
       "level": "integration",
       "kind": "contract",
@@ -3607,7 +3607,7 @@
     },
     {
       "id": "mcp:system:streamable-http",
-      "owner": "mcp",
+      "owner": "mcp-server",
       "path": "40_Develop/mcp-server/tests/system/streamable-http-transport.integration.test.ts",
       "level": "system",
       "kind": "integration",
@@ -3629,7 +3629,7 @@
     },
     {
       "id": "mcp:system:cros-projection-non-disclosure",
-      "owner": "mcp",
+      "owner": "mcp-server",
       "path": "40_Develop/mcp-server/tests/system/cros-projection-non-disclosure.contract.test.ts",
       "level": "system",
       "kind": "contract",
@@ -3642,7 +3642,7 @@
     },
     {
       "id": "mcp:system:cros-shared-server-entry",
-      "owner": "mcp",
+      "owner": "mcp-server",
       "path": "40_Develop/mcp-server/tests/system/cros-shared-server-entry.integration.test.ts",
       "level": "system",
       "kind": "integration",
@@ -4122,7 +4122,7 @@
     },
     {
       "id": "mcp:unit:project-context",
-      "owner": "mcp",
+      "owner": "mcp-server",
       "path": "40_Develop/mcp-server/tests/unit/project-context-adapter.contract.test.ts",
       "level": "unit",
       "kind": "contract",
@@ -4145,7 +4145,7 @@
     },
     {
       "id": "mcp:unit:orchestrator",
-      "owner": "mcp",
+      "owner": "mcp-server",
       "path": "40_Develop/mcp-server/tests/unit/orchestrator-adapter.contract.test.ts",
       "level": "unit",
       "kind": "contract",
@@ -5236,7 +5236,7 @@
     },
     {
       "id": "workbench:system:actual-browser-visual",
-      "owner": "workbench",
+      "owner": "workbench-server",
       "path": "40_Develop/workbench-server/tests/system/workbench-visual.integration.test.ts",
       "level": "system",
       "kind": "integration",
@@ -5555,7 +5555,7 @@
     },
     {
       "id": "workbench:integration:node-dependency-closure",
-      "owner": "workbench",
+      "owner": "workbench-server",
       "path": "40_Develop/workbench-server/tests/integration/workbench-node-dependency-closure.contract.test.ts",
       "level": "integration",
       "kind": "contract",
@@ -5568,7 +5568,7 @@
     },
     {
       "id": "workbench:integration:project-surface",
-      "owner": "workbench",
+      "owner": "workbench-server",
       "path": "40_Develop/workbench-server/tests/integration/project-surface.contract.test.ts",
       "level": "integration",
       "kind": "contract",

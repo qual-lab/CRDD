@@ -269,6 +269,14 @@ MCP公開応答の次段階では、明示Schema拒否と保存境界の内部�
 
 既存同期Lockと短命Fileの形式を維持し、一次処理とcleanupの失敗を標準AggregateErrorで分離する。close失敗でもunlinkを試み、rename失敗後の短命Fileはexact unlinkのENOENTだけを不存在として扱う。新Recovery／Kernel Lock Frameworkは導入しない。Repository SuiteをReader用008から正常010・故障011へ訂正し、旧Reader Oracleは維持する。独立レビュー2指摘は試験所属RepositoryへのRoot固定と分析の失敗構造記述へ是正し、再レビューは両方指摘0。訂正前の全回帰108件と、訂正後の局所3件・書式・型・LintのPassを区別する。最終全体Checkerは3024件で未合格、今回の変更Pathへの指摘0。親link、読戻し、write自体の部分失敗、耐久性、実Process競合は未完了であり、保存全体完成とは表示しない。注入closeは実Handleを閉じた後の失敗報告で、実OS close失敗時のHandle回収を証明しない。実Provider・Docker・認証・署名・公開操作は行っていない。
 
+### 改名後の試験Owner追従
+
+MCP 9件・Workbench 3件のCatalog Ownerだけを現行Packageへ訂正した。全14登録についてSymbol所属、実Pathと実File存在を照合し、JSON解析・差分確認はPass、限定独立確認は指摘0。ID、Oracle、実行環境と必須性は不変で、実試験やCROS REST／Sharedの廃止判断を代替しない。
+
+### 保存保証の未決判断
+
+通常の保存完了＋読戻し確認と電源断耐久性、静的link拒否＋協調Writer競合と非協調Processの親Directory差替え防止を分け、必要範囲を人間へ確認中である。既存Path部品の事前／事後確認だけで競合置換防止・Root外Effect 0を主張しない。未回答を高い保証の採用や保証の免除へ読み替えず、独立した移管・試験整合を継続する。
+
 Topic昇格・Meeting Outcome処置のcatchを純粋Markdown変換だけへ限定した。既存Repository契約へ更新前／実更新後の例外を注入し、両公開操作から同じ例外が伝播すること、実更新後のRevisionと状態を保持することを確認した。不正変換はblocked・既存理由・Effect 0と更新0回を別に確認した。新fault試験はVCS Rootを検証し、Repository-local `.crdd/tests`の非link親と自己生成領域だけを使用する。
 
 固定候補のDomain Model回帰107件、書式・型・LintはPass。実装・品質／文書の二つの独立レビューは是正後指摘0。QAの010は部分検証であり、保存Ownerの一次失敗／cleanup、読戻し、親link、MCP／Workbenchの内部故障応答は未完了のまま保持する。
