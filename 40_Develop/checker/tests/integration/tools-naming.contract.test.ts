@@ -246,6 +246,8 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     requiredTags: ["boundary", "effect", "security"],
     exportedModules: [
       "./profile/authentication-policy.ts",
+      "./profile/subscription-status.ts",
+      "./output/provider-error.ts",
       "./profile/eligibility.ts",
       "./profile/execution-identity.ts",
       "./profile/environment.ts",

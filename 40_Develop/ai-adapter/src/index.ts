@@ -5,10 +5,12 @@
  * @responsibility 同じProfile契約をRepositoryローカル、CROS、Coordinator、Workbenchへ提供する。
  * @trace ARCH-000010
  * @boundary AI Runtimeと各Consumerの公開境界。
- * @effect N/A: 検証・解決関数と不変な既定Catalogだけを公開する。
+ * @effect Module読込みだけでは操作を開始しない。公開Storeの操作は検証済みOwner設定Rootの読取り・採用時保存を行い得る。
  * @security Secret、任意実行Path、任意CLI引数をProfile契約へ含めない。
  */
 export { PROVIDER_AUTHENTICATION_POLICIES } from "./profile/authentication-policy.ts";
+export { isProviderSubscriptionAuthenticationConfirmed } from "./profile/subscription-status.ts";
+export { classifyProviderNonzeroExit } from "./output/provider-error.ts";
 export { evaluateProviderEligibility } from "./profile/eligibility.ts";
 export {
   providerProfileMatchesExecutionIdentity,

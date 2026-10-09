@@ -10,7 +10,10 @@ import { types as utilTypes } from "node:util";
 import { normalizeClaudeStructuredResult } from "../../../ai-adapter/src/index.ts";
 import { normalizeCodexStructuredResult } from "../../../ai-adapter/src/index.ts";
 import { extractWorkbenchAiAdviceProviderOutput } from "../../../ai-adapter/src/index.ts";
-import { parseUnambiguousJsonDocument } from "../../../ai-adapter/src/index.ts";
+import {
+  isProviderSubscriptionAuthenticationConfirmed,
+  classifyProviderNonzeroExit,
+} from "../../../ai-adapter/src/index.ts";
 import { consumeRuntimeOwnedClaudeDockerPlanForProcessController } from "../provider/claude-docker-adapter.ts";
 import { consumeRuntimeOwnedCodexDockerPlanForProcessController } from "../provider/codex-docker-adapter.ts";
 import { consumeRuntimeOwnedProviderAuthority } from "../provider/authority-grant.ts";
@@ -1542,65 +1545,6 @@ function isPlanValid(plan: PreparedPlan) {
 }
 
 /**
- * subscription Auth Confirmedを決定する。
- *
- * @responsibility subscription Auth Confirmedの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000008
- * @input provider: "codex" | "claude"、expectedOffering: "chatgpt_subscription_oauth" | "claude_max"、stdout: string、stderr: string
- * @returns subscriptionAuthConfirmedの計算結果を返す。
- * @precondition 「provider: "codex" | "claude"、expectedOffering: "chatgpt_subscription_oauth" | "claude_max"、stdout: string、stderr: string」がsubscriptionAuthConfirmedの入力契約を満たす。
- * @postcondition subscriptionAuthConfirmedの責務を完了した結果だけを返す。
- * @effect N/A: subscriptionAuthConfirmedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: subscriptionAuthConfirmedは独自の失敗分岐を所有しない。
- * @invariant subscriptionAuthConfirmedは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security subscriptionAuthConfirmedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: subscriptionAuthConfirmedは共有非同期状態を持たない同期処理である。
- */
-function subscriptionAuthConfirmed(
-  provider: "codex" | "claude",
-  expectedOffering: "chatgpt_subscription_oauth" | "claude_max",
-  stdout: string,
-  stderr: string,
-) {
-  if (provider === "codex") {
-    if (expectedOffering !== "chatgpt_subscription_oauth") return false;
-    const normalize = (value: string) => {
-      if (value.includes("\0")) return null;
-      const normalized = value.replaceAll("\r\n", "\n");
-      if (normalized.includes("\r")) return null;
-      return normalized.endsWith("\n") ? normalized.slice(0, -1) : normalized;
-    };
-    const normalizedStdout = normalize(stdout);
-    const normalizedStderr = normalize(stderr);
-    if (normalizedStdout === null || normalizedStderr === null) return false;
-    const status = "Logged in using ChatGPT";
-    const readOnlyAliasWarning =
-      "WARNING: proceeding, even though we could not create PATH aliases: Read-only file system (os error 30)";
-    return (
-      (normalizedStdout === status && normalizedStderr === "") ||
-      (normalizedStdout === "" && normalizedStderr === status) ||
-      (normalizedStdout === status &&
-        normalizedStderr === readOnlyAliasWarning) ||
-      (normalizedStdout === "" &&
-        normalizedStderr === `${readOnlyAliasWarning}\n${status}`)
-    );
-  }
-  if (expectedOffering !== "claude_max") return false;
-  const parsed = parseUnambiguousJsonDocument(stdout);
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
-    return false;
-  const status = parsed as Record<string, unknown>;
-  return (
-    status.loggedIn === true &&
-    status.authMethod === "claude.ai" &&
-    status.apiProvider === "firstParty" &&
-    status.forcedLoginMethod === "claudeai" &&
-    status.subscriptionType === "max"
-  );
-}
-
-/**
  * Executionを分類する。
  *
  * @responsibility Executionの分類条件、相互排他的な結果、判断不能境界を所有する。
@@ -1657,84 +1601,6 @@ function classifyExecution(
     reason: "command_completed",
     stdoutBytes,
   });
-}
-
-/**
- * Provider Nonzero Exitを分類する。
- *
- * @responsibility Provider Nonzero Exitの分類条件、相互排他的な結果、判断不能境界を所有する。
- * @trace ARCH-000008
- * @input provider: "codex" | "claude"、execution: CommandExecution
- * @returns classifyProviderNonzeroExitの計算結果を返す。
- * @precondition 「provider: "codex" | "claude"、execution: CommandExecution」がclassifyProviderNonzeroExitの入力契約を満たす。
- * @postcondition classifyProviderNonzeroExitの責務を完了した結果だけを返す。
- * @effect N/A: classifyProviderNonzeroExitは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: classifyProviderNonzeroExitは独自の失敗分岐を所有しない。
- * @invariant classifyProviderNonzeroExitは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security classifyProviderNonzeroExitはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: classifyProviderNonzeroExitは共有非同期状態を持たない同期処理である。
- */
-function classifyProviderNonzeroExit(
-  provider: "codex" | "claude",
-  execution: CommandExecution,
-) {
-  if (provider === "claude") {
-    const envelope = parseUnambiguousJsonDocument(execution.stdout);
-    if (
-      envelope &&
-      typeof envelope === "object" &&
-      !Array.isArray(envelope) &&
-      (envelope as Record<string, unknown>).type === "result"
-    ) {
-      const subtype = (envelope as Record<string, unknown>).subtype;
-      if (subtype === "error_max_budget_usd")
-        return "provider_operation_budget_exceeded";
-      if (subtype === "error_max_turns") return "provider_turn_limit_exceeded";
-      if (subtype === "error_max_structured_output_retries")
-        return "provider_structured_output_retry_exhausted";
-    }
-  }
-  if (
-    execution.stderr.includes("\0") ||
-    Buffer.byteLength(execution.stderr, "utf8") > 8_192
-  )
-    return "provider_process_exit_nonzero";
-  const diagnostic = execution.stderr
-    .replaceAll("\r\n", "\n")
-    .trim()
-    .toLowerCase();
-  if (
-    /(?:usage|rate) limit|quota (?:exceeded|exhausted)|credit balance (?:is )?too low|hit your (?:current )?limit/u.test(
-      diagnostic,
-    )
-  )
-    return "provider_subscription_quota_exhausted";
-  if (
-    /authentication (?:failed|required)|oauth (?:token )?expired|not logged in|please (?:run )?(?:\/login|login)|invalid api key/u.test(
-      diagnostic,
-    )
-  )
-    return "provider_authentication_expired";
-  if (
-    /unknown (?:argument|option)|invalid (?:argument|option)|json schema (?:is )?invalid|unsupported model|model (?:is )?not found/u.test(
-      diagnostic,
-    )
-  )
-    return "provider_invocation_rejected";
-  if (
-    /econn(?:refused|reset)|etimedout|enotfound|network error|connection (?:refused|reset|timed out)|proxy (?:connection )?(?:failed|error)/u.test(
-      diagnostic,
-    )
-  )
-    return "provider_network_unavailable";
-  if (
-    /service unavailable|internal server error|overloaded|temporarily unavailable|(?:http |status (?:code )?)5\d\d/u.test(
-      diagnostic,
-    )
-  )
-    return "provider_service_unavailable";
-  return "provider_process_exit_nonzero";
 }
 
 // This is an additional veto, never an authority source. Do not pass plans,
@@ -2134,7 +2000,7 @@ async function executePlan(
       ) {
         diagnosticStage = "subscription_auth_verification";
         if (
-          !subscriptionAuthConfirmed(
+          !isProviderSubscriptionAuthenticationConfirmed(
             plan.provider,
             plan.subscriptionOffering,
             execution.stdout,

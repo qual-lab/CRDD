@@ -575,6 +575,8 @@
         "ERB-IT-002"
       ],
       "verifies": [
+        "ai-adapter.profile.subscription-status",
+        "ai-adapter.output.provider-error",
         "coordinator.source.src.core.task.cli.cancellation",
         "coordinator.source.src.security.development.measurement.constraints",
         "coordinator.source.src.security.docker.owned.process",

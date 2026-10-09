@@ -10,6 +10,11 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { codexAdviceProviderInitRequired } from "../../../ai-adapter/src/index.ts";
+import {
+  buildClaudeExecutionArguments,
+  describeCodexSubscriptionAuthenticationCli,
+  describeClaudeSubscriptionAuthenticationCli,
+} from "../../../ai-adapter/src/index.ts";
 import { dockerContainerInitObservationMatches } from "./container-init-observation.ts";
 import {
   planClaudeIsolatedTask,
@@ -484,14 +489,17 @@ function expectedCommands(
       "--env",
       "HOME=/provider-home",
       ...(plan.provider === "codex"
-        ? ["--env", "CODEX_HOME=/provider-home"]
+        ? [
+            "--env",
+            `${describeCodexSubscriptionAuthenticationCli().homeEnvironmentVariable}=/provider-home`,
+          ]
         : []),
       "--mount",
       `${providerHomeMount},readonly`,
       plan.providerImageDigest,
       ...(plan.provider === "codex"
-        ? ["login", "status"]
-        : ["auth", "status", "--json"]),
+        ? describeCodexSubscriptionAuthenticationCli().statusArgv
+        : describeClaudeSubscriptionAuthenticationCli().statusArgv),
     ],
     ["start", "--attach", plan.authContainerName],
     [
@@ -571,9 +579,12 @@ function expectedCommands(
       ...(workspaceMount ? ["--mount", workspaceMount] : []),
       plan.providerImageDigest,
       ...(plan.provider === "claude" && !adviceCommand
-        ? ["--model", plan.selectedModel, "--effort", plan.selectedEffort]
-        : []),
-      ...(adviceCommand?.argv ?? providerPlan.argv),
+        ? buildClaudeExecutionArguments(
+            plan.selectedModel,
+            plan.selectedEffort,
+            providerPlan.argv,
+          )
+        : (adviceCommand?.argv ?? providerPlan.argv)),
     ],
     ["start", plan.proxyContainerName],
     [

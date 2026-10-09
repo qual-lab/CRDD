@@ -11,7 +11,7 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-第二段階は[Package別の責務再編計画](99_Roadmap/Changes/CHG-000082/second-stage-plan.md)の1〜5へ着手した。Version Controlの所有者分離は47件、Domain Modelの配置整理は106件、Execution Intelligenceの記録と提案判断の分離は82件のPackage回帰と限定独立レビューまで確認した。全体Checkerでは未変更CoordinatorのNative試験Header・型分類・登録指摘が残る。次はAI Adapter／Platform Accessの実利用・保証の照合を進める。Docker／Coordinator／Orchestratorの大改修はCROS／MCP／Workbench整理の後へ置く。これはv0.22全体の完成・Release可能を意味しない。
+第二段階は[Package別の責務再編計画](99_Roadmap/Changes/CHG-000082/second-stage-plan.md)を進行中。Version Controlの所有者分離は47件、Domain Modelの配置整理は106件、Execution Intelligenceの記録と提案判断の分離は82件のPackage回帰と限定独立レビューまで確認した。AI AdapterのProvider出力判定移管はPackage13件・Controller／Effect結合126件と限定独立レビューまで確認した。全体Checkerでは未変更CoordinatorのNative試験Header・型分類・登録指摘が残る。次はPlatform Accessの実利用・保証の照合と内部整理を進める。Docker／Coordinator／Orchestratorの大改修はCROS／MCP／Workbench整理の後へ置く。これはv0.22全体の完成・Release可能を意味しない。
 
 v0.21.0は公開済み、v0.22.0とCHG-000082は未完了である。責務再編の段階1〜4、5AのDomain Model統合、5BのAI Adapter／Platform Access移管は局所確認まで完了した。5CのOrchestrator／Coordinator／Docker追加是正は、大規模改修で実装が変わる見込みから、人間承認により持ち越した。
 

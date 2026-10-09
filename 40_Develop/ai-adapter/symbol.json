@@ -4,6 +4,18 @@
   "subsystem": "ai-adapter",
   "symbols": [
     {
+      "symbolId": "ai-adapter.profile.subscription-status",
+      "kind": "file",
+      "path": "src/profile/subscription-status.ts",
+      "archIds": ["ARCH-000010"]
+    },
+    {
+      "symbolId": "ai-adapter.output.provider-error",
+      "kind": "file",
+      "path": "src/output/provider-error.ts",
+      "archIds": ["ARCH-000010"]
+    },
+    {
       "symbolId": "ai-adapter.profile.provider-environment",
       "kind": "file",
       "path": "src/profile/environment.ts",
