@@ -33,6 +33,14 @@ export const MCP_TOPIC_MEETING_TOOLS = Object.freeze([
 ]);
 
 const TEXT_SCHEMA = Object.freeze({ type: "string" });
+const TOPIC_ID_SCHEMA = Object.freeze({
+  type: "string",
+  pattern: "^TOPIC-\\d{6}$",
+});
+const MEETING_ID_SCHEMA = Object.freeze({
+  type: "string",
+  pattern: "^MTG-\\d{6}$",
+});
 const POSITIVE_INTEGER_SCHEMA = Object.freeze({ type: "integer", minimum: 1 });
 
 /**
@@ -58,12 +66,14 @@ function tool(
   description: string,
   requiredKeys: readonly string[],
   properties: Readonly<Record<string, unknown>>,
+  constraints: Readonly<Record<string, unknown>> = {},
 ) {
   return Object.freeze({
     name,
     title,
     description,
     inputSchema: Object.freeze({
+      ...constraints,
       type: "object",
       additionalProperties: false,
       required: Object.freeze([...requiredKeys]),
@@ -151,7 +161,7 @@ export function getMcpTopicMeetingToolDefinitions(
   });
   const treatOutcome = Object.freeze({
     ...target,
-    meetingId: TEXT_SCHEMA,
+    meetingId: MEETING_ID_SCHEMA,
     expectedRevision: POSITIVE_INTEGER_SCHEMA,
     outcomeId: TEXT_SCHEMA,
     disposition: Object.freeze({
@@ -172,9 +182,9 @@ export function getMcpTopicMeetingToolDefinitions(
   });
   const promoteTopic = Object.freeze({
     ...target,
-    topicId: TEXT_SCHEMA,
+    topicId: TOPIC_ID_SCHEMA,
     expectedRevision: POSITIVE_INTEGER_SCHEMA,
-    changeId: TEXT_SCHEMA,
+    changeId: Object.freeze({ type: "string", pattern: "^CHG-\\d{6}$" }),
     reason: TEXT_SCHEMA,
     remainingResponsibility: TEXT_SCHEMA,
   });
@@ -191,7 +201,7 @@ export function getMcpTopicMeetingToolDefinitions(
       "Topic取得",
       "Topicを一件取得します。",
       required(["id"]),
-      record,
+      { ...record, id: TOPIC_ID_SCHEMA },
     ),
     tool(
       MCP_TOPIC_CREATE_TOOL,
@@ -205,14 +215,14 @@ export function getMcpTopicMeetingToolDefinitions(
       "Topic編集",
       "期待改訂と次改訂を検証してTopicを更新します。",
       required(["id", "expectedRevision", "markdown"]),
-      update,
+      { ...update, id: TOPIC_ID_SCHEMA },
     ),
     tool(
       MCP_TOPIC_DELETE_TOOL,
       "Topic削除",
       "Relation影響と明示確認を検証して誤登録Topicを削除します。",
       required(["id", "expectedRevision", "confirmed", "reason"]),
-      remove,
+      { ...remove, id: TOPIC_ID_SCHEMA },
     ),
     tool(
       MCP_TOPIC_PROMOTE_TOOL,
@@ -239,7 +249,7 @@ export function getMcpTopicMeetingToolDefinitions(
       "Meeting取得",
       "Meetingを一件取得します。",
       required(["id"]),
-      record,
+      { ...record, id: MEETING_ID_SCHEMA },
     ),
     tool(
       MCP_MEETING_CREATE_TOOL,
@@ -253,14 +263,14 @@ export function getMcpTopicMeetingToolDefinitions(
       "Meeting編集",
       "期待改訂と次改訂を検証してMeetingを更新します。",
       required(["id", "expectedRevision", "markdown"]),
-      update,
+      { ...update, id: MEETING_ID_SCHEMA },
     ),
     tool(
       MCP_MEETING_DELETE_TOOL,
       "Meeting削除",
       "Relation影響と明示確認を検証して誤登録Meetingを削除します。",
       required(["id", "expectedRevision", "confirmed", "reason"]),
-      remove,
+      { ...remove, id: MEETING_ID_SCHEMA },
     ),
     tool(
       MCP_MEETING_TREAT_OUTCOME_TOOL,
@@ -281,6 +291,23 @@ export function getMcpTopicMeetingToolDefinitions(
         "closeMeeting",
       ]),
       treatOutcome,
+      {
+        anyOf: [
+          {
+            properties: {
+              targetKind: { const: "topic" },
+              targetReference: TOPIC_ID_SCHEMA,
+            },
+          },
+          {
+            properties: {
+              targetKind: { const: "change" },
+              targetReference: { type: "string", pattern: "^CHG-\\d{6}$" },
+            },
+          },
+          { properties: { targetKind: { enum: ["owner", "none"] } } },
+        ],
+      },
     ),
   ]);
 }

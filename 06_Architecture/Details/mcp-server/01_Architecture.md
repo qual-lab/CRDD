@@ -289,6 +289,10 @@ Transport再接続は新しい接続Lifecycleであり、切断した要求のAu
 
 ## 6. 正常・準正常・異常
 
+Topic／Meeting Tool Callでは、公開Schemaの拒否を`-32602 / Invalid params`、操作・保存の未知内部例外を`-32603 / Internal error`へ分離する。ID書式、正整数Revision、limit 1〜100、states最大4は配送前に検査する。Query／Cursorの意味はDomainが所有し、読取りlistの既知3拒否理由だけを入力不正へ対応付ける。書込み操作で同じ理由の例外が出ても内部故障として扱う。例外本文・Path・秘密値を公開せず、内部エラーから未保存、rollback、Effect 0またはcleanup成立を主張しない。この義務は`QA-000005`／`CPR-IT-012`へ接続する。
+
+昇格先CHGと、Outcomeの移管先Topic／CHGは固定ID書式を配送前に照合する。owner／none参照へID制約を足さない。create／updateのMarkdownはDomain公開Parserを純粋な入力検証として用い、この検証の拒否だけを`-32602`へ返す。保存呼出し以降の例外へParser拒否の分類を適用しない。正常結果・競合・対象不存在の操作結果は維持し、従来入力不正に丸めていた内部故障だけのProtocol codeを訂正する。
+
 | 区分 | 代表例 | 期待する処置 |
 |---|---|---|
 | 正常 | 正しいMCP requestをstdioまたはlocalhost HTTPから受信 | Orchestrator公開要求へ変換し、canonical結果をMCP responseへ投影する |

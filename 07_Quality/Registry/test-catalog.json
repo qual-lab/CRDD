@@ -4166,7 +4166,7 @@
     },
     {
       "id": "mcp:integration:topic-meeting",
-      "owner": "mcp",
+      "owner": "mcp-server",
       "path": "40_Develop/mcp-server/tests/integration/topic-meeting-adapter.contract.test.ts",
       "level": "integration",
       "kind": "contract",
@@ -4177,7 +4177,8 @@
         "crud",
         "pagination",
         "outcome-treatment",
-        "close-invariant"
+        "close-invariant",
+        "public-failure-classification"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,
@@ -4187,7 +4188,10 @@
         "canonical_markdown_preserved",
         "revision_conflict_effect_zero",
         "outcome_treatment_shared_contract",
-        "pending_outcome_close_effect_zero"
+        "pending_outcome_close_effect_zero",
+        "schema_rejection_before_dispatch",
+        "internal_failure_details_not_disclosed",
+        "write_failure_not_input_rejection"
       ],
       "mandatoryByDefault": true
     },

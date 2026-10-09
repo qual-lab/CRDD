@@ -4,7 +4,11 @@
  */
 import { types as utilTypes } from "node:util";
 
-import type { TopicMeetingAccess } from "../../../domain-model/src/index.ts";
+import {
+  parseTopicMarkdown,
+  parseMeetingMarkdown,
+  type TopicMeetingAccess,
+} from "../../../domain-model/src/index.ts";
 
 import {
   callKeys,
@@ -197,6 +201,32 @@ export async function handleMcpTopicMeetingRequest(
     return protocolError(request.id, -32800, "Request cancelled");
   const args = params.arguments;
   const kind = params.name.includes("meeting") ? "meeting" : "topic";
+  const recordId = args.id ?? args.topicId ?? args.meetingId;
+  if (
+    (recordId !== undefined &&
+      (typeof recordId !== "string" ||
+        !new RegExp(
+          kind === "topic" ? "^TOPIC-\\d{6}$" : "^MTG-\\d{6}$",
+          "u",
+        ).test(recordId))) ||
+    (args.expectedRevision !== undefined &&
+      (!Number.isSafeInteger(args.expectedRevision) ||
+        (args.expectedRevision as number) < 1))
+  )
+    return protocolError(request.id, -32602, "Invalid params");
+  if (
+    (params.name === MCP_TOPIC_PROMOTE_TOOL &&
+      (typeof args.changeId !== "string" ||
+        !/^CHG-\d{6}$/u.test(args.changeId))) ||
+    (params.name === MCP_MEETING_TREAT_OUTCOME_TOOL &&
+      ((args.targetKind === "topic" &&
+        (typeof args.targetReference !== "string" ||
+          !/^TOPIC-\d{6}$/u.test(args.targetReference))) ||
+        (args.targetKind === "change" &&
+          (typeof args.targetReference !== "string" ||
+            !/^CHG-\d{6}$/u.test(args.targetReference)))))
+  )
+    return protocolError(request.id, -32602, "Invalid params");
   try {
     if (params.name === MCP_TOPIC_PROMOTE_TOOL) {
       const required = [
@@ -213,7 +243,7 @@ export async function handleMcpTopicMeetingRequest(
           .filter((key) => key !== "expectedRevision")
           .every((key) => typeof args[key] === "string")
       )
-        throw new Error();
+        return protocolError(request.id, -32602, "Invalid params");
       const result = application.topic.promoteTopic({
         topicId: args.topicId as string,
         expectedRevision: args.expectedRevision as number,
@@ -256,7 +286,7 @@ export async function handleMcpTopicMeetingRequest(
           args.targetKind as string,
         )
       )
-        throw new Error();
+        return protocolError(request.id, -32602, "Invalid params");
       const result = application.meeting.treatMeetingOutcome({
         meetingId: args.meetingId as string,
         expectedRevision: args.expectedRevision as number,
@@ -306,11 +336,17 @@ export async function handleMcpTopicMeetingRequest(
           ],
         )
       )
-        throw new Error();
+        return protocolError(request.id, -32602, "Invalid params");
       if (args.cursor !== undefined && typeof args.cursor !== "string")
-        throw new Error();
-      if (args.limit !== undefined && typeof args.limit !== "number")
-        throw new Error();
+        return protocolError(request.id, -32602, "Invalid params");
+      if (
+        args.limit !== undefined &&
+        (typeof args.limit !== "number" ||
+          !Number.isSafeInteger(args.limit) ||
+          (args.limit as number) < 1 ||
+          (args.limit as number) > 100)
+      )
+        return protocolError(request.id, -32602, "Invalid params");
       if (
         [
           "query",
@@ -324,11 +360,12 @@ export async function handleMcpTopicMeetingRequest(
         ) ||
         (args.states !== undefined &&
           (!Array.isArray(args.states) ||
+            args.states.length > 4 ||
             !args.states.every((state) => typeof state === "string"))) ||
         (args.pendingOnly !== undefined &&
           typeof args.pendingOnly !== "boolean")
       )
-        throw new Error();
+        return protocolError(request.id, -32602, "Invalid params");
       const query = {
         ...(args.query === undefined ? {} : { query: args.query as string }),
         ...(args.states === undefined
@@ -366,7 +403,7 @@ export async function handleMcpTopicMeetingRequest(
       [MCP_TOPIC_GET_TOOL, MCP_MEETING_GET_TOOL].includes(params.name as never)
     ) {
       if (!exactKeys(args, ["id"]) || typeof args.id !== "string")
-        throw new Error();
+        return protocolError(request.id, -32602, "Invalid params");
       const document = application[kind].getDocument(args.id);
       const record = document?.record ?? null;
       const relations =
@@ -397,7 +434,13 @@ export async function handleMcpTopicMeetingRequest(
       )
     ) {
       if (!exactKeys(args, ["markdown"]) || typeof args.markdown !== "string")
-        throw new Error();
+        return protocolError(request.id, -32602, "Invalid params");
+      try {
+        if (kind === "topic") parseTopicMarkdown(args.markdown);
+        else parseMeetingMarkdown(args.markdown);
+      } catch {
+        return protocolError(request.id, -32602, "Invalid params");
+      }
       const result = application[kind].create(args.markdown);
       return protocolComplete(request.id, {
         content: Object.freeze([{ type: "text", text: result.reason }]),
@@ -416,7 +459,13 @@ export async function handleMcpTopicMeetingRequest(
         !Number.isSafeInteger(args.expectedRevision) ||
         typeof args.markdown !== "string"
       )
-        throw new Error();
+        return protocolError(request.id, -32602, "Invalid params");
+      try {
+        if (kind === "topic") parseTopicMarkdown(args.markdown);
+        else parseMeetingMarkdown(args.markdown);
+      } catch {
+        return protocolError(request.id, -32602, "Invalid params");
+      }
       const result = application[kind].update({
         id: args.id,
         expectedRevision: args.expectedRevision as number,
@@ -440,7 +489,7 @@ export async function handleMcpTopicMeetingRequest(
         typeof args.confirmed !== "boolean" ||
         args.reason !== "mistaken_registration"
       )
-        throw new Error();
+        return protocolError(request.id, -32602, "Invalid params");
       const result = application[kind].delete({
         id: args.id,
         expectedRevision: args.expectedRevision as number,
@@ -453,8 +502,20 @@ export async function handleMcpTopicMeetingRequest(
         isError: result.status !== "completed",
       });
     }
-  } catch {
-    return protocolError(request.id, -32602, "Invalid params");
+  } catch (error) {
+    if (
+      [MCP_TOPIC_LIST_TOOL, MCP_MEETING_LIST_TOOL].includes(
+        params.name as never,
+      ) &&
+      error instanceof Error &&
+      [
+        "project_operation_list_limit_invalid",
+        "project_operation_list_query_invalid",
+        "project_operation_list_cursor_invalid",
+      ].includes(error.message)
+    )
+      return protocolError(request.id, -32602, "Invalid params");
+    return protocolError(request.id, -32603, "Internal error");
   }
   return protocolError(request.id, -32601, "Method not found");
 }

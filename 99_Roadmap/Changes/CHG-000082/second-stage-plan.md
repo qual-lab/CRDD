@@ -253,6 +253,12 @@ Related:
 
 ### 保存例外の局所是正と全体Checker再確認
 
+MCP公開応答の次段階では、明示Schema拒否と保存境界の内部故障を分離する。ID書式・Revision・limit・states件数の公開Schemaを前検査へ同期し、Query／CursorはDomainの既知一覧拒否3理由だけをlist呼出しに限定して対応付ける。書込みで同じ理由の例外が出ても内部故障とし、例外本文・秘密値・Pathを公開しない。既存MCP操作3件はReader項目008から010へ、新故障試験は012へ接続する。Workbench、Remote失敗、投影再読取りと実OS cleanupは未評価として後続へ保持する。
+
+独立レビューで参照IDと不正Markdownの拒否が内部故障へ変わる反例を確認し、固定参照ID Schemaと既存Domain Parserの配送前検証を追加した。owner／none参照と正常結果は不変。QA導出表・条件表、File／共用Helperの012接続も同期する。MCP回帰51件と書式・型・LintはPass、最終追加反例の局所4件もPass。保存後の例外は実更新済みRevisionを保持した注入で検証しており、実OS故障・rollback・cleanupの保証へ昇格しない。
+
+是正後のSource・品質／文書の独立確認は残指摘0。最終Header更新後も書式・型・Lintと局所4件はPass。全体Checkerは3025件で未合格（前回3026件から今回SuiteのCatalog Owner不一致1件を解消）。変更したMCP詳細設計、QA定義、試験Pathそのものの新指摘はないが、CHG本文から旧MCP試験Pathへの既知broken-linkは残る。未完了のWorkbench応答・保存Owner保証・横断移管整合を後続で閉じる。
+
 Topic昇格・Meeting Outcome処置のcatchを純粋Markdown変換だけへ限定した。既存Repository契約へ更新前／実更新後の例外を注入し、両公開操作から同じ例外が伝播すること、実更新後のRevisionと状態を保持することを確認した。不正変換はblocked・既存理由・Effect 0と更新0回を別に確認した。新fault試験はVCS Rootを検証し、Repository-local `.crdd/tests`の非link親と自己生成領域だけを使用する。
 
 固定候補のDomain Model回帰107件、書式・型・LintはPass。実装・品質／文書の二つの独立レビューは是正後指摘0。QAの010は部分検証であり、保存Ownerの一次失敗／cleanup、読戻し、親link、MCP／Workbenchの内部故障応答は未完了のまま保持する。

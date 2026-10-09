@@ -145,6 +145,8 @@
 
 ## Checklist
 
+追加導出: `ARCH-000006` Domain Model詳細設計§9.1と`SPEC-000013`の部分成功・故障分離から、`QA-000005`／`CPR-IT-012`へ公開応答の検証義務を渡す。MCP詳細設計§6で入力拒否と内部故障の非開示応答を具体化する。Workbench、Remote失敗と再読取りは未評価として保持し、内部エラーから未保存・Effect 0・cleanup成立を推定しない。
+
 - [x] 全20 SCRと20 PRTを処置した
 - [x] 全30 BHVを処置した
 - [x] 全32 Interaction Relationを個別にQuality Relation Ownerへ接続した
