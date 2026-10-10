@@ -56,6 +56,45 @@ ExposureのRepository IDは既存登録を参照し、重複・孤立参照を�
 
 通常管理で応答が失われた場合、現在readの再取得を案内し、自動再更新は行わない。後続改訂があれば現在値だけで元要求の成功を証明できないため、「現在値取得」と「元要求完了」を区別し、相関不能は不明のまま保持する。通常管理用の新Receipt Storeは作らない。
 
+### 3.1. 公開読取りの結果と情報境界
+
+以下はPackage APIの候補Schemaであり、HTTP／MCP公開の採用やSource接続を意味しない。認証・現在認可・投影は§4の同じ保存Ownerの短い排他区間で一つの管理改訂から生成する。返却する`revision`は観測Snapshotの相関値で、更新Authority、元更新のReceipt、Repositoryの取得可能性の証明ではない。後続更新では現在認可・対象・期待改訂を取り直す。
+
+| 結果field | 候補形状と条件 |
+|---|---|
+| `status` | `completed`または`unavailable`。Snapshot検査・認可・投影・排他解放を全て確認した場合だけ`completed` |
+| `snapshot` | `completed`の場合だけ存在する操作別投影。`unavailable`には存在しない。空配列は確認済みの0件だけ |
+| `reason` | `unavailable`の場合だけ、認証不成立、参照拒否、Lock取得不可、回収確認待ち、観測不明、解放不明を区別。認証・参照拒否では対象の不存在と非許可を区別する情報を返さない |
+
+読取りは確認できたが解放が不明な場合、既知の読取事実は保存Owner内部に保持し、公開結果は`unavailable`・解放不明とする。読めたSnapshotを一般的な`value`や不完全な成功として返さない。raw Lock回復ID・Proof・Capability・内部Pathは外部結果へ含めず、exact回収は保存Ownerが処置する。公開失敗理由から非許可対象の存在・件数・名前を推定できる差を作らない。
+
+`readCurrentAccess`の成功Snapshotは次の情報を分離する。
+
+| field | 内容 | 主張しないこと |
+|---|---|---|
+| `revision` | 認証・現在認可・投影に使った管理改訂 | 元更新完了、後続要求の許可 |
+| `user` | `userId`、表示専用`username`、現在の一つの`role` | 他ユーザーの存在・名前・件数、表示名によるIdentity／認可 |
+| `managementOperations` | 固定8分担から導出する非Authorityの操作候補と適用対象制約。managerのRole変更はdeveloper／manager間、administrator対象は表示名変更のみ、鍵群はadministratorのみ | 対象非依存の実行許可、Role内容設定による管理権限変更、内容の自動閲覧 |
+| `contentAccess` | 現在Roleの明示内容権限の投影 | Credential別追加権限。具体操作語彙は未固定のまま保持 |
+| `permittedRepositories` | 内容権限と現在Exposureが許可する`repositoryId`／`workspaceIds`の集合 | 実体の存在・接続成功・取得可能性。実アクセスは内容取得時に別評価 |
+
+操作名だけで対象可否を決めず、対象別`readManagementState`と実操作の現在認可で判定する。Package内部DTOをMCPのTool／Schema／一覧／dispatchや応答へ投影しない。操作候補の表示は実行AuthorityでもMCP公開の採用でもない。
+
+`readManagementState`は要求された管理対象の種類を判別し、その種類に必要な現在参照許可だけを評価する。共通の全内部Snapshotや、全ユーザー一覧を全操作へ添付しない。
+
+| 管理対象 | 成功投影の内容 | 除外する情報 |
+|---|---|---|
+| ユーザー | 許可された対象の`userId`／`username`／`role` | Credential情報、非許可対象の存在・件数 |
+| Role内容設定 | 許可された対象Roleと明示内容権限 | 固定管理分担のON／OFF設定、他Roleの非許可設定 |
+| Repository登録 | 許可された登録IDと接続管理に必要な非秘密表示 | 内部保存Path、Context本文。Bindingの具体表示Schemaは別途照合 |
+| Exposure | 許可された登録IDと現在公開Workspace範囲 | 登録からの暗黙公開、Role内容権限の自動生成 |
+
+各投影は`revision`と対象種類を持ち、他種類のfieldを混在させない。鍵一覧・発行結果・元発行Identity・交換参照は通常管理DTOへ入れず、鍵Ownerの許可された入口で別に具体化する。管理参照許可は内容閲覧許可ではなく、登録一覧は公開集合でもない。通常管理のMCP公開はこの設計から追加しない。
+
+公開DTOは検査済み状態から所有済みの値として明示構築し、内部Snapshotの参照・共有配列・余分fieldを透過しない。返却後の内部変更で値を変えない。Proxy／accessor等を内部状態検査の代替にせず、Schemaの閉包と値の検査を経てから投影する。
+
+反証は、自己表示へ他User情報を添付、古いRole認可と新改訂DTOの混合、管理許可から内容を公開、観測不能から空集合生成、解放不明の成功表示、後続改訂から元要求完了を推定、入れ子・余分field・エラー経由の秘密透過である。既存RFD-IT-013／RFD-ST-004、RFD-IT-021、RFD-ST-022、RFD-UAT-007へ接続し、Not Runを維持する。具体内容語彙・接続表示・鍵読取り・初回設定・資格期限・本番保存と利用側接続は未完了である。
+
 ## 4. 物理保存の比較と未決条件
 
 [既存Host管理Root](../domain-model/03_Repository_Storage.md#6-crosとの物理分離)を維持する。Package改名で`qual-lab/cros/<trust-domain-id>`を改名せず、秘密をRepositoryへ移さない。
