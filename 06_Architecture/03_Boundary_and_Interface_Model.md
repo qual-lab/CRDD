@@ -4,7 +4,7 @@ Status: Candidate (v0.22 responsibility reorganization)
 Owner: Qual-Lab
 Last Updated: 2026-10-11
 
-2026-10-11の[ARCH-000013](Definitions/ARCH-000013/architecture_definition.md)から、最新の鍵管理判断を限定再伝播し、契約・品質の限定独立レビュー済み・残指摘0。前判断の限定レビュー結果は履歴であり、今回候補へ流用しない。04〜08の鍵断面と対応表は最新判断へ限定再伝播・限定独立レビュー済み・残指摘0。新Owner Details・Quality・Source／Schema・本番公開入口は未完了。UI Exit、Architecture Ready、QA Handoffまたは本番成立を主張しない。
+最新の固定8管理操作は基本設計・横断モデルへ限定伝播・契約／品質の独立レビュー済み・残指摘0。前鍵管理契約の限定Passは履歴であり、最新分担のPassへ流用しない。Architecture詳細・Quality・Source・具体API／保存・本番接続は最新分担へ未追従。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
 
 ## 1. この成果物が所有すること
 
@@ -17,7 +17,7 @@ Component間、外部System、Platform、Repository、Trust境界と、境界を
 | Public Transport | Human／Agent／Client | Public Application Contract | 検証済み入力、相関Identity、構造化結果 | Transport固有のAuthority、内部Path | Effect前に拒否 |
 | 接続認可・Repository公開範囲 | 接続主体／認証Context | Access Management | Credentialに結合したuserId、現行Role詳細権限、Repository Exposure、実アクセス | Credentialに固定した旧権限、未許可Repositoryの名前・存在・件数・内容 | 観測不能を許可や不存在へ丸めない |
 | 認可済みContext集約 | Access Managementで許可された要求 | Domain Model | 認可済みRepository集合、Source、Coverage | Credential／Grantの解釈、管理権限からの内容閲覧 | 不完全性を保持し未許可Sourceを補完しない |
-| ユーザー・Role設定・Repository登録・公開範囲管理 | 操作主体・設定可否はOPEN | Access Management | 対象userId、表示名、一つのRole、Role詳細権限、接続／公開情報 | 一般IAM、個別追加権限、現在参照を許可されていない主体への他ユーザー情報 | 未確定の管理権限を生成せず、新Effect前に停止 |
+| ユーザー・Role内容・Repository登録・公開範囲管理 | ARCH-000013の固定8操作で許可された現行Role | Access Management | 操作別の予定Role／対象ID／前後Role／対象Role／登録・公開状態と明示変更 | 内容自動付与、固定分担の設定委譲、一般IAM、個別追加権限、許可外情報 | 対象・現在管理認可・必要状態不明は新Effect前停止 |
 | 新規資格発行 | 同一Process Workbenchの現行administrator | Access Management | 既存対象userId、固定の鍵操作権限、発行結果 | 旧資格失効、Roleによる鍵権限ON／OFF、Host／MCPからの操作、交換Recoveryの生成 | 発行の既知結果と観測不能を分ける |
 | 独立失効 | 同一Process Workbenchの現行administrator | Access Management | 対象資格Identityと既存userIdへの結合、固定の鍵操作権限、失効結果 | 対象以外の資格失効、新発行・Secret・交換再入場、Host／MCPからの操作 | 失効の既知結果と観測不能を分ける |
 | 鍵交換 | 同一Process Workbenchの現行administrator、またはHostのログイン済みローカル操作者 | Access Management | 指定ユーザー／全員の2操作、対象／既存発行先、旧失効前に結合した同じRecovery参照 | Role初期化、認可破損修復、秘密再表示、Task取消の保証、MCP公開 | 処置前停止と失効後の部分結果を分離 |
@@ -78,7 +78,7 @@ Coordinatorの通知関数をOrchestratorが登録する。
 
 ### 管理と鍵交換の公開境界
 
-ユーザー管理・Role設定・Repository登録・公開範囲管理の4群は、操作主体と設定可否がOPENである。鍵発行・独立失効・交換の固定administrator権限を、他4群の既定権限へ流用しない。通常の鍵3操作は同一Process Workbenchだけが呼び、RoleのON／OFF設定を設けない。Host対話CLIはログイン済みローカル操作者を信頼して同じ交換2操作だけを呼ぶ。既存Root／Path検証を維持し、追加認証や通常発行・独立失効を設けない。
+固定管理認可は現行RoleとARCH-000013の8操作分担から判定し、Role内容設定から派生させない。manager／administratorはユーザー登録・表示名変更、developer／managerのRole変更・内容設定、Repository登録・登録解除・Exposureを管理する。administratorの付与・解除・降格・詳細権限と鍵操作はadministrator専用。managerはadministratorの表示名だけ変更可。manager自身も変更前の現在管理認可→明示的なRole内容設定／Exposure更新→次要求の現行Role・Exposure・実アクセス再評価の順に処置する。更新受理≠内容取得、管理≠内容自動付与、登録≠公開、登録解除≠Repository／Product Data削除を維持する。通常の鍵3操作は同一Process Workbenchだけが呼び、RoleのON／OFF設定を設けない。Host対話CLIはログイン済みローカル操作者を信頼して同じ交換2操作だけを呼ぶ。既存Root／Path検証を維持し、追加認証や通常発行・独立失効を設けない。
 
 交換の全4組（2操作×2入口）で対象ID・表示名・失効範囲・発行先・保持情報を事前表示し、Host入口または全員交換の3組だけ明示確認する。通常入口の指定ユーザー交換へ追加確認を要求しない。対象不明・必要な既存administrator不存在・認可破損・必要状態の安全な観測不能では新Effect前に停止する。Hostを第三の回復操作や特別ユーザーとして扱わない。
 
@@ -124,7 +124,7 @@ Coordinatorの通知関数をOrchestratorが登録する。
 | Project／Task状態 | Orchestrator | Orchestrator | Projection、Transport | Adapterによる状態生成 |
 | Objective／Milestone受入判断 | Objective／Milestone Acceptance Decision Record | Acceptance Decision Port | Orchestrator、Projection | Projectionからの書込み、Task作成、Provider Effect、下位完了からの推定 |
 | Public Result | Public Application Contract | Orchestratorの結果変換 | Transport、Client | Transport固有意味の追加 |
-| ユーザー・Role設定・Repository登録・Exposure | Access Management | 操作主体・設定可否はOPEN | 現在認可 | 鍵操作による変更、Repository Relationからの権限生成、他4群への鍵権限流用 |
+| ユーザー・Role内容・Repository登録・Exposure | Access Management | 固定8操作で現在許可された主体 | 現在管理認可／内容認可を別判定 | 鍵操作による変更、登録からの公開、管理からの内容取得、解除によるProduct Data削除、固定分担の設定委譲 |
 | 資格Lifecycle | Access Management | 同一Process Workbenchの固定administratorによる通常鍵3操作、Hostの交換2操作だけ | 現在認可 | Credentialの旧権限固定、鍵交換によるuserId・表示名・Role・詳細権限・Repository登録・Product Dataの変更 |
 | 要求毎の認可済みRepository集合 | Access Managementの認可Query | 非該当（現在状態から要求毎に解決） | Domain Model | 永続Grant化、旧権限固定、DomainによるCredential／Grant解釈と権限再生成 |
 | 新規資格発行・独立失効の結果 | Access Management | 固定administratorの操作 | 許可されたWorkbench結果表示 | 新規発行による旧資格失効、独立失効による新発行・Secret・交換再入場の生成 |
@@ -159,5 +159,5 @@ Coordinatorの通知関数をOrchestratorが登録する。
 - [x] 同一Processの内部呼出しと別ProcessのMCP境界でも認可を維持した。
 - [x] SPEC-000011のstdio／localhost HTTPを共有Remote契約へ読み替えていない。
 - [x] Browser向けRESTと廃止するCROS REST／Gatewayを区別した。
-- [x] 固定鍵操作・Host交換2操作・MCP非公開と、未確定の他4管理群を分けた。
+- [x] 固定8管理操作と内容認可、Host交換2操作・MCP鍵非公開を分けた。
 - [ ] OPEN: 各公開操作・Callback・取消・終了後条件の詳細対応は段階3、固定設計の独立レビューは段階4で確認する。

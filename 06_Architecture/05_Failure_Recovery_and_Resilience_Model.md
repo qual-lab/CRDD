@@ -4,7 +4,7 @@ Status: Candidate (v0.22 responsibility reorganization)
 Owner: Qual-Lab
 Last Updated: 2026-10-11
 
-2026-10-11の[ARCH-000013](Definitions/ARCH-000013/architecture_definition.md)と[最新境界モデル](03_Boundary_and_Interface_Model.md)から、鍵管理断面を限定再伝播・限定独立レビュー済み・残指摘0。前判断のレビュー結果は履歴であり、今回候補へ流用しない。07／08の対象対応も更新中で、新Owner Details・Quality・Source／Schema・本番公開入口は未完了。UI Exit、Architecture Ready、QA Handoffまたは本番成立を主張しない。
+最新の固定8管理操作は基本設計・横断モデルへ限定伝播・契約／品質の独立レビュー済み・残指摘0。前鍵管理契約の限定Passは履歴であり、最新分担のPassへ流用しない。Architecture詳細・Quality・Source・具体API／保存・本番接続は最新分担へ未追従。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
 
 ## 1. この成果物が所有すること
 
@@ -52,7 +52,9 @@ Last Updated: 2026-10-11
 | Trust／権利 | Trust Evaluator／収載判断 | Publisher、用途、決定権限 | 未承認 | 必要な根拠と人間判断 |
 | 契約移行 | Consumer Closure | 全Consumer、派生物、Release経路 | 旧処理を削除しない | 集合一致と全Consumer反証 |
 | 検査・品質 | Checker／Quality Center | 同じ改訂版、未確認範囲 | 全体Passを表示しない | 必須確認の完了または明示保留 |
-| 接続・管理認可 | Access Management | 現行Role詳細権限、失効、三可視境界、公開範囲と実アクセス | 必要状態不明や不認可は非開示拒否 | 現在Authorityと現在状態で再評価。Domainへ未許可集合を渡さない |
+| 接続・管理認可 | Access Management | 固定管理分担と内容認可の分離、現行Role、失効、三可視境界、公開範囲と実アクセス | 必要状態不明や不認可は非開示拒否 | 現在Authorityと現在状態で再評価。Domainへ未許可集合を渡さない |
+| 通常管理の処置前 | Access Management | 操作別対象、変更前の現在管理認可、必要状態 | 不明・不認可・認可破損は新Effect 0。manager正常管理にadministrator存在を要求しない | 現在状態を再評価。交換専用Recoveryを追加せず、拒否を自身利用拒否へ広げない |
+| 通常管理の更新後 | Access Management | 更新確定と結果受領、次要求認可の別事実 | 不明を成功化せず現在状態を確認して再処置。更新受理を内容取得としない | 現行Role・Exposure・実アクセスで次要求を評価。登録からの公開、解除からの削除を推定しない |
 | 鍵交換の処置前 | Access Management | 既存対象・必要なadministrator・認可健全性、現在Authority | 対象不明・必要管理者不存在・安全な観測不能・認可破損は新Effect 0 | 修正済みの条件を再評価。Role初期化・認可破損修復・特別User／Bootstrapをしない |
 | 新規発行の処置前 | Access Management | Workbenchの現行固定administrator、既存対象userId、必要状態・認可健全性 | administrator不成立・対象／必要状態不明・認可破損は発行Effect 0で停止 | 現在条件を再評価。旧失効0、交換Recoveryを生成しない |
 | 独立失効の処置前 | Access Management | Workbenchの現行固定administrator、exact資格IdentityとuserIdへの結合、必要状態・認可健全性 | administrator不成立・対象／必要状態不明・結合不一致・認可破損は失効Effect 0で停止 | 対象外資格の失効0。条件を再評価し、交換Recoveryを生成しない |
@@ -74,7 +76,7 @@ Last Updated: 2026-10-11
 - 鍵交換は指定ユーザー交換／全員交換と通常／Host入口を別軸にする。全4組を事前表示し、Hostまたは全員交換の3組だけ明示確認する。通常入口は同一Process Workbenchの現行administrator、Host入口は信頼したログイン済みローカル操作者の対話CLIで再入場する。Hostは交換2操作だけで、追加認証・専用資格・承認コード・OS管理者昇格なし。既存Root／Path検証は維持する。
 - 交換Recoveryは旧失効前にexact IDへ結合し、Process喪失・部分結果・耐久記録・再入場まで同じ相関を維持する。新規発行・独立失効へ交換Recoveryを付けない。
 - 発行、結果記録、搬送、受領を別の事実とし、後続失敗だけで確定済み発行結果を不明へ戻さない。未確認の記録・搬送・受領を成功扱いしない。
-- MCPはSecret有無を問わず鍵操作の一覧・Schema・登録・dispatchを持たない。他4管理群の操作主体・可変性はOPENとし、固定鍵権限から推定しない。
+- MCPはSecret有無を問わず鍵操作の一覧・Schema・登録・dispatchを持たない。固定管理認可は現行RoleとARCH-000013の8操作分担から判定し、Role内容設定から派生させない。manager／administratorはユーザー登録・表示名変更、developer／managerのRole変更・内容設定、Repository登録・登録解除・Exposureを管理する。administratorの付与・解除・降格・詳細権限と鍵操作はadministrator専用。managerはadministratorの表示名だけ変更可。通常管理の失敗に鍵交換の保持保証やRecoveryを転用しない。
 - 失効後に新発行や搬送が失敗しても、userId・表示名・Role・詳細権限・Repository登録・Product Dataを変更しない。生Secretを耐久記録・ログ・Evidenceへ保存せず、再入場で再表示しない。
 - 資格の失効・交換からTask取消完了、過去Effect 0、認可設定の修復やAuthority復元を主張しない。初回CROS設定・単体資格不要の契約は変えない。
 

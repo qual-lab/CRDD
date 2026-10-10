@@ -22,7 +22,7 @@ Quality／Development
 
 ## 2. 詳細設計領域
 
-2026-10-11現在、ARCH-000013の最新鍵管理判断を本対応表と08の対象3行へ限定再伝播・限定独立レビュー済み・残指摘0。Access Management断面はCandidate詳細へ部分接続済み。通常鍵操作はWorkbench、Hostは交換2操作だけ、MCPは全鍵操作非公開という入口分担は採用済みである。Domain集約・MCP／Workbenchの境界は新契約Details候補へ限定再伝播・契約／品質独立レビュー済み・残指摘0。保存Schema・具体API・表示／受領方式・本番接続は未完了。旧crosは置換前比較資料であり、新ユーザー／Role／鍵交換の完成根拠にしない。他の行の状態を今回の限定更新から再評価したとは扱わない。
+最新の固定8管理操作は基本設計・横断モデルへ限定伝播・契約／品質の独立レビュー済み・残指摘0。前鍵管理契約の限定Passは履歴であり、最新分担のPassへ流用しない。Architecture詳細・Quality・Source・具体API／保存・本番接続は最新分担へ未追従。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。 旧crosは比較資料であり、他ARCHの状態は再評価しない。
 
 | 詳細設計領域 | 対応Architecture定義 | 責務 | 状態 |
 |---|---|---|---|
@@ -76,7 +76,7 @@ Architecture定義と詳細設計領域は同じIdentityではない。新しい
 
 ## 4. Qualityへの引渡し
 
-ARCH-000013では、Access Managementの資格Lifecycleと認可の意味、Domain Modelの認可済みContext集約・中立な保存部品、Workbenchの通常鍵操作、MCPの鍵操作非公開を分けて検証する。Domainの保存部品へ資格の発行／失効判断を移さず、Host CLIを新Serverや新Frameworkにしない。MCPは鍵操作のConsumerではない。他4管理群の操作主体・設定可否はOPENで、今回の配置候補から許可を生成しない。
+ARCH-000013では、Access Managementの資格Lifecycleと認可の意味、Domain Modelの認可済みContext集約・中立な保存部品、Workbenchの通常鍵操作、MCPの鍵操作非公開を分けて検証する。Domainの保存部品へ資格の発行／失効判断を移さず、Host CLIを新Serverや新Frameworkにしない。MCPは鍵操作のConsumerではない。固定8分担はARCH-000013を正本とする。管理認可と内容認可、登録／公開／実アクセス、解除／削除を区別し、Details本文は今回未追従である。配置候補から許可や実装成立を生成しない。
 
 QualityはARCH-IDだけでなく、対応する詳細設計領域のComponent、Interface、Data／State Flow、Failure、Resource、配置および観測方法を入力にする。個別領域の`OPEN`または`FAIL`は未確認範囲として保持し、全体Passへ畳まない。
 

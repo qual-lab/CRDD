@@ -4,7 +4,7 @@ Status: Candidate (v0.22 responsibility reorganization)
 Owner: Qual-Lab
 Last Updated: 2026-10-11
 
-2026-10-11の[ARCH-000013](Definitions/ARCH-000013/architecture_definition.md)と[最新境界モデル](03_Boundary_and_Interface_Model.md)から、鍵管理断面を限定再伝播・限定独立レビュー済み・残指摘0。前判断のレビュー結果は履歴であり、今回候補へ流用しない。07／08の対象対応も更新中で、新Owner Details・Quality・Source／Schema・本番公開入口は未完了。UI Exit、Architecture Ready、QA Handoffまたは本番成立を主張しない。
+最新の固定8管理操作は基本設計・横断モデルへ限定伝播・契約／品質の独立レビュー済み・残指摘0。前鍵管理契約の限定Passは履歴であり、最新分担のPassへ流用しない。Architecture詳細・Quality・Source・具体API／保存・本番接続は最新分担へ未追従。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
 
 ## 1. この成果物が所有すること
 
@@ -66,7 +66,7 @@ Coordinatorは単体の実行Runtimeとして利用でき、Orchestratorはそ�
 | Acceptance Decision Operation | 対象Identity、根拠Revision、明示判断 | Objective／Milestone／判断者 | 受入・差戻し・判断待ちの限定記録またはEffect 0 |
 | 接続認可Query | Credential→userId、現行Role詳細権限、Workspace／Exposure、取得可能性 | 要求／認証Context | 現在認可済み集合または非開示拒否を返す。接続の終了はTransport Ownerが確認する |
 | 認可済みFederation Query | 許可済みRepository集合、Source snapshot、Coverage | Query／対象集合 | Domain Modelが根拠と不完全性を返す。管理権限から内容閲覧を生成しない |
-| 他4管理群のOperation | ユーザー／表示名／Role／Role詳細権限／Repository登録／公開範囲の管理対象 | 操作主体・設定可否はOPEN | 未確定権限を鍵操作から生成しない。対象変更結果と不明を分け、具体保存確定方式はDetailsで照合 |
+| 通常管理Operation | 操作別の予定Role／既存対象／前後Role／Role内容／接続登録／Exposure | 操作／対象／変更前の現行Roleに対する固定8分担 | 対象更新・結果確定・搬送・受領を分離。不明を成功化せず、次要求で内容認可を再評価。登録≠公開、解除≠削除。新Process／保存方式／公開APIは未確定 |
 | 新規資格発行Operation | 既存対象userId、発行結果 | 操作／対象userId／同一Process Workbenchの現行administrator | 発行・結果記録・搬送・受領を別観測。旧失効0・交換Recoveryなし。配送失敗だけで確定発行を不明化しない |
 | 独立失効Operation | exact対象資格IdentityとuserIdへの結合、失効結果 | 操作／資格Identity／同一Process Workbenchの現行administrator | 確定した失効資格の後続要求を拒否、不明は既知状態と確認先を返す。範囲拡大・新発行・Secret・交換再入場0、Task取消非証明 |
 | 鍵交換Operation | 対象userId、既存発行先、失効範囲、非秘密Recovery状態 | 2操作／Workbench固定administratorまたは信頼したHostログイン操作者／旧失効前に結合した同じexact Recovery ID | 失効・発行・結果記録・搬送・受領を分離。未確定は同じRecoveryで保持し現在Authorityで再観測。確定発行を後続失敗で不明へ戻さない |
@@ -124,7 +124,7 @@ Canonical Architectureが独立レビューで閉じた後に、次を照合す�
 - OS／Runtime／外部CLIのVersion差は、危険な意味変化を検出して停止する。無関係なHash差やVersion差だけで恒久拒否しない。
 - Physical deploymentが未確定な箇所は未確認として保持し、CanonicalなProcess数や配置を捏造しない。
 - 鍵交換2操作×2入口の4組表示・3組だけ明示確認、固定administratorのWorkbenchと追加認証なしのHost交換2操作だけを確認する。MCPの鍵操作一覧・Schema・登録・dispatchは不存在を確認し、一般Remote経路から迂回させない。
-- 新規発行・独立失効・交換の対象と結果、旧失効前exact Recovery、段階別の記録・搬送・受領を確認する。Host配置から他4管理群の権限を推定しない。
+- 新規発行・独立失効・交換の対象と結果、旧失効前exact Recovery、段階別の記録・搬送・受領を確認する。Host配置から通常管理の固定分担や内容権限を追加生成せず、8操作の許可／拒否／不明と変更前認可・次要求反映を確認する。
 - Workbench／Host CLIの入口割当は採用済み。具体Layout・入力・一度表示と受領方式だけを未確定としてDetailsへ渡し、実装・配置の成立を主張しない。
 
 ## Checklist

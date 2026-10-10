@@ -844,6 +844,18 @@ Qual-Labは、managerを業務上のアクセスを決める信頼された管�
 
 限定確認結果：契約・品質の独立レビューは最終ともにPass、残指摘0。初回4件と再確認2件を統合是正し、担い手の冒頭説明、資格喪失条件、鍵3操作の検証・引渡し、登録・登録解除、旧確認結果の履歴限定、交換ごとの発行先を明確にした。既存UX IDとSame判断は不変、差分確認は成功した。Checkerはerrors 3,056・warnings 0で未通過であり、対象内のPROJECT_CONTEXT形式指摘も残る。この限定結果を全体の機械検査Pass・QA実行・Source実装・本番接続・Release可能の根拠にしない。次はIA以降へ最新分担を伝播する。
 
+<a id="architecture-role-model-propagation"></a>
+
+#### 権限分担のArchitecture基本設計・横断伝播 — 2026-10-11
+
+基準Commitは`2e5462bf`。正式意味入力はUI-000008／SPEC-000012のArchitecture分析2件、SCR／BHVは配置制約の照合に限定する。ARCH-000013と横断01〜08の9設計文書、本計画とPROJECT_CONTEXTの計11文書を固定対象とする。採用済み分担の直接伝播で、契約・品質の着手前確認はともに着手可・追加人間判断不要。Details・Quality・Source・設定・過去Evidence・他ARCH-ID・非対象Relationは変更しない。
+
+ARCH-000013を固定8分担の統合正本とし、横断はComponent所有、交換境界、操作別入力・時間順、失敗、実行単位、Detail対応の固有断面へ投影する。変更前の現在管理認可→明示更新→次要求の内容再評価、管理≠内容、登録≠公開、解除≠削除を維持する。通常管理と鍵処置の停止条件を分け、manager正常管理にadministrator存在条件、Hostに追加資格認証を要求しない。Role内容設定による固定管理分担の再委譲を設けない。
+
+固定11文書の契約・品質独立レビュー、文書・直接伝播・参照・差分確認を行う。代表照合は8操作×三Roleの許可／拒否／不明、managerのadministrator名前のみ変更、developer管理拒否≠自身利用拒否、操作別対象、自己内容変更の時間順、登録／公開／取得と解除／削除、鍵3操作の過剰Effect反証。旧鍵契約Passは履歴であり、今回候補は独立レビュー待ち。実行境界・Source・準拠規則を変更しないためPackage回帰・Provider／Docker E2E・準拠監査は対象外。07／08のPartialと非対象行を維持し、Architecture詳細・Quality・Source・本番接続・全体Readyは未完了。
+
+限定確認結果：初回は契約Moderate 1・Minor 1、品質Pass・残指摘0。全結果と是正方針を一括統合し、表示名の旧設定主体表現1件・文境界空白2件を是正した。最終は契約・品質とも限定Pass・全重大度の残指摘0。ローカル参照212件は欠落0、差分確認成功。Checkerはerrors 3,056・warnings 0・exit 1で全体未通過。レビュー後は限定結果の状態のみ同期する。ARCH-ID・非対象RelationとPartialを維持し、旧Evidenceは不変。次はAccess Management／Workbench／MCP等のArchitecture詳細へ最新分担を伝播する。Quality・Source・本番接続・全体Readyの未完了は維持する。
+
 <a id="architecture-role-analysis-propagation"></a>
 
 #### 権限分担のArchitecture入力分析伝播 — 2026-10-11

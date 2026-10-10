@@ -52,7 +52,7 @@ Last Updated: 2026-10-11
 | Component | 含むArchitecture定義 | 状態Owner | 所有すること | 所有しないこと |
 |---|---|---|---|---|
 | 公開入口 | [公開Transportの意味同一性](Definitions/ARCH-000012/architecture_definition.md) | MCP／CLI Transport Adapter | decode／encode、接続、Application Contractへの搬送 | 業務意味、Provider実行、Authority追加 |
-| 利用範囲・接続管理 | [接続主体・Role権限・資格とRepository Federation](Definitions/ARCH-000013/architecture_definition.md) | Access Management: ユーザー／Role詳細権限／資格／認可／鍵交換状態。Domain Model: 認可済みContext集約 | 最小ユーザー管理、現行Role認可、資格・独立失効・鍵交換2操作、Exposureと取得可能性の別判定、許可集合を入力にしたFederation | 一般IAM、個別追加権限、認可設定破損修復、Repository内部ACL、Transport Lifecycle、Task取消 |
+| 利用範囲・接続管理 | [接続主体・Role権限・資格とRepository Federation](Definitions/ARCH-000013/architecture_definition.md) | Access Management: ユーザー／Role詳細権限／資格／認可／鍵交換状態。Domain Model: 認可済みContext集約 | 固定8操作の管理認可、Role内容とExposureによる内容認可、最小ユーザー・接続登録管理、資格・独立失効・鍵交換2操作、Exposureと取得可能性の別判定、許可集合を入力にしたFederation | 一般IAM、個別追加権限、認可設定破損修復、Repository内部ACL、Transport Lifecycle、Task取消 |
 | 利用能力 | [Tool CapabilityとAIモデル構成](Definitions/ARCH-000010/architecture_definition.md) | Capability Registry、Model Configuration Resolver | Tool候補、構成検証、選択理由 | Tool実行、利用可能性の捏造 |
 | Project Application | [Project実行](Definitions/ARCH-000004/architecture_definition.md) | Orchestrator | Objective／Task、判断待ち、取消、Recovery、結果 | Provider選定、Transport、OS操作、人間判断 |
 | Project状態投影／受入判断記録 | [Project・Portfolio状態投影と受入判断記録](Definitions/ARCH-000005/architecture_definition.md) | Project Management Projection<br>Objective／Milestone Acceptance Decision Record | 投影: 正本を変えない現在状態・比較View<br>判断記録: Project運営者が明示したObjective／Milestoneの受入・差戻し・判断待ちの限定記録 | 投影: 受入判断の記録、その他の正本更新、優先順位の自動決定<br>判断記録: Task作成、Provider Effect、下位完了からの上位受入推定、読取りProjectionからのAuthority生成 |
@@ -115,9 +115,11 @@ Last Updated: 2026-10-11
 
 Workbench／MCPは必要な内部Capabilityを利用する。同一ProcessのCROS利用は認可を維持した直接呼出し、別Processは同じHostでもMCPを利用する。ただし鍵操作はこの一般経路から除外し、MCPの一覧・Schema・登録・dispatchへ置かない。通常鍵3操作は同一Process Workbenchの固定administrator、Hostはログイン済み操作者の対話CLI交換2操作だけとする。詳細な入口境界は[境界モデル](03_Boundary_and_Interface_Model.md#管理と鍵交換の公開境界)を参照する。Shared Serverは配置形態であり、第三の公開Runtimeではない。CROS REST／Gatewayの既存能力は移管・検証後に撤去し、名前の削除だけを置換完了としない。
 
+固定管理分担のOwnerはAccess Managementで、Workbench／MCPは現在の管理認可を迂回しない。Domain Modelへ渡すのは内容認可済み集合であり、管理許可をその代わりにしない。新Port／Frameworkは追加しない。
+
 ## 5. QAへ渡す検証単位
 
-ARCH-000013の現行責務は上の図・表と同定義に従う。認可済み集合の解決はAccess Management、Context集約はDomain Modelへ分け、DomainはCredentialやGrantを解釈しない。最新鍵管理判断の03境界モデルへの再伝播と本責務表の案内同期は、限定独立レビュー済み・残指摘0である。04〜08の鍵断面と対応表は限定再伝播・限定独立レビュー済み・残指摘0。新Owner境界はMCP・Workbench・Domain ModelのDetails候補へ限定再伝播・契約／品質独立レビュー済み・残指摘0。具体API・保存・受領方式、Quality・Sourceは未完了。前判断に対する03〜06の限定レビューを最新判断へ流用しない。限定伝播から全体Readyを推定しない。
+最新の固定8管理操作は基本設計・横断モデルへ限定伝播・契約／品質の独立レビュー済み・残指摘0。前鍵管理契約の限定Passは履歴であり、最新分担のPassへ流用しない。Architecture詳細・Quality・Source・具体API／保存・本番接続は最新分担へ未追従。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
 
 | 検証候補 | 主な対象 | 反証すること | 適する粒度候補 |
 |---|---|---|---|

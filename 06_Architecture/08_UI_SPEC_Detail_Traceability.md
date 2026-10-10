@@ -8,7 +8,7 @@
 
 発行済みのLogical Screen、Screen Part、InteractionおよびDetailed Behaviorを、意味を所有するArchitecture定義と配置を所有する詳細設計領域へ接続する。Definitionを要求源として維持し、Detailを新しい要求や実装配置の根拠へ読み替えない。
 
-2026-10-11はSCR-000008／PRT-000008、BHV-000012、`PRT-000008.spec-000012`の3行だけを最新鍵管理判断へ限定再伝播・限定独立レビュー済み・残指摘0。各ID・Relation・ARCH Ownerは維持する。残り19 UI行・29 BHV行・31 Relation行の配置名とCoveredは前固定版から未変更・未再評価であり、最新構成の実装成立や全体Coverageを示さない。新Owner Details・Quality・Source・本番接続の成立は未完了である。
+最新の固定8管理操作は基本設計・横断モデルへ限定伝播・契約／品質の独立レビュー済み・残指摘0。前鍵管理契約の限定Passは履歴であり、最新分担のPassへ流用しない。Architecture詳細・Quality・Source・具体API／保存・本番接続は最新分担へ未追従。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。 対象はSCR-000008／PRT-000008、BHV-000012、PRT-000008.spec-000012の3行のみでPartialを維持。残り19 UI・29 BHV・31 Relationは未変更・未再評価。
 
 ```text
 UI／SPEC Definition
@@ -123,7 +123,7 @@ Architecture Detail Area
 
 ## 5. 配置判断
 
-最新ARCH-000013断面の意味OwnerはAccess Managementであり、通常鍵3操作は同一Process Workbenchの固定administrator、Hostは信頼したログイン済み操作者の対話CLI交換2操作だけに接続する。MCPを鍵操作の利用側にせず、一覧・Schema・登録・dispatch非公開を負の境界として扱う。Domain Modelは認可済み集合のContext集約と中立な共通Root／保存部品だけを担い、資格やGrantを解釈して権限を決めない。3行のPartialはこの責務対応候補と、Details候補への境界伝播・限定独立レビュー済みと、具体API／保存・本番接続の未完了を示し、Source Coverageではない。
+最新ARCH-000013断面の意味OwnerはAccess Managementであり、通常鍵3操作は同一Process Workbenchの固定administrator、Hostは信頼したログイン済み操作者の対話CLI交換2操作だけに接続する。MCPを鍵操作の利用側にせず、一覧・Schema・登録・dispatch非公開を負の境界として扱う。Domain Modelは認可済み集合のContext集約と中立な共通Root／保存部品だけを担い、資格やGrantを解釈して権限を決めない。固定8分担・操作別対象・変更前認可→明示更新→次要求再評価は最新SCR／BHVの配置制約としてARCH-000013へ対応する。3行のPartialは対応候補とArchitecture詳細・具体API／保存・本番接続の未完了を示し、Source Coverageや最新DetailsのPassではない。
 
 - 20件のSCRと20件のPRTは、Source UI Definitionを所有するARCH-IDへ接続した。
 - 30件のBHVは、Source SPEC Definitionを所有するARCH-IDへ接続した。
@@ -142,4 +142,4 @@ Architecture Detail Area
 - [x] 各ARCH-IDを一件以上の詳細設計領域へ接続した
 - [x] CMP未発行をArchitecture Component不存在の証明へ読み替えていない
 - [x] Detailから新しい要求、Authority、Effectまたは実装方式を逆輸入していない
-- OPEN: ARCH-000013の新Owner境界はDetails候補へ限定再伝播・契約／品質独立レビュー済み・残指摘0。具体API／保存・受領方式、Quality・Source・本番接続は未完了。他行の最新配置も今回再評価していない。
+- OPEN: 最新固定8分担のArchitecture詳細への伝播・確認は未完了。前鍵契約のDetails限定Passは履歴。具体API／保存・受領方式、Quality・Source・本番接続は未完了。他行の最新配置も今回再評価していない。

@@ -2,12 +2,12 @@
 
 成果物種別: Architecture定義
 Architecture ID: `ARCH-000013`
-状態: 更新中（分析・定義・03境界の限定独立レビュー済み・残指摘0。04〜08の鍵断面・対応表の限定独立レビュー済み・残指摘0、Details以降未完了）
+状態: 更新中（最新権限分担の基本設計・横断モデルは限定伝播・契約／品質の独立レビュー済み・残指摘0。Details以降未追従）
 維持責任者: Qual-Lab
 
 ## 1. 責務と境界
 
-Credentialから既存ユーザーを識別し、現行Role詳細権限、Repository公開範囲と実アクセスを要求ごとに評価する。最小ユーザー管理、資格発行／独立失効／鍵交換、Context集約は別責務とする。CROSはシステム全体の概念であり、認証・認可Packageの名前ではない。
+Credentialから既存ユーザーを識別し、管理要求は現行Roleの固定管理分担、内容要求はRole内容設定・Repository公開範囲・実アクセスで要求ごとに評価する。ユーザー・Role内容・Repository接続登録／Exposureの管理、資格発行／独立失効／鍵交換、Context集約は別責務とする。CROSはシステム全体の概念であり、認証・認可Packageの名前ではない。
 
 | 区分 | 内容 |
 |---|---|
@@ -41,7 +41,20 @@ Credentialから既存ユーザーを識別し、現行Role詳細権限、Reposi
 | 入力 | State Owner | Authority・Effect | Failure・Lifecycle |
 |---|---|---|---|
 | UI-000008 | 認識・表示の意味はUI、状態の確定はAccess Management等の実Owner | UIはAuthority・Effectを発行しない。通常管理とHost、操作範囲を別軸表示 | 全4組の事前表示、Hostまたは全員交換だけ明示確認、部分結果を隠さない。通常鍵操作はWorkbench、Host CLIは交換2のみ、MCP鍵操作非公開が採用済み。具体表示・案内は未確定 |
-| SPEC-000012 | Access Managementのユーザー／Role／資格／認可・鍵交換状態。認可済み集約はDomain Model | 通常鍵3操作は固定administrator、Hostはログイン済みローカル操作者。他4管理群の担当Role・設定可否はOPEN。通常管理はユーザー／Role設定を更新し得るが、鍵交換は鍵だけ変更する | 事前条件、旧失効、新発行、結果確定・受領を分離。失効後失敗／応答・Process喪失は同じRecoveryへ既知失効と発行不明を耐久保持 |
+| SPEC-000012 | Access Managementのユーザー／Role／資格／認可・鍵交換状態。認可済み集約はDomain Model | 通常鍵3操作は固定administrator、Hostはログイン済みローカル操作者。通常管理は固定8操作の担当Roleでユーザー／Role内容設定／接続登録／Exposureの対象だけを更新し、鍵交換は鍵だけ変更する | 事前条件、旧失効、新発行、結果確定・受領を分離。失効後失敗／応答・Process喪失は同じRecoveryへ既知失効と発行不明を耐久保持 |
+
+| 管理操作 | developer | manager | administrator |
+|---|---|---|---|
+| ユーザー登録・表示名変更 | 不許可 | 許可 | 許可 |
+| developer／managerの割当て・変更 | 不許可 | 許可 | 許可 |
+| administratorの付与・解除・降格を含むRole変更 | 不許可 | 不許可 | 許可 |
+| developer／managerの詳細権限設定 | 不許可 | 許可 | 許可 |
+| administratorの詳細権限設定 | 不許可 | 不許可 | 許可 |
+| 鍵の発行・独立失効・交換 | 不許可 | 不許可 | 許可 |
+| Repository登録・登録解除 | 不許可 | 許可 | 許可 |
+| Repository公開範囲設定 | 不許可 | 許可 | 許可 |
+
+固定管理認可は現行RoleとARCH-000013の8操作分担から判定し、Role内容設定から派生させない。manager／administratorはユーザー登録・表示名変更、developer／managerのRole変更・内容設定、Repository登録・登録解除・Exposureを管理する。administratorの付与・解除・降格・詳細権限と鍵操作はadministrator専用。managerはadministratorの表示名だけ変更可。
 
 ## 5. 構造と依存方向
 
@@ -62,12 +75,16 @@ Workbench／MCP／管理入口
 
 | 対象 | 関係と所有境界 |
 |---|---|
-| ユーザー | 安定userId（UUID）・管理者設定の表示専用名・一つのRole。改名／同名はIdentityやAuthorityを変更しない |
-| Role詳細権限 | developer／manager／administratorのRoleが所有。ユーザー／Credentialへの個別追加権限なし。鍵発行・独立失効・交換は現行administrator専用固定で、ON／OFF設定へ含めない |
+| ユーザー | 安定userId（UUID）・管理用表示専用名・一つのRole。改名／同名はIdentityやAuthorityを変更しない |
+| Role詳細権限 | developer／manager／administratorのRoleが内容設定を所有。固定管理分担と別軸で、ユーザー／Credentialへの個別追加権限なし。鍵を含む固定管理分担のON／OFF設定なし |
 | 資格／Session | Credential ID→userId。現在認可時に現行Roleを参照し、古い権限を固定しない。Sessionから永続認証Storeを新設しない |
 | Exposure／実アクセス | 公開範囲と現在取得可能性を別判定。不明を許可／不存在へ丸めない |
 | 鍵交換相関 | 同じRecovery ID、種別・入口・対象・既存発行先・失効確定範囲・発行結果・再入場。非秘密の耐久情報としてProcess喪失後も保持 |
 | 状態軸 | 利用5区分と部分成立、資格の有効／期限切れ／失効／不明、回復の確認待ち／進行中／blocked／completed。永続resetting／rotationなし |
+
+- 通常管理の入力: 新規登録は予定Role・表示名（managerはdeveloper／managerのみ）、既存Role変更は対象ID・前後Role（managerは前後ともdeveloper／managerのみ）、名前変更は対象ID・新表示名（ID・Role・Credential保持）、Role内容設定は対象Role・変更内容、Repository管理は対象ID・現在登録／公開状態・変更内容を確認する。新規対象へ既存ID・変更前Roleを要求しない。
+
+manager自身も変更前の現在管理認可→明示的なRole内容設定／Exposure更新→次要求の現行Role・Exposure・実アクセス再評価の順に処置する。更新受理≠内容取得、管理≠内容自動付与、登録≠公開、登録解除≠Repository／Product Data削除を維持する。
 
 既存のユーザー／Host側管理領域と秘密保護境界を維持し、Repositoryへ秘密を移さない。Package改名を理由に保存Rootを変更しない。UUID版・生成方式、表示名構文、Verifier方式、物理Schema・File配置・更新確定方式は詳細設計で既存契約と照合する。新Storeや互換Readerを先取りしない。
 
@@ -80,7 +97,8 @@ Workbench／MCP／管理入口
 | 独立失効 | 認可された対象資格 | 新発行なし。以後の要求拒否 |
 
 - 通常の鍵操作は現行administrator、Host回復入口はログイン済みローカル操作者を信頼する。Hostは鍵交換2操作だけで、追加認証・専用資格・承認コード・OS管理者昇格を要求しない。既存ユーザー単位RootとPath検証を維持し、任意Rootや別OSユーザーの状態へ越境しない。全4組で対象ID・表示名・失効範囲・発行先・保持情報を事前表示し、Hostまたは全員交換の3組だけ明示確認する。
-- 対象不明・必要な管理者不存在・必要状態の安全な観測不能・認可破損は新Effect前停止。認可設定を修復しない。
+- 通常管理は対象・変更前の現在管理認可・操作に必要な状態を安全に確認不能、または認可破損なら新Effect前停止。manager許可の通常管理へadministrator存在条件を追加しない。
+- 鍵処置は発行の既存userId、独立失効のCredential-userId結合、交換の対象・必要資格集合・全員交換の指定既存administrator等を操作別に確認し、不明・不成立なら新鍵Effect前停止。Hostへ追加資格認証を要求せず、認可設定を修復しない。
 - 鍵交換はuserId・表示名・Role・詳細権限・Repository登録・Product Dataを保持。特別ユーザー、追加権限、回復専用Bootstrapを作らない。
 - 失効後の発行失敗・応答／Process喪失では、既知失効と発行不明を別の事実として同じRecoveryへ保持する。別Recoveryを重ねない。
 - 再入場では現在状態と現在Authorityを再確認する。保存記録からAuthority、完了、rollback、旧鍵有効、開始済み取消完了を推定しない。
@@ -99,7 +117,7 @@ Workbench／MCP／管理入口
 | [SCR-000008／PRT-000008](../../../04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md) | `PRT-000008.spec-000012` | 対象・事前表示・状態・部分結果・一度表示Secretを配置制約として保持。Layoutと採用済みWorkbench／Host CLIの具体表示・案内はUI Detailへ戻す |
 | [BHV-000012](../../../05_SPEC/Details/BHV-000012/behavior.md) | 同じ既存Relation | Trigger・Authority・Validation・失効／発行・結果・Recoveryを保持。振る舞い変更はSPEC Detailへ戻す |
 
-03〜06、07詳細領域Map、UI／SPEC Detailへの前判断の伝播・限定レビューは履歴であり、最新の鍵管理判断へ流用しない。[Access Management詳細](../../Details/access-management/01_Architecture.md)は前固定版で最新判断の限定反映・限定独立レビュー済み・残指摘0。今回のArchitecture分析と本定義の直接同期は限定独立レビュー済み・残指摘0。03境界モデルと01／02の案内は最新判断へ限定再伝播・限定独立レビュー済み・残指摘0。04〜08横断モデルの鍵断面と対応表は限定再伝播・限定独立レビュー済み・残指摘0。MCP詳細の限定再伝播はレビュー済み。Domain集約・Workbenchの新Owner境界はDetails候補へ限定再伝播・契約／品質独立レビュー済み・残指摘0。具体API・保存・受領方式、Quality・Sourceは未完了。保存・公開入口はOPENで、旧配置を新Ownerの完成形として扱わない。
+最新の固定8管理操作は基本設計・横断モデルへ限定伝播・契約／品質の独立レビュー済み・残指摘0。前鍵管理契約の限定Passは履歴であり、最新分担のPassへ流用しない。Architecture詳細・Quality・Source・具体API／保存・本番接続は最新分担へ未追従。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
 
 ## 9. 互換性・移行・成立済み能力
 
@@ -115,7 +133,7 @@ Workbench／MCP／管理入口
 
 - 認可判定・ユーザー／Role／資格・鍵交換状態のOwnerをAccess Management、認可済みContext集約をDomain Modelへ分け、MCP／Workbenchは同じ認可契約を使う。
 - 通常の鍵発行・独立失効・交換は現行administrator専用の固定操作として同一Process Workbenchから呼ぶ。Hostの鍵回復CLIはログイン済みローカル操作者を信頼し、追加認証なしで同じ鍵交換2操作を呼ぶ。MCPにはSecret有無にかかわらず鍵操作のTool・Schema・登録・dispatchを置かない。具体API・入力・受領方式はDetailsで閉じる。
-- Qualityへ渡す意味は通常管理・要求毎認可・同名／改名・2操作×2入口・独立失効・3可視境界・処置前停止・処置後不明・再入場・情報保持・秘密非再表示・取消非証明。Local Item、試験、EvidenceはQualityで対応付ける。
+- Qualityへ渡す意味は固定8操作×三Roleの許可／拒否／不明、managerのadministrator名前のみ変更、developer管理拒否≠自身利用拒否、操作別対象、自己範囲変更の時間順、登録≠公開、解除≠削除、通常管理・要求毎認可・同名／改名・2操作×2入口・独立失効・3可視境界・処置前停止・処置後不明・再入場・情報保持・秘密非再表示・取消非証明。Local Item、試験、EvidenceはQualityで対応付ける。
 - Task進行・取消・回復はOrchestrator等の既存Ownerに残す。資格の失効／交換で開始済み処理の完了を推定しない。
 
 ## 11. 情報源と完了境界
