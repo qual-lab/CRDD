@@ -85,9 +85,29 @@ ExposureのRepository IDは既存登録を参照し、重複・孤立参照を�
 
 固定Path候補は、解決済みstate Root直下の`access-management.json`、`access-management.pending.json`、`access-management.lock`とする。保存だけのために子Directoryを追加しない。Lock部品が必要時に作る回収義務Fileは同部品が所有し、鍵交換記録と区別する。全Writerが同じ検証済みRootとLock Identityを使用する。Rootの初期準備、非秘密設定と秘密Verifierを含む状態の保護、旧保存先からの移行は別途接続する。
 
-Windows `10.0.26200.0`・C: NTFS・Node `v24.19.0`で、同Directoryの短命Fileを`wx`作成→write→file fsync→close→`renameSync`で既存currentを置換→byte読戻しを100回実測し、全回の一致とpending不存在を確認した。試験はRepository-local `.crdd/tests/`内の自己生成領域だけを使用し、作業領域を回収した。並行Reader、Process喪失、他Windows版／Filesystem、Linux、Directory entryの耐久性、電源断保証は未確認であり、この数値をStore完成やatomicity全体の証明にしない。
+Windows `10.0.26200.0`・C: NTFS・Node `v24.19.0`で、同Directoryの短命Fileを`wx`作成→write→file fsync→close→`renameSync`で既存currentを置換→byte読戻しを100回実測し、全回の一致とpending不存在を確認した。試験はRepository-local `.crdd/tests/`内の自己生成領域だけを使用し、作業領域を回収した。§4.1の単独確認時点では、並行Reader、Process喪失、他Windows版／Filesystem、Linux、Directory entryの耐久性、電源断保証は未確認だった。競合・Process終了・並行読取りの追加局所結果は§4.2に示す。本番接続、他環境、電源断等は引き続き未確認であり、この数値をStore完成やatomicity全体の証明にしない。
 
-次の局所確認は、協調Writerの競合、旧／新の完全Snapshot読取り、出版前後のProcess喪失とpending照合、既存Lock回収の本番入口接続とする。pendingは年齢で削除せず、基準／次改訂と現在byteの対応を照合し、旧交換の未解決事実を失わない。具体の再入場Schema、公開read中の回収状態の扱い、Linuxでの提供意味が未確定の間は保存Gate未成立を維持する。新Lock／Recovery Frameworkや電源断完全保証を追加しない。
+§4.1の確認時点での次候補は、協調Writerの競合、旧／新の完全Snapshot読取り、出版前後のProcess喪失とpending照合、既存Lock回収の本番入口接続だった。§4.2の局所確認後も本番入口接続は残る。pendingは年齢で削除せず、基準／次改訂と現在byteの対応を照合し、旧交換の未解決事実を失わない。具体の再入場Schema、公開read中の回収状態の扱い、Linuxでの提供意味が未確定の間は保存Gate未成立を維持する。新Lock／Recovery Frameworkや電源断完全保証を追加しない。
+
+### 4.2. 競合・Process終了・並行読取りの局所確認 — 2026-10-11
+
+§4.1と同じPC・Windows `10.0.26200.0`・C: NTFS・Node `v24.19.0`で、自己生成領域と既存保存部品を使って次を確認した。新しいAM保存Adapter、公開Reader、秘密Store、Dockerには接続していない。
+
+| 場面 | 実際の観測 | 証明しないこと |
+|---|---|---|
+| AのLock保持中にBが同じ期待改訂0で更新要求 | Bは`filesystem_store_lock_unavailable`、callback呼出し0。Aだけ改訂1を出版 | 全Writerの協調、公平性、同時取得の勝者 |
+| A完了後にBが同じ期待改訂0で再要求 | callback内で現在改訂1を読み、改訂競合・write 0 | 初回Lock拒否と改訂競合を同じ理由に畳まない |
+| pendingのfile fsync後に子Processが`exit(23)` | 現在改訂0と完全なpending改訂1が残る。再取得結果のexact回復IDから既存のOwner不存在観測・Lock回収が完了 | Lock回収だけではpending処置・状態回復が完成しない |
+| rename直後に子Processが`exit(23)` | 現在改訂1、pending不存在。再取得結果のexact回復IDから既存Lock回収が完了 | 強制終了・電源断・Directory entry耐久性 |
+| 上記2例の次更新 | 既知probeのbyteと改訂を照合し、前者のpendingだけ処置した後、次更新・読戻し・Lock cleanupが完了 | 本番の再入場・保持・清掃接続 |
+| Lock外で`readStableBoundedFileSnapshot`を並行実行 | Writerのrenameが`EPERM`となる反例を2回観測。分類した実行は改訂41まで出版済み。次の置換がEPERMで不成立となり、pendingが残存。Reader成功は旧12回・新66回 | 正常な単独置換から並行Readerとの成立を推定しない。失敗から前41回の出版を取り消さない |
+| Readerも同じRoot・Lockの同期callbackへ入れた対照 | Writerは同じcallback内の100置換を完了。Readerは旧2回・新2回、Lock取得不可61回、`recovery_required`1回 | 100版全ての読取り、本番公開readの成立、待機時間・公平性 |
+
+全子Processの終了をjoinし、自己生成作業領域を回収した。試験用pendingの処置を、本番の削除Authorityや状態回復へ昇格しない。通常Writerのcleanup区間でも`recovery_required`を観測し得るため、それだけからOwner死亡・自動回収可能を推定しない。既存のexact ID→Owner不存在Proof→回収を維持し、Lockの回復参照を鍵交換Recoveryへ転用しない。
+
+並行Readerと置換の組合せには実反例があるため、公開readも同じ保存Owner・Root・Lockで短い同期区間へ閉じる方式を候補とする。新しい排他Frameworkや無制限の再試行は追加しない。Lockを使うreadは短命Lock記録等のFilesystem Effectを持つので、AMの内部保存Ownerが取得・解放・不明を処置し、外部へraw Capability・Path・Lock回復Authorityを渡さない。取得不可、回収確認待ち、読取り不明は空集合・未登録・正常成功へ畳まず、現在値を取得できなかった結果として扱う。
+
+この対照は候補選定用であり、公開Readerの結果型・利用側の再取得、認可境界、解放欠測、初回Root準備、本番pending再入場、Linux／他Windows版／Filesystemの接続確認は残る。既存RFD-IT-021等の反証面へ接続するが、Local ItemのNot RunをPassに変更しない。電源断完全保証、取消機構、公平性保証を新たな要求として追加しない。
 
 ## 5. 鍵交換の段階と終了
 

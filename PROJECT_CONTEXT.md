@@ -40,9 +40,13 @@ v0.21.0は公開済み、v0.22.0とCHG-000082は未完了である。責務再�
 
 ## 3. 今、人間が決めることは何か
 
+### AMの並行保存・読取りの反証 — 2026-10-11
+
+現在のPCで、競合拒否・古改訂のwrite 0と、保存前後のProcess終了後に既存Lockを回収して次更新できる範囲を局所確認した。並行Readerでは置換EPERMを2回観測し、Readerも同じ既存Lockへ揃える対照では100置換が完了した。Lock競合時の取得不可・回収確認待ちは別に保持する。契約・品質の限定独立レビュー・是正後再確認は残指摘0、probeの物理残存も回収済み。これは本番保存・公開readの完成ではなく、Source・秘密Storeは未変更。追加の人間判断はこの局所確認には不要、鍵期限は引き続き回答待ち。[観測と未確認範囲](06_Architecture/Details/access-management/02_Management_State_and_API.md#42-競合process終了並行読取りの局所確認--2026-10-11)を参照する。
+
 ### AM保存方式の局所確認 — 2026-10-11
 
-既存の排他部品は条件付きで再利用できる。現在のPC（Windows 10.0.26200.0・C: NTFS・Node v24.19.0）で通常置換・読戻し100回は一致したが、初回Root準備・競合・Process喪失・他Windows版／Filesystem・Linux・再入場は未確認。保存専用Directoryを追加せず、現在状態・短命pending・Lockを既存Host state Root直下へ置く候補を具体化し、契約・品質の限定独立レビュー・是正後再確認は残指摘0。Source・秘密Storeは未変更、実装Gateは未成立。鍵の有効期限は運用判断を確認中で、未回答を採用にしない。[調査範囲と限界](06_Architecture/Details/access-management/02_Management_State_and_API.md#41-既存保存部品の照合結果--2026-10-11)を参照する。
+既存の排他部品は条件付きで再利用できる。現在のPC（Windows 10.0.26200.0・C: NTFS・Node v24.19.0）で通常置換・読戻し100回は一致した。前段§4.1の単独確認時点では初回Root準備・競合・Process喪失・他Windows版／Filesystem・Linux・再入場は未確認だった。追加局所結果は直前節に示し、本番接続の未確認は維持する。保存専用Directoryを追加せず、現在状態・短命pending・Lockを既存Host state Root直下へ置く候補を具体化し、前段の契約・品質限定独立レビュー・是正後再確認は残指摘0。Source・秘密Storeは未変更、実装Gateは未成立。鍵の有効期限は運用判断を確認中で、未回答を採用にしない。[調査範囲と限界](06_Architecture/Details/access-management/02_Management_State_and_API.md#41-既存保存部品の照合結果--2026-10-11)を参照する。
 
 ### 登録解除・鍵受け渡しのQuality伝播 — 2026-10-11
 
