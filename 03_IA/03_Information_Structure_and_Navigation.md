@@ -52,6 +52,8 @@ Primary、Secondary、Referenceは情報上の優先度であり、画面の位�
 
 具体的なRoute、Sidebar、Tab、ButtonはUIが定める。IAが固定するのは、失ってはならない対象選択と到達関係である。
 
+初回CROS設定の導線は[IA-000009](Definitions/IA-000009/ia_definition.md#初回設定の情報関係と導線)へ投影する。通常Host回復の2操作とは別場面であり、具体RouteやUI部品をここで決めない。
+
 ## 4. 利用場面による入口
 
 | 利用場面 | 既定の入口 | 必要時に進む先 |
@@ -76,7 +78,7 @@ Primary、Secondary、Referenceは情報上の優先度であり、画面の位�
 | [IA-000006](Definitions/IA-000006/ia_definition.md) | 適用 | ProjectからBindingでRepositoryへ進み、投影からSource・Revision・Observed At・Coverageへ戻る |
 | [IA-000007](Definitions/IA-000007/ia_definition.md) | 適用 | まず手元の情報と作業へ進み、不足時だけ横断情報源へ移り、履歴の詳細はAdapter経由で辿る |
 | [IA-000008](Definitions/IA-000008/ia_definition.md) | 適用 | 公開依頼から契約・作用状態・公開結果へ進み、通信手段が変わっても同じ結果根拠へ辿る |
-| [IA-000009](Definitions/IA-000009/ia_definition.md) | 適用 | 通常利用は資格→ユーザー→現行Role権限→公開対象→実アクセス。管理は対象ID・表示名→Role／資格→処置影響。鍵交換は通常Workbenchの固定administrator権限またはログイン済みHost操作者→2操作の対象・失効範囲・既存発行先と保持範囲→同じRecovery→新資格で再入場へ辿る。通常鍵操作は同一Process Workbenchだけ、MCP鍵操作は非公開、Hostは交換2操作だけ。manager自身の範囲は明示更新と次要求で評価し、developer管理・managerの管理者操作を拒否する。登録≠公開・登録解除≠削除を保持する。通常発行は旧資格不変＋新Secret一度、独立失効は指定資格失効＋新資格・Secretなし、交換は定義済み失効＋既存発行先への一度発行＋同じRecoveryを別の情報結果として辿る。登録解除は対応公開設定も同時解除し他対象と本体保持。発行・記録確定／受け渡し未確認→現在認可で別明示交換、発行・記録不明→元Identity再観測（交換由来だけsame exact Recovery）、管理者認証喪失→既存Host入口を区別する。元／新交換のIdentityを分け各交換内はexact保持、秘密再表示・自動再発行・失効済み旧応答の利用案内をしない |
+| [IA-000009](Definitions/IA-000009/ia_definition.md) | 適用 | 通常利用は資格→ユーザー→現行Role権限→公開対象→実アクセス。管理は対象ID・表示名→Role／資格→処置影響。鍵交換は通常Workbenchの固定administrator権限またはログイン済みHost操作者→2操作の対象・失効範囲・既存発行先と保持範囲→同じRecovery→新資格で再入場へ辿る。通常鍵操作は同一Process Workbenchだけ、MCP鍵操作は非公開、通常Host回復は交換2操作だけ。manager自身の範囲は明示更新と次要求で評価し、developer管理・managerの管理者操作を拒否する。登録≠公開・登録解除≠削除を保持する。通常発行は旧資格不変＋新Secret一度、独立失効は指定資格失効＋新資格・Secretなし、交換は定義済み失効＋既存発行先への一度発行＋同じRecoveryを別の情報結果として辿る。登録解除は対応公開設定も同時解除し他対象と本体保持。発行・記録確定／受け渡し未確認→現在認可で別明示交換、発行・記録不明→元Identity再観測（交換由来だけsame exact Recovery）、管理者認証喪失→既存Host入口を区別する。元／新交換のIdentityを分け各交換内はexact保持、秘密再表示・自動再発行・失効済み旧応答の利用案内をしない。初回はHost明示入口→対象管理状態確認→未初期化確定→表示名→最初のadministrator UUIDと初資格→Secret一度受領→通常管理。既存・観測不能・確認済み途中を分け、それぞれ既存経路・停止理由と再確認先・同試行再観測へ辿る。 |
 | [IA-000010](Definitions/IA-000010/ia_definition.md) | 適用 | MeetingからMeeting Item・Candidateへ進み、関係するTopicと採否判断へ辿る |
 | [IA-000011](Definitions/IA-000011/ia_definition.md) | 適用 | やりたい仕事からCapability・Availabilityへ進み、必要時にDistribution・Manifest・Runtime Bindingへ辿る |
 | [IA-000012](Definitions/IA-000012/ia_definition.md) | 適用 | Runtime RootからData Item・Durability・Retentionへ進み、残存時はRecovery Obligation・Cleanup Evidenceへ辿る |
