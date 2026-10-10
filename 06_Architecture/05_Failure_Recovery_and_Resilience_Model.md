@@ -2,7 +2,9 @@
 
 Status: Candidate (v0.22 responsibility reorganization)
 Owner: Qual-Lab
-Last Updated: 2026-10-07
+Last Updated: 2026-10-10
+
+2026-10-10の[ARCH-000013](Definitions/ARCH-000013/architecture_definition.md)から、最小ユーザー管理・現行Role認可・鍵交換2操作を限定伝播した（限定独立レビュー済み）。07／08・Details・Quality・Source／Schema・公開入口は未追従。UI Exit、Architecture Ready、QA Handoffまたは本番成立を主張しない。
 
 ## 1. この成果物が所有すること
 
@@ -50,6 +52,10 @@ Last Updated: 2026-10-07
 | Trust／権利 | Trust Evaluator／収載判断 | Publisher、用途、決定権限 | 未承認 | 必要な根拠と人間判断 |
 | 契約移行 | Consumer Closure | 全Consumer、派生物、Release経路 | 旧処理を削除しない | 集合一致と全Consumer反証 |
 | 検査・品質 | Checker／Quality Center | 同じ改訂版、未確認範囲 | 全体Passを表示しない | 必須確認の完了または明示保留 |
+| 接続・管理認可 | Access Management | 現行Role詳細権限、失効、三可視境界、公開範囲と実アクセス | 必要状態不明や不認可は非開示拒否 | 現在Authorityと現在状態で再評価。Domainへ未許可集合を渡さない |
+| 鍵交換の処置前 | Access Management | 既存対象・必要なadministrator・認可健全性、現在Authority | 対象不明・必要管理者不存在・安全な観測不能・認可破損は新Effect 0 | 修正済みの条件を再評価。Role初期化・認可破損修復・特別User／Bootstrapをしない |
+| 鍵交換の失効後 | Access Management | 既知失効、発行不明、同じRecovery、保持情報 | 発行失敗・応答／Process喪失を部分結果として非秘密耐久記録へ保持 | 同じRecovery IDで現在状態と現在Authorityを再観測。旧鍵有効・rollback・完了を推定しない |
+| 独立失効 | Access Management | 認可された資格と確定／不明の失効結果 | 後続要求を拒否、新発行0 | 失効結果を観測。開始済みTaskの取消完了を推定しない |
 
 ## 4. 回復の不変条件
 
@@ -60,6 +66,9 @@ Last Updated: 2026-10-07
 - 取消要求、Process終了、Resource回収、公開結果の確定を別の観測として扱う。
 - 部分故障で無関係なComponentを全停止にせず、利用可能範囲と未確認範囲を返す。
 - Project状態の観測、Task完了またはObjective受入から次段階の受入Authorityを生成しない。推定入力は記録を変更せず、判断待ちと根拠を保持する。
+- 鍵交換は指定ユーザー交換／全員交換と通常／Host入口を別軸にする。全4組を事前表示し、Hostまたは全員交換だけ明示確認する。通常入口は現行管理認可、Host入口はHost OS Authorityで再入場する。
+- 失効後に新発行や搬送が失敗しても、userId・表示名・Role・詳細権限・Repository登録・Product Dataを変更しない。生Secretを耐久記録・ログ・Evidenceへ保存せず、再入場で再表示しない。
+- 資格の失効・交換からTask取消完了、過去Effect 0、認可設定の修復やAuthority復元を主張しない。初回CROS設定・単体資格不要の契約は変えない。
 
 ## 5. 段階的な故障確認
 
@@ -71,6 +80,7 @@ Last Updated: 2026-10-07
 | Coordinator | 最初の失敗境界、実行・資源の現在観測、取消・回収、限定した終了処置 | cleanupの結果で最初の失敗理由を上書きしない。上位の判断を生成しない。 |
 | AI Adapter | Provider別の入力・起動・出力・認証の結果分類 | Provider終了をDocker資源不存在と同一視しない。回復Authorityを発行しない。 |
 | Platform Access | OS固有のProcess／handle／Filesystemの実観測と限定処置 | 観測不能を不存在へ変換しない。業務状態・再実行を所有しない。 |
+| Access Management | 認可・資格の失効と鍵交換の部分結果、同じRecoveryへの再入場 | 認可破損修復、Role再設定、Task取消、Domain情報集約、Transport終了を引き取らない。現在認可なしに保存記録をAuthorityへ昇格しない。 |
 
 最初の失敗（Primary Failure）、cleanup／回復の結果、最終公開状態は別々に保持する。要求未発行、作成拒否、応答未観測、結果確定失敗を区別し、後続の清掃失敗で原因境界を失わない。診断にProvider本文・秘密値・未許可Pathを複製しない。
 
@@ -103,6 +113,7 @@ Component内部の異常
 - ProjectionからAcceptance Decision Portへ到達できないこと、SPEC-000002の明示判断だけが限定記録されること、および判断記録からTask作成・Provider Effectが発生しないことを確認する。
 - 実Docker、外部CLI、Filesystem等の実境界では、起動だけでなく停止、故障、回復、再開、清掃までLifecycle全体を確認する。
 - 長時間・高費用の負荷試験は人間の明示指示なしに実行せず、未実施を通常のArchitecture Ready阻害にしない。
+- 鍵交換の処置前拒否と失効後失敗を別検証にし、通常／Host入口の現在Authority、対象保持、同じRecoveryの耐久相関、秘密非再表示と発行／受領不明を観測する。具体的な保存確定方式・回復API・公開入口はDetails照合待ちである。
 
 ## Checklist
 

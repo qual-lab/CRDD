@@ -2,7 +2,9 @@
 
 Status: Candidate (v0.22 responsibility reorganization)
 Owner: Qual-Lab
-Last Updated: 2026-10-07
+Last Updated: 2026-10-10
+
+2026-10-10の[ARCH-000013](Definitions/ARCH-000013/architecture_definition.md)から、最小ユーザー管理・現行Role認可・鍵交換2操作を限定伝播した（限定独立レビュー済み）。07／08・Details・Quality・Source／Schema・公開入口は未追従。UI Exit、Architecture Ready、QA Handoffまたは本番成立を主張しない。
 
 ## 1. この成果物が所有すること
 
@@ -37,7 +39,7 @@ Projectの入力から状態、実行、観測、投影および候補採用ま�
   └─────────────────────────────────────────────┘
 ```
 
-この案内図は責務の位置関係だけを示す。データの分類、生成、保存および境界横断は次の4図を正本とする。
+この案内図は責務の位置関係だけを示す。データの分類、生成、保存および境界横断は§2.2〜2.6の経路別図を正本とする。
 
 ### 2.2 A — 入力・実行
 
@@ -158,6 +160,36 @@ Projectの入力から状態、実行、観測、投影および候補採用ま�
 ```
 
 `P8`は人間の採用判断がある場合だけ`D2`へ書く。却下・保留では正本Effect 0とし、外部から返った結果を正本へ自動昇格しない。
+
+### 2.6 接続認可・Context集約・鍵交換
+
+```text
+接続Credential → 既存userId → 現行Role詳細権限
+                                │
+Workspace／Exposure・実アクセス ─┤
+                                ▼
+                 Access Management（要求毎認可）
+                                │ 許可済みRepository集合
+                                ▼
+                 Domain Model（Context集約）
+                                │ 根拠・Coverage・不完全性
+                                ▼
+                 許可されたWorkbench／MCPの利用側
+
+通常管理認可 または Host OS Authority
+                 │ 交換種別・対象・既存発行先
+                 ▼
+     Access Management（同じ鍵交換Operation）
+        ├→ 旧資格失効の確定範囲
+        ├→ 新資格発行の確定／不明
+        ├→ 同じRecoveryの非秘密耐久状態
+        └→ 生Secretは許可された発行結果へ一度だけ返す
+             -x 保存／ログ／Evidence／会話／再表示
+```
+
+ユーザーは安定userId（UUID）、管理者設定の表示専用名、一つのRoleを持つ。Roleが詳細権限を所有し、CredentialはuserIdへ結合する。改名・同名からIdentityを再生成せず、Credential／Sessionへ旧権限を固定しない。認証Contextは認証・搬送の単位であり、新しい永続Session Storeを意味しない。DomainはCredentialやGrantを解釈せず、許可済み集合からの投影だけを所有する。
+
+通常管理はユーザーやRole設定を更新し得るが、鍵交換はuserId・表示名・Role・詳細権限・Repository登録・Product Dataを保持して鍵だけを変更する。指定ユーザー交換は対象既存userIdの全旧有効資格を失効させ同じuserIdへ新発行する。他ユーザーの鍵は保持する。全員交換は操作中管理者を含む全旧有効資格を失効させ、指定した既存administrator userIdへ新発行する。他ユーザーへの再発行・配布は通常管理である。独立失効は新発行0であり交換と混ぜない。
 
 ## 3. 横断状態遷移
 
@@ -365,6 +397,20 @@ Projectの入力から状態、実行、観測、投影および候補採用ま�
 | Objective差戻し／判断待ち継続 | Milestone判断開始 | Objective受入記録なし | 開始を拒否 | Effect 0 | 現在状態を保持 | 同じ | 非該当 | Milestone Decision Record、Task、Provider Effect 0 |
 | Milestone判断待ち | Objective受入だけによるMilestone受入 | Project運営者の明示判断なし | 自動受入を拒否 | Effect 0 | Milestone判断待ち | 同じ | 非該当 | Milestone Decision Record、Task、Provider Effect 0 |
 
+### 鍵交換の段階と状態
+
+以下は[ARCH-000013](Definitions/ARCH-000013/architecture_definition.md)の横断投影であり、物理Schemaや新しい状態実値を定義しない。通常管理入口とHost入口はAuthorityだけを分け、同じ2操作へ接続する。
+
+| 段階／契機 | 必要な条件・処置 | Effectと結果 | 再入場・終了後観測 |
+|---|---|---|---|
+| 処置前 | 現在Authority、既存対象・必要な管理者、必要状態・認可健全性を確認。全4組を事前表示、Hostまたは全員交換だけ明示確認 | 条件不明／破損なら新Effect 0で停止 | 認可破損修復・Role初期化・特別User／Bootstrapなし |
+| 旧資格失効 | 指定ユーザーまたは全員のexactな範囲を処置 | 確定した失効範囲を保持。後続要求を拒否 | 全員交換は現在管理者の旧資格も失効。入口の現在Authorityと交換結果を区別する |
+| 新資格発行 | 同じOperationの既存発行先を使用 | 発行確定または不明を失効結果と別に保持 | 生Secretを保存せず許可された結果へ一度だけ返す |
+| 発行失敗・応答／Process喪失 | 既知失効と発行不明を非秘密耐久状態に保存 | 完了・rollback・旧鍵有効を推定しない | 同じRecovery IDを保持し、現在状態と現在Authorityで再観測。Secretを再表示しない |
+| 結果確定・受領 | 失効・発行・搬送の各事実を照合 | 不明が残る場合はcompletedへ畳まない | 鍵交換の完了はTask取消完了・過去Effect 0を証明しない |
+
+具体的な保存確定方式、再入場API、公開入口および未観測段階の詳細処置はDetailsへ残す。保存した参照はAuthorityそのものではなく、現在Authorityへの再結合なしに回復処置を許可しない。
+
 ## 4. 概念Entity関係
 
 ```text
@@ -384,13 +430,19 @@ Project実行
                                                           ├─ R11: 1 → 0..* ──> [ER12: Recovery Obligation]
                                                           └─ R12: 1 → 0..* ──> [ER13: Execution Fact]
 
-WorkspaceとRepository利用範囲
-────────────────────────────
-[ER5: Session]
-      │ R4: 1 Sessionは1..* Grantを持つ
+ユーザー・現在認可とRepository利用範囲
+────────────────────────────────────
+[Credential] ── userIdへ結合 ──> [User: UUID／表示名]
+                                      │ 一つの現行Role
+                                      ▼
+                                [Role詳細権限]
+                                      │ 要求毎に評価
+                                      ▼
+[ER5: 認証Context]
+      │ R4: 各要求で現在認可を確認
       ▼
-[ER6: Session Grant]
-      │ R5: 0..* Grantが1 Workspaceを許可する
+[ER6: 認可済み対象集合]
+      │ R5: 現行Role・公開範囲・実アクセスでWorkspace対象を解決
       ▼
 [ER4: Workspace]
       │ R3: 1 Workspaceは0..* Exposureを持つ
@@ -413,6 +465,8 @@ WorkspaceとRepository利用範囲
 
 Relationはアクセス権や採用Authorityを自動生成しない。`Project ID`と`Repository ID`は別Identityであり、一つのProjectが複数Repositoryを持てる。
 
+認可済み集合はCredentialへ固定された永続権限ではない。Workspaceの公開範囲と現在取得可能性を別判定し、Domain Modelは許可されたRepository集合だけを受ける。ER5／ER6とR4／R5は本モデルの局所ラベルであり、新しい保存Entity／通信fieldを要求しない。
+
 ## 5. 整合条件
 
 | 対象 | 必須の相関 | 禁止する畳み込み |
@@ -423,6 +477,8 @@ Relationはアクセス権や採用Authorityを自動生成しない。`Project 
 | Acceptance Decision | Project、Objective／Milestone、根拠Revision、判断者、判断種別 | ProjectionからのAuthority生成、Task完了からObjective受入、Objective受入からMilestone受入 |
 | External Result | Request、Consent Scope、Provider Result、Candidate | returnedをadoptedへ自動昇格 |
 | Historical Context | Source、Occurred At、Applicable Revision、Currentness | historicalをcurrentへ自動採用 |
+| 接続認可 | Credential→userId、現行Role詳細権限、Exposure、実アクセス | 表示名をIdentityにすること、旧権限固定、管理から内容閲覧の生成 |
+| 鍵交換 | 同じRecovery ID、交換種別、入口、対象・既存発行先、失効確定範囲、発行／受領の観測 | 別Recovery生成、Secret耐久化、unknownの成功化、Authority復元、取消完了の推定 |
 
 ## 6. Qualityへの引渡し
 
@@ -431,6 +487,8 @@ Relationはアクセス権や採用Authorityを自動生成しない。`Project 
 - 同じIdentity系列内で別Attempt、別Repository、別Workspaceが混入しないことを反証する。
 - DataがTrust／Process／Repository／外部境界を越える箇所は、内容、Authority、保存、cleanupを結合して確認する。
 - 受入判断は根拠表示、明示Authority、限定記録、終了後観測を分け、読取りProjection、Task作成およびProvider EffectとのEffect隔離を確認する。
+- 同名・改名のIdentity不変、現行Roleの後続要求反映、三可視境界、管理／内容閲覧の分離を確認する。
+- 鍵交換2操作×2入口、独立失効の新発行0、保持情報不変、失効確定／発行不明／受領の分離と同じRecoveryへのProcess喪失後の再入場を確認する。秘密値を検証記録へ複製しない。
 
 ## Checklist
 

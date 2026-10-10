@@ -12,7 +12,7 @@ v0.21.0の基準版では、個別責務定義、横断モデルおよび15領�
 
 ## 2. 工程入力と再構築方法
 
-2026-10-10の現行UI-000008／SPEC-000012を、両Architecture分析・ARCH-000013・Component責務表へ是正伝播した（限定独立レビュー済み）。UI工程Exit後の通常Handoffではなく、採用済み意味への既存設計の更新である。ARCH-ID18件と既存Relationは維持する。03〜06横断モデル、07詳細領域Map、08 Detail Traceability、CROS／MCP／Workbench等のDetailsとQuality／Sourceは未追従で、旧配置をAccess Managementへの移管済み状態と解釈しない。新公開入口・保存Schema・実装・実測成立・Architecture Readyを主張しない。
+2026-10-10の現行UI-000008／SPEC-000012を、両Architecture分析・ARCH-000013・Component責務表へ是正伝播した（限定独立レビュー済み）。続く03〜06横断モデルは伝播済み・限定独立レビュー済み。UI工程Exit後の通常Handoffではなく、採用済み意味への既存設計の更新である。ARCH-ID18件と既存Detail Relationは維持する。07詳細領域Map、08 Detail Traceability、CROS／MCP／Workbench等のDetailsとQuality／Sourceは未追従で、旧配置をAccess Managementへの移管済み状態と解釈しない。新公開入口・保存Schema・保存Root変更・実装・実測成立・Architecture Ready・QA Handoffを主張しない。
 
 Architectureの正式入力はCanonicalな20件のUI定義と30件のSPEC定義である。UIとSPECを別々に全数分析し、同じ上位責務境界へ属する結果を18件のArchitecture定義へ統合した。
 

@@ -2,7 +2,9 @@
 
 Status: Candidate (v0.22 responsibility reorganization)
 Owner: Qual-Lab
-Last Updated: 2026-10-07
+Last Updated: 2026-10-10
+
+2026-10-10の[ARCH-000013](Definitions/ARCH-000013/architecture_definition.md)から、最小ユーザー管理・現行Role認可・鍵交換2操作を限定伝播した（限定独立レビュー済み）。07／08・Details・Quality・Source／Schema・公開入口は未追従。UI Exit、Architecture Ready、QA Handoffまたは本番成立を主張しない。
 
 ## 1. この成果物が所有すること
 
@@ -41,11 +43,13 @@ Canonical責務を実行時に分離する論理単位、Resource、並行性お
 | 配置形態 | 公開入口 | 内部接続 | 検証・未評価の境界 |
 |---|---|---|---|
 | Repository単体Local | Workbench、Repository単体MCP／CLI | 検証済みRootの能力を利用する。CROS設定は不要である。 | Rootと書込み範囲、取消・終了を確認する。 |
-| CROSを同一Processへ組み込む | WorkbenchまたはMCP | 認可済みの共通CROS能力を直接呼ぶ。内部RESTやMCP Loopbackを追加しない。 | Transportを省略してもRole／Exposure／失効確認を維持する。 |
+| CROSを同一Processへ組み込む | WorkbenchまたはMCP | Access Managementで認可し、Domain Modelへ許可済み集合を渡す。内部RESTやMCP Loopbackを追加しない。 | Transportを省略しても現行Role詳細権限／Exposure／失効／実アクセス確認を維持する。 |
 | CROSを別Processで利用する | Workbench ServerからMCP、または外部MCP Client | 同一Hostでも別ProcessならMCPで接続する。 | Remote接続、情報最小化、認可、切断・取消と終了後状態を確認する。 |
 | Linux等の共有Host | Workbench Server、MCP Server | CROS能力とRepository群を配置する。TLS終端等はDeployment Concernである。 | Linux実配置、証明書運用、特定Proxyは既存loopback／模擬Header試験では確認済みとしない。 |
 
 Shared Server、CROS REST、Gatewayを独立Runtimeとして残さない。既存の認可・Origin・TLS境界・操作・終了保証をMCPと内部能力へ移管した後に撤去する。共有HostへのRepository自動Deploy／Clone／Backup機能は追加しない。WorkbenchのBrowser向けRESTはこの撤去に含めない。
+
+単体／CROSは起動時に明示選択し、設定済みであることだけで自動切替しない。単体は起動Repository一つ・資格不要、CROSは現在認可された集合を扱う。初回CROSの管理資格発行方式は変更せず、鍵交換と混ぜない。Access Managementは認証・認可の論理Ownerであり、独立Process／Serverの追加を意味しない。保存Root・秘密保護は既存契約を維持する。
 
 Coordinatorは単体の実行Runtimeとして利用でき、Orchestratorはその公開APIを呼ぶ。Provider差はAI Adapter、実Docker資源はCoordinator、OS固有保証はPlatform Accessが所有する。Docker CLIを使うことだけで全処理をNativeへ移管せず、署名するCoordinator実行閉包と、各Toolの実行・試験環境を区別する。
 
@@ -58,7 +62,11 @@ Coordinatorは単体の実行Runtimeとして利用でき、Orchestratorはそ�
 | Execution Attempt | child process／provider request／container | Attempt、Provider、外部Resource | process／request終了と結果搬送 |
 | Projection Query | Source snapshot、coverage | Query／snapshot | 同じ観測時点の結果返却 |
 | Acceptance Decision Operation | 対象Identity、根拠Revision、明示判断 | Objective／Milestone／判断者 | 受入・差戻し・判断待ちの限定記録またはEffect 0 |
-| Federation Session | Credential、Session Grant、Workspace set | Session／Workspace | Grant失効、接続終了 |
+| 接続認可Query | Credential→userId、現行Role詳細権限、Workspace／Exposure、取得可能性 | 要求／認証Context | 現在認可済み集合または非開示拒否を返す。接続の終了はTransport Ownerが確認する |
+| 認可済みFederation Query | 許可済みRepository集合、Source snapshot、Coverage | Query／対象集合 | Domain Modelが根拠と不完全性を返す。管理権限から内容閲覧を生成しない |
+| 通常管理Operation | ユーザー／表示名／Role／Role詳細権限／資格の管理対象 | 操作／対象Identity／現在管理認可 | 対象変更結果または不明を区別する。具体保存確定方式はDetailsで照合 |
+| 独立失効Operation | 認可された資格と失効結果 | 操作／資格Identity／現在管理認可 | 失効結果を確認し後続要求を拒否。新発行0で、開始済みTask取消を証明しない |
+| 鍵交換Operation | 対象userId、既存発行先、失効範囲、非秘密Recovery状態 | 操作種別／通常・Host入口／対象／同じRecovery ID | 失効・発行・結果受領を分離。未確定は同じRecoveryで保持し、現在Authorityで再観測する |
 | External Information Request | consent scope、payload、returned candidate | Request Identity | 候補隔離または採否への引渡し |
 | Runtime Data Operation | lease、lock、temporary artifact | Owner／Repository Root | publish、cleanupまたはRecovery記録 |
 | Verification Run | fixed revision、test resource、evidence | Run／test class | 全対象終了、未実施範囲の記録 |
@@ -112,6 +120,7 @@ Canonical Architectureが独立レビューで閉じた後に、次を照合す�
 - 同じProcessやstreamを複数役割で使う場合、役割ごとの所有者と終了条件を反証する。
 - OS／Runtime／外部CLIのVersion差は、危険な意味変化を検出して停止する。無関係なHash差やVersion差だけで恒久拒否しない。
 - Physical deploymentが未確定な箇所は未確認として保持し、CanonicalなProcess数や配置を捏造しない。
+- 鍵交換2操作×2入口で現在Authorityと必要確認を維持し、Host配置から通常管理権限を推定しない。秘密返却の具体入口・画面／CLI割当は未確定のままDetailsへ渡す。
 
 ## Checklist
 

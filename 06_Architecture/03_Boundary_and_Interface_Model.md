@@ -2,7 +2,9 @@
 
 Status: Candidate (v0.22 responsibility reorganization)
 Owner: Qual-Lab
-Last Updated: 2026-10-07
+Last Updated: 2026-10-10
+
+2026-10-10の[ARCH-000013](Definitions/ARCH-000013/architecture_definition.md)から、最小ユーザー管理・現行Role認可・鍵交換2操作を限定伝播した（限定独立レビュー済み）。07／08・Details・Quality・Source／Schema・公開入口は未追従。UI Exit、Architecture Ready、QA Handoffまたは本番成立を主張しない。
 
 ## 1. この成果物が所有すること
 
@@ -13,7 +15,10 @@ Component間、外部System、Platform、Repository、Trust境界と、境界を
 | 境界 | 呼出し側 | 受け側 | 越えるもの | 越えないもの | 不明時 |
 |---|---|---|---|---|---|
 | Public Transport | Human／Agent／Client | Public Application Contract | 検証済み入力、相関Identity、構造化結果 | Transport固有のAuthority、内部Path | Effect前に拒否 |
-| Workspace Exposure | 接続Session | Federation Resolver | Session Grant、Workspace、許可Source | 未許可Repositoryの存在・内容 | unavailable／restrictedを区別 |
+| 接続認可・Repository公開範囲 | 接続主体／認証Context | Access Management | Credentialに結合したuserId、現行Role詳細権限、Workspace／Exposure、取得可能性 | Credentialに固定した旧権限、未許可Repositoryの名前・存在・件数・内容 | 観測不能を許可や不存在へ丸めない |
+| 認可済みContext集約 | Access Managementで許可された要求 | Domain Model | 認可済みRepository集合、Source、Coverage | Credential／Grantの解釈、管理権限からの内容閲覧 | 不完全性を保持し未許可Sourceを補完しない |
+| ユーザー・資格管理 | 現在の管理認可を持つ主体 | Access Management | 対象userId、表示名、一つのRole、Role詳細権限、認可された管理操作 | 一般IAM、個別追加権限、非管理者への他ユーザー情報 | 新Effect前に拒否 |
+| 鍵交換 | 通常管理入口またはHost入口 | Access Management | 2操作、対象／既存発行先、各入口の現在Authority、同じRecovery参照 | Role初期化、認可破損修復、秘密再表示、Task取消の保証 | 処置前停止と失効後の部分結果を分離 |
 | Project Execution | Application Contract | Orchestrator | Objective、Task操作、Human Input、取消 | Provider選択、OS操作 | 同じTaskを保持して停止 |
 | Project Projection | 許可されたProject Source | Project Management Projection Port | Source、Currentness、Coverage、状態 | 正本変更Authority、受入判断Authority | unknown／partialのまま返す |
 | Acceptance Decision | Project運営者の明示判断 | Objective／Milestone Acceptance Decision Port | 対象Identity、受入／差戻し／判断待ち | Task作成、Provider Effect、下位完了からの上位受入推定 | Effect 0で判断待ちを保持 |
@@ -61,12 +66,18 @@ Coordinatorの通知関数をOrchestratorが登録する。
 | 経路 | 境界を受け持つOwner | 維持する条件 |
 |---|---|---|
 | Browser → Workbench Server | Workbench表示API | Browser向けREST、認証・入力検証、Process限定操作確認を維持する。 |
-| Workbench Server → 同一ProcessのCROS | CROSの共通認可能力 | Transportを省略してもCredential／Role／Exposureと操作ごとの再観測を省略しない。 |
+| Workbench Server → 同一ProcessのCROS | Access Managementの認可とDomain Modelの認可済み集約 | Transportを省略してもCredential失効・現行Role詳細権限・Exposure・実アクセスを要求ごとに確認する。 |
 | Workbench Server → 別ProcessのCROS | MCP Server | 同一Hostでも別ProcessならMCP経路とする。独立CROS REST／Gatewayは撤去する。 |
-| AI／Machine → MCP Server | MCP搬送とCROSの共通認可能力 | MCPはAI専用ではない。Repository単体stdio／localhost HTTPの契約と共有CROS認可契約を区別する。 |
+| AI／Machine → MCP Server | MCP搬送とAccess Managementの認可 | MCPはAI専用ではない。Repository単体stdio／localhost HTTPの契約と共有CROS認可契約を区別する。Domainは認可済み集合だけを受ける。 |
 | Repository単体利用 | 検証済みRepository Rootと各能力 | CROS設定・Credentialを機械的に要求しない。Rootが不明ならEffect前に停止する。 |
 
 共有配置はWorkbench／MCPと内部Capabilityの配置形態であり、新しい公開Serverや自動Repository Deployを追加しない。Remote境界で認可・現在状態が不明な場合は操作を停止し、未許可Sourceの存在・Identityを開示しない。撤去対象が現在提供する操作・認可・終了保証を新経路へ対応付けるまで、置換済みと表示しない。
+
+### 管理と鍵交換の公開境界
+
+通常管理、独立失効、指定ユーザー交換、全員交換は別操作である。鍵交換2操作は通常管理入口とHost入口の両方で同じ意味を持つ。通常入口は現行管理認可、Host入口はHost OS Authorityを確認する。全4組で対象ID・表示名・失効範囲・発行先・保持情報を事前表示し、Host入口または全員交換の3組だけ明示確認する。Hostを第三の回復操作や特別ユーザーとして扱わない。
+
+自身の認証済み表示は許可し、非認証のユーザー情報と非管理者の他ユーザー一覧・存在・件数は返さない。管理能力だけでRepository内容閲覧を許可しない。生Secretは発行／交換後に一度返す経路だけに置き、ログ・保存・Evidence・会話へ複製しない。既存の秘密発行はHostまたは同一Process Workbenchに限定されており、新2操作の具体的な公開入口はDetails／Source照合待ちである。Remote MCPへの秘密発行や画面／CLI分担を本モデルで確定しない。
 
 ## 4. 主要なブロック間シーケンス
 
@@ -108,7 +119,9 @@ Coordinatorの通知関数をOrchestratorが登録する。
 | Project／Task状態 | Orchestrator | Orchestrator | Projection、Transport | Adapterによる状態生成 |
 | Objective／Milestone受入判断 | Objective／Milestone Acceptance Decision Record | Acceptance Decision Port | Orchestrator、Projection | Projectionからの書込み、Task作成、Provider Effect、下位完了からの推定 |
 | Public Result | Public Application Contract | Orchestratorの結果変換 | Transport、Client | Transport固有意味の追加 |
-| Session Grant／Exposure | Workspace Resolver | 認証・管理境界 | Federation、Projection | Repository Relationからの権限生成 |
+| ユーザー／Role／資格・Exposure | Access Management | 認可された管理操作 | 現在認可 | Credentialの旧権限固定、Repository Relationからの権限生成 |
+| 要求毎の認可済みRepository集合 | Access Managementの認可Query | 非該当（現在状態から要求毎に解決） | Domain Model | 永続Grant化、旧権限固定、DomainによるCredential／Grant解釈と権限再生成 |
+| 鍵交換の非秘密状態 | Access Management | 同じ交換Operation | 現在Authorityを再確認した再入場と許可された結果表示 | Secret保存、記録からのAuthority復元、発行不明の成功化 |
 | Repository Binding | Binding Resolver | 検証済みVersion Control Port | Runtime、Tool | Path文字列からの再構成 |
 | Runtime Data Metadata | Runtime Data Contract | 各Ownerの限定Writer | Recovery、Cleanup | Tool固有Top-levelの無秩序追加 |
 | 実行事実読取りProjection | 既存の実行事実Source | 現在責務の外側 | 実行記録読取りProjection | Projectionによる事実生成・保存、既存事実の再解釈 |
@@ -123,6 +136,8 @@ Coordinatorの通知関数をOrchestratorが登録する。
 - 外部境界は最小Probeだけでなく、入力から終了後状態までのLifecycleを段階的に結合確認する。
 - Transport parityは同じApplication Contractへ同じ意味が届くことを確認し、同じ文字列だけを比較しない。
 - restricted、unknown、not_observed、blockedを成功や不存在へ畳まない。
+- 現行Role変更・失効が後続要求へ反映され、三可視境界と管理／内容閲覧の分離がすべての入口で維持されることを確認する。
+- 鍵交換2操作×2入口の事前表示・3組の明示確認、独立失効の新発行0、処置前停止、失効後不明の同じRecovery搬送を確認する。
 - Project Management Projectionから受入判断の書込みAuthorityが生じず、SPEC-000006／SPEC-000007がAcceptance Decision Portへ到達できないことを確認する。
 - Acceptance Decision PortはSPEC-000002の明示判断だけを記録し、Task作成・Provider Effect・下位完了からの上位受入推定を行わないことを確認する。
 

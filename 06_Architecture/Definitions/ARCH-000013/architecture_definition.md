@@ -99,7 +99,7 @@ Workbench／MCP／管理入口
 | [SCR-000008／PRT-000008](../../../04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md) | `PRT-000008.spec-000012` | 対象・事前表示・状態・部分結果・一度表示Secretを配置制約として保持。Layoutと画面／CLI分担はUI Detailへ戻す |
 | [BHV-000012](../../../05_SPEC/Details/BHV-000012/behavior.md) | 同じ既存Relation | Trigger・Authority・Validation・失効／発行・結果・Recoveryを保持。振る舞い変更はSPEC Detailへ戻す |
 
-[Detail Traceability](../../08_UI_SPEC_Detail_Traceability.md)と03〜07の横断モデル、CROS／MCP／Workbench等のDetailsは未追従。旧配置を新Ownerの完成形として扱わない。
+03〜06の横断モデルは伝播済み・限定独立レビュー済み。[Detail Traceability](../../08_UI_SPEC_Detail_Traceability.md)と07詳細領域Map、CROS／MCP／Workbench等のDetailsは未追従。旧配置を新Ownerの完成形として扱わない。
 
 ## 9. 互換性・移行・成立済み能力
 
