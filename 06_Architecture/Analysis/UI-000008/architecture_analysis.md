@@ -2,23 +2,38 @@
 
 成果物種別: Architecture分析（UI観点）
 分析単位: `UI-000008`
-状態: 更新中（最新鍵管理判断の再伝播・限定独立レビュー済み・残指摘0）
+状態: 更新中（最新の権限分担の入力分析は限定独立レビュー済み・残指摘0）
 
 ## 1. 正式入力
 
 - [UI-000008 ユーザー・Role権限・接続資格とAccess回復](../../../04_UI/Definitions/UI-000008/ui_definition.md)
-- 基準Commit: `93cfba7b`
+- 基準Commit: `ea99450f`
 
 このUI Definitionだけを意味の正式入力とする。UX-000013／UX-000035／IA-000009は同Definitionが示す来歴であり、追加の正式入力ではない。SPEC、現行Architecture、Sourceや旧Evidenceから不足するUI意味を補完しない。UI工程Exit後の通常Handoffではなく、採用済み契約への既存設計の是正伝播である。
 
 ## 2. 引き継ぐUI契約
 
-鍵の発行・独立失効・交換は固定administrator専用で、Role設定のON／OFF対象にしない。通常鍵操作は同一Process Workbench backendだけ。MCPには鍵操作の一覧・Schema・登録・dispatchを公開しない。Hostはログイン済みローカル操作者を信頼する対話CLIで交換2操作のみを扱い、追加認証・専用資格・承認コード・OS管理者昇格なし、既存Root／Path検証を維持する。他4管理群（ユーザー管理・Role設定・Repository登録・公開範囲管理）の担当Role・設定可否はOPEN。
+鍵の発行・独立失効・交換は固定administrator専用で、Role設定のON／OFF対象にしない。通常鍵操作は同一Process Workbench backendだけ。MCPには鍵操作の一覧・Schema・登録・dispatchを公開しない。Hostはログイン済みローカル操作者を信頼する対話CLIで交換2操作のみを扱い、追加認証・専用資格・承認コード・OS管理者昇格なし、既存Root／Path検証を維持する。
+
+| 管理操作 | developer | manager | administrator |
+|---|---|---|---|
+| ユーザー登録・表示名変更 | 不許可 | 許可 | 許可 |
+| developer／managerの割当て・変更 | 不許可 | 許可 | 許可 |
+| administratorの付与・解除・降格を含むRole変更 | 不許可 | 不許可 | 許可 |
+| developer／managerの詳細権限設定 | 不許可 | 許可 | 許可 |
+| administratorの詳細権限設定 | 不許可 | 不許可 | 許可 |
+| 鍵の発行・独立失効・交換 | 不許可 | 不許可 | 許可 |
+| Repository登録・登録解除 | 不許可 | 許可 | 許可 |
+| Repository公開範囲設定 | 不許可 | 許可 | 許可 |
+
+固定管理能力は現行Roleと上表から判定し、Role詳細の内容設定から派生させない。UIは管理可否と内容閲覧可否を別に示し、管理者にも内容を自動付与しない。manager自身の内容範囲変更も、変更前の現在管理認可→明示的なRole内容設定／Exposure更新→次要求で現行Role・Exposure・実アクセス再評価の順を認識可能にし、更新受理を取得成立と表示しない。
 
 | 対象 | Architectureへ保持する認識・操作・Feedback |
 |---|---|
 | 利用・自身表示 | 自身の表示名と安定userId、現行Role権限、Repository公開範囲と実アクセスを別に認識する。利用5区分と部分成立を区別する |
-| 最小ユーザー管理 | 安定userId（UUID）・管理者設定の表示専用名・一つのRoleを分ける。他4管理群の担当Role・設定可否はOPEN。資格発行は固定administrator操作と分離する。名前を本人性・Authorityにしない |
+| 最小ユーザー管理 | 安定userId（UUID）・管理用表示専用名・一つのRoleを分ける。新規登録は予定Role、既存Role変更は対象ID・前後Role、表示名変更は対象ID・新表示名を示す。managerのadministrator表示名変更は許可し、管理者Roleの付与・解除・降格は提供しない。表示名変更でID・Role・Credentialを変えず、資格発行と分離する。名前を本人性・Authorityにしない |
+| Role内容設定 | 対象Roleと変更内容を示す。managerはdeveloper／manager、administratorは三Roleの内容設定を扱う。固定管理操作の設定委譲やユーザー・資格の個別追加権限を示さない |
+| Repository管理 | manager／administratorへ対象Repository ID・現在の登録／公開状態・変更内容と結果を示す。登録≠公開、登録解除≠Repository／Product Data削除、公開≠実アクセス成立を区別する |
 | 資格 | Credential ID→userIdと現在のRoleを区別し、古い権限固定を避ける。有効／期限切れ／失効／不明を表示し、永続resetting／rotation状態を増やさない |
 | 指定ユーザー交換 | 対象の全旧有効資格失効と同じ既存userIdへの発行、他ユーザーの鍵保持を認識する |
 | 全員交換 | 操作中管理者自身を含む全旧有効資格の失効、指定既存administratorへの発行、他ユーザーの通常再発行・再配布待ちを認識する |
@@ -28,7 +43,8 @@
 | 情報保持 | 鍵交換でuserId・表示名・Role・詳細権限・Repository登録・Product Dataを保持する |
 | 部分結果 | 失効後の発行失敗・応答／Process喪失では失効確定範囲と発行不明、同じRecoveryと確認先を示す。現在再観測なしに完了・rollback・旧鍵有効・取消完了を表示しない |
 | 可視性・秘密 | 自身表示可、非認証User情報0、現在他ユーザー参照を許可されていない主体の他User一覧・存在・件数0。非開示Repositoryも理由で漏らさない。新Secretは発行／交換後だけ一度表示、保存・再表示しない |
-| 停止 | 対象不明・必要な管理者不存在・必要状態の安全な観測不能・認可設定破損では新Effect前停止を認識できる |
+| 通常管理の停止 | 対象・変更前の現在管理認可・操作に必要な状態を安全に確認不能、または認可設定破損では新Effect前停止を認識できる。manager許可の通常管理へadministrator存在条件を追加しない |
+| 鍵処置の停止 | 発行の既存userId、独立失効のCredentialとuserIdの結合、交換の対象・必要資格集合・全員交換の指定既存administrator等が不明・不成立なら新鍵Effect前停止を認識できる。通常入口の固定administratorとHostのログイン済み操作者を別に扱い、Hostへ追加資格認証を要求しない |
 | 単体利用・初回設定 | Repository単体利用は資格不要。初回Server設定方式は変更しない |
 
 重要な不足・不明・制限を詳細へ隠さず、色だけで識別させない。対象確認・判断・戻り先はキーボードと文字表示でも理解できるようにする。Workbench／Host CLIの入口分担は採用済み。具体表示・案内、Layout、CMP、期限、Schemaは未確定事項を維持する。
@@ -42,7 +58,7 @@
 | 状態・データ | 名前、ID、Role権限、資格、公開範囲、取得可能性、回復の結果を独立軸で搬送する。表示専用Storeを新設しない |
 | Failure・Recovery | 既知失効と発行不明を隠さず、同じRecoveryへ戻れる導線を保持する。結果表示を取消・rollback保証にしない |
 | Security・品質 | 三可視境界、秘密一度表示・非保存、管理と内容閲覧の分離、部分成立と不明の保持を利用側でも反証する |
-| 検証意図 | 2操作×2入口、独立失効、通常管理、同名／改名、三可視境界、処置前停止、処置後不明を対象にする。試験ID・実測結果はQualityで定める |
+| 検証意図 | 固定8操作の各Role許可／拒否、操作別対象、managerのadministrator名前のみ変更、自己範囲変更の時間順、管理≠内容、登録≠公開、解除≠削除を対象にする。developer管理拒否を自身表示・許可内利用の拒否へ広げない。2操作×2入口、独立失効、同名／改名、三可視境界、処置前停止、処置後不明も保持する。試験ID・実測結果はQualityで定める |
 
 ## 4. 処置と未確認事項
 
@@ -61,7 +77,7 @@
 
 ## Checklist
 
-今回の検証意図は通常鍵3操作の固定administrator、MCP鍵操作非公開、Host新規発行・独立失効なし、追加Host認証なし、交換4組表示・3組確認、処置前停止、参照許可と鍵操作権限の分離を含む。新規発行・独立失効に交換再入場を付与しない。Quality Local Itemや実測結果はこの分析で確定しない。
+今回の検証意図は通常鍵3操作の固定administrator、MCP鍵操作非公開、Host新規発行・独立失効なし、追加Host認証なし、交換4組表示・3組確認、処置前停止、参照許可と鍵操作権限の分離を含む。通常発行の旧資格非失効、独立失効の指定Credential以外非失効・新資格／Secret非発行、交換の所定失効範囲を認識できることも確認する。新規発行・独立失効に交換再入場を付与しない。Quality Local Itemや実測結果はこの分析で確定しない。
 
 - [x] 自身のUI Definitionだけを正式意味入力とした
 - [x] 認識・操作・Feedback・状態・アクセシビリティを保持した
@@ -69,4 +85,4 @@
 - [x] 失敗・回復・Security・品質制約・検証意図を評価した
 - [x] Human Inputと未確認事項・戻り条件を保持した
 - [x] 現行Sourceから意味を逆輸入せず、反対観点との統合事項を示した
-- OPEN: 詳細設計・横断モデル・Quality・Sourceは未追従。UI工程Exit、Architecture Ready、実装成立を主張しない。
+- OPEN: ARCH-000013・横断モデル・Architecture詳細・Quality・Sourceは最新分担へ未追従。前判断の限定Passは履歴であり、今回の分析候補のPassではない。UI工程Exit、Architecture Ready、実装成立を主張しない。

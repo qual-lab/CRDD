@@ -46,7 +46,7 @@ v0.21.0は公開済み、v0.22.0とCHG-000082は未完了である。責務再�
 
 managerとadministratorがユーザー登録・表示名変更、developer／managerの割当て・詳細権限設定、Repository登録・登録解除・公開範囲を管理する。管理者資格の付与・解除・変更、administratorの詳細権限、鍵3操作はadministratorだけが管理する。manager自身の内容範囲変更は明示設定で可能だが、管理能力から内容を自動付与しない。登録だけでは公開されず、登録解除はProduct Data削除ではない。
 
-担当Roleの追加判断は不要となった。上流反映に続いて、REQ-000041のUX分析・UX-000035・横断5文書へ限定伝播し、限定独立レビュー済み・残指摘0である。続いてIA分析・IA-000009・横断4文書へ限定伝播し、限定独立レビュー済み・残指摘0。UI／SPECの定義・分析・横断投影12文書へ限定伝播し、限定独立レビュー済み・残指摘0。UI／SPEC詳細7文書へ伝播し、契約・品質の独立レビュー待ち。Architecture／QualityとSourceは未伝播・未実装。以前の限定レビュー結果は前判断の履歴であり、最新判断のPassではない。具体API・保存・初回設定・本番接続の未完了は維持する。正本は[REQ-000041](01_Discovery/Definitions/REQ-000041/requirement.md#要求)、追跡は[UI／SPEC詳細伝播](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#ui-spec-role-detail-propagation)、[UI／SPEC定義伝播](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#ui-spec-role-propagation)、[IA伝播](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#権限分担のia伝播--2026-10-11)と[UX伝播](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#権限分担のux伝播--2026-10-11)を参照する。
+担当Roleの追加判断は不要となった。上流反映に続いて、REQ-000041のUX分析・UX-000035・横断5文書へ限定伝播し、限定独立レビュー済み・残指摘0である。続いてIA分析・IA-000009・横断4文書へ限定伝播し、限定独立レビュー済み・残指摘0。UI／SPECの定義・分析・横断投影12文書へ限定伝播し、限定独立レビュー済み・残指摘0。UI／SPEC詳細7文書も契約・品質の限定独立レビュー済み・残指摘0。Architecture入力分析2件は契約・品質の限定独立レビュー済み・残指摘0。ARCH-000013・横断モデル・Architecture詳細・Quality・Sourceは最新分担へ未追従。以前の限定レビュー結果は前判断の履歴であり、最新判断のPassではない。具体API・保存・初回設定・本番接続の未完了は維持する。正本は[REQ-000041](01_Discovery/Definitions/REQ-000041/requirement.md#要求)、追跡は[Architecture入力分析伝播](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#architecture-role-analysis-propagation)、[UI／SPEC詳細伝播](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#ui-spec-role-detail-propagation)、[UI／SPEC定義伝播](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#ui-spec-role-propagation)、[IA伝播](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#権限分担のia伝播--2026-10-11)と[UX伝播](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#権限分担のux伝播--2026-10-11)を参照する。
 
 ### 結論
 
@@ -69,7 +69,7 @@ MCP詳細の最新判断伝播は契約・品質の限定独立再レビュー�
 
 鍵の発行・独立失効・交換はadministrator専用固定で、RoleのON／OFF設定を設けない。通常入口は同一Process Workbench、Host回復はログイン済みローカル操作者の対話CLIで追加認証なし。対象・影響表示と既存確認は維持する。鍵操作はSecret有無にかかわらずMCPへ公開しない。発行権限OFFの仮説について追加判断は不要となった。他管理群の担当Roleも2026-10-11に採用済みであり、下流伝播は未完了である。
 
-2026-10-10の鍵管理境界について、要求・基本定義・AM詳細・判断履歴、UXからArchitectureまでの限定伝播と独立レビュー結果は前判断の履歴として保持する。2026-10-11の担当Role分担はUXの限定再レビュー済み・残指摘0。IAは限定伝播・限定独立レビュー済み・残指摘0で、UI／SPEC定義・対応は限定確認済み、詳細は伝播・限定独立レビュー済み・残指摘0。Architecture以降は未伝播。具体API・保存・受領方式、Quality・Source・本番公開入口・実境界は未完了であり、旧限定結果から最新判断や全体完成を主張しない。
+2026-10-10の鍵管理境界について、要求・基本定義・AM詳細・判断履歴、UXからArchitectureまでの限定伝播と独立レビュー結果は前判断の履歴として保持する。2026-10-11の担当Role分担はUXの限定再レビュー済み・残指摘0。IAは限定伝播・限定独立レビュー済み・残指摘0で、UI／SPEC定義・対応は限定確認済み、詳細は伝播・限定独立レビュー済み・残指摘0。Architecture入力分析2件は契約・品質の限定独立レビュー済み・残指摘0。ARCH-000013・横断モデル・Architecture詳細以降は未伝播。具体API・保存・受領方式、Quality・Source・本番公開入口・実境界は未完了であり、旧限定結果から最新判断や全体完成を主張しない。
 
 ## 4. なぜこの状態・判断になったか
 
