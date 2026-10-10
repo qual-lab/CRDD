@@ -12,7 +12,7 @@
 | 正式入力 | 担当する断面 | Relation状態 |
 |---|---|---|
 | [ARCH-000013](../../Definitions/ARCH-000013/architecture_definition.md) | 最小ユーザー・Role・資格管理、現在認可、接続／公開情報、限定鍵交換 | Partial。物理保存・移行・公開入口未確定 |
-| [SCR-000008](../../../04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md)／`PRT-000008.spec-000012` | 対象と影響、4組の事前表示、3組だけの明示確認、一度表示、部分結果と同じRecoveryへの導線 | Partial。採用済み入口分担を継承、具体Layout・API・受領方式は未確定 |
+| [SCR-000008](../../../04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md)／`PRT-000008.spec-000012` | 対象と影響、4組の事前表示、3組だけの明示確認、一度表示、発行不明の再観測と受け渡し未確認後の別交換への導線 | Partial。採用済み入口分担を継承、具体Layout・API・受領方式は未確定 |
 | [BHV-000012](../../../05_SPEC/Details/BHV-000012/behavior.md) | 要求毎認可、管理・失効・交換、Effect前拒否、部分失敗、現在再観測 | Partial。保存確定と実境界未実装 |
 
 UIは見え方・操作、SPECは成立条件、本文は実装Owner・情報・順序と失敗境界を所有する。意味を変更する場合は上流へ戻す。候補設計の存在からArchitecture Ready、QA Handoff、Source移管・E2E成立を主張しない。
@@ -70,7 +70,7 @@ Package Rootの`src/index.ts`から明示公開し、Capability内barrelは作�
 | 表示名変更 | 既存対象userId・新表示名、現在manager／administratorの認可と期待改訂。administratorの名前もmanagerが変更可能 | 表示名だけ保存・読戻し。userId・Role・Credentialを保持 |
 | 既存Role変更 | 既存対象userId・変更前／後Role、現在管理認可と期待改訂。managerは前後ともdeveloper／managerのみ | 割当てRoleを保存・読戻し。administratorの付与・解除・降格はadministratorだけ。次要求で現行Roleを再評価 |
 | Role内容設定 | 対象Role・変更内容、現在管理認可と期待改訂。developer／managerの内容設定はmanager／administrator、administrator内容設定はadministratorのみ | 内容設定だけ保存・読戻し。固定管理分担のON／OFF・再委譲を受理しない |
-| Repository登録・登録解除 | 対象Repository ID・現在登録状態・変更内容、現在manager／administratorの認可と期待改訂。登録時は検証済みBindingを確認 | 接続登録の変更を保存・読戻し。登録≠公開、解除≠Repository／Product Data削除 |
+| Repository登録・登録解除 | 対象Repository ID・現在登録／Exposure状態・変更内容、現在manager／administratorの認可と期待改訂。登録時は検証済みBindingを確認し、登録時の再検証を解除条件に転用しない | 登録は接続登録だけを保存・読戻し、登録≠公開。解除は同じ受理済み操作・採用改訂で対象登録と対応Exposureを除去し、両読戻し確認時だけ完了。対象外登録・Exposure、Repository本体・Product Dataを保持。開始済み操作の取消完了・過去Effect0・実資源終了は証明しない |
 | Exposure設定 | 対象Repository ID・現在登録／公開状態・変更内容、現在manager／administratorの認可と期待改訂 | 公開範囲だけ保存・読戻し。管理権限・更新受理から内容取得を生成しない |
 | 資格発行 | 現行administrator、既存userId、整合状態。Verifierと紐付けを保存 | 同一Process Workbenchへ新Secretを一度だけ返す。MCP・Host回復の操作にしない |
 | 独立失効 | 現行administrator、exact Credential IDと既存userIdの結合・期待改訂。指定資格の失効だけを確定 | 対象外失効0、新発行0、Secret0、交換Recovery0、次要求拒否。MCP・Host回復の操作にしない。旧要求取消完了の証明ではない |
@@ -103,7 +103,7 @@ Package Rootの`src/index.ts`から明示公開し、Capability内barrelは作�
 | 旧資格失効 | 競合を再照合し、選択集合の失効を確定。対象外資格と保持情報の不変を観測 | 確定／不明を同じRecoveryに残し、新Recoveryでやり直さない |
 | 新資格発行 | 既存発行先へ新Verifier／資格Identityを確定。失効結果とは別に観測 | 失効確定でも発行失敗／不明ならcompletedではない |
 | 結果確定 | 失効範囲・発行結果・結果改訂を同じRecoveryへ非秘密で確定 | 記録・読戻し不明を完了へ丸めない |
-| 結果配送 | 許可された入口へ結果と一度限りのSecretを返す | 発行・結果記録が確定済みなら、その確定を保持して配送／受領だけを不明にする。未確定の段階だけを不明として現在再観測する。Secret再表示なし |
+| 結果配送 | 許可された入口へ結果と一度限りのSecretを返す | 発行・結果記録が確定済みなら「発行済み・受け渡し未確認」とし、確定を保持する。未確定発行の再観測と、確定後に明示選択する別交換を§6で分ける。Secret保存・再表示・自動再発行なし |
 
 資格状態（有効／期限切れ／失効／不明）と、回復の確認待ち／進行中／blocked／completedを混同しない。交換のcompletedは必要な失効と発行が確定している時だけで、結果の配送・受領確認とは別の事実である。UIには現在観測できた結果と未確定範囲を分けて返す。永久resetting／rotating資格状態は追加しない。
 
@@ -116,11 +116,14 @@ Package Rootの`src/index.ts`から明示公開し、Capability内barrelは作�
 | 鍵処置前の操作固有条件不足・競合・破損 | 新鍵Effect0で停止。発行は既存userId、独立失効は資格-userId結合、交換は対象集合・必要な既存発行先を再確認 | Role初期化、設定修復、特別ユーザー生成、Hostへの追加資格認証 |
 | 失効publish結果不明 | 同じRecoveryと現在資格状態から確定範囲を観測。相関不能なら停止 | 未失効／全失効への丸め、自動新規交換 |
 | 失効確定後の発行失敗 | 同じRecoveryで失効結果と発行状態を保持し、現在状態・Authorityを再確認 | rollback、旧鍵の再有効化、正常完了 |
-| 発行／結果記録中のProcess喪失 | 既知失効を保持し、発行と非秘密結果記録それぞれの確定／不明を同じRecoveryへ残して現在再観測 | 確定済み発行を不明へ戻すこと、Secret再取得・再表示、記録からAuthority復元、重複発行 |
-| 発行・結果記録確定後の応答／配送喪失、または配送観測後の受領不明 | 発行・結果記録の確定を保持し、配送と受領を別々に観測する。次の処置は保存／配送設計で確定するまでOPEN | 配送喪失による発行不明への変更、Secret再表示、受領不明からの再発行・受領完了・Authorityの推定 |
+| 発行または非秘密結果記録が不明・Process喪失 | Credential IDとは別の非秘密な元発行Identityと既知事実で現在再観測し、新交換を開始しない。交換由来だけ元のexact Recoveryを保持。通常発行には交換Recoveryを新設しない | 確定事実の不明化、Secret再取得・再表示、記録からAuthority復元、重複発行、通常発行不明の`unresolvedKeyExchanges`への格納 |
+| 発行・結果記録確定後の応答／配送喪失、または配送観測後の受領不明 | 「発行済み・受け渡し未確認」と表示し、既知の発行・記録と元発行Identityを保持。現在許可されたadministratorが既存の指定／全員交換を明示的な別Operation／別Recoveryとして選択する | 確定発行の不明化、Secret保存・再表示、自動再発行、受領不明を確定未受領へ丸めること、別交換成功からの旧受領・rollback・取消完了推定 |
+| 現在administratorとして接続できない | 既存のログイン済みHost交換2操作へ案内し、その現在対象・条件・確認を再適用する | Workbench認可迂回、Hostへの通常発行・独立失効・追加認証・新Recovery機構の追加 |
 | 全員交換で呼出し管理者自身が失効 | 開始済み処理の結果確定と新規再入場を分ける。再入場は新しい現在Authorityが必要 | 旧管理資格やRecovery参照による再認可 |
 
-回復参照・結果照会は許可された利用側だけへ返す。参照自体に認可能力を持たせない。Host再入場はローカル入口で対象・現在状態を再確認し、記録を処理許可へ昇格しない。現在再観測後の具体的な発行再開・受領不明資格の処置は保存／配送設計と合わせて未確定で、汎用回復Frameworkを作らない。
+別交換の指定操作は、先に発行した鍵を含む対象ユーザーの全旧有効資格を失効し、同じ既存userIdへ新資格を発行して他ユーザーを保持する。全員操作は先の鍵を含む全旧有効資格を失効し、指定既存administratorへ一資格を発行し、他ユーザーは通常再発行・再配布へ戻る。各交換内では旧資格失効前から同じexact Recoveryを保持し、別交換の結果を旧処理の受領・rollback・取消完了へ転用しない。遅延した旧応答で失効済み鍵を利用可能と表示しない。
+
+回復参照・結果照会は許可された利用側だけへ返す。参照自体に認可能力を持たせない。Host再入場はローカル入口で対象・現在状態を再確認し、記録を処理許可へ昇格しない。3分岐の処置方針は確定済みである。元発行Identity・公開read・配送観測の具体保存／搬送と保持・清掃は[保存設計](02_Management_State_and_API.md)のOPENとして残し、汎用回復Frameworkを作らない。
 
 ## 7. 配置・秘密・観測境界
 
@@ -138,10 +141,10 @@ Package Rootの`src/index.ts`から明示公開し、Capability内barrelは作�
 |---|---|---|---|---|---|---|
 | `access-management.current-authorization` | §2〜3のユーザー・Role・資格 | 固定8分担×三Roleの許可／拒否と内容要求の再評価／旧権限固定、同名Identity混同、override、Role内容設定による管理付与・再委譲を反証 | UT／IT／ST | Direct Boundary | 認証・認可・改訂の相関、許可外Effect0、Request値解放 | 内容権限の具体語彙・Schema |
 | `access-management.visibility` | §3〜4の三可視境界・Repository非開示 | 自身表示／非認証User情報、他ユーザー参照の現行管理権限を持たない入口への他User存在・件数、管理から内容を反証 | IT／ST／UAT | System/E2E／User Acceptance | 公開入口結果・対象Owner呼出し、許可外情報0 | 具体表示・本番接続 |
-| `access-management.management-and-revoke` | §4の通常管理・独立失効 | 通常6操作の対象・保存読戻し・次要求評価／managerのadministrator名前変更拒否・Role変更許可、正常管理への管理者存在条件、登録＝公開・解除＝削除、自己内容変更の時間順違反、読戻し不明＝未保存を反証。独立失効は対象限定・次要求拒否／新発行やTask取消推定を反証 | UT／IT／ST | Direct Boundary | 改訂・確定結果、独立失効の発行0・保持情報不変 | 保存単位 |
+| `access-management.management-and-revoke` | §4の通常管理・独立失効 | 通常6操作の対象・保存読戻し・次要求評価／managerのadministrator名前変更拒否・Role変更許可、正常管理への管理者存在条件、登録＝公開、解除片側除去だけの完了、対象外／本体変更、解除からの開始済み取消推定、自己内容変更の時間順違反、読戻し不明＝未保存を反証。独立失効は対象限定・次要求拒否／新発行やTask取消推定を反証 | UT／IT／ST | Direct Boundary | 解除は同一受理操作・採用改訂の登録／Exposure両除去読戻し。対象外と本体保持、終了未観測は別事実。独立失効の発行0・保持情報不変 | 保存単位 |
 | `access-management.key-exchange-scope` | §5の4組 | 対象集合・既存発行先・3組確認／対象不明・管理者なし・破損・不適切確認を反証 | UT／IT／ST／UAT | System/E2E／User Acceptance | 事前表示、対象資格集合、新旧照合、保持情報不変 | 具体入口と保存確定 |
-| `access-management.partial-recovery` | §5〜6の相関・Process喪失 | 同じRecoveryと現在Authority／失効確定・発行不明と、発行／記録確定・配送不明を混同する処置、rollback・旧鍵有効・再表示・重複発行を反証 | IT／ST | Direct Boundary／System/E2E | 故障注入後の耐久読戻し・新Process再観測。失効・発行・結果記録・配送／受領を相関し、既知の確定と各段階の不明を保持 | atomicity・再開方式 |
-| `access-management.secret-delivery` | §5〜7の短命秘密・配送／受領・配置 | 一度配送／発行・記録確定後の配送不明、配送観測後の受領不明からの再発行・完了推定、保存・ログ・再表示、SecretなしでもMCPへの鍵操作公開、Host一般管理を反証 | IT／ST | Direct Boundary／System/E2E | 発行・結果記録・配送・受領の別観測、MCP Tool一覧・Schema・dispatchの鍵操作0、Hostは交換2操作だけ、保存・ログ検査、配送後秘密非保持 | 入力・受領意味・清掃 |
+| `access-management.partial-recovery` | §5〜6の相関・Process喪失 | 元発行Identityによる再観測、交換由来の同じexact Recovery、確定後の明示的な別交換／通常発行へのRecovery付与、不明発行からの新交換、Credential IDとの混同、旧処理と別交換の混同、rollback・重複発行を反証 | IT／ST | Direct Boundary／System/E2E | 故障注入後の耐久読戻し・新Process再観測。各段階の既知／不明と旧元Identityを保持し、別Operation／Recoveryと各交換内exactを区別 | atomicity・元Identityの保存／再観測方式 |
+| `access-management.secret-delivery` | §5〜7の短命秘密・配送／受領・配置 | 一度配送と受け渡し未確認の表示、現在認可による別交換／自動再発行・確定未受領への丸め・旧受領完了推定、失効鍵の遅延利用案内、保存・ログ・再表示、MCP鍵公開、Host一般管理を反証 | IT／ST | Direct Boundary／System/E2E | 発行・結果記録・配送・受領の別観測、MCP一覧・Schema・登録・dispatchの鍵操作と鍵Recovery参照0、Host交換2のみ、保存・ログ検査、配送後秘密非保持 | 入力・配送受領観測・清掃 |
 
 導出キーは領域内参照で、新しい安定IDではない。試験段階と外部境界段階は別軸。全体の履歴や旧試験成功をこの契約の新Evidenceへ流用しない。
 
@@ -167,7 +170,7 @@ Package Rootの`src/index.ts`から明示公開し、Capability内barrelは作�
 | Resource Lifecycle | OPEN | 短命SecretとRequest値は§2／7。保持上限・清掃・配送後残存未設計、保存／入口設計で確認 |
 | External Boundary | OPEN | §7の論理配置は固定、公開入口・OS保存・配送実境界は未具体化、Surface／保存担当で確認 |
 | State／Consistency | OPEN | §2／5の論理整合を要求。失効／発行／相関の確定方法未設計、保存設計で確認 |
-| Failure／Recovery | OPEN | §6の禁止推定は固定、故障後再観測・発行再開と受領不明処置は未設計、保存／入口設計で確認 |
+| Failure／Recovery | OPEN | §6の3分岐と禁止推定は固定。元発行Identity・公開read・配送観測の具体保存／搬送は未設計、保存／入口設計で確認 |
 | Observability | OPEN | §7の観測項目は固定、非秘密Schema・読戻しと公開結果の相関未確定、保存／Surface設計で確認 |
 | Security／Trust | OPEN | §3〜7の保護条件は固定、内容権限の具体語彙・秘密配送・新保存での成立は未具体化、認可／Surface設計で確認 |
 
@@ -215,4 +218,4 @@ Package Rootの`src/index.ts`から明示公開し、Capability内barrelは作�
 - [x] 旧実装比較を正式設計入力と区別し、旧能力の保持Gateを残した
 - OPEN: 保存、内容権限の具体語彙、公開入口、Domain詳細、Quality、Source・新実境界は未完了
 - 履歴: 旧鍵管理判断の限定レビューは当時の範囲だけに適用する。
-- 最新固定8分担は本詳細へ候補伝播済み・限定独立レビュー済み・残指摘0。具体API・保存・Quality・Source・実境界は未完了。
+- 最新固定8分担の限定独立レビューは当時の範囲だけに適用する。登録解除と鍵3分岐を本詳細へ候補伝播済み・今回の契約・品質の限定独立レビュー済み・残指摘0。具体API・保存・Quality・Source・実境界は未完了。

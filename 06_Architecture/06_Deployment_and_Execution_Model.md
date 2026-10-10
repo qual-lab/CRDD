@@ -4,7 +4,7 @@ Status: Candidate (v0.22 responsibility reorganization)
 Owner: Qual-Lab
 Last Updated: 2026-10-11
 
-最新の固定8管理操作は基本設計・横断モデルへ限定伝播・契約／品質の独立レビュー済み・残指摘0。前鍵管理契約の限定Passは履歴であり、最新分担のPassへ流用しない。Access Management／Workbench／MCPの3詳細へ最新分担を候補伝播し、限定独立レビュー済み・残指摘0。Quality・Source・具体API／保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
+固定8管理分担の前回限定レビューは履歴として保持する。今回は登録解除の両除去・読戻しと、鍵の発行／記録不明・確定後の受け渡し未確認・現在administrator非接続の3分岐を横断モデルへ候補伝播し、契約・品質の限定独立レビュー済み・残指摘0である。Quality・Source・具体API／物理保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
 
 ## 1. この成果物が所有すること
 
@@ -66,10 +66,10 @@ Coordinatorは単体の実行Runtimeとして利用でき、Orchestratorはそ�
 | Acceptance Decision Operation | 対象Identity、根拠Revision、明示判断 | Objective／Milestone／判断者 | 受入・差戻し・判断待ちの限定記録またはEffect 0 |
 | 接続認可Query | Credential→userId、現行Role詳細権限、Workspace／Exposure、取得可能性 | 要求／認証Context | 現在認可済み集合または非開示拒否を返す。接続の終了はTransport Ownerが確認する |
 | 認可済みFederation Query | 許可済みRepository集合、Source snapshot、Coverage | Query／対象集合 | Domain Modelが根拠と不完全性を返す。管理権限から内容閲覧を生成しない |
-| 通常管理Operation | 操作別の予定Role／既存対象／前後Role／Role内容／接続登録／Exposure | 操作／対象／変更前の現行Roleに対する固定8分担 | 対象更新・結果確定・搬送・受領を分離。不明を成功化せず、次要求で内容認可を再評価。登録≠公開、解除≠削除。新Process／保存方式／公開APIは未確定 |
+| 通常管理Operation | 操作別の予定Role／既存対象／前後Role／Role内容／接続登録／Exposure | 操作／対象／変更前の現行Roleに対する固定8分担 | 対象更新・結果確定・搬送・受領を分離。不明を成功化せず、次要求で内容認可を再評価。登録≠公開。解除は同じ受理操作・採用改訂の登録と対応Exposureを両読戻しし、対象外・本体を保持。開始済み取消非証明。新Process／保存方式／公開APIは未確定 |
 | 新規資格発行Operation | 既存対象userId、発行結果 | 操作／対象userId／同一Process Workbenchの現行administrator | 発行・結果記録・搬送・受領を別観測。旧失効0・交換Recoveryなし。配送失敗だけで確定発行を不明化しない |
 | 独立失効Operation | exact対象資格IdentityとuserIdへの結合、失効結果 | 操作／資格Identity／同一Process Workbenchの現行administrator | 確定した失効資格の後続要求を拒否、不明は既知状態と確認先を返す。範囲拡大・新発行・Secret・交換再入場0、Task取消非証明 |
-| 鍵交換Operation | 対象userId、既存発行先、失効範囲、非秘密Recovery状態 | 2操作／Workbench固定administratorまたは信頼したHostログイン操作者／旧失効前に結合した同じexact Recovery ID | 失効・発行・結果記録・搬送・受領を分離。未確定は同じRecoveryで保持し現在Authorityで再観測。確定発行を後続失敗で不明へ戻さない |
+| 鍵交換Operation | 対象userId、既存発行先、失効範囲、非秘密Recovery状態 | 2操作／Workbench固定administratorまたは信頼したHostログイン操作者／旧失効前に結合した同じexact Recovery ID | 失効・発行・結果記録・搬送・受領を分離。発行／記録不明は元発行Identity・元exact Recoveryで再観測。発行・記録確定後の配送／受領未確認は現在administratorの明示選択だけで別交換へ。各交換内のexactを保持し、確定発行を不明へ戻さない |
 | External Information Request | consent scope、payload、returned candidate | Request Identity | 候補隔離または採否への引渡し |
 | Runtime Data Operation | lease、lock、temporary artifact | Owner／Repository Root | publish、cleanupまたはRecovery記録 |
 | Verification Run | fixed revision、test resource、evidence | Run／test class | 全対象終了、未実施範囲の記録 |
@@ -115,7 +115,11 @@ Canonical Architectureが独立レビューで閉じた後に、次を照合す�
 | CROS／Project Operation | Federation、Projection、候補Lifecycle | [CROS](Details/cros/01_Architecture.md)、[Project Operation](./Details/domain-model/02_Activity_Context.md) |
 | Source／Tests | Canonical責務との対応、未実装、旧Owner残存 | `40_Develop/**`、`template/tools/**`、`07_Quality/**` |
 
+発行／記録不明の通常発行はCredential IDとは別の元発行Identityで再観測し、交換Recoveryを追加しない。発行・記録確定後は「発行済み・受け渡し未確認」とし、別交換は別Operation／Recoveryで既存入口を再利用する。現在administratorとして接続不能なら既存Host交換2操作だけへ案内し、新Process・新Recoveryを作らない。指定交換は先発行鍵を含む対象User全旧有効資格、全員交換は先発行鍵を含む全旧有効資格を扱い、既存発行先・表示確認条件を維持する。旧事実を保持し、遅延旧応答の失効鍵利用表示、秘密再表示・保存・自動発行を禁止する。
+
 ## 6. Qualityへの引渡し
+
+- 元処理と明示した別交換のOperation／Recoveryを区別し、現在認可・対象集合・先発行鍵の失効・遅延旧応答を入口ごとに確認する。
 
 - 実行単位ごとにResource Owner、並行性、timeout、取消、cleanup、Recoveryを確認する。
 - L1の実境界確認とL2のLifecycle結合を、最終E2E前のIntegration Testへ含める。

@@ -2,12 +2,12 @@
 
 成果物種別: Architecture分析（UI観点）
 分析単位: `UI-000008`
-状態: 更新中（最新の権限分担の入力分析は限定独立レビュー済み・残指摘0）
+状態: 更新中（登録解除・鍵受け渡しの採用判断を伝播した候補。契約・品質の限定独立レビュー済み・残指摘0）
 
 ## 1. 正式入力
 
 - [UI-000008 ユーザー・Role権限・接続資格とAccess回復](../../../04_UI/Definitions/UI-000008/ui_definition.md)
-- 基準Commit: `ea99450f`
+- 基準Commit: `9b278dad`（正式入力の現在改訂を照合）
 
 このUI Definitionだけを意味の正式入力とする。UX-000013／UX-000035／IA-000009は同Definitionが示す来歴であり、追加の正式入力ではない。SPEC、現行Architecture、Sourceや旧Evidenceから不足するUI意味を補完しない。UI工程Exit後の通常Handoffではなく、採用済み契約への既存設計の是正伝播である。
 
@@ -33,7 +33,7 @@
 | 利用・自身表示 | 自身の表示名と安定userId、現行Role権限、Repository公開範囲と実アクセスを別に認識する。利用5区分と部分成立を区別する |
 | 最小ユーザー管理 | 安定userId（UUID）・管理用表示専用名・一つのRoleを分ける。新規登録は予定Role、既存Role変更は対象ID・前後Role、表示名変更は対象ID・新表示名を示す。managerのadministrator表示名変更は許可し、管理者Roleの付与・解除・降格は提供しない。表示名変更でID・Role・Credentialを変えず、資格発行と分離する。名前を本人性・Authorityにしない |
 | Role内容設定 | 対象Roleと変更内容を示す。managerはdeveloper／manager、administratorは三Roleの内容設定を扱う。固定管理操作の設定委譲やユーザー・資格の個別追加権限を示さない |
-| Repository管理 | manager／administratorへ対象Repository ID・現在の登録／公開状態・変更内容と結果を示す。登録≠公開、登録解除≠Repository／Product Data削除、公開≠実アクセス成立を区別する |
+| Repository管理 | manager／administratorへ対象Repository ID・現在の登録／公開状態・変更内容と結果を示す。登録解除は同じ受理操作・採用改訂で登録と対応Exposureを除去し、両方の読戻し確認後に完了表示する。対象外の登録・ExposureとRepository／Product Dataを保持する。登録≠公開、公開≠実アクセス、解除完了≠開始済み処理の取消完了を区別する |
 | 資格 | Credential ID→userIdと現在のRoleを区別し、古い権限固定を避ける。有効／期限切れ／失効／不明を表示し、永続resetting／rotation状態を増やさない |
 | 指定ユーザー交換 | 対象の全旧有効資格失効と同じ既存userIdへの発行、他ユーザーの鍵保持を認識する |
 | 全員交換 | 操作中管理者自身を含む全旧有効資格の失効、指定既存administratorへの発行、他ユーザーの通常再発行・再配布待ちを認識する |
@@ -41,7 +41,9 @@
 | 独立失効 | Workbenchの固定administrator操作の対象、失効結果、以後の要求拒否を示す。新発行・Secret・交換再入場なし。結果不明は既知状態と確認先を示し、開始済み操作の取消とは扱わない |
 | 2入口 | 通常管理とHost回復は入口・Authorityの別軸。全4組で対象ID・表示名・失効範囲・既存発行先・保持情報を事前表示し、Host入口または全員交換だけ明示確認する |
 | 情報保持 | 鍵交換でuserId・表示名・Role・詳細権限・Repository登録・Product Dataを保持する |
-| 部分結果 | 失効後の発行失敗・応答／Process喪失では失効確定範囲と発行不明、同じRecoveryと確認先を示す。現在再観測なしに完了・rollback・旧鍵有効・取消完了を表示しない |
+| 発行・記録不明 | Credential IDとは別の元発行Identityと既知事実・確認先を示す。交換由来なら元のexact Recoveryへ戻し、通常発行へ交換Recoveryや新しい交換を付けない |
+| 発行・記録確定後の受け渡し不明 | 「発行済み・受け渡し未確認」と示し、未受領と断定しない。Secretを再保存・再表示・自動再発行しない。現在administratorが既存交換を別操作として明示選択できる。指定ユーザー交換は先発行鍵を含む対象の全旧有効鍵、全員交換は全旧有効鍵を失効する。別交換成功を旧Secret受領・rollback・取消完了と表示しない。遅れた旧応答で失効鍵を利用可能と案内しない |
+| 現在administrator非接続 | 鍵処置のための現在administrator認証が成立しない場合は既存Host交換入口だけを案内する。任意の認可失敗からHostへ迂回させない |
 | 可視性・秘密 | 自身表示可、非認証User情報0、現在他ユーザー参照を許可されていない主体の他User一覧・存在・件数0。非開示Repositoryも理由で漏らさない。新Secretは発行／交換後だけ一度表示、保存・再表示しない |
 | 通常管理の停止 | 対象・変更前の現在管理認可・操作に必要な状態を安全に確認不能、または認可設定破損では新Effect前停止を認識できる。manager許可の通常管理へadministrator存在条件を追加しない |
 | 鍵処置の停止 | 発行の既存userId、独立失効のCredentialとuserIdの結合、交換の対象・必要資格集合・全員交換の指定既存administrator等が不明・不成立なら新鍵Effect前停止を認識できる。通常入口の固定administratorとHostのログイン済み操作者を別に扱い、Hostへ追加資格認証を要求しない |
@@ -56,11 +58,13 @@
 | 責務・Component | [ARCH-000013](../../Definitions/ARCH-000013/architecture_definition.md)へ同じ対象・境界を渡す。認証認可とユーザー／Role／資格状態はAccess Management、認可済みContext集約はDomain Modelへ分ける候補 |
 | Interface・Authority | UIはAuthority・Effectを発行しない。公開入口は現行認可を維持し、通常Remote利用からHost実行能力を生成しない |
 | 状態・データ | 名前、ID、Role権限、資格、公開範囲、取得可能性、回復の結果を独立軸で搬送する。表示専用Storeを新設しない |
-| Failure・Recovery | 既知失効と発行不明を隠さず、同じRecoveryへ戻れる導線を保持する。結果表示を取消・rollback保証にしない |
+| Failure・Recovery | 元処理の発行／記録不明の再観測、確定後の別明示交換、現在administrator非接続時の既存Hostを分ける。各交換内のexact相関を保持し、別操作と混同しない。結果表示を取消・rollback保証にしない |
 | Security・品質 | 三可視境界、秘密一度表示・非保存、管理と内容閲覧の分離、部分成立と不明の保持を利用側でも反証する |
 | 検証意図 | 固定8操作の各Role許可／拒否、操作別対象、managerのadministrator名前のみ変更、自己範囲変更の時間順、管理≠内容、登録≠公開、解除≠削除を対象にする。developer管理拒否を自身表示・許可内利用の拒否へ広げない。2操作×2入口、独立失効、同名／改名、三可視境界、処置前停止、処置後不明も保持する。試験ID・実測結果はQualityで定める |
 
 ## 4. 処置と未確認事項
+
+検証意図には、登録だけ除去・Exposure残存／観測不能、両除去後の開始済み終了未観測、対象外変更、通常発行不明からの新交換、確定発行の不明化、別交換成功による旧受領推定、遅延した失効鍵の利用案内を含める。UIの表示と次行動を確認し、結果の保存方式や試験IDをこの分析で定めない。
 
 既存ARCH-000013を更新する。新ARCH-IDや新しい一般IAM責務を作らない。管理の具体的な操作対象は追加されるが、メール・Password・本人確認・自己登録／自己編集・SSO・複数Role・個別追加権限は追加しない。
 
@@ -85,4 +89,4 @@
 - [x] 失敗・回復・Security・品質制約・検証意図を評価した
 - [x] Human Inputと未確認事項・戻り条件を保持した
 - [x] 現行Sourceから意味を逆輸入せず、反対観点との統合事項を示した
-- OPEN: ARCH-000013・横断モデル・Architecture詳細・Quality・Sourceは最新分担へ未追従。前判断の限定Passは履歴であり、今回の分析候補のPassではない。UI工程Exit、Architecture Ready、実装成立を主張しない。
+- OPEN: 今回のArchitecture伝播候補は契約・品質の限定独立レビュー済み・残指摘0。Quality・Source・具体保存・本番接続は未完了。前判断の限定Passを今回へ流用せず、UI工程Exit、Architecture Ready、実装成立を主張しない。

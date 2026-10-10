@@ -4,7 +4,7 @@ Status: Candidate (v0.22 responsibility reorganization)
 Owner: Qual-Lab
 Last Updated: 2026-10-11
 
-最新の固定8管理操作は基本設計・横断モデルへ限定伝播・契約／品質の独立レビュー済み・残指摘0。前鍵管理契約の限定Passは履歴であり、最新分担のPassへ流用しない。Access Management／Workbench／MCPの3詳細へ最新分担を候補伝播し、限定独立レビュー済み・残指摘0。Quality・Source・具体API／保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
+固定8管理分担の前回限定レビューは履歴として保持する。今回は登録解除の両除去・読戻しと、鍵の発行／記録不明・確定後の受け渡し未確認・現在administrator非接続の3分岐を横断モデルへ候補伝播し、契約・品質の限定独立レビュー済み・残指摘0である。Quality・Source・具体API／物理保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
 
 ## 1. この成果物が所有すること
 
@@ -58,11 +58,14 @@ Last Updated: 2026-10-11
 | 鍵交換の処置前 | Access Management | 既存対象・必要なadministrator・認可健全性、現在Authority | 対象不明・必要管理者不存在・安全な観測不能・認可破損は新Effect 0 | 修正済みの条件を再評価。Role初期化・認可破損修復・特別User／Bootstrapをしない |
 | 新規発行の処置前 | Access Management | Workbenchの現行固定administrator、既存対象userId、必要状態・認可健全性 | administrator不成立・対象／必要状態不明・認可破損は発行Effect 0で停止 | 現在条件を再評価。旧失効0、交換Recoveryを生成しない |
 | 独立失効の処置前 | Access Management | Workbenchの現行固定administrator、exact資格IdentityとuserIdへの結合、必要状態・認可健全性 | administrator不成立・対象／必要状態不明・結合不一致・認可破損は失効Effect 0で停止 | 対象外資格の失効0。条件を再評価し、交換Recoveryを生成しない |
-| 新規発行の未確定 | Access Management | 既存対象userId、発行の確定／不明 | 未確定発行を成功／未発行へ丸めず、既知状態と確認先を返す | 旧失効0、交換Recoveryを生成しない。Secretを保存／再表示しない |
-| 新規発行確定後の記録・搬送／受領不明 | Access Management／Workbench結果搬送 | 確定済み発行と、記録・搬送・受領の別事実 | 先行の確定結果を保持し、後続失敗で発行不明へ戻さない | 受領成功を推定せず、Secretの再保存・再表示や交換再入場を生成しない |
+| 新規発行または結果記録の不明 | Access Management | Credential IDとは別の非秘密な元発行Identity、既存userId、既知事実 | 元処理を現在再観測し、新交換を開始しない。確定済み事実を不明へ戻さない | 旧失効0、交換Recoveryを生成せず交換用未解決集合へ入れない。Secret保存／再表示なし |
+| 発行・結果記録確定後の配送／受領未確認 | Access Management／入口結果搬送 | 確定済み発行・記録、未確認の受け渡し、元発行Identity | 「発行済み・受け渡し未確認」と表示。秘密再表示・保存・自動再発行なし | 現在administratorが既存交換を明示選択する場合だけ別Operation／Recoveryで開始。現在administrator非接続時は既存Host交換2操作だけ |
+| 別交換後の遅延旧応答 | Access Management／入口結果搬送 | 旧発行事実と新交換の失効確定範囲 | 失効済み鍵を利用可能と表示しない | 新交換成功は旧Secret受領、rollback、開始済み取消の証明ではない |
 | 鍵交換の失効後・発行未確定 | Access Management | 既知失効、未確定発行、旧失効前からの同じRecovery、保持情報 | 未確定段階と確定済み段階を部分結果として非秘密耐久記録へ保持 | 同じRecovery IDで現在状態と入口ごとの現在Authorityを再観測。旧鍵有効・rollback・完了を推定しない |
-| 鍵交換の結果記録・搬送／受領失敗 | Access Management／結果搬送Owner | 確定済み失効・発行、未確認の記録・搬送・受領 | 確定済み発行を後続失敗で不明へ戻さず、同じ非秘密相関へ各事実を保持 | 同じRecoveryで未確認段階を再観測。Secretの再表示なし、完了を推定しない |
+| 鍵交換の結果記録不明 | Access Management | 確定済み失効・発行、元発行Identity、元exact Recovery | 先行の確定事実と未確認の記録を別に保持し、新交換を開始しない | 元exact Recoveryで現在再観測。Secret再表示・完了推定なし。発行・記録確定後の配送未確認は上記の別操作分岐へ |
 | 独立失効 | Access Management | exact対象資格IdentityとuserIdへの結合、確定／不明の失効結果 | 確定した失効資格の後続要求を拒否。不明は既知状態と確認先を返す | 他資格への範囲拡大0、新発行・Secret・交換再入場0。開始済みTaskの取消完了を推定しない |
+
+登録解除では同じ受理済み操作・採用改訂で登録と対応Exposureを除去し、両読戻し確認時だけ完了とする。片側残存・観測不能を完了にせず、対象外登録・Exposureと本体を保持する。両除去完了でも開始済み操作の終了不明は別に保持し、新しい取消処置を追加しない。
 
 ## 4. 回復の不変条件
 
@@ -74,7 +77,7 @@ Last Updated: 2026-10-11
 - 部分故障で無関係なComponentを全停止にせず、利用可能範囲と未確認範囲を返す。
 - Project状態の観測、Task完了またはObjective受入から次段階の受入Authorityを生成しない。推定入力は記録を変更せず、判断待ちと根拠を保持する。
 - 鍵交換は指定ユーザー交換／全員交換と通常／Host入口を別軸にする。全4組を事前表示し、Hostまたは全員交換の3組だけ明示確認する。通常入口は同一Process Workbenchの現行administrator、Host入口は信頼したログイン済みローカル操作者の対話CLIで再入場する。Hostは交換2操作だけで、追加認証・専用資格・承認コード・OS管理者昇格なし。既存Root／Path検証は維持する。
-- 交換Recoveryは旧失効前にexact IDへ結合し、Process喪失・部分結果・耐久記録・再入場まで同じ相関を維持する。新規発行・独立失効へ交換Recoveryを付けない。
+- 各交換Recoveryは旧失効前にexact IDへ結合し、Process喪失・部分結果・耐久記録・再入場まで同じ相関を維持する。元発行／記録不明の再観測と、発行・記録確定後に現在管理者が選ぶ別交換を分け、後者の別Operation／Recoveryで旧相関を上書きしない。新規発行・独立失効へ交換Recoveryを付けない。
 - 発行、結果記録、搬送、受領を別の事実とし、後続失敗だけで確定済み発行結果を不明へ戻さない。未確認の記録・搬送・受領を成功扱いしない。
 - MCPはSecret有無を問わず鍵操作の一覧・Schema・登録・dispatchを持たない。固定管理認可は現行RoleとARCH-000013の8操作分担から判定し、Role内容設定から派生させない。manager／administratorはユーザー登録・表示名変更、developer／managerのRole変更・内容設定、Repository登録・登録解除・Exposureを管理する。administratorの付与・解除・降格・詳細権限と鍵操作はadministrator専用。managerはadministratorの表示名だけ変更可。通常管理の失敗に鍵交換の保持保証やRecoveryを転用しない。
 - 失効後に新発行や搬送が失敗しても、userId・表示名・Role・詳細権限・Repository登録・Product Dataを変更しない。生Secretを耐久記録・ログ・Evidenceへ保存せず、再入場で再表示しない。
@@ -117,6 +120,9 @@ Component内部の異常
 同じResource、Identity、Authorityまたはtransactionが開始からsettlementまで続く場合は同じ結合単位にする。別Owner、別Failure Isolation、別Retryまたは別永続化境界を持つ場合は分け、隣接境界で結合する。
 
 ## 6. Qualityへの引渡し
+
+- 登録解除の片側除去・両読戻し欠測・対象外変更、完了からの開始済み取消推定を反証する。
+- 元発行／記録不明からの新交換、通常発行への交換Recovery付与、確定発行の不明化、別交換と旧相関の混同、秘密再表示・自動再発行、失効鍵の遅延利用表示、現在認可なしの通常交換を反証する。
 
 - 正常系だけでなく、開始前、Effect後、取消中、回復中、cleanup不明の各状態を試験する。
 - rejectされた事実だけでなく、期待したphase／reason、Capability非発行、Effect 0、残存Resourceを確認する。

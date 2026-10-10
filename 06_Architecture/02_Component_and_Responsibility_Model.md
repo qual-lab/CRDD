@@ -115,11 +115,11 @@ Last Updated: 2026-10-11
 
 Workbench／MCPは必要な内部Capabilityを利用する。同一ProcessのCROS利用は認可を維持した直接呼出し、別Processは同じHostでもMCPを利用する。ただし鍵操作はこの一般経路から除外し、MCPの一覧・Schema・登録・dispatchへ置かない。通常鍵3操作は同一Process Workbenchの固定administrator、Hostはログイン済み操作者の対話CLI交換2操作だけとする。詳細な入口境界は[境界モデル](03_Boundary_and_Interface_Model.md#管理と鍵交換の公開境界)を参照する。Shared Serverは配置形態であり、第三の公開Runtimeではない。CROS REST／Gatewayの既存能力は移管・検証後に撤去し、名前の削除だけを置換完了としない。
 
-固定管理分担のOwnerはAccess Managementで、Workbench／MCPは現在の管理認可を迂回しない。Domain Modelへ渡すのは内容認可済み集合であり、管理許可をその代わりにしない。新Port／Frameworkは追加しない。
+固定管理分担のOwnerはAccess Managementで、Workbench／MCPは現在の管理認可を迂回しない。登録解除の登録・対応Exposure除去と両読戻しはAccess Managementが判定し、Repository本体の削除や開始済み操作の取消を所有しない。鍵の元発行Identity・既知結果はAccess Management、許可された一度の秘密搬送・未確認案内は入口Ownerが担う。発行／記録不明の再観測と、発行・記録確定後に管理者が選ぶ別交換を混同しない。詳細は[管理API・保存設計](Details/access-management/02_Management_State_and_API.md#5-鍵交換の段階と終了)へ接続する。Domain Modelへ渡すのは内容認可済み集合であり、管理許可をその代わりにしない。新Port／Frameworkは追加しない。
 
 ## 5. QAへ渡す検証単位
 
-最新の固定8管理操作は基本設計・横断モデルへ限定伝播・契約／品質の独立レビュー済み・残指摘0。前鍵管理契約の限定Passは履歴であり、最新分担のPassへ流用しない。Access Management／Workbench／MCPの3詳細へ最新分担を候補伝播し、限定独立レビュー済み・残指摘0。Quality・Source・具体API／保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
+固定8管理分担の前回限定レビューは履歴として保持する。今回は登録解除の両除去・読戻しと、鍵の発行／記録不明・確定後の受け渡し未確認・現在administrator非接続の3分岐を横断モデルへ候補伝播し、契約・品質の限定独立レビュー済み・残指摘0である。Quality・Source・具体API／物理保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
 
 | 検証候補 | 主な対象 | 反証すること | 適する粒度候補 |
 |---|---|---|---|

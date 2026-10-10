@@ -4,7 +4,7 @@ Status: Candidate (v0.22 responsibility reorganization)
 Owner: Qual-Lab
 Last Updated: 2026-10-11
 
-最新の固定8管理操作は基本設計・横断モデルへ限定伝播・契約／品質の独立レビュー済み・残指摘0。前鍵管理契約の限定Passは履歴であり、最新分担のPassへ流用しない。Access Management／Workbench／MCPの3詳細へ最新分担を候補伝播し、限定独立レビュー済み・残指摘0。Quality・Source・具体API／保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
+固定8管理分担の前回限定レビューは履歴として保持する。今回は登録解除の両除去・読戻しと、鍵の発行／記録不明・確定後の受け渡し未確認・現在administrator非接続の3分岐を横断モデルへ候補伝播し、契約・品質の限定独立レビュー済み・残指摘0である。Quality・Source・具体API／物理保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
 
 ## 1. この成果物が所有すること
 
@@ -196,7 +196,7 @@ Workbenchの現行administrator または 信頼したHostログイン操作者
 
 | 操作 | 対象と流れ | 独立した観測事実・禁止事項 |
 |---|---|---|
-| 通常管理 | 操作別入力 → 変更前の現在管理認可 → 明示更新 → 結果搬送 → 次要求の内容認可 | 新規登録は予定Role、既存Role変更は前後Role、名前変更は対象ID・新名前、Role内容は対象Role、Repositoryは登録／公開状態。manager自身も変更前の現在管理認可→明示的なRole内容設定／Exposure更新→次要求の現行Role・Exposure・実アクセス再評価の順に処置する。更新受理≠内容取得、管理≠内容自動付与、登録≠公開、登録解除≠Repository／Product Data削除を維持する。結果不明を成功化せず交換Recoveryを追加しない |
+| 通常管理 | 操作別入力 → 変更前の現在管理認可 → 明示更新 → 結果搬送 → 次要求の内容認可 | 新規登録は予定Role、既存Role変更は前後Role、名前変更は対象ID・新名前、Role内容は対象Role、Repositoryは登録／公開状態。manager自身も変更前の現在管理認可→明示的なRole内容設定／Exposure更新→次要求の現行Role・Exposure・実アクセス再評価の順に処置する。更新受理≠内容取得、管理≠内容自動付与、登録≠公開、登録解除≠Repository／Product Data削除を維持する。登録解除は同じ受理操作・採用改訂で登録と対応Exposureを除去し、両読戻し確認時だけ完了。対象外・本体を保持し、開始済み取消を証明しない。結果不明を成功化せず交換Recoveryを追加しない |
 | 新規資格発行 | 既存対象userId → 固定administratorのWorkbench入口 → 発行結果 | 発行・結果記録・搬送・受領を分離する。旧資格失効0、交換Recoveryなし。後続搬送失敗だけで確定済み発行を不明へ戻さない |
 | 独立失効 | exact対象資格Identityと既存userIdへの結合 → 同じWorkbench入口 → 失効結果 | 確定／不明を区別し、同じユーザーの別資格へ範囲を拡大しない。新発行・Secret・交換再入場0 |
 | 指定ユーザー／全員交換 | WorkbenchまたはHost入口 → 旧失効前のexact Recovery結合 → 失効 → 発行 → 結果記録 → 搬送・受領 | 全4組を事前表示し、Hostまたは全員交換の3組だけ明示確認。段階ごとの事実を同じRecoveryへ保持し、Secretを保存／再表示しない |
@@ -418,10 +418,12 @@ Workbenchの現行administrator または 信頼したHostログイン操作者
 | 旧資格失効 | 指定ユーザーまたは全員のexactな範囲を処置 | 確定した失効範囲を保持。後続要求を拒否 | 全員交換は現在管理者の旧資格も失効。入口の現在Authorityと交換結果を区別する |
 | 新資格発行 | 同じOperationの既存発行先を使用 | 発行確定または不明を失効結果と別に保持 | 生Secretを保存せず許可された結果へ一度だけ返す |
 | 発行未確定・Process喪失 | 既知失効と未確定の発行結果を非秘密耐久状態に保存 | 完了・rollback・旧鍵有効を推定しない。確定済みの段階は保持 | 同じRecovery IDを保持し、現在状態と現在Authorityで再観測。Secretを再表示しない |
-| 結果記録・搬送／受領失敗 | 失効・発行・記録・搬送・受領の各事実を個別に保持 | 確定済み発行を後続の記録・配送・受領失敗だけで不明へ戻さない | 同じRecoveryで未確定段階を再観測。保存記録からAuthorityやSecret再表示を生成しない |
+| 発行または結果記録が不明 | Credential IDとは別の非秘密な元発行Identityと既知事実を保持 | 確定済み発行を後続の記録失敗だけで不明へ戻さず、新交換を開始しない | 元処理を再観測。交換由来だけ元exact Recovery、通常発行に交換Recoveryを新設しない |
+| 発行・結果記録確定、配送／受領未確認 | 「発行済み・受け渡し未確認」と表示し、現在administratorが既存の交換を別操作として明示選択 | Secret保存・再表示・自動再発行なし。旧事実・元発行Identityを保持 | 別Operation／別Recoveryで開始し、各交換内だけsame exact。現在administrator非接続時は既存Host交換入口へ |
+| 別交換の対象と終了 | 指定は先発行鍵を含む対象User全旧有効資格→同じ既存userId。全員は先発行鍵を含む全旧有効資格→指定既存administrator | 指定では他User鍵を保持。全員では他Userを通常再発行・配布へ戻す。現在対象・認可と4組表示／3組確認を再適用 | 遅延旧応答で失効鍵を利用可能表示しない。別交換成功≠旧Secret受領・rollback・開始済み取消 |
 | 結果確定・受領 | 失効・発行・結果記録・搬送・受領の各事実を照合 | 未確認段階をcompletedへ畳まない | 鍵交換の完了はTask取消完了・過去Effect 0を証明しない |
 
-Workbench／Host CLIの入口分担は採用済みであり、具体的な保存確定方式、再入場API、画面・入力・受領方式と未観測段階の詳細処置はDetailsへ残す。保存した参照はAuthorityそのものではなく、現在Authorityへの再結合なしに回復処置を許可しない。
+Workbench／Host CLIの入口分担は採用済みであり、具体的な保存確定方式、再入場API、画面・入力・受領方式と元発行Identity／配送観測の具体保存・搬送はDetailsへ残す。3分岐の処置方針自体は採用済みで、物理成立とは区別する。保存した参照はAuthorityそのものではなく、現在Authorityへの再結合なしに回復処置を許可しない。
 
 ## 4. 概念Entity関係
 
@@ -491,9 +493,12 @@ Relationはアクセス権や採用Authorityを自動生成しない。`Project 
 | Historical Context | Source、Occurred At、Applicable Revision、Currentness | historicalをcurrentへ自動採用 |
 | 接続認可 | Credential→userId、現行Role詳細権限、Exposure、実アクセス | 表示名をIdentityにすること、旧権限固定、管理から内容閲覧の生成 |
 | 新規発行／独立失効 | 発行は既存対象userId、独立失効はexact資格IdentityとuserIdへの結合。操作別結果 | 旧資格の自動失効、失効対象の拡大、独立失効による新発行・Secret、交換Recoveryの生成 |
-| 鍵交換 | 旧失効前から同じRecovery ID、交換種別、入口、対象・既存発行先、失効・発行・記録・搬送・受領の観測 | 別Recovery生成、Secret耐久化、unknownの成功化、確定発行の後続配送失敗による不明化、Authority復元、取消完了の推定 |
+| 鍵交換 | 旧失効前から同じRecovery ID、交換種別、入口、対象・既存発行先、失効・発行・記録・搬送・受領の観測 | 同じ交換内の別Recovery生成、元発行不明からの新交換、自動再発行、失効鍵の遅延利用表示、Secret耐久化、unknownの成功化、確定発行の後続配送失敗による不明化、Authority復元、取消完了の推定 |
 
 ## 6. Qualityへの引渡し
+
+- 登録解除の同一操作・改訂、両読戻し、対象外・本体保持と開始済み取消非証明を確認する。
+- 鍵3分岐、元発行IdentityとCredential IDの分離、元処理と別交換の相関分離、別交換の失効範囲、遅延旧応答の失効鍵表示拒否を反証する。
 
 - 各状態の入口、許可操作、禁止操作、終了後観測を検証する。
 - 多対多Relationと欠測を含むProjectionの整合性を確認する。

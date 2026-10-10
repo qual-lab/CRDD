@@ -2,7 +2,7 @@
 
 成果物種別: Architecture定義
 Architecture ID: `ARCH-000013`
-状態: 更新中（最新権限分担の基本設計・横断モデルは限定伝播・契約／品質の独立レビュー済み・残指摘0。AM／Workbench／MCP詳細へ候補伝播・限定独立レビュー済み・残指摘0。Quality以降未追従）
+状態: 更新中（登録解除・鍵受け渡し判断のArchitecture全伝播候補。契約・品質の限定独立レビュー済み・残指摘0。Quality以降未追従）
 維持責任者: Qual-Lab
 
 ## 1. 責務と境界
@@ -26,7 +26,7 @@ Credentialから既存ユーザーを識別し、管理要求は現行Roleの固
 
 | 正式分析 | 引き継ぐ意味 |
 |---|---|
-| [UI-000008](../../Analysis/UI-000008/architecture_analysis.md) | 自身・対象IDと表示名・現行範囲、通常管理、2操作×2入口、三可視境界、既知失効／発行不明と同じRecoveryへの導線 |
+| [UI-000008](../../Analysis/UI-000008/architecture_analysis.md) | 自身・対象IDと表示名・現行範囲、通常管理、2操作×2入口、三可視境界、登録解除の両除去表示、元発行再観測／確定後の別明示交換／現在administrator非接続時Hostの導線 |
 
 ## 3. SPEC観点の入力
 
@@ -41,7 +41,7 @@ Credentialから既存ユーザーを識別し、管理要求は現行Roleの固
 | 入力 | State Owner | Authority・Effect | Failure・Lifecycle |
 |---|---|---|---|
 | UI-000008 | 認識・表示の意味はUI、状態の確定はAccess Management等の実Owner | UIはAuthority・Effectを発行しない。通常管理とHost、操作範囲を別軸表示 | 全4組の事前表示、Hostまたは全員交換だけ明示確認、部分結果を隠さない。通常鍵操作はWorkbench、Host CLIは交換2のみ、MCP鍵操作非公開が採用済み。具体表示・案内は未確定 |
-| SPEC-000012 | Access Managementのユーザー／Role／資格／認可・鍵交換状態。認可済み集約はDomain Model | 通常鍵3操作は固定administrator、Hostはログイン済みローカル操作者。通常管理は固定8操作の担当Roleでユーザー／Role内容設定／接続登録／Exposureの対象だけを更新し、鍵交換は鍵だけ変更する | 事前条件、旧失効、新発行、結果確定・受領を分離。失効後失敗／応答・Process喪失は同じRecoveryへ既知失効と発行不明を耐久保持 |
+| SPEC-000012 | Access Managementのユーザー／Role／資格／認可・鍵交換状態。認可済み集約はDomain Model | 通常鍵3操作は固定administrator、Hostはログイン済みローカル操作者。通常管理は固定8操作の担当Roleでユーザー／Role内容設定／接続登録／Exposureの対象だけを更新し、鍵交換は鍵だけ変更する | 事前条件、旧失効、新発行、結果記録・搬送・受領を分離。発行／記録不明は元Identity再観測、確定後の受け渡し不明は別明示交換、現在administrator非接続は既存Host。登録解除は両除去読戻しを完了条件とし、開始済み取消を証明しない |
 
 | 管理操作 | developer | manager | administrator |
 |---|---|---|---|
@@ -88,6 +88,8 @@ manager自身も変更前の現在管理認可→明示的なRole内容設定／
 
 既存のユーザー／Host側管理領域と秘密保護境界を維持し、Repositoryへ秘密を移さない。Package改名を理由に保存Rootを変更しない。UUID版・生成方式、表示名構文、Verifier方式、物理Schema・File配置・更新確定方式は詳細設計で既存契約と照合する。新Storeや互換Readerを先取りしない。
 
+登録解除は同じ受理操作・採用改訂で対象登録と対応Exposureを除去し、両読戻し確認で完了する。対象外の登録・ExposureとRepository本体・Product Dataは保持する。片側残存や観測不能を完了とせず、両除去から開始済み処理の取消やEffect 0を推定しない。これは論理更新契約であり、物理的なatomic保存方式の成立を主張しない。
+
 ## 7. 失敗・回復・観測
 
 | 操作 | 失効範囲 | 新資格の発行先 |
@@ -100,7 +102,9 @@ manager自身も変更前の現在管理認可→明示的なRole内容設定／
 - 通常管理は対象・変更前の現在管理認可・操作に必要な状態を安全に確認不能、または認可破損なら新Effect前停止。manager許可の通常管理へadministrator存在条件を追加しない。
 - 鍵処置は発行の既存userId、独立失効のCredential-userId結合、交換の対象・必要資格集合・全員交換の指定既存administrator等を操作別に確認し、不明・不成立なら新鍵Effect前停止。Hostへ追加資格認証を要求せず、認可設定を修復しない。
 - 鍵交換はuserId・表示名・Role・詳細権限・Repository登録・Product Dataを保持。特別ユーザー、追加権限、回復専用Bootstrapを作らない。
-- 失効後の発行失敗・応答／Process喪失では、既知失効と発行不明を別の事実として同じRecoveryへ保持する。別Recoveryを重ねない。
+- 発行または非秘密結果記録が不明なら、Credential IDとは別の元発行Identityで既知事実を再観測する。交換由来だけ元exact Recoveryを保持し、通常発行へ交換Recoveryを追加しない。この不明段階から新しい交換を開始しない。
+- 発行・記録確定後の配送／受領不明は「発行済み・受け渡し未確認」とし、確定発行を不明へ戻さない。Secret再保存・再表示・自動再発行なし。現在administratorが既存交換を別Operation／Recoveryとして明示選択できる。元処理のIdentity・事実を維持し、各交換内部だけsame exactを維持する。
+- 別の指定ユーザー交換は先発行鍵を含む対象の全旧有効資格を失効し同じuserIdへ発行する。全員交換は全旧有効資格を失効し指定既存administratorへ発行する。遅延旧応答で失効鍵を利用可能と案内せず、別交換成功を旧Secret受領・rollback・取消完了としない。現在administrator認証が成立しない場合は既存Host交換入口だけを用い、一般の認可失敗をHostへ迂回させない。
 - 再入場では現在状態と現在Authorityを再確認する。保存記録からAuthority、完了、rollback、旧鍵有効、開始済み取消完了を推定しない。
 - 生Secretは発行／交換後だけ一度返し、保存・ログ・Evidence・会話へ複製／再表示しない。鍵交換成功・失効はTask取消完了や過去Effect 0を証明しない。
 
@@ -117,7 +121,7 @@ manager自身も変更前の現在管理認可→明示的なRole内容設定／
 | [SCR-000008／PRT-000008](../../../04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md) | `PRT-000008.spec-000012` | 対象・事前表示・状態・部分結果・一度表示Secretを配置制約として保持。Layoutと採用済みWorkbench／Host CLIの具体表示・案内はUI Detailへ戻す |
 | [BHV-000012](../../../05_SPEC/Details/BHV-000012/behavior.md) | 同じ既存Relation | Trigger・Authority・Validation・失効／発行・結果・Recoveryを保持。振る舞い変更はSPEC Detailへ戻す |
 
-最新の固定8管理操作は基本設計・横断モデルへ限定伝播・契約／品質の独立レビュー済み・残指摘0。前鍵管理契約の限定Passは履歴であり、最新分担のPassへ流用しない。Access Management／Workbench／MCPの3詳細へ最新分担を候補伝播し、限定独立レビュー済み・残指摘0。Quality・Source・具体API／保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
+登録解除・鍵受け渡しの採用判断を入力分析・基本設計・横断モデル・利用側詳細へ伝播した候補であり、今回の契約・品質限定独立レビューは完了・残指摘0。前判断の限定Pass・旧Evidenceを流用しない。Quality・Source・具体保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
 
 ## 9. 互換性・移行・成立済み能力
 
@@ -137,6 +141,8 @@ manager自身も変更前の現在管理認可→明示的なRole内容設定／
 - Task進行・取消・回復はOrchestrator等の既存Ownerに残す。資格の失効／交換で開始済み処理の完了を推定しない。
 
 ## 11. 情報源と完了境界
+
+追加の検証義務は、片側除去／観測不能、対象外変更、両除去済み・開始済み終了未観測、元発行IdentityとCredential IDの混同、通常発行への交換Recovery追加、不明段階からの新交換、確定発行の不明化、別交換と元処理の相関混同、遅延失効鍵の利用案内、別交換成功による旧受領・rollback・取消推定である。保存確定・配送観測・保持清掃・公開readは詳細設計の未完了事項として別に閉じる。
 
 意味入力は2・3節の独立分析。Detailと対応レビューは具体制約／対応の照合、CHGは採用・変更履歴、旧Source／Evidenceは成立済み能力の比較に限定する。実装・Quality移管・Architecture Readyの主張は未完了。
 

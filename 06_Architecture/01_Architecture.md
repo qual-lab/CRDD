@@ -12,7 +12,7 @@ v0.21.0の基準版では、個別責務定義、横断モデルおよび15領�
 
 ## 2. 工程入力と再構築方法
 
-最新の固定8管理操作は基本設計・横断モデルへ限定伝播・契約／品質の独立レビュー済み・残指摘0。前鍵管理契約の限定Passは履歴であり、最新分担のPassへ流用しない。Access Management／Workbench／MCPの3詳細へ最新分担を候補伝播し、限定独立レビュー済み・残指摘0。Quality・Source・具体API／保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
+固定8管理分担の前回限定レビューは履歴として保持する。今回は登録解除の両除去・読戻しと、鍵の発行／記録不明・確定後の受け渡し未確認・現在administrator非接続の3分岐を横断モデルへ候補伝播し、契約・品質の限定独立レビュー済み・残指摘0である。Quality・Source・具体API／物理保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
 
 Architectureの正式入力はCanonicalな20件のUI定義と30件のSPEC定義である。UIとSPECを別々に全数分析し、同じ上位責務境界へ属する結果を18件のArchitecture定義へ統合した。
 
@@ -83,7 +83,7 @@ REQ、UXおよびIAは由来確認に限って参照する。現行Architecture�
 | ARCH-000010 | Capability Registry、AI AdapterのProfile管理 | 能力発見・Profile選択と実行Authorityを分離する。 |
 | ARCH-000011 | 各状態Owner、Domain Modelの保存・設定部品 | 現在状態、通常履歴、候補、正式Evidenceの用途を分ける。 |
 | ARCH-000012 | MCP Server、運用CLI、Workbench表示API | 入力意味を保持し、SPEC-000011のlocalhost範囲を無断拡張しない。 |
-| ARCH-000013 | Access Management、Domain Model、MCP／Workbench利用側 | 同Processは認可済み直接呼出し、別ProcessはMCP。ただし通常鍵操作は同Process Workbenchだけ、Hostは対話CLI交換2操作だけで、MCPは全鍵操作非公開。新Owner境界のDetails候補へ限定再伝播・契約／品質独立レビュー済み・残指摘0。具体API・保存・本番公開入口・Sourceは未接続。 |
+| ARCH-000013 | Access Management、Domain Model、MCP／Workbench利用側 | 同Processは認可済み直接呼出し、別ProcessはMCP。ただし通常鍵操作は同Process Workbenchだけ、Hostは対話CLI交換2操作だけで、MCPは全鍵操作非公開。新Owner境界のDetails候補へ限定再伝播・契約／品質独立レビュー済み・残指摘0。登録解除の両除去と鍵の3分岐はAM詳細へ接続し、今回の横断伝播は契約・品質の限定独立レビュー済み・残指摘0。具体API・物理保存・本番公開入口・Sourceは未接続。 |
 | ARCH-000014 | 各実行境界の独立評価とArtifact Signing | 独立評価軸を保持する。汎用Trust Policy Frameworkは今回採用しない。 |
 | ARCH-000015 | Coordinatorの候補本体、Orchestratorの採用、AI Adapterの搬送差 | 同意・送信・受領・採用のAuthorityを相互流用しない。 |
 | ARCH-000016 | Domain ModelのContext／Artifact由来解決 | 履歴から現在方針を自動採用しない。 |

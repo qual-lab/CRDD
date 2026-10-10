@@ -42,7 +42,7 @@ v0.21.0は公開済み、v0.22.0とCHG-000082は未完了である。責務再�
 
 ### 登録解除・鍵受け渡しの設計伝播 — 2026-10-11
 
-UI／SPEC定義14文書とDetail・現在投影15文書は限定独立レビュー済み。次のAM詳細02では、登録と対応Exposureの同時除去、発行／記録不明・確定発行で受け渡し未確認・管理認証喪失の3分岐へ旧OPENを更新した。今回3文書の限定独立レビューは契約・品質ともPass・残指摘0で、Architecture全体・QA・Sourceは未追従。追加の人間判断は現在不要。保存方式・排他・公開Schema・具体配送観測・保持清掃・本番接続は未完了である。[現在の作業範囲](99_Roadmap/Changes/CHG-000082/second-stage-plan.md)を参照する。
+UI／SPEC定義14文書とDetail・現在投影15文書、AM詳細02の旧OPEN更新3文書は限定独立レビュー済み。現在は同じ登録解除・鍵受け渡し判断をArchitectureの入力分析・定義・横断モデル・利用側詳細まで16文書へ伝播した候補で、契約・品質の限定独立レビュー済み・残指摘0。Quality・Sourceは未追従。追加の人間判断は現在不要。保存方式・排他・公開Schema・具体配送観測・保持清掃・本番接続は未完了である。[現在の作業範囲](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#登録解除鍵受け渡し判断のarchitecture全伝播--2026-10-11)を参照する。
 
 ### 権限分担の最新判断 — 2026-10-11
 
@@ -88,9 +88,9 @@ MCP詳細の最新判断伝播は契約・品質の限定独立再レビュー�
 
 ### 最新権限分担のQuality再導出 — 2026-10-11
 
-最新の追加判断：登録解除は公開設定も同時に除去し、Repository本体は維持する。発行・結果記録確定後の鍵の受け渡し未確認は、秘密再表示・自動再発行をせず、人間の明示した既存交換で別鍵へ交換する。発行自体・結果記録が不明なら元発行のIdentityと既知事実で現在再観測し、交換由来は元exact Recoveryを保持する。[要求正本](01_Discovery/Definitions/REQ-000041/requirement.md#発行済みの鍵を受け取れなかった場合)に続きUX7文書・IA6文書へ伝播し、それぞれ契約／品質限定独立レビュー・是正後再レビューは残指摘0。UI7文書・SPEC5文書へ追加判断を伝播し、契約／品質限定独立再レビューは残指摘0。Detail10文書へ追加判断を伝播中・今回の契約／品質限定独立再レビュー済み（残指摘0）。Architecture／Quality以降は未伝播。Source・実環境は未変更。
+最新の追加判断：登録解除は公開設定も同時に除去し、Repository本体は維持する。発行・結果記録確定後の鍵の受け渡し未確認は、秘密再表示・自動再発行をせず、人間の明示した既存交換で別鍵へ交換する。発行自体・結果記録が不明なら元発行のIdentityと既知事実で現在再観測し、交換由来は元exact Recoveryを保持する。[要求正本](01_Discovery/Definitions/REQ-000041/requirement.md#発行済みの鍵を受け取れなかった場合)に続きUX7文書・IA6文書へ伝播し、それぞれ契約／品質限定独立レビュー・是正後再レビューは残指摘0。UI7文書・SPEC5文書へ追加判断を伝播し、契約／品質限定独立再レビューは残指摘0。Detail10文書へ追加判断を伝播中・今回の契約／品質限定独立再レビュー済み（残指摘0）。Architectureは今回16文書へ候補伝播・契約・品質の限定独立レビュー済み・残指摘0。Quality／Sourceは未追従。Source・実環境は未変更。
 
-今回判断前の[管理API・保存設計候補](06_Architecture/Details/access-management/02_Management_State_and_API.md)は当時の契約／品質限定独立レビュー済み、残指摘0。登録解除と発行済み鍵の受け渡し未確認の処置は最新REQで採用済みだが、AM詳細・保存設計・QA・Sourceへの伝播は未完了。単一現在Fileは第一候補で、排他・出版保証と同一更新の実現方法は未確定のため実装Gate未成立。Source・秘密Store・Dockerは未変更。
+現在の[管理API・保存設計候補](06_Architecture/Details/access-management/02_Management_State_and_API.md)は登録解除・鍵受け渡しの旧OPEN更新まで契約／品質限定独立レビュー済み、残指摘0。Architecture全伝播候補は契約・品質の限定独立レビュー済み・残指摘0、QA・Sourceへの追加判断伝播は未完了。単一現在Fileは第一候補で、排他・出版保証と同一更新の実現方法は未確定のため実装Gate未成立。Source・秘密Store・Dockerは未変更。
 
 固定8操作の管理判定、通常6操作の保存境界、公開縦断をRFD-UT-020／IT-021／ST-022へ分離し、UAT-007とEST-IT-010を更新した。設計集合は185 Local Item。最新12文書は契約・品質限定独立レビュー済み・残指摘0、今回の新規・更新項目はNot Run。MCPの通常管理Toolを新規採用せず、Profile管理Roleは別途OPEN。具体API・保存・Source・Test・実境界・Quality Integration全体追従は未完了。[今回の計画](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#quality-role-propagation)を参照する。
 

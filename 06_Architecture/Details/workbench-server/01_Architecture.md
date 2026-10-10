@@ -233,11 +233,19 @@ WorkbenchはCurrent Projectionを独自Databaseへ複製しない。将来Cache�
 
 Hostの交換2操作はWorkbench Backendで実行せず、信頼したログイン済み操作者の対話CLIとして別入口へ案内する。追加認証・昇格・確認コードを設けず、既存Root／Path検証を維持する。交換の入口2種×操作2種の全4組で対象・影響を表示し、Hostの2組と全ユーザー交換の通常入口の計3組だけ明示確認する。この確認契約を通常発行・独立失効へ拡張しない。初回CROS構築は別契約で変更しない。
 
-交換ではAccess Managementが旧失効前から同じexact Recovery IDへ結合する。事前条件、失効、新発行、結果記録、搬送、受領を別事実として表示し、後段失敗だけで確認済み発行をunknownへ戻さない。未確認の発行を成功／rollbackへ丸めず、Secretを保存・再送・再表示しない。通常発行／独立失効の結果不明には各操作の既知状態と確認先を返し、交換Recoveryを付与しない。
+交換ではAccess Managementが旧失効前から同じexact Recovery IDへ結合する。事前条件、失効、新発行、結果記録、搬送、受領を別事実として表示し、後段失敗だけで確認済み発行をunknownへ戻さない。Secretを保存・再送・再表示せず、次の3分岐を表示する。通常発行／独立失効に交換Recoveryを付与しない。
+
+| 現在確認できる状態 | Workbenchの表示・導線 | 禁止する表示・操作 |
+|---|---|---|
+| 発行または非秘密結果記録が不明 | Credential IDとは別の非秘密な元発行Identityと既知事実に基づく現在再観測へ案内。交換由来だけ元のexact Recoveryを維持 | 成功／rollbackへの丸め、新交換の開始、通常発行への交換Recovery追加 |
+| 発行・結果記録確定、配送／受領だけ未確認 | 「発行済み・受け渡し未確認」と表示。現在許可されたadministratorが既存指定／全員交換を明示選択する。新交換は別Operation／別Recoveryで、各交換内だけ同じexact Recovery | 確定未受領の断定、確定発行の不明化、秘密再表示・自動再発行、別交換成功を旧受領・rollback・取消完了と表示 |
+| 現在administratorとして接続できない | 既存ログイン済みHostの交換2操作へ案内 | Workbench認可迂回、Hostへの通常発行・独立失効・追加認証の追加 |
+
+別交換では現在対象・認可と4組の事前表示／3組の確認を再適用する。指定交換は先の鍵を含む対象ユーザーの全旧有効資格→同じ既存userIdへ一資格、他ユーザー保持。全員交換は先の鍵を含む全旧有効資格→指定既存administratorへ一資格、他ユーザーは通常再発行・再配布となる。旧元発行Identityと確定事実はAMが保持し、Workbenchは旧処理との相関を失わない。遅延した旧応答の失効済み鍵を利用可能と表示しない。
 
 未知対象、必要な既存administratorの不存在、認可破損または安全な観測不能は処置前に停止する。userId／username／Role／Role詳細権限／Repository登録／Product Dataは交換で変更しない。資格状態は旧失効・新発行によって変わる。管理者であることから内容参照を許可せず、他ユーザー情報の表示も現在の参照許可に従う。ユーザー・Role内容設定・Repository登録／Exposureの管理はARCH-000013の固定8分担に従い、Role内容設定から管理権限を生成しない。具体公開API・Schema・本番接続は未完了。AI Profile管理の担当Roleは別CapabilityとしてOPENを維持する。
 
-具体画面配置、公開API・Schema、結果Fieldと受領方式は未確定。SCR-000008／BHV-000012／`PRT-000008.spec-000012`への接続はPartialである。Qualityは通常発行の失効0、独立失効の対象限定・発行0、交換4組表示／3組確認、MCP鍵操作0、Secret再表示0、後段失敗時の既知事実保持をIT／STで導出する。ここでQA Local Item IDを推測して発行しない。
+具体画面配置、公開API・Schema、結果Fieldと配送／受領観測は未確定。SCR-000008／BHV-000012／`PRT-000008.spec-000012`への接続はPartialである。Qualityは通常発行の失効0・Recovery0、独立失効の対象限定・発行0、交換4組表示／3組確認、鍵3分岐、元Identityと別交換の区別、MCP鍵操作0、Secret再表示0、遅延失効鍵の利用案内0、後段失敗時の既知事実保持をIT／STで導出する。ここでQA Local Item IDを推測して発行しない。今回の伝播候補は契約・品質の限定独立レビュー済み・残指摘0で、QA実行済みではない。
 
 ### 6.2. 通常管理の入力・結果搬送
 
@@ -249,12 +257,12 @@ Workbenchは[Access Management詳細§4](../access-management/01_Architecture.md
 | 表示名変更 | 既存userId・新表示名。manager／administratorが操作し、administratorの名前もmanagerが変更可 | 名前だけの変更結果。ID・Role・Credential保持 |
 | 既存Role変更 | 既存userId・前後Role。managerは両方developer／managerのみ | 現行Roleと保存・読戻し結果。administratorの付与・解除・降格はadministratorのみ |
 | Role内容設定 | 対象Role・変更内容。developer／managerはmanager／administrator、administratorはadministratorのみ | 内容設定の変更結果。固定管理分担のON／OFF・再委譲なし |
-| Repository登録・解除 | 対象ID・現在登録状態・変更内容。manager／administrator | 登録結果≠公開／取得、解除結果≠Repository／Product Data削除 |
+| Repository登録・解除 | 対象ID・現在登録／Exposure状態・変更内容。manager／administrator | 登録結果≠公開／取得。解除は同じ受理操作・採用改訂で登録と対応Exposureを除去し、両読戻し確認時だけ完了と表示。対象外登録・ExposureとRepository本体・Product Dataを保持。解除完了≠開始済み操作の取消・過去Effect0・実資源終了 |
 | Exposure設定 | 対象ID・現在登録／公開状態・変更内容。manager／administrator | 明示公開設定の保存結果≠内容取得成功 |
 
 manager自身の内容範囲変更も、変更前の管理認可→明示更新→次要求の現在Role・Exposure・実アクセス再評価の順を表示する。manager正常管理にadministrator存在条件を要求せず、管理拒否を自身表示・許可内容の拒否へ広げない。未知対象・必要状態不明・競合は新Effect前停止。保存後の読戻し／応答不明は既知更新と未確定範囲を分け、未保存・rollback・Effect0・完了を推定せず、交換Recoveryを追加しない。
 
-Qualityは固定8分担×三Role、操作別入力、managerのadministrator名前だけ変更、自己内容変更の時間順、登録／公開・解除／削除、管理≠内容、保存後不明の禁止推定を既存AM導出キーへ接続する。画面配置・Field・公開API・保存・本番接続はOPENであり、新Tool名や画面をここで発行しない。
+Qualityは固定8分担×三Role、操作別入力、managerのadministrator名前だけ変更、自己内容変更の時間順、登録／公開、解除の両読戻し・対象外／本体保持・取消非証明、管理≠内容、保存後不明の禁止推定を既存AM導出キーへ接続する。片側除去・読戻し不明の完了表示を反証する。画面配置・Field・公開API・保存・本番接続はOPENであり、新Tool名や画面をここで発行しない。
 
 ## 7. Visualと公式素材
 
@@ -350,4 +358,4 @@ Checklist評価根拠: Remote MCP公開Schema、Local内部呼出し、Browser A
 - [x] 現行実装との照合をReality Auditとして分離した
 - [x] Source構造をCanonical詳細設計へ逆輸入していない
 
-最新固定8分担の詳細伝播: 候補反映・限定独立レビュー済み・残指摘0。旧観測・Checklistは当時の限定範囲を維持し、最新分担のQuality・Source・本番接続・実境界の完成根拠へ流用しない。
+最新固定8分担の限定独立レビューは当時の範囲だけに適用する。登録解除と鍵3分岐の詳細伝播は候補反映・今回の契約・品質の限定独立レビュー済み・残指摘0。旧観測・Checklistは当時の限定範囲を維持し、Quality・Source・本番接続・実境界の完成根拠へ流用しない。

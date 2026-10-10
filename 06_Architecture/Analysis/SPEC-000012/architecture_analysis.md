@@ -2,12 +2,12 @@
 
 成果物種別: Architecture分析（SPEC観点）
 分析単位: `SPEC-000012`
-状態: 更新中（最新の権限分担の入力分析は限定独立レビュー済み・残指摘0）
+状態: 更新中（登録解除・鍵受け渡しの採用判断を伝播した候補。契約・品質の限定独立レビュー済み・残指摘0）
 
 ## 1. 正式入力
 
 - [SPEC-000012 ユーザー資格と現行Roleで利用範囲を確定しAccessを回復する](../../../05_SPEC/Definitions/SPEC-000012/spec_definition.md)
-- 基準Commit: `ea99450f`
+- 基準Commit: `9b278dad`（正式入力の現在改訂を照合）
 
 このSPEC Definitionだけを意味の正式入力とする。UX-000013／UX-000035／IA-000009は同Definitionの来歴であり、追加入力ではない。UI、既存設計、Source、Evidenceから不足する意味を補完しない。通常の工程Handoffではなく、採用済み契約への既存設計の是正伝播である。
 
@@ -34,7 +34,7 @@
 | 表示名変更 | 対象既存userIdと新表示名を確認し、ID・Role・Credentialを保持する。managerもadministratorの表示名を変更可。名前をAuthorityにしない |
 | 既存Role変更 | 対象userId・変更前後Roleを確認する。managerは前後ともdeveloper／managerだけ。administratorの付与・解除・降格はadministratorのみ。userIdとCredential結合を保持する |
 | Role内容設定 | 対象Role・設定内容を確認し、managerはdeveloper／manager、administratorは三Roleを変更可。固定管理分担とユーザー／資格への個別追加権限は変更しない |
-| Repository登録・登録解除 | manager／administratorが対象ID・現在登録状態・変更内容を確認し接続登録を更新する。登録だけでは公開せず、解除でRepository／Product Dataを削除しない |
+| Repository登録・登録解除 | manager／administratorが対象ID・現在登録／公開状態・変更内容を確認する。解除は同じ受理操作・採用改訂で登録と対応Exposureを除去し、両読戻し確認で完了する。対象外の登録・ExposureとRepository／Product Dataを保持する。登録だけでは公開せず、解除から開始済み処理の取消・Effect 0を推定しない |
 | Repository公開範囲 | manager／administratorが対象ID・現在登録／公開状態・変更内容を確認しExposureを更新する。次要求で内容認可と実アクセスを別判定する |
 | 認証・認可 | Credential→userId→現行Roleを結び、管理要求には固定分担、内容要求にはRole内容設定・Repository Exposure・実アクセスを適用する。古い権限を資格／Sessionに固定しない |
 | 新規発行 | 同一Process Workbenchの固定administrator操作で既存userIdへ発行し、新Secretを一度返す。旧失効・交換Recovery再入場は伴わない |
@@ -58,7 +58,10 @@
 | 鍵処置の処置前停止 | 操作固有の既存対象・CredentialとuserIdの結合・必要資格集合・全員交換の指定既存administrator等が不明・不成立なら新鍵Effectを発行しない。通常入口は固定administrator、Hostはログイン済み操作者の既存Authorityを用い、追加資格認証を要求しない。中止と処置後の結果不明を区別する |
 | 交換の相関 | 旧失効前に同じRecovery ID・種別・入口・対象・既存発行先へ結合し、失敗・耐久記録・再入場まで保持する。新規発行・独立失効へ交換Recoveryを追加しない |
 | 交換の失効・発行 | 旧資格失効、新資格発行、結果確定・記録、結果搬送、結果受領を別段階で観測する |
-| 失効後の発行失敗・応答／Process喪失 | 確定した失効範囲と発行不明を非秘密の耐久情報として同じRecovery IDへ保持する |
+| 発行または非秘密結果記録の不明 | Credential IDとは別の元発行Identityへ既知事実を相関し再観測する。交換由来だけ元のexact Recoveryを維持し、通常発行へ交換Recoveryを生成せず、新しい交換を開始しない |
+| 発行・記録確定後の配送／受領不明 | 確定発行を保持し「発行済み・受け渡し未確認」とする。Secret保存・再表示・自動再発行なし。現在administratorの明示選択で既存交換を別Operation／Recoveryとして開始できる。元処理のIdentityと事実は保持し、各交換内部だけsame exactを維持する |
+| 別の明示交換 | 指定ユーザー交換は先発行鍵を含む対象の全旧有効資格を失効し同じuserIdへ発行する。全員交換は全旧有効資格を失効し指定既存administratorへ発行する。別交換成功から旧受領・rollback・取消完了を推定せず、遅延旧応答で失効鍵を利用可能と返さない |
+| 現在administrator非接続 | 通常鍵操作に必要な現在administrator認証が成立しない場合は既存Host交換2操作だけを使う。新しい回復入口や通常認可の迂回を作らない |
 | 再入場 | 同じID・種別・対象へ戻り、現在状態を再観測し現在Authorityを再確認する。保存記録からAuthorityや完了を復元しない |
 | 終了結果 | 現在再観測なしに完了・rollback・旧鍵有効・取消完了を推定しない。Secretを再表示しない |
 
@@ -72,11 +75,13 @@
 |---|---|
 | Boundary／Component／Interface | 公開入口は現在の認可を迂回させず同じ契約を搬送する。Transport LifecycleやContext意味を認可Ownerへ集約しない |
 | Data／State Ownership | 名前／ID／Role詳細権限／資格／Exposure／取得可能性を別に保持。要求認可は現在値で判断する |
-| Failure／Recovery | 同じRecovery、既知失効と発行不明、Process喪失後の非秘密耐久情報と現在再観測を接続する |
+| Failure／Recovery | 元発行Identityの再観測、確定後の別明示交換、現在administrator非接続の既存Hostを分ける。通常発行のRecovery非生成、交換内部のexact相関、確定事実の保持を接続する |
 | Security／Trust／品質 | 管理と内容、三可視境界、秘密非保存、未知の正常化禁止、取消非証明を反証する |
 | 検証意図 | 固定8操作の三Role許可／拒否、操作別対象、managerのadministrator名前変更許可／Role・詳細権限・鍵拒否、developer管理拒否≠自身表示・許可内利用拒否、自己範囲変更の時間順、登録≠公開、解除≠削除をQualityへ渡す。通常発行の旧資格非失効、独立失効の指定対象外非失効・新資格／Secret非発行、交換の所定失効範囲、同名／改名、2操作×2入口、処置前停止・処置後不明・現在再観測なしの完了／権限復元／Secret再表示も反証する |
 
 ## 5. 未確認事項と統合
+
+検証意図には、片側除去／観測不能の完了化、対象外変更、両除去から開始済み取消の推定、通常発行への交換Recovery追加、不明発行からの新交換、確定発行の不明化、別交換と元処理の相関混同、遅延した失効鍵の利用案内、別交換成功から旧受領・rollback・取消の推定を含める。具体的な観測・保存手段とLocal Itemは後段で対応付ける。
 
 | 継承事項 | 判断者・再評価契機 | 未確認時の扱い |
 |---|---|---|
@@ -95,4 +100,4 @@
 - [x] 失敗・回復・Process喪失・耐久相関・終了後観測を評価した
 - [x] Security・品質・検証意図、Human InputとOpenを保持した
 - [x] Sourceから意味を逆輸入せず、UIとの統合確認を示した
-- OPEN: ARCH-000013・横断モデル・Architecture詳細・Quality・Sourceは最新分担へ未追従。前判断の限定Passは履歴であり、今回の分析候補のPassではない。工程Ready・実装・E2E成立を主張しない。
+- OPEN: 今回のArchitecture伝播候補は契約・品質の限定独立レビュー済み・残指摘0。Quality・Source・具体保存・本番接続は未完了。前判断の限定Passを今回へ流用せず、工程Ready・実装・E2E成立を主張しない。

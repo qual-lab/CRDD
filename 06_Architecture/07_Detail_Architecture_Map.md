@@ -22,11 +22,11 @@ Quality／Development
 
 ## 2. 詳細設計領域
 
-最新の固定8管理操作は基本設計・横断モデルへ限定伝播・契約／品質の独立レビュー済み・残指摘0。前鍵管理契約の限定Passは履歴であり、最新分担のPassへ流用しない。Access Management／Workbench／MCPの3詳細へ最新分担を候補伝播し、限定独立レビュー済み・残指摘0。Quality・Source・具体API／保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。 旧crosは比較資料であり、他ARCHの状態は再評価しない。
+固定8管理分担の前回限定レビューは履歴として保持する。今回は登録解除の両除去・読戻しと、鍵の発行／記録不明・確定後の受け渡し未確認・現在administrator非接続の3分岐を横断モデルへ候補伝播し、契約・品質の限定独立レビュー済み・残指摘0である。Quality・Source・具体API／物理保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。 旧crosは比較資料であり、他ARCHの状態は再評価しない。
 
 | 詳細設計領域 | 対応Architecture定義 | 責務 | 状態 |
 |---|---|---|---|
-| [access-management](Details/access-management/01_Architecture.md) | ARCH-000013 | 最小ユーザー・Role・資格と交換相関の意味、現在認可、接続／公開範囲。Host交換2操作は同契約下のCLI入口。Domain内容・Transportを所有しない | Candidate／Partial。保存Schema・具体API・表示／受領方式OPEN |
+| [access-management](Details/access-management/01_Architecture.md) | ARCH-000013 | 最小ユーザー・Role・資格と交換相関の意味、現在認可、接続／公開範囲。Host交換2操作は同契約下のCLI入口。Domain内容・Transportを所有しない | Candidate／Partial。登録解除・鍵3分岐の意味はAM詳細02へ対応。物理保存Schema・具体API・表示／受領方式OPEN |
 | [ai-adapter](./Details/ai-adapter/01_Architecture.md) | ARCH-000004、ARCH-000010、ARCH-000015 | AI AdapterのCatalog・Profile管理、Provider別計画・出力変換と実行Authorityの分離 | Candidate |
 | [artifact-signing](Details/artifact-signing/01_Architecture.md) | ARCH-000014 | 配布物の完全性、鍵Capability、Publisher証明 | Canonical |
 | [checker](Details/checker/01_Architecture.md) | ARCH-000001、ARCH-000002 | 決定論的構造検査と契約移行時の機械的集合検査 | Canonical |
@@ -76,7 +76,7 @@ Architecture定義と詳細設計領域は同じIdentityではない。新しい
 
 ## 4. Qualityへの引渡し
 
-ARCH-000013では、Access Managementの資格Lifecycleと認可の意味、Domain Modelの認可済みContext集約・中立な保存部品、Workbenchの通常鍵操作、MCPの鍵操作非公開を分けて検証する。Domainの保存部品へ資格の発行／失効判断を移さず、Host CLIを新Serverや新Frameworkにしない。MCPは鍵操作のConsumerではない。固定8分担はARCH-000013を正本とする。管理認可と内容認可、登録／公開／実アクセス、解除／削除を区別し、AM／Workbench／MCPの3詳細本文は候補伝播・限定独立レビュー済み・残指摘0である。配置候補から許可や実装成立を生成しない。
+ARCH-000013では、Access Managementの資格Lifecycleと認可の意味、Domain Modelの認可済みContext集約・中立な保存部品、Workbenchの通常鍵操作、MCPの鍵操作非公開を分けて検証する。Domainの保存部品へ資格の発行／失効判断を移さず、Host CLIを新Serverや新Frameworkにしない。MCPは鍵操作のConsumerではない。固定8分担はARCH-000013を正本とする。管理認可と内容認可、登録／公開／実アクセス、解除／削除を区別し、AM／Workbench／MCPの3詳細本文は候補伝播・限定独立レビュー済み・残指摘0である。今回の登録解除・鍵3分岐の横断伝播は契約・品質の限定独立レビュー済み・残指摘0である。[管理API・保存設計](Details/access-management/02_Management_State_and_API.md)から両除去読戻し、元発行IdentityとCredential IDの分離、元処理再観測と別交換、失効鍵の遅延応答拒否を導出する。登録解除・別交換の完了から開始済み取消や旧Secret受領を生成しない。配置候補から許可や実装成立を生成しない。
 
 QualityはARCH-IDだけでなく、対応する詳細設計領域のComponent、Interface、Data／State Flow、Failure、Resource、配置および観測方法を入力にする。個別領域の`OPEN`または`FAIL`は未確認範囲として保持し、全体Passへ畳まない。
 
