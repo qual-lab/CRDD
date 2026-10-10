@@ -16,7 +16,9 @@ v0.22の標準Role識別子は`administrator`、`manager`および`developer`と
 
 管理者はユーザーIDを作成し、表示名とRoleを設定・変更し、そのユーザーのCredentialを発行・リセットできなければならない。Bearer Secretは利用者へ安全な別経路で渡す。表示名は管理対象を識別し、Workbenchに現在の認証ユーザーを表示するためだけに使い、ログイン名、本人確認、権限またはRepository開示の根拠にしない。利用者の自己登録、自己編集、接続申請または個人別承認Workflowは追加しない。
 
-`administrator` Roleを持つユーザーに紐づく有効なCredentialをすべて失った場合または認可状態全体を信頼できない場合、Server Host上の管理Authorityを持つ人間は、Remote認証へ依存しない対話CLIからCredentialとRole設定を安全な状態へ戻し、一度限りのBootstrap Credentialを再発行できなければならない。Bootstrapは通常ユーザーのCredentialと同一視せず、管理へ再入場するための限定的な回復Authorityとする。ユーザーIDとの結合は後工程で確定する。この復旧はRepository内容その他のProduct Dataを削除してはならない。
+接続に使う鍵（Credential）の交換は、指定ユーザーの鍵交換と、全員の鍵を無効化して指定管理者の鍵を再発行する2操作とする。通常は現行管理権限で実行し、管理者が接続できない場合はServer Hostの管理Authorityと人間の明示確認により、Remote認証へ依存しない対話CLIから同じ操作を実行できなければならない。入口の違いを別の鍵交換方式にしない。ユーザーID・表示名・Role・詳細権限・Repository登録・Product Dataは変更しない。
+
+Hostからの回復でも、回復専用ユーザー、特別Role、追加権限または特別なBootstrap Credentialを作らない。全員分を処置する場合の新資格は、指定した既存のadministratorユーザーへ紐づける。対象が不明、既存管理者が存在しない、ユーザー・Role・権限設定が破損している、または現在状態を安全に確認できない場合は、新しい処置を発行せず停止する。鍵交換による認可設定の自動修復は保証しない。初回Server設定の方式はこの変更で廃止しない。
 
 ## 対象と利用状況
 
@@ -36,7 +38,7 @@ Remote接続には利用範囲の分離が必要
 
 ## 採用理由と比較
 
-以前はUser管理の負担を避けるためRole別共有Credentialを採用した。今回、人間が「誰向けのIDか分かる表示名」とユーザーIDを維持したCredentialリセットを必要とし、最小ユーザー管理へ判断を変更した。共有Credentialだけではこの意図を満たせない。一方、メール・Password・本人確認・申請を持つ一般的なアカウント管理は不要である。Credentialごとの任意Grantは管理の重複を生むため採用せず、詳細権限はRoleが所有する。経緯はEXP-000036へ保持する。
+以前はUser管理の負担を避けるためRole別共有Credentialを採用した。今回、人間が「誰向けのIDか分かる表示名」とユーザーIDを維持したCredentialリセットを必要とし、最小ユーザー管理へ判断を変更した。共有Credentialだけではこの意図を満たせない。一方、メール・Password・本人確認・申請を持つ一般的なアカウント管理は不要である。Credentialごとの任意Grantは管理の重複を生むため採用せず、詳細権限はRoleが所有する。2026-10-10には、人間が鍵だけの処置を採用し、管理者全員を一律に失効する独立操作と、回復時のRole初期化を廃止した。対象1人と全員の2操作で必要範囲を選べ、Host入口でも処理を増やさないためである。経緯はEXP-000036へ保持する。
 
 ## 成立条件
 
@@ -56,17 +58,20 @@ Remote接続には利用範囲の分離が必要
 - 表示名から自然人の本人確認や個人行動監査の成立を主張しない。氏名、メール、部署および個人別申請を必須管理対象にしない。
 - Repository単体利用ではCROS CredentialまたはRole設定がなくても、既存のFilesystem／Git Accessの範囲で利用できる。
 - CROS RoleをRepository内の細粒度ACLとして扱わず、情報境界が必要な内容はRepository分離と既存Accessで保護する。
-- Administrator Recoveryでは`administrator` Roleを持つユーザーに紐づく既存Credentialを失効し、Role定義、通常CredentialおよびRepository登録を維持してBootstrap Credentialを再発行できる。緊急時の最小ユーザー情報の具体的処置は後工程で確定する。
-- Full Access Resetでは全Credentialを失効し、標準三Roleを安全な既定値へ戻してBootstrap Credentialを再発行できる。通常ユーザーへのCredentialリセットと同一の処置として扱わない。
-- Access RecoveryはServer Host上の対話CLIに限定し、Remote MCP、通常Workbenchまたは既存Credentialだけから実行できない。
-- Recovery前に失効対象、Role処置および保持するProduct Dataを表示し、人間の明示確認を得る。
+- 指定ユーザーの鍵交換では、userIdで指定した既存ユーザーの旧有効Credentialをすべて失効し、そのユーザーへ新Secretを一度だけ発行する。他ユーザーの資格は維持する。
+- 全員の鍵交換では、全ユーザーの旧有効Credentialをすべて失効し、userIdで指定した既存administratorユーザーへ新Secretを一度だけ発行する。その管理者が他ユーザーの資格を通常管理から再発行する。
+- 両操作はユーザーID・表示名・Role・詳細権限・Repository登録・Product Dataを保持し、権限を増やさない。Host回復時も同じ保持条件を使う。
+- 通常管理は現行管理認可を要求し、Host回復はServer Host上の対話CLIで別のOS Authorityと明示確認を要求する。Remote MCPや通常WorkbenchからHost Authorityを代用しない。SecretをMCPへ返さない制約は維持する。
+- 処置前に対象ユーザーID・表示名、失効する資格範囲、新資格の発行先および保持する情報を確認する。Host入口と全員の鍵交換では人間の明示確認を得る。
 - RecoveryのIdentity、対象範囲、結果および再入場方法を秘密値なしで耐久記録へ残し、途中失敗を成功へ畳まない。
+- 失効後の発行失敗・応答喪失では、既知の失効範囲と発行結果の不明を同じRecoveryへ保持する。未失効・rollback・開始済み取消完了を推定せず、Secretを再表示しない。
 
 ## 失敗・リスク・制約
 
 - ユーザーIDと表示名は管理者が付けた接続主体の識別であり、実際に操作した自然人の証明ではない。
 - Credential漏洩時はリセットし、新Credentialを別経路で配布する必要がある。
-- Full Access Reset後は、すべての利用側へ新Credentialを再配布する必要がある。
+- 全員の鍵交換後は、他ユーザーの資格再発行とすべての利用側への再配布が必要で、その間は旧資格で接続できない。
+- 鍵交換はユーザー・Role・権限設定の破損を修復しない。破損時は停止し、別の復旧判断へ戻す。
 - TLS等の安全な通信方式なしにBearer Secretを送信しない。
 - HashまたはDigestそのものを送信Credentialとして使用しない。
 - Bearer文字列の自己申告Roleだけで認可しない。
@@ -85,18 +90,18 @@ Remote接続には利用範囲の分離が必要
 ## 未確認事項と戻り条件
 
 - UUIDの版、表示名の構文・正規化・一意性、保存Schema、Role詳細権限の語彙、管理画面とCLIは後工程で決める。
-- 既存Credentialの移行または再発行、BootstrapとユーザーIDの結合、緊急Recovery時の最小ユーザー情報の処置は後工程で確定する。Package改名だけを理由に保存Rootを変更しない。
+- 既存Credentialの移行または再発行、初回Server設定と最初の管理者の結合は後工程で確定する。緊急回復の発行先は既存ユーザーIDとし、ユーザー情報・Role・権限を変更しないことは採用済みである。Package改名だけを理由に保存Rootを変更しない。
 - 複数Role、個別追加権限、本人確認、自己登録または表示以外のユーザー情報が必要になった場合はDiscoveryへ戻す。
 
 ## 検証意図
 
-管理者がユーザーID・表示名・Roleを登録し、Credentialを発行してRemote接続する。表示名変更でもID・認可が不変で、CredentialリセットでもID・Roleが不変かつ旧Secretが拒否されること、Role詳細権限変更が次の認可へ反映されることを確認する。Secret非保存、偽のユーザー相関、Credential別権限追加、誤Role、失効、期限切れ、非開示Repository、非管理者による管理操作および管理者への内容自動付与を反証する。Workbenchの現在ユーザー表示と管理対象の識別も確認する。通常リセットとHost限定緊急Recoveryを区別し、管理Credential全喪失と認可状態破損から復旧でき、Product Dataを保持することを確認する。Repository単体利用がCredentialなしで成立することも確認する。
+管理者がユーザーID・表示名・Roleを登録し、Credentialを発行してRemote接続する。表示名変更でもID・認可が不変で、鍵交換でもID・名前・Role・権限が不変かつ旧Secretが拒否されること、Role詳細権限変更が次の認可へ反映されることを確認する。指定ユーザーと全員の失効範囲、全員交換後の指定管理者への再入場、通常管理とHost入口のAuthority差を別々に確認する。既存管理者不存在・対象不明・認可設定破損では処置前停止する。Secret非保存、偽のユーザー相関、Credential別権限追加、誤Role、期限切れ、非開示Repository、非管理者による管理操作、開始済み取消の誤認および管理者への内容自動付与を反証する。失効後の発行失敗・応答喪失・Process喪失では既知処置と同じRecoveryを保持し、再観測なしに完了やrollbackへ畳まない。Repository単体利用がCredentialなしで成立することも確認する。
 
 ## UXへの引き渡し
 
 | 引渡し先 | 失ってはならない意味 | 下流で決めること |
 |---|---|---|
-| UX | Repository単体利用はCredential不要。Remote利用は管理者が最小ユーザー情報とCredentialを用意し、利用者は一度設定して再接続する。表示名は現在の認証者と管理対象を示すだけで、本人確認ではない。リセットでユーザーIDとRoleを保ち、旧Secretを拒否する。管理不能時はHostから回復できる | 単体／Remote切替、管理者の登録・表示名／Role変更、現在ユーザー表示、初回設定、Secret一度表示、リセット・権限変更の影響理解、通常リセットとHost Recoveryの区別 |
+| UX | Repository単体利用はCredential不要。表示名は自身と管理対象の表示だけに使う。指定ユーザー交換は対象の旧有効資格すべてを失効して同じユーザーへ新資格を一度発行し、全員交換は全旧有効資格失効と指定既存administratorへの一度発行を行う。ユーザー情報・Role・権限・登録・Product Dataを保持する。同じ2操作を通常管理認可またはHost OS Authorityと明示確認から実行する。対象不明・管理者不存在・認可設定破損では処置前停止。処置後失敗・応答喪失・Process喪失は既知処置と同じRecoveryを保持する | 対象1人／全員の影響理解、全員交換後の再配布負担、通常／Hostの入口とAuthority差、Secret一度表示、結果不明時の再観測・再入場、単体／Remote切替、管理者登録・表示名／Role変更と初回設定 |
 
 ## 関係
 
