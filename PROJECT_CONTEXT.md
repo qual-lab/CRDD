@@ -49,7 +49,7 @@ v0.21.0は公開済み、v0.22.0とCHG-000082は未完了である。責務再�
 | 判断項目 | 現在の処置 | Owner Relation |
 |---|---|---|
 | 接続主体・Role・Credentialの再編 | 最小ユーザー管理と鍵交換2操作は採用済みで追加判断不要。鍵交換の新判断は要求・UXへ反映し限定独立レビュー済み、IAは再伝播し限定独立レビュー済み、UI／SPEC Definitionは限定独立レビュー済み、Detailは再伝播し限定独立レビュー済み、Definition対応の現行1組と横断投影は限定独立レビュー済み、Architectureの2分析・ARCH-000013・Component表は再伝播し限定独立レビュー済み、03〜06横断モデルは伝播済み・限定独立レビュー済み、07／08・Details／Quality以降は未追従。旧Passを流用せず、新要求から設計・品質へ再伝播する。 | [鍵交換の途中見直し](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#鍵交換の途中見直し--2026-10-10) |
-| CROS Packageの責務再編 | 維持判断を人間が変更。認証・認可を`access-management`へ、Context・通信等は実Ownerへ移し、全責務・代替本番接続後に旧Packageを撤去する。Source移管は未着手。 | [新Owner対応とGate](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#11-access-managementへの再編--2026-10-09の途中見直し) |
+| CROS Packageの責務再編 | 18 Source＋binの移管前対応表を作成し、3指摘の是正後、限定独立再レビューは両観点とも残指摘0。認証・認可を`access-management`へ、Context・通信等は実Ownerへ分ける。旧固定Grant／Bootstrapは新契約へ単純移動不可。Details／QA更新・Source移管・本番接続・旧撤去は未完了。 | [移管対応表](99_Roadmap/Changes/CHG-000082/source-owner-map.md)、[新Owner対応とGate](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#11-access-managementへの再編--2026-10-09の途中見直し) |
 | 非協調Processの親Directory差替え保証 | 必要範囲を確認中。未回答を高い保証の採用や免除へ読み替えず、独立した接続整理を継続する。 | [保存保証の未決判断](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#保存保証の未決判断) |
 | 5C追加是正の持ち越し | 承認済み。保証条件変更・Release範囲変更の承認ではない。 | [判断の正本](99_Roadmap/Changes/CHG-000082/change.md#持ち越し判断--orchestratorcoordinatordocker2026-10-09) |
 | 履歴相関を必須としない配送終了案 | 未採用・未実装のまま改修入力へ持ち越す。 | [未採用候補](99_Roadmap/Changes/CHG-000082/change.md) |

@@ -4,6 +4,8 @@
 詳細設計領域: cros
 状態: Candidate
 
+2026-10-10現在、本書の本文は置換前の成立能力・設計比較資料である。旧Credential固定Grant、Profile、Bootstrap回復を含み、現行ARCH-000013のユーザー・Role・鍵交換2操作に未追従。本文のCovered／Checklist／旧Passは新契約の正本・完成証明ではない。[移管対応表](../../../99_Roadmap/Changes/CHG-000082/source-owner-map.md)を詳細設計刷新の入力とし、新OwnerのDetailsとQualityへの伝播後に置換する。
+
 本詳細はCHG-000082の責務再編候補である。CROSは共通能力であり、専用REST Server、GatewayまたはShared Server Runtimeを新構成へ残さない。以下の現行実装照合は旧配置で成立した範囲を示し、新しいMCP／内部呼出しの接続済み証明ではない。公開操作、設定移行、全利用側とQAの確認後に段階4の独立設計レビューへ渡す。
 
 ## 基本設計との関係

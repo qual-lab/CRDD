@@ -708,6 +708,12 @@ UI／SPECの直接伝播は各UX-000013／035・IA-000009の3分析とUI-000008�
 
 必須確認集合は契約・品質の限定独立レビュー、文書のリンク・用語・差分確認と、03〜06および現況参照の直接伝播確認。準拠規則・Source・外部Runtimeは変えないため準拠監査、全回帰、実E2Eはこの段階では実施しない。過去Evidence、Source、保存Root、Schema、新Store／Registry／Lock／Framework、Docker／Orchestrator／Coordinatorの実行系は変更禁止。現在は9文書を作成済み・限定独立レビュー済みであり、UI Exit、Architecture Ready、QA Handoff、詳細設計・実装完成を主張しない。 初回の契約確認で管理状態と派生認可集合の混在、図案内の漏れを検出し、品質確認の重複指摘と合わせ2件へ統合した。両確認者へ是正方針を照合し、2箇所を最小修正した後の限定再レビューは両観点とも残指摘0。ローカルリンク先の欠落0、差分空白確認成功。Source・過去Evidence・UI／SPEC正本2Hashは不変。
 
+#### 旧CROSの移管前Source照合 — 2026-10-10
+
+基準Commitは`2b5b1b76`。[移管対応表](source-owner-map.md)で18 srcと1 binの19入力を全数処置し、混在FileをSymbol群で分解した。対応表は移管分析でありArchitectureの第二正本ではない。Credential固定Grant・一資格rotation・Bootstrap新Identityは新ユーザー／Role／鍵交換契約に非互換で、単純移動できない。Portfolioの認可選択と純粋集約を分離し、活動・Profile・設定・Transportを実責務へ照合する。Tool／Surface／Handoff等は本番Consumer未観測として削除未決を保持する。
+
+編集母集団は対応表、本計画、PROJECT_CONTEXT、旧CROS Details冒頭の現況表示の4文書。着手前の契約専門確認で着手可。旧根拠の対象版と成立能力を保持し、Source・秘密Store・Root・Schema・過去Evidence・実行系は変更しない。変更分類は既存CHGの移管前影響調査。契約と品質の限定独立レビュー、文書・直接伝播確認を実施した。規範・準拠基準・Sourceは変更しないため準拠監査・全回帰・実E2Eは対象外。3指摘を統合是正し、両観点の限定再レビューは残指摘0。現在は対応表作成済み・限定独立レビュー済み。Details／QA更新・Owner移管・置換実装・本番接続・旧削除・新契約成立は未完了。現在、追加の人間判断は不要。
+
 #### 採用前のInput整理（履歴）
 
 以下の未確定表示は追加Inputを受けた時点の記録であり、現在の採用範囲は上記を優先する。
