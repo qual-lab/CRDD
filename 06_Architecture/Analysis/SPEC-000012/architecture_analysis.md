@@ -2,177 +2,72 @@
 
 成果物種別: Architecture分析（SPEC観点）
 分析単位: `SPEC-000012`
-状態: Canonical
+状態: 更新中（採用済み契約への是正伝播・限定独立レビュー済み）
 
 ## 1. 正式入力
 
-- SPEC定義: [SPEC-000012 Role別Credentialから利用範囲を確定しAccessを回復する](../../../05_SPEC/Definitions/SPEC-000012/spec_definition.md)
+- [SPEC-000012 ユーザー資格と現行Roleで利用範囲を確定しAccessを回復する](../../../05_SPEC/Definitions/SPEC-000012/spec_definition.md)
+- 基準Commit: `ab4aa215`
 
-このSPEC定義だけを正式入力とする。反対観点、上流工程、現行Architectureまたは実装から不足する意味を補わない。
+このSPEC Definitionだけを意味の正式入力とする。UX-000013／UX-000035／IA-000009は同Definitionの来歴であり、追加入力ではない。UI、既存設計、Source、Evidenceから不足する意味を補完しない。通常の工程Handoffではなく、採用済み契約への既存設計の是正伝播である。
 
-## 2. Architectureへ引き継ぐSPEC契約
+## 2. 引き継ぐSPEC契約
 
-### 振る舞いの目的
-
-Role別Credentialを維持し、接続時の利用範囲を確定し、通常管理不能時にはProduct Dataを変えずAccessだけを回復する。
-
-### UX観点の分析結果
-
-| UX分析 | 保持する利用者成果 |
+| 対象 | 条件・振る舞い・結果 |
 |---|---|
-| [UX-000013](../../../05_SPEC/Analysis/UX-000013/spec_analysis.md) | 許可された作業領域だけをリモート利用する |
-| [UX-000035](../../../05_SPEC/Analysis/UX-000035/spec_analysis.md) | User管理なしでRole別Credentialを維持しAccessだけを回復する |
+| 登録・変更 | 安定userId（UUID）、管理者設定の表示専用名、一つの現行Roleを扱う。名前変更でID／Authorityを変えず、Role詳細権限をユーザー・資格の追加権限にしない |
+| 認証・認可 | Credential→userId→現行Role詳細権限、Repository Exposure、実アクセスを要求ごとに別判定する。古い権限を資格／Sessionに固定しない |
+| 通常管理 | ユーザー登録・名前／Role変更・Role権限管理・資格発行／交換／独立失効は現行Roleの管理許可と対象・変更内容を確認する。管理可否から内容Accessを生成しない |
+| 指定ユーザー交換 | 対象既存userIdの全旧有効資格を失効し、同じuserIdへ新資格を発行。その他のユーザーの鍵を保持 |
+| 全員交換 | 全ユーザーの全旧有効資格を失効し、指定既存administrator userIdへ新資格を発行。他ユーザーへの通常再発行・再配布は管理者が行う |
+| 2入口 | 通常入口は現行管理認可、Host入口はHost OS Authority。Host入口または全員交換だけ人間の明示確認を要求する |
+| 独立失効 | 現行管理認可と対象を確認し、以後の要求で拒否する。新発行なし。開始済み取消やEffect 0の証明ではない |
+| 保持・制約 | 鍵交換でuserId・表示名・Role・詳細権限・Repository登録・Product Dataを保持。特別ユーザー・追加権限・回復専用Bootstrap・認可設定破損修復を追加しない |
+| 状態 | 利用5区分と部分成立、資格の有効／期限切れ／失効／不明、回復の確認待ち／進行中／blocked／completedを区別。永続resetting／rotationを増やさない |
+| 可視性・秘密 | 自身表示可、非認証User情報0、非管理者の他User一覧・存在・件数0。非開示Repository保護。生Secretは発行／交換後だけ一度返し、保存・ログ・Evidence・会話へ複製しない |
 
-### IA観点の分析結果
+単体利用の資格不要と初回Server設定方式は不変。API、UI配置、秘密Store、UUID版・生成方式、表示名構文、期限、保存Schemaはこの分析で確定しない。
 
-| IA分析 | 保持する情報構造 |
+## 3. Lifecycle・失敗・回復
+
+| 段階 | 事前条件・確定事実・終了条件 |
 |---|---|
-| [IA-000009](../../../05_SPEC/Analysis/IA-000009/spec_analysis.md) | 接続資格・作業領域・公開範囲 |
+| 処置前 | 対象既存ID、必要資格集合・現行権限、全員交換の指定既存administrator、入口Authorityと必要な明示確認を確認する |
+| 処置前停止 | 対象不明・管理者不存在・必要状態の安全な観測不能・認可破損では新Effectを発行しない。中止と処置後の結果不明を区別する |
+| 失効・発行 | 旧資格失効、新資格発行、結果確定、結果受領を別段階で観測する |
+| 失効後の発行失敗・応答／Process喪失 | 確定した失効範囲と発行不明を非秘密の耐久情報として同じRecovery IDへ保持する |
+| 再入場 | 同じID・種別・対象へ戻り、現在状態を再観測し現在Authorityを再確認する。保存記録からAuthorityや完了を復元しない |
+| 終了結果 | 現在再観測なしに完了・rollback・旧鍵有効・取消完了を推定しない。Secretを再表示しない |
 
-### 両観点の統合判断
+副作用はユーザー情報・Role設定・非秘密資格情報／照合情報・失効・回復記録の更新に限定する。ただし鍵交換自体はユーザー情報・Role・権限等の保持境界を変更しない。失効／交換の成功は開始済み操作の取消完了や過去Effect 0を証明しない。
 
-Role別Credentialの発行・失効・ローテーションと接続時の利用範囲確定を同じCredential Lifecycleとして扱う。全Administrator喪失または認可状態破損時だけ、Server Host Authorityから同じRecovery IDでAccessを再構成し、RepositoryやProject Contextを変更しない。
+## 4. Architecture評価と処置
 
-### 契機・事前条件・Authority
+既存[ARCH-000013](../../Definitions/ARCH-000013/architecture_definition.md)を更新する。認証・要求認可・ユーザー／Role／資格・回復状態のOwnerはAccess Management、認可済み対象のContext集約はDomain Modelへ分ける。新Framework・汎用Registry・Storeを追加する指示ではない。
 
-| 項目 | 契約 |
+| 観点 | 評価・引き渡し |
 |---|---|
-| 契機 | Remote接続、Credential発行・失効・ローテーション、またはAccess Recoveryを開始する時 |
-| 事前条件 | 通常操作では有効なAdministrator Credential、RecoveryではServer Host上の対話Authorityと処置対象を確認できる |
-| Authority | 通常管理はAdministrator能力、内容AccessはRole別Grant、全喪失RecoveryはServer Host Authorityに限定する |
-| 判定不能 | 不足を既定値で補完せず、新しいEffectを発行せず現在状態と未解消義務を保持する |
+| Boundary／Component／Interface | 公開入口は現在の認可を迂回させず同じ契約を搬送する。Transport LifecycleやContext意味を認可Ownerへ集約しない |
+| Data／State Ownership | 名前／ID／Role詳細権限／資格／Exposure／取得可能性を別に保持。要求認可は現在値で判断する |
+| Failure／Recovery | 同じRecovery、既知失効と発行不明、Process喪失後の非秘密耐久情報と現在再観測を接続する |
+| Security／Trust／品質 | 管理と内容、三可視境界、秘密非保存、未知の正常化禁止、取消非証明を反証する |
+| 検証意図 | 通常管理、同名／改名、2操作×2入口、独立失効、処置前停止と処置後不明、現在再観測なしの完了／権限復元／Secret再表示をQualityへ渡す |
 
-### 振る舞い・状態・結果
+## 5. 未確認事項と統合
 
-```text
-[Role選択] -> [Credential発行] -> [Secret一度表示] -> [active]
-       ├ revoke／rotate -> [revoked／active(new)]
-       └ authenticate -> [Session＋Role Grant]
-
-[全Administrator喪失／認可破損]
-       -> [Host確認] -> [Recovery ID] -> [Accessだけ再構成] -> [通常管理]
-```
-
-- 振る舞い: 三RoleのCredentialを管理し、認証時は現在有効なRole GrantとRepository Roleから利用可能範囲を確定する。
-- 成功条件: Secretは発行時に一度だけ返し、System管理能力と内容Accessを分け、Repository単体利用へCROS Credentialを要求しない。
-- Recoveryは最初の失敗から同じRecovery IDを保持し、新しいRecoveryを重ねない。
-
-### 失敗・回復・副作用
-
-- 失敗: 無効・期限切れ・失効Credential、Role不整合、Secret再表示要求、全Administrator喪失、認可状態破損、Recovery途中失敗を区別する。
-- 副作用: Credential Metadata、Digest、Session Grant、失効状態、Recovery記録を更新し得る。生SecretとProduct Dataを複製しない。
-- 回復: 失効対象・保持対象・終了後状態を再観測し、Bootstrap Credentialから通常管理へ戻す。
-
-### 受入条件と検証義務
-
-| 観点 | 受入条件 |
-|---|---|
-| 正常 | Role別Credentialの発行・認証・失効・ローテーションが成立し、管理能力と内容Accessを別に判定する |
-| 境界 | active／expired／revoked／rotating／unknown、三Role、Repository単体利用、通常管理／Host Recoveryを分ける |
-| 失敗 | Secretを再表示・保存せず、管理能力から内容Accessを推定せず、RecoveryでProduct Dataを削除しない |
-| 観測不能 | 不明を完了へ丸めず同じRecovery IDと既知状態を返し、新しい資格・Session・内容Effectを発行しない |
-| 対応UI | [UI-000008](../../../04_UI/Definitions/UI-000008/ui_definition.md)の操作・Feedbackと契機・結果・失敗が一致する |
-
-### 対応するUI
-
-- pairs_with: [UI-000008](../../../04_UI/Definitions/UI-000008/ui_definition.md)
-
-### 制約
-
-API、Process、保存方式、画面、部品または実装技術を本定義で確定しない。現行実装は独立した照合対象であり、望ましい振る舞いの根拠として自動採用しない。
-
-### 未確認事項・人間判断・戻り条件
-
-正式入力に残る未確認事項を、解消済みとみなさず次のとおり継承する。
-
-#### UX-000013から継承する確認事項
-
-入力Definitionから継承した確認事項の由来: [UX-000013](../../../02_UX/Definitions/UX-000013/ux_definition.md)
-
-未確認事項は、統合元の要求ごとに次を保持する。
-
-- REQ-000011: プロジェクト運営者／PMが「許可された作業領域だけへ接続する」を行う際の判断基準、許容負担、利用環境および失敗後の選択
-- 現在判定: 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。
-- 確認事項: REQ-000011: プロジェクト運営者／PMが「許可された作業領域だけへ接続する」を行う際の判断基準、許容負担、利用環境および失敗後の選択
-- 判断者: プロジェクト運営者／PMを代表する利用者とQual-Lab。
-- 未確認時の影響: 利用者成果、重要場面、失敗および品質期待を仮説として保持し、定量条件や実現方式を確定しない。
-- Discoveryへ戻す条件: 想定した利用者、問題、望ましい変化または制約が誤っていると判明した場合。
-- UX分析へ戻す条件: 利用場面、目的、得られる結果、重要場面、失敗または品質期待の統合判断が変わる場合。
-
-再評価契機: 対象利用者による実利用確認、前提変更、または後続工程でこの未確認事項が成立条件へ影響すると判明した時。
-
-#### IA-000009から継承する確認事項
-
-入力Definitionから継承した確認事項の由来: [IA-000009](../../../03_IA/Definitions/IA-000009/ia_definition.md)
-
-| 入力UX | UXから継承する確認事項 | 判断者 | 現在判定 | 未確認時の影響 |
-|---|---|---|---|---|
-| UX-000013 | REQ-000011: プロジェクト運営者／PMが「許可された作業領域だけへ接続する」を行う際の判断基準、許容負担、利用環境および失敗後の選択 | プロジェクト運営者／PMを代表する利用者とQual-Lab。 | 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。 | 利用者成果、重要場面、失敗および品質期待を仮説として保持し、定量条件や実現方式を確定しない。 |
-
-IA固有の追加人間判断はない。これは入力UXの未確認事項が解消済みという意味ではない。正式入力にないObject、情報境界、所有責任または状態を追加する必要が生じた場合は人間の決定権限者へ戻す。UI／SPEC分析またはQuality Analysis / IAで対象・同一性・関係・状態・可視性・時間的な意味の不足または競合が判明した場合はIAを再開する。
-
-再評価契機: 対象利用者による実利用確認、前提変更、または後続工程でこの未確認事項が成立条件へ影響すると判明した時。
-
-#### SPEC固有の追加判断
-
-現時点で追加の判断事項はない。これは上記の継承事項が解消済みという意味ではない。正式入力の意味、対応関係または成立条件に不足・競合が見つかった場合は、その意味を所有するUX／IAへ戻す。
-
-### 検証意図
-
-正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。
-
-### 補足定義
-
-なし。
-
-この節にあるUX／IA／REQ参照は、正式入力である当該UI／SPEC Definitionが報告する来歴であり、Architectureの追加の正式入力ではない。
-
-## 3. Architecture観点の分析
-
-| 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
-|---|---|---|---|---|
-| [Workspace利用範囲とRepository FederationのArchitecture定義](../../Definitions/ARCH-000013/architecture_definition.md) | CROS Session／Workspace Resolver | 通常管理はAdministrator能力、内容AccessはRole別Grant、全喪失RecoveryはServer Host Authorityに限定する | Credential Metadata、Digest、Session Grant、失効状態、Recovery記録を作成・更新し得る。生SecretとProduct Dataを複製・変更しない | 無効・失効Credential、Role不整合、Secret再表示要求、全Administrator喪失、認可破損、Recovery途中失敗を区別する |
-
-### 観点別評価
-
-| 観点 | 判定 | 根拠・引渡し |
+| 継承事項 | 判断者・再評価契機 | 未確認時の扱い |
 |---|---|---|
-| Responsibility | 評価済み | [Workspace利用範囲とRepository FederationのArchitecture定義](../../Definitions/ARCH-000013/architecture_definition.md)へ入力Contractを意味変更せず渡す。 |
-| Boundary／Component／Interface | 評価済み | 状態OwnerはCROS Session／Workspace Resolver。公開境界は入力定義のAuthority・Effect・制約を越えない。 |
-| Data／State Ownership | 評価済み | CROS Session／Workspace ResolverをOwner候補とし、UI表示またはSPEC結果と内部状態を同一視しない。 |
-| Failure／Recovery | 評価済み | 同じRecovery IDでAccessだけを再構成し、Product Data不変と通常管理への再入場を確認する。途中失敗後に別Recoveryを重ねない。 |
-| Security／Trust | 評価済み | 入力定義のAuthority、開示、Effect 0および非推定条件を保持する。 |
-| Quality Constraint | 評価済み | 未観測・不明・制限・失敗を成功または不存在へ丸めない。 |
-| Human Input | 継承あり | REQ-000011: プロジェクト運営者／PMが「許可された作業領域だけへ接続する」を行う際の判断基準、許容負担、利用環境および失敗後の選択。 |
-| Open／Gap | 上流確認を継承 | 現在判定: 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。Architecture固有の追加Gapはない。 |
-| Verification Intent | 評価済み | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
+| 自身表示名と安定ID、現行範囲・利用不能理由、接続負担・失敗後選択 | 代表利用者・Qual-Lab。実利用／前提変更時 | 定量条件・具体導線を確定しない |
+| 対象識別とリセット確認負担、管理画面／CLI分担、有効期限既定値 | 管理者・Host運用者・Qual-Lab。Pilot／回復実測時 | 期限・画面・配布手順を確定しない |
 
-Human Inputの判断者は「プロジェクト運営者／PMを代表する利用者とQual-Lab。」。再評価契機は「対象利用者による実利用確認、前提変更、または後続工程でこの未確認事項が成立条件へ影響すると判明した時。」。Architectureはこれらを解消済みとせず、入力の意味が変わる場合はOwner工程へ戻す。
-
-## 4. Architecture処置
-
-| Architecture定義候補 | 処置 | 判断理由 |
-|---|---|---|
-| [Workspace利用範囲とRepository Federation](../../Definitions/ARCH-000013/architecture_definition.md) | Same | Role別Credential Lifecycle、Session Grant、Workspace Exposure、FederationおよびHost Access Recoveryを分け、管理能力から内容Accessを生成しない。 |
-
-## 5. UI観点との統合時に確認すること
-
-- 対応候補: UI-000008
-- この分析にある状態、操作、Feedback、Authority、Effectの適用／非適用、失敗を、対応UIの契機と結果へ一つずつ照合する。
-- 差分がある場合はArchitectureで推測せず、UI／SPEC対応レビューへ戻す。
+追加の採用判断は不要だが、継承Openは未解消。対応UI-000008との統合で契機・結果・Failure・Authority・Effect・状態を一件ずつ照合する。意味不足や競合はSPECとその来歴Ownerへ戻し、現行Sourceから埋めない。
 
 ## Checklist
 
-- [x] 自分自身のSPEC定義だけを正式入力として処置した
-- [x] 契機、事前条件、Authority、状態、結果およびEffectを保持した
-- [x] Architectureが担う責務と担わない責務を評価した
-- [x] Boundary、主要ComponentおよびInterfaceの必要性を評価した
-- [x] Data／State Ownershipを評価した
-- [x] External Boundaryと終了後観測を評価した
-- [x] Failure BoundaryとRecovery責任を評価した
-- [x] Security／TrustとQuality Constraintを評価した
-- [x] Human Inputの必要性を評価した
-- [x] Open／GapとOwner工程へ戻す条件を明示した
-- [x] Verification Intentを評価した
-- [x] 現行Sourceや実装構造から意味を逆輸入していない
-- [x] UI観点との統合時に確認する事項を明示した
+- [x] 自身のSPEC Definitionだけを正式意味入力とした
+- [x] 契機・条件・Authority・入力・状態・結果・Effectを保持した
+- [x] 責務・Component・Interface・データOwner・外部境界を評価した
+- [x] 失敗・回復・Process喪失・耐久相関・終了後観測を評価した
+- [x] Security・品質・検証意図、Human InputとOpenを保持した
+- [x] Sourceから意味を逆輸入せず、UIとの統合確認を示した
+- OPEN: 詳細設計・横断モデル・Quality・Sourceは未追従。工程Ready・実装・E2E成立を主張しない。

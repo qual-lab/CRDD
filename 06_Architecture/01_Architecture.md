@@ -2,7 +2,7 @@
 
 Status: Candidate (v0.22.0, 責務再編の基本設計を更新中)
 Owner: Qual-Lab
-Last Updated: 2026-10-07
+Last Updated: 2026-10-10
 
 ## 1. 目的と現在状態
 
@@ -11,6 +11,8 @@ Last Updated: 2026-10-07
 v0.21.0の基準版では、個別責務定義、横断モデルおよび15領域のCanonical詳細設計について、成果物別の可視Checklist、8種類のEngineering ConcernおよびTemplate／Checker契約を含む独立再レビューを完了し、Architecture Readyとした。現在のv0.22.0候補では、Coordinator／Orchestratorの保存方式刷新とCRDD Domain Libraryの責務分離を追加確認中であり、基準版のReadyを現版全体の完成へ読み替えない。各領域の設計・実装・検証の成立範囲と未完了事項を局所成果物で区別し、現行実装との一致はQuality工程のReality Auditで判定する。
 
 ## 2. 工程入力と再構築方法
+
+2026-10-10の現行UI-000008／SPEC-000012を、両Architecture分析・ARCH-000013・Component責務表へ是正伝播した（限定独立レビュー済み）。UI工程Exit後の通常Handoffではなく、採用済み意味への既存設計の更新である。ARCH-ID18件と既存Relationは維持する。03〜06横断モデル、07詳細領域Map、08 Detail Traceability、CROS／MCP／Workbench等のDetailsとQuality／Sourceは未追従で、旧配置をAccess Managementへの移管済み状態と解釈しない。新公開入口・保存Schema・実装・実測成立・Architecture Readyを主張しない。
 
 Architectureの正式入力はCanonicalな20件のUI定義と30件のSPEC定義である。UIとSPECを別々に全数分析し、同じ上位責務境界へ属する結果を18件のArchitecture定義へ統合した。
 
@@ -56,7 +58,7 @@ REQ、UXおよびIAは由来確認に限って参照する。現行Architecture�
 | [Tool CapabilityとAIモデル構成](Definitions/ARCH-000010/architecture_definition.md) | Tool能力の発見、AIモデル構成の検証・選択理由 | UI-000010 | SPEC-000014、SPEC-000015 | Capability RegistryとModel Configuration Resolver |
 | [Runtime Dataの配置・保持・清掃](Definitions/ARCH-000011/architecture_definition.md) | `.crdd`とOS管理Runtime Rootの用途、Owner、耐久性、保持、清掃 | UI-000011 | SPEC-000016 | Runtime Data Contract |
 | [公開Transportの意味同一性](Definitions/ARCH-000012/architecture_definition.md) | decode／encode、接続Lifecycle、公開Application Contractへの搬送 | UI-000007 | SPEC-000011 | MCP／CLI Transport Adapter |
-| [Workspace利用範囲とRepository Federation](Definitions/ARCH-000013/architecture_definition.md) | Role別Credential Lifecycle、Session Grant、Workspace Exposure、FederationおよびHost Access Recovery | UI-000008 | SPEC-000012 | CROS Session／Workspace Resolver |
+| [接続主体・Role権限・資格とRepository Federation](Definitions/ARCH-000013/architecture_definition.md) | 最小ユーザー、現行Role認可、資格・独立失効・鍵交換2操作、認可済み集合の解決とContext集約 | UI-000008 | SPEC-000012 | Access Management／Domain Model（認可済みContext集約） |
 | [Runtime Artifactの信頼評価](Definitions/ARCH-000014/architecture_definition.md) | 準拠、完全性、Publisher、Trust Policy、公式識別の独立評価 | UI-000013 | SPEC-000018 | Runtime Trust Evaluator |
 | [外部送信・結果帰還・候補採用](Definitions/ARCH-000015/architecture_definition.md) | 送信同意、最小化送信、結果帰還、候補隔離、採否 | UI-000016 | SPEC-000021、SPEC-000026、SPEC-000027 | External Information Boundary |
 | [過去情報と現在有効な意図](Definitions/ARCH-000016/architecture_definition.md) | 出所、発生時点、対象改訂版、現在／履歴／置換済み／不明の解決 | UI-000017 | SPEC-000022 | Context Provenance Resolver |
@@ -81,7 +83,7 @@ REQ、UXおよびIAは由来確認に限って参照する。現行Architecture�
 | ARCH-000010 | Capability Registry、AI AdapterのProfile管理 | 能力発見・Profile選択と実行Authorityを分離する。 |
 | ARCH-000011 | 各状態Owner、Domain Modelの保存・設定部品 | 現在状態、通常履歴、候補、正式Evidenceの用途を分ける。 |
 | ARCH-000012 | MCP Server、運用CLI、Workbench表示API | 入力意味を保持し、SPEC-000011のlocalhost範囲を無断拡張しない。 |
-| ARCH-000013 | CROS共通認可能力、MCP Server | 同Processは認可済み直接呼出し、別ProcessはMCP。 |
+| ARCH-000013 | Access Management、Domain Model、MCP／Workbench利用側 | 同Processは認可済み直接呼出し、別ProcessはMCP。新OwnerのDetails・公開入口・Sourceは未接続。 |
 | ARCH-000014 | 各実行境界の独立評価とArtifact Signing | 独立評価軸を保持する。汎用Trust Policy Frameworkは今回採用しない。 |
 | ARCH-000015 | Coordinatorの候補本体、Orchestratorの採用、AI Adapterの搬送差 | 同意・送信・受領・採用のAuthorityを相互流用しない。 |
 | ARCH-000016 | Domain ModelのContext／Artifact由来解決 | 履歴から現在方針を自動採用しない。 |

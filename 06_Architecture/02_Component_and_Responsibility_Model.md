@@ -2,7 +2,7 @@
 
 Status: Candidate (v0.22 responsibility reorganization)
 Owner: Qual-Lab
-Last Updated: 2026-10-07
+Last Updated: 2026-10-10
 
 ## 1. この成果物が所有すること
 
@@ -15,9 +15,9 @@ Last Updated: 2026-10-07
                                       │
                    ┌──────────────────┼──────────────────┐
                    ▼                  ▼                  ▼
-          ┌ 公開入口 ───────┐ ┌ 利用範囲 ──────┐ ┌ 利用能力 ──────┐
-          │ MCP／CLI搬送    │ │ Session／      │ │ Tool発見／     │
-          │ 意味を変えない  │ │ Workspace解決  │ │ Model構成      │
+          ┌ 公開入口 ───────┐ ┌ 接続・利用範囲 ┐ ┌ 利用能力 ──────┐
+          │ MCP／CLI搬送    │ │ 現在認可・     │ │ Tool発見／     │
+          │ 意味を変えない  │ │ 許可集合解決   │ │ Model構成      │
           └────────┬────────┘ └────────┬───────┘ └────────┬───────┘
                    └──────────────────┼──────────────────┘
                                       ▼
@@ -52,7 +52,7 @@ Last Updated: 2026-10-07
 | Component | 含むArchitecture定義 | 状態Owner | 所有すること | 所有しないこと |
 |---|---|---|---|---|
 | 公開入口 | [公開Transportの意味同一性](Definitions/ARCH-000012/architecture_definition.md) | MCP／CLI Transport Adapter | decode／encode、接続、Application Contractへの搬送 | 業務意味、Provider実行、Authority追加 |
-| 利用範囲 | [Workspace利用範囲とRepository Federation](Definitions/ARCH-000013/architecture_definition.md) | CROS Session／Workspace Resolver | Role別Credential Lifecycle、Session Grant、Exposure、Source-aware Federation、Host Access Recovery | User Account・個人別Role割当、Repository内部ACL |
+| 利用範囲・接続管理 | [接続主体・Role権限・資格とRepository Federation](Definitions/ARCH-000013/architecture_definition.md) | Access Management: ユーザー／Role詳細権限／資格／認可／鍵交換状態。Domain Model: 認可済みContext集約 | 最小ユーザー管理、現行Role認可、資格・独立失効・鍵交換2操作、Exposureと取得可能性の別判定、許可集合を入力にしたFederation | 一般IAM、個別追加権限、認可設定破損修復、Repository内部ACL、Transport Lifecycle、Task取消 |
 | 利用能力 | [Tool CapabilityとAIモデル構成](Definitions/ARCH-000010/architecture_definition.md) | Capability Registry、Model Configuration Resolver | Tool候補、構成検証、選択理由 | Tool実行、利用可能性の捏造 |
 | Project Application | [Project実行](Definitions/ARCH-000004/architecture_definition.md) | Orchestrator | Objective／Task、判断待ち、取消、Recovery、結果 | Provider選定、Transport、OS操作、人間判断 |
 | Project状態投影／受入判断記録 | [Project・Portfolio状態投影と受入判断記録](Definitions/ARCH-000005/architecture_definition.md) | Project Management Projection<br>Objective／Milestone Acceptance Decision Record | 投影: 正本を変えない現在状態・比較View<br>判断記録: Project運営者が明示したObjective／Milestoneの受入・差戻し・判断待ちの限定記録 | 投影: 受入判断の記録、その他の正本更新、優先順位の自動決定<br>判断記録: Task作成、Provider Effect、下位完了からの上位受入推定、読取りProjectionからのAuthority生成 |
@@ -106,6 +106,7 @@ Last Updated: 2026-10-07
 | `coordinator` | 単一の実行・Review・取消、Docker資源、候補本体の隔離・読取り・破棄 | 単体利用できる。Orchestratorをimportせず、上位状態・候補採用を所有しない。 |
 | `ai-adapter` | Profile解決・管理、Provider別CLI／入力／出力／認証差 | 実行Authority、Docker資源、共通実行履歴Writerを所有しない。 |
 | `domain-model` | Artifact／Context／Topic／Meeting／品質変更の意味とCRUD、Repository観測・保存・設定の共通部品 | 業務状態のOwnerは各用途に残す。CRUDからGit Commit／PushやProvider Effectを発行しない。 |
+| `access-management` | 最小ユーザー・Role詳細権限・Credential、要求毎認可、接続／公開情報、限定鍵交換 | Domain情報やTransport／Taskを所有せず、管理能力から内容閲覧を生成しない。新IAM／汎用Registryを作らない。Source移管・公開入口は未接続。 |
 | `execution-intelligence` | 実行記録の保存・読取り・評価候補 | Coordinatorの実行観測とOrchestratorのAttempt観測を区別する。Event内容の不変性を永久保持と解釈しない。 |
 | `version-control` | Root／Revisionの検証と明示されたGit操作 | Domainの保存をCommitへ自動変換しない。 |
 | `platform-access` | OS固有のProcess・Filesystem・ACL・Protocol保証 | Nodeで成立する共通処理やCoordinatorの業務状態を移管しない。 |
@@ -115,6 +116,8 @@ Last Updated: 2026-10-07
 Workbench／MCPは必要な内部Capabilityを利用する。同一ProcessのCROS利用は認可を維持した直接呼出し、別Processは同じHostでもMCPを利用する。Shared Serverは配置形態であり、第三の公開Runtimeではない。CROS REST／Gatewayの既存能力は移管・検証後に撤去し、名前の削除だけを置換完了としない。
 
 ## 5. QAへ渡す検証単位
+
+ARCH-000013の現行責務は上の図・表と同定義に従う。認可済み集合の解決はAccess Management、Context集約はDomain Modelへ分け、DomainはCredentialやGrantを解釈しない。今回の変更は採用済み契約への是正伝播であり、03〜08の横断モデル・Details・Qualityは次段で影響を全数判定する。限定伝播から全体Readyを推定しない。
 
 | 検証候補 | 主な対象 | 反証すること | 適する粒度候補 |
 |---|---|---|---|

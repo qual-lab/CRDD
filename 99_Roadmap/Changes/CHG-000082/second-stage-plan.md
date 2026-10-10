@@ -686,6 +686,18 @@ UI／SPECの直接伝播は各UX-000013／035・IA-000009の3分析とUI-000008�
 
 最終限定確認では、現況語同期の末尾OPEN3行の漏れを同じ原因の是正として修正し、両確認者が固定12文書を再確認した。契約・品質とも全重大度の残指摘0・限定Pass。差分空白検査成功、ローカルリンク先不存在0。旧32組のレビュー対象・引用区画と旧Workbench Checklistは基準版との完全一致を確認した。Definition2Hashも不変。結果状態だけを限定独立レビュー済みへ同期し、工程Exit・実装・E2E・v0.22完成は主張しない。次はArchitecture／Qualityへの伝播であり、管理画面／CLI分担と実画面評価の未確認は保持する。
 
+#### 鍵交換2操作のArchitecture分析・責務定義伝播 — 2026-10-10
+
+基準Commitは`ab4aa215`。変更分類は採用済みUI-000008／SPEC-000012への既存Architectureの是正伝播であり、UI工程Exit後の通常Handoffではない。各自身Definitionを独立分析し既存ARCH-000013へ統合する。UI意味、権限、初回設定、単体利用、REST撤去範囲、Source・秘密File・Schema・旧Evidenceは変更しない。人間の追加採用判断は不要で、公開入口・画面／CLI分担・期限・保存確定方式は未確定のまま保持する。
+
+着手前の読み取り専用確認により、Architecture横断のComponent表も直接Consumerとして同時更新する必要を確認した。固定範囲は2分析、ARCH-000013、Component責務表、Architecture入口、本計画、PROJECT_CONTEXTの7文書。旧User無し・Role別資格・固定Workspace Grant・Bootstrap回復の意味を現行最小ユーザーと現行Role認可・鍵交換2操作へ更新し、Access Managementと認可済みDomain集約の境界を明示する。新Framework／Store／APIは作らない。
+
+確認する母集団は通常管理・接続／自身表示・3可視境界、2操作×2入口、独立失効、処置前停止と処置後の発行失敗・応答／Process喪失、同じRecovery・現在再観測・Authority非復元・秘密非再表示・取消非証明。既存発行入口限定と新2操作の対応はDetails／Source照合待ちとし、Remote MCPの秘密発行公開やCLI固定を先取りしない。
+
+必須確認集合は契約・品質の限定独立レビュー、差分・リンクと直接伝播確認。標準Rule・Source・外部Runtimeを変更しないため準拠監査、全テスト、実E2Eはこの段階では実施しない。旧Remote MCPのBearer・非開示・単体・Listener終了Evidenceは歴史比較として参照し、新方式のPassへ流用しない。他の既存資格／回復能力は次段で全Source／試験／Evidenceを対応付け、未照合を置換済みとしない。
+
+7文書は限定独立レビュー済み。初回レビューで主要図の旧責務表示と子節番号の不整合を検出し、統合方針を両確認者へ照合して是正した。契約・品質の限定再レビューはともに残指摘0。差分空白確認とローカルリンク先確認も成功した。03〜08横断モデル、CROS／MCP／Workbench等のDetails、Quality・保存Schema・移行・Source・実境界は未追従。基本定義から全体Readyや実装可能状態を主張しない。
+
 #### 採用前のInput整理（履歴）
 
 以下の未確定表示は追加Inputを受けた時点の記録であり、現在の採用範囲は上記を優先する。

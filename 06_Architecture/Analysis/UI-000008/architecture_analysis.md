@@ -2,202 +2,66 @@
 
 成果物種別: Architecture分析（UI観点）
 分析単位: `UI-000008`
-状態: Canonical
+状態: 更新中（採用済み契約への是正伝播・限定独立レビュー済み）
 
 ## 1. 正式入力
 
-- UI定義: [UI-000008 Workspace接続と利用可能範囲](../../../04_UI/Definitions/UI-000008/ui_definition.md)
+- [UI-000008 ユーザー・Role権限・接続資格とAccess回復](../../../04_UI/Definitions/UI-000008/ui_definition.md)
+- 基準Commit: `ab4aa215`
 
-このUI定義だけを正式入力とする。反対観点、上流工程、現行Architectureまたは実装から不足する意味を補わない。
+このUI Definitionだけを意味の正式入力とする。UX-000013／UX-000035／IA-000009は同Definitionが示す来歴であり、追加の正式入力ではない。SPEC、現行Architecture、Sourceや旧Evidenceから不足するUI意味を補完しない。UI工程Exit後の通常Handoffではなく、採用済み契約への既存設計の是正伝播である。
 
-## 2. Architectureへ引き継ぐUI契約
+## 2. 引き継ぐUI契約
 
-### 利用者成果
-
-接続資格で許可されたWorkspaceだけを利用できる。
-
-### UX観点の分析結果
-
-| UX分析 | このUIで保持する利用者成果 |
+| 対象 | Architectureへ保持する認識・操作・Feedback |
 |---|---|
-| [UX-000013](../../../04_UI/Analysis/UX-000013/ui_analysis.md) | 接続元や接続資格情報が変わっても、現在許可された作業領域だけを利用し、利用不能理由と管理能力を内容閲覧から区別できる |
+| 利用・自身表示 | 自身の表示名と安定userId、現行Role権限、Repository公開範囲と実アクセスを別に認識する。利用5区分と部分成立を区別する |
+| 最小ユーザー管理 | 安定userId（UUID）・管理者設定の表示専用名・一つのRoleを分ける。登録、名前／Role変更、Role詳細権限の維持、資格発行を管理認可内で扱う。名前を本人性・Authorityにしない |
+| 資格 | Credential ID→userIdと現在のRoleを区別し、古い権限固定を避ける。有効／期限切れ／失効／不明を表示し、永続resetting／rotation状態を増やさない |
+| 指定ユーザー交換 | 対象の全旧有効資格失効と同じ既存userIdへの発行、他ユーザーの鍵保持を認識する |
+| 全員交換 | 操作中管理者自身を含む全旧有効資格の失効、指定既存administratorへの発行、他ユーザーの通常再発行・再配布待ちを認識する |
+| 独立失効 | 対象、失効結果、以後の要求拒否を示す。新発行なしで完了でき、開始済み操作の取消とは扱わない |
+| 2入口 | 通常管理とHost回復は入口・Authorityの別軸。全4組で対象ID・表示名・失効範囲・既存発行先・保持情報を事前表示し、Host入口または全員交換だけ明示確認する |
+| 情報保持 | 鍵交換でuserId・表示名・Role・詳細権限・Repository登録・Product Dataを保持する |
+| 部分結果 | 失効後の発行失敗・応答／Process喪失では失効確定範囲と発行不明、同じRecoveryと確認先を示す。現在再観測なしに完了・rollback・旧鍵有効・取消完了を表示しない |
+| 可視性・秘密 | 自身表示可、非認証User情報0、非管理者の他User一覧・存在・件数0。非開示Repositoryも理由で漏らさない。新Secretは発行／交換後だけ一度表示、保存・再表示しない |
+| 停止 | 対象不明・必要な管理者不存在・必要状態の安全な観測不能・認可設定破損では新Effect前停止を認識できる |
+| 単体利用・初回設定 | Repository単体利用は資格不要。初回Server設定方式は変更しない |
 
-### IA観点の分析結果
+重要な不足・不明・制限を詳細へ隠さず、色だけで識別させない。対象確認・判断・戻り先はキーボードと文字表示でも理解できるようにする。具体的な画面／CLI分担、Layout、CMP、期限、Schemaは入力の未確定事項を維持する。
 
-| IA分析 | このUIで保持する情報構造 |
+## 3. Architecture観点の評価
+
+| 観点 | 評価・引き渡し |
 |---|---|
-| [IA-000009](../../../04_UI/Analysis/IA-000009/ui_analysis.md) | 現在の接続で許可された作業領域とRepositoryだけを利用し、管理能力と内容閲覧を混同しない。 |
+| 責務・Component | [ARCH-000013](../../Definitions/ARCH-000013/architecture_definition.md)へ同じ対象・境界を渡す。認証認可とユーザー／Role／資格状態はAccess Management、認可済みContext集約はDomain Modelへ分ける候補 |
+| Interface・Authority | UIはAuthority・Effectを発行しない。公開入口は現行認可を維持し、通常Remote利用からHost実行能力を生成しない |
+| 状態・データ | 名前、ID、Role権限、資格、公開範囲、取得可能性、回復の結果を独立軸で搬送する。表示専用Storeを新設しない |
+| Failure・Recovery | 既知失効と発行不明を隠さず、同じRecoveryへ戻れる導線を保持する。結果表示を取消・rollback保証にしない |
+| Security・品質 | 三可視境界、秘密一度表示・非保存、管理と内容閲覧の分離、部分成立と不明の保持を利用側でも反証する |
+| 検証意図 | 2操作×2入口、独立失効、通常管理、同名／改名、三可視境界、処置前停止、処置後不明を対象にする。試験ID・実測結果はQualityで定める |
 
-### 両観点の統合判断
+## 4. 処置と未確認事項
 
-| UX分析 | 利用者が得たい結果 | 対応するIA分析 | UIで成立させる対応 |
-|---|---|---|---|
-| [UX-000013](../../../04_UI/Analysis/UX-000013/ui_analysis.md) | 場所が変わっても開示範囲を理解して安全に使える | [IA-000009](../../../04_UI/Analysis/IA-000009/ui_analysis.md) | 接続資格、接続中の作業単位（Session）、利用可能領域（Workspace Grant）、公開関係（Exposure）、リポジトリの利用可否、管理能力（System Capability）を見分ける。状態は「利用可能（available）／接続資格が必要（credential_required）／開示制限（restricted）／利用不能（unavailable）／不明（unknown）」。導線は「接続→接続単位→許可された作業領域→公開されたリポジトリ→情報源」 |
+既存ARCH-000013を更新する。新ARCH-IDや新しい一般IAM責務を作らない。管理の具体的な操作対象は追加されるが、メール・Password・本人確認・自己登録／自己編集・SSO・複数Role・個別追加権限は追加しない。
 
-UIはUX側の目的だけでも、IA側の対象一覧だけでも成立しない。各行の利用者成果を、対応する情報・状態・関係・導線で判断可能にした時だけ、このUIの意味が成立する。
-
-### 表示面と情報の優先順位
-
-```text
-Workspace接続と利用可能範囲
-        ↓
-接続資格（Connection Credential）／接続中の作業単位（Session）／利用可能領域（Workspace Grant）／作業領域（Workspace）／公開関係（Exposure）／管理能力（System Capability）
-        ↓
-現在状態・不足・制限
-        ↓
-接続→接続単位→許可された作業領域→公開されたリポジトリ→情報源
-```
-
-| IA分析 | 独立して見分ける対象 | 利用者にとっての意味 | 識別・関係 |
-|---|---|---|---|
-| IA-000009 | 接続資格（Connection Credential） | 接続を認証する資格 | 接続資格識別子（Credential ID） |
-| IA-000009 | 接続中の作業単位（Session） | 一回の接続文脈 | 接続単位識別子（Session ID） |
-| IA-000009 | 利用可能領域（Workspace Grant） | 接続中の作業単位（Session）が利用できる作業領域集合 | 接続資格（Credential）から発行 |
-| IA-000009 | 作業領域（Workspace） | Repository公開のまとまり | 作業領域識別子（Workspace ID） |
-| IA-000009 | 公開関係（Exposure） | RepositoryをWorkspaceへ公開する関係 | Workspace＋Repository |
-| IA-000009 | 管理能力（System Capability） | サーバー（Server）の管理能力 | 接続中の作業単位（Session）へ別途結合 |
-
-同じ画面や応答へ置く場合も、上表の独立軸を一つの成功・信頼・完了へ畳まない。重要な不足、制限、判断要否は詳細へ隠さない。
-
-### 操作とFeedback
-
-主要な操作・判断: 接続する／Workspaceを選ぶ／再認証する。
-
-| UX分析 | 利用者が行う判断・行動 | 重要な場面 | 必要なFeedback | 避ける失敗 |
-|---|---|---|---|---|
-| UX-000013 | 許可された作業領域だけへ接続する | 利用可能情報を表示する時 | 現在の利用許可範囲（Grant）だけを開示し不足を補完しない | 利用不能なリポジトリの存在や内容を推測表示する |
-
-UI部品や通信方式はここで固定しない。各UX行のFeedbackを、IAの状態・導線と対応付けて表示する。
-
-### 状態と表示差
-
-| UX／IAの対応 | 区別する状態 | 状態から進む導線 |
+| 継承事項 | 判断者・再評価契機 | 未確認時の扱い |
 |---|---|---|
-| UX-000013／IA-000009 | 利用可能（available）／接続資格が必要（credential_required）／開示制限（restricted）／利用不能（unavailable）／不明（unknown） | 接続→接続単位→許可された作業領域→公開されたリポジトリ→情報源 |
+| 自身表示名と安定ID、現行範囲・利用不能理由の理解、接続負担と失敗後の選択 | 代表利用者・Qual-Lab。実利用／前提変更時 | 定量条件や具体導線を確定しない |
+| 対象識別と確認負担、管理画面／CLI分担、有効期限既定値 | 管理者・Host運用者・Qual-Lab。Pilot／回復実測時 | 画面・配布手順・期限を先取りしない |
 
-上表にない処理中、取消、回復その他の状態を一律に追加しない。値なし、未観測、古い値、競合、開示制限または結果不明は、該当するIA定義が要求する場合にだけ別状態として示す。
+現在の追加採用判断は不要。上記の未確認を解消済みと扱わない。意味・開示・必要な操作に不足や競合があればUIへ戻し、UIが示す来歴Ownerへの再開を判断する。
 
-### 視覚表現とアクセシビリティ
+## 5. 統合時の確認
 
-- 「接続資格（Connection Credential）、接続中の作業単位（Session）、利用可能領域（Workspace Grant）、作業領域（Workspace）、公開関係（Exposure）、管理能力（System Capability）」を、色だけでなく表示名、状態語、順序でも見分けられるようにする。
-- 結論、重大な不足、主要操作、根拠、詳細の順を視覚順と読上げ順で一致させる。
-- CLI、MCP、Workbenchで同じ意味の状態と次の導線を対応付ける。
-- キーボード操作と文字表示だけでも、上表の判断・根拠・戻り先へ到達できるようにする。
-
-### 制約
-
-- UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。
-- 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。
-- 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。
-
-### UI／SPEC対応レビューへ渡す項目
-
-両観点の統合内容は前節の正本を参照し、ここへ全文を再掲しない。次表は、SPECが同じUX／IAを別々に分析した後で確定すべき未決事項だけを渡す。
-
-| UX | IA | UIで観測可能にすべき操作・Feedback | SPEC側で未確定の振る舞い |
-|---|---|---|---|
-| UX-000013 | IA-000009 | 許可された作業領域だけへ接続する。現在の利用許可範囲（Grant）だけを開示し不足を補完しない | IA-000009 が示す状態・関係を入力条件、成功・停止条件へ接続し、「利用不能なリポジトリの存在や内容を推測表示する」を防ぐ観測可能な結果を確定する |
-
-SPECはこの表の結論を転記せず、UX観点とIA観点を別々に分析する。UIの操作に対応する発火条件・結果がない、またはSPECの結果を利用者が認識できない場合は対応レビューを通過しない。
-
-### 対応するSPEC
-
-- pairs_with: [SPEC-000012](../../../05_SPEC/Definitions/SPEC-000012/spec_definition.md)
-
-UIは認識・操作・Feedbackを所有し、SPECの条件・状態・結果をこの節で再定義しない。
-
-### 未確認事項・人間判断・戻り条件
-
-正式入力に残る未確認事項を、解消済みとみなさず次のとおり継承する。
-
-#### UX-000013から継承する確認事項
-
-入力Definitionから継承した確認事項の由来: [UX-000013](../../../02_UX/Definitions/UX-000013/ux_definition.md)
-
-未確認事項は、統合元の要求ごとに次を保持する。
-
-- REQ-000011: プロジェクト運営者／PMが「許可された作業領域だけへ接続する」を行う際の判断基準、許容負担、利用環境および失敗後の選択
-- 現在判定: 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。
-- 確認事項: REQ-000011: プロジェクト運営者／PMが「許可された作業領域だけへ接続する」を行う際の判断基準、許容負担、利用環境および失敗後の選択
-- 判断者: プロジェクト運営者／PMを代表する利用者とQual-Lab。
-- 未確認時の影響: 利用者成果、重要場面、失敗および品質期待を仮説として保持し、定量条件や実現方式を確定しない。
-- Discoveryへ戻す条件: 想定した利用者、問題、望ましい変化または制約が誤っていると判明した場合。
-- UX分析へ戻す条件: 利用場面、目的、得られる結果、重要場面、失敗または品質期待の統合判断が変わる場合。
-
-再評価契機: 対象利用者による実利用確認、前提変更、または後続工程でこの未確認事項が成立条件へ影響すると判明した時。
-
-#### IA-000009から継承する確認事項
-
-入力Definitionから継承した確認事項の由来: [IA-000009](../../../03_IA/Definitions/IA-000009/ia_definition.md)
-
-| 入力UX | UXから継承する確認事項 | 判断者 | 現在判定 | 未確認時の影響 |
-|---|---|---|---|---|
-| UX-000013 | REQ-000011: プロジェクト運営者／PMが「許可された作業領域だけへ接続する」を行う際の判断基準、許容負担、利用環境および失敗後の選択 | プロジェクト運営者／PMを代表する利用者とQual-Lab。 | 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。 | 利用者成果、重要場面、失敗および品質期待を仮説として保持し、定量条件や実現方式を確定しない。 |
-
-IA固有の追加人間判断はない。これは入力UXの未確認事項が解消済みという意味ではない。正式入力にないObject、情報境界、所有責任または状態を追加する必要が生じた場合は人間の決定権限者へ戻す。UI／SPEC分析またはQuality Analysis / IAで対象・同一性・関係・状態・可視性・時間的な意味の不足または競合が判明した場合はIAを再開する。
-
-再評価契機: 対象利用者による実利用確認、前提変更、または後続工程でこの未確認事項が成立条件へ影響すると判明した時。
-
-#### UI固有の追加判断
-
-現時点で追加の判断事項はない。これは上記の継承事項が解消済みという意味ではない。正式入力の意味、対応関係または成立条件に不足・競合が見つかった場合は、その意味を所有するUX／IAへ戻す。
-
-### 検証意図
-
-正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。
-
-### 補足定義
-
-なし。
-
-この節にあるUX／IA／REQ参照は、正式入力である当該UI／SPEC Definitionが報告する来歴であり、Architectureの追加の正式入力ではない。
-
-## 3. Architecture観点の分析
-
-| 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
-|---|---|---|---|---|
-| [Workspace利用範囲とRepository FederationのArchitecture定義](../../Definitions/ARCH-000013/architecture_definition.md) | CROS Session／Workspace Resolver | UI契約はAuthorityを発行しない。利用者操作: 接続／Workspace選択／再認証／Credential発行・失効・ローテーション／Access Recovery。 | UI契約はEffectを定義しない。Credential状態、Role別Grant、内容Access、Host Recoveryを別軸で表示する | Remote認証への依存、Secret再表示・保存、RecoveryによるProduct Data変更 |
-
-### 観点別評価
-
-| 観点 | 判定 | 根拠・引渡し |
-|---|---|---|
-| Responsibility | 評価済み | [Workspace利用範囲とRepository FederationのArchitecture定義](../../Definitions/ARCH-000013/architecture_definition.md)へ入力Contractを意味変更せず渡す。 |
-| Boundary／Component／Interface | 評価済み | 状態OwnerはCROS Session／Workspace Resolver。公開境界は入力定義のAuthority・Effect・制約を越えない。 |
-| Data／State Ownership | 評価済み | CROS Session／Workspace ResolverをOwner候補とし、UI表示またはSPEC結果と内部状態を同一視しない。 |
-| Failure／Recovery | 評価済み | Remote認証への依存、Secret再表示・保存、RecoveryによるProduct Data変更を防ぎ、同じRecovery IDで通常管理へ戻る導線を保持する。 |
-| Security／Trust | 評価済み | 入力定義のAuthority、開示、Effect 0および非推定条件を保持する。 |
-| Quality Constraint | 評価済み | 未観測・不明・制限・失敗を成功または不存在へ丸めない。 |
-| Human Input | 継承あり | REQ-000011: プロジェクト運営者／PMが「許可された作業領域だけへ接続する」を行う際の判断基準、許容負担、利用環境および失敗後の選択。 |
-| Open／Gap | 上流確認を継承 | 現在判定: 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。Architecture固有の追加Gapはない。 |
-| Verification Intent | 評価済み | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
-
-Human Inputの判断者は「プロジェクト運営者／PMを代表する利用者とQual-Lab。」。再評価契機は「対象利用者による実利用確認、前提変更、または後続工程でこの未確認事項が成立条件へ影響すると判明した時。」。Architectureはこれらを解消済みとせず、入力の意味が変わる場合はOwner工程へ戻す。
-
-## 4. Architecture処置
-
-| Architecture定義候補 | 処置 | 判断理由 |
-|---|---|---|
-| [Workspace利用範囲とRepository Federation](../../Definitions/ARCH-000013/architecture_definition.md) | New | Role別Credential Lifecycle、Session Grant、Workspace Exposure、FederationおよびHost Access Recoveryを分け、管理能力から内容Accessを生成しない。 |
-
-## 5. SPEC観点との統合時に確認すること
-
-- 対応候補: SPEC-000012
-- この分析にある状態、操作、Feedback、Authority、Effectの適用／非適用、失敗を、対応SPECの契機と結果へ一つずつ照合する。
-- 差分がある場合はArchitectureで推測せず、UI／SPEC対応レビューへ戻す。
+対応SPEC-000012とは、UI操作／表示とSystemの契機／結果を後段で照合する。反対観点のAuthorityをこの分析へ暗黙に取り込まない。通常×指定ユーザー交換へ追加の確認Gateを作らない。
 
 ## Checklist
 
-- [x] 自分自身のUI定義だけを正式入力として処置した
-- [x] 利用者が得る結果、認識、操作、Feedbackおよび状態差を保持した
-- [x] Architectureが担う責務と担わない責務を評価した
-- [x] Boundary、主要ComponentおよびInterfaceの必要性を評価した
-- [x] Data／State Ownershipを評価した
-- [x] Authority、Effectおよび開示境界を評価した
-- [x] Failure BoundaryとRecovery責任を評価した
-- [x] Security／TrustとQuality Constraintを評価した
-- [x] Human Inputの必要性を評価した
-- [x] Open／GapとOwner工程へ戻す条件を明示した
-- [x] Verification Intentを評価した
-- [x] 現行Sourceや実装構造から意味を逆輸入していない
-- [x] SPEC観点との統合時に確認する事項を明示した
+- [x] 自身のUI Definitionだけを正式意味入力とした
+- [x] 認識・操作・Feedback・状態・アクセシビリティを保持した
+- [x] 責務・Component・Interface・データOwner・Authority・Effectを評価した
+- [x] 失敗・回復・Security・品質制約・検証意図を評価した
+- [x] Human Inputと未確認事項・戻り条件を保持した
+- [x] 現行Sourceから意味を逆輸入せず、反対観点との統合事項を示した
+- OPEN: 詳細設計・横断モデル・Quality・Sourceは未追従。UI工程Exit、Architecture Ready、実装成立を主張しない。

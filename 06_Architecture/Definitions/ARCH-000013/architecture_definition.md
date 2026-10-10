@@ -1,144 +1,133 @@
-# Workspace利用範囲とRepository FederationのArchitecture定義
+# 接続主体・Role権限・資格とRepository FederationのArchitecture定義
 
 成果物種別: Architecture定義
 Architecture ID: `ARCH-000013`
-状態: Canonical
+状態: 更新中（採用済み契約への是正伝播・限定独立レビュー済み）
 維持責任者: Qual-Lab
 
 ## 1. 責務と境界
 
-Role別Credentialの発行・失効・ローテーション、Credential→Session→Workspace Grant→Exposure→Repositoryの利用範囲確定、およびServer Host AuthorityによるAccess Recoveryを分ける。管理能力から内容Accessを生成せず、RecoveryでProduct Dataを変更しない。
+Credentialから既存ユーザーを識別し、現行Role詳細権限、Repository公開範囲と実アクセスを要求ごとに評価する。最小ユーザー管理、資格発行／独立失効／鍵交換、Context集約は別責務とする。CROSはシステム全体の概念であり、認証・認可Packageの名前ではない。
 
 | 区分 | 内容 |
 |---|---|
-| 状態Owner | CROS Session／Workspace Resolver |
-| 所有する責務 | Role別Credential Lifecycle、Session Grant、Workspace、Repository Exposure、Source-aware Federation、全管理資格喪失時のAccess Recovery |
-| 所有しない責務 | User Accountまたは個人別Role割当、Repository内部ACL、System AdminからContent Accessの推定 |
-| 主な外部境界 | Remote Client、Credential Store、複数Repository |
+| 状態Owner | Access Management: ユーザー、Role詳細権限、資格・失効・鍵交換の相関、認可用接続／公開情報。Domain Model: 認可済み対象のContext・Portfolio投影 |
+| 所有する責務 | 最小ユーザー管理、現行Role認可、Credential Lifecycle、Exposureと実アクセスの別判定、限定鍵交換、認可済みRepository集合の解決とSource-aware Federation |
+| 所有しない責務 | 一般IAM、メール・Password・本人確認・自己登録／自己編集・SSO、複数Role、個別追加権限、個人行動監査、Repository内部ACL、Transport／Server Lifecycle、Task取消、認可破損修復 |
+| 外部境界 | Remote Client、Host管理入口、既存Credential保存領域、Repository群。秘密値と許可外Identityを公開しない |
 
-CROSは複数Repository横断の能力領域であり、第三の公開Serverではない。同一ProcessのWorkbenchからは認可済み共通能力を直接利用し、別Processでは同じHostでもMCPを利用する。Local呼出しでもRole、操作権限、Exposure、失効と現在状態を再確認する。管理権限からRepository内容Accessを生成しない。
+同一ProcessのWorkbenchは認可を維持した内部能力呼出し、別Processは同じHostでもMCPを利用する。Local呼出しでも現在Role・操作権限・Exposure・失効・取得可能性を評価する。Domain Modelは認可済みRepository集合を入力にContextを集約し、CredentialやGrantを解釈して権限を決めない。公開操作の呼出し元はAccess Managementの認可を迂回させない。
 
-共有Linux Host等はWorkbench Server／MCP Server／CROS能力／Repository群の配置形態として扱う。CROS REST、Gateway、Shared Server専用Lifecycleを独立Runtimeとして残さないが、Credential回復・操作一覧・非開示・Origin・TLS・終了保証を撤去に巻き込まない。Repository単体利用へCROS設定を必須化しない。Remote設定とCredential管理はツール単位で分離し、秘密値をRepository投影へ含めない。
+共有HostはWorkbench／MCP／内部能力／Repository群の配置形態で、第三のCROS REST・Gateway・Shared Server専用Lifecycleは撤去対象を維持する。ただし認可・非開示・Origin／TLS・終了保証を撤去しない。Browser↔Workbench RESTは維持する。
 
-2026-10-07の人間判断により、単体／CROSは起動時に明示選択し、設定の存在から自動切替しない。単体は検証済み起動Repository一つ、CROSは現在許可されたRepository集合を扱う。Repository対象操作の入力形式は両形態でそろえ、対象IDからAuthorityを生成しない。Credential発行・ローテーションは今回Hostまたは同一Process Workbenchへ限定し、Remote MCPは非秘密の一覧・Grant変更・失効を提供する。初期管理CredentialはCROSの明示構築時に発行し、内容Grantを自動付与しない。詳細な入力・結果・起動条件は[CROS詳細](../../Details/cros/01_Architecture.md#61-再編後の共通能力と公開入口)と[MCP詳細](../../Details/mcp-server/01_Architecture.md#単体crosの明示選択とrepository一覧)を正本とする。
+単体／CROSは起動時に明示選択し、設定の存在から自動切替しない。単体は検証済み起動Repository一つで資格不要、CROSは現在許可された集合を扱う。Repository操作の入力形式はそろえ、対象IDをAuthorityへ昇格しない。初回CROS構築時の管理資格発行方式は変更しない。今回の鍵交換を初回設定の再実行へ混ぜない。
 
 ## 2. UI観点の入力
 
-| UI分析 | 守る利用者向けの約束 |
+| 正式分析 | 引き継ぐ意味 |
 |---|---|
-| [UI-000008](../../Analysis/UI-000008/architecture_analysis.md) | Workspace接続と利用可能範囲 |
+| [UI-000008](../../Analysis/UI-000008/architecture_analysis.md) | 自身・対象IDと表示名・現行範囲、通常管理、2操作×2入口、三可視境界、既知失効／発行不明と同じRecoveryへの導線 |
 
 ## 3. SPEC観点の入力
 
-| SPEC分析 | 守る振る舞い契約 |
+| 正式分析 | 引き継ぐ意味 |
 |---|---|
-| [SPEC-000012](../../Analysis/SPEC-000012/architecture_analysis.md) | Role別Credentialから利用範囲を確定しAccessを回復する |
+| [SPEC-000012](../../Analysis/SPEC-000012/architecture_analysis.md) | ユーザー資格と現行Roleで認証認可し、独立失効と鍵交換を分け、情報保持・処置前停止・処置後不明・現在再観測を成立させる |
+
+両分析は独立したSibling Contractとして統合する。UI／SPECの意味を本定義で変更しない。UI工程Exit未完了のため、今回は採用済み契約の是正伝播であり通常Handoff・Architecture Readyではない。
 
 ## 4. 両観点の統合判断
 
-入力ごとのState Owner、Authority、Effect、失敗およびLifecycleを次表で分ける。同じ責務に統合しても、読取り、分類、書込み、外部Effectまたは再接続を相互流用しない。
-
-| 入力 | 観点 | State Owner | Authority | Effect／非該当 | Failure Boundary | Lifecycle |
-|---|---|---|---|---|---|---|
-| UI-000008 | UI | CROS Session／Workspace Resolver | UI契約はAuthorityを発行しない。利用者操作: 接続／Workspace選択／再認証／Credential発行・失効・ローテーション／Access Recovery。 | UI契約はEffectを定義しない | Remote認証への依存、Secret再表示・保存、RecoveryによるProduct Data変更 | 利用可能／credential_required／restricted／unavailable／unknownと、active／expired／revoked／rotating／unknown、Recoveryの確認待ち／進行中／blocked／completedを分ける |
-| SPEC-000012 | SPEC | CROS Session／Workspace Resolver | 通常管理はAdministrator能力、内容AccessはRole別Grant、全喪失RecoveryはServer Host Authorityに限定する | Credential Metadata、Digest、Session Grant、失効状態、Recovery記録を作成・更新し得る。生SecretとProduct Dataを複製・変更しない | 無効・期限切れ・失効Credential、Role不整合、Secret再表示要求、全Administrator喪失、認可状態破損、Recovery途中失敗を区別する | Role選択→Credential Lifecycle→Session＋Role Grant。全Administrator喪失時はHost確認→同じRecovery ID→Accessだけ再構成→Bootstrap再入場 |
+| 入力 | State Owner | Authority・Effect | Failure・Lifecycle |
+|---|---|---|---|
+| UI-000008 | 認識・表示の意味はUI、状態の確定はAccess Management等の実Owner | UIはAuthority・Effectを発行しない。通常管理とHost、操作範囲を別軸表示 | 全4組の事前表示、Hostまたは全員交換だけ明示確認、部分結果を隠さない。画面／CLI分担は未確定 |
+| SPEC-000012 | Access Managementのユーザー／Role／資格／認可・鍵交換状態。認可済み集約はDomain Model | 通常は現行管理認可、HostはHost OS Authority。通常管理はユーザー／Role設定を更新し得るが、鍵交換は鍵だけ変更する | 事前条件、旧失効、新発行、結果確定・受領を分離。失効後失敗／応答・Process喪失は同じRecoveryへ既知失効と発行不明を耐久保持 |
 
 ## 5. 構造と依存方向
 
 ```text
-[Architecture Responsibility]
-├─ UI-000008 (UI)
-   Role→Credential→処置。通常管理不能時はHost確認→Recovery→Bootstrap再入場
-└─ SPEC-000012 (SPEC)
-   Role選択→Credential Lifecycle→Session＋Role Grant／Host確認→同じRecovery ID→Access再構成
+Workbench／MCP／管理入口
+  → Access Management（現在認可）
+       ├ ユーザー・Role・資格・公開／接続情報の管理
+       ├ 許可されたRepository集合の解決
+       └ 指定ユーザー交換／全員交換と同じRecoveryへの再入場
+  → 認可済みDomain情報
+       → Domain Model（Context／Portfolio投影）
+       → 公開可能な結果を元入口へ搬送
 ```
 
-各入力はSibling contractであり、前の入力のAuthority、EffectまたはLifecycleを暗黙に継承しない。UI契約は利用者へ認識・操作・Feedbackを提供するが、AuthorityやEffectを発行しない。
+これは論理責務の接続であり、新しいFramework、Server、Registry、LockまたはAPIを追加する指示ではない。認可判断をDomainへ移さず、Transport・AI Profile内容・Task進行をAccess Managementへ集約しない。
 
 ## 6. データ・状態・Interface
 
-入力が共有するIdentityとDataの関係は、このArchitecture責務が管理する。ただしState Owner、AuthorityおよびEffectは入力単位で分け、責務全体へ一律に拡張しない。
+| 対象 | 関係と所有境界 |
+|---|---|
+| ユーザー | 安定userId（UUID）・管理者設定の表示専用名・一つのRole。改名／同名はIdentityやAuthorityを変更しない |
+| Role詳細権限 | developer／manager／administratorのRoleが所有。ユーザー／Credentialへの個別追加権限なし |
+| 資格／Session | Credential ID→userId。現在認可時に現行Roleを参照し、古い権限を固定しない。Sessionから永続認証Storeを新設しない |
+| Exposure／実アクセス | 公開範囲と現在取得可能性を別判定。不明を許可／不存在へ丸めない |
+| 鍵交換相関 | 同じRecovery ID、種別・入口・対象・既存発行先・失効確定範囲・発行結果・再入場。非秘密の耐久情報としてProcess喪失後も保持 |
+| 状態軸 | 利用5区分と部分成立、資格の有効／期限切れ／失効／不明、回復の確認待ち／進行中／blocked／completed。永続resetting／rotationなし |
 
-| 入力 | State Owner | Authority | Effect／非該当 |
-|---|---|---|---|
-| UI-000008 | CROS Session／Workspace Resolver | UI契約はAuthorityを発行しない。利用者操作: 接続する／Workspaceを選ぶ／再認証する。 | UI契約はEffectを定義しない |
-| SPEC-000012 | CROS Session／Workspace Resolver | Credential発行時に固定されたWorkspace Grant。管理Capabilityと内容Grantを分離する | 認証済みSessionとGrantを作成・更新する。未Exposure Repositoryへ読取りEffect 0。 |
-
-公開Interfaceは入力IDと対応する契約を保持し、別入力のAuthority、EffectまたはLifecycleを暗黙に継承しない。
+既存のユーザー／Host側管理領域と秘密保護境界を維持し、Repositoryへ秘密を移さない。Package改名を理由に保存Rootを変更しない。UUID版・生成方式、表示名構文、Verifier方式、物理Schema・File配置・更新確定方式は詳細設計で既存契約と照合する。新Storeや互換Readerを先取りしない。
 
 ## 7. 失敗・回復・観測
 
-- UI-000008: 利用不能なリポジトリの存在や内容を推測表示する Effect: UI契約はEffectを定義しない
-- SPEC-000012: 未許可対象の存在を漏らさず、古いGrantや一律Unlockを受理しない。 Effect: 認証済みSessionとGrantを作成・更新する。未Exposure Repositoryへ読取りEffect 0。
-
-- 入力が固有Recoveryを定義しない場合、Architectureから追加しない。
-- 結果には最後に確認できた状態、観測時点、不足および次の安全な行動を、入力契約が必要とする範囲で含める。
-
-## 8. 品質・保護・運用
-
-| 入力 | 保護する失敗境界 | 検証意図 |
+| 操作 | 失効範囲 | 新資格の発行先 |
 |---|---|---|
-| UI-000008 | 利用不能なリポジトリの存在や内容を推測表示する | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
-| SPEC-000012 | 未許可対象の存在を漏らさず、古いGrantや一律Unlockを受理しない。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
+| 指定ユーザー交換 | 対象既存userIdの全旧有効資格 | 同じ既存userId。他ユーザーの鍵は保持 |
+| 全員交換 | 全ユーザーの全旧有効資格。操作中管理者自身も含む | 指定した既存administrator userId。他ユーザー再発行・再配布は管理者の通常管理 |
+| 独立失効 | 認可された対象資格 | 新発行なし。以後の要求拒否 |
 
-共通品質を理由に、入力固有の失敗、非該当Effectまたは終了条件を一つの成功状態へまとめない。
+- 通常入口は現行管理認可、Host入口はHost OS Authority。全4組で対象ID・表示名・失効範囲・発行先・保持情報を事前表示し、Hostまたは全員交換の3組だけ明示確認する。
+- 対象不明・必要な管理者不存在・必要状態の安全な観測不能・認可破損は新Effect前停止。認可設定を修復しない。
+- 鍵交換はuserId・表示名・Role・詳細権限・Repository登録・Product Dataを保持。特別ユーザー、追加権限、回復専用Bootstrapを作らない。
+- 失効後の発行失敗・応答／Process喪失では、既知失効と発行不明を別の事実として同じRecoveryへ保持する。別Recoveryを重ねない。
+- 再入場では現在状態と現在Authorityを再確認する。保存記録からAuthority、完了、rollback、旧鍵有効、開始済み取消完了を推定しない。
+- 生Secretは発行／交換後だけ一度返し、保存・ログ・Evidence・会話へ複製／再表示しない。鍵交換成功・失効はTask取消完了や過去Effect 0を証明しない。
 
-### 未確認事項・人間判断・戻り条件
+## 8. 品質・保護・未確認事項
 
-| 入力 | 継承する未確認事項 | 判断者 | 現在判定 | 再評価契機 |
-|---|---|---|---|---|
-| UI-000008 | REQ-000011: プロジェクト運営者／PMが「許可された作業領域だけへ接続する」を行う際の判断基準、許容負担、利用環境および失敗後の選択 | プロジェクト運営者／PMを代表する利用者とQual-Lab。 | 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。 | 対象利用者による実利用確認、前提変更、または後続工程でこの未確認事項が成立条件へ影響すると判明した時。 |
-| SPEC-000012 | REQ-000011: プロジェクト運営者／PMが「許可された作業領域だけへ接続する」を行う際の判断基準、許容負担、利用環境および失敗後の選択 | プロジェクト運営者／PMを代表する利用者とQual-Lab。 | 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。 | 対象利用者による実利用確認、前提変更、または後続工程でこの未確認事項が成立条件へ影響すると判明した時。 |
+三可視境界（自身表示可／非認証User情報0／非管理者の他User一覧・存在・件数0）、Repository非開示、管理と内容閲覧の分離、現行Role反映をすべての利用側で維持する。
 
-Architecture固有の追加人間判断はない。これは入力の未確認事項を解消済みとする意味ではない。入力の利用者成果、振る舞い、Authority、Effectまたは失敗境界を変える必要が生じた場合は、その意味を所有するUI／SPEC工程へ戻す。
+継承Openは、代表利用者・Qual-Labによる自身表示とID・利用不能理由・接続負担の理解、管理者／Host運用者・Qual-Labによる対象識別・確認負担・画面／CLI分担・有効期限既定値の評価。実利用、Pilot、回復実測または前提変更で再評価する。未確認の定量条件・期限・画面・配布手順を確定せず、上流の意味不足はUI／SPECへ戻す。
 
-### 4.1 UI／SPEC Detailの配置制約
+### 8.1 UI／SPEC Detailの配置制約
 
-Detailは第2・3節のDefinition入力を置き換えず、その意味を実現する配置・操作・状態・観測の具体的制約として扱う。
+| Detail | Relation | 現在の接続・戻し先 |
+|---|---|---|
+| [SCR-000008／PRT-000008](../../../04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md) | `PRT-000008.spec-000012` | 対象・事前表示・状態・部分結果・一度表示Secretを配置制約として保持。Layoutと画面／CLI分担はUI Detailへ戻す |
+| [BHV-000012](../../../05_SPEC/Details/BHV-000012/behavior.md) | 同じ既存Relation | Trigger・Authority・Validation・失効／発行・結果・Recoveryを保持。振る舞い変更はSPEC Detailへ戻す |
 
-| Detail Source | Source Definition | SCR／PRT／Interaction／BHV | Relation／N:N | Coverage | 未解決Gap／戻し先 |
-|---|---|---|---|---|---|
-| [SCR-000008／PRT-000008](../../../04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md) | UI-000008 | Screen／Partの配置、情報優先度、操作、FeedbackおよびState | Source UIとの直接Relation | Covered | v0.22固有LayoutはUI Detailへ戻す |
-| [BHV-000012](../../../05_SPEC/Details/BHV-000012/behavior.md) | SPEC-000012 | Trigger、Authority、Validation、State、Effect、Result、FailureおよびRecovery | Source SPECとの直接Relation | Covered | Behavior意味の変更はSPEC Detailへ戻す |
-
-担当Interaction Relation: `PRT-000008.spec-000012`
-
-全体の逆引きと詳細設計領域への配置は[UI／SPEC Detail Architecture Traceability](../../08_UI_SPEC_Detail_Traceability.md)を中央統合投影とし、本定義は上記RelationのArchitecture責務を局所所有する。
+[Detail Traceability](../../08_UI_SPEC_Detail_Traceability.md)と03〜07の横断モデル、CROS／MCP／Workbench等のDetailsは未追従。旧配置を新Ownerの完成形として扱わない。
 
 ## 9. 互換性・移行・成立済み能力
 
-| 基準版Capability | 旧Owner／現行照合先 | 新Owner | 保持状態 | Evidence | Gap／移行 |
-|---|---|---|---|---|---|
-| 基準版なし | なし（v0.22新規） | CROS Session／Workspace Resolver | 新規 | 実装Evidence未作成 | Personal／Shared Server実装とRemote MCP実測が未接続 |
+| 基準版の確認範囲 | 新Owner／利用側 | 必要な新確認・移行 |
+|---|---|---|
+| [旧Remote Project Context MCP](../../../99_Roadmap/Changes/CHG-000082/Evidence/260927-2029_phase4-remote-project-context-mcp.md): Bearer検証、許可範囲だけのPortfolio、単体資格不要、Listener終了 | Access Managementで認可済集合を解決→Domain Model投影→MCP搬送 | 現行Roleとユーザー資格で同じ公開・非開示・終了境界を再検証。旧Workspace集合方式のPassを新版へ流用しない |
+| 旧CROS資格管理・Host回復 | Access Managementと承認済み管理入口 | [旧Details](../../Details/cros/01_Architecture.md)とSource／試験／過去Evidenceを次段で全数対応付ける。未照合の能力を置換済みとしない |
+| 最小ユーザー管理・鍵交換2操作 | Access Management→Workbench／MCP等の利用側 | 新Schema・保存移行・本番接続・実境界Evidenceは未実施。現在の旧Sourceから新成立を推定しない |
 
-現行設計はこの比較だけに使い、UI／SPECにない望ましい意味を補わない。新規責務は基準版能力や実装Evidenceが存在するように表示しない。
+旧Evidenceは歴史記録として不変。最新構成への移行はフロントAIの手順で扱い、旧互換Readerを追加しない方針を維持する。ただし具体的な保存変更は未確定で、現行秘密Fileの操作をこの設計更新で許可しない。
 
 ## 10. 実装と検証への引き渡し
 
-- 実装はCredential Metadata・Digest・Role Grant・失効・Recovery Identityを所有するCoreと、Secret表示、Server Host Authority、Repository Exposureおよび外部入口を扱うPort／Adapterを分ける。
-- 接続→認証→Grant確定→Exposure照合→Repository解決→切断時失効を段階的な結合試験で確認する。
-- 接続成功からの過剰Grant、Repo名・Pathの漏洩、stale Exposure、管理者への暗黙Content Accessを理由別に反証する。
-- Project Task Recoveryは非該当。Session切断後のTaskはOrchestratorの再取得契約へ渡す。
+- 認可判定・ユーザー／Role／資格・鍵交換状態のOwnerをAccess Management、認可済みContext集約をDomain Modelへ分け、MCP／Workbenchは同じ認可契約を使う。
+- 秘密発行は既存設計でHostまたは同一Process Workbenchへ限定されている。鍵交換2操作の具体的な公開入口は既存Local管理能力との対応・Details／Source照合待ちで、Remote MCPへの秘密発行公開やCLI固定を今回決めない。
+- Qualityへ渡す意味は通常管理・要求毎認可・同名／改名・2操作×2入口・独立失効・3可視境界・処置前停止・処置後不明・再入場・情報保持・秘密非再表示・取消非証明。Local Item、試験、EvidenceはQualityで対応付ける。
+- Task進行・取消・回復はOrchestrator等の既存Ownerに残す。資格の失効／交換で開始済み処理の完了を推定しない。
 
-## 11. 情報源と現行照合
+## 11. 情報源と完了境界
 
-正式入力は第2・3節のArchitecture分析だけである。次は成立済み能力とGapを照合するためにだけ参照する。
-
-- [現行照合先](../../Details/cros/01_Architecture.md)
+意味入力は2・3節の独立分析。Detailと対応レビューは具体制約／対応の照合、CHGは採用・変更履歴、旧Source／Evidenceは成立済み能力の比較に限定する。実装・Quality移管・Architecture Readyの主張は未完了。
 
 ## Checklist
 
-- [x] UI分析とSPEC分析だけを正式入力として統合した
-- [x] UI ContractとSPEC Contractを入力別に保持した
-- [x] 独立したArchitecture Responsibilityを説明できる
-- [x] 所有する責務、所有しない責務およびBoundaryを明示した
-- [x] Major Component、Interfaceおよび依存方向を明示した
-- [x] Data／State Ownershipを明示した
-- [x] Authority、EffectおよびLifecycleを入力別に評価した
-- [x] Failure Boundary、Recovery責任および観測を明示した
-- [x] Security／TrustとQuality Constraintを評価した
-- [x] Human Inputの必要性とOpen／Gapを評価した
-- OPEN: 基本責務と検証意図は提示済み。新Ownerの詳細API・利用側対応は段階3で確認する — DetailsへのHandoffを明示した
-- [x] Qualityへ渡すVerification Intentを明示した
-- [x] 現行Sourceや実装構造から意味を逆輸入していない
-- [x] 上流の観測可能な振る舞いをArchitectureで変更していない
+- [x] UI／SPECの独立分析を統合し、契約・Authority・Effectを分離した
+- [x] 責務・Boundary・Component・依存・データ状態Ownerを明示した
+- [x] 2操作×2入口、独立失効と通常管理、Failure・Recovery・観測を接続した
+- [x] Security・品質制約・検証意図・Human Input・Openを保持した
+- [x] 既存Detail RelationとARCH-IDを維持した
+- [x] 旧成立能力の比較と未照合範囲を分け、旧Evidenceを変更していない
+- OPEN: Details・横断モデル・Quality・公開入口／Schema／移行・Source・実境界確認は未完了。UI工程Exitと通常Handoff、全体Readyを主張しない。
