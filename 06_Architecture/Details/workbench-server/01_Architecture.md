@@ -170,7 +170,7 @@ Workbench Serverは別ProcessのCROSに対してMCP Clientとなる。Browserか
 | AI Profile一覧・変更 | `readRemoteAiProfileCatalog`／`executeRemoteAiProfileMutation` | CROS共通認可からAI Adapter管理へ接続するMCP操作 | 管理可否、expectedRevision、登録済みModel、削除確認を維持。Catalog未接続と権限拒否を同じ成功の空一覧にしない。 |
 | Runtime Activity | `readRemoteRuntimeActivity` | CROS認可付きActivity MCP操作 | Project限定の現在状態とEvent、順序、Cursor、Continuationと独立したunknownを保持。 |
 | Topic／Meeting | `remote-topic-meeting.ts`の既存MCP呼出し | 同じEndpointの既存Tool、CROS Routing→Domain Model | Repository指定、CRUD、Relation Owner、競合、Outcome処置、Close条件と非開示を維持。 |
-| Credential管理 | 既存Credential Administration | 同一Processでは共通CROS API、別Processでは認可付きMCP操作 | Token一度表示、失効・rotation、管理権限≠内容Grantを維持。Host限定の全喪失回復はRemote公開しない。 |
+| 鍵管理 | 既存Credential Administration（移管比較入力） | 通常発行・独立失効・交換は同一Process Workbench BackendからAccess Managementへ直接委譲。別Process MCP経路は鍵操作なし | 現行administrator専用固定。管理権限≠内容参照、一度表示を維持。Hostはログイン済み操作者の対話交換2操作だけ、追加認証なし・既存Root／Path検証。具体接続は未完了 |
 
 接続入力はEndpointとCredentialの検証→Protocol／能力一覧→許可Portfolio取得→現在接続への置換の順に行う。候補接続の失敗で既存接続を成功扱いせず、旧ProjectionをCurrentとして表示しない。新接続・切断ごとに世代を変え、旧Requestの遅延結果を新接続へ反映しない。Refreshは現在Credential・Exposureを再確認し、失効したSourceの選択と編集操作を解除する。
 
@@ -178,7 +178,7 @@ Workbench Serverは別ProcessのCROSに対してMCP Clientとなる。Browserか
 
 現在の`crdd.list_projects`はProject ID・状態・Source数だけを返し、完全Portfolioではない。再編候補では[MCPのPortfolio契約](../mcp-server/01_Architecture.md#32-portfolioの一覧詳細契約)に従い、同じToolへ検索・状態・Query拘束Cursor・limitとページ内Sourceを接続する。Workbenchは返されたページだけを表示し、独自の二重ページングや未取得Sourceの検索を行わない。詳細取得は毎回現在認可を再確認する。複数Requestの結果を一つの原子的snapshotと偽らず、全Source取得済みでない表示を完全Portfolioにしない。公開SchemaとReaderの本番接続は未完了である。
 
-Credential発行／rotationは[MCPのv0.22採用範囲](../mcp-server/01_Architecture.md#33-credential管理の公開境界--v022の採用範囲)に従い、Hostまたは同一Processの管理へ限定する。Remote Workbenchでは一覧・Grant変更・失効だけを提供し、発行／rotationは利用不能と理由付きで表示する。一般MCP Clientへ生Tokenを返さず、未提供の操作を対応済みとしない。
+鍵の通常発行・独立失効・交換は[MCPの鍵管理非公開境界](../mcp-server/01_Architecture.md#33-鍵管理のmcp非公開境界)に従い、同一Process Workbench Backendの現行administratorだけがAccess Managementへ直接委譲する。別Process WorkbenchではMCP経由の鍵操作を全て利用不能と理由付きで表示する。Secretを返さない資格一覧・独立失効も公開せず、MCPの一覧・Schema・登録・dispatchに鍵操作を追加しない。Hostは信頼したログイン済み操作者の対話CLI交換2操作だけで、追加認証なし・既存Root／Path検証を維持する。初回CROS構築の発行方式は変更しない。本段落と直前の鍵行だけの同期であり、本書全体の新Owner詳細・画面／API・Quality・Source接続は未完了である。
 
 起動時の`--cros`で単体／CROS利用を明示する。指定なしは現在Rootに固定し、`crdd.list_repositories`から得る唯一のIDを自動選択して切替操作を出さない。CROS指定時は同じ一覧・repositoryId入力で許可対象から選択し、初期化済みだからという理由で自動移行しない。同一Process CROSでは構成設定、別Process接続では明示MCP Endpointを用い、CredentialをCLI引数へ置かない。CROS設定不正・接続不能時は単体へFallbackしない。サーバー起動用CRDDリポも公開設定なしで対象に加えない。
 

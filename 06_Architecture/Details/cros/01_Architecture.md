@@ -401,7 +401,7 @@ Runtime活動の公開結果検査は`activity/validate.ts`、現在認可Scope�
 
 2026-10-07の人間判断により、CROSの利用はWorkbench／MCP起動時の`--cros`で明示する。設定の存在から単体利用を自動切替しない。単体は検証済み起動Repositoryに固定し、CROS Registry登録・Credentialを要求しない。CROSでは現在のCredential・Exposure・Bindingから許可したRepositoryだけを対象とし、起動用CRDDリポを自動公開しない。対象一覧とRepository指定の共通入力は[MCP詳細](../mcp-server/01_Architecture.md#単体crosの明示選択とrepository一覧)を参照する。
 
-CROSの初期管理CredentialはHostでCROSを明示構築するときに発行する。MCP起動だけで発行せず、管理可・内容Grantなしを初期値とする。Remoteから秘密を受け渡す新しい配送機構は今回作らない。[Credential公開境界](../mcp-server/01_Architecture.md#33-credential管理の公開境界--v022の採用範囲)と同じ採用範囲をWorkbenchの操作可否へ反映する。
+CROSの初期管理CredentialはHostでCROSを明示構築するときに発行する。MCP起動だけで発行せず、管理可・内容Grantなしを初期値とする。これは初回構築の既存方式である。本文の旧秘密配送・Remote資格管理候補は比較資料であり、現在の採用根拠にしない。置換先の[鍵管理のMCP非公開境界](../mcp-server/01_Architecture.md#33-鍵管理のmcp非公開境界)では通常鍵3操作を同一Process Workbench、Hostを対話交換2操作だけ、MCPを全鍵操作非公開とする。本書全体の新Owner伝播・完成を意味しない。
 
 ## 7. Connection CredentialとRequest Access Context
 

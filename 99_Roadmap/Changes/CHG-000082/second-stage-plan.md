@@ -798,6 +798,16 @@ UI／SPEC定義再伝播の限定確認結果: 契約・品質の独立レビュ
 
 横断モデル・対応表再伝播の限定確認結果: 差分空白確認成功、ローカルリンク210件の不存在0。08の対象外79対応行（19 UI・29 BHV・31 Relation）は基準版と完全一致、全82行と既存Identity／Relationを維持した。是正後の全体Checkerはerror 3,056件・warning 0・Exit 1で未通過。今回11文書にはPROJECT_CONTEXTと08の既知契約指摘2件が残る。限定レビューを全体Coverage・Quality Readyへ読み替えず、新Owner Details・Quality・Sourceへの伝播で後続処置する。巨大実行結果は保存せず、既出のCheckerコマンドで再取得する。
 
+#### 最新鍵管理判断のMCP詳細再伝播 — 2026-10-11
+
+基準Commitは`4248f3bd`。MCP詳細、本計画、PROJECT_CONTEXTの3文書を初回候補とし、節名変更の直接参照を持つ旧CROS比較詳細とWorkbench詳細を加えた5文書を対象とする。両Detailsは当該参照段落とWorkbench直前の同じ鍵行だけを同期し、全面追従を主張しない。採用済み意味の設計伝播と現在投影の同期で、着手前の読み取り専用契約確認は着手可・追加人間判断不要。旧非秘密資格一覧・個別Grant変更・独立失効Tool候補を撤回し、MCPの鍵操作は一覧・Schema・登録・dispatch非公開とする。通常鍵3操作は同一Process Workbenchの固定administrator、Hostは追加認証なしの対話交換2操作だけ、初回Bootstrapと既存Root／Path検証は不変。
+
+MCP要求のCredential認証は存続し、Access Managementが現在userId／Role・Exposure・Binding・実アクセスを評価する。Domainは認可済み集合の意味解析・集約だけを担当する。Profile／Activityの既存非鍵能力と型名は移管比較入力として維持し、旧systemAdmin・資格固定Grantを新Canonicalへ採用しない。他4管理群と新Role割当・具体型はOPEN。鍵断面の担当RelationはPartial、他Relationは今回再評価せず、旧Evidenceも不変である。
+
+発火例は非秘密一覧・失効を含む鍵Tool公開要求、非発火例はMCPのBearer認証と認可済み非鍵能力。別Process WorkbenchもMCPでは鍵操作不能とする。管理群のRole・具体API・保存・本番接続不明はOPENのまま保持する。変更意味からMCP全登録閉包・直接Call拒否・鍵Owner呼出し0と認証継続のIT／ST観測をQualityへ渡すが、QA Local Item・Source・実境界は未更新である。
+
+必須確認は固定5文書の契約・品質限定独立レビュー、差分・ローカルリンク確認。初回3文書のレビュー結果を全数統合し、旧Host全喪失語1箇所と直接参照2箇所・近傍の同じ旧鍵行を是正した。両レビューへ統合是正方針を再提示して整合を確認し、固定5文書の限定再レビューは両観点とも全重大度の残指摘0。差分空白確認成功、ローカルリンク77件の不存在0、旧アンカー参照0、MCP localhost Transport lifecycleは基準版と一致した。全体Checkerはerror 3,056件・warning 0・Exit 1で、今回5文書内はPROJECT_CONTEXTの既知指摘1件だけである。巨大結果は保存せず、限定Passを全体Passへ読み替えない。実行系・標準・秘密Store・Schema・Transport lifecycle／TLS／Originは変更しないため、Source全回帰・実E2E・準拠監査は今回は対象外。Workbench／Domain詳細、Quality、Source、本番接続は後続未完了。全体Ready・実装成立を主張しない。
+
 #### 管理権限の初期割当 — 2026-10-10（6群表全体が旧提案の履歴）
 
 以下は現在の割当契約ではない。鍵3操作は後続判断でadministrator専用固定へ置換し、残る4管理群の担当Roleと可変性は未確定である。

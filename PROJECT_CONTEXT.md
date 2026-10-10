@@ -55,6 +55,8 @@ v0.21.0は公開済み、v0.22.0とCHG-000082は未完了である。責務再�
 | 履歴相関を必須としない配送終了案 | 未採用・未実装のまま改修入力へ持ち越す。 | [未採用候補](99_Roadmap/Changes/CHG-000082/change.md) |
 | Repository IDの正式固定 | 暫定値を維持。契約固定時に人間が判断する。 | [要求](01_Discovery/Definitions/REQ-000038/requirement.md) |
 
+MCP詳細の最新判断伝播は契約・品質の限定独立再レビュー済み・残指摘0である。旧非秘密の鍵管理Tool候補を撤回し、MCP要求認証の継続と鍵管理非公開を分離した。Access Managementの現在認可とDomain Modelの認可済み集約へOwnerを分けた。Workbenchと旧CROS比較詳細は直接参照と近傍の鍵境界だけを同期した。Workbench／Domain詳細全体、Quality、Source・本番接続は未完了。Checker全体は既知3,056件で未通過。詳細は[今回の処置](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#最新鍵管理判断のmcp詳細再伝播--2026-10-11)を参照する。
+
 ### 鍵管理についての最新判断 — 2026-10-10
 
 鍵の発行・独立失効・交換はadministrator専用固定で、RoleのON／OFF設定を設けない。通常入口は同一Process Workbench、Host回復はログイン済みローカル操作者の対話CLIで追加認証なし。対象・影響表示と既存確認は維持する。鍵操作はSecret有無にかかわらずMCPへ公開しない。発行権限OFFの仮説について追加判断は不要となった。残る4管理群の可変性は未確定である。
