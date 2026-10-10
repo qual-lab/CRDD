@@ -25,7 +25,7 @@
 | `changeUserRole` | 変更前・変更後Roleを含む対象と期待改訂 | developer／manager間はmanager／administrator。administratorへの変更・administratorの変更はadministratorのみ |
 | `updateRoleContentAccess` | 対象Role・明示内容範囲・期待改訂 | administrator内容設定はadministratorのみ。他Roleはmanager／administrator。固定管理能力は変更しない |
 | `registerRepository` | 対象ID・検証済みBinding・現在未登録・期待改訂。現在manager／administrator | 接続登録だけ。登録≠公開 |
-| `unregisterRepository` | 既存Repository ID・現在登録状態・現在Exposure状態・期待改訂。現在manager／administrator | 登録解除だけ。Product Data削除0。登録時のBinding再検証を解除条件に転用しない。Exposure残存時の処置は下記OPEN |
+| `unregisterRepository` | 既存Repository ID・現在登録状態・現在Exposure状態・期待改訂。現在manager／administrator | 同じ受理済み操作・採用改訂で対象登録と対応Exposureを除去し、両方の読戻し確認時だけ完了。他登録・Exposure、対象Repository本体・Product Dataを保持。登録時のBinding再検証を解除条件に転用しない。開始済み操作の取消完了は証明しない |
 | `updateExposure` | 既存登録ID・現在登録／公開状態・変更範囲・期待改訂。manager／administrator | 内容認可・実アクセスとは独立した現在公開設定 |
 | `issueCredential` | 現在administrator・既存userId・期待改訂 | 同一Process Workbenchのみ。新資格と一度のSecret。旧資格失効0 |
 | `revokeCredential` | 現在administrator・exact Credential IDと既存userIdの結合・期待改訂 | 同一Process Workbenchのみ。対象だけ失効、対象外失効0・新発行0・Secret0・交換Recovery0 |
@@ -50,7 +50,7 @@
 
 これらは内部候補キーであり、新たな正本Entityや汎用Registryではない。User・Role・資格の参照整合と交換結果を一つの採用改訂に結合する。遷移は期待改訂→次改訂で保存し、同じ改訂を異なる状態で上書きしない。
 
-ExposureのRepository IDは既存登録を参照し、重複・孤立参照を拒否する。解除時にExposureが残る場合の具体処置はOPENである。暗黙Exposure削除、孤立Exposure確定、Product Data削除は認めず、処置が確定するまで該当解除の実装Gateは未成立・新Effect 0で停止とする。事前Exposure解除を必須とする新操作条件は自己採用しない。確認先は上流のRepository登録／Exposure Owner（Qual-Lab）、再評価契機は解除API・保存Schema固定前、影響は該当解除処理を実装できないこと。
+ExposureのRepository IDは既存登録を参照し、重複・孤立参照を拒否する。登録解除では同じ受理済み操作・採用改訂で対象登録と対応Exposureを除去する。事前の別Exposure解除は必須とせず、対象外登録・Exposureと対象Repository本体・Product Dataを保持する。両除去の読戻しを確認した場合だけ完了とし、片側残存・観測不能は完了にしない。両除去が確定しても開始済み操作の終了が未観測なら、その不明を別に保持し、取消成功・過去Effect 0・実資源終了を推定しない。新しい取消処置は追加しない。同一改訂の論理整合は確定方針であり、物理的な原子出版・排他の成立は§4で別途確認する。
 
 公開readではVerifier・salt・Secret・内部Pathを除く。自己表示、権限内の他User参照、非認証拒否を別条件として検査する。破損・観測不能を空集合や「未登録」に畳まない。内容要求は現在Role・Exposure・実アクセスから解決し、Domain Modelへ許可済みRepository集合だけを渡す。
 
@@ -74,9 +74,17 @@ ExposureのRepository IDは既存登録を参照し、重複・孤立参照を�
 
 失効前にexact Recovery・旧対象集合・既存発行先を固定し、失効、発行、結果記録を共通段階として単調に保存する。通常WorkbenchはBackend返却・Browser配送、HostはローカルCLIへの返却・表示を別観測し、HostのBrowser配送は非該当とする。具体受領方式はOPENで、受領通知を人間の閲覧やAuthorityの証明にせず、新しい受領必須Gateも作らない。発行確定後の配送故障で発行結果を取り消さない。
 
-生Secretは保存しないため、発行後のProcess／応答喪失では再表示・復元ができない場合がある。受領不明から暗黙再発行しない。現在Authorityによる再観測と明示的な次処置を設計で確定するまで、この故障経路はOPENである。
+生Secretは保存・再表示しない。発行後のProcess／応答喪失は、次の3分岐で処置する。意味の正本は[確定BHV-000012](../../../05_SPEC/Details/BHV-000012/behavior.md)の「登録解除と発行・受け渡しの確定条件」で、物理保存・公開read・配送観測の具体化は未完了である。
 
-未解決交換は期限・容量だけで除去しない。`unresolvedKeyExchanges`から外す条件は、交換処理の終了と未解決配送の処置を別に確定できること。上限到達時は新しいEffect前に停止する。通常履歴は必要な非秘密要約だけを有限保持し、未解決参照の保護・解消後清掃・具体上限は保存設計の残件として扱う。実行毎DirectoryやEvidence書庫を作らない。
+| 現在確認できる状態 | 処置 | 保持・禁止条件 |
+|---|---|---|
+| 発行または結果記録が不明 | Credential IDとは別の非秘密な元発行Identityと既知事実で現在再観測し、新交換を開始しない | 交換由来だけ元のexact Recoveryを保持。通常発行へ交換Recoveryを新設せず、`unresolvedKeyExchanges`へ通常発行不明を格納しない。既知の確定事実を不明へ戻さない |
+| 発行・結果記録が確定し、配送／受領だけ未確認 | 「発行済み・受け渡し未確認」と表示し、現在許可されたadministratorが既存の指定／全員交換を明示的な別操作として選ぶ | 秘密再表示・保存・自動再発行なし。新交換は別Operation／別Recovery、各交換内だけ同じexact Recovery。旧事実・元発行Identityを保持 |
+| 現在administratorとして接続できない | 既存のログイン済みHost交換入口へ案内する | Workbench認可を迂回せず、Hostへ通常発行・独立失効・追加認証・新Recovery機構を追加しない |
+
+別交換の指定操作は先に発行した鍵を含む対象ユーザーの全旧有効資格を失効し、同じ既存userIdへ新資格を発行して他ユーザーの鍵を保持する。全員操作は先の鍵を含む全旧有効資格を失効し、指定既存administratorへ一資格を発行し、他ユーザーは通常再発行・再配布へ戻る。現在対象集合・認可・4組の事前表示・3組の明示確認を再適用する。遅延した旧応答で失効済み鍵を利用可能と表示しない。新交換成功は旧Secret受領・rollback・開始済み取消完了の証明ではない。
+
+未解決交換は期限・容量だけで除去しない。`unresolvedKeyExchanges`から外す条件は、交換処理の終了と未解決配送の処置を別に確定できること。別交換の成功を旧Secret受領確認に転用しない。上限到達時は新しいEffect前に停止する。通常履歴は必要な非秘密要約だけを有限保持し、未解決参照の保護・解消後清掃・具体上限は保存設計の残件として扱う。実行毎DirectoryやEvidence書庫を作らない。
 
 ## 6. 既存Capabilityと切替
 
@@ -107,9 +115,9 @@ ExposureのRepository IDは既存登録を参照し、重複・孤立参照を�
 
 RFD-UT-020は固定判定、RFD-IT-021は入力搬送・保存境界、RFD-ST-022は本番Workbench縦断、RFD-UAT-007は理解を確認する。RFD-ST-016／RFD-IT-017／RFD-IT-018では鍵操作の段階別Effect・不明を維持する。部分write、改訂競合、pending残存、出版後読戻し失敗、応答喪失、排他解放欠測を反証例へ接続する。MCP鍵4面0、Host交換2のみを負観測として確認する。設計追加でNot RunをPassへ変えない。
 
-Repositoryでは重複登録、未登録Exposure、解除後の孤立Exposureを反証する。Exposure残存解除の具体Oracleは上流処置の確定後に導出し、未採用の事前解除必須条件をTestで固定しない。
+Repositoryでは重複登録、未登録Exposure、解除後の孤立Exposure、片側除去だけの完了表示、対象外登録・Exposure／本体変更、解除完了からの開始済み取消完了推定を反証する。鍵では通常発行不明への交換Recovery付与、不明発行からの新交換、確定発行の不明化、別交換と旧Identityの混同、秘密再表示・自動再発行、失効鍵の遅延利用案内、現在認可なしの通常交換を反証する。処置方針の確定からQA実行済みを推定しない。
 
-実装前の残件は、排他の具体Ownerと実OS出版保証、公開read Schema、内容権限語彙、保持・清掃条件、Secret受領不明後の具体処置、初回設定と移行対応である。担当はQual-Lab、再評価契機は保存・API候補固定時。これらは実装Gateを阻害するため、将来改善として退避しない。追加の保証や再表示・自動再発行を採用する場合は上流判断へ戻す。
+実装前の残件は、排他の具体Ownerと実OS出版保証、公開read Schema、元発行Identityと配送／受領観測の具体保存・搬送、内容権限語彙、保持・清掃条件、初回設定と移行対応である。担当はQual-Lab、再評価契機は保存・API候補固定時。登録解除と受け渡し未確認後の処置方針は確定済みだが、これらの物理・接続残件は実装Gateを阻害するため将来改善として退避しない。追加の保証や再表示・自動再発行を採用する場合は上流判断へ戻す。
 
 ## Checklist
 
@@ -119,6 +127,6 @@ Repositoryでは重複登録、未登録Exposure、解除後の孤立Exposureを
 - [x] 交換の段階・4組表示3組確認・入口別配送を区別した。
 - [x] 旧設定の全fieldとCredentialの移行Owner・Consumer切替条件を記した。
 - [x] Quality項目と反証面を対応し、Not Runを維持した。
-- OPEN: 排他・出版・保持清掃・公開Schema・受領不明処置・実データ対応は§7の残件。Qual-Labが保存／API候補固定時に確認し、未解決の間は実装Gate未成立。
-- OPEN: Exposure残存時の登録解除処置は§3の条件で上流Ownerへ確認する。解除API・保存Schema固定前に解決するまで該当解除を実装しない。
+- [x] 登録解除の同時除去と鍵の3分岐を確定上流へ合わせ、処置方針の旧OPENを解消した。保存・接続の成立とは区別する。
+- OPEN: 排他・出版・保持清掃・公開Schema・元発行Identity／配送観測の具体保存・実データ対応は§7の残件。Qual-Labが保存／API候補固定時に確認し、未解決の間は実装Gate未成立。
 - OPEN: Consumer本番接続・旧撤去・実境界検証はSource移管後にQual-Labが確認する。候補対応表だけではCapability完成を主張しない。
