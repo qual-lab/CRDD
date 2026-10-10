@@ -18,7 +18,7 @@ Canonical化した30件のSPEC Definitionを、SPEC Detail契約へ全件移行�
 18 ARCH責務 + 13 Quality検証目標
 ```
 
-今回のSPEC-000012改訂を既存BHV-000012へ具体化した。30 BHV／32 Relationの件数は維持し、他29 BHVは変更しない。更新前の全数処置・完了記録は新判断の全体完成根拠ではない。Definition対応レビュー・横断投影・Architecture／Quality／Sourceは未追従。
+今回のSPEC-000012改訂を既存BHV-000012へ具体化した。30 BHV／32 Relationの件数は維持し、他29 BHVは変更しない。更新前の全数処置・完了記録は新判断の全体完成根拠ではない。Detailは限定確認済み。現行Definition対応と横断投影は限定独立レビュー済み。Architecture／Quality／Sourceは未追従。
 
 ## 2. SPEC Definitionの処置
 

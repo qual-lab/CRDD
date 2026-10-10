@@ -1,8 +1,8 @@
 # UI／SPEC対応
 
-状態: v0.22.0更新中。UI-000008／SPEC-000012は契約変更により対応再レビュー待ち
+状態: v0.22.0更新中。UI-000008／SPEC-000012の現行1組は限定独立レビュー済み
 
-UI-000008／SPEC-000012の最小ユーザー管理への更新により、下記の旧対象Hash・同組の作成者確認・引用結果は更新前の基準版に限定する。最新契約・Detailの対応成立を示さない。旧引用は歴史記録として維持し、新候補の対応レビューで更新する。他の組も対象改訂版を越えて完成根拠にしない。
+UI-000008／SPEC-000012の最小ユーザー管理への更新により、下記の旧対象Hash・同組の作成者確認・引用結果は更新前の基準版に限定する。最新契約・Detailの対応成立を示さない。旧引用は歴史記録として維持し、[現行1組の対応](#current-credential-pair)を別区画で確認する。他の組も対象改訂版を越えて完成根拠にしない。
 
 この文書はUI契約ReadyとSPEC Readyの後に行う対応レビューの正本である。UI工程全体のExitとは別に判定する。UI契約またはSPEC契約をここで再定義せず、同じUX／IA Contextから導いたPresentation ContractとBehavior Contractの対応だけを確認する。
 
@@ -576,19 +576,49 @@ UI-000008／SPEC-000012の最小ユーザー管理への更新により、下記
 
 | 区分 | 意味 | 現在の処置 |
 |---|---|---|
-| Shared | UIの認識・操作・FeedbackとSPECの契機・状態・結果を対応させる | 更新前固定版では上記32組を全件確認済み。今回更新したUI-000008／SPEC-000012の対応は再確認待ち |
+| Shared | UIの認識・操作・FeedbackとSPECの契機・状態・結果を対応させる | 更新前固定版では上記32組を全件確認済み。今回更新したUI-000008／SPEC-000012の現行1組は限定独立レビュー済み |
 | UI-only | 視覚順、色以外の識別、Keyboard、読上げ等 | UI定義で保持し、SPECへ振る舞いを発明しない |
 | SPEC-only | 直接UIを持たない振る舞い、内部で完結する契約 | 理由、運用Feedback、人間確認をSPEC定義に残す |
-| Gap | 片側または上流のCanonical Contractが不足する | 更新前固定版には未解消Gapなし。現在はUI-000008／SPEC-000012のDetail・横断投影・対応レビュー未追従をOPENとして保持し、各Ownerで処置する |
+| Gap | 片側または上流のCanonical Contractが不足する | 更新前固定版には未解消Gapなし。現在はUI-000008／SPEC-000012の現行Definition対応・横断投影は限定独立レビュー済み。Architecture／Quality伝播は未完了をOPENとして保持し、各Ownerで処置する |
 
 ## 7. ArchitectureとQualityへの接続
 
-本書はDefinition対応を所有する。Detail対応は[UI／SPEC Detail対応](Details/02_UI_SPEC_Detail_Correspondence.md)を正本とし、今回のUI-000008／SPEC-000012更新前の固定版では20 SCR、20 PRT、32 Interactionおよび30 BHVを全数確認して`Pass`とした。v0.21固定時の値は29 BHV／31 Interactionであり、更新後の根拠へ読み替えない。今回の改訂版はDetail・対応再確認待ちであり、Architecture／Qualityへの変更伝播も未完了である。本書の過去Passを現在のDefinition対応またはDetail対応のPassへ読み替えず、両方の対応結果を独立して維持する。
+本書はDefinition対応を所有する。Detail対応は[UI／SPEC Detail対応](Details/02_UI_SPEC_Detail_Correspondence.md)を正本とし、今回のUI-000008／SPEC-000012更新前の固定版では20 SCR、20 PRT、32 Interactionおよび30 BHVを全数確認して`Pass`とした。v0.21固定時の値は29 BHV／31 Interactionであり、更新後の根拠へ読み替えない。今回のDetail限定対応は確認済み。現行Definition対応と横断投影は限定独立レビュー済みであり、Architecture／Qualityへの変更伝播も未完了である。本書の過去Passを現在のDefinition対応またはDetail対応のPassへ読み替えず、両方の対応結果を独立して維持する。
 
 - Architectureの正式入力はUI DefinitionとSPEC Definitionである。この対応レビューは両入力の対応Closureを示すEvidenceであり、第三の仕様ではない。UI工程Exitが未完了の間はArchitectureへの通常Handoffを許可しない。
 - UIとSPECはそれぞれQuality Analysisへ入力を渡す。対応レビューから新しいQuality Contractを発明しない。
 
-## 8. 補足分析
+## 8. 現行改訂版の限定対応
+
+<a id="current-credential-pair"></a>
+
+### UI-000008／SPEC-000012の現行対応 — 鍵交換2操作
+
+状態: 作成者照合・限定独立レビュー済み。基準Commit `69f8d463`、共通正式入力はUX-000013／UX-000035／IA-000009。旧32組の集合Hash・引用・Passは変更せず、今回変更した1組だけを対象とする。Definition対応の確認であり、Detail・Visual・実装・E2Eの完成証明ではない。
+
+| 対象Definition | SHA-256 |
+|---|---|
+| [UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md) | `0ea96455dd98e8c63ce1ab63116b8b736fb051c9fab11a796e1f9e12003e8642` |
+| [SPEC-000012](Definitions/SPEC-000012/spec_definition.md) | `90d7b911325bee55b160a78736e53681c6fa576cc77a396aff2d39a3b0ea4ada` |
+
+下表は正本の要約対応であり、新しい仕様・状態・保存方式を定義しない。
+
+| 観点 | UIの認識・操作・Feedback | SPECの条件・状態・結果 | 作成者照合 |
+|---|---|---|---|
+| 状態（State） | 利用5区分、部分成立、資格4区分と回復状態を別軸表示 | 同じ軸を区別し、永続resetting／rotationを追加しない | 一致。UI「状態と表示差」／SPEC「振る舞い・状態・結果」 |
+| 契機（Trigger） | 接続、ユーザー／Role管理、発行、独立失効、2操作×2入口を操作として区別 | 現行管理認可またはHost Authority、対象と必要状態を処置前に確認。Hostまたは全員交換だけ明示確認 | 一致。両定義の操作・契機節。通常×指定ユーザーには追加確認Gateなし |
+| 結果（Result） | 対象・旧資格影響・保持情報・新Secret一度表示・再入場を認識 | 指定ユーザーは同じuserIdへ、全員交換は指定既存administratorへ発行。他ユーザー再配布は通常管理。独立失効は新発行なし | 一致。両定義の2操作表と独立失効行 |
+| 失敗（Failure） | 対象不明・管理者不存在・観測不能・認可破損の停止、既知失効と発行不明を見分ける | 新Effect前停止と失効後の発行失敗・応答／Process喪失を分ける | 一致。両定義の失敗・部分結果。失敗を全成功やrollbackへ丸めない |
+| 回復（Recovery） | 同じRecoveryと確認先、現在再観測、新資格による再入場を示す | 非秘密の既知失効／発行不明を同じIDへ耐久保持。再入場で現在状態とAuthorityを確認 | 一致。保存記録だけから成功・Authority復元・旧鍵有効を推定しない |
+| 権限（Authority） | 管理と内容閲覧、通常とHostを分離。表示名を本人性・権限にしない | 資格→userId→現行Role詳細権限、公開範囲と実アクセスを別判定 | 一致。古い権限をCredential／Sessionへ固定しない |
+| 可視性（Visibility） | 自身表示可、非認証User情報0、非管理者の他User一覧・存在・件数0。Secret非保存・非再表示 | 同じ三境界と非開示Repositoryの保護、発行／鍵交換後だけSecret一度返却 | 一致。理由・履歴・Evidenceにも秘密や非開示情報を複製しない |
+| 制約（Constraint） | ユーザー情報・Role権限・Repository登録・Product Dataを保持。単体利用は資格不要 | 同じ保持境界。特別ユーザー・追加権限・回復専用Bootstrap・認可破損修復を追加せず、初回設定は不変 | 一致。GUI／CLI分担・期限・Schemaは未確定、開始済み取消・過去Effect 0は別契約 |
+
+入力・設定・利用可否・取消・競合・不明・内容・検証の懸念は上の対象相関、現行認可、処置前停止、部分結果・再観測と両定義の検証意図へ接続する。新しいUIテーマ、部品、モード切替、投影同期、AI依頼は今回の変更対象ではなく既存契約を変更しない。操作／状態／結果の対応図は[SCR-000008](../04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md)と[BHV-000012](Details/BHV-000012/behavior.md)、[Detail対応](Details/02_UI_SPEC_Detail_Correspondence.md)を既存参照する。
+
+未確認は両定義の対象識別・確認負担、管理画面／CLI分担、有効期限既定値と実利用評価に残る。今回の作成者照合で人間判断やUI工程Exitを代替しない。Architecture／Quality／Source・保存Schema・移行・実証は未追従。
+
+## 9. 補足分析
 
 なし。
 
@@ -615,4 +645,4 @@ UI-000008／SPEC-000012の最小ユーザー管理への更新により、下記
 - [x] Definition対応とDetail対応を区別した
 - [x] 対象Detail RelationをDefinition対応のPassで代替せず独立確認した
 - [x] 未決事項をAI推測で補完していない
-- OPEN: UI-000008／SPEC-000012更新後のDefinition対応、Detail対応、横断投影およびArchitecture／Quality伝播の再確認。
+- OPEN: SCR-000008／BHV-000012とDetail限定対応は確認済み。現行Definition対応・横断投影は限定独立レビュー済み。管理画面／CLI分担・実画面評価・UI工程ExitとArchitecture／Quality以降は未完了。旧完成記録を新版へ流用せず、限定確認を全体完成根拠にしない。

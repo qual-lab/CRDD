@@ -1,6 +1,6 @@
 # 振る舞い仕様
 
-状態: v0.22.0更新中（SPEC-000012のDefinitionは限定独立レビュー済み、BHV-000012とDetail対応は再伝播・限定独立レビュー済み、Definition対応／Workbench候補横断投影／後工程は未追従）
+状態: v0.22.0更新中（SPEC-000012のDefinitionは限定独立レビュー済み、BHV-000012とDetail対応は再伝播・限定独立レビュー済み、現行Definition対応／Workbench候補横断投影は限定独立レビュー済み、後工程は未追従）
 担当責任者: Qual-Lab
 対象版: v0.22.0候補（公開基準版: v0.21.0）
 工程規則: [振る舞い仕様](../26_Behavior_Specification.md)、[UIとSPECの対応](../24_UI_Behavior_Specification.md)
@@ -87,7 +87,7 @@ UI定義 ───── pairs_with ───── SPEC定義
 
 ## 6. 現在状態と次工程
 
-以下の全数移行・完了記録は、今回のUI-000008／SPEC-000012更新前の固定版に限る。今回の直接伝播8文書は限定独立レビュー済みだが、BHV-000012、横断投影およびUI／SPEC対応は再確認待ちであり、更新版のReadyを示さない。
+以下の全数移行・完了記録は、今回のUI-000008／SPEC-000012更新前の固定版に限る。今回の直接伝播8文書は限定独立レビュー済みだが、BHV-000012とDetail対応は限定確認済み、現行Definition対応と横断投影は限定独立レビュー済みであり、更新版のReadyを示さない。
 
 v0.21.0のSPEC Definition 29件は当時の契約でCanonical化され、29 BHVと31 UI Detail Relationへ移行した。v0.22ではSPEC-000031／BHV-000031と1 Relationを追加し、更新前固定版では30 SPEC Definition、30 BHVおよび32 UI Detail Relationである。Detailの所有正本は[SPEC Detail](Details/01_SPEC_Detail.md)を正本とする。
 
@@ -99,7 +99,7 @@ v0.21 SPEC Detail移行: Complete
 v0.22固有BHVはDiscovery後のCanonical Definitionから追加
 ```
 
-32件のUX定義と22件のIA定義を別々に分析し、v0.21では29件の振る舞い仕様へ統合した。Quality分析でREQ-000004の記録側成立条件が取得契約へ縮退していたGapを検出し、記録する側のUX-000032、IA-000022、UI-000020を通して、取得とは別のState Owner、Effect、失敗を持つSPEC-000030へ再導出した。v0.22ではProject Context操作をSPEC-000031へ追加した。現行実装との比較は[現行振る舞い参照](07_Current_Behavior_Reference.md)で行い、分析の不足を現行コードから補完していない。更新前固定版では30 DefinitionとDetail対応の成果物別Checklistを完了した。今回の更新版はDetail・対応再確認待ちであり、未実装CapabilityはQualityで未観測のまま保持する。
+32件のUX定義と22件のIA定義を別々に分析し、v0.21では29件の振る舞い仕様へ統合した。Quality分析でREQ-000004の記録側成立条件が取得契約へ縮退していたGapを検出し、記録する側のUX-000032、IA-000022、UI-000020を通して、取得とは別のState Owner、Effect、失敗を持つSPEC-000030へ再導出した。v0.22ではProject Context操作をSPEC-000031へ追加した。現行実装との比較は[現行振る舞い参照](07_Current_Behavior_Reference.md)で行い、分析の不足を現行コードから補完していない。更新前固定版では30 DefinitionとDetail対応の成果物別Checklistを完了した。今回のDetail限定対応は確認済み。現行Definition対応と横断投影は限定独立レビュー済みであり、未実装CapabilityはQualityで未観測のまま保持する。
 
 ## 補足分析
 
@@ -119,4 +119,4 @@ v0.22固有BHVはDiscovery後のCanonical Definitionから追加
 - [x] Human Input、Open・Gapおよび戻り条件を明示した
 - [x] SPEC ReadyとUI／SPEC対応レビューを区別した
 - [x] ArchitectureまたはSourceから意味を逆輸入していない
-- OPEN: SPEC-000012更新後のBHV-000012、横断投影、UI／SPEC対応およびArchitecture／Qualityへの追従。更新前の完了記録を更新版の完成根拠に使用しない。
+- OPEN: SCR-000008／BHV-000012とDetail限定対応は確認済み。現行Definition対応・横断投影は限定独立レビュー済み。管理画面／CLI分担・実画面評価・UI工程ExitとArchitecture／Quality以降は未完了。旧完成記録を新版へ流用せず、限定確認を全体完成根拠にしない。

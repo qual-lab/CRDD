@@ -20,7 +20,7 @@ v0.21.0でCanonical化した20件のUI Definitionを、新しいUI Detail契約�
 Architecture／Quality
 ```
 
-今回のUI-000008改訂に合わせ、既存SCR-000008／PRT-000008を最小ユーザー管理と鍵交換2操作へ更新した。対象件数は増やさない。以下の全数処置・Workbench Pilot Gateは更新前の固定版の結果であり、新判断の全体完成根拠にしない。現在の変更対象はSCR-000008とArea Guide、そのDetail対応だけで、Definition対応レビュー・Workbench候補の横断投影・Architecture／Quality／Sourceは未追従。
+今回のUI-000008改訂に合わせ、既存SCR-000008／PRT-000008を最小ユーザー管理と鍵交換2操作へ更新した。対象件数は増やさない。以下の全数処置・Workbench Pilot Gateは更新前の固定版の結果であり、新判断の全体完成根拠にしない。SCR-000008とArea Guide、そのDetail対応は限定確認済み。現行Definition対応とWorkbench候補の横断投影は限定独立レビュー済み。Architecture／Quality／Sourceは未追従。
 
 ## 2. UI Definitionの処置
 

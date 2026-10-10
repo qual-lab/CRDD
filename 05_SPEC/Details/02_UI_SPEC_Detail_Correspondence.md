@@ -11,7 +11,7 @@
 - Definition対応: [UI／SPEC対応](../06_UI_SPEC_Correspondence.md)の32組
 - 判定境界: UI DetailからBHVへの操作Coverageと、BHVからUI Detailへの結果・失敗・回復Coverage
 
-Definition対応の意味を再定義せず、同じ32組をDetailへ具体化する。今回の鍵交換2操作はUI-000008／SPEC-000012の現行DefinitionからSCR-000008／BHV-000012へ伝播した。変更はその1 Relationのみで、全体Passを再主張しない。未変更31 Relationの旧結果と、再確認対象の現在の対応を分ける。Definition対応レビューとWorkbench候補横断投影は後続で更新し、Architecture／Quality／Sourceの追従も未完了である。
+Definition対応の意味を再定義せず、同じ32組をDetailへ具体化する。今回の鍵交換2操作はUI-000008／SPEC-000012の現行DefinitionからSCR-000008／BHV-000012へ伝播した。変更はその1 Relationのみで、全体Passを再主張しない。未変更31 Relationの旧結果と、再確認対象の現在の対応を分ける。現行Definition対応とWorkbench候補横断投影は限定独立レビュー済みで、Architecture／Quality／Sourceの追従も未完了である。
 
 ## 2. UIからBHVへのCoverage
 
