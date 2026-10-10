@@ -2,7 +2,7 @@
 
 Status: Candidate (v0.22 responsibility reorganization)
 Owner: Qual-Lab
-Last Updated: 2026-10-10
+Last Updated: 2026-10-11
 
 ## 1. この成果物が所有すること
 
@@ -113,11 +113,11 @@ Last Updated: 2026-10-10
 
 実行の直接依存は `orchestrator → coordinator公開API → ai-adapter` とする。OrchestratorはCoordinatorが定義した通知関数を登録し、Coordinatorが実行事実を通知する。通知は上位状態の更新完了や資源回収完了そのものではなく、各Ownerが確定した結果へ接続する。新しいEvent Bus、DIまたは汎用Port Frameworkは追加しない。
 
-Workbench／MCPは必要な内部Capabilityを利用する。同一ProcessのCROS利用は認可を維持した直接呼出し、別Processは同じHostでもMCPを利用する。Shared Serverは配置形態であり、第三の公開Runtimeではない。CROS REST／Gatewayの既存能力は移管・検証後に撤去し、名前の削除だけを置換完了としない。
+Workbench／MCPは必要な内部Capabilityを利用する。同一ProcessのCROS利用は認可を維持した直接呼出し、別Processは同じHostでもMCPを利用する。ただし鍵操作はこの一般経路から除外し、MCPの一覧・Schema・登録・dispatchへ置かない。通常鍵3操作は同一Process Workbenchの固定administrator、Hostはログイン済み操作者の対話CLI交換2操作だけとする。詳細な入口境界は[境界モデル](03_Boundary_and_Interface_Model.md#管理と鍵交換の公開境界)を参照する。Shared Serverは配置形態であり、第三の公開Runtimeではない。CROS REST／Gatewayの既存能力は移管・検証後に撤去し、名前の削除だけを置換完了としない。
 
 ## 5. QAへ渡す検証単位
 
-ARCH-000013の現行責務は上の図・表と同定義に従う。認可済み集合の解決はAccess Management、Context集約はDomain Modelへ分け、DomainはCredentialやGrantを解釈しない。今回の変更は採用済み契約への是正伝播であり、03〜06の横断モデルは伝播済み・限定独立レビュー済み。07／08・Details・Qualityは次段で影響を全数判定する。限定伝播から全体Readyを推定しない。
+ARCH-000013の現行責務は上の図・表と同定義に従う。認可済み集合の解決はAccess Management、Context集約はDomain Modelへ分け、DomainはCredentialやGrantを解釈しない。最新鍵管理判断の03境界モデルへの再伝播と本責務表の案内同期は、今回6文書の限定独立レビュー済み・残指摘0である。04〜08・新Owner Details・Qualityは次段で再伝播する。前判断に対する03〜06の限定レビューを最新判断へ流用しない。限定伝播から全体Readyを推定しない。
 
 | 検証候補 | 主な対象 | 反証すること | 適する粒度候補 |
 |---|---|---|---|
