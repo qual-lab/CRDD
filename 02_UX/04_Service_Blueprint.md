@@ -2,7 +2,7 @@
 
 状態: 候補（v0.22.0、公開済みの基準版: v0.21.0）
 担当責任者: Qual-Lab
-最終更新日: 2026-10-09
+最終更新日: 2026-10-11
 工程規則: [UX](../22_UX.md)
 
 本書は、CRDD／CROSの主要な利用体験について、利用者の行動から、画面やAIなどの接点、共通の受付、処理する仕組み、情報源、確認・回復までを一つの流れで示す。内部構成や通信方式の詳細はArchitectureで定める。
@@ -84,7 +84,7 @@
 | [UX-000032](Definitions/UX-000032/ux_definition.md) | 実行・待機する | AIまたはToolの観測可能な実行段階が確定し、事実を後から比較できる形で残す時 |
 | [UX-000033](Definitions/UX-000033/ux_definition.md) | 候補を反映する | 論点や会議記録を維持し、終了・訂正・誤登録削除を判断する時 |
 | [UX-000034](Definitions/UX-000034/ux_definition.md) | 情報を選ぶ／候補を反映する | Projectの意味から次の仕事と作業差分を確認し、共有対象を決める時 |
-| [UX-000035](Definitions/UX-000035/ux_definition.md) | 管理を維持する／停止後に回復する | Workbenchのadministrator鍵管理／ログイン済みHost操作者の交換2操作。MCP鍵操作なし。認可破損は停止、他4群割当未確定 |
+| [UX-000035](Definitions/UX-000035/ux_definition.md) | 管理を維持する／停止後に回復する | Workbenchのadministrator鍵管理／ログイン済みHost操作者の交換2操作。MCP鍵操作なし。認可破損は停止、manager／administratorの業務管理とadministrator専用の管理者資格・鍵を分離。登録≠公開、解除≠削除 |
 
 ## 4. AI同士の引き渡し
 

@@ -14,7 +14,24 @@ RoleとCredentialは共有CROSへのRemote接続に限定し、利用者がア�
 
 v0.22の標準Role識別子は`administrator`、`manager`および`developer`とする。Roleに対してRepository／Workspaceの利用範囲と管理操作の詳細権限を設定する。安全な初期範囲は、`administrator`がSystem管理、`manager`がManagementとDevelopment、`developer`がDevelopmentである。管理権限だけからProject内容へのアクセスを自動的に付与してはならない。
 
-現在その管理操作を許可された主体は、ユーザーIDを作成し、表示名とRoleを設定・変更できなければならない。ユーザー管理、Role設定、Repository登録、公開範囲管理の担当Roleと可変性は未確定であり、Sourceへの許可付与を先取りしない。そのユーザーのCredential発行・交換は現行administrator専用とする。Bearer Secretは利用者へ安全な別経路で渡す。表示名は管理対象を識別し、Workbenchに現在の認証ユーザーを表示するためだけに使い、ログイン名、本人確認、権限またはRepository開示の根拠にしない。利用者の自己登録、自己編集、接続申請または個人別承認Workflowは追加しない。
+ユーザーと業務上のアクセス範囲はmanagerとadministratorが管理し、鍵と管理者資格はadministratorだけが管理する。管理操作の担当Roleは次の固定境界とし、Role詳細権限設定からdeveloperへ管理操作を付与したり、managerへ管理者専用操作を付与したりしない。
+
+| 管理操作 | developer | manager | administrator |
+|---|---|---|---|
+| ユーザー登録・表示名変更 | 不許可 | 許可 | 許可 |
+| developer／managerの割当て・変更 | 不許可 | 許可 | 許可 |
+| administratorの付与・解除 | 不許可 | 不許可 | 許可 |
+| developer／managerの詳細権限設定 | 不許可 | 許可 | 許可 |
+| administratorの詳細権限設定 | 不許可 | 不許可 | 許可 |
+| 鍵の発行・独立失効・交換 | 不許可 | 不許可 | 許可 |
+| Repository登録・登録解除 | 不許可 | 許可 | 許可 |
+| Repository公開範囲設定 | 不許可 | 許可 | 許可 |
+
+managerは業務上のアクセスを決める信頼された管理担当者であり、自身を含むdeveloper／managerの内容範囲を明示的に変更できる。変更前の現在権限で操作を認可し、更新したRole詳細権限・公開範囲と既存の実アクセスを次要求から評価する。管理能力だけで内容を自動公開しない。managerは既存administratorのRole変更（降格を含む）も行えない。
+
+Repository登録は接続対象の登録であり、登録だけで公開・内容アクセスを許可しない。登録解除は登録関係の解除であり、RepositoryやProduct Dataの削除ではない。公開範囲設定は開示範囲の明示変更として分離する。
+
+許可された主体はユーザーIDを作成し、上表の範囲で表示名とRoleを設定・変更できなければならない。そのユーザーのCredential発行・交換は現行administrator専用とする。Bearer Secretは利用者へ安全な別経路で渡す。表示名は管理対象を識別し、Workbenchに現在の認証ユーザーを表示するためだけに使い、ログイン名、本人確認、権限またはRepository開示の根拠にしない。利用者の自己登録、自己編集、接続申請または個人別承認Workflowは追加しない。
 
 鍵の発行・独立失効・交換は、現行administrator Role専用の固定操作とし、Role詳細権限のON／OFF設定に含めない。通常管理は同一ProcessのWorkbenchから実行する。鍵操作は秘密の返却有無にかかわらずMCPへ公開しない。
 
@@ -46,14 +63,14 @@ Remote接続には利用範囲の分離が必要
 
 - 認証・認可は`Credential → userId → Role → 現在のRole詳細権限 → Exposure`の順に解決する。
 - ユーザーIDはUUIDとして安定させ、表示名変更またはCredentialリセットで変更しない。最小モデルはユーザーに一つのRoleを割り当て、複数RoleやRole継承を先取りしない。
-- 表示名は管理者が登録・変更する非秘密の表示値であり、表示名の一致・変更から同一ユーザーや権限変更を推定しない。
+- 表示名はmanagerまたはadministratorが登録・変更する非秘密の表示値であり、表示名の一致・変更から同一ユーザーや権限変更を推定しない。
 - Workbenchは認証済みの自身の現在ユーザー名を表示する。非認証の入口へユーザー情報を開示せず、管理権限のない入口へ他ユーザーの一覧・存在・件数を開示しない。
 - CredentialリセットはユーザーIDとRoleを保持し、旧Credentialを失効して新Secretを一度だけ発行する。以後の要求で旧Credentialを拒否する。開始済み操作の取消完了は、この失効だけから推定しない。
 - Role権限の変更は次の認可から現行設定を使用し、Credentialへ古い権限を固定しない。Credential単位またはユーザー単位の追加権限は持たせない。
 - Credential Secretは十分に長い暗号学的乱数とし、発行時に一度だけ表示する。
 - ServerはSecretのDigestだけを保存し、生Secretまたは受信可能な同等値を保存しない。
 - 利用側はOS Credential Storeまたは接続先の秘密値管理へ保存し、Repository、`.crdd`、通常設定、Promptまたは会話履歴へ保存しない。
-- 鍵の発行・独立失効・交換は現行`administrator`だけが実行できる。残る4管理群の担当Roleと可変性は未確定で、現在その管理操作を許可された主体だけが実行できる。
+- 管理操作は要求節の固定担当Roleで認可する。managerによるadministratorの付与・解除・詳細権限変更と鍵操作、developerによる管理操作を拒否する。Role設定からこの固定境界を迂回できない。
 - `administrator`の管理能力からManagementまたはDevelopment内容へのアクセスを推定しない。
 - Repository要求はRole詳細権限、Exposureおよび既存の実アクセスを共同で確認し、許可されない内容を読取り・開示しない。
 - Credentialの失効、有効期限切れ、Role不一致およびRepository非開示を成功へ畳まない。
@@ -98,9 +115,11 @@ Remote接続には利用範囲の分離が必要
 
 ## 検証意図
 
-現在ユーザー管理を許可された主体がユーザーID・表示名・Roleを登録し、administratorがCredentialを発行してRemote接続する。残る4管理群の担当Roleと可変性は設計確定後に検証へ具体化する。表示名変更でもID・認可が不変で、鍵交換でもID・名前・Role・権限が不変かつ旧Secretが拒否されること、Role詳細権限変更が次の認可へ反映されることを確認する。指定ユーザーと全員の失効範囲、全員交換後の指定管理者への再入場、通常管理とHost入口のAuthority差を別々に確認する。既存管理者不存在・対象不明・認可設定破損では処置前停止する。Secret非保存、偽のユーザー相関、Credential別権限追加、誤Role、期限切れ、非開示Repository、administrator以外による鍵操作と、現在の管理権限を持たない主体による他の管理操作、開始済み取消の誤認および管理者への内容自動付与を反証する。失効後の発行失敗・応答喪失・Process喪失では既知処置と同じRecoveryを保持し、再観測なしに完了やrollbackへ畳まない。Repository単体利用がCredentialなしで成立することも確認する。
+managerまたはadministratorがユーザーID・表示名と許可されたRoleを登録し、administratorがCredentialを発行してRemote接続する。要求節の各操作についてmanager／administratorの許可範囲、developerの拒否、managerによる管理者資格・鍵境界の迂回拒否を確認する。manager自身の内容範囲変更は明示設定と現在認可を通り、登録だけでは公開されず、登録解除でもProduct Dataを削除しないことを確認する。表示名変更でもID・認可が不変で、鍵交換でもID・名前・Role・権限が不変かつ旧Secretが拒否されること、Role詳細権限変更が次の認可へ反映されることを確認する。指定ユーザーと全員の失効範囲、全員交換後の指定管理者への再入場、通常管理とHost入口のAuthority差を別々に確認する。既存管理者不存在・対象不明・認可設定破損では処置前停止する。Secret非保存、偽のユーザー相関、Credential別権限追加、誤Role、期限切れ、非開示Repository、administrator以外による鍵操作と、現在の管理権限を持たない主体による他の管理操作、開始済み取消の誤認および管理者への内容自動付与を反証する。失効後の発行失敗・応答喪失・Process喪失では既知処置と同じRecoveryを保持し、再観測なしに完了やrollbackへ畳まない。Repository単体利用がCredentialなしで成立することも確認する。
 
 ## UXへの引き渡し
+
+2026-10-11の担当Role判断を要求節の表から継承する。managerはユーザー・業務アクセス・Repository登録と公開範囲を管理し、administratorは同じ操作に加えて管理者資格と鍵を管理する。登録と公開、登録解除とProduct Data削除を分け、管理者資格・鍵の固定制限を設定変更で迂回させない。画面・操作契約・権限語彙の具体化は下流で行い、旧担当Role判断を今回の判断として使わない。
 
 | 引渡し先 | 失ってはならない意味 | 下流で決めること |
 |---|---|---|

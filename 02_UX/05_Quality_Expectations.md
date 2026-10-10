@@ -2,7 +2,7 @@
 
 状態: 候補（v0.22.0、公開済みの基準版: v0.21.0）
 担当責任者: Qual-Lab
-最終更新日: 2026-10-09
+最終更新日: 2026-10-11
 工程規則: [UX](../22_UX.md)
 
 本書は、利用者や運用者へ現れる品質を製品全体で統合する。数値閾値、状態Schema、プロトコルおよび実現方式は下流工程が具体化する。
@@ -74,7 +74,7 @@
 | [UX-000032](Definitions/UX-000032/ux_definition.md) | 同じ識別情報で再観測し、結果不明を保つ |
 | [UX-000033](Definitions/UX-000033/ux_definition.md) | 当時記録と現在状態、終了・訂正と誤登録削除を分け、削除影響と復旧可能性を示す |
 | [UX-000034](Definitions/UX-000034/ux_definition.md) | 結論からOwnerと作業差分へ戻り、外部Effect前に送信対象を確認する |
-| [UX-000035](Definitions/UX-000035/ux_definition.md) | 鍵の発行・独立失効・交換はadministrator専用固定でON／OFF設定なし。通常は同一Process Workbench、MCPに鍵操作は非公開。Host回復はログイン済みローカル操作者の対話CLIで交換2操作だけを行い、追加認証・専用資格・承認コード・OS管理者昇格を要求しない。既存Root／Path検証を維持し、全4組で対象・影響を事前表示、Hostまたは全員交換の3組だけ明示確認する。 他4群割当未確定、認可破損は停止。情報・設定・Product Dataを保持 |
+| [UX-000035](Definitions/UX-000035/ux_definition.md) | 鍵の発行・独立失効・交換はadministrator専用固定でON／OFF設定なし。通常は同一Process Workbench、MCPに鍵操作は非公開。Host回復はログイン済みローカル操作者の対話CLIで交換2操作だけを行い、追加認証・専用資格・承認コード・OS管理者昇格を要求しない。既存Root／Path検証を維持し、全4組で対象・影響を事前表示、Hostまたは全員交換の3組だけ明示確認する。 manager／administratorの業務管理とadministrator専用の管理者資格・鍵を分離。登録≠公開、解除≠削除、認可破損は停止。情報・設定・Product Dataを保持 |
 
 ## 4. 利用の流れの中の重要場面
 
