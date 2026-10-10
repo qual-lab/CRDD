@@ -1,6 +1,6 @@
 # 表示面と領域
 
-状態: v0.22.0更新中（登録解除・鍵の受け渡し未確認のDefinition・横断投影は限定伝播・契約／品質独立再レビュー済み（残指摘0）。Detail以降は未追従、全体Readyは未主張）
+状態: v0.22.0更新中（登録解除・鍵の受け渡し未確認のDefinition・横断投影は限定伝播・契約／品質独立再レビュー済み（残指摘0）。Detail候補は伝播中・今回の契約／品質限定独立再レビュー済み（残指摘0）。Visual／Architecture／Quality／Sourceは未追従、全体Readyは未主張）
 情報源: [UI定義台帳](01_User_Interface.md#3-ui定義台帳)
 
 ## 1. 利用者から見える入口
@@ -69,7 +69,7 @@
 
 重大な停止、判断要求、回復義務または不完全性をDetailsへ隠さない。内部識別子や生Logを主表示にしない。
 
-登録解除・鍵の受け渡し未確認の現在の限定投影：登録解除は対象の登録と対応Exposureを同じ受理操作で除去する。事前の別操作による公開解除を必須にせず、以後の対象CROSアクセスを停止する。他Repositoryの登録／Exposureと対象Repository本体・Product Dataは保持する。発行自体または結果記録が不明なら、Credential IDとは別の非秘密な元発行Identityで現在再観測し、新交換を開始しない。交換由来だけ元のsame exact Recoveryを保持し、通常発行へ交換Recoveryを新設しない。発行・結果記録が確定し配送／受領だけ未確認なら、「発行済み・受け渡し未確認」と示し、確定事実を維持する。Secretの保存・再表示・自動再発行はしない。現在認可されたadministratorが人間の明示した既存交換を新しく開始でき、そのOperation／Recoveryは元処理とは別にする。現在の管理認証を失った場合は、Workbench認可を迂回せず既存Host交換入口へ案内する。Detail・Architecture／Quality／Sourceへは今回未伝播であり、以前の限定レビューを今回へ流用しない。
+登録解除・鍵の受け渡し未確認の現在の限定投影：登録解除は対象の登録と対応Exposureを同じ受理操作で除去する。事前の別操作による公開解除を必須にせず、以後の対象CROSアクセスを停止する。他Repositoryの登録／Exposureと対象Repository本体・Product Dataは保持する。発行自体または結果記録が不明なら、Credential IDとは別の非秘密な元発行Identityで現在再観測し、新交換を開始しない。交換由来だけ元のsame exact Recoveryを保持し、通常発行へ交換Recoveryを新設しない。発行・結果記録が確定し配送／受領だけ未確認なら、「発行済み・受け渡し未確認」と示し、確定事実を維持する。Secretの保存・再表示・自動再発行はしない。現在認可されたadministratorが人間の明示した既存交換を新しく開始でき、そのOperation／Recoveryは元処理とは別にする。現在の管理認証を失った場合は、Workbench認可を迂回せず既存Host交換入口へ案内する。Detail候補へ伝播中・今回の契約／品質限定独立再レビュー済み（残指摘0）。Visual／Architecture／Quality／Sourceへは今回未伝播であり、以前のDetail限定レビューを今回へ流用しない。
 
 ## 4. Workbenchの最小領域
 

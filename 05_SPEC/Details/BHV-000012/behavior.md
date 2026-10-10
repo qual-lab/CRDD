@@ -3,7 +3,7 @@
 成果物種別: SPEC Detail
 Behavior ID: `BHV-000012`
 状態: Canonical
-確認状態: 最新の権限分担を詳細へ伝播・限定独立レビュー済み・残指摘0。実画面・実装・E2E成立は未主張。
+確認状態: 登録解除・鍵の受け渡し未確認の判断を詳細へ伝播・今回の契約／品質限定独立再レビュー済み（残指摘0。前判断のPassは履歴）。実画面・実装・E2E成立は未主張。
 維持責任者: Qual-Lab
 
 ## 1. 目的とSource Definition
@@ -17,10 +17,10 @@ Behavior ID: `BHV-000012`
 
 | 観点 | 判定 | 契約／理由 |
 |---|---|---|
-| Trigger | Applicable | 接続／利用要求、ユーザー登録・名前／Role変更・Role権限変更、Repository登録・登録解除・公開範囲設定、資格発行、独立失効、指定ユーザー交換／全員交換、または同じ回復への再入場 |
+| Trigger | Applicable | 接続／利用要求、ユーザー登録・名前／Role変更・Role権限変更、Repository登録・登録解除・公開範囲設定、資格発行、独立失効、指定ユーザー交換／全員交換、発行／記録不明の元Identity再観測、または確定発行・受け渡し未確認からの別明示交換 |
 | Precondition | Applicable | 通常管理は下の操作別契約で主体の現行Role・対象・必要状態を確認する。通常鍵操作はWorkbench固定administrator、Host交換はログイン済み操作者の対話CLI・既存Root／Pathを確認し追加認証不要。交換は既存対象・必要資格集合、全員交換の指定既存administratorを確認し、Hostまたは全員交換だけ明示確認する |
 | Authority | Applicable | 業務管理manager／administrator、administrator Role変更・詳細権限と鍵3操作のadministrator専用、内容許可、Host交換を分離する。固定分担は内容設定から派生させない。通常鍵操作は同一Process Workbench限定・MCP非公開。要求毎に資格→ユーザー→一つの現行Roleへ結び直す |
-| Input | Applicable | 対象userId、表示専用名、現行Roleと詳細権限、Credential ID／状態、Repository公開・実アクセス、鍵交換操作種別・入口・失効集合・既存発行先・保持情報、確定済みの同じRecovery ID。生Secretを保存・診断入力へ複製しない |
+| Input | Applicable | 対象userId、表示専用名、現行Roleと詳細権限、Credential ID／状態、Repository公開・実アクセス、鍵交換操作種別・入口・失効集合・既存発行先・保持情報、非秘密の元発行Identity（Credential IDとは別）、発行／結果記録／配送／受領の確認情報、交換由来だけ確定済みのexact Recovery ID。生Secretを保存・診断入力へ複製しない |
 | Validation | Applicable | Effect前に入口Authority、対象Identity、現在の必要状態と確認条件を照合する。対象不明・管理者不存在・安全に確認不能・認可設定破損では新しいEffectを発行しない |
 | State／Transition | Applicable | 資格の有効／期限切れ／失効／不明と、利用状態5区分・部分成立、回復の確認待ち／進行中／blocked／completedを分離する。鍵交換は旧失効＋新発行であり、永続resetting／rotating状態を増やさない |
 | Sequence | Applicable | 新規発行は対象確認→発行→結果確定・一度だけSecret返却。独立失効は対象確認→失効→結果確定（新発行なし）。交換は4組すべて事前表示→入口条件・必要な明示確認→同じRecoveryへ結合→旧失効→新発行→結果確定→搬送→受領を別段階として扱う |
@@ -54,7 +54,7 @@ Behavior ID: `BHV-000012`
 | 表示名変更 | 対象既存userId・新表示名 | manager／administrator。administratorの表示名も可 | 表示名だけ更新しuserId・Role・Credential保持 | 同じ対象の表示名変更結果 |
 | 既存ユーザーRole変更 | 対象userId・変更前後Role | managerは前後ともdeveloper／managerだけ。administratorの付与・解除・降格はadministratorのみ | Roleだけ更新、userId・Credential結合保持 | 更新結果。次要求から現行Roleで認可 |
 | Role詳細権限設定 | 対象Role・現在内容・変更内容 | managerはdeveloper／managerのみ、administratorは三Role。固定管理分担は設定対象外 | Role内容範囲の明示更新。固定分担不変 | 更新結果。内容取得成立を主張せず次要求で再認可 |
-| Repository登録・登録解除 | Repository ID・現在登録状態・変更内容 | manager／administrator、変更前の現在認可と対象を確認 | 接続登録だけ更新。登録で公開せず解除でRepository／Product Dataを削除しない | 登録更新結果。公開・内容アクセスの成立を含めない |
+| Repository登録・登録解除 | Repository ID・現在登録状態・変更内容 | manager／administrator、変更前の現在認可と対象を確認 | 登録は接続登録だけ更新し公開しない。解除は同じ操作で登録と対応Exposureを除去。他登録／Exposure・対象本体・Product Data保持 | 登録更新結果。解除は両除去確認済みのみ完了。以後の対象アクセス停止と開始済み操作終了未観測を別に扱う |
 | Repository公開範囲設定 | Repository ID・現在Exposure・変更内容 | manager／administrator、変更前の現在認可と対象を確認 | Exposureだけ明示更新 | 更新結果。次要求でRole・Exposure・実アクセスを別判定 |
 
 manager自身の内容範囲も、変更前の現在の管理認可→明示的なRole内容範囲／Exposure更新→次要求で現行Role・Exposure・実アクセスの再評価、と分ける。管理能力から内容閲覧を自動付与せず、更新受理を内容取得・開始済み取消完了と表示しない。表示の非表示／無効化だけで認可を代替せず、BHVの処置前判定で拒否・不明を扱う。
@@ -80,19 +80,19 @@ manager自身の内容範囲も、変更前の現在の管理認可→明示的�
   → Host入口または全員交換のみ明示確認
   → 前提を現在状態と照合
       ├ 不明／不足／破損 → 新Effect前停止
-      └ 成立 → 同じRecoveryへ結合 → 旧資格失効 → 新資格発行 → 結果確定 → 搬送／一度表示Secret → 結果受領 → 新資格で再入場
-                     └ 発行失敗・応答喪失・Process喪失
-                        → 既知失効／発行不明を同じRecoveryへ耐久保持
-                        → 再入場時の現在再観測・Authority再確認
+      └ 成立 → 当該交換のexact Recoveryへ結合 → 旧資格失効 → 新資格発行 → 結果確定 → 搬送／一度表示Secret → 結果受領 → 新資格で再入場
+                     ├ 発行／記録不明 → 元発行Identityと元exact Recoveryで再観測
+                     ├ 発行／記録確定・配送／受領未確認 → 別明示交換（別Operation／Recovery）
+                     └ 現在の管理認証喪失 → 既存Host交換入口
 ```
 
-通常入口の指定ユーザー交換は追加明示確認を要求しないが、対象・影響の事前提示は行う。処置前中止と、処置後の結果受領不能を分離する。処置後は現在再観測なしに完了・rollback・旧資格利用可能を推定せず、Secret再表示・別Recoveryの重複開始をしない。失効／鍵交換の成立は開始済み操作の取消完了や過去Effect 0を証明しない。
+通常入口の指定ユーザー交換は追加明示確認を要求しないが、対象・影響の事前提示は行う。処置前中止と、処置後の結果受領不能を分離する。発行／記録不明時は元Identityで再観測し、Secret再表示・別Recoveryの重複開始をしない。発行／記録確定・受け渡しだけ未確認時の別明示交換は、元処理の再開や重複開始と区別する。失効／鍵交換の成立は開始済み操作の取消完了や過去Effect 0を証明しない。
 
 ## 4. UI Detail対応
 
 | SCR／PRT／Interaction | 表示・操作する意味 | Result／Failure／Recovery | Coverage |
 |---|---|---|---|
-| [SCR-000008／PRT-000008.spec-000012](../../../04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md) | 自身と許可範囲、通常管理・独立失効、2操作の影響と2入口の条件 | 事前停止、失効／発行の別結果、一度表示Secret、部分結果、同じ回復と現在再観測 | 最新分担の限定独立レビュー済み・残指摘0 |
+| [SCR-000008／PRT-000008.spec-000012](../../../04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md) | 自身と許可範囲、通常管理・独立失効、2操作の影響と2入口の条件 | 事前停止、失効／発行の別結果、一度表示Secret、部分結果、元Identity再観測／別明示交換／既存Hostの3分岐 | 今回の契約／品質限定独立再レビュー済み（残指摘0。前判断のPassは履歴） |
 
 認証済自身の表示は許可する。非認証User情報0、現在他ユーザー参照を許可されていない主体の他User一覧・存在・件数0を維持する。管理能力と内容閲覧権限は別に判定する。
 
@@ -110,16 +110,27 @@ manager自身の内容範囲も、変更前の現在の管理認可→明示的�
 | 正常 | 最小ユーザー／Role管理、資格発行・要求毎認可、2操作の失効集合と既存発行先、独立失効の新発行なし | Source SPECの正常義務へ統合 |
 | 境界 | 同名・改名、三Role、三可視境界、管理と内容、公開と取得、単体利用、2操作×2入口を区別 | 通常×指定は明示確認の追加なし、他3組は明示確認必須。事前表示は4組すべて |
 | 失敗 | 対象不明・管理者不存在・必要状態観測不能・認可破損で新Effect前停止。秘密保存・漏えいをせず、鍵操作の失敗ではProduct Data／Role詳細権限を変更しない | 鍵操作の保持情報の非変更と、各操作の事前拒否結果を観測 |
-| 結果不明 | 発行失敗・応答／Process喪失の既知失効と発行不明を別に保持 | 不明を成功・rollback・旧鍵有効・取消完了へ畳まない |
-| 回復 | 同じIDと非秘密耐久情報を保持し、再入場時は現在再観測・現行Authority確認 | Secret再表示、特別ユーザー／権限追加、回復Bootstrap、記録によるAuthority復元を反証 |
+| 結果不明 | 発行／記録不明と確定発行・受け渡し未確認を分離し、解除の両除去と既存操作終了観測を別に保持 | 不明を成功・rollback・旧鍵有効・取消完了・実資源終了へ畳まない |
+| 別明示交換 | 確定発行・受け渡しだけ未確認から、現在認可と対象集合を再確認した別交換 | 別Operation／Recovery・先発行鍵を含む失効集合・既存発行先・4表示3確認。新成功≠旧Secret受領 |
+| 回復 | 元発行Identityと既知事実を保持し、交換由来だけ同じexact Recovery。認証喪失は既存Host | Secret再表示、特別ユーザー／権限追加、回復Bootstrap、記録によるAuthority復元を反証 |
 
 検証では固定administrator以外の通常鍵操作、MCP鍵操作の一覧・Schema・登録・dispatch、Hostの新規発行・独立失効、追加認証要求、検証済みRoot／Path範囲外への操作を反証する。固定8操作のRole別肯否、managerによるadministrator表示名変更許可とRole付与・解除・降格・詳細権限・鍵拒否、developer管理拒否、現在認可不明のEffect前停止を検証する。通常発行の旧失効なし、独立失効の指定Credential–userId一致・指定外失効なし・新資格／Secretなし、交換範囲逸脱なしを反証する。
 
 これは検証義務の導出入力であり、Quality項目・Test・実行Evidenceの成立を示さない。
 
+### 登録解除と発行・受け渡しの確定条件
+
+登録解除は同じ受理済み操作で対象の登録と対応Exposureを除去する。別の先行公開解除を必須にせず、他登録・Exposure、対象Repository本体・Product Dataを保持する。両除去を確認した場合だけ解除完了とし、片側残存・観測不能を完了にしない。解除完了と開始済み操作終了未観測は別に保持し、取消成功・過去Effect 0・実資源終了を推定しない。新しい取消処置は追加しない。
+
+発行または結果記録が不明なら、Credential IDとは別の非秘密の元発行Identityと既知事実で現在再観測する。交換由来だけ元のexact Recoveryを保持し、通常発行へ交換Recoveryを作らない。発行・結果記録が確定し配送・受領だけ未確認なら「発行済み・受け渡し未確認」とし、確定発行を不明へ戻さない。秘密再表示・保存・自動再発行をせず、現在許可されたadministratorが別の明示交換を選ぶ。管理認証を失った場合は既存Host交換入口へ案内し、Workbench認可を迂回しない。
+
+別交換は別Operation／Recoveryとし、旧処理の事実・元発行Identityと分離する。各交換内は旧失効前から同じexact Recoveryへ結合する。指定交換は先の発行鍵を含む対象ユーザーの全旧有効資格を失効して同じ既存userIdへ発行し、他ユーザーの鍵を保持する。全員交換は先の発行鍵を含む全旧有効資格を失効して指定既存administratorへ発行し、他ユーザーは通常再発行・再配布へ戻る。4組の事前表示・3組の明示確認と保持情報を再適用する。遅延した旧応答で失効鍵を利用可能と表示しない。新交換成功を旧Secret受領・rollback・開始済み取消完了へ読み替えない。
+
+検証では片側除去だけの解除完了、確定発行の不明化、元発行IdentityとCredential IDの混同、通常発行への交換Recovery転用、遅延旧応答の失効鍵利用可能表示、新交換成功による旧Secret受領・取消完了の推定を反証する。
+
 ## 6. Architectureへの引き渡し
 
-- 保持すべきBehavior Contract: 対象相関、要求毎認可、2操作×2入口、失効と発行の分離、情報保持、秘密一度表示、部分結果と同じ回復・現在再観測。
+- 保持すべきBehavior Contract: 対象相関、要求毎認可、2操作×2入口、失効と発行の分離、情報保持、秘密一度表示、部分結果の3分岐、各交換内exactと別明示交換のIdentity、登録と対応Exposureの同時除去・取消非証明。
 - 配置を固定してはならない事項: 採用済みWorkbench／Host CLI／MCP非公開境界以外のProcess、Transport、保存方式、Class、Function、秘密保護方式、Frontend／Backend分割。
 - Architectureで決める事項: ARCH-000013の責務再編でComponent、Boundary、Data／State OwnerとFailure Boundaryを更新する。旧設計・Sourceは本改訂に未追従であり、本書を実装成立根拠にしない。
 
@@ -142,5 +153,5 @@ manager自身の内容範囲も、変更前の現在の管理認可→明示的�
 - [x] 独立失効と2操作×2入口、情報保持と秘密境界を区別した
 - [x] 正常・境界・失敗・結果不明・回復の反証をQualityへの入力へ接続した
 - [x] 利用者認識が必要な結果を既存SCR／PRTへ接続した
-- [x] Process喪失と再入場を非秘密耐久情報・同じRecoveryへ接続した
+- [x] Process喪失後を元Identity再観測・別明示交換・既存Hostへ分け、各交換内exactを保持した
 - [x] 未確認事項をOPENとしてOwner・影響・戻り条件とともに残した

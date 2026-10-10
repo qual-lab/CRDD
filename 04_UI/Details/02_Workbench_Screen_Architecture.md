@@ -2,7 +2,7 @@
 
 成果物種別: UI Detail — Screen Architecture
 対象Product: CROS Workbench
-状態: G1〜G5は更新前固定版の記録。現行UI-000008の最新の権限分担は§13へ再伝播・限定独立レビュー済み・残指摘0
+状態: G1〜G5は更新前固定版の記録。現行UI-000008の登録解除・鍵受け渡し判断は§13へ伝播中・今回の契約／品質限定独立再レビュー済み（残指摘0）。前判断の限定Passは履歴
 維持責任者: Qual-Lab
 
 ## 1. 結論
@@ -297,7 +297,7 @@ G1通過時点では、Hero Screen、Visual Direction、Visual Baseline、Second
 
 ## 13. 現行UI-000008契約の追補投影
 
-基準Commit: `e3df322d`。正本は[UI-000008](../Definitions/UI-000008/ui_definition.md)と[SCR-000008](Areas/configuration-trust/SCR-000008/screen.md)。画面候補13〜14の責務を最新判断へ対応させる追補であり、採用済み入口以外のLayout・表示案内・CMPを確定しない。既存15候補と20 SCR／20 PRTの件数は変更しない。
+基準Commit: `14546497`。今回の登録解除・鍵受け渡し判断は伝播候補・契約／品質限定独立再レビュー済み（残指摘0）。前判断のPassと§1〜12のGateは履歴として維持する。正本は[UI-000008](../Definitions/UI-000008/ui_definition.md)と[SCR-000008](Areas/configuration-trust/SCR-000008/screen.md)。画面候補13〜14の責務を最新判断へ対応させる追補であり、採用済み入口以外のLayout・表示案内・CMPを確定しない。既存15候補と20 SCR／20 PRTの件数は変更しない。
 
 | 対象 | 現行の利用者目的・導線 | 旧記録から引き継がない意味 |
 |---|---|---|
@@ -311,8 +311,9 @@ G1通過時点では、Hero Screen、Visual Direction、Visual Baseline、Second
   → 対象ID・表示名／失効範囲／既存発行先／保持情報を事前表示
   → Host入口または全員交換だけ明示確認
   → 旧資格失効 → 新資格発行 → 確定結果と新Secret一度表示 → 新資格で再入場
-  └ 失効後の発行失敗・応答／Process喪失
-       → 失効確定範囲と発行不明を分離 → 同じRecoveryへ再入場 → 現在再観測
+  ├ 発行／記録不明 → 元発行Identityで再観測（交換由来だけ元exact Recovery）
+  ├ 発行／記録確定・受け渡し未確認 → 別明示交換（別Operation／Recovery）
+  └ 管理認証喪失 → 既存Host交換入口
 ```
 
 指定ユーザー交換は対象の全旧有効資格を失効し同じ既存userIdへ発行する。他ユーザーの鍵は保持する。全員交換は操作中の管理者自身を含む全旧有効資格を失効し、指定した既存administratorへ発行する。他ユーザーはその管理者による通常再発行・再配布を待つ。両操作はユーザー情報・Role詳細権限・Repository登録・Product Dataを保持する。独立失効では新発行を行わない。
@@ -324,3 +325,7 @@ G1通過時点では、Hero Screen、Visual Direction、Visual Baseline、Second
 通常鍵操作のWorkbench／Host CLI分担は採用済み。MCPに鍵操作の一覧・Schema・登録・dispatchを公開しない。Hostは交換2操作だけで、追加認証・専用資格・承認コード・OS管理者昇格なし、既存Root／Path検証を維持する。固定8操作の現在分担は[SCR-000008](Areas/configuration-trust/SCR-000008/screen.md)に従う。manager自身の内容範囲も変更前の現在認可→明示更新→次要求再評価と分け、更新受理を取得可能にしない。登録≠公開、解除≠Repository／Product Data削除。developerの管理拒否を自身・許可内利用の拒否へ広げない。
 
 未確認: 採用済み入口の具体Layout・表示案内・処置前情報・部分結果の実画面評価はUI Detail／UXへ戻して確定する。既存Visual Baselineは保持するが、この追補はVisual評価や新Gate通過の根拠ではない。
+
+今回の画面候補14では、登録解除は同じ受理済み操作で対象の登録と対応Exposureを除去する。別の先行公開解除を必須にせず、他登録・Exposure、対象Repository本体・Product Dataを保持する。両除去を確認した場合だけ解除完了とし、片側残存・観測不能を完了にしない。解除完了と開始済み操作終了未観測は別に保持し、取消成功・過去Effect 0・実資源終了を推定しない。新しい取消処置は追加しない。
+
+発行または結果記録が不明なら、Credential IDとは別の非秘密の元発行Identityと既知事実で現在再観測する。交換由来だけ元のexact Recoveryを保持し、通常発行へ交換Recoveryを作らない。発行・結果記録が確定し配送・受領だけ未確認なら「発行済み・受け渡し未確認」とし、確定発行を不明へ戻さない。秘密再表示・保存・自動再発行をせず、現在許可されたadministratorが別の明示交換を選ぶ。管理認証を失った場合は既存Host交換入口へ案内し、Workbench認可を迂回しない。詳細条件はSCR-000008／BHV-000012を参照し、遅延旧応答から失効鍵を利用可能と表示しない。
