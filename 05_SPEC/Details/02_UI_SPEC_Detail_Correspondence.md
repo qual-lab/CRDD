@@ -1,7 +1,7 @@
 # UI／SPEC Detail対応
 
 成果物種別: UI／SPEC Detail対応投影
-状態: 更新中（SCR-000008／BHV-000012の限定対応レビュー済み、全体Pass再主張なし）
+状態: 更新中（SCR-000008／BHV-000012の最新鍵管理判断は限定独立レビュー済み・残指摘0、全体Pass再主張なし）
 維持責任者: Qual-Lab
 
 ## 1. 対象と判定境界
@@ -11,7 +11,7 @@
 - Definition対応: [UI／SPEC対応](../06_UI_SPEC_Correspondence.md)の32組
 - 判定境界: UI DetailからBHVへの操作Coverageと、BHVからUI Detailへの結果・失敗・回復Coverage
 
-Definition対応の意味を再定義せず、同じ32組をDetailへ具体化する。今回の鍵交換2操作はUI-000008／SPEC-000012の現行DefinitionからSCR-000008／BHV-000012へ伝播した。変更はその1 Relationのみで、全体Passを再主張しない。未変更31 Relationの旧結果と、再確認対象の現在の対応を分ける。現行Definition対応とWorkbench候補横断投影は限定独立レビュー済みで、Architecture／Quality／Sourceの追従も未完了である。
+Definition対応の意味を再定義せず、同じ32組をDetailへ具体化する。最新鍵管理判断はUI-000008／SPEC-000012からSCR-000008／BHV-000012へ再伝播中で、変更はその1 Relationのみである。限定レビュー済み・残指摘0で、未変更31 Relation・旧全数結果は履歴として保持する。最新Definition対応は限定レビュー済みだが、Detail対応・実画面・Architecture／Quality／Sourceの成立へ流用しない。
 
 ## 2. UIからBHVへのCoverage
 
@@ -32,7 +32,7 @@ Definition対応の意味を再定義せず、同じ32組をDetailへ具体化�
 | [SCR-000006／PRT-000006.spec-000010](../../04_UI/Details/Areas/project-context/SCR-000006/screen.md) | [BHV-000010](BHV-000010/behavior.md) | [UI-000006](../../04_UI/Definitions/UI-000006/ui_definition.md) | [SPEC-000010](../Definitions/SPEC-000010/spec_definition.md) | Covered | 状態、操作、結果、失敗、判断不能および回復を同じContextで確認 |
 | [SCR-000006／PRT-000006.spec-000031](../../04_UI/Details/Areas/project-context/SCR-000006/screen.md) | [BHV-000031](BHV-000031/behavior.md) | [UI-000006](../../04_UI/Definitions/UI-000006/ui_definition.md) | [SPEC-000031](../Definitions/SPEC-000031/spec_definition.md) | Covered | Tree、差分選択、Stage、Commit、Push確認、結果不明および再観測を同じContextで確認 |
 | [SCR-000007／PRT-000007.spec-000011](../../04_UI/Details/Areas/operation/SCR-000007/screen.md) | [BHV-000011](BHV-000011/behavior.md) | [UI-000007](../../04_UI/Definitions/UI-000007/ui_definition.md) | [SPEC-000011](../Definitions/SPEC-000011/spec_definition.md) | Covered | 状態、操作、結果、失敗、判断不能および回復を同じContextで確認 |
-| [SCR-000008／PRT-000008.spec-000012](../../04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md) | [BHV-000012](BHV-000012/behavior.md) | [UI-000008](../../04_UI/Definitions/UI-000008/ui_definition.md) | [SPEC-000012](../Definitions/SPEC-000012/spec_definition.md) | Covered（限定対応レビュー済み） | 現行Role・三可視境界、独立失効、2操作×2入口、事前表示／条件付き明示確認、情報保持、秘密一度表示、失効確定／発行不明と同じ回復・現在再観測 |
+| [SCR-000008／PRT-000008.spec-000012](../../04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md) | [BHV-000012](BHV-000012/behavior.md) | [UI-000008](../../04_UI/Definitions/UI-000008/ui_definition.md) | [SPEC-000012](../Definitions/SPEC-000012/spec_definition.md) | 限定レビュー済み・残指摘0 | 固定administrator鍵操作・Workbench限定／Host交換2・MCP鍵操作なし、現行Role・参照許可による三可視境界、独立失効、2操作×2入口、事前表示／条件付き明示確認、情報保持、秘密一度表示、失効確定／発行不明と同じ回復・現在再観測 |
 | [SCR-000009／PRT-000009.spec-000013](../../04_UI/Details/Areas/project-context/SCR-000009/screen.md) | [BHV-000013](BHV-000013/behavior.md) | [UI-000009](../../04_UI/Definitions/UI-000009/ui_definition.md) | [SPEC-000013](../Definitions/SPEC-000013/spec_definition.md) | Covered | 状態、操作、結果、失敗、判断不能および回復を同じContextで確認 |
 | [SCR-000010／PRT-000010.spec-000014](../../04_UI/Details/Areas/configuration-trust/SCR-000010/screen.md) | [BHV-000014](BHV-000014/behavior.md) | [UI-000010](../../04_UI/Definitions/UI-000010/ui_definition.md) | [SPEC-000014](../Definitions/SPEC-000014/spec_definition.md) | Covered | 状態、操作、結果、失敗、判断不能および回復を同じContextで確認 |
 | [SCR-000010／PRT-000010.spec-000015](../../04_UI/Details/Areas/configuration-trust/SCR-000010/screen.md) | [BHV-000015](BHV-000015/behavior.md) | [UI-000010](../../04_UI/Definitions/UI-000010/ui_definition.md) | [SPEC-000015](../Definitions/SPEC-000015/spec_definition.md) | Covered | 状態、操作、結果、失敗、判断不能および回復を同じContextで確認 |
@@ -56,11 +56,11 @@ Definition対応の意味を再定義せず、同じ32組をDetailへ具体化�
 
 | 確認対象 | UIでの認識・操作 | BHVでの条件・結果 | 現在判定 |
 |---|---|---|---|
-| 利用と通常管理 | 自身と対象ID・表示名・Role・権限・資格、許可内Repository | 要求毎の現行Role認可、公開／実アクセスと三可視境界 | 限定独立レビュー済み |
-| 独立失効 | 対象資格と失効結果、不明時確認先 | 以後の要求拒否、新発行なし、開始済み取消非証明 | 限定独立レビュー済み |
-| 2操作の範囲 | 指定対象の全旧鍵／全員の全旧鍵、既存発行先と保持情報 | 指定交換は同じuserId、全員交換は指定既存administratorへ発行。ユーザー・Role権限・登録・Product Data保持 | 限定独立レビュー済み |
-| 2入口と確認 | 通常管理／Hostを分け、全4組で事前表示 | 通常×指定は追加明示確認なし、Host×指定・通常×全員・Host×全員は明示確認 | 限定独立レビュー済み |
-| 失敗・結果・回復 | 前提不足は事前停止、失効確定／発行不明と同じ確認先、秘密再表示なし | Effect前拒否、応答／Process喪失後も同じ回復の非秘密耐久情報を保持し現在再観測 | 限定独立レビュー済み |
+| 利用と通常管理 | 自身と許可された対象、担当Role未確定の他4管理群を鍵操作と分離 | 要求毎の現行Role認可、公開／実アクセス、参照許可による三可視境界。他4管理群の担当Role・設定可否はOPEN | 限定独立レビュー済み・残指摘0 |
+| 新規発行／独立失効 | Workbenchの固定administrator操作と結果を区別 | 新規発行は旧失効なし・Secret一度返却、独立失効は新発行・Secret・交換再入場なし | 限定独立レビュー済み・残指摘0 |
+| 2操作の範囲 | 指定対象の全旧鍵／全員の全旧鍵、既存発行先と保持情報 | 指定交換は同じuserId、全員交換は指定既存administratorへ発行。ユーザー・Role権限・登録・Product Data保持 | 限定独立レビュー済み・残指摘0 |
+| 2入口と確認 | Workbenchの固定administratorとHostログイン済み操作者の対話CLIを分け、全4組で事前表示 | Hostは交換2のみ・追加認証なし・既存Root／Path。MCP鍵一覧・Schema・登録・dispatchなし。通常×指定は追加確認なし、他3組は明示確認 | 限定独立レビュー済み・残指摘0 |
+| 失敗・結果・回復 | 前提不足は事前停止、失効確定／発行不明と同じ確認先、秘密再表示なし | Effect前拒否、応答／Process喪失後も同じ回復の非秘密耐久情報を保持し現在再観測 | 限定独立レビュー済み・残指摘0 |
 
 対象Screen・Behaviorを双方から照合した静的な対応確認であり、UI表示・保存・認可の実装や実E2Eを検証した結果ではない。
 
@@ -93,7 +93,7 @@ Definition対応の意味を再定義せず、同じ32組をDetailへ具体化�
 |---|---|---|---|
 | UI InteractionにBHVがない | 0件 | UI／SPEC工程 | 新Interaction追加時 |
 | BHV結果を認識できるUIがない | 0件 | UI／SPEC工程 | 新BHV追加時 |
-| Definition意味との不一致 | SCR-000008／BHV-000012は限定独立レビュー済み。他対象は更新前記録 | Owner Definition工程 | Detailが新しい意味を必要とした時 |
+| Definition意味との不一致 | SCR-000008／BHV-000012は限定独立レビュー済み・残指摘0。他対象は更新前記録 | Owner Definition工程 | Detailが新しい意味を必要とした時 |
 | CMP Coverage | N/A | UI工程 | Reusable Componentを発行した時 |
 
 ## 6. Architecture／Qualityへの引き渡し
@@ -101,6 +101,8 @@ Definition対応の意味を再定義せず、同じ32組をDetailへ具体化�
 - Architectureは32 Relationを配置制約として扱い、UI／SPEC Definitionの意味を変更しない。
 - Qualityは各Relationの操作、Feedback、状態、結果、失敗および回復を既存検証義務へ統合する。
 - 実装との一致はReality Auditで別に判定する。
+
+今回更新した鍵管理のDetailと投影は限定レビュー済み・残指摘0。以下の旧全数項目を最新候補全体のPassへ読み替えない。
 
 ## Checklist
 

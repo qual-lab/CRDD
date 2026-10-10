@@ -764,6 +764,12 @@ SCR／BHV、Area、Workbench候補、Visual、Architecture／Quality／Sourceは
 
 UI／SPEC定義再伝播の限定確認結果: 契約・品質の独立レビューは是正後ともにPass、残指摘0。現在状態と更新前固定版の履歴を分離し、OPENの箇条書きと履歴参照を修復した。差分空白・ローカルリンク確認は問題なし。全体CheckerはExit 1で、対象文書の既存構造・集合改訂版・Checklist判定等の16指摘が残るため、Checker Passを主張しない。旧32組のHash・引用・過去Passは保持し、最新1組の限定レビューと区別する。次はSCR／BHV・Area・Workbench候補へ伝播する。
 
+#### 最新鍵管理判断のUI／SPEC詳細再伝播 — 2026-10-10
+
+基準Commitは`3b7168f8`。UI-000008からSCR-000008内のPRT-000008全節、Area Guide、UI Detail入口・Workbench Screen Architecture追補へ、SPEC-000012からBHV-000012・SPEC Detail入口へ独立して具体化し、Detail対応の1 Relationを照合する。当初9文書に上位入口4文書と2Definitionの現在状態同期を加え、計画とPROJECT_CONTEXTを含む15文書を対象とする。新規発行・独立失効・交換を分離し、通常鍵操作の固定administrator・同一Process Workbench、MCP鍵操作非公開、Hostログイン済み操作者の対話交換2操作・追加認証なし・既存Root／Path、4組表示・3組確認、他4管理群OPENを保持する。
+
+着手前整合確認は着手可・追加人間判断不要。専門観点の計画確認からPRT全節、MCP全体と鍵操作の区別、発行／独立失効／交換の結果差を照合対象へ含めた。固定15文書の契約・品質の限定独立再レビューはともに残指摘0。上流入力外の技術境界、上位文書の現況競合、AreaのOPEN処置不足を統合是正した。差分空白確認とローカルリンク先存在確認は成功（不存在0）、未変更31 Relationは基準版と一致。結果だけの状態同期後、2Definitionの現況更新に伴うHashを現行1組対応へ同期する。全体Checkerはerror 3,056件・warning 0・Exit 1、変更15文書の指摘は13件で未通過。限定レビュー結果をChecker全体Passへ読み替えず、全体判定の是正は後続へ残す。巨大結果は保存しない。旧Gate・Visual・未変更31 Relation・過去Evidenceを改変／最新Pass化しない。標準・ひな型・Source・Schema・実秘密Storeは変更せず、準拠監査・全回帰・実E2Eは対象外。Architecture／Quality／Sourceと実画面は後続未完了で、全体Readyを主張しない。
+
 #### 管理権限の初期割当 — 2026-10-10（6群表全体が旧提案の履歴）
 
 以下は現在の割当契約ではない。鍵3操作は後続判断でadministrator専用固定へ置換し、残る4管理群の担当Roleと可変性は未確定である。

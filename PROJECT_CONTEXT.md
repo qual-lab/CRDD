@@ -44,11 +44,11 @@ v0.21.0は公開済み、v0.22.0とCHG-000082は未完了である。責務再�
 
 持ち越し記録について追加判断は不要。CROS Package維持の先の判断は人間が変更し、認証・認可をAccess Managementへ再編する方向となった。Context集約・接続Registry・活動等の具体OwnerはSource照合後にArchitecture／Qualityへ反映する。未決候補を採用済み実装と扱わない。Domain保存で、非協調Processの親Directory差替えまで防ぐ保証を要求するかは判断待ちである。通常保存＋読戻し、静的link拒否と協調Writer競合は確認済みだが、競合差替え防止の証明ではない。担当責任者・採用判断者はQual-Lab。Docker／Coordinator／Orchestrator大改修は前倒ししない。
 
-ユーザーID（UUID）・管理用表示名・RoleとCredential紐付けの最小管理、鍵交換2操作は採用済み。最新判断は鍵発行・独立失効・交換をadministrator専用固定、通常入口を同一Process Workbench、Hostをログイン済みローカル操作者の対話CLIとし、MCPに鍵操作を公開しない。上流6文書は限定独立レビュー済み・残指摘0。UXは今回限定伝播・限定独立レビュー済み・残指摘0。IAは限定再伝播・限定独立レビュー済み・残指摘0。UI／SPECの定義・横断投影は限定再伝播・限定独立レビュー済み・残指摘0。SCR／BHV・Architecture分析・Quality・Sourceは再伝播未完了。各工程の前判断に対する限定Passは履歴であり、最新判断や全体完成の根拠へ流用しない。
+ユーザーID（UUID）・管理用表示名・RoleとCredential紐付けの最小管理、鍵交換2操作は採用済み。最新判断は鍵発行・独立失効・交換をadministrator専用固定、通常入口を同一Process Workbench、Hostをログイン済みローカル操作者の対話CLIとし、MCPに鍵操作を公開しない。上流6文書は限定独立レビュー済み・残指摘0。UXは今回限定伝播・限定独立レビュー済み・残指摘0。IAは限定再伝播・限定独立レビュー済み・残指摘0。UI／SPECの定義・横断投影は限定再伝播・限定独立レビュー済み・残指摘0。SCR／BHV・Area・Workbench候補は限定再伝播・限定独立レビュー済み・残指摘0。Architecture分析・Quality・Sourceは再伝播未完了。各工程の前判断に対する限定Passは履歴であり、最新判断や全体完成の根拠へ流用しない。
 
 | 判断項目 | 現在の処置 | Owner Relation |
 |---|---|---|
-| 接続主体・Role・Credentialの再編 | 最小管理と鍵交換2操作、最新の鍵管理境界は採用済み。最新6文書は限定独立レビュー済み・残指摘0、UXは限定伝播・限定独立レビュー済み・残指摘0、IAは限定再伝播・限定独立レビュー済み・残指摘0、UI／SPECの定義・横断投影は限定再伝播・限定独立レビュー済み・残指摘0、Detail以降は再伝播未完了。残る4管理群の担当Roleと可変性は未確定。 | [最新判断](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#鍵管理の固定ローカル入口mcp非公開--2026-10-10) |
+| 接続主体・Role・Credentialの再編 | 最小管理と鍵交換2操作、最新の鍵管理境界は採用済み。最新6文書は限定独立レビュー済み・残指摘0、UXは限定伝播・限定独立レビュー済み・残指摘0、IAは限定再伝播・限定独立レビュー済み・残指摘0、UI／SPECの定義・横断投影は限定再伝播・限定独立レビュー済み・残指摘0、Detailは限定再伝播・限定独立レビュー済み・残指摘0、Architecture以降は再伝播未完了。残る4管理群の担当Roleと可変性は未確定。 | [最新判断](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#鍵管理の固定ローカル入口mcp非公開--2026-10-10) |
 | CROS Packageの責務再編 | 移管対応表の限定レビューは前判断の履歴。Access Management詳細は最新鍵管理判断の限定独立レビュー済み・残指摘0。保存・権限語彙・公開入口はOPEN。Domain集約・MCP／Workbench新Details、QA、Source移管・本番接続・旧撤去は未完了。 | [Access Management詳細](06_Architecture/Details/access-management/01_Architecture.md)、[移管対応表](99_Roadmap/Changes/CHG-000082/source-owner-map.md) |
 | 非協調Processの親Directory差替え保証 | 必要範囲を確認中。未回答を高い保証の採用や免除へ読み替えず、独立した接続整理を継続する。 | [保存保証の未決判断](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#保存保証の未決判断) |
 | 5C追加是正の持ち越し | 承認済み。保証条件変更・Release範囲変更の承認ではない。 | [判断の正本](99_Roadmap/Changes/CHG-000082/change.md#持ち越し判断--orchestratorcoordinatordocker2026-10-09) |
@@ -59,7 +59,7 @@ v0.21.0は公開済み、v0.22.0とCHG-000082は未完了である。責務再�
 
 鍵の発行・独立失効・交換はadministrator専用固定で、RoleのON／OFF設定を設けない。通常入口は同一Process Workbench、Host回復はログイン済みローカル操作者の対話CLIで追加認証なし。対象・影響表示と既存確認は維持する。鍵操作はSecret有無にかかわらずMCPへ公開しない。発行権限OFFの仮説について追加判断は不要となった。残る4管理群の可変性は未確定である。
 
-要求・基本定義・AM詳細・判断履歴の6文書は限定独立レビュー済み・残指摘0。UXの7成果物へ最新鍵管理判断を限定伝播し、計画・本投影を含む9文書は限定独立レビュー済み・残指摘0。IAの7成果物は最新判断を限定再伝播・限定独立レビュー済み・残指摘0。UI／SPECの定義・横断投影は限定再伝播・限定独立レビュー済み・残指摘0。Detail以降、Architecture分析、Quality・Source・公開入口・保存・実境界は再伝播未完了。全体完成・実装成立を主張しない。
+要求・基本定義・AM詳細・判断履歴の6文書は限定独立レビュー済み・残指摘0。UXの7成果物へ最新鍵管理判断を限定伝播し、計画・本投影を含む9文書は限定独立レビュー済み・残指摘0。IAの7成果物は最新判断を限定再伝播・限定独立レビュー済み・残指摘0。UI／SPECの定義・横断投影は限定再伝播・限定独立レビュー済み・残指摘0。SCR／BHV・Area・Workbench候補は限定再伝播・限定独立レビュー済み・残指摘0。Architecture分析、Quality・Source・公開入口・保存・実境界は再伝播未完了。全体完成・実装成立を主張しない。
 
 ## 4. なぜこの状態・判断になったか
 

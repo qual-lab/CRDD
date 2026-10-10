@@ -2,7 +2,7 @@
 
 成果物種別: UI Detail — Screen Architecture
 対象Product: CROS Workbench
-状態: G1〜G5の更新前固定版の記録。現行UI-000008の追補は限定独立レビュー済み
+状態: G1〜G5は更新前固定版の記録。現行UI-000008の最新鍵管理判断は§13へ再伝播・限定独立レビュー済み・残指摘0
 維持責任者: Qual-Lab
 
 ## 1. 結論
@@ -297,16 +297,16 @@ G1通過時点では、Hero Screen、Visual Direction、Visual Baseline、Second
 
 ## 13. 現行UI-000008契約の追補投影
 
-基準Commit: `69f8d463`。正本は[UI-000008](../Definitions/UI-000008/ui_definition.md)と[SCR-000008](Areas/configuration-trust/SCR-000008/screen.md)。画面候補13〜14の責務を新判断へ対応させる追補であり、新Screen、Layout、CMP、GUI／CLI分担を確定しない。既存15候補と20 SCR／20 PRTの件数は変更しない。
+基準Commit: `3b7168f8`。正本は[UI-000008](../Definitions/UI-000008/ui_definition.md)と[SCR-000008](Areas/configuration-trust/SCR-000008/screen.md)。画面候補13〜14の責務を最新判断へ対応させる追補であり、採用済み入口以外のLayout・表示案内・CMPを確定しない。既存15候補と20 SCR／20 PRTの件数は変更しない。
 
 | 対象 | 現行の利用者目的・導線 | 旧記録から引き継がない意味 |
 |---|---|---|
 | 画面候補13 Connection Setup | 渡されたユーザー資格で接続し、自身表示名と現行Roleの許可内範囲・部分成立を確認する。資格要求／制限／利用不能／不明を区別し、Repository単体利用には資格を要求しない | Roleに直接紐づく資格、認証だけで全内容利用可能 |
-| 画面候補14 Access Administration | 管理認可内で安定userId・表示専用名・一つのRole、Role詳細権限、資格の発行・独立失効・鍵交換を扱う。対象IDと名前を分け、管理能力から内容閲覧を推定しない | User管理を対象外にする旧判断、Role別鍵のローテーション手順、Bootstrapによる回復 |
-| 一覧・部分取得 | 管理認可がある場合だけユーザー・非秘密資格情報を必要範囲で取得し、絞込み・継続読込・空・未取得・観測不能を区別する。発行Secretは一覧へ含めない | 非管理者に他ユーザー一覧・存在・件数を開示すること、無制限取得・描画 |
+| 画面候補14 Access Administration | 鍵3操作は固定administratorの同一Process Workbenchで扱う。ユーザー・Role管理等の担当Role・設定可否はOPENで、採用済み管理内容と割当未確定を分ける。対象IDと名前、管理能力と内容閲覧を別に扱う | User管理を対象外にする旧判断、Role別鍵のローテーション、Hostの通常発行・独立失効、MCPへの鍵公開、Bootstrap回復 |
+| 一覧・部分取得 | 他ユーザー参照を現在許可されている場合だけユーザー・非秘密資格情報を必要範囲で取得し、絞込み・継続読込・空・未取得・観測不能を区別する。Secretは一覧へ含めない | 参照未許可の主体に他ユーザーの一覧・存在・件数を開示すること、無制限取得・描画 |
 
 ```text
-通常管理認可 または Host OS Authority
+鍵交換: Workbench固定administrator または Hostログイン済み操作者の対話CLI
   → 指定ユーザー交換／全員交換を選ぶ
   → 対象ID・表示名／失効範囲／既存発行先／保持情報を事前表示
   → Host入口または全員交換だけ明示確認
@@ -317,6 +317,10 @@ G1通過時点では、Hero Screen、Visual Direction、Visual Baseline、Second
 
 指定ユーザー交換は対象の全旧有効資格を失効し同じ既存userIdへ発行する。他ユーザーの鍵は保持する。全員交換は操作中の管理者自身を含む全旧有効資格を失効し、指定した既存administratorへ発行する。他ユーザーはその管理者による通常再発行・再配布を待つ。両操作はユーザー情報・Role詳細権限・Repository登録・Product Dataを保持する。独立失効では新発行を行わない。
 
+新規発行は旧資格の失効を伴わず、Workbenchの固定administratorが既存ユーザーへ発行結果と新Secretを一度だけ返す。独立失効は同じ通常入口で失効結果または既知状態・確認先を返し、新発行・Secret・交換再入場を伴わない。上の交換Flowはこれら2操作へ適用しない。
+
 対象不明・必要な管理者不存在・必要状態の安全な観測不能・認可設定破損は新Effect前停止。秘密の再表示、結果不明の成功化、rollback、旧資格有効、開始済み取消完了を推定しない。通常Remote入口からHost回復の実行能力を推定しない。
 
-未確認: 旧「Workbenchは通常管理のみ／回復はCLI限定」という割当を新版の確定判断として使わない。具体的な管理画面／CLI分担と処置前情報・部分結果の実画面評価はUI Detail／UXへ戻して確定する。既存Visual Baselineの適用は保持するが、この追補はVisual評価や新Gate通過の根拠ではない。
+通常鍵操作のWorkbench／Host CLI分担は採用済み。MCPに鍵操作の一覧・Schema・登録・dispatchを公開しない。Hostは交換2操作だけで、追加認証・専用資格・承認コード・OS管理者昇格なし、既存Root／Path検証を維持する。他4管理群の担当Role・設定可否はOPEN。
+
+未確認: 採用済み入口の具体Layout・表示案内・処置前情報・部分結果の実画面評価はUI Detail／UXへ戻して確定する。既存Visual Baselineは保持するが、この追補はVisual評価や新Gate通過の根拠ではない。

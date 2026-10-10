@@ -1,7 +1,7 @@
 # UI Detail
 
 成果物種別: UI Detail統合投影
-状態: 更新中（SCR-000008の鍵交換2操作は限定独立レビュー済み）
+状態: 更新中（SCR-000008／BHV-000012の最新鍵管理判断は限定独立レビュー済み・残指摘0、全体Pass再主張なし）
 維持責任者: Qual-Lab
 
 ## 1. 目的と移行境界
@@ -20,7 +20,7 @@ v0.21.0でCanonical化した20件のUI Definitionを、新しいUI Detail契約�
 Architecture／Quality
 ```
 
-今回のUI-000008改訂に合わせ、既存SCR-000008／PRT-000008を最小ユーザー管理と鍵交換2操作へ更新した。対象件数は増やさない。以下の全数処置・Workbench Pilot Gateは更新前の固定版の結果であり、新判断の全体完成根拠にしない。SCR-000008とArea Guide、そのDetail対応は限定確認済み。現行Definition対応とWorkbench候補の横断投影は限定独立レビュー済み。Architecture／Quality／Sourceは未追従。
+最新鍵管理判断を既存SCR-000008／PRT-000008とBHV-000012へ限定再伝播中である。対象件数は増やさず、未変更31 Relationと旧全数処置・Workbench Pilot Gateは更新前固定版の記録として保持する。最新Definition対応は限定レビュー済みだが、今回のDetail・横断投影は限定レビュー済み・残指摘0である。Architecture／Quality／Source・実画面・実E2Eは未追従・未成立。
 
 ## 2. UI Definitionの処置
 
@@ -60,7 +60,7 @@ CMPは全件で理由付き未発行である。20 Logical Screenの意味順序
 | [SCR-000005](Areas/operation/SCR-000005/screen.md) | 実行事実と故障境界の診断 | operation | [UI-000005](../Definitions/UI-000005/ui_definition.md) | PRT-000005 | Canonical |
 | [SCR-000006](Areas/project-context/SCR-000006/screen.md) | Repository内作業と対象選択 | project-context | [UI-000006](../Definitions/UI-000006/ui_definition.md) | PRT-000006 | Canonical |
 | [SCR-000007](Areas/operation/SCR-000007/screen.md) | 入口をまたぐ共通依頼・結果 | operation | [UI-000007](../Definitions/UI-000007/ui_definition.md) | PRT-000007 | Canonical |
-| [SCR-000008](Areas/configuration-trust/SCR-000008/screen.md) | ユーザー・Role権限・接続資格と利用可能範囲 | configuration-trust | [UI-000008](../Definitions/UI-000008/ui_definition.md) | PRT-000008 | 限定独立レビュー済み |
+| [SCR-000008](Areas/configuration-trust/SCR-000008/screen.md) | ユーザー・Role権限・接続資格と利用可能範囲 | configuration-trust | [UI-000008](../Definitions/UI-000008/ui_definition.md) | PRT-000008 | 限定独立レビュー済み・残指摘0 |
 | [SCR-000009](Areas/project-context/SCR-000009/screen.md) | Meeting・Topic・候補の処置 | project-context | [UI-000009](../Definitions/UI-000009/ui_definition.md) | PRT-000009 | Canonical |
 | [SCR-000010](Areas/configuration-trust/SCR-000010/screen.md) | Tool・AIモデル構成の選択 | configuration-trust | [UI-000010](../Definitions/UI-000010/ui_definition.md) | PRT-000010 | Canonical |
 | [SCR-000011](Areas/configuration-trust/SCR-000011/screen.md) | 実行時データの保持・清掃 | configuration-trust | [UI-000011](../Definitions/UI-000011/ui_definition.md) | PRT-000011 | Canonical |
@@ -113,7 +113,7 @@ G1〜G5は通過した。Workbench固有のPattern候補とVisual Baselineを[Se
 
 ## 5. UI／SPEC Detail対応
 
-[UI／SPEC Detail対応](../../05_SPEC/Details/02_UI_SPEC_Detail_Correspondence.md)に32 Relationを維持する。今回変更したSCR-000008↔BHV-000012の意味対応は限定独立レビュー済み。他の31 Relationは変更せず、更新前の全件評価を現在版全体のPassへ読み替えない。
+[UI／SPEC Detail対応](../../05_SPEC/Details/02_UI_SPEC_Detail_Correspondence.md)に32 Relationを維持する。今回変更したSCR-000008↔BHV-000012の意味対応は限定独立レビュー済み・残指摘0。他の31 Relationは変更せず、更新前の全件評価を現在版全体のPassへ読み替えない。
 
 ## 6. Architecture／Qualityへの引き渡し
 
@@ -132,6 +132,8 @@ G1〜G5は通過した。Workbench固有のPattern候補とVisual Baselineを[Se
 ## 補足分析
 
 本移行はv0.21 Definitionの意味を変更しない。v0.22固有のScreen、Part、Visual、Behaviorは新しいCanonical Definitionから別途追加する。
+
+今回更新した鍵管理のDetailと投影は限定レビュー済み・残指摘0。以下の旧全数項目を最新候補全体のPassへ読み替えない。
 
 ## Checklist
 

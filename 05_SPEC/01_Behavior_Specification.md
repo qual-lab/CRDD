@@ -1,6 +1,6 @@
 # 振る舞い仕様
 
-状態: v0.22.0更新中（最新鍵管理判断のDefinition・横断投影は再伝播中・限定独立レビュー済み・残指摘0。SCR／BHV・Area・Workbench候補は未追従、全体Readyは未主張）
+状態: v0.22.0更新中（最新鍵管理判断のDefinition・横断投影は再伝播中・限定独立レビュー済み・残指摘0。SCR／BHV・Area・Workbench候補は限定再伝播・限定独立レビュー済み・残指摘0、全体Readyは未主張）
 担当責任者: Qual-Lab
 対象版: v0.22.0候補（公開基準版: v0.21.0）
 工程規則: [振る舞い仕様](../26_Behavior_Specification.md)、[UIとSPECの対応](../24_UI_Behavior_Specification.md)
@@ -87,7 +87,7 @@ UI定義 ───── pairs_with ───── SPEC定義
 
 ## 6. 現在状態と次工程
 
-最新判断のDefinition・現行1組対応・横断投影は限定再伝播・限定独立レビュー済み・残指摘0。SCR-000008／BHV-000012・Area・Workbench候補は未追従。前判断の限定Passと下記の全数記録は履歴であり、新判断の完成根拠にしない。
+最新判断のDefinition・現行1組対応・横断投影は限定再伝播・限定独立レビュー済み・残指摘0。SCR-000008／BHV-000012・Area・Workbench候補は限定再伝播・限定独立レビュー済み・残指摘0。前判断の限定Passと下記の全数記録は履歴であり、新判断の完成根拠にしない。
 
 更新前固定版の履歴: 以下の全数移行・完了記録は、今回のUI-000008／SPEC-000012更新前の固定版に限る。前判断の直接伝播8文書は限定独立レビュー済みだが、BHV-000012とDetail対応は限定確認済み、更新前固定版のDefinition対応と横断投影は限定独立レビュー済みであり、更新版のReadyを示さない。
 
@@ -121,4 +121,4 @@ v0.22固有BHVはDiscovery後のCanonical Definitionから追加
 - [x] Human Input、Open・Gapおよび戻り条件を明示した
 - [x] SPEC ReadyとUI／SPEC対応レビューを区別した
 - [x] ArchitectureまたはSourceから意味を逆輸入していない
-- OPEN: 最新判断のDefinition・現行1組対応・横断投影は限定独立レビュー済み・残指摘0。SCR-000008／BHV-000012・Area・Workbench候補以降は未追従。採用済み入口の具体表示・案内・実画面評価・工程ExitとArchitecture／Quality以降は未完了。旧完成記録を新版へ流用しない。
+- OPEN: 最新判断のDefinition・現行1組対応・横断投影は限定独立レビュー済み・残指摘0。SCR-000008／BHV-000012・Area・Workbench候補は限定再伝播・限定独立レビュー済み・残指摘0。採用済み入口の具体表示・案内・実画面評価・工程ExitとArchitecture／Quality以降は未完了。旧完成記録を新版へ流用しない。

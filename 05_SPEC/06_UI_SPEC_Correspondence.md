@@ -583,7 +583,7 @@ UI-000008／SPEC-000012の最小ユーザー管理への更新により、下記
 
 ## 7. ArchitectureとQualityへの接続
 
-本書はDefinition対応を所有する。Detail対応は[UI／SPEC Detail対応](Details/02_UI_SPEC_Detail_Correspondence.md)を正本とし、今回のUI-000008／SPEC-000012更新前の固定版では20 SCR、20 PRT、32 Interactionおよび30 BHVを全数確認して`Pass`とした。v0.21固定時の値は29 BHV／31 Interactionであり、更新後の根拠へ読み替えない。前判断のDetail限定対応は確認済み。最新判断のDetailは未追従で、現行Definition対応と横断投影は限定独立レビュー済み・残指摘0であり、Architecture／Qualityへの変更伝播も未完了である。本書の過去Passを現在のDefinition対応またはDetail対応のPassへ読み替えず、両方の対応結果を独立して維持する。
+本書はDefinition対応を所有する。Detail対応は[UI／SPEC Detail対応](Details/02_UI_SPEC_Detail_Correspondence.md)を正本とし、今回のUI-000008／SPEC-000012更新前の固定版では20 SCR、20 PRT、32 Interactionおよび30 BHVを全数確認して`Pass`とした。v0.21固定時の値は29 BHV／31 Interactionであり、更新後の根拠へ読み替えない。前判断のDetail限定対応は確認済み。最新判断のDetailは限定再伝播・限定独立レビュー済み・残指摘0で、現行Definition対応と横断投影は限定独立レビュー済み・残指摘0であり、Architecture／Qualityへの変更伝播も未完了である。本書の過去Passを現在のDefinition対応またはDetail対応のPassへ読み替えず、両方の対応結果を独立して維持する。
 
 - Architectureの正式入力はUI DefinitionとSPEC Definitionである。この対応レビューは両入力の対応Closureを示すEvidenceであり、第三の仕様ではない。UI工程Exitが未完了の間はArchitectureへの通常Handoffを許可しない。
 - UIとSPECはそれぞれQuality Analysisへ入力を渡す。対応レビューから新しいQuality Contractを発明しない。
@@ -598,10 +598,10 @@ UI-000008／SPEC-000012の最小ユーザー管理への更新により、下記
 
 | 対象Definition | SHA-256 |
 |---|---|
-| [UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md) | `090f179ffe784b37437ea5a479fc6b17b47325b1481e6d7d75609b9b46114fa3` |
-| [SPEC-000012](Definitions/SPEC-000012/spec_definition.md) | `f88989658b1412136463e7f11f3b08136733080d39958b5c5d1530220ad4e411` |
+| [UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md) | `8a7359a9de09a746a3c3e376d9c5ab9528b6a82d82309a52b2003c68b3577bd8` |
+| [SPEC-000012](Definitions/SPEC-000012/spec_definition.md) | `cbd2a27eb8d10d3fa7bb8660bff1555c05c1dfbef2312c0b7d9f02a2bf7d4931` |
 
-上記Hashはレビュー結果の状態同期後のファイルを識別する。独立レビュー入力はUI `b7ac2ea06f05271f41fec4707931d44972633fa3ab694635a799317106194aa7`、SPEC `15058e6d7e163c38e602f46ca36bbc9dde0bbbd0af7a2b16cc4f692e9b4ec820`であり、同期では契約本文を変更していない。
+上記Hashは最新の確認状態・完了境界を同期したファイルを識別する。Definition契約の独立レビュー入力はUI `b7ac2ea06f05271f41fec4707931d44972633fa3ab694635a799317106194aa7`、SPEC `15058e6d7e163c38e602f46ca36bbc9dde0bbbd0af7a2b16cc4f692e9b4ec820`であり、その後の同期では契約本文を変更していない。今回のDetail更新に伴う現在状態同期も限定再レビュー対象とする。
 
 下表は正本の要約対応であり、新しい仕様・状態・保存方式を定義しない。
 
@@ -616,7 +616,7 @@ UI-000008／SPEC-000012の最小ユーザー管理への更新により、下記
 | 可視性（Visibility） | 自身表示可、非認証User情報0、現在他ユーザー参照を許可されていない主体の他User一覧・存在・件数0。Secret非保存・非再表示 | 同じ三境界と非開示Repositoryの保護、発行／鍵交換後だけSecret一度返却 | 一致。理由・履歴・Evidenceにも秘密や非開示情報を複製しない |
 | 制約（Constraint） | ユーザー情報・Role権限・Repository登録・Product Dataを保持。単体利用は資格不要 | 同じ保持境界。特別ユーザー・追加権限・回復専用Bootstrap・認可破損修復を追加せず、初回設定は不変 | 一致。採用済み入口の具体表示・案内・期限・Schemaは未確定、開始済み取消・過去Effect 0は別契約 |
 
-入力・設定・利用可否・取消・競合・不明・内容・検証の懸念は上の対象相関、現行認可、処置前停止、部分結果・再観測と両定義の検証意図へ接続する。新しいUIテーマ、部品、モード切替、投影同期、AI依頼は今回の変更対象ではなく既存契約を変更しない。操作／状態／結果の対応図は[SCR-000008](../04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md)と[BHV-000012](Details/BHV-000012/behavior.md)、[Detail対応](Details/02_UI_SPEC_Detail_Correspondence.md)は前判断に対する履歴参照で、最新判断のDetailは未追従である。
+入力・設定・利用可否・取消・競合・不明・内容・検証の懸念は上の対象相関、現行認可、処置前停止、部分結果・再観測と両定義の検証意図へ接続する。新しいUIテーマ、部品、モード切替、投影同期、AI依頼は今回の変更対象ではなく既存契約を変更しない。操作／状態／結果の対応図は[SCR-000008](../04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md)と[BHV-000012](Details/BHV-000012/behavior.md)、[Detail対応](Details/02_UI_SPEC_Detail_Correspondence.md)の最新判断は限定再伝播・限定独立レビュー済み・残指摘0であり、以前の確認結果は履歴として扱う。
 
 未確認は両定義の対象識別・確認負担、採用済みWorkbench／Host CLIの具体表示・案内、有効期限既定値と実利用評価に残る。今回の作成者照合で人間判断やUI工程Exitを代替しない。Architecture／Quality／Source・保存Schema・移行・実証は未追従。
 
@@ -647,4 +647,4 @@ UI-000008／SPEC-000012の最小ユーザー管理への更新により、下記
 - [x] Definition対応とDetail対応を区別した
 - [x] 対象Detail RelationをDefinition対応のPassで代替せず独立確認した
 - [x] 未決事項をAI推測で補完していない
-- OPEN: 最新判断のDefinition・現行1組対応・横断投影は限定独立レビュー済み・残指摘0。SCR-000008／BHV-000012・Area・Workbench候補以降は未追従。採用済み入口の具体表示・案内・実画面評価・工程ExitとArchitecture／Quality以降は未完了。旧完成記録を新版へ流用しない。
+- OPEN: 最新判断のDefinition・現行1組対応・横断投影は限定独立レビュー済み・残指摘0。SCR-000008／BHV-000012・Area・Workbench候補は限定再伝播・限定独立レビュー済み・残指摘0。採用済み入口の具体表示・案内・実画面評価・工程ExitとArchitecture／Quality以降は未完了。旧完成記録を新版へ流用しない。

@@ -3,7 +3,7 @@
 成果物種別: SPEC定義
 SPEC ID: `SPEC-000012`
 状態: Canonical
-確認状態: 最新鍵管理判断の再伝播中・限定独立レビュー済み・残指摘0。Detail以降・全体Ready・実装成立は未主張。
+確認状態: 最新鍵管理判断のDefinitionは限定独立レビュー済み・残指摘0。Detailは限定再伝播・限定独立レビュー済み・残指摘0。全体Ready・実装成立は未主張。
 維持責任者: Qual-Lab
 
 ## 振る舞いの目的と統合判断
@@ -122,7 +122,7 @@ UUIDは採用済み継承制約として保持し、版・生成方式・Schema�
 
 ## 完了境界
 
-今回の最新鍵管理判断を反映したDefinition候補である。横断投影と現行1組の対応は今回確認するが、SCR／BHV・Area・Workbench候補のDetail、Visual、Architecture／Quality／Sourceは最新判断に未追従。全体Ready・実装完成・E2E Passを主張しない。過去Evidenceは当時の記録として維持する。
+最新鍵管理判断のDefinitionと現行1組対応は限定独立レビュー済み・残指摘0。SCR／BHV・Area・Workbench候補のDetailは限定再伝播・限定独立レビュー済み・残指摘0であり、Visual・Architecture／Quality／Sourceは未追従。全体Ready・実装完成・E2E Passを主張しない。過去Evidenceは当時の記録として維持する。
 
 ## 補足定義
 
