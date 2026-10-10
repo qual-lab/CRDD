@@ -2,9 +2,11 @@
 
 成果物種別: IA分析
 分析対象: [UX-000035](../../../02_UX/Definitions/UX-000035/ux_definition.md)
-状態: 分析済み（鍵交換2操作の限定独立レビュー済み）
+状態: 分析済み（最新鍵管理判断の限定独立レビュー済み・残指摘0）
 
 ## 1. UXから受け取る意味
+
+鍵の発行・独立失効・交換はadministrator専用固定で、Role詳細権限のON／OFF設定を設けない。通常入口は同一Process Workbench backendだけとし、MCPには秘密値の有無を問わず鍵操作の一覧・Schema・登録・dispatchを公開しない。Hostはログイン済みローカル操作者を信頼する対話CLIで、鍵交換2操作だけを扱う。追加認証・専用資格・承認コード・OS管理者昇格を要求せず、既存の管理Root／Path検証は維持する。ユーザー管理・Role設定・Repository登録・公開範囲管理の担当Roleと設定可否はOPENのままとし、許可を先取りしない。
 
 | 観点 | この分析で受け取る内容 |
 |---|---|
@@ -28,7 +30,7 @@ userIdのUUID制約は正式UXから継承する。IAは安定した同一性を
 | 接続資格Metadata | ユーザーへ紐づく資格の識別・状態・期限 | Credential IDとuserId。生Secretや同等値を含めず、古いRole権限を固定しない |
 | 一度表示するSecret | 発行または鍵交換後に一度渡す秘密 | 発行Attempt内だけ。永続情報へ含めない |
 | 接続資格状態 | 有効・期限切れ・失効・不明の差 | Credential IDと現行状態。鍵交換は旧資格失効と新資格発行の関係であり、新しい永続状態を作らない |
-| 管理能力 | 最小ユーザー情報・Role権限・Credential等を管理する能力 | 現行Roleの管理権限から判定する。内容閲覧を自動的に得ない |
+| 管理能力 | 最小ユーザー情報・Role権限・Credential等を管理する能力 | 鍵操作はadministrator専用固定、その他は現在の許可に基づく（4管理群の割当・設定可否はOPEN）。内容閲覧を自動的に得ない |
 | Access Recovery | 通常管理またはHostから鍵だけを交換して接続へ戻る回復 | Recovery IDを最初の失敗から再入場まで保つ。操作種別（指定ユーザー交換／全員交換）と入口・Authorityは別属性 |
 | Recovery対象 | 鍵交換の対象ユーザー・失効資格集合・新資格発行先 | Recovery ID、対象userId、失効対象Credential集合、発行先userId。指定交換は同じユーザー、全員交換は指定既存administrator |
 | 保持対象 | 変更しないユーザーID・表示名・Role・詳細権限・Repository登録・Product Data | Recovery IDとユーザーID・表示名・Role・詳細権限・Repository登録・Product Dataの保持区分 |
@@ -40,17 +42,19 @@ userIdのUUID制約は正式UXから継承する。IAは安定した同一性を
         │                            ▼
         │                        [O: Role]
         │                            └─持つ──▶ [O: Role詳細権限]
-        │                                            └─管理権限──▶ [O: 管理能力]
+        │                                            └─他4管理群の現在許可（割当・設定可否OPEN）──▶ [O: 管理能力]
         ├─発行時だけ──▶ [補足: 一度表示するSecret]
         └─現在値を持つ▶ [O: 接続資格状態]
 
-[O: Access Recovery: 指定ユーザー交換／全員交換。入口: 通常管理／Host]
+[O: Role] ──administrator固定・設定不可の鍵3操作──▶ [O: 管理能力]
+
+[O: Access Recovery]
       ├─処置する──▶ [O: Recovery対象]
       ├─変更しない▶ [O: 保持対象]
       └─記録する──▶ [O: Recovery結果]
 ```
 
-図中の`[O:]`は情報Objectを示す。表示名はユーザーの属性であり独立Identityを発行しない。両入口で既存userIdへ新資格を結び、ユーザー情報・Role・詳細権限を保持する。表示名は対象Identityではない。
+図中の`[O:]`は情報Objectだけを表す。表示名はユーザーの属性であり独立Identityを発行しない。両入口で既存userIdへ新資格を結び、ユーザー情報・Role・詳細権限を保持する。表示名は対象Identityではない。
 
 ### Canonical化候補
 
@@ -70,6 +74,13 @@ userIdのUUID制約は正式UXから継承する。IAは安定した同一性を
 
 操作種別と入口・Authorityは別の属性とし、4組合せを別Objectへ分けない。
 
+| 入口と操作 | 処置前表示 | 明示確認 |
+|---|---|---|
+| 通常Workbench × 指定ユーザー交換 | 対象ID・表示名、失効範囲、発行先、保持情報 | 追加確認なし |
+| 通常Workbench × 全員交換 | 同上 | 必須 |
+| Host CLI × 指定ユーザー交換 | 同上 | 必須 |
+| Host CLI × 全員交換 | 同上 | 必須 |
+
 | 鍵交換の操作 | 失効する旧有効資格 | 新資格の発行先 | 他ユーザーへの影響 |
 |---|---|---|---|
 | 指定ユーザー交換 | 対象userIdの資格すべて | 同じ既存userId | 他ユーザーの鍵は保持 |
@@ -77,8 +88,8 @@ userIdのUUID制約は正式UXから継承する。IAは安定した同一性を
 
 | 入口 | 処置前の権限・確認 | 操作の意味 |
 |---|---|---|
-| 通常管理 | 現行の管理認可。全員交換は人間が明示確認 | 上記2操作 |
-| Host緊急操作 | Host OS Authorityと人間の明示確認。Remote認証とは別 | 上記と同じ2操作 |
+| 通常管理 | 同一Process Workbenchの固定administrator権限。全員交換だけ人間が明示確認 | 上記2操作 |
+| Host緊急操作 | ログイン済みローカル操作者と人間の明示確認。追加認証・専用資格・承認コード・OS管理者昇格なし | 上記と同じ2操作 |
 
 両入口でユーザーID・表示名・Role・詳細権限・Repository登録・Product Dataを保持する。表示名を対象Identityにせず、特別ユーザー・追加権限・回復専用Bootstrapを作らない。初回Server設定方式は変更しない。
 
@@ -89,26 +100,26 @@ userIdのUUID制約は正式UXから継承する。IAは安定した同一性を
 | 観点 | 分析結果 |
 |---|---|
 | 状態 | Credentialの有効／期限切れ／失効／不明、Recoveryの確認待ち／進行中／blocked／completedを区別する |
-| 可視性 | 管理者は対象ID・表示名・Role・資格Metadataを確認する。認証済み利用者の自身表示を許可し、非認証入口へユーザー情報、非管理者へ他ユーザー一覧・存在・件数を開示しない。Secretは発行／リセット時だけ一度表示し、一覧・ログ・Evidence・会話に残さない |
-| 導線 | 対象ユーザーのID・表示名→現行Role／資格状態→処置影響。鍵交換は通常管理認可またはHost Authority→操作種別・対象userId・失効集合・発行先・保持範囲の確認→同じRecovery→既存ユーザーの新資格で再入場。Host入口と全員交換は人間が明示確認する |
-| 責任 | CROS管理者が最小ユーザー情報・Role詳細権限・Credentialを管理する。Host運用者が緊急Recovery Authorityを、Repository OwnerがProduct Dataを所有する |
+| 可視性 | 管理者は対象ID・表示名・Role・資格Metadataを確認する。認証済み利用者の自身表示を許可し、非認証入口へユーザー情報、現在他ユーザー参照を許可されていない主体へ他ユーザー一覧・存在・件数を開示しない。Secretは発行／リセット時だけ一度表示し、一覧・ログ・Evidence・会話に残さない |
+| 導線 | 対象ユーザーのID・表示名→現行Role／資格状態→処置影響。鍵交換は通常Workbenchの固定administrator権限またはログイン済みHost操作者→操作種別・対象userId・失効集合・発行先・保持範囲の確認→同じRecovery→既存ユーザーの新資格で再入場。Host入口と全員交換は人間が明示確認する |
+| 責任 | 現在許可された主体が最小ユーザー情報・Role詳細権限を、administratorが鍵操作を管理する。Hostのログイン済みローカル操作者が限定鍵交換を、Repository OwnerがProduct Dataを所有する |
 | 時間的な意味 | 表示名変更はID・権限変更ではない。Role権限変更は次の認可へ反映する。鍵交換はID・Roleを保持し旧資格を以後の要求で拒否するが、開始済み操作の取消完了とは別 |
 | 情報の優先度 | 通常は対象ID・表示名・Role・Credential状態と処置影響。緊急時は処置範囲、保持対象、Recovery現在地と次の安全な行動 |
 | 情報のまとまり | 対象ユーザーとRole権限・資格を辿れるが、通常管理とHostは入口・Authorityだけを分け、2操作の処置意味は共通 |
-| 判断権限 | 最小ユーザー情報・Role割当・Role詳細権限はCROS管理者。Host回復はServer HostのAuthorityと人間確認。管理能力だけから内容閲覧を推定しない |
+| 判断権限 | 鍵操作はadministrator専用固定。他4管理群の担当Role・設定可否はOPEN。Host回復はログイン済みローカル操作者と人間確認。管理能力だけから内容閲覧を推定しない |
 | 重要な失敗 | 同名対象の取り違え、名前のAuthority化、他ユーザー非開示違反、古いRole権限の固定、Secret再表示、Product Data削除、Recovery Identity喪失 |
-| 制約・対象外 | 画面・CLI・Digest・Protocol・Schema・Process配置は未決。メール・Password・本人確認・自己登録・自己編集・申請・複数Role・個別追加権限・一般IAMを追加しない |
-| 人間判断 | 対象識別とリセット確認の負担、画面とCLIの分担、有効期限既定値をPilotで確認する |
+| 制約・対象外 | 採用済みWorkbench／Host CLI入口の表示具体化、Digest・Protocol・Schema・Process配置は未決。メール・Password・本人確認・自己登録・自己編集・申請・複数Role・個別追加権限・一般IAMを追加しない |
+| 人間判断 | 対象識別とリセット確認の負担、採用済みWorkbench／Host CLI入口の具体的な表示・案内、有効期限既定値をPilotで確認する |
 | IAへ戻す条件 | 対象の同一性、Role権限、三可視境界、操作範囲と入口・Authorityの区別を情報構造から再構成できない場合 |
 | 検証意図 | 同名・改名でもIDと権限を誤認せず、両鍵交換の対象範囲・発行先と情報保持／旧資格拒否、入口Authority差、Role変更の次認可反映、三可視境界、Secret非保存、途中失敗時の同じRecoveryと現在再観測を確認する |
 
-責任は情報契約上の機能責任を表す。実Componentへの割当は後工程で行う。
+ここで示す主体は、情報契約上必要な機能責任を表し、特定の人物・組織・Componentへの割当を確定しない。実Componentへの割当は後工程で行う。
 
 ### 未確認事項と判断
 
 | 区分 | 内容 |
 |---|---|
-| UXから継承する確認事項 | 対象識別とリセット確認の負担、管理画面とCLIの分担、有効期限既定値。既存userIdへの結合とユーザー情報・Role保持は採用済み |
+| UXから継承する確認事項 | 対象識別とリセット確認の負担、採用済みWorkbench／Host CLI入口の具体的な表示・案内、有効期限既定値。既存userIdへの結合とユーザー情報・Role保持は採用済み |
 | 判断者 | CROS管理者、Host運用者、Qual-Lab |
 | 現在判定 | Pilot／後工程で確認。IA Candidateを止めない |
 | 未確認時の影響 | 定量期限・画面配置・配布手順を確定しない |
@@ -118,13 +129,15 @@ userIdのUUID制約は正式UXから継承する。IAは安定した同一性を
 
 ## 4. 現実照合の参考情報（正式入力ではない）
 
-現行SourceのCredential単位Grantや旧Role別共有Credentialは移行比較の対象であり、Canonical IAの正式入力としない。前節までの意味はUX Definitionから導く。
+この節は後続のReality Auditへ引き継ぐ参考情報であり、IA Candidateを導く正式入力ではない。現行SourceのCredential単位Grantや旧Role別共有Credentialは移行比較の対象であり、Canonical IAの正式入力としない。前節までの意味はUX Definitionから導く。
 
 ## 5. IA処置
 
 [IA-000009](../../Definitions/IA-000009/ia_definition.md)へ`Same`として統合する。対象の維持・回復に必要な情報群を更新し、利用場面とAuthorityを分ける。新IA IDを発行しない。
 
 ## 6. 後続工程が保持する意味
+
+UI／SPEC／Qualityへの各引渡しは、固定administrator鍵操作、Workbench通常入口、MCP鍵操作非公開、追加認証なしのHost交換2操作、既存Root／Path、4組表示・3組確認と他4管理群OPENを保持する。独立失効は新鍵発行も開始済みTaskの取消も行わない。
 
 | 接続先 | 保持する意味 |
 |---|---|

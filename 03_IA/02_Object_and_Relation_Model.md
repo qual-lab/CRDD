@@ -67,7 +67,7 @@
 | [IA-000006](Definitions/IA-000006/ia_definition.md) | 適用 | 「Project・Repository・Binding・読取り投影（Projection）」のObject群（プロジェクト（Project）、リポジトリ（Repository）、結合情報（Binding）、プロジェクト項目ほか）と関係図を横断確認 |
 | [IA-000007](Definitions/IA-000007/ia_definition.md) | 適用 | 「手元の情報源と横断情報源」のObject群（手元の情報（Local Context）、手元の作業（Local Work）、リポジトリ横断情報源（Cross-repository Source）、履歴管理能力（Version Control Capability））と関係図を横断確認 |
 | [IA-000008](Definitions/IA-000008/ia_definition.md) | 適用 | 「公開受付・通信方式・結果」のObject群（公開依頼（Public Request）、公開契約（Public Contract）、通信手段（Transport）、作用状態（Effect State）ほか）と関係図を横断確認 |
-| [IA-000009](Definitions/IA-000009/ia_definition.md) | 適用 | 資格→ユーザー→現行Role権限→公開対象→実アクセスと、表示名属性、Session、Repository情報責務、管理能力、Secret表示境界、鍵交換2操作の対象・失効集合・既存発行先と通常／Hostの入口Authority、情報保持・結果・再入場の関係を横断確認 |
+| [IA-000009](Definitions/IA-000009/ia_definition.md) | 適用 | 資格→ユーザー→現行Role権限→公開対象→実アクセスと、表示名属性、Session、Repository情報責務、管理能力、Secret表示境界、鍵交換2操作の対象・失効集合・既存発行先と通常／Hostの入口Authority、情報保持・結果・再入場の関係を横断確認。鍵操作の固定administratorと他4管理群OPENを分ける |
 | [IA-000010](Definitions/IA-000010/ia_definition.md) | 適用 | 「Meeting・Topic・候補・採否」のObject群（会議（Meeting）、会議項目（Meeting Item）、候補（Candidate）、論点（Topic）ほか）と関係図を横断確認 |
 | [IA-000011](Definitions/IA-000011/ia_definition.md) | 適用 | 「Tool能力・利用可否・配布根拠」のObject群（利用能力（Capability）、利用可否（Availability）、実行権限（Authority）、配布物（Distribution）ほか）と関係図を横断確認 |
 | [IA-000012](Definitions/IA-000012/ia_definition.md) | 適用 | 「実行時データ・保持・清掃」のObject群（実行データの基点（Runtime Root）、実行データ（Data Item）、永続性（Durability）、保持条件（Retention）ほか）と関係図を横断確認 |
