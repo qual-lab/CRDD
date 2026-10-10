@@ -40,6 +40,10 @@ v0.21.0は公開済み、v0.22.0とCHG-000082は未完了である。責務再�
 
 ## 3. 今、人間が決めることは何か
 
+### AM固定管理判定の実装 — 2026-10-11
+
+新Access Management Packageに、保存・資格・Host操作を持たない固定管理判定を実装した。三Roleと10具体操作、操作別Role対象、未知入力の拒否を公開Root経由の4 UTで確認し、format・type・lintは成功。契約・品質の限定独立再レビューは全重大度の残指摘0。候補試験の局所成功であり、正式Local Item結果／Evidence評価はNot Run。旧CROS代替・管理API・保存・本番接続の完成ではない。初回Host設定の最小管理者作成は人間承認済みで、上流伝播・実装は次の残件。資格期限は回答待ちを維持する。[範囲と結果](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#am固定管理判定の局所実装--2026-10-11)を参照する。
+
 ### AM公開読取りの具体化 — 2026-10-11
 
 自己表示と管理対象別の投影を分け、管理能力と内容閲覧、登録と公開を混同しない候補Schemaを具体化した。取得不可・回収確認待ち・観測不明・解放不明を空集合と区別し、解放不明時のSnapshotは公開しない。操作候補の対象制約を是正し、契約・品質の限定再レビューは残指摘0。Source・秘密Storeは未変更、本番完成ではない。追加の人間判断はこの具体化には不要。資格期限は回答待ちを維持する。[候補と未完了範囲](06_Architecture/Details/access-management/02_Management_State_and_API.md#31-公開読取りの結果と情報境界)を参照する。
@@ -66,17 +70,17 @@ UI／SPEC定義14文書とDetail・現在投影15文書、AM詳細02の旧OPEN�
 
 managerとadministratorがユーザー登録・表示名変更、developer／managerの割当て・詳細権限設定、Repository登録・登録解除・公開範囲を管理する。管理者資格の付与・解除・変更、administratorの詳細権限、鍵3操作はadministratorだけが管理する。manager自身の内容範囲変更は明示設定で可能だが、管理能力から内容を自動付与しない。登録だけでは公開されず、登録解除はProduct Data削除ではない。
 
-担当Roleの追加判断は不要となった。上流反映に続いて、REQ-000041のUX分析・UX-000035・横断5文書へ限定伝播し、限定独立レビュー済み・残指摘0である。続いてIA分析・IA-000009・横断4文書へ限定伝播し、限定独立レビュー済み・残指摘0。UI／SPECの定義・分析・横断投影12文書へ限定伝播し、限定独立レビュー済み・残指摘0。UI／SPEC詳細7文書も契約・品質の限定独立レビュー済み・残指摘0。Architecture入力分析2件は契約・品質の限定独立レビュー済み・残指摘0。ARCH-000013・横断01〜08の9設計文書は契約・品質の限定独立レビュー済み・残指摘0。AM／Workbench／MCP詳細3文書へ候補伝播・契約／品質の限定独立レビュー済み・残指摘0。Qualityの12文書へ最新分担を候補伝播し、契約・品質限定独立レビュー済み・残指摘0。通常管理のUT／IT／STの3項目追加とUAT／搬送同値更新はNot Run。Sourceは未追従。以前の限定レビュー結果は前判断の履歴であり、最新判断のPassではない。具体API・保存・初回設定・本番接続の未完了は維持する。正本は[REQ-000041](01_Discovery/Definitions/REQ-000041/requirement.md#要求)、追跡は[Architecture入力分析伝播](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#architecture-role-analysis-propagation)、[UI／SPEC詳細伝播](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#ui-spec-role-detail-propagation)、[UI／SPEC定義伝播](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#ui-spec-role-propagation)、[IA伝播](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#権限分担のia伝播--2026-10-11)と[UX伝播](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#権限分担のux伝播--2026-10-11)を参照する。
+担当Roleの追加判断は不要となった。上流反映に続いて、REQ-000041のUX分析・UX-000035・横断5文書へ限定伝播し、限定独立レビュー済み・残指摘0である。続いてIA分析・IA-000009・横断4文書へ限定伝播し、限定独立レビュー済み・残指摘0。UI／SPECの定義・分析・横断投影12文書へ限定伝播し、限定独立レビュー済み・残指摘0。UI／SPEC詳細7文書も契約・品質の限定独立レビュー済み・残指摘0。Architecture入力分析2件は契約・品質の限定独立レビュー済み・残指摘0。ARCH-000013・横断01〜08の9設計文書は契約・品質の限定独立レビュー済み・残指摘0。AM／Workbench／MCP詳細3文書へ候補伝播・契約／品質の限定独立レビュー済み・残指摘0。Qualityの12文書へ最新分担を候補伝播し、契約・品質限定独立レビュー済み・残指摘0。通常管理のUT／IT／STの3項目追加とUAT／搬送同値更新はNot Run。固定管理判定だけSource／Test Symbolへ局所接続済みで、他Source／正式Evidence／本番接続は未追従。以前の限定レビュー結果は前判断の履歴であり、最新判断のPassではない。具体API・保存・初回設定・本番接続の未完了は維持する。正本は[REQ-000041](01_Discovery/Definitions/REQ-000041/requirement.md#要求)、追跡は[Architecture入力分析伝播](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#architecture-role-analysis-propagation)、[UI／SPEC詳細伝播](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#ui-spec-role-detail-propagation)、[UI／SPEC定義伝播](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#ui-spec-role-propagation)、[IA伝播](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#権限分担のia伝播--2026-10-11)と[UX伝播](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#権限分担のux伝播--2026-10-11)を参照する。
 
 ### 結論
 
 持ち越し記録について追加判断は不要。CROS Package維持の先の判断は人間が変更し、認証・認可をAccess Managementへ再編する方向となった。Context集約・接続Registry・活動等の具体OwnerはSource照合後にArchitecture／Qualityへ反映する。未決候補を採用済み実装と扱わない。Domain保存で、非協調Processの親Directory差替えまで防ぐ保証を要求するかは判断待ちである。通常保存＋読戻し、静的link拒否と協調Writer競合は確認済みだが、競合差替え防止の証明ではない。担当責任者・採用判断者はQual-Lab。Docker／Coordinator／Orchestrator大改修は前倒ししない。
 
-ユーザーID（UUID）・管理用表示名・RoleとCredential紐付けの最小管理、鍵交換2操作は採用済み。2026-10-10の鍵管理境界に対する前判断は、上流・UX・IA・UI／SPEC・Architectureの限定独立レビュー済み・残指摘0として履歴を保持する。これは2026-10-11の担当Role分担の確認結果ではない。最新分担はUXの限定再レビュー済み・残指摘0。IA6文書へ伝播し限定独立レビュー済み・残指摘0で、UI／SPEC定義・対応は限定伝播・限定独立レビュー済み・残指摘0。UI／SPEC詳細は伝播・限定独立レビュー済み・残指摘0。Architecture契約の限定伝播・レビューは済み。Qualityは12文書へ候補伝播・限定独立レビュー済み・残指摘0。具体API・保存・Quality実行・Source・本番接続は未完了。詳細は[実施計画](99_Roadmap/Changes/CHG-000082/second-stage-plan.md)を参照する。
+ユーザーID（UUID）・管理用表示名・RoleとCredential紐付けの最小管理、鍵交換2操作は採用済み。2026-10-10の鍵管理境界に対する前判断は、上流・UX・IA・UI／SPEC・Architectureの限定独立レビュー済み・残指摘0として履歴を保持する。これは2026-10-11の担当Role分担の確認結果ではない。最新分担はUXの限定再レビュー済み・残指摘0。IA6文書へ伝播し限定独立レビュー済み・残指摘0で、UI／SPEC定義・対応は限定伝播・限定独立レビュー済み・残指摘0。UI／SPEC詳細は伝播・限定独立レビュー済み・残指摘0。Architecture契約の限定伝播・レビューは済み。Qualityは12文書へ候補伝播・限定独立レビュー済み・残指摘0。固定管理判定Source／Test Symbolと候補局所実行を除き、具体API・保存・正式Quality実行／Evidence・他Source／Test・本番接続は未完了。詳細は[実施計画](99_Roadmap/Changes/CHG-000082/second-stage-plan.md)を参照する。
 
 | 判断項目 | 現在の処置 | Owner Relation |
 |---|---|---|
-| 接続主体・Role・Credentialの再編 | 担当RoleをREQ-000041で採用済み。UX7成果物へ限定伝播・限定独立レビュー済み・残指摘0。IA6文書へ限定伝播・限定独立レビュー済み・残指摘0。UI／SPEC定義・対応は限定伝播・限定独立レビュー済み・残指摘0。UI／SPEC詳細は伝播・限定独立レビュー済み・残指摘0。Architecture契約の限定伝播・レビューは済み。Qualityは12文書へ候補伝播・限定独立レビュー済み・残指摘0。Sourceは未伝播。以前の限定レビューは前判断の履歴であり、最新分担のPassではない。具体API・保存・受領方式・本番接続も未完了。 | [最新判断](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#業務管理と管理者資格鍵の分担--2026-10-11)、[UX伝播](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#権限分担のux伝播--2026-10-11) |
+| 接続主体・Role・Credentialの再編 | 担当RoleをREQ-000041で採用済み。UX7成果物へ限定伝播・限定独立レビュー済み・残指摘0。IA6文書へ限定伝播・限定独立レビュー済み・残指摘0。UI／SPEC定義・対応は限定伝播・限定独立レビュー済み・残指摘0。UI／SPEC詳細は伝播・限定独立レビュー済み・残指摘0。Architecture契約の限定伝播・レビューは済み。Qualityは12文書へ候補伝播・限定独立レビュー済み・残指摘0。固定管理判定だけSource／Test Symbolへ局所接続済みで、他Source／正式Evidence／本番接続は未伝播。以前の限定レビューは前判断の履歴であり、最新分担のPassではない。具体API・保存・受領方式・本番接続も未完了。 | [最新判断](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#業務管理と管理者資格鍵の分担--2026-10-11)、[UX伝播](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#権限分担のux伝播--2026-10-11) |
 | CROS Packageの責務再編 | 移管対応表の限定レビューは前判断の履歴。Access Management詳細は最新鍵管理判断の限定独立レビュー済み・残指摘0。保存・権限語彙・公開入口はOPEN。Domain集約・MCP／Workbenchの境界は新Details候補へ限定再伝播・契約／品質独立レビュー済み・残指摘0。具体API・保存・受領方式、QA、Source移管・本番接続・旧撤去は未完了。 | [Access Management詳細](06_Architecture/Details/access-management/01_Architecture.md)、[移管対応表](99_Roadmap/Changes/CHG-000082/source-owner-map.md) |
 | 非協調Processの親Directory差替え保証 | 必要範囲を確認中。未回答を高い保証の採用や免除へ読み替えず、独立した接続整理を継続する。 | [保存保証の未決判断](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#保存保証の未決判断) |
 | 5C追加是正の持ち越し | 承認済み。保証条件変更・Release範囲変更の承認ではない。 | [判断の正本](99_Roadmap/Changes/CHG-000082/change.md#持ち越し判断--orchestratorcoordinatordocker2026-10-09) |
@@ -89,7 +93,7 @@ MCP詳細の最新判断伝播は契約・品質の限定独立再レビュー�
 
 鍵の発行・独立失効・交換はadministrator専用固定で、RoleのON／OFF設定を設けない。通常入口は同一Process Workbench、Host回復はログイン済みローカル操作者の対話CLIで追加認証なし。対象・影響表示と既存確認は維持する。鍵操作はSecret有無にかかわらずMCPへ公開しない。発行権限OFFの仮説について追加判断は不要となった。他管理群の担当Roleも2026-10-11に採用済みであり、下流伝播は未完了である。
 
-2026-10-10の鍵管理境界について、要求・基本定義・AM詳細・判断履歴、UXからArchitectureまでの限定伝播と独立レビュー結果は前判断の履歴として保持する。2026-10-11の担当Role分担はUXの限定再レビュー済み・残指摘0。IAは限定伝播・限定独立レビュー済み・残指摘0で、UI／SPEC定義・対応は限定確認済み、詳細は伝播・限定独立レビュー済み・残指摘0。Architecture入力分析2件は契約・品質の限定独立レビュー済み・残指摘0。ARCH-000013・横断01〜08は契約・品質の限定独立レビュー済み・残指摘0。AM／Workbench／MCP詳細3文書へ候補伝播・契約／品質の限定独立レビュー済み・残指摘0。Qualityへ最新分担を候補伝播・限定独立レビュー済み・残指摘0。Source以降は未伝播。具体API・保存・受領方式、Quality・Source・本番公開入口・実境界は未完了であり、旧限定結果から最新判断や全体完成を主張しない。
+2026-10-10の鍵管理境界について、要求・基本定義・AM詳細・判断履歴、UXからArchitectureまでの限定伝播と独立レビュー結果は前判断の履歴として保持する。2026-10-11の担当Role分担はUXの限定再レビュー済み・残指摘0。IAは限定伝播・限定独立レビュー済み・残指摘0で、UI／SPEC定義・対応は限定確認済み、詳細は伝播・限定独立レビュー済み・残指摘0。Architecture入力分析2件は契約・品質の限定独立レビュー済み・残指摘0。ARCH-000013・横断01〜08は契約・品質の限定独立レビュー済み・残指摘0。AM／Workbench／MCP詳細3文書へ候補伝播・契約／品質の限定独立レビュー済み・残指摘0。Qualityへ最新分担を候補伝播・限定独立レビュー済み・残指摘0。固定管理判定だけSource／Test Symbolへ局所接続済み。具体API・保存・受領方式、正式Quality／Evidence・他Source／Test・本番公開入口・実境界は未完了であり、旧限定結果から最新判断や全体完成を主張しない。
 
 ## 4. なぜこの状態・判断になったか
 
@@ -106,9 +110,9 @@ MCP詳細の最新判断伝播は契約・品質の限定独立再レビュー�
 
 最新の追加判断：登録解除は公開設定も同時に除去し、Repository本体は維持する。発行・結果記録確定後の鍵の受け渡し未確認は、秘密再表示・自動再発行をせず、人間の明示した既存交換で別鍵へ交換する。発行自体・結果記録が不明なら元発行のIdentityと既知事実で現在再観測し、交換由来は元exact Recoveryを保持する。[要求正本](01_Discovery/Definitions/REQ-000041/requirement.md#発行済みの鍵を受け取れなかった場合)に続きUX7文書・IA6文書へ伝播し、それぞれ契約／品質限定独立レビュー・是正後再レビューは残指摘0。UI7文書・SPEC5文書へ追加判断を伝播し、契約／品質限定独立再レビューは残指摘0。Detail10文書へ追加判断を伝播中・今回の契約／品質限定独立再レビュー済み（残指摘0）。Architectureは今回16文書へ候補伝播・契約・品質の限定独立レビュー済み・残指摘0。Qualityは今回12文書へ伝播済み・契約／品質限定独立レビュー済み・残指摘0。Sourceは未追従。Source・実環境は未変更。
 
-現在の[管理API・保存設計候補](06_Architecture/Details/access-management/02_Management_State_and_API.md)は登録解除・鍵受け渡しの旧OPEN更新まで契約／品質限定独立レビュー済み、残指摘0。Architecture全伝播候補は契約・品質の限定独立レビュー済み・残指摘0、QAへの追加判断伝播は12文書の限定独立レビュー済み・残指摘0。Sourceへの伝播は未完了。単一現在Fileは第一候補で、排他・出版保証と同一更新の実現方法は未確定のため実装Gate未成立。Source・秘密Store・Dockerは未変更。
+現在の[管理API・保存設計候補](06_Architecture/Details/access-management/02_Management_State_and_API.md)は登録解除・鍵受け渡しの旧OPEN更新まで契約／品質限定独立レビュー済み、残指摘0。Architecture全伝播候補は契約・品質の限定独立レビュー済み・残指摘0、QAへの追加判断伝播は12文書の限定独立レビュー済み・残指摘0。Sourceへの伝播は未完了。単一現在Fileは第一候補で、排他・出版保証と同一更新の実現方法は未確定のため実装Gate未成立。保存・秘密Store・Dockerは未変更。固定管理判定だけ新Sourceへ局所接続した。
 
-固定8操作の管理判定、通常6操作の保存境界、公開縦断をRFD-UT-020／IT-021／ST-022へ分離し、UAT-007とEST-IT-010を更新した。設計集合は185 Local Item。最新12文書は契約・品質限定独立レビュー済み・残指摘0、今回の新規・更新項目はNot Run。MCPの通常管理Toolを新規採用せず、Profile管理Roleは別途OPEN。具体API・保存・Source・Test・実境界・Quality Integration全体追従は未完了。[今回の計画](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#quality-role-propagation)を参照する。
+固定8操作の管理判定、通常6操作の保存境界、公開縦断をRFD-UT-020／IT-021／ST-022へ分離し、UAT-007とEST-IT-010を更新した。設計集合は185 Local Item。最新12文書は契約・品質限定独立レビュー済み・残指摘0、今回の新規・更新項目はNot Run。MCPの通常管理Toolを新規採用せず、Profile管理Roleは別途OPEN。固定管理判定Source／Test Symbolと候補局所実行を除き、具体API・保存・他Source／Test・正式Evidence・実境界・Quality Integration全体追従は未完了。[今回の計画](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#quality-role-propagation)を参照する。
 
 ### 先の鍵管理Quality再導出 — 2026-10-11
 

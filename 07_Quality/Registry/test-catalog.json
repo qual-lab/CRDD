@@ -15,6 +15,7 @@
     "longevity"
   ],
   "runnerProfiles": {
+    "access-management": "node_test",
     "ai-adapter": "node_test",
     "artifact-signing": "node_test",
     "checker": "node_test",
@@ -668,6 +669,19 @@
     }
   ],
   "tests": [
+    {
+      "id": "access-management:unit:management-permission",
+      "owner": "access-management",
+      "path": "40_Develop/access-management/tests/unit/access/management-permission.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": ["role", "fixed-management", "target-role", "invalid-input"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["fixed_role_matrix_exact", "operation_target_constraints_preserved", "unknown_input_not_allowed", "accessor_proxy_not_executed", "management_judgement_no_io"],
+      "mandatoryByDefault": true
+    },
     {
       "id": "coordinator:integration:docker-recovery-owner-reentry",
       "owner": "coordinator",

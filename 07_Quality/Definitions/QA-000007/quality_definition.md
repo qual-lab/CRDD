@@ -127,7 +127,7 @@ Runtime活動ReaderもRFD-IT-013の認可済み集合を使う。未許可入力
 
 ### 最新契約の実行状態
 
-RFD-ST-003、RFD-ST-004、RFD-IT-013、RFD-UAT-007、RFD-ST-016、RFD-IT-017〜019、RFD-UT-020、RFD-IT-021、RFD-ST-022は **Not Run**。旧IDのEvidenceは旧契約の履歴であり、新契約のPassへ流用しない。Test Symbol・実行・Evidenceへの接続は未完了。固定8操作の担当Roleは採用済み。内容権限の具体語彙、具体API・Schema・Store・Source接続はOPEN。Profile管理のRoleはこの固定8操作では確定しない。新しい権限FrameworkやBootstrap修復は導出しない。
+RFD-ST-003、RFD-ST-004、RFD-IT-013、RFD-UAT-007、RFD-ST-016、RFD-IT-017〜019、RFD-UT-020、RFD-IT-021、RFD-ST-022は **Not Run**。旧IDのEvidenceは旧契約の履歴であり、新契約のPassへ流用しない。RFD-UT-020だけSource／Test Symbol接続済みで、候補試験の局所実行は成功した。正式Local Item結果／Evidence評価はNot Run、他ItemのTest Symbol・実行・Evidenceへの接続は未完了。固定8操作の担当Roleは採用済み。内容権限の具体語彙、具体API・Schema・Store・Source接続はOPEN。Profile管理のRoleはこの固定8操作では確定しない。新しい権限FrameworkやBootstrap修復は導出しない。
 
 ## 4. 評価とEvidence
 

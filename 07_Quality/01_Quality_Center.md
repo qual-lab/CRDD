@@ -8,11 +8,13 @@
 
 ## 最新鍵管理・認可の限定設計対応 — 2026-10-11
 
+最新の限定実行: RFD-UT-020に対応する新Access Management候補試験を公開Root経由で局所実行し、4 Case成功、format・type・lint成功。10具体操作とRole対象の有限組合せ、未知入力・accessor／Proxy拒否を確認した。Source／Test Symbolは接続済みだが、正式Local Item結果／Evidence評価はNot Run。契約・品質の限定独立再レビューは全重大度の残指摘0。純粋判定の局所結果で、認証・保存・資格・IT／ST・本番Consumerは未確認。他ItemのNot RunやQuality Readyを変更しない。[実行条件と限界](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#am固定管理判定の局所実装--2026-10-11)を参照する。
+
 最新鍵管理・現在認可・認可済みDomain集約のQuality再導出は、QA-000007／QA-000009と7工程分析の固定9文書で契約・品質の限定独立レビューを完了し、全重大度の残指摘0。新規4項目（RFD-IT-017通常発行、018独立失効、019認可済み集約、EST-ST-015 MCP鍵操作非公開）と既存更新項目はNot Runである。旧Evidenceは旧契約の歴史的証跡として維持し、新契約のPassに流用しない。Test Symbol・実行・新Evidence、具体API・Schema・Store、Source移管・本番接続は未完了。全体Quality Ready・Release可能を主張しない。
 
 ## 最新権限分担のQuality伝播 — 2026-10-11
 
-固定8操作の担当Roleは採用済み。QA-000007へRFD-UT-020（固定判定）、RFD-IT-021（通常管理保存境界）、RFD-ST-022（Workbench公開縦断）を追加し、RFD-UAT-007とQA-000009／EST-IT-010を更新した。新規・更新項目はNot Run。固定12文書の契約・品質限定独立レビューは是正後ともに残指摘0であり、旧鍵管理の限定レビュー結果を流用しない。内容権限の具体語彙、具体API・保存Schema・Source・Test・Evidence・本番接続は未成立。Profile管理の担当Roleは別途OPEN。Quality Integrationの全体一覧追従も後続とし、全Quality統合完了を主張しない。
+固定8操作の担当Roleは採用済み。QA-000007へRFD-UT-020（固定判定）、RFD-IT-021（通常管理保存境界）、RFD-ST-022（Workbench公開縦断）を追加し、RFD-UAT-007とQA-000009／EST-IT-010を更新した。新規・更新項目はNot Run。固定12文書の契約・品質限定独立レビューは是正後ともに残指摘0であり、旧鍵管理の限定レビュー結果を流用しない。内容権限の具体語彙、RFD-UT-020の固定管理判定Source／Test Symbolと候補局所実行を除き、具体API・保存Schema・他Source／Test・正式Evidence・本番接続は未成立。Profile管理の担当Roleは別途OPEN。Quality Integrationの全体一覧追従も後続とし、全Quality統合完了を主張しない。
 
 ## 登録解除・鍵受け渡し判断のQuality伝播 — 2026-10-11
 

@@ -2,7 +2,7 @@
 
 成果物種別: Architecture詳細設計
 詳細設計領域: access-management
-状態: Candidate（API・物理保存の比較案。実装着手条件は未成立）
+状態: Candidate（固定管理判定は局所実装。管理API・物理保存の実装着手条件は未成立）
 維持責任者: Qual-Lab
 
 ## 1. 対象と保持条件
@@ -12,6 +12,8 @@
 今回比較するのは、公開読取り、操作別更新、同一改訂の保存単位、出版後故障、移行である。汎用IAM、Receipt Store、Lock Framework、共有Recovery、Docker操作は対象外。候補API名やFile名はSourceへ実装済みという意味ではない。
 
 ## 2. 操作別API候補
+
+固定分担だけを判定する`evaluateManagementPermission`は、`40_Develop/access-management/src/index.ts`から局所公開した。8分担表を、ユーザー登録・名前変更・Role変更・Role内容設定・Repository登録・登録解除・Exposure変更・鍵発行・独立失効・交換の10具体操作へ対応する。結果は`allowed`／`denied`／`invalid`だけで、認証、対象存在、現在改訂、保存・鍵Effect、Host信頼を確認するAuthorityではない。登録予定Role、変更前後Role、名前／内容設定の対象Roleを操作別に検査する。これは保存Gateを必要としない純粋判定部分であり、以下の管理操作・公開readの実装を意味しない。
 
 以下はAccess Management内部の関数契約候補であり、HTTP RouteやMCP Tool名ではない。公開はPackage Rootの`src/index.ts`だけを入口とし、再export専用の中間Fileを増やさない。
 
