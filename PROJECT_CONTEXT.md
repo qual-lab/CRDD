@@ -40,6 +40,10 @@ v0.21.0は公開済み、v0.22.0とCHG-000082は未完了である。責務再�
 
 ## 3. 今、人間が決めることは何か
 
+### AM保存方式の局所確認 — 2026-10-11
+
+既存の排他部品は条件付きで再利用できる。現在のPC（Windows 10.0.26200.0・C: NTFS・Node v24.19.0）で通常置換・読戻し100回は一致したが、初回Root準備・競合・Process喪失・他Windows版／Filesystem・Linux・再入場は未確認。保存専用Directoryを追加せず、現在状態・短命pending・Lockを既存Host state Root直下へ置く候補を具体化し、契約・品質の限定独立レビュー・是正後再確認は残指摘0。Source・秘密Storeは未変更、実装Gateは未成立。鍵の有効期限は運用判断を確認中で、未回答を採用にしない。[調査範囲と限界](06_Architecture/Details/access-management/02_Management_State_and_API.md#41-既存保存部品の照合結果--2026-10-11)を参照する。
+
 ### 登録解除・鍵受け渡しのQuality伝播 — 2026-10-11
 
 Architectureの限定伝播・独立レビューに続き、最新の登録解除・鍵3分岐をQualityの12文書へ伝播済み。既存項目の観測・Oracle・終了後条件を具体化し、185 Local Itemを維持する。今回更新項目はNot Run、契約・品質の限定独立レビュー・是正後再確認とも残指摘0。Source・Test・新Evidence・物理保存・本番接続は未完了。現在、追加の人間判断は不要。[今回の範囲](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#登録解除鍵受け渡し判断のquality全伝播--2026-10-11)を参照する。

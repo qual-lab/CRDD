@@ -70,6 +70,25 @@ ExposureのRepository IDは既存登録を参照し、重複・孤立参照を�
 
 保存手順候補は、Root検証→選定・適合確認した排他原語を取得→現在改訂・変更前認可再照合→短命pendingへ検査済み次状態を書く→出版→読戻し→排他解放→結果返却とする。pendingは確定前の短命Fileで、Recoveryの耐久正本ではない。既存hard-link CASとDomain保存のKernel排他を比較し、Root一致、同一Process／複数Writer、Owner死亡、取得／解放観測、pending残存、出版後Process喪失、Windows／Linuxの提供意味を確認して一方式だけを採用する。この確認前に既存原語の適合や排他成立を主張しない。具体File名、Process喪失時の所有確認・清掃、atomic replaceの実OS保証はOPEN。File flushから電源断保証を推定せず、Topic／Meetingの通常保存承認をAMへ流用しない。
 
+### 4.1. 既存保存部品の照合結果 — 2026-10-11
+
+単一現在Fileの候補を具体化するため、現Sourceを読取り、現在のPCで通常置換を局所実測した。これは物理保存方式の採用、実装着手条件の成立またはAM全体の検証結果ではない。
+
+| 対象 | 確認できたこと | 適用条件・残件 |
+|---|---|---|
+| `resolveCrosRuntimeRoots` | Windowsはconfigとstateが同じRoot。Linuxは既定では別RootだがXDG設定により同じRootになり得る。Filesystemを検証しない | 現在状態のOwnerはstateとする候補。文字列解決だけから書込みCapabilityを生成しない |
+| `createFilesystemStoreRoot`／Path解決 | 既存DirectoryをCapability化し、対象Pathの既存chainを検証する | Host Rootの初回作成は所有しない。準備前後の検証をAM Adapterへ閉じ、作成後の失敗をEffect 0と表示しない |
+| `withFilesystemStoreLock` | 同じRoot・相対Lock Identityの協調Writerについて、同期callback全体をKernel排他へ閉じる | 現在read、認可・期待改訂、write、出版、read-backを同じcallbackに置く。非同期callbackや非協調Writerの保証へ広げない |
+| Lock解放・回収 | 操作完了とcleanup不明を別に返す。Owner消失後もLock記録は残り、既存の不存在観測・exact回収が必要 | AM Adapterの次回更新入口から既存回収へ接続する候補。Lockの回復参照を鍵交換Recoveryへ転用しない。close故障等でもAM側の既知出版事実を保持する |
+| `readStableBoundedFileSnapshot` | 上限付き読取りと実体同一性の確認を所有する | 書込み・置換・pending清掃の保証には使用しない |
+| 旧Credential File Adapter | 改訂Fileへの排他的hard linkとbyte読戻しを行う | 改訂積算と単一現在File置換は別方式。旧試験の成功を新方式の競合・故障保証へ流用しない |
+
+固定Path候補は、解決済みstate Root直下の`access-management.json`、`access-management.pending.json`、`access-management.lock`とする。保存だけのために子Directoryを追加しない。Lock部品が必要時に作る回収義務Fileは同部品が所有し、鍵交換記録と区別する。全Writerが同じ検証済みRootとLock Identityを使用する。Rootの初期準備、非秘密設定と秘密Verifierを含む状態の保護、旧保存先からの移行は別途接続する。
+
+Windows `10.0.26200.0`・C: NTFS・Node `v24.19.0`で、同Directoryの短命Fileを`wx`作成→write→file fsync→close→`renameSync`で既存currentを置換→byte読戻しを100回実測し、全回の一致とpending不存在を確認した。試験はRepository-local `.crdd/tests/`内の自己生成領域だけを使用し、作業領域を回収した。並行Reader、Process喪失、他Windows版／Filesystem、Linux、Directory entryの耐久性、電源断保証は未確認であり、この数値をStore完成やatomicity全体の証明にしない。
+
+次の局所確認は、協調Writerの競合、旧／新の完全Snapshot読取り、出版前後のProcess喪失とpending照合、既存Lock回収の本番入口接続とする。pendingは年齢で削除せず、基準／次改訂と現在byteの対応を照合し、旧交換の未解決事実を失わない。具体の再入場Schema、公開read中の回収状態の扱い、Linuxでの提供意味が未確定の間は保存Gate未成立を維持する。新Lock／Recovery Frameworkや電源断完全保証を追加しない。
+
 ## 5. 鍵交換の段階と終了
 
 失効前にexact Recovery・旧対象集合・既存発行先を固定し、失効、発行、結果記録を共通段階として単調に保存する。通常WorkbenchはBackend返却・Browser配送、HostはローカルCLIへの返却・表示を別観測し、HostのBrowser配送は非該当とする。具体受領方式はOPENで、受領通知を人間の閲覧やAuthorityの証明にせず、新しい受領必須Gateも作らない。発行確定後の配送故障で発行結果を取り消さない。
