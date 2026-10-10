@@ -44,16 +44,22 @@ v0.21.0は公開済み、v0.22.0とCHG-000082は未完了である。責務再�
 
 持ち越し記録について追加判断は不要。CROS Package維持の先の判断は人間が変更し、認証・認可をAccess Managementへ再編する方向となった。Context集約・接続Registry・活動等の具体OwnerはSource照合後にArchitecture／Qualityへ反映する。未決候補を採用済み実装と扱わない。Domain保存で、非協調Processの親Directory差替えまで防ぐ保証を要求するかは判断待ちである。通常保存＋読戻し、静的link拒否と協調Writer競合は確認済みだが、競合差替え防止の証明ではない。担当責任者・採用判断者はQual-Lab。Docker／Coordinator／Orchestrator大改修は前倒ししない。
 
-ユーザーID（UUID）・管理者用表示名・Role詳細権限・Credential紐付けの最小管理はv0.22へ採用済み。2026-10-10に、鍵だけを変更する「指定ユーザー交換／全員交換」の2操作を採用した。ユーザー情報・Role・権限設定・Product Dataは保持し、通常管理とHost回復は入口・Authorityだけを分ける。旧Role初期化と特別Bootstrapによる回復を廃止し、認可設定破損では自動修復せず停止する。要求・UXの再伝播6文書は両観点の限定独立レビューで残指摘0。前のUX9文書、IA9文書、UI／SPEC8文書の限定Passは判断更新前の結果で、新判断へ流用しない。IAは1分析・1定義・4横断投影へ再伝播し、両観点の限定独立レビューで残指摘0。UI／SPECの4分析・2定義は再伝播し、両観点の限定独立レビューで残指摘0。画面詳細SCR-000008・BHV-000012とArea／Detail一覧／Detail対応は再伝播し、両観点の限定独立レビューで残指摘0。Definition対応の現行1組とWorkbench候補の横断投影は限定独立レビュー済み。Architectureの2分析・ARCH-000013・Component責務表は再伝播し限定独立レビュー済み。03〜06横断モデルは伝播済み・限定独立レビュー済み。07のARCH-000013断面とAccess Management詳細はCandidate接続済み・両観点の限定独立レビュー済みで、保存・権限語彙・公開入口はOPEN。08、Domain集約・MCP／Workbenchの新契約Details、Quality／Source・保存Schema・移行・実証は未追従である。
+ユーザーID（UUID）・管理用表示名・RoleとCredential紐付けの最小管理、鍵交換2操作は採用済み。最新判断は鍵発行・独立失効・交換をadministrator専用固定、通常入口を同一Process Workbench、Hostをログイン済みローカル操作者の対話CLIとし、MCPに鍵操作を公開しない。最新6文書は限定反映・限定独立レビュー済み・残指摘0。UX・IA・UI／SPEC・SCR／BHV・Architecture分析・03〜08横断モデル・Quality・Sourceは再伝播未完了。各工程の前判断に対する限定Passは履歴であり、最新判断や全体完成の根拠へ流用しない。
 
 | 判断項目 | 現在の処置 | Owner Relation |
 |---|---|---|
-| 接続主体・Role・Credentialの再編 | 最小ユーザー管理と鍵交換2操作は採用済みで追加判断不要。鍵交換の新判断は要求・UXへ反映し限定独立レビュー済み、IAは再伝播し限定独立レビュー済み、UI／SPEC Definitionは限定独立レビュー済み、Detailは再伝播し限定独立レビュー済み、Definition対応の現行1組と横断投影は限定独立レビュー済み、Architectureの2分析・ARCH-000013・Component表は再伝播し限定独立レビュー済み、03〜06横断モデルは伝播済み・限定独立レビュー済み。07のARCH-000013断面とAccess Management詳細はCandidate接続済み・両観点の限定独立レビュー済みで、保存・権限語彙・公開入口はOPEN。08、Domain集約・MCP／Workbenchの新契約Details、Quality／Source・保存Schema・移行・実証は未追従。旧Passを流用せず、新要求から設計・品質へ再伝播する。 | [鍵交換の途中見直し](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#鍵交換の途中見直し--2026-10-10) |
-| CROS Packageの責務再編 | 移管対応表は限定レビュー済み。Access Management詳細と07の本領域対応をCandidateとして作成済み・両観点の限定独立レビュー済み。保存・権限語彙・公開入口はOPEN。Domain集約・MCP／Workbench新Details、QA、Source移管・本番接続・旧撤去は未完了。 | [Access Management詳細](06_Architecture/Details/access-management/01_Architecture.md)、[移管対応表](99_Roadmap/Changes/CHG-000082/source-owner-map.md)、[新Owner対応とGate](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#11-access-managementへの再編--2026-10-09の途中見直し) |
+| 接続主体・Role・Credentialの再編 | 最小管理と鍵交換2操作、最新の鍵管理境界は採用済み。最新6文書は限定独立レビュー済み・残指摘0、下流の設計・品質・実装は再伝播未完了。残る4管理群の担当Roleと可変性は未確定。 | [最新判断](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#鍵管理の固定ローカル入口mcp非公開--2026-10-10) |
+| CROS Packageの責務再編 | 移管対応表の限定レビューは前判断の履歴。Access Management詳細は最新鍵管理判断の限定独立レビュー済み・残指摘0。保存・権限語彙・公開入口はOPEN。Domain集約・MCP／Workbench新Details、QA、Source移管・本番接続・旧撤去は未完了。 | [Access Management詳細](06_Architecture/Details/access-management/01_Architecture.md)、[移管対応表](99_Roadmap/Changes/CHG-000082/source-owner-map.md) |
 | 非協調Processの親Directory差替え保証 | 必要範囲を確認中。未回答を高い保証の採用や免除へ読み替えず、独立した接続整理を継続する。 | [保存保証の未決判断](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#保存保証の未決判断) |
 | 5C追加是正の持ち越し | 承認済み。保証条件変更・Release範囲変更の承認ではない。 | [判断の正本](99_Roadmap/Changes/CHG-000082/change.md#持ち越し判断--orchestratorcoordinatordocker2026-10-09) |
 | 履歴相関を必須としない配送終了案 | 未採用・未実装のまま改修入力へ持ち越す。 | [未採用候補](99_Roadmap/Changes/CHG-000082/change.md) |
 | Repository IDの正式固定 | 暫定値を維持。契約固定時に人間が判断する。 | [要求](01_Discovery/Definitions/REQ-000038/requirement.md) |
+
+### 鍵管理についての最新判断 — 2026-10-10
+
+鍵の発行・独立失効・交換はadministrator専用固定で、RoleのON／OFF設定を設けない。通常入口は同一Process Workbench、Host回復はログイン済みローカル操作者の対話CLIで追加認証なし。対象・影響表示と既存確認は維持する。鍵操作はSecret有無にかかわらずMCPへ公開しない。発行権限OFFの仮説について追加判断は不要となった。残る4管理群の可変性は未確定である。
+
+要求・基本定義・AM詳細・判断履歴への6文書は限定反映・限定独立レビュー済み・残指摘0。UX以降、Architecture分析／03〜08横断モデル、Quality・Source・公開入口・保存・実境界は再伝播未完了。全体完成・実装成立を主張しない。現在契約は[REQ-000041](01_Discovery/Definitions/REQ-000041/requirement.md)、[詳細設計](06_Architecture/Details/access-management/01_Architecture.md)を参照する。
 
 ## 4. なぜこの状態・判断になったか
 

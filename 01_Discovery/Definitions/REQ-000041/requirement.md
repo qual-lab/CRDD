@@ -14,9 +14,11 @@ RoleとCredentialは共有CROSへのRemote接続に限定し、利用者がア�
 
 v0.22の標準Role識別子は`administrator`、`manager`および`developer`とする。Roleに対してRepository／Workspaceの利用範囲と管理操作の詳細権限を設定する。安全な初期範囲は、`administrator`がSystem管理、`manager`がManagementとDevelopment、`developer`がDevelopmentである。管理権限だけからProject内容へのアクセスを自動的に付与してはならない。
 
-管理者はユーザーIDを作成し、表示名とRoleを設定・変更し、そのユーザーのCredentialを発行・リセットできなければならない。Bearer Secretは利用者へ安全な別経路で渡す。表示名は管理対象を識別し、Workbenchに現在の認証ユーザーを表示するためだけに使い、ログイン名、本人確認、権限またはRepository開示の根拠にしない。利用者の自己登録、自己編集、接続申請または個人別承認Workflowは追加しない。
+現在その管理操作を許可された主体は、ユーザーIDを作成し、表示名とRoleを設定・変更できなければならない。ユーザー管理、Role設定、Repository登録、公開範囲管理の担当Roleと可変性は未確定であり、Sourceへの許可付与を先取りしない。そのユーザーのCredential発行・交換は現行administrator専用とする。Bearer Secretは利用者へ安全な別経路で渡す。表示名は管理対象を識別し、Workbenchに現在の認証ユーザーを表示するためだけに使い、ログイン名、本人確認、権限またはRepository開示の根拠にしない。利用者の自己登録、自己編集、接続申請または個人別承認Workflowは追加しない。
 
-接続に使う鍵（Credential）の交換は、指定ユーザーの鍵交換と、全員の鍵を無効化して指定管理者の鍵を再発行する2操作とする。通常は現行管理権限で実行し、管理者が接続できない場合はServer Hostの管理Authorityと人間の明示確認により、Remote認証へ依存しない対話CLIから同じ操作を実行できなければならない。入口の違いを別の鍵交換方式にしない。ユーザーID・表示名・Role・詳細権限・Repository登録・Product Dataは変更しない。
+鍵の発行・独立失効・交換は、現行administrator Role専用の固定操作とし、Role詳細権限のON／OFF設定に含めない。通常管理は同一ProcessのWorkbenchから実行する。鍵操作は秘密の返却有無にかかわらずMCPへ公開しない。
+
+接続に使う鍵（Credential）の交換は、指定ユーザーの鍵交換と、全員の鍵を無効化して指定管理者の鍵を再発行する2操作とする。管理者が接続できない場合は、Server Hostへログイン済みのローカル操作者を信頼し、人間の明示確認により、Remote認証へ依存しない対話CLIから同じ交換操作を実行できなければならない。専用資格、追加認証、承認コードまたはOS管理者昇格を要求しない。既存のユーザー単位OS管理RootとPath検証を維持し、任意Rootや別OSユーザーの状態へ越境しない。入口の違いを別の鍵交換方式にしない。ユーザーID・表示名・Role・詳細権限・Repository登録・Product Dataは変更しない。
 
 Hostからの回復でも、回復専用ユーザー、特別Role、追加権限または特別なBootstrap Credentialを作らない。全員分を処置する場合の新資格は、指定した既存のadministratorユーザーへ紐づける。対象が不明、既存管理者が存在しない、ユーザー・Role・権限設定が破損している、または現在状態を安全に確認できない場合は、新しい処置を発行せず停止する。鍵交換による認可設定の自動修復は保証しない。初回Server設定の方式はこの変更で廃止しない。
 
@@ -51,7 +53,7 @@ Remote接続には利用範囲の分離が必要
 - Credential Secretは十分に長い暗号学的乱数とし、発行時に一度だけ表示する。
 - ServerはSecretのDigestだけを保存し、生Secretまたは受信可能な同等値を保存しない。
 - 利用側はOS Credential Storeまたは接続先の秘密値管理へ保存し、Repository、`.crdd`、通常設定、Promptまたは会話履歴へ保存しない。
-- 管理を許可された`administrator`だけがユーザー、Role詳細権限およびCredentialを管理できる。
+- 鍵の発行・独立失効・交換は現行`administrator`だけが実行できる。残る4管理群の担当Roleと可変性は未確定で、現在その管理操作を許可された主体だけが実行できる。
 - `administrator`の管理能力からManagementまたはDevelopment内容へのアクセスを推定しない。
 - Repository要求はRole詳細権限、Exposureおよび既存の実アクセスを共同で確認し、許可されない内容を読取り・開示しない。
 - Credentialの失効、有効期限切れ、Role不一致およびRepository非開示を成功へ畳まない。
@@ -61,7 +63,8 @@ Remote接続には利用範囲の分離が必要
 - 指定ユーザーの鍵交換では、userIdで指定した既存ユーザーの旧有効Credentialをすべて失効し、そのユーザーへ新Secretを一度だけ発行する。他ユーザーの資格は維持する。
 - 全員の鍵交換では、全ユーザーの旧有効Credentialをすべて失効し、userIdで指定した既存administratorユーザーへ新Secretを一度だけ発行する。その管理者が他ユーザーの資格を通常管理から再発行する。
 - 両操作はユーザーID・表示名・Role・詳細権限・Repository登録・Product Dataを保持し、権限を増やさない。Host回復時も同じ保持条件を使う。
-- 通常管理は現行管理認可を要求し、Host回復はServer Host上の対話CLIで別のOS Authorityと明示確認を要求する。Remote MCPや通常WorkbenchからHost Authorityを代用しない。SecretをMCPへ返さない制約は維持する。
+- 通常の鍵操作は現行administratorを要求し、Role設定から他Roleへ付与・administratorから剥奪できない。Host回復はログイン済みローカル操作者の対話CLIと明示確認を使い、鍵交換2操作以外へ広げない。Remote MCPや通常WorkbenchからHost入口を代用しない。
+- MCPのTool一覧・Schema・dispatchに鍵の発行・独立失効・交換を含めず、未許可呼出しでは鍵操作Effectを発行しない。Secretを返さない失効も対象外とする。
 - 処置前に対象ユーザーID・表示名、失効する資格範囲、新資格の発行先および保持する情報を確認する。Host入口と全員の鍵交換では人間の明示確認を得る。
 - RecoveryのIdentity、対象範囲、結果および再入場方法を秘密値なしで耐久記録へ残し、途中失敗を成功へ畳まない。
 - 失効後の発行失敗・応答喪失では、既知の失効範囲と発行結果の不明を同じRecoveryへ保持する。未失効・rollback・開始済み取消完了を推定せず、Secretを再表示しない。
@@ -83,7 +86,7 @@ Remote接続には利用範囲の分離が必要
 - 最小のユーザーID・表示名・Role・Credential紐付けを超えるUser Account、個人Profile、Password、メール、部署、役職および本人確認。
 - 接続申請、Administratorによる個人承認およびSelf-service登録。
 - 個人行動監査製品、外部IdP、SSOおよびMulti-tenant IAM。管理変更やRecoveryの必要な非秘密安全記録は禁止しない。
-- MCPまたはChat Agentへ新Credential Secretを返すこと。
+- MCPへの鍵発行・独立失効・交換の公開、およびMCPまたはChat Agentへ新Credential Secretを返すこと。
 - Access RecoveryによるRepository、Project Context、CHG、Evidenceその他のProduct Data削除。
 - Repository単体利用へのCROS Credential、Role選択またはCROS Server登録の強制。
 
@@ -95,13 +98,13 @@ Remote接続には利用範囲の分離が必要
 
 ## 検証意図
 
-管理者がユーザーID・表示名・Roleを登録し、Credentialを発行してRemote接続する。表示名変更でもID・認可が不変で、鍵交換でもID・名前・Role・権限が不変かつ旧Secretが拒否されること、Role詳細権限変更が次の認可へ反映されることを確認する。指定ユーザーと全員の失効範囲、全員交換後の指定管理者への再入場、通常管理とHost入口のAuthority差を別々に確認する。既存管理者不存在・対象不明・認可設定破損では処置前停止する。Secret非保存、偽のユーザー相関、Credential別権限追加、誤Role、期限切れ、非開示Repository、非管理者による管理操作、開始済み取消の誤認および管理者への内容自動付与を反証する。失効後の発行失敗・応答喪失・Process喪失では既知処置と同じRecoveryを保持し、再観測なしに完了やrollbackへ畳まない。Repository単体利用がCredentialなしで成立することも確認する。
+現在ユーザー管理を許可された主体がユーザーID・表示名・Roleを登録し、administratorがCredentialを発行してRemote接続する。残る4管理群の担当Roleと可変性は設計確定後に検証へ具体化する。表示名変更でもID・認可が不変で、鍵交換でもID・名前・Role・権限が不変かつ旧Secretが拒否されること、Role詳細権限変更が次の認可へ反映されることを確認する。指定ユーザーと全員の失効範囲、全員交換後の指定管理者への再入場、通常管理とHost入口のAuthority差を別々に確認する。既存管理者不存在・対象不明・認可設定破損では処置前停止する。Secret非保存、偽のユーザー相関、Credential別権限追加、誤Role、期限切れ、非開示Repository、administrator以外による鍵操作と、現在の管理権限を持たない主体による他の管理操作、開始済み取消の誤認および管理者への内容自動付与を反証する。失効後の発行失敗・応答喪失・Process喪失では既知処置と同じRecoveryを保持し、再観測なしに完了やrollbackへ畳まない。Repository単体利用がCredentialなしで成立することも確認する。
 
 ## UXへの引き渡し
 
 | 引渡し先 | 失ってはならない意味 | 下流で決めること |
 |---|---|---|
-| UX | Repository単体利用はCredential不要。表示名は自身と管理対象の表示だけに使う。指定ユーザー交換は対象の旧有効資格すべてを失効して同じユーザーへ新資格を一度発行し、全員交換は全旧有効資格失効と指定既存administratorへの一度発行を行う。ユーザー情報・Role・権限・登録・Product Dataを保持する。同じ2操作を通常管理認可またはHost OS Authorityと明示確認から実行する。対象不明・管理者不存在・認可設定破損では処置前停止。処置後失敗・応答喪失・Process喪失は既知処置と同じRecoveryを保持する | 対象1人／全員の影響理解、全員交換後の再配布負担、通常／Hostの入口とAuthority差、Secret一度表示、結果不明時の再観測・再入場、単体／Remote切替、管理者登録・表示名／Role変更と初回設定 |
+| UX | Repository単体利用はCredential不要。表示名は自身と管理対象の表示だけに使う。指定ユーザー交換は対象の旧有効資格すべてを失効して同じユーザーへ新資格を一度発行し、全員交換は全旧有効資格失効と指定既存administratorへの一度発行を行う。ユーザー情報・Role・権限・登録・Product Dataを保持する。通常の鍵操作はadministrator専用固定・設定項目外とし、同一Process Workbenchから実行する。MCPには鍵操作自体を公開しない。Hostはログイン済みローカル操作者の対話CLIから交換2操作だけを実行し、追加認証・専用資格・承認コード・OS管理者昇格を要求せず、既存Root／Path検証を維持する。全4組で対象と影響を事前表示し、Hostまたは全員交換の3組だけ明示確認する。対象不明・管理者不存在・認可設定破損では処置前停止。処置後失敗・応答喪失・Process喪失は既知処置と同じRecoveryを保持する | 対象1人／全員の影響理解、全員交換後の再配布負担、通常／Hostの入口とAuthority差、Secret一度表示、結果不明時の再観測・再入場、単体／Remote切替、管理者登録・表示名／Role変更と初回設定 |
 
 ## 関係
 

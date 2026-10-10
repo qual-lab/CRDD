@@ -2,7 +2,7 @@
 
 成果物種別: Architecture定義
 Architecture ID: `ARCH-000013`
-状態: 更新中（採用済み契約への是正伝播・限定独立レビュー済み）
+状態: 更新中（最新の鍵管理判断を限定反映・限定独立レビュー済み・残指摘0。下流再伝播未完了）
 維持責任者: Qual-Lab
 
 ## 1. 責務と境界
@@ -41,7 +41,7 @@ Credentialから既存ユーザーを識別し、現行Role詳細権限、Reposi
 | 入力 | State Owner | Authority・Effect | Failure・Lifecycle |
 |---|---|---|---|
 | UI-000008 | 認識・表示の意味はUI、状態の確定はAccess Management等の実Owner | UIはAuthority・Effectを発行しない。通常管理とHost、操作範囲を別軸表示 | 全4組の事前表示、Hostまたは全員交換だけ明示確認、部分結果を隠さない。画面／CLI分担は未確定 |
-| SPEC-000012 | Access Managementのユーザー／Role／資格／認可・鍵交換状態。認可済み集約はDomain Model | 通常は現行管理認可、HostはHost OS Authority。通常管理はユーザー／Role設定を更新し得るが、鍵交換は鍵だけ変更する | 事前条件、旧失効、新発行、結果確定・受領を分離。失効後失敗／応答・Process喪失は同じRecoveryへ既知失効と発行不明を耐久保持 |
+| SPEC-000012 | Access Managementのユーザー／Role／資格／認可・鍵交換状態。認可済み集約はDomain Model | 通常は現行管理認可、Hostはログイン済みローカル操作者。通常管理はユーザー／Role設定を更新し得るが、鍵交換は鍵だけ変更する | 事前条件、旧失効、新発行、結果確定・受領を分離。失効後失敗／応答・Process喪失は同じRecoveryへ既知失効と発行不明を耐久保持 |
 
 ## 5. 構造と依存方向
 
@@ -63,7 +63,7 @@ Workbench／MCP／管理入口
 | 対象 | 関係と所有境界 |
 |---|---|
 | ユーザー | 安定userId（UUID）・管理者設定の表示専用名・一つのRole。改名／同名はIdentityやAuthorityを変更しない |
-| Role詳細権限 | developer／manager／administratorのRoleが所有。ユーザー／Credentialへの個別追加権限なし |
+| Role詳細権限 | developer／manager／administratorのRoleが所有。ユーザー／Credentialへの個別追加権限なし。鍵発行・独立失効・交換は現行administrator専用固定で、ON／OFF設定へ含めない |
 | 資格／Session | Credential ID→userId。現在認可時に現行Roleを参照し、古い権限を固定しない。Sessionから永続認証Storeを新設しない |
 | Exposure／実アクセス | 公開範囲と現在取得可能性を別判定。不明を許可／不存在へ丸めない |
 | 鍵交換相関 | 同じRecovery ID、種別・入口・対象・既存発行先・失効確定範囲・発行結果・再入場。非秘密の耐久情報としてProcess喪失後も保持 |
@@ -79,7 +79,7 @@ Workbench／MCP／管理入口
 | 全員交換 | 全ユーザーの全旧有効資格。操作中管理者自身も含む | 指定した既存administrator userId。他ユーザー再発行・再配布は管理者の通常管理 |
 | 独立失効 | 認可された対象資格 | 新発行なし。以後の要求拒否 |
 
-- 通常入口は現行管理認可、Host入口はHost OS Authority。全4組で対象ID・表示名・失効範囲・発行先・保持情報を事前表示し、Hostまたは全員交換の3組だけ明示確認する。
+- 通常の鍵操作は現行administrator、Host回復入口はログイン済みローカル操作者を信頼する。Hostは鍵交換2操作だけで、追加認証・専用資格・承認コード・OS管理者昇格を要求しない。既存ユーザー単位RootとPath検証を維持し、任意Rootや別OSユーザーの状態へ越境しない。全4組で対象ID・表示名・失効範囲・発行先・保持情報を事前表示し、Hostまたは全員交換の3組だけ明示確認する。
 - 対象不明・必要な管理者不存在・必要状態の安全な観測不能・認可破損は新Effect前停止。認可設定を修復しない。
 - 鍵交換はuserId・表示名・Role・詳細権限・Repository登録・Product Dataを保持。特別ユーザー、追加権限、回復専用Bootstrapを作らない。
 - 失効後の発行失敗・応答／Process喪失では、既知失効と発行不明を別の事実として同じRecoveryへ保持する。別Recoveryを重ねない。
@@ -88,7 +88,7 @@ Workbench／MCP／管理入口
 
 ## 8. 品質・保護・未確認事項
 
-三可視境界（自身表示可／非認証User情報0／非管理者の他User一覧・存在・件数0）、Repository非開示、管理と内容閲覧の分離、現行Role反映をすべての利用側で維持する。
+三可視境界（自身表示可／非認証User情報0／他ユーザー参照の現行管理権限を持たない入口への他User一覧・存在・件数0）、Repository非開示、管理と内容閲覧の分離、現行Role反映をすべての利用側で維持する。
 
 継承Openは、代表利用者・Qual-Labによる自身表示とID・利用不能理由・接続負担の理解、管理者／Host運用者・Qual-Labによる対象識別・確認負担・画面／CLI分担・有効期限既定値の評価。実利用、Pilot、回復実測または前提変更で再評価する。未確認の定量条件・期限・画面・配布手順を確定せず、上流の意味不足はUI／SPECへ戻す。
 
@@ -99,7 +99,7 @@ Workbench／MCP／管理入口
 | [SCR-000008／PRT-000008](../../../04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md) | `PRT-000008.spec-000012` | 対象・事前表示・状態・部分結果・一度表示Secretを配置制約として保持。Layoutと画面／CLI分担はUI Detailへ戻す |
 | [BHV-000012](../../../05_SPEC/Details/BHV-000012/behavior.md) | 同じ既存Relation | Trigger・Authority・Validation・失効／発行・結果・Recoveryを保持。振る舞い変更はSPEC Detailへ戻す |
 
-03〜06の横断モデルは伝播済み・限定独立レビュー済み。07詳細領域Mapの本定義断面と[Access Management詳細](../../Details/access-management/01_Architecture.md)はCandidateへ接続した（保存・公開入口OPEN、両観点の限定独立レビュー済み）。[Detail Traceability](../../08_UI_SPEC_Detail_Traceability.md)、Domain集約・MCP／Workbench等の新契約Detailsは未追従。旧配置を新Ownerの完成形として扱わない。
+03〜06、07詳細領域Map、UI／SPEC Detailへの前判断の伝播・限定レビューは履歴であり、最新の鍵管理判断へ流用しない。本定義と[Access Management詳細](../../Details/access-management/01_Architecture.md)は最新判断の限定反映・限定独立レビュー済み・残指摘0。Architecture分析・03〜08横断モデル、Domain集約・MCP／Workbenchの新契約Details、Quality・Sourceは再伝播未完了。保存・公開入口はOPENで、旧配置を新Ownerの完成形として扱わない。
 
 ## 9. 互換性・移行・成立済み能力
 
@@ -114,7 +114,7 @@ Workbench／MCP／管理入口
 ## 10. 実装と検証への引き渡し
 
 - 認可判定・ユーザー／Role／資格・鍵交換状態のOwnerをAccess Management、認可済みContext集約をDomain Modelへ分け、MCP／Workbenchは同じ認可契約を使う。
-- 秘密発行は既存設計でHostまたは同一Process Workbenchへ限定されている。鍵交換2操作の具体的な公開入口は既存Local管理能力との対応・Details／Source照合待ちで、Remote MCPへの秘密発行公開やCLI固定を今回決めない。
+- 通常の鍵発行・独立失効・交換は現行administrator専用の固定操作として同一Process Workbenchから呼ぶ。Hostの鍵回復CLIはログイン済みローカル操作者を信頼し、追加認証なしで同じ鍵交換2操作を呼ぶ。MCPにはSecret有無にかかわらず鍵操作のTool・Schema・登録・dispatchを置かない。具体API・入力・受領方式はDetailsで閉じる。
 - Qualityへ渡す意味は通常管理・要求毎認可・同名／改名・2操作×2入口・独立失効・3可視境界・処置前停止・処置後不明・再入場・情報保持・秘密非再表示・取消非証明。Local Item、試験、EvidenceはQualityで対応付ける。
 - Task進行・取消・回復はOrchestrator等の既存Ownerに残す。資格の失効／交換で開始済み処理の完了を推定しない。
 
