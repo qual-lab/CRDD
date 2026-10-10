@@ -20,7 +20,7 @@
 | SCR-000005／PRT-000005 | UI-000005 | Screen目的、情報、操作、Feedback、状態、失敗、Unknownおよび回復がSource UIの意味を保持する | QA-000004、QA-000006 | Mapped |
 | SCR-000006／PRT-000006 | UI-000006 | Screen目的、情報、操作、Feedback、状態、失敗、Unknownおよび回復がSource UIの意味を保持する | QA-000001、QA-000007 | Mapped |
 | SCR-000007／PRT-000007 | UI-000007 | Screen目的、情報、操作、Feedback、状態、失敗、Unknownおよび回復がSource UIの意味を保持する | QA-000009 | Mapped |
-| SCR-000008／PRT-000008 | UI-000008 | Screen目的、情報、操作、Feedback、状態、失敗、Unknownおよび回復がSource UIの意味を保持する | QA-000007 | Mapped |
+| SCR-000008／PRT-000008 | UI-000008 | Screen目的、情報、操作、Feedback、状態、失敗、Unknownおよび回復がSource UIの意味を保持する。解除の両読戻しと取消非証明、元発行不明の再観測・確定受け渡し未確認後の明示的な別交換・現在管理者認証未接続／喪失時の既存Hostという表示／導線を保持する。秘密再表示・自動再発行・失効鍵の遅延利用案内を反証する | QA-000007 | Mapped |
 | SCR-000009／PRT-000009 | UI-000009 | Screen目的、情報、操作、Feedback、状態、失敗、Unknownおよび回復がSource UIの意味を保持する | QA-000005 | Mapped |
 | SCR-000010／PRT-000010 | UI-000010 | Screen目的、情報、操作、Feedback、状態、失敗、Unknownおよび回復がSource UIの意味を保持する | QA-000001、QA-000006 | Mapped |
 | SCR-000011／PRT-000011 | UI-000011 | Screen目的、情報、操作、Feedback、状態、失敗、Unknownおよび回復がSource UIの意味を保持する | QA-000008 | Mapped |
@@ -49,7 +49,7 @@
 | BHV-000009 | SPEC-000009 | Trigger、Precondition、Authority、Validation、State、Effect、Result、FailureおよびRecoveryがSource SPECの意味を保持する | QA-000006 | Mapped |
 | BHV-000010 | SPEC-000010 | Trigger、Precondition、Authority、Validation、State、Effect、Result、FailureおよびRecoveryがSource SPECの意味を保持する | QA-000007 | Mapped |
 | BHV-000011 | SPEC-000011 | Trigger、Precondition、Authority、Validation、State、Effect、Result、FailureおよびRecoveryがSource SPECの意味を保持する | QA-000009 | Mapped |
-| BHV-000012 | SPEC-000012 | Trigger、Precondition、Authority、Validation、State、Effect、Result、FailureおよびRecoveryがSource SPECの意味を保持する | QA-000007 | Mapped |
+| BHV-000012 | SPEC-000012 | Trigger、Precondition、Authority、Validation、State、Effect、Result、FailureおよびRecoveryがSource SPECの意味を保持する。解除の同一受理操作・採用改訂による登録／Exposure両除去読戻し、対象外／本体保持と旧取消非証明を確認する。元発行Identity≠Credential ID、通常発行Recovery0／交換由来元exact、確定後の現在admin明示による別Operation／Recovery交換、各交換内exactと先の鍵を含む対象集合、現在admin認証未接続／喪失時の既存Host2のみを確認する | QA-000007 | Mapped |
 | BHV-000013 | SPEC-000013 | Trigger、Precondition、Authority、Validation、State、Effect、Result、FailureおよびRecoveryがSource SPECの意味を保持する | QA-000005 | Mapped |
 | BHV-000014 | SPEC-000014 | Trigger、Precondition、Authority、Validation、State、Effect、Result、FailureおよびRecoveryがSource SPECの意味を保持する | QA-000001 | Mapped |
 | BHV-000015 | SPEC-000015 | Trigger、Precondition、Authority、Validation、State、Effect、Result、FailureおよびRecoveryがSource SPECの意味を保持する | QA-000006 | Mapped |
@@ -173,12 +173,12 @@ Domain Model詳細設計§9.1の通常保存完了は、同じLock内で一度�
 
 | 詳細入力 | 導出する義務 | Quality Owner／Local Item | 実行状態 |
 |---|---|---|---|
-| SCR-000008／PRT-000008、BHV-000012、PRT-000008.spec-000012 | 通常6管理操作・固定分担・操作別対象・自己内容変更の理解と受理／利用の区別、交換4組の事前表示・3組確認、Secret一度表示、段階別結果 | QA-000007／RFD-ST-016、RFD-UAT-007 | Not Run |
-| Access Managementの固定管理判定／通常管理保存境界、Workbenchの通常管理縦断 | 固定8操作×三Role、通常6入力→変更前認可→保存・読戻し→表示→次要求。内容認可と鍵処置を分離 | QA-000007／RFD-UT-020、RFD-IT-021、RFD-ST-022 | Not Run |
-| Access Management・Workbenchの最新詳細 | 通常発行、exact独立失効、現在ユーザー／Role認可 | QA-000007／RFD-IT-017、RFD-IT-018、RFD-ST-003、RFD-IT-013 | Not Run |
+| SCR-000008／PRT-000008、BHV-000012、PRT-000008.spec-000012 | 通常6管理操作・固定分担・操作別対象・自己内容変更の理解と受理／利用の区別、交換4組の事前表示・3組確認、Secret一度表示、段階別結果を維持。解除の両読戻しと旧取消非証明、発行／記録不明の再観測と確定受け渡し未確認後の別交換、現在admin認証未接続／喪失だけHostを理解・操作できる。先の鍵の失効範囲と再配布、遅延失効鍵の案内0、旧事実／新操作区別を確認する | QA-000007／RFD-ST-016、RFD-UAT-007 | Not Run |
+| Access Managementの固定管理判定／通常管理保存境界、Workbenchの通常管理縦断 | 固定8操作×三Role、通常6入力→変更前認可→保存・読戻し→表示→次要求。内容認可と鍵処置を分離する。解除は同じ受理操作・採用改訂で登録＋対応Exposure両除去読戻しだけ完了、他登録／Exposureと本体を保持。片側残存・観測不能、事前別公開解除・登録時Binding再検証の必須化、両除去からの旧取消推定を反証 | QA-000007／RFD-UT-020、RFD-IT-021、RFD-ST-022 | Not Run |
+| Access Management・Workbenchの最新詳細 | 通常発行・exact独立失効・現在認可を維持。発行／非秘密記録不明はCredential IDとは別の元発行Identity再観測・新交換0・通常発行Recovery新設0、交換由来だけ元exact。確定発行／記録と配送未確認は旧事実を保持し現在adminの明示的な別Operation／別Recovery交換。先の鍵を含む対象集合・各交換exact・遅延失効鍵利用案内0・新交換≠旧受領／rollback／取消を確認。現在admin認証未接続／喪失だけ既存Host2操作 | QA-000007／RFD-IT-017、RFD-IT-018、RFD-ST-003、RFD-IT-013、RFD-ST-016 | Not Run |
 | Access Management・Domainの最新詳細 | 認可済み集合だけの集約、部分・競合・出所の保持、Owner分離 | QA-000007／RFD-IT-019 | Not Run |
-| MCPの最新詳細 | 一覧・Schema・登録・dispatchに全鍵操作なし。要求Bearer認証継続 | QA-000009／EST-ST-015 | Not Run |
+| MCPの最新詳細 | 非鍵解除の同一受理操作／改訂・両除去読戻しと対象外／本体保持・取消非証明を意味を変えず搬送する。一覧・Schema・登録・dispatchに全鍵操作と鍵回復参照なし、要求Bearer認証継続 | QA-000009／EST-IT-010、EST-ST-015 | Not Run |
 
 参照正本は[Access Management](../../../06_Architecture/Details/access-management/01_Architecture.md)、[Workbench](../../../06_Architecture/Details/workbench-server/01_Architecture.md)、[MCP](../../../06_Architecture/Details/mcp-server/01_Architecture.md)、[Domain](../../../06_Architecture/Details/domain-model/01_Architecture.md)の最新詳細である。既存のMapped／Coveredは導出関係の投影であり、上記変更の実行Passを示さない。Test Symbol・実行・Evidenceまでの接続は未完了。旧Evidenceは歴史的証跡として維持する。
 
-固定8操作の担当Roleは採用済み。新規3項目のSource Model／Model ItemはQA-000007の完全な導出対応表へ接続する。具体API・保存Schema・Source・Test・実境界は未成立。MCPの通常管理Toolを新規採用せず、採用済み非鍵入口の同値搬送はQA-000009／EST-IT-010、非採用入口の非公開を別に確認する。
+固定8操作の担当Roleと今回の追加判断は採用済み。既存Local ItemのSource Model／Model Itemへ対象Detailと反証条件を接続し、185項目を増やさない。具体API・保存Schema・Source・Test・実境界は未成立。MCPの通常管理Toolを新規採用せず、採用済み非鍵入口の同値搬送はQA-000009／EST-IT-010、鍵回復参照を含む鍵の4面非公開はEST-ST-015で別に確認する。今回の契約・品質限定独立レビュー済み・残指摘0であり、Not Run・過去Evidenceの適用範囲を維持する。
