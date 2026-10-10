@@ -1,8 +1,8 @@
 # CRDD／CROSの情報オブジェクトと関係
 
-状態: 引き渡し可能（v0.21.0）
+状態: v0.22.0更新候補（公開済みの基準版: v0.21.0）
 担当責任者: Qual-Lab
-最終更新日: 2026-09-14
+最終更新日: 2026-10-10
 
 本書は個別IA定義を横断し、利用者が別の対象として見分けるものと、その関係を示す。実装Classや保存表の一覧ではない。
 
@@ -67,7 +67,7 @@
 | [IA-000006](Definitions/IA-000006/ia_definition.md) | 適用 | 「Project・Repository・Binding・読取り投影（Projection）」のObject群（プロジェクト（Project）、リポジトリ（Repository）、結合情報（Binding）、プロジェクト項目ほか）と関係図を横断確認 |
 | [IA-000007](Definitions/IA-000007/ia_definition.md) | 適用 | 「手元の情報源と横断情報源」のObject群（手元の情報（Local Context）、手元の作業（Local Work）、リポジトリ横断情報源（Cross-repository Source）、履歴管理能力（Version Control Capability））と関係図を横断確認 |
 | [IA-000008](Definitions/IA-000008/ia_definition.md) | 適用 | 「公開受付・通信方式・結果」のObject群（公開依頼（Public Request）、公開契約（Public Contract）、通信手段（Transport）、作用状態（Effect State）ほか）と関係図を横断確認 |
-| [IA-000009](Definitions/IA-000009/ia_definition.md) | 適用 | Role別接続資格、Session、Repository情報範囲、管理能力、Secret表示境界、Credential状態およびAccess Recoveryの関係を横断確認 |
+| [IA-000009](Definitions/IA-000009/ia_definition.md) | 適用 | 資格→ユーザー→現行Role権限→公開対象→実アクセスと、表示名属性、Session、Repository情報責務、管理能力、Secret表示境界、通常リセット／Host回復の関係を横断確認 |
 | [IA-000010](Definitions/IA-000010/ia_definition.md) | 適用 | 「Meeting・Topic・候補・採否」のObject群（会議（Meeting）、会議項目（Meeting Item）、候補（Candidate）、論点（Topic）ほか）と関係図を横断確認 |
 | [IA-000011](Definitions/IA-000011/ia_definition.md) | 適用 | 「Tool能力・利用可否・配布根拠」のObject群（利用能力（Capability）、利用可否（Availability）、実行権限（Authority）、配布物（Distribution）ほか）と関係図を横断確認 |
 | [IA-000012](Definitions/IA-000012/ia_definition.md) | 適用 | 「実行時データ・保持・清掃」のObject群（実行データの基点（Runtime Root）、実行データ（Data Item）、永続性（Durability）、保持条件（Retention）ほか）と関係図を横断確認 |

@@ -1,8 +1,8 @@
 # CRDD／CROSの情報アーキテクチャ
 
-状態: 引き渡し可能（v0.21.0、公開済みの基準版: v0.20.1）
+状態: v0.22.0更新候補（公開済みの基準版: v0.21.0）
 担当責任者: Qual-Lab
-最終更新日: 2026-09-14
+最終更新日: 2026-10-10
 工程規則: [IA](../23_IA.md)
 
 ## 1. 何を分かりやすくするか
@@ -54,7 +54,7 @@ UXごとのIA分析
 | [IA-000006](Definitions/IA-000006/ia_definition.md) | Project・Repository・Binding・Projection | `UX-000009`、`UX-000011`、`UX-000015`、`UX-000034` |
 | [IA-000007](Definitions/IA-000007/ia_definition.md) | 手元の情報源と横断情報源 | `UX-000010`、`UX-000034` |
 | [IA-000008](Definitions/IA-000008/ia_definition.md) | 公開受付・通信方式・結果 | `UX-000012` |
-| [IA-000009](Definitions/IA-000009/ia_definition.md) | Role別接続資格・Repository範囲・Access Recovery | `UX-000013`、`UX-000035` |
+| [IA-000009](Definitions/IA-000009/ia_definition.md) | ユーザー・Role権限・接続資格・Repository範囲・Access Recovery | `UX-000013`、`UX-000035` |
 | [IA-000010](Definitions/IA-000010/ia_definition.md) | Meeting・Topic・候補・採否 | `UX-000014`、`UX-000033` |
 | [IA-000011](Definitions/IA-000011/ia_definition.md) | Tool能力・利用可否・配布根拠 | `UX-000016` |
 | [IA-000012](Definitions/IA-000012/ia_definition.md) | 実行時データ・保持・清掃 | `UX-000017`、`UX-000022` |
@@ -105,7 +105,7 @@ UXごとのIA分析
 
 ## 6. 現在状態と次工程
 
-IAは35件のUX定義から対象・識別・関係・状態・可視性・導線・責任を再導出し、入力固有の意味を失わない23件のIA定義へ統合した。標準Project ContextはIA-000023、Topic／Meetingの安全な維持はIA-000010、Project情報と作業差分の接続はIA-000006／007／023へ統合した。Role別Remote AccessとAccess RecoveryはIA-000009へ統合し、旧Workspace Grant方式をCanonicalな入力にしない。Workbench固有の情報正本は作らない。UI部品、画面遷移、API、保存形式、状態実値は未確定であり、下流工程が本IAを満たす方法を比較する。
+IAは35件のUX定義から対象・識別・関係・状態・可視性・導線・責任を再導出し、入力固有の意味を失わない23件のIA定義へ統合した。標準Project ContextはIA-000023、Topic／Meetingの安全な維持はIA-000010、Project情報と作業差分の接続はIA-000006／007／023へ統合した。最小ユーザー識別、現行Role詳細権限、接続資格とRepository公開／実アクセス、通常リセットとHost回復をIA-000009へ統合する。旧共有資格方式とCredential単位GrantをCanonicalな入力にせず、今回変更した2分析・1定義・横断投影とUXの継承制約補足は、Architecture・品質の限定独立レビューで残指摘0である。これは当該文書範囲の確認であり、全IA・Source・E2Eの完成判定ではない。Workbench固有の情報正本は作らない。UI部品、画面遷移、API、保存形式、状態実値は未確定であり、下流工程が本IAを満たす方法を比較する。
 
 工程完了には、全35分析と23定義の独立再レビュー、UXだけからの再導出結果と現行文書・実装からの照合結果の分離、基本図の意味確認が必要である。IA-000020とIA-000021への分割は、人間の決定権限者が2026-09-15に採用した。
 

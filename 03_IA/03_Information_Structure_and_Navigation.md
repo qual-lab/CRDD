@@ -1,8 +1,8 @@
 # CRDD／CROSの情報のまとまりと導線
 
-状態: 引き渡し可能（v0.21.0）
+状態: v0.22.0更新候補（公開済みの基準版: v0.21.0）
 担当責任者: Qual-Lab
-最終更新日: 2026-09-14
+最終更新日: 2026-10-10
 
 ## 1. 導線の原則
 
@@ -76,7 +76,7 @@ Primary、Secondary、Referenceは情報上の優先度であり、画面の位�
 | [IA-000006](Definitions/IA-000006/ia_definition.md) | 適用 | ProjectからBindingでRepositoryへ進み、投影からSource・Revision・Observed At・Coverageへ戻る |
 | [IA-000007](Definitions/IA-000007/ia_definition.md) | 適用 | まず手元の情報と作業へ進み、不足時だけ横断情報源へ移り、履歴の詳細はAdapter経由で辿る |
 | [IA-000008](Definitions/IA-000008/ia_definition.md) | 適用 | 公開依頼から契約・作用状態・公開結果へ進み、通信手段が変わっても同じ結果根拠へ辿る |
-| [IA-000009](Definitions/IA-000009/ia_definition.md) | 適用 | 通常利用はCredential→Role→Repository、通常管理はRole→Credential→状態、緊急時はHost確認→Recovery→Bootstrap再入場へ辿る |
+| [IA-000009](Definitions/IA-000009/ia_definition.md) | 適用 | 通常利用は資格→ユーザー→現行Role権限→公開対象→実アクセス。管理は対象ID・表示名→Role／資格→処置影響。緊急時は別Host Authority→Recovery→再入場へ辿る |
 | [IA-000010](Definitions/IA-000010/ia_definition.md) | 適用 | MeetingからMeeting Item・Candidateへ進み、関係するTopicと採否判断へ辿る |
 | [IA-000011](Definitions/IA-000011/ia_definition.md) | 適用 | やりたい仕事からCapability・Availabilityへ進み、必要時にDistribution・Manifest・Runtime Bindingへ辿る |
 | [IA-000012](Definitions/IA-000012/ia_definition.md) | 適用 | Runtime RootからData Item・Durability・Retentionへ進み、残存時はRecovery Obligation・Cleanup Evidenceへ辿る |

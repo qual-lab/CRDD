@@ -1,8 +1,8 @@
 # CRDD／CROSの状態・可視性・責任
 
-状態: 引き渡し可能（v0.21.0）
+状態: v0.22.0更新候補（公開済みの基準版: v0.21.0）
 担当責任者: Qual-Lab
-最終更新日: 2026-09-14
+最終更新日: 2026-10-10
 
 ## 1. 状態を丸めない
 
@@ -84,7 +84,7 @@ Architecture／Provider／Platform
 | [IA-000006](Definitions/IA-000006/ia_definition.md) | 適用 | 利用可能／一部利用可能／制限／古い／競合／不明を区別し、正本Ownerと投影生成責任を分ける |
 | [IA-000007](Definitions/IA-000007/ia_definition.md) | 適用 | 手元で完結／横断参照が必要／横断先なし／制限／不明を区別する |
 | [IA-000008](Definitions/IA-000008/ia_definition.md) | 適用 | 未受付／受付済み／作用未発行／作用済み／結果搬送済み／不明を区別する |
-| [IA-000009](Definitions/IA-000009/ia_definition.md) | 適用 | 利用可能／資格要求／制限／利用不能／不明、Credentialの有効／期限切れ／失効／ローテーション中、Recoveryの確認待ち／進行中／blocked／completedを区別し、管理能力を内容閲覧へ流用しない |
+| [IA-000009](Definitions/IA-000009/ia_definition.md) | 適用 | 自身表示を許可し、非認証へユーザー情報、非管理者へ他ユーザー一覧・存在・件数を非開示とする。資格の有効／期限切れ／失効／不明と通常Reset、Roleの現行性、部分可視、Host回復を区別し、名前と管理能力を内容閲覧Authorityへ流用しない |
 | [IA-000010](Definitions/IA-000010/ia_definition.md) | 適用 | 記録済み／候補／検討中／採用／却下／保留を区別する |
 | [IA-000011](Definitions/IA-000011/ia_definition.md) | 適用 | 利用可能／未導入／不一致／権限不足／不明を区別する |
 | [IA-000012](Definitions/IA-000012/ia_definition.md) | 適用 | 一時／耐久／回復必要／削除可能／清掃済み／不明を区別する |

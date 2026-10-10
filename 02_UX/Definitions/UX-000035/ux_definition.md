@@ -86,6 +86,7 @@ Bootstrap Credentialで通常管理へ戻る
 
 ## 責任境界・制約・対象外
 
+- userIdは採用済みのUUID制約を保持する。UUID版・Schema・生成方式はUX／IAでは決めない。
 - UXが定義すること: 管理者のGoal、通常管理と緊急復旧の体験、失敗、品質期待。
 - 下流工程へ残すこと: 情報構造、管理画面／CLI、Digest方式、認証Protocol、耐久記録および実装配置。
 - 制約: Administratorと内容Accessを分け、秘密値を正本・Prompt・会話へ複製しない。
@@ -111,10 +112,10 @@ Bootstrap Credentialで通常管理へ戻る
 
 | 接続先 | 保持する意味 |
 |---|---|
-| IA（直後工程への正式な引き渡し） | ユーザーID、表示名、自身／管理対象の可視範囲、Role詳細権限、Credential metadata、Secret表示境界、Credential状態、管理能力、Recovery Identity、対象・保持範囲、結果、再入場 |
-| Quality Analysis / UX（伴走） | 名前非Authority、通常リセットのID・Role保持と旧資格拒否、Role変更の次認可反映、Secret非保存、Role分離、Host回復でのRole設定とCredential安全化、Product Data保持 |
-| UI（後続Contract Relation） | 管理者の対象識別・表示名／Role変更・リセットの影響確認、発行とリセット後の新Secret一度表示、一覧・失効、Host Recovery確認、途中状態、Bootstrap再発行後の再入場 |
-| SPEC（後続Contract Relation） | ユーザー相関、名前非Authority、Role権限変更、発行・Digest保存・検証・失効・期限・リセットと旧資格拒否、Host Recovery Authority、耐久記録、Effect境界 |
+| IA（直後工程への正式な引き渡し） | ユーザーID、表示名、自身／管理対象の可視範囲、Role詳細権限、Credential metadata、Secret表示境界、Credential状態、管理能力、Recovery Identity、対象・保持範囲、結果、再入場。Administrator Recovery／Full Access Resetを区別し、各種別の対象・Role影響・保全・結果・再入場を保持する |
+| Quality Analysis / UX（伴走） | 名前非Authority、通常リセットのID・Role保持と旧資格拒否、Role変更の次認可反映、Secret非保存、Role分離、Host回復でのRole設定とCredential安全化、Product Data保持。Administrator Recovery／Full Access Resetを区別し、各種別の対象・Role影響・保全・結果・再入場を保持して検証する |
+| UI（後続Contract Relation） | 管理者の対象識別・表示名／Role変更・リセットの影響確認、発行とリセット後の新Secret一度表示、一覧・失効、Host Recovery確認、途中状態、Bootstrap再発行後の再入場。Administrator Recovery／Full Access Resetを区別し、各種別の対象・Role影響・保全・結果・再入場を保持する |
+| SPEC（後続Contract Relation） | ユーザー相関、名前非Authority、Role権限変更、発行・Digest保存・検証・失効・期限・リセットと旧資格拒否、Host Recovery Authority、耐久記録、Effect境界。Administrator Recovery／Full Access Resetを区別し、各種別の対象・Role影響・保全・結果・再入場を保持する |
 
 ## 関係
 
