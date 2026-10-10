@@ -1,6 +1,6 @@
 # 操作と表示状態
 
-状態: v0.22.0更新中（最新の権限分担のDefinition・横断投影は限定伝播・限定独立レビュー済み・残指摘0。Detail以降は未追従、全体Readyは未主張）
+状態: v0.22.0更新中（登録解除・鍵の受け渡し未確認のDefinition・横断投影は限定伝播・契約／品質独立再レビュー済み（残指摘0）。Detail以降は未追従、全体Readyは未主張）
 情報源: [UI定義台帳](01_User_Interface.md#3-ui定義台帳)
 
 この文書は全UIへ同じ実行状態を強制しない。下表で各UIに適用する変化を先に固定し、後続のFlowとVariantは該当するUIだけが使用する。
@@ -32,7 +32,7 @@
 
 ## 1. 共通操作Flow
 
-UI-000008の現行操作は[UI定義](Definitions/UI-000008/ui_definition.md#操作とfeedback)を正本とする。画面詳細は最新判断へ未追従である。指定ユーザー交換／全員交換×通常／Host入口の全4組で対象・失効範囲・既存発行先・保持情報を事前表示し、Host入口または全員交換の3組だけ明示確認する。独立失効は新発行なし。対象不明・必要な管理者不存在・必要状態の観測不能・認可破損は新Effect前停止とし、失効後の発行失敗・応答／Process喪失は失効確定範囲と発行不明を分け、同じRecoveryで現在再観測へ戻す。完了・rollback・旧鍵有効・開始済み取消済みを推測表示せず、Secretを再表示しない。 鍵の発行・独立失効・交換はadministrator専用固定で、Role詳細権限のON／OFF設定を設けない。通常鍵操作は同一Process Workbench backendだけで提供し、MCPには秘密値の有無を問わず鍵操作の一覧・Schema・登録・dispatchを公開しない。Hostはログイン済みローカル操作者を信頼する対話CLIで交換2操作だけを扱い、追加認証・専用資格・承認コード・OS管理者昇格を要求しない。既存Root／Path検証を維持する。manager／administratorはユーザー登録・表示名変更、developer／managerの割当て・詳細権限、Repository登録・登録解除・公開範囲を管理する。administratorの付与・解除・降格を含むRole変更、administrator詳細権限と鍵3操作はadministratorだけが管理する。developerへ管理操作、managerへ管理者専用操作を設定で委譲しない。
+UI-000008の現行操作は[UI定義](Definitions/UI-000008/ui_definition.md#操作とfeedback)を正本とする。画面詳細は最新判断へ未追従である。指定ユーザー交換／全員交換×通常／Host入口の全4組で対象・失効範囲・既存発行先・保持情報を事前表示し、Host入口または全員交換の3組だけ明示確認する。独立失効は新発行なし。対象不明・必要な管理者不存在・必要状態の観測不能・認可破損は新Effect前停止とし、発行自体または結果記録が不明なら元発行Identityで現在再観測へ戻し、交換由来だけ同じexact Recoveryを保持する。発行・記録確定で受け渡しだけ未確認なら、確定事実を保持し現在認可の下で別の明示交換を選ぶ。完了・rollback・旧鍵有効・開始済み取消済みを推測表示せず、Secretを再表示しない。鍵の発行・独立失効・交換はadministrator専用固定で、Role詳細権限のON／OFF設定を設けない。通常鍵操作は同一Process Workbench backendだけで提供し、MCPには秘密値の有無を問わず鍵操作の一覧・Schema・登録・dispatchを公開しない。Hostはログイン済みローカル操作者を信頼する対話CLIで交換2操作だけを扱い、追加認証・専用資格・承認コード・OS管理者昇格を要求しない。既存Root／Path検証を維持する。manager／administratorはユーザー登録・表示名変更、developer／managerの割当て・詳細権限、Repository登録・登録解除・公開範囲を管理する。administratorの付与・解除・降格を含むRole変更、administrator詳細権限と鍵3操作はadministratorだけが管理する。developerへ管理操作、managerへ管理者専用操作を設定で委譲しない。
 
 ```text
 [対象を選ぶ]
@@ -56,6 +56,8 @@ UI-000008の現行操作は[UI定義](Definitions/UI-000008/ui_definition.md#操
                    ▼                  ▼                  ▼
               次の行動へ      理由別の処置へ      回復義務を保持
 ```
+
+登録解除・鍵の受け渡し未確認の現在の限定投影：登録解除は対象の登録と対応Exposureを同じ受理操作で除去する。事前の別操作による公開解除を必須にせず、以後の対象CROSアクセスを停止する。他Repositoryの登録／Exposureと対象Repository本体・Product Dataは保持する。発行自体または結果記録が不明なら、Credential IDとは別の非秘密な元発行Identityで現在再観測し、新交換を開始しない。交換由来だけ元のsame exact Recoveryを保持し、通常発行へ交換Recoveryを新設しない。発行・結果記録が確定し配送／受領だけ未確認なら、「発行済み・受け渡し未確認」と示し、確定事実を維持する。Secretの保存・再表示・自動再発行はしない。現在認可されたadministratorが人間の明示した既存交換を新しく開始でき、そのOperation／Recoveryは元処理とは別にする。現在の管理認証を失った場合は、Workbench認可を迂回せず既存Host交換入口へ案内する。Detail・Architecture／Quality／Sourceへは今回未伝播であり、以前の限定レビューを今回へ流用しない。
 
 ## 2. 取消・回復Flow
 
