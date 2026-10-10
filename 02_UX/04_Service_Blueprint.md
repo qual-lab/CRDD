@@ -84,7 +84,7 @@
 | [UX-000032](Definitions/UX-000032/ux_definition.md) | 実行・待機する | AIまたはToolの観測可能な実行段階が確定し、事実を後から比較できる形で残す時 |
 | [UX-000033](Definitions/UX-000033/ux_definition.md) | 候補を反映する | 論点や会議記録を維持し、終了・訂正・誤登録削除を判断する時 |
 | [UX-000034](Definitions/UX-000034/ux_definition.md) | 情報を選ぶ／候補を反映する | Projectの意味から次の仕事と作業差分を確認し、共有対象を決める時 |
-| [UX-000035](Definitions/UX-000035/ux_definition.md) | 管理を維持する／停止後に回復する | Workbenchのadministrator鍵管理／ログイン済みHost操作者の交換2操作。MCP鍵操作なし。認可破損は停止、manager／administratorの業務管理とadministrator専用の管理者資格・鍵を分離。登録≠公開、解除≠削除 |
+| [UX-000035](Definitions/UX-000035/ux_definition.md) | 管理を維持する／停止後に回復する | Workbenchのadministrator鍵管理／ログイン済みHost操作者の交換2操作。MCP鍵操作なし。認可破損は停止、manager／administratorの業務管理とadministrator専用の管理者資格・鍵を分離。登録≠公開、解除≠削除。登録解除は対応公開設定も同時解除し本体を保持。発行・記録確定後の受け渡し未確認は明示新交換、発行・記録不明は元Identity再観測、管理鍵喪失は既存Host入口へ案内 |
 
 ## 4. AI同士の引き渡し
 

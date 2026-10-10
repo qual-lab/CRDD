@@ -74,7 +74,7 @@
 | [UX-000032](Definitions/UX-000032/ux_definition.md) | 同じ識別情報で再観測し、結果不明を保つ |
 | [UX-000033](Definitions/UX-000033/ux_definition.md) | 当時記録と現在状態、終了・訂正と誤登録削除を分け、削除影響と復旧可能性を示す |
 | [UX-000034](Definitions/UX-000034/ux_definition.md) | 結論からOwnerと作業差分へ戻り、外部Effect前に送信対象を確認する |
-| [UX-000035](Definitions/UX-000035/ux_definition.md) | 鍵の発行・独立失効・交換はadministrator専用固定でON／OFF設定なし。通常は同一Process Workbench、MCPに鍵操作は非公開。Host回復はログイン済みローカル操作者の対話CLIで交換2操作だけを行い、追加認証・専用資格・承認コード・OS管理者昇格を要求しない。既存Root／Path検証を維持し、全4組で対象・影響を事前表示、Hostまたは全員交換の3組だけ明示確認する。 manager／administratorの業務管理とadministrator専用の管理者資格・鍵を分離。登録≠公開、解除≠削除、認可破損は停止。情報・設定・Product Dataを保持 |
+| [UX-000035](Definitions/UX-000035/ux_definition.md) | 鍵の発行・独立失効・交換はadministrator専用固定でON／OFF設定なし。通常は同一Process Workbench、MCPに鍵操作は非公開。Host回復はログイン済みローカル操作者の対話CLIで交換2操作だけを行い、追加認証・専用資格・承認コード・OS管理者昇格を要求しない。既存Root／Path検証を維持し、全4組で対象・影響を事前表示、Hostまたは全員交換の3組だけ明示確認する。manager／administratorの業務管理とadministrator専用の管理者資格・鍵を分離。登録≠公開、解除≠削除、認可破損は停止。情報・設定・Product Dataを保持。登録解除は対応公開設定も同時解除し本体を保持。発行・記録確定後の受け渡し未確認は明示新交換、発行・記録不明は元Identity再観測、管理鍵喪失は既存Host入口へ案内 |
 
 ## 4. 利用の流れの中の重要場面
 

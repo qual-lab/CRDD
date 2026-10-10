@@ -79,7 +79,7 @@ CRDD閲覧者 ──→ CRDD作成者・保守者 ──→ 実行環境の導�
 | [UX-000032](Definitions/UX-000032/ux_definition.md) | 実行基盤・TypeScriptアプリへ実行記録を組み込む担当者 | AIまたはToolの観測可能な実行段階が確定し、事実を後から比較できる形で残す時 |
 | [UX-000033](Definitions/UX-000033/ux_definition.md) | プロジェクト運営者／PM、Meeting参加者、Topic責任者 | 論点や会議記録を登録・確認・更新する時、誤登録を見つけた時 |
 | [UX-000034](Definitions/UX-000034/ux_definition.md) | 開発者、プロジェクト運営者／PM | Projectの状況から次の仕事を選び、変更を確認・共有する時 |
-| [UX-000035](Definitions/UX-000035/ux_definition.md) | manager／administrator、ログイン済みHost操作者 | Workbench通常鍵管理／Host交換2操作。manager／administratorは業務管理、管理者資格と鍵はadministratorだけ |
+| [UX-000035](Definitions/UX-000035/ux_definition.md) | manager／administrator、ログイン済みHost操作者 | Workbench通常鍵管理／Host交換2操作。manager／administratorは業務管理、管理者資格と鍵はadministratorだけ。登録解除は対応公開設定も同時解除し本体を保持。発行・記録確定後の受け渡し未確認は明示新交換、発行・記録不明は元Identity再観測、管理鍵喪失は既存Host入口へ案内 |
 
 ## 4. 利用場面による違い
 

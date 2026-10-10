@@ -121,7 +121,7 @@ Discoveryで採用した41要求を、一件ずつ利用者の立場から分析
 | [UX-000032](Definitions/UX-000032/ux_definition.md) 実行事実を安全に記録して結果を確かめる | `REQ-000004` | 記録済み・未記録・結果不明を見分け、重複や上書きなく次の処置を選べる | 実行環境を運用する流れ | 同一再送、並行書込み、途中失敗、結果不明の再発行および許可外情報の記録を反証する | Execution、Source、Observation、Record Attempt、Publication Resultを分ける |
 | [UX-000033](Definitions/UX-000033/ux_definition.md) 論点と会議記録を安全に維持する | `REQ-000039` | 入口を変えても同じ記録を扱い、正当な履歴を残して誤登録だけを安全に除ける | Topic／Meeting 利用の流れ | 当時記録の上書き、誤削除、連鎖削除、無効な関係および部分成功を反証する | Topic、Meeting、時点、状態、関係、削除影響および復旧可能性を結ぶ |
 | [UX-000034](Definitions/UX-000034/ux_definition.md) Projectの意味と作業差分を一つの流れで扱う | `REQ-000040` | 状況理解から次の仕事、差分確認、Commit、通常Pushまで進み、Ownerや別入口へ戻れる | Project判断／日常作業の流れ | Workbench固有正本、誤った送信対象、未確認Pushおよび失敗状態の隠蔽を反証する | Project Context、Owner、作業差分、Commit、Remote、BranchおよびPush対象を結ぶ |
-| [UX-000035](Definitions/UX-000035/ux_definition.md) 軽量なユーザー管理でRemote Accessを維持・回復する | `REQ-000041` | 対象識別と接続資格維持 | Remote Access管理の流れ | 別対象処置・MCP鍵公開・認可破損修復を反証 | 通常鍵管理はadministratorのWorkbench、Hostはログイン済み操作者の交換2操作。manager／administratorの業務管理とadministrator専用の管理者資格・鍵を分離。登録≠公開、解除≠削除 |
+| [UX-000035](Definitions/UX-000035/ux_definition.md) 軽量なユーザー管理でRemote Accessを維持・回復する | `REQ-000041` | 対象識別と接続資格維持 | Remote Access管理の流れ | 別対象処置・MCP鍵公開・認可破損修復を反証 | 通常鍵管理はadministratorのWorkbench、Hostはログイン済み操作者の交換2操作。manager／administratorの業務管理とadministrator専用の管理者資格・鍵を分離。登録≠公開、解除≠削除。登録解除は対応公開設定も同時解除し本体を保持。発行・記録確定後の受け渡し未確認は明示新交換、発行・記録不明は元Identity再観測、管理鍵喪失は既存Host入口へ案内 |
 
 ### 2.3. UX成果の横断構造
 
@@ -209,7 +209,7 @@ UXの完了だけを根拠にIAを飛び越えてUIまたはSPECを開始しな�
 | 採用要求 | 41件すべてに個別UX分析がある |
 | UX成果候補 | 35件。REQ-000039からUX-000033、REQ-000040からUX-000034、REQ-000041からUX-000035を追加し、入口一貫性、現在地理解およびRemote利用範囲は既存UXへ統合した |
 | 製品全体成果物 | 想定利用者、利用体験の全体像、サービス提供の流れ、体験品質期待へ責務分離済み |
-| 独立レビュー | 旧Passは履歴。今回REQ-000041分析・UX-000035・横断5文書は最新の権限分担へ伝播し、限定独立レビュー済み・残指摘0。IAは限定伝播・独立レビュー済み。UI／SPEC定義・対応は限定伝播・独立レビュー済み・残指摘0。Detail以降未伝播。UX工程全体のPassではない |
+| 独立レビュー | 権限分担に続き、REQ-000041分析・UX-000035・横断5文書へ登録解除・鍵の受け渡し未確認も伝播し、契約・品質限定独立レビュー済み・残指摘0。追加判断のIA以降は未伝播。先の下流限定レビューは当時の結果で今回へ流用しない。UX工程全体のPassではない |
 | IAへの正式な引き渡し | 保留。現在35件候補の独立再レビューをPassした後に、追加UX成果、利用者、情報需要、重要場面および品質期待を渡す |
 | Quality Analysis / UXへの伴走入力 | 得られる結果、失敗、品質期待および検証意図を、UX工程に伴走する検証義務分析へ渡す |
 | UI／SPECが後続で保持するUX Contract | IA完了後に、UX定義とIA定義の双方から認識・操作・判断・成立条件を分析する。UX完了だけで開始しない |
