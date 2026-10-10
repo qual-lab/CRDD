@@ -2,7 +2,7 @@
 
 成果物種別: SPEC分析（UX観点）
 分析単位: `UX-000035`
-状態: 分析済み（最新判断の限定独立レビュー済み・残指摘0）
+状態: 最新の権限分担へ限定伝播・限定独立レビュー済み・残指摘0（前判断のPassは履歴）
 
 ## 1. 正式入力
 
@@ -12,15 +12,30 @@
 
 ## 2. 正式入力から保持する利用者成果
 
-鍵の発行・独立失効・交換はadministrator専用固定で、Role詳細権限のON／OFF設定を設けない。通常鍵操作は同一Process Workbench backendだけで提供し、MCPには秘密値の有無を問わず鍵操作の一覧・Schema・登録・dispatchを公開しない。Hostはログイン済みローカル操作者を信頼する対話CLIで交換2操作だけを扱い、追加認証・専用資格・承認コード・OS管理者昇格を要求しない。既存Root／Path検証を維持する。他4管理群（ユーザー管理・Role設定・Repository登録・公開範囲管理）の担当Role・設定可否はOPENのまま保持する。
+鍵の発行・独立失効・交換はadministrator専用固定で、Role詳細権限のON／OFF設定を設けない。通常鍵操作は同一Process Workbench backendだけで提供し、MCPには秘密値の有無を問わず鍵操作の一覧・Schema・登録・dispatchを公開しない。Hostはログイン済みローカル操作者を信頼する対話CLIで交換2操作だけを扱い、追加認証・専用資格・承認コード・OS管理者昇格を要求しない。既存Root／Path検証を維持する。manager／administratorはユーザー登録・表示名変更、developer／managerの割当て・詳細権限、Repository登録・登録解除・公開範囲を管理する。administratorの付与・解除・降格を含むRole変更、administrator詳細権限と鍵3操作はadministratorだけが管理する。developerへ管理操作、managerへ管理者専用操作を設定で委譲しない。
 
 | 観点 | 保持する内容 |
 |---|---|
-| 利用者・場面 | 現在許可された主体のユーザー登録・表示名／Role変更とadministratorの鍵操作、Host運用者の管理資格全喪失から既存管理者への鍵交換 |
+| 利用者・場面 | manager／administratorの業務管理、administratorだけの管理者Role・詳細権限と鍵操作、Host運用者による既存administratorの有効Credential全喪失からの鍵交換 |
 | 成果 | 最小ユーザー情報で対象を見分け、Role権限・資格を維持しProduct Dataを失わず通常管理へ戻る |
 | 必要な認識 | 対象ID・表示名、現行Role・詳細権限、資格Metadataと状態、処置影響、秘密一度表示 |
 | 重要場面 | administrator Roleのユーザー資格をすべて失った時 |
 | 失敗 | 同名対象取り違え、名前Authority化、秘密保存、管理能力から内容権限推定、Product Data削除、別Recovery重複 |
+
+| 管理操作 | developer | manager | administrator |
+|---|---|---|---|
+| ユーザー登録・表示名変更 | 不許可 | 許可 | 許可 |
+| developer／managerの割当て・変更 | 不許可 | 許可 | 許可 |
+| administratorの付与・解除・降格を含むRole変更 | 不許可 | 不許可 | 許可 |
+| developer／managerの詳細権限設定 | 不許可 | 許可 | 許可 |
+| administratorの詳細権限設定 | 不許可 | 不許可 | 許可 |
+| 鍵の発行・独立失効・交換 | 不許可 | 不許可 | 許可 |
+| Repository登録・登録解除 | 不許可 | 許可 | 許可 |
+| Repository公開範囲設定 | 不許可 | 許可 | 許可 |
+
+固定の管理能力は現行Roleと上表の割当てから判定し、Role詳細権限の内容設定から派生させない。manager自身の内容範囲変更も、変更前の現在の管理認可→明示的なRole内容範囲／Exposure更新→次の要求で現行Role・Exposure・実アクセスを再評価、の順に分ける。更新受理だけでは内容取得可能とせず、管理者にも内容を自動付与しない。
+
+各管理要求は主体の変更前の現行Roleと固定割当てを確認する。新規登録は登録予定Role、既存Role変更は対象の変更前後Role、表示名変更は対象既存userIdと新しい表示名、Role詳細設定は対象Role、Repository操作は対象IDと現在の登録／公開状態を確認する。managerのRole変更は変更前後ともdeveloper／managerだけを対象とし、名前変更はuserId・Role・Credentialを保持する。
 
 ## 3. 契機・条件・結果・失敗
 
@@ -68,11 +83,11 @@ IAの同一性・状態・関係を、通常管理の認可・対象相関・結
 | Host CLI × 指定ユーザー | 同上 | 必須 |
 | Host CLI × 全員 | 同上 | 必須 |
 
-固定administrator以外の通常鍵操作、MCPの鍵操作一覧・Schema・登録・dispatch、Hostからの発行・単独失効を拒否する境界を確認する。Hostに追加認証を要求せず既存Root／Pathを保持し、交換全4組で対象・影響を事前表示、Hostまたは全員交換の3組だけ明示確認する。他4管理群の担当Role・設定可否を未決のまま引き継ぐ。
+固定administrator以外の通常鍵操作、MCPの鍵操作一覧・Schema・登録・dispatch、Hostからの発行・単独失効を拒否する境界を確認する。Hostに追加認証を要求せず既存Root／Pathを保持し、交換全4組で対象・影響を事前表示、Hostまたは全員交換の3組だけ明示確認する。8操作の許可／拒否を確認する。managerによるadministrator表示名変更は許可し、administratorの付与・解除・降格・詳細権限・鍵操作、developerの管理操作、Role設定による固定割当ての迂回は拒否する。manager自身の範囲変更は変更前認可と明示更新、次要求での現行Role・Exposure・実アクセスの再評価を分ける。登録だけの公開・内容取得、登録解除によるProduct Data削除、管理拒否による自身表示・許可内利用の拒否を反証する。対象・現行認可・必要状態を確認不能なら新Effectなしで停止し、既知結果と不明を区別する。
 
 同名・改名時の対象維持、名前非Authority、三可視境界、Role変更の次認可反映、鍵交換のID・Role保持／旧資格拒否と取消分離、秘密非保存を確認する。2操作の対象範囲・既存発行先、入口Authority差、情報保持、処置前停止、失効確定／発行不明と同じRecovery・再観測を検証へ渡す。未決の具体処置や実測成功を創作しない。
 
-独立失効の成功／拒否／応答喪失をリセットや取消へ置換しないこと、回復の処置前中断／処置後応答喪失／Process喪失でも同じ確定済みIdentityを保持して再観測することを検証義務へ渡す。
+独立失効の成功／拒否／応答喪失を鍵交換や取消へ置換しないこと、回復の処置前中断／処置後応答喪失／Process喪失でも同じ確定済みIdentityを保持して再観測することを検証義務へ渡す。
 
 ## 補足分析
 

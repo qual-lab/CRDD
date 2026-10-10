@@ -1,6 +1,6 @@
 # 操作と表示状態
 
-状態: v0.22.0更新中（最新鍵管理判断のDefinition・横断投影は再伝播中・限定独立レビュー済み・残指摘0。SCR／BHV・Area・Workbench候補は未追従、全体Readyは未主張）
+状態: v0.22.0更新中（最新の権限分担のDefinition・横断投影は限定伝播・限定独立レビュー済み・残指摘0。Detail以降は未追従、全体Readyは未主張）
 情報源: [UI定義台帳](01_User_Interface.md#3-ui定義台帳)
 
 この文書は全UIへ同じ実行状態を強制しない。下表で各UIに適用する変化を先に固定し、後続のFlowとVariantは該当するUIだけが使用する。
@@ -32,7 +32,7 @@
 
 ## 1. 共通操作Flow
 
-UI-000008の現行操作は[UI定義](Definitions/UI-000008/ui_definition.md#操作とfeedback)を正本とする。画面詳細は最新判断へ未追従である。指定ユーザー交換／全員交換×通常／Host入口の全4組で対象・失効範囲・既存発行先・保持情報を事前表示し、Host入口または全員交換の3組だけ明示確認する。独立失効は新発行なし。対象不明・必要な管理者不存在・必要状態の観測不能・認可破損は新Effect前停止とし、失効後の発行失敗・応答／Process喪失は失効確定範囲と発行不明を分け、同じRecoveryで現在再観測へ戻す。完了・rollback・旧鍵有効・開始済み取消済みを推測表示せず、Secretを再表示しない。 鍵の発行・独立失効・交換はadministrator専用固定で、Role詳細権限のON／OFF設定を設けない。通常鍵操作は同一Process Workbench backendだけで提供し、MCPには秘密値の有無を問わず鍵操作の一覧・Schema・登録・dispatchを公開しない。Hostはログイン済みローカル操作者を信頼する対話CLIで交換2操作だけを扱い、追加認証・専用資格・承認コード・OS管理者昇格を要求しない。既存Root／Path検証を維持する。他4管理群（ユーザー管理・Role設定・Repository登録・公開範囲管理）の担当Role・設定可否はOPENのまま保持する。
+UI-000008の現行操作は[UI定義](Definitions/UI-000008/ui_definition.md#操作とfeedback)を正本とする。画面詳細は最新判断へ未追従である。指定ユーザー交換／全員交換×通常／Host入口の全4組で対象・失効範囲・既存発行先・保持情報を事前表示し、Host入口または全員交換の3組だけ明示確認する。独立失効は新発行なし。対象不明・必要な管理者不存在・必要状態の観測不能・認可破損は新Effect前停止とし、失効後の発行失敗・応答／Process喪失は失効確定範囲と発行不明を分け、同じRecoveryで現在再観測へ戻す。完了・rollback・旧鍵有効・開始済み取消済みを推測表示せず、Secretを再表示しない。 鍵の発行・独立失効・交換はadministrator専用固定で、Role詳細権限のON／OFF設定を設けない。通常鍵操作は同一Process Workbench backendだけで提供し、MCPには秘密値の有無を問わず鍵操作の一覧・Schema・登録・dispatchを公開しない。Hostはログイン済みローカル操作者を信頼する対話CLIで交換2操作だけを扱い、追加認証・専用資格・承認コード・OS管理者昇格を要求しない。既存Root／Path検証を維持する。manager／administratorはユーザー登録・表示名変更、developer／managerの割当て・詳細権限、Repository登録・登録解除・公開範囲を管理する。administratorの付与・解除・降格を含むRole変更、administrator詳細権限と鍵3操作はadministratorだけが管理する。developerへ管理操作、managerへ管理者専用操作を設定で委譲しない。
 
 ```text
 [対象を選ぶ]
@@ -111,3 +111,5 @@ UI-000008の現行操作は[UI定義](Definitions/UI-000008/ui_definition.md#操
 - [x] 共通Variantを全UIへ一律適用していない
 - [x] Behavior Ruleを先取りしていない
 - [x] 個別UI Definitionの意味を再定義していない
+
+最新分担の操作とFeedbackは[UI-000008](Definitions/UI-000008/ui_definition.md#操作とfeedback)を参照する。manager自身の範囲変更は変更前認可・明示更新・次要求での反映を分けて示す。administrator表示名変更を管理者Role変更へ拡張せず、登録解除を内容削除と表示しない。

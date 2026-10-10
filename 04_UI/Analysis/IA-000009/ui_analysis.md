@@ -2,7 +2,7 @@
 
 成果物種別: UI分析（IA観点）
 分析単位: `IA-000009`
-状態: 分析済み（最新判断の限定独立レビュー済み・残指摘0）
+状態: 最新の権限分担へ限定伝播・限定独立レビュー済み・残指摘0（前判断のPassは履歴）
 
 ## 1. 正式入力
 
@@ -12,7 +12,7 @@
 
 ## 2. 正式入力から保持する情報構造
 
-鍵の発行・独立失効・交換はadministrator専用固定で、Role詳細権限のON／OFF設定を設けない。通常鍵操作は同一Process Workbench backendだけで提供し、MCPには秘密値の有無を問わず鍵操作の一覧・Schema・登録・dispatchを公開しない。Hostはログイン済みローカル操作者を信頼する対話CLIで交換2操作だけを扱い、追加認証・専用資格・承認コード・OS管理者昇格を要求しない。既存Root／Path検証を維持する。他4管理群（ユーザー管理・Role設定・Repository登録・公開範囲管理）の担当Role・設定可否はOPENのまま保持する。
+鍵の発行・独立失効・交換はadministrator専用固定で、Role詳細権限のON／OFF設定を設けない。通常鍵操作は同一Process Workbench backendだけで提供し、MCPには秘密値の有無を問わず鍵操作の一覧・Schema・登録・dispatchを公開しない。Hostはログイン済みローカル操作者を信頼する対話CLIで交換2操作だけを扱い、追加認証・専用資格・承認コード・OS管理者昇格を要求しない。既存Root／Path検証を維持する。manager／administratorはユーザー登録・表示名変更、developer／managerの割当て・詳細権限、Repository登録・登録解除・公開範囲を管理する。administratorの付与・解除・降格を含むRole変更、administrator詳細権限と鍵3操作はadministratorだけが管理する。developerへ管理操作、managerへ管理者専用操作を設定で委譲しない。
 
 | 対象 | 保持する意味・関係 |
 |---|---|
@@ -23,21 +23,36 @@
 | 実アクセス可能性 | Repository IDと現在の取得可能性。不明・取得不能を利用可能にしない |
 | 接続中の作業単位 | Session ID、Credential ID、userId。認可は現行Roleへ結び直す |
 | Repository情報範囲／リポジトリ | Repository IDと情報責務・内容正本。利用者Roleや公開設定ではない |
-| 管理能力 | 鍵操作はadministrator専用固定。他4管理群の担当Role・設定可否はOPEN。内容閲覧を自動的に得ない |
+| 管理能力 | 業務管理はmanager／administrator、管理者Role・詳細権限と鍵はadministrator専用固定。内容閲覧を自動的に得ない |
 | Secret表示境界 | 発行／鍵交換後だけ一度表示。永続Identityを作らない |
 | 接続資格状態 | 有効／期限切れ／失効／不明。リセット専用の永続状態は作らない |
 | Access Recovery | 同じRecovery ID、操作種別（指定ユーザー交換／全員交換）と入口・Authority属性 |
 | Recovery対象／保持対象／結果 | 対象userId・失効資格集合・既存発行先、保持するユーザー情報・Role権限・Repository登録・Product Data、失効確定範囲と発行結果・結果改訂・再入場先 |
 
 userIdは正式入力の採用済みUUID制約を継承する。版・Schema・生成方式をここで決めない。
-ユーザー／Credential／Role権限→Repository Exposure→実アクセス→Repository内容の関係を保持する。鍵操作はadministrator固定で、他4管理群の担当Role・設定可否はOPENであり、Repository情報責務はこの許可連鎖とは別にRepositoryが所有する。
+ユーザー／Credential／Role権限→Repository Exposure→実アクセス→Repository内容の関係を保持する。固定管理能力は現行Roleと採用済み操作割当てから判定する。内容取得は現行Role詳細権限・Exposure・実アクセスの別判定であり、Repository情報責務はRepositoryが所有する。
+
+| 管理操作 | developer | manager | administrator |
+|---|---|---|---|
+| ユーザー登録・表示名変更 | 不許可 | 許可 | 許可 |
+| developer／managerの割当て・変更 | 不許可 | 許可 | 許可 |
+| administratorの付与・解除・降格を含むRole変更 | 不許可 | 不許可 | 許可 |
+| developer／managerの詳細権限設定 | 不許可 | 許可 | 許可 |
+| administratorの詳細権限設定 | 不許可 | 不許可 | 許可 |
+| 鍵の発行・独立失効・交換 | 不許可 | 不許可 | 許可 |
+| Repository登録・登録解除 | 不許可 | 許可 | 許可 |
+| Repository公開範囲設定 | 不許可 | 許可 | 許可 |
+
+固定の管理能力は現行Roleと上表の割当てから判定し、Role詳細権限の内容設定から派生させない。manager自身の内容範囲変更も、変更前の現在の管理認可→明示的なRole内容範囲／Exposure更新→次の要求で現行Role・Exposure・実アクセスを再評価、の順に分ける。更新受理だけでは内容取得可能とせず、管理者にも内容を自動付与しない。
+
+操作前に主体の現行Roleに許可された操作と変更内容を見分ける。新規登録は予定Role、既存Role変更は前後Role、表示名変更は対象IDと新しい表示名、Role詳細設定は対象Role、Repository操作は登録／公開状態を示す。新規ユーザーの変更前Roleを要求せず、結果と次要求からの反映を認識できるようにする。
 
 ## 3. 利用場面・状態・導線
 
 | 利用場面 | 対象と状態 | 保持する導線 |
 |---|---|---|
 | Remote利用 | 自身、資格、現行Role、公開／実アクセス、利用可能／資格要求／制限／利用不能／不明と複数対象の部分成立 | 資格→ユーザー→現行Role権限→公開対象→実アクセス→情報源 |
-| 通常管理 | 管理対象ID・表示名・現行Role・資格の有効／期限切れ／失効／不明 | 対象→現行値→変更またはリセットの影響→結果 |
+| 通常管理 | 管理対象ID・表示名・現行Role・資格の有効／期限切れ／失効／不明 | 対象→現行値→業務変更または発行／独立失効／鍵交換の別と影響→結果 |
 | 鍵交換 | 2操作の範囲・発行先・保持情報、2入口のAuthority、確認待ち／進行中／blocked／completed、失効確定／発行不明 | 入口確認→操作範囲・既存対象／発行先・保持情報→同じRecovery→現在再観測→新資格で再入場 |
 
 認証済み利用者の自身表示、非認証入口へのユーザー情報0、現在他ユーザー参照を許可されていない主体への他ユーザー一覧・存在・件数0を別々に保持する。Repository非開示対象の存在・名前・件数も漏らさない。
@@ -86,7 +101,7 @@ UUIDは採用済み継承制約として保持し、版・生成方式・Schema�
 | Host CLI × 指定ユーザー | 同上 | 必須 |
 | Host CLI × 全員 | 同上 | 必須 |
 
-固定administrator以外の通常鍵操作、MCPの鍵操作一覧・Schema・登録・dispatch、Hostからの発行・単独失効を拒否する境界を確認する。Hostに追加認証を要求せず既存Root／Pathを保持し、交換全4組で対象・影響を事前表示、Hostまたは全員交換の3組だけ明示確認する。他4管理群の担当Role・設定可否を未決のまま引き継ぐ。
+固定administrator以外の通常鍵操作、MCPの鍵操作一覧・Schema・登録・dispatch、Hostからの発行・単独失効を拒否する境界を確認する。Hostに追加認証を要求せず既存Root／Pathを保持し、交換全4組で対象・影響を事前表示、Hostまたは全員交換の3組だけ明示確認する。8操作の許可／拒否を確認する。managerによるadministrator表示名変更は許可し、administratorの付与・解除・降格・詳細権限・鍵操作、developerの管理操作、Role設定による固定割当ての迂回は拒否する。manager自身の範囲変更は変更前認可と明示更新、次要求での現行Role・Exposure・実アクセスの再評価を分ける。登録だけの公開・内容取得、登録解除によるProduct Data削除、管理拒否による自身表示・許可内利用の拒否を反証する。対象・現行認可・必要状態を確認不能なら新Effectなしで停止し、既知結果と不明を区別する。
 
 各Objectの同一性・関係、三可視境界、Role／公開／実アクセスの未成立と部分可視、2操作と2入口の別軸を確認する。対象・失効範囲・既存発行先・情報保持・処置前停止・失効確定／発行不明・同じRecoveryと現在再観測を検証へ渡し、秘密・Product Dataを保護する。具体試験手順や実装成立を先取りしない。
 
