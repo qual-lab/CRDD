@@ -16,6 +16,7 @@
 | [ARCH-000006](../../Definitions/ARCH-000006/architecture_definition.md) | Topic／Meetingの構造化CRUD、Outcome処置、昇格とRelation解決を責務別に提供する。 | Partial |
 | [ARCH-000011](../../Definitions/ARCH-000011/architecture_definition.md) | 用途限定Root、設定読取り、保存・排他・短命ファイルの共通部品を提供し、Runtimeごとの終了判断を所有しない。 | Partial |
 | [ARCH-000016](../../Definitions/ARCH-000016/architecture_definition.md) | Source改訂版、現在性、履歴と未観測を投影・保存契約で区別する。 | Partial |
+| [ARCH-000013](../../Definitions/ARCH-000013/architecture_definition.md) | 認可済み集合のContext／Portfolio集約と中立なRoot／保存部品。認証・認可状態は所有しない。 | Partial。具体型・公開API・本番接続はOPEN |
 
 本書は、旧CRDD Domain Library、Project Operation、Runtime Dataの実装を`domain-model`へ統合する責務境界を定義する。Topic／Meetingの意味・状態は[活動Context詳細](./02_Activity_Context.md)、保存用途・保持・清掃は[保存配置詳細](./03_Repository_Storage.md)が所有し、Package統合を理由に重複定義しない。現在の移管と検証Gateは[CHG-000082](../../../99_Roadmap/Changes/CHG-000082/change.md)、過去のLibrary分離は[CHG-000076](../../../99_Roadmap/Changes/CHG-000076/change.md)へ戻る。
 
@@ -31,9 +32,11 @@
 - Domain ResultからSurface固有結果へ変換する責務
 - 開発Rootと採用Rootの両方で成立する実装解決境界
 - Consumer Closureを維持する恒久条件
+- Access Managementが認可したRepository集合からのContext／Portfolio集約
 
 ### 1.2 非目標
 
+- Credential、Role、Grant、Exposureの解釈・認可判断、資格Secret／交換Recovery／認証Storeの所有
 - Checker FindingをCRDD共通Domainの結果型にすること
 - 純再exportだけの中間Fileを追加し、公開集合のOwnerを重複させること
 - 同名Fileや類似Algorithmだけを根拠に共通化すること
@@ -199,6 +202,23 @@ CRDD Domain Library
 
 `storage/bounded-file-snapshot.ts`は容量上限、開いた実体とPathの読取り前後の同一性を確認し、descriptorを終了する共通読取り部品である。Coordinator現在状態とOrchestrator保存はPackage Rootの宣言済み保存Symbolを利用する。読取り可能なPathを保存・回復Authorityへ昇格せず、Root選択と用途・内容の判定は各利用側が保持する。読取り上限超過、増減、同長の実体差替えと親Directory差替えを拒否し、書込みや状態遷移は所有しない。
 
+### 4.1. 認可済みContext／Portfolioの集約
+
+ARCH-000013の意味Ownerである[Access Management](../access-management/01_Architecture.md)が要求ごとに認可済みRepository集合を解決し、呼出し元がその集合だけをDomain Modelへ渡す。DomainはCredential、Role、Grant、Exposureを解釈せず、公開呼出し元は認可を迂回しない。Repository単体利用の資格不要な検証済みRootとは別の入力範囲である。
+
+| 段階 | Domainが扱う情報・処理 | 境界・失敗条件 |
+|---|---|---|
+| 入力 | 認可済みRepository ID、検証対象Root／Binding、Source改訂と読取り観測 | 認可済み集合がない場合は停止。全Registry、古い固定Grant、推定したRepositoryへfallbackしない |
+| Root・読取り | 既存Repository／Version Control契約で技術的境界を検証し、Owner Artifactを解析 | Root検証を認可へ昇格しない。認可拒否と読取り不能を成功の空値へ畳まない |
+| 集約 | Project IDに従い、既存Contextの五場面、Source Coverage、出所・改訂、部分取得と矛盾を保持 | 未許可Repositoryの存在・件数・内容を推測・補完しない。複数読取りを原子的Snapshotと偽らない |
+| 返却 | 人間・MCP向けに適合できる中立なProject／Portfolio結果 | Authority、Credential、鍵Secret、交換Recoveryを結果へ混ぜない。利用側の現在認可再確認を代替しない |
+
+中立なRoot／保存部品は[Repository保存](./03_Repository_Storage.md)の既存配置・Path検証を支えるだけであり、Access Managementの秘密Store・保存Schema・認可状態の意味Ownerにはならない。Package再編を理由に保存Root・保護条件を変えず、追加共有State・Registry・Lockを作らない。
+
+Source値の意味と現在性はOwner Artifactに従い、独自のProject正本、履歴Store、Live状態、安定IDまたはObserved Atを追加しない。集約入力の具体型・公開Symbol・Reader接続はOPENで、現行の公開集合を移管完了と扱わない。SCR-000008／BHV-000012／`PRT-000008.spec-000012`の集約断面はPartialである。
+
+Qualityへの導出元は本節。正常な許可集合の集約、部分読取り・矛盾、入力集合欠落、未許可Source非開示、認可とRoot検証の分離をUT／IT／STで評価する。観測は入力集合と読取り先、出所・改訂・Coverage、拒否結果、終了後の秘密・認可状態の非保持とし、旧CROS試験を新契約の合格根拠へ流用しない。QA Local Item IDはQuality側の導出で確定する。
+
 ## 5. 結果と失敗の境界
 
 | 結果 | Owner | 意味 |
@@ -283,8 +303,8 @@ MCPとWorkbenchの旧公開入口利用は移管対象である。新Packageへ�
 | `parseRepositoryProjectContextMarkdown`、`parseRepositoryReleaseProjectionMarkdown`、`parseRepositoryQualityProjectionMarkdown` | `src/index.ts`の該当Symbol | 所有正本のMarkdown／固定表の構造化結果 | Workbench Server、MCP Server、CROS | Effectなし。不正表・欠測を推測で補完しない |
 | `parseTopicMarkdown`、`applyTopicPromotion` | `src/index.ts`の該当Symbol | Topic本文、昇格先Identity・期待改訂／検証済み次版 | TopicのCRUD操作 | 意味変換だけ。実在する対象・同一Projectと人間判断は保存前に再確認 |
 | `parseMeetingMarkdown`、`applyMeetingOutcomeTreatment` | `src/index.ts`の該当Symbol | Meeting本文、Outcome処置／全表が一致する次版 | MeetingのCRUD操作 | 意味変換だけ。pendingが残るCloseを拒否 |
-| `createTopicOperations`（内部の共通Repository／ApplicationからTopic操作だけを公開） | `src/index.ts`の該当Symbol | 選定・認可済みRootまたは同じ保存契約、対象ID、期待改訂、Relation／CRUD結果・Cursor付き一覧 | Workbench Server、MCP Server。CROSは認可済みBindingを供給 | 対象Repositoryだけに保存。誤登録削除は影響確認と明示承認が必要 |
-| `createMeetingOperations`、`MeetingOutcomeCommandResult` | `src/index.ts`の該当Symbol | 選定・認可済みRootまたは同じ保存契約、Meeting／Outcome、期待改訂／処置結果 | Workbench Server、MCP Server | 同一Repositoryの原子的次版。別Repository処置はCROSの認可・Routingが成立するまで発行しない |
+| `createTopicOperations`（内部の共通Repository／ApplicationからTopic操作だけを公開） | `src/index.ts`の該当Symbol | 選定・認可済みRootまたは同じ保存契約、対象ID、期待改訂、Relation／CRUD結果・Cursor付き一覧 | Workbench Server、MCP Server。Access Managementは認可済みBindingを供給 | 対象Repositoryだけに保存。誤登録削除は影響確認と明示承認が必要 |
+| `createMeetingOperations`、`MeetingOutcomeCommandResult` | `src/index.ts`の該当Symbol | 選定・認可済みRootまたは同じ保存契約、Meeting／Outcome、期待改訂／処置結果 | Workbench Server、MCP Server | 同一Repositoryの原子的次版。別Repository処置はAccess Managementの現在認可と利用側Routingが成立するまで発行しない |
 | `inspectRepositoryManifest`、`inspectCrosTrustPolicy` | `src/index.ts`の該当Symbol | 明示した宣言／検査結果 | CROS、Checker、各設定利用側 | 宣言の検証のみ。既存Schemaの移管をTrust Policy Framework採用と扱わない |
 | `readOrchestratorConfig`、`readExecutionIntelligenceConfig` | `src/index.ts`の該当Symbol | 検証済みRootと当該Tool／検証済み設定Snapshot | Orchestrator、Execution Intelligence | 設定読取り。不存在だけ既定30日、不正・読取り不能は整理を停止 |
 | `resolveRepositoryRuntimeDataPaths`、`observeRepositoryRuntimeDataArea` | `src/index.ts`の該当Symbol | 検証済みRoot／用途別Pathと境界観測 | Runtime各Owner、Execution Intelligence、診断 | 読取りだけ。`not_observed`と`blocked`を区別し、Rootを逆算しない |
@@ -300,7 +320,7 @@ MCPとWorkbenchの旧公開入口利用は移管対象である。新Packageへ�
 
 | 順序 | 所有者と処置 | 失敗・取消・中断時 |
 |---|---|---|
-| 1 | Workbench Server／MCP Serverが操作入力を受付。共有利用ではCROSが対象Binding、Credential、許可範囲を再確認 | 認可不明なら本文・件数・対象存在を開示せず、CRUD Effectを発行しない |
+| 1 | Workbench Server／MCP Serverが操作入力を受付。共有利用ではAccess Managementが対象Binding、Credential、現在Role・操作権限・公開範囲を再確認 | 認可不明なら本文・件数・対象存在を開示せず、CRUD Effectを発行しない |
 | 2 | Topic／MeetingがIdentity、期待改訂、Relation、状態遷移を評価し、全表が一致する次版を作る | 不正・競合・未処置Outcomeは保存前拒否。通知だけで採用・終了を確定しない |
 | 3 | 保存部品が同じRootで排他、短命File生成、保存確定、読戻しを担当 | 最初の失敗と保存・cleanup結果を分け、不明を旧版・次版いずれかの成功へ丸めない |
 | 4 | 操作Ownerが次版の保存を確認して公開結果を返し、短命File・Handleを終了する | 応答喪失時の再入場は対象Identityと改訂を再観測。古い入力を盲目的に再適用しない |
@@ -417,9 +437,10 @@ Provider計画の分離時に、Coordinatorの共通入力防御を`plain-data/s
 |---|---|---|---|---|
 | [UI／SPEC Detail Architecture Traceability](../../08_UI_SPEC_Detail_Traceability.md) | ARCH-000001、ARCH-000002、ARCH-000008、ARCH-000009のSource Definition | 同Traceability表で上記ARCH-IDへ接続された全Detail ID | Covered | Detailの意味変更はUI／SPECへ、配置責務の変更は該当ARCH定義へ戻す |
 | [活動Contextの担当Relation](./02_Activity_Context.md#上流uispec-detailとの関係) | ARCH-000005、ARCH-000006、ARCH-000016のSource Definition | Topic／MeetingとProject Contextの既存担当Relationを統合Packageの責務別入口で実現する | Partial | 詳細の意味は活動Contextが所有。新配置の利用側接続は段階5〜7で確認する |
-| [保存配置の担当Relation](./03_Repository_Storage.md#上流uispec-detailとの関係) | ARCH-000009、ARCH-000011、ARCH-000013、ARCH-000016のSource Definition | Repository-local／CROSの保存境界に接続された既存担当Relation | Partial | CROSの認可・横断状態はCROSへ、Runtime固有の現在状態は各Ownerへ残す |
+| [保存配置の担当Relation](./03_Repository_Storage.md#上流uispec-detailとの関係) | ARCH-000009、ARCH-000011、ARCH-000013、ARCH-000016のSource Definition | Repository-local／CROSの保存境界に接続された既存担当Relation | Partial | 認可状態はAccess Managementへ、Context集約はDomain Modelへ、Runtime固有の現在状態は各Ownerへ残す |
+| [認可済みContext／Portfolio集約](#41-認可済みcontextportfolioの集約) | ARCH-000013のUI-000008／SPEC-000012 | SCR-000008／PRT-000008／BHV-000012、`PRT-000008.spec-000012`の集約断面 | Partial | 具体型・API・Reader接続・Quality・Source・本番接続はOPEN。意味変更はUI／SPECへ、配置変更はARCH-000013へ戻す |
 
-担当Interaction Relation: `PRT-000001.spec-000001`、`PRT-000005.spec-000009`、`PRT-000006.spec-000010`、`PRT-000006.spec-000031`、`PRT-000014.spec-000019`、`PRT-000018.spec-000023`
+担当Interaction Relation: `PRT-000001.spec-000001`、`PRT-000005.spec-000009`、`PRT-000006.spec-000010`、`PRT-000006.spec-000031`、`PRT-000014.spec-000019`、`PRT-000018.spec-000023`、`PRT-000008.spec-000012`
 
 本領域は上記Relationの配置責務を局所所有する。Detailを新しい要求として解釈せず、対応ARCH-IDが所有する配置・境界・状態・観測の制約として実現する。
 

@@ -123,7 +123,7 @@ Architecture Detail Area
 
 ## 5. 配置判断
 
-最新ARCH-000013断面の意味OwnerはAccess Managementであり、通常鍵3操作は同一Process Workbenchの固定administrator、Hostは信頼したログイン済み操作者の対話CLI交換2操作だけに接続する。MCPを鍵操作の利用側にせず、一覧・Schema・登録・dispatch非公開を負の境界として扱う。Domain Modelは認可済み集合のContext集約と中立な共通Root／保存部品だけを担い、資格やGrantを解釈して権限を決めない。3行のPartialはこの責務対応候補と、Details・具体API／保存・本番接続の未完了を示し、Source Coverageではない。
+最新ARCH-000013断面の意味OwnerはAccess Managementであり、通常鍵3操作は同一Process Workbenchの固定administrator、Hostは信頼したログイン済み操作者の対話CLI交換2操作だけに接続する。MCPを鍵操作の利用側にせず、一覧・Schema・登録・dispatch非公開を負の境界として扱う。Domain Modelは認可済み集合のContext集約と中立な共通Root／保存部品だけを担い、資格やGrantを解釈して権限を決めない。3行のPartialはこの責務対応候補と、Details候補への境界伝播・限定独立レビュー済みと、具体API／保存・本番接続の未完了を示し、Source Coverageではない。
 
 - 20件のSCRと20件のPRTは、Source UI Definitionを所有するARCH-IDへ接続した。
 - 30件のBHVは、Source SPEC Definitionを所有するARCH-IDへ接続した。
@@ -142,4 +142,4 @@ Architecture Detail Area
 - [x] 各ARCH-IDを一件以上の詳細設計領域へ接続した
 - [x] CMP未発行をArchitecture Component不存在の証明へ読み替えていない
 - [x] Detailから新しい要求、Authority、Effectまたは実装方式を逆輸入していない
-- OPEN: ARCH-000013の新Owner Details・Quality・Source・本番接続は未完了。他行の最新配置も今回再評価していない。
+- OPEN: ARCH-000013の新Owner境界はDetails候補へ限定再伝播・契約／品質独立レビュー済み・残指摘0。具体API／保存・受領方式、Quality・Source・本番接続は未完了。他行の最新配置も今回再評価していない。

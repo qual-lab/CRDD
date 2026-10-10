@@ -12,7 +12,7 @@ v0.21.0の基準版では、個別責務定義、横断モデルおよび15領�
 
 ## 2. 工程入力と再構築方法
 
-最新鍵管理判断について、UI-000008／SPEC-000012の両Architecture分析・ARCH-000013直接同期は限定独立レビュー済み。03境界モデルへの限定再伝播は独立レビュー済み・残指摘0。2026-10-11は04〜08の鍵断面と対応表へ限定再伝播・限定独立レビュー済み・残指摘0。新Owner Details・Quality／Sourceは再伝播未完了。前判断に対する03〜06のレビュー結果は履歴であり、最新判断へ流用しない。UI工程Exit後の通常Handoffではなく、採用済み意味への既存設計の更新である。ARCH-ID18件と既存Detail Relationを維持し、旧配置をAccess Managementへの移管済み状態と解釈しない。新公開入口・保存Schema・保存Root変更・実装・実測成立・Architecture Ready・QA Handoffを主張しない。
+最新鍵管理判断について、UI-000008／SPEC-000012の両Architecture分析・ARCH-000013直接同期は限定独立レビュー済み。03境界モデルへの限定再伝播は独立レビュー済み・残指摘0。2026-10-11は04〜08の鍵断面と対応表へ限定再伝播・限定独立レビュー済み・残指摘0。MCP・Workbench・Domain Modelの新Owner境界はDetails候補へ限定再伝播・契約／品質独立レビュー済み・残指摘0。具体API・保存・受領方式、Quality／Sourceは未完了。前判断に対する03〜06のレビュー結果は履歴であり、最新判断へ流用しない。UI工程Exit後の通常Handoffではなく、採用済み意味への既存設計の更新である。ARCH-ID18件と既存Detail Relationを維持し、旧配置をAccess Managementへの移管済み状態と解釈しない。新公開入口・保存Schema・保存Root変更・実装・実測成立・Architecture Ready・QA Handoffを主張しない。
 
 Architectureの正式入力はCanonicalな20件のUI定義と30件のSPEC定義である。UIとSPECを別々に全数分析し、同じ上位責務境界へ属する結果を18件のArchitecture定義へ統合した。
 
@@ -83,7 +83,7 @@ REQ、UXおよびIAは由来確認に限って参照する。現行Architecture�
 | ARCH-000010 | Capability Registry、AI AdapterのProfile管理 | 能力発見・Profile選択と実行Authorityを分離する。 |
 | ARCH-000011 | 各状態Owner、Domain Modelの保存・設定部品 | 現在状態、通常履歴、候補、正式Evidenceの用途を分ける。 |
 | ARCH-000012 | MCP Server、運用CLI、Workbench表示API | 入力意味を保持し、SPEC-000011のlocalhost範囲を無断拡張しない。 |
-| ARCH-000013 | Access Management、Domain Model、MCP／Workbench利用側 | 同Processは認可済み直接呼出し、別ProcessはMCP。ただし通常鍵操作は同Process Workbenchだけ、Hostは対話CLI交換2操作だけで、MCPは全鍵操作非公開。新OwnerのDetails・本番公開入口・Sourceは未接続。 |
+| ARCH-000013 | Access Management、Domain Model、MCP／Workbench利用側 | 同Processは認可済み直接呼出し、別ProcessはMCP。ただし通常鍵操作は同Process Workbenchだけ、Hostは対話CLI交換2操作だけで、MCPは全鍵操作非公開。新Owner境界のDetails候補へ限定再伝播・契約／品質独立レビュー済み・残指摘0。具体API・保存・本番公開入口・Sourceは未接続。 |
 | ARCH-000014 | 各実行境界の独立評価とArtifact Signing | 独立評価軸を保持する。汎用Trust Policy Frameworkは今回採用しない。 |
 | ARCH-000015 | Coordinatorの候補本体、Orchestratorの採用、AI Adapterの搬送差 | 同意・送信・受領・採用のAuthorityを相互流用しない。 |
 | ARCH-000016 | Domain ModelのContext／Artifact由来解決 | 履歴から現在方針を自動採用しない。 |

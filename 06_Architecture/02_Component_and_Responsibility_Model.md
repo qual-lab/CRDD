@@ -117,7 +117,7 @@ Workbench／MCPは必要な内部Capabilityを利用する。同一ProcessのCRO
 
 ## 5. QAへ渡す検証単位
 
-ARCH-000013の現行責務は上の図・表と同定義に従う。認可済み集合の解決はAccess Management、Context集約はDomain Modelへ分け、DomainはCredentialやGrantを解釈しない。最新鍵管理判断の03境界モデルへの再伝播と本責務表の案内同期は、限定独立レビュー済み・残指摘0である。04〜08の鍵断面と対応表は限定再伝播・限定独立レビュー済み・残指摘0。新Owner Details・Qualityは次段で再伝播する。前判断に対する03〜06の限定レビューを最新判断へ流用しない。限定伝播から全体Readyを推定しない。
+ARCH-000013の現行責務は上の図・表と同定義に従う。認可済み集合の解決はAccess Management、Context集約はDomain Modelへ分け、DomainはCredentialやGrantを解釈しない。最新鍵管理判断の03境界モデルへの再伝播と本責務表の案内同期は、限定独立レビュー済み・残指摘0である。04〜08の鍵断面と対応表は限定再伝播・限定独立レビュー済み・残指摘0。新Owner境界はMCP・Workbench・Domain ModelのDetails候補へ限定再伝播・契約／品質独立レビュー済み・残指摘0。具体API・保存・受領方式、Quality・Sourceは未完了。前判断に対する03〜06の限定レビューを最新判断へ流用しない。限定伝播から全体Readyを推定しない。
 
 | 検証候補 | 主な対象 | 反証すること | 適する粒度候補 |
 |---|---|---|---|

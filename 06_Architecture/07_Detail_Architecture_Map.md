@@ -22,7 +22,7 @@ Quality／Development
 
 ## 2. 詳細設計領域
 
-2026-10-11現在、ARCH-000013の最新鍵管理判断を本対応表と08の対象3行へ限定再伝播・限定独立レビュー済み・残指摘0。Access Management断面はCandidate詳細へ部分接続済み。通常鍵操作はWorkbench、Hostは交換2操作だけ、MCPは全鍵操作非公開という入口分担は採用済みである。保存Schema・具体API・表示／受領方式、Domain集約・MCP／Workbenchの新契約Detailsは未完了。旧crosは置換前比較資料であり、新ユーザー／Role／鍵交換の完成根拠にしない。他の行の状態を今回の限定更新から再評価したとは扱わない。
+2026-10-11現在、ARCH-000013の最新鍵管理判断を本対応表と08の対象3行へ限定再伝播・限定独立レビュー済み・残指摘0。Access Management断面はCandidate詳細へ部分接続済み。通常鍵操作はWorkbench、Hostは交換2操作だけ、MCPは全鍵操作非公開という入口分担は採用済みである。Domain集約・MCP／Workbenchの境界は新契約Details候補へ限定再伝播・契約／品質独立レビュー済み・残指摘0。保存Schema・具体API・表示／受領方式・本番接続は未完了。旧crosは置換前比較資料であり、新ユーザー／Role／鍵交換の完成根拠にしない。他の行の状態を今回の限定更新から再評価したとは扱わない。
 
 | 詳細設計領域 | 対応Architecture定義 | 責務 | 状態 |
 |---|---|---|---|
@@ -32,7 +32,7 @@ Quality／Development
 | [checker](Details/checker/01_Architecture.md) | ARCH-000001、ARCH-000002 | 決定論的構造検査と契約移行時の機械的集合検査 | Canonical |
 | [coordinator](Details/coordinator/01_Architecture.md) | ARCH-000004、ARCH-000008、ARCH-000010、ARCH-000014、ARCH-000015 | 単体・上位利用共通のTask公開API、実行Authority、AI Adapter接続、資源回収、通知と結果搬送 | Candidate |
 | [contract-migration](Details/contract-migration/01_Architecture.md) | ARCH-000002 | Canonical Contract変更時の全Consumer・派生物・公開／Release／Recovery経路の閉包 | Canonical |
-| [domain-model](./Details/domain-model/01_Architecture.md) | ARCH-000001、ARCH-000002、ARCH-000005、ARCH-000006、ARCH-000008、ARCH-000009、ARCH-000011、ARCH-000016 | Domain Modelの用途別公開入口、共通意味、活動CRUD、投影と保存部品。Runtime状態・Git確定・公開は所有しない | Candidate |
+| [domain-model](./Details/domain-model/01_Architecture.md) | ARCH-000001、ARCH-000002、ARCH-000005、ARCH-000006、ARCH-000008、ARCH-000009、ARCH-000011、ARCH-000013、ARCH-000016 | Domain Modelの用途別公開入口、共通意味、活動CRUD、投影と保存部品。Runtime状態・Git確定・公開は所有しない | Candidate |
 | [cros](Details/cros/01_Architecture.md) | ARCH-000005、ARCH-000006、ARCH-000009、ARCH-000010、ARCH-000013、ARCH-000015、ARCH-000016 | 置換前比較資料。認証・認可はAccess Managementへ、Context等は実Ownerへ移管する。旧本文のCoveredを新契約へ流用しない | Legacy比較／置換未完了 |
 | [execution-intelligence](Details/execution-intelligence/01_Architecture.md) | ARCH-000007、ARCH-000016、ARCH-000018 | 実行記録のCanonical記録、不変公開、読取りProjectionと時間的出所。書込みと読取りを別責務として接続 | Canonical |
 | [mcp-server](./Details/mcp-server/01_Architecture.md) | ARCH-000005、ARCH-000012、ARCH-000013、ARCH-000015 | MCP ServerとしてMachine向け公開Transportを所有し、Orchestrator／Domain Model／CROSの公開契約へ接続する。Shared Host全体や受入判断Authorityは所有しない | Candidate |

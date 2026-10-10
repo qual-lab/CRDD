@@ -99,7 +99,7 @@ Workbench／MCP／管理入口
 | [SCR-000008／PRT-000008](../../../04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md) | `PRT-000008.spec-000012` | 対象・事前表示・状態・部分結果・一度表示Secretを配置制約として保持。Layoutと採用済みWorkbench／Host CLIの具体表示・案内はUI Detailへ戻す |
 | [BHV-000012](../../../05_SPEC/Details/BHV-000012/behavior.md) | 同じ既存Relation | Trigger・Authority・Validation・失効／発行・結果・Recoveryを保持。振る舞い変更はSPEC Detailへ戻す |
 
-03〜06、07詳細領域Map、UI／SPEC Detailへの前判断の伝播・限定レビューは履歴であり、最新の鍵管理判断へ流用しない。[Access Management詳細](../../Details/access-management/01_Architecture.md)は前固定版で最新判断の限定反映・限定独立レビュー済み・残指摘0。今回のArchitecture分析と本定義の直接同期は限定独立レビュー済み・残指摘0。03境界モデルと01／02の案内は最新判断へ限定再伝播・限定独立レビュー済み・残指摘0。04〜08横断モデルの鍵断面と対応表は限定再伝播・限定独立レビュー済み・残指摘0。Domain集約・MCP／Workbenchの新契約Details、Quality・Sourceは再伝播未完了。保存・公開入口はOPENで、旧配置を新Ownerの完成形として扱わない。
+03〜06、07詳細領域Map、UI／SPEC Detailへの前判断の伝播・限定レビューは履歴であり、最新の鍵管理判断へ流用しない。[Access Management詳細](../../Details/access-management/01_Architecture.md)は前固定版で最新判断の限定反映・限定独立レビュー済み・残指摘0。今回のArchitecture分析と本定義の直接同期は限定独立レビュー済み・残指摘0。03境界モデルと01／02の案内は最新判断へ限定再伝播・限定独立レビュー済み・残指摘0。04〜08横断モデルの鍵断面と対応表は限定再伝播・限定独立レビュー済み・残指摘0。MCP詳細の限定再伝播はレビュー済み。Domain集約・Workbenchの新Owner境界はDetails候補へ限定再伝播・契約／品質独立レビュー済み・残指摘0。具体API・保存・受領方式、Quality・Sourceは未完了。保存・公開入口はOPENで、旧配置を新Ownerの完成形として扱わない。
 
 ## 9. 互換性・移行・成立済み能力
 

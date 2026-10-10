@@ -808,6 +808,14 @@ MCP要求のCredential認証は存続し、Access Managementが現在userId／Ro
 
 必須確認は固定5文書の契約・品質限定独立レビュー、差分・ローカルリンク確認。初回3文書のレビュー結果を全数統合し、旧Host全喪失語1箇所と直接参照2箇所・近傍の同じ旧鍵行を是正した。両レビューへ統合是正方針を再提示して整合を確認し、固定5文書の限定再レビューは両観点とも全重大度の残指摘0。差分空白確認成功、ローカルリンク77件の不存在0、旧アンカー参照0、MCP localhost Transport lifecycleは基準版と一致した。全体Checkerはerror 3,056件・warning 0・Exit 1で、今回5文書内はPROJECT_CONTEXTの既知指摘1件だけである。巨大結果は保存せず、限定Passを全体Passへ読み替えない。実行系・標準・秘密Store・Schema・Transport lifecycle／TLS／Originは変更しないため、Source全回帰・実E2E・準拠監査は今回は対象外。Workbench／Domain詳細、Quality、Source、本番接続は後続未完了。全体Ready・実装成立を主張しない。
 
+#### Workbench／Domain詳細の新Owner境界再伝播 — 2026-10-11
+
+基準Commitは`0f5b7765`。Workbench・Domain詳細と01／02／ARCH-000013／07／08の現在状態、計画・PROJECT_CONTEXTの9文書を対象とする。着手前の読み取り専用契約確認は着手可・追加人間判断不要。通常鍵操作の同一Process administrator固定、MCP全鍵操作非公開、Host交換2操作だけを維持する。交換4組表示／3組確認を通常発行・独立失効へ転用しない。Domainは認可済み集合の意味集約と中立なRoot／保存部品だけを所有し、認可状態・資格Secret・交換Recoveryを引き取らない。
+
+固定候補の契約・品質独立レビューで固有3件（現行設計の旧認可語、交換の保持範囲、Domain末尾のRelation欠落）を検出し、全結果を統合した。冒頭の旧Quality観測表は全セルを履歴として保持し、現在導出と混在させない方針を両レビューへ再提示して是正した。限定再レビュー結果は次段落に記録する。具体API・物理Schema・保存・受領方式、Quality導出、Source・本番接続はOPEN。旧Evidence・Visual・UI／SPEC Identity・対象外Relation・既存Root／保存保証・初回構築は変更しない。Sourceや準拠規則を変えないため全Source回帰・実E2E・準拠監査は今回は対象外。差分・リンク・対象外不変とCheckerを確認し、限定設計伝播を全体Readyへ読み替えない。
+
+限定確認結果: 意味上の固有3件と表構造の1件を是正し、固定9文書の契約・品質限定再レビューはともに全重大度の残指摘0。ローカルリンク229件の不存在0、08の全82対応行は基準版と一致。Workbenchの旧Quality観測8行とReality13行は全セル不変。差分空白確認成功。全体Checkerはerror 3,056件・warning 0・Exit 1で未通過。対象内はPROJECT_CONTEXTと08の既知契約指摘2件で、後続Quality／投影整合で処置する。巨大出力は保存しない。境界の設計候補伝播だけの限定完了であり、具体API・保存・受領方式、Quality・Source・本番接続・全体Readyは未完了。現在、この限定作業について追加の人間判断は不要。
+
 #### 管理権限の初期割当 — 2026-10-10（6群表全体が旧提案の履歴）
 
 以下は現在の割当契約ではない。鍵3操作は後続判断でadministrator専用固定へ置換し、残る4管理群の担当Roleと可変性は未確定である。
