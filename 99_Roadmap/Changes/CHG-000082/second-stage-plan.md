@@ -786,6 +786,18 @@ UI／SPEC定義再伝播の限定確認結果: 契約・品質の独立レビュ
 
 境界再伝播の限定確認結果: 差分空白確認成功、6文書のローカルリンク102件を確認して不存在0。全体Checkerはerror 3,056件・warning 0・Exit 1で未通過。今回6文書の残指摘は基準版から保持するPROJECT_CONTEXTの契約指摘1件のみで、限定独立レビューを全体Passへ読み替えない。実行コマンドは既出の`node 40_Develop/checker/bin/checker.ts --root . --json --summary`。巨大出力は保存せず、次は04〜08と新Owner Detailsへ最新判断を伝播する。
 
+#### 最新鍵管理判断のArchitecture横断モデル・対応表再伝播 — 2026-10-11
+
+基準Commitは`77d86943`。04状態／データフロー、05故障、06配置の鍵断面、07詳細対応表のARCH-000013、08のSCR-000008／BHV-000012／`PRT-000008.spec-000012`の3行を更新する。01／02／03／ARCH-000013の案内、本計画とPROJECT_CONTEXTの同期を含む11文書が対象。着手前の読み取り専用契約確認は着手可・追加人間判断不要。変更分類は採用済み意味の設計伝播と現在投影の同期である。
+
+新規発行・独立失効・交換の3操作を分け、対象資格のexact Identity、旧失効前の同じRecovery結合、失効・発行・記録・搬送・受領の別事実を反映する。確定発行を後続の記録・配送／受領失敗だけで不明へ戻さない。通常鍵操作は同一Process Workbenchの固定administrator、Hostは信頼したログイン済み操作者の対話CLI交換2操作だけで追加認証なし、MCPの全鍵操作は一覧・Schema・登録・dispatch非公開。他4管理群の操作主体・可変性はOPEN。4組表示・3組確認、保持情報と現在参照許可による非開示を維持する。
+
+07／08はAccess Managementの意味Owner、Domain Modelの認可済みContext集約・中立なRoot／保存部品、Workbenchの通常鍵操作Surface、MCPの鍵操作非公開境界を分ける。08対象3行はPartialとし、新Owner Details・具体API／保存・本番接続の未完了を保持する。残り19 UI行・29 BHV行・31 Relation行、既存ID／Relationは変更しない。Docker／Task／一般Recovery、Source、Quality、物理Schema／API／Store、保存Root、旧Evidence、標準・ひな型は変更しない。
+
+固定11文書の必須確認は契約・品質の限定独立レビュー、文書・差分・リンク・対象外Relation不変とChecker確認。共通原因の2指摘（発行／独立失効の処置前停止、操作別結果Ownerと交換限定Recovery）を05だけで統合是正し、固定11文書の契約・品質限定再レビューはともに残指摘0。新しい実行系・準拠規則を変更しないためSource全回帰・実E2E・準拠監査は今回は対象外。新Owner Details以降と全体Ready・QA Handoff・実装成立は未完了である。
+
+横断モデル・対応表再伝播の限定確認結果: 差分空白確認成功、ローカルリンク210件の不存在0。08の対象外79対応行（19 UI・29 BHV・31 Relation）は基準版と完全一致、全82行と既存Identity／Relationを維持した。是正後の全体Checkerはerror 3,056件・warning 0・Exit 1で未通過。今回11文書にはPROJECT_CONTEXTと08の既知契約指摘2件が残る。限定レビューを全体Coverage・Quality Readyへ読み替えず、新Owner Details・Quality・Sourceへの伝播で後続処置する。巨大実行結果は保存せず、既出のCheckerコマンドで再取得する。
+
 #### 管理権限の初期割当 — 2026-10-10（6群表全体が旧提案の履歴）
 
 以下は現在の割当契約ではない。鍵3操作は後続判断でadministrator専用固定へ置換し、残る4管理群の担当Roleと可変性は未確定である。

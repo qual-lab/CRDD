@@ -2,9 +2,9 @@
 
 Status: Candidate (v0.22 responsibility reorganization)
 Owner: Qual-Lab
-Last Updated: 2026-10-10
+Last Updated: 2026-10-11
 
-2026-10-10の[ARCH-000013](Definitions/ARCH-000013/architecture_definition.md)から、最小ユーザー管理・現行Role認可・鍵交換2操作を限定伝播した（限定独立レビュー済み）。07／08・Details・Quality・Source／Schema・公開入口は未追従。UI Exit、Architecture Ready、QA Handoffまたは本番成立を主張しない。
+2026-10-11の[ARCH-000013](Definitions/ARCH-000013/architecture_definition.md)と[最新境界モデル](03_Boundary_and_Interface_Model.md)から、鍵管理断面を限定再伝播・限定独立レビュー済み・残指摘0。前判断のレビュー結果は履歴であり、今回候補へ流用しない。07／08の対象対応も更新中で、新Owner Details・Quality・Source／Schema・本番公開入口は未完了。UI Exit、Architecture Ready、QA Handoffまたは本番成立を主張しない。
 
 ## 1. この成果物が所有すること
 
@@ -47,6 +47,8 @@ Canonical責務を実行時に分離する論理単位、Resource、並行性お
 | CROSを別Processで利用する | Workbench ServerからMCP、または外部MCP Client | 同一Hostでも別ProcessならMCPで接続する。 | Remote接続、情報最小化、認可、切断・取消と終了後状態を確認する。 |
 | Linux等の共有Host | Workbench Server、MCP Server | CROS能力とRepository群を配置する。TLS終端等はDeployment Concernである。 | Linux実配置、証明書運用、特定Proxyは既存loopback／模擬Header試験では確認済みとしない。 |
 
+上表のCROS一般利用経路へ鍵操作を混ぜない。通常鍵発行・独立失効・交換は同一Process Workbenchの現行administrator専用固定で、MCPの一覧・Schema・登録・dispatchは全鍵操作を公開しない。Hostのログイン済みローカル操作者を信頼する対話CLIは交換2操作だけとし、追加認証・専用資格・承認コード・OS管理者昇格なしで既存Root／Path検証を維持する。新しいServerやHost認可機構を作らない。
+
 Shared Server、CROS REST、Gatewayを独立Runtimeとして残さない。既存の認可・Origin・TLS境界・操作・終了保証をMCPと内部能力へ移管した後に撤去する。共有HostへのRepository自動Deploy／Clone／Backup機能は追加しない。WorkbenchのBrowser向けRESTはこの撤去に含めない。
 
 単体／CROSは起動時に明示選択し、設定済みであることだけで自動切替しない。単体は起動Repository一つ・資格不要、CROSは現在認可された集合を扱う。初回CROSの管理資格発行方式は変更せず、鍵交換と混ぜない。Access Managementは認証・認可の論理Ownerであり、独立Process／Serverの追加を意味しない。保存Root・秘密保護は既存契約を維持する。
@@ -64,9 +66,10 @@ Coordinatorは単体の実行Runtimeとして利用でき、Orchestratorはそ�
 | Acceptance Decision Operation | 対象Identity、根拠Revision、明示判断 | Objective／Milestone／判断者 | 受入・差戻し・判断待ちの限定記録またはEffect 0 |
 | 接続認可Query | Credential→userId、現行Role詳細権限、Workspace／Exposure、取得可能性 | 要求／認証Context | 現在認可済み集合または非開示拒否を返す。接続の終了はTransport Ownerが確認する |
 | 認可済みFederation Query | 許可済みRepository集合、Source snapshot、Coverage | Query／対象集合 | Domain Modelが根拠と不完全性を返す。管理権限から内容閲覧を生成しない |
-| 通常管理Operation | ユーザー／表示名／Role／Role詳細権限／資格の管理対象 | 操作／対象Identity／現在管理認可 | 対象変更結果または不明を区別する。具体保存確定方式はDetailsで照合 |
-| 独立失効Operation | 認可された資格と失効結果 | 操作／資格Identity／現在管理認可 | 失効結果を確認し後続要求を拒否。新発行0で、開始済みTask取消を証明しない |
-| 鍵交換Operation | 対象userId、既存発行先、失効範囲、非秘密Recovery状態 | 操作種別／通常・Host入口／対象／同じRecovery ID | 失効・発行・結果受領を分離。未確定は同じRecoveryで保持し、現在Authorityで再観測する |
+| 他4管理群のOperation | ユーザー／表示名／Role／Role詳細権限／Repository登録／公開範囲の管理対象 | 操作主体・設定可否はOPEN | 未確定権限を鍵操作から生成しない。対象変更結果と不明を分け、具体保存確定方式はDetailsで照合 |
+| 新規資格発行Operation | 既存対象userId、発行結果 | 操作／対象userId／同一Process Workbenchの現行administrator | 発行・結果記録・搬送・受領を別観測。旧失効0・交換Recoveryなし。配送失敗だけで確定発行を不明化しない |
+| 独立失効Operation | exact対象資格IdentityとuserIdへの結合、失効結果 | 操作／資格Identity／同一Process Workbenchの現行administrator | 確定した失効資格の後続要求を拒否、不明は既知状態と確認先を返す。範囲拡大・新発行・Secret・交換再入場0、Task取消非証明 |
+| 鍵交換Operation | 対象userId、既存発行先、失効範囲、非秘密Recovery状態 | 2操作／Workbench固定administratorまたは信頼したHostログイン操作者／旧失効前に結合した同じexact Recovery ID | 失効・発行・結果記録・搬送・受領を分離。未確定は同じRecoveryで保持し現在Authorityで再観測。確定発行を後続失敗で不明へ戻さない |
 | External Information Request | consent scope、payload、returned candidate | Request Identity | 候補隔離または採否への引渡し |
 | Runtime Data Operation | lease、lock、temporary artifact | Owner／Repository Root | publish、cleanupまたはRecovery記録 |
 | Verification Run | fixed revision、test resource、evidence | Run／test class | 全対象終了、未実施範囲の記録 |
@@ -120,7 +123,9 @@ Canonical Architectureが独立レビューで閉じた後に、次を照合す�
 - 同じProcessやstreamを複数役割で使う場合、役割ごとの所有者と終了条件を反証する。
 - OS／Runtime／外部CLIのVersion差は、危険な意味変化を検出して停止する。無関係なHash差やVersion差だけで恒久拒否しない。
 - Physical deploymentが未確定な箇所は未確認として保持し、CanonicalなProcess数や配置を捏造しない。
-- 鍵交換2操作×2入口で現在Authorityと必要確認を維持し、Host配置から通常管理権限を推定しない。秘密返却の具体入口・画面／CLI割当は未確定のままDetailsへ渡す。
+- 鍵交換2操作×2入口の4組表示・3組だけ明示確認、固定administratorのWorkbenchと追加認証なしのHost交換2操作だけを確認する。MCPの鍵操作一覧・Schema・登録・dispatchは不存在を確認し、一般Remote経路から迂回させない。
+- 新規発行・独立失効・交換の対象と結果、旧失効前exact Recovery、段階別の記録・搬送・受領を確認する。Host配置から他4管理群の権限を推定しない。
+- Workbench／Host CLIの入口割当は採用済み。具体Layout・入力・一度表示と受領方式だけを未確定としてDetailsへ渡し、実装・配置の成立を主張しない。
 
 ## Checklist
 

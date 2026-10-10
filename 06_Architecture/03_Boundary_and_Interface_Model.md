@@ -4,7 +4,7 @@ Status: Candidate (v0.22 responsibility reorganization)
 Owner: Qual-Lab
 Last Updated: 2026-10-11
 
-2026-10-11の[ARCH-000013](Definitions/ARCH-000013/architecture_definition.md)から、最新の鍵管理判断を限定再伝播し、契約・品質の限定独立レビュー済み・残指摘0。前判断の限定レビュー結果は履歴であり、今回候補へ流用しない。04〜08・新Owner Details・Quality・Source／Schema・本番公開入口は最新判断へ未追従。UI Exit、Architecture Ready、QA Handoffまたは本番成立を主張しない。
+2026-10-11の[ARCH-000013](Definitions/ARCH-000013/architecture_definition.md)から、最新の鍵管理判断を限定再伝播し、契約・品質の限定独立レビュー済み・残指摘0。前判断の限定レビュー結果は履歴であり、今回候補へ流用しない。04〜08の鍵断面と対応表は最新判断へ限定再伝播・限定独立レビュー済み・残指摘0。新Owner Details・Quality・Source／Schema・本番公開入口は未完了。UI Exit、Architecture Ready、QA Handoffまたは本番成立を主張しない。
 
 ## 1. この成果物が所有すること
 

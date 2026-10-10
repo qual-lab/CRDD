@@ -12,7 +12,7 @@ v0.21.0の基準版では、個別責務定義、横断モデルおよび15領�
 
 ## 2. 工程入力と再構築方法
 
-最新鍵管理判断について、UI-000008／SPEC-000012の両Architecture分析・ARCH-000013直接同期は限定独立レビュー済み。2026-10-11は03境界モデルへ再伝播し、本入口と02の案内を同期し、今回6文書の限定独立レビュー済み・残指摘0。04〜08と新Owner Details・Quality／Sourceは再伝播未完了。前判断に対する03〜06のレビュー結果は履歴であり、最新判断へ流用しない。UI工程Exit後の通常Handoffではなく、採用済み意味への既存設計の更新である。ARCH-ID18件と既存Detail Relationを維持し、旧配置をAccess Managementへの移管済み状態と解釈しない。新公開入口・保存Schema・保存Root変更・実装・実測成立・Architecture Ready・QA Handoffを主張しない。
+最新鍵管理判断について、UI-000008／SPEC-000012の両Architecture分析・ARCH-000013直接同期は限定独立レビュー済み。03境界モデルへの限定再伝播は独立レビュー済み・残指摘0。2026-10-11は04〜08の鍵断面と対応表へ限定再伝播・限定独立レビュー済み・残指摘0。新Owner Details・Quality／Sourceは再伝播未完了。前判断に対する03〜06のレビュー結果は履歴であり、最新判断へ流用しない。UI工程Exit後の通常Handoffではなく、採用済み意味への既存設計の更新である。ARCH-ID18件と既存Detail Relationを維持し、旧配置をAccess Managementへの移管済み状態と解釈しない。新公開入口・保存Schema・保存Root変更・実装・実測成立・Architecture Ready・QA Handoffを主張しない。
 
 Architectureの正式入力はCanonicalな20件のUI定義と30件のSPEC定義である。UIとSPECを別々に全数分析し、同じ上位責務境界へ属する結果を18件のArchitecture定義へ統合した。
 

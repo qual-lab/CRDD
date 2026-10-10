@@ -2,7 +2,7 @@
 
 成果物種別: Architecture定義
 Architecture ID: `ARCH-000013`
-状態: 更新中（最新鍵管理判断のArchitecture分析・定義直接同期を限定独立レビュー済み・残指摘0。横断モデル以降未完了）
+状態: 更新中（分析・定義・03境界の限定独立レビュー済み・残指摘0。04〜08の鍵断面・対応表の限定独立レビュー済み・残指摘0、Details以降未完了）
 維持責任者: Qual-Lab
 
 ## 1. 責務と境界
@@ -99,7 +99,7 @@ Workbench／MCP／管理入口
 | [SCR-000008／PRT-000008](../../../04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md) | `PRT-000008.spec-000012` | 対象・事前表示・状態・部分結果・一度表示Secretを配置制約として保持。Layoutと採用済みWorkbench／Host CLIの具体表示・案内はUI Detailへ戻す |
 | [BHV-000012](../../../05_SPEC/Details/BHV-000012/behavior.md) | 同じ既存Relation | Trigger・Authority・Validation・失効／発行・結果・Recoveryを保持。振る舞い変更はSPEC Detailへ戻す |
 
-03〜06、07詳細領域Map、UI／SPEC Detailへの前判断の伝播・限定レビューは履歴であり、最新の鍵管理判断へ流用しない。[Access Management詳細](../../Details/access-management/01_Architecture.md)は前固定版で最新判断の限定反映・限定独立レビュー済み・残指摘0。今回のArchitecture分析と本定義の直接同期は限定独立レビュー済み・残指摘0。03境界モデルと01／02の案内は最新判断へ限定再伝播・限定独立レビュー済み・残指摘0。04〜08横断モデル、Domain集約・MCP／Workbenchの新契約Details、Quality・Sourceは再伝播未完了。保存・公開入口はOPENで、旧配置を新Ownerの完成形として扱わない。
+03〜06、07詳細領域Map、UI／SPEC Detailへの前判断の伝播・限定レビューは履歴であり、最新の鍵管理判断へ流用しない。[Access Management詳細](../../Details/access-management/01_Architecture.md)は前固定版で最新判断の限定反映・限定独立レビュー済み・残指摘0。今回のArchitecture分析と本定義の直接同期は限定独立レビュー済み・残指摘0。03境界モデルと01／02の案内は最新判断へ限定再伝播・限定独立レビュー済み・残指摘0。04〜08横断モデルの鍵断面と対応表は限定再伝播・限定独立レビュー済み・残指摘0。Domain集約・MCP／Workbenchの新契約Details、Quality・Sourceは再伝播未完了。保存・公開入口はOPENで、旧配置を新Ownerの完成形として扱わない。
 
 ## 9. 互換性・移行・成立済み能力
 

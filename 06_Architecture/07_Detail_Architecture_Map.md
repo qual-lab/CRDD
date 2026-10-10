@@ -22,11 +22,11 @@ Quality／Development
 
 ## 2. 詳細設計領域
 
-2026-10-10現在、ARCH-000013のAccess Management断面は新しいCandidate詳細へ接続した。保存・公開入口はOPEN、Domain集約・MCP／Workbenchの新契約Detailsと08の全体伝播は未完了。旧crosは置換前比較資料であり、新ユーザー／Role／鍵交換の完成根拠にしない。他の行の状態を今回の限定更新から再評価したとは扱わない。
+2026-10-11現在、ARCH-000013の最新鍵管理判断を本対応表と08の対象3行へ限定再伝播・限定独立レビュー済み・残指摘0。Access Management断面はCandidate詳細へ部分接続済み。通常鍵操作はWorkbench、Hostは交換2操作だけ、MCPは全鍵操作非公開という入口分担は採用済みである。保存Schema・具体API・表示／受領方式、Domain集約・MCP／Workbenchの新契約Detailsは未完了。旧crosは置換前比較資料であり、新ユーザー／Role／鍵交換の完成根拠にしない。他の行の状態を今回の限定更新から再評価したとは扱わない。
 
 | 詳細設計領域 | 対応Architecture定義 | 責務 | 状態 |
 |---|---|---|---|
-| [access-management](Details/access-management/01_Architecture.md) | ARCH-000013 | 最小ユーザー・Role・資格、現在認可、接続／公開範囲、限定鍵交換。Domain内容とTransportを所有しない | Candidate／Partial。保存・公開入口OPEN |
+| [access-management](Details/access-management/01_Architecture.md) | ARCH-000013 | 最小ユーザー・Role・資格と交換相関の意味、現在認可、接続／公開範囲。Host交換2操作は同契約下のCLI入口。Domain内容・Transportを所有しない | Candidate／Partial。保存Schema・具体API・表示／受領方式OPEN |
 | [ai-adapter](./Details/ai-adapter/01_Architecture.md) | ARCH-000004、ARCH-000010、ARCH-000015 | AI AdapterのCatalog・Profile管理、Provider別計画・出力変換と実行Authorityの分離 | Candidate |
 | [artifact-signing](Details/artifact-signing/01_Architecture.md) | ARCH-000014 | 配布物の完全性、鍵Capability、Publisher証明 | Canonical |
 | [checker](Details/checker/01_Architecture.md) | ARCH-000001、ARCH-000002 | 決定論的構造検査と契約移行時の機械的集合検査 | Canonical |
@@ -65,7 +65,7 @@ Quality／Development
 | ARCH-000010 | [Tool CapabilityとAIモデル構成](Definitions/ARCH-000010/architecture_definition.md) | ai-runtime、coordinator、cros、workbench |
 | ARCH-000011 | [Runtime Dataの配置・保持・清掃](Definitions/ARCH-000011/architecture_definition.md) | runtime-data、platform-access、crdd-domain-library |
 | ARCH-000012 | [公開Transportの意味同一性](Definitions/ARCH-000012/architecture_definition.md) | mcp、orchestrator、workbench |
-| ARCH-000013 | [接続主体・Role権限・資格とRepository Federation](Definitions/ARCH-000013/architecture_definition.md) | access-management（Candidate／Partial）、Domain Model集約（新断面未伝播）、Repository保存、MCP Server、Workbench Server。旧crosは比較資料 |
+| ARCH-000013 | [接続主体・Role権限・資格とRepository Federation](Definitions/ARCH-000013/architecture_definition.md) | access-management（意味Owner、Host交換2操作のCLI契約）、domain-model（認可済みContext集約・中立な共通Root／保存部品）、workbench-server（通常鍵3操作）、mcp-server（全鍵操作非公開の境界）。Candidate／Partialで、新断面Details・具体API／保存は未完了。旧crosは比較資料 |
 | ARCH-000014 | [Runtime Artifactの信頼評価](Definitions/ARCH-000014/architecture_definition.md) | runtime-trust、artifact-signing、coordinator、version-control |
 | ARCH-000015 | [外部送信・結果帰還・候補採用](Definitions/ARCH-000015/architecture_definition.md) | coordinator、ai-runtime、cros、mcp、workbench |
 | ARCH-000016 | [過去情報と現在有効な意図](Definitions/ARCH-000016/architecture_definition.md) | project-operation、crdd-domain-library、execution-intelligence、cros、runtime-data、version-control、workbench |
@@ -75,6 +75,8 @@ Quality／Development
 Architecture定義と詳細設計領域は同じIdentityではない。新しい詳細領域を作る場合は本表と個別領域のRelationを同じ変更で更新し、どのARCH-IDも未接続または暗黙接続にしない。
 
 ## 4. Qualityへの引渡し
+
+ARCH-000013では、Access Managementの資格Lifecycleと認可の意味、Domain Modelの認可済みContext集約・中立な保存部品、Workbenchの通常鍵操作、MCPの鍵操作非公開を分けて検証する。Domainの保存部品へ資格の発行／失効判断を移さず、Host CLIを新Serverや新Frameworkにしない。MCPは鍵操作のConsumerではない。他4管理群の操作主体・設定可否はOPENで、今回の配置候補から許可を生成しない。
 
 QualityはARCH-IDだけでなく、対応する詳細設計領域のComponent、Interface、Data／State Flow、Failure、Resource、配置および観測方法を入力にする。個別領域の`OPEN`または`FAIL`は未確認範囲として保持し、全体Passへ畳まない。
 

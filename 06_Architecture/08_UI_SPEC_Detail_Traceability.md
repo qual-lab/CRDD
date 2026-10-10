@@ -1,12 +1,14 @@
 # UI／SPEC Detail Architecture Traceability
 
 成果物種別: Architecture入力・配置の統合投影
-状態: Canonical
+状態: Candidate（ARCH-000013断面を限定更新中。全体再評価は未完了）
 維持責任者: Qual-Lab
 
 ## 1. 目的
 
 発行済みのLogical Screen、Screen Part、InteractionおよびDetailed Behaviorを、意味を所有するArchitecture定義と配置を所有する詳細設計領域へ接続する。Definitionを要求源として維持し、Detailを新しい要求や実装配置の根拠へ読み替えない。
+
+2026-10-11はSCR-000008／PRT-000008、BHV-000012、`PRT-000008.spec-000012`の3行だけを最新鍵管理判断へ限定再伝播・限定独立レビュー済み・残指摘0。各ID・Relation・ARCH Ownerは維持する。残り19 UI行・29 BHV行・31 Relation行の配置名とCoveredは前固定版から未変更・未再評価であり、最新構成の実装成立や全体Coverageを示さない。新Owner Details・Quality・Source・本番接続の成立は未完了である。
 
 ```text
 UI／SPEC Definition
@@ -29,7 +31,7 @@ Architecture Detail Area
 | [SCR-000005／PRT-000005](../04_UI/Details/Areas/operation/SCR-000005/screen.md) | UI-000005 | ARCH-000007、ARCH-000008 | execution-intelligence、orchestrator、coordinator、platform-access、crdd-domain-library、semantic-coverage | Covered |
 | [SCR-000006／PRT-000006](../04_UI/Details/Areas/project-context/SCR-000006/screen.md) | UI-000006 | ARCH-000009 | version-control、runtime-data、cros、crdd-domain-library | Covered |
 | [SCR-000007／PRT-000007](../04_UI/Details/Areas/operation/SCR-000007/screen.md) | UI-000007 | ARCH-000012 | mcp、orchestrator | Covered |
-| [SCR-000008／PRT-000008](../04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md) | UI-000008 | ARCH-000013 | cros、mcp、runtime-data | Covered |
+| [SCR-000008／PRT-000008](../04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md) | UI-000008 | ARCH-000013 | access-management、workbench-server、domain-model（認可済みContext集約／中立な保存部品）、mcp-server（鍵操作非公開の境界） | Partial |
 | [SCR-000009／PRT-000009](../04_UI/Details/Areas/project-context/SCR-000009/screen.md) | UI-000009 | ARCH-000006 | project-operation、cros | Covered |
 | [SCR-000010／PRT-000010](../04_UI/Details/Areas/configuration-trust/SCR-000010/screen.md) | UI-000010 | ARCH-000010 | coordinator、cros | Covered |
 | [SCR-000011／PRT-000011](../04_UI/Details/Areas/configuration-trust/SCR-000011/screen.md) | UI-000011 | ARCH-000011 | runtime-data、platform-access | Covered |
@@ -59,7 +61,7 @@ Architecture Detail Area
 | [BHV-000010](../05_SPEC/Details/BHV-000010/behavior.md) | SPEC-000010 | ARCH-000009 | version-control、runtime-data、cros、crdd-domain-library | Covered |
 | [BHV-000031](../05_SPEC/Details/BHV-000031/behavior.md) | SPEC-000031 | ARCH-000009 | version-control、orchestrator | Covered |
 | [BHV-000011](../05_SPEC/Details/BHV-000011/behavior.md) | SPEC-000011 | ARCH-000012 | mcp、orchestrator | Covered |
-| [BHV-000012](../05_SPEC/Details/BHV-000012/behavior.md) | SPEC-000012 | ARCH-000013 | cros、mcp、runtime-data | Covered |
+| [BHV-000012](../05_SPEC/Details/BHV-000012/behavior.md) | SPEC-000012 | ARCH-000013 | access-management、workbench-server、domain-model（認可済みContext集約／中立な保存部品）、mcp-server（鍵操作非公開の境界） | Partial |
 | [BHV-000013](../05_SPEC/Details/BHV-000013/behavior.md) | SPEC-000013 | ARCH-000006 | project-operation、cros | Covered |
 | [BHV-000014](../05_SPEC/Details/BHV-000014/behavior.md) | SPEC-000014 | ARCH-000010 | coordinator、cros | Covered |
 | [BHV-000015](../05_SPEC/Details/BHV-000015/behavior.md) | SPEC-000015 | ARCH-000010 | coordinator、cros | Covered |
@@ -99,7 +101,7 @@ Architecture Detail Area
 | `PRT-000006.spec-000010` | BHV-000010 | ARCH-000009 | Single | version-control、runtime-data、cros、crdd-domain-library | Covered |
 | `PRT-000006.spec-000031` | BHV-000031 | ARCH-000009 | Single | version-control、runtime-data、cros、crdd-domain-library | Covered |
 | `PRT-000007.spec-000011` | BHV-000011 | ARCH-000012 | Single | mcp、orchestrator | Covered |
-| `PRT-000008.spec-000012` | BHV-000012 | ARCH-000013 | Single | cros、mcp、runtime-data | Covered |
+| `PRT-000008.spec-000012` | BHV-000012 | ARCH-000013 | Single | access-management、workbench-server、domain-model（認可済みContext集約／中立な保存部品）、mcp-server（鍵操作非公開の境界） | Partial |
 | `PRT-000009.spec-000013` | BHV-000013 | ARCH-000006 | Single | project-operation、cros | Covered |
 | `PRT-000010.spec-000014` | BHV-000014 | ARCH-000010 | Single | coordinator、cros | Covered |
 | `PRT-000010.spec-000015` | BHV-000015 | ARCH-000010 | Single | coordinator、cros | Covered |
@@ -121,6 +123,8 @@ Architecture Detail Area
 
 ## 5. 配置判断
 
+最新ARCH-000013断面の意味OwnerはAccess Managementであり、通常鍵3操作は同一Process Workbenchの固定administrator、Hostは信頼したログイン済み操作者の対話CLI交換2操作だけに接続する。MCPを鍵操作の利用側にせず、一覧・Schema・登録・dispatch非公開を負の境界として扱う。Domain Modelは認可済み集合のContext集約と中立な共通Root／保存部品だけを担い、資格やGrantを解釈して権限を決めない。3行のPartialはこの責務対応候補と、Details・具体API／保存・本番接続の未完了を示し、Source Coverageではない。
+
 - 20件のSCRと20件のPRTは、Source UI Definitionを所有するARCH-IDへ接続した。
 - 30件のBHVは、Source SPEC Definitionを所有するARCH-IDへ接続した。
 - InteractionとBHVの32件の対応は[UI／SPEC Detail対応](../05_SPEC/Details/02_UI_SPEC_Detail_Correspondence.md)を正本とし、本書はその全RelationのArchitecture責務を統合投影する。
@@ -129,6 +133,8 @@ Architecture Detail Area
 
 ## Checklist
 
+以下の全数接続は前固定版のIdentity対応を保持するもので、最新Owner配置の全体完成判定ではない。
+
 - [x] 全20 UI Definition由来のSCR／PRTを処置した
 - [x] 全30 SPEC Definition由来のBHVを処置した
 - [x] 32 Interaction Relationを個別にArchitecture Relation Ownerへ接続した
@@ -136,3 +142,4 @@ Architecture Detail Area
 - [x] 各ARCH-IDを一件以上の詳細設計領域へ接続した
 - [x] CMP未発行をArchitecture Component不存在の証明へ読み替えていない
 - [x] Detailから新しい要求、Authority、Effectまたは実装方式を逆輸入していない
+- OPEN: ARCH-000013の新Owner Details・Quality・Source・本番接続は未完了。他行の最新配置も今回再評価していない。

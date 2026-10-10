@@ -2,9 +2,9 @@
 
 Status: Candidate (v0.22 responsibility reorganization)
 Owner: Qual-Lab
-Last Updated: 2026-10-10
+Last Updated: 2026-10-11
 
-2026-10-10の[ARCH-000013](Definitions/ARCH-000013/architecture_definition.md)から、最小ユーザー管理・現行Role認可・鍵交換2操作を限定伝播した（限定独立レビュー済み）。07／08・Details・Quality・Source／Schema・公開入口は未追従。UI Exit、Architecture Ready、QA Handoffまたは本番成立を主張しない。
+2026-10-11の[ARCH-000013](Definitions/ARCH-000013/architecture_definition.md)と[最新境界モデル](03_Boundary_and_Interface_Model.md)から、鍵管理断面を限定再伝播・限定独立レビュー済み・残指摘0。前判断のレビュー結果は履歴であり、今回候補へ流用しない。07／08の対象対応も更新中で、新Owner Details・Quality・Source／Schema・本番公開入口は未完了。UI Exit、Architecture Ready、QA Handoffまたは本番成立を主張しない。
 
 ## 1. この成果物が所有すること
 
@@ -176,12 +176,13 @@ Workspace／Exposure・実アクセス ─┤
                                 ▼
                  許可されたWorkbench／MCPの利用側
 
-通常管理認可 または Host OS Authority
+Workbenchの現行administrator または 信頼したHostログイン操作者
                  │ 交換種別・対象・既存発行先
                  ▼
-     Access Management（同じ鍵交換Operation）
+     Access Management（旧失効前に同じexact Recoveryへ結合）
         ├→ 旧資格失効の確定範囲
-        ├→ 新資格発行の確定／不明
+        ├→ 新資格発行・結果記録の確定／不明
+        ├→ 搬送・受領の確定／不明（発行結果と別の事実）
         ├→ 同じRecoveryの非秘密耐久状態
         └→ 生Secretは許可された発行結果へ一度だけ返す
              -x 保存／ログ／Evidence／会話／再表示
@@ -189,7 +190,15 @@ Workspace／Exposure・実アクセス ─┤
 
 ユーザーは安定userId（UUID）、管理者設定の表示専用名、一つのRoleを持つ。Roleが詳細権限を所有し、CredentialはuserIdへ結合する。改名・同名からIdentityを再生成せず、Credential／Sessionへ旧権限を固定しない。認証Contextは認証・搬送の単位であり、新しい永続Session Storeを意味しない。DomainはCredentialやGrantを解釈せず、許可済み集合からの投影だけを所有する。
 
-通常管理はユーザーやRole設定を更新し得るが、鍵交換はuserId・表示名・Role・詳細権限・Repository登録・Product Dataを保持して鍵だけを変更する。指定ユーザー交換は対象既存userIdの全旧有効資格を失効させ同じuserIdへ新発行する。他ユーザーの鍵は保持する。全員交換は操作中管理者を含む全旧有効資格を失効させ、指定した既存administrator userIdへ新発行する。他ユーザーへの再発行・配布は通常管理である。独立失効は新発行0であり交換と混ぜない。
+通常の鍵発行・独立失効・交換は、同一Process Workbenchの現行administrator専用固定操作である。Hostはログイン済みローカル操作者を信頼する対話CLIの交換2操作だけとし、追加認証・専用資格・承認コード・OS管理者昇格なしで既存Root／Path検証を維持する。MCPの一覧・Schema・登録・dispatchへ鍵操作を置かない。ユーザー管理・Role設定・Repository登録・公開範囲管理の他4群は、操作主体と設定可否がOPENであり、鍵操作権限を流用しない。
+
+鍵交換はuserId・表示名・Role・詳細権限・Repository登録・Product Dataを保持して鍵だけを変更する。指定ユーザー交換は対象既存userIdの全旧有効資格を失効させ同じuserIdへ新発行する。他ユーザーの鍵は保持する。全員交換は操作中管理者を含む全旧有効資格を失効させ、指定した既存administrator userIdへ新発行する。他ユーザーへの再発行・配布は管理者の通常鍵発行として扱う。
+
+| 操作 | 対象と流れ | 独立した観測事実・禁止事項 |
+|---|---|---|
+| 新規資格発行 | 既存対象userId → 固定administratorのWorkbench入口 → 発行結果 | 発行・結果記録・搬送・受領を分離する。旧資格失効0、交換Recoveryなし。後続搬送失敗だけで確定済み発行を不明へ戻さない |
+| 独立失効 | exact対象資格Identityと既存userIdへの結合 → 同じWorkbench入口 → 失効結果 | 確定／不明を区別し、同じユーザーの別資格へ範囲を拡大しない。新発行・Secret・交換再入場0 |
+| 指定ユーザー／全員交換 | WorkbenchまたはHost入口 → 旧失効前のexact Recovery結合 → 失効 → 発行 → 結果記録 → 搬送・受領 | 全4組を事前表示し、Hostまたは全員交換の3組だけ明示確認。段階ごとの事実を同じRecoveryへ保持し、Secretを保存／再表示しない |
 
 ## 3. 横断状態遷移
 
@@ -399,17 +408,19 @@ Workspace／Exposure・実アクセス ─┤
 
 ### 鍵交換の段階と状態
 
-以下は[ARCH-000013](Definitions/ARCH-000013/architecture_definition.md)の横断投影であり、物理Schemaや新しい状態実値を定義しない。通常管理入口とHost入口はAuthorityだけを分け、同じ2操作へ接続する。
+以下は[ARCH-000013](Definitions/ARCH-000013/architecture_definition.md)の横断投影であり、物理Schemaや新しい状態実値を定義しない。通常入口は同一Process Workbenchの現行administrator、Host入口は信頼したログイン済みローカル操作者とし、同じ交換2操作へ接続する。
 
 | 段階／契機 | 必要な条件・処置 | Effectと結果 | 再入場・終了後観測 |
 |---|---|---|---|
 | 処置前 | 現在Authority、既存対象・必要な管理者、必要状態・認可健全性を確認。全4組を事前表示、Hostまたは全員交換だけ明示確認 | 条件不明／破損なら新Effect 0で停止 | 認可破損修復・Role初期化・特別User／Bootstrapなし |
+| 相関確定 | 旧資格失効より前に交換を同じexact Recovery IDへ結合 | 失効開始前から各結果・非秘密耐久記録を同じIDで追跡 | 後続失敗・Process喪失・再入場でも別Recoveryを重ねない |
 | 旧資格失効 | 指定ユーザーまたは全員のexactな範囲を処置 | 確定した失効範囲を保持。後続要求を拒否 | 全員交換は現在管理者の旧資格も失効。入口の現在Authorityと交換結果を区別する |
 | 新資格発行 | 同じOperationの既存発行先を使用 | 発行確定または不明を失効結果と別に保持 | 生Secretを保存せず許可された結果へ一度だけ返す |
-| 発行失敗・応答／Process喪失 | 既知失効と発行不明を非秘密耐久状態に保存 | 完了・rollback・旧鍵有効を推定しない | 同じRecovery IDを保持し、現在状態と現在Authorityで再観測。Secretを再表示しない |
-| 結果確定・受領 | 失効・発行・搬送の各事実を照合 | 不明が残る場合はcompletedへ畳まない | 鍵交換の完了はTask取消完了・過去Effect 0を証明しない |
+| 発行未確定・Process喪失 | 既知失効と未確定の発行結果を非秘密耐久状態に保存 | 完了・rollback・旧鍵有効を推定しない。確定済みの段階は保持 | 同じRecovery IDを保持し、現在状態と現在Authorityで再観測。Secretを再表示しない |
+| 結果記録・搬送／受領失敗 | 失効・発行・記録・搬送・受領の各事実を個別に保持 | 確定済み発行を後続の記録・配送・受領失敗だけで不明へ戻さない | 同じRecoveryで未確定段階を再観測。保存記録からAuthorityやSecret再表示を生成しない |
+| 結果確定・受領 | 失効・発行・結果記録・搬送・受領の各事実を照合 | 未確認段階をcompletedへ畳まない | 鍵交換の完了はTask取消完了・過去Effect 0を証明しない |
 
-具体的な保存確定方式、再入場API、公開入口および未観測段階の詳細処置はDetailsへ残す。保存した参照はAuthorityそのものではなく、現在Authorityへの再結合なしに回復処置を許可しない。
+Workbench／Host CLIの入口分担は採用済みであり、具体的な保存確定方式、再入場API、画面・入力・受領方式と未観測段階の詳細処置はDetailsへ残す。保存した参照はAuthorityそのものではなく、現在Authorityへの再結合なしに回復処置を許可しない。
 
 ## 4. 概念Entity関係
 
@@ -478,7 +489,8 @@ Relationはアクセス権や採用Authorityを自動生成しない。`Project 
 | External Result | Request、Consent Scope、Provider Result、Candidate | returnedをadoptedへ自動昇格 |
 | Historical Context | Source、Occurred At、Applicable Revision、Currentness | historicalをcurrentへ自動採用 |
 | 接続認可 | Credential→userId、現行Role詳細権限、Exposure、実アクセス | 表示名をIdentityにすること、旧権限固定、管理から内容閲覧の生成 |
-| 鍵交換 | 同じRecovery ID、交換種別、入口、対象・既存発行先、失効確定範囲、発行／受領の観測 | 別Recovery生成、Secret耐久化、unknownの成功化、Authority復元、取消完了の推定 |
+| 新規発行／独立失効 | 発行は既存対象userId、独立失効はexact資格IdentityとuserIdへの結合。操作別結果 | 旧資格の自動失効、失効対象の拡大、独立失効による新発行・Secret、交換Recoveryの生成 |
+| 鍵交換 | 旧失効前から同じRecovery ID、交換種別、入口、対象・既存発行先、失効・発行・記録・搬送・受領の観測 | 別Recovery生成、Secret耐久化、unknownの成功化、確定発行の後続配送失敗による不明化、Authority復元、取消完了の推定 |
 
 ## 6. Qualityへの引渡し
 
@@ -488,7 +500,9 @@ Relationはアクセス権や採用Authorityを自動生成しない。`Project 
 - DataがTrust／Process／Repository／外部境界を越える箇所は、内容、Authority、保存、cleanupを結合して確認する。
 - 受入判断は根拠表示、明示Authority、限定記録、終了後観測を分け、読取りProjection、Task作成およびProvider EffectとのEffect隔離を確認する。
 - 同名・改名のIdentity不変、現行Roleの後続要求反映、三可視境界、管理／内容閲覧の分離を確認する。
-- 鍵交換2操作×2入口、独立失効の新発行0、保持情報不変、失効確定／発行不明／受領の分離と同じRecoveryへのProcess喪失後の再入場を確認する。秘密値を検証記録へ複製しない。
+- 新規発行の旧失効0・交換Recoveryなし、独立失効のexact資格対象・新発行／Secret／交換再入場0を別々に確認する。
+- 鍵交換2操作×2入口、4組表示・3組だけ確認、保持情報不変、旧失効前から同じRecoveryへの結合を確認する。失効・発行・記録・搬送・受領とProcess喪失を別観測にし、確定発行を後続失敗で不明へ戻さない。秘密値を検証記録へ複製しない。
+- 通常鍵操作の固定administrator、追加認証なしのHost交換2操作だけ、MCP全鍵操作非公開、現在参照許可と鍵権限の非同一性、他4管理群OPENを入口ごとに反証する。
 
 ## Checklist
 
