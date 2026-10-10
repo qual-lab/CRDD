@@ -33,6 +33,8 @@ Quality ID: `QA-000009`
 | [SPEC-000026](../../../05_SPEC/Definitions/SPEC-000026/spec_definition.md) | `spec-000026.qa-000009` | SPEC Definition（正常・境界・失敗・観測不能・副作用） | 正常: 結果受領と候補採用を分け、元の依頼と出所に結合した未信頼候補を返す。境界: 依頼Identity一致／欠落／曖昧を分け、結合不能な応答を採用可能候補へしない。失敗: 送信時の識別情報へ結合できない結果は採用可能な候補へしない。観測不能: 不明を正常・不存在・完了へ丸めず、実際の副作用「受領した結果を元Taskへ結合し、未信頼候補として返す。Provider Effectを再発行しない」と矛盾する結果を返さない。失敗: 送信時の識別情報へ結合できない結果は採用可能な候補へしない。副作用: 受領した結果を元Taskへ結合し、未信頼候補として返す。Provider Effectを再発行しない。本SPEC固有の回復経路は設けず、失敗理由と安全な戻り先を返す | IT／ST／UAT | `EST-IT-004`、`EST-ST-005`、`EST-ST-003`、`EST-UAT-006` |
 | [ARCH-000012](../../../06_Architecture/Definitions/ARCH-000012/architecture_definition.md) | `arch-000012.qa-000009` | Architecture Definition（責務・境界・状態・故障） | 受付前／受付済／Effect前後の失敗／結果ありを入口間で同じ意味に保つ。Transport固有Schemaを公開意味契約として再定義しない。所有する責務: decode／encode、接続Lifecycle、公開Application Contractへの搬送。所有しない責務: Orchestratorの意味契約、Authority追加、Provider実行。主な外部境界: CLI、MCP stdio、localhost HTTP、将来のWorkbench。SPEC-000011: Transport固有値を意味契約へ混入せず、未対応入口を成立済みと表示しない。Effect: Transport自体は意味を変更しない。下流Effectは同じApplication契約で制御する。入力SPECが固有Recoveryを定義しない場合、Architectureから追加しない。結果には最後に確認できた状態、観測時点、不足および次の安全な行動を、入力契約が必要とする範囲で含める | IT／UAT | `EST-IT-001`、`EST-IT-002`、`EST-IT-004`、`EST-UAT-007`、`EST-IT-014` |
 | [ARCH-000015](../../../06_Architecture/Definitions/ARCH-000015/architecture_definition.md) | `arch-000015.qa-000009` | Architecture Definition（責務・境界・状態・故障） | not_authorized→authorized→sent→returned→candidate→adoptedを別AuthorityとEffectにし、送信、受領、採用を相互流用しない。所有する責務: 目的限定の送信同意、最小化送信、同じ依頼への結果帰還、候補隔離、採否。所有しない責務: 送信同意からの結果採用、外部AIへの決定権限移譲、所有正本の無断更新。主な外部境界: 外部AI／API／MCP、Candidate Store、所有正本、人間判断。SPEC-000021: 期限切れ・範囲変更・不明な同意ではEffect 0で停止する。Effect: 許可範囲の外部送信Effectを発行し、送信時の依頼識別情報と同意範囲を結果へ結合する。SPEC-000026: 送信時の識別情報へ結合できない結果は採用可能な候補へしない。Effect: 受領した結果を元Taskへ結合し、未信頼候補として返す。Provider Effectを再発行しない。SPEC-000027: 結果受領や送信許可を候補採用Authorityへ流用しない。Effect: 採用時だけ所有正本を更新する。却下・保留では正本Effect 0。入力SPECが固有Recoveryを定義しない場合、Architectureから追加しない。結果には最後に確認できた状態、観測時点、不足および次の安全な行動を、入力契約が必要とする範囲で含める | IT／ST／UAT | `EST-ST-003`、`EST-IT-004`、`EST-IT-001`、`EST-UAT-006` |
+| [ARCH-000013](../../../06_Architecture/Definitions/ARCH-000013/architecture_definition.md) | `arch-000013.qa-000009` | Architecture Definition（公開境界） | MCPの全鍵操作を一覧・Schema・登録・dispatchから除外し、要求Bearer認証は維持する。鍵の権限とEffectはQA-000007が所有する | ST | `EST-ST-015` |
+
 ### Architecture詳細設計入力
 
 | 詳細設計領域 | 受け取る成立条件 |
@@ -57,7 +59,7 @@ Quality ID: `QA-000009`
 | 条件区分 | 適用 | 対応Local Item | 判断理由 |
 |---|---|---|---|
 | 正常 | Required | EST-IT-001、EST-ST-003 | 通常の成立経路を独立して確認する。 |
-| 境界 | Required | EST-IT-004、EST-UAT-006、EST-UAT-007、EST-UAT-008、EST-UAT-009、EST-IT-010、EST-ST-011、EST-IT-014 | 値、Authority、情報、責務または利用者判断の境界を確認する。 |
+| 境界 | Required | EST-ST-015、EST-IT-004、EST-UAT-006、EST-UAT-007、EST-UAT-008、EST-UAT-009、EST-IT-010、EST-ST-011、EST-IT-014 | 値、Authority、情報、責務または利用者判断の境界を確認する。 |
 | 準正常 | N/A | - | 継続可能な分岐または保留状態を持たない。 |
 | 異常 | Required | EST-IT-002、EST-ST-012、EST-ST-013 | 不正入力、故障または拒否経路を通常成功へ畳まない。 |
 | 回復 | Required | EST-ST-005 | 失敗・取消後に同じIdentityと義務で安全に再入場できることを確認する。 |
@@ -75,17 +77,21 @@ Quality ID: `QA-000009`
 | `EST-UAT-007` | 境界 | UAT | Acceptance／Entry Equivalence | CLI・MCP stdio・MCP HTTP・Workbench入口→同じ仕事 | User Acceptance | 同じ依頼、入力、権限、状態、結果を扱う複数入口と、入口固有の失敗 | 利用者が入口を切り替えて同じ仕事を開始・継続する | EST-UAT-007として、利用者の選択、判断理由、参照した根拠、理解できなかった項目および未判断範囲を記録する | 入口が変わっても要求・権限判断・状態・結果の意味が変わらず、失敗境界を識別できる | EST-UAT-007、固定した参加条件と入力、利用者の選択・理由・参照根拠、未判断範囲、Oracle判定「入口が変わっても要求・権限判断・状態・結果の意味が変わらず、失敗境界を識別できる」および終了後条件「重複Application／Provider Effect 0」を保存する | 重複Application／Provider Effect 0 | Manual |
 | `EST-UAT-008` | 境界 | UAT | Acceptance／Context Scope | 送信する仕事用情報一式と帰還結果→利用者 | User Acceptance | 情報源、改訂版、利用範囲、欠測・競合を持つ最小情報一式と帰還結果 | 利用者が送信範囲と結果の再利用可否を判断する | EST-UAT-008として、利用者の選択、判断理由、参照した根拠、理解できなかった項目および未判断範囲を記録する | 全量投入や推測補完をせず、出所・現行性・不足を理解して同じ仕事へ戻せる | EST-UAT-008、固定した参加条件と入力、利用者の選択・理由・参照根拠、未判断範囲、Oracle判定「全量投入や推測補完をせず、出所・現行性・不足を理解して同じ仕事へ戻せる」および終了後条件「未許可情報送信・正本Effect 0」を保存する | 未許可情報送信・正本Effect 0 | Manual |
 | `EST-UAT-009` | 境界 | UAT | Acceptance／Reconnect | 切断した依頼・同一識別情報・現在権限→利用者 | User Acceptance | 要求前切断、受理後切断、Effect後応答喪失、結果取得可能、回復必要の各状態 | 利用者が再実行・再照会・回復を選ぶ | EST-UAT-009として、利用者の選択、判断理由、参照した根拠、理解できなかった項目および未判断範囲を記録する | 新規実行より同一依頼の状態確認を先に選び、別依頼や古い権限へ誤結合しない | EST-UAT-009、固定した参加条件と入力、利用者の選択・理由・参照根拠、未判断範囲、Oracle判定「新規実行より同一依頼の状態確認を先に選び、別依頼や古い権限へ誤結合しない」および終了後条件「重複Provider Effect 0、未解消回復義務を保持」を保存する | 重複Provider Effect 0、未解消回復義務を保持 | Manual |
-| `EST-IT-010` | 境界 | IT | Surface Contract／Effect Equivalence | TS API・CLI・MCP・Workbench→同一Application Contract→正本 | Related 2 Blocks | 正常、拒否、部分結果、取消の同一固定入力と四入口 | 各入口から同じ操作を実行する | 入口Identity、Application Contract、構造結果、Authority判定、取消結果、正本差分、Effect件数を記録する | 全入口が同じ契約と共有実装を使い、結果意味と正本更新が一致し、独自Storeを作らない | EST-IT-010、入口別契約・結果・差分・Effect比較、Oracleを保存する | 入口固有Store 0、取消後残存資源0 | Automated |
+| `EST-IT-010` | 境界 | IT | Surface Contract／Effect Equivalence | TS API・CLI・MCP・Workbench→同一Application Contract→正本 | Related 2 Blocks | 正常、拒否、部分結果、取消の同一固定入力と四入口 | 対応する入口から同じ非鍵管理操作を実行し、明示的非対応入口の非公開を確認する | 入口Identity、Application Contract、構造結果、Authority判定、取消結果、正本差分、Effect件数を記録する | 対応入口が同じ契約と共有実装を使い、結果意味と正本更新が一致し、独自Storeを作らない | EST-IT-010、入口別契約・結果・差分・Effect比較、Oracleを保存する | 入口固有Store 0、取消後残存資源0 | Automated |
 | `EST-ST-011` | 境界 | ST | Result Return／Correlation | 委譲実行→結果搬送→元Task・所有正本 | Related 2 Blocks | 正常帰還、拒否、帰還先消失、Revision競合、部分結果、再送を含む固定Task | 各結果を帰還先へ搬送し反映可否を判定する | Task・Request Identity、作成側、対象Revision、変更集合、Evidence参照、帰還先、Authority、Effect件数を相関する | 正常時だけ作成側・Revision・変更・Evidenceを保って元Task／正本へ帰還し、競合・再送を重複反映しない | EST-ST-011、全相関Identity、変更集合Hash、Evidence参照、判定理由、Effect件数を保存する | 拒否・競合・再送時の重複Effect 0 | Automated |
 | `EST-ST-012` | 異常 | ST | Stdio Transport Scenario | MCP stdio入口→Application→応答stream | System/E2E | UTF-8分割、EOF、取消競合、正常frameを含むProcess入力 | 実Process境界でframeを送受信する | byte列、frame、Application結果、取消・終了状態を記録する | framingを保ち分割・EOF・取消競合を成功応答へ畳まない | 入出力byte分類、結果、終了状態、判定 | handle／listener／child残存0 | Automated |
 | `EST-ST-013` | 異常 | ST | HTTP公開Process終了 | Workbench MCP Client→TLS終端／MCP HTTP公開入口→Application→Listener／Socket／Signal | System/E2E | 固定公開Launcher、正常TLS配置、Content-Length途中、slow body、idle keep-alive、Application実行中、重複Signal、close／join観測不能の各条件 | 実公開ProcessへHTTP要求を送り、各段階で終了を要求する。正常TLSと偽装Headerの試験は別scenarioにする | 受付停止、取消、Application join、body reader／handler／socket／listener終了、Signal登録解除、全Registry件数と最終終了結果を同じProcessへ相関する | 全所有資源の終端確認後だけ終了成功。未知を0へ畳まず、誤Host／Origin／偽装Forwarded HeaderではApplication Effect 0。終了中の新規受付0、同一依頼の再送0 | 固定候補・実TLS構成Identity、scenario、公開結果、各Registryと終了観測、未確認条件を保存する。Token・本文・生出力は保存しない | 全所有資源不存在、または正確な未解決義務保持。観測不能・取消未完了・close失敗を終了成功にしない | Automated |
 | `EST-IT-014` | 境界 | IT | Runtime活動の取消・待機終了 | MCP Adapter→CROS活動Reader | Direct Boundary | 開始前に取消済みの要求、解放まで保留する非取消Reader | 開始前取消と開始後取消を別々に送り、開始後はReaderを解放する | Reader呼出し回数、開始・完了、応答保留、取消結果 | 開始前はReader零回。開始後は完了までjoinしてから取消応答を返し、再実行しない。Signal確認をReader中断の証明にしない | 固定入力、開始／完了順序、呼出し回数と取消結果を記録する。実Provider・実資源終端の成立は主張しない | 開始済みReader Promiseをjoinし、保留gateを解放する | Automated |
+| `EST-ST-015` | 境界 | ST | MCP鍵操作非公開 | 公開MCP Launcher→tools/list・Schema・登録・dispatch→Access Management | System/E2E | 現在administratorを含む資格、発行・独立失効・交換・資格一覧の要求、通常内容読取り | 公開一覧・Schema・登録を確認し、鍵操作を直接要求する。通常要求認証も比較する | 公開操作集合、dispatch経路、鍵操作呼出し・Secret・Effect件数、Bearer認証と非鍵操作結果 | Secret有無によらず全鍵操作を非公開・実行不可とし、Access Management鍵操作呼出し0。Bearer要求認証と対応する非鍵操作は維持する | 固定版、非秘密入力分類、公開集合、拒否・認証・Effect結果。資格値は記録しない | 鍵Effect 0、Secret返却0、鍵管理の隠れたroute 0 | Automated |
 
 `EST-IT-014`の導出元は`REQ-000006`の入口間で同じ取消意味を保持する条件、`ARCH-000012`の接続Lifecycleと[MCP詳細のRuntime活動取消契約](../../../06_Architecture/Details/mcp-server/01_Architecture.md)である。入力拒否の`EST-IT-002`と、実公開Process終端の`EST-ST-013`を代替しない。
 
+
+EST-ST-015は最新MCP詳細の鍵管理非公開から導出する。鍵権限・発行／失効／交換のEffectはQA-000007が所有し、本項目は公開面だけを検証する。EST-IT-010とEST-ST-015は最新契約についてNot Run。旧結果は新契約の合格根拠にしない。
+
 ## 二Surface再編の追加観測条件
 
-導出元は[MCP詳細の公開Transportと終了契約](../../../06_Architecture/Details/mcp-server/01_Architecture.md)、[CROS共通能力](../../../06_Architecture/Details/cros/01_Architecture.md)、[Workbench接続](../../../06_Architecture/Details/workbench-server/01_Architecture.md)である。以下は既存義務の具体化と新しいHTTP終端義務であり、Source移管前の実測を新構成のPassへ流用しない。
+導出元は[MCP詳細の公開Transportと終了契約](../../../06_Architecture/Details/mcp-server/01_Architecture.md)、[Access Managementの現在認可](../../../06_Architecture/Details/access-management/01_Architecture.md)、[Workbench接続](../../../06_Architecture/Details/workbench-server/01_Architecture.md)である。以下は既存義務の具体化と新しいHTTP終端義務であり、Source移管前の実測を新構成のPassへ流用しない。
 
 | Local Item | 入力・反証 | 観測と終了後条件 |
 |---|---|---|
@@ -125,7 +131,7 @@ Source Definition由来の検証義務を維持し、Detailは具体的な観測
 
 ## Checklist
 
-Runtime活動の入力・結果拒否は`EST-IT-002`、現在Grantと非開示は`RFD-IT-013`、取消と待機終了は`EST-IT-014`で確認する。開始前取消のReader零回、開始後取消の読取りjoin・応答保留・join後取消を別々に観測する。非取消Readerに対するSignal確認だけをReader中断や外部資源不存在の証明へ昇格しない。Server終了・切断の実Transport利用側は`EST-ST-013`で別途確認する。
+Runtime活動の入力・結果拒否は`EST-IT-002`、現在Role認可と非開示は`RFD-IT-013`、取消と待機終了は`EST-IT-014`で確認する。開始前取消のReader零回、開始後取消の読取りjoin・応答保留・join後取消を別々に観測する。非取消Readerに対するSignal確認だけをReader中断や外部資源不存在の証明へ昇格しない。Server終了・切断の実Transport利用側は`EST-ST-013`で別途確認する。
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した
 - [x] 各Local ItemをRequired Verification Obligationの局所参照と導出元へ接続した

@@ -1,16 +1,20 @@
 # CRDD内部ツールの品質の現在状態
 
-状態: Quality Design Ready — Reality Audit Pending
+状態: Quality Design In Progress — Latest Contract Propagation
 担当責任者: Qual-Lab
 最終更新日: 2026-10-06
 
 現在注記: v0.21の最終署名照合は履歴Baselineとして完了している。v0.22の署名候補Commit `45254e2b`と是正済み検証Tool `1b756ac2`によるOrchestrator公開MCP実Provider E2Eは、Run `2e55c8cd2897464b`で合格した。通常二経路、取消、exact Recoveryおよび最終資源回収を確認し、再入場後は意図どおり人間の採用判断待ちで停止した。Workbench実Provider E2E、必要な四経路E2E、個別品質項目の照合および最終配布の再署名は残るため、Quality Readyへ昇格しない。
 
+## 最新鍵管理・認可の限定設計対応 — 2026-10-11
+
+最新鍵管理・現在認可・認可済みDomain集約のQuality再導出は、QA-000007／QA-000009と7工程分析の固定9文書で契約・品質の限定独立レビューを完了し、全重大度の残指摘0。新規4項目（RFD-IT-017通常発行、018独立失効、019認可済み集約、EST-ST-015 MCP鍵操作非公開）と既存更新項目はNot Runである。旧Evidenceは旧契約の歴史的証跡として維持し、新契約のPassに流用しない。Test Symbol・実行・新Evidence、具体API・Schema・Store、他4管理群の担当Role／可変性、Source移管・本番接続は未完了。全体Quality Ready・Release可能を主張しない。
+
 ## Current Quality Projection
 
 | 項目 | 現在値 | 根拠・次の処置 |
 |---|---|---|
-| 全体状態 | Quality Design Ready — Reality Audit Pending | Quality Readyへ昇格しない |
+| 全体状態 | Quality Design In Progress — Latest Contract Propagation | 最新契約の設計対応と実行成立を区別し、Quality Readyへ昇格しない |
 | 現在対象 | v0.22.0 | Project Operation、Workbench、CROS、複数Repository、AI Runtimeを段階的に照合する |
 | 観測済み | 13 / 46 | v0.21からの移管母集団に対する進捗。既観測12件にShared Gateway非開示境界の`RFD-ST-004`を追加した。[新しい根拠と限界](../99_Roadmap/Changes/CHG-000082/Evidence/261002_shared-gateway-non-disclosure.md) |
 | 未観測 | 33 / 46 | 同じ移管母集団の未観測。移管一覧を採用済みRelease Scopeと同一視せず、Trust項目の対応を再照合する。Native局所試験だけで024〜030を観測済みにしない |

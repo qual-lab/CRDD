@@ -74,6 +74,10 @@ MCP詳細の最新判断伝播は契約・品質の限定独立再レビュー�
 | 5Cの追加是正を持ち越す | 大規模改修前の積み増しによる再実装・再検証を避け、未成立を改修入力として保持する。 | [CHGの現在判断](99_Roadmap/Changes/CHG-000082/change.md) |
 | Project Contextは現在投影とする | 五場面を共通形式で提供し、Topic／Meeting・Roadmap・Quality等の詳細は各Ownerが所有する。 | [要求](01_Discovery/Definitions/REQ-000038/requirement.md) |
 
+### 最新Quality再導出 — 2026-10-11
+
+最新鍵管理・現在認可・認可済みDomain集約のQuality再導出は、QA-000007／QA-000009と7工程分析の固定9文書で契約・品質の限定独立レビューを完了し、全重大度の残指摘0。新規4項目（RFD-IT-017通常発行、018独立失効、019認可済み集約、EST-ST-015 MCP鍵操作非公開）と既存更新項目はNot Runである。旧Evidenceは旧契約の歴史的証跡として維持し、新契約のPassに流用しない。Test Symbol・実行・新Evidence、具体API・Schema・Store、他4管理群の担当Role／可変性、Source移管・本番接続は未完了。全体Quality Ready・Release可能を主張しない。
+
 ## 5. 次に何をすべきか
 
 ### 保存済みの次候補
