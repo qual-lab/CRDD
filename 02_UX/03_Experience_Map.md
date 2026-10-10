@@ -7,6 +7,8 @@
 
 本書は、利用者がどこから仕事を始め、何を理解・判断し、どこへ進むかを製品全体の時間軸で示す。リポジトリ構造や画面遷移ではなく、利用者の仕事と得られる結果を主語にする。
 
+初回設定の横断投影は[UX-000035](Definitions/UX-000035/ux_definition.md)を参照する。通常Host回復の交換2操作とは分け、既存・途中・不明を未初期化へ畳まない。発行・記録不明は元試行再観測、確定発行後の受け渡し不明だけ既存管理者指定のHost交換へ進む。新しいPersonaやUX ID、内容権限の自動付与は追加しない。
+
 ## 1. 製品全体の利用の流れ
 
 ```text
@@ -149,7 +151,7 @@
 | [UX-000032](Definitions/UX-000032/ux_definition.md) | AIまたはToolの観測可能な実行段階が確定し、事実を後から比較できる形で残す時 | 記録の成否と不明状態を見分け、重複記録や別実行の上書きを起こさず次の処置を選べる | [REQ-000004](Analysis/REQ-000004/ux_analysis.md) |
 | [UX-000033](Definitions/UX-000033/ux_definition.md) | 論点や会議記録を扱う時、誤登録を見つけた時 | 入口を変えても同じ記録を扱い、正当な履歴を残して誤登録だけを安全に除ける | [REQ-000039](Analysis/REQ-000039/ux_analysis.md) |
 | [UX-000034](Definitions/UX-000034/ux_definition.md) | Projectの状況から次の仕事を選び、変更を確認・共有する時 | Projectの意味と作業差分を結び、状況理解から通常Pushまで一続きで進める | [REQ-000040](Analysis/REQ-000040/ux_analysis.md) |
-| [UX-000035](Definitions/UX-000035/ux_definition.md) | 接続資格の維持・漏洩・喪失時 | Workbenchのadministrator鍵管理またはHost交換2操作を選び、情報を保持。認可破損なら停止、manager／administratorの業務管理とadministrator専用の管理者資格・鍵を分離。登録≠公開、解除≠削除。登録解除は対応公開設定も同時解除し本体を保持。発行・記録確定後の受け渡し未確認は明示新交換、発行・記録不明は元Identity再観測、管理鍵喪失は既存Host入口へ案内 | [REQ-000041](Analysis/REQ-000041/ux_analysis.md) |
+| [UX-000035](Definitions/UX-000035/ux_definition.md) | 未初期化CROSの初回利用開始、接続資格の維持・漏洩・喪失時 | Workbenchのadministrator鍵管理またはHost交換2操作を選び、情報を保持。認可破損なら停止、manager／administratorの業務管理とadministrator専用の管理者資格・鍵を分離。登録≠公開、解除≠削除。登録解除は対応公開設定も同時解除し本体を保持。発行・記録確定後の受け渡し未確認は明示新交換、発行・記録不明は元Identity再観測、管理鍵喪失は既存Host入口へ案内。初回利用開始はHost明示設定→未初期化確認→表示名・最初のadministrator UUID→鍵一度受領→通常管理という別の開始場面。 | [REQ-000041](Analysis/REQ-000041/ux_analysis.md) |
 
 ## 4. 体験をまたぐ分岐
 
