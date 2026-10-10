@@ -2,7 +2,7 @@
 
 成果物種別: Architecture定義
 Architecture ID: `ARCH-000013`
-状態: 更新中（最新権限分担の基本設計・横断モデルは限定伝播・契約／品質の独立レビュー済み・残指摘0。Details以降未追従）
+状態: 更新中（最新権限分担の基本設計・横断モデルは限定伝播・契約／品質の独立レビュー済み・残指摘0。AM／Workbench／MCP詳細へ候補伝播・限定独立レビュー済み・残指摘0。Quality以降未追従）
 維持責任者: Qual-Lab
 
 ## 1. 責務と境界
@@ -117,7 +117,7 @@ manager自身も変更前の現在管理認可→明示的なRole内容設定／
 | [SCR-000008／PRT-000008](../../../04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md) | `PRT-000008.spec-000012` | 対象・事前表示・状態・部分結果・一度表示Secretを配置制約として保持。Layoutと採用済みWorkbench／Host CLIの具体表示・案内はUI Detailへ戻す |
 | [BHV-000012](../../../05_SPEC/Details/BHV-000012/behavior.md) | 同じ既存Relation | Trigger・Authority・Validation・失効／発行・結果・Recoveryを保持。振る舞い変更はSPEC Detailへ戻す |
 
-最新の固定8管理操作は基本設計・横断モデルへ限定伝播・契約／品質の独立レビュー済み・残指摘0。前鍵管理契約の限定Passは履歴であり、最新分担のPassへ流用しない。Architecture詳細・Quality・Source・具体API／保存・本番接続は最新分担へ未追従。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
+最新の固定8管理操作は基本設計・横断モデルへ限定伝播・契約／品質の独立レビュー済み・残指摘0。前鍵管理契約の限定Passは履歴であり、最新分担のPassへ流用しない。Access Management／Workbench／MCPの3詳細へ最新分担を候補伝播し、限定独立レビュー済み・残指摘0。Quality・Source・具体API／保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
 
 ## 9. 互換性・移行・成立済み能力
 

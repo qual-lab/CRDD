@@ -844,6 +844,18 @@ Qual-Labは、managerを業務上のアクセスを決める信頼された管�
 
 限定確認結果：契約・品質の独立レビューは最終ともにPass、残指摘0。初回4件と再確認2件を統合是正し、担い手の冒頭説明、資格喪失条件、鍵3操作の検証・引渡し、登録・登録解除、旧確認結果の履歴限定、交換ごとの発行先を明確にした。既存UX IDとSame判断は不変、差分確認は成功した。Checkerはerrors 3,056・warnings 0で未通過であり、対象内のPROJECT_CONTEXT形式指摘も残る。この限定結果を全体の機械検査Pass・QA実行・Source実装・本番接続・Release可能の根拠にしない。次はIA以降へ最新分担を伝播する。
 
+<a id="architecture-role-detail-propagation"></a>
+
+#### 権限分担のArchitecture詳細伝播 — 2026-10-11
+
+基準Commitは`8a50c3c0`。AM／Workbench／MCPの3詳細だけへ採用済みARCH-000013の固定8管理分担を具体化し、ARCH-000013・横断01〜08の9文書は現在状態だけ同期する。本計画・PROJECT_CONTEXTを含む固定14文書を対象とする。着手前の読み取り専用契約・品質確認はいずれも着手可・追加人間判断不要。変更分類は採用済み意味の詳細設計への直接伝播で、新しい権限・一般IAM・Frameworkは追加しない。
+
+編集の一次単位は認可・操作別入力・処置・結果・非公開の責務である。AMの固定管理認可とRole内容設定、通常6操作、managerのadministrator名前だけ変更、変更前認可→明示更新→次要求の内容評価、登録≠公開／解除≠削除、通常管理と鍵処置の固有条件を分ける。WBは入力・表示、MCPは非鍵要求搬送だけを具体化し、鍵の一覧・Schema・登録・dispatch非公開を維持する。Profile管理Role・具体API／Schema・保存・本番接続はOPEN。通常管理の保存後不明を未保存・rollback・Effect0へ丸めず交換Recoveryを追加しない。
+
+固定14文書の契約・品質独立レビューと文書・直接伝播・参照・差分確認を実施する。代表照合は固定8分担×三Role、操作別対象、manager正常管理に管理者存在不要、Host追加認証なし、自己内容変更の時間順、通常失効の対象限定、内容・登録・公開・削除の別意味である。Quality導出キー・安定ID・07／08のPartial・他Relation・歴史Evidenceを維持する。Source・実行境界・準拠規則を変えないためPackage回帰、Provider／Docker E2E、準拠監査は対象外。候補反映・限定独立レビュー済み・残指摘0であり、全体Ready・Release可能は主張しない。
+
+限定確認結果：初回は契約Minor 1・品質Pass 0。全結果と是正方針を一括統合し、AM詳細の未確定範囲を示す2箇所を内容権限の具体語彙へ限定した。最終は契約・品質とも限定Pass・全重大度の残指摘0。ローカル参照245件は欠落0、差分確認成功。Checkerはerrors 3,056・warnings 0・exit 1で全体未通過。レビュー後は限定結果の状態のみ同期する。次はQualityへの最新分担伝播で、Source・本番接続・全体Readyの未完了を維持する。
+
 <a id="architecture-role-model-propagation"></a>
 
 #### 権限分担のArchitecture基本設計・横断伝播 — 2026-10-11
@@ -852,7 +864,7 @@ Qual-Labは、managerを業務上のアクセスを決める信頼された管�
 
 ARCH-000013を固定8分担の統合正本とし、横断はComponent所有、交換境界、操作別入力・時間順、失敗、実行単位、Detail対応の固有断面へ投影する。変更前の現在管理認可→明示更新→次要求の内容再評価、管理≠内容、登録≠公開、解除≠削除を維持する。通常管理と鍵処置の停止条件を分け、manager正常管理にadministrator存在条件、Hostに追加資格認証を要求しない。Role内容設定による固定管理分担の再委譲を設けない。
 
-固定11文書の契約・品質独立レビュー、文書・直接伝播・参照・差分確認を行う。代表照合は8操作×三Roleの許可／拒否／不明、managerのadministrator名前のみ変更、developer管理拒否≠自身利用拒否、操作別対象、自己内容変更の時間順、登録／公開／取得と解除／削除、鍵3操作の過剰Effect反証。旧鍵契約Passは履歴であり、今回候補は独立レビュー待ち。実行境界・Source・準拠規則を変更しないためPackage回帰・Provider／Docker E2E・準拠監査は対象外。07／08のPartialと非対象行を維持し、Architecture詳細・Quality・Source・本番接続・全体Readyは未完了。
+固定11文書の契約・品質独立レビュー、文書・直接伝播・参照・差分確認を行う。代表照合は8操作×三Roleの許可／拒否／不明、managerのadministrator名前のみ変更、developer管理拒否≠自身利用拒否、操作別対象、自己内容変更の時間順、登録／公開／取得と解除／削除、鍵3操作の過剰Effect反証。旧鍵契約Passは履歴であり、今回候補は限定独立レビュー済み・残指摘0。実行境界・Source・準拠規則を変更しないためPackage回帰・Provider／Docker E2E・準拠監査は対象外。07／08のPartialと非対象行を維持し、Architecture詳細・Quality・Source・本番接続・全体Readyは未完了。
 
 限定確認結果：初回は契約Moderate 1・Minor 1、品質Pass・残指摘0。全結果と是正方針を一括統合し、表示名の旧設定主体表現1件・文境界空白2件を是正した。最終は契約・品質とも限定Pass・全重大度の残指摘0。ローカル参照212件は欠落0、差分確認成功。Checkerはerrors 3,056・warnings 0・exit 1で全体未通過。レビュー後は限定結果の状態のみ同期する。ARCH-ID・非対象RelationとPartialを維持し、旧Evidenceは不変。次はAccess Management／Workbench／MCP等のArchitecture詳細へ最新分担を伝播する。Quality・Source・本番接続・全体Readyの未完了は維持する。
 
@@ -864,7 +876,7 @@ ARCH-000013を固定8分担の統合正本とし、横断はComponent所有、�
 
 固定8管理操作を現行Roleから判定し、Role内容設定と分離する。UI分析は対象認識・操作・Feedback、SPEC分析は操作別入力・処置前認可・Effect・結果へ接続する。managerのadministrator表示名変更は許可、管理者付与・解除・降格・詳細権限・鍵は拒否。新規登録は予定Role、既存Role変更は前後Role、内容設定は対象Role、Repository管理は登録／公開状態を用いる。manager自身の変更前認可→明示更新→次要求で現行Role・Exposure・実アクセス再評価、管理≠内容、登録≠公開、解除≠削除を保持する。
 
-固定4文書の契約・品質独立レビュー、文書・直接伝播・リンク・差分確認を行う。代表例は8操作×三Roleの許可／拒否、administrator名前のみ変更、登録予定Roleと既存前後Role、自己範囲変更の時間順、対象／現在認可不明の新Effect前停止である。既存鍵3操作・Host／MCP・秘密・交換専用Recoveryを保持し、developer管理拒否を自身表示・許可内利用拒否へ広げない。新API・Schema・一般IAM・Recoveryは追加しない。Source・実行境界・準拠規則を変更しないため、Package回帰・Provider／Docker E2E・準拠監査は対象外。固定候補提出時は限定独立レビュー待ちであった。分析2件の確認をArchitecture全体Ready・実装・QA実行の成立へ読み替えない。
+固定4文書の契約・品質独立レビュー、文書・直接伝播・リンク・差分確認を行う。代表例は8操作×三Roleの許可／拒否、administrator名前のみ変更、登録予定Roleと既存前後Role、自己範囲変更の時間順、対象／現在認可不明の新Effect前停止である。既存鍵3操作・Host／MCP・秘密・交換専用Recoveryを保持し、developer管理拒否を自身表示・許可内利用拒否へ広げない。新API・Schema・一般IAM・Recoveryは追加しない。Source・実行境界・準拠規則を変更しないため、Package回帰・Provider／Docker E2E・準拠監査は対象外。固定候補提出時は限定限定独立レビュー済み・残指摘0であった。分析2件の確認をArchitecture全体Ready・実装・QA実行の成立へ読み替えない。
 
 限定確認結果：初回の契約Moderate 1・品質Minor 1を一括統合し、両確認者へ是正方針を再提示して整合した。通常管理と鍵処置の停止条件、PROJECT_CONTEXTの部分伝播表示を是正。最終再レビューは両観点とも限定Pass・全重大度の残指摘0。ローカル参照49件は欠落0、差分確認は成功。Checkerはerrors 3,056・warnings 0・exit 1で全体未通過。レビュー後は限定結果と状態のみ同期する。ARCH-000013・横断モデル・Architecture詳細・Quality・Source以降は最新分担へ未追従であり、次はARCH-000013と横断モデルへ伝播する。
 
@@ -892,7 +904,7 @@ manager自身の範囲変更は変更前の現行固定管理認可→明示内�
 
 代表照合はmanager業務管理許可、administrator表示名変更許可、managerの管理者付与／解除／降格／詳細権限／鍵拒否、developer管理拒否、対象／現在認可不明の新Effect前停止。UI表示だけで認可を代替せず、内容範囲更新受理を取得可能・開始済み取消へ拡張しない。対応レビューは現行1組を8観点で確認し、旧32組・Hash・引用・Passは履歴として維持する。
 
-固定候補の契約／品質独立レビュー、文書・直接伝播・リンク・ID・差分確認を行う。全必須レビュー結果を統合してから是正する。標準規則・実行境界・Sourceを変更しないため準拠監査、Package回帰、Provider／Docker実E2Eは今回対象外。固定候補提出時は作成者照合済み・独立レビュー待ちであった。Detail以降・QA実行・Source・本番接続・全体Readyは未完了。現在追加の人間判断は不要。
+固定候補の契約／品質独立レビュー、文書・直接伝播・リンク・ID・差分確認を行う。全必須レビュー結果を統合してから是正する。標準規則・実行境界・Sourceを変更しないため準拠監査、Package回帰、Provider／Docker実E2Eは今回対象外。固定候補提出時は作成者照合済み・限定独立レビュー済み・残指摘0であった。Detail以降・QA実行・Source・本番接続・全体Readyは未完了。現在追加の人間判断は不要。
 
 限定結果：契約／品質独立レビューの統合6指摘と再レビューの表現1指摘を是正し、最終は両観点とも限定Pass・全重大度の残指摘0。Host回復の発火条件、鍵3操作の結果差、新規登録と既存変更の前提差、過剰Effectの反証、現行／履歴の区分、レビュー入力Hashを精緻化した。最終状態同期前に確認した16文書の参照先832件は欠落0、旧32組の対応本文と旧Hashは不変、新ID・Source変更なし。Checkerはerrors 3,056・warnings 0・exit 1で全体未通過。レビュー後は状態と結果記録のみ同期し、UX35定義ヘッダー・UX概要の2箇所もUI／SPEC定義限定確認済み／Detail以降未伝播へ追従した。レビュー入力と状態同期後のDefinition Hashは現行対応へ別記した。Detail・Visual・Architecture／Quality・Source・本番接続・全体Readyは未完了。次はSCR／BHV・Area・Workbench候補の詳細伝播である。
 

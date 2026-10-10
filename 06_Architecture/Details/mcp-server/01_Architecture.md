@@ -236,7 +236,11 @@ Sourceのcontext、repositoryRole、complete／missing／conflictingと現在rev
 
 別Process WorkbenchもMCP Clientであるため、鍵管理だけは利用できない。通常の指定ユーザー交換だけ追加確認なし、Hostまたは全員交換の3組は明示確認を要求する。全4組の対象ID・表示名・失効範囲・既存発行先・保持情報の事前表示は各ローカル入口が担当し、MCPで代用しない。鍵の結果・失敗・同じ交換Recovery・一度表示の意味はAccess Managementが所有し、MCPに交換Stateや秘密配送を実装しない。
 
-初回CROS構築の管理Credential発行方式は変更しない。MCP起動やRemote CallからBootstrapしない。ユーザー管理、Role設定、Repository登録、Exposure管理の4管理群は担当Role・可変性・具体公開APIがOPENであり、旧Credential個別Grant操作や鍵専用administrator判断から採用を推定しない。Profile管理等の既存非鍵能力の採否も変更しないが、旧`systemAdmin`等の実装語彙を新しいRole権限契約として採用しない。
+初回CROS構築の管理Credential発行方式は変更しない。MCP起動やRemote CallからBootstrapしない。ユーザー管理、Role内容設定、Repository登録、Exposureの担当RoleはARCH-000013の固定8分担に従いAccess Managementへ委譲する。manager／administratorが許可される非鍵管理と、administrator専用のadministrator Role付与・解除・変更／内容設定を区別し、Role内容設定で管理権限をON／OFF・再委譲しない。具体公開API・Tool／Schema・登録・dispatch・本番Consumerは未確定で、担当Roleの採用から新Toolの公開や接続済みを推定しない。Profile管理等の既存非鍵能力の採否も変更しないが、旧`systemAdmin`等の実装語彙を新しいRole権限契約として採用しない。
+
+非鍵管理の要求はAM詳細§4の操作別入力と変更前の現在固定管理認可へ結合する。登録は予定Role・表示名、既存Role変更は対象userId・前後Role、名前変更は対象userId・新表示名、Role内容設定は対象Role・内容、Repository管理は対象ID・現在登録／公開状態・変更内容を搬送する。managerはadministratorの名前だけ変更可でRole変更不可。managerの正常管理へadministrator存在を要求しない。管理拒否と自身表示・許可内容拒否を区別し、登録≠公開、解除≠データ削除、更新受理≠内容取得を保つ。内容取得は次要求の現行Role・Exposure・実アクセスを再評価する。
+
+入力・現在認可・必要状態不明の拒否と、保存後の読戻し／応答不明を別結果として投影する。後者から未保存・rollback・Effect0や完了を生成せず、通常管理へ交換Recoveryを足さない。これらは公開能力の制約であり、今回SourceのTool集合やProtocolを変更しない。Qualityは既存AMの認可・可視性・通常管理の導出キーから、要求搬送と許可外情報／Effect0、固定分担、結果軸の保持を具体化する。
 
 ## 4. Authorityと情報境界
 
@@ -367,3 +371,5 @@ Checklist評価根拠: 既存の非鍵能力、二ModeのRepository指定とTran
 - [x] Human Inputの必要性とOpen／Gapを評価した
 - [x] 現行実装との照合をReality Auditとして分離した
 - [x] Source構造をCanonical詳細設計へ逆輸入していない
+
+最新固定8分担の詳細伝播: 候補反映・限定独立レビュー済み・残指摘0。旧観測・Checklistは当時の限定範囲を維持し、最新分担のQuality・Source・本番接続・実境界の完成根拠へ流用しない。

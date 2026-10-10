@@ -16,7 +16,7 @@ CHG-000082の再編後の実装親Folderは`workbench-server`とする。以下�
 | [ARCH-000009](../../Definitions/ARCH-000009/architecture_definition.md) | 検証済みRepository境界をWorktree表示へ接続する。 | Covered |
 | [ARCH-000010](../../Definitions/ARCH-000010/architecture_definition.md) | AI ProfileとTool Capabilityを選択可能な表示へ接続する。 | Covered |
 | [ARCH-000012](../../Definitions/ARCH-000012/architecture_definition.md) | Local／Remoteの入口差を同じApplication意味へ適合する。 | Covered |
-| [ARCH-000013](../../Definitions/ARCH-000013/architecture_definition.md) | 現在認可された情報の表示と、同一Processの通常鍵操作をAccess Managementへ委譲する。 | Partial。具体API・受領方式・本番接続はOPEN |
+| [ARCH-000013](../../Definitions/ARCH-000013/architecture_definition.md) | 現在認可された情報の表示、通常管理の入力・結果搬送と同一Processの通常鍵操作をAccess Managementへ委譲する。 | Partial。具体API・受領方式・本番接続はOPEN |
 | [ARCH-000015](../../Definitions/ARCH-000015/architecture_definition.md) | 外部AI依頼、結果帰還および候補採否の境界を表示する。 | Covered |
 | [ARCH-000016](../../Definitions/ARCH-000016/architecture_definition.md) | 現在有効な意図と履歴正本への導線を提供する。 | Covered |
 | [ARCH-000017](../../Definitions/ARCH-000017/architecture_definition.md) | 承認済みCRDD公式ロゴをApplication Brandへ使用する。 | Covered |
@@ -88,7 +88,7 @@ CROS Workbenchは、Project Context、Topic、Meeting、Quality、正本Relation
 | ARCH-000009 | 検証済みRepository境界 | Repository Rootの推測、Git実装 |
 | ARCH-000010 | AI ProfileとTool Capabilityの表示・選択 | Provider能力、Model Registryの正本 |
 | ARCH-000012 | Local／Remote入口で同じApplication意味を使う | TransportによるAuthority生成 |
-| ARCH-000013 | 現在認可されたContextの表示、通常鍵操作の人間向け入口 | 認可判定、ユーザー／Role／資格の正本、Host CLIの実行・回復 |
+| ARCH-000013 | 現在認可されたContextの表示、通常管理と通常鍵操作の人間向け入口 | 認可判定、ユーザー／Role／資格の正本、Host CLIの実行・回復 |
 | ARCH-000015 | 外部AI依頼、結果帰還と候補採否 | 外部送信許可、候補内容、Canonical Repositoryの無断更新 |
 | ARCH-000016 | 現在有効な意図と履歴への導線 | Git履歴やCHGの代替正本 |
 | ARCH-000017 | 公式ロゴの出所と用途 | 新しいBrand Assetの自己承認 |
@@ -235,9 +235,26 @@ Hostの交換2操作はWorkbench Backendで実行せず、信頼したログイ�
 
 交換ではAccess Managementが旧失効前から同じexact Recovery IDへ結合する。事前条件、失効、新発行、結果記録、搬送、受領を別事実として表示し、後段失敗だけで確認済み発行をunknownへ戻さない。未確認の発行を成功／rollbackへ丸めず、Secretを保存・再送・再表示しない。通常発行／独立失効の結果不明には各操作の既知状態と確認先を返し、交換Recoveryを付与しない。
 
-未知対象、必要な既存administratorの不存在、認可破損または安全な観測不能は処置前に停止する。userId／username／Role／Role詳細権限／Repository登録／Product Dataは交換で変更しない。資格状態は旧失効・新発行によって変わる。管理者であることから内容参照を許可せず、他ユーザー情報の表示も現在の参照許可に従う。残る4管理群（ユーザー、Role設定、Repository Registry、Exposure）の担当Role・可変性はOPENであり、鍵操作のadministrator固定を転用しない。
+未知対象、必要な既存administratorの不存在、認可破損または安全な観測不能は処置前に停止する。userId／username／Role／Role詳細権限／Repository登録／Product Dataは交換で変更しない。資格状態は旧失効・新発行によって変わる。管理者であることから内容参照を許可せず、他ユーザー情報の表示も現在の参照許可に従う。ユーザー・Role内容設定・Repository登録／Exposureの管理はARCH-000013の固定8分担に従い、Role内容設定から管理権限を生成しない。具体公開API・Schema・本番接続は未完了。AI Profile管理の担当Roleは別CapabilityとしてOPENを維持する。
 
 具体画面配置、公開API・Schema、結果Fieldと受領方式は未確定。SCR-000008／BHV-000012／`PRT-000008.spec-000012`への接続はPartialである。Qualityは通常発行の失効0、独立失効の対象限定・発行0、交換4組表示／3組確認、MCP鍵操作0、Secret再表示0、後段失敗時の既知事実保持をIT／STで導出する。ここでQA Local Item IDを推測して発行しない。
+
+### 6.2. 通常管理の入力・結果搬送
+
+Workbenchは[Access Management詳細§4](../access-management/01_Architecture.md#4-通常管理と独立失効)へ次の操作を委譲する。表示上の操作可否はAuthorityではなく、実行時にAMが変更前の現在管理認可・対象・期待改訂を確認する。別Processでは具体的な非鍵MCP公開契約の接続後だけ利用可能とし、現在は接続済みと扱わない。
+
+| 操作 | 入力・対象制約 | 表示する結果・保持条件 |
+|---|---|---|
+| ユーザー登録 | 予定Role・表示名。managerはdeveloper／manager、administratorは三Role | 新userIdと保存・読戻し結果。既存ID・変更前Roleを要求しない。資格発行は別操作 |
+| 表示名変更 | 既存userId・新表示名。manager／administratorが操作し、administratorの名前もmanagerが変更可 | 名前だけの変更結果。ID・Role・Credential保持 |
+| 既存Role変更 | 既存userId・前後Role。managerは両方developer／managerのみ | 現行Roleと保存・読戻し結果。administratorの付与・解除・降格はadministratorのみ |
+| Role内容設定 | 対象Role・変更内容。developer／managerはmanager／administrator、administratorはadministratorのみ | 内容設定の変更結果。固定管理分担のON／OFF・再委譲なし |
+| Repository登録・解除 | 対象ID・現在登録状態・変更内容。manager／administrator | 登録結果≠公開／取得、解除結果≠Repository／Product Data削除 |
+| Exposure設定 | 対象ID・現在登録／公開状態・変更内容。manager／administrator | 明示公開設定の保存結果≠内容取得成功 |
+
+manager自身の内容範囲変更も、変更前の管理認可→明示更新→次要求の現在Role・Exposure・実アクセス再評価の順を表示する。manager正常管理にadministrator存在条件を要求せず、管理拒否を自身表示・許可内容の拒否へ広げない。未知対象・必要状態不明・競合は新Effect前停止。保存後の読戻し／応答不明は既知更新と未確定範囲を分け、未保存・rollback・Effect0・完了を推定せず、交換Recoveryを追加しない。
+
+Qualityは固定8分担×三Role、操作別入力、managerのadministrator名前だけ変更、自己内容変更の時間順、登録／公開・解除／削除、管理≠内容、保存後不明の禁止推定を既存AM導出キーへ接続する。画面配置・Field・公開API・保存・本番接続はOPENであり、新Tool名や画面をここで発行しない。
 
 ## 7. Visualと公式素材
 
@@ -332,3 +349,5 @@ Checklist評価根拠: Remote MCP公開Schema、Local内部呼出し、Browser A
 - [x] Human Inputの必要性とOpen／Gapを評価した
 - [x] 現行実装との照合をReality Auditとして分離した
 - [x] Source構造をCanonical詳細設計へ逆輸入していない
+
+最新固定8分担の詳細伝播: 候補反映・限定独立レビュー済み・残指摘0。旧観測・Checklistは当時の限定範囲を維持し、最新分担のQuality・Source・本番接続・実境界の完成根拠へ流用しない。

@@ -12,7 +12,7 @@ v0.21.0の基準版では、個別責務定義、横断モデルおよび15領�
 
 ## 2. 工程入力と再構築方法
 
-最新の固定8管理操作は基本設計・横断モデルへ限定伝播・契約／品質の独立レビュー済み・残指摘0。前鍵管理契約の限定Passは履歴であり、最新分担のPassへ流用しない。Architecture詳細・Quality・Source・具体API／保存・本番接続は最新分担へ未追従。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
+最新の固定8管理操作は基本設計・横断モデルへ限定伝播・契約／品質の独立レビュー済み・残指摘0。前鍵管理契約の限定Passは履歴であり、最新分担のPassへ流用しない。Access Management／Workbench／MCPの3詳細へ最新分担を候補伝播し、限定独立レビュー済み・残指摘0。Quality・Source・具体API／保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
 
 Architectureの正式入力はCanonicalな20件のUI定義と30件のSPEC定義である。UIとSPECを別々に全数分析し、同じ上位責務境界へ属する結果を18件のArchitecture定義へ統合した。
 

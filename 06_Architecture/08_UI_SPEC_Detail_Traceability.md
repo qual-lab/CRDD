@@ -8,7 +8,7 @@
 
 発行済みのLogical Screen、Screen Part、InteractionおよびDetailed Behaviorを、意味を所有するArchitecture定義と配置を所有する詳細設計領域へ接続する。Definitionを要求源として維持し、Detailを新しい要求や実装配置の根拠へ読み替えない。
 
-最新の固定8管理操作は基本設計・横断モデルへ限定伝播・契約／品質の独立レビュー済み・残指摘0。前鍵管理契約の限定Passは履歴であり、最新分担のPassへ流用しない。Architecture詳細・Quality・Source・具体API／保存・本番接続は最新分担へ未追従。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。 対象はSCR-000008／PRT-000008、BHV-000012、PRT-000008.spec-000012の3行のみでPartialを維持。残り19 UI・29 BHV・31 Relationは未変更・未再評価。
+最新の固定8管理操作は基本設計・横断モデルへ限定伝播・契約／品質の独立レビュー済み・残指摘0。前鍵管理契約の限定Passは履歴であり、最新分担のPassへ流用しない。Access Management／Workbench／MCPの3詳細へ最新分担を候補伝播し、限定独立レビュー済み・残指摘0。Quality・Source・具体API／保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。 対象はSCR-000008／PRT-000008、BHV-000012、PRT-000008.spec-000012の3行のみでPartialを維持。残り19 UI・29 BHV・31 Relationは未変更・未再評価。
 
 ```text
 UI／SPEC Definition

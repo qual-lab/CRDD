@@ -4,7 +4,7 @@ Status: Candidate (v0.22 responsibility reorganization)
 Owner: Qual-Lab
 Last Updated: 2026-10-11
 
-最新の固定8管理操作は基本設計・横断モデルへ限定伝播・契約／品質の独立レビュー済み・残指摘0。前鍵管理契約の限定Passは履歴であり、最新分担のPassへ流用しない。Architecture詳細・Quality・Source・具体API／保存・本番接続は最新分担へ未追従。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
+最新の固定8管理操作は基本設計・横断モデルへ限定伝播・契約／品質の独立レビュー済み・残指摘0。前鍵管理契約の限定Passは履歴であり、最新分担のPassへ流用しない。Access Management／Workbench／MCPの3詳細へ最新分担を候補伝播し、限定独立レビュー済み・残指摘0。Quality・Source・具体API／保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
 
 ## 1. この成果物が所有すること
 
