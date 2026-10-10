@@ -1,6 +1,6 @@
 # 振る舞い仕様
 
-状態: v0.22.0更新中（SPEC-000012の鍵交換2操作の直接伝播は限定独立レビュー済み、Detail／横断投影／対応レビューは未追従）
+状態: v0.22.0更新中（SPEC-000012のDefinitionは限定独立レビュー済み、BHV-000012とDetail対応は再伝播・限定独立レビュー済み、Definition対応／Workbench候補横断投影／後工程は未追従）
 担当責任者: Qual-Lab
 対象版: v0.22.0候補（公開基準版: v0.21.0）
 工程規則: [振る舞い仕様](../26_Behavior_Specification.md)、[UIとSPECの対応](../24_UI_Behavior_Specification.md)

@@ -2,7 +2,7 @@
 
 成果物種別: UI Area Design Guide
 Area Key: `configuration-trust`
-状態: Canonical
+状態: Canonical（SCR-000008の鍵交換2操作は限定独立レビュー済み）
 維持責任者: Qual-Lab
 
 ## 1. Areaの目的と利用者成果
@@ -33,7 +33,7 @@ Area Key: `configuration-trust`
 
 | SCR | 目的 | 入口 | 終了条件 | 主なPRT | 状態 |
 |---|---|---|---|---|---|
-| [SCR-000008](SCR-000008/screen.md) | UI-000008の利用者成果を一つの作業単位で扱う | 対象Contextを選んだ時 | 次の安全な行動を選べる | PRT-000008 | Canonical |
+| [SCR-000008](SCR-000008/screen.md) | 自身と利用範囲、最小ユーザー・Role権限・資格管理と鍵交換を扱う | 接続・通常管理・Host回復が必要な時 | 確定結果または同じ回復の確認先から次行動を選べる | PRT-000008 | 限定独立レビュー済み |
 | [SCR-000010](SCR-000010/screen.md) | UI-000010の利用者成果を一つの作業単位で扱う | 対象Contextを選んだ時 | 次の安全な行動を選べる | PRT-000010 | Canonical |
 | [SCR-000011](SCR-000011/screen.md) | UI-000011の利用者成果を一つの作業単位で扱う | 対象Contextを選んだ時 | 次の安全な行動を選べる | PRT-000011 | Canonical |
 | [SCR-000013](SCR-000013/screen.md) | UI-000013の利用者成果を一つの作業単位で扱う | 対象Contextを選んだ時 | 次の安全な行動を選べる | PRT-000013 | Canonical |
@@ -61,6 +61,8 @@ Area Key: `configuration-trust`
 | Focus／Keyboard | 主要操作、根拠、戻り先へ順に到達できる | Pointerだけに依存しない |
 | Pending／Cancel | 要求と完了を分ける | 取消要求を終了として表示しない |
 | Failure／Recovery | 原因確定、原因不明、回復可能を分ける | 不明を失敗なしへ畳まない |
+
+SCR-000008では、対象userIdと表示専用名、資格→ユーザー→現行Role権限、公開範囲・実アクセスを分ける。鍵交換の事前情報表示と条件付き明示確認、独立失効と2操作、秘密一度表示の具体導線は[Screen Detail](SCR-000008/screen.md#3-interactionとbhv対応)を正本とする。非認証・非管理者に管理対象の存在を開示しない。Area全体へユーザー管理の処置条件を拡張しない。
 
 ## 6. 状態・失敗・回復の表現
 

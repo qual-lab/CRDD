@@ -1,7 +1,7 @@
 # UI Detail
 
 成果物種別: UI Detail統合投影
-状態: Canonical
+状態: 更新中（SCR-000008の鍵交換2操作は限定独立レビュー済み）
 維持責任者: Qual-Lab
 
 ## 1. 目的と移行境界
@@ -20,6 +20,8 @@ v0.21.0でCanonical化した20件のUI Definitionを、新しいUI Detail契約�
 Architecture／Quality
 ```
 
+今回のUI-000008改訂に合わせ、既存SCR-000008／PRT-000008を最小ユーザー管理と鍵交換2操作へ更新した。対象件数は増やさない。以下の全数処置・Workbench Pilot Gateは更新前の固定版の結果であり、新判断の全体完成根拠にしない。現在の変更対象はSCR-000008とArea Guide、そのDetail対応だけで、Definition対応レビュー・Workbench候補の横断投影・Architecture／Quality／Sourceは未追従。
+
 ## 2. UI Definitionの処置
 
 | UI ID | UI Definition | Detail適用 | UI Area | SCR／PRT／CMP | 理由 |
@@ -31,7 +33,7 @@ Architecture／Quality
 | `UI-000005` | 実行事実と故障境界の診断 | Applicable／Covered | [operation](Areas/operation/area.md) | [SCR-000005／PRT-000005](Areas/operation/SCR-000005/screen.md) | Canonical Definitionから導出 |
 | `UI-000006` | Repository内作業と対象選択 | Applicable／Covered | [project-context](Areas/project-context/area.md) | [SCR-000006／PRT-000006](Areas/project-context/SCR-000006/screen.md) | Canonical Definitionから導出 |
 | `UI-000007` | 入口をまたぐ共通依頼・結果 | Applicable／Covered | [operation](Areas/operation/area.md) | [SCR-000007／PRT-000007](Areas/operation/SCR-000007/screen.md) | Canonical Definitionから導出 |
-| `UI-000008` | Workspace接続と利用可能範囲 | Applicable／Covered | [configuration-trust](Areas/configuration-trust/area.md) | [SCR-000008／PRT-000008](Areas/configuration-trust/SCR-000008/screen.md) | Canonical Definitionから導出 |
+| `UI-000008` | ユーザー・Role権限・接続資格と利用可能範囲 | Applicable／Covered | [configuration-trust](Areas/configuration-trust/area.md) | [SCR-000008／PRT-000008](Areas/configuration-trust/SCR-000008/screen.md) | Canonical Definitionから導出 |
 | `UI-000009` | Meeting・Topic・候補の処置 | Applicable／Covered | [project-context](Areas/project-context/area.md) | [SCR-000009／PRT-000009](Areas/project-context/SCR-000009/screen.md) | Canonical Definitionから導出 |
 | `UI-000010` | Tool・AIモデル構成の選択 | Applicable／Covered | [configuration-trust](Areas/configuration-trust/area.md) | [SCR-000010／PRT-000010](Areas/configuration-trust/SCR-000010/screen.md) | Canonical Definitionから導出 |
 | `UI-000011` | 実行時データの保持・清掃 | Applicable／Covered | [configuration-trust](Areas/configuration-trust/area.md) | [SCR-000011／PRT-000011](Areas/configuration-trust/SCR-000011/screen.md) | Canonical Definitionから導出 |
@@ -58,7 +60,7 @@ CMPは全件で理由付き未発行である。20 Logical Screenの意味順序
 | [SCR-000005](Areas/operation/SCR-000005/screen.md) | 実行事実と故障境界の診断 | operation | [UI-000005](../Definitions/UI-000005/ui_definition.md) | PRT-000005 | Canonical |
 | [SCR-000006](Areas/project-context/SCR-000006/screen.md) | Repository内作業と対象選択 | project-context | [UI-000006](../Definitions/UI-000006/ui_definition.md) | PRT-000006 | Canonical |
 | [SCR-000007](Areas/operation/SCR-000007/screen.md) | 入口をまたぐ共通依頼・結果 | operation | [UI-000007](../Definitions/UI-000007/ui_definition.md) | PRT-000007 | Canonical |
-| [SCR-000008](Areas/configuration-trust/SCR-000008/screen.md) | Workspace接続と利用可能範囲 | configuration-trust | [UI-000008](../Definitions/UI-000008/ui_definition.md) | PRT-000008 | Canonical |
+| [SCR-000008](Areas/configuration-trust/SCR-000008/screen.md) | ユーザー・Role権限・接続資格と利用可能範囲 | configuration-trust | [UI-000008](../Definitions/UI-000008/ui_definition.md) | PRT-000008 | 限定独立レビュー済み |
 | [SCR-000009](Areas/project-context/SCR-000009/screen.md) | Meeting・Topic・候補の処置 | project-context | [UI-000009](../Definitions/UI-000009/ui_definition.md) | PRT-000009 | Canonical |
 | [SCR-000010](Areas/configuration-trust/SCR-000010/screen.md) | Tool・AIモデル構成の選択 | configuration-trust | [UI-000010](../Definitions/UI-000010/ui_definition.md) | PRT-000010 | Canonical |
 | [SCR-000011](Areas/configuration-trust/SCR-000011/screen.md) | 実行時データの保持・清掃 | configuration-trust | [UI-000011](../Definitions/UI-000011/ui_definition.md) | PRT-000011 | Canonical |
@@ -111,12 +113,12 @@ G1〜G5は通過した。Workbench固有のPattern候補とVisual Baselineを[Se
 
 ## 5. UI／SPEC Detail対応
 
-[UI／SPEC Detail対応](../../05_SPEC/Details/02_UI_SPEC_Detail_Correspondence.md)で32 Relationを双方向に全件評価した。全Interactionは対応BHVを持ち、全BHVは一つ以上のSCR／PRTから利用者が認識できる。
+[UI／SPEC Detail対応](../../05_SPEC/Details/02_UI_SPEC_Detail_Correspondence.md)に32 Relationを維持する。今回変更したSCR-000008↔BHV-000012の意味対応は限定独立レビュー済み。他の31 Relationは変更せず、更新前の全件評価を現在版全体のPassへ読み替えない。
 
 ## 6. Architecture／Qualityへの引き渡し
 
-- Architecture: SCR、PRT、InteractionおよびBHVを、元Definitionが接続済みのARCH責務へ配置制約として伝播した。
-- Quality: 既存のRequired Verification ObligationへDetail固有のScreen、Interaction、State、VisualおよびBehavior観測条件を統合した。
+- Architecture: 更新前固定版では配置制約へ伝播した。今回の鍵交換の変更は未追従であり、次段で現行ARCH責務へ伝播する。
+- Quality: 更新前固定版では観測条件へ統合した。今回の鍵交換2操作・2入口・部分結果の義務は次段で再導出する。
 - Reality Audit: 実装、WIPおよび実画面との照合はCanonical Detail成立後に行う。
 
 ## 7. 未確認事項・人間判断・戻り条件

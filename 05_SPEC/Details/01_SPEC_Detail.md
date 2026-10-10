@@ -1,7 +1,7 @@
 # SPEC Detail
 
 成果物種別: SPEC Detail統合投影
-状態: Canonical
+状態: 更新中（BHV-000012の鍵交換2操作は限定独立レビュー済み）
 維持責任者: Qual-Lab
 
 ## 1. 目的と移行境界
@@ -18,6 +18,8 @@ Canonical化した30件のSPEC Definitionを、SPEC Detail契約へ全件移行�
 18 ARCH責務 + 13 Quality検証目標
 ```
 
+今回のSPEC-000012改訂を既存BHV-000012へ具体化した。30 BHV／32 Relationの件数は維持し、他29 BHVは変更しない。更新前の全数処置・完了記録は新判断の全体完成根拠ではない。Definition対応レビュー・横断投影・Architecture／Quality／Sourceは未追従。
+
 ## 2. SPEC Definitionの処置
 
 | SPEC ID | SPEC Definition | Detail適用 | BHV | 理由 |
@@ -33,7 +35,7 @@ Canonical化した30件のSPEC Definitionを、SPEC Detail契約へ全件移行�
 | `SPEC-000009` | 実行基盤の故障境界と利用可能範囲を診断する | Applicable／Covered | [BHV-000009](BHV-000009/behavior.md) | Canonical Definitionから導出 |
 | `SPEC-000010` | Repositoryと実行対象のBindingを解決する | Applicable／Covered | [BHV-000010](BHV-000010/behavior.md) | Canonical Definitionから導出 |
 | `SPEC-000011` | 複数入口で同じ依頼・結果契約を保つ | Applicable／Covered | [BHV-000011](BHV-000011/behavior.md) | Canonical Definitionから導出 |
-| `SPEC-000012` | 接続資格からWorkspace利用範囲を確定する | Applicable／Covered | [BHV-000012](BHV-000012/behavior.md) | Canonical Definitionから導出 |
+| `SPEC-000012` | ユーザー資格と現行Roleで利用範囲を確定しAccessを回復する | Applicable／Covered | [BHV-000012](BHV-000012/behavior.md) | Canonical Definitionから導出 |
 | `SPEC-000013` | Meeting内容を候補化し所有正本へ昇格する | Applicable／Covered | [BHV-000013](BHV-000013/behavior.md) | Canonical Definitionから導出 |
 | `SPEC-000014` | Repositoryに適合する標準Toolを解決する | Applicable／Covered | [BHV-000014](BHV-000014/behavior.md) | Canonical Definitionから導出 |
 | `SPEC-000015` | AIモデル構成を検証し実効選択を決める | Applicable／Covered | [BHV-000015](BHV-000015/behavior.md) | Canonical Definitionから導出 |
@@ -68,7 +70,7 @@ Canonical化した30件のSPEC Definitionを、SPEC Detail契約へ全件移行�
 | [BHV-000009](BHV-000009/behavior.md) | 実行基盤の故障境界と利用可能範囲を診断する | [SPEC-000009](../Definitions/SPEC-000009/spec_definition.md) | Covered |
 | [BHV-000010](BHV-000010/behavior.md) | Repositoryと実行対象のBindingを解決する | [SPEC-000010](../Definitions/SPEC-000010/spec_definition.md) | Covered |
 | [BHV-000011](BHV-000011/behavior.md) | 複数入口で同じ依頼・結果契約を保つ | [SPEC-000011](../Definitions/SPEC-000011/spec_definition.md) | Covered |
-| [BHV-000012](BHV-000012/behavior.md) | 接続資格からWorkspace利用範囲を確定する | [SPEC-000012](../Definitions/SPEC-000012/spec_definition.md) | Covered |
+| [BHV-000012](BHV-000012/behavior.md) | ユーザー資格と現行Roleで利用範囲を確定しAccessを回復する | [SPEC-000012](../Definitions/SPEC-000012/spec_definition.md) | Covered |
 | [BHV-000013](BHV-000013/behavior.md) | Meeting内容を候補化し所有正本へ昇格する | [SPEC-000013](../Definitions/SPEC-000013/spec_definition.md) | Covered |
 | [BHV-000014](BHV-000014/behavior.md) | Repositoryに適合する標準Toolを解決する | [SPEC-000014](../Definitions/SPEC-000014/spec_definition.md) | Covered |
 | [BHV-000015](BHV-000015/behavior.md) | AIモデル構成を検証し実効選択を決める | [SPEC-000015](../Definitions/SPEC-000015/spec_definition.md) | Covered |
@@ -92,7 +94,7 @@ Canonical化した30件のSPEC Definitionを、SPEC Detail契約へ全件移行�
 
 ## 4. UI／SPEC Detail対応
 
-[UI／SPEC Detail対応](02_UI_SPEC_Detail_Correspondence.md)で32 Relationを双方向に全件評価した。UIを必要としないBHVはなく、全BHVが一つ以上のSCR／PRT／Interactionへ接続されている。
+[UI／SPEC Detail対応](02_UI_SPEC_Detail_Correspondence.md)に32 Relationを維持する。今回変更したBHV-000012↔SCR-000008の意味対応は限定独立レビュー済み。他の31 Relationは変更せず、更新前の全件評価を現在版全体のPassへ読み替えない。
 
 ## 5. Architecture／Qualityへの引き渡し
 
@@ -104,7 +106,7 @@ Canonical化した30件のSPEC Definitionを、SPEC Detail契約へ全件移行�
 
 | 項目 | 現在状態 | 判断者／Owner | 影響 | 戻り条件／再評価契機 |
 |---|---|---|---|---|
-| 追加のv0.22固有BHV | N/A: 現在のCanonical Definition 30件はBHV-000031を含め全件詳細化済み | SPEC工程Owner | 現在のDetail成立に未処置はない | 新しいSPEC Definitionを追加した時 |
+| 追加のv0.22固有BHV | N/A: 現在のCanonical Definition 30件はBHV-000031を含め全件詳細化済み | SPEC工程Owner | 追加IDの未処置はないが、対象Detailの限定レビューは完了、後工程の伝播は未完了 | 新しいSPEC Definitionを追加した時 |
 | 実装との一致 | OPEN | Reality Audit Owner | Canonical Detailの成立には影響しない | v0.22 Reality Auditで照合する時 |
 
 ## 補足分析

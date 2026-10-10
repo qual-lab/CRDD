@@ -1,84 +1,110 @@
-# SCR-000008 Workspace接続と利用可能範囲
+# SCR-000008 ユーザー・Role権限・接続資格と利用可能範囲
 
 成果物種別: Logical Screen Detail
 Screen ID: `SCR-000008`
-状態: Canonical
+状態: Canonical（鍵交換2操作の限定独立レビュー済み）
 維持責任者: Qual-Lab
 
 ## 1. Screenの目的と入口・終了条件
 
-- 利用者の作業・認識目的: Role別Credentialの状態と利用範囲を理解し、発行・失効・ローテーションまたはAccess Recoveryを安全に行う。
+- 利用者の作業・認識目的: 自身と許可内Repositoryを確認し、管理者はユーザー・Role権限・資格を維持する。鍵交換の対象、影響と結果を見分ける。
 - 対象UI Definition: [UI-000008](../../../../Definitions/UI-000008/ui_definition.md)
 - Area: [configuration-trust](../area.md)
-- 入口: 利用者が「Workspace接続と利用可能範囲」を必要とし、対象Contextを識別できた時
-- 終了条件: 接続資格で許可されたWorkspaceだけを利用できる。 次の安全な行動または所有正本を選べる
-- Route／Surface候補: CLI、MCP、Markdownまたは将来GUI。SurfaceはScreen Identityではない
+- 入口: 接続・自身確認、通常管理、またはHost回復が必要になった時。通常管理認可とHost OS Authorityは別々に確認する。
+- 終了条件: 接続結果と許可・公開・実アクセスの範囲、管理処置の結果、または未確定範囲と同じ回復への確認先を認識し、次の安全な行動を選べる。
+- Route／Surface候補: CLI、MCP、MarkdownまたはGUI。具体的な管理画面／CLI分担は未確定。Remote入口がHost回復能力を持つとは扱わない。
 
 ## 2. Screen Composition
 
 ```text
 +---------------- SCR-000008 ----------------+
-| PRT-000008  Workspace接続と利用可能範囲 |
-|  現在状態 → 根拠・不足 → 主要操作 → 次の行動 |
-+-----------------------------------------------+
+| PRT-000008 ユーザー・Role権限・接続資格       |
+| 自身／管理対象 → 現行状態・利用範囲          |
+| 操作と影響 → 結果・不足 → 次の行動          |
++--------------------------------------------+
 ```
 
 | PRT | 意味／責務 | 情報 | 操作 | State／Variant |
 |---|---|---|---|---|
-| `PRT-000008` | Role別CredentialとAccess Recoveryを扱う。 | Role、Credential状態、利用範囲、Secret表示境界、Recovery状態、次行動 | 発行する／失効する／ローテーションする／再認証する／Accessを回復する | active／expired／revoked／rotating／recovering／unknown／restricted |
+| `PRT-000008` | 接続・最小ユーザー管理・鍵交換の認識と操作を扱う | userId、表示専用名、一つの現行Roleと詳細権限、資格状態、Repository公開／取得範囲、秘密表示境界、回復の現在地 | 接続／ユーザー登録・名前／Role変更／Role権限変更／資格発行／独立失効／指定ユーザー交換／全員交換 | 利用可能／資格要求／制限／利用不能／不明、部分成立、確認待ち／進行中／blocked／completed |
+
+非認証時はUser情報を表示しない。非管理者は自身表示だけを許可し、他Userの一覧・存在・件数を表示しない。管理能力から内容閲覧を推定しない。表示名ではなくuserIdで対象を保持する。
 
 ## 3. InteractionとBHV対応
 
 | Interaction Key | PRT | 利用者の意図 | Feedback | BHV | Coverage |
 |---|---|---|---|---|---|
-| `PRT-000008.spec-000012` | PRT-000008 | Role別Credentialを発行・失効・ローテーションし、必要時にHost AuthorityからAccessだけを回復する | Secretの一度表示、現在の利用範囲、失効結果、同じRecovery ID、Product Data非変更を区別する | [BHV-000012](../../../../../05_SPEC/Details/BHV-000012/behavior.md) | Covered |
+| `PRT-000008.spec-000012` | PRT-000008 | 自身と利用範囲を確認し、許可された通常管理・独立失効・鍵交換2操作を行う | 対象と影響、新Secret一度表示、旧資格失効、保持情報、失効確定／発行不明、同じRecovery IDと確認先を区別する | [BHV-000012](../../../../../05_SPEC/Details/BHV-000012/behavior.md) | Covered（限定対応レビュー済み） |
+
+PRT内の操作は次のように区別する。新しい全体IDや画面を発行せず、同じInteractionの操作種別として保持する。
+
+| 操作 | 処置前に示す対象と影響 | 結果と次の行動 |
+|---|---|---|
+| 登録・名前／Role変更・Role権限変更 | 対象userId・表示名・現行値・変更影響 | 名前はIdentity／Authorityではない。Role権限の次認可への反映を確認する |
+| 資格発行・接続 | 対象userId・現行Role・許可内Repository | 発行時Secret一度表示。認証と内容アクセス、部分成立を分ける |
+| 独立した資格失効 | 対象資格と以後の要求への影響 | 失効結果または既知状態・確認先。新資格を発行せず、開始済み操作の取消完了としない |
+| 指定ユーザー交換 | 対象既存userId・表示名、その全旧有効資格、同じ発行先、保持情報 | 対象の旧鍵を失効し同じユーザーへ新鍵を一度表示。他ユーザーの鍵を保持する |
+| 全員交換 | 全ユーザーの全旧有効資格、指定した既存administrator userId、保持情報。操作中管理者自身の旧鍵も失効する | 指定管理者へ新鍵を一度表示。他ユーザーは管理者の通常再発行・再配布まで旧鍵を使えない |
+
+鍵交換はユーザーID・表示名・Role・詳細権限・Repository登録・Product Dataを変えない。秘密値は一覧・履歴・会話・Evidence・Repositoryへ保存／再表示しない。
+
+```text
+通常管理認可 または Host OS Authorityを確認
+  → 対象・失効範囲・既存発行先・保持情報を事前表示
+  → Host入口または全員交換のみ人間の明示確認
+  → 処置の現在地と結果を表示
+      ├ 確定 → 一度表示した新資格で再入場
+      └ 失効確定／発行不明 → 同じRecoveryへ戻り現在再観測
+```
+
+通常入口の指定ユーザー交換へ追加の明示確認Gateを課さない。対象不明・管理者不存在・必要状態を安全に確認不能・認可設定破損では処置前停止を示す。特別ユーザー、追加権限、回復専用Bootstrapは作らない。初回Server設定方式は変更しない。
 
 ## 4. State／Variant
 
-| State／Variant | 発生条件 | 表示する意味 | 操作 | 回復／次の状態 |
-|---|---|---|---|---|
-| ready | 必要情報とAuthorityを確認できる | 安全に主要操作へ進める | 接続する／Workspaceを選ぶ／再認証する。 | 結果を同じContextで確認 |
-| pending | 外部処理または人間判断を待つ | 未完了とOwnerを示す | 待機／取消／判断 | 同じIdentityで再観測 |
-| blocked | 前提、権限または入力が不足 | 理由と影響範囲を示す | 修正／再確認 | readyへ戻る |
-| unknown／stale | 現在状態を断定できない | 正常・不存在と区別する | 再観測 | 根拠取得後に再判定 |
-| restricted | 開示または操作不可 | 許可範囲だけを示す | Authority確認 | Grant更新後に再評価 |
+| 状態の軸 | 発生条件 | 表示する意味 | 次の行動／禁止 |
+|---|---|---|---|
+| 利用状態 | 接続と要求毎の認可・公開・取得判定 | 利用可能／資格要求／制限／利用不能／不明。複数対象の一部成立は別表示 | 許可範囲だけ選択し、不明や非開示を利用可能／不存在へ丸めない |
+| 資格状態 | 現在の資格情報 | 有効／期限切れ／失効／不明 | 永続resetting／rotating状態を追加しない |
+| 確認待ち／進行中 | 必要な確認または処置が未完了 | 操作種別、入口、対象、現在地 | 受付や要求発行を完了にしない |
+| blocked | 処置前条件不足、または処置後の未解決状態 | 不足と既知処置を分離する | 新Effect前停止。開始済み取消完了を推定しない |
+| 失効確定／発行不明 | 発行失敗・応答喪失・Process喪失 | 確定失効範囲、未確定発行、同じRecovery IDと確認先 | 現在再観測前に完了・rollback・旧資格利用可能と表示せず、Secret再表示もしない |
+| completed | 必要な処置結果を確認した | 操作ごとの確定結果。独立失効は失効結果（新発行なし）、鍵交換は失効と発行の確定・新資格での再入場先、その他は当該操作の結果 | 過去Effect 0や開始済み取消の証明にしない |
+
+回復参照の表示は許可された利用側に限定し、参照から操作Authorityを推定しない。
 
 ## 5. VisualとAccessibility
 
 - Visual Baseline参照: [v0.21 UI Visual Baseline](../../../Visual/visual_baseline.md)
 - Area Design Guide参照: [configuration-trust](../area.md)
-- Screen固有の視覚判断: 結論、状態、主要操作、根拠、詳細の順に示す
-- Reading Order: Screen目的→状態→根拠・不足→操作→戻り先
-- Focus Order: 対象→主要操作→根拠→戻る
-- Keyboard／Alternative: TextとKeyboardだけで全判断情報へ到達可能にする
+- Screen固有の視覚判断: 自身／管理対象、現在状態、重大な不足、操作と影響、結果、根拠の順を保つ。失効確定と発行不明は別の見出し・状態語で示す。
+- Reading Order／Focus Order: 対象→現行状態→操作と影響→必要な確認→結果→確認先。色だけに依存せずKeyboardとTextで到達可能にする。
+- 秘密一度表示は一般の状態表示と分離し、表示済みの秘密値へ戻る導線を作らない。
+- Product固有の配置と管理画面／CLI分担は未確定。新Visual Direction、CMPや具体的な画面実装をここで固定しない。
 
 ## 6. Pattern／CMP昇格判断
 
 | Candidate | 判定 | 反復根拠 | 昇格先／非昇格理由 |
 |---|---|---|---|
-| 状態・根拠・次行動 | Keep as PRT | 意味順序は共通だが実画面の構造反復は未確認 | Product固有GUIで複数画面の反復を確認するまでCMPを発行しない |
+| 対象・状態・影響・結果・次行動 | Keep as PRT | 意味順序は共通だが実画面の構造反復は未確認 | Product固有GUIで複数画面の反復を確認するまでCMPを発行しない |
 
 ## 7. 未確認事項・戻り条件
 
 | 項目 | 現在状態 | Owner | 影響 | 戻り条件／再評価契機 |
 |---|---|---|---|---|
-| Product固有Layout | N/A | v0.22 UI工程Owner | v0.21の意味契約には影響しない | GUI Productを設計する時 |
+| 管理画面／CLI分担とProduct固有Layout | OPEN | UI工程Owner・Qual-Lab | 具体的な操作Surface・最終視覚品質は未固定 | Pilot／回復実測で対象識別と確認負担を評価する時 |
 | CMP昇格 | OPEN | UI工程Owner | 再利用Component未発行 | 複数実画面で反復を確認した時 |
 
 ## 補足分析
 
-v0.21のUI DefinitionをLogical Screenへ具体化した。SourceやWIPの配置をScreen Identityへ使っていない。
+UI-000008の現在の意味を既存SCR／PRTへ具体化する。新しい権限、状態Store、ユーザー成果は追加しない。限定した詳細契約の更新であり、Visual実装・工程Exit・実E2E成立ではない。
 
 ## Checklist
 
-- [x] ScreenをRoute、URLまたはFigma Frameだけで定義していない
-- [x] 利用者の目的、入口、終了条件を明示した
-- [x] 対象UI DefinitionとAreaへ接続した
-- [x] 意味あるPRTを全件示した
-- [x] Interaction、Feedback、StateおよびVariantを評価した
-- [x] System Behaviorを伴うInteractionをBHVへ接続した
-- [x] Failure、Unknown、PendingおよびRecoveryの表示を評価した
-- [x] Visual BaselineとArea Design Guideの適用を示した
-- [x] Accessibilityを評価した
-- [x] Pattern／CMP昇格を反復根拠から判断した
-- [x] N/Aに理由、OPENにOwner・影響・戻り条件を記録した
+- [x] 既存Screen／Partの目的を維持し、新IDを追加していない
+- [x] Definition、Area、BHVへ逆引きできる
+- [x] 通常管理、独立失効、鍵交換2操作と2入口を区別した
+- [x] 事前表示と条件付き明示確認を分けた
+- [x] 三可視境界、現行Role、内容Accessと管理の分離を保持した
+- [x] 部分結果、Process喪失、同じ回復と現在再観測を表示へ接続した
+- [x] Visual Baseline、AccessibilityとCMP非昇格理由を評価した
+- [x] OPENのOwner・影響・戻り条件を示し、具体Surface未確定を隠していない

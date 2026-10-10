@@ -44,11 +44,11 @@ v0.21.0は公開済み、v0.22.0とCHG-000082は未完了である。責務再�
 
 持ち越し記録について追加判断は不要。CROS Package維持の先の判断は人間が変更し、認証・認可をAccess Managementへ再編する方向となった。Context集約・接続Registry・活動等の具体OwnerはSource照合後にArchitecture／Qualityへ反映する。未決候補を採用済み実装と扱わない。Domain保存で、非協調Processの親Directory差替えまで防ぐ保証を要求するかは判断待ちである。通常保存＋読戻し、静的link拒否と協調Writer競合は確認済みだが、競合差替え防止の証明ではない。担当責任者・採用判断者はQual-Lab。Docker／Coordinator／Orchestrator大改修は前倒ししない。
 
-ユーザーID（UUID）・管理者用表示名・Role詳細権限・Credential紐付けの最小管理はv0.22へ採用済み。2026-10-10に、鍵だけを変更する「指定ユーザー交換／全員交換」の2操作を採用した。ユーザー情報・Role・権限設定・Product Dataは保持し、通常管理とHost回復は入口・Authorityだけを分ける。旧Role初期化と特別Bootstrapによる回復を廃止し、認可設定破損では自動修復せず停止する。要求・UXの再伝播6文書は両観点の限定独立レビューで残指摘0。前のUX9文書、IA9文書、UI／SPEC8文書の限定Passは判断更新前の結果で、新判断へ流用しない。IAは1分析・1定義・4横断投影へ再伝播し、両観点の限定独立レビューで残指摘0。UI／SPECの4分析・2定義は再伝播し、両観点の限定独立レビューで残指摘0。画面詳細・BHV・横断投影・対応レビュー、Architecture／Quality／Source・保存Schema・移行・実証は新判断に未追従である。
+ユーザーID（UUID）・管理者用表示名・Role詳細権限・Credential紐付けの最小管理はv0.22へ採用済み。2026-10-10に、鍵だけを変更する「指定ユーザー交換／全員交換」の2操作を採用した。ユーザー情報・Role・権限設定・Product Dataは保持し、通常管理とHost回復は入口・Authorityだけを分ける。旧Role初期化と特別Bootstrapによる回復を廃止し、認可設定破損では自動修復せず停止する。要求・UXの再伝播6文書は両観点の限定独立レビューで残指摘0。前のUX9文書、IA9文書、UI／SPEC8文書の限定Passは判断更新前の結果で、新判断へ流用しない。IAは1分析・1定義・4横断投影へ再伝播し、両観点の限定独立レビューで残指摘0。UI／SPECの4分析・2定義は再伝播し、両観点の限定独立レビューで残指摘0。画面詳細SCR-000008・BHV-000012とArea／Detail一覧／Detail対応は再伝播し、両観点の限定独立レビューで残指摘0。Definition対応レビュー・Workbench候補横断投影、Architecture／Quality／Source・保存Schema・移行・実証は新判断に未追従である。
 
 | 判断項目 | 現在の処置 | Owner Relation |
 |---|---|---|
-| 接続主体・Role・Credentialの再編 | 最小ユーザー管理と鍵交換2操作は採用済みで追加判断不要。鍵交換の新判断は要求・UXへ反映し限定独立レビュー済み、IAは再伝播し限定独立レビュー済み、UI／SPECは再伝播し限定独立レビュー済み、Detail以降は未追従。旧Passを流用せず、新要求から設計・品質へ再伝播する。 | [鍵交換の途中見直し](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#鍵交換の途中見直し--2026-10-10) |
+| 接続主体・Role・Credentialの再編 | 最小ユーザー管理と鍵交換2操作は採用済みで追加判断不要。鍵交換の新判断は要求・UXへ反映し限定独立レビュー済み、IAは再伝播し限定独立レビュー済み、UI／SPEC Definitionは限定独立レビュー済み、Detailは再伝播し限定独立レビュー済み、Definition対応・横断投影以降は未追従。旧Passを流用せず、新要求から設計・品質へ再伝播する。 | [鍵交換の途中見直し](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#鍵交換の途中見直し--2026-10-10) |
 | CROS Packageの責務再編 | 維持判断を人間が変更。認証・認可を`access-management`へ、Context・通信等は実Ownerへ移し、全責務・代替本番接続後に旧Packageを撤去する。Source移管は未着手。 | [新Owner対応とGate](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#11-access-managementへの再編--2026-10-09の途中見直し) |
 | 非協調Processの親Directory差替え保証 | 必要範囲を確認中。未回答を高い保証の採用や免除へ読み替えず、独立した接続整理を継続する。 | [保存保証の未決判断](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#保存保証の未決判断) |
 | 5C追加是正の持ち越し | 承認済み。保証条件変更・Release範囲変更の承認ではない。 | [判断の正本](99_Roadmap/Changes/CHG-000082/change.md#持ち越し判断--orchestratorcoordinatordocker2026-10-09) |
