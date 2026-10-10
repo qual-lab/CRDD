@@ -2,7 +2,8 @@
 
 成果物種別: UX定義
 UX ID: `UX-000035`
-状態: Canonical（鍵交換2操作の限定独立レビュー済み）
+状態: Canonical
+確認状態: 最新鍵管理判断の限定独立レビュー済み・残指摘0。IA以降未伝播。UX工程全体Ready・実装成立は未主張。
 維持責任者: Qual-Lab
 
 ## 利用者成果
@@ -40,7 +41,9 @@ CROS管理者／Server Host運用者
 
 ## 成立条件
 
-- ユーザーIDを作成し、管理者が表示名とRoleを設定・変更し、ユーザーのCredentialを発行・リセットできる。
+- 鍵の発行・独立失効・交換はadministrator専用固定でON／OFF設定なし。通常は同一Process Workbench、MCPに鍵操作は非公開。Host回復はログイン済みローカル操作者の対話CLIで交換2操作だけを行い、追加認証・専用資格・承認コード・OS管理者昇格を要求しない。既存Root／Path検証を維持し、全4組で対象・影響を事前表示、Hostまたは全員交換の3組だけ明示確認する。
+
+- 現在ユーザー管理を許可された主体がID・表示名・Roleを登録・変更し、administratorがCredentialを発行・交換できる。他4管理群の担当Roleと可変性は未確定で、許可付与を先取りしない。
 - 標準Roleは`administrator`／`manager`／`developer`とし、詳細権限はRoleが所有する。ユーザーやCredentialへ個別追加権限を持たせない。
 - 表示名の同名・改名でIDや権限が変わったと誤認せず、本人確認にも使わない。
 - リセットでID・Roleを保持し旧資格を以後の要求で拒否する。開始済み操作の取消完了とは区別する。
@@ -65,7 +68,7 @@ Credential状態を管理する
         │
         ├─ ★ 重要場面: administrator Roleのユーザー資格をすべて失った時
         ├─ ⚠ 失敗: Remote認証へ依存する／Product Dataを削除する／Secretを記録する
-        └─ ✓ 守る品質: Host Authorityと明示確認でユーザー・Role・権限を保持し、鍵だけを交換する
+        └─ ✓ 守る品質: ログイン済みHost操作者と明示確認でユーザー・Role・権限を保持し、鍵だけを交換する
         ↓
 指定した既存管理者の新Credentialで通常管理へ戻る
 ```
@@ -92,14 +95,14 @@ Credential状態を管理する
 
 - userIdは採用済みのUUID制約を保持する。UUID版・Schema・生成方式はUX／IAでは決めない。
 - UXが定義すること: 管理者のGoal、通常管理と緊急復旧の体験、失敗、品質期待。
-- 下流工程へ残すこと: 情報構造、管理画面／CLI、Digest方式、認証Protocol、耐久記録および実装配置。
+- 下流工程へ残すこと: 情報構造、採用済みWorkbench／Host CLI入口の具体化、Digest方式、認証Protocol、耐久記録および実装配置。
 - 制約: Administratorと内容Accessを分け、秘密値を正本・Prompt・会話へ複製しない。
 - 対象外: 最小情報を超える一般アカウント管理、本人確認、メール・Password・自己登録・自己編集・申請、SSO／IdP、個人行動監査製品。
-- 非管理者へ他ユーザー情報を開示せず、Remote管理能力とHost Recovery Authorityを同一視しない。
+- 他ユーザー参照の現行管理権限を持たない入口へ他ユーザーの一覧・存在・件数を開示せず、Remote管理能力とHostのログイン済み操作者を同一視しない。
 
 ## 未確認事項と戻り条件
 
-- 未確認事項: 対象識別とリセット確認の負担、管理画面とCLIの分担、有効期限の既定値。
+- 未確認事項: 対象識別とリセット確認の負担、採用済みWorkbench／Host CLI入口の具体的な表示・案内の負担、有効期限の既定値。
 - Host回復でも既存ユーザーIDへ資格を結び、ユーザー情報・Role・詳細権限・Repository登録・Product Dataを保持する。特別な回復ユーザー・権限を作らない。管理者不存在・対象不明・認可設定破損では処置前停止する。
 - 現在判定: Pilotで確認する。現在のUX定義を止める事項ではない。
 - 確認事項: 小規模共有Serverで安全性と管理負担の均衡が成立するか。
@@ -110,16 +113,18 @@ Credential状態を管理する
 
 ## 検証意図
 
-管理者が対象IDと表示名を区別して登録・変更・鍵交換し、同名・改名で認可が変わらず、ID・名前・Role・権限が保たれて旧資格が拒否されることを観測する。指定ユーザー／全員の処置範囲と通常／HostのAuthority差、管理資格全喪失から指定既存管理者への再発行、認可設定破損での処置前停止を確認する。Secret非保存、Administratorの内容非保有、失効後の発行失敗・応答喪失・Process喪失時の既知処置保持、同じRecoveryへの再入場と再観測なしの完了・rollback拒否、Repository単体非依存を含める。
+現在許可された主体が対象IDと表示名を区別して登録・変更し、administratorが鍵交換し、同名・改名で認可が変わらず、ID・名前・Role・権限が保たれて旧資格が拒否されることを観測する。指定ユーザー／全員の処置範囲と通常／HostのAuthority差、管理資格全喪失から指定既存管理者への再発行、認可設定破損での処置前停止を確認する。Secret非保存、Administratorの内容非保有、失効後の発行失敗・応答喪失・Process喪失時の既知処置保持、同じRecoveryへの再入場と再観測なしの完了・rollback拒否、Repository単体非依存を含める。 MCPから鍵操作を呼べないこと、Hostに追加認証を要求せず交換2操作以外へ広げないこと、4組表示・3組確認とRoot／Path境界を確認する。他4管理群の担当Roleを先取りしない。
 
 ## 下流への引き渡し
 
+各引渡し先は本文の最新鍵管理条件（固定administrator、Workbench通常入口、追加認証なしのHost交換2操作、既存Root／Path、MCP鍵操作非公開、全4組表示／3組確認）を保持する。残る4管理群の担当Role・可変性は未確定として引き継ぐ。
+
 | 接続先 | 保持する意味 |
 |---|---|
-| IA（直後工程への正式な引き渡し） | ユーザーID、表示名、自身／管理対象の可視範囲、Role詳細権限、Credential metadata、Secret表示境界、Credential状態、管理能力、Recovery Identity、対象・保持範囲、結果、再入場。対象1人と全員の鍵交換範囲、通常管理とHost入口のAuthority差、既存ユーザーへの結合、情報・Role・権限保持、結果と再入場を保持する |
-| Quality Analysis / UX（伴走） | 名前非Authority、通常リセットのID・Role保持と旧資格拒否、Role変更の次認可反映、Secret非保存、Role分離、Host回復でのRole設定保持とCredential交換、Product Data保持。対象1人と全員の鍵交換範囲、通常管理とHost入口のAuthority差、既存ユーザーへの結合、情報・Role・権限保持、結果と再入場を検証する |
-| UI（後続Contract Relation） | 管理者の対象識別・表示名／Role変更・リセットの影響確認、発行とリセット後の新Secret一度表示、一覧・失効、Host Recovery確認、途中状態、既存管理者への資格再発行後の再入場。対象1人と全員の鍵交換範囲、通常管理とHost入口のAuthority差、既存ユーザーへの結合、情報・Role・権限保持、結果と再入場を保持する |
-| SPEC（後続Contract Relation） | ユーザー相関、名前非Authority、Role権限変更、発行・Digest保存・検証・失効・期限・リセットと旧資格拒否、Host Recovery Authority、耐久記録、Effect境界。対象1人と全員の鍵交換範囲、通常管理とHost入口のAuthority差、既存ユーザーへの結合、情報・Role・権限保持、結果と再入場を保持する |
+| IA（直後工程への正式な引き渡し） | ユーザーID、表示名、自身／管理対象の可視範囲、Role詳細権限、Credential metadata、Secret表示境界、Credential状態、管理能力、Recovery Identity、対象・保持範囲、結果、再入場。対象1人と全員の鍵交換範囲、通常管理とHost入口のAuthority差、既存ユーザーへの結合、情報・Role・権限保持、結果と再入場を保持する。最新鍵管理の固定条件と他4管理群の未確定を保持する。 |
+| Quality Analysis / UX（伴走） | 名前非Authority、通常の鍵交換のID・Role保持と旧資格拒否、Role変更の次認可反映、Secret非保存、Role分離、Host回復でのRole設定保持とCredential交換、Product Data保持。対象1人と全員の鍵交換範囲、通常管理とHost入口のAuthority差、既存ユーザーへの結合、情報・Role・権限保持、結果と再入場を検証する。最新鍵管理の固定条件と他4管理群の未確定を保持する。 |
+| UI（後続Contract Relation） | 管理者の対象識別・表示名／Role変更・リセットの影響確認、発行とリセット後の新Secret一度表示、一覧・失効、Host Recovery確認、途中状態、既存管理者への資格再発行後の再入場。対象1人と全員の鍵交換範囲、通常管理とHost入口のAuthority差、既存ユーザーへの結合、情報・Role・権限保持、結果と再入場を保持する。最新鍵管理の固定条件と他4管理群の未確定を保持する。 |
+| SPEC（後続Contract Relation） | ユーザー相関、名前非Authority、Role権限変更、発行・Digest保存・検証・失効・期限・リセットと旧資格拒否、Hostのログイン済み操作者、耐久記録、Effect境界。対象1人と全員の鍵交換範囲、通常管理とHost入口のAuthority差、既存ユーザーへの結合、情報・Role・権限保持、結果と再入場を保持する。最新鍵管理の固定条件と他4管理群の未確定を保持する。 |
 
 ## 関係
 
