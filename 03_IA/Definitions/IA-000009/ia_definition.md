@@ -3,7 +3,7 @@
 成果物種別: IA定義
 IA ID: `IA-000009`
 状態: Canonical
-確認状態: 最新の権限分担へ限定伝播・限定独立レビュー済み・残指摘0。UI／SPEC以降・全体Ready・実装成立は未主張。
+確認状態: 最新の権限分担・登録解除・鍵の受け渡し未確認の判断を限定伝播済み。今回の契約・品質限定独立レビュー済み・残指摘0。UI／SPEC以降への追加判断伝播・全体Ready・実装成立は未主張。
 維持責任者: Qual-Lab
 
 ## 意味と利用者成果
@@ -36,7 +36,7 @@ userIdのUUID制約は正式UXから継承する。IAは安定した同一性を
 
 管理能力の固定割当と内容範囲を別に扱う。managerは変更前の現在管理権限による認可を経て、自身のRole内容範囲・公開範囲も明示更新できる。次要求から現行Role権限・Exposure・実アクセスを再評価する。管理能力だけから内容取得を許可しない。ユーザーの表示名はadministratorのものもmanagerが変更できるが、userId・Role・Credential・Authorityの変更とは別である。
 
-Repository登録状態は登録関係の属性、公開範囲はExposureの属性、内容の存在はRepositoryの情報として区別する。登録だけで公開・アクセス可能とせず、登録解除は登録関係だけを解消し、Repository／Product Dataを削除しない。既存対象の属性・関係として扱い、新Objectや安定IDを追加しない。
+Repository登録状態は登録関係の属性、公開範囲はExposureの属性、内容の存在はRepositoryの情報として区別する。登録だけで公開・アクセス可能とせず、登録解除は登録と対応する公開設定を同時に解除し、CROSから対象へ以後アクセスできなくする。他対象の登録・公開設定と対象Repository／Product Dataは保持する。既存対象の属性・関係として扱い、新Objectや安定IDを追加しない。
 
 ## 対象・識別・関係
 
@@ -57,14 +57,14 @@ Repository登録状態は登録関係の属性、公開範囲はExposureの属�
 | UX-000035: ユーザー | ユーザー | Same | 最小の接続主体。表示名は自身表示と管理者の対象識別だけに使うを保持する |
 | UX-000035: Role | Role | Same | 利用者の権限分類を保持する |
 | UX-000035: Role詳細権限 | Role詳細権限 | Same | Roleが所有する情報・操作許可を保持する |
-| UX-000035: 接続資格Metadata | 接続資格 | Merge | ユーザーを認証する資格を保持する |
+| UX-000035: 接続資格Metadata | 接続資格 | Merge | ユーザーを認証する資格を保持する。元発行Identity（Credential IDとは別の非秘密Operation／Attempt相関情報）と発行・結果記録・配送・受領確認を別属性として保持 |
 | UX-000035: 一度表示するSecret | Secret表示境界 | Rename | 発行／鍵交換後の一度だけの秘密表示を保持する |
 | UX-000035: 接続資格状態 | 接続資格状態 | Same | 資格の有効・期限切れ・失効・不明を保持する |
 | UX-000035: 管理能力 | 管理能力 | Same | 最小ユーザー情報・Role権限・Credential等の管理を保持する |
 | UX-000035: Access Recovery | Access Recovery | Same | 通常管理またはHostから鍵だけを交換して接続へ戻る回復を保持する |
 | UX-000035: Recovery対象 | Recovery対象 | Same | 鍵交換の対象ユーザー・失効資格集合・新資格発行先を保持する |
 | UX-000035: 保持対象 | 保持対象 | Same | 鍵交換で変更しないユーザー情報・Role・詳細権限・Repository登録・Product Dataを保持する |
-| UX-000035: Recovery結果 | Recovery結果 | Same | 回復現在地・終了後状態・次の行動を保持する |
+| UX-000035: Recovery結果 | Recovery結果 | Same | 回復現在地・終了後状態・次の行動を保持する。元発行事実と新しい明示交換の結果・Identityを区別 |
 
 ### Identity／Relationの変換
 
@@ -83,21 +83,21 @@ Repository登録状態は登録関係の属性、公開範囲はExposureの属�
 | UX-000035: ユーザー | 安定userId。表示名は属性であり、同名・改名でIdentityや権限を変えない。一つの現行Roleへ結ぶ | ユーザー | 安定userId、表示名属性、一つの現行Role。表示名一致・改名はIdentity変更やAuthority根拠ではない | Same。意味上の識別と関係を保持する |
 | UX-000035: Role | `administrator`／`manager`／`developer`。Repository RoleやTask Roleと別 | Role | `administrator`／`manager`／`developer`。一ユーザーにつき一つの現行Role | Same。意味上の識別と関係を保持する |
 | UX-000035: Role詳細権限 | Role IDに結ぶ。ユーザーやCredentialへ個別追加権限を持たせない | Role詳細権限 | Role IDへ結ぶ。ユーザー／Credentialの個別追加権限なし | Same。意味上の識別と関係を保持する |
-| UX-000035: 接続資格Metadata | Credential IDとuserId。生Secretや同等値を含めず、古いRole権限を固定しない | 接続資格 | Credential IDとuserId。生Secretなし、古いRole権限を固定しない | Merge。意味上の識別と関係を保持する |
+| UX-000035: 接続資格Metadata | Credential IDとuserId。生Secretや同等値を含めず、古いRole権限を固定しない。元発行Identity（Credential IDとは別の非秘密Operation／Attempt相関情報）と発行・結果記録・配送・受領確認を別属性として保持 | 接続資格 | Credential IDとuserId。生Secretなし、古いRole権限を固定しない。元発行Identity（Credential IDとは別の非秘密Operation／Attempt相関情報）と発行・結果記録・配送・受領確認を別属性として保持 | Merge。これらを既存接続資格の属性・関係へ統合する |
 | UX-000035: 一度表示するSecret | 発行Attempt内だけ。永続情報へ含めない | Secret表示境界 | 資格発行Attempt内。永続Identityにしない | Rename。意味上の識別と関係を保持する |
 | UX-000035: 接続資格状態 | Credential IDと現行状態。鍵交換は旧資格失効と新資格発行の関係であり、新しい永続状態を作らない | 接続資格状態 | Credential IDと現行状態。Reset専用永続状態を作らない | Same。意味上の識別と関係を保持する |
 | UX-000035: 管理能力 | 業務管理はmanager／administrator、管理者Role・詳細権限と鍵はadministrator専用固定。内容閲覧を自動的に得ない | 管理能力 | 業務管理はmanager／administrator、管理者Role・詳細権限と鍵はadministrator専用固定。内容閲覧を自動的に得ない | Same。意味上の識別と関係を保持する |
 | UX-000035: Access Recovery | Recovery IDを最初の失敗から再入場まで保つ。操作種別（指定ユーザー交換／全員交換）と入口・Authorityは別属性 | Access Recovery | Recovery ID、操作種別（指定ユーザー交換／全員交換）、入口・Authority属性。最初の失敗から再入場まで同じIdentity | Same。意味上の識別と関係を保持する |
 | UX-000035: Recovery対象 | Recovery ID、対象userId、失効対象Credential集合、発行先userId。指定交換は同じユーザー、全員交換は指定既存administrator | Recovery対象 | Recovery ID、対象userId、失効対象Credential集合、発行先userId。指定交換は同じユーザー、全員交換は指定既存administrator | Same。意味上の識別と関係を保持する |
 | UX-000035: 保持対象 | Recovery IDとユーザーID・表示名・Role・詳細権限・Repository登録・Product Dataの保持区分 | 保持対象 | Recovery IDとユーザーID・表示名・Role・詳細権限・Repository登録・Product Dataの保持区分 | Same。意味上の識別と関係を保持する |
-| UX-000035: Recovery結果 | Recovery IDと結果改訂版。失効確定範囲と新資格発行結果を分離し、不明を保持する | Recovery結果 | Recovery IDと結果改訂版。失効確定範囲と新資格発行結果を分離し、不明を保持する | Same。意味上の識別と関係を保持する |
+| UX-000035: Recovery結果 | Recovery IDと結果改訂版。失効確定範囲と新資格発行結果を分離し、不明を保持する。元発行事実と新しい明示交換の結果・Identityを区別 | Recovery結果 | Recovery IDと結果改訂版。失効確定範囲と新資格発行結果を分離し、不明を保持する。元発行事実と新しい明示交換の結果・Identityを区別 | Same。既存結果の同一性・関係を保持する |
 
 同じ対象の識別と関係を分析から保持する。表示名はユーザー属性、Secretは短命表示として扱い、独立した正本や安定IDを追加しない。
 
 | 対象 | 利用者にとっての意味 | 識別・関係 |
 |---|---|---|
 | ユーザー | 最小の接続主体。表示名は自身表示と管理者の対象識別だけに使う | 安定userId、表示名属性、一つの現行Role。表示名一致・改名はIdentity変更やAuthority根拠ではない |
-| 接続資格 | ユーザーを認証する資格 | Credential IDとuserId。生Secretなし、古いRole権限を固定しない |
+| 接続資格 | ユーザーを認証する資格 | Credential IDとuserId。生Secretなし、古いRole権限を固定しない。元発行Identity（Credential IDとは別の非秘密Operation／Attempt相関情報）と発行・結果記録・配送・受領確認を別属性として保持 |
 | Role | 利用者の権限分類 | `administrator`／`manager`／`developer`。一ユーザーにつき一つの現行Role |
 | Role詳細権限 | Roleが所有する情報・操作許可 | Role IDへ結ぶ。ユーザー／Credentialの個別追加権限なし |
 | Repository Exposure | 許可範囲へ公開されているRepository | Repository IDと公開対象範囲。Role権限や実アクセスと別 |
@@ -111,7 +111,7 @@ Repository登録状態は登録関係の属性、公開範囲はExposureの属�
 | Access Recovery | 通常管理またはHostから鍵だけを交換して接続へ戻る回復 | Recovery ID、操作種別（指定ユーザー交換／全員交換）、入口・Authority属性。最初の失敗から再入場まで同じIdentity |
 | Recovery対象 | 鍵交換の対象ユーザー・失効資格集合・新資格発行先 | Recovery ID、対象userId、失効対象Credential集合、発行先userId。指定交換は同じユーザー、全員交換は指定既存administrator |
 | 保持対象 | 鍵交換で変更しないユーザー情報・Role・詳細権限・Repository登録・Product Data | Recovery IDとユーザーID・表示名・Role・詳細権限・Repository登録・Product Dataの保持区分 |
-| Recovery結果 | 回復現在地・終了後状態・次の行動 | Recovery IDと結果改訂版。失効確定範囲と新資格発行結果を分離し、不明を保持する |
+| Recovery結果 | 回復現在地・終了後状態・次の行動 | Recovery IDと結果改訂版。失効確定範囲と新資格発行結果を分離し、不明を保持する。元発行事実と新しい明示交換の結果・Identityを区別 |
 
 ```text
 [O: 接続資格] ──認証する──▶ [O: ユーザー]
@@ -174,7 +174,21 @@ Repository登録状態は登録関係の属性、公開範囲はExposureの属�
 
 両入口でユーザーID・表示名・Role・詳細権限・Repository登録・Product Dataを保持する。表示名を対象Identityにせず、特別ユーザー・追加権限・回復専用Bootstrapを作らない。初回Server設定方式は変更しない。
 
-失効後の発行失敗・応答喪失・Process喪失では、失効確定範囲と発行結果の不明を非秘密の耐久的な事実として同じRecovery IDへ結ぶ。再入場は現在状態の再観測後に判断し、再観測なしに完了・rollback・旧資格未失効・開始済み操作取消済みへ畳まない。Secretを再表示せず、新しいRecoveryを重ねない。対象ユーザー、全員交換の既存administrator、必要な資格集合・現行権限を安全に確認できない場合や認可設定が破損している場合は処置前停止する。鍵交換は認可設定を修復しない。
+交換の発行自体または結果記録が未確定となる発行失敗・応答喪失・Process喪失では、失効確定範囲と発行結果の不明を非秘密の耐久的な事実として同じRecovery IDへ結ぶ。再入場は現在状態の再観測後に判断し、再観測なしに完了・rollback・旧資格未失効・開始済み操作取消済みへ畳まない。Secretを再表示せず、元処理の発行・記録が未確定のまま新しいRecoveryを重ねない。対象ユーザー、全員交換の既存administrator、必要な資格集合・現行権限を安全に確認できない場合や認可設定が破損している場合は処置前停止する。鍵交換は認可設定を修復しない。
+
+### 登録解除と鍵の受け渡しに関する情報関係
+
+最新UX-000035の追加判断を既存Objectの属性・関係へ統合する。新Object・安定ID・回復機構を追加せず、通常発行をAccess Recoveryへ結ばない。
+
+| 既存の情報対象 | 保持する属性・関係 | 次の行動と時間的な意味 |
+|---|---|---|
+| Repository登録状態・Repository Exposure・リポジトリ | 同じRepositoryに結ぶ登録関係と対応公開設定を同時に解除する。他対象の登録・公開設定と対象Repository本体・Product Dataは保持する | CROSから対象へ以後アクセスできない。別の先行公開解除を必須にせず、登録解除から開始済み操作の取消完了や本体削除を推定しない |
+| 接続資格Metadata／接続資格 | 元発行Identity（Credential IDとは別の非秘密Operation／Attempt相関情報）、資格ID・userId、発行事実と結果記録の確認、配送と受領確認を別に保持する。Secretは保存しない | 発行と記録が確定し受け渡しだけ未確認なら「発行済み・受け渡し未確認」。確実な未受領や未発行へ畳まず、現在認可されたadministratorが既存交換を明示して新しく実行できる。発行自体または結果記録が不明なら、元発行Identityと既知事実で現在再観測する。交換由来だけ元のexact Recoveryを保持する。新交換を開始しない。通常発行へ交換Recoveryを新設せず、未確定の元処理を別交換で置換しない |
+| 接続資格状態 | 発行時の事実と現在の有効／失効等を区別し、旧応答の由来となる資格へ相関する | 遅延した旧応答から失効済み鍵を利用可能と案内しない。新交換の成功で旧Secret受領・rollback・取消を証明しない |
+| Access Recovery・Recovery対象・Recovery結果 | 各交換内は同じexact Recovery。確定発行後の新交換は別Operation／別Recoveryで、旧発行事実を保持し旧資格を新交換の失効対象へ結ぶ | 指定ユーザー交換は当該ユーザーの発行済み資格を含む旧有効資格すべてを失効し同じ既存ユーザーへ発行。全員交換は全旧有効資格を失効し指定既存administratorへ発行する。他ユーザーは通常の再発行・再配布まで利用できない |
+| 管理能力・入口とAuthority | 現在administrator認証とログイン済みHost操作者を別に扱う | 現在の管理者認証が使えなければ既存Host交換入口へ。通常Workbench認可を迂回せず、追加認証・新Authorityを作らない |
+
+情報導線は、資格の発行・記録の確認→受け渡し確認→現在の資格・権限→次の行動とする。発行・記録確定／受け渡し未確認は明示新交換、発行・記録不明は元Identity再観測、管理者認証喪失は既存Host入口へ分岐する。Secret再表示・自動再発行は案内しない。新交換も2操作の対象・既存発行先・保持範囲、4組の事前表示・3組の明示確認を保持する。
 
 ## 状態・可視性・時間的な意味
 
@@ -215,7 +229,7 @@ Repository登録状態は登録関係の属性、公開範囲はExposureの属�
 ### 重要な失敗
 
 - UX-000013: 認証成功・公開済み・実取得可能の一つだけで全体許可を推定する。部分可視を全体成立へ畳む。非開示対象や他ユーザー情報を漏らす。
-- UX-000035: 同名ユーザーを取り違える。表示名を本人性・Authorityへ昇格する。資格へ古い権限を固定する。Secretを保存・再表示し、回復でProduct Dataを削除し、別Recoveryを重ねる。
+- UX-000035: 同名ユーザーを取り違える。表示名を本人性・Authorityへ昇格する。資格へ古い権限を固定する。Secretを保存・再表示し、回復でProduct Dataを削除し、未確定の元処理へ別Recoveryを重ねる。
 
 採用済みWorkbench／Host CLI入口の表示具体化、Digest、Protocol、物理Schema・Path・Process構成は本定義で決めない。一般アカウント管理、メール・Password・本人確認・自己登録・自己編集・申請、複数Role、個別追加権限、SSO／IdP、個人行動監査製品は対象外。
 
@@ -230,20 +244,24 @@ IA固有の追加判断はない。UUID版、表示名構文・正規化・一�
 
 ## 検証意図
 
+登録と対象公開設定の同時解除、他対象・本体保持、発行・記録・配送・受領確認の非同一性、3分岐の次行動、元／新Identityの分離と各交換内exact保持、現在認可・Secret非保存・失効済み旧応答の利用案内拒否を反証する。
+
 | 入力UX | 重要場面 | 避ける失敗 | 品質期待 |
 |---|---|---|---|
 | UX-000013 | 自身と利用可能情報を示す時 | 名前Authority化、三可視境界違反、Role・公開・実アクセスの混同、部分成立の全体化 | 許可・公開・実取得の範囲だけ開示し、非開示存在・名前・件数を漏らさず安全な次行動へ戻る |
-| UX-000035 | 登録・名前／Role変更・資格リセット、既存administratorの有効Credential全喪失 | 対象取り違え、ID／Role喪失、古資格利用、取消完了推定、Secret保存、Product Data削除 | 最小管理で対象と処置影響を理解し、2操作の失効範囲・既存発行先と2入口のAuthorityを別軸で確認し、情報保持と同じRecoveryで安全に再入場する。対象不明・管理者不存在・認可設定破損は処置前停止、失敗・応答喪失・Process喪失後は失効確定／発行不明を保持して現在再観測する |
+| UX-000035 | 登録・名前／Role変更・資格リセット、既存administratorの有効Credential全喪失 | 対象取り違え、ID／Role喪失、古資格利用、取消完了推定、Secret保存、Product Data削除 | 最小管理で対象と処置影響を理解し、2操作の失効範囲・既存発行先と2入口のAuthorityを別軸で確認し、情報保持と同じRecoveryで安全に再入場する。対象不明・管理者不存在・認可設定破損は処置前停止、発行自体または結果記録が不明なら元発行Identityで現在再観測し、交換由来だけ同じexact Recoveryを保持する。通常発行へ交換Recoveryを新設しない。発行・記録確定で受け渡しだけ未確認なら確定事実を保持し、現在認可の下で人間が明示した別Operation／別Recoveryの新交換を選べる。 |
 
 ## 後続工程との関係
+
+各引渡し先は、登録・対応公開設定の同時解除と他対象・本体保持、発行／結果記録／受け渡しの区別、元Identity再観測と明示新交換の分離、管理者認証喪失時の既存Host案内を保持する。各交換内の同じexact Recoveryと、確定発行後の別Operation／別Recoveryを区別し、通常発行へ交換用Recoveryを新設しない。
 
 UI／SPEC／Qualityへの各引渡しは、固定administrator鍵操作、Workbench通常入口、MCP鍵操作非公開、追加認証なしのHost交換2操作、既存Root／Path、4組表示・3組確認と採用済み担当Roleの固定境界を保持する。独立失効は新鍵発行も開始済みTaskの取消も行わない。
 
 | 接続先 | 保持する意味 |
 |---|---|
 | UI（UX＋IAの正式入力） | 自身／管理対象の可視差、対象ID・表示名・Role権限、公開／実アクセスと部分可視、資格状態・処置影響、新Secret一度表示、鍵交換2操作の範囲・既存発行先、2入口のAuthority差、保持範囲・現在地・再入場。失効確定と発行不明、権限設定破損での処置前停止を区別する |
-| SPEC（UX＋IAの正式入力） | ユーザー資格相関、現行Role認可・Exposure・実アクセスの別判定、名前非Authority、Role変更の次認可反映、鍵交換のID／Role保持と旧資格拒否・取消分離、Secret非保存、2操作の失効集合・既存発行先と入口Authority、Identity・ユーザー情報・Role権限・登録・Product Data保持。失敗・応答喪失・Process喪失後の同じRecovery、既知失効／発行不明と再観測後の再入場を保持する |
-| Quality Analysis / IA（伴走） | 各Objectの同一性と関係、名前とAuthorityの差、三可視境界、Role／公開／実アクセスの未成立と部分可視、処置対象取り違え、2操作と2入口の別軸、Secret非保存・単体利用非依存。対象不明・管理者不存在・認可設定破損での処置前停止、失敗・応答喪失・Process喪失後の失効確定／発行不明、再観測なしの完了・rollback拒否を検証する |
+| SPEC（UX＋IAの正式入力） | ユーザー資格相関、現行Role認可・Exposure・実アクセスの別判定、名前非Authority、Role変更の次認可反映、鍵交換のID／Role保持と旧資格拒否・取消分離、Secret非保存、2操作の失効集合・既存発行先と入口Authority、Identity・ユーザー情報・Role権限・登録・Product Data保持。発行自体または結果記録が不明なら元発行Identityで現在再観測し、交換由来だけ同じexact Recoveryを保持する。通常発行へ交換Recoveryを新設しない。発行・記録確定で受け渡しだけ未確認なら確定事実を保持し、現在認可の下で人間が明示した別Operation／別Recoveryの新交換を選べる。 |
+| Quality Analysis / IA（伴走） | 各Objectの同一性と関係、名前とAuthorityの差、三可視境界、Role／公開／実アクセスの未成立と部分可視、処置対象取り違え、2操作と2入口の別軸、Secret非保存・単体利用非依存。対象不明・管理者不存在・認可設定破損での処置前停止、発行自体または結果記録が不明なら元発行Identityで現在再観測し、交換由来だけ同じexact Recoveryを保持する。通常発行へ交換Recoveryを新設しない。発行・記録確定で受け渡しだけ未確認なら確定事実を保持し、現在認可の下で人間が明示した別Operation／別Recoveryの新交換を選べる。再観測なしの完了・rollback拒否も検証する |
 
 Architecture／Sourceへ直接引き渡さない。
 
