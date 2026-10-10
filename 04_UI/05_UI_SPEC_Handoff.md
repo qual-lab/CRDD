@@ -1,10 +1,12 @@
 # UIとSPECの引き渡し
 
-状態: v0.22.0更新中。UI-000008のDefinitionとDetailは限定独立レビュー済み。横断投影と現行Definition対応は限定独立レビュー済み、UI工程Exitは未完了
+状態: v0.22.0更新中（最新鍵管理判断のDefinition・横断投影は再伝播中・限定独立レビュー済み・残指摘0。SCR／BHV・Area・Workbench候補は未追従、全体Readyは未主張）
 
 この文書はUI側からUI／SPEC対応レビューへ渡す契約を所有する。UI／SPEC対応レビューの結果は[UI／SPEC対応](../05_SPEC/06_UI_SPEC_Correspondence.md)を正本とし、ここへ第二の結果を作らない。UI契約Readyは完全なUI工程ExitまたはArchitectureへの通常Handoffを意味しない。
 
-以下の全数処置・入力準備済みの記述は更新前の範囲を表す。UI-000008の現在契約はDefinitionを優先する。鍵交換2操作のSCR-000008／BHV-000012とDetail対応は基準Commit `69f8d463`で限定独立レビュー済み。現行Definition対応は[現行1組の対応](../05_SPEC/06_UI_SPEC_Correspondence.md#current-credential-pair)を参照し、過去32組のPassを流用しない。画面／CLI分担・実画面評価・人間によるUI工程Exitは未完了で、全体Readyを主張しない。
+最新判断のDefinition・現行1組対応・横断投影は限定再伝播・限定独立レビュー済み・残指摘0。SCR-000008／BHV-000012・Area・Workbench候補は未追従。前判断の限定Passと下記の全数記録は履歴であり、新判断の完成根拠にしない。
+
+更新前固定版の履歴: 以下の全数処置・入力準備済みの記述は更新前の範囲を表す。UI-000008の現在契約はDefinitionを優先する。鍵交換2操作のSCR-000008／BHV-000012とDetail対応は基準Commit `69f8d463`で限定独立レビュー済み。過去32組のPassを流用しない。採用済み入口の具体表示・案内・実画面評価・人間によるUI工程Exitは未完了で、全体Readyを主張しない。
 
 ## 1. 共通の正式入力
 
@@ -67,7 +69,7 @@ SPECはこれらを再定義せず、同じUX／IAから観測可能な条件、
 
 なし。
 
-Definition対応のv0.21固定時点では29 BHV／31 Relationを[UI／SPEC対応](../05_SPEC/06_UI_SPEC_Correspondence.md)で確認した。今回のUI-000008／SPEC-000012更新前のv0.22固定版ではBHV-000031とRelationを1件追加し、30 BHV／32 Relationを[UI／SPEC Detail対応](../05_SPEC/Details/02_UI_SPEC_Detail_Correspondence.md)で双方向に全件確認して`Pass`とした。今回のDetail限定対応は確認済み。現行Definition対応と横断投影は限定独立レビュー済みであり、この過去Passを現在の引き渡し完了へ読み替えない。
+更新前固定版の履歴: Definition対応のv0.21固定時点では29 BHV／31 Relationを[UI／SPEC対応](../05_SPEC/06_UI_SPEC_Correspondence.md)で確認した。今回のUI-000008／SPEC-000012更新前のv0.22固定版ではBHV-000031とRelationを1件追加し、30 BHV／32 Relationを[UI／SPEC Detail対応](../05_SPEC/Details/02_UI_SPEC_Detail_Correspondence.md)で双方向に全件確認して`Pass`とした。前判断のDetail限定対応は確認済み。更新前固定版のDefinition対応と横断投影は限定独立レビュー済みであり、この過去Passを現在の引き渡し完了へ読み替えない。
 
 ## Checklist
 
@@ -86,4 +88,4 @@ Definition対応のv0.21固定時点では29 BHV／31 Relationを[UI／SPEC対�
 - [x] Open・GapとOwner工程へ戻す条件を明示した
 - [x] UI／SPEC独自の第三仕様を作っていない
 - [x] 補足分析へ必須情報を退避していない
-- OPEN: UI-000008／SPEC-000012の現行Definition対応と横断投影は限定独立レビュー済み。管理画面／CLI分担・実画面評価・UI工程Exit。Detailの限定確認を全体引き渡し完了へ読み替えない。
+- OPEN: 最新判断のDefinition・現行1組対応・横断投影は限定独立レビュー済み・残指摘0。SCR-000008／BHV-000012・Area・Workbench候補以降は未追従。採用済み入口の具体表示・案内・実画面評価・工程ExitとArchitecture／Quality以降は未完了。旧完成記録を新版へ流用しない。

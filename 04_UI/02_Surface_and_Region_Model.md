@@ -1,6 +1,6 @@
 # 表示面と領域
 
-状態: UI定義の横断投影
+状態: v0.22.0更新中（最新鍵管理判断のDefinition・横断投影は再伝播中・限定独立レビュー済み・残指摘0。SCR／BHV・Area・Workbench候補は未追従、全体Readyは未主張）
 情報源: [UI定義台帳](01_User_Interface.md#3-ui定義台帳)
 
 ## 1. 利用者から見える入口
@@ -34,9 +34,11 @@
 
 ### 接続・管理の横断責務（UI-000008の現行投影）
 
-[UI-000008](Definitions/UI-000008/ui_definition.md)は、利用時の自身表示とRole許可・公開範囲・実アクセス、管理時のユーザー・Role権限・資格、鍵交換時の対象・影響・結果を扱う。上の論理表示面一覧だけから管理機能の配置を確定しない。具体的な画面／CLI分担は未確定で、[SCR-000008](Details/Areas/configuration-trust/SCR-000008/screen.md)の未確認事項へ接続する。
+[UI-000008](Definitions/UI-000008/ui_definition.md)は、利用時の自身表示とRole許可・公開範囲・実アクセス、管理時のユーザー・Role権限・資格、鍵交換時の対象・影響・結果を扱う。上の論理表示面一覧だけから管理機能の配置を確定しない。Workbench／Host CLIの入口分担は採用済みで、具体表示・案内・配置は未確定で、[SCR-000008](Details/Areas/configuration-trust/SCR-000008/screen.md)の未確認事項へ接続する。
 
 通常管理とHost回復は入口・Authorityの違いであり、指定ユーザー交換／全員交換は処置範囲の違いである。Host実行能力を通常Remote表示へ持ち込まない。表示対象は現行認可と開示範囲内に限定し、管理能力から内容閲覧権限を推定しない。
+
+鍵の発行・独立失効・交換はadministrator専用固定で、Role詳細権限のON／OFF設定を設けない。通常鍵操作は同一Process Workbench backendだけで提供し、MCPには秘密値の有無を問わず鍵操作の一覧・Schema・登録・dispatchを公開しない。Hostはログイン済みローカル操作者を信頼する対話CLIで交換2操作だけを扱い、追加認証・専用資格・承認コード・OS管理者昇格を要求しない。既存Root／Path検証を維持する。他4管理群（ユーザー管理・Role設定・Repository登録・公開範囲管理）の担当Role・設定可否はOPENのまま保持する。
 
 ```text
 ┌──────────────────────────────────────┐

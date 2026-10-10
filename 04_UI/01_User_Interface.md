@@ -1,6 +1,6 @@
 # ユーザーインターフェース
 
-状態: v0.22.0更新中（UI-000008のDefinitionは限定独立レビュー済み、SCR-000008とDetail対応は再伝播・限定独立レビュー済み、現行Definition対応／Workbench候補横断投影は限定独立レビュー済み、後工程は未追従）
+状態: v0.22.0更新中（最新鍵管理判断のDefinition・横断投影は再伝播中・限定独立レビュー済み・残指摘0。SCR／BHV・Area・Workbench候補は未追従、全体Readyは未主張）
 担当責任者: Qual-Lab
 対象版: v0.22.0候補（公開基準版: v0.21.0）
 工程規則: [UI](../25_UI.md)、[UIと振る舞い仕様の対応レビュー](../24_UI_Behavior_Specification.md)
@@ -90,7 +90,9 @@ Repository / CLI / MCP / Workbench
 
 ## 6. 現在状態と次工程
 
-以下の全数移行・完了記録は、今回のUI-000008／SPEC-000012更新前の固定版に限る。今回の直接伝播8文書は限定独立レビュー済みだが、SCR-000008とDetail対応は限定確認済み、現行Definition対応と横断投影は限定独立レビュー済みであり、更新版のReadyを示さない。
+最新判断のDefinition・現行1組対応・横断投影は限定再伝播・限定独立レビュー済み・残指摘0。SCR-000008／BHV-000012・Area・Workbench候補は未追従。前判断の限定Passと下記の全数記録は履歴であり、新判断の完成根拠にしない。
+
+更新前固定版の履歴: 以下の全数移行・完了記録は、今回のUI-000008／SPEC-000012更新前の固定版に限る。前判断の直接伝播8文書は限定独立レビュー済みだが、SCR-000008とDetail対応は限定確認済み、更新前固定版のDefinition対応と横断投影は限定独立レビュー済みであり、更新版のReadyを示さない。
 
 v0.21.0のUI Definition 20件は当時の契約でCanonical化され、4 Area Design Guide、20 SCR、20 PRTおよび31 Interaction Relationへ移行した。v0.22ではProject Context操作を追加し、更新前固定版では20 SCR、20 PRTおよび32 Interaction Relationである。Detailの所有正本は[UI Detail](Details/01_UI_Detail.md)を正本とする。
 
@@ -102,7 +104,7 @@ v0.21 UI Detail移行: Complete
 v0.22固有変更はDiscoveryから別途追加
 ```
 
-32件のUX定義と22件のIA定義を別々の正式入力として全数分析し、20件のUI定義へ統合した。REQはUXを介して追跡するが、UIの直接入力にはしない。以前の独立レビュー後に記録作成側のGapを検出したため、UX-000032とIA-000022からUI-000020を追加した。更新前固定版では全54分析と20定義の成果物別Checklistを完了し、UI契約をUI／SPEC対応レビューへ渡せる状態とした。今回のDetail限定対応は確認済み。現行Definition対応と横断投影は限定独立レビュー済みである。一方、[表示面ごとの視覚評価](04_Visual_and_Accessibility_Direction.md#5-表示面ごとの現在状態)と人間による工程Exit判断は未完了であり、Architectureへの通常Handoffを許可する完全な`UI Ready`ではない。
+更新前固定版の履歴: 32件のUX定義と22件のIA定義を別々の正式入力として全数分析し、20件のUI定義へ統合した。REQはUXを介して追跡するが、UIの直接入力にはしない。以前の独立レビュー後に記録作成側のGapを検出したため、UX-000032とIA-000022からUI-000020を追加した。更新前固定版では全54分析と20定義の成果物別Checklistを完了し、UI契約をUI／SPEC対応レビューへ渡せる状態とした。前判断のDetail限定対応は確認済み。更新前固定版のDefinition対応と横断投影は限定独立レビュー済みである。一方、[表示面ごとの視覚評価](04_Visual_and_Accessibility_Direction.md#5-表示面ごとの現在状態)と人間による工程Exit判断は未完了であり、Architectureへの通常Handoffを許可する完全な`UI Ready`ではない。
 
 ## 補足分析
 
@@ -124,4 +126,4 @@ v0.22固有変更はDiscoveryから別途追加
 - [x] v0.21の非視覚Surfaceを含むVisual／Accessibility契約を全20 SCRで評価した
 - OPEN: v0.22 Product固有GUIのPrototype／実画面評価と人間による工程Exit判断。v0.21移行のArchitecture／Quality伝播は完了している
 - [x] ArchitectureまたはSourceから意味を逆輸入していない
-- OPEN: SCR-000008／BHV-000012とDetail限定対応は確認済み。現行Definition対応・横断投影は限定独立レビュー済み。管理画面／CLI分担・実画面評価・UI工程ExitとArchitecture／Quality以降は未完了。旧完成記録を新版へ流用せず、限定確認を全体完成根拠にしない。
+- OPEN: 最新判断のDefinition・現行1組対応・横断投影は限定独立レビュー済み・残指摘0。SCR-000008／BHV-000012・Area・Workbench候補以降は未追従。採用済み入口の具体表示・案内・実画面評価・工程ExitとArchitecture／Quality以降は未完了。旧完成記録を新版へ流用しない。
