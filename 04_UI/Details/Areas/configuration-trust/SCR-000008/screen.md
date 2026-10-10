@@ -3,7 +3,7 @@
 成果物種別: Logical Screen Detail
 Screen ID: `SCR-000008`
 状態: Canonical
-確認状態: 最新鍵管理判断を再伝播・限定独立レビュー済み・残指摘0。実画面・実装・E2E成立は未主張。
+確認状態: 最新の権限分担を詳細へ伝播・限定独立レビュー済み・残指摘0。実画面・実装・E2E成立は未主張。
 維持責任者: Qual-Lab
 
 ## 1. Screenの目的と入口・終了条件
@@ -15,7 +15,22 @@ Screen ID: `SCR-000008`
 - 終了条件: 接続結果と許可・公開・実アクセスの範囲、管理処置の結果、または未確定範囲と同じ回復への確認先を認識し、次の安全な行動を選べる。
 - Route／Surface候補: 接続・許可内情報利用のSurfaceと鍵操作入口を分ける。通常鍵操作は同一Process Workbench backend、Hostの交換2操作は対話CLIで提供する。MCPに鍵操作を出さない。具体Layout・表示案内は未確定で、Remote入口からHost回復を実行しない。
 
-鍵の発行・独立失効・交換はadministrator専用固定で、RoleのON／OFF設定を設けない。通常鍵操作は同一Process Workbench backendだけで扱い、MCPへ鍵操作の一覧・Schema・登録・dispatchを公開しない。Hostはログイン済みローカル操作者を信頼する対話CLIで交換2操作だけを扱う。追加認証・専用資格・承認コード・OS管理者昇格は要求せず、既存Root／Path検証を維持し、検証済み範囲外へ越境しない。他4管理群（ユーザー管理・Role設定・Repository登録・公開範囲管理）の担当Role・設定可否はOPENである。
+鍵の発行・独立失効・交換はadministrator専用固定で、RoleのON／OFF設定を設けない。通常鍵操作は同一Process Workbench backendだけで扱い、MCPへ鍵操作の一覧・Schema・登録・dispatchを公開しない。Hostはログイン済みローカル操作者を信頼する対話CLIで交換2操作だけを扱う。追加認証・専用資格・承認コード・OS管理者昇格は要求せず、既存Root／Path検証を維持し、検証済み範囲外へ越境しない。manager／administratorがユーザー登録・表示名変更、developer／managerの割当て・詳細権限、Repository登録・登録解除・公開範囲を管理する。administratorの付与・解除・降格を含むRole変更、administrator詳細権限と鍵3操作はadministrator専用固定であり、Role内容設定で委譲しない。
+
+| 管理操作 | developer | manager | administrator |
+|---|---|---|---|
+| ユーザー登録・表示名変更 | 不許可 | 許可 | 許可 |
+| developer／managerの割当て・変更 | 不許可 | 許可 | 許可 |
+| administratorの付与・解除・降格を含むRole変更 | 不許可 | 不許可 | 許可 |
+| developer／managerの詳細権限設定 | 不許可 | 許可 | 許可 |
+| administratorの詳細権限設定 | 不許可 | 不許可 | 許可 |
+| 鍵の発行・独立失効・交換 | 不許可 | 不許可 | 許可 |
+| Repository登録・登録解除 | 不許可 | 許可 | 許可 |
+| Repository公開範囲設定 | 不許可 | 許可 | 許可 |
+
+固定管理能力は現行Roleと上表の割当てから判定し、Role詳細権限の内容設定から派生させない。managerによるadministratorの表示名変更は許可するが、そのRoleの付与・解除・降格・詳細権限・鍵操作は許可しない。developerの管理拒否を自身表示・許可内利用の拒否へ広げない。
+
+manager自身の内容範囲も、変更前の現在の管理認可→明示的なRole内容範囲／Exposure更新→次要求で現行Role・Exposure・実アクセスの再評価、と分ける。管理能力から内容閲覧を自動付与せず、更新受理を内容取得・開始済み取消完了と表示しない。表示の非表示／無効化だけで認可を代替せず、BHVの処置前判定で拒否・不明を扱う。
 
 ## 2. Screen Composition
 
@@ -29,7 +44,7 @@ Screen ID: `SCR-000008`
 
 | PRT | 意味／責務 | 情報 | 操作 | State／Variant |
 |---|---|---|---|---|
-| `PRT-000008` | 接続・許可された最小管理・鍵操作の認識を扱う | userId、表示専用名、一つの現行Role、鍵操作の固定administratorと他4管理群の未確定割当、資格状態、Repository公開／取得範囲、秘密表示境界、回復の現在地 | 接続／現在許可されたユーザー・Role管理／Workbenchの発行・独立失効・交換／Hostの交換2操作のみ | 利用可能／資格要求／制限／利用不能／不明、部分成立、確認待ち／進行中／blocked／completed |
+| `PRT-000008` | 接続・許可された最小管理・鍵操作の認識を扱う | userId、表示専用名、一つの現行Role、固定8操作の担当Roleと内容権限の別、資格状態、Repository公開／取得範囲、秘密表示境界、回復の現在地 | 接続／現在許可されたユーザー・Role管理／Workbenchの発行・独立失効・交換／Hostの交換2操作のみ | 利用可能／資格要求／制限／利用不能／不明、部分成立、確認待ち／進行中／blocked／completed |
 
 非認証時はUser情報を表示しない。自身表示は許可し、現在他ユーザー参照を許可されていない主体には他Userの一覧・存在・件数を表示しない。管理能力から内容閲覧を推定しない。表示名ではなくuserIdで対象を保持する。
 
@@ -37,13 +52,18 @@ Screen ID: `SCR-000008`
 
 | Interaction Key | PRT | 利用者の意図 | Feedback | BHV | Coverage |
 |---|---|---|---|---|---|
-| `PRT-000008.spec-000012` | PRT-000008 | 自身と利用範囲を確認し、許可された通常管理・独立失効・鍵交換2操作を行う | 対象と影響、新Secret一度表示、旧資格失効、保持情報、失効確定／発行不明、同じRecovery IDと確認先を区別する | [BHV-000012](../../../../../05_SPEC/Details/BHV-000012/behavior.md) | 限定レビュー済み・残指摘0 |
+| `PRT-000008.spec-000012` | PRT-000008 | 自身と利用範囲を確認し、許可された通常管理・独立失効・鍵交換2操作を行う | 対象と影響、新Secret一度表示、旧資格失効、保持情報、失効確定／発行不明、同じRecovery IDと確認先を区別する | [BHV-000012](../../../../../05_SPEC/Details/BHV-000012/behavior.md) | 最新分担の限定独立レビュー済み・残指摘0 |
 
 PRT内の操作は次のように区別する。新しい全体IDや画面を発行せず、同じInteractionの操作種別として保持する。
 
 | 操作 | 処置前に示す対象と影響 | 結果と次の行動 |
 |---|---|---|
-| 登録・名前／Role変更・Role権限変更 | 対象userId・表示名・現行値・変更影響 | 名前はIdentity／Authorityではない。Role権限の次認可への反映を確認する |
+| ユーザー登録 | 主体の現行Roleと固定分担、登録予定Role・表示名。managerはdeveloper／managerだけを選べる。新規対象の変更前Roleは求めない | 新しいuserId・表示名・一つのRoleを示す。鍵は自動発行しない |
+| 表示名変更 | 対象既存userId・新表示名。managerはadministratorを含む対象の表示名だけを変更可 | userId・Role・Credentialを保持し、表示名をAuthorityにしない |
+| 既存ユーザーのRole変更 | 対象userId・変更前後Role。managerは前後ともdeveloper／managerの場合だけ操作可 | 同じuserId・Credential結合を保持。次要求で現行Roleを評価する。managerにadministrator付与・解除・降格を提示しない |
+| Role詳細権限変更 | 対象Role・現在内容・変更内容。managerはdeveloper／managerだけ、administratorは三Roleの内容を扱う | 固定管理分担は不変。更新受理と内容取得可能を別に示し、次要求で再評価する |
+| Repository登録・登録解除 | 対象Repository ID・現在登録状態・処置内容。manager／administratorが扱う | 登録だけで公開せず、解除でRepository／Product Dataを削除しない |
+| Repository公開範囲設定 | 対象Repository ID・現在Exposure・変更内容。manager／administratorが扱う | 更新結果を示し、次要求でRole・Exposure・実アクセスを別判定する。公開だけで取得可能とは示さない |
 | 新規資格発行 | Workbenchの固定administrator、既存対象userId・現行Role | 新Secret一度表示と発行結果。旧資格の失効・交換処理とは区別する |
 | 接続 | 自身と現行Role・許可内Repository | 認証と内容アクセス、部分成立を分ける。新発行を伴わない |
 | 独立した資格失効 | Workbenchの固定administrator、対象資格と以後の要求への影響 | 失効結果または既知状態・確認先。新資格・Secret・交換再入場を伴わず、開始済み操作の取消完了としない |
@@ -104,11 +124,11 @@ PRT内の操作は次のように区別する。新しい全体IDや画面を発
 |---|---|---|---|---|
 | Product固有Layout・表示案内 | OPEN | UI工程Owner・Qual-Lab | 採用済み入口の具体配置・最終視覚品質は未固定 | Pilotで対象識別・確認負担を評価する時 |
 | CMP昇格 | OPEN | UI工程Owner | 再利用Component未発行 | 複数実画面で反復を確認した時 |
-| 他4管理群の担当Role・設定可否 | OPEN | 上流方針Owner・Qual-Lab | 未確定割当の操作導線を有効化しない | 方針確定後にDefinitionから再伝播する時 |
+| 具体API・保存・実画面と本番認可 | OPEN | Architecture／実装・UI工程Owner | 固定分担の設計だけでは本番成立を主張できない | 後続のArchitecture・Source・実境界検証時 |
 
 ## 8. 検証意図
 
-検証では固定administrator以外の通常鍵操作、MCP鍵操作の一覧・Schema・登録・dispatch、Hostの新規発行・独立失効、追加認証要求、検証済みRoot／Path範囲外への操作を反証する。他4管理群の未決割当を暗黙に許可しない。発行・失効・交換を結果表示でも分け、交換は旧失効前から同じRecoveryへ結合し、結果搬送・受領を完了へ丸めない。
+検証では固定administrator以外の通常鍵操作、MCP鍵操作の一覧・Schema・登録・dispatch、Hostの新規発行・独立失効、追加認証要求、検証済みRoot／Path範囲外への操作を反証する。固定8操作のRole別肯否、managerによるadministrator表示名変更許可とRole付与・解除・降格・詳細権限・鍵拒否、developer管理拒否、現在認可不明のEffect前停止を検証する。通常発行の旧失効なし、独立失効の指定Credential–userId一致・指定外失効なし・新資格／Secretなし、交換範囲逸脱なしを反証する。発行・失効・交換を結果表示でも分け、交換は旧失効前から同じRecoveryへ結合し、結果搬送・受領を完了へ丸めない。
 
 ## 補足分析
 

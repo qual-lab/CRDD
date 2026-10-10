@@ -1,7 +1,7 @@
 # UI Detail
 
 成果物種別: UI Detail統合投影
-状態: 更新中（SCR-000008／BHV-000012の最新鍵管理判断は限定独立レビュー済み・残指摘0、全体Pass再主張なし）
+状態: 更新中（SCR-000008／BHV-000012の最新の権限分担は限定独立レビュー済み・残指摘0、全体Pass再主張なし）
 維持責任者: Qual-Lab
 
 ## 1. 目的と移行境界
@@ -20,7 +20,7 @@ v0.21.0でCanonical化した20件のUI Definitionを、新しいUI Detail契約�
 Architecture／Quality
 ```
 
-最新鍵管理判断を既存SCR-000008／PRT-000008とBHV-000012へ限定再伝播中である。対象件数は増やさず、未変更31 Relationと旧全数処置・Workbench Pilot Gateは更新前固定版の記録として保持する。最新Definition対応は限定レビュー済みだが、今回のDetail・横断投影は限定レビュー済み・残指摘0である。Architecture／Quality／Source・実画面・実E2Eは未追従・未成立。
+最新の権限分担を既存SCR-000008／PRT-000008とBHV-000012へ限定再伝播中である。対象件数は増やさず、未変更31 Relationと旧全数処置・Workbench Pilot Gateは更新前固定版の記録として保持する。最新Definition対応は限定レビュー済みだが、今回のDetail・横断投影は限定独立レビュー済み・残指摘0である。Architecture／Quality／Source・実画面・実E2Eは未追従・未成立。
 
 ## 2. UI Definitionの処置
 
@@ -117,8 +117,8 @@ G1〜G5は通過した。Workbench固有のPattern候補とVisual Baselineを[Se
 
 ## 6. Architecture／Qualityへの引き渡し
 
-- Architecture: 更新前固定版では配置制約へ伝播した。今回の鍵交換の変更は未追従であり、次段で現行ARCH責務へ伝播する。
-- Quality: 更新前固定版では観測条件へ統合した。今回の鍵交換2操作・2入口・部分結果の義務は次段で再導出する。
+- Architecture: 更新前固定版では配置制約へ伝播した。今回の固定8操作のAuthority・操作別Input／Effect／Output、manager自身の内容範囲の次要求再評価、登録／公開／削除の境界と既存鍵境界は未追従であり、次段で現行ARCH責務へ伝播する。
+- Quality: 更新前固定版では観測条件へ統合した。今回の固定8操作のRole別許可／拒否、操作固有の前提／結果、内容範囲変更の時間順、登録／公開／削除の区別と鍵3操作の負例は次段で再導出する。交換2操作・2入口・部分結果の義務も保持する。
 - Reality Audit: 実装、WIPおよび実画面との照合はCanonical Detail成立後に行う。
 
 ## 7. 未確認事項・人間判断・戻り条件
@@ -133,7 +133,7 @@ G1〜G5は通過した。Workbench固有のPattern候補とVisual Baselineを[Se
 
 本移行はv0.21 Definitionの意味を変更しない。v0.22固有のScreen、Part、Visual、Behaviorは新しいCanonical Definitionから別途追加する。
 
-今回更新した鍵管理のDetailと投影は限定レビュー済み・残指摘0。以下の旧全数項目を最新候補全体のPassへ読み替えない。
+今回更新した最新の権限分担のDetailと投影は限定独立レビュー済み・残指摘0。以下の旧全数項目を最新候補全体のPassへ読み替えない。
 
 ## Checklist
 

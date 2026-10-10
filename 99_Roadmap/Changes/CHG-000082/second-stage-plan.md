@@ -844,6 +844,20 @@ Qual-Labは、managerを業務上のアクセスを決める信頼された管�
 
 限定確認結果：契約・品質の独立レビューは最終ともにPass、残指摘0。初回4件と再確認2件を統合是正し、担い手の冒頭説明、資格喪失条件、鍵3操作の検証・引渡し、登録・登録解除、旧確認結果の履歴限定、交換ごとの発行先を明確にした。既存UX IDとSame判断は不変、差分確認は成功した。Checkerはerrors 3,056・warnings 0で未通過であり、対象内のPROJECT_CONTEXT形式指摘も残る。この限定結果を全体の機械検査Pass・QA実行・Source実装・本番接続・Release可能の根拠にしない。次はIA以降へ最新分担を伝播する。
 
+<a id="ui-spec-role-detail-propagation"></a>
+
+#### 権限分担のUI／SPEC詳細伝播 — 2026-10-11
+
+基準Commitは`e3df322d`。正式入力は限定独立レビュー済みUI-000008／SPEC-000012。SCR-000008、BHV-000012、configuration-trust Area、Workbench画面体系の現行§13、UI／SPEC詳細対応、詳細入口2文書、本計画とPROJECT_CONTEXTの固定9文書を対象とする。契約本文・Hashが固定されたDefinition、旧G1〜G5、非対象31 Relation、過去Evidence、新ID・Visual候補・Architecture／Quality・Source・設定・秘密Storeは変更しない。
+
+変更分類は採用済み分担の詳細化・直接伝播。親照合と契約／品質の着手前確認を統合し、詳細入口の状態追従2文書を補強した。初回編集前確認は両観点で着手可・追加人間判断不要。固定8操作をUI操作表とBHVのInput・Authority／Validation・Effect・Outputへ接続する。登録予定Roleと既存変更前後Role、表示名だけの変更、Role内容設定、Repository登録／公開状態を分ける。managerによるadministrator表示名変更は許可するが、administrator付与・解除・降格・詳細権限・鍵は拒否する。developer管理拒否を自身表示・許可内利用の拒否へ拡張しない。
+
+manager自身の範囲変更は変更前の現行固定管理認可→明示内容更新→次要求のRole・Exposure・実アクセス再評価とする。更新受理≠取得成立、管理≠内容自動付与、登録≠公開、解除≠Repository／Product Data削除を保持する。現在認可・対象・必要状態不明は新Effect前停止。鍵3操作のWorkbench／Host／MCP境界、4組事前表示・3組明示確認、既存交換専用Recoveryは不変で、新IAM・一般Recoveryを追加しない。
+
+固定9文書へ契約・品質独立レビュー、文書・リンク・直接伝播・ID・差分確認を行い、両結果を統合してから是正する。代表例は8操作の各Role許可／拒否、managerのadministrator名前のみ変更、登録予定Role、Role変更前後、manager自己内容変更の時間順、対象／現在認可不明、鍵操作の範囲外Effect非発行である。Source・実行境界・準拠規則を変更しないため、Package回帰・Provider／Docker E2E・準拠監査は今回対象外。固定候補提出時はレビュー待ちであった。詳細設計の限定確認を実画面・保存・認可実装・QA実行・本番接続・全体Readyへ読み替えない。
+
+初回固定9文書の結果は契約Moderate 3・Minor 1、品質限定Pass・残指摘0。全結果を統合し、両確認者へ是正方針を再提示して整合した。Repository操作のTrigger列挙、鍵失敗の保持条件の適用範囲、最新8操作のArchitecture／Quality引渡し未伝播範囲、空行を是正した。9文書のローカル参照373件は欠落0、旧G1〜G5本文・非対象31 Relationは不変。Checkerはerrors 3,056・warnings 0・exit 1で全体未通過。新固定候補の再レビューと最終局所確認は契約・品質とも限定Pass・全重大度の残指摘0。最後のSPEC詳細入口のArchitecture／Quality責務分離も確認済みである。確認後は固定9文書の限定結果・状態だけを同期した。旧結果を最新候補のPassへ流用せず、実画面・本番認可・QA実行・Source・実E2E・全体Readyは未成立のまま保持する。次はArchitectureへ最新分担を伝播する。
+
 <a id="ui-spec-role-propagation"></a>
 
 #### 権限分担のUI／SPEC定義伝播 — 2026-10-11

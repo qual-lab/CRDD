@@ -3,7 +3,7 @@
 成果物種別: UI Area Design Guide
 Area Key: `configuration-trust`
 状態: Canonical
-確認状態: SCR-000008の最新鍵管理判断を再伝播・限定独立レビュー済み・残指摘0。Area全体・実画面の完成は未主張。
+確認状態: SCR-000008の最新の権限分担を再伝播・限定独立レビュー済み・残指摘0。Area全体・実画面の完成は未主張。
 維持責任者: Qual-Lab
 
 ## 1. Areaの目的と利用者成果
@@ -63,7 +63,7 @@ Area Key: `configuration-trust`
 | Pending／Cancel | 要求と完了を分ける | 取消要求を終了として表示しない |
 | Failure／Recovery | 原因確定、原因不明、回復可能を分ける | 不明を失敗なしへ畳まない |
 
-SCR-000008では対象userIdと表示専用名、資格→ユーザー→現行Role権限、公開・実アクセスを分ける。通常鍵3操作は固定administratorの同一Process Workbench、Hostは追加認証なしのログイン済み操作者の対話CLIによる交換2操作に限定し、MCPへ鍵操作を公開しない。既存Root／Pathを維持する。4組事前表示・3組明示確認と操作別の秘密・結果境界は[Screen Detail](SCR-000008/screen.md#3-interactionとbhv対応)を正本とする。他ユーザー参照が現在許可されていない主体に対象の存在を開示しない。他4管理群の割当はOPENで、Area全体へユーザー管理の処置条件を拡張しない。
+SCR-000008では対象userIdと表示専用名、資格→ユーザー→現行Role権限、公開・実アクセスを分ける。通常鍵3操作は固定administratorの同一Process Workbench、Hostは追加認証なしのログイン済み操作者の対話CLIによる交換2操作に限定し、MCPへ鍵操作を公開しない。既存Root／Pathを維持する。4組事前表示・3組明示確認と操作別の秘密・結果境界は[Screen Detail](SCR-000008/screen.md#3-interactionとbhv対応)を正本とする。他ユーザー参照が現在許可されていない主体に対象の存在を開示しない。SCR-000008の固定8操作は[Screen Detail](SCR-000008/screen.md#1-screenの目的と入口終了条件)に従う。業務管理はmanager／administrator、administrator Role変更・詳細権限と鍵はadministrator専用である。管理と内容を分け、変更前認可→明示更新→次要求再評価を表示する。登録≠公開、解除≠Product Data削除を維持し、Area全体へユーザー管理条件を拡張しない。
 
 ## 6. 状態・失敗・回復の表現
 
@@ -113,13 +113,13 @@ SCR-000008では対象userIdと表示専用名、資格→ユーザー→現行R
 |---|---|---|---|---|
 | Product固有Visual | N/A | Qual-Lab | v0.21の意味契約には影響しない | GUI Productを設計する時にVisual探索を開始 |
 | CMP昇格 | OPEN | UI工程Owner | 再利用Componentは未発行 | 複数の実画面で同じ構造が反復した時 |
-| 他4管理群の担当Role・設定可否 | OPEN | 上流方針Owner・Qual-Lab | 未確定割当の操作導線を有効化しない | 方針確定後にDefinitionから再伝播する時 |
+| 固定分担の実画面・認可接続 | OPEN | UI／Architecture／実装Owner | 詳細契約だけではUI・本番認可の成立を主張しない | 後続実装と実境界検証時 |
 
 ## 補足分析
 
 v0.21の異種Surfaceへ共通する意味契約をDesign Guideとして固定する。v0.22固有のVisual Directionは本書へ先取りしない。
 
-今回更新した鍵管理のDetailと投影は限定レビュー済み・残指摘0。以下の旧全数項目を最新候補全体のPassへ読み替えない。
+今回更新した最新の権限分担のDetailと投影は限定独立レビュー済み・残指摘0。以下の旧全数項目を最新候補全体のPassへ読み替えない。
 
 ## Checklist
 

@@ -1,7 +1,7 @@
 # SPEC Detail
 
 成果物種別: SPEC Detail統合投影
-状態: 更新中（SCR-000008／BHV-000012の最新鍵管理判断は限定独立レビュー済み・残指摘0、全体Pass再主張なし）
+状態: 更新中（SCR-000008／BHV-000012の最新の権限分担は限定独立レビュー済み・残指摘0、全体Pass再主張なし）
 維持責任者: Qual-Lab
 
 ## 1. 目的と移行境界
@@ -18,7 +18,7 @@ Canonical化した30件のSPEC Definitionを、SPEC Detail契約へ全件移行�
 18 ARCH責務 + 13 Quality検証目標
 ```
 
-最新鍵管理判断を既存SCR-000008／PRT-000008とBHV-000012へ限定再伝播中である。対象件数は増やさず、未変更31 Relationと旧全数処置・Workbench Pilot Gateは更新前固定版の記録として保持する。最新Definition対応は限定レビュー済みだが、今回のDetail・横断投影は限定レビュー済み・残指摘0である。Architecture／Quality／Source・実画面・実E2Eは未追従・未成立。
+最新の権限分担を既存SCR-000008／PRT-000008とBHV-000012へ限定再伝播中である。対象件数は増やさず、未変更31 Relationと旧全数処置・Workbench Pilot Gateは更新前固定版の記録として保持する。最新Definition対応は限定レビュー済みだが、今回のDetail・横断投影は限定独立レビュー済み・残指摘0である。Architecture／Quality／Source・実画面・実E2Eは未追従・未成立。
 
 ## 2. SPEC Definitionの処置
 
@@ -98,22 +98,22 @@ Canonical化した30件のSPEC Definitionを、SPEC Detail契約へ全件移行�
 
 ## 5. Architecture／Qualityへの引き渡し
 
-- Architecture: 各BHVをSource SPECが接続済みのARCH責務へ配置制約として渡す。
-- Quality: 各BHVのNormal、Boundary、Failure、UnknownおよびRecoveryを既存の検証義務へ統合する。
+- Architecture: 各BHVをSource SPECが接続済みのARCH責務へ配置制約として渡す。今回の固定8操作・操作別Input／Authority／Effect／Output、次要求の認可、登録／公開／削除の区別と鍵境界は未伝播である。
+- Quality: 各BHVのNormal、Boundary、Failure、UnknownおよびRecoveryを既存の検証義務へ統合する。今回のRole別肯否・操作固有前提／結果・鍵負例は次段で再導出する。
 - Source／Test: Canonical BHV成立後のReality Auditで照合し、BHVを実装から逆算しない。
 
 ## 6. 未確認事項・人間判断・戻り条件
 
 | 項目 | 現在状態 | 判断者／Owner | 影響 | 戻り条件／再評価契機 |
 |---|---|---|---|---|
-| 追加のv0.22固有BHV | N/A: 現在のCanonical Definition 30件はBHV-000031を含め全件詳細化済み | SPEC工程Owner | 追加IDの未処置はないが、最新判断の対象Detailは限定レビュー済み・残指摘0、後工程の伝播は未完了 | 新しいSPEC Definitionを追加した時 |
+| 追加のv0.22固有BHV | N/A: 現在のCanonical Definition 30件はBHV-000031を含め全件詳細化済み | SPEC工程Owner | 追加IDの未処置はないが、最新判断の対象Detailは限定独立レビュー済み・残指摘0、後工程の伝播は未完了 | 新しいSPEC Definitionを追加した時 |
 | 実装との一致 | OPEN | Reality Audit Owner | Canonical Detailの成立には影響しない | v0.22 Reality Auditで照合する時 |
 
 ## 補足分析
 
 本移行はv0.21 SPEC Definitionの意味を変更しない。v0.22ではBHV-000031を追加済みであり、現在のCanonical Definition 30件はすべてDetailed Behaviorへ接続した。今後の追加は、新しいCanonical Definitionを先に固定してから行う。
 
-今回更新した鍵管理のDetailと投影は限定レビュー済み・残指摘0。以下の旧全数項目を最新候補全体のPassへ読み替えない。
+今回更新した最新の権限分担のDetailと投影は限定独立レビュー済み・残指摘0。以下の旧全数項目を最新候補全体のPassへ読み替えない。
 
 ## Checklist
 
