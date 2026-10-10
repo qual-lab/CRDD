@@ -22,15 +22,18 @@ Quality／Development
 
 ## 2. 詳細設計領域
 
+2026-10-10現在、ARCH-000013のAccess Management断面は新しいCandidate詳細へ接続した。保存・公開入口はOPEN、Domain集約・MCP／Workbenchの新契約Detailsと08の全体伝播は未完了。旧crosは置換前比較資料であり、新ユーザー／Role／鍵交換の完成根拠にしない。他の行の状態を今回の限定更新から再評価したとは扱わない。
+
 | 詳細設計領域 | 対応Architecture定義 | 責務 | 状態 |
 |---|---|---|---|
+| [access-management](Details/access-management/01_Architecture.md) | ARCH-000013 | 最小ユーザー・Role・資格、現在認可、接続／公開範囲、限定鍵交換。Domain内容とTransportを所有しない | Candidate／Partial。保存・公開入口OPEN |
 | [ai-adapter](./Details/ai-adapter/01_Architecture.md) | ARCH-000004、ARCH-000010、ARCH-000015 | AI AdapterのCatalog・Profile管理、Provider別計画・出力変換と実行Authorityの分離 | Candidate |
 | [artifact-signing](Details/artifact-signing/01_Architecture.md) | ARCH-000014 | 配布物の完全性、鍵Capability、Publisher証明 | Canonical |
 | [checker](Details/checker/01_Architecture.md) | ARCH-000001、ARCH-000002 | 決定論的構造検査と契約移行時の機械的集合検査 | Canonical |
 | [coordinator](Details/coordinator/01_Architecture.md) | ARCH-000004、ARCH-000008、ARCH-000010、ARCH-000014、ARCH-000015 | 単体・上位利用共通のTask公開API、実行Authority、AI Adapter接続、資源回収、通知と結果搬送 | Candidate |
 | [contract-migration](Details/contract-migration/01_Architecture.md) | ARCH-000002 | Canonical Contract変更時の全Consumer・派生物・公開／Release／Recovery経路の閉包 | Canonical |
 | [domain-model](./Details/domain-model/01_Architecture.md) | ARCH-000001、ARCH-000002、ARCH-000005、ARCH-000006、ARCH-000008、ARCH-000009、ARCH-000011、ARCH-000016 | Domain Modelの用途別公開入口、共通意味、活動CRUD、投影と保存部品。Runtime状態・Git確定・公開は所有しない | Candidate |
-| [cros](Details/cros/01_Architecture.md) | ARCH-000005、ARCH-000006、ARCH-000009、ARCH-000010、ARCH-000013、ARCH-000015、ARCH-000016 | 複数Repositoryの利用範囲、共通認可とContext／Activity／Profile能力。REST／Gatewayを廃止し、同一Process呼出しとMCPへ接続する。受入判断書込みは所有しない | Candidate |
+| [cros](Details/cros/01_Architecture.md) | ARCH-000005、ARCH-000006、ARCH-000009、ARCH-000010、ARCH-000013、ARCH-000015、ARCH-000016 | 置換前比較資料。認証・認可はAccess Managementへ、Context等は実Ownerへ移管する。旧本文のCoveredを新契約へ流用しない | Legacy比較／置換未完了 |
 | [execution-intelligence](Details/execution-intelligence/01_Architecture.md) | ARCH-000007、ARCH-000016、ARCH-000018 | 実行記録のCanonical記録、不変公開、読取りProjectionと時間的出所。書込みと読取りを別責務として接続 | Canonical |
 | [mcp-server](./Details/mcp-server/01_Architecture.md) | ARCH-000005、ARCH-000012、ARCH-000013、ARCH-000015 | MCP ServerとしてMachine向け公開Transportを所有し、Orchestrator／Domain Model／CROSの公開契約へ接続する。Shared Host全体や受入判断Authorityは所有しない | Candidate |
 | [official-asset-governance](Details/official-asset-governance/01_Architecture.md) | ARCH-000017 | 公式素材の出所、権利、用途、判断、収載状態 | Canonical |
@@ -62,7 +65,7 @@ Quality／Development
 | ARCH-000010 | [Tool CapabilityとAIモデル構成](Definitions/ARCH-000010/architecture_definition.md) | ai-runtime、coordinator、cros、workbench |
 | ARCH-000011 | [Runtime Dataの配置・保持・清掃](Definitions/ARCH-000011/architecture_definition.md) | runtime-data、platform-access、crdd-domain-library |
 | ARCH-000012 | [公開Transportの意味同一性](Definitions/ARCH-000012/architecture_definition.md) | mcp、orchestrator、workbench |
-| ARCH-000013 | [Workspace利用範囲とRepository Federation](Definitions/ARCH-000013/architecture_definition.md) | cros、mcp、runtime-data、workbench |
+| ARCH-000013 | [接続主体・Role権限・資格とRepository Federation](Definitions/ARCH-000013/architecture_definition.md) | access-management（Candidate／Partial）、Domain Model集約（新断面未伝播）、Repository保存、MCP Server、Workbench Server。旧crosは比較資料 |
 | ARCH-000014 | [Runtime Artifactの信頼評価](Definitions/ARCH-000014/architecture_definition.md) | runtime-trust、artifact-signing、coordinator、version-control |
 | ARCH-000015 | [外部送信・結果帰還・候補採用](Definitions/ARCH-000015/architecture_definition.md) | coordinator、ai-runtime、cros、mcp、workbench |
 | ARCH-000016 | [過去情報と現在有効な意図](Definitions/ARCH-000016/architecture_definition.md) | project-operation、crdd-domain-library、execution-intelligence、cros、runtime-data、version-control、workbench |

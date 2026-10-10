@@ -99,14 +99,14 @@ Workbench／MCP／管理入口
 | [SCR-000008／PRT-000008](../../../04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md) | `PRT-000008.spec-000012` | 対象・事前表示・状態・部分結果・一度表示Secretを配置制約として保持。Layoutと画面／CLI分担はUI Detailへ戻す |
 | [BHV-000012](../../../05_SPEC/Details/BHV-000012/behavior.md) | 同じ既存Relation | Trigger・Authority・Validation・失効／発行・結果・Recoveryを保持。振る舞い変更はSPEC Detailへ戻す |
 
-03〜06の横断モデルは伝播済み・限定独立レビュー済み。[Detail Traceability](../../08_UI_SPEC_Detail_Traceability.md)と07詳細領域Map、CROS／MCP／Workbench等のDetailsは未追従。旧配置を新Ownerの完成形として扱わない。
+03〜06の横断モデルは伝播済み・限定独立レビュー済み。07詳細領域Mapの本定義断面と[Access Management詳細](../../Details/access-management/01_Architecture.md)はCandidateへ接続した（保存・公開入口OPEN、両観点の限定独立レビュー済み）。[Detail Traceability](../../08_UI_SPEC_Detail_Traceability.md)、Domain集約・MCP／Workbench等の新契約Detailsは未追従。旧配置を新Ownerの完成形として扱わない。
 
 ## 9. 互換性・移行・成立済み能力
 
 | 基準版の確認範囲 | 新Owner／利用側 | 必要な新確認・移行 |
 |---|---|---|
 | [旧Remote Project Context MCP](../../../99_Roadmap/Changes/CHG-000082/Evidence/260927-2029_phase4-remote-project-context-mcp.md): Bearer検証、許可範囲だけのPortfolio、単体資格不要、Listener終了 | Access Managementで認可済集合を解決→Domain Model投影→MCP搬送 | 現行Roleとユーザー資格で同じ公開・非開示・終了境界を再検証。旧Workspace集合方式のPassを新版へ流用しない |
-| 旧CROS資格管理・Host回復 | Access Managementと承認済み管理入口 | [旧Details](../../Details/cros/01_Architecture.md)とSource／試験／過去Evidenceを次段で全数対応付ける。未照合の能力を置換済みとしない |
+| 旧CROS資格管理・Host回復 | Access Managementと承認済み管理入口 | [移管対応表](../../../99_Roadmap/Changes/CHG-000082/source-owner-map.md)で19入力を照合済み。[旧Details](../../Details/cros/01_Architecture.md)は比較資料。新保存・入口・全Consumerの接続と実測は未完了で、対応表から置換済みとしない |
 | 最小ユーザー管理・鍵交換2操作 | Access Management→Workbench／MCP等の利用側 | 新Schema・保存移行・本番接続・実境界Evidenceは未実施。現在の旧Sourceから新成立を推定しない |
 
 旧Evidenceは歴史記録として不変。最新構成への移行はフロントAIの手順で扱い、旧互換Readerを追加しない方針を維持する。ただし具体的な保存変更は未確定で、現行秘密Fileの操作をこの設計更新で許可しない。
