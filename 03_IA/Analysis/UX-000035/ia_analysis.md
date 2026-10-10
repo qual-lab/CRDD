@@ -2,18 +2,18 @@
 
 成果物種別: IA分析
 分析対象: [UX-000035](../../../02_UX/Definitions/UX-000035/ux_definition.md)
-状態: 分析済み（最新鍵管理判断の限定独立レビュー済み・残指摘0）
+状態: 最新の権限分担へ伝播済み（限定独立レビュー済み・残指摘0。旧Pass非流用）
 
 ## 1. UXから受け取る意味
 
-鍵の発行・独立失効・交換はadministrator専用固定で、Role詳細権限のON／OFF設定を設けない。通常入口は同一Process Workbench backendだけとし、MCPには秘密値の有無を問わず鍵操作の一覧・Schema・登録・dispatchを公開しない。Hostはログイン済みローカル操作者を信頼する対話CLIで、鍵交換2操作だけを扱う。追加認証・専用資格・承認コード・OS管理者昇格を要求せず、既存の管理Root／Path検証は維持する。ユーザー管理・Role設定・Repository登録・公開範囲管理の担当Roleと設定可否はOPENのままとし、許可を先取りしない。
+鍵の発行・独立失効・交換はadministrator専用固定で、Role詳細権限のON／OFF設定を設けない。通常入口は同一Process Workbench backendだけとし、MCPには秘密値の有無を問わず鍵操作の一覧・Schema・登録・dispatchを公開しない。Hostはログイン済みローカル操作者を信頼する対話CLIで、鍵交換2操作だけを扱う。追加認証・専用資格・承認コード・OS管理者昇格を要求せず、既存の管理Root／Path検証は維持する。manager／administratorはユーザー登録・表示名変更、developer／managerの割当て・詳細権限、Repository登録・登録解除・公開範囲を管理する。administratorの付与・解除・降格を含むRole変更、administrator詳細権限と鍵3操作はadministratorだけが管理する。developerへ管理操作、managerへ管理者専用操作を設定で委譲しない。
 
 | 観点 | この分析で受け取る内容 |
 |---|---|
-| 利用者 | CROS管理者、Server Host運用者 |
-| 場面 | ユーザー登録、表示名／Role変更、資格発行・鍵交換、漏洩、管理資格全喪失 |
+| 利用者 | 業務管理のmanager／administrator、鍵・管理者Role管理のadministrator、Server Host運用者 |
+| 場面 | ユーザー登録、表示名／Role変更、Repository登録・登録解除・公開範囲変更、鍵発行・独立失効・交換、漏洩、既存administratorの有効Credential全喪失 |
 | 目的 | 対象を見分け、最小管理でRemote利用範囲を維持し、安全に通常管理へ戻る |
-| 得たい結果 | 資格を発行・リセット・回復し、必要な再設定だけを案内できる |
+| 得たい結果 | 業務の利用範囲を維持し、鍵が必要な時だけadministratorへ引き継ぎ、必要な再設定だけを案内できる |
 | 重要場面 | administrator Roleのユーザー資格をすべて失った時 |
 | 避ける失敗 | 別ユーザー処置、名前のAuthority化、Secret保存、管理能力からの内容権限推定、別Recovery重複、Product Data削除 |
 | 守る品質 | 2操作の対象範囲と通常／Hostの入口・Authorityを別軸で示し、保持範囲と安全な再入場を確認できる |
@@ -30,7 +30,7 @@ userIdのUUID制約は正式UXから継承する。IAは安定した同一性を
 | 接続資格Metadata | ユーザーへ紐づく資格の識別・状態・期限 | Credential IDとuserId。生Secretや同等値を含めず、古いRole権限を固定しない |
 | 一度表示するSecret | 発行または鍵交換後に一度渡す秘密 | 発行Attempt内だけ。永続情報へ含めない |
 | 接続資格状態 | 有効・期限切れ・失効・不明の差 | Credential IDと現行状態。鍵交換は旧資格失効と新資格発行の関係であり、新しい永続状態を作らない |
-| 管理能力 | 最小ユーザー情報・Role権限・Credential等を管理する能力 | 鍵操作はadministrator専用固定、その他は現在の許可に基づく（4管理群の割当・設定可否はOPEN）。内容閲覧を自動的に得ない |
+| 管理能力 | 最小ユーザー情報・Role権限・Credential等を管理する能力 | 業務管理はmanager／administrator、管理者Role・詳細権限と鍵はadministrator専用固定。内容閲覧を自動的に得ない |
 | Access Recovery | 通常管理またはHostから鍵だけを交換して接続へ戻る回復 | Recovery IDを最初の失敗から再入場まで保つ。操作種別（指定ユーザー交換／全員交換）と入口・Authorityは別属性 |
 | Recovery対象 | 鍵交換の対象ユーザー・失効資格集合・新資格発行先 | Recovery ID、対象userId、失効対象Credential集合、発行先userId。指定交換は同じユーザー、全員交換は指定既存administrator |
 | 保持対象 | 変更しないユーザーID・表示名・Role・詳細権限・Repository登録・Product Data | Recovery IDとユーザーID・表示名・Role・詳細権限・Repository登録・Product Dataの保持区分 |
@@ -42,11 +42,10 @@ userIdのUUID制約は正式UXから継承する。IAは安定した同一性を
         │                            ▼
         │                        [O: Role]
         │                            └─持つ──▶ [O: Role詳細権限]
-        │                                            └─他4管理群の現在許可（割当・設定可否OPEN）──▶ [O: 管理能力]
         ├─発行時だけ──▶ [補足: 一度表示するSecret]
         └─現在値を持つ▶ [O: 接続資格状態]
 
-[O: Role] ──administrator固定・設定不可の鍵3操作──▶ [O: 管理能力]
+[O: Role] ──採用済み担当Roleの固定管理操作（下表）──▶ [O: 管理能力]
 
 [O: Access Recovery]
       ├─処置する──▶ [O: Recovery対象]
@@ -55,6 +54,33 @@ userIdのUUID制約は正式UXから継承する。IAは安定した同一性を
 ```
 
 図中の`[O:]`は情報Objectだけを表す。表示名はユーザーの属性であり独立Identityを発行しない。両入口で既存userIdへ新資格を結び、ユーザー情報・Role・詳細権限を保持する。表示名は対象Identityではない。
+
+### 操作対象と担当Role
+
+| 操作対象・内容 | manager | administrator | developer |
+|---|---|---|---|
+| ユーザー登録・表示名変更 | 許可 | 許可 | 不許可 |
+| developer／managerの割当て・変更 | 許可 | 許可 | 不許可 |
+| administratorの付与・解除・降格を含む変更 | 不許可 | 許可 | 不許可 |
+| developer／managerの詳細権限 | 許可 | 許可 | 不許可 |
+| administratorの詳細権限 | 不許可 | 許可 | 不許可 |
+| 鍵の発行・独立失効・交換 | 不許可 | 許可 | 不許可 |
+| Repository登録・登録解除 | 許可 | 許可 | 不許可 |
+| Repository公開範囲 | 許可 | 許可 | 不許可 |
+
+管理能力の固定割当と内容範囲を別に扱う。managerは変更前の現在管理権限による認可を経て、自身のRole内容範囲・公開範囲も明示更新できる。次要求から現行Role権限・Exposure・実アクセスを再評価する。管理能力だけから内容取得を許可しない。ユーザーの表示名はadministratorのものもmanagerが変更できるが、userId・Role・Credential・Authorityの変更とは別である。
+
+Repository登録状態は登録関係の属性、公開範囲はExposureの属性、内容の存在はRepositoryの情報として区別する。登録だけで公開・アクセス可能とせず、登録解除は登録関係だけを解消し、Repository／Product Dataを削除しない。既存対象の属性・関係として扱い、新Objectや安定IDを追加しない。
+
+### 鍵操作と情報結果の関係
+
+| 操作 | 旧資格への作用 | 新資格・Secret | 交換専用の回復条件 |
+|---|---|---|---|
+| 通常発行 | 既存資格は失効しない | 新資格を発行し、新Secretを一度だけ表示する | 適用しない。交換の失効・再入場条件を転用しない |
+| 独立失効 | 指定したCredentialを失効する | 新資格もSecretも発行しない | 適用しない。交換の発行・再入場条件を転用しない |
+| 交換 | 指定ユーザーまたは全員の旧有効資格を定義済み範囲で失効する | 指定交換は同じ既存userId、全員交換は指定既存administratorへ発行し、新Secretを一度だけ表示する | 同じRecoveryへ失効確定／発行不明を結び、現在状態の再観測後に再入場する |
+
+接続資格・資格状態・Secret表示境界の情報関係として区別し、Access Recoveryへ結ぶのは定義済みの交換条件だけとする。通常発行・独立失効について未定義の失敗・回復契約や回復状態の不存在保証を新設しない。
 
 ### Canonical化候補
 
@@ -101,12 +127,12 @@ userIdのUUID制約は正式UXから継承する。IAは安定した同一性を
 |---|---|
 | 状態 | Credentialの有効／期限切れ／失効／不明、Recoveryの確認待ち／進行中／blocked／completedを区別する |
 | 可視性 | 管理者は対象ID・表示名・Role・資格Metadataを確認する。認証済み利用者の自身表示を許可し、非認証入口へユーザー情報、現在他ユーザー参照を許可されていない主体へ他ユーザー一覧・存在・件数を開示しない。Secretは発行／リセット時だけ一度表示し、一覧・ログ・Evidence・会話に残さない |
-| 導線 | 対象ユーザーのID・表示名→現行Role／資格状態→処置影響。鍵交換は通常Workbenchの固定administrator権限またはログイン済みHost操作者→操作種別・対象userId・失効集合・発行先・保持範囲の確認→同じRecovery→既存ユーザーの新資格で再入場。Host入口と全員交換は人間が明示確認する |
-| 責任 | 現在許可された主体が最小ユーザー情報・Role詳細権限を、administratorが鍵操作を管理する。Hostのログイン済みローカル操作者が限定鍵交換を、Repository OwnerがProduct Dataを所有する |
-| 時間的な意味 | 表示名変更はID・権限変更ではない。Role権限変更は次の認可へ反映する。鍵交換はID・Roleを保持し旧資格を以後の要求で拒否するが、開始済み操作の取消完了とは別 |
+| 導線 | 操作対象・担当Role→対象ユーザーID・表示名／対象Repository・登録状態→現行Role／公開範囲・資格状態→処置影響。鍵交換は通常Workbenchの固定administrator権限またはログイン済みHost操作者→操作種別・対象userId・失効集合・発行先・保持範囲の確認→同じRecovery→既存ユーザーの新資格で再入場。Host入口と全員交換は人間が明示確認する |
+| 責任 | manager／administratorが業務管理を、administratorが管理者Role・詳細権限と鍵操作を管理する。Hostのログイン済みローカル操作者が限定鍵交換を、Repository OwnerがProduct Dataを所有する |
+| 時間的な意味 | 表示名変更はID・Role・Credential・権限変更ではない。業務設定要求は変更前の現在管理権限で認可し、明示更新したRole権限・Exposureは次要求の実アクセス評価へ反映する。鍵交換はID・Roleを保持し旧資格を以後の要求で拒否するが、開始済み操作の取消完了とは別 |
 | 情報の優先度 | 通常は対象ID・表示名・Role・Credential状態と処置影響。緊急時は処置範囲、保持対象、Recovery現在地と次の安全な行動 |
 | 情報のまとまり | 対象ユーザーとRole権限・資格を辿れるが、通常管理とHostは入口・Authorityだけを分け、2操作の処置意味は共通 |
-| 判断権限 | 鍵操作はadministrator専用固定。他4管理群の担当Role・設定可否はOPEN。Host回復はログイン済みローカル操作者と人間確認。管理能力だけから内容閲覧を推定しない |
+| 判断権限 | 鍵操作はadministrator専用固定。manager／administratorはユーザー登録・表示名変更、developer／managerの割当て・詳細権限、Repository登録・登録解除・公開範囲を管理する。administratorの付与・解除・降格を含むRole変更、administrator詳細権限と鍵3操作はadministratorだけが管理する。developerへ管理操作、managerへ管理者専用操作を設定で委譲しない。Host回復はログイン済みローカル操作者と人間確認。管理能力だけから内容閲覧を推定しない |
 | 重要な失敗 | 同名対象の取り違え、名前のAuthority化、他ユーザー非開示違反、古いRole権限の固定、Secret再表示、Product Data削除、Recovery Identity喪失 |
 | 制約・対象外 | 採用済みWorkbench／Host CLI入口の表示具体化、Digest・Protocol・Schema・Process配置は未決。メール・Password・本人確認・自己登録・自己編集・申請・複数Role・個別追加権限・一般IAMを追加しない |
 | 人間判断 | 対象識別とリセット確認の負担、採用済みWorkbench／Host CLI入口の具体的な表示・案内、有効期限既定値をPilotで確認する |
@@ -137,7 +163,7 @@ userIdのUUID制約は正式UXから継承する。IAは安定した同一性を
 
 ## 6. 後続工程が保持する意味
 
-UI／SPEC／Qualityへの各引渡しは、固定administrator鍵操作、Workbench通常入口、MCP鍵操作非公開、追加認証なしのHost交換2操作、既存Root／Path、4組表示・3組確認と他4管理群OPENを保持する。独立失効は新鍵発行も開始済みTaskの取消も行わない。
+UI／SPEC／Qualityへの各引渡しは、固定administrator鍵操作、Workbench通常入口、MCP鍵操作非公開、追加認証なしのHost交換2操作、既存Root／Path、4組表示・3組確認と採用済み担当Roleの固定境界を保持する。独立失効は新鍵発行も開始済みTaskの取消も行わない。
 
 | 接続先 | 保持する意味 |
 |---|---|
@@ -146,6 +172,12 @@ UI／SPEC／Qualityへの各引渡しは、固定administrator鍵操作、Workbe
 | Quality Analysis / IA（伴走） | 同名・改名、三可視境界、対象取り違え、Role権限と資格の分離、2操作と2入口の別軸、Secret非保存、情報保持、単体利用非依存。対象不明・管理者不存在・認可設定破損での処置前停止、失敗・応答喪失・Process喪失後の失効確定／発行不明、再観測なしの完了・rollback拒否を検証する |
 
 Architecture／Sourceへ直接引き渡さない。UI／SPECはUXとIA Definitionの双方を正式入力とする。
+
+鍵3操作の引渡しは、通常発行＝新Secret一度・既存資格失効なし、独立失効＝指定資格失効・新資格とSecret発行なし、交換＝定義済み失効範囲＋一度発行・情報保持・同じRecoveryを区別する。交換専用の回復条件を他操作へ転用しない。
+
+管理能力の固定割当と内容範囲を別に扱う。managerは変更前の現在管理権限による認可を経て、自身のRole内容範囲・公開範囲も明示更新できる。次要求から現行Role権限・Exposure・実アクセスを再評価する。管理能力だけから内容取得を許可しない。ユーザーの表示名はadministratorのものもmanagerが変更できるが、userId・Role・Credential・Authorityの変更とは別である。
+
+UIは操作対象と担当Role、登録状態／公開範囲／内容存在、変更前後と次要求からの影響を区別して提示する。SPECは変更前の現在権限による認可、固定管理境界と次要求反映を保持する。Quality Analysis / IAはmanagerによるadministratorの付与・解除・降格・詳細権限変更と鍵操作、developer管理、設定迂回の拒否、administrator表示名変更の許可、登録≠公開・解除≠削除を反証する。
 
 ## 7. 補足分析
 
