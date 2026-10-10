@@ -844,6 +844,26 @@ Qual-Labは、managerを業務上のアクセスを決める信頼された管�
 
 限定確認結果：契約・品質の独立レビューは最終ともにPass、残指摘0。初回4件と再確認2件を統合是正し、担い手の冒頭説明、資格喪失条件、鍵3操作の検証・引渡し、登録・登録解除、旧確認結果の履歴限定、交換ごとの発行先を明確にした。既存UX IDとSame判断は不変、差分確認は成功した。Checkerはerrors 3,056・warnings 0で未通過であり、対象内のPROJECT_CONTEXT形式指摘も残る。この限定結果を全体の機械検査Pass・QA実行・Source実装・本番接続・Release可能の根拠にしない。次はIA以降へ最新分担を伝播する。
 
+<a id="quality-role-propagation"></a>
+
+## 最新権限分担のQuality伝播 — 2026-10-11
+
+基準Commitは `14b51821`。採用済み固定8操作と通常6操作をQA-000007／009、7工程分析、Quality Center、本計画、PROJECT_CONTEXTの12文書へ伝播する。変更分類は採用済み要求の検証設計・現在投影更新。着手前の契約・品質の読み取り専用確認は両方着手可・追加人間判断不要。固定管理許可と可変内容権限、managerのadministrator表示名のみ変更、管理許可≠内容取得、登録≠公開、解除≠削除、通常管理にはadministrator存在を要求しない条件を維持する。
+
+| 検証責務 | 処置 | 段階／観測境界 |
+|---|---|---|
+| 固定8操作×三Roleの純粋判定 | RFD-UT-020追加 | UT／外部境界N/A |
+| 通常6操作の入力・変更前認可・保存・読戻し | RFD-IT-021追加 | IT／Direct Boundary |
+| Workbench公開入口から結果表示・次要求まで | RFD-ST-022追加 | ST／System/E2E |
+| 利用者による分担・対象・受理と利用可否の理解 | RFD-UAT-007更新 | UAT／User Acceptance |
+| 採用済み非鍵入口の搬送同値、非採用入口非公開 | EST-IT-010更新 | IT／Related 2 Blocks |
+
+鍵操作のRFD-ST-016／IT-017／IT-018、内容認可のST-003／004／IT-013、Domain集約IT-019、MCP鍵非公開EST-ST-015の責務は保持する。新規・更新項目はNot Run。各Sourceの固有条件、段階、Local Itemを全7分析へ接続する。現在のLocal Itemは定義内ID重複排除で182→185件、QA-000007は19→22件。旧Evidence・ID・Source・Test・秘密・保存Rootは変更しない。
+
+固定12文書を契約・品質の独立レビューへ渡し、全結果を統合してから是正する。文書・直接伝播・参照・表構造の確認を行う。実装・標準規則を変えないためPackage実回帰・Docker／Provider E2E・準拠監査は対象外。Quality Integration全体の一覧追従、具体API・保存・Source・Test・実境界は後続であり、全Quality統合完了・Quality Ready・Release可能は主張しない。Profile管理Roleは別途OPEN。現在、人間による追加判断は不要。
+
+限定確認結果：契約・品質の初回指摘を統合して7点を是正し、再確認の表現1箇所も処置した。最終は両観点とも限定Pass・全重大度の残指摘0。ローカル参照938件は欠落0、185 Local Itemの再集計とQA7検証表13列の連続性を確認。差分空白確認成功。Checkerはerrors 3,056・warnings 0・exit 1で全体未通過。レビュー後は結果と待ち状態のみ同期する。新規・更新項目Not Run、具体API・保存・Source・Test・本番接続・全Quality統合とReady未成立は維持する。次は具体的な公開API・保存契約の設計照合であり、旧Evidenceを改変せず、不要なFrameworkやRecoveryを増やさない。
+
 <a id="architecture-role-detail-propagation"></a>
 
 #### 権限分担のArchitecture詳細伝播 — 2026-10-11

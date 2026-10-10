@@ -173,9 +173,12 @@ Domain Model詳細設計§9.1の通常保存完了は、同じLock内で一度�
 
 | 詳細入力 | 導出する義務 | Quality Owner／Local Item | 実行状態 |
 |---|---|---|---|
-| SCR-000008／PRT-000008、BHV-000012、PRT-000008.spec-000012 | 交換4組の事前表示・3組確認、Secret一度表示、段階別結果と利用者理解 | QA-000007／RFD-ST-016、RFD-UAT-007 | Not Run |
+| SCR-000008／PRT-000008、BHV-000012、PRT-000008.spec-000012 | 通常6管理操作・固定分担・操作別対象・自己内容変更の理解と受理／利用の区別、交換4組の事前表示・3組確認、Secret一度表示、段階別結果 | QA-000007／RFD-ST-016、RFD-UAT-007 | Not Run |
+| Access Managementの固定管理判定／通常管理保存境界、Workbenchの通常管理縦断 | 固定8操作×三Role、通常6入力→変更前認可→保存・読戻し→表示→次要求。内容認可と鍵処置を分離 | QA-000007／RFD-UT-020、RFD-IT-021、RFD-ST-022 | Not Run |
 | Access Management・Workbenchの最新詳細 | 通常発行、exact独立失効、現在ユーザー／Role認可 | QA-000007／RFD-IT-017、RFD-IT-018、RFD-ST-003、RFD-IT-013 | Not Run |
 | Access Management・Domainの最新詳細 | 認可済み集合だけの集約、部分・競合・出所の保持、Owner分離 | QA-000007／RFD-IT-019 | Not Run |
 | MCPの最新詳細 | 一覧・Schema・登録・dispatchに全鍵操作なし。要求Bearer認証継続 | QA-000009／EST-ST-015 | Not Run |
 
 参照正本は[Access Management](../../../06_Architecture/Details/access-management/01_Architecture.md)、[Workbench](../../../06_Architecture/Details/workbench-server/01_Architecture.md)、[MCP](../../../06_Architecture/Details/mcp-server/01_Architecture.md)、[Domain](../../../06_Architecture/Details/domain-model/01_Architecture.md)の最新詳細である。既存のMapped／Coveredは導出関係の投影であり、上記変更の実行Passを示さない。Test Symbol・実行・Evidenceまでの接続は未完了。旧Evidenceは歴史的証跡として維持する。
+
+固定8操作の担当Roleは採用済み。新規3項目のSource Model／Model ItemはQA-000007の完全な導出対応表へ接続する。具体API・保存Schema・Source・Test・実境界は未成立。MCPの通常管理Toolを新規採用せず、採用済み非鍵入口の同値搬送はQA-000009／EST-IT-010、非採用入口の非公開を別に確認する。
