@@ -1,8 +1,8 @@
 # ユーザーインターフェース
 
-状態: UI Detail Ready／UI工程Exit待ち（v0.21.0 DefinitionのDetail移行完了）
+状態: v0.22.0更新中（UI-000008の直接伝播確認済み、Detail／横断投影／対応レビューは未追従）
 担当責任者: Qual-Lab
-対象版: v0.21.0
+対象版: v0.22.0候補（公開基準版: v0.21.0）
 工程規則: [UI](../25_UI.md)、[UIと振る舞い仕様の対応レビュー](../24_UI_Behavior_Specification.md)
 
 ## 1. UI工程で解くこと
@@ -42,7 +42,7 @@ REQ
 | [UI-000005](Definitions/UI-000005/ui_definition.md) | 実行事実と故障境界の診断 | `UX-000006`、`UX-000008` | `IA-000004`、`IA-000020` |
 | [UI-000006](Definitions/UI-000006/ui_definition.md) | Repository内作業と対象選択 | `UX-000010`、`UX-000011`、`UX-000034` | `IA-000006`、`IA-000007` |
 | [UI-000007](Definitions/UI-000007/ui_definition.md) | 入口をまたぐ共通依頼・結果 | `UX-000012` | `IA-000008`、`IA-000023` |
-| [UI-000008](Definitions/UI-000008/ui_definition.md) | Role別接続資格とAccess回復 | `UX-000013`、`UX-000035` | `IA-000009` |
+| [UI-000008](Definitions/UI-000008/ui_definition.md) | ユーザー・Role権限・接続資格とAccess回復 | `UX-000013`、`UX-000035` | `IA-000009` |
 | [UI-000009](Definitions/UI-000009/ui_definition.md) | Meeting・Topic・候補の処置 | `UX-000014`、`UX-000033` | `IA-000010` |
 | [UI-000010](Definitions/UI-000010/ui_definition.md) | Tool・AIモデル構成の選択 | `UX-000016`、`UX-000018` | `IA-000011`、`IA-000013` |
 | [UI-000011](Definitions/UI-000011/ui_definition.md) | 実行時データの保持・清掃 | `UX-000017`、`UX-000022` | `IA-000012`、`IA-000003` |
@@ -90,7 +90,9 @@ Repository / CLI / MCP / Workbench
 
 ## 6. 現在状態と次工程
 
-v0.21.0のUI Definition 20件は当時の契約でCanonical化され、4 Area Design Guide、20 SCR、20 PRTおよび31 Interaction Relationへ移行した。v0.22ではProject Context操作を追加し、現在は20 SCR、20 PRTおよび32 Interaction Relationである。現在状態は[UI Detail](Details/01_UI_Detail.md)を正本とする。
+以下の全数移行・完了記録は、今回のUI-000008／SPEC-000012更新前の固定版に限る。今回の直接伝播8文書は限定独立レビュー済みだが、SCR-000008、横断投影およびUI／SPEC対応は再確認待ちであり、更新版のReadyを示さない。
+
+v0.21.0のUI Definition 20件は当時の契約でCanonical化され、4 Area Design Guide、20 SCR、20 PRTおよび31 Interaction Relationへ移行した。v0.22ではProject Context操作を追加し、更新前固定版では20 SCR、20 PRTおよび32 Interaction Relationである。Detailの所有正本は[UI Detail](Details/01_UI_Detail.md)を正本とする。
 
 ```text
 v0.21 UI Definition: Canonical
@@ -100,13 +102,15 @@ v0.21 UI Detail移行: Complete
 v0.22固有変更はDiscoveryから別途追加
 ```
 
-32件のUX定義と22件のIA定義を別々の正式入力として全数分析し、20件のUI定義へ統合した。REQはUXを介して追跡するが、UIの直接入力にはしない。以前の独立レビュー後に記録作成側のGapを検出したため、UX-000032とIA-000022からUI-000020を追加した。全54分析と20定義は成果物別Checklistを完了し、UI契約はUI／SPEC対応レビューへ渡せる状態である。一方、[表示面ごとの視覚評価](04_Visual_and_Accessibility_Direction.md#5-表示面ごとの現在状態)と人間による工程Exit判断は未完了であり、Architectureへの通常Handoffを許可する完全な`UI Ready`ではない。
+32件のUX定義と22件のIA定義を別々の正式入力として全数分析し、20件のUI定義へ統合した。REQはUXを介して追跡するが、UIの直接入力にはしない。以前の独立レビュー後に記録作成側のGapを検出したため、UX-000032とIA-000022からUI-000020を追加した。更新前固定版では全54分析と20定義の成果物別Checklistを完了し、UI契約をUI／SPEC対応レビューへ渡せる状態とした。今回の更新版はDetail・対応再確認待ちである。一方、[表示面ごとの視覚評価](04_Visual_and_Accessibility_Direction.md#5-表示面ごとの現在状態)と人間による工程Exit判断は未完了であり、Architectureへの通常Handoffを許可する完全な`UI Ready`ではない。
 
 ## 補足分析
 
 なし。
 
 ## Checklist
+
+チェック済み項目は今回更新前の固定版の確認記録である。今回の未完了事項は末尾のOPENで区別する。
 
 - [x] 全UX DefinitionとIA DefinitionをUI分析へ一件ずつ対応付けた
 - [x] 全UI分析をUI Definitionへ処置した
@@ -120,3 +124,4 @@ v0.22固有変更はDiscoveryから別途追加
 - [x] v0.21の非視覚Surfaceを含むVisual／Accessibility契約を全20 SCRで評価した
 - OPEN: v0.22 Product固有GUIのPrototype／実画面評価と人間による工程Exit判断。v0.21移行のArchitecture／Quality伝播は完了している
 - [x] ArchitectureまたはSourceから意味を逆輸入していない
+- OPEN: UI-000008更新後のSCR-000008、横断投影、UI／SPEC対応およびArchitecture／Qualityへの追従。更新前の完了記録を更新版の完成根拠に使用しない。

@@ -1,8 +1,10 @@
 # UIとSPECの引き渡し
 
-状態: UI契約Ready。UI／SPEC対応レビューへの入力準備済み。UI工程Exitは未完了
+状態: v0.22.0更新中。UI-000008は最小ユーザー管理へ更新済み。Detail・横断投影・対応レビューは再確認待ち、UI工程Exitは未完了
 
 この文書はUI側からUI／SPEC対応レビューへ渡す契約を所有する。UI／SPEC対応レビューの結果は[UI／SPEC対応](../05_SPEC/06_UI_SPEC_Correspondence.md)を正本とし、ここへ第二の結果を作らない。UI契約Readyは完全なUI工程ExitまたはArchitectureへの通常Handoffを意味しない。
+
+以下の全数処置・入力準備済みの記述は更新前の範囲を表す。UI-000008の現在契約はDefinitionを優先し、最新Detailと対応レビューが揃うまで全体Readyへ読み替えない。
 
 ## 1. 共通の正式入力
 
@@ -65,9 +67,11 @@ SPECはこれらを再定義せず、同じUX／IAから観測可能な条件、
 
 なし。
 
-Definition対応のv0.21固定時点では29 BHV／31 Relationを[UI／SPEC対応](../05_SPEC/06_UI_SPEC_Correspondence.md)で確認した。v0.22ではBHV-000031とRelationを1件追加し、現在は30 BHV／32 Relationを[UI／SPEC Detail対応](../05_SPEC/Details/02_UI_SPEC_Detail_Correspondence.md)で双方向に全件確認して`Pass`としている。
+Definition対応のv0.21固定時点では29 BHV／31 Relationを[UI／SPEC対応](../05_SPEC/06_UI_SPEC_Correspondence.md)で確認した。今回のUI-000008／SPEC-000012更新前のv0.22固定版ではBHV-000031とRelationを1件追加し、30 BHV／32 Relationを[UI／SPEC Detail対応](../05_SPEC/Details/02_UI_SPEC_Detail_Correspondence.md)で双方向に全件確認して`Pass`とした。今回の改訂版はDetail・対応再確認待ちであり、この過去Passを現在の引き渡し完了へ読み替えない。
 
 ## Checklist
+
+チェック済み項目は今回更新前の固定版の確認記録である。
 
 - [x] UIとSPECの共通正式入力を明示した
 - [x] UIとSPECの責任境界を区別した
@@ -82,3 +86,4 @@ Definition対応のv0.21固定時点では29 BHV／31 Relationを[UI／SPEC対�
 - [x] Open・GapとOwner工程へ戻す条件を明示した
 - [x] UI／SPEC独自の第三仕様を作っていない
 - [x] 補足分析へ必須情報を退避していない
+- OPEN: UI-000008／SPEC-000012更新後のDetail・横断投影・対応レビューの再確認。

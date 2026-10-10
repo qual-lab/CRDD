@@ -1,6 +1,8 @@
 # UI／SPEC対応
 
-状態: 是正済み・独立再レビュー待ち
+状態: v0.22.0更新中。UI-000008／SPEC-000012は契約変更により対応再レビュー待ち
+
+UI-000008／SPEC-000012の最小ユーザー管理への更新により、下記の旧対象Hash・同組の作成者確認・引用結果は更新前の基準版に限定する。最新契約・Detailの対応成立を示さない。旧引用は歴史記録として維持し、新候補の対応レビューで更新する。他の組も対象改訂版を越えて完成根拠にしない。
 
 この文書はUI契約ReadyとSPEC Readyの後に行う対応レビューの正本である。UI工程全体のExitとは別に判定する。UI契約またはSPEC契約をここで再定義せず、同じUX／IA Contextから導いたPresentation ContractとBehavior Contractの対応だけを確認する。
 
@@ -558,7 +560,7 @@
 
 ## 5. 観点別レビュー結果
 
-| 観点 | 現在の結果 | 確認内容 |
+| 観点 | 更新前固定版の結果 | 確認内容 |
 |---|---|---|
 | Shared Context | Pass | 各組が同じUX／IAの意味を保持する |
 | State | Pass | 表示状態と意味状態を一対一と仮定せず、矛盾を残さない |
@@ -574,14 +576,14 @@
 
 | 区分 | 意味 | 現在の処置 |
 |---|---|---|
-| Shared | UIの認識・操作・FeedbackとSPECの契機・状態・結果を対応させる | 上記32組を全件確認済み |
+| Shared | UIの認識・操作・FeedbackとSPECの契機・状態・結果を対応させる | 更新前固定版では上記32組を全件確認済み。今回更新したUI-000008／SPEC-000012の対応は再確認待ち |
 | UI-only | 視覚順、色以外の識別、Keyboard、読上げ等 | UI定義で保持し、SPECへ振る舞いを発明しない |
 | SPEC-only | 直接UIを持たない振る舞い、内部で完結する契約 | 理由、運用Feedback、人間確認をSPEC定義に残す |
-| Gap | 片側または上流のCanonical Contractが不足する | UI／SPEC／IA／UXのOwner工程へ戻す。現在の未解消Gapはない |
+| Gap | 片側または上流のCanonical Contractが不足する | 更新前固定版には未解消Gapなし。現在はUI-000008／SPEC-000012のDetail・横断投影・対応レビュー未追従をOPENとして保持し、各Ownerで処置する |
 
 ## 7. ArchitectureとQualityへの接続
 
-本書はDefinition対応を所有する。Detail対応は[UI／SPEC Detail対応](Details/02_UI_SPEC_Detail_Correspondence.md)を正本とし、現在の20 SCR、20 PRT、32 Interactionおよび30 BHVを全数確認して`Pass`とした。v0.21固定時の値は29 BHV／31 Interactionであり、現在値へ読み替えない。本書のPassだけをDetail対応のPassへ読み替えず、両方の対応結果を独立して維持する。
+本書はDefinition対応を所有する。Detail対応は[UI／SPEC Detail対応](Details/02_UI_SPEC_Detail_Correspondence.md)を正本とし、今回のUI-000008／SPEC-000012更新前の固定版では20 SCR、20 PRT、32 Interactionおよび30 BHVを全数確認して`Pass`とした。v0.21固定時の値は29 BHV／31 Interactionであり、更新後の根拠へ読み替えない。今回の改訂版はDetail・対応再確認待ちであり、Architecture／Qualityへの変更伝播も未完了である。本書の過去Passを現在のDefinition対応またはDetail対応のPassへ読み替えず、両方の対応結果を独立して維持する。
 
 - Architectureの正式入力はUI DefinitionとSPEC Definitionである。この対応レビューは両入力の対応Closureを示すEvidenceであり、第三の仕様ではない。UI工程Exitが未完了の間はArchitectureへの通常Handoffを許可しない。
 - UIとSPECはそれぞれQuality Analysisへ入力を渡す。対応レビューから新しいQuality Contractを発明しない。
@@ -591,6 +593,8 @@
 なし。
 
 ## Checklist
+
+チェック済み項目は今回更新前の固定版のレビュー記録であり、今回の改訂版の判定ではない。
 
 - [x] UIとSPECが同じUX・IA Contextを保持している
 - [x] Shared Stateの意味が一致する
@@ -611,3 +615,4 @@
 - [x] Definition対応とDetail対応を区別した
 - [x] 対象Detail RelationをDefinition対応のPassで代替せず独立確認した
 - [x] 未決事項をAI推測で補完していない
+- OPEN: UI-000008／SPEC-000012更新後のDefinition対応、Detail対応、横断投影およびArchitecture／Quality伝播の再確認。

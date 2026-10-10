@@ -2,72 +2,57 @@
 
 成果物種別: SPEC分析（UX観点）
 分析単位: `UX-000035`
-状態: 分析済み
+状態: 分析済み（今回変更範囲の限定独立レビュー済み）
 
 ## 1. 正式入力
 
-- UX定義: [UX-000035 User管理なしでRemote Accessを維持・回復する](../../../02_UX/Definitions/UX-000035/ux_definition.md)
+- UX定義: [UX-000035](../../../02_UX/Definitions/UX-000035/ux_definition.md)
 
-IA、UIまたはREQを直接読んで不足を補完しない。
+この一件だけを正式入力とする。他観点、REQ、Sourceから不足を補完せず、定義で初めて両観点を統合する。
 
-## 2. 振る舞いへ引き継ぐ利用者成果
+## 2. 正式入力から保持する利用者成果
 
-Role別Credentialを通常管理し、全喪失または認可破損時はProduct Dataを保ってHostから再入場できる。
-
-| 観点 | UX定義から受け取る内容 |
+| 観点 | 保持する内容 |
 |---|---|
-| 利用者／状況 | CROS管理者、Server Host運用者がRemote Accessを維持・回復する |
-| 利用のきっかけ | 発行、失効、ローテーション、全喪失、認可破損 |
-| 目的 | User Accountなしで接続資格を維持し通常管理へ戻る |
-| 利用者成果 | Role別Credentialを発行・失効・回復できる |
-| 必要な情報 | Role、Credential、状態、Secret境界、Recovery ID、対象、保持対象、結果 |
-| 重要場面 | 全Administrator Credentialを失った時 |
-| 避ける失敗 | Secret保存、内容Access自動付与、Product Data削除、Recovery重複 |
-| 守る品質 | Host Authority、明示確認、同一Recovery、Accessだけの再構成 |
-| 検証意図 | 通常lifecycleと全喪失・破損Recovery、Secret非保存を観測する |
+| 利用者・場面 | 管理者のユーザー登録・表示名／Role変更・資格発行／リセット、Host運用者の全喪失・認可破損回復 |
+| 成果 | 最小ユーザー情報で対象を見分け、Role権限・資格を維持しProduct Dataを失わず通常管理へ戻る |
+| 必要な認識 | 対象ID・表示名、現行Role・詳細権限、資格Metadataと状態、処置影響、秘密一度表示 |
+| 重要場面 | administrator Roleのユーザー資格をすべて失った時 |
+| 失敗 | 同名対象取り違え、名前Authority化、秘密保存、管理能力から内容権限推定、Product Data削除、別Recovery重複 |
 
-## 3. 観測可能にする契機・結果・失敗
+## 3. 契機・条件・結果・失敗
 
-```text
-Credential管理または回復を開始
-        ├─ 成立   → 状態確定／一度表示／Bootstrap再入場
-        ├─ 不成立 → 同じRecovery ID、保持対象、次の行動
-        └─ 不明   → Authority再確認、Access Effect 0
-```
+通常管理は管理権限を持つ主体からユーザーを登録し、表示名／Roleを変更し、ユーザーに資格を結合する。Role詳細権限はRoleが所有し、一つの現行Roleを用いる。通常リセットは同じuserId・Roleを保持し旧資格を以後の要求で拒否し、新Secretを一度だけ返す。
 
-## 4. 受入条件と適用範囲
+認証済み利用者の自身表示、非認証入口へのユーザー情報0、非管理者への他ユーザー一覧・存在・件数0を別々に保持する。Repository非開示対象の存在・名前・件数も漏らさない。
+Role変更は次の認可へ反映する。通常リセットの成功は開始済み操作の取消完了ではない。資格状態は有効／期限切れ／失効／不明を保持し、新しい永続resetting状態は作らない。Secretを一覧・ログ・Evidence・会話・Repositoryへ保存／再表示しない。
 
-- 正常: 三RoleのCredentialを発行・失効・ローテーションし、Secretは一度だけ返す。
-- 境界: 管理能力と内容Access、要求と確定、Access DataとProduct Dataを分ける。
-- 失敗: Secretを保存せず、Product Dataを変更せず、別Recoveryを重ねない。
-- 判断不能: Host Authorityまたは対象範囲を確認できなければ変更しない。
-- 下流へ失わず渡す意味: Digest保存、状態遷移、Recovery Identity、再入場、終了後確認。
+Administrator Recovery／Full Access Resetを別種別として扱い、各種別の対象・Role影響・保全・結果・再入場を保持する。通常リセットとHost回復のAuthorityを混同せず、同じRecovery IDを最初の失敗から再入場まで維持する。
+Host Authorityと処置前確認→選択種別・対象・Role影響・保持範囲→同じRecoveryの現在地→Bootstrap再入場を辿る。管理権限から内容Accessを推定せず、Repository単体利用へ資格を要求しない。
 
-## 5. SPEC処置
+userIdは正式入力の採用済みUUID制約を継承する。版・Schema・生成方式をここで決めない。
 
-| SPEC候補 | 処置 | 判断理由 |
+## 4. 処置と他観点との統合
+
+独立した資格失効は、対象資格と現行Roleの管理認可を確認して失効し、以後の要求で拒否する。新資格を自動発行せず、通常リセットと開始済み操作の取消とは別に扱う。結果不明時は既知対象・状態を保持し、取消完了や過去Effect 0を推定しない。
+
+確定済みRecovery ID・種別・対象・既知処置結果を非秘密の耐久情報としてProcess喪失後も保持する。同じ回復へ再入場する際は現在状態を再観測し、記録の存在だけからHost AuthorityやEffect／回復完了を推定しない。新Store・保存方式はこの分析で決めない。
+
+| 候補 | 処置 | 理由 |
 |---|---|---|
-| [SPEC-000012](../../Definitions/SPEC-000012/spec_definition.md) | Same | 接続資格から利用範囲を確定する既存契約を、Credential lifecycleとHost Recoveryまで拡張する |
+| [SPEC-000012](../../Definitions/SPEC-000012/spec_definition.md) | Same | 既存の管理・接続責務で最小ユーザー管理と回復を保持する |
 
-## 6. IA観点との統合時に確認すること
-
-Role、Credential Metadata、状態、Secret表示境界、管理能力、Recovery対象、保持対象および結果を区別し、生Secretを永続情報へ含めない。
+IAの同一性・状態・関係を、通常管理の認可・対象相関・結果とHost回復の境界へ統合する。UIや現行保存構造から規則を補完しない。
 
 ## 未確認事項・人間判断・戻り条件
 
-### 正式入力から継承する確認事項
-
-| Source ID | 確認事項 | 判断者 | 現在の判断 | 未確認時の影響 | 再評価契機 |
-|---|---|---|---|---|---|
-| `UX-000035` | 共有Credential配布負担、管理画面とCLIの分担、有効期限既定値 | CROS管理者、Server Host運用者、Qual-Lab | OPEN: Pilotで確認 | 定量期限、Protocol、配置を確定しない | CROS PilotとRecovery実測 |
-
-### SPEC固有の追加判断
-
-追加判断はない。個人別失効・監査が必要になればDiscoveryへ、必要情報が不足すればIAへ戻す。
+対象識別とリセット確認の負担、管理画面／CLI分担、有効期限既定値は管理者・Host運用者・Qual-LabがPilotで確認する。Bootstrap-user結合と緊急時ユーザー情報処置、回復種別別の具体失効集合は後工程で確定し、通常リセットのID保持を流用しない。具体化前に処置対象を確定できなければSPEC／UXへ戻し、未承認の回復Effectを発行しない。一般IAM、自己管理、複数Roleや個別追加権限が必要ならDiscoveryへ戻す。
 
 ## 検証意図
 
-分析で保持した成立・境界・失敗・判断不能を、Definition側で観測可能な契約へ変換できることを確認する。
+同名・改名時の対象維持、名前非Authority、三可視境界、Role変更の次認可反映、通常リセットのID・Role保持／旧資格拒否と取消分離、秘密非保存を確認する。両Host Recovery種別の対象・Role影響・保全・結果・再入場とProduct Data非変更を区別して検証へ渡す。未決の具体処置や実測成功を創作しない。
+
+独立失効の成功／拒否／応答喪失をリセットや取消へ置換しないこと、回復の処置前中断／処置後応答喪失／Process喪失でも同じ確定済みIdentityを保持して再観測することを検証義務へ渡す。
 
 ## 補足分析
 

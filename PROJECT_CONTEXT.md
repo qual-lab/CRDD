@@ -44,11 +44,11 @@ v0.21.0は公開済み、v0.22.0とCHG-000082は未完了である。責務再�
 
 持ち越し記録について追加判断は不要。CROS Package維持の先の判断は人間が変更し、認証・認可をAccess Managementへ再編する方向となった。Context集約・接続Registry・活動等の具体OwnerはSource照合後にArchitecture／Qualityへ反映する。未決候補を採用済み実装と扱わない。Domain保存で、非協調Processの親Directory差替えまで防ぐ保証を要求するかは判断待ちである。通常保存＋読戻し、静的link拒否と協調Writer競合は確認済みだが、競合差替え防止の証明ではない。担当責任者・採用判断者はQual-Lab。Docker／Coordinator／Orchestrator大改修は前倒ししない。
 
-ユーザーID（UUID）・管理者用表示名・Role詳細権限・Credential紐付け／リセットの最小管理はv0.22へ採用済み。表示名は認証や認可に使わず、一般的なアカウント管理へ拡張しない。要求と今回影響するUXを更新し、UX9文書の限定独立レビューは両観点で残指摘0。IAの直接影響範囲とUXの継承制約補足は9文書の限定独立レビューで両観点の残指摘0。UI／SPEC以降・Source・保存Schema・移行・実証は未追従である。
+ユーザーID（UUID）・管理者用表示名・Role詳細権限・Credential紐付け／リセットの最小管理はv0.22へ採用済み。表示名は認証や認可に使わず、一般的なアカウント管理へ拡張しない。要求と今回影響するUXを更新し、UX9文書の限定独立レビューは両観点で残指摘0。IAの直接影響範囲とUXの継承制約補足は9文書の限定独立レビューで両観点の残指摘0。UI／SPECの直接影響8文書も両観点の限定独立レビューで残指摘0。画面詳細・BHV・横断投影・対応レビュー、Architecture／Quality／Source・保存Schema・移行・実証は未追従である。
 
 | 判断項目 | 現在の処置 | Owner Relation |
 |---|---|---|
-| 接続主体・Role・Credentialの再編 | 最小ユーザー管理の採用範囲に追加判断は不要。要求・直接影響するUXとIAへ反映済み。UI／SPEC以降・Source・保存移行は未追従。旧二案を採用した扱いにせず、新要求から設計・品質へ伝播する。 | [現在の採用判断](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#現在の採用判断) |
+| 接続主体・Role・Credentialの再編 | 最小ユーザー管理の採用範囲に追加判断は不要。要求・直接影響するUX／IA／UI／SPEC定義まで反映済み。Detail・対応レビュー・Architecture／Quality／Source・保存移行は未追従。旧二案を採用した扱いにせず、新要求から設計・品質へ伝播する。 | [現在の採用判断](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#現在の採用判断) |
 | CROS Packageの責務再編 | 維持判断を人間が変更。認証・認可を`access-management`へ、Context・通信等は実Ownerへ移し、全責務・代替本番接続後に旧Packageを撤去する。Source移管は未着手。 | [新Owner対応とGate](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#11-access-managementへの再編--2026-10-09の途中見直し) |
 | 非協調Processの親Directory差替え保証 | 必要範囲を確認中。未回答を高い保証の採用や免除へ読み替えず、独立した接続整理を継続する。 | [保存保証の未決判断](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#保存保証の未決判断) |
 | 5C追加是正の持ち越し | 承認済み。保証条件変更・Release範囲変更の承認ではない。 | [判断の正本](99_Roadmap/Changes/CHG-000082/change.md#持ち越し判断--orchestratorcoordinatordocker2026-10-09) |
