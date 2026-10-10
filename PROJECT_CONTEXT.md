@@ -84,7 +84,9 @@ MCP詳細の最新判断伝播は契約・品質の限定独立再レビュー�
 
 ### 最新権限分担のQuality再導出 — 2026-10-11
 
-次段階の[管理API・保存設計候補](06_Architecture/Details/access-management/02_Management_State_and_API.md)は具体化・契約／品質限定独立レビュー済み、残指摘0。単一現在Fileは第一候補だが、排他・出版保証・秘密受領不明後の処置・Exposure残存時の登録解除等は未確定で実装Gate未成立。Source・秘密Store・Dockerは未変更。
+最新の追加判断：登録解除は公開設定も同時に除去し、Repository本体は維持する。発行・結果記録確定後の鍵の受け渡し未確認は、秘密再表示・自動再発行をせず、人間の明示した既存交換で別鍵へ交換する。発行自体・結果記録が不明なら元発行のIdentityと既知事実で現在再観測し、交換由来は元exact Recoveryを保持する。[要求正本](01_Discovery/Definitions/REQ-000041/requirement.md#発行済みの鍵を受け取れなかった場合)への反映と契約／品質限定独立レビューは完了、残指摘0。UX以降は未伝播。Source・実環境は未変更。
+
+今回判断前の[管理API・保存設計候補](06_Architecture/Details/access-management/02_Management_State_and_API.md)は当時の契約／品質限定独立レビュー済み、残指摘0。登録解除と発行済み鍵の受け渡し未確認の処置は最新REQで採用済みだが、AM詳細・保存設計・QA・Sourceへの伝播は未完了。単一現在Fileは第一候補で、排他・出版保証と同一更新の実現方法は未確定のため実装Gate未成立。Source・秘密Store・Dockerは未変更。
 
 固定8操作の管理判定、通常6操作の保存境界、公開縦断をRFD-UT-020／IT-021／ST-022へ分離し、UAT-007とEST-IT-010を更新した。設計集合は185 Local Item。最新12文書は契約・品質限定独立レビュー済み・残指摘0、今回の新規・更新項目はNot Run。MCPの通常管理Toolを新規採用せず、Profile管理Roleは別途OPEN。具体API・保存・Source・Test・実境界・Quality Integration全体追従は未完了。[今回の計画](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#quality-role-propagation)を参照する。
 
