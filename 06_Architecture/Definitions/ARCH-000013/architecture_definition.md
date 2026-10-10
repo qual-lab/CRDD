@@ -2,7 +2,7 @@
 
 成果物種別: Architecture定義
 Architecture ID: `ARCH-000013`
-状態: 更新中（最新の鍵管理判断を限定反映・限定独立レビュー済み・残指摘0。下流再伝播未完了）
+状態: 更新中（最新鍵管理判断のArchitecture分析・定義直接同期を限定独立レビュー済み・残指摘0。横断モデル以降未完了）
 維持責任者: Qual-Lab
 
 ## 1. 責務と境界
@@ -40,8 +40,8 @@ Credentialから既存ユーザーを識別し、現行Role詳細権限、Reposi
 
 | 入力 | State Owner | Authority・Effect | Failure・Lifecycle |
 |---|---|---|---|
-| UI-000008 | 認識・表示の意味はUI、状態の確定はAccess Management等の実Owner | UIはAuthority・Effectを発行しない。通常管理とHost、操作範囲を別軸表示 | 全4組の事前表示、Hostまたは全員交換だけ明示確認、部分結果を隠さない。画面／CLI分担は未確定 |
-| SPEC-000012 | Access Managementのユーザー／Role／資格／認可・鍵交換状態。認可済み集約はDomain Model | 通常は現行管理認可、Hostはログイン済みローカル操作者。通常管理はユーザー／Role設定を更新し得るが、鍵交換は鍵だけ変更する | 事前条件、旧失効、新発行、結果確定・受領を分離。失効後失敗／応答・Process喪失は同じRecoveryへ既知失効と発行不明を耐久保持 |
+| UI-000008 | 認識・表示の意味はUI、状態の確定はAccess Management等の実Owner | UIはAuthority・Effectを発行しない。通常管理とHost、操作範囲を別軸表示 | 全4組の事前表示、Hostまたは全員交換だけ明示確認、部分結果を隠さない。通常鍵操作はWorkbench、Host CLIは交換2のみ、MCP鍵操作非公開が採用済み。具体表示・案内は未確定 |
+| SPEC-000012 | Access Managementのユーザー／Role／資格／認可・鍵交換状態。認可済み集約はDomain Model | 通常鍵3操作は固定administrator、Hostはログイン済みローカル操作者。他4管理群の担当Role・設定可否はOPEN。通常管理はユーザー／Role設定を更新し得るが、鍵交換は鍵だけ変更する | 事前条件、旧失効、新発行、結果確定・受領を分離。失効後失敗／応答・Process喪失は同じRecoveryへ既知失効と発行不明を耐久保持 |
 
 ## 5. 構造と依存方向
 
@@ -88,18 +88,18 @@ Workbench／MCP／管理入口
 
 ## 8. 品質・保護・未確認事項
 
-三可視境界（自身表示可／非認証User情報0／他ユーザー参照の現行管理権限を持たない入口への他User一覧・存在・件数0）、Repository非開示、管理と内容閲覧の分離、現行Role反映をすべての利用側で維持する。
+三可視境界（自身表示可／非認証User情報0／現在他ユーザー参照を許可されていない主体への他User一覧・存在・件数0）、Repository非開示、管理と内容閲覧の分離、現行Role反映をすべての利用側で維持する。
 
-継承Openは、代表利用者・Qual-Labによる自身表示とID・利用不能理由・接続負担の理解、管理者／Host運用者・Qual-Labによる対象識別・確認負担・画面／CLI分担・有効期限既定値の評価。実利用、Pilot、回復実測または前提変更で再評価する。未確認の定量条件・期限・画面・配布手順を確定せず、上流の意味不足はUI／SPECへ戻す。
+継承Openは、代表利用者・Qual-Labによる自身表示とID・利用不能理由・接続負担の理解、管理者／Host運用者・Qual-Labによる対象識別・確認負担・採用済みWorkbench／Host CLIの具体表示・案内・有効期限既定値の評価。実利用、Pilot、回復実測または前提変更で再評価する。未確認の定量条件・期限・画面・配布手順を確定せず、上流の意味不足はUI／SPECへ戻す。
 
 ### 8.1 UI／SPEC Detailの配置制約
 
 | Detail | Relation | 現在の接続・戻し先 |
 |---|---|---|
-| [SCR-000008／PRT-000008](../../../04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md) | `PRT-000008.spec-000012` | 対象・事前表示・状態・部分結果・一度表示Secretを配置制約として保持。Layoutと画面／CLI分担はUI Detailへ戻す |
+| [SCR-000008／PRT-000008](../../../04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md) | `PRT-000008.spec-000012` | 対象・事前表示・状態・部分結果・一度表示Secretを配置制約として保持。Layoutと採用済みWorkbench／Host CLIの具体表示・案内はUI Detailへ戻す |
 | [BHV-000012](../../../05_SPEC/Details/BHV-000012/behavior.md) | 同じ既存Relation | Trigger・Authority・Validation・失効／発行・結果・Recoveryを保持。振る舞い変更はSPEC Detailへ戻す |
 
-03〜06、07詳細領域Map、UI／SPEC Detailへの前判断の伝播・限定レビューは履歴であり、最新の鍵管理判断へ流用しない。本定義と[Access Management詳細](../../Details/access-management/01_Architecture.md)は最新判断の限定反映・限定独立レビュー済み・残指摘0。Architecture分析・03〜08横断モデル、Domain集約・MCP／Workbenchの新契約Details、Quality・Sourceは再伝播未完了。保存・公開入口はOPENで、旧配置を新Ownerの完成形として扱わない。
+03〜06、07詳細領域Map、UI／SPEC Detailへの前判断の伝播・限定レビューは履歴であり、最新の鍵管理判断へ流用しない。[Access Management詳細](../../Details/access-management/01_Architecture.md)は前固定版で最新判断の限定反映・限定独立レビュー済み・残指摘0。今回のArchitecture分析と本定義の直接同期は限定独立レビュー済み・残指摘0。03〜08横断モデル、Domain集約・MCP／Workbenchの新契約Details、Quality・Sourceは再伝播未完了。保存・公開入口はOPENで、旧配置を新Ownerの完成形として扱わない。
 
 ## 9. 互換性・移行・成立済み能力
 
