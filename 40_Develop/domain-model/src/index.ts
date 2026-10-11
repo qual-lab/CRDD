@@ -206,3 +206,10 @@ export {
   type QualityCheckResult,
   type QualityCheckStatus,
 } from "./quality-change-control/gate.ts";
+export {
+  createPortfolioProjection,
+  type ProjectContextSource,
+  type FederatedProjectSource,
+  type FederatedProjectProjection,
+  type PortfolioProjection,
+} from "./project-context/portfolio.ts";

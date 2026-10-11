@@ -1,35 +1,26 @@
 /**
- * CROSのProject Context Federation。
- *
- * @packageDocumentation
- * @responsibility Sessionで利用可能なRepositoryだけをProject単位へ統合し、欠測とIdentity競合を保持したPortfolio Projectionを返す。
+ * 認可済みProject ContextをProject別の表示投影へ集約する。
+ * @responsibility 認可を行わず、出所・改訂・欠測・Identity競合を保持する。
  * @trace ARCH-000005
- * @trace ARCH-000013
- * @boundary Workspace Exposure、Repository登録、Project Operation Project ContextおよびConsumer Projectionの境界。
- * @effect N/A: 検証済みSnapshotから読取り専用Projectionだけを生成する。
- * @security Grant外RepositoryのIdentity、存在および件数を結果へ含めない。
  */
-import type { RepositoryProjectContext } from "../../../domain-model/src/index.ts";
-
-import type {
-  CrosExposure,
-  CrosRepository,
-  CrosSession,
-} from "../access/session-context.ts";
+import type { RepositoryProjectContext } from "./types.ts";
 
 /**
- * Federationへ渡せるRepository Project Context内容を定義する。
- *
- * @responsibility Repository登録の汎用contentからProject Contextの公開位置を固定する。
+ * 呼出し側が現在要求で認可済みと保証する中立な情報源。
+ * @responsibility Repositoryの宣言Identity・改訂と解析済みContextだけを搬送する。
  * @trace ARCH-000005
- * @shape projectContextを任意Propertyとして持つ読取り内容を表す。
- * @invariant Project Context欠落を空の正常Contextへ変換しない。
- * @boundary Repository登録とProject Federationの型境界。
- * @security Project Context以外のcontent PropertyをFederationへ公開しない。
- * @compatibility 既存Repository登録はprojectContextなしでも保持できる。
+ * @shape projectId、repositoryId、revision、contextの4項目。
+ * @invariant nullは認可済みSource SnapshotでContext未提供を表す。Filesystem不存在の証明ではない。
+ * @boundary 認可済み呼出し側からDomainの純粋集約へ渡す。
+ * @security Credential・Exposure・Binding・Root・元contentを含めず、認可能力ではない。
+ * @compatibility 呼出し側が認可・読取りを担当し、Domainは探索やfallbackを行わない。Reader正常完了や観測不能との識別保証は追加しない。
  */
-type ProjectContextContent = Readonly<Record<string, unknown>> &
-  Readonly<{ projectContext?: RepositoryProjectContext }>;
+export type ProjectContextSource = Readonly<{
+  projectId: string;
+  repositoryId: string;
+  revision: string;
+  context: RepositoryProjectContext | null;
+}>;
 
 /**
  * Portfolio内の一Repository Sourceを定義する。
@@ -84,57 +75,11 @@ export type PortfolioProjection = Readonly<{
 }>;
 
 /**
- * Session Grantから利用可能なRepository集合を解決する。
- *
- * @responsibility Workspace、Registry Revision、Repository Revisionおよびactive状態を全件に適用する。
- * @trace ARCH-000013
- * @input session、Exposure SnapshotおよびRepository登録Snapshotを受け取る。
- * @returns 現在のSessionから利用可能なRepositoryだけを返す。
- * @precondition ExposureとRepositoryは同じRegistry観測から取得する。
- * @postcondition 結果の全Repositoryに一致するactive Exposureが存在する。
- * @effect N/A: 入力Snapshotを変更しない。
- * @failure inactive Sessionは空集合を返し、Grant外Identityを開示しない。
- * @invariant systemAdminだけではRepositoryを追加しない。
- * @boundary Session→Workspace Exposure→Repository集合の直接境界。
- * @security 不一致またはGrant外のRepository Identityを結果へ含めない。
- * @concurrency SessionとRegistry Revisionを一つのSnapshotとして扱う。
- */
-export function resolveAuthorizedRepositories(
-  session: CrosSession,
-  exposures: readonly CrosExposure[],
-  repositories: readonly CrosRepository[],
-): readonly CrosRepository[] {
-  if (!session.active) return Object.freeze([]);
-  const allowedRepositoryIds = new Set(
-    exposures
-      .filter(
-        (exposure) =>
-          exposure.active &&
-          exposure.registryRevision === session.exposureRegistryRevision &&
-          session.workspaceIds.includes(exposure.workspaceId) &&
-          repositories.some(
-            (repository) =>
-              repository.repositoryId === exposure.repositoryId &&
-              repository.revision === exposure.repositoryRevision,
-          ),
-      )
-      .map((exposure) => exposure.repositoryId),
-  );
-  return Object.freeze(
-    repositories
-      .filter((repository) => allowedRepositoryIds.has(repository.repositoryId))
-      .sort((left, right) =>
-        left.repositoryId.localeCompare(right.repositoryId),
-      ),
-  );
-}
-
-/**
  * 許可済みRepository Project ContextをPortfolioへ統合する。
  *
  * @responsibility RepositoryごとのProject ContextをProject単位へまとめ、欠落とIdentity競合をSource別に保持する。
  * @trace ARCH-000005
- * @input repositoriesにresolveAuthorizedRepositoriesの結果を受け取る。
+ * @input repositoriesに呼出し側が現在要求で認可済みと保証した中立Source集合を受け取る。
  * @returns Project別Source Coverageを持つ読取り専用PortfolioProjectionを返す。
  * @precondition 入力は現在のRequest Access Contextで利用可能と確認済みである。
  * @postcondition 各Repositoryは宣言したprojectIdのSourceとして一度だけ現れる。
@@ -143,15 +88,14 @@ export function resolveAuthorizedRepositories(
  * @invariant 欠測を空の正常値へ、競合を探索順の勝者へ変換しない。
  * @boundary 許可済みRepository Project Context→Project Federation→Portfolio Projection。
  * @security 入力にないRepository、Projectまたは期待Contextを推測しない。
- * @concurrency 一つのRepository Registry Snapshotを同期変換する。
+ * @concurrency 入力Sourceを同期変換する。複数読取りの原子的Snapshot保証は追加しない。
  */
 export function createPortfolioProjection(
-  repositories: readonly CrosRepository[],
+  repositories: readonly ProjectContextSource[],
 ): PortfolioProjection {
   const projects = new Map<string, FederatedProjectSource[]>();
   for (const repository of repositories) {
-    const content = repository.content as ProjectContextContent;
-    const context = content.projectContext;
+    const context = repository.context;
     const identitiesMatch =
       context?.projectId === repository.projectId &&
       context.repositoryId === repository.repositoryId;
@@ -159,7 +103,7 @@ export function createPortfolioProjection(
       repositoryId: repository.repositoryId,
       revision: repository.revision,
       state:
-        context === undefined
+        context === null
           ? "missing"
           : identitiesMatch
             ? "complete"

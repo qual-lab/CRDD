@@ -11,10 +11,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { parseRepositoryProjectContextMarkdown } from "../../../domain-model/src/index.ts";
+import {
+  createPortfolioProjection,
+  parseRepositoryProjectContextMarkdown,
+} from "../../../domain-model/src/index.ts";
 import {
   createCrosSession,
-  createPortfolioProjection,
+  resolveCrosRequestScope,
   resolveAuthorizedRepositories,
   type CrosExposure,
   type CrosRepository,
@@ -152,7 +155,25 @@ test("許可RepositoryだけをPortfolioへ統合し欠測をpartialで保つ", 
     exposures,
     repositories,
   );
-  const portfolio = createPortfolioProjection(authorizedRepositories);
+  const scope = resolveCrosRequestScope(
+    {
+      credentialId: "cred-dev",
+      profile: "developer",
+      credentialRegistryRevision: 1,
+      workspaceIds: ["development"],
+      systemAdmin: false,
+    },
+    () => ({ revision: "registry-1", exposures, repositories }),
+  );
+  assert.ok(scope);
+  assert.deepEqual(scope.authorizedRepositories, authorizedRepositories);
+  assert.deepEqual(Object.keys(scope.projectContextSources[0] ?? {}).sort(), [
+    "context",
+    "projectId",
+    "repositoryId",
+    "revision",
+  ]);
+  const portfolio = createPortfolioProjection(scope.projectContextSources);
 
   assert.deepEqual(
     authorizedRepositories.map((repository) => repository.repositoryId),
@@ -178,4 +199,62 @@ test("許可RepositoryだけをPortfolioへ統合し欠測をpartialで保つ", 
     ],
   );
   assert.equal(portfolio.retainedAsSourceOfTruth, false);
+});
+
+/**
+ * 非許可Repositoryの内容を中立入力変換でも参照しない。
+ * @responsibility 認可集合選定がContext参照より先であることを観測する。
+ * @trace PPR-IT-002
+ * @precondition 管理RepositoryのContext取得を計測するFixtureがある。
+ * @stimulus Development限定の認証済みScopeを構成する。
+ * @observation 非許可Context参照回数と中立入力の4項目を観測する。
+ * @oracle 非許可参照0、許可2件だけをDomainへ搬送する。
+ * @cleanup N/A: メモリ内Fixtureだけ。
+ * @boundary PPR-IT-002=Direct Boundary: Session／Exposure→中立Source→Domain
+ */
+test("中立Source変換前に非許可Contextを除外する", () => {
+  let reads = 0;
+  const [dev, management, other] = repositories;
+  assert.ok(dev && management && other);
+  const hiddenContent = Object.defineProperty({}, "projectContext", {
+    get: () => {
+      reads += 1;
+      throw new Error("must_not_read");
+    },
+  });
+  const hidden = { ...management, content: hiddenContent };
+  const scope = resolveCrosRequestScope(
+    {
+      credentialId: "cred-dev",
+      profile: "developer",
+      credentialRegistryRevision: 1,
+      workspaceIds: ["development"],
+      systemAdmin: false,
+    },
+    () => ({
+      revision: "registry-1",
+      exposures,
+      repositories: [dev, hidden, other],
+    }),
+  );
+  assert.ok(scope);
+  assert.equal(reads, 0);
+  assert.deepEqual(
+    scope.projectContextSources.map((source) => source.repositoryId),
+    ["PRJ-001-DEV", "PRJ-002-DEV"],
+  );
+  assert.ok(Object.isFrozen(scope.projectContextSources));
+  for (const source of scope.projectContextSources) {
+    assert.deepEqual(Object.keys(source).sort(), [
+      "context",
+      "projectId",
+      "repositoryId",
+      "revision",
+    ]);
+    assert.ok(Object.isFrozen(source));
+  }
+  assert.equal(
+    createPortfolioProjection(scope.projectContextSources).projects.length,
+    2,
+  );
 });

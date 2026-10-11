@@ -7,7 +7,11 @@
  */
 import { randomBytes } from "node:crypto";
 
-import { resolveAuthorizedRepositories } from "../federation/project.ts";
+import type {
+  ProjectContextSource,
+  RepositoryProjectContext,
+} from "../../../domain-model/src/index.ts";
+import { resolveAuthorizedRepositories } from "./resolve-repositories.ts";
 import type { RequestAccessContext } from "./credential.ts";
 import { createCrosSession } from "./session-context.ts";
 import type { CrosExposureSnapshot } from "./types.ts";
@@ -47,13 +51,28 @@ export function resolveCrosRequestScope(
     snapshot.revision,
   );
   if (session === null) return null;
+  const authorizedRepositories = resolveAuthorizedRepositories(
+    session,
+    snapshot.exposures,
+    snapshot.repositories,
+  );
+  const projectContextSources: readonly ProjectContextSource[] = Object.freeze(
+    authorizedRepositories.map((repository) =>
+      Object.freeze({
+        projectId: repository.projectId,
+        repositoryId: repository.repositoryId,
+        revision: repository.revision,
+        context:
+          (repository.content.projectContext as
+            | RepositoryProjectContext
+            | undefined) ?? null,
+      }),
+    ),
+  );
   return Object.freeze({
     snapshot,
     session,
-    authorizedRepositories: resolveAuthorizedRepositories(
-      session,
-      snapshot.exposures,
-      snapshot.repositories,
-    ),
+    authorizedRepositories,
+    projectContextSources,
   });
 }

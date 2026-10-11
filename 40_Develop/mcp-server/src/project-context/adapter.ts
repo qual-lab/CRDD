@@ -12,7 +12,7 @@
  */
 import { types as utilTypes } from "node:util";
 
-import type { PortfolioProjection } from "../../../cros/src/index.ts";
+import type { PortfolioProjection } from "../../../domain-model/src/index.ts";
 import {
   MCP_PROJECT_CONTEXT_GET_TOOL,
   MCP_PROJECT_CONTEXT_LIST_TOOL,

@@ -208,14 +208,16 @@ ARCH-000013の意味Ownerである[Access Management](../access-management/01_Ar
 
 | 段階 | Domainが扱う情報・処理 | 境界・失敗条件 |
 |---|---|---|
-| 入力 | 認可済みRepository ID、検証対象Root／Binding、Source改訂と読取り観測 | 認可済み集合がない場合は停止。全Registry、古い固定Grant、推定したRepositoryへfallbackしない |
+| 入力 | 現在要求で認可済みのprojectId、repositoryId、revision、contextだけ | 集合欠落は停止し、明示空集合とは区別する。Root／Binding検証は上流Readerの責務で、AMからの本番接続はOPEN。全Registry、古い固定Grant、推定Repositoryへfallbackしない |
 | Root・読取り | 既存Repository／Version Control契約で技術的境界を検証し、Owner Artifactを解析 | Root検証を認可へ昇格しない。認可拒否と読取り不能を成功の空値へ畳まない |
 | 集約 | Project IDに従い、既存Contextの五場面、Source Coverage、出所・改訂、部分取得と矛盾を保持 | 未許可Repositoryの存在・件数・内容を推測・補完しない。複数読取りを原子的Snapshotと偽らない |
 | 返却 | 人間・MCP向けに適合できる中立なProject／Portfolio結果 | Authority、Credential、鍵Secret、交換Recoveryを結果へ混ぜない。利用側の現在認可再確認を代替しない |
 
 中立なRoot／保存部品は[Repository保存](./03_Repository_Storage.md)の既存配置・Path検証を支えるだけであり、Access Managementの秘密Store・保存Schema・認可状態の意味Ownerにはならない。Package再編を理由に保存Root・保護条件を変えず、追加共有State・Registry・Lockを作らない。
 
-Source値の意味と現在性はOwner Artifactに従い、独自のProject正本、履歴Store、Live状態、安定IDまたはObserved Atを追加しない。集約入力の具体型・公開Symbol・Reader接続はOPENで、現行の公開集合を移管完了と扱わない。SCR-000008／BHV-000012／`PRT-000008.spec-000012`の集約断面はPartialである。
+Source値の意味と現在性はOwner Artifactに従い、独自のProject正本、履歴Store、Live状態、安定IDまたはObserved Atを追加しない。純粋集約の公開入口は`createPortfolioProjection`、入力は`ProjectContextSource`（projectId、repositoryId、revision、context）で、実体は`src/project-context/portfolio.ts`に置く。入力が認可済みであることは現在要求の呼出し側が保証し、Domainが保証・再認可する値ではない。context:nullとmissingは「認可済みCROS Source SnapshotでContextが未提供」を示し、Filesystem不存在・Reader正常完了・観測不能との識別を証明しない。既存config Readerは読取り／解析失敗時にSnapshotを返さず例外で停止し、今回、観測不能をnullへ変換するReader・API・fallbackは追加しない。将来のReader分類接続までunknownとの識別保証はOPEN。宣言projectIdで集約し、ContextのProject／Repository両Identityが一致する場合だけcomplete、未提供はmissing、不一致はconflicting。Projectは競合優先、全Source completeだけcomplete、それ以外partialで、従来の昇順と不変結果を維持する。Credential、Exposure、Binding、Root、元contentは集約入力へ含めない。
+
+旧本番HTTP／MCPの認可済み集合からの4項目変換は、既存CROSの`access/resolve.ts`が一度だけ所有する。これはAMへの認可接続完了ではない。実Root本文Reader、AM認可集合からの本番搬送、読取り不能の表示、旧REST撤去はOPEN。複数Repositoryの読取りを原子的Snapshotと主張しない。SCR-000008／BHV-000012／`PRT-000008.spec-000012`の集約断面は引き続きPartialである。
 
 Qualityへの導出元は本節。正常な許可集合の集約、部分読取り・矛盾、入力集合欠落、未許可Source非開示、認可とRoot検証の分離をUT／IT／STで評価する。観測は入力集合と読取り先、出所・改訂・Coverage、拒否結果、終了後の秘密・認可状態の非保持とし、旧CROS試験を新契約の合格根拠へ流用しない。QA Local Item IDはQuality側の導出で確定する。
 

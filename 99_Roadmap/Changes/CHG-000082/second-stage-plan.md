@@ -1356,3 +1356,13 @@ Exposureは既存登録とdevelopment／managementの明示集合だけ。空集
 通常保存、改訂競合、不正候補、base／next／unknown再入場、実子Process喪失、出版後清掃・Lock解放不明を局所確認する。静的3軸とPackage全試験を通した後、固定候補を限定独立レビューへ渡す。全体保存／初回／鍵／認可Capabilityは未完了のまま、局所範囲だけPhaseコミットする。
 
 固定13Pathの限定独立再レビューはPass、全重大度の残指摘0。callbackの同期・認可評価・メモリ候補限定と外部／永続Effect 0を契約へ明記し、Schema-validな資格・交換・既存User除去の拒否とpartial pending保持停止を追加確認した。Node v24.19.0でformat・type・warning禁止Lintと全19 Case成功（保存IT 8、既存UT 11）。実子Process終了と自己生成試験Root残存0、差分確認成功。Checkerは3057件、今回変更Pathは基準版にも存在するPROJECT_CONTEXTのChecklist指摘1件で、他Pathの基準版差分は未確定。全体Passは主張しない。正式191項目評価はNot Run、実Host Store・旧Evidenceは不変更。次は初回Root／出版、認証・鍵実処置と本番Consumer接続の残件を扱う。
+
+## 認可済みPortfolioのDomain移管 — 2026-10-12
+
+基準HEAD `d306a455`、着手時clean。承認済み責務再編内の配置・内部API変更として、旧CROS純粋集約と3結果型をDomainへ移管する。認可は旧CROSのまま保持し、DomainがCredential・Exposure・Root・Bindingを解釈する構造を作らない。2本番Consumerは既存Scopeの共通4項目変換へ接続し、中継公開Fileを追加しない。着手前の読み取り専用整合確認は条件付き着手可・追加人間判断不要。条件を本項の試験と変更禁止範囲へ統合した。
+
+維持する能力は両Identity照合、欠測・競合優先、昇順、不変結果、入力非変更、正本化しないこと。Domain純粋試験、CROS認可→Domainの統合試験、HTTP／MCP／Workbenchの既存回帰、文書・QA・Symbol／Catalog整合と固定候補の限定独立レビューを行う。新Framework、Store、認可変更、結果shape／状態語彙変更、本文Reader、観測不能のmissing化、旧REST撤去、実Host操作は対象外。標準規則・外部Effect・署名対象実行方式を変更しないため、全体署名E2E・準拠監査はこの移管段階では実行しない。AM本番接続と全体Readyは後続Gateを維持する。
+
+限定独立レビューは過剰な欠測保証、設計表のRoot／Binding入力混在、QA見出し前空行の3指摘を返した。統合是正方針を指摘元へ再提示して整合を確認した。null／missingを「認可済みCROS Source SnapshotでContext未提供」という旧意味へ合わせ、Filesystem不存在・Reader正常完了・観測不能との識別を保証しない。旧`content:{}`→missing／partialを維持し、既存config Readerの読取り／解析失敗時の停止を変更しない。実Reader分類はOPENのままで、新たなReader／fallback・状態語彙・結果shape・認可・Root／Binding APIは追加しない。
+
+局所結果: 2026-10-12 JST、Node v24.19.0、各Packageの`npm test`でDomain115、AM54、CROS34、MCP56、Workbench33の計292 Case成功、失敗／取消／skip0、全Exit 0。各書式・型・warning禁止Lint成功、Workbenchの既存Build成功。所要はDomain47.758983秒、AM45.9366613秒、CROS10.4359836秒、MCP15.048612秒、Workbench133.6860602秒。レビュー是正はHeader／文書のみで実行コードは不変、是正後Domain静的3軸とDomain2／CROS2の対象4 Caseを再実行して成功した。固定22ファイルの限定独立再レビューPass・全重大度残指摘0。固定tracked差分Hash `7e81702dc6e4f067cdb54c62608878f14143081d`、新Domain Source SHA256 `2d3aeaeef2a8df411b6232a09ca97f97fba5d6c212913bfa0086f4089ac5ddc3`、新認可Source SHA256 `93f6c61d5482694f2df43ff461714391f5fde494c7567d88d4dd84f81ea9809a`、新Domain試験 SHA256 `4db4002b8654d49be08ed8d4ac2f93acd9379fb60eb32764a0887406755b1f72`。実行前後HEAD `d306a455`一致、差分空白検査成功、自己生成AM試験Root残存0、現行Source／Symbol／Catalogの旧集約実体参照0。完全出力は端末で確認し、上記コマンドから再生成できるため実行別書庫は増やさない。結果同期は現在投影だけで、AM本番認可・Reader・鍵管理／配送・ST／UAT・旧REST撤去・正式191項目・全体完成は未成立を維持する。

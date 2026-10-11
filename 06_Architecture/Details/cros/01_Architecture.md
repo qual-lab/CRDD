@@ -8,6 +8,8 @@
 
 認証・認可・資格・鍵交換の現在の意味具体化は[Access Management詳細](../access-management/01_Architecture.md)が所有する（Candidate・保存／公開入口OPEN）。Domain集約、活動・Profile、MCP／Workbenchの新Owner接続は未完了。本書の本文は比較用に維持し、現在の認可契約へ適用しない。
 
+2026-10-12の限定移管候補: 純粋Portfolio集約・結果型は[Domainの集約契約](../domain-model/01_Architecture.md#41-認可済みcontextportfolioの集約)へ移す。現行CROSは`access/resolve-repositories.ts`の認可集合選定と`access/resolve.ts`の中立Source変換を担当し、集約を再定義しない。HTTP／MCPの認可は旧入口のままで、AM本番接続・旧REST撤去の完了は意味しない。以下の旧集約Owner表は比較用の履歴である。
+
 本詳細はCHG-000082の責務再編候補である。CROSは共通能力であり、専用REST Server、GatewayまたはShared Server Runtimeを新構成へ残さない。以下の現行実装照合は旧配置で成立した範囲を示し、新しいMCP／内部呼出しの接続済み証明ではない。公開操作、設定移行、全利用側とQAの確認後に段階4の独立設計レビューへ渡す。
 
 ## 基本設計との関係

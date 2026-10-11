@@ -11,7 +11,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { PortfolioProjection } from "../../../cros/src/index.ts";
+import type { PortfolioProjection } from "../../../domain-model/src/index.ts";
 import {
   routeMcpRequest,
   handleMcpProjectContextRequest,

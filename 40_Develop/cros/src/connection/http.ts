@@ -44,7 +44,7 @@ import {
 import {
   createPortfolioProjection,
   type PortfolioProjection,
-} from "../federation/project.ts";
+} from "../../../domain-model/src/index.ts";
 import { resolveCrosRequestScope } from "../access/resolve.ts";
 
 const HOST = "127.0.0.1";
@@ -252,7 +252,7 @@ export async function startCrosRemoteTransport(input: {
       );
       if (scope === null)
         throw new Error("cros_remote_session_creation_failed");
-      const portfolio = createPortfolioProjection(scope.authorizedRepositories);
+      const portfolio = createPortfolioProjection(scope.projectContextSources);
       sendJson(response, method, 200, {
         contract: "cros/remote-transport/v1",
         status: "available",

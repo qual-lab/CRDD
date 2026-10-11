@@ -4,6 +4,8 @@
 担当責任者: Qual-Lab
 最終更新日: 2026-10-12
 
+最新局所結果: 認可済みSourceの純粋Portfolio集約をDomainへ移管し、CROSの認可先行変換・HTTP／MCP／Workbenchの利用側を接続した。5Package計292 Case・各静的3軸・Workbench Build成功、固定22ファイルの限定独立再レビューPass・全重大度残指摘0。非許可Context参照0、欠測／Identity競合、順序、不変性、集合欠落拒否を確認した。欠測はSource Snapshotで未提供という旧表示で、実Filesystem不存在・Reader正常完了・unknown識別を保証しない。AM本番認可・実本文Reader・鍵管理／配送・公開ST／UAT・旧REST撤去・全体Ready・191項目正式評価は未完了。以下はAM実アクセス等の前段局所結果である。
+
 最新局所結果: 内容実アクセス解決をRFD-IT-013の一部へ接続した。AM全54 Case・静的3軸成功、固定9ファイルの限定独立再レビューPass・全重大度残指摘0。認可前／pending異常時の対象観測0、Binding改ざんのSchema拒否、manifest／Git不成立、解放不明時の内部値非返却、次要求への公開解除反映を確認した。本番Consumerの能力再利用0・Domain搬送・鍵管理・配送・全体STは未成立、191項目正式Not Runを維持する。以下51 Case以前はこの接続前の履歴であり、全体完成へ流用しない。
 
 最新局所候補: 管理対象別読取りをRFD-IT-013／021／024の一部へ接続した。AM全51 Case・静的3軸成功、固定11ファイルの限定独立レビューPass・残指摘0。三Role×四対象の完全DTO、Role変更後の拒否、未設定／明示空Exposure、不正kindのI/O0、認証・認可前材料保持、清掃／解放不明時の非開示を確認した。内容実アクセス認可・鍵管理・配送・本番Consumerは未成立、191項目正式Not Runを維持する。本人読取りの48 Case・限定独立レビューPass、前段登録3操作の45 Caseは今回接続前の履歴である。

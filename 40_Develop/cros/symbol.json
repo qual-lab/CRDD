@@ -38,9 +38,9 @@
       ]
     },
     {
-      "symbolId": "cros.project-federation",
+      "symbolId": "cros.authorized-repositories",
       "kind": "file",
-      "path": "src/federation/project.ts",
+      "path": "src/access/resolve-repositories.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000013"
@@ -134,7 +134,8 @@
         "PPR-IT-002"
       ],
       "verifies": [
-        "cros.project-federation"
+        "cros.authorized-repositories",
+        "domain-model.project-portfolio"
       ]
     },
     {

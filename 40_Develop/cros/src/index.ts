@@ -49,13 +49,7 @@ export {
   type CrosRepository,
   type CrosSession,
 } from "./access/session-context.ts";
-export {
-  createPortfolioProjection,
-  resolveAuthorizedRepositories,
-  type FederatedProjectProjection,
-  type FederatedProjectSource,
-  type PortfolioProjection,
-} from "./federation/project.ts";
+export { resolveAuthorizedRepositories } from "./access/resolve-repositories.ts";
 export {
   executeRegisteredTool,
   inspectRegisteredTool,

@@ -13,7 +13,6 @@
  */
 import {
   authenticateConnectionCredential,
-  createPortfolioProjection,
   readCrosRuntimeActivity,
   resolveCrosAiProfileAdministration,
   resolveCrosRequestScope,
@@ -23,6 +22,7 @@ import {
   type CrosRepository,
   type CrosRuntimeActivityReader,
 } from "../../../cros/src/index.ts";
+import { createPortfolioProjection } from "../../../domain-model/src/index.ts";
 import type {
   ProjectOperationRecordKind,
   TopicMeetingAccess,
@@ -196,7 +196,7 @@ export function createCrosProjectContextMcpResolver(input: {
         {
           projectContext: {
             readPortfolio: async () =>
-              createPortfolioProjection(contentScope().authorizedRepositories),
+              createPortfolioProjection(contentScope().projectContextSources),
           },
           ...(administration === null
             ? {}

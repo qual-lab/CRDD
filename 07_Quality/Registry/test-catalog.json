@@ -572,10 +572,10 @@
       ]
     },
     {
-      "producerOwner": "cros",
+      "producerOwner": "domain-model",
       "producerPaths": [
-        "40_Develop/cros/src/federation/project.ts",
-        "40_Develop/cros/src/index.ts"
+        "40_Develop/domain-model/src/project-context/portfolio.ts",
+        "40_Develop/domain-model/src/index.ts"
       ],
       "consumerOwner": "mcp",
       "consumerStatic": true,
@@ -987,6 +987,19 @@
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": ["authorized_repositories_only", "missing_source_preserved", "projection_not_source_of_truth"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "domain-model:integration:project-portfolio",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/integration/project-portfolio.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["project-context", "portfolio", "coverage"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["missing_source_preserved", "identity_conflict_preserved", "projection_not_source_of_truth"],
       "mandatoryByDefault": true
     },
     {

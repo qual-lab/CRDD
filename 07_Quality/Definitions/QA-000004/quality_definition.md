@@ -154,3 +154,9 @@ Source Definition由来の検証義務を維持し、Detailは具体的な観測
 - [x] RT／PT／LTの適用または理由付きN/Aを記録し、PT／LTは人間の明示指定なしに実行しない
 - [x] 自動化、手動確認および人間判断の境界を示した
 - [x] 現行Source、TestおよびEvidenceとの照合をReality Auditへ分離した
+
+## 認可済みPortfolio集約のOwner移管候補 — 2026-10-12
+
+PPR-IT-002の純粋集約部分はDomain Modelの公開`createPortfolioProjection`へ接続する。Source SnapshotでContext未提供、両Identity競合、競合優先、全Source完全性、Project／Source昇順、入力非変更、不変結果、集合欠落の拒否をDomain試験で観測する。既存CROS統合試験は現在Session／Exposureの認可後に4項目だけを搬送し、非許可Context参照0を確認する。HTTP／MCPの既存Consumer回帰を併用し、Domain試験だけで認可成立を主張しない。旧結果shapeと状態語彙は不変。null／missingは入力SnapshotでContext未提供を表し、Filesystem不存在・Reader正常完了を証明しない。新たなmissing／unknown識別や実Root本文読取り保証はOPENで、観測不能をnullへ変換するReader・API・fallbackは追加しない。
+
+AMの現在認可からの本番搬送、実Root読取り、不完全性の公開ST／UAT、旧REST撤去と正式Local Item全体評価は未完了。局所候補の実行結果はCHG計画で追跡し、PPR-IT-002全体Passへ読み替えない。

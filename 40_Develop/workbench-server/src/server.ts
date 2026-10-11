@@ -40,8 +40,8 @@ import {
   readRemoteAiProfileCatalog,
   readRemotePortfolio,
   readRemoteRuntimeActivity,
-  type PortfolioProjection,
 } from "../../cros/src/index.ts";
+import type { PortfolioProjection } from "../../domain-model/src/index.ts";
 import {
   executeChangePublication,
   gitChangePublicationAdapter,
