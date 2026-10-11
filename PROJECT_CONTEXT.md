@@ -40,6 +40,10 @@ v0.21.0は公開済み、v0.22.0とCHG-000082は未完了である。責務再�
 
 ## 3. 今、人間が決めることは何か
 
+### 同要求の許可Repository集合 — 2026-10-12
+
+現在認証・Role内容範囲・Exposure・登録を既存の同じLockで選び、一意なRepositoryと全許可範囲を返す内部入口を追加した。AM全56 Case・静的3軸成功、固定9Pathの限定再レビューPass・全重大度残指摘0。認証済み空集合と、初回未完了・対象観測・清掃・解放不明を区別する。管理改訂は本文の版ではない。次は実本文ReaderとWorkbench／MCP本番要求への搬送を接続する。鍵管理／配送・性能／lifecycle・旧REST撤去・正式191項目・AM全体完成は残り、追加人間判断は不要。既存配送方式回答待ちは維持する。
+
 ### 固定Project Context本文Reader — 2026-10-12
 
 技術的Rootから固定本文を最大1 MiBで読み、Project・Repository・役割を期待manifestと照合するDomain入口を接続した。Domain全118 Caseと静的3軸成功、固定10Pathの限定独立レビューPass・全重大度残指摘0。読取り不能・不正・不一致は固定unavailableで、null／missingへ変換しない。成功ContextからPortfolioへの局所搬送も確認したが、AM現在認可から本番Consumerへの接続・鍵管理／配送・旧REST撤去・正式191項目・全体完成は残る。追加の人間判断は不要、既存の配送方式回答待ちは維持する。

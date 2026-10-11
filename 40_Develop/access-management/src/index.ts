@@ -8,6 +8,8 @@
 export type {
   RepositoryAccess,
   RepositoryAccessResult,
+  AuthorizedRepository,
+  RepositoryAccessCollectionResult,
 } from "./access/repository-access.ts";
 export type {
   CurrentAccessResult,
@@ -60,6 +62,7 @@ export {
   readCurrentAccess,
   readManagementState,
   resolveRepositoryAccess,
+  resolveRepositoryAccessCollection,
   createInitialCredential,
   initializeAccessManagementState,
   readAccessManagementState,

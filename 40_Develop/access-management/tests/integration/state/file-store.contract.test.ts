@@ -5,6 +5,7 @@
  * @trace RFD-IT-021
  * @trace RFD-IT-024
  * @trace RFD-IT-013
+ * @trace RFD-IT-019
  * @trace RFD-IT-001
  * @trace RFD-IT-002
  * @level IT
@@ -31,6 +32,7 @@ import {
   readCurrentAccess,
   readManagementState,
   resolveRepositoryAccess,
+  resolveRepositoryAccessCollection,
   createCredentialMaterial,
   registerUser,
   updateUserName,
@@ -1965,6 +1967,284 @@ function contentFixture(t: TestContext) {
   );
   return { ...f, target };
 }
+
+/**
+ * 同改訂の許可集合を全範囲と一意な実体へ結合する。
+ * @responsibility 複数範囲を落とさず、認証済み空集合と次要求の再認可を確認する。
+ * @trace RFD-IT-013
+ * @trace RFD-IT-019
+ * @precondition 自己生成管理Storeと二つのGit Repository。
+ * @stimulus 複数範囲公開・三Role読取り・公開解除を行う。
+ * @observation 集合改訂・全範囲・要素一意性・manifest open回数・凍結を確認する。
+ * @oracle 各許可Repositoryは一回観測。空内容範囲は認証済み空集合。次要求は変更を反映する。
+ * @cleanup 既存Fixtureが全自己生成Rootを削除し不存在確認する。
+ * @boundary AM公開入口と実Git／Filesystem。
+ */
+test("許可Repository集合は同改訂・全範囲・一意な実体を保持", (t) => {
+  const f = contentFixture(t),
+    second = repositoryFixture(t);
+  const secondManifest = {
+    ...second.manifest,
+    repositoryId: "repository.second",
+  };
+  fs.writeFileSync(second.manifestPath, JSON.stringify(secondManifest));
+  fs.writeFileSync(
+    path.join(second.directory, "PROJECT_CONTEXT.md"),
+    second.context.replaceAll("repository.fixture", "repository.second"),
+  );
+  assert.equal(
+    updateExposure(
+      f.root,
+      f.tokens.manager,
+      3,
+      crypto.randomUUID(),
+      f.target.manifest.repositoryId,
+      ["development", "management"],
+    ).status,
+    "completed",
+  );
+  assert.equal(
+    registerRepository(
+      f.root,
+      f.tokens.manager,
+      4,
+      crypto.randomUUID(),
+      secondManifest.repositoryId,
+      second.directory,
+    ).status,
+    "completed",
+  );
+  assert.equal(
+    updateExposure(
+      f.root,
+      f.tokens.manager,
+      5,
+      crypto.randomUUID(),
+      secondManifest.repositoryId,
+      ["management"],
+    ).status,
+    "completed",
+  );
+  const open = fs.openSync,
+    counts = new Map<string, number>();
+  t.after(() => {
+    fs.openSync = open;
+  });
+  fs.openSync = (target, flags, mode) => {
+    const name = String(target);
+    if ([f.target.manifestPath, second.manifestPath].includes(name))
+      counts.set(name, (counts.get(name) ?? 0) + 1);
+    return open(target, flags, mode);
+  };
+  try {
+    const developer = resolveRepositoryAccessCollection(
+      f.root,
+      f.tokens.developer,
+    );
+    assert.equal(developer.status, "completed");
+    if (developer.status !== "completed")
+      throw new Error("collection unavailable");
+    assert.equal(developer.managementRevision, 6);
+    assert.deepEqual(
+      developer.repositories.map((item) => [
+        item.repositoryId,
+        item.workspaceIds,
+      ]),
+      [["repository.fixture", ["development"]]],
+    );
+    assert.equal(counts.get(f.target.manifestPath), 1);
+    assert.equal(counts.has(second.manifestPath), false);
+    counts.clear();
+    const manager = resolveRepositoryAccessCollection(f.root, f.tokens.manager);
+    assert.equal(manager.status, "completed");
+    if (manager.status !== "completed")
+      throw new Error("collection unavailable");
+    assert.equal(manager.managementRevision, 6);
+    assert.deepEqual(
+      manager.repositories.map((item) => [
+        item.repositoryId,
+        item.workspaceIds,
+      ]),
+      [
+        ["repository.fixture", ["development", "management"]],
+        ["repository.second", ["management"]],
+      ],
+    );
+    assert.ok(Object.isFrozen(manager));
+    assert.ok(Object.isFrozen(manager.repositories));
+    for (const item of manager.repositories) {
+      assert.ok(Object.isFrozen(item));
+      assert.ok(Object.isFrozen(item.workspaceIds));
+      assert.deepEqual(Object.keys(item).sort(), [
+        "bindingId",
+        "manifest",
+        "repositoryId",
+        "root",
+        "workspaceIds",
+      ]);
+    }
+    assert.equal(counts.get(f.target.manifestPath), 1);
+    assert.equal(counts.get(second.manifestPath), 1);
+    counts.clear();
+    assert.deepEqual(
+      resolveRepositoryAccessCollection(f.root, f.tokens.administrator),
+      { status: "completed", managementRevision: 6, repositories: [] },
+    );
+    assert.equal(counts.size, 0);
+  } finally {
+    fs.openSync = open;
+  }
+  fs.rmSync(second.manifestPath);
+  assert.deepEqual(
+    resolveRepositoryAccessCollection(f.root, f.tokens.manager),
+    { status: "unavailable", reason: "repository_access_observation_unknown" },
+  );
+  assert.equal(
+    resolveRepositoryAccessCollection(f.root, f.tokens.developer).status,
+    "completed",
+  );
+  fs.writeFileSync(second.manifestPath, JSON.stringify(secondManifest));
+  assert.equal(
+    updateExposure(
+      f.root,
+      f.tokens.manager,
+      6,
+      crypto.randomUUID(),
+      f.target.manifest.repositoryId,
+      [],
+    ).status,
+    "completed",
+  );
+  assert.deepEqual(
+    resolveRepositoryAccessCollection(f.root, f.tokens.developer),
+    { status: "completed", managementRevision: 7, repositories: [] },
+  );
+  const manager = resolveRepositoryAccessCollection(f.root, f.tokens.manager);
+  assert.equal(manager.status, "completed");
+  if (manager.status === "completed")
+    assert.deepEqual(
+      manager.repositories.map((item) => item.repositoryId),
+      ["repository.second"],
+    );
+});
+
+/**
+ * 集合取得の拒否・清掃・対象観測・解放不明を区別する。
+ * @responsibility 未認証観測と失敗時の部分集合公開を防ぐ。
+ * @trace RFD-IT-013
+ * @trace RFD-IT-019
+ * @precondition 公開済みRepositoryとcredential_storedの有効資格を持つ自己生成Root。
+ * @stimulus 初回未完了の有効資格で集合を要求し、不正資格・pending・manifest欠測・解放失敗も注入する。
+ * @observation 初回stage、current／pending／replace完全byte・Directory一覧、対象観測数、再入場結果。
+ * @oracle 初回未完了は材料処置前に固定拒否・能力0。拒否・清掃不明は対象観測0、対象・解放不明は集合非返却。
+ * @cleanup Hookを復元し、既存Fixtureが全自己生成Rootを削除する。
+ * @boundary 現在認証・保存Lock・対象Filesystem。
+ */
+test("許可集合の不明は空成功や部分成功へ変換しない", (t) => {
+  const f = contentFixture(t),
+    pending = path.join(f.directory, "access-management.pending.json");
+  const initial = fixture(t);
+  const issued = createInitialCredential(
+    initial.root,
+    prepareInitialUser(initial),
+  );
+  assert.equal(issued.status, "completed");
+  if (issued.status !== "completed" || !issued.value.token)
+    throw new Error("initial credential unavailable");
+  assert.equal(
+    authenticateCredential(initial.root, issued.value.token).status,
+    "completed",
+  );
+  const initialCurrent = path.join(initial.directory, "access-management.json");
+  assert.equal(
+    JSON.parse(fs.readFileSync(initialCurrent, "utf8")).initialization.stage,
+    "credential_stored",
+  );
+  const initialPending = path.join(
+    initial.directory,
+    "access-management.pending.json",
+  );
+  const initialReplace = path.join(
+    initial.directory,
+    "access-management.replace.json",
+  );
+  fs.writeFileSync(initialPending, "{");
+  fs.writeFileSync(initialReplace, "untrusted replacement");
+  const initialFiles = [initialCurrent, initialPending, initialReplace];
+  const initialBytes = initialFiles.map((file) => fs.readFileSync(file));
+  const initialNames = fs.readdirSync(initial.directory);
+  fs.writeFileSync(pending, "{");
+  const lstat = fs.lstatSync;
+  let observed = 0;
+  t.after(() => {
+    Object.defineProperty(fs, "lstatSync", { value: lstat });
+  });
+  Object.defineProperty(fs, "lstatSync", {
+    value: (target: fs.PathLike, options?: never) => {
+      if (String(target).startsWith(f.target.directory)) observed++;
+      return lstat(target, options);
+    },
+  });
+  try {
+    assert.deepEqual(
+      resolveRepositoryAccessCollection(initial.root, issued.value.token),
+      { status: "unavailable", reason: "repository_access_rejected" },
+    );
+    assert.equal(observed, 0);
+    assert.deepEqual(
+      initialFiles.map((file) => fs.readFileSync(file)),
+      initialBytes,
+    );
+    assert.deepEqual(fs.readdirSync(initial.directory), initialNames);
+    for (const token of ["invalid", createCredentialMaterial().token])
+      assert.deepEqual(resolveRepositoryAccessCollection(f.root, token), {
+        status: "unavailable",
+        reason: "repository_access_rejected",
+      });
+    assert.equal(observed, 0);
+    assert.equal(fs.readFileSync(pending, "utf8"), "{");
+    assert.deepEqual(
+      resolveRepositoryAccessCollection(f.root, f.tokens.developer),
+      { status: "unavailable", reason: "repository_access_cleanup_pending" },
+    );
+    assert.equal(observed, 0);
+  } finally {
+    Object.defineProperty(fs, "lstatSync", { value: lstat });
+  }
+  fs.rmSync(pending);
+  const manifest = fs.readFileSync(f.target.manifestPath);
+  fs.rmSync(f.target.manifestPath);
+  assert.deepEqual(
+    resolveRepositoryAccessCollection(f.root, f.tokens.developer),
+    { status: "unavailable", reason: "repository_access_observation_unknown" },
+  );
+  fs.writeFileSync(f.target.manifestPath, manifest);
+  const remove = fs.rmSync;
+  t.after(() => {
+    fs.rmSync = remove;
+  });
+  fs.rmSync = (target, options) => {
+    if (String(target).endsWith("access-management.lock"))
+      throw new Error("injected private detail");
+    return remove(target, options);
+  };
+  try {
+    assert.deepEqual(
+      resolveRepositoryAccessCollection(f.root, f.tokens.developer),
+      { status: "unavailable", reason: "repository_access_release_unknown" },
+    );
+  } finally {
+    fs.rmSync = remove;
+  }
+  assert.equal(
+    resolveRepositoryAccessCollection(f.root, f.tokens.developer).status,
+    "completed",
+  );
+  assert.equal(
+    fs.existsSync(path.join(f.directory, "access-management.lock")),
+    false,
+  );
+});
 
 /**
  * 現在内容認可と実体検証を同要求へ相関する。

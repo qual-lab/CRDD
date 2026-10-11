@@ -48,6 +48,7 @@ test("三Roleと全10具体操作の固定分担", () => {
     "registerRepository",
     "registerUser",
     "resolveRepositoryAccess",
+    "resolveRepositoryAccessCollection",
     "unregisterRepository",
     "updateAccessManagementState",
     "updateExposure",

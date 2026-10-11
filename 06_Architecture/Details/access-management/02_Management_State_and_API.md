@@ -175,6 +175,14 @@ ExposureのRepository IDは既存登録を参照し、重複・孤立参照を�
 
 確認対象はRFD-IT-013の現在認可・実アクセス部分。誤鍵、未知ID、管理能力のみ、範囲外、pending異常、非exact Root、manifest欠測／不正／ID差／超過、解放不明、Context欠測、次要求の公開解除反映を反証する。署名E2E・本番Consumer・正式191項目評価は未成立のまま保持する。
 
+### 3.4 同じ要求の許可Repository集合
+
+`resolveRepositoryAccessCollection(root, token)`は既存の同じ管理Lock内で現在認証・初回完了を確認し、Role内容範囲とExposureの積集合から登録Repositoryを一度に選ぶ。Repositoryごとに一意な要素とし、許可された全`workspaceIds`を保持する。ID順に並べ、各対象の実Root・Binding・固定manifestを一回だけ検証する。認証前の対象観測・pending清掃は行わず、許可後の清掃・全対象観測・Lock解放が成立してから結果を返す。
+
+成功結果の`managementRevision`は管理設定の改訂であり、Project Context本文の版を意味しない。要素は`repositoryId / workspaceIds / bindingId / manifest / root`だけであり、単数範囲や曖昧な本文revisionを付けない。現在認証と初回完了を確認した許可対象0件だけが成功空集合で、認証・清掃・実体・解放の不成立を空成功や部分成功へ畳まない。内部能力の要求限定使用・保存／cache／Transport公開禁止は3.3と同じである。
+
+観測量は既存16 MiBの完全状態内の登録数に比例する。新しいLockや共有Stateは作らない。RFD-IT-013／019で範囲保持・一意性・各manifest一回観測・次要求再認可・失敗時集合非返却を局所確認する。本番Consumerの性能・lifecycle・本文搬送は別Gateであり、この入口だけで集約Capability完成を主張しない。
+
 ## 4. 物理保存の比較と未決条件
 
 [既存Host管理Root](../domain-model/03_Repository_Storage.md#6-crosとの物理分離)を維持する。Package改名で`qual-lab/cros/<trust-domain-id>`を改名せず、秘密をRepositoryへ移さない。

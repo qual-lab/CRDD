@@ -60,6 +60,42 @@ export type RepositoryAccessResult =
     }>;
 
 /**
+ * 同じ要求で許可されたRepositoryと全内容範囲を保持する。
+ * @responsibility Repositoryを一意にし、複数の許可範囲を落とさない。
+ * @trace ARCH-000013
+ * @shape repositoryId、workspaceIds、bindingId、manifest、root。
+ * @invariant 管理改訂は集合側で保持し、本文の版と混同しない。
+ * @boundary 信頼した同Processの今回要求だけ。
+ * @security 保存・cache・TransportへのRoot公開を禁止する。
+ * @compatibility 次要求では現在認可を再評価する。
+ */
+export type AuthorizedRepository = Readonly<{
+  repositoryId: string;
+  workspaceIds: readonly ("development" | "management")[];
+  bindingId: string;
+  manifest: RepositoryManifest;
+  root: VerifiedRepositoryRoot;
+}>;
+
+/**
+ * 同改訂の許可集合と取得不能を区別する。
+ * @responsibility 認証済み空集合だけを成功とし、部分観測を成功にしない。
+ * @trace ARCH-000013
+ * @shape completedはmanagementRevisionとrepositories、unavailableは固定reason。
+ * @invariant managementRevisionはContext本文の版ではない。
+ * @boundary AM内部Consumer向け。外部応答DTOではない。
+ * @security 失敗時はRoot・対象一覧・資格情報を返さない。
+ * @compatibility 同じ要求だけで使う短命値であり失効機構ではない。
+ */
+export type RepositoryAccessCollectionResult =
+  | Readonly<{
+      status: "completed";
+      managementRevision: number;
+      repositories: readonly AuthorizedRepository[];
+    }>
+  | Extract<RepositoryAccessResult, { status: "unavailable" }>;
+
+/**
  * 同じ現在改訂から内容範囲と公開対象を選ぶ。
  * @responsibility 管理能力を内容権限へ転用せず、観測前に対象を絞る。
  * @trace ARCH-000013

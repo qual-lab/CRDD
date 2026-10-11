@@ -1357,6 +1357,14 @@ Exposureは既存登録とdevelopment／managementの明示集合だけ。空集
 
 固定13Pathの限定独立再レビューはPass、全重大度の残指摘0。callbackの同期・認可評価・メモリ候補限定と外部／永続Effect 0を契約へ明記し、Schema-validな資格・交換・既存User除去の拒否とpartial pending保持停止を追加確認した。Node v24.19.0でformat・type・warning禁止Lintと全19 Case成功（保存IT 8、既存UT 11）。実子Process終了と自己生成試験Root残存0、差分確認成功。Checkerは3057件、今回変更Pathは基準版にも存在するPROJECT_CONTEXTのChecklist指摘1件で、他Pathの基準版差分は未確定。全体Passは主張しない。正式191項目評価はNot Run、実Host Store・旧Evidenceは不変更。次は初回Root／出版、認証・鍵実処置と本番Consumer接続の残件を扱う。
 
+## 同要求の許可Repository集合 — 2026-10-12
+
+基準`4e9aaaad`から、既存AM保存Lockで現在認証・初回完了・Role内容とExposureの積集合を一度に確定する内部入口を追加する。Repositoryは一意、全許可workspaceIdsを保持し、各実Root／Binding／manifestを一回検証する。管理改訂はmanagementRevisionとして本文revisionと区別する。認証済み0件は成功空集合、認証・清掃・実体・解放不明は集合なし。旧単一対象入口、現在Schema、秘密保存先、通常鍵処置、初回・Host配送、歴史Evidenceは変更しない。
+
+着手前確認は既存設計／RFD-IT-013・019と専門確認を照合し、一意性・全範囲保持・版番号区別を計画へ統合した。新State／Lock／Frameworkを追加しない。AM回帰・静的3軸・固定候補限定独立レビュー・文書／Symbolの直接整合を実施する。標準規範変更なしのため準拠監査、実Surface未接続のため署名E2Eは実施しない。本番Consumer・性能／lifecycle・本文搬送・鍵配送・旧REST撤去・正式191項目とAM全体完成は残る。追加人間判断は不要、既存配送方式回答待ちは維持する。
+
+局所結果: Node v24.19.0の`npm test`でAM全56/56、静的書式・型・warning禁止Lint成功、Fail／Cancel／Skip0、exit0、41.6042213秒。初回未完了の有効資格反例とHeader同期の指摘を是正し、固定9Pathの限定再レビューPass・全重大度残指摘0。基準HEAD `4e9aaaad`、固定tracked差分Hash `b5c92046b1151891f1fd10f300ec3709f90a3195`、保存Source SHA256 `0e02d8b66e430dd00faef678bfdc53f4e75222e786486b0503f3a0bebc6e18cb`、最終試験SHA256 `e5de8f39e7e1f6a035c08fa14e3c4b259f63b7040ce4355433f4d96c1f5cff66`。全実行後のHeader4行同期は実行本文とSource不変更で、結果に影響しない。差分空白検査成功、自己生成AM試験Root残存0。完全出力は上記コマンドで再生成可能として実行ごとの書庫は追加しない。最初の試験データID不一致による失敗は修正前の値で、現在の成功に混ぜない。AM全体完成や正式191項目のPassへ昇格しない。
+
 ## 固定Project Context本文Reader — 2026-10-12
 
 基準HEAD `a2fc57e2`、着手時clean。承認済み責務再編内で、既存技術的Rootと固定本文観測・解析を接続する実装追加。着手前整合確認は読み取り専用確認者と親がArchitecture・公開集合・既存QAへ照合し、着手可・追加人間判断不要。直接義務をPPR-IT-019へ補正し、同じ試験で成功Contextを中立Source／Portfolioへ渡す部分だけPPR-IT-002へ接続する。

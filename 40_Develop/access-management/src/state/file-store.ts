@@ -10,6 +10,8 @@ import {
   observeRepositoryAccess,
   type RepositoryAccess,
   type RepositoryAccessResult,
+  type AuthorizedRepository,
+  type RepositoryAccessCollectionResult,
 } from "../access/repository-access.ts";
 import crypto, { createHash } from "node:crypto";
 import { evaluateManagementPermission } from "../access/management-permission.ts";
@@ -935,6 +937,145 @@ export function resolveRepositoryAccess(
   });
   if (result.status === "completed")
     return { status: "completed", access: result.value };
+  if (
+    result.secondaryReason ||
+    result.reason ===
+      "filesystem_store_lock_operation_completed_cleanup_unknown" ||
+    result.reason === "state_store_lock_unknown"
+  )
+    return {
+      status: "unavailable",
+      reason: "repository_access_release_unknown",
+    };
+  if (
+    result.reason === "repository_access_rejected" ||
+    result.reason === "repository_access_cleanup_pending"
+  )
+    return { status: "unavailable", reason: result.reason };
+  return {
+    status: "unavailable",
+    reason: result.reason.startsWith("filesystem_store_lock_")
+      ? "repository_access_lock_unavailable"
+      : "repository_access_observation_unknown",
+  };
+}
+
+/**
+ * 今回許可された全Repositoryを同じ管理改訂から解決する。
+ * @responsibility 現在認可の集合を一度に確定し、確認不成立を部分成功へ変換しない。
+ * @trace ARCH-000013
+ * @input 検証済み管理Rootと信頼しないBearer。
+ * @returns 管理改訂と一意な許可Repository集合、または固定取得不能理由。
+ * @precondition 信頼した同ProcessのConsumerが今回要求だけに使用する。
+ * @postcondition 完全状態・認証・初期化・清掃・全対象観測・Lock解放成立時だけcompleted。
+ * @effect 既存Lockと現在認証、許可後材料清掃、対象ごとの固定manifest観測。
+ * @failure 認証・初期化不成立は拒否。対象観測・清掃・解放不明では集合なし。
+ * @invariant 内容範囲とExposureの積集合を保持し、管理能力を内容許可にしない。
+ * @boundary AM現在認可→VC／Domain技術的観測。本文は解放後のConsumerが取得する。
+ * @security Root・資格をTransportへ透過せず、cache・保存・次要求への再利用を禁止する。
+ * @concurrency 同じ既存Lock内の改訂。観測量は既存16MiB状態内の登録数に比例する。
+ */
+export function resolveRepositoryAccessCollection(
+  root: FilesystemStoreRoot,
+  token: string,
+): RepositoryAccessCollectionResult {
+  if (!readCredentialId(token))
+    return { status: "unavailable", reason: "repository_access_rejected" };
+  const result = locked<{
+    managementRevision: number;
+    repositories: readonly AuthorizedRepository[];
+  }>(root, () => {
+    try {
+      const current = readCurrent(root);
+      const actor = resolveCredentialAuthentication(token, current.state);
+      if (!actor || current.state.initialization.stage !== "completed")
+        return {
+          status: "unavailable",
+          reason: "repository_access_rejected",
+          publication: "not_attempted",
+          revision: null,
+          cleanupConfirmed: true,
+        };
+      const selected = current.state.registeredRepositories
+        .map((registration) => ({
+          registration,
+          workspaceIds: actor.workspaceIds.filter((workspaceId) =>
+            current.state.exposure.some(
+              (exposure) =>
+                exposure.repositoryId === registration.repositoryId &&
+                exposure.workspaceIds.includes(workspaceId),
+            ),
+          ),
+        }))
+        .filter((item) => item.workspaceIds.length > 0)
+        .sort((a, b) =>
+          a.registration.repositoryId < b.registration.repositoryId
+            ? -1
+            : a.registration.repositoryId > b.registration.repositoryId
+              ? 1
+              : 0,
+        );
+      try {
+        settlePending(root, current, () => {});
+      } catch {
+        return {
+          status: "unavailable",
+          reason: "repository_access_cleanup_pending",
+          publication: "not_attempted",
+          revision: current.state.revision,
+          cleanupConfirmed: false,
+        };
+      }
+      const repositories: AuthorizedRepository[] = [];
+      for (const { registration, workspaceIds } of selected) {
+        const workspaceId = workspaceIds[0];
+        const access = workspaceId
+          ? observeRepositoryAccess(
+              registration,
+              current.state.revision,
+              workspaceId,
+            )
+          : null;
+        if (!access)
+          return {
+            status: "unavailable",
+            reason: "repository_access_observation_unknown",
+            publication: "not_attempted",
+            revision: current.state.revision,
+            cleanupConfirmed: true,
+          };
+        repositories.push(
+          Object.freeze({
+            repositoryId: access.repositoryId,
+            workspaceIds: Object.freeze(workspaceIds),
+            bindingId: access.bindingId,
+            manifest: access.manifest,
+            root: access.root,
+          }),
+        );
+      }
+      return {
+        status: "completed",
+        value: Object.freeze({
+          managementRevision: current.state.revision,
+          repositories: Object.freeze(repositories),
+        }),
+        publication: "not_attempted",
+        revision: current.state.revision,
+        cleanupConfirmed: true,
+      };
+    } catch {
+      return {
+        status: "unavailable",
+        reason: "repository_access_observation_unknown",
+        publication: "not_attempted",
+        revision: null,
+        cleanupConfirmed: false,
+      };
+    }
+  });
+  if (result.status === "completed")
+    return Object.freeze({ status: "completed", ...result.value });
   if (
     result.secondaryReason ||
     result.reason ===
