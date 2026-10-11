@@ -1365,6 +1365,18 @@ Exposureは既存登録とdevelopment／managementの明示集合だけ。空集
 
 局所結果: Node v24.19.0の各Packageの`npm test`でDomain118／AM57、計175 Case成功、Fail／Cancel／Skip0、両Exit0。Domain41.6481471秒、AM45.6357766秒。各静的3軸成功、Domain試験の同値concat→template同期後も静的3軸と直接3 Case再実行成功（0.7463208秒）。最初のBiome書込みはOS1224で不成立、同じ処理の再実行で解消した。初回値を成功結果へ混ぜない。固定8Pathの限定独立レビューPass・全重大度残指摘0、基準HEAD `7642b4dd`、固定tracked差分Hash `3742ea562c6901c31e5863dcaf05530905bdde72`、Reader SHA256 `69c90539b948fbfc1cf076b848580c9a6df6cb741b615d8886f1497cce042dae`、Domain直接試験SHA256 `05ef5a9982c0fa05111717c1945ce89736848165e9205113a7f78adfe674fcea`、AM搬送試験SHA256 `68b8fc7307c935ca31ac9142b8d33bdaac3629378ee87dd5cb4acdb071e85d3d`。差分空白確認成功、自己生成AM／Domain Reader試験Root残存0。完全出力は上記コマンドで再生成できるため実行別書庫を追加しない。結果同期だけを行い、本番Consumerと実failure集約停止、正式191・全体完成は未成立を維持する。
 
+## AM認証によるProject Context専用MCP接続 — 2026-10-12
+
+局所結果: 基準HEAD `b3e52577b91d13d905a060b30e3ec78adbdffb96`、Node v24.19.0、2026-10-12 JST。各Packageの`npm test`でMCP60／AM59／Domain118の計237 Case成功、静的3軸成功、失敗／取消／skip0、全Exit 0。所要はMCP17.8825312秒、AM48.5784778秒、Domain42.3691866秒。固定8Pathの限定独立再レビューPass・全重大度残指摘0。新Source SHA256 `1b50e182ea344aa1fb9a01480009d920ab65cb947728bb2a911c4126c82d939c`、是正後IT SHA256 `7ecd503711809be176e050d5807917550307ec2d095d79776b05beb83863ddeb`。実行前後HEAD一致、差分空白検査成功、自己生成`mcp-access-context-*`残存0。完全出力は端末で確認し、上記コマンドから再生成できるため実行別書庫は増やさない。結果同期後も公開Launcher／Workbench切替、Topic／Meeting・活動・ProfileのAM接続、鍵管理／配送、旧REST撤去、正式191項目とAM全体完成は未成立を維持する。
+
+固定8Pathの限定独立レビューで、開始後取消の直接反証不足1件を検出した。Source変更は行わず、同期本文open直後のabortと当該descriptor close、後続本文0、固定-32603・resultなし・再実行0を新Caseで確認する是正方針を指摘元と整合した。開始前取消の-32800とは区別し、EST-IT-014は開始前だけの部分接続を維持する。
+
+基準`b3e52577`、着手時clean。承認済み再編内の追加実装として、既存HTTP Transportへ新`project-context/access-resolver.ts`を構成する。通常認証→HTTP本文待機→内容Callの現在許可集合→同期Domain固定本文→4項目Source→Portfolioを同じ要求内で接続する。Tokenは本文待機から再認証まで要求専用closure内だけに保持し、永続化・共有State・Session・応答・Error・別要求へ渡さない。JavaScript文字列の消去保証はしない。Rootや管理改訂を公開結果へ追加しない。
+
+着手前専門確認を統合し、品質接続はPPR-IT-002、RFD-IT-013／019、HTTP拒否・取消の直接観測はEST-IT-002／014とする。CPR-IT-008はRecord Reader専用のため今回対象外。初回未完了のHandlerなし、本文待機中失効の固定エラー・Reader0、Exposure解除の正常空Portfolio・Reader0、本文不成立の全体停止、開始前取消のCollection／Reader0、別要求の再評価と非秘密応答、close後Listener不存在を反証する。同期Reader開始後のI/O中断・Effect0は主張しない。
+
+実Host・鍵配送・Profile管理Role・旧Resolver・SharedHost・REST／Gateway・Topic／Meeting・活動・route共通契約は不変更。新旧認証fallbackは禁止。自己生成Repository-local試験Rootだけを使い、新CLI・Store・Lock・Frameworkは追加しない。MCP／AM／Domain回帰と静的3軸、固定候補限定独立レビュー、Symbol／台帳・設計／QA／現在表示の直接整合を必須とする。標準規範・Provider／Docker不変更のため準拠監査・署名Provider E2Eはこの段階では対象外。正式191項目Not Run、MCP全能力本番切替・AM全体未完了を維持する。
+
 ## 通常接続の認証とMCP搬送の着手前確認 — 2026-10-12
 
 基準HEAD `426ec875`、着手時clean。既存MCPの唯一の本番CROS構成はShared Hostから旧Resolverを利用し、Workbenchは旧Remote RESTも利用する。AM本文搬送の局所成功はこの本番構成の置換完了ではない。旧能力は保持し、Project Context専用Resolverと実HTTP搬送契約の接続から進める。

@@ -40,6 +40,10 @@ v0.21.0は公開済み、v0.22.0とCHG-000082は未完了である。責務再�
 
 ## 3. 今、人間が決めることは何か
 
+### Project Context専用MCPの実HTTP接続 — 2026-10-12
+
+AMの現在認証・現在許可集合からDomain実本文をMCPへ搬送する専用Resolverを接続した。MCP60／AM59／Domain118の計237 Caseと静的3軸成功、固定8Pathの限定独立再レビューPass・残指摘0。本文待機中の公開解除／失効、欠測全体停止、公開二Tool、開始前／開始後取消を確認した。公開Launcher／Workbench切替・他能力AM接続・鍵配送・旧REST撤去・正式191項目・AM全体完成は残る。既存のProfile管理Roleと配送方式の回答待ちは維持し、この段階の追加人間判断は不要。詳細は[接続結果](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#am認証によるproject-context専用mcp接続--2026-10-12)を参照する。
+
 ### 通常接続用認証の先行接続 — 2026-10-12
 
 初回途中の本人確認と通常Surfaceの認証を分離した。AM59/59 Case・静的3軸成功、固定8Pathの限定再レビューPass・残指摘0。未完了・失効・未知資格では未処理材料を保持し、初回completedと現在資格が成立した場合だけ本人を返す。MCP専用Resolver／実HTTP搬送・Workbench本番切替・鍵管理／配送・旧REST撤去・正式191項目・AM全体完成は残る。Profile管理Roleと配送方式の既存回答待ちは維持し、この先行認証変更自体に追加人間判断は不要。

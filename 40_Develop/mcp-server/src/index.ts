@@ -24,6 +24,7 @@ export {
   type McpRequestRoutingDependencies,
 } from "./request/route.ts";
 export { createCrosProjectContextMcpResolver } from "./project-context/cros-resolver.ts";
+export { createAccessProjectContextMcpResolver } from "./project-context/access-resolver.ts";
 export {
   MCP_AI_PROFILE_TOOLS,
   getMcpAiProfileToolDefinitions,

@@ -269,6 +269,10 @@ RFD-IT-021の保存部分を`access-management/tests/integration/state/file-stor
 
 ### 許可集合と実本文の局所搬送
 
+同期本文Reader開始後の取消はopen／close hookで直接反証する。当該本文open1／close1、後続本文0、固定`-32603`、結果fieldなし、暗黙再実行0を期待する。開始前の`-32800`と区別し、EST-IT-014の今回接続は開始前取消だけの部分範囲とする。既存の全体検証義務は変更しない。
+
+Project Context専用MCP Resolverの実HTTP試験を追加した。Header通常認証後の本文待機中にExposureを解除した場合は正常空Portfolio、資格失効の場合は固定内部エラーとし、どちらも旧許可対象の本文open 0を確認する。反復要求では毎回実本文を読み、二件目の本文欠測では全体を固定エラーへ閉じる。初回未完了はHandlerなし、開始前取消は対象読取り0、Tool一覧はContext二つだけを確認する。RFD-IT-013／019の部分接続であり、公開Launcher／Workbench切替・鍵配送・正式191項目の全体評価を意味しない。
+
 RFD-IT-019の部分接続として、現在許可された内部集合のRoot・manifestをDomain固定本文Readerへ一回だけ渡し、manifestのProject ID・Repository ID、Reader本文版、解析Contextの4項目Sourceを既存Portfolioへ搬送する。管理改訂を本文版へ流用しない。administratorの空内容範囲は本文読取り0、本文欠測は固定unavailable・版／Contextなしを確認し、null／missingや部分Portfolioの材料にしない。本番MCP／Workbench、複数本文原子性、正式191項目は未成立である。
 
 通常Surfaceの認証入口はRFD-IT-013／024の部分接続として、初回途中の有効資格が本人確認では成功しても通常接続では固定拒否になることを確認する。未完了・未知・失効資格ではpending処置・対象Repository観測0、本人投影なしを確認する。初回completedの現在有効資格だけを同改訂の本人へ結合し、状態・清掃・Lock解放不明を成功へ畳まない。MCP Handler・HTTP本番搬送は別に確認し、この保存試験だけでSurface成立を主張しない。

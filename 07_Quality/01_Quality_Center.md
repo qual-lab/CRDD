@@ -4,6 +4,8 @@
 担当責任者: Qual-Lab
 最終更新日: 2026-10-12
 
+最新局所結果: AM→Domain実本文→Project Context専用MCPを実HTTPへ接続した。MCP60／AM59／Domain118の計237 Case・各静的3軸成功、固定8Pathの限定独立再レビューPass・残指摘0。本文待機中の公開解除／失効は旧対象本文0、欠測は全体停止、開始後取消は当該descriptor終了・後続読取り0・内容非公開を確認した。正式191項目Not Run、公開Launcher／Workbench切替・他能力AM接続・鍵配送・旧REST撤去・全体Ready未成立は維持する。[対象・実行結果](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#am認証によるproject-context専用mcp接続--2026-10-12)を参照する。
+
 最新局所結果: 通常接続用認証を初回本人確認と分離し、RFD-IT-013／024の一部へ接続した。AM59/59 Case・静的3軸成功、固定8Pathの限定再レビューPass・全重大度残指摘0。未完了・未知・失効資格のpending／replace保持、完了三Role、状態・清掃・解放不明の非開示を確認した。MCP専用Resolver／実HTTP搬送・本番MCP／Workbench・鍵配送・旧REST撤去・正式191項目Not Run・全体Readyは未成立。詳細はCHG-000082の[通常接続の認証](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#通常接続の認証とmcp搬送の着手前確認--2026-10-12)を参照する。下段は各先行段階の局所結果である。
 
 最新局所結果: Reader成功へUTF-8本文相関版を追加し、AM許可集合から実本文と4項目Source／Portfolioへの搬送を確認した。Domain118／AM57の計175 Case・各静的3軸成功、固定8Pathの限定独立レビューPass・残指摘0。同本文の版一致・空白変更の版相違・失敗時版なし・空認可本文0を確認した。PPR-IT-019／002、RFD-IT-019は部分接続で、本番MCP／Workbenchと実failure集約停止Consumer・性能／lifecycle・鍵配送・旧REST撤去・正式191項目・全体Readyは未成立。

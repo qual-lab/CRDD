@@ -8,6 +8,16 @@ CHG-000082の責務再編では実装親Folderを`mcp-server`とする。MCPはA
 
 ## 基本設計との関係
 
+取消結果の分類は既存Adapterを維持する。開始前は`-32800`で対象Reader 0回、同期Reader開始後のSignal検出は当該Reader終了後に`-32603 Project Context unavailable`へ閉じ、結果を公開せず後続Reader・暗黙再実行0とする。EST-IT-014への今回の接続は開始前取消の部分範囲だけであり、全取消義務の完成ではない。
+
+### Project Context専用の新Owner接続 — 2026-10-12
+
+`createAccessProjectContextMcpResolver`は既存HTTP Transportへ渡す要求専用の構成入口である。Headerの通常認証は初回completedと現在資格を要求し、本文待機後のTool CallではAMの現在許可集合を再取得する。Domain Readerが各許可Repositoryの固定本文と本文版を読み、Project・Repository・本文版・解析Contextの4項目だけをPortfolioへ渡す。認証済み空集合は正常空結果、許可集合不明または一件でも本文不明なら全体を固定エラーへ閉じ、部分成功を返さない。
+
+Bearerは当該HTTP要求のclosureだけに保持し、保存・共有・応答・下位例外本文へ渡さない。文字列の消去保証は主張しない。開始前取消では集合・本文を読まず、同期Reader開始後は読取り終了を待って結果公開を止める。HTTP終了の資源所有・joinは既存Transportを利用し、新Session・State・Lockを追加しない。
+
+この構成の公開ToolはProject Context一覧と取得の二つだけである。鍵、Profile管理、活動、Topic／Meetingを未接続のまま公開しない。旧CROS Resolver／Shared Host／RESTの本番接続はまだ置換しない。専用Resolverを既存HTTPで実行できることと、公開Launcher・Workbenchを含む全能力の本番切替を区別する。検証はPPR-IT-002、RFD-IT-013／019、EST-IT-002／014の部分範囲へ接続する。
+
 | Architecture定義 | この領域が具体化する責務 | Relation状態 |
 |---|---|---|
 | [ARCH-000005](../../Definitions/ARCH-000005/architecture_definition.md) | 標準Project Contextから得た読取り専用のProject／Portfolio ProjectionをMCP DTOへ写し、五つの観点、欠測・制限・根拠を失わず返す。Transportは独自のProject状態StoreやObjective／Milestone受入判断Authorityを生成しない。 | Partial |

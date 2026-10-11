@@ -3124,6 +3124,19 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "mcp:integration:access-project-context",
+      "owner": "mcp-server",
+      "path": "40_Develop/mcp-server/tests/integration/access-project-context.integration.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["access-management", "mcp", "project-context", "current-authorization", "http"],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["authorized_projection_only", "unknown_body_stops_whole_result", "request_reauthorization", "listener_absent"],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "mcp:integration:cros-shared-server",
       "owner": "mcp-server",
       "path": "40_Develop/mcp-server/tests/integration/cros-shared-server.integration.test.ts",
