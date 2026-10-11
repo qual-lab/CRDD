@@ -2,7 +2,7 @@
 
 成果物種別: Architecture詳細設計
 詳細設計領域: access-management
-状態: Candidate（固定管理判定は局所実装。管理API・物理保存の実装着手条件は未成立）
+状態: Candidate（初回Host設定の内部操作・論理記録候補。今回の契約・品質限定独立レビュー済み・全重大度の残指摘0。管理API・物理保存の実装着手条件は未成立）
 維持責任者: Qual-Lab
 
 ## 1. 対象と保持条件
@@ -39,6 +39,18 @@
 
 交換4組とも対象ID・表示名・失効範囲・発行先・保持情報を事前表示し、通常全員・Host指定・Host全員の3組だけ明示確認する。User ID・表示名・Role・Role内容権限・Repository登録・Product Dataは保持する。
 
+### 2.1 初回Host設定の内部操作候補
+
+意味・状態遷移は[AM詳細§4.1](01_Architecture.md#41-初回host設定のstateとsequence)に従う。以下は内部関数の候補で、外部公開API・MCP Tool・CLI引数・Source実装ではない。通常管理判定や既存administrator資格認証を初回へ適用せず、ログイン済みHostの明示操作と既存Root／Path検証を用いる。
+
+| 操作候補 | 入力・判定 | 結果・禁止条件 |
+|---|---|---|
+| `readHostInitializationState` | 信頼されたHost入口・検証済みRoot。同じ保存Ownerの排他下で管理状態と進行記録を照合 | 未初期化／確認済み途中／既存／観測不能と非秘密な既知事実。単一File不在を未初期化にしない。未作成IDを推定しない |
+| `initializeFromHost` | Host明示開始・表示名・確認した初期状態。排他下で双方未初期化を再照合 | 元試行相関を耐久確定・読戻し後、最初のadministrator UUIDと同userId資格を生成。作成／発行／記録／配送／受領／通常接続を分離。一度配送Secret以外は非秘密。既存・途中・観測不能から新作成0 |
+| `observeHostInitializationAttempt` | 確認済み元試行の非秘密参照・現在のHost Authority。参照自体は非Authority | 元試行と現在状態を再観測するだけ。発行／記録不明から新交換・新UUID・追加鍵・Secret再取得0。相関不能は停止 |
+
+発行と結果記録が確定し配送または受領だけ不明なら、作成済みadministratorへの既存`exchangeCredentialsFromHost`指定交換を別明示操作として選ぶ。初期化再実行・Secret取得APIを作らず、元試行と別交換を分離する。配送不明と配送確定後の受領不明を混同しない。初回状態readにVerifier・salt・Secret・任意Pathを含めず、MCP／Remote Workbenchへ公開しない。
+
 ## 3. 内部状態と公開読取り
 
 | 内部論理情報 | 同一管理改訂で保持する内容 |
@@ -48,7 +60,10 @@
 | `credentials` | Credential ID、既存userId、Verifier・salt・状態。生Secretなし |
 | `registeredRepositories` | 接続先Binding。Context本文・Portfolio結果はDomain Modelが所有 |
 | `exposure` | 現在の公開範囲。登録一覧から暗黙生成しない |
+| `initialization` | 初回管理状態、確認済み元試行相関、作成UUID／資格、結果記録／配送／受領／通常接続の個別事実。非秘密。ユーザー成立前から保持し交換Recoveryとは分離 |
 | `unresolvedKeyExchanges` | exact Recovery、旧資格集合、既存発行先、段階と既知結果。非秘密 |
+
+初回進行記録はProcess喪失後にも再観測する耐久的な論理事実で、出版前短命の`access-management.pending.json`そのものではない。既存単一現在Fileに含める候補とし、別Store・実行毎Directory・履歴列を追加しない。相関確定前UUID／鍵Effect0の具体Schema・Root準備・再入場・解消後整理は未完了。未解決参照を失わず有限化する条件は保存Gateで閉じる。
 
 これらは内部候補キーであり、新たな正本Entityや汎用Registryではない。User・Role・資格の参照整合と交換結果を一つの採用改訂に結合する。遷移は期待改訂→次改訂で保存し、同じ改訂を異なる状態で上書きしない。
 
@@ -166,6 +181,8 @@ Windows `10.0.26200.0`・C: NTFS・Node `v24.19.0`で、同Directoryの短命Fil
 
 未解決交換は期限・容量だけで除去しない。`unresolvedKeyExchanges`から外す条件は、交換処理の終了と未解決配送の処置を別に確定できること。別交換の成功を旧Secret受領確認に転用しない。上限到達時は新しいEffect前に停止する。通常履歴は必要な非秘密要約だけを有限保持し、未解決参照の保護・解消後清掃・具体上限は保存設計の残件として扱う。実行毎DirectoryやEvidence書庫を作らない。
 
+初回進行記録を`unresolvedKeyExchanges`へ入れない。発行／記録不明は元試行再観測のみ。両者確定後の配送／受領だけ不明に対して選ぶ別交換から交換Recoveryを用いる。初期化・交換・Lock回復の参照を相互転用しない。
+
 ## 6. 既存Capabilityと切替
 
 | 現Source／Consumer | 新Owner・切替条件 |
@@ -175,7 +192,7 @@ Windows `10.0.26200.0`・C: NTFS・Node `v24.19.0`で、同Directoryの短命Fil
 | `cros/configuration/shared-server-file-adapter.ts` | 接続／Exposureの管理正本を照合し、旧configとの二重正本を解消してから切替 |
 | `workbench-server/src/credential/administration.ts`／`src/server.ts` | 旧発行・失効・rotate・資格アクセス更新・一覧を操作別APIへ接続。旧rotateを新交換と同一視しない |
 | `mcp-server/src/project-context/cros-resolver.ts`／旧HTTP接続 | 現在認証・内容範囲解決をAMへ、集約をDomainへ。旧REST廃止は代替本番接続後 |
-| `cros/access/recovery-cli.ts`／`recovery.ts` | Host交換2種へ。旧bootstrap／full reset／追加ガードを新契約へ流用しない |
+| `cros/access/recovery-cli.ts`／`recovery.ts` | 通常Host回復の交換2種と§2.1の初回設定へ分離。旧bootstrap／full reset／追加ガードを新契約へ流用しない |
 
 旧`shared-server.json`のSchema全fieldは次へ対応する。固定旧入力Hashと各移行先の読戻しを相関し、一つのfieldを複数の現在正本へ複製しない。
 
@@ -193,11 +210,15 @@ Windows `10.0.26200.0`・C: NTFS・Node `v24.19.0`で、同Directoryの短命Fil
 
 ## 7. 検証と次Gate
 
-RFD-UT-020は固定判定、RFD-IT-021は入力搬送・保存境界、RFD-ST-022は本番Workbench縦断、RFD-UAT-007は理解を確認する。RFD-ST-016／RFD-IT-017／RFD-IT-018では鍵操作の段階別Effect・不明を維持する。部分write、改訂競合、pending残存、出版後読戻し失敗、応答喪失、排他解放欠測を反証例へ接続する。MCP鍵4面0、Host交換2のみを負観測として確認する。設計追加でNot RunをPassへ変えない。
+RFD-UT-020は固定判定、RFD-IT-021は入力搬送・保存境界、RFD-ST-022は本番Workbench縦断、RFD-UAT-007は理解を確認する。RFD-ST-016／RFD-IT-017／RFD-IT-018では鍵操作の段階別Effect・不明を維持する。部分write、改訂競合、pending残存、出版後読戻し失敗、応答喪失、排他解放欠測を反証例へ接続する。MCP鍵4面0、通常Host回復は交換2のみを負観測として確認する。設計追加でNot RunをPassへ変えない。
 
 Repositoryでは重複登録、未登録Exposure、解除後の孤立Exposure、片側除去だけの完了表示、対象外登録・Exposure／本体変更、解除完了からの開始済み取消完了推定を反証する。鍵では通常発行不明への交換Recovery付与、不明発行からの新交換、確定発行の不明化、別交換と旧Identityの混同、秘密再表示・自動再発行、失効鍵の遅延利用案内、現在認可なしの通常交換を反証する。処置方針の確定からQA実行済みを推定しない。
 
-実装前の残件は、排他の具体Ownerと実OS出版保証、公開read Schema、元発行Identityと配送／受領観測の具体保存・搬送、内容権限語彙、保持・清掃条件、初回設定と移行対応である。担当はQual-Lab、再評価契機は保存・API候補固定時。登録解除と受け渡し未確認後の処置方針は確定済みだが、これらの物理・接続残件は実装Gateを阻害するため将来改善として退避しない。追加の保証や再表示・自動再発行を採用する場合は上流判断へ戻す。
+初回の反証は、正規未試行の不適切拒否、双方確認なしの作成、既存／通常鍵喪失の再初期化、相関確定前Effect、二重UUID・追加鍵、不明発行から新交換、配送／受領混同、Secret保存／再表示、自動登録・公開・内容付与、部分≠全体完了である。Quality Local Item・実行結果への接続は次作業で、今回Passにしない。
+
+実装前の残件は、排他の具体Ownerと実OS出版保証、公開read Schema、元発行Identityと配送／受領観測の具体保存・搬送、内容権限語彙、保持・清掃条件、初回Root準備、初回相関・個別結果の物理Schema・確定・読戻し・配送／受領観測・解消後整理、本番入口と移行対応である。担当はQual-Lab、再評価契機は保存・API候補固定時。登録解除と受け渡し未確認後の処置方針は確定済みだが、これらの物理・接続残件は実装Gateを阻害するため将来改善として退避しない。追加の保証や再表示・自動再発行を採用する場合は上流判断へ戻す。
+
+Root準備はFilesystem Effectを持ち、Directory作成だけで未初期化を証明しない。準備後故障の既知Effect・残存を保持する。論理初回順序の具体化からRoot準備方式・保存方式採用・秘密保護・実装Gate成立を推定しない。横断モデル・Workbench／MCP詳細・Quality・Sourceは未追従。
 
 ## Checklist
 
@@ -210,3 +231,5 @@ Repositoryでは重複登録、未登録Exposure、解除後の孤立Exposure、
 - [x] 登録解除の同時除去と鍵の3分岐を確定上流へ合わせ、処置方針の旧OPENを解消した。保存・接続の成立とは区別する。
 - OPEN: 排他・出版・保持清掃・公開Schema・元発行Identity／配送観測の具体保存・実データ対応は§7の残件。Qual-Labが保存／API候補固定時に確認し、未解決の間は実装Gate未成立。
 - OPEN: Consumer本番接続・旧撤去・実境界検証はSource移管後にQual-Labが確認する。候補対応表だけではCapability完成を主張しない。
+
+- OPEN: 初回設定の内部操作・論理記録候補は今回の契約・品質限定独立レビュー済み・全重大度の残指摘0。API完成・本番接続・実E2E成立は未主張。

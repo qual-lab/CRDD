@@ -9,6 +9,14 @@
 
 ## 1. 結論と実行境界
 
+### 初回Host設定の基本設計・AM詳細伝播 — 2026-10-11
+
+基準Commitは`ad15d5cf`。正式入力はUI／SPEC独立Architecture分析、配置制約はSCR-000008／BHV-000012。固定範囲はARCH-000013、AM詳細01・02、本計画・PROJECT_CONTEXTの5文書。変更分類は採用済み意味の設計具体化・直接伝播。編集一次キーはOwner、入口、4状態・Sequence、非秘密元試行相関、個別事実、失敗分岐、内部操作候補、検証引渡しと完了境界。
+
+着手前契約確認は着手可。相関確定前UUID／鍵Effect0、短命pendingと耐久進行記録の分離、Root準備の既知Effect保持を計画へ統合した。発火は双方未初期化確認＋Host明示開始、非発火は既存・通常鍵喪失、境界は確認済み途中、情報不足はRoot／観測／排他等不明の新作成停止。初期化・交換・Lock回復を混同しない。単一current／pending／lockは物理候補のまま、別Store・Framework・新安定ID・Source・旧Evidenceを変更しない。
+
+固定5文書に契約・品質独立レビュー、参照・文書・直接影響・差分確認を実施し、両結果完了後に統合是正する。固定候補の契約・品質レビューは同一Minor1原因（Checklist2箇所のOPEN表記）を統合・方針整合後に是正し、両限定再確認はPass・全重大度の残指摘0。参照78件欠落0、差分確認成功。レビュー後は結果・状態のみ同期した。横断モデル・Workbench／MCP詳細・Quality・Source・保存方式採用・本番接続・実E2Eは未完了。標準規則・Source非変更のため準拠監査・Package回帰・Docker／Provider E2Eは今回対象外。追加の人間判断は不要、資格期限は回答待ちを維持する。
+
 ### 初回Host設定のArchitecture入力分析 — 2026-10-11
 
 基準Commitは`a2f4fe01`。UI-000008とSPEC-000012それぞれ自身のDefinitionだけから独立分析する。固定範囲は両Architecture分析・本計画・PROJECT_CONTEXTの4文書。変更分類は採用判断の下流直接伝播。編集一次キーは初回開始、4状態、ユーザー成立前のOwner、個別事実、元試行と別交換の分離、負契約と検証意図。新ID・API・保存Schema・File・Lock・Source・一般Recovery・過去Evidenceは変更しない。

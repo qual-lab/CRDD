@@ -2,7 +2,7 @@
 
 成果物種別: Architecture定義
 Architecture ID: `ARCH-000013`
-状態: 更新中（登録解除・鍵受け渡し判断のArchitecture全伝播候補。契約・品質の限定独立レビュー済み・残指摘0。Quality以降未追従）
+状態: 更新中（初回Host設定の基本設計・AM詳細候補。今回の契約・品質限定独立レビュー済み・全重大度の残指摘0。横断・Surface・Quality以降未追従）
 維持責任者: Qual-Lab
 
 ## 1. 責務と境界
@@ -11,8 +11,8 @@ Credentialから既存ユーザーを識別し、管理要求は現行Roleの固
 
 | 区分 | 内容 |
 |---|---|
-| 状態Owner | Access Management: ユーザー、Role詳細権限、資格・失効・鍵交換の相関、認可用接続／公開情報。Domain Model: 認可済み対象のContext・Portfolio投影 |
-| 所有する責務 | 最小ユーザー管理、現行Role認可、Credential Lifecycle、Exposureと実アクセスの別判定、限定鍵交換、認可済みRepository集合の解決とSource-aware Federation |
+| 状態Owner | Access Management: ユーザー、Role詳細権限、資格・失効・鍵交換の相関、初回管理状態・非秘密試行相関、認可用接続／公開情報。Domain Model: 認可済み対象のContext・Portfolio投影 |
+| 所有する責務 | 最小ユーザー管理、現行Role認可、Credential Lifecycle、Exposureと実アクセスの別判定、限定鍵交換、明示初回Host設定、認可済みRepository集合の解決とSource-aware Federation |
 | 所有しない責務 | 一般IAM、メール・Password・本人確認・自己登録／自己編集・SSO、複数Role、個別追加権限、個人行動監査、Repository内部ACL、Transport／Server Lifecycle、Task取消、認可破損修復 |
 | 外部境界 | Remote Client、Host管理入口、既存Credential保存領域、Repository群。秘密値と許可外Identityを公開しない |
 
@@ -20,19 +20,19 @@ Credentialから既存ユーザーを識別し、管理要求は現行Roleの固
 
 共有HostはWorkbench／MCP／内部能力／Repository群の配置形態で、第三のCROS REST・Gateway・Shared Server専用Lifecycleは撤去対象を維持する。ただし認可・非開示・Origin／TLS・終了保証を撤去しない。Browser↔Workbench RESTは維持する。
 
-単体／CROSは起動時に明示選択し、設定の存在から自動切替しない。単体は検証済み起動Repository一つで資格不要、CROSは現在許可された集合を扱う。Repository操作の入力形式はそろえ、対象IDをAuthorityへ昇格しない。初回CROS構築時の管理資格発行方式は変更しない。今回の鍵交換を初回設定の再実行へ混ぜない。
+単体／CROSは起動時に明示選択し、設定の存在から自動切替しない。単体は検証済み起動Repository一つで資格不要、CROSは現在許可された集合を扱う。Repository操作の入力形式はそろえ、対象IDをAuthorityへ昇格しない。初回CROS設定はログイン済みHost操作者の明示操作で、管理用表示名を入力し、最初のadministrator UUIDを作成して同userIdへ鍵を一度返す。通常Host回復2操作とは別で、既存状態・鍵喪失を再初期化しない。MCP／Remote Workbench／Server自動起動へ初期化能力を公開せず、追加認証・OS昇格を設けない。単体利用の前提にしない。
 
 ## 2. UI観点の入力
 
 | 正式分析 | 引き継ぐ意味 |
 |---|---|
-| [UI-000008](../../Analysis/UI-000008/architecture_analysis.md) | 自身・対象IDと表示名・現行範囲、通常管理、2操作×2入口、三可視境界、登録解除の両除去表示、元発行再観測／確定後の別明示交換／現在administrator非接続時Hostの導線 |
+| [UI-000008](../../Analysis/UI-000008/architecture_analysis.md) | 自身・対象IDと表示名・現行範囲、通常管理、2操作×2入口、三可視境界、登録解除の両除去表示、元発行再観測／確定後の別明示交換／現在administrator非接続時Hostの導線、初回4状態と個別結果・通常管理への移行 |
 
 ## 3. SPEC観点の入力
 
 | 正式分析 | 引き継ぐ意味 |
 |---|---|
-| [SPEC-000012](../../Analysis/SPEC-000012/architecture_analysis.md) | ユーザー資格と現行Roleで認証認可し、独立失効と鍵交換を分け、情報保持・処置前停止・処置後不明・現在再観測を成立させる |
+| [SPEC-000012](../../Analysis/SPEC-000012/architecture_analysis.md) | ユーザー資格と現行Roleで認証認可し、独立失効と鍵交換を分け、情報保持・処置前停止・処置後不明・現在再観測と初回Host設定の開始・中断・成立条件を成立させる |
 
 両分析は独立したSibling Contractとして統合する。UI／SPECの意味を本定義で変更しない。UI工程Exit未完了のため、今回は採用済み契約の是正伝播であり通常Handoff・Architecture Readyではない。
 
@@ -40,8 +40,8 @@ Credentialから既存ユーザーを識別し、管理要求は現行Roleの固
 
 | 入力 | State Owner | Authority・Effect | Failure・Lifecycle |
 |---|---|---|---|
-| UI-000008 | 認識・表示の意味はUI、状態の確定はAccess Management等の実Owner | UIはAuthority・Effectを発行しない。通常管理とHost、操作範囲を別軸表示 | 全4組の事前表示、Hostまたは全員交換だけ明示確認、部分結果を隠さない。通常鍵操作はWorkbench、Host CLIは交換2のみ、MCP鍵操作非公開が採用済み。具体表示・案内は未確定 |
-| SPEC-000012 | Access Managementのユーザー／Role／資格／認可・鍵交換状態。認可済み集約はDomain Model | 通常鍵3操作は固定administrator、Hostはログイン済みローカル操作者。通常管理は固定8操作の担当Roleでユーザー／Role内容設定／接続登録／Exposureの対象だけを更新し、鍵交換は鍵だけ変更する | 事前条件、旧失効、新発行、結果記録・搬送・受領を分離。発行／記録不明は元Identity再観測、確定後の受け渡し不明は別明示交換、現在administrator非接続は既存Host。登録解除は両除去読戻しを完了条件とし、開始済み取消を証明しない |
+| UI-000008 | 認識・表示の意味はUI、状態の確定はAccess Management等の実Owner | UIはAuthority・Effectを発行しない。通常管理とHost、操作範囲を別軸表示 | 全4組の事前表示、Hostまたは全員交換だけ明示確認、部分結果を隠さない。通常鍵操作はWorkbench、通常Host回復CLIは交換2のみ、MCP鍵操作非公開が採用済み。初回の4状態・個別結果・通常管理への導線も保持。具体表示・案内は未確定 |
+| SPEC-000012 | Access Managementのユーザー／Role／資格／認可・鍵交換状態。認可済み集約はDomain Model | 通常鍵3操作は固定administrator、Hostはログイン済みローカル操作者。通常管理は固定8操作の担当Roleでユーザー／Role内容設定／接続登録／Exposureの対象だけを更新し、鍵交換は鍵だけ変更する | 事前条件、旧失効、新発行、結果記録・搬送・受領を分離。発行／記録不明は元Identity再観測、確定後の受け渡し不明は別明示交換、現在administrator非接続は既存Host。登録解除は両除去読戻しを完了条件とし、開始済み取消を証明しない。初回は双方未初期化確認・元試行相関確定後のUUIDと資格生成、不明時の再観測／別交換を分ける |
 
 | 管理操作 | developer | manager | administrator |
 |---|---|---|---|
@@ -62,6 +62,7 @@ Credentialから既存ユーザーを識別し、管理要求は現行Roleの固
 Workbench／MCP／管理入口
   → Access Management（現在認可）
        ├ ユーザー・Role・資格・公開／接続情報の管理
+       ├ Host明示初回設定（管理状態・元試行→最初のユーザー・資格）
        ├ 許可されたRepository集合の解決
        └ 指定ユーザー交換／全員交換と同じRecoveryへの再入場
   → 認可済みDomain情報
@@ -80,6 +81,7 @@ Workbench／MCP／管理入口
 | 資格／Session | Credential ID→userId。現在認可時に現行Roleを参照し、古い権限を固定しない。Sessionから永続認証Storeを新設しない |
 | Exposure／実アクセス | 公開範囲と現在取得可能性を別判定。不明を許可／不存在へ丸めない |
 | 鍵交換相関 | 同じRecovery ID、種別・入口・対象・既存発行先・失効確定範囲・発行結果・再入場。非秘密の耐久情報としてProcess喪失後も保持 |
+| 初回設定 | 双方未初期化、確認済み途中、既存、観測不能を区別。ユーザー成立前の状態・非秘密元試行相関はAMが所有し、成立後にUUID／資格へ結ぶ。試行参照は非Authorityで、交換Recovery・Lock回復・Credential IDへ転用しない |
 | 状態軸 | 利用5区分と部分成立、資格の有効／期限切れ／失効／不明、回復の確認待ち／進行中／blocked／completed。永続resetting／rotationなし |
 
 - 通常管理の入力: 新規登録は予定Role・表示名（managerはdeveloper／managerのみ）、既存Role変更は対象ID・前後Role（managerは前後ともdeveloper／managerのみ）、名前変更は対象ID・新表示名（ID・Role・Credential保持）、Role内容設定は対象Role・変更内容、Repository管理は対象ID・現在登録／公開状態・変更内容を確認する。新規対象へ既存ID・変更前Roleを要求しない。
@@ -98,7 +100,7 @@ manager自身も変更前の現在管理認可→明示的なRole内容設定／
 | 全員交換 | 全ユーザーの全旧有効資格。操作中管理者自身も含む | 指定した既存administrator userId。他ユーザー再発行・再配布は管理者の通常管理 |
 | 独立失効 | 認可された対象資格 | 新発行なし。以後の要求拒否 |
 
-- 通常の鍵操作は現行administrator、Host回復入口はログイン済みローカル操作者を信頼する。Hostは鍵交換2操作だけで、追加認証・専用資格・承認コード・OS管理者昇格を要求しない。既存ユーザー単位RootとPath検証を維持し、任意Rootや別OSユーザーの状態へ越境しない。全4組で対象ID・表示名・失効範囲・発行先・保持情報を事前表示し、Hostまたは全員交換の3組だけ明示確認する。
+- 通常の鍵操作は現行administrator、Host回復入口はログイン済みローカル操作者を信頼する。通常Host回復は鍵交換2操作だけで、追加認証・専用資格・承認コード・OS管理者昇格を要求しない。既存ユーザー単位RootとPath検証を維持し、任意Rootや別OSユーザーの状態へ越境しない。全4組で対象ID・表示名・失効範囲・発行先・保持情報を事前表示し、Hostまたは全員交換の3組だけ明示確認する。
 - 通常管理は対象・変更前の現在管理認可・操作に必要な状態を安全に確認不能、または認可破損なら新Effect前停止。manager許可の通常管理へadministrator存在条件を追加しない。
 - 鍵処置は発行の既存userId、独立失効のCredential-userId結合、交換の対象・必要資格集合・全員交換の指定既存administrator等を操作別に確認し、不明・不成立なら新鍵Effect前停止。Hostへ追加資格認証を要求せず、認可設定を修復しない。
 - 鍵交換はuserId・表示名・Role・詳細権限・Repository登録・Product Dataを保持。特別ユーザー、追加権限、回復専用Bootstrapを作らない。
@@ -108,7 +110,17 @@ manager自身も変更前の現在管理認可→明示的なRole内容設定／
 - 再入場では現在状態と現在Authorityを再確認する。保存記録からAuthority、完了、rollback、旧鍵有効、開始済み取消完了を推定しない。
 - 生Secretは発行／交換後だけ一度返し、保存・ログ・Evidence・会話へ複製／再表示しない。鍵交換成功・失効はTask取消完了や過去Effect 0を証明しない。
 
+### 7.1 初回Host設定
+
+既存Root／Pathの検証下で管理状態と進行中初期化記録の双方未初期化を確認し、Host明示開始を受け付ける。単一File不在、Root作成、別Root、読取不能、破損、Lock使用中、未解決回復を未初期化証明にしない。確認済み元試行相関を非秘密で耐久確定してからUUID作成・資格発行へ進む。具体確定方法・Root準備は未完了である。
+
+状態遷移と処理順は[AM詳細§4.1](../../Details/access-management/01_Architecture.md#41-初回host設定のstateとsequence)で具体化する。発行／記録不明は元試行再観測だけ、両者確定後の配送／受領だけ不明は作成済みadministratorへの既存Host指定交換を別明示操作とする。別UUID・追加鍵・自動再初期化・Secret保存／再表示0。配送不明と配送確定後の受領不明を分け、部分成立から全体完了・旧Secret受領を推定しない。初回試行を交換Recoveryへ統合しない。
+
+Repository登録・Exposure・内容権限の自動付与とProduct Data変更は0。表示名は識別補助でAuthorityではない。通常管理8分担とHost回復2操作は維持し、管理者不存在・認可破損を初期化で修復しない。
+
 ## 8. 品質・保護・未確認事項
+
+非認証Remote情報0と、信頼されたHost操作者への初回結果表示を混同しない。
 
 三可視境界（自身表示可／非認証User情報0／現在他ユーザー参照を許可されていない主体への他User一覧・存在・件数0）、Repository非開示、管理と内容閲覧の分離、現行Role反映をすべての利用側で維持する。
 
@@ -118,10 +130,10 @@ manager自身も変更前の現在管理認可→明示的なRole内容設定／
 
 | Detail | Relation | 現在の接続・戻し先 |
 |---|---|---|
-| [SCR-000008／PRT-000008](../../../04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md) | `PRT-000008.spec-000012` | 対象・事前表示・状態・部分結果・一度表示Secretを配置制約として保持。Layoutと採用済みWorkbench／Host CLIの具体表示・案内はUI Detailへ戻す |
-| [BHV-000012](../../../05_SPEC/Details/BHV-000012/behavior.md) | 同じ既存Relation | Trigger・Authority・Validation・失効／発行・結果・Recoveryを保持。振る舞い変更はSPEC Detailへ戻す |
+| [SCR-000008／PRT-000008](../../../04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md) | `PRT-000008.spec-000012` | 対象・事前表示・状態・部分結果・一度表示Secret、初回入力・4状態・通常管理への導線を配置制約として保持。Layoutと採用済みWorkbench／Host CLIの具体表示・案内はUI Detailへ戻す |
+| [BHV-000012](../../../05_SPEC/Details/BHV-000012/behavior.md) | 同じ既存Relation | Trigger・Authority・Validation・失効／発行・結果・Recovery、初回開始・途中・配送／受領不明の分岐を保持。振る舞い変更はSPEC Detailへ戻す |
 
-登録解除・鍵受け渡しの採用判断を入力分析・基本設計・横断モデル・利用側詳細へ伝播した候補であり、今回の契約・品質限定独立レビューは完了・残指摘0。前判断の限定Pass・旧Evidenceを流用しない。Quality・Source・具体保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
+登録解除・鍵受け渡しの旧限定レビューは当時の範囲に限る。今回は初回設定の基本設計・AM詳細候補で契約・品質限定独立レビュー済み・全重大度の残指摘0。横断モデル・Workbench／MCP詳細・Quality以降は未追従。前判断の限定Pass・旧Evidenceを流用しない。Quality・Source・具体保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
 
 ## 9. 互換性・移行・成立済み能力
 
@@ -137,7 +149,8 @@ manager自身も変更前の現在管理認可→明示的なRole内容設定／
 
 - 認可判定・ユーザー／Role／資格・鍵交換状態のOwnerをAccess Management、認可済みContext集約をDomain Modelへ分け、MCP／Workbenchは同じ認可契約を使う。
 - 通常の鍵発行・独立失効・交換は現行administrator専用の固定操作として同一Process Workbenchから呼ぶ。Hostの鍵回復CLIはログイン済みローカル操作者を信頼し、追加認証なしで同じ鍵交換2操作を呼ぶ。MCPにはSecret有無にかかわらず鍵操作のTool・Schema・登録・dispatchを置かない。具体API・入力・受領方式はDetailsで閉じる。
-- Qualityへ渡す意味は固定8操作×三Roleの許可／拒否／不明、managerのadministrator名前のみ変更、developer管理拒否≠自身利用拒否、操作別対象、自己範囲変更の時間順、登録≠公開、解除≠削除、通常管理・要求毎認可・同名／改名・2操作×2入口・独立失効・3可視境界・処置前停止・処置後不明・再入場・情報保持・秘密非再表示・取消非証明。Local Item、試験、EvidenceはQualityで対応付ける。
+- 初回設定はAMの別明示操作として双方未初期化確認、元試行相関の耐久確定、個別事実と4状態、3つの失敗経路を実装へ渡す。具体内部操作はAM詳細、Surface案内は各Surfaceへ引き渡す。
+- Qualityへ渡す意味は固定8操作×三Roleの許可／拒否／不明、managerのadministrator名前のみ変更、developer管理拒否≠自身利用拒否、操作別対象、自己範囲変更の時間順、登録≠公開、解除≠削除、通常管理・要求毎認可・同名／改名・2操作×2入口・独立失効・3可視境界・処置前停止・処置後不明・再入場・情報保持・秘密非再表示・取消非証明。初回の相関確定前Effect0、二重作成0、Secret非保存・再表示0、登録・公開・内容自動付与0、個別事実≠全体完了、元試行と別交換の非混同も含む。Local Item、試験、EvidenceはQualityで対応付ける。
 - Task進行・取消・回復はOrchestrator等の既存Ownerに残す。資格の失効／交換で開始済み処理の完了を推定しない。
 
 ## 11. 情報源と完了境界
@@ -154,4 +167,4 @@ manager自身も変更前の現在管理認可→明示的なRole内容設定／
 - [x] Security・品質制約・検証意図・Human Input・Openを保持した
 - [x] 既存Detail RelationとARCH-IDを維持した
 - [x] 旧成立能力の比較と未照合範囲を分け、旧Evidenceを変更していない
-- OPEN: Details・横断モデル・Quality・公開入口／Schema／移行・Source・実境界確認は未完了。UI工程Exitと通常Handoff、全体Readyを主張しない。
+- OPEN: AM初回詳細は候補反映済み。横断モデル・Workbench／MCP詳細・Quality・公開入口／Schema／移行・Source・実境界確認は未完了。UI工程Exitと通常Handoff、全体Readyを主張しない。
