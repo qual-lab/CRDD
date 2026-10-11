@@ -9,6 +9,16 @@
 
 ## 1. 結論と実行境界
 
+### 初回Host設定のUI／SPEC Detail伝播 — 2026-10-11
+
+基準Commitは`6a458972`。正式入力はUI-000008／SPEC-000012の初回設定。SCR-000008、BHV-000012、configuration-trust Area、UI Detail01、Workbench画面構成の追補13、SPEC Detail01、Detail対応02、本計画・PROJECT_CONTEXTの9文書に限定する。変更分類は採用済み判断の下流詳細化・直接伝播。編集一次キーは入口・入力、4状態、個別結果、元試行相関、通常回復との分離、検証意図と引渡し。同じSCR／PRT／Interaction／BHVの操作種別とし、新ID・API・Store・Source・旧Evidenceを追加・変更しない。
+
+着手前の契約確認は着手可。配送と受領、初期化試行と交換Recovery、Detailed Behavior表の各観点の初回負契約を分離する指摘を計画へ統合した。発火は双方未初期化確定とHost明示開始、非発火は既存管理状態・通常鍵喪失、境界は確認済み途中、情報不足は読取り不能等の新Effect前停止。未試行から試行／UUIDを推定せず、双方確認後の新作成を拒否しない。作成済み・発行済みを未初期化へ戻さず、発行／記録不明は元試行再観測だけ、発行・記録確定で配送または受領だけ不明なら作成済みadministratorへの既存Host指定交換を別明示操作とする。
+
+固定9文書に契約・品質の独立レビュー、リンク・文書・直接伝播・ID・差分確認を行い、両結果完了後に統合是正する。標準規則・実行境界を変更しないため準拠監査・Package回帰・Docker／Provider E2Eは今回対象外。旧31 Relation・旧Gate・通常管理8分担・通常Host回復2操作は維持する。具体表示・Visual・Architecture／Quality／Source・正式QA・実E2E・全体Readyは未完了。現在、追加の人間判断は不要。資格期限は回答待ちを維持する。
+
+現在結果：初回の契約・品質レビューを完了し、現在投影の旧Pass競合、Architecture／Quality引渡し不足、BHV表の文境界、観点数表記の4原因を統合した。両確認者へ是正方針を再提示して整合確認後に是正し、再レビューの書式1原因6箇所も解消した。最終限定再レビューは両観点ともPass・全重大度の残指摘0。参照391件欠落0、未変更31 Relation・旧Hash・Workbench旧Gate本文不変、差分確認成功。レビュー後は結果と状態だけ同期した。Architecture／Quality／Source・実画面・正式QA・実E2E・全体Readyは未成立で、次はArchitectureへ伝播する。
+
 ### 初回Host設定のUI／SPEC伝播 — 2026-10-11
 
 基準Commitは`a0766d28`。固定範囲はUX-000035／IA-000009のUI・SPEC分析4文書、UI-000008／SPEC-000012、UI横断01・02・03・05、SPEC横断01・06、本計画・PROJECT_CONTEXTの14文書。各分析は自身の正式入力だけを利用し、Definitionで統合する。編集一次キーは初回開始・4状態・部分結果・権限・負例・後続引渡し。通常Host回復2操作、MCP鍵操作非公開、内容自動付与なしを維持する。新ID・Object・Schema・Source・保存先・期限・旧Evidenceは不変更。

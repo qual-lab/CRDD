@@ -1,7 +1,7 @@
 # SPEC Detail
 
 成果物種別: SPEC Detail統合投影
-状態: 更新中（SCR-000008／BHV-000012の登録解除・鍵の受け渡し未確認の判断は今回の契約／品質限定独立再レビュー済み（残指摘0。前判断のPassは履歴）、全体Pass再主張なし）
+状態: 初回Host設定のDetail限定独立再レビュー済み・残指摘0。旧全数結果・限定Pass・Hashは履歴で、全体Passを再主張しない。
 維持責任者: Qual-Lab
 
 ## 1. 目的と移行境界
@@ -19,6 +19,8 @@ Canonical化した30件のSPEC Definitionを、SPEC Detail契約へ全件移行�
 ```
 
 登録解除・鍵の受け渡し未確認の判断を既存SCR-000008／PRT-000008とBHV-000012へ限定再伝播中である。対象件数は増やさず、未変更31 Relationと旧全数処置・Workbench Pilot Gateは更新前固定版の記録として保持する。最新Definition対応は限定レビュー済みだが、今回のDetail・横断投影は今回の契約／品質限定独立再レビュー済み（残指摘0。前判断のPassは履歴）である。Architecture／Quality／Source・実画面・実E2Eは未追従・未成立。
+
+初回Host設定は既存SCR-000008／PRT-000008／BHV-000012の別操作へ具体化する。件数・未変更31 Relation・旧Gateは不変。最新UI-000008／SPEC-000012の初期化4状態・元試行と個別結果・通常回復との分離を詳細と対応投影で扱う。この限定伝播は独立再レビュー済み・残指摘0で、Architecture／Quality／Source・実画面・実E2Eは未成立。
 
 ## 2. SPEC Definitionの処置
 
@@ -94,19 +96,19 @@ Canonical化した30件のSPEC Definitionを、SPEC Detail契約へ全件移行�
 
 ## 4. UI／SPEC Detail対応
 
-[UI／SPEC Detail対応](02_UI_SPEC_Detail_Correspondence.md)に32 Relationを維持する。今回変更したBHV-000012↔SCR-000008の意味対応は今回の契約／品質限定独立再レビュー済み（残指摘0。前判断のPassは履歴）。他の31 Relationは変更せず、更新前の全件評価を現在版全体のPassへ読み替えない。
+[UI／SPEC Detail対応](02_UI_SPEC_Detail_Correspondence.md)に32 Relationを維持する。今回変更したBHV-000012↔SCR-000008の意味対応は初回設定のDetail限定独立再レビュー済み・残指摘0（前判断のPassは履歴）。他の31 Relationは変更せず、更新前の全件評価を現在版全体のPassへ読み替えない。
 
 ## 5. Architecture／Qualityへの引き渡し
 
-- Architecture: 各BHVをSource SPECが接続済みのARCH責務へ配置制約として渡す。今回の固定8操作・操作別Input／Authority／Effect／Output、次要求の認可、登録／公開／削除の区別と鍵境界は未伝播である。
-- Quality: 各BHVのNormal、Boundary、Failure、UnknownおよびRecoveryを既存の検証義務へ統合する。今回のRole別肯否・操作固有前提／結果・鍵負例は次段で再導出する。
+- Architecture: 各BHVをSource SPECが接続済みのARCH責務へ配置制約として渡す。今回の固定8操作・操作別Input／Authority／Effect／Output、次要求の認可、登録／公開／削除の区別と鍵境界は未伝播である。初回設定では初回Hostの信頼された入口とMCP／自動起動0、双方未初期化確認、元試行と作成UUIDの結合、作成／発行／記録／配送／受領の別、途中再入場の別UUID・追加鍵・自動再初期化0、発行／記録不明は元試行再観測だけ・確定後の配送または受領不明は別明示Host指定交換、通常交換Recoveryとの分離を次段へ渡す。Architectureは未追従。
+- Quality: 各BHVのNormal、Boundary、Failure、UnknownおよびRecoveryを既存の検証義務へ統合する。今回のRole別肯否・操作固有前提／結果・鍵負例は次段で再導出する。初回設定では初回Hostの信頼された入口とMCP／自動起動0、双方未初期化確認、元試行と作成UUIDの結合、作成／発行／記録／配送／受領の別、途中再入場の別UUID・追加鍵・自動再初期化0、発行／記録不明は元試行再観測だけ・確定後の配送または受領不明は別明示Host指定交換、通常交換Recoveryとの分離を検証義務として渡す。Qualityは未追従で、正式項目のNot Runを維持する。
 - Source／Test: Canonical BHV成立後のReality Auditで照合し、BHVを実装から逆算しない。
 
 ## 6. 未確認事項・人間判断・戻り条件
 
 | 項目 | 現在状態 | 判断者／Owner | 影響 | 戻り条件／再評価契機 |
 |---|---|---|---|---|
-| 追加のv0.22固有BHV | N/A: 現在のCanonical Definition 30件はBHV-000031を含め全件詳細化済み | SPEC工程Owner | 追加IDの未処置はないが、最新判断の対象Detailは今回の契約／品質限定独立再レビュー済み（残指摘0。前判断のPassは履歴）、後工程の伝播は未完了 | 新しいSPEC Definitionを追加した時 |
+| 追加のv0.22固有BHV | N/A: 現在のCanonical Definition 30件はBHV-000031を含め全件詳細化済み | SPEC工程Owner | 追加IDの未処置はないが、最新判断の対象Detailは初回設定のDetail限定独立再レビュー済み・残指摘0（前判断のPassは履歴）、後工程の伝播は未完了 | 新しいSPEC Definitionを追加した時 |
 | 実装との一致 | OPEN | Reality Audit Owner | Canonical Detailの成立には影響しない | v0.22 Reality Auditで照合する時 |
 
 ## 補足分析

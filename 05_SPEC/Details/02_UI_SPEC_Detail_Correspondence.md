@@ -1,7 +1,7 @@
 # UI／SPEC Detail対応
 
 成果物種別: UI／SPEC Detail対応投影
-状態: 更新中（SCR-000008／BHV-000012の登録解除・鍵の受け渡し未確認の判断は今回の契約／品質限定独立再レビュー済み（残指摘0。前判断のPassは履歴）、全体Pass再主張なし）
+状態: 初回Host設定のDetail限定独立再レビュー済み・残指摘0。旧全数結果・限定Pass・Hashは履歴で、全体Passを再主張しない。
 維持責任者: Qual-Lab
 
 ## 1. 対象と判定境界
@@ -11,7 +11,7 @@
 - Definition対応: [UI／SPEC対応](../06_UI_SPEC_Correspondence.md)の32組
 - 判定境界: UI DetailからBHVへの操作Coverageと、BHVからUI Detailへの結果・失敗・回復Coverage
 
-Definition対応の意味を再定義せず、同じ32組をDetailへ具体化する。登録解除・鍵の受け渡し未確認の判断はUI-000008／SPEC-000012からSCR-000008／BHV-000012へ再伝播中で、変更はその1 Relationのみである。今回の契約／品質限定独立再レビュー済み（残指摘0。前判断のPassは履歴）で、未変更31 Relation・旧全数結果は履歴として保持する。最新Definition対応は限定レビュー済みだが、Detail対応・実画面・Architecture／Quality／Sourceの成立へ流用しない。
+Definition対応の意味を再定義せず同じ32組をDetailへ具体化する。初回Host設定をUI-000008／SPEC-000012からSCR-000008／BHV-000012へ伝播し、現在の1 Relationは限定独立再レビュー済み・残指摘0。未変更31 Relationと旧全数結果は履歴として保持する。旧登録解除・受け渡し判断のレビューをこの初回改訂・実画面・Architecture／Quality／Sourceの成立に流用しない。
 
 ## 2. UIからBHVへのCoverage
 
@@ -32,7 +32,7 @@ Definition対応の意味を再定義せず、同じ32組をDetailへ具体化�
 | [SCR-000006／PRT-000006.spec-000010](../../04_UI/Details/Areas/project-context/SCR-000006/screen.md) | [BHV-000010](BHV-000010/behavior.md) | [UI-000006](../../04_UI/Definitions/UI-000006/ui_definition.md) | [SPEC-000010](../Definitions/SPEC-000010/spec_definition.md) | Covered | 状態、操作、結果、失敗、判断不能および回復を同じContextで確認 |
 | [SCR-000006／PRT-000006.spec-000031](../../04_UI/Details/Areas/project-context/SCR-000006/screen.md) | [BHV-000031](BHV-000031/behavior.md) | [UI-000006](../../04_UI/Definitions/UI-000006/ui_definition.md) | [SPEC-000031](../Definitions/SPEC-000031/spec_definition.md) | Covered | Tree、差分選択、Stage、Commit、Push確認、結果不明および再観測を同じContextで確認 |
 | [SCR-000007／PRT-000007.spec-000011](../../04_UI/Details/Areas/operation/SCR-000007/screen.md) | [BHV-000011](BHV-000011/behavior.md) | [UI-000007](../../04_UI/Definitions/UI-000007/ui_definition.md) | [SPEC-000011](../Definitions/SPEC-000011/spec_definition.md) | Covered | 状態、操作、結果、失敗、判断不能および回復を同じContextで確認 |
-| [SCR-000008／PRT-000008.spec-000012](../../04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md) | [BHV-000012](BHV-000012/behavior.md) | [UI-000008](../../04_UI/Definitions/UI-000008/ui_definition.md) | [SPEC-000012](../Definitions/SPEC-000012/spec_definition.md) | 今回の契約／品質限定独立再レビュー済み（残指摘0。前判断のPassは履歴） | 固定8操作のRole分担・操作別条件・次要求認可・登録と公開／解除と削除の別、固定administrator鍵操作・Workbench限定／Host交換2・MCP鍵操作なし、現行Role・参照許可による三可視境界、独立失効、2操作×2入口、事前表示／条件付き明示確認、情報保持、秘密一度表示、発行／記録不明の元Identity再観測、確定発行・受け渡し未確認の別明示交換、管理認証喪失の既存Host |
+| [SCR-000008／PRT-000008.spec-000012](../../04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md) | [BHV-000012](BHV-000012/behavior.md) | [UI-000008](../../04_UI/Definitions/UI-000008/ui_definition.md) | [SPEC-000012](../Definitions/SPEC-000012/spec_definition.md) | 初回設定のDetail限定独立再レビュー済み・残指摘0（前判断のPassは履歴） | 固定8操作のRole分担・操作別条件・次要求認可・登録と公開／解除と削除の別、固定administrator鍵操作・Workbench限定／Host交換2・MCP鍵操作なし、現行Role・参照許可による三可視境界、独立失効、2操作×2入口、事前表示／条件付き明示確認、情報保持、秘密一度表示、発行／記録不明の元Identity再観測、確定発行・受け渡し未確認の別明示交換、管理認証喪失の既存Host |
 | [SCR-000009／PRT-000009.spec-000013](../../04_UI/Details/Areas/project-context/SCR-000009/screen.md) | [BHV-000013](BHV-000013/behavior.md) | [UI-000009](../../04_UI/Definitions/UI-000009/ui_definition.md) | [SPEC-000013](../Definitions/SPEC-000013/spec_definition.md) | Covered | 状態、操作、結果、失敗、判断不能および回復を同じContextで確認 |
 | [SCR-000010／PRT-000010.spec-000014](../../04_UI/Details/Areas/configuration-trust/SCR-000010/screen.md) | [BHV-000014](BHV-000014/behavior.md) | [UI-000010](../../04_UI/Definitions/UI-000010/ui_definition.md) | [SPEC-000014](../Definitions/SPEC-000014/spec_definition.md) | Covered | 状態、操作、結果、失敗、判断不能および回復を同じContextで確認 |
 | [SCR-000010／PRT-000010.spec-000015](../../04_UI/Details/Areas/configuration-trust/SCR-000010/screen.md) | [BHV-000015](BHV-000015/behavior.md) | [UI-000010](../../04_UI/Definitions/UI-000010/ui_definition.md) | [SPEC-000015](../Definitions/SPEC-000015/spec_definition.md) | Covered | 状態、操作、結果、失敗、判断不能および回復を同じContextで確認 |
@@ -82,6 +82,26 @@ Definition対応の意味を再定義せず、同じ32組をDetailへ具体化�
 
 上表は接続件数であり、更新版全体のPass数ではない。BHV-000012の結果・失敗・回復は今回の改訂対応表で再確認し、他29 BHVは更新前の記録を保持する。
 
+## 初回Host設定の現行対応
+
+最新UI-000008／SPEC-000012から、同じSCR-000008／PRT-000008.spec-000012↔BHV-000012へ初回設定の操作種別を接続する。上記の旧限定結果・Hashは履歴であり、今回の根拠に流用しない。件数・未変更31 Relationは不変。
+
+| 確認対象 | SCRでの認識・操作 | BHVでの条件・結果 |
+|---|---|---|
+| 開始・入力 | Host明示開始・表示専用名 | 既存Root／Path・双方未初期化確認、最初のUUID作成と同じuserIdへの鍵 |
+| 4状態 | 未初期化確定／既存あり／確認済み途中／不明 | 既存・不明を初期化せず、双方確定後の明示開始だけ新作成 |
+| 相関・部分結果 | 元試行、UUID・発行・記録・配送・受領の別 | 成立前の管理能力から成立UUIDへ結合。未試行から試行／UUID推定なし |
+| 発行／記録不明 | 確認済み元試行へ戻る | 元試行再観測だけ、新交換・再初期化・自動再発行なし |
+| 配送／受領だけ不明 | 配送未確認と配送済み・受領未確認を別表示 | 作成済みadministratorへの既存Host指定交換を別明示操作。Secret再表示なし |
+| 終了・負契約 | 一度受け取り・通常管理接続。途中≠全体完了 | 再入場時別UUID／追加鍵／自動再初期化0、MCP公開0、自動登録・Exposure・内容権限付与0、Product Data変更0 |
+
+初回設定の契約／品質限定独立再レビューはともにPass・全重大度の残指摘0。静的な意味対応であり、実装・Visual・正式QA実行・実E2E・全体Readyではない。
+
+| 対象 | 現行候補のレビュー入力SHA-256 | 結果・状態同期後SHA-256 |
+|---|---|---|
+| SCR-000008 | `63a42ef92ae58f12496a972722737680bee2421c69d15100a8756142e52ec9c2` | `b093be39ba2ab6506fd66a7d8c957fd8402d8ed2e433d3b84739e91709b441f9` |
+| BHV-000012 | `646651ab39584de1e808bdeb00aac9b4cc0ae2ea2afc874af07729169681003b` | `fcf61ffd9395e5a84e95aa51b03abe14657cea6d091e93bf372839473c797e91` |
+
 ## 4. N:N Relation
 
 ```text
@@ -102,13 +122,13 @@ Definition対応の意味を再定義せず、同じ32組をDetailへ具体化�
 |---|---|---|---|
 | UI InteractionにBHVがない | 0件 | UI／SPEC工程 | 新Interaction追加時 |
 | BHV結果を認識できるUIがない | 0件 | UI／SPEC工程 | 新BHV追加時 |
-| Definition意味との不一致 | SCR-000008／BHV-000012は今回の契約／品質限定独立再レビュー済み（残指摘0。前判断のPassは履歴）。他対象は更新前記録 | Owner Definition工程 | Detailが新しい意味を必要とした時 |
+| Definition意味との不一致 | SCR-000008／BHV-000012は初回設定のDetail限定独立再レビュー済み・残指摘0（前判断のPassは履歴）。他対象は更新前記録 | Owner Definition工程 | Detailが新しい意味を必要とした時 |
 | CMP Coverage | N/A | UI工程 | Reusable Componentを発行した時 |
 
 ## 6. Architecture／Qualityへの引き渡し
 
-- Architectureは32 Relationを配置制約として扱い、UI／SPEC Definitionの意味を変更しない。
-- Qualityは各Relationの操作、Feedback、状態、結果、失敗および回復を既存検証義務へ統合する。
+- Architectureは32 Relationを配置制約として扱い、UI／SPEC Definitionの意味を変更しない。初回設定の初回Hostの信頼された入口とMCP／自動起動0、双方未初期化確認、元試行と作成UUIDの結合、作成／発行／記録／配送／受領の別、途中再入場の別UUID・追加鍵・自動再初期化0、発行／記録不明は元試行再観測だけ・確定後の配送または受領不明は別明示Host指定交換、通常交換Recoveryとの分離を保持義務として渡し、Architecture未追従を維持する。
+- Qualityは各Relationの操作、Feedback、状態、結果、失敗および回復を既存検証義務へ統合する。初回設定の初回Hostの信頼された入口とMCP／自動起動0、双方未初期化確認、元試行と作成UUIDの結合、作成／発行／記録／配送／受領の別、途中再入場の別UUID・追加鍵・自動再初期化0、発行／記録不明は元試行再観測だけ・確定後の配送または受領不明は別明示Host指定交換、通常交換Recoveryとの分離も導出対象。Quality未追従・正式項目Not Runを維持する。
 - 実装との一致はReality Auditで別に判定する。
 
 今回更新した登録解除・鍵の受け渡し未確認の判断のDetailと投影は今回の契約／品質限定独立再レビュー済み（残指摘0。前判断のPassは履歴）。以下の旧全数項目を最新候補全体のPassへ読み替えない。

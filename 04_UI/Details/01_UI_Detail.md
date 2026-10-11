@@ -1,7 +1,7 @@
 # UI Detail
 
 成果物種別: UI Detail統合投影
-状態: 更新中（SCR-000008／BHV-000012の登録解除・鍵の受け渡し未確認の判断は今回の契約／品質限定独立再レビュー済み（残指摘0。前判断のPassは履歴）、全体Pass再主張なし）
+状態: 初回Host設定のDetail限定独立再レビュー済み・残指摘0。旧全数結果・限定Pass・Hashは履歴で、全体Passを再主張しない。
 維持責任者: Qual-Lab
 
 ## 1. 目的と移行境界
@@ -21,6 +21,8 @@ Architecture／Quality
 ```
 
 登録解除・鍵の受け渡し未確認の判断を既存SCR-000008／PRT-000008とBHV-000012へ限定再伝播中である。対象件数は増やさず、未変更31 Relationと旧全数処置・Workbench Pilot Gateは更新前固定版の記録として保持する。最新Definition対応は限定レビュー済みだが、今回のDetail・横断投影は今回の契約／品質限定独立再レビュー済み（残指摘0。前判断のPassは履歴）である。Architecture／Quality／Source・実画面・実E2Eは未追従・未成立。
+
+初回Host設定は既存SCR-000008／PRT-000008／BHV-000012の別操作へ具体化する。件数・未変更31 Relation・旧Gateは不変。最新UI-000008／SPEC-000012の初期化4状態・元試行と個別結果・通常回復との分離を詳細と対応投影で扱う。この限定伝播は独立再レビュー済み・残指摘0で、Architecture／Quality／Source・実画面・実E2Eは未成立。
 
 ## 2. UI Definitionの処置
 
@@ -60,7 +62,7 @@ CMPは全件で理由付き未発行である。20 Logical Screenの意味順序
 | [SCR-000005](Areas/operation/SCR-000005/screen.md) | 実行事実と故障境界の診断 | operation | [UI-000005](../Definitions/UI-000005/ui_definition.md) | PRT-000005 | Canonical |
 | [SCR-000006](Areas/project-context/SCR-000006/screen.md) | Repository内作業と対象選択 | project-context | [UI-000006](../Definitions/UI-000006/ui_definition.md) | PRT-000006 | Canonical |
 | [SCR-000007](Areas/operation/SCR-000007/screen.md) | 入口をまたぐ共通依頼・結果 | operation | [UI-000007](../Definitions/UI-000007/ui_definition.md) | PRT-000007 | Canonical |
-| [SCR-000008](Areas/configuration-trust/SCR-000008/screen.md) | ユーザー・Role権限・接続資格と利用可能範囲 | configuration-trust | [UI-000008](../Definitions/UI-000008/ui_definition.md) | PRT-000008 | 今回の契約／品質限定独立再レビュー済み（残指摘0。前判断のPassは履歴） |
+| [SCR-000008](Areas/configuration-trust/SCR-000008/screen.md) | ユーザー・Role権限・接続資格と利用可能範囲 | configuration-trust | [UI-000008](../Definitions/UI-000008/ui_definition.md) | PRT-000008 | 初回設定のDetail限定独立再レビュー済み・残指摘0（前判断のPassは履歴） |
 | [SCR-000009](Areas/project-context/SCR-000009/screen.md) | Meeting・Topic・候補の処置 | project-context | [UI-000009](../Definitions/UI-000009/ui_definition.md) | PRT-000009 | Canonical |
 | [SCR-000010](Areas/configuration-trust/SCR-000010/screen.md) | Tool・AIモデル構成の選択 | configuration-trust | [UI-000010](../Definitions/UI-000010/ui_definition.md) | PRT-000010 | Canonical |
 | [SCR-000011](Areas/configuration-trust/SCR-000011/screen.md) | 実行時データの保持・清掃 | configuration-trust | [UI-000011](../Definitions/UI-000011/ui_definition.md) | PRT-000011 | Canonical |
@@ -113,12 +115,12 @@ G1〜G5は通過した。Workbench固有のPattern候補とVisual Baselineを[Se
 
 ## 5. UI／SPEC Detail対応
 
-[UI／SPEC Detail対応](../../05_SPEC/Details/02_UI_SPEC_Detail_Correspondence.md)に32 Relationを維持する。今回変更したSCR-000008↔BHV-000012の意味対応は今回の契約／品質限定独立再レビュー済み（残指摘0。前判断のPassは履歴）。他の31 Relationは変更せず、更新前の全件評価を現在版全体のPassへ読み替えない。
+[UI／SPEC Detail対応](../../05_SPEC/Details/02_UI_SPEC_Detail_Correspondence.md)に32 Relationを維持する。今回変更したSCR-000008↔BHV-000012の意味対応は初回設定のDetail限定独立再レビュー済み・残指摘0（前判断のPassは履歴）。他の31 Relationは変更せず、更新前の全件評価を現在版全体のPassへ読み替えない。
 
 ## 6. Architecture／Qualityへの引き渡し
 
-- Architecture: 更新前固定版では配置制約へ伝播した。今回の固定8操作のAuthority・操作別Input／Effect／Output、manager自身の内容範囲の次要求再評価、登録／公開／削除の境界と既存鍵境界は未追従であり、次段で現行ARCH責務へ伝播する。
-- Quality: 更新前固定版では観測条件へ統合した。今回の固定8操作のRole別許可／拒否、操作固有の前提／結果、内容範囲変更の時間順、登録／公開／削除の区別と鍵3操作の負例は次段で再導出する。交換2操作・2入口・部分結果の義務も保持する。
+- Architecture: 更新前固定版では配置制約へ伝播した。今回の固定8操作のAuthority・操作別Input／Effect／Output、manager自身の内容範囲の次要求再評価、登録／公開／削除の境界と既存鍵境界は未追従であり、次段で現行ARCH責務へ伝播する。初回設定では初回Hostの信頼された入口とMCP／自動起動0、双方未初期化確認、元試行と作成UUIDの結合、作成／発行／記録／配送／受領の別、途中再入場の別UUID・追加鍵・自動再初期化0、発行／記録不明は元試行再観測だけ・確定後の配送または受領不明は別明示Host指定交換、通常交換Recoveryとの分離を次段へ渡す。Architectureは未追従。
+- Quality: 更新前固定版では観測条件へ統合した。今回の固定8操作のRole別許可／拒否、操作固有の前提／結果、内容範囲変更の時間順、登録／公開／削除の区別と鍵3操作の負例は次段で再導出する。交換2操作・2入口・部分結果の義務も保持する。初回設定では初回Hostの信頼された入口とMCP／自動起動0、双方未初期化確認、元試行と作成UUIDの結合、作成／発行／記録／配送／受領の別、途中再入場の別UUID・追加鍵・自動再初期化0、発行／記録不明は元試行再観測だけ・確定後の配送または受領不明は別明示Host指定交換、通常交換Recoveryとの分離を検証義務として渡す。Qualityは未追従で、正式項目のNot Runを維持する。
 - Reality Audit: 実装、WIPおよび実画面との照合はCanonical Detail成立後に行う。
 
 ## 7. 未確認事項・人間判断・戻り条件

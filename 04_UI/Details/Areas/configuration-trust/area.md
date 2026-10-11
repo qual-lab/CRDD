@@ -3,7 +3,7 @@
 成果物種別: UI Area Design Guide
 Area Key: `configuration-trust`
 状態: Canonical
-確認状態: SCR-000008の登録解除・鍵の受け渡し未確認の判断を再伝播・今回の契約／品質限定独立再レビュー済み（残指摘0。前判断のPassは履歴）。Area全体・実画面の完成は未主張。
+確認状態: 初回Host設定のDetail限定独立再レビュー済み・残指摘0。前判断の限定Passは履歴。実画面・実装・E2E・全体Readyは未成立。
 維持責任者: Qual-Lab
 
 ## 1. Areaの目的と利用者成果
@@ -34,7 +34,7 @@ Area Key: `configuration-trust`
 
 | SCR | 目的 | 入口 | 終了条件 | 主なPRT | 状態 |
 |---|---|---|---|---|---|
-| [SCR-000008](SCR-000008/screen.md) | 自身と利用範囲、最小ユーザー・Role権限・資格管理と鍵交換を扱う | 接続・通常管理・Host回復が必要な時 | 確定結果または状態別の元Identity再観測／別明示交換／既存Hostから次行動を選べる | PRT-000008 | 今回の契約／品質限定独立再レビュー済み（残指摘0。前判断のPassは履歴） |
+| [SCR-000008](SCR-000008/screen.md) | 自身と利用範囲、最小ユーザー・Role権限・資格管理と鍵交換を扱う | 初回Host設定・接続・通常管理・Host回復が必要な時 | 確定結果または状態別の元Identity再観測／別明示交換／既存Hostから次行動を選べる | PRT-000008 | 初回設定のDetail限定独立再レビュー済み・残指摘0 |
 | [SCR-000010](SCR-000010/screen.md) | UI-000010の利用者成果を一つの作業単位で扱う | 対象Contextを選んだ時 | 次の安全な行動を選べる | PRT-000010 | Canonical |
 | [SCR-000011](SCR-000011/screen.md) | UI-000011の利用者成果を一つの作業単位で扱う | 対象Contextを選んだ時 | 次の安全な行動を選べる | PRT-000011 | Canonical |
 | [SCR-000013](SCR-000013/screen.md) | UI-000013の利用者成果を一つの作業単位で扱う | 対象Contextを選んだ時 | 次の安全な行動を選べる | PRT-000013 | Canonical |
@@ -63,9 +63,11 @@ Area Key: `configuration-trust`
 | Pending／Cancel | 要求と完了を分ける | 取消要求を終了として表示しない |
 | Failure／Recovery | 原因確定、原因不明、回復可能を分ける | 不明を失敗なしへ畳まない |
 
-SCR-000008では対象userIdと表示専用名、資格→ユーザー→現行Role権限、公開・実アクセスを分ける。通常鍵3操作は固定administratorの同一Process Workbench、Hostは追加認証なしのログイン済み操作者の対話CLIによる交換2操作に限定し、MCPへ鍵操作を公開しない。既存Root／Pathを維持する。4組事前表示・3組明示確認と操作別の秘密・結果境界は[Screen Detail](SCR-000008/screen.md#3-interactionとbhv対応)を正本とする。他ユーザー参照が現在許可されていない主体に対象の存在を開示しない。SCR-000008の固定8操作は[Screen Detail](SCR-000008/screen.md#1-screenの目的と入口終了条件)に従う。業務管理はmanager／administrator、administrator Role変更・詳細権限と鍵はadministrator専用である。管理と内容を分け、変更前認可→明示更新→次要求再評価を表示する。登録≠公開、解除は登録と対応Exposureの同時除去・他対象と本体保持・開始済み取消非証明とし、Area全体へユーザー管理条件を拡張しない。
+SCR-000008では対象userIdと表示専用名、資格→ユーザー→現行Role権限、公開・実アクセスを分ける。通常鍵3操作は固定administratorの同一Process Workbench、通常Host回復は追加認証なしのログイン済み操作者の対話CLIによる交換2操作に限定し、MCPへ鍵操作を公開しない。既存Root／Pathを維持する。4組事前表示・3組明示確認と操作別の秘密・結果境界は[Screen Detail](SCR-000008/screen.md#3-interactionとbhv対応)を正本とする。他ユーザー参照が現在許可されていない主体に対象の存在を開示しない。SCR-000008の固定8操作は[Screen Detail](SCR-000008/screen.md#1-screenの目的と入口終了条件)に従う。業務管理はmanager／administrator、administrator Role変更・詳細権限と鍵はadministrator専用である。管理と内容を分け、変更前認可→明示更新→次要求再評価を表示する。登録≠公開、解除は登録と対応Exposureの同時除去・他対象と本体保持・開始済み取消非証明とし、Area全体へユーザー管理条件を拡張しない。
 
 SCR-000008の元発行／記録不明、発行済み・受け渡し未確認、管理認証喪失の案内は[Screen Detail](SCR-000008/screen.md#登録解除と鍵の状態別案内)に従う。一般的な不明状態から別交換を自動開始しない。
+
+初回Host設定は通常Host回復と分離した端末操作で、[Screen Detailの初回導線](SCR-000008/screen.md#初回host設定の端末導線)へ接続する。4状態・確認済み元試行・個別結果を示し、未試行から既存試行／UUIDを推定しない。Remote／MCPから実行せず、Area内の他Screenへ初期化条件を横展開しない。
 
 ## 6. 状態・失敗・回復の表現
 
