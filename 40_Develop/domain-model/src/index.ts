@@ -25,6 +25,10 @@ export {
   applyTopicPromotion,
 } from "./topic/markdown.ts";
 export { createTopicOperations } from "./topic/create-operations.ts";
+export {
+  federateTopicMeetingRelations,
+  type TopicMeetingRelationSource,
+} from "./activity/federate-relations.ts";
 export type {
   TopicMeetingAccess,
   ProjectOperationRecord,

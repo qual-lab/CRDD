@@ -9,6 +9,12 @@
 
 ## 1. 結論と実行境界
 
+### Relation判定のDomain移管 — 2026-10-12
+
+固定11Pathの限定独立再レビューはPass・全重大度残指摘0。初回のexact種別／ID搬送検証、公開操作表、QA正式行の3指摘を是正した。Domain120／MCP61の計181 Case、各書式・型・Lint、差分確認成功（Fail／Cancel／Skip 0、所要時間40.4931327秒／18.1593036秒）。固定kind／固定IDの一時変異は各focused試験で検出し、Source SHA-256 `a17afd01ab2c543916d36bd9e019a0d742c431a2e2d3363b87c82be67f3c3ded`へ完全復元した。自己生成CRUD試験Directory残存0。詳細な実行ログは書庫化せず、Packageの`npm test`と固定反証から再生成する。DomainへのRelation判定移管は局所成立だが、認可自体・AM本番Resolver・全公開操作母集合・全体Readyは未成立である。
+
+基準Commitは`57dfc409`。採用済み責務分離の具体化として、旧MCPのRelation Owner判定をDomainへ移し、認可・同Project集合選定は構成Ownerへ残す。着手前の親照合と読み取り専用確認は着手可。Sourceを集合から導出し、構造不整合は全読取り前拒否、結果は限定fieldから再構成する補強を統合した。新Store／Lock／認可Frameworkは作らない。Domain／MCP回帰、公開API・Symbol、設計・QA・直接参照・差分確認、完成後の限定独立レビューを行う。標準規範とDockerは不変更のため準拠監査・Provider E2Eはこの局所範囲では対象外。AM本番Resolver・Workbench・Launcher・鍵配送・旧CROS撤去・正式191項目・全体完成は未成立を維持する。追加人間判断は不要。
+
 ### Project拘束の着手前整合 — 2026-10-12
 
 固定7Pathの限定独立再レビューはPass・全重大度残指摘0。Domain119／MCP61の計180 Case、各書式・型・Lint、差分確認が成功（Fail／Cancel／Skip 0、所要時間41.3263155秒／17.9465809秒）。両種別の拘束付き通常CRUD・削除後不存在と、foreign本文・incoming Relation・注入契約への余分な引数拒否を確認し、自己生成試験Directory残存0。CPR-IT-010／011の局所接続であり、AM本番Resolver・実HTTP・Relation移管・正式191項目評価・全体完成は未成立。巨大な実行ログや新たなEvidence書庫は追加しない。

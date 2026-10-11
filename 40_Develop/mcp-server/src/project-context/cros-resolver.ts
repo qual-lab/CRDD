@@ -22,110 +22,15 @@ import {
   type CrosRepository,
   type CrosRuntimeActivityReader,
 } from "../../../cros/src/index.ts";
-import { createPortfolioProjection } from "../../../domain-model/src/index.ts";
-import type {
-  ProjectOperationRecordKind,
-  TopicMeetingAccess,
-  TopicMeetingRelation,
+import {
+  createPortfolioProjection,
+  federateTopicMeetingRelations,
+  type TopicMeetingAccess,
 } from "../../../domain-model/src/index.ts";
 
 import { routeMcpRequest } from "../request/route.ts";
 import type { AiProfileCatalogAdministration } from "../../../ai-adapter/src/index.ts";
 import type { McpAuthenticatedRequestHandlerResolver } from "../transport/types.ts";
-
-/**
- * CROS許可済みProject ContextのMCP Compositionで使用するAuthorizedTopicMeetingAccessの構造を固定する。
- *
- * @responsibility CROS許可済みProject ContextのMCP Compositionが受け渡す値、状態および制約を一つの型契約として保持する。
- * @trace ARCH-000005
- * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
- * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
- * @boundary 本ModuleとConsumerの型境界。
- * @security 秘密値または未許可のPathを公開値へ追加しない。
- * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
- */
-
-type AuthorizedTopicMeetingAccess = Readonly<{
-  repository: CrosRepository;
-  application: TopicMeetingAccess;
-}>;
-
-/**
- * 一つのOwner Repository Applicationへ、許可済みProject内Relation解決を合成する。
- *
- * @responsibility Source本文を複製せず、Relation対象を現在Principalが参照できるOwner Repositoryへ解決する。
- * @trace ARCH-000005
- * @trace ARCH-000006
- * @trace ARCH-000013
- * @input sourceに操作対象、authorizedに同じProjectの許可済みApplication集合を受け取る。
- * @returns 書込みはSourceへ限定し、Relation読取りだけをFederationしたApplicationを返す。
- * @precondition authorizedは同じSession、Exposure SnapshotおよびLogical Projectから構築済みである。
- * @postcondition Relationは一意なOwner Repository、競合または非観測を区別する。
- * @effect Relation解決は読取りだけを行い、書込みOperationはSource Applicationへ一回だけ委譲する。
- * @failure 0件をunavailable、複数件をconflictingとして返し、非許可Repositoryの存在を示さない。
- * @invariant Owner Artifact本文、Identityまたは書込みAuthorityを別Repositoryへ複製しない。
- * @boundary CROS Authorized Repository集合とProject Operation Relation Navigationの境界。
- * @security 現在Sessionで解決済みのRepositoryだけを探索し、Grant外Repositoryを入力にも結果にも含めない。
- * @concurrency 一Requestで固定したApplication集合だけを使用する。
- */
-function federateTopicMeetingRelations(
-  source: AuthorizedTopicMeetingAccess,
-  authorizedAccess: readonly AuthorizedTopicMeetingAccess[],
-): TopicMeetingAccess {
-  /**
-   * 認可済み集合だけで固定種別のRelationを解決する。
-   *
-   * @responsibility 既存の一意・非観測・競合判定を両公開面へ同じ規則で適用する。
-   * @trace ARCH-000013
-   * @input kind: 固定種別、id: Source成果物ID。
-   * @returns 許可済みOwnerだけを参照するRelation集合。
-   * @precondition Application集合は同じRequestの認可済みSnapshotである。
-   * @postcondition 非許可Repositoryを結果へ含めない。
-   * @effect Relation対象の存在を読取るだけで書込みを発行しない。
-   * @failure 所有者不存在はunavailable、複数はconflictingとして保持する。
-   * @invariant Source本文と書込み先を変更しない。
-   * @boundary CROS認可集合とDomain Model読取り境界。
-   * @security 許可集合外の対象を探索しない。
-   * @concurrency 同じRequest固定集合だけを利用する。
-   */
-  const relations = (
-    kind: ProjectOperationRecordKind,
-    id: string,
-  ): readonly TopicMeetingRelation[] =>
-    Object.freeze(
-      source.application[kind].relations(id).map((relation) => {
-        const owners = authorizedAccess.filter((candidate) =>
-          candidate.application[kind].hasRelationTarget(
-            relation.kind,
-            relation.id,
-          ),
-        );
-        if (owners.length === 1)
-          return Object.freeze({
-            ...relation,
-            state: "available" as const,
-            ownerRepositoryId: owners[0]?.repository.repositoryId ?? "",
-          });
-        return Object.freeze({
-          ...relation,
-          state:
-            owners.length === 0
-              ? ("unavailable" as const)
-              : ("conflicting" as const),
-        });
-      }),
-    );
-  return Object.freeze({
-    topic: Object.freeze({
-      ...source.application.topic,
-      relations: (id: string) => relations("topic", id),
-    }),
-    meeting: Object.freeze({
-      ...source.application.meeting,
-      relations: (id: string) => relations("meeting", id),
-    }),
-  });
-}
 
 /**
  * CROS Project Context MCP Resolverを作成する。
@@ -240,12 +145,18 @@ export function createCrosProjectContextMcpResolver(input: {
                   );
                   if (source === undefined) return null;
                   return federateTopicMeetingRelations(
-                    source,
-                    authorizedTopicMeetingAccess.filter(
-                      (candidate) =>
-                        candidate.repository.projectId ===
-                        source.repository.projectId,
-                    ),
+                    repositoryId,
+                    authorizedTopicMeetingAccess
+                      .filter(
+                        (candidate) =>
+                          candidate.repository.projectId ===
+                          source.repository.projectId,
+                      )
+                      .map((candidate) => ({
+                        repositoryId: candidate.repository.repositoryId,
+                        projectId: candidate.repository.projectId,
+                        application: candidate.application,
+                      })),
                   );
                 },
               }),

@@ -1,5 +1,9 @@
 # Domain Modelの責務境界
 
+### 認可済み集合内のRelation解決 — 2026-10-12
+
+`activity/federate-relations.ts`の公開`federateTopicMeetingRelations(sourceRepositoryId, sources)`は、認可済み同Project集合の中からSourceを導出し、Topic／MeetingのRelationだけを合成する。Source一意・Repository重複なし・同Projectを読取り前に検査するが、これは構造整合であり認可証明ではない。認可と集合選定は構成側に残す。一意OwnerだけRepository IDを返し、0件はunavailable、複数件はconflictingとする。既存Owner値は流用せず、読取り例外では部分結果を返さない。書込み等の既存操作参照はSourceのまま保持する。旧MCP構成をこのDomain入口へ接続するが、AM本番Resolverへの接続・旧CROS撤去は未完了である。
+
 ### Topic／Meeting本文のProject拘束 — 2026-10-12
 
 公開生成関数`createTopicOperations`／`createMeetingOperations`は、文字列Rootの場合だけ期待Project IDを受け、共通保存Ownerへ渡す。AM利用側は現在認可manifestのProjectを必ず指定する。指定値の形式はRoot観測前、登録・更新の本文一致はLock／Directory作成前、既存本文一致は返却前に検査する。不一致は固定例外とし、部分内容・Pathを返さない。削除時のincoming Relationも、参照候補がTopic／Meeting正本の場合は同じParserとProject一致を通す。Project欄のない他種別へ新fieldは要求しない。保存契約を直接注入する既存入口では第2引数を型・実行時とも拒否し、未実装の保証を付けない。単体の期待値未指定をAM認可保証と扱わない。AM Resolver／本番HTTPへの接続、認可集合内のRelation解決は未完了である。
@@ -314,6 +318,7 @@ MCPとWorkbenchの旧公開入口利用は移管対象である。新Packageへ�
 | 操作／既存Symbol | 新しい公開入口 | 入力と結果 | 主な利用側 | AuthorityとEffect |
 |---|---|---|---|---|
 | `projectProjectOperationSources`、`applyProjectOperationCandidateDecision` | `src/index.ts`の該当Symbol | Source状態・改訂版／投影、対象候補と明示判断／次候補状態 | Workbench Server、MCP Server、CROS | 意味変換だけ。対象の採否Authorityを生成せず、一般Patchの採用はOrchestratorへ渡す |
+| `federateTopicMeetingRelations`、`TopicMeetingRelationSource` | `src/index.ts`の該当Symbol | Source Repository IDと認可済み同Project操作集合／Relationだけを合成したTopicMeetingAccess | MCP Serverの旧CROS構成、後続のAM本番構成 | Relation読取りのみ。認可・集合選定は所有せず、書込み等のSource操作参照を維持する |
 | `parseRepositoryProjectContextMarkdown`、`parseRepositoryReleaseProjectionMarkdown`、`parseRepositoryQualityProjectionMarkdown` | `src/index.ts`の該当Symbol | 所有正本のMarkdown／固定表の構造化結果 | Workbench Server、MCP Server、CROS | Effectなし。不正表・欠測を推測で補完しない |
 | `parseTopicMarkdown`、`applyTopicPromotion` | `src/index.ts`の該当Symbol | Topic本文、昇格先Identity・期待改訂／検証済み次版 | TopicのCRUD操作 | 意味変換だけ。実在する対象・同一Projectと人間判断は保存前に再確認 |
 | `parseMeetingMarkdown`、`applyMeetingOutcomeTreatment` | `src/index.ts`の該当Symbol | Meeting本文、Outcome処置／全表が一致する次版 | MeetingのCRUD操作 | 意味変換だけ。pendingが残るCloseを拒否 |

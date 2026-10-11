@@ -4,7 +4,7 @@
 担当責任者: Qual-Lab
 最終更新日: 2026-10-12
 
-最新局所結果：期待ProjectによるTopic／Meetingの保存・読取り・関連候補拘束を接続した。Domain119／MCP61の計180 Case・各静的3軸成功、限定独立再レビューPass・全重大度残指摘0。両種別の正常CRUD・削除後不存在、foreign本文拒否、関連候補の公開前拒否と試験Directory残存0を確認した。CPR-IT-010／011の局所接続であり、AM本番CRUD・Relation移管・191項目正式評価・全体Readyは未成立。[対象と限界](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#project拘束の着手前整合--2026-10-12)を参照する。
+最新局所結果：Topic／Meeting Relation判定をDomainへ移管した。Domain120／MCP61の計181 Case・各静的3軸成功、限定独立再レビューPass・全重大度残指摘0。両種別のexact種別／ID搬送、Owner0／1／複数、集合不整合時読取り0、探索例外、Source操作参照維持とCRUD試験Directory残存0を確認した。CPR-IT-010の局所接続であり、認可自体・AM本番Resolver・全公開操作母集合・191項目正式評価・全体Readyは未成立。[対象と限界](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#relation判定のdomain移管--2026-10-12)を参照する。
 
 最新局所結果: AM→Domain実本文→Project Context専用MCPを実HTTPへ接続した。MCP60／AM59／Domain118の計237 Case・各静的3軸成功、固定8Pathの限定独立再レビューPass・残指摘0。本文待機中の公開解除／失効は旧対象本文0、欠測は全体停止、開始後取消は当該descriptor終了・後続読取り0・内容非公開を確認した。正式191項目Not Run、公開Launcher／Workbench切替・他能力AM接続・鍵配送・旧REST撤去・全体Ready未成立は維持する。[対象・実行結果](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#am認証によるproject-context専用mcp接続--2026-10-12)を参照する。
 

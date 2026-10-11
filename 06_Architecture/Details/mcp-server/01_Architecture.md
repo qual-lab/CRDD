@@ -1,5 +1,7 @@
 # MCP Transportアーキテクチャ
 
+Topic／Meetingの横断Relationでは、構成が認可済み同Project集合を選び、Domainの`federateTopicMeetingRelations`へRepository ID・Project ID・既存操作だけを渡す。MCPは所有者の0／1／複数判定を再実装せず、認可とProtocolを所有する。旧CROS構成の移管追従はAM本番Resolver・公開Launcher・旧REST撤去の完成を意味しない。
+
 成果物種別: Architecture詳細設計
 詳細設計領域: mcp-server
 状態: Candidate

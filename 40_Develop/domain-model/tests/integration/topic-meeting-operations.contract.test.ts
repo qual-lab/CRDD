@@ -28,6 +28,149 @@ import { createTopicMeetingOperations } from "../../src/activity/operations.ts";
 import { createTopicMeetingRepository } from "../../src/storage/topic-meeting-store.ts";
 import { createTopicOperations } from "../../src/topic/create-operations.ts";
 import { createMeetingOperations } from "../../src/meeting/create-operations.ts";
+import {
+  federateTopicMeetingRelations,
+  type TopicMeetingAccess,
+  type TopicMeetingRelationSource,
+} from "../../src/index.ts";
+
+/**
+ * 認可済み同Project集合のRelationを両種別から解決する。
+ * @responsibility 所有者の一意・非観測・競合、構造拒否と書込み先維持を反証する。
+ * @trace CPR-IT-010
+ * @precondition 種別固定の公開操作と読取りcounterを用意する。
+ * @stimulus 0／1／複数Owner、集合不整合、読取り故障を入力する。
+ * @observation Relationの限定field、読取り回数と操作参照を照合する。
+ * @oracle 不整合は読取り0、故障は部分結果なし、書込み参照はSourceと同一。
+ * @cleanup N/A: 注入公開操作だけを用い物理資源を作らない。
+ * @boundary Domain公開入口から既存Topic／Meeting操作へのDirect Boundary。
+ */
+test("同Project Relationは集合整合と一意Ownerを保つ", () => {
+  let reads = 0;
+  let mode: "none" | "one" | "many" | "throw" = "none";
+  const failure = new Error("owner_read_failed");
+  const targetKinds = ["topic", "meeting", "change"] as const;
+  const sourceCalls: { owner: number; scope: string; id: string }[] = [];
+  const ownerCalls: {
+    owner: number;
+    scope: string;
+    kind: string;
+    id: string;
+  }[] = [];
+  const applications: TopicMeetingAccess[] = [0, 1].map((owner) => {
+    return Object.fromEntries(
+      ["topic", "meeting"].map((scope) => [
+        scope,
+        {
+          relations: (id: string) => {
+            sourceCalls.push({ owner, scope, id });
+            reads += 1;
+            return targetKinds.map((kind) => ({
+              id:
+                kind === "topic"
+                  ? "TOPIC-000001"
+                  : kind === "meeting"
+                    ? "MTG-000001"
+                    : "CHG-000001",
+              kind,
+              state: "available" as const,
+              ownerRepositoryId: "stale-owner",
+            }));
+          },
+          hasRelationTarget: (kind: string, id: string) => {
+            ownerCalls.push({ owner, scope, kind, id });
+            reads += 1;
+            if (mode === "throw" && owner === 1) throw failure;
+            return mode === "many" || (mode === "one" && owner === 1);
+          },
+        },
+      ]),
+    ) as unknown as TopicMeetingAccess;
+  });
+  const sources: TopicMeetingRelationSource[] = applications.map(
+    (application, index) => ({
+      repositoryId: `repo-${index}`,
+      projectId: "project-a",
+      application,
+    }),
+  );
+  const first = sources[0];
+  const second = sources[1];
+  assert.ok(first && second);
+  for (const invalid of [
+    [],
+    sources.slice(1),
+    [...sources, first],
+    [first, { ...second, repositoryId: "repo-0" }],
+    [first, { ...second, projectId: "project-b" }],
+  ]) {
+    reads = 0;
+    assert.throws(
+      () => federateTopicMeetingRelations("repo-0", invalid),
+      /topic_meeting_relation_sources_invalid/u,
+    );
+    assert.equal(reads, 0);
+  }
+  const combined = federateTopicMeetingRelations("repo-0", sources);
+  for (const kind of ["topic", "meeting"] as const) {
+    for (const nextMode of ["none", "one", "many"] as const) {
+      mode = nextMode;
+      reads = 0;
+      sourceCalls.length = 0;
+      ownerCalls.length = 0;
+      const sourceId = kind === "topic" ? "TOPIC-000002" : "MTG-000002";
+      const actual = combined[kind].relations(sourceId);
+      assert.equal(reads, 7);
+      assert.deepEqual(sourceCalls, [{ owner: 0, scope: kind, id: sourceId }]);
+      for (const owner of [0, 1])
+        assert.deepEqual(
+          ownerCalls.filter((call) => call.owner === owner),
+          targetKinds.map((targetKind) => ({
+            owner,
+            scope: kind,
+            kind: targetKind,
+            id:
+              targetKind === "topic"
+                ? "TOPIC-000001"
+                : targetKind === "meeting"
+                  ? "MTG-000001"
+                  : "CHG-000001",
+          })),
+        );
+      assert.deepEqual(
+        actual,
+        targetKinds.map((targetKind) => ({
+          id:
+            targetKind === "topic"
+              ? "TOPIC-000001"
+              : targetKind === "meeting"
+                ? "MTG-000001"
+                : "CHG-000001",
+          kind: targetKind,
+          state:
+            nextMode === "none"
+              ? "unavailable"
+              : nextMode === "one"
+                ? "available"
+                : "conflicting",
+          ...(nextMode === "one" ? { ownerRepositoryId: "repo-1" } : {}),
+        })),
+      );
+    }
+    mode = "throw";
+    assert.throws(
+      () => combined[kind].relations("ignored"),
+      (error) => error === failure,
+    );
+    for (const name of Object.keys(first.application[kind])) {
+      if (name === "relations") continue;
+      assert.equal(
+        Reflect.get(combined[kind], name),
+        Reflect.get(first.application[kind], name),
+      );
+    }
+  }
+});
 
 /**
  * 公開CRUD面がTopicとMeetingの種別を固定することを確認する。
@@ -57,8 +200,26 @@ test("公開CRUDは生成した種別だけを操作する", () => {
   }
   const root = mkdtempSync(path.join(parent, "domain-public-crud-"));
   try {
-    const topics = createTopicOperations(root);
-    const meetings = createMeetingOperations(root);
+    const source = {
+      topic: createTopicOperations(root),
+      meeting: createMeetingOperations(root),
+    };
+    const combined = federateTopicMeetingRelations("repo-source", [
+      {
+        repositoryId: "repo-source",
+        projectId: "PRJ-001",
+        application: source,
+      },
+    ]);
+    for (const kind of ["topic", "meeting"] as const)
+      for (const name of Object.keys(source[kind]))
+        if (name !== "relations")
+          assert.equal(
+            Reflect.get(combined[kind], name),
+            Reflect.get(source[kind], name),
+          );
+    const topics = combined.topic;
+    const meetings = combined.meeting;
     assert.equal(topics.create(topic("TOPIC-000001")).status, "completed");
     assert.equal(meetings.create(meeting()).status, "completed");
     assert.equal(topics.list({}).records.length, 1);

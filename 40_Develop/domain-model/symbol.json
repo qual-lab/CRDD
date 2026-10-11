@@ -4,6 +4,12 @@
   "subsystem": "domain-model",
   "symbols": [
     {
+      "symbolId": "domain-model.activity-federate-relations",
+      "kind": "file",
+      "path": "src/activity/federate-relations.ts",
+      "archIds": ["ARCH-000006", "ARCH-000013"]
+    },
+    {
       "symbolId": "domain-model.project-context-read",
       "kind": "file",
       "path": "src/project-context/read-context.ts",
@@ -510,6 +516,7 @@
         "CPR-IT-011"
       ],
       "verifies": [
+        "domain-model.activity-federate-relations",
         "project-operation.application.topic-meeting",
         "project-operation.repository.topic-meeting"
       ]

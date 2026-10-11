@@ -64,6 +64,8 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 
 ## 現行実装との照合
 
+2026-10-12の責務移管では、認可・同Project集合選定は旧CROS／将来AM構成へ残し、認可済み集合内の純粋なOwner判定をDomainの`activity/federate-relations.ts`へ移す。下表のCROS Composition所有は認可付き集合の解決を指し、Relationの0／1／複数Owner判定はDomain公開入口を共用する。新しい認可・保存・通信層は追加しない。旧版のSource照合結果をAM本番接続の成立へ流用しない。
+
 現行Sourceと既存試験は本詳細設計の正式入力ではない。本設計候補を固定した後、成立済み能力を失わないよう`Covered`、`Partial`、`Missing`、`Legacy`または`Implementation Detail`へ分類する。
 
 | 実装領域 | 判定 | 現在の成立範囲 | 残るGap |
