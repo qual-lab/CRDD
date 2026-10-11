@@ -181,6 +181,12 @@ Source Definition由来の検証義務を維持し、Detailは具体的な観測
 
 全数Coverageと試験段階の扱いは[UI／SPEC DetailのQuality分析](../../Analysis/Detail/quality_analysis.md)を中央統合投影とし、本定義は上記Relationの検証責務を局所所有する。
 
+## 保存途中再入場候補への接続 — 2026-10-11
+
+[AM保存設計§4.3](../../../06_Architecture/Details/access-management/02_Management_State_and_API.md#43-保存途中の再入場候補--2026-10-11)の反証を既存項目へ接続する。RFD-IT-021は通常6管理操作のbase／next／unknown照合、古いpending・改訂再利用・操作相関不一致、部分材料・link／Root差、出版後読戻し／清掃／解放不明を確認する。出版済み事実と未完了を分離し、対象外不変・暗黙再Effect 0を観測する。RFD-IT-024は初回current不在＋pending存在を未初期化へ畳まないこと、currentの耐久相関読戻しがUUID／鍵Effectに先行すること、二重作成0を確認する。通常保存のpending廃棄を初回・鍵処置へ流用しない。新IDや実行結果を追加せず、190項目・Not Runを維持する。完全Schema、物理Owner、初回・鍵段階の具体処置が未確定の間は試験実装Readyや保存Gate成立を主張しない。
+
+RFD-IT-021ではpending削除・不存在確認後から応答前のProcess喪失と、別操作による後続改訂も比較する。現在状態と元要求不明を分離し、確認済み出版の保持・自動再実行0を観測する。遅延Effectなしには旧Owner終了・排他終了の観測を必要とし、pending削除だけをOracleにしない。古いSchema適合Snapshotだけ残る電源断反例では現在read成功から鍵／認可の安全再開を推定しない。具体方式・保証範囲が未決のため、新しい電源断試験や品質項目を今回追加しない。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した
