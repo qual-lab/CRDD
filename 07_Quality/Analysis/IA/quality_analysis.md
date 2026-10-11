@@ -23,7 +23,7 @@ IA工程が定義した成立条件を全件処置し、成功の意味、失敗
 | [IA-000006](../../../03_IA/Definitions/IA-000006/ia_definition.md) | Project・Repository・Binding・読取り投影（Projection） | 「Project・Repository・Binding・読取り投影（Projection）」に必要な対象・状態・関係・導線を識別し追跡できることを確認する | [投影と出所](../../Definitions/QA-000004/quality_definition.md)<br>[RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md) | IT／ST／UAT | Information／State／Identity／Security | Mapped |
 | [IA-000007](../../../03_IA/Definitions/IA-000007/ia_definition.md) | 手元の情報源と横断情報源 | 「手元の情報源と横断情報源」に必要な対象・状態・関係・導線を識別し追跡できることを確認する | [RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md) | IT／ST | Identity／Security | Mapped |
 | [IA-000008](../../../03_IA/Definitions/IA-000008/ia_definition.md) | 公開受付・通信方式・結果 | 「公開受付・通信方式・結果」に必要な対象・状態・関係・導線を識別し追跡できることを確認する | [外部送信とTransport](../../Definitions/QA-000009/quality_definition.md) | IT／ST／UAT | Transport／Security | Mapped |
-| [IA-000009](../../../03_IA/Definitions/IA-000009/ia_definition.md) | ユーザー・Role権限・接続資格・Repository範囲・Access Recovery | 固定8操作の管理許可と可変の内容権限を別情報とする。新規登録の予定Role／名前と、既存ユーザー変更のID／Role前後、Repository登録状態／Exposureを操作別に識別し、資格情報と混同しない。userId、管理用表示名、Role、資格、公開範囲と現在認可を別情報として扱う。管理権限は内容権限を意味しない。交換対象・失効範囲・既存発行先・保持情報と、失効／発行／記録／搬送／受領の既知状態を区別し、Secret再表示・非許可情報の存在開示をしない。登録関係と対応Exposure、各除去の読戻し、対象外／本体保持および旧処理終了状態を別情報として扱う。元発行IdentityはCredential IDとも別交換Operation／Recoveryとも区別する。発行／非秘密記録不明、確定発行・記録と配送／受領だけ未確認、現在管理者認証の未接続／喪失を別状態とし、既知事実を保持する。通常発行に交換Recoveryを設けず、交換由来だけ元exactを持つ。明示的な別交換には先の資格を含む現在対象集合を示し、失効後の遅延応答を利用可能鍵として分類しない。別交換成功と旧受領・rollback・取消完了を別情報とする。 | [RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md) | IT／ST／UAT | Identity／Security | Mapped — Not Run |
+| [IA-000009](../../../03_IA/Definitions/IA-000009/ia_definition.md) | ユーザー・Role権限・接続資格・Repository範囲・Access Recovery | 固定8操作の管理許可と可変の内容権限を別情報とする。新規登録の予定Role／名前と、既存ユーザー変更のID／Role前後、Repository登録状態／Exposureを操作別に識別し、資格情報と混同しない。userId、管理用表示名、Role、資格、公開範囲と現在認可を別情報として扱う。管理権限は内容権限を意味しない。交換対象・失効範囲・既存発行先・保持情報と、失効／発行／記録／搬送／受領の既知状態を区別し、Secret再表示・非許可情報の存在開示をしない。登録関係と対応Exposure、各除去の読戻し、対象外／本体保持および旧処理終了状態を別情報として扱う。元発行IdentityはCredential IDとも別交換Operation／Recoveryとも区別する。発行／非秘密記録不明、確定発行・記録と配送／受領だけ未確認、現在管理者認証の未接続／喪失を別状態とし、既知事実を保持する。通常発行に交換Recoveryを設けず、交換由来だけ元exactを持つ。明示的な別交換には先の資格を含む現在対象集合を示し、失効後の遅延応答を利用可能鍵として分類しない。別交換成功と旧受領・rollback・取消完了を別情報とする。初回追加義務: 初回設定前の非秘密の試行情報と、作成後のUUIDユーザー・Role・鍵の紐付けを区別する。表示名は表示用であり認証・権限ではない。試行、発行、記録、受け渡し、受領、通常管理接続の関係と現在状態を保持する。 | [RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md) | IT／ST／UAT | Identity／Security | 既存義務Mapped／初回義務Definition・Local Item未接続（OPEN） |
 | [IA-000010](../../../03_IA/Definitions/IA-000010/ia_definition.md) | Meeting・Topic・候補・採否 | 「Meeting・Topic・候補・採否」に必要な対象・状態・関係・導線を識別し追跡できることを確認する | [候補の昇格](../../Definitions/QA-000005/quality_definition.md) | IT | Workflow／Authority | Mapped |
 | [IA-000011](../../../03_IA/Definitions/IA-000011/ia_definition.md) | Tool能力・利用可否・配布根拠 | 「Tool能力・利用可否・配布根拠」に必要な対象・状態・関係・導線を識別し追跡できることを確認する | [Repositoryと契約移行](../../Definitions/QA-000001/quality_definition.md) | IT | Contract／Traceability | Mapped |
 | [IA-000012](../../../03_IA/Definitions/IA-000012/ia_definition.md) | 実行時データ・保持・清掃 | 「実行時データ・保持・清掃」に必要な対象・状態・関係・導線を識別し追跡できることを確認する | [Runtime Data lifecycle](../../Definitions/QA-000008/quality_definition.md) | IT／ST | State／Recovery | Mapped |
@@ -53,7 +53,7 @@ IA工程が定義した成立条件を全件処置し、成功の意味、失敗
 | [IA-000006](../../../03_IA/Definitions/IA-000006/ia_definition.md) | `ia-000006.qa-000007` | IA Definition（情報・関係・状態・見つけ方） | [RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md) | 論理Projectを一つに見ながら、情報源、物理Root、不完全性を取り違えず現在地を判断する。UX-000009: complete／partial／開示制限（restricted）／stale／競合あり（conflicting）／不明（unknown）。UX-000011: 確認済み（verified）／未確認（unverified）／曖昧（ambiguous）／利用不能（unavailable）。UX-000015: complete／partial／開示制限（restricted）／stale／競合あり（conflicting） | IT／ST | IT: Direct Boundary<br>ST: System/E2E | `RFD-IT-002`、`RFD-IT-001`、`RFD-ST-003` |
 | [IA-000007](../../../03_IA/Definitions/IA-000007/ia_definition.md) | `ia-000007.qa-000007` | IA Definition（情報・関係・状態・見つけ方） | [RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md) | 一つのRepositoryで日常作業を完了し、必要な時だけ横断情報へ進む。UX-000010: 手元で利用可能（local available）／横断情報源を利用不能（cross-source unavailable）でも継続可能 | IT／ST | IT: Direct Boundary<br>ST: System/E2E | `RFD-ST-003`、`RFD-ST-004`、`RFD-IT-009` |
 | [IA-000008](../../../03_IA/Definitions/IA-000008/ia_definition.md) | `ia-000008.qa-000009` | IA Definition（情報・関係・状態・見つけ方） | [外部送信とTransport](../../Definitions/QA-000009/quality_definition.md) | 入口を変えても同じ要求、権限判断、状態、結果へ到達する。UX-000012: 受付前／受付済み／作用前失敗／作用後失敗／結果あり | IT／ST／UAT | IT: Direct Boundary<br>ST: System/E2E<br>UAT: User Acceptance | `EST-ST-005`、`EST-IT-001`、`EST-UAT-007` |
-| [IA-000009](../../../03_IA/Definitions/IA-000009/ia_definition.md) | `ia-000009.qa-000007` | IA Definition（情報・関係・状態・見つけ方） | [RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md) | 固定8操作の管理許可と可変の内容権限を別情報とする。新規登録の予定Role／名前と、既存ユーザー変更のID／Role前後、Repository登録状態／Exposureを操作別に識別し、資格情報と混同しない。userId、管理用表示名、Role、資格、公開範囲と現在認可を別情報として扱う。管理権限は内容権限を意味しない。交換対象・失効範囲・既存発行先・保持情報と、失効／発行／記録／搬送／受領の既知状態を区別し、Secret再表示・非許可情報の存在開示をしない。登録関係と対応Exposure、各除去の読戻し、対象外／本体保持および旧処理終了状態を別情報として扱う。元発行IdentityはCredential IDとも別交換Operation／Recoveryとも区別する。発行／非秘密記録不明、確定発行・記録と配送／受領だけ未確認、現在管理者認証の未接続／喪失を別状態とし、既知事実を保持する。通常発行に交換Recoveryを設けず、交換由来だけ元exactを持つ。明示的な別交換には先の資格を含む現在対象集合を示し、失効後の遅延応答を利用可能鍵として分類しない。別交換成功と旧受領・rollback・取消完了を別情報とする。 | IT／ST／UAT | IT: Related 2 Blocks<br>ST: System/E2E<br>UAT: User Acceptance | `RFD-ST-003`、`RFD-ST-004`、`RFD-ST-016`、`RFD-UAT-007`、`RFD-IT-013`、`RFD-IT-017`、`RFD-IT-018`、`RFD-IT-021`、`RFD-ST-022` |
+| [IA-000009](../../../03_IA/Definitions/IA-000009/ia_definition.md) | `ia-000009.qa-000007` | IA Definition（情報・関係・状態・見つけ方） | [RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md) | 固定8操作の管理許可と可変の内容権限を別情報とする。新規登録の予定Role／名前と、既存ユーザー変更のID／Role前後、Repository登録状態／Exposureを操作別に識別し、資格情報と混同しない。userId、管理用表示名、Role、資格、公開範囲と現在認可を別情報として扱う。管理権限は内容権限を意味しない。交換対象・失効範囲・既存発行先・保持情報と、失効／発行／記録／搬送／受領の既知状態を区別し、Secret再表示・非許可情報の存在開示をしない。登録関係と対応Exposure、各除去の読戻し、対象外／本体保持および旧処理終了状態を別情報として扱う。元発行IdentityはCredential IDとも別交換Operation／Recoveryとも区別する。発行／非秘密記録不明、確定発行・記録と配送／受領だけ未確認、現在管理者認証の未接続／喪失を別状態とし、既知事実を保持する。通常発行に交換Recoveryを設けず、交換由来だけ元exactを持つ。明示的な別交換には先の資格を含む現在対象集合を示し、失効後の遅延応答を利用可能鍵として分類しない。別交換成功と旧受領・rollback・取消完了を別情報とする。初回追加義務: 初回設定前の非秘密の試行情報と、作成後のUUIDユーザー・Role・鍵の紐付けを区別する。表示名は表示用であり認証・権限ではない。試行、発行、記録、受け渡し、受領、通常管理接続の関係と現在状態を保持する。管理状態と進行中初回記録の両方が未初期化と確認できた場合だけ開始する。欠落一件、読取り不能、破損、Lock使用中、既存ユーザー、部分状態、確認不能を未初期化へ畳まない。発行／記録不明では元試行だけ再観測し、発行・記録確定後の受け渡しまたは受領不明では作成済み管理者の既存Host指定交換へ別の明示操作として渡す。秘密再表示・自動再発行・自動再初期化を行わない。初回設定とその状態照会をMCPの一覧・Schema・登録・dispatchへ出さず、遠隔Workbenchも実行しない。追加認証、Repository登録・公開、内容権限の暗黙付与を追加しない。 | IT／ST／UAT | IT: Related 2 Blocks<br>ST: System/E2E<br>UAT: User Acceptance | `RFD-ST-003`、`RFD-ST-004`、`RFD-ST-016`、`RFD-UAT-007`、`RFD-IT-013`、`RFD-IT-017`、`RFD-IT-018`、`RFD-IT-021`、`RFD-ST-022` <br>初回追加義務はDefinition／Local Item未接続（OPEN）。既存IDへ仮接続しない。 |
 | [IA-000010](../../../03_IA/Definitions/IA-000010/ia_definition.md) | `ia-000010.qa-000005` | IA Definition（情報・関係・状態・見つけ方） | [候補の昇格](../../Definitions/QA-000005/quality_definition.md) | 会話を自動採用せず、候補を既存論点と比較して所有正本へ戻す。UX-000014: 観測済み（observed）／候補（candidate）／採用（adopted）／却下（rejected）。会話と正本を分ける | IT | IT: Direct Boundary | `CPR-IT-001`、`CPR-IT-004` |
 | [IA-000011](../../../03_IA/Definitions/IA-000011/ia_definition.md) | `ia-000011.qa-000001` | IA Definition（情報・関係・状態・見つけ方） | [Repositoryと契約移行](../../Definitions/QA-000001/quality_definition.md) | Repositoryの仕事に必要な標準Toolを、版と根拠を取り違えず選ぶ。UX-000016: 利用可能（available）／利用不能（unavailable）／未確認（unverified）／停止（blocked） | IT | IT: Direct Boundary | `RCM-UT-002`、`RCM-IT-010` |
 | [IA-000012](../../../03_IA/Definitions/IA-000012/ia_definition.md) | `ia-000012.qa-000008` | IA Definition（情報・関係・状態・見つけ方） | [Runtime Data lifecycle](../../Definitions/QA-000008/quality_definition.md) | 保存場所の内部構造を推測せず、保持すべき状態、一時物、回復義務を安全に扱う。UX-000017: 一時（temporary）／保持必要（durable）／回復必要（recovery_required）／清掃可能（eligible_for_cleanup）／不明（unknown）。UX-000022: 存在（present）／不存在（absent）／不明（unknown）、回復可能（recoverable）／清掃可能（cleanup_eligible） | IT／ST | IT: Direct Boundary<br>ST: System/E2E | `RDL-ST-002`、`RDL-IT-003`、`RDL-IT-001` |
@@ -77,14 +77,14 @@ IA工程が定義した成立条件を全件処置し、成功の意味、失敗
 
 | 区分 | 件数 | 対象 | 処置 |
 |---|---:|---|---|
-| Required - Defined | 0 | なし | 現在の関係集合は閉じている |
-| Defined - Required | 0 | なし | 現在の関係集合は閉じている |
-| Level不一致 | 0 | なし | Sourceが要求する全段階を同段階のLocal Itemへ接続した |
-| Relation不明 | 0 | なし | 全Obligation KeyをSource、Quality DefinitionおよびLocal Itemへ接続した |
+| Required - Defined | 1 | IA-000009の初回設定に関する複合義務 | OPEN: 次段階でQA-000007／QA-000009のDefinition・Local Itemを確定する。1はSource単位の未接続義務数で、必要Local Item数ではない |
+| Defined - Required | 0（既存集合） | 既存定義済み項目 | 初回追加義務の定義は未着手。既存集合の0を新義務の充足へ流用しない |
+| 試験段階Coverage | OPEN | 初回追加義務 | 必要段階は分析済みだが、同段階のLocal Itemへの接続は次段階で確認する |
+| Relation未接続 | 1 | 初回追加義務 | Owner候補への引渡しのみ。Definition・Local Itemの確定接続はOPEN |
 
 ## 5. 未解決事項
 
-現在のCanonical集合は全件処置済み。誤った対応を除いた意味レビュー母集団は198対応行である。上流定義から合否を組み立てられない場合はQuality側で補完せず、該当工程を再開する。
+既存Canonical集合の分析は処置済みだが、初回追加義務のDefinition／Local Item接続はOPEN。誤った対応を除いた意味レビュー母集団は198対応行である。上流定義から合否を組み立てられない場合はQuality側で補完せず、該当工程を再開する。
 
 ## Checklist
 
@@ -92,7 +92,7 @@ IA工程が定義した成立条件を全件処置し、成功の意味、失敗
 - [x] 各Source固有の成功、境界、失敗、Riskおよび観測不能を分析した
 - [x] 表題や共通定型句ではなくSource固有の検証義務を記録した
 - [x] 意味の近い義務を統合してもSource固有条件を失っていない
-- [x] 各Sourceと検証目標、試験段階およびLocal Itemを接続した
+- [ ] 各Sourceと検証目標、試験段階およびLocal Itemを接続した — OPEN: 初回追加義務を次段階でQA Definition／Local Itemへ接続する
 - [x] 必要検証義務を既存Local ItemやTestから逆算していない
 - [x] Required／Definedの集合差、Level不一致およびRelation不明を評価した
 - [x] 上流の未確認事項をUAT、OPEN義務または上流再開へ処置した
@@ -100,7 +100,23 @@ IA工程が定義した成立条件を全件処置し、成功の意味、失敗
 - [x] 未解決事項、判断者および再評価契機を明示した
 
 
-## 最新鍵管理・認可契約の限定再導出 — 2026-10-11
+## 初回Host設定の追加導出 — 2026-10-11
+
+IA-000009の現在の正本から、初回設定の義務を追加導出する。これは通常鍵管理とは別の義務である。既存185 Local Itemは定義済み集合の件数であり、初回設定の充足件数ではない。未定義の義務はOPENであり、定義済み項目の実行状態であるNot Runへ置き換えない。
+
+| 観点 | 必要な確認 | 引渡し先・現在状態 |
+|---|---|---|
+| 工程固有の成立 | 初回設定前の非秘密の試行情報と、作成後のUUIDユーザー・Role・鍵の紐付けを区別する。表示名は表示用であり認証・権限ではない。試行、発行、記録、受け渡し、受領、通常管理接続の関係と現在状態を保持する。 | QA-000007候補／Definition・Local Item未接続OPEN |
+| 正常・境界・準正常・異常・回復 | 管理状態と進行中初回記録の両方が未初期化と確認できた場合だけ開始する。欠落一件、読取り不能、破損、Lock使用中、既存ユーザー、部分状態、確認不能を未初期化へ畳まない。発行／記録不明では元試行だけ再観測し、発行・記録確定後の受け渡しまたは受領不明では作成済み管理者の既存Host指定交換へ別の明示操作として渡す。秘密再表示・自動再発行・自動再初期化を行わない。 | QA-000007候補／通常Host交換二操作への条件付き引渡し。初回設定を第三の回復操作にしない |
+| 公開・権限境界 | 初回設定とその状態照会をMCPの一覧・Schema・登録・dispatchへ出さず、遠隔Workbenchも実行しない。追加認証、Repository登録・公開、内容権限の暗黙付与を追加しない。 | QA-000009候補／MCP負境界と状態照会非公開はDefinition・Local Item未接続OPEN |
+| 試験段階 | ITは工程固有の情報・結果と処理境界、STは公開入口の成立と非公開境界、UATは利用者の理解・達成。UTを全Sourceへ機械追加しない。 | 必要段階の導出候補。Same／New／Mergeと項目数は次段階で確定 |
+| 対象外・未評価 | 新しいStore・認可Framework、秘密の複製、暗黙登録・公開・内容付与を要求しない。初回Sourceに性能要求がないためPT／LTはN/A。Root準備の既知Filesystem EffectをEffect 0と表示しない | API・保存方式・Source／Test・実行・新Evidenceは未完了 |
+
+差分はこのSourceに由来する1複合義務として数える。担当はQual-Lab、再評価契機は次段階のQA-000007／QA-000009定義更新。従来のLocal Item／Testから新義務を逆算せず、既存項目に同じ保証があるかを確認してから統合・分割・追加を決める。今回の分析は契約・品質の限定独立再レビュー済み、全重大度の残指摘0。初回義務の定義・実行や全体Quality Readyを示さない。
+
+## 前回の鍵管理・認可契約の限定再導出 — 2026-10-11
+
+以下の限定レビュー結果は初回Host設定の追加前の通常管理義務に限る。初回追加義務のDefinition接続・実行・完成の根拠にはしない。
 
 上記の対象SourceからQA-000007へ義務を再導出した。MCP一覧・Schema・登録・dispatchの鍵操作非公開はQA-000009／EST-ST-015が所有する。通常発行・独立失効・交換を混同せず、交換4組の事前表示と3組だけの確認を維持する。新規・変更Local ItemはNot Runであり、旧Evidenceを新契約のPassへ流用しない。固定8操作の担当Roleは採用済みであり、今回の通常管理義務を再導出した。内容権限の具体語彙、具体API・Schema・Store、Source／Test／実行接続はOPEN。Profile管理のRoleは別途OPEN。
 

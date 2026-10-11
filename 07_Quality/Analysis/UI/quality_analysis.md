@@ -22,7 +22,7 @@ UI工程が定義した成立条件を全件処置し、成功の意味、失敗
 | [UI-000005](../../../04_UI/Definitions/UI-000005/ui_definition.md) | 実行事実と故障境界の診断 | 「実行事実と故障境界の診断」の表示・操作・Feedbackが利用者成果と情報構造に一致することを確認する | [投影と出所](../../Definitions/QA-000004/quality_definition.md)<br>[外部Runtime境界](../../Definitions/QA-000006/quality_definition.md) | IT／ST／UAT | Information／State／External Boundary／Fault | Mapped |
 | [UI-000006](../../../04_UI/Definitions/UI-000006/ui_definition.md) | Repository内作業と対象選択 | 「Repository内作業と対象選択」の表示・操作・Feedbackが利用者成果と情報構造に一致することを確認する | [Repositoryと契約移行](../../Definitions/QA-000001/quality_definition.md)<br>[RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md) | UT／IT／ST | Contract／Traceability／Identity／Security | Mapped |
 | [UI-000007](../../../04_UI/Definitions/UI-000007/ui_definition.md) | 入口をまたぐ共通依頼・結果 | 「入口をまたぐ共通依頼・結果」の表示・操作・Feedbackが利用者成果と情報構造に一致することを確認する | [外部送信とTransport](../../Definitions/QA-000009/quality_definition.md)<br>[RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md)<br>[成果物の理解と工程引継ぎ](../../Definitions/QA-000013/quality_definition.md) | IT／ST／UAT | Transport／Security／Identity／Information／Handoff | Mapped |
-| [UI-000008](../../../04_UI/Definitions/UI-000008/ui_definition.md) | ユーザー・Role権限・接続資格とAccess回復 | 通常6管理操作の対象と変更前後、拒否・保存確認・保存後不明を区別して表示する。managerのadministrator表示名変更を許可し、管理許可を内容取得保証へ変えない。鍵操作の入口と確認条件は既存義務を維持する。認証ユーザーの表示名と現在利用範囲、通常Workbenchの鍵3操作とHost交換2操作を区別して表示する。交換4組の対象・影響を事前表示し、3組の確認を区別する。部分失敗を成功や未発行へ丸めず、Secretは一度だけ表示する。MCPに鍵操作を表示・案内しない。登録解除は同一受付操作・採用改訂で登録と対応Exposureの両除去読戻しを確認した時だけ完了表示し、片側不明・対象外／本体変更・旧取消完了表示を反証する。発行／非秘密記録不明にはCredential IDとは別の元発行Identityで再観測を案内し、新交換・通常発行への交換Recoveryを案内しない。確定発行・記録後は「発行済み・受け渡し未確認」と表示し、現在administratorの明示的な別Operation／別Recovery交換へ接続する。各交換内のexact相関、先の鍵を含む対象資格と保持範囲を表示し、旧確定事実を変えない。現在administrator認証未接続／喪失だけ既存Hostへ案内し、遅延失効鍵の利用表示・秘密再表示・自動再発行・旧受領／rollback／取消の誤表示をしない。 | [RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md) | IT／ST／UAT | Identity／Security／Recovery | Mapped — Not Run |
+| [UI-000008](../../../04_UI/Definitions/UI-000008/ui_definition.md) | ユーザー・Role権限・接続資格とAccess回復 | 通常6管理操作の対象と変更前後、拒否・保存確認・保存後不明を区別して表示する。managerのadministrator表示名変更を許可し、管理許可を内容取得保証へ変えない。鍵操作の入口と確認条件は既存義務を維持する。認証ユーザーの表示名と現在利用範囲、通常Workbenchの鍵3操作とHost交換2操作を区別して表示する。交換4組の対象・影響を事前表示し、3組の確認を区別する。部分失敗を成功や未発行へ丸めず、Secretは一度だけ表示する。MCPに鍵操作を表示・案内しない。登録解除は同一受付操作・採用改訂で登録と対応Exposureの両除去読戻しを確認した時だけ完了表示し、片側不明・対象外／本体変更・旧取消完了表示を反証する。発行／非秘密記録不明にはCredential IDとは別の元発行Identityで再観測を案内し、新交換・通常発行への交換Recoveryを案内しない。確定発行・記録後は「発行済み・受け渡し未確認」と表示し、現在administratorの明示的な別Operation／別Recovery交換へ接続する。各交換内のexact相関、先の鍵を含む対象資格と保持範囲を表示し、旧確定事実を変えない。現在administrator認証未接続／喪失だけ既存Hostへ案内し、遅延失効鍵の利用表示・秘密再表示・自動再発行・旧受領／rollback／取消の誤表示をしない。初回追加義務: 初回設定の四状態と次の行動を案内し、Workbench自体は初回設定や秘密の配送を実行しない。通常のHost鍵交換二操作と初回設定を混同せず、部分成功から全体完了を表示しない。 | [RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md) | IT／ST／UAT | Identity／Security／Recovery | 既存義務Mapped／初回義務Definition・Local Item未接続（OPEN） |
 | [UI-000009](../../../04_UI/Definitions/UI-000009/ui_definition.md) | Meeting・Topic・候補の処置 | Topic／Meetingの日常操作、Outcome処置、Action移管および安全な削除を一つのLifecycleとして理解・操作できることを確認する | [候補の昇格](../../Definitions/QA-000005/quality_definition.md) | IT／ST／UAT | Workflow／Authority／Relation | Mapped |
 | [UI-000010](../../../04_UI/Definitions/UI-000010/ui_definition.md) | Tool・AIモデル構成の選択 | 「Tool・AIモデル構成の選択」の表示・操作・Feedbackが利用者成果と情報構造に一致することを確認する | [Repositoryと契約移行](../../Definitions/QA-000001/quality_definition.md)<br>[外部Runtime境界](../../Definitions/QA-000006/quality_definition.md) | UT／IT | Contract／Traceability／External Boundary／Fault | Mapped |
 | [UI-000011](../../../04_UI/Definitions/UI-000011/ui_definition.md) | 実行時データの保持・清掃 | 「実行時データの保持・清掃」の表示・操作・Feedbackが利用者成果と情報構造に一致することを確認する | [Runtime Data lifecycle](../../Definitions/QA-000008/quality_definition.md) | IT／ST | State／Recovery | Mapped |
@@ -52,7 +52,7 @@ UI工程が定義した成立条件を全件処置し、成功の意味、失敗
 | [UI-000007](../../../04_UI/Definitions/UI-000007/ui_definition.md) | `ui-000007.qa-000009` | UI Definition（認識・操作・Feedback・失敗表示） | [外部送信とTransport](../../Definitions/QA-000009/quality_definition.md) | CLI、MCP、Workbenchの入口を変えても同じ依頼と結果を扱える。UX-000012: 通信方式を変えても同じ公開契約・入力・権限判断で操作する: 入口を切り替えて同じ仕事を開始・継続する場面: 公開契約・入力・権限判断・状態・結果を通信方式間で一致させる: 通信方式によって入力・権限判断・状態・結果の意味が変わる。UX-000012／IA-000008: 受付前／受付済み／作用前失敗／作用後失敗／結果あり: 入口→同じ公開要求→Runtime→同じ結果 | IT／ST／UAT | IT: Direct Boundary<br>ST: System/E2E<br>UAT: User Acceptance | `EST-IT-001`、`EST-ST-003`、`EST-UAT-007` |
 | [UI-000007](../../../04_UI/Definitions/UI-000007/ui_definition.md) | `ui-000007.qa-000007` | UI Definition（認識・操作・Feedback・失敗表示） | [RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md) | 人間、複数AI、MCPおよびWorkbenchが同じRepository Project Contextを利用し、Consumer固有Storeを作らず、Repository Role外を推測表示しない | IT／ST／UAT | IT: Direct Boundary<br>ST: System/E2E<br>UAT: User Acceptance | `RFD-IT-011`、`RFD-ST-010`、`RFD-UAT-007` |
 | [UI-000007](../../../04_UI/Definitions/UI-000007/ui_definition.md) | `ui-000007.qa-000013` | UI Definition（認識・操作・Feedback・失敗表示） | [成果物の理解と工程引継ぎ](../../Definitions/QA-000013/quality_definition.md) | Markdown、AI、MCPおよびWorkbenchの入口を変えても、Project Contextの五つの観点、根拠、不完全性、共有分析およびOwner Relationを同じ意味で理解できる | IT／ST／UAT | IT: Direct Boundary<br>ST: System/E2E<br>UAT: User Acceptance | `AUH-IT-002`、`AUH-ST-006`、`AUH-UAT-001` |
-| [UI-000008](../../../04_UI/Definitions/UI-000008/ui_definition.md) | `ui-000008.qa-000007` | UI Definition（認識・操作・Feedback・失敗表示） | [RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md) | 通常6管理操作の対象と変更前後、拒否・保存確認・保存後不明を区別して表示する。managerのadministrator表示名変更を許可し、管理許可を内容取得保証へ変えない。鍵操作の入口と確認条件は既存義務を維持する。認証ユーザーの表示名と現在利用範囲、通常Workbenchの鍵3操作とHost交換2操作を区別して表示する。交換4組の対象・影響を事前表示し、3組の確認を区別する。部分失敗を成功や未発行へ丸めず、Secretは一度だけ表示する。MCPに鍵操作を表示・案内しない。登録解除は同一受付操作・採用改訂で登録と対応Exposureの両除去読戻しを確認した時だけ完了表示し、片側不明・対象外／本体変更・旧取消完了表示を反証する。発行／非秘密記録不明にはCredential IDとは別の元発行Identityで再観測を案内し、新交換・通常発行への交換Recoveryを案内しない。確定発行・記録後は「発行済み・受け渡し未確認」と表示し、現在administratorの明示的な別Operation／別Recovery交換へ接続する。各交換内のexact相関、先の鍵を含む対象資格と保持範囲を表示し、旧確定事実を変えない。現在administrator認証未接続／喪失だけ既存Hostへ案内し、遅延失効鍵の利用表示・秘密再表示・自動再発行・旧受領／rollback／取消の誤表示をしない。 | IT／ST／UAT | IT: Direct Boundary<br>ST: System/E2E<br>UAT: User Acceptance | `RFD-ST-003`、`RFD-ST-004`、`RFD-ST-016`、`RFD-UAT-007`、`RFD-IT-017`、`RFD-IT-018`、`RFD-IT-021`、`RFD-ST-022` |
+| [UI-000008](../../../04_UI/Definitions/UI-000008/ui_definition.md) | `ui-000008.qa-000007` | UI Definition（認識・操作・Feedback・失敗表示） | [RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md) | 通常6管理操作の対象と変更前後、拒否・保存確認・保存後不明を区別して表示する。managerのadministrator表示名変更を許可し、管理許可を内容取得保証へ変えない。鍵操作の入口と確認条件は既存義務を維持する。認証ユーザーの表示名と現在利用範囲、通常Workbenchの鍵3操作とHost交換2操作を区別して表示する。交換4組の対象・影響を事前表示し、3組の確認を区別する。部分失敗を成功や未発行へ丸めず、Secretは一度だけ表示する。MCPに鍵操作を表示・案内しない。登録解除は同一受付操作・採用改訂で登録と対応Exposureの両除去読戻しを確認した時だけ完了表示し、片側不明・対象外／本体変更・旧取消完了表示を反証する。発行／非秘密記録不明にはCredential IDとは別の元発行Identityで再観測を案内し、新交換・通常発行への交換Recoveryを案内しない。確定発行・記録後は「発行済み・受け渡し未確認」と表示し、現在administratorの明示的な別Operation／別Recovery交換へ接続する。各交換内のexact相関、先の鍵を含む対象資格と保持範囲を表示し、旧確定事実を変えない。現在administrator認証未接続／喪失だけ既存Hostへ案内し、遅延失効鍵の利用表示・秘密再表示・自動再発行・旧受領／rollback／取消の誤表示をしない。初回追加義務: 初回設定の四状態と次の行動を案内し、Workbench自体は初回設定や秘密の配送を実行しない。通常のHost鍵交換二操作と初回設定を混同せず、部分成功から全体完了を表示しない。管理状態と進行中初回記録の両方が未初期化と確認できた場合だけ開始する。欠落一件、読取り不能、破損、Lock使用中、既存ユーザー、部分状態、確認不能を未初期化へ畳まない。発行／記録不明では元試行だけ再観測し、発行・記録確定後の受け渡しまたは受領不明では作成済み管理者の既存Host指定交換へ別の明示操作として渡す。秘密再表示・自動再発行・自動再初期化を行わない。初回設定とその状態照会をMCPの一覧・Schema・登録・dispatchへ出さず、遠隔Workbenchも実行しない。追加認証、Repository登録・公開、内容権限の暗黙付与を追加しない。 | IT／ST／UAT | IT: Direct Boundary<br>ST: System/E2E<br>UAT: User Acceptance | `RFD-ST-003`、`RFD-ST-004`、`RFD-ST-016`、`RFD-UAT-007`、`RFD-IT-017`、`RFD-IT-018`、`RFD-IT-021`、`RFD-ST-022` <br>初回追加義務はDefinition／Local Item未接続（OPEN）。既存IDへ仮接続しない。 |
 | [UI-000009](../../../04_UI/Definitions/UI-000009/ui_definition.md) | `ui-000009.qa-000005` | UI Definition（認識・操作・Feedback・失敗表示） | [候補の昇格](../../Definitions/QA-000005/quality_definition.md) | TopicとMeetingの登録・編集・取得・一覧・終了・訂正、Outcome処置、Action移管および誤登録削除を一つのLifecycleとして理解・操作できる。削除影響、Relation整合、正当な履歴と時点記録を区別する | IT／ST／UAT | IT: Direct Boundary<br>ST: System/E2E<br>UAT: User Acceptance | `CPR-IT-001`、`CPR-IT-008`、`CPR-UAT-002`、`CPR-IT-004`、`CPR-ST-005`、`CPR-UAT-007` |
 | [UI-000010](../../../04_UI/Definitions/UI-000010/ui_definition.md) | `ui-000010.qa-000001` | UI Definition（認識・操作・Feedback・失敗表示） | [Repositoryと契約移行](../../Definitions/QA-000001/quality_definition.md) | 仕事に合うToolとAIモデルを根拠付きで選び、安全に変更できる。UX-000016: 固定Commitに対応するツール／実行基盤と利用可能性を知る: 発見したツール／実行基盤を起動する直前: Commit・配布集合・Manifest・実行基盤の対応を検証する: 版不一致・欠落実行基盤・改ざんManifestを対応版と誤認する。UX-000018: AIモデル選択を検証可能な構成として更新する: AI提供元で実行する前のモデル確定: 構成変更を検証し実効選択を観測可能にする: 未知または非対応のモデルを実行可能と表示する。UX-000016／IA-000011: 利用可能（available）／利用不能（unavailable）／未確認（unverified）／停止（blocked）: 仕事→必要能力→登録Tool→配布根拠→起動。UX-000018／IA-000013: 有効（valid）／無効（invalid）／利用可能（available）／利用不能（unavailable）／選択済み（selected）: 設定→検証→利用可能候補→選択→理由・再選定条件 | UT／IT | UT: N/A<br>IT: Direct Boundary | `RCM-IT-005`、`RCM-UT-002`、`RCM-UT-001`、`RCM-IT-010` |
 | [UI-000010](../../../04_UI/Definitions/UI-000010/ui_definition.md) | `ui-000010.qa-000006` | UI Definition（認識・操作・Feedback・失敗表示） | [外部Runtime境界](../../Definitions/QA-000006/quality_definition.md) | 仕事に合うToolとAIモデルを根拠付きで選び、安全に変更できる。UX-000016: 固定Commitに対応するツール／実行基盤と利用可能性を知る: 発見したツール／実行基盤を起動する直前: Commit・配布集合・Manifest・実行基盤の対応を検証する: 版不一致・欠落実行基盤・改ざんManifestを対応版と誤認する。UX-000018: AIモデル選択を検証可能な構成として更新する: AI提供元で実行する前のモデル確定: 構成変更を検証し実効選択を観測可能にする: 未知または非対応のモデルを実行可能と表示する。UX-000016／IA-000011: 利用可能（available）／利用不能（unavailable）／未確認（unverified）／停止（blocked）: 仕事→必要能力→登録Tool→配布根拠→起動。UX-000018／IA-000013: 有効（valid）／無効（invalid）／利用可能（available）／利用不能（unavailable）／選択済み（selected）: 設定→検証→利用可能候補→選択→理由・再選定条件 | IT | IT: Direct Boundary | `ERB-IT-004`、`ERB-IT-001`、`ERB-IT-006` |
@@ -73,14 +73,14 @@ UI工程が定義した成立条件を全件処置し、成功の意味、失敗
 
 | 区分 | 件数 | 対象 | 処置 |
 |---|---:|---|---|
-| Required - Defined | 0 | なし | 現在の関係集合は閉じている |
-| Defined - Required | 0 | なし | 現在の関係集合は閉じている |
-| Level不一致 | 0 | なし | Sourceが要求する全段階を同段階のLocal Itemへ接続した |
-| Relation不明 | 0 | なし | 全Obligation KeyをSource、Quality DefinitionおよびLocal Itemへ接続した |
+| Required - Defined | 1 | UI-000008の初回設定に関する複合義務 | OPEN: 次段階でQA-000007／QA-000009のDefinition・Local Itemを確定する。1はSource単位の未接続義務数で、必要Local Item数ではない |
+| Defined - Required | 0（既存集合） | 既存定義済み項目 | 初回追加義務の定義は未着手。既存集合の0を新義務の充足へ流用しない |
+| 試験段階Coverage | OPEN | 初回追加義務 | 必要段階は分析済みだが、同段階のLocal Itemへの接続は次段階で確認する |
+| Relation未接続 | 1 | 初回追加義務 | Owner候補への引渡しのみ。Definition・Local Itemの確定接続はOPEN |
 
 ## 5. 未解決事項
 
-現在のCanonical集合は全件処置済み。誤った対応を除いた意味レビュー母集団は198対応行である。上流定義から合否を組み立てられない場合はQuality側で補完せず、該当工程を再開する。
+既存Canonical集合の分析は処置済みだが、初回追加義務のDefinition／Local Item接続はOPEN。誤った対応を除いた意味レビュー母集団は198対応行である。上流定義から合否を組み立てられない場合はQuality側で補完せず、該当工程を再開する。
 
 ## Checklist
 
@@ -88,7 +88,7 @@ UI工程が定義した成立条件を全件処置し、成功の意味、失敗
 - [x] 各Source固有の成功、境界、失敗、Riskおよび観測不能を分析した
 - [x] 表題や共通定型句ではなくSource固有の検証義務を記録した
 - [x] 意味の近い義務を統合してもSource固有条件を失っていない
-- [x] 各Sourceと検証目標、試験段階およびLocal Itemを接続した
+- [ ] 各Sourceと検証目標、試験段階およびLocal Itemを接続した — OPEN: 初回追加義務を次段階でQA Definition／Local Itemへ接続する
 - [x] 必要検証義務を既存Local ItemやTestから逆算していない
 - [x] Required／Definedの集合差、Level不一致およびRelation不明を評価した
 - [x] 上流の未確認事項をUAT、OPEN義務または上流再開へ処置した
@@ -96,7 +96,23 @@ UI工程が定義した成立条件を全件処置し、成功の意味、失敗
 - [x] 未解決事項、判断者および再評価契機を明示した
 
 
-## 最新鍵管理・認可契約の限定再導出 — 2026-10-11
+## 初回Host設定の追加導出 — 2026-10-11
+
+UI-000008の現在の正本から、初回設定の義務を追加導出する。これは通常鍵管理とは別の義務である。既存185 Local Itemは定義済み集合の件数であり、初回設定の充足件数ではない。未定義の義務はOPENであり、定義済み項目の実行状態であるNot Runへ置き換えない。
+
+| 観点 | 必要な確認 | 引渡し先・現在状態 |
+|---|---|---|
+| 工程固有の成立 | 初回設定の四状態と次の行動を案内し、Workbench自体は初回設定や秘密の配送を実行しない。通常のHost鍵交換二操作と初回設定を混同せず、部分成功から全体完了を表示しない。 | QA-000007候補／Definition・Local Item未接続OPEN |
+| 正常・境界・準正常・異常・回復 | 管理状態と進行中初回記録の両方が未初期化と確認できた場合だけ開始する。欠落一件、読取り不能、破損、Lock使用中、既存ユーザー、部分状態、確認不能を未初期化へ畳まない。発行／記録不明では元試行だけ再観測し、発行・記録確定後の受け渡しまたは受領不明では作成済み管理者の既存Host指定交換へ別の明示操作として渡す。秘密再表示・自動再発行・自動再初期化を行わない。 | QA-000007候補／通常Host交換二操作への条件付き引渡し。初回設定を第三の回復操作にしない |
+| 公開・権限境界 | 初回設定とその状態照会をMCPの一覧・Schema・登録・dispatchへ出さず、遠隔Workbenchも実行しない。追加認証、Repository登録・公開、内容権限の暗黙付与を追加しない。 | QA-000009候補／MCP負境界と状態照会非公開はDefinition・Local Item未接続OPEN |
+| 試験段階 | ITは工程固有の情報・結果と処理境界、STは公開入口の成立と非公開境界、UATは利用者の理解・達成。UTを全Sourceへ機械追加しない。 | 必要段階の導出候補。Same／New／Mergeと項目数は次段階で確定 |
+| 対象外・未評価 | 新しいStore・認可Framework、秘密の複製、暗黙登録・公開・内容付与を要求しない。初回Sourceに性能要求がないためPT／LTはN/A。Root準備の既知Filesystem EffectをEffect 0と表示しない | API・保存方式・Source／Test・実行・新Evidenceは未完了 |
+
+差分はこのSourceに由来する1複合義務として数える。担当はQual-Lab、再評価契機は次段階のQA-000007／QA-000009定義更新。従来のLocal Item／Testから新義務を逆算せず、既存項目に同じ保証があるかを確認してから統合・分割・追加を決める。今回の分析は契約・品質の限定独立再レビュー済み、全重大度の残指摘0。初回義務の定義・実行や全体Quality Readyを示さない。
+
+## 前回の鍵管理・認可契約の限定再導出 — 2026-10-11
+
+以下の限定レビュー結果は初回Host設定の追加前の通常管理義務に限る。初回追加義務のDefinition接続・実行・完成の根拠にはしない。
 
 上記の対象SourceからQA-000007へ義務を再導出した。MCP一覧・Schema・登録・dispatchの鍵操作非公開はQA-000009／EST-ST-015が所有する。通常発行・独立失効・交換を混同せず、交換4組の事前表示と3組だけの確認を維持する。新規・変更Local ItemはNot Runであり、旧Evidenceを新契約のPassへ流用しない。固定8操作の担当Roleは採用済みであり、今回の通常管理義務を再導出した。内容権限の具体語彙、具体API・Schema・Store、Source／Test／実行接続はOPEN。Profile管理のRoleは別途OPEN。
 

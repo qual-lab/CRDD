@@ -49,7 +49,7 @@ UX工程が定義した成立条件を全件処置し、成功の意味、失敗
 | [UX-000032](../../../02_UX/Definitions/UX-000032/ux_definition.md) | 実行事実を安全に記録して結果を確かめる | 記録する側が一度の依頼で記録結果を見分け、重複・上書き・許可外記録を起こさず再観測または次の処置へ進めることを確認する | [実行記録の公開と再利用](../../Definitions/QA-000012/quality_definition.md) | IT／ST／UAT | Persistence／Concurrency／Recovery／Information | Mapped |
 | [UX-000033](../../../02_UX/Definitions/UX-000033/ux_definition.md) | 論点と会議記録を安全に維持する | Topic／Meetingを一通り扱い、正当な履歴を保ちながら候補・Actionを後続へ渡し、誤登録だけを影響確認後に削除できる | [候補の昇格](../../Definitions/QA-000005/quality_definition.md) | IT／ST／UAT | Lifecycle／Authority／Relation／Deletion | Mapped |
 | [UX-000034](../../../02_UX/Definitions/UX-000034/ux_definition.md) | Projectの意味と作業差分を一つの流れで扱う | Projectの現在地から次の仕事、差分、Commit、確認済み通常Pushまで進み、誤対象と結果不明を見分けられる | [RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md) | IT／ST／UAT | Workbench／Version Control／Acceptance | Mapped |
-| [UX-000035](../../../02_UX/Definitions/UX-000035/ux_definition.md) | 軽量なユーザー管理でRemote Accessを維持・回復する | manager／administratorが通常管理の対象・変更前後・保持情報を理解する。managerはadministratorの表示名のみ変更できる。鍵3操作はadministratorだけと理解し、更新受理と次要求での利用可能性を区別する。管理者が既存ユーザーへの発行・独立失効・交換を区別し、Host操作者は追加認証なしで交換2操作を行える。交換4組の対象・失効範囲・発行先・保持情報を理解し、Hostまたは全ユーザー交換3組だけ明示確認する。既知の発行と後続記録・搬送・受領の失敗を混同せずSecretを再表示しない。登録解除が対象登録と公開設定の解除であってRepository本体削除・旧処理取消ではないと理解できる。発行／非秘密記録不明は元発行Identityでの再観測、確定発行後は「発行済み・受け渡し未確認」と現在administratorによる明示的な別交換、現在管理者認証未接続／喪失だけ既存Hostという三つの次の行動を区別できる。元処理と別交換のOperation／Recoveryを混同せず、通常発行へ交換Recoveryを要求しない。先の鍵を含む指定ユーザー／全員の失効範囲と再配布を理解し、遅延した失効鍵を使用しない。新交換成功を旧秘密値の受領・rollback・旧取消完了と誤認しない。 | [RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md) | IT／ST／UAT | Authentication／Recovery／Non-disclosure | Mapped — Not Run |
+| [UX-000035](../../../02_UX/Definitions/UX-000035/ux_definition.md) | 軽量なユーザー管理でRemote Accessを維持・回復する | manager／administratorが通常管理の対象・変更前後・保持情報を理解する。managerはadministratorの表示名のみ変更できる。鍵3操作はadministratorだけと理解し、更新受理と次要求での利用可能性を区別する。管理者が既存ユーザーへの発行・独立失効・交換を区別し、Host操作者は追加認証なしで交換2操作を行える。交換4組の対象・失効範囲・発行先・保持情報を理解し、Hostまたは全ユーザー交換3組だけ明示確認する。既知の発行と後続記録・搬送・受領の失敗を混同せずSecretを再表示しない。登録解除が対象登録と公開設定の解除であってRepository本体削除・旧処理取消ではないと理解できる。発行／非秘密記録不明は元発行Identityでの再観測、確定発行後は「発行済み・受け渡し未確認」と現在administratorによる明示的な別交換、現在管理者認証未接続／喪失だけ既存Hostという三つの次の行動を区別できる。元処理と別交換のOperation／Recoveryを混同せず、通常発行へ交換Recoveryを要求しない。先の鍵を含む指定ユーザー／全員の失効範囲と再配布を理解し、遅延した失効鍵を使用しない。新交換成功を旧秘密値の受領・rollback・旧取消完了と誤認しない。初回追加義務: 初回利用者が表示名の入力、最初の管理者の鍵の受領、通常管理接続を完了できる体験を検証する。未初期化・既存・確認済み途中・観測不能を誤認せず、受け渡し不明と受領不明を区別して次の行動を理解できる。 | [RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md) | IT／ST／UAT | Authentication／Recovery／Non-disclosure | 既存義務Mapped／初回義務Definition・Local Item未接続（OPEN） |
 
 ## 3. 検証目標への統合
 
@@ -93,7 +93,7 @@ UX工程が定義した成立条件を全件処置し、成功の意味、失敗
 | [UX-000032](../../../02_UX/Definitions/UX-000032/ux_definition.md) | `ux-000032.qa-000012` | UX Definition（利用者成果・重要場面・重要な失敗） | [実行記録の公開と再利用](../../Definitions/QA-000012/quality_definition.md) | 作成側が同じ実行、情報源、観測時点、観測状態および記録試行を対応付けて一度だけ依頼する。複数作成側、再送、並行書込みまたは途中失敗でも誤統合せず、結果不明では同じ実行と試行を再観測する。生出力、秘密情報または不要な個人情報を無条件に含めない | IT／ST／UAT | IT: Direct Boundary<br>ST: System/E2E<br>UAT: User Acceptance | `ERP-IT-001`、`ERP-IT-002`、`ERP-IT-003`、`ERP-ST-004`、`ERP-IT-005`、`ERP-UAT-007` |
 | [UX-000033](../../../02_UX/Definitions/UX-000033/ux_definition.md) | `ux-000033.qa-000005` | UX Definition（利用者成果・重要場面・重要な失敗） | [候補の昇格](../../Definitions/QA-000005/quality_definition.md) | TopicとMeetingを登録・編集・取得・一覧・終了・訂正でき、Meeting候補を全件処置して未完了Actionを追跡先へ渡せる。誤登録削除の直前に損失・Relation・復旧可能性を理解し、正当な履歴や関連対象を失わない | IT／ST／UAT | IT: Direct Boundary<br>ST: System/E2E<br>UAT: User Acceptance | `CPR-IT-006`、`CPR-IT-008`、`CPR-ST-005`、`CPR-UAT-007` |
 | [UX-000034](../../../02_UX/Definitions/UX-000034/ux_definition.md) | `ux-000034.qa-000007` | UX Definition（利用者成果・重要場面・重要な失敗） | [RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md) | Projectの状況から作業対象へ進み、差分を選んでCommitし、Remote・Branch・送信Commitを確認して通常Pushする。Workbench以外の経路も維持し、拒否・通信断・結果不明時に既知状態と次行動を理解できる | IT／ST／UAT | IT: Related 2 Blocks<br>ST: System/E2E<br>UAT: User Acceptance | `RFD-IT-014`、`RFD-ST-015`、`RFD-UAT-007` |
-| [UX-000035](../../../02_UX/Definitions/UX-000035/ux_definition.md) | `ux-000035.qa-000007` | UX Definition（利用者成果・重要場面・重要な失敗） | [RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md) | manager／administratorが通常管理の対象・変更前後・保持情報を理解する。managerはadministratorの表示名のみ変更できる。鍵3操作はadministratorだけと理解し、更新受理と次要求での利用可能性を区別する。管理者が既存ユーザーへの発行・独立失効・交換を区別し、Host操作者は追加認証なしで交換2操作を行える。交換4組の対象・失効範囲・発行先・保持情報を理解し、Hostまたは全ユーザー交換3組だけ明示確認する。既知の発行と後続記録・搬送・受領の失敗を混同せずSecretを再表示しない。登録解除が対象登録と公開設定の解除であってRepository本体削除・旧処理取消ではないと理解できる。発行／非秘密記録不明は元発行Identityでの再観測、確定発行後は「発行済み・受け渡し未確認」と現在administratorによる明示的な別交換、現在管理者認証未接続／喪失だけ既存Hostという三つの次の行動を区別できる。元処理と別交換のOperation／Recoveryを混同せず、通常発行へ交換Recoveryを要求しない。先の鍵を含む指定ユーザー／全員の失効範囲と再配布を理解し、遅延した失効鍵を使用しない。新交換成功を旧秘密値の受領・rollback・旧取消完了と誤認しない。 | IT／ST／UAT | IT: Direct Boundary<br>ST: System/E2E<br>UAT: User Acceptance | `RFD-ST-003`、`RFD-UAT-007`、`RFD-ST-016`、`RFD-IT-017`、`RFD-IT-018`、`RFD-IT-021`、`RFD-ST-022` |
+| [UX-000035](../../../02_UX/Definitions/UX-000035/ux_definition.md) | `ux-000035.qa-000007` | UX Definition（利用者成果・重要場面・重要な失敗） | [RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md) | manager／administratorが通常管理の対象・変更前後・保持情報を理解する。managerはadministratorの表示名のみ変更できる。鍵3操作はadministratorだけと理解し、更新受理と次要求での利用可能性を区別する。管理者が既存ユーザーへの発行・独立失効・交換を区別し、Host操作者は追加認証なしで交換2操作を行える。交換4組の対象・失効範囲・発行先・保持情報を理解し、Hostまたは全ユーザー交換3組だけ明示確認する。既知の発行と後続記録・搬送・受領の失敗を混同せずSecretを再表示しない。登録解除が対象登録と公開設定の解除であってRepository本体削除・旧処理取消ではないと理解できる。発行／非秘密記録不明は元発行Identityでの再観測、確定発行後は「発行済み・受け渡し未確認」と現在administratorによる明示的な別交換、現在管理者認証未接続／喪失だけ既存Hostという三つの次の行動を区別できる。元処理と別交換のOperation／Recoveryを混同せず、通常発行へ交換Recoveryを要求しない。先の鍵を含む指定ユーザー／全員の失効範囲と再配布を理解し、遅延した失効鍵を使用しない。新交換成功を旧秘密値の受領・rollback・旧取消完了と誤認しない。初回追加義務: 初回利用者が表示名の入力、最初の管理者の鍵の受領、通常管理接続を完了できる体験を検証する。未初期化・既存・確認済み途中・観測不能を誤認せず、受け渡し不明と受領不明を区別して次の行動を理解できる。管理状態と進行中初回記録の両方が未初期化と確認できた場合だけ開始する。欠落一件、読取り不能、破損、Lock使用中、既存ユーザー、部分状態、確認不能を未初期化へ畳まない。発行／記録不明では元試行だけ再観測し、発行・記録確定後の受け渡しまたは受領不明では作成済み管理者の既存Host指定交換へ別の明示操作として渡す。秘密再表示・自動再発行・自動再初期化を行わない。初回設定とその状態照会をMCPの一覧・Schema・登録・dispatchへ出さず、遠隔Workbenchも実行しない。追加認証、Repository登録・公開、内容権限の暗黙付与を追加しない。 | IT／ST／UAT | IT: Direct Boundary<br>ST: System/E2E<br>UAT: User Acceptance | `RFD-ST-003`、`RFD-UAT-007`、`RFD-ST-016`、`RFD-IT-017`、`RFD-IT-018`、`RFD-IT-021`、`RFD-ST-022` <br>初回追加義務はDefinition／Local Item未接続（OPEN）。既存IDへ仮接続しない。 |
 
 ## 4. 継承した未確認事項の処置
 
@@ -124,9 +124,16 @@ UX工程が定義した成立条件を全件処置し、成功の意味、失敗
 
 実利用確認の未実行は、UX定義の不採用やQuality設計不足を意味しない。ただし、実行前に利用者成果を`Passed`へ昇格してはならない。Local Itemで新しい不足を検出した場合は、Quality側で意味を補わず対象UXを再開する。
 
+### 初回追加義務の定義差分
+
+| 区分 | 件数・対象 | 処置 |
+|---|---|---|
+| Required - Defined／Relation未接続 | UX-000035の1複合義務 | OPEN: QA-000007／QA-000009のDefinition・Local Itemを次段階で確定。必要Local Item数ではない |
+| 試験段階Coverage | IT／ST／UAT | 初回義務の同段階項目接続はOPEN。既存UATの処置から充足を推定しない |
+
 ## 5. 未解決事項
 
-現在のCanonical集合は全件処置済み。誤った対応を除いた意味レビュー母集団は198対応行である。上流定義から合否を組み立てられない場合はQuality側で補完せず、該当工程を再開する。
+既存Canonical集合の分析は処置済みだが、初回追加義務のDefinition／Local Item接続はOPEN。誤った対応を除いた意味レビュー母集団は198対応行である。上流定義から合否を組み立てられない場合はQuality側で補完せず、該当工程を再開する。
 
 ## Checklist
 
@@ -134,7 +141,7 @@ UX工程が定義した成立条件を全件処置し、成功の意味、失敗
 - [x] 各Source固有の成功、境界、失敗、Riskおよび観測不能を分析した
 - [x] 表題や共通定型句ではなくSource固有の検証義務を記録した
 - [x] 意味の近い義務を統合してもSource固有条件を失っていない
-- [x] 各Sourceと検証目標、試験段階およびLocal Itemを接続した
+- [ ] 各Sourceと検証目標、試験段階およびLocal Itemを接続した — OPEN: 初回追加義務を次段階でQA Definition／Local Itemへ接続する
 - [x] 必要検証義務を既存Local ItemやTestから逆算していない
 - [x] Required／Definedの集合差、Level不一致およびRelation不明を評価した
 - [x] 上流の未確認事項をUAT、OPEN義務または上流再開へ処置した
@@ -142,7 +149,23 @@ UX工程が定義した成立条件を全件処置し、成功の意味、失敗
 - [x] 未解決事項、判断者および再評価契機を明示した
 
 
-## 最新鍵管理・認可契約の限定再導出 — 2026-10-11
+## 初回Host設定の追加導出 — 2026-10-11
+
+UX-000035の現在の正本から、初回設定の義務を追加導出する。これは通常鍵管理とは別の義務である。既存185 Local Itemは定義済み集合の件数であり、初回設定の充足件数ではない。未定義の義務はOPENであり、定義済み項目の実行状態であるNot Runへ置き換えない。
+
+| 観点 | 必要な確認 | 引渡し先・現在状態 |
+|---|---|---|
+| 工程固有の成立 | 初回利用者が表示名の入力、最初の管理者の鍵の受領、通常管理接続を完了できる体験を検証する。未初期化・既存・確認済み途中・観測不能を誤認せず、受け渡し不明と受領不明を区別して次の行動を理解できる。 | QA-000007候補／Definition・Local Item未接続OPEN |
+| 正常・境界・準正常・異常・回復 | 管理状態と進行中初回記録の両方が未初期化と確認できた場合だけ開始する。欠落一件、読取り不能、破損、Lock使用中、既存ユーザー、部分状態、確認不能を未初期化へ畳まない。発行／記録不明では元試行だけ再観測し、発行・記録確定後の受け渡しまたは受領不明では作成済み管理者の既存Host指定交換へ別の明示操作として渡す。秘密再表示・自動再発行・自動再初期化を行わない。 | QA-000007候補／通常Host交換二操作への条件付き引渡し。初回設定を第三の回復操作にしない |
+| 公開・権限境界 | 初回設定とその状態照会をMCPの一覧・Schema・登録・dispatchへ出さず、遠隔Workbenchも実行しない。追加認証、Repository登録・公開、内容権限の暗黙付与を追加しない。 | QA-000009候補／MCP負境界と状態照会非公開はDefinition・Local Item未接続OPEN |
+| 試験段階 | ITは工程固有の情報・結果と処理境界、STは公開入口の成立と非公開境界、UATは利用者の理解・達成。UTを全Sourceへ機械追加しない。 | 必要段階の導出候補。Same／New／Mergeと項目数は次段階で確定 |
+| 対象外・未評価 | 新しいStore・認可Framework、秘密の複製、暗黙登録・公開・内容付与を要求しない。初回Sourceに性能要求がないためPT／LTはN/A。Root準備の既知Filesystem EffectをEffect 0と表示しない | API・保存方式・Source／Test・実行・新Evidenceは未完了 |
+
+差分はこのSourceに由来する1複合義務として数える。担当はQual-Lab、再評価契機は次段階のQA-000007／QA-000009定義更新。従来のLocal Item／Testから新義務を逆算せず、既存項目に同じ保証があるかを確認してから統合・分割・追加を決める。今回の分析は契約・品質の限定独立再レビュー済み、全重大度の残指摘0。初回義務の定義・実行や全体Quality Readyを示さない。
+
+## 前回の鍵管理・認可契約の限定再導出 — 2026-10-11
+
+以下の限定レビュー結果は初回Host設定の追加前の通常管理義務に限る。初回追加義務のDefinition接続・実行・完成の根拠にはしない。
 
 上記の対象SourceからQA-000007へ義務を再導出した。MCP一覧・Schema・登録・dispatchの鍵操作非公開はQA-000009／EST-ST-015が所有する。通常発行・独立失効・交換を混同せず、交換4組の事前表示と3組だけの確認を維持する。新規・変更Local ItemはNot Runであり、旧Evidenceを新契約のPassへ流用しない。固定8操作の担当Roleは採用済みであり、今回の通常管理義務を再導出した。内容権限の具体語彙、具体API・Schema・Store、Source／Test／実行接続はOPEN。Profile管理のRoleは別途OPEN。
 

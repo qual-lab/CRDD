@@ -1157,3 +1157,12 @@ manager自身の範囲変更は変更前の現行固定管理認可→明示内�
 | 管理規模 | 詳細な登録Workflowは今回のInputでは要求されていない | 最小構成はユーザーID・Role・Credential紐付けのみとし、氏名・メール・Password・登録申請・外部IdPを追加しない提案。v0.22に含める最小範囲について認識確認待ち |
 
 担当責任者・採用判断者はQual-Lab。このInputは同じCHGのAccess Management再編へ接続し、新しいCHGやIAM Frameworkを作らない。正式採用時はREQ-000041のUser／Principal管理対象外と任意Grant不採用判断を確認して、UX／IA／UI／SPEC／ARCH／QAへ伝播する。既存CredentialをUUIDユーザーへ機械的に移すか、再発行するかは保存・秘密保護の影響を確認して決める。実秘密値を調査資料・Git・Project Contextへ複製しない。Source、秘密Store、保存Schema、Roleの意味、過去Evidenceはこの記録更新では変更していない。
+
+
+#### 初回Host設定のQuality分析伝播 — 2026-10-11
+
+基準Commitは`4933f9d4`。採用済み初回設定をREQ／UX／IA／UI／SPEC／ARCH／Detailの7品質分析へ伝播し、本計画・PROJECT_CONTEXTと合わせた固定9文書を扱う。変更分類は採用済み設計からの検証義務導出・直接伝播。着手前契約確認は着手可、追加の人間判断なし。
+
+REQ〜ARCHは対象Source各1複合義務、Detailは3処置行として未接続差分を明示する。これは必要Local Item数ではない。正の成立・保存・回復はQA-000007、MCPの四面と状態照会非公開はQA-000009へ引渡す候補。ARCHだけ初回純粋判定のUT Required候補を保持し、固定8管理操作のRFD-UT-020を流用しない。既存185項目の件数・過去限定Passと新義務の充足を区別する。未定義をNot Runや差分0へ畳まない。
+
+初回編集前に両方の未初期化確認、既存管理状態の拒否、観測不能、部分発行、受け渡し／受領不明、同じ元試行の再観測と別の明示交換を照合した。秘密・Store・Root・旧Evidence・Source・新ID・QA Definitionは不変更。固定9文書の契約／品質独立レビュー、文書・直接影響・参照・差分確認を実行する。標準規則・実行境界を変更しないため準拠監査・実回帰・Provider／Docker E2Eは対象外。レビュー完了後に結果を同期してPhase単位でコミットする。契約・品質の限定独立再レビューは両方Pass、全重大度の残指摘0。四状態表記、Process喪失時の新Process再観測、UTと外部境界の別軸、追加文の空白を統合是正した。参照先849件欠落0、非対象の対応表439行不変、差分確認成功。結果・状態だけを同期し、初回義務の定義・実行・全体Readyは未成立を維持する。次はQA-000007／QA-000009でSame／New／Mergeを評価し、DefinitionとLocal Itemを確定する。
