@@ -4,7 +4,7 @@ Status: Candidate (v0.22 responsibility reorganization)
 Owner: Qual-Lab
 Last Updated: 2026-10-11
 
-固定8管理分担の前回限定レビューは履歴として保持する。今回は登録解除の両除去・読戻しと、鍵の発行／記録不明・確定後の受け渡し未確認・現在administrator非接続の3分岐を横断モデルへ候補伝播し、契約・品質の限定独立レビュー済み・残指摘0である。Quality・Source・具体API／物理保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
+固定8管理分担、登録解除・通常鍵3分岐の前回限定レビューは履歴として保持する。今回は承認済み初回Host設定をARCH-000013とAccess Management詳細から横断モデル・Workbench／MCP詳細へ候補伝播する。今回の固定12文書は契約・品質の限定独立再レビュー済み・全重大度の残指摘0で、前回Passを流用していない。Quality・Source・具体API／物理保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
 
 ## 1. この成果物が所有すること
 
@@ -78,7 +78,7 @@ Coordinatorの通知関数をOrchestratorが登録する。
 
 ### 管理と鍵交換の公開境界
 
-固定管理認可は現行RoleとARCH-000013の8操作分担から判定し、Role内容設定から派生させない。manager／administratorはユーザー登録・表示名変更、developer／managerのRole変更・内容設定、Repository登録・登録解除・Exposureを管理する。administratorの付与・解除・降格・詳細権限と鍵操作はadministrator専用。managerはadministratorの表示名だけ変更可。manager自身も変更前の現在管理認可→明示的なRole内容設定／Exposure更新→次要求の現行Role・Exposure・実アクセス再評価の順に処置する。更新受理≠内容取得、管理≠内容自動付与、登録≠公開、登録解除≠Repository／Product Data削除を維持する。通常の鍵3操作は同一Process Workbenchだけが呼び、RoleのON／OFF設定を設けない。Host対話CLIはログイン済みローカル操作者を信頼して同じ交換2操作だけを呼ぶ。既存Root／Path検証を維持し、追加認証や通常発行・独立失効を設けない。
+固定管理認可は現行RoleとARCH-000013の8操作分担から判定し、Role内容設定から派生させない。manager／administratorはユーザー登録・表示名変更、developer／managerのRole変更・内容設定、Repository登録・登録解除・Exposureを管理する。administratorの付与・解除・降格・詳細権限と鍵操作はadministrator専用。managerはadministratorの表示名だけ変更可。manager自身も変更前の現在管理認可→明示的なRole内容設定／Exposure更新→次要求の現行Role・Exposure・実アクセス再評価の順に処置する。更新受理≠内容取得、管理≠内容自動付与、登録≠公開、登録解除≠Repository／Product Data削除を維持する。通常の鍵3操作は同一Process Workbenchだけが呼び、RoleのON／OFF設定を設けない。通常Host回復の対話CLIはログイン済みローカル操作者を信頼して同じ交換2操作だけを呼ぶ。初回Host設定は別の明示開始契約とする。既存Root／Path検証を維持し、追加認証や通常発行・独立失効を設けない。
 
 交換の全4組（2操作×2入口）で対象ID・表示名・失効範囲・発行先・保持情報を事前表示し、Host入口または全員交換の3組だけ明示確認する。通常入口の指定ユーザー交換へ追加確認を要求しない。対象不明・必要な既存administrator不存在・認可破損・必要状態の安全な観測不能では新Effect前に停止する。Hostを第三の回復操作や特別ユーザーとして扱わない。
 
@@ -92,6 +92,17 @@ Coordinatorの通知関数をOrchestratorが登録する。
 | 現在administrator非接続 | 既存Host交換2操作だけへ案内し、MCP鍵処置や一般認可の迂回を追加しない |
 
 秘密の保存・再表示・自動再発行および遅延旧応答による失効鍵の利用可能表示を禁止する。
+
+### 初回Host設定の境界
+
+| 境界 | 入力・許可条件 | 結果・禁止事項 |
+|---|---|---|
+| Host対話入口 → Access Management | 検証済み既存管理Root、管理状態と進行記録の双方未初期化確認、管理用表示名、ログイン済み操作者の明示開始 | 最初のadministrator UUIDユーザーと同userIdの鍵。相関を耐久確定・読戻しする前にUUID／鍵Effectを発行しない |
+| Access Management → Host | 非秘密の試行・作成・発行・記録・配送・受領の個別事実、一度だけのSecret配送 | 初回試行参照をCredential／交換Recovery／Lock回復へ読み替えない。Secretをログへ保存・再表示しない |
+| Workbench → 利用者 | 許可された確認済み情報の状態説明、Host操作の案内 | 初期化を実行しない。未観測を未初期化へ畳まない |
+| MCP → 外部Client | 初期化の一覧・Schema・登録・dispatch・状態照会を全て非公開 | 未認証Clientへユーザー存在・試行Identityを漏らさない。認証済みでも初期化Toolを追加しない |
+
+[管理状態・内部操作候補](Details/access-management/02_Management_State_and_API.md)を参照する。ここから新しい公開API・CLI引数・Root・認証機構は生成しない。
 
 ## 4. 主要なブロック間シーケンス
 
@@ -158,7 +169,7 @@ Coordinatorの通知関数をOrchestratorが登録する。
 - Transport parityは同じApplication Contractへ同じ意味が届くことを確認し、同じ文字列だけを比較しない。
 - restricted、unknown、not_observed、blockedを成功や不存在へ畳まない。
 - 現行Role変更・失効が後続要求へ反映され、三可視境界と管理／内容閲覧の分離がすべての入口で維持されることを確認する。
-- 固定administrator以外の通常鍵操作、Hostの新規発行／独立失効、MCPの鍵操作一覧・Schema・登録・dispatchを拒否し、追加Host認証を要求しないことを確認する。
+- 固定administrator以外の通常鍵操作、通常Host回復の新規発行／独立失効、MCPの鍵操作一覧・Schema・登録・dispatchを拒否し、追加Host認証を要求しないことを確認する。
 - 新規発行の旧失効0、独立失効の新発行・Secret・交換再入場0、交換の旧失効前exact Recovery結合を別々に観測する。
 - 発行対象userIdと独立失効対象資格を区別し、資格取り違え・同じユーザーの別資格までの失効範囲拡大・鍵交換による保持情報変更を反証する。
 - 鍵交換2操作×2入口の事前表示・3組だけの明示確認、処置前停止、失効後不明の同じRecovery搬送、記録・搬送・受領の事実分離を確認する。

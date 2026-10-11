@@ -12,7 +12,7 @@ v0.21.0の基準版では、個別責務定義、横断モデルおよび15領�
 
 ## 2. 工程入力と再構築方法
 
-固定8管理分担の前回限定レビューは履歴として保持する。今回は登録解除の両除去・読戻しと、鍵の発行／記録不明・確定後の受け渡し未確認・現在administrator非接続の3分岐を横断モデルへ候補伝播し、契約・品質の限定独立レビュー済み・残指摘0である。Quality・Source・具体API／物理保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
+固定8管理分担、登録解除・通常鍵3分岐の前回限定レビューは履歴として保持する。今回は承認済み初回Host設定をARCH-000013とAccess Management詳細から横断モデル・Workbench／MCP詳細へ候補伝播する。今回の固定12文書は契約・品質の限定独立再レビュー済み・全重大度の残指摘0で、前回Passを流用していない。Quality・Source・具体API／物理保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
 
 Architectureの正式入力はCanonicalな20件のUI定義と30件のSPEC定義である。UIとSPECを別々に全数分析し、同じ上位責務境界へ属する結果を18件のArchitecture定義へ統合した。
 
@@ -58,7 +58,7 @@ REQ、UXおよびIAは由来確認に限って参照する。現行Architecture�
 | [Tool CapabilityとAIモデル構成](Definitions/ARCH-000010/architecture_definition.md) | Tool能力の発見、AIモデル構成の検証・選択理由 | UI-000010 | SPEC-000014、SPEC-000015 | Capability RegistryとModel Configuration Resolver |
 | [Runtime Dataの配置・保持・清掃](Definitions/ARCH-000011/architecture_definition.md) | `.crdd`とOS管理Runtime Rootの用途、Owner、耐久性、保持、清掃 | UI-000011 | SPEC-000016 | Runtime Data Contract |
 | [公開Transportの意味同一性](Definitions/ARCH-000012/architecture_definition.md) | decode／encode、接続Lifecycle、公開Application Contractへの搬送 | UI-000007 | SPEC-000011 | MCP／CLI Transport Adapter |
-| [接続主体・Role権限・資格とRepository Federation](Definitions/ARCH-000013/architecture_definition.md) | 最小ユーザー、現行Role認可、資格・独立失効・鍵交換2操作、認可済み集合の解決とContext集約 | UI-000008 | SPEC-000012 | Access Management／Domain Model（認可済みContext集約） |
+| [接続主体・Role権限・資格とRepository Federation](Definitions/ARCH-000013/architecture_definition.md) | 初回Host設定、最小ユーザー、現行Role認可、資格・独立失効・通常鍵交換2操作、認可済み集合の解決とContext集約 | UI-000008 | SPEC-000012 | Access Management／Domain Model（認可済みContext集約） |
 | [Runtime Artifactの信頼評価](Definitions/ARCH-000014/architecture_definition.md) | 準拠、完全性、Publisher、Trust Policy、公式識別の独立評価 | UI-000013 | SPEC-000018 | Runtime Trust Evaluator |
 | [外部送信・結果帰還・候補採用](Definitions/ARCH-000015/architecture_definition.md) | 送信同意、最小化送信、結果帰還、候補隔離、採否 | UI-000016 | SPEC-000021、SPEC-000026、SPEC-000027 | External Information Boundary |
 | [過去情報と現在有効な意図](Definitions/ARCH-000016/architecture_definition.md) | 出所、発生時点、対象改訂版、現在／履歴／置換済み／不明の解決 | UI-000017 | SPEC-000022 | Context Provenance Resolver |
@@ -83,7 +83,7 @@ REQ、UXおよびIAは由来確認に限って参照する。現行Architecture�
 | ARCH-000010 | Capability Registry、AI AdapterのProfile管理 | 能力発見・Profile選択と実行Authorityを分離する。 |
 | ARCH-000011 | 各状態Owner、Domain Modelの保存・設定部品 | 現在状態、通常履歴、候補、正式Evidenceの用途を分ける。 |
 | ARCH-000012 | MCP Server、運用CLI、Workbench表示API | 入力意味を保持し、SPEC-000011のlocalhost範囲を無断拡張しない。 |
-| ARCH-000013 | Access Management、Domain Model、MCP／Workbench利用側 | 同Processは認可済み直接呼出し、別ProcessはMCP。ただし通常鍵操作は同Process Workbenchだけ、Hostは対話CLI交換2操作だけで、MCPは全鍵操作非公開。新Owner境界のDetails候補へ限定再伝播・契約／品質独立レビュー済み・残指摘0。登録解除の両除去と鍵の3分岐はAM詳細へ接続し、今回の横断伝播は契約・品質の限定独立レビュー済み・残指摘0。具体API・物理保存・本番公開入口・Sourceは未接続。 |
+| ARCH-000013 | Access Management、Domain Model、MCP／Workbench利用側 | 初回Host設定の状態・非秘密元試行相関・個別事実はAccess Managementが所有し、Host明示操作で開始する。Workbenchは案内のみ、MCPは初期化・状態照会とも非公開。通常Host回復は交換2操作だけで初回と分離する。Domain Modelは認可済みContext集約・中立部品だけを担当する。基本設計・AM詳細の前回限定Passは履歴。今回の横断・Surface候補は契約・品質限定独立再レビュー済み・全重大度の残指摘0で、具体API・物理保存・本番公開入口・Sourceは未接続。 |
 | ARCH-000014 | 各実行境界の独立評価とArtifact Signing | 独立評価軸を保持する。汎用Trust Policy Frameworkは今回採用しない。 |
 | ARCH-000015 | Coordinatorの候補本体、Orchestratorの採用、AI Adapterの搬送差 | 同意・送信・受領・採用のAuthorityを相互流用しない。 |
 | ARCH-000016 | Domain ModelのContext／Artifact由来解決 | 履歴から現在方針を自動採用しない。 |
@@ -153,6 +153,10 @@ ARCH-IDは全体の基本設計Identityであり、詳細設計領域のIdentity
 - Sourceや既存DirectoryからCanonical Componentを逆算しない。
 - この工程で物理Schema、使用Framework、Process数、OS配置を先決めしない。
 - v0.20.1の成立済み能力を失わないが、基準版実装を新しい意味の根拠にしない。
+
+### 初回Host設定の引渡し範囲
+
+開始条件・状態・処理順の正本は[ARCH-000013](Definitions/ARCH-000013/architecture_definition.md)と[Access Management詳細](Details/access-management/01_Architecture.md#41-初回host設定のstateとsequence)。既存SCR-000008／BHV-000012への配置候補を横断01〜08とWorkbench／MCP詳細で照合する。内部操作名は候補であり、外部API・CLI引数・Source接続を確定しない。Qualityでは初回開始、既存拒否、途中再観測、情報不足時停止、初回と通常交換の分離を新しい検証義務へ接続する。
 
 ## 7. 次工程への引渡し
 

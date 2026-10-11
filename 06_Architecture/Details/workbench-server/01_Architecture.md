@@ -179,7 +179,7 @@ Workbench Serverは別ProcessのCROSに対してMCP Clientとなる。Browserか
 
 現在の`crdd.list_projects`はProject ID・状態・Source数だけを返し、完全Portfolioではない。再編候補では[MCPのPortfolio契約](../mcp-server/01_Architecture.md#32-portfolioの一覧詳細契約)に従い、同じToolへ検索・状態・Query拘束Cursor・limitとページ内Sourceを接続する。Workbenchは返されたページだけを表示し、独自の二重ページングや未取得Sourceの検索を行わない。詳細取得は毎回現在認可を再確認する。複数Requestの結果を一つの原子的snapshotと偽らず、全Source取得済みでない表示を完全Portfolioにしない。公開SchemaとReaderの本番接続は未完了である。
 
-鍵の通常発行・独立失効・交換は[MCPの鍵管理非公開境界](../mcp-server/01_Architecture.md#33-鍵管理のmcp非公開境界)に従い、同一Process Workbench Backendの現行administratorだけがAccess Managementへ直接委譲する。別Process WorkbenchではMCP経由の鍵操作を全て利用不能と理由付きで表示する。Secretを返さない資格一覧・独立失効も公開せず、MCPの一覧・Schema・登録・dispatchに鍵操作を追加しない。Hostは信頼したログイン済み操作者の対話CLI交換2操作だけで、追加認証なし・既存Root／Path検証を維持する。初回CROS構築の発行方式は変更しない。本書の新Owner境界は設計候補として再伝播する。具体画面／API・受領方式、Quality・Source接続は未完了である。
+鍵の通常発行・独立失効・交換は[MCPの鍵管理非公開境界](../mcp-server/01_Architecture.md#33-鍵管理のmcp非公開境界)に従い、同一Process Workbench Backendの現行administratorだけがAccess Managementへ直接委譲する。別Process WorkbenchではMCP経由の鍵操作を全て利用不能と理由付きで表示する。Secretを返さない資格一覧・独立失効も公開せず、MCPの一覧・Schema・登録・dispatchに鍵操作を追加しない。通常Host回復は信頼したログイン済み操作者の対話CLI交換2操作だけで、追加認証なし・既存Root／Path検証を維持する。初回Host設定は承認済みのAccess Management契約へ対応し、WorkbenchはHost操作の案内だけを担う。本書の新Owner境界は設計候補として再伝播する。具体画面／API・受領方式、Quality・Source接続は未完了である。
 
 起動時の`--cros`で単体／CROS利用を明示する。指定なしは現在Rootに固定し、`crdd.list_repositories`から得る唯一のIDを自動選択して切替操作を出さない。CROS指定時は同じ一覧・repositoryId入力で許可対象から選択し、初期化済みだからという理由で自動移行しない。同一Process CROSでは構成設定、別Process接続では明示MCP Endpointを用い、CredentialをCLI引数へ置かない。CROS設定不正・接続不能時は単体へFallbackしない。サーバー起動用CRDDリポも公開設定なしで対象に加えない。
 
@@ -231,7 +231,7 @@ WorkbenchはCurrent Projectionを独自Databaseへ複製しない。将来Cache�
 | 指定ユーザー交換 | 現行administrator、既存対象userId・表示名、旧資格全体の失効範囲と既存受領者を処置前表示 | 同じユーザーへ一回発行。他ユーザーを保持。通常入口では追加確認Gateを要求しない |
 | 全ユーザー交換 | 現行administrator、操作主体を含む失効範囲と指定した既存administrator受領者を処置前表示し、明示確認 | 全旧資格を失効、指定受領者へ一回発行。他ユーザーの再発行は通常管理で行う |
 
-Hostの交換2操作はWorkbench Backendで実行せず、信頼したログイン済み操作者の対話CLIとして別入口へ案内する。追加認証・昇格・確認コードを設けず、既存Root／Path検証を維持する。交換の入口2種×操作2種の全4組で対象・影響を表示し、Hostの2組と全ユーザー交換の通常入口の計3組だけ明示確認する。この確認契約を通常発行・独立失効へ拡張しない。初回CROS構築は別契約で変更しない。
+Hostの交換2操作はWorkbench Backendで実行せず、信頼したログイン済み操作者の対話CLIとして別入口へ案内する。追加認証・昇格・確認コードを設けず、既存Root／Path検証を維持する。交換の入口2種×操作2種の全4組で対象・影響を表示し、Hostの2組と全ユーザー交換の通常入口の計3組だけ明示確認する。この確認契約を通常発行・独立失効へ拡張しない。初回Host設定は通常交換とは別契約で、以下の案内境界へ接続する。
 
 交換ではAccess Managementが旧失効前から同じexact Recovery IDへ結合する。事前条件、失効、新発行、結果記録、搬送、受領を別事実として表示し、後段失敗だけで確認済み発行をunknownへ戻さない。Secretを保存・再送・再表示せず、次の3分岐を表示する。通常発行／独立失効に交換Recoveryを付与しない。
 
@@ -263,6 +263,21 @@ Workbenchは[Access Management詳細§4](../access-management/01_Architecture.md
 manager自身の内容範囲変更も、変更前の管理認可→明示更新→次要求の現在Role・Exposure・実アクセス再評価の順を表示する。manager正常管理にadministrator存在条件を要求せず、管理拒否を自身表示・許可内容の拒否へ広げない。未知対象・必要状態不明・競合は新Effect前停止。保存後の読戻し／応答不明は既知更新と未確定範囲を分け、未保存・rollback・Effect0・完了を推定せず、交換Recoveryを追加しない。
 
 Qualityは固定8分担×三Role、操作別入力、managerのadministrator名前だけ変更、自己内容変更の時間順、登録／公開、解除の両読戻し・対象外／本体保持・取消非証明、管理≠内容、保存後不明の禁止推定を既存AM導出キーへ接続する。片側除去・読戻し不明の完了表示を反証する。画面配置・Field・公開API・保存・本番接続はOPENであり、新Tool名や画面をここで発行しない。
+
+### 6.3. 初回Host設定の案内
+
+初回の意味・State・Sequenceは[Access Management詳細](../access-management/01_Architecture.md#41-初回host設定のstateとsequence)、利用者表示のOwnerはSCR-000008／BHV-000012とする。WorkbenchはHostの明示操作へ案内するだけで、初期化実行・UUID作成・鍵発行・初期Secret配送をBackendに追加しない。
+
+| 許可された確認情報 | 表示・案内 |
+|---|---|
+| 未試行・双方未初期化が確認済み | Hostで管理用表示名を入力し、初回設定を明示実行する案内。Workbenchから開始しない |
+| 既存管理状態 | 初期化不可。通常の鍵喪失は既存Host交換へ案内する |
+| 確認済み途中 | 非秘密の個別事実とHost元試行再観測へ案内。発行／記録不明と受け渡しだけ不明を分ける |
+| 未観測・情報不足 | 未初期化と表示せず、Hostで現在状態を確認する案内 |
+
+Remote MCPから初期化状態を照会する新機能は作らない。接続不可や設定Fileの有無だけではユーザー・試行の存在を確定できない。発行・結果記録とも確定し配送／受領だけ不明の場合は、Hostの指定ユーザー交換を別明示操作として案内し、元試行を交換Recoveryへ変換しない。Secretの再表示・自動再発行・通常管理への自動接続完了を生成しない。具体表示・受領方式・API・本番接続はOPEN。
+
+今回の初回案内候補は契約・品質限定独立再レビュー済み・全重大度の残指摘0。QualityではHost案内と実行の分離、未観測表示、秘密配送0、初回と通常回復の誤分岐を検証へ接続する。
 
 ## 7. Visualと公式素材
 

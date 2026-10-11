@@ -4,7 +4,7 @@ Status: Candidate (v0.22 responsibility reorganization)
 Owner: Qual-Lab
 Last Updated: 2026-10-11
 
-固定8管理分担の前回限定レビューは履歴として保持する。今回は登録解除の両除去・読戻しと、鍵の発行／記録不明・確定後の受け渡し未確認・現在administrator非接続の3分岐を横断モデルへ候補伝播し、契約・品質の限定独立レビュー済み・残指摘0である。Quality・Source・具体API／物理保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
+固定8管理分担、登録解除・通常鍵3分岐の前回限定レビューは履歴として保持する。今回は承認済み初回Host設定をARCH-000013とAccess Management詳細から横断モデル・Workbench／MCP詳細へ候補伝播する。今回の固定12文書は契約・品質の限定独立再レビュー済み・全重大度の残指摘0で、前回Passを流用していない。Quality・Source・具体API／物理保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
 
 ## 1. この成果物が所有すること
 
@@ -47,13 +47,24 @@ Canonical責務を実行時に分離する論理単位、Resource、並行性お
 | CROSを別Processで利用する | Workbench ServerからMCP、または外部MCP Client | 同一Hostでも別ProcessならMCPで接続する。 | Remote接続、情報最小化、認可、切断・取消と終了後状態を確認する。 |
 | Linux等の共有Host | Workbench Server、MCP Server | CROS能力とRepository群を配置する。TLS終端等はDeployment Concernである。 | Linux実配置、証明書運用、特定Proxyは既存loopback／模擬Header試験では確認済みとしない。 |
 
-上表のCROS一般利用経路へ鍵操作を混ぜない。通常鍵発行・独立失効・交換は同一Process Workbenchの現行administrator専用固定で、MCPの一覧・Schema・登録・dispatchは全鍵操作を公開しない。Hostのログイン済みローカル操作者を信頼する対話CLIは交換2操作だけとし、追加認証・専用資格・承認コード・OS管理者昇格なしで既存Root／Path検証を維持する。新しいServerやHost認可機構を作らない。
+上表のCROS一般利用経路へ鍵操作を混ぜない。通常鍵発行・独立失効・交換は同一Process Workbenchの現行administrator専用固定で、MCPの一覧・Schema・登録・dispatchは全鍵操作を公開しない。Hostのログイン済みローカル操作者を信頼する通常回復の対話CLIは交換2操作だけとし、追加認証・専用資格・承認コード・OS管理者昇格なしで既存Root／Path検証を維持する。新しいServerやHost認可機構を作らない。
 
 Shared Server、CROS REST、Gatewayを独立Runtimeとして残さない。既存の認可・Origin・TLS境界・操作・終了保証をMCPと内部能力へ移管した後に撤去する。共有HostへのRepository自動Deploy／Clone／Backup機能は追加しない。WorkbenchのBrowser向けRESTはこの撤去に含めない。
 
-単体／CROSは起動時に明示選択し、設定済みであることだけで自動切替しない。単体は起動Repository一つ・資格不要、CROSは現在認可された集合を扱う。初回CROSの管理資格発行方式は変更せず、鍵交換と混ぜない。Access Managementは認証・認可の論理Ownerであり、独立Process／Serverの追加を意味しない。保存Root・秘密保護は既存契約を維持する。
+単体／CROSは起動時に明示選択し、設定済みであることだけで自動切替しない。単体は起動Repository一つ・資格不要、CROSは現在認可された集合を扱う。初回Host設定はローカルHostの明示操作だけで開始し、通常鍵交換と混ぜない。`--cros`や設定Fileの存在を開始許可・Host Authority・自動初期化の根拠にしない。Access Managementは認証・認可の論理Ownerであり、独立Process／Serverの追加を意味しない。保存Root・秘密保護は既存契約を維持する。
 
 Coordinatorは単体の実行Runtimeとして利用でき、Orchestratorはその公開APIを呼ぶ。Provider差はAI Adapter、実Docker資源はCoordinator、OS固有保証はPlatform Accessが所有する。Docker CLIを使うことだけで全処理をNativeへ移管せず、署名するCoordinator実行閉包と、各Toolの実行・試験環境を区別する。
+
+### 初回Host設定の配置制約
+
+| 利用形態 | 初回設定の扱い |
+|---|---|
+| 単体Repository | 資格不要を維持。起動だけでCROS管理Rootや初期ユーザーを作らない |
+| ローカルHostの明示初期化 | 既存OSユーザー管理Root／Pathを検証し、双方未初期化確認からAccess Managementへ接続する候補 |
+| 同一／別Process Workbench | Host操作の案内だけ。初期化・初期Secret配送をBackendで実行しない |
+| MCP・Remote Client・自動起動 | 初期化・状態照会は非公開。未初期化を別Root・単体fallbackで回避しない |
+
+論理OwnerやPackage改名を理由に秘密値をRepositoryへ移動しない。具体保存Schema・Root準備・atomic publication・公開入口・Source接続は未完了で、配置候補から本番成立を推定しない。
 
 ## 3. 実行単位とResource
 
@@ -67,6 +78,7 @@ Coordinatorは単体の実行Runtimeとして利用でき、Orchestratorはそ�
 | 接続認可Query | Credential→userId、現行Role詳細権限、Workspace／Exposure、取得可能性 | 要求／認証Context | 現在認可済み集合または非開示拒否を返す。接続の終了はTransport Ownerが確認する |
 | 認可済みFederation Query | 許可済みRepository集合、Source snapshot、Coverage | Query／対象集合 | Domain Modelが根拠と不完全性を返す。管理権限から内容閲覧を生成しない |
 | 通常管理Operation | 操作別の予定Role／既存対象／前後Role／Role内容／接続登録／Exposure | 操作／対象／変更前の現行Roleに対する固定8分担 | 対象更新・結果確定・搬送・受領を分離。不明を成功化せず、次要求で内容認可を再評価。登録≠公開。解除は同じ受理操作・採用改訂の登録と対応Exposureを両読戻しし、対象外・本体を保持。開始済み取消非証明。新Process／保存方式／公開APIは未確定 |
+| 初回Host設定Operation（Access Management） | 検証済み管理Root、初期化状態、確認済み非秘密元試行相関、作成userId／資格、発行・記録・配送・受領・通常接続の各事実 | Root／確認済みexact初回試行。双方未初期化確認＋Host明示開始のみ新試行を作り、開始前のIdentityを推定しない | 相関を耐久確定・読戻ししてからUUID／鍵Effectへ進む。受領事実の確認と通常管理への導線を分け、通常管理接続は別観測。自動接続完了を生成せず、必要事実すべて成立時だけ全体完了。途中／不明は元試行で保持・再観測。通常交換2操作とは別で、具体API・物理保存・Sourceは未確定 |
 | 新規資格発行Operation | 既存対象userId、発行結果 | 操作／対象userId／同一Process Workbenchの現行administrator | 発行・結果記録・搬送・受領を別観測。旧失効0・交換Recoveryなし。配送失敗だけで確定発行を不明化しない |
 | 独立失効Operation | exact対象資格IdentityとuserIdへの結合、失効結果 | 操作／資格Identity／同一Process Workbenchの現行administrator | 確定した失効資格の後続要求を拒否、不明は既知状態と確認先を返す。範囲拡大・新発行・Secret・交換再入場0、Task取消非証明 |
 | 鍵交換Operation | 対象userId、既存発行先、失効範囲、非秘密Recovery状態 | 2操作／Workbench固定administratorまたは信頼したHostログイン操作者／旧失効前に結合した同じexact Recovery ID | 失効・発行・結果記録・搬送・受領を分離。発行／記録不明は元発行Identity・元exact Recoveryで再観測。発行・記録確定後の配送／受領未確認は現在administratorの明示選択だけで別交換へ。各交換内のexactを保持し、確定発行を不明へ戻さない |

@@ -8,7 +8,7 @@
 
 発行済みのLogical Screen、Screen Part、InteractionおよびDetailed Behaviorを、意味を所有するArchitecture定義と配置を所有する詳細設計領域へ接続する。Definitionを要求源として維持し、Detailを新しい要求や実装配置の根拠へ読み替えない。
 
-固定8管理分担の前回限定レビューは履歴として保持する。今回は登録解除の両除去・読戻しと、鍵の発行／記録不明・確定後の受け渡し未確認・現在administrator非接続の3分岐を横断モデルへ候補伝播し、契約・品質の限定独立レビュー済み・残指摘0である。Quality・Source・具体API／物理保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。 対象はSCR-000008／PRT-000008、BHV-000012、PRT-000008.spec-000012の3行のみでPartialを維持。残り19 UI・29 BHV・31 Relationは未変更・未再評価。
+固定8管理分担、登録解除・通常鍵3分岐の前回限定レビューは履歴として保持する。今回は承認済み初回Host設定をARCH-000013とAccess Management詳細から横断モデル・Workbench／MCP詳細へ候補伝播する。今回の固定12文書は契約・品質の限定独立再レビュー済み・全重大度の残指摘0で、前回Passを流用していない。Quality・Source・具体API／物理保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。対象はSCR-000008／PRT-000008、BHV-000012、PRT-000008.spec-000012の3行のみでPartialを維持。残り19 UI・29 BHV・31 Relationは未変更・未再評価。
 
 ```text
 UI／SPEC Definition
@@ -31,7 +31,7 @@ Architecture Detail Area
 | [SCR-000005／PRT-000005](../04_UI/Details/Areas/operation/SCR-000005/screen.md) | UI-000005 | ARCH-000007、ARCH-000008 | execution-intelligence、orchestrator、coordinator、platform-access、crdd-domain-library、semantic-coverage | Covered |
 | [SCR-000006／PRT-000006](../04_UI/Details/Areas/project-context/SCR-000006/screen.md) | UI-000006 | ARCH-000009 | version-control、runtime-data、cros、crdd-domain-library | Covered |
 | [SCR-000007／PRT-000007](../04_UI/Details/Areas/operation/SCR-000007/screen.md) | UI-000007 | ARCH-000012 | mcp、orchestrator | Covered |
-| [SCR-000008／PRT-000008](../04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md) | UI-000008 | ARCH-000013 | access-management、workbench-server、domain-model（認可済みContext集約／中立な保存部品）、mcp-server（鍵操作非公開の境界） | Partial |
+| [SCR-000008／PRT-000008](../04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md) | UI-000008 | ARCH-000013 | access-management（初回設定・通常管理の意味）、workbench-server（通常管理・同一Processの通常鍵3操作、初回は案内のみ）、domain-model（認可済みContext集約／中立な保存部品）、mcp-server（鍵操作・初期化状態照会非公開の境界） | Partial |
 | [SCR-000009／PRT-000009](../04_UI/Details/Areas/project-context/SCR-000009/screen.md) | UI-000009 | ARCH-000006 | project-operation、cros | Covered |
 | [SCR-000010／PRT-000010](../04_UI/Details/Areas/configuration-trust/SCR-000010/screen.md) | UI-000010 | ARCH-000010 | coordinator、cros | Covered |
 | [SCR-000011／PRT-000011](../04_UI/Details/Areas/configuration-trust/SCR-000011/screen.md) | UI-000011 | ARCH-000011 | runtime-data、platform-access | Covered |
@@ -61,7 +61,7 @@ Architecture Detail Area
 | [BHV-000010](../05_SPEC/Details/BHV-000010/behavior.md) | SPEC-000010 | ARCH-000009 | version-control、runtime-data、cros、crdd-domain-library | Covered |
 | [BHV-000031](../05_SPEC/Details/BHV-000031/behavior.md) | SPEC-000031 | ARCH-000009 | version-control、orchestrator | Covered |
 | [BHV-000011](../05_SPEC/Details/BHV-000011/behavior.md) | SPEC-000011 | ARCH-000012 | mcp、orchestrator | Covered |
-| [BHV-000012](../05_SPEC/Details/BHV-000012/behavior.md) | SPEC-000012 | ARCH-000013 | access-management、workbench-server、domain-model（認可済みContext集約／中立な保存部品）、mcp-server（鍵操作非公開の境界） | Partial |
+| [BHV-000012](../05_SPEC/Details/BHV-000012/behavior.md) | SPEC-000012 | ARCH-000013 | access-management（初回設定・通常管理の意味）、workbench-server（通常管理・同一Processの通常鍵3操作、初回は案内のみ）、domain-model（認可済みContext集約／中立な保存部品）、mcp-server（鍵操作・初期化状態照会非公開の境界） | Partial |
 | [BHV-000013](../05_SPEC/Details/BHV-000013/behavior.md) | SPEC-000013 | ARCH-000006 | project-operation、cros | Covered |
 | [BHV-000014](../05_SPEC/Details/BHV-000014/behavior.md) | SPEC-000014 | ARCH-000010 | coordinator、cros | Covered |
 | [BHV-000015](../05_SPEC/Details/BHV-000015/behavior.md) | SPEC-000015 | ARCH-000010 | coordinator、cros | Covered |
@@ -101,7 +101,7 @@ Architecture Detail Area
 | `PRT-000006.spec-000010` | BHV-000010 | ARCH-000009 | Single | version-control、runtime-data、cros、crdd-domain-library | Covered |
 | `PRT-000006.spec-000031` | BHV-000031 | ARCH-000009 | Single | version-control、runtime-data、cros、crdd-domain-library | Covered |
 | `PRT-000007.spec-000011` | BHV-000011 | ARCH-000012 | Single | mcp、orchestrator | Covered |
-| `PRT-000008.spec-000012` | BHV-000012 | ARCH-000013 | Single | access-management、workbench-server、domain-model（認可済みContext集約／中立な保存部品）、mcp-server（鍵操作非公開の境界） | Partial |
+| `PRT-000008.spec-000012` | BHV-000012 | ARCH-000013 | Single | access-management（初回設定・通常管理の意味）、workbench-server（通常管理・同一Processの通常鍵3操作、初回は案内のみ）、domain-model（認可済みContext集約／中立な保存部品）、mcp-server（鍵操作・初期化状態照会非公開の境界） | Partial |
 | `PRT-000009.spec-000013` | BHV-000013 | ARCH-000006 | Single | project-operation、cros | Covered |
 | `PRT-000010.spec-000014` | BHV-000014 | ARCH-000010 | Single | coordinator、cros | Covered |
 | `PRT-000010.spec-000015` | BHV-000015 | ARCH-000010 | Single | coordinator、cros | Covered |
@@ -123,7 +123,7 @@ Architecture Detail Area
 
 ## 5. 配置判断
 
-最新ARCH-000013断面の意味OwnerはAccess Managementであり、通常鍵3操作は同一Process Workbenchの固定administrator、Hostは信頼したログイン済み操作者の対話CLI交換2操作だけに接続する。MCPを鍵操作の利用側にせず、一覧・Schema・登録・dispatch非公開を負の境界として扱う。Domain Modelは認可済み集合のContext集約と中立な共通Root／保存部品だけを担い、資格やGrantを解釈して権限を決めない。固定8分担・操作別対象・変更前認可→明示更新→次要求再評価は最新SCR／BHVの配置制約としてARCH-000013へ対応する。同じ3行へ、登録解除の同一操作・改訂と両除去読戻し、対象外・本体保持、開始済み取消非証明、鍵3分岐と元発行Identity／別交換の分離を追加対応する。MCPは鍵処置の負境界だけで、遅延旧応答の失効鍵利用表示を許可しない。3行のPartialは対応候補とArchitecture詳細・具体API／物理保存・本番接続の未完了を示し、Source Coverageや最新DetailsのPassではない。
+最新ARCH-000013断面の意味OwnerはAccess Managementであり、通常鍵3操作は同一Process Workbenchの固定administrator、通常Host回復は信頼したログイン済み操作者の対話CLI交換2操作だけに接続する。初回Host設定は同じARCH-000013の別開始契約としてAccess Managementへ接続し、WorkbenchはHost案内、MCPは初期化・状態照会非公開を担う。MCPを鍵操作の利用側にせず、一覧・Schema・登録・dispatch非公開を負の境界として扱う。Domain Modelは認可済み集合のContext集約と中立な共通Root／保存部品だけを担い、資格やGrantを解釈して権限を決めない。固定8分担・操作別対象・変更前認可→明示更新→次要求再評価は最新SCR／BHVの配置制約としてARCH-000013へ対応する。同じ3行へ初回開始・4状態・元試行相関・個別事実・既存交換との分離を候補対応し、登録解除の同一操作・改訂と両除去読戻し、対象外・本体保持、開始済み取消非証明、鍵3分岐と元発行Identity／別交換の分離を追加対応する。MCPは鍵処置の負境界だけで、遅延旧応答の失効鍵利用表示を許可しない。3行のPartialは対応候補とArchitecture詳細・具体API／物理保存・本番接続の未完了を示し、Source Coverageや最新DetailsのPassではない。
 
 - 20件のSCRと20件のPRTは、Source UI Definitionを所有するARCH-IDへ接続した。
 - 30件のBHVは、Source SPEC Definitionを所有するARCH-IDへ接続した。
@@ -142,4 +142,4 @@ Architecture Detail Area
 - [x] 各ARCH-IDを一件以上の詳細設計領域へ接続した
 - [x] CMP未発行をArchitecture Component不存在の証明へ読み替えていない
 - [x] Detailから新しい要求、Authority、Effectまたは実装方式を逆輸入していない
-- OPEN: 登録解除・鍵3分岐のArchitecture横断伝播は候補契約・品質の限定独立レビュー済み・残指摘0。前回の限定Passは履歴。具体API／物理保存・受領方式、Quality・Source・本番接続は未完了。他行の最新配置も今回再評価していない。
+- OPEN: 登録解除・通常鍵3分岐の前回限定Passは履歴。今回の初回Host設定は同じ3行へ候補対応し、契約・品質限定独立再レビュー済み・全重大度の残指摘0。具体API／物理保存・受領方式、Quality・Source・本番接続は未完了。他行の最新配置も今回再評価していない。

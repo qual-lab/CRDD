@@ -4,7 +4,7 @@ Status: Candidate (v0.22 responsibility reorganization)
 Owner: Qual-Lab
 Last Updated: 2026-10-11
 
-固定8管理分担の前回限定レビューは履歴として保持する。今回は登録解除の両除去・読戻しと、鍵の発行／記録不明・確定後の受け渡し未確認・現在administrator非接続の3分岐を横断モデルへ候補伝播し、契約・品質の限定独立レビュー済み・残指摘0である。Quality・Source・具体API／物理保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
+固定8管理分担、登録解除・通常鍵3分岐の前回限定レビューは履歴として保持する。今回は承認済み初回Host設定をARCH-000013とAccess Management詳細から横断モデル・Workbench／MCP詳細へ候補伝播する。今回の固定12文書は契約・品質の限定独立再レビュー済み・全重大度の残指摘0で、前回Passを流用していない。Quality・Source・具体API／物理保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
 
 ## 1. この成果物が所有すること
 
@@ -67,6 +67,18 @@ Last Updated: 2026-10-11
 
 登録解除では同じ受理済み操作・採用改訂で登録と対応Exposureを除去し、両読戻し確認時だけ完了とする。片側残存・観測不能を完了にせず、対象外登録・Exposureと本体を保持する。両除去完了でも開始済み操作の終了不明は別に保持し、新しい取消処置を追加しない。
 
+### 初回Host設定の失敗分岐
+
+| 事実 | 処置 | 禁止する推定・Effect |
+|---|---|---|
+| 未試行・双方未初期化確認済み | Host明示開始で正規の初回へ進む | 全ての未試行を観測不能として拒否しない |
+| 既存管理状態／通常鍵喪失 | 初期化を拒否し、鍵喪失は既存Host交換へ案内 | 二重UUID、再初期化、Role修復、内容権限の自動付与 |
+| 元試行の鍵発行または結果記録が不明 | 確認済み元試行だけを再観測 | 自動再発行、別交換、秘密再表示、unknown→成功 |
+| 発行・結果記録とも確定し、配送または受領だけ不明 | 旧事実を保持。作成済みadministratorへの既存Host指定ユーザー交換を別明示操作として案内 | 元試行を交換Recoveryに変換、配送から受領推定、交換を自動実行 |
+| Root・記録・排他等の観測不能／破損 | 新作成を停止。確定した元試行がなければ推測しない | File一件の不存在から未初期化確定、無関係Root、進行記録消去 |
+
+詳細な[初回State／Sequence](Details/access-management/01_Architecture.md#41-初回host設定のstateとsequence)へ戻す。この失敗処置から一般Recoveryや第三の鍵回復を作らない。新規UUID／鍵Effectの停止と、Root準備に既に発生したFilesystem Effectを分け、後者をEffect 0へ書き換えない。
+
 ## 4. 回復の不変条件
 
 - Recovery Identityは、残存可能性が最初に生じた結果から耐久記録、再入場、終了まで変えない。
@@ -76,12 +88,12 @@ Last Updated: 2026-10-11
 - 取消要求、Process終了、Resource回収、公開結果の確定を別の観測として扱う。
 - 部分故障で無関係なComponentを全停止にせず、利用可能範囲と未確認範囲を返す。
 - Project状態の観測、Task完了またはObjective受入から次段階の受入Authorityを生成しない。推定入力は記録を変更せず、判断待ちと根拠を保持する。
-- 鍵交換は指定ユーザー交換／全員交換と通常／Host入口を別軸にする。全4組を事前表示し、Hostまたは全員交換の3組だけ明示確認する。通常入口は同一Process Workbenchの現行administrator、Host入口は信頼したログイン済みローカル操作者の対話CLIで再入場する。Hostは交換2操作だけで、追加認証・専用資格・承認コード・OS管理者昇格なし。既存Root／Path検証は維持する。
+- 鍵交換は指定ユーザー交換／全員交換と通常／Host入口を別軸にする。全4組を事前表示し、Hostまたは全員交換の3組だけ明示確認する。通常入口は同一Process Workbenchの現行administrator、Host入口は信頼したログイン済みローカル操作者の対話CLIで再入場する。通常Host回復は交換2操作だけで、追加認証・専用資格・承認コード・OS管理者昇格なし。既存Root／Path検証は維持する。
 - 各交換Recoveryは旧失効前にexact IDへ結合し、Process喪失・部分結果・耐久記録・再入場まで同じ相関を維持する。元発行／記録不明の再観測と、発行・記録確定後に現在管理者が選ぶ別交換を分け、後者の別Operation／Recoveryで旧相関を上書きしない。新規発行・独立失効へ交換Recoveryを付けない。
 - 発行、結果記録、搬送、受領を別の事実とし、後続失敗だけで確定済み発行結果を不明へ戻さない。未確認の記録・搬送・受領を成功扱いしない。
 - MCPはSecret有無を問わず鍵操作の一覧・Schema・登録・dispatchを持たない。固定管理認可は現行RoleとARCH-000013の8操作分担から判定し、Role内容設定から派生させない。manager／administratorはユーザー登録・表示名変更、developer／managerのRole変更・内容設定、Repository登録・登録解除・Exposureを管理する。administratorの付与・解除・降格・詳細権限と鍵操作はadministrator専用。managerはadministratorの表示名だけ変更可。通常管理の失敗に鍵交換の保持保証やRecoveryを転用しない。
 - 失効後に新発行や搬送が失敗しても、userId・表示名・Role・詳細権限・Repository登録・Product Dataを変更しない。生Secretを耐久記録・ログ・Evidenceへ保存せず、再入場で再表示しない。
-- 資格の失効・交換からTask取消完了、過去Effect 0、認可設定の修復やAuthority復元を主張しない。初回CROS設定・単体資格不要の契約は変えない。
+- 資格の失効・交換からTask取消完了、過去Effect 0、認可設定の修復やAuthority復元を主張しない。単体資格不要の契約は変えない。初回Host設定は承認済みの別開始契約として扱い、通常Host回復へ混ぜない。
 
 ## 5. 段階的な故障確認
 

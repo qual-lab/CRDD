@@ -113,13 +113,30 @@ Last Updated: 2026-10-11
 
 実行の直接依存は `orchestrator → coordinator公開API → ai-adapter` とする。OrchestratorはCoordinatorが定義した通知関数を登録し、Coordinatorが実行事実を通知する。通知は上位状態の更新完了や資源回収完了そのものではなく、各Ownerが確定した結果へ接続する。新しいEvent Bus、DIまたは汎用Port Frameworkは追加しない。
 
-Workbench／MCPは必要な内部Capabilityを利用する。同一ProcessのCROS利用は認可を維持した直接呼出し、別Processは同じHostでもMCPを利用する。ただし鍵操作はこの一般経路から除外し、MCPの一覧・Schema・登録・dispatchへ置かない。通常鍵3操作は同一Process Workbenchの固定administrator、Hostはログイン済み操作者の対話CLI交換2操作だけとする。詳細な入口境界は[境界モデル](03_Boundary_and_Interface_Model.md#管理と鍵交換の公開境界)を参照する。Shared Serverは配置形態であり、第三の公開Runtimeではない。CROS REST／Gatewayの既存能力は移管・検証後に撤去し、名前の削除だけを置換完了としない。
+Workbench／MCPは必要な内部Capabilityを利用する。同一ProcessのCROS利用は認可を維持した直接呼出し、別Processは同じHostでもMCPを利用する。ただし鍵操作はこの一般経路から除外し、MCPの一覧・Schema・登録・dispatchへ置かない。通常鍵3操作は同一Process Workbenchの固定administrator、通常Host回復はログイン済み操作者の対話CLI交換2操作だけとし、初回Host設定とは分離する。詳細な入口境界は[境界モデル](03_Boundary_and_Interface_Model.md#管理と鍵交換の公開境界)を参照する。Shared Serverは配置形態であり、第三の公開Runtimeではない。CROS REST／Gatewayの既存能力は移管・検証後に撤去し、名前の削除だけを置換完了としない。
 
 固定管理分担のOwnerはAccess Managementで、Workbench／MCPは現在の管理認可を迂回しない。登録解除の登録・対応Exposure除去と両読戻しはAccess Managementが判定し、Repository本体の削除や開始済み操作の取消を所有しない。鍵の元発行Identity・既知結果はAccess Management、許可された一度の秘密搬送・未確認案内は入口Ownerが担う。発行／記録不明の再観測と、発行・記録確定後に管理者が選ぶ別交換を混同しない。詳細は[管理API・保存設計](Details/access-management/02_Management_State_and_API.md#5-鍵交換の段階と終了)へ接続する。Domain Modelへ渡すのは内容認可済み集合であり、管理許可をその代わりにしない。新Port／Frameworkは追加しない。
 
+### 初回Host設定の所有者
+
+| 要素 | 所有者・接続 | 所有しないこと |
+|---|---|---|
+| 初期化状態・非秘密元試行相関・個別成立事実 | Access Managementの既存管理能力 | Domain Modelの業務Object、新Store、一般Recovery |
+| 明示開始・表示名入力・一度だけの秘密配送と受領 | ログイン済みローカルHost操作者の対話入口 | Workbench／MCPからの自動開始、追加認証・昇格 |
+| 状態説明とHost操作への案内 | Workbench | 初期化実行、秘密配送、Remote初期化状態照会の追加 |
+| 非公開境界 | MCP | 初期化Tool・状態照会・元試行参照の公開 |
+
+```text
+ローカルHost明示操作 → Access Managementの初回設定
+Workbench             → Host操作の案内のみ
+MCP                  → 初期化・状態照会を公開しない
+```
+
+詳しい成立条件は[Access Management詳細](Details/access-management/01_Architecture.md#41-初回host設定のstateとsequence)を正本とする。通常鍵操作・固定8管理分担・認可済みContext集約の所有者は変更しない。
+
 ## 5. QAへ渡す検証単位
 
-固定8管理分担の前回限定レビューは履歴として保持する。今回は登録解除の両除去・読戻しと、鍵の発行／記録不明・確定後の受け渡し未確認・現在administrator非接続の3分岐を横断モデルへ候補伝播し、契約・品質の限定独立レビュー済み・残指摘0である。Quality・Source・具体API／物理保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
+固定8管理分担、登録解除・通常鍵3分岐の前回限定レビューは履歴として保持する。今回は承認済み初回Host設定をARCH-000013とAccess Management詳細から横断モデル・Workbench／MCP詳細へ候補伝播する。今回の固定12文書は契約・品質の限定独立再レビュー済み・全重大度の残指摘0で、前回Passを流用していない。Quality・Source・具体API／物理保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
 
 | 検証候補 | 主な対象 | 反証すること | 適する粒度候補 |
 |---|---|---|---|

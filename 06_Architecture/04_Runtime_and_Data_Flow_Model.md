@@ -4,7 +4,7 @@ Status: Candidate (v0.22 responsibility reorganization)
 Owner: Qual-Lab
 Last Updated: 2026-10-11
 
-固定8管理分担の前回限定レビューは履歴として保持する。今回は登録解除の両除去・読戻しと、鍵の発行／記録不明・確定後の受け渡し未確認・現在administrator非接続の3分岐を横断モデルへ候補伝播し、契約・品質の限定独立レビュー済み・残指摘0である。Quality・Source・具体API／物理保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
+固定8管理分担、登録解除・通常鍵3分岐の前回限定レビューは履歴として保持する。今回は承認済み初回Host設定をARCH-000013とAccess Management詳細から横断モデル・Workbench／MCP詳細へ候補伝播する。今回の固定12文書は契約・品質の限定独立再レビュー済み・全重大度の残指摘0で、前回Passを流用していない。Quality・Source・具体API／物理保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
 
 ## 1. この成果物が所有すること
 
@@ -190,7 +190,7 @@ Workbenchの現行administrator または 信頼したHostログイン操作者
 
 ユーザーは安定userId（UUID）、管理用表示専用名、一つのRoleを持つ。Roleが詳細権限を所有し、CredentialはuserIdへ結合する。改名・同名からIdentityを再生成せず、Credential／Sessionへ旧権限を固定しない。認証Contextは認証・搬送の単位であり、新しい永続Session Storeを意味しない。DomainはCredentialやGrantを解釈せず、許可済み集合からの投影だけを所有する。
 
-通常の鍵発行・独立失効・交換は、同一Process Workbenchの現行administrator専用固定操作である。Hostはログイン済みローカル操作者を信頼する対話CLIの交換2操作だけとし、追加認証・専用資格・承認コード・OS管理者昇格なしで既存Root／Path検証を維持する。MCPの一覧・Schema・登録・dispatchへ鍵操作を置かない。固定管理認可は現行RoleとARCH-000013の8操作分担から判定し、Role内容設定から派生させない。manager／administratorはユーザー登録・表示名変更、developer／managerのRole変更・内容設定、Repository登録・登録解除・Exposureを管理する。administratorの付与・解除・降格・詳細権限と鍵操作はadministrator専用。managerはadministratorの表示名だけ変更可。
+通常の鍵発行・独立失効・交換は、同一Process Workbenchの現行administrator専用固定操作である。通常Host回復はログイン済みローカル操作者を信頼する対話CLIの交換2操作だけとし、追加認証・専用資格・承認コード・OS管理者昇格なしで既存Root／Path検証を維持する。MCPの一覧・Schema・登録・dispatchへ鍵操作を置かない。固定管理認可は現行RoleとARCH-000013の8操作分担から判定し、Role内容設定から派生させない。manager／administratorはユーザー登録・表示名変更、developer／managerのRole変更・内容設定、Repository登録・登録解除・Exposureを管理する。administratorの付与・解除・降格・詳細権限と鍵操作はadministrator専用。managerはadministratorの表示名だけ変更可。
 
 鍵交換はuserId・表示名・Role・詳細権限・Repository登録・Product Dataを保持して鍵だけを変更する。指定ユーザー交換は対象既存userIdの全旧有効資格を失効させ同じuserIdへ新発行する。他ユーザーの鍵は保持する。全員交換は操作中管理者を含む全旧有効資格を失効させ、指定した既存administrator userIdへ新発行する。他ユーザーへの再発行・配布は管理者の通常鍵発行として扱う。
 
@@ -424,6 +424,27 @@ Workbenchの現行administrator または 信頼したHostログイン操作者
 | 結果確定・受領 | 失効・発行・結果記録・搬送・受領の各事実を照合 | 未確認段階をcompletedへ畳まない | 鍵交換の完了はTask取消完了・過去Effect 0を証明しない |
 
 Workbench／Host CLIの入口分担は採用済みであり、具体的な保存確定方式、再入場API、画面・入力・受領方式と元発行Identity／配送観測の具体保存・搬送はDetailsへ残す。3分岐の処置方針自体は採用済みで、物理成立とは区別する。保存した参照はAuthorityそのものではなく、現在Authorityへの再結合なしに回復処置を許可しない。
+
+### 初回Host設定の状態・データフロー投影
+
+詳細は[Access ManagementのStateとSequence](Details/access-management/01_Architecture.md#41-初回host設定のstateとsequence)を正本とし、新しい状態実値や物理Schemaを定義しない。
+
+```text
+既存Root・双方未初期化を確認＋Host明示開始
+  → 非秘密元試行相関の耐久確定・読戻し
+  → administrator UUIDユーザー作成
+  → 同じuserIdへ鍵発行 → 結果記録
+  → 一度だけ配送 → 受領確認 → 通常管理接続確認
+```
+
+| 観測した状態 | 流れ・個別事実 |
+|---|---|
+| 未試行・双方未初期化確認済み | 明示開始時だけ新試行を作る。事前に試行やUUIDを推定しない |
+| 既存管理状態あり | 初期化しない。通常の鍵喪失は既存Host交換へ戻す |
+| 確認済み途中試行あり | 元試行だけを再観測。作成・発行済みを未初期化へ戻さない |
+| Root／観測／記録／排他等が不明 | 新作成を停止し、確認済み元試行がある場合だけ再観測する |
+
+論理的な`initialization`進行記録は耐久状態の候補であり、短命な`access-management.pending.json`、`unresolvedKeyExchanges`、Lock回復と同一ではない。発行または結果記録不明と、両者確定後の配送／受領だけ不明を分ける。配送未確認と配送確認済み・受領未確認も別の事実である。具体Schema・保存確定・保持清掃・受領方式はOPENで、状態名や一度表示から受領・全体完了を推定しない。
 
 ## 4. 概念Entity関係
 
