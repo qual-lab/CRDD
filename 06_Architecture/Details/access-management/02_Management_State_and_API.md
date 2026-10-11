@@ -2,7 +2,7 @@
 
 成果物種別: Architecture詳細設計
 詳細設計領域: access-management
-状態: Candidate（内部Schema・通常保存・初回相関・User・初回資格保存は局所接続済み。資格保存の固定10ファイル限定独立再レビューPass・全重大度の残指摘0。管理API・Root準備・配送・認証・本番Consumerは未成立）
+状態: Candidate（内部Schema・通常保存・初回相関・User・初回資格保存・認証主体解決は局所接続済み。資格保存の固定10ファイル限定独立再レビューPass・全重大度の残指摘0。管理API・Root準備・配送・内容認可・本番認証Consumerは未成立）
 維持責任者: Qual-Lab
 
 ## 1. 対象と保持条件
@@ -67,6 +67,12 @@
 局所UTは`RFD-UT-023`へ接続し、四管理観測×三試行観測×開始二値の24組と、不正値・暗黙変換なし・返却値非共有を確認する。候補試験の成功は正式Local Item評価や物理保存・Host入口の成立ではない。固定15Fileの契約・品質限定独立再レビューは両方Pass、全重大度の残指摘0。
 
 ## 3. 内部状態と公開読取り
+
+### 認証主体の局所接続 — 2026-10-12
+
+`authenticateCredential(root, token)`をPackage Rootから専用公開する。既存保存Ownerの同じ短いLock区間でcurrent検査・pending照合・資格照合・現在User／Role投影を行い、解放確認後だけ本人Snapshotを返す。純粋解決は`credential/authentication.ts`が所有しPackage Rootへ公開しない。結果は本人のrevision、credentialId、userId、username、role、Role内容workspaceIdsだけで、Secret・salt・Verifier・他User・Root・Lock回復参照は含めない。内容範囲は管理実行許可・認可済みRepository・実アクセスではない。後続Effectは現在認可を取り直す。
+
+RFD-IT-013の資格→現在User／Role部分とIT024の初回状態非更新を局所接続した。AM全35 Case・静的3軸成功、固定13ファイルの限定独立再レビューPass・残指摘0。失効・誤鍵・参照破損・pending不正・Lock解放不明は主体なしで拒否する。初回credential_storedを照合しても配送／受領／通常接続・completedへ更新しない。内容認可、管理実処置、本番認証Consumerは未接続。以下の認証未成立表示はこれらの全体・本番範囲を示し、今回の局所主体解決と区別する。
 
 | 内部論理情報 | 同一管理改訂で保持する内容 |
 |---|---|

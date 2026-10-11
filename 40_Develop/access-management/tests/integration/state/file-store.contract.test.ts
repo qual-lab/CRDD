@@ -4,6 +4,7 @@
  * @responsibility 純粋Schemaと保存境界を分離し、部分成立を管理操作全体のPassにしない。
  * @trace RFD-IT-021
  * @trace RFD-IT-024
+ * @trace RFD-IT-013
  * @level IT
  * @scope access-management/state、直接保存境界
  * @boundary Node Filesystem・既存Root/Lock。実Host・鍵発行・認可は対象外。
@@ -20,6 +21,7 @@ import {
 } from "../../../../domain-model/src/index.ts";
 import {
   type AccessManagementState,
+  authenticateCredential,
   createInitialAdministrator,
   createInitialCredential,
   verifyCredentialToken,
@@ -102,6 +104,169 @@ function prepareInitialUser(f: ReturnType<typeof fixture>): string {
   );
   return attempt;
 }
+
+/**
+ * 保存資格から同一改訂の本人だけを解決する。
+ * @responsibility 現在Role再評価と初回完了への非昇格を区別する。
+ * @trace RFD-IT-013
+ * @trace RFD-IT-024
+ * @precondition 初回資格を自己生成Rootに保存する。
+ * @stimulus 同資格の認証、通常状態のRole変更後に次認証を行う。
+ * @observation 固定投影・改訂・所有配列・完全byte・材料不存在。
+ * @oracle 初回は状態不変更、次要求だけ現在Role、秘密・他User・管理許可0。
+ * @cleanup FixtureがRoot不存在を確認する。
+ * @boundary 認証公開Root・保存・Node暗号。
+ */
+test("資格認証は同一改訂の本人と現在Roleだけを投影する", (t) => {
+  const f = fixture(t);
+  const attempt = prepareInitialUser(f);
+  const issued = createInitialCredential(f.root, attempt);
+  assert.equal(issued.status, "completed");
+  if (issued.status !== "completed") return;
+  assert.ok(issued.value.token);
+  const token = issued.value.token;
+  const current = path.join(f.directory, "access-management.json");
+  const before = fs.readFileSync(current);
+  const result = authenticateCredential(f.root, token);
+  assert.equal(result.status, "completed");
+  if (result.status !== "completed") return;
+  assert.deepEqual(Object.keys(result.snapshot).sort(), [
+    "credentialId",
+    "revision",
+    "role",
+    "userId",
+    "username",
+    "workspaceIds",
+  ]);
+  assert.equal(result.snapshot.revision, 3);
+  assert.equal(result.snapshot.role, "administrator");
+  assert.deepEqual(result.snapshot.workspaceIds, []);
+  assert.equal(Object.isFrozen(result.snapshot), true);
+  assert.equal(Object.isFrozen(result.snapshot.workspaceIds), true);
+  assert.deepEqual(fs.readFileSync(current), before);
+  const next = JSON.parse(before.toString()) as AccessManagementState;
+  const user = next.users[0];
+  const credential = next.credentials[0];
+  assert.ok(user && credential);
+  assert.equal(next.initialization.stage, "credential_stored");
+  next.initialization = {
+    stage: "completed",
+    attemptId: attempt,
+    initialUserId: user.userId,
+    initialCredentialId: credential.credentialId,
+    delivery: "confirmed",
+    receipt: "confirmed",
+    normalConnection: "confirmed",
+  };
+  credential.delivery = "confirmed";
+  user.role = "manager";
+  next.revision++;
+  next.operationId = crypto.randomUUID();
+  fs.writeFileSync(current, bytes(next));
+  const again = authenticateCredential(f.root, token);
+  assert.equal(again.status, "completed");
+  if (again.status === "completed") {
+    assert.equal(again.snapshot.revision, 4);
+    assert.equal(again.snapshot.role, "manager");
+    assert.deepEqual(again.snapshot.workspaceIds, [
+      "development",
+      "management",
+    ]);
+    assert.notEqual(
+      again.snapshot.workspaceIds,
+      next.roleContentAccess[1]?.workspaceIds,
+    );
+  }
+  assert.equal(result.snapshot.role, "administrator");
+  assert.deepEqual(result.snapshot.workspaceIds, []);
+  assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
+});
+
+/**
+ * 不成立認証と保存・排他不明で本人情報を返さない。
+ * @responsibility 不正資格・破損・未確認解放を非開示結果へ閉じる。
+ * @trace RFD-IT-013
+ * @precondition 自己生成の初回資格状態。
+ * @stimulus 形式・ID・Secret・失効・User/Role欠測・材料不正・Lock解放故障を与える。
+ * @observation 結果field閉包、KDF境界、保存byteとcleanup後の材料不存在。
+ * @oracle unavailableにsnapshot・改訂・対象ID・Lock参照なし。
+ * @cleanup 差替え復元、自己生成材料回収、Fixture削除。
+ * @boundary 認証・現在状態・Lock終了境界。
+ */
+test("資格認証は失効・破損・排他不明を本人情報なしで拒否する", (t) => {
+  const f = fixture(t);
+  const attempt = prepareInitialUser(f);
+  const issued = createInitialCredential(f.root, attempt);
+  assert.equal(issued.status, "completed");
+  if (issued.status !== "completed") return;
+  assert.ok(issued.value.token);
+  const token = issued.value.token;
+  const current = path.join(f.directory, "access-management.json");
+  const saved = fs.readFileSync(current);
+  const unknown = `cros.v1.${"0".repeat(24)}.${token.split(".")[3]}`;
+  const wrong = `cros.v1.${issued.value.credentialId}.${Buffer.alloc(32).toString("base64url")}`;
+  for (const value of ["invalid", unknown, wrong, wrong, wrong]) {
+    assert.deepEqual(authenticateCredential(f.root, value), {
+      status: "unavailable",
+      reason: "credential_authentication_rejected",
+    });
+    assert.deepEqual(fs.readFileSync(current), saved);
+    assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
+  }
+  for (const change of ["revoked", "missingUser", "missingRole"]) {
+    const state = JSON.parse(saved.toString()) as AccessManagementState;
+    const credential = state.credentials[0];
+    assert.ok(credential);
+    state.initialization = {
+      stage: "completed",
+      attemptId: attempt,
+      initialUserId: credential.userId,
+      initialCredentialId: credential.credentialId,
+      delivery: "confirmed",
+      receipt: "confirmed",
+      normalConnection: "confirmed",
+    };
+    credential.delivery = "confirmed";
+    if (change === "revoked") credential.revoked = true;
+    if (change === "missingUser") state.users = [];
+    if (change === "missingRole") state.roleContentAccess = [];
+    fs.writeFileSync(current, bytes(state));
+    const result = authenticateCredential(f.root, token);
+    assert.equal(result.status, "unavailable");
+    assert.deepEqual(Object.keys(result).sort(), ["reason", "status"]);
+    if (change === "revoked")
+      assert.deepEqual(result, {
+        status: "unavailable",
+        reason: "credential_authentication_rejected",
+      });
+  }
+  fs.writeFileSync(current, saved);
+  const pending = path.join(f.directory, "access-management.pending.json");
+  fs.writeFileSync(pending, "{}");
+  assert.deepEqual(authenticateCredential(f.root, token), {
+    status: "unavailable",
+    reason: "credential_authentication_state_unavailable",
+  });
+  assert.equal(fs.existsSync(pending), true);
+  fs.rmSync(pending);
+  const remove = fs.rmSync;
+  fs.rmSync = (target, options) => {
+    if (String(target).endsWith("access-management.lock"))
+      throw new Error("injected");
+    return remove(target, options);
+  };
+  try {
+    assert.deepEqual(authenticateCredential(f.root, token), {
+      status: "unavailable",
+      reason: "credential_authentication_state_unavailable",
+    });
+  } finally {
+    fs.rmSync = remove;
+  }
+  assert.equal(authenticateCredential(f.root, token).status, "completed");
+  assert.deepEqual(fs.readFileSync(current), saved);
+  assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
+});
 
 /**
  * 初回鍵の一生成・保存・再表示禁止を確認する。

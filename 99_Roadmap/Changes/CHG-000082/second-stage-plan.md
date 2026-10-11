@@ -1231,6 +1231,12 @@ UTはARCH由来だけ、ITは相関確定前Effect0と既知Root準備Effectの�
 必須確認はAM Packageのformat・type・lint・全UTと、契約／品質の限定独立レビュー、文書・直接影響・Symbol参照・差分確認。標準準拠規則は不変更のため準拠監査は対象外。I/O・実処置は未接続のためHost実試験・署名・Docker／Provider E2Eは実行せず、必要な後続Gateへ残す。Node v24.19.0でローカルキャッシュから固定開発依存を配置し、静的3軸と7 UT（既存4＋初回3）は成功。初回には24組合せを含む。正式Local Item評価はNot Run、保存・資格・Host入口・本番Consumer・全体Readyは未成立。固定15Fileの契約・品質限定独立再レビューは両方Pass、全重大度の残指摘0。台帳の登録漏れと現在投影の矛盾を是正した。試験台帳は当該ID・Path各1件で実在、差分確認成功。結果状態だけを同期し、この実装単位をコミットする。
 # AM鍵生成・照合の技術層 — 2026-10-12
 
+## 後続: 要求毎の認証主体解決
+
+基準Commit `c2472e2e`。配送回答待ちと独立して認証主体を接続する。読取り専用整合確認で、Lock外Snapshot解決案は現行契約と不一致として退け、既存private locked内の専用入口を採用する。保存Ownerがcurrent検査・pending照合→純粋資格照合／現在User／Role投影→解放確認を担当し、鍵差はcredential/authentication.tsへ閉じる。Rootには専用入口と固定型だけを公開し、汎用callback／Session／Store／Lock Frameworkを追加しない。
+
+RFD-IT-013前半とIT024初回非更新へ2 Caseを接続、AM全35 Case・静的3軸成功。現在投影4箇所の同期漏れと句点後空白2箇所を是正し、固定13ファイルの限定独立再レビューPass・残指摘0。設計／品質／台帳／Symbol直接伝播と差分確認成功。最新段落の追加だけで既存の現在表示を同期済みとせず、固定候補前に現在表示と履歴の区分を全直接影響先で照合する。新しい監査Frameworkは追加しない。標準準拠規則不変更のため準拠監査は非該当、実Host／公開Surface／Provider未接続のため実E2Eは後続Gateへ保持する。配送・受領判断、内容認可・管理実処置・本番接続は未完了、191正式Not Run。実Host Store・旧Source・旧Evidence・初回鍵保存処置は不変更。
+
 ## 後続: 初回資格保存の局所接続
 
 基準Commit `01d5ce3e`。先行した読取り専用整合確認に従い、AM既存保存Ownerと公開Root、既存RFD-IT-024試験を変更する。容量予約→一生成→完全資格・初回credential_storedの同改訂出版→読戻し→既存Lock解放を接続する。元発行はattemptId、出版操作は別UUID。再入場は保存済み資格IDだけを返し、生鍵を復元しない。cleanup不明の部分結果に生鍵を含めない。実Host Store、旧Source、旧Evidenceは変更せず、新Root／Lock／Receipt／回復Frameworkは作らない。

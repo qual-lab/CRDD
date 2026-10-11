@@ -7,7 +7,15 @@
 import fs from "node:fs";
 import crypto, { createHash } from "node:crypto";
 import { evaluateHostInitializationState } from "../initialization/state-evaluation.ts";
-import { createCredentialMaterial } from "../credential/token-material.ts";
+import {
+  createCredentialMaterial,
+  readCredentialId,
+} from "../credential/token-material.ts";
+import {
+  resolveCredentialAuthentication,
+  type AuthenticatedRequest,
+  type CredentialAuthenticationResult,
+} from "../credential/authentication.ts";
 import {
   type FilesystemStoreRoot,
   resolveFilesystemStorePath,
@@ -652,6 +660,72 @@ export function readAccessManagementState(
       };
     }
   });
+}
+
+/**
+ * 現在状態を読み同じLock区間内で資格の本人投影を解決する。
+ * @responsibility 要求毎の現在改訂と認証結果を結合して非秘密結果へ閉じる。
+ * @trace ARCH-000013
+ * @input 既存Rootと信頼しないBearer文字列。
+ * @returns 本人の固定投影、認証拒否または状態未確認。
+ * @precondition Rootは既存内部Ownerが検証済み。公開Transportは入力境界を別検査する。
+ * @postcondition 読戻し・認証・投影・Lock解放確認時だけcompleted。
+ * @effect 既存Lock、現在状態読取り、確認済み短命材料清掃、同期KDF。
+ * @failure 失効・不一致等は同一拒否、保存／排他不明では本人情報0。
+ * @invariant 管理実行許可・内容取得・初回完了・永続Sessionを作らない。
+ * @boundary AM専用認証入口と内部保存Owner。
+ * @security 生鍵・salt・Verifier・Root・Lock回復IDを結果へ含めない。
+ * @concurrency 全Writerと同じLock下の同一改訂。後続Effectは別の現在認可。
+ */
+export function authenticateCredential(
+  root: FilesystemStoreRoot,
+  token: string,
+): CredentialAuthenticationResult {
+  if (!readCredentialId(token))
+    return {
+      status: "unavailable",
+      reason: "credential_authentication_rejected",
+    };
+  const result = locked<AuthenticatedRequest>(root, () => {
+    try {
+      const current = readCurrent(root);
+      settlePending(root, current, () => {});
+      const snapshot = resolveCredentialAuthentication(token, current.state);
+      if (!snapshot)
+        return {
+          status: "unavailable",
+          reason: "credential_authentication_rejected",
+          publication: "not_attempted",
+          revision: current.state.revision,
+          cleanupConfirmed: true,
+        };
+      return {
+        status: "completed",
+        value: snapshot,
+        publication: "not_attempted",
+        revision: current.state.revision,
+        cleanupConfirmed: true,
+      };
+    } catch {
+      return {
+        status: "unavailable",
+        reason: "credential_authentication_state_unavailable",
+        publication: "not_attempted",
+        revision: null,
+        cleanupConfirmed: false,
+      };
+    }
+  });
+  return result.status === "completed"
+    ? { status: "completed", snapshot: result.value }
+    : {
+        status: "unavailable",
+        reason:
+          result.reason === "credential_authentication_rejected" &&
+          result.cleanupConfirmed
+            ? "credential_authentication_rejected"
+            : "credential_authentication_state_unavailable",
+      };
 }
 
 /**

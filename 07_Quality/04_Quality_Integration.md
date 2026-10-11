@@ -4,6 +4,8 @@
 状態: Canonical
 維持責任者: Qual-Lab
 
+最新接続はRFD-IT-013の資格→User→現在Role投影部分と、RFD-IT-024の初回状態非更新。AM全35 Case・静的3軸成功、固定13ファイルの限定独立再レビューPass・残指摘0。同一Lock／改訂、本人情報の閉包、失効・破損・解放不明拒否を観測した。Exposure・実アクセス・Domain搬送、管理実処置・配送・本番入口は未接続、正式191項目Not Run。以下33 Case以前の認証未接続表示は当時の局所履歴である。
+
 現在はRFD-IT-024の相関・User・初回資格保存部分までSource／Test候補を接続済み。AM全33 Case・静的3軸成功、固定10ファイルの限定独立再レビューPass・全重大度の残指摘0。配送／受領／通常接続、認証・現在認可・本番Host／Consumerは未成立。設計集合191項目の正式評価Not Runを維持する。以下の29 Case以前は各接続時点の局所履歴である。
 
 鍵生成・照合の技術層は既存RFD-IT-017／018のNode crypto部分へ接続する候補である。新Local Itemを追加せず、保存・現在認可・失効・交換・配送・本番Surfaceとの未接続を維持する。AM全29 Case・静的3軸成功は技術局所実行、191項目の正式評価はNot Runである。
@@ -143,7 +145,7 @@ Canonical設計集合と個別Releaseの検証対象を分ける。Local Itemを
 
 | 詳細設計領域 | 検証単位 | 接続する検証目標 | Local Item | 処置状態 | 未確認／再評価条件 |
 |---|---|---|---|---|---|
-| [Access Management](../06_Architecture/Details/access-management/01_Architecture.md) | access-management.host-initialization | QA-000007 | RFD-UT-023、RFD-IT-024、RFD-IT-025、RFD-ST-026、RFD-UAT-027 | Defined／Not Run | UT023とIT024相関・User・初回資格保存部分の候補接続済み。IT024の配送／受領／通常接続／本番Host部分とIT025／ST026／UAT027、Root準備・旧入力本番観測・認証・本番ConsumerはOPEN。正式評価Not Run |
+| [Access Management](../06_Architecture/Details/access-management/01_Architecture.md) | access-management.host-initialization | QA-000007 | RFD-UT-023、RFD-IT-024、RFD-IT-025、RFD-ST-026、RFD-UAT-027 | Defined／Not Run | UT023とIT024相関・User・初回資格保存部分の候補接続済み。IT024の配送／受領／通常接続／本番Host部分とIT025／ST026／UAT027、Root準備・旧入力本番観測・本番認証ConsumerはOPEN。正式評価Not Run。資格→User→現在Roleの認証主体局所解決（IT013前半）とIT024の初回非更新は候補接続済み。Exposure・実アクセス・Domain搬送はOPEN |
 | [MCP](../06_Architecture/Details/mcp-server/01_Architecture.md) | 初回設定・状態照会の非公開 | QA-000009 | EST-ST-015（Same更新） | Defined／Not Run | 四面公開集合・Owner呼出し0・Secret0を本番入口で実観測する |
 
 ## 4. 検証項目の閉包

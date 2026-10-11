@@ -5,6 +5,10 @@
  * @responsibility 純粋判定・内部保存を明示公開し、認証・鍵処置・本番入口との未接続を区別する。
  * @trace ARCH-000013
  */
+export type {
+  AuthenticatedRequest,
+  CredentialAuthenticationResult,
+} from "./credential/authentication.ts";
 export {
   createCredentialMaterial,
   type CredentialMaterial,
@@ -30,6 +34,7 @@ export {
 } from "./state/parse.ts";
 export {
   createInitialAdministrator,
+  authenticateCredential,
   createInitialCredential,
   initializeAccessManagementState,
   readAccessManagementState,
