@@ -8,6 +8,12 @@ CHG-000082の責務再編では実装親Folderを`mcp-server`とする。MCPはA
 
 ## 基本設計との関係
 
+### Topic／Meetingの現在認可前の入力境界 — 2026-10-12
+
+Routed Adapterは明示Repository IDを分離し、共通Adapterへ要求専用の遅延Resolverを渡す。各操作の完全な純粋Schema検査→取消確認→Resolver一回→取消再確認→Domain操作の順を固定する。Resolverの同期観測中に取消された場合も保存へ進まない。不正入力・開始前取消はResolver 0回、対象拒否nullは既存Invalid params、解決例外は秘密を含まないInternal errorへ閉じる。直接TopicMeetingAccessを渡す既存入口の正常CRUD・改訂競合・保存故障分類は維持する。
+
+これはAM接続の事前条件の是正であり、AMからTopic／Meetingへの本番接続はまだ未成立。manifest Projectと本文Projectの一致、同Project Relation移管、公開Launcher／Workbench、旧REST撤去は後続条件として維持する。保存開始後の取消からrollback・Effect 0を推定しない。
+
 取消結果の分類は既存Adapterを維持する。開始前は`-32800`で対象Reader 0回、同期Reader開始後のSignal検出は当該Reader終了後に`-32603 Project Context unavailable`へ閉じ、結果を公開せず後続Reader・暗黙再実行0とする。EST-IT-014への今回の接続は開始前取消の部分範囲だけであり、全取消義務の完成ではない。
 
 ### Project Context専用の新Owner接続 — 2026-10-12

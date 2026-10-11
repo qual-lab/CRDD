@@ -194,16 +194,19 @@
       "kind": "test-suite",
       "path": "tests/integration/topic-meeting-adapter.contract.test.ts",
       "qaIds": [
-        "QA-000005"
+        "QA-000005",
+        "QA-000007"
       ],
       "localTestIds": [
         "CPR-IT-010",
-        "CPR-IT-012"
+        "CPR-IT-012",
+        "RFD-IT-013"
       ],
       "verifies": [
         "mcp.source.src.adapters.application.adapter",
         "mcp.source.src.adapters.topic.meeting.adapter",
-        "mcp.source.src.protocol.topic.meeting.protocol"
+        "mcp.source.src.protocol.topic.meeting.protocol",
+        "project-operation.application.topic-meeting"
       ]
     },
     {

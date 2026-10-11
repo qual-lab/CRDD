@@ -8,6 +8,7 @@ import {
   parseTopicMarkdown,
   parseMeetingMarkdown,
   type TopicMeetingAccess,
+  validateTopicMeetingListInput,
 } from "../../../domain-model/src/index.ts";
 
 import {
@@ -53,13 +54,13 @@ export type TopicMeetingAccessResolver = (
 /**
  * CROS Tool Callの明示Repositoryを解決し、Repository単体契約へ縮約する。
  *
- * @responsibility repositoryIdをApplication Resolverへ一回渡し、許可済みCallだけからTarget Keyを除いて共通Adapterへ渡す。
+ * @responsibility Target Keyを除いた共通入力の完全検査・取消確認後だけ現在Repositoryを解決する。
  * @trace ARCH-000005
  * @trace ARCH-000013
- * @input rawRequest: Remote MCP要求、resolveTopicMeetingAccess: Request固定Resolver、signal: 取消Signal。
+ * @input rawRequest: Remote MCP要求、resolveTopicMeetingAccess: 要求専用の遅延Resolver、signal: 取消Signal。
  * @returns 共通Topic／Meeting Adapterの応答、または非開示Protocol Error。
  * @precondition Resolverは現在Credential、Workspace、ExposureおよびRepository Revisionを同じSnapshotで検証する。
- * @postcondition 共通ApplicationはrepositoryIdを含まないRepository単体契約だけを受け取る。
+ * @postcondition 不正入力と開始前取消はResolver 0回、正常入力は一回だけ解決し操作前に取消を再確認する。
  * @effect 許可済みApplicationが発行する一操作だけを許容する。
  * @failure Target欠落、不正、Grant外またはBinding不在を同じInvalid paramsへ閉じる。
  * @invariant Repository Identityを暗黙選択または別RepositoryへFallbackしない。
@@ -85,9 +86,7 @@ export async function handleMcpRoutedTopicMeetingRequest(
     args.repositoryId.length > 128
   )
     return protocolError(request.id, -32602, "Invalid params");
-  const application = resolveTopicMeetingAccess(args.repositoryId);
-  if (application === null)
-    return protocolError(request.id, -32602, "Invalid params");
+  const repositoryId = args.repositoryId;
   const { repositoryId: ignoredRepositoryId, ...localArguments } = args;
   return handleMcpTopicMeetingRequest(
     Object.freeze({
@@ -99,7 +98,7 @@ export async function handleMcpRoutedTopicMeetingRequest(
         arguments: Object.freeze(localArguments),
       }),
     }),
-    application,
+    () => resolveTopicMeetingAccess(repositoryId),
     signal,
   );
 }
@@ -168,9 +167,9 @@ function exactKeys(
  *
  * @responsibility MCP Envelope、Tool名、引数Schemaおよび取消を検証して対応Application操作へ限定配送する。
  * @trace ARCH-000005
- * @input rawRequest: 未信頼MCP要求、application: 許可済みApplication、signal: 取消Signal。
+ * @input rawRequest: 未信頼MCP要求、access: 許可済み操作または要求内の遅延Resolver、signal: 取消Signal。
  * @returns MCP Protocolの完了またはError応答。
- * @precondition applicationは現在RepositoryまたはRequest固定Resolverから解決済みである。
+ * @precondition accessは許可済み操作、または現在要求だけで解決するResolverである。
  * @postcondition 一つのTool Callを高々一つのApplication操作へ渡す。
  * @effect Create、Update、Delete、Promote、Outcome処置だけが対応Toolで発行され得る。
  * @failure Envelope、Tool名、引数、取消またはApplication失敗をProtocol Errorへ閉じる。
@@ -181,7 +180,7 @@ function exactKeys(
  */
 export async function handleMcpTopicMeetingRequest(
   rawRequest: unknown,
-  application: TopicMeetingAccess,
+  access: TopicMeetingAccess | (() => TopicMeetingAccess | null),
   signal: AbortSignal = new AbortController().signal,
 ): Promise<McpResponse> {
   const request = inspectProtocolRequest(rawRequest);
@@ -227,6 +226,7 @@ export async function handleMcpTopicMeetingRequest(
             !/^CHG-\d{6}$/u.test(args.targetReference)))))
   )
     return protocolError(request.id, -32602, "Invalid params");
+  let accessResolved = false;
   try {
     if (params.name === MCP_TOPIC_PROMOTE_TOOL) {
       const required = [
@@ -243,6 +243,14 @@ export async function handleMcpTopicMeetingRequest(
           .filter((key) => key !== "expectedRevision")
           .every((key) => typeof args[key] === "string")
       )
+        return protocolError(request.id, -32602, "Invalid params");
+      if (signal.aborted)
+        return protocolError(request.id, -32800, "Request cancelled");
+      const application = typeof access === "function" ? access() : access;
+      accessResolved = true;
+      if (signal.aborted)
+        return protocolError(request.id, -32800, "Request cancelled");
+      if (application === null)
         return protocolError(request.id, -32602, "Invalid params");
       const result = application.topic.promoteTopic({
         topicId: args.topicId as string,
@@ -286,6 +294,14 @@ export async function handleMcpTopicMeetingRequest(
           args.targetKind as string,
         )
       )
+        return protocolError(request.id, -32602, "Invalid params");
+      if (signal.aborted)
+        return protocolError(request.id, -32800, "Request cancelled");
+      const application = typeof access === "function" ? access() : access;
+      accessResolved = true;
+      if (signal.aborted)
+        return protocolError(request.id, -32800, "Request cancelled");
+      if (application === null)
         return protocolError(request.id, -32602, "Invalid params");
       const result = application.meeting.treatMeetingOutcome({
         meetingId: args.meetingId as string,
@@ -386,11 +402,25 @@ export async function handleMcpTopicMeetingRequest(
           : { pendingOnly: args.pendingOnly as boolean }),
         ...(args.sort === undefined ? {} : { sort: args.sort as never }),
       };
-      const page = application[kind].list({
-        ...(args.cursor === undefined ? {} : { cursor: args.cursor }),
-        ...(args.limit === undefined ? {} : { limit: args.limit }),
+      const listInput = {
+        ...(args.cursor === undefined ? {} : { cursor: args.cursor as string }),
+        ...(args.limit === undefined ? {} : { limit: args.limit as number }),
         ...(Object.keys(query).length === 0 ? {} : { query }),
-      });
+      };
+      try {
+        validateTopicMeetingListInput(kind, listInput);
+      } catch {
+        return protocolError(request.id, -32602, "Invalid params");
+      }
+      if (signal.aborted)
+        return protocolError(request.id, -32800, "Request cancelled");
+      const application = typeof access === "function" ? access() : access;
+      accessResolved = true;
+      if (signal.aborted)
+        return protocolError(request.id, -32800, "Request cancelled");
+      if (application === null)
+        return protocolError(request.id, -32602, "Invalid params");
+      const page = application[kind].list(listInput);
       return protocolComplete(request.id, {
         content: Object.freeze([
           { type: "text", text: `${page.records.length}件を取得しました。` },
@@ -403,6 +433,14 @@ export async function handleMcpTopicMeetingRequest(
       [MCP_TOPIC_GET_TOOL, MCP_MEETING_GET_TOOL].includes(params.name as never)
     ) {
       if (!exactKeys(args, ["id"]) || typeof args.id !== "string")
+        return protocolError(request.id, -32602, "Invalid params");
+      if (signal.aborted)
+        return protocolError(request.id, -32800, "Request cancelled");
+      const application = typeof access === "function" ? access() : access;
+      accessResolved = true;
+      if (signal.aborted)
+        return protocolError(request.id, -32800, "Request cancelled");
+      if (application === null)
         return protocolError(request.id, -32602, "Invalid params");
       const document = application[kind].getDocument(args.id);
       const record = document?.record ?? null;
@@ -441,6 +479,14 @@ export async function handleMcpTopicMeetingRequest(
       } catch {
         return protocolError(request.id, -32602, "Invalid params");
       }
+      if (signal.aborted)
+        return protocolError(request.id, -32800, "Request cancelled");
+      const application = typeof access === "function" ? access() : access;
+      accessResolved = true;
+      if (signal.aborted)
+        return protocolError(request.id, -32800, "Request cancelled");
+      if (application === null)
+        return protocolError(request.id, -32602, "Invalid params");
       const result = application[kind].create(args.markdown);
       return protocolComplete(request.id, {
         content: Object.freeze([{ type: "text", text: result.reason }]),
@@ -466,6 +512,14 @@ export async function handleMcpTopicMeetingRequest(
       } catch {
         return protocolError(request.id, -32602, "Invalid params");
       }
+      if (signal.aborted)
+        return protocolError(request.id, -32800, "Request cancelled");
+      const application = typeof access === "function" ? access() : access;
+      accessResolved = true;
+      if (signal.aborted)
+        return protocolError(request.id, -32800, "Request cancelled");
+      if (application === null)
+        return protocolError(request.id, -32602, "Invalid params");
       const result = application[kind].update({
         id: args.id,
         expectedRevision: args.expectedRevision as number,
@@ -490,6 +544,14 @@ export async function handleMcpTopicMeetingRequest(
         args.reason !== "mistaken_registration"
       )
         return protocolError(request.id, -32602, "Invalid params");
+      if (signal.aborted)
+        return protocolError(request.id, -32800, "Request cancelled");
+      const application = typeof access === "function" ? access() : access;
+      accessResolved = true;
+      if (signal.aborted)
+        return protocolError(request.id, -32800, "Request cancelled");
+      if (application === null)
+        return protocolError(request.id, -32602, "Invalid params");
       const result = application[kind].delete({
         id: args.id,
         expectedRevision: args.expectedRevision as number,
@@ -504,6 +566,7 @@ export async function handleMcpTopicMeetingRequest(
     }
   } catch (error) {
     if (
+      accessResolved &&
       [MCP_TOPIC_LIST_TOOL, MCP_MEETING_LIST_TOOL].includes(
         params.name as never,
       ) &&

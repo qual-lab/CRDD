@@ -5,6 +5,7 @@
  * @responsibility mcp:integration:topic-meetingが宣言する検証責務と終了後条件を所有する。
  * @trace CPR-IT-010
  * @trace CPR-IT-012
+ * @trace RFD-IT-013
  * @level IT
  * @scope mcp、contract、node_process
  * @boundary CPR-IT-010=Direct Boundary: mcp Test Source→対象契約
@@ -25,7 +26,10 @@ import test from "node:test";
 
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 
-import { createTopicOperations } from "../../../domain-model/src/index.ts";
+import {
+  createTopicOperations,
+  type TopicMeetingAccess,
+} from "../../../domain-model/src/index.ts";
 import { createMeetingOperations } from "../../../domain-model/src/index.ts";
 import {
   routeMcpRequest,
@@ -39,11 +43,215 @@ import {
   MCP_TOPIC_LIST_TOOL,
   MCP_TOPIC_PROMOTE_TOOL,
   MCP_TOPIC_UPDATE_TOOL,
+  MCP_TOPIC_MEETING_TOOLS,
+  handleMcpTopicMeetingRequest,
 } from "../../src/index.ts";
 
 const META = Object.freeze({
   "io.modelcontextprotocol/protocolVersion": MCP_ORCHESTRATOR_PROTOCOL_VERSION,
   "io.modelcontextprotocol/clientCapabilities": Object.freeze({}),
+});
+
+/**
+ * 全12 Toolの入力・取消を現在Repository解決より前に閉じる。
+ * @responsibility 不正入力からRoot観測や保存を開始しない順序を確認する。
+ * @trace CPR-IT-012
+ * @trace RFD-IT-013
+ * @precondition 公開Tool集合と固定Markdown、Filesystemを使わないResolver。
+ * @stimulus 全Toolの不正／正規Schema、開始前取消、解決内取消、nullと例外を渡す。
+ * @observation Resolver呼出し数、固定Protocol codeと本文。
+ * @oracle 不正／開始前取消0回、正規1回、解決内取消後の操作0、例外非開示。
+ * @cleanup N/A: メモリ内の入力とcallbackのみ。
+ * @boundary 完全Schema→取消→Repository解決→操作直前取消。
+ */
+test("全Topic／Meeting Toolは完全入力検査後だけRepositoryを解決する", async () => {
+  const commands: Readonly<Record<string, Readonly<Record<string, unknown>>>> =
+    {
+      "crdd.list_topics": {},
+      "crdd.list_meetings": {},
+      "crdd.get_topic": { id: "TOPIC-000042" },
+      "crdd.get_meeting": { id: "MTG-000042" },
+      "crdd.create_topic": { markdown: topic(1) },
+      "crdd.create_meeting": { markdown: meeting() },
+      "crdd.update_topic": {
+        id: "TOPIC-000042",
+        expectedRevision: 1,
+        markdown: topic(2),
+      },
+      "crdd.update_meeting": {
+        id: "MTG-000042",
+        expectedRevision: 1,
+        markdown: meeting(),
+      },
+      "crdd.delete_topic": {
+        id: "TOPIC-000042",
+        expectedRevision: 1,
+        confirmed: true,
+        reason: "mistaken_registration",
+      },
+      "crdd.delete_meeting": {
+        id: "MTG-000042",
+        expectedRevision: 1,
+        confirmed: true,
+        reason: "mistaken_registration",
+      },
+      "crdd.promote_topic": {
+        topicId: "TOPIC-000042",
+        expectedRevision: 1,
+        changeId: "CHG-000001",
+        reason: "採用",
+        remainingResponsibility: "終了確認",
+      },
+      "crdd.treat_meeting_outcome": {
+        meetingId: "MTG-000042",
+        expectedRevision: 1,
+        outcomeId: "OUT-001",
+        disposition: "completed",
+        owner: "PM",
+        reviewTrigger: "次回",
+        targetKind: "none",
+        targetReference: "N/A: 完了",
+        treatment: "確認済み",
+        completionCondition: "確認",
+        result: "完了",
+        closeMeeting: false,
+      },
+    };
+  assert.deepEqual(
+    Object.keys(commands).sort(),
+    [...MCP_TOPIC_MEETING_TOOLS].sort(),
+  );
+  for (const name of MCP_TOPIC_MEETING_TOOLS) {
+    const args = commands[name];
+    assert.ok(args);
+    let resolutions = 0;
+    const dependencies = {
+      projectContext: {
+        readPortfolio: async () => ({
+          projects: [],
+          retainedAsSourceOfTruth: false as const,
+        }),
+      },
+      topicMeetingRepositoryResolver: () => {
+        resolutions++;
+        return null;
+      },
+    };
+    const invalid = await routeMcpRequest(
+      call(name, { ...args, repositoryId: "repository.a", extra: true }),
+      dependencies,
+    );
+    assert.ok("error" in invalid);
+    assert.equal(invalid.error.code, -32602);
+    assert.equal(resolutions, 0);
+    const cancelled = new AbortController();
+    cancelled.abort();
+    const stopped = await routeMcpRequest(
+      call(name, { ...args, repositoryId: "repository.a" }),
+      dependencies,
+      cancelled.signal,
+    );
+    assert.ok("error" in stopped);
+    assert.equal(stopped.error.code, -32800);
+    assert.equal(resolutions, 0);
+    const denied = await routeMcpRequest(
+      call(name, { ...args, repositoryId: "repository.a" }),
+      dependencies,
+    );
+    assert.ok("error" in denied);
+    assert.equal(denied.error.code, -32602);
+    assert.equal(resolutions, 1);
+    const abort = new AbortController();
+    const resolving = await routeMcpRequest(
+      call(name, { ...args, repositoryId: "repository.a" }),
+      {
+        ...dependencies,
+        topicMeetingRepositoryResolver: () => {
+          resolutions++;
+          abort.abort();
+          return Object.freeze({}) as TopicMeetingAccess;
+        },
+      },
+      abort.signal,
+    );
+    assert.ok("error" in resolving);
+    assert.equal(resolving.error.code, -32800);
+    assert.equal(resolutions, 2);
+    const failed = await routeMcpRequest(
+      call(name, { ...args, repositoryId: "repository.a" }),
+      {
+        ...dependencies,
+        topicMeetingRepositoryResolver: () => {
+          throw new Error("secret-token C:/private/root");
+        },
+      },
+    );
+    assert.deepEqual(failed, {
+      jsonrpc: "2.0",
+      id: 1,
+      error: { code: -32603, message: "Internal error" },
+    });
+    if (name === "crdd.list_topics" || name === "crdd.list_meetings") {
+      for (const reason of [
+        "project_operation_list_limit_invalid",
+        "project_operation_list_query_invalid",
+        "project_operation_list_cursor_invalid",
+      ]) {
+        const resolverFailure = await routeMcpRequest(
+          call(name, { repositoryId: "repository.a" }),
+          {
+            ...dependencies,
+            topicMeetingRepositoryResolver: () => {
+              throw new Error(reason);
+            },
+          },
+        );
+        assert.ok("error" in resolverFailure);
+        assert.deepEqual(resolverFailure.error, {
+          code: -32603,
+          message: "Internal error",
+        });
+        const list = () => {
+          throw new Error(reason);
+        };
+        const direct = await handleMcpTopicMeetingRequest(call(name, {}), {
+          topic: { list },
+          meeting: { list },
+        } as unknown as TopicMeetingAccess);
+        assert.ok("error" in direct);
+        assert.deepEqual(direct.error, {
+          code: -32602,
+          message: "Invalid params",
+        });
+      }
+      const invalidQueries = [
+        { states: ["unknown"] },
+        { sort: "unknown" },
+        { relation: "not-an-id" },
+        { query: "x".repeat(129) },
+        { occurredFrom: "not-a-date" },
+        { cursor: "malformed" },
+        {
+          cursor: Buffer.from(
+            JSON.stringify(["id_asc", "", "", "wrong-query"]),
+          ).toString("base64url"),
+        },
+        ...(name === "crdd.list_topics"
+          ? [{ pendingOnly: true }, { occurredFrom: "2026-10-12" }]
+          : []),
+      ];
+      for (const invalidQuery of invalidQueries) {
+        const before: number = resolutions;
+        const invalidList = await routeMcpRequest(
+          call(name, { ...invalidQuery, repositoryId: "repository.a" }),
+          dependencies,
+        );
+        assert.ok("error" in invalidList);
+        assert.equal(invalidList.error.code, -32602);
+        assert.equal(resolutions, before);
+      }
+    }
+  }
 });
 
 /**
@@ -206,7 +414,7 @@ test("MCPは入力拒否と保存中の内部故障を区別する", async () =>
         id: 1,
         error: { code: -32602, message: "Invalid params" },
       });
-      assert.equal(calls, previous + 1);
+      assert.equal(calls, previous);
     }
     const previous = calls;
     const failed = await routeMcpRequest(

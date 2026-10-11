@@ -176,6 +176,7 @@ export {
   discoverRealitySymbols,
 } from "./reality-traceability/discover.ts";
 export { applyProjectOperationCandidateDecision } from "./project-context/candidate-decision.ts";
+export { validateTopicMeetingListInput } from "./activity/operations.ts";
 export { projectProjectOperationSources } from "./project-context/source-projection.ts";
 export { parseRepositoryProjectContextMarkdown } from "./project-context/parse-context.ts";
 export { readRepositoryProjectContext } from "./project-context/read-context.ts";

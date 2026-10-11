@@ -146,6 +146,7 @@ test("Package Rootは宣言済みの公開集合だけを公開する", () => {
     "validateArtifactSchema",
     "validateDomainOutcome",
     "validateRealitySymbolManifest",
+    "validateTopicMeetingListInput",
     "verifyTemporaryOperationEvidencePromotion",
     "withFilesystemStoreLock",
   ]);
@@ -298,6 +299,7 @@ test("Package Rootは宣言済みの公開集合だけを公開する", () => {
     "validateArtifactSchema",
     "validateDomainOutcome",
     "validateRealitySymbolManifest",
+    "validateTopicMeetingListInput",
     "verifyTemporaryOperationEvidencePromotion",
     "withFilesystemStoreLock",
   ]);

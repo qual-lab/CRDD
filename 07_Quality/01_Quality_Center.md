@@ -4,6 +4,8 @@
 担当責任者: Qual-Lab
 最終更新日: 2026-10-12
 
+最新局所結果：Topic／Meeting全12 Toolの認可前入力検査を接続した。MCP61／Domain118の計179 Case・各静的3軸成功、限定独立再レビューPass・全重大度残指摘0。無効な一覧条件と開始前取消はResolver 0、解決中取消はDomain操作0、解決例外とDomain入力拒否を分離した。CPR-IT-012／RFD-IT-013の部分接続であり、Project拘束・AM本番CRUD・191項目正式評価・全体Readyは未成立。[対象と限界](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#topicmeetingの認可前入力検査--2026-10-12)を参照する。
+
 最新局所結果: AM→Domain実本文→Project Context専用MCPを実HTTPへ接続した。MCP60／AM59／Domain118の計237 Case・各静的3軸成功、固定8Pathの限定独立再レビューPass・残指摘0。本文待機中の公開解除／失効は旧対象本文0、欠測は全体停止、開始後取消は当該descriptor終了・後続読取り0・内容非公開を確認した。正式191項目Not Run、公開Launcher／Workbench切替・他能力AM接続・鍵配送・旧REST撤去・全体Ready未成立は維持する。[対象・実行結果](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#am認証によるproject-context専用mcp接続--2026-10-12)を参照する。
 
 最新局所結果: 通常接続用認証を初回本人確認と分離し、RFD-IT-013／024の一部へ接続した。AM59/59 Case・静的3軸成功、固定8Pathの限定再レビューPass・全重大度残指摘0。未完了・未知・失効資格のpending／replace保持、完了三Role、状態・清掃・解放不明の非開示を確認した。MCP専用Resolver／実HTTP搬送・本番MCP／Workbench・鍵配送・旧REST撤去・正式191項目Not Run・全体Readyは未成立。詳細はCHG-000082の[通常接続の認証](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#通常接続の認証とmcp搬送の着手前確認--2026-10-12)を参照する。下段は各先行段階の局所結果である。

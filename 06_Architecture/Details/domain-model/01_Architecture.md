@@ -1,5 +1,7 @@
 # Domain Modelの責務境界
 
+Topic／Meeting一覧の純粋入力検査は公開`validateTopicMeetingListInput(kind, input)`で既存の条件正規化・Cursor検査を共用する。種別はToolまたは操作側で固定し、limit・状態・sort・Relation・日付・種別固有条件・Cursor構造／Query結合をRepository解決・読取り前に拒否する。Domain一覧自身も同じ検査を先行する。新しいSchema、Parser、保存状態、認可は追加しない。manifestと本文のProject拘束はこの検査とは別の未完了範囲である。
+
 成果物種別: Architecture詳細設計
 詳細設計領域: domain-model
 状態: Candidate

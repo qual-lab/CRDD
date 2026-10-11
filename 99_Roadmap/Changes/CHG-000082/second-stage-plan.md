@@ -9,6 +9,10 @@
 
 ## 1. 結論と実行境界
 
+### Topic／Meetingの認可前入力検査 — 2026-10-12
+
+基準Commitは`0bb4b5c8`。全12 Toolで共通入力検査→取消→Repository解決一回→取消再確認→Domain操作を接続した。独立レビューの解決例外分類・一覧条件検査順序の2指摘を是正し、既存Domainの純粋検査を共用した。Node v24.19.0でMCP61／Domain118の計179 Case、各書式・型・Lint、差分確認が成功（Fail／Cancel／Skip 0、所要時間19.0879618秒／40.6481743秒）。固定11Pathの限定独立再レビューPass・全重大度残指摘0。新しい保存・認可・Parser・Frameworkは追加せず、巨大な実行ログをEvidenceへ保存しない。次はmanifestと本文のProject拘束、Relation移管、AM要求からTopic／Meetingへの本番搬送である。公開Launcher／Workbench切替・鍵配送・旧REST撤去・正式191項目評価・AM全体完成は未成立。既存の人間回答待ちは維持し、この局所是正に追加判断は不要。
+
 ### AMのWindows追加保護を対象外化 — 2026-10-12
 
 基準Commitは`2df488d8`。人間判断により、AM保存専用のWindows ACL検査・修復・Native保護接続を保証と実装Gateから外す。REQ-000041、AM詳細02、QA-000007、本計画、PROJECT_CONTEXTの5文書へ直接伝播する。既存Hostのアクセス制御に依存し、追加ACL保証は提供しない。Root実体・非link・排他・秘密非保存／非公開・現在認可は維持し、他Package／Provider Home／署名鍵の保護は不変更。実Root・ACL・Source・旧Evidenceは変更しない。
@@ -1366,6 +1370,8 @@ Exposureは既存登録とdevelopment／managementの明示集合だけ。空集
 局所結果: Node v24.19.0の各Packageの`npm test`でDomain118／AM57、計175 Case成功、Fail／Cancel／Skip0、両Exit0。Domain41.6481471秒、AM45.6357766秒。各静的3軸成功、Domain試験の同値concat→template同期後も静的3軸と直接3 Case再実行成功（0.7463208秒）。最初のBiome書込みはOS1224で不成立、同じ処理の再実行で解消した。初回値を成功結果へ混ぜない。固定8Pathの限定独立レビューPass・全重大度残指摘0、基準HEAD `7642b4dd`、固定tracked差分Hash `3742ea562c6901c31e5863dcaf05530905bdde72`、Reader SHA256 `69c90539b948fbfc1cf076b848580c9a6df6cb741b615d8886f1497cce042dae`、Domain直接試験SHA256 `05ef5a9982c0fa05111717c1945ce89736848165e9205113a7f78adfe674fcea`、AM搬送試験SHA256 `68b8fc7307c935ca31ac9142b8d33bdaac3629378ee87dd5cb4acdb071e85d3d`。差分空白確認成功、自己生成AM／Domain Reader試験Root残存0。完全出力は上記コマンドで再生成できるため実行別書庫を追加しない。結果同期だけを行い、本番Consumerと実failure集約停止、正式191・全体完成は未成立を維持する。
 
 ## AM認証によるProject Context専用MCP接続 — 2026-10-12
+
+後続Topic／Meeting接続の着手前整合で二つの欠落を確認した。第一はMCPの完全入力検査・取消より先にRepository解決を行う順序、第二はmanifest Projectと本文Projectの拘束である。第一を先行是正し、同じ共通Adapterへ遅延Resolverを渡して検査→取消→現在解決一回→取消再確認→Domain操作にする。全12 Toolの不正／正規／取消／解決例外と既存CRUDを確認し、独立レビューする。Schema複製・新Framework・認可Storeは追加しない。第二はDomain Ownerの拘束とRelation移管、新AM MCP構成・HTTP試験で接続するまで未完了として保持する。旧Shared Host・Profile・活動・鍵・Docker・REST撤去は今回不変更。追加人間判断は不要。
 
 局所結果: 基準HEAD `b3e52577b91d13d905a060b30e3ec78adbdffb96`、Node v24.19.0、2026-10-12 JST。各Packageの`npm test`でMCP60／AM59／Domain118の計237 Case成功、静的3軸成功、失敗／取消／skip0、全Exit 0。所要はMCP17.8825312秒、AM48.5784778秒、Domain42.3691866秒。固定8Pathの限定独立再レビューPass・全重大度残指摘0。新Source SHA256 `1b50e182ea344aa1fb9a01480009d920ab65cb947728bb2a911c4126c82d939c`、是正後IT SHA256 `7ecd503711809be176e050d5807917550307ec2d095d79776b05beb83863ddeb`。実行前後HEAD一致、差分空白検査成功、自己生成`mcp-access-context-*`残存0。完全出力は端末で確認し、上記コマンドから再生成できるため実行別書庫は増やさない。結果同期後も公開Launcher／Workbench切替、Topic／Meeting・活動・ProfileのAM接続、鍵管理／配送、旧REST撤去、正式191項目とAM全体完成は未成立を維持する。
 

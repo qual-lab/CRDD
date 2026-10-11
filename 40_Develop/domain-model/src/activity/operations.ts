@@ -292,6 +292,43 @@ function decodeCursor(
 }
 
 /**
+ * 一覧入力をRepository解決・読取り前に検証する。
+ * @responsibility 既存の条件正規化とCursor検査を各利用側で共用する。
+ * @trace ARCH-000006
+ * @input kind: 呼出し元が固定した種別、input: 一覧条件。
+ * @returns N/A: 有効入力では正常終了する。
+ * @precondition 入力のProperty型は呼出し元が検査済みである。
+ * @postcondition limit、種別固有条件、CursorとQueryの結合が成立する。
+ * @effect N/A: 入力値の純粋検査だけである。
+ * @failure 既存の一覧入力エラーを返し、条件を推測で補正しない。
+ * @invariant 正規化とCursorの意味は既存の単一実装を使用する。
+ * @boundary 入力検査とRepository解決・読取りの境界。
+ * @security CursorをPathや実行命令として使用しない。
+ * @concurrency N/A: 共有状態を持たない。
+ */
+export function validateTopicMeetingListInput(
+  kind: ProjectOperationRecordKind,
+  input: Omit<Parameters<TopicMeetingOperations["list"]>[0], "kind">,
+): void {
+  const { cursor, limit = 20, query } = input;
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100)
+    throw new Error("project_operation_list_limit_invalid");
+  const normalized = normalizeQuery(kind, query);
+  if (cursor !== undefined) {
+    const legacy = new RegExp(
+      `^${kind === "topic" ? "TOPIC" : "MTG"}-\\d{6}$`,
+      "u",
+    );
+    if (!(legacy.test(cursor) && query === undefined))
+      decodeCursor(
+        cursor,
+        normalized.sort ?? "id_asc",
+        JSON.stringify(normalized),
+      );
+  }
+}
+
+/**
  * Topic／Meeting Repositoryを共通Applicationへ接続する。
  *
  * @responsibility 全入口で同じPagination、改訂競合および削除確認を使用させる。
@@ -335,8 +372,11 @@ export function createTopicMeetingOperations(
       : repository.get(kind, id) !== null;
   return Object.freeze({
     list: ({ kind, cursor, limit = 20, query }) => {
-      if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100)
-        throw new Error("project_operation_list_limit_invalid");
+      validateTopicMeetingListInput(kind, {
+        ...(cursor === undefined ? {} : { cursor }),
+        limit,
+        ...(query === undefined ? {} : { query }),
+      });
       const normalized = normalizeQuery(kind, query);
       const sort = normalized.sort ?? "id_asc";
       const signature = JSON.stringify(normalized);

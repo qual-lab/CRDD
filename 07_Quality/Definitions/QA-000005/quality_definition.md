@@ -7,6 +7,10 @@ Quality ID: `QA-000005`
 状態: Canonical
 維持責任者: Qual-Lab
 
+MCPのCPR-IT-012局所試験では、公開全12 Toolの完全入力検査・開始前取消をRepository解決より前へ接続する。不正入力／開始前取消はResolver 0回、正規入力は1回、Resolver内取消はDomain操作0を確認する。nullの既存Invalid paramsと解決例外の固定Internal errorを分離する。既存直接CRUDと保存後故障の分類を維持し、AM本番認可・Project拘束・保存開始後取消の完了保証は未成立として分離する。
+
+一覧条件ではDomain既存の純粋検査を共用し、状態・sort・Relation・日付・種別固有条件・Cursor構造とQuery結合の不正もResolver 0回で拒否する。Resolverが既知のDomain一覧エラーと同じ文字列をthrowしてもInternal errorとし、解決後のDomain一覧入力エラーだけ既存Invalid params分類を維持する。
+
 ## 1. 情報源と網羅条件
 
 | Source ID | Obligation Key | 導出元 | 保持する固有条件 | 試験段階 | 対応Local Item |

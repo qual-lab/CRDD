@@ -1,5 +1,7 @@
 # CROS Federationと利用境界のアーキテクチャ
 
+Topic／Meetingの既存MCP Consumerは、共通Adapterの完全入力検査と取消確認後だけ現在Repository解決を行う遅延接続へ変更する。Resolver一回の後にも取消を確認し、観測中の取消から保存へ進まない。旧認証・Scope・Relationの意味は維持する。この順序是正はAM置換や旧CROS廃止の完成ではない。詳細は[MCP設計](../mcp-server/01_Architecture.md#topicmeetingの現在認可前の入力境界--2026-10-12)を参照する。
+
 成果物種別: Architecture詳細設計
 詳細設計領域: cros
 状態: Candidate

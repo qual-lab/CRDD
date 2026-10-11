@@ -9,6 +9,8 @@ Repository Role: `crdd-standard`
 
 ## 1. 今どうなっているか
 
+最新局所結果：Topic／Meeting全12 MCP Toolの入力検査・取消をRepository解決より前へ接続した。MCP61／Domain118の計179 Caseと静的検査成功、限定独立再レビューPass・残指摘0。Project拘束・AMからの本番CRUD搬送・Workbench／Launcher切替・鍵配送・旧REST撤去は引き続き未完了。[対象と限界](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#topicmeetingの認可前入力検査--2026-10-12)を参照する。
+
 ### 結論
 
 第二段階は[Package別の責務再編計画](99_Roadmap/Changes/CHG-000082/second-stage-plan.md)の1〜8を進行中。Version Controlの公開入口・既知Consumerは47件、Domain Modelの保存・通常公開CRUD・協調Writer競合は113件、Execution Intelligenceの記録と提案判断の分離は82件、AI Adapterは29件のPackage回帰と限定独立レビューまで確認した。Coordinator配布試験の移管追従は133件成功したが、全Package完成ではない。Platform Accessの対象観測分離は通常回帰50件と限定独立レビューで確認した（専用実OS等23件は未実行）。MCPの活動・Profile管理は局所接続と全56件まで確認済み。人間がCROS Package維持判断を変更したため、次は認証・認可をAccess Managementへ、Context集約等を実Ownerへ分ける設計・移管を先行する。専用REST／Gateway／Shared Host廃止は代替本番接続後、Docker／Coordinator／Orchestrator大改修はその後へ置く。これはv0.22全体の完成・Release可能を意味しない。
