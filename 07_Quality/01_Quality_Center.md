@@ -4,6 +4,8 @@
 担当責任者: Qual-Lab
 最終更新日: 2026-10-12
 
+最新局所結果: Reader成功へUTF-8本文相関版を追加し、AM許可集合から実本文と4項目Source／Portfolioへの搬送を確認した。Domain118／AM57の計175 Case・各静的3軸成功、固定8Pathの限定独立レビューPass・残指摘0。同本文の版一致・空白変更の版相違・失敗時版なし・空認可本文0を確認した。PPR-IT-019／002、RFD-IT-019は部分接続で、本番MCP／Workbenchと実failure集約停止Consumer・性能／lifecycle・鍵配送・旧REST撤去・正式191項目・全体Readyは未成立。
+
 最新局所結果: 同要求の許可Repository集合をRFD-IT-013／019の一部へ接続した。AM全56 Case・静的3軸成功、固定9Pathの限定再レビューPass・全重大度残指摘0。Repository一意性・全許可範囲・各manifest一回観測・次要求再認可・認証済み空集合・初回未完了有効資格の拒否と材料不変・不明時の集合非返却を確認した。本番Consumer・本文搬送・性能／lifecycle・鍵配送・旧REST撤去・正式191項目と全体Readyは未完了。結果の詳細はCHG-000082の[同要求の許可集合](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#同要求の許可repository集合--2026-10-12)を参照する。
 
 最新局所結果: 固定本文ReaderをPPR-IT-019、同じ試験内の成功Context→中立Source→PortfolioをPPR-IT-002の一部へ接続した。Domain全118 Case・静的3軸成功、固定10Pathの限定独立レビューPass・全重大度残指摘0。1 MiB境界／超過、種類・解析・三Identity不一致、途中変更・下位例外、descriptor終了を確認した。失敗はunavailableのままでmissingへ変換しない。認可・本番Consumer・ST／UAT・鍵管理／配送・旧REST撤去・191項目正式評価・全体Readyは未完了。下段の「実本文Reader未接続」はこの局所入口追加前の状態であり、本番認可からの搬送は現在も未接続。

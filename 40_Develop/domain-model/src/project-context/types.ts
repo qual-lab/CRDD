@@ -303,14 +303,18 @@ export type RepositoryQualityProjection = Readonly<{
  * 固定Context本文の解析結果と読取り不成立を分ける。
  * @responsibility 観測不能を空Contextや不存在証明へ変換しない。
  * @trace ARCH-000005
- * @shape completedはcontext、unavailableは固定reasonだけ。
- * @invariant 認可・Root・manifest・原文は結果へ含めない。
+ * @shape completedはcontextとrevision、unavailableは固定reasonだけ。
+ * @invariant revisionは解析へ渡したUTF-8 textの相関値。認可・Git／管理改訂・生byte同一性は保証しない。
  * @boundary Repository本文Readerと内容Consumer。
  * @security 下位例外や内部Pathを開示しない。
  * @compatibility missingとの識別を保証せず、既存Portfolio状態を変更しない。
  */
 export type RepositoryProjectContextReadResult =
-  | Readonly<{ status: "completed"; context: RepositoryProjectContext }>
+  | Readonly<{
+      status: "completed";
+      context: RepositoryProjectContext;
+      revision: string;
+    }>
   | Readonly<{
       status: "unavailable";
       reason:

@@ -9,6 +9,7 @@
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import test, { type TestContext } from "node:test";
@@ -84,9 +85,9 @@ function fixture(t: TestContext) {
  * @trace PPR-IT-019
  * @trace PPR-IT-002
  * @precondition 自己生成Rootと今回の期待manifestを使う。
- * @stimulus 公開Readerの結果を中立Sourceとして純粋集約へ渡す。
- * @observation 結果の閉集合・freeze・五場面・集約状態・本文非変更。
- * @oracle 完全一致だけcompleted、Portfolio complete。認可成立は対象外。
+ * @stimulus 公開Readerの結果を中立Sourceとして集約し、同一textと空白変更を再観測する。
+ * @observation 結果の閉集合・freeze・五場面・集約状態・本文相関revision。
+ * @oracle 完全一致だけcompleted。同一textは同revision、同じ解析結果でもtext変更は別revision。認可成立は対象外。
  * @cleanup Fixture hookが全自己生成領域を回収する。
  * @boundary 実本文→Reader→Source→Portfolio。
  */
@@ -96,19 +97,43 @@ test("固定本文を解析し三Identity一致のContextだけを集約する",
   assert.equal(result.status, "completed");
   assert.ok(Object.isFrozen(result));
   if (result.status !== "completed") return;
-  assert.deepEqual(Object.keys(result).sort(), ["context", "status"]);
+  assert.deepEqual(Object.keys(result).sort(), [
+    "context",
+    "revision",
+    "status",
+  ]);
+  assert.match(result.revision, /^context-text-sha256:[0-9a-f]{64}$/);
+  assert.equal(
+    result.revision,
+    `context-text-sha256:${createHash("sha256").update(f.source, "utf8").digest("hex")}`,
+  );
+  assert.deepEqual(readRepositoryProjectContext(f.root, f.manifest), result);
   assert.equal(result.context.scenes.length, 5);
   assert.ok(Object.isFrozen(result.context));
   const portfolio = createPortfolioProjection([
     {
       projectId: f.manifest.projectId,
       repositoryId: f.manifest.repositoryId,
-      revision: "fixture-only",
+      revision: result.revision,
       context: result.context,
     },
   ]);
   assert.equal(portfolio.projects[0]?.state, "complete");
   assert.equal(fs.readFileSync(f.target, "utf8"), f.source);
+  assert.equal(portfolio.projects[0]?.sources[0]?.revision, result.revision);
+  fs.appendFileSync(f.target, "\n\n");
+  const changed = readRepositoryProjectContext(f.root, f.manifest);
+  assert.equal(changed.status, "completed");
+  if (changed.status !== "completed")
+    throw new Error("changed context unavailable");
+  assert.deepEqual(changed.context, result.context);
+  assert.notEqual(changed.revision, result.revision);
+  assert.equal(
+    changed.revision,
+    `context-text-sha256:${createHash("sha256")
+      .update(`${f.source}\n\n`, "utf8")
+      .digest("hex")}`,
+  );
   for (const key of ["projectId", "repositoryId", "repositoryRole"] as const)
     assert.deepEqual(
       readRepositoryProjectContext(f.root, { ...f.manifest, [key]: "other" }),

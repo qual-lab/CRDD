@@ -267,6 +267,10 @@ RFD-IT-021の保存部分を`access-management/tests/integration/state/file-stor
 
 前節までの内容権限語彙・容量・初回／鍵段階の未確定表示は候補時点の履歴で、現在方針はAM設計§4.5を使う。操作別認可は追加せず内容Workspaceだけを固定する。機械Schema・状態組合せ・公開API・物理保存／本番接続・配送観測・移行実行は未完了。Profile管理等の既存Owner判定をこの範囲から暗黙付与しない。
 
+### 許可集合と実本文の局所搬送
+
+RFD-IT-019の部分接続として、現在許可された内部集合のRoot・manifestをDomain固定本文Readerへ一回だけ渡し、manifestのProject ID・Repository ID、Reader本文版、解析Contextの4項目Sourceを既存Portfolioへ搬送する。管理改訂を本文版へ流用しない。administratorの空内容範囲は本文読取り0、本文欠測は固定unavailable・版／Contextなしを確認し、null／missingや部分Portfolioの材料にしない。本番MCP／Workbench、複数本文原子性、正式191項目は未成立である。
+
 ### 同要求の許可集合の検証範囲 — 2026-10-12
 
 RFD-IT-013／019の追加局所確認は、同管理改訂での全許可範囲保持、Repository一意性、各固定manifest一回観測、認証済み空集合、有効資格でも初回未完了なら固定拒否・保存材料不変・能力返却0、次要求の公開解除反映、認証・pending不成立時の対象観測0、実体・解放不明の集合非返却とする。集合の管理改訂を本文の版へ流用しない。本番Consumer・本文集約搬送・性能／lifecycle・全体ST／UAT・正式191項目はこの局所確認だけで成立としない。

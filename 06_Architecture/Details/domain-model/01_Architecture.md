@@ -225,6 +225,8 @@ Qualityへの導出元は本節。正常な許可集合の集約、部分読取�
 
 本文不存在、Directory／Link、上限超過、読取り中の実体変化・観測不能、解析不正、三Identity不一致は固定`unavailable`として返す。Root、manifest、原文、絶対Path、下位例外を結果へ含めず、null／missingへ変換しない。既存Observerの同descriptor・実体照合・closeを再利用する。Reader成功はAM認可の成立証明ではなく、今回要求での呼出しと本番Consumerへの搬送は引き続きOPEN。PPR-IT-019へ本文読取りを、PPR-IT-002へ同じ試験内の中立Source／Portfolio接続部分を導出する。
 
+Readerの成功結果は解析済み`context`と`revision`を持つ。`revision`は同じ安定読取りで解析へ渡した`observed.source`そのものをUTF-8指定で一回SHA-256化した`context-text-sha256:<64小文字hex>`である。再open・別read・解析後再serializeを使わない。同じtextは同じ値、空白等でtextが変われば解析結果が同じでも別値となる。これは本文Snapshotの相関値であり、Git／管理改訂、Stable ID、署名、認可、耐久保存およびデコード前の生byte同一性を保証しない。失敗結果はrevisionを持たない。AM許可集合から実本文へ渡す局所ITは管理改訂を流用せず、4項目Sourceのrevisionへこの値を搬送する。本番Consumer接続は引き続きOPENである。
+
 ## 5. 結果と失敗の境界
 
 | 結果 | Owner | 意味 |

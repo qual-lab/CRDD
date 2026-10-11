@@ -161,4 +161,4 @@ PPR-IT-002の純粋集約部分はDomain Modelの公開`createPortfolioProjectio
 
 AMの現在認可からの本番搬送、実Root読取り、不完全性の公開ST／UAT、旧REST撤去と正式Local Item全体評価は未完了。局所候補の実行結果はCHG計画で追跡し、PPR-IT-002全体Passへ読み替えない。
 
-固定本文Readerの局所接続では、PPR-IT-019として実Git Root内の本文→解析→三Identity照合を観測する。不存在、Directory／Link、1 MiB境界／超過、不正Markdown、Project／Repository／Role各不一致、読取り途中変更と下位例外、取得descriptorの終了、固定失敗結果・Path／原文非透過を反証する。成功Contextを同じ試験で中立SourceからPortfolioへ渡す範囲だけPPR-IT-002にも接続する。AMの現在認可、本番Consumer、複数File原子性、正式Local Item全体評価はこの試験だけで成立としない。読取り不成立をmissing／nullへ変換しない。
+固定本文Readerの局所接続では、PPR-IT-019として実Git Root内の本文→解析→三Identity照合を観測する。不存在、Directory／Link、1 MiB境界／超過、不正Markdown、Project／Repository／Role各不一致、読取り途中変更と下位例外、取得descriptorの終了、固定失敗結果・Path／原文非透過を反証する。本文相関revisionは解析したUTF-8 textのSHA-256として、同一textで一致、空白変更で解析結果が同じでも不一致、固定prefixと小文字hex、失敗結果の非返却を確認する。成功Contextと本文版を同じ試験で中立SourceからPortfolioへ渡す範囲だけPPR-IT-002にも接続する。AM本番Consumer、複数File原子性、生byte同一性、正式Local Item全体評価はこの試験だけで成立としない。読取り不成立をmissing／nullへ変換しない。

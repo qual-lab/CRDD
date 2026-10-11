@@ -1357,6 +1357,14 @@ Exposureは既存登録とdevelopment／managementの明示集合だけ。空集
 
 固定13Pathの限定独立再レビューはPass、全重大度の残指摘0。callbackの同期・認可評価・メモリ候補限定と外部／永続Effect 0を契約へ明記し、Schema-validな資格・交換・既存User除去の拒否とpartial pending保持停止を追加確認した。Node v24.19.0でformat・type・warning禁止Lintと全19 Case成功（保存IT 8、既存UT 11）。実子Process終了と自己生成試験Root残存0、差分確認成功。Checkerは3057件、今回変更Pathは基準版にも存在するPROJECT_CONTEXTのChecklist指摘1件で、他Pathの基準版差分は未確定。全体Passは主張しない。正式191項目評価はNot Run、実Host Store・旧Evidenceは不変更。次は初回Root／出版、認証・鍵実処置と本番Consumer接続の残件を扱う。
 
+## 許可集合から実本文への搬送 — 2026-10-12
+
+基準`7642b4dd`の許可集合を実本文と中立Sourceへつなぐ局所接続を行う。既存Domain Reader成功結果に本文Snapshot相関revisionを追加し、同descriptorの安定読取りで解析したUTF-8 textからSHA-256を一回算出する。固定prefix、同text同値、同解析結果でも空白変更なら別値、失敗の版非返却を直接確認する。AM集合の管理改訂やGit HEAD、Stable ID、生byte同一性、署名・認可の証明にしない。AM既存ITで許可集合→各Reader一回→4項目Source→Portfolioを搬送し、空認可の本文0・本文不明の固定停止を確認する。
+
+着手前専門確認は着手可・追加人間判断不要。既存RFD-IT-019／PPR-IT-019・002の部分接続、Domain／AM回帰・静的3軸・固定候補の限定独立レビューと直接文書整合を実施する。現在Schema、認可、Lock、旧Evidence、null／missingの旧意味、失敗理由集合は変えず、Store／Framework／履歴を追加しない。成功Readerの公開型に必須revision追加があり、既知Consumerは当該試験と今回搬送試験だけなので同時追従する。標準規範不変更の準拠監査、実Surface未接続の署名E2Eは対象外。本番MCP／Workbench、性能／lifecycle、鍵管理／配送、旧REST撤去、正式191項目、AM全体完成は残る。
+
+局所結果: Node v24.19.0の各Packageの`npm test`でDomain118／AM57、計175 Case成功、Fail／Cancel／Skip0、両Exit0。Domain41.6481471秒、AM45.6357766秒。各静的3軸成功、Domain試験の同値concat→template同期後も静的3軸と直接3 Case再実行成功（0.7463208秒）。最初のBiome書込みはOS1224で不成立、同じ処理の再実行で解消した。初回値を成功結果へ混ぜない。固定8Pathの限定独立レビューPass・全重大度残指摘0、基準HEAD `7642b4dd`、固定tracked差分Hash `3742ea562c6901c31e5863dcaf05530905bdde72`、Reader SHA256 `69c90539b948fbfc1cf076b848580c9a6df6cb741b615d8886f1497cce042dae`、Domain直接試験SHA256 `05ef5a9982c0fa05111717c1945ce89736848165e9205113a7f78adfe674fcea`、AM搬送試験SHA256 `68b8fc7307c935ca31ac9142b8d33bdaac3629378ee87dd5cb4acdb071e85d3d`。差分空白確認成功、自己生成AM／Domain Reader試験Root残存0。完全出力は上記コマンドで再生成できるため実行別書庫を追加しない。結果同期だけを行い、本番Consumerと実failure集約停止、正式191・全体完成は未成立を維持する。
+
 ## 同要求の許可Repository集合 — 2026-10-12
 
 基準`4e9aaaad`から、既存AM保存Lockで現在認証・初回完了・Role内容とExposureの積集合を一度に確定する内部入口を追加する。Repositoryは一意、全許可workspaceIdsを保持し、各実Root／Binding／manifestを一回検証する。管理改訂はmanagementRevisionとして本文revisionと区別する。認証済み0件は成功空集合、認証・清掃・実体・解放不明は集合なし。旧単一対象入口、現在Schema、秘密保存先、通常鍵処置、初回・Host配送、歴史Evidenceは変更しない。
