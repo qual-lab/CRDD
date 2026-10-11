@@ -688,7 +688,7 @@
       "path": "40_Develop/access-management/tests/integration/state/file-store.contract.test.ts",
       "level": "integration",
       "kind": "contract",
-      "semanticTags": ["state-storage", "revision-conflict", "bounded-input", "pending-reentry", "primary-failure", "process-loss", "initial-correlation", "exclusive-create", "credential-authentication", "current-user-role", "secret-free-projection", "current-access", "role-exposure-intersection", "user-role-management", "current-management-authorization", "pre-generation-capacity", "repository-registration", "manifest-context-identity", "registration-exposure-separation", "metadata-only-unregistration"],
+      "semanticTags": ["state-storage", "revision-conflict", "bounded-input", "pending-reentry", "primary-failure", "process-loss", "initial-correlation", "exclusive-create", "credential-authentication", "current-user-role", "secret-free-projection", "current-access", "role-exposure-intersection", "target-specific-management-read", "unset-empty-exposure-distinction", "user-role-management", "current-management-authorization", "pre-generation-capacity", "repository-registration", "manifest-context-identity", "registration-exposure-separation", "metadata-only-unregistration"],
       "environment": "node_process",
       "externalProviderEffect": false,
       "humanInput": false,

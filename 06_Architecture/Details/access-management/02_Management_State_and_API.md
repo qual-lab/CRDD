@@ -142,7 +142,7 @@ ExposureのRepository IDは既存登録を参照し、重複・孤立参照を�
 
 本人読取りの具体化では、`managementOperations`を既存10操作と対象Roleの閉じた組合せから固定管理判定で絞る。初回`credential_stored`でも本人表示は可能だが、初回完了・通常接続・実操作許可には昇格しない。通常管理の完了済み初回条件は維持する。`permittedRepositories`はRole範囲とExposureの積集合が非空の登録だけを返し、Root・Binding・登録のみのRepositoryを含めない。認証後の短命材料照合はcurrentを変更せず、清掃確認後に同改訂から投影する。材料破損・清掃不明・Lock解放不明ではSnapshotを返さない。認証前の既存exact Lock回収は保存Ownerの安全処置で、資格認証やpending清掃の成立ではない。
 
-この本人読取りだけをSource・Package Rootへ局所接続した。AM全48 Case・静的3軸成功、固定11ファイルの限定独立再レビューPass・残指摘0。以下の管理対象別読取り、実Repository内容認可、Surface本番接続は未完了で、§3.1全体の完成ではない。
+本人読取り接続時のAM全48 Case・静的3軸成功、固定11ファイルの限定独立再レビューPassは履歴である。現在は以下の管理対象別読取りも局所接続した候補。実Repository内容認可・Surface本番接続は未完了で、§3.1全体の完成ではない。
 
 `readManagementState`は要求された管理対象の種類を判別し、その種類に必要な現在参照許可だけを評価する。共通の全内部Snapshotや、全ユーザー一覧を全操作へ添付しない。
 
@@ -155,9 +155,15 @@ ExposureのRepository IDは既存登録を参照し、重複・孤立参照を�
 
 各投影は`revision`と対象種類を持ち、他種類のfieldを混在させない。鍵一覧・発行結果・元発行Identity・交換参照は通常管理DTOへ入れず、鍵Ownerの許可された入口で別に具体化する。管理参照許可は内容閲覧許可ではなく、登録一覧は公開集合でもない。通常管理のMCP公開はこの設計から追加しない。
 
+管理読取りの`kind`は`users`／`roleContentAccess`／`registeredRepositories`／`exposure`の4 literalに限定し、不正値はLock取得前に`management_state_read_rejected`で拒否する。完全状態・現在認証に続いて初回`completed`と対象種類の現在管理許可を確認し、その後だけ短命材料を清掃する。developer・初回未完了・参照不許可は同じ非開示拒否とする。ユーザー投影は表示名変更の対象Role判定で絞り、manager／administratorは三Roleを参照可。Role内容設定はmanagerがdeveloper／managerだけ、administratorが三Roleを参照可。Repository登録・Exposureはmanager／administratorだけ。
+
+各Snapshotは共通`revision`／`kind`に、`users`なら`users`、`roleContentAccess`なら`roles`、登録／Exposureなら`repositories`だけを持つ。登録行は`repositoryId`／`bindingId`に限定し、Bindingは表示相関用の非AuthorityでRoot・接続成功・実アクセスを証明しない。Exposure行は全登録の順に`repositoryId`／`workspaceIds`を持つ。`null`は完全検査済み同改訂で対応Exposureレコードの不存在を確認した場合だけ、`[]`は明示的な公開範囲0、設定ありはその所有配列である。破損・観測不能を`null`へ畳まない。全行・配列・入れ子を複製・凍結し、種類外field・資格材料・内部Pathを含めない。
+
 公開DTOは検査済み状態から所有済みの値として明示構築し、内部Snapshotの参照・共有配列・余分fieldを透過しない。返却後の内部変更で値を変えない。Proxy／accessor等を内部状態検査の代替にせず、Schemaの閉包と値の検査を経てから投影する。
 
-反証は、自己表示へ他User情報を添付、古いRole認可と新改訂DTOの混合、管理許可から内容を公開、観測不能から空集合生成、解放不明の成功表示、後続改訂から元要求完了を推定、入れ子・余分field・エラー経由の秘密透過である。既存RFD-IT-013／RFD-ST-004、RFD-IT-021、RFD-ST-022、RFD-UAT-007へ接続し、Not Runを維持する。具体内容語彙・接続表示・鍵読取り・初回設定・本番保存と利用側接続は未完了である。
+4kindの管理読取りを既存保存OwnerとPackage Rootへ局所接続した。三Role×四対象の完全DTO、現在Role変更後の拒否、未設定と明示空Exposure、不正kindのI/O0、認証・認可前の材料保持、清掃／解放不明時の非開示を既存ITに3 Caseで接続した。AM全51 Case・静的3軸成功、固定11ファイルの限定独立レビューPass・全重大度残指摘0。MCP／Workbench本番入口・内容実アクセス認可・鍵管理は未完了、191項目正式Not Runを維持する。
+
+反証は、自己表示へ他User情報を添付、古いRole認可と新改訂DTOの混合、管理許可から内容を公開、観測不能から空集合生成、解放不明の成功表示、後続改訂から元要求完了を推定、入れ子・余分field・エラー経由の秘密透過である。既存RFD-IT-013／RFD-ST-004、RFD-IT-021、RFD-ST-022、RFD-UAT-007へ接続し、Not Runを維持する。内容実アクセス認可・鍵読取り・初回全体・本番保存と利用側接続は未完了である。
 
 ## 4. 物理保存の比較と未決条件
 

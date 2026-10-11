@@ -29,6 +29,7 @@ import {
   updateExposure,
   authenticateCredential,
   readCurrentAccess,
+  readManagementState,
   createCredentialMaterial,
   registerUser,
   updateUserName,
@@ -613,6 +614,307 @@ function managementFixture(t: TestContext) {
   );
   return { ...f, tokens };
 }
+
+/**
+ * 四管理対象のRole別表示を完全なDTOへ照合する。
+ * @responsibility 管理対象間の情報混在と登録・公開の混同を拒否する。
+ * @trace RFD-IT-013
+ * @trace RFD-IT-021
+ * @precondition 三Role資格と設定なし・空・二範囲の登録を自己生成Rootへ保存する。
+ * @stimulus 三Roleで四kindを読み、Role変更後に次要求を実行する。
+ * @observation 同改訂の全field・全行・凍結・current bytes。
+ * @oracle managerのRole設定は二Roleだけ、adminは三Role。developerは全拒否。Root・資格・種類外情報0。
+ * @cleanup Fixtureが自己生成Rootを回収する。
+ * @boundary 管理読取り公開Root→現在認証・対象認可→保存・DTO。
+ */
+test("管理readは四対象と三Roleの現在範囲だけを返す", (t) => {
+  const f = managementFixture(t);
+  for (const id of ["unset", "empty", "both"]) {
+    const root = path.resolve(f.directory, id);
+    const normalized = process.platform === "win32" ? root.toLowerCase() : root;
+    f.state.registeredRepositories.push({
+      repositoryId: id,
+      repositoryRoot: root,
+      bindingId: `binding-${createHash("sha256").update(`${id}\n${normalized}`).digest("hex").slice(0, 32)}`,
+    });
+  }
+  f.state.exposure = [
+    { repositoryId: "empty", workspaceIds: [] },
+    { repositoryId: "both", workspaceIds: ["development", "management"] },
+  ];
+  const current = path.join(f.directory, "access-management.json");
+  assert.equal(parseAccessManagementState(bytes(f.state)).status, "parsed");
+  fs.writeFileSync(current, bytes(f.state));
+  const before = fs.readFileSync(current);
+  for (const role of ["developer", "manager", "administrator"] as const) {
+    for (const kind of [
+      "users",
+      "roleContentAccess",
+      "registeredRepositories",
+      "exposure",
+    ] as const) {
+      const result = readManagementState(f.root, f.tokens[role], kind);
+      if (role === "developer") {
+        assert.deepEqual(result, {
+          status: "unavailable",
+          reason: "management_state_read_rejected",
+        });
+        continue;
+      }
+      assert.equal(result.status, "completed");
+      if (result.status !== "completed") continue;
+      const dto = result.snapshot;
+      assert.equal(dto.revision, 1);
+      assert.equal(dto.kind, kind);
+      switch (dto.kind) {
+        case "users":
+          assert.deepEqual(Object.keys(dto).sort(), [
+            "kind",
+            "revision",
+            "users",
+          ]);
+          assert.deepEqual(dto.users, f.state.users);
+          for (const user of dto.users) {
+            assert.equal(Object.isFrozen(user), true);
+            assert.deepEqual(Object.keys(user).sort(), [
+              "role",
+              "userId",
+              "username",
+            ]);
+          }
+          assert.equal(Object.isFrozen(dto.users), true);
+          break;
+        case "roleContentAccess":
+          assert.deepEqual(Object.keys(dto).sort(), [
+            "kind",
+            "revision",
+            "roles",
+          ]);
+          assert.deepEqual(
+            dto.roles,
+            f.state.roleContentAccess.filter(
+              (item) =>
+                role === "administrator" || item.role !== "administrator",
+            ),
+          );
+          assert.equal(Object.isFrozen(dto.roles), true);
+          for (const item of dto.roles) {
+            assert.deepEqual(Object.keys(item).sort(), [
+              "role",
+              "workspaceIds",
+            ]);
+            assert.equal(Object.isFrozen(item), true);
+            assert.equal(Object.isFrozen(item.workspaceIds), true);
+          }
+          break;
+        case "registeredRepositories":
+          assert.deepEqual(Object.keys(dto).sort(), [
+            "kind",
+            "repositories",
+            "revision",
+          ]);
+          assert.deepEqual(
+            dto.repositories,
+            f.state.registeredRepositories.map((item) => ({
+              repositoryId: item.repositoryId,
+              bindingId: item.bindingId,
+            })),
+          );
+          for (const item of dto.repositories) {
+            assert.deepEqual(Object.keys(item).sort(), [
+              "bindingId",
+              "repositoryId",
+            ]);
+            assert.equal(Object.isFrozen(item), true);
+          }
+          assert.equal(Object.isFrozen(dto.repositories), true);
+          break;
+        case "exposure":
+          assert.deepEqual(Object.keys(dto).sort(), [
+            "kind",
+            "repositories",
+            "revision",
+          ]);
+          assert.deepEqual(dto.repositories, [
+            { repositoryId: "unset", workspaceIds: null },
+            { repositoryId: "empty", workspaceIds: [] },
+            {
+              repositoryId: "both",
+              workspaceIds: ["development", "management"],
+            },
+          ]);
+          for (const item of dto.repositories) {
+            assert.deepEqual(Object.keys(item).sort(), [
+              "repositoryId",
+              "workspaceIds",
+            ]);
+            assert.equal(Object.isFrozen(item), true);
+            if (item.workspaceIds)
+              assert.equal(Object.isFrozen(item.workspaceIds), true);
+          }
+          assert.equal(Object.isFrozen(dto.repositories), true);
+          break;
+      }
+      assert.equal(Object.isFrozen(dto), true);
+    }
+  }
+  assert.deepEqual(fs.readFileSync(current), before);
+  const manager = f.state.users[1];
+  assert.ok(manager);
+  manager.role = "developer";
+  f.state.revision++;
+  f.state.operationId = crypto.randomUUID();
+  fs.writeFileSync(current, bytes(f.state));
+  assert.deepEqual(readManagementState(f.root, f.tokens.manager, "users"), {
+    status: "unavailable",
+    reason: "management_state_read_rejected",
+  });
+});
+
+/**
+ * 認証・対象許可前は短命材料に処置しない。
+ * @responsibility 不正kind・誤鍵・developer・初回途中の拒否を状態観測や清掃から分離する。
+ * @trace RFD-IT-013
+ * @trace RFD-IT-021
+ * @trace RFD-IT-024
+ * @precondition 通常管理の三Roleと破損pending、初回資格保存段階を用意する。
+ * @stimulus 不正kind、誤鍵、developer、初回途中readを与える。
+ * @observation 入力変換回数、Filesystem呼出し、材料bytes、公開field。
+ * @oracle 不正kindはLock・I/O0、他拒否はpending不変・非開示。許可主体だけ材料不明へ到達する。
+ * @cleanup 差替えを復元しFixtureがRootを回収する。
+ * @boundary 管理読取り入力・現在資格・対象認可・既存保存材料。
+ */
+test("管理read拒否は材料保持と不正kindの観測0を守る", (t) => {
+  const f = managementFixture(t);
+  const pending = path.join(f.directory, "access-management.pending.json");
+  fs.writeFileSync(pending, "{");
+  const open = fs.openSync;
+  let opened = 0;
+  let converted = 0;
+  fs.openSync = (...args: Parameters<typeof fs.openSync>) => {
+    opened++;
+    return open(...args);
+  };
+  t.after(() => {
+    fs.openSync = open;
+  });
+  for (const kind of [
+    null,
+    undefined,
+    "credentials",
+    "",
+    1,
+    {},
+    new Proxy(
+      {},
+      {
+        get() {
+          converted++;
+          throw new Error("unexpected");
+        },
+      },
+    ),
+  ])
+    assert.deepEqual(readManagementState(f.root, f.tokens.manager, kind), {
+      status: "unavailable",
+      reason: "management_state_read_rejected",
+    });
+  assert.equal(opened, 0);
+  assert.equal(converted, 0);
+  fs.openSync = open;
+  assert.deepEqual(
+    readManagementState(f.root, createCredentialMaterial().token, "users"),
+    {
+      status: "unavailable",
+      reason: "management_state_authentication_rejected",
+    },
+  );
+  assert.deepEqual(readManagementState(f.root, f.tokens.developer, "users"), {
+    status: "unavailable",
+    reason: "management_state_read_rejected",
+  });
+  assert.equal(fs.readFileSync(pending, "utf8"), "{");
+  assert.deepEqual(readManagementState(f.root, f.tokens.manager, "users"), {
+    status: "unavailable",
+    reason: "management_state_cleanup_pending",
+  });
+  const initial = fixture(t);
+  const attempt = prepareInitialUser(initial);
+  const issued = createInitialCredential(initial.root, attempt);
+  assert.equal(issued.status, "completed");
+  if (issued.status !== "completed" || !issued.value.token) return;
+  fs.writeFileSync(
+    path.join(initial.directory, "access-management.pending.json"),
+    "{",
+  );
+  assert.deepEqual(
+    readManagementState(initial.root, issued.value.token, "users"),
+    { status: "unavailable", reason: "management_state_read_rejected" },
+  );
+  assert.equal(
+    fs.readFileSync(
+      path.join(initial.directory, "access-management.pending.json"),
+      "utf8",
+    ),
+    "{",
+  );
+});
+
+/**
+ * 管理readの材料清掃・Lock終了不明を成功一覧へ畳まない。
+ * @responsibility 許可済み読取りでも終了条件未成立ならDTOを隠すことを検証する。
+ * @trace RFD-IT-021
+ * @precondition 自己生成Rootの三Role状態と通常出版前材料を用意する。
+ * @stimulus pending削除失敗、Lock削除失敗、current破損を順に注入する。
+ * @observation 固定結果・材料残存・復元後の同改訂・空一覧成功。
+ * @oracle cleanup／解放／観測不明はSnapshot0、復元後は確認済み0件を返す。
+ * @cleanup 差替え復元後にFixtureが所有Rootを回収する。
+ * @boundary 管理投影と保存Ownerの終了確認。
+ */
+test("管理readは清掃・解放・観測不明で一覧を返さない", (t) => {
+  const f = managementFixture(t);
+  const next = structuredClone(f.state);
+  next.revision++;
+  next.operationId = crypto.randomUUID();
+  prepare(f, next);
+  const remove = fs.rmSync;
+  t.after(() => {
+    fs.rmSync = remove;
+  });
+  fs.rmSync = (target, options) => {
+    if (String(target).endsWith("access-management.pending.json"))
+      throw new Error("injected");
+    return remove(target, options);
+  };
+  assert.deepEqual(readManagementState(f.root, f.tokens.manager, "exposure"), {
+    status: "unavailable",
+    reason: "management_state_cleanup_pending",
+  });
+  fs.rmSync = remove;
+  assert.deepEqual(readManagementState(f.root, f.tokens.manager, "exposure"), {
+    status: "completed",
+    snapshot: { revision: 1, kind: "exposure", repositories: [] },
+  });
+  fs.rmSync = (target, options) => {
+    if (String(target).endsWith("access-management.lock"))
+      throw new Error("injected");
+    return remove(target, options);
+  };
+  assert.deepEqual(readManagementState(f.root, f.tokens.manager, "users"), {
+    status: "unavailable",
+    reason: "management_state_release_unknown",
+  });
+  fs.rmSync = remove;
+  assert.equal(
+    readManagementState(f.root, f.tokens.manager, "users").status,
+    "completed",
+  );
+  fs.writeFileSync(path.join(f.directory, "access-management.json"), "{");
+  assert.deepEqual(readManagementState(f.root, f.tokens.manager, "exposure"), {
+    status: "unavailable",
+    reason: "management_state_observation_unknown",
+  });
+});
 
 /**
  * 三Roleの本人表示と内容・公開範囲の交差を確認する。

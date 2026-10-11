@@ -1229,6 +1229,12 @@ UTはARCH由来だけ、ITは相関確定前Effect0と既知Root準備Effectの�
 構造評価: Variationは四状態、Common Contractは単一同期関数、Creation／Selectionは返却値のみ、State-dependent Behaviorは入力分類に閉じる。Composition／RecursionはN/A: 外部処理を合成・再帰しない。Lifecycle OwnershipとExternal BoundaryはN/A: Handle・共有状態・I/Oを取得しない。ConcurrencyはN/A: 共有状態なし。TimingはN/A: 時刻・期限を判定しない。Failure／Observabilityは未知分類を停止結果として保持する。Securityは結果を実行Authorityにしない。実装知識の上位還元はN/A: 新しい保証は追加せず、既存の四状態を技術的入力分類へ対応した。
 
 必須確認はAM Packageのformat・type・lint・全UTと、契約／品質の限定独立レビュー、文書・直接影響・Symbol参照・差分確認。標準準拠規則は不変更のため準拠監査は対象外。I/O・実処置は未接続のためHost実試験・署名・Docker／Provider E2Eは実行せず、必要な後続Gateへ残す。Node v24.19.0でローカルキャッシュから固定開発依存を配置し、静的3軸と7 UT（既存4＋初回3）は成功。初回には24組合せを含む。正式Local Item評価はNot Run、保存・資格・Host入口・本番Consumer・全体Readyは未成立。固定15Fileの契約・品質限定独立再レビューは両方Pass、全重大度の残指摘0。台帳の登録漏れと現在投影の矛盾を是正した。試験台帳は当該ID・Path各1件で実在、差分確認成功。結果状態だけを同期し、この実装単位をコミットする。
+# AM管理対象別の現在読取り — 2026-10-12
+
+基準Commit `fd2ff9e1`。採用済み通常管理の四対象読取りを具体化する。親の正本・Source・既知Consumer照合と読取り専用専門確認を統合し、追加人間判断なし。四literalのkindだけを入力とし、不正kindはLock前にEffect0で拒否。既存保存Ownerの同じLockで完全current→認証→初回completedと対象認可／DTO準備→許可後の短命材料照合→解放確認へ接続する。`management/read-state.ts`は純粋投影と閉DTOだけを持つ。管理者の内容範囲0でも管理参照は可能、管理≠内容を維持する。接続表示はrepositoryId/bindingIdの非AuthorityだけとしRootを公開しない。Exposureは全登録順、未設定null・明示空[]・設定済み範囲を分ける。
+
+AM全51 Case・静的3軸成功、固定11ファイルの限定独立レビューPass・全重大度残指摘0。既存RFD-IT-013／021／024へ3 Caseを追加し全Role×全kindの完全DTO・現在Role・初回途中拒否・種類外情報0・材料保持・清掃／解放不明を確認した。本人read・既存認証・State Schema・実Host・鍵・旧Source・歴史Evidenceは不変更。新Framework・Store・Lock・MCP公開を追加しない。必須確認はAM全回帰・限定契約／品質独立レビュー・文書／Symbol／台帳／現在投影・直接影響・差分確認。最終Node v24.19.0の`npm test`は51/51成功、Fail／Cancel／Skip0、34.7896128秒、exit0。対象は基準`fd2ff9e1`からの11ファイル、レビュー時差分hash `6825bd2eb2b8242df5f566fcb8424d23bafc605c`、新Source SHA-256 `188F57D1C4C86C965F587CD357751B6066EE19EF79544C8DE8D40CB86394B520`。完全stdoutは同じコマンドで再生成可能として実行ごとの書庫は追加しない。結果表示だけ同期する。標準規範は不変更のため準拠監査、実Surface未接続のため署名Provider E2Eは対象外。内容実アクセス認可・鍵管理・配送・本番接続、191項目正式Not Runを残す。
+
 # AM本人の現在権限読取り — 2026-10-12
 
 基準Commit `41cce35f`。変更分類は採用済み読取り契約のSource接続・直接伝播。親の正本照合と読取り専用専門確認を統合し、追加の人間判断なし。既存保存Ownerの同じLock内でcurrent検査→資格照合→認証後の短命材料照合→本人投影→解放確認を接続する。`access/current-access.ts`は純粋投影と固定DTOだけを所有する。管理候補は既存10操作・対象Roleの固定分担を使い、内容範囲∩Exposureが空のRepositoryは返さない。初回途中でも本人表示は可能だが管理実操作・初回完了には昇格しない。

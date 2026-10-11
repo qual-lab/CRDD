@@ -2,13 +2,18 @@
  * Access Managementの純粋判定と内部状態保存を公開する。
  *
  * @packageDocumentation
- * @responsibility 純粋判定・認証・User／Role・Repository登録／公開範囲管理と内部保存を明示公開し、鍵管理・本番入口の未接続を区別する。
+ * @responsibility 純粋判定・認証・本人／管理対象読取り・User／Role・Repository登録／公開範囲管理と内部保存を明示公開し、鍵管理・本番入口の未接続を区別する。
  * @trace ARCH-000013
  */
 export type {
   CurrentAccessResult,
   CurrentAccessSnapshot,
 } from "./access/current-access.ts";
+export type {
+  ManagementReadKind,
+  ManagementStateResult,
+  ManagementStateSnapshot,
+} from "./management/read-state.ts";
 export type {
   AuthenticatedRequest,
   CredentialAuthenticationResult,
@@ -49,6 +54,7 @@ export {
   createInitialAdministrator,
   authenticateCredential,
   readCurrentAccess,
+  readManagementState,
   createInitialCredential,
   initializeAccessManagementState,
   readAccessManagementState,

@@ -44,6 +44,7 @@ test("三Roleと全10具体操作の固定分担", () => {
     "readAccessManagementState",
     "readCredentialId",
     "readCurrentAccess",
+    "readManagementState",
     "registerRepository",
     "registerUser",
     "unregisterRepository",

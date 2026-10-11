@@ -13,6 +13,12 @@ import {
   type CurrentAccessSnapshot,
 } from "../access/current-access.ts";
 import {
+  isManagementReadKind,
+  projectManagementState,
+  type ManagementStateResult,
+  type ManagementStateSnapshot,
+} from "../management/read-state.ts";
+import {
   acceptsRepositoryExposureChange,
   prepareRepositoryExposureChange,
   type RepositoryExposureChange,
@@ -828,6 +834,114 @@ export function readCurrentAccess(
     reason: result.reason.startsWith("filesystem_store_lock_")
       ? "current_access_lock_unavailable"
       : "current_access_observation_unknown",
+  };
+}
+
+/**
+ * 現在許可された管理対象を同じ改訂から読み取り返す。
+ * @responsibility 対象別認可前に保存材料を清掃せず、終了確認後だけDTOを公開する。
+ * @trace ARCH-000013
+ * @input 検証済みRoot、信頼しないBearer、管理対象kind。
+ * @returns 対象別投影、または情報を含まない固定拒否・未取得理由。
+ * @precondition Rootは既存内部Ownerが検証済み。Transport入力境界はConsumerが担当する。
+ * @postcondition 完全状態・認証・対象別管理許可・清掃・解放確認時だけcompleted。
+ * @effect 既存Lock、current読取り、同期KDF、許可後の短命材料清掃。
+ * @failure 不正kind・developer・初回途中は同じ参照拒否。清掃・解放不明はDTOなし。
+ * @invariant 管理参照を内容閲覧・更新・鍵処置のAuthorityへ転用しない。
+ * @boundary AM保存Ownerと通常管理の表示Consumer。
+ * @security 生鍵・資格材料・内部Path・Lock回復ID・種類外情報を返さない。
+ * @concurrency 同じLock内の現在認証・改訂。後続処置は別要求で再認可する。
+ */
+export function readManagementState(
+  root: FilesystemStoreRoot,
+  token: string,
+  kind: unknown,
+): ManagementStateResult {
+  if (!isManagementReadKind(kind))
+    return { status: "unavailable", reason: "management_state_read_rejected" };
+  if (!readCredentialId(token))
+    return {
+      status: "unavailable",
+      reason: "management_state_authentication_rejected",
+    };
+  const result = locked<ManagementStateSnapshot>(root, () => {
+    try {
+      const current = readCurrent(root);
+      const actor = resolveCredentialAuthentication(token, current.state);
+      if (!actor)
+        return {
+          status: "unavailable",
+          reason: "management_state_authentication_rejected",
+          publication: "not_attempted",
+          revision: null,
+          cleanupConfirmed: true,
+        };
+      const snapshot = projectManagementState(current.state, actor, kind);
+      if (!snapshot)
+        return {
+          status: "unavailable",
+          reason: "management_state_read_rejected",
+          publication: "not_attempted",
+          revision: null,
+          cleanupConfirmed: true,
+        };
+      try {
+        settlePending(root, current, () => {});
+      } catch {
+        return {
+          status: "unavailable",
+          reason: "management_state_cleanup_pending",
+          publication: "not_attempted",
+          revision: current.state.revision,
+          cleanupConfirmed: false,
+        };
+      }
+      return {
+        status: "completed",
+        value: snapshot,
+        publication: "not_attempted",
+        revision: current.state.revision,
+        cleanupConfirmed: true,
+      };
+    } catch {
+      return {
+        status: "unavailable",
+        reason: "management_state_observation_unknown",
+        publication: "not_attempted",
+        revision: null,
+        cleanupConfirmed: false,
+      };
+    }
+  });
+  if (result.status === "completed")
+    return { status: "completed", snapshot: result.value };
+  if (
+    result.secondaryReason ||
+    result.reason ===
+      "filesystem_store_lock_operation_completed_cleanup_unknown" ||
+    result.reason === "state_store_lock_unknown"
+  )
+    return {
+      status: "unavailable",
+      reason: "management_state_release_unknown",
+    };
+  if (result.reason === "management_state_authentication_rejected")
+    return {
+      status: "unavailable",
+      reason: "management_state_authentication_rejected",
+    };
+  if (result.reason === "management_state_read_rejected")
+    return { status: "unavailable", reason: "management_state_read_rejected" };
+  if (result.reason === "management_state_cleanup_pending")
+    return {
+      status: "unavailable",
+      reason: "management_state_cleanup_pending",
+    };
+  return {
+    status: "unavailable",
+    reason: result.reason.startsWith("filesystem_store_lock_")
+      ? "management_state_lock_unavailable"
+      : "management_state_observation_unknown",
   };
 }
 
