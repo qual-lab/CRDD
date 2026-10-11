@@ -1249,6 +1249,28 @@ AM全33 Case・静的3軸成功。直接投影の同期漏れModerate1を是正�
 
 RFD-IT-017／018の技術部分に2 Caseを追加しAM全29 Case・静的3軸成功。固定vectorと暗黙既定の一致、明示options、不正形式の暗号処理0、誤Secret・Runtime故障を確認した。必須確認は限定契約／品質独立レビュー、文書直接伝播・Symbol／台帳・差分確認。標準準拠は不変更、保存／本番未接続のため実Host・署名・Provider／Docker E2Eは対象外。191 Not Run・鍵管理全体未成立を維持する。固定13ファイルの限定独立再レビューPass・全重大度の残指摘0。旧現在表示4箇所を同期し、結果状態だけ更新して段階コミットする。
 
+# AMユーザー・Role管理4操作の着手前照合 — 2026-10-12
+
+基準Commitは`14826a3a`。採用済み通常管理のうち、ユーザー登録・表示名変更・Role変更・Role内容範囲更新を先行接続する。変更分類は既存意味・分担の実装具体化。配送判断と独立して着手でき、追加人間判断は不要。親の正本・Source・既知Consumer照合と読み取り専用専門確認を統合した。基準AM全35 Case・静的3軸の再確認は成功したが、以下4操作の実装結果ではない。
+
+汎用`updateAccessManagementState`のcallbackを直接使う案は採用しない。現在のcallbackはbytesだけを返すため、認可拒否をthrowや不正bytesで表すと通常拒否が保存・清掃故障へ誤分類される。また、callback内UUID生成は容量確認に先行してしまう。既存APIの契約は変更せず、既存private保存部品を使う用途限定処理とする。新しい汎用callback、二段preflight、Lock、Receipt、履歴、回復Frameworkは作らない。
+
+| 所有箇所 | 接続する責務 | 保持する境界 |
+|---|---|---|
+| `management/user-role.ts`候補 | 4操作の閉じた入力、現在認証・固定管理分担と対象の純粋判定、意図したfieldだけを変える候補構築 | Filesystem・Lock・保存・公開応答を所有しない。再export専用Fileにしない |
+| 既存`state/file-store.ts` | 同じLock内の現在読取り・前材料照合・期待改訂・認証・管理許可・対象・容量・生成・完全parse・出版・読戻し・解放 | 既存private部品を再利用し、通常管理専用処理に限定する |
+| Package Root | `registerUser`、`updateUserName`、`changeUserRole`、`updateRoleContentAccess`と必要な閉じた型を明示公開 | raw内部Snapshot・資格材料・Lock参照を公開管理結果へ透過しない。本番Surface接続は別Gate |
+
+登録User UUIDは認証・管理許可・対象・正確なcurrent／pending容量確認後に一回だけ生成する。固定長の非採用placeholderで容量を計算し、生成後の完全候補もparse・容量確認する。衝突や生成故障は書込み0・再生成0。他3操作は乱数不要で、明示受付operationIdを使う。容量計算は既存出版部品と共有し、同じ上限を二重実装しない。
+
+認証・管理許可成立前は固定非開示拒否だけとし、対象存在、改訂、出版事実、Lock回復参照を返さない。成立後だけ今回の非秘密な操作相関、期待／観測／採用改訂、今回の出版、清掃結果を投影する。前操作pendingの処置で確認した出版を、今回入力operationIdのEffectへ結合しない。前材料を処置した要求は今回更新0で止まり、再観測／再要求へ戻す。既知出版後の清掃・解放不明は未完了のまま既知Effectを保持し、Rollback・暗黙再更新を行わない。
+
+反証対象は、三Roleと各対象Role、誤鍵・失効・未知資格、改訂競合、途中初期化、欠測対象・変更前Role差、不正名・未知／重複範囲、余分field・Proxy・accessor、不正相関、容量超過、UUID衝突／故障、出版前後・清掃・Lock解放故障、先行pending処置である。拒否時のUUID／書込み0、成功時の対象field以外不変、資格・初回・未解決交換・Repository／Exposure保持、結果への秘密・内部Path非搬送、全所有材料の終了後条件を確認する。最後のadministrator保持条件は採用されていないため、新たなguardを追加しない。
+
+品質接続は既存RFD-IT-021の4操作部分とする。登録／Exposure管理、内容認可、Host／Workbench／MCP本番Consumer、ST／UATは残り、191項目正式Not Runを維持する。実Host Store、鍵実処置、初回・配送、旧Source・過去Evidence、Docker／Providerは不変更。限定独立レビュー、Package回帰、公開集合・Symbol／台帳、設計／品質／現在投影への直接伝播・差分確認を行う。標準規範を変えないため準拠監査、実Surface未接続のため署名Provider E2Eはこの局所段階では実施しない。4操作は現時点で未実装であり、この計画を接続完了やレビュー済み実装として扱わない。
+
+上段は着手時点の状態である。通常4操作をSource・公開Root・Symbol・台帳へ接続し、既存保存ITに6 Caseを追加した。AM全41 Case・静的3軸成功、固定13ファイルの限定独立再レビューPass・残指摘0。公開関数を保存Ownerへ置き純粋意味Ownerを一方向に呼ぶことで循環依存・薄い中継を作らない。準備byteの構築だけを既存出版と共有し、登録以外の生成0・登録の容量前生成0・相関分離を実観測する。初回レビューの2原因と表現1件を是正し、現在認可・対象・期待改訂を先行材料の清掃前へ移した。誤鍵・developer・改訂競合・禁止対象のbase／next材料byte保持、巨大文字列・配列の詳細走査前拒否を確認した。実Host・旧Source・旧Evidenceは不変更。36組は試験内の分担組合せであり、36 Local Itemや正式Pass件数ではない。
+
 # AM初回管理者保存の局所接続 — 2026-10-12
 
 基準Commitは`61146288`。変更分類は採用済み初回User段階のSource接続と直接伝播。着手前の読取り専用確認でcanonical baseline・同User再入場・生成前入力検査・容量予約・既存Lock・物理出版だけの共通化を照合した。追加人間判断なし。対象はAM詳細02、AM Source公開入口と保存部品、既存UT／IT、QA-000007・Center・Integration・本計画・現在投影。旧Evidence・実Host Store・Secret・鍵・Docker／Providerは不変更。

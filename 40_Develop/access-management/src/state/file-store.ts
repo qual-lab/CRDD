@@ -8,6 +8,10 @@ import fs from "node:fs";
 import crypto, { createHash } from "node:crypto";
 import { evaluateHostInitializationState } from "../initialization/state-evaluation.ts";
 import {
+  prepareUserRoleChange,
+  type UserRoleChange,
+} from "../management/user-role.ts";
+import {
   createCredentialMaterial,
   readCredentialId,
 } from "../credential/token-material.ts";
@@ -837,18 +841,11 @@ function publishState(
   let revision = current.state.revision;
   let stage = "prepare";
   try {
-    const nextBytes = serialize(next);
-    const pendingBytes = serialize({
-      contract: "crdd-access-management/pending",
-      schemaRevision: 1,
+    const { nextBytes, pendingBytes } = preparePublicationBytes(
+      current,
+      next,
       kind,
-      baseRevision: current.state.revision,
-      baseSha256: hash(current.bytes),
-      nextRevision: next.revision,
-      nextSha256: hash(nextBytes),
-      operationId: next.operationId,
-      nextSnapshot: next,
-    });
+    );
     if (
       nextBytes.byteLength > CURRENT_LIMIT ||
       pendingBytes.byteLength > PENDING_LIMIT
@@ -906,6 +903,362 @@ function publishState(
       cleanupConfirmed: false,
     };
   }
+}
+
+/**
+ * 現在byteと次状態から同じ出版材料を構築する。
+ * @responsibility 容量予約と実出版で同じbyte表現を使う。
+ * @trace ARCH-000013
+ * @input 完全現在byte・次状態・処置種別。
+ * @returns 所有済みnext／pending bytes。
+ * @precondition 同じ保存OwnerがLock内で使う。
+ * @postcondition 予約と出版の包絡・Hash計算が一致する。
+ * @effect N/A: メモリ内serialize・Hash計算だけ。
+ * @failure Runtime故障は呼出元が未完了へ分類する。
+ * @invariant placeholderによる予約byteは保存しない。
+ * @boundary 私有保存準備と物理出版。
+ * @security Verifierを含む内部byteを公開しない。
+ * @concurrency 同じ同期Lock区間内だけ。
+ */
+function preparePublicationBytes(
+  current: ReturnType<typeof readCurrent>,
+  next: AccessManagementState,
+  kind: PendingPublication["kind"],
+): { nextBytes: Buffer; pendingBytes: Buffer } {
+  const nextBytes = serialize(next);
+  const pendingBytes = serialize({
+    contract: "crdd-access-management/pending",
+    schemaRevision: 1,
+    kind,
+    baseRevision: current.state.revision,
+    baseSha256: hash(current.bytes),
+    nextRevision: next.revision,
+    nextSha256: hash(nextBytes),
+    operationId: next.operationId,
+    nextSnapshot: next,
+  });
+  return { nextBytes, pendingBytes };
+}
+
+/**
+ * ユーザー・Role管理の非秘密結果を表す。
+ * @responsibility 認可前拒否と今回操作の保存観測を分離する。
+ * @trace ARCH-000013
+ * @shape completedは操作・期待改訂・採用改訂・対象、unavailableは非開示拒否または認可後の保存観測。
+ * @invariant completedは今回出版と全清掃確認を要求する。
+ * @boundary Package管理APIから内部Consumerへ渡す結果。
+ * @security 生鍵・salt・Verifier・全状態・内部Path・Lock回復参照を含めない。
+ * @compatibility 通常4操作専用。HTTP／MCP Schemaの採用ではない。
+ */
+export type UserRoleManagementResult =
+  | Readonly<{
+      status: "completed";
+      operationId: string;
+      expectedRevision: number;
+      revision: number;
+      userId: string | null;
+      publication: "confirmed";
+      cleanupConfirmed: true;
+    }>
+  | Readonly<{
+      status: "unavailable";
+      reason: "management_operation_rejected";
+    }>
+  | Readonly<{
+      status: "unavailable";
+      reason: "management_operation_unavailable";
+      primaryFailure: string;
+      operationId: string;
+      expectedRevision: number;
+      observedRevision: number | null;
+      publication: "not_attempted" | "unconfirmed" | "confirmed";
+      cleanupConfirmed: boolean;
+    }>;
+
+/**
+ * 通常4操作の現在認可・変更・保存を直列化する。
+ * @responsibility 非開示拒否と今回出版事実を既存保存部品へ接続する。
+ * @trace ARCH-000013
+ * @input 検証済みRoot、鍵、期待改訂、受付UUID、内部4操作入力。
+ * @returns 非秘密の管理結果。
+ * @precondition 用途限定Rootを使う内部Consumerだけが呼ぶ。入力は本関数も検査する。
+ * @postcondition 今回の出版・読戻し・材料とLock清掃確認時だけcompleted。
+ * @effect 既存Lock、登録時だけUUID一回、既存pending／replace／current出版。
+ * @failure 認可前は固定拒否。認可後は最初の失敗と今回出版事実を保持する。
+ * @invariant 先行pendingの出版を今回操作へ帰属せず、鍵・初回・Repository登録・Exposureを変更しない。
+ * @boundary 通常User／Role管理と私有Filesystem保存。
+ * @security 未認証・未許可に状態情報を返さず、資格材料と回復参照は常に非公開。
+ * @concurrency 同じ既存Lock内で現在認証・期待改訂・容量・保存を評価する。
+ */
+function executeUserRoleManagementMutation(
+  root: FilesystemStoreRoot,
+  token: string,
+  expectedRevision: number,
+  operationId: string,
+  change: UserRoleChange,
+): UserRoleManagementResult {
+  if (
+    typeof token !== "string" ||
+    !readCredentialId(token) ||
+    !Number.isSafeInteger(expectedRevision) ||
+    expectedRevision < 1 ||
+    typeof operationId !== "string" ||
+    !ATTEMPT_UUID.test(operationId)
+  )
+    return { status: "unavailable", reason: "management_operation_rejected" };
+  let admitted = false;
+  let targetUserId: string | null = null;
+  let currentPublication: "not_attempted" | "unconfirmed" | "confirmed" =
+    "not_attempted";
+  const result = locked(root, () => {
+    let revision: number | null = null;
+    let stage = "read";
+    let materialsConfirmed = false;
+    try {
+      const current = readCurrent(root);
+      revision = current.state.revision;
+      stage = "authorization";
+      if (
+        current.state.revision !== expectedRevision ||
+        current.state.operationId === operationId
+      )
+        return {
+          status: "unavailable" as const,
+          reason: "management_operation_rejected",
+          publication: "not_attempted" as const,
+          revision,
+          cleanupConfirmed: true,
+        };
+      const prepared = prepareUserRoleChange(
+        token,
+        current.state,
+        change,
+        expectedRevision,
+        operationId,
+      );
+      if (!prepared)
+        return {
+          status: "unavailable" as const,
+          reason: "management_operation_rejected",
+          publication: "not_attempted" as const,
+          revision,
+          cleanupConfirmed: true,
+        };
+      admitted = true;
+      targetUserId = prepared.userId;
+      stage = "pending";
+      const settled = settlePending(root, current, () => {});
+      materialsConfirmed = true;
+      if (settled !== "none")
+        return {
+          status: "unavailable" as const,
+          reason: "state_store_previous_pending_settled",
+          publication: "not_attempted" as const,
+          revision,
+          cleanupConfirmed: true,
+        };
+      stage = "capacity";
+      const reservation = preparePublicationBytes(
+        current,
+        prepared.next,
+        "management",
+      );
+      if (
+        reservation.nextBytes.byteLength > CURRENT_LIMIT ||
+        reservation.pendingBytes.byteLength > PENDING_LIMIT
+      )
+        return {
+          status: "unavailable" as const,
+          reason: "state_store_capacity_exceeded",
+          publication: "not_attempted" as const,
+          revision,
+          cleanupConfirmed: true,
+        };
+      if (prepared.registersUser) {
+        stage = "identity";
+        const userId = crypto.randomUUID();
+        if (
+          !ATTEMPT_UUID.test(userId) ||
+          userId === operationId ||
+          current.state.users.some((user) => user.userId === userId)
+        )
+          throw new Error("user_identity_invalid");
+        const user = prepared.next.users.at(-1);
+        if (!user) throw new Error("user_candidate_invalid");
+        user.userId = userId;
+        targetUserId = userId;
+      }
+      stage = "candidate";
+      const parsed = parseAccessManagementState(serialize(prepared.next));
+      if (
+        parsed.status !== "parsed" ||
+        !ordinaryChange(current.state, parsed.state)
+      )
+        throw new Error("user_role_candidate_invalid");
+      const published = publishState(root, current, parsed.state, "management");
+      currentPublication = published.publication;
+      return published;
+    } catch {
+      return {
+        status: "unavailable" as const,
+        reason: `state_store_${stage}_failed`,
+        publication: currentPublication,
+        revision,
+        cleanupConfirmed: materialsConfirmed,
+      };
+    }
+  });
+  if (!admitted)
+    return { status: "unavailable", reason: "management_operation_rejected" };
+  if (result.status === "completed")
+    return {
+      status: "completed",
+      operationId,
+      expectedRevision,
+      revision: result.value.revision,
+      userId: targetUserId,
+      publication: "confirmed",
+      cleanupConfirmed: true,
+    };
+  return {
+    status: "unavailable",
+    reason: "management_operation_unavailable",
+    primaryFailure: result.reason,
+    operationId,
+    expectedRevision,
+    observedRevision: result.revision,
+    publication: currentPublication,
+    cleanupConfirmed: result.cleanupConfirmed,
+  };
+}
+
+/**
+ * 現在管理者が新しい最小ユーザーを登録する。
+ * @responsibility 予定Roleの固定管理許可からUser一件だけを保存する。
+ * @trace ARCH-000013
+ * @input Root、鍵、期待改訂、受付UUID、表示名、予定Role。
+ * @returns 新User IDと保存観測、または非秘密拒否。
+ * @precondition 初回設定が完了した用途限定Storeを使用する。
+ * @postcondition 資格を発行せずUser一件だけ追加する。
+ * @effect 認可・容量確認後のUUID一回と既存保存。
+ * @failure 非認可・不正入力・競合・容量・生成・保存・清掃不明で未完了。
+ * @invariant managerはadministratorを登録できない。
+ * @boundary 通常ユーザー管理と同じLock内の保存。
+ * @security 鍵・全内部状態を結果へ返さない。
+ * @concurrency 現在資格と予定Roleの許可を保存直前に再評価する。
+ */
+export function registerUser(
+  root: FilesystemStoreRoot,
+  token: string,
+  expectedRevision: number,
+  operationId: string,
+  username: string,
+  plannedRole: unknown,
+): UserRoleManagementResult {
+  return executeUserRoleManagementMutation(
+    root,
+    token,
+    expectedRevision,
+    operationId,
+    { operation: "registerUser", username, plannedRole },
+  );
+}
+
+/**
+ * 既存ユーザーの管理用表示名だけを変更する。
+ * @responsibility exact Userと現在Roleを確認し名前だけを保存する。
+ * @trace ARCH-000013
+ * @input Root、鍵、期待改訂、受付UUID、既存User ID、新表示名。
+ * @returns 対象User IDと保存観測、または非秘密拒否。
+ * @precondition 完了初期化のStoreを使用する。
+ * @postcondition User ID・Role・資格を保持する。
+ * @effect 既存状態保存。UUID生成なし。
+ * @failure 不正名・対象差・非認可・競合・保存／清掃不明で未完了。
+ * @invariant managerはadministratorの表示名を変更できる。
+ * @boundary 通常名前管理と保存Owner。
+ * @security 他User一覧・資格材料を返さない。
+ * @concurrency 同じ現在状態から対象と許可を再評価する。
+ */
+export function updateUserName(
+  root: FilesystemStoreRoot,
+  token: string,
+  expectedRevision: number,
+  operationId: string,
+  userId: string,
+  username: string,
+): UserRoleManagementResult {
+  return executeUserRoleManagementMutation(
+    root,
+    token,
+    expectedRevision,
+    operationId,
+    { operation: "updateUserName", userId, username },
+  );
+}
+
+/**
+ * 既存ユーザーの現在Roleを明示した次Roleへ変更する。
+ * @responsibility 変更前Roleと固定管理許可を確認して一件のRoleだけを保存する。
+ * @trace ARCH-000013
+ * @input Root、鍵、期待改訂、受付UUID、既存User ID、変更前後Role。
+ * @returns 対象User IDと保存観測、または非秘密拒否。
+ * @precondition 完了初期化のStoreを使用する。
+ * @postcondition 名前・ID・資格結合を保持し次要求が新Roleを評価する。
+ * @effect 既存状態保存。資格発行・失効なし。
+ * @failure 前Role差・非認可・不正値・競合・保存／清掃不明で未完了。
+ * @invariant administratorが関わる変更はadministratorだけ。最終管理者guardを追加しない。
+ * @boundary 通常Role管理と保存Owner。
+ * @security 変更後Roleを変更前の実行許可へ使わない。
+ * @concurrency 同じLock内の変更前認可を使用する。
+ */
+export function changeUserRole(
+  root: FilesystemStoreRoot,
+  token: string,
+  expectedRevision: number,
+  operationId: string,
+  userId: string,
+  currentRole: unknown,
+  nextRole: unknown,
+): UserRoleManagementResult {
+  return executeUserRoleManagementMutation(
+    root,
+    token,
+    expectedRevision,
+    operationId,
+    { operation: "changeUserRole", userId, currentRole, nextRole },
+  );
+}
+
+/**
+ * Roleの明示内容範囲を更新する。
+ * @responsibility 固定管理許可を保ちdevelopment／management集合だけを保存する。
+ * @trace ARCH-000013
+ * @input Root、鍵、期待改訂、受付UUID、対象Role、明示内容範囲。
+ * @returns 保存観測、または非秘密拒否。
+ * @precondition 完了初期化のStoreを使用する。
+ * @postcondition 固定管理分担・User・資格・Exposureを変更しない。
+ * @effect 既存状態保存。新認可Frameworkなし。
+ * @failure 未知／重複範囲・非認可・競合・保存／清掃不明で未完了。
+ * @invariant administrator内容設定はadministratorだけ。
+ * @boundary Role内容管理と保存Owner。
+ * @security 内容範囲は実アクセス・管理操作の許可ではない。
+ * @concurrency 同じLock内で対象Roleの現在許可を再評価する。
+ */
+export function updateRoleContentAccess(
+  root: FilesystemStoreRoot,
+  token: string,
+  expectedRevision: number,
+  operationId: string,
+  targetRole: unknown,
+  workspaceIds: unknown,
+): UserRoleManagementResult {
+  return executeUserRoleManagementMutation(
+    root,
+    token,
+    expectedRevision,
+    operationId,
+    { operation: "updateRoleContentAccess", targetRole, workspaceIds },
+  );
 }
 
 /**

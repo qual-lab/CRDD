@@ -2,7 +2,7 @@
 
 成果物種別: Architecture詳細設計
 詳細設計領域: access-management
-状態: Candidate（内部Schema・通常保存・初回相関・User・初回資格保存・認証主体解決は局所接続済み。資格保存の固定10ファイル限定独立再レビューPass・全重大度の残指摘0。管理API・Root準備・配送・内容認可・本番認証Consumerは未成立）
+状態: Candidate（内部Schema・通常保存・初回相関・User・初回資格保存・認証主体解決に加え、通常User／Role管理4操作を局所接続。41 Case・静的3軸成功、今回の固定13ファイルの限定独立再レビューPass・残指摘0。Repository／Exposure管理・鍵管理・Root準備・配送・内容認可・本番Consumerは未成立）
 維持責任者: Qual-Lab
 
 ## 1. 対象と保持条件
@@ -65,6 +65,18 @@
 `absent`は進行試行の確認済み不存在で、単一Fileの欠測ではない。`confirmed`は確認済みの進行試行だけを表し、過去の終了記録の存在を含めない。`same_attempt`は管理状態と同じ元試行の結合を呼出側が確認した分類であり、本関数がIdentityを証明するものではない。完了済みの初回記録を保持する場合、その履歴を進行試行へ転用せず、保存Ownerが現在の既存管理状態と進行試行の不存在を別に観測する。内部保存Owner・Schema・相関保存は局所接続済みで、旧入力の本番観測は未接続である。
 
 局所UTは`RFD-UT-023`へ接続し、四管理観測×三試行観測×開始二値の24組と、不正値・暗黙変換なし・返却値非共有を確認する。候補試験の成功は正式Local Item評価や物理保存・Host入口の成立ではない。固定15Fileの契約・品質限定独立再レビューは両方Pass、全重大度の残指摘0。
+
+### 2.3 通常User／Role管理4操作の局所接続 — 2026-10-12
+
+`registerUser`、`updateUserName`、`changeUserRole`、`updateRoleContentAccess`をPackage Rootから専用公開する。共通の先頭入力は検証済みRoot、Bearer、期待改訂、受付operationId（UUID）。後続入力はそれぞれ表示名／予定Role、既存userId／新表示名、既存userId／変更前後Role、対象Role／明示workspaceIdsとする。Transport SchemaやMCP Toolの採用ではない。
+
+意味判断は`management/user-role.ts`、既存Lockと出版は`state/file-store.ts`が所有する。循環依存と再export中継を避け、4公開関数は保存Ownerから純粋判断を呼ぶ。低水準`updateAccessManagementState`のcallbackを拒否やUUID生成へ転用せず、その契約を変更しない。4操作専用の私有処理で、同じ現在状態の資格・Role・対象・期待改訂を確認する。完了初期化だけを対象とし、変更前Roleで認可する。managerのadministrator表示名変更は許可し、administrator関与のRole／内容変更はadministratorだけ。最後のadministrator保持という未採用条件を追加しない。
+
+登録だけ、固定36文字の非採用placeholderでnext／pendingの正確byte容量を予約してからUUIDを一回生成する。placeholderは保存・parse・結果へ使用せず、最終候補は完全parseと容量検査を通す。他3操作はUUIDを生成しない。容量と実出版のbyte構築は既存保存部品で共有する。
+
+`UserRoleManagementResult`は、認証・管理許可成立前の固定`management_operation_rejected`と、認可後の今回保存観測を区別する。成功はoperationId、expectedRevision、revision、userId（内容設定ではnull）、publication: confirmed、cleanupConfirmed: trueだけ。認可後未完了は固定結果種別と最初の失敗、operationId、expectedRevision、observedRevision、今回publication、cleanupConfirmedを返す。Token・salt・Verifier・全Snapshot・内部Path・Lock回復参照は返さない。前操作pendingの処置は今回Effectへ帰属させず、今回更新0で停止する。出版確認後の清掃／解放不明は未完了のまま既知出版を保持し、自動再送・rollbackしない。
+
+RFD-IT-021の4操作部分に6 Caseを接続し、三Role×対象三Role×4操作の36組、生成前容量拒否、通常拒否・現在Role・対象外不変、前操作材料と出版／清掃故障を実Filesystemで観測した。認可・対象・期待改訂確認後だけ先行材料を処置する。誤鍵・developer・改訂競合・禁止対象ではbase／next両材料のbyteを保持し、巨大入力は詳細走査前に拒否する。AM全41 Case・静的3軸成功、固定13ファイルの限定独立再レビューPass・残指摘0。通常管理全体、Repository／Exposure、公開ST／UAT、本番Consumer、191項目の正式評価は未成立である。
 
 ## 3. 内部状態と公開読取り
 

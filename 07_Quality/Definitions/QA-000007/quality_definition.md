@@ -153,6 +153,8 @@ Runtime活動ReaderもRFD-IT-013の認可済み集合を使う。未許可入力
 
 ### 最新契約の実行状態
 
+通常User／Role管理4操作をRFD-IT-021の一部へ局所接続した。6 Case追加、AM全41 Case・静的3軸成功、固定13ファイルの限定独立再レビューPass・残指摘0。三Role・対象三Roleの36実保存組、UUID前容量拒否、非開示拒否、対象外不変、先行pendingと今回操作・出版後故障、認可前base／next材料保持・巨大入力の早期拒否を確認した。Repository／Exposure管理と公開縦断ST／UATは未接続で、IT021全体と191項目の正式評価はNot Run。以下35 Caseは4操作接続前の認証局所結果である。
+
 RFD-IT-013の資格→User→現在Role投影部分をAM専用`authenticateCredential`入口へ局所接続した。既存保存ITに2 Caseを追加し、AM全35 Case・静的3軸成功、固定13ファイルの限定独立再レビューPass・残指摘0。IT024では保存済み初回資格の認証後もbyte不変・stage不変・配送／受領／通常接続非更新を確認する。IT013のExposure・実アクセス・Domain搬送と公開ST、本番Consumer、正式191項目評価はNot Run。以下の認証主体・現在Role未接続表示はこの部分接続前の履歴であり、内容認可や本番成立へ拡大しない。
 
 RFD-ST-003、RFD-ST-004、RFD-IT-013、RFD-UAT-007、RFD-ST-016、RFD-IT-017〜019、RFD-UT-020、RFD-IT-021、RFD-ST-022は **Not Run**。旧IDのEvidenceは旧契約の履歴であり、新契約のPassへ流用しない。現在はRFD-UT-020／023／028、IT021保存部分、IT024相関・User・初回資格保存部分、IT017／018のNode crypto技術部分のSource／Test Symbolと候補局所実行を接続済み。正式191項目結果／Evidence評価はNot Run。IT017／018の保存・発行確定・失効・認証主体・現在Role・配送・本番入口、上記以外の未接続部分はOPEN。固定管理分担・内容語彙・Schemaの現在契約は各正本に従い、本番Consumer完成を推定しない。Profile管理のRoleはこの固定分担では確定しない。新しい権限FrameworkやBootstrap修復は導出しない。
