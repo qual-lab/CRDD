@@ -1365,6 +1365,18 @@ Exposureは既存登録とdevelopment／managementの明示集合だけ。空集
 
 局所結果: Node v24.19.0の各Packageの`npm test`でDomain118／AM57、計175 Case成功、Fail／Cancel／Skip0、両Exit0。Domain41.6481471秒、AM45.6357766秒。各静的3軸成功、Domain試験の同値concat→template同期後も静的3軸と直接3 Case再実行成功（0.7463208秒）。最初のBiome書込みはOS1224で不成立、同じ処理の再実行で解消した。初回値を成功結果へ混ぜない。固定8Pathの限定独立レビューPass・全重大度残指摘0、基準HEAD `7642b4dd`、固定tracked差分Hash `3742ea562c6901c31e5863dcaf05530905bdde72`、Reader SHA256 `69c90539b948fbfc1cf076b848580c9a6df6cb741b615d8886f1497cce042dae`、Domain直接試験SHA256 `05ef5a9982c0fa05111717c1945ce89736848165e9205113a7f78adfe674fcea`、AM搬送試験SHA256 `68b8fc7307c935ca31ac9142b8d33bdaac3629378ee87dd5cb4acdb071e85d3d`。差分空白確認成功、自己生成AM／Domain Reader試験Root残存0。完全出力は上記コマンドで再生成できるため実行別書庫を追加しない。結果同期だけを行い、本番Consumerと実failure集約停止、正式191・全体完成は未成立を維持する。
 
+## 通常接続の認証とMCP搬送の着手前確認 — 2026-10-12
+
+基準HEAD `426ec875`、着手時clean。既存MCPの唯一の本番CROS構成はShared Hostから旧Resolverを利用し、Workbenchは旧Remote RESTも利用する。AM本文搬送の局所成功はこの本番構成の置換完了ではない。旧能力は保持し、Project Context専用Resolverと実HTTP搬送契約の接続から進める。
+
+読み取り専用の専門確認により、`authenticateCredential`は初回`credential_stored`にも本人を返すため、通常Handler発行へ単独利用できないことを確認した。先行して同一既存Lock/current内の有効資格と初回`completed`を要求する`authenticateNormalConnection`を追加する。既存初回認証の意味・順序は保持し、共通の保存認証処理だけを再利用する。新入口は認証・初回完了を確認する前にpendingを処置せず、対象Repositoryを観測しない。結果は既存の非秘密本人投影／固定拒否／状態未確認だけ。新Store・Lock・履歴・Session・受領Gateは追加しない。
+
+次のMCP接続は、Headerで通常認証→本文待機→内容操作時にfresh許可集合→同期固定本文Reader→4項目Source→Portfolioの順とする。許可空集合だけ正常空結果、本文一件不明は全体停止、Root／秘密非透過、本文待機中の失効・Exposure変更反映、開始前取消で本文0、別要求再評価を反証する。新旧資格fallbackは禁止する。旧Resolver・Shared Host、Topic／Meeting・活動・Profile、REST／Gatewayはこの先行認証変更では不変更。Profile管理Roleと鍵配送方式は既存人間回答待ちを維持する。
+
+変更分類は承認済み責務再編内の実装追加。正本はAM／MCP詳細、品質は既存RFD-IT-013／024、Sourceと既存公開集合・実保存試験を追従する。静的3軸・AM全回帰・固定候補の限定独立レビュー・直接文書整合・差分確認を必須とする。標準規範不変更のため準拠監査、Provider／Docker不変更かつ公開入口未接続のため署名E2Eはこの先行段階では対象外。本番MCP／Workbench、鍵管理・配送、正式191項目、全体完成は未成立を維持する。
+
+局所結果: Node v24.19.0、AMの`npm test`で静的3軸と59/59 Case成功、Fail／Cancel／Skip0、exit0、44.1985384秒。未完了・未知・失効資格とpending／replace併存の完全不変、状態・清掃・解放不明の非開示を確認した。独立レビューの反証不足Moderate1とHeader追従Minor1を是正し、固定8Pathの限定再レビューPass・全重大度残指摘0。基準HEAD `426ec875bb1c6deb2671e471af4bad8f56b7b327`、Header同期後の差分Hash `32deb72937cab39708a652c2afcf8842f27b470a`、実行Source SHA256 `8c3704f614c02ea4a4bef6c3e316bdaa6719c630541e328ca261c685ce8bd0bc`、実行IT SHA256 `d09772f6eab971c09d6c82ba047a0de03468f415cf4b1168753c08e326878293`。最終実行後のHeader4行は実行本文・Source不変更で結果に影響しない。試験Root残存0、差分確認成功。完全出力は上記コマンドで再生成できるため実行別書庫を追加しない。通常認証の保存境界のみ局所完了で、MCP専用Resolver・HTTP搬送・本番切替、191項目正式Not Run、AM全体未完了を維持する。
+
 ## 同要求の許可Repository集合 — 2026-10-12
 
 基準`4e9aaaad`から、既存AM保存Lockで現在認証・初回完了・Role内容とExposureの積集合を一度に確定する内部入口を追加する。Repositoryは一意、全許可workspaceIdsを保持し、各実Root／Binding／manifestを一回検証する。管理改訂はmanagementRevisionとして本文revisionと区別する。認証済み0件は成功空集合、認証・清掃・実体・解放不明は集合なし。旧単一対象入口、現在Schema、秘密保存先、通常鍵処置、初回・Host配送、歴史Evidenceは変更しない。

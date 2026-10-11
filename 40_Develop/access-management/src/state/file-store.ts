@@ -710,6 +710,51 @@ export function authenticateCredential(
   root: FilesystemStoreRoot,
   token: string,
 ): CredentialAuthenticationResult {
+  return authenticateStoredCredential(root, token, false);
+}
+
+/**
+ * 初回設定完了後の通常接続だけを認証する。
+ * @responsibility 初回途中の本人確認と通常Surface接続を分離する。
+ * @trace ARCH-000013
+ * @input 検証済み管理Rootと信頼しないBearer文字列。
+ * @returns 非秘密の本人投影、または既存の固定認証拒否・状態未確認。
+ * @precondition Rootは既存保存Ownerが検証済み。
+ * @postcondition 同改訂の有効資格と初回completed、清掃・Lock解放を確認した場合だけ成功。
+ * @effect 既存Lock、状態読取り、同期KDF。認証成功後だけ短命材料を清掃する。
+ * @failure 初回未完了・失効・不一致は同一拒否。状態・清掃・解放不明は本人情報なし。
+ * @invariant 通常接続の受領記録・内容権限・永続Sessionを生成しない。
+ * @boundary AM保存Ownerから通常Surfaceの要求内認証へ渡す。
+ * @security 生鍵・内部Path・Verifierを返さず、認可対象Repositoryを観測しない。
+ * @concurrency 同じLockの同改訂。後続内容操作は現在認可を取り直す。
+ */
+export function authenticateNormalConnection(
+  root: FilesystemStoreRoot,
+  token: string,
+): CredentialAuthenticationResult {
+  return authenticateStoredCredential(root, token, true);
+}
+
+/**
+ * 用途別の初回完了条件を既存保存境界で照合する。
+ * @responsibility 共通の資格照合・結果非開示・排他解放を重複させない。
+ * @trace ARCH-000013
+ * @input 管理Root、Bearer、通常接続の初回完了必須指定。
+ * @returns 同改訂の本人投影、または固定の未取得結果。
+ * @precondition 公開入口が用途を固定し、外部入力で用途を変更しない。
+ * @postcondition 通常接続では有効資格と初回完了の確認前に材料を変更しない。
+ * @effect 既存状態・Lock・KDFと短命材料清掃。新StoreやLockを作らない。
+ * @failure 不正資格・未完了は拒否、観測・清掃・解放不明は状態未確認。
+ * @invariant 初回本人確認の既存順序と結果を変更しない。
+ * @boundary 二つの認証用途と単一保存Owner。
+ * @security 対象Repository・生鍵・下位例外を公開しない。
+ * @concurrency 同じ保存Lock内で認証と初回状態を照合する。
+ */
+function authenticateStoredCredential(
+  root: FilesystemStoreRoot,
+  token: string,
+  requireCompletedInitialization: boolean,
+): CredentialAuthenticationResult {
   if (!readCredentialId(token))
     return {
       status: "unavailable",
@@ -718,9 +763,14 @@ export function authenticateCredential(
   const result = locked<AuthenticatedRequest>(root, () => {
     try {
       const current = readCurrent(root);
-      settlePending(root, current, () => {});
+      if (!requireCompletedInitialization)
+        settlePending(root, current, () => {});
       const snapshot = resolveCredentialAuthentication(token, current.state);
-      if (!snapshot)
+      if (
+        !snapshot ||
+        (requireCompletedInitialization &&
+          current.state.initialization.stage !== "completed")
+      )
         return {
           status: "unavailable",
           reason: "credential_authentication_rejected",
@@ -728,6 +778,8 @@ export function authenticateCredential(
           revision: current.state.revision,
           cleanupConfirmed: true,
         };
+      if (requireCompletedInitialization)
+        settlePending(root, current, () => {});
       return {
         status: "completed",
         value: snapshot,

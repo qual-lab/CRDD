@@ -4,6 +4,8 @@
 担当責任者: Qual-Lab
 最終更新日: 2026-10-12
 
+最新局所結果: 通常接続用認証を初回本人確認と分離し、RFD-IT-013／024の一部へ接続した。AM59/59 Case・静的3軸成功、固定8Pathの限定再レビューPass・全重大度残指摘0。未完了・未知・失効資格のpending／replace保持、完了三Role、状態・清掃・解放不明の非開示を確認した。MCP専用Resolver／実HTTP搬送・本番MCP／Workbench・鍵配送・旧REST撤去・正式191項目Not Run・全体Readyは未成立。詳細はCHG-000082の[通常接続の認証](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#通常接続の認証とmcp搬送の着手前確認--2026-10-12)を参照する。下段は各先行段階の局所結果である。
+
 最新局所結果: Reader成功へUTF-8本文相関版を追加し、AM許可集合から実本文と4項目Source／Portfolioへの搬送を確認した。Domain118／AM57の計175 Case・各静的3軸成功、固定8Pathの限定独立レビューPass・残指摘0。同本文の版一致・空白変更の版相違・失敗時版なし・空認可本文0を確認した。PPR-IT-019／002、RFD-IT-019は部分接続で、本番MCP／Workbenchと実failure集約停止Consumer・性能／lifecycle・鍵配送・旧REST撤去・正式191項目・全体Readyは未成立。
 
 最新局所結果: 同要求の許可Repository集合をRFD-IT-013／019の一部へ接続した。AM全56 Case・静的3軸成功、固定9Pathの限定再レビューPass・全重大度残指摘0。Repository一意性・全許可範囲・各manifest一回観測・次要求再認可・認証済み空集合・初回未完了有効資格の拒否と材料不変・不明時の集合非返却を確認した。本番Consumer・本文搬送・性能／lifecycle・鍵配送・旧REST撤去・正式191項目と全体Readyは未完了。結果の詳細はCHG-000082の[同要求の許可集合](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#同要求の許可repository集合--2026-10-12)を参照する。

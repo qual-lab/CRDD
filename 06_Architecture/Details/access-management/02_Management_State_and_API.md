@@ -19,7 +19,8 @@
 
 | 操作候補 | 入力・判定 | 結果・利用側 |
 |---|---|---|
-| `authenticateCredential` | Bearerと現在管理改訂。既存User・現在Role・資格状態を同じ改訂から解決 | 要求内の主体。Token・Verifierを返さない。Workbench／MCPの認証入口 |
+| `authenticateCredential` | Bearerと現在管理改訂。既存User・現在Role・資格状態を同じ改訂から解決 | 初回途中も含む本人確認。Token・Verifierを返さず、通常Surface接続の許可には単独で使わない |
+| `authenticateNormalConnection` | 検証済み管理RootとBearer。同じLockの現在資格・User・Roleと初回`completed`を照合 | 通常Surfaceの要求内認証。初回途中の本人確認とは分離し、内容権限・Session・受領記録を作らない |
 | `readCurrentAccess` | 認証主体と現在改訂 | 自己表示名・Role・認可済み範囲。管理能力と内容範囲を分離 |
 | `readManagementState` | 現在の管理認可と必要な対象 | 許可されたUser／Role／接続／公開の投影だけ。全内部Snapshotは返さない |
 | `registerUser` | 予定Role・表示名・期待改訂。managerはdeveloper／managerだけ、administratorは三Role | 新User ID・改訂・読戻し。資格発行0、自己登録なし |

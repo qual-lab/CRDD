@@ -33,6 +33,7 @@ const ROLES: readonly AccessRole[] = ["developer", "manager", "administrator"];
 test("三Roleと全10具体操作の固定分担", () => {
   assert.deepEqual(Object.keys(publicApi).sort(), [
     "authenticateCredential",
+    "authenticateNormalConnection",
     "changeUserRole",
     "createCredentialMaterial",
     "createInitialAdministrator",

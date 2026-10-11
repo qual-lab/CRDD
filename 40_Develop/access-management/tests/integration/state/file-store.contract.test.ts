@@ -32,6 +32,7 @@ import {
   unregisterRepository,
   updateExposure,
   authenticateCredential,
+  authenticateNormalConnection,
   readCurrentAccess,
   readManagementState,
   resolveRepositoryAccess,
@@ -123,6 +124,133 @@ function prepareInitialUser(f: ReturnType<typeof fixture>): string {
   );
   return attempt;
 }
+
+/**
+ * 初回途中の有効資格を通常接続へ昇格しない。
+ * @responsibility 本人確認の成功と通常Surfaceの認証拒否を区別する。
+ * @trace RFD-IT-013
+ * @trace RFD-IT-024
+ * @precondition 自己生成Rootに初回資格を保存する。
+ * @stimulus 有効資格で両認証入口を呼び、未完了時に不正pending／孤立replaceも置く。
+ * @observation 結果全field、current・pending・replace byte、Directory一覧。
+ * @oracle 本人確認だけ成功。通常接続は固定拒否で材料不変更、本人・対象情報なし。
+ * @cleanup Fixtureが自己生成Rootを削除し不存在を確認する。
+ * @boundary AM公開認証入口と実保存Lock。公開MCPは後続試験。
+ */
+test("通常接続は初回途中の有効資格を拒否して材料を保持する", (t) => {
+  const f = fixture(t);
+  const issued = createInitialCredential(f.root, prepareInitialUser(f));
+  assert.equal(issued.status, "completed");
+  if (issued.status !== "completed" || !issued.value.token)
+    throw new Error("fixture credential unavailable");
+  assert.equal(
+    authenticateCredential(f.root, issued.value.token).status,
+    "completed",
+  );
+  const current = path.join(f.directory, "access-management.json");
+  const pending = path.join(f.directory, "access-management.pending.json");
+  const replace = path.join(f.directory, "access-management.replace.json");
+  fs.writeFileSync(pending, "incomplete fixture");
+  fs.writeFileSync(replace, "orphan fixture");
+  const before = fs.readFileSync(current);
+  const pendingBefore = fs.readFileSync(pending);
+  const replaceBefore = fs.readFileSync(replace);
+  const names = fs.readdirSync(f.directory).sort();
+  assert.deepEqual(authenticateNormalConnection(f.root, issued.value.token), {
+    status: "unavailable",
+    reason: "credential_authentication_rejected",
+  });
+  assert.deepEqual(fs.readFileSync(current), before);
+  assert.deepEqual(fs.readFileSync(pending), pendingBefore);
+  assert.deepEqual(fs.readFileSync(replace), replaceBefore);
+  assert.deepEqual(fs.readdirSync(f.directory).sort(), names);
+});
+
+/**
+ * 通常認証が現在資格・Roleと保存終了を毎回確認する。
+ * @responsibility 初回完了だけを受理し、失効・未知・状態不明を成功へ畳まない。
+ * @trace RFD-IT-013
+ * @precondition 完了済み初回と三Roleの自己生成管理Store。
+ * @stimulus 三Role認証、失効・未知・形式不正時のpending／replace、不正current／pendingとLock解放故障を与える。
+ * @observation 本人投影全field、固定拒否・状態未確認、current・pending・replace byte、Directory一覧。
+ * @oracle 現在有効な資格だけが既存本人投影と一致。失敗結果にsnapshotなし。
+ * @cleanup Fixtureが自己生成Rootを削除し不存在を確認する。
+ * @boundary AM公開通常認証と既存保存・暗号境界。
+ */
+test("通常接続認証は現在資格と完了状態だけを返す", (t) => {
+  const f = managementFixture(t);
+  const current = path.join(f.directory, "access-management.json");
+  const saved = fs.readFileSync(current);
+  for (const role of ["administrator", "manager", "developer"] as const)
+    assert.deepEqual(
+      authenticateNormalConnection(f.root, f.tokens[role]),
+      authenticateCredential(f.root, f.tokens[role]),
+    );
+  const state = JSON.parse(
+    fs.readFileSync(current, "utf8"),
+  ) as AccessManagementState;
+  const credential = state.credentials[0];
+  assert.ok(credential);
+  credential.revoked = true;
+  fs.writeFileSync(current, bytes(state));
+  const revoked = fs.readFileSync(current);
+  const pending = path.join(f.directory, "access-management.pending.json");
+  const replace = path.join(f.directory, "access-management.replace.json");
+  fs.writeFileSync(pending, "incomplete fixture");
+  fs.writeFileSync(replace, "orphan fixture");
+  const pendingBefore = fs.readFileSync(pending);
+  const replaceBefore = fs.readFileSync(replace);
+  const names = fs.readdirSync(f.directory).sort();
+  for (const token of [
+    f.tokens.administrator,
+    createCredentialMaterial().token,
+    "invalid",
+  ]) {
+    assert.deepEqual(authenticateNormalConnection(f.root, token), {
+      status: "unavailable",
+      reason: "credential_authentication_rejected",
+    });
+    assert.deepEqual(fs.readFileSync(current), revoked);
+    assert.deepEqual(fs.readFileSync(pending), pendingBefore);
+    assert.deepEqual(fs.readFileSync(replace), replaceBefore);
+    assert.deepEqual(fs.readdirSync(f.directory).sort(), names);
+  }
+  fs.rmSync(pending);
+  fs.rmSync(replace);
+  fs.writeFileSync(current, "incomplete fixture");
+  assert.deepEqual(authenticateNormalConnection(f.root, f.tokens.developer), {
+    status: "unavailable",
+    reason: "credential_authentication_state_unavailable",
+  });
+  fs.writeFileSync(current, saved);
+  fs.writeFileSync(pending, "{}");
+  assert.deepEqual(authenticateNormalConnection(f.root, f.tokens.developer), {
+    status: "unavailable",
+    reason: "credential_authentication_state_unavailable",
+  });
+  assert.equal(fs.readFileSync(pending, "utf8"), "{}");
+  fs.rmSync(pending);
+  const remove = fs.rmSync;
+  fs.rmSync = (target, options) => {
+    if (String(target).endsWith("access-management.lock"))
+      throw new Error("injected");
+    return remove(target, options);
+  };
+  try {
+    assert.deepEqual(authenticateNormalConnection(f.root, f.tokens.developer), {
+      status: "unavailable",
+      reason: "credential_authentication_state_unavailable",
+    });
+  } finally {
+    fs.rmSync = remove;
+  }
+  assert.equal(
+    authenticateNormalConnection(f.root, f.tokens.developer).status,
+    "completed",
+  );
+  assert.deepEqual(fs.readFileSync(current), saved);
+  assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
+});
 
 /**
  * 保存資格から同一改訂の本人だけを解決する。

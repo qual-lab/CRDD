@@ -59,6 +59,7 @@ export {
   type UserRoleManagementResult,
   createInitialAdministrator,
   authenticateCredential,
+  authenticateNormalConnection,
   readCurrentAccess,
   readManagementState,
   resolveRepositoryAccess,

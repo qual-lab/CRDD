@@ -271,6 +271,8 @@ RFD-IT-021の保存部分を`access-management/tests/integration/state/file-stor
 
 RFD-IT-019の部分接続として、現在許可された内部集合のRoot・manifestをDomain固定本文Readerへ一回だけ渡し、manifestのProject ID・Repository ID、Reader本文版、解析Contextの4項目Sourceを既存Portfolioへ搬送する。管理改訂を本文版へ流用しない。administratorの空内容範囲は本文読取り0、本文欠測は固定unavailable・版／Contextなしを確認し、null／missingや部分Portfolioの材料にしない。本番MCP／Workbench、複数本文原子性、正式191項目は未成立である。
 
+通常Surfaceの認証入口はRFD-IT-013／024の部分接続として、初回途中の有効資格が本人確認では成功しても通常接続では固定拒否になることを確認する。未完了・未知・失効資格ではpending処置・対象Repository観測0、本人投影なしを確認する。初回completedの現在有効資格だけを同改訂の本人へ結合し、状態・清掃・Lock解放不明を成功へ畳まない。MCP Handler・HTTP本番搬送は別に確認し、この保存試験だけでSurface成立を主張しない。
+
 ### 同要求の許可集合の検証範囲 — 2026-10-12
 
 RFD-IT-013／019の追加局所確認は、同管理改訂での全許可範囲保持、Repository一意性、各固定manifest一回観測、認証済み空集合、有効資格でも初回未完了なら固定拒否・保存材料不変・能力返却0、次要求の公開解除反映、認証・pending不成立時の対象観測0、実体・解放不明の集合非返却とする。集合の管理改訂を本文の版へ流用しない。本番Consumer・本文集約搬送・性能／lifecycle・全体ST／UAT・正式191項目はこの局所確認だけで成立としない。
