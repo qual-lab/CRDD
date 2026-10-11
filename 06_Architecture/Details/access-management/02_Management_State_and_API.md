@@ -233,6 +233,8 @@ pendingが存在しないこと自体は、元操作の完了や未試行の証�
 
 本節は既存Sourceとの照合から保存データ・処理順・清掃単位を具体化する。完全Schema、物理保存方式の採用または実装Readyを示さない。§4.1〜4.3の実測・再入場条件と、採用済み通常保存・読戻し保証を保持する。Windows固有の追加保護は[REQ-000041の対象外判断](../../../01_Discovery/Definitions/REQ-000041/requirement.md#windows固有の追加保護の対象外化--2026-10-12)に従い、前段のVerifier保護Gateから追加ACL検査・修復・専用Native接続を除く。
 
+§4.1〜4.4の候補時点で未確定とした容量・内容範囲・Binding・初回／鍵保存順序は§4.5で具体化した。これらの旧OPEN表示は当時の候補履歴である。現在残るのは全判別Unionの機械Schema、公開API対応、状態組合せ検査、保存部品・Consumer実接続、Root／OS出版の実装確認、配送／受領観測と移行実行であり、全体保存Gate未成立は維持する。
+
 #### 保存データの共通境界
 
 | 保存対象 | 具体化する項目・検査 | 保存しないもの |
@@ -275,6 +277,52 @@ currentとpendingは共にVerifierを含む保護対象である。公開DTO、�
 
 容量はSnapshot全体のbyte予算を第一候補とし、User数・資格数等へ根拠のない個別上限を一律増設しない。上限値と読取り・認証の扱いは運用規模と既存bounded Readerへ照合して固定する。未解決事実を容量対策で捨てない。完全Schema・上限・初回／鍵段階の処置・本番接続は残件であり、本節から保存Gate全体成立を主張しない。秘密非保存・非公開とRoot境界は維持するが、Windows追加保護の接続は残件に含めない。
 
+### 4.5. 現在状態・容量・鍵保存の固定方針 — 2026-10-12
+
+本節は§4.4の未確定事項を具体化する。内容権限は採用済みのWorkspace範囲を表し、操作単位の新しい権限設定を追加しない。保存・本番Consumerは未実装であり、以下は実装へ渡す契約であって実測結果ではない。
+
+#### 現在状態の閉集合
+
+| 対象 | 固定する内容 | 相関・拒否条件 |
+|---|---|---|
+| 包絡 | `contract: crdd-access-management/state`、`schemaRevision: 1`、`revision`、`operationId`と§3の7項目 | revisionは1以上の安全整数、次出版は厳密に+1。operationIdは非秘密のUUID v4。未知fieldを拒否 |
+| User | `userId`、`username`、`role` | userIdはUUID v4。usernameはtrim後1〜128 Unicode code point、制御文字を含まない表示名。同名は許可しIDで識別。roleはdeveloper／manager／administratorのみ |
+| Role内容範囲 | 固定3Roleそれぞれの`workspaceIds` | 値は`development`／`management`の重複なし集合。Role全3件を保持し、未知Role・未知Workspaceを拒否。管理8操作は別の固定判定を使い、この集合から付与しない |
+| 登録Repository | `repositoryId`、内部`repositoryRoot`、`bindingId` | repositoryIdはDomainのCanonical Identity、RootはVersion Controlで検証した絶対exact Root。bindingIdは既存のRepository ID＋正規化Root由来の結合値。Rootは公開しない。Context本文・内容Hash・Transport設定を保存しない |
+| Exposure | `repositoryId`、`workspaceIds` | 登録済みIDだけ、同じ2Workspace語彙。登録解除では対応Exposureも同一改訂から除去。登録だけで公開せず、登録解除でRepository本体を削除しない |
+| Credential | §4.4の資格field、元発行`operationId`、`delivery` | deliveryは`not_attempted`／`unconfirmed`／`confirmed`。受領・閲覧の証明ではない。資格ID・元発行ID・userIdを相関し、通常発行の不明を交換記録へ移さない |
+| 初回進行 | 単一元試行ID、User／資格ID、相関・User保存・資格保存・配送・受領・通常接続の個別確認値 | 未生成IDはnull。未確認は未確認のまま保持。確認値の組合せ検査と各段階の確定を保存Adapterで実装し、名前だけのstageから完了を推定しない |
+| 未解決交換 | exact Recovery、操作ID、固定旧資格ID集合、既存発行先userId、失効・新資格保存・配送処置の個別確認値 | 通常発行・初回・Lockの記録を混入しない。現在資格が既に整理されていても固定旧IDの事実は保持。終了済み交換の配列を積算しない |
+
+各集合のIDは一意で、User参照・登録参照を全件検査する。Administratorの初期内容範囲は空、DeveloperはDevelopment、ManagerはDevelopment＋Managementとする。管理権限、AI Profileの管理可否、AI依頼・Task・Git Push・候補採用等を内容Workspaceから暗黙許可しない。これらの既存Ownerによる操作判定を保持し、別の操作別設定を必要とする場合だけ上流判断へ戻す。
+
+Repository利用時には登録したRoot・Repository Identityを再検証し、現在Role範囲、現在Exposure、実アクセスの積として解決する。Bindingは過去のRoot検証を永続保証するものではない。旧CredentialのworkspaceIdsをRoleへ自動変換せず、フロントAIの明示移行対応を必要とする。
+
+#### 容量と整理
+
+- currentのUTF-8 byte上限は16 MiB（16,777,216 byte）。これは既存のdurable stateと同程度の割当制限であり、利用者数・Repository数の製品容量保証ではない。
+- pendingはnextSnapshotのJSON objectと固定包絡を保存し、JSON文字列へ二重エンコードしない。nextSnapshot単体にcurrentと同じ上限を適用し、pending全体は17 MiB（17,825,792 byte）を上限とする。包絡に任意本文・ログ・秘密を追加しない。
+- いずれもJSON parse前に既存bounded Readerでbyte上限を検査する。超過・破損・観測不能は空状態へ変換せずunavailableとする。
+- 更新候補をメモリで構築しSchema・参照・UTF-8容量を検査してから出版する。超過時はその更新の保存・鍵生成・失効等を開始せず、現在状態を維持する。初回Root準備等の既に発行済みEffectまで0とは表示しない。
+- 鍵処理は生成前に固定長ID・salt・Verifier等と進行記録の最大増分を予約計算する。未解決記録を書けない状態で失効・発行を先行しない。未解決事実を容量確保のために捨てない。
+- 失効資格は未解決初回・交換・発行処置から参照されなくなった後、次の明示更新で整理できる。不存在資格は常に拒否し、資格IDを再利用しない。初回完了後は単一の元試行ID・最初のUser／資格ID・既知終了事実だけを保持する。一般履歴・通常Receipt・改訂File列は作らない。
+
+#### 最初の出版と鍵段階
+
+| 段階 | 保存順序 | Process喪失後の処置 |
+|---|---|---|
+| 初回の相関 | 同じLock下で未初期化を再照合し、revision 1の完全baseline（包絡、固定3Role初期範囲、空User／資格／登録／Exposure／交換集合、単一initialization元試行）を排他的に新規作成、通常Readerで完全読戻し確認。初回Effectとしては元試行だけを記録する | current不在＋pending存在は停止。既存currentを初回処理で置換しない。相関を確認できるまでUUID・資格生成0。欠損fieldを既定補完しない |
+| 最初のUser | 相関確認後にUUIDを生成し、administratorを同じcurrentへ保存・読戻し | currentに記録された同じUserを再観測。追加Userを自動生成しない |
+| 通常の資格発行 | 現在認可・対象・期待改訂・容量を先に検査し、ID・Secret・salt・VerifierをProcess内だけで生成。元発行operationIdを含む完全Credentialを一回の次Snapshotで出版・読戻し | 出版前喪失は永続Credential／Secret Effect 0だが元要求結果は不明のまま。出版後喪失は記録済み元発行IDで再観測。新Receipt配列・不完全Credential・自動再発行・交換への自動移行なし |
+| 初回の資格発行 | 既に保存したinitialization元試行の下で容量検査し、完全Credentialと元発行ID・初回の資格保存事実を同じ改訂へ出版・読戻し | 既存初回相関を保持し、未記録生成物は復元・再表示しない。同元試行を再観測し、追加資格を自動生成しない |
+| 鍵交換 | 固定対象集合・発行先・exact Recoveryを保存→旧資格失効の出版・読戻し→新資格の出版・読戻し | 各確定段階を保持し、未確認段階だけ再観測。通常管理のbase一致pending廃棄を適用しない |
+| Secret返却 | 資格保存の読戻し後だけ短命のSecretを返却。配送を別に観測し、記録できた範囲だけ更新 | Secretを復元せず、発行済み・受け渡し未確認とする。別の明示交換の成功で旧受領を確認済みにしない |
+| 整理 | 既知出版・旧Owner終了・対象pending清掃・Lock解放を個別確認 | 不明なら同じ相関を保持。年齢・容量だけの削除や自動再実行なし |
+
+初回の排他的作成は既存`wx`を使用し、通常出版は同じLock下のpending＋replaceとする。最初の書込み途中にProcessを失ったpartial currentは破損として停止し、未初期化へ戻さない。新しいhard-link出版部品は追加しない。保存・配送確認を電源断保証や人間の閲覧保証へ昇格しない。
+
+この具体化で容量・内容範囲・Binding・処理順の方針は固定する。全判別Unionの機械Schema、公開APIとの対応、状態組合せ検査、既存Reader／Writerへの実接続と局所試験は次の実装単位で閉じる。Source、実Host Store、ACL、過去Evidenceは本節では変更しない。
+
 ## 5. 鍵交換の段階と終了
 
 失効前にexact Recovery・旧対象集合・既存発行先を固定し、失効、発行、結果記録を共通段階として単調に保存する。通常WorkbenchはBackend返却・Browser配送、HostはローカルCLIへの返却・表示を別観測し、HostのBrowser配送は非該当とする。具体受領方式はOPENで、受領通知を人間の閲覧やAuthorityの証明にせず、新しい受領必須Gateも作らない。発行確定後の配送故障で発行結果を取り消さない。
@@ -289,7 +337,7 @@ currentとpendingは共にVerifierを含む保護対象である。公開DTO、�
 
 別交換の指定操作は先に発行した鍵を含む対象ユーザーの全旧有効資格を失効し、同じ既存userIdへ新資格を発行して他ユーザーの鍵を保持する。全員操作は先の鍵を含む全旧有効資格を失効し、指定既存administratorへ一資格を発行し、他ユーザーは通常再発行・再配布へ戻る。現在対象集合・認可・4組の事前表示・3組の明示確認を再適用する。遅延した旧応答で失効済み鍵を利用可能と表示しない。新交換成功は旧Secret受領・rollback・開始済み取消完了の証明ではない。
 
-未解決交換は期限・容量だけで除去しない。`unresolvedKeyExchanges`から外す条件は、交換処理の終了と未解決配送の処置を別に確定できること。別交換の成功を旧Secret受領確認に転用しない。上限到達時は新しいEffect前に停止する。通常履歴は必要な非秘密要約だけを有限保持し、未解決参照の保護・解消後清掃・具体上限は保存設計の残件として扱う。実行毎DirectoryやEvidence書庫を作らない。
+未解決交換は期限・容量だけで除去しない。`unresolvedKeyExchanges`から外す条件は、交換処理の終了と未解決配送の処置を別に確定できること。別交換の成功を旧Secret受領確認に転用しない。上限到達時は新しいEffect前に停止する。§4.5に従い一般履歴・通常Receiptは保存せず、未解決参照だけを保護する。状態組合せ検査と解消後清掃のSource接続は未成立。実行毎DirectoryやEvidence書庫を作らない。
 
 初回進行記録を`unresolvedKeyExchanges`へ入れない。発行／記録不明は元試行再観測のみ。両者確定後の配送／受領だけ不明に対して選ぶ別交換から交換Recoveryを用いる。初期化・交換・Lock回復の参照を相互転用しない。
 
@@ -326,9 +374,9 @@ Repositoryでは重複登録、未登録Exposure、解除後の孤立Exposure、
 
 初回の反証は、正規未試行の不適切拒否、双方確認なしの作成、既存／通常鍵喪失の再初期化、相関確定前Effect、二重UUID・追加鍵、不明発行から新交換、配送／受領混同、Secret保存／再表示、自動登録・公開・内容付与、部分≠全体完了である。Quality Local Item・実行結果への接続は次作業で、今回Passにしない。
 
-実装前の残件は、排他の具体Ownerと実OS出版保証、公開read Schema、元発行Identityと配送／受領観測の具体保存・搬送、内容権限語彙、保持・清掃条件、初回Root準備、初回相関・個別結果の物理Schema・確定・読戻し・配送／受領観測・解消後整理、本番入口と移行対応である。担当はQual-Lab、再評価契機は保存・API候補固定時。登録解除と受け渡し未確認後の処置方針は確定済みだが、これらの物理・接続残件は実装Gateを阻害するため将来改善として退避しない。追加の保証や再表示・自動再発行を採用する場合は上流判断へ戻す。
+実装前の現在残件は、全判別Unionの機械Schemaと状態組合せ検査、公開read API対応、既存排他・Reader／Writer・Root／実OS出版の実装確認、元発行Identityと配送／受領観測の搬送、本番入口と移行実行である。内容範囲・容量・Binding・保持原則・初回／鍵保存順序は§4.5で具体化済み。担当はQual-Lab、再評価契機は保存・API候補固定時。物理・接続残件は実装Gateを阻害するため将来改善として退避しない。追加の保証や再表示・自動再発行を採用する場合は上流判断へ戻す。
 
-Root準備はFilesystem Effectを持ち、Directory作成だけで未初期化を証明しない。準備後故障の既知Effect・残存を保持する。論理初回順序の具体化からRoot準備方式・保存方式採用・秘密保護・実装Gate成立を推定しない。横断モデル・Workbench／MCP詳細・Quality・Sourceは未追従。
+Root準備はFilesystem Effectを持ち、Directory作成だけで未初期化を証明しない。準備後故障の既知Effect・残存を保持する。論理初回順序の具体化から実装Gate成立を推定しない。Quality設計への接続は行ったがNot Runであり、横断モデル・Workbench／MCP詳細・Sourceの本番接続は未成立。
 
 ## 鍵の期限なし方針の接続 — 2026-10-11
 
@@ -343,7 +391,7 @@ Root準備はFilesystem Effectを持ち、Directory作成だけで未初期化�
 - [x] 旧設定の全fieldとCredentialの移行Owner・Consumer切替条件を記した。
 - [x] Quality項目と反証面を対応し、Not Runを維持した。
 - [x] 登録解除の同時除去と鍵の3分岐を確定上流へ合わせ、処置方針の旧OPENを解消した。保存・接続の成立とは区別する。
-- OPEN: 排他・出版・保持清掃・公開Schema・元発行Identity／配送観測の具体保存・実データ対応は§7の残件。Qual-Labが保存／API候補固定時に確認し、未解決の間は実装Gate未成立。
+- OPEN: 機械Schema・状態組合せ検査・公開API対応・排他／出版／配送の実装確認・Consumer接続・実データ移行は§7の現在残件。方針具体化済みの§4.5と実装成立を分け、未解決の間は実装Gate未成立。
 - OPEN: Consumer本番接続・旧撤去・実境界検証はSource移管後にQual-Labが確認する。候補対応表だけではCapability完成を主張しない。
 
 - OPEN: 初回設定の内部操作・論理記録候補は今回の契約・品質限定独立レビュー済み・全重大度の残指摘0。API完成・本番接続・実E2E成立は未主張。
