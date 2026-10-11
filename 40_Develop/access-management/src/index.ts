@@ -1,5 +1,5 @@
 /**
- * Access Managementの実装済み固定管理判定を公開する。
+ * Access Managementの実装済み管理分担と初回状態の純粋判定を公開する。
  *
  * @packageDocumentation
  * @responsibility Roleと操作対象の純粋判定を明示公開し、保存・認証・鍵処置を未接続のまま区別する。
@@ -11,3 +11,7 @@ export {
   type ManagementPermission,
   type ManagementRequest,
 } from "./access/management-permission.ts";
+export {
+  evaluateHostInitializationState,
+  type HostInitializationDecision,
+} from "./initialization/state-evaluation.ts";

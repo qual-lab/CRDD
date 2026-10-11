@@ -1175,3 +1175,13 @@ REQ〜ARCHは対象Source各1複合義務、Detailは3処置行として未接�
 UTはARCH由来だけ、ITは相関確定前Effect0と既知Root準備Effectの別、3時点Process喪失・同元試行新Process読戻し・現在Host再照合・両確定後だけ別明示交換、STは一度配送／受領／通常接続を個別観測、UATは四状態・次行動・正常達成を確認する。MCPの4面と状態照会0・Bearer継続はQA-000009が所有する。旧未定義Gapは定義接続だけ解消し、新規・更新項目Not Runと実装／実行未完了を維持する。
 
 必須確認は契約・品質独立レビュー、文書・直接影響・全数対応・ID／段階／参照・件数確認。標準規則と実行境界を変更しないため準拠監査・実回帰・Provider／Docker E2Eは今回対象外。実装Gateは保存・配送観測等の具体化を残す。全結果統合後に是正し再レビュー、結果同期後にPhaseコミットする。今回13文書の契約・品質限定独立再レビューは両方Pass、全重大度の残指摘0。工程別接続数、前段と今回の結果時点、段階別判定、公開MCPからの初回Owner／状態Reader呼出し観測を是正した。全13定義190項目、QA-000007は27項目、差分確認成功。新規・更新項目Not Run、Source／Test・保存・受領・清掃・本番接続・新Evidenceは未完了を維持する。次は保存・公開入口の具体化とSource／Test実接続である。
+
+#### 初回Host状態の純粋判定実装 — 2026-10-11
+
+基準Commitは`cd18eb0b`。保存Gateと資格期限が未確定のため、初回Hostの実保存・鍵発行・入口実装は先行しない。当初範囲はAMの純粋判定SourceとUT、公開Root、既存公開集合Oracle、Package試験入口、Symbol、AM詳細02、本計画・現在投影の9File。品質レビューで試験台帳登録と現在投影の漏れを検出し、既存台帳・QA-000007・Center・Integration・ARCH／Detail分析の6Fileを直接是正へ追加して固定15Fileへ拡張した。変更分類は採用済み四状態・開始条件の実装詳細化。Current Repository onlyで、Host管理Root・秘密・Docker・Provider・旧Evidence・旧CROSの実処理は不変更。
+
+着手前整合確認は必要とし、親の正本照合と読取り専用品質確認で着手可・追加人間判断なし。編集一次キーは観測分類→四状態／開始条件／次処置、ARCH-000013→RFD-UT-023→Source／Testの接続である。管理未初期化＋進行試行不存在＋明示開始だけ開始候補、同元試行の確認済み途中は再観測、既存は拒否、片側欠落・不明・矛盾は停止。`same_attempt`の分類は呼出側の照合済み入力で、本関数から保存・Identity・Host Authorityを証明しない。進行試行と完了履歴を分け、未実装の保存Ownerを置換済みとしない。
+
+構造評価: Variationは四状態、Common Contractは単一同期関数、Creation／Selectionは返却値のみ、State-dependent Behaviorは入力分類に閉じる。Composition／RecursionはN/A: 外部処理を合成・再帰しない。Lifecycle OwnershipとExternal BoundaryはN/A: Handle・共有状態・I/Oを取得しない。ConcurrencyはN/A: 共有状態なし。TimingはN/A: 時刻・期限を判定しない。Failure／Observabilityは未知分類を停止結果として保持する。Securityは結果を実行Authorityにしない。実装知識の上位還元はN/A: 新しい保証は追加せず、既存の四状態を技術的入力分類へ対応した。
+
+必須確認はAM Packageのformat・type・lint・全UTと、契約／品質の限定独立レビュー、文書・直接影響・Symbol参照・差分確認。標準準拠規則は不変更のため準拠監査は対象外。I/O・実処置は未接続のためHost実試験・署名・Docker／Provider E2Eは実行せず、必要な後続Gateへ残す。Node v24.19.0でローカルキャッシュから固定開発依存を配置し、静的3軸と7 UT（既存4＋初回3）は成功。初回には24組合せを含む。正式Local Item評価はNot Run、保存・資格・Host入口・本番Consumer・全体Readyは未成立。固定15Fileの契約・品質限定独立再レビューは両方Pass、全重大度の残指摘0。台帳の登録漏れと現在投影の矛盾を是正した。試験台帳は当該ID・Path各1件で実在、差分確認成功。結果状態だけを同期し、この実装単位をコミットする。

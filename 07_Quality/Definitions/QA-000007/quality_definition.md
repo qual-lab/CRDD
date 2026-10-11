@@ -125,7 +125,7 @@ UTの外部境界はN/A（I/O前の純粋判定）、ITはDirect Boundary、ST�
 | RFD-ST-026 | UI-000008／ui-000008.qa-000007、SPEC-000012／spec-000012.qa-000007、ARCH-000013／arch-000013.qa-000007 | UI Detail／Behavior Detail／Host・Workbench詳細 | SCR-000008、PRT-000008、PRT-000008.spec-000012、BHV-000012、初回公開縦断。New: 通常管理の実Workbench入口と異なる |
 | RFD-UAT-027 | REQ-000041／req-000041.qa-000007、UX-000035／ux-000035.qa-000007、IA-000009／ia-000009.qa-000007、UI-000008／ui-000008.qa-000007 | Requirement／UX／IA／UI Definition・UI Detail | SCR-000008、PRT-000008、初回の達成・理解。New: 通常管理の理解とは別Scenario |
 
-6工程の情報源表と7品質分析から同じ5項目へ統合する。完全なCanonical／Meaningの母集団は情報源表のREQ-000041、UX-000035、IA-000009、UI-000008、SPEC-000012、ARCH-000013と各既存qa-000007導出キーであり、上表は主たる観測Ownerを示す。工程固有の情報・体験・表示条件も情報源表から非UTの4項目へ接続する。複数Sourceの同じ意味を重複項目化しない。MCPの初回設定・状態照会非公開は[QA-000009／EST-ST-015](../QA-000009/quality_definition.md)へSame統合し、鍵の正のEffectと公開面の負の確認を分離する。5項目と更新EST-ST-015はNot Run。具体保存・受領観測・Source／Test・実環境・Evidence接続はOPENで、定義接続は実行・保証成立を意味しない。
+6工程の情報源表と7品質分析から同じ5項目へ統合する。完全なCanonical／Meaningの母集団は情報源表のREQ-000041、UX-000035、IA-000009、UI-000008、SPEC-000012、ARCH-000013と各既存qa-000007導出キーであり、上表は主たる観測Ownerを示す。工程固有の情報・体験・表示条件も情報源表から非UTの4項目へ接続する。複数Sourceの同じ意味を重複項目化しない。MCPの初回設定・状態照会非公開は[QA-000009／EST-ST-015](../QA-000009/quality_definition.md)へSame統合し、鍵の正のEffectと公開面の負の確認を分離する。5項目と更新EST-ST-015はNot Run。RFD-UT-023のSource／Test候補接続を除き、具体保存・受領観測・Source／Test・実環境・Evidence接続はOPEN。正式評価はNot Runで、定義接続は実行・保証成立を意味しない。
 
 ## 二Surface再編の現在認可・鍵境界
 
@@ -145,9 +145,11 @@ Runtime活動ReaderもRFD-IT-013の認可済み集合を使う。未許可入力
 
 ### 最新契約の実行状態
 
-RFD-ST-003、RFD-ST-004、RFD-IT-013、RFD-UAT-007、RFD-ST-016、RFD-IT-017〜019、RFD-UT-020、RFD-IT-021、RFD-ST-022は **Not Run**。旧IDのEvidenceは旧契約の履歴であり、新契約のPassへ流用しない。RFD-UT-020だけSource／Test Symbol接続済みで、候補試験の局所実行は成功した。正式Local Item結果／Evidence評価はNot Run、他ItemのTest Symbol・実行・Evidenceへの接続は未完了。固定8操作の担当Roleは採用済み。内容権限の具体語彙、具体API・Schema・Store・Source接続はOPEN。Profile管理のRoleはこの固定8操作では確定しない。新しい権限FrameworkやBootstrap修復は導出しない。
+RFD-ST-003、RFD-ST-004、RFD-IT-013、RFD-UAT-007、RFD-ST-016、RFD-IT-017〜019、RFD-UT-020、RFD-IT-021、RFD-ST-022は **Not Run**。旧IDのEvidenceは旧契約の履歴であり、新契約のPassへ流用しない。RFD-UT-020とRFD-UT-023のみSource／Test Symbol接続済みで、候補試験の局所実行は成功した。正式Local Item結果／Evidence評価はNot Run、他ItemのTest Symbol・実行・Evidenceへの接続は未完了。固定8操作の担当Roleは採用済み。内容権限の具体語彙、具体API・Schema・Store・Source接続はOPEN。Profile管理のRoleはこの固定8操作では確定しない。新しい権限FrameworkやBootstrap修復は導出しない。
 
 ## 4. 評価とEvidence
+
+初回設定ではRFD-UT-023のSource／Test Symbolと候補局所実行を接続済み。正式Local Item／Evidence評価はNot Run。RFD-IT-024／IT-025／ST-026／UAT-027、物理read・Root・排他・保存・Host・鍵・本番Consumerの接続はOPENであり、UTの成功から初回全体完成を推定しない。
 
 通常管理のPassは各Local Itemが宣言した段階・Oracle・終了後条件で判定する。RFD-UT-020は純粋判定とI/Oなし、RFD-IT-021は変更前認可・同一操作／改訂の両除去保存・読戻し、RFD-ST-022は実公開入口・両除去／部分結果の表示・次要求、RFD-UAT-007は利用者理解を確認する。RFD-IT-017は元発行再観測と確定後配送未確認、RFD-ST-016は各交換内exactと別明示交換を確認する。正当な別操作の新資格発行は、元操作の重複発行・自動再発行0と区別する。UT／UATだけから保存成立を証明しない。結果statusだけから書込み0や資源0を推定しない。
 

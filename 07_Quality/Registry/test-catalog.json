@@ -670,6 +670,19 @@
   ],
   "tests": [
     {
+      "id": "access-management:unit:initialization-state-evaluation",
+      "owner": "access-management",
+      "path": "40_Develop/access-management/tests/unit/initialization/state-evaluation.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": ["host-initialization", "state-classification", "explicit-start", "invalid-input"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["initialization_matrix_24_exact", "invalid_observation_stopped", "implicit_coercion_not_executed", "result_not_shared", "initialization_judgement_no_io"],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "access-management:unit:management-permission",
       "owner": "access-management",
       "path": "40_Develop/access-management/tests/unit/access/management-permission.contract.test.ts",

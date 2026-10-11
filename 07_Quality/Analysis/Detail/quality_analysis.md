@@ -197,9 +197,9 @@ Domain Model詳細設計§9.1の通常保存完了は、同じLock内で一度�
 | Access Management・Domainの最新詳細 | 認可済み集合だけの集約、部分・競合・出所の保持、Owner分離 | QA-000007／RFD-IT-019 | Not Run |
 | MCPの最新詳細 | 非鍵解除の同一受理操作／改訂・両除去読戻しと対象外／本体保持・取消非証明を意味を変えず搬送する。一覧・Schema・登録・dispatchに全鍵操作と鍵回復参照なし、要求Bearer認証継続 | QA-000009／EST-IT-010、EST-ST-015 | Not Run |
 
-参照正本は[Access Management](../../../06_Architecture/Details/access-management/01_Architecture.md)、[Workbench](../../../06_Architecture/Details/workbench-server/01_Architecture.md)、[MCP](../../../06_Architecture/Details/mcp-server/01_Architecture.md)、[Domain](../../../06_Architecture/Details/domain-model/01_Architecture.md)の最新詳細である。既存のMapped／Coveredは導出関係の投影であり、上記変更の実行Passを示さない。RFD-UT-020だけSource／Test Symbol接続済みで、候補試験の局所実行は成功した。正式Local Item結果／Evidence評価はNot Run、他ItemのTest Symbol・実行・Evidenceまでの接続は未完了。旧Evidenceは歴史的証跡として維持する。
+参照正本は[Access Management](../../../06_Architecture/Details/access-management/01_Architecture.md)、[Workbench](../../../06_Architecture/Details/workbench-server/01_Architecture.md)、[MCP](../../../06_Architecture/Details/mcp-server/01_Architecture.md)、[Domain](../../../06_Architecture/Details/domain-model/01_Architecture.md)の最新詳細である。既存のMapped／Coveredは導出関係の投影であり、上記変更の実行Passを示さない。RFD-UT-020とRFD-UT-023のみSource／Test Symbol接続済みで、候補試験の局所実行は成功した。正式Local Item結果／Evidence評価はNot Run、他ItemのTest Symbol・実行・Evidenceまでの接続は未完了。旧Evidenceは歴史的証跡として維持する。
 
-固定8操作の担当Roleと今回の追加判断は採用済み。既存Local ItemのSource Model／Model Itemへ対象Detailと反証条件を接続し、185項目を増やさない。RFD-UT-020の固定管理判定Source／Test Symbolと候補局所実行を除き、具体API・保存Schema・他Source／Test・実境界は未成立。MCPの通常管理Toolを新規採用せず、採用済み非鍵入口の同値搬送はQA-000009／EST-IT-010、鍵回復参照を含む鍵の4面非公開はEST-ST-015で別に確認する。今回の契約・品質限定独立レビュー済み・残指摘0であり、Not Run・過去Evidenceの適用範囲を維持する。
+固定8操作の担当Roleと今回の追加判断は採用済み。既存Local ItemのSource Model／Model Itemへ対象Detailと反証条件を接続し、この通常管理伝播では185項目を増やさなかった。現在はRFD-UT-020の固定管理判定とRFD-UT-023の初回判定のSource／Test Symbolと候補局所実行を除き、具体API・保存Schema・他Source／Test・実境界は未成立。正式Local Item／Evidence評価はNot Run。MCPの通常管理Toolを新規採用せず、採用済み非鍵入口の同値搬送はQA-000009／EST-IT-010、鍵回復参照を含む鍵の4面非公開はEST-ST-015で別に確認する。通常管理伝播の契約・品質限定独立レビュー済み・残指摘0であり、Not Run・過去Evidenceの適用範囲を維持する。
 
 
 ## 初回DetailのLocal Item接続 — 2026-10-11
@@ -210,4 +210,4 @@ Domain Model詳細設計§9.1の通常保存完了は、同じLock内で一度�
 | BHV-000012 | RFD-UT-023、RFD-IT-024、RFD-IT-025、RFD-ST-026 | Not Run |
 | PRT-000008.spec-000012 | RFD-IT-025、RFD-ST-026、RFD-UAT-027／EST-ST-015 | 正の成立とMCP負境界を別Ownerへ接続、Not Run |
 
-3はDetail処置行数であり、独立義務・Local Item数ではない。5項目への定義接続で旧未接続差分だけ解消する。Source／Test／実行・新Evidence・物理保存・受領観測は未完了。今回13文書の定義接続は契約・品質の限定独立レビュー済み・残指摘0。
+3はDetail処置行数であり、独立義務・Local Item数ではない。5項目への定義接続で旧未接続差分だけ解消する。RFD-UT-023のSource／Test Symbolと候補局所実行だけ接続済みで、正式Local Item／Evidence評価はNot Run。他初回項目のSource／Test／実行・新Evidence・物理保存・受領観測は未完了。今回13文書の定義接続は契約・品質の限定独立レビュー済み・残指摘0。

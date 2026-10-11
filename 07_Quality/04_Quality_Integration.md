@@ -133,7 +133,7 @@ Canonical設計集合と個別Releaseの検証対象を分ける。Local Itemを
 
 | 詳細設計領域 | 検証単位 | 接続する検証目標 | Local Item | 処置状態 | 未確認／再評価条件 |
 |---|---|---|---|---|---|
-| [Access Management](../06_Architecture/Details/access-management/01_Architecture.md) | access-management.host-initialization | QA-000007 | RFD-UT-023、RFD-IT-024、RFD-IT-025、RFD-ST-026、RFD-UAT-027 | Defined／Not Run | Source／Test、保存・配送・受領・通常接続・所有資源の実観測はOPEN |
+| [Access Management](../06_Architecture/Details/access-management/01_Architecture.md) | access-management.host-initialization | QA-000007 | RFD-UT-023、RFD-IT-024、RFD-IT-025、RFD-ST-026、RFD-UAT-027 | Defined／Not Run | RFD-UT-023のSource／Test候補接続済み、正式EvidenceはNot Run。他初回4項目のSource／Test、保存・配送・受領・通常接続・所有資源の実観測はOPEN |
 | [MCP](../06_Architecture/Details/mcp-server/01_Architecture.md) | 初回設定・状態照会の非公開 | QA-000009 | EST-ST-015（Same更新） | Defined／Not Run | 四面公開集合・Owner呼出し0・Secret0を本番入口で実観測する |
 
 ## 4. 検証項目の閉包

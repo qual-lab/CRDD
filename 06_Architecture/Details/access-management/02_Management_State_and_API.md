@@ -51,6 +51,21 @@
 
 発行と結果記録が確定し配送または受領だけ不明なら、作成済みadministratorへの既存`exchangeCredentialsFromHost`指定交換を別明示操作として選ぶ。初期化再実行・Secret取得APIを作らず、元試行と別交換を分離する。配送不明と配送確定後の受領不明を混同しない。初回状態readにVerifier・salt・Secret・任意Pathを含めず、MCP／Remote Workbenchへ公開しない。
 
+### 2.2 初回状態の純粋判定 — 2026-10-11
+
+`evaluateHostInitializationState`をPackage Rootから局所公開する候補を実装した。これは§2.1の物理read・初期化操作ではなく、保存Ownerが取得した観測分類と明示開始のBooleanから四状態と次の処置を返す純粋計算である。`canStart`は形式上の条件成立で、Host信頼、Root・排他、相関保存、UUID・鍵EffectのAuthorityではない。現在のSourceはこれらの実処置へ接続していない。
+
+| 管理観測 | 進行試行の観測 | 判定と次の処置 |
+|---|---|---|
+| `uninitialized` | `absent` | `uninitialized`。明示開始trueだけ`canStart: true`／`start`、falseは`await_explicit_start` |
+| `uninitialized`または`same_attempt` | `confirmed` | `in_progress`／`observe_attempt`。新規開始不可 |
+| `existing` | `absent` | `existing`／`reject_initialization`。新規開始不可 |
+| その他、未知、不正型、相関矛盾 | 任意 | `unknown`／`stop`。新規開始不可 |
+
+`absent`は進行試行の確認済み不存在で、単一Fileの欠測ではない。`confirmed`は確認済みの進行試行だけを表し、過去の終了記録の存在を含めない。`same_attempt`は管理状態と同じ元試行の結合を呼出側が確認した分類であり、本関数がIdentityを証明するものではない。完了済みの初回記録を保持する場合、その履歴を進行試行へ転用せず、保存Ownerが現在の既存管理状態と進行試行の不存在を別に観測する。保存Owner・具体Schema・その観測処理は未実装である。
+
+局所UTは`RFD-UT-023`へ接続し、四管理観測×三試行観測×開始二値の24組と、不正値・暗黙変換なし・返却値非共有を確認する。候補試験の成功は正式Local Item評価や物理保存・Host入口の成立ではない。固定15Fileの契約・品質限定独立再レビューは両方Pass、全重大度の残指摘0。
+
 ## 3. 内部状態と公開読取り
 
 | 内部論理情報 | 同一管理改訂で保持する内容 |

@@ -5,6 +5,8 @@
   "symbols": [
     { "symbolId": "access-management.public-api", "kind": "module", "path": "src/index.ts", "archIds": ["ARCH-000013"] },
     { "symbolId": "access-management.management-permission", "kind": "file", "path": "src/access/management-permission.ts", "archIds": ["ARCH-000013"] },
-    { "symbolId": "access-management.test.unit.management-permission", "kind": "test-suite", "path": "tests/unit/access/management-permission.contract.test.ts", "qaIds": ["QA-000007"], "localTestIds": ["RFD-UT-020"], "verifies": ["access-management.public-api", "access-management.management-permission"] }
+    { "symbolId": "access-management.test.unit.management-permission", "kind": "test-suite", "path": "tests/unit/access/management-permission.contract.test.ts", "qaIds": ["QA-000007"], "localTestIds": ["RFD-UT-020"], "verifies": ["access-management.public-api", "access-management.management-permission"] },
+    { "symbolId": "access-management.initialization-state-evaluation", "kind": "file", "path": "src/initialization/state-evaluation.ts", "archIds": ["ARCH-000013"] },
+    { "symbolId": "access-management.test.unit.initialization-state-evaluation", "kind": "test-suite", "path": "tests/unit/initialization/state-evaluation.contract.test.ts", "qaIds": ["QA-000007"], "localTestIds": ["RFD-UT-023"], "verifies": ["access-management.public-api", "access-management.initialization-state-evaluation"] }
   ]
 }

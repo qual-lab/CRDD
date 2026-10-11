@@ -28,6 +28,8 @@
 
 ## Current Quality Projection
 
+初回設定の実装接続については、RFD-UT-023のSource／Test Symbolと候補局所実行だけ接続済み。正式Local Item／Evidence評価はNot Run。他初回4項目、物理read・Root・排他・保存・Host・鍵・本番ConsumerはOPENであり、上記のSource／Test未完了の記述はこの限定接続を除く。UTの成功を初回設定全体の完成へ流用しない。
+
 | 項目 | 現在値 | 根拠・次の処置 |
 |---|---|---|
 | 全体状態 | Quality Design In Progress — Latest Contract Propagation | 最新契約の設計対応と実行成立を区別し、Quality Readyへ昇格しない |
