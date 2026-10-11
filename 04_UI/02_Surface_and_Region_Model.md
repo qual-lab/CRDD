@@ -38,7 +38,7 @@
 
 通常管理とHost回復は入口・Authorityの違いであり、指定ユーザー交換／全員交換は処置範囲の違いである。Host実行能力を通常Remote表示へ持ち込まない。表示対象は現行認可と開示範囲内に限定し、管理能力から内容閲覧権限を推定しない。
 
-鍵の発行・独立失効・交換はadministrator専用固定で、Role詳細権限のON／OFF設定を設けない。通常鍵操作は同一Process Workbench backendだけで提供し、MCPには秘密値の有無を問わず鍵操作の一覧・Schema・登録・dispatchを公開しない。Hostはログイン済みローカル操作者を信頼する対話CLIで交換2操作だけを扱い、追加認証・専用資格・承認コード・OS管理者昇格を要求しない。既存Root／Path検証を維持する。manager／administratorはユーザー登録・表示名変更、developer／managerの割当て・詳細権限、Repository登録・登録解除・公開範囲を管理する。administratorの付与・解除・降格を含むRole変更、administrator詳細権限と鍵3操作はadministratorだけが管理する。developerへ管理操作、managerへ管理者専用操作を設定で委譲しない。
+鍵の発行・独立失効・交換はadministrator専用固定で、Role詳細権限のON／OFF設定を設けない。通常鍵操作は同一Process Workbench backendだけで提供し、MCPには秘密値の有無を問わず鍵操作の一覧・Schema・登録・dispatchを公開しない。通常Host回復はログイン済みローカル操作者を信頼する対話CLIで交換2操作だけを扱い、追加認証・専用資格・承認コード・OS管理者昇格を要求しない。既存Root／Path検証を維持する。manager／administratorはユーザー登録・表示名変更、developer／managerの割当て・詳細権限、Repository登録・登録解除・公開範囲を管理する。administratorの付与・解除・降格を含むRole変更、administrator詳細権限と鍵3操作はadministratorだけが管理する。developerへ管理操作、managerへ管理者専用操作を設定で委譲しない。
 
 ```text
 ┌──────────────────────────────────────┐
@@ -101,3 +101,7 @@ Workbenchは表示面であり、正本、集計規則、Authority判定また�
 - [x] Open・Gapと戻り条件を明示した
 
 固定管理操作の表示範囲は[UI-000008の分担表](Definitions/UI-000008/ui_definition.md#管理操作の固定分担)へ接続する。managerの業務管理とadministrator専用操作を分け、登録・公開・実アクセスを別に示す。管理面の表示は内容閲覧の成立を示さない。
+
+## 初回Host設定の現行伝播
+
+初回設定の承認済み最小構成は[この工程の定義](Definitions/UI-000008/ui_definition.md)へ伝播し、契約／品質限定独立再レビュー済み・残指摘0。未初期化確認・既存状態・確認済み途中状態・観測不能を区別し、既存鍵交換と初回設定を混同しない。元試行の確認と、確定発行後の受け渡し未確認に対する別明示Host交換を分ける。具体画面・端末・振る舞いDetailは未追従であり、旧Passから完成を推定しない。

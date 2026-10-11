@@ -129,3 +129,7 @@ v0.22固有変更はDiscoveryから別途追加
 - OPEN: v0.22 Product固有GUIのPrototype／実画面評価と人間による工程Exit判断。v0.21移行のArchitecture／Quality伝播は完了している
 - [x] ArchitectureまたはSourceから意味を逆輸入していない
 - OPEN: 登録解除・鍵の受け渡し未確認のDefinition・現行1組対応・横断投影は限定伝播・契約／品質独立再レビュー済み（残指摘0）。Detail候補は伝播中・今回の契約／品質限定独立再レビュー済み（残指摘0）。Visual／Architecture／Quality／Sourceは未追従。実画面評価・工程Exitは未完了。旧完成記録を新版へ流用しない。
+
+## 初回Host設定の現行伝播
+
+初回設定の承認済み最小構成は[この工程の定義](Definitions/UI-000008/ui_definition.md)へ伝播し、契約／品質限定独立再レビュー済み・残指摘0。未初期化確認・既存状態・確認済み途中状態・観測不能を区別し、既存鍵交換と初回設定を混同しない。元試行の確認と、確定発行後の受け渡し未確認に対する別明示Host交換を分ける。具体画面・端末・振る舞いDetailは未追従であり、旧Passから完成を推定しない。
