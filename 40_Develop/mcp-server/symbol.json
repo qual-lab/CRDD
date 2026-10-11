@@ -4,18 +4,18 @@
   "subsystem": "mcp-server",
   "symbols": [
     {
-      "symbolId": "mcp.project-context.access-resolver",
+      "symbolId": "mcp.request.access-resolver",
       "kind": "file",
-      "path": "src/project-context/access-resolver.ts",
-      "archIds": ["ARCH-000005", "ARCH-000012", "ARCH-000013"]
+      "path": "src/request/access-resolver.ts",
+      "archIds": ["ARCH-000005", "ARCH-000006", "ARCH-000012", "ARCH-000013"]
     },
     {
-      "symbolId": "mcp.test.integration.access-project-context",
+      "symbolId": "mcp.test.integration.access-capabilities",
       "kind": "test-suite",
-      "path": "tests/integration/access-project-context.integration.test.ts",
-      "qaIds": ["QA-000004", "QA-000007", "QA-000009"],
-      "localTestIds": ["PPR-IT-002", "RFD-IT-013", "RFD-IT-019", "EST-IT-002", "EST-IT-014"],
-      "verifies": ["mcp.project-context.access-resolver", "mcp.source.src.transports.streamable.http.transport"]
+      "path": "tests/integration/access-capabilities.integration.test.ts",
+      "qaIds": ["QA-000004", "QA-000005", "QA-000007", "QA-000009"],
+      "localTestIds": ["PPR-IT-002", "CPR-IT-010", "CPR-IT-012", "RFD-IT-013", "RFD-IT-019", "EST-IT-002", "EST-IT-014"],
+      "verifies": ["mcp.request.access-resolver", "mcp.source.src.transports.streamable.http.transport"]
     },
     {
       "symbolId": "mcp.ai-profile-adapter",

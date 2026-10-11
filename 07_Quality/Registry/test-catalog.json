@@ -3124,16 +3124,16 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "mcp:integration:access-project-context",
+      "id": "mcp:integration:access-capabilities",
       "owner": "mcp-server",
-      "path": "40_Develop/mcp-server/tests/integration/access-project-context.integration.test.ts",
+      "path": "40_Develop/mcp-server/tests/integration/access-capabilities.integration.test.ts",
       "level": "integration",
       "kind": "contract",
-      "semanticTags": ["access-management", "mcp", "project-context", "current-authorization", "http"],
+      "semanticTags": ["access-management", "mcp", "project-context", "topic-meeting", "current-authorization", "http"],
       "environment": "local_component_boundary",
       "externalProviderEffect": false,
       "humanInput": false,
-      "postconditions": ["authorized_projection_only", "unknown_body_stops_whole_result", "request_reauthorization", "listener_absent"],
+      "postconditions": ["authorized_projection_only", "authorized_repository_write_only", "project_identity_bound", "unknown_body_stops_whole_result", "request_reauthorization", "listener_absent"],
       "mandatoryByDefault": true
     },
     {

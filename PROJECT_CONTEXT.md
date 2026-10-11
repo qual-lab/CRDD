@@ -9,7 +9,7 @@ Repository Role: `crdd-standard`
 
 ## 1. 今どうなっているか
 
-最新局所結果：認可済み同Project集合内のTopic／Meeting Relation判定をDomainへ移管した。Domain120／MCP61の計181 Caseと静的検査成功、限定独立再レビューPass・残指摘0。認可と集合選定は構成側に残る。AM本番CRUD搬送・Workbench／Launcher切替・鍵配送・旧REST撤去は未完了。[対象と限界](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#relation判定のdomain移管--2026-10-12)を参照する。
+最新局所結果：現在のAccess Management認証・認可からTopic／Meeting全12操作を実HTTPへ接続した。MCP65／Domain120／Access Management59の計244 Caseと静的検査成功、限定独立再レビューPass・残指摘0。指定Repositoryへの実保存、現在権限・公開解除・失効、Project拘束、Relation集合、公開Schemaを確認した。本番Launcher／Workbench切替・活動／Profile接続・鍵配送・旧REST撤去・正式191項目評価は未完了で、AM全体完成ではない。[対象と限界](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#am認証によるtopicmeeting-mcp接続--2026-10-12)を参照する。
 
 ### 結論
 

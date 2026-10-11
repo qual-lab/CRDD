@@ -14,17 +14,19 @@ CHG-000082の責務再編では実装親Folderを`mcp-server`とする。MCPはA
 
 Routed Adapterは明示Repository IDを分離し、共通Adapterへ要求専用の遅延Resolverを渡す。各操作の完全な純粋Schema検査→取消確認→Resolver一回→取消再確認→Domain操作の順を固定する。Resolverの同期観測中に取消された場合も保存へ進まない。不正入力・開始前取消はResolver 0回、対象拒否nullは既存Invalid params、解決例外は秘密を含まないInternal errorへ閉じる。直接TopicMeetingAccessを渡す既存入口の正常CRUD・改訂競合・保存故障分類は維持する。
 
-これはAM接続の事前条件の是正であり、AMからTopic／Meetingへの本番接続はまだ未成立。manifest Projectと本文Projectの一致、同Project Relation移管、公開Launcher／Workbench、旧REST撤去は後続条件として維持する。保存開始後の取消からrollback・Effect 0を推定しない。
+これはAM接続の事前条件の是正である。manifest Project拘束とDomain Relation移管を利用した実HTTP接続は下記構成で検証するが、公開Launcher／Workbenchの本番切替と旧REST撤去は後続条件として維持する。保存開始後の取消からrollback・Effect 0を推定しない。
 
 取消結果の分類は既存Adapterを維持する。開始前は`-32800`で対象Reader 0回、同期Reader開始後のSignal検出は当該Reader終了後に`-32603 Project Context unavailable`へ閉じ、結果を公開せず後続Reader・暗黙再実行0とする。EST-IT-014への今回の接続は開始前取消の部分範囲だけであり、全取消義務の完成ではない。
 
-### Project Context専用の新Owner接続 — 2026-10-12
+### 現在認可による内容操作の新Owner接続 — 2026-10-12
 
-`createAccessProjectContextMcpResolver`は既存HTTP Transportへ渡す要求専用の構成入口である。Headerの通常認証は初回completedと現在資格を要求し、本文待機後のTool CallではAMの現在許可集合を再取得する。Domain Readerが各許可Repositoryの固定本文と本文版を読み、Project・Repository・本文版・解析Contextの4項目だけをPortfolioへ渡す。認証済み空集合は正常空結果、許可集合不明または一件でも本文不明なら全体を固定エラーへ閉じ、部分成功を返さない。
+`createAccessMcpResolver`（`request/access-resolver.ts`）は既存HTTP Transportへ渡す要求専用の構成入口である。Headerの通常認証は初回completedと現在資格を要求し、本文待機後のTool CallではAMの現在許可集合を再取得する。Domain Readerが各許可Repositoryの固定本文と本文版を読み、Project・Repository・本文版・解析Contextの4項目だけをPortfolioへ渡す。認証済み空集合は正常空結果、許可集合不明または一件でも本文不明なら全体を固定エラーへ閉じ、部分成功を返さない。
 
 Bearerは当該HTTP要求のclosureだけに保持し、保存・共有・応答・下位例外本文へ渡さない。文字列の消去保証は主張しない。開始前取消では集合・本文を読まず、同期Reader開始後は読取り終了を待って結果公開を止める。HTTP終了の資源所有・joinは既存Transportを利用し、新Session・State・Lockを追加しない。
 
-この構成の公開ToolはProject Context一覧と取得の二つだけである。鍵、Profile管理、活動、Topic／Meetingを未接続のまま公開しない。旧CROS Resolver／Shared Host／RESTの本番接続はまだ置換しない。専用Resolverを既存HTTPで実行できることと、公開Launcher・Workbenchを含む全能力の本番切替を区別する。検証はPPR-IT-002、RFD-IT-013／019、EST-IT-002／014の部分範囲へ接続する。
+この構成の公開ToolはProject Context一覧・取得とTopic／Meetingの既存12操作である。Topic／Meetingは完全入力検査と開始前取消の後に現在許可集合を取得し、指定Repositoryが非許可なら固定Invalid params、集合・Root・構成不明なら固定Internal errorへ閉じる。同Projectの全RootをVersion Control公開入口で再観測し、manifest Project拘束付きDomain操作とRelation判定へ渡す。構成中に保存せず、書込みは指定Sourceだけ、Relation探索は同Project許可集合だけとする。一件不明でも部分集合へ後退しない。
+
+鍵、Profile管理、活動は未接続のまま公開しない。旧CROS Resolver／Shared Host／RESTの本番接続はまだ置換しない。このResolverを既存HTTPで実行できることと、公開Launcher・Workbenchを含む全能力の本番切替を区別する。検証はPPR-IT-002、CPR-IT-010／012、RFD-IT-013／019、EST-IT-002／014の部分範囲へ接続する。
 
 | Architecture定義 | この領域が具体化する責務 | Relation状態 |
 |---|---|---|
@@ -187,7 +189,7 @@ Remote CROSではMCP専用の固定Bearerを別に発行しない。HTTP Transpo
 
 通常Handlerの発行にはAMの`authenticateNormalConnection`を用い、有効資格と初回設定`completed`を同じ管理改訂で確認する。初回途中にも利用する`authenticateCredential`だけでは通常接続を許可しない。HTTP本文待機後の内容操作は`resolveRepositoryAccessCollection`で現在認可を再評価し、直ちにDomain固定本文Readerへ渡す。本文取得が一件でも不成立なら固定エラーで全体を停止し、部分Portfolio・`null/missing`へ変換しない。初回完了を確認した認証済み許可対象0件だけを正常な空Portfolioとする。
 
-この接続はProject Context専用Resolverと実HTTP搬送契約から段階確認する。旧Resolver／Shared HostはTopic／Meeting・活動・Profile管理の本番代替が成立するまで撤去せず、新旧認証のfallback合成は行わない。Root能力・Token・内部Path・管理改訂を公開結果へ追加せず、同期Reader開始後の取消をI/O中断やEffect 0と表示しない。要求前の取消は内容読取りを開始せず、開始後は同期処理の終了を待って結果公開を停止する。本段落は実装済み・本番切替済みの表示ではない。
+この接続は`createAccessMcpResolver`の実HTTP搬送契約で段階確認する。現在はContext二操作とTopic／Meeting十二操作の局所構成であり、現在Role／Exposure／失効、固定拒否、manifest Project拘束と同Project Relationへ接続する。先行段階のContext専用構成と現在の十四Tool構成を区別する。旧Resolver／Shared Hostは公開Launcher／Workbenchを含む全能力の本番代替が成立するまで撤去せず、新旧認証のfallback合成は行わない。鍵・活動・Profileは新構成に未接続。Root能力・Token・内部Path・管理改訂を公開結果へ追加せず、同期Reader開始後の取消をI/O中断やEffect 0と表示しない。要求前の取消は内容読取りを開始せず、開始後は同期処理の終了を待って結果公開を停止する。本段落は本番切替済み・AM全体完成の表示ではない。
 
 Orchestratorの実行状態を返すToolは`crdd.get_orchestrator_state`とする。旧名`crdd.get_project_state`はProject全体のCurrent Projectionと誤認し得るため、v0.22の公開候補へ残さない。Project Contextは`crdd.list_projects`と`crdd.get_project_context`で取得し、Runtime DTOを再利用しない。
 

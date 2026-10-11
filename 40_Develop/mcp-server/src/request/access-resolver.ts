@@ -1,8 +1,9 @@
 /**
- * 現在のAccess ManagementからProject Context専用MCPを構成する。
+ * 現在のAccess Managementから内容操作のMCPを構成する。
  * @packageDocumentation
  * @responsibility 要求内認証・内容認可・実本文読取りを既存Ownerへ委譲する。
  * @trace ARCH-000005
+ * @trace ARCH-000006
  * @trace ARCH-000012
  * @trace ARCH-000013
  * @boundary 通常認証→現在許可集合→Domain本文→MCP応答。
@@ -14,31 +15,36 @@ import {
 } from "../../../access-management/src/index.ts";
 import {
   createPortfolioProjection,
+  createTopicOperations,
+  createMeetingOperations,
+  federateTopicMeetingRelations,
   readRepositoryProjectContext,
   type FilesystemStoreRoot,
   type ProjectContextSource,
 } from "../../../domain-model/src/index.ts";
-import { routeMcpRequest } from "../request/route.ts";
+import { resolveVerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
+import { routeMcpRequest } from "./route.ts";
 import type { McpAuthenticatedRequestHandlerResolver } from "../transport/types.ts";
 
 /**
- * 初回完了後の現在資格から要求専用の読取りHandlerを作る。
+ * 初回完了後の現在資格から要求専用の内容Handlerを作る。
  * @responsibility 管理能力から内容を生成せず、公開Callで現在集合を取り直す。
  * @trace ARCH-000005
+ * @trace ARCH-000006
  * @trace ARCH-000012
  * @trace ARCH-000013
  * @input 内部構成が検証した用途限定の管理Root。
  * @returns 通常認証成功時の要求専用Handler、拒否時はnullを返すResolver。
  * @precondition HTTP Transportは要求毎にResolverを呼び、Handlerを要求終了後に共有しない。
- * @postcondition 許可対象の本文が全て取得できた場合だけPortfolioを公開する。
- * @effect 既存AM認証とLock、許可後の固定本文読取り。新StoreやSessionは作らない。
+ * @postcondition Portfolioは全本文成功時だけ、Topic／Meetingは現在許可対象だけを操作する。
+ * @effect 既存AM認証とLock、許可後のDomain読取りと明示CRUD。新StoreやSessionは作らない。
  * @failure 認証不成立はnull、内容認可・本文取得不成立は既存の固定MCPエラー。
  * @invariant 空認可だけ正常空集合。本文不明をnull／missingや部分成功にしない。
- * @boundary AM内部RootからProject Context専用のMCP構成へ渡す。
+ * @boundary AM内部RootからProject ContextとTopic／MeetingのMCP構成へ渡す。
  * @security Bearerを要求closureにだけ保持し、Root・Path・Binding・管理改訂を返さない。文字列消去は保証しない。
  * @concurrency 各HTTP要求が再認証・再認可する。同期Reader開始後は終了を待って取消結果の公開を止める。
  */
-export function createAccessProjectContextMcpResolver(
+export function createAccessMcpResolver(
   root: FilesystemStoreRoot,
 ): McpAuthenticatedRequestHandlerResolver {
   return (token) => {
@@ -48,6 +54,64 @@ export function createAccessProjectContextMcpResolver(
       routeMcpRequest(
         request,
         {
+          /**
+           * 現在許可対象の操作と同ProjectのRelation集合を構成する。
+           * @responsibility 未許可対象・異Project探索・部分集合への後退を防ぐ。
+           * @trace ARCH-000006
+           * @trace ARCH-000013
+           * @input 完全Schema検査後の明示Repository ID。
+           * @returns 指定対象のDomain操作、非許可時はnull。
+           * @precondition 通常認証済みで、入力検査と開始前取消確認が完了している。
+           * @postcondition 同Project全対象を検証し、書込み先は指定Repositoryだけに固定する。
+           * @effect 現在AM集合とRootを観測し、Domain操作を構成する。構成時の保存はない。
+           * @failure 集合・Root・構成不明は固定例外で全体停止する。
+           * @invariant 各Tool Callで再認可し、他要求へ操作や集合を共有しない。
+           * @boundary AM現在認可→Version Control Root→Domain操作／Relation。
+           * @security Bearer、Root、Bindingを公開結果へ渡さない。
+           * @concurrency 同期構成後に既存Adapterが取消を再確認する。保存開始後のrollbackは保証しない。
+           */
+          topicMeetingRepositoryResolver: (repositoryId) => {
+            if (signal.aborted)
+              throw new Error("topic_meeting_access_unavailable");
+            const collection = resolveRepositoryAccessCollection(root, token);
+            if (collection.status !== "completed")
+              throw new Error("topic_meeting_access_unavailable");
+            const selected = collection.repositories.find(
+              (repository) => repository.repositoryId === repositoryId,
+            );
+            if (selected === undefined) return null;
+            const sources = collection.repositories
+              .filter(
+                (repository) =>
+                  repository.manifest.projectId === selected.manifest.projectId,
+              )
+              .map((repository) => {
+                if (signal.aborted)
+                  throw new Error("topic_meeting_access_unavailable");
+                const repositoryRoot = resolveVerifiedRepositoryRoot(
+                  repository.root,
+                );
+                if (repositoryRoot === null)
+                  throw new Error("topic_meeting_access_unavailable");
+                return {
+                  repositoryId: repository.repositoryId,
+                  projectId: repository.manifest.projectId,
+                  application: {
+                    topic: createTopicOperations(
+                      repositoryRoot,
+                      repository.manifest.projectId,
+                    ),
+                    meeting: createMeetingOperations(
+                      repositoryRoot,
+                      repository.manifest.projectId,
+                    ),
+                  },
+                };
+              });
+            if (signal.aborted)
+              throw new Error("topic_meeting_access_unavailable");
+            return federateTopicMeetingRelations(repositoryId, sources);
+          },
           projectContext: {
             /**
              * 内容Callの現在認可と実本文を一つのPortfolioへ閉じる。

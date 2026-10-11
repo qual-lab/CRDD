@@ -1381,6 +1381,16 @@ Exposureは既存登録とdevelopment／managementの明示集合だけ。空集
 
 局所結果: Node v24.19.0の各Packageの`npm test`でDomain118／AM57、計175 Case成功、Fail／Cancel／Skip0、両Exit0。Domain41.6481471秒、AM45.6357766秒。各静的3軸成功、Domain試験の同値concat→template同期後も静的3軸と直接3 Case再実行成功（0.7463208秒）。最初のBiome書込みはOS1224で不成立、同じ処理の再実行で解消した。初回値を成功結果へ混ぜない。固定8Pathの限定独立レビューPass・全重大度残指摘0、基準HEAD `7642b4dd`、固定tracked差分Hash `3742ea562c6901c31e5863dcaf05530905bdde72`、Reader SHA256 `69c90539b948fbfc1cf076b848580c9a6df6cb741b615d8886f1497cce042dae`、Domain直接試験SHA256 `05ef5a9982c0fa05111717c1945ce89736848165e9205113a7f78adfe674fcea`、AM搬送試験SHA256 `68b8fc7307c935ca31ac9142b8d33bdaac3629378ee87dd5cb4acdb071e85d3d`。差分空白確認成功、自己生成AM／Domain Reader試験Root残存0。完全出力は上記コマンドで再生成できるため実行別書庫を追加しない。結果同期だけを行い、本番Consumerと実failure集約停止、正式191・全体完成は未成立を維持する。
 
+## AM認証によるTopic／Meeting MCP接続 — 2026-10-12
+
+局所結果：基準HEAD `5e235a2a02a78c9e1eca277bcf91ac0121872e80`、Node v24.19.0、2026-10-12 JST。各Packageの`npm test`でMCP65／Domain120／AM59の計244 Case、書式・型・Lint成功、失敗／取消／skip／todo 0、全Exit 0。最終MCP再実行29.3127592秒、変更のないDomain45.1805834秒／AM47.2918874秒。限定独立レビューの2指摘（旧2 Tool説明の現在形残存、Repository ID必須Schemaの直接検証不足）を是正し、再レビューは全重大度残指摘0・Pass。Source SHA256 `5bdeac9b641846c1ba064cb9f54a1b0441108a8f8e71d68963733c102e3895b9`、IT SHA256 `c4ae182f53555d79e6088612bc4beb1a3299c8cc7e0a37516c34dd8a3f6f79a4`。Schemaの必須指定を外した一時変異は期待どおり失敗し、復元後のroute SHA256 `eb01acb7dbd3c836cce3e632c76cbef356f5b35cc7f2aee0f08f5b565a915803`と差分なしを確認した。自己生成試験Directory残存0。端末で結果を確認し、実行別Evidence書庫は追加しない。正式191項目Not Run、本番Launcher／Workbench未切替、活動／Profile・鍵配送・旧REST撤去未完了、AM全体未完成を維持する。
+
+基準HEAD `5e235a2a02a78c9e1eca277bcf91ac0121872e80`、着手時clean。既存Portfolio構成を保持し、`request/access-resolver.ts`の`createAccessMcpResolver`へTopic／Meeting全12操作を追加する。承認済み再編内の実装追加であり、公開Launcher切替ではない。着手前の読み取り専用専門確認は着手可・追加人間判断不要で、条件を本節へ統合した。
+
+完全Schema検査と開始前取消の後だけ、同要求の現在AM許可集合を再取得する。明示Repository非許可はnullから既存`-32602`、集合・Root・構成不明は固定`-32603`。同Project全Repositoryを既存Version Control公開入口で再観測し、manifest Project拘束付きDomain操作とDomainのRelation判定へ接続する。一件不明でも部分集合へ後退しない。新State／Lock／Session／Cache／認可Framework／read-write権限分離は追加しない。旧CROS・Shared Host・REST・Launcher・実Host秘密は不変更。
+
+必須検証は実HTTP全12操作、入力不正／事前取消の対象観測0、非許可拒否、現在Role／Exposure／失効、foreign本文の保存0、Relation0／1／多と異Project非探索、Root不明の全体停止、既存Portfolio保持、HTTP終了と自己生成Root回収。同期保存開始後の取消からrollback・Effect0は推定しない。MCP／AM／Domain回帰、静的3軸、固定候補限定独立レビューとArchitecture／QA／Symbol直接整合を実施する。規範不変更で準拠監査、Provider／Docker不変更で署名Provider E2Eは対象外。正式191項目・本番切替・AM全体完成は未成立を維持する。
+
 ## AM認証によるProject Context専用MCP接続 — 2026-10-12
 
 後続Topic／Meeting接続の着手前整合で二つの欠落を確認した。第一はMCPの完全入力検査・取消より先にRepository解決を行う順序、第二はmanifest Projectと本文Projectの拘束である。第一を先行是正し、同じ共通Adapterへ遅延Resolverを渡して検査→取消→現在解決一回→取消再確認→Domain操作にする。全12 Toolの不正／正規／取消／解決例外と既存CRUDを確認し、独立レビューする。Schema複製・新Framework・認可Storeは追加しない。第二はDomain Ownerの拘束とRelation移管、新AM MCP構成・HTTP試験で接続するまで未完了として保持する。旧Shared Host・Profile・活動・鍵・Docker・REST撤去は今回不変更。追加人間判断は不要。

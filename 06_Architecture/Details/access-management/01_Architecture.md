@@ -7,6 +7,8 @@
 
 管理API・内部状態・物理保存方式の比較・移行・出版後故障の具体化候補は[管理APIと現在状態の保存設計](02_Management_State_and_API.md)が所有する。本文は責務と意味・処理境界を所有し、具体化候補から実装Readyや保存保証の成立を推定しない。
 
+内容操作の局所Consumerは[MCP詳細の現在認可構成](../mcp-server/01_Architecture.md#現在認可による内容操作の新owner接続--2026-10-12)へ接続する。AMはTool Call時の現在許可集合と実Root／manifestを返し、内容CRUDと同ProjectのRelation判定はDomainが担当する。この実HTTP構成の検証は公開Launcher／Workbenchの切替、鍵配送、旧REST撤去、AM全体完成を意味しない。
+
 ## 基本設計と上流Detailの関係
 
 | 正式入力 | 担当する断面 | Relation状態 |
