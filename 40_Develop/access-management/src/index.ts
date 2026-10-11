@@ -30,6 +30,7 @@ export {
 } from "./state/parse.ts";
 export {
   createInitialAdministrator,
+  createInitialCredential,
   initializeAccessManagementState,
   readAccessManagementState,
   updateAccessManagementState,

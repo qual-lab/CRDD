@@ -701,7 +701,7 @@ fixture是正後の書式・型・Lintと局所競合1件はPass、Fail／Skip 0
 
 基準Commitは`0b5ae212`。Repository正常CRUDと公開種別固定の既存Caseを照合すると、公開Topic／Meeting面からの通常update・改訂競合・確認なし／確認付きdeleteが未観測である。既存`CPR-IT-010`の同Caseを両公開操作へ拡張し、本文bytes・改訂・拒否Effect 0・削除後の取得／一覧と実体不存在を確認する。種別誤用・専用操作の非公開・既存検索／Relation／昇格／OutcomeのOracleは保持し、正本種別を生成時に固定するRuntimeは変更しない。新fixture Rootは検証済みRepository-local `.crdd/tests`へ限定し、finally回収を観測する。これは通常CRUDの公開接続であり、全公開操作母集合・実OS故障・非協調Writerの完成主張ではない。静的確認、局所とPackage回帰、実装・品質の限定独立レビューを行う。
 
-初回確認は削除前確認の返却値に存在しないexistsを期待したため、型確認と局所試験が失敗した。実契約のrecord／relationPathsへ照合を訂正し、書式・型・Lintの成功後に局所1件を再実行してPass、Fail／Skip 0。Runtimeは不変で、自己生成Rootはfinallyで回収した。Package回帰と限定独立レビューは未完了である。
+初回確認は削除前確認の返却値に存在しないexistsを期待したため、型確認と局所試験が失敗した。実契約のrecord／relationPathsへ照合を訂正し、書式・型・Lintの成功後に局所1件を再実行してPass、Fail／Skip 0。Runtimeは不変で、自己生成Rootはfinallyで回収した。Package回帰と固定10ファイルの限定独立再レビューPass・全重大度の残指摘0である。
 
 補強後のDomain全113件と書式・型・LintはPass、Fail／Skip 0。限定レビューは品質指摘0、実装Minor1件で、競合・確認なし削除・確認付き削除のstatusが未観測だった。全結果統合後、既存reason／Effectとblocked／blocked／completedを共同確認する3assertの追加を両観点へ照合して是正した。Runtime・入力・正本bytes・QA IDは不変。最終局所確認と限定再レビューの結果を別記する。
 
@@ -1230,6 +1230,12 @@ UTはARCH由来だけ、ITは相関確定前Effect0と既知Root準備Effectの�
 
 必須確認はAM Packageのformat・type・lint・全UTと、契約／品質の限定独立レビュー、文書・直接影響・Symbol参照・差分確認。標準準拠規則は不変更のため準拠監査は対象外。I/O・実処置は未接続のためHost実試験・署名・Docker／Provider E2Eは実行せず、必要な後続Gateへ残す。Node v24.19.0でローカルキャッシュから固定開発依存を配置し、静的3軸と7 UT（既存4＋初回3）は成功。初回には24組合せを含む。正式Local Item評価はNot Run、保存・資格・Host入口・本番Consumer・全体Readyは未成立。固定15Fileの契約・品質限定独立再レビューは両方Pass、全重大度の残指摘0。台帳の登録漏れと現在投影の矛盾を是正した。試験台帳は当該ID・Path各1件で実在、差分確認成功。結果状態だけを同期し、この実装単位をコミットする。
 # AM鍵生成・照合の技術層 — 2026-10-12
+
+## 後続: 初回資格保存の局所接続
+
+基準Commit `01d5ce3e`。先行した読取り専用整合確認に従い、AM既存保存Ownerと公開Root、既存RFD-IT-024試験を変更する。容量予約→一生成→完全資格・初回credential_storedの同改訂出版→読戻し→既存Lock解放を接続する。元発行はattemptId、出版操作は別UUID。再入場は保存済み資格IDだけを返し、生鍵を復元しない。cleanup不明の部分結果に生鍵を含めない。実Host Store、旧Source、旧Evidenceは変更せず、新Root／Lock／Receipt／回復Frameworkは作らない。
+
+AM全33 Case・静的3軸成功。直接投影の同期漏れModerate1を是正し、固定10ファイルの限定独立再レビューPass・全重大度の残指摘0。直接伝播・差分確認成功。標準準拠規則不変更のため準拠監査は対象外、Host／Provider本番未接続のため署名・Docker／Provider E2Eは後続Gateで行う。配送方式の人間判断と認証・現在認可・本番接続は別段階であり、この保存部分から191項目正式Passや全体完了を推定しない。
 
 基準Commitは`5d012458`。読取り専用着手前整合確認で、技術層と初回保存は採用済み契約内で着手可、新しい人間判断なし。配送方式は後段の判断として分離し、cleanup不明の部分結果へSecretを追加しない。変更分類は既存暗号方式の責務移管準備と直接品質接続。User保存・旧Source・実Host Store・旧Evidenceを変更しない。
 

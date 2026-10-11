@@ -4,13 +4,15 @@
 状態: Canonical
 維持責任者: Qual-Lab
 
+現在はRFD-IT-024の相関・User・初回資格保存部分までSource／Test候補を接続済み。AM全33 Case・静的3軸成功、固定10ファイルの限定独立再レビューPass・全重大度の残指摘0。配送／受領／通常接続、認証・現在認可・本番Host／Consumerは未成立。設計集合191項目の正式評価Not Runを維持する。以下の29 Case以前は各接続時点の局所履歴である。
+
 鍵生成・照合の技術層は既存RFD-IT-017／018のNode crypto部分へ接続する候補である。新Local Itemを追加せず、保存・現在認可・失効・交換・配送・本番Surfaceとの未接続を維持する。AM全29 Case・静的3軸成功は技術局所実行、191項目の正式評価はNot Runである。
 
-初回管理者保存をRFD-IT-024のUser部分へ追加接続した。canonical相関、保存済み同Userへの再入場、生成前拒否、保存途中Process喪失、二Process競合、出版後Lock解放不明を局所確認する。Root準備・鍵・配送・認証・本番Host・初回全体は未成立。新Local Itemは追加せず191項目・Not Runを維持する。下段のUser生成未成立はこの部分接続前の履歴である。
+以下は初回資格保存接続前の履歴である。初回管理者保存をRFD-IT-024のUser部分へ追加接続した。canonical相関、保存済み同Userへの再入場、生成前拒否、保存途中Process喪失、二Process競合、出版後Lock解放不明を局所確認する。Root準備・鍵・配送・認証・本番Host・初回全体は未成立。新Local Itemは追加せず191項目・Not Runを維持する。下段のUser生成未成立はこの部分接続前の履歴である。
 
 2026-10-12の通常保存Adapter局所実装は既存RFD-IT-021の保存部分へ接続した。新Local Itemを追加せず設計集合191項目を維持する。AM全19 Case・静的3軸成功は部分実行であり、現在認可・六管理操作・初回／鍵処置・公開縦断の全体成立とは分離する。正式項目評価Not Run、Quality Ready未成立を維持する。
 
-初回相関の保存部分をRFD-IT-024へ追加接続した。既存Rootでの排他的baseline作成・読戻し・exact再入場・部分書込み保持・二Process競合・解放不明を局所確認する。Root準備、User生成、鍵、配送、本番Host、初回全体は未成立。191項目・Not Runを維持する。
+以下はUser・初回資格保存接続前の履歴である。初回相関の保存部分をRFD-IT-024へ追加接続した。既存Rootでの排他的baseline作成・読戻し・exact再入場・部分書込み保持・二Process競合・解放不明を局所確認する。Root準備、User生成、鍵、配送、本番Host、初回全体は未成立。191項目・Not Runを維持する。
 
 ## 1. 統合の責務
 
@@ -141,7 +143,7 @@ Canonical設計集合と個別Releaseの検証対象を分ける。Local Itemを
 
 | 詳細設計領域 | 検証単位 | 接続する検証目標 | Local Item | 処置状態 | 未確認／再評価条件 |
 |---|---|---|---|---|---|
-| [Access Management](../06_Architecture/Details/access-management/01_Architecture.md) | access-management.host-initialization | QA-000007 | RFD-UT-023、RFD-IT-024、RFD-IT-025、RFD-ST-026、RFD-UAT-027 | Defined／Not Run | UT023とIT024相関・User保存部分の候補接続済み。IT024の鍵／配送／本番Host部分とIT025／ST026／UAT027、Root準備・旧入力本番観測・認証・本番ConsumerはOPEN。正式評価Not Run |
+| [Access Management](../06_Architecture/Details/access-management/01_Architecture.md) | access-management.host-initialization | QA-000007 | RFD-UT-023、RFD-IT-024、RFD-IT-025、RFD-ST-026、RFD-UAT-027 | Defined／Not Run | UT023とIT024相関・User・初回資格保存部分の候補接続済み。IT024の配送／受領／通常接続／本番Host部分とIT025／ST026／UAT027、Root準備・旧入力本番観測・認証・本番ConsumerはOPEN。正式評価Not Run |
 | [MCP](../06_Architecture/Details/mcp-server/01_Architecture.md) | 初回設定・状態照会の非公開 | QA-000009 | EST-ST-015（Same更新） | Defined／Not Run | 四面公開集合・Owner呼出し0・Secret0を本番入口で実観測する |
 
 ## 4. 検証項目の閉包

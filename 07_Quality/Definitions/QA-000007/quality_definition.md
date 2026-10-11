@@ -153,11 +153,11 @@ Runtime活動ReaderもRFD-IT-013の認可済み集合を使う。未許可入力
 
 ### 最新契約の実行状態
 
-RFD-ST-003、RFD-ST-004、RFD-IT-013、RFD-UAT-007、RFD-ST-016、RFD-IT-017〜019、RFD-UT-020、RFD-IT-021、RFD-ST-022は **Not Run**。旧IDのEvidenceは旧契約の履歴であり、新契約のPassへ流用しない。現在はRFD-UT-020／023／028、IT021保存部分、IT024相関・User保存部分、IT017／018のNode crypto技術部分のSource／Test Symbolと候補局所実行を接続済み。正式191項目結果／Evidence評価はNot Run。IT017／018の保存・発行確定・失効・認証主体・現在Role・配送・本番入口、上記以外の未接続部分はOPEN。固定管理分担・内容語彙・Schemaの現在契約は各正本に従い、本番Consumer完成を推定しない。Profile管理のRoleはこの固定分担では確定しない。新しい権限FrameworkやBootstrap修復は導出しない。
+RFD-ST-003、RFD-ST-004、RFD-IT-013、RFD-UAT-007、RFD-ST-016、RFD-IT-017〜019、RFD-UT-020、RFD-IT-021、RFD-ST-022は **Not Run**。旧IDのEvidenceは旧契約の履歴であり、新契約のPassへ流用しない。現在はRFD-UT-020／023／028、IT021保存部分、IT024相関・User・初回資格保存部分、IT017／018のNode crypto技術部分のSource／Test Symbolと候補局所実行を接続済み。正式191項目結果／Evidence評価はNot Run。IT017／018の保存・発行確定・失効・認証主体・現在Role・配送・本番入口、上記以外の未接続部分はOPEN。固定管理分担・内容語彙・Schemaの現在契約は各正本に従い、本番Consumer完成を推定しない。Profile管理のRoleはこの固定分担では確定しない。新しい権限FrameworkやBootstrap修復は導出しない。
 
 ## 4. 評価とEvidence
 
-初回設定ではRFD-UT-023とRFD-IT-024の相関・User保存部分のSource／Test Symbol・候補局所実行を接続済み。正式Local Item／Evidence評価はNot Run。IT024の鍵／配送／本番Host部分とIT025／ST026／UAT027、Root準備・旧入力本番観測・認証・本番ConsumerはOPENであり、部分成功から初回全体完成を推定しない。
+初回設定ではRFD-UT-023とRFD-IT-024の相関・User・初回資格保存部分のSource／Test Symbol・候補局所実行を接続済み。正式Local Item／Evidence評価はNot Run。IT024の配送／受領／通常接続／本番Host部分とIT025／ST026／UAT027、Root準備・旧入力本番観測・認証・本番ConsumerはOPENであり、部分成功から初回全体完成を推定しない。
 
 通常管理のPassは各Local Itemが宣言した段階・Oracle・終了後条件で判定する。RFD-UT-020は純粋判定とI/Oなし、RFD-IT-021は変更前認可・同一操作／改訂の両除去保存・読戻し、RFD-ST-022は実公開入口・両除去／部分結果の表示・次要求、RFD-UAT-007は利用者理解を確認する。RFD-IT-017は元発行再観測と確定後配送未確認、RFD-ST-016は各交換内exactと別明示交換を確認する。正当な別操作の新資格発行は、元操作の重複発行・自動再発行0と区別する。UT／UATだけから保存成立を証明しない。結果statusだけから書込み0や資源0を推定しない。
 
@@ -235,7 +235,7 @@ User経路固有の二Process競合、pending／replace確定とrename後の実P
 
 ## 初回相関保存の局所接続 — 2026-10-12
 
-本節はUser保存接続前の相関部分接続時点の履歴である。現在はUT023とIT024相関・User保存部分だけSource／Test候補接続済みで、IT024の鍵／配送／本番Host部分とIT025／ST026／UAT027はOPEN、正式全項目評価はNot Runを維持する。
+本節はUser保存接続前の相関部分接続時点の履歴である。現在はUT023とIT024相関・User・初回資格保存部分までSource／Test候補接続済みで、IT024の配送／受領／通常接続／本番Host部分とIT025／ST026／UAT027はOPEN、正式全項目評価はNot Runを維持する。
 
 RFD-IT-024の相関部分を既存state保存ITへ接続する。明示開始と双方未初期化の一回観測、固定Roleと空集合を持つrevision 1の排他的作成・正確byte読戻し、同元試行再入場で新規write／callback／User／鍵0を確認する。別試行、partial current、pending／replace残存、旧観測の既存・途中・不明・不正・throwは作成せず保持停止する。実子Processのwrite途中／close後readback前の喪失、二Process競合で採用一件、Lock解放不明で既知出版を保持する反証を接続する。
 

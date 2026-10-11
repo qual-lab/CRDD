@@ -40,6 +40,10 @@ v0.21.0は公開済み、v0.22.0とCHG-000082は未完了である。責務再�
 
 ## 3. 今、人間が決めることは何か
 
+### AM初回資格保存の局所候補 — 2026-10-12
+
+初回Userに続く完全資格保存を既存Lockへ接続した。生鍵の非保存・同試行の再表示禁止・Process喪失後の段階再観測・Lock解放不明時の秘密非返却を含むAM全33 Caseと静的3軸成功。固定10ファイルの限定独立再レビューPass・全重大度の残指摘0。配送・受領・通常接続、認証・現在認可、Host／Workbench／MCP本番接続は残り、Access Management全体の完成ではない。
+
 ### AM鍵生成・照合の局所候補 — 2026-10-12
 
 既存cros.v1形式の生成・照合をAMの専門責務へ接続した。固定KDFと旧方式の一致、不正形式の暗号計算前拒否を含むAM全29 Case・静的3軸成功。固定13ファイルの限定独立再レビューPass・全重大度の残指摘0。次は初回鍵保存、配送、認証、本番Consumerの接続であり、鍵管理全体の完成ではない。
@@ -56,7 +60,7 @@ v0.21.0は公開済み、v0.22.0とCHG-000082は未完了である。責務再�
 
 管理状態の純粋Schema検査を実装し、RFD-UT-028・Source／Test Symbol・試験台帳へ接続した。AM Packageは静的3軸と全11 Case成功（新4 Case）。限定独立再レビューはPass・残指摘0。Quality設計集合は191項目、正式評価はNot Run。保存Adapter・鍵実処置・認可・本番Consumerは未接続で、実Host Storeは変更していない。全体Checkerは未合格であり、この局所結果を全体完成へ読み替えない。
 
-通常保存Adapterの局所接続を完了した。既存Root・Lock下でcurrent／pending／短命replaceを照合し、通常更新と出版前後の再入場を確認した。静的3軸・AM全19 Case成功、限定独立再レビューPass・残指摘0。これは前段の結果で、新履歴・Receipt・回復Frameworkは追加しない。現在は初回相関出版も局所接続し、Root準備・User／鍵の後続段階・認証・本番Consumerが残る。詳細は[計画](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#am通常保存adapterの局所接続--2026-10-12)を参照する。
+通常保存Adapterの局所接続を完了した。既存Root・Lock下でcurrent／pending／短命replaceを照合し、通常更新と出版前後の再入場を確認した。静的3軸・AM全19 Case成功、限定独立再レビューPass・残指摘0。これは前段の結果で、新履歴・Receipt・回復Frameworkは追加しない。現在は相関・User・初回資格保存も局所接続し、Root準備・配送／受領／通常接続・認証・本番Consumerが残る。詳細は[計画](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#am通常保存adapterの局所接続--2026-10-12)を参照する。
 
 保存項目・容量・初回／鍵保存順序を[AM保存契約§4.5](06_Architecture/Details/access-management/02_Management_State_and_API.md#45-現在状態容量鍵保存の固定方針--2026-10-12)へ具体化した。内容範囲はDevelopment／Managementに限定し操作別認可は追加しない。current 16 MiB／pending 17 MiBは実装割当上限で、利用規模保証ではない。本段落の契約・品質・直接影響の限定独立再レビューPassは契約固定時点の結果である。その後のSchema・通常保存Adapterの局所接続は上段を参照し、初回／鍵実処置・認可・本番接続は現在も残る。実Host Storeは変更していない。
 
@@ -161,7 +165,7 @@ MCP詳細の最新判断伝播は契約・品質の限定独立再レビュー�
 
 ## 4. なぜこの状態・判断になったか
 
-以下の初回設計伝播時点の「他初回4項目未接続」は履歴である。現在はUT023とIT024相関・User保存部分が候補接続済み。IT024の鍵／配送／本番Host部分、IT025／ST026／UAT027はOPEN、正式項目評価はNot Runを維持する。
+以下の初回設計伝播時点の「他初回4項目未接続」は履歴である。現在はUT023とIT024相関・User・初回資格保存部分が候補接続済み。IT024の配送／受領／通常接続／本番Host部分、IT025／ST026／UAT027はOPEN、正式項目評価はNot Runを維持する。
 
 ### 結論
 

@@ -2,7 +2,7 @@
 
 成果物種別: Architecture詳細設計
 詳細設計領域: access-management
-状態: Candidate（内部Schema・通常保存・初回相関保存は局所接続済み。今回12Pathの限定独立再レビューPass・全重大度の残指摘0。管理API・Root準備・User／鍵・本番Consumerは未成立）
+状態: Candidate（内部Schema・通常保存・初回相関・User・初回資格保存は局所接続済み。資格保存の固定10ファイル限定独立再レビューPass・全重大度の残指摘0。管理API・Root準備・配送・認証・本番Consumerは未成立）
 維持責任者: Qual-Lab
 
 ## 1. 対象と保持条件
@@ -78,7 +78,7 @@
 | `initialization` | 初回管理状態、確認済み元試行相関、作成UUID／資格、結果記録／配送／受領／通常接続の個別事実。非秘密。ユーザー成立前から保持し交換Recoveryとは分離 |
 | `unresolvedKeyExchanges` | exact Recovery、旧資格集合、既存発行先、段階と既知結果。非秘密 |
 
-初回進行記録はProcess喪失後にも再観測する耐久的な論理事実で、出版前短命の`access-management.pending.json`そのものではない。単一現在Fileに含め、別Store・実行毎Directory・履歴列を追加しない。Schemaと相関baselineの保存・再入場は局所接続済み。Root準備・User／鍵の後続段階・解消後整理は未完了。未解決参照を失わず有限化する条件は保存Gateで閉じる。
+初回進行記録はProcess喪失後にも再観測する耐久的な論理事実で、出版前短命の`access-management.pending.json`そのものではない。単一現在Fileに含め、別Store・実行毎Directory・履歴列を追加しない。Schemaと相関baselineの保存・再入場は局所接続済み。Root準備・配送／受領／通常接続の後続段階・解消後整理は未完了。未解決参照を失わず有限化する条件は保存Gateで閉じる。
 
 これらは内部候補キーであり、新たな正本Entityや汎用Registryではない。User・Role・資格の参照整合と交換結果を一つの採用改訂に結合する。遷移は期待改訂→次改訂で保存し、同じ改訂を異なる状態で上書きしない。
 
@@ -182,7 +182,7 @@ Windows `10.0.26200.0`・C: NTFS・Node `v24.19.0`で、同Directoryの短命Fil
 
 ### 4.3. 保存途中の再入場候補 — 2026-10-11
 
-本節の未実装・未確定は候補時点の履歴である。現在は完全Schema・通常保存・初回correlated baselineのwx作成／読戻し／再入場が§4.6〜4.7で局所接続済み。正式項目評価・本番試験はNot Runで、Root準備・旧入力本番観測・User／鍵／配送・後続初回段階・Consumerは未接続である。
+本節の未実装・未確定は候補時点の履歴である。現在は完全Schema・通常保存・初回correlated baselineのwx作成／読戻し／再入場が§4.6〜4.7で局所接続済み。正式項目評価・本番試験はNot Runで、Root準備・旧入力本番観測・配送／受領／通常接続・Consumerは未接続である。
 
 既存の完全な現在状態がある通常保存について、出版前と出版後を区別する候補を次に固定する。新しいStore、Lock、操作別Directory、Receipt台帳を追加しない。これは保存方式の採用や実装着手条件の成立ではなく、§4.2の実反例を踏まえた具体化である。
 
@@ -267,7 +267,7 @@ currentとpendingは共にVerifierを含む保護対象である。公開DTO、�
 4. 全Reader／Writerが同じ`access-management.lock`と既存`withFilesystemStoreLock`を使う。同期区間内で旧管理入力、current、pending、初回進行を照合し、双方未初期化確定と明示開始の場合だけ元試行相関を最初に保存・読戻しする。
 5. 相関の読戻し後だけUUID作成・同userIdへの鍵発行へ進む。各段階の記録確定前後の故障を分離する。current不在＋pending存在は§4.3に従い新初期化へ畳まず、再出版・追加UUID・追加鍵を自動実行しない。
 
-最初のcurrentは既存値を置換しない出版が必要で、§4.7でwx排他作成を局所接続した。hard-link部品を新設しない。Root準備時の残存結果、User／鍵等の後続初回段階は未接続である。
+最初のcurrentは既存値を置換しない出版が必要で、§4.7でwx排他作成を局所接続した。hard-link部品を新設しない。Root準備時の残存結果、配送／受領／通常接続の後続初回段階は未接続である。
 
 旧Registry Adapterの`wx`／0600とNodeのDirectory modeだけではWindows ACL成立を保証しない。人間判断によりAM専用のWindows追加ACL検査・修復・Native保護接続は行わず、実装Gateから外す。AMは既存HostのOS管理Rootとアクセス制御へ依存するが、それを追加の保護保証とは表示しない。生Secret非保存とVerifier非公開は維持する。新一般ACL FrameworkやCoordinatorへの逆依存は追加せず、現在の実Host Root・権限も変更しない。この判断をPlatform Access、Provider Home、署名鍵等の保護へ一般化しない。
 
@@ -285,7 +285,7 @@ currentとpendingは共にVerifierを含む保護対象である。公開DTO、�
 
 ### 4.5. 現在状態・容量・鍵保存の固定方針 — 2026-10-12
 
-本節の「未実装」は契約固定時点の表示である。完全Schema・内部保存Owner・初回相関baseline出版はその後に局所接続した。User／鍵／配送・後続段階・本番Consumerは未接続で、保存Gate全体は未成立を維持する。
+本節の「未実装」は契約固定時点の表示である。完全Schema・内部保存Owner・初回相関baseline出版はその後に局所接続した。配送／受領／通常接続・後続段階・本番Consumerは未接続で、保存Gate全体は未成立を維持する。
 
 本節は§4.4の未確定事項を具体化する。内容権限は採用済みのWorkspace範囲を表し、操作単位の新しい権限設定を追加しない。保存・本番Consumerは未実装であり、以下は実装へ渡す契約であって実測結果ではない。
 
@@ -333,7 +333,7 @@ Repository利用時には登録したRoot・Repository Identityを再検証し�
 
 ### 4.6. 通常保存Adapterの具体化 — 2026-10-12
 
-`state/file-store.ts`は既存Root Capabilityと既存Lockを用いる内部保存部品であり、認証・管理操作・Host初期化の公開入口ではない。通常保存と初回相関baseline出版は局所接続済み。Root作成、旧Store移行、User／鍵の後続初回段階、鍵保存、本番Consumerは未接続である。実Hostの管理状態は変更していない。
+`state/file-store.ts`は既存Root Capabilityと既存Lockを用いる内部保存部品であり、認証・管理操作・Host初期化の公開入口ではない。通常保存、初回相関、User、初回資格保存は局所接続済み。`createInitialCredential`はcanonicalな同元試行のuser_storedから容量予約後に完全資格を一回生成・保存する。資格の元発行IDはattemptId、出版操作IDは別UUIDとする。生鍵は状態へ含めず、読戻しとLock解放が確認できた新規保存の内部結果だけへ返す。同元試行のcredential_stored再入場は資格IDのみ再観測し、tokenはnull、生成・再表示は0とする。Root作成、旧Store移行、配送・受領・通常接続、認証、本番Consumerは未接続である。実Hostの管理状態は変更していない。
 
 | 固定File | 役割・終了条件 |
 |---|---|
@@ -362,7 +362,7 @@ Lockのexact回復参照は保存Owner内部だけで扱い、既存Owner不存�
 
 ### 4.7. 初回相関保存の局所接続 — 2026-10-12
 
-`initializeAccessManagementState`は既存の検証済みRootだけを受け、同じLock下で元試行の完全baselineを`wx`で排他的に作成し、正確byteと完全Schemaを読戻す。revision 1、operationIdとinitializationのattemptIdは同じ元試行UUID、段階は`correlated`、固定3Role初期範囲と全空集合だけを保存する。Root準備・User UUID生成・鍵・配送・本番Host入口は未接続である。
+初回資格保存接続前の履歴: `initializeAccessManagementState`は既存の検証済みRootだけを受け、同じLock下で元試行の完全baselineを`wx`で排他的に作成し、正確byteと完全Schemaを読戻す。revision 1、operationIdとinitializationのattemptIdは同じ元試行UUID、段階は`correlated`、固定3Role初期範囲と全空集合だけを保存する。Root準備・User UUID生成・鍵・配送・本番Host入口は未接続である。
 
 Lock取得・baseline構築・JSON化より前に、元試行の文字列型とUUID v4形式、明示開始true、観測callbackの関数型を検査する。不正runtime入力はgetter／toJSON・callback・Lock・writeを実行しない。
 
@@ -386,7 +386,7 @@ Lock取得・baseline構築・JSON化より前に、元試行の文字列型とU
 
 revision2のcanonical `user_stored`へ同元試行で再入場した場合は保存済みUser IDと表示名を返す。別名の再要求でも名前変更・追加User・追加UUIDを行わない。初回種別のbase材料や部分材料は保持停止し、再出版しない。next一致の出版済み材料だけ清掃して同Userを再観測する。出版事実と清掃／Lock解放の成立は別に返す。
 
-局所試験はRFD-IT-024のUser保存部分に限る。AM全27 Case・静的3軸成功、固定10ファイルの限定独立再レビューPass・全重大度の残指摘0。初回Root準備、旧入力本番観測、鍵発行、配送、認証、本番Host、初回全体の成立を意味しない。
+初回資格保存接続前の履歴: 局所試験はRFD-IT-024のUser保存部分に限る。AM全27 Case・静的3軸成功、固定10ファイルの限定独立再レビューPass・全重大度の残指摘0。初回Root準備、旧入力本番観測、鍵発行、配送、認証、本番Host、初回全体の成立を意味しない。
 
 ## 5. 鍵交換の段階と終了
 
@@ -451,7 +451,7 @@ Repositoryでは重複登録、未登録Exposure、解除後の孤立Exposure、
 
 初回の反証は、正規未試行の不適切拒否、双方確認なしの作成、既存／通常鍵喪失の再初期化、相関確定前Effect、二重UUID・追加鍵、不明発行から新交換、配送／受領混同、Secret保存／再表示、自動登録・公開・内容付与、部分≠全体完了である。Quality Local Item・実行結果への接続は次作業で、今回Passにしない。
 
-現在残件は、Root準備・旧入力本番観測、User／鍵／配送・後続初回段階、元発行Identityと配送／受領観測の搬送、認証・現在認可・公開DTO、本番入口と移行実行である。完全Schema・内部保存Owner・通常保存・初回相関baselineの局所接続は§4.6〜4.7を参照する。内容範囲・容量・Binding・保持原則・初回／鍵保存順序は§4.5で具体化済み。担当はQual-Lab、再評価契機は保存・API候補固定時。接続残件は実装Gateを阻害するため将来改善として退避しない。追加の保証や再表示・自動再発行を採用する場合は上流判断へ戻す。
+現在残件は、Root準備・旧入力本番観測、配送／受領／通常接続・後続初回段階、元発行Identityと配送／受領観測の搬送、認証・現在認可・公開DTO、本番入口と移行実行である。完全Schema・内部保存Owner・通常保存・初回相関baselineの局所接続は§4.6〜4.7を参照する。内容範囲・容量・Binding・保持原則・初回／鍵保存順序は§4.5で具体化済み。担当はQual-Lab、再評価契機は保存・API候補固定時。接続残件は実装Gateを阻害するため将来改善として退避しない。追加の保証や再表示・自動再発行を採用する場合は上流判断へ戻す。
 
 Root準備はFilesystem Effectを持ち、Directory作成だけで未初期化を証明しない。準備後故障の既知Effect・残存を保持する。論理初回順序の具体化から実装Gate成立を推定しない。Quality設計への接続は行ったがNot Runであり、横断モデル・Workbench／MCP詳細・Sourceの本番接続は未成立。
 

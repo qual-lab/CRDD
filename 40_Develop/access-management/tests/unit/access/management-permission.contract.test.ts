@@ -34,6 +34,7 @@ test("三Roleと全10具体操作の固定分担", () => {
   assert.deepEqual(Object.keys(publicApi).sort(), [
     "createCredentialMaterial",
     "createInitialAdministrator",
+    "createInitialCredential",
     "evaluateHostInitializationState",
     "evaluateManagementPermission",
     "initializeAccessManagementState",

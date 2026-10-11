@@ -21,6 +21,8 @@ import {
 import {
   type AccessManagementState,
   createInitialAdministrator,
+  createInitialCredential,
+  verifyCredentialToken,
   initializeAccessManagementState,
   parseAccessManagementState,
   readAccessManagementState,
@@ -72,6 +74,261 @@ function baseline(): AccessManagementState {
     },
   };
 }
+
+/**
+ * 初回資格保存の前状態を作る。
+ * @responsibility 本番と同じ相関・User保存を通して前状態を構築する。
+ * @trace RFD-IT-024
+ * @precondition 自己生成の試験Root。
+ * @stimulus 初回相関と管理者を保存する。
+ * @observation 両保存のcompletedを確認する。
+ * @oracle 資格生成前のuser_storedに到達する。
+ * @cleanup 呼出元FixtureがRoot不存在を確認する。
+ * @boundary 初回保存と実Filesystem。
+ */
+function prepareInitialUser(f: ReturnType<typeof fixture>): string {
+  fs.rmSync(path.join(f.directory, "access-management.json"));
+  const attempt = "00000000-0000-4000-8000-000000000099";
+  assert.equal(
+    initializeAccessManagementState(f.root, attempt, true, () => [
+      "uninitialized",
+      "absent",
+    ]).status,
+    "completed",
+  );
+  assert.equal(
+    createInitialAdministrator(f.root, attempt, "管理者").status,
+    "completed",
+  );
+  return attempt;
+}
+
+/**
+ * 初回鍵の一生成・保存・再表示禁止を確認する。
+ * @responsibility 短命鍵と保存照合値を別に観測する。
+ * @trace RFD-IT-024
+ * @precondition 保存済み初回User。
+ * @stimulus 初回鍵保存と同元試行の再入場。
+ * @observation 乱数件数、token照合、保存byte、材料不存在。
+ * @oracle 再入場は生成0・token null、保存に生鍵なし。
+ * @cleanup 差替え復元とFixture削除。
+ * @boundary Node暗号・Filesystem。
+ */
+test("初回資格は一回生成し保存後の再入場で再表示しない", (t) => {
+  const f = fixture(t);
+  const attempt = prepareInitialUser(f);
+  const random = crypto.randomBytes;
+  let calls = 0;
+  crypto.randomBytes = ((size: number) => {
+    calls++;
+    return random(size);
+  }) as typeof random;
+  try {
+    const first = createInitialCredential(f.root, attempt);
+    assert.equal(first.status, "completed");
+    if (first.status !== "completed") return;
+    assert.equal(first.value.created, true);
+    assert.equal(calls, 3);
+    assert.ok(first.value.token);
+    const saved = fs.readFileSync(
+      path.join(f.directory, "access-management.json"),
+    );
+    assert.equal(saved.includes(first.value.token), false);
+    const secret = first.value.token.split(".")[3];
+    assert.ok(secret);
+    assert.equal(saved.includes(secret), false);
+    const state = JSON.parse(saved.toString()) as AccessManagementState;
+    assert.equal(state.credentials.length, 1);
+    const credential = state.credentials[0];
+    assert.ok(credential);
+    assert.equal(verifyCredentialToken(first.value.token, credential), true);
+    assert.equal(credential.operationId, attempt);
+    assert.equal(credential.delivery, "not_attempted");
+    const again = createInitialCredential(f.root, attempt);
+    assert.equal(again.status, "completed");
+    if (again.status === "completed")
+      assert.deepEqual(again.value, {
+        revision: 3,
+        credentialId: first.value.credentialId,
+        created: false,
+        token: null,
+      });
+    assert.equal(calls, 3);
+    assert.deepEqual(
+      fs.readFileSync(path.join(f.directory, "access-management.json")),
+      saved,
+    );
+    assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
+  } finally {
+    crypto.randomBytes = random;
+  }
+});
+
+/**
+ * 不正な初回状態を鍵生成前に拒否する。
+ * @responsibility 別試行・状態改変から鍵を発行しない。
+ * @trace RFD-IT-024
+ * @precondition 初回Userの自己生成保存Root。
+ * @stimulus 別試行と初期Role改変を渡す。
+ * @observation 暗号乱数件数0と保存byte不変。
+ * @oracle unavailable、未生成、既存User不変更。
+ * @cleanup 暗号差替え復元とFixture削除。
+ * @boundary 初回状態と乱数生成境界。
+ */
+test("初回資格の別試行と非canonical状態は生成前に拒否する", (t) => {
+  const f = fixture(t);
+  const attempt = prepareInitialUser(f);
+  const current = path.join(f.directory, "access-management.json");
+  const saved = fs.readFileSync(current);
+  const random = crypto.randomBytes;
+  let calls = 0;
+  crypto.randomBytes = ((size: number) => {
+    calls++;
+    return random(size);
+  }) as typeof random;
+  try {
+    assert.equal(
+      createInitialCredential(f.root, "00000000-0000-4000-8000-000000000098")
+        .status,
+      "unavailable",
+    );
+    assert.deepEqual(fs.readFileSync(current), saved);
+    const modified = JSON.parse(saved.toString()) as AccessManagementState;
+    const developer = modified.roleContentAccess[0];
+    assert.ok(developer);
+    developer.workspaceIds = [];
+    fs.writeFileSync(current, bytes(modified));
+    const before = fs.readFileSync(current);
+    const rejected = createInitialCredential(f.root, attempt);
+    assert.equal(rejected.status, "unavailable");
+    assert.equal(rejected.cleanupConfirmed, true);
+    assert.deepEqual(fs.readFileSync(current), before);
+    assert.equal(calls, 0);
+  } finally {
+    crypto.randomBytes = random;
+  }
+});
+
+/**
+ * 保存途中のProcess喪失を資格生成の再試行へ畳まない。
+ * @responsibility base保持と出版済み同資格再観測を区別する。
+ * @trace RFD-IT-024
+ * @precondition 初回Userと一回性子Process。
+ * @stimulus pending・replace確定後またはrename後に子を終了する。
+ * @observation 子終了・保存材料・再入場の乱数0・token非返却。
+ * @oracle baseは停止保持、nextだけ同資格で清掃完了。
+ * @cleanup 子Process終了とFixture削除。
+ * @boundary 実ProcessとFilesystem。
+ */
+test("初回資格のProcess喪失は再生成せず保存段階を保持する", (t) => {
+  for (const phase of ["pending", "replace", "renamed"]) {
+    const f = fixture(t);
+    const attempt = prepareInitialUser(f);
+    const current = path.join(f.directory, "access-management.json");
+    const before = fs.readFileSync(current);
+    const domainUrl = new URL(
+      "../../../../domain-model/src/index.ts",
+      import.meta.url,
+    ).href;
+    const storeUrl = new URL("../../../src/index.ts", import.meta.url).href;
+    const child = spawnSync(
+      process.execPath,
+      [
+        "--eval",
+        `
+      import fs from 'node:fs';
+      import {createFilesystemStoreRoot} from ${JSON.stringify(domainUrl)};
+      import {createInitialCredential} from ${JSON.stringify(storeUrl)};
+      let n=0; const flush=fs.fsyncSync;
+      fs.fsyncSync=fd=>{flush(fd); n++; if((${JSON.stringify(phase)}==='pending'&&n===2)||(${JSON.stringify(phase)}==='replace'&&n===3)) process.exit(23);};
+      const rename=fs.renameSync;
+      fs.renameSync=(a,b)=>{rename(a,b); if(${JSON.stringify(phase)}==='renamed') process.exit(23);};
+      createInitialCredential(createFilesystemStoreRoot(${JSON.stringify(f.directory)}),${JSON.stringify(attempt)});
+    `,
+      ],
+      { timeout: 10_000, encoding: "utf8" },
+    );
+    assert.equal(child.error, undefined);
+    assert.equal(child.status, 23, child.stderr);
+    assert.equal(child.stdout, "");
+    const random = crypto.randomBytes;
+    let calls = 0;
+    crypto.randomBytes = ((size: number) => {
+      calls++;
+      return random(size);
+    }) as typeof random;
+    try {
+      const result = createInitialCredential(f.root, attempt);
+      assert.equal(calls, 0);
+      if (phase === "renamed") {
+        assert.equal(result.status, "completed");
+        if (result.status === "completed") {
+          assert.equal(result.value.created, false);
+          assert.equal(result.value.token, null);
+        }
+        assert.deepEqual(fs.readdirSync(f.directory), [
+          "access-management.json",
+        ]);
+      } else {
+        assert.equal(result.status, "unavailable");
+        assert.equal(result.cleanupConfirmed, false);
+        assert.deepEqual(fs.readFileSync(current), before);
+        assert.ok(
+          fs.existsSync(
+            path.join(f.directory, "access-management.pending.json"),
+          ),
+        );
+        assert.equal(
+          fs.existsSync(
+            path.join(f.directory, "access-management.replace.json"),
+          ),
+          phase === "replace",
+        );
+      }
+    } finally {
+      crypto.randomBytes = random;
+    }
+  }
+});
+
+/**
+ * 出版後Lock解放不明では生鍵を返さない。
+ * @responsibility 保存成功と配送可能な完了を分離する。
+ * @trace RFD-IT-024
+ * @precondition 初回User保存済みの自己生成Root。
+ * @stimulus 資格出版後のLock削除を拒否する。
+ * @observation confirmed出版・unavailable・value非存在と再入場token null。
+ * @oracle 未確認清掃でSecret搬送なし、追加鍵生成なし。
+ * @cleanup 差替え復元・既存Lock再入場・Fixture削除。
+ * @boundary 保存結果と既存Lock終了。
+ */
+test("初回資格のLock解放不明は短命鍵を外へ返さない", (t) => {
+  const f = fixture(t);
+  const attempt = prepareInitialUser(f);
+  const remove = fs.rmSync;
+  let failed: ReturnType<typeof createInitialCredential>;
+  fs.rmSync = (target, options) => {
+    if (String(target).endsWith("access-management.lock"))
+      throw new Error("injected");
+    return remove(target, options);
+  };
+  try {
+    failed = createInitialCredential(f.root, attempt);
+  } finally {
+    fs.rmSync = remove;
+  }
+  assert.equal(failed.status, "unavailable");
+  assert.equal(failed.publication, "confirmed");
+  assert.equal(failed.cleanupConfirmed, false);
+  assert.equal("value" in failed, false);
+  const again = createInitialCredential(f.root, attempt);
+  assert.equal(again.status, "completed");
+  if (again.status === "completed") {
+    assert.equal(again.value.created, false);
+    assert.equal(again.value.token, null);
+  }
+  assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
+});
 
 /**
  * 非秘密fixtureを固定byte化する。

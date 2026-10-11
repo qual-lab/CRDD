@@ -7,6 +7,7 @@
 import fs from "node:fs";
 import crypto, { createHash } from "node:crypto";
 import { evaluateHostInitializationState } from "../initialization/state-evaluation.ts";
+import { createCredentialMaterial } from "../credential/token-material.ts";
 import {
   type FilesystemStoreRoot,
   resolveFilesystemStorePath,
@@ -989,6 +990,201 @@ export function createInitialAdministrator(
       return {
         status: "unavailable",
         reason: "state_store_initial_user_failed",
+        publication,
+        revision,
+        cleanupConfirmed,
+      };
+    }
+  });
+}
+
+/**
+ * 保存済み初回管理者へ最初の鍵を一回だけ保存する。
+ * @responsibility 完全資格の出版と保存済み資格の再観測を分離する。
+ * @trace ARCH-000013
+ * @input 既存Root・保存済み元試行UUID。
+ * @returns 改訂・資格ID・生成有無と一回限りの短命鍵、または未完了。
+ * @precondition 信頼済みHost内部Ownerだけが呼ぶ。初回Userを保存済み。
+ * @postcondition 出版・読戻し・Lock解放が確認できた新規保存だけtokenを返す。
+ * @effect 既存Lock、乱数・KDF、資格のpending・replace・current保存。
+ * @failure 別試行・非canonical状態・途中材料・保存不明は保持停止。
+ * @invariant 同元試行へ追加資格を生成せず、保存済みSecretを復元しない。
+ * @boundary 初回資格保存とFilesystem。配送・認証・公開入口は別段階。
+ * @security tokenは内部短命返却値だけ。current・ログ・診断へ保存しない。
+ * @concurrency 同じLock内で容量検査から一生成・一出版まで行う。
+ */
+export function createInitialCredential(
+  root: FilesystemStoreRoot,
+  attemptId: string,
+): StateStoreResult<
+  Readonly<{
+    revision: number;
+    credentialId: string;
+    created: boolean;
+    token: string | null;
+  }>
+> {
+  if (typeof attemptId !== "string" || !ATTEMPT_UUID.test(attemptId))
+    return {
+      status: "unavailable",
+      reason: "state_store_initial_credential_input_rejected",
+      publication: "not_attempted",
+      revision: null,
+      cleanupConfirmed: true,
+    };
+  return locked<
+    Readonly<{
+      revision: number;
+      credentialId: string;
+      created: boolean;
+      token: string | null;
+    }>
+  >(root, () => {
+    let publication: "not_attempted" | "confirmed" = "not_attempted";
+    let revision: number | null = null;
+    let cleanupConfirmed = false;
+    try {
+      const current = readCurrent(root);
+      revision = current.state.revision;
+      settlePending(root, current, () => {
+        publication = "confirmed";
+      });
+      cleanupConfirmed = true;
+      const user = current.state.users[0];
+      if (
+        user?.role !== "administrator" ||
+        user.userId === attemptId ||
+        current.state.operationId === attemptId ||
+        current.state.operationId === user.userId
+      )
+        throw new Error("initial_user_conflict");
+      const expected = initialBaseline(attemptId);
+      expected.revision = current.state.revision;
+      expected.operationId = current.state.operationId;
+      expected.users = [{ ...user }];
+      const initialization = current.state.initialization;
+      if (initialization.stage === "credential_stored") {
+        const credential = current.state.credentials[0];
+        if (!credential || current.state.revision < 3)
+          throw new Error("initial_credential_conflict");
+        expected.credentials = [{ ...credential }];
+        expected.initialization = {
+          stage: "credential_stored",
+          attemptId,
+          userId: user.userId,
+          credentialId: credential.credentialId,
+          receipt: initialization.receipt,
+          normalConnection: initialization.normalConnection,
+        };
+        if (!serialize(expected).equals(current.bytes))
+          throw new Error("initial_credential_conflict");
+        return {
+          status: "completed",
+          value: {
+            revision: current.state.revision,
+            credentialId: credential.credentialId,
+            created: false,
+            token: null,
+          },
+          publication: "confirmed",
+          revision: current.state.revision,
+          cleanupConfirmed: true,
+        };
+      }
+      expected.initialization = {
+        stage: "user_stored",
+        attemptId,
+        userId: user.userId,
+      };
+      if (
+        current.state.revision !== 2 ||
+        !serialize(expected).equals(current.bytes)
+      )
+        throw new Error("initial_user_conflict");
+      expected.revision = 3;
+      expected.operationId = "eeeeeeee-eeee-4eee-beee-eeeeeeeeeeee";
+      expected.credentials = [
+        {
+          credentialId: "f".repeat(24),
+          userId: user.userId,
+          tokenVersion: 1,
+          tokenSalt: "f".repeat(32),
+          tokenVerifier: "f".repeat(64),
+          revoked: false,
+          operationId: attemptId,
+          delivery: "not_attempted",
+        },
+      ];
+      expected.initialization = {
+        stage: "credential_stored",
+        attemptId,
+        userId: user.userId,
+        credentialId: "f".repeat(24),
+        receipt: "unconfirmed",
+        normalConnection: "unconfirmed",
+      };
+      const reservation = serialize(expected);
+      const pendingReservation = serialize({
+        contract: "crdd-access-management/pending",
+        schemaRevision: 1,
+        kind: "initialization",
+        baseRevision: current.state.revision,
+        baseSha256: hash(current.bytes),
+        nextRevision: 3,
+        nextSha256: hash(reservation),
+        operationId: expected.operationId,
+        nextSnapshot: expected,
+      });
+      if (
+        reservation.byteLength > CURRENT_LIMIT ||
+        pendingReservation.byteLength > PENDING_LIMIT
+      )
+        throw new Error("initial_credential_capacity");
+      const operationId = crypto.randomUUID();
+      if (
+        !ATTEMPT_UUID.test(operationId) ||
+        operationId === attemptId ||
+        operationId === user.userId ||
+        operationId === current.state.operationId
+      )
+        throw new Error("uuid_collision");
+      const material = createCredentialMaterial();
+      expected.operationId = operationId;
+      expected.credentials[0] = {
+        userId: user.userId,
+        tokenVersion: 1,
+        revoked: false,
+        operationId: attemptId,
+        delivery: "not_attempted",
+        credentialId: material.credentialId,
+        tokenSalt: material.tokenSalt,
+        tokenVerifier: material.tokenVerifier,
+      };
+      expected.initialization.credentialId = material.credentialId;
+      const parsed = parseAccessManagementState(serialize(expected));
+      if (parsed.status !== "parsed")
+        throw new Error("initial_credential_invalid");
+      const result = publishState(
+        root,
+        current,
+        parsed.state,
+        "initialization",
+      );
+      return result.status === "completed"
+        ? {
+            ...result,
+            value: {
+              revision: 3,
+              credentialId: material.credentialId,
+              created: true,
+              token: material.token,
+            },
+          }
+        : result;
+    } catch {
+      return {
+        status: "unavailable",
+        reason: "state_store_initial_credential_failed",
         publication,
         revision,
         cleanupConfirmed,
