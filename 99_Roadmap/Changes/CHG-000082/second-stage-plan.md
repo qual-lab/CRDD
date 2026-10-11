@@ -9,6 +9,12 @@
 
 ## 1. 結論と実行境界
 
+### AM保存データ・整理単位の具体化 — 2026-10-12
+
+基準Commitは`69b0a681`。変更分類は採用済み責務の保存設計具体化。AM詳細02§4.4、QA-000007、本計画、PROJECT_CONTEXTの4文書に限定する。編集一次キーは保存包絡・User／Credential・KDF・初回Root／最初の保存・完了相関の整理・容量／保護未確認。旧SourceのVerifier、改訂出版、Root／LockとConsumerを照合し、着手前の読み取り専用契約確認は着手可。一般IAM・ACL Framework・Receipt Store・新Lock・Source／実Store／旧Evidence変更は対象外。
+
+単一currentと短命pendingを使う具体化候補であり、完全SchemaやNative保護接続が完了したとは扱わない。根拠のない集合別件数上限は追加せず、byte予算を比較候補として残す。鍵の期限なし、電源断保証対象外、通常失効・現在認可・破損拒否を維持する。固定4文書の契約・品質限定独立レビューは両方Pass・全重大度の残指摘0。ローカル参照先欠落0、190項目・Not Run不変、Source／旧Evidence不変更、差分確認成功。標準規則とSourceを変えないため準拠監査・Package回帰・実Provider E2Eは対象外。実装Readyは未主張。
+
 ### AM保存保証の採用 — 2026-10-12
 
 基準Commitは`7ef32ef8`。Qual-Labは通常保存・読戻し確認までを採用し、電源断直前の更新喪失により失効済み鍵・交換前の鍵・縮小前のRole／Exposure／Repository範囲が再受理され得るリスクを受容した。気付かれなければ明示処置まで続き得る。未実測の可能性であり、物理電源断以外の突然停止は未評価。保証の正本は[REQ-000041](../../../01_Discovery/Definitions/REQ-000041/requirement.md#保存保証の範囲--2026-10-12)とする。

@@ -229,6 +229,52 @@ pendingが存在しないこと自体は、元操作の完了や未試行の証�
 
 通常失効・現在認可、Process喪失時のbase／next／unknown再入場、改訂競合、破損・観測不能時の拒否、秘密非保存、Root／排他境界は維持する。受容したリスクを空成功、自動rollbackまたは旧値復活の正常仕様化へ読み替えない。単一File保存方式そのものの採用、Linux／他Windows版／Filesystem、Verifier保護、容量、完全Schema／API、Root初回準備、最初の出版、鍵段階の確定条件と本番Consumerは未成立で、これらの実装Gateは維持する。
 
+### 4.4. 保存データと整理単位の具体化候補 — 2026-10-12
+
+本節は既存Sourceとの照合から保存データ・処理順・清掃単位を具体化する。完全Schema、物理保存方式の採用、保護APIの接続または実装Readyを示さない。§4.1〜4.3の実測・再入場条件と、採用済み通常保存・読戻し保証を保持する。
+
+#### 保存データの共通境界
+
+| 保存対象 | 具体化する項目・検査 | 保存しないもの |
+|---|---|---|
+| 現在状態の包絡 | `contract`、`schemaRevision`、単調増加する安全整数`revision`、最後の出版操作の非秘密`operationId`と§3の7集合／状態。未知field、重複ID、参照先不在、改訂再利用を拒否 | 過去改訂の列、通常管理のReceipt一覧、Transport設定、Domain本文 |
+| `users`の各要素 | `userId`はNode `randomUUID`によるUUID v4、`username`は表示専用文字列、`role`は固定3値。IDは不変、名前は認証・権限へ使わない | メール、Password、本人確認、複数Role、自己編集設定 |
+| `credentials`の各要素 | `credentialId`、既存`userId`、`tokenVersion: 1`、`tokenSalt`、`tokenVerifier`、明示失効状態。Role／内容権限は保存せず現在Userから解決。資格IDを再利用しない | 生Secret、Bearer全文、期限、自動Rotation、Credential別権限 |
+| 初回進行 | 一つの元試行IDと、相関保存・User作成・資格記録・配送・受領・通常接続の確認済み事実。未生成IDはnull。既知事実と未確認を分離 | 試行ごとのFile、Secret、交換Recoveryの代用、時刻だけの完了判定 |
+| 未解決交換 | 元のexact Recovery、固定した失効対象ID集合、既存発行先userId、失効／発行／結果記録／配送の個別事実 | 通常発行の不明を交換として格納、実行ログ、生Secret |
+
+UUID版の選定は安定IDの生成方法の具体化であり、Userの意味や認可方式を変えない。`username`の入力制約、Role内容操作語彙、登録Bindingの全field、初回・交換の全判別Unionは完全Schema固定時に照合する。候補項目を`unknown`や余分field透過で仮実装しない。包絡のcontract文字列・schemaRevisionを含む新通信／保存契約は、SourceとConsumer切替時に一体で固定する。
+
+#### 鍵の照合値
+
+旧`cros/access/credential.ts`の方式を再利用候補とする。生成は12byteの資格ID、32byteのランダムSecret、16byteのランダムsalt。saltは32桁hex、Verifierは64桁hexとし、照合前に形式と長さを検査する。scryptは`N=16384`、`r=8`、`p=1`、出力32byte、`maxmem=33554432`を明示指定する候補で、永続SchemaをNodeの暗黙既定値へ依存させない。同長のbyteだけを`timingSafeEqual`で照合し、失敗は認証不成立へ閉じる。新KDFや秘密復元手段は追加しない。固定パラメータと旧方式の一致はSource移管時の比較試験で確認し、未実行のまま互換成立としない。
+
+currentとpendingは共にVerifierを含む保護対象である。公開DTO、診断、ログ、Evidenceへsalt／Verifier／Secretを出さない。発行結果だけが短命の生Secretを所有し、一度の返却後やProcess喪失後に復元・再表示しない。
+
+#### 初回Rootと最初の保存
+
+1. 既存Resolverが導出したHost state Rootだけを候補にし、任意Pathを入力しない。Root不在と観測不能、既存の旧管理データと未初期化を分ける。
+2. 明示Host初回設定だけが不足するDirectoryの準備を行う。既存Rootの自動権限修復や削除は行わない。作成済み／保護未確認の事実を保持し、準備後故障をEffect 0と表示しない。
+3. 準備後に実体・非link・保護条件を再検証し、既存`createFilesystemStoreRoot`へ渡す。文字列の解決やDirectory作成だけでCapability成立としない。
+4. 全Reader／Writerが同じ`access-management.lock`と既存`withFilesystemStoreLock`を使う。同期区間内で旧管理入力、current、pending、初回進行を照合し、双方未初期化確定と明示開始の場合だけ元試行相関を最初に保存・読戻しする。
+5. 相関の読戻し後だけUUID作成・同userIdへの鍵発行へ進む。各段階の記録確定前後の故障を分離する。current不在＋pending存在は§4.3に従い新初期化へ畳まず、再出版・追加UUID・追加鍵を自動実行しない。
+
+最初のcurrentは既存値を置換しない出版が必要で、既存hard-link出版部品は比較候補に限定する。最初の出版と通常置換の分岐、Root準備時の保護・残存結果、初回pendingの具体Schemaは未実装である。
+
+旧Registry Adapterの`wx`／0600とNodeのDirectory modeだけではWindows ACL成立を保証しない。Platform Accessの既存保護処理は私有の固定namespace・Protocolに依存し、そのままAMへ接続可能とは確認できていない。保護条件のOwnerはPlatform Access、AMは保存用途と対象Rootを所有する。新一般ACL FrameworkやCoordinatorへの逆依存は追加せず、既存公開境界への適合または最小接続の要否をSource移管前に評価する。現在の実Host Root・権限は変更しない。
+
+#### 増え続けない保存
+
+| 対象 | 保持・整理 |
+|---|---|
+| current | 現在User／Role／資格／登録／Exposureと未解決処置だけ。同一Fileを次改訂へ置換し、改訂File列・一般履歴は作らない |
+| 初回相関 | 初回は一件だけで、新初期化へ履歴追加しない。未解決中は保持。終了後に残す最小既存状態と整理時点は完全Schemaで固定する |
+| 失効資格・終了交換 | 現在拒否と元処置の未解決参照を失わない範囲で次の明示更新時に整理する候補。失効資格の不存在は拒否であり、有効資格の復活ではない。未解決対象・参照中のIDは削除しない |
+| pending | §4.3のbase／next／unknown照合後に所有対象だけ回収。年齢・容量・名前だけで削除しない |
+| Lock／回収義務 | 既存排他Ownerがexact IdentityとOwner観測で処置。鍵交換記録に統合しない |
+
+容量はSnapshot全体のbyte予算を第一候補とし、User数・資格数等へ根拠のない個別上限を一律増設しない。上限値と読取り・認証の扱いは運用規模と既存bounded Readerへ照合して固定する。未解決事実を容量対策で捨てない。完全Schema・上限・保護・初回／鍵段階の処置・本番接続は残件であり、本節から保存Gate全体成立を主張しない。
+
 ## 5. 鍵交換の段階と終了
 
 失効前にexact Recovery・旧対象集合・既存発行先を固定し、失効、発行、結果記録を共通段階として単調に保存する。通常WorkbenchはBackend返却・Browser配送、HostはローカルCLIへの返却・表示を別観測し、HostのBrowser配送は非該当とする。具体受領方式はOPENで、受領通知を人間の閲覧やAuthorityの証明にせず、新しい受領必須Gateも作らない。発行確定後の配送故障で発行結果を取り消さない。
