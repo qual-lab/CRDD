@@ -4,6 +4,8 @@
   "subsystem": "access-management",
   "symbols": [
     { "symbolId": "access-management.public-api", "kind": "module", "path": "src/index.ts", "archIds": ["ARCH-000013"] },
+    { "symbolId": "access-management.state-parse", "kind": "file", "path": "src/state/parse.ts", "archIds": ["ARCH-000013"] },
+    { "symbolId": "access-management.test.unit.state-parse", "kind": "test-suite", "path": "tests/unit/state/parse.contract.test.ts", "qaIds": ["QA-000007"], "localTestIds": ["RFD-UT-028"], "verifies": ["access-management.public-api", "access-management.state-parse"] },
     { "symbolId": "access-management.management-permission", "kind": "file", "path": "src/access/management-permission.ts", "archIds": ["ARCH-000013"] },
     { "symbolId": "access-management.test.unit.management-permission", "kind": "test-suite", "path": "tests/unit/access/management-permission.contract.test.ts", "qaIds": ["QA-000007"], "localTestIds": ["RFD-UT-020"], "verifies": ["access-management.public-api", "access-management.management-permission"] },
     { "symbolId": "access-management.initialization-state-evaluation", "kind": "file", "path": "src/initialization/state-evaluation.ts", "archIds": ["ARCH-000013"] },

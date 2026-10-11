@@ -26,7 +26,7 @@ const ROLES: readonly AccessRole[] = ["developer", "manager", "administrator"];
  * @precondition 採用済み操作と対象Roleを値として用意する。
  * @stimulus 三Roleを全10操作へ適用する。
  * @observation 30判定結果とRuntime公開Symbol集合を取得する。
- * @oracle 明示した担当Role集合だけallowed、他の有効Roleはdenied。Runtime公開は管理分担と初回状態の純粋判定だけ。
+ * @oracle 明示した担当Role集合だけallowed、他の有効Roleはdenied。Runtime公開は管理分担・初回観測判定・状態parseだけ。
  * @cleanup N/A: 状態・handle・一時Fileを生成しない。
  * @boundary N/A: 純粋関数の公開入口だけを呼ぶ。
  */
@@ -34,6 +34,7 @@ test("三Roleと全10具体操作の固定分担", () => {
   assert.deepEqual(Object.keys(publicApi).sort(), [
     "evaluateHostInitializationState",
     "evaluateManagementPermission",
+    "parseAccessManagementState",
   ]);
   const rows: readonly Readonly<{
     request: ManagementRequest;

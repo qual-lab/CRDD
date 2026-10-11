@@ -106,6 +106,14 @@ Quality ID: `QA-000007`
 
 ### 通常管理の完全な導出対応
 
+状態Schemaの純粋検査は`RFD-UT-028`としてNew導出する。Canonical／MeaningはARCH-000013／`arch-000013.qa-000007`、Source ModelはAccess Management詳細§4.5と「純粋Schema検査への具体化」、Model Itemは完全Snapshot・容量・現在／歴史参照・初回／交換段階相関。管理判定UT-020、観測分類UT-023、保存IT-021／024とは入力・Oracle・観測境界が異なるため分ける。
+
+| Local Item | Condition Class | Test Level | 対象 | 観測境界 | 外部境界段階 | fixture | 刺激 | 観測 | Oracle | 記録 | 終了後条件 | 方法 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `RFD-UT-028` | 異常 | UT | 管理状態の純粋Schema | UTF-8 bytes→完全Snapshot検査 | N/A: I/Oなし | 完全baseline・初回4変種・交換3段階・参照矛盾・raw byte境界 | Package公開parseへUTF-8 bytesを入力 | parsed／invalid・固定理由・状態形状 | 閉集合・ID一意・現在参照・段階相関成立だけparsed。完了初回の履歴ID整理は許可。16 MiB超過をparse前拒否、壊れたUTF-8を拒否。入力を補完・修復しない | 非秘密Scenarioと結果のみ | File／鍵／認可Effect 0。parse成功≠保存・配送成立 | Automated |
+
+RFD-UT-028はSource／Test Symbolと試験台帳へ接続する候補で、正式結果はNot Run。全13定義は191項目（QA-000007は28項目）となる。旧190項目の表示は追加前の履歴である。既存IT／ST／UATは未実行を維持する。
+
 | Local Item | Canonical ID／Meaning ID（既存導出キー） | Source Model | Model Item |
 | ---| ---| ---| ---|
 | RFD-UT-020 | ARCH-000013／arch-000013.qa-000007 | Architecture Definition／Access Management詳細 | 固定8操作の管理判定、通常管理と内容認可の分離 |

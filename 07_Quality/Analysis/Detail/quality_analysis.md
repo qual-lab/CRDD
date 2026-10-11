@@ -215,3 +215,7 @@ Domain Model詳細設計§9.1の通常保存完了は、同じLock内で一度�
 | PRT-000008.spec-000012 | RFD-IT-025、RFD-ST-026、RFD-UAT-027／EST-ST-015 | 正の成立とMCP負境界を別Ownerへ接続、Not Run |
 
 3はDetail処置行数であり、独立義務・Local Item数ではない。5項目への定義接続で旧未接続差分だけ解消する。RFD-UT-023のSource／Test Symbolと候補局所実行だけ接続済みで、正式Local Item／Evidence評価はNot Run。他初回項目のSource／Test／実行・新Evidence・物理保存・受領観測は未完了。今回13文書の定義接続は契約・品質の限定独立レビュー済み・残指摘0。
+
+## AM状態Schemaの純粋検査接続 — 2026-10-12
+
+Access Management詳細§4.5と純粋Schema具体化から、完全baseline、段階相関、現在参照と歴史参照の差、raw byte容量・strict UTF-8・閉集合の検証義務をQA-000007／RFD-UT-028へNew統合する。正本MeaningはARCH-000013／arch-000013.qa-000007。保存Adapter・Root・Lock・鍵・配送・本番接続はこのUTで充足しない。局所候補実行と正式Not Runを分ける。

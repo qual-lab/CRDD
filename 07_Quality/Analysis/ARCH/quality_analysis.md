@@ -126,3 +126,7 @@ ARCH-000013の現在の正本から、初回設定の義務を追加導出する
 | QA-000009 | EST-ST-015 | 初回設定と状態照会のMCP四面非公開をSame統合、Not Run |
 
 前段の未接続差分は定義接続の範囲だけ解消した。Local Itemの具体的な刺激・観測・Oracle・終了後条件は各QA定義が所有する。初回5項目は既存通常管理項目の流用ではなく、同じ意味を工程ごとに重複発行しない。RFD-UT-023のSource／Test Symbolと候補局所実行だけ接続済みで、正式Local Item／Evidence評価はNot Run。物理保存・受領・清掃の具体観測、他初回項目のSource／Test・実行・新EvidenceはOPEN。今回13文書の定義接続は契約・品質の限定独立レビュー済み・残指摘0であり、実装や全体品質の成立ではない。
+
+## AM状態Schemaの純粋検査導出 — 2026-10-12
+
+ARCH-000013の完全Snapshot・byte容量・現在／歴史参照・初回／交換の段階相関は、保存ITとは別の純粋UT義務としてQA-000007／RFD-UT-028へNew導出する。Source ModelはAccess Management詳細§4.5と純粋Schema具体化。入力はUTF-8 bytes、外部境界はN/A: I/Oなし。管理判定UT-020と初回観測判定UT-023へ混入しない。候補Source／Test接続と正式Not Runを分け、保存・認可・配送成立は既存IT／STへ残す。

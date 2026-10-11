@@ -292,7 +292,7 @@ currentとpendingは共にVerifierを含む保護対象である。公開DTO、�
 | Exposure | `repositoryId`、`workspaceIds` | 登録済みIDだけ、同じ2Workspace語彙。登録解除では対応Exposureも同一改訂から除去。登録だけで公開せず、登録解除でRepository本体を削除しない |
 | Credential | §4.4の資格field、元発行`operationId`、`delivery` | deliveryは`not_attempted`／`unconfirmed`／`confirmed`。受領・閲覧の証明ではない。資格ID・元発行ID・userIdを相関し、通常発行の不明を交換記録へ移さない |
 | 初回進行 | 単一元試行ID、User／資格ID、相関・User保存・資格保存・配送・受領・通常接続の個別確認値 | 未生成IDはnull。未確認は未確認のまま保持。確認値の組合せ検査と各段階の確定を保存Adapterで実装し、名前だけのstageから完了を推定しない |
-| 未解決交換 | exact Recovery、操作ID、固定旧資格ID集合、既存発行先userId、失効・新資格保存・配送処置の個別確認値 | 通常発行・初回・Lockの記録を混入しない。現在資格が既に整理されていても固定旧IDの事実は保持。終了済み交換の配列を積算しない |
+| 未解決交換 | exact Recovery、操作ID、固定旧資格ID集合、既存発行先userId、失効・新資格保存・配送処置の個別確認値 | 通常発行・初回・Lockの記録を混入しない。資格状態が失効へ変わっても固定旧IDと資格recordを保持し、未解決中は参照資格を整理しない。終了済み交換の配列を積算しない |
 
 各集合のIDは一意で、User参照・登録参照を全件検査する。Administratorの初期内容範囲は空、DeveloperはDevelopment、ManagerはDevelopment＋Managementとする。管理権限、AI Profileの管理可否、AI依頼・Task・Git Push・候補採用等を内容Workspaceから暗黙許可しない。これらの既存Ownerによる操作判定を保持し、別の操作別設定を必要とする場合だけ上流判断へ戻す。
 
@@ -324,6 +324,18 @@ Repository利用時には登録したRoot・Repository Identityを再検証し�
 この具体化で容量・内容範囲・Binding・処理順の方針は固定する。全判別Unionの機械Schema、公開APIとの対応、状態組合せ検査、既存Reader／Writerへの実接続と局所試験は次の実装単位で閉じる。Source、実Host Store、ACL、過去Evidenceは本節では変更しない。
 
 ## 5. 鍵交換の段階と終了
+
+### 純粋Schema検査への具体化 — 2026-10-12
+
+機械入力はraw `Uint8Array`とし、16 MiB検査→strict UTF-8 decode→JSON parse→閉集合・参照・段階相関検査の順に処理する。成功値は入力から新しく所有したSnapshotであり、Root実在・Lock・認可・保存・配送の確認ではない。未知fieldを落として受理する変換は行わない。
+
+初回は`stage`による`correlated`／`user_stored`／`credential_stored`／`completed`の4変種とする。最初はattemptIdだけ、User保存後はuserId、資格保存後はcredentialIdと初回固有receipt／normalConnectionを追加する。途中のIDは現在参照、completedのinitialUserId／initialCredentialIdは歴史的IDで、後のRole変更や失効資格整理を拒否理由にしない。初回途中のUserはadministrator、資格は同User・同attemptIdの元発行へ結合する。配送は資格recordが所有し初回途中へ二重保存しない。completedだけは終了時のdelivery／receipt／normalConnectionを全てconfirmedとして保持する。
+
+交換は`prepared`／`revoked`／`credential_stored`を保存段階とし、entry（workbench／host）、scope（targeted／all）、recipientUserId、oldCredentialIds、operationIdを固定する。recoveryIdは`access-management.key-exchange.<operationId>`で結合し、参照そのものをAuthorityにしない。newCredentialIdは資格保存後だけ存在する。旧資格は未解決中ずっと現在参照とし、失効段階以後はrevokedを要求する。新資格は発行先・元operationIdへ結合し、配送の未解決はその資格deliveryから読む。交換間で同じ旧対象・元操作・新資格を重複所有しない。Root／実アクセス・現在Authority・段階の遷移可能性は保存Adapterの別検査に残す。
+
+純粋検査はRFD-UT-028へ接続し、既存管理判定・初回観測判定のUTへ流用しない。これは保存Adapter・公開API・初回全体の完成ではない。
+
+交換のpreparedは固定旧ID集合と対象範囲の現在有効資格集合の完全一致を検査する。双方0件も一致として許可し、最後の資格失効後のHost交換を塞がない。revokedは対象範囲の有効資格0、credential_storedは新資格だけが有効であることを検査する。allの発行先は全段階で既存administrator。completed初回の資格recordが現在残る場合はUser・元発行結合とdelivery confirmedを照合し、整理済みなら歴史IDだけを保持する。
 
 失効前にexact Recovery・旧対象集合・既存発行先を固定し、失効、発行、結果記録を共通段階として単調に保存する。通常WorkbenchはBackend返却・Browser配送、HostはローカルCLIへの返却・表示を別観測し、HostのBrowser配送は非該当とする。具体受領方式はOPENで、受領通知を人間の閲覧やAuthorityの証明にせず、新しい受領必須Gateも作らない。発行確定後の配送故障で発行結果を取り消さない。
 

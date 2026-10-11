@@ -14,7 +14,7 @@ Canonical設計集合と個別Releaseの検証対象を分ける。Local Itemを
 
 | 対象 | Local Item数 | Release上の処置 |
 |---|---:|---|
-| Canonical設計集合 | 190 | 2026-10-11の13定義から定義内ID重複排除で再算定。旧185件＋初回5件。旧172件は当時の履歴。HTTP公開Process終端の`EST-ST-013`と公式CLIの`ERB-IT-031`を含み、廃止した改造CLIの024～029は含めない。項目数はPass数ではない |
+| Canonical設計集合 | 191 | 2026-10-12に状態Schema純粋検査RFD-UT-028をNew追加。旧190件は2026-10-11の設計集合。HTTP公開Process終端の`EST-ST-013`と公式CLIの`ERB-IT-031`を含み、廃止した改造CLIの024～029は含めない。項目数はPass数ではない |
 | v0.21 Group A | 130 | v0.21のQuality Gateで評価する。108件観測済み、22件未観測 |
 | v0.21からの移管母集団 | 46 | 持越しと後続追加の一覧。現在の個別観測と採用Release Scopeとの対応は[算定Owner](05_Current_Implementation_Reality_Audit.md#13-移管母集団の処置とrelease適用範囲)を参照し、本表で件数を再定義しない |
 

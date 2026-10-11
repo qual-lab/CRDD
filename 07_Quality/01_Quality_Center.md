@@ -2,7 +2,9 @@
 
 状態: Quality Design In Progress — Latest Contract Propagation
 担当責任者: Qual-Lab
-最終更新日: 2026-10-11
+最終更新日: 2026-10-12
+
+最新設計集合は13定義・191項目（QA-000007は28項目）。2026-10-12にRFD-UT-028を状態Schemaの純粋検査としてNew追加した。候補局所実行は4 Case、AM Package全11 Caseとformat・type・lintが成功。正式項目評価はNot Run、保存Adapter・鍵・認可・本番Consumerは未接続。下記190件表示は追加前の履歴であり、実行Pass数ではない。
 
 現在注記: v0.21の最終署名照合は履歴Baselineとして完了している。v0.22の署名候補Commit `45254e2b`と是正済み検証Tool `1b756ac2`によるOrchestrator公開MCP実Provider E2Eは、Run `2e55c8cd2897464b`で合格した。通常二経路、取消、exact Recoveryおよび最終資源回収を確認し、再入場後は意図どおり人間の採用判断待ちで停止した。Workbench実Provider E2E、必要な四経路E2E、個別品質項目の照合および最終配布の再署名は残るため、Quality Readyへ昇格しない。
 
@@ -52,7 +54,7 @@
 |---|---:|
 | Canonical入力 | 167 |
 | Quality検証目標 | 13 |
-| Local Item数 | 190 |
+| Local Item数 | 191 |
 
 ## 結論
 

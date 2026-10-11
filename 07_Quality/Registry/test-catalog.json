@@ -670,6 +670,19 @@
   ],
   "tests": [
     {
+      "id": "access-management:unit:state-parse",
+      "owner": "access-management",
+      "path": "40_Develop/access-management/tests/unit/state/parse.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": ["state-schema", "bounded-input", "closed-record", "current-reference", "historical-reference"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["invalid_state_rejected", "raw_byte_limit_enforced", "initialization_reference_classes_distinct", "unresolved_exchange_references_preserved", "state_parse_no_io"],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "access-management:unit:initialization-state-evaluation",
       "owner": "access-management",
       "path": "40_Develop/access-management/tests/unit/initialization/state-evaluation.contract.test.ts",

@@ -1238,3 +1238,15 @@ UTはARCH由来だけ、ITは相関確定前Effect0と既知Root準備Effectの�
 方針具体化と実装完了を分ける。全判別Unionの機械Schema、公開API対応、状態組合せ検査、保存Adapterと本番Consumer接続・局所試験は残る。現在、この固定範囲について追加の人間判断は不要。
 
 固定4文書の契約・品質・直接影響限定独立再レビューはPass、全重大度の残指摘0。通常発行の相関保存先不足、初回baselineと閉Schemaの矛盾、旧OPEN表示の時点競合、QA見出しを是正した。通常発行は完全Credentialと元発行IDを同時出版し、新Receiptを作らない。ローカル参照先不存在0・差分確認成功。正式試験190項目・Not Run、Source／実Store未変更と後続実装Gateを維持する。
+
+## AM状態Schemaの純粋実装 — 2026-10-12
+
+基準Commitは`0fca0c92`。状態Schemaとbytes parserをAMのstate/parse.tsへ配置し、Package Rootから明示公開する。新しい通常Receipt、不完全Credential、履歴Store、Lock Frameworkは作らない。内容語彙・容量の採用済み契約、未解決交換中の資格整理禁止、初回完了後の歴史的参照を具体化する。着手前読取り専用照合は条件付き着手可・追加人間判断なしで、条件を設計へ反映した。
+
+RFD-UT-028をNew導出し、ARCH／Detail分析、QA定義、Symbol、試験台帳、Quality Center／Integrationを接続する。純粋検査と保存ITを分離する。構造評価: Variationは段階変種、Common Contractは単一bytes parser、Creationは所有JSON値、State-dependent Behaviorは段階相関、Compositionは閉集合の局所検査、Lifecycle／External BoundaryはN/A: I/O・外部資源なし。新しい上位意味は追加せず、実装知識の還元は既存詳細の機械形状への具体化に限定する。
+
+Node v24.19.0でFormatter・type・warning禁止LintとAM全11 Case成功（新4 Case）。正式191項目評価はNot Run。必須確認は契約・実装・品質・直接影響の限定独立レビューと差分・参照確認。標準規則不変更のため準拠監査、I/O未接続のため実Host・署名・Docker／Provider E2Eは今回実行しない。実Host Store・ACL・旧Evidence不変更。保存Adapter／公開API・鍵実処置／本番Consumer・実境界試験は残る。
+
+限定独立再レビューはPass・全重大度の残指摘0。交換対象集合の全数一致、全員交換の受領者Role、完了初回の保持資格の配送事実を是正した。有効資格0件からのHost交換は集合一致で許可し、存在しない最小件数を要求しない。全体Checkerでは3058件を観測し、今回変更Pathの2件を照合した。新UTのID表記漏れは是正し、PROJECT_CONTEXTのChecklist表現不一致は基準Commitにも存在するため今回の局所完了と分離する。他Pathの指摘はこの段階で基準版差分を確定しておらず、全体Passは主張しない。巨大な実行結果の書庫は作らず、局所判定と未完了範囲だけを保持する。
+
+是正後のChecker再確認は3057件、今回変更Pathは上記の基準版由来Checklist指摘1件だけで、新UTのSymbol接続指摘は解消した。
