@@ -22,7 +22,7 @@ Behavior ID: `BHV-000012`
 | Authority | Applicable | 業務管理manager／administrator、administrator Role変更・詳細権限と鍵3操作のadministrator専用、内容許可、Host交換を分離する。固定分担は内容設定から派生させない。通常鍵操作は同一Process Workbench限定・MCP非公開。要求毎に資格→ユーザー→一つの現行Roleへ結び直す。初回はログイン済みHost操作者を信頼する別操作で、追加認証・資格・承認コード・OS昇格なし。表示名はAuthorityではない。 |
 | Input | Applicable | 対象userId、表示専用名、現行Roleと詳細権限、Credential ID／状態、Repository公開・実アクセス、鍵交換操作種別・入口・失効集合・既存発行先・保持情報、非秘密の元発行Identity（Credential IDとは別）、発行／結果記録／配送／受領の確認情報、交換由来だけ確定済みのexact Recovery ID。生Secretを保存・診断入力へ複製しない。初回は管理用表示名・現在の初期化確認を入力とし、未作成UUIDを要求しない。途中は確認済み元試行・既知UUID・個別結果を使う。 |
 | Validation | Applicable | Effect前に入口Authority、対象Identity、現在の必要状態と確認条件を照合する。既存対象を必要とする操作での対象不明・管理者不存在・安全に確認不能・認可設定破損では新しいEffectを発行しない。初回は双方未初期化・明示開始を確認。既存・別Root・読取り失敗・破損・Lock使用中・未解決回復を未初期化へ丸めない。 |
-| State／Transition | Applicable | 資格の有効／期限切れ／失効／不明と、利用状態5区分・部分成立、回復の確認待ち／進行中／blocked／completedを分離する。鍵交換は旧失効＋新発行であり、永続resetting／rotating状態を増やさない。初回4状態と未試行／不明を分離し、未開始から元試行・UUIDを推定しない。作成済み・発行済みを未初期化へ戻さない。 |
+| State／Transition | Applicable | 資格の有効／失効／不明と、利用状態5区分・部分成立、回復の確認待ち／進行中／blocked／completedを分離する。鍵交換は旧失効＋新発行であり、永続resetting／rotating状態を増やさない。初回4状態と未試行／不明を分離し、未開始から元試行・UUIDを推定しない。作成済み・発行済みを未初期化へ戻さない。 |
 | Sequence | Applicable | 新規発行は対象確認→発行→結果確定・一度だけSecret返却。独立失効は対象確認→失効→結果確定（新発行なし）。交換は4組すべて事前表示→入口条件・必要な明示確認→同じRecoveryへ結合→旧失効→新発行→結果確定→搬送→受領を別段階として扱う。初回は明示開始→双方確認→表示名→最初のadministrator UUID作成→同じuserIdへ発行→結果記録→配送→受領→通常管理接続。各段階を別観測。 |
 | Effect | Applicable | 通常管理は操作別に最小ユーザー情報・Role内容設定・Repository接続登録／Exposureを更新する。登録≠公開、解除≠Repository／Product Data削除。鍵交換は旧失効＋既存発行先への新発行だけで、ユーザーID・名前・Role・詳細権限・Repository登録・Product Dataを保持する。初回は最初のUUIDユーザー・表示専用名・一つのadministrator Roleと結合鍵だけを作成。登録・Exposure・内容権限を自動付与せずProduct Data不変更。 |
 | Output | Applicable | 許可範囲の自身／管理対象情報と操作別結果。新規発行は発行結果・一度表示Secret、独立失効は失効結果だけ（新発行・Secret・交換再入場なし）、交換は確定失効範囲・発行結果・結果改訂・同じRecovery IDと確認先・新資格再入場先を返す。初回は作成UUID、発行・記録・配送・受領の個別事実、Secret一度返却、次行動。部分結果を初回全体完了にしない。 |
@@ -167,12 +167,16 @@ Host明示開始 → Root／Path・双方未初期化を確認
 | 項目 | 現在状態 | Owner | 影響 | 戻り条件／再評価契機 |
 |---|---|---|---|---|
 | 採用済み入口以外の実装配置・物理保存・秘密保護 | OPEN | Architecture工程 | その他の配置・Store・Schemaは未固定 | Architecture Detailで具体化する時 |
-| 有効期限既定値と実利用条件 | OPEN | SPEC／UX Owner・Qual-Lab | 期限・利用頻度・確認負担は未固定 | Pilot／回復実測または前提変更時 |
+| 実利用条件 | OPEN | SPEC／UX Owner・Qual-Lab | 利用頻度・確認負担は未固定。鍵の期限なしは採用済み | Pilot／回復実測または前提変更時 |
 | 具体API・保存・実画面と本番認可 | OPEN | Architecture／実装・UI工程Owner | 固定分担の設計だけでは本番成立を主張できない | 後続のArchitecture・Source・実境界検証時 |
 
 ## 補足分析
 
 現在SPEC Definitionの意味を既存BHVへ詳細化し、旧Role別鍵・Access再構成・Bootstrap再入場を置き換える。限定した詳細契約の更新であり、工程Exit・Architecture／Quality伝播・実装・E2Eの完成ではない。
+
+## 鍵の期限なし方針の接続 — 2026-10-11
+
+期限なしの実装条件: 時間経過だけで鍵の失効・交換・再発行を行わず、明示失効と現在認可を別に評価する。観測不能・無効・失効資格を受理しない。具体Schema・保存・本番接続は未成立。
 
 ## Checklist
 

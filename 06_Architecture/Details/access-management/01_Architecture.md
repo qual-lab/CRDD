@@ -40,7 +40,7 @@ Package Rootの`src/index.ts`から明示公開し、Capability内barrelは作�
 |---|---|---|
 | ユーザー | userId（UUID）、username、Role | 名前は表示だけ。同名・改名でIDやAuthorityを変えない。Roleはdeveloper／manager／administratorの一つ |
 | Role詳細権限 | Role→内容の許可操作・利用範囲 | 現在値を内容要求毎に参照。固定8管理分担は設定対象外でON／OFF・再委譲なし。管理権限から内容閲覧を生成しない。内容権限の具体語彙・Schemaは未確定 |
-| 資格 | Credential ID→既存userId、Verifier、現在状態 | ユーザー・Roleとの参照整合。生Secretを含めない。期限の既定値は未確定 |
+| 資格 | Credential ID→既存userId、Verifier、現在状態 | ユーザー・Roleとの参照整合。生Secretを含めない。期限なしで、時間経過だけの自動失効・交換なし。失効済み資格を再有効化しない |
 | 接続／公開情報 | 検証済みRepository Binding、Exposure、改訂 | Rootの技術的検証はVersion Control、意味解析はDomain。対象IDはAuthorityではない |
 | 鍵交換相関 | 同じRecovery ID、種別、入口、対象、既存発行先、対象旧資格集合、既知失効、発行結果／不明、結果改訂 | 非秘密。現在Stateを再観測するための根拠であり、操作許可を復元しない |
 | 初回相関 | 確認済み元試行、成立したUUID／資格と記録・配送・受領・通常接続の各事実 | 非秘密・非Authority。未作成IDを推定せず、交換Recovery／Lock回復ID・短命pendingと分離 |
@@ -145,7 +145,7 @@ Host対話入口 → AM: 配送・受領・通常接続の各観測
 | 結果確定 | 失効範囲・発行結果・結果改訂を同じRecoveryへ非秘密で確定 | 記録・読戻し不明を完了へ丸めない |
 | 結果配送 | 許可された入口へ結果と一度限りのSecretを返す | 発行・結果記録が確定済みなら「発行済み・受け渡し未確認」とし、確定を保持する。未確定発行の再観測と、確定後に明示選択する別交換を§6で分ける。Secret保存・再表示・自動再発行なし |
 
-資格状態（有効／期限切れ／失効／不明）と、回復の確認待ち／進行中／blocked／completedを混同しない。交換のcompletedは必要な失効と発行が確定している時だけで、結果の配送・受領確認とは別の事実である。UIには現在観測できた結果と未確定範囲を分けて返す。永久resetting／rotating資格状態は追加しない。
+資格状態（有効／失効／不明）と、回復の確認待ち／進行中／blocked／completedを混同しない。交換のcompletedは必要な失効と発行が確定している時だけで、結果の配送・受領確認とは別の事実である。UIには現在観測できた結果と未確定範囲を分けて返す。永久resetting／rotating資格状態は追加しない。
 
 ## 6. Failure・再入場
 
@@ -207,7 +207,7 @@ Host対話入口 → AM: 配送・受領・通常接続の各観測
 | Engineering Concern | 結果 | 理由・現在の影響／確認先 |
 |---|---|---|
 | Concurrency | OPEN | §2の整合読取り・期待改訂は必須。書込み単位／競合確定未設計。保存設計担当がSource着手前に閉じる |
-| Timing | OPEN | 要求毎現在値と時刻相関は§3／7。資格期限の既定値・語彙未確定、SPEC／UXと保存設計で確認 |
+| Timing | Applicable | 接続鍵は期限なし。要求毎現在値と時刻相関は§3／7。時間経過だけで自動失効・交換せず、現在認可の変更は次要求へ反映する |
 | Resource Lifecycle | OPEN | 短命SecretとRequest値は§2／7。保持上限・清掃・配送後残存未設計、保存／入口設計で確認 |
 | External Boundary | OPEN | §7の論理配置は固定、公開入口・OS保存・配送実境界は未具体化、Surface／保存担当で確認 |
 | State／Consistency | OPEN | §2／5の論理整合を要求。失効／発行／相関の確定方法未設計、保存設計で確認 |
@@ -242,7 +242,7 @@ Host対話入口 → AM: 配送・受領・通常接続の各観測
 
 | OPEN | 確認先・再評価契機 | 閉じるまでの制約 |
 |---|---|---|
-| UUID版・表示名制約、内容権限の具体語彙、資格期限・Verifier適用 | AMデータ／認可設計、必要なら上流Owner。Schema固定前 | 新ユーザー保存・権限初期値をSourceへ実装しない |
+| UUID版・表示名制約、内容権限の具体語彙、Verifier適用 | AMデータ／認可設計、必要なら上流Owner。Schema固定前 | 新ユーザー保存・権限初期値をSourceへ実装しない |
 | 物理Schema・同一Root内配置・書込み確定・再入場・保持清掃 | AM保存設計、既存保存Owner。Source移管前 | 既知部分結果を失う方式、無期限蓄積、新Lock Frameworkを採用しない |
 | 公開API・秘密配送・採用済み画面／CLI入口の具体入力・表示と結果受領 | AM／UI／MCP／Workbench Owner。公開入口実装前 | Remote秘密公開、新CLI入力、受領成功の推定をしない |
 | Domain集約・混合型分割・全ConsumerとQuality伝播 | Domain／Surface／Quality Owner。旧CROS撤去前 | 旧処理の削除・新契約全体完成を主張しない |

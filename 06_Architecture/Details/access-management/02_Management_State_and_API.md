@@ -35,7 +35,7 @@
 | `exchangeCredentialsFromHost` | ログイン済みHost対話入口・期待改訂。指定User／全員交換の2種、双方表示＋明示確認 | 指定は対象全旧有効資格→同じ既存userId、全員は全旧有効資格→指定既存administratorへ一資格。同じRecovery。追加認証・OS昇格・回復専用Userなし |
 | `readKeyExchangeState` | 現在Authorityと同じexact Recovery参照 | 非秘密の段階・既知結果。参照自体をAuthorityにせず、MCPには公開しない |
 
-更新は操作・対象・期待改訂を受け、結果には状態、最初の失敗段階、期待／採用改訂、既知Effect、読戻し、解放結果を相関させる。`completed`／`blocked`／`unknown`は結果候補値で、具体Schemaは未固定。出版後故障は`blocked`や`unknown`でも既知Effectを保持し、Effect 0やRollbackへ戻さない。詳細権限語彙、資格期限、Profile管理Roleは別途OPENとする。
+更新は操作・対象・期待改訂を受け、結果には状態、最初の失敗段階、期待／採用改訂、既知Effect、読戻し、解放結果を相関させる。`completed`／`blocked`／`unknown`は結果候補値で、具体Schemaは未固定。出版後故障は`blocked`や`unknown`でも既知Effectを保持し、Effect 0やRollbackへ戻さない。詳細権限語彙、Profile管理Roleは別途OPENとする。
 
 交換4組とも対象ID・表示名・失効範囲・発行先・保持情報を事前表示し、通常全員・Host指定・Host全員の3組だけ明示確認する。User ID・表示名・Role・Role内容権限・Repository登録・Product Dataは保持する。
 
@@ -125,7 +125,7 @@ ExposureのRepository IDは既存登録を参照し、重複・孤立参照を�
 
 公開DTOは検査済み状態から所有済みの値として明示構築し、内部Snapshotの参照・共有配列・余分fieldを透過しない。返却後の内部変更で値を変えない。Proxy／accessor等を内部状態検査の代替にせず、Schemaの閉包と値の検査を経てから投影する。
 
-反証は、自己表示へ他User情報を添付、古いRole認可と新改訂DTOの混合、管理許可から内容を公開、観測不能から空集合生成、解放不明の成功表示、後続改訂から元要求完了を推定、入れ子・余分field・エラー経由の秘密透過である。既存RFD-IT-013／RFD-ST-004、RFD-IT-021、RFD-ST-022、RFD-UAT-007へ接続し、Not Runを維持する。具体内容語彙・接続表示・鍵読取り・初回設定・資格期限・本番保存と利用側接続は未完了である。
+反証は、自己表示へ他User情報を添付、古いRole認可と新改訂DTOの混合、管理許可から内容を公開、観測不能から空集合生成、解放不明の成功表示、後続改訂から元要求完了を推定、入れ子・余分field・エラー経由の秘密透過である。既存RFD-IT-013／RFD-ST-004、RFD-IT-021、RFD-ST-022、RFD-UAT-007へ接続し、Not Runを維持する。具体内容語彙・接続表示・鍵読取り・初回設定・本番保存と利用側接続は未完了である。
 
 ## 4. 物理保存の比較と未決条件
 
@@ -234,6 +234,10 @@ Repositoryでは重複登録、未登録Exposure、解除後の孤立Exposure、
 実装前の残件は、排他の具体Ownerと実OS出版保証、公開read Schema、元発行Identityと配送／受領観測の具体保存・搬送、内容権限語彙、保持・清掃条件、初回Root準備、初回相関・個別結果の物理Schema・確定・読戻し・配送／受領観測・解消後整理、本番入口と移行対応である。担当はQual-Lab、再評価契機は保存・API候補固定時。登録解除と受け渡し未確認後の処置方針は確定済みだが、これらの物理・接続残件は実装Gateを阻害するため将来改善として退避しない。追加の保証や再表示・自動再発行を採用する場合は上流判断へ戻す。
 
 Root準備はFilesystem Effectを持ち、Directory作成だけで未初期化を証明しない。準備後故障の既知Effect・残存を保持する。論理初回順序の具体化からRoot準備方式・保存方式採用・秘密保護・実装Gate成立を推定しない。横断モデル・Workbench／MCP詳細・Quality・Sourceは未追従。
+
+## 鍵の期限なし方針の接続 — 2026-10-11
+
+鍵の期限方針は期限なしとして確定した。保存・公開結果から有効期限や自動更新を新設せず、Verifier照合、明示失効・交換、要求毎の現在認可を別に接続する。未知の保存fieldを無視して期限なしへ変換することや、旧失効資格を再有効化することは許可しない。旧CROS形式からの移行と本番保存接続は未完了。
 
 ## Checklist
 

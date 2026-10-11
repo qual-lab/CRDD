@@ -43,10 +43,10 @@
 | 2入口 | 通常入口は同一Process Workbenchの固定administrator、Host入口はログイン済みローカル操作者の対話CLI。Host入口または全員交換だけ人間の明示確認を要求する |
 | 独立失効 | Workbenchの固定administratorと対象を確認し、以後の要求で拒否する。新発行・Secret・交換再入場なし。結果不明は既知対象・状態と確認先を返す。開始済み取消やEffect 0の証明ではない |
 | 保持・制約 | 鍵交換でuserId・表示名・Role・詳細権限・Repository登録・Product Dataを保持。特別ユーザー・追加権限・回復専用Bootstrap・認可設定破損修復を追加しない |
-| 状態 | 利用5区分と部分成立、資格の有効／期限切れ／失効／不明、回復の確認待ち／進行中／blocked／completedを区別。永続resetting／rotationを増やさない |
+| 状態 | 利用5区分と部分成立、資格の有効／失効／不明、回復の確認待ち／進行中／blocked／completedを区別。永続resetting／rotationを増やさない |
 | 可視性・秘密 | 自身表示可、非認証User情報0、現在他ユーザー参照を許可されていない主体の他User一覧・存在・件数0。非開示Repository保護。生Secretは発行／交換後だけ一度返し、保存・ログ・Evidence・会話へ複製しない |
 
-単体利用の資格不要は維持する。初回Host設定は通常の鍵操作・回復とは分離する。ログイン済みHost操作者の明示開始で管理用表示名を入力し、最初のadministrator UUIDを作成して同じuserIdへ鍵を発行し、一度だけ返す。表示名をAuthorityにせず、MCP／自動起動、追加認証・専用資格・承認コード・OS昇格を追加しない。API、UI配置、秘密Store、UUID版・生成方式、表示名構文、期限、保存Schemaはこの分析で確定しない。
+単体利用の資格不要は維持する。初回Host設定は通常の鍵操作・回復とは分離する。ログイン済みHost操作者の明示開始で管理用表示名を入力し、最初のadministrator UUIDを作成して同じuserIdへ鍵を発行し、一度だけ返す。表示名をAuthorityにせず、MCP／自動起動、追加認証・専用資格・承認コード・OS昇格を追加しない。API、UI配置、秘密Store、UUID版・生成方式、表示名構文、保存Schemaはこの分析で確定しない。
 
 ## 3. Lifecycle・失敗・回復
 
@@ -93,7 +93,7 @@
 | 継承事項 | 判断者・再評価契機 | 未確認時の扱い |
 |---|---|---|
 | 自身表示名と安定ID、現行範囲・利用不能理由、接続負担・失敗後選択 | 代表利用者・Qual-Lab。実利用／前提変更時 | 定量条件・具体導線を確定しない |
-| 対象識別とリセット確認負担、採用済みWorkbench／Host CLIの具体表示・案内、有効期限既定値 | 管理者・Host運用者・Qual-Lab。Pilot／回復実測時 | 期限・画面・配布手順を確定しない |
+| 対象識別とリセット確認負担、採用済みWorkbench／Host CLIの具体表示・案内 | 管理者・Host運用者・Qual-Lab。Pilot／回復実測時 | 画面・配布手順を確定しない |
 
 追加の採用判断は不要だが、継承Openは未解消。対応UI-000008との統合で契機・結果・Failure・Authority・Effect・状態を一件ずつ照合する。意味不足や競合はSPECとその来歴Ownerへ戻し、現行Sourceから埋めない。
 

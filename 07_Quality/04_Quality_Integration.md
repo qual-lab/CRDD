@@ -163,6 +163,10 @@ Source IDごとの検証義務は各工程の`Analysis/<工程>/quality_analysis
 | Definition | v0.21のUI／SPEC Definition | Covered | 既存Quality AnalysisとQA Definitionへ統合済み | N/A: v0.21契約で閉包済み |
 | Detail | 20 SCR、20 PRT、32 Interaction、30 BHV | Covered | [Detail Quality分析](Analysis/Detail/quality_analysis.md)で全数処置し、Source Definition由来の既存QAへ具体的観測条件として統合する | Product固有Visual／CMPを発行した時に再分析する |
 
+## 鍵の期限なし方針の接続 — 2026-10-11
+
+鍵の期限なし（2026-10-11）は既存QA-000007／RFD-ST-003・RFD-IT-013・RFD-UAT-007へ統合する。時間だけ経過した同じ有効鍵、明示失効・交換後の旧鍵、Role／詳細権限／Exposure変更後の現在認可を別に評価する。新Local Itemなし、更新項目Not Run、Source／Store／本番資格接続・新Evidence未完了。
+
 ## Checklist
 
 - [x] 全Canonical IDを一件以上のQuality Analysis行で処置した

@@ -74,6 +74,8 @@ Workbench／MCP／管理入口
 
 ## 6. データ・状態・Interface
 
+Access Managementは期限なしの資格照合と要求毎の現在認可を分離する。時間経過による失効・交換を担当するTimerや更新Workerは設けない。明示失効・交換、現在権限の変更、形式不正・観測不能の拒否を保持する。旧失効資格の復活や旧CROS保存形式の移行完了は、この設計判断から推定しない。
+
 | 対象 | 関係と所有境界 |
 |---|---|
 | ユーザー | 安定userId（UUID）・管理用表示専用名・一つのRole。改名／同名はIdentityやAuthorityを変更しない |
@@ -82,7 +84,7 @@ Workbench／MCP／管理入口
 | Exposure／実アクセス | 公開範囲と現在取得可能性を別判定。不明を許可／不存在へ丸めない |
 | 鍵交換相関 | 同じRecovery ID、種別・入口・対象・既存発行先・失効確定範囲・発行結果・再入場。非秘密の耐久情報としてProcess喪失後も保持 |
 | 初回設定 | 双方未初期化、確認済み途中、既存、観測不能を区別。ユーザー成立前の状態・非秘密元試行相関はAMが所有し、成立後にUUID／資格へ結ぶ。試行参照は非Authorityで、交換Recovery・Lock回復・Credential IDへ転用しない |
-| 状態軸 | 利用5区分と部分成立、資格の有効／期限切れ／失効／不明、回復の確認待ち／進行中／blocked／completed。永続resetting／rotationなし |
+| 状態軸 | 利用5区分と部分成立、資格の有効／失効／不明、回復の確認待ち／進行中／blocked／completed。永続resetting／rotationなし |
 
 - 通常管理の入力: 新規登録は予定Role・表示名（managerはdeveloper／managerのみ）、既存Role変更は対象ID・前後Role（managerは前後ともdeveloper／managerのみ）、名前変更は対象ID・新表示名（ID・Role・Credential保持）、Role内容設定は対象Role・変更内容、Repository管理は対象ID・現在登録／公開状態・変更内容を確認する。新規対象へ既存ID・変更前Roleを要求しない。
 
@@ -124,7 +126,7 @@ Repository登録・Exposure・内容権限の自動付与とProduct Data変更�
 
 三可視境界（自身表示可／非認証User情報0／現在他ユーザー参照を許可されていない主体への他User一覧・存在・件数0）、Repository非開示、管理と内容閲覧の分離、現行Role反映をすべての利用側で維持する。
 
-継承Openは、代表利用者・Qual-Labによる自身表示とID・利用不能理由・接続負担の理解、管理者／Host運用者・Qual-Labによる対象識別・確認負担・採用済みWorkbench／Host CLIの具体表示・案内・有効期限既定値の評価。実利用、Pilot、回復実測または前提変更で再評価する。未確認の定量条件・期限・画面・配布手順を確定せず、上流の意味不足はUI／SPECへ戻す。
+継承Openは、代表利用者・Qual-Labによる自身表示とID・利用不能理由・接続負担の理解、管理者／Host運用者・Qual-Labによる対象識別・確認負担・採用済みWorkbench／Host CLIの具体表示・案内の評価。実利用、Pilot、回復実測または前提変更で再評価する。未確認の定量条件・画面・配布手順を確定せず、上流の意味不足はUI／SPECへ戻す。
 
 ### 8.1 UI／SPEC Detailの配置制約
 

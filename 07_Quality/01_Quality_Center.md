@@ -28,6 +28,8 @@
 
 ## Current Quality Projection
 
+鍵の期限なし方針は設計・品質へ伝播した候補。QA-000007のRFD-ST-003／RFD-IT-013／RFD-UAT-007で、時間経過、明示失効・交換、現在権限変更、利用者理解を分離して確認する。全13定義190項目は不変、更新項目はNot Run。保存・本番資格接続・実行・新Evidenceは未完了であり、今回の伝播を実行Passへ昇格しない。
+
 初回設定の実装接続については、RFD-UT-023のSource／Test Symbolと候補局所実行だけ接続済み。正式Local Item／Evidence評価はNot Run。他初回4項目、物理read・Root・排他・保存・Host・鍵・本番ConsumerはOPENであり、上記のSource／Test未完了の記述はこの限定接続を除く。UTの成功を初回設定全体の完成へ流用しない。
 
 | 項目 | 現在値 | 根拠・次の処置 |

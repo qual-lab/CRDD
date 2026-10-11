@@ -29,9 +29,9 @@ userIdのUUID制約は正式UXから継承する。IAは安定した同一性を
 | ユーザー | 資格の対象。表示名は管理者の対象識別と自身表示に限る | 安定userId。表示名は属性であり、同名・改名でIdentityや権限を変えない。一つの現行Roleへ結ぶ |
 | Role | 利用する権限の分類 | `administrator`／`manager`／`developer`。Repository RoleやTask Roleと別 |
 | Role詳細権限 | Roleが所有する情報・操作の許可範囲 | Role IDに結ぶ。ユーザーやCredentialへ個別追加権限を持たせない |
-| 接続資格Metadata | ユーザーへ紐づく資格の識別・状態・期限 | Credential IDとuserId。生Secretや同等値を含めず、古いRole権限を固定しない。元発行Identity（Credential IDとは別の非秘密Operation／Attempt相関情報）と発行・結果記録・配送・受領確認を別属性として保持 |
+| 接続資格Metadata | ユーザーへ紐づく資格の識別・状態・期限なしの扱い | Credential IDとuserId。生Secretや同等値を含めず、古いRole権限を固定しない。元発行Identity（Credential IDとは別の非秘密Operation／Attempt相関情報）と発行・結果記録・配送・受領確認を別属性として保持 |
 | 一度表示するSecret | 発行または鍵交換後に一度渡す秘密 | 発行Attempt内だけ。永続情報へ含めない |
-| 接続資格状態 | 有効・期限切れ・失効・不明の差 | Credential IDと現行状態。鍵交換は旧資格失効と新資格発行の関係であり、新しい永続状態を作らない |
+| 接続資格状態 | 有効・失効・不明の差 | Credential IDと現行状態。鍵交換は旧資格失効と新資格発行の関係であり、新しい永続状態を作らない |
 | 管理能力 | 最小ユーザー情報・Role権限・Credential等を管理する能力 | 業務管理はmanager／administrator、管理者Role・詳細権限と鍵はadministrator専用固定。内容閲覧を自動的に得ない。初回には対象Host管理状態の由来・確認結果、初期化状態、確認済み初回試行の非秘密相関を属性として持ち、成立したユーザー・資格へ結ぶ |
 | Access Recovery | 通常管理またはHostから鍵だけを交換して接続へ戻る回復 | Recovery IDを最初の失敗から再入場まで保つ。操作種別（指定ユーザー交換／全員交換）と入口・Authorityは別属性 |
 | Recovery対象 | 鍵交換の対象ユーザー・失効資格集合・新資格発行先 | Recovery ID、対象userId、失効対象Credential集合、発行先userId。指定交換は同じユーザー、全員交換は指定既存administrator |
@@ -91,9 +91,9 @@ Repository登録状態は登録関係の属性、公開範囲はExposureの属�
 | IA-000009 | ユーザー | ユーザー | Same | 最小識別と表示専用名を利用・管理の両場面で共有する |
 | IA-000009 | Role | Role | Same | 固定三Roleを利用・管理で共有する |
 | IA-000009 | Role詳細権限 | Role詳細権限 | Same | 現行Roleが許可範囲を所有する |
-| IA-000009 | 接続資格Metadata | 接続資格 | Merge | Secretを除いた識別・ユーザー結合・状態・期限を統合する |
+| IA-000009 | 接続資格Metadata | 接続資格 | Merge | Secretを除いた識別・ユーザー結合・状態・期限なしの扱いを統合する |
 | IA-000009 | 一度表示するSecret | Secret表示境界 | Rename | 発行／鍵交換時の一時表示として扱う |
-| IA-000009 | 接続資格状態 | 接続資格状態 | Same | 有効・期限・失効・不明を区別する |
+| IA-000009 | 接続資格状態 | 接続資格状態 | Same | 有効・失効・不明を区別する |
 | IA-000009 | 管理能力 | 管理能力 | Same | 内容Accessから分離する |
 | IA-000009 | Access Recovery | Access Recovery | Same | 両入口から鍵交換後の再入場を表す |
 | IA-000009 | Recovery対象 | Recovery対象 | Same | 操作種別と対象userId・失効集合・発行先の関係を表す |
@@ -180,7 +180,7 @@ Repository登録状態は登録関係の属性、公開範囲はExposureの属�
 
 | 観点 | 分析結果 |
 |---|---|
-| 状態 | Credentialの有効／期限切れ／失効／不明、Recoveryの確認待ち／進行中／blocked／completedを区別する。初回は未初期化確定／既存／確認済み途中／観測不能を区別し、発行・記録・受け渡しを別の事実とする |
+| 状態 | Credentialの有効／失効／不明、Recoveryの確認待ち／進行中／blocked／completedを区別する。初回は未初期化確定／既存／確認済み途中／観測不能を区別し、発行・記録・受け渡しを別の事実とする |
 | 可視性 | 管理者は対象ID・表示名・Role・資格Metadataを確認する。認証済み利用者の自身表示を許可し、非認証入口へユーザー情報、現在他ユーザー参照を許可されていない主体へ他ユーザー一覧・存在・件数を開示しない。Secretは発行／リセット時だけ一度表示し、一覧・ログ・Evidence・会話に残さない。初回はログイン済みHost操作者へ確認結果と成立済み対象だけを示し、Secretは一度受領だけとする。MCP・自動起動へ初回設定を公開しない |
 | 導線 | 操作対象・担当Role→対象ユーザーID・表示名／対象Repository・登録状態→現行Role／公開範囲・資格状態→処置影響。鍵交換は通常Workbenchの固定administrator権限またはログイン済みHost操作者→操作種別・対象userId・失効集合・発行先・保持範囲の確認→同じRecovery→既存ユーザーの新資格で再入場。Host入口と全員交換は人間が明示確認する。初回は対象管理状態→開始可否・停止理由→管理用表示名→成立したUUID・資格→一度受領→通常管理。確認済み途中だけ元試行を再観測し、未試行／観測不能に試行を推定しない |
 | 責任 | manager／administratorが業務管理を、administratorが管理者Role・詳細権限と鍵操作を管理する。Hostのログイン済みローカル操作者が初回設定と既存ユーザーの限定鍵交換を、Repository OwnerがProduct Dataを所有する |
@@ -190,7 +190,7 @@ Repository登録状態は登録関係の属性、公開範囲はExposureの属�
 | 判断権限 | 鍵操作はadministrator専用固定。manager／administratorはユーザー登録・表示名変更、developer／managerの割当て・詳細権限、Repository登録・登録解除・公開範囲を管理する。administratorの付与・解除・降格を含むRole変更、administrator詳細権限と鍵3操作はadministratorだけが管理する。developerへ管理操作、managerへ管理者専用操作を設定で委譲しない。Host回復はログイン済みローカル操作者と人間確認。管理能力だけから内容閲覧を推定しない。初回はHost操作者が明示開始・表示名入力・一度受領を行い、管理機能が状態判定・成立事実を提供する。未初期化確定時だけ許可し、内容閲覧・Repository登録・公開範囲を自動付与しない |
 | 重要な失敗 | 同名対象の取り違え、名前のAuthority化、他ユーザー非開示違反、古いRole権限の固定、Secret再表示、Product Data削除、Recovery Identity喪失。初回では観測不能を未初期化へ丸める、存在しない元試行を生成する、途中から再初期化する、内容権限を自動付与することを拒否する |
 | 制約・対象外 | 採用済みWorkbench／Host CLI入口の表示具体化、Digest・Protocol・Schema・Process配置は未決。メール・Password・本人確認・自己登録・自己編集・申請・複数Role・個別追加権限・一般IAMを追加しない |
-| 人間判断 | 対象識別とリセット確認の負担、採用済みWorkbench／Host CLI入口の具体的な表示・案内、有効期限既定値をPilotで確認する |
+| 人間判断 | 対象識別とリセット確認の負担、採用済みWorkbench／Host CLI入口の具体的な表示・案内をPilotで確認する |
 | IAへ戻す条件 | 対象の同一性、Role権限、三可視境界、操作範囲と入口・Authorityの区別を情報構造から再構成できない場合 |
 | 検証意図 | 同名・改名でもIDと権限を誤認せず、両鍵交換の対象範囲・発行先と情報保持／旧資格拒否、入口Authority差、Role変更の次認可反映、三可視境界、Secret非保存、途中失敗時の同じRecoveryと現在再観測を確認する。登録と対象公開設定の同時解除、他対象・本体保持、発行・記録・配送・受領確認の非同一性、3分岐の次行動、元／新Identityの分離と各交換内exact保持、現在認可・Secret非保存・失効済み旧応答の利用案内拒否を反証する。初回の未試行／観測不能／確認済み途中を区別し、管理者未作成でも未初期化確定なら開始可、既存状態の管理者不存在を初期化で修復しないことを反証する |
 
@@ -200,10 +200,10 @@ Repository登録状態は登録関係の属性、公開範囲はExposureの属�
 
 | 区分 | 内容 |
 |---|---|
-| UXから継承する確認事項 | 対象識別とリセット確認の負担、採用済みWorkbench／Host CLI入口の具体的な表示・案内、有効期限既定値。既存userIdへの結合とユーザー情報・Role保持は採用済み |
+| UXから継承する確認事項 | 対象識別とリセット確認の負担、採用済みWorkbench／Host CLI入口の具体的な表示・案内。既存userIdへの結合とユーザー情報・Role保持は採用済み |
 | 判断者 | CROS管理者、Host運用者、Qual-Lab |
 | 現在判定 | Pilot／後工程で確認。IA Candidateを止めない |
-| 未確認時の影響 | 定量期限・画面配置・配布手順を確定しない |
+| 未確認時の影響 | 画面配置・配布手順を確定しない |
 | IAで追加した未確認事項 | なし。UUID版・表示名構文／正規化／一意性・物理Schemaを先取りしない |
 | IA固有の追加人間判断 | なし |
 | Discoveryへ戻す条件 | 本人確認、自己管理、申請、複数Role、個別追加権限、個人行動監査が必要となった場合 |
