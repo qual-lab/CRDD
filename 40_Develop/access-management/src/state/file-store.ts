@@ -5,7 +5,7 @@
  * @trace ARCH-000013
  */
 import fs from "node:fs";
-import { createHash } from "node:crypto";
+import crypto, { createHash } from "node:crypto";
 import { evaluateHostInitializationState } from "../initialization/state-evaluation.ts";
 import {
   type FilesystemStoreRoot,
@@ -29,6 +29,41 @@ const PENDING_LIMIT = 17_825_792;
 const HASH = /^[a-f0-9]{64}$/u;
 const ATTEMPT_UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+
+/**
+ * 初回相関の完全な基準状態を構築する。
+ * @responsibility 初期Roleと空集合を一つの固定候補にする。
+ * @trace ARCH-000013
+ * @input 検査済み元試行UUID。
+ * @returns revision1の所有Snapshot。
+ * @precondition 内部Ownerがprimitive入力を検査済み。
+ * @postcondition 操作IDと元試行が一致する。
+ * @effect N/A: メモリ値だけ。
+ * @failure N/A: 固定形状の構築のみ。
+ * @invariant User・資格・登録・公開・交換は空。
+ * @boundary 初回相関と初期状態。
+ * @security Secret・認可Authorityは生成しない。
+ * @concurrency N/A: 局所値だけ。
+ */
+function initialBaseline(attemptId: string): AccessManagementState {
+  return {
+    contract: "crdd-access-management/state",
+    schemaRevision: 1,
+    revision: 1,
+    operationId: attemptId,
+    users: [],
+    credentials: [],
+    registeredRepositories: [],
+    exposure: [],
+    unresolvedKeyExchanges: [],
+    roleContentAccess: [
+      { role: "developer", workspaceIds: ["development"] },
+      { role: "manager", workspaceIds: ["development", "management"] },
+      { role: "administrator", workspaceIds: [] },
+    ],
+    initialization: { stage: "correlated", attemptId },
+  };
+}
 
 /**
  * 初回の元試行だけを排他的に保存・再観測する。
@@ -73,23 +108,7 @@ export function initializeAccessManagementState(
       "not_attempted";
     let revision: number | null = null;
     try {
-      const baseline: AccessManagementState = {
-        contract: "crdd-access-management/state",
-        schemaRevision: 1,
-        revision: 1,
-        operationId: attemptId,
-        users: [],
-        credentials: [],
-        registeredRepositories: [],
-        exposure: [],
-        unresolvedKeyExchanges: [],
-        roleContentAccess: [
-          { role: "developer", workspaceIds: ["development"] },
-          { role: "manager", workspaceIds: ["development", "management"] },
-          { role: "administrator", workspaceIds: [] },
-        ],
-        initialization: { stage: "correlated", attemptId },
-      };
+      const baseline = initialBaseline(attemptId);
       const expected = serialize(baseline);
       if (
         parseAccessManagementState(expected).status !== "parsed" ||
@@ -224,7 +243,7 @@ type PendingPublication = {
  * @trace ARCH-000013
  * @input 検査済みの所有JSON値。
  * @returns 固定serializerのUTF-8 Buffer。
- * @precondition 内部保存Ownerだけが呼び出す。callbackは同期の認可評価とメモリ内候補構築だけに閉じ、Promise・外部I/O・鍵処置・別Store更新・利用者応答を行わない。
+ * @precondition 内部保存Ownerが検査済みの所有JSON値を渡す。
  * @postcondition 確認した事実だけを返し、観測不能を成功へ変換しない。
  * @effect N/A: メモリ内計算だけ。
  * @failure JSON値以外は利用側の検査で拒否する。
@@ -640,7 +659,7 @@ export function readAccessManagementState(
  * @trace ARCH-000013
  * @input Root・期待改訂・現在状態から次UTF-8 byteを返す同期callback。
  * @returns 読戻し済み改訂と操作ID、または段階・既知出版事実。
- * @precondition 同じ用途限定Rootと既存排他を使用する内部保存Ownerだけが呼び出す。
+ * @precondition 内部保存Ownerだけが呼び出す。callbackは同期の認可評価とメモリ内候補構築だけに閉じ、Promise・外部I/O・鍵処置・別Store更新・利用者応答を行わない。
  * @postcondition 確認した事実だけを返し、観測不能を成功へ変換しない。
  * @effect 保存部品だけがpending・replace作成、current置換、短命材料清掃を行う。callback自身の外部・永続Effectは0。
  * @failure 競合・候補不正・出版／読戻し／清掃失敗は未完了。
@@ -704,69 +723,7 @@ export function updateAccessManagementState(
           revision,
           cleanupConfirmed: true,
         };
-      const nextBytes = serialize(parsed.state);
-      const pending: PendingPublication = {
-        contract: "crdd-access-management/pending",
-        schemaRevision: 1,
-        kind: "management",
-        baseRevision: current.state.revision,
-        baseSha256: hash(current.bytes),
-        nextRevision: parsed.state.revision,
-        nextSha256: hash(nextBytes),
-        operationId: parsed.state.operationId,
-        nextSnapshot: parsed.state,
-      };
-      const pendingBytes = serialize(pending);
-      if (
-        nextBytes.byteLength > CURRENT_LIMIT ||
-        pendingBytes.byteLength > PENDING_LIMIT
-      )
-        return {
-          status: "unavailable",
-          reason: "state_store_capacity_exceeded",
-          publication,
-          revision,
-          cleanupConfirmed: true,
-        };
-      stage = "prepare";
-      writeExclusive(root, PENDING, pendingBytes);
-      const prepared = readPending(root);
-      if (!prepared.nextBytes.equals(nextBytes))
-        throw new Error("state_store_pending_invalid");
-      writeExclusive(root, REPLACE, nextBytes);
-      if (
-        !readStableBoundedFileSnapshot(
-          resolveFilesystemStorePath(root, REPLACE),
-          CURRENT_LIMIT,
-        ).bytes.equals(nextBytes)
-      )
-        throw new Error("state_store_replace_invalid");
-      stage = "publish";
-      publication = "unconfirmed";
-      fs.renameSync(
-        resolveFilesystemStorePath(root, REPLACE),
-        resolveFilesystemStorePath(root, CURRENT),
-      );
-      stage = "read_back";
-      const published = readCurrent(root);
-      if (!published.bytes.equals(nextBytes))
-        throw new Error("state_store_publication_unconfirmed");
-      publication = "confirmed";
-      revision = published.state.revision;
-      stage = "cleanup";
-      if (
-        settlePending(root, published, () => {
-          publication = "confirmed";
-        }) !== "published"
-      )
-        throw new Error("state_store_cleanup_unknown");
-      return {
-        status: "completed",
-        value: { revision, operationId: published.state.operationId },
-        cleanupConfirmed: true,
-        publication: "confirmed",
-        revision,
-      };
+      return publishState(root, current, parsed.state, "management");
     } catch {
       return {
         status: "unavailable",
@@ -774,6 +731,267 @@ export function updateAccessManagementState(
         publication,
         revision,
         cleanupConfirmed: false,
+      };
+    }
+  });
+}
+
+/**
+ * 検査済み次状態を共通の物理手順で出版する。
+ * @responsibility pending・replace・読戻し・清掃と既知出版事実を所有する。
+ * @trace ARCH-000013
+ * @input 同じRootの基準byte、完全次状態、処置種別。
+ * @returns 保存改訂・操作IDまたは主失敗と既知出版。
+ * @precondition 呼出側がLock下で操作固有の遷移・改訂・認可・材料不存在を検査済み。
+ * @postcondition 読戻しと清掃後だけcompleted。
+ * @effect pending・replace作成、current置換、材料清掃。
+ * @failure 容量・準備・出版・読戻し・清掃失敗を分離する。
+ * @invariant 業務遷移を許可せず、失敗をrollbackへ丸めない。
+ * @boundary AM内部保存OwnerとFilesystem。
+ * @security Snapshotと内部Pathを公開しない。
+ * @concurrency 呼出側の既存Lock内で同期実行。
+ */
+function publishState(
+  root: FilesystemStoreRoot,
+  current: ReturnType<typeof readCurrent>,
+  next: AccessManagementState,
+  kind: PendingPublication["kind"],
+): StateStoreResult<Readonly<{ revision: number; operationId: string }>> {
+  let publication: "not_attempted" | "unconfirmed" | "confirmed" =
+    "not_attempted";
+  let revision = current.state.revision;
+  let stage = "prepare";
+  try {
+    const nextBytes = serialize(next);
+    const pendingBytes = serialize({
+      contract: "crdd-access-management/pending",
+      schemaRevision: 1,
+      kind,
+      baseRevision: current.state.revision,
+      baseSha256: hash(current.bytes),
+      nextRevision: next.revision,
+      nextSha256: hash(nextBytes),
+      operationId: next.operationId,
+      nextSnapshot: next,
+    });
+    if (
+      nextBytes.byteLength > CURRENT_LIMIT ||
+      pendingBytes.byteLength > PENDING_LIMIT
+    )
+      return {
+        status: "unavailable",
+        reason: "state_store_capacity_exceeded",
+        publication,
+        revision,
+        cleanupConfirmed: true,
+      };
+    writeExclusive(root, PENDING, pendingBytes);
+    if (!readPending(root).nextBytes.equals(nextBytes))
+      throw new Error("pending_invalid");
+    writeExclusive(root, REPLACE, nextBytes);
+    if (
+      !readStableBoundedFileSnapshot(
+        resolveFilesystemStorePath(root, REPLACE),
+        CURRENT_LIMIT,
+      ).bytes.equals(nextBytes)
+    )
+      throw new Error("replace_invalid");
+    stage = "publish";
+    publication = "unconfirmed";
+    fs.renameSync(
+      resolveFilesystemStorePath(root, REPLACE),
+      resolveFilesystemStorePath(root, CURRENT),
+    );
+    stage = "read_back";
+    const published = readCurrent(root);
+    if (!published.bytes.equals(nextBytes))
+      throw new Error("publication_unconfirmed");
+    publication = "confirmed";
+    revision = published.state.revision;
+    stage = "cleanup";
+    if (
+      settlePending(root, published, () => {
+        publication = "confirmed";
+      }) !== "published"
+    )
+      throw new Error("cleanup_unknown");
+    return {
+      status: "completed",
+      value: { revision, operationId: published.state.operationId },
+      cleanupConfirmed: true,
+      publication,
+      revision,
+    };
+  } catch {
+    return {
+      status: "unavailable",
+      reason: `state_store_${stage}_failed`,
+      publication,
+      revision,
+      cleanupConfirmed: false,
+    };
+  }
+}
+
+/**
+ * 保存済み初回相関に最初の管理者を生成・保存する。
+ * @responsibility 初回Userの生成と保存済み同Userの再観測を分離する。
+ * @trace ARCH-000013
+ * @input 既存Root・元試行UUID・表示専用username。
+ * @returns 保存改訂・User ID・保存名・新規生成有無、または未完了。
+ * @precondition 信頼済みHost内部保存Ownerだけが呼ぶ。元試行相関を保存済み。
+ * @postcondition 完全user_storedの読戻し後だけcompleted。
+ * @effect Lock、UUID生成、初回Userのpending・replace・current保存。
+ * @failure 別試行・非canonical相関・途中材料・保存失敗は保持停止。
+ * @invariant 保存済みUserを増やさず、名前を再要求で変更しない。鍵・認証・Root準備・Host完了は未接続。
+ * @boundary 初回User保存段階とFilesystem。
+ * @security primitive入力を先に検査し、User IDをAuthorityにしない。
+ * @concurrency 同じLock内の一生成・一出版。base材料の再出版なし。
+ */
+export function createInitialAdministrator(
+  root: FilesystemStoreRoot,
+  attemptId: string,
+  username: string,
+): StateStoreResult<
+  Readonly<{
+    revision: number;
+    userId: string;
+    username: string;
+    created: boolean;
+  }>
+> {
+  if (
+    typeof attemptId !== "string" ||
+    !ATTEMPT_UUID.test(attemptId) ||
+    typeof username !== "string" ||
+    username !== username.trim() ||
+    [...username].length < 1 ||
+    [...username].length > 128 ||
+    /[\p{Cc}\p{Cs}]/u.test(username)
+  )
+    return {
+      status: "unavailable",
+      reason: "state_store_initial_user_input_rejected",
+      publication: "not_attempted",
+      revision: null,
+      cleanupConfirmed: true,
+    };
+  return locked<
+    Readonly<{
+      revision: number;
+      userId: string;
+      username: string;
+      created: boolean;
+    }>
+  >(root, () => {
+    let publication: "not_attempted" | "confirmed" = "not_attempted";
+    let revision: number | null = null;
+    let cleanupConfirmed = false;
+    try {
+      const current = readCurrent(root);
+      revision = current.state.revision;
+      settlePending(root, current, () => {
+        publication = "confirmed";
+      });
+      cleanupConfirmed = true;
+      const expected = initialBaseline(attemptId);
+      if (current.state.initialization.stage === "user_stored") {
+        const user = current.state.users[0];
+        if (
+          !user ||
+          user.userId === attemptId ||
+          current.state.operationId === attemptId ||
+          current.state.operationId === user.userId
+        )
+          throw new Error("initial_user_conflict");
+        expected.revision = 2;
+        expected.operationId = current.state.operationId;
+        expected.users = [{ ...user }];
+        expected.initialization = {
+          stage: "user_stored",
+          attemptId,
+          userId: user.userId,
+        };
+        if (!serialize(expected).equals(current.bytes))
+          throw new Error("initial_user_conflict");
+        return {
+          status: "completed",
+          value: {
+            revision: 2,
+            userId: user.userId,
+            username: user.username,
+            created: false,
+          },
+          publication: "confirmed",
+          revision: 2,
+          cleanupConfirmed: true,
+        };
+      }
+      if (!serialize(expected).equals(current.bytes))
+        throw new Error("initial_baseline_conflict");
+      expected.revision = 2;
+      expected.operationId = "eeeeeeee-eeee-4eee-beee-eeeeeeeeeeee";
+      const reservedUserId = "ffffffff-ffff-4fff-bfff-ffffffffffff";
+      expected.users = [
+        {
+          userId: reservedUserId,
+          username,
+          role: "administrator",
+        },
+      ];
+      expected.initialization = {
+        stage: "user_stored",
+        attemptId,
+        userId: reservedUserId,
+      };
+      const reservation = serialize(expected);
+      const pendingReservation = serialize({
+        contract: "crdd-access-management/pending",
+        schemaRevision: 1,
+        kind: "initialization",
+        baseRevision: current.state.revision,
+        baseSha256: hash(current.bytes),
+        nextRevision: expected.revision,
+        nextSha256: hash(reservation),
+        operationId: expected.operationId,
+        nextSnapshot: expected,
+      });
+      if (
+        reservation.byteLength > CURRENT_LIMIT ||
+        pendingReservation.byteLength > PENDING_LIMIT
+      )
+        throw new Error("initial_user_capacity");
+      const userId = crypto.randomUUID();
+      const operationId = crypto.randomUUID();
+      if (
+        userId === attemptId ||
+        operationId === attemptId ||
+        operationId === userId ||
+        !ATTEMPT_UUID.test(userId) ||
+        !ATTEMPT_UUID.test(operationId)
+      )
+        throw new Error("uuid_collision");
+      expected.operationId = operationId;
+      expected.users = [{ userId, username, role: "administrator" }];
+      expected.initialization = { stage: "user_stored", attemptId, userId };
+      const parsed = parseAccessManagementState(serialize(expected));
+      if (parsed.status !== "parsed") throw new Error("initial_user_invalid");
+      const result = publishState(
+        root,
+        current,
+        parsed.state,
+        "initialization",
+      );
+      return result.status === "completed"
+        ? { ...result, value: { revision: 2, userId, username, created: true } }
+        : result;
+    } catch {
+      return {
+        status: "unavailable",
+        reason: "state_store_initial_user_failed",
+        publication,
+        revision,
+        cleanupConfirmed,
       };
     }
   });

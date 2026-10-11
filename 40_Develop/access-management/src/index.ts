@@ -23,6 +23,7 @@ export {
   type StateParseResult,
 } from "./state/parse.ts";
 export {
+  createInitialAdministrator,
   initializeAccessManagementState,
   readAccessManagementState,
   updateAccessManagementState,

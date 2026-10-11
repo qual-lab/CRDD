@@ -1229,6 +1229,16 @@ UTはARCH由来だけ、ITは相関確定前Effect0と既知Root準備Effectの�
 構造評価: Variationは四状態、Common Contractは単一同期関数、Creation／Selectionは返却値のみ、State-dependent Behaviorは入力分類に閉じる。Composition／RecursionはN/A: 外部処理を合成・再帰しない。Lifecycle OwnershipとExternal BoundaryはN/A: Handle・共有状態・I/Oを取得しない。ConcurrencyはN/A: 共有状態なし。TimingはN/A: 時刻・期限を判定しない。Failure／Observabilityは未知分類を停止結果として保持する。Securityは結果を実行Authorityにしない。実装知識の上位還元はN/A: 新しい保証は追加せず、既存の四状態を技術的入力分類へ対応した。
 
 必須確認はAM Packageのformat・type・lint・全UTと、契約／品質の限定独立レビュー、文書・直接影響・Symbol参照・差分確認。標準準拠規則は不変更のため準拠監査は対象外。I/O・実処置は未接続のためHost実試験・署名・Docker／Provider E2Eは実行せず、必要な後続Gateへ残す。Node v24.19.0でローカルキャッシュから固定開発依存を配置し、静的3軸と7 UT（既存4＋初回3）は成功。初回には24組合せを含む。正式Local Item評価はNot Run、保存・資格・Host入口・本番Consumer・全体Readyは未成立。固定15Fileの契約・品質限定独立再レビューは両方Pass、全重大度の残指摘0。台帳の登録漏れと現在投影の矛盾を是正した。試験台帳は当該ID・Path各1件で実在、差分確認成功。結果状態だけを同期し、この実装単位をコミットする。
+# AM初回管理者保存の局所接続 — 2026-10-12
+
+基準Commitは`61146288`。変更分類は採用済み初回User段階のSource接続と直接伝播。着手前の読取り専用確認でcanonical baseline・同User再入場・生成前入力検査・容量予約・既存Lock・物理出版だけの共通化を照合した。追加人間判断なし。対象はAM詳細02、AM Source公開入口と保存部品、既存UT／IT、QA-000007・Center・Integration・本計画・現在投影。旧Evidence・実Host Store・Secret・鍵・Docker／Providerは不変更。
+
+相関revision1からUser IDと別出版IDを生成し、`user_stored`を保存・読戻しする。同User再入場は追加UUID／User／名前更新0。通常更新の認可・期待改訂・変更許可は維持し、共通化はpending→replace→current→読戻し→清掃だけとする。新Root、Lock、Receipt、履歴、回復Frameworkを作らない。
+
+必須確認は静的3軸・AM全回帰、契約／品質の限定独立レビュー、文書直接伝播・差分・試験Root不存在確認。標準準拠規則は変更しないため準拠監査は対象外。鍵・認証・本番Host未接続のため署名／Docker／Provider E2Eは実行せず後続Gateへ残す。初回全体や191項目の正式Passへ昇格しない。
+
+初回限定レビューで出版前拒否の清掃事実とUUID0 Oracleを各1件、User経路の競合／解放不明／材料観測不足を1件検出した。既存構造内で結果分類を是正し、直接件数・User固有Process境界を追加確認した。既存Lockのbusy拒否と全join後再入場を区別し、新しい待機機構は追加しない。品質投影の旧現在表示6箇所と試験件数を同期し、AM全27 Case・静的3軸成功、固定10ファイルの限定独立再レビューPass・全重大度の残指摘0。結果だけ同期して段階コミットする。次は鍵生成・照合と初回鍵保存、本番Root／認証／Consumerの接続である。
+
 # AM保存の項目・容量・段階具体化 — 2026-10-12
 
 基準Commitは`fa2f4ffc`。読取り専用の着手前照合で、Repository Bindingは既存Owner分離で具体化可能、操作単位の内容権限は上流未定義と確認した。今回は採用済みDevelopment／Management範囲だけを固定し、新しい操作別認可を追加しない。current 16 MiB／pending 17 MiBを割当制限として採用し、個別件数制限・履歴Storeを追加しない。

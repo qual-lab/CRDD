@@ -11,7 +11,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { createHash } from "node:crypto";
+import crypto, { createHash } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 import test, { type TestContext } from "node:test";
 import {
@@ -20,6 +20,7 @@ import {
 } from "../../../../domain-model/src/index.ts";
 import {
   type AccessManagementState,
+  createInitialAdministrator,
   initializeAccessManagementState,
   parseAccessManagementState,
   readAccessManagementState,
@@ -138,6 +139,359 @@ function fixture(t: TestContext): {
   );
   return { directory, root, state };
 }
+
+/**
+ * 初回Userを一度保存し再要求で増殖しないことを確認する。
+ * @responsibility 保存済みUserの再観測と名前更新を分離する。
+ * @trace RFD-IT-024
+ * @precondition 自己生成Rootに初回相関だけを保存する。
+ * @stimulus 初回User保存後、同じ名前と別名で再要求する。
+ * @observation UUID件数・完全byte・User・空Credentialを確認する。
+ * @oracle UUIDは初回の2個だけ。再要求では保存名とIDを返す。
+ * @cleanup 差替えを復元し自己生成Rootを削除する。
+ * @boundary 初回User保存と実Filesystem。
+ */
+test("初回管理者を保存し同Userへ再入場する", (t) => {
+  const f = fixture(t);
+  const current = path.join(f.directory, "access-management.json");
+  fs.rmSync(current);
+  const attempt = "00000000-0000-4000-8000-000000000099";
+  assert.equal(
+    initializeAccessManagementState(f.root, attempt, true, () => [
+      "uninitialized",
+      "absent",
+    ]).status,
+    "completed",
+  );
+  const random = crypto.randomUUID;
+  let calls = 0;
+  crypto.randomUUID = () => {
+    calls++;
+    return random();
+  };
+  t.after(() => {
+    crypto.randomUUID = random;
+  });
+  const first = createInitialAdministrator(f.root, attempt, "管理者");
+  assert.equal(first.status, "completed");
+  if (first.status !== "completed") return;
+  assert.equal(first.value.created, true);
+  assert.equal(calls, 2);
+  const saved = fs.readFileSync(current);
+  for (const name of ["管理者", "別名"]) {
+    const again = createInitialAdministrator(f.root, attempt, name);
+    assert.equal(again.status, "completed");
+    if (again.status !== "completed") continue;
+    assert.deepEqual(again.value, { ...first.value, created: false });
+    assert.deepEqual(fs.readFileSync(current), saved);
+  }
+  assert.equal(calls, 2);
+  const state = JSON.parse(saved.toString());
+  assert.equal(state.users.length, 1);
+  assert.deepEqual(state.credentials, []);
+  assert.equal(state.initialization.stage, "user_stored");
+  assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
+});
+
+/**
+ * 初回Userの保存途中終了と出版後再入場を確認する。
+ * @responsibility 過去の途中材料を再出版せず保存済みUserだけ再観測する。
+ * @trace RFD-IT-024
+ * @precondition 初回相関を持つ自己生成Rootと一回性子Process。
+ * @stimulus pending確定・replace確定・rename直後で子Processを終了する。
+ * @observation 子Process終了、current byte、再入場時UUID生成0と材料を確認する。
+ * @oracle base材料は保持停止、next材料は清掃して同Userを返す。
+ * @cleanup 子Process終了と自己生成Root削除を確認する。
+ * @boundary Node Process・Filesystem・既存Lock。
+ */
+test("初回UserのProcess喪失はbase保持とnext再観測を区別する", (t) => {
+  for (const phase of ["pending", "replace", "renamed"]) {
+    const f = fixture(t);
+    const current = path.join(f.directory, "access-management.json");
+    fs.rmSync(current);
+    const attempt = "00000000-0000-4000-8000-000000000099";
+    assert.equal(
+      initializeAccessManagementState(f.root, attempt, true, () => [
+        "uninitialized",
+        "absent",
+      ]).status,
+      "completed",
+    );
+    const before = fs.readFileSync(current);
+    const domainUrl = new URL(
+      "../../../../domain-model/src/index.ts",
+      import.meta.url,
+    ).href;
+    const storeUrl = new URL("../../../src/index.ts", import.meta.url).href;
+    const child = spawnSync(
+      process.execPath,
+      [
+        "--eval",
+        `
+      import fs from "node:fs";
+      import { createFilesystemStoreRoot } from ${JSON.stringify(domainUrl)};
+      import { createInitialAdministrator } from ${JSON.stringify(storeUrl)};
+      let flushes=0; const flush=fs.fsyncSync;
+      fs.fsyncSync=fd=>{flush(fd); flushes++; if((${JSON.stringify(phase)}==="pending" && flushes===2)||(${JSON.stringify(phase)}==="replace" && flushes===3)) process.exit(23);};
+      const rename=fs.renameSync;
+      fs.renameSync=(a,b)=>{rename(a,b); if(${JSON.stringify(phase)}==="renamed") process.exit(23);};
+      createInitialAdministrator(createFilesystemStoreRoot(${JSON.stringify(f.directory)}),${JSON.stringify(attempt)},"管理者");
+    `,
+      ],
+      { timeout: 10_000, encoding: "utf8" },
+    );
+    assert.equal(child.error, undefined);
+    assert.equal(child.status, 23, child.stderr);
+    const saved = fs.readFileSync(current);
+    const random = crypto.randomUUID;
+    let calls = 0;
+    crypto.randomUUID = () => {
+      calls++;
+      return random();
+    };
+    let result: ReturnType<typeof createInitialAdministrator>;
+    try {
+      result = createInitialAdministrator(f.root, attempt, "別名");
+    } finally {
+      crypto.randomUUID = random;
+    }
+    assert.deepEqual(fs.readFileSync(current), saved);
+    assert.equal(calls, 0);
+    if (phase === "renamed") {
+      assert.equal(result.status, "completed");
+      if (result.status === "completed") {
+        assert.equal(result.value.created, false);
+        assert.equal(result.value.username, "管理者");
+      }
+      assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
+    } else {
+      assert.equal(result.status, "unavailable");
+      assert.deepEqual(saved, before);
+      assert.ok(
+        fs.existsSync(path.join(f.directory, "access-management.pending.json")),
+      );
+      assert.equal(
+        fs.existsSync(path.join(f.directory, "access-management.replace.json")),
+        phase === "replace",
+      );
+      assert.equal(result.cleanupConfirmed, false);
+    }
+  }
+});
+
+/**
+ * 初回入力とcanonical相関の拒否を確認する。
+ * @responsibility Schema妥当だけの改変状態からUserを生成しない。
+ * @trace RFD-IT-024
+ * @precondition 初回相関を持つ自己生成Root。
+ * @stimulus 不正primitive、別試行、Role・操作ID改変、途中材料を与える。
+ * @observation UUID生成0とcurrent byte不変を確認する。
+ * @oracle 不正・途中状態は未完了で保持し、getterを実行しない。
+ * @cleanup 差替えを復元し自己生成Rootを削除する。
+ * @boundary 入力・相関・Filesystem。
+ */
+test("初回管理者の不正入力と非canonical状態を生成前に拒否する", (t) => {
+  const f = fixture(t);
+  const current = path.join(f.directory, "access-management.json");
+  fs.rmSync(current);
+  const attempt = "00000000-0000-4000-8000-000000000099";
+  assert.equal(
+    initializeAccessManagementState(f.root, attempt, true, () => [
+      "uninitialized",
+      "absent",
+    ]).status,
+    "completed",
+  );
+  const saved = fs.readFileSync(current);
+  const random = crypto.randomUUID;
+  let calls = 0;
+  crypto.randomUUID = () => {
+    calls++;
+    return random();
+  };
+  t.after(() => {
+    crypto.randomUUID = random;
+  });
+  let getterCalls = 0;
+  const bad = {
+    get toJSON() {
+      getterCalls++;
+      throw new Error("getter");
+    },
+  };
+  for (const name of ["", " name", "x\n", bad]) {
+    assert.equal(
+      createInitialAdministrator(f.root, attempt, name as string).status,
+      "unavailable",
+    );
+    assert.equal(calls, 0);
+  }
+  assert.equal(getterCalls, 0);
+  assert.equal(
+    createInitialAdministrator(
+      f.root,
+      "00000000-0000-4000-8000-000000000098",
+      "管理者",
+    ).status,
+    "unavailable",
+  );
+  assert.equal(calls, 0);
+  for (const mutation of ["operation", "role", "revision"]) {
+    const state = JSON.parse(saved.toString());
+    if (mutation === "operation")
+      state.operationId = "00000000-0000-4000-8000-000000000098";
+    if (mutation === "role") state.roleContentAccess[0].workspaceIds = [];
+    if (mutation === "revision") state.revision = 2;
+    fs.writeFileSync(current, bytes(state));
+    const before = fs.readFileSync(current);
+    const rejected = createInitialAdministrator(f.root, attempt, "管理者");
+    assert.equal(rejected.status, "unavailable");
+    assert.equal(rejected.publication, "not_attempted");
+    assert.equal(rejected.revision, state.revision);
+    assert.equal(rejected.cleanupConfirmed, true);
+    assert.equal(calls, 0);
+    assert.deepEqual(fs.readFileSync(current), before);
+  }
+  fs.writeFileSync(current, saved);
+  for (const name of [
+    "access-management.pending.json",
+    "access-management.replace.json",
+  ]) {
+    fs.writeFileSync(path.join(f.directory, name), "{");
+    const rejected = createInitialAdministrator(f.root, attempt, "管理者");
+    assert.equal(rejected.status, "unavailable");
+    assert.equal(rejected.cleanupConfirmed, false);
+    assert.equal(calls, 0);
+    assert.deepEqual(fs.readFileSync(current), saved);
+    assert.equal(fs.readFileSync(path.join(f.directory, name), "utf8"), "{");
+    fs.rmSync(path.join(f.directory, name));
+  }
+});
+
+/**
+ * 初回Userの二Process競合と出版後Lock故障を確認する。
+ * @responsibility 単一Userと出版・解放の独立した事実を観測する。
+ * @trace RFD-IT-024
+ * @precondition canonical初回相関を持つ自己生成Root。
+ * @stimulus 別名の二Processを開始し、別Rootでは出版後のLock削除を失敗させる。
+ * @observation 全Processのjoin、created件数、保存User、回復参照と再入場UUID件数。
+ * @oracle 新規生成は一件、再入場は同User。解放不明でも出版確定を保持する。
+ * @cleanup 差替えを復元し全Process終了とRoot不存在を確認する。
+ * @boundary Node Process・Filesystem・既存Lock。
+ */
+test("初回User競合は一生成だけ採用し出版後Lock不明を保持する", async (t) => {
+  const f = fixture(t);
+  const current = path.join(f.directory, "access-management.json");
+  const attempt = "00000000-0000-4000-8000-000000000099";
+  fs.rmSync(current);
+  assert.equal(
+    initializeAccessManagementState(f.root, attempt, true, () => [
+      "uninitialized",
+      "absent",
+    ]).status,
+    "completed",
+  );
+  const domainUrl = new URL(
+    "../../../../domain-model/src/index.ts",
+    import.meta.url,
+  ).href;
+  const storeUrl = new URL("../../../src/index.ts", import.meta.url).href;
+  const joined = await Promise.allSettled(
+    ["管理者A", "管理者B"].map(
+      (name) =>
+        new Promise<string>((resolve, reject) => {
+          const child = spawn(
+            process.execPath,
+            [
+              "--eval",
+              `import {createFilesystemStoreRoot} from ${JSON.stringify(domainUrl)}; import {createInitialAdministrator} from ${JSON.stringify(storeUrl)}; console.log(JSON.stringify(createInitialAdministrator(createFilesystemStoreRoot(${JSON.stringify(f.directory)}),${JSON.stringify(attempt)},${JSON.stringify(name)})));`,
+            ],
+            { timeout: 10000 },
+          );
+          let output = "";
+          child.stdout.on("data", (data) => {
+            output += String(data);
+          });
+          child.on("error", reject);
+          child.on("close", (code) => {
+            if (code === 0) resolve(output);
+            else reject(new Error("child_failed"));
+          });
+        }),
+    ),
+  );
+  const results = joined.map((result) => {
+    assert.equal(result.status, "fulfilled");
+    if (result.status !== "fulfilled") throw new Error("child_failed");
+    return JSON.parse(result.value);
+  });
+  assert.equal(
+    results.filter(
+      (result) => result.status === "completed" && result.value.created,
+    ).length,
+    1,
+  );
+  const saved = JSON.parse(fs.readFileSync(current, "utf8"));
+  assert.equal(saved.users.length, 1);
+  for (const result of results) {
+    if (result.status === "completed") {
+      assert.equal(result.value.userId, saved.users[0].userId);
+      assert.equal(result.value.username, saved.users[0].username);
+    } else {
+      assert.equal(result.publication, "not_attempted");
+      const reentered = createInitialAdministrator(f.root, attempt, "再要求名");
+      assert.equal(reentered.status, "completed");
+      if (reentered.status === "completed") {
+        assert.equal(reentered.value.created, false);
+        assert.equal(reentered.value.userId, saved.users[0].userId);
+        assert.equal(reentered.value.username, saved.users[0].username);
+      }
+    }
+  }
+  assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
+  const g = fixture(t);
+  fs.rmSync(path.join(g.directory, "access-management.json"));
+  assert.equal(
+    initializeAccessManagementState(g.root, attempt, true, () => [
+      "uninitialized",
+      "absent",
+    ]).status,
+    "completed",
+  );
+  const remove = fs.rmSync;
+  let failed: ReturnType<typeof createInitialAdministrator>;
+  fs.rmSync = (target, options) => {
+    if (String(target).endsWith("access-management.lock"))
+      throw new Error("injected");
+    return remove(target, options);
+  };
+  try {
+    failed = createInitialAdministrator(g.root, attempt, "管理者");
+  } finally {
+    fs.rmSync = remove;
+  }
+  assert.equal(failed.status, "unavailable");
+  assert.equal(failed.publication, "confirmed");
+  assert.equal(failed.revision, 2);
+  assert.equal(failed.cleanupConfirmed, false);
+  if (failed.status === "unavailable") assert.ok(failed.lockRecoveryId);
+  const random = crypto.randomUUID;
+  let calls = 0;
+  crypto.randomUUID = () => {
+    calls++;
+    return random();
+  };
+  let again: ReturnType<typeof createInitialAdministrator>;
+  try {
+    again = createInitialAdministrator(g.root, attempt, "別名");
+  } finally {
+    crypto.randomUUID = random;
+  }
+  assert.equal(calls, 0);
+  assert.equal(again.status, "completed");
+  if (again.status === "completed") assert.equal(again.value.created, false);
+  assert.deepEqual(fs.readdirSync(g.directory), ["access-management.json"]);
+});
 
 /**
  * 初回相関の新規保存と同元試行の再読取りを確認する。

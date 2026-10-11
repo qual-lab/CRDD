@@ -376,6 +376,16 @@ Lock取得・baseline構築・JSON化より前に、元試行の文字列型とU
 
 同元試行の完全currentはclose後・読戻し前のProcess喪失後にも再観測できる。write途中のpartial currentはそのまま保持停止し、元試行から内容を再生成して修復しない。排他は既存Lockと`wx`で、専用Receipt・履歴・Lock Frameworkを追加しない。内部結果はAuthorityではなく、初回全体完成・資格配送・Host認証を証明しない。
 
+### 4.8 初回管理者の保存部分 — 2026-10-12
+
+内部保存Ownerは`createInitialAdministrator`で保存済みの元試行相関へ最初の管理者を保存する。入力はprimitiveの元試行UUIDと表示名をLock前に検査する。現在byteがrevision1・operationId=attemptId・固定三Role・空の五集合を持つcanonical baselineと完全一致する場合だけ、固定長UUIDを用いた容量予約後にUser IDと別の出版操作IDを生成する。両IDは元試行IDとも相互にも異なる。
+
+同じ既存Lock内で`initialization`種別のpending、短命replace、current置換、正確byte読戻し、材料清掃を行う。通常管理と共通化するのはこの物理保存手順だけであり、通常管理の認可callback・期待改訂・変更許可や初回の段階判定は統合しない。
+
+revision2のcanonical `user_stored`へ同元試行で再入場した場合は保存済みUser IDと表示名を返す。別名の再要求でも名前変更・追加User・追加UUIDを行わない。初回種別のbase材料や部分材料は保持停止し、再出版しない。next一致の出版済み材料だけ清掃して同Userを再観測する。出版事実と清掃／Lock解放の成立は別に返す。
+
+局所試験はRFD-IT-024のUser保存部分に限る。AM全27 Case・静的3軸成功、固定10ファイルの限定独立再レビューPass・全重大度の残指摘0。初回Root準備、旧入力本番観測、鍵発行、配送、認証、本番Host、初回全体の成立を意味しない。
+
 ## 5. 鍵交換の段階と終了
 
 ### 純粋Schema検査への具体化 — 2026-10-12

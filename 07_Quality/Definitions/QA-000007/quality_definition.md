@@ -157,7 +157,7 @@ RFD-ST-003、RFD-ST-004、RFD-IT-013、RFD-UAT-007、RFD-ST-016、RFD-IT-017〜0
 
 ## 4. 評価とEvidence
 
-初回設定ではRFD-UT-023とRFD-IT-024の相関保存部分のSource／Test Symbol・候補局所実行を接続済み。正式Local Item／Evidence評価はNot Run。IT024のUser／鍵／配送／本番Host部分とIT025／ST026／UAT027、Root準備・旧入力本番観測・認証・本番ConsumerはOPENであり、部分成功から初回全体完成を推定しない。
+初回設定ではRFD-UT-023とRFD-IT-024の相関・User保存部分のSource／Test Symbol・候補局所実行を接続済み。正式Local Item／Evidence評価はNot Run。IT024の鍵／配送／本番Host部分とIT025／ST026／UAT027、Root準備・旧入力本番観測・認証・本番ConsumerはOPENであり、部分成功から初回全体完成を推定しない。
 
 通常管理のPassは各Local Itemが宣言した段階・Oracle・終了後条件で判定する。RFD-UT-020は純粋判定とI/Oなし、RFD-IT-021は変更前認可・同一操作／改訂の両除去保存・読戻し、RFD-ST-022は実公開入口・両除去／部分結果の表示・次要求、RFD-UAT-007は利用者理解を確認する。RFD-IT-017は元発行再観測と確定後配送未確認、RFD-ST-016は各交換内exactと別明示交換を確認する。正当な別操作の新資格発行は、元操作の重複発行・自動再発行0と区別する。UT／UATだけから保存成立を証明しない。結果statusだけから書込み0や資源0を推定しない。
 
@@ -223,9 +223,15 @@ RFD-IT-021ではpending削除・不存在確認後から応答前のProcess喪�
 - [x] 自動化、手動確認および人間判断の境界を示した
 - [x] 現行Source、TestおよびEvidenceとの照合をReality Auditへ分離した
 
+## 初回管理者保存の局所接続 — 2026-10-12
+
+RFD-IT-024のUser保存部分を同じstate保存ITへ接続する。canonical相関から二つの異なるUUIDで単一administratorを保存し、同元試行・別名再要求でも追加生成や名前更新を行わない。不正入力・別試行・非canonical相関はUUID件数0と出版0を直接観測する。出版前拒否で清掃済みと、部分材料／Lock解放不明で清掃未確認を分離する。
+
+User経路固有の二Process競合、pending／replace確定とrename後の実Process喪失、出版後Lock解放失敗、同User再入場を確認する。base材料は保持停止、next材料は清掃し保存済みUserを返す。Root準備・旧入力本番観測・鍵・配送・認証・本番Host・初回全体は未成立。191項目・正式評価Not Runを維持し、過去の相関部分だけの表示は以下の履歴として扱う。
+
 ## 初回相関保存の局所接続 — 2026-10-12
 
-上段の初回5項目統合時点のOPEN表示は、この相関部分接続前の履歴である。現在はUT023とIT024相関部分だけSource／Test候補接続済みで、IT024のUser／鍵／配送／本番Host部分とIT025／ST026／UAT027はOPEN、正式全項目評価はNot Runを維持する。
+本節はUser保存接続前の相関部分接続時点の履歴である。現在はUT023とIT024相関・User保存部分だけSource／Test候補接続済みで、IT024の鍵／配送／本番Host部分とIT025／ST026／UAT027はOPEN、正式全項目評価はNot Runを維持する。
 
 RFD-IT-024の相関部分を既存state保存ITへ接続する。明示開始と双方未初期化の一回観測、固定Roleと空集合を持つrevision 1の排他的作成・正確byte読戻し、同元試行再入場で新規write／callback／User／鍵0を確認する。別試行、partial current、pending／replace残存、旧観測の既存・途中・不明・不正・throwは作成せず保持停止する。実子Processのwrite途中／close後readback前の喪失、二Process競合で採用一件、Lock解放不明で既知出版を保持する反証を接続する。
 
