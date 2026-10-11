@@ -5,6 +5,8 @@
  * @trace RFD-IT-021
  * @trace RFD-IT-024
  * @trace RFD-IT-013
+ * @trace RFD-IT-001
+ * @trace RFD-IT-002
  * @level IT
  * @scope access-management/state、直接保存境界
  * @boundary Node Filesystem・既存Root/Lock・通常User／Role認可。実Host・通常鍵処置・Surfaceは対象外。
@@ -22,6 +24,9 @@ import {
 import {
   type AccessManagementState,
   type UserRoleManagementResult,
+  registerRepository,
+  unregisterRepository,
+  updateExposure,
   authenticateCredential,
   createCredentialMaterial,
   registerUser,
@@ -1250,6 +1255,490 @@ test("非認可の通常管理はbase／nextの先行保存材料を保持する
     crypto.randomUUID = originalUUID;
     fs.rmSync = originalRemove;
   }
+});
+
+/**
+ * Canonical Identityを持つ自己生成Repositoryを用意する。
+ * @responsibility 実Hostと分離したGit境界・manifest・表示投影を作る。
+ * @trace RFD-IT-001
+ * @precondition Repository-localな自己生成StoreとGit Repository。
+ * @stimulus git initと固定文書を生成する。
+ * @observation 完全byte・相関結果・対象外情報と実Filesystemを確認する。
+ * @oracle 正本と表示Identityが同じ。
+ * @cleanup Fixtureが自己生成Rootを削除し不存在を確認する。
+ * @boundary Package公開管理入口と実Git／Filesystem。
+ */
+function repositoryFixture(t: TestContext) {
+  const f = fixture(t);
+  const git = spawnSync("git", ["init", "--quiet", f.directory], {
+    encoding: "utf8",
+  });
+  assert.equal(git.status, 0, git.stderr);
+  const manifest = {
+    schema: "crdd/repository-manifest/v2",
+    projectId: "project.fixture",
+    repositoryId: "repository.fixture",
+    displayName: "試験",
+    repositoryRole: "development",
+    capabilities: [],
+    contextSurfaces: [],
+    externalSendPolicy: null,
+  };
+  fs.mkdirSync(path.join(f.directory, ".crdd", "config"), { recursive: true });
+  const manifestPath = path.join(
+    f.directory,
+    ".crdd",
+    "config",
+    "repository-manifest.json",
+  );
+  fs.writeFileSync(manifestPath, JSON.stringify(manifest));
+  const headings = [
+    "今どうなっているか",
+    "何が危ない、または止まっているか",
+    "今、人間が決めることは何か",
+    "なぜこの状態・判断になったか",
+    "次に何をすべきか",
+  ];
+  const context =
+    "# Project Context\n\nProject ID: project.fixture\nRepository ID: repository.fixture\nRepository Role: development\n" +
+    headings
+      .map(
+        (heading, i) =>
+          `\n## ${i + 1}. ${heading}\n\n### 結論\n\n自己生成試験。\n\n| 項目 | 内容 |\n|---|---|\n| 試験 | 固定 |\n`,
+      )
+      .join("");
+  fs.writeFileSync(path.join(f.directory, "PROJECT_CONTEXT.md"), context);
+  return { ...f, manifest, manifestPath, context };
+}
+
+/**
+ * 通常登録・明示公開・解除の別責務を確認する。
+ * @responsibility managerとadministratorで現在改訂を更新し対象外を保持する。
+ * @trace RFD-IT-021
+ * @precondition Repository-localな自己生成StoreとGit Repository。
+ * @stimulus 登録→範囲設定→空範囲→Git消失後解除。
+ * @observation 完全byte・相関結果・対象外情報と実Filesystemを確認する。
+ * @oracle 登録は公開0、解除は両管理情報除去・本文不変。
+ * @cleanup Fixtureが自己生成Rootを削除し不存在を確認する。
+ * @boundary Package公開管理入口と実Git／Filesystem。
+ */
+test("Repository登録と公開は独立し旧Root不成立でも解除できる", (t) => {
+  const f = managementFixture(t),
+    target = repositoryFixture(t);
+  const before = structuredClone(f.state);
+  const op = (n: number) =>
+    `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
+  const registered = registerRepository(
+    f.root,
+    f.tokens.manager,
+    1,
+    op(90),
+    target.manifest.repositoryId,
+    target.directory,
+  );
+  assert.equal(registered.status, "completed");
+  let current = readAccessManagementState(f.root);
+  assert.equal(current.status, "completed");
+  if (current.status !== "completed") return;
+  assert.equal(current.value.registeredRepositories.length, 1);
+  assert.deepEqual(current.value.exposure, []);
+  assert.deepEqual(current.value.users, before.users);
+  assert.deepEqual(current.value.credentials, before.credentials);
+  assert.equal(
+    updateExposure(
+      f.root,
+      f.tokens.manager,
+      2,
+      op(91),
+      target.manifest.repositoryId,
+      ["development"],
+    ).status,
+    "completed",
+  );
+  assert.equal(
+    updateExposure(
+      f.root,
+      f.tokens.administrator,
+      3,
+      op(92),
+      target.manifest.repositoryId,
+      [],
+    ).status,
+    "completed",
+  );
+  current = readAccessManagementState(f.root);
+  assert.equal(current.status, "completed");
+  if (current.status !== "completed") return;
+  assert.deepEqual(current.value.exposure, [
+    { repositoryId: target.manifest.repositoryId, workspaceIds: [] },
+  ]);
+  fs.rmSync(path.join(target.directory, ".git"), { recursive: true });
+  const contextBefore = fs.readFileSync(
+    path.join(target.directory, "PROJECT_CONTEXT.md"),
+  );
+  const manifestBefore = fs.readFileSync(target.manifestPath);
+  assert.equal(
+    unregisterRepository(
+      f.root,
+      f.tokens.manager,
+      4,
+      op(93),
+      target.manifest.repositoryId,
+    ).status,
+    "completed",
+  );
+  current = readAccessManagementState(f.root);
+  assert.equal(current.status, "completed");
+  if (current.status !== "completed") return;
+  assert.deepEqual(current.value.registeredRepositories, []);
+  assert.deepEqual(current.value.exposure, []);
+  assert.deepEqual(current.value.users, before.users);
+  assert.deepEqual(current.value.credentials, before.credentials);
+  assert.deepEqual(current.value.initialization, before.initialization);
+  assert.deepEqual(
+    fs.readFileSync(path.join(target.directory, "PROJECT_CONTEXT.md")),
+    contextBefore,
+  );
+  assert.deepEqual(fs.readFileSync(target.manifestPath), manifestBefore);
+  assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
+});
+
+/**
+ * 登録拒否の外部Root観測0とIdentity不一致を確認する。
+ * @responsibility 不許可・競合・不正対象の拒否が外部観測を発火しない。
+ * @trace RFD-IT-002
+ * @precondition Repository-localな自己生成StoreとGit Repository。
+ * @stimulus 誤鍵・developer・改訂競合・不正ID、正本と表示の不一致を要求する。
+ * @observation 完全byte・相関結果・対象外情報と実Filesystemを確認する。
+ * @oracle 認可前は観測0・保存0、認可後Identity不正も保存0。
+ * @cleanup Fixtureが自己生成Rootを削除し不存在を確認する。
+ * @boundary Package公開管理入口と実Git／Filesystem。
+ */
+test("登録は認可前にRootを観測せずIdentity差を保存しない", (t) => {
+  const f = managementFixture(t),
+    target = repositoryFixture(t);
+  const currentPath = path.join(f.directory, "access-management.json");
+  const before = fs.readFileSync(currentPath);
+  const operationId = "00000000-0000-4000-8000-000000000090";
+  const originalStat = fs.lstatSync;
+  let observed = 0;
+  Object.defineProperty(fs, "lstatSync", {
+    value: ((...args: Parameters<typeof fs.lstatSync>) => {
+      if (String(args[0]).startsWith(target.directory)) observed++;
+      return originalStat(...args);
+    }) as typeof fs.lstatSync,
+    configurable: true,
+    writable: true,
+  });
+  try {
+    for (const [token, revision, id] of [
+      ["invalid", 1, target.manifest.repositoryId],
+      [f.tokens.developer, 1, target.manifest.repositoryId],
+      [f.tokens.manager, 2, target.manifest.repositoryId],
+      [f.tokens.manager, 1, "invalid id"],
+    ] as const) {
+      assert.deepEqual(
+        registerRepository(
+          f.root,
+          token,
+          revision,
+          operationId,
+          id,
+          target.directory,
+        ),
+        { status: "unavailable", reason: "management_operation_rejected" },
+      );
+      assert.deepEqual(fs.readFileSync(currentPath), before);
+    }
+    assert.equal(observed, 0);
+    assert.deepEqual(
+      registerRepository(
+        f.root,
+        f.tokens.manager,
+        1,
+        operationId,
+        target.manifest.repositoryId,
+        `${target.directory}/${"x".repeat(32_769)}`,
+      ),
+      {
+        status: "unavailable",
+        reason: "management_operation_rejected",
+      },
+    );
+    assert.equal(observed, 0, "Root長超過はPath観測前に拒否する");
+    assert.equal(
+      registerRepository(
+        f.root,
+        f.tokens.manager,
+        1,
+        operationId,
+        target.manifest.repositoryId,
+        target.directory,
+      ).status,
+      "completed",
+    );
+    assert.ok(observed > 0, "観測計測が許可例で発火する");
+    fs.writeFileSync(currentPath, before);
+  } finally {
+    Object.defineProperty(fs, "lstatSync", {
+      value: originalStat,
+      configurable: true,
+      writable: true,
+    });
+  }
+  for (const variant of ["id", "manifest", "context", "git"]) {
+    fs.writeFileSync(
+      target.manifestPath,
+      JSON.stringify(
+        variant === "manifest"
+          ? { ...target.manifest, projectId: "other.project" }
+          : target.manifest,
+      ),
+    );
+    fs.writeFileSync(
+      path.join(target.directory, "PROJECT_CONTEXT.md"),
+      variant === "context"
+        ? target.context.replace(
+            "Repository Role: development",
+            "Repository Role: management",
+          )
+        : target.context,
+    );
+    if (variant === "git")
+      fs.rmSync(path.join(target.directory, ".git"), { recursive: true });
+    const result = registerRepository(
+      f.root,
+      f.tokens.manager,
+      1,
+      operationId,
+      variant === "id" ? "other.repository" : target.manifest.repositoryId,
+      target.directory,
+    );
+    assert.equal(result.status, "unavailable");
+    assert.deepEqual(fs.readFileSync(currentPath), before);
+    assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
+  }
+});
+
+/**
+ * 登録固定Fileの容量上限とdescriptor解放を確認する。
+ * @responsibility manifestとContextの個別超過で出版しない。
+ * @trace RFD-IT-002
+ * @precondition 非秘密の自己生成StoreとGit Repository。
+ * @stimulus 各固定Fileを1 MiB+1とし、Contextの1 MiB正常例も比較する。
+ * @observation current完全byte、pending／replace、開閉descriptor件数。
+ * @oracle 超過はpublication not_attempted・保存0、上限内正常例は登録成功。
+ * @cleanup 観測関数を復元しFixtureが自己生成Rootを削除する。
+ * @boundary AM公開登録とDomain上限付き実File観測。
+ */
+test("登録固定Fileは各1 MiB上限と開閉の一致を守る", (t) => {
+  const f = managementFixture(t),
+    target = repositoryFixture(t);
+  const currentPath = path.join(f.directory, "access-management.json");
+  const before = fs.readFileSync(currentPath);
+  const contextPath = path.join(target.directory, "PROJECT_CONTEXT.md");
+  const op = "00000000-0000-4000-8000-000000000090";
+  const originalOpen = fs.openSync,
+    originalClose = fs.closeSync;
+  const live = new Set<number>();
+  let opened = 0,
+    closed = 0;
+  Object.defineProperty(fs, "openSync", {
+    configurable: true,
+    writable: true,
+    value: ((...args: Parameters<typeof fs.openSync>) => {
+      const fd = originalOpen(...args);
+      if (String(args[0]).startsWith(target.directory)) {
+        opened++;
+        live.add(fd);
+      }
+      return fd;
+    }) as typeof fs.openSync,
+  });
+  fs.closeSync = (fd) => {
+    originalClose(fd);
+    if (live.delete(fd)) closed++;
+  };
+  try {
+    for (const file of [target.manifestPath, contextPath]) {
+      fs.writeFileSync(target.manifestPath, JSON.stringify(target.manifest));
+      fs.writeFileSync(contextPath, target.context);
+      fs.writeFileSync(file, "x".repeat(1_048_577));
+      const result = registerRepository(
+        f.root,
+        f.tokens.manager,
+        1,
+        op,
+        target.manifest.repositoryId,
+        target.directory,
+      );
+      assert.equal(result.status, "unavailable");
+      if (
+        result.status === "unavailable" &&
+        result.reason === "management_operation_unavailable"
+      )
+        assert.equal(result.publication, "not_attempted");
+      else assert.fail("容量拒否が欠測");
+      assert.deepEqual(fs.readFileSync(currentPath), before);
+      assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
+      assert.equal(live.size, 0);
+      assert.equal(opened, closed);
+    }
+    fs.writeFileSync(target.manifestPath, JSON.stringify(target.manifest));
+    fs.writeFileSync(
+      contextPath,
+      target.context +
+        " ".repeat(1_048_576 - Buffer.byteLength(target.context, "utf8")),
+    );
+    assert.equal(
+      registerRepository(
+        f.root,
+        f.tokens.manager,
+        1,
+        op,
+        target.manifest.repositoryId,
+        target.directory,
+      ).status,
+      "completed",
+    );
+    assert.ok(opened > 0);
+    assert.equal(live.size, 0);
+    assert.equal(opened, closed);
+  } finally {
+    Object.defineProperty(fs, "openSync", {
+      value: originalOpen,
+      configurable: true,
+      writable: true,
+    });
+    fs.closeSync = originalClose;
+  }
+});
+
+/**
+ * Exposure拒否と出版後清掃失敗を分離する。
+ * @responsibility 未登録・不正範囲を保存せず既知出版を失わない。
+ * @trace RFD-IT-021
+ * @precondition Repository-localな自己生成StoreとGit Repository。
+ * @stimulus 登録後の不許可・未知範囲・重複を入力しpending削除失敗を注入する。
+ * @observation 完全byte・相関結果・対象外情報と実Filesystemを確認する。
+ * @oracle 拒否はcurrent不変、出版後故障はconfirmedの未完了。
+ * @cleanup Fixtureが自己生成Rootを削除し不存在を確認する。
+ * @boundary Package公開管理入口と実Git／Filesystem。
+ */
+test("Exposure入力拒否と出版後清掃不明を区別する", (t) => {
+  const f = managementFixture(t),
+    target = repositoryFixture(t);
+  const id = target.manifest.repositoryId;
+  const op = "00000000-0000-4000-8000-000000000090",
+    nextOp = "00000000-0000-4000-8000-000000000091";
+  assert.equal(
+    registerRepository(
+      f.root,
+      f.tokens.administrator,
+      1,
+      op,
+      id,
+      target.directory,
+    ).status,
+    "completed",
+  );
+  const currentPath = path.join(f.directory, "access-management.json"),
+    before = fs.readFileSync(currentPath);
+  for (const [token, repo, ranges] of [
+    [f.tokens.developer, id, []],
+    [f.tokens.manager, "missing", []],
+    [f.tokens.manager, id, ["unknown"]],
+    [f.tokens.manager, id, ["development", "development"]],
+  ] as const) {
+    assert.deepEqual(updateExposure(f.root, token, 2, nextOp, repo, ranges), {
+      status: "unavailable",
+      reason: "management_operation_rejected",
+    });
+    assert.deepEqual(fs.readFileSync(currentPath), before);
+  }
+  assert.deepEqual(
+    registerRepository(
+      f.root,
+      f.tokens.manager,
+      2,
+      nextOp,
+      id,
+      target.directory,
+    ),
+    { status: "unavailable", reason: "management_operation_rejected" },
+  );
+  const originalRemove = fs.rmSync;
+  fs.rmSync = (p, options) => {
+    if (String(p).endsWith("access-management.pending.json"))
+      throw new Error("injected");
+    return originalRemove(p, options);
+  };
+  let result: ReturnType<typeof updateExposure>;
+  try {
+    result = updateExposure(f.root, f.tokens.manager, 2, nextOp, id, [
+      "management",
+    ]);
+  } finally {
+    fs.rmSync = originalRemove;
+  }
+  assert.equal(result.status, "unavailable");
+  if (
+    result.status === "unavailable" &&
+    result.reason === "management_operation_unavailable"
+  ) {
+    assert.equal(result.publication, "confirmed");
+    assert.equal(result.observedRevision, 3);
+    assert.equal(result.cleanupConfirmed, false);
+  } else assert.fail("出版後失敗が欠測");
+  const current = readAccessManagementState(f.root);
+  assert.equal(current.status, "completed");
+  if (current.status === "completed") {
+    assert.deepEqual(current.value.exposure, [
+      { repositoryId: id, workspaceIds: ["management"] },
+    ]);
+    const next = structuredClone(current.value);
+    next.revision = 4;
+    next.operationId = "00000000-0000-4000-8000-000000000092";
+    prepare({ ...f, state: current.value }, next);
+    const materialNames = [
+      "access-management.json",
+      "access-management.pending.json",
+      "access-management.replace.json",
+    ];
+    const materialBytes = materialNames.map((name) =>
+      fs.readFileSync(path.join(f.directory, name)),
+    );
+    for (const [token, revision] of [
+      [f.tokens.developer, 3],
+      ["invalid", 3],
+      [f.tokens.manager, 2],
+    ] as const) {
+      assert.deepEqual(updateExposure(f.root, token, revision, op, id, []), {
+        status: "unavailable",
+        reason: "management_operation_rejected",
+      });
+      materialNames.forEach((name, index) => {
+        assert.deepEqual(
+          fs.readFileSync(path.join(f.directory, name)),
+          materialBytes[index],
+        );
+      });
+    }
+    const settled = updateExposure(f.root, f.tokens.manager, 3, op, id, []);
+    assert.equal(settled.status, "unavailable");
+    if (
+      settled.status === "unavailable" &&
+      settled.reason === "management_operation_unavailable"
+    ) {
+      assert.equal(
+        settled.primaryFailure,
+        "state_store_previous_pending_settled",
+      );
+      assert.equal(settled.publication, "not_attempted");
+    } else assert.fail("先行清掃の相関が欠測");
+    assert.deepEqual(fs.readFileSync(currentPath), materialBytes[0]);
+  }
+  assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
 });
 
 /**

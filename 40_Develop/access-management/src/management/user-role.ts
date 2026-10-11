@@ -3,7 +3,7 @@
  * @responsibility 入力・現在認証・固定管理許可・対象照合を所有し、保存を行わない。
  * @trace ARCH-000013
  */
-import { types } from "node:util";
+import { readWorkspaceIds } from "../access/workspace-range.ts";
 import {
   type AccessRole,
   evaluateManagementPermission,
@@ -97,42 +97,6 @@ function isRole(value: unknown): value is AccessRole {
   return (
     value === "developer" || value === "manager" || value === "administrator"
   );
-}
-
-/**
- * 固定内容範囲を共有しない配列へ検査・複製する。
- * @responsibility Proxy・accessor・余分field・未知値・重複を拒否する。
- * @trace ARCH-000013
- * @input 信頼しない内容範囲配列。
- * @returns 所有済みdevelopment／management集合、またはnull。
- * @precondition N/A: 任意値を受ける。
- * @postcondition 入力配列の変更を候補へ伝播しない。
- * @effect N/A: descriptor検査と局所配列生成だけ。
- * @failure 不正値はnull。
- * @invariant 欠測を空集合へ補完しない。
- * @boundary Role内容設定の入力と内部状態。
- * @security getter・Proxy trapを実行しない。
- * @concurrency 同期で所有値へ確定する。
- */
-function readWorkspaceIds(
-  value: unknown,
-): ("development" | "management")[] | null {
-  if (types.isProxy(value) || !Array.isArray(value)) return null;
-  const length = Object.getOwnPropertyDescriptor(value, "length")?.value;
-  if (!Number.isInteger(length) || length < 0 || length > 2) return null;
-  const descriptors = Object.getOwnPropertyDescriptors(value);
-  const keys = Reflect.ownKeys(descriptors);
-  if (keys.length !== length + 1) return null;
-  const result: ("development" | "management")[] = [];
-  for (let index = 0; index < length; index++) {
-    const descriptor = descriptors[String(index)];
-    if (!descriptor || !Object.hasOwn(descriptor, "value")) return null;
-    const item: unknown = descriptor.value;
-    if (item !== "development" && item !== "management") return null;
-    if (result.includes(item)) return null;
-    result.push(item);
-  }
-  return result;
 }
 
 /**

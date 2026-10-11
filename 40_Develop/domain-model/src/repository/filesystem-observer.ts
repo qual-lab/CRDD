@@ -83,6 +83,45 @@ const defaultOperations: FilesystemObservationOperations = {
 };
 
 /**
+ * 開いて検証済みのRepository Fileを容量上限付きで読む。
+ * @responsibility 同じdescriptorを使い、最大+1 byteで超過を検出する。
+ * @trace ARCH-000008
+ * @input 読取りdescriptorと正のsafe integer容量上限。
+ * @returns 上限内のUTF-8本文。
+ * @precondition 観測Ownerがhandle位置と通常Fileを検証済み。
+ * @postcondition 上限を超える本文を返さない。
+ * @effect 固定小bufferでdescriptorから同期読取り。
+ * @failure 容量超過・読取失敗は例外。
+ * @invariant 新しいPathをopenせず、最大64 KiBの作業bufferを使う。
+ * @boundary 外部FileとRepository観測Owner。
+ * @security 超過本文を結果や例外へ複製しない。
+ * @concurrency 伸縮は呼出し元の最終Identity照合でも拒否する。
+ */
+function readBoundedRepositoryFile(
+  descriptor: number,
+  maximumBytes: number,
+): string {
+  const chunks: Buffer[] = [];
+  const buffer = Buffer.allocUnsafe(Math.min(65_536, maximumBytes));
+  let length = 0;
+  while (true) {
+    const count = fs.readSync(
+      descriptor,
+      buffer,
+      0,
+      Math.min(buffer.length, maximumBytes - length + 1),
+      null,
+    );
+    if (count === 0) break;
+    length += count;
+    if (length > maximumBytes)
+      throw new Error("repository_file_limit_exceeded");
+    chunks.push(Buffer.from(buffer.subarray(0, count)));
+  }
+  return Buffer.concat(chunks, length).toString("utf8");
+}
+
+/**
  * Fully Qualified Pathかを判定する。
  *
  * @responsibility Fully Qualified Pathの判定条件とtrue／false境界を所有する。
@@ -622,12 +661,12 @@ export function createFilesystemRepositoryObservationPortWithOperations(
  *
  * @responsibility Filesystem Repository Observation Port From Root Bindingの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
- * @input rootBinding: RepositoryRootBinding
+ * @input rootBinding: RepositoryRootBinding、任意の正のsafe integer maximumFileBytes。
  * @returns RepositoryObservationPortを返す。
  * @precondition 「rootBinding: RepositoryRootBinding」がcreateFilesystemRepositoryObservationPortFromRootBindingの入力契約を満たす。
  * @postcondition createFilesystemRepositoryObservationPortFromRootBindingの責務を完了した結果だけを返す。
- * @effect N/A: createFilesystemRepositoryObservationPortFromRootBindingは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: createFilesystemRepositoryObservationPortFromRootBindingは独自の失敗分岐を所有しない。
+ * @effect Rootのmetadataとcanonical Pathを読取り検証する。保存は行わない。
+ * @failure 不正な容量上限はRoot観測前に例外。容量超過はFile観測不能。
  * @invariant createFilesystemRepositoryObservationPortFromRootBindingは入力から導いた結果以外の共有状態を変更しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
  * @security N/A: createFilesystemRepositoryObservationPortFromRootBindingはAuthority、秘密値または信頼判断を扱わない。
@@ -635,9 +674,21 @@ export function createFilesystemRepositoryObservationPortWithOperations(
  */
 export function createFilesystemRepositoryObservationPortFromRootBinding(
   rootBinding: RepositoryRootBinding,
+  maximumFileBytes?: number,
 ): RepositoryObservationPort {
+  if (
+    maximumFileBytes !== undefined &&
+    (!Number.isSafeInteger(maximumFileBytes) || maximumFileBytes <= 0)
+  )
+    throw new Error("repository_file_limit_invalid");
   return createFilesystemRepositoryObservationPortWithOperations(
     rootBinding,
-    defaultOperations,
+    maximumFileBytes === undefined
+      ? defaultOperations
+      : {
+          ...defaultOperations,
+          read: (descriptor) =>
+            readBoundedRepositoryFile(descriptor, maximumFileBytes),
+        },
   );
 }

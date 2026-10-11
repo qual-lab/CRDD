@@ -2,7 +2,7 @@
 
 成果物種別: Architecture詳細設計
 詳細設計領域: access-management
-状態: Candidate（内部Schema・通常保存・初回相関・User・初回資格保存・認証主体解決に加え、通常User／Role管理4操作を局所接続。41 Case・静的3軸成功、今回の固定13ファイルの限定独立再レビューPass・残指摘0。Repository／Exposure管理・鍵管理・Root準備・配送・内容認可・本番Consumerは未成立）
+状態: Candidate（通常User／Role管理4操作に続き、Repository登録・解除・公開範囲更新の3操作を局所接続。AM全45 Case・静的3軸成功。固定18ファイルの限定独立再レビューPass・全重大度の残指摘0。鍵管理・Root準備・配送・内容認可・本番Consumerは未成立）
 維持責任者: Qual-Lab
 
 ## 1. 対象と保持条件
@@ -77,6 +77,16 @@
 `UserRoleManagementResult`は、認証・管理許可成立前の固定`management_operation_rejected`と、認可後の今回保存観測を区別する。成功はoperationId、expectedRevision、revision、userId（内容設定ではnull）、publication: confirmed、cleanupConfirmed: trueだけ。認可後未完了は固定結果種別と最初の失敗、operationId、expectedRevision、observedRevision、今回publication、cleanupConfirmedを返す。Token・salt・Verifier・全Snapshot・内部Path・Lock回復参照は返さない。前操作pendingの処置は今回Effectへ帰属させず、今回更新0で停止する。出版確認後の清掃／解放不明は未完了のまま既知出版を保持し、自動再送・rollbackしない。
 
 RFD-IT-021の4操作部分に6 Caseを接続し、三Role×対象三Role×4操作の36組、生成前容量拒否、通常拒否・現在Role・対象外不変、前操作材料と出版／清掃故障を実Filesystemで観測した。認可・対象・期待改訂確認後だけ先行材料を処置する。誤鍵・developer・改訂競合・禁止対象ではbase／next両材料のbyteを保持し、巨大入力は詳細走査前に拒否する。AM全41 Case・静的3軸成功、固定13ファイルの限定独立再レビューPass・残指摘0。通常管理全体、Repository／Exposure、公開ST／UAT、本番Consumer、191項目の正式評価は未成立である。
+
+### 2.4 登録・公開範囲管理の実装接続方針 — 2026-10-12
+
+3操作の専用入口を同じ保存Ownerへ接続する。登録は現在認証・固定管理許可・期待改訂・未登録の確認後だけ、Version Controlでexact Git Rootを検証し、Domainの固定File観測でCanonical manifestとPROJECT_CONTEXTのprojectId／repositoryId／repositoryRole一致を照合する。BindingはSchemaと同じ式から導出する。登録だけを保存し、Exposureは作らない。観測時点のBindingから永久アクセス保証を推定しない。
+
+登録入力の受理上限はRoot 32,768 UTF-16 code unit、manifestとPROJECT_CONTEXTはそれぞれ1 MiBとする。これは登録入力の実装上限であり利用規模保証ではない。Rootは長さをPath処理前に拒否し、固定FileはDomain観測Ownerの同じdescriptorで最大+1 byteまで検査する。超過・伸縮・観測不能では出版せず、currentと先行材料を保持し、開いたdescriptorを解放する。未指定の既存Domain観測Consumerへこの上限を一律適用しない。
+
+解除は登録と対応Exposureを同じcandidate／改訂で除き、旧Rootの存在・再検証を条件にしない。公開設定は登録済みIDの明示development／management集合だけを更新する。空集合も既存Schemaどおり公開範囲0として保持し、新しい禁止条件を増やさない。Role内容範囲・管理能力・実アクセスとは独立する。通常管理の認可前拒否では先行材料を保持し、許可済み先行材料の処置は今回更新0で停止する。
+
+Source・Package公開入口・Symbol・試験台帳を接続し、既存保存ITへ4 Caseを追加した。AM全45 Case・静的3軸成功。登録と公開の分離、Identity不一致、認可前Root観測0、旧Root不成立時の登録解除、公開範囲0、出版後清掃不明、非認可時の先行材料保持と許可済み先行清掃を確認した。固定18ファイルの限定独立再レビューPass・全重大度の残指摘0。本番Consumer接続は未完了で、191項目の正式評価はNot Runを維持する。新しいStore・Lock・Registry・一般回復、旧CROS削除・実Host移行・Transport公開は本段階の対象外。
 
 ## 3. 内部状態と公開読取り
 

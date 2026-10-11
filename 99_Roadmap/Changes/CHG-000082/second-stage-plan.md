@@ -1313,6 +1313,18 @@ Node v24.19.0でFormatter・type・warning禁止LintとAM全11 Case成功（新4
 
 固定12Pathの限定独立再レビューはPass・全重大度の残指摘0。runtime入力をLock・JSON化前にprimitive検査し、getter／toJSON非実行と作成0を確認した。古い未実装表示を候補履歴へ限定し、UT023＋IT024相関部分と後続未接続範囲を分離した。静的3軸・23 Case再成功、差分確認成功、自己生成試験Root残存0。Checkerは前段と同じ3057件、今回変更Pathは既存PROJECT_CONTEXT形式指摘1件。その他の基準版差分は未確定で全体Passを主張しない。局所範囲をPhaseコミットし、次は初回のRoot準備・User／鍵後続段階・認証・本番Consumer接続へ進む。
 
+## AM登録・公開範囲管理の実装接続計画 — 2026-10-12
+
+初回独立レビューのMajor 1件は、登録Rootと固定Fileの容量上限欠落だった。方針を確認者へ再提示・整合後、既存Domain観測Ownerの同じdescriptorへ任意容量上限を追加し、AM登録だけ各1 MiBを指定した。RootはPath処理前32,768 code unit以下を確認する。巨大Root観測0、manifest／Contextの個別上限+1、上限内Context、保存0・開閉一致を追加確認した。AM45件・Domain113件は全成功、失敗・取消・skip0、各静的3軸成功。Domain回帰所要40.289秒。未指定Consumerは不変更、実Host・旧Evidence・191正式Not Runを維持し、追加のModerate 1件は新しい容量引数の不正値反例不足で、既存RCM-UT-014へ不正Capabilityと0／負数／小数／NaN／Infinity／非safe integerを組合せ、Root解決より先の拒否を追加した。Sourceは不変更、両Package全回帰・静的3軸を再成功した。固定18ファイルの限定独立再レビューPass・全重大度の残指摘0。
+
+現在結果: Package公開3操作・Symbol・台帳へ接続し、既存実Filesystem ITへ4 Caseを追加した。`npm test`（Node v24.19.0、Package既定の直列実行）は45成功・失敗0・取消0・skip0、静的3軸成功、所要32.147秒。対象は基準`4402c487`に今回のSource／試験差分を加えた作業Tree。認可前観測0の正対照、Identity不一致、登録≠公開、解除≠本文削除、空Exposure、先行材料保持・今回更新0、出版後清掃不明を確認した。結果全文は端末出力で、実行ごとの書庫は増やさず同じコマンドから再生成する。固定18ファイルの限定独立再レビューPass・全重大度の残指摘0。実Host・本番Consumer・正式191項目・全体E2Eの完成証明ではない。
+
+基準Commit `4402c487`。採用済み登録・解除・Exposureの3操作を接続する。親の正本／Source照合と読み取り専用専門確認を統合し、着手可とした。登録時は現在認証・固定管理許可・期待改訂・未登録を確認した後だけ外部Rootを観測する。Version Controlのexact Git Root検証、Domainの固定File観測・Canonical manifest解析・Project Context解析を再利用し、双方のprojectId／repositoryId／repositoryRole一致を要求する。Binding式はAMのSchemaと候補で共有する。登録は公開0、解除は旧Rootの観測0で登録と対応Exposureを同じ改訂から除く。本文・Product Dataを変更しない。
+
+Exposureは既存登録とdevelopment／managementの明示集合だけ。空集合も既存Schemaどおり明示的な公開範囲0として保持し、未採用の空record禁止を追加しない。Rootの観測は登録時点の事実で、取得時の再検証を代替しない。通常保存・短命pending・既存Lockを再利用し、Framework・Store・一般Registry・回復機構は追加しない。
+
+編集一次キーはARCH-000013の登録／解除／Exposure→同じ保存Owner→既存RFD-IT-021・IT001／002／012の部分接続→Source／Symbol／試験台帳→直接現在投影。認可前観測0、偽Git・link・欠測・Identity不一致、登録≠公開、解除対象外不変、Root消失時解除、容量・出版／清掃故障、先行材料相関を確認する。実Filesystem回帰、静的3軸、契約・実装・品質の独立レビュー、文書・直接伝播・差分確認を必須とする。標準規則不変更のため準拠監査、Host／Workbench／MCP未接続のため実E2Eは後続へ保持する。191正式Not Run、旧CROS・旧Evidence・実Host管理データは不変更。
+
 ## AM通常保存Adapterの局所接続 — 2026-10-12
 
 基準Commitは`d47d6855`。変更分類は採用済み通常保存契約の実装具体化。保存・Process喪失・秘密境界へ影響するため、着手前に親の正本照合と読取り専用専門確認を行った。pending包絡を同じPathで状態byteへ上書きする案は相関喪失の反例により不採用。既存構造の最小解として一件の短命replaceを使い、固定serializerと4 Path再入場表をAM詳細へ還元する条件で着手可。追加人間判断は不要、新Lock／Receipt／履歴／Recovery Frameworkを作らない。

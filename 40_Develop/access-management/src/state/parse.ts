@@ -3,8 +3,8 @@
  * @responsibility 保存Adapterへ渡す完全Snapshotと不正入力を区別する。
  * @trace ARCH-000013
  */
-import { createHash } from "node:crypto";
-import { isAbsolute, resolve } from "node:path";
+import { isAbsolute } from "node:path";
+import { deriveRepositoryBindingId } from "./repository-binding.ts";
 import { types } from "node:util";
 import type { AccessRole } from "../access/management-permission.ts";
 
@@ -278,15 +278,10 @@ export function parseAccessManagementState(
         throw new Error("invalid");
       repositories.add(repository.repositoryId);
       bindings.add(repository.bindingId);
-      const normalizedRoot = resolve(repository.repositoryRoot).replace(
-        /[\\/]+$/u,
-        "",
+      const expectedBinding = deriveRepositoryBindingId(
+        repository.repositoryId,
+        repository.repositoryRoot,
       );
-      const bindingRoot =
-        process.platform === "win32"
-          ? normalizedRoot.toLowerCase()
-          : normalizedRoot;
-      const expectedBinding = `binding-${createHash("sha256").update(`${repository.repositoryId}\n${bindingRoot}`, "utf8").digest("hex").slice(0, 32)}`;
       if (repository.bindingId !== expectedBinding) throw new Error("invalid");
     }
     const exposures = new Set<string>();

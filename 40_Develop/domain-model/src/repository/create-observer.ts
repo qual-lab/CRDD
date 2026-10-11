@@ -18,12 +18,12 @@ import { createFilesystemRepositoryObservationPortFromRootBinding } from "./file
  *
  * @responsibility Filesystem Repository Observation Portの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000009
- * @input capability: VerifiedRepositoryRoot
+ * @input capability: VerifiedRepositoryRoot、任意の正のsafe integer maximumFileBytes。
  * @returns RepositoryObservationPortを返す。
  * @precondition 「capability: VerifiedRepositoryRoot」がcreateFilesystemRepositoryObservationPortの入力契約を満たす。
  * @postcondition createFilesystemRepositoryObservationPortの責務を完了した結果だけを返す。
- * @effect N/A: createFilesystemRepositoryObservationPortは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: createFilesystemRepositoryObservationPortは独自の失敗分岐を所有しない。
+ * @effect 検証済みRootを現在解決する。返却操作のFile読取りは呼出し時に行い、保存はしない。
+ * @failure 不正な容量上限はRoot観測前に例外で拒否する。無効Capabilityは観測不能。
  * @invariant createFilesystemRepositoryObservationPortは入力から導いた結果以外の共有状態を変更しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
  * @security createFilesystemRepositoryObservationPortはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
@@ -31,7 +31,13 @@ import { createFilesystemRepositoryObservationPortFromRootBinding } from "./file
  */
 export function createFilesystemRepositoryObservationPort(
   capability: VerifiedRepositoryRoot,
+  maximumFileBytes?: number,
 ): RepositoryObservationPort {
+  if (
+    maximumFileBytes !== undefined &&
+    (!Number.isSafeInteger(maximumFileBytes) || maximumFileBytes <= 0)
+  )
+    throw new Error("repository_file_limit_invalid");
   const root = resolveVerifiedRepositoryRoot(capability);
   if (root === null)
     return {
@@ -46,9 +52,12 @@ export function createFilesystemRepositoryObservationPort(
         reason: "verified repository root capability is unavailable",
       }),
     };
-  return createFilesystemRepositoryObservationPortFromRootBinding({
-    absolutePath: root,
-    canonicalPath: root,
-    pathFlavor: path.sep === "\\" ? "win32" : "posix",
-  });
+  return createFilesystemRepositoryObservationPortFromRootBinding(
+    {
+      absolutePath: root,
+      canonicalPath: root,
+      pathFlavor: path.sep === "\\" ? "win32" : "posix",
+    },
+    maximumFileBytes,
+  );
 }

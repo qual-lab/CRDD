@@ -721,7 +721,7 @@ test("Reality Domain IssueはChecker語彙と絶対Pathを公開しない", () =
  * @responsibility Repository観測はRootの公開操作から不正Capabilityを拒否するの合否判定を所有する。
  * @trace RCM-UT-014
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Repository観測はRootの公開操作から不正Capabilityを拒否するの対象操作を実行する。
+ * @stimulus 不正Capabilityを渡し、不正容量上限との組合せでは上限拒否が先行することを確認する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
@@ -731,6 +731,23 @@ test("Repository観測はRootの公開操作から不正Capabilityを拒否す�
   const forgedCapability = {
     contract: "crdd-version-control/repository-location/v1",
   } as never;
+  for (const maximumFileBytes of [
+    0,
+    -1,
+    0.5,
+    NaN,
+    Infinity,
+    Number.MAX_SAFE_INTEGER + 1,
+  ]) {
+    assert.throws(
+      () =>
+        domainLibrary.createFilesystemRepositoryObservationPort(
+          forgedCapability,
+          maximumFileBytes,
+        ),
+      /^Error: repository_file_limit_invalid$/,
+    );
+  }
   assert.equal(
     domainLibrary
       .createFilesystemRepositoryObservationPort(forgedCapability)

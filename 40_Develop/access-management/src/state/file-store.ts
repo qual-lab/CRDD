@@ -6,6 +6,12 @@
  */
 import fs from "node:fs";
 import crypto, { createHash } from "node:crypto";
+import { evaluateManagementPermission } from "../access/management-permission.ts";
+import {
+  acceptsRepositoryExposureChange,
+  prepareRepositoryExposureChange,
+  type RepositoryExposureChange,
+} from "../management/repository-exposure.ts";
 import { evaluateHostInitializationState } from "../initialization/state-evaluation.ts";
 import {
   prepareUserRoleChange,
@@ -1258,6 +1264,256 @@ export function updateRoleContentAccess(
     expectedRevision,
     operationId,
     { operation: "updateRoleContentAccess", targetRole, workspaceIds },
+  );
+}
+
+/**
+ * 登録／公開管理の非秘密な保存結果。
+ * @responsibility 認可前拒否と認可後の既知出版を分離する。
+ * @trace ARCH-000013
+ * @shape 完了、固定拒否、認可後未完了の閉じた共用体。
+ * @invariant 先行操作を今回の出版へ帰属しない。
+ * @boundary AM保存と内部Consumer。
+ * @security 全Snapshot・秘密・内部Pathを含めない。
+ * @compatibility Transport公開の採用ではない。
+ */
+export type RepositoryExposureManagementResult =
+  | Readonly<{
+      status: "completed";
+      operationId: string;
+      expectedRevision: number;
+      revision: number;
+      repositoryId: string;
+      publication: "confirmed";
+      cleanupConfirmed: true;
+    }>
+  | Readonly<{ status: "unavailable"; reason: "management_operation_rejected" }>
+  | Readonly<{
+      status: "unavailable";
+      reason: "management_operation_unavailable";
+      primaryFailure: string;
+      operationId: string;
+      expectedRevision: number;
+      observedRevision: number | null;
+      publication: "not_attempted" | "unconfirmed" | "confirmed";
+      cleanupConfirmed: boolean;
+    }>;
+
+/**
+ * 登録・解除・公開更新の現在認可と保存を直列化する。
+ * @responsibility 認可前の外部Root観測・先行材料清掃を行わない。
+ * @trace ARCH-000013
+ * @input Root、鍵、期待改訂、受付UUID、内部三操作。
+ * @returns 非秘密の対象・改訂・出版／清掃結果、または非開示拒否。
+ * @precondition 完了初期化の用途限定Rootを使う内部Consumer。
+ * @postcondition 対象登録／Exposure以外とRepository本体を保持する。
+ * @effect 既存Lock、登録時固定File観測、既存pending／replace／current出版。
+ * @failure 認可前は固定拒否、認可後は今回の最初の失敗を返す。
+ * @invariant 登録は公開ではなく、解除はTask取消ではない。
+ * @boundary 通常接続管理と既存保存Owner。
+ * @security 秘密・内部Root・Lock回復参照は返さない。
+ * @concurrency 現在認可・期待改訂・処置を同じLockに閉じる。
+ */
+function executeRepositoryExposureMutation(
+  root: FilesystemStoreRoot,
+  token: string,
+  expectedRevision: number,
+  operationId: string,
+  change: RepositoryExposureChange,
+): RepositoryExposureManagementResult {
+  if (
+    typeof token !== "string" ||
+    !readCredentialId(token) ||
+    !Number.isSafeInteger(expectedRevision) ||
+    expectedRevision < 1 ||
+    typeof operationId !== "string" ||
+    !ATTEMPT_UUID.test(operationId)
+  )
+    return { status: "unavailable", reason: "management_operation_rejected" };
+  let admitted = false;
+  let currentPublication: "not_attempted" | "unconfirmed" | "confirmed" =
+    "not_attempted";
+  const result = locked(root, () => {
+    let revision: number | null = null;
+    let stage = "read";
+    let materialsConfirmed = false;
+    try {
+      const current = readCurrent(root);
+      revision = current.state.revision;
+      stage = "authorization";
+      const actor = resolveCredentialAuthentication(token, current.state);
+      if (
+        !actor ||
+        current.state.initialization.stage !== "completed" ||
+        revision !== expectedRevision ||
+        current.state.operationId === operationId ||
+        evaluateManagementPermission(actor.role, {
+          operation: change.operation,
+        }) !== "allowed" ||
+        !acceptsRepositoryExposureChange(current.state, change)
+      )
+        return {
+          status: "unavailable" as const,
+          reason: "management_operation_rejected",
+          publication: "not_attempted" as const,
+          revision,
+          cleanupConfirmed: true,
+        };
+      admitted = true;
+      stage = "pending";
+      const settled = settlePending(root, current, () => {});
+      materialsConfirmed = true;
+      if (settled !== "none")
+        return {
+          status: "unavailable" as const,
+          reason: "state_store_previous_pending_settled",
+          publication: "not_attempted" as const,
+          revision,
+          cleanupConfirmed: true,
+        };
+      stage = "repository_binding";
+      const next = prepareRepositoryExposureChange(
+        current.state,
+        change,
+        operationId,
+      );
+      if (!next) throw new Error("repository_binding_invalid");
+      stage = "candidate";
+      const parsed = parseAccessManagementState(serialize(next));
+      if (
+        parsed.status !== "parsed" ||
+        !ordinaryChange(current.state, parsed.state)
+      )
+        throw new Error("repository_candidate_invalid");
+      const published = publishState(root, current, parsed.state, "management");
+      currentPublication = published.publication;
+      return published;
+    } catch {
+      return {
+        status: "unavailable" as const,
+        reason: `state_store_${stage}_failed`,
+        publication: currentPublication,
+        revision,
+        cleanupConfirmed: materialsConfirmed,
+      };
+    }
+  });
+  if (!admitted)
+    return { status: "unavailable", reason: "management_operation_rejected" };
+  if (result.status === "completed")
+    return {
+      status: "completed",
+      operationId,
+      expectedRevision,
+      revision: result.value.revision,
+      repositoryId: change.repositoryId as string,
+      publication: "confirmed",
+      cleanupConfirmed: true,
+    };
+  return {
+    status: "unavailable",
+    reason: "management_operation_unavailable",
+    primaryFailure: result.reason,
+    operationId,
+    expectedRevision,
+    observedRevision: result.revision,
+    publication: currentPublication,
+    cleanupConfirmed: result.cleanupConfirmed,
+  };
+}
+
+/**
+ * 現在manager／administratorがRepositoryを登録する。
+ * @responsibility Canonical Identityと検証Rootを登録するが公開しない。
+ * @trace ARCH-000013
+ * @input Root、鍵、期待改訂、受付UUID、Repository ID、絶対Root。
+ * @returns 非秘密の対象・改訂・出版／清掃結果、または非開示拒否。
+ * @precondition 完了初期化の用途限定Rootを使う内部Consumer。
+ * @postcondition 対象登録／Exposure以外とRepository本体を保持する。
+ * @effect 認可後の固定File読取りと既存保存。
+ * @failure 認可前は固定拒否、認可後は今回の最初の失敗を返す。
+ * @invariant 登録は公開ではなく、解除はTask取消ではない。
+ * @boundary 通常接続管理と既存保存Owner。
+ * @security 秘密・内部Root・Lock回復参照は返さない。
+ * @concurrency 現在認可・期待改訂・処置を同じLockに閉じる。
+ */
+export function registerRepository(
+  root: FilesystemStoreRoot,
+  token: string,
+  expectedRevision: number,
+  operationId: string,
+  repositoryId: unknown,
+  repositoryRoot: unknown,
+): RepositoryExposureManagementResult {
+  return executeRepositoryExposureMutation(
+    root,
+    token,
+    expectedRevision,
+    operationId,
+    { operation: "registerRepository", repositoryId, repositoryRoot },
+  );
+}
+
+/**
+ * Repository登録と対応Exposureを同じ改訂で解除する。
+ * @responsibility 旧Rootの再検査を要求せず対象管理情報だけを除去する。
+ * @trace ARCH-000013
+ * @input Root、鍵、期待改訂、受付UUID、既存Repository ID。
+ * @returns 非秘密の対象・改訂・出版／清掃結果、または非開示拒否。
+ * @precondition 完了初期化の用途限定Rootを使う内部Consumer。
+ * @postcondition 対象登録／Exposure以外とRepository本体を保持する。
+ * @effect AM管理状態の保存だけ。対象Repository観測・変更0。
+ * @failure 認可前は固定拒否、認可後は今回の最初の失敗を返す。
+ * @invariant 登録は公開ではなく、解除はTask取消ではない。
+ * @boundary 通常接続管理と既存保存Owner。
+ * @security 秘密・内部Root・Lock回復参照は返さない。
+ * @concurrency 現在認可・期待改訂・処置を同じLockに閉じる。
+ */
+export function unregisterRepository(
+  root: FilesystemStoreRoot,
+  token: string,
+  expectedRevision: number,
+  operationId: string,
+  repositoryId: unknown,
+): RepositoryExposureManagementResult {
+  return executeRepositoryExposureMutation(
+    root,
+    token,
+    expectedRevision,
+    operationId,
+    { operation: "unregisterRepository", repositoryId },
+  );
+}
+
+/**
+ * 登録済みRepositoryの明示公開範囲を更新する。
+ * @responsibility 空集合を含む明示範囲だけを保存する。
+ * @trace ARCH-000013
+ * @input Root、鍵、期待改訂、受付UUID、既存Repository ID、workspaceIds。
+ * @returns 非秘密の対象・改訂・出版／清掃結果、または非開示拒否。
+ * @precondition 完了初期化の用途限定Rootを使う内部Consumer。
+ * @postcondition 対象登録／Exposure以外とRepository本体を保持する。
+ * @effect AM管理状態の保存だけ。対象Repository観測・変更0。
+ * @failure 認可前は固定拒否、認可後は今回の最初の失敗を返す。
+ * @invariant 登録は公開ではなく、解除はTask取消ではない。
+ * @boundary 通常接続管理と既存保存Owner。
+ * @security 秘密・内部Root・Lock回復参照は返さない。
+ * @concurrency 現在認可・期待改訂・処置を同じLockに閉じる。
+ */
+export function updateExposure(
+  root: FilesystemStoreRoot,
+  token: string,
+  expectedRevision: number,
+  operationId: string,
+  repositoryId: unknown,
+  workspaceIds: unknown,
+): RepositoryExposureManagementResult {
+  return executeRepositoryExposureMutation(
+    root,
+    token,
+    expectedRevision,
+    operationId,
+    { operation: "updateExposure", repositoryId, workspaceIds },
   );
 }
 
