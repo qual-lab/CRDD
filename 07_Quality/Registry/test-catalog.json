@@ -675,7 +675,7 @@
       "path": "40_Develop/access-management/tests/integration/state/file-store.contract.test.ts",
       "level": "integration",
       "kind": "contract",
-      "semanticTags": ["state-storage", "revision-conflict", "bounded-input", "pending-reentry", "primary-failure", "process-loss"],
+      "semanticTags": ["state-storage", "revision-conflict", "bounded-input", "pending-reentry", "primary-failure", "process-loss", "initial-correlation", "exclusive-create"],
       "environment": "node_process",
       "externalProviderEffect": false,
       "humanInput": false,

@@ -3,6 +3,7 @@
  * @packageDocumentation
  * @responsibility 純粋Schemaと保存境界を分離し、部分成立を管理操作全体のPassにしない。
  * @trace RFD-IT-021
+ * @trace RFD-IT-024
  * @level IT
  * @scope access-management/state、直接保存境界
  * @boundary Node Filesystem・既存Root/Lock。実Host・鍵発行・認可は対象外。
@@ -11,7 +12,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import test, { type TestContext } from "node:test";
 import {
   createFilesystemStoreRoot,
@@ -19,6 +20,7 @@ import {
 } from "../../../../domain-model/src/index.ts";
 import {
   type AccessManagementState,
+  initializeAccessManagementState,
   parseAccessManagementState,
   readAccessManagementState,
   updateAccessManagementState,
@@ -28,6 +30,7 @@ import {
  * 完了済み初回記録を持つ模擬現在状態を作る。
  * @responsibility 現在Userと歴史的資格IDを分ける。
  * @trace RFD-IT-021
+ * @trace RFD-IT-024
  * @precondition 実Hostとは分離した自己生成試験領域と非秘密fixtureを使用する。
  * @stimulus 固定JSON値を作る。
  * @observation 状態byte・改訂・結果・材料不存在を別に確認する。
@@ -73,6 +76,7 @@ function baseline(): AccessManagementState {
  * 非秘密fixtureを固定byte化する。
  * @responsibility Source serializerから独立した期待byteを構築する。
  * @trace RFD-IT-021
+ * @trace RFD-IT-024
  * @precondition 実Hostとは分離した自己生成試験領域と非秘密fixtureを使用する。
  * @stimulus Object keyを辞書順でJSON化し改行を付ける。
  * @observation 状態byte・改訂・結果・材料不存在を別に確認する。
@@ -98,6 +102,7 @@ function bytes(value: unknown): Buffer {
  * Repository内の一回性保存Fixtureを構築する。
  * @responsibility RootCapabilityと試験作成物を限定する。
  * @trace RFD-IT-021
+ * @trace RFD-IT-024
  * @precondition 実Hostとは分離した自己生成試験領域と非秘密fixtureを使用する。
  * @stimulus 検証したRepository直下に試験Rootと模擬currentを作る。
  * @observation 状態byte・改訂・結果・材料不存在を別に確認する。
@@ -133,6 +138,306 @@ function fixture(t: TestContext): {
   );
   return { directory, root, state };
 }
+
+/**
+ * 初回相関の新規保存と同元試行の再読取りを確認する。
+ * @responsibility 相関保存をUser・鍵の生成完了と区別する。
+ * @trace RFD-IT-024
+ * @precondition 自己生成Rootにcurrentが存在しない。
+ * @stimulus 明示開始で一度保存し同元試行・別元試行を再要求する。
+ * @observation callback件数、結果、current完全内容とbyteを確認する。
+ * @oracle revision1・固定Role・空集合。同元試行は再作成0、別試行は拒否。
+ * @cleanup 自己生成Rootを削除し不存在確認。
+ * @boundary Node FilesystemとAM初回相関保存。
+ */
+test("初回相関を排他作成しexact再入場する", (t) => {
+  const f = fixture(t);
+  const current = path.join(f.directory, "access-management.json");
+  fs.rmSync(current);
+  let called = 0;
+  const observe = () => {
+    called++;
+    return ["uninitialized", "absent"] as const;
+  };
+  const attempt = "00000000-0000-4000-8000-000000000020";
+  const result = initializeAccessManagementState(
+    f.root,
+    attempt,
+    true,
+    observe,
+  );
+  assert.equal(result.status, "completed");
+  if (result.status !== "completed") return;
+  assert.equal(result.value.created, true);
+  assert.equal(called, 1);
+  const before = fs.readFileSync(current);
+  const state = readAccessManagementState(f.root);
+  assert.equal(state.status, "completed");
+  if (state.status !== "completed") return;
+  assert.deepEqual(state.value.initialization, {
+    stage: "correlated",
+    attemptId: attempt,
+  });
+  assert.deepEqual(state.value.roleContentAccess, f.state.roleContentAccess);
+  for (const field of [
+    "users",
+    "credentials",
+    "registeredRepositories",
+    "exposure",
+    "unresolvedKeyExchanges",
+  ] as const)
+    assert.deepEqual(state.value[field], []);
+  const reentry = initializeAccessManagementState(
+    f.root,
+    attempt,
+    true,
+    observe,
+  );
+  assert.equal(reentry.status, "completed");
+  if (reentry.status === "completed")
+    assert.equal(reentry.value.created, false);
+  assert.equal(called, 1);
+  assert.equal(
+    initializeAccessManagementState(f.root, f.state.operationId, true, observe)
+      .status,
+    "unavailable",
+  );
+  assert.ok(fs.readFileSync(current).equals(before));
+  assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
+});
+
+/**
+ * 初回開始の拒否母集団を直接保存境界へ接続する。
+ * @responsibility 明示開始・旧観測・残存材料を新作成へ丸めない。
+ * @trace RFD-IT-024
+ * @precondition 自己生成Rootと非秘密の旧観測分類。
+ * @stimulus false・不正ID・既存／途中／不明／不正／throw・残存Pathを与える。
+ * @observation current不存在、callback件数、既存byteを確認する。
+ * @oracle 新作成0、残存不変、callbackはLock内一回以下。
+ * @cleanup 自己生成Rootを削除し不存在確認。
+ * @boundary Node Filesystemと初回開始条件。
+ */
+test("初回拒否で新作成せず不明材料を保持する", (t) => {
+  const f = fixture(t);
+  const current = path.join(f.directory, "access-management.json");
+  fs.rmSync(current);
+  const attempt = f.state.operationId;
+  let called = 0;
+  const observe = () => {
+    called++;
+    return ["uninitialized", "absent"] as const;
+  };
+  assert.equal(
+    initializeAccessManagementState(f.root, attempt, false, observe).status,
+    "unavailable",
+  );
+  assert.equal(
+    initializeAccessManagementState(f.root, "invalid", true, observe).status,
+    "unavailable",
+  );
+  assert.equal(called, 0);
+  let inputExecuted = 0;
+  const invalidInput = {
+    get toJSON() {
+      inputExecuted++;
+      return () => {
+        inputExecuted++;
+        return attempt;
+      };
+    },
+  };
+  assert.equal(
+    initializeAccessManagementState(
+      f.root,
+      invalidInput as unknown as string,
+      true,
+      observe,
+    ).status,
+    "unavailable",
+  );
+  assert.equal(
+    initializeAccessManagementState(
+      f.root,
+      attempt,
+      true,
+      undefined as unknown as typeof observe,
+    ).status,
+    "unavailable",
+  );
+  assert.equal(inputExecuted, 0);
+  assert.equal(called, 0);
+  assert.deepEqual(fs.readdirSync(f.directory), []);
+  for (const observation of [
+    ["existing", "absent"],
+    ["same_attempt", "confirmed"],
+    ["unknown", "unknown"],
+    [],
+  ]) {
+    let count = 0;
+    assert.equal(
+      initializeAccessManagementState(f.root, attempt, true, () => {
+        count++;
+        return observation as [unknown, unknown];
+      }).status,
+      "unavailable",
+    );
+    assert.equal(count, 1);
+    assert.equal(fs.existsSync(current), false);
+  }
+  assert.equal(
+    initializeAccessManagementState(f.root, attempt, true, () => {
+      throw new Error("injected");
+    }).status,
+    "unavailable",
+  );
+  for (const name of [
+    "access-management.json",
+    "access-management.pending.json",
+    "access-management.replace.json",
+  ]) {
+    const target = path.join(f.directory, name);
+    fs.writeFileSync(target, "{");
+    assert.equal(
+      initializeAccessManagementState(f.root, attempt, true, observe).status,
+      "unavailable",
+    );
+    assert.equal(fs.readFileSync(target, "utf8"), "{");
+    assert.equal(called, 0);
+    fs.rmSync(target);
+  }
+  assert.deepEqual(fs.readdirSync(f.directory), []);
+});
+
+/**
+ * 初回書込み途中・close後の実Process喪失を確認する。
+ * @responsibility partial保持停止と完全相関再観測を分離する。
+ * @trace RFD-IT-024
+ * @precondition 自己生成Rootと一回性Node子Process。
+ * @stimulus current一部write後とclose後readback前にProcess終了する。
+ * @observation 終了join、残存current、同元試行再入場、callback件数。
+ * @oracle partialは不変で拒否、完全baselineは作成なしで読戻し成功。
+ * @cleanup 子Process終了と自己生成Root削除を確認する。
+ * @boundary 実Node Process・Filesystem・既存Lock。
+ */
+test("初回Process喪失のpartialと完全相関を再観測する", (t) => {
+  for (const phase of ["partial", "closed"]) {
+    const f = fixture(t);
+    const current = path.join(f.directory, "access-management.json");
+    fs.rmSync(current);
+    const domainUrl = new URL(
+      "../../../../domain-model/src/index.ts",
+      import.meta.url,
+    ).href;
+    const storeUrl = new URL("../../../src/index.ts", import.meta.url).href;
+    const script = `
+      import fs from "node:fs";
+      import { createFilesystemStoreRoot } from ${JSON.stringify(domainUrl)};
+      import { initializeAccessManagementState } from ${JSON.stringify(storeUrl)};
+      let target;
+      const open = fs.openSync, write = fs.writeSync, close = fs.closeSync;
+      fs.openSync = (p,...args) => { const fd = open(p,...args); if (String(p).endsWith("access-management.json")) target=fd; return fd; };
+      fs.writeSync = (fd,...args) => { if(fd===target && ${JSON.stringify(phase)}==="partial") { write(fd, Buffer.from("{")); process.exit(23); } return write(fd,...args); };
+      fs.closeSync = fd => { close(fd); if(fd===target && ${JSON.stringify(phase)}==="closed") process.exit(23); };
+      initializeAccessManagementState(createFilesystemStoreRoot(${JSON.stringify(f.directory)}), ${JSON.stringify(f.state.operationId)}, true, () => ["uninitialized","absent"]);
+    `;
+    const child = spawnSync(process.execPath, ["--eval", script], {
+      timeout: 10000,
+      encoding: "utf8",
+    });
+    assert.equal(child.error, undefined);
+    assert.equal(child.status, 23, child.stderr);
+    const before = fs.readFileSync(current);
+    let count = 0;
+    const result = initializeAccessManagementState(
+      f.root,
+      f.state.operationId,
+      true,
+      () => {
+        count++;
+        return ["uninitialized", "absent"];
+      },
+    );
+    assert.equal(
+      result.status,
+      phase === "partial" ? "unavailable" : "completed",
+    );
+    if (result.status === "completed")
+      assert.equal(result.value.created, false);
+    assert.equal(count, 0);
+    assert.ok(fs.readFileSync(current).equals(before));
+    assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
+  }
+});
+
+/**
+ * 二Process初回競合と解放不明を確認する。
+ * @responsibility 採用一件と既知出版・清掃未確認を別に観測する。
+ * @trace RFD-IT-024
+ * @precondition 自己生成Rootにcurrentがない。
+ * @stimulus 別元試行の二子Processを開始し、別fixtureでLock削除失敗を注入する。
+ * @observation 子Processjoin、採用件数、改訂、回復参照。
+ * @oracle 採用一件、Lock清掃失敗時unavailableかつconfirmed出版を保持。
+ * @cleanup 差替え復元・子Process終了・自己生成Root削除。
+ * @boundary Node Process競合と既存Lock。
+ */
+test("初回競合は一件だけ採用し解放不明を保持する", async (t) => {
+  const f = fixture(t);
+  fs.rmSync(path.join(f.directory, "access-management.json"));
+  const domainUrl = new URL(
+    "../../../../domain-model/src/index.ts",
+    import.meta.url,
+  ).href;
+  const storeUrl = new URL("../../../src/index.ts", import.meta.url).href;
+  const results = await Promise.all(
+    [f.state.operationId, "00000000-0000-4000-8000-000000000025"].map(
+      (attempt) =>
+        new Promise<string>((resolve, reject) => {
+          const child = spawn(
+            process.execPath,
+            [
+              "--eval",
+              `import {createFilesystemStoreRoot} from ${JSON.stringify(domainUrl)}; import {initializeAccessManagementState} from ${JSON.stringify(storeUrl)}; const r=initializeAccessManagementState(createFilesystemStoreRoot(${JSON.stringify(f.directory)}),${JSON.stringify(attempt)},true,()=>["uninitialized","absent"]); console.log(r.status);`,
+            ],
+            { timeout: 10000 },
+          );
+          let output = "";
+          child.stdout.on("data", (data) => {
+            output += String(data);
+          });
+          child.on("error", reject);
+          child.on("close", (code) => {
+            if (code !== 0) reject(new Error("child_failed"));
+            else resolve(output.trim());
+          });
+        }),
+    ),
+  );
+  assert.equal(results.filter((status) => status === "completed").length, 1);
+  assert.equal(readAccessManagementState(f.root).status, "completed");
+  const g = fixture(t);
+  fs.rmSync(path.join(g.directory, "access-management.json"));
+  const remove = fs.rmSync;
+  t.after(() => {
+    fs.rmSync = remove;
+  });
+  fs.rmSync = (target, options) => {
+    if (String(target).endsWith("access-management.lock"))
+      throw new Error("injected");
+    return remove(target, options);
+  };
+  const failed = initializeAccessManagementState(
+    g.root,
+    g.state.operationId,
+    true,
+    () => ["uninitialized", "absent"],
+  );
+  fs.rmSync = remove;
+  assert.equal(failed.status, "unavailable");
+  assert.equal(failed.publication, "confirmed");
+  assert.equal(failed.cleanupConfirmed, false);
+  if (failed.status === "unavailable") assert.ok(failed.lockRecoveryId);
+  assert.equal(readAccessManagementState(g.root).status, "completed");
+});
 
 /**
  * 途中出版の独立Fixtureを生成する。

@@ -40,11 +40,15 @@ v0.21.0は公開済み、v0.22.0とCHG-000082は未完了である。責務再�
 
 ## 3. 今、人間が決めることは何か
 
+### AM初回相関保存の局所接続 — 2026-10-12
+
+初回の元試行保存を既存Root・Lockへ接続し、排他的作成・読戻し・同元試行再入場・部分書込み保持・二Process競合を局所確認した。AM全23 Case・静的3軸成功、限定独立再レビューPass・残指摘0。Root準備・User生成・鍵・配送・本番Host入口は未接続であり、初回全体完成ではない。
+
 ### AMのWindows追加保護を対象外化 — 2026-10-12
 
 管理状態の純粋Schema検査を実装し、RFD-UT-028・Source／Test Symbol・試験台帳へ接続した。AM Packageは静的3軸と全11 Case成功（新4 Case）。限定独立再レビューはPass・残指摘0。Quality設計集合は191項目、正式評価はNot Run。保存Adapter・鍵実処置・認可・本番Consumerは未接続で、実Host Storeは変更していない。全体Checkerは未合格であり、この局所結果を全体完成へ読み替えない。
 
-通常保存Adapterの局所接続を完了した。既存Root・Lock下でcurrent／pending／短命replaceを照合し、通常更新と出版前後の再入場を確認した。静的3軸・AM全19 Case成功、限定独立再レビューPass・残指摘0。新履歴・Receipt・回復Frameworkは追加しない。初回Root／最初の出版、認証・鍵実処置・本番Consumerは残る。上段の保存未接続は前段の状態で、現在の実装・確認範囲は[計画](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#am通常保存adapterの局所接続--2026-10-12)を参照する。
+通常保存Adapterの局所接続を完了した。既存Root・Lock下でcurrent／pending／短命replaceを照合し、通常更新と出版前後の再入場を確認した。静的3軸・AM全19 Case成功、限定独立再レビューPass・残指摘0。これは前段の結果で、新履歴・Receipt・回復Frameworkは追加しない。現在は初回相関出版も局所接続し、Root準備・User／鍵の後続段階・認証・本番Consumerが残る。詳細は[計画](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#am通常保存adapterの局所接続--2026-10-12)を参照する。
 
 保存項目・容量・初回／鍵保存順序を[AM保存契約§4.5](06_Architecture/Details/access-management/02_Management_State_and_API.md#45-現在状態容量鍵保存の固定方針--2026-10-12)へ具体化した。内容範囲はDevelopment／Managementに限定し操作別認可は追加しない。current 16 MiB／pending 17 MiBは実装割当上限で、利用規模保証ではない。本段落の契約・品質・直接影響の限定独立再レビューPassは契約固定時点の結果である。その後のSchema・通常保存Adapterの局所接続は上段を参照し、初回／鍵実処置・認可・本番接続は現在も残る。実Host Storeは変更していない。
 
@@ -148,6 +152,8 @@ MCP詳細の最新判断伝播は契約・品質の限定独立再レビュー�
 2026-10-10の鍵管理境界について、要求・基本定義・AM詳細・判断履歴、UXからArchitectureまでの限定伝播と独立レビュー結果は前判断の履歴として保持する。2026-10-11の担当Role分担はUXの限定再レビュー済み・残指摘0。IAは限定伝播・限定独立レビュー済み・残指摘0で、UI／SPEC定義・対応は限定確認済み、詳細は伝播・限定独立レビュー済み・残指摘0。Architecture入力分析2件は契約・品質の限定独立レビュー済み・残指摘0。ARCH-000013・横断01〜08は契約・品質の限定独立レビュー済み・残指摘0。AM／Workbench／MCP詳細3文書へ候補伝播・契約／品質の限定独立レビュー済み・残指摘0。Qualityへ最新分担を候補伝播・限定独立レビュー済み・残指摘0。固定管理判定だけSource／Test Symbolへ局所接続済み。具体API・保存・受領方式、正式Quality／Evidence・他Source／Test・本番公開入口・実境界は未完了であり、旧限定結果から最新判断や全体完成を主張しない。
 
 ## 4. なぜこの状態・判断になったか
+
+以下の初回設計伝播時点の「他初回4項目未接続」は履歴である。現在はUT023とIT024相関保存部分が候補接続済み。IT024のUser／鍵／配送／本番Host部分、IT025／ST026／UAT027はOPEN、正式項目評価はNot Runを維持する。
 
 ### 結論
 

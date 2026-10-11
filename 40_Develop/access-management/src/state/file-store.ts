@@ -6,6 +6,7 @@
  */
 import fs from "node:fs";
 import { createHash } from "node:crypto";
+import { evaluateHostInitializationState } from "../initialization/state-evaluation.ts";
 import {
   type FilesystemStoreRoot,
   resolveFilesystemStorePath,
@@ -26,6 +27,146 @@ const LOCK = "access-management.lock";
 const CURRENT_LIMIT = 16_777_216;
 const PENDING_LIMIT = 17_825_792;
 const HASH = /^[a-f0-9]{64}$/u;
+const ATTEMPT_UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+
+/**
+ * 初回の元試行だけを排他的に保存・再観測する。
+ * @responsibility 完全な同元試行baselineと未初期化・破損を分離する。
+ * @trace ARCH-000013
+ * @input 既存Root、元試行UUID、明示開始、旧管理状態と進行記録の観測tuple。
+ * @returns 相関読戻し済みの改訂・元試行・新規作成有無、または未完了。
+ * @precondition 信頼済みHostの内部Ownerだけが呼ぶ。旧入力は同じLockで安定化するか書込み不能である。観測callbackは同期read-onlyで、Promise・外部／永続Effect・UUID・鍵・別Store更新・応答を行わない。
+ * @postcondition 新規または同元試行の完全baseline読戻し後だけcompletedを返す。
+ * @effect Lock取得・排他的current作成・読取り。User UUID・鍵・Root準備は行わない。
+ * @failure 別試行・途中材料・partial current・旧観測不明・保存失敗は保持停止。
+ * @invariant 既存currentを置換・修復・削除せず、元試行をAuthorityへ変換しない。
+ * @boundary AM内部初回保存Ownerと既存Filesystem保存部品。
+ * @security 生Secret・Verifier・Pathを公開しない。鍵操作は未接続。
+ * @concurrency 同じLock内で観測一回、wxで採用一件。旧Owner回収は既存exact経路だけ。
+ */
+export function initializeAccessManagementState(
+  root: FilesystemStoreRoot,
+  attemptId: string,
+  isStartRequested: boolean,
+  observePrevious: () => readonly [unknown, unknown],
+): StateStoreResult<
+  Readonly<{ revision: number; attemptId: string; created: boolean }>
+> {
+  if (
+    typeof attemptId !== "string" ||
+    !ATTEMPT_UUID.test(attemptId) ||
+    isStartRequested !== true ||
+    typeof observePrevious !== "function"
+  )
+    return {
+      status: "unavailable",
+      reason: "state_store_initialization_input_rejected",
+      publication: "not_attempted",
+      revision: null,
+      cleanupConfirmed: true,
+    };
+  return locked<
+    Readonly<{ revision: number; attemptId: string; created: boolean }>
+  >(root, () => {
+    let publication: "not_attempted" | "unconfirmed" | "confirmed" =
+      "not_attempted";
+    let revision: number | null = null;
+    try {
+      const baseline: AccessManagementState = {
+        contract: "crdd-access-management/state",
+        schemaRevision: 1,
+        revision: 1,
+        operationId: attemptId,
+        users: [],
+        credentials: [],
+        registeredRepositories: [],
+        exposure: [],
+        unresolvedKeyExchanges: [],
+        roleContentAccess: [
+          { role: "developer", workspaceIds: ["development"] },
+          { role: "manager", workspaceIds: ["development", "management"] },
+          { role: "administrator", workspaceIds: [] },
+        ],
+        initialization: { stage: "correlated", attemptId },
+      };
+      const expected = serialize(baseline);
+      if (
+        parseAccessManagementState(expected).status !== "parsed" ||
+        isStartRequested !== true
+      )
+        return {
+          status: "unavailable",
+          reason: "state_store_initialization_input_rejected",
+          publication,
+          revision,
+          cleanupConfirmed: true,
+        };
+      if (present(root, PENDING) || present(root, REPLACE))
+        return {
+          status: "unavailable",
+          reason: "state_store_initialization_material_present",
+          publication,
+          revision,
+          cleanupConfirmed: false,
+        };
+      if (present(root, CURRENT)) {
+        const current = readCurrent(root);
+        if (!current.bytes.equals(expected))
+          return {
+            status: "unavailable",
+            reason: "state_store_initialization_current_conflict",
+            publication,
+            revision: current.state.revision,
+            cleanupConfirmed: true,
+          };
+        return {
+          status: "completed",
+          value: { revision: 1, attemptId, created: false },
+          publication: "confirmed",
+          revision: 1,
+          cleanupConfirmed: true,
+        };
+      }
+      const observation = observePrevious();
+      if (
+        !Array.isArray(observation) ||
+        observation.length !== 2 ||
+        !evaluateHostInitializationState(observation[0], observation[1], true)
+          .canStart
+      )
+        return {
+          status: "unavailable",
+          reason: "state_store_initialization_observation_rejected",
+          publication,
+          revision,
+          cleanupConfirmed: true,
+        };
+      publication = "unconfirmed";
+      writeExclusive(root, CURRENT, expected);
+      const current = readCurrent(root);
+      if (!current.bytes.equals(expected))
+        throw new Error("read_back_mismatch");
+      publication = "confirmed";
+      revision = 1;
+      return {
+        status: "completed",
+        value: { revision: 1, attemptId, created: true },
+        publication,
+        revision,
+        cleanupConfirmed: true,
+      };
+    } catch {
+      return {
+        status: "unavailable",
+        reason: "state_store_initialization_failed",
+        publication,
+        revision,
+        cleanupConfirmed: false,
+      };
+    }
+  });
+}
 
 /**
  * 保存観測結果（StateStoreResult）を定義する。

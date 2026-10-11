@@ -2,7 +2,7 @@
 
 成果物種別: Architecture詳細設計
 詳細設計領域: access-management
-状態: Candidate（初回Host設定の内部操作・論理記録候補。今回の契約・品質限定独立レビュー済み・全重大度の残指摘0。管理API・物理保存の実装着手条件は未成立）
+状態: Candidate（内部Schema・通常保存・初回相関保存は局所接続済み。今回12Pathの限定独立再レビューPass・全重大度の残指摘0。管理API・Root準備・User／鍵・本番Consumerは未成立）
 維持責任者: Qual-Lab
 
 ## 1. 対象と保持条件
@@ -62,7 +62,7 @@
 | `existing` | `absent` | `existing`／`reject_initialization`。新規開始不可 |
 | その他、未知、不正型、相関矛盾 | 任意 | `unknown`／`stop`。新規開始不可 |
 
-`absent`は進行試行の確認済み不存在で、単一Fileの欠測ではない。`confirmed`は確認済みの進行試行だけを表し、過去の終了記録の存在を含めない。`same_attempt`は管理状態と同じ元試行の結合を呼出側が確認した分類であり、本関数がIdentityを証明するものではない。完了済みの初回記録を保持する場合、その履歴を進行試行へ転用せず、保存Ownerが現在の既存管理状態と進行試行の不存在を別に観測する。保存Owner・具体Schema・その観測処理は未実装である。
+`absent`は進行試行の確認済み不存在で、単一Fileの欠測ではない。`confirmed`は確認済みの進行試行だけを表し、過去の終了記録の存在を含めない。`same_attempt`は管理状態と同じ元試行の結合を呼出側が確認した分類であり、本関数がIdentityを証明するものではない。完了済みの初回記録を保持する場合、その履歴を進行試行へ転用せず、保存Ownerが現在の既存管理状態と進行試行の不存在を別に観測する。内部保存Owner・Schema・相関保存は局所接続済みで、旧入力の本番観測は未接続である。
 
 局所UTは`RFD-UT-023`へ接続し、四管理観測×三試行観測×開始二値の24組と、不正値・暗黙変換なし・返却値非共有を確認する。候補試験の成功は正式Local Item評価や物理保存・Host入口の成立ではない。固定15Fileの契約・品質限定独立再レビューは両方Pass、全重大度の残指摘0。
 
@@ -78,7 +78,7 @@
 | `initialization` | 初回管理状態、確認済み元試行相関、作成UUID／資格、結果記録／配送／受領／通常接続の個別事実。非秘密。ユーザー成立前から保持し交換Recoveryとは分離 |
 | `unresolvedKeyExchanges` | exact Recovery、旧資格集合、既存発行先、段階と既知結果。非秘密 |
 
-初回進行記録はProcess喪失後にも再観測する耐久的な論理事実で、出版前短命の`access-management.pending.json`そのものではない。既存単一現在Fileに含める候補とし、別Store・実行毎Directory・履歴列を追加しない。相関確定前UUID／鍵Effect0の具体Schema・Root準備・再入場・解消後整理は未完了。未解決参照を失わず有限化する条件は保存Gateで閉じる。
+初回進行記録はProcess喪失後にも再観測する耐久的な論理事実で、出版前短命の`access-management.pending.json`そのものではない。単一現在Fileに含め、別Store・実行毎Directory・履歴列を追加しない。Schemaと相関baselineの保存・再入場は局所接続済み。Root準備・User／鍵の後続段階・解消後整理は未完了。未解決参照を失わず有限化する条件は保存Gateで閉じる。
 
 これらは内部候補キーであり、新たな正本Entityや汎用Registryではない。User・Role・資格の参照整合と交換結果を一つの採用改訂に結合する。遷移は期待改訂→次改訂で保存し、同じ改訂を異なる状態で上書きしない。
 
@@ -182,6 +182,8 @@ Windows `10.0.26200.0`・C: NTFS・Node `v24.19.0`で、同Directoryの短命Fil
 
 ### 4.3. 保存途中の再入場候補 — 2026-10-11
 
+本節の未実装・未確定は候補時点の履歴である。現在は完全Schema・通常保存・初回correlated baselineのwx作成／読戻し／再入場が§4.6〜4.7で局所接続済み。正式項目評価・本番試験はNot Runで、Root準備・旧入力本番観測・User／鍵／配送・後続初回段階・Consumerは未接続である。
+
 既存の完全な現在状態がある通常保存について、出版前と出版後を区別する候補を次に固定する。新しいStore、Lock、操作別Directory、Receipt台帳を追加しない。これは保存方式の採用や実装着手条件の成立ではなく、§4.2の実反例を踏まえた具体化である。
 
 | 保存物 | 内容・所有者 | 保持・保護 |
@@ -231,6 +233,8 @@ pendingが存在しないこと自体は、元操作の完了や未試行の証�
 
 ### 4.4. 保存データと整理単位の具体化候補 — 2026-10-12
 
+以下の候補・未実装表示はSchema／保存実装前の記録であり、最新の局所接続範囲と残件は§4.6〜4.7を優先する。未生成IDの実Schemaはnull補完ではなく判別共用体の段階別fieldで表現する。
+
 本節は既存Sourceとの照合から保存データ・処理順・清掃単位を具体化する。完全Schema、物理保存方式の採用または実装Readyを示さない。§4.1〜4.3の実測・再入場条件と、採用済み通常保存・読戻し保証を保持する。Windows固有の追加保護は[REQ-000041の対象外判断](../../../01_Discovery/Definitions/REQ-000041/requirement.md#windows固有の追加保護の対象外化--2026-10-12)に従い、前段のVerifier保護Gateから追加ACL検査・修復・専用Native接続を除く。
 
 §4.1〜4.4の候補時点で未確定とした容量・内容範囲・Binding・初回／鍵保存順序は§4.5で具体化した。これらの旧OPEN表示は当時の候補履歴である。現在残るのは全判別Unionの機械Schema、公開API対応、状態組合せ検査、保存部品・Consumer実接続、Root／OS出版の実装確認、配送／受領観測と移行実行であり、全体保存Gate未成立は維持する。
@@ -261,7 +265,7 @@ currentとpendingは共にVerifierを含む保護対象である。公開DTO、�
 4. 全Reader／Writerが同じ`access-management.lock`と既存`withFilesystemStoreLock`を使う。同期区間内で旧管理入力、current、pending、初回進行を照合し、双方未初期化確定と明示開始の場合だけ元試行相関を最初に保存・読戻しする。
 5. 相関の読戻し後だけUUID作成・同userIdへの鍵発行へ進む。各段階の記録確定前後の故障を分離する。current不在＋pending存在は§4.3に従い新初期化へ畳まず、再出版・追加UUID・追加鍵を自動実行しない。
 
-最初のcurrentは既存値を置換しない出版が必要で、既存hard-link出版部品は比較候補に限定する。最初の出版と通常置換の分岐、Root準備時の保護・残存結果、初回pendingの具体Schemaは未実装である。
+最初のcurrentは既存値を置換しない出版が必要で、§4.7でwx排他作成を局所接続した。hard-link部品を新設しない。Root準備時の残存結果、User／鍵等の後続初回段階は未接続である。
 
 旧Registry Adapterの`wx`／0600とNodeのDirectory modeだけではWindows ACL成立を保証しない。人間判断によりAM専用のWindows追加ACL検査・修復・Native保護接続は行わず、実装Gateから外す。AMは既存HostのOS管理Rootとアクセス制御へ依存するが、それを追加の保護保証とは表示しない。生Secret非保存とVerifier非公開は維持する。新一般ACL FrameworkやCoordinatorへの逆依存は追加せず、現在の実Host Root・権限も変更しない。この判断をPlatform Access、Provider Home、署名鍵等の保護へ一般化しない。
 
@@ -278,6 +282,8 @@ currentとpendingは共にVerifierを含む保護対象である。公開DTO、�
 容量はSnapshot全体のbyte予算を第一候補とし、User数・資格数等へ根拠のない個別上限を一律増設しない。上限値と読取り・認証の扱いは運用規模と既存bounded Readerへ照合して固定する。未解決事実を容量対策で捨てない。完全Schema・上限・初回／鍵段階の処置・本番接続は残件であり、本節から保存Gate全体成立を主張しない。秘密非保存・非公開とRoot境界は維持するが、Windows追加保護の接続は残件に含めない。
 
 ### 4.5. 現在状態・容量・鍵保存の固定方針 — 2026-10-12
+
+本節の「未実装」は契約固定時点の表示である。完全Schema・内部保存Owner・初回相関baseline出版はその後に局所接続した。User／鍵／配送・後続段階・本番Consumerは未接続で、保存Gate全体は未成立を維持する。
 
 本節は§4.4の未確定事項を具体化する。内容権限は採用済みのWorkspace範囲を表し、操作単位の新しい権限設定を追加しない。保存・本番Consumerは未実装であり、以下は実装へ渡す契約であって実測結果ではない。
 
@@ -325,7 +331,7 @@ Repository利用時には登録したRoot・Repository Identityを再検証し�
 
 ### 4.6. 通常保存Adapterの具体化 — 2026-10-12
 
-`state/file-store.ts`は既存Root Capabilityと既存Lockを用いる内部保存部品であり、認証・管理操作・Host初期化の公開入口ではない。Root作成、旧Store移行、初回出版、鍵保存、本番Consumerは未接続である。実Hostの管理状態は変更していない。
+`state/file-store.ts`は既存Root Capabilityと既存Lockを用いる内部保存部品であり、認証・管理操作・Host初期化の公開入口ではない。通常保存と初回相関baseline出版は局所接続済み。Root作成、旧Store移行、User／鍵の後続初回段階、鍵保存、本番Consumerは未接続である。実Hostの管理状態は変更していない。
 
 | 固定File | 役割・終了条件 |
 |---|---|
@@ -351,6 +357,24 @@ callbackは同期の認可評価とメモリ内候補構築だけに限定する
 Lockのexact回復参照は保存Owner内部だけで扱い、既存Owner不存在観測・回収が確認できた場合だけ一回再取得する。生存Owner・観測不能は停止し、無限Retryしない。最初の保存失敗理由と後続Lock解放不明は別fieldへ保持し、確認済み出版を後続Failureで未保存へ戻さない。材料・Lockが残る失敗では`cleanupConfirmed: false`とし、保存完了と材料回収を混同しない。
 
 局所ITはRFD-IT-021の保存部分へ接続する。通常認可・六操作・公開縦断の全体Passではない。電源断耐久性や非協調Writer対策は新設せず、採用済み保証範囲を維持する。
+
+### 4.7. 初回相関保存の局所接続 — 2026-10-12
+
+`initializeAccessManagementState`は既存の検証済みRootだけを受け、同じLock下で元試行の完全baselineを`wx`で排他的に作成し、正確byteと完全Schemaを読戻す。revision 1、operationIdとinitializationのattemptIdは同じ元試行UUID、段階は`correlated`、固定3Role初期範囲と全空集合だけを保存する。Root準備・User UUID生成・鍵・配送・本番Host入口は未接続である。
+
+Lock取得・baseline構築・JSON化より前に、元試行の文字列型とUUID v4形式、明示開始true、観測callbackの関数型を検査する。不正runtime入力はgetter／toJSON・callback・Lock・writeを実行しない。
+
+| 観測・入力 | 局所保存Ownerの処置 |
+|---|---|
+| 有効元試行・明示開始・current/pending/replace不存在 | Lock内で旧管理状態と進行記録を一回だけ観測し、双方未初期化の場合だけ排他的作成・読戻し |
+| currentが同元試行の正確baseline | callback・write・User UUID・鍵Effect 0で既存相関を再読取り。`created: false`で新規作成と分離 |
+| 別元試行、他段階／余剰状態、partial current、途中材料併存、欠測・観測不能 | 保持停止。置換・修復・削除・再初期化しない |
+| 不正元試行・明示開始なし | callback 0、新規current作成0 |
+| 作成要求後の失敗 | 出版未確認を保持。読戻し済み出版後のLock解放不明は既知出版と未完了を分離 |
+
+旧観測callbackは同期read-onlyで、管理観測と進行観測のtupleを返す。Promise、外部／永続Effect、UUID・鍵、別Store更新、利用者応答を行わない。旧入力は同じLockで安定化するか、初回前に書込み不能な所有状態であることを本番Consumer接続Gateで確認する。別Lockで並行更新できる二つの読取りを同時点観測と主張しない。callback throw・不正tupleは作成0で停止する。
+
+同元試行の完全currentはclose後・読戻し前のProcess喪失後にも再観測できる。write途中のpartial currentはそのまま保持停止し、元試行から内容を再生成して修復しない。排他は既存Lockと`wx`で、専用Receipt・履歴・Lock Frameworkを追加しない。内部結果はAuthorityではなく、初回全体完成・資格配送・Host認証を証明しない。
 
 ## 5. 鍵交換の段階と終了
 
@@ -415,7 +439,7 @@ Repositoryでは重複登録、未登録Exposure、解除後の孤立Exposure、
 
 初回の反証は、正規未試行の不適切拒否、双方確認なしの作成、既存／通常鍵喪失の再初期化、相関確定前Effect、二重UUID・追加鍵、不明発行から新交換、配送／受領混同、Secret保存／再表示、自動登録・公開・内容付与、部分≠全体完了である。Quality Local Item・実行結果への接続は次作業で、今回Passにしない。
 
-実装前の現在残件は、全判別Unionの機械Schemaと状態組合せ検査、公開read API対応、既存排他・Reader／Writer・Root／実OS出版の実装確認、元発行Identityと配送／受領観測の搬送、本番入口と移行実行である。内容範囲・容量・Binding・保持原則・初回／鍵保存順序は§4.5で具体化済み。担当はQual-Lab、再評価契機は保存・API候補固定時。物理・接続残件は実装Gateを阻害するため将来改善として退避しない。追加の保証や再表示・自動再発行を採用する場合は上流判断へ戻す。
+現在残件は、Root準備・旧入力本番観測、User／鍵／配送・後続初回段階、元発行Identityと配送／受領観測の搬送、認証・現在認可・公開DTO、本番入口と移行実行である。完全Schema・内部保存Owner・通常保存・初回相関baselineの局所接続は§4.6〜4.7を参照する。内容範囲・容量・Binding・保持原則・初回／鍵保存順序は§4.5で具体化済み。担当はQual-Lab、再評価契機は保存・API候補固定時。接続残件は実装Gateを阻害するため将来改善として退避しない。追加の保証や再表示・自動再発行を採用する場合は上流判断へ戻す。
 
 Root準備はFilesystem Effectを持ち、Directory作成だけで未初期化を証明しない。準備後故障の既知Effect・残存を保持する。論理初回順序の具体化から実装Gate成立を推定しない。Quality設計への接続は行ったがNot Runであり、横断モデル・Workbench／MCP詳細・Sourceの本番接続は未成立。
 

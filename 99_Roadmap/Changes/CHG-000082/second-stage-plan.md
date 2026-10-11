@@ -1251,6 +1251,16 @@ Node v24.19.0でFormatter・type・warning禁止LintとAM全11 Case成功（新4
 
 是正後のChecker再確認は3057件、今回変更Pathは上記の基準版由来Checklist指摘1件だけで、新UTのSymbol接続指摘は解消した。
 
+## AM初回相関保存の局所接続 — 2026-10-12
+
+基準Commit `672ffe68`。採用済み初回保存契約の実装具体化として既存検証済みRootの最初の相関保存だけを接続する。親の正本照合と読取り専用専門確認で着手可、追加人間判断なし。同元試行の完全baseline再観測と旧観測callbackの排他・同期read-only境界を計画へ統合した。既存Root準備・旧入力の本番観測・User UUID・鍵・配送・Host入口は対象外で、通常保存の自動破棄を初回へ一般化しない。
+
+編集一次キーはARCH-000013の初回相関→既存state保存Owner→RFD-IT-024保存部分→公開Root／Symbol／台帳／現在投影。新規、明示開始なし、既存・途中・unknown、残存材料、partial、同元試行、別元試行を別処置とする。現在値はwx排他的作成後に完全Schemaと正確byteを読戻す。Process喪失は部分write後とclose後readback前、競合は二Process採用一件、解放失敗は既知出版保持を実観測する。Root・Lock・保存部品は前段を再利用し、新しいFramework・Receipt・履歴は追加しない。
+
+必須確認は実Filesystem／Process局所試験、形式・型・Lint、契約・実装・品質の限定独立レビュー、文書・直接影響・公開集合・Symbol／台帳・差分確認。標準規則不変更のため準拠監査、鍵／Provider／Docker／本番Host未接続のため署名E2Eは実行しない。実Host Storeと旧Evidenceは不変更。AM全23 Case・静的3軸成功。固定12Pathの独立レビュー待ち。191項目正式評価はNot Run、初回全体・認証・鍵・本番接続は未成立。
+
+固定12Pathの限定独立再レビューはPass・全重大度の残指摘0。runtime入力をLock・JSON化前にprimitive検査し、getter／toJSON非実行と作成0を確認した。古い未実装表示を候補履歴へ限定し、UT023＋IT024相関部分と後続未接続範囲を分離した。静的3軸・23 Case再成功、差分確認成功、自己生成試験Root残存0。Checkerは前段と同じ3057件、今回変更Pathは既存PROJECT_CONTEXT形式指摘1件。その他の基準版差分は未確定で全体Passを主張しない。局所範囲をPhaseコミットし、次は初回のRoot準備・User／鍵後続段階・認証・本番Consumer接続へ進む。
+
 ## AM通常保存Adapterの局所接続 — 2026-10-12
 
 基準Commitは`d47d6855`。変更分類は採用済み通常保存契約の実装具体化。保存・Process喪失・秘密境界へ影響するため、着手前に親の正本照合と読取り専用専門確認を行った。pending包絡を同じPathで状態byteへ上書きする案は相関喪失の反例により不採用。既存構造の最小解として一件の短命replaceを使い、固定serializerと4 Path再入場表をAM詳細へ還元する条件で着手可。追加人間判断は不要、新Lock／Receipt／履歴／Recovery Frameworkを作らない。
