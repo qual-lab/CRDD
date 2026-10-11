@@ -221,6 +221,10 @@ Source値の意味と現在性はOwner Artifactに従い、独自のProject正�
 
 Qualityへの導出元は本節。正常な許可集合の集約、部分読取り・矛盾、入力集合欠落、未許可Source非開示、認可とRoot検証の分離をUT／IT／STで評価する。観測は入力集合と読取り先、出所・改訂・Coverage、拒否結果、終了後の秘密・認可状態の非保持とし、旧CROS試験を新契約の合格根拠へ流用しない。QA Local Item IDはQuality側の導出で確定する。
 
+固定本文Readerは公開`readRepositoryProjectContext`、実体は`src/project-context/read-context.ts`とする。今回要求で検証した技術的Rootと期待manifestを受け、既存Repository観測で`PROJECT_CONTEXT.md`を最大1 MiBまで読み、解析後のProject ID・Repository ID・Repository Roleが全一致した場合だけ不変Contextを返す。Readerは認証・認可・Root探索・保存を行わない。期待manifestは今回要求の相関用Snapshotであり、現在manifestの再読取りや複数Fileの原子的Snapshotを保証しない。
+
+本文不存在、Directory／Link、上限超過、読取り中の実体変化・観測不能、解析不正、三Identity不一致は固定`unavailable`として返す。Root、manifest、原文、絶対Path、下位例外を結果へ含めず、null／missingへ変換しない。既存Observerの同descriptor・実体照合・closeを再利用する。Reader成功はAM認可の成立証明ではなく、今回要求での呼出しと本番Consumerへの搬送は引き続きOPEN。PPR-IT-019へ本文読取りを、PPR-IT-002へ同じ試験内の中立Source／Portfolio接続部分を導出する。
+
 ## 5. 結果と失敗の境界
 
 | 結果 | Owner | 意味 |

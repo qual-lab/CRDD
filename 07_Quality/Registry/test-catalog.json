@@ -1003,6 +1003,19 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "domain-model:integration:project-context-read",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/integration/project-context-read.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["project-context", "bounded-reader", "identity"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["unobservable_not_missing", "identity_verified", "descriptors_closed"],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "cros:integration:remote-transport",
       "owner": "cros",
       "path": "40_Develop/cros/tests/integration/remote-transport.contract.test.ts",

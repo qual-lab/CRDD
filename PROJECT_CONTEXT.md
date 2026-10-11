@@ -40,6 +40,10 @@ v0.21.0は公開済み、v0.22.0とCHG-000082は未完了である。責務再�
 
 ## 3. 今、人間が決めることは何か
 
+### 固定Project Context本文Reader — 2026-10-12
+
+技術的Rootから固定本文を最大1 MiBで読み、Project・Repository・役割を期待manifestと照合するDomain入口を接続した。Domain全118 Caseと静的3軸成功、固定10Pathの限定独立レビューPass・全重大度残指摘0。読取り不能・不正・不一致は固定unavailableで、null／missingへ変換しない。成功ContextからPortfolioへの局所搬送も確認したが、AM現在認可から本番Consumerへの接続・鍵管理／配送・旧REST撤去・正式191項目・全体完成は残る。追加の人間判断は不要、既存の配送方式回答待ちは維持する。
+
 ### Portfolio集約のDomain移管 — 2026-10-12
 
 純粋Portfolio集約をDomain Modelへ移し、旧CROSは認可集合の選定、HTTP／MCPは共通の4項目搬送を利用する形へ分離した。Workbenchの型参照もDomainへ直結した。5Package計292 Case（Domain115、AM54、CROS34、MCP56、Workbench33）と各静的3軸、Workbench Buildは成功。固定22ファイルの限定独立再レビューPass・全重大度残指摘0。欠測はSource Snapshotで未提供という表示で、実File不存在を証明しない。AMからの本番認可・実本文Reader・鍵管理／配送・旧REST撤去・正式191項目・全体完成は残る。今回追加の人間判断は不要、既存の配送方式回答待ちは維持する。

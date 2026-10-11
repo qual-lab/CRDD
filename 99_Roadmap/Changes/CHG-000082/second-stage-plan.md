@@ -1357,6 +1357,18 @@ Exposureは既存登録とdevelopment／managementの明示集合だけ。空集
 
 固定13Pathの限定独立再レビューはPass、全重大度の残指摘0。callbackの同期・認可評価・メモリ候補限定と外部／永続Effect 0を契約へ明記し、Schema-validな資格・交換・既存User除去の拒否とpartial pending保持停止を追加確認した。Node v24.19.0でformat・type・warning禁止Lintと全19 Case成功（保存IT 8、既存UT 11）。実子Process終了と自己生成試験Root残存0、差分確認成功。Checkerは3057件、今回変更Pathは基準版にも存在するPROJECT_CONTEXTのChecklist指摘1件で、他Pathの基準版差分は未確定。全体Passは主張しない。正式191項目評価はNot Run、実Host Store・旧Evidenceは不変更。次は初回Root／出版、認証・鍵実処置と本番Consumer接続の残件を扱う。
 
+## 固定Project Context本文Reader — 2026-10-12
+
+基準HEAD `a2fc57e2`、着手時clean。承認済み責務再編内で、既存技術的Rootと固定本文観測・解析を接続する実装追加。着手前整合確認は読み取り専用確認者と親がArchitecture・公開集合・既存QAへ照合し、着手可・追加人間判断不要。直接義務をPPR-IT-019へ補正し、同じ試験で成功Contextを中立Source／Portfolioへ渡す部分だけPPR-IT-002へ接続する。
+
+正常は最大1 MiBの安定本文と三Identity一致、非成立は固定unavailable。不存在／Directory／Link、上限境界／超過、解析不正、各Identity不一致、descriptor取得後の例外／途中変更、handle終了を実Root試験で観測する。Root／期待manifestは認可証明でなく、期待manifestとの複数File原子性・現在性再保証はしない。AM本番認可→Readerと利用側搬送は後続OPEN、null／missing変換・新Lock／履歴／互換層・実Host操作は追加しない。
+
+必須確認はDomain全回帰・静的3軸、変更契約／Source／QA／Symbol／Catalog／文書直接影響の限定独立レビュー。標準規則・決定権限・保存／通信契約を変更せず準拠監査は非該当。Provider・Docker・公開Launcherを変更しないため署名実E2Eはこの局所段階では実行しない。過去正式Evidenceは不変更。現在は実装・試験候補であり、レビュー／正式Local Item全体Pass・AM全体完成を主張しない。
+
+局所結果: 2026-10-12 JST、Node v24.19.0、Domainの`npm test`は静的3軸と全118 Case成功、失敗／取消／skip0、Exit 0、39.5047224秒。固定10Pathの限定独立レビューPass・全重大度残指摘0。開始／終了HEAD `a2fc57e26ecb29f4e5b9359e8ce27116e1c13464`、tracked差分Hash `3a92c13fd3d7982c854773bf4d2bf34fc2f66251`一致。新Reader SHA256 `e81b6fb56ed7719c9b1498fc3ee484aca042b6e9fc8e8b484b9c5a8c7caf6476`、新試験 SHA256 `2727408a38a7fcb59b5121eedb22161382a9d4e3d2b3fcb788ae93c539f0beab`。自己生成Reader試験Root残存0、差分空白検査成功。完全出力は端末で確認し、上記コマンドから再生成可能なため実行別書庫は増やさない。実装と直接QA接続の局所範囲だけを閉じ、AM認可からの本番搬送・正式Local Item全体評価・全体完成はOPENを維持する。
+
+追加回帰: AMの`npm test`も静的3軸・全54 Case成功、失敗／取消／skip0、Exit 0、38.1671677秒。Domain118と合わせて172 Caseを確認した。AM Sourceは不変更で、ReaderをAM本番利用側へ接続した根拠ではない。
+
 ## 認可済みPortfolioのDomain移管 — 2026-10-12
 
 基準HEAD `d306a455`、着手時clean。承認済み責務再編内の配置・内部API変更として、旧CROS純粋集約と3結果型をDomainへ移管する。認可は旧CROSのまま保持し、DomainがCredential・Exposure・Root・Bindingを解釈する構造を作らない。2本番Consumerは既存Scopeの共通4項目変換へ接続し、中継公開Fileを追加しない。着手前の読み取り専用整合確認は条件付き着手可・追加人間判断不要。条件を本項の試験と変更禁止範囲へ統合した。

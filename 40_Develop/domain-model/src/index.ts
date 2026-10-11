@@ -178,6 +178,8 @@ export {
 export { applyProjectOperationCandidateDecision } from "./project-context/candidate-decision.ts";
 export { projectProjectOperationSources } from "./project-context/source-projection.ts";
 export { parseRepositoryProjectContextMarkdown } from "./project-context/parse-context.ts";
+export { readRepositoryProjectContext } from "./project-context/read-context.ts";
+export type { RepositoryProjectContextReadResult } from "./project-context/types.ts";
 export { parseRepositoryReleaseProjectionMarkdown } from "./project-context/parse-release.ts";
 export { parseRepositoryQualityProjectionMarkdown } from "./project-context/parse-quality.ts";
 export type {

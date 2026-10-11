@@ -4,6 +4,8 @@
 担当責任者: Qual-Lab
 最終更新日: 2026-10-12
 
+最新局所結果: 固定本文ReaderをPPR-IT-019、同じ試験内の成功Context→中立Source→PortfolioをPPR-IT-002の一部へ接続した。Domain全118 Case・静的3軸成功、固定10Pathの限定独立レビューPass・全重大度残指摘0。1 MiB境界／超過、種類・解析・三Identity不一致、途中変更・下位例外、descriptor終了を確認した。失敗はunavailableのままでmissingへ変換しない。認可・本番Consumer・ST／UAT・鍵管理／配送・旧REST撤去・191項目正式評価・全体Readyは未完了。下段の「実本文Reader未接続」はこの局所入口追加前の状態であり、本番認可からの搬送は現在も未接続。
+
 最新局所結果: 認可済みSourceの純粋Portfolio集約をDomainへ移管し、CROSの認可先行変換・HTTP／MCP／Workbenchの利用側を接続した。5Package計292 Case・各静的3軸・Workbench Build成功、固定22ファイルの限定独立再レビューPass・全重大度残指摘0。非許可Context参照0、欠測／Identity競合、順序、不変性、集合欠落拒否を確認した。欠測はSource Snapshotで未提供という旧表示で、実Filesystem不存在・Reader正常完了・unknown識別を保証しない。AM本番認可・実本文Reader・鍵管理／配送・公開ST／UAT・旧REST撤去・全体Ready・191項目正式評価は未完了。以下はAM実アクセス等の前段局所結果である。
 
 最新局所結果: 内容実アクセス解決をRFD-IT-013の一部へ接続した。AM全54 Case・静的3軸成功、固定9ファイルの限定独立再レビューPass・全重大度残指摘0。認可前／pending異常時の対象観測0、Binding改ざんのSchema拒否、manifest／Git不成立、解放不明時の内部値非返却、次要求への公開解除反映を確認した。本番Consumerの能力再利用0・Domain搬送・鍵管理・配送・全体STは未成立、191項目正式Not Runを維持する。以下51 Case以前はこの接続前の履歴であり、全体完成へ流用しない。

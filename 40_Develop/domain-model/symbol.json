@@ -4,6 +4,20 @@
   "subsystem": "domain-model",
   "symbols": [
     {
+      "symbolId": "domain-model.project-context-read",
+      "kind": "file",
+      "path": "src/project-context/read-context.ts",
+      "archIds": ["ARCH-000005"]
+    },
+    {
+      "symbolId": "domain-model.test.integration.project-context-read",
+      "kind": "test-suite",
+      "path": "tests/integration/project-context-read.contract.test.ts",
+      "qaIds": ["QA-000004"],
+      "localTestIds": ["PPR-IT-019", "PPR-IT-002"],
+      "verifies": ["domain-model.project-context-read", "domain-model.project-portfolio"]
+    },
+    {
       "symbolId": "domain-model.project-portfolio",
       "kind": "file",
       "path": "src/project-context/portfolio.ts",
