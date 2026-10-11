@@ -253,6 +253,8 @@ UUID版の選定は安定IDの生成方法の具体化であり、Userの意味�
 
 #### 鍵の照合値
 
+2026-10-12の局所候補では`credential/token-material.ts`へ生成・形式検査・照合だけを接続する。固定fixtureの既知vector、旧暗黙既定との一致、明示options、不正形式時のKDF／比較0を技術試験で確認する。保存、資格有効性、User／Role認可、配送、Host／Workbench本番接続をこの結果から推定しない。短命の内部生成結果だけが生鍵を持ち、通常公開DTOではない。
+
 旧`cros/access/credential.ts`の方式を再利用候補とする。生成は12byteの資格ID、32byteのランダムSecret、16byteのランダムsalt。saltは32桁hex、Verifierは64桁hexとし、照合前に形式と長さを検査する。scryptは`N=16384`、`r=8`、`p=1`、出力32byte、`maxmem=33554432`を明示指定する候補で、永続SchemaをNodeの暗黙既定値へ依存させない。同長のbyteだけを`timingSafeEqual`で照合し、失敗は認証不成立へ閉じる。新KDFや秘密復元手段は追加しない。固定パラメータと旧方式の一致はSource移管時の比較試験で確認し、未実行のまま互換成立としない。
 
 currentとpendingは共にVerifierを含む保護対象である。公開DTO、診断、ログ、Evidenceへsalt／Verifier／Secretを出さない。発行結果だけが短命の生Secretを所有し、一度の返却後やProcess喪失後に復元・再表示しない。

@@ -4,6 +4,8 @@
 担当責任者: Qual-Lab
 最終更新日: 2026-10-12
 
+最新局所実行: Credential生成・照合のNode crypto技術面をRFD-IT-017／018へ接続し、AM全29 Case・静的3軸成功。固定13ファイルの限定独立再レビューPass・全重大度の残指摘0。固定KDF比較と不正形式拒否の結果であり、保存・認証・配送・鍵管理全体の成立ではない。191項目・正式評価Not Runを維持する。
+
 最新局所実行: 初回管理者の保存部分をRFD-IT-024へ接続した。再入場・生成前拒否・実Process喪失・二Process競合・出版後Lock解放不明を含むAM全27 Case・静的3軸成功。限定独立再レビューPass・全重大度の残指摘0。初回全体・Root準備・鍵・認証・本番Hostは未成立、191項目・正式評価Not Runを維持する。以下23 Caseは前段の結果である。
 
 最新局所実行: 初回相関保存を既存RFD-IT-024の一部へ接続し、4 Caseを追加してAM全23 Case・静的3軸成功。限定独立再レビューPass・全重大度の残指摘0。初回全体・Root準備・User／鍵・本番Hostは未成立、191項目・正式評価Not Runを維持する。以下19 Caseは前段の結果である。
@@ -18,7 +20,7 @@
 
 最新の限定実行: RFD-UT-020に対応する新Access Management候補試験を公開Root経由で局所実行し、4 Case成功、format・type・lint成功。10具体操作とRole対象の有限組合せ、未知入力・accessor／Proxy拒否を確認した。Source／Test Symbolは接続済みだが、正式Local Item結果／Evidence評価はNot Run。契約・品質の限定独立再レビューは全重大度の残指摘0。純粋判定の局所結果で、認証・保存・資格・IT／ST・本番Consumerは未確認。他ItemのNot RunやQuality Readyを変更しない。[実行条件と限界](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#am固定管理判定の局所実装--2026-10-11)を参照する。
 
-最新鍵管理・現在認可・認可済みDomain集約のQuality再導出は、QA-000007／QA-000009と7工程分析の固定9文書で契約・品質の限定独立レビューを完了し、全重大度の残指摘0。新規4項目（RFD-IT-017通常発行、018独立失効、019認可済み集約、EST-ST-015 MCP鍵操作非公開）と既存更新項目はNot Runである。旧Evidenceは旧契約の歴史的証跡として維持し、新契約のPassに流用しない。Test Symbol・実行・新Evidence、具体API・Schema・Store、Source移管・本番接続は未完了。全体Quality Ready・Release可能を主張しない。
+本段落は2026-10-11の鍵管理Quality再導出時点の履歴である。QA-000007／QA-000009と7工程分析の固定9文書で契約・品質の限定独立レビューを完了し、全重大度の残指摘0。新規4項目（RFD-IT-017通常発行、018独立失効、019認可済み集約、EST-ST-015 MCP鍵操作非公開）と既存更新項目はNot Runである。旧Evidenceは旧契約の歴史的証跡として維持し、新契約のPassに流用しない。現在のIT017／018はNode crypto技術部分だけSource／Test Symbol・候補局所実行接続済み。正式191項目／EvidenceはNot Run、保存・発行確定・失効・認証主体・現在Role・配送・本番入口は未接続。全体Quality Ready・Release可能を主張しない。
 
 ## 最新権限分担のQuality伝播 — 2026-10-11
 

@@ -6,6 +6,12 @@
  * @trace ARCH-000013
  */
 export {
+  createCredentialMaterial,
+  type CredentialMaterial,
+  readCredentialId,
+  verifyCredentialToken,
+} from "./credential/token-material.ts";
+export {
   type AccessRole,
   evaluateManagementPermission,
   type ManagementPermission,

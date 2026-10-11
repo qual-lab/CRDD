@@ -670,6 +670,19 @@
   ],
   "tests": [
     {
+      "id": "access-management:integration:credential-token-material",
+      "owner": "access-management",
+      "path": "40_Develop/access-management/tests/integration/credential/token-material.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["credential-material", "scrypt-parameters", "legacy-kdf-comparison", "invalid-token", "secret-non-persistence"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["crypto_overrides_restored", "no_filesystem_effect"],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "access-management:integration:state-file-store",
       "owner": "access-management",
       "path": "40_Develop/access-management/tests/integration/state/file-store.contract.test.ts",

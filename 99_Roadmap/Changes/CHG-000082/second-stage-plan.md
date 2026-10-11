@@ -1047,7 +1047,7 @@ MCP要求のCredential認証は存続し、Access Managementが現在userId／Ro
 
 基準Commitは`b6682e6b`。QA-000007／QA-000009、REQ（000011・000041）／UX（000013・000035）／IA-000009／UI-000008／SPEC-000012／ARCH-000013、SCR-000008／PRT-000008・BHV-000012・RelationとAM／Workbench／MCP／Domain詳細を入力母集団とする。着手前整合確認で検証責務の分離を補強し、追加人間判断なしで着手した。初回9文書の必須契約・品質レビューを全数統合し、表配置・適用と導出接続・現行認可・固定管理者負例・保持情報・交換再入場・到達範囲を是正した。統合方針は両確認者と整合済み、限定再レビューと4セル追従の最終確認は全重大度の残指摘0。
 
-最新鍵管理・現在認可・認可済みDomain集約のQuality再導出は、QA-000007／QA-000009と7工程分析の固定9文書で契約・品質の限定独立レビューを完了し、全重大度の残指摘0。新規4項目（RFD-IT-017通常発行、018独立失効、019認可済み集約、EST-ST-015 MCP鍵操作非公開）と既存更新項目はNot Runである。旧Evidenceは旧契約の歴史的証跡として維持し、新契約のPassに流用しない。Test Symbol・実行・新Evidence、具体API・Schema・Store、他4管理群の担当Role／可変性、Source移管・本番接続は未完了。全体Quality Ready・Release可能を主張しない。
+本段落は2026-10-11の鍵管理Quality再導出時点の履歴である。QA-000007／QA-000009と7工程分析の固定9文書で契約・品質の限定独立レビューを完了し、全重大度の残指摘0。新規4項目（RFD-IT-017通常発行、018独立失効、019認可済み集約、EST-ST-015 MCP鍵操作非公開）と既存更新項目はNot Runである。旧Evidenceは旧契約の歴史的証跡として維持し、新契約のPassに流用しない。現在のIT017／018はNode crypto技術部分だけSource／Test Symbol・候補局所実行接続済み。正式191項目／EvidenceはNot Run、保存・発行確定・失効・認証主体・現在Role・配送・本番入口は未接続。全体Quality Ready・Release可能を主張しない。
 
 差分空白確認は成功。初回変更9文書のリンク872件は不存在0、Checker全体は既知error 3,056・warning 0・Exit 1で未通過。Source・設定・秘密・旧Evidenceは変更せず、実回帰・Provider／Docker実E2E・準拠監査は今回の文書設計対応では実行しない。後続は具体API・保存・受領契約と移管Source／Testへの接続であり、設計Passを実行Passにしない。
 
@@ -1229,6 +1229,14 @@ UTはARCH由来だけ、ITは相関確定前Effect0と既知Root準備Effectの�
 構造評価: Variationは四状態、Common Contractは単一同期関数、Creation／Selectionは返却値のみ、State-dependent Behaviorは入力分類に閉じる。Composition／RecursionはN/A: 外部処理を合成・再帰しない。Lifecycle OwnershipとExternal BoundaryはN/A: Handle・共有状態・I/Oを取得しない。ConcurrencyはN/A: 共有状態なし。TimingはN/A: 時刻・期限を判定しない。Failure／Observabilityは未知分類を停止結果として保持する。Securityは結果を実行Authorityにしない。実装知識の上位還元はN/A: 新しい保証は追加せず、既存の四状態を技術的入力分類へ対応した。
 
 必須確認はAM Packageのformat・type・lint・全UTと、契約／品質の限定独立レビュー、文書・直接影響・Symbol参照・差分確認。標準準拠規則は不変更のため準拠監査は対象外。I/O・実処置は未接続のためHost実試験・署名・Docker／Provider E2Eは実行せず、必要な後続Gateへ残す。Node v24.19.0でローカルキャッシュから固定開発依存を配置し、静的3軸と7 UT（既存4＋初回3）は成功。初回には24組合せを含む。正式Local Item評価はNot Run、保存・資格・Host入口・本番Consumer・全体Readyは未成立。固定15Fileの契約・品質限定独立再レビューは両方Pass、全重大度の残指摘0。台帳の登録漏れと現在投影の矛盾を是正した。試験台帳は当該ID・Path各1件で実在、差分確認成功。結果状態だけを同期し、この実装単位をコミットする。
+# AM鍵生成・照合の技術層 — 2026-10-12
+
+基準Commitは`5d012458`。読取り専用着手前整合確認で、技術層と初回保存は採用済み契約内で着手可、新しい人間判断なし。配送方式は後段の判断として分離し、cleanup不明の部分結果へSecretを追加しない。変更分類は既存暗号方式の責務移管準備と直接品質接続。User保存・旧Source・実Host Store・旧Evidenceを変更しない。
+
+単一`credential/token-material.ts`で12byte ID・32byte Secret・16byte salt、cros.v1形式、固定scrypt、形式・同長比較を扱う。Role・保存・配送・期限・回復Frameworkを引き取らない。Package Rootだけで明示公開し、capability barrelを追加しない。既存Sourceは比較入力であり本番fallbackにしない。
+
+RFD-IT-017／018の技術部分に2 Caseを追加しAM全29 Case・静的3軸成功。固定vectorと暗黙既定の一致、明示options、不正形式の暗号処理0、誤Secret・Runtime故障を確認した。必須確認は限定契約／品質独立レビュー、文書直接伝播・Symbol／台帳・差分確認。標準準拠は不変更、保存／本番未接続のため実Host・署名・Provider／Docker E2Eは対象外。191 Not Run・鍵管理全体未成立を維持する。固定13ファイルの限定独立再レビューPass・全重大度の残指摘0。旧現在表示4箇所を同期し、結果状態だけ更新して段階コミットする。
+
 # AM初回管理者保存の局所接続 — 2026-10-12
 
 基準Commitは`61146288`。変更分類は採用済み初回User段階のSource接続と直接伝播。着手前の読取り専用確認でcanonical baseline・同User再入場・生成前入力検査・容量予約・既存Lock・物理出版だけの共通化を照合した。追加人間判断なし。対象はAM詳細02、AM Source公開入口と保存部品、既存UT／IT、QA-000007・Center・Integration・本計画・現在投影。旧Evidence・実Host Store・Secret・鍵・Docker／Providerは不変更。

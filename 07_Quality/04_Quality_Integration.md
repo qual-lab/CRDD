@@ -4,6 +4,8 @@
 状態: Canonical
 維持責任者: Qual-Lab
 
+鍵生成・照合の技術層は既存RFD-IT-017／018のNode crypto部分へ接続する候補である。新Local Itemを追加せず、保存・現在認可・失効・交換・配送・本番Surfaceとの未接続を維持する。AM全29 Case・静的3軸成功は技術局所実行、191項目の正式評価はNot Runである。
+
 初回管理者保存をRFD-IT-024のUser部分へ追加接続した。canonical相関、保存済み同Userへの再入場、生成前拒否、保存途中Process喪失、二Process競合、出版後Lock解放不明を局所確認する。Root準備・鍵・配送・認証・本番Host・初回全体は未成立。新Local Itemは追加せず191項目・Not Runを維持する。下段のUser生成未成立はこの部分接続前の履歴である。
 
 2026-10-12の通常保存Adapter局所実装は既存RFD-IT-021の保存部分へ接続した。新Local Itemを追加せず設計集合191項目を維持する。AM全19 Case・静的3軸成功は部分実行であり、現在認可・六管理操作・初回／鍵処置・公開縦断の全体成立とは分離する。正式項目評価Not Run、Quality Ready未成立を維持する。
