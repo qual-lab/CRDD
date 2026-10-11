@@ -227,11 +227,11 @@ pendingが存在しないこと自体は、元操作の完了や未試行の証�
 
 上段の採用推奨撤回は2026-10-11候補時の記録である。2026-10-12にQual-Labは[REQ-000041の保証範囲](../../../01_Discovery/Definitions/REQ-000041/requirement.md#保存保証の範囲--2026-10-12)として通常保存・読戻し確認までを採用し、電源断による直前更新喪失と旧鍵・旧権限の再受理リスクを明示的に受容した。この保証範囲の人間判断待ちは解消した。電源断後の最新改訂保持や旧鍵・旧権限の復活防止を今回の実装Gateに追加せず、新Recovery・耐久性の追加基盤・電源断試験を作らない。物理電源断以外の突然停止は未評価とする。
 
-通常失効・現在認可、Process喪失時のbase／next／unknown再入場、改訂競合、破損・観測不能時の拒否、秘密非保存、Root／排他境界は維持する。受容したリスクを空成功、自動rollbackまたは旧値復活の正常仕様化へ読み替えない。単一File保存方式そのものの採用、Linux／他Windows版／Filesystem、Verifier保護、容量、完全Schema／API、Root初回準備、最初の出版、鍵段階の確定条件と本番Consumerは未成立で、これらの実装Gateは維持する。
+通常失効・現在認可、Process喪失時のbase／next／unknown再入場、改訂競合、破損・観測不能時の拒否、秘密非保存、Root／排他境界は維持する。受容したリスクを空成功、自動rollbackまたは旧値復活の正常仕様化へ読み替えない。単一File保存方式そのものの採用、Linux／他Windows版／Filesystem、生Secret非保存・salt／Verifier非公開のSource接続、容量、完全Schema／API、Root初回準備、最初の出版、鍵段階の確定条件と本番Consumerは未成立で、これらの実装Gateは維持する。Windows追加ACL検査・修復・専用Native接続は§4.4の人間判断によりGate外とする。
 
 ### 4.4. 保存データと整理単位の具体化候補 — 2026-10-12
 
-本節は既存Sourceとの照合から保存データ・処理順・清掃単位を具体化する。完全Schema、物理保存方式の採用、保護APIの接続または実装Readyを示さない。§4.1〜4.3の実測・再入場条件と、採用済み通常保存・読戻し保証を保持する。
+本節は既存Sourceとの照合から保存データ・処理順・清掃単位を具体化する。完全Schema、物理保存方式の採用または実装Readyを示さない。§4.1〜4.3の実測・再入場条件と、採用済み通常保存・読戻し保証を保持する。Windows固有の追加保護は[REQ-000041の対象外判断](../../../01_Discovery/Definitions/REQ-000041/requirement.md#windows固有の追加保護の対象外化--2026-10-12)に従い、前段のVerifier保護Gateから追加ACL検査・修復・専用Native接続を除く。
 
 #### 保存データの共通境界
 
@@ -255,13 +255,13 @@ currentとpendingは共にVerifierを含む保護対象である。公開DTO、�
 
 1. 既存Resolverが導出したHost state Rootだけを候補にし、任意Pathを入力しない。Root不在と観測不能、既存の旧管理データと未初期化を分ける。
 2. 明示Host初回設定だけが不足するDirectoryの準備を行う。既存Rootの自動権限修復や削除は行わない。作成済み／保護未確認の事実を保持し、準備後故障をEffect 0と表示しない。
-3. 準備後に実体・非link・保護条件を再検証し、既存`createFilesystemStoreRoot`へ渡す。文字列の解決やDirectory作成だけでCapability成立としない。
+3. 準備後に実体・非link・Root一致を再検証し、既存`createFilesystemStoreRoot`へ渡す。Windows固有のACL検査を開始条件にしない。文字列の解決やDirectory作成だけでCapability成立としない。
 4. 全Reader／Writerが同じ`access-management.lock`と既存`withFilesystemStoreLock`を使う。同期区間内で旧管理入力、current、pending、初回進行を照合し、双方未初期化確定と明示開始の場合だけ元試行相関を最初に保存・読戻しする。
 5. 相関の読戻し後だけUUID作成・同userIdへの鍵発行へ進む。各段階の記録確定前後の故障を分離する。current不在＋pending存在は§4.3に従い新初期化へ畳まず、再出版・追加UUID・追加鍵を自動実行しない。
 
 最初のcurrentは既存値を置換しない出版が必要で、既存hard-link出版部品は比較候補に限定する。最初の出版と通常置換の分岐、Root準備時の保護・残存結果、初回pendingの具体Schemaは未実装である。
 
-旧Registry Adapterの`wx`／0600とNodeのDirectory modeだけではWindows ACL成立を保証しない。Platform Accessの既存保護処理は私有の固定namespace・Protocolに依存し、そのままAMへ接続可能とは確認できていない。保護条件のOwnerはPlatform Access、AMは保存用途と対象Rootを所有する。新一般ACL FrameworkやCoordinatorへの逆依存は追加せず、既存公開境界への適合または最小接続の要否をSource移管前に評価する。現在の実Host Root・権限は変更しない。
+旧Registry Adapterの`wx`／0600とNodeのDirectory modeだけではWindows ACL成立を保証しない。人間判断によりAM専用のWindows追加ACL検査・修復・Native保護接続は行わず、実装Gateから外す。AMは既存HostのOS管理Rootとアクセス制御へ依存するが、それを追加の保護保証とは表示しない。生Secret非保存とVerifier非公開は維持する。新一般ACL FrameworkやCoordinatorへの逆依存は追加せず、現在の実Host Root・権限も変更しない。この判断をPlatform Access、Provider Home、署名鍵等の保護へ一般化しない。
 
 #### 増え続けない保存
 
@@ -273,7 +273,7 @@ currentとpendingは共にVerifierを含む保護対象である。公開DTO、�
 | pending | §4.3のbase／next／unknown照合後に所有対象だけ回収。年齢・容量・名前だけで削除しない |
 | Lock／回収義務 | 既存排他Ownerがexact IdentityとOwner観測で処置。鍵交換記録に統合しない |
 
-容量はSnapshot全体のbyte予算を第一候補とし、User数・資格数等へ根拠のない個別上限を一律増設しない。上限値と読取り・認証の扱いは運用規模と既存bounded Readerへ照合して固定する。未解決事実を容量対策で捨てない。完全Schema・上限・保護・初回／鍵段階の処置・本番接続は残件であり、本節から保存Gate全体成立を主張しない。
+容量はSnapshot全体のbyte予算を第一候補とし、User数・資格数等へ根拠のない個別上限を一律増設しない。上限値と読取り・認証の扱いは運用規模と既存bounded Readerへ照合して固定する。未解決事実を容量対策で捨てない。完全Schema・上限・初回／鍵段階の処置・本番接続は残件であり、本節から保存Gate全体成立を主張しない。秘密非保存・非公開とRoot境界は維持するが、Windows追加保護の接続は残件に含めない。
 
 ## 5. 鍵交換の段階と終了
 

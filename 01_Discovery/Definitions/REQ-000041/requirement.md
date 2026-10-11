@@ -6,6 +6,12 @@ Discoveryでの判断: 要求採用
 判断する人: Qual-Lab
 探索元: [EXP-000036](../../Analysis/EXP-000036/exploration.md)
 
+## Windows固有の追加保護の対象外化 — 2026-10-12
+
+Qual-Labの判断により、Access Management保存へのWindows固有の追加ACL検査・修復・専用Native保護接続はv0.22の保証と実装条件に含めない。既存HostのOS管理Rootと、そのHostに設定されているアクセス制御を利用する。同じOS利用者や既存Rootにアクセス可能な主体から照合値を守る追加保証は提供せず、Windows ACLの成立を確認済みとは表示しない。
+
+固定保存先の実体・非link・Root一致検査、排他、現在認可、破損時の拒否、生Secret非保存・一度表示、salt／Verifierの公開DTO・log・Evidence搬送禁止は維持する。実Root・アクセス権は今回変更しない。他Package、Provider Home、署名鍵の保護契約には適用しない。
+
 ## 保存保証の範囲 — 2026-10-12
 
 Qual-Labは通常保存と保存後の内容・ID・改訂の読戻し確認までをv0.22の保証範囲として採用した。電源断後にも最新更新が必ず残る保証は要求しない。

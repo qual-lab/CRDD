@@ -197,6 +197,10 @@ RFD-IT-021ではpending削除・不存在確認後から応答前のProcess喪�
 
 保存データの具体化候補（AM保存設計§4.4）は既存RFD-IT-021／024と鍵境界項目へ渡す。閉じたSchema、重複・孤立参照、旧KDFとの一致、salt／Verifierの公開0、Root作成後故障の既知Effect、初回相関前のUUID／鍵Effect0、失効資格整理後の旧鍵拒否、未解決参照保持を反証する。WindowsのmodeだけからACL保護を推定せず、私有Native処理の存在から本番接続を推定しない。新Local Item・試験結果は追加せず、190項目・Not Runを維持する。
 
+## Windows固有の追加保護の評価範囲 — 2026-10-12
+
+[REQ-000041の人間判断](../../../01_Discovery/Definitions/REQ-000041/requirement.md#windows固有の追加保護の対象外化--2026-10-12)により、AM専用Windows ACL検査・修復・Native保護接続は受入保証から外す。前節の私有Native接続確認を追加の必須試験にしない。対象外をACL安全性Passや実行Evidenceへ変換しない。任意Path・link・Root差の拒否、生Secret非保存、salt／Verifierの公開DTO・log・Evidence流出0、通常認可・破損拒否は既存義務として維持する。既存190項目・Not Runは不変更。他Packageの保護試験は対象外化しない。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した

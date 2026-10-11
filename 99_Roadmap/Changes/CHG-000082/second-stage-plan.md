@@ -9,7 +9,15 @@
 
 ## 1. 結論と実行境界
 
+### AMのWindows追加保護を対象外化 — 2026-10-12
+
+基準Commitは`2df488d8`。人間判断により、AM保存専用のWindows ACL検査・修復・Native保護接続を保証と実装Gateから外す。REQ-000041、AM詳細02、QA-000007、本計画、PROJECT_CONTEXTの5文書へ直接伝播する。既存Hostのアクセス制御に依存し、追加ACL保証は提供しない。Root実体・非link・排他・秘密非保存／非公開・現在認可は維持し、他Package／Provider Home／署名鍵の保護は不変更。実Root・ACL・Source・旧Evidenceは変更しない。
+
+着手前の読み取り専用契約確認は着手可。前段のWindows保護接続未成立表示は、この判断前の履歴で現在の阻害条件ではない。固定5文書の契約・品質・直接影響を含む限定独立レビューで旧Gate表示の競合1件を是正し、再レビューはPass・全重大度の残指摘0。参照先欠落0、既存190項目・Not RunとSource／旧Evidence不変更、差分確認成功。標準規則とSourceを変えないため準拠監査・Package回帰・実E2Eは対象外。保存実装全体Readyは未主張。残件は完全Schema・容量・初回／鍵段階・本番接続である。
+
 ### AM保存データ・整理単位の具体化 — 2026-10-12
+
+以下はWindows追加保護を対象外化する前の固定候補・レビューの履歴である。Native保護接続の未成立は現在の実装阻害条件ではなく、上段の人間判断に従う。秘密非保存・非公開のSource／Consumer接続は別の残件として維持する。
 
 基準Commitは`69b0a681`。変更分類は採用済み責務の保存設計具体化。AM詳細02§4.4、QA-000007、本計画、PROJECT_CONTEXTの4文書に限定する。編集一次キーは保存包絡・User／Credential・KDF・初回Root／最初の保存・完了相関の整理・容量／保護未確認。旧SourceのVerifier、改訂出版、Root／LockとConsumerを照合し、着手前の読み取り専用契約確認は着手可。一般IAM・ACL Framework・Receipt Store・新Lock・Source／実Store／旧Evidence変更は対象外。
 
