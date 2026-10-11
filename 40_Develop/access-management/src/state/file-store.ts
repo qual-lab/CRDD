@@ -8,6 +8,11 @@ import fs from "node:fs";
 import crypto, { createHash } from "node:crypto";
 import { evaluateManagementPermission } from "../access/management-permission.ts";
 import {
+  projectCurrentAccess,
+  type CurrentAccessResult,
+  type CurrentAccessSnapshot,
+} from "../access/current-access.ts";
+import {
   acceptsRepositoryExposureChange,
   prepareRepositoryExposureChange,
   type RepositoryExposureChange,
@@ -736,6 +741,94 @@ export function authenticateCredential(
             ? "credential_authentication_rejected"
             : "credential_authentication_state_unavailable",
       };
+}
+
+/**
+ * 同じ保存改訂から本人の現在権限を読み取り、解放確認後に返す。
+ * @responsibility 認証前の材料清掃を避け、本人投影と保存Ownerの終了を接続する。
+ * @trace ARCH-000013
+ * @input 検証済み用途限定Rootと信頼しないBearer文字列。
+ * @returns 本人の非秘密投影、または固定の未取得理由。
+ * @precondition Root検証は既存内部Owner、公開Transportの入力境界はConsumerが所有する。
+ * @postcondition 認証・完全状態・投影・材料清掃・Lock解放を確認した場合だけcompleted。
+ * @effect 既存Lock、状態読取り、認証後の短命材料清掃、同期KDF。
+ * @failure 不成立資格は同一拒否。取得・観測・回収・解放不明ではSnapshotなし。
+ * @invariant 初回途中の本人表示を初回完了・通常接続確認に昇格しない。
+ * @boundary AM保存Ownerと本人表示Consumer。実Repositoryアクセスは別。
+ * @security 生鍵・資格ID・保存Path・Lock回復参照・他Userを返さない。
+ * @concurrency 全Writerと同じLock内の同改訂。次操作は現在認可を再確認する。
+ */
+export function readCurrentAccess(
+  root: FilesystemStoreRoot,
+  token: string,
+): CurrentAccessResult {
+  if (!readCredentialId(token))
+    return {
+      status: "unavailable",
+      reason: "current_access_authentication_rejected",
+    };
+  const result = locked<CurrentAccessSnapshot>(root, () => {
+    try {
+      const current = readCurrent(root);
+      const actor = resolveCredentialAuthentication(token, current.state);
+      if (!actor)
+        return {
+          status: "unavailable",
+          reason: "current_access_authentication_rejected",
+          publication: "not_attempted",
+          revision: null,
+          cleanupConfirmed: true,
+        };
+      try {
+        settlePending(root, current, () => {});
+      } catch {
+        return {
+          status: "unavailable",
+          reason: "current_access_cleanup_pending",
+          publication: "not_attempted",
+          revision: current.state.revision,
+          cleanupConfirmed: false,
+        };
+      }
+      return {
+        status: "completed",
+        value: projectCurrentAccess(current.state, actor),
+        publication: "not_attempted",
+        revision: current.state.revision,
+        cleanupConfirmed: true,
+      };
+    } catch {
+      return {
+        status: "unavailable",
+        reason: "current_access_observation_unknown",
+        publication: "not_attempted",
+        revision: null,
+        cleanupConfirmed: false,
+      };
+    }
+  });
+  if (result.status === "completed")
+    return { status: "completed", snapshot: result.value };
+  if (
+    result.secondaryReason ||
+    result.reason ===
+      "filesystem_store_lock_operation_completed_cleanup_unknown" ||
+    result.reason === "state_store_lock_unknown"
+  )
+    return { status: "unavailable", reason: "current_access_release_unknown" };
+  if (result.reason === "current_access_authentication_rejected")
+    return {
+      status: "unavailable",
+      reason: "current_access_authentication_rejected",
+    };
+  if (result.reason === "current_access_cleanup_pending")
+    return { status: "unavailable", reason: "current_access_cleanup_pending" };
+  return {
+    status: "unavailable",
+    reason: result.reason.startsWith("filesystem_store_lock_")
+      ? "current_access_lock_unavailable"
+      : "current_access_observation_unknown",
+  };
 }
 
 /**

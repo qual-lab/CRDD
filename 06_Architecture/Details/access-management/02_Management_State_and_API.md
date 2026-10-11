@@ -140,6 +140,10 @@ ExposureのRepository IDは既存登録を参照し、重複・孤立参照を�
 
 操作名だけで対象可否を決めず、対象別`readManagementState`と実操作の現在認可で判定する。Package内部DTOをMCPのTool／Schema／一覧／dispatchや応答へ投影しない。操作候補の表示は実行AuthorityでもMCP公開の採用でもない。
 
+本人読取りの具体化では、`managementOperations`を既存10操作と対象Roleの閉じた組合せから固定管理判定で絞る。初回`credential_stored`でも本人表示は可能だが、初回完了・通常接続・実操作許可には昇格しない。通常管理の完了済み初回条件は維持する。`permittedRepositories`はRole範囲とExposureの積集合が非空の登録だけを返し、Root・Binding・登録のみのRepositoryを含めない。認証後の短命材料照合はcurrentを変更せず、清掃確認後に同改訂から投影する。材料破損・清掃不明・Lock解放不明ではSnapshotを返さない。認証前の既存exact Lock回収は保存Ownerの安全処置で、資格認証やpending清掃の成立ではない。
+
+この本人読取りだけをSource・Package Rootへ局所接続した。AM全48 Case・静的3軸成功、固定11ファイルの限定独立再レビューPass・残指摘0。以下の管理対象別読取り、実Repository内容認可、Surface本番接続は未完了で、§3.1全体の完成ではない。
+
 `readManagementState`は要求された管理対象の種類を判別し、その種類に必要な現在参照許可だけを評価する。共通の全内部Snapshotや、全ユーザー一覧を全操作へ添付しない。
 
 | 管理対象 | 成功投影の内容 | 除外する情報 |

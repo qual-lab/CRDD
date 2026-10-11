@@ -28,6 +28,7 @@ import {
   unregisterRepository,
   updateExposure,
   authenticateCredential,
+  readCurrentAccess,
   createCredentialMaterial,
   registerUser,
   updateUserName,
@@ -612,6 +613,318 @@ function managementFixture(t: TestContext) {
   );
   return { ...f, tokens };
 }
+
+/**
+ * 三Roleの本人表示と内容・公開範囲の交差を確認する。
+ * @responsibility 固定管理候補を内容閲覧・現在実行許可へ転用しないことを検証する。
+ * @trace RFD-IT-013
+ * @precondition 三Role資格と複数登録・公開範囲を自己生成Rootに保存する。
+ * @stimulus 各資格で本人読取り後、Role内容範囲を変更して再読取りする。
+ * @observation DTO全field、対象制約、交差集合、凍結状態、current byte。
+ * @oracle 本人以外・内部Path・資格材料0、空交差0、改訂一致、保存不変更。
+ * @cleanup Fixtureが自己生成Rootを回収する。
+ * @boundary 公開本人読取り→現在認証・保存Lock→非秘密DTO。
+ */
+test("本人権限は管理候補と内容・Exposure交差を分離する", (t) => {
+  const f = managementFixture(t);
+  for (const [id, workspaces] of [
+    ["dev", ["development"]],
+    ["mgmt", ["management"]],
+    ["both", ["development", "management"]],
+    ["empty", []],
+  ] as const) {
+    const root = path.resolve(f.directory, id);
+    const normalized = process.platform === "win32" ? root.toLowerCase() : root;
+    f.state.registeredRepositories.push({
+      repositoryId: id,
+      repositoryRoot: root,
+      bindingId: `binding-${createHash("sha256").update(`${id}\n${normalized}`).digest("hex").slice(0, 32)}`,
+    });
+    f.state.exposure.push({ repositoryId: id, workspaceIds: [...workspaces] });
+  }
+  const current = path.join(f.directory, "access-management.json");
+  fs.writeFileSync(current, bytes(f.state));
+  const before = fs.readFileSync(current);
+  for (const role of ["developer", "manager", "administrator"] as const) {
+    const result = readCurrentAccess(f.root, f.tokens[role]);
+    assert.equal(result.status, "completed");
+    if (result.status !== "completed") continue;
+    const dto = result.snapshot;
+    assert.deepEqual(Object.keys(dto).sort(), [
+      "contentAccess",
+      "managementOperations",
+      "permittedRepositories",
+      "revision",
+      "user",
+    ]);
+    assert.equal(dto.user.role, role);
+    assert.deepEqual(Object.keys(dto.user).sort(), [
+      "role",
+      "userId",
+      "username",
+    ]);
+    assert.equal(dto.revision, 1);
+    assert.deepEqual(
+      dto.contentAccess.workspaceIds,
+      f.state.roleContentAccess.find((item) => item.role === role)
+        ?.workspaceIds,
+    );
+    assert.deepEqual(
+      dto.permittedRepositories,
+      role === "developer"
+        ? [
+            { repositoryId: "dev", workspaceIds: ["development"] },
+            { repositoryId: "both", workspaceIds: ["development"] },
+          ]
+        : role === "manager"
+          ? [
+              { repositoryId: "dev", workspaceIds: ["development"] },
+              { repositoryId: "mgmt", workspaceIds: ["management"] },
+              {
+                repositoryId: "both",
+                workspaceIds: ["development", "management"],
+              },
+            ]
+          : [],
+    );
+    for (const repository of dto.permittedRepositories)
+      assert.deepEqual(Object.keys(repository).sort(), [
+        "repositoryId",
+        "workspaceIds",
+      ]);
+    assert.equal(
+      dto.managementOperations.length,
+      role === "developer" ? 0 : role === "manager" ? 14 : 24,
+    );
+    const expected = [];
+    if (role !== "developer") {
+      const allRoles = ["developer", "manager", "administrator"];
+      const editableRoles =
+        role === "manager" ? allRoles.slice(0, 2) : allRoles;
+      for (const targetRole of allRoles)
+        expected.push({ operation: "updateUserName", targetRole });
+      for (const targetRole of editableRoles) {
+        expected.push(
+          { operation: "registerUser", plannedRole: targetRole },
+          { operation: "updateRoleContentAccess", targetRole },
+        );
+        for (const nextRole of editableRoles)
+          expected.push({
+            operation: "changeUserRole",
+            currentRole: targetRole,
+            nextRole,
+          });
+      }
+      for (const operation of [
+        "registerRepository",
+        "unregisterRepository",
+        "updateExposure",
+      ])
+        expected.push({ operation });
+      if (role === "administrator")
+        for (const operation of [
+          "issueCredential",
+          "revokeCredential",
+          "exchangeCredentials",
+        ])
+          expected.push({ operation });
+    }
+    assert.deepEqual(
+      dto.managementOperations.map((item) => JSON.stringify(item)).sort(),
+      expected.map((item) => JSON.stringify(item)).sort(),
+    );
+    if (role === "manager") {
+      assert.ok(
+        dto.managementOperations.some(
+          (item) =>
+            item.operation === "updateUserName" &&
+            item.targetRole === "administrator",
+        ),
+      );
+      assert.ok(
+        dto.managementOperations.every(
+          (item) =>
+            item.operation !== "issueCredential" &&
+            item.operation !== "revokeCredential" &&
+            item.operation !== "exchangeCredentials" &&
+            (item.operation !== "changeUserRole" ||
+              (item.currentRole !== "administrator" &&
+                item.nextRole !== "administrator")) &&
+            (item.operation !== "updateRoleContentAccess" ||
+              item.targetRole !== "administrator") &&
+            (item.operation !== "registerUser" ||
+              item.plannedRole !== "administrator"),
+        ),
+      );
+    }
+    for (const value of [
+      dto,
+      dto.user,
+      dto.managementOperations,
+      dto.contentAccess,
+      dto.contentAccess.workspaceIds,
+      dto.permittedRepositories,
+      ...dto.managementOperations,
+      ...dto.permittedRepositories,
+      ...dto.permittedRepositories.map((item) => item.workspaceIds),
+    ])
+      assert.equal(Object.isFrozen(value), true);
+  }
+  assert.deepEqual(fs.readFileSync(current), before);
+  const manager = f.state.users[1];
+  assert.ok(manager);
+  manager.role = "developer";
+  f.state.revision = 2;
+  f.state.operationId = crypto.randomUUID();
+  fs.writeFileSync(current, bytes(f.state));
+  const changed = readCurrentAccess(f.root, f.tokens.manager);
+  assert.equal(changed.status, "completed");
+  if (changed.status === "completed") {
+    assert.equal(changed.snapshot.revision, 2);
+    assert.equal(changed.snapshot.user.role, "developer");
+    assert.deepEqual(changed.snapshot.managementOperations, []);
+  }
+});
+
+/**
+ * 本人拒否と後続清掃・解放不明を非開示結果へ閉じる。
+ * @responsibility 認証前材料保持と成功投影の終了条件を検証する。
+ * @trace RFD-IT-013
+ * @trace RFD-IT-021
+ * @precondition 自己生成Rootと出版前材料を用意する。
+ * @stimulus 誤鍵、破損pending、清掃失敗、Lock解放失敗を順に与える。
+ * @observation 結果field、材料bytes、状態bytes、復元後再入場。
+ * @oracle 拒否は材料不変更、未確認結果はSnapshot・内部回復参照0。
+ * @cleanup 差替えを復元しFixtureがRoot不存在を確認する。
+ * @boundary 現在認証・材料清掃・Lock解放の直接Filesystem境界。
+ */
+test("本人読取りは拒否・材料不明・解放不明でDTOを返さない", (t) => {
+  const f = managementFixture(t);
+  const next = structuredClone(f.state);
+  next.revision++;
+  next.operationId = crypto.randomUUID();
+  prepare(f, next);
+  const pending = path.join(f.directory, "access-management.pending.json");
+  const before = fs.readFileSync(pending);
+  const wrong =
+    f.tokens.manager.slice(0, -1) +
+    (f.tokens.manager.endsWith("A") ? "B" : "A");
+  assert.deepEqual(readCurrentAccess(f.root, wrong), {
+    status: "unavailable",
+    reason: "current_access_authentication_rejected",
+  });
+  assert.deepEqual(fs.readFileSync(pending), before);
+  fs.writeFileSync(pending, "{");
+  assert.deepEqual(readCurrentAccess(f.root, f.tokens.manager), {
+    status: "unavailable",
+    reason: "current_access_cleanup_pending",
+  });
+  fs.writeFileSync(pending, before);
+  const remove = fs.rmSync;
+  t.after(() => {
+    fs.rmSync = remove;
+  });
+  fs.rmSync = (target, options) => {
+    if (String(target).endsWith("access-management.pending.json"))
+      throw new Error("injected");
+    return remove(target, options);
+  };
+  assert.deepEqual(readCurrentAccess(f.root, f.tokens.manager), {
+    status: "unavailable",
+    reason: "current_access_cleanup_pending",
+  });
+  fs.rmSync = remove;
+  assert.equal(readCurrentAccess(f.root, f.tokens.manager).status, "completed");
+  fs.rmSync = (target, options) => {
+    if (String(target).endsWith("access-management.lock"))
+      throw new Error("injected");
+    return remove(target, options);
+  };
+  assert.deepEqual(readCurrentAccess(f.root, f.tokens.manager), {
+    status: "unavailable",
+    reason: "current_access_release_unknown",
+  });
+  fs.rmSync = remove;
+  assert.equal(readCurrentAccess(f.root, f.tokens.manager).status, "completed");
+});
+
+/**
+ * 初回途中の本人表示を初回完成や管理操作へ昇格しない。
+ * @responsibility 本人読取りの非更新と拒否・観測不能の非開示を確認する。
+ * @trace RFD-IT-013
+ * @trace RFD-IT-024
+ * @precondition 自己生成Rootで初回資格保存まで進める。
+ * @stimulus 本人read、通常管理、未知／失効鍵、破損currentを順に試す。
+ * @observation 初回段階・current bytes・公開結果field・通常操作結果。
+ * @oracle 初回不変更、通常管理拒否、拒否と観測不能でSnapshotなし。
+ * @cleanup FixtureがRoot不存在を確認する。
+ * @boundary 初回資格・本人読取り・現在保存Owner。
+ */
+test("初回途中の本人readは非更新で不成立状態を開示しない", (t) => {
+  const f = fixture(t);
+  const attempt = prepareInitialUser(f);
+  const issued = createInitialCredential(f.root, attempt);
+  assert.equal(issued.status, "completed");
+  if (issued.status !== "completed" || !issued.value.token) return;
+  const current = path.join(f.directory, "access-management.json");
+  const before = fs.readFileSync(current);
+  assert.equal(
+    readCurrentAccess(f.root, issued.value.token).status,
+    "completed",
+  );
+  assert.deepEqual(fs.readFileSync(current), before);
+  assert.equal(
+    registerUser(
+      f.root,
+      issued.value.token,
+      3,
+      crypto.randomUUID(),
+      "追加",
+      "developer",
+    ).status,
+    "unavailable",
+  );
+  assert.deepEqual(fs.readFileSync(current), before);
+  const unknown = createCredentialMaterial().token;
+  assert.deepEqual(readCurrentAccess(f.root, unknown), {
+    status: "unavailable",
+    reason: "current_access_authentication_rejected",
+  });
+  const state = JSON.parse(before.toString()) as AccessManagementState;
+  const credential = state.credentials[0];
+  assert.ok(credential);
+  credential.revoked = true;
+  fs.writeFileSync(current, bytes(state));
+  assert.deepEqual(readCurrentAccess(f.root, issued.value.token), {
+    status: "unavailable",
+    reason: "current_access_observation_unknown",
+  });
+  const normal = managementFixture(t);
+  const normalCredential = normal.state.credentials[1];
+  assert.ok(normalCredential);
+  normalCredential.revoked = true;
+  assert.equal(
+    parseAccessManagementState(bytes(normal.state)).status,
+    "parsed",
+  );
+  fs.writeFileSync(
+    path.join(normal.directory, "access-management.json"),
+    bytes(normal.state),
+  );
+  assert.deepEqual(readCurrentAccess(normal.root, normal.tokens.manager), {
+    status: "unavailable",
+    reason: "current_access_authentication_rejected",
+  });
+  fs.writeFileSync(current, "{");
+  assert.deepEqual(readCurrentAccess(f.root, issued.value.token), {
+    status: "unavailable",
+    reason: "current_access_observation_unknown",
+  });
+  assert.deepEqual(readCurrentAccess(f.root, "invalid"), {
+    status: "unavailable",
+    reason: "current_access_authentication_rejected",
+  });
+});
 
 /**
  * 管理4操作の成功と変更対象の閉包を確認する。

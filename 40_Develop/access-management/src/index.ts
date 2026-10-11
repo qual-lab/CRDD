@@ -6,6 +6,10 @@
  * @trace ARCH-000013
  */
 export type {
+  CurrentAccessResult,
+  CurrentAccessSnapshot,
+} from "./access/current-access.ts";
+export type {
   AuthenticatedRequest,
   CredentialAuthenticationResult,
 } from "./credential/authentication.ts";
@@ -44,6 +48,7 @@ export {
   type UserRoleManagementResult,
   createInitialAdministrator,
   authenticateCredential,
+  readCurrentAccess,
   createInitialCredential,
   initializeAccessManagementState,
   readAccessManagementState,

@@ -1229,6 +1229,12 @@ UTはARCH由来だけ、ITは相関確定前Effect0と既知Root準備Effectの�
 構造評価: Variationは四状態、Common Contractは単一同期関数、Creation／Selectionは返却値のみ、State-dependent Behaviorは入力分類に閉じる。Composition／RecursionはN/A: 外部処理を合成・再帰しない。Lifecycle OwnershipとExternal BoundaryはN/A: Handle・共有状態・I/Oを取得しない。ConcurrencyはN/A: 共有状態なし。TimingはN/A: 時刻・期限を判定しない。Failure／Observabilityは未知分類を停止結果として保持する。Securityは結果を実行Authorityにしない。実装知識の上位還元はN/A: 新しい保証は追加せず、既存の四状態を技術的入力分類へ対応した。
 
 必須確認はAM Packageのformat・type・lint・全UTと、契約／品質の限定独立レビュー、文書・直接影響・Symbol参照・差分確認。標準準拠規則は不変更のため準拠監査は対象外。I/O・実処置は未接続のためHost実試験・署名・Docker／Provider E2Eは実行せず、必要な後続Gateへ残す。Node v24.19.0でローカルキャッシュから固定開発依存を配置し、静的3軸と7 UT（既存4＋初回3）は成功。初回には24組合せを含む。正式Local Item評価はNot Run、保存・資格・Host入口・本番Consumer・全体Readyは未成立。固定15Fileの契約・品質限定独立再レビューは両方Pass、全重大度の残指摘0。台帳の登録漏れと現在投影の矛盾を是正した。試験台帳は当該ID・Path各1件で実在、差分確認成功。結果状態だけを同期し、この実装単位をコミットする。
+# AM本人の現在権限読取り — 2026-10-12
+
+基準Commit `41cce35f`。変更分類は採用済み読取り契約のSource接続・直接伝播。親の正本照合と読取り専用専門確認を統合し、追加の人間判断なし。既存保存Ownerの同じLock内でcurrent検査→資格照合→認証後の短命材料照合→本人投影→解放確認を接続する。`access/current-access.ts`は純粋投影と固定DTOだけを所有する。管理候補は既存10操作・対象Roleの固定分担を使い、内容範囲∩Exposureが空のRepositoryは返さない。初回途中でも本人表示は可能だが管理実操作・初回完了には昇格しない。
+
+実Host・鍵実処置・既存認証の清掃順・保存Schema・Lock・旧Source・過去Evidenceは不変更。新Framework・公開MCP操作は追加しない。管理対象別読取りの接続表示Schemaは次工程へ残す。必須確認はAM全回帰・静的3軸、契約／品質の限定独立レビュー、Symbol／台帳／現在投影・直接文書・差分確認。標準準拠規則は不変更のため準拠監査、実Surface未接続のため署名Provider E2Eは対象外。191項目正式Not Runを維持する。初回試験で公開export集合の追従漏れと、失効した初回資格を完全Schema不正でなく通常失効として期待した試験前提を是正した。独立レビューで交差後Workspaceの観測不足Moderate1を是正し、両Workspace公開からRole別の狭まり・非秘密2キーを完全tupleで確認した。最終Node v24.19.0の`npm test`は静的3軸・全48 Case成功、Fail／Cancel／Skip0、32.2402851秒。基準`41cce35f`からの固定11ファイルの限定独立再レビューPass・全重大度残指摘0、差分確認成功。完全stdoutは同じコマンドで再生成可能とし、実行ごとの書庫は追加しない。結果状態だけ同期し段階コミットする。
+
 # AM鍵生成・照合の技術層 — 2026-10-12
 
 ## 後続: 要求毎の認証主体解決
