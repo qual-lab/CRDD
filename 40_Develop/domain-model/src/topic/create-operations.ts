@@ -14,9 +14,9 @@ import type { TopicMeetingRepository } from "../activity/types.ts";
  *
  * @responsibility 種別の選択を生成時に固定し、共通処理の複製なしでTopicの操作を公開する。
  * @trace ARCH-000006
- * @input repositoryRoot: 選定済みRoot、または同じRepositoryに限定した保存契約。
+ * @input repositoryRoot: 選定済みRootと任意の期待Project、または同じRepositoryに限定した保存契約のみ。
  * @returns Topicの一覧・CRUD・RelationとTopic昇格の操作集合。
- * @precondition 対象Repositoryの選定・認可は利用側が確認済みである。
+ * @precondition 対象Repositoryの選定・認可は利用側が確認済み。AM利用側はRootとmanifest Projectを必ず指定する。
  * @postcondition 操作対象種別はtopicに固定され、反対種別の専用操作は存在しない。
  * @effect 生成時は既存Rootを確認し、書込みは個別CRUD呼出し時だけ発行する。
  * @failure Root不正は生成時に拒否し、操作時の競合・不正入力は共通実体の結果を保持する。
@@ -26,11 +26,23 @@ import type { TopicMeetingRepository } from "../activity/types.ts";
  * @concurrency 共通Repository実装の改訂照合と保存排他に従う。
  */
 export function createTopicOperations(
+  repositoryRoot: string,
+  expectedProjectId?: string,
+): TopicOperations;
+export function createTopicOperations(
+  repository: TopicMeetingRepository,
+): TopicOperations;
+export function createTopicOperations(
   repositoryRoot: string | TopicMeetingRepository,
+  expectedProjectId?: string,
 ): TopicOperations {
+  if (typeof repositoryRoot !== "string" && expectedProjectId !== undefined)
+    throw new Error(
+      "project_operation_expected_project_with_injected_repository",
+    );
   const application = createTopicMeetingOperations(
     typeof repositoryRoot === "string"
-      ? createTopicMeetingRepository(repositoryRoot)
+      ? createTopicMeetingRepository(repositoryRoot, expectedProjectId)
       : repositoryRoot,
   );
   const scoped: TopicOperations = {

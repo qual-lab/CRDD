@@ -9,6 +9,12 @@
 
 ## 1. 結論と実行境界
 
+### Project拘束の着手前整合 — 2026-10-12
+
+固定7Pathの限定独立再レビューはPass・全重大度残指摘0。Domain119／MCP61の計180 Case、各書式・型・Lint、差分確認が成功（Fail／Cancel／Skip 0、所要時間41.3263155秒／17.9465809秒）。両種別の拘束付き通常CRUD・削除後不存在と、foreign本文・incoming Relation・注入契約への余分な引数拒否を確認し、自己生成試験Directory残存0。CPR-IT-010／011の局所接続であり、AM本番Resolver・実HTTP・Relation移管・正式191項目評価・全体完成は未成立。巨大な実行ログや新たなEvidence書庫は追加しない。
+
+基準Commitは`6864ad11`。既存設計の同一Project条件を共通保存Ownerへ接続する是正として、Domain公開生成関数・保存・試験・詳細・QAを対象にする。読み取り専用の着手前確認で、保存契約注入への未実装保証付与と、incoming Relationのraw読取り迂回を反証へ追加した。Root＋期待Projectと注入契約をoverloadで分け、指定値不正はRoot観測前、foreign入力は保存前、既存本文と関連候補は公開前に固定例外へ閉じる。新Store／Lock／Parser／Schema／Wrapperは追加しない。必要確認はDomain/MCP回帰、技術・品質の限定独立レビュー、直接文書伝播・差分確認。規範・準拠基準とDockerは不変更のため準拠監査・Provider E2Eはこの局所範囲では対象外。AM Resolver／実HTTP、Relation移管、全体Gateは未完了として保持する。追加人間判断は不要。
+
 ### Topic／Meetingの認可前入力検査 — 2026-10-12
 
 基準Commitは`0bb4b5c8`。全12 Toolで共通入力検査→取消→Repository解決一回→取消再確認→Domain操作を接続した。独立レビューの解決例外分類・一覧条件検査順序の2指摘を是正し、既存Domainの純粋検査を共用した。Node v24.19.0でMCP61／Domain118の計179 Case、各書式・型・Lint、差分確認が成功（Fail／Cancel／Skip 0、所要時間19.0879618秒／40.6481743秒）。固定11Pathの限定独立再レビューPass・全重大度残指摘0。新しい保存・認可・Parser・Frameworkは追加せず、巨大な実行ログをEvidenceへ保存しない。次はmanifestと本文のProject拘束、Relation移管、AM要求からTopic／Meetingへの本番搬送である。公開Launcher／Workbench切替・鍵配送・旧REST撤去・正式191項目評価・AM全体完成は未成立。既存の人間回答待ちは維持し、この局所是正に追加判断は不要。

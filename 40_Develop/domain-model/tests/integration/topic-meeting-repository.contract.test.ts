@@ -20,6 +20,163 @@ import { setTimeout as delay } from "node:timers/promises";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 
 import { createTopicMeetingRepository } from "../../src/storage/topic-meeting-store.ts";
+import {
+  createTopicOperations,
+  createMeetingOperations,
+} from "../../src/index.ts";
+
+/**
+ * 期待Projectを保存と全読取り経路へ拘束する。
+ * @responsibility 認可済みProjectと異なる本文を保存・公開しないことを確認する。
+ * @trace CPR-IT-010
+ * @trace CPR-IT-011
+ * @precondition 検証済みRepository内の自己生成領域と固定Project。
+ * @stimulus 両種別の正常CRUD、foreign本文、incoming Relation、不正な生成引数を渡す。
+ * @observation 返却値、固定例外、正本bytesとDirectory不存在。
+ * @oracle foreign内容は非返却・非保存、不正期待値はRoot観測前に拒否する。
+ * @cleanup 自己生成Rootだけをfinallyで回収し不存在を確認する。
+ * @boundary Domain公開生成関数→共通保存→実Filesystem。
+ */
+test("期待Projectを両種別の保存・読取り・Relationへ拘束する", () => {
+  assert.throws(
+    () => createTopicMeetingRepository("Z:/not-a-root", "BAD ID"),
+    /project_operation_expected_project_invalid/u,
+  );
+  const verified = resolveVerifiedRepositoryRootFromWorkingDirectory(
+    import.meta.dirname,
+  );
+  const parent = path.join(verified, ".crdd", "tests");
+  fs.mkdirSync(parent, { recursive: true });
+  const root = fs.mkdtempSync(path.join(parent, "topic-meeting-project-"));
+  const projectId = "qual-lab.crdd";
+  try {
+    const repository = createTopicMeetingRepository(root, projectId);
+    const topics = createTopicOperations(root, projectId);
+    const meetings = createMeetingOperations(root, projectId);
+    for (const createOperations of [
+      createTopicOperations,
+      createMeetingOperations,
+    ]) {
+      assert.throws(
+        () =>
+          Reflect.apply(createOperations, undefined, [repository, projectId]),
+        /project_operation_expected_project_with_injected_repository/u,
+      );
+      assert.ok(createOperations(repository));
+    }
+    for (const kind of ["topic", "meeting"] as const) {
+      const id = kind === "topic" ? "TOPIC-000042" : "MTG-000042";
+      const build = kind === "topic" ? topic : meeting;
+      const area = kind === "topic" ? "22_Topics" : "23_Meetings";
+      const valid = (revision: number) =>
+        build(revision).replace("PRJ-001", projectId);
+      const target = path.join(root, area, id, `${kind}.md`);
+      assert.throws(
+        () => repository.create(kind, build(1)),
+        /project_operation_record_project_mismatch/u,
+      );
+      assert.equal(fs.existsSync(path.join(root, area)), false);
+      assert.equal(repository.create(kind, valid(1)).status, "completed");
+      const before = fs.readFileSync(target);
+      assert.throws(
+        () => repository.update(kind, id, 1, build(2)),
+        /project_operation_record_project_mismatch/u,
+      );
+      assert.deepEqual(fs.readFileSync(target), before);
+      assert.equal(
+        repository.update(kind, id, 1, valid(2)).status,
+        "completed",
+      );
+      assert.equal(repository.get(kind, id)?.projectId, projectId);
+      assert.equal(repository.getDocument(kind, id)?.markdown, valid(2));
+      const page = repository.list(kind);
+      assert.equal(page.records.length, 1);
+      assert.equal(page.records[0]?.projectId, projectId);
+      assert.deepEqual(page.records[0], repository.get(kind, id));
+      assert.deepEqual(repository.inspectDeletion(kind, id), {
+        record: repository.get(kind, id),
+        relationPaths: [],
+      });
+      const deleted = repository.delete({
+        kind,
+        id,
+        expectedRevision: 2,
+        confirmed: true,
+        reason: "mistaken_registration",
+      });
+      assert.equal(deleted.status, "completed");
+      assert.equal(deleted.filesystemEffectCount, 1);
+      assert.equal(fs.existsSync(path.dirname(target)), false);
+      assert.equal(repository.create(kind, valid(1)).status, "completed");
+      assert.equal(
+        repository.update(kind, id, 1, valid(2)).status,
+        "completed",
+      );
+      fs.writeFileSync(target, build(2));
+      const foreign = fs.readFileSync(target);
+      for (const read of [
+        () => repository.get(kind, id),
+        () => repository.getDocument(kind, id),
+        () => repository.list(kind),
+        () => repository.inspectDeletion(kind, id),
+        () =>
+          repository.delete({
+            kind,
+            id,
+            expectedRevision: 2,
+            confirmed: true,
+            reason: "mistaken_registration",
+          }),
+        () => topics.hasRelationTarget(kind, id),
+        () =>
+          kind === "topic"
+            ? topics.promoteTopic({
+                topicId: id,
+                expectedRevision: 2,
+                changeId: "CHG-000001",
+                reason: "採用",
+                remainingResponsibility: "確認",
+              })
+            : meetings.treatMeetingOutcome({
+                meetingId: id,
+                expectedRevision: 2,
+                outcomeId: "OUT-001",
+                disposition: "completed",
+                owner: "PM",
+                reviewTrigger: "次回",
+                target: { kind: "none", reference: "N/A: 完了" },
+                treatment: "確認",
+                completionCondition: "確認",
+                result: "完了",
+                closeMeeting: false,
+              }),
+      ])
+        assert.throws(read, /project_operation_record_project_mismatch/u);
+      assert.deepEqual(fs.readFileSync(target), foreign);
+      // incoming Relationのraw走査もforeign本文を公開しない。
+      const otherId = kind === "topic" ? "TOPIC-000043" : "MTG-000043";
+      fs.appendFileSync(target, `\n関連: ${otherId}\n`);
+      assert.throws(
+        () => repository.inspectDeletion(kind, otherId),
+        /project_operation_record_project_mismatch/u,
+      );
+      fs.writeFileSync(target, valid(2));
+      const closed = repository.delete({
+        kind,
+        id,
+        expectedRevision: 2,
+        confirmed: true,
+        reason: "mistaken_registration",
+      });
+      assert.equal(closed.status, "completed");
+      assert.equal(closed.filesystemEffectCount, 1);
+      assert.equal(fs.existsSync(path.dirname(target)), false);
+    }
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+    assert.equal(fs.existsSync(root), false);
+  }
+});
 
 /**
  * 既存の保存先chainにあるlink・非Directory・観測不能を拒否する。

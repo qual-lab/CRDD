@@ -13,6 +13,8 @@ MCPのCPR-IT-012局所試験では、公開全12 Toolの完全入力検査・開
 
 ## 1. 情報源と網羅条件
 
+CPR-IT-010／011では、期待Projectを指定したTopic／Meeting両種別の正常保存と、foreign本文の登録・更新・取得・一覧・削除・昇格・Outcome拒否を実Filesystemで照合する。incoming Relation由来のforeign本文も固定例外へ閉じ、内容とPathを公開しない。期待値不正はRoot観測前、保存契約注入との併用は生成前拒否。これはDomain拘束の局所検証であり、AM認可から本番Consumerへの搬送成立ではない。
+
 | Source ID | Obligation Key | 導出元 | 保持する固有条件 | 試験段階 | 対応Local Item |
 |---|---|---|---|---|
 | [REQ-000012](../../../01_Discovery/Definitions/REQ-000012/requirement.md) | `req-000012.qa-000005` | Requirement Definition（成立条件・失敗・検証意図） | Meetingの時点記録を保ったまま候補を抽出できる。既存Topicへの統合、新規Topic、正式正本更新、不採用を人間が区別できる。採用後は所有正本を更新し、候補や投影を第二正本にしない。既存Topicと重複する候補、新規論点、決定候補、不採用候補を処理し、時点記録、判断、正本反映を観測する | IT／ST | `CPR-IT-001`、`CPR-IT-004`、`CPR-ST-005` |

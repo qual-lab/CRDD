@@ -42,10 +42,10 @@ const KIND_CONTRACT = Object.freeze({
  *
  * @responsibility 入力Kindに対応する固定Parserだけを選び、検証済みRecordへ変換する。
  * @trace ARCH-000006
- * @input kind: Record種別、markdown: 検証対象の正本文字列。
+ * @input kind: Record種別、markdown: 正本文字列、expectedProjectId: 呼出し元の期待Project（指定時）。
  * @returns Kindに対応する検証済みTopicまたはMeeting Record。
  * @precondition kindは閉じたRecord種別である。
- * @postcondition Parserの全検証を通過したRecordだけを返す。
+ * @postcondition Parser検証と、指定時の期待Project一致を通過したRecordだけを返す。
  * @effect N/A: 入力文字列の解析だけを行う。
  * @failure Markdown不正は選択したParserの例外として呼出し元へ返す。
  * @invariant TopicをMeetingとして、またはMeetingをTopicとして解釈しない。
@@ -56,10 +56,15 @@ const KIND_CONTRACT = Object.freeze({
 function parseRecord(
   kind: ProjectOperationRecordKind,
   markdown: string,
+  expectedProjectId?: string,
 ): ProjectOperationRecord {
-  return kind === "topic"
-    ? parseTopicMarkdown(markdown)
-    : parseMeetingMarkdown(markdown);
+  const record =
+    kind === "topic"
+      ? parseTopicMarkdown(markdown)
+      : parseMeetingMarkdown(markdown);
+  if (expectedProjectId !== undefined && record.projectId !== expectedProjectId)
+    throw new Error("project_operation_record_project_mismatch");
+  return record;
 }
 
 /**
@@ -116,7 +121,7 @@ function walkMarkdown(root: string, current = root): string[] {
  *
  * @responsibility 一つのRepository内でID、Revision、Path、RelationおよびFilesystem Effectを同期させる。
  * @trace ARCH-000006
- * @input repositoryRootにVersion Control境界で検証済みの絶対Rootを受け取る。
+ * @input repositoryRoot: 検証済み絶対Root、expectedProjectId: 今回認可されたmanifestのProject（指定時）。
  * @returns Topic／Meetingの取得・一覧・登録・編集・削除Portを返す。
  * @precondition Rootは実在Directoryで、現在の書込み許可Repositoryである。
  * @postcondition 登録・更新の成功時は保存後の同一読取りでbytes、ID、改訂とProject IDの一致を確認する。
@@ -124,12 +129,19 @@ function walkMarkdown(root: string, current = root): string[] {
  * @failure Identity、Revision、Relationまたは確認不足ではEffect 0でblockedを返す。保存・cleanupの例外は失敗段階を保持し、実保存後もEffect 0へ変換しない。
  * @invariant Topicは`22_Topics/TOPIC-xxxxxx/topic.md`、Meetingは`23_Meetings/MTG-xxxxxx/meeting.md`だけを使う。
  * @boundary 検証済みRepository RootとTopic／Meeting Canonical Pathの境界。
- * @security Root外Path、Symlink Recordおよび未確認削除を拒否する。
+ * @security Root外Path、Symlink Recordおよび未確認削除を拒否する。期待Project指定時は異なる本文を保存・返却しない。
  * @concurrency expectedRevision不一致を拒否し、自動Mergeまたは再試行を行わない。
  */
 export function createTopicMeetingRepository(
   repositoryRoot: string,
+  expectedProjectId?: string,
 ): TopicMeetingRepository {
+  if (
+    expectedProjectId !== undefined &&
+    (typeof expectedProjectId !== "string" ||
+      !/^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$/u.test(expectedProjectId))
+  )
+    throw new Error("project_operation_expected_project_invalid");
   const root = path.resolve(repositoryRoot);
   const rootMetadata = lstatSync(root);
   if (
@@ -253,7 +265,7 @@ export function createTopicMeetingRepository(
       throw new Error("project_operation_record_path_invalid");
     const bytes = readFileSync(target.file);
     const markdown = bytes.toString("utf8");
-    const record = parseRecord(kind, markdown);
+    const record = parseRecord(kind, markdown, expectedProjectId);
     if (
       expected &&
       (recordId(record) !== recordId(expected.record) ||
@@ -272,9 +284,18 @@ export function createTopicMeetingRepository(
     return Object.freeze(
       walkMarkdown(root)
         .filter((relative) => path.resolve(root, relative) !== target.file)
-        .filter((relative) =>
-          readFileSync(path.resolve(root, relative), "utf8").includes(id),
-        )
+        .filter((relative) => {
+          const markdown = readFileSync(path.resolve(root, relative), "utf8");
+          if (!markdown.includes(id)) return false;
+          if (expectedProjectId !== undefined) {
+            const normalized = relative.split(path.sep).join("/");
+            if (/^22_Topics\/TOPIC-\d{6}\/topic\.md$/u.test(normalized))
+              parseRecord("topic", markdown, expectedProjectId);
+            if (/^23_Meetings\/MTG-\d{6}\/meeting\.md$/u.test(normalized))
+              parseRecord("meeting", markdown, expectedProjectId);
+          }
+          return true;
+        })
         .sort(),
     );
   };
@@ -462,7 +483,7 @@ export function createTopicMeetingRepository(
       return true;
     },
     create: (kind, markdown) => {
-      const record = parseRecord(kind, markdown);
+      const record = parseRecord(kind, markdown, expectedProjectId);
       const id = recordId(record);
       if (record.revision !== 1)
         return blocked("record_revision_conflict", record);
@@ -481,7 +502,7 @@ export function createTopicMeetingRepository(
       return result ?? blocked("record_revision_conflict", record);
     },
     update: (kind, id, expectedRevision, markdown) => {
-      const next = parseRecord(kind, markdown);
+      const next = parseRecord(kind, markdown, expectedProjectId);
       const result = withRecordLock(kind, id, () => {
         const current = read(kind, id);
         if (current === null) return blocked("record_not_found", null);

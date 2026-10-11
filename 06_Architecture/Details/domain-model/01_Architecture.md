@@ -1,5 +1,9 @@
 # Domain Modelの責務境界
 
+### Topic／Meeting本文のProject拘束 — 2026-10-12
+
+公開生成関数`createTopicOperations`／`createMeetingOperations`は、文字列Rootの場合だけ期待Project IDを受け、共通保存Ownerへ渡す。AM利用側は現在認可manifestのProjectを必ず指定する。指定値の形式はRoot観測前、登録・更新の本文一致はLock／Directory作成前、既存本文一致は返却前に検査する。不一致は固定例外とし、部分内容・Pathを返さない。削除時のincoming Relationも、参照候補がTopic／Meeting正本の場合は同じParserとProject一致を通す。Project欄のない他種別へ新fieldは要求しない。保存契約を直接注入する既存入口では第2引数を型・実行時とも拒否し、未実装の保証を付けない。単体の期待値未指定をAM認可保証と扱わない。AM Resolver／本番HTTPへの接続、認可集合内のRelation解決は未完了である。
+
 Topic／Meeting一覧の純粋入力検査は公開`validateTopicMeetingListInput(kind, input)`で既存の条件正規化・Cursor検査を共用する。種別はToolまたは操作側で固定し、limit・状態・sort・Relation・日付・種別固有条件・Cursor構造／Query結合をRepository解決・読取り前に拒否する。Domain一覧自身も同じ検査を先行する。新しいSchema、Parser、保存状態、認可は追加しない。manifestと本文のProject拘束はこの検査とは別の未完了範囲である。
 
 成果物種別: Architecture詳細設計
