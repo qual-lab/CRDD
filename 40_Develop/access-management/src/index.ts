@@ -6,6 +6,10 @@
  * @trace ARCH-000013
  */
 export type {
+  RepositoryAccess,
+  RepositoryAccessResult,
+} from "./access/repository-access.ts";
+export type {
   CurrentAccessResult,
   CurrentAccessSnapshot,
 } from "./access/current-access.ts";
@@ -55,6 +59,7 @@ export {
   authenticateCredential,
   readCurrentAccess,
   readManagementState,
+  resolveRepositoryAccess,
   createInitialCredential,
   initializeAccessManagementState,
   readAccessManagementState,

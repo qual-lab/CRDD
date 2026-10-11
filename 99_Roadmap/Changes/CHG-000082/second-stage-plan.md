@@ -1325,6 +1325,14 @@ Node v24.19.0でFormatter・type・warning禁止LintとAM全11 Case成功（新4
 
 固定12Pathの限定独立再レビューはPass・全重大度の残指摘0。runtime入力をLock・JSON化前にprimitive検査し、getter／toJSON非実行と作成0を確認した。古い未実装表示を候補履歴へ限定し、UT023＋IT024相関部分と後続未接続範囲を分離した。静的3軸・23 Case再成功、差分確認成功、自己生成試験Root残存0。Checkerは前段と同じ3057件、今回変更Pathは既存PROJECT_CONTEXT形式指摘1件。その他の基準版差分は未確定で全体Passを主張しない。局所範囲をPhaseコミットし、次は初回のRoot準備・User／鍵後続段階・認証・本番Consumer接続へ進む。
 
+## AM内容実アクセスの局所接続 — 2026-10-12
+
+基準Commit `3842ade3`。採用済み現在内容認可の実装具体化として、同改訂の資格／User／Role内容範囲／Exposure／登録から、既存VC RootとDomain固定manifestへ接続する。親の正本照合と読取り専用専門確認は条件付き着手可、追加人間判断不要。技術的Root能力の今回要求限定使用、Lock内bounded観測と解放後本文取得、認可前／pending異常時の外部観測0を契約へ具体化した。新Framework・Store・Session・Lock・Host操作は追加しない。
+
+編集一次キーはARCH-000013内容認可→AM保存Owner→既存VC／Domain観測→RFD-IT-013局所試験→Symbol／台帳／現在投影。必須確認は静的3軸、Package全回帰、固定候補の契約・実装・品質限定独立レビューと直接伝播／差分確認。標準規則不変更のため準拠監査、本番Consumer未接続のため署名E2Eは今回実行しない。旧CROS・実Host・秘密Store・歴史的Evidenceは不変更。正式191項目Not Runを保持し、本番Consumerが次要求に能力を使い回さない接続とDomain集合搬送は残件とする。
+
+局所結果: Node v24.19.0の`npm test`で静的3軸と全54 Case成功、失敗／取消／skip0、Exit 0、所要38.2869794秒。固定9ファイルの限定独立再レビューPass・全重大度残指摘0。Binding不一致をSchema-validとするレビュー反例は既存Parserが拒否するため訂正・撤回し、改ざんcurrentのparse拒否・対象観測0・byte不変・材料0を同Caseで確認した。基準HEADは実行前後`3842ade3`、新Source SHA256 `dd7c72e67df5b83558d4579f00b6a5bffd5ac210cdd302c8d268f697f9299191`、tracked差分Hash `a670f87561125cbefad40a4e8306a2d109c8a412`。結果全文は端末出力で、上記コマンドから再生成し実行ごとの書庫は増やさない。差分確認成功・自己生成試験Root残存0。状態投影はこの結果だけを同期し、本番Consumer・Domain搬送・鍵管理・配送・正式191項目・全体完成は未成立を維持する。
+
 ## AM登録・公開範囲管理の実装接続計画 — 2026-10-12
 
 初回独立レビューのMajor 1件は、登録Rootと固定Fileの容量上限欠落だった。方針を確認者へ再提示・整合後、既存Domain観測Ownerの同じdescriptorへ任意容量上限を追加し、AM登録だけ各1 MiBを指定した。RootはPath処理前32,768 code unit以下を確認する。巨大Root観測0、manifest／Contextの個別上限+1、上限内Context、保存0・開閉一致を追加確認した。AM45件・Domain113件は全成功、失敗・取消・skip0、各静的3軸成功。Domain回帰所要40.289秒。未指定Consumerは不変更、実Host・旧Evidence・191正式Not Runを維持し、追加のModerate 1件は新しい容量引数の不正値反例不足で、既存RCM-UT-014へ不正Capabilityと0／負数／小数／NaN／Infinity／非safe integerを組合せ、Root解決より先の拒否を追加した。Sourceは不変更、両Package全回帰・静的3軸を再成功した。固定18ファイルの限定独立再レビューPass・全重大度の残指摘0。

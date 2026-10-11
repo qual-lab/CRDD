@@ -165,6 +165,16 @@ ExposureのRepository IDは既存登録を参照し、重複・孤立参照を�
 
 反証は、自己表示へ他User情報を添付、古いRole認可と新改訂DTOの混合、管理許可から内容を公開、観測不能から空集合生成、解放不明の成功表示、後続改訂から元要求完了を推定、入れ子・余分field・エラー経由の秘密透過である。既存RFD-IT-013／RFD-ST-004、RFD-IT-021、RFD-ST-022、RFD-UAT-007へ接続し、Not Runを維持する。内容実アクセス認可・鍵読取り・初回全体・本番保存と利用側接続は未完了である。
 
+### 3.3 内容要求の実Repository解決 — 2026-10-12
+
+`resolveRepositoryAccess(root, token, repositoryId, workspaceId)`は同Processの信頼した内容Consumer向けの内部Package入口とする。新Session・Store・Lock・汎用認可Frameworkは作らない。primitive入力検査→既存Lock内current完全検査→現在資格／User／Role→初回completed→登録・Role内容範囲・Exposure→許可後pending処置→VC exact Root→登録Binding再照合→Domain固定manifest（最大1 MiB）・Repository ID一致→内部相関値→Lock解放確認の順である。Domain本文取得は解放後に行う。
+
+未認証・未知ID・未登録・Role外・Exposure未設定／空／範囲外は同じ`repository_access_rejected`とし、対象Repository観測0・pending清掃0を保つ。許可後の材料不明では対象観測0、Root・Binding・manifestの欠測／不正／容量超過は固定未取得理由とする。Path・下位例外・資格材料を返さない。PROJECT_CONTEXTはアクセスAuthorityではなく、欠測・不正を内容Ownerの部分観測へ残す。
+
+成功値は`revision`、`repositoryId`、`workspaceId`、`bindingId`、検査済み`manifest`と技術的`root`能力を相関する。技術的Root能力は認可証明・Session・次要求Tokenではなく、保存・cache・Transport応答化を禁止する。Consumerは今回受理した要求の固有lifecycleだけで直ちに消費し、別要求・retryではこの入口へ戻る。型による失効機構や現在権限の永久保証は主張しない。後続のRole／Exposure変更を開始済み要求の取消完了へ読み替えない。本番Consumerの再利用0とDomain搬送の確認が済むまで、resolver局所成立を全体内容認可の完成としない。
+
+確認対象はRFD-IT-013の現在認可・実アクセス部分。誤鍵、未知ID、管理能力のみ、範囲外、pending異常、非exact Root、manifest欠測／不正／ID差／超過、解放不明、Context欠測、次要求の公開解除反映を反証する。署名E2E・本番Consumer・正式191項目評価は未成立のまま保持する。
+
 ## 4. 物理保存の比較と未決条件
 
 [既存Host管理Root](../domain-model/03_Repository_Storage.md#6-crosとの物理分離)を維持する。Package改名で`qual-lab/cros/<trust-domain-id>`を改名せず、秘密をRepositoryへ移さない。

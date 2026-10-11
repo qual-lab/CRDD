@@ -5,6 +5,12 @@
  * @trace ARCH-000013
  */
 import fs from "node:fs";
+import {
+  selectRepositoryAccess,
+  observeRepositoryAccess,
+  type RepositoryAccess,
+  type RepositoryAccessResult,
+} from "../access/repository-access.ts";
 import crypto, { createHash } from "node:crypto";
 import { evaluateManagementPermission } from "../access/management-permission.ts";
 import {
@@ -834,6 +840,121 @@ export function readCurrentAccess(
     reason: result.reason.startsWith("filesystem_store_lock_")
       ? "current_access_lock_unavailable"
       : "current_access_observation_unknown",
+  };
+}
+
+/**
+ * 今回内容要求の現在認可と実Repositoryを解決する。
+ * @responsibility 未許可観測を防ぎ、清掃・解放確認後だけ内部Consumerへ渡す。
+ * @trace ARCH-000013
+ * @input 検証済み管理Root、Bearer、対象ID、development／management。
+ * @returns 今回要求だけの内部RepositoryAccess、または非開示の固定理由。
+ * @precondition 同Processの信頼したConsumerだけが利用し、Transportへ値を透過しない。
+ * @postcondition 同改訂認可・bounded実体検証・Lock解放が全て成立時だけcompleted。
+ * @effect 既存Lock・current認証・許可後pending清掃・固定Repository観測。
+ * @failure 未認証・未登録・範囲外は同一拒否。清掃・実体・解放不明は値なし。
+ * @invariant 後続変更は開始済み要求の取消を証明しない。別要求は必ずこの入口へ戻る。
+ * @boundary AM現在認可とDomain／VC実アクセス。内容本文は解放後にConsumerが取得する。
+ * @security token・内部Path・資格・Lock回復参照を返さず、結果を保存・cache・次要求へ再利用しない。
+ * @concurrency 同じ管理Lock内の改訂で受理。技術的Root能力に失効機能があるとは主張しない。
+ */
+export function resolveRepositoryAccess(
+  root: FilesystemStoreRoot,
+  token: string,
+  repositoryId: unknown,
+  workspaceId: unknown,
+): RepositoryAccessResult {
+  if (
+    typeof repositoryId !== "string" ||
+    repositoryId.length > 128 ||
+    !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(repositoryId) ||
+    (workspaceId !== "development" && workspaceId !== "management") ||
+    !readCredentialId(token)
+  )
+    return { status: "unavailable", reason: "repository_access_rejected" };
+  const result = locked<RepositoryAccess>(root, () => {
+    try {
+      const current = readCurrent(root);
+      const actor = resolveCredentialAuthentication(token, current.state);
+      const registration = actor
+        ? selectRepositoryAccess(
+            current.state,
+            actor,
+            repositoryId,
+            workspaceId,
+          )
+        : null;
+      if (!registration)
+        return {
+          status: "unavailable",
+          reason: "repository_access_rejected",
+          publication: "not_attempted",
+          revision: null,
+          cleanupConfirmed: true,
+        };
+      try {
+        settlePending(root, current, () => {});
+      } catch {
+        return {
+          status: "unavailable",
+          reason: "repository_access_cleanup_pending",
+          publication: "not_attempted",
+          revision: current.state.revision,
+          cleanupConfirmed: false,
+        };
+      }
+      const access = observeRepositoryAccess(
+        registration,
+        current.state.revision,
+        workspaceId,
+      );
+      if (!access)
+        return {
+          status: "unavailable",
+          reason: "repository_access_observation_unknown",
+          publication: "not_attempted",
+          revision: current.state.revision,
+          cleanupConfirmed: true,
+        };
+      return {
+        status: "completed",
+        value: access,
+        publication: "not_attempted",
+        revision: current.state.revision,
+        cleanupConfirmed: true,
+      };
+    } catch {
+      return {
+        status: "unavailable",
+        reason: "repository_access_observation_unknown",
+        publication: "not_attempted",
+        revision: null,
+        cleanupConfirmed: false,
+      };
+    }
+  });
+  if (result.status === "completed")
+    return { status: "completed", access: result.value };
+  if (
+    result.secondaryReason ||
+    result.reason ===
+      "filesystem_store_lock_operation_completed_cleanup_unknown" ||
+    result.reason === "state_store_lock_unknown"
+  )
+    return {
+      status: "unavailable",
+      reason: "repository_access_release_unknown",
+    };
+  if (
+    result.reason === "repository_access_rejected" ||
+    result.reason === "repository_access_cleanup_pending"
+  )
+    return { status: "unavailable", reason: result.reason };
+  return {
+    status: "unavailable",
+    reason: result.reason.startsWith("filesystem_store_lock_")
+      ? "repository_access_lock_unavailable"
+      : "repository_access_observation_unknown",
   };
 }
 

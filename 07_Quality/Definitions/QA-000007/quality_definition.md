@@ -266,3 +266,7 @@ RFD-IT-021の保存部分を`access-management/tests/integration/state/file-stor
 全項目はNot Runを維持する。容量値は割当制限であり製品規模保証ではない。実装時に判別Union・相関不変条件・保存前後の観測を具体試験へ接続し、文書追加や安全な拒否だけから保存全体成立を表示しない。
 
 前節までの内容権限語彙・容量・初回／鍵段階の未確定表示は候補時点の履歴で、現在方針はAM設計§4.5を使う。操作別認可は追加せず内容Workspaceだけを固定する。機械Schema・状態組合せ・公開API・物理保存／本番接続・配送観測・移行実行は未完了。Profile管理等の既存Owner判定をこの範囲から暗黙付与しない。
+
+### 内容実アクセス解決の局所接続 — 2026-10-12
+
+RFD-IT-013の現在資格→Role内容範囲→Exposure→登録Binding→実Repository観測をAM専用入口へ接続した。既存保存ITに、三Roleと管理能力／内容許可分離、Context欠測、公開解除後の次要求、認可前・pending異常時の対象観測0と許可成功の正対照、Binding改ざんのSchema拒否・byte不変・材料0、manifest欠測／不正／ID差／超過・Git消失、Lock解放不明時の能力非返却を追加した。AM全54 Case・静的3軸成功、固定9ファイルの限定独立再レビューPass・残指摘0。正式191項目評価はNot Run。本番Consumerの要求限定使用・能力cache禁止・Domain搬送と全体STは未接続。技術的Root能力の型自体に失効保証があるとは扱わない。
