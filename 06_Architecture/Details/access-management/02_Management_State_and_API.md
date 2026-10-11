@@ -323,6 +323,35 @@ Repository利用時には登録したRoot・Repository Identityを再検証し�
 
 この具体化で容量・内容範囲・Binding・処理順の方針は固定する。全判別Unionの機械Schema、公開APIとの対応、状態組合せ検査、既存Reader／Writerへの実接続と局所試験は次の実装単位で閉じる。Source、実Host Store、ACL、過去Evidenceは本節では変更しない。
 
+### 4.6. 通常保存Adapterの具体化 — 2026-10-12
+
+`state/file-store.ts`は既存Root Capabilityと既存Lockを用いる内部保存部品であり、認証・管理操作・Host初期化の公開入口ではない。Root作成、旧Store移行、初回出版、鍵保存、本番Consumerは未接続である。実Hostの管理状態は変更していない。
+
+| 固定File | 役割・終了条件 |
+|---|---|
+| `access-management.json` | 完全な現在状態本体。16 MiB上限。改訂Fileを積算しない |
+| `access-management.pending.json` | 基準改訂・基準Hash・次改訂・次Hash・元操作ID・処置種別・次Snapshot objectの閉じた包絡。17 MiB上限。出版の読戻しと材料清掃まで保持 |
+| `access-management.replace.json` | pendingが所有する一件の短命出版byte。16 MiB上限。排他的作成→write→file flush→close→byte照合→currentへの置換。追加Store・履歴・Authorityではない |
+| `access-management.lock` | 全Reader／Writerが共有する既存排他。回収義務は既存部品が所有し、鍵Recoveryと混ぜない |
+
+serializerはObject keyをASCII辞書順、配列順を維持、空白なしJSON＋末尾LF一個のUTF-8とする。nextHashはこの正確byteから算出する。baseHashは実際に読んだcurrentの正確byteから算出する。pending包絡を状態本体へ上書きして照合材料を失う方式は採用しない。
+
+同じRoot・Lockの同期区間内で現在状態を読む。通常更新のcallbackは現在認可を確認して次状態bytesを返す利用側の接続点で、保存部品自体は認可を生成しない。期待改訂＋1と別の操作IDを要求し、初回・資格・未解決交換・既存User IDは保持する。この通常更新入口で鍵や初回段階を変更しない。現在readは内部Snapshotで、Transportへ返すDTOではない。
+
+callbackは同期の認可評価とメモリ内候補構築だけに限定する。Promise、外部I/O、鍵処置、別Store更新、利用者への応答を行わず、callback自身の外部・永続Effectは0とする。これが通常管理のbase一致pendingを破棄できる前提である。本番Consumerの接続Gateでも同条件を照合し、保存部品の型検査だけからEffect 0を推定しない。
+
+| 再入場で観測した状態 | 処置 |
+|---|---|
+| pendingなし・replaceなし | 検査済みcurrentを読む。更新では現在改訂・候補を同じLock内で検査 |
+| 完全pending、current=base、replaceなしまたは完全なnext byte | 通常管理由来で保持条件成立の場合だけreplace→pendingを清掃し不存在確認。元要求は不明のまま、新更新callbackを実行せず再取得を返す |
+| 完全pending、current=next・操作ID・Hash一致 | 既知出版を保持し、完全なreplaceがあれば清掃、pending清掃・Lock解放を個別確認。資格配送・受領は証明しない |
+| 初回／鍵由来pendingのcurrent=base | 材料を保持して停止。通常更新の自動破棄へ一般化しない |
+| replace単独、partial／Hash差、current不在／破損、双方不一致 | 保持停止。新初期化、再出版、自動merge、rollbackを行わない |
+
+Lockのexact回復参照は保存Owner内部だけで扱い、既存Owner不存在観測・回収が確認できた場合だけ一回再取得する。生存Owner・観測不能は停止し、無限Retryしない。最初の保存失敗理由と後続Lock解放不明は別fieldへ保持し、確認済み出版を後続Failureで未保存へ戻さない。材料・Lockが残る失敗では`cleanupConfirmed: false`とし、保存完了と材料回収を混同しない。
+
+局所ITはRFD-IT-021の保存部分へ接続する。通常認可・六操作・公開縦断の全体Passではない。電源断耐久性や非協調Writer対策は新設せず、採用済み保証範囲を維持する。
+
 ## 5. 鍵交換の段階と終了
 
 ### 純粋Schema検査への具体化 — 2026-10-12

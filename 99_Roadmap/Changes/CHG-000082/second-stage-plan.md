@@ -1250,3 +1250,15 @@ Node v24.19.0でFormatter・type・warning禁止LintとAM全11 Case成功（新4
 限定独立再レビューはPass・全重大度の残指摘0。交換対象集合の全数一致、全員交換の受領者Role、完了初回の保持資格の配送事実を是正した。有効資格0件からのHost交換は集合一致で許可し、存在しない最小件数を要求しない。全体Checkerでは3058件を観測し、今回変更Pathの2件を照合した。新UTのID表記漏れは是正し、PROJECT_CONTEXTのChecklist表現不一致は基準Commitにも存在するため今回の局所完了と分離する。他Pathの指摘はこの段階で基準版差分を確定しておらず、全体Passは主張しない。巨大な実行結果の書庫は作らず、局所判定と未完了範囲だけを保持する。
 
 是正後のChecker再確認は3057件、今回変更Pathは上記の基準版由来Checklist指摘1件だけで、新UTのSymbol接続指摘は解消した。
+
+## AM通常保存Adapterの局所接続 — 2026-10-12
+
+基準Commitは`d47d6855`。変更分類は採用済み通常保存契約の実装具体化。保存・Process喪失・秘密境界へ影響するため、着手前に親の正本照合と読取り専用専門確認を行った。pending包絡を同じPathで状態byteへ上書きする案は相関喪失の反例により不採用。既存構造の最小解として一件の短命replaceを使い、固定serializerと4 Path再入場表をAM詳細へ還元する条件で着手可。追加人間判断は不要、新Lock／Receipt／履歴／Recovery Frameworkを作らない。
+
+実装範囲は既存Rootのcurrent読取り・通常更新・保存材料の再入場。Root作成、初回出版、認証・鍵実処置、旧Store移行、本番Workbench／MCP接続は対象外として保持する。認可は将来利用側が同じ同期callback内で照合し、Root Capabilityや状態parseからAuthorityを生成しない。鍵・初回・資格の保持条件を通常更新で検査する。
+
+確認対象はSource／公開Root／Package試験入口／Symbol／試験台帳、RFD-IT-021接続、AM詳細、本計画、現在投影。必須確認は契約・実装・品質の限定独立レビュー、文書・直接影響・参照・差分確認と実Filesystem局所試験。標準規則不変更のため準拠監査、Provider／Dockerを扱わず本番入口未接続のため署名実E2Eは今回対象外。全体Checkerの前段3057指摘を解消したとは扱わない。旧正式Evidenceと実Host管理データは不変更。
+
+通常保存、改訂競合、不正候補、base／next／unknown再入場、実子Process喪失、出版後清掃・Lock解放不明を局所確認する。静的3軸とPackage全試験を通した後、固定候補を限定独立レビューへ渡す。全体保存／初回／鍵／認可Capabilityは未完了のまま、局所範囲だけPhaseコミットする。
+
+固定13Pathの限定独立再レビューはPass、全重大度の残指摘0。callbackの同期・認可評価・メモリ候補限定と外部／永続Effect 0を契約へ明記し、Schema-validな資格・交換・既存User除去の拒否とpartial pending保持停止を追加確認した。Node v24.19.0でformat・type・warning禁止Lintと全19 Case成功（保存IT 8、既存UT 11）。実子Process終了と自己生成試験Root残存0、差分確認成功。Checkerは3057件、今回変更Pathは基準版にも存在するPROJECT_CONTEXTのChecklist指摘1件で、他Pathの基準版差分は未確定。全体Passは主張しない。正式191項目評価はNot Run、実Host Store・旧Evidenceは不変更。次は初回Root／出版、認証・鍵実処置と本番Consumer接続の残件を扱う。

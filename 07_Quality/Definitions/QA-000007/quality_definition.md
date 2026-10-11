@@ -223,6 +223,14 @@ RFD-IT-021ではpending削除・不存在確認後から応答前のProcess喪�
 - [x] 自動化、手動確認および人間判断の境界を示した
 - [x] 現行Source、TestおよびEvidenceとの照合をReality Auditへ分離した
 
+## 通常保存Adapterの局所接続 — 2026-10-12
+
+RFD-IT-021の保存部分を`access-management/tests/integration/state/file-store.contract.test.ts`へ接続する。新Local Itemは追加せず、191項目の正式評価はNot Runを維持する。通常認可・六操作・公開縦断までの項目全体Passではない。
+
+反証は改訂競合時callback0、不正候補／容量超過時current不変、pending flush後・replace flush後・rename後の実子Process喪失と新入場、base一致通常材料の破棄後に新更新0、鍵由来baseの保持停止、next一致の既知出版保持、partial／孤立replace／current欠測の保持停止、rename失敗、出版後清掃失敗、主FailureとLock解放不明の分離である。子Process終了をjoinし、自己生成試験Rootの不存在を確認する。実Host・生Secret・Provider・Dockerは使用しない。
+
+初回RFD-IT-024・鍵RFD-IT-017／018の本番保存・認可・配送は未接続のまま、通常保存の破棄規則を一般化しない。追加の短命replaceは一件の出版材料であり、履歴保存や新Recovery Storeではない。
+
 ## AM保存具体化の検証接続 — 2026-10-12
 
 [保存契約§4.5](../../../06_Architecture/Details/access-management/02_Management_State_and_API.md#45-現在状態容量鍵保存の固定方針--2026-10-12)を既存項目へ接続する。項目追加・実行済みへの変更は行わない。

@@ -1,8 +1,8 @@
 /**
- * Access Managementの管理分担・初回観測判定・状態parseを公開する。
+ * Access Managementの純粋判定と内部状態保存を公開する。
  *
  * @packageDocumentation
- * @responsibility 純粋判定と内部状態検査を明示公開し、保存・認証・鍵処置を未接続のまま区別する。
+ * @responsibility 純粋判定・内部保存を明示公開し、認証・鍵処置・本番入口との未接続を区別する。
  * @trace ARCH-000013
  */
 export {
@@ -22,3 +22,8 @@ export {
   parseAccessManagementState,
   type StateParseResult,
 } from "./state/parse.ts";
+export {
+  readAccessManagementState,
+  updateAccessManagementState,
+  type StateStoreResult,
+} from "./state/file-store.ts";

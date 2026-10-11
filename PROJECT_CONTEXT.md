@@ -44,7 +44,9 @@ v0.21.0は公開済み、v0.22.0とCHG-000082は未完了である。責務再�
 
 管理状態の純粋Schema検査を実装し、RFD-UT-028・Source／Test Symbol・試験台帳へ接続した。AM Packageは静的3軸と全11 Case成功（新4 Case）。限定独立再レビューはPass・残指摘0。Quality設計集合は191項目、正式評価はNot Run。保存Adapter・鍵実処置・認可・本番Consumerは未接続で、実Host Storeは変更していない。全体Checkerは未合格であり、この局所結果を全体完成へ読み替えない。
 
-保存項目・容量・初回／鍵保存順序を[AM保存契約§4.5](06_Architecture/Details/access-management/02_Management_State_and_API.md#45-現在状態容量鍵保存の固定方針--2026-10-12)へ具体化した。内容範囲はDevelopment／Managementに限定し操作別認可は追加しない。current 16 MiB／pending 17 MiBは実装割当上限で、利用規模保証ではない。契約・品質・直接影響の限定独立再レビューはPass、全重大度の残指摘0。機械Schema・保存Adapter・本番接続・局所試験は残り、実Host Store・Sourceは未変更。
+通常保存Adapterの局所接続を完了した。既存Root・Lock下でcurrent／pending／短命replaceを照合し、通常更新と出版前後の再入場を確認した。静的3軸・AM全19 Case成功、限定独立再レビューPass・残指摘0。新履歴・Receipt・回復Frameworkは追加しない。初回Root／最初の出版、認証・鍵実処置・本番Consumerは残る。上段の保存未接続は前段の状態で、現在の実装・確認範囲は[計画](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#am通常保存adapterの局所接続--2026-10-12)を参照する。
+
+保存項目・容量・初回／鍵保存順序を[AM保存契約§4.5](06_Architecture/Details/access-management/02_Management_State_and_API.md#45-現在状態容量鍵保存の固定方針--2026-10-12)へ具体化した。内容範囲はDevelopment／Managementに限定し操作別認可は追加しない。current 16 MiB／pending 17 MiBは実装割当上限で、利用規模保証ではない。本段落の契約・品質・直接影響の限定独立再レビューPassは契約固定時点の結果である。その後のSchema・通常保存Adapterの局所接続は上段を参照し、初回／鍵実処置・認可・本番接続は現在も残る。実Host Storeは変更していない。
 
 人間判断により、Access Management専用のWindows追加ACL検査・修復・Native保護接続は実装条件から外した。[要求正本](01_Discovery/Definitions/REQ-000041/requirement.md#windows固有の追加保護の対象外化--2026-10-12)を参照する。既存Hostのアクセス制御を利用し、追加保護の成立は主張しない。Root検査・秘密非保存／非公開・現在認可は維持し、他Packageの保護は不変更。5文書の直接伝播は限定独立再レビューPass・全重大度の残指摘0。実Root・ACL・Sourceは未変更。以下のWindows保護接続待ちは判断前の履歴であり、現在の残件は完全Schema・容量・初回／鍵段階・本番接続である。
 

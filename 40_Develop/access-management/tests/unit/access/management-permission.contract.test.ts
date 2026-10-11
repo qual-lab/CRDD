@@ -35,6 +35,8 @@ test("三Roleと全10具体操作の固定分担", () => {
     "evaluateHostInitializationState",
     "evaluateManagementPermission",
     "parseAccessManagementState",
+    "readAccessManagementState",
+    "updateAccessManagementState",
   ]);
   const rows: readonly Readonly<{
     request: ManagementRequest;
