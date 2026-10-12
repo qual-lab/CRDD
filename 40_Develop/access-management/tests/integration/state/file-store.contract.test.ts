@@ -13,7 +13,7 @@
  * @trace RFD-IT-002
  * @level IT
  * @scope access-management/state、直接保存境界
- * @boundary Node Filesystem・既存Root/Lock・通常認可・提示状態保存と局所TTY代役。実Host・通常鍵処置・実Surface出力は対象外。
+ * @boundary Node Filesystem・既存Root/Lock・通常認可・鍵発行／独立失効・提示状態保存と局所TTY代役。実Host・鍵交換・実Surface出力は対象外。
  */
 import assert from "node:assert/strict";
 import { resolveAiProfileManagementAccess } from "../../../src/index.ts";
@@ -33,6 +33,7 @@ import {
 import {
   type AccessManagementState,
   type UserRoleManagementResult,
+  type CredentialManagementResult,
   registerRepository,
   unregisterRepository,
   updateExposure,
@@ -43,6 +44,8 @@ import {
   resolveRepositoryAccess,
   resolveRepositoryAccessCollection,
   createCredentialMaterial,
+  issueCredential,
+  revokeCredential,
   registerUser,
   updateUserName,
   changeUserRole,
@@ -5789,4 +5792,724 @@ test("主失敗をLock清掃失敗で上書きしない", (t) => {
   );
   assert.equal(readAccessManagementState(f.root).status, "completed");
   assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
+});
+
+/**
+ * 通常発行と独立失効を実保存へ接続する。
+ * @responsibility 一資格追加とexact一資格失効、元発行保持を別に観測する。
+ * @trace RFD-IT-017
+ * @trace RFD-IT-018
+ * @precondition 自己生成Rootと試験専用の管理者資格。
+ * @stimulus 発行、同発行再要求、失効、同失効再要求と次要求認証。
+ * @observation 保存改訂・対象／他資格・提示状態・短命Secret有無。
+ * @oracle 旧資格保持、新規だけ発行。既失効再出版0・元要求completed推定0。
+ * @cleanup Fixtureが自己生成Rootを回収し不存在確認。
+ * @boundary Package公開APIと実Filesystem。Workbench出力ではない。
+ */
+test("通常鍵発行と独立失効はexact対象と再要求の限界を保持する", (t) => {
+  const f = fixture(t);
+  const current = path.join(f.directory, "access-management.json");
+  const actor = createCredentialMaterial();
+  const userId = f.state.users[0]?.userId;
+  assert.ok(userId);
+  f.state.credentials.push({
+    credentialId: actor.credentialId,
+    userId,
+    tokenVersion: 1,
+    tokenSalt: actor.tokenSalt,
+    tokenVerifier: actor.tokenVerifier,
+    revoked: false,
+    operationId: "00000000-0000-4000-8000-000000000007",
+    presentation: "confirmed",
+  });
+  fs.writeFileSync(current, bytes(f.state));
+  const issued = issueCredential(
+    f.root,
+    actor.token,
+    1,
+    "00000000-0000-4000-8000-000000000008",
+    userId,
+  );
+  assert.equal(issued.status, "completed");
+  if (issued.status !== "completed") return;
+  assert.equal(typeof issued.token, "string");
+  assert.equal(issued.operation, "issueCredential");
+  if (issued.operation !== "issueCredential") return;
+  const saved = JSON.parse(
+    fs.readFileSync(current, "utf8"),
+  ) as AccessManagementState;
+  assert.equal(saved.revision, 2);
+  assert.equal(saved.credentials.length, 2);
+  assert.deepEqual(saved.credentials[0], f.state.credentials[0]);
+  const added = saved.credentials[1];
+  assert.ok(added);
+  assert.equal(added.operationId, issued.operationId);
+  assert.equal(added.presentation, "not_attempted");
+  assert.equal(added.revoked, false);
+  assert.equal(Object.hasOwn(added, "token"), false);
+  assert.equal(verifyCredentialToken(issued.token, added), true);
+  assert.deepEqual(
+    issueCredential(f.root, actor.token, 2, issued.operationId, userId),
+    {
+      status: "unavailable",
+      reason: "credential_management_rejected",
+    },
+  );
+  const revoked = revokeCredential(
+    f.root,
+    actor.token,
+    2,
+    "00000000-0000-4000-8000-000000000009",
+    userId,
+    issued.credentialId,
+  );
+  assert.equal(revoked.status, "completed");
+  assert.equal(Object.hasOwn(revoked, "token"), false);
+  const after = JSON.parse(
+    fs.readFileSync(current, "utf8"),
+  ) as AccessManagementState;
+  assert.equal(after.revision, 3);
+  assert.deepEqual(after.credentials[0], f.state.credentials[0]);
+  assert.deepEqual(after.credentials[1], { ...added, revoked: true });
+  assert.equal(
+    authenticateNormalConnection(f.root, issued.token).status,
+    "unavailable",
+  );
+  const unchanged = fs.readFileSync(current);
+  for (const operationId of [
+    "00000000-0000-4000-8000-000000000009",
+    "00000000-0000-4000-8000-000000000010",
+  ])
+    assert.deepEqual(
+      revokeCredential(
+        f.root,
+        actor.token,
+        3,
+        operationId,
+        userId,
+        issued.credentialId,
+      ),
+      {
+        status: "unavailable",
+        reason: "credential_management_rejected",
+      },
+    );
+  assert.deepEqual(fs.readFileSync(current), unchanged);
+  assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
+});
+
+/**
+ * 非管理者と対象不一致の鍵変更をEffect前に拒否する。
+ * @responsibility 拒否で資格生成・失効・保存が行われないことを観測する。
+ * @trace RFD-IT-017
+ * @trace RFD-IT-018
+ * @precondition 三Roleの試験専用資格と自己生成Root。
+ * @stimulus 非管理者、未知User、改訂差、User／資格結合差を渡す。
+ * @observation randomBytes回数、state byteと固定非開示結果。
+ * @oracle 生成乱数0・新資格0・新失効0・state不変。
+ * @cleanup 乱数差替えをfinally復元しFixtureがRootを回収する。
+ * @boundary 同Lock現在認可とexact対象。
+ */
+test("通常鍵変更の非管理者・対象差・改訂差は生成と保存0", (t) => {
+  for (const role of ["developer", "manager", "administrator"] as const) {
+    const f = fixture(t);
+    const actor = createCredentialMaterial();
+    const user = f.state.users[0];
+    assert.ok(user);
+    user.role = role;
+    f.state.credentials.push({
+      credentialId: actor.credentialId,
+      userId: user.userId,
+      tokenVersion: 1,
+      tokenSalt: actor.tokenSalt,
+      tokenVerifier: actor.tokenVerifier,
+      revoked: false,
+      operationId: "00000000-0000-4000-8000-000000000007",
+      presentation: "confirmed",
+    });
+    const current = path.join(f.directory, "access-management.json");
+    fs.writeFileSync(current, bytes(f.state));
+    const before = fs.readFileSync(current);
+    const random = crypto.randomBytes;
+    let calls = 0;
+    crypto.randomBytes = (() => {
+      calls++;
+      throw new Error("unexpected_generation");
+    }) as typeof crypto.randomBytes;
+    try {
+      const target =
+        role === "administrator"
+          ? "00000000-0000-4000-8000-000000000999"
+          : user.userId;
+      assert.equal(
+        issueCredential(
+          f.root,
+          actor.token,
+          1,
+          "00000000-0000-4000-8000-000000000008",
+          target,
+        ).status,
+        "unavailable",
+      );
+      assert.equal(
+        revokeCredential(
+          f.root,
+          actor.token,
+          1,
+          "00000000-0000-4000-8000-000000000009",
+          target,
+          actor.credentialId,
+        ).status,
+        "unavailable",
+      );
+      assert.equal(
+        issueCredential(
+          f.root,
+          actor.token,
+          2,
+          "00000000-0000-4000-8000-000000000010",
+          user.userId,
+        ).status,
+        "unavailable",
+      );
+      assert.equal(calls, 0);
+    } finally {
+      crypto.randomBytes = random;
+    }
+    assert.deepEqual(fs.readFileSync(current), before);
+    assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
+  }
+});
+
+/**
+ * 発行の保存故障で短命鍵を返さない。
+ * @responsibility 保存済み事実と未確認出版・清掃不明を分離する。
+ * @trace RFD-IT-017
+ * @precondition 実Hostと分離した管理前状態。
+ * @stimulus current rename・読戻し・pending削除・Lock削除を故障させる。
+ * @observation 結果Secret不存在・出版観測・実current・再要求生成件数。
+ * @oracle 故障結果token0、nextが保存済みなら保持、同元発行再生成0。
+ * @cleanup 差替えをfinally復元してFixtureがRootを回収する。
+ * @boundary Node Filesystemの実保存と故障後の公開内部結果。
+ */
+test("通常鍵発行の保存・読戻し・清掃故障はSecretを返さない", (t) => {
+  for (const mode of ["rename", "read_back", "cleanup", "lock"] as const) {
+    const f = managementFixture(t);
+    const current = path.join(f.directory, "access-management.json");
+    const userId = f.state.users[0]?.userId;
+    assert.ok(userId);
+    const operationId = "00000000-0000-4000-8000-000000000090";
+    const rename = fs.renameSync;
+    const open = fs.openSync;
+    const remove = fs.rmSync;
+    let published = false;
+    fs.renameSync = (source, destination) => {
+      if (String(destination) === current && mode === "rename")
+        throw new Error("injected_rename");
+      rename(source, destination);
+      if (String(destination) === current) published = true;
+    };
+    fs.openSync = (file, flags, permissions) => {
+      if (mode === "read_back" && published && String(file) === current)
+        throw Object.assign(new Error("injected_read_back"), {
+          code: "EACCES",
+        });
+      return open(file, flags, permissions);
+    };
+    fs.rmSync = (target, options) => {
+      if (
+        (mode === "cleanup" &&
+          String(target) ===
+            path.join(f.directory, "access-management.pending.json")) ||
+        (mode === "lock" &&
+          String(target) === path.join(f.directory, "access-management.lock"))
+      )
+        throw new Error("injected_cleanup");
+      return remove(target, options);
+    };
+    let result: ReturnType<typeof issueCredential>;
+    try {
+      result = issueCredential(
+        f.root,
+        f.tokens.administrator,
+        1,
+        operationId,
+        userId,
+      );
+    } finally {
+      fs.renameSync = rename;
+      fs.openSync = open;
+      fs.rmSync = remove;
+    }
+    assert.equal(result.status, "unavailable");
+    assert.equal(Object.hasOwn(result, "token"), false);
+    if (
+      result.status === "unavailable" &&
+      result.reason === "credential_management_unavailable"
+    ) {
+      assert.equal(
+        result.publication,
+        mode === "rename" || mode === "read_back" ? "unconfirmed" : "confirmed",
+      );
+      assert.equal(result.cleanupConfirmed, false);
+    } else assert.fail("故障の保存観測が欠落した");
+    const observed = JSON.parse(
+      fs.readFileSync(current, "utf8"),
+    ) as AccessManagementState;
+    assert.equal(observed.revision, mode === "rename" ? 1 : 2);
+    assert.deepEqual(observed.credentials.slice(0, 3), f.state.credentials);
+    const before = fs.readFileSync(current);
+    const random = crypto.randomBytes;
+    let generated = 0;
+    crypto.randomBytes = (() => {
+      generated++;
+      throw new Error("unexpected_regeneration");
+    }) as typeof crypto.randomBytes;
+    try {
+      const retried = issueCredential(
+        f.root,
+        f.tokens.administrator,
+        observed.revision,
+        operationId,
+        userId,
+      );
+      assert.equal(retried.status, "unavailable");
+      assert.equal(Object.hasOwn(retried, "token"), false);
+      assert.equal(generated, 0);
+    } finally {
+      crypto.randomBytes = random;
+    }
+    assert.deepEqual(fs.readFileSync(current), before);
+  }
+});
+
+/**
+ * 未解決交換と先行材料がある通常鍵変更を止める。
+ * @responsibility 未解決の固定資格集合を別操作から変えない。
+ * @trace RFD-IT-017
+ * @trace RFD-IT-018
+ * @precondition 管理資格と保存済みprepared交換、または不正pending。
+ * @stimulus 同対象への通常発行・独立失効。
+ * @observation current byte、生成乱数件数、交換／pendingの保持。
+ * @oracle 新発行・新失効・再出版0。元材料を清掃成功にしない。
+ * @cleanup 乱数差替え復元とFixture回収。
+ * @boundary 既存交換の保全と通常保存Gate。
+ */
+test("通常鍵変更は未解決交換と先行材料を保持する", (t) => {
+  for (const mode of ["exchange", "pending"] as const) {
+    const f = managementFixture(t);
+    const userId = f.state.users[0]?.userId;
+    const credentialId = f.state.credentials[0]?.credentialId;
+    assert.ok(userId && credentialId);
+    if (mode === "exchange") {
+      const operationId = "00000000-0000-4000-8000-000000000091";
+      f.state.unresolvedKeyExchanges.push({
+        recoveryId: `access-management.key-exchange.${operationId}`,
+        operationId,
+        entry: "workbench",
+        scope: "all",
+        recipientUserId: userId,
+        oldCredentialIds: f.state.credentials.map((item) => item.credentialId),
+        stage: "prepared",
+      });
+      assert.equal(parseAccessManagementState(bytes(f.state)).status, "parsed");
+    } else
+      fs.writeFileSync(
+        path.join(f.directory, "access-management.pending.json"),
+        "{",
+      );
+    const current = path.join(f.directory, "access-management.json");
+    fs.writeFileSync(current, bytes(f.state));
+    const before = fs.readFileSync(current);
+    const random = crypto.randomBytes;
+    let generated = 0;
+    crypto.randomBytes = (() => {
+      generated++;
+      throw new Error("unexpected_generation");
+    }) as typeof crypto.randomBytes;
+    try {
+      assert.equal(
+        issueCredential(
+          f.root,
+          f.tokens.administrator,
+          1,
+          "00000000-0000-4000-8000-000000000092",
+          userId,
+        ).status,
+        "unavailable",
+      );
+      assert.equal(
+        revokeCredential(
+          f.root,
+          f.tokens.administrator,
+          1,
+          "00000000-0000-4000-8000-000000000093",
+          userId,
+          credentialId,
+        ).status,
+        "unavailable",
+      );
+      assert.equal(generated, 0);
+    } finally {
+      crypto.randomBytes = random;
+    }
+    assert.deepEqual(fs.readFileSync(current), before);
+    if (mode === "pending")
+      assert.equal(
+        fs.readFileSync(
+          path.join(f.directory, "access-management.pending.json"),
+          "utf8",
+        ),
+        "{",
+      );
+  }
+});
+
+/**
+ * 管理者自身の最後の資格も指定どおり失効する。
+ * @responsibility 未採用の最後の管理資格保持guardを追加しない。
+ * @trace RFD-IT-018
+ * @precondition 管理者の有効資格が一つだけの模擬状態。
+ * @stimulus 自身の資格失効と同鍵の次要求認証、遅延提示通知。
+ * @observation 失効出版、生成0、次認証拒否、提示更新0。
+ * @oracle 指定失効を完了し、再有効化・新発行・追加改訂0。
+ * @cleanup Fixture回収と差替え復元。
+ * @boundary 独立失効と次要求・提示通知のfresh照合。
+ */
+test("通常鍵失効は最後の管理資格も失効し遅延提示で復活しない", (t) => {
+  const f = managementFixture(t);
+  const target = f.state.credentials[0];
+  assert.ok(target);
+  target.presentation = "unconfirmed";
+  const current = path.join(f.directory, "access-management.json");
+  fs.writeFileSync(current, bytes(f.state));
+  const result = revokeCredential(
+    f.root,
+    f.tokens.administrator,
+    1,
+    "00000000-0000-4000-8000-000000000090",
+    target.userId,
+    target.credentialId,
+  );
+  assert.equal(result.status, "completed");
+  assert.equal(Object.hasOwn(result, "token"), false);
+  assert.equal(
+    authenticateNormalConnection(f.root, f.tokens.administrator).status,
+    "unavailable",
+  );
+  const before = fs.readFileSync(current);
+  const delayed = recordCredentialPresentation(f.root, {
+    credentialId: target.credentialId,
+    issuanceOperationId: target.operationId,
+    expectedRevision: 2,
+    target: "confirmed",
+    presentationOperationId: "00000000-0000-4000-8000-000000000001",
+  });
+  assert.equal(delayed.status, "unavailable");
+  assert.deepEqual(fs.readFileSync(current), before);
+});
+
+/**
+ * 発行の容量予約と生成故障を実保存前に反証する。
+ * @responsibility 予約前生成0と生成失敗後の保存0を分ける。
+ * @trace RFD-IT-017
+ * @precondition 自己生成Rootと管理資格。容量例は有効な最大近傍Snapshot。
+ * @stimulus 容量超過、乱数例外、生成KDF例外、資格ID衝突。
+ * @observation randomBytes回数、固定失敗、current byteと材料不存在。
+ * @oracle 容量時生成0、その他は再試行0・Secret返却0・current不変。
+ * @cleanup crypto差替えをfinally復元しFixture回収。
+ * @boundary Node crypto生成と既存保存容量Gate。
+ */
+test("通常鍵発行は容量前生成0と生成故障後保存0を保持する", (t) => {
+  for (const mode of ["capacity", "random", "kdf", "collision"] as const) {
+    const f = managementFixture(t);
+    const userId = f.state.users[0]?.userId;
+    assert.ok(userId);
+    if (mode === "capacity") {
+      const repository = {
+        repositoryId: "capacity-fixture",
+        repositoryRoot: `${path.parse(f.directory).root.replaceAll("\\", "/")}x`,
+        bindingId: `binding-${"0".repeat(32)}`,
+      };
+      f.state.registeredRepositories.push(repository);
+      repository.repositoryRoot += "x".repeat(
+        16_777_216 - 64 - bytes(f.state).byteLength,
+      );
+      const normalized = path
+        .resolve(repository.repositoryRoot)
+        .replace(/[\\/]+$/u, "");
+      repository.bindingId = `binding-${createHash("sha256")
+        .update(
+          `${repository.repositoryId}\n${process.platform === "win32" ? normalized.toLowerCase() : normalized}`,
+          "utf8",
+        )
+        .digest("hex")
+        .slice(0, 32)}`;
+      assert.equal(parseAccessManagementState(bytes(f.state)).status, "parsed");
+    }
+    const current = path.join(f.directory, "access-management.json");
+    fs.writeFileSync(current, bytes(f.state));
+    const before = fs.readFileSync(current);
+    const random = crypto.randomBytes;
+    const scrypt = crypto.scryptSync;
+    let generated = 0;
+    let kdfCalls = 0;
+    crypto.randomBytes = ((size: number) => {
+      generated++;
+      if (mode === "random" || mode === "capacity")
+        throw new Error("injected_random");
+      if (mode === "collision" && size === 12)
+        return Buffer.from(f.state.credentials[0]?.credentialId ?? "", "hex");
+      return random(size);
+    }) as typeof crypto.randomBytes;
+    crypto.scryptSync = ((password, salt, length, options) => {
+      kdfCalls++;
+      if (mode === "kdf" && kdfCalls > 1)
+        throw new Error("injected_generation_kdf");
+      return scrypt(password, salt, length, options);
+    }) as typeof crypto.scryptSync;
+    try {
+      const result = issueCredential(
+        f.root,
+        f.tokens.administrator,
+        1,
+        "00000000-0000-4000-8000-000000000090",
+        userId,
+      );
+      assert.equal(result.status, "unavailable");
+      assert.equal(Object.hasOwn(result, "token"), false);
+      if (mode === "capacity") assert.equal(generated, 0);
+      else assert.ok(generated > 0 && generated <= 3);
+    } finally {
+      crypto.randomBytes = random;
+      crypto.scryptSync = scrypt;
+    }
+    assert.deepEqual(fs.readFileSync(current), before);
+    assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
+  }
+});
+
+/**
+ * 二Processの鍵変更を同じ期待改訂で競合させる。
+ * @responsibility 既存Lockだけで一採用と対象外資格保持を確認する。
+ * @trace RFD-IT-017
+ * @trace RFD-IT-018
+ * @precondition 試験専用Bearerと自己生成Root、通常資格三件。
+ * @stimulus 発行／発行、発行／失効、失効／失効を同時開始する。
+ * @observation 子Process終了、閉じた非秘密結果、採用改訂・資格集合。
+ * @oracle 一採用だけ、敗者の生成0・追加失効0、対象外不変。
+ * @cleanup 全子ProcessをcloseまでjoinしてFixture回収。
+ * @boundary 実Node Processと同じFilesystem Lock。
+ */
+test("通常鍵変更の二Process競合は一採用だけに閉じる", async (t) => {
+  for (const operations of [
+    ["issue", "issue"],
+    ["issue", "revoke"],
+    ["revoke", "revoke"],
+  ] as const) {
+    const f = managementFixture(t);
+    const userId = f.state.users[1]?.userId;
+    const credentialId = f.state.credentials[1]?.credentialId;
+    assert.ok(userId && credentialId);
+    const worker = path.resolve(
+      import.meta.dirname,
+      "../../fixtures/credential-management-worker.ts",
+    );
+    const joined = await Promise.allSettled(
+      operations.map(
+        (operation, index) =>
+          new Promise<{ status: string; generated: number }>(
+            (resolve, reject) => {
+              const child = spawn(process.execPath, [worker], {
+                timeout: 10000,
+              });
+              let output = "";
+              let childFailed = false;
+              let inputFailed = false;
+              child.stdout.on("data", (chunk) => {
+                output += String(chunk);
+              });
+              child.stderr.resume();
+              child.on("error", () => {
+                childFailed = true;
+              });
+              child.stdin.on("error", () => {
+                inputFailed = true;
+              });
+              child.stdin.end(
+                JSON.stringify({
+                  directory: f.directory,
+                  token: f.tokens.administrator,
+                  operationId: `00000000-0000-4000-8000-00000000009${index}`,
+                  userId,
+                  credentialId,
+                  operation,
+                }),
+              );
+              child.on("close", (code, signal) => {
+                if (code !== 0 || childFailed || inputFailed)
+                  reject(new Error(`child_failed:${code}:${signal}`));
+                else {
+                  try {
+                    resolve(JSON.parse(output));
+                  } catch {
+                    reject(new Error("child_result_invalid"));
+                  }
+                }
+              });
+            },
+          ),
+      ),
+    );
+    const results = joined.map((result) => {
+      assert.equal(
+        result.status,
+        "fulfilled",
+        result.status === "rejected" && result.reason instanceof Error
+          ? result.reason.message
+          : "child_join",
+      );
+      if (result.status !== "fulfilled") throw new Error("child_failed");
+      return result.value;
+    });
+    assert.equal(
+      results.filter((result) => result.status === "completed").length,
+      1,
+      JSON.stringify(results),
+    );
+    for (const result of results)
+      if (result.status !== "completed") assert.equal(result.generated, 0);
+    const saved = JSON.parse(
+      fs.readFileSync(path.join(f.directory, "access-management.json"), "utf8"),
+    ) as AccessManagementState;
+    assert.equal(saved.revision, 2);
+    assert.deepEqual(saved.credentials[0], f.state.credentials[0]);
+    assert.deepEqual(saved.credentials[2], f.state.credentials[2]);
+    assert.equal(
+      saved.credentials.length + Number(saved.credentials[1]?.revoked),
+      4,
+    );
+    assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
+  }
+});
+
+/**
+ * 初回履歴Identityを通常鍵要求へ再利用しない。
+ * @responsibility 歴史的資格record不在でも安定した元試行を保護する。
+ * @trace RFD-IT-017
+ * @trace RFD-IT-018
+ * @precondition 初回completed・歴史的初資格record不在・別管理資格あり。
+ * @stimulus 初回attemptをissue／revokeの受付IDへ渡す。
+ * @observation 生成乱数・認証／生成KDF件数、固定拒否、state byteと材料。
+ * @oracle 両拒否、乱数／KDF0、current不変・新材料0。
+ * @cleanup crypto差替え復元とFixture回収。
+ * @boundary 安定した初期化Identityと通常受付Identity。
+ */
+test("通常鍵変更は歴史的初回attemptの再利用を認証前に拒否する", (t) => {
+  const f = managementFixture(t);
+  const initial = f.state.initialization;
+  assert.equal(initial.stage, "completed");
+  if (initial.stage !== "completed") return;
+  assert.equal(
+    f.state.credentials.some(
+      (item) => item.credentialId === initial.initialCredentialId,
+    ),
+    false,
+  );
+  const userId = f.state.users[0]?.userId;
+  const credentialId = f.state.credentials[0]?.credentialId;
+  assert.ok(userId && credentialId);
+  const current = path.join(f.directory, "access-management.json");
+  const before = fs.readFileSync(current);
+  const random = crypto.randomBytes;
+  const scrypt = crypto.scryptSync;
+  let generated = 0;
+  let kdf = 0;
+  crypto.randomBytes = (() => {
+    generated++;
+    throw new Error("unexpected_random");
+  }) as typeof crypto.randomBytes;
+  crypto.scryptSync = (() => {
+    kdf++;
+    throw new Error("unexpected_kdf");
+  }) as typeof crypto.scryptSync;
+  try {
+    assert.deepEqual(
+      issueCredential(
+        f.root,
+        f.tokens.administrator,
+        1,
+        initial.attemptId,
+        userId,
+      ),
+      { status: "unavailable", reason: "credential_management_rejected" },
+    );
+    assert.deepEqual(
+      revokeCredential(
+        f.root,
+        f.tokens.administrator,
+        1,
+        initial.attemptId,
+        userId,
+        credentialId,
+      ),
+      { status: "unavailable", reason: "credential_management_rejected" },
+    );
+    assert.equal(generated, 0);
+    assert.equal(kdf, 0);
+  } finally {
+    crypto.randomBytes = random;
+    crypto.scryptSync = scrypt;
+  }
+  assert.deepEqual(fs.readFileSync(current), before);
+  assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
+});
+
+/**
+ * 公開結果型の操作別Secret境界を固定する。
+ * @responsibility 型検査の拒否と実行時の資格処置を混同しない。
+ * @trace RFD-IT-017
+ * @trace RFD-IT-018
+ * @precondition 型検査を含む正式Package試験入口。
+ * @stimulus 正しい二結果と、発行の鍵欠落／失効の鍵混入を型へ代入する。
+ * @observation 型検査の期待エラーとメモリ値のown-token。
+ * @oracle issueはtoken必須、revokeはtoken禁止。保存／提示は本Caseでは検証しない。
+ * @cleanup N/A: メモリ値だけ。
+ * @boundary Package公開Typeの補助契約。IT全体成立ではない。
+ */
+test("通常鍵結果型は操作別のSecret必須と禁止を区別する", () => {
+  const common = {
+    status: "completed" as const,
+    operationId: "00000000-0000-4000-8000-000000000090",
+    expectedRevision: 1,
+    revision: 2,
+    userId: "00000000-0000-4000-8000-000000000003",
+    credentialId: "f".repeat(24),
+    publication: "confirmed" as const,
+    cleanupConfirmed: true as const,
+  };
+  const issued: CredentialManagementResult = {
+    ...common,
+    operation: "issueCredential",
+    token: "synthetic-type-value",
+  };
+  const revoked: CredentialManagementResult = {
+    ...common,
+    operation: "revokeCredential",
+  };
+  // @ts-expect-error 発行成功には短命tokenが必須。
+  const missing: CredentialManagementResult = {
+    ...common,
+    operation: "issueCredential",
+  };
+  const excessive: CredentialManagementResult = {
+    ...common,
+    operation: "revokeCredential",
+    // @ts-expect-error 独立失効の結果へtokenを混入できない。
+    token: "synthetic-type-value",
+  };
+  assert.equal(Object.hasOwn(issued, "token"), true);
+  assert.equal(Object.hasOwn(revoked, "token"), false);
+  assert.equal(Object.hasOwn(missing, "token"), false);
+  assert.equal(Object.hasOwn(excessive, "token"), true);
 });

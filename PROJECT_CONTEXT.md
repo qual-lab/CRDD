@@ -9,7 +9,7 @@ Repository Role: `crdd-standard`
 
 ## 1. 今どうなっているか
 
-現在の局所結果：Host保存先準備・旧入力観測・正式初回CLIを既存の一度提示へ接続した。局所9件と競合1件、修正後AM全96件／MCP全75件、各静的3軸成功、固定14Pathの限定独立再レビュー新規指摘0。未作成base・worktree marker・正規化可能なPathを是正し、対象外作成・旧情報採用・共有stream終了を行わない。最初の全回帰で既存競合1件が失敗し再現しなかったため、非秘密診断を追加した。間欠原因の解消は未証明である。実Host TTY／Linux Filesystem・通常鍵管理／Host交換・Workbench本番接続・旧REST撤去・正式191項目・AM全体完成は未成立。[範囲と残件](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#host保存先準備と正式初回入口--2026-10-13)を参照する。以下は先行段階の局所結果であり、本番全体の完成へ流用しない。
+現在の局所結果：通常鍵発行・独立失効を既存保存Ownerへ接続した。局所9件、修正後AM全105件／MCP全75件・各静的3軸成功、固定11Pathの限定独立再レビュー残指摘0。容量前生成0、保存故障のSecret返却0、exact一件失効、対象外保持、遅延提示更新0、二Processの三競合と一採用を確認した。初回履歴ID再利用と操作別結果型の漏れは是正済み。専用非秘密観測Reader・交換・Workbench本番提示／接続・実Host TTY／Linux Filesystem・旧REST撤去・正式191項目・AM全体は未成立。前段の間欠競合原因未解消は引き続き保持する。[範囲と残件](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#通常鍵管理の保存接続の着手前確認--2026-10-13)を参照する。以下は先行段階の局所結果であり、本番全体の完成へ流用しない。
 
 先行したSchema切替：管理状態Schema v2の型・Parser・初回資格WriterとAM／MCP試験fixtureを切り替えた。対象8Pathの限定独立レビューPass・全重大度の残指摘0、当時のAM64／MCP68 Case・各静的3軸成功。初回中のHost失効途中を保持できても認証は拒否し、元資格と最新確認対象、完了後の歴史IDと後続交換を区別する。その後の保存側とMCP局所候補で提示保存・用途判定・初回確認保存・完全discover検査・応答前取消再確認を接続した。鍵の実TTY／HTTP提示Consumer、実Hostの旧v1状態移行、公開Launcher／Workbench、正式191項目・AM全体完成は未成立。[先行対象](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#管理状態schema-v2の実装候補--2026-10-12)を参照する。全体Checkerの既存3057 errorsは未解消であり、全体Readyとはしない。
 

@@ -227,6 +227,12 @@ RFD-IT-021ではpending削除・不存在確認後から応答前のProcess喪�
 
 [REQ-000041の人間判断](../../../01_Discovery/Definitions/REQ-000041/requirement.md#windows固有の追加保護の対象外化--2026-10-12)により、AM専用Windows ACL検査・修復・Native保護接続は受入保証から外す。前節の私有Native接続確認を追加の必須試験にしない。対象外をACL安全性Passや実行Evidenceへ変換しない。任意Path・link・Root差の拒否、生Secret非保存、salt／Verifierの公開DTO・log・Evidence流出0、通常認可・破損拒否は既存義務として維持する。既存190項目・Not Runは不変更。他Packageの保護試験は対象外化しない。
 
+## 通常発行・独立失効の保存接続の反証 — 2026-10-13
+
+RFD-IT-017／018では、現在administrator・初回completed・期待改訂・exact対象・未解決交換0と、材料処置・容量予約前の乱数／KDF／新発行／新失効0を直接確認する。発行では既存資格の完全保持、一資格だけの追加、元発行IDと資格IDの分離、not_attempted提示状態、保存・読戻し・清掃・Lock故障時のSecret返却0と自動再発行0を照合する。短命Secret返却だけでWorkbenchの一度提示成立とはしない。
+
+独立失効では、exact一件だけのrevoked変更、他資格・元発行ID・presentation・User／Role／登録の保持、次要求認証拒否、遅延提示通知の更新0を観測する。既失効の同request ID／同対象、同ID／別対象、別ID／同対象、失効出版後の応答喪失を反証し、追加改訂0・元要求completed推定0・現在失効保持を要求する。現在失効の認可済み読取りは成功Receiptではない。新資格・Secret・交換Recovery・履歴の追加0を照合する。これは既存Local Itemの具体化であり、試験実装・正式結果・Workbench本番接続の成立は未確認のままとする。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した

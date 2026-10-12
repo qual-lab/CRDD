@@ -421,6 +421,16 @@ Readerは既存Root／Lock／current／pending／replaceを使い、完全状態
 
 最初の全回帰では既存の初回User競合が95／96（新規created成功結果0）で失敗した。同候補局所6回と単独全96件では再現しなかったが、原因解消とは扱わない。試験OracleとRuntime Lockは変えず、失敗時だけstatus／reason／publication／cleanupConfirmed／revision／createdとchild終了code／signal／stderr byte数を返す診断を追加した。本文・User情報・Path・Recovery参照・秘密値は診断へ含めない。追加後の局所競合と全回帰は成功した。再発時はこの診断から原因を分類し、成功件数だけで過去失敗を消さない。記録は本要約と再実行可能なnpm testへ集約し、実行別Evidence書庫は作らない。正式191項目Not Run、通常鍵管理／Host交換・Workbench本番接続・旧REST撤去・AM全体未完成を維持する。
 
+### 通常鍵管理の保存接続の着手前確認 — 2026-10-13
+
+基準90c791c8、開始時clean。初回入口の限定完了後、採用済み通常発行・独立失効を既存保存Ownerへ接続し、指定／全員交換・Host交換・Workbenchの一度提示へ順に閉じる。親のSource／Architecture／BHV／QA照合と読取り専用着手確認により、新しい人間判断は不要。現在administrator・初回completed・exact対象・期待改訂・未解決交換0を同Lockで確認し、pending処置／容量予約前の乱数・KDF・新発行・新失効0を反証する。公開Source・台帳・IT・結果と利用側まで対応する。MCP鍵公開、新Receipt／履歴／Store／Lock、Host通常発行／独立失効、最後の管理資格保持の追加guardは作らない。
+
+着手確認で提案された「同request ID＋既失効から元要求completed再観測」は親が反証し撤回した。現Schemaのtop operationIdは操作種別・対象を持たず、資格自身のoperationIdは元発行Identityである。既失効を再出版せず固定拒否し、認可済みreadで現在事実だけを示す。Canonicalに元失効要求の再入場completed必須はなく、新履歴を増やさない。通常発行の元発行相関とこの独立失効の限界を混同しない。RFD-IT-017／018の局所接続を進めるが、正式191項目とWorkbench実提示の未成立は検証前に解除しない。
+
+通常発行・独立失効の保存候補を接続した。局所9件、修正後AM全105件／MCP全75件と両Packageの書式・型・Warning禁止Lint各3軸が成功、Fail／Cancel／Skip0・各Exit0。Symbol ID重複・登録Path欠落0、自己生成store Root残存0、差分空白確認成功。固定11Pathの限定独立再レビューは全重大度の残指摘0。初期化の歴史的attemptを通常受付IDへ再利用できる漏れと、失効結果へtokenを許す公開型を是正し、認証前拒否・乱数／KDF0・byte不変とoperation判別型のcompile反証を追加した。型反証の期待エラー注釈位置は修正後の正式入口で再確認した。
+
+反証は、三Role／exact対象／改訂拒否、生成前容量予約、乱数・生成KDF・ID衝突、current rename・読戻し・材料清掃・Lock解放故障のSecret返却0、未解決交換／先行材料保持、最後の管理資格の自己失効、遅延提示の更新0、二Processの三競合と一採用である。最初の並行試験はNode v24.19のeval起動構成で失敗したため、通常の試験fixture入口とstdin入力へ変更した。親は全Processをcloseまでjoinし、stdoutはstatus／生成回数／固定理由／出版／清掃の非秘密集合だけ。通常発行の専用非秘密観測Reader、交換4組、Workbench一度提示・本番接続、正式191項目とAM全体完成は未成立のまま維持する。実行別Evidence書庫を増やさず、同候補のnpm testから再実行する。
+
 ### 共有AI Profile管理のRole採用と本番接続 — 2026-10-12
 
 Source候補の局所結果：基準`ec2a2e3e`、Node v24.19.0。AM60／AI Adapter30／旧CROS34／MCP68／Workbench33の計225 Case（追加Workbench33 Caseは旧比較Consumerの回帰）、各書式・型・Warning禁止Lint成功、Fail／Cancel／Skip0、全Exit0。実HTTPと自己生成実Catalog Storeでmanager／administrator四操作・developer非開示・次要求のRole変更／失効、遅延認可・二依存拒否・採用後取消／応答故障の改訂保持を確認した。AM新試験の初回途中Fixture不整合は正規の一User・一Credential・元発行相関へ是正し、局所再試験後にAM全回帰を再実行した。最初の失敗を現在の成功へ混ぜない。Biomeの一時OS1224は同じ対象の再実行で解消した。固定29Pathの限定独立再レビューはPass・全重大度残指摘0。全体Checkerは3057 errors／exit1を維持し、変更29Path抽出はProject Context構造の既存1件のみ。判定に使う三Identity・五見出し・Checklist見出しとcheckboxの17行が基準HEADと順序込み完全一致し、差分起因0を確認した。Repository全体Passとは扱わず、正式191項目Not Runと本番Launcher／Workbench・鍵配送・旧REST撤去・AM全体未完成を維持する。実行別ログ書庫は作らず、各Packageの`npm test`から再生成する。

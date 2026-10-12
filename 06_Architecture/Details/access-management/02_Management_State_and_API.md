@@ -534,6 +534,14 @@ revision2のcanonical `user_stored`へ同元試行で再入場した場合は保
 
 初回資格保存接続前の履歴: 局所試験はRFD-IT-024のUser保存部分に限る。AM全27 Case・静的3軸成功、固定10ファイルの限定独立再レビューPass・全重大度の残指摘0。初回Root準備、旧入力本番観測、鍵発行、配送、認証、本番Host、初回全体の成立を意味しない。
 
+### 通常鍵発行・独立失効の保存接続 — 2026-10-13
+
+純粋な入力・対象・現在認可の判定はcredentialの責務内へ置き、物理保存は既存state/file-storeのLock・current・pending・replace・読戻しを再利用する。通常管理の汎用更新は資格変更を禁止するため転用しない。初回completed・現在administrator・期待改訂・exact既存User／資格結合・未解決交換0を確認してから、既存pending処置と容量予約へ進む。認可・対象・改訂・材料・容量の不成立では乱数／KDF・新発行・新失効0。MCP公開・Host通常発行／独立失効・新Receipt・履歴・Store・Lockは追加しない。
+
+発行はrequest operationIdを資格の元発行Identityとして保存し、Credential IDとは分離する。固定長の増分を容量予約後に一生成し、presentationはnot_attempted、既存資格は完全保持する。保存・読戻し・材料清掃・Lock解放を確認した新規出版だけが短命Secretを内部提示Ownerへ返す。再入場・出版後故障でSecretを復元・再生成せず、元発行Identityに結合した非秘密の現在事実を再観測する。これはWorkbenchでの実提示成立ではなく、提示前のunconfirmed保存と確認後のconfirmed保存は既存提示Ownerが別改訂で行う。
+
+独立失効は未失効のexact Credential IDとuserIdだけを対象に、revokedと状態改訂・受付operationIdだけを更新する。資格自身の元発行Identity・presentation、他資格、User／Role／登録／初回歴史を保持し、自己資格や最後の有効administrator資格の失効へ追加禁止条件を設けない。既失効は同request IDでも固定拒否し、追加出版0。top operationIdには操作種別・対象がないため、ID一致と現在失効だけから元失効要求のcompletedを推定しない。認可済み読取りで示す現在失効は元要求の成功Receiptではない。失効後の遅延提示通知は既存fresh照合で更新0、有効化0とする。通常発行・独立失効は交換Recoveryを作らない。
+
 ## 5. 鍵交換の段階と終了
 
 ### 純粋Schema検査への具体化 — 2026-10-12

@@ -5,6 +5,7 @@
  * @trace ARCH-000013
  */
 import fs from "node:fs";
+import { prepareCredentialChange } from "../credential/management.ts";
 import {
   readCredentialPresentationUpdate,
   selectCredentialPresentationTarget,
@@ -2760,4 +2761,268 @@ export function recordCredentialPresentation(
       };
     }
   });
+}
+
+/**
+ * 通常鍵変更の内部結果を表す。
+ * @responsibility 認可前拒否と今回の保存事実・一度の短命鍵を分離する。
+ * @trace ARCH-000013
+ * @shape completedは受付・対象・改訂、issueだけtoken。失敗は非秘密の出版観測。
+ * @invariant 生鍵は保存・読戻し・材料清掃・Lock解放を確認した新規発行だけ。
+ * @boundary 同Processの信頼済みWorkbench提示Owner。MCP結果ではない。
+ * @security completedのtokenをlog・Evidence・通常readへ複製しない。
+ * @compatibility 最新Schemaの通常発行・独立失効。交換・Host入口は別。
+ */
+export type CredentialManagementResult =
+  | (Readonly<{
+      status: "completed";
+      operationId: string;
+      expectedRevision: number;
+      revision: number;
+      userId: string;
+      credentialId: string;
+      publication: "confirmed";
+      cleanupConfirmed: true;
+    }> &
+      (
+        | Readonly<{ operation: "issueCredential"; token: string }>
+        | Readonly<{ operation: "revokeCredential"; token?: never }>
+      ))
+  | Readonly<{
+      status: "unavailable";
+      reason: "credential_management_rejected";
+    }>
+  | Readonly<{
+      status: "unavailable";
+      reason: "credential_management_unavailable";
+      primaryFailure: string;
+      operationId: string;
+      expectedRevision: number;
+      observedRevision: number | null;
+      publication: "not_attempted" | "unconfirmed" | "confirmed";
+      cleanupConfirmed: boolean;
+    }>;
+
+/**
+ * 通常鍵変更の現在判定と物理保存を同じLockで実行する。
+ * @responsibility 容量予約前の生成を禁止し、保存後の不明でSecretを返さない。
+ * @trace ARCH-000013
+ * @input 検証済みRoot・Bearer・期待改訂・受付UUID・固定操作・exact対象。
+ * @returns 閉じた管理結果。新規成功発行だけ短命token。
+ * @precondition 同Processの内部提示Ownerが呼ぶ。
+ * @postcondition 対象外の資格・User・Role・登録・初回・交換状態を保持する。
+ * @effect 既存Lockとpending／replace／current。issueだけ容量確認後に鍵生成。
+ * @failure 認可前は固定拒否、認可後は主失敗と今回出版事実を保持する。
+ * @invariant 先行出版を今回成功へ帰属せず、既失効を再出版しない。
+ * @boundary 鍵変更の意味判断と既存保存Adapter。
+ * @security Secretを失敗結果・例外本文へ含めず、内部Lock回復参照も公開しない。
+ * @concurrency 既存Lock内で現在認可・対象・改訂・容量・保存を直列化する。
+ */
+function executeCredentialManagementMutation(
+  root: FilesystemStoreRoot,
+  token: string,
+  expectedRevision: number,
+  operationId: string,
+  operation: "issueCredential" | "revokeCredential",
+  userId: unknown,
+  credentialId?: unknown,
+): CredentialManagementResult {
+  if (
+    typeof token !== "string" ||
+    !readCredentialId(token) ||
+    !Number.isSafeInteger(expectedRevision) ||
+    expectedRevision < 1 ||
+    typeof operationId !== "string" ||
+    !ATTEMPT_UUID.test(operationId) ||
+    typeof userId !== "string" ||
+    !ATTEMPT_UUID.test(userId) ||
+    (operation === "revokeCredential" &&
+      (typeof credentialId !== "string" ||
+        !/^[0-9a-f]{24}$/.test(credentialId)))
+  )
+    return { status: "unavailable", reason: "credential_management_rejected" };
+  let admitted = false;
+  let issuedToken: string | undefined;
+  let targetCredentialId: string | null = null;
+  let publication: "not_attempted" | "unconfirmed" | "confirmed" =
+    "not_attempted";
+  const result = locked(root, () => {
+    let revision: number | null = null;
+    let stage = "read";
+    let cleanupConfirmed = false;
+    try {
+      const current = readCurrent(root);
+      revision = current.state.revision;
+      stage = "authorization";
+      const prepared = prepareCredentialChange(
+        token,
+        current.state,
+        expectedRevision,
+        operationId,
+        operation,
+        userId,
+        credentialId,
+      );
+      if (!prepared)
+        return {
+          status: "unavailable" as const,
+          reason: "credential_management_rejected",
+          publication: "not_attempted" as const,
+          revision,
+          cleanupConfirmed: true,
+        };
+      admitted = true;
+      stage = "pending";
+      const settled = settlePending(root, current, () => {});
+      cleanupConfirmed = true;
+      if (settled !== "none")
+        return {
+          status: "unavailable" as const,
+          reason: "state_store_previous_pending_settled",
+          publication: "not_attempted" as const,
+          revision,
+          cleanupConfirmed: true,
+        };
+      stage = "capacity";
+      const reservation = preparePublicationBytes(
+        current,
+        prepared.next,
+        "credential",
+      );
+      if (
+        reservation.nextBytes.byteLength > CURRENT_LIMIT ||
+        reservation.pendingBytes.byteLength > PENDING_LIMIT
+      )
+        throw new Error("credential_capacity");
+      const target = prepared.next.credentials[prepared.credentialIndex];
+      if (!target) throw new Error("credential_target_invalid");
+      if (operation === "issueCredential") {
+        stage = "generation";
+        const material = createCredentialMaterial();
+        if (
+          current.state.credentials.some(
+            (item) => item.credentialId === material.credentialId,
+          )
+        )
+          throw new Error("credential_identity_collision");
+        target.credentialId = material.credentialId;
+        target.tokenSalt = material.tokenSalt;
+        target.tokenVerifier = material.tokenVerifier;
+        issuedToken = material.token;
+      }
+      targetCredentialId = target.credentialId;
+      stage = "candidate";
+      const parsed = parseAccessManagementState(serialize(prepared.next));
+      if (parsed.status !== "parsed")
+        throw new Error("credential_candidate_invalid");
+      stage = "publication";
+      const published = publishState(root, current, parsed.state, "credential");
+      publication = published.publication;
+      return published;
+    } catch {
+      return {
+        status: "unavailable" as const,
+        reason: `state_store_credential_${stage}_failed`,
+        publication,
+        revision,
+        cleanupConfirmed,
+      };
+    }
+  });
+  if (!admitted)
+    return { status: "unavailable", reason: "credential_management_rejected" };
+  if (result.status === "completed" && targetCredentialId !== null) {
+    const completed = {
+      status: "completed" as const,
+      operationId,
+      expectedRevision,
+      revision: result.value.revision,
+      userId,
+      credentialId: targetCredentialId,
+      publication: "confirmed" as const,
+      cleanupConfirmed: true as const,
+    };
+    if (operation === "issueCredential" && typeof issuedToken === "string")
+      return { ...completed, operation, token: issuedToken };
+    if (operation === "revokeCredential") return { ...completed, operation };
+  }
+  return {
+    status: "unavailable",
+    reason: "credential_management_unavailable",
+    primaryFailure:
+      result.status === "unavailable"
+        ? result.reason
+        : "state_store_credential_result_invalid",
+    operationId,
+    expectedRevision,
+    observedRevision: result.revision,
+    publication: result.publication,
+    cleanupConfirmed: result.cleanupConfirmed,
+  };
+}
+
+/**
+ * 既存Userへ通常の鍵を一回発行して保存する。
+ * @responsibility 現在administratorの要求だけを一資格追加へ接続する。
+ * @trace ARCH-000013
+ * @input Root・Bearer・期待改訂・受付UUID・既存userId。
+ * @returns 新規成功保存時だけ短命鍵と非秘密相関、または未完了。
+ * @precondition 通常Workbenchの同Process提示Ownerだけが呼ぶ。
+ * @postcondition 既存資格失効0、元受付Identityを資格へ保存する。
+ * @effect 容量予約後の鍵生成と既存状態出版。
+ * @failure 生成・保存・清掃・解放不明ではSecret返却0。
+ * @invariant 元発行の再要求からSecretを再取得・再発行しない。
+ * @boundary 内部保存APIと一度提示Owner。
+ * @security tokenをMCP・log・履歴へ公開しない。
+ * @concurrency 既存同Lockで現在認可する。
+ */
+export function issueCredential(
+  root: FilesystemStoreRoot,
+  token: string,
+  expectedRevision: number,
+  operationId: string,
+  userId: unknown,
+): CredentialManagementResult {
+  return executeCredentialManagementMutation(
+    root,
+    token,
+    expectedRevision,
+    operationId,
+    "issueCredential",
+    userId,
+  );
+}
+
+/**
+ * exact資格とUser結合だけを独立失効する。
+ * @responsibility 新発行・交換・対象外失効を行わない。
+ * @trace ARCH-000013
+ * @input Root・Bearer・期待改訂・受付UUID・userId・credentialId。
+ * @returns 今回出版の非秘密結果、または固定拒否／未完了。
+ * @precondition 通常Workbenchの現在administrator。
+ * @postcondition 元発行ID・提示状態・対象外情報を保持する。
+ * @effect exact資格のrevokedと状態改訂だけを保存する。
+ * @failure 既失効・不一致は出版0。応答喪失をrollbackへ戻さない。
+ * @invariant 同request IDと既失効だけから元要求completedを推定しない。
+ * @boundary 内部通常失効API。Host／MCPへ公開しない。
+ * @security Secret・新資格・交換Recovery 0。
+ * @concurrency 既存Lock下で現在認可とexact対象を照合する。
+ */
+export function revokeCredential(
+  root: FilesystemStoreRoot,
+  token: string,
+  expectedRevision: number,
+  operationId: string,
+  userId: unknown,
+  credentialId: unknown,
+): CredentialManagementResult {
+  return executeCredentialManagementMutation(
+    root,
+    token,
+    expectedRevision,
+    operationId,
+    "revokeCredential",
+    userId,
+    credentialId,
+  );
 }
