@@ -46,6 +46,7 @@ test("三Roleと全11認可要求種別の固定分担", () => {
     "readAccessManagementState",
     "readCredentialId",
     "readCurrentAccess",
+    "readHostInitializationState",
     "readManagementState",
     "recordCredentialPresentation",
     "registerRepository",

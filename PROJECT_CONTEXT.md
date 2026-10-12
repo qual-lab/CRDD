@@ -9,7 +9,7 @@ Repository Role: `crdd-standard`
 
 ## 1. 今どうなっているか
 
-現在の局所結果：MCPの完全discoverから初回確認保存と次要求の通常認証へ接続した。実HTTP局所7／MCP全75 Case・AM全78 Case、各静的3軸成功。保存前切断では確認0、保存後のServer取消では成功応答0と既知completed保持、並行二要求は一出版を確認した。新Source／試験の台帳接続とIT／STの記述を是正し、限定再レビューの残指摘0。次はHostの初期設定・一度提示・鍵交換とWorkbench、本番入口の接続へ進む。正式191項目、公開Launcher／Workbench／Host TTY・実Host移行、AM全体完成は未成立。[範囲と残件](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#mcp初回限定接続の局所consumer--2026-10-13)を参照する。提示状態と初回確認の保存側は先行段階で局所成立済み。以下のSchema切替結果も先行段階の局所結果である。
+現在の局所結果：Host初回の元試行と保存段階を再観測する非Authority Readerを接続した。局所3／AM全81 Case、AM／MCP静的各3軸成功、限定独立レビュー残指摘0。実Process喪失後の同attempt／User再入場・追加User0、資格保存後のSecret再取得0、不明をfreshへ丸めないことを確認した。freshは最新AM入力の不存在だけでHost開始許可ではない。次はRoot準備・切替前提確認・保存段階別のHost入口と一度提示を接続する。正式191項目、公開Launcher／Workbench／Host TTY・鍵交換・実Host移行、AM全体完成は未成立。[範囲と残件](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#host初回段階の非authority読取り--2026-10-13)を参照する。[先行MCP接続](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#mcp初回限定接続の局所consumer--2026-10-13)は実HTTP局所7／MCP全75 Caseと限定レビューで成立済みだが新AM公開Launcherの成立ではない。以下も先行段階の局所結果である。
 
 先行したSchema切替：管理状態Schema v2の型・Parser・初回資格WriterとAM／MCP試験fixtureを切り替えた。対象8Pathの限定独立レビューPass・全重大度の残指摘0、当時のAM64／MCP68 Case・各静的3軸成功。初回中のHost失効途中を保持できても認証は拒否し、元資格と最新確認対象、完了後の歴史IDと後続交換を区別する。その後の保存側とMCP局所候補で提示保存・用途判定・初回確認保存・完全discover検査・応答前取消再確認を接続した。鍵の実TTY／HTTP提示Consumer、実Hostの旧v1状態移行、公開Launcher／Workbench、正式191項目・AM全体完成は未成立。[先行対象](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#管理状態schema-v2の実装候補--2026-10-12)を参照する。全体Checkerの既存3057 errorsは未解消であり、全体Readyとはしない。
 

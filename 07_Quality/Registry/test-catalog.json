@@ -705,7 +705,7 @@
       "environment": "node_process",
       "externalProviderEffect": false,
       "humanInput": false,
-      "postconditions": ["current_snapshot_read_back", "pending_materials_settled", "unknown_materials_retained", "primary_failure_preserved", "owned_process_joined", "test_root_removed"],
+      "postconditions": ["current_snapshot_read_back", "pending_materials_settled", "unknown_materials_retained", "primary_failure_preserved", "owned_process_joined", "host_reentry_exact_attempt_and_stage", "host_reentry_secret_not_returned", "fresh_not_initialization_authority", "test_root_removed"],
       "mandatoryByDefault": true
     },
     {

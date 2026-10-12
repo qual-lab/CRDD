@@ -4,7 +4,7 @@
 担当責任者: Qual-Lab
 最終更新日: 2026-10-13
 
-最新の局所結果：MCPの完全discover検査と初回確認保存・応答前取消再確認を実HTTPへ接続した。局所7／MCP全75 Case、AM全78 Case、各静的3軸成功。台帳未登録とITからSTへの直接TraceのMajor 1件を是正し、固定10Pathの限定再レビュー残指摘0。ITはRFD-IT-024／025の断面であり、EST-ST-015の正式ST成立へ流用しない。鍵の実TTY／HTTP提示、本番入口・Workbench・Host初期設定、正式191項目は未成立／Not Runのまま維持する。[対象範囲](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#mcp初回限定接続の局所consumer--2026-10-13)を参照する。提示・初回確認の保存側は先行段階で局所成立済み。以下は先行段階の局所結果であり、AM全体Passへ流用しない。
+最新の局所結果：Host初回の元試行・段階を非Authorityで読む内部Readerを接続した。局所3／AM全81 Case、AM／MCP静的各3軸成功、固定9Pathの限定独立レビュー残指摘0。RFD-IT-024／025の保存再入場断面だけで、旧入力不存在・Host開始許可・実TTY提示の成立ではない。Root準備、本番入口・Workbench・Host初期設定・鍵交換、正式191項目は未成立／Not Runのまま維持する。[対象範囲](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#host初回段階の非authority読取り--2026-10-13)を参照する。先行MCPの局所7／全75 Caseと限定レビューは実HTTP接続の範囲だけ成立し、EST-ST-015の正式STや新AM公開Launcherへ流用しない。以下は先行段階の局所結果であり、AM全体Passへ流用しない。
 
 先行したSchema切替結果：管理状態Schema v2の型・Parser・初回資格WriterをAM／MCP利用側fixtureと一体切替した。当時のAM64／MCP68 Caseと各静的3軸成功、固定8Pathの限定独立レビューPass・全重大度の残指摘0。初回Host交換の失効途中は読取り可能でも認証を拒否し、元資格・確認対象・歴史IDを分ける。正式191項目はNot Run。提示保存・初回確認出版は保存側へ、その完全discoverと応答取消はMCP局所候補へ接続済みで、本番入口は未接続。旧v1実状態移行、鍵の実TTY／HTTP提示、本番入口・AM全体完成は未成立。[先行実装範囲](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#管理状態schema-v2の実装候補--2026-10-12)を参照する。最小提示のQuality伝播12文書と計数同期41Pathの限定Passは各文書差分だけの結果で、正式試験のPassへ流用しない。
 

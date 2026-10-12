@@ -64,6 +64,10 @@
 
 発行と結果記録が確定しHost提示または同鍵の限定接続確認だけ不明なら、作成済みadministratorへの既存`exchangeCredentialsFromHost`指定交換を別明示操作として選ぶ。初期化再実行・Secret取得APIを作らず、元試行と別交換を分離する。提示不明と提示確定後の接続未確認を混同しない。初回状態readにVerifier・salt・Secret・任意Pathを含めず、MCP／Remote Workbenchへ公開しない。
 
+`readHostInitializationState`の局所実装は、同じ`access-management.lock`下で最新current／pending／replaceを観測し、完全v2と既知出版材料のexact処置・Lock終了後にだけ非Authorityの段階を返す。`fresh`はAM三入力の確認済み不存在だけで、旧入力不存在やHost初期化許可ではない。`in_progress`は保存済みattemptId／revisionと段階を持ち、User・資格IDは生成済み段階だけに含める。資格段階では歴史的初資格と最新確認対象を分け、presentationと交換有無を返すがtokenを返さず再表示を許可しない。completedは`existing`だけ、破損・partial・初回base材料・孤立replace・読取り／清掃／Lock終了不明は固定`unknown`だけとする。型と純粋投影は`initialization/host-state.ts`、物理処置は既存`state/file-store.ts`が所有する。
+
+Host compositionは後続の実装で既存OS管理state Rootを準備・再検証し、旧`credential-registry/`と`credential-access-recovery/`の確認済み不存在を別に照合する。無関係なCROS所有物を未初期化判定へ混ぜない。旧Writer停止・旧入力清掃はフロントAIの切替／移行契約で確認し、旧Writerが稼働し得る未確認状態では初期化へ進まない。最新Sourceへ旧形式Parser、旧Writer用共通Lock、共有Process Registryや自動移行を追加しない。Root準備・旧入力観測・TTY提示・Host本番入口は本Readerの成立範囲ではない。
+
 初回確認の論理Owner・完全限定Protocol・exact Bindingは§2.5、v2目標形状はSchema切替案へ具体化した。保存・読戻し・短命pending／材料とLock終了の実装・実境界は残る。現在の`authenticateNormalConnection`はcompletedを必要とするため初回へ流用しない。`authenticateCredential`の途中本人照合だけでも通常Authorityを与えない。Host明示交換後は新提示資格へ確認対象を結び直し、旧初資格・元発行の既知事実を新交換成功で上書きしない。v2目標形状は具体化済み、完全Parser・実状態移行・本番保存はOPEN。別Receipt・Session・Store・Lockは追加しない。どの必要条件も未確認・失敗・観測不能ならcompleted表示と通常Authorityは0。
 
 ### 2.2 初回状態の純粋判定 — 2026-10-11

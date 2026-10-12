@@ -393,6 +393,14 @@ Sourceは状態contractのschemaRevision 2だけを受付け、資格presentatio
 
 独立レビューのMajor 1件は、新Source／試験の台帳登録不足とITからSTへの直接Traceであった。局所試験はQA-000007のRFD-IT-024／025へ限定し、EST-ST-015には必要な入力断面を供給するだけで正式ST未成立／Not Runを維持する。MCPのdiscover／初回Handlerと試験をsymbol.json・Test Catalogへ登録し、先行したAM提示／初回接続Source・試験の未登録も同じ原因として是正した。既存state保存試験のRFD-IT-017／018と提示SourceへのRelationも同期した。Schema・実測Source・正式結果は変更しない。修正後の局所7／MCP全75 Case・AM／MCP静的各3軸・差分空白確認が成功。AM全78 Caseも同じSource候補で成功した。台帳ID・Pathの一意性と全登録Path・test-suiteのCatalog接続、自己生成試験Root残存0を確認した。Repository Checkerは3057件・exit1を維持し、AM／MCP／test-catalog対象Pathの指摘抽出0。固定10Pathの限定再レビューは全重大度の残指摘0で、保存側と局所HTTP接続の範囲だけ成立した。旧CROS／Shared・公開Launcherの既存回帰を新AM Launcherの成立へ流用しない。公開Launcher／Workbench／Host TTY、実Host旧状態移行、正式191項目、AM全体完成は未成立のまま維持する。
 
+### Host初回段階の非Authority読取り — 2026-10-13
+
+基準`df4593f4`、着手時clean。Host初期設定の着手前照合で、既存保存APIを直列呼出しするだけではProcess喪失後の元試行を再取得できず、新しいattemptIdで途中状態を拒否することが分かった。親照合と読み取り専用の契約確認を統合し、既存正本のHost専用Readerを先に接続する。変更分類は初回の再入場に必要な非Authority読取りで、Role・Schema・初期化Authorityは変えない。技術・品質の限定独立レビューと実保存・故障・実Process喪失の局所反証、関連AM／MCP静的確認・回帰を行う。準拠基準改訂・外部送信・実Host操作がないため全工程監査・実Provider E2Eは追加しない。人間判断はない。
+
+Readerは既存Root／Lock／current／pending／replaceを使い、完全状態・既知出版清掃・Lock終了後にfresh／in_progress／existingを返し、不明はunknownへ閉じる。生成済みID・提示段階・交換有無を非秘密に搬送し、追加User・資格・UUID・Secret再取得は0。freshは最新AM入力三Fileの不存在だけでHost開始許可ではない。旧二Directoryの不存在・旧Writer停止、Root準備はHost切替Ownerが別に扱い、フロントAIによる旧構成清掃／停止が未確認なら初期化しない。旧形式Reader・新Store／Lock／Process Registryは作らない。
+
+純粋投影をinitialization/host-state.ts、物理Readerを既存state/file-store.tsへ配置し、Package Root・Symbol・既存保存IT／Test Catalogを同期した。RFD-IT-024／025の部分接続で、正式191 Not Runを維持する。局所3／AM全81 Case、AM／MCP静的各3軸・差分空白確認成功、固定9Pathの限定独立レビューPass・全重大度の残指摘0。freshから各生成段階・提示段階・completed、current欠測とpartial／孤立材料・初回base材料・Lock解放不明を反証し、実子ProcessのUser出版直後喪失から同attempt／Userを再観測して追加User0・同Userへの資格を確認した。台帳Path・Symbol IDの一意性、test-suite全Catalog接続、自己生成試験Root残存0を確認した。Root準備・Host初期化composition・実TTY一度提示・鍵交換・実Host移行・本番入口・AM全体完成は未成立。次はこのReaderで再観測した保存段階を使ってHost入口と一度提示を結ぶ。
+
 ### 共有AI Profile管理のRole採用と本番接続 — 2026-10-12
 
 Source候補の局所結果：基準`ec2a2e3e`、Node v24.19.0。AM60／AI Adapter30／旧CROS34／MCP68／Workbench33の計225 Case（追加Workbench33 Caseは旧比較Consumerの回帰）、各書式・型・Warning禁止Lint成功、Fail／Cancel／Skip0、全Exit0。実HTTPと自己生成実Catalog Storeでmanager／administrator四操作・developer非開示・次要求のRole変更／失効、遅延認可・二依存拒否・採用後取消／応答故障の改訂保持を確認した。AM新試験の初回途中Fixture不整合は正規の一User・一Credential・元発行相関へ是正し、局所再試験後にAM全回帰を再実行した。最初の失敗を現在の成功へ混ぜない。Biomeの一時OS1224は同じ対象の再実行で解消した。固定29Pathの限定独立再レビューはPass・全重大度残指摘0。全体Checkerは3057 errors／exit1を維持し、変更29Path抽出はProject Context構造の既存1件のみ。判定に使う三Identity・五見出し・Checklist見出しとcheckboxの17行が基準HEADと順序込み完全一致し、差分起因0を確認した。Repository全体Passとは扱わず、正式191項目Not Runと本番Launcher／Workbench・鍵配送・旧REST撤去・AM全体未完成を維持する。実行別ログ書庫は作らず、各Packageの`npm test`から再生成する。

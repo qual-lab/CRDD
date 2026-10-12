@@ -49,6 +49,7 @@ export {
   evaluateHostInitializationState,
   type HostInitializationDecision,
 } from "./initialization/state-evaluation.ts";
+export type { HostInitializationStateResult } from "./initialization/host-state.ts";
 export {
   type AccessManagementState,
   type InitializationRecord,
@@ -79,6 +80,7 @@ export {
   recordCredentialPresentation,
   initializeAccessManagementState,
   readAccessManagementState,
+  readHostInitializationState,
   updateAccessManagementState,
   type StateStoreResult,
 } from "./state/file-store.ts";

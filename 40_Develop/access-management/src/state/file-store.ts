@@ -43,6 +43,10 @@ import {
 } from "../management/repository-exposure.ts";
 import { evaluateHostInitializationState } from "../initialization/state-evaluation.ts";
 import {
+  projectHostInitializationState,
+  type HostInitializationStateResult,
+} from "../initialization/host-state.ts";
+import {
   prepareUserRoleChange,
   type UserRoleChange,
 } from "../management/user-role.ts";
@@ -721,6 +725,69 @@ export function authenticateCredential(
   token: string,
 ): CredentialAuthenticationResult {
   return authenticateStoredCredential(root, token, false);
+}
+
+/**
+ * 保存済みの初回元試行と段階をHost再入場へ返す。
+ * @responsibility AM入力不存在と観測不能を区別し、same exact試行の再開を支える。
+ * @trace ARCH-000013
+ * @input 信頼されたHost Ownerの検証済み管理Root。
+ * @returns 非Authorityなfresh／in_progress／existing、または固定unknown。
+ * @precondition Host専用内部利用。旧入力・旧Writer停止・Root準備はHost切替Ownerが別に確認する。
+ * @postcondition 完全状態・既知pending処置・Lock終了後だけ段階を返す。
+ * @effect 既存Lock、current／pending／replaceの観測、既知出版材料のexact清掃。
+ * @failure partial・base初回材料・孤立replace・旧版・解放不明はunknown。
+ * @invariant UUID・鍵・User生成0、Secret再取得0。freshは初期化許可ではない。
+ * @boundary 同Lock保存OwnerからHost内部再入場。公開状態照会ではない。
+ * @security Secret・Verifier・salt・Root・Lock回復参照を返さない。
+ * @concurrency 既存Writerと同じLock内の一改訂。旧CROS Writerへの排他は主張しない。
+ */
+export function readHostInitializationState(
+  root: FilesystemStoreRoot,
+): HostInitializationStateResult {
+  const result = locked<HostInitializationStateResult>(root, () => {
+    let publication: "not_attempted" | "confirmed" = "not_attempted";
+    let revision: number | null = null;
+    try {
+      if (!present(root, CURRENT)) {
+        if (present(root, PENDING) || present(root, REPLACE))
+          throw new Error("initial_material_present");
+        return {
+          status: "completed",
+          value: Object.freeze({ status: "fresh" }),
+          publication,
+          revision,
+          cleanupConfirmed: true,
+        };
+      }
+      const current = readCurrent(root);
+      revision = current.state.revision;
+      settlePending(root, current, () => {
+        publication = "confirmed";
+      });
+      const value = projectHostInitializationState(current.state);
+      if (value.status === "unknown")
+        throw new Error("initial_projection_unknown");
+      return {
+        status: "completed",
+        value,
+        publication,
+        revision,
+        cleanupConfirmed: true,
+      };
+    } catch {
+      return {
+        status: "unavailable",
+        reason: "host_initialization_state_unavailable",
+        publication,
+        revision,
+        cleanupConfirmed: false,
+      };
+    }
+  });
+  return result.status === "completed"
+    ? result.value
+    : { status: "unknown", reason: "host_initialization_state_unavailable" };
 }
 
 /**

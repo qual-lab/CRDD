@@ -4,6 +4,7 @@
  * @responsibility 純粋Schemaと保存境界を分離し、部分成立を管理操作全体のPassにしない。
  * @trace RFD-IT-021
  * @trace RFD-IT-024
+ * @trace RFD-IT-025
  * @trace RFD-IT-017
  * @trace RFD-IT-018
  * @trace RFD-IT-013
@@ -48,6 +49,9 @@ import {
   createInitialAdministrator,
   createInitialCredential,
   recordCredentialPresentation,
+  readHostInitializationState,
+  resolveConnectionAuthentication,
+  confirmInitialConnection,
   verifyCredentialToken,
   initializeAccessManagementState,
   parseAccessManagementState,
@@ -127,6 +131,258 @@ function prepareInitialUser(f: ReturnType<typeof fixture>): string {
   );
   return attempt;
 }
+
+/**
+ * Host再入場は保存済み元試行と段階だけを再観測する。
+ * @responsibility 不存在・相関・User・資格・提示・完了を追加生成せず搬送する。
+ * @trace RFD-IT-024
+ * @trace RFD-IT-025
+ * @precondition 自己生成Root。旧Host入力不存在は本試験の保証外。
+ * @stimulus 最新AM入力を空にして初回各保存APIを順に呼び、各段階を読む。
+ * @observation 段階・exact ID・改訂・秘密field不存在・current byteと材料。
+ * @oracle freshは非Authority。元試行と生成済みIDを保持し、User/資格追加0・Secret再取得0。
+ * @cleanup Fixtureがexact Rootを回収する。
+ * @boundary 既存保存API→Host専用Reader。TTY・本番Hostは対象外。
+ */
+test("Host初回Readerはfreshから保存段階を非Authorityで再観測する", (t) => {
+  const f = fixture(t),
+    current = path.join(f.directory, "access-management.json");
+  fs.rmSync(current);
+  assert.deepEqual(readHostInitializationState(f.root), { status: "fresh" });
+  assert.equal(fs.existsSync(current), false);
+  const attemptId = crypto.randomUUID();
+  assert.equal(
+    initializeAccessManagementState(f.root, attemptId, true, () => [
+      "uninitialized",
+      "absent",
+    ]).status,
+    "completed",
+  );
+  assert.deepEqual(readHostInitializationState(f.root), {
+    status: "in_progress",
+    attemptId,
+    revision: 1,
+    stage: "correlated",
+  });
+  const user = createInitialAdministrator(f.root, attemptId, "管理者");
+  assert.ok(user.status === "completed");
+  assert.deepEqual(readHostInitializationState(f.root), {
+    status: "in_progress",
+    attemptId,
+    revision: 2,
+    stage: "user_stored",
+    userId: user.value.userId,
+  });
+  const again = createInitialAdministrator(f.root, attemptId, "再入場の名前");
+  assert.ok(again.status === "completed");
+  assert.equal(again.value.userId, user.value.userId);
+  const issued = createInitialCredential(f.root, attemptId);
+  assert.ok(issued.status === "completed" && issued.value.token);
+  const expected = {
+    status: "in_progress",
+    attemptId,
+    revision: issued.value.revision,
+    stage: "credential_stored",
+    userId: user.value.userId,
+    initialCredentialId: issued.value.credentialId,
+    confirmationCredentialId: issued.value.credentialId,
+    presentation: "not_attempted",
+    unresolvedExchange: false,
+  };
+  assert.deepEqual(readHostInitializationState(f.root), expected);
+  const reentered = createInitialCredential(f.root, attemptId);
+  assert.ok(reentered.status === "completed");
+  assert.equal(reentered.value.token, null);
+  const start = recordCredentialPresentation(f.root, {
+    credentialId: issued.value.credentialId,
+    issuanceOperationId: attemptId,
+    expectedRevision: issued.value.revision,
+    target: "unconfirmed",
+  });
+  assert.ok(start.status === "completed");
+  assert.deepEqual(readHostInitializationState(f.root), {
+    ...expected,
+    revision: start.value.revision,
+    presentation: "unconfirmed",
+  });
+  const completed = recordCredentialPresentation(f.root, {
+    credentialId: issued.value.credentialId,
+    issuanceOperationId: attemptId,
+    expectedRevision: start.value.revision,
+    presentationOperationId: start.value.presentationOperationId,
+    target: "confirmed",
+  });
+  assert.ok(completed.status === "completed");
+  assert.deepEqual(readHostInitializationState(f.root), {
+    ...expected,
+    revision: completed.value.revision,
+    presentation: "confirmed",
+  });
+  const binding = resolveConnectionAuthentication(f.root, issued.value.token);
+  assert.ok(binding.status === "initial");
+  assert.equal(
+    confirmInitialConnection(
+      f.root,
+      issued.value.token,
+      binding.binding,
+      new AbortController().signal,
+    ).status,
+    "completed",
+  );
+  const before = fs.readFileSync(current);
+  assert.deepEqual(readHostInitializationState(f.root), { status: "existing" });
+  assert.deepEqual(fs.readFileSync(current), before);
+  assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
+});
+
+/**
+ * 部分材料や保存・Lock不明をfreshへ戻さない。
+ * @responsibility Host初期化の再観測を固定unknownへ閉じ、残存材料を保持する。
+ * @trace RFD-IT-024
+ * @trace RFD-IT-025
+ * @precondition 自己生成Rootと限定した保存故障。
+ * @stimulus current欠測＋pending/replace、破損current、初回base材料、Lock解放故障を与える。
+ * @observation 固定unknown、currentと材料byte、Root一覧。
+ * @oracle 不明は追加生成0・初期化許可0、Secret/Root/回復参照なし。
+ * @cleanup hook復元とfixture回収。
+ * @boundary Readerの実Filesystem負観測と既存排他。
+ */
+test("Host初回Readerは材料・状態・Lock不明をfreshへ丸めない", (t) => {
+  const unknown = {
+    status: "unknown",
+    reason: "host_initialization_state_unavailable",
+  };
+  for (const material of [
+    "access-management.pending.json",
+    "access-management.replace.json",
+  ]) {
+    const f = fixture(t),
+      current = path.join(f.directory, "access-management.json");
+    fs.rmSync(current);
+    const target = path.join(f.directory, material);
+    fs.writeFileSync(target, "{partial fixture");
+    assert.deepEqual(readHostInitializationState(f.root), unknown);
+    assert.equal(fs.readFileSync(target, "utf8"), "{partial fixture");
+    assert.equal(fs.existsSync(current), false);
+  }
+  const f = fixture(t),
+    current = path.join(f.directory, "access-management.json");
+  const valid = fs.readFileSync(current);
+  fs.writeFileSync(current, "{}");
+  assert.deepEqual(readHostInitializationState(f.root), unknown);
+  assert.equal(fs.readFileSync(current, "utf8"), "{}");
+  fs.writeFileSync(current, valid);
+  const remove = fs.rmSync;
+  fs.rmSync = (target, options) => {
+    if (String(target).endsWith("access-management.lock"))
+      throw new Error("fixture unlock");
+    return remove(target, options);
+  };
+  try {
+    assert.deepEqual(readHostInitializationState(f.root), unknown);
+  } finally {
+    fs.rmSync = remove;
+  }
+  assert.deepEqual(readHostInitializationState(f.root), { status: "existing" });
+  assert.deepEqual(fs.readFileSync(current), valid);
+  const initial = fixture(t),
+    initialPath = path.join(initial.directory, "access-management.json");
+  fs.rmSync(initialPath);
+  const attemptId = crypto.randomUUID();
+  assert.equal(
+    initializeAccessManagementState(initial.root, attemptId, true, () => [
+      "uninitialized",
+      "absent",
+    ]).status,
+    "completed",
+  );
+  const before = fs.readFileSync(initialPath),
+    rename = fs.renameSync;
+  fs.renameSync = (from, to) => {
+    if (String(to) === initialPath) throw new Error("fixture rename");
+    rename(from, to);
+  };
+  try {
+    assert.equal(
+      createInitialAdministrator(initial.root, attemptId, "管理者").status,
+      "unavailable",
+    );
+  } finally {
+    fs.renameSync = rename;
+  }
+  const pending = path.join(
+    initial.directory,
+    "access-management.pending.json",
+  );
+  const pendingBytes = fs.readFileSync(pending);
+  assert.deepEqual(readHostInitializationState(initial.root), unknown);
+  assert.deepEqual(fs.readFileSync(initialPath), before);
+  assert.deepEqual(fs.readFileSync(pending), pendingBytes);
+});
+
+/**
+ * User出版後の実Process喪失からHostが元試行を取り直す。
+ * @responsibility 出版済み材料とLockのexact処置後に同Userを再開する。
+ * @trace RFD-IT-025
+ * @precondition 自己生成の相関済みRootと子Process。
+ * @stimulus Userのcurrent置換直後に子Processをexit(23)する。
+ * @observation 子終了code・stdout空、Readerのattempt/User、同ID再入場と材料不存在。
+ * @oracle 保存済みUserを保持し、追加UUID0・Secret0、次資格だけ同試行へ結合。
+ * @cleanup 子join済み、FixtureがRootを回収する。
+ * @boundary 実子Process→保存→Host内部Reader→同元試行の既存Writer。
+ */
+test("Host初回ReaderはProcess喪失後の元試行とUserを再開できる", (t) => {
+  const f = fixture(t),
+    current = path.join(f.directory, "access-management.json");
+  fs.rmSync(current);
+  const attemptId = crypto.randomUUID();
+  assert.equal(
+    initializeAccessManagementState(f.root, attemptId, true, () => [
+      "uninitialized",
+      "absent",
+    ]).status,
+    "completed",
+  );
+  const domainUrl = new URL(
+    "../../../../domain-model/src/index.ts",
+    import.meta.url,
+  ).href;
+  const storeUrl = new URL("../../../src/index.ts", import.meta.url).href;
+  const script = `
+    import fs from "node:fs";
+    import {createFilesystemStoreRoot} from ${JSON.stringify(domainUrl)};
+    import {createInitialAdministrator} from ${JSON.stringify(storeUrl)};
+    const rename = fs.renameSync;
+    fs.renameSync = (a,b) => { rename(a,b); if(String(b)===${JSON.stringify(current)})process.exit(23); };
+    createInitialAdministrator(createFilesystemStoreRoot(${JSON.stringify(f.directory)}), ${JSON.stringify(attemptId)}, "模擬管理者");
+  `;
+  const child = spawnSync(process.execPath, ["--eval", script], {
+    timeout: 10_000,
+    encoding: "utf8",
+  });
+  assert.equal(child.error, undefined);
+  assert.equal(child.status, 23, child.stderr);
+  assert.equal(child.stdout, "");
+  const observed = readHostInitializationState(f.root);
+  assert.ok(
+    observed.status === "in_progress" && observed.stage === "user_stored",
+  );
+  assert.equal(observed.attemptId, attemptId);
+  const before = fs.readFileSync(current);
+  const user = createInitialAdministrator(f.root, observed.attemptId, "別名");
+  assert.ok(user.status === "completed");
+  assert.equal(user.value.userId, observed.userId);
+  assert.deepEqual(fs.readFileSync(current), before);
+  const issued = createInitialCredential(f.root, observed.attemptId);
+  assert.ok(issued.status === "completed");
+  const state = JSON.parse(
+    fs.readFileSync(current, "utf8"),
+  ) as AccessManagementState;
+  assert.equal(state.users.length, 1);
+  assert.equal(state.credentials.length, 1);
+  assert.equal(state.credentials[0]?.userId, observed.userId);
+  assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
+});
 
 /**
  * 提示の先行記録と観測後記録を別改訂へ保存する。
