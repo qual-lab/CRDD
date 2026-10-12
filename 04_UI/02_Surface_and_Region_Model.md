@@ -1,6 +1,6 @@
 # 表示面と領域
 
-状態: v0.22.0更新中（登録解除・鍵の受け渡し未確認のDefinition・横断投影は限定伝播・契約／品質独立再レビュー済み（残指摘0）。Detail候補は伝播中・今回の契約／品質限定独立再レビュー済み（残指摘0）。Visual／Architecture／Quality／Sourceは未追従、全体Readyは未主張）
+状態: 更新候補（2026-10-12の鍵提示方式をUI／SPEC Detailまで伝播・限定再レビュー済み（鍵提示方式伝播差分、全重大度0）。旧限定Pass／Hashは履歴。Architecture／Quality／Source・実画面・全体Readyは未成立）
 情報源: [UI定義台帳](01_User_Interface.md#3-ui定義台帳)
 
 ## 1. 利用者から見える入口
@@ -69,7 +69,7 @@
 
 重大な停止、判断要求、回復義務または不完全性をDetailsへ隠さない。内部識別子や生Logを主表示にしない。
 
-登録解除・鍵の受け渡し未確認の現在の限定投影：登録解除は対象の登録と対応Exposureを同じ受理操作で除去する。事前の別操作による公開解除を必須にせず、以後の対象CROSアクセスを停止する。他Repositoryの登録／Exposureと対象Repository本体・Product Dataは保持する。発行自体または結果記録が不明なら、Credential IDとは別の非秘密な元発行Identityで現在再観測し、新交換を開始しない。交換由来だけ元のsame exact Recoveryを保持し、通常発行へ交換Recoveryを新設しない。発行・結果記録が確定し配送／受領だけ未確認なら、「発行済み・受け渡し未確認」と示し、確定事実を維持する。Secretの保存・再表示・自動再発行はしない。現在認可されたadministratorが人間の明示した既存交換を新しく開始でき、そのOperation／Recoveryは元処理とは別にする。現在の管理認証を失った場合は、Workbench認可を迂回せず既存Host交換入口へ案内する。Detail候補へ伝播中・今回の契約／品質限定独立再レビュー済み（残指摘0）。Visual／Architecture／Quality／Sourceへは今回未伝播であり、以前のDetail限定レビューを今回へ流用しない。
+登録解除・鍵の受け渡し未確認の現在の限定投影：登録解除は対象の登録と対応Exposureを同じ受理操作で除去する。事前の別操作による公開解除を必須にせず、以後の対象CROSアクセスを停止する。他Repositoryの登録／Exposureと対象Repository本体・Product Dataは保持する。発行自体または結果記録が不明なら、Credential IDとは別の非秘密な元発行Identityで現在再観測し、新交換を開始しない。交換由来だけ元のsame exact Recoveryを保持し、通常発行へ交換Recoveryを新設しない。発行・結果記録が確定し提示・引渡し（初回は同鍵の接続確認）だけ未確認なら、「発行済み・受け渡し未確認」と示し、確定事実を維持する。Secretの保存・再表示・自動再発行はしない。現在認可されたadministratorが人間の明示した既存交換を新しく開始でき、そのOperation／Recoveryは元処理とは別にする。現在の管理認証を失った場合は、Workbench認可を迂回せず既存Host交換入口へ案内する。Detail候補へ伝播中・旧固定版の限定Passは当時の履歴。今回の鍵提示方式は候補伝播・限定再レビュー済み（鍵提示方式伝播差分、全重大度0）。Visual／Architecture／Quality／Sourceへは今回未伝播であり、以前のDetail限定レビューを今回へ流用しない。
 
 ## 4. Workbenchの最小領域
 
@@ -104,4 +104,4 @@ Workbenchは表示面であり、正本、集計規則、Authority判定また�
 
 ## 初回Host設定の現行伝播
 
-初回設定の承認済み最小構成は[この工程の定義](Definitions/UI-000008/ui_definition.md)へ伝播し、契約／品質限定独立再レビュー済み・残指摘0。未初期化確認・既存状態・確認済み途中状態・観測不能を区別し、既存鍵交換と初回設定を混同しない。元試行の確認と、確定発行後の受け渡し未確認に対する別明示Host交換を分ける。具体画面・端末・振る舞いDetailは未追従であり、旧Passから完成を推定しない。
+鍵提示の表示面は[UI-000008](Definitions/UI-000008/ui_definition.md#鍵提示の表示面と完了feedback)を所有正本とし、Workbenchの管理者画面とHost端末を分ける。秘密一度提示を通常一覧・履歴から分離し、対象本人への製品外引渡しを受領済み面へしない。具体配置は[SCR-000008](Details/Areas/configuration-trust/SCR-000008/screen.md)の未決事項である。今回の契約は候補伝播・限定再レビュー済み（鍵提示方式伝播差分、全重大度0）で、Visual評価や実装成立を主張しない。

@@ -305,6 +305,14 @@ Windows 10.0.26200.0・C: NTFS・Node v24.19.0で同Directoryの通常置換・b
 
 14文書の限定独立再レビューはPass、Critical／Major／Moderate／Minorの残指摘は各0。最終Checkerは全体3057 errors／0 warnings、変更14文書では基準から存在するIA-000009構造指摘1件のみ。新規リンク／アンカー指摘0、差分検査成功。結果を現在表示へ同期する。このPassは提示方式のUX／IA伝播差分のみで、IA構造不足、UI／SPEC以降、Source・本番入口・正式検証・全体Readyは未完了。
 
+### 鍵提示方式のUI／SPEC伝播 — 2026-10-12
+
+基準5206b158。前段UX／IAの14文書は限定独立再レビューPass。読み取り専用の着手前照合に基づき、UI／SPEC分析4・定義2・SCR8／BHV12、直接案内・対応投影11の計19文書へ一括伝播する。本計画を追跡に含め、レビュー後の現在地だけPROJECT_CONTEXTへ同期する。通常提示と観測外の本人引渡し、初回Host提示とexact同鍵限定接続確認、追加受領操作なし、確認保存・読戻し・清掃後だけ通常Authority、失敗2分岐を工程固有の意味へ接続する。旧Hash・引用・正式Evidence・旧時点Passは不変更で、現行一組だけ再評価する。
+
+変更分類は採用済み契約の直接伝播。契約・文書・直接影響の限定独立レビュー、リンク・差分・Checkerを確認した。Source／Test／実Host／秘密／正式191結果、新ID／Store／Framework、Visual Baseline・Layoutは不変更。Package回帰・署名E2E・準拠規範変更は対象外。実装参照とSPEC02〜05は既存対象投影がなく変更不要。具体Owner・接続方式・SchemaはArchitectureへのOPEN。初回レビューのMajor2・Moderate1を是正した際に、同じ条件の過剰反復が見出し・状態名・対象外行へ混入したため全124件を撤去し、必要なFlow・終了条件・検証意図・引渡しへ役割別に統合した。現在段落の誤Passと表記も修正し、固定20文書の最終限定独立再レビューはPass・全重大度0。通常Secretは用途限定・短命な搬送による一度提示だけとし、一般MCP／DTO／履歴／Log／Evidenceへ公開しない。旧引用・Hash・時点結果は不変更。今回のUI／SPEC伝播差分だけを閉じ、後続Architecture／Quality／Source・実画面・正式検証・全体Readyは未成立。
+
+Checkerは現行20文書と全変更MarkdownをHEAD bytesで読んだメモリ基準入力の双方で3057 errors／0 warnings。対象の16 code／path指摘は基準にも存在し、旧記録と現在Definition集合のFingerprint不一致も両方に残る。新規リンク／アンカー指摘0。これを全体Pass・既存指摘解消の根拠にせず、同CHG完結時の構造不足照合へ残す。新版へ合わせて旧Hashを書き換えない。
+
 ### 共有AI Profile管理のRole採用と本番接続 — 2026-10-12
 
 Source候補の局所結果：基準`ec2a2e3e`、Node v24.19.0。AM60／AI Adapter30／旧CROS34／MCP68／Workbench33の計225 Case（追加Workbench33 Caseは旧比較Consumerの回帰）、各書式・型・Warning禁止Lint成功、Fail／Cancel／Skip0、全Exit0。実HTTPと自己生成実Catalog Storeでmanager／administrator四操作・developer非開示・次要求のRole変更／失効、遅延認可・二依存拒否・採用後取消／応答故障の改訂保持を確認した。AM新試験の初回途中Fixture不整合は正規の一User・一Credential・元発行相関へ是正し、局所再試験後にAM全回帰を再実行した。最初の失敗を現在の成功へ混ぜない。Biomeの一時OS1224は同じ対象の再実行で解消した。固定29Pathの限定独立再レビューはPass・全重大度残指摘0。全体Checkerは3057 errors／exit1を維持し、変更29Path抽出はProject Context構造の既存1件のみ。判定に使う三Identity・五見出し・Checklist見出しとcheckboxの17行が基準HEADと順序込み完全一致し、差分起因0を確認した。Repository全体Passとは扱わず、正式191項目Not Runと本番Launcher／Workbench・鍵配送・旧REST撤去・AM全体未完成を維持する。実行別ログ書庫は作らず、各Packageの`npm test`から再生成する。

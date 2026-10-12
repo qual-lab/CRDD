@@ -1,6 +1,6 @@
 # ユーザーインターフェース
 
-状態: v0.22.0更新中（登録解除・鍵の受け渡し未確認のDefinition・横断投影は限定伝播・契約／品質独立再レビュー済み（残指摘0）。Detail候補は伝播中・今回の契約／品質限定独立再レビュー済み（残指摘0）。Visual／Architecture／Quality／Sourceは未追従、全体Readyは未主張）
+状態: 更新候補（2026-10-12の鍵提示方式をUI／SPEC Detailまで伝播・限定再レビュー済み（鍵提示方式伝播差分、全重大度0）。旧限定Pass／Hashは履歴。Architecture／Quality／Source・実画面・全体Readyは未成立）
 担当責任者: Qual-Lab
 対象版: v0.22.0候補（公開基準版: v0.21.0）
 工程規則: [UI](../25_UI.md)、[UIと振る舞い仕様の対応レビュー](../24_UI_Behavior_Specification.md)
@@ -21,7 +21,7 @@ REQ
 
 個別分析は[Analysis](Analysis/)に、現在有効なUI契約は[Definitions](Definitions/)に置く。`Analysis/UX-*`は全UXを利用者観点で、`Analysis/IA-*`は全IAを情報設計観点で独立して分析する。双方の分析は相手の正本を直接読んで不足を補完せず、UI定義で初めて対応付ける。これにより、利用者成果と情報構造のどちらか一方を暗黙の考慮へ退避しない。画面全体を横断した構造は、[表示面と領域](02_Surface_and_Region_Model.md)、[操作と表示状態](03_Interaction_and_State_Model.md)、[視覚表現とアクセシビリティ](04_Visual_and_Accessibility_Direction.md)、[UIとSPECの引き渡し](05_UI_SPEC_Handoff.md)へ投影する。現行実装との照合は[現行Interface参照](06_Current_Interface_Reference.md)に残す。
 
-登録解除・鍵の受け渡し未確認の現在の限定投影：登録解除は対象の登録と対応Exposureを同じ受理操作で除去する。事前の別操作による公開解除を必須にせず、以後の対象CROSアクセスを停止する。他Repositoryの登録／Exposureと対象Repository本体・Product Dataは保持する。発行自体または結果記録が不明なら、Credential IDとは別の非秘密な元発行Identityで現在再観測し、新交換を開始しない。交換由来だけ元のsame exact Recoveryを保持し、通常発行へ交換Recoveryを新設しない。発行・結果記録が確定し配送／受領だけ未確認なら、「発行済み・受け渡し未確認」と示し、確定事実を維持する。Secretの保存・再表示・自動再発行はしない。現在認可されたadministratorが人間の明示した既存交換を新しく開始でき、そのOperation／Recoveryは元処理とは別にする。現在の管理認証を失った場合は、Workbench認可を迂回せず既存Host交換入口へ案内する。Detail候補へ伝播中・今回の契約／品質限定独立再レビュー済み（残指摘0）。Visual／Architecture／Quality／Sourceへは今回未伝播であり、以前のDetail限定レビューを今回へ流用しない。
+登録解除・鍵の受け渡し未確認の現在の限定投影：登録解除は対象の登録と対応Exposureを同じ受理操作で除去する。事前の別操作による公開解除を必須にせず、以後の対象CROSアクセスを停止する。他Repositoryの登録／Exposureと対象Repository本体・Product Dataは保持する。発行自体または結果記録が不明なら、Credential IDとは別の非秘密な元発行Identityで現在再観測し、新交換を開始しない。交換由来だけ元のsame exact Recoveryを保持し、通常発行へ交換Recoveryを新設しない。発行・結果記録が確定し提示・引渡し（初回は同鍵の接続確認）だけ未確認なら、「発行済み・受け渡し未確認」と示し、確定事実を維持する。Secretの保存・再表示・自動再発行はしない。現在認可されたadministratorが人間の明示した既存交換を新しく開始でき、そのOperation／Recoveryは元処理とは別にする。現在の管理認証を失った場合は、Workbench認可を迂回せず既存Host交換入口へ案内する。Detail候補へ伝播中・旧固定版の限定Passは当時の履歴。今回の鍵提示方式は候補伝播・限定再レビュー済み（鍵提示方式伝播差分、全重大度0）。Visual／Architecture／Quality／Sourceへは今回未伝播であり、以前のDetail限定レビューを今回へ流用しない。
 
 ## 2. 入力と網羅状況
 
@@ -128,8 +128,9 @@ v0.22固有変更はDiscoveryから別途追加
 - [x] v0.21の非視覚Surfaceを含むVisual／Accessibility契約を全20 SCRで評価した
 - OPEN: v0.22 Product固有GUIのPrototype／実画面評価と人間による工程Exit判断。v0.21移行のArchitecture／Quality伝播は完了している
 - [x] ArchitectureまたはSourceから意味を逆輸入していない
-- OPEN: 登録解除・鍵の受け渡し未確認のDefinition・現行1組対応・横断投影は限定伝播・契約／品質独立再レビュー済み（残指摘0）。Detail候補は伝播中・今回の契約／品質限定独立再レビュー済み（残指摘0）。Visual／Architecture／Quality／Sourceは未追従。実画面評価・工程Exitは未完了。旧完成記録を新版へ流用しない。
+- 履歴: 今回更新前の固定版では、登録解除・鍵の受け渡し未確認に関するDefinition・1組対応・横断投影の限定独立再レビューが残指摘0だった。今回変更分の根拠へ流用しない。
+- OPEN: 今回の鍵提示方式を反映したDefinition・現行対応・横断投影・Detailは候補伝播済み・限定再レビュー済み（鍵提示方式伝播差分、全重大度0）。Visual／Architecture／Quality／Sourceは未追従。実画面評価・工程Exitは未完了。
 
 ## 初回Host設定の現行伝播
 
-初回設定の承認済み最小構成は[この工程の定義](Definitions/UI-000008/ui_definition.md)へ伝播し、契約／品質限定独立再レビュー済み・残指摘0。未初期化確認・既存状態・確認済み途中状態・観測不能を区別し、既存鍵交換と初回設定を混同しない。元試行の確認と、確定発行後の受け渡し未確認に対する別明示Host交換を分ける。具体画面・端末・振る舞いDetailは未追従であり、旧Passから完成を推定しない。
+鍵提示方式の現在契約は[UI-000008](Definitions/UI-000008/ui_definition.md#鍵提示の表示面と完了feedback)へ、具体的な接点と状態差は[SCR-000008](Details/Areas/configuration-trust/SCR-000008/screen.md)へ候補伝播した。通常は操作administratorのWorkbench一度提示、初回とHost交換は端末一度提示とし、追加受領ボタンを設けない。初回接続未確認を利用可能と表示しない。今回の限定再レビュー済み（鍵提示方式伝播差分、全重大度0）で、旧Pass・実画面評価・工程Exitを流用しない。

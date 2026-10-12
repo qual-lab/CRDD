@@ -1,7 +1,7 @@
 # UI／SPEC Detail対応
 
 成果物種別: UI／SPEC Detail対応投影
-状態: 初回Host設定のDetail限定独立再レビュー済み・残指摘0。旧全数結果・限定Pass・Hashは履歴で、全体Passを再主張しない。
+状態: 更新候補（2026-10-12の鍵提示方式をUI／SPEC Detailまで伝播・限定再レビュー済み（鍵提示方式伝播差分、全重大度0）。旧限定Pass／Hashは履歴。Architecture／Quality／Source・実画面・全体Readyは未成立）
 維持責任者: Qual-Lab
 
 ## 1. 対象と判定境界
@@ -11,7 +11,7 @@
 - Definition対応: [UI／SPEC対応](../06_UI_SPEC_Correspondence.md)の32組
 - 判定境界: UI DetailからBHVへの操作Coverageと、BHVからUI Detailへの結果・失敗・回復Coverage
 
-Definition対応の意味を再定義せず同じ32組をDetailへ具体化する。初回Host設定をUI-000008／SPEC-000012からSCR-000008／BHV-000012へ伝播し、現在の1 Relationは限定独立再レビュー済み・残指摘0。未変更31 Relationと旧全数結果は履歴として保持する。旧登録解除・受け渡し判断のレビューをこの初回改訂・実画面・Architecture／Quality／Sourceの成立に流用しない。
+Definition対応の意味を再定義せず同じ32組をDetailへ具体化する。初回Host設定をUI-000008／SPEC-000012からSCR-000008／BHV-000012へ伝播し、旧初回設定の1 Relationは当時の限定Pass、今回の鍵提示方式対応は限定再レビュー済み（鍵提示方式伝播差分、全重大度0）。未変更31 Relationと旧全数結果は履歴として保持する。旧登録解除・受け渡し判断のレビューをこの初回改訂・実画面・Architecture／Quality／Sourceの成立に流用しない。
 
 ## 2. UIからBHVへのCoverage
 
@@ -32,7 +32,7 @@ Definition対応の意味を再定義せず同じ32組をDetailへ具体化す�
 | [SCR-000006／PRT-000006.spec-000010](../../04_UI/Details/Areas/project-context/SCR-000006/screen.md) | [BHV-000010](BHV-000010/behavior.md) | [UI-000006](../../04_UI/Definitions/UI-000006/ui_definition.md) | [SPEC-000010](../Definitions/SPEC-000010/spec_definition.md) | Covered | 状態、操作、結果、失敗、判断不能および回復を同じContextで確認 |
 | [SCR-000006／PRT-000006.spec-000031](../../04_UI/Details/Areas/project-context/SCR-000006/screen.md) | [BHV-000031](BHV-000031/behavior.md) | [UI-000006](../../04_UI/Definitions/UI-000006/ui_definition.md) | [SPEC-000031](../Definitions/SPEC-000031/spec_definition.md) | Covered | Tree、差分選択、Stage、Commit、Push確認、結果不明および再観測を同じContextで確認 |
 | [SCR-000007／PRT-000007.spec-000011](../../04_UI/Details/Areas/operation/SCR-000007/screen.md) | [BHV-000011](BHV-000011/behavior.md) | [UI-000007](../../04_UI/Definitions/UI-000007/ui_definition.md) | [SPEC-000011](../Definitions/SPEC-000011/spec_definition.md) | Covered | 状態、操作、結果、失敗、判断不能および回復を同じContextで確認 |
-| [SCR-000008／PRT-000008.spec-000012](../../04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md) | [BHV-000012](BHV-000012/behavior.md) | [UI-000008](../../04_UI/Definitions/UI-000008/ui_definition.md) | [SPEC-000012](../Definitions/SPEC-000012/spec_definition.md) | 初回設定のDetail限定独立再レビュー済み・残指摘0（前判断のPassは履歴） | 固定8操作のRole分担・操作別条件・次要求認可・登録と公開／解除と削除の別、固定administrator鍵操作・Workbench限定／Host交換2・MCP鍵操作なし、現行Role・参照許可による三可視境界、独立失効、2操作×2入口、事前表示／条件付き明示確認、情報保持、秘密一度表示、発行／記録不明の元Identity再観測、確定発行・受け渡し未確認の別明示交換、管理認証喪失の既存Host |
+| [SCR-000008／PRT-000008.spec-000012](../../04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md) | [BHV-000012](BHV-000012/behavior.md) | [UI-000008](../../04_UI/Definitions/UI-000008/ui_definition.md) | [SPEC-000012](../Definitions/SPEC-000012/spec_definition.md) | 鍵提示方式の対応を更新・限定再レビュー済み（鍵提示方式伝播差分、全重大度0）（旧Passは履歴） | 固定8操作のRole分担・操作別条件・次要求認可・登録と公開／解除と削除の別、固定administrator鍵操作・Workbench限定／Host交換2・MCP鍵操作なし、現行Role・参照許可による三可視境界、独立失効、2操作×2入口、事前表示／条件付き明示確認、情報保持、秘密一度表示、発行／記録不明の元Identity再観測、確定発行・受け渡し未確認の別明示交換、管理認証喪失の既存Host |
 | [SCR-000009／PRT-000009.spec-000013](../../04_UI/Details/Areas/project-context/SCR-000009/screen.md) | [BHV-000013](BHV-000013/behavior.md) | [UI-000009](../../04_UI/Definitions/UI-000009/ui_definition.md) | [SPEC-000013](../Definitions/SPEC-000013/spec_definition.md) | Covered | 状態、操作、結果、失敗、判断不能および回復を同じContextで確認 |
 | [SCR-000010／PRT-000010.spec-000014](../../04_UI/Details/Areas/configuration-trust/SCR-000010/screen.md) | [BHV-000014](BHV-000014/behavior.md) | [UI-000010](../../04_UI/Definitions/UI-000010/ui_definition.md) | [SPEC-000014](../Definitions/SPEC-000014/spec_definition.md) | Covered | 状態、操作、結果、失敗、判断不能および回復を同じContextで確認 |
 | [SCR-000010／PRT-000010.spec-000015](../../04_UI/Details/Areas/configuration-trust/SCR-000010/screen.md) | [BHV-000015](BHV-000015/behavior.md) | [UI-000010](../../04_UI/Definitions/UI-000010/ui_definition.md) | [SPEC-000015](../Definitions/SPEC-000015/spec_definition.md) | Covered | 状態、操作、結果、失敗、判断不能および回復を同じContextで確認 |
@@ -56,19 +56,19 @@ Definition対応の意味を再定義せず同じ32組をDetailへ具体化す�
 
 | 確認対象 | UIでの認識・操作 | BHVでの条件・結果 | 現在判定 |
 |---|---|---|---|
-| 利用と通常管理 | 自身と許可された対象、固定8操作のRole別導線を鍵操作・内容閲覧と分離 | 要求毎の現行Role認可、公開／実アクセス、参照許可による三可視境界。業務管理manager／administrator、administrator Role変更・詳細権限・鍵はadministrator専用。内容設定で固定分担を変えない | 今回の契約／品質限定独立再レビュー済み（残指摘0。前判断のPassは履歴） |
-| 通常管理の操作別条件 | 登録予定Role、名前だけの変更、Role前後、対象Role、Repository登録／公開状態を分けて表示 | BHVの操作別Input・現在固定認可・Effect・Outputへ接続。managerによるadministrator表示名変更可／Role変更等不可、developer管理不可 | 今回の契約／品質限定独立再レビュー済み（残指摘0。前判断のPassは履歴） |
-| 内容範囲とRepository | 更新結果と内容取得、登録と公開、登録＋対応Exposureの同時解除、本体保持と開始済み操作終了未観測を別表示 | 変更前認可→明示更新→次要求Role／Exposure／実アクセス再評価。登録≠公開・同じ解除で両関係除去・片側残存は完了不可・他対象と本体保持・取消非証明 | 今回の契約／品質限定独立再レビュー済み（残指摘0。前判断のPassは履歴） |
-| 新規発行／独立失効 | Workbenchの固定administrator操作と結果を区別 | 新規発行は旧失効なし・Secret一度返却、独立失効は指定Credential–userId一致・指定外失効なし・新発行／Secret／交換再入場なし | 今回の契約／品質限定独立再レビュー済み（残指摘0。前判断のPassは履歴） |
-| 2操作の範囲 | 指定対象の全旧鍵／全員の全旧鍵、既存発行先と保持情報 | 指定交換は同じuserId、全員交換は指定既存administratorへ発行。ユーザー・Role権限・登録・Product Data保持 | 今回の契約／品質限定独立再レビュー済み（残指摘0。前判断のPassは履歴） |
-| 2入口と確認 | Workbenchの固定administratorとHostログイン済み操作者の対話CLIを分け、全4組で事前表示 | Hostは交換2のみ・追加認証なし・既存Root／Path。MCP鍵一覧・Schema・登録・dispatchなし。通常×指定は追加確認なし、他3組は明示確認 | 今回の契約／品質限定独立再レビュー済み（残指摘0。前判断のPassは履歴） |
-| 失敗・結果・回復 | 前提不足は事前停止。元発行／記録不明、発行済み・受け渡し未確認、管理認証喪失を別表示。秘密再表示なし | 元Identity再観測（交換由来だけ元exact）／別明示交換（別Operation／Recovery、先発行鍵含む旧集合）／既存Hostを分離 | 今回の契約／品質限定独立再レビュー済み（残指摘0。前判断のPassは履歴） |
+| 利用と通常管理 | 自身と許可された対象、固定8操作のRole別導線を鍵操作・内容閲覧と分離 | 要求毎の現行Role認可、公開／実アクセス、参照許可による三可視境界。業務管理manager／administrator、administrator Role変更・詳細権限・鍵はadministrator専用。内容設定で固定分担を変えない | 旧固定版の限定Passは当時の履歴。今回の鍵提示方式は候補伝播・限定再レビュー済み（鍵提示方式伝播差分、全重大度0） |
+| 通常管理の操作別条件 | 登録予定Role、名前だけの変更、Role前後、対象Role、Repository登録／公開状態を分けて表示 | BHVの操作別Input・現在固定認可・Effect・Outputへ接続。managerによるadministrator表示名変更可／Role変更等不可、developer管理不可 | 旧固定版の限定Passは当時の履歴。今回の鍵提示方式は候補伝播・限定再レビュー済み（鍵提示方式伝播差分、全重大度0） |
+| 内容範囲とRepository | 更新結果と内容取得、登録と公開、登録＋対応Exposureの同時解除、本体保持と開始済み操作終了未観測を別表示 | 変更前認可→明示更新→次要求Role／Exposure／実アクセス再評価。登録≠公開・同じ解除で両関係除去・片側残存は完了不可・他対象と本体保持・取消非証明 | 旧固定版の限定Passは当時の履歴。今回の鍵提示方式は候補伝播・限定再レビュー済み（鍵提示方式伝播差分、全重大度0） |
+| 新規発行／独立失効 | Workbenchの固定administrator操作と結果を区別 | 新規発行は旧失効なし・用途限定・短命な応答で採用済み入口へのSecret一度提示、独立失効は指定Credential–userId一致・指定外失効なし・新発行／Secret／交換再入場なし。秘密の提示は通常の同一Process backendから操作administratorのWorkbenchへ、Host交換・初回ではHost端末へ用途限定・短命に搬送する。汎用MCP／一般Transport DTO・一覧・履歴・Log・Evidenceへ生Secretを公開・保存せず、対象本人の受領済みを推定しない。 | 旧固定版の限定Passは当時の履歴。今回の鍵提示方式は候補伝播・限定再レビュー済み（鍵提示方式伝播差分、全重大度0） |
+| 2操作の範囲 | 指定対象の全旧鍵／全員の全旧鍵、既存発行先と保持情報 | 指定交換は同じuserId、全員交換は指定既存administratorへ発行。ユーザー・Role権限・登録・Product Data保持 | 旧固定版の限定Passは当時の履歴。今回の鍵提示方式は候補伝播・限定再レビュー済み（鍵提示方式伝播差分、全重大度0） |
+| 2入口と確認 | Workbenchの固定administratorとHostログイン済み操作者の対話CLIを分け、全4組で事前表示 | Hostは交換2のみ・追加認証なし・既存Root／Path。MCP鍵一覧・Schema・登録・dispatchなし。通常×指定は追加確認なし、他3組は明示確認 | 旧固定版の限定Passは当時の履歴。今回の鍵提示方式は候補伝播・限定再レビュー済み（鍵提示方式伝播差分、全重大度0） |
+| 失敗・結果・回復 | 前提不足は事前停止。元発行／記録不明、発行済み・受け渡し未確認、管理認証喪失を別表示。秘密再表示なし | 元Identity再観測（交換由来だけ元exact）／別明示交換（別Operation／Recovery、先発行鍵含む旧集合）／既存Hostを分離 | 旧固定版の限定Passは当時の履歴。今回の鍵提示方式は候補伝播・限定再レビュー済み（鍵提示方式伝播差分、全重大度0） |
 
 対象Screen・Behaviorを双方から照合した静的な対応確認であり、UI表示・保存・認可の実装や実E2Eを検証した結果ではない。
 
 ## 3. BHVからUIへのCoverage
 
-今回の契約・品質限定再レビューは両観点ともPass、残指摘0。レビュー入力と、その後の確認状態だけを同期した内容を区別する。
+旧固定候補の契約・品質限定再レビューは両観点ともPass、残指摘0。当時のレビュー入力と状態同期版の記録であり、今回の鍵提示方式改訂へ流用しない。
 
 | 対象 | レビュー入力SHA-256 | 状態同期後SHA-256 |
 |---|---|---|
@@ -90,12 +90,12 @@ Definition対応の意味を再定義せず同じ32組をDetailへ具体化す�
 |---|---|---|
 | 開始・入力 | Host明示開始・表示専用名 | 既存Root／Path・双方未初期化確認、最初のUUID作成と同じuserIdへの鍵 |
 | 4状態 | 未初期化確定／既存あり／確認済み途中／不明 | 既存・不明を初期化せず、双方確定後の明示開始だけ新作成 |
-| 相関・部分結果 | 元試行、UUID・発行・記録・配送・受領の別 | 成立前の管理能力から成立UUIDへ結合。未試行から試行／UUID推定なし |
+| 相関・部分結果 | 元試行、UUID・発行・記録・Host提示・exact同鍵の初回確認用限定接続確認の別。 | 成立前の管理能力から成立UUIDへ結合。未試行から試行／UUID推定なし |
 | 発行／記録不明 | 確認済み元試行へ戻る | 元試行再観測だけ、新交換・再初期化・自動再発行なし |
-| 配送／受領だけ不明 | 配送未確認と配送済み・受領未確認を別表示 | 作成済みadministratorへの既存Host指定交換を別明示操作。Secret再表示なし |
-| 終了・負契約 | 一度受け取り・通常管理接続。途中≠全体完了 | 再入場時別UUID／追加鍵／自動再初期化0、MCP公開0、自動登録・Exposure・内容権限付与0、Product Data変更0 |
+| Host提示／同鍵接続確認だけ不明。 | Host提示未確認と提示済み・同鍵初回接続未確認を別表示 | 作成済みadministratorへの既存Host指定交換を別明示操作。Secret再表示なし |
+| 終了・負契約 | Host一度提示→同鍵の初回限定接続成功→確認の保存・読戻し・清掃確認→初回完了・通常管理の順を対応付ける。確認未成立を通常管理へ昇格しない。 | 各段階の失敗・未確認・観測不能では初回完了表示0・通常Authority0。再入場時別UUID／追加鍵／自動再初期化0、MCP公開0、自動登録・Exposure・内容権限付与0、Product Data変更0 |
 
-初回設定の契約／品質限定独立再レビューはともにPass・全重大度の残指摘0。静的な意味対応であり、実装・Visual・正式QA実行・実E2E・全体Readyではない。
+旧初回設定の契約／品質限定独立再レビューはともにPass・全重大度の残指摘0。これは当時の静的対応結果で、今回の鍵提示方式対応・実装・Visual・正式QA実行・実E2E・全体Readyの根拠へ流用しない。
 
 | 対象 | 現行候補のレビュー入力SHA-256 | 結果・状態同期後SHA-256 |
 |---|---|---|
@@ -122,16 +122,20 @@ Definition対応の意味を再定義せず同じ32組をDetailへ具体化す�
 |---|---|---|---|
 | UI InteractionにBHVがない | 0件 | UI／SPEC工程 | 新Interaction追加時 |
 | BHV結果を認識できるUIがない | 0件 | UI／SPEC工程 | 新BHV追加時 |
-| Definition意味との不一致 | SCR-000008／BHV-000012は初回設定のDetail限定独立再レビュー済み・残指摘0（前判断のPassは履歴）。他対象は更新前記録 | Owner Definition工程 | Detailが新しい意味を必要とした時 |
+| Definition意味との不一致 | SCR-000008／BHV-000012は鍵提示方式の対応を更新・限定再レビュー済み（鍵提示方式伝播差分、全重大度0）（旧Passは履歴）。他対象は更新前記録 | Owner Definition工程 | Detailが新しい意味を必要とした時 |
 | CMP Coverage | N/A | UI工程 | Reusable Componentを発行した時 |
 
 ## 6. Architecture／Qualityへの引き渡し
 
-- Architectureは32 Relationを配置制約として扱い、UI／SPEC Definitionの意味を変更しない。初回設定の初回Hostの信頼された入口とMCP／自動起動0、双方未初期化確認、元試行と作成UUIDの結合、作成／発行／記録／配送／受領の別、途中再入場の別UUID・追加鍵・自動再初期化0、発行／記録不明は元試行再観測だけ・確定後の配送または受領不明は別明示Host指定交換、通常交換Recoveryとの分離を保持義務として渡し、Architecture未追従を維持する。
-- Qualityは各Relationの操作、Feedback、状態、結果、失敗および回復を既存検証義務へ統合する。初回設定の初回Hostの信頼された入口とMCP／自動起動0、双方未初期化確認、元試行と作成UUIDの結合、作成／発行／記録／配送／受領の別、途中再入場の別UUID・追加鍵・自動再初期化0、発行／記録不明は元試行再観測だけ・確定後の配送または受領不明は別明示Host指定交換、通常交換Recoveryとの分離も導出対象。Quality未追従・正式項目Not Runを維持する。
+- Architectureは32 Relationを配置制約として扱い、UI／SPEC Definitionの意味を変更しない。初回設定の初回Hostの信頼された入口とMCP／自動起動0、双方未初期化確認、元試行と作成UUIDの結合、作成／発行／記録／Host提示／exact同鍵の初回確認用限定接続確認の別、途中再入場の別UUID・追加鍵・自動再初期化0、発行／記録不明は元試行再観測だけ・確定後のHost提示またはexact同鍵の初回確認用限定接続確認不明は別明示Host指定交換、通常交換Recoveryとの分離を保持義務として渡し、Architecture未追従を維持する。
+- Qualityは各Relationの操作、Feedback、状態、結果、失敗および回復を既存検証義務へ統合する。初回設定の初回Hostの信頼された入口とMCP／自動起動0、双方未初期化確認、元試行と作成UUIDの結合、作成／発行／記録／Host提示／exact同鍵の初回確認用限定接続確認の別、途中再入場の別UUID・追加鍵・自動再初期化0、発行／記録不明は元試行再観測だけ・確定後のHost提示またはexact同鍵の初回確認用限定接続確認不明は別明示Host指定交換、通常交換Recoveryとの分離も導出対象。Quality未追従・正式項目Not Runを維持する。
 - 実装との一致はReality Auditで別に判定する。
 
-今回更新した登録解除・鍵の受け渡し未確認の判断のDetailと投影は今回の契約／品質限定独立再レビュー済み（残指摘0。前判断のPassは履歴）。以下の旧全数項目を最新候補全体のPassへ読み替えない。
+今回更新した登録解除・鍵の受け渡し未確認の判断のDetailと投影は旧固定版の限定Passは当時の履歴。今回の鍵提示方式は候補伝播・限定再レビュー済み（鍵提示方式伝播差分、全重大度0）。以下の旧全数項目を最新候補全体のPassへ読み替えない。
+
+## 鍵提示方式の現在伝播 — 2026-10-12
+
+鍵提示方式の現在対応は既存SCR-000008／PRT-000008.spec-000012↔BHV-000012だけを候補更新した。通常の一度提示／対象本人受領非保証と追加受領操作なし、初回のHost一度提示／同鍵接続確認／確認保存後だけ通常権限を双方向に接続する。旧限定Pass・引用・Hashは当時の履歴として保持する。今回の1 Relationは限定再レビュー済み（鍵提示方式伝播差分、全重大度0）で、他31 Relation・実画面・Source・正式検証の成立を主張しない。
 
 ## Checklist
 
