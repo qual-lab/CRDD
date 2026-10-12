@@ -37,6 +37,8 @@ import {
   type KeyExchangeResult,
   exchangeCredentials,
   exchangeCredentialsFromHost,
+  readKeyExchangeState,
+  readKeyExchangeStateFromHost,
   readCredentialIssuance,
   registerRepository,
   unregisterRepository,
@@ -7950,4 +7952,458 @@ test("鍵交換保存は二Processの同一と別対象競合を一採用へ閉�
     assert.deepEqual(saved.initialization, f.state.initialization);
     assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
   }
+});
+
+/**
+ * 三段階を閉じた非秘密投影で観測する。
+ * @responsibility Host起点の読取りをWorkbench継続の許可にしない。
+ * @trace RFD-IT-013
+ * @trace RFD-IT-017
+ * @precondition 自己生成Root、三Role、Host起点の管理者以外への交換。
+ * @stimulus 各段階で保存を停止し、Hostと現在管理者でexact参照を読む。
+ * @observation DTO own field、起点entry・旧集合・提示、凍結、current byte。
+ * @oracle 秘密・内部Pathなし。材料処置後の次要求だけ観測し、保存／生成／継続0。
+ * @cleanup Hook復元とFixture回収。
+ * @boundary current・現在認証・専用交換Reader。
+ */
+test("交換状態Readerは三段階を非秘密の閉集合で返す", (t) => {
+  for (const phase of [1, 2, 3]) {
+    const f = managementFixture(t);
+    const target = f.state.credentials[1];
+    assert.ok(target);
+    const operationId = "00000000-0000-4000-8000-000000000090";
+    const recoveryId = `access-management.key-exchange.${operationId}`;
+    const remove = fs.rmSync;
+    let removals = 0;
+    if (phase < 3)
+      fs.rmSync = (file, options) => {
+        if (
+          String(file) ===
+            path.join(f.directory, "access-management.pending.json") &&
+          ++removals === phase
+        )
+          throw new Error("injected_stop");
+        return remove(file, options);
+      };
+    try {
+      exchangeCredentialsFromHost(
+        f.root,
+        1,
+        operationId,
+        "targeted",
+        target.userId,
+        [target.credentialId],
+        true,
+      );
+    } finally {
+      fs.rmSync = remove;
+    }
+    const current = path.join(f.directory, "access-management.json");
+    const before = fs.readFileSync(current);
+    if (phase < 3)
+      assert.equal(
+        readKeyExchangeStateFromHost(f.root, recoveryId).status,
+        "unavailable",
+      );
+    const result = readKeyExchangeState(
+      f.root,
+      f.tokens.administrator,
+      recoveryId,
+    );
+    assert.equal(result.status, "observed");
+    if (result.status !== "observed") continue;
+    const snapshot = result.snapshot;
+    assert.equal(snapshot.revision, phase + 1);
+    assert.equal(
+      snapshot.stage,
+      ["prepared", "revoked", "credential_stored"][phase - 1],
+    );
+    assert.equal(snapshot.entry, "host");
+    assert.deepEqual(snapshot.oldCredentialIds, [target.credentialId]);
+    assert.deepEqual(
+      Object.keys(snapshot).sort(),
+      [
+        "entry",
+        "oldCredentialIds",
+        "operationId",
+        "recipientUserId",
+        "recoveryId",
+        "revision",
+        "scope",
+        "stage",
+        ...(phase === 3 ? ["newCredentialId", "presentation"] : []),
+      ].sort(),
+    );
+    if (snapshot.stage === "credential_stored")
+      assert.equal(snapshot.presentation, "not_attempted");
+    assert.equal(Object.isFrozen(result), true);
+    assert.equal(Object.isFrozen(snapshot), true);
+    assert.equal(Object.isFrozen(snapshot.oldCredentialIds), true);
+    assert.deepEqual(readKeyExchangeStateFromHost(f.root, recoveryId), result);
+    assert.deepEqual(fs.readFileSync(current), before);
+    assert.equal(
+      exchangeCredentials(
+        f.root,
+        f.tokens.administrator,
+        snapshot.revision,
+        operationId,
+        "targeted",
+        target.userId,
+        [target.credentialId],
+        false,
+      ).status,
+      "unavailable",
+    );
+    assert.deepEqual(fs.readFileSync(current), before);
+    if (snapshot.stage === "credential_stored") {
+      const started = recordCredentialPresentation(f.root, {
+        credentialId: snapshot.newCredentialId,
+        issuanceOperationId: operationId,
+        expectedRevision: snapshot.revision,
+        target: "unconfirmed",
+      });
+      assert.equal(started.status, "completed");
+      if (started.status !== "completed") continue;
+      for (const presentation of ["unconfirmed", "confirmed"] as const) {
+        if (presentation === "confirmed")
+          assert.equal(
+            recordCredentialPresentation(f.root, {
+              credentialId: snapshot.newCredentialId,
+              issuanceOperationId: operationId,
+              expectedRevision: snapshot.revision + 1,
+              target: "confirmed",
+              presentationOperationId: started.value.presentationOperationId,
+            }).status,
+            "completed",
+          );
+        const bytesBeforeRead = fs.readFileSync(current);
+        const observed = readKeyExchangeState(
+          f.root,
+          f.tokens.administrator,
+          recoveryId,
+        );
+        assert.equal(observed.status, "observed");
+        if (observed.status !== "observed") continue;
+        assert.deepEqual(observed.snapshot, {
+          ...snapshot,
+          revision:
+            snapshot.revision + (presentation === "unconfirmed" ? 1 : 2),
+          presentation,
+        });
+        assert.deepEqual(
+          readKeyExchangeStateFromHost(f.root, recoveryId),
+          observed,
+        );
+        assert.deepEqual(fs.readFileSync(current), bytesBeforeRead);
+      }
+    }
+  }
+});
+
+/**
+ * Workbench自己交換後のHost観測を固定する。
+ * @responsibility 旧Bearerの失効と起点を維持した非秘密観測を分ける。
+ * @trace RFD-IT-013
+ * @trace RFD-IT-017
+ * @precondition 三Roleの自己生成Rootと管理者資格。
+ * @stimulus Workbenchで自己交換し旧BearerとHostでexact参照を読む。
+ * @observation 固定拒否、元入口・旧集合・新資格・改訂、current byte。
+ * @oracle 旧資格では取得不可。Hostはworkbench起点を保持して現在段階だけ返す。
+ * @cleanup Fixture回収。
+ * @boundary 現在資格とHostの内部読取り。
+ */
+test("交換状態ReaderはWorkbench自己交換後もHostで起点を保持する", (t) => {
+  const f = managementFixture(t);
+  const target = f.state.credentials[0];
+  assert.ok(target);
+  const operationId = "00000000-0000-4000-8000-000000000090";
+  const result = exchangeCredentials(
+    f.root,
+    f.tokens.administrator,
+    1,
+    operationId,
+    "targeted",
+    target.userId,
+    [target.credentialId],
+    false,
+  );
+  assert.equal(result.status, "completed");
+  if (result.status !== "completed") return;
+  const current = path.join(f.directory, "access-management.json");
+  const before = fs.readFileSync(current);
+  assert.deepEqual(
+    readKeyExchangeState(f.root, f.tokens.administrator, result.recoveryId),
+    { status: "unavailable", reason: "key_exchange_state_unavailable" },
+  );
+  assert.deepEqual(readKeyExchangeStateFromHost(f.root, result.recoveryId), {
+    status: "observed",
+    snapshot: {
+      revision: 4,
+      recoveryId: result.recoveryId,
+      operationId,
+      entry: "workbench",
+      scope: "targeted",
+      recipientUserId: target.userId,
+      oldCredentialIds: [target.credentialId],
+      stage: "credential_stored",
+      newCredentialId: result.credentialId,
+      presentation: "not_attempted",
+    },
+  });
+  assert.deepEqual(fs.readFileSync(current), before);
+});
+
+/**
+ * 現在認可を先行材料処置より前に反証する。
+ * @responsibility 未許可・別参照・record不存在を同じ未取得へ閉じる。
+ * @trace RFD-IT-013
+ * @trace RFD-IT-017
+ * @precondition stored交換とbase／next一致の通常pending。
+ * @stimulus 非管理者・失効資格・別参照を読み、許可Actorの処置とfresh読取りを分ける。
+ * @observation currentと材料byte、固定結果と次要求改訂。
+ * @oracle 拒否時材料保持、処置要求fact0。不存在から完了を推定しない。
+ * @cleanup Fixture回収。
+ * @boundary 現在認証・exact参照・材料処置。
+ */
+test("交換状態Readerは現在認可と材料処置をfresh観測から分ける", (t) => {
+  for (const published of [false, true]) {
+    const f = managementFixture(t);
+    const target = f.state.credentials[1];
+    assert.ok(target);
+    const operationId = "00000000-0000-4000-8000-000000000090";
+    const recoveryId = `access-management.key-exchange.${operationId}`;
+    const stored = exchangeCredentialsFromHost(
+      f.root,
+      1,
+      operationId,
+      "targeted",
+      target.userId,
+      [target.credentialId],
+      true,
+    );
+    assert.equal(stored.status, "completed");
+    const current = path.join(f.directory, "access-management.json");
+    const saved = JSON.parse(
+      fs.readFileSync(current, "utf8"),
+    ) as AccessManagementState;
+    const next = structuredClone(saved);
+    next.revision++;
+    next.operationId = "00000000-0000-4000-8000-000000000091";
+    prepare({ ...f, state: saved }, next);
+    if (published) fs.writeFileSync(current, bytes(next));
+    const before = fs
+      .readdirSync(f.directory)
+      .map((file) => [file, fs.readFileSync(path.join(f.directory, file))]);
+    const unavailable = {
+      status: "unavailable",
+      reason: "key_exchange_state_unavailable",
+    };
+    for (const token of [f.tokens.manager, f.tokens.developer, "invalid"])
+      assert.deepEqual(
+        readKeyExchangeState(f.root, token, recoveryId),
+        unavailable,
+      );
+    assert.deepEqual(
+      readKeyExchangeState(
+        f.root,
+        f.tokens.administrator,
+        "access-management.key-exchange.00000000-0000-4000-8000-000000000092",
+      ),
+      unavailable,
+    );
+    assert.deepEqual(
+      fs
+        .readdirSync(f.directory)
+        .map((file) => [file, fs.readFileSync(path.join(f.directory, file))]),
+      before,
+    );
+    assert.deepEqual(
+      readKeyExchangeState(f.root, f.tokens.administrator, recoveryId),
+      unavailable,
+    );
+    const observed = readKeyExchangeState(
+      f.root,
+      f.tokens.administrator,
+      recoveryId,
+    );
+    assert.equal(observed.status, "observed");
+    if (observed.status === "observed")
+      assert.equal(observed.snapshot.revision, published ? 5 : 4);
+    assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
+  }
+});
+
+/**
+ * Readerの観測・清掃・解放不明とcredential baseを反証する。
+ * @responsibility 不明時の古いSnapshot返却と自動出版を行わない。
+ * @trace RFD-IT-017
+ * @precondition 自己生成stored交換。
+ * @stimulus read／cleanup／Lock故障、破損pending、credential base材料。
+ * @observation fixed未取得、current保持、材料保持、復元後fresh観測。
+ * @oracle 全故障fact0。credential base自動処置0、生成0。
+ * @cleanup Hook復元とFixture回収。
+ * @boundary 完全current・短命材料・外側Lock。
+ */
+test("交換状態Readerは観測清掃解放不明とcredential baseを保持する", (t) => {
+  for (const mode of [
+    "read",
+    "cleanup",
+    "lock",
+    "corrupt",
+    "credential_base",
+  ] as const) {
+    const f = managementFixture(t);
+    const target = f.state.credentials[1];
+    assert.ok(target);
+    const operationId = "00000000-0000-4000-8000-000000000090";
+    const recoveryId = `access-management.key-exchange.${operationId}`;
+    exchangeCredentialsFromHost(
+      f.root,
+      1,
+      operationId,
+      "targeted",
+      target.userId,
+      [target.credentialId],
+      true,
+    );
+    const current = path.join(f.directory, "access-management.json");
+    const saved = JSON.parse(
+      fs.readFileSync(current, "utf8"),
+    ) as AccessManagementState;
+    const pending = path.join(f.directory, "access-management.pending.json");
+    if (mode === "cleanup" || mode === "credential_base") {
+      const next = structuredClone(saved);
+      next.revision++;
+      next.operationId = "00000000-0000-4000-8000-000000000091";
+      prepare({ ...f, state: saved }, next);
+      if (mode === "credential_base") {
+        const material = JSON.parse(fs.readFileSync(pending, "utf8"));
+        material.kind = "credential";
+        fs.writeFileSync(pending, bytes(material));
+      }
+    } else if (mode === "corrupt") fs.writeFileSync(pending, "{");
+    const before = fs.readFileSync(current);
+    const open = fs.openSync;
+    const remove = fs.rmSync;
+    if (mode === "read")
+      fs.openSync = (file, flags, permissions) => {
+        if (String(file) === current) throw new Error("injected_read");
+        return open(file, flags, permissions);
+      };
+    if (mode === "cleanup" || mode === "lock")
+      fs.rmSync = (file, options) => {
+        if (
+          String(file) ===
+          (mode === "lock"
+            ? path.join(f.directory, "access-management.lock")
+            : pending)
+        )
+          throw new Error("injected_cleanup");
+        return remove(file, options);
+      };
+    try {
+      assert.deepEqual(readKeyExchangeStateFromHost(f.root, recoveryId), {
+        status: "unavailable",
+        reason: "key_exchange_state_unavailable",
+      });
+    } finally {
+      fs.openSync = open;
+      fs.rmSync = remove;
+    }
+    assert.deepEqual(fs.readFileSync(current), before);
+    if (mode === "corrupt" || mode === "credential_base") {
+      assert.equal(fs.existsSync(pending), true);
+      assert.equal(
+        readKeyExchangeStateFromHost(f.root, recoveryId).status,
+        "unavailable",
+      );
+    } else {
+      if (mode === "cleanup")
+        assert.equal(
+          readKeyExchangeStateFromHost(f.root, recoveryId).status,
+          "unavailable",
+        );
+      assert.equal(
+        readKeyExchangeStateFromHost(f.root, recoveryId).status,
+        "observed",
+      );
+      assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
+    }
+  }
+});
+
+/**
+ * 初回Host特例と不正参照の観測0を固定する。
+ * @responsibility 初回途中Workbench・不正形式・record不在を通常読取りへしない。
+ * @trace RFD-IT-017
+ * @trace RFD-IT-024
+ * @precondition 自己生成Rootと初回同User交換。
+ * @stimulus 不正参照、record不在、Host指定後のHost／Workbench読取り。
+ * @observation open0、閉じた未取得、Hostだけの新確認資格投影。
+ * @oracle 初回完了・新生成・提示・record整理0。
+ * @cleanup open Hook復元とFixture回収。
+ * @boundary 入力・初回段階・現在Authority。
+ */
+test("交換状態Readerは初回Hostだけと不正参照の観測0を守る", (t) => {
+  const f = managementFixture(t);
+  const open = fs.openSync;
+  let opened = 0;
+  fs.openSync = ((...args) => {
+    opened++;
+    return open(...args);
+  }) as typeof fs.openSync;
+  try {
+    assert.equal(
+      readKeyExchangeStateFromHost(f.root, "invalid").status,
+      "unavailable",
+    );
+    assert.equal(opened, 0);
+  } finally {
+    fs.openSync = open;
+  }
+  const recoveryId =
+    "access-management.key-exchange.00000000-0000-4000-8000-000000000090";
+  assert.deepEqual(readKeyExchangeStateFromHost(f.root, recoveryId), {
+    status: "unavailable",
+    reason: "key_exchange_state_unavailable",
+  });
+  const admin = f.state.users[0];
+  const old = f.state.credentials[0];
+  assert.ok(admin && old);
+  f.state.users = [admin];
+  f.state.credentials = [old];
+  old.operationId = f.state.initialization.attemptId;
+  f.state.initialization = {
+    stage: "credential_stored",
+    attemptId: old.operationId,
+    userId: admin.userId,
+    initialCredentialId: old.credentialId,
+    confirmationCredentialId: old.credentialId,
+  };
+  fs.writeFileSync(
+    path.join(f.directory, "access-management.json"),
+    bytes(f.state),
+  );
+  const stored = exchangeCredentialsFromHost(
+    f.root,
+    1,
+    "00000000-0000-4000-8000-000000000090",
+    "targeted",
+    admin.userId,
+    [old.credentialId],
+    true,
+  );
+  assert.equal(stored.status, "completed");
+  if (stored.status !== "completed") return;
+  assert.equal(
+    readKeyExchangeState(f.root, stored.token ?? "", recoveryId).status,
+    "unavailable",
+  );
+  const observed = readKeyExchangeStateFromHost(f.root, recoveryId);
+  assert.equal(observed.status, "observed");
+  if (
+    observed.status === "observed" &&
+    observed.snapshot.stage === "credential_stored"
+  )
+    assert.equal(observed.snapshot.newCredentialId, stored.credentialId);
 });

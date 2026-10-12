@@ -11,6 +11,9 @@ import {
   prepareExchangedCredential,
   readDisplayedCredentialIds,
   selectKeyExchangeContinuation,
+  isKeyExchangeRecoveryId,
+  projectKeyExchangeState,
+  type KeyExchangeSnapshot,
 } from "../credential/key-exchange.ts";
 import {
   prepareCredentialChange,
@@ -3526,4 +3529,136 @@ export function exchangeCredentialsFromHost(
     displayedOldCredentialIds,
     confirmed,
   );
+}
+
+/**
+ * 交換の非秘密観測と固定未取得を分離する。
+ * @responsibility 記録不在・状態不明を過去の完了へ変換しない。
+ * @trace ARCH-000013
+ * @shape observedは現在投影、unavailableは固定理由だけ。
+ * @invariant 読取りから失効・生成・提示・record終了を行わない。
+ * @boundary 同Process Workbench／信頼Host Consumer。
+ * @security 生鍵・内部Root・Lock回復情報を含めない。
+ * @compatibility 現v2の交換参照のみ。MCP非公開。
+ */
+export type KeyExchangeObservation =
+  | Readonly<{ status: "observed"; snapshot: KeyExchangeSnapshot }>
+  | Readonly<{
+      status: "unavailable";
+      reason: "key_exchange_state_unavailable";
+    }>;
+
+/**
+ * 現在Authorityとexact参照を既存Lockの読取りへ接続する。
+ * @responsibility 認可前処置・材料処置後の旧事実返却を拒否する。
+ * @trace ARCH-000013
+ * @input Root、現在入口・鍵、exact Recovery。
+ * @returns 凍結された非秘密観測または固定未取得。
+ * @precondition Workbench同Processまたは信頼Host内部Ownerだけ。
+ * @postcondition 材料処置noneとLock解放確認後だけ現在事実を返す。
+ * @effect current・現在認可・相関を照合後、既存材料だけ処置する。
+ * @failure 観測・清掃・解放不明では事実0。
+ * @invariant 新出版・失効・生成・提示・record終了0。
+ * @boundary 資格の投影とFilesystem保存Owner。
+ * @security Snapshot内部材料・Secret・Lock参照の透過0。
+ * @concurrency 同じLock一回。材料処置要求はfresh次要求へ戻す。
+ */
+function observeKeyExchange(
+  root: FilesystemStoreRoot,
+  entry: "workbench" | "host",
+  token: string | null,
+  recoveryId: string,
+): KeyExchangeObservation {
+  const unavailable = Object.freeze({
+    status: "unavailable" as const,
+    reason: "key_exchange_state_unavailable" as const,
+  });
+  if (
+    !isKeyExchangeRecoveryId(recoveryId) ||
+    (entry === "workbench" &&
+      (typeof token !== "string" || !readCredentialId(token)))
+  )
+    return unavailable;
+  const result = locked<KeyExchangeSnapshot>(root, () => {
+    try {
+      const current = readCurrent(root);
+      const snapshot = projectKeyExchangeState(
+        current.state,
+        entry,
+        token,
+        recoveryId,
+      );
+      if (!snapshot || settlePending(root, current, () => {}) !== "none")
+        return {
+          status: "unavailable",
+          reason: "key_exchange_state_unavailable",
+          publication: "not_attempted",
+          revision: null,
+          cleanupConfirmed: false,
+        };
+      return {
+        status: "completed",
+        value: snapshot,
+        publication: "not_attempted",
+        revision: current.state.revision,
+        cleanupConfirmed: true,
+      };
+    } catch {
+      return {
+        status: "unavailable",
+        reason: "key_exchange_state_unavailable",
+        publication: "not_attempted",
+        revision: null,
+        cleanupConfirmed: false,
+      };
+    }
+  });
+  return result.status === "completed"
+    ? Object.freeze({ status: "observed", snapshot: result.value })
+    : unavailable;
+}
+
+/**
+ * 現在administratorへHost起点も含めexact交換を非秘密観測する。
+ * @responsibility 起点entryを維持し、継続の入口制約を弱めない。
+ * @trace ARCH-000013
+ * @input Root・現在Bearer・exact Recovery。
+ * @returns 非秘密観測または固定未取得。
+ * @precondition 同ProcessのWorkbench管理読取りOwnerだけ。
+ * @postcondition 交換や提示を進めず、現在事実だけを返す。
+ * @effect 既存Lock読取りと許可後の材料処置だけ。
+ * @failure 非管理者・初回途中・不明は事実0。
+ * @invariant 記録不存在からclosedを推定しない。
+ * @boundary Workbench内部の状態読取り。
+ * @security MCP公開・秘密値の返却0。
+ * @concurrency 毎回現在Authorityを再照合する。
+ */
+export function readKeyExchangeState(
+  root: FilesystemStoreRoot,
+  token: string,
+  recoveryId: string,
+): KeyExchangeObservation {
+  return observeKeyExchange(root, "workbench", token, recoveryId);
+}
+
+/**
+ * 信頼Hostへexact交換の非秘密な現在状態だけを返す。
+ * @responsibility 資格喪失時の観測を新交換やAuthority復元と分ける。
+ * @trace ARCH-000013
+ * @input Root・exact Recovery。
+ * @returns 非秘密観測または固定未取得。
+ * @precondition ログイン済みHostの内部Owner。初回は同User指定交換だけ。
+ * @postcondition 追加確認・失効・生成・提示・終了処置なし。
+ * @effect 既存Lockとcurrent観測、許可後の材料処置だけ。
+ * @failure 相関・段階・観測不明は事実0。
+ * @invariant Host信頼をRemoteへ転用しない。
+ * @boundary Host内部状態確認。
+ * @security token・Verifier・salt・内部Path公開0。
+ * @concurrency 毎回完全currentで再評価する。
+ */
+export function readKeyExchangeStateFromHost(
+  root: FilesystemStoreRoot,
+  recoveryId: string,
+): KeyExchangeObservation {
+  return observeKeyExchange(root, "host", null, recoveryId);
 }

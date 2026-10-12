@@ -449,13 +449,23 @@ Readerは既存Root／Lock／current／pending／replaceを使い、完全状態
 
 元entryは起点相関として不変。再入場は現在administrator、または資格喪失時の既存信頼Host入口でexact交換を再照合する。Host継続では事前表示・確認を再適用し、新Recoveryや対象拡張を行わない。current=nextの既知出版材料を処置した要求は先へ進まず、次の新要求で段階を再観測する。credential由来current=base材料は自動出版・削除・再生成・新交換をせず保持停止する。
 
-credential_storedの保存・清掃・Lock解放後だけ一回の短命Secretを返し、提示前unconfirmedを既存提示Writerで確定する。交換終了と提示処置は分ける。新資格・全旧失効・exact相関を確認し、提示confirmed、またはSecret破棄と再表示不能を確認した場合だけ、別改訂で未解決recordを除去する。not_attempted／unconfirmedは変更せず資格recordに残し、専用Readerと別明示交換へ接続する。例外や未取得をSecret破棄確認に変換せず、提示予定の短命Secretがある間は除去しない。終了済み旧集合のReceiptを再構成しない。
+credential_storedの保存・清掃・Lock解放後だけ一回の短命Secretを返し、提示前unconfirmedを既存提示Writerで確定する。交換終了と提示処置は分ける。当初はSecret破棄確認によるrecord除去も候補としたが、2026-10-13の再照合で撤回した。現在方針は提示confirmedのexact record除去、またはnot_attempted／unconfirmedから別の明示交換への一出版置換である。秘密の物理消去を保証せず、Process喪失やtoken nullを破棄証明へ変換しない。終了済み旧集合のReceiptを再構成しない。具体条件はAM詳細の「非秘密の交換状態確認と終了方針」を正本とする。
 
 4経路・旧集合0／1／複数・不正対象／確認／改訂、各出版故障の次段Effect0、base／next材料、実Process喪失・競合、自己／全員失効後のAuthority、初回Binding、提示処置と遅延通知を既存RFD-IT-013／017／018等へ接続する。正式191項目、本番提示と入口、AM全体は未成立を維持する。
 
 準備候補の限定結果：局所6件、修正後AM全115件・書式／型／Warning禁止Lint各3軸が成功した。Fail／Cancel／Skip0・Exit0、終了後の自己生成store Root残存0。通常6改訂と初回7改訂の余裕を予約する境界、Host指定旧資格0件、初回前段・別User拒否、非対象全field保持を確認した。3種の一時変異は指定空集合の誤拒否、初回前段の誤許可、非対象Role設定変更を各試験で検出し、復元後6件成功。固定7Pathの限定独立再レビューは全重大度の残指摘0。CatalogのID／Path重複0、全AM suite未登録0、Symbol実体欠落0、差分空白確認成功。Repository Checkerの当該7Path指摘0、全体Exit1は維持する。集計fieldの初回参照誤りにより全体Errors／Warnings数を取得していないため推定値を記録しない。
 
 限定Passは準備の現在認証・exact集合・確認条件・改訂容量・入力不変だけ。保存・旧失効・新資格生成・提示・再入場・record整理・Host／Workbench本番Consumerは未接続で、正式191項目とAM全体は未成立。MCP公開面に変更がないため新MCP回帰は今回対象外とし、直前75件を交換完成の根拠に流用しない。次は既存file-storeへ交換本体の三出版を接続する。
+
+### 非秘密交換Readerと終了方針の再照合 — 2026-10-13
+
+基準HEAD `d71ade80`。変更分類は保存済み交換の非秘密現在観測と設計同期。現在のadministratorまたは信頼Host、exact参照・完全current・材料処置・Lock解放を既存Ownerへ閉じる。通常WorkbenchはHost起点も読めるが継続できず、初回途中は同UserのHost指定だけを許す。状態・履歴・Lock・秘密再取得APIを新設しない。親照合と独立した契約／試験レビューを実施し、静的3軸・AM／MCP回帰・文書直接影響確認を対象とする。標準規範・外部Provider・Docker・実Host保存を変えず、準拠監査と署名Provider E2Eはこの局所段階では実行しない。現在、人間による判断は必要ない。
+
+最初の限定レビューはModerate2件で不成立。提示三状態のうちnot_attemptedしか試験していないことと、Workbench自己交換後のHost観測が試験されていないことを是正する。統合是正方針を確認者へ返し、整合確認後に既存suiteへ追加した。既存Catalogへ観測の意味だけを追加し、suite ID・Symbol・Local Item・正式191項目は維持する。提示状態の固定化とHost起点限定化の二変異で各失敗を観測し、復元後に静的検査と回帰を再実行する。結果は後続の固定候補確認で確定し、初回129件の成功を是正後全体結果へ流用しない。
+
+終了方針の旧「破棄確認だけでrecord除去」は再照合で撤回した。confirmedのexact整理と、未確認から既存入口の`previousRecoveryId`による別明示交換への原子的置換に限定する。Sourceの終了処理はまだ未実装であり、Reader・保存coreの成功で代替しない。実提示・本番Host／Workbench・旧REST撤去・正式191項目・AM全体完成は未成立を維持する。
+
+確定した局所結果：Node v24.19.0、Reader局所5/5・Exit0、7.4369115秒。是正後各Packageの`npm test`はAM130/130・155.5333602秒、MCP75/75・64.645641秒、全Exit0・Fail／Cancel／Skip0、書式・型・warning禁止Lintの各3軸成功。固定9Pathの限定独立再レビューは全重大度残指摘0。二変異は各対象CaseでExit1を確認してexact復元し、上記全回帰で成功を確認した。HEAD `d71ade809d8fe770d196970ca51f8ed9ca99b529`とtracked差分Hash `6b96aeee423332d7874ac3830ce368308a38670c`は回帰終了前後で一致。鍵交換Source／保存Source／保存試験のGit Blob OIDは順に`6298ab0060df216bab180123a3adf0ee47e3e20b`／`99de137e3d53259d905fba847e5a81c29c990533`／`a38f87058cbf2c14ba6a6d8ab3a2c73904b0be5d`。Symbol／Catalog ID・Path重複0、登録実体欠落0、自己生成store Root残存0、差分空白検査成功。Checkerは全体3057 errors／0 warnings・Exit1、対象9Path指摘0。完全出力は端末で確認し、上記コマンドで再生成できるため実行別書庫は追加しない。後続の結果同期は文書だけで、実行Source・試験を変更しない。正式191項目・全体Readyは未成立を維持する。
 
 ### 交換本体の保存接続の着手と固定条件 — 2026-10-13
 

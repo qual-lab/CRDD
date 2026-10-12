@@ -239,6 +239,8 @@ RFD-IT-017／018では、現在administrator・初回completed・期待改訂・
 
 交換保存の局所接続はRFD-IT-013／017を中心に、四経路の三出版、自己／全員失効後の同要求admission、次要求の現在別管理者／Host、準備未確定Recovery nullを反証する。各段階のprepare・rename・読戻し・清掃とLock故障、容量・生成故障、拒否Actorの材料保持、stored再入場生成0／Secret0、初回新確認Bindingと旧資格0件を照合する。実Processを三出版の前後で終了し、base保持停止とnext処置後のfresh継続を区別する。同ID・別対象・全員／指定の実競合では一採用と敗者生成0を観測する。core保存成功でも未解決recordと未提示は残るため、実提示・record整理・公開Consumer・正式191項目のPassを推定しない。
 
+交換状態の専用読取りもRFD-IT-013／017の補助観測として、三段階と保存済み新資格の提示三状態、exact改訂・起点・旧集合、非秘密の閉集合、読取り前後のcurrent不変を反証する。Workbench起点の自己交換で旧鍵が失効した場合は旧Bearerを拒否し、Host観測では起点workbenchを保持する。Host起点recordのWorkbench観測を継続許可へ変換しない。初回途中は同UserのHost指定だけとし、未知参照・record不在・観測／清掃／解放不明は固定未取得とする。材料処置要求の事実0と次fresh観測を区別する。提示確認済みの整理と未確認から別明示交換への一出版置換は後続の検証対象であり、Readerの成功で代替しない。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した

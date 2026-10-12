@@ -70,6 +70,9 @@ export {
 export {
   exchangeCredentials,
   exchangeCredentialsFromHost,
+  readKeyExchangeState,
+  readKeyExchangeStateFromHost,
+  type KeyExchangeObservation,
   type KeyExchangeResult,
   readCredentialIssuance,
   type CredentialIssuanceObservation,

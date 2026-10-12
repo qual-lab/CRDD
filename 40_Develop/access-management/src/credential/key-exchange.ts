@@ -18,6 +18,134 @@ const KEY_EXCHANGE_REVISION_RESERVE = 6;
 const INITIAL_CONNECTION_COMPLETION_REVISION_RESERVE = 1;
 
 /**
+ * exact交換参照の形式だけを検査する。
+ * @responsibility 参照を現在Authorityや保存済み存在へ昇格しない。
+ * @trace ARCH-000013
+ * @input 信頼しない参照値。
+ * @returns 現Schemaの交換参照の場合だけtrue。
+ * @precondition N/A: 任意値を受ける。
+ * @postcondition 入力を変更・暗黙変換しない。
+ * @effect N/A: primitiveの形式検査だけ。
+ * @failure 不正値はfalse。
+ * @invariant ID形式からrecord存在・完了・認可を推定しない。
+ * @boundary 入力と非秘密観測。
+ * @security Getterや文字列化を実行しない。
+ * @concurrency N/A: 共有状態なし。
+ */
+export function isKeyExchangeRecoveryId(value: unknown): value is string {
+  const prefix = "access-management.key-exchange.";
+  return (
+    typeof value === "string" &&
+    value.startsWith(prefix) &&
+    UUID.test(value.slice(prefix.length))
+  );
+}
+
+/**
+ * 保存済み交換の非秘密な現在段階を表す。
+ * @responsibility 段階・起点相関・提示状態をSecretや成功Receiptから分離する。
+ * @trace ARCH-000013
+ * @shape 改訂・元Recovery・操作・起点入口・範囲・発行先・旧ID集合・段階。storedだけ新資格IDと提示状態。
+ * @invariant 未解決recordの現在観測だけで、提示／終了の完了を推定しない。
+ * @boundary 現在管理者または信頼Hostへの読取り投影。
+ * @security token・salt・Verifier・Root・対象外User／資格を含めない。
+ * @compatibility 現Schema v2、非秘密観測専用。
+ */
+export type KeyExchangeSnapshot = Readonly<
+  {
+    revision: number;
+    recoveryId: string;
+    operationId: string;
+    entry: "workbench" | "host";
+    scope: "targeted" | "all";
+    recipientUserId: string;
+    oldCredentialIds: readonly string[];
+  } & (
+    | { stage: "prepared" | "revoked" }
+    | {
+        stage: "credential_stored";
+        newCredentialId: string;
+        presentation: "not_attempted" | "unconfirmed" | "confirmed";
+      }
+  )
+>;
+
+/**
+ * 現在Authorityからexact交換の事実だけを投影する。
+ * @responsibility 読取りを継続・確認・終了処置へ転用しない。
+ * @trace ARCH-000013
+ * @input 完全current、現在入口と鍵、exact Recovery。
+ * @returns 所有済み凍結投影、または非開示のnull。
+ * @precondition 保存Ownerが同Lockで完全Schemaを検査済み。Hostは信頼内部入口。
+ * @postcondition 入力を変更せず、起点entryを保持する。
+ * @effect Workbench現在資格の照合とメモリ投影だけ。
+ * @failure 非管理者・初回Workbench・別参照・record不存在・不正入口はnull。
+ * @invariant 不存在はclosed／未実施／完了の証明ではない。改訂余裕や明示確認を観測条件にしない。
+ * @boundary 現在認可と交換状態読取り。
+ * @security 参照だけのAuthority復元・Secret復元0。
+ * @concurrency 同じSnapshot一回だけ。次要求はfresh再認可。
+ */
+export function projectKeyExchangeState(
+  current: AccessManagementState,
+  entry: "workbench" | "host",
+  token: string | null,
+  recoveryId: string,
+): KeyExchangeSnapshot | null {
+  if (
+    !isKeyExchangeRecoveryId(recoveryId) ||
+    (entry !== "host" && entry !== "workbench") ||
+    (entry === "host" ? token !== null : typeof token !== "string")
+  )
+    return null;
+  if (
+    entry === "workbench" &&
+    (current.initialization.stage !== "completed" ||
+      typeof token !== "string" ||
+      resolveCredentialAuthentication(token, current)?.role !== "administrator")
+  )
+    return null;
+  const exchange = current.unresolvedKeyExchanges.find(
+    (item) => item.recoveryId === recoveryId,
+  );
+  if (!exchange) return null;
+  const initial = current.initialization;
+  if (
+    initial.stage !== "completed" &&
+    (entry !== "host" ||
+      initial.stage !== "credential_stored" ||
+      exchange.entry !== "host" ||
+      exchange.scope !== "targeted" ||
+      exchange.recipientUserId !== initial.userId)
+  )
+    return null;
+  const base = {
+    revision: current.revision,
+    recoveryId: exchange.recoveryId,
+    operationId: exchange.operationId,
+    entry: exchange.entry,
+    scope: exchange.scope,
+    recipientUserId: exchange.recipientUserId,
+    oldCredentialIds: Object.freeze([...exchange.oldCredentialIds]),
+  };
+  if (exchange.stage !== "credential_stored")
+    return Object.freeze({ ...base, stage: exchange.stage });
+  const credential = current.credentials.find(
+    (item) =>
+      item.credentialId === exchange.newCredentialId &&
+      item.userId === exchange.recipientUserId &&
+      item.operationId === exchange.operationId &&
+      !item.revoked,
+  );
+  if (!credential) return null;
+  return Object.freeze({
+    ...base,
+    stage: exchange.stage,
+    newCredentialId: exchange.newCredentialId,
+    presentation: credential.presentation,
+  });
+}
+
+/**
  * 現在条件と事前表示した集合から交換準備候補を作る。
  * @responsibility 現在Authority・発行先・確認と固定旧集合を同じ改訂へ結ぶ。
  * @trace ARCH-000013

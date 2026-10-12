@@ -558,9 +558,19 @@ revision2のcanonical `user_stored`へ同元試行で再入場した場合は保
 
 prepared出版・読戻し・材料清掃確認後だけ固定旧集合を失効し、revokedを別改訂へ保存する。その確定後だけ固定長placeholderで新資格保存の容量を予約し、一回の資格材料生成と完全Parser確認からcredential_storedを別出版する。各成功後はcurrentを読み直す。初回途中のHost指定では新資格とconfirmationCredentialIdを同改訂へ置き、元初資格・試行を保持する。通常6／初回7改訂の予約と途中段階の残り余裕を照合する。
 
-coreのcompletedは資格保存・読戻し・短命材料清掃・Lock解放までの結果であり、提示・record終了ではない。新規生成保存の当該要求だけが短命tokenを返し、stored再入場はtoken null・生成0。未解決recordとpresentation not_attemptedは保持し、提示前unconfirmedと提示観測、明示破棄・record整理は後続Ownerへ残す。失敗結果は生鍵・Snapshot・内部Pathを含めず、固定firstFailure・secondaryFailure、最後の確認段階、出版・清掃状態を分離する。preparedが確認済みになる前はrecoveryId nullとし、入力operationIdや未確認pendingから耐久Recovery成立を推定しない。
+coreのcompletedは資格保存・読戻し・短命材料清掃・Lock解放までの結果であり、提示・record終了ではない。新規生成保存の当該要求だけが短命tokenを返し、stored再入場はtoken null・生成0。未解決recordとpresentation not_attemptedは保持し、提示前unconfirmedと提示観測、確認済みrecord整理または別の明示交換への引継ぎは後続Ownerへ残す。失敗結果は生鍵・Snapshot・内部Pathを含めず、固定firstFailure・secondaryFailure、最後の確認段階、出版・清掃状態を分離する。preparedが確認済みになる前はrecoveryId nullとし、入力operationIdや未確認pendingから耐久Recovery成立を推定しない。
 
 current=nextの既知材料を処置した要求は停止し、次fresh要求だけ保存済み段階から継続する。credential由来current=baseは保持停止し、再出版・廃棄・再生成・新交換をしない。資格生成前の拒否、三出版のprepare／rename／読戻し／清掃故障、主FailureとLock解放不明、実Process喪失・競合は局所試験で検証する。本番Host／Workbench接続・実提示・未解決record整理・正式Local Item全体は未成立で、旧REST撤去の根拠へ流用しない。
+
+### 非秘密の交換状態確認と終了方針 — 2026-10-13
+
+`readKeyExchangeState`と`readKeyExchangeStateFromHost`は、元exact交換参照の現在状態だけを返す内部入口とする。完全current・現在administratorまたは信頼Host・対象相関を同じ既存Lock内で確認してから材料を処置する。材料を処置した要求は事実を返さず、次のfresh要求で再照合する。観測・清掃・Lock解放が不明なら固定未取得とし、不在を終了済みまたは未発行へ読み替えない。初回途中は同UserのHost指定交換だけを観測できる。通常WorkbenchはHost起点のrecordも観測できるが、観測は継続許可ではない。
+
+投影は改訂・元交換参照・操作・起点入口・範囲・発行先・旧資格ID集合・現在段階の閉集合とし、新資格保存段階だけ新資格IDと提示状態を加える。秘密値・salt・Verifier・内部Path・対象外資格を返さず、提示・生成・失効・record除去を行わない。
+
+終了処置は提示confirmedの場合だけ、現在認可・期待改訂・exact record・新資格と全旧失効を再照合し、一出版で当該recordを除去する。これは本人受領の保証ではない。not_attempted／unconfirmedを、秘密破棄の自己申告だけで除去する方針は採用しない。これらは人間の明示する別交換で、既存交換入口へ用途限定の`previousRecoveryId`を渡し、旧stored recordを新prepared recordへ一出版で置換する。新しい旧資格集合には前交換の新資格を必ず含める。指定交換は同発行先、全員交換は既存administratorを発行先とし、現在認可・表示・確認・改訂余裕を再評価する。初回途中は同UserのHost指定だけを許す。参照省略時の既存開始条件は変えない。
+
+Process喪失やtoken nullは物理的な秘密消去の証明ではなく、再取得・再表示をしない論理上の処置だけを表す。新しい状態・破棄証明・Lock・回復台帳を追加しない。Readerの局所実装と終了方針を区別し、終了処理・提示Owner・本番Consumerの実装完了は別途検証する。
 
 ### 純粋Schema検査への具体化 — 2026-10-12
 
