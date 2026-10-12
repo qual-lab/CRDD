@@ -6,6 +6,10 @@
  */
 import fs from "node:fs";
 import {
+  readCredentialPresentationUpdate,
+  selectCredentialPresentationTarget,
+} from "../credential/presentation.ts";
+import {
   selectRepositoryAccess,
   observeRepositoryAccess,
   type RepositoryAccess,
@@ -2388,6 +2392,117 @@ export function createInitialCredential(
       return {
         status: "unavailable",
         reason: "state_store_initial_credential_failed",
+        publication,
+        revision,
+        cleanupConfirmed,
+      };
+    }
+  });
+}
+
+/**
+ * 資格の提示前記録と出力観測後の記録を同じ保存Ownerで出版する。
+ * @responsibility 非秘密exact相関をfresh照合し、対象presentationだけを一改訂進める。
+ * @trace ARCH-000013
+ * @input 検証済みRootと閉じた提示更新。confirmedは出力を観測した内部Ownerだけが要求する。
+ * @returns 保存・清掃・Lock終了済みの非秘密相関、または既知出版と未完了。
+ * @precondition 信頼済み内部Consumer用。相関入力やParser受理自体をAuthorityにしない。
+ * @postcondition not_attempted→unconfirmedまたはunconfirmed→confirmedだけを保存し、再入場は提示許可を返さない。
+ * @effect 既存Lock、current読取り、出版UUID、pending・replace・読戻し・材料清掃。
+ * @failure 形式不正・失効・交換・改訂／提示不一致は更新0。保存／清掃／解放不明ではcompletedを返さない。
+ * @invariant 他資格・User・Role・登録・初回歴史ID・未解決交換を変更しない。
+ * @boundary 内部提示OwnerとAM保存。実TTY／HTTP観測・管理認可は呼出し側。
+ * @security 生Secretを受け取らず返さず、遅延callbackは返した非秘密相関だけを保持する。
+ * @concurrency 全Reader／Writerと同じLockで同期出版し、次更新は現在改訂を取り直す。
+ */
+export function recordCredentialPresentation(
+  root: FilesystemStoreRoot,
+  input: unknown,
+): StateStoreResult<
+  Readonly<{
+    revision: number;
+    operationId: string;
+    credentialId: string;
+    issuanceOperationId: string;
+    presentationOperationId: string;
+    presentation: "unconfirmed" | "confirmed";
+  }>
+> {
+  const update = readCredentialPresentationUpdate(input);
+  if (!update)
+    return {
+      status: "unavailable",
+      reason: "state_store_presentation_input_rejected",
+      publication: "not_attempted",
+      revision: null,
+      cleanupConfirmed: true,
+    };
+  return locked(root, () => {
+    let publication: "not_attempted" | "confirmed" = "not_attempted";
+    let revision: number | null = null;
+    let cleanupConfirmed = false;
+    try {
+      const current = readCurrent(root);
+      revision = current.state.revision;
+      if (
+        settlePending(root, current, () => {
+          publication = "confirmed";
+        }) !== "none"
+      )
+        return {
+          status: "unavailable",
+          reason: "state_store_previous_pending_settled",
+          publication,
+          revision,
+          cleanupConfirmed: true,
+        };
+      cleanupConfirmed = true;
+      const index = selectCredentialPresentationTarget(current.state, update);
+      if (index === null)
+        return {
+          status: "unavailable",
+          reason: "state_store_presentation_rejected",
+          publication,
+          revision,
+          cleanupConfirmed,
+        };
+      const operationId = crypto.randomUUID();
+      if (
+        !ATTEMPT_UUID.test(operationId) ||
+        operationId === current.state.operationId ||
+        operationId === update.issuanceOperationId
+      )
+        throw new Error("uuid_collision");
+      const next = structuredClone(current.state);
+      const credential = next.credentials[index];
+      if (!credential) throw new Error("presentation_target_missing");
+      next.revision = current.state.revision + 1;
+      next.operationId = operationId;
+      credential.presentation = update.target;
+      const parsed = parseAccessManagementState(serialize(next));
+      if (parsed.status !== "parsed")
+        throw new Error("presentation_candidate_invalid");
+      const result = publishState(root, current, parsed.state, "credential");
+      return result.status === "completed"
+        ? {
+            ...result,
+            value: {
+              revision: result.value.revision,
+              operationId: result.value.operationId,
+              credentialId: update.credentialId,
+              issuanceOperationId: update.issuanceOperationId,
+              presentationOperationId:
+                update.target === "unconfirmed"
+                  ? result.value.operationId
+                  : update.presentationOperationId,
+              presentation: update.target,
+            },
+          }
+        : result;
+    } catch {
+      return {
+        status: "unavailable",
+        reason: "state_store_presentation_failed",
         publication,
         revision,
         cleanupConfirmed,

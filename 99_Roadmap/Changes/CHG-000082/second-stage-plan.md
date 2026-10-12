@@ -365,6 +365,14 @@ Sourceは状態contractのschemaRevision 2だけを受付け、資格presentatio
 
 旧field／旧版拒否、Host交換のprepared／revoked／新資格、誤結合・Workbench初回交換・複数交換・元発行違い・資格欠測、元提示不明を保ったcompletedと後続交換を反証した。実Filesystemの失効途中Snapshotはread可能でも両認証が拒否し、byteを変更しないことを確認した。固定8Pathの限定独立レビューはPass・全重大度の残指摘0。AM64／MCP68の計132 Case、各静的3軸・差分空白確認は成功。MCP回帰には旧REST／Shared比較Consumerを含み、本番代替入口の完成証明ではない。提示の先行unconfirmed出版・実TTY／HTTP一度出力、遅延提示確認、初回確認出版・公開Protocol／Launcher、通常鍵3操作・Host交換の本番Writerは残る。実Host移行・初回全体・AM完成・Release可能を主張しない。
 
+### 資格提示状態の保存候補 — 2026-10-12
+
+基準`54de8db6`、着手時clean。変更分類は採用済み一度提示の前後状態保存と非秘密exact相関の実装。親照合・読み取り専用の契約／品質確認で、confirmedには元発行・資格・提示Operation・期待改訂をすべて要求し、初回交換中は単一Host新資格保存段階だけ許可することを固定した。純粋な閉入力と対象判定をcredential/presentation.ts、既存Lockと物理出版をstate/file-store.tsへ置く。新Store・Lock・Receipt・一般Recovery・秘密の再取得APIは作らない。
+
+`recordCredentialPresentation`は信頼済み内部RootのConsumerだけに使用し、MCP／HTTP操作へ公開しない。開始成功はunconfirmedの別出版・読戻し・材料清掃・Lock終了後の非秘密Bindingだけを返す。観測後のconfirmedは同じ提示Operationと現在資格をfresh照合する。再入場・不一致・失効・交換・別改訂では更新0。資格以外の状態・初回歴史IDは保持する。出力観測・生Secretの短命所有・Workbench管理認可・実TTY／HTTP Consumerは次に接続する。
+
+局所6 Caseは、三状態×二target、exact各軸・失効、初回／完了後×Host／Workbench交換、rename・読戻し・材料清掃・Lock解放故障を実Filesystemで確認した。局所成功後のAM全回帰で、新内部APIをRuntime公開一覧へ追加する追従漏れ1件を検出し、明示集合にそのSymbolだけを追加した。権限判定や未知公開の拒否は弱めていない。Headerの計数と古い公開範囲説明も現在集合へ同期した。独立レビューのMajor 1件は、出版済みpendingの処置より先に再入場を拒否して清掃完了を誤表示する順序であった。既存pendingをexact処置してから対象を選び、処置した呼出しはBindingなしで停止するよう是正した。故障別の再入場でcurrent byte維持、未出版材料保持、出版済み材料不存在、既存Lockのexact回収と再表示拒否を確認した。是正後の局所6／AM全70 Case・AMとMCPの各静的3軸・差分空白確認成功、固定7Pathの限定独立再レビューPass・全重大度の残指摘0。これは保存側だけの局所成立であり、正式191項目・実Host状態・旧Evidence・実TTY／HTTP Consumer・AM全体完成は未変更。
+
 ### 共有AI Profile管理のRole採用と本番接続 — 2026-10-12
 
 Source候補の局所結果：基準`ec2a2e3e`、Node v24.19.0。AM60／AI Adapter30／旧CROS34／MCP68／Workbench33の計225 Case（追加Workbench33 Caseは旧比較Consumerの回帰）、各書式・型・Warning禁止Lint成功、Fail／Cancel／Skip0、全Exit0。実HTTPと自己生成実Catalog Storeでmanager／administrator四操作・developer非開示・次要求のRole変更／失効、遅延認可・二依存拒否・採用後取消／応答故障の改訂保持を確認した。AM新試験の初回途中Fixture不整合は正規の一User・一Credential・元発行相関へ是正し、局所再試験後にAM全回帰を再実行した。最初の失敗を現在の成功へ混ぜない。Biomeの一時OS1224は同じ対象の再実行で解消した。固定29Pathの限定独立再レビューはPass・全重大度残指摘0。全体Checkerは3057 errors／exit1を維持し、変更29Path抽出はProject Context構造の既存1件のみ。判定に使う三Identity・五見出し・Checklist見出しとcheckboxの17行が基準HEADと順序込み完全一致し、差分起因0を確認した。Repository全体Passとは扱わず、正式191項目Not Runと本番Launcher／Workbench・鍵配送・旧REST撤去・AM全体未完成を維持する。実行別ログ書庫は作らず、各Packageの`npm test`から再生成する。

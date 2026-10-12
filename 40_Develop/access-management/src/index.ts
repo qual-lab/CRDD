@@ -2,7 +2,7 @@
  * Access Managementの純粋判定と内部状態保存を公開する。
  *
  * @packageDocumentation
- * @responsibility 純粋判定・認証・本人／管理対象読取り・User／Role・Repository登録／公開範囲管理と内部保存を明示公開し、鍵管理・本番入口の未接続を区別する。
+ * @responsibility 純粋判定・認証・本人／管理対象読取り・User／Role・Repository管理・提示状態の内部保存を明示公開し、鍵管理・本番入口の未接続を区別する。
  * @trace ARCH-000013
  */
 export type {
@@ -28,6 +28,7 @@ export type {
   AuthenticatedRequest,
   CredentialAuthenticationResult,
 } from "./credential/authentication.ts";
+export type { CredentialPresentationUpdate } from "./credential/presentation.ts";
 export {
   createCredentialMaterial,
   type CredentialMaterial,
@@ -69,6 +70,7 @@ export {
   resolveRepositoryAccess,
   resolveRepositoryAccessCollection,
   createInitialCredential,
+  recordCredentialPresentation,
   initializeAccessManagementState,
   readAccessManagementState,
   updateAccessManagementState,

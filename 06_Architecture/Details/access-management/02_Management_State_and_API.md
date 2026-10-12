@@ -46,6 +46,7 @@
 | `exchangeCredentials` | 現在administrator・期待改訂。指定Userの全旧有効資格、または自身を含む全員の全旧有効資格 | 指定は同じ既存userId、全員は指定既存administratorへ一資格を発行。同じRecoveryを保持。通常指定は事前表示のみ、通常全員は表示＋明示確認 |
 | `exchangeCredentialsFromHost` | ログイン済みHost対話入口・期待改訂。指定User／全員交換の2種、双方表示＋明示確認 | 指定は対象全旧有効資格→同じ既存userId、全員は全旧有効資格→指定既存administratorへ一資格。同じRecovery。追加認証・OS昇格・回復専用Userなし |
 | `readKeyExchangeState` | 現在Authorityと同じexact Recovery参照 | 非秘密の段階・既知結果。参照自体をAuthorityにせず、MCPには公開しない |
+| `recordCredentialPresentation` | 信頼済み内部RootとcredentialId／issuanceOperationId／expectedRevision／target。confirmedは提示観測OwnerのpresentationOperationIdも要求 | not_attempted→unconfirmed、unconfirmed→confirmedだけを同Lock fresh照合して別出版する。前者は今回の提示Operation IDと採用改訂を返す。後者はそれをexact照合し、同状態再入場・失効・交換・別改訂・別提示を拒否。Secretと出力観測自体を受け取らず、MCP／HTTP公開操作ではない |
 
 更新は操作・対象・期待改訂を受け、結果には状態、最初の失敗段階、期待／採用改訂、既知Effect、読戻し、解放結果を相関させる。`completed`／`blocked`／`unknown`は結果候補値で、具体Schemaは未固定。出版後故障は`blocked`や`unknown`でも既知Effectを保持し、Effect 0やRollbackへ戻さない。Profile管理Roleはmanager／administratorに確定した。現在認可の用途限定入口とMCP Consumerは局所実装候補へ接続中で、本番Launcher／Workbenchは未接続であり、CatalogをAM状態へ保存しない。
 
@@ -412,6 +413,8 @@ Repository利用時には登録したRoot・Repository Identityを再検証し�
 Hostのconfirmedは、初回／交換用の対話TTY出力へ鍵行の全byteを一回渡し、write callback成功と、その観測までのstream error／取消なしを確認した結果とする。Workbenchは現在administratorの当該要求へ限定した短命HTTP応答の全byte出力finishと、その観測までのerror／取消なしを用いる。Browserは当該応答だけを一度表示し、再表示API・共有結果・永続Storageを作らない。両観測はサービス側の出力境界への引渡しであり、Client受領・DOM描画・人間閲覧・将来の通信成功ではない。実TTY／応答／画面の本番観測は未実装・未検証で、Source固定と実境界確認まで未成立とする。
 
 confirmedを記録する遅延callbackは生Secretをcaptureせず、資格ID・元発行／提示operation相関・期待revision・検証済みRootの非秘密exact Bindingだけを保持する。再取得した既存Lock内で同資格が現在も同じunconfirmed対象かをfresh照合し、失効・交換・別改訂・別要求なら更新0。出力後の保存故障はunconfirmedと既知出力事実を区別して保持し、not_attemptedへ戻さない。これは事前unconfirmedで再表示を防ぐ提示観測の後保存であり、初回接続completedを応答後に保存する経路ではない。
+
+提示状態の保存は、純粋な入力・対象判定を`credential/presentation.ts`、既存Lockと物理出版を`state/file-store.ts`へ分ける。開始成功で返した非秘密presentationOperationIdとrevisionを出力Ownerが保持し、観測後だけconfirmedを要求する。相関自体は出力の証明やAuthorityではない。未解決交換中は単一credential_storedのnewCredentialIdだけを対象とし、初回中はHost・同User・最新確認資格も照合する。prepared／revoked、旧資格・無関係資格、複数交換は拒否する。completedの歴史的確認IDは変更しない。実TTY／HTTPの観測・出力取消・管理認可・生Secretの短命所有は続くConsumer実装で接続する。
 
 Hostの明示交換では、新資格の保存と確認対象ID更新を同改訂で行い、元attempt／user／initialCredentialIdを保持する。新資格のpresentationも上記順序で進める。旧初資格の失効・提示不明を新資格成功で上書きしない。初回未完了中は元初資格・最新確認対象・未解決交換が参照する資格を整理しない。終了後の歴史的参照と失効資格整理は既存条件に従う。
 
