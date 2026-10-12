@@ -441,6 +441,22 @@ Readerは既存Root／Lock／current／pending／replaceを使い、完全状態
 
 限定Passは現在資格recordの非秘密観測だけを対象とする。元失効要求の完了証明、秘密再表示、通常管理read／MCP拡張、新Receipt／履歴／Store／Lockはない。Workbench本番Consumer、交換、実提示、実Host／Linux、旧REST撤去、正式191項目とAM全体は未成立のまま。先行保存Sliceと同様に、各Packageの試験から結果を再生成し、実行別のEvidence書庫は追加しない。
 
+### 鍵交換4経路の保存接続の着手前確認 — 2026-10-13
+
+基準`144244f7`、開始時clean。親の正本・Source照合と読取り専用着手確認を完了した。追加の人間判断は不要。対象はWorkbench指定／全員とHost指定／全員の4経路で、準備候補だけを完成状態としない。credential責務の純粋候補、既存file-storeの相関・失効・資格保存、非秘密再観測、提示Owner、未解決記録整理、Host／Workbench本番Consumerの順に接続する。新Store・Lock・Session・Receipt・一般履歴・MCP鍵操作・旧Evidence変更はない。
+
+現在改訂・Authority・対象・発行先・事前表示した旧資格集合を照合し、Workbench全員とHost2種だけ明示確認を要求する。準備相関を保存・読戻し・清掃した後だけ旧集合を失効し、失効段階確定後だけ容量確認と一回の新資格生成・保存へ進む。各段階は別改訂で、最初の失敗と既知段階を保持する。旧資格0件も許可する。初回途中は同UserへのHost指定だけとし、新資格保存とconfirmationCredentialId結替えを同改訂へ置き、元初資格・試行を保持する。初回completed後の歴史IDは変更しない。
+
+元entryは起点相関として不変。再入場は現在administrator、または資格喪失時の既存信頼Host入口でexact交換を再照合する。Host継続では事前表示・確認を再適用し、新Recoveryや対象拡張を行わない。current=nextの既知出版材料を処置した要求は先へ進まず、次の新要求で段階を再観測する。credential由来current=base材料は自動出版・削除・再生成・新交換をせず保持停止する。
+
+credential_storedの保存・清掃・Lock解放後だけ一回の短命Secretを返し、提示前unconfirmedを既存提示Writerで確定する。交換終了と提示処置は分ける。新資格・全旧失効・exact相関を確認し、提示confirmed、またはSecret破棄と再表示不能を確認した場合だけ、別改訂で未解決recordを除去する。not_attempted／unconfirmedは変更せず資格recordに残し、専用Readerと別明示交換へ接続する。例外や未取得をSecret破棄確認に変換せず、提示予定の短命Secretがある間は除去しない。終了済み旧集合のReceiptを再構成しない。
+
+4経路・旧集合0／1／複数・不正対象／確認／改訂、各出版故障の次段Effect0、base／next材料、実Process喪失・競合、自己／全員失効後のAuthority、初回Binding、提示処置と遅延通知を既存RFD-IT-013／017／018等へ接続する。正式191項目、本番提示と入口、AM全体は未成立を維持する。
+
+準備候補の限定結果：局所6件、修正後AM全115件・書式／型／Warning禁止Lint各3軸が成功した。Fail／Cancel／Skip0・Exit0、終了後の自己生成store Root残存0。通常6改訂と初回7改訂の余裕を予約する境界、Host指定旧資格0件、初回前段・別User拒否、非対象全field保持を確認した。3種の一時変異は指定空集合の誤拒否、初回前段の誤許可、非対象Role設定変更を各試験で検出し、復元後6件成功。固定7Pathの限定独立再レビューは全重大度の残指摘0。CatalogのID／Path重複0、全AM suite未登録0、Symbol実体欠落0、差分空白確認成功。Repository Checkerの当該7Path指摘0、全体Exit1は維持する。集計fieldの初回参照誤りにより全体Errors／Warnings数を取得していないため推定値を記録しない。
+
+限定Passは準備の現在認証・exact集合・確認条件・改訂容量・入力不変だけ。保存・旧失効・新資格生成・提示・再入場・record整理・Host／Workbench本番Consumerは未接続で、正式191項目とAM全体は未成立。MCP公開面に変更がないため新MCP回帰は今回対象外とし、直前75件を交換完成の根拠に流用しない。次は既存file-storeへ交換本体の三出版を接続する。
+
 ### 共有AI Profile管理のRole採用と本番接続 — 2026-10-12
 
 Source候補の局所結果：基準`ec2a2e3e`、Node v24.19.0。AM60／AI Adapter30／旧CROS34／MCP68／Workbench33の計225 Case（追加Workbench33 Caseは旧比較Consumerの回帰）、各書式・型・Warning禁止Lint成功、Fail／Cancel／Skip0、全Exit0。実HTTPと自己生成実Catalog Storeでmanager／administrator四操作・developer非開示・次要求のRole変更／失効、遅延認可・二依存拒否・採用後取消／応答故障の改訂保持を確認した。AM新試験の初回途中Fixture不整合は正規の一User・一Credential・元発行相関へ是正し、局所再試験後にAM全回帰を再実行した。最初の失敗を現在の成功へ混ぜない。Biomeの一時OS1224は同じ対象の再実行で解消した。固定29Pathの限定独立再レビューはPass・全重大度残指摘0。全体Checkerは3057 errors／exit1を維持し、変更29Path抽出はProject Context構造の既存1件のみ。判定に使う三Identity・五見出し・Checklist見出しとcheckboxの17行が基準HEADと順序込み完全一致し、差分起因0を確認した。Repository全体Passとは扱わず、正式191項目Not Runと本番Launcher／Workbench・鍵配送・旧REST撤去・AM全体未完成を維持する。実行別ログ書庫は作らず、各Packageの`npm test`から再生成する。

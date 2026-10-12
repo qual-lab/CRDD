@@ -546,6 +546,12 @@ revision2のcanonical `user_stored`へ同元試行で再入場した場合は保
 
 ## 5. 鍵交換の段階と終了
 
+### 四経路の準備候補の責務配置 — 2026-10-13
+
+`credential/key-exchange.ts`の`prepareKeyExchange`は同Lock内の完全状態から、現在入口・Workbench管理者資格・期待改訂・既存発行先・範囲・表示済み旧資格集合・必要な明示確認を照合する。表示内容そのものはConsumerが所有し、ID集合や確認値だけを閲覧・認証の証拠にしない。Workbench指定は追加確認なし、Workbench全員とHost2種は確認必須。Hostは信頼済み内部入口だけで、鍵を要求しない。初回途中は同UserのHost指定だけ、completed後の歴史IDは不変。旧集合0件を拒否せず、現出版・初回・元発行IDの再利用と未解決交換のある新開始を拒否する。
+
+成功は次改訂のprepared候補だけで、資格・初回・登録・公開を変更しない。開始時にはprepared・revoked・credential_stored・提示前unconfirmed・提示後confirmed・未解決record整理の6出版分を確保し、初回途中のHost指定は限定接続後completed出版の1改訂を追加予約する。出版を先行実行する予約ではなく、正常経路が上限で必ず停止する開始を拒否する条件である。保存・失効・乱数生成・提示・Root検証・再入場・record整理を実行せず、Package Rootへ未接続の内部関数である。候補のParser受理を交換本体や四経路本番完成へ昇格しない。次に既存file-store・提示Owner・公開Consumerへ接続する。
+
 ### 純粋Schema検査への具体化 — 2026-10-12
 
 #### 現Source比較・移行対象（基準07d21331）

@@ -670,6 +670,19 @@
   ],
   "tests": [
     {
+      "id": "access-management:integration:credential-key-exchange",
+      "owner": "access-management",
+      "path": "40_Develop/access-management/tests/integration/credential/key-exchange.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["key-exchange-preparation", "current-authentication", "exact-target-set", "host-initial-targeted", "completion-revision-capacity"],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["prepared_candidate_only", "input_state_unchanged", "no_filesystem_effect", "no_revocation_or_new_credential_effect", "production_exchange_not_verified"],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "access-management:integration:initial-connection",
       "owner": "access-management",
       "path": "40_Develop/access-management/tests/integration/credential/initial-connection.contract.test.ts",

@@ -235,6 +235,8 @@ RFD-IT-017／018では、現在administrator・初回completed・期待改訂・
 
 資格発行事実の専用読取りはRFD-IT-017／018の補助観測へ接続する。元発行IDとUserのexact相関から改訂・資格ID・User ID・元発行ID・提示状態・現在失効だけを投影し、Secret／salt／Verifier・他資格・内部Pathを含めない。現在record不在は未取得で、未発行・元要求失敗・削除を推定しない。提示三状態と失効、初回途中、現在資格失効、非管理者、別User、未知／整理済みrecordを反証する。材料を処置した要求はfact0として次のfresh要求で観測し、先行Actor降格、破損／孤立材料、読取り・清掃・Lock解放不明でも旧事実を返さない。通常管理read四kindとMCP公開面は維持し、この局所観測からWorkbench本番接続・元失効要求completed・正式Local ItemのPassを推定しない。
 
+鍵交換の準備候補はRFD-IT-013／017の局所断面として、四経路の現在資格照合と完全Parserへ接続する。指定旧資格集合・既存発行先・必要な確認・期待改訂、非管理者・未知対象・全員発行先非administrator・表示集合差・歴史ID再利用・既存交換を反証する。初回同UserのHost指定だけと、完了後の旧資格0件のHost開始を区別する。拒否では候補相関・失効・新資格追加0、成功でもprepared候補だけで入力不変とする。実保存・各段階の故障／Process喪失・競合・提示・Host／Workbench本番Consumerは後続接続が必要で、正式Local ItemのPassへ昇格しない。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した

@@ -7,6 +7,8 @@
     { "symbolId": "access-management.credential-token-material", "kind": "file", "path": "src/credential/token-material.ts", "archIds": ["ARCH-000013"] },
     { "symbolId": "access-management.credential-authentication", "kind": "file", "path": "src/credential/authentication.ts", "archIds": ["ARCH-000013"] },
     { "symbolId": "access-management.credential-management", "kind": "file", "path": "src/credential/management.ts", "archIds": ["ARCH-000013"] },
+    { "symbolId": "access-management.credential-key-exchange", "kind": "file", "path": "src/credential/key-exchange.ts", "archIds": ["ARCH-000013"] },
+    { "symbolId": "access-management.test.integration.credential-key-exchange", "kind": "test-suite", "path": "tests/integration/credential/key-exchange.contract.test.ts", "qaIds": ["QA-000007"], "localTestIds": ["RFD-IT-013", "RFD-IT-017"], "verifies": ["access-management.credential-key-exchange", "access-management.credential-authentication", "access-management.state-parse"] },
     { "symbolId": "access-management.credential-presentation", "kind": "file", "path": "src/credential/presentation.ts", "archIds": ["ARCH-000013"] },
     { "symbolId": "access-management.credential-initial-connection", "kind": "file", "path": "src/credential/initial-connection.ts", "archIds": ["ARCH-000013"] },
     { "symbolId": "access-management.initialization-host-state", "kind": "file", "path": "src/initialization/host-state.ts", "archIds": ["ARCH-000013"] },
