@@ -68,6 +68,9 @@ export {
   type StateParseResult,
 } from "./state/parse.ts";
 export {
+  exchangeCredentials,
+  exchangeCredentialsFromHost,
+  type KeyExchangeResult,
   readCredentialIssuance,
   type CredentialIssuanceObservation,
   issueCredential,

@@ -4,7 +4,7 @@
 担当責任者: Qual-Lab
 最終更新日: 2026-10-13
 
-最新の作業結果：鍵交換準備の現在認証・exact旧集合・確認・改訂容量をRFD-IT-013／017の局所断面で確認した。局所6件、修正後AM全115件・静的3軸成功、固定7Path限定再レビュー残指摘0。3種の一時変異を検出・復元した。Catalog ID／Path重複0・全AM suite未登録0、終了後store Root残存0。Repository Checkerは当該7Path指摘0、全体Exit1であり、未取得の全体件数を推定しない。保存・失効・生成・提示・再入場・本番Consumer、正式191項目・AM全体は未成立／Not Run。[限定範囲](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#鍵交換4経路の保存接続の着手前確認--2026-10-13)を参照する。以下のReader等は先行局所結果である。
+最新の作業結果：鍵交換三出版の保存と現在再入場をRFD-IT-013／017等の局所断面で確認した。局所10件、修正後AM全125件／MCP全75件・両静的3軸成功、固定11Path限定独立レビュー残指摘0。三出版故障、失効後の現在認可、生成／容量、初回Binding、実Process喪失6条件・競合3条件と再認証変異を反証した。Symbol／Catalog ID・Path重複0・登録実体欠落0、終了後store Root残存0。Repository Checkerは当該11Path指摘0、全体3057 errors／0 warnings・Exit1であり全体Passではない。保存core成功でも未解決recordと未提示は保持する。非秘密交換read・提示・record整理・本番Consumer、実Host／Linux、正式191項目・AM全体は未成立／Not Run。[限定範囲](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#交換本体の保存接続の着手と固定条件--2026-10-13)を参照する。以下のReader等は先行局所結果である。
 
 最新の局所結果：元発行IDとユーザーIDによる専用非秘密ReaderをRFD-IT-017／018の局所断面で確認した。局所4件、修正後AM全109件／MCP全75件・両静的3軸成功、固定8Pathの限定再レビュー残指摘0。提示三状態・現在失効・現在認可・固定未取得、出版済み材料処置とpending削除失敗時の部分清掃、処置要求の事実非返却と次の新要求だけの観測を照合した。通常管理read四kind・MCP・秘密値・履歴・Storeを追加しない。交換・Workbench実提示／本番接続・実Host／Linux・旧REST撤去・正式191項目・AM全体は未成立／Not Run。前段の間欠競合原因未解消を保持し、最新109件成功から解消とは推定しない。[対象範囲](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#元発行identityによる非秘密の現在観測--2026-10-13)を参照する。MCP回帰の旧REST／Shared比較を本番代替完成へ流用しない。以下は先行段階の局所結果であり、AM全体Passへ流用しない。
 

@@ -237,6 +237,8 @@ RFD-IT-017／018では、現在administrator・初回completed・期待改訂・
 
 鍵交換の準備候補はRFD-IT-013／017の局所断面として、四経路の現在資格照合と完全Parserへ接続する。指定旧資格集合・既存発行先・必要な確認・期待改訂、非管理者・未知対象・全員発行先非administrator・表示集合差・歴史ID再利用・既存交換を反証する。初回同UserのHost指定だけと、完了後の旧資格0件のHost開始を区別する。拒否では候補相関・失効・新資格追加0、成功でもprepared候補だけで入力不変とする。実保存・各段階の故障／Process喪失・競合・提示・Host／Workbench本番Consumerは後続接続が必要で、正式Local ItemのPassへ昇格しない。
 
+交換保存の局所接続はRFD-IT-013／017を中心に、四経路の三出版、自己／全員失効後の同要求admission、次要求の現在別管理者／Host、準備未確定Recovery nullを反証する。各段階のprepare・rename・読戻し・清掃とLock故障、容量・生成故障、拒否Actorの材料保持、stored再入場生成0／Secret0、初回新確認Bindingと旧資格0件を照合する。実Processを三出版の前後で終了し、base保持停止とnext処置後のfresh継続を区別する。同ID・別対象・全員／指定の実競合では一採用と敗者生成0を観測する。core保存成功でも未解決recordと未提示は残るため、実提示・record整理・公開Consumer・正式191項目のPassを推定しない。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した

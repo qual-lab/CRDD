@@ -552,6 +552,16 @@ revision2のcanonical `user_stored`へ同元試行で再入場した場合は保
 
 成功は次改訂のprepared候補だけで、資格・初回・登録・公開を変更しない。開始時にはprepared・revoked・credential_stored・提示前unconfirmed・提示後confirmed・未解決record整理の6出版分を確保し、初回途中のHost指定は限定接続後completed出版の1改訂を追加予約する。出版を先行実行する予約ではなく、正常経路が上限で必ず停止する開始を拒否する条件である。保存・失効・乱数生成・提示・Root検証・再入場・record整理を実行せず、Package Rootへ未接続の内部関数である。候補のParser受理を交換本体や四経路本番完成へ昇格しない。次に既存file-store・提示Owner・公開Consumerへ接続する。
 
+### 交換本体の三出版の接続候補 — 2026-10-13
+
+`exchangeCredentials`と`exchangeCredentialsFromHost`は同Process内部Consumer向けにPackage Rootから提供する。資格責務は現在認可・表示集合検査・exact再入場・段階候補を所有し、既存file-storeがLock・完全current・三出版を所有する。開始時の現在Authorityと操作条件を先行材料処置より前に検査するため、拒否Actorは既存pending／replaceを処置しない。一度admitした同Lock要求だけは、自己／全員失効後も旧Bearer再認証なしで進める。admissionは保存せず、次要求では現在別administratorまたは既存信頼Hostを再照合する。WorkbenchはWorkbench起点だけ、Host継続は起点entryを書換えず確認を再適用する。
+
+prepared出版・読戻し・材料清掃確認後だけ固定旧集合を失効し、revokedを別改訂へ保存する。その確定後だけ固定長placeholderで新資格保存の容量を予約し、一回の資格材料生成と完全Parser確認からcredential_storedを別出版する。各成功後はcurrentを読み直す。初回途中のHost指定では新資格とconfirmationCredentialIdを同改訂へ置き、元初資格・試行を保持する。通常6／初回7改訂の予約と途中段階の残り余裕を照合する。
+
+coreのcompletedは資格保存・読戻し・短命材料清掃・Lock解放までの結果であり、提示・record終了ではない。新規生成保存の当該要求だけが短命tokenを返し、stored再入場はtoken null・生成0。未解決recordとpresentation not_attemptedは保持し、提示前unconfirmedと提示観測、明示破棄・record整理は後続Ownerへ残す。失敗結果は生鍵・Snapshot・内部Pathを含めず、固定firstFailure・secondaryFailure、最後の確認段階、出版・清掃状態を分離する。preparedが確認済みになる前はrecoveryId nullとし、入力operationIdや未確認pendingから耐久Recovery成立を推定しない。
+
+current=nextの既知材料を処置した要求は停止し、次fresh要求だけ保存済み段階から継続する。credential由来current=baseは保持停止し、再出版・廃棄・再生成・新交換をしない。資格生成前の拒否、三出版のprepare／rename／読戻し／清掃故障、主FailureとLock解放不明、実Process喪失・競合は局所試験で検証する。本番Host／Workbench接続・実提示・未解決record整理・正式Local Item全体は未成立で、旧REST撤去の根拠へ流用しない。
+
 ### 純粋Schema検査への具体化 — 2026-10-12
 
 #### 現Source比較・移行対象（基準07d21331）

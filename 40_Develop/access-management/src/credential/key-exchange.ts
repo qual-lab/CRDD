@@ -1,11 +1,15 @@
 /**
- * 鍵交換の開始条件と固定対象集合を判断する。
- * @responsibility 四経路を同じ準備相関へ結び、保存・失効・生成・提示を引き取らない。
+ * 鍵交換の開始・再入場と段階候補を判断する。
+ * @responsibility 四経路を同じ相関へ結び、実保存・鍵生成・提示を引き取らない。
  * @trace ARCH-000013
  */
 import { types } from "node:util";
-import type { AccessManagementState } from "../state/parse.ts";
+import type {
+  AccessManagementState,
+  KeyExchangeRecord,
+} from "../state/parse.ts";
 import { resolveCredentialAuthentication } from "./authentication.ts";
+import type { CredentialMaterial } from "./token-material.ts";
 
 const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -61,34 +65,8 @@ export function prepareKeyExchange(
     !Array.isArray(displayedOldCredentialIds)
   )
     return null;
-  const descriptors = Object.getOwnPropertyDescriptors(
-    displayedOldCredentialIds,
-  );
-  const length: unknown = Object.getOwnPropertyDescriptor(
-    displayedOldCredentialIds,
-    "length",
-  )?.value;
-  if (
-    typeof length !== "number" ||
-    !Number.isSafeInteger(length) ||
-    length < 0 ||
-    Reflect.ownKeys(descriptors).length !== length + 1
-  )
-    return null;
-  const displayed: string[] = [];
-  for (let index = 0; index < length; index++) {
-    const descriptor = descriptors[String(index)];
-    const id: unknown = descriptor?.value;
-    if (
-      !descriptor ||
-      !Object.hasOwn(descriptor, "value") ||
-      typeof id !== "string" ||
-      !CREDENTIAL_ID.test(id) ||
-      displayed.includes(id)
-    )
-      return null;
-    displayed.push(id);
-  }
+  const displayed = readDisplayedCredentialIds(displayedOldCredentialIds);
+  if (!displayed) return null;
   if (
     current.revision !== expectedRevision ||
     current.unresolvedKeyExchanges.length !== 0 ||
@@ -140,5 +118,218 @@ export function prepareKeyExchange(
     recipientUserId,
     oldCredentialIds,
   });
+  return next;
+}
+
+/**
+ * 表示済み資格ID集合を実行可能Propertyなしで所有する。
+ * @responsibility 開始と再入場で同じ入力検査を使う。
+ * @trace ARCH-000013
+ * @input 信頼しないID配列。
+ * @returns 一意IDの所有配列、またはnull。
+ * @precondition N/A: 任意値を受ける。
+ * @postcondition 入力を変更・実行しない。
+ * @effect N/A: descriptorと値の検査だけ。
+ * @failure Proxy・accessor・疎配列・追加field・不正IDはnull。
+ * @invariant 表示・認証・確認そのものを証明しない。
+ * @boundary 内部入力形式と交換意味判定。
+ * @security ID集合から操作Authorityを生成しない。
+ * @concurrency N/A: 共有状態なし。
+ */
+export function readDisplayedCredentialIds(input: unknown): string[] | null {
+  if (types.isProxy(input) || !Array.isArray(input)) return null;
+  const descriptors = Object.getOwnPropertyDescriptors(input);
+  const length: unknown = Object.getOwnPropertyDescriptor(
+    input,
+    "length",
+  )?.value;
+  if (
+    typeof length !== "number" ||
+    !Number.isSafeInteger(length) ||
+    length < 0 ||
+    Reflect.ownKeys(descriptors).length !== length + 1
+  )
+    return null;
+  const displayed: string[] = [];
+  for (let index = 0; index < length; index++) {
+    const descriptor = descriptors[String(index)];
+    const id: unknown = descriptor?.value;
+    if (
+      !descriptor ||
+      !Object.hasOwn(descriptor, "value") ||
+      typeof id !== "string" ||
+      !CREDENTIAL_ID.test(id) ||
+      displayed.includes(id)
+    )
+      return null;
+    displayed.push(id);
+  }
+  return displayed;
+}
+
+/**
+ * 保存済み交換を現在Authorityと同じ表示集合から選ぶ。
+ * @responsibility 起点entry・旧集合を再生成せずexact再入場へ閉じる。
+ * @trace ARCH-000013
+ * @input 完全current、現在入口・鍵、期待改訂、交換UUID、範囲・発行先・表示集合・確認。
+ * @returns 所有済み交換record、またはnull。
+ * @precondition 保存Ownerが同Lockで完全Schemaを検査済み。Hostは信頼入口。
+ * @postcondition 状態と起点相関を変更しない。
+ * @effect Workbenchの現在Verifier照合とメモリ所有だけ。
+ * @failure 別相関・非管理者・初回別経路・改訂余裕不足・未確認はnull。
+ * @invariant admissionを過去要求から復元しない。WorkbenchはWorkbench起点だけ。
+ * @boundary 再入場の現在認可と保存段階。
+ * @security Recovery参照・失効した元鍵をAuthorityにしない。
+ * @concurrency 各要求でfreshに評価する。
+ */
+export function selectKeyExchangeContinuation(
+  current: AccessManagementState,
+  entry: "workbench" | "host",
+  token: string | null,
+  expectedRevision: number,
+  operationId: string,
+  scope: "targeted" | "all",
+  recipientUserId: string,
+  displayedOldCredentialIds: unknown,
+  confirmed: boolean,
+): KeyExchangeRecord | null {
+  const displayed = readDisplayedCredentialIds(displayedOldCredentialIds);
+  const exchange = current.unresolvedKeyExchanges[0];
+  if (
+    !displayed ||
+    current.unresolvedKeyExchanges.length !== 1 ||
+    !exchange ||
+    (entry !== "host" && entry !== "workbench") ||
+    (entry === "host" ? token !== null : typeof token !== "string") ||
+    !Number.isSafeInteger(expectedRevision) ||
+    expectedRevision !== current.revision ||
+    exchange.operationId !== operationId ||
+    exchange.recoveryId !== `access-management.key-exchange.${operationId}` ||
+    exchange.scope !== scope ||
+    exchange.recipientUserId !== recipientUserId ||
+    typeof confirmed !== "boolean" ||
+    ((entry === "host" || scope === "all") && !confirmed) ||
+    (entry === "workbench" && exchange.entry !== "workbench") ||
+    displayed.length !== exchange.oldCredentialIds.length ||
+    exchange.oldCredentialIds.some((id) => !displayed.includes(id))
+  )
+    return null;
+  const initial = current.initialization;
+  if (
+    initial.stage !== "completed" &&
+    (initial.stage !== "credential_stored" ||
+      entry !== "host" ||
+      scope !== "targeted" ||
+      recipientUserId !== initial.userId)
+  )
+    return null;
+  const confirmedPublications =
+    exchange.stage === "prepared" ? 1 : exchange.stage === "revoked" ? 2 : 3;
+  const reserve =
+    KEY_EXCHANGE_REVISION_RESERVE -
+    confirmedPublications +
+    (initial.stage === "credential_stored"
+      ? INITIAL_CONNECTION_COMPLETION_REVISION_RESERVE
+      : 0);
+  if (current.revision > Number.MAX_SAFE_INTEGER - reserve) return null;
+  if (
+    entry === "workbench" &&
+    (typeof token !== "string" ||
+      resolveCredentialAuthentication(token, current)?.role !== "administrator")
+  )
+    return null;
+  return structuredClone(exchange);
+}
+
+/**
+ * preparedの固定旧集合だけを失効候補へ移す。
+ * @responsibility 相関確定前の失効をせず、対象外資格を保持する。
+ * @trace ARCH-000013
+ * @input 完全currentとexact Recovery。
+ * @returns revoked候補またはnull。
+ * @precondition 同Lock要求の現在admissionとprepared出版を保存Ownerが確認済み。
+ * @postcondition 入力を変更せず旧集合だけをrevokedへ移す。
+ * @effect N/A: メモリ候補だけ。実失効は別出版。
+ * @failure 段階・相関・改訂不一致はnull。
+ * @invariant 起点entry・範囲・発行先・旧集合と初回を保持する。
+ * @boundary 純粋段階候補と物理保存。
+ * @security 同一要求の失効後に旧Bearerで再認可しない。
+ * @concurrency 同じLock内の要求だけ。
+ */
+export function prepareKeyExchangeRevocation(
+  current: AccessManagementState,
+  recoveryId: string,
+): AccessManagementState | null {
+  const exchange = current.unresolvedKeyExchanges[0];
+  if (
+    current.unresolvedKeyExchanges.length !== 1 ||
+    exchange?.stage !== "prepared" ||
+    exchange.recoveryId !== recoveryId ||
+    current.revision >= Number.MAX_SAFE_INTEGER
+  )
+    return null;
+  const next = structuredClone(current);
+  next.revision++;
+  next.operationId = exchange.operationId;
+  for (const item of next.credentials)
+    if (exchange.oldCredentialIds.includes(item.credentialId))
+      item.revoked = true;
+  next.unresolvedKeyExchanges = [{ ...exchange, stage: "revoked" }];
+  return next;
+}
+
+/**
+ * revokedへ固定長資格材料を結合した保存候補を作る。
+ * @responsibility 発行先と初回確認対象を同じ改訂へ結ぶ。
+ * @trace ARCH-000013
+ * @input 完全current、exact Recovery、保存用資格材料。
+ * @returns credential_stored候補またはnull。
+ * @precondition 同Lockのadmissionとrevoked確定済み。実材料は生成Owner、予約材料は容量検査だけに使用。
+ * @postcondition 元初資格・履歴・対象外情報を保持する。
+ * @effect N/A: メモリだけ。生成・保存・提示なし。
+ * @failure 段階・相関・改訂差はnull。完全Parserは保存Ownerが実材料で別に確認する。
+ * @invariant materialに生鍵を要求しない。予約候補を出版しない。
+ * @boundary 失効後の候補と保存・容量Owner。
+ * @security 初回completed後の歴史確認IDを結替えない。
+ * @concurrency 同じLock区間だけ。
+ */
+export function prepareExchangedCredential(
+  current: AccessManagementState,
+  recoveryId: string,
+  material: Pick<
+    CredentialMaterial,
+    "credentialId" | "tokenSalt" | "tokenVerifier"
+  >,
+): AccessManagementState | null {
+  const exchange = current.unresolvedKeyExchanges[0];
+  if (
+    current.unresolvedKeyExchanges.length !== 1 ||
+    exchange?.stage !== "revoked" ||
+    exchange.recoveryId !== recoveryId ||
+    current.revision >= Number.MAX_SAFE_INTEGER
+  )
+    return null;
+  const next = structuredClone(current);
+  next.revision++;
+  next.operationId = exchange.operationId;
+  next.credentials.push({
+    credentialId: material.credentialId,
+    userId: exchange.recipientUserId,
+    tokenVersion: 1,
+    tokenSalt: material.tokenSalt,
+    tokenVerifier: material.tokenVerifier,
+    revoked: false,
+    operationId: exchange.operationId,
+    presentation: "not_attempted",
+  });
+  next.unresolvedKeyExchanges = [
+    {
+      ...exchange,
+      stage: "credential_stored",
+      newCredentialId: material.credentialId,
+    },
+  ];
+  if (next.initialization.stage === "credential_stored")
+    next.initialization.confirmationCredentialId = material.credentialId;
   return next;
 }
