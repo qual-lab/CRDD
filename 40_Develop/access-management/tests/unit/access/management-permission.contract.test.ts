@@ -42,6 +42,7 @@ test("三Roleと全11認可要求種別の固定分担", () => {
     "evaluateHostInitializationState",
     "evaluateManagementPermission",
     "initializeAccessManagementState",
+    "initializeFromHost",
     "parseAccessManagementState",
     "readAccessManagementState",
     "readCredentialId",

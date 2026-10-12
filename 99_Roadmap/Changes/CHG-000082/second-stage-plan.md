@@ -401,6 +401,16 @@ Readerは既存Root／Lock／current／pending／replaceを使い、完全状態
 
 純粋投影をinitialization/host-state.ts、物理Readerを既存state/file-store.tsへ配置し、Package Root・Symbol・既存保存IT／Test Catalogを同期した。RFD-IT-024／025の部分接続で、正式191 Not Runを維持する。局所3／AM全81 Case、AM／MCP静的各3軸・差分空白確認成功、固定9Pathの限定独立レビューPass・全重大度の残指摘0。freshから各生成段階・提示段階・completed、current欠測とpartial／孤立材料・初回base材料・Lock解放不明を反証し、実子ProcessのUser出版直後喪失から同attempt／Userを再観測して追加User0・同Userへの資格を確認した。台帳Path・Symbol IDの一意性、test-suite全Catalog接続、自己生成試験Root残存0を確認した。Root準備・Host初期化composition・実TTY一度提示・鍵交換・実Host移行・本番入口・AM全体完成は未成立。次はこのReaderで再観測した保存段階を使ってHost入口と一度提示を結ぶ。
 
+### Host初回保存段階と一度提示の接続 — 2026-10-13
+
+基準`51ec76c1`、着手時clean。変更分類は採用済み初回設定の保存APIとHost提示Consumerの接続。親の正本・直接利用側照合と読み取り専用契約確認で着手可、追加人間判断なし。既存検証済みRootを入力として、freshだけ旧二領域不存在を生成前と相関保存Lock内で照合、保存済みcorrelated／user_storedは元試行で再開、credential_storedは秘密再取得・再表示0とする。提示前unconfirmed保存の全終了後だけ鍵行をTTYへ一writeし、callbackをjoinしてから非秘密相関でconfirmedを保存する。取消・error・closeが先なら遅延callbackで成功へ戻さず、共有stdoutはend／destroyしない。Node v24.19.0の[Writable契約](https://github.com/nodejs/node/blob/v24.19.0/doc/api/stream.md#writablewritechunk-encoding-callback)を確認し、falseは再送条件でなく追加書込みの停止、callback error後のerror通知は当該Listenerで処置する。callback未着では完了を捏造しない。
+
+編集はAM initializationの実処理、Package公開集合、既存保存ITとSymbol／Catalog、詳細設計と現在結果投影に限定する。既存Root／Lock／保存Schemaを再利用し、旧Parser・新Registry／Lock／Recovery・OS追加認証・Secret保存は作らない。局所故障・段階別再入場・書込み順序・Listener回収と関連回帰、固定候補の限定独立レビューを行う。Root準備・CLI最終入口・実TTY／Workbench本番接続・正式191項目・AM全体完成は本局所試験から主張しない。標準準拠基準・外部Provider境界を変えないため、全工程監査・実Provider E2Eは本差分の確認には追加しない。
+
+局所6 Caseの初回実行で、正常認証の期待statusを旧名authenticatedとしていた試験差を検出し、既存APIのcompleted／unavailableへ修正した。Sourceの成功条件は弱めていない。独立レビューMajor 1件は、write callback後のerror／close通知tickでfailedを再確認せずconfirmed保存へ進む可能性だった。最終解決時のfailed再評価と、callback成功直後のerror／close反例を追加した。Listener保持中の通知は失敗へ、解放後の別stream故障は完了した提示へ遡及させない。再レビューは固定8Pathの限定Pass・全重大度の残指摘0。
+
+修正後の局所6／AM全87／MCP全75 Caseが成功、Fail／Cancel／Skip0、各Exit0。Node v24.19.0、AM／MCPの書式・型・Warning禁止Lint各3軸、差分空白確認成功。基準OIDはsha1 `51ec76c1a35e0fa1db192162b21b51ad44285717`、実測Source Blobは`74882a32794971faa83227952617806ac9cfb22b`、保存IT Blobは`5f29d9d8f3d9637d277b42bcc6b1f4689dda9f6b`で、開始から終了まで不変。Root内生成物はFixtureが回収し、終了後のaccess-management-store-*残存0。Symbol／Path重複・登録Path欠落0を確認した。再生成は各Packageのnpm testと既存state ITのHost初回名称絞込みで可能なため、実行別ログの書庫は作らない。RFD-IT-024／025の局所断面であり、実TTY・Host Root準備／CLI・通常鍵管理／Host交換・Workbench本番接続・旧REST撤去・正式191項目・AM全体完成は未成立。MCP回帰に含まれる旧REST／Sharedの比較成功を本番代替の完成へ流用しない。
+
 ### 共有AI Profile管理のRole採用と本番接続 — 2026-10-12
 
 Source候補の局所結果：基準`ec2a2e3e`、Node v24.19.0。AM60／AI Adapter30／旧CROS34／MCP68／Workbench33の計225 Case（追加Workbench33 Caseは旧比較Consumerの回帰）、各書式・型・Warning禁止Lint成功、Fail／Cancel／Skip0、全Exit0。実HTTPと自己生成実Catalog Storeでmanager／administrator四操作・developer非開示・次要求のRole変更／失効、遅延認可・二依存拒否・採用後取消／応答故障の改訂保持を確認した。AM新試験の初回途中Fixture不整合は正規の一User・一Credential・元発行相関へ是正し、局所再試験後にAM全回帰を再実行した。最初の失敗を現在の成功へ混ぜない。Biomeの一時OS1224は同じ対象の再実行で解消した。固定29Pathの限定独立再レビューはPass・全重大度残指摘0。全体Checkerは3057 errors／exit1を維持し、変更29Path抽出はProject Context構造の既存1件のみ。判定に使う三Identity・五見出し・Checklist見出しとcheckboxの17行が基準HEADと順序込み完全一致し、差分起因0を確認した。Repository全体Passとは扱わず、正式191項目Not Runと本番Launcher／Workbench・鍵配送・旧REST撤去・AM全体未完成を維持する。実行別ログ書庫は作らず、各Packageの`npm test`から再生成する。

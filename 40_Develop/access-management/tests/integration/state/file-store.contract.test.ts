@@ -13,7 +13,7 @@
  * @trace RFD-IT-002
  * @level IT
  * @scope access-management/state、直接保存境界
- * @boundary Node Filesystem・既存Root/Lock・通常認可・提示状態保存。実Host・鍵処置・実Surface出力は対象外。
+ * @boundary Node Filesystem・既存Root/Lock・通常認可・提示状態保存と局所TTY代役。実Host・通常鍵処置・実Surface出力は対象外。
  */
 import assert from "node:assert/strict";
 import { resolveAiProfileManagementAccess } from "../../../src/index.ts";
@@ -22,6 +22,7 @@ import path from "node:path";
 import crypto, { createHash } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 import test, { type TestContext } from "node:test";
+import { Writable } from "node:stream";
 import {
   createFilesystemStoreRoot,
   readRepositoryProjectContext,
@@ -49,6 +50,7 @@ import {
   createInitialAdministrator,
   createInitialCredential,
   recordCredentialPresentation,
+  initializeFromHost,
   readHostInitializationState,
   resolveConnectionAuthentication,
   confirmInitialConnection,
@@ -1530,6 +1532,515 @@ function fixture(t: TestContext): {
   );
   return { directory, root, state };
 }
+
+/**
+ * Host初回compositionの保存順と一度提示を接続する。
+ * @responsibility write falseでも一回だけ出力し、提示と通常認証を別観測する。
+ * @trace RFD-IT-024
+ * @precondition 自己生成RootとNode Writableの局所TTY代役。
+ * @stimulus freshから実保存APIと一write、同鍵初回確認を順に実行する。
+ * @observation 書込み前unconfirmed、提示confirmed、段階、Listenerと次認証。
+ * @oracle 初回接続前は通常認証0、一提示・同鍵確認後だけ通常認証。
+ * @cleanup Fixture回収と当該Listener不存在。共有streamを閉じない。
+ * @boundary 注入TTY→Host composition→実保存。実Host TTYの証明ではない。
+ */
+test("Host初回compositionは保存確定後に一度提示して接続待ちになる", async (t) => {
+  const f = fixture(t);
+  fs.rmSync(path.join(f.directory, "access-management.json"));
+  let writes = 0;
+  let key = "";
+  let previousReads = 0;
+  const terminal = Object.assign(
+    new Writable({
+      highWaterMark: 1,
+      write(chunk, _encoding, callback) {
+        writes++;
+        const observed = readHostInitializationState(f.root);
+        assert.equal(observed.status, "in_progress");
+        assert.equal(
+          observed.status === "in_progress" &&
+            observed.stage === "credential_stored" &&
+            observed.presentation,
+          "unconfirmed",
+        );
+        key = chunk.toString("utf8").split("\n")[1];
+        setImmediate(callback);
+      },
+    }),
+    { isTTY: true },
+  ) as unknown as NodeJS.WriteStream;
+  const controller = new AbortController();
+  const result = await initializeFromHost(
+    f.root,
+    "管理者",
+    true,
+    () => {
+      previousReads++;
+      return ["uninitialized", "absent"];
+    },
+    terminal,
+    controller.signal,
+  );
+  assert.deepEqual(result, {
+    status: "awaiting_connection",
+    reason: "host_key_presented",
+  });
+  assert.equal(writes, 1);
+  assert.equal(previousReads, 2);
+  assert.equal(terminal.writable, true);
+  assert.equal(terminal.destroyed, false);
+  assert.equal(terminal.listenerCount("error"), 0);
+  assert.equal(terminal.listenerCount("close"), 0);
+  const observed = readHostInitializationState(f.root);
+  assert.equal(
+    observed.status === "in_progress" &&
+      observed.stage === "credential_stored" &&
+      observed.presentation,
+    "confirmed",
+  );
+  assert.equal(authenticateNormalConnection(f.root, key).status, "unavailable");
+  const binding = resolveConnectionAuthentication(f.root, key);
+  assert.equal(binding.status, "initial");
+  if (binding.status !== "initial") return;
+  assert.equal(
+    confirmInitialConnection(f.root, key, binding.binding, controller.signal)
+      .status,
+    "completed",
+  );
+  assert.equal(authenticateNormalConnection(f.root, key).status, "completed");
+  const saved = fs.readFileSync(
+    path.join(f.directory, "access-management.json"),
+    "utf8",
+  );
+  assert.equal(saved.includes(key), false);
+  assert.equal(JSON.stringify(result).includes(key), false);
+  key = "";
+});
+
+/**
+ * 保存済み初回段階では追加試行や保存済み鍵の再表示を行わない。
+ * @responsibility 段階別の再入場と次行動を元相関へ結ぶ。
+ * @trace RFD-IT-024
+ * @trace RFD-IT-025
+ * @precondition correlated／user_stored／credential_storedの自己生成前状態。
+ * @stimulus 同Host入口へ再入場し保存済み段階を読む。
+ * @observation 元attempt/User、資格件数、write件数と次行動。
+ * @oracle 資格保存前だけ同試行を進め、保存後は再表示0。
+ * @cleanup Fixtureが各Rootの不存在を確認する。
+ * @boundary 初回composition→保存。TTYは局所代役。
+ */
+test("Host初回compositionは途中の元試行を使い保存済み鍵を再表示しない", async (t) => {
+  for (const stage of [
+    "correlated",
+    "user_stored",
+    "not_attempted",
+    "unconfirmed",
+    "confirmed",
+  ] as const) {
+    const f = fixture(t);
+    fs.rmSync(path.join(f.directory, "access-management.json"));
+    const attempt = crypto.randomUUID();
+    assert.equal(
+      initializeAccessManagementState(f.root, attempt, true, () => [
+        "uninitialized",
+        "absent",
+      ]).status,
+      "completed",
+    );
+    if (stage !== "correlated")
+      assert.equal(
+        createInitialAdministrator(f.root, attempt, "元の管理者").status,
+        "completed",
+      );
+    if (stage !== "correlated" && stage !== "user_stored") {
+      const issued = createInitialCredential(f.root, attempt);
+      assert.equal(issued.status, "completed");
+      if (issued.status !== "completed") return;
+      if (stage !== "not_attempted") {
+        const started = recordCredentialPresentation(f.root, {
+          credentialId: issued.value.credentialId,
+          issuanceOperationId: attempt,
+          expectedRevision: issued.value.revision,
+          target: "unconfirmed",
+        });
+        assert.equal(started.status, "completed");
+        if (stage === "confirmed" && started.status === "completed")
+          assert.equal(
+            recordCredentialPresentation(f.root, {
+              credentialId: started.value.credentialId,
+              issuanceOperationId: attempt,
+              expectedRevision: started.value.revision,
+              presentationOperationId: started.value.presentationOperationId,
+              target: "confirmed",
+            }).status,
+            "completed",
+          );
+      }
+    }
+    const before = readAccessManagementState(f.root);
+    let writes = 0;
+    const terminal = Object.assign(
+      new Writable({
+        write(_chunk, _encoding, callback) {
+          writes++;
+          callback();
+        },
+      }),
+      { isTTY: true },
+    ) as unknown as NodeJS.WriteStream;
+    const result = await initializeFromHost(
+      f.root,
+      "再入場名",
+      true,
+      () => {
+        throw new Error("old_observer_must_not_run");
+      },
+      terminal,
+      new AbortController().signal,
+    );
+    assert.equal(
+      result.status,
+      stage === "confirmed" || stage === "correlated" || stage === "user_stored"
+        ? "awaiting_connection"
+        : "key_exchange_required",
+    );
+    assert.equal(
+      writes,
+      stage === "correlated" || stage === "user_stored" ? 1 : 0,
+    );
+    const after = readAccessManagementState(f.root);
+    assert.equal(after.status, "completed");
+    if (after.status !== "completed" || before.status !== "completed") return;
+    assert.equal(after.value.initialization.attemptId, attempt);
+    assert.equal(after.value.users.length, 1);
+    assert.equal(after.value.credentials.length, 1);
+    if (before.value.users[0])
+      assert.equal(after.value.users[0]?.userId, before.value.users[0].userId);
+    if (stage !== "correlated" && stage !== "user_stored")
+      assert.deepEqual(after.value, before.value);
+  }
+});
+
+/**
+ * 旧入力・対話条件・開始前取消が不成立なら新規Effectを開始しない。
+ * @responsibility 不明をfreshや暗黙承認へ変換しない。
+ * @trace RFD-IT-025
+ * @precondition AM入力を持たない自己生成Rootと計数Writer。
+ * @stimulus 旧観測不正／throw、非TTY、明示なし、取消済みを与える。
+ * @observation current不存在とwrite件数、結果非秘密。
+ * @oracle 新相関・User・資格・TTY出力0。
+ * @cleanup Fixtureによるexact Root回収。
+ * @boundary Host内部入力と保存開始境界。
+ */
+test("Host初回compositionは不成立前提で相関と出力を作らない", async (t) => {
+  const f = fixture(t);
+  const current = path.join(f.directory, "access-management.json");
+  fs.rmSync(current);
+  let writes = 0;
+  const terminal = Object.assign(
+    new Writable({
+      write(_chunk, _encoding, callback) {
+        writes++;
+        callback();
+      },
+    }),
+    { isTTY: true },
+  ) as unknown as NodeJS.WriteStream;
+  for (const previous of [
+    ["existing", "absent"],
+    ["uninitialized", "unknown"],
+    ["unknown", "absent"],
+  ] as const) {
+    const result = await initializeFromHost(
+      f.root,
+      "管理者",
+      true,
+      () => previous,
+      terminal,
+      new AbortController().signal,
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(fs.existsSync(current), false);
+  }
+  assert.equal(
+    (
+      await initializeFromHost(
+        f.root,
+        "管理者",
+        true,
+        () => {
+          throw new Error("observation_failure");
+        },
+        terminal,
+        new AbortController().signal,
+      )
+    ).status,
+    "blocked",
+  );
+  assert.equal(
+    (
+      await initializeFromHost(
+        f.root,
+        "管理者",
+        false,
+        () => ["uninitialized", "absent"],
+        terminal,
+        new AbortController().signal,
+      )
+    ).status,
+    "blocked",
+  );
+  terminal.isTTY = false as unknown as true;
+  assert.equal(
+    (
+      await initializeFromHost(
+        f.root,
+        "管理者",
+        true,
+        () => ["uninitialized", "absent"],
+        terminal,
+        new AbortController().signal,
+      )
+    ).status,
+    "blocked",
+  );
+  terminal.isTTY = true;
+  const controller = new AbortController();
+  controller.abort();
+  assert.equal(
+    (
+      await initializeFromHost(
+        f.root,
+        "管理者",
+        true,
+        () => ["uninitialized", "absent"],
+        terminal,
+        controller.signal,
+      )
+    ).status,
+    "cancelled",
+  );
+  assert.equal(fs.existsSync(current), false);
+  assert.equal(writes, 0);
+});
+
+/**
+ * TTYの保留中取消と故障は遅延callbackで成功へ戻さない。
+ * @responsibility callback joinとListener回収を保存confirmedとは別に観測する。
+ * @trace RFD-IT-025
+ * @precondition Node Writableの保留callback、取消Signal、実保存Root。
+ * @stimulus abort／write errorをcallback前に与え、遅れて完了させる。
+ * @observation Promise保留、一write、unconfirmed維持、既存Listener保持。
+ * @oracle callback join前の完了0、遅延成功でconfirmed保存0。
+ * @cleanup 当該Listenerだけ回収。FixtureがRootを削除する。
+ * @boundary 局所TTY callbackとAM保存。実Host TTY未評価。
+ */
+test("Host初回TTYは取消と故障後のcallbackをjoinして再表示しない", async (t) => {
+  for (const mode of ["abort", "error"] as const) {
+    const f = fixture(t);
+    fs.rmSync(path.join(f.directory, "access-management.json"));
+    let complete: ((error?: Error | null) => void) | undefined;
+    let writes = 0;
+    const terminal = Object.assign(
+      new Writable({
+        write(_chunk, _encoding, callback) {
+          writes++;
+          complete = callback;
+        },
+      }),
+      { isTTY: true },
+    ) as unknown as NodeJS.WriteStream;
+    const existingErrorListener = () => {};
+    terminal.on("error", existingErrorListener);
+    const controller = new AbortController();
+    let settled = false;
+    const running = initializeFromHost(
+      f.root,
+      "管理者",
+      true,
+      () => ["uninitialized", "absent"],
+      terminal,
+      controller.signal,
+    ).then((result) => {
+      settled = true;
+      return result;
+    });
+    assert.ok(complete);
+    if (mode === "abort") controller.abort();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.equal(settled, false);
+    complete(mode === "error" ? new Error("synthetic_write_failure") : null);
+    const result = await running;
+    assert.equal(result.status, mode === "abort" ? "cancelled" : "blocked");
+    assert.equal(writes, 1);
+    assert.deepEqual(terminal.listeners("error"), [existingErrorListener]);
+    assert.equal(terminal.listenerCount("close"), 0);
+    const observed = readHostInitializationState(f.root);
+    assert.equal(
+      observed.status === "in_progress" &&
+        observed.stage === "credential_stored" &&
+        observed.presentation,
+      "unconfirmed",
+    );
+    const replay = await initializeFromHost(
+      f.root,
+      "再入場",
+      true,
+      () => ["uninitialized", "absent"],
+      Object.assign(
+        new Writable({
+          write() {
+            assert.fail("replay_write");
+          },
+        }),
+        { isTTY: true },
+      ) as unknown as NodeJS.WriteStream,
+      new AbortController().signal,
+    );
+    assert.equal(replay.status, "key_exchange_required");
+  }
+});
+
+/**
+ * TTYの通知順・重複・同期throwを一writeに閉じる。
+ * @responsibility callbackをjoinし失敗固定と当該Listener回収を独立観測する。
+ * @trace RFD-IT-025
+ * @precondition 実Writableに限定した局所write通知注入と自己生成Root。
+ * @stimulus close／error先行、同期throw、重複callbackとfalse返却を与える。
+ * @observation 結果、提示状態、write件数、Listenerとstream非終了。
+ * @oracle 先行失敗はunconfirmed、重複成功は一confirmed、再表示0。
+ * @cleanup Fixture回収、当該Listener不存在。共有streamを閉じない。
+ * @boundary 通知注入試験。実TTYの動作保証ではない。
+ */
+test("Host初回TTYは先行通知と重複callbackを一度だけ処置する", async (t) => {
+  for (const mode of [
+    "close",
+    "error",
+    "late-close",
+    "late-error",
+    "throw",
+    "duplicate",
+  ] as const) {
+    const f = fixture(t);
+    fs.rmSync(path.join(f.directory, "access-management.json"));
+    const terminal = Object.assign(
+      new Writable({
+        write(_chunk, _encoding, callback) {
+          callback();
+        },
+      }),
+      { isTTY: true },
+    ) as unknown as NodeJS.WriteStream;
+    let writes = 0;
+    terminal.write = ((
+      _chunk: unknown,
+      callback: (error?: Error | null) => void,
+    ) => {
+      writes++;
+      if (mode === "throw") throw new Error("synthetic_throw");
+      if (mode === "close" || mode === "error")
+        terminal.emit(mode, new Error("synthetic_notification"));
+      setImmediate(() => {
+        callback();
+        if (mode === "late-close") terminal.emit("close");
+        if (mode === "late-error")
+          terminal.emit("error", new Error("synthetic_late_notification"));
+        if (mode === "duplicate") callback();
+      });
+      return false;
+    }) as typeof terminal.write;
+    const result = await initializeFromHost(
+      f.root,
+      "管理者",
+      true,
+      () => ["uninitialized", "absent"],
+      terminal,
+      new AbortController().signal,
+    );
+    assert.equal(
+      result.status,
+      mode === "duplicate" ? "awaiting_connection" : "blocked",
+    );
+    assert.equal(writes, 1);
+    assert.equal(terminal.listenerCount("error"), 0);
+    assert.equal(terminal.listenerCount("close"), 0);
+    assert.equal(terminal.writable, true);
+    assert.equal(terminal.destroyed, false);
+    const observed = readHostInitializationState(f.root);
+    assert.equal(
+      observed.status === "in_progress" &&
+        observed.stage === "credential_stored" &&
+        observed.presentation,
+      mode === "duplicate" ? "confirmed" : "unconfirmed",
+    );
+  }
+});
+
+/**
+ * 提示前／提示後の保存故障を再表示や正常完了へ変換しない。
+ * @responsibility unconfirmed確定前の出力0と確定後の故障保持を確認する。
+ * @trace RFD-IT-024
+ * @trace RFD-IT-025
+ * @precondition 自己生成Rootとcurrent exact rename故障。
+ * @stimulus unconfirmedまたはconfirmedの出版でrenameを失敗させる。
+ * @observation TTY回数、保存presentation、元相関、非秘密結果と残存材料。
+ * @oracle unconfirmed出版失敗なら出力0、confirmed失敗なら一度出力後も未完了。
+ * @cleanup 注入をfinallyで戻しFixtureがexact Rootを回収する。
+ * @boundary Host composition→実保存／局所TTY代役。
+ */
+test("Host初回提示の保存故障は出力順と未完了を保持する", async (t) => {
+  for (const failedPublication of [3, 4]) {
+    const f = fixture(t);
+    const current = path.join(f.directory, "access-management.json");
+    fs.rmSync(current);
+    let writes = 0;
+    let publications = 0;
+    const rename = fs.renameSync;
+    fs.renameSync = (from, to) => {
+      if (String(to) === current && ++publications === failedPublication)
+        throw new Error("synthetic_publication_failure");
+      return rename(from, to);
+    };
+    const terminal = Object.assign(
+      new Writable({
+        write(_chunk, _encoding, callback) {
+          writes++;
+          callback();
+        },
+      }),
+      { isTTY: true },
+    ) as unknown as NodeJS.WriteStream;
+    try {
+      const result = await initializeFromHost(
+        f.root,
+        "管理者",
+        true,
+        () => ["uninitialized", "absent"],
+        terminal,
+        new AbortController().signal,
+      );
+      assert.equal(result.status, "blocked");
+      assert.equal(writes, failedPublication === 3 ? 0 : 1);
+      const state = parseAccessManagementState(fs.readFileSync(current));
+      assert.equal(state.status, "parsed");
+      if (state.status !== "parsed") return;
+      assert.equal(
+        state.state.credentials[0]?.presentation,
+        failedPublication === 3 ? "not_attempted" : "unconfirmed",
+      );
+      assert.equal(state.state.users.length, 1);
+      assert.equal(state.state.credentials.length, 1);
+      assert.equal(
+        fs.existsSync(path.join(f.directory, "access-management.pending.json")),
+        true,
+      );
+      assert.equal(terminal.listenerCount("error"), 0);
+      assert.equal(terminal.listenerCount("close"), 0);
+    } finally {
+      fs.renameSync = rename;
+    }
+  }
+});
 
 /**
  * 三Roleの資格を持つ通常管理前状態を作る。

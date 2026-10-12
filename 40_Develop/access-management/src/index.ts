@@ -51,6 +51,10 @@ export {
 } from "./initialization/state-evaluation.ts";
 export type { HostInitializationStateResult } from "./initialization/host-state.ts";
 export {
+  initializeFromHost,
+  type HostInitializationResult,
+} from "./initialization/initialize-from-host.ts";
+export {
   type AccessManagementState,
   type InitializationRecord,
   type KeyExchangeRecord,

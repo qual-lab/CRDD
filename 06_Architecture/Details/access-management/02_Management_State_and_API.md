@@ -70,6 +70,14 @@ Host compositionは後続の実装で既存OS管理state Rootを準備・再検�
 
 初回確認の論理Owner・完全限定Protocol・exact Bindingは§2.5、v2目標形状はSchema切替案へ具体化した。保存・読戻し・短命pending／材料とLock終了の実装・実境界は残る。現在の`authenticateNormalConnection`はcompletedを必要とするため初回へ流用しない。`authenticateCredential`の途中本人照合だけでも通常Authorityを与えない。Host明示交換後は新提示資格へ確認対象を結び直し、旧初資格・元発行の既知事実を新交換成功で上書きしない。v2目標形状は具体化済み、完全Parser・実状態移行・本番保存はOPEN。別Receipt・Session・Store・Lockは追加しない。どの必要条件も未確認・失敗・観測不能ならcompleted表示と通常Authorityは0。
 
+### 初回保存段階とHost提示の局所接続 — 2026-10-13
+
+`initializeFromHost`はPackage公開入口から信頼済み内部Host Consumerへ提供する。実処理は`initialization/initialize-from-host.ts`に置き、保存Ownerの責務を増やさない。入力は既存の検証済みRoot、表示名、明示開始、旧入力の同期読取り、Host所有TTYと取消Signal。Root作成・旧形式解析・旧Writer停止・MCP公開・通常鍵交換は含まない。旧Writer停止を済ませた切替条件下で、freshだけ生成前と相関保存Lock内の旧入力不存在確認を通す。correlated／user_storedは保存済み元試行で進め、credential_storedはSecret再取得・再表示を行わず、確認済み提示は接続待ち、他は既存明示交換への案内とする。既存・観測不能は新初期化しない。
+
+新規資格の保存終了後、提示前unconfirmedの別出版・読戻し・清掃・Lock終了を確認する。TTY鍵行を単一writeへ渡し、false返却でも再送しない。callbackが来るまで取消・error・closeは失敗事実だけを固定し、完了やListener回収を主張しない。callback未着なら保留のまま。callback後はBufferを消去し、Nodeがcallbackの後に発行するerror通知のtickを処置して、当該error／close／abort Listenerだけを外す。stdoutをend／destroyしない。出力成功はサービス側の当該chunk処理で、人間閲覧ではない。取消を再確認し、非秘密exact Bindingでconfirmedを別出版する。保存失敗・取消・故障から再表示しない。JS stringの物理zeroizeは保証しない。
+
+局所注入試験は実保存順・再入場・callback join・Listener回収を確認するが、実Host TTY・Root準備・CLI最終入口・Workbench本番接続・正式Local Itemの全成立を代替しない。これらは初回Host縦断の未完了範囲として維持する。
+
 ### 2.2 初回状態の純粋判定 — 2026-10-11
 
 `evaluateHostInitializationState`をPackage Rootから局所公開する候補を実装した。これは§2.1の物理read・初期化操作ではなく、保存Ownerが取得した観測分類と明示開始のBooleanから四状態と次の処置を返す純粋計算である。`canStart`は形式上の条件成立で、Host信頼、Root・排他、相関保存、UUID・鍵EffectのAuthorityではない。現在のSourceはこれらの実処置へ接続していない。
