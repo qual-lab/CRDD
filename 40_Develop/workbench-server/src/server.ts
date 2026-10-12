@@ -91,6 +91,7 @@ import type {
 } from "./ai-request/types.ts";
 import {
   createRepositoryWorkbenchActivityReader,
+  projectRuntimeActivityForWorkbench,
   type WorkbenchActivityReader,
   type WorkbenchRuntimeActivityObservation,
 } from "./activity/observe.ts";
@@ -1439,11 +1440,13 @@ export async function startWorkbench(
                     projectSurface.context.projectId,
                     page,
                   )
-                : await readRemoteRuntimeActivity(
-                    remoteConnection.baseUrl,
-                    remoteConnection.token,
-                    projectSurface.context.projectId,
-                    page,
+                : projectRuntimeActivityForWorkbench(
+                    await readRemoteRuntimeActivity(
+                      remoteConnection.baseUrl,
+                      remoteConnection.token,
+                      projectSurface.context.projectId,
+                      page,
+                    ),
                   );
           } catch {
             runtimeActivityObservation = Object.freeze({

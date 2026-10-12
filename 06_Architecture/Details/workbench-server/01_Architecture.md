@@ -9,6 +9,12 @@ CHG-000082の再編後の実装親Folderは`workbench-server`とする。以下�
 
 ## 基本設計との関係
 
+### 活動Ownerの結果と画面投影 — 2026-10-12
+
+旧REST受取経路もOrchestratorの検査済み活動観測を使用する。Remote Clientが要求Projectと応答Projectの一致を確認した後、`projectRuntimeActivityForWorkbench`が現行画面のPropertyだけを新Objectへ再構成する。結果直下のProject／Source／現在OwnerとEventのRepositoryを暗黙転記しない。現在状態と履歴状態は独立して保持し、観測済み履歴理由だけを画面所有の`execution_events_observed`へ写す。unknown・空履歴・Continuationの意味は保持する。画面に出所を表示する判断や同型通信DTOの新設は含めない。
+
+これは旧Remote経路の直接追従であり、Local旧ReaderのOrchestrator移管、Remote MCP本番切替、AM管理Surfaceと旧REST撤去の完成ではない。旧Local表示を保持し、両経路の画面契約を回帰する。
+
 | Architecture定義 | この領域が具体化する責務 | Relation状態 |
 |---|---|---|
 | [ARCH-000005](../../Definitions/ARCH-000005/architecture_definition.md) | Project／Portfolio状態を、欠測と根拠を保った画面へ投影する。 | Covered |

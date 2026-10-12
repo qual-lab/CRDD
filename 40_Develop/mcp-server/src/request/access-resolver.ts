@@ -23,6 +23,7 @@ import {
   type ProjectContextSource,
 } from "../../../domain-model/src/index.ts";
 import { resolveVerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
+import { readAuthorizedRuntimeActivity } from "../../../orchestrator/src/index.ts";
 import { routeMcpRequest } from "./route.ts";
 import type { McpAuthenticatedRequestHandlerResolver } from "../transport/types.ts";
 
@@ -54,6 +55,57 @@ export function createAccessMcpResolver(
       routeMcpRequest(
         request,
         {
+          runtimeActivity: {
+            /**
+             * 現在許可された同Projectの実保存活動を読む。
+             * @responsibility 各Callの現在認可を活動Ownerへ最小入力で接続する。
+             * @trace ARCH-000005
+             * @trace ARCH-000012
+             * @trace ARCH-000013
+             * @input Projectとページ要求。
+             * @returns 同Projectの観測、許可対象がない場合だけnull。
+             * @precondition 入力検査と開始前取消確認が完了している。
+             * @postcondition 許可対象全件を渡し、部分集合へ後退しない。
+             * @effect 現在認可、Root観測、実保存読取り。書込みは行わない。
+             * @failure 集合・Root不明は固定例外、Owner故障はAdapterが非開示にする。
+             * @invariant 各Callで再認可し、認証を観測型の正しさで代替しない。
+             * @boundary AM現在集合からOrchestrator活動Owner。
+             * @security Token・AM Binding・RoleをOwnerや応答へ渡さない。
+             * @concurrency 開始したReaderを待ち、Adapterが取消後の公開を止める。
+             */
+            read: async (query) => {
+              if (signal.aborted)
+                throw new Error("runtime_activity_unavailable");
+              const collection = resolveRepositoryAccessCollection(root, token);
+              if (collection.status !== "completed")
+                throw new Error("runtime_activity_unavailable");
+              const selected = collection.repositories.filter(
+                (repository) =>
+                  repository.manifest.projectId === query.projectId,
+              );
+              if (selected.length === 0) return null;
+              const repositories = selected.map((repository) => {
+                if (signal.aborted)
+                  throw new Error("runtime_activity_unavailable");
+                const verifiedRoot = resolveVerifiedRepositoryRoot(
+                  repository.root,
+                );
+                if (verifiedRoot === null)
+                  throw new Error("runtime_activity_unavailable");
+                return {
+                  projectId: repository.manifest.projectId,
+                  repositoryId: repository.repositoryId,
+                  root: repository.root,
+                };
+              });
+              if (signal.aborted)
+                throw new Error("runtime_activity_unavailable");
+              return readAuthorizedRuntimeActivity(
+                { ...query, repositories },
+                signal,
+              );
+            },
+          },
           /**
            * 現在許可対象の操作と同ProjectのRelation集合を構成する。
            * @responsibility 未許可対象・異Project探索・部分集合への後退を防ぐ。

@@ -2,7 +2,7 @@
 
 Topic／Meetingの既存MCP Consumerは、共通Adapterの完全入力検査と取消確認後だけ現在Repository解決を行う遅延接続へ変更する。Resolver一回の後にも取消を確認し、観測中の取消から保存へ進まない。旧認証・Scope・Relationの意味は維持する。この順序是正はAM置換や旧CROS廃止の完成ではない。詳細は[MCP設計](../mcp-server/01_Architecture.md#topicmeetingの現在認可前の入力境界--2026-10-12)を参照する。
 
-2026-10-12の活動移管候補は[Orchestratorの認可済み活動読取り](../orchestrator/01_Architecture.md#73-認可済みrepositoryの活動読取り--新owner接続候補)を新Ownerとする。本文のCROS活動合成・型は旧配置の比較資料であり、現行AM型を旧CROS型へcastして利用しない。実Store Reader・全Consumer・複数Source合成の確認後に旧活動Moduleを撤去する。型移管やfake Reader接続だけで置換済みとしない。
+2026-10-12の活動移管候補は[Orchestratorの認可済み活動読取り](../orchestrator/01_Architecture.md#73-認可済みrepositoryの活動読取り--新owner接続候補)を新Ownerとする。現候補では重複した`activity/types.ts`と`activity/validate.ts`を撤去し、旧認可集合を受けるReader接続だけを`activity/read.ts`へ保持する。HTTP・MCPはOrchestrator型とParserを直接使用し、要求Projectとの一致も確認する。現行AM型を旧CROS型へcastしない。本文の旧CROS活動合成・型配置は当時の比較資料であり、現在配置ではない。実Store ReaderのAM接続と全Consumer移行・旧REST撤去の完成を区別する。
 
 成果物種別: Architecture詳細設計
 詳細設計領域: cros
@@ -17,6 +17,8 @@ Topic／Meetingの既存MCP Consumerは、共通Adapterの完全入力検査と�
 本詳細はCHG-000082の責務再編候補である。CROSは共通能力であり、専用REST Server、GatewayまたはShared Server Runtimeを新構成へ残さない。以下の現行実装照合は旧配置で成立した範囲を示し、新しいMCP／内部呼出しの接続済み証明ではない。公開操作、設定移行、全利用側とQAの確認後に段階4の独立設計レビューへ渡す。
 
 ## 基本設計との関係
+
+活動の旧認可接続では、Orchestrator Parserによる結果内相関と要求Project照合に加え、返却Source集合を今回選択した許可Repository集合へexact照合する。入力側重複、余剰・不足Sourceは固定invalid結果へ閉じ、集合の順序は許可の意味にしない。Parserが保証するEvent／現在OwnerとSourceの相関を再実装しない。許可外IDを例外本文やHTTP／MCP応答へ透過しない。
 
 | Architecture定義 | この領域が具体化する責務 | Relation状態 |
 |---|---|---|

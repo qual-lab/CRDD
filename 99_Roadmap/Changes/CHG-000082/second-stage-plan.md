@@ -1383,6 +1383,20 @@ Exposureは既存登録とdevelopment／managementの明示集合だけ。空集
 
 ## 活動取得の新Owner接続に向けた現行照合 — 2026-10-12
 
+### 現在認可MCPと直接利用側の実装候補 — 2026-10-12
+
+最新局所結果：更新候補の固定22Path限定独立再レビューはPass・全重大度残指摘0。Node v24.19.0、各Packageの`npm test`でMCP66／CROS34／Orchestrator91／AM59／Workbench33の計283 Case成功、Fail／Cancel／Skip0、全Exit0。各書式・型・Warning禁止Lint、Workbench Build成功。所要はMCP46.8986723秒、CROS7.3977354秒、Orchestrator UT2.3874662秒＋IT17.8614216秒、AM69.6410548秒、Workbench134.9554538秒。基準HEAD `021eec11fb1a15c0ccfa79adbed92f9967169a65`を維持。新CROS読取りSHA256 `acb0c68c9013c417b36191ffd46110cc31e615beb58f2ae637f880afeb6e17ad`、実AM HTTP試験SHA256 `b29c1363379e410f4f5d9475fadadec0881a5d7e7b242d6942f8ebea06e6cc47`。全回帰後のTest Headerは説明3行だけの同期で実行本文不変。差分／Index差分空白検査成功、自己生成MCP／活動試験Root残存0。完全出力は各コマンドから再生成できるため実行別書庫を増やさない。局所接続のみ完了で、公開Launcher／Workbench本番MCP切替、鍵管理・配送、Profile接続、旧REST撤去、正式191項目・AM全体完成は未成立を維持する。
+
+初回の固定22Path独立レビューはMajor1・Moderate1でFailだった。旧注入Readerの返却Sourceと選択集合の相関不足、実AM→Owner→HTTPの非空状態／履歴の正対照不足を検出した。全指摘の是正方針を指摘元と整合し、入力重複と返却Source余剰／不足のexact拒否、順序非依存の受理、ID非開示、Root A状態とRoot B履歴の同応答、A公開解除後のB履歴保持を追加する。新AM構成を常時absent／空履歴にする一時変異は正対照のobserved assertionでFailし、Source SHA256 `cfa435c737f45af96b5838bda9faeb0731c477e87e9799e09aaceeb75350d68a`へ完全復元した。復元後の全回帰・更新候補の独立再レビューが終わるまで局所完了にしない。AI Profileのmanager／administrator採用回答は別の後続接続へ正式伝播し、この候補のRole・鍵契約には混ぜない。
+
+基準`021eec11`から、活動MCPをOrchestrator所有の観測型・Parserへ直接接続する。要求Projectと応答Projectをexact比較する。AM Resolverは各Callで現在許可集合を再取得し、同Projectの全対象からProject／Repository／検証済みRootだけをReaderへ渡す。許可対象0件は非開示null、集合・Root不明は全体停止とし、部分集合へ後退しない。開始前取消はReader0、開始後はjoinして応答公開を止める。
+
+着手前の読み取り専用確認を統合し、旧CROSは既存認可集合を受けるReader接続だけを保持する。同型結果・重複Parser・公開Aliasは撤去する。旧REST Clientでも要求Projectと応答Projectを照合する。Workbench旧REST受取は今回の直接Consumerなので、新Owner固有の出所を暗黙転記せず、表示Propertyを明示再構成し、履歴観測理由を現行の画面語彙へ変換する。Local旧ReaderとRemote MCPの本番切替は後続であり、今回結果をその完成根拠にしない。
+
+変更分類は採用済み責務再編の本番接続追加。対象はCROS活動接続・HTTP・公開入口、MCP活動Adapter・AM Resolver、Workbench受取投影と直接試験。Role・鍵・保存Schema・Host Root・Provider・Dockerは変更しない。新State／Registry／Lock／Session／Fallback／Frameworkは追加しない。過去正式Evidenceは不変更。現在の候補は未レビューであり、AM全体・正式191項目・旧REST撤去の完成を主張しない。
+
+必須確認は実HTTPの現在認可と実保存読取り、要求Project不一致拒否、失効・Exposure解除、非秘密応答、開始前取消・開始後join、15Tool登録、旧REST／Shared Host／Workbench表示回帰、出所field非転記、旧結果型参照0、Architecture／QA／Symbol／Catalog追従、固定候補の限定独立レビュー。標準規範・外部AI実行は不変更のため、準拠監査と署名Provider E2Eはこの接続段階では対象外。人間の追加判断は現時点で不要。
+
 ### 実保存ReaderのOwner候補接続 — 2026-10-12
 
 設計Gate後のSource候補では、`orchestrator/src/activity/types.ts`・`validate.ts`・`read.ts`へ活動観測と実保存読取りを接続した。遠隔認可の成立をこのAPI単独へ主張せず、信頼した同Process Consumerが今回認可済みのProject／Repository／技術的Rootだけを渡す。状態は一度読み取ったSnapshotのProject値と受付世代だけから既存Queryで投影し、実履歴はExecution Intelligence正本を読む。保存Bindingは`identity/repository-binding.ts`へ抽出し既存Compositionも共用する。AM Binding、資格、Roleの搬送は0。

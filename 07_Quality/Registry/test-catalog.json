@@ -3129,11 +3129,11 @@
       "path": "40_Develop/mcp-server/tests/integration/access-capabilities.integration.test.ts",
       "level": "integration",
       "kind": "contract",
-      "semanticTags": ["access-management", "mcp", "project-context", "topic-meeting", "current-authorization", "http"],
+      "semanticTags": ["access-management", "mcp", "project-context", "topic-meeting", "runtime-activity", "current-authorization", "http"],
       "environment": "local_component_boundary",
       "externalProviderEffect": false,
       "humanInput": false,
-      "postconditions": ["authorized_projection_only", "authorized_repository_write_only", "project_identity_bound", "unknown_body_stops_whole_result", "request_reauthorization", "listener_absent"],
+      "postconditions": ["authorized_projection_only", "authorized_repository_write_only", "project_identity_bound", "unknown_body_stops_whole_result", "request_reauthorization", "stored_runtime_state_and_history_delivered", "authorized_activity_sources_exact", "partial_exposure_reflected", "listener_absent"],
       "mandatoryByDefault": true
     },
     {

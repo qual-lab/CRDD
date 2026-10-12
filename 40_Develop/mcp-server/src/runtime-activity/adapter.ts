@@ -1,15 +1,15 @@
 /**
  * 認可済みRuntime活動をMCPへ搬送する。
  *
- * @responsibility 固定Toolの入力と公開結果をCROS観測契約へ接続する。
+ * @responsibility 固定Toolの入力と公開結果をOrchestrator観測契約へ接続する。
  * @trace ARCH-000005
  * @trace ARCH-000007
  * @trace ARCH-000012
  */
 import {
-  parseCrosRuntimeActivityObservation,
-  type CrosRemoteRuntimeActivityObservation,
-} from "../../../cros/src/index.ts";
+  parseRuntimeActivityObservation,
+  type RuntimeActivityObservation,
+} from "../../../orchestrator/src/index.ts";
 import {
   snapshotPlainRecord,
   snapshotOpenPlainRecord,
@@ -33,14 +33,14 @@ export const MCP_RUNTIME_ACTIVITY_TOOL = "crdd.get_runtime_activity" as const;
  * @trace ARCH-000012
  * @shape readはProjectとページから観測または非開示nullを返す。
  * @invariant Reader完了を待ち、nullとunknownを混同しない。
- * @boundary MCP入力とCROS活動Ownerの境界。
+ * @boundary MCP入力とOrchestrator活動Ownerの境界。
  * @security 許可集合外のRepositoryを参照しない依存だけを渡す。
- * @compatibility CROSの観測型を直接利用し、同型DTOを作らない。
+ * @compatibility Orchestratorの観測型を直接利用し、同型DTOを作らない。
  */
 export type McpRuntimeActivityDependencies = Readonly<{
   read(
     query: Readonly<{ projectId: string; cursor?: string; limit: number }>,
-  ): Promise<CrosRemoteRuntimeActivityObservation | null>;
+  ): Promise<RuntimeActivityObservation | null>;
 }>;
 
 /**
@@ -98,11 +98,11 @@ export function getMcpRuntimeActivityToolDefinitions() {
  * @input rawRequest、認可適用済みdependenciesと取消signal。
  * @returns 検査済み観測または非開示・入力拒否・故障・取消応答。
  * @precondition 依存は現在Requestの認可Scopeへ固定済み。
- * @postcondition 正常応答はCROSの閉じた観測型だけを持つ。
+ * @postcondition 正常応答は要求Projectと一致するOrchestrator観測型だけを持つ。
  * @effect 有効入力でreadを最大一回呼ぶ。
  * @failure 入力不正は-32602、読取り故障は-32603、取消は-32800。
  * @invariant 非許可と不在を区別せず、unknownを成功空集合へ変えない。
- * @boundary MCP搬送とCROS活動観測の境界。
+ * @boundary MCP搬送とOrchestrator活動観測の境界。
  * @security Token・Path・内部Snapshotを応答へ追加しない。
  * @concurrency 開始後のreadをjoinし、完了後に取消状態を再確認する。
  */
@@ -139,7 +139,7 @@ export async function handleMcpRuntimeActivityRequest(
     return protocolError(request.id, -32602, "Invalid params");
   if (signal.aborted)
     return protocolError(request.id, -32800, "Request cancelled");
-  let observation: CrosRemoteRuntimeActivityObservation | null;
+  let observation: RuntimeActivityObservation | null;
   try {
     observation = await dependencies.read({
       projectId: args.projectId,
@@ -154,10 +154,11 @@ export async function handleMcpRuntimeActivityRequest(
   if (signal.aborted)
     return protocolError(request.id, -32800, "Request cancelled");
   const ownedObservation =
-    observation === null
-      ? null
-      : parseCrosRuntimeActivityObservation(observation);
-  if (observation !== null && ownedObservation === null)
+    observation === null ? null : parseRuntimeActivityObservation(observation);
+  if (
+    observation !== null &&
+    (ownedObservation === null || ownedObservation.projectId !== args.projectId)
+  )
     return protocolError(request.id, -32603, "Runtime activity unavailable");
   return protocolComplete(request.id, {
     content: Object.freeze([

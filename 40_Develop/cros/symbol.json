@@ -4,6 +4,12 @@
   "subsystem": "cros",
   "symbols": [
     {
+      "symbolId": "cros.activity.read",
+      "kind": "file",
+      "path": "src/activity/read.ts",
+      "archIds": ["ARCH-000005", "ARCH-000007", "ARCH-000013"]
+    },
+    {
       "symbolId": "cros.public-api",
       "kind": "module",
       "path": "src/index.ts",
@@ -151,7 +157,8 @@
         "RFD-IT-013"
       ],
       "verifies": [
-        "cros.remote-transport"
+        "cros.remote-transport",
+        "cros.activity.read"
       ]
     },
     {

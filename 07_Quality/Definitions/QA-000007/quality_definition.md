@@ -273,9 +273,11 @@ RFD-IT-021の保存部分を`access-management/tests/integration/state/file-stor
 
 先行段階ではProject Context専用MCP Resolverの実HTTP試験を追加した。Header通常認証後の本文待機中にExposureを解除した場合は正常空Portfolio、資格失効の場合は固定内部エラーとし、どちらも旧許可対象の本文open 0を確認した。反復要求では毎回実本文を読み、二件目の本文欠測では全体を固定エラーへ閉じた。初回未完了はHandlerなし、開始前取消は対象読取り0、当時のTool一覧はContext二つだけであった。この段階はRFD-IT-013／019の部分接続の履歴で、現在構成は次段落とする。
 
-現在の`createAccessMcpResolver`はContext二操作とTopic／Meeting十二操作を局所実HTTPへ接続する。RFD-IT-013の部分確認では、現在Role／Exposure／失効の次要求反映、本文待機中の解除／失効からTopic保存0、非許可`-32602`、集合／Root／構成不明`-32603`、manifest Project不一致の登録／更新0、同Project許可集合だけのRelation判定を照合する。実HTTPのTool一覧は十四操作で、全十二操作のRepository ID必須と未知field拒否、Context二操作へIDを追加しないSchemaを確認する。鍵・活動・Profileは未接続、旧CROS／Shared Hostと公開Launcher／Workbenchの本番切替は未完了。正式191項目Not Run、RFD-ST-003全体未Pass、保存開始後rollback非保証を維持する。
+現在の`createAccessMcpResolver`はContext二操作、Topic／Meeting十二操作と活動一操作を局所実HTTPへ接続する。RFD-IT-013の部分確認では、現在Role／Exposure／失効の次要求反映、本文待機中の解除／失効からTopic保存0、非許可`-32602`、集合／Root／構成不明`-32603`、manifest Project不一致の登録／更新0、同Project許可集合だけのRelation判定を照合する。実HTTPのTool一覧は十五操作で、全十二操作のRepository ID必須と未知field拒否、Context二操作と活動へIDを追加しないSchemaを確認する。活動では現在認可→実保存Reader→固定結果へ接続し、同Project全出所・実Git改訂、空認可の非開示、公開解除・失効の次要求反映を確認する。鍵は非公開、Profileは新構成に未接続、旧CROS／Shared Hostと公開Launcher／Workbenchの本番切替は未完了。正式191項目Not Run、RFD-ST-003全体未Pass、保存開始後rollback非保証を維持する。
 
 RFD-IT-019の部分接続として、現在許可された内部集合のRoot・manifestをDomain固定本文Readerへ一回だけ渡し、manifestのProject ID・Repository ID、Reader本文版、解析Contextの4項目Sourceを既存Portfolioへ搬送する。管理改訂を本文版へ流用しない。administratorの空内容範囲は本文読取り0、本文欠測は固定unavailable・版／Contextなしを確認し、null／missingや部分Portfolioの材料にしない。本番MCP／Workbench、複数本文原子性、正式191項目は未成立である。
+
+活動接続の追加反証では、Root Aへ既存Writerで保存した現在状態とRoot BのEI履歴を同じ実HTTP応答で観測する。両Sourceの実Git改訂、現在Owner、Project／MilestoneとTask件数、Event ID・Repository・時刻・状態・理由を照合する。Aの公開解除後はSourceと現在投影からAを除き、Bの履歴を保持する。全解除は非開示、失効は401である。旧CROS Reader境界では選択集合とのSource exact相関も確認し、入力重複・余剰SourceとEvent・不足Sourceを拒否してID非開示を確認する。順序が異なる同集合は受理する。常時absent／空履歴の限定変異がこの正対照で失敗し、Sourceを完全復元後に成功することを確認する。新保存Schema・Store・Role・回復機構は作らない。
 
 通常Surfaceの認証入口はRFD-IT-013／024の部分接続として、初回途中の有効資格が本人確認では成功しても通常接続では固定拒否になることを確認する。未完了・未知・失効資格ではpending処置・対象Repository観測0、本人投影なしを確認する。初回completedの現在有効資格だけを同改訂の本人へ結合し、状態・清掃・Lock解放不明を成功へ畳まない。MCP Handler・HTTP本番搬送は別に確認し、この保存試験だけでSurface成立を主張しない。
 

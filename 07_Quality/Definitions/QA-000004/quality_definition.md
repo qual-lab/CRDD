@@ -110,6 +110,8 @@ Quality ID: `QA-000004`
 
 導出元は[Orchestratorの認可済み活動読取り](../../../06_Architecture/Details/orchestrator/01_Architecture.md#73-認可済みrepositoryの活動読取り--新owner接続候補)と[MCPのActivity操作](../../../06_Architecture/Details/mcp-server/01_Architecture.md)である。`PPR-IT-012`では本番の現在状態Readerと履歴Readerを分け、observed／absent／unknown、eventState／eventReason、現在値とeventContinuationを独立に観測する。状態を読めても履歴が観測不能なら、空の正常履歴へ変えない。
 
+直接利用側の移管では、MCP Adapterと旧REST Clientが共有Parserの検査に加えて要求Projectと応答Projectをexact照合する。Workbench旧Remote表示は検査済み結果から表示Propertyだけを再構成し、結果直下のProject／Source／現在OwnerとEventのRepositoryを暗黙転記しない。現在状態・履歴状態・Continuationを保持し、履歴理由だけを画面語彙へ写す。旧Local Reader表示も回帰する。この直接追従は新AM本番Launcher／Workbench MCP切替、出所表示の採用、PPR-IT-012全体正式Passの根拠へ拡張しない。
+
 `PPR-IT-001/002`では同じProjectと現在許可されたRepositoryを対象に、Local内部呼出しとRemote MCP、limit既定20／境界1・50／不正値、Cursor一致／改ざん／改訂変化、欠測・競合を比較する。結果の出所・改訂版・部分観測を保持し、Cursorから読取りAuthorityを発行しない。認可失効後の再取得は本文・件数・対象存在を非開示にする。両入口の意味比較はQA-000009の`EST-IT-010`、利用者が不完全性を理解できることは`PPR-UAT-015`で確認する。投影処理による正本更新・暗黙再送は0とする。
 
 ## 4. 評価と終了後条件

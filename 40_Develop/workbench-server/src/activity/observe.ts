@@ -21,6 +21,7 @@ import { inspectOrchestratorStateQueryResult } from "../../../orchestrator/src/i
 import { observeChangePublicationTarget } from "../../../version-control/src/index.ts";
 import { gitChangePublicationTargetObservationAdapter } from "../../../version-control/src/index.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import type { RuntimeActivityObservation } from "../../../orchestrator/src/index.ts";
 
 /**
  * Workbenchが表示するOrchestrator現在投影の値契約。
@@ -137,6 +138,54 @@ export type WorkbenchActivityReader = Readonly<{
 
 const DEFAULT_EVENT_LIMIT = 20;
 const MAXIMUM_EVENT_LIMIT = 50;
+
+/**
+ * 検査済み活動Ownerの観測を画面専用値へ投影する。
+ * @responsibility 出所を画面契約へ暗黙転記せず、表示語彙へ変換する。
+ * @trace ARCH-000004
+ * @trace ARCH-000007
+ * @trace ARCH-000012
+ * @input Orchestratorの検査済み活動観測。
+ * @returns 現行Workbench表示Propertyだけを持つ新Object。
+ * @precondition TransportがSchemaと要求Projectの一致を確認済み。
+ * @postcondition 現在状態・履歴・Continuationの意味を保持する。
+ * @effect N/A: 純粋な値変換だけを行う。
+ * @failure N/A: 検査済み入力だけを受ける。
+ * @invariant Root・出所Repository・管理情報を画面契約へ追加しない。
+ * @boundary 活動Ownerの搬送契約からWorkbench表示契約。
+ * @security 非秘密の表示項目だけを明示投影する。
+ * @concurrency N/A: 共有状態を持たない。
+ */
+export function projectRuntimeActivityForWorkbench(
+  observation: RuntimeActivityObservation,
+): WorkbenchRuntimeActivityObservation {
+  return Object.freeze({
+    state: observation.state,
+    reason: observation.reason,
+    projection: observation.projection,
+    eventState: observation.eventState,
+    eventReason:
+      observation.eventState === "observed"
+        ? "execution_events_observed"
+        : "observation_failed",
+    events: Object.freeze(
+      observation.events.map((event) =>
+        Object.freeze({
+          eventId: event.eventId,
+          occurredAt: event.occurredAt,
+          objectiveId: event.objectiveId,
+          taskId: event.taskId,
+          attemptId: event.attemptId,
+          status: event.status,
+          reason: event.reason,
+          cleanupConfirmed: event.cleanupConfirmed,
+          manualRecoveryRequired: event.manualRecoveryRequired,
+        }),
+      ),
+    ),
+    eventContinuation: observation.eventContinuation,
+  });
+}
 
 /**
  * Execution EventをWorkbench用の閉じた要約へ変換する。

@@ -16,7 +16,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { request as httpRequest } from "node:http";
 import test, { type TestContext } from "node:test";
@@ -38,9 +38,248 @@ import {
   MCP_TOPIC_MEETING_TOOLS,
   startMcpAuthenticatedStreamableHttp,
   MCP_PROJECT_CONTEXT_GET_TOOL,
+  MCP_RUNTIME_ACTIVITY_TOOL,
   MCP_PROJECT_CONTEXT_LIST_TOOL,
   MCP_ORCHESTRATOR_PROTOCOL_VERSION,
 } from "../../src/index.ts";
+import {
+  createOrchestratorState,
+  initializeOrchestratorSnapshot,
+} from "../../../orchestrator/src/index.ts";
+import { writeOrchestratorSnapshotState } from "../../../orchestrator/src/storage/current-state.ts";
+import {
+  createTaskAttemptSettledEvent,
+  writeExecutionIntelligenceEvent,
+  verifyExecutionIntelligenceRepositoryRoot,
+  usageNotObserved,
+} from "../../../execution-intelligence/src/index.ts";
+
+/**
+ * 活動Ownerへの現在認可接続を実HTTPと自己生成保存領域で確認する。
+ * @responsibility 別Projectと空公開範囲を非開示にし、毎Callの許可変更を反映する。
+ * @trace RFD-IT-013
+ * @trace RFD-IT-019
+ * @trace EST-IT-002
+ * @precondition 初回完了済み資格と同Projectの二Repository。
+ * @stimulus 不存在取得、別Rootへ状態／履歴保存、異Project、Exposure部分／全解除、資格失効を順に送る。
+ * @observation 実HTTP応答、全Sourceと実Git改訂、現在Owner、状態・履歴の値と非秘密結果。
+ * @oracle 不存在はabsent、Aの状態とBの履歴を同時搬送し、A解除後はB履歴だけ保持、空認可はunavailable、失効は401である。
+ * @cleanup Listener終了後にFixture所有Rootを回収する。
+ * @boundary 実HTTP→現在AM認可→実Orchestrator保存Reader。
+ */
+test("AM活動MCPは実保存観測と現在Exposure・失効を接続する", async (t) => {
+  const f = fixture(t);
+  const expectedSources = f.targets.map(({ id, target }) => {
+    const committed = spawnSync(
+      "git",
+      [
+        "-C",
+        target,
+        "-c",
+        "user.name=Activity Fixture",
+        "-c",
+        "user.email=activity@example.invalid",
+        "commit",
+        "--allow-empty",
+        "--quiet",
+        "-m",
+        "fixture",
+      ],
+      { encoding: "utf8", windowsHide: true },
+    );
+    assert.equal(committed.status, 0, committed.stderr);
+    const revision = spawnSync("git", ["-C", target, "rev-parse", "HEAD"], {
+      encoding: "utf8",
+      windowsHide: true,
+    });
+    assert.equal(revision.status, 0, revision.stderr);
+    return { repositoryId: id, revision: revision.stdout.trim() };
+  });
+  const server = await startMcpAuthenticatedStreamableHttp(
+    createAccessMcpResolver(f.root),
+    { port: 0 },
+  );
+  const base = `http://${server.host}:${server.port}`;
+  try {
+    const response = await call(base, f.token, MCP_RUNTIME_ACTIVITY_TOOL, {
+      projectId: "project.fixture",
+    });
+    assert.equal(response.status, 200);
+    const text = await response.text();
+    const observed = JSON.parse(text).result.structuredContent;
+    assert.equal(observed.projectId, "project.fixture");
+    assert.equal(observed.state, "absent");
+    assert.equal(observed.reason, "runtime_activity_state_absent");
+    assert.deepEqual(observed.sources, expectedSources);
+    assert.equal(observed.eventState, "observed");
+    assert.deepEqual(observed.events, []);
+    assert.equal(observed.eventContinuation, null);
+    assert.equal(text.includes(f.token), false);
+    for (const target of f.targets)
+      assert.equal(text.includes(target.target), false);
+    const foreign = await call(base, f.token, MCP_RUNTIME_ACTIVITY_TOOL, {
+      projectId: "project.other",
+    });
+    assert.equal((await foreign.json()).result.isError, true);
+    const a = f.targets[0],
+      b = f.targets[1],
+      sourceA = expectedSources[0];
+    assert.ok(a && b && sourceA);
+    const binding = `binding-${createHash("sha256").update(a.target).digest("hex").slice(0, 40)}`;
+    assert.equal(
+      initializeOrchestratorSnapshot(a.target, binding).status,
+      "completed",
+    );
+    const saved = createOrchestratorState({
+      projectId: "project.fixture",
+      milestoneId: "milestone.fixture",
+      repositoryRevision: sourceA.revision,
+      maximumConcurrency: 1,
+      milestoneAcceptanceCriteria: ["accepted"],
+      objectives: [
+        { id: "objective.fixture", acceptanceCriteria: ["accepted"] },
+      ],
+      tasks: [
+        {
+          id: "task.fixture",
+          objectiveId: "objective.fixture",
+          dependencies: [],
+          allowedPaths: ["result.txt"],
+          conflictKeys: [],
+        },
+      ],
+      ownerGeneration: "owner.fixture",
+    });
+    assert.ok(saved.state);
+    assert.equal(
+      writeOrchestratorSnapshotState(
+        a.target,
+        binding,
+        JSON.stringify(saved.state),
+        0,
+      ).status,
+      "completed",
+    );
+    const history = createTaskAttemptSettledEvent({
+      occurredAt: "2026-10-12T00:00:00.000Z",
+      identity: {
+        projectId: "project.fixture",
+        milestoneId: "milestone.fixture",
+        objectiveId: "objective.fixture",
+        taskId: "task.history",
+        attemptId: "attempt.history",
+        operationId: "operation.history",
+      },
+      outcome: {
+        status: "completed",
+        reason: "task_completed",
+        effectState: "settled",
+        cleanupConfirmed: true,
+        manualRecoveryRequired: false,
+        processRestartRequired: false,
+      },
+      execution: {
+        role: "executor",
+        provider: { state: "not_observed", reason: "provider_not_reported" },
+        model: { state: "not_observed", reason: "model_not_reported" },
+        inputStrategyRef: {
+          state: "not_observed",
+          reason: "input_not_reported",
+        },
+        durationMs: { state: "not_observed", reason: "duration_not_reported" },
+        usage: usageNotObserved("usage_not_reported"),
+        humanActiveMs: {
+          state: "not_observed",
+          reason: "human_time_not_reported",
+        },
+      },
+      quality: {
+        state: "not_applicable",
+        reason: "attempt_settlement_is_not_acceptance",
+      },
+    });
+    const ei = verifyExecutionIntelligenceRepositoryRoot(b.target);
+    assert.equal(ei.status, "completed");
+    if (ei.status !== "completed") throw new Error("fixture_ei_root_invalid");
+    assert.equal(
+      writeExecutionIntelligenceEvent(ei.root, history).status,
+      "completed",
+    );
+    const presentResponse = await call(
+      base,
+      f.token,
+      MCP_RUNTIME_ACTIVITY_TOOL,
+      { projectId: "project.fixture" },
+    );
+    const presentText = await presentResponse.text();
+    const present = JSON.parse(presentText).result.structuredContent;
+    assert.equal(present.state, "observed");
+    assert.equal(present.currentSourceRepositoryId, a.id);
+    assert.equal(present.projection.projectId, "project.fixture");
+    assert.equal(present.projection.milestoneId, "milestone.fixture");
+    assert.equal(present.projection.taskCounts.ready, 1);
+    assert.deepEqual(present.sources, expectedSources);
+    assert.deepEqual(present.events, [
+      {
+        repositoryId: b.id,
+        eventId: history.eventId,
+        occurredAt: history.occurredAt,
+        objectiveId: "objective.fixture",
+        taskId: "task.history",
+        attemptId: "attempt.history",
+        status: "completed",
+        reason: "task_completed",
+        cleanupConfirmed: true,
+        manualRecoveryRequired: false,
+      },
+    ]);
+    assert.equal(presentText.includes(f.token), false);
+    for (const target of f.targets)
+      assert.equal(presentText.includes(target.target), false);
+    const state = JSON.parse(
+      fs.readFileSync(f.current, "utf8"),
+    ) as AccessManagementState;
+    state.exposure = state.exposure.filter(
+      (entry) => entry.repositoryId !== a.id,
+    );
+    fs.writeFileSync(f.current, JSON.stringify(state));
+    const partial = await call(base, f.token, MCP_RUNTIME_ACTIVITY_TOOL, {
+      projectId: "project.fixture",
+    });
+    const partialText = await partial.text();
+    const remaining = JSON.parse(partialText).result.structuredContent;
+    assert.deepEqual(remaining.sources, [expectedSources[1]]);
+    assert.equal(remaining.state, "absent");
+    assert.equal(remaining.currentSourceRepositoryId, null);
+    assert.equal(remaining.projection, null);
+    assert.deepEqual(remaining.events, present.events);
+    assert.equal(partialText.includes(a.id), false);
+    assert.equal(partialText.includes("milestone.fixture"), false);
+    state.exposure = [];
+    fs.writeFileSync(f.current, JSON.stringify(state));
+    const denied = await call(base, f.token, MCP_RUNTIME_ACTIVITY_TOOL, {
+      projectId: "project.fixture",
+    });
+    const deniedBody = await denied.text();
+    assert.equal(JSON.parse(deniedBody).result.isError, true);
+    for (const target of f.targets)
+      assert.equal(deniedBody.includes(target.id), false);
+    const credential = state.credentials[0];
+    assert.ok(credential);
+    credential.revoked = true;
+    fs.writeFileSync(f.current, JSON.stringify(state));
+    assert.equal(
+      (
+        await call(base, f.token, MCP_RUNTIME_ACTIVITY_TOOL, {
+          projectId: "project.fixture",
+        })
+      ).status,
+      401,
+    );
+  } finally {
+    assert.equal((await server.close()).cleanupConfirmed, true);
+  }
+});
 
 /**
  * 自己生成の管理Storeと二Repositoryを準備する。
@@ -408,6 +647,7 @@ test("AM内容MCPの全12操作は指定Repositoryの実保存へ到達する", 
       [
         MCP_PROJECT_CONTEXT_GET_TOOL,
         MCP_PROJECT_CONTEXT_LIST_TOOL,
+        MCP_RUNTIME_ACTIVITY_TOOL,
         ...MCP_TOPIC_MEETING_TOOLS,
       ].sort(),
     );
@@ -518,6 +758,7 @@ test("未完了資格はHandlerなし、開始前取消は対象読取りなし"
       [
         MCP_PROJECT_CONTEXT_GET_TOOL,
         MCP_PROJECT_CONTEXT_LIST_TOOL,
+        MCP_RUNTIME_ACTIVITY_TOOL,
         ...MCP_TOPIC_MEETING_TOOLS,
       ].sort(),
     );

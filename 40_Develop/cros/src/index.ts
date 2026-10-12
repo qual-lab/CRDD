@@ -23,15 +23,7 @@ export {
   resolveCrosAiProfileAdministration,
   parseCrosAiProfileMutation,
 } from "./profile/administration.ts";
-export {
-  inspectCrosRuntimeActivityObservation,
-  parseCrosRuntimeActivityObservation,
-} from "./activity/validate.ts";
-export type {
-  CrosRemoteRuntimeActivityObservation,
-  CrosRemoteRuntimeEventProjection,
-  CrosRuntimeActivityReader,
-} from "./activity/types.ts";
+export type { CrosRuntimeActivityReader } from "./activity/read.ts";
 export {
   closeCrosSession,
   createContextPackage,

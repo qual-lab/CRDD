@@ -1251,7 +1251,15 @@ test("BrowserからRemote CROSへ接続し失効後は直前Projectionを表示�
     read: async ({ projectId }) =>
       Object.freeze({
         state: "observed" as const,
-        reason: "remote_runtime_activity_observed",
+        reason: "runtime_activity_state_observed",
+        projectId,
+        currentSourceRepositoryId: surface.context.repositoryId,
+        sources: [
+          {
+            repositoryId: surface.context.repositoryId,
+            revision: "a".repeat(40),
+          },
+        ],
         projection: Object.freeze({
           projectId,
           milestoneId: "REMOTE-MILESTONE",
@@ -1305,10 +1313,11 @@ test("BrowserからRemote CROSへ接続し失効後は直前Projectionを表示�
           nextAction: "wait_for_task" as const,
         }),
         eventState: "observed" as const,
-        eventReason: "execution_events_observed",
+        eventReason: "runtime_activity_events_observed",
         events: Object.freeze([
           Object.freeze({
             eventId: `execution-${"c".repeat(64)}`,
+            repositoryId: surface.context.repositoryId,
             occurredAt: "2026-09-28T00:30:00.000Z",
             objectiveId: "objective-remote",
             taskId: "task-from-remote-cros",
@@ -1385,6 +1394,25 @@ test("BrowserからRemote CROSへ接続し失効後は直前Projectionを表示�
     assert.equal(
       connected.runtimeActivity?.events[0]?.reason,
       "remote_task_completed",
+    );
+    assert.equal(
+      Object.hasOwn(connected.runtimeActivity ?? {}, "sources"),
+      false,
+    );
+    assert.equal(
+      Object.hasOwn(
+        connected.runtimeActivity ?? {},
+        "currentSourceRepositoryId",
+      ),
+      false,
+    );
+    assert.equal(
+      Object.hasOwn(connected.runtimeActivity ?? {}, "projectId"),
+      false,
+    );
+    assert.equal(
+      Object.hasOwn(connected.runtimeActivity?.events[0] ?? {}, "repositoryId"),
+      false,
     );
     assert.doesNotMatch(JSON.stringify(connected), /cros\.v1\./u);
 

@@ -12,6 +12,11 @@
 import assert from "node:assert/strict";
 import { request as httpRequest } from "node:http";
 import test from "node:test";
+import {
+  parseRuntimeActivityObservation,
+  type RuntimeActivityObservation,
+} from "../../../orchestrator/src/index.ts";
+import { readCrosRuntimeActivity } from "../../src/index.ts";
 
 import {
   createAiProfileCatalogAdministration,
@@ -300,7 +305,10 @@ test("Remote Runtime Activityは許可済みRepositoryだけを投影する", as
       );
       return Object.freeze({
         state: "observed" as const,
-        reason: "cros_runtime_activity_observed",
+        reason: "runtime_activity_state_observed",
+        projectId,
+        currentSourceRepositoryId: "REPO-DEV",
+        sources: [{ repositoryId: "REPO-DEV", revision: "a".repeat(40) }],
         projection: Object.freeze({
           projectId,
           milestoneId: "v0.22",
@@ -354,10 +362,11 @@ test("Remote Runtime Activityは許可済みRepositoryだけを投影する", as
           nextAction: "wait_for_task" as const,
         }),
         eventState: "observed" as const,
-        eventReason: "execution_events_observed",
+        eventReason: "runtime_activity_events_observed",
         events: Object.freeze([
           Object.freeze({
             eventId: `execution-${"b".repeat(64)}`,
+            repositoryId: "REPO-DEV",
             occurredAt: "2026-09-28T00:15:00.000Z",
             objectiveId: "objective-remote",
             taskId: "task-remote",
@@ -427,6 +436,101 @@ test("Remote Runtime Activityは許可済みRepositoryだけを投影する", as
     );
     assert.equal(unavailable.status, 404);
     assert.doesNotMatch(unavailable.body, /REPO|MGMT|workspace/iu);
+    const selected = [
+      {
+        projectId: "PRJ-REMOTE",
+        repositoryId: "REPO-DEV",
+        bindingId: "BIND-DEV",
+        revision: "dev-1",
+        content: {},
+      },
+      {
+        projectId: "PRJ-REMOTE",
+        repositoryId: "REPO-Z",
+        bindingId: "BIND-Z",
+        revision: "z-1",
+        content: {},
+      },
+    ];
+    const twoSources = {
+      ...observation,
+      sources: [
+        ...observation.sources,
+        { repositoryId: "REPO-Z", revision: "a".repeat(40) },
+      ],
+    };
+    assert.ok(parseRuntimeActivityObservation(twoSources));
+    assert.deepEqual(
+      await readCrosRuntimeActivity(
+        [...selected].reverse(),
+        { projectId: "PRJ-REMOTE", limit: 20 },
+        { read: async () => twoSources },
+      ),
+      twoSources,
+    );
+    const firstSelected = selected[0];
+    assert.ok(firstSelected);
+    await assert.rejects(
+      readCrosRuntimeActivity(
+        [firstSelected, firstSelected],
+        { projectId: "PRJ-REMOTE", limit: 20 },
+        { read: async () => observation },
+      ),
+      /cros_runtime_activity_observation_invalid/u,
+    );
+    for (const invalid of [
+      observation,
+      {
+        ...twoSources,
+        sources: [
+          ...twoSources.sources,
+          { repositoryId: "REPO-ZZ", revision: "a".repeat(40) },
+        ],
+        events: observation.events.map((event) => ({
+          ...event,
+          repositoryId: "REPO-ZZ",
+        })),
+      },
+    ]) {
+      assert.ok(parseRuntimeActivityObservation(invalid));
+      const refused = await startCrosRemoteTransport({
+        registry,
+        readExposureSnapshot: () => ({
+          revision: "refusal",
+          exposures: [
+            {
+              workspaceId: "development",
+              repositoryId: "REPO-DEV",
+              repositoryRevision: "dev-1",
+              registryRevision: "refusal",
+              active: true,
+            },
+            {
+              workspaceId: "development",
+              repositoryId: "REPO-Z",
+              repositoryRevision: "z-1",
+              registryRevision: "refusal",
+              active: true,
+            },
+          ],
+          repositories: selected,
+        }),
+        runtimeActivityReader: {
+          read: async () => invalid as RuntimeActivityObservation,
+        },
+      });
+      try {
+        const rejected = await rawRequest(
+          refused.baseUrl,
+          `Bearer ${issued.token}`,
+          { path: "/v1/projects/PRJ-REMOTE/runtime-activity" },
+        );
+        assert.equal(rejected.status, 503);
+        assert.doesNotMatch(rejected.body, /REPO-Z|REPO-DEV/u);
+      } finally {
+        await refused.close();
+      }
+    }
   } finally {
     await handle.close();
   }

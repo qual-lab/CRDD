@@ -33,9 +33,9 @@ import {
   createMemoryConnectionCredentialRegistry,
   issueConnectionCredential,
   type CrosRuntimeActivityReader,
-  type CrosRemoteRuntimeActivityObservation,
   type RequestAccessContext,
 } from "../../../cros/src/index.ts";
+import type { RuntimeActivityObservation } from "../../../orchestrator/src/index.ts";
 import {
   createCrosProjectContextMcpResolver,
   MCP_PROJECT_CONTEXT_GET_TOOL,
@@ -567,12 +567,15 @@ test("Runtime活動MCPは現在Grantと閉じた観測契約を保持する", as
   assert.equal(developer.status, "completed");
   assert.equal(admin.status, "completed");
   if (developer.status !== "completed" || admin.status !== "completed") return;
-  const clean: CrosRemoteRuntimeActivityObservation = {
+  const clean: RuntimeActivityObservation = {
+    projectId: "PRJ-MCP",
+    sources: [{ repositoryId: "REPO-DEV", revision: "a".repeat(40) }],
+    currentSourceRepositoryId: null,
     state: "absent",
-    reason: "no_current_task",
+    reason: "runtime_activity_state_absent",
     projection: null,
     eventState: "observed",
-    eventReason: "no_events",
+    eventReason: "runtime_activity_events_observed",
     events: [],
     eventContinuation: null,
   };
@@ -583,7 +586,7 @@ test("Runtime活動MCPは現在Grantと閉じた観測契約を保持する", as
     read: async (query) => {
       inputs.push(query);
       if (failed) throw new Error("private_reader_failure");
-      return result as CrosRemoteRuntimeActivityObservation;
+      return result as RuntimeActivityObservation;
     },
   };
   const resolver = createCrosProjectContextMcpResolver({
@@ -719,9 +722,9 @@ test("Runtime活動MCPは現在Grantと閉じた観測契約を保持する", as
     result = {
       ...clean,
       state: "unknown",
-      reason: "observation_unknown",
+      reason: "runtime_activity_state_unknown",
       eventState: "unknown",
-      eventReason: "event_observation_unknown",
+      eventReason: "runtime_activity_events_unknown",
     };
     const unknown = await callCrosTool(
       baseUrl,
@@ -741,6 +744,7 @@ test("Runtime活動MCPは現在Grantと閉じた観測契約を保持する", as
     assert.equal(pageInput.limit, 50);
     const event = {
       eventId: `execution-${"a".repeat(64)}`,
+      repositoryId: "REPO-DEV",
       occurredAt: "2026-10-09T00:00:00.000Z",
       objectiveId: "OBJ-1",
       taskId: "TASK-1",
@@ -784,6 +788,16 @@ test("Runtime活動MCPは現在Grantと閉じた観測契約を保持する", as
       },
       { ...clean, events: [{ ...event, privateData: "must_not_escape" }] },
       { ...clean, projection: {} },
+      { ...clean, projectId: "PRJ-OTHER" },
+      { ...clean, sources: [] },
+      {
+        ...clean,
+        sources: [
+          ...clean.sources,
+          { repositoryId: "REPO-UNAUTHORIZED", revision: "a".repeat(40) },
+        ],
+        events: [{ ...event, repositoryId: "REPO-UNAUTHORIZED" }],
+      },
       accessor,
       proxy,
     ]) {
@@ -797,7 +811,7 @@ test("Runtime活動MCPは現在Grantと閉じた観測契約を保持する", as
       assert.equal(reply.error.code, -32603);
       assert.doesNotMatch(
         JSON.stringify(reply),
-        /must_not_escape|privateData/u,
+        /must_not_escape|privateData|REPO-UNAUTHORIZED/u,
       );
     }
     assert.equal(getterCalls, 0);
@@ -826,7 +840,7 @@ test("Runtime活動MCPは現在Grantと閉じた観測契約を保持する", as
           }),
         },
         runtimeActivity: {
-          read: async () => mutable as CrosRemoteRuntimeActivityObservation,
+          read: async () => mutable as RuntimeActivityObservation,
         },
       },
     );

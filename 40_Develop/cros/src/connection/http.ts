@@ -25,17 +25,17 @@ import {
   type AiProfileCatalogMutationResult,
   type AiProfileCatalogSnapshot,
 } from "../../../ai-adapter/src/index.ts";
-import { parseCrosRuntimeActivityObservation } from "../activity/validate.ts";
+import {
+  parseRuntimeActivityObservation,
+  type RuntimeActivityObservation,
+} from "../../../orchestrator/src/index.ts";
 import { readCrosRuntimeActivity } from "../activity/read.ts";
 import {
   resolveCrosAiProfileAdministration,
   parseCrosAiProfileMutation,
 } from "../profile/administration.ts";
 import type { CrosExposureSnapshot } from "../access/types.ts";
-import type {
-  CrosRemoteRuntimeActivityObservation,
-  CrosRuntimeActivityReader,
-} from "../activity/types.ts";
+import type { CrosRuntimeActivityReader } from "../activity/read.ts";
 
 import {
   authenticateConnectionCredential,
@@ -377,7 +377,7 @@ export async function readRemotePortfolio(
  * @trace ARCH-000007
  * @trace ARCH-000013
  * @input baseUrl、Bearer Token、Project ID、任意Cursor／limit／AbortSignalを受け取る。
- * @returns 検証済みCrosRemoteRuntimeActivityObservationを返す。
+ * @returns 要求Projectへ拘束したOrchestrator所有の活動観測を返す。
  * @precondition 外部HostではHTTPSを使用し、HTTPはloopback URLだけに限定する。
  * @postcondition Token、Grant外RepositoryまたはPathを返値とErrorへ含めない。
  * @effect HTTP GETを一回発行する。
@@ -393,7 +393,7 @@ export async function readRemoteRuntimeActivity(
   projectId: string,
   page: Readonly<{ cursor?: string; limit?: number }> = {},
   signal?: AbortSignal,
-): Promise<CrosRemoteRuntimeActivityObservation> {
+): Promise<RuntimeActivityObservation> {
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(projectId))
     throw new Error("cros_remote_runtime_activity_project_id_invalid");
   const limit = page.limit ?? 20;
@@ -422,10 +422,10 @@ export async function readRemoteRuntimeActivity(
     (value as Record<string, unknown>).status !== "available"
   )
     throw new Error("cros_remote_runtime_activity_contract_invalid");
-  const observation = parseCrosRuntimeActivityObservation(
+  const observation = parseRuntimeActivityObservation(
     (value as Record<string, unknown>).observation,
   );
-  if (observation === null)
+  if (observation === null || observation.projectId !== projectId)
     throw new Error("cros_remote_runtime_activity_contract_invalid");
   return observation;
 }

@@ -15,7 +15,7 @@
       "path": "tests/integration/access-capabilities.integration.test.ts",
       "qaIds": ["QA-000004", "QA-000005", "QA-000007", "QA-000009"],
       "localTestIds": ["PPR-IT-002", "CPR-IT-010", "CPR-IT-012", "RFD-IT-013", "RFD-IT-019", "EST-IT-002", "EST-IT-014"],
-      "verifies": ["mcp.request.access-resolver", "mcp.source.src.transports.streamable.http.transport"]
+      "verifies": ["mcp.request.access-resolver", "mcp.runtime-activity-adapter", "mcp.source.src.transports.streamable.http.transport"]
     },
     {
       "symbolId": "mcp.ai-profile-adapter",
