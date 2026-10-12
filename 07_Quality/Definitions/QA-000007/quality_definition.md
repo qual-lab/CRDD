@@ -233,6 +233,8 @@ RFD-IT-017／018では、現在administrator・初回completed・期待改訂・
 
 独立失効では、exact一件だけのrevoked変更、他資格・元発行ID・presentation・User／Role／登録の保持、次要求認証拒否、遅延提示通知の更新0を観測する。既失効の同request ID／同対象、同ID／別対象、別ID／同対象、失効出版後の応答喪失を反証し、追加改訂0・元要求completed推定0・現在失効保持を要求する。現在失効の認可済み読取りは成功Receiptではない。新資格・Secret・交換Recovery・履歴の追加0を照合する。これは既存Local Itemの具体化であり、試験実装・正式結果・Workbench本番接続の成立は未確認のままとする。
 
+資格発行事実の専用読取りはRFD-IT-017／018の補助観測へ接続する。元発行IDとUserのexact相関から改訂・資格ID・User ID・元発行ID・提示状態・現在失効だけを投影し、Secret／salt／Verifier・他資格・内部Pathを含めない。現在record不在は未取得で、未発行・元要求失敗・削除を推定しない。提示三状態と失効、初回途中、現在資格失効、非管理者、別User、未知／整理済みrecordを反証する。材料を処置した要求はfact0として次のfresh要求で観測し、先行Actor降格、破損／孤立材料、読取り・清掃・Lock解放不明でも旧事実を返さない。通常管理read四kindとMCP公開面は維持し、この局所観測からWorkbench本番接続・元失効要求completed・正式Local ItemのPassを推定しない。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した

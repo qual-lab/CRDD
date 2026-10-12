@@ -48,6 +48,7 @@ test("三Roleと全11認可要求種別の固定分担", () => {
     "prepareHostInitializationRoot",
     "readAccessManagementState",
     "readCredentialId",
+    "readCredentialIssuance",
     "readCurrentAccess",
     "readHostInitializationState",
     "readManagementState",

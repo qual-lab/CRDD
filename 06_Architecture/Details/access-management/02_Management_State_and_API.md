@@ -542,6 +542,8 @@ revision2のcanonical `user_stored`へ同元試行で再入場した場合は保
 
 独立失効は未失効のexact Credential IDとuserIdだけを対象に、revokedと状態改訂・受付operationIdだけを更新する。資格自身の元発行Identity・presentation、他資格、User／Role／登録／初回歴史を保持し、自己資格や最後の有効administrator資格の失効へ追加禁止条件を設けない。既失効は同request IDでも固定拒否し、追加出版0。top operationIdには操作種別・対象がないため、ID一致と現在失効だけから元失効要求のcompletedを推定しない。認可済み読取りで示す現在失効は元要求の成功Receiptではない。失効後の遅延提示通知は既存fresh照合で更新0、有効化0とする。通常発行・独立失効は交換Recoveryを作らない。
 
+専用`readCredentialIssuance`は同Processの現在administratorへ、元発行operationIdとuserIdでexactに選んだ現在資格recordだけを投影する。通常管理read四kindやMCP Toolを増やさない。形式検査→同Lock current完全検査→初回completed→現在認証・administrator→対象相関→既存材料処置の順とし、材料処置がnone以外の要求はfact0、次要求でfreshに再照合する。Lock解放確認後だけ改訂・資格ID・User ID・元発行ID・presentation・revokedを返し、salt／Verifier／Secret・内部Path・他資格・Recoveryは返さない。record不在・観測／清掃／解放不明は固定未取得であり、未発行確定・元要求失敗・削除済みを推定しない。revokedは現在事実だけで、元失効要求completedを証明しない。Readerと本番利用側の接続は段階的に検証し、Source追加だけで成立としない。
+
 ## 5. 鍵交換の段階と終了
 
 ### 純粋Schema検査への具体化 — 2026-10-12

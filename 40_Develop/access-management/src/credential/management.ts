@@ -1,5 +1,5 @@
 /**
- * 通常の鍵発行・独立失効の現在認可と対象候補を判断する。
+ * 通常鍵変更の候補と現在資格の発行事実を判断・投影する。
  * @responsibility 保存Ownerへ閉じた候補を渡し、保存・乱数生成・提示を引き取らない。
  * @trace ARCH-000013
  */
@@ -107,4 +107,70 @@ export function prepareCredentialChange(
     target.revoked = true;
   }
   return { next, operation, credentialIndex };
+}
+
+/**
+ * 現在資格recordの非秘密な発行相関を表す。
+ * @responsibility 保存済み事実を元要求の成功Receiptから分離する。
+ * @trace ARCH-000013
+ * @shape 改訂・資格ID・User ID・元発行ID・提示状態・現在失効。
+ * @invariant revokedは元失効要求のcompletedを証明しない。
+ * @boundary 管理者向けの短命読取り投影。
+ * @security Secret・salt・Verifier・他資格・Root・Recoveryを含めない。
+ * @compatibility 現Schema v2資格。未発行確定・履歴・再表示なし。
+ */
+export type CredentialIssuanceSnapshot = Readonly<{
+  revision: number;
+  credentialId: string;
+  userId: string;
+  issuanceOperationId: string;
+  presentation: "not_attempted" | "unconfirmed" | "confirmed";
+  revoked: boolean;
+}>;
+
+/**
+ * 現在管理者のexact元発行相関だけを投影する。
+ * @responsibility 対象不存在や結合差を未発行確定へ丸めない。
+ * @trace ARCH-000013
+ * @input 鍵・完全検査済み状態・元発行UUID・User UUID。
+ * @returns 所有済み凍結投影、または固定非開示拒否のnull。
+ * @precondition 同Lock内の保存Ownerが完全状態を検査済み。
+ * @postcondition 入力状態を変更せず、秘密・内部参照を透過しない。
+ * @effect 現在BearerのVerifier照合とメモリ投影だけ。
+ * @failure 初回未完了・未認証・非管理者・不正相関・record不在はnull。
+ * @invariant 元発行IDは独立失効要求の受付IDではない。
+ * @boundary 現在資格の意味投影。物理観測・材料処置・解放は別Owner。
+ * @security 古いRoleや相関ID自体をAuthorityにしない。
+ * @concurrency 同じ改訂の一読取りだけ。次要求はfresh状態で再評価する。
+ */
+export function projectCredentialIssuance(
+  token: string,
+  current: AccessManagementState,
+  issuanceOperationId: string,
+  userId: string,
+): CredentialIssuanceSnapshot | null {
+  if (
+    typeof token !== "string" ||
+    typeof issuanceOperationId !== "string" ||
+    !UUID.test(issuanceOperationId) ||
+    typeof userId !== "string" ||
+    !UUID.test(userId) ||
+    current.initialization.stage !== "completed"
+  )
+    return null;
+  const actor = resolveCredentialAuthentication(token, current);
+  if (actor?.role !== "administrator") return null;
+  const credential = current.credentials.find(
+    (item) =>
+      item.operationId === issuanceOperationId && item.userId === userId,
+  );
+  if (!credential) return null;
+  return Object.freeze({
+    revision: current.revision,
+    credentialId: credential.credentialId,
+    userId: credential.userId,
+    issuanceOperationId: credential.operationId,
+    presentation: credential.presentation,
+    revoked: credential.revoked,
+  });
 }

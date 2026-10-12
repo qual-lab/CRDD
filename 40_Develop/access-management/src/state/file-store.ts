@@ -5,7 +5,11 @@
  * @trace ARCH-000013
  */
 import fs from "node:fs";
-import { prepareCredentialChange } from "../credential/management.ts";
+import {
+  prepareCredentialChange,
+  projectCredentialIssuance,
+  type CredentialIssuanceSnapshot,
+} from "../credential/management.ts";
 import {
   readCredentialPresentationUpdate,
   selectCredentialPresentationTarget,
@@ -3025,4 +3029,94 @@ export function revokeCredential(
     userId,
     credentialId,
   );
+}
+
+/**
+ * 現在資格観測の閉じた結果を表す。
+ * @responsibility 現在の保存事実と元要求完了・未発行を区別する。
+ * @trace ARCH-000013
+ * @shape observedの非秘密snapshot、または固定unavailable。
+ * @invariant unavailableは未発行・削除・元要求失敗の確定ではない。
+ * @boundary 同Processの管理者向けConsumer。MCPに公開しない。
+ * @security 秘密・内部Path・他資格・Recovery参照なし。
+ * @compatibility 通常管理read四kindは不変更。
+ */
+export type CredentialIssuanceObservation =
+  | Readonly<{ status: "observed"; snapshot: CredentialIssuanceSnapshot }>
+  | Readonly<{
+      status: "unavailable";
+      reason: "credential_issuance_unavailable";
+    }>;
+
+/**
+ * 現在管理者へ元発行IDとUserのexact保存事実だけを返す。
+ * @responsibility 材料処置・Lock解放不明から古い資格事実を返さない。
+ * @trace ARCH-000013
+ * @input 検証済みRoot・Bearer・元発行UUID・User UUID。
+ * @returns 非秘密の現在観測、または固定unavailable。
+ * @precondition 同Processの信頼済みWorkbench Consumerが呼ぶ。
+ * @postcondition 既存材料処置がnone、Lock解放確認済みの場合だけ事実を返す。
+ * @effect 同Lock current読取り・現在認証・相関確認後だけ既存材料処置。
+ * @failure 材料処置・清掃・観測・解放不明、未許可は事実0。
+ * @invariant 生成・再表示・Receipt・元失効要求のcompleted推定0。
+ * @boundary 専用の資格読取りと既存Filesystem保存Owner。
+ * @security token・salt・Verifier・内部Root・他User情報を透過しない。
+ * @concurrency 同じLock内で照合し、材料を処置した要求は次のfresh要求へ戻す。
+ */
+export function readCredentialIssuance(
+  root: FilesystemStoreRoot,
+  token: string,
+  issuanceOperationId: string,
+  userId: string,
+): CredentialIssuanceObservation {
+  const unavailable = Object.freeze({
+    status: "unavailable" as const,
+    reason: "credential_issuance_unavailable" as const,
+  });
+  if (
+    typeof token !== "string" ||
+    !readCredentialId(token) ||
+    typeof issuanceOperationId !== "string" ||
+    !ATTEMPT_UUID.test(issuanceOperationId) ||
+    typeof userId !== "string" ||
+    !ATTEMPT_UUID.test(userId)
+  )
+    return unavailable;
+  const result = locked<CredentialIssuanceSnapshot>(root, () => {
+    try {
+      const current = readCurrent(root);
+      const snapshot = projectCredentialIssuance(
+        token,
+        current.state,
+        issuanceOperationId,
+        userId,
+      );
+      if (!snapshot || settlePending(root, current, () => {}) !== "none")
+        return {
+          status: "unavailable",
+          reason: "credential_issuance_unavailable",
+          publication: "not_attempted",
+          revision: null,
+          cleanupConfirmed: false,
+        };
+      return {
+        status: "completed",
+        value: snapshot,
+        publication: "not_attempted",
+        revision: current.state.revision,
+        cleanupConfirmed: true,
+      };
+    } catch {
+      return {
+        status: "unavailable",
+        reason: "credential_issuance_unavailable",
+        publication: "not_attempted",
+        revision: null,
+        cleanupConfirmed: false,
+      };
+    }
+  });
+  return result.status === "completed"
+    ? Object.freeze({ status: "observed", snapshot: result.value })
+    : unavailable;
 }

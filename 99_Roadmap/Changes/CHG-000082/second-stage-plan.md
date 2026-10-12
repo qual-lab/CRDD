@@ -431,6 +431,16 @@ Readerは既存Root／Lock／current／pending／replaceを使い、完全状態
 
 反証は、三Role／exact対象／改訂拒否、生成前容量予約、乱数・生成KDF・ID衝突、current rename・読戻し・材料清掃・Lock解放故障のSecret返却0、未解決交換／先行材料保持、最後の管理資格の自己失効、遅延提示の更新0、二Processの三競合と一採用である。最初の並行試験はNode v24.19のeval起動構成で失敗したため、通常の試験fixture入口とstdin入力へ変更した。親は全Processをcloseまでjoinし、stdoutはstatus／生成回数／固定理由／出版／清掃の非秘密集合だけ。通常発行の専用非秘密観測Reader、交換4組、Workbench一度提示・本番接続、正式191項目とAM全体完成は未成立のまま維持する。実行別Evidence書庫を増やさず、同候補のnpm testから再実行する。
 
+### 元発行Identityによる非秘密の現在観測 — 2026-10-13
+
+基準9ac2902e、開始時clean。前段の通常発行・独立失効は保存Sliceとして限定Pass・コミット済みであり、全体鍵管理の完成ではない。次は資格recordを元発行IDとuserIdから観測する専用Readerを鍵責務と既存保存Ownerへ接続する。親の正本照合と読取り専用着手確認により人間判断は不要。読取りはRoot・Bearer・元発行UUID・User UUIDを検査し、同Lockの完全current→初回completed→現在administrator→exact相関の順とする。その後の既存材料処置がnone以外なら当該要求のfact0、次要求でfreshに再評価する。清掃・読戻し・Lock不明でもfact0。
+
+投影は改訂・資格ID・User ID・元発行ID・提示状態・現在失効だけを所有・凍結する。record不在は固定未取得で、未発行・元要求失敗・削除を推定しない。現在失効は元失効要求のcompletedでもReceiptでもない。通常管理read四kind、MCP、Secret取得・再表示・生成、Store／Lock／履歴は増やさない。発行から提示三状態と失効、未許可／初回途中／未知・別User、先行材料処置後のfact0、破損／清掃／解放不明、own field集合と秘密非透過を既存RFD-IT-017／018へ反証する。実装・試験・本番Workbench接続はこの着手記録時点では未完成。
+
+修正後の局所4件、AM全109件／MCP全75件と両Packageの書式・型・Warning禁止Lint各3軸が成功した。Fail／Cancel／Skip0・各Exit0、試験終了後の自己生成store Root残存0、差分空白確認成功。固定8Pathの限定独立再レビューはPass・全重大度の残指摘0。出版済み材料の直接反証不足を是正し、administratorと対象相関を維持したcurrent=nextから初回は事実を返さず材料を処置し、次要求だけ観測することを確認した。pending削除故障はcurrent=next保持・replace不存在・pending残存・Lock解放として記録し、解除後の処置要求も事実非返却、次の新要求だけ観測した。失敗前後を未出版やrollbackへ読み替えない。
+
+限定Passは現在資格recordの非秘密観測だけを対象とする。元失効要求の完了証明、秘密再表示、通常管理read／MCP拡張、新Receipt／履歴／Store／Lockはない。Workbench本番Consumer、交換、実提示、実Host／Linux、旧REST撤去、正式191項目とAM全体は未成立のまま。先行保存Sliceと同様に、各Packageの試験から結果を再生成し、実行別のEvidence書庫は追加しない。
+
 ### 共有AI Profile管理のRole採用と本番接続 — 2026-10-12
 
 Source候補の局所結果：基準`ec2a2e3e`、Node v24.19.0。AM60／AI Adapter30／旧CROS34／MCP68／Workbench33の計225 Case（追加Workbench33 Caseは旧比較Consumerの回帰）、各書式・型・Warning禁止Lint成功、Fail／Cancel／Skip0、全Exit0。実HTTPと自己生成実Catalog Storeでmanager／administrator四操作・developer非開示・次要求のRole変更／失効、遅延認可・二依存拒否・採用後取消／応答故障の改訂保持を確認した。AM新試験の初回途中Fixture不整合は正規の一User・一Credential・元発行相関へ是正し、局所再試験後にAM全回帰を再実行した。最初の失敗を現在の成功へ混ぜない。Biomeの一時OS1224は同じ対象の再実行で解消した。固定29Pathの限定独立再レビューはPass・全重大度残指摘0。全体Checkerは3057 errors／exit1を維持し、変更29Path抽出はProject Context構造の既存1件のみ。判定に使う三Identity・五見出し・Checklist見出しとcheckboxの17行が基準HEADと順序込み完全一致し、差分起因0を確認した。Repository全体Passとは扱わず、正式191項目Not Runと本番Launcher／Workbench・鍵配送・旧REST撤去・AM全体未完成を維持する。実行別ログ書庫は作らず、各Packageの`npm test`から再生成する。
