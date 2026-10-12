@@ -335,6 +335,20 @@ Checkerの候補と全変更MarkdownをHEAD byteへ差し替えたメモリ内�
 
 今回の5文書差分は契約・品質の限定独立再レビューPass・全重大度0。提示前unconfirmedの保存とサービス側出力観測、非秘密exact Bindingからの遅延確認、現行OPENの役割分離を是正した。正常／不正／競合／取消／保存・応答故障の反証を既存初回Local Itemへ引き渡し、Quality定義とSourceを次の候補で接続する。Checkerは候補・同5文書をHEAD byteへ差し替えたメモリ内基準ともexit 1だが対象5Pathの指摘0。最終是正は見出し・リンク・ID不変更、差分空白確認成功。全体Passとは扱わない。Source不変更のためPackage回帰・Provider／Docker E2Eは今回未実行。準拠規範・Releaseを変更しないため準拠監査は実行せず、AM全体完成や実装Readyを主張しない。
 
+### 最小鍵提示と初回接続のQuality接続 — 2026-10-12
+
+基準`be4d5064`、着手時clean。変更分類は採用済み最小提示・初回限定接続・v2目標Schemaの品質設計への直接伝播。親の導出元／既存Item照合と読み取り専用の品質着手前確認は、既存項目へ不足なく接続可能・追加人間判断不要とした。編集はQA-000007／009、REQ／UX／IA／UI／SPEC／ARCH／Detailの7分析、Quality Integration／Center、本計画の12文書。品質戦略は意味変更がなく対象外、Source／Test／Host／秘密／旧Evidence・正式結果は不変更。
+
+RFD-IT-017は提示前unconfirmedと一度出力・提示結果別出版、IT018は独立失効後の遅延通知拒否、ST016は交換と現在資格への提示相関を検証する。初回のIT024／025、ST026、UAT027とUT028へ完全discover・同Lock fresh・初期資格／確認資格の区別・応答前確定・次要求の通常認証、取消・競合・応答喪失・v2拒否面を接続する。EST-ST-015は鍵／初期化開始／状態Reader非公開・呼出し0と、正規の初回確認Owner exact 1回を区別する。新Item・ID・ACK・Receipt・Session・Store・Lockは作らず、191項目・段階・日本語Condition Class・正式Not Runを維持する。
+
+編集は現行の鍵関連導出・Item・統合行に限定し、非鍵のConsumer結果受領・Topic／Meeting・通常管理保存・内容権限・旧固定版の局所結果を変更しない。義務／検証設計／実行結果を分け、候補12文書の契約・品質限定独立レビューとリンク／差分・集合照合を実施する。今回は文書設計でProvider／Docker実行・Package回帰・準拠規範監査は対象外。必要なSource／Parser／公開API／保存／本番Consumer・実境界の確認は続く同目標のGateであり、将来へ免除しない。候補12文書の限定独立再レビューはPass・全重大度の残指摘0。正式191行のID・段階・Condition Class・実行形態の基準一致と差分空白確認は成功。全体Checkerの既知3057 errorsは未解消。次の計数同期をSource接続前Blockerとし、実装Ready・AM完成を主張しない。
+
+### 管理操作の計数不整合 — Source接続前の既存Blocker
+
+最小提示Qualityの再レビューで、既存の現在文書に「通常6操作」が残る計数不整合を確認した。SourceのUser管理4操作とRepository管理3操作は通常7保存操作である。固定管理判定はProfile管理1種・鍵3種を加えた11要求種別。REQ-000041の表は対象Role別に分けた9分担行であり、操作数ではない。Profileの一覧／登録／変更／削除を1つの認可要求`manageAiProfiles`で判定するため、11を全公開API数と呼ばない。
+
+これは今回の提示差分による実装欠落でも、Sourceの許可範囲を増減する判断でもない。Ownerの現在本文と直接投影を別の固定候補で「9分担行・11認可要求種別・通常7保存操作」へ同期する。REQの9行表、過去固定8／通常6の時点履歴、旧Evidence、実装権限は変更しない。担当Qual-Lab、再評価契機は今回限定Quality差分のコミット直後。次のSource接続・正式項目実行・本番Consumer着手までの必須Blockerであり、将来改善として保留しない。今回の限定差分PassだけでQuality全体Pass・Source Readyへ進まない。
+
 ### 共有AI Profile管理のRole採用と本番接続 — 2026-10-12
 
 Source候補の局所結果：基準`ec2a2e3e`、Node v24.19.0。AM60／AI Adapter30／旧CROS34／MCP68／Workbench33の計225 Case（追加Workbench33 Caseは旧比較Consumerの回帰）、各書式・型・Warning禁止Lint成功、Fail／Cancel／Skip0、全Exit0。実HTTPと自己生成実Catalog Storeでmanager／administrator四操作・developer非開示・次要求のRole変更／失効、遅延認可・二依存拒否・採用後取消／応答故障の改訂保持を確認した。AM新試験の初回途中Fixture不整合は正規の一User・一Credential・元発行相関へ是正し、局所再試験後にAM全回帰を再実行した。最初の失敗を現在の成功へ混ぜない。Biomeの一時OS1224は同じ対象の再実行で解消した。固定29Pathの限定独立再レビューはPass・全重大度残指摘0。全体Checkerは3057 errors／exit1を維持し、変更29Path抽出はProject Context構造の既存1件のみ。判定に使う三Identity・五見出し・Checklist見出しとcheckboxの17行が基準HEADと順序込み完全一致し、差分起因0を確認した。Repository全体Passとは扱わず、正式191項目Not Runと本番Launcher／Workbench・鍵配送・旧REST撤去・AM全体未完成を維持する。実行別ログ書庫は作らず、各Packageの`npm test`から再生成する。

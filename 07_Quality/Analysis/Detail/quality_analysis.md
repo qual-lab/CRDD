@@ -5,6 +5,8 @@
 状態: Canonical
 維持責任者: Qual-Lab
 
+現在の`PRT-000008.spec-000012`導出は、初回限定接続の応答と次要求の通常認証を区別し、追加受領操作0を確認する。関係・処置状態のfieldへ合否条件を混在させず、QA-000007の既存初回項目へ渡す。Source／実行は未完了、この差分の独立レビューは待機中。
+
 ## 1. 目的
 
 発行済みのSCR／PRT／Interaction／BHVを全件処置し、既存Definitionから導出済みの検証目標へ具体的な観測条件を追加する。Detailごとの新しいQA-IDを機械的に作らず、同じ意味の検証義務へ統合する。
@@ -20,7 +22,7 @@
 | SCR-000005／PRT-000005 | UI-000005 | Screen目的、情報、操作、Feedback、状態、失敗、Unknownおよび回復がSource UIの意味を保持する | QA-000004、QA-000006 | Mapped |
 | SCR-000006／PRT-000006 | UI-000006 | Screen目的、情報、操作、Feedback、状態、失敗、Unknownおよび回復がSource UIの意味を保持する | QA-000001、QA-000007 | Mapped |
 | SCR-000007／PRT-000007 | UI-000007 | Screen目的、情報、操作、Feedback、状態、失敗、Unknownおよび回復がSource UIの意味を保持する | QA-000009 | Mapped |
-| SCR-000008／PRT-000008 | UI-000008 | Screen目的、情報、操作、Feedback、状態、失敗、Unknownおよび回復がSource UIの意味を保持する。解除の両読戻しと取消非証明、元発行不明の再観測・確定受け渡し未確認後の明示的な別交換・現在管理者認証未接続／喪失時の既存Hostという表示／導線を保持する。秘密再表示・自動再発行・失効鍵の遅延利用案内を反証する | QA-000007 | Mapped ／初回項目へ定義接続・Not Run |
+| SCR-000008／PRT-000008 | UI-000008 | Screen目的、情報、操作、Feedback、状態、失敗、Unknownおよび回復がSource UIの意味を保持する。解除の両読戻しと取消非証明、元発行不明の再観測・確定受け渡し未確認後の明示的な別交換・現在管理者認証未接続／喪失時の既存Hostという表示／導線を保持する。秘密再表示・自動再発行・失効鍵の遅延利用案内を反証する。通常の一度提示は操作administrator画面だけ・追加受領ボタンなし。初回はHost提示の案内と、限定接続確認後の通常利用へ進む表示を評価する。 | QA-000007 | Mapped ／初回項目へ定義接続・Not Run |
 | SCR-000009／PRT-000009 | UI-000009 | Screen目的、情報、操作、Feedback、状態、失敗、Unknownおよび回復がSource UIの意味を保持する | QA-000005 | Mapped |
 | SCR-000010／PRT-000010 | UI-000010 | Screen目的、情報、操作、Feedback、状態、失敗、Unknownおよび回復がSource UIの意味を保持する | QA-000001、QA-000006 | Mapped |
 | SCR-000011／PRT-000011 | UI-000011 | Screen目的、情報、操作、Feedback、状態、失敗、Unknownおよび回復がSource UIの意味を保持する | QA-000008 | Mapped |
@@ -49,7 +51,7 @@
 | BHV-000009 | SPEC-000009 | Trigger、Precondition、Authority、Validation、State、Effect、Result、FailureおよびRecoveryがSource SPECの意味を保持する | QA-000006 | Mapped |
 | BHV-000010 | SPEC-000010 | Trigger、Precondition、Authority、Validation、State、Effect、Result、FailureおよびRecoveryがSource SPECの意味を保持する | QA-000007 | Mapped |
 | BHV-000011 | SPEC-000011 | Trigger、Precondition、Authority、Validation、State、Effect、Result、FailureおよびRecoveryがSource SPECの意味を保持する | QA-000009 | Mapped |
-| BHV-000012 | SPEC-000012 | Trigger、Precondition、Authority、Validation、State、Effect、Result、FailureおよびRecoveryがSource SPECの意味を保持する。解除の同一受理操作・採用改訂による登録／Exposure両除去読戻し、対象外／本体保持と旧取消非証明を確認する。元発行Identity≠Credential ID、通常発行Recovery0／交換由来元exact、確定後の現在admin明示による別Operation／Recovery交換、各交換内exactと先の鍵を含む対象集合、現在admin認証未接続／喪失時の既存Host2のみを確認する | QA-000007 | Mapped ／初回項目へ定義接続・Not Run |
+| BHV-000012 | SPEC-000012 | Trigger、Precondition、Authority、Validation、State、Effect、Result、FailureおよびRecoveryがSource SPECの意味を保持する。解除の同一受理操作・採用改訂による登録／Exposure両除去読戻し、対象外／本体保持と旧取消非証明を確認する。元発行Identity≠Credential ID、通常発行Recovery0／交換由来元exact、確定後の現在admin明示による別Operation／Recovery交換、各交換内exactと先の鍵を含む対象集合、現在admin認証未接続／喪失時の既存Host2のみを確認する。通常本人受領を記録せず、初回同鍵接続の確認保存・読戻し・清掃／Lock終了前は応答と通常権限0を確認する。 | QA-000007 | Mapped ／初回項目へ定義接続・Not Run |
 | BHV-000013 | SPEC-000013 | Trigger、Precondition、Authority、Validation、State、Effect、Result、FailureおよびRecoveryがSource SPECの意味を保持する | QA-000005 | Mapped |
 | BHV-000014 | SPEC-000014 | Trigger、Precondition、Authority、Validation、State、Effect、Result、FailureおよびRecoveryがSource SPECの意味を保持する | QA-000001 | Mapped |
 | BHV-000015 | SPEC-000015 | Trigger、Precondition、Authority、Validation、State、Effect、Result、FailureおよびRecoveryがSource SPECの意味を保持する | QA-000006 | Mapped |

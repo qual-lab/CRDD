@@ -4,11 +4,13 @@
 状態: Canonical
 維持責任者: Qual-Lab
 
+現在の統合候補：最小鍵提示と初回限定接続を既存QA-000007／QA-000009へ接続する。通常提示と本人受領観測外、初回限定discoverと次要求の通常Authorityを分離する。提示前保存・遅延通知・v2相関・保存／応答故障は各Local ItemのOracleで判定し、正式191項目・Not Runを維持する。今回12文書は独立レビュー待ち、Source・本番Consumer・実境界・移行は未完了。以下の旧局所件数を現在候補の実行結果にしない。
+
 直前の活動接続結果はAM現在認可から活動OwnerへのMCP搬送で、関連5Packageの283 Case・静的3軸・Workbench Buildと限定独立再レビュー残指摘0を確認した。詳細は[活動接続の局所結果](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#現在認可mcpと直接利用側の実装候補--2026-10-12)を参照する。共有Profile管理のmanager／administrator許可は文書24件の独立再レビューを完了し、追加区分のSource・実HTTPは局所候補接続済みである。AM60／AI Adapter30／CROS34／MCP68／Workbench33の計225 Case・静的3軸とWorkbench Build成功。CROS／Workbenchは旧比較Consumerの回帰であり、新RoleのWorkbench本番接続ではない。固定候補の限定独立再レビューはPass・残指摘0で、Repository全体Checkerの既知3057 errorsは未解消。本番Launcher／Workbench・鍵配送・旧REST撤去は未完了。Catalog依存を構成した局所候補ではmanager／administratorが19 Tool、developerが15 Tool、Catalog未構成時は15 Toolとする。QA-000001とQA-000007の既存義務へ接続し、191 Local Itemの正式Not Runを維持する。以下の件数・未接続表示は当時の局所履歴で、現在の完成証明へ流用しない。
 
 前段の認証接続はRFD-IT-013の資格→User→現在Role投影部分と、RFD-IT-024の初回状態非更新。AM全35 Case・静的3軸成功、固定13ファイルの限定独立再レビューPass・残指摘0。同一Lock／改訂、本人情報の閉包、失効・破損・解放不明拒否を観測した。
 
-現在はRFD-IT-024の相関・User・初回資格保存部分までSource／Test候補を接続済み。AM全33 Case・静的3軸成功、固定10ファイルの限定独立再レビューPass・全重大度の残指摘0。配送／受領／通常接続、認証・現在認可・本番Host／Consumerは未成立。設計集合191項目の正式評価Not Runを維持する。以下の29 Case以前は各接続時点の局所履歴である。
+初回資格保存接続時点の局所履歴：RFD-IT-024の相関・User・初回資格保存部分までSource／Test候補を接続済み。AM全33 Case・静的3軸成功、固定10ファイルの限定独立再レビューPass・全重大度の残指摘0。配送／受領／通常接続、認証・現在認可・本番Host／Consumerは未成立。設計集合191項目の正式評価Not Runを維持する。以下の29 Case以前は各接続時点の局所履歴である。
 
 鍵生成・照合の技術層は既存RFD-IT-017／018のNode crypto部分へ接続する候補である。新Local Itemを追加せず、保存・現在認可・失効・交換・配送・本番Surfaceとの未接続を維持する。AM全29 Case・静的3軸成功は技術局所実行、191項目の正式評価はNot Runである。
 
@@ -147,8 +149,8 @@ Canonical設計集合と個別Releaseの検証対象を分ける。Local Itemを
 
 | 詳細設計領域 | 検証単位 | 接続する検証目標 | Local Item | 処置状態 | 未確認／再評価条件 |
 |---|---|---|---|---|---|
-| [Access Management](../06_Architecture/Details/access-management/01_Architecture.md) | access-management.host-initialization | QA-000007 | RFD-UT-023、RFD-IT-024、RFD-IT-025、RFD-ST-026、RFD-UAT-027 | Defined／Not Run | UT023とIT024相関・User・初回資格保存部分の候補接続済み。IT024の配送／受領／通常接続／本番Host部分とIT025／ST026／UAT027、Root準備・旧入力本番観測・本番認証ConsumerはOPEN。正式評価Not Run。資格→User→現在Roleの認証主体局所解決（IT013前半）とIT024の初回非更新は候補接続済み。Exposure・実アクセス・Domain搬送はOPEN |
-| [MCP](../06_Architecture/Details/mcp-server/01_Architecture.md) | 初回設定・状態照会の非公開 | QA-000009 | EST-ST-015（Same更新） | Defined／Not Run | 四面公開集合・Owner呼出し0・Secret0を本番入口で実観測する |
+| [Access Management](../06_Architecture/Details/access-management/01_Architecture.md) | access-management.host-initialization | QA-000007 | RFD-UT-023、RFD-UT-028、RFD-IT-024、RFD-IT-025、RFD-ST-026、RFD-UAT-027 | Defined／Not Run | UT023とIT024の相関・User・初資格保存は旧局所候補の履歴。UT028を含む今回v2 Parser・提示の実観測・完全限定接続・次要求通常認証・本番Host／Consumer・v1棚卸し移行はOPEN／Not Run。初回内部読取り、初期化開始、公開状態照会、確認Ownerを別に観測する。正式191項目と旧結果の対象版を保持 |
+| [MCP](../06_Architecture/Details/mcp-server/01_Architecture.md) | 初回設定・状態照会の非公開と限定接続 | QA-000009 | EST-ST-015（Same更新） | Defined／Not Run | 鍵操作・初期化開始・状態Readerは四面非公開／呼出し0。完全な初回server/discoverだけ確認Ownerをexact 1回、不正要求・通常Toolは0。応答は非秘密、同要求の通常Authority0を本番入口で実観測する |
 
 ## 4. 検証項目の閉包
 

@@ -9,7 +9,7 @@ Repository Role: `crdd-standard`
 
 ## 1. 今どうなっているか
 
-現在の作業：最小鍵提示方式のArchitecture伝播に続き、初回限定接続のOwner・完全discover要求・同Lockでの確認保存と応答順、Host交換後の確認対象Binding・v2目標Schemaを具体化した。提示前unconfirmedの保存から一度出力へ進み、サービス側出力と人間受領を区別する。初回確認の保存・読戻し・短命材料清掃・Lock終了後だけ応答し、通常Authorityは次要求で取り直す。具体化5文書差分は契約・品質限定独立再レビューPass・全重大度0。次はQuality定義とSource／本番入口への接続。実提示・保存・接続、旧v1状態の棚卸し移行・実画面・正式191項目・AM全体完成は未成立。[範囲と残件](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#初回限定接続と確認対象schemaの具体化--2026-10-12)を参照する。Profile管理の局所Source・実HTTP候補は225 Caseと限定Passまで確認済みだが、本番Launcher／Workbenchは未接続である。
+現在の作業：最小鍵提示・初回限定接続・v2目標Schemaを既存Qualityへ伝播した。12文書差分の限定独立再レビューはPass・全重大度の残指摘0、正式191行のID・段階・条件分類・実行形態は基準と一致し、正式結果はNot Runを維持する。次は管理操作の計数を「9分担行／通常7保存操作／11認可要求種別」へ正本・直接投影で同期する。これはSource接続前Blockerであり、今回の限定PassからQuality全体Pass・Source Readyを推定しない。実提示・保存・初回接続、旧v1状態の移行、本番入口、正式191項目・AM全体完成は未成立。[範囲と残件](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#最小鍵提示と初回接続のquality接続--2026-10-12)を参照する。
 
 直前の活動局所結果：AM現在認可からOrchestrator活動ReaderをMCPへ接続し、旧CROSの重複結果型／Parserを撤去、Workbench旧Remote受取を表示専用投影へ追従した。実状態と別Rootの履歴搬送、Source許可集合とのexact相関、部分公開解除・失効を確認した。関連5Package計283 Case・静的3軸・Workbench Build成功、限定独立再レビュー残指摘0、自己生成試験Root残存0。公開Launcher／Workbench本番MCP切替、鍵管理・配送、旧REST撤去、正式191項目とAM全体完成は残る。Profile管理Roleはmanager／administratorに確定し、現在はAM認可とMCP実HTTPの局所候補へ接続済みである。Catalog依存を構成した局所候補ではmanager／administratorが19 Tool、developerが15 Tool、Catalog未構成時は15 Toolとする。[対象と限界](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#現在認可mcpと直接利用側の実装候補--2026-10-12)を参照する。
 

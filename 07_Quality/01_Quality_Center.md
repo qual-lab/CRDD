@@ -4,6 +4,10 @@
 担当責任者: Qual-Lab
 最終更新日: 2026-10-12
 
+現在の品質設計候補：基準`be4d5064`の最小鍵提示・初回限定接続・v2目標Schemaを既存項目へ接続する。通常本人受領は観測外・追加確認なし。初回は完全discoverと同Lockでの確認保存・読戻し・短命清掃／Lock終了、応答、次要求の通常認証を別観測する。191項目・正式Not Runを維持し、Source／本番接続／実提示／v1移行は未完了。この12文書差分は限定独立再レビューPass・全重大度の残指摘0。下記の実行件数・限定Passは各旧固定候補の履歴で、新版の成立証明へ流用しない。
+
+Source接続前の既存Blocker：現在文書の「通常6操作」と、実SourceのUser4＋Repository3＝通常7保存操作が一致していない。REQの9分担行・Sourceの11認可要求種別とは別の計数軸であり、権限変更ではない。[Owner同期の処置](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#管理操作の計数不整合--source接続前の既存blocker)を次固定候補で閉じるまでQuality全体Pass・Source Readyを表示しない。
+
 最新局所候補：AM現在認可による共有Profile管理をSource・実HTTPと実Catalog Storeへ接続した。AM60／AI Adapter30／CROS34／MCP68／Workbench33の計225 Case・各静的3軸とWorkbench Build成功。CROS／Workbench結果は旧比較Consumerの回帰であり、新RoleのWorkbench本番接続成立ではない。Catalog依存を構成した局所候補ではmanager／administratorが19 Tool、developerが15 Tool、Catalog未構成時は15 Tool。固定候補の限定独立再レビューはPass・残指摘0で、Repository全体Checkerの既知3057 errorsは未解消。正式191項目Not Run、本番Launcher／Workbench・鍵配送・旧REST撤去・全体Ready未成立を維持する。[接続範囲](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#共有ai-profile管理のrole採用と本番接続--2026-10-12)を参照する。以下の最新表記・件数・未接続表示は各先行段階の局所履歴であり、現在候補の完成証明へ流用しない。
 
 最新局所結果：現在のAM認証・認可からTopic／Meeting全12操作を実HTTPへ接続した。MCP65／Domain120／AM59の計244 Case・各静的3軸成功、限定独立再レビューPass・全重大度残指摘0。指定対象への実保存、現在Role／Exposure／失効、foreign Project保存拒否、Relation集合、14 Toolの公開Schemaを確認した。正式191項目Not Run、本番Launcher／Workbench切替・活動／Profile接続・鍵配送・旧REST撤去・全体Ready未成立は維持する。[対象と限界](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#am認証によるtopicmeeting-mcp接続--2026-10-12)を参照する。
@@ -66,7 +70,7 @@
 
 鍵の期限なし方針は設計・品質へ伝播した候補。QA-000007のRFD-ST-003／RFD-IT-013／RFD-UAT-007で、時間経過、明示失効・交換、現在権限変更、利用者理解を分離して確認する。全13定義190項目は不変、更新項目はNot Run。保存・本番資格接続・実行・新Evidenceは未完了であり、今回の伝播を実行Passへ昇格しない。
 
-初回設定の実装接続は、UT023とIT024相関・User・初回資格保存部分のSource／Test Symbol・候補局所実行が接続済み。正式Local Item／Evidence評価はNot Run。IT024の配送／受領／通常接続／本番Host部分とIT025／ST026／UAT027、Root準備・旧入力本番観測・本番認証ConsumerはOPENであり、部分成功を初回全体完成へ流用しない。資格→User→現在Roleの認証主体局所解決（IT013前半）とIT024の初回非更新は候補接続済み。Exposure・実アクセス・Domain搬送はOPEN。
+初回設定の実装接続は、UT023とIT024相関・User・初回資格保存部分のSource／Test Symbol・候補局所実行が接続済み。正式Local Item／Evidence評価はNot Run。IT024のHost提示／初回限定接続／次要求の通常認証／本番Host部分とIT025／ST026／UAT027、Root準備・旧入力本番観測・本番認証ConsumerはOPENであり、部分成功を初回全体完成へ流用しない。資格→User→現在Roleの認証主体局所解決（IT013前半）とIT024の初回非更新は候補接続済み。Exposure・実アクセス・Domain搬送はOPEN。
 
 | 項目 | 現在値 | 根拠・次の処置 |
 |---|---|---|
