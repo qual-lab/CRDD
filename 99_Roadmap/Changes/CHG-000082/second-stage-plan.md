@@ -383,6 +383,16 @@ Sourceは状態contractのschemaRevision 2だけを受付け、資格presentatio
 
 本候補は保存側の部分実装で、完全discoverの公開検査・実TTY／HTTP提示・Host初期化入口・Workbench本番接続・正式191項目・AM全体完成を主張しない。実Host状態、旧Evidence、Schema、既存鍵の秘密には触れない。次はMCP完全要求検査から本保存Ownerを呼び、保存終了後の取消を応答前に再確認するConsumerへ接続する。
 
+### MCP初回限定接続の局所Consumer — 2026-10-13
+
+基準`5cba8653`、着手時clean。変更分類は採用済みMCP初回限定要求と保存Ownerの接続であり、Role・Schema・公開鍵操作は変更しない。親照合と読み取り専用の契約／品質確認を統合し、通常discoverの検査・応答を単一pure Ownerへ共通化、確認失敗の固定非開示写像、HTTP認証観測と確認出版0の分離、実HTTP保留／切断／取消／同Binding並行の反証を固定した。技術・品質の限定独立レビューと関連AM／MCP回帰を行い、準拠基準変更・工程改訂・外部送信を伴わないため準拠監査や外部実Provider E2Eは追加しない。人間判断はない。
+
+`createAccessMcpResolver`のnormalは既存通常Handler、initialはTool依存なしの限定Handlerへ分ける。`request/discover.ts`が完全Protocol検査と固定非秘密応答を通常Route／初回で共用し、正規discoverだけ既存`confirmInitialConnection`をexact一回呼ぶ。保存／清掃／Lock終了後、Signalを再確認して成功公開を止める。Header用途判定後の不正HTTP本文では認証観測はあり得るが確認出版0とする。新しいStore・Lock・Session・ACK・MCP鍵操作は作らず、Transportの既存順序と終了処理を維持する。
+
+試験の初期差は、Lock内部のrenameをcurrent出版へ混ぜた計数、一覧SchemaがCatalog本文を読まない既存契約に対する期待違い、故障注入の対象範囲であった。正式currentのexact Pathだけを出版観測・rename故障対象にし、正常意味や未知入力拒否を弱めない。故障試験が失敗して残した自己所有Node試験Processはexact PID／CommandLineを確認して終了し、再実行でListener closeを必ず待つよう修正した。強制終了付きの実行は原因診断だけで完成根拠へ流用しない。
+
+独立レビューのMajor 1件は、新Source／試験の台帳登録不足とITからSTへの直接Traceであった。局所試験はQA-000007のRFD-IT-024／025へ限定し、EST-ST-015には必要な入力断面を供給するだけで正式ST未成立／Not Runを維持する。MCPのdiscover／初回Handlerと試験をsymbol.json・Test Catalogへ登録し、先行したAM提示／初回接続Source・試験の未登録も同じ原因として是正した。既存state保存試験のRFD-IT-017／018と提示SourceへのRelationも同期した。Schema・実測Source・正式結果は変更しない。修正後の局所7／MCP全75 Case・AM／MCP静的各3軸・差分空白確認が成功。AM全78 Caseも同じSource候補で成功した。台帳ID・Pathの一意性と全登録Path・test-suiteのCatalog接続、自己生成試験Root残存0を確認した。Repository Checkerは3057件・exit1を維持し、AM／MCP／test-catalog対象Pathの指摘抽出0。固定10Pathの限定再レビューは全重大度の残指摘0で、保存側と局所HTTP接続の範囲だけ成立した。旧CROS／Shared・公開Launcherの既存回帰を新AM Launcherの成立へ流用しない。公開Launcher／Workbench／Host TTY、実Host旧状態移行、正式191項目、AM全体完成は未成立のまま維持する。
+
 ### 共有AI Profile管理のRole採用と本番接続 — 2026-10-12
 
 Source候補の局所結果：基準`ec2a2e3e`、Node v24.19.0。AM60／AI Adapter30／旧CROS34／MCP68／Workbench33の計225 Case（追加Workbench33 Caseは旧比較Consumerの回帰）、各書式・型・Warning禁止Lint成功、Fail／Cancel／Skip0、全Exit0。実HTTPと自己生成実Catalog Storeでmanager／administrator四操作・developer非開示・次要求のRole変更／失効、遅延認可・二依存拒否・採用後取消／応答故障の改訂保持を確認した。AM新試験の初回途中Fixture不整合は正規の一User・一Credential・元発行相関へ是正し、局所再試験後にAM全回帰を再実行した。最初の失敗を現在の成功へ混ぜない。Biomeの一時OS1224は同じ対象の再実行で解消した。固定29Pathの限定独立再レビューはPass・全重大度残指摘0。全体Checkerは3057 errors／exit1を維持し、変更29Path抽出はProject Context構造の既存1件のみ。判定に使う三Identity・五見出し・Checklist見出しとcheckboxの17行が基準HEADと順序込み完全一致し、差分起因0を確認した。Repository全体Passとは扱わず、正式191項目Not Runと本番Launcher／Workbench・鍵配送・旧REST撤去・AM全体未完成を維持する。実行別ログ書庫は作らず、各Packageの`npm test`から再生成する。

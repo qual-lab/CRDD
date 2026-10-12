@@ -117,6 +117,8 @@ Source・Package公開入口・Symbol・試験台帳を接続し、既存保存I
 
 MCP-only初回は、CRDDの完全な`server/discover`を送るClientで成立させる。任意のMCP Clientがこの固有Protocolを使えるとは主張しない。Workbenchの現`/connection/action`は旧REST Portfolio取得であり、上表へのConsumer切替は未実装である。HTTP本文前のResolverは用途分類だけを行い、本文の妥当性を確認する前に初回状態を更新しない。
 
+MCPの局所実装は、`createAccessMcpResolver`がAM用途判定からnormalとinitialのHandlerを分け、initialには`request/initial-connection.ts`の限定Handlerだけを構成する。完全discover検査と固定応答は副作用なしの`request/discover.ts`を通常Routeと共用し、通常Tool・内容・管理依存を限定Handlerへ渡さない。AM確認失敗は内部相関や理由を含めない固定`-32603`へ閉じる。既存HTTP Transportの順序は維持し、Content-Type／Accept／本文容量／JSON／Header相関の拒否前にもResolver認証の読取り・KDFと既存pending処置はあり得る。これらの拒否は初回確認出版0／通常Tool0であり、認証観測0や全Filesystem Effect 0ではない。公開Launcher・Workbench・実Host入口の切替は別に残る。
+
 応答書込み失敗・切断が確認出版後なら、既知completedを保持しrollbackや新資格生成をしない。Clientは同鍵の次要求で現在状態を再観測できる。出版・読戻し・清掃・Lock終了が不明なら成功応答と当該要求の通常Authorityは0とし、既存pendingと元相関を保持する。次要求は既存の同相関再観測・清掃・Lock終了を確認するまで通常認証成功にしない。取消は保存開始前なら更新0、開始後は既存同期保存の終了を待ち、取消後の成功応答を止める。応答後に秘密を保持したまま`finish`で保存する経路は採らない。[Node.js HTTPのfinish仕様](https://nodejs.org/docs/latest-v24.x/api/http.html#event-finish_1)はOSへの送出引渡しであり、Client受領の証明ではない。
 
 同時要求は同じ既存Lockで順序化する。同Bindingの再要求は一回の出版を再観測するだけで、追加資格・追加の業務Identityを作らない。初回completedへの出版では既存保存契約のoperationIdを一つ生成し、再観測では生成しない。既に同attempt／user／確認資格でcompletedなら、現在資格の有効性・未解決交換0・`current.revision === expectedRevision + 1`と短命材料・Lock終了をfreshに確認して限定成功を再観測する。未完了の更新には期待revisionの完全一致が必要であり、用途解決後のHost交換や別改訂では古い候補の更新を拒否する。表示・通信・保存の故障を通常の本人受領へ読み替えない。

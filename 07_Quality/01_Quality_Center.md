@@ -2,11 +2,11 @@
 
 状態: Quality Design In Progress — Latest Contract Propagation
 担当責任者: Qual-Lab
-最終更新日: 2026-10-12
+最終更新日: 2026-10-13
 
-最新の保存側局所結果：要求内の通常／初回用途判定と初回確認保存を接続した。局所8／AM全78 Case、AMとMCPの各静的3軸成功。保存故障後の次要求入口に関する試験不足Moderate 1件は是正し、固定7Pathの限定独立再レビューPass・全重大度の残指摘0。実TTY／HTTPの一度出力、MCP完全要求検査と応答取消、本番入口と正式191項目は未成立／Not Runのまま維持する。[対象範囲](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#初回接続の用途判定と確認保存候補--2026-10-12)を参照する。提示状態保存は先行段階で局所成立済み。以下は先行段階の局所結果であり、AM全体Passへ流用しない。
+最新の局所結果：MCPの完全discover検査と初回確認保存・応答前取消再確認を実HTTPへ接続した。局所7／MCP全75 Case、AM全78 Case、各静的3軸成功。台帳未登録とITからSTへの直接TraceのMajor 1件を是正し、固定10Pathの限定再レビュー残指摘0。ITはRFD-IT-024／025の断面であり、EST-ST-015の正式ST成立へ流用しない。鍵の実TTY／HTTP提示、本番入口・Workbench・Host初期設定、正式191項目は未成立／Not Runのまま維持する。[対象範囲](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#mcp初回限定接続の局所consumer--2026-10-13)を参照する。提示・初回確認の保存側は先行段階で局所成立済み。以下は先行段階の局所結果であり、AM全体Passへ流用しない。
 
-先行したSchema切替結果：管理状態Schema v2の型・Parser・初回資格WriterをAM／MCP利用側fixtureと一体切替した。当時のAM64／MCP68 Caseと各静的3軸成功、固定8Pathの限定独立レビューPass・全重大度の残指摘0。初回Host交換の失効途中は読取り可能でも認証を拒否し、元資格・確認対象・歴史IDを分ける。正式191項目はNot Run。提示保存・初回確認出版は保存側へ局所接続済みで、本番Consumerは未接続。旧v1実状態移行、完全discover公開検査、実TTY／HTTP提示、保存終了後の取消応答抑止、本番入口・AM全体完成は未成立。[先行実装範囲](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#管理状態schema-v2の実装候補--2026-10-12)を参照する。最小提示のQuality伝播12文書と計数同期41Pathの限定Passは各文書差分だけの結果で、正式試験のPassへ流用しない。
+先行したSchema切替結果：管理状態Schema v2の型・Parser・初回資格WriterをAM／MCP利用側fixtureと一体切替した。当時のAM64／MCP68 Caseと各静的3軸成功、固定8Pathの限定独立レビューPass・全重大度の残指摘0。初回Host交換の失効途中は読取り可能でも認証を拒否し、元資格・確認対象・歴史IDを分ける。正式191項目はNot Run。提示保存・初回確認出版は保存側へ、その完全discoverと応答取消はMCP局所候補へ接続済みで、本番入口は未接続。旧v1実状態移行、鍵の実TTY／HTTP提示、本番入口・AM全体完成は未成立。[先行実装範囲](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#管理状態schema-v2の実装候補--2026-10-12)を参照する。最小提示のQuality伝播12文書と計数同期41Pathの限定Passは各文書差分だけの結果で、正式試験のPassへ流用しない。
 
 現在の計数同期結果：現行契約をRole別分担9行・11認可要求種別・通常保存7操作（User4＋Repository3）へ揃えた。ProfileのCatalog保存・鍵Lifecycle・初回設定・Host交換は通常保存7操作に含めない。権限や操作の増減ではなく、旧「通常6」の計数不整合を訂正する。[Owner同期候補](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#管理操作の計数同期候補--2026-10-12)は限定独立再レビューPass・全重大度の残指摘0で、計数Blockerは解消した。正式191項目Not Runと既存Checker指摘3057件は維持し、Quality全体Pass・Source Readyへ昇格しない。
 

@@ -4,6 +4,26 @@
   "subsystem": "mcp-server",
   "symbols": [
     {
+      "symbolId": "mcp.request.discover",
+      "kind": "file",
+      "path": "src/request/discover.ts",
+      "archIds": ["ARCH-000012", "ARCH-000013"]
+    },
+    {
+      "symbolId": "mcp.request.initial-connection",
+      "kind": "file",
+      "path": "src/request/initial-connection.ts",
+      "archIds": ["ARCH-000012", "ARCH-000013"]
+    },
+    {
+      "symbolId": "mcp.test.integration.initial-connection",
+      "kind": "test-suite",
+      "path": "tests/integration/initial-connection.integration.test.ts",
+      "qaIds": ["QA-000007"],
+      "localTestIds": ["RFD-IT-024", "RFD-IT-025"],
+      "verifies": ["mcp.request.access-resolver", "mcp.request.discover", "mcp.request.initial-connection", "mcp.source.src.adapters.application.adapter", "mcp.source.src.transports.streamable.http.transport"]
+    },
+    {
       "symbolId": "mcp.request.access-resolver",
       "kind": "file",
       "path": "src/request/access-resolver.ts",

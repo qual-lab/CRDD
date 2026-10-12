@@ -11,6 +11,7 @@
  * @security Tool名だけでRoutingし、専門AdapterのAuthority判断を迂回しない。
  */
 import { snapshotPlainRecord } from "./snapshot.ts";
+import { handleMcpDiscoverRequest } from "./discover.ts";
 import {
   MCP_AI_PROFILE_TOOLS,
   getMcpAiProfileToolDefinitions,
@@ -38,13 +39,11 @@ import {
 } from "../project-context/protocol.ts";
 import {
   callKeys,
-  discoverKeys,
   getMcpOrchestratorToolDefinitions,
   inspectMcpEnvelope,
   inspectProtocolRequest,
   listKeys,
   listKeysNoCursor,
-  MCP_ORCHESTRATOR_PROTOCOL_VERSION,
   protocolComplete,
   protocolError,
   type McpResponse,
@@ -112,17 +111,8 @@ export async function routeMcpRequest(
     dependencies.aiProfileAdministrationResolver !== undefined
   )
     return protocolError(request.id, -32603, "Invalid Profile configuration");
-  if (request.method === "server/discover") {
-    const params = snapshotPlainRecord(request.params, discoverKeys);
-    return !params || !inspectMcpEnvelope(params._meta)
-      ? protocolError(request.id, -32602, "Invalid params")
-      : protocolComplete(request.id, {
-          supportedVersions: Object.freeze([MCP_ORCHESTRATOR_PROTOCOL_VERSION]),
-          capabilities: Object.freeze({ tools: Object.freeze({}) }),
-          ttlMs: 0,
-          cacheScope: "private",
-        });
-  }
+  if (request.method === "server/discover")
+    return handleMcpDiscoverRequest(rawRequest);
   if (request.method === "tools/list") {
     const params =
       snapshotPlainRecord(request.params, listKeysNoCursor) ??

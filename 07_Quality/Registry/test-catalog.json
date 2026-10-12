@@ -670,6 +670,19 @@
   ],
   "tests": [
     {
+      "id": "access-management:integration:initial-connection",
+      "owner": "access-management",
+      "path": "40_Develop/access-management/tests/integration/credential/initial-connection.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["initial-connection", "current-authentication", "exact-correlation", "single-publication", "process-loss", "cancellation", "pending-reentry"],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["initial_candidate_not_normal_authority", "initial_confirmation_single_publication", "exact_immediate_reentry_only", "unknown_materials_retained", "owned_process_joined", "test_root_removed"],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "access-management:integration:credential-token-material",
       "owner": "access-management",
       "path": "40_Develop/access-management/tests/integration/credential/token-material.contract.test.ts",
@@ -3121,6 +3134,19 @@
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": ["authorized_projection_only", "authorized_repository_write_only", "credential_secret_not_stored", "grant_outside_repository_not_disclosed", "listener_absent", "profile_request_reauthorization", "profile_dependency_conflict_before_observation", "invalid_input_and_precancel_authorization_zero", "adopted_profile_not_rolled_back_or_repeated"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "mcp:integration:initial-connection",
+      "owner": "mcp-server",
+      "path": "40_Develop/mcp-server/tests/integration/initial-connection.integration.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["access-management", "initial-connection", "complete-discover", "http", "single-publication", "non-disclosure", "cancellation", "reentry"],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["invalid_request_confirmation_zero", "complete_discover_confirms_once", "initial_request_normal_tool_zero", "internal_binding_not_disclosed", "cancelled_publication_preserved", "post_cancel_success_response_zero", "next_request_current_authentication", "concurrent_requests_single_publication", "listener_absent", "settled_materials_absent_or_unknown_retained", "test_root_removed"],
       "mandatoryByDefault": true
     },
     {

@@ -1,7 +1,7 @@
 /**
  * 現在のAccess Managementから内容操作のMCPを構成する。
  * @packageDocumentation
- * @responsibility 要求内認証・内容認可・実本文読取りを既存Ownerへ委譲する。
+ * @responsibility 要求内用途判定・初回限定確認と通常内容認可を別Handlerへ閉じる。
  * @trace ARCH-000005
  * @trace ARCH-000006
  * @trace ARCH-000012
@@ -10,7 +10,7 @@
  * @security Bearerは要求専用closure内だけに保持し、永続化・共有・応答・Errorへ渡さない。
  */
 import {
-  authenticateNormalConnection,
+  resolveConnectionAuthentication,
   resolveAiProfileManagementAccess,
   resolveRepositoryAccessCollection,
 } from "../../../access-management/src/index.ts";
@@ -27,17 +27,18 @@ import {
 import { resolveVerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
 import { readAuthorizedRuntimeActivity } from "../../../orchestrator/src/index.ts";
 import { routeMcpRequest } from "./route.ts";
+import { createInitialConnectionHandler } from "./initial-connection.ts";
 import type { McpAuthenticatedRequestHandlerResolver } from "../transport/types.ts";
 
 /**
- * 初回完了後の現在資格から要求専用の内容Handlerを作る。
+ * 現在資格から初回限定または通常内容の要求専用Handlerを作る。
  * @responsibility 管理能力から内容を生成せず、公開Callで現在集合を取り直す。
  * @trace ARCH-000005
  * @trace ARCH-000006
  * @trace ARCH-000012
  * @trace ARCH-000013
  * @input 内部構成が検証した管理Rootと任意のCROS Owner Profile管理操作。
- * @returns 通常認証成功時の要求専用Handler、拒否時はnullを返すResolver。
+ * @returns 初回候補はdiscover専用Handler、通常本人は内容Handler、拒否はnull。
  * @precondition HTTP Transportは要求毎にResolverを呼び、Handlerを要求終了後に共有しない。
  * @postcondition Portfolioは全本文成功時だけ、Topic／Meetingは現在許可対象だけを操作する。
  * @effect 既存AM認証とLock、許可後のDomain読取りと明示CRUD。新StoreやSessionは作らない。
@@ -52,8 +53,14 @@ export function createAccessMcpResolver(
   profileAdministration?: AiProfileCatalogAdministration,
 ): McpAuthenticatedRequestHandlerResolver {
   return (token) => {
-    if (authenticateNormalConnection(root, token).status !== "completed")
-      return null;
+    const authentication = resolveConnectionAuthentication(root, token);
+    if (authentication.status === "unavailable") return null;
+    if (authentication.status === "initial")
+      return createInitialConnectionHandler(
+        root,
+        token,
+        authentication.binding,
+      );
     return (request, signal) =>
       routeMcpRequest(
         request,
