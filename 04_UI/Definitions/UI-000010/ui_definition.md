@@ -34,6 +34,8 @@ UIはUX側の目的だけでも、IA側の対象一覧だけでも成立しな�
 
 ## 表示面と情報の優先順位
 
+共有Profileの管理表示は[UI-000008の現在認可](../UI-000008/ui_definition.md)へ接続する。manager／administratorに一覧・登録・変更・確認付き削除の導線を提示し、表示したこと自体を実行時の許可にしない。developerにCatalog管理情報を表示せず、現在認可の観測不能を空Catalogや「権限なし」と表示しない。Repository単体のローカルProfile操作にはこのCROS接続条件を要求しない。
+
 ```text
 Tool・AIモデル構成の選択
         ↓

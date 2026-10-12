@@ -19,6 +19,8 @@ IA ID: `IA-000013`
 
 ## 対象・識別・関係
 
+共有Profileの管理可否は[アクセス管理の情報構造](../IA-000009/ia_definition.md)から現在Roleの判定として参照し、Model／Profileの内容やExecutor／Reviewer等の作業上の役割とは別情報とする。manager／administratorによる管理許可をProfile内の権限として重複保持しない。未認可と観測不能を別に扱い、非管理者へCatalogの存在・内容・件数を開示しない。
+
 ### 分析ObjectからCanonical Objectへの対応
 
 | Source Analysis Object | Canonical Object | 処置 | 判断理由 |

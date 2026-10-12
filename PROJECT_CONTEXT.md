@@ -9,13 +9,15 @@ Repository Role: `crdd-standard`
 
 ## 1. 今どうなっているか
 
+現在の作業：共有AI Profile管理の四操作をmanager／administratorへ許可する回答を、要求・UX／IA／UI／SPEC・Architecture・品質へ伝播している。Profile限定操作と鍵／Provider／CLI等の管理を分離する。追加区分のSource・本番接続は未実装で、文書候補の独立レビュー後に接続する。[採用と接続計画](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#共有ai-profile管理のrole採用と本番接続--2026-10-12)を参照する。
+
 最新局所結果：AM現在認可からOrchestrator活動ReaderをMCPへ接続し、旧CROSの重複結果型／Parserを撤去、Workbench旧Remote受取を表示専用投影へ追従した。実状態と別Rootの履歴搬送、Source許可集合とのexact相関、部分公開解除・失効を確認した。関連5Package計283 Case・静的3軸・Workbench Build成功、限定独立再レビュー残指摘0、自己生成試験Root残存0。公開Launcher／Workbench本番MCP切替、鍵管理・配送、Profile接続、旧REST撤去、正式191項目とAM全体完成は残る。AI Profile管理Roleはmanager／administratorと人間が回答済みで、次の接続前に正式伝播する。[対象と限界](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#現在認可mcpと直接利用側の実装候補--2026-10-12)を参照する。
 
 直前局所結果：現在のAccess Management認証・認可からTopic／Meeting全12操作を実HTTPへ接続した。MCP65／Domain120／Access Management59の計244 Caseと静的検査成功、限定独立再レビューPass・残指摘0。指定Repositoryへの実保存、現在権限・公開解除・失効、Project拘束、Relation集合、公開Schemaを確認した。本番Launcher／Workbench切替・活動／Profile接続・鍵配送・旧REST撤去・正式191項目評価は未完了で、AM全体完成ではない。[対象と限界](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#am認証によるtopicmeeting-mcp接続--2026-10-12)を参照する。
 
 ### 結論
 
-第二段階は[Package別の責務再編計画](99_Roadmap/Changes/CHG-000082/second-stage-plan.md)の1〜8を進行中。Version Controlの公開入口・既知Consumerは47件、Domain Modelの保存・通常公開CRUD・協調Writer競合は113件、Execution Intelligenceの記録と提案判断の分離は82件、AI Adapterは29件のPackage回帰と限定独立レビューまで確認した。Coordinator配布試験の移管追従は133件成功したが、全Package完成ではない。Platform Accessの対象観測分離は通常回帰50件と限定独立レビューで確認した（専用実OS等23件は未実行）。MCPの活動・Profile管理は局所接続と全56件まで確認済み。人間がCROS Package維持判断を変更したため、次は認証・認可をAccess Managementへ、Context集約等を実Ownerへ分ける設計・移管を先行する。専用REST／Gateway／Shared Host廃止は代替本番接続後、Docker／Coordinator／Orchestrator大改修はその後へ置く。これはv0.22全体の完成・Release可能を意味しない。
+第二段階は[Package別の責務再編計画](99_Roadmap/Changes/CHG-000082/second-stage-plan.md)の1〜8を進行中。Version Controlの公開入口・既知Consumerは47件、Domain Modelの保存・通常公開CRUD・協調Writer競合は113件、Execution Intelligenceの記録と提案判断の分離は82件、AI Adapterは29件のPackage回帰と限定独立レビューまで確認した。Coordinator配布試験の移管追従は133件成功したが、全Package完成ではない。Platform Accessの対象観測分離は通常回帰50件と限定独立レビューで確認した（専用実OS等23件は未実行）。MCPの活動・Profile管理は旧systemAdmin比較経路での局所接続と当時の全56件まで確認済み。新manager／administrator認可によるProfile接続は未成立である。人間がCROS Package維持判断を変更したため、次は認証・認可をAccess Managementへ、Context集約等を実Ownerへ分ける設計・移管を先行する。専用REST／Gateway／Shared Host廃止は代替本番接続後、Docker／Coordinator／Orchestrator大改修はその後へ置く。これはv0.22全体の完成・Release可能を意味しない。
 
 v0.21.0は公開済み、v0.22.0とCHG-000082は未完了である。責務再編の段階1〜4、5AのDomain Model統合、5BのAI Adapter／Platform Access移管は局所確認まで完了した。5CのOrchestrator／Coordinator／Docker追加是正は、大規模改修で実装が変わる見込みから、人間承認により持ち越した。
 
@@ -38,7 +40,7 @@ v0.21.0は公開済み、v0.22.0とCHG-000082は未完了である。責務再�
 |---|---|---|
 | 現在事実 | 履歴保持期間後の相関欠測、下位出版後marker残存、実資源回復の旧入口切替、本番利用側の一体接続は未完了。旧二試験Fileの型指摘18件も保持する。 | [持ち越し残件](99_Roadmap/Changes/CHG-000082/Evidence/261007_develop-responsibility-mapping.md#持ち越しの処置--2026-10-09) |
 | 現在事実 | 全体回帰・Reality Audit・固定全Sourceレビュー・最新候補の署名実E2Eは未完了。局所成功からQuality ReadyやRelease可能を推定しない。 | [CHG](99_Roadmap/Changes/CHG-000082/change.md)、[Quality Center](07_Quality/01_Quality_Center.md) |
-| 現在事実 | Profile管理・Runtime活動のMCP Adapterは局所接続済みだが、公開Launcher・Workbench本番接続は未成立。Access Management再編の正式Architecture反映・移管も未完了。Domain保存の非協調Processによる親Directory差替え保証は未決である。 | [新Owner計画](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#11-access-managementへの再編--2026-10-09の途中見直し)、[保存保証の未決判断](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#保存保証の未決判断) |
+| 現在事実 | Profile管理MCP Adapterは旧systemAdmin比較経路の局所成立に限り、新manager／administrator認可は未接続。Runtime活動はAM現在認可へ局所接続済みだが、公開Launcher・Workbench本番接続は未成立。Access Management再編の全体移管も未完了。Domain保存の非協調Processによる親Directory差替え保証は未決である。 | [新Owner計画](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#11-access-managementへの再編--2026-10-09の途中見直し)、[保存保証の未決判断](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#保存保証の未決判断) |
 | 履歴事実 | 2026-10-06のReality Auditは13QA・176項目、Test Relationあり132・なし44、Symbol616。2026-10-07の採用範囲照合は17意味、実装Relation17・自動Test Relation16・手動確認待ち1。現在Treeの再実行値でも品質Pass数でもない。 | [対象版と限界](99_Roadmap/Changes/CHG-000082/Evidence/261006_phase2-reality-audit.md)、[採用範囲照合](99_Roadmap/Changes/CHG-000082/change.md) |
 | 共有分析 | 大規模改修前に5Cを積み増すと再実装・再検証負担が増えるため、確認済み結果と反例を改修入力にする。未成立を消さない。 | [持ち越し判断](99_Roadmap/Changes/CHG-000082/change.md#持ち越し判断--orchestratorcoordinatordocker2026-10-09) |
 
@@ -46,11 +48,11 @@ v0.21.0は公開済み、v0.22.0とCHG-000082は未完了である。責務再�
 
 ### Project Context専用MCPの実HTTP接続 — 2026-10-12
 
-AMの現在認証・現在許可集合からDomain実本文をMCPへ搬送する専用Resolverを接続した。MCP60／AM59／Domain118の計237 Caseと静的3軸成功、固定8Pathの限定独立再レビューPass・残指摘0。本文待機中の公開解除／失効、欠測全体停止、公開二Tool、開始前／開始後取消を確認した。公開Launcher／Workbench切替・他能力AM接続・鍵配送・旧REST撤去・正式191項目・AM全体完成は残る。既存のProfile管理Roleと配送方式の回答待ちは維持し、この段階の追加人間判断は不要。詳細は[接続結果](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#am認証によるproject-context専用mcp接続--2026-10-12)を参照する。
+AMの現在認証・現在許可集合からDomain実本文をMCPへ搬送する専用Resolverを接続した。MCP60／AM59／Domain118の計237 Caseと静的3軸成功、固定8Pathの限定独立再レビューPass・残指摘0。本文待機中の公開解除／失効、欠測全体停止、公開二Tool、開始前／開始後取消を確認した。公開Launcher／Workbench切替・他能力AM接続・鍵配送・旧REST撤去・正式191項目・AM全体完成は残る。当該局所段階ではProfile管理Roleと配送方式が回答待ちだった。現在はProfile管理Roleをmanager／administratorへ確定し、配送方式だけ回答待ちを維持する。この局所段階の追加人間判断は不要。詳細は[接続結果](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#am認証によるproject-context専用mcp接続--2026-10-12)を参照する。
 
 ### 通常接続用認証の先行接続 — 2026-10-12
 
-初回途中の本人確認と通常Surfaceの認証を分離した。AM59/59 Case・静的3軸成功、固定8Pathの限定再レビューPass・残指摘0。未完了・失効・未知資格では未処理材料を保持し、初回completedと現在資格が成立した場合だけ本人を返す。MCP専用Resolver／実HTTP搬送・Workbench本番切替・鍵管理／配送・旧REST撤去・正式191項目・AM全体完成は残る。Profile管理Roleと配送方式の既存回答待ちは維持し、この先行認証変更自体に追加人間判断は不要。
+初回途中の本人確認と通常Surfaceの認証を分離した。AM59/59 Case・静的3軸成功、固定8Pathの限定再レビューPass・残指摘0。未完了・失効・未知資格では未処理材料を保持し、初回completedと現在資格が成立した場合だけ本人を返す。MCP専用Resolver／実HTTP搬送・Workbench本番切替・鍵管理／配送・旧REST撤去・正式191項目・AM全体完成は残る。当該局所段階ではProfile管理Roleと配送方式が回答待ちだった。現在はProfile管理Roleをmanager／administratorへ確定し、配送方式だけ回答待ちを維持する。この先行認証変更自体に追加人間判断は不要。
 
 ### 許可集合と実本文版の局所搬送 — 2026-10-12
 
@@ -224,9 +226,9 @@ MCP詳細の最新判断伝播は契約・品質の限定独立再レビュー�
 | 5Cの追加是正を持ち越す | 大規模改修前の積み増しによる再実装・再検証を避け、未成立を改修入力として保持する。 | [CHGの現在判断](99_Roadmap/Changes/CHG-000082/change.md) |
 | Project Contextは現在投影とする | 五場面を共通形式で提供し、Topic／Meeting・Roadmap・Quality等の詳細は各Ownerが所有する。 | [要求](01_Discovery/Definitions/REQ-000038/requirement.md) |
 
-### 最新権限分担のQuality再導出 — 2026-10-11
+### 2026-10-11時点の権限分担・Quality再導出履歴
 
-最新の追加判断：登録解除は公開設定も同時に除去し、Repository本体は維持する。発行・結果記録確定後の鍵の受け渡し未確認は、秘密再表示・自動再発行をせず、人間の明示した既存交換で別鍵へ交換する。発行自体・結果記録が不明なら元発行のIdentityと既知事実で現在再観測し、交換由来は元exact Recoveryを保持する。[要求正本](01_Discovery/Definitions/REQ-000041/requirement.md#発行済みの鍵を受け取れなかった場合)に続きUX7文書・IA6文書へ伝播し、それぞれ契約／品質限定独立レビュー・是正後再レビューは残指摘0。UI7文書・SPEC5文書へ追加判断を伝播し、契約／品質限定独立再レビューは残指摘0。Detail10文書へ追加判断を伝播中・今回の契約／品質限定独立再レビュー済み（残指摘0）。Architectureは今回16文書へ候補伝播・契約・品質の限定独立レビュー済み・残指摘0。Qualityは今回12文書へ伝播済み・契約／品質限定独立レビュー済み・残指摘0。Sourceは未追従。Source・実環境は未変更。
+以下は2026-10-11時点の履歴であり、件数・Pass・回答待ちは当時の状態を表す。現在は固定9区分でProfile管理Roleをmanager／administratorに確定し、新RoleのSource接続は未成立である。当時の追加判断：登録解除は公開設定も同時に除去し、Repository本体は維持する。発行・結果記録確定後の鍵の受け渡し未確認は、秘密再表示・自動再発行をせず、人間の明示した既存交換で別鍵へ交換する。発行自体・結果記録が不明なら元発行のIdentityと既知事実で現在再観測し、交換由来は元exact Recoveryを保持する。[要求正本](01_Discovery/Definitions/REQ-000041/requirement.md#発行済みの鍵を受け取れなかった場合)に続きUX7文書・IA6文書へ伝播し、それぞれ契約／品質限定独立レビュー・是正後再レビューは残指摘0。UI7文書・SPEC5文書へ追加判断を伝播し、契約／品質限定独立再レビューは残指摘0。Detail10文書へ追加判断を伝播中・今回の契約／品質限定独立再レビュー済み（残指摘0）。Architectureは今回16文書へ候補伝播・契約・品質の限定独立レビュー済み・残指摘0。Qualityは今回12文書へ伝播済み・契約／品質限定独立レビュー済み・残指摘0。Sourceは未追従。Source・実環境は未変更。
 
 現在の[管理API・保存設計候補](06_Architecture/Details/access-management/02_Management_State_and_API.md)は登録解除・鍵受け渡しの旧OPEN更新まで契約／品質限定独立レビュー済み、残指摘0。Architecture全伝播候補は契約・品質の限定独立レビュー済み・残指摘0、QAへの追加判断伝播は12文書の限定独立レビュー済み・残指摘0。Sourceへの伝播は未完了。単一現在Fileは第一候補で、排他・出版保証と同一更新の実現方法は未確定のため実装Gate未成立。保存・秘密Store・Dockerは未変更。固定管理判定だけ新Sourceへ局所接続した。
 

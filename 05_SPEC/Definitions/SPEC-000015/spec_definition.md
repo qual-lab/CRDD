@@ -36,6 +36,8 @@ AIモデル構成を読込み、更新または選択する時、許可値、利
 
 ## 振る舞い・状態・結果
 
+共有Profileの四管理操作では、[SPEC-000012](../SPEC-000012/spec_definition.md)による現在manager／administratorの認可後にだけCatalogを参照・更新する。一覧と各操作で再評価し、Role・資格の変更を次操作へ反映する。未知・未認可を暗黙既定へ補正せず、管理対象の存在を開示しない。Catalogの検証・改訂競合・削除確認は本SPECのまま保持し、管理許可からProvider実行Effectを生成しない。
+
 ```text
 [構成Candidate] -> [検証]
   ├ valid -> [採用済み構成] -> [実効選択]

@@ -21,6 +21,8 @@ AIモデル選択を検証可能な構成として更新する
 
 ## 利用者・状況・目的
 
+共有利用のProfile管理では、[REQ-000016](../../../01_Discovery/Definitions/REQ-000016/requirement.md)と[REQ-000041](../../../01_Discovery/Definitions/REQ-000041/requirement.md)で許可されたmanager／administratorが、登録済みAdapter・許可Modelの範囲内で設定変更を完結できる。Profile設定の管理と実際のAI実行許可を混同せず、権限がない場合と現在状態を確認できない場合を正常完了と誤認しない。Repository単体では既存のローカル設定者の体験を維持する。
+
 | 項目 | 内容 |
 |---|---|
 | 主な想定利用者／利用状況 | [製品全体の利用者像](../../02_Personas.md)の「実行環境の導入・運用者」 |

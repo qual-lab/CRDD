@@ -14,6 +14,8 @@ Behavior ID: `BHV-000015`
 
 ## 2. Detailed Behavior
 
+共有Profileの四管理操作では[SPEC-000012](../../Definitions/SPEC-000012/spec_definition.md)の現在manager／administrator認可を受けてから、本詳細が所有する内容検査・Catalog操作へ進む。資格・RoleをProfile内容へ複製しない。Repository単体のRole不要条件と、管理許可からProvider実行Effectを生成しない条件を維持する。具体入口のSource接続は未完了である。
+
 | 観点 | 判定 | 契約／理由 |
 |---|---|---|
 | Trigger | Applicable | AIモデル構成を読込み、更新または選択する時 |

@@ -12,7 +12,7 @@ Discoveryでの判断: 要求採用
 
 ## 対象と利用状況
 
-AI実行基盤を設定する運用者が、既存接続部で使えるProfile、Provider Adapter、モデル、推論設定およびCLI配置を更新する場面。Repository単体ではローカル設定、CROSではAdministratorが管理するServer設定を使う。
+AI実行基盤を設定する運用者が、既存接続部で使えるProfile、Provider Adapter、モデル、推論設定およびCLI配置を更新する場面。Repository単体ではローカル設定、CROSではHost管理側のServer設定を使う。共有AI Profileの一覧・登録・変更・確認付き削除は、現在のmanagerまたはadministratorへ許可する。Profileは登録済みAdapterと許可Modelを参照する限定操作であり、Provider Adapter登録、Model Catalog変更、CLI配置の管理までmanagerへ委譲する判断ではない。接続資格と現在Roleの判定は[REQ-000041](../REQ-000041/requirement.md)へ接続する。
 
 ## 解く問題と望ましい変化
 

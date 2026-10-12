@@ -8,6 +8,8 @@ UX ID: `UX-000035`
 
 ## 利用者成果
 
+共有AI Profile管理では、manager／administratorが[UX-000018](../UX-000018/ux_definition.md)の設定変更を自分の担当範囲で完結できる。鍵を管理するadministratorの作業とは分け、管理表示があっても次の操作時の現在認可を省略しない。developerはProfile管理情報を取得せず、Repository単体の通常利用をこの管理拒否で妨げない。
+
 未初期化CROSではHost操作者が最初のadministratorと鍵を安全に成立させて通常管理へ入れる。その後、managerとadministratorが対象ユーザーと業務の利用範囲を明示管理し、administratorが管理者資格・Credentialを維持することで、資格の漏洩・喪失後もProduct Dataを失わず通常管理へ戻れる。
 
 ```text

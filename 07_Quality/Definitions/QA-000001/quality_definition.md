@@ -103,15 +103,17 @@ v0.22のWorkbench AI Profile Catalogでは、`RCM-IT-005`により、永続Snaps
 
 ## 二Surface再編のProfile管理条件
 
+共有Profile管理のTarget Roleはmanager／administratorとする。`RCM-IT-005`はAI Adapterが所有する四操作・Schema・競合・削除確認・採用後不明の意味を確認し、`RCM-IT-010`はTool登録・公開・Host可用性・許可・実行／取消／清掃のLifecycleとして確認する。AM現在認可自体はQA-000007の`RFD-IT-013`の資格→現在Role断面で確認する。AM認可の純粋判定と現在状態の故障はQA-000007へ接続し、同じ契約をここへ複製しない。旧systemAdmin経路の局所結果は当時の範囲に限り、新Role Source・公開Launcher・Workbench切替のPassへ流用しない。
+
 [AI Adapter](../../../06_Architecture/Details/ai-adapter/01_Architecture.md)と[MCP公開操作](../../../06_Architecture/Details/mcp-server/01_Architecture.md)から、次の条件を既存義務へ導く。新構成のSource・実境界確認は未実施であり、旧経路のPassを継承しない。
 
 | Local Item | 入力・反証 | 観測・終了後条件 |
 |---|---|---|
 | `RCM-IT-005` | Repository／CROSのOwner別Store、初期revision 0、期待revision一致／競合、create／update／delete、保存後応答喪失 | 本番Reader／Writerと共通Mutationを通し、同じSnapshot・Profile Identityを利用側まで保持する。競合・未確認削除で保存0。応答喪失は採用済みrevisionの再観測だけで、暗黙再Mutation0。 |
-| `RCM-IT-010` | 管理可否、許可失効、認証・Host・Quota・Authorityの独立観測、unknown、Local内部呼出し／Remote MCP | Profile管理権限をContent Grantへ変換しない。四軸のunknownをavailableへ補正せず、操作時に現在認可を再確認する。秘密値・任意Path／CLI引数・Provider実行Effect 0。 |
+| `RCM-IT-010` | Profile Tool登録／公開／非公開、Host可用／不可、許可／不許可、Local内部呼出し／Remote MCP、開始前取消・採用後取消 | 同じProfile操作実装を利用する。未許可時の操作Effect 0、取消後の所有資源終了を観測する。採用後取消から保存済み改訂のrollback・再Mutationを行わず、AM現在Role判定そのもののOracleには流用しない。 |
 | `RCM-ST-012` | 新公開入口・新設定の全宣言Consumer、旧import／別Snapshot／Remote未登録反例 | 同じCatalogと意味契約が新公開入口へ接続したことを確認する。全集合未観測を全体Passにせず、入口比較はQA-000009の`EST-IT-010`と独立に判定する。 |
 
-Profile管理の追加MCP確認では、`RCM-IT-005`へ実HTTPの一覧・作成・更新・改訂競合・確認付き削除と、直接Adapterの採用後応答故障／取消を接続する。`RCM-IT-010`では管理者とDeveloperを比較し、Content Snapshot読取り0と非管理操作0を観測する。メモリCatalogの初期改訂1と、未保存の耐久Storeの既定改訂0を混同しない。この局所確認は本番Launcher、耐久StoreのRemote接続、失効・全状態軸・入口全比較の完成根拠ではない。
+Profile管理の追加MCP確認では、`RCM-IT-005`へ実HTTPの一覧・作成・更新・改訂競合・確認付き削除と、直接Adapterの採用後応答故障／取消を接続する。`RCM-IT-010`ではTool公開・許可・実行・取消・清掃を比較し、未許可操作0と所有資源の終了を観測する。現在Roleの許可／拒否／観測不能はQA-000007の`RFD-IT-013`へ接続する。メモリCatalogの初期改訂1と、未保存の耐久Storeの既定改訂0を混同しない。この局所確認は本番Launcher、耐久StoreのRemote接続、失効・全状態軸・入口全比較の完成根拠ではない。
 
 ## 5.1 UI／SPEC Detailからの観測条件
 

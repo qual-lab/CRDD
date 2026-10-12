@@ -201,7 +201,7 @@ Repository単体MCPでは、Topic／Meetingの一覧、取得、登録、編集�
 
 ### 単体／CROSの明示選択とRepository一覧
 
-AI Profile管理の既存四Toolは`crdd.list_ai_profiles`、`crdd.create_ai_profile`、`crdd.update_ai_profile`、`crdd.delete_ai_profile`である。既存管理認可の成立範囲は移管比較として保持し、新しいRoleへの管理権限割当は未設計とする。鍵専用administratorの判断をこの四Toolへ適用しない。未認可Requestでは一覧にも管理Toolを含めず、呼出しは未構成と同じ拒否へ閉じる。入力と応答は既存AI Adapter Catalog契約を使い、Content Snapshotを読むための権限とは分離する。操作は一回だけ委譲し、採用後の応答失敗・取消でも巻戻しや再Mutationを行わず、現在Snapshotを再観測する。公開LauncherへのStore構成とWorkbench利用側は別途接続確認を必要とする。
+AI Profile管理の既存四Toolは`crdd.list_ai_profiles`、`crdd.create_ai_profile`、`crdd.update_ai_profile`、`crdd.delete_ai_profile`である。Targetの管理Roleはmanager／administratorとし、鍵専用administratorをこの四Toolへ適用しない。既存systemAdmin経路の成立範囲は旧配置の比較入力として保持する。一覧は現在認可を解決してから列挙し、Callは完全入力検査→開始前取消→現在AM認可→Catalog操作→取消再確認の順にする。未認可は一覧に含めず、直接Callは未構成と同じ非開示拒否、認可観測不能は固定内部エラーにし、空Catalogや通常拒否へ畳まない。入力・結果の意味はAI Adapterの既存Catalog契約へ接続し、MCP固有Schemaを複製しない。操作は一回だけ委譲し、採用後の応答失敗・取消でも巻戻しや再Mutationを行わない。公開Launcherへの実Store構成とWorkbench本番利用側は未接続である。
 
 人間が2026-10-07に確認した利用モデルでは、`--cros`なしは起動Repository一つ、`--cros`ありはCROSの登録・公開・Credentialで許可したRepositoryを扱う。設定Fileの存在や初期化済み状態からModeを自動切替しない。CROS設定不正時に単体へ戻さず、単体起動で兄弟Repositoryを探索しない。
 
@@ -225,7 +225,7 @@ Remote CROSのTopic／Meeting取得結果は、本文に記録された安定ID 
 | 操作 | 設計候補の入力 | 構造化結果とOwner | 認可・反例 |
 |---|---|---|---|
 | `crdd.get_runtime_activity` | 必須`projectId`、任意`cursor`、任意`limit`（既定20、1〜50の整数）。未知fieldを拒否する。 | 既存Activity公開契約（Owner移管・本番接続は未完了）。現在状態`observed / absent / unknown`、理由、projection、独立したeventState／eventReason、events、eventContinuation。 | 現在認可済みRepositoryだけを活動OwnerのReaderへ渡す。Eventが観測不能の場合は空の成功へ変えない。 |
-| `crdd.list_ai_profiles` | 空Object。未知fieldを拒否する。 | AI Adapterの`AiProfileCatalogSnapshot`を認可済み操作経路から取得し、Repository Ownerと混合しない。 | 管理可否と内容参照を分離し、未認可主体へCatalog内容・管理Storeの存在を返さず、空Catalogに補正しない。旧`system_admin`の新Roleへの移行は未設計で、鍵操作の固定administrator判断を流用しない。 |
+| `crdd.list_ai_profiles` | 空Object。未知fieldを拒否する。 | AI Adapterの`AiProfileCatalogSnapshot`を認可済み操作経路から取得し、Repository Ownerと混合しない。 | 現在manager／administratorだけを許可。内容範囲と別判定し、未認可へCatalog内容・Store存在を返さず、観測不能を空Catalogに補正しない。旧systemAdminのSource・本番切替は未完了で、鍵専用administrator判断を流用しない。 |
 | `crdd.create_ai_profile` | `expectedRevision`と`profile`。操作値はHandlerが`create`へ固定する。 | AI Adapterの`AiProfileCatalogMutationResult`をそのまま投影する。 | 重複Identity、未登録Adapter／Model、不正Catalog、revision競合を既存理由で拒否する。 |
 | `crdd.update_ai_profile` | `expectedRevision`と`profile`。操作値は`update`へ固定する。 | 同じMutationResult。 | 不在対象を作成へFallbackせず、revision競合を無断再試行しない。 |
 | `crdd.delete_ai_profile` | `expectedRevision`、`profileId`、`confirmed`。操作値は`delete`へ固定する。 | 同じMutationResult。 | 未確認削除はEffect 0。生Provider Credential、任意Path／CLI引数の操作へ拡張しない。 |
@@ -262,7 +262,7 @@ Sourceのcontext、repositoryRole、complete／missing／conflictingと現在rev
 
 別Process WorkbenchもMCP Clientであるため、鍵管理だけは利用できない。通常の指定ユーザー交換だけ追加確認なし、Hostまたは全員交換の3組は明示確認を要求する。全4組の対象ID・表示名・失効範囲・既存発行先・保持情報の事前表示は各ローカル入口が担当し、MCPで代用しない。鍵の3分岐、結果・失敗・元発行Identityと交換Recovery・一度表示の意味はAccess Managementが所有し、MCPに鍵結果照会・鍵Recovery参照・交換State・秘密配送を追加しない。Bearer認証を続けることは鍵操作公開の例外ではない。
 
-初回Host設定はAccess Managementの承認済み別開始契約であり、MCPへ公開しない。MCP起動やRemote CallからBootstrapしない。ユーザー管理、Role内容設定、Repository登録、Exposureの担当RoleはARCH-000013の固定8分担に従いAccess Managementへ委譲する。manager／administratorが許可される非鍵管理と、administrator専用のadministrator Role付与・解除・変更／内容設定を区別し、Role内容設定で管理権限をON／OFF・再委譲しない。具体公開API・Tool／Schema・登録・dispatch・本番Consumerは未確定で、担当Roleの採用から新Toolの公開や接続済みを推定しない。Profile管理等の既存非鍵能力の採否も変更しないが、旧`systemAdmin`等の実装語彙を新しいRole権限契約として採用しない。
+初回Host設定はAccess Managementの承認済み別開始契約であり、MCPへ公開しない。MCP起動やRemote CallからBootstrapしない。ユーザー管理、Role内容設定、Repository登録、Exposureの担当RoleはARCH-000013の固定9分担に従いAccess Managementへ委譲する。manager／administratorが許可される非鍵管理と、administrator専用のadministrator Role付与・解除・変更／内容設定を区別し、Role内容設定で管理権限をON／OFF・再委譲しない。具体公開API・Tool／Schema・登録・dispatch・本番Consumerは未確定で、担当Roleの採用から新Toolの公開や接続済みを推定しない。Profile管理等の既存非鍵能力の採否も変更しないが、旧`systemAdmin`等の実装語彙を新しいRole権限契約として採用しない。
 
 非鍵管理の要求はAM詳細§4の操作別入力と変更前の現在固定管理認可へ結合する。登録は予定Role・表示名、既存Role変更は対象userId・前後Role、名前変更は対象userId・新表示名、Role内容設定は対象Role・内容、Repository管理は対象ID・現在登録／公開状態・変更内容を搬送する。managerはadministratorの名前だけ変更可でRole変更不可。managerの正常管理へadministrator存在を要求しない。管理拒否と自身表示・許可内容拒否を区別し、登録≠公開、解除≠データ削除、更新受理≠内容取得を保つ。内容取得は次要求の現行Role・Exposure・実アクセスを再評価する。
 
@@ -272,7 +272,7 @@ Repository登録解除の非鍵結果は、同じ受理済み操作・採用改�
 
 ### 3.4. 初回Host設定の非公開境界
 
-初回State／Sequenceと失敗分岐は[Access Management詳細](../access-management/01_Architecture.md#41-初回host設定のstateとsequence)が所有する。MCPは初期化Toolの一覧・Schema・登録・dispatchを全て持たず、初期化状態照会・元試行Identity・初期Secret配送も公開しない。通常CROS認証、非鍵管理の固定8分担、同じHTTP入口の接続はこの例外を作らない。
+初回State／Sequenceと失敗分岐は[Access Management詳細](../access-management/01_Architecture.md#41-初回host設定のstateとsequence)が所有する。MCPは初期化Toolの一覧・Schema・登録・dispatchを全て持たず、初期化状態照会・元試行Identity・初期Secret配送も公開しない。通常CROS認証、非鍵管理の固定9分担、同じHTTP入口の接続はこの例外を作らない。
 
 MCP起動・`--cros`・設定File存在・Remote要求は初回設定の明示開始やHost Authorityではない。未初期化・破損・観測不能では既存起動契約に従い停止し、自動Bootstrap、別Root、新資格、単体fallbackを生成しない。未認証／非許可Clientへ管理ユーザーや試行の存在を結果・エラー・件数等で開示しない。Workbench Clientにも初期化状態照会を追加せず、Hostの操作はローカル対話入口で扱う。
 

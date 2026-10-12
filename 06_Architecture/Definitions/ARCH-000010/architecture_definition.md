@@ -20,6 +20,8 @@ AI Adapterは外部JSONのProfile、モデル・推論設定の解決・管理�
 
 ## 2. UI観点の入力
 
+共有Profileの一覧・登録・変更・確認付き削除は[ARCH-000013](../ARCH-000013/architecture_definition.md)の現在管理認可へ接続する。AI AdapterはProfile内容・Schema・Catalog Storeを所有し、資格やRoleを解釈しない。現在manager／administratorの判定はAccess Management、両Ownerの接続はSurface構成が担当する。Provider実行、Adapter／Model Catalog変更、CLI配置の許可をこの管理操作から発行しない。
+
 | UI分析 | 守る利用者向けの約束 |
 |---|---|
 | [UI-000010](../../Analysis/UI-000010/architecture_analysis.md) | Tool・AIモデル構成の選択 |

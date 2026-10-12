@@ -7,6 +7,8 @@
 
 ## 基本設計との関係
 
+共有Profile四管理操作のTarget許可は[Access Management](../access-management/01_Architecture.md)が現在manager／administratorとして判定する。AI AdapterはRole・資格を解釈せず、限定Mutationの入力検査・Catalog内容・Store・改訂競合・結果相関を所有する。旧CROSの純粋Mutation検査は同Ownerへ移管する候補で、現行systemAdmin経路の成功を新Role本番接続へ読み替えない。Repository単体のローカル管理にはCROS資格・Roleを要求しない。
+
 AI Adapterは、Adapter、Model、Profileの構成契約とProvider固有の起動・認証方式・結果変換を所有する。実装は旧`ai-runtime`とCoordinator内のProvider固有差を`ai-adapter`へ統合する。任意実行Path・任意CLI引数・秘密値をCatalogへ持たず、実行Authorityの発行、Docker／Processの所有、外部送信許可と共通の回収判定はCoordinatorに残す。
 
 Profile管理、Provider計画・CLI固有引数・認証方式・構造化結果のSourceは`ai-adapter`へ接続済みである。Coordinatorには、AI Adapter記述とMount・Egress・選定Identity・実行Capabilityを結ぶ共通実行組立てが残り、段階5Cで統合する。Source移管の局所成立と、再編後の署名・実Provider境界の未評価を区別する。再編の進捗と検証結果は[CHG-000082の移管計画](../../../99_Roadmap/Changes/CHG-000082/Evidence/261007_develop-responsibility-mapping.md)で追跡する。
@@ -90,7 +92,7 @@ CROS設定 ────────────┼─→ 設定Adapter ─→ AI
 - Repository単体とCROS Serverは同じCatalog Schemaを使うが、保存場所、採用AuthorityおよびLifecycleは各設定Adapterが所有する。Repository単体は`.crdd/config/ai-profile-catalog/`、CROSはOS管理config Rootの`ai-profile-catalog/`へ別の不変Snapshot列を持つ。
 - AI AdapterのCatalog検証・解決Coreは検証済みSnapshotを入力にする純粋な境界である。File Adapterは固定Rootへの保存だけを所有し、採用AuthorityまたはProvider Effectを発行しない。Provider計画・変換の公開面は[§7](#7-provider差の公開契約と実行境界)に分ける。
 - CoordinatorはProfile ID、AdapterおよびModelを再定義せず、Workbench等で明示選択されたProfile IDをTask Request、Route Candidate、Selection Grantへexactに搬送する。明示IDとProvider／Role／Tierが一致しない場合はProvider Effect前に拒否する。
-- WorkbenchはProfile設定と利用可能性を表示するが、未観測を利用可能へ畳まず、一覧表示から実行Authorityを生成しない。Repository単体とRemote CROSでは、登録済みAdapter／Modelだけを使うProfileの作成・更新・確認付き削除を、それぞれのOwner Storeへ接続する。CROS管理は`systemAdmin`を持つ認証済み接続だけへ公開し、Content Workspace Grantとは分離する。
+- WorkbenchはProfile設定と利用可能性を表示するが、未観測を利用可能へ畳まず、一覧表示から実行Authorityを生成しない。Repository単体とRemote CROSでは、登録済みAdapter／Modelだけを使うProfileの作成・更新・確認付き削除を、それぞれのOwner Storeへ接続する。共有Profile管理のTargetはAccess Managementによる現在manager／administrator認可とし、Content Workspace Grantとは分離する。現行Sourceの`systemAdmin`限定経路は旧比較実装であり、新Roleの本番接続は未成立である。
 
 ## 4. Schemaと拒否境界
 
@@ -120,7 +122,7 @@ CROS設定 ────────────┼─→ 設定Adapter ─→ AI
 
 既定Catalogの設定本文は統合後の`40_Develop/ai-adapter/src/catalog/default-ai-profile-catalog.json`へ置く。同梱JSONはOwner別の採用済みSnapshotではなく、初期値を定める配布設定である。Catalog Coreは静的JSON importで読み込み、通常のCatalog Validatorで検証した深い不変Snapshotだけを公開する。欠落、JSON構文破損またはSchema不正では初期化を停止し、埋込み旧値や空Catalogへ戻らない。署名RuntimeがCatalog Coreを消費する場合は、このexact JSONも静的依存として内容Identityと配布閉包へ含める。利用者が採用したOwner Snapshotは同梱初期値の変更だけでは上書きしない。
 
-現在の実装は既定Catalog、閉じた検証、一意解決、利用可能性評価、Owner別の耐久Snapshot採用、Repository／CROS WorkbenchのProfile限定管理、Coordinator互換解決、Workbench表示およびWorkbench AI依頼Portまで成立している。Workbenchが選んだProfile IDは、同じCatalog SnapshotのAdapter、Model、ReasoningとCatalog Revisionへ解決され、読取り助言のTask HashおよびProviderとともに一回送信境界までexactに保持される。CROSでは`systemAdmin`を持たないCredentialへCatalogの内容・件数を開示しない。Production Compositionは専用Dispatch、Provider別の固定Adapter選択、Repository非共有の読取り助言専用Execution Plan、固定配布物へ接続するProvider Command Plan、Provider出力抽出およびLifecycle判定を行うExecutor Coreまで接続した。Executor Coreから署名Runtimeへ渡す入力は、Operation、Profile、Task／Projection Hash、PromptおよびCommand Hashを結合した一回消費Packetへ固定し、再利用、別Owner消費、取消後利用および共有境界の拡張を拒否する。Codex／Claude Adapter、Docker Effect、Process ControllerおよびRecoveryは`workbench_advice`を独立Modeとして受理し、Provider HomeとOperation一時領域だけを共有し、助言Promptをstdinだけへ渡し、Provider Envelopeを助言JSONへ縮約してcleanup後に返す。Coordinatorの署名済みRuntimeは実行時に到達する`catalog.ts`／`types.ts`だけをCatalog Coreとして消費し、Store／管理Surfaceを暗黙に署名閉包へ含めない。Production CompositionはOperation生成、Model Selection、Mount Grant、Packet発行およびProcess Controllerまで成立済みである。未確認は今回の是正を含む署名済み配布物の再固定・直接起動と実Provider E2Eであり、局所Mode成立を実Provider利用可能とは表示しない。
+成立済みのProfile内容／Store実装は既定Catalog、閉じた検証、一意解決、利用可能性評価、Owner別の耐久Snapshot採用、Repository／CROS WorkbenchのProfile限定管理、Coordinator互換解決、Workbench表示およびWorkbench AI依頼Portまで成立している。Workbenchが選んだProfile IDは、同じCatalog SnapshotのAdapter、Model、ReasoningとCatalog Revisionへ解決され、読取り助言のTask HashおよびProviderとともに一回送信境界までexactに保持される。旧CROS比較実装では`systemAdmin`を持たないCredentialへCatalogの内容・件数を開示しない。この局所成立を、新Targetのmanager／administrator現在認可や本番Consumerの成立へ流用しない。Production Compositionは専用Dispatch、Provider別の固定Adapter選択、Repository非共有の読取り助言専用Execution Plan、固定配布物へ接続するProvider Command Plan、Provider出力抽出およびLifecycle判定を行うExecutor Coreまで接続した。Executor Coreから署名Runtimeへ渡す入力は、Operation、Profile、Task／Projection Hash、PromptおよびCommand Hashを結合した一回消費Packetへ固定し、再利用、別Owner消費、取消後利用および共有境界の拡張を拒否する。Codex／Claude Adapter、Docker Effect、Process ControllerおよびRecoveryは`workbench_advice`を独立Modeとして受理し、Provider HomeとOperation一時領域だけを共有し、助言Promptをstdinだけへ渡し、Provider Envelopeを助言JSONへ縮約してcleanup後に返す。Coordinatorの署名済みRuntimeは実行時に到達する`catalog.ts`／`types.ts`だけをCatalog Coreとして消費し、Store／管理Surfaceを暗黙に署名閉包へ含めない。Production CompositionはOperation生成、Model Selection、Mount Grant、Packet発行およびProcess Controllerまで成立済みである。未確認は今回の是正を含む署名済み配布物の再固定・直接起動と実Provider E2Eであり、局所Mode成立を実Provider利用可能とは表示しない。
 
 ## 6. Failureと回復
 
@@ -218,7 +220,7 @@ Provider公開操作、認証計画と実Home観測の分割、実Consumer、静
 | `ai-runtime.profile-resolution` | Selection／Interface | Catalog→Workbench選択→Coordinator Dispatch Input | 同じSnapshot内で選択Profile IDをAdapter、Model、Reasoningへ一意解決し、Catalog Revisionとともに送信境界までexactに保持する | 曖昧解決、暗黙Fallback、Consumer再解釈、非Coordinator Profileの読取り助言利用 | UT／IT | Direct Boundary | Catalog Revision、Profile ID、Adapter、Model、Reasoning、役割 | Consumer間Profile Identity一致、Provider Effect前の不一致拒否 | 一回限り送信Authorityと実Provider E2E |
 | `ai-runtime.availability` | State／Observability | 実行環境観測→Availability Projection | 四軸を保って状態を投影する | unknownをavailableへ畳む | UT／IT | Direct Boundary | 四軸、status、reason | 実行Authority 0 | 実Host Observer |
 | `ai-runtime.catalog-adoption` | Lifecycle／Consistency | Owner別Candidate→不変Snapshot | Owner別の不変Snapshotだけを現在値として利用する | Candidate直接実行、競合上書き、Repository／CROS混在 | IT | Direct Boundary | Revision、Snapshot、Owner Root | 競合Effect 0、Provider Effect 0 | なし |
-| `ai-runtime.profile-administration` | Application／Authority | Workbench管理操作→Repository／CROS Store | 登録済みAdapter／Modelだけで作成・更新し確認済みProfileだけを削除する | 任意Adapter追加、未確認削除、古いRevision上書き、非管理Credentialへの開示 | UT／IT | Direct Boundary | Command、結果理由、Revision、Snapshot、systemAdmin | 拒否時Catalog Effect 0、Provider Effect 0、非管理開示0 | なし |
+| `ai-runtime.profile-administration` | Application／Authority | Workbench管理操作→Repository／CROS Store | 登録済みAdapter／Modelだけで作成・更新し確認済みProfileだけを削除する | 任意Adapter追加、未確認削除、古いRevision上書き、非管理Credentialへの開示 | UT／IT | Direct Boundary | Command、結果理由、Revision、Snapshot、現在Role認可（Target未接続。旧systemAdminは比較実装） | 拒否時Catalog Effect 0、Provider Effect 0、非管理開示0 | なし |
 | `coord.provider-attempt` | Interface／Result | Provider構造化結果の純粋解析・正規化 | 唯一のexact結果だけを受理し、生出力を公開しない | 曖昧JSON、不足Envelope、余分な値、既存上限逸脱の受理 | UT | N/A: Process内純粋変換 | 正規化値、拒否状態、固定契約field。`ERB-UT-032`へ接続 | 実Provider／Filesystem Effect 0 | 実CLI・終了・cleanupは既存IT／STで別評価 |
 | `coord.provider-selection` | Policy／Authority | Subscription限定の課金方針記述 | 暗黙有料API切替・追加購入・設定単独Authorityを否定する | 方針記述を実課金防止や未実装APIの許可へ昇格する | UT | N/A: Process内純粋記述 | 固定方針、未実装条件とAuthority非発行。`ERB-UT-033`へ接続 | 実Provider／課金Effect 0 | 現実の課金・認証・実行条件は別評価 |
 
@@ -230,7 +232,7 @@ Provider公開操作、認証計画と実Home観測の分割、実Consumer、静
 | Coordinator Profile解決 | Repository Ownerの採用済みCatalog Snapshotを依頼ごとに一回観測し、選択IDを同じSnapshotのAdapter、Model、Reasoningへ解決してCatalog Revisionとともに読取り助言Dispatchへ渡す。未登録または非Coordinator ProfileはDispatch前に拒否する | Covered | 再署名した候補の直接起動と実Provider E2Eで同じIdentityの搬送を確認する |
 | Workbench読取り助言Dispatch | 一依頼の明示確認をTask Hash、Catalog Revision、Profile ID、Providerへ結合して一回消費し、取消、Effect、cleanup、結果Schemaを分離して判定する。Provider Adapterはexact ProfileをCodex／Claudeの一方へだけ渡し、Execution PlanとProvider Command Planでstdin搬送、Repository／Tool／Session非共有およびfallback禁止を固定する。Executor CoreはProvider固有出力を助言JSONだけへ抽出し、Tool Eventやcleanup不明を拒否する | Covered | 是正後の候補を再署名・直接起動し、Codex／Claudeの実Provider E2Eを閉じる |
 | Workbench AI Profiles | 設定と四軸の未観測状態を表示し、Repository OwnerとCROS Ownerを分離したProfile限定管理を接続 | Partial | 実Observerを接続する |
-| Repository／CROS設定 | 同一SchemaをOwner別の不変Snapshot列へ保存。RepositoryはLocal Store、CROSは`systemAdmin`限定Remote管理入口へ接続 | Covered | 実Provider注入時もOwnerを混合しない |
+| Repository／CROS設定 | 同一SchemaをOwner別の不変Snapshot列へ保存。Repository Local Storeは成立済み。旧CROS systemAdmin限定経路は比較実装。Targetのmanager／administrator現在認可は未接続 | Partial | 新Role認可と本番Consumerを接続し、Ownerを混合しない |
 
 ## Implementation Structure
 
