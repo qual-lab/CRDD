@@ -22,11 +22,13 @@ Quality／Development
 
 ## 2. 詳細設計領域
 
-固定8管理分担、登録解除・通常鍵3分岐の前回限定レビューは履歴として保持する。今回は承認済み初回Host設定をARCH-000013とAccess Management詳細から横断モデル・Workbench／MCP詳細へ候補伝播する。今回の固定12文書は契約・品質の限定独立再レビュー済み・全重大度の残指摘0で、前回Passを流用していない。Quality・Source・具体API／物理保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。旧crosは比較資料であり、他ARCHの状態は再評価しない。
+旧固定版の履歴: 固定8管理分担、登録解除・通常鍵3分岐の前回限定レビューは履歴として保持する。今回は承認済み初回Host設定をARCH-000013とAccess Management詳細から横断モデル・Workbench／MCP詳細へ候補伝播する。今回の固定12文書は契約・品質の限定独立再レビュー済み・全重大度の残指摘0で、前回Passを流用していない。Quality・Source・具体API／物理保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。旧crosは比較資料であり、他ARCHの状態は再評価しない。
+
+現在の最小提示方式はAM詳細01の意味・順序、02の保存・確認対象Binding候補、Workbenchの短命提示、MCPの鍵非公開境界へ対応する。既存Details Relationを維持し、通常Receiptや新領域を追加しない。今回対応差分は限定再レビュー済み（最小鍵提示方式の伝播差分、全重大度0）、Source・Quality・本番接続は未完了。
 
 | 詳細設計領域 | 対応Architecture定義 | 責務 | 状態 |
 |---|---|---|---|
-| [access-management](Details/access-management/01_Architecture.md) | ARCH-000013 | 最小ユーザー・Role・資格と交換相関の意味、現在認可、接続／公開範囲。初回Host設定の状態・元試行・個別事実を所有し、通常Host交換2操作とは別の明示CLI入口。Domain内容・Transportを所有しない | Candidate／Partial。初回State／SequenceはAM詳細01、内部操作候補と進行記録は02へ対応。登録解除・通常鍵3分岐を維持。物理保存Schema・具体API・表示／受領方式OPEN |
+| [access-management](Details/access-management/01_Architecture.md) | ARCH-000013 | 最小ユーザー・Role・資格と交換相関の意味、現在認可、接続／公開範囲。初回Host設定の状態・元試行・個別事実を所有し、通常Host交換2操作とは別の明示CLI入口。Domain内容・Transportを所有しない | Candidate／Partial。初回State／SequenceはAM詳細01、内部操作候補と進行記録は02へ対応。登録解除・通常鍵3分岐を維持。物理保存Schema・具体API・表示／提示方式・初回限定接続確認方式OPEN |
 | [ai-adapter](./Details/ai-adapter/01_Architecture.md) | ARCH-000004、ARCH-000010、ARCH-000015 | AI AdapterのCatalog・Profile管理、Provider別計画・出力変換と実行Authorityの分離 | Candidate |
 | [artifact-signing](Details/artifact-signing/01_Architecture.md) | ARCH-000014 | 配布物の完全性、鍵Capability、Publisher証明 | Canonical |
 | [checker](Details/checker/01_Architecture.md) | ARCH-000001、ARCH-000002 | 決定論的構造検査と契約移行時の機械的集合検査 | Canonical |
@@ -76,7 +78,7 @@ Architecture定義と詳細設計領域は同じIdentityではない。新しい
 
 ## 4. Qualityへの引渡し
 
-ARCH-000013では、Access Managementの資格Lifecycleと認可の意味、Domain Modelの認可済みContext集約・中立な保存部品、Workbenchの通常鍵操作、MCPの鍵操作非公開を分けて検証する。Domainの保存部品へ資格の発行／失効判断を移さず、Host CLIを新Serverや新Frameworkにしない。MCPは鍵操作のConsumerではない。固定8分担はARCH-000013を正本とする。管理認可と内容認可、登録／公開／実アクセス、解除／削除を区別し、固定8分担・登録解除・通常鍵3分岐に対する前回のAM／Workbench／MCP詳細レビューは残指摘0で、履歴として保持する。登録解除・鍵3分岐の前回横断レビューは履歴であり、今回の初回Host設定候補は契約・品質限定独立再レビュー済み・全重大度の残指摘0である。[管理API・保存設計](Details/access-management/02_Management_State_and_API.md)から両除去読戻し、元発行IdentityとCredential IDの分離、元処理再観測と別交換、失効鍵の遅延応答拒否を導出する。登録解除・別交換の完了から開始済み取消や旧Secret受領を生成しない。配置候補から許可や実装成立を生成しない。
+ARCH-000013では、Access Managementの資格Lifecycleと認可の意味、Domain Modelの認可済みContext集約・中立な保存部品、Workbenchの通常鍵操作、MCPの鍵操作非公開を分けて検証する。Domainの保存部品へ資格の発行／失効判断を移さず、Host CLIを新Serverや新Frameworkにしない。MCPは鍵操作のConsumerではない。固定8分担はARCH-000013を正本とする。管理認可と内容認可、登録／公開／実アクセス、解除／削除を区別し、固定8分担・登録解除・通常鍵3分岐に対する前回のAM／Workbench／MCP詳細レビューは残指摘0で、履歴として保持する。登録解除・鍵3分岐の前回横断レビューは履歴であり、旧初回Host設定候補の限定レビューも当時の固定版に限る。今回の最小鍵提示断面は限定再レビュー済み（最小鍵提示方式の伝播差分、全重大度0）である。[管理API・保存設計](Details/access-management/02_Management_State_and_API.md)から両除去読戻し、元発行IdentityとCredential IDの分離、元処理再観測と別交換、失効鍵の遅延応答拒否を導出する。登録解除・別交換の完了から開始済み取消や旧Secret受領を生成しない。配置候補から許可や実装成立を生成しない。
 
 QualityはARCH-IDだけでなく、対応する詳細設計領域のComponent、Interface、Data／State Flow、Failure、Resource、配置および観測方法を入力にする。個別領域の`OPEN`または`FAIL`は未確認範囲として保持し、全体Passへ畳まない。
 
@@ -84,7 +86,7 @@ ARCH-000005では、orchestratorがObjective／Milestone Acceptance Decision Por
 
 ### 初回Host設定の検証接続候補
 
-Access Managementの元試行確定前UUID／鍵Effect 0、双方未初期化確認、既存拒否、途中再観測、発行／記録不明と確定後受け渡し不明の分離をQualityへ渡す。Workbenchは案内のみ、MCPは初期化と状態照会の負境界のみを確認する。Domain Modelは初回状態・Credential・Grantの意味Ownerではない。具体API、物理保存、受領方式、Source、本番Consumer、実境界検証が未接続の間はCandidate／Partialを維持する。
+Access Managementの元試行確定前UUID／鍵Effect 0、双方未初期化確認、既存拒否、途中再観測、発行／記録不明と確定後受け渡し不明の分離をQualityへ渡す。Workbenchは案内のみ、MCPは初期化と状態照会の負境界のみを確認する。Domain Modelは初回状態・Credential・Grantの意味Ownerではない。具体API、物理保存、提示方式・初回限定接続確認方式、Source、本番Consumer、実境界検証が未接続の間はCandidate／Partialを維持する。
 
 ## 5. Reality Audit境界
 

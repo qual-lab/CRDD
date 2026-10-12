@@ -409,7 +409,7 @@ Caller由来のFilesystem PathをRepository Resolverの代替として受理し�
 
 2026-10-07の人間判断により、CROSの利用はWorkbench／MCP起動時の`--cros`で明示する。設定の存在から単体利用を自動切替しない。単体は検証済み起動Repositoryに固定し、CROS Registry登録・Credentialを要求しない。CROSでは現在のCredential・Exposure・Bindingから許可したRepositoryだけを対象とし、起動用CRDDリポを自動公開しない。対象一覧とRepository指定の共通入力は[MCP詳細](../mcp-server/01_Architecture.md#単体crosの明示選択とrepository一覧)を参照する。
 
-CROSの初期管理CredentialはHostでCROSを明示構築するときに発行する。MCP起動だけで発行せず、管理可・内容Grantなしを初期値とする。これは初回構築の既存方式である。本文の旧秘密配送・Remote資格管理候補は比較資料であり、現在の採用根拠にしない。置換先の[鍵管理のMCP非公開境界](../mcp-server/01_Architecture.md#33-鍵管理のmcp非公開境界)では通常鍵3操作を同一Process Workbench、Hostを対話交換2操作だけ、MCPを全鍵操作非公開とする。本書全体の新Owner伝播・完成を意味しない。
+CROSの初期管理CredentialはHostでCROSを明示構築するときに発行する。MCP起動だけで発行せず、管理可・内容Grantなしを初期値とする。これは旧初回構築の比較入力である。本文の旧秘密配送・Remote資格管理候補と旧Passは現行採用根拠にしない。置換先の[Access Management詳細](../access-management/01_Architecture.md#41-初回host設定のstateとsequence)では、通常は操作administratorのWorkbench一度提示、初回はHost一度提示と同鍵限定接続確認を用い、追加受領操作を作らない。[MCP境界](../mcp-server/01_Architecture.md#33-鍵管理のmcp非公開境界)は全鍵操作非公開を維持する。今回の置換案内差分は限定再レビュー済み（最小鍵提示方式の伝播差分、全重大度0）で、本文全体の現行化・Source移管・本番置換完了を意味しない。
 
 ## 7. Connection CredentialとRequest Access Context
 

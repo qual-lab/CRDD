@@ -122,7 +122,7 @@ Workbench／MCPは必要な内部Capabilityを利用する。同一ProcessのCRO
 | 要素 | 所有者・接続 | 所有しないこと |
 |---|---|---|
 | 初期化状態・非秘密元試行相関・個別成立事実 | Access Managementの既存管理能力 | Domain Modelの業務Object、新Store、一般Recovery |
-| 明示開始・表示名入力・一度だけの秘密配送と受領 | ログイン済みローカルHost操作者の対話入口 | Workbench／MCPからの自動開始、追加認証・昇格 |
+| 明示開始・表示名入力・Host端末への秘密一度提示 | ログイン済みローカルHost操作者の対話入口 | Workbench／MCPからの自動開始、追加受領操作・認証・昇格 |
 | 状態説明とHost操作への案内 | Workbench | 初期化実行、秘密配送、Remote初期化状態照会の追加 |
 | 非公開境界 | MCP | 初期化Tool・状態照会・元試行参照の公開 |
 
@@ -136,7 +136,9 @@ MCP                  → 初期化・状態照会を公開しない
 
 ## 5. QAへ渡す検証単位
 
-固定8管理分担、登録解除・通常鍵3分岐の前回限定レビューは履歴として保持する。今回は承認済み初回Host設定をARCH-000013とAccess Management詳細から横断モデル・Workbench／MCP詳細へ候補伝播する。今回の固定12文書は契約・品質の限定独立再レビュー済み・全重大度の残指摘0で、前回Passを流用していない。Quality・Source・具体API／物理保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
+旧固定版の履歴: 固定8管理分担、登録解除・通常鍵3分岐の前回限定レビューは履歴として保持する。今回は承認済み初回Host設定をARCH-000013とAccess Management詳細から横断モデル・Workbench／MCP詳細へ候補伝播する。今回の固定12文書は契約・品質の限定独立再レビュー済み・全重大度の残指摘0で、前回Passを流用していない。Quality・Source・具体API／物理保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
+
+現在の提示責務は、通常が同一Process Workbenchの操作administrator画面、初回／Host交換がHost端末。対象本人への引渡し・受領は製品外であり通常のOwnerを作らない。初回確認と保存はAM、具体Protocol Ownerは詳細設計OPEN。今回差分は限定再レビュー済み（最小鍵提示方式の伝播差分、全重大度0）。
 
 | 検証候補 | 主な対象 | 反証すること | 適する粒度候補 |
 |---|---|---|---|

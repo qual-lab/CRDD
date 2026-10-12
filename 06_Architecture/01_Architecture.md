@@ -12,7 +12,9 @@ v0.21.0の基準版では、個別責務定義、横断モデルおよび15領�
 
 ## 2. 工程入力と再構築方法
 
-固定8管理分担、登録解除・通常鍵3分岐の前回限定レビューは履歴として保持する。今回は承認済み初回Host設定をARCH-000013とAccess Management詳細から横断モデル・Workbench／MCP詳細へ候補伝播する。今回の固定12文書は契約・品質の限定独立再レビュー済み・全重大度の残指摘0で、前回Passを流用していない。Quality・Source・具体API／物理保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
+旧固定版の履歴: 固定8管理分担、登録解除・通常鍵3分岐の前回限定レビューは履歴として保持する。今回は承認済み初回Host設定をARCH-000013とAccess Management詳細から横断モデル・Workbench／MCP詳細へ候補伝播する。今回の固定12文書は契約・品質の限定独立再レビュー済み・全重大度の残指摘0で、前回Passを流用していない。Quality・Source・具体API／物理保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
+
+現在の最小提示契約はARCH-000013からAM詳細・横断モデル・Workbench／MCP境界へ伝播する候補で、今回差分は限定再レビュー済み（最小鍵提示方式の伝播差分、全重大度0）。通常の一度提示と初回の限定接続確認を分け、具体接続・保存Schema・Quality／Source・本番接続は未完成。旧Architecture Readyを新版へ流用しない。
 
 Architectureの正式入力はCanonicalな20件のUI定義と30件のSPEC定義である。UIとSPECを別々に全数分析し、同じ上位責務境界へ属する結果を18件のArchitecture定義へ統合した。
 
@@ -83,7 +85,7 @@ REQ、UXおよびIAは由来確認に限って参照する。現行Architecture�
 | ARCH-000010 | Capability Registry、AI AdapterのProfile管理 | 能力発見・Profile選択と実行Authorityを分離する。 |
 | ARCH-000011 | 各状態Owner、Domain Modelの保存・設定部品 | 現在状態、通常履歴、候補、正式Evidenceの用途を分ける。 |
 | ARCH-000012 | MCP Server、運用CLI、Workbench表示API | 入力意味を保持し、SPEC-000011のlocalhost範囲を無断拡張しない。 |
-| ARCH-000013 | Access Management、Domain Model、MCP／Workbench利用側 | 初回Host設定の状態・非秘密元試行相関・個別事実はAccess Managementが所有し、Host明示操作で開始する。Workbenchは案内のみ、MCPは初期化・状態照会とも非公開。通常Host回復は交換2操作だけで初回と分離する。Domain Modelは認可済みContext集約・中立部品だけを担当する。基本設計・AM詳細の前回限定Passは履歴。今回の横断・Surface候補は契約・品質限定独立再レビュー済み・全重大度の残指摘0で、具体API・物理保存・本番公開入口・Sourceは未接続。 |
+| ARCH-000013 | Access Management、Domain Model、MCP／Workbench利用側 | 初回Host設定の状態・非秘密元試行相関・個別事実はAccess Managementが所有し、Host明示操作で開始する。Workbenchは案内のみ、MCPは初期化・状態照会とも非公開。通常Host回復は交換2操作だけで初回と分離する。Domain Modelは認可済みContext集約・中立部品だけを担当する。基本設計・AM詳細の前回限定Passは履歴。旧横断・Surface限定レビューは当時の固定版の履歴。今回の最小鍵提示候補は限定再レビュー済み（最小鍵提示方式の伝播差分、全重大度0）で、具体API・物理保存・本番公開入口・Sourceは未接続。 |
 | ARCH-000014 | 各実行境界の独立評価とArtifact Signing | 独立評価軸を保持する。汎用Trust Policy Frameworkは今回採用しない。 |
 | ARCH-000015 | Coordinatorの候補本体、Orchestratorの採用、AI Adapterの搬送差 | 同意・送信・受領・採用のAuthorityを相互流用しない。 |
 | ARCH-000016 | Domain ModelのContext／Artifact由来解決 | 履歴から現在方針を自動採用しない。 |

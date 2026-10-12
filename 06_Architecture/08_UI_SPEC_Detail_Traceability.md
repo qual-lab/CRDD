@@ -8,7 +8,9 @@
 
 発行済みのLogical Screen、Screen Part、InteractionおよびDetailed Behaviorを、意味を所有するArchitecture定義と配置を所有する詳細設計領域へ接続する。Definitionを要求源として維持し、Detailを新しい要求や実装配置の根拠へ読み替えない。
 
-固定8管理分担、登録解除・通常鍵3分岐の前回限定レビューは履歴として保持する。今回は承認済み初回Host設定をARCH-000013とAccess Management詳細から横断モデル・Workbench／MCP詳細へ候補伝播する。今回の固定12文書は契約・品質の限定独立再レビュー済み・全重大度の残指摘0で、前回Passを流用していない。Quality・Source・具体API／物理保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。対象はSCR-000008／PRT-000008、BHV-000012、PRT-000008.spec-000012の3行のみでPartialを維持。残り19 UI・29 BHV・31 Relationは未変更・未再評価。
+旧固定版の履歴: 固定8管理分担、登録解除・通常鍵3分岐の前回限定レビューは履歴として保持する。今回は承認済み初回Host設定をARCH-000013とAccess Management詳細から横断モデル・Workbench／MCP詳細へ候補伝播する。今回の固定12文書は契約・品質の限定独立再レビュー済み・全重大度の残指摘0で、前回Passを流用していない。Quality・Source・具体API／物理保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。対象はSCR-000008／PRT-000008、BHV-000012、PRT-000008.spec-000012の3行のみでPartialを維持。残り19 UI・29 BHV・31 Relationは未変更・未再評価。
+
+現在の鍵提示方式はSCR-000008／PRT-000008、BHV-000012と既存Interactionの3行だけへ対応する候補。通常提示≠本人受領、初回の限定接続・確認保存・読戻し・清掃／Lock終了をAMへ引き渡す。3行はPartial、今回対応差分は限定再レビュー済み（最小鍵提示方式の伝播差分、全重大度0）。他行・Source Coverageは未再評価。
 
 ```text
 UI／SPEC Definition
@@ -142,4 +144,4 @@ Architecture Detail Area
 - [x] 各ARCH-IDを一件以上の詳細設計領域へ接続した
 - [x] CMP未発行をArchitecture Component不存在の証明へ読み替えていない
 - [x] Detailから新しい要求、Authority、Effectまたは実装方式を逆輸入していない
-- OPEN: 登録解除・通常鍵3分岐の前回限定Passは履歴。今回の初回Host設定は同じ3行へ候補対応し、契約・品質限定独立再レビュー済み・全重大度の残指摘0。具体API／物理保存・受領方式、Quality・Source・本番接続は未完了。他行の最新配置も今回再評価していない。
+- OPEN: 登録解除・通常鍵3分岐・旧初回設定の限定Passは履歴。今回の最小提示方式を同じ3行へ候補対応し、限定再レビュー済み（最小鍵提示方式の伝播差分、全重大度0）。具体初回接続・保存・Host交換後Binding、Quality・Source・本番接続は未完了。他行は未再評価。

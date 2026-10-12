@@ -9,7 +9,7 @@ Repository Role: `crdd-standard`
 
 ## 1. 今どうなっているか
 
-現在の作業：採用済みの最小鍵提示方式をUI／SPEC Detailまで伝播した。通常は操作administratorのWorkbenchへ一度提示し、追加受領ボタンを設けない。初回はHost提示・同鍵の限定接続成功・確認の保存／読戻し／清掃を分け、全条件の確認前は完了表示と通常Authorityを成立させない。固定20文書の伝播差分は契約・品質限定独立再レビューPass・全重大度0。次は具体入口・方式・保存のArchitectureとQualityへの反映であり、Source・実画面・本番接続・正式191項目・AM全体完成は未成立。[今回の範囲と結果](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#鍵提示方式のuispec伝播--2026-10-12)を参照する。共有AI Profile管理の局所Source・実HTTP候補は225 Caseと限定Passまで確認済みだが、本番Launcher／Workbenchは未接続である。
+現在の作業：採用済みの最小鍵提示方式をArchitectureへ伝播した。通常は操作administratorのWorkbenchへ一度提示し、本人受領は製品外で観測しない。初回はHost提示・同鍵の限定接続成功・確認の保存／読戻し／短命材料清掃とLock終了を分け、全条件の確認前は完了表示と通常Authorityを成立させない。固定17文書の設計伝播差分は契約・品質限定独立再レビューPass・全重大度0。次は具体接続とHost交換後の確認対象Binding・Schemaを閉じ、Quality／Source／本番入口へ接続する。実画面・正式191項目・AM全体完成は未成立。[範囲と残件](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#最小鍵提示方式のarchitecture伝播--2026-10-12)を参照する。Profile管理の局所Source・実HTTP候補は225 Caseと限定Passまで確認済みだが、本番Launcher／Workbenchは未接続である。
 
 直前の活動局所結果：AM現在認可からOrchestrator活動ReaderをMCPへ接続し、旧CROSの重複結果型／Parserを撤去、Workbench旧Remote受取を表示専用投影へ追従した。実状態と別Rootの履歴搬送、Source許可集合とのexact相関、部分公開解除・失効を確認した。関連5Package計283 Case・静的3軸・Workbench Build成功、限定独立再レビュー残指摘0、自己生成試験Root残存0。公開Launcher／Workbench本番MCP切替、鍵管理・配送、旧REST撤去、正式191項目とAM全体完成は残る。Profile管理Roleはmanager／administratorに確定し、現在はAM認可とMCP実HTTPの局所候補へ接続済みである。Catalog依存を構成した局所候補ではmanager／administratorが19 Tool、developerが15 Tool、Catalog未構成時は15 Toolとする。[対象と限界](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#現在認可mcpと直接利用側の実装候補--2026-10-12)を参照する。
 

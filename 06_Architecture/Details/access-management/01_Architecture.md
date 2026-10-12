@@ -2,7 +2,7 @@
 
 成果物種別: Architecture詳細設計
 詳細設計領域: access-management
-状態: Candidate（初回Host設定を具体化。今回の契約・品質限定独立レビュー済み・全重大度の残指摘0。保存・公開入口は未完了）
+状態: Candidate（最小鍵提示方式の伝播候補・限定再レビュー済み（最小鍵提示方式の伝播差分、全重大度0）。旧初回設定の限定Passは履歴。保存・公開入口・Sourceは未完了）
 維持責任者: Qual-Lab
 
 管理API・内部状態・物理保存方式の比較・移行・出版後故障の具体化候補は[管理APIと現在状態の保存設計](02_Management_State_and_API.md)が所有する。本文は責務と意味・処理境界を所有し、具体化候補から実装Readyや保存保証の成立を推定しない。
@@ -14,7 +14,7 @@
 | 正式入力 | 担当する断面 | Relation状態 |
 |---|---|---|
 | [ARCH-000013](../../Definitions/ARCH-000013/architecture_definition.md) | 最小ユーザー・Role・資格管理、現在認可、接続／公開情報、限定鍵交換、初回Host設定 | Partial。物理保存・移行・公開入口未確定 |
-| [SCR-000008](../../../04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md)／`PRT-000008.spec-000012` | 対象と影響、4組の事前表示、3組だけの明示確認、一度表示、発行不明の再観測と受け渡し未確認後の別交換への導線 | Partial。採用済み入口分担を継承、具体Layout・API・受領方式は未確定 |
+| [SCR-000008](../../../04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md)／`PRT-000008.spec-000012` | 対象と影響、4組の事前表示、3組だけの明示確認、一度表示、発行不明の再観測と受け渡し未確認後の別交換への導線 | Partial。採用済み入口分担を継承、具体Layout・API・提示方式・初回限定接続確認方式は未確定 |
 | [BHV-000012](../../../05_SPEC/Details/BHV-000012/behavior.md) | 要求毎認可、管理・失効・交換、Effect前拒否、部分失敗、現在再観測 | Partial。保存確定と実境界未実装 |
 
 UIは見え方・操作、SPECは成立条件、本文は実装Owner・情報・順序と失敗境界を所有する。意味を変更する場合は上流へ戻す。候補設計の存在からArchitecture Ready、QA Handoff、Source移管・E2E成立を主張しない。
@@ -45,7 +45,7 @@ Package Rootの`src/index.ts`から明示公開し、Capability内barrelは作�
 | 資格 | Credential ID→既存userId、Verifier、現在状態 | ユーザー・Roleとの参照整合。生Secretを含めない。期限なしで、時間経過だけの自動失効・交換なし。失効済み資格を再有効化しない |
 | 接続／公開情報 | 検証済みRepository Binding、Exposure、改訂 | Rootの技術的検証はVersion Control、意味解析はDomain。対象IDはAuthorityではない |
 | 鍵交換相関 | 同じRecovery ID、種別、入口、対象、既存発行先、対象旧資格集合、既知失効、発行結果／不明、結果改訂 | 非秘密。現在Stateを再観測するための根拠であり、操作許可を復元しない |
-| 初回相関 | 確認済み元試行、成立したUUID／資格と記録・配送・受領・通常接続の各事実 | 非秘密・非Authority。未作成IDを推定せず、交換Recovery／Lock回復ID・短命pendingと分離 |
+| 初回相関 | 確認済み元試行、成立したUUID／資格、元発行処置、結果記録・Host提示・同鍵の限定接続確認と保存改訂 | 非秘密・非Authority。初回だけ接続成功を受領・接続確認とする。未作成IDを推定せず、交換Recovery／Lock回復ID・短命pendingと分離 |
 | Request Context | 現要求の認証主体、現在Roleと許可集合、観測改訂 | 要求内の派生値。永続Sessionや第二の権限Storeを作らない |
 
 保存Ownerは既存ユーザー／Host側管理領域を維持する。[保存配置契約](../domain-model/03_Repository_Storage.md#6-crosとの物理分離)と既存Root resolverを使い、Package改名でRootを変えない。非秘密設定を秘密Storeの代わりにせず、生SecretをGit、Repository-local `.crdd`、Prompt、ログ、Evidenceへ保存しない。
@@ -78,7 +78,7 @@ Profile管理の固定許可はmanager／administratorとし、developerは拒�
 | Role内容設定 | 対象Role・変更内容、現在管理認可と期待改訂。developer／managerの内容設定はmanager／administrator、administrator内容設定はadministratorのみ | 内容設定だけ保存・読戻し。固定管理分担のON／OFF・再委譲を受理しない |
 | Repository登録・登録解除 | 対象Repository ID・現在登録／Exposure状態・変更内容、現在manager／administratorの認可と期待改訂。登録時は検証済みBindingを確認し、登録時の再検証を解除条件に転用しない | 登録は接続登録だけを保存・読戻し、登録≠公開。解除は同じ受理済み操作・採用改訂で対象登録と対応Exposureを除去し、両読戻し確認時だけ完了。対象外登録・Exposure、Repository本体・Product Dataを保持。開始済み操作の取消完了・過去Effect0・実資源終了は証明しない |
 | Exposure設定 | 対象Repository ID・現在登録／公開状態・変更内容、現在manager／administratorの認可と期待改訂 | 公開範囲だけ保存・読戻し。管理権限・更新受理から内容取得を生成しない |
-| 資格発行 | 現行administrator、既存userId、整合状態。Verifierと紐付けを保存 | 同一Process Workbenchへ新Secretを一度だけ返す。MCP・Host回復の操作にしない |
+| 資格発行 | 現行administrator、既存userId、整合状態。Verifierと紐付けを保存 | 同一Process Workbenchの操作administrator画面へ用途限定・短命な応答で新Secretを一度提示する。追加受領操作なし、対象本人受領は製品外で観測しない。MCP・Host回復の操作にしない |
 | 独立失効 | 現行administrator、exact Credential IDと既存userIdの結合・期待改訂。指定資格の失効だけを確定 | 対象外失効0、新発行0、Secret0、交換Recovery0、次要求拒否。MCP・Host回復の操作にしない。旧要求取消完了の証明ではない |
 
 管理認可の正本は[ARCH-000013の固定9分担](../../Definitions/ARCH-000013/architecture_definition.md#4-両観点の統合判断)で、Role内容設定では変更できない。developerはこの管理操作を行えない。managerの正常管理にadministrator存在を条件として追加しない。manager自身の内容範囲変更も、変更前の現在管理認可→明示的なRole内容設定／Exposure更新→次要求の現行Role・Exposure・実アクセス再評価の順とする。更新受理は内容取得の成功ではない。
@@ -93,20 +93,23 @@ Profile管理の固定許可はmanager／administratorとし、developerは拒�
 |---|---|---|
 | 正規未試行から明示開始 | 既存Host Root／Pathを検証し、管理状態と進行記録の双方未初期化を同じ保存Ownerの排他下で再照合。非秘密な元試行相関を耐久確定・読戻し | 相関確定後だけUUID／鍵Effectへ進む。開始前の試行／UUIDを推定しない。双方確認済みの新作成を拒否しない |
 | 確認済み試行から作成・発行 | 最初のadministrator UUIDを作成し同userIdの資格を発行。作成・発行・非秘密結果記録を別事実で確定・読戻し | 作成済み・発行済みを未初期化へ戻さない。発行／記録不明は元試行再観測だけ。別UUID・追加鍵・新交換・自動再初期化0 |
-| 発行・記録確定から配送 | 結果と一度限りのSecretをHost対話入口へ返す。生Secretは保存しない | 配送不明と配送確定後の受領不明を別観測。部分結果を設定完了にしない |
-| 受領後の通常管理接続 | 受領と通常管理接続を個別に確認 | 全体完了は必要な各事実の成立時だけ。接続不成立・観測不能を保持。具体受領観測は入口／保存設計で閉じる |
+| 発行・記録確定から提示 | Host端末へSecretを一度提示する。生Secretは保存しない | 提示結果を非秘密の元試行と資格へ相関し、再表示・自動再発行しない。提示だけを初回完了にしない |
+| 同鍵の初回限定接続 | 元試行・同userId・直近にHost提示したexact有効資格に限定し、接続成功を受領・接続確認とする | 通常管理・内容参照・鍵操作Authorityは0。KDF一致・callback完了・TCP／HTTP到達だけを接続成功にしない。具体接続Owner／Protocolは保存・入口設計で閉じる |
+| 確認結果の確定 | 同じ初回試行の接続確認を保存・読戻しし、短命pending／材料・Lockの終了を確認する | 全条件成立後だけ初回completedと通常Authorityへ進む。未確認・失敗・観測不能なら両方0。清掃は有効資格の削除ではない |
 | 既存状態・通常鍵喪失 | 初期化拒否。鍵喪失は既存Host交換へ | 管理者不存在・Role破損を初期化で修復しない |
 | 観測不能・境界不正 | 別Root、読取不能、破損、Lock使用中、未解決回復、部分状態不明では新作成停止 | 単一File不在・Root作成を未初期化証明にしない。Root準備の既知Effectを初期化Effect0で隠さない |
-| 発行・記録確定、配送／受領だけ不明 | 作成済みadministratorへの既存Host指定交換を別明示操作として選択可能 | 元事実を保持、交換内部だけsame exact Recovery。秘密再取得・再表示・自動再発行0。別交換成功を旧受領・rollback・取消完了としない |
+| 発行・記録確定、提示／限定接続確認だけ不明 | 作成済みadministratorへの既存Host指定交換を別明示操作として選択可能 | 元事実を保持、交換内部だけsame exact Recovery。秘密再取得・再表示・自動再発行0。新提示資格への初回確認対象Bindingは保存設計で閉じる。別交換成功を旧受領・rollback・取消完了としない |
 
 状態遷移の投影：
 
 ```text
 双方未初期化確認＋Host明示開始
   → 元試行相関確定 → UUID作成 → 同userId資格発行 → 結果記録
-  → 配送 → 受領 → 通常管理接続
+  → Host一度提示 → exact同鍵の初回限定接続成功
+  → 確認の保存・読戻し・短命材料清掃／Lock終了 → 初回completed／通常Authority
 確認済み途中＋発行／記録不明 → 元試行再観測（新Effectなし）
-発行・記録確定＋配送／受領だけ不明 → 別の既存Host指定交換
+発行・記録確定＋提示／限定接続確認だけ不明 → 別の既存Host指定交換
+確認のいずれか失敗／未確認／観測不能 → 初回completed0／通常Authority0
 既存／観測不能 → 新初期化停止（未初期化へ戻さない）
 ```
 
@@ -118,7 +121,10 @@ AM → 保存Owner: Root・現在状態・進行記録確認、元試行相関�
 保存Owner → AM: 読戻し・個別確定事実（不明は保持）
 AM → 保存Owner: 最初のUUID・資格Verifier・非秘密結果
 AM → Host対話入口: 許可された結果、一度限りSecret
-Host対話入口 → AM: 配送・受領・通常接続の各観測
+Host対話入口 → AM: 非秘密の一度提示結果
+初回限定接続のOwner（未確定） → AM: 同鍵接続の相関した確認
+AM → 保存Owner: 確認結果の保存・読戻しと短命材料／Lock終了確認
+AM → 通常利用側: すべて確認後だけ初回完了と現在認証への接続
 ```
 
 ユーザー成立前の管理状態・元試行相関はAMが所有し、成立後にUUID／資格へ結ぶ。初回試行参照は非Authorityで、Credential ID・交換Recovery・Lock回復と分離する。Repository登録・Exposure・内容権限の自動付与とProduct Data変更は0。内部操作と論理記録の候補は[保存設計§2.1](02_Management_State_and_API.md#21-初回host設定の内部操作候補)へ渡す。Root準備・物理Schema・確定方法・保持清掃・本番接続は未完了で、論理順序から保存保証を推定しない。
@@ -149,7 +155,7 @@ Host対話入口 → AM: 配送・受領・通常接続の各観測
 | 結果確定 | 失効範囲・発行結果・結果改訂を同じRecoveryへ非秘密で確定 | 記録・読戻し不明を完了へ丸めない |
 | 結果配送 | 許可された入口へ結果と一度限りのSecretを返す | 発行・結果記録が確定済みなら「発行済み・受け渡し未確認」とし、確定を保持する。未確定発行の再観測と、確定後に明示選択する別交換を§6で分ける。Secret保存・再表示・自動再発行なし |
 
-資格状態（有効／失効／不明）と、回復の確認待ち／進行中／blocked／completedを混同しない。交換のcompletedは必要な失効と発行が確定している時だけで、結果の配送・受領確認とは別の事実である。UIには現在観測できた結果と未確定範囲を分けて返す。永久resetting／rotating資格状態は追加しない。
+資格状態（有効／失効／不明）と、回復の確認待ち／進行中／blocked／completedを混同しない。交換のcompletedは必要な失効と発行の確定で判定し、入口への提示結果とは別に保持する。通常の対象本人引渡し・受領は観測外であり、交換の終了条件にしない。UIには既知結果と未確定範囲を分けて返す。永久resetting／rotating資格状態は追加しない。
 
 ## 6. Failure・再入場
 
@@ -161,19 +167,19 @@ Host対話入口 → AM: 配送・受領・通常接続の各観測
 | 失効publish結果不明 | 同じRecoveryと現在資格状態から確定範囲を観測。相関不能なら停止 | 未失効／全失効への丸め、自動新規交換 |
 | 失効確定後の発行失敗 | 同じRecoveryで失効結果と発行状態を保持し、現在状態・Authorityを再確認 | rollback、旧鍵の再有効化、正常完了 |
 | 発行または非秘密結果記録が不明・Process喪失 | Credential IDとは別の非秘密な元発行Identityと既知事実で現在再観測し、新交換を開始しない。交換由来だけ元のexact Recoveryを保持。通常発行には交換Recoveryを新設しない | 確定事実の不明化、Secret再取得・再表示、記録からAuthority復元、重複発行、通常発行不明の`unresolvedKeyExchanges`への格納 |
-| 発行・結果記録確定後の応答／配送喪失、または配送観測後の受領不明 | 「発行済み・受け渡し未確認」と表示し、既知の発行・記録と元発行Identityを保持。現在許可されたadministratorが既存の指定／全員交換を明示的な別Operation／別Recoveryとして選択する | 確定発行の不明化、Secret保存・再表示、自動再発行、受領不明を確定未受領へ丸めること、別交換成功からの旧受領・rollback・取消完了推定 |
+| 発行・結果記録確定後の応答／配送喪失、または提示結果観測後の受領不明 | 「発行済み・受け渡し未確認」と表示し、既知の発行・記録と元発行Identityを保持。現在許可されたadministratorが既存の指定／全員交換を明示的な別Operation／別Recoveryとして選択する | 確定発行の不明化、Secret保存・再表示、自動再発行、受領不明を確定未受領へ丸めること、別交換成功からの旧受領・rollback・取消完了推定 |
 | 現在administratorとして接続できない | 既存のログイン済みHost交換2操作へ案内し、その現在対象・条件・確認を再適用する | Workbench認可迂回、Hostへの通常発行・独立失効・追加認証・新Recovery機構の追加 |
 | 全員交換で呼出し管理者自身が失効 | 開始済み処理の結果確定と新規再入場を分ける。再入場は新しい現在Authorityが必要 | 旧管理資格やRecovery参照による再認可 |
 
 別交換の指定操作は、先に発行した鍵を含む対象ユーザーの全旧有効資格を失効し、同じ既存userIdへ新資格を発行して他ユーザーを保持する。全員操作は先の鍵を含む全旧有効資格を失効し、指定既存administratorへ一資格を発行し、他ユーザーは通常再発行・再配布へ戻る。各交換内では旧資格失効前から同じexact Recoveryを保持し、別交換の結果を旧処理の受領・rollback・取消完了へ転用しない。遅延した旧応答で失効済み鍵を利用可能と表示しない。
 
-回復参照・結果照会は許可された利用側だけへ返す。参照自体に認可能力を持たせない。Host再入場はローカル入口で対象・現在状態を再確認し、記録を処理許可へ昇格しない。3分岐の処置方針は確定済みである。元発行Identity・公開read・配送観測の具体保存／搬送と保持・清掃は[保存設計](02_Management_State_and_API.md)のOPENとして残し、汎用回復Frameworkを作らない。
+回復参照・結果照会は許可された利用側だけへ返す。参照自体に認可能力を持たせない。Host再入場はローカル入口で対象・現在状態を再確認し、記録を処理許可へ昇格しない。3分岐の処置方針は確定済みである。元発行Identity・公開read・提示結果観測の具体保存／搬送と保持・清掃は[保存設計](02_Management_State_and_API.md)のOPENとして残し、汎用回復Frameworkを作らない。
 
 ## 7. 配置・秘密・観測境界
 
 単体／CROSは起動時明示選択。単体は検証済み起動Repository一つ、資格不要。CROSだけが既存Host管理領域を使用する。同一Process Workbenchは内部認可呼出し、別ProcessはMCP。Listener、TLS／Origin、接続・取消・joinは各Transport Ownerに残す。CROS REST／Gatewayは代替本番接続後に撤去し、Browser↔Workbench RESTは維持する。
 
-生Secretは生成・一度配送の短命値。Verifier以外を耐久保存せず、資格一覧・履歴・復旧結果から復元しない。通常の資格発行・独立失効・鍵交換は同一Process Workbench BackendからAccess Managementを直接呼ぶ。Host回復はローカル対話CLIから鍵交換2操作だけを呼ぶ。Browserへの一度表示とBackendの内部呼出しを分ける。MCPにはSecretの有無にかかわらず鍵操作のTool・Schema・登録・dispatchを持たせず、一覧への表示も鍵操作Effectも0にする。入口分担は採用済みで、具体的API・画面／CLI入力と結果受領プロトコルは未確定。
+生Secretは生成・一度提示の短命値。Verifier以外を耐久保存せず、資格一覧・履歴・復旧結果から復元しない。通常の資格発行・独立失効・鍵交換は同一Process Workbench BackendからAccess Managementを直接呼ぶ。通常提示は用途限定・短命な応答で操作administratorの画面へ、Host交換・初回はHost端末へ搬送する。対象本人への引渡し・受領は製品外で観測せず、追加受領ボタンや通常Receiptを設けない。一般MCP／DTO・一覧・履歴・Log・Evidenceへの生Secret公開は0。MCPには全鍵操作のTool・Schema・登録・dispatchを持たせない。具体API・画面／CLI入力と初回接続方式は未確定。
 
 観測は要求の種別・入口・許可済み対象、非秘密Identity、観測改訂、失効／発行／配送の個別結果、同じRecovery、処置時刻を相関可能にする。秘密値、Verifier、salt、任意Host Path、許可外User／RepositoryのIdentity・件数を公開しない。時刻だけを保存確定・失効成立の証明にせず、記録の正確なSchemaと保持期間は保存設計で閉じる。運用ログと正式Evidenceを混在させない。
 
@@ -188,8 +194,8 @@ Host対話入口 → AM: 配送・受領・通常接続の各観測
 | `access-management.management-and-revoke` | §4の通常管理・独立失効 | 通常6操作の対象・保存読戻し・次要求評価／managerのadministrator名前変更拒否・Role変更許可、正常管理への管理者存在条件、登録＝公開、解除片側除去だけの完了、対象外／本体変更、解除からの開始済み取消推定、自己内容変更の時間順違反、読戻し不明＝未保存を反証。独立失効は対象限定・次要求拒否／新発行やTask取消推定を反証 | UT／IT／ST | Direct Boundary | 解除は同一受理操作・採用改訂の登録／Exposure両除去読戻し。対象外と本体保持、終了未観測は別事実。独立失効の発行0・保持情報不変 | 保存単位 |
 | `access-management.key-exchange-scope` | §5の4組 | 対象集合・既存発行先・3組確認／対象不明・管理者なし・破損・不適切確認を反証 | UT／IT／ST／UAT | System/E2E／User Acceptance | 事前表示、対象資格集合、新旧照合、保持情報不変 | 具体入口と保存確定 |
 | `access-management.partial-recovery` | §5〜6の相関・Process喪失 | 元発行Identityによる再観測、交換由来の同じexact Recovery、確定後の明示的な別交換／通常発行へのRecovery付与、不明発行からの新交換、Credential IDとの混同、旧処理と別交換の混同、rollback・重複発行を反証 | IT／ST | Direct Boundary／System/E2E | 故障注入後の耐久読戻し・新Process再観測。各段階の既知／不明と旧元Identityを保持し、別Operation／Recoveryと各交換内exactを区別 | atomicity・元Identityの保存／再観測方式 |
-| `access-management.host-initialization` | §4.1の状態・順序 | 双方未初期化と明示開始／既存・途中・観測不能、相関確定前Effect、二重UUID・追加鍵、元試行と別交換混同を反証 | UT／IT／ST／UAT | Direct Boundary／System/E2E／User Acceptance | 相関読戻し、UUID／発行／記録／配送／受領／通常接続を別観測、秘密保存・再表示0、登録・公開・内容自動付与0、部分≠全体完了 | Root準備・相関保存・入口・清掃 |
-| `access-management.secret-delivery` | §5〜7の短命秘密・配送／受領・配置 | 一度配送と受け渡し未確認の表示、現在認可による別交換／自動再発行・確定未受領への丸め・旧受領完了推定、失効鍵の遅延利用案内、保存・ログ・再表示、MCP鍵公開、Host一般管理を反証 | IT／ST | Direct Boundary／System/E2E | 発行・結果記録・配送・受領の別観測、MCP一覧・Schema・登録・dispatchの鍵操作と鍵Recovery参照0、通常Host回復は交換2のみ、保存・ログ検査、配送後秘密非保持 | 入力・配送受領観測・清掃 |
+| `access-management.host-initialization` | §4.1の初回状態・限定接続 | Host提示→exact同鍵限定接続→確認保存・読戻し・短命清掃／Lock終了→completedの順。各段階の失敗・未確認・観測不能からの完了表示・通常Authority発行を反証 | UT／IT／ST／UAT | Direct Boundary／System/E2E／User Acceptance | 元試行／user／確認資格／発行処置相関、Host交換後の新提示資格へのBinding、秘密保存・再表示0、自動登録・内容付与0、有効資格を清掃しない | 接続Owner・Protocol・Binding・Schema・清掃処置 |
+| `access-management.secret-delivery` | §5〜7の用途限定短命提示 | 通常administrator画面・Host端末一度提示、追加受領操作0、本人受領非推定／Secret保存・再表示・一般MCP／DTO公開・自動再発行を反証 | IT／ST | Direct Boundary／System/E2E | 発行・記録・提示結果を別観測、本人引渡しは観測外、MCP鍵4面・鍵Recovery参照0、提示後の短命値解放 | 入力・提示結果の保存／搬送・清掃 |
 
 導出キーは領域内参照で、新しい安定IDではない。試験段階と外部境界段階は別軸。全体の履歴や旧試験成功をこの契約の新Evidenceへ流用しない。
 
@@ -215,7 +221,7 @@ Host対話入口 → AM: 配送・受領・通常接続の各観測
 | Resource Lifecycle | OPEN | 短命SecretとRequest値は§2／7。保持上限・清掃・配送後残存未設計、保存／入口設計で確認 |
 | External Boundary | OPEN | §7の論理配置は固定、公開入口・OS保存・配送実境界は未具体化、Surface／保存担当で確認 |
 | State／Consistency | OPEN | §2／5の論理整合を要求。失効／発行／相関の確定方法未設計、保存設計で確認 |
-| Failure／Recovery | OPEN | §6の3分岐と禁止推定は固定。元発行Identity・公開read・配送観測の具体保存／搬送は未設計、保存／入口設計で確認 |
+| Failure／Recovery | OPEN | §6の3分岐と禁止推定は固定。元発行Identity・公開read・提示結果観測の具体保存／搬送は未設計、保存／入口設計で確認 |
 | Observability | OPEN | §7の観測項目は固定、非秘密Schema・読戻しと公開結果の相関未確定、保存／Surface設計で確認 |
 | Security／Trust | OPEN | §3〜7の保護条件は固定、内容権限の具体語彙・秘密配送・新保存での成立は未具体化、認可／Surface設計で確認 |
 
@@ -248,7 +254,7 @@ Host対話入口 → AM: 配送・受領・通常接続の各観測
 |---|---|---|
 | UUID版・表示名制約、内容権限の具体語彙、Verifier適用 | AMデータ／認可設計、必要なら上流Owner。Schema固定前 | 新ユーザー保存・権限初期値をSourceへ実装しない |
 | 物理Schema・同一Root内配置・書込み確定・再入場・保持清掃 | AM保存設計、既存保存Owner。Source移管前 | 既知部分結果を失う方式、無期限蓄積、新Lock Frameworkを採用しない |
-| 公開API・秘密配送・採用済み画面／CLI入口の具体入力・表示と結果受領 | AM／UI／MCP／Workbench Owner。公開入口実装前 | Remote秘密公開、新CLI入力、受領成功の推定をしない |
+| 公開API・秘密配送・採用済み画面／CLI入口の具体入力・表示と提示結果の確認 | AM／UI／MCP／Workbench Owner。公開入口実装前 | Remote秘密公開、新CLI入力、受領成功の推定をしない |
 | Domain集約・混合型分割・全ConsumerとQuality伝播 | Domain／Surface／Quality Owner。旧CROS撤去前 | 旧処理の削除・新契約全体完成を主張しない |
 
 現在の意味具体化に追加の人間判断はない。OPENを閉じる際、上流意味、Authority、公開秘密境界、保証範囲の変更が必要なら人間へ戻す。
@@ -268,4 +274,4 @@ Host対話入口 → AM: 配送・受領・通常接続の各観測
 - OPEN: 保存、内容権限の具体語彙、公開入口、Domain詳細、Quality、Source・新実境界は未完了
 - 履歴: 旧鍵管理判断の限定レビューは当時の範囲だけに適用する。
 - 履歴: 固定8分担・登録解除・鍵3分岐の限定レビューは当時の範囲に限る。
-- OPEN: 初回設定を候補伝播済み・今回の契約・品質限定独立レビュー済み・全重大度の残指摘0。横断・Workbench／MCP詳細・Quality・Source・実境界は未追従。
+- OPEN: 今回の最小鍵提示方式は候補伝播済み・限定再レビュー済み（最小鍵提示方式の伝播差分、全重大度0）。旧初回設定の限定Passは履歴。接続Owner・Protocol・Host交換後Binding・保存Schema、Quality・Source・本番接続・実境界は未成立。

@@ -272,11 +272,11 @@ Repository登録解除の非鍵結果は、同じ受理済み操作・採用改�
 
 ### 3.4. 初回Host設定の非公開境界
 
-初回State／Sequenceと失敗分岐は[Access Management詳細](../access-management/01_Architecture.md#41-初回host設定のstateとsequence)が所有する。MCPは初期化Toolの一覧・Schema・登録・dispatchを全て持たず、初期化状態照会・元試行Identity・初期Secret配送も公開しない。通常CROS認証、非鍵管理の固定9分担、同じHTTP入口の接続はこの例外を作らない。
+初回State／Sequenceと失敗分岐は[Access Management詳細](../access-management/01_Architecture.md#41-初回host設定のstateとsequence)が所有する。MCPは初期化Toolの一覧・Schema・登録・dispatchを全て持たず、初期化状態照会・元試行Identity・初期SecretのWorkbench搬送も公開しない。通常CROS認証、非鍵管理の固定9分担、同じHTTP入口の接続はこの例外を作らない。
 
 MCP起動・`--cros`・設定File存在・Remote要求は初回設定の明示開始やHost Authorityではない。未初期化・破損・観測不能では既存起動契約に従い停止し、自動Bootstrap、別Root、新資格、単体fallbackを生成しない。未認証／非許可Clientへ管理ユーザーや試行の存在を結果・エラー・件数等で開示しない。Workbench Clientにも初期化状態照会を追加せず、Hostの操作はローカル対話入口で扱う。
 
-今回の非公開候補は契約・品質限定独立再レビュー済み・全重大度の残指摘0。Qualityは公開一覧・Schema・登録・dispatch・状態照会の不存在と、起動・Remote入力から初期化Effectが発生しないことを確認する。具体API・Source・全Consumer・実境界検証は未完了で、負契約の記載から本番成立を主張しない。
+旧非公開候補の限定Passは当時の固定版の履歴。今回の最小提示方式を受けた境界差分は限定再レビュー済み（最小鍵提示方式の伝播差分、全重大度0）。初回限定接続の必要性から、通常MCP認証・内容Authority・鍵Tool・状態照会・Secret搬送の例外を生成しない。現Sourceの通常認証はcompletedを要求し、本文前Resolverで呼ばれるため初回確認へ流用できない。具体接続Owner・ProtocolはAM詳細で閉じる。Qualityは鍵4面・状態照会の不存在、起動／Remote入力から初期化Effect0、未確認保存・読戻し・清掃後の通常Authority0を確認する。Source・全Consumer・実境界は未完了。
 
 ## 4. Authorityと情報境界
 

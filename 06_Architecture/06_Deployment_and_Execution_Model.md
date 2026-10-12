@@ -4,7 +4,9 @@ Status: Candidate (v0.22 responsibility reorganization)
 Owner: Qual-Lab
 Last Updated: 2026-10-11
 
-固定8管理分担、登録解除・通常鍵3分岐の前回限定レビューは履歴として保持する。今回は承認済み初回Host設定をARCH-000013とAccess Management詳細から横断モデル・Workbench／MCP詳細へ候補伝播する。今回の固定12文書は契約・品質の限定独立再レビュー済み・全重大度の残指摘0で、前回Passを流用していない。Quality・Source・具体API／物理保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
+旧固定版の履歴: 固定8管理分担、登録解除・通常鍵3分岐の前回限定レビューは履歴として保持する。今回は承認済み初回Host設定をARCH-000013とAccess Management詳細から横断モデル・Workbench／MCP詳細へ候補伝播する。今回の固定12文書は契約・品質の限定独立再レビュー済み・全重大度の残指摘0で、前回Passを流用していない。Quality・Source・具体API／物理保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。
+
+現在の提示先は通常Workbenchと初回／Host交換端末に固定し、Package改名や初回接続確認のために保存Root・Process・Serverを追加しない。初回確認用接続の配置・Protocol・通常認証への移行は詳細設計OPEN。今回配置差分は限定再レビュー済み（最小鍵提示方式の伝播差分、全重大度0）。
 
 ## 1. この成果物が所有すること
 
@@ -61,7 +63,7 @@ Coordinatorは単体の実行Runtimeとして利用でき、Orchestratorはそ�
 |---|---|
 | 単体Repository | 資格不要を維持。起動だけでCROS管理Rootや初期ユーザーを作らない |
 | ローカルHostの明示初期化 | 既存OSユーザー管理Root／Pathを検証し、双方未初期化確認からAccess Managementへ接続する候補 |
-| 同一／別Process Workbench | Host操作の案内だけ。初期化・初期Secret配送をBackendで実行しない |
+| 同一／別Process Workbench | Host操作の案内だけ。初期化・初期SecretのWorkbench搬送をBackendで実行しない |
 | MCP・Remote Client・自動起動 | 初期化・状態照会は非公開。未初期化を別Root・単体fallbackで回避しない |
 
 論理OwnerやPackage改名を理由に秘密値をRepositoryへ移動しない。具体保存Schema・Root準備・atomic publication・公開入口・Source接続は未完了で、配置候補から本番成立を推定しない。
@@ -77,11 +79,11 @@ Coordinatorは単体の実行Runtimeとして利用でき、Orchestratorはそ�
 | Acceptance Decision Operation | 対象Identity、根拠Revision、明示判断 | Objective／Milestone／判断者 | 受入・差戻し・判断待ちの限定記録またはEffect 0 |
 | 接続認可Query | Credential→userId、現行Role詳細権限、Workspace／Exposure、取得可能性 | 要求／認証Context | 現在認可済み集合または非開示拒否を返す。接続の終了はTransport Ownerが確認する |
 | 認可済みFederation Query | 許可済みRepository集合、Source snapshot、Coverage | Query／対象集合 | Domain Modelが根拠と不完全性を返す。管理権限から内容閲覧を生成しない |
-| 通常管理Operation | 操作別の予定Role／既存対象／前後Role／Role内容／接続登録／Exposure | 操作／対象／変更前の現行Roleに対する固定8分担 | 対象更新・結果確定・搬送・受領を分離。不明を成功化せず、次要求で内容認可を再評価。登録≠公開。解除は同じ受理操作・採用改訂の登録と対応Exposureを両読戻しし、対象外・本体を保持。開始済み取消非証明。新Process／保存方式／公開APIは未確定 |
-| 初回Host設定Operation（Access Management） | 検証済み管理Root、初期化状態、確認済み非秘密元試行相関、作成userId／資格、発行・記録・配送・受領・通常接続の各事実 | Root／確認済みexact初回試行。双方未初期化確認＋Host明示開始のみ新試行を作り、開始前のIdentityを推定しない | 相関を耐久確定・読戻ししてからUUID／鍵Effectへ進む。受領事実の確認と通常管理への導線を分け、通常管理接続は別観測。自動接続完了を生成せず、必要事実すべて成立時だけ全体完了。途中／不明は元試行で保持・再観測。通常交換2操作とは別で、具体API・物理保存・Sourceは未確定 |
-| 新規資格発行Operation | 既存対象userId、発行結果 | 操作／対象userId／同一Process Workbenchの現行administrator | 発行・結果記録・搬送・受領を別観測。旧失効0・交換Recoveryなし。配送失敗だけで確定発行を不明化しない |
+| 通常管理Operation | 操作別の予定Role／既存対象／前後Role／Role内容／接続登録／Exposure | 操作／対象／変更前の現行Roleに対する固定8分担 | 対象更新・結果確定・提示結果（本人受領は観測外）を分離。不明を成功化せず、次要求で内容認可を再評価。登録≠公開。解除は同じ受理操作・採用改訂の登録と対応Exposureを両読戻しし、対象外・本体を保持。開始済み取消非証明。新Process／保存方式／公開APIは未確定 |
+| 初回Host設定Operation（Access Management） | 検証済み管理Root、元試行、作成userId、確認対象資格と元発行、Host提示・限定接続・確認保存の事実 | Root／exact初回試行／user／直近に提示した有効資格。Host明示開始と双方未初期化確認後だけ新試行 | 相関読戻し後にUUID・資格を作る。Host一度提示→同鍵限定接続成功→確認保存・読戻し・短命材料清掃／Lock終了後だけcompleted・通常Authority。未確認・失敗・観測不能なら双方0。Host交換後Binding・具体Protocol・Schema・SourceはOPEN |
+| 新規資格発行Operation | 既存対象userId、発行・記録・提示結果 | 操作／対象userId／同一Process Workbenchの現行administrator | 操作administrator画面へ一度提示し、本人受領は観測しない。旧失効0・交換Recoveryなし。提示失敗だけで確定発行を不明化しない |
 | 独立失効Operation | exact対象資格IdentityとuserIdへの結合、失効結果 | 操作／資格Identity／同一Process Workbenchの現行administrator | 確定した失効資格の後続要求を拒否、不明は既知状態と確認先を返す。範囲拡大・新発行・Secret・交換再入場0、Task取消非証明 |
-| 鍵交換Operation | 対象userId、既存発行先、失効範囲、非秘密Recovery状態 | 2操作／Workbench固定administratorまたは信頼したHostログイン操作者／旧失効前に結合した同じexact Recovery ID | 失効・発行・結果記録・搬送・受領を分離。発行／記録不明は元発行Identity・元exact Recoveryで再観測。発行・記録確定後の配送／受領未確認は現在administratorの明示選択だけで別交換へ。各交換内のexactを保持し、確定発行を不明へ戻さない |
+| 鍵交換Operation | 対象userId、既存発行先、失効範囲、非秘密Recovery状態 | 2操作／Workbench固定administratorまたは信頼したHostログイン操作者／旧失効前に結合した同じexact Recovery ID | 失効・発行・結果記録・提示結果（本人受領は観測外）を分離。発行／記録不明は元発行Identity・元exact Recoveryで再観測。発行・記録確定後の提示・引渡し（初回は同鍵接続確認）未確認は現在administratorの明示選択だけで別交換へ。各交換内のexactを保持し、確定発行を不明へ戻さない |
 | External Information Request | consent scope、payload、returned candidate | Request Identity | 候補隔離または採否への引渡し |
 | Runtime Data Operation | lease、lock、temporary artifact | Owner／Repository Root | publish、cleanupまたはRecovery記録 |
 | Verification Run | fixed revision、test resource、evidence | Run／test class | 全対象終了、未実施範囲の記録 |
@@ -140,8 +142,8 @@ Canonical Architectureが独立レビューで閉じた後に、次を照合す�
 - OS／Runtime／外部CLIのVersion差は、危険な意味変化を検出して停止する。無関係なHash差やVersion差だけで恒久拒否しない。
 - Physical deploymentが未確定な箇所は未確認として保持し、CanonicalなProcess数や配置を捏造しない。
 - 鍵交換2操作×2入口の4組表示・3組だけ明示確認、固定administratorのWorkbenchと追加認証なしのHost交換2操作だけを確認する。MCPの鍵操作一覧・Schema・登録・dispatchは不存在を確認し、一般Remote経路から迂回させない。
-- 新規発行・独立失効・交換の対象と結果、旧失効前exact Recovery、段階別の記録・搬送・受領を確認する。Host配置から通常管理の固定分担や内容権限を追加生成せず、8操作の許可／拒否／不明と変更前認可・次要求反映を確認する。
-- Workbench／Host CLIの入口割当は採用済み。具体Layout・入力・一度表示と受領方式だけを未確定としてDetailsへ渡し、実装・配置の成立を主張しない。
+- 新規発行・独立失効・交換の対象と結果、旧失効前exact Recovery、段階別の記録・提示結果（本人受領は観測外）を確認する。Host配置から通常管理の固定分担や内容権限を追加生成せず、8操作の許可／拒否／不明と変更前認可・次要求反映を確認する。
+- Workbench／Host CLIの入口割当は採用済み。具体Layout・入力・一度表示と提示方式・初回限定接続確認方式だけを未確定としてDetailsへ渡し、実装・配置の成立を主張しない。
 
 ## Checklist
 

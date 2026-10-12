@@ -313,6 +313,18 @@ Windows 10.0.26200.0・C: NTFS・Node v24.19.0で同Directoryの通常置換・b
 
 Checkerは現行20文書と全変更MarkdownをHEAD bytesで読んだメモリ基準入力の双方で3057 errors／0 warnings。対象の16 code／path指摘は基準にも存在し、旧記録と現在Definition集合のFingerprint不一致も両方に残る。新規リンク／アンカー指摘0。これを全体Pass・既存指摘解消の根拠にせず、同CHG完結時の構造不足照合へ残す。新版へ合わせて旧Hashを書き換えない。
 
+### 最小鍵提示方式のArchitecture伝播 — 2026-10-12
+
+基準`07d21331`。UI／SPECの限定Passは伝播入力であり、Architectureの完成根拠へ流用しない。UI8／SPEC12の分析2、ARCH13、AM詳細2、横断01〜08、Workbench／MCP境界、旧CROSの置換案内の16文書を対象とし、本計画を含む17文書を固定候補として契約・文書・直接影響の独立レビューへ渡す。通常は操作administratorのWorkbench一度提示、初回／Host交換はHost端末提示、通常本人受領は観測外、追加受領操作・Receipt・Session・Store・Lock Frameworkなしを維持する。
+
+初回はHost提示→exact同鍵限定接続成功→確認の保存・読戻し・短命材料清掃／Lock終了→completed／通常Authority。各段階の未確認・失敗・観測不能は完了表示と通常Authorityを阻止する。清掃は有効資格の削除ではない。接続Owner・Protocol・保存Schemaはこの直接伝播ではOPENのままとし、次の実装設計で閉じる。現Sourceでは通常認証がcompletedを要求し、MCP本文前Resolverから呼ばれるため初回へ流用できない。初回本人照合だけで通常権限を与えない。
+
+Host明示交換後は、同じ初回attempt／userの確認対象を直近提示した新資格へ結び直す必要がある。現Parserは初回credentialの元operationId＝attemptIdを要求するため、そのまま新交換資格を適用できない。初資格の歴史的参照と確認対象Bindingの具体形状は次段で確定する。旧発行の既知事実を新交換成功で上書きせず、元Secretの受領・rollback・取消完了を推定しない。
+
+変更分類は採用済み契約の直接伝播。固定17文書の伝播差分は契約・品質限定独立再レビューPass・全重大度0。旧受領方式の現行表・OPEN残存を全数是正し、旧field集合をAM02の現Source比較へ分離した。非鍵管理の結果受領1行への誤置換は基準へ復元した。旧限定Passは固定版履歴に限定する。Source／Test／Schema実体／Host／秘密／旧Evidence／正式191・E2Eは不変更。Package回帰・署名E2E・準拠規範監査はこの文書差分の対象外。Qualityへの負条件・観測義務は引渡しに保持し、QA-000007等の実定義は次段で更新する。旧CROS本文全体を現行化せず、代替本番接続の確認前に撤去しない。AM全体完成・Architecture Ready・Release可能を主張しない。
+
+Checkerの候補と全変更MarkdownをHEAD byteへ差し替えたメモリ内基準入力は双方3057 errors／0 warnings。対象17Pathは既存`ui-spec-detail-downstream-coverage-invalid`の同じ1 code/pathのみで、新規リンク／anchor指摘0。全体Passには使わず、正式検証と構造不足の解消は同CHGの残件として保持する。最終意味是正は見出し・リンク・IDを変更せず、差分空白確認成功。巨大な実行結果の書庫は追加しない。
+
 ### 共有AI Profile管理のRole採用と本番接続 — 2026-10-12
 
 Source候補の局所結果：基準`ec2a2e3e`、Node v24.19.0。AM60／AI Adapter30／旧CROS34／MCP68／Workbench33の計225 Case（追加Workbench33 Caseは旧比較Consumerの回帰）、各書式・型・Warning禁止Lint成功、Fail／Cancel／Skip0、全Exit0。実HTTPと自己生成実Catalog Storeでmanager／administrator四操作・developer非開示・次要求のRole変更／失効、遅延認可・二依存拒否・採用後取消／応答故障の改訂保持を確認した。AM新試験の初回途中Fixture不整合は正規の一User・一Credential・元発行相関へ是正し、局所再試験後にAM全回帰を再実行した。最初の失敗を現在の成功へ混ぜない。Biomeの一時OS1224は同じ対象の再実行で解消した。固定29Pathの限定独立再レビューはPass・全重大度残指摘0。全体Checkerは3057 errors／exit1を維持し、変更29Path抽出はProject Context構造の既存1件のみ。判定に使う三Identity・五見出し・Checklist見出しとcheckboxの17行が基準HEADと順序込み完全一致し、差分起因0を確認した。Repository全体Passとは扱わず、正式191項目Not Runと本番Launcher／Workbench・鍵配送・旧REST撤去・AM全体未完成を維持する。実行別ログ書庫は作らず、各Packageの`npm test`から再生成する。
