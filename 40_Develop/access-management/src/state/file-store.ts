@@ -10,6 +10,12 @@ import {
   selectCredentialPresentationTarget,
 } from "../credential/presentation.ts";
 import {
+  readInitialConnectionBinding,
+  selectConnectionAuthentication,
+  selectInitialConnectionConfirmation,
+  type ConnectionAuthenticationResult,
+} from "../credential/initial-connection.ts";
+import {
   selectRepositoryAccess,
   observeRepositoryAccess,
   type RepositoryAccess,
@@ -737,6 +743,184 @@ export function authenticateNormalConnection(
   token: string,
 ): CredentialAuthenticationResult {
   return authenticateStoredCredential(root, token, true);
+}
+
+/**
+ * 通常本人か初回限定候補かを一回の同Lock認証で判定する。
+ * @responsibility Lock外のstage読取りや二認証の組合せを排除する。
+ * @trace ARCH-000013
+ * @input 検証済み管理Rootと信頼しないBearer。
+ * @returns 通常本人、非Authority初回相関、固定拒否／状態未確認。
+ * @precondition Surfaceは初回候補を完全discover専用Handlerへ渡す。
+ * @postcondition 認証・用途判定・材料清掃・Lock解放後だけ投影を返す。
+ * @effect 既存Lock・状態読取り・KDF・許可後の既存pending処置。
+ * @failure 不正資格・段階差は固定拒否、観測・清掃・解放不明は情報0。
+ * @invariant 初回候補へ通常Role・内容・Toolの権限を付与しない。
+ * @boundary AM要求内認証とSurfaceの用途別Handler。
+ * @security 生鍵・Verifier・内部Path・状態Snapshotを返さない。
+ * @concurrency 同じLock・同改訂で判定し、確認出版時はfreshに照合する。
+ */
+export function resolveConnectionAuthentication(
+  root: FilesystemStoreRoot,
+  token: string,
+): ConnectionAuthenticationResult {
+  if (!readCredentialId(token))
+    return {
+      status: "unavailable",
+      reason: "connection_authentication_rejected",
+    };
+  const result = locked<
+    Exclude<ConnectionAuthenticationResult, { status: "unavailable" }>
+  >(root, () => {
+    try {
+      const current = readCurrent(root);
+      const actor = resolveCredentialAuthentication(token, current.state);
+      const value =
+        actor && selectConnectionAuthentication(current.state, actor);
+      if (!value)
+        return {
+          status: "unavailable",
+          reason: "connection_authentication_rejected",
+          publication: "not_attempted",
+          revision: null,
+          cleanupConfirmed: true,
+        };
+      settlePending(root, current, () => {});
+      return {
+        status: "completed",
+        value,
+        publication: "not_attempted",
+        revision: current.state.revision,
+        cleanupConfirmed: true,
+      };
+    } catch {
+      return {
+        status: "unavailable",
+        reason: "connection_state_unavailable",
+        publication: "not_attempted",
+        revision: null,
+        cleanupConfirmed: false,
+      };
+    }
+  });
+  return result.status === "completed"
+    ? result.value
+    : {
+        status: "unavailable",
+        reason:
+          result.reason === "connection_authentication_rejected" &&
+          result.cleanupConfirmed
+            ? "connection_authentication_rejected"
+            : "connection_state_unavailable",
+      };
+}
+
+/**
+ * 完全な限定要求の受理後に初回接続を保存確定する。
+ * @responsibility freshな鍵・相関・提示・交換状態を同Lockで再照合する。
+ * @trace ARCH-000013
+ * @input 検証済みRoot、Bearer、閉じた初回相関、Consumer所有のAbortSignal。
+ * @returns 保存／再観測と清掃・Lock終了済みの非秘密出版結果、または未完了。
+ * @precondition 信頼済みConsumerが完全discoverを検査済み。入力相関だけでは許可しない。
+ * @postcondition 一出版後は同歴史相関と直後改訂だけ再観測。通常Authorityは返さない。
+ * @effect 既存Lock・fresh KDF・既存pending処置・completedの同期出版／読戻し／清掃。
+ * @failure 開始前取消・不正相関はRoot観測0。状態・出版・清掃不明では成功を返さない。
+ * @invariant 新User・資格・元試行は0。現在状態の出版Operation IDだけを生成する。
+ * @boundary AM同期保存とSurfaceの完全要求検査・応答前取消再確認。
+ * @security 生鍵を保存・返却せず、相関と内部保存結果を外部へ透過しない。
+ * @concurrency Signalは開始前Gate。同期保存開始後は完了し、Consumerが取消後の応答を止める。
+ */
+export function confirmInitialConnection(
+  root: FilesystemStoreRoot,
+  token: string,
+  input: unknown,
+  signal: AbortSignal,
+): StateStoreResult<Readonly<{ revision: number; operationId: string }>> {
+  const binding = readInitialConnectionBinding(input);
+  if (signal.aborted || !binding || !readCredentialId(token))
+    return {
+      status: "unavailable",
+      reason: signal.aborted
+        ? "initial_connection_cancelled"
+        : "initial_connection_rejected",
+      publication: "not_attempted",
+      revision: null,
+      cleanupConfirmed: true,
+    };
+  return locked(root, () => {
+    let publication: "not_attempted" | "confirmed" = "not_attempted";
+    let revision: number | null = null;
+    let cleanupConfirmed = false;
+    try {
+      const current = readCurrent(root);
+      revision = current.state.revision;
+      const actor = resolveCredentialAuthentication(token, current.state);
+      const action =
+        actor &&
+        selectInitialConnectionConfirmation(current.state, actor, binding);
+      if (!action)
+        return {
+          status: "unavailable",
+          reason: "initial_connection_rejected",
+          publication,
+          revision,
+          cleanupConfirmed,
+        };
+      const pending = settlePending(root, current, () => {
+        publication = "confirmed";
+      });
+      cleanupConfirmed = true;
+      if (action === "observed")
+        return {
+          status: "completed",
+          value: { revision, operationId: current.state.operationId },
+          publication: "confirmed",
+          revision,
+          cleanupConfirmed,
+        };
+      if (pending !== "none")
+        return {
+          status: "unavailable",
+          reason: "state_store_previous_pending_settled",
+          publication,
+          revision,
+          cleanupConfirmed,
+        };
+      const initial = current.state.initialization;
+      if (initial.stage !== "credential_stored")
+        throw new Error("initial_stage_mismatch");
+      const operationId = crypto.randomUUID();
+      if (
+        !ATTEMPT_UUID.test(operationId) ||
+        operationId === current.state.operationId ||
+        operationId === initial.attemptId
+      )
+        throw new Error("uuid_collision");
+      const next = structuredClone(current.state);
+      next.revision += 1;
+      next.operationId = operationId;
+      next.initialization = {
+        stage: "completed",
+        attemptId: initial.attemptId,
+        initialUserId: initial.userId,
+        initialCredentialId: initial.initialCredentialId,
+        confirmationCredentialId: initial.confirmationCredentialId,
+        connection: "confirmed",
+      };
+      const parsed = parseAccessManagementState(serialize(next));
+      if (parsed.status !== "parsed")
+        throw new Error("initial_candidate_invalid");
+      return publishState(root, current, parsed.state, "initialization");
+    } catch {
+      return {
+        status: "unavailable",
+        reason: "initial_connection_state_unavailable",
+        publication,
+        revision,
+        cleanupConfirmed,
+      };
+    }
+  });
 }
 
 /**

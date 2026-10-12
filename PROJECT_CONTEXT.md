@@ -9,9 +9,9 @@ Repository Role: `crdd-standard`
 
 ## 1. 今どうなっているか
 
-直近の保存側結果：鍵の提示前・提示後の状態保存を実装し、再表示を許可しない非秘密の相関を接続した。局所6／AM全70 Case、AMとMCPの各静的3軸成功、限定独立再レビューの残指摘0。保存済みpendingを残したまま清掃完了とする不具合は是正済み。実際の一度表示、初回接続、公開入口、正式191項目とAM全体完成は未成立。[範囲と残件](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#資格提示状態の保存候補--2026-10-12)を参照する。以下のSchema切替結果は先行段階の局所結果である。
+直近の保存側結果：初回限定候補と通常本人を一回の同Lock認証で分け、完全要求検査後に呼ぶ初回確認保存を実装した。局所8／AM全78 Case、AMとMCPの各静的3軸成功、限定独立再レビューの残指摘0。並行二Processで一出版、保存故障後の次要求からの再観測と材料処置を確認した。次はMCPの完全discover検査と保存終了後の取消再確認へ接続する。実際の一度表示、公開入口からの初回接続、正式191項目とAM全体完成は未成立。[範囲と残件](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#初回接続の用途判定と確認保存候補--2026-10-12)を参照する。[提示状態保存](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#資格提示状態の保存候補--2026-10-12)は先行段階で局所成立済み。以下のSchema切替結果も先行段階の局所結果である。
 
-現在の作業：管理状態Schema v2の型・Parser・初回資格WriterとAM／MCP試験fixtureを切り替えた。8Pathの限定独立レビューPass・全重大度の残指摘0、AM64／MCP68 Case・各静的3軸成功。初回中のHost失効途中を保持できても認証は拒否し、元資格と最新確認対象、完了後の歴史IDと後続交換を区別する。次は提示前unconfirmedの出版、一度出力、非秘密の遅延提示確認と初回限定接続の実装へ進む。実Hostの旧v1状態移行、提示・初回確認の本番Writer、公開Launcher／Workbench、正式191項目・AM全体完成は未成立。[対象と残件](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#管理状態schema-v2の実装候補--2026-10-12)を参照する。全体Checkerの既存3057 errorsは未解消であり、全体Readyとはしない。
+先行したSchema切替：管理状態Schema v2の型・Parser・初回資格WriterとAM／MCP試験fixtureを切り替えた。対象8Pathの限定独立レビューPass・全重大度の残指摘0、当時のAM64／MCP68 Case・各静的3軸成功。初回中のHost失効途中を保持できても認証は拒否し、元資格と最新確認対象、完了後の歴史IDと後続交換を区別する。提示保存と内部用途判定・初回確認保存は、その後の保存側候補へ局所接続済み。完全discover公開検査、実TTY／HTTP提示Consumer、保存終了後の取消応答抑止、実Hostの旧v1状態移行、公開Launcher／Workbench、正式191項目・AM全体完成は未成立。[先行対象](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#管理状態schema-v2の実装候補--2026-10-12)を参照する。全体Checkerの既存3057 errorsは未解消であり、全体Readyとはしない。
 
 直前の活動局所結果：AM現在認可からOrchestrator活動ReaderをMCPへ接続し、旧CROSの重複結果型／Parserを撤去、Workbench旧Remote受取を表示専用投影へ追従した。実状態と別Rootの履歴搬送、Source許可集合とのexact相関、部分公開解除・失効を確認した。関連5Package計283 Case・静的3軸・Workbench Build成功、限定独立再レビュー残指摘0、自己生成試験Root残存0。公開Launcher／Workbench本番MCP切替、鍵管理・配送、旧REST撤去、正式191項目とAM全体完成は残る。Profile管理Roleはmanager／administratorに確定し、現在はAM認可とMCP実HTTPの局所候補へ接続済みである。Catalog依存を構成した局所候補ではmanager／administratorが19 Tool、developerが15 Tool、Catalog未構成時は15 Toolとする。[対象と限界](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#現在認可mcpと直接利用側の実装候補--2026-10-12)を参照する。
 

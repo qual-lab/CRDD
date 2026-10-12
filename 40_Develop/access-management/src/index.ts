@@ -29,6 +29,10 @@ export type {
   CredentialAuthenticationResult,
 } from "./credential/authentication.ts";
 export type { CredentialPresentationUpdate } from "./credential/presentation.ts";
+export type {
+  InitialConnectionBinding,
+  ConnectionAuthenticationResult,
+} from "./credential/initial-connection.ts";
 export {
   createCredentialMaterial,
   type CredentialMaterial,
@@ -65,6 +69,8 @@ export {
   createInitialAdministrator,
   authenticateCredential,
   authenticateNormalConnection,
+  resolveConnectionAuthentication,
+  confirmInitialConnection,
   readCurrentAccess,
   readManagementState,
   resolveRepositoryAccess,

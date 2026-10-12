@@ -109,7 +109,7 @@ Source・Package公開入口・Symbol・試験台帳を接続し、既存保存I
 
 | 順序・Owner | 具体処理 | 成立条件と拒否 |
 |---|---|---|
-| AMの要求内接続判定 | 同じ既存Lock・同改訂で資格を照合し、通常接続または初回限定接続へ分類する | 初回候補は元attemptId・userId・最新confirmationCredentialId・revisionへ相関。通常認証と途中本人認証を二度呼んで組み合わせず、Lock外stage読取りをしない。候補は通常Authorityではない |
+| AMの`resolveConnectionAuthentication` | 同じ既存Lock・同改訂で資格を照合し、通常接続または初回限定接続へ分類する | 初回候補は元attemptId・userId・最新confirmationCredentialId・revisionへ相関。通常認証と途中本人認証を二度呼んで組み合わせず、Lock外stage読取りをしない。候補は通常Authorityではない |
 | MCPの限定Handler | HTTPのOrigin／Endpoint／POST／Header／容量／完全JSON／Header相関検査後、既存`server/discover`だけを完全検査する | 非null Request ID、exact method、閉じたparamsと`_meta`、既存Envelopeを検査する。`tools/list`／`tools/call`・他method・不正入力・開始前取消はAM更新0。通常Routingの依存やToolを初回Handlerへ渡さない |
 | AMの`confirmInitialConnection` | signal再確認後、同じ保存LockでBearerと期待Bindingをfresh再照合し、初回completedを一回出版する | `credential_stored`、同attempt／user／最新資格／期待revision、資格有効、Host提示confirmed、未解決交換0が必要。確認保存・正確byte読戻し・pending／短命材料清掃・Lock終了まで成功した場合だけ非秘密の成功を返す |
 | Surfaceの成功応答 | 確認の確定後に限定discover応答を返す | 応答前に通常内容・管理・鍵操作を実行しない。通常Authorityは次要求のfresh通常認証だけ。応答結果に元試行ID・User／資格ID・Root・Verifier・Secretを出さない |
@@ -119,9 +119,11 @@ MCP-only初回は、CRDDの完全な`server/discover`を送るClientで成立さ
 
 応答書込み失敗・切断が確認出版後なら、既知completedを保持しrollbackや新資格生成をしない。Clientは同鍵の次要求で現在状態を再観測できる。出版・読戻し・清掃・Lock終了が不明なら成功応答と当該要求の通常Authorityは0とし、既存pendingと元相関を保持する。次要求は既存の同相関再観測・清掃・Lock終了を確認するまで通常認証成功にしない。取消は保存開始前なら更新0、開始後は既存同期保存の終了を待ち、取消後の成功応答を止める。応答後に秘密を保持したまま`finish`で保存する経路は採らない。[Node.js HTTPのfinish仕様](https://nodejs.org/docs/latest-v24.x/api/http.html#event-finish_1)はOSへの送出引渡しであり、Client受領の証明ではない。
 
-同時要求は同じ既存Lockで順序化する。同Bindingの再要求は一回の出版を再観測するだけで、追加資格・追加UUIDを作らない。既に同attempt／user／確認資格でcompletedなら、現在資格の有効性と短命材料・Lock終了をfreshに確認して限定成功を再観測する。未完了の更新には期待revisionの完全一致が必要であり、用途解決後のHost交換や別改訂では古い候補の更新を拒否する。表示・通信・保存の故障を通常の本人受領へ読み替えない。
+同時要求は同じ既存Lockで順序化する。同Bindingの再要求は一回の出版を再観測するだけで、追加資格・追加の業務Identityを作らない。初回completedへの出版では既存保存契約のoperationIdを一つ生成し、再観測では生成しない。既に同attempt／user／確認資格でcompletedなら、現在資格の有効性・未解決交換0・`current.revision === expectedRevision + 1`と短命材料・Lock終了をfreshに確認して限定成功を再観測する。未完了の更新には期待revisionの完全一致が必要であり、用途解決後のHost交換や別改訂では古い候補の更新を拒否する。表示・通信・保存の故障を通常の本人受領へ読み替えない。
 
-反証対象は、不正Header／body／Envelope／ID／method、Tool呼出し、提示未確認、旧・失効・別User資格、attempt／user／資格／revision差、未解決交換、Lock／状態不明、二要求競合、交換競合、保存前／保存後取消、出版／読戻し／清掃／解放故障、成功保存後の応答喪失と次要求である。既存初回義務`RFD-IT-024`／`025`／`RFD-ST-026`／`RFD-UAT-027`へ具体観測を渡す。QA定義・Source・本番Consumerは未更新、正式結果はNot Run。この具体設計5文書差分の契約・品質限定独立再レビューはPass・全重大度0で、実装Ready・本番成立を意味しない。
+内部保存の実装では、閉入力とSnapshot上の用途／確認条件を`credential/initial-connection.ts`、同LockのKDF・pending処置・物理出版を`state/file-store.ts`へ置く。`confirmInitialConnection`のAbortSignalは呼出し開始時のGateだけであり、開始前取消はRoot／KDF／保存0とする。同期保存開始後は終了まで進めて既知出版を返し、Transport Consumerが直後にSignalを再確認して取消後の成功応答を抑止する。AM単体結果からHTTP応答0や保存中のイベント観測を推定しない。新しいSession・ACK・Store・Lockは作らない。
+
+反証対象は、不正Header／body／Envelope／ID／method、Tool呼出し、提示未確認、旧・失効・別User資格、attempt／user／資格／revision差、未解決交換、Lock／状態不明、二要求競合、交換競合、保存前／保存後取消、出版／読戻し／清掃／解放故障、成功保存後の応答喪失と次要求である。既存初回義務`RFD-IT-024`／`025`／`RFD-ST-026`／`RFD-UAT-027`へ具体観測を渡す。QA定義は伝播済みで、内部用途判定・確認保存のSourceは局所候補へ接続済み。本番Consumerは未接続、正式結果はNot Run。この具体設計5文書差分の契約・品質限定独立再レビューは文書だけのPass・全重大度0で、実装Ready・本番成立を意味しない。保存側の実測範囲は[変更計画](../../../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#初回接続の用途判定と確認保存候補--2026-10-12)で区別する。
 
 ## 3. 内部状態と公開読取り
 
