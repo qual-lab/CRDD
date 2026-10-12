@@ -310,6 +310,24 @@ Coordinatorは下位の実行事実、Orchestratorは上位Attemptの事実をEx
 
 上位の`running`は、同じAttemptに結合したProvider接続用実行Processの開始を観測し、その事実を耐久保存した状態とする。下位の開始観測の保証範囲は[Coordinator通知契約](../coordinator/01_Architecture.md#coordinator-task-notification)に従い、AI内部の要求受理を主張しない。登録した上位Operationと下位Runtime Operationを混同せず、初回Executor通知だけで状態を保存する。同じ通知の重複で二重遷移せず、別Identity・旧世代・終端後の通知では現在状態を変更しない。Handle返却後の即時受付確認は実開始通知の代替にしない。正常Fixtureも開始通知を明示し、完了結果だけを上位の実開始根拠にしない。実接続と反証試験は未完了である。
 
+### 7.3. 認可済みRepositoryの活動読取り — 新Owner接続候補
+
+活動取得は実行・判断・回復を開始しない読取り専用の公開能力とする。Access Managementが今回要求の内容認可を行い、利用側の構成が`projectId`、`repositoryId`、既存の検証済みRoot能力だけを短命入力へ射影する。資格、Role、Workspace、管理改訂、AMのBinding IDを活動Ownerへ渡さない。AMのBindingとOrchestrator保存のBindingは別の導出契約であり、同一IDとして流用しない。
+
+Orchestratorは活動観測型、閉じた結果検査、現在状態Query、Execution IntelligenceのEvent投影、横断合成とCursorを所有する。履歴の正本と物理ReaderはExecution Intelligenceに残す。Workbenchの既存実Readerを複製せずこのOwnerへ移管し、WorkbenchとMCPは同じ公開契約のConsumerにする。旧ローカルCLIの本人確認をAM認証へ二重適用せず、上位で認可されたRootを受ける別の読取り専用入口を明示する。これは任意Pathで認証を迂回する入口ではない。各要求でRoot、現在Git改訂、保存RootのBinding、状態と履歴を既存Ownerから再観測する。状態なしは初期化せず、保存・判断Authority・Recovery操作を受け取らない。
+
+| 観測対象 | 合成規則 | 不成立時の処置 |
+|---|---|---|
+| 対象集合 | 今回認可された同ProjectのRepositoryだけを全件観測する。0件は非開示の取得不能。 | 集合取得・Root・Project照合が不明なら、部分集合へ後退しない。未許可・異Projectを本文Readerへ渡さない。 |
+| 現在状態 | 観測済み1件＋他は状態なしなら当該投影、全件状態なしなら状態なし。 | 観測済みが複数なら競合としてunknown。1件でもunknownなら全体unknown。先頭値を採用しない。 |
+| 実行履歴 | 全Sourceの履歴観測が成功した場合だけ対象ProjectのEventを合成し、時刻降順→Event ID降順で全体へlimitを適用する。 | 一件でも履歴不明ならeventState=unknown、部分Eventを正常結果として返さない。同一Event IDが複数Sourceに現れる場合も出所競合として止め、暗黙dedupeしない。現在状態と履歴の不成立は独立保持する。 |
+| 出所 | `sources`は対象Repositoryを各1件、重複のないRepository ID昇順の配列に固定し、観測できたGit改訂（不明はnull）を保持する。`currentSourceRepositoryId`はstate=observedの単一投影Ownerだけを保持し、各Eventには`repositoryId`を保持する。 | absent／unknownでは現在投影Ownerをnullにする。内部Root・Path・Binding・資格を結果へ含めない。出所情報を認可証明にしない。 |
+| 継続位置 | 公開済み時刻・Event IDと、この正規化済み`sources`配列のRepository ID／Git改訂から導出した相関値をCursorへ結合する。次ページも現在認可を再評価する。いずれかのGit改訂がnullなら第一Pageの観測結果は状態契約どおり返すが、`eventContinuation`はnullとし継続Cursorを発行しない。 | Source集合または改訂が変わったCursorは明示拒否し、最初のPageから再取得する。入力Cursorを伴う要求で現在のいずれかのGit改訂が観測不能なら明示拒否する。null同士の一致を改訂不変の根拠にせず、空Pageや先頭Pageへfallbackしない。Cursorに権限・Pathを保持せず、古い集合で探索しない。 |
+
+ページングは現在観測に対する継続であり、履歴全体の固定Snapshot・重複配送保証ではない。通常の新しいEvent追記は既存の時刻／ID境界より後続Pageへ混入させず、保持期間による履歴整理から過去Eventを復元しない。Snapshot保存、Session、Registry、Lockや履歴の複製は追加しない。開始前取消は観測0、開始済みReaderは完了までjoinし、取消後に結果を公開・再実行しない。取消要求を実I/O中断や資源不存在の証明にしない。
+
+本節は未実装の接続候補である。型・検査の移管、合成Readerの注入、実Store読取り、複数Repositoryの競合／欠測／ページング、MCP実HTTP、Workbench同等結果、旧全Consumerの追従を確認するまで、活動能力の完成や旧CROS活動処理の撤去を主張しない。実行／Docker回復の延期済み大改修は本節へ含めない。
+
 ## 8. 構成Root
 
 `template/tools/crdd-coordinator.ts`の既存Project操作のコマンドは保持し、薄い配送入口がOrchestratorの公開APIへ振り分ける。個別TaskはCoordinator自身の入口へ送る。配送だけのためにCoordinatorのlibraryへOrchestrator依存を入れない。MCP ServerはOrchestratorの公開APIを直接利用し、Coordinatorから上位Applicationを取得しない。

@@ -2,6 +2,8 @@
 
 Topic／Meetingの既存MCP Consumerは、共通Adapterの完全入力検査と取消確認後だけ現在Repository解決を行う遅延接続へ変更する。Resolver一回の後にも取消を確認し、観測中の取消から保存へ進まない。旧認証・Scope・Relationの意味は維持する。この順序是正はAM置換や旧CROS廃止の完成ではない。詳細は[MCP設計](../mcp-server/01_Architecture.md#topicmeetingの現在認可前の入力境界--2026-10-12)を参照する。
 
+2026-10-12の活動移管候補は[Orchestratorの認可済み活動読取り](../orchestrator/01_Architecture.md#73-認可済みrepositoryの活動読取り--新owner接続候補)を新Ownerとする。本文のCROS活動合成・型は旧配置の比較資料であり、現行AM型を旧CROS型へcastして利用しない。実Store Reader・全Consumer・複数Source合成の確認後に旧活動Moduleを撤去する。型移管やfake Reader接続だけで置換済みとしない。
+
 成果物種別: Architecture詳細設計
 詳細設計領域: cros
 状態: Candidate
@@ -87,11 +89,11 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | `src/credential-access-recovery.ts` | Covered | Host Authority前提の計画、明示確認、管理Credential失効、Content GrantなしBootstrap発行を一Registry revisionで確定 | Remote入口からは呼び出さない |
 | `src/credential-access-recovery-file-adapter.ts` | Covered | 同じRecovery IDのprepare／settleを秘密非保持の不変EventとしてOS管理Runtime Rootへ保存 | Product Dataを記録しない |
 | `src/credential-access-recovery-cli.ts`／`bin/cros-access-recovery.ts` | Covered | Server停止後のHost対話入口、対象一覧表示、exact Recovery ID確認、一度表示Token | Process停止の自動強制は配置運用で保証する |
-| `src/remote-transport.ts` | Covered | loopback Bearer HTTP、Requestごとの現在Credential検証、許可Portfolio取得、`systemAdmin`限定AI Profile参照・変更、Project単位Runtime Activityの許可済みRepository限定Reader、非管理CredentialへのCatalog非開示、外部平文HTTP拒否、Credential／Exposure revision分離、Workbench起動時接続と明示Refresh | N/A: Shared Server公開は同一Hostの外部TLS終端とloopback Gatewayの分離契約で閉じた |
+| `src/remote-transport.ts` | Covered | loopback Bearer HTTP、Requestごとの現在Credential検証、許可Portfolio取得、`systemAdmin`限定AI Profile参照・変更、旧時点のProject単位Runtime Activityの許可済みRepository限定Reader（移管比較入力）、非管理CredentialへのCatalog非開示、外部平文HTTP拒否、Credential／Exposure revision分離、Workbench起動時接続と明示Refresh | N/A: Shared Server公開は同一Hostの外部TLS終端とloopback Gatewayの分離契約で閉じた |
 | `src/shared-server-config-file-adapter.ts` | Covered | OS管理の固定設定Root、HTTPS公開Origin、検証済みGit Root、Project Context由来Identity、Workspace Exposure、Repository別Applicationの決定的構成 | N/A: Secret、証明書、任意設定Pathは本Adapterの責務外 |
 | MCP CROS Composition Root／Shared Gateway | Covered | Connection CredentialをRequestごとに検証し、許可PortfolioだけをProject Context MCP Handlerへ固定する。RESTとMCPを一つのHTTPS公開Originへ投影し、内部Listenerはloopbackに閉じる | N/A: 公開証明書の取得・更新は配置先のTLS終端が所有する |
 | Workbench Connection／Credential管理 | Covered | 管理Context注入時だけCredential管理を公開し、生Tokenを一度表示する。Remote接続時はCredentialをProcess内だけに保持して明示Refreshし、失効後は直前ProjectionをCurrent表示しない。`systemAdmin`接続時だけCROS OwnerのAI Profile管理を表示する | N/A: Client側のCredential永続保存はCROS／Workbenchが所有しない |
-| `src/runtime.ts` | Covered | Session snapshot、Repository非開示、Context Package、Handoff。Remote Portfolio、Project Context MCP、Topic／Meeting操作およびRuntime ActivityはBearer認証結果から現在Registry／Exposureを再検証する | N/A: 実Provider E2EはCoordinator／AI Runtimeの残存項目である |
+| `src/runtime.ts` | Covered | Session snapshot、Repository非開示、Context Package、Handoff。Remote Portfolio、Project Context MCP、Topic／Meeting操作およびRuntime ActivityはBearer認証結果から現在Registry／Exposureを再検証する（活動は旧時点の成立Capability・移管比較入力） | N/A: 実Provider E2EはCoordinator／AI Runtimeの残存項目である |
 
 担当責任者: Qual-Lab
 最終更新日: 2026-10-07
@@ -386,7 +388,7 @@ Caller由来のFilesystem PathをRepository Resolverの代替として受理し�
 
 ### 6.1. 再編後の共通能力と公開入口
 
-Runtime活動の公開結果検査は`activity/validate.ts`、現在認可ScopeからのProject選択とReader呼出しは`activity/read.ts`が所有する。HTTP、MCPとWorkbenchの結果検査は同じ閉じた観測契約を使い、Transport固有envelopeを共通結果へ持ち込まない。公開時は既存のplain-data SnapshotでProxy／accessorを拒否し、EventとProjectionを含む所有済みの固定値だけを返す。検査後にReader由来Objectをそのまま搬送しない。Readerの保留中は開始後の処理をjoinし、応答取消だけからReader中断を主張しない。
+旧時点の成立Capability（移管比較入力）では、Runtime活動の公開結果検査は`activity/validate.ts`、現在認可ScopeからのProject選択とReader呼出しは`activity/read.ts`が所有する。HTTP、MCPとWorkbenchの結果検査は同じ閉じた観測契約を使い、Transport固有envelopeを共通結果へ持ち込まない。公開時は既存のplain-data SnapshotでProxy／accessorを拒否し、EventとProjectionを含む所有済みの固定値だけを返す。検査後にReader由来Objectをそのまま搬送しない。Readerの保留中は開始後の処理をjoinし、応答取消だけからReader中断を主張しない。
 
 `src/index.ts`は共通能力の入口とし、`startCrosRemoteTransport`とHTTP Client関数は廃止対象とする。HTTP処理から認可・結果構成を抽出して同じ能力をWorkbench内部呼出しとMCP Handlerから使う。抽出前のREST成功を新経路の成功証明にしない。
 
@@ -394,7 +396,7 @@ Runtime活動の公開結果検査は`activity/validate.ts`、現在認可Scope�
 |---|---|---|---|
 | Project／Portfolio取得 | `remote-transport`のPortfolio処理、`createPortfolioProjection` | CROS。RequestのCredential、現在Exposure／Bindingを検証し、許可済みSourceの五場面・Coverage・欠測を返す。 | 非許可Sourceの存在・件数を開示せず、Project Contextを第二正本にしない。 |
 | Topic／Meeting操作・Relation解決 | MCP CROS Compositionの認可・Routing | CROSは対象Repositoryの解決、Domain Modelは本文CRUD／Outcome処置、MCPは入力変換。入力はrepositoryId、操作、expectedRevisionと必要な確認。 | 同じLogical Projectの許可集合だけでRelationを解決し、書込みは対象Owner一つへ限定する。 |
-| Runtime Activity参照 | `remote-transport`のActivity処理とReader | CROSはProject／許可Repository集合を解決し、Orchestrator状態QueryとExecution Intelligenceの公開結果をcursor／limit付きで合成する。 | 未観測を空の成功へ変えず、内部log・生Provider出力・Host Pathを返さない。 |
+| Runtime Activity参照（旧時点成立・移管比較入力） | 旧`remote-transport`のActivity処理とReader。新Ownerは冒頭のOrchestrator契約を参照 | CROSはProject／許可Repository集合を解決し、Orchestrator状態QueryとExecution Intelligenceの公開結果をcursor／limit付きで合成する。 | 未観測を空の成功へ変えず、内部log・生Provider出力・Host Pathを返さない。 |
 | AI Profile一覧・変更 | `remote-transport`のProfile処理 | CROSは`system_admin`を再検証し、AI AdapterのCatalog／Profile管理へ委譲する。更新はexpectedRevisionと既存操作別入力を用いる。 | 管理可否を内容Grantへ昇格せず、任意CLI実行やProvider秘密登録へ広げない。 |
 | Credential一覧・発行・変更・失効・rotation | `connection-credential`公開操作 | CROSの既存Registry契約。管理操作とContent Grantを区別する。発行／rotationはHostまたは同一Process Workbenchに限定し、一覧・Grant変更・失効だけをRemote MCPへ公開する。 | 現在管理権限とRegistry revisionを各操作で再確認する。生Tokenは許可されたHost側結果で一度表示し、MCP結果・履歴・設定へ保存しない。 |
 | 管理資格喪失時の回復 | `credential-access-recovery`とHost CLI | CROSのHost限定対話入口。停止、対象確認、既存Registryの原子的変更と結果確認を保持する。 | Remote Toolとして公開しない。Product Dataを変更しない。 |
@@ -622,7 +624,7 @@ Secret value -x Repository／.crdd／Prompt／Projection
 
 次は意味契約を変更しない実装選択、または現在Scope外である。未確定だから安全条件を推測してよいという意味ではない。
 
-段階6の型所有者分離では、認可に用いるExposure／Repositoryの同一改訂Snapshotを`access/types.ts`、Runtime活動のEvent／観測／Readerを`activity/types.ts`へ置く。これらはHTTP固有契約ではなく、設定Reader、内部呼出し、MCPおよびWorkbenchが共有する公開型である。型shapeとPackage Rootの公開集合は変更せず、HTTPのListener／接続終了Handleとwire検証は`connection/http.ts`に保持する。この分離だけでは、新MCPの本番接続や旧REST撤去の成立を示さない。
+段階6の型所有者分離では、認可に用いるExposure／Repositoryの同一改訂Snapshotを`access/types.ts`、Runtime活動のEvent／観測／Readerを`activity/types.ts`へ置く（旧時点の型Owner・移管比較入力。現行の移管候補Ownerは冒頭のOrchestrator契約）。これらはHTTP固有契約ではなく、設定Reader、内部呼出し、MCPおよびWorkbenchが共有する公開型である。型shapeとPackage Rootの公開集合は変更せず、HTTPのListener／接続終了Handleとwire検証は`connection/http.ts`に保持する。この分離だけでは、新MCPの本番接続や旧REST撤去の成立を示さない。
 
 | 項目 | 固定した意味 | 後段で選べる範囲 |
 |---|---|---|

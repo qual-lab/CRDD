@@ -1381,6 +1381,22 @@ Exposureは既存登録とdevelopment／managementの明示集合だけ。空集
 
 局所結果: Node v24.19.0の各Packageの`npm test`でDomain118／AM57、計175 Case成功、Fail／Cancel／Skip0、両Exit0。Domain41.6481471秒、AM45.6357766秒。各静的3軸成功、Domain試験の同値concat→template同期後も静的3軸と直接3 Case再実行成功（0.7463208秒）。最初のBiome書込みはOS1224で不成立、同じ処理の再実行で解消した。初回値を成功結果へ混ぜない。固定8Pathの限定独立レビューPass・全重大度残指摘0、基準HEAD `7642b4dd`、固定tracked差分Hash `3742ea562c6901c31e5863dcaf05530905bdde72`、Reader SHA256 `69c90539b948fbfc1cf076b848580c9a6df6cb741b615d8886f1497cce042dae`、Domain直接試験SHA256 `05ef5a9982c0fa05111717c1945ce89736848165e9205113a7f78adfe674fcea`、AM搬送試験SHA256 `68b8fc7307c935ca31ac9142b8d33bdaac3629378ee87dd5cb4acdb071e85d3d`。差分空白確認成功、自己生成AM／Domain Reader試験Root残存0。完全出力は上記コマンドで再生成できるため実行別書庫を追加しない。結果同期だけを行い、本番Consumerと実failure集約停止、正式191・全体完成は未成立を維持する。
 
+## 活動取得の新Owner接続に向けた現行照合 — 2026-10-12
+
+基準HEAD `85e57b773c2432f7ee019e0c7e1ec3a39a7d64f3`、着手時clean。前段は実HTTP十四Toolの局所接続までで、活動取得は未接続である。今回の調査では次を確認した。これはSource移管済み・活動取得完成の表示ではない。
+
+| 現行実体 | 確認できた責務・制約 | 次の接続で保持すること |
+|---|---|---|
+| `cros/src/activity/types.ts`、`validate.ts` | Orchestrator現在投影と非秘密Event要約の閉じた観測契約。現在状態と履歴欠測を独立保持する。 | 認証管理へ内容型を集約せず、活動Ownerへ配置する。状態・Property・ページ上限・秘密非透過を変えない。 |
+| `cros/src/activity/read.ts` | 許可済みRepository集合からProjectを選択し、注入Readerを一回呼び、完了を待って結果を検査する。 | 現在AM認可集合だけを渡す。非許可は読取り0、故障は正常空集合にしない。旧CROS型とAM型の相違を無断castで隠さない。 |
+| `workbench-server/src/activity/observe.ts` | 単一RepositoryのOrchestrator公開QueryとExecution Intelligence履歴を実際に読む。Cursor、上限、Project絞込みを持つ。 | 新Readerを複製せず再利用・責務移管を評価する。複数Repositoryの投影を先頭選択や推測で合成しない。 |
+| `orchestrator/src/operation-composition.ts`の公開状態Query | Runtime所有Decision Storeの既存認証を経由する。AM認証だけで直接代替できる契約ではない。 | 二重認証や無断認証迂回を避け、必要な読取り専用接続を設計する。延期済み実行／Docker回復の大改修へ範囲を広げない。 |
+| MCP／旧HTTPの活動Reader構成 | 現行SourceはReaderの注入入口。実Readerを構成する本番経路の成立根拠は未確認で、既存試験の合成Readerを本番接続証明には使えない。 | 型移管・注入接続・実保存読取り・公開入口を別の確認段階として追跡し、最終的に全能力の本番接続を閉じる。 |
+
+Orchestrator基準の`npm run check`は書式（67 File）・型・Lint成功。`npm test`もUT 73件・IT 10件、計83件成功。Source不変更。読み取り専用の着手前専門確認により、型・検査と注入Readerだけでは能力が成立しないこと、AMとOrchestratorのBindingを流用できないことを確認した。Orchestrator／MCP／QAへ新Ownerの読取り契約を具体化し、現在状態の複数Source競合、一件不明時の部分成功禁止、出所、全体ページング、現在集合変更後のCursor拒否を明示した。改訂観測不能時は第一Pageの観測を保持するが継続Cursorを発行せず、Cursor付き再要求も明示拒否する。固定Snapshotや新Storeは追加しない。実Readerは既存Workbench処理を移管・再利用し、旧全Consumerを追従させる。新Store／Lock／Recovery／Framework、旧通信入口の先行削除は行わない。
+
+8文書の限定独立レビューは是正後再確認まで完了し、全重大度の残指摘0。配置・旧時点比較の区別・Quality正式項目への伝播・出所の決定性・改訂不明時の継続拒否を確認した。Source着手前の設計Gateだけが成立し、活動取得のSource・実保存・本番Consumer・実HTTP／Workbench確認は未完了、正式191項目はNot Runを維持する。現在、追加の人間判断は不要。
+
 ## AM認証によるTopic／Meeting MCP接続 — 2026-10-12
 
 局所結果：基準HEAD `5e235a2a02a78c9e1eca277bcf91ac0121872e80`、Node v24.19.0、2026-10-12 JST。各Packageの`npm test`でMCP65／Domain120／AM59の計244 Case、書式・型・Lint成功、失敗／取消／skip／todo 0、全Exit 0。最終MCP再実行29.3127592秒、変更のないDomain45.1805834秒／AM47.2918874秒。限定独立レビューの2指摘（旧2 Tool説明の現在形残存、Repository ID必須Schemaの直接検証不足）を是正し、再レビューは全重大度残指摘0・Pass。Source SHA256 `5bdeac9b641846c1ba064cb9f54a1b0441108a8f8e71d68963733c102e3895b9`、IT SHA256 `c4ae182f53555d79e6088612bc4beb1a3299c8cc7e0a37516c34dd8a3f6f79a4`。Schemaの必須指定を外した一時変異は期待どおり失敗し、復元後のroute SHA256 `eb01acb7dbd3c836cce3e632c76cbef356f5b35cc7f2aee0f08f5b565a915803`と差分なしを確認した。自己生成試験Directory残存0。端末で結果を確認し、実行別Evidence書庫は追加しない。正式191項目Not Run、本番Launcher／Workbench未切替、活動／Profile・鍵配送・旧REST撤去未完了、AM全体未完成を維持する。

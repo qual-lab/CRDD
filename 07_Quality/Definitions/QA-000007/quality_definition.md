@@ -149,7 +149,7 @@ UTの外部境界はN/A（I/O前の純粋判定）、ITはDirect Boundary、ST�
 | 認可済み集約 | RFD-IT-019 | RFD-ST-010の目的限定Package／Provenanceとは別のOwner接続 |
 | MCP鍵操作非公開 | [EST-ST-015](../QA-000009/quality_definition.md) | 鍵管理・鍵Recovery参照／結果照会を一覧・Schema・登録・dispatch全てで非公開。要求Bearer認証は継続 |
 
-Runtime活動ReaderもRFD-IT-013の認可済み集合を使う。未許可入力ではReader零回、Reader故障・結果不正・unknownを空成功へ変換しない。公開HTTPのHost／Origin／TLS条件と非開示はRFD-ST-004、Process全体の終了はQA-000009のEST-ST-013で別に観測する。
+Runtime活動ReaderもRFD-IT-013の認可済み集合を使う。未許可入力ではReader零回、Reader故障・結果不正・unknownを空成功へ変換しない。公開HTTPのHost／Origin／TLS条件と非開示はRFD-ST-004、Process全体の終了はQA-000009のEST-ST-013で別に観測する。活動の新Owner接続では、AM資格／Role／管理改訂／BindingをOrchestratorの読取り入力へ渡さず、今回許可されたProject・Repository・検証済みRootだけを搬送する。実状態・履歴Readerへ到達する前の現在認可、異Project／未許可の本文読取り0、本文待機中の失効／公開解除、次要求の再評価を確認する。旧Runtime本人確認の二重適用や任意Rootでの迂回を認可接続として扱わない。Source集合・Git改訂が変更されたCursorを旧認可範囲の探索へ使わず、先頭Pageからの明示再取得へ戻す。実Store読取り・複数Source合成の結果はQA-000004、取消join・入口間同等性はQA-000009と接続し、注入fakeだけでRFD-IT-013全体Passとしない。
 
 ### 最新契約の実行状態
 

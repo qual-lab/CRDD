@@ -232,7 +232,7 @@ Remote CROSのTopic／Meeting取得結果は、本文に記録された安定ID 
 
 Project一覧・Context取得とTopic／Meetingの既存Tool名・安定IDは維持する。Hostの指定ユーザー／全員鍵交換をRemote Toolにしない。新しい管理操作を一部登録しただけでCROS管理Surface全体を完成としない。
 
-段階6〜7の活動接続では、`runtime-activity/adapter.ts`が`crdd.get_runtime_activity`のSchema・入力／結果検査を所有し、`request/route.ts`が実Readerを接続した場合だけ一覧とCallへ同時登録する。新構成ではAccess Managementの現在認可集合を活動Ownerへ渡す。既存`readCrosRuntimeActivity`は移管比較対象であり、新Owner接続済みとは扱わない。Readerに取消APIを捏造せず、開始前取消は呼出し零回、開始後取消はReader完了をjoinしてから取消結果を返す。本番Launcher、Workbench Remote Client、Profile管理四Toolと旧REST撤去は別の未完了接続であり、このToolの局所成立から全体完成を推定しない。
+段階6〜7の活動接続では、`runtime-activity/adapter.ts`が`crdd.get_runtime_activity`のSchema・入力搬送を所有し、活動結果の意味・検査は[Orchestratorの認可済み活動読取り](../orchestrator/01_Architecture.md#73-認可済みrepositoryの活動読取り--新owner接続候補)へ委譲する。`request/route.ts`は実Readerを接続した場合だけ一覧とCallへ同時登録する。新構成ではAccess Managementの現在認可集合を今回要求のRoot・Project・Repositoryへ射影して渡し、資格・Role・AM Bindingを活動Ownerへ渡さない。実Storeと複数Repository合成が未確認の注入Readerだけでは公開Toolを完成としない。既存`readCrosRuntimeActivity`は移管比較対象であり、新Owner接続済みとは扱わない。Readerに取消APIを捏造せず、開始前取消は呼出し零回、開始後取消はReader完了をjoinしてから取消結果を返す。本番Launcher、Workbench Remote Client、Profile管理四Toolと旧REST撤去は別の未完了接続であり、このToolの局所成立から全体完成を推定しない。
 
 ### 3.2. Portfolioの一覧・詳細契約
 

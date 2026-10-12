@@ -169,7 +169,7 @@ Workbench Serverは別ProcessのCROSに対してMCP Clientとなる。Browserか
 |---|---|---|---|
 | 接続／更新、Portfolio取得 | `workbench-server.ts`の`readRemotePortfolio` | MCPの既存Project一覧・Context取得を共通Portfolio表示へ適合 | 検索・状態・Query拘束Cursor、五場面、Source Coverage、欠測を保持。部分取得を完全Portfolioへ畳まない。 |
 | AI Profile一覧・変更 | `readRemoteAiProfileCatalog`／`executeRemoteAiProfileMutation` | Access Management認可からAI Adapter管理へ接続するMCP操作 | 管理可否、expectedRevision、登録済みModel、削除確認を維持。Catalog未接続と権限拒否を同じ成功の空一覧にしない。 |
-| Runtime Activity | `readRemoteRuntimeActivity` | Access Management認可付きActivity MCP操作 | Project限定の現在状態とEvent、順序、Cursor、Continuationと独立したunknownを保持。 |
+| Runtime Activity | `readRemoteRuntimeActivity` | Access Management認可付きActivity MCP操作 | [Orchestratorの共通観測契約](../orchestrator/01_Architecture.md#73-認可済みrepositoryの活動読取り--新owner接続候補)でProject限定の現在状態・Event・出所・Cursorと独立したunknownを保持する。単一Repositoryの実Readerは同Ownerへ移管し、Workbench側に複製・独自合成を残さない。移管と本番接続は未完了。 |
 | Topic／Meeting | `remote-topic-meeting.ts`の既存MCP呼出し | 同じEndpointの既存Tool、Access Management認可→Domain Model | Repository指定、CRUD、Relation Owner、競合、Outcome処置、Close条件と非開示を維持。 |
 | 鍵管理 | 既存Credential Administration（移管比較入力） | 通常発行・独立失効・交換は同一Process Workbench BackendからAccess Managementへ直接委譲。別Process MCP経路は鍵操作なし | 現行administrator専用固定。管理権限≠内容参照、一度表示を維持。Hostはログイン済み操作者の対話交換2操作だけ、追加認証なし・既存Root／Path検証。具体接続は未完了 |
 
