@@ -481,6 +481,45 @@ credential_storedの保存・清掃・Lock解放後だけ一回の短命Secret�
 
 今回の局所保存・終了coreは閉じるが、短命Secretの本番提示Owner、通常Workbench鍵3操作・Host交換2操作、MCP／Workbench本番Launcher、旧REST撤去、実Host移行／Linux、正式191項目・AM全体完成は未成立を維持する。次は既存提示Writerと終了APIを実Consumerへ接続する。現在、人間による追加判断は不要。
 
+### 非鍵管理の公開接続に向けた着手前確認 — 2026-10-13
+
+基準`d7ee403`、作業Treeはclean。既存の通常保存7操作と管理読取り4種をMCP／Workbenchへ接続する。保存処理・認可・状態のOwnerはAccess Managementのままで、入口ごとのStore、Lock、Session、Receipt、Registry、互換層を追加しない。これは承認済み責務再編内の公開契約具体化であり、鍵管理の限定成立を通常管理やAM全体完成へ拡張しない。
+
+着手前の読取り専用確認で、4読取り＋7保存の能力分解と候補Tool名の既存集合との非衝突を確認した。Sourceは未編集。次の補正をAM／MCP／Workbench詳細とQA-000007／QA-000009へ統合して固定し、独立確認後に実装する。
+
+| 対象 | 固定する条件 |
+|---|---|
+| 公開集合 | 現在manager／administratorだけに通常管理を一覧表示し、callでは各AM APIの現在認可を再評価。developer本人表示は通常接続側の別責務で、管理一覧から代替しない |
+| 管理読取り | 空の閉入力、Tool固有の対象と改訂だけ。Binding・Path・資格を公開せず、Roleの既存filter、Exposureのnullと明示空を保持。四応答を同一改訂のSnapshotへ合成しない。応答上限と超過時の全体未取得を具体化する |
+| 保存入力・結果 | 受付UUID・期待改訂と操作固有fieldだけ。Tokenと管理Rootは構成／要求closureのみ。既知出版・清掃・最初の失敗を閉投影し、内部理由の自由文字列透過、再送保証、rollback推定をしない |
+| 取消・配送 | 完全入力検査→開始前取消確認→AM同期操作最大一回→終了後取消確認。開始後は終了待ちし、応答喪失で保存を戻さず自動再送しない |
+| 利用側 | Workbench同ProcessはAM直接、Remoteは採用したMCP。公開Launcher、通常接続、旧REST撤去は後続まで未完成を維持 |
+| 品質 | 既存RFD-IT-013／021・RFD-ST-022・RFD-UAT-007とEST-IT-002／010・EST-ST-013へ接続。新Local Itemを発行せず、正式191項目Not Runを維持 |
+
+人間判断待ちはRemote Repository登録の一件だけ。内部APIが受ける登録対象の絶対Rootを、Remote manager／administratorのMCP入力として採用するかは未確定である。採用する場合はHost上のPathを明示し、認可前の対象観測0・既存上限／Root／manifest検証・結果へのPath非公開を保持する。不採用なら登録は同Process Workbench／Hostだけとし、Remoteは登録以外の管理操作を提供する。新しいInventoryやopaque selectorは作らない。これは管理状態の保存Rootの構成注入とは別の判断である。判断前に登録ToolとそのRoot入力Schemaを採用済みへ変更しない。
+
+必要な独立確認は契約・品質、文書／参照・直接伝播・変更影響。実装後はAM／MCP／Workbenchの静的検査・回帰と実HTTP／Browser縦断を行う。標準準拠基準やProvider／Dockerは変更しないため、準拠監査と署名Provider E2Eをこの接続単位の初回検証へ追加しない。人間判断以外の六補正は既存契約から一意に処置できる。実装、実境界、公開Launcher、正式QA評価と全体完成は未評価である。
+
+非鍵管理6文書の初回限定独立確認はMajor2／Moderate3。先行Sliceの禁止句と現在候補の混在、保存結果Union／失敗分類の不足、表示名制約の部分再定義、通常認証と管理API拒否の混同、登録Root入力とPath非公開結果の混同を是正した。統合案を指摘元へ再提示して整合確認し、先行pendingと新出版準備の失敗を分離した。Sourceの出版成功→Lock終了不明→primaryFailureの経路は実Sourceで再照合し、当該固定理由のrelease_unknownへのmappingを維持した。既知失敗に付随する非公開secondaryは推定しない。初回scoped Checkerは展開範囲448 errors／0 warnings・Exit1、対象6Path指摘0、参照153件・追加アンカー2・Checklist各一件を確認した。
+
+是正後固定6文書の限定独立再レビューはPass・全重大度残指摘0、開始／終了HEAD `d7ee403cc0ecd18fc88545194f726bfa854521bd`と全6 SHA-256一致。参照155件欠落0・追加アンカー2・Checklist各一件・差分確認成功。文書候補の整合だけの結果で、Source Ready・正式191項目・本番接続・AM全体完成へ昇格しない。Remote登録Root指定の人間判断は未回答で、Source未編集を維持する。
+
+非鍵管理の独立先行範囲を着手前確認者へ再提示した。Remote登録の判断は登録Tool／Root入力／Schema採否だけに影響し、確定した四読取り＋登録以外六保存には依存しない。10操作のWIPとしてSource接続を先行できることを確認した。登録は一覧・Schema・dispatch・Workbench UI／POSTに追加せず、unsupported／fallback／Root selector／互換分岐も作らない。25／Profile構成時29という途中件数は局所実測に限り、M1-B採用・最終集合・公開Launcher完成とは扱わない。既存登録状態の一覧・解除・公開更新を確認しても登録生成経路の成立とはしない。Remote登録は11番目の最終Gateとして保持し、正式191項目・登録縦断・AM全体の未完成を維持する。
+
+先行Source WIPとしてMCPの`src/access-management/protocol.ts`へ十操作の固定名・閉入力Schemaを作成した。既存AMと同じUUIDv4・期待safe改訂・Role／Workspace構造を使い、usernameの値判定はAMへ残す。Packageの静的三軸成功。直接診断で十名一意・空入力read四件・登録名と秘密／管理Root／Binding入力なしを確認した。最初の診断は登録名除外のassert記述が誤って等値を要求し失敗したため、意図どおりの非等値へ訂正して成功した。Source変更や検査条件の緩和ではない。この診断は正式Test Symbol／QA評価ではなく、一覧・dispatch・実AM委譲・HTTP／Browser・Metadata／回帰は未接続。Remote登録判断待ちと全goalの未完成を維持する。
+
+MCP先行十操作を現在通常認証、四read／六保存のAM公開API、閉結果投影、既存一覧／dispatchとHTTP Resolverへ接続した。developerの通常認証は維持し、管理呼出し・開示を拒否する。managerでは管理十Toolを含む25件、Profile構成時は29件の局所構成となる。登録Tool・鍵・Host・初回操作を追加しない。局所正常1件成功（7.7581223秒）、出版／材料清掃／Lock終了故障の親＋3条件4件成功（5.0718563秒）。出版失敗はunconfirmed、保存後清掃／解放不明はconfirmedを保持し、実File改訂とrename一回を確認した。Source実測によりLock終了不明のprimary分類を確認した。
+
+補強後MCP全80 Case・静的三軸成功、Fail／Cancel／Skip0、Exit0、62.6997892秒。先行76件成功は追加故障試験前の値として区別する。四readのfilter・公開範囲nullと明示空、六保存・解除後本体保持、managerのadministrator登録／Role／内容拒否、入力拒否・開始前取消の現在File不変、登録名非公開を確認した。Symbol／Catalogへ実体と既存Local Itemを接続したが、正式191項目はNot Run。16 MiB超過、未知理由等の未実測反例、Workbench direct／Remote UI、本番Launcher、登録の人間判断と縦断、旧REST撤去・AM全体完成は未成立で、固定候補独立レビューは未完了である。
+
+非鍵管理Sourceの初回限定独立レビューはMajor1／Moderate2。同期保存後にTransport取消を処置する機会がないこと、詳細設計の未接続表示の残存、結果分類・読取り失敗・応答容量の境界試験不足を指摘した。統合是正案を再提示して確認し、保存終了後に一回だけevent loopへ戻り、到着済み取消を確認する。切断通知の到着保証・保存rollback・待機時間延長・新Recoveryは追加しない。実Clientを出版直後に切断する局所試験は成功し、当該yieldを除去した一時変異は期待どおり失敗、Source SHA-256 `7dceb2dea383744550c0d5590cc5caf47b4b6c52cacddb4fa62ce314293b9b7b`へ復元した。
+
+結果投影の反証は、別ProcessでNode組込みModule mockをAM公開Rootへ限定して適用し、MCP公開RootのResolverを経由する。差替えの呼出し数を確認し、未適用では失敗する。既知十二理由・未知理由と継承Property名、読取り拒否／観測不明、開始前取消のProducer呼出し0、最終JSON-RPCのUTF-8 16 MiBちょうどと一byte超過の全体未取得を確認した。容量試験は合成Owner結果の搬送限界だけで、AM状態の容量成立ではない。実AM保存と実HTTPの既存回帰を代替しない。最初の試験はWindows絶対PathでのModule差替えが未適用となり失敗し、同一Moduleのfile URL指定に訂正して成功した。本番Sourceの追加API・深いprivate import・Frameworkはない。固定候補再レビューと全回帰完了前のため、正式191項目・本番全体・AM完成は未成立を維持する。
+
+追加反証後MCPの`npm test`は静的三軸と全82件成功、Fail／Cancel／Skip0、Exit0、68.2308839秒。是正後固定16Pathの限定独立再レビューはMajor0／Moderate2で、前回の取消と結果境界の指摘は解消した。残る試験Rootの異常終了時回収とAM詳細の現在句を、統合是正案の確認後に修正した。試験Rootの所有者を親だけにし、childはexact Rootを検証・利用する。正常・mock前例外・実timeoutの三経路で子終端後に親がexact Rootを回収し、別sentinel不変を確認した。最初の静的再確認はfixture局所値の型推論指摘1件で失敗し、公開McpResponse型注釈で是正した。失敗を全体成功へ流用せず、是正後の静的三軸と三反証が成功した。MCP全82件の結果はこの試験所有者是正前の値であり、最新版全回帰・再レビュー結果へ流用しない。登録判断・本番接続・正式191項目・全体完成は未成立を維持する。
+
+最新版の`npm test`は静的三軸＋全84件成功、Fail／Cancel／Skip／Todo0、Exit0、79.2087563秒。normal／mock前例外／timeoutの3終了modeを含む。固定16Pathの最終限定独立再レビューPass・全重大度残指摘0、開始／終了HEAD `d7ee403cc0ecd18fc88545194f726bfa854521bd`と全SHA-256一致、差分確認成功、自己生成結果試験Rootとsentinel残存0。前回Major1／Moderate2と再レビューModerate2は解消した。実行別Evidence書庫を追加せず、正式試験Sourceと再実行入口から再生成する。非鍵10操作WIPの局所成立だけを確定し、Remote登録判断、Workbench本番、公開Launcher、旧REST撤去、正式191項目とAM全体完成は未成立のまま保持する。
+
 ### Workbench鍵管理の本番接続着手 — 2026-10-13
 
 基準`d02d784c`、開始時clean。採用済み通常発行・独立失効・指定／全員交換を旧CROS資格管理からAMへ置換する。親と読み取り専用確認者がAM／Workbench正本・既存Consumer・品質義務を照合し、追加人間判断なし。旧profile発行は既存userIdへの発行へ、rotateは指定／全員交換へ置換し、update_accessは鍵から撤去してUser／Role管理へ分離する。旧公開形状は互換維持せず、移行はフロントAIが旧Writer停止・旧入力確認を担当する。旧正式Evidenceは保持する。

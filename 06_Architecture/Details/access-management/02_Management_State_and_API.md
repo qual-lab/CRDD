@@ -7,7 +7,7 @@
 
 ## 1. 対象と保持条件
 
-[責務・意味・処理境界](01_Architecture.md)を具体化する。既存管理分担、鍵操作の入口、交換の意味は維持し、共有Profile管理のmanager／administrator許可を追加した9 Role分担行を内容権限設定から生成しない。管理能力から内容閲覧を許可しない。通常管理のMCP Toolを新規採用せず、既存Profile四Toolの接続だけを対象にする。鍵操作はMCPの一覧・Schema・登録・dispatchの全てで非公開とし、応答へSecretを含めない。
+[責務・意味・処理境界](01_Architecture.md)を具体化する。既存管理分担、鍵操作の入口、交換の意味は維持し、共有Profile管理のmanager／administrator許可を追加した9 Role分担行を内容権限設定から生成しない。管理能力から内容閲覧を許可しない。先行したProfile接続段階は既存四Toolだけを対象とし、通常管理Toolを追加しなかった。現在は非鍵管理10操作を注入ResolverのWIP Sourceへ接続済みである。人間判断待ちのRemote登録はSource・Schema・一覧・dispatchに追加しておらず、公開Launcher・Workbench本番・正式評価は未接続である。§2.4.1は11候補全体の契約正本であり、10操作の局所実装を公開Capability全体の完成へ昇格しない。鍵操作はMCPの一覧・Schema・登録・dispatchの全てで非公開とし、応答へSecretを含めない。
 
 今回比較するのは、公開読取り、操作別更新、同一改訂の保存単位、出版後故障、移行である。汎用IAM、Receipt Store、Lock Framework、共有Recovery、Docker操作は対象外。候補API名やFile名はSourceへ実装済みという意味ではない。
 
@@ -125,6 +125,10 @@ RFD-IT-021の4操作部分に6 Caseを接続し、三Role×対象三Role×4操�
 解除は登録と対応Exposureを同じcandidate／改訂で除き、旧Rootの存在・再検証を条件にしない。公開設定は登録済みIDの明示development／management集合だけを更新する。空集合も既存Schemaどおり公開範囲0として保持し、新しい禁止条件を増やさない。Role内容範囲・管理能力・実アクセスとは独立する。通常管理の認可前拒否では先行材料を保持し、許可済み先行材料の処置は今回更新0で停止する。
 
 Source・Package公開入口・Symbol・試験台帳を接続し、既存保存ITへ4 Caseを追加した。AM全45 Case・静的3軸成功。登録と公開の分離、Identity不一致、認可前Root観測0、旧Root不成立時の登録解除、公開範囲0、出版後清掃不明、非認可時の先行材料保持と許可済み先行清掃を確認した。固定18ファイルの限定独立再レビューPass・全重大度の残指摘0。本番Consumer接続は未完了で、191項目の正式評価はNot Runを維持する。新しいStore・Lock・Registry・一般回復、旧CROS削除・実Host移行・Transport公開は本段階の対象外。
+
+#### 2.4.1 通常管理の公開利用側への引渡し候補
+
+通常管理の公開接続は[MCP詳細§3.3.1](../mcp-server/01_Architecture.md#331-非鍵管理toolの具体化候補)と[Workbench詳細§6.2.1](../workbench-server/01_Architecture.md#621-非鍵管理の接続候補)の候補へ渡す。Packageの四読取りDTOと七保存Resultは内部契約であり、通信契約へ無条件転記しない。公開読取りからBindingと種類識別を除き、操作名から必要な対象だけを投影する。四読取りの改訂はそれぞれ独立し、単一改訂の複合Snapshotを生成した保証はない。現在filter、公開範囲null／明示空、既知出版と清掃・最初の失敗の分離は保持する。Remote登録対象Rootの指定Authorityは人間判断待ちで、内部APIの絶対Root受理だけから公開採用を推定しない。Source・Store・Schema・Lock・鍵の公開境界はこの候補具体化では変更しない。
 
 ### 2.5 初回限定接続の具体契約
 
@@ -412,7 +416,7 @@ currentとpendingは共にVerifierを含む保護対象である。公開DTO、�
 | 対象 | 固定する内容 | 相関・拒否条件 |
 |---|---|---|
 | 包絡 | `contract: crdd-access-management/state`、`schemaRevision: 1`、`revision`、`operationId`と§3の7項目 | revisionは1以上の安全整数、次出版は厳密に+1。operationIdは非秘密のUUID v4。未知fieldを拒否 |
-| User | `userId`、`username`、`role` | userIdはUUID v4。usernameはtrim後1〜128 Unicode code point、制御文字を含まない表示名。同名は許可しIDで識別。roleはdeveloper／manager／administratorのみ |
+| User | `userId`、`username`、`role` | userIdはUUID v4。usernameはstring、UTF-16 code unit長256以下、Unicode code point数1〜128、trim前後が完全一致、Unicode Cc／Csを含まない表示名。入力をtrim・normalizeして採用しない。同名は許可しIDで識別。roleはdeveloper／manager／administratorのみ |
 | Role内容範囲 | 固定3Roleそれぞれの`workspaceIds` | 値は`development`／`management`の重複なし集合。Role全3件を保持し、未知Role・未知Workspaceを拒否。管理の11認可要求種別は別の固定判定を使い、この集合から付与しない |
 | 登録Repository | `repositoryId`、内部`repositoryRoot`、`bindingId` | repositoryIdはDomainのCanonical Identity、RootはVersion Controlで検証した絶対exact Root。bindingIdは既存のRepository ID＋正規化Root由来の結合値。Rootは公開しない。Context本文・内容Hash・Transport設定を保存しない |
 | Exposure | `repositoryId`、`workspaceIds` | 登録済みIDだけ、同じ2Workspace語彙。登録解除では対応Exposureも同一改訂から除去。登録だけで公開せず、登録解除でRepository本体を削除しない |

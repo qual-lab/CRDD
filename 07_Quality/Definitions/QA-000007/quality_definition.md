@@ -243,6 +243,19 @@ RFD-IT-017／018では、現在administrator・初回completed・期待改訂・
 
 交換終了の局所保存はRFD-IT-013／017へ、初回Binding保持の断面はIT024へ接続する。四経路の引継ぎで旧stored→新preparedを一出版とし、新旧相関・現在認可・完全集合・確認・6／7改訂余裕・三段階の再送由来を検査する。新prepared確定前は旧recordの三値、確定後は新recordの三値を返し、要求operationと混線させない。終了処置は提示confirmed、新資格有効・旧資格全失効・現在認可・期待改訂・新終了operationを必須とし、record以外の全field保持を比較する。終了の出版・読戻し・清掃・解放不明と実Process喪失は元相関を保持し、記録不在から終了済みを推定しない。保存Owner専用の既存状態Readerによる確定材料清掃は、公開Actorの認可や終了成功の証明に転用しない。並行要求・初回・改訂上限・現在認可変更の残断面と、本番提示／公開Consumer・正式Local Item全体を別に評価する。
 
+### 非鍵管理の公開接続の検証具体化候補 — 2026-10-13
+
+Source契約候補は[MCP詳細§3.3.1](../../../06_Architecture/Details/mcp-server/01_Architecture.md#331-非鍵管理toolの具体化候補)と[Workbench詳細§6.2.1](../../../06_Architecture/Details/workbench-server/01_Architecture.md#621-非鍵管理の接続候補)。Remote登録Root指定は人間判断待ちで、その採用前に該当Toolを実装・公開しない。他の通常管理と鍵非公開・初回限定discoverを分ける。候補文書から正式191項目のNot RunをPassへ変えない。
+
+| 既存項目 | 追加する観測と反証 |
+|---|---|
+| RFD-IT-013 | Header認証後の現在Role／資格失効を次list／callへ反映。developerの通常認証・用途解決は維持し、四管理read／七保存API呼出しと管理情報開示は0。managerのadministrator名前変更は許可、administrator登録・Role変更・内容設定は拒否 |
+| RFD-IT-021 | 七保存の正常、改訂競合、対象不明、先行材料処置、出版・読戻し・清掃・解放不明を利用側へ搬送。解除は同一操作／改訂で登録とExposureの両除去、本体・対象外状態保持。入口固有Store0 |
+| RFD-ST-022 | 四readの既存filter、改訂独立、Exposure nullと明示空、管理状態Root／Bindingを入力外とし、応答のPath／Bindingは0。Remote登録Rootは採用時だけ要求入力、不採用ならfield／Tool0。16 MiB応答境界と超過時の部分返却0。Workbenchの実POST／CSRと採用したRemote MCP経路で拒否・既知出版・後段不明を別表示。更新後はfresh読取り、応答喪失で自動再送0 |
+| RFD-UAT-007 | manager／administratorが対象・Role変更前後・保持情報、登録と公開、解除と本体削除、既知保存と清掃未確認の違いを理解できる。全Roleの本人表示を管理一覧と混同しない |
+
+Tool名・閉Schema・dispatchとHTTP取消／終了はQA-000009のEST-IT-002／010・EST-ST-013へ接続する。同期保存前取消のAPI呼出し0と、開始後の完了待ち・応答抑止・保存非rollbackを別に観測する。鍵・Host・初回操作のMCP公開0を維持し、採用する非鍵Toolを旧「非採用Tool」の禁止へ誤分類しない。Remote登録を採用する場合だけ、認可前Root観測0、入力上限、Host上Pathの説明と既存AM検証を追加する。部分接続や一覧件数から公開Launcher・通常接続・AM全体完成を推定しない。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した

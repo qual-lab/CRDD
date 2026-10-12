@@ -133,6 +133,20 @@ Source Definition由来の検証義務を維持し、Detailは具体的な観測
 
 全数Coverageと試験段階の扱いは[UI／SPEC DetailのQuality分析](../../Analysis/Detail/quality_analysis.md)を中央統合投影とし、本定義は上記Relationの検証責務を局所所有する。
 
+## 非鍵管理の通信接続の検証具体化候補 — 2026-10-13
+
+対象は[MCP詳細§3.3.1](../../../06_Architecture/Details/mcp-server/01_Architecture.md#331-非鍵管理toolの具体化候補)の管理四readと七保存候補。Remote登録Root指定の人間判断前に実装・公開しない。鍵・Host・初回操作は非公開、Profile四Toolと内容操作は既存契約を保持する。新Local Itemを追加せず、正式評価はNot Run。
+
+| 既存項目 | 接続する観測とOracle |
+|---|---|
+| EST-IT-002 | 採用Tool名の全数・非衝突、tools/listとdispatchの同集合、操作別閉Schema、必須／未知／重複field・型・境界値。不正入力後のAM呼出し0。Bearer・管理Rootの引数0、Path／Binding／秘密の応答0 |
+| EST-IT-010 | Workbench直接とRemote MCPが同じAM結果・既知publication・cleanup・最初の失敗分類を保持し、入口固有Store・認可判定0。四readの各改訂と既存filterを保ち、改訂混在を同一Snapshotへ合成しない。認可／観測不明や出力上限超過を部分／空成功にしない |
+| EST-ST-013 | 実HTTPの開始前取消はAM呼出し0、開始後は同期処理の終了待ちと応答抑止。保存後切断／出力失敗の自動再送0、次要求でfresh状態観測。Server終了後の所有Listener／Request／Socket終了を確認 |
+
+現在manager／administratorの管理Tool追加とdeveloper追加0を実HTTPで確認し、Role変更／失効後の次list／callを反証する。AM Rootと要求Bearerを持たないstdio／Local依存では追加0・fallback0。通常構成で登録候補まで採用した場合の26／Profile構成時30という予定件数と、登録不採用時25／29を区別し、判断前の値を実測結果へ使わない。RFD-IT-021／ST-022は管理・保存・表示の意味Ownerであり、この通信検査だけから七保存や利用者理解の成立を主張しない。
+
+非鍵管理候補のEST-IT-010では、MCP結果Unionの全field／literalと固定理由mappingを閉検査し、未知reasonはstorage_unavailableへ、publication／observedRevision／cleanupConfirmedは不変とする。先行pending処置はprevious_materials_unavailable、新出版準備はprepare_failed。出版成功後のLock終了不明がprimaryFailureへ到達する場合はrelease_unknown、既知失敗に付随する非公開secondaryは捏造しない。EST-IT-002ではdeveloperの通常認証／用途解決を許容しつつ、四管理read／七保存API呼出しと管理Tool／情報開示0をlistとcall双方で確認する。管理状態Root／Bindingは常に入力外、応答Path／Bindingは0。Remote登録のrepositoryRootだけは採用時に要求入力として許可し、不採用時はfield／Tool0とする。
+
 ## Checklist
 
 Runtime活動の入力・結果拒否は`EST-IT-002`、現在Role認可と非開示は`RFD-IT-013`、取消と待機終了は`EST-IT-014`で確認する。開始前取消のReader零回、開始後取消の読取りjoin・応答保留・join後取消を別々に観測する。非取消Readerに対するSignal確認だけをReader中断や外部資源不存在の証明へ昇格しない。Server終了・切断の実Transport利用側は`EST-ST-013`で別途確認する。

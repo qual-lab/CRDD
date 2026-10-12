@@ -231,7 +231,8 @@ test("初回HTTPは完全discover一回だけ出版して次要求を通常へ�
     });
     const listed = await next.json();
     assert.ok(Array.isArray(listed.result.tools));
-    assert.equal(listed.result.tools.length, 19);
+    // 通常管理十操作は独立先行中。Remote登録は判断待ちで含めない。
+    assert.equal(listed.result.tools.length, 29);
     // 一覧Schemaの提示はCatalogの内容を読まない。
     assert.equal(administrationCalls, 0);
     assert.equal(publications, 1);

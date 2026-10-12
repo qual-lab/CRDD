@@ -287,6 +287,18 @@ manager自身の内容範囲変更も、変更前の管理認可→明示更新�
 
 Qualityは9 Role分担行×三Role、操作別入力、managerのadministrator名前だけ変更、自己内容変更の時間順、登録／公開、解除の両読戻し・対象外／本体保持・取消非証明、管理≠内容、保存後不明の禁止推定を既存AM導出キーへ接続する。片側除去・読戻し不明の完了表示を反証する。画面配置・Field・公開API・保存・本番接続はOPENであり、新Tool名や画面をここで発行しない。
 
+#### 6.2.1. 非鍵管理の接続候補
+
+状態: 設計候補。画面／POST／MCP Consumerは未接続。[MCPの具体化候補](../mcp-server/01_Architecture.md#331-非鍵管理toolの具体化候補)とAMの既存七保存入口を使い、Workbench独自の管理Store・Role判定・結果契約を作らない。同Processは構成済みAM Rootと当該接続資格から直接呼び、Remoteは同じ採用済みMCPを呼ぶ。Repository登録のRemote Path指定は判断待ちであり、未承認の操作を表示・送信しない。
+
+画面はユーザー、Role内容、登録Repository、公開範囲の四管理投影を別の改訂付きで保持する。全Role本人の名前表示は通常接続の本人投影を使い、管理一覧をdeveloperへ開示しない。四読取りが違う改訂なら同一Snapshotを表示したと主張せず、各保存フォームが利用した投影の改訂をexpectedRevisionへ渡す。一保存後は現在投影をrefreshし、競合・応答喪失で自動再送しない。管理可否の表示は操作Authorityではなく、AMが要求毎に確認する。
+
+七保存操作は操作別の閉POST入力から同じAM入口へ一回だけ接続する。Origin／Host／Content-Type／要求容量／同画面のAction Tokenを既存Server境界で確認し、開始前取消は保存0、開始後は同期保存終了を待って応答を処置する。入力Tokenは資格を含めず、管理RootやBearerをBrowserのフォーム・JSONへ渡さない。登録Rootを採用する場合だけ「サーバー上のRepositoryフォルダ」と表示し、BrowserのローカルPathとの違いを説明する。
+
+保存確認済み、拒否、保存結果未確認、保存確認後の清掃未確認を区別して表示する。既知出版を「変更なし」へ丸めず、解除成功からRepository本体削除・旧Task終了を推定しない。更新したRole内容やExposureの実利用可否は次要求の現在認可で確認する。管理結果・改訂を表示しても秘密・Binding・内部Path・Lock回復参照を追加しない。通常の説明Responseは表示用であり、新たな受領ACKや永続配送Stateを要求しない。
+
+非鍵管理の公開結果形式は[MCP具体化候補](../mcp-server/01_Architecture.md#331-非鍵管理toolの具体化候補)の閉Unionと固定失敗分類を参照する。Workbenchで別の保存結果型や自由文字列理由を定義せず、直接AM利用時も同じ公開投影へ変換する。先行材料処置と新出版準備、既知出版後のLock終了不明を区別し、非公開secondaryを推測しない。
+
 ### 6.3. 初回Host設定の案内
 
 初回資格での接続操作は[AM保存設計§2.5](../access-management/02_Management_State_and_API.md#25-初回限定接続の具体契約)の限定discover、続くfresh通常読取りへ接続する。追加受領ボタンを設けず、同じ操作内で進める。AM確認保存前の応答、単なるHTTP到達、旧Portfolio取得から初回完了を表示しない。既知保存後の応答喪失は再接続で現在状態を確認し、秘密再表示・自動再発行・rollbackをしない。現Sourceの旧REST接続操作からの切替と実画面は未実装、今回の具体化5文書差分は契約・品質限定独立再レビューPass・全重大度0。実装・本番成立ではない。

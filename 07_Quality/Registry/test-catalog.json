@@ -3175,8 +3175,21 @@
       "postconditions": ["invalid_request_confirmation_zero", "complete_discover_confirms_once", "initial_request_normal_tool_zero", "internal_binding_not_disclosed", "cancelled_publication_preserved", "post_cancel_success_response_zero", "next_request_current_authentication", "concurrent_requests_single_publication", "listener_absent", "settled_materials_absent_or_unknown_retained", "test_root_removed"],
       "mandatoryByDefault": true
     },
-    {
-      "id": "mcp:integration:access-capabilities",
+      {
+        "id": "mcp:integration:access-management-results",
+        "owner": "mcp-server",
+        "path": "40_Develop/mcp-server/tests/integration/access-management-results.integration.test.ts",
+        "level": "integration",
+        "kind": "contract",
+        "semanticTags": ["access-management", "mcp", "result-projection", "capacity"],
+        "environment": "local_component_boundary",
+        "externalProviderEffect": false,
+        "humanInput": false,
+        "postconditions": ["primary_failure_closed_mapping", "unknown_reason_not_disclosed", "publication_and_cleanup_preserved", "read_rejection_distinct_from_unknown", "exact_utf8_response_limit", "oversize_whole_result_unavailable", "cancelled_request_producer_zero", "owned_child_joined", "fixture_root_absent"],
+        "mandatoryByDefault": true
+      },
+      {
+        "id": "mcp:integration:access-capabilities",
       "owner": "mcp-server",
       "path": "40_Develop/mcp-server/tests/integration/access-capabilities.integration.test.ts",
       "level": "integration",
@@ -3185,7 +3198,7 @@
       "environment": "local_component_boundary",
       "externalProviderEffect": false,
       "humanInput": false,
-      "postconditions": ["authorized_projection_only", "authorized_repository_write_only", "project_identity_bound", "unknown_body_stops_whole_result", "request_reauthorization", "stored_runtime_state_and_history_delivered", "authorized_activity_sources_exact", "partial_exposure_reflected", "current_profile_role_enforced", "profile_store_not_observed_when_denied", "listener_absent"],
+      "postconditions": ["authorized_projection_only", "authorized_repository_write_only", "project_identity_bound", "unknown_body_stops_whole_result", "request_reauthorization", "stored_runtime_state_and_history_delivered", "authorized_activity_sources_exact", "partial_exposure_reflected", "current_profile_role_enforced", "profile_store_not_observed_when_denied", "nonkey_management_current_role", "nonkey_management_six_mutations_confirmed", "management_binding_and_secret_not_disclosed", "unregister_preserves_repository_body", "pending_remote_registration_not_exposed", "management_primary_failure_preserved", "confirmed_publication_not_rewritten", "management_automatic_resend_zero", "listener_absent"],
       "mandatoryByDefault": true
     },
     {

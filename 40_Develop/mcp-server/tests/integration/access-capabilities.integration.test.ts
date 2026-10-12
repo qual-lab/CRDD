@@ -7,6 +7,8 @@
  * @trace CPR-IT-012
  * @trace RFD-IT-013
  * @trace RFD-IT-019
+ * @trace RFD-IT-021
+ * @trace EST-IT-010
  * @trace RCM-IT-005
  * @trace RCM-IT-010
  * @trace EST-IT-002
@@ -22,6 +24,7 @@ import { randomUUID, createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { request as httpRequest } from "node:http";
 import test, { type TestContext } from "node:test";
+
 import {
   createAiProfileCatalogAdministration,
   createRepositoryAiProfileCatalogStore,
@@ -61,6 +64,511 @@ import {
   verifyExecutionIntelligenceRepositoryRoot,
   usageNotObserved,
 } from "../../../execution-intelligence/src/index.ts";
+
+/**
+ * 非鍵管理十操作を現在Roleから実HTTP保存へ接続する。
+ * @responsibility 四読取り・六保存の結果、非開示、次要求の現在性を照合する。
+ * @trace RFD-IT-013
+ * @trace RFD-IT-021
+ * @trace EST-IT-002
+ * @trace EST-IT-010
+ * @precondition 自己生成の完了AM Storeと登録済みRepositoryを用意する。
+ * @stimulus developer／managerの一覧、四readと六保存、禁止Role変更を要求する。
+ * @observation 実HTTP構造結果と管理Fileの読戻し・保持状態。
+ * @oracle 登録Tool・鍵・Root／Bindingは公開せず、現在管理認可と既知改訂を保持する。
+ * @cleanup Server終了待ち後、fixtureが所有Rootの不存在を確認する。
+ * @boundary AM保存Owner→MCP→実HTTP。公開Launcher成立ではない。
+ */
+test("非鍵管理MCPの十操作はRoleと閉結果を実保存へ接続する", async (t) => {
+  const f = fixture(t);
+  const [firstTarget, secondTarget] = f.targets;
+  assert.ok(firstTarget && secondTarget);
+  const resolver = createAccessMcpResolver(f.root);
+  const server = await startMcpAuthenticatedStreamableHttp(resolver, {
+    port: 0,
+  });
+  const base = `http://${server.host}:${server.port}`;
+  try {
+    const listRequest = {
+      ...packet(),
+      method: "tools/list",
+      params: { _meta: packet().params._meta },
+    };
+    const handler = await resolver(f.token);
+    assert.ok(handler);
+    const deniedList = await handler(listRequest, new AbortController().signal);
+    assert.equal((deniedList.result as { tools: unknown[] }).tools.length, 15);
+    const before = fs.readFileSync(f.current);
+    const deniedRead = await (
+      await call(base, f.token, "crdd.list_access_users", {})
+    ).json();
+    assert.deepEqual(deniedRead.result.structuredContent, {
+      status: "unavailable",
+      reason: "management_read_rejected",
+    });
+    assert.deepEqual(fs.readFileSync(f.current), before);
+
+    const state = JSON.parse(before.toString("utf8")) as AccessManagementState;
+    const actor = state.users[0];
+    assert.ok(actor);
+    actor.role = "manager";
+    state.exposure = state.exposure.filter(
+      (exposure) => exposure.repositoryId !== firstTarget.id,
+    );
+    fs.writeFileSync(f.current, JSON.stringify(state));
+    const listed = await handler(listRequest, new AbortController().signal);
+    const tools = (
+      listed.result as {
+        tools: {
+          name: string;
+          inputSchema: unknown;
+        }[];
+      }
+    ).tools;
+    assert.equal(tools.length, 25);
+    assert.equal(new Set(tools.map((tool) => tool.name)).size, 25);
+    assert.equal(
+      tools.some((tool) => tool.name === "crdd.register_repository"),
+      false,
+    );
+    for (const tool of tools.filter((tool) =>
+      /access_users|role_content_access|registered_repositories|repository_exposure|register_user|update_user_name|change_user_role|unregister_repository/.test(
+        tool.name,
+      ),
+    )) {
+      const serialized = JSON.stringify(tool.inputSchema);
+      for (const field of [
+        "repositoryRoot",
+        "bindingId",
+        "token",
+        "credentialId",
+      ])
+        assert.equal(serialized.includes(field), false);
+    }
+    for (const [name, field] of [
+      ["crdd.list_access_users", "users"],
+      ["crdd.list_role_content_access", "roles"],
+      ["crdd.list_registered_repositories", "repositories"],
+      ["crdd.list_repository_exposure", "repositories"],
+    ]) {
+      const response = await (await call(base, f.token, name, {})).json();
+      const result = response.result.structuredContent;
+      assert.equal(result.status, "completed");
+      assert.equal(result.revision, state.revision);
+      assert.deepEqual(
+        Object.keys(result).sort(),
+        [field, "revision", "status"].sort(),
+      );
+      for (const value of [f.token, "bindingId", "repositoryRoot", f.current])
+        assert.equal(JSON.stringify(response).includes(value), false);
+      if (field === "roles")
+        assert.equal(
+          result.roles.some(
+            (role: { role: string }) => role.role === "administrator",
+          ),
+          false,
+        );
+      if (name === "crdd.list_repository_exposure")
+        assert.equal(
+          result.repositories.find(
+            (repository: { repositoryId: string }) =>
+              repository.repositoryId === firstTarget.id,
+          )?.workspaceIds,
+          null,
+        );
+    }
+    let revision = state.revision;
+    const registered = await (
+      await call(base, f.token, "crdd.register_user", {
+        expectedRevision: revision,
+        operationId: randomUUID(),
+        username: "登録ユーザー",
+        plannedRole: "developer",
+      })
+    ).json();
+    const created = registered.result.structuredContent;
+    assert.equal(created.status, "completed");
+    assert.equal(created.revision, ++revision);
+    assert.equal(created.publication, "confirmed");
+    assert.equal(created.cleanupConfirmed, true);
+    const userId = created.userId as string;
+    for (const [name, input] of [
+      ["crdd.update_user_name", { userId, username: "変更ユーザー" }],
+      [
+        "crdd.change_user_role",
+        { userId, currentRole: "developer", nextRole: "manager" },
+      ],
+      [
+        "crdd.update_role_content_access",
+        { targetRole: "developer", workspaceIds: [] },
+      ],
+      [
+        "crdd.update_repository_exposure",
+        { repositoryId: firstTarget.id, workspaceIds: [] },
+      ],
+      ["crdd.unregister_repository", { repositoryId: secondTarget.id }],
+    ] as const) {
+      const operationId = randomUUID();
+      const response = await (
+        await call(base, f.token, name, {
+          ...input,
+          operationId,
+          expectedRevision: revision,
+        })
+      ).json();
+      const result = response.result.structuredContent;
+      assert.equal(result.status, "completed");
+      assert.equal(result.operationId, operationId);
+      assert.equal(result.expectedRevision, revision);
+      assert.equal(result.revision, ++revision);
+      assert.equal(result.publication, "confirmed");
+      assert.equal(result.cleanupConfirmed, true);
+    }
+    const saved = JSON.parse(
+      fs.readFileSync(f.current, "utf8"),
+    ) as AccessManagementState;
+    assert.equal(saved.revision, revision);
+    assert.equal(
+      saved.users.find((user) => user.userId === userId)?.role,
+      "manager",
+    );
+    assert.equal(
+      saved.users.find((user) => user.userId === userId)?.username,
+      "変更ユーザー",
+    );
+    assert.deepEqual(
+      saved.roleContentAccess.find((role) => role.role === "developer")
+        ?.workspaceIds,
+      [],
+    );
+    assert.equal(
+      saved.registeredRepositories.some(
+        (repository) => repository.repositoryId === secondTarget.id,
+      ),
+      false,
+    );
+    assert.equal(
+      saved.exposure.some(
+        (exposure) => exposure.repositoryId === secondTarget.id,
+      ),
+      false,
+    );
+    assert.deepEqual(
+      saved.exposure.find(
+        (exposure) => exposure.repositoryId === firstTarget.id,
+      )?.workspaceIds,
+      [],
+    );
+    assert.ok(fs.existsSync(secondTarget.body));
+    const unchanged = fs.readFileSync(f.current);
+    for (const [name, input] of [
+      [
+        "crdd.register_user",
+        { username: "禁止管理者", plannedRole: "administrator" },
+      ],
+      [
+        "crdd.change_user_role",
+        { userId, currentRole: "manager", nextRole: "administrator" },
+      ],
+      [
+        "crdd.update_role_content_access",
+        { targetRole: "administrator", workspaceIds: [] },
+      ],
+    ] as const) {
+      const response = await (
+        await call(base, f.token, name, {
+          ...input,
+          expectedRevision: revision,
+          operationId: randomUUID(),
+        })
+      ).json();
+      assert.deepEqual(response.result.structuredContent, {
+        status: "rejected",
+        reason: "management_request_rejected",
+      });
+      assert.deepEqual(fs.readFileSync(f.current), unchanged);
+    }
+    const invalid = await (
+      await call(base, f.token, "crdd.update_user_name", {
+        expectedRevision: revision,
+        operationId: randomUUID(),
+        userId,
+        username: "不採用",
+        token: f.token,
+      })
+    ).json();
+    assert.equal(invalid.error.code, -32602);
+    assert.deepEqual(fs.readFileSync(f.current), unchanged);
+    const cancelled = new AbortController();
+    cancelled.abort();
+    const cancellation = await handler(
+      packet("crdd.update_user_name", {
+        expectedRevision: revision,
+        operationId: randomUUID(),
+        userId,
+        username: "取消",
+      }),
+      cancelled.signal,
+    );
+    assert.equal(cancellation.error?.code, -32800);
+    assert.deepEqual(fs.readFileSync(f.current), unchanged);
+    const pendingRegistration = await (
+      await call(base, f.token, "crdd.register_repository", {})
+    ).json();
+    assert.equal(pendingRegistration.error.code, -32601);
+  } finally {
+    assert.equal((await server.close()).cleanupConfirmed, true);
+  }
+});
+
+/**
+ * 通常管理の出版・清掃・解放故障をMCPで保持する。
+ * @responsibility 最初の失敗と既知出版を分離し、自動再送0を確認する。
+ * @trace RFD-IT-021
+ * @trace EST-IT-010
+ * @precondition 自己生成のmanager Storeと通常HTTP接続。
+ * @stimulus 対象Rootのrename、pending清掃、保存後Lock清掃へ個別故障を注入する。
+ * @observation 呼出し回数、HTTP閉結果、実現在Fileの改訂と名前。
+ * @oracle publication_failed／cleanup_failed／release_unknownと既知publicationを保持する。
+ * @cleanup 全差替えを復元しServerをjoinしてfixture所有Rootを回収する。
+ * @boundary 実Filesystem→AM結果→MCP投影→HTTP。
+ */
+test("非鍵管理MCPは保存後の失敗分類と既知出版を保持する", async (t) => {
+  for (const stage of ["publication", "cleanup", "release"] as const) {
+    await t.test(stage, async (child) => {
+      const f = fixture(child);
+      const state = JSON.parse(
+        fs.readFileSync(f.current, "utf8"),
+      ) as AccessManagementState;
+      const actor = state.users[0];
+      assert.ok(actor);
+      actor.role = "manager";
+      fs.writeFileSync(f.current, JSON.stringify(state));
+      const server = await startMcpAuthenticatedStreamableHttp(
+        createAccessMcpResolver(f.root),
+        { port: 0 },
+      );
+      const base = `http://${server.host}:${server.port}`;
+      const rename = fs.renameSync,
+        remove = fs.rmSync;
+      const parent = path.dirname(f.current);
+      let injected = 0,
+        publications = 0;
+      try {
+        fs.renameSync = ((from, to) => {
+          if (String(to) === f.current) {
+            publications++;
+            if (stage === "publication") {
+              injected++;
+              throw new Error("fixture_publication_failure");
+            }
+          }
+          return rename(from, to);
+        }) as typeof fs.renameSync;
+        fs.rmSync = ((target, options) => {
+          const file = String(target);
+          if (
+            stage === "cleanup" &&
+            file === path.join(parent, "access-management.pending.json")
+          ) {
+            injected++;
+            throw new Error("fixture_cleanup_failure");
+          }
+          if (
+            stage === "release" &&
+            file === path.join(parent, "access-management.lock") &&
+            (
+              JSON.parse(
+                fs.readFileSync(f.current, "utf8"),
+              ) as AccessManagementState
+            ).revision ===
+              state.revision + 1
+          ) {
+            injected++;
+            throw new Error("fixture_release_failure");
+          }
+          return remove(target, options);
+        }) as typeof fs.rmSync;
+        const operationId = randomUUID();
+        const response = await (
+          await call(base, f.token, "crdd.update_user_name", {
+            expectedRevision: state.revision,
+            operationId,
+            userId: actor.userId,
+            username: "故障確認後の名前",
+          })
+        ).json();
+        const result = response.result.structuredContent;
+        assert.equal(result.status, "unavailable");
+        assert.equal(result.reason, "management_operation_unavailable");
+        assert.equal(result.operationId, operationId);
+        assert.equal(result.expectedRevision, state.revision);
+        assert.equal(
+          result.primaryFailure,
+          stage === "publication"
+            ? "publication_failed"
+            : stage === "cleanup"
+              ? "cleanup_failed"
+              : "release_unknown",
+        );
+        assert.equal(
+          result.publication,
+          stage === "publication" ? "unconfirmed" : "confirmed",
+        );
+        assert.equal(result.cleanupConfirmed, false);
+        assert.equal(publications, 1);
+        assert.equal(injected, 1);
+        const observed = JSON.parse(
+          fs.readFileSync(f.current, "utf8"),
+        ) as AccessManagementState;
+        assert.equal(
+          observed.revision,
+          state.revision + (stage === "publication" ? 0 : 1),
+        );
+        assert.equal(
+          observed.users[0]?.username,
+          stage === "publication" ? actor.username : "故障確認後の名前",
+        );
+        for (const forbidden of [
+          f.token,
+          f.current,
+          "lockRecoveryId",
+          "state_store_",
+          "fixture_",
+        ])
+          assert.equal(JSON.stringify(response).includes(forbidden), false);
+      } finally {
+        fs.renameSync = rename;
+        fs.rmSync = remove;
+        assert.equal((await server.close()).cleanupConfirmed, true);
+      }
+    });
+  }
+});
+
+/**
+ * 実Client切断を保存後のTransport取消へ接続する。
+ * @responsibility 同期保存の既知出版と成功応答の抑止を別に観測する。
+ * @trace RFD-IT-021
+ * @trace EST-IT-010
+ * @precondition 自己生成manager、実HTTP、対象出版だけのrename hook。
+ * @stimulus 出版直後にClientRequestをdestroyする。
+ * @observation Handler取消、Client本文0、保存改訂一回、次要求の現在投影。
+ * @oracle 観測済み取消は-32800、保存を戻さず自動再送しない。
+ * @cleanup Client close、両Server closeとfixture清掃を確認する。
+ * @boundary 実Client／Socket→Transport signal→同期AM保存後の公開。
+ */
+test("非鍵管理MCPは保存後のClient切断を取消として観測する", {
+  timeout: 15000,
+}, async (t) => {
+  const f = fixture(t);
+  const state = JSON.parse(
+    fs.readFileSync(f.current, "utf8"),
+  ) as AccessManagementState;
+  const actor = state.users[0];
+  assert.ok(actor);
+  actor.role = "manager";
+  fs.writeFileSync(f.current, JSON.stringify(state));
+  const resolver = createAccessMcpResolver(f.root);
+  let notify: () => void = () => {};
+  const settled = new Promise<void>((resolve) => {
+    notify = resolve;
+  });
+  let handlerError: number | undefined;
+  const server = await startMcpAuthenticatedStreamableHttp(
+    async (token) => {
+      const handler = await resolver(token);
+      assert.ok(handler);
+      return async (request, signal) => {
+        const result = await handler(request, signal);
+        handlerError = result.error?.code;
+        notify();
+        return result;
+      };
+    },
+    { port: 0 },
+  );
+  const operationId = randomUUID();
+  const body = JSON.stringify(
+    packet("crdd.update_user_name", {
+      expectedRevision: state.revision,
+      operationId,
+      userId: actor.userId,
+      username: "取消後の保存済み名前",
+    }),
+  );
+  let receivedBytes = 0;
+  const client = httpRequest(
+    {
+      host: server.host,
+      port: server.port,
+      path: "/mcp",
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${f.token}`,
+        accept: "application/json, text/event-stream",
+        "content-type": "application/json",
+        "content-length": Buffer.byteLength(body),
+        "mcp-protocol-version": MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+        "mcp-method": "tools/call",
+        "mcp-name": "crdd.update_user_name",
+      },
+    },
+    (response) => {
+      response.on("data", (chunk: Buffer) => {
+        receivedBytes += chunk.length;
+      });
+    },
+  );
+  client.on("error", () => {});
+  const closed = new Promise<void>((resolve) => client.once("close", resolve));
+  const rename = fs.renameSync;
+  let publications = 0;
+  try {
+    fs.renameSync = (from, to) => {
+      rename(from, to);
+      if (String(to) === f.current) {
+        publications++;
+        client.destroy();
+      }
+    };
+    client.end(body);
+    await closed;
+    await settled;
+    assert.equal(handlerError, -32800);
+    assert.equal(receivedBytes, 0);
+    assert.equal(publications, 1);
+  } finally {
+    fs.renameSync = rename;
+    client.destroy();
+    await closed;
+    assert.equal((await server.close()).cleanupConfirmed, true);
+  }
+  const current = JSON.parse(
+    fs.readFileSync(f.current, "utf8"),
+  ) as AccessManagementState;
+  assert.equal(current.revision, state.revision + 1);
+  assert.equal(current.operationId, operationId);
+  assert.equal(current.users[0]?.username, "取消後の保存済み名前");
+  const next = await startMcpAuthenticatedStreamableHttp(resolver, { port: 0 });
+  try {
+    const response = await (
+      await call(
+        `http://${next.host}:${next.port}`,
+        f.token,
+        "crdd.list_access_users",
+        {},
+      )
+    ).json();
+    assert.equal(response.result.structuredContent.revision, current.revision);
+    assert.equal(
+      response.result.structuredContent.users[0].username,
+      "取消後の保存済み名前",
+    );
+  } finally {
+    assert.equal((await next.close()).cleanupConfirmed, true);
+  }
+});
 
 /**
  * 共有Profile管理の現在Roleと四操作を実HTTPで接続する。
@@ -441,6 +949,8 @@ test("AM活動MCPは実保存観測と現在Exposure・失効を接続する", a
 /**
  * 自己生成の管理Storeと二Repositoryを準備する。
  * @responsibility 実Hostや秘密値を使わず現在認証・登録・公開の前提を構成する。
+ * @trace RFD-IT-021
+ * @trace EST-IT-010
  * @trace RFD-IT-013
  * @trace RFD-IT-019
  * @precondition Repository-localの試験Rootだけに書き込む。
@@ -573,8 +1083,10 @@ function fixture(t: TestContext, completed = true) {
 }
 
 /**
- * 内容ToolのJSON-RPC要求を作る。
+ * 内容・非鍵管理ToolのJSON-RPC要求を作る。
  * @responsibility 実HTTPと直接Handlerで同じwire入力を使用する。
+ * @trace RFD-IT-021
+ * @trace EST-IT-010
  * @trace PPR-IT-002
  * @trace CPR-IT-010
  * @trace CPR-IT-012
@@ -612,6 +1124,8 @@ function packet(
 /**
  * 認証済みHTTPで内容Toolを呼ぶ。
  * @responsibility 既存TransportのHeader・本文検査を迂回しない。
+ * @trace RFD-IT-021
+ * @trace EST-IT-010
  * @trace PPR-IT-002
  * @trace CPR-IT-010
  * @trace CPR-IT-012

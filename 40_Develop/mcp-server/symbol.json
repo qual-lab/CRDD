@@ -4,6 +4,34 @@
   "subsystem": "mcp-server",
   "symbols": [
     {
+      "symbolId": "mcp.test.integration.access-management-results",
+      "kind": "test-suite",
+      "path": "tests/integration/access-management-results.integration.test.ts",
+      "qaIds": ["QA-000009"],
+      "localTestIds": ["EST-IT-002", "EST-IT-010"],
+      "verifies": ["mcp.request.access-resolver", "mcp.access-management.adapter"]
+    },
+    {
+      "symbolId": "mcp.test.fixture.access-management-results",
+      "kind": "test-suite",
+      "path": "tests/fixtures/access-management-results.ts",
+      "qaIds": ["QA-000009"],
+      "localTestIds": ["EST-IT-002", "EST-IT-010"],
+      "verifies": ["mcp.request.access-resolver", "mcp.access-management.adapter"]
+    },
+    {
+      "symbolId": "mcp.access-management.protocol",
+      "kind": "file",
+      "path": "src/access-management/protocol.ts",
+      "archIds": ["ARCH-000012", "ARCH-000013"]
+    },
+    {
+      "symbolId": "mcp.access-management.adapter",
+      "kind": "file",
+      "path": "src/access-management/adapter.ts",
+      "archIds": ["ARCH-000012", "ARCH-000013"]
+    },
+    {
       "symbolId": "mcp.request.discover",
       "kind": "file",
       "path": "src/request/discover.ts",
@@ -34,8 +62,8 @@
       "kind": "test-suite",
       "path": "tests/integration/access-capabilities.integration.test.ts",
       "qaIds": ["QA-000001", "QA-000004", "QA-000005", "QA-000007", "QA-000009"],
-      "localTestIds": ["RCM-IT-005", "RCM-IT-010", "PPR-IT-002", "CPR-IT-010", "CPR-IT-012", "RFD-IT-013", "RFD-IT-019", "EST-IT-002", "EST-IT-014"],
-      "verifies": ["mcp.request.access-resolver", "mcp.ai-profile-adapter", "mcp.runtime-activity-adapter", "mcp.source.src.transports.streamable.http.transport"]
+      "localTestIds": ["RCM-IT-005", "RCM-IT-010", "PPR-IT-002", "CPR-IT-010", "CPR-IT-012", "RFD-IT-013", "RFD-IT-019", "RFD-IT-021", "EST-IT-002", "EST-IT-010", "EST-IT-014"],
+      "verifies": ["mcp.request.access-resolver", "mcp.ai-profile-adapter", "mcp.runtime-activity-adapter", "mcp.access-management.protocol", "mcp.access-management.adapter", "mcp.source.src.transports.streamable.http.transport"]
     },
     {
       "symbolId": "mcp.ai-profile-adapter",

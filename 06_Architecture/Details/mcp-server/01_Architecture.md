@@ -270,6 +270,67 @@ Repository登録解除の非鍵結果は、同じ受理済み操作・採用改�
 
 入力・現在認可・必要状態不明の拒否と、保存後の読戻し／応答不明を別結果として投影する。後者から未保存・rollback・Effect0や完了を生成せず、通常管理へ交換Recoveryを足さない。これらは公開能力の制約であり、今回SourceのTool集合やProtocolを変更しない。Qualityは既存AMの認可・可視性・通常管理の導出キーから、要求搬送と許可外情報／Effect0、固定分担、解除の両読戻し・保持範囲・取消非証明、結果軸の保持を具体化する。鍵は一覧・Schema・登録・dispatchと鍵Recovery参照0だけを負観測し、鍵処置をMCPの試験対象操作として新設しない。固定8分担・登録解除・通常鍵3分岐の前回伝播候補は契約・品質の限定独立レビュー済み・残指摘0で、公開接続・QA実行済みではない。
 
+#### 3.3.1. 非鍵管理Toolの具体化候補
+
+状態: 十操作は注入ResolverのWIP Sourceへ接続済み。登録はSource／Schema／一覧／dispatchに追加していない。公開Launcher、Workbench本番、正式評価は未接続。Repository登録のRemote Path指定だけは人間判断待ちで、下表の候補を公開済み契約へ読み替えない。鍵とHost操作の非公開境界は不変更。
+
+| Tool候補 | 操作固有入力 | 成功時の管理投影 |
+|---|---|---|
+| `crdd.list_access_users` | 空Object | revision、users（userId／username／role） |
+| `crdd.list_role_content_access` | 空Object | revision、roles（role／workspaceIds） |
+| `crdd.list_registered_repositories` | 空Object | revision、repositories（repositoryIdだけ） |
+| `crdd.list_repository_exposure` | 空Object | revision、repositories（repositoryId／workspaceIds） |
+| `crdd.register_user` | username、plannedRole | User登録結果 |
+| `crdd.update_user_name` | userId、username | User変更結果 |
+| `crdd.change_user_role` | userId、currentRole、nextRole | User変更結果 |
+| `crdd.update_role_content_access` | targetRole、workspaceIds | Role内容変更結果（userIdはnull） |
+| `crdd.register_repository` | repositoryId、repositoryRoot（Remote採用は判断待ち） | Repository登録結果 |
+| `crdd.unregister_repository` | repositoryId | 登録・対応公開範囲の解除結果 |
+| `crdd.update_repository_exposure` | repositoryId、workspaceIds | 公開範囲変更結果 |
+
+全入力Objectを閉じ、未知field、重複field、不正型を拒否する。保存七候補は共通して`operationId`（既存UUIDv4形式）と`expectedRevision`（1以上のsafe integer）を必須とする。usernameはstring構造だけを検査し、表示名の値制約は[AM保存設計](../access-management/02_Management_State_and_API.md)のCanonical検査へ委譲する。Roleはdeveloper／manager／administrator、workspaceIdsはdevelopment／managementの重複なし配列、User IDは既存UUID形式、Repository IDは既存AMの1〜128文字の識別子とする。空のworkspaceIdsは明示範囲0であり拒否しない。具体値の業務判定・対象存在・現在改訂はAMが所有する。MCP入力からBearer、管理状態Root、Binding、任意の操作名を受けない。
+
+Tool一覧では要求時の現在通常認証に基づきmanager／administratorへ採用した管理Tool集合を表示し、developer、初回限定、管理Context未構成には追加しない。managerへ一覧表示してもadministratorを含むRole変更・登録・内容設定は許可されず、call時のAM判定を維持する。旧Local／stdioの固定依存へ自動追加しない。登録候補まで採用した場合、既存通常15 Toolと合わせmanager／administratorは26、Profile Catalog構成時30。developerは15。登録Remote不採用なら25／29であり、判断前に件数を実装成功値として記録しない。
+
+四読取りは別々の現在改訂である。Role内容読取りはmanagerへadministrator行を補完せず、User読取りはmanagerによるadministrator名前管理の既存範囲を保持する。公開範囲のnull（設定なし）と空配列（明示範囲0）を区別する。内部DTOのkind・bindingId・Path・資格は公開しない。拒否・観測／清掃／解放不明を空一覧にしない。非鍵管理応答はJSON-RPC最終ObjectのUTF-8で16 MiB以下とし、超過は固定未取得として全体を拒否する。部分一覧、暗黙Paging、新Inventoryは作らず、他のToolへこの局所上限を一律適用しない。
+
+公開結果は次の閉Unionとする。表にないfieldを追加せず、管理状態Root、登録Root、Binding、資格・秘密、例外本文、内部Recovery参照を返さない。JSON-RPC入力不正は既存`-32602`、開始前／終了後取消は既存`-32800`であり、以下のAM実行結果と混同しない。
+
+| 結果 | exact fieldと値 |
+|---|---|
+| 管理読取り成功 | `status: completed`、`revision`（1以上のsafe integer）、上表Tool固有の`users`／`roles`／`repositories`配列だけ |
+| 管理読取り拒否 | `status: unavailable`、`reason: management_read_rejected`だけ。AM認証／参照拒否を同じ結果へ閉じる |
+| 管理読取り不明 | `status: unavailable`、`reason: management_read_unavailable`だけ。観測・材料清掃・Lock終了の不明を空一覧にしない |
+| 応答上限超過 | `status: unavailable`、`reason: management_response_too_large`だけ。部分配列なし |
+| 保存成功 | `status: completed`、`operationId`、`expectedRevision`、`revision`、操作別`userId`または`repositoryId`、`publication: confirmed`、`cleanupConfirmed: true`。Role内容保存のuserIdはnull |
+| 保存拒否 | `status: rejected`、`reason: management_request_rejected`だけ。認可前・対象不明・改訂競合を区別開示しない |
+| 認可後保存未完了 | `status: unavailable`、`reason: management_operation_unavailable`、`operationId`、`expectedRevision`、`observedRevision`（safe integerまたはnull）、`publication`（not_attempted／unconfirmed／confirmed）、`cleanupConfirmed`（boolean）、`primaryFailure`（下表の閉enum） |
+
+`primaryFailure`はAMの実Resultにある同名fieldだけを次表へ写し、内部例外や自由文字列を透過しない。
+
+| AMの固定理由 | 公開primaryFailure |
+|---|---|
+| `state_store_previous_pending_settled` | `previous_materials_settled` |
+| `state_store_pending_failed` | `previous_materials_unavailable` |
+| `state_store_capacity_exceeded` | `capacity_exceeded` |
+| `state_store_identity_failed` | `identity_generation_failed` |
+| `state_store_candidate_failed` | `candidate_invalid` |
+| `state_store_repository_binding_failed` | `repository_validation_failed` |
+| `state_store_prepare_failed` | `prepare_failed` |
+| `state_store_publish_failed` | `publication_failed` |
+| `state_store_read_back_failed` | `readback_failed` |
+| `state_store_cleanup_failed` | `cleanup_failed` |
+| `state_store_lock_unknown`、`filesystem_store_lock_operation_completed_cleanup_unknown` | `release_unknown` |
+| その他・未知理由 | `storage_unavailable` |
+
+先行材料の処置と新出版準備を同じ分類へ畳まない。出版成功後のLock終了不明はprimaryへ到達し得る。一方、既知の最初の失敗に付随する内部secondary理由をこの表から推定・新規公開しない。cleanupConfirmedは材料とLock終了の複合確認であり、falseだけから失敗箇所を推定しない。全分類で既知publicationと観測改訂を保持し、rollback・Effect 0・completedへ書き換えない。operationIdは相関であってReceiptや冪等再送保証ではない。
+
+完全Schema検査→開始前signal確認→AM同期API最大一回→終了後signal確認→閉結果公開の順とする。開始前取消は管理API呼出し0。同期保存開始後は終了まで待ち、取消・応答喪失で既知出版を戻さず、成功応答の抑止と保存の取消を区別する。自動再送せず次要求で現在状態を読む。Bearerは既存HTTP Headerから当該要求closureへ結合し、本文・結果・ログへ転記しない。登録Root候補の採否と具体入力境界は人間判断後に固定する。
+
+先行実装の責務配置は`src/access-management/protocol.ts`（十Toolの閉入力）、`src/access-management/adapter.ts`（入力検査・現在通常認証・AM委譲・閉結果）、既存`request/route.ts`（一覧／dispatch）と`request/access-resolver.ts`（Header資格の要求専用構成）とする。外部Consumerは既存Package Rootの`createAccessMcpResolver`と`routeMcpRequest`を使い、新たなCapability barrelや管理Storeを追加しない。判断待ちの登録を省いたWIPであり、登録不採用・最終Tool集合・公開Launcher完成を表さない。
+
+上記の閉結果Unionは、既存Tool応答方式と同じ`structuredContent`へ置く。`content`は秘密・入力・内部理由を複製しない固定説明だけ、`isError`は管理結果がcompleted以外ならtrueとする。外側のJSON-RPC／Protocol metadataは既存契約を保持し、16 MiBはその最終応答全体で検査する。Schema不正や取消等のProtocol errorを、管理結果のstructuredContentへ混在させない。
+
 ### 3.4. 初回Host設定の非公開境界
 
 限定接続の具体Owner／Protocolは[AM保存設計§2.5](../access-management/02_Management_State_and_API.md#25-初回限定接続の具体契約)に従う。初回資格には通常Tool Handlerを渡さず、HTTPと既存Protocolの完全検査を通る`server/discover`だけを受ける。AMのfresh相関照合・確認保存・読戻し・短命清掃・Lock終了後だけ非秘密の成功応答を返し、通常Authorityは次要求で取り直す。初期化操作・状態照会・鍵操作の公開例外ではなく、Client応答受領保証でもない。Source・本番Consumerは未接続で、今回の具体化5文書差分は契約・品質限定独立再レビューPass・全重大度0。実装・本番成立ではない。

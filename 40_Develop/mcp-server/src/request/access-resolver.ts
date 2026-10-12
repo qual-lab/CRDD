@@ -65,6 +65,7 @@ export function createAccessMcpResolver(
       routeMcpRequest(
         request,
         {
+          accessManagement: { root, token },
           ...(profileAdministration === undefined
             ? {}
             : {
