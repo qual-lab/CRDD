@@ -301,6 +301,10 @@ RFD-IT-021の保存部分を`access-management/tests/integration/state/file-stor
 
 Host交換の保存・提示・終了compositionはRFD-IT-017へ局所接続し、初回共通TTY移管の保持はIT024／025で反証する。指定／全員、一write前のunconfirmed確定・提示後confirmed・最新改訂で終了、各Root Lock終了とTTY callback joinを観測する。新token保存後の取消はTTY0／finish0でも保存済み相関を保持し、TTY中の取消／故障／遅延通知は再表示0・確認0・終了0とする。stored再入場の未確認は別明示交換へ、confirmedだけ表示0で整理する。結果・状態・診断へSecretを保存せず、共有streamのend／destroyとwrite falseによる再送をしない。提示開始・確認・終了のrename故障はcompositionで、提示保存の清掃・Lock故障は既存Writer試験で反証する。Host CLIは初回指定・通常指定／全員・prepared／revoked継続・stored置換・confirmed整理・材料処置要求の停止と次fresh要求を観測する。実Host TTYは未確認の別断面で、IT成功をST016・正式Local Item全体・本番入口全体の完成へ流用しない。
 
+資格管理一覧の専用ReaderはRFD-IT-013／017の補助観測へ接続する。同改訂のactor・User候補・資格Metadata・未解決交換相関だけを現在administratorへ返すこと、manager／developer・失効・初回途中・破損・読取り／清掃／解放不明でSnapshot0、先行材料の非認可保持と処置要求の事実0・次fresh観測を反証する。Secret／salt／Verifier／Root／内容／Repository情報を含めず、不変コピーとする。readManagementState四kindとMCP鍵非公開は維持し、Reader局所だけをWorkbench本番／HTTP提示／実Browser／正式Local Item全体のPassにしない。
+
+Workbenchの専用Browser試験は既存RFD-ST-016／ERB-ST-022の部分反証へ接続する。本番Bundleと本番Formから通常発行・本人交換・全交換を行い、一要求化、DOM内の短命表示、次操作開始時の消去、汎用GET・URL・Storage・reloadへの秘密非保持、通信失敗時の完了表示0、交換後の旧接続unavailableを観測する。鍵比較はBrowser内だけで行い、Nodeへ返すのはboolean／counterだけとし、画像・console・通信本文・鍵値を保存しない。既存所有Tree終了、DevTools／Workbench Listener不存在、専用Profile不存在を確認する。同Process注入の局所結果であり、公開Launcher・正式Local Item全体・本人受領・AM全体完成の証明にはしない。
+
 ### 許可集合と実本文の局所搬送
 
 同期本文Reader開始後の取消はopen／close hookで直接反証する。当該本文open1／close1、後続本文0、固定`-32603`、結果fieldなし、暗黙再実行0を期待する。開始前の`-32800`と区別し、EST-IT-014の今回接続は開始前取消だけの部分範囲とする。既存の全体検証義務は変更しない。

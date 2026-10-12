@@ -20,6 +20,9 @@ import {
   prepareCredentialChange,
   projectCredentialIssuance,
   type CredentialIssuanceSnapshot,
+  projectCredentialAdministration,
+  type CredentialAdministrationSnapshot,
+  type CredentialAdministrationStateResult,
 } from "../credential/management.ts";
 import {
   readCredentialPresentationUpdate,
@@ -1528,6 +1531,72 @@ export function readManagementState(
       ? "management_state_lock_unavailable"
       : "management_state_observation_unknown",
   };
+}
+
+/**
+ * Workbenchの資格管理一覧を現在認可と同じ保存Lockで読む。
+ * @responsibility 一改訂の非秘密対象と交換相関だけを、清掃・解放確認後に返す。
+ * @trace ARCH-000013
+ * @input 検証済み用途限定RootとServer memoryのBearer。
+ * @returns 同改訂Snapshotまたは固定unavailable。
+ * @precondition 同Process Workbenchの内部Consumerだけ。MCP／Remoteへ公開しない。
+ * @postcondition 材料を処置した要求は事実0、次fresh要求だけで再評価する。
+ * @effect 既存Lock・完全current読取り・現在認証・許可後の既知材料清掃。
+ * @failure 認証・初回・認可・Schema・材料・清掃・Lock解放不明はSnapshot0。
+ * @invariant readManagementState四kindを変えず、一覧を操作Authorityや過去完了証明にしない。
+ * @boundary AM保存Owner→同Process資格管理Consumer。
+ * @security Secret・Verifier・salt・Root・内容・内部回復参照を返さない。
+ * @concurrency 全Writerと同じLockの一改訂。次操作はfresh認可する。
+ */
+export function readCredentialAdministrationState(
+  root: FilesystemStoreRoot,
+  token: string,
+): CredentialAdministrationStateResult {
+  const unavailable = {
+    status: "unavailable" as const,
+    reason: "credential_administration_unavailable" as const,
+  };
+  if (!readCredentialId(token)) return unavailable;
+  const result = locked<CredentialAdministrationSnapshot>(root, () => {
+    try {
+      const current = readCurrent(root);
+      const snapshot = projectCredentialAdministration(current.state, token);
+      if (!snapshot)
+        return {
+          status: "unavailable",
+          reason: unavailable.reason,
+          publication: "not_attempted",
+          revision: null,
+          cleanupConfirmed: true,
+        };
+      if (settlePending(root, current, () => {}) !== "none")
+        return {
+          status: "unavailable",
+          reason: unavailable.reason,
+          publication: "not_attempted",
+          revision: current.state.revision,
+          cleanupConfirmed: true,
+        };
+      return {
+        status: "completed",
+        value: snapshot,
+        publication: "not_attempted",
+        revision: current.state.revision,
+        cleanupConfirmed: true,
+      };
+    } catch {
+      return {
+        status: "unavailable",
+        reason: unavailable.reason,
+        publication: "not_attempted",
+        revision: null,
+        cleanupConfirmed: false,
+      };
+    }
+  });
+  return result.status === "completed"
+    ? { status: "completed", snapshot: result.value }
+    : unavailable;
 }
 
 /**

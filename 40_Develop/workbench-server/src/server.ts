@@ -36,7 +36,6 @@ import type { MeetingOutcomeCommandResult } from "../../domain-model/src/index.t
 import { createMeetingOperations } from "../../domain-model/src/index.ts";
 import {
   executeRemoteAiProfileMutation,
-  listConnectionCredentials,
   readRemoteAiProfileCatalog,
   readRemotePortfolio,
   readRemoteRuntimeActivity,
@@ -63,9 +62,9 @@ import {
 } from "./project/surface.ts";
 import {
   type CredentialAdministration,
-  type CredentialAdministrationResult,
   executeCredentialAdministrationAction,
 } from "./credential/administration.ts";
+import { readCredentialAdministrationState } from "../../access-management/src/index.ts";
 import {
   createAiProfileCatalogAdministration,
   createRepositoryAiProfileCatalogStore,
@@ -352,41 +351,41 @@ function createPortfolioPage(
   });
 }
 
-/** Credential RegistryからBrowserへ公開可能なMetadataだけを抽出する。 */
-function createCredentialAdministrationView(
+/**
+ * 現在管理者の非秘密資格管理投影を画面へ取得する。
+ * @responsibility 同Process AMへ委譲し、未構成と現在未取得を区別する。
+ * @trace ARCH-000013
+ * @input 同Processの検証済みRootとServer memoryの接続資格、または未構成。
+ * @returns availabilityと非秘密Snapshot。
+ * @precondition Remoteと同時構成しない。
+ * @postcondition 生鍵・内部保存情報を画面Modelへ入れない。
+ * @effect AM既存Readerの排他・現在認証・既知材料処置。
+ * @failure 認証・清掃・解放不明はSnapshot nullのunavailable。
+ * @invariant 空一覧を取得失敗や操作Authorityの代替にしない。
+ * @boundary AM保存OwnerとBrowser通常GET。
+ * @security Secret・Root・資格材料を公開しない。
+ * @concurrency 各GETで現在認可を再評価し、過去投影をcacheしない。
+ */
+function readCredentialAdministrationView(
   administration: CredentialAdministration | undefined,
-  result: CredentialAdministrationResult | null,
 ): WorkbenchCredentialAdministrationView {
   if (administration === undefined)
     return Object.freeze({
       state: "not_configured",
-      credentials: Object.freeze([]),
-      result,
+      snapshot: null,
     });
-  const listed = listConnectionCredentials(
-    administration.registry,
-    administration.access,
+  const listed = readCredentialAdministrationState(
+    administration.root,
+    administration.token,
   );
-  if (listed.status === "blocked")
+  if (listed.status !== "completed")
     return Object.freeze({
       state: "unavailable",
-      credentials: Object.freeze([]),
-      result,
+      snapshot: null,
     });
   return Object.freeze({
     state: "available",
-    credentials: Object.freeze(
-      listed.credentials.map((credential) =>
-        Object.freeze({
-          credentialId: credential.credentialId,
-          profile: credential.profile,
-          workspaceIds: Object.freeze([...credential.workspaceIds]),
-          systemAdmin: credential.systemAdmin,
-          revoked: credential.revoked,
-        }),
-      ),
-    ),
-    result,
+    snapshot: listed.snapshot,
   });
 }
 
@@ -443,7 +442,6 @@ function createWorkbenchMainViewModel(
   actionToken: string,
   lastResult: ChangePublicationResult | null,
   credentialAdministration: CredentialAdministration | undefined,
-  credentialResult: CredentialAdministrationResult | null,
   connectionState: WorkbenchConnectionState,
   remoteConnection: WorkbenchRemoteConnection | undefined,
   connectionNotice: WorkbenchConnectionNotice | null,
@@ -511,10 +509,7 @@ function createWorkbenchMainViewModel(
     selectedRepositoryId: selectedRepositoryId ?? null,
     repositoryResult: lastResult,
     worktree,
-    credentials: createCredentialAdministrationView(
-      credentialAdministration,
-      credentialResult,
-    ),
+    credentials: readCredentialAdministrationView(credentialAdministration),
     aiProfiles,
     aiProfileAdministration: Object.freeze({
       snapshot: aiProfileAdministrationSnapshot ?? null,
@@ -769,6 +764,11 @@ export async function startWorkbench(
     throw new Error("workbench_port_invalid");
   if (request.portfolio !== undefined && request.remoteConnection !== undefined)
     throw new Error("workbench_portfolio_source_conflicting");
+  if (
+    request.credentialAdministration !== undefined &&
+    request.remoteConnection !== undefined
+  )
+    throw new Error("workbench_credential_sources_conflicting");
   const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
     request.workingDirectory,
   );
@@ -842,7 +842,6 @@ export async function startWorkbench(
     }
   }
   let lastActionResult: ChangePublicationResult | null = null;
-  let credentialResult: CredentialAdministrationResult | null = null;
   let connectionNotice: WorkbenchConnectionNotice | null = null;
   let topicMeetingResult: TopicMeetingActionResult | null = null;
   let currentAiRequestId: string | null = null;
@@ -857,6 +856,7 @@ export async function startWorkbench(
     null;
   const actionToken = randomBytes(32).toString("base64url");
   const connections = new Set<Socket>();
+  const credentialRequests = new Set<Promise<void>>();
   const server = createServer((incoming, response) => {
     void (async () => {
       const method = incoming.method ?? "";
@@ -1097,23 +1097,57 @@ export async function startWorkbench(
         requestPath === "/connection-credentials/action"
       ) {
         try {
-          if (credentialAdministration === undefined)
+          if (
+            credentialAdministration === undefined ||
+            remoteConnection !== undefined
+          )
             throw new Error("workbench_credential_administration_unavailable");
+          const address = server.address();
+          const origin =
+            address && typeof address !== "string"
+              ? `http://${HOST}:${address.port}`
+              : null;
+          if (
+            !origin ||
+            incoming.headers.host !== origin.slice(7) ||
+            (incoming.headers.origin !== undefined &&
+              incoming.headers.origin !== origin) ||
+            incoming.headers["content-type"]?.split(";")[0]?.trim() !==
+              "application/x-www-form-urlencoded"
+          )
+            throw new Error("workbench_credential_origin_rejected");
           const form = await readActionForm(incoming);
+          if (incoming.aborted || response.destroyed) return;
           if (form.get("actionToken") !== actionToken)
             throw new Error("workbench_action_token_invalid");
-          credentialResult = executeCredentialAdministrationAction(
+          setCommonHeaders(response);
+          const controller = new AbortController();
+          const abort = () => controller.abort();
+          incoming.once("aborted", abort);
+          const responseClosed = () => {
+            if (!response.writableFinished) abort();
+          };
+          response.once("close", responseClosed);
+          const pending = executeCredentialAdministrationAction(
             credentialAdministration,
             form,
+            response,
+            controller.signal,
           );
-          setCommonHeaders(response);
-          response.statusCode = 303;
-          response.setHeader("Location", "/#credential-administration");
-          response.end();
+          credentialRequests.add(pending);
+          try {
+            await pending;
+          } finally {
+            credentialRequests.delete(pending);
+            incoming.removeListener("aborted", abort);
+            response.removeListener("close", responseClosed);
+          }
         } catch {
-          setCommonHeaders(response);
-          response.statusCode = 400;
-          response.end("credential_action_rejected\n");
+          if (!response.headersSent && !response.destroyed) {
+            setCommonHeaders(response);
+            response.statusCode = 400;
+            response.end("credential_action_rejected\n");
+          }
         }
         return;
       }
@@ -1124,6 +1158,8 @@ export async function startWorkbench(
             throw new Error("workbench_action_token_invalid");
           const operation = form.get("operation");
           if (operation === "connect") {
+            if (credentialAdministration !== undefined)
+              throw new Error("workbench_credential_sources_conflicting");
             const candidate = Object.freeze({
               baseUrl: form.get("baseUrl") ?? "",
               token: form.get("token") ?? "",
@@ -1671,8 +1707,7 @@ export async function startWorkbench(
           portfolio,
           actionToken,
           lastActionResult,
-          credentialAdministration,
-          credentialResult,
+          remoteConnection === undefined ? credentialAdministration : undefined,
           connectionState,
           remoteConnection,
           connectionNotice,
@@ -1784,7 +1819,6 @@ export async function startWorkbench(
             ? JSON.stringify(responseModel)
             : renderClientDocument();
         if (method === "GET" && requestPath === "/api/workbench-view") {
-          credentialResult = null;
           connectionNotice = null;
           topicMeetingResult = null;
           aiProfileAdministrationResult = null;
@@ -1890,20 +1924,26 @@ export async function startWorkbench(
     throw new Error("workbench_address_unavailable");
   }
   const baseUrl = `http://${HOST}:${address.port}`;
-  let closed = false;
+  let closeOperation: Promise<void> | null = null;
   return Object.freeze({
     contract: CONTRACT,
     baseUrl,
     healthUrl: `${baseUrl}${HEALTH_PATH}`,
-    close: async () => {
-      if (closed) return;
-      closed = true;
-      await new Promise<void>((resolve, reject) => {
-        server.close((error) =>
-          error === undefined ? resolve() : reject(error),
-        );
-        for (const connection of connections) connection.destroy();
-      });
+    close: () => {
+      if (closeOperation) return closeOperation;
+      closeOperation = (async () => {
+        try {
+          await new Promise<void>((resolve, reject) => {
+            server.close((error) =>
+              error === undefined ? resolve() : reject(error),
+            );
+            for (const connection of connections) connection.destroy();
+          });
+        } finally {
+          await Promise.allSettled([...credentialRequests]);
+        }
+      })();
+      return closeOperation;
     },
   });
 }

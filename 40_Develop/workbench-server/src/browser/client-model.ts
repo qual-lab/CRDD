@@ -2,11 +2,11 @@
  * Workbench Client-side Reactへ渡す表示専用Read Model。
  *
  * @packageDocumentation
- * @responsibility Server AuthorityとBrowser Presentationの間で、通常は非秘密値だけを返し、Credential操作直後に限り一回表示Tokenを明示的に運ぶJSON契約を所有する。
+ * @responsibility Server AuthorityとBrowser Presentationの間で、非秘密の通常画面JSON契約を所有する。鍵提示は専用POST応答へ分離する。
  * @trace ARCH-000012
  * @boundary Workbench Node ServerとVite Browser ClientのJSON境界。
  * @effect N/A: 型と不変な値契約だけを定義する。
- * @security Credential verifier、Remote接続Bearer、Private Key、Host Path、永続Authority、Application関数およびFilesystem Authorityを含めない。Process限定Action Tokenと一回表示Credential Tokenは各用途の限定Fieldだけで扱う。
+ * @security Credential Token、verifier、Remote接続Bearer、Private Key、Host Path、永続Authority、Application関数およびFilesystem Authorityを含めない。Process限定Action Tokenだけを固定用途で扱う。
  */
 import type {
   ProjectOperationRecordKind,
@@ -33,7 +33,7 @@ import type {
   WorkbenchCandidateActionResult,
   WorkbenchCandidateReviewResult,
 } from "../ai-request/types.ts";
-import type { CredentialAdministrationResult } from "../credential/administration.ts";
+import type { CredentialAdministrationSnapshot } from "../../../access-management/src/index.ts";
 import type { WorkbenchProjectSurface } from "../project/surface.ts";
 import type { WorkbenchRuntimeActivityObservation } from "../activity/observe.ts";
 
@@ -112,53 +112,19 @@ export type WorkbenchConnectionView = Readonly<{
 }>;
 
 /**
- * Credential管理画面へ公開できるMetadata。
- * @responsibility Credentialの識別値と公開可能な状態を表示する。
+ * 資格管理の非秘密表示だけを汎用画面へ渡す。
+ * @responsibility 一改訂の対象候補と交換相関を表示し、鍵提示応答を保持しない。
  * @trace ARCH-000013
- * @shape credentialId、profile、workspaceIds、systemAdminおよびrevokedで構成する。
- * @input N/A: 型宣言である。
- * @returns N/A: 型宣言である。
- * @precondition Registryから秘密を除外済みである。
- * @postcondition verifier、salt、tokenを含まない。
- * @effect N/A: 型宣言である。
- * @failure N/A: 状態はServerが確定する。
- * @invariant Credential正本を所有しない。
- * @boundary Credential RegistryとBrowser表示の境界。
- * @security 公開可能Metadataだけを含む。
- * @compatibility Credential Contractの現行Profile語彙と一致させる。
- * @concurrency N/A: 不変Snapshotである。
- */
-export type WorkbenchCredentialMetadataView = Readonly<{
-  credentialId: string;
-  profile: "administrator" | "management" | "developer";
-  workspaceIds: readonly string[];
-  systemAdmin: boolean;
-  revoked: boolean;
-}>;
-
-/**
- * Credential管理の公開表示Snapshotと一回表示結果。
- * @responsibility 通常Metadataと明示Credential操作直後の一回表示Tokenを分けて運ぶ。
- * @trace ARCH-000013
- * @shape state、credentialsおよび一回消費resultで構成する。
- * @input N/A: 型宣言である。
- * @returns N/A: 型宣言である。
- * @precondition resultは管理操作直後の最初のJSON応答に限る。
- * @postcondition resultは応答後に消費され、再取得できない。
- * @effect N/A: 型宣言である。
- * @failure 一回表示Tokenを通常Snapshotへ昇格しない。
- * @invariant Registryは生Tokenを保持しない。
- * @boundary Credential管理結果とBrowser表示の境界。
- * @security no-store応答と一回消費を必須とする。
- * @compatibility Client Model revision 1のCredential例外契約として使用する。
- * @concurrency 最新の操作結果一件だけを扱う。
+ * @shape state、snapshot。未構成／未取得はsnapshot null。
+ * @invariant snapshotは操作Authorityでも過去完了証明でもない。
+ * @boundary AM非秘密投影とBrowser通常GET。
+ * @security 生鍵・Verifier・salt・Root・Remote Bearerなし。
+ * @compatibility 最新User／Role結合だけ。旧profile/systemAdmin契約は廃止する。
  */
 export type WorkbenchCredentialAdministrationView = Readonly<{
   state: "not_configured" | "unavailable" | "available";
-  credentials: readonly WorkbenchCredentialMetadataView[];
-  result: CredentialAdministrationResult | null;
+  snapshot: CredentialAdministrationSnapshot | null;
 }>;
-
 /**
  * Workbenchの主画面を一回描画できる閉じたBrowser Read Model。
  * @responsibility Main Viewの全表示値、用途限定Tokenおよび操作結果の型境界を所有する。
@@ -990,29 +956,7 @@ function isWorkbenchMainViewModel(value: Record<string, unknown>): boolean {
         typeof value.worktree.diff.preparedTruncated === "boolean" &&
         typeof value.worktree.diff.workingTruncated === "boolean" &&
         typeof value.worktree.diff.unregistered === "boolean")) &&
-    isRecord(value.credentials) &&
-    ["not_configured", "unavailable", "available"].includes(
-      String(value.credentials.state),
-    ) &&
-    Array.isArray(value.credentials.credentials) &&
-    value.credentials.credentials.every(
-      (credential) =>
-        isRecord(credential) &&
-        typeof credential.credentialId === "string" &&
-        ["administrator", "management", "developer"].includes(
-          String(credential.profile),
-        ) &&
-        isStringArray(credential.workspaceIds) &&
-        typeof credential.systemAdmin === "boolean" &&
-        typeof credential.revoked === "boolean",
-    ) &&
-    (value.credentials.result === null ||
-      (isRecord(value.credentials.result) &&
-        ["completed", "blocked"].includes(
-          String(value.credentials.result.status),
-        ) &&
-        typeof value.credentials.result.reason === "string" &&
-        isNullableString(value.credentials.result.token))) &&
+    isCredentialAdministrationView(value.credentials) &&
     isRecord(value.aiProfiles) &&
     catalogIsValid(catalog) &&
     Array.isArray(value.aiProfiles.observations) &&
@@ -1151,4 +1095,93 @@ function isWorkbenchMainViewModel(value: Record<string, unknown>): boolean {
  */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * 通常画面の資格投影を閉じた非秘密値として検査する。
+ * @responsibility 旧token/resultや資格材料を汎用GETから受理しない。
+ * @trace ARCH-000013
+ * @input 信頼しないJSON値。
+ * @returns 非秘密の表示shapeだけtrue。
+ * @precondition HTTP JSON decodeは呼出側が完了する。
+ * @postcondition 変換・補完・秘密保持0。
+ * @effect N/A: 局所検査だけ。
+ * @failure 未知field・状態不整合はfalse。
+ * @invariant 表示の正当性を操作認可へ転用しない。
+ * @boundary Server JSONとBrowser表示。
+ * @security Secret fieldは許可集合に含めない。
+ * @concurrency 一応答のSnapshotだけ。
+ */
+function isCredentialAdministrationView(value: unknown): boolean {
+  if (
+    !isRecord(value) ||
+    Object.keys(value).sort().join(",") !== "snapshot,state"
+  )
+    return false;
+  if (value.state === "not_configured" || value.state === "unavailable")
+    return value.snapshot === null;
+  if (value.state !== "available" || !isRecord(value.snapshot)) return false;
+  const snapshot = value.snapshot;
+  if (
+    Object.keys(snapshot).sort().join(",") !==
+      "actorUserId,credentials,exchange,revision,users" ||
+    !Number.isSafeInteger(snapshot.revision) ||
+    Number(snapshot.revision) < 1 ||
+    typeof snapshot.actorUserId !== "string" ||
+    !Array.isArray(snapshot.users) ||
+    !Array.isArray(snapshot.credentials)
+  )
+    return false;
+  if (
+    !snapshot.users.every(
+      (user) =>
+        isRecord(user) &&
+        Object.keys(user).sort().join(",") === "role,userId,username" &&
+        typeof user.userId === "string" &&
+        typeof user.username === "string" &&
+        ["developer", "manager", "administrator"].includes(String(user.role)),
+    )
+  )
+    return false;
+  if (
+    !snapshot.credentials.every(
+      (credential) =>
+        isRecord(credential) &&
+        Object.keys(credential).sort().join(",") ===
+          "credentialId,issuanceOperationId,presentation,revoked,userId" &&
+        typeof credential.credentialId === "string" &&
+        typeof credential.userId === "string" &&
+        typeof credential.issuanceOperationId === "string" &&
+        ["not_attempted", "unconfirmed", "confirmed"].includes(
+          String(credential.presentation),
+        ) &&
+        typeof credential.revoked === "boolean",
+    )
+  )
+    return false;
+  if (snapshot.exchange === null) return true;
+  const exchange = snapshot.exchange;
+  if (!isRecord(exchange)) return false;
+  const keys =
+    exchange.stage === "credential_stored"
+      ? "entry,newCredentialId,oldCredentialIds,operationId,presentation,recipientUserId,recoveryId,revision,scope,stage"
+      : "entry,oldCredentialIds,operationId,recipientUserId,recoveryId,revision,scope,stage";
+  return (
+    Object.keys(exchange).sort().join(",") === keys &&
+    exchange.revision === snapshot.revision &&
+    typeof exchange.recoveryId === "string" &&
+    typeof exchange.operationId === "string" &&
+    typeof exchange.recipientUserId === "string" &&
+    ["host", "workbench"].includes(String(exchange.entry)) &&
+    ["targeted", "all"].includes(String(exchange.scope)) &&
+    isStringArray(exchange.oldCredentialIds) &&
+    ["prepared", "revoked", "credential_stored"].includes(
+      String(exchange.stage),
+    ) &&
+    (exchange.stage !== "credential_stored" ||
+      (typeof exchange.newCredentialId === "string" &&
+        ["not_attempted", "unconfirmed", "confirmed"].includes(
+          String(exchange.presentation),
+        )))
+  );
 }

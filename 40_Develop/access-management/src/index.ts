@@ -30,6 +30,10 @@ export type {
 } from "./credential/authentication.ts";
 export type { CredentialPresentationUpdate } from "./credential/presentation.ts";
 export type {
+  CredentialAdministrationSnapshot,
+  CredentialAdministrationStateResult,
+} from "./credential/management.ts";
+export type {
   InitialConnectionBinding,
   ConnectionAuthenticationResult,
 } from "./credential/initial-connection.ts";
@@ -98,6 +102,7 @@ export {
   confirmInitialConnection,
   readCurrentAccess,
   readManagementState,
+  readCredentialAdministrationState,
   resolveRepositoryAccess,
   resolveRepositoryAccessCollection,
   createInitialCredential,

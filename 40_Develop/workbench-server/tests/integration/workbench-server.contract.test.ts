@@ -14,6 +14,8 @@
  * @trace RFD-IT-005
  * @trace RFD-IT-013
  * @trace RFD-IT-014
+ * @trace RFD-IT-017
+ * @trace RFD-IT-018
  * @level IT
  * @scope workbench、localhost、official-logo、route-allowlist、cleanup
  * @boundary ERB-IT-021=Direct Boundary: Repository→Workbench Server→Browser相当Consumer
@@ -22,6 +24,7 @@
  */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import fs from "node:fs";
 import {
   copyFile,
   lstat,
@@ -33,7 +36,11 @@ import {
   unlink,
   writeFile,
 } from "node:fs/promises";
-import { createServer, request as httpRequest } from "node:http";
+import {
+  createServer,
+  request as httpRequest,
+  ServerResponse,
+} from "node:http";
 import { connect } from "node:net";
 import path from "node:path";
 import test from "node:test";
@@ -64,6 +71,11 @@ import {
   type RequestAccessContext,
 } from "../../../cros/src/index.ts";
 import { createTopicOperations } from "../../../domain-model/src/index.ts";
+import { createFilesystemStoreRoot } from "../../../domain-model/src/index.ts";
+import {
+  createCredentialMaterial,
+  type AccessManagementState,
+} from "../../../access-management/src/index.ts";
 import { createMeetingOperations } from "../../../domain-model/src/index.ts";
 import {
   createCrosProjectContextMcpResolver,
@@ -175,6 +187,7 @@ async function requestTransport(
   requestPath: string,
   method = "GET",
   body?: string,
+  headers: Readonly<Record<string, string>> = {},
 ): Promise<
   Readonly<{
     status: number;
@@ -190,13 +203,15 @@ async function requestTransport(
         port: url.port,
         method,
         path: requestPath,
-        headers:
-          body === undefined
-            ? undefined
+        headers: {
+          ...(body === undefined
+            ? {}
             : {
                 "Content-Type": "application/x-www-form-urlencoded",
                 "Content-Length": Buffer.byteLength(body),
-              },
+              }),
+          ...headers,
+        },
       },
       (incoming) => {
         const chunks: Buffer[] = [];
@@ -1109,26 +1124,76 @@ test("許可済みPortfolioをSource Coverage付きで表示する", async () =>
 });
 
 /**
- * 管理Contextがある場合だけCredential管理を公開し、生Tokenを一度だけ表示することを検証する。
+ * 現在の管理者接続で鍵4操作と本人交換を専用HTTP応答へ接続することを検証する。
  *
- * @responsibility Workbench管理FormからCROS Credential Applicationへの直接搬送と秘密値非保持を検証する。
+ * @responsibility AM保存Ownerへの現在認可、閉じた入力、用途限定提示と交換終了を検証する。
  * @trace RFD-IT-013
- * @precondition systemAdmin=trueの検証済みAccess ContextとMemory Registryを用意する。
- * @stimulus Developer Credentialを発行し、結果画面を二回要求してから対象を失効する。
- * @observation HTTP結果、一覧Metadata、Registry Recordおよび一度表示Tokenを観測する。
- * @oracle Repository単体では未構成、管理接続時は操作可能で、生Tokenは一回だけ表示されRegistryへ保存されない。
- * @cleanup Workbench Handleを閉じる。
- * @boundary RFD-IT-013=Direct Boundary: workbench Test Source→対象契約
+ * @trace RFD-IT-017
+ * @trace RFD-IT-018
+ * @precondition Repository内の自己生成RootへAM v2管理状態と試験専用資格を保存する。
+ * @stimulus 不正入力を拒否し、鍵4操作と本人交換を実HTTPで送る。交換の六保存点と秘密応答開始時の故障を注入する。
+ * @observation 専用応答、非秘密一覧、改訂・資格・提示状態・交換記録と終了後不存在を読む。
+ * @oracle 不正入力の保存変更0。鍵は専用presenting応答だけで、汎用GET・保存本文へ複製しない。
+ * @cleanup 全Workbench Handleを閉じ、検証した自己生成Rootだけ削除して不存在を確認する。
+ * @boundary RFD-IT-013=管理入力→AM現在認可・保存。RFD-IT-017=専用HTTP提示。RFD-IT-018=通常交換→fresh認可による記録終了。
  */
-test("管理接続時だけCredentialを管理し生Tokenを一度だけ表示する", async () => {
-  const registry = createMemoryConnectionCredentialRegistry();
-  const access: RequestAccessContext = Object.freeze({
-    credentialId: "bootstrap-administrator",
-    profile: "administrator",
-    workspaceIds: Object.freeze([]),
-    systemAdmin: true,
-    credentialRegistryRevision: 0,
+test("管理接続時だけCredentialを管理し生Tokenを専用POSTで一度だけ表示する", async (t) => {
+  const directory = await mkdtemp(
+    path.join(repositoryRoot, ".crdd", "tests", "workbench-am-"),
+  );
+  t.after(async () => {
+    assert.equal(
+      path.dirname(directory),
+      path.join(repositoryRoot, ".crdd", "tests"),
+    );
+    await rm(directory, { recursive: true });
+    await assert.rejects(lstat(directory), { code: "ENOENT" });
   });
+  const adminId = "00000000-0000-4000-8000-000000000003";
+  const developerId = "00000000-0000-4000-8000-000000000004";
+  const material = createCredentialMaterial();
+  const state: AccessManagementState = {
+    contract: "crdd-access-management/state",
+    schemaRevision: 2,
+    revision: 1,
+    operationId: "00000000-0000-4000-8000-000000000001",
+    users: [
+      { userId: adminId, username: "管理者", role: "administrator" },
+      { userId: developerId, username: "開発者", role: "developer" },
+    ],
+    roleContentAccess: [
+      { role: "developer", workspaceIds: ["development"] },
+      { role: "manager", workspaceIds: ["development", "management"] },
+      { role: "administrator", workspaceIds: [] },
+    ],
+    credentials: [
+      {
+        credentialId: material.credentialId,
+        userId: adminId,
+        tokenVersion: 1,
+        tokenSalt: material.tokenSalt,
+        tokenVerifier: material.tokenVerifier,
+        revoked: false,
+        operationId: "00000000-0000-4000-8000-000000000002",
+        presentation: "confirmed",
+      },
+    ],
+    registeredRepositories: [],
+    exposure: [],
+    unresolvedKeyExchanges: [],
+    initialization: {
+      stage: "completed",
+      attemptId: "00000000-0000-4000-8000-000000000002",
+      initialUserId: adminId,
+      initialCredentialId: material.credentialId,
+      confirmationCredentialId: material.credentialId,
+      connection: "confirmed",
+    },
+  };
+  const current = path.join(directory, "access-management.json");
+  await writeFile(current, JSON.stringify(state));
+  const root = createFilesystemStoreRoot(directory);
+  assert.ok(root);
   const repositoryOnly = await startWorkbench({
     workingDirectory: repositoryRoot,
   });
@@ -1137,86 +1202,459 @@ test("管理接続時だけCredentialを管理し生Tokenを一度だけ表示�
     assert.equal(shell.view, "main");
     if (shell.view === "main")
       assert.equal(shell.credentials.state, "not_configured");
-    const unavailable = await requestRaw(
-      repositoryOnly.baseUrl,
-      "/connection-credentials/action",
-      "POST",
-      "operation=issue&profile=developer",
+    assert.equal(
+      (
+        await requestRaw(
+          repositoryOnly.baseUrl,
+          "/connection-credentials/action",
+          "POST",
+          "operation=issue&profile=developer",
+        )
+      ).status,
+      400,
     );
-    assert.equal(unavailable.status, 400);
-    assert.equal(registry.inspect().revision, 0);
+    assert.equal(JSON.parse(await readFile(current, "utf8")).revision, 1);
   } finally {
     await repositoryOnly.close();
   }
-
   const handle = await startWorkbench({
     workingDirectory: repositoryRoot,
-    credentialAdministration: { registry, access },
+    credentialAdministration: { root, token: material.token },
   });
   try {
     const initial = await requestClientModel(handle.baseUrl);
     assert.equal(initial.view, "main");
     if (initial.view !== "main") return;
-    const token = initial.actionToken;
     assert.equal(initial.credentials.state, "available");
-
+    assert.equal(initial.credentials.snapshot?.revision, 1);
+    const beforeRejected = await readFile(current, "utf8");
+    const validIssue = new URLSearchParams({
+      actionToken: initial.actionToken,
+      operation: "issue",
+      userId: developerId,
+      expectedRevision: "1",
+    }).toString();
+    for (const headers of [
+      { Origin: "https://untrusted.invalid" },
+      { Host: "untrusted.invalid" },
+      { "Content-Type": "application/json" },
+    ]) {
+      const denied = await requestTransport(
+        handle.baseUrl,
+        "/connection-credentials/action",
+        "POST",
+        validIssue,
+        headers,
+      );
+      assert.equal(denied.status, 400);
+      assert.equal(
+        denied.body.toString("utf8"),
+        "credential_action_rejected\n",
+      );
+      assert.equal(await readFile(current, "utf8"), beforeRejected);
+    }
+    for (const body of [
+      `${validIssue}&operation=issue`,
+      `${validIssue}&actionToken=${initial.actionToken}`,
+      `${validIssue}&expectedRevision=1`,
+      `${validIssue}&root=arbitrary`,
+      validIssue.replace("expectedRevision=1", "expectedRevision=2"),
+    ]) {
+      const denied = await requestRaw(
+        handle.baseUrl,
+        "/connection-credentials/action",
+        "POST",
+        body,
+      );
+      assert.equal(denied.status, 400);
+      assert.equal(await readFile(current, "utf8"), beforeRejected);
+    }
+    for (const invalid of [
+      {
+        actionToken: initial.actionToken,
+        operation: "issue",
+        profile: "developer",
+      },
+      {
+        actionToken: initial.actionToken,
+        operation: "update_access",
+        credentialId: material.credentialId,
+      },
+      {
+        actionToken: initial.actionToken,
+        operation: "rotate",
+        credentialId: material.credentialId,
+      },
+      {
+        actionToken: "invalid",
+        operation: "issue",
+        userId: developerId,
+        expectedRevision: "1",
+      },
+    ])
+      assert.equal(
+        (
+          await requestRaw(
+            handle.baseUrl,
+            "/connection-credentials/action",
+            "POST",
+            new URLSearchParams(invalid).toString(),
+          )
+        ).status,
+        400,
+      );
+    assert.equal(JSON.parse(await readFile(current, "utf8")).revision, 1);
     const issued = await requestRaw(
       handle.baseUrl,
       "/connection-credentials/action",
       "POST",
       new URLSearchParams({
-        actionToken: token,
+        actionToken: initial.actionToken,
         operation: "issue",
-        profile: "developer",
+        userId: developerId,
+        expectedRevision: "1",
       }).toString(),
     );
-    assert.equal(issued.status, 303);
-    const redirectedShell = await requestRaw(handle.baseUrl, "/");
-    assert.equal(redirectedShell.status, 200);
-    const firstDisplay = await requestClientModel(handle.baseUrl);
-    assert.equal(firstDisplay.view, "main");
-    if (firstDisplay.view !== "main") return;
-    const bearer = firstDisplay.credentials.result?.token ?? undefined;
-    assert.ok(bearer);
+    assert.equal(issued.status, 200);
+    assert.equal(issued.headers["cache-control"], "no-store");
+    assert.equal(issued.headers.location, undefined);
+    const result = JSON.parse(issued.body.toString("utf8"));
+    assert.equal(result.status, "presenting");
+    assert.equal(result.reason, "stored_key_response");
+    assert.equal(typeof result.token, "string");
+    const credentialId = result.credentialId;
+    assert.equal(typeof credentialId, "string");
+    const saved = JSON.parse(
+      await readFile(current, "utf8"),
+    ) as AccessManagementState;
+    assert.equal(saved.credentials.length, 2);
+    assert.equal(saved.credentials[0]?.revoked, false);
+    assert.equal(saved.unresolvedKeyExchanges.length, 0);
+    assert.equal(JSON.stringify(saved).includes(result.token), false);
+    const fresh = await requestClientModel(handle.baseUrl);
+    assert.equal(fresh.view, "main");
+    assert.equal(JSON.stringify(fresh).includes(result.token), false);
     assert.equal(
-      firstDisplay.credentials.result?.reason,
-      "connection_credential_issued",
+      Object.hasOwn(fresh.view === "main" ? fresh.credentials : {}, "result"),
+      false,
     );
-    assert.deepEqual(firstDisplay.credentials.credentials[0]?.workspaceIds, [
-      "development",
-    ]);
-    const snapshot = registry.inspect();
-    assert.equal(snapshot.records.length, 1);
-    assert.doesNotMatch(JSON.stringify(snapshot), new RegExp(bearer, "u"));
-
-    const secondDisplay = await requestClientModel(handle.baseUrl);
-    assert.equal(secondDisplay.view, "main");
-    if (secondDisplay.view === "main")
-      assert.equal(secondDisplay.credentials.result, null);
-    const credentialId = snapshot.records[0]?.credentialId;
-    assert.ok(credentialId);
+    if (fresh.view !== "main" || !fresh.credentials.snapshot) return;
     const revoked = await requestRaw(
       handle.baseUrl,
       "/connection-credentials/action",
       "POST",
       new URLSearchParams({
-        actionToken: token,
+        actionToken: initial.actionToken,
         operation: "revoke",
+        userId: developerId,
         credentialId,
+        expectedRevision: String(fresh.credentials.snapshot.revision),
       }).toString(),
     );
-    assert.equal(revoked.status, 303);
-    const afterRevoke = await requestClientModel(handle.baseUrl);
-    assert.equal(afterRevoke.view, "main");
-    if (afterRevoke.view === "main") {
-      assert.equal(afterRevoke.credentials.credentials[0]?.revoked, true);
-      assert.equal(
-        afterRevoke.credentials.result?.reason,
-        "connection_credential_revoked",
+    assert.equal(revoked.status, 200);
+    const revocation = JSON.parse(revoked.body.toString("utf8"));
+    assert.equal(revocation.status, "completed");
+    assert.equal(Object.hasOwn(revocation, "token"), false);
+    assert.equal(Object.hasOwn(revocation, "recoveryId"), false);
+    const last = JSON.parse(
+      await readFile(current, "utf8"),
+    ) as AccessManagementState;
+    assert.equal(last.credentials[0]?.revoked, false);
+    assert.equal(last.credentials[1]?.revoked, true);
+    assert.equal(last.credentials.length, 2);
+    assert.equal(last.unresolvedKeyExchanges.length, 0);
+    const targeted = await requestRaw(
+      handle.baseUrl,
+      "/connection-credentials/action",
+      "POST",
+      new URLSearchParams({
+        actionToken: initial.actionToken,
+        operation: "exchange-user",
+        userId: developerId,
+        expectedRevision: String(last.revision),
+        displayedOldCredentialIds: "[]",
+      }).toString(),
+    );
+    assert.equal(targeted.status, 200);
+    const targetReply = JSON.parse(targeted.body.toString("utf8"));
+    assert.equal(targetReply.status, "presenting");
+    assert.equal(typeof targetReply.token, "string");
+    assert.equal(typeof targetReply.recoveryId, "string");
+    const afterTarget = await requestClientModel(handle.baseUrl);
+    assert.equal(afterTarget.view, "main");
+    if (afterTarget.view !== "main" || !afterTarget.credentials.snapshot)
+      return;
+    assert.equal(afterTarget.credentials.snapshot.exchange, null);
+    assert.equal(
+      JSON.stringify(afterTarget).includes(targetReply.token),
+      false,
+    );
+    const allIds = afterTarget.credentials.snapshot.credentials
+      .filter((credential) => !credential.revoked)
+      .map((credential) => credential.credentialId);
+    const allForm = new URLSearchParams({
+      actionToken: initial.actionToken,
+      operation: "exchange-all",
+      userId: adminId,
+      expectedRevision: String(afterTarget.credentials.snapshot.revision),
+      displayedOldCredentialIds: JSON.stringify(allIds),
+    });
+    assert.equal(
+      (
+        await requestRaw(
+          handle.baseUrl,
+          "/connection-credentials/action",
+          "POST",
+          allForm.toString(),
+        )
+      ).status,
+      400,
+    );
+    allForm.set("confirmed", "true");
+    const all = await requestRaw(
+      handle.baseUrl,
+      "/connection-credentials/action",
+      "POST",
+      allForm.toString(),
+    );
+    assert.equal(all.status, 200);
+    const allReply = JSON.parse(all.body.toString("utf8"));
+    assert.equal(allReply.status, "presenting");
+    const afterAll = await requestClientModel(handle.baseUrl);
+    assert.equal(afterAll.view, "main");
+    if (afterAll.view === "main")
+      assert.equal(afterAll.credentials.state, "unavailable");
+    const finalState = JSON.parse(
+      await readFile(current, "utf8"),
+    ) as AccessManagementState;
+    assert.equal(finalState.unresolvedKeyExchanges.length, 0);
+    assert.equal(
+      finalState.credentials.filter((credential) => !credential.revoked).length,
+      1,
+    );
+    assert.equal(finalState.credentials.at(-1)?.userId, adminId);
+    const reconnected = await startWorkbench({
+      workingDirectory: repositoryRoot,
+      credentialAdministration: { root, token: allReply.token },
+    });
+    try {
+      const model = await requestClientModel(reconnected.baseUrl);
+      assert.equal(model.view, "main");
+      if (model.view !== "main" || !model.credentials.snapshot) return;
+      const selfIds = model.credentials.snapshot.credentials
+        .filter(
+          (credential) => !credential.revoked && credential.userId === adminId,
+        )
+        .map((credential) => credential.credentialId);
+      const self = await requestRaw(
+        reconnected.baseUrl,
+        "/connection-credentials/action",
+        "POST",
+        new URLSearchParams({
+          actionToken: model.actionToken,
+          operation: "exchange-user",
+          userId: adminId,
+          expectedRevision: String(model.credentials.snapshot.revision),
+          displayedOldCredentialIds: JSON.stringify(selfIds),
+        }).toString(),
       );
+      assert.equal(self.status, 200);
+      assert.equal(JSON.parse(self.body.toString("utf8")).status, "presenting");
+      const stale = await requestClientModel(reconnected.baseUrl);
+      assert.equal(stale.view, "main");
+      if (stale.view === "main")
+        assert.equal(stale.credentials.state, "unavailable");
+      const settled = JSON.parse(
+        await readFile(current, "utf8"),
+      ) as AccessManagementState;
+      assert.equal(settled.unresolvedKeyExchanges.length, 0);
+      assert.equal(
+        settled.credentials.filter((credential) => !credential.revoked).length,
+        1,
+      );
+      assert.equal(settled.credentials.at(-1)?.presentation, "confirmed");
+    } finally {
+      await reconnected.close();
     }
   } finally {
     await handle.close();
+  }
+  for (let failedPublication = 1; failedPublication <= 6; failedPublication++) {
+    await t.test(
+      `交換の出版${failedPublication}故障は既知段階と提示の限界を保持する`,
+      async () => {
+        const faultDirectory = path.join(
+          directory,
+          `publication-${failedPublication}`,
+        );
+        await mkdir(faultDirectory);
+        const faultCurrent = path.join(
+          faultDirectory,
+          "access-management.json",
+        );
+        await writeFile(faultCurrent, JSON.stringify(state));
+        const faultRoot = createFilesystemStoreRoot(faultDirectory);
+        assert.ok(faultRoot);
+        const faultHandle = await startWorkbench({
+          workingDirectory: repositoryRoot,
+          credentialAdministration: { root: faultRoot, token: material.token },
+        });
+        const rename = fs.renameSync;
+        let publications = 0;
+        try {
+          const model = await requestClientModel(faultHandle.baseUrl);
+          assert.equal(model.view, "main");
+          if (model.view !== "main") return;
+          fs.renameSync = (from, to) => {
+            if (
+              String(to) === faultCurrent &&
+              ++publications === failedPublication
+            )
+              throw new Error("synthetic_credential_publication_failure");
+            return rename(from, to);
+          };
+          const reply = await requestRaw(
+            faultHandle.baseUrl,
+            "/connection-credentials/action",
+            "POST",
+            new URLSearchParams({
+              actionToken: model.actionToken,
+              operation: "exchange-user",
+              userId: developerId,
+              expectedRevision: "1",
+              displayedOldCredentialIds: "[]",
+            }).toString(),
+          );
+          await faultHandle.close();
+          const response = JSON.parse(reply.body.toString("utf8"));
+          assert.equal(reply.status, failedPublication <= 4 ? 409 : 200);
+          assert.equal(
+            response.status,
+            failedPublication <= 4 ? "blocked" : "presenting",
+          );
+          assert.equal(
+            Object.hasOwn(response, "token"),
+            failedPublication >= 5,
+          );
+          assert.equal(reply.headers["cache-control"], "no-store");
+          assert.equal(publications, failedPublication);
+          const held = JSON.parse(
+            await readFile(faultCurrent, "utf8"),
+          ) as AccessManagementState;
+          assert.equal(held.revision, failedPublication);
+          assert.equal(held.credentials[0]?.revoked, false);
+          assert.equal(held.credentials.length, failedPublication >= 4 ? 2 : 1);
+          assert.equal(
+            held.unresolvedKeyExchanges.length,
+            failedPublication === 1 ? 0 : 1,
+          );
+          if (failedPublication >= 4) {
+            assert.equal(
+              held.unresolvedKeyExchanges[0]?.stage,
+              "credential_stored",
+            );
+            assert.equal(
+              held.credentials.at(-1)?.presentation,
+              failedPublication === 4
+                ? "not_attempted"
+                : failedPublication === 5
+                  ? "unconfirmed"
+                  : "confirmed",
+            );
+          }
+          if (typeof response.token === "string")
+            assert.equal(JSON.stringify(held).includes(response.token), false);
+        } finally {
+          await faultHandle.close();
+          fs.renameSync = rename;
+        }
+      },
+    );
+  }
+  for (const failure of ["close", "throw"] as const) {
+    await t.test(
+      `秘密応答の${failure}故障は提示確認と交換終了を開始しない`,
+      async () => {
+        const faultDirectory = path.join(directory, `response-${failure}`);
+        await mkdir(faultDirectory);
+        const faultCurrent = path.join(
+          faultDirectory,
+          "access-management.json",
+        );
+        await writeFile(faultCurrent, JSON.stringify(state));
+        const faultRoot = createFilesystemStoreRoot(faultDirectory);
+        assert.ok(faultRoot);
+        const faultHandle = await startWorkbench({
+          workingDirectory: repositoryRoot,
+          credentialAdministration: { root: faultRoot, token: material.token },
+        });
+        const end = ServerResponse.prototype.end;
+        let interruptions = 0;
+        try {
+          const model = await requestClientModel(faultHandle.baseUrl);
+          assert.equal(model.view, "main");
+          if (model.view !== "main") return;
+          ServerResponse.prototype.end = function (
+            this: ServerResponse,
+            ...arguments_: unknown[]
+          ) {
+            const body = arguments_[0];
+            if (
+              Buffer.isBuffer(body) &&
+              this.getHeader("Content-Type") ===
+                "application/json; charset=utf-8"
+            ) {
+              const value = JSON.parse(body.toString("utf8"));
+              if (
+                value.contract === "crdd/workbench/credential-action" &&
+                value.status === "presenting"
+              ) {
+                interruptions++;
+                if (failure === "throw")
+                  throw new Error("synthetic_response_failure");
+                this.destroy();
+                return this;
+              }
+            }
+            return Reflect.apply(end, this, arguments_);
+          } as typeof ServerResponse.prototype.end;
+          await assert.rejects(
+            requestRaw(
+              faultHandle.baseUrl,
+              "/connection-credentials/action",
+              "POST",
+              new URLSearchParams({
+                actionToken: model.actionToken,
+                operation: "exchange-user",
+                userId: developerId,
+                expectedRevision: "1",
+                displayedOldCredentialIds: "[]",
+              }).toString(),
+            ),
+            { code: "ECONNRESET" },
+          );
+          const closing = faultHandle.close();
+          assert.equal(faultHandle.close(), closing);
+          await closing;
+          assert.equal(interruptions, 1);
+          const held = JSON.parse(
+            await readFile(faultCurrent, "utf8"),
+          ) as AccessManagementState;
+          assert.equal(held.revision, 5);
+          assert.equal(held.credentials.length, 2);
+          assert.equal(held.credentials[0]?.revoked, false);
+          assert.equal(held.credentials.at(-1)?.presentation, "unconfirmed");
+          assert.equal(held.unresolvedKeyExchanges.length, 1);
+          assert.equal(
+            held.unresolvedKeyExchanges[0]?.stage,
+            "credential_stored",
+          );
+        } finally {
+          await faultHandle.close();
+          ServerResponse.prototype.end = end;
+        }
+      },
+    );
   }
 });
 

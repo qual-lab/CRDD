@@ -4,7 +4,7 @@
 担当責任者: Qual-Lab
 最終更新日: 2026-10-13
 
-最新の局所結果：Host交換2コマンドと保存・提示・終了compositionをRFD-IT-017／024／025へ接続した。AM全147件／MCP全75件・各静的3軸成功、試験補強後の対象2件成功、固定11Path限定独立再レビュー残指摘0。材料処置要求の停止と次fresh再入場、提示開始／確認／終了の出版故障、取消・未確認置換・提示済み整理を反証し、停止guardの変異も検出した。新Store／Lock／Schemaなし、終了後自己生成Root残存0。全体Checker3057 errors／0 warnings・Exit1、対象11Path指摘0。実Host TTY・Workbench本番・公開Launcher・旧REST撤去・正式191項目・AM全体は未成立／Not Runである。[対象と結果](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#host交換の提示consumer接続着手--2026-10-13)を参照する。以下の最新表記は先行局所結果で、現在の全体完成を示さない。
+最新の局所結果：Workbenchの同Process鍵管理4操作と非秘密の管理Readerを接続した。AM全150件／MCP全75件／Workbench全41件／実Browser全5件成功、静的3軸・Build成功、固定19Pathの限定独立再レビュー残指摘0。専用POSTの一度提示、次操作・再読込時の消去、交換後の旧接続失効、出力／保存故障と全段清掃を確認した。秘密の再取得・再表示・一般GET／Storageへの保持、新Store／Lock／Frameworkは追加しない。非鍵管理7操作の公開接続、公開Launcher・通常接続切替、実Host TTY、旧REST撤去、正式191項目とAM全体完成は未成立。全体Checkerの直前結果3057 errors／0 warningsは未解消で、全体Passとはしない。[対象と残件](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#workbench鍵管理の本番接続着手--2026-10-13)を参照する。以下の最新表記は先行段階の局所履歴である。
 
 最新の作業結果：鍵交換三出版の保存と現在再入場をRFD-IT-013／017等の局所断面で確認した。局所10件、修正後AM全125件／MCP全75件・両静的3軸成功、固定11Path限定独立レビュー残指摘0。三出版故障、失効後の現在認可、生成／容量、初回Binding、実Process喪失6条件・競合3条件と再認証変異を反証した。Symbol／Catalog ID・Path重複0・登録実体欠落0、終了後store Root残存0。Repository Checkerは当該11Path指摘0、全体3057 errors／0 warnings・Exit1であり全体Passではない。保存core成功でも未解決recordと未提示は保持する。非秘密交換read・提示・record整理・本番Consumer、実Host／Linux、正式191項目・AM全体は未成立／Not Run。[限定範囲](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#交換本体の保存接続の着手と固定条件--2026-10-13)を参照する。以下のReader等は先行局所結果である。
 

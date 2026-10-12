@@ -50,6 +50,7 @@ import {
   authenticateNormalConnection,
   readCurrentAccess,
   readManagementState,
+  readCredentialAdministrationState,
   resolveRepositoryAccess,
   resolveRepositoryAccessCollection,
   createCredentialMaterial,
@@ -2093,6 +2094,227 @@ function managementFixture(t: TestContext) {
   );
   return { ...f, tokens };
 }
+
+/**
+ * 資格管理一覧は一改訂の現在管理者へ非秘密値だけを返す。
+ * @responsibility User・資格・交換を同じ状態から選び、一覧のAuthority化を拒否する。
+ * @trace RFD-IT-013
+ * @trace RFD-IT-017
+ * @precondition 自己生成Storeに三Role資格と初回完了状態。
+ * @stimulus 三Role、同鍵の降格、交換保存後の一覧を読む。
+ * @observation field閉集合、凍結値、版番号、元交換相関、保存byte不変。
+ * @oracle 現在administratorだけcompleted。秘密・内容・Pathなし、降格は次要求で拒否。
+ * @cleanup Fixtureが自己生成Rootを回収する。
+ * @boundary AM非秘密Reader。Workbench／HTTP／Browserの完成ではない。
+ */
+test("資格管理一覧は現在管理者に同改訂の対象と交換だけを返す", (t) => {
+  const f = managementFixture(t);
+  const current = path.join(f.directory, "access-management.json");
+  const before = fs.readFileSync(current);
+  const unavailable = {
+    status: "unavailable",
+    reason: "credential_administration_unavailable",
+  };
+  for (const token of [f.tokens.manager, f.tokens.developer, "invalid"])
+    assert.deepEqual(
+      readCredentialAdministrationState(f.root, token),
+      unavailable,
+    );
+  const result = readCredentialAdministrationState(
+    f.root,
+    f.tokens.administrator,
+  );
+  assert.equal(result.status, "completed");
+  if (result.status !== "completed") return;
+  const snapshot = result.snapshot;
+  assert.deepEqual(Object.keys(snapshot).sort(), [
+    "actorUserId",
+    "credentials",
+    "exchange",
+    "revision",
+    "users",
+  ]);
+  assert.equal(snapshot.revision, 1);
+  assert.equal(snapshot.actorUserId, f.state.users[0]?.userId);
+  assert.equal(snapshot.exchange, null);
+  assert.deepEqual(snapshot.users, f.state.users);
+  assert.equal(snapshot.credentials.length, 3);
+  for (const item of snapshot.credentials) {
+    assert.deepEqual(Object.keys(item).sort(), [
+      "credentialId",
+      "issuanceOperationId",
+      "presentation",
+      "revoked",
+      "userId",
+    ]);
+    assert.equal(Object.isFrozen(item), true);
+  }
+  assert.equal(Object.isFrozen(snapshot), true);
+  assert.equal(Object.isFrozen(snapshot.users), true);
+  assert.equal(Object.isFrozen(snapshot.credentials), true);
+  for (const credential of f.state.credentials) {
+    assert.equal(
+      JSON.stringify(snapshot).includes(credential.tokenSalt),
+      false,
+    );
+    assert.equal(
+      JSON.stringify(snapshot).includes(credential.tokenVerifier),
+      false,
+    );
+  }
+  assert.deepEqual(fs.readFileSync(current), before);
+  const target = f.state.credentials[1];
+  assert.ok(target);
+  const exchanged = exchangeCredentialsFromHost(
+    f.root,
+    1,
+    "00000000-0000-4000-8000-000000000090",
+    "targeted",
+    target.userId,
+    [target.credentialId],
+    true,
+  );
+  assert.equal(exchanged.status, "completed");
+  const observed = readCredentialAdministrationState(
+    f.root,
+    f.tokens.administrator,
+  );
+  assert.equal(observed.status, "completed");
+  if (observed.status !== "completed") return;
+  assert.equal(observed.snapshot.revision, 4);
+  assert.equal(observed.snapshot.exchange?.stage, "credential_stored");
+  assert.equal(
+    observed.snapshot.exchange?.operationId,
+    "00000000-0000-4000-8000-000000000090",
+  );
+  assert.equal(observed.snapshot.credentials.length, 4);
+  const saved = JSON.parse(
+    fs.readFileSync(current, "utf8"),
+  ) as AccessManagementState;
+  const actor = saved.users[0];
+  assert.ok(actor);
+  actor.role = "manager";
+  fs.writeFileSync(current, bytes(saved));
+  assert.deepEqual(
+    readCredentialAdministrationState(f.root, f.tokens.administrator),
+    unavailable,
+  );
+});
+
+/**
+ * 資格管理一覧は先行材料の処置要求とfresh観測を分ける。
+ * @responsibility 非管理者の清掃Effectと処置前の古いSnapshot公開を防ぐ。
+ * @trace RFD-IT-013
+ * @trace RFD-IT-017
+ * @precondition 自己生成Storeと通常更新のbase／next材料。
+ * @stimulus 拒否Role、許可Roleの処置、次要求の一覧を順に呼ぶ。
+ * @observation 材料保持／回収、current改訂、Snapshot0と次fresh結果。
+ * @oracle 非管理者は材料保持、処置要求はSnapshot0、次要求だけ現在改訂を返す。
+ * @cleanup FixtureがRoot不存在を確認する。
+ * @boundary 現在認可→既存pending処置→Lock解放。
+ */
+test("資格管理一覧は材料処置の要求でSnapshotを返さない", (t) => {
+  for (const published of [false, true]) {
+    const f = managementFixture(t);
+    const next = structuredClone(f.state);
+    next.revision++;
+    next.operationId = "00000000-0000-4000-8000-000000000091";
+    prepare(f, next);
+    const current = path.join(f.directory, "access-management.json");
+    if (published) fs.writeFileSync(current, bytes(next));
+    const before = fs
+      .readdirSync(f.directory)
+      .map((name) => [name, fs.readFileSync(path.join(f.directory, name))]);
+    const unavailable = {
+      status: "unavailable",
+      reason: "credential_administration_unavailable",
+    };
+    assert.deepEqual(
+      readCredentialAdministrationState(f.root, f.tokens.manager),
+      unavailable,
+    );
+    assert.deepEqual(
+      fs
+        .readdirSync(f.directory)
+        .map((name) => [name, fs.readFileSync(path.join(f.directory, name))]),
+      before,
+    );
+    assert.deepEqual(
+      readCredentialAdministrationState(f.root, f.tokens.administrator),
+      unavailable,
+    );
+    assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
+    const fresh = readCredentialAdministrationState(
+      f.root,
+      f.tokens.administrator,
+    );
+    assert.equal(fresh.status, "completed");
+    if (fresh.status === "completed")
+      assert.equal(fresh.snapshot.revision, published ? 2 : 1);
+  }
+});
+
+/**
+ * 資格管理一覧の状態・排他・解放不明を非開示へ閉じる。
+ * @responsibility 初回途中や観測故障を空の成功一覧へ丸めない。
+ * @trace RFD-IT-013
+ * @trace RFD-IT-017
+ * @precondition 自己生成Store、現在有効administrator資格。
+ * @stimulus 初回途中、current破損、読取り／Lock解放故障を注入する。
+ * @observation 固定unavailableとSnapshot不存在、currentの保持。
+ * @oracle 全条件で対象情報0。新Store・鍵生成・提示0。
+ * @cleanup Hook復元とFixture回収。
+ * @boundary AM内部Readerと実Filesystem。
+ */
+test("資格管理一覧は初回と観測解放不明で情報を返さない", (t) => {
+  for (const mode of ["initial", "corrupt", "read", "release"] as const) {
+    const f = managementFixture(t);
+    const current = path.join(f.directory, "access-management.json");
+    if (mode === "corrupt") fs.writeFileSync(current, "{}");
+    if (mode === "initial") {
+      const credential = f.state.credentials[0];
+      assert.ok(credential);
+      const user = f.state.users[0];
+      assert.ok(user);
+      f.state.users = [user];
+      f.state.credentials = [credential];
+      credential.operationId = f.state.initialization.attemptId;
+      f.state.initialization = {
+        stage: "credential_stored",
+        attemptId: credential.operationId,
+        userId: user.userId,
+        initialCredentialId: credential.credentialId,
+        confirmationCredentialId: credential.credentialId,
+      };
+      fs.writeFileSync(current, bytes(f.state));
+    }
+    const open = fs.openSync,
+      remove = fs.rmSync;
+    if (mode === "read")
+      fs.openSync = (file, flags, permissions) => {
+        if (String(file) === current) throw new Error("synthetic_read_failure");
+        return open(file, flags, permissions);
+      };
+    if (mode === "release")
+      fs.rmSync = (file, options) => {
+        if (String(file).endsWith("access-management.lock"))
+          throw new Error("synthetic_release_failure");
+        return remove(file, options);
+      };
+    try {
+      assert.deepEqual(
+        readCredentialAdministrationState(f.root, f.tokens.administrator),
+        {
+          status: "unavailable",
+          reason: "credential_administration_unavailable",
+        },
+      );
+    } finally {
+      fs.openSync = open;
+      fs.rmSync = remove;
+    }
+  }
+});
 
 /**
  * Profile管理は同じ鍵でも現在Roleを再観測する。

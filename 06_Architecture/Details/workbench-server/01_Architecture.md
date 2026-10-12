@@ -253,6 +253,23 @@ Hostの交換2操作はWorkbench Backendで実行せず、信頼したログイ�
 
 論理初回接続とv2目標SchemaはAM保存設計へ具体化済み。具体画面配置、公開API・結果Field、提示観測の実装／実境界・移行・本番接続は未成立。SCR-000008／BHV-000012／`PRT-000008.spec-000012`への接続はPartialである。Qualityは通常発行の失効0・Recovery0、独立失効の対象限定・発行0、交換4組表示／3組確認、鍵3分岐、元Identityと別交換の区別、MCP鍵操作0、Secret再表示0、遅延失効鍵の利用案内0、後段失敗時の既知事実保持をIT／STで導出する。ここでQA Local Item IDを推測して発行しない。旧伝播候補の限定Passは履歴。今回の最小提示方式の差分は限定再レビュー済み（最小鍵提示方式の伝播差分、全重大度0）で、QA実行済みではない。
 
+#### 6.1.1. 同Process管理POSTの具体契約
+
+管理依存は検証済みAM RootとServer memory上の現在Bearerで構成する。Remote接続との同時構成・接続切替は拒否し、Browser入力からRootや管理Bearerを取得しない。一覧と各操作で現在認可を取り直し、一覧の操作表示を実行許可として再利用しない。
+
+| 境界 | 具体契約 |
+|---|---|
+| 非秘密一覧 | AMの同改訂SnapshotからユーザーのID・表示名・Role、資格のID・元発行ID・失効・提示状態、現在交換相関だけを投影する。秘密・Verifier・Salt・内部Rootは返さない |
+| 管理POST | `/connection-credentials/action`は`issue / revoke / exchange-user / exchange-all`だけを受理する。現在改訂・既存userIdと操作別の対象を必須とし、旧profile／rotate／update_access、重複・未知field、不一致Origin／Host、不正Content-TypeとAction Tokenを保存前に拒否する |
+| 鍵提示 | 保存と`unconfirmed`記録の後、`no-store`の専用JSON一応答へ鍵を入れる。応答の`presenting`は出力開始の結果で、本人受領・提示確認・交換完了ではない。汎用`/api/workbench-view`へ鍵や直前の鍵応答を保持しない |
+| 提示後 | 所有Responseの全byteの`finish`と先行故障なしを確認してから、元発行相関の`confirmed`を別保存する。HTTP終了はBrowser描画・コピー・本人受領の証明ではない。切断・取消・故障では確認や交換終了を進めず、自動再送しない |
+| 交換終了 | 他ユーザー指定交換では操作主体の既存管理者鍵、本人指定交換・全交換では当該要求で発行した新管理者鍵を短命に使用する。通常AM終了入口で現在Role・資格・改訂・exact交換相関・提示確認を再評価し、失効・変更・不明なら記録を保持する。Host終了入口・他の鍵へのfallbackは行わない |
+| Server終了 | 開始した管理要求と提示後処置を終了待機へ含める。画面用応答の任意保存を終了条件に追加しない。秘密は当該要求の短命値として解放し、新しいSession／Receipt／Recovery Storeを作らない |
+
+旧CROS管理依存・Form・Client Modelの資格部分は、新Serverと同時配布するCSRへ一斉切替する内部契約変更である。旧形式の互換受付・秘密再取得は設けない。本人交換・全交換でServerの旧接続鍵が失効した場合は、新しい鍵での明示接続が必要であり、応答成功から旧接続の継続を表示しない。
+
+同Process注入による接続は、局所HTTPの出力／後処置故障と、実Browserの通常発行・本人交換・全交換の短命表示・消去・再読込・旧接続失効まで評価済みである。この限定範囲の独立再レビューは残指摘0。公開Launcher、通常接続切替および正式Local Item評価は未完了であり、Workbench資格管理全体の完成を主張しない。
+
 ### 6.2. 通常管理の入力・結果搬送
 
 Workbenchは[Access Management詳細§4](../access-management/01_Architecture.md#4-通常管理と独立失効)へ次の操作を委譲する。表示上の操作可否はAuthorityではなく、実行時にAMが変更前の現在管理認可・対象・期待改訂を確認する。別Processでは具体的な非鍵MCP公開契約の接続後だけ利用可能とし、現在は接続済みと扱わない。

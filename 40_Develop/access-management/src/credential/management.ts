@@ -1,15 +1,113 @@
 /**
- * 通常鍵変更の候補と現在資格の発行事実を判断・投影する。
+ * 通常鍵変更の候補と、現在資格の発行事実・管理一覧を判断・投影する。
  * @responsibility 保存Ownerへ閉じた候補を渡し、保存・乱数生成・提示を引き取らない。
  * @trace ARCH-000013
  */
 import { evaluateManagementPermission } from "../access/management-permission.ts";
 import type { AccessManagementState } from "../state/parse.ts";
 import { resolveCredentialAuthentication } from "./authentication.ts";
+import {
+  projectKeyExchangeState,
+  type KeyExchangeSnapshot,
+} from "./key-exchange.ts";
+import type { AccessRole } from "../access/management-permission.ts";
 
 const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const CREDENTIAL_ID = /^[0-9a-f]{24}$/;
+
+/**
+ * 現在管理者へ返す資格管理画面の非秘密Snapshotを表す。
+ * @responsibility 対象選択・旧集合表示・未解決交換を一改訂へ結び、資格材料を除外する。
+ * @trace ARCH-000013
+ * @shape revision、actorUserId、users、credentials、exchange。
+ * @invariant exchange nullは現在recordなしで、過去交換の完了証明ではない。
+ * @boundary 同Process Workbench専用の内部公開API。MCP／Remoteへ公開しない。
+ * @security Secret・salt・Verifier・Root・内容権限・Repository情報を含めない。
+ * @compatibility 最新Schema v2のUser結合と交換相関だけ。
+ */
+export type CredentialAdministrationSnapshot = Readonly<{
+  revision: number;
+  actorUserId: string;
+  users: readonly Readonly<{
+    userId: string;
+    username: string;
+    role: AccessRole;
+  }>[];
+  credentials: readonly Omit<CredentialIssuanceSnapshot, "revision">[];
+  exchange: KeyExchangeSnapshot | null;
+}>;
+
+/**
+ * 資格管理の非秘密投影と取得不能を分ける。
+ * @responsibility 認証・認可・材料処置・解放不明でSnapshotを返さない。
+ * @trace ARCH-000013
+ * @shape completedのsnapshot、または固定unavailableのreason。
+ * @invariant 未取得は空一覧でも過去処理の失敗証明でもない。
+ * @boundary AM保存Ownerから同Process Workbenchへ。
+ * @security 拒否時に対象存在・件数・Role・保存Pathを開示しない。
+ * @compatibility 一覧・表示専用。処置時には別のfresh認可を要求する。
+ */
+export type CredentialAdministrationStateResult =
+  | Readonly<{
+      status: "completed";
+      snapshot: CredentialAdministrationSnapshot;
+    }>
+  | Readonly<{
+      status: "unavailable";
+      reason: "credential_administration_unavailable";
+    }>;
+
+/**
+ * 同じ改訂の現在管理者へ資格一覧と交換相関を投影する。
+ * @responsibility 対象選択を非秘密値へ閉じ、表示結果を処置Authorityにしない。
+ * @trace ARCH-000013
+ * @input 完全検査済み現在状態と信頼しないBearer。
+ * @returns 不変な所有Snapshot、または非開示拒否のnull。
+ * @precondition 保存Ownerが既存Lock内で完全Schemaを検査する。
+ * @postcondition 現在administrator・初回完了時だけ一改訂の値を返す。
+ * @effect 現在資格のVerifier照合と局所投影だけ。保存・鍵生成・提示0。
+ * @failure 初回途中・非管理者・失効・交換相関不明はnull。
+ * @invariant 内部配列やCredential recordを共有せず、内容権限を取得しない。
+ * @boundary 現在意味の投影と物理保存Owner。
+ * @security 資格材料・Root・Repository Bindingを返さない。
+ * @concurrency 同Lock内の一Snapshotだけ。後続操作は現在条件を再評価する。
+ */
+export function projectCredentialAdministration(
+  current: AccessManagementState,
+  token: string,
+): CredentialAdministrationSnapshot | null {
+  if (current.initialization.stage !== "completed") return null;
+  const actor = resolveCredentialAuthentication(token, current);
+  if (actor?.role !== "administrator") return null;
+  const record = current.unresolvedKeyExchanges[0];
+  const exchange = record
+    ? projectKeyExchangeState(current, "workbench", token, record.recoveryId)
+    : null;
+  if (record && !exchange) return null;
+  return Object.freeze({
+    revision: current.revision,
+    actorUserId: actor.userId,
+    users: Object.freeze(
+      current.users.map(({ userId, username, role }) =>
+        Object.freeze({ userId, username, role }),
+      ),
+    ),
+    credentials: Object.freeze(
+      current.credentials.map(
+        ({ credentialId, userId, operationId, presentation, revoked }) =>
+          Object.freeze({
+            credentialId,
+            userId,
+            issuanceOperationId: operationId,
+            presentation,
+            revoked,
+          }),
+      ),
+    ),
+    exchange,
+  });
+}
 
 /**
  * 保存前の鍵変更候補と対象位置を表す。

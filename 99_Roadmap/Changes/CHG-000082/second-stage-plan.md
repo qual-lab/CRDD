@@ -481,6 +481,42 @@ credential_storedの保存・清掃・Lock解放後だけ一回の短命Secret�
 
 今回の局所保存・終了coreは閉じるが、短命Secretの本番提示Owner、通常Workbench鍵3操作・Host交換2操作、MCP／Workbench本番Launcher、旧REST撤去、実Host移行／Linux、正式191項目・AM全体完成は未成立を維持する。次は既存提示Writerと終了APIを実Consumerへ接続する。現在、人間による追加判断は不要。
 
+### Workbench鍵管理の本番接続着手 — 2026-10-13
+
+基準`d02d784c`、開始時clean。採用済み通常発行・独立失効・指定／全員交換を旧CROS資格管理からAMへ置換する。親と読み取り専用確認者がAM／Workbench正本・既存Consumer・品質義務を照合し、追加人間判断なし。旧profile発行は既存userIdへの発行へ、rotateは指定／全員交換へ置換し、update_accessは鍵から撤去してUser／Role管理へ分離する。旧公開形状は互換維持せず、移行はフロントAIが旧Writer停止・旧入力確認を担当する。旧正式Evidenceは保持する。
+
+同Processの検証済みAM Root＋Server memoryのBearerを明示依存とし、Remote MCP構成との同時指定を拒否する。現在administrator専用Readerを既存credential/management.tsとstate/file-store.tsへ追加し、同改訂のactorUserId・User選択候補・資格Metadata・一件以下の交換相関だけを不変投影する。認証・初回・材料・清掃・解放不明はSnapshot0、材料を処置した要求は次fresh取得へ分ける。readManagementState四kind・MCP公開集合は変更しない。
+
+鍵は汎用Client Modelの例外から撤去し、既存管理POSTの用途限定no-store短命応答だけへ搬送する。保存→提示前unconfirmed→HTTP byteとfinish観測→confirmed→交換だけrecord終了の順で、応答はfinish前に固定されるため交換全体完了や本人受領を主張しない。開始済みfinalizerはServer終了でjoinし、BrowserはCSR局所状態だけで一度表示、reload／GET／再送0。新State／Lock／履歴／受領ACK／Frameworkを追加しない。通常発行・失効の追加確認0、指定交換事前表示、全員交換明示確認、Host操作分離を維持する。
+
+AM RFD-IT-013／017／018、HTTP RFD-ST-016、Browser ERB-ST-022、MCP鍵非公開EST-ST-015を既存項目へ接続する。静的3軸、AM／Workbench／MCP直接回帰、固定候補独立レビュー、差分・Symbol／Catalog・正本直接伝播を必須とする。標準準拠基準やProvider／Docker不変更のため準拠監査・署名Provider E2Eはこの接続単位では対象外。Reader局所から上位完成を推定せず、専用HTTP／CSR／本番Consumerまで同goal内で進める。non-key管理7操作・Launcher・旧REST撤去・正式191・AM全体は引き続き残件である。
+
+先行Reader候補は、AMの既存credential/management.tsとstate/file-store.ts、Package Rootへ接続した。資格管理一覧の局所3 Caseと書式・型・Warning禁止Lint各3軸成功、Exit0・2.6938226秒。現在管理者の一改訂投影とRole降格、stored交換相関、先行base／next材料での非認可保持・処置要求の事実0・次fresh取得、初回途中・破損・読取り・Lock解放故障でSnapshot0を確認した。最初の読取り故障注入は実装がdescriptorを読むためPath比較のHookが発火せず、open境界の注入へ修正した。Source保証を弱めていない。まだ固定候補独立レビュー・全回帰とWorkbench専用HTTP／CSR／本番Consumerは未完了であり、上位完成ではない。
+
+Workbench候補の追加局所結果：同Process AM Rootを注入し、通常発行・独立失効・指定交換・全交換・本人交換を実HTTPで確認した。旧形式、重複operation／Action Token／期待改訂、未知Root field、改訂不一致、異なるOrigin／Host、不正Content-Typeの拒否後は管理状態の全文一致を確認した。書式・型・Warning禁止Lint各3軸と対象1 Case成功、Exit0・14.3616896秒。これはITの一Case内の境界確認であり、正式ST／Browser／全体Pass件数へ加算しない。
+
+交換終了の認可は通常AM入口へ限定した。他ユーザー指定は現在操作主体の鍵、本人指定／全交換は当該要求の新管理者鍵を短命に使用し、現在Role・資格・改訂・交換相関を再評価する。WorkbenchからHost終了を使う候補は独立した境界照合で却下し、Sourceから撤去した。後処置故障・取消・競合・実Browser、全回帰と固定独立レビューは未完了。Architectureへ専用POST・非秘密一覧・presentingと受領の区別・終了待機を具体化し、Test Header／Symbol／Catalogを現Sourceへ追従した。追加の人間判断は不要。
+
+Workbench追加局所後の全回帰は33 Case中32成功・1失敗、Cancel／Skip0、Exit1・133.1909307秒。失敗は追跡Browser BundleのWorking Tree Blobと未更新Git Index Blobの差で、機能Caseは成功しても全回帰Passとはしない。判定を緩めず、固定候補のBuild・ステージ確定時に同試験を再実行する。その後、全交換の表示対象とFormの送信集合を同じ値へ統一し、接続ユーザー名、前記録終了≠新交換の日本語表示、fresh一覧で有効性を確認できない旧応答鍵の表示停止を追加した。更新後の静的3軸・Vite Buildは成功、294.81 kB／gzip 86.03 kB。画面変更後の実Browserと固定候補全回帰・独立レビューは未完了である。
+
+AM追加Reader後の全回帰は150 Case中149成功・1失敗、Cancel／Skip0、Exit1・187.1418803秒。失敗はPackage Rootの固定公開集合へ`readCredentialAdministrationState`を反映していなかったことで、採用した一入口を期待値へ追加し完全一致Oracleを維持した。是正後の静的3軸・当該UT全4 Caseは成功、Exit0・0.3196352秒。全150 Caseの是正後再実行と独立レビューは未完了で、局所再成功を全体Passへ置換しない。
+
+Workbenchの交換故障候補を六保存点と秘密応答開始時のclose／throwへ拡張した。静的3軸と対象親1＋故障子8の計9 Case成功、Exit0・36.0343147秒。出版1〜4の停止は秘密応答なし、5／6は既に提示した事実を保持し確認／終了不明を隠さない。出力二故障は同じ実HTTPのResponseを破棄してClientのECONNRESETとServer終了joinを観測し、revision5・stored交換・unconfirmedを保持、確認／終了出版0・自動再送0。重複closeは同じ終了Promiseを返す。自己生成試験Rootだけを使用し、実Host／外部Provider／DockerへEffectを発行していない。最初の試験挿入位置と型注釈の誤りは静的入口で検出・修正し、未実行の候補を成功結果へ混ぜない。取消競合・提示後の現在Role変更・実Browser・全回帰・限定独立レビューは未完了である。
+
+Workbench固定17Pathの限定独立レビューはFail（Critical0／Major2／Moderate1／Minor1）。Browserの操作・短命表示の未観測、Bundle未ステージによる全回帰失敗、現在Architectureの故障評価未同期、結果型Headerのrevision表記を統合した。指摘元との統合是正方針照合は整合・追加人間判断不要。既存Browser終了処理を再利用する専用System試験を追加し、Productionへの試験Route／任意Script受付／新Frameworkは作らない。HeaderはcontractRevisionへ修正し、実型へfieldを追加していない。旧Evidence・正式191 Not Run・公開Launcher未成立は保持する。
+
+是正後の実Browser試験は親1＋通常発行／本人交換／全交換3の計4 Case成功、Exit0・35.8143783秒。POST一回、当該応答の鍵とDOM内一致、次操作開始で消去、通信失敗後の完了表示0、GET／URL／Storage／reloadへの非保持、交換後旧接続unavailable、Browser所有Tree・DevTools／Workbench Listener・専用Root清掃を確認した。秘密はBrowser内比較だけでNodeへ返却せず、console／画像／trace／本文logは保存しない。初回2実行のContext置換故障は成功へ混ぜず、操作前の読取り専用readyとreload後の観測だけを再入場させた。鍵操作Scriptは一回で、発行不明の再送を追加していない。再現入口は`npm run test:credential-browser`。新Symbol／Catalogは既存QA6／7のSTへ接続した。
+
+修正後AM全150／MCP全75と各静的3軸成功、Fail／Cancel／Skip0、Exit0・196.9745874秒／63.2985089秒。Workbench静的3軸とVite Build成功、生成BundleだけIndexへ確定し、一致Oracleを緩めず全41 Case成功、Fail／Cancel／Skip0、Exit0・160.1243424秒。旧33 Caseへ故障子8 Caseを追加した41 Caseで、別実行のBrowser4 Caseを重複計上しない。新固定候補の限定独立再レビューと現在状態への同期はまだ未完了である。
+
+新固定19Pathの独立再レビューは旧4指摘解消、残Moderate2（欠測試験親の準備依存、cleanup assertによる後続回収省略）。統合案を指摘元へ再提示し整合確認後、System試験内だけの固定Root準備と全段cleanupへ是正した。共有`.crdd/tests`は削除・改名せず、同じ準備helperを自己生成fresh Rootの`.crdd`不存在から実測する反証を追加した。Browser／Server終了・両Listener観測・削除範囲確認・Directory削除・ENOENTを独立試行し、全段終了後だけ結果をassertする。Root範囲不正では削除0を維持し、新しいResolver／Framework／Root公開APIは追加しない。
+
+是正後のbootstrap1＋Browser3＋親1の計5 Case成功（46.7307135秒）。清掃assertの期待値だけを一時変異した試験は想定どおりPass1／Fail4・Exit1（57.1969662秒）、全専用Directory0だった。変異前SourceのSHA-256`3DA5B278390747FACE912F14861809AD475CEA7B43AA40856E1DC9FE8F20FF3F`へexact復元し、復元後Browser全5成功・Exit0（41.9686897秒）、Workbench全41成功・Exit0（168.583887秒）、Cancel／Skip0、静的3軸・Build・Bundle Index一致・差分確認成功。これらは意図的な負例と通常回帰を分けた値で、変異のFailを通常成功へ丸めない。
+
+固定19Pathの最終限定独立再レビューはPass・全重大度の残指摘0、開始／終了の全SHA-256一致。試験Rootの独立準備、全段清掃の独立試行、失敗時の専用Directory不存在と秘密非搬送を再照合した。AM全150／MCP全75／Workbench全41／Browser全5の成功はこの接続の根拠に限り、正式191項目、非鍵管理7操作、公開Launcher・通常接続・旧REST撤去・AM全体の未完成を維持する。結果だけをProject ContextとQuality Centerへ同期し、実行別Evidence書庫を追加しない。
+
+結果同期後の全体Checkerは3057 errors／0 warnings・Exit1。変更21PathではProject Contextの既存構造指摘1件だけで、他20Pathは0件。該当判定が読むIdentity・見出し・Checklist行はHEADと完全一致し、今回の更新は最新結果の段落だけであるため、この既存指摘を新規故障や解消済みとは扱わない。全体Ready未成立を保持する。
+
 ### Host交換の提示Consumer接続着手 — 2026-10-13
 
 基準`d75542ad`、着手時clean。承認済みHost交換2操作への実装接続として、親照合と独立した契約・lifecycle確認を実施し、追加人間判断なし。初回の私有TTY提示を`credential/present-key-to-terminal.ts`へ移管し、初回と`credential/exchange-from-host.ts`の具体2Consumerで共有する。Package Rootへ共通Writerを公開せず、保存・認可・CLI選択を共通提示処理へ集約しない。Node TTYの一write・callback join・先行取消／error／close・通知tick・共有stream保持は不変。新Lock／Receipt／Store／履歴・Provider／Docker・過去Evidenceは追加／変更しない。

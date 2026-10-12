@@ -34,6 +34,7 @@
 | `resolveAiProfileManagementAccess` | `src/index.ts`→`access/profile-management.ts`。同じ通常認証から現在Roleの`manageAiProfiles`を判定 | `AiProfileManagementAccess`のallowed／denied／unavailableだけを返す局所実装候補。Catalogをimportせず、認証不成立・初回未完了・状態不明をdeveloper拒否へ畳まない。既存Lock解放後にMCPがCatalog操作を結合する。本番入口の完成ではない |
 | `readCurrentAccess` | 認証主体と現在改訂 | 自己表示名・Role・認可済み範囲。管理能力と内容範囲を分離 |
 | `readManagementState` | 現在の管理認可と必要な対象 | 許可されたUser／Role／接続／公開の投影だけ。全内部Snapshotは返さない |
+| `readCredentialAdministrationState` | 同Process Workbenchの検証済み管理Rootと現在Bearer | 現在administrator・初回完了・材料／清掃／解放確認後だけ、同改訂のactorUserId・User選択候補・資格Metadata・未解決交換一件以下を非秘密投影。四管理kindやMCP公開へ追加しない |
 | `registerUser` | 予定Role・表示名・期待改訂。managerはdeveloper／managerだけ、administratorは三Role | 新User ID・改訂・読戻し。資格発行0、自己登録なし |
 | `updateUserName` | 既存userId・新表示名・期待改訂。manager／administrator。administrator対象も許可 | 名前だけ変更。User ID・Role・資格を保持 |
 | `changeUserRole` | 変更前・変更後Roleを含む対象と期待改訂 | developer／manager間はmanager／administrator。administratorへの変更・administratorの変更はadministratorのみ |
@@ -577,6 +578,12 @@ Process喪失やtoken nullは物理的な秘密消去の証明ではなく、再
 引継ぎ後の再送では同new operationの既存段階を優先する。previous参照を指定した再送は、新recordの固定旧集合内にある資格の元operationと参照がexact一致し、その資格が提示未確認でexact一件であることを追加照合する。段階ごとの失効状態は完全Parserへ照合し、別参照・対象外資格・提示confirmed・相関欠測を拒否する。省略時の既存継続条件は変えない。
 
 確認済み整理の内部入口は`finishKeyExchange`と`finishKeyExchangeFromHost`とする。純粋候補は資格責務、認可先行・一出版・主失敗と解放不明の分離は既存保存Ownerへ置く。終了操作は新UUIDとし、初回・現出版・資格発行・元交換との衝突を拒否する。record除去出版後の応答喪失で、次要求のrecord不在をcompletedへ再構成しない。残ったcurrent=next材料の処置は既存保存Owner専用の内部状態Readerで可能だが、公開ActorへそのRoot AuthorityやSnapshotを渡さず、清掃成功を元終了要求の成功保証にしない。未確認recordはこの入口で除去しない。
+
+### Workbench資格管理の非秘密一覧 — 2026-10-13
+
+`readCredentialAdministrationState`は既存のAM保存Ownerが一Lock・一改訂で処理する。形式検査→完全current→現在認証・初回completed・administrator→投影候補→既知材料処置→Lock解放の順とし、材料を処置した要求はSnapshotを返さず次fresh取得へ分ける。観測／清掃／解放不明を空一覧へ変換しない。
+
+返却値はrevision・actorUserId、UserのuserId／username／role、資格のcredentialId／userId／issuanceOperationId／presentation／revoked、既存交換の非秘密相関一件またはnullに限定する。元発行IDからSecretを取得できず、交換nullは現在recordなしという意味だけで、過去完了や未発行の証明ではない。資格材料・Root・内容権限・Exposure・Repository Bindingを含めない。純粋投影は既存credential/management.ts、物理読取りはstate/file-store.tsが所有し、readManagementState四kind・Store・Lock・履歴を増やさない。Workbenchの同Process接続・専用POSTの具体契約は[Workbench詳細§6.1.1](../workbench-server/01_Architecture.md#611-同process管理postの具体契約)に置く。局所注入での実HTTP候補と公開Launcher／実Browser成立を区別し、Reader局所成功だけで上位完成を主張しない。
 
 ### Host交換の提示Consumerの責務配置 — 2026-10-13
 

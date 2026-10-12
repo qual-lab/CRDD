@@ -1,141 +1,519 @@
 /**
- * WorkbenchのConnection Credential管理Application。
- *
- * @packageDocumentation
- * @responsibility 検証済み管理Access ContextからCredentialの発行・更新・失効・ローテーション操作を提供する。
+ * Workbenchの同Process鍵管理と用途限定HTTP提示を接続する。
+ * @responsibility 入力を閉じたAM操作へ搬送し、秘密を汎用画面状態へ保持しない。
  * @trace ARCH-000013
- * @boundary Workbench Client ModelとCROS Credential Applicationの境界。
- * @effect 明示操作時だけCredential Registryを一回更新し得る。
- * @security 生Tokenは発行・ローテーション直後の結果にだけ保持し、一覧や永続Recordへ含めない。
+ * @boundary Browser管理POST、AM保存Owner、Node HTTP Response。
+ * @effect 明示操作の保存・提示前後記録・一応答・交換記録終了。
+ * @security MCP・Remote・汎用GETへ鍵を返さず、追加受領Gateを作らない。
  */
+import { randomUUID } from "node:crypto";
+import type { ServerResponse } from "node:http";
+import type { FilesystemStoreRoot } from "../../../domain-model/src/index.ts";
 import {
-  issueConnectionCredential,
-  revokeConnectionCredential,
-  rotateConnectionCredential,
-  type ConnectionCredentialIssueResult,
-  type ConnectionCredentialProfile,
-  type ConnectionCredentialRegistry,
-  type ConnectionCredentialRotationResult,
-  type RequestAccessContext,
-  updateConnectionCredentialAccess,
-} from "../../../cros/src/index.ts";
+  issueCredential,
+  revokeCredential,
+  exchangeCredentials,
+  finishKeyExchange,
+  recordCredentialPresentation,
+  readCredentialAdministrationState,
+} from "../../../access-management/src/index.ts";
 
+/**
+ * 同Processの管理Rootと現在Bearerを明示する。
+ * @responsibility Remote接続や過去の認可Snapshotを管理Authorityへ転用させない。
+ * @trace ARCH-000013
+ * @shape root、token。
+ * @invariant tokenはServer memoryだけで、各操作がfresh認可する。
+ * @boundary 信頼したWorkbench構成Ownerから内部管理Consumer。
+ * @security Browser入力のRoot・Bearerを受け取らない。
+ * @compatibility 新AMだけ。旧CROS Registryとの併用・fallbackなし。
+ */
 export type CredentialAdministration = Readonly<{
-  registry: ConnectionCredentialRegistry;
-  access: RequestAccessContext;
-}>;
-
-export type CredentialAdministrationResult = Readonly<{
-  status: "completed" | "blocked";
-  reason: string;
-  token: string | null;
+  root: FilesystemStoreRoot;
+  token: string;
 }>;
 
 /**
- * Credential管理Formを一つのCROS Credential操作へ変換する。
- *
- * @responsibility 許可済み操作と固定入力だけをCROS Credential Applicationへ渡す。
+ * 用途限定の管理POST応答を表す。
+ * @responsibility 鍵提示応答と記録終了・拒否を区別する。
  * @trace ARCH-000013
- * @input administrationにRegistryと管理Access Context、formに上限確認済みForm値を受け取る。
- * @returns 操作結果と一度だけ表示可能なTokenを返す。
- * @precondition CSRF相当Tokenは呼出し側で照合済みである。
- * @postcondition completedだけがRegistry Effectを持ち、Tokenは発行・ローテーション成功時だけ存在する。
- * @effect Credential Registryを最大一回更新する。
- * @failure 未知操作、不正Profileまたは不正Workspace入力を例外で拒否する。
- * @invariant Profileを保存済み実効権限の代替として利用しない。
- * @boundary Workbench Browser Form→CROS Credential Application。
- * @security FormからVerifier、salt、任意Registry Pathまたは生Tokenを受け取らない。
- * @concurrency Registry revision競合をCROS結果として返し、自動再試行しない。
+ * @shape contract、contractRevision、status、operation、reason、非秘密相関。presentingだけtoken。
+ * @invariant presentingは保存済み鍵の出力要求で、提示確認・交換全体完了・本人受領ではない。
+ * @boundary 管理POSTだけ。汎用Client Modelへ入れない。
+ * @security 秘密はpresentingの一応答だけ。保存・再取得・MCP公開0。
+ * @compatibility 最新のissue／revoke／exchange-user／exchange-all契約。
  */
-export function executeCredentialAdministrationAction(
+export type CredentialAdministrationResult = Readonly<{
+  contract: "crdd/workbench/credential-action";
+  contractRevision: 1;
+  operation: "issue" | "revoke" | "exchange-user" | "exchange-all";
+  reason: string;
+  operationId: string;
+  userId: string;
+  credentialId?: string;
+  recoveryId?: string;
+  publication?: "not_attempted" | "unconfirmed" | "confirmed";
+  cleanupConfirmed?: boolean;
+  firstFailure?: string;
+  secondaryFailure?: string | null;
+  observedRevision?: number | null;
+  lastConfirmedOperationId?: string | null;
+  lastConfirmedStage?: string;
+}> &
+  (
+    | Readonly<{ status: "presenting"; token: string; credentialId: string }>
+    | Readonly<{ status: "completed" | "blocked"; token?: never }>
+  );
+
+/**
+ * 保存Ownerの未完了事実を非秘密の応答fieldへ写す。
+ * @responsibility 最初の失敗と後続清掃不明を分離し、全内部結果を透過しない。
+ * @trace ARCH-000013
+ * @input 内部保存Ownerの型確認済み結果だけ。
+ * @returns 出版・清掃・主副失敗・既知相関の存在するfieldだけ。
+ * @precondition arbitrary入力や例外本文を渡さない。
+ * @postcondition token・Root・内部Pathを返さない。
+ * @effect N/A: 局所投影だけ。
+ * @failure N/A: 存在する型fieldだけを選択する。
+ * @invariant unavailableから未保存・rollback・Effect0を推定しない。
+ * @boundary AM結果と管理POSTの非秘密失敗情報。
+ * @security 既存固定理由だけ。例外文字列の公開0。
+ * @concurrency 当該要求の結果だけで、共有状態へ蓄積しない。
+ */
+function credentialFailureFacts(
+  result: Readonly<{
+    status: string;
+    publication?: "not_attempted" | "unconfirmed" | "confirmed";
+    cleanupConfirmed?: boolean;
+    primaryFailure?: string;
+    firstFailure?: string;
+    secondaryReason?: string;
+    secondaryFailure?: string | null;
+    observedRevision?: number | null;
+    lastConfirmedOperationId?: string | null;
+    lastConfirmedStage?: string;
+  }>,
+) {
+  return {
+    ...(result.publication !== undefined
+      ? { publication: result.publication }
+      : {}),
+    ...(result.cleanupConfirmed !== undefined
+      ? { cleanupConfirmed: result.cleanupConfirmed }
+      : {}),
+    ...(result.firstFailure || result.primaryFailure
+      ? { firstFailure: result.firstFailure ?? result.primaryFailure }
+      : {}),
+    ...(result.secondaryFailure !== undefined ||
+    result.secondaryReason !== undefined
+      ? {
+          secondaryFailure:
+            result.secondaryFailure ?? result.secondaryReason ?? null,
+        }
+      : {}),
+    ...(result.observedRevision !== undefined
+      ? { observedRevision: result.observedRevision }
+      : {}),
+    ...(result.lastConfirmedOperationId !== undefined
+      ? { lastConfirmedOperationId: result.lastConfirmedOperationId }
+      : {}),
+    ...(result.lastConfirmedStage !== undefined
+      ? { lastConfirmedStage: result.lastConfirmedStage }
+      : {}),
+  };
+}
+
+/**
+ * 閉じた管理Formを保存開始前に検査する。
+ * @responsibility 旧権限field・重複・未知値をAM観測より先に拒否する。
+ * @trace ARCH-000013
+ * @input 上限確認済みURLSearchParams。
+ * @returns 許可した操作と期待改訂。
+ * @precondition Origin・Action TokenはHost入口が別途確認する。
+ * @postcondition UUID生成・Root観測・保存0。
+ * @effect N/A: Request局所値の検査だけ。
+ * @failure 不正入力を固定例外で拒否する。
+ * @invariant Browserから任意Root・Bearer・Role設定を受け取らない。
+ * @boundary Browser Formと内部AM操作。
+ * @security 例外へ入力本文や秘密を含めない。
+ * @concurrency 同じFormを再更新・自動再送しない。
+ */
+function readCredentialAction(form: URLSearchParams) {
+  const operation = form.get("operation");
+  if (
+    operation !== "issue" &&
+    operation !== "revoke" &&
+    operation !== "exchange-user" &&
+    operation !== "exchange-all"
+  )
+    throw new Error("workbench_credential_input_rejected");
+  const allowed = ["actionToken", "operation", "expectedRevision", "userId"];
+  if (operation === "revoke") allowed.push("credentialId");
+  if (operation.startsWith("exchange-"))
+    allowed.push(
+      "displayedOldCredentialIds",
+      "confirmed",
+      "previousRecoveryId",
+    );
+  for (const key of form.keys())
+    if (!allowed.includes(key) || form.getAll(key).length !== 1)
+      throw new Error("workbench_credential_input_rejected");
+  const revisionText = form.get("expectedRevision") ?? "";
+  const expectedRevision = Number(revisionText);
+  const userId = form.get("userId") ?? "";
+  if (
+    !/^[1-9]\d*$/.test(revisionText) ||
+    !Number.isSafeInteger(expectedRevision) ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
+      userId,
+    )
+  )
+    throw new Error("workbench_credential_input_rejected");
+  if (
+    operation === "revoke" &&
+    !/^[0-9a-f]{24}$/.test(form.get("credentialId") ?? "")
+  )
+    throw new Error("workbench_credential_input_rejected");
+  let oldIds: string[] = [];
+  if (operation.startsWith("exchange-")) {
+    const parsed: unknown = JSON.parse(
+      form.get("displayedOldCredentialIds") ?? "",
+    );
+    if (
+      !Array.isArray(parsed) ||
+      !parsed.every(
+        (id) => typeof id === "string" && /^[0-9a-f]{24}$/.test(id),
+      ) ||
+      new Set(parsed).size !== parsed.length
+    )
+      throw new Error("workbench_credential_input_rejected");
+    oldIds = parsed;
+    if (form.has("confirmed") && form.get("confirmed") !== "true")
+      throw new Error("workbench_credential_input_rejected");
+    if (
+      form.has("previousRecoveryId") &&
+      !/^access-management\.key-exchange\.[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
+        form.get("previousRecoveryId") ?? "",
+      )
+    )
+      throw new Error("workbench_credential_input_rejected");
+  }
+  return {
+    operation,
+    expectedRevision,
+    userId,
+    oldIds,
+    confirmed: form.get("confirmed") === "true",
+  } as const;
+}
+
+/**
+ * 一回の管理JSON応答をfinishと先行故障から観測する。
+ * @responsibility finishをClient受領へ強めず、自分のListenerと短命byteを回収する。
+ * @trace ARCH-000013
+ * @input Host所有Response、短命応答、取消Signal。
+ * @returns 全byteのfinishと通知tickまで故障なしの場合だけtrue。
+ * @precondition 既存Security HeaderをHostが設定済み。
+ * @postcondition 応答一回、秘密Buffer消去、自分のListenerだけ回収。
+ * @effect Node Responseへのend一回。失敗時の再送0。
+ * @failure error・finish前close・abortはfalse。開始済みResponseの終了を待つ。
+ * @invariant finishはブラウザ描画・本人閲覧の証明ではない。
+ * @boundary 管理POSTとHTTP socket。
+ * @security no-store、URL／Location／汎用GET保存0。
+ * @concurrency 同Responseに追加出力せず、開始後取消は所有Responseを破棄してcloseを待つ。
+ */
+async function presentCredentialResponse(
+  response: ServerResponse,
+  value: CredentialAdministrationResult,
+  signal: AbortSignal,
+): Promise<boolean> {
+  const bytes = Buffer.from(JSON.stringify(value), "utf8");
+  if (signal.aborted || response.destroyed) {
+    bytes.fill(0);
+    return false;
+  }
+  return new Promise((resolve) => {
+    let failed = false,
+      joined = false;
+    const finish = () => settle(true);
+    const error = () => {
+      failed = true;
+      if (!response.destroyed) response.destroy();
+    };
+    const close = () => {
+      if (!response.writableFinished) failed = true;
+      settle(response.writableFinished);
+    };
+    const abort = () => {
+      failed = true;
+      response.destroy();
+    };
+    const settle = (finished: boolean) => {
+      if (joined) return;
+      joined = true;
+      bytes.fill(0);
+      setImmediate(() => {
+        response.removeListener("finish", finish);
+        response.removeListener("error", error);
+        response.removeListener("close", close);
+        signal.removeEventListener("abort", abort);
+        resolve(finished && !failed && !signal.aborted);
+      });
+    };
+    response.on("finish", finish);
+    response.on("error", error);
+    response.on("close", close);
+    signal.addEventListener("abort", abort, { once: true });
+    try {
+      response.setHeader("Cache-Control", "no-store");
+      response.setHeader("Content-Type", "application/json; charset=utf-8");
+      response.setHeader("Content-Length", bytes.length);
+      response.statusCode = value.status === "blocked" ? 409 : 200;
+      response.end(bytes);
+    } catch {
+      failed = true;
+      response.destroy();
+      if (response.destroyed) settle(false);
+    }
+  });
+}
+
+/**
+ * 明示したWorkbench鍵操作を保存と用途限定一応答へ接続する。
+ * @responsibility 最新改訂と現在認可をAMへ渡し、応答終了後の提示確認・交換終了をjoinする。
+ * @trace ARCH-000013
+ * @input 同Process管理依存、検査済みForm、所有Response、取消Signal。
+ * @returns N/A: 一応答と開始済み後処置を完了する。
+ * @precondition HostがOrigin・容量・Action Tokenを検査済み。Remote構成なし。
+ * @postcondition 汎用状態に秘密なし、再表示なし。保存後不明は既知Effectを保持する。
+ * @effect AM保存・提示前後の別出版、HTTP一応答、交換だけrecord整理。
+ * @failure 認可／競合／保存不明は非秘密停止、提示未確認ではconfirmed／finish0。
+ * @invariant 提示は元相関、終了は操作対象に応じた有効管理者鍵でfresh認証する。Hostへのfallback0。
+ * @boundary 同Process Workbench→AM保存Owner→Browser専用応答。
+ * @security 生鍵をServer共有変数・Log・GETへ保持しない。
+ * @concurrency 新要求を自動再実行せず、取消後に新Effectを開始しない。
+ */
+export async function executeCredentialAdministrationAction(
   administration: CredentialAdministration,
   form: URLSearchParams,
-): CredentialAdministrationResult {
-  const operation = form.get("operation");
-  if (operation === "issue") {
-    const profile = requireProfile(form.get("profile"));
-    return publicResult(
-      issueConnectionCredential(
-        administration.registry,
-        administration.access,
-        { profile },
-      ),
-    );
-  }
-  const credentialId = form.get("credentialId") ?? "";
-  if (credentialId.length === 0)
-    throw new Error("workbench_credential_id_missing");
-  if (operation === "revoke")
-    return publicResult(
-      revokeConnectionCredential(
-        administration.registry,
-        administration.access,
-        credentialId,
-      ),
-    );
-  if (operation === "rotate")
-    return publicResult(
-      rotateConnectionCredential(
-        administration.registry,
-        administration.access,
-        credentialId,
-      ),
-    );
-  if (operation === "update_access") {
-    const workspaceIds = (form.get("workspaceIds") ?? "")
-      .split(",")
-      .map((value) => value.trim())
-      .filter((value) => value.length > 0);
-    return publicResult(
-      updateConnectionCredentialAccess(
-        administration.registry,
-        administration.access,
-        credentialId,
-        {
-          workspaceIds,
-          systemAdmin: form.get("systemAdmin") === "true",
-        },
-      ),
-    );
-  }
-  throw new Error("workbench_credential_operation_invalid");
-}
-
-function requireProfile(value: string | null): ConnectionCredentialProfile {
+  response: ServerResponse,
+  signal: AbortSignal,
+): Promise<void> {
+  const command = readCredentialAction(form);
+  if (command.operation === "exchange-all" && !command.confirmed)
+    throw new Error("workbench_credential_confirmation_required");
+  if (signal.aborted || response.destroyed) return;
+  const observed = readCredentialAdministrationState(
+    administration.root,
+    administration.token,
+  );
   if (
-    value === "administrator" ||
-    value === "management" ||
-    value === "developer"
+    observed.status !== "completed" ||
+    observed.snapshot.revision !== command.expectedRevision ||
+    !observed.snapshot.users.some(
+      (user) =>
+        user.userId === command.userId &&
+        (command.operation !== "exchange-all" || user.role === "administrator"),
+    )
   )
-    return value;
-  throw new Error("workbench_credential_profile_invalid");
-}
-
-/**
- * CROS Credential結果をWorkbench一時結果へ縮小する。
- *
- * @responsibility 異なるCredential操作結果から状態、理由および一度表示Tokenだけを取り出す。
- * @trace ARCH-000013
- * @input CROS Credential Applicationの公開結果を受け取る。
- * @returns Workbench表示用の固定結果を返す。
- * @precondition resultは公開契約を満たす。
- * @postcondition Metadata、Verifier、saltおよびRegistry内容を含まない。
- * @effect N/A: 値を投影するだけである。
- * @failure N/A: 公開結果の共通fieldだけを使用する。
- * @invariant Tokenが存在しない結果へTokenを生成しない。
- * @boundary CROS Credential結果とWorkbench一時表示状態の境界。
- * @security 生Tokenは発行・ローテーション結果からだけ受け取る。
- * @concurrency N/A: 共有状態を持たない。
- */
-function publicResult(
-  result:
-    | ConnectionCredentialIssueResult
-    | ConnectionCredentialRotationResult
-    | Readonly<{ status: "completed" | "blocked"; reason: string }>,
-): CredentialAdministrationResult {
-  return Object.freeze({
-    status: result.status,
-    reason: result.reason,
-    token: "token" in result ? result.token : null,
-  });
+    throw new Error("workbench_credential_state_unavailable");
+  const previous = observed.snapshot.exchange;
+  const operationId =
+    command.operation.startsWith("exchange-") &&
+    previous &&
+    previous.stage !== "credential_stored"
+      ? previous.operationId
+      : randomUUID();
+  const base = {
+    contract: "crdd/workbench/credential-action" as const,
+    contractRevision: 1 as const,
+    operation: command.operation,
+    operationId,
+    userId: command.userId,
+  };
+  let token: string | null = null,
+    credentialId: string | null = null,
+    recoveryId: string | null = null;
+  let completionToken: string | null = null;
+  let revision = command.expectedRevision;
+  try {
+    if (command.operation === "revoke") {
+      const result = revokeCredential(
+        administration.root,
+        administration.token,
+        revision,
+        operationId,
+        command.userId,
+        form.get("credentialId") ?? "",
+      );
+      await presentCredentialResponse(
+        response,
+        {
+          ...base,
+          status: result.status === "completed" ? "completed" : "blocked",
+          reason:
+            result.status === "completed"
+              ? "credential_revoked"
+              : "credential_action_unconfirmed",
+          credentialId: form.get("credentialId") ?? "",
+          ...(result.status !== "completed"
+            ? credentialFailureFacts(result)
+            : {}),
+        },
+        signal,
+      );
+      return;
+    }
+    if (command.operation === "issue") {
+      const result = issueCredential(
+        administration.root,
+        administration.token,
+        revision,
+        operationId,
+        command.userId,
+      );
+      if (
+        result.status !== "completed" ||
+        result.operation !== "issueCredential"
+      ) {
+        await presentCredentialResponse(
+          response,
+          {
+            ...base,
+            status: "blocked",
+            reason: "credential_action_unconfirmed",
+            ...credentialFailureFacts(result),
+          },
+          signal,
+        );
+        return;
+      }
+      token = result.token;
+      credentialId = result.credentialId;
+      revision = result.revision;
+    } else {
+      if (
+        previous?.stage === "credential_stored" &&
+        previous.presentation === "confirmed"
+      ) {
+        const finished = finishKeyExchange(
+          administration.root,
+          administration.token,
+          revision,
+          operationId,
+          previous.recoveryId,
+        );
+        await presentCredentialResponse(
+          response,
+          {
+            ...base,
+            status: finished.status === "completed" ? "completed" : "blocked",
+            reason:
+              finished.status === "completed"
+                ? "previous_exchange_record_closed_no_new_exchange"
+                : "credential_action_unconfirmed",
+            recoveryId: previous.recoveryId,
+            userId: previous.recipientUserId,
+            ...(finished.status !== "completed"
+              ? credentialFailureFacts(finished)
+              : {}),
+          },
+          signal,
+        );
+        return;
+      }
+      const result = exchangeCredentials(
+        administration.root,
+        administration.token,
+        revision,
+        operationId,
+        command.operation === "exchange-all" ? "all" : "targeted",
+        command.userId,
+        command.oldIds,
+        command.confirmed,
+        form.get("previousRecoveryId") ?? undefined,
+      );
+      if (result.status !== "completed" || result.token === null) {
+        await presentCredentialResponse(
+          response,
+          {
+            ...base,
+            status: "blocked",
+            reason: "credential_action_unconfirmed",
+            ...credentialFailureFacts(result),
+            ...("recoveryId" in result && result.recoveryId
+              ? { recoveryId: result.recoveryId }
+              : {}),
+          },
+          signal,
+        );
+        return;
+      }
+      token = result.token;
+      credentialId = result.credentialId;
+      recoveryId = result.recoveryId;
+      revision = result.revision;
+      completionToken =
+        command.operation === "exchange-all" ||
+        command.userId === observed.snapshot.actorUserId
+          ? result.token
+          : administration.token;
+    }
+    if (signal.aborted) return;
+    const started = recordCredentialPresentation(administration.root, {
+      credentialId,
+      issuanceOperationId: operationId,
+      expectedRevision: revision,
+      target: "unconfirmed",
+    });
+    if (started.status !== "completed") {
+      await presentCredentialResponse(
+        response,
+        {
+          ...base,
+          status: "blocked",
+          reason: "credential_presentation_not_started",
+          ...credentialFailureFacts(started),
+          credentialId,
+          ...(recoveryId ? { recoveryId } : {}),
+        },
+        signal,
+      );
+      return;
+    }
+    const pending = presentCredentialResponse(
+      response,
+      {
+        ...base,
+        status: "presenting",
+        reason: "stored_key_response",
+        credentialId,
+        token,
+        ...(recoveryId ? { recoveryId } : {}),
+      },
+      signal,
+    );
+    token = null;
+    if (!(await pending) || signal.aborted) return;
+    const confirmed = recordCredentialPresentation(administration.root, {
+      credentialId,
+      issuanceOperationId: operationId,
+      expectedRevision: started.value.revision,
+      target: "confirmed",
+      presentationOperationId: started.value.presentationOperationId,
+    });
+    if (confirmed.status !== "completed" || signal.aborted || !recoveryId)
+      return;
+    if (completionToken !== null)
+      finishKeyExchange(
+        administration.root,
+        completionToken,
+        confirmed.value.revision,
+        randomUUID(),
+        recoveryId,
+      );
+  } finally {
+    token = null;
+    completionToken = null;
+  }
 }

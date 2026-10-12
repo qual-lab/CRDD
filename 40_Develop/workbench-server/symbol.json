@@ -197,7 +197,9 @@
         "RCM-IT-005",
         "RFD-IT-005",
         "RFD-IT-013",
-        "RFD-IT-014"
+        "RFD-IT-014",
+        "RFD-IT-017",
+        "RFD-IT-018"
       ],
       "verifies": [
         "workbench.server",
@@ -228,6 +230,19 @@
       ],
       "verifies": [
         "workbench.application.project-surface"
+      ]
+    },
+    {
+      "symbolId": "workbench.test.system.credential-browser",
+      "kind": "test-suite",
+      "path": "tests/system/credential-administration.browser.contract.test.ts",
+      "qaIds": ["QA-000006", "QA-000007"],
+      "localTestIds": ["ERB-ST-022", "RFD-ST-016"],
+      "verifies": [
+        "workbench.server",
+        "workbench.application.credential-administration",
+        "workbench.presentation.browser-application",
+        "workbench.presentation.client-model"
       ]
     },
     {

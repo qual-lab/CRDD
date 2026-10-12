@@ -714,7 +714,7 @@
       "path": "40_Develop/access-management/tests/integration/state/file-store.contract.test.ts",
       "level": "integration",
       "kind": "contract",
-      "semanticTags": ["state-storage", "revision-conflict", "bounded-input", "pending-reentry", "primary-failure", "process-loss", "initial-correlation", "exclusive-create", "credential-authentication", "current-user-role", "secret-free-projection", "current-access", "role-exposure-intersection", "target-specific-management-read", "unset-empty-exposure-distinction", "user-role-management", "current-management-authorization", "pre-generation-capacity", "repository-registration", "manifest-context-identity", "registration-exposure-separation", "metadata-only-unregistration", "key-exchange-three-publications", "operation-local-admission", "fresh-continuation-authority", "stored-secret-not-replayed", "key-exchange-state-observation", "explicit-exchange-replacement", "confirmed-exchange-completion", "host-key-exchange-presentation", "shared-terminal-presentation"],
+      "semanticTags": ["state-storage", "revision-conflict", "bounded-input", "pending-reentry", "primary-failure", "process-loss", "initial-correlation", "exclusive-create", "credential-authentication", "current-user-role", "secret-free-projection", "current-access", "role-exposure-intersection", "target-specific-management-read", "unset-empty-exposure-distinction", "user-role-management", "current-management-authorization", "pre-generation-capacity", "repository-registration", "manifest-context-identity", "registration-exposure-separation", "metadata-only-unregistration", "key-exchange-three-publications", "operation-local-admission", "fresh-continuation-authority", "stored-secret-not-replayed", "key-exchange-state-observation", "explicit-exchange-replacement", "confirmed-exchange-completion", "host-key-exchange-presentation", "shared-terminal-presentation", "credential-administration-snapshot"],
       "environment": "node_process",
       "externalProviderEffect": false,
       "humanInput": false,
@@ -5338,6 +5338,13 @@
         "official-logo",
         "credential-administration",
         "one-time-secret",
+        "access-management-current-administrator",
+        "credential-form-origin-and-closed-fields",
+        "credential-response-presenting-not-receipt",
+        "key-exchange-current-authorized-finalization",
+        "credential-publication-six-stage-failures",
+        "credential-output-failure-no-confirmation",
+        "credential-finalizer-close-join",
         "ai-request-application-port",
         "ai-result-meaning-separation",
         "candidate-review-and-disposition",
@@ -5403,6 +5410,20 @@
         "connection_absent"
       ],
       "mandatoryByDefault": true
+    },
+    {
+      "id": "workbench:system:credential-browser",
+      "owner": "workbench-server",
+      "path": "40_Develop/workbench-server/tests/system/credential-administration.browser.contract.test.ts",
+      "level": "system",
+      "kind": "contract",
+      "semanticTags": ["workbench", "access-management", "credential-administration", "actual-browser", "one-time-secret", "reload-no-secret", "key-exchange-current-connection", "cleanup"],
+      "environment": "fixed_system_runtime",
+      "executionProfiles": ["restricted_process"],
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["test_root_bootstrap_independent", "cleanup_failure_no_fixture_residual", "credential_post_once", "credential_dom_short_lived", "credential_generic_get_absent", "credential_storage_absent", "credential_reload_absent", "credential_failure_no_success", "old_connection_unavailable_after_exchange", "browser_process_tree_absent", "browser_profile_absent", "workbench_listener_absent"],
+      "mandatoryByDefault": false
     },
     {
       "id": "workbench:system:actual-browser-visual",
