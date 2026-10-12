@@ -709,6 +709,19 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "access-management:integration:host-entry",
+      "owner": "access-management",
+      "path": "40_Develop/access-management/tests/integration/initialization/host-entry.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["host-initialization", "bounded-root-preparation", "legacy-input-observation", "cli-input-rejection", "prompt-cancellation", "single-key-presentation"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["created_directories_preserved_on_failure", "known_presence_distinct_from_unknown", "cli_rejection_root_effect_zero", "owned_readline_closed", "shared_streams_not_destroyed", "test_root_removed"],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "access-management:unit:state-parse",
       "owner": "access-management",
       "path": "40_Develop/access-management/tests/unit/state/parse.contract.test.ts",

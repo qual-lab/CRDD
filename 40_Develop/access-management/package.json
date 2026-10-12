@@ -4,13 +4,15 @@
   "private": true,
   "type": "module",
   "exports": { ".": "./src/index.ts" },
+  "bin": { "crdd-access-management": "./bin/access-management.ts" },
   "scripts": {
     "check": "npm run format:check && npm run typecheck && npm run lint",
     "format:check": "biome format .",
     "lint": "biome lint . --error-on-warnings",
     "typecheck": "tsc -p ./tsconfig.json",
+    "start": "node ./bin/access-management.ts",
     "test": "npm run check && npm run test:run",
-    "test:run": "node --test --test-concurrency=1 ./tests/unit/access/*.test.ts ./tests/unit/initialization/*.test.ts ./tests/unit/state/*.test.ts ./tests/integration/state/*.test.ts ./tests/integration/credential/*.test.ts"
+    "test:run": "node --test --test-concurrency=1 ./tests/unit/access/*.test.ts ./tests/unit/initialization/*.test.ts ./tests/unit/state/*.test.ts ./tests/integration/state/*.test.ts ./tests/integration/credential/*.test.ts ./tests/integration/initialization/*.test.ts"
   },
   "engines": { "node": ">=24.12.0" },
   "devDependencies": {

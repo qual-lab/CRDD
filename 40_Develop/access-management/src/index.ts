@@ -51,6 +51,12 @@ export {
 } from "./initialization/state-evaluation.ts";
 export type { HostInitializationStateResult } from "./initialization/host-state.ts";
 export {
+  prepareHostInitializationRoot,
+  type HostRootPreparationResult,
+  type HostPreviousInputObservation,
+} from "./initialization/prepare-host-root.ts";
+export { runHostAccessCommand } from "./initialization/host-command.ts";
+export {
   initializeFromHost,
   type HostInitializationResult,
 } from "./initialization/initialize-from-host.ts";

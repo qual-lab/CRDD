@@ -411,6 +411,16 @@ Readerは既存Root／Lock／current／pending／replaceを使い、完全状態
 
 修正後の局所6／AM全87／MCP全75 Caseが成功、Fail／Cancel／Skip0、各Exit0。Node v24.19.0、AM／MCPの書式・型・Warning禁止Lint各3軸、差分空白確認成功。基準OIDはsha1 `51ec76c1a35e0fa1db192162b21b51ad44285717`、実測Source Blobは`74882a32794971faa83227952617806ac9cfb22b`、保存IT Blobは`5f29d9d8f3d9637d277b42bcc6b1f4689dda9f6b`で、開始から終了まで不変。Root内生成物はFixtureが回収し、終了後のaccess-management-store-*残存0。Symbol／Path重複・登録Path欠落0を確認した。再生成は各Packageのnpm testと既存state ITのHost初回名称絞込みで可能なため、実行別ログの書庫は作らない。RFD-IT-024／025の局所断面であり、実TTY・Host Root準備／CLI・通常鍵管理／Host交換・Workbench本番接続・旧REST撤去・正式191項目・AM全体完成は未成立。MCP回帰に含まれる旧REST／Sharedの比較成功を本番代替の完成へ流用しない。
 
+### Host保存先準備と正式初回入口 — 2026-10-13
+
+基準`f0effe23`、着手時clean。親の正本・Source・配布入口照合と読取り専用契約確認は着手可、追加の人間判断なし。既存CROS Root Resolverが返すstateだけをHost準備Ownerで扱い、OS baseから不足chainを非再帰mkdirして各段階を再検証する。EEXISTは再観測、他故障は停止し、exact作成集合を内部結果へ保持する。失敗をEffect0にせず、権限修復・自動削除はしない。旧管理／旧回復領域の既知存在と観測不能を別理由へ閉じ、ENOENTだけ不存在にする。Root交換・link・file親・部分作成・競合を反証する。旧Writer停止／旧入力清掃はフロントAIの切替前提で、Sourceへ旧Parser・共有Lock／Registryを追加しない。
+
+正式入口はPackage名と一致するbin/access-management.tsと配布用crdd-access-management.ts。薄い入口から公開されたHost commandへ委譲し、--help／未知・重複・位置引数／環境不足／未対応OS／非TTYではRoot準備・prompt・保存0とする。その後にRoot準備・表示名一回入力・既存initializeFromHostへ進む。readlineは自分のinterfaceだけfinallyで閉じ、共有stdin／stdoutをend／destroyしない。内部作成Path集合は公開CLIへ出さず、固定理由と準備Effect有無へ写像する。Source・公開集合・package設定・Symbol／Catalog・局所試験・詳細設計を同期し、静的／関連回帰・独立レビューを行う。実Host秘密Root、旧Evidence、外部Providerは不変更。実TTY縦断・通常鍵／Host交換・Workbench本番接続・旧REST撤去・正式191項目・AM全体完成は本局所確認から主張しない。
+
+修正後の局所9件・競合1件、AM全96件、MCP全75件が成功し、Fail／Cancel／Skip0、各Exit0。AM／MCPの書式・型・Warning禁止Lint各3軸と差分空白確認も成功した。Symbol ID重複・登録Path欠落0、Host試験Root残存0。固定14Pathの限定独立再レビューは新規指摘0、全回帰完了を条件とした限定Passであり、その条件を同候補のAM96件で確認した。未作成の明示state baseはexact最寄り既存祖先から作成し、Git worktreeの通常file markerを既存Root検証と分離して受理する。末尾separator／`.` segmentは既存Resolverと同じRootへ正規化する。Root dev／ino比較はBigIntで行い、Numberの精度へ依存しない。実Linux Filesystem・実Host TTYは未確認である。
+
+最初の全回帰では既存の初回User競合が95／96（新規created成功結果0）で失敗した。同候補局所6回と単独全96件では再現しなかったが、原因解消とは扱わない。試験OracleとRuntime Lockは変えず、失敗時だけstatus／reason／publication／cleanupConfirmed／revision／createdとchild終了code／signal／stderr byte数を返す診断を追加した。本文・User情報・Path・Recovery参照・秘密値は診断へ含めない。追加後の局所競合と全回帰は成功した。再発時はこの診断から原因を分類し、成功件数だけで過去失敗を消さない。記録は本要約と再実行可能なnpm testへ集約し、実行別Evidence書庫は作らない。正式191項目Not Run、通常鍵管理／Host交換・Workbench本番接続・旧REST撤去・AM全体未完成を維持する。
+
 ### 共有AI Profile管理のRole採用と本番接続 — 2026-10-12
 
 Source候補の局所結果：基準`ec2a2e3e`、Node v24.19.0。AM60／AI Adapter30／旧CROS34／MCP68／Workbench33の計225 Case（追加Workbench33 Caseは旧比較Consumerの回帰）、各書式・型・Warning禁止Lint成功、Fail／Cancel／Skip0、全Exit0。実HTTPと自己生成実Catalog Storeでmanager／administrator四操作・developer非開示・次要求のRole変更／失効、遅延認可・二依存拒否・採用後取消／応答故障の改訂保持を確認した。AM新試験の初回途中Fixture不整合は正規の一User・一Credential・元発行相関へ是正し、局所再試験後にAM全回帰を再実行した。最初の失敗を現在の成功へ混ぜない。Biomeの一時OS1224は同じ対象の再実行で解消した。固定29Pathの限定独立再レビューはPass・全重大度残指摘0。全体Checkerは3057 errors／exit1を維持し、変更29Path抽出はProject Context構造の既存1件のみ。判定に使う三Identity・五見出し・Checklist見出しとcheckboxの17行が基準HEADと順序込み完全一致し、差分起因0を確認した。Repository全体Passとは扱わず、正式191項目Not Runと本番Launcher／Workbench・鍵配送・旧REST撤去・AM全体未完成を維持する。実行別ログ書庫は作らず、各Packageの`npm test`から再生成する。

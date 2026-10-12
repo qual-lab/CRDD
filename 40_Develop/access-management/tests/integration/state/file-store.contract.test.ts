@@ -4921,7 +4921,12 @@ test("初回User競合は一生成だけ採用し出版後Lock不明を保持す
   const joined = await Promise.allSettled(
     ["管理者A", "管理者B"].map(
       (name) =>
-        new Promise<string>((resolve, reject) => {
+        new Promise<{
+          output: string;
+          code: number | null;
+          signal: string | null;
+          stderrBytes: number;
+        }>((resolve, reject) => {
           const child = spawn(
             process.execPath,
             [
@@ -4931,13 +4936,16 @@ test("初回User競合は一生成だけ採用し出版後Lock不明を保持す
             { timeout: 10000 },
           );
           let output = "";
+          let stderrBytes = 0;
           child.stdout.on("data", (data) => {
             output += String(data);
           });
+          child.stderr.on("data", (data: Buffer) => {
+            stderrBytes += data.byteLength;
+          });
           child.on("error", reject);
-          child.on("close", (code) => {
-            if (code === 0) resolve(output);
-            else reject(new Error("child_failed"));
+          child.on("close", (code, signal) => {
+            resolve({ output, code, signal, stderrBytes });
           });
         }),
     ),
@@ -4945,13 +4953,43 @@ test("初回User競合は一生成だけ採用し出版後Lock不明を保持す
   const results = joined.map((result) => {
     assert.equal(result.status, "fulfilled");
     if (result.status !== "fulfilled") throw new Error("child_failed");
-    return JSON.parse(result.value);
+    assert.equal(
+      result.value.code,
+      0,
+      JSON.stringify({
+        code: result.value.code,
+        signal: result.value.signal,
+        stderrBytes: result.value.stderrBytes,
+      }),
+    );
+    return JSON.parse(result.value.output);
   });
   assert.equal(
     results.filter(
       (result) => result.status === "completed" && result.value.created,
     ).length,
     1,
+    JSON.stringify(
+      results.map((result, index) => {
+        const child = joined[index];
+        return {
+          status: result.status,
+          reason: result.reason,
+          publication: result.publication,
+          cleanupConfirmed: result.cleanupConfirmed,
+          revision: result.revision,
+          created: result.value?.created,
+          child:
+            child?.status === "fulfilled"
+              ? {
+                  code: child.value.code,
+                  signal: child.value.signal,
+                  stderrBytes: child.value.stderrBytes,
+                }
+              : { status: "unjoined" },
+        };
+      }),
+    ),
   );
   const saved = JSON.parse(fs.readFileSync(current, "utf8"));
   assert.equal(saved.users.length, 1);

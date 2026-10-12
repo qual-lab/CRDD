@@ -4,7 +4,7 @@
 担当責任者: Qual-Lab
 最終更新日: 2026-10-13
 
-最新の局所結果：Host初回の元試行から保存と一度提示を接続した。局所6／AM全87／MCP全75 Case、各静的3軸成功、固定8Pathの限定独立再レビュー残指摘0。callback後のerror／close見落としを是正し、通知順・取消・再入場・保存故障を反証した。RFD-IT-024／025の局所断面と注入TTYであり、実Host Root／TTY／CLI・Workbench本番接続・通常鍵管理／Host交換・旧REST撤去・正式191項目・AM全体は未成立／Not Runを維持する。[対象範囲](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#host初回保存段階と一度提示の接続--2026-10-13)を参照する。MCP回帰の旧REST／Shared比較を本番代替完成へ流用しない。以下は先行段階の局所結果であり、AM全体Passへ流用しない。
+最新の局所結果：Host保存先準備・旧入力観測・正式初回CLIを接続した。局所9件と既存競合1件、修正後AM全96件／MCP全75件・各静的3軸成功。固定14Pathの限定再レビュー新規指摘0と、その条件である修正後回帰の完了を確認した。最初の全回帰95／96で既存競合が一度失敗した事実は保持し、閉じた非秘密診断を追加しても間欠原因解消とは扱わない。RFD-IT-024／025の局所断面で、実Host TTY／Linux Filesystem・Workbench本番接続・通常鍵管理／Host交換・旧REST撤去・正式191項目・AM全体は未成立／Not Runを維持する。[対象範囲](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#host保存先準備と正式初回入口--2026-10-13)を参照する。MCP回帰の旧REST／Shared比較を本番代替完成へ流用しない。以下は先行段階の局所結果であり、AM全体Passへ流用しない。
 
 先行したSchema切替結果：管理状態Schema v2の型・Parser・初回資格WriterをAM／MCP利用側fixtureと一体切替した。当時のAM64／MCP68 Caseと各静的3軸成功、固定8Pathの限定独立レビューPass・全重大度の残指摘0。初回Host交換の失効途中は読取り可能でも認証を拒否し、元資格・確認対象・歴史IDを分ける。正式191項目はNot Run。提示保存・初回確認出版は保存側へ、その完全discoverと応答取消はMCP局所候補へ接続済みで、本番入口は未接続。旧v1実状態移行、鍵の実TTY／HTTP提示、本番入口・AM全体完成は未成立。[先行実装範囲](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#管理状態schema-v2の実装候補--2026-10-12)を参照する。最小提示のQuality伝播12文書と計数同期41Pathの限定Passは各文書差分だけの結果で、正式試験のPassへ流用しない。
 

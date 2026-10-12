@@ -78,6 +78,16 @@ Host compositionは後続の実装で既存OS管理state Rootを準備・再検�
 
 局所注入試験は実保存順・再入場・callback join・Listener回収を確認するが、実Host TTY・Root準備・CLI最終入口・Workbench本番接続・正式Local Itemの全成立を代替しない。これらは初回Host縦断の未完了範囲として維持する。
 
+### Host Root準備と初回CLIの接続 — 2026-10-13
+
+公開されたHost専用内部APIの`prepareHostInitializationRoot`が既存CROS Root入力とDomain Resolverからstate候補だけを選ぶ。Root構成はHostの信頼済み入力であり、Remote／MCPの任意Path要求を受ける一般作成APIではない。明示されたOS state baseが未作成の場合は、対象chain上の最も近い既存祖先を確認し、stateまでの不足chainだけ非再帰mkdirする。Linuxの既定HOMEは既存通常Directoryを要求する。各既存chainの非link・Directory・realpath一致を確認し、Rootのdev／inoはBigIntで比較する。EEXISTは再観測、その他の作成／検証故障は停止し、成功したexact mkdir集合を内部結果で保持する。最終実体と既存Root Capabilityを再検証してからreadyとする。readyは初期化Authorityではなく、作成済み集合も削除許可ではない。自動削除・ACL修復・rollbackは0。
+
+Rootに結合した同期Observerは旧credential-registryとcredential-access-recoveryのmetadataだけを読む。lstat成功はfile／linkでも既知存在、ENOENTだけ不存在、EACCES・Root実体差等は観測不能へ分ける。旧本文をparse・採用せず、旧回復領域の存在を確認済み元試行にしない。freshの生成前と既存保存Lock内で同じObserverを使い、旧Writer停止はフロントAI切替前提であってAM Lockによる旧Writer排他を主張しない。
+
+CLIの意味と対話所有は`initialization/host-command.ts`の`runHostAccessCommand`へ集約する。主要入口は`bin/access-management.ts`、配布入口は`template/tools/crdd-access-management.ts`で、双方とも同じPackage公開APIへ委譲する。npm startとbin定義から主要入口へ接続する。--help、未知／重複／位置引数、環境不足、未対応OS、非TTYはRoot準備・prompt・保存0。公式入口はqual-lab／crosと明示CROS_TRUST_DOMAIN_ID、OS標準領域だけを選ぶ。正規対話ではRoot準備と旧入力観測後、既存／不明／資格保存済みは入力を要求せず非秘密の次行動を案内する。必要な初回表示名だけ一回入力し、既存初回compositionへ渡す。readlineのEOF／SIGINT／入力・出力error／closeを取消へ結び、自身のinterface／Listenerをfinallyで回収する。stdin／stdoutをend／destroyしない。内部絶対Path集合と例外本文はCLIへ透過しない。
+
+局所試験はRepository-localの模擬OS baseとTTY代役、実子Processのhelp／不正入力／非TTY拒否を使う。実Host TTY・旧Writer停止・通常鍵／Host交換・Workbench本番接続・初回ST/UAT全体は未成立で、旧CROS入口の撤去完了を意味しない。
+
 ### 2.2 初回状態の純粋判定 — 2026-10-11
 
 `evaluateHostInitializationState`をPackage Rootから局所公開する候補を実装した。これは§2.1の物理read・初期化操作ではなく、保存Ownerが取得した観測分類と明示開始のBooleanから四状態と次の処置を返す純粋計算である。`canStart`は形式上の条件成立で、Host信頼、Root・排他、相関保存、UUID・鍵EffectのAuthorityではない。現在のSourceはこれらの実処置へ接続していない。
