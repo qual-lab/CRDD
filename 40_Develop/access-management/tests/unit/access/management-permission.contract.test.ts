@@ -30,7 +30,7 @@ const ROLES: readonly AccessRole[] = ["developer", "manager", "administrator"];
  * @cleanup N/A: 状態・handle・一時Fileを生成しない。
  * @boundary N/A: 純粋関数の公開入口だけを呼ぶ。
  */
-test("三Roleと全11具体操作の固定分担", () => {
+test("三Roleと全11認可要求種別の固定分担", () => {
   assert.deepEqual(Object.keys(publicApi).sort(), [
     "authenticateCredential",
     "authenticateNormalConnection",

@@ -67,7 +67,7 @@ import {
 function baseline(): AccessManagementState {
   return {
     contract: "crdd-access-management/state",
-    schemaRevision: 1,
+    schemaRevision: 2,
     revision: 1,
     operationId: "00000000-0000-4000-8000-000000000001",
     users: [
@@ -91,9 +91,8 @@ function baseline(): AccessManagementState {
       attemptId: "00000000-0000-4000-8000-000000000002",
       initialUserId: "00000000-0000-4000-8000-000000000003",
       initialCredentialId: "0123456789abcdef01234567",
-      delivery: "confirmed",
-      receipt: "confirmed",
-      normalConnection: "confirmed",
+      confirmationCredentialId: "0123456789abcdef01234567",
+      connection: "confirmed",
     },
   };
 }
@@ -125,6 +124,65 @@ function prepareInitialUser(f: ReturnType<typeof fixture>): string {
   );
   return attempt;
 }
+
+/**
+ * 初回Host交換の失効途中を認証成功へ昇格しない。
+ * @responsibility 保存Schemaの受理と有効資格・通常接続の成立を区別する。
+ * @trace RFD-IT-013
+ * @trace RFD-IT-024
+ * @precondition 自己生成Rootにv2初回資格を保存する。
+ * @stimulus 同資格をHost交換のrevoked段階へ構成し、公開readと両認証入口を呼ぶ。
+ * @observation read結果、固定認証拒否、current byteとDirectory一覧。
+ * @oracle 途中記録は読取り可能だが失効資格の本人・通常認証は拒否。状態を修復・初期化・再発行しない。
+ * @cleanup Fixtureが所有Rootを削除し不存在を確認する。
+ * @boundary v2 Parser→実Filesystem Reader→AM認証。Host交換Writerの成立は主張しない。
+ */
+test("初回Host交換のrevoked参照は保存可能でも認証を許可しない", (t) => {
+  const f = fixture(t);
+  const issued = createInitialCredential(f.root, prepareInitialUser(f));
+  assert.equal(issued.status, "completed");
+  if (issued.status !== "completed" || !issued.value.token)
+    throw new Error("fixture credential unavailable");
+  const current = path.join(f.directory, "access-management.json");
+  const state = JSON.parse(
+    fs.readFileSync(current, "utf8"),
+  ) as AccessManagementState;
+  const initial = state.initialization;
+  const credential = state.credentials[0];
+  assert.ok(initial.stage === "credential_stored" && credential);
+  assert.equal(state.schemaRevision, 2);
+  assert.equal(initial.initialCredentialId, credential.credentialId);
+  assert.equal(initial.confirmationCredentialId, credential.credentialId);
+  credential.revoked = true;
+  const operationId = "00000000-0000-4000-8000-000000000077";
+  state.unresolvedKeyExchanges = [
+    {
+      stage: "revoked",
+      operationId,
+      recoveryId: `access-management.key-exchange.${operationId}`,
+      entry: "host",
+      scope: "targeted",
+      recipientUserId: initial.userId,
+      oldCredentialIds: [credential.credentialId],
+    },
+  ];
+  assert.equal(parseAccessManagementState(bytes(state)).status, "parsed");
+  fs.writeFileSync(current, bytes(state));
+  const before = fs.readFileSync(current);
+  const names = fs.readdirSync(f.directory).sort();
+  assert.equal(readAccessManagementState(f.root).status, "completed");
+  for (const authenticate of [
+    authenticateCredential,
+    authenticateNormalConnection,
+  ]) {
+    assert.deepEqual(authenticate(f.root, issued.value.token), {
+      status: "unavailable",
+      reason: "credential_authentication_rejected",
+    });
+  }
+  assert.deepEqual(fs.readFileSync(current), before);
+  assert.deepEqual(fs.readdirSync(f.directory).sort(), names);
+});
 
 /**
  * 初回途中の有効資格を通常接続へ昇格しない。
@@ -302,11 +360,10 @@ test("資格認証は同一改訂の本人と現在Roleだけを投影する", (
     attemptId: attempt,
     initialUserId: user.userId,
     initialCredentialId: credential.credentialId,
-    delivery: "confirmed",
-    receipt: "confirmed",
-    normalConnection: "confirmed",
+    confirmationCredentialId: credential.credentialId,
+    connection: "confirmed",
   };
-  credential.delivery = "confirmed";
+  credential.presentation = "confirmed";
   user.role = "manager";
   next.revision++;
   next.operationId = crypto.randomUUID();
@@ -370,11 +427,10 @@ test("資格認証は失効・破損・排他不明を本人情報なしで拒�
       attemptId: attempt,
       initialUserId: credential.userId,
       initialCredentialId: credential.credentialId,
-      delivery: "confirmed",
-      receipt: "confirmed",
-      normalConnection: "confirmed",
+      confirmationCredentialId: credential.credentialId,
+      connection: "confirmed",
     };
-    credential.delivery = "confirmed";
+    credential.presentation = "confirmed";
     if (change === "revoked") credential.revoked = true;
     if (change === "missingUser") state.users = [];
     if (change === "missingRole") state.roleContentAccess = [];
@@ -456,7 +512,7 @@ test("初回資格は一回生成し保存後の再入場で再表示しない",
     assert.ok(credential);
     assert.equal(verifyCredentialToken(first.value.token, credential), true);
     assert.equal(credential.operationId, attempt);
-    assert.equal(credential.delivery, "not_attempted");
+    assert.equal(credential.presentation, "not_attempted");
     const again = createInitialCredential(f.root, attempt);
     assert.equal(again.status, "completed");
     if (again.status === "completed")
@@ -739,7 +795,7 @@ function managementFixture(t: TestContext) {
       tokenVerifier: material.tokenVerifier,
       revoked: false,
       operationId: crypto.randomUUID(),
-      delivery: "confirmed",
+      presentation: "confirmed",
     });
   }
   assert.equal(parseAccessManagementState(bytes(f.state)).status, "parsed");
@@ -802,9 +858,8 @@ test("Profile現在認可は同TokenのRole変更と認証不能を分離する"
     stage: "credential_stored",
     attemptId: credential.operationId,
     userId: manager.userId,
-    credentialId: credential.credentialId,
-    receipt: "unconfirmed",
-    normalConnection: "unconfirmed",
+    initialCredentialId: credential.credentialId,
+    confirmationCredentialId: credential.credentialId,
   };
   assert.equal(parseAccessManagementState(bytes(f.state)).status, "parsed");
   fs.writeFileSync(current, bytes(f.state));
@@ -4090,7 +4145,7 @@ test("不正候補・容量超過・対象外変更は出版しない", (t) => {
     tokenVerifier: "b".repeat(64),
     revoked: false,
     operationId: f.state.initialization.attemptId,
-    delivery: "confirmed",
+    presentation: "confirmed",
   });
   fs.writeFileSync(
     path.join(f.directory, "access-management.json"),

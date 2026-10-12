@@ -22,7 +22,7 @@ const CREDENTIAL_PATTERN = /^[0-9a-f]{24}$/;
  * @invariant 途中のIDは現在参照、完了後のIDは歴史的参照。
  * @boundary Access Management保存内部。公開DTOではない。
  * @security 秘密値・認可Authorityを含まない。
- * @compatibility 新state schemaRevision 1のみ。旧形式fallbackなし。
+ * @compatibility 新state schemaRevision 2のみ。旧形式fallbackなし。
  */
 export type InitializationRecord =
   | { stage: "correlated"; attemptId: string }
@@ -31,18 +31,16 @@ export type InitializationRecord =
       stage: "credential_stored";
       attemptId: string;
       userId: string;
-      credentialId: string;
-      receipt: "unconfirmed" | "confirmed";
-      normalConnection: "unconfirmed" | "confirmed";
+      initialCredentialId: string;
+      confirmationCredentialId: string;
     }
   | {
       stage: "completed";
       attemptId: string;
       initialUserId: string;
       initialCredentialId: string;
-      delivery: "confirmed";
-      receipt: "confirmed";
-      normalConnection: "confirmed";
+      confirmationCredentialId: string;
+      connection: "confirmed";
     };
 
 /**
@@ -53,7 +51,7 @@ export type InitializationRecord =
  * @invariant newCredentialIdは資格保存後だけ存在する。
  * @boundary Access Management保存内部。
  * @security Recovery参照はAuthorityではなく、Secretを含まない。
- * @compatibility 新state schemaRevision 1のみ。
+ * @compatibility 新state schemaRevision 2のみ。
  */
 export type KeyExchangeRecord = {
   recoveryId: string;
@@ -75,11 +73,11 @@ export type KeyExchangeRecord = {
  * @invariant 現在参照は実在し、各IDは一意。通常Receiptと一般履歴は含まない。
  * @boundary 保存内部。返却値を公開DTOとして使用しない。
  * @security 生Secret非保存。Verifierは公開・log・Evidenceへ出さない。
- * @compatibility crdd-access-management/state、schemaRevision 1。
+ * @compatibility crdd-access-management/state、schemaRevision 2。
  */
 export type AccessManagementState = {
   contract: "crdd-access-management/state";
-  schemaRevision: 1;
+  schemaRevision: 2;
   revision: number;
   operationId: string;
   users: { userId: string; username: string; role: AccessRole }[];
@@ -95,7 +93,7 @@ export type AccessManagementState = {
     tokenVerifier: string;
     revoked: boolean;
     operationId: string;
-    delivery: "not_attempted" | "unconfirmed" | "confirmed";
+    presentation: "not_attempted" | "unconfirmed" | "confirmed";
   }[];
   registeredRepositories: {
     repositoryId: string;
@@ -210,7 +208,7 @@ export function parseAccessManagementState(
     ]);
     if (
       state.contract !== "crdd-access-management/state" ||
-      state.schemaRevision !== 1 ||
+      state.schemaRevision !== 2 ||
       !Number.isSafeInteger(state.revision) ||
       (state.revision as number) < 1 ||
       typeof state.operationId !== "string" ||
@@ -310,7 +308,7 @@ export function parseAccessManagementState(
         "tokenVerifier",
         "revoked",
         "operationId",
-        "delivery",
+        "presentation",
       ]);
       if (
         typeof credential.credentialId !== "string" ||
@@ -328,7 +326,7 @@ export function parseAccessManagementState(
         !UUID_PATTERN.test(credential.operationId) ||
         issuanceIds.has(credential.operationId) ||
         !["not_attempted", "unconfirmed", "confirmed"].includes(
-          credential.delivery as string,
+          credential.presentation as string,
         )
       )
         throw new Error("invalid");
@@ -347,18 +345,16 @@ export function parseAccessManagementState(
                 "stage",
                 "attemptId",
                 "userId",
-                "credentialId",
-                "receipt",
-                "normalConnection",
+                "initialCredentialId",
+                "confirmationCredentialId",
               ]
             : [
                 "stage",
                 "attemptId",
                 "initialUserId",
                 "initialCredentialId",
-                "delivery",
-                "receipt",
-                "normalConnection",
+                "confirmationCredentialId",
+                "connection",
               ];
     requireClosedRecord(initialization, initialKeys);
     if (
@@ -368,9 +364,12 @@ export function parseAccessManagementState(
       throw new Error("invalid");
     if (
       stage !== "completed" &&
-      (repositories.size !== 0 ||
-        exposures.size !== 0 ||
-        (state.unresolvedKeyExchanges as unknown[]).length !== 0)
+      (repositories.size !== 0 || exposures.size !== 0)
+    )
+      throw new Error("invalid");
+    if (
+      (stage === "correlated" || stage === "user_stored") &&
+      (state.unresolvedKeyExchanges as unknown[]).length !== 0
     )
       throw new Error("invalid");
     if (stage === "correlated") {
@@ -385,25 +384,18 @@ export function parseAccessManagementState(
       )
         throw new Error("invalid");
       if (stage === "credential_stored") {
-        const credential = credentials.get(
-          initialization.credentialId as string,
+        const initialCredential = credentials.get(
+          initialization.initialCredentialId as string,
+        );
+        const confirmationCredential = credentials.get(
+          initialization.confirmationCredentialId as string,
         );
         if (
-          credentials.size !== 1 ||
-          !credential ||
-          credential.revoked !== false ||
-          credential.userId !== initialization.userId ||
-          credential.operationId !== initialization.attemptId ||
-          !["unconfirmed", "confirmed"].includes(
-            initialization.receipt as string,
-          ) ||
-          !["unconfirmed", "confirmed"].includes(
-            initialization.normalConnection as string,
-          ) ||
-          (initialization.receipt === "confirmed" &&
-            credential.delivery !== "confirmed") ||
-          (initialization.normalConnection === "confirmed" &&
-            initialization.receipt !== "confirmed")
+          !initialCredential ||
+          !confirmationCredential ||
+          initialCredential.userId !== initialization.userId ||
+          initialCredential.operationId !== initialization.attemptId ||
+          confirmationCredential.userId !== initialization.userId
         )
           throw new Error("invalid");
       }
@@ -413,9 +405,9 @@ export function parseAccessManagementState(
         !UUID_PATTERN.test(initialization.initialUserId) ||
         typeof initialization.initialCredentialId !== "string" ||
         !CREDENTIAL_PATTERN.test(initialization.initialCredentialId) ||
-        initialization.delivery !== "confirmed" ||
-        initialization.receipt !== "confirmed" ||
-        initialization.normalConnection !== "confirmed"
+        typeof initialization.confirmationCredentialId !== "string" ||
+        !CREDENTIAL_PATTERN.test(initialization.confirmationCredentialId) ||
+        initialization.connection !== "confirmed"
       )
         throw new Error("invalid");
       const historicalCredential = credentials.get(
@@ -424,8 +416,16 @@ export function parseAccessManagementState(
       if (
         historicalCredential &&
         (historicalCredential.userId !== initialization.initialUserId ||
-          historicalCredential.operationId !== initialization.attemptId ||
-          historicalCredential.delivery !== "confirmed")
+          historicalCredential.operationId !== initialization.attemptId)
+      )
+        throw new Error("invalid");
+      const confirmationCredential = credentials.get(
+        initialization.confirmationCredentialId,
+      );
+      if (
+        confirmationCredential &&
+        (confirmationCredential.userId !== initialization.initialUserId ||
+          confirmationCredential.presentation !== "confirmed")
       )
         throw new Error("invalid");
     } else throw new Error("invalid");
@@ -512,6 +512,44 @@ export function parseAccessManagementState(
           throw new Error("invalid");
       } else if (issuanceIds.has(exchange.operationId))
         throw new Error("invalid");
+    }
+    if (stage === "credential_stored") {
+      const confirmationCredential = credentials.get(
+        initialization.confirmationCredentialId as string,
+      );
+      const exchanges = state.unresolvedKeyExchanges as Record<
+        string,
+        unknown
+      >[];
+      const active = [...credentials.values()].filter(
+        (credential) => credential.revoked === false,
+      );
+      if (exchanges.length === 0) {
+        if (active.length !== 1 || active[0] !== confirmationCredential)
+          throw new Error("invalid");
+      } else {
+        const exchange = exchanges[0];
+        if (
+          exchanges.length !== 1 ||
+          exchange?.entry !== "host" ||
+          exchange.recipientUserId !== initialization.userId
+        )
+          throw new Error("invalid");
+        if (exchange.stage === "prepared" || exchange.stage === "revoked") {
+          if (
+            !(exchange.oldCredentialIds as string[]).includes(
+              initialization.confirmationCredentialId as string,
+            ) ||
+            (exchange.stage === "prepared"
+              ? active.length !== 1 || active[0] !== confirmationCredential
+              : active.length !== 0 || confirmationCredential?.revoked !== true)
+          )
+            throw new Error("invalid");
+        } else if (
+          initialization.confirmationCredentialId !== exchange.newCredentialId
+        )
+          throw new Error("invalid");
+      }
     }
     return { status: "parsed", state: state as AccessManagementState };
   } catch {

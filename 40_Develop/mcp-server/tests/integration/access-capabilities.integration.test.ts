@@ -191,9 +191,8 @@ test("AM Profile MCPは現在Roleの四操作と非開示を実保存へ接続�
       stage: "credential_stored",
       attemptId: state.initialization.attemptId,
       userId: user.userId,
-      credentialId: credential.credentialId,
-      receipt: "unconfirmed",
-      normalConnection: "unconfirmed",
+      initialCredentialId: credential.credentialId,
+      confirmationCredentialId: credential.credentialId,
     };
     fs.writeFileSync(f.current, JSON.stringify(state));
     const unfinished = await handler(
@@ -537,11 +536,10 @@ function fixture(t: TestContext, completed = true) {
       attemptId: attempt,
       initialUserId: user.userId,
       initialCredentialId: credential.credentialId,
-      delivery: "confirmed",
-      receipt: "confirmed",
-      normalConnection: "confirmed",
+      confirmationCredentialId: credential.credentialId,
+      connection: "confirmed",
     };
-    credential.delivery = "confirmed";
+    credential.presentation = "confirmed";
     fs.writeFileSync(current, JSON.stringify(state));
     let revision = state.revision;
     for (const target of targets) {

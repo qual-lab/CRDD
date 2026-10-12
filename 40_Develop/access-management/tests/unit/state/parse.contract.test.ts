@@ -28,7 +28,7 @@ import {
 function createBaseline(): AccessManagementState {
   return {
     contract: "crdd-access-management/state",
-    schemaRevision: 1,
+    schemaRevision: 2,
     revision: 1,
     operationId: "00000000-0000-4000-8000-000000000001",
     users: [],
@@ -47,6 +47,269 @@ function createBaseline(): AccessManagementState {
     unresolvedKeyExchanges: [],
   };
 }
+
+/**
+ * 元初資格と確認対象が同じ初回途中状態を構築する。
+ * @responsibility Host交換の前後を比較する独立したSchema fixtureを用意する。
+ * @trace RFD-UT-028
+ * @precondition 実資格・Host状態を使用しない。
+ * @stimulus 一administratorと固定模擬照合値を同じ初回試行へ結合する。
+ * @observation 元初資格と確認対象IDを持つ所有Snapshot。
+ * @oracle presentation未確認でも完全な途中形状としてparsedになる。
+ * @cleanup N/A: メモリ内のfixtureのみ。
+ * @boundary N/A: 保存・認証・初回確認の成立を主張しない。
+ */
+function createInitialCredentialFixture(): AccessManagementState {
+  const state = createBaseline();
+  const userId = "00000000-0000-4000-8000-000000000003";
+  const credentialId = "0123456789abcdef01234567";
+  state.users = [{ userId, username: "管理者", role: "administrator" }];
+  state.credentials = [
+    {
+      credentialId,
+      userId,
+      tokenVersion: 1,
+      tokenSalt: "a".repeat(32),
+      tokenVerifier: "b".repeat(64),
+      revoked: false,
+      operationId: state.initialization.attemptId,
+      presentation: "unconfirmed",
+    },
+  ];
+  state.initialization = {
+    stage: "credential_stored",
+    attemptId: state.initialization.attemptId,
+    userId,
+    initialCredentialId: credentialId,
+    confirmationCredentialId: credentialId,
+  };
+  return state;
+}
+
+/**
+ * v2だけを受理し、旧版と旧受領fieldを拒否する。
+ * @responsibility 互換補完や旧confirmedの自動転用がないことを確認する。
+ * @trace RFD-UT-028
+ * @precondition 完全なv2初回資格fixture。
+ * @stimulus v1版、旧delivery、旧receipt・normalConnection、欠損・未知fieldを与える。
+ * @observation parsed／固定invalid理由と返却Snapshot不存在。
+ * @oracle 完全v2だけparsed、旧形状や補完を要する入力はすべてinvalid。
+ * @cleanup N/A: 外部資源なし。
+ * @boundary N/A: 実状態移行は行わない。
+ */
+test("v2の閉集合は旧版・旧受領fieldを補完しない", () => {
+  const state = createInitialCredentialFixture();
+  assert.equal(
+    parseAccessManagementState(Buffer.from(JSON.stringify(state))).status,
+    "parsed",
+  );
+  for (const mutate of [
+    (value: Record<string, unknown>) => {
+      value.schemaRevision = 1;
+    },
+    (value: Record<string, unknown>) => {
+      const credentials = value.credentials as Record<string, unknown>[];
+      const credential = credentials[0];
+      assert.ok(credential);
+      credential.delivery = credential.presentation;
+      delete credential.presentation;
+    },
+    (value: Record<string, unknown>) => {
+      (value.initialization as Record<string, unknown>).receipt = "confirmed";
+    },
+    (value: Record<string, unknown>) => {
+      (value.initialization as Record<string, unknown>).normalConnection =
+        "confirmed";
+    },
+    (value: Record<string, unknown>) => {
+      delete (value.initialization as Record<string, unknown>)
+        .confirmationCredentialId;
+    },
+    (value: Record<string, unknown>) => {
+      (
+        value.initialization as Record<string, unknown>
+      ).confirmationCredentialId = "abcdef0123456789abcdef01";
+    },
+  ]) {
+    const changed = structuredClone(state) as unknown as Record<
+      string,
+      unknown
+    >;
+    mutate(changed);
+    assert.deepEqual(
+      parseAccessManagementState(Buffer.from(JSON.stringify(changed))),
+      {
+        status: "invalid",
+        reason: "state_schema_invalid",
+      },
+    );
+  }
+});
+
+/**
+ * 初回中のHost交換と同改訂の確認対象結替えを検証する。
+ * @responsibility 旧失効資格の途中参照と新資格への結合を分ける。
+ * @trace RFD-UT-028
+ * @precondition 初回資格保存状態、別元操作のHost指定交換。
+ * @stimulus prepared・revoked・新資格保存を構築し、境界を破る変種を与える。
+ * @observation 各完全Snapshotのparsed／invalidと保持された元初資格。
+ * @oracle Hostの単一交換だけ受理。失効中はactive0、新保存は確認IDとnewID同値。Workbench・複数交換・古い確認ID・新資格欠測を拒否。
+ * @cleanup N/A: メモリのみ。
+ * @boundary N/A: parse成功を認証・確認・通常Authorityとしない。
+ */
+test("初回Host交換の段階と確認対象を同Snapshotで結合する", () => {
+  const state = createInitialCredentialFixture();
+  const initial = state.initialization;
+  const old = state.credentials[0];
+  assert.ok(initial.stage === "credential_stored" && old);
+  const operationId = "00000000-0000-4000-8000-000000000004";
+  const exchange = {
+    stage: "prepared" as const,
+    recoveryId: `access-management.key-exchange.${operationId}`,
+    operationId,
+    entry: "host" as const,
+    scope: "targeted" as const,
+    recipientUserId: initial.userId,
+    oldCredentialIds: [old.credentialId],
+  };
+  state.unresolvedKeyExchanges = [exchange];
+  assert.equal(
+    parseAccessManagementState(Buffer.from(JSON.stringify(state))).status,
+    "parsed",
+  );
+  const workbench = structuredClone(state);
+  workbench.unresolvedKeyExchanges = [{ ...exchange, entry: "workbench" }];
+  assert.equal(
+    parseAccessManagementState(Buffer.from(JSON.stringify(workbench))).status,
+    "invalid",
+  );
+  const multiple = structuredClone(state);
+  multiple.unresolvedKeyExchanges.push({
+    ...exchange,
+    operationId: "00000000-0000-4000-8000-000000000005",
+    recoveryId:
+      "access-management.key-exchange.00000000-0000-4000-8000-000000000005",
+  });
+  assert.equal(
+    parseAccessManagementState(Buffer.from(JSON.stringify(multiple))).status,
+    "invalid",
+  );
+  state.unresolvedKeyExchanges = [{ ...exchange, stage: "revoked" }];
+  assert.equal(
+    parseAccessManagementState(Buffer.from(JSON.stringify(state))).status,
+    "invalid",
+  );
+  old.revoked = true;
+  assert.equal(
+    parseAccessManagementState(Buffer.from(JSON.stringify(state))).status,
+    "parsed",
+  );
+  const newId = "abcdef0123456789abcdef01";
+  state.credentials.push({
+    ...old,
+    credentialId: newId,
+    operationId,
+    revoked: false,
+    presentation: "not_attempted",
+  });
+  state.unresolvedKeyExchanges = [
+    { ...exchange, stage: "credential_stored", newCredentialId: newId },
+  ];
+  assert.equal(
+    parseAccessManagementState(Buffer.from(JSON.stringify(state))).status,
+    "invalid",
+  );
+  initial.confirmationCredentialId = newId;
+  assert.equal(
+    parseAccessManagementState(Buffer.from(JSON.stringify(state))).status,
+    "parsed",
+  );
+  assert.equal(initial.initialCredentialId, old.credentialId);
+  const absent = structuredClone(state);
+  absent.credentials.pop();
+  assert.equal(
+    parseAccessManagementState(Buffer.from(JSON.stringify(absent))).status,
+    "invalid",
+  );
+  const wrongOrigin = structuredClone(state);
+  const original = wrongOrigin.credentials[0];
+  assert.ok(original);
+  original.operationId = "00000000-0000-4000-8000-000000000006";
+  assert.equal(
+    parseAccessManagementState(Buffer.from(JSON.stringify(wrongOrigin))).status,
+    "invalid",
+  );
+});
+
+/**
+ * 初回完了の歴史的資格と後続交換を分離する。
+ * @responsibility 新資格の成功で元初資格の提示不明を書き換えない。
+ * @trace RFD-UT-028
+ * @precondition 元初資格は失効・提示未確認、新確認資格は提示confirmed。
+ * @stimulus completed、確認提示の矛盾、両歴史資格の整理、後続Host交換を入力する。
+ * @observation 状態受理と歴史的IDの保持。
+ * @oracle completedは新確認資格confirmedだけを要求し、元初資格の未確認を保持。後続交換は許可し、過去の確認IDを結替えない。
+ * @cleanup N/A: 外部資源なし。
+ * @boundary N/A: 完了出版・後続交換Effectの実測ではない。
+ */
+test("completedの歴史参照は元資格未確認と後続交換を保持する", () => {
+  const state = createInitialCredentialFixture();
+  const initial = state.initialization;
+  const old = state.credentials[0];
+  assert.ok(initial.stage === "credential_stored" && old);
+  old.revoked = true;
+  const newId = "abcdef0123456789abcdef01";
+  const newCredential = {
+    ...old,
+    credentialId: newId,
+    operationId: "00000000-0000-4000-8000-000000000004",
+    revoked: false,
+    presentation: "confirmed" as const,
+  };
+  state.credentials.push(newCredential);
+  state.initialization = {
+    stage: "completed",
+    attemptId: initial.attemptId,
+    initialUserId: initial.userId,
+    initialCredentialId: initial.initialCredentialId,
+    confirmationCredentialId: newId,
+    connection: "confirmed",
+  };
+  assert.equal(
+    parseAccessManagementState(Buffer.from(JSON.stringify(state))).status,
+    "parsed",
+  );
+  const wrong = structuredClone(state);
+  const confirmation = wrong.credentials[1];
+  assert.ok(confirmation);
+  confirmation.presentation = "unconfirmed";
+  assert.equal(
+    parseAccessManagementState(Buffer.from(JSON.stringify(wrong))).status,
+    "invalid",
+  );
+  const operationId = "00000000-0000-4000-8000-000000000005";
+  state.unresolvedKeyExchanges = [
+    {
+      stage: "prepared",
+      recoveryId: `access-management.key-exchange.${operationId}`,
+      operationId,
+      entry: "host",
+      scope: "targeted",
+      recipientUserId: initial.userId,
+      oldCredentialIds: [newId],
+    },
+  ];
+  assert.equal(
+    parseAccessManagementState(Buffer.from(JSON.stringify(state))).status,
+    "parsed",
+  );
+  state.unresolvedKeyExchanges = [];
+  state.credentials = [];
+  assert.equal(
+    parseAccessManagementState(Buffer.from(JSON.stringify(state))).status,
+    "parsed",
+  );
+});
 
 /**
  * 初回4変種と完了後の履歴参照を検証する。
@@ -82,15 +345,14 @@ test("初回4変種と現在・歴史参照", () => {
     tokenVerifier: "b".repeat(64),
     revoked: false,
     operationId: attemptId,
-    delivery: "confirmed",
+    presentation: "confirmed",
   });
   state.initialization = {
     stage: "credential_stored",
     attemptId,
     userId,
-    credentialId,
-    receipt: "confirmed",
-    normalConnection: "unconfirmed",
+    initialCredentialId: credentialId,
+    confirmationCredentialId: credentialId,
   };
   assert.equal(
     parseAccessManagementState(Buffer.from(JSON.stringify(state))).status,
@@ -108,18 +370,17 @@ test("初回4変種と現在・歴史参照", () => {
     attemptId,
     initialUserId: userId,
     initialCredentialId: credentialId,
-    delivery: "confirmed",
-    receipt: "confirmed",
-    normalConnection: "confirmed",
+    confirmationCredentialId: credentialId,
+    connection: "confirmed",
   };
   assert.equal(
     parseAccessManagementState(Buffer.from(JSON.stringify(state))).status,
     "parsed",
   );
-  for (const delivery of ["unconfirmed", "not_attempted"] as const) {
+  for (const presentation of ["unconfirmed", "not_attempted"] as const) {
     const credential = state.credentials[0];
     assert.ok(credential);
-    credential.delivery = delivery;
+    credential.presentation = presentation;
     assert.equal(
       parseAccessManagementState(Buffer.from(JSON.stringify(state))).status,
       "invalid",
@@ -175,7 +436,7 @@ test("閉集合と参照・相関の負例", () => {
         attemptId: "00000000-0000-4000-8000-000000000002",
         initialUserId: "00000000-0000-4000-8000-000000000003",
         initialCredentialId: "0123456789abcdef01234567",
-        delivery: "confirmed",
+        presentation: "confirmed",
         receipt: "unconfirmed",
         normalConnection: "confirmed",
       };
@@ -261,9 +522,8 @@ test("交換3段階と未解決参照", () => {
     attemptId,
     initialUserId: userId,
     initialCredentialId: oldId,
-    delivery: "confirmed",
-    receipt: "confirmed",
-    normalConnection: "confirmed",
+    confirmationCredentialId: oldId,
+    connection: "confirmed",
   };
   state.credentials = [
     {
@@ -274,7 +534,7 @@ test("交換3段階と未解決参照", () => {
       tokenVerifier: "b".repeat(64),
       revoked: false,
       operationId: attemptId,
-      delivery: "confirmed",
+      presentation: "confirmed",
     },
   ];
   const exchange = {
@@ -363,7 +623,7 @@ test("交換3段階と未解決参照", () => {
     credentialId: newId,
     revoked: false,
     operationId,
-    delivery: "unconfirmed",
+    presentation: "unconfirmed",
   });
   state.unresolvedKeyExchanges = [
     { ...exchange, stage: "credential_stored", newCredentialId: newId },

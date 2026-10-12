@@ -357,6 +357,14 @@ RFD-IT-017は提示前unconfirmedと一度出力・提示結果別出版、IT018
 
 必須確認は現行誤計数の残存分類、Role分担表とSource discriminator／保存入口の一致、191正式行の構造照合、差分空白・直接参照、および固定差分の独立レビューである。標準規範・権限の採用・実操作は変更しないため、準拠監査・Provider／Docker E2E・Package回帰を本候補の完成根拠には使わない。固定41Pathの最終限定独立再レビューはPass・全重大度の残指摘0。計数Blockerは解消した。候補と文書をHEAD byteへ差し替えたメモリ内基準はともにChecker 3057 errors・0 warnings、対象12指摘の内容も同じで、新規指摘の増加なし。最後の語句是正は見出し・リンク・ID不変更。191正式行の属性一致と差分空白確認も成功した。Source Ready・AM完成・全体Checker Passは主張しない。
 
+### 管理状態Schema v2の実装候補 — 2026-10-12
+
+基準`d589fcc9`、着手時clean。変更分類は採用済み最小提示方式への保存型・Parser・初回資格Writer・利用側試験の切替。親照合と読み取り専用の契約・品質確認で、初回中の単一Host交換、失効途中の旧確認参照、新資格と確認対象の同改訂結合、初回完了後の歴史IDと後続交換の分離を確認した。未解決交換0をcompletedの全Snapshotへ要求すると既存の通常交換能力を失うため、初回確認の出版条件だけに適用する。新しい人間判断・Store・Lock・Receipt・互換Readerは追加しない。
+
+Sourceは状態contractのschemaRevision 2だけを受付け、資格presentationと元初資格／確認資格の相関を検査する。初回資格Writerは両ID同値・not_attemptedで保存し、同元試行への再入場ではSecretを返さない。別contractのpending revision 1と、通常保存のbase／next／unknown・現在認可・既存資源回収を維持する。AM全回帰とMCPの実HTTP利用側回帰、静的3軸、限定独立レビューを実行する。旧実Host状態・秘密・Evidence・正式191項目の結果は変更せず、v1は起動拒否となるため実状態棚卸し・フロントAI移行はOPEN。
+
+旧field／旧版拒否、Host交換のprepared／revoked／新資格、誤結合・Workbench初回交換・複数交換・元発行違い・資格欠測、元提示不明を保ったcompletedと後続交換を反証した。実Filesystemの失効途中Snapshotはread可能でも両認証が拒否し、byteを変更しないことを確認した。固定8Pathの限定独立レビューはPass・全重大度の残指摘0。AM64／MCP68の計132 Case、各静的3軸・差分空白確認は成功。MCP回帰には旧REST／Shared比較Consumerを含み、本番代替入口の完成証明ではない。提示の先行unconfirmed出版・実TTY／HTTP一度出力、遅延提示確認、初回確認出版・公開Protocol／Launcher、通常鍵3操作・Host交換の本番Writerは残る。実Host移行・初回全体・AM完成・Release可能を主張しない。
+
 ### 共有AI Profile管理のRole採用と本番接続 — 2026-10-12
 
 Source候補の局所結果：基準`ec2a2e3e`、Node v24.19.0。AM60／AI Adapter30／旧CROS34／MCP68／Workbench33の計225 Case（追加Workbench33 Caseは旧比較Consumerの回帰）、各書式・型・Warning禁止Lint成功、Fail／Cancel／Skip0、全Exit0。実HTTPと自己生成実Catalog Storeでmanager／administrator四操作・developer非開示・次要求のRole変更／失効、遅延認可・二依存拒否・採用後取消／応答故障の改訂保持を確認した。AM新試験の初回途中Fixture不整合は正規の一User・一Credential・元発行相関へ是正し、局所再試験後にAM全回帰を再実行した。最初の失敗を現在の成功へ混ぜない。Biomeの一時OS1224は同じ対象の再実行で解消した。固定29Pathの限定独立再レビューはPass・全重大度残指摘0。全体Checkerは3057 errors／exit1を維持し、変更29Path抽出はProject Context構造の既存1件のみ。判定に使う三Identity・五見出し・Checklist見出しとcheckboxの17行が基準HEADと順序込み完全一致し、差分起因0を確認した。Repository全体Passとは扱わず、正式191項目Not Runと本番Launcher／Workbench・鍵配送・旧REST撤去・AM全体未完成を維持する。実行別ログ書庫は作らず、各Packageの`npm test`から再生成する。

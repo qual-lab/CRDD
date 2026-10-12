@@ -4,7 +4,7 @@
 担当責任者: Qual-Lab
 最終更新日: 2026-10-12
 
-現在の品質設計候補：基準`be4d5064`の最小鍵提示・初回限定接続・v2目標Schemaを既存項目へ接続する。通常本人受領は観測外・追加確認なし。初回は完全discoverと同Lockでの確認保存・読戻し・短命清掃／Lock終了、応答、次要求の通常認証を別観測する。191項目・正式Not Runを維持し、Source／本番接続／実提示／v1移行は未完了。この12文書差分は限定独立再レビューPass・全重大度の残指摘0。下記の実行件数・限定Passは各旧固定候補の履歴で、新版の成立証明へ流用しない。
+現在の局所実装候補：管理状態Schema v2の型・Parser・初回資格WriterをAM／MCP利用側fixtureと一体切替した。AM64／MCP68 Caseと各静的3軸成功、固定8Pathの限定独立レビューPass・全重大度の残指摘0。初回Host交換の失効途中は読取り可能でも認証を拒否し、元資格・確認対象・歴史IDを分ける。正式191項目はNot Run。旧v1実状態移行、提示Writer・初回確認出版・本番入口・AM全体完成は未成立。[実装範囲](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#管理状態schema-v2の実装候補--2026-10-12)を参照する。最小提示のQuality伝播12文書と計数同期41Pathの限定Passは各文書差分だけの結果で、正式試験のPassへ流用しない。
 
 現在の計数同期結果：現行契約をRole別分担9行・11認可要求種別・通常保存7操作（User4＋Repository3）へ揃えた。ProfileのCatalog保存・鍵Lifecycle・初回設定・Host交換は通常保存7操作に含めない。権限や操作の増減ではなく、旧「通常6」の計数不整合を訂正する。[Owner同期候補](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#管理操作の計数同期候補--2026-10-12)は限定独立再レビューPass・全重大度の残指摘0で、計数Blockerは解消した。正式191項目Not Runと既存Checker指摘3057件は維持し、Quality全体Pass・Source Readyへ昇格しない。
 

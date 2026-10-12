@@ -9,7 +9,7 @@ Repository Role: `crdd-standard`
 
 ## 1. 今どうなっているか
 
-現在の作業：管理操作の計数を現行正本と直接投影で「Role別分担9行／11認可要求種別／通常保存7操作（User4＋Repository3）」へ同期した。41Path差分は限定独立再レビューPass・全重大度の残指摘0で、計数の不整合を解消した。権限・Sourceの処理・正式191項目の属性は不変更。次は保存Schema v2と提示・初回限定接続の実装へ接続する。鍵の実提示・保存・初回接続、旧v1状態移行、本番Launcher／Workbench、正式191項目・AM全体完成は未成立。Repository全体Checkerの3057 errorsは基準版にも存在し、全体Pass・Source Readyを主張しない。[対象と残件](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#管理操作の計数同期候補--2026-10-12)を参照する。
+現在の作業：管理状態Schema v2の型・Parser・初回資格WriterとAM／MCP試験fixtureを切り替えた。8Pathの限定独立レビューPass・全重大度の残指摘0、AM64／MCP68 Case・各静的3軸成功。初回中のHost失効途中を保持できても認証は拒否し、元資格と最新確認対象、完了後の歴史IDと後続交換を区別する。次は提示前unconfirmedの出版、一度出力、非秘密の遅延提示確認と初回限定接続の実装へ進む。実Hostの旧v1状態移行、提示・初回確認の本番Writer、公開Launcher／Workbench、正式191項目・AM全体完成は未成立。[対象と残件](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#管理状態schema-v2の実装候補--2026-10-12)を参照する。全体Checkerの既存3057 errorsは未解消であり、全体Readyとはしない。
 
 直前の活動局所結果：AM現在認可からOrchestrator活動ReaderをMCPへ接続し、旧CROSの重複結果型／Parserを撤去、Workbench旧Remote受取を表示専用投影へ追従した。実状態と別Rootの履歴搬送、Source許可集合とのexact相関、部分公開解除・失効を確認した。関連5Package計283 Case・静的3軸・Workbench Build成功、限定独立再レビュー残指摘0、自己生成試験Root残存0。公開Launcher／Workbench本番MCP切替、鍵管理・配送、旧REST撤去、正式191項目とAM全体完成は残る。Profile管理Roleはmanager／administratorに確定し、現在はAM認可とMCP実HTTPの局所候補へ接続済みである。Catalog依存を構成した局所候補ではmanager／administratorが19 Tool、developerが15 Tool、Catalog未構成時は15 Toolとする。[対象と限界](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#現在認可mcpと直接利用側の実装候補--2026-10-12)を参照する。
 

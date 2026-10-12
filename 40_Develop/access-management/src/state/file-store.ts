@@ -86,7 +86,7 @@ const ATTEMPT_UUID =
 function initialBaseline(attemptId: string): AccessManagementState {
   return {
     contract: "crdd-access-management/state",
-    schemaRevision: 1,
+    schemaRevision: 2,
     revision: 1,
     operationId: attemptId,
     users: [],
@@ -2276,9 +2276,8 @@ export function createInitialCredential(
           stage: "credential_stored",
           attemptId,
           userId: user.userId,
-          credentialId: credential.credentialId,
-          receipt: initialization.receipt,
-          normalConnection: initialization.normalConnection,
+          initialCredentialId: credential.credentialId,
+          confirmationCredentialId: credential.credentialId,
         };
         if (!serialize(expected).equals(current.bytes))
           throw new Error("initial_credential_conflict");
@@ -2316,16 +2315,15 @@ export function createInitialCredential(
           tokenVerifier: "f".repeat(64),
           revoked: false,
           operationId: attemptId,
-          delivery: "not_attempted",
+          presentation: "not_attempted",
         },
       ];
       expected.initialization = {
         stage: "credential_stored",
         attemptId,
         userId: user.userId,
-        credentialId: "f".repeat(24),
-        receipt: "unconfirmed",
-        normalConnection: "unconfirmed",
+        initialCredentialId: "f".repeat(24),
+        confirmationCredentialId: "f".repeat(24),
       };
       const reservation = serialize(expected);
       const pendingReservation = serialize({
@@ -2359,12 +2357,13 @@ export function createInitialCredential(
         tokenVersion: 1,
         revoked: false,
         operationId: attemptId,
-        delivery: "not_attempted",
+        presentation: "not_attempted",
         credentialId: material.credentialId,
         tokenSalt: material.tokenSalt,
         tokenVerifier: material.tokenVerifier,
       };
-      expected.initialization.credentialId = material.credentialId;
+      expected.initialization.initialCredentialId = material.credentialId;
+      expected.initialization.confirmationCredentialId = material.credentialId;
       const parsed = parseAccessManagementState(serialize(expected));
       if (parsed.status !== "parsed")
         throw new Error("initial_credential_invalid");
