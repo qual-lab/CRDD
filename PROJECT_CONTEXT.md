@@ -46,6 +46,8 @@ v0.21.0は公開済み、v0.22.0とCHG-000082は未完了である。責務再�
 
 ## 3. 今、人間が決めることは何か
 
+現在の判断：鍵の受け渡しの最小構成は採用済み。通常はadministratorのWorkbench画面、初回はHost端末へ一度だけ提示し、追加受領ボタンを設けない。初回の鍵による最初の接続成功を受領・接続確認として扱う。具体入口・初回完了との循環解消・保存／公開Schema・Source／検証は未完了であり、この回答から実装Readyとはしない。[要求正本](01_Discovery/Definitions/REQ-000041/requirement.md#鍵の提示と初回接続確認の採用--2026-10-12)を参照する。この採用記録自体に追加の人間判断はない。以下の各局所結果の回答待ちは、その時点の履歴である。
+
 ### Project Context専用MCPの実HTTP接続 — 2026-10-12
 
 AMの現在認証・現在許可集合からDomain実本文をMCPへ搬送する専用Resolverを接続した。MCP60／AM59／Domain118の計237 Caseと静的3軸成功、固定8Pathの限定独立再レビューPass・残指摘0。本文待機中の公開解除／失効、欠測全体停止、公開二Tool、開始前／開始後取消を確認した。公開Launcher／Workbench切替・他能力AM接続・鍵配送・旧REST撤去・正式191項目・AM全体完成は残る。当該局所段階ではProfile管理Roleと配送方式が回答待ちだった。現在はProfile管理Roleをmanager／administratorへ確定し、配送方式だけ回答待ちを維持する。この局所段階の追加人間判断は不要。詳細は[接続結果](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#am認証によるproject-context専用mcp接続--2026-10-12)を参照する。

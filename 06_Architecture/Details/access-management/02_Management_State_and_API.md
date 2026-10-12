@@ -460,7 +460,7 @@ revision2のcanonical `user_stored`へ同元試行で再入場した場合は保
 
 交換のpreparedは固定旧ID集合と対象範囲の現在有効資格集合の完全一致を検査する。双方0件も一致として許可し、最後の資格失効後のHost交換を塞がない。revokedは対象範囲の有効資格0、credential_storedは新資格だけが有効であることを検査する。allの発行先は全段階で既存administrator。completed初回の資格recordが現在残る場合はUser・元発行結合とdelivery confirmedを照合し、整理済みなら歴史IDだけを保持する。
 
-失効前にexact Recovery・旧対象集合・既存発行先を固定し、失効、発行、結果記録を共通段階として単調に保存する。通常WorkbenchはBackend返却・Browser配送、HostはローカルCLIへの返却・表示を別観測し、HostのBrowser配送は非該当とする。具体受領方式はOPENで、受領通知を人間の閲覧やAuthorityの証明にせず、新しい受領必須Gateも作らない。発行確定後の配送故障で発行結果を取り消さない。
+失効前にexact Recovery・旧対象集合・既存発行先を固定し、失効、発行、結果記録を共通段階として単調に保存する。通常WorkbenchはBackend返却・Browser配送、HostはローカルCLIへの返却・表示を別観測し、HostのBrowser配送は非該当とする。提示方式は人間の2026-10-12採用により、通常は操作administratorのWorkbench画面へ一度提示し、追加受領ボタンは設けない。対象User本人への製品外引渡し・閲覧・受領は保証せず、提示通知をAuthorityの証明にしない。初回はHost端末へ一度提示し、同じ初回鍵の最初の接続成功を受領・接続確認として扱う。現行通常認証がcompletedを要求する循環は、exact初回試行・資格に結合した限定接続確認の保存・読戻し・清掃後だけcompletedと通常権限へ進む条件で解消する必要がある。単なるKDF一致・callback・TCP／HTTP到達は接続成功ではない。具体入口Owner・内部遷移／handshake・Schema・Source・実観測は未完了で、今回の採用だけでは閉じない。発行確定後の配送故障で発行結果を取り消さない。
 
 生Secretは保存・再表示しない。発行後のProcess／応答喪失は、次の3分岐で処置する。意味の正本は[確定BHV-000012](../../../05_SPEC/Details/BHV-000012/behavior.md)の「登録解除と発行・受け渡しの確定条件」で、物理保存・公開read・配送観測の具体化は未完了である。
 

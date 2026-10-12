@@ -287,6 +287,14 @@ Windows 10.0.26200.0・C: NTFS・Node v24.19.0で同Directoryの通常置換・b
 
 ## 3. Packageの推奨対応順
 
+### 鍵の提示と初回接続確認の採用記録 — 2026-10-12
+
+基準`b406cc81`。人間は、通常発行・交換をWorkbenchへ一度だけ提示し追加受領ボタン不要、初回をHost端末へ一度提示して最初の接続成功を受領・接続確認とする最小構成を採用した。要求正本は[REQ-000041](../../../01_Discovery/Definitions/REQ-000041/requirement.md#鍵の提示と初回接続確認の採用--2026-10-12)。通常の管理者画面への提示を対象User本人の受領証明にせず、製品外の安全な引渡しを残す。発行／記録不明と確定発行後の提示不明を区別し、既存再観測／明示交換、秘密再表示0・自動発行0を維持する。
+
+読み取り専用の着手前確認は採用記録へ着手可。現行の通常認証は初回completedを要求し、completedは初回接続確認を要求するため、確認前の通常Authority発行で循環を回避しない。exact初回試行・資格へ相関した限定確認の保存・読戻し・清掃が成立した後だけ通常権限へ進む。内部遷移／handshake、入口Owner、具体観測・公開Schemaは後続設計で確定し、今回AI判断で閉じない。
+
+今回の4文書はREQ41／AM詳細02／本計画／PROJECT_CONTEXT。変更分類は人間判断の採用記録と直接伝播。Source／Test／実Host／秘密／旧Evidence／正式191結果は不変更。契約・品質・文書・直接影響の限定独立再レビューはPass、Critical／Major／Moderate／Minorの残指摘は各0。追加の人間確認操作と既存initializationの機械的判定を分離するModerate1を是正し、差分検査成功。Source・標準規則・Provider／Dockerは不変更のためPackage回帰・準拠監査・署名E2Eは対象外。採用記録後にUX〜Qualityへの正式伝播、具体入口・保存・本番Consumerを接続する。新Receipt Store、追加の人間確認ボタン／独立確認Workflow、Timer、Session、認証Framework、MCP鍵操作を作らない。初回接続確認後だけ通常Authorityへ進む機械的判定は、既存initialization状態・保存Ownerの責務として維持する。
+
 ### 共有AI Profile管理のRole採用と本番接続 — 2026-10-12
 
 Source候補の局所結果：基準`ec2a2e3e`、Node v24.19.0。AM60／AI Adapter30／旧CROS34／MCP68／Workbench33の計225 Case（追加Workbench33 Caseは旧比較Consumerの回帰）、各書式・型・Warning禁止Lint成功、Fail／Cancel／Skip0、全Exit0。実HTTPと自己生成実Catalog Storeでmanager／administrator四操作・developer非開示・次要求のRole変更／失効、遅延認可・二依存拒否・採用後取消／応答故障の改訂保持を確認した。AM新試験の初回途中Fixture不整合は正規の一User・一Credential・元発行相関へ是正し、局所再試験後にAM全回帰を再実行した。最初の失敗を現在の成功へ混ぜない。Biomeの一時OS1224は同じ対象の再実行で解消した。固定29Pathの限定独立再レビューはPass・全重大度残指摘0。全体Checkerは3057 errors／exit1を維持し、変更29Path抽出はProject Context構造の既存1件のみ。判定に使う三Identity・五見出し・Checklist見出しとcheckboxの17行が基準HEADと順序込み完全一致し、差分起因0を確認した。Repository全体Passとは扱わず、正式191項目Not Runと本番Launcher／Workbench・鍵配送・旧REST撤去・AM全体未完成を維持する。実行別ログ書庫は作らず、各Packageの`npm test`から再生成する。
