@@ -1,5 +1,5 @@
 /**
- * 固定8管理分担と10具体操作のRole対象を検証する。
+ * 固定9管理分担と11具体操作のRole対象を検証する。
  *
  * @packageDocumentation
  * @responsibility 許可・拒否・入力不正を公開Root経由で確認し、純粋判定以外の成立を主張しない。
@@ -20,17 +20,17 @@ import {
 const ROLES: readonly AccessRole[] = ["developer", "manager", "administrator"];
 
 /**
- * 三Roleと10具体操作の基本分担を全数確認する。
+ * 三Roleと11具体操作の基本分担を全数確認する。
  * @responsibility developer全拒否、通常管理manager許可、鍵administrator専用を固定Oracleへ照合する。
  * @trace RFD-UT-020
  * @precondition 採用済み操作と対象Roleを値として用意する。
- * @stimulus 三Roleを全10操作へ適用する。
- * @observation 30判定結果とRuntime公開Symbol集合を取得する。
+ * @stimulus 三Roleを全11操作へ適用する。
+ * @observation 33判定結果とRuntime公開Symbol集合を取得する。
  * @oracle 明示した担当Role集合だけallowed、他の有効Roleはdenied。Runtime公開は管理分担・初回観測判定・状態parseだけ。
  * @cleanup N/A: 状態・handle・一時Fileを生成しない。
  * @boundary N/A: 純粋関数の公開入口だけを呼ぶ。
  */
-test("三Roleと全10具体操作の固定分担", () => {
+test("三Roleと全11具体操作の固定分担", () => {
   assert.deepEqual(Object.keys(publicApi).sort(), [
     "authenticateCredential",
     "authenticateNormalConnection",
@@ -48,6 +48,7 @@ test("三Roleと全10具体操作の固定分担", () => {
     "readManagementState",
     "registerRepository",
     "registerUser",
+    "resolveAiProfileManagementAccess",
     "resolveRepositoryAccess",
     "resolveRepositoryAccessCollection",
     "unregisterRepository",
@@ -91,6 +92,10 @@ test("三Roleと全10具体操作の固定分担", () => {
     },
     {
       request: { operation: "updateExposure" },
+      permittedRoles: ["manager", "administrator"],
+    },
+    {
+      request: { operation: "manageAiProfiles" },
       permittedRoles: ["manager", "administrator"],
     },
     {
@@ -199,6 +204,7 @@ test("未知値と操作別必須・禁止fieldを拒否", () => {
     { operation: "changeUserRole", currentRole: "developer" },
     { operation: "changeUserRole", currentRole: "other", nextRole: "manager" },
     { operation: "fromHost" },
+    { operation: "manageAiProfiles", systemAdmin: true },
     { operation: "issueCredential", systemAdmin: true },
     { operation: "registerRepository", targetRole: "developer" },
     { operation: "unregisterRepository", [Symbol("extra")]: true },

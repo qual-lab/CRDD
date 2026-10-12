@@ -727,7 +727,7 @@
       "path": "40_Develop/access-management/tests/unit/access/management-permission.contract.test.ts",
       "level": "unit",
       "kind": "contract",
-      "semanticTags": ["role", "fixed-management", "target-role", "invalid-input"],
+      "semanticTags": ["role", "fixed-management", "target-role", "invalid-input", "profile-management"],
       "environment": "node_process",
       "externalProviderEffect": false,
       "humanInput": false,
@@ -3116,11 +3116,11 @@
       "path": "40_Develop/mcp-server/tests/integration/cros-project-context-mcp.integration.test.ts",
       "level": "integration",
       "kind": "contract",
-      "semanticTags": ["mcp", "cros", "credential", "project-context", "topic-meeting", "repository-routing", "owner-relation", "http"],
+      "semanticTags": ["mcp", "cros", "credential", "project-context", "topic-meeting", "repository-routing", "owner-relation", "http", "ai-profile", "current-authorization", "exclusive-dependencies", "cancellation"],
       "environment": "local_component_boundary",
       "externalProviderEffect": false,
       "humanInput": false,
-      "postconditions": ["authorized_projection_only", "authorized_repository_write_only", "credential_secret_not_stored", "grant_outside_repository_not_disclosed", "listener_absent"],
+      "postconditions": ["authorized_projection_only", "authorized_repository_write_only", "credential_secret_not_stored", "grant_outside_repository_not_disclosed", "listener_absent", "profile_request_reauthorization", "profile_dependency_conflict_before_observation", "invalid_input_and_precancel_authorization_zero", "adopted_profile_not_rolled_back_or_repeated"],
       "mandatoryByDefault": true
     },
     {
@@ -3129,11 +3129,11 @@
       "path": "40_Develop/mcp-server/tests/integration/access-capabilities.integration.test.ts",
       "level": "integration",
       "kind": "contract",
-      "semanticTags": ["access-management", "mcp", "project-context", "topic-meeting", "runtime-activity", "current-authorization", "http"],
+      "semanticTags": ["access-management", "mcp", "project-context", "topic-meeting", "runtime-activity", "current-authorization", "ai-profile", "http"],
       "environment": "local_component_boundary",
       "externalProviderEffect": false,
       "humanInput": false,
-      "postconditions": ["authorized_projection_only", "authorized_repository_write_only", "project_identity_bound", "unknown_body_stops_whole_result", "request_reauthorization", "stored_runtime_state_and_history_delivered", "authorized_activity_sources_exact", "partial_exposure_reflected", "listener_absent"],
+      "postconditions": ["authorized_projection_only", "authorized_repository_write_only", "project_identity_bound", "unknown_body_stops_whole_result", "request_reauthorization", "stored_runtime_state_and_history_delivered", "authorized_activity_sources_exact", "partial_exposure_reflected", "current_profile_role_enforced", "profile_store_not_observed_when_denied", "listener_absent"],
       "mandatoryByDefault": true
     },
     {

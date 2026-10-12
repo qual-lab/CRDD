@@ -13,6 +13,7 @@
  * @boundary Node Filesystem・既存Root/Lock・通常User／Role認可。実Host・通常鍵処置・Surfaceは対象外。
  */
 import assert from "node:assert/strict";
+import { resolveAiProfileManagementAccess } from "../../../src/index.ts";
 import fs from "node:fs";
 import path from "node:path";
 import crypto, { createHash } from "node:crypto";
@@ -750,6 +751,79 @@ function managementFixture(t: TestContext) {
 }
 
 /**
+ * Profile管理は同じ鍵でも現在Roleを再観測する。
+ * @responsibility 認証不成立・状態不明をdeveloperの管理拒否と分離する。
+ * @trace RFD-IT-013
+ * @precondition 自己生成Storeに三Role資格と初回完了状態を保存する。
+ * @stimulus 三Role、同TokenのRole変更、資格失効、初回未完了、破損状態を順に解決する。
+ * @observation 閉じた三判定と保存前後byte、Role変更の反映。
+ * @oracle manager/adminはallowed、developerだけdenied、失効・未完了・破損はunavailable。資格・Catalog・対象Repositoryを変更しない。
+ * @cleanup Fixture所有Rootを回収し不存在を確認する。
+ * @boundary 実AM保存・通常認証→Profile管理の用途限定判定。
+ */
+test("Profile現在認可は同TokenのRole変更と認証不能を分離する", (t) => {
+  const f = managementFixture(t);
+  const current = path.join(f.directory, "access-management.json");
+  const original = fs.readFileSync(current);
+  for (const role of ["developer", "manager", "administrator"] as const)
+    assert.equal(
+      resolveAiProfileManagementAccess(f.root, f.tokens[role]),
+      role === "developer" ? "denied" : "allowed",
+    );
+  assert.deepEqual(fs.readFileSync(current), original);
+  const manager = f.state.users.find((user) => user.role === "manager");
+  assert.ok(manager);
+  manager.role = "developer";
+  fs.writeFileSync(current, bytes(f.state));
+  assert.equal(
+    resolveAiProfileManagementAccess(f.root, f.tokens.manager),
+    "denied",
+  );
+  manager.role = "administrator";
+  fs.writeFileSync(current, bytes(f.state));
+  assert.equal(
+    resolveAiProfileManagementAccess(f.root, f.tokens.manager),
+    "allowed",
+  );
+  const credential = f.state.credentials.find(
+    (item) => item.userId === manager.userId,
+  );
+  assert.ok(credential);
+  credential.revoked = true;
+  fs.writeFileSync(current, bytes(f.state));
+  assert.equal(
+    resolveAiProfileManagementAccess(f.root, f.tokens.manager),
+    "unavailable",
+  );
+  credential.revoked = false;
+  f.state.users = [manager];
+  f.state.credentials = [credential];
+  f.state.initialization = {
+    stage: "credential_stored",
+    attemptId: credential.operationId,
+    userId: manager.userId,
+    credentialId: credential.credentialId,
+    receipt: "unconfirmed",
+    normalConnection: "unconfirmed",
+  };
+  assert.equal(parseAccessManagementState(bytes(f.state)).status, "parsed");
+  fs.writeFileSync(current, bytes(f.state));
+  assert.equal(
+    resolveAiProfileManagementAccess(f.root, f.tokens.manager),
+    "unavailable",
+  );
+  assert.equal(
+    resolveAiProfileManagementAccess(f.root, "invalid"),
+    "unavailable",
+  );
+  fs.writeFileSync(current, "{}");
+  assert.equal(
+    resolveAiProfileManagementAccess(f.root, f.tokens.manager),
+    "unavailable",
+  );
+});
+
+/**
  * 四管理対象のRole別表示を完全なDTOへ照合する。
  * @responsibility 管理対象間の情報混在と登録・公開の混同を拒否する。
  * @trace RFD-IT-013
@@ -1130,7 +1204,7 @@ test("本人権限は管理候補と内容・Exposure交差を分離する", (t)
       ]);
     assert.equal(
       dto.managementOperations.length,
-      role === "developer" ? 0 : role === "manager" ? 14 : 24,
+      role === "developer" ? 0 : role === "manager" ? 15 : 25,
     );
     const expected = [];
     if (role !== "developer") {
@@ -1155,6 +1229,7 @@ test("本人権限は管理候補と内容・Exposure交差を分離する", (t)
         "registerRepository",
         "unregisterRepository",
         "updateExposure",
+        "manageAiProfiles",
       ])
         expected.push({ operation });
       if (role === "administrator")

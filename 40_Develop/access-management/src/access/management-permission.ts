@@ -22,7 +22,7 @@ export type AccessRole = "developer" | "manager" | "administrator";
 /**
  * 固定管理判定に必要な操作とRole対象だけを表す。
  *
- * @responsibility 8分担表を10実操作へ対応させ、操作別の必須対象を閉じる。
+ * @responsibility 9分担表を11実操作へ対応させ、操作別の必須対象を閉じる。
  * @trace ARCH-000013
  * @shape 操作識別子と登録予定Role、変更前後Roleまたは対象Roleのdiscriminated union。
  * @invariant Host交換・初期化・Credential値・可変内容設定を含めない。
@@ -44,6 +44,7 @@ export type ManagementRequest =
         | "registerRepository"
         | "unregisterRepository"
         | "updateExposure"
+        | "manageAiProfiles"
         | "issueCredential"
         | "revokeCredential"
         | "exchangeCredentials";
@@ -130,6 +131,7 @@ export function evaluateManagementPermission(
     case "registerRepository":
     case "unregisterRepository":
     case "updateExposure":
+    case "manageAiProfiles":
       expectedKeys = ["operation"];
       break;
     case "issueCredential":

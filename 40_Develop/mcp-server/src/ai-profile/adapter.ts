@@ -6,10 +6,10 @@
  * @trace ARCH-000012
  * @trace ARCH-000013
  */
-import { parseCrosAiProfileMutation } from "../../../cros/src/index.ts";
 import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
 import {
   validateAiProfileCatalog,
+  parseAiProfileCatalogMutation,
   validateAiProfileMutationResult,
   type AiProfileCatalogAdministration,
   type AiProfileCatalogMutationResult,
@@ -128,9 +128,9 @@ function parseCatalogSnapshot(value: unknown): AiProfileCatalogSnapshot | null {
  * @trace ARCH-000010
  * @trace ARCH-000012
  * @trace ARCH-000013
- * @input rawRequest、現在Requestで認可したadministration、signal。
+ * @input rawRequest、認可済み静的administrationまたは要求時Resolver、signal。
  * @returns Snapshotまたは管理結果、入力拒否・内部故障・取消応答。
- * @precondition administrationはCROS管理権限から取得済み。
+ * @precondition 静的依存は旧／Local用途。新AM経路は現在認可Resolverを使用する。
  * @postcondition executeは最大一回、応答故障で再試行しない。
  * @effect 作成・更新・削除は既存Catalog Ownerへ一回委譲する。
  * @failure 入力不正-32602、内部故障-32603、取消-32800。
@@ -141,7 +141,9 @@ function parseCatalogSnapshot(value: unknown): AiProfileCatalogSnapshot | null {
  */
 export async function handleMcpAiProfileRequest(
   rawRequest: unknown,
-  administration: AiProfileCatalogAdministration,
+  administration:
+    | AiProfileCatalogAdministration
+    | (() => AiProfileCatalogAdministration | null),
   signal: AbortSignal,
 ): Promise<McpResponse> {
   const request = inspectProtocolRequest(rawRequest);
@@ -167,19 +169,25 @@ export async function handleMcpAiProfileRequest(
   const mutation =
     operation === "list"
       ? null
-      : parseCrosAiProfileMutation({ ...args, operation });
+      : parseAiProfileCatalogMutation({ ...args, operation });
   if (operation !== "list" && mutation === null)
     return protocolError(request.id, -32602, "Invalid params");
   if (signal.aborted)
     return protocolError(request.id, -32800, "Request cancelled");
   try {
+    const current =
+      typeof administration === "function" ? administration() : administration;
+    if (signal.aborted)
+      return protocolError(request.id, -32800, "Request cancelled");
+    if (current === null)
+      return protocolError(request.id, -32601, "Method not found");
     let result: AiProfileCatalogSnapshot | AiProfileCatalogMutationResult;
     if (mutation === null) {
-      const snapshot = parseCatalogSnapshot(administration.snapshot());
+      const snapshot = parseCatalogSnapshot(current.snapshot());
       if (snapshot === null) throw new Error("profile_snapshot_invalid");
       result = snapshot;
     } else {
-      const rawResult = administration.execute(mutation);
+      const rawResult = current.execute(mutation);
       const validated = validateAiProfileMutationResult(mutation, rawResult);
       if (!validated) throw new Error("profile_result_invalid");
       result = validated;

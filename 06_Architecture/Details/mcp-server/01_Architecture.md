@@ -28,7 +28,7 @@ Bearerは当該HTTP要求のclosureだけに保持し、保存・共有・応答
 
 活動取得も同Resolverへ接続する。完全入力検査と開始前取消の後、現在AM集合から同Projectの全許可対象を選び、Project／Repository／技術的RootだけをOrchestrator Readerへ渡す。0対象は非開示null、集合・Root不明は全体停止とする。結果検査はOrchestrator Parserへ委譲し、応答Projectと要求Projectもexact比較する。公開構成はContext二操作・Topic／Meeting十二操作・活動一操作の計十五Toolとなる。
 
-鍵はMCPへ公開せず、Profile管理はこの新構成へ未接続である。旧CROS Resolver／Shared Host／RESTの本番接続はまだ置換しない。このResolverを既存HTTPで実行できることと、公開Launcher・Workbenchを含む全能力の本番切替を区別する。検証はPPR-IT-002、CPR-IT-010／012、RFD-IT-013／019、EST-IT-002／014の部分範囲へ接続する。
+鍵はMCPへ公開せず、Profile管理は現在AM認可による局所Source・実HTTP候補へ接続済みである。Catalog依存を構成した局所候補ではmanager／administratorが19 Tool、developerが15 Tool、Catalog未構成時は15 Toolとする。旧CROS Resolver／Shared Host／RESTの本番接続はまだ置換しない。このResolverを既存HTTPで実行できることと、公開Launcher・Workbenchを含む全能力の本番切替を区別する。検証はPPR-IT-002、CPR-IT-010／012、RFD-IT-013／019、EST-IT-002／014の部分範囲へ接続する。
 
 | Architecture定義 | この領域が具体化する責務 | Relation状態 |
 |---|---|---|
@@ -191,7 +191,7 @@ Remote CROSではMCP専用の固定Bearerを別に発行しない。HTTP Transpo
 
 通常Handlerの発行にはAMの`authenticateNormalConnection`を用い、有効資格と初回設定`completed`を同じ管理改訂で確認する。初回途中にも利用する`authenticateCredential`だけでは通常接続を許可しない。HTTP本文待機後の内容操作は`resolveRepositoryAccessCollection`で現在認可を再評価し、直ちにDomain固定本文Readerへ渡す。本文取得が一件でも不成立なら固定エラーで全体を停止し、部分Portfolio・`null/missing`へ変換しない。初回完了を確認した認証済み許可対象0件だけを正常な空Portfolioとする。
 
-この接続は`createAccessMcpResolver`の実HTTP搬送契約で段階確認する。現在はContext二操作、Topic／Meeting十二操作と活動一操作の局所構成であり、現在Role／Exposure／失効、固定拒否、manifest Project拘束と同Project Relationへ接続する。先行段階のContext専用・十四Tool構成と現在の十五Tool構成を区別する。旧Resolver／Shared Hostは公開Launcher／Workbenchを含む全能力の本番代替が成立するまで撤去せず、新旧認証のfallback合成は行わない。鍵は非公開、Profileは新構成に未接続。Root能力・Token・内部Path・管理改訂を公開結果へ追加せず、同期Reader開始後の取消をI/O中断やEffect 0と表示しない。要求前の取消は内容読取りを開始せず、開始後は同期処理の終了を待って結果公開を停止する。本段落は本番切替済み・AM全体完成の表示ではない。
+この接続は`createAccessMcpResolver`の実HTTP搬送契約で段階確認する。現在はContext二操作、Topic／Meeting十二操作と活動一操作に、Catalog構成時のProfile四操作を加えた局所候補であり、現在Role／Exposure／失効、固定拒否、manifest Project拘束と同Project Relationへ接続する。先行段階のContext専用・十四Tool・活動を含む十五Tool構成と、現在の条件付き十五／十九Tool候補を区別する。Catalog依存を構成した局所候補ではmanager／administratorが19 Tool、developerが15 Tool、Catalog未構成時は15 Toolとする。旧Resolver／Shared Hostは公開Launcher／Workbenchを含む全能力の本番代替が成立するまで撤去せず、新旧認証のfallback合成は行わない。鍵は非公開、Profileは現在AM認可と実HTTPの局所候補に接続済み。本番Launcher／Workbenchへの切替は未完了。Root能力・Token・内部Path・管理改訂を公開結果へ追加せず、同期Reader開始後の取消をI/O中断やEffect 0と表示しない。要求前の取消は内容読取りを開始せず、開始後は同期処理の終了を待って結果公開を停止する。本段落は本番切替済み・AM全体完成の表示ではない。
 
 Orchestratorの実行状態を返すToolは`crdd.get_orchestrator_state`とする。旧名`crdd.get_project_state`はProject全体のCurrent Projectionと誤認し得るため、v0.22の公開候補へ残さない。Project Contextは`crdd.list_projects`と`crdd.get_project_context`で取得し、Runtime DTOを再利用しない。
 
@@ -279,6 +279,12 @@ MCP起動・`--cros`・設定File存在・Remote要求は初回設定の明示�
 今回の非公開候補は契約・品質限定独立再レビュー済み・全重大度の残指摘0。Qualityは公開一覧・Schema・登録・dispatch・状態照会の不存在と、起動・Remote入力から初期化Effectが発生しないことを確認する。具体API・Source・全Consumer・実境界検証は未完了で、負契約の記載から本番成立を主張しない。
 
 ## 4. Authorityと情報境界
+
+### 現在RoleによるProfile管理の局所実装候補 — 2026-10-12
+
+`createAccessMcpResolver(root, profileAdministration)`はCatalog Owner操作を明示注入し、各一覧／CallでAMの`resolveAiProfileManagementAccess`を呼ぶ。Routingの`aiProfileAdministrationResolver`は現在認可後だけ既存操作を返し、認証不成立・初回未完了・状態不明は固定内部エラー、developerは非公開とする。AMはCatalog型・保存を所有せず、LockをCatalog中まで保持しない。
+
+旧／Local静的依存`aiProfileAdministration`と新AM遅延依存は排他とし、両方指定は認可／Store前の固定構成失敗へ閉じる。Callは完全Schema・Mutation検査→取消→現在認可一回→取消再確認→Catalog操作最大一回→結果検査→取消再確認。一覧は完全入力検査後だけ現在認可し、観測不能を空一覧へ畳まない。AM解決後のRole変更は次要求に反映し、二Storeの原子性や採用済みMutationの取消を保証しない。現時点は局所候補で、公開Launcher／Workbench本番切替・正式191項目の成立ではない。
 
 MCP Client、Session、connection、tool名またはmetadataからProject Authority、人間判断Authority、Repository操作権限、Recovery Authorityまたは成功を生成しない。認証・認可の結果は構成Rootから明示入力され、Adapterは対象Project、主体および要求へ結合したままOrchestratorへ渡す。
 

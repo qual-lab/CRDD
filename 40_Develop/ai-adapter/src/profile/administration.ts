@@ -226,3 +226,62 @@ function rejected(
 ): AiProfileCatalogMutationResult {
   return Object.freeze({ status: "rejected", reason, snapshot });
 }
+
+/**
+ * Profile管理入力を既存AI AdapterのMutationへ固定する。
+ *
+ * @responsibility 操作別fieldと構造を検査し、語彙検査を同じCatalog Ownerへ接続する。
+ * @trace ARCH-000010
+ * @input value: 未信頼の操作入力。
+ * @returns 所有済みMutation、不正ならnull。
+ * @precondition N/A: 未信頼値を受け付ける。
+ * @postcondition 操作、改訂、Profileまたは削除確認だけを保持する。
+ * @effect N/A: Storeを呼ばない。
+ * @failure 未知field、型またはProfile構造不正はnull。
+ * @invariant Modelの登録可否と改訂競合はCatalog管理が決定する。
+ * @boundary HTTP／MCP入力とCatalog操作の境界。
+ * @security Proxy／accessorと任意実行fieldを受理しない。
+ * @concurrency 同期取得した値を固定する。
+ */
+export function parseAiProfileCatalogMutation(
+  value: unknown,
+): AiProfileCatalogMutation | null {
+  const deletion = snapshotPlainRecord(
+    value,
+    new Set(["operation", "expectedRevision", "profileId", "confirmed"]),
+  );
+  if (
+    deletion?.operation === "delete" &&
+    Number.isSafeInteger(deletion.expectedRevision) &&
+    Number(deletion.expectedRevision) >= 0 &&
+    typeof deletion.profileId === "string" &&
+    /^PROFILE-[0-9]{6,}$/u.test(deletion.profileId) &&
+    typeof deletion.confirmed === "boolean"
+  ) {
+    return Object.freeze({
+      operation: "delete",
+      expectedRevision: Number(deletion.expectedRevision),
+      profileId: deletion.profileId,
+      confirmed: deletion.confirmed,
+    });
+  }
+  const change = snapshotPlainRecord(
+    value,
+    new Set(["operation", "expectedRevision", "profile"]),
+  );
+  if (
+    !change ||
+    !["create", "update"].includes(change.operation as string) ||
+    !Number.isSafeInteger(change.expectedRevision) ||
+    Number(change.expectedRevision) < 0
+  )
+    return null;
+  const profile = validateAiProfileDefinition(change.profile);
+  return profile === null
+    ? null
+    : Object.freeze({
+        operation: change.operation as "create" | "update",
+        expectedRevision: Number(change.expectedRevision),
+        profile,
+      });
+}

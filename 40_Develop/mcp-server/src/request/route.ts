@@ -78,6 +78,7 @@ export type McpRequestRoutingDependencies = Readonly<{
   projectContext: McpProjectContextDependencies;
   runtimeActivity?: McpRuntimeActivityDependencies;
   aiProfileAdministration?: AiProfileCatalogAdministration;
+  aiProfileAdministrationResolver?: () => AiProfileCatalogAdministration | null;
   topicMeeting?: TopicMeetingAccess;
   topicMeetingRepositoryResolver?: TopicMeetingAccessResolver;
 }>;
@@ -106,6 +107,11 @@ export async function routeMcpRequest(
 ): Promise<McpResponse> {
   const request = inspectProtocolRequest(rawRequest);
   if (!request) return protocolError(null, -32600, "Invalid Request");
+  if (
+    dependencies.aiProfileAdministration !== undefined &&
+    dependencies.aiProfileAdministrationResolver !== undefined
+  )
+    return protocolError(request.id, -32603, "Invalid Profile configuration");
   if (request.method === "server/discover") {
     const params = snapshotPlainRecord(request.params, discoverKeys);
     return !params || !inspectMcpEnvelope(params._meta)
@@ -122,44 +128,64 @@ export async function routeMcpRequest(
       snapshotPlainRecord(request.params, listKeysNoCursor) ??
       snapshotPlainRecord(request.params, listKeys);
     const paramsRecord: Readonly<Record<string, unknown>> | null = params;
-    return !params ||
+    if (
+      !params ||
       !inspectMcpEnvelope(params._meta) ||
       (Object.hasOwn(params, "cursor") && paramsRecord?.cursor !== null)
-      ? protocolError(request.id, -32602, "Invalid params")
-      : protocolComplete(request.id, {
-          tools: Object.freeze([
-            ...(dependencies.orchestrator === undefined
-              ? []
-              : getMcpOrchestratorToolDefinitions()),
-            ...getMcpProjectContextToolDefinitions(),
-            ...(dependencies.aiProfileAdministration === undefined
-              ? []
-              : getMcpAiProfileToolDefinitions()),
-            ...(dependencies.runtimeActivity === undefined
-              ? []
-              : getMcpRuntimeActivityToolDefinitions()),
-            ...(dependencies.topicMeeting === undefined &&
-            dependencies.topicMeetingRepositoryResolver === undefined
-              ? []
-              : getMcpTopicMeetingToolDefinitions(
-                  dependencies.topicMeetingRepositoryResolver === undefined
-                    ? "implicit"
-                    : "required",
-                )),
-          ]),
-          ttlMs: 0,
-          cacheScope: "private",
-        });
+    )
+      return protocolError(request.id, -32602, "Invalid params");
+    if (signal.aborted)
+      return protocolError(request.id, -32800, "Request cancelled");
+    let profileAdministration: AiProfileCatalogAdministration | null;
+    try {
+      profileAdministration = dependencies.aiProfileAdministrationResolver
+        ? dependencies.aiProfileAdministrationResolver()
+        : (dependencies.aiProfileAdministration ?? null);
+    } catch {
+      return protocolError(
+        request.id,
+        -32603,
+        "AI Profile administration unavailable",
+      );
+    }
+    if (signal.aborted)
+      return protocolError(request.id, -32800, "Request cancelled");
+    return protocolComplete(request.id, {
+      tools: Object.freeze([
+        ...(dependencies.orchestrator === undefined
+          ? []
+          : getMcpOrchestratorToolDefinitions()),
+        ...getMcpProjectContextToolDefinitions(),
+        ...(profileAdministration === null
+          ? []
+          : getMcpAiProfileToolDefinitions()),
+        ...(dependencies.runtimeActivity === undefined
+          ? []
+          : getMcpRuntimeActivityToolDefinitions()),
+        ...(dependencies.topicMeeting === undefined &&
+        dependencies.topicMeetingRepositoryResolver === undefined
+          ? []
+          : getMcpTopicMeetingToolDefinitions(
+              dependencies.topicMeetingRepositoryResolver === undefined
+                ? "implicit"
+                : "required",
+            )),
+      ]),
+      ttlMs: 0,
+      cacheScope: "private",
+    });
   }
   if (request.method !== "tools/call")
     return protocolError(request.id, -32601, "Method not found");
   const params = snapshotPlainRecord(request.params, callKeys);
   if (Object.values(MCP_AI_PROFILE_TOOLS).includes(params?.name as never))
-    return dependencies.aiProfileAdministration === undefined
+    return dependencies.aiProfileAdministration === undefined &&
+      dependencies.aiProfileAdministrationResolver === undefined
       ? protocolError(request.id, -32601, "Method not found")
       : handleMcpAiProfileRequest(
           rawRequest,
-          dependencies.aiProfileAdministration,
+          dependencies.aiProfileAdministrationResolver ??
+            (dependencies.aiProfileAdministration as AiProfileCatalogAdministration),
           signal,
         );
   if (!params || !inspectMcpEnvelope(params._meta))

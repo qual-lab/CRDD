@@ -47,6 +47,113 @@ import {
   startMcpAuthenticatedStreamableHttp,
 } from "../../src/index.ts";
 
+/**
+ * Profile遅延認可の順序と静的依存の排他を確認する。
+ * @responsibility 入力検査前の認可、古い許可の再利用、二依存fallbackを反証する。
+ * @trace RFD-IT-013
+ * @trace RCM-IT-010
+ * @precondition 既存Catalog操作と要求毎に許可状態を変えるResolver。
+ * @stimulus 一覧、許可後拒否、観測不能、不正入力、事前取消、二依存を送る。
+ * @observation 認可・Catalog観測回数、固定Protocol結果。
+ * @oracle 完全入力後だけ認可1回、deniedは非公開、unknownは内部エラー、二依存は認可/Store0。
+ * @cleanup N/A: Process内Catalogのみで外部資源なし。
+ * @boundary MCP Routing→遅延認可→同期Catalog。
+ */
+test("Profile遅延認可は現在判定と二依存拒否を分離する", async () => {
+  const administration = createAiProfileCatalogAdministration(
+    createAiProfileCatalogRegistry(DEFAULT_AI_PROFILE_CATALOG),
+  );
+  let resolutions = 0,
+    reads = 0;
+  let access: "allowed" | "denied" | "unavailable" = "allowed";
+  const counted = {
+    snapshot: () => {
+      reads++;
+      return administration.snapshot();
+    },
+    execute: administration.execute,
+  };
+  const dependencies = {
+    projectContext: {
+      readPortfolio: async () => {
+        throw new Error("unexpected content");
+      },
+    },
+    aiProfileAdministrationResolver: () => {
+      resolutions++;
+      if (access === "unavailable") throw new Error("private state");
+      return access === "allowed" ? counted : null;
+    },
+  };
+  const request = {
+    jsonrpc: "2.0",
+    id: 1,
+    method: "tools/call",
+    params: {
+      name: MCP_AI_PROFILE_TOOLS.list,
+      arguments: {},
+      _meta: {
+        "io.modelcontextprotocol/protocolVersion":
+          MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+        "io.modelcontextprotocol/clientCapabilities": {},
+      },
+    },
+  };
+  const listing = {
+    ...request,
+    method: "tools/list",
+    params: { _meta: request.params._meta },
+  };
+  const first = await routeMcpRequest(listing, dependencies);
+  assert.equal(JSON.stringify(first).includes(MCP_AI_PROFILE_TOOLS.list), true);
+  assert.equal(resolutions, 1);
+  assert.equal(reads, 0);
+  access = "denied";
+  const denied = await routeMcpRequest(request, dependencies);
+  assert.ok("error" in denied);
+  assert.equal(denied.error.code, -32601);
+  assert.equal(resolutions, 2);
+  assert.equal(reads, 0);
+  access = "unavailable";
+  const unknown = await routeMcpRequest(listing, dependencies);
+  assert.ok("error" in unknown);
+  assert.equal(unknown.error.code, -32603);
+  assert.equal(JSON.stringify(unknown).includes("private state"), false);
+  const before = resolutions;
+  const invalid = await routeMcpRequest(
+    { ...request, params: { ...request.params, arguments: { extra: true } } },
+    dependencies,
+  );
+  assert.ok("error" in invalid);
+  assert.equal(invalid.error.code, -32602);
+  const abort = new AbortController();
+  abort.abort();
+  const cancelled = await routeMcpRequest(request, dependencies, abort.signal);
+  assert.ok("error" in cancelled);
+  assert.equal(cancelled.error.code, -32800);
+  const unknownTool = await routeMcpRequest(
+    { ...request, params: { ...request.params, name: "unknown" } },
+    dependencies,
+  );
+  assert.ok("error" in unknownTool);
+  assert.equal(unknownTool.error.code, -32601);
+  for (const raw of [listing, request]) {
+    const conflict = await routeMcpRequest(raw, {
+      ...dependencies,
+      aiProfileAdministration: counted,
+    });
+    assert.ok("error" in conflict);
+    assert.equal(conflict.error.code, -32603);
+  }
+  assert.equal(resolutions, before);
+  assert.equal(reads, 0);
+  access = "allowed";
+  const result = await routeMcpRequest(request, dependencies);
+  assert.ok("result" in result);
+  assert.equal(resolutions, before + 1);
+  assert.equal(reads, 1);
+});
+
 const ADMINISTRATOR: RequestAccessContext = Object.freeze({
   credentialId: "bootstrap-admin",
   profile: "administrator",
@@ -307,7 +414,7 @@ test("Profile管理MCPは保存後故障と取消で自動再実行しない", a
   abort.abort();
   const cancelled = await handleMcpAiProfileRequest(
     request,
-    port,
+    () => port,
     abort.signal,
   );
   assert.ok("error" in cancelled);
@@ -315,7 +422,7 @@ test("Profile管理MCPは保存後故障と取消で自動再実行しない", a
   assert.equal(calls, 0);
   const failure = await handleMcpAiProfileRequest(
     request,
-    port,
+    () => port,
     new AbortController().signal,
   );
   assert.ok("error" in failure);
@@ -342,7 +449,7 @@ test("Profile管理MCPは保存後故障と取消で自動再実行しない", a
         },
       },
     },
-    {
+    () => ({
       snapshot: administration.snapshot,
       execute: (mutation) => {
         calls += 1;
@@ -350,7 +457,7 @@ test("Profile管理MCPは保存後故障と取消で自動再実行しない", a
         afterAdoption.abort();
         return result;
       },
-    },
+    }),
     afterAdoption.signal,
   );
   assert.ok("error" in final);

@@ -12,6 +12,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import * as adapterPublicApi from "../../../src/index.ts";
+import { parseAiProfileCatalogMutation } from "../../../src/index.ts";
 import defaultCatalogData from "../../../src/catalog/default-ai-profile-catalog.json" with {
   type: "json",
 };
@@ -26,6 +27,61 @@ import {
 } from "../../../src/catalog/resolve.ts";
 import { createAiProfileCatalogAdministration } from "../../../src/profile/administration.ts";
 import { createAiProfileCatalogRegistry } from "../../../src/profile/registry.ts";
+
+/**
+ * Profile限定Mutation入力はCatalog Ownerの公開入口で検査する。
+ * @responsibility TransportやCROSにSchemaを複製せず閉じた所有値へ固定する。
+ * @trace RCM-UT-002
+ * @precondition 既定Profileと未信頼Mutation入力を用意する。
+ * @stimulus 三操作、余分field、改訂不正、ID不正、Proxy/accessorを渡す。
+ * @observation 所有済みMutation、拒否値、hook実行数。
+ * @oracle 三操作の正常入力だけ受理し、不正はnull、hook0、元値の変更を受けない。
+ * @cleanup N/A: I/O・Store・Providerを使用しない。
+ * @boundary AI Adapterの純粋な公開入力契約。
+ */
+test("Profile Mutation Parserは三操作の閉じた入力だけを所有する", () => {
+  const profile = structuredClone(DEFAULT_AI_PROFILE_CATALOG.profiles[0]);
+  assert.ok(profile);
+  for (const operation of ["create", "update"] as const) {
+    const input: unknown = { operation, expectedRevision: 0, profile };
+    const parsed = parseAiProfileCatalogMutation(input);
+    assert.deepEqual(parsed, input);
+    assert.notEqual(parsed, input);
+  }
+  const deletion = {
+    operation: "delete",
+    expectedRevision: 1,
+    profileId: profile.profileId,
+    confirmed: true,
+  };
+  assert.deepEqual(parseAiProfileCatalogMutation(deletion), deletion);
+  for (const raw of [
+    { ...deletion, extra: true },
+    { ...deletion, expectedRevision: -1 },
+    { ...deletion, expectedRevision: 0.5 },
+    { ...deletion, profileId: "invalid" },
+    { ...deletion, confirmed: 1 },
+    { operation: "create", expectedRevision: 0, profile: {} },
+    { operation: "unknown", expectedRevision: 0, profile },
+  ])
+    assert.equal(parseAiProfileCatalogMutation(raw), null);
+  let hooks = 0;
+  const proxy = new Proxy(deletion, {
+    ownKeys() {
+      hooks++;
+      return [];
+    },
+  });
+  const accessor = Object.defineProperty({}, "operation", {
+    get() {
+      hooks++;
+      return "delete";
+    },
+  });
+  assert.equal(parseAiProfileCatalogMutation(proxy), null);
+  assert.equal(parseAiProfileCatalogMutation(accessor), null);
+  assert.equal(hooks, 0);
+});
 
 /**
  * Profile構造の取得で実行可能なPropertyを評価しない。
@@ -134,6 +190,7 @@ test("同梱JSONの全値を保持して深い不変Catalogを公開する", () 
     "normalizeClaudeStructuredResult",
     "normalizeCodexStructuredResult",
     "normalizeProviderExactModelId",
+    "parseAiProfileCatalogMutation",
     "parseUnambiguousJsonDocument",
     "planClaudeIsolatedTask",
     "planClaudeReadOnlyProbe",

@@ -4,7 +4,7 @@
 状態: Canonical
 維持責任者: Qual-Lab
 
-最新の実接続はAM現在認可から活動OwnerへのMCP搬送までで、関連5Packageの283 Case・静的3軸・Workbench Buildと限定独立再レビュー残指摘0を確認した。詳細は[活動接続の局所結果](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#現在認可mcpと直接利用側の実装候補--2026-10-12)を参照する。共有Profile管理のmanager／administrator許可は採用回答を文書候補へ伝播中で、追加区分のSource・本番接続は未成立。QA-000001とQA-000007の既存義務へ接続し、191 Local Itemの正式Not Runを維持する。以下の件数・未接続表示は当時の局所履歴で、現在の完成証明へ流用しない。
+直前の活動接続結果はAM現在認可から活動OwnerへのMCP搬送で、関連5Packageの283 Case・静的3軸・Workbench Buildと限定独立再レビュー残指摘0を確認した。詳細は[活動接続の局所結果](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#現在認可mcpと直接利用側の実装候補--2026-10-12)を参照する。共有Profile管理のmanager／administrator許可は文書24件の独立再レビューを完了し、追加区分のSource・実HTTPは局所候補接続済みである。AM60／AI Adapter30／CROS34／MCP68／Workbench33の計225 Case・静的3軸とWorkbench Build成功。CROS／Workbenchは旧比較Consumerの回帰であり、新RoleのWorkbench本番接続ではない。固定候補の限定独立再レビューはPass・残指摘0で、Repository全体Checkerの既知3057 errorsは未解消。本番Launcher／Workbench・鍵配送・旧REST撤去は未完了。Catalog依存を構成した局所候補ではmanager／administratorが19 Tool、developerが15 Tool、Catalog未構成時は15 Toolとする。QA-000001とQA-000007の既存義務へ接続し、191 Local Itemの正式Not Runを維持する。以下の件数・未接続表示は当時の局所履歴で、現在の完成証明へ流用しない。
 
 前段の認証接続はRFD-IT-013の資格→User→現在Role投影部分と、RFD-IT-024の初回状態非更新。AM全35 Case・静的3軸成功、固定13ファイルの限定独立再レビューPass・残指摘0。同一Lock／改訂、本人情報の閉包、失効・破損・解放不明拒否を観測した。
 

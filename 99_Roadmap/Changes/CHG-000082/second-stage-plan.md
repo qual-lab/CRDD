@@ -289,13 +289,15 @@ Windows 10.0.26200.0・C: NTFS・Node v24.19.0で同Directoryの通常置換・b
 
 ### 共有AI Profile管理のRole採用と本番接続 — 2026-10-12
 
+Source候補の局所結果：基準`ec2a2e3e`、Node v24.19.0。AM60／AI Adapter30／旧CROS34／MCP68／Workbench33の計225 Case（追加Workbench33 Caseは旧比較Consumerの回帰）、各書式・型・Warning禁止Lint成功、Fail／Cancel／Skip0、全Exit0。実HTTPと自己生成実Catalog Storeでmanager／administrator四操作・developer非開示・次要求のRole変更／失効、遅延認可・二依存拒否・採用後取消／応答故障の改訂保持を確認した。AM新試験の初回途中Fixture不整合は正規の一User・一Credential・元発行相関へ是正し、局所再試験後にAM全回帰を再実行した。最初の失敗を現在の成功へ混ぜない。Biomeの一時OS1224は同じ対象の再実行で解消した。固定29Pathの限定独立再レビューはPass・全重大度残指摘0。全体Checkerは3057 errors／exit1を維持し、変更29Path抽出はProject Context構造の既存1件のみ。判定に使う三Identity・五見出し・Checklist見出しとcheckboxの17行が基準HEADと順序込み完全一致し、差分起因0を確認した。Repository全体Passとは扱わず、正式191項目Not Runと本番Launcher／Workbench・鍵配送・旧REST撤去・AM全体未完成を維持する。実行別ログ書庫は作らず、各Packageの`npm test`から再生成する。
+
 Qual-Labは既存四操作（一覧・登録・変更・確認付き削除）をmanager／administratorへ許可する方針を採用した。鍵はadministrator専用を維持する。登録済みAdapter／許可Modelを参照するProfile限定操作であり、Provider Adapter登録・Model Catalog変更・CLI配置・Provider実行Effectの許可を拡大しない。Repository単体へCROS資格・Roleを要求しない。
 
 基準`e08d09b3`、着手時clean。変更分類は採用済み管理Authorityの具体化・追加区分の直接伝播と接続。着手前の親照合と読み取り専用確認は着手可・追加人間判断不要。Profileの内容Chain（REQ16→UX18→IA13→UI10→SPEC15→ARCH10→AI Adapter）と認可Chain（REQ41→UX35→IA9→UI8→SPEC12→ARCH13→AM）を交点で接続する。固定管理区分は8から9、具体判定操作は10から11へ追加する。現在の要求・定義・詳細・QAの件数を同期し、過去限定結果・正式Evidenceは変更しない。
 
 SourceではAMが既存通常認証の同改訂Roleから許可／拒否／観測不能だけを返す用途限定入口を所有する。Catalog操作中までAM Lockを保持せず、別Owner／別改訂の保存原子性を作らない。AI Adapterへ旧CROS純粋Mutation検査を移し、MCP・旧HTTPが同公開契約を使用する。MCPは一覧の現在認可と、Callの完全入力検査→開始前取消→現在認可→一回Catalog操作→取消再確認を接続する。未知状態は通常拒否へ丸めず、採用後の応答故障・取消からrollback・暗黙再Mutationを行わない。
 
-必須反証は三Role、Header後のRole変更・失効・初回未完了・状態不明、一覧／Callの現在値、非管理Store観測0・存在非開示、不正入力・未知Adapter／Model・競合・未確認削除のEffect0、採用後取消／故障の改訂保持、Provider・鍵・任意CLI変更0、旧Parser参照0、旧REST能力保持とLocal管理回帰である。QA1のRCM-IT-005（Catalog／改訂／採用後故障）、RCM-IT-010（Tool Lifecycle）、RCM-ST-012（旧Consumerから新契約への移行閉包）とQA7のRFD-UT-020（純粋判定）、RFD-IT-013（資格→現在Role断面のみ）、RFD-UAT-007（管理の違いの理解）へ接続する。RFD-IT-021／ST-022の通常6 AM保存操作はProfileへ流用せず、QA4へProfile契約を複製しない。必要な独立レビュー・文書直接影響・Package回帰・差分・終了後観測を行う。標準規範・Provider実行・Docker・Host秘密は不変更のため、準拠監査・署名Provider E2Eはこの接続段階の対象外。現在は文書候補の伝播でSource・本番入口・正式191項目・AM全体完成は未成立である。
+必須反証は三Role、Header後のRole変更・失効・初回未完了・状態不明、一覧／Callの現在値、非管理Store観測0・存在非開示、不正入力・未知Adapter／Model・競合・未確認削除のEffect0、採用後取消／故障の改訂保持、Provider・鍵・任意CLI変更0、旧Parser参照0、旧REST能力保持とLocal管理回帰である。QA1のRCM-IT-005（Catalog／改訂／採用後故障）、RCM-IT-010（Tool Lifecycle）、RCM-ST-012（旧Consumerから新契約への移行閉包）とQA7のRFD-UT-020（純粋判定）、RFD-IT-013（資格→現在Role断面のみ）、RFD-UAT-007（管理の違いの理解）へ接続する。RFD-IT-021／ST-022の通常6 AM保存操作はProfileへ流用せず、QA4へProfile契約を複製しない。必要な独立レビュー・文書直接影響・Package回帰・差分・終了後観測を行う。標準規範・Provider実行・Docker・Host秘密は不変更のため、準拠監査・署名Provider E2Eはこの接続段階の対象外。文書24件の独立再レビューは全重大度残指摘0・Passとして`ec2a2e3e`へ固定した。続くSource局所候補は固定9区分／11具体操作、AMの用途限定現在判定、AI AdapterへのParser移管、MCP遅延認可を接続する。本番入口・正式191項目・AM全体完成は未成立である。
 
 全16現行親Folderを対象に、変更不要も理由付きで処置する。`docker-isolation`は新設候補であり、採用前に作成しない。
 

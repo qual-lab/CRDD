@@ -7,6 +7,8 @@
  * @trace CPR-IT-012
  * @trace RFD-IT-013
  * @trace RFD-IT-019
+ * @trace RCM-IT-005
+ * @trace RCM-IT-010
  * @trace EST-IT-002
  * @trace EST-IT-014
  * @level IT
@@ -20,6 +22,11 @@ import { randomUUID, createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { request as httpRequest } from "node:http";
 import test, { type TestContext } from "node:test";
+import {
+  createAiProfileCatalogAdministration,
+  createRepositoryAiProfileCatalogStore,
+  DEFAULT_AI_PROFILE_CATALOG,
+} from "../../../ai-adapter/src/index.ts";
 import {
   createInitialAdministrator,
   createInitialCredential,
@@ -36,6 +43,7 @@ import {
 import {
   createAccessMcpResolver,
   MCP_TOPIC_MEETING_TOOLS,
+  MCP_AI_PROFILE_TOOLS,
   startMcpAuthenticatedStreamableHttp,
   MCP_PROJECT_CONTEXT_GET_TOOL,
   MCP_RUNTIME_ACTIVITY_TOOL,
@@ -53,6 +61,156 @@ import {
   verifyExecutionIntelligenceRepositoryRoot,
   usageNotObserved,
 } from "../../../execution-intelligence/src/index.ts";
+
+/**
+ * 共有Profile管理の現在Roleと四操作を実HTTPで接続する。
+ * @responsibility 内容Grantを管理許可へ転用せず、現在Role・失効・観測不能を分離する。
+ * @trace RFD-IT-013
+ * @trace RCM-IT-005
+ * @trace RCM-IT-010
+ * @precondition 自己生成AM Store、通常資格、実Catalog Storeを用意する。
+ * @stimulus 同Tokenをmanager/admin/developerへ変更し四操作・一覧・失効・破損を要求する。
+ * @observation HTTP結果、Catalog改訂、Store呼出し回数、固定非開示エラー。
+ * @oracle manager/adminだけ管理し、developerはStore0。失効・状態不明は通常拒否に畳まない。
+ * @cleanup Server closeとFixture所有Rootの回収・不存在確認。
+ * @boundary 実HTTP→現在AM認可→AI Adapterの実保存・応答。
+ */
+test("AM Profile MCPは現在Roleの四操作と非開示を実保存へ接続する", async (t) => {
+  const f = fixture(t);
+  const target = f.targets[0];
+  assert.ok(target);
+  const configured = createRepositoryAiProfileCatalogStore(target.target);
+  assert.equal(configured.status, "ready");
+  if (configured.status !== "ready")
+    throw new Error("catalog fixture unavailable");
+  const administration = createAiProfileCatalogAdministration(configured.store);
+  let reads = 0,
+    mutations = 0;
+  const counted = {
+    snapshot: () => {
+      reads++;
+      return administration.snapshot();
+    },
+    execute: (mutation: Parameters<typeof administration.execute>[0]) => {
+      mutations++;
+      return administration.execute(mutation);
+    },
+  };
+  const resolver = createAccessMcpResolver(f.root, counted);
+  const handler = await resolver(f.token);
+  assert.ok(handler);
+  const listRequest = {
+    ...packet(),
+    method: "tools/list",
+    params: { _meta: packet().params._meta },
+  };
+  const state = JSON.parse(
+    fs.readFileSync(f.current, "utf8"),
+  ) as AccessManagementState;
+  const user = state.users[0],
+    credential = state.credentials[0];
+  assert.ok(user && credential);
+  const server = await startMcpAuthenticatedStreamableHttp(resolver, {
+    port: 0,
+  });
+  const base = `http://${server.host}:${server.port}`;
+  try {
+    const deniedList = await handler(listRequest, new AbortController().signal);
+    assert.ok("result" in deniedList);
+    assert.equal(
+      JSON.stringify(deniedList).includes(MCP_AI_PROFILE_TOOLS.list),
+      false,
+    );
+    const denied = await call(base, f.token, MCP_AI_PROFILE_TOOLS.list, {});
+    assert.equal((await denied.json()).error.code, -32601);
+    assert.equal(reads + mutations, 0);
+    for (const role of ["manager", "administrator"] as const) {
+      user.role = role;
+      fs.writeFileSync(f.current, JSON.stringify(state));
+      const listedTools = await handler(
+        listRequest,
+        new AbortController().signal,
+      );
+      for (const name of Object.values(MCP_AI_PROFILE_TOOLS))
+        assert.equal(JSON.stringify(listedTools).includes(name), true);
+      const listed = await (
+        await call(base, f.token, MCP_AI_PROFILE_TOOLS.list, {})
+      ).json();
+      const revision = listed.result.structuredContent.revision;
+      const original = DEFAULT_AI_PROFILE_CATALOG.profiles[0];
+      assert.ok(original);
+      const profile = {
+        ...original,
+        profileId: "PROFILE-900042",
+        family: "am-profile-fixture",
+      };
+      for (const [name, args] of [
+        [MCP_AI_PROFILE_TOOLS.create, { expectedRevision: revision, profile }],
+        [
+          MCP_AI_PROFILE_TOOLS.update,
+          {
+            expectedRevision: revision + 1,
+            profile: { ...profile, family: "updated-fixture" },
+          },
+        ],
+        [
+          MCP_AI_PROFILE_TOOLS.delete,
+          {
+            expectedRevision: revision + 2,
+            profileId: profile.profileId,
+            confirmed: true,
+          },
+        ],
+      ] as const) {
+        const response = await (await call(base, f.token, name, args)).json();
+        assert.equal(response.result.structuredContent.status, "completed");
+      }
+      assert.equal(administration.snapshot().revision, revision + 3);
+    }
+    user.role = "developer";
+    fs.writeFileSync(f.current, JSON.stringify(state));
+    const before = reads + mutations;
+    const afterRoleChange = await handler(
+      packet(MCP_AI_PROFILE_TOOLS.list, {}),
+      new AbortController().signal,
+    );
+    assert.ok("error" in afterRoleChange);
+    assert.equal(afterRoleChange.error.code, -32601);
+    credential.revoked = true;
+    fs.writeFileSync(f.current, JSON.stringify(state));
+    const revoked = await handler(listRequest, new AbortController().signal);
+    assert.ok("error" in revoked);
+    assert.equal(revoked.error.code, -32603);
+    assert.equal(
+      (await call(base, f.token, MCP_AI_PROFILE_TOOLS.list, {})).status,
+      401,
+    );
+    credential.revoked = false;
+    assert.equal(state.initialization.stage, "completed");
+    state.initialization = {
+      stage: "credential_stored",
+      attemptId: state.initialization.attemptId,
+      userId: user.userId,
+      credentialId: credential.credentialId,
+      receipt: "unconfirmed",
+      normalConnection: "unconfirmed",
+    };
+    fs.writeFileSync(f.current, JSON.stringify(state));
+    const unfinished = await handler(
+      packet(MCP_AI_PROFILE_TOOLS.list, {}),
+      new AbortController().signal,
+    );
+    assert.ok("error" in unfinished);
+    assert.equal(unfinished.error.code, -32603);
+    fs.writeFileSync(f.current, "{}");
+    const unknown = await handler(listRequest, new AbortController().signal);
+    assert.ok("error" in unknown);
+    assert.equal(unknown.error.code, -32603);
+    assert.equal(reads + mutations, before);
+  } finally {
+    assert.equal((await server.close()).cleanupConfirmed, true);
+  }
+});
 
 /**
  * 活動Ownerへの現在認可接続を実HTTPと自己生成保存領域で確認する。

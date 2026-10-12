@@ -105,7 +105,7 @@ v0.22のWorkbench AI Profile Catalogでは、`RCM-IT-005`により、永続Snaps
 
 共有Profile管理のTarget Roleはmanager／administratorとする。`RCM-IT-005`はAI Adapterが所有する四操作・Schema・競合・削除確認・採用後不明の意味を確認し、`RCM-IT-010`はTool登録・公開・Host可用性・許可・実行／取消／清掃のLifecycleとして確認する。AM現在認可自体はQA-000007の`RFD-IT-013`の資格→現在Role断面で確認する。AM認可の純粋判定と現在状態の故障はQA-000007へ接続し、同じ契約をここへ複製しない。旧systemAdmin経路の局所結果は当時の範囲に限り、新Role Source・公開Launcher・Workbench切替のPassへ流用しない。
 
-[AI Adapter](../../../06_Architecture/Details/ai-adapter/01_Architecture.md)と[MCP公開操作](../../../06_Architecture/Details/mcp-server/01_Architecture.md)から、次の条件を既存義務へ導く。新構成のSource・実境界確認は未実施であり、旧経路のPassを継承しない。
+[AI Adapter](../../../06_Architecture/Details/ai-adapter/01_Architecture.md)と[MCP公開操作](../../../06_Architecture/Details/mcp-server/01_Architecture.md)から、次の条件を既存義務へ導く。新構成の局所Source・実HTTP／実Catalog反証は候補接続済みであり、旧経路のPassを継承しない。正式結果・本番Launcher／Workbench・全Consumer閉包は未成立である。
 
 | Local Item | 入力・反証 | 観測・終了後条件 |
 |---|---|---|

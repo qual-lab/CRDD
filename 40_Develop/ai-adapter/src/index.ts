@@ -80,6 +80,7 @@ export { createAiProfileCatalogRegistry } from "./profile/registry.ts";
 export {
   createAiProfileCatalogAdministration,
   validateAiProfileMutationResult,
+  parseAiProfileCatalogMutation,
 } from "./profile/administration.ts";
 export {
   createCrosAiProfileCatalogStore,

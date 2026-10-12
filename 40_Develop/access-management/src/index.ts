@@ -15,6 +15,10 @@ export type {
   CurrentAccessResult,
   CurrentAccessSnapshot,
 } from "./access/current-access.ts";
+export {
+  resolveAiProfileManagementAccess,
+  type AiProfileManagementAccess,
+} from "./access/profile-management.ts";
 export type {
   ManagementReadKind,
   ManagementStateResult,

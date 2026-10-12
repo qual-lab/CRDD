@@ -99,6 +99,7 @@ export function projectCurrentAccess(
     "registerRepository",
     "unregisterRepository",
     "updateExposure",
+    "manageAiProfiles",
     "issueCredential",
     "revokeCredential",
     "exchangeCredentials",

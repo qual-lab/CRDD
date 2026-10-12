@@ -19,6 +19,7 @@ import type { Socket } from "node:net";
 
 import {
   validateAiProfileCatalog,
+  parseAiProfileCatalogMutation,
   type AiProfileCatalog,
   type AiProfileCatalogAdministration,
   type AiProfileCatalogMutation,
@@ -30,10 +31,7 @@ import {
   type RuntimeActivityObservation,
 } from "../../../orchestrator/src/index.ts";
 import { readCrosRuntimeActivity } from "../activity/read.ts";
-import {
-  resolveCrosAiProfileAdministration,
-  parseCrosAiProfileMutation,
-} from "../profile/administration.ts";
+import { resolveCrosAiProfileAdministration } from "../profile/administration.ts";
 import type { CrosExposureSnapshot } from "../access/types.ts";
 import type { CrosRuntimeActivityReader } from "../activity/read.ts";
 
@@ -325,7 +323,7 @@ async function readAiProfileMutation(
     chunks.push(buffer);
   }
   const value: unknown = JSON.parse(Buffer.concat(chunks).toString("utf8"));
-  const mutation = parseCrosAiProfileMutation(value);
+  const mutation = parseAiProfileCatalogMutation(value);
   if (mutation === null) throw new Error("cros_ai_profile_mutation_invalid");
   return mutation;
 }

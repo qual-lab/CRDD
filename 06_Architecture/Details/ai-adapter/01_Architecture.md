@@ -7,7 +7,7 @@
 
 ## 基本設計との関係
 
-共有Profile四管理操作のTarget許可は[Access Management](../access-management/01_Architecture.md)が現在manager／administratorとして判定する。AI AdapterはRole・資格を解釈せず、限定Mutationの入力検査・Catalog内容・Store・改訂競合・結果相関を所有する。旧CROSの純粋Mutation検査は同Ownerへ移管する候補で、現行systemAdmin経路の成功を新Role本番接続へ読み替えない。Repository単体のローカル管理にはCROS資格・Roleを要求しない。
+共有Profile四管理操作のTarget許可は[Access Management](../access-management/01_Architecture.md)が現在manager／administratorとして判定する。AI AdapterはRole・資格を解釈せず、限定Mutationの入力検査・Catalog内容・Store・改訂競合・結果相関を所有する。旧CROSの純粋Mutation検査は`parseAiProfileCatalogMutation`として同Ownerへ移管した局所実装候補で、現行systemAdmin経路の成功を新Role本番接続へ読み替えない。Repository単体のローカル管理にはCROS資格・Roleを要求しない。
 
 AI Adapterは、Adapter、Model、Profileの構成契約とProvider固有の起動・認証方式・結果変換を所有する。実装は旧`ai-runtime`とCoordinator内のProvider固有差を`ai-adapter`へ統合する。任意実行Path・任意CLI引数・秘密値をCatalogへ持たず、実行Authorityの発行、Docker／Processの所有、外部送信許可と共通の回収判定はCoordinatorに残す。
 
@@ -157,7 +157,7 @@ DirectoryはProviderまたは具体責務を表し、`internal/`、`application/
 | 公開操作／既存Symbol | Ownerと入口 | 入力／出力 | Authority／Effectと禁止事項 |
 |---|---|---|---|
 | `validateAiProfileCatalog`、`resolveAiProfile`、`resolveAiProfileById`、`evaluateAiProfileAvailability` | Rootから`catalog/resolve.ts` | 明示Snapshot・条件・独立した観測軸／検証・一意解決・利用可能性 | 純粋処理。unknownを実行可能へ補正せず、Authorityを発行しない |
-| `createAiProfileCatalogRegistry`、`createAiProfileCatalogAdministration`、Owner別Store生成 | Rootから`profile/registry.ts`、`administration.ts`、`store.ts` | 期待Revision、登録済みAdapter／Model、明示管理操作／採用Snapshot・競合拒否 | 許可Ownerの設定だけ保存。CROS管理権限とContent Accessを分離し、秘密や任意実行入口を受理しない |
+| `parseAiProfileCatalogMutation`、`createAiProfileCatalogRegistry`、`createAiProfileCatalogAdministration`、Owner別Store生成 | Rootから`profile/registry.ts`、`administration.ts`、`store.ts` | 期待Revision、登録済みAdapter／Model、明示管理操作／採用Snapshot・競合拒否 | 許可Ownerの設定だけ保存。CROS管理権限とContent Accessを分離し、秘密や任意実行入口を受理しない |
 | `planCodexReadOnlyProbe`、`planCodexIsolatedTask` | Rootから`codex/execution-plan.ts` | Mode、Role、effort等の固定入力／固定公式CLIの起動計画 | 外部Effectなし。計画はcandidateであり、起動・外部送信・Mount Authorityを含まない |
 | `planClaudeReadOnlyProbe`、`planClaudeIsolatedTask`、`planClaudeTaskTurnBudget`、`buildClaudeExecutionArguments` | Rootから`claude/execution-plan.ts` | Mode、Role、Task予算、照合済みModel・effort／固定CLI計画・Turn予算・完成argv | 外部Effectなし。Model受理と選定IdentityはCoordinator、Claude固有オプションと固定argv順序はAI Adapter。Turn完了とProcess終了・資源不存在を同一視しない |
 | `normalizeCodexStructuredResult`、`normalizeClaudeStructuredResult` | Rootから各Providerの`structured-result.ts` | 対応固定CLIの出力Envelope／共通の構造化入力または拒否 | 生出力を公開しない。候補採否・共通Task判定・是正Capabilityの発行はCoordinator |
@@ -220,7 +220,7 @@ Provider公開操作、認証計画と実Home観測の分割、実Consumer、静
 | `ai-runtime.profile-resolution` | Selection／Interface | Catalog→Workbench選択→Coordinator Dispatch Input | 同じSnapshot内で選択Profile IDをAdapter、Model、Reasoningへ一意解決し、Catalog Revisionとともに送信境界までexactに保持する | 曖昧解決、暗黙Fallback、Consumer再解釈、非Coordinator Profileの読取り助言利用 | UT／IT | Direct Boundary | Catalog Revision、Profile ID、Adapter、Model、Reasoning、役割 | Consumer間Profile Identity一致、Provider Effect前の不一致拒否 | 一回限り送信Authorityと実Provider E2E |
 | `ai-runtime.availability` | State／Observability | 実行環境観測→Availability Projection | 四軸を保って状態を投影する | unknownをavailableへ畳む | UT／IT | Direct Boundary | 四軸、status、reason | 実行Authority 0 | 実Host Observer |
 | `ai-runtime.catalog-adoption` | Lifecycle／Consistency | Owner別Candidate→不変Snapshot | Owner別の不変Snapshotだけを現在値として利用する | Candidate直接実行、競合上書き、Repository／CROS混在 | IT | Direct Boundary | Revision、Snapshot、Owner Root | 競合Effect 0、Provider Effect 0 | なし |
-| `ai-runtime.profile-administration` | Application／Authority | Workbench管理操作→Repository／CROS Store | 登録済みAdapter／Modelだけで作成・更新し確認済みProfileだけを削除する | 任意Adapter追加、未確認削除、古いRevision上書き、非管理Credentialへの開示 | UT／IT | Direct Boundary | Command、結果理由、Revision、Snapshot、現在Role認可（Target未接続。旧systemAdminは比較実装） | 拒否時Catalog Effect 0、Provider Effect 0、非管理開示0 | なし |
+| `ai-runtime.profile-administration` | Application／Authority | Workbench管理操作→Repository／CROS Store | 登録済みAdapter／Modelだけで作成・更新し確認済みProfileだけを削除する | 任意Adapter追加、未確認削除、古いRevision上書き、非管理Credentialへの開示 | UT／IT | Direct Boundary | Command、結果理由、Revision、Snapshot、現在Role認可（AM／MCP局所候補接続済み、本番Launcher／Workbench未接続。旧systemAdminは比較実装） | 拒否時Catalog Effect 0、Provider Effect 0、非管理開示0 | なし |
 | `coord.provider-attempt` | Interface／Result | Provider構造化結果の純粋解析・正規化 | 唯一のexact結果だけを受理し、生出力を公開しない | 曖昧JSON、不足Envelope、余分な値、既存上限逸脱の受理 | UT | N/A: Process内純粋変換 | 正規化値、拒否状態、固定契約field。`ERB-UT-032`へ接続 | 実Provider／Filesystem Effect 0 | 実CLI・終了・cleanupは既存IT／STで別評価 |
 | `coord.provider-selection` | Policy／Authority | Subscription限定の課金方針記述 | 暗黙有料API切替・追加購入・設定単独Authorityを否定する | 方針記述を実課金防止や未実装APIの許可へ昇格する | UT | N/A: Process内純粋記述 | 固定方針、未実装条件とAuthority非発行。`ERB-UT-033`へ接続 | 実Provider／課金Effect 0 | 現実の課金・認証・実行条件は別評価 |
 
@@ -232,7 +232,7 @@ Provider公開操作、認証計画と実Home観測の分割、実Consumer、静
 | Coordinator Profile解決 | Repository Ownerの採用済みCatalog Snapshotを依頼ごとに一回観測し、選択IDを同じSnapshotのAdapter、Model、Reasoningへ解決してCatalog Revisionとともに読取り助言Dispatchへ渡す。未登録または非Coordinator ProfileはDispatch前に拒否する | Covered | 再署名した候補の直接起動と実Provider E2Eで同じIdentityの搬送を確認する |
 | Workbench読取り助言Dispatch | 一依頼の明示確認をTask Hash、Catalog Revision、Profile ID、Providerへ結合して一回消費し、取消、Effect、cleanup、結果Schemaを分離して判定する。Provider Adapterはexact ProfileをCodex／Claudeの一方へだけ渡し、Execution PlanとProvider Command Planでstdin搬送、Repository／Tool／Session非共有およびfallback禁止を固定する。Executor CoreはProvider固有出力を助言JSONだけへ抽出し、Tool Eventやcleanup不明を拒否する | Covered | 是正後の候補を再署名・直接起動し、Codex／Claudeの実Provider E2Eを閉じる |
 | Workbench AI Profiles | 設定と四軸の未観測状態を表示し、Repository OwnerとCROS Ownerを分離したProfile限定管理を接続 | Partial | 実Observerを接続する |
-| Repository／CROS設定 | 同一SchemaをOwner別の不変Snapshot列へ保存。Repository Local Storeは成立済み。旧CROS systemAdmin限定経路は比較実装。Targetのmanager／administrator現在認可は未接続 | Partial | 新Role認可と本番Consumerを接続し、Ownerを混合しない |
+| Repository／CROS設定 | 同一SchemaをOwner別の不変Snapshot列へ保存。Repository Local Storeは成立済み。旧CROS systemAdmin限定経路は比較実装。Targetのmanager／administrator現在認可はAM／MCP局所候補へ接続済み | Partial | 本番Launcher／Workbench Consumerを接続し、Ownerを混合しない |
 
 ## Implementation Structure
 

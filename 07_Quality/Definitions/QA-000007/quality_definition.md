@@ -157,7 +157,7 @@ Runtime活動ReaderもRFD-IT-013の認可済み集合を使う。未許可入力
 
 RFD-IT-013の資格→User→現在Role投影部分をAM専用`authenticateCredential`入口へ局所接続した。既存保存ITに2 Caseを追加し、AM全35 Case・静的3軸成功、固定13ファイルの限定独立再レビューPass・残指摘0。IT024では保存済み初回資格の認証後もbyte不変・stage不変・配送／受領／通常接続非更新を確認する。IT013のExposure・実アクセス・Domain搬送と公開ST、本番Consumer、正式191項目評価はNot Run。以下の認証主体・現在Role未接続表示はこの部分接続前の履歴であり、内容認可や本番成立へ拡大しない。
 
-RFD-ST-003、RFD-ST-004、RFD-IT-013、RFD-UAT-007、RFD-ST-016、RFD-IT-017〜019、RFD-UT-020、RFD-IT-021、RFD-ST-022は **Not Run**。旧IDのEvidenceは旧契約の履歴であり、新契約のPassへ流用しない。現在はRFD-UT-020／023／028、IT021保存部分、IT024相関・User・初回資格保存部分、IT017／018のNode crypto技術部分のSource／Test Symbolと候補局所実行を接続済み。正式191項目結果／Evidence評価はNot Run。IT017／018の保存・発行確定・失効・認証主体・現在Role・配送・本番入口、上記以外の未接続部分はOPEN。固定管理分担・内容語彙・Schemaの現在契約は各正本に従い、本番Consumer完成を推定しない。Profile管理Roleはmanager／administratorに確定したが、追加区分のSource・本番搬送は未接続である。新しい権限FrameworkやBootstrap修復は導出しない。
+RFD-ST-003、RFD-ST-004、RFD-IT-013、RFD-UAT-007、RFD-ST-016、RFD-IT-017〜019、RFD-UT-020、RFD-IT-021、RFD-ST-022は **Not Run**。旧IDのEvidenceは旧契約の履歴であり、新契約のPassへ流用しない。現在はRFD-UT-020／023／028、IT021保存部分、IT024相関・User・初回資格保存部分、IT017／018のNode crypto技術部分のSource／Test Symbolと候補局所実行を接続済み。正式191項目結果／Evidence評価はNot Run。IT017／018の保存・発行確定・失効・認証主体・現在Role・配送・本番入口、上記以外の未接続部分はOPEN。固定管理分担・内容語彙・Schemaの現在契約は各正本に従い、本番Consumer完成を推定しない。Profile管理Roleはmanager／administratorに確定したが、追加区分のSourceとMCP実HTTPは局所候補へ接続済みで、本番Launcher／Workbench搬送は未接続である。新しい権限FrameworkやBootstrap修復は導出しない。
 
 ## 4. 評価とEvidence
 
@@ -255,7 +255,7 @@ RFD-IT-021の保存部分を`access-management/tests/integration/state/file-stor
 
 ## AM保存具体化の検証接続 — 2026-10-12
 
-共有Profile管理の追加区分は`RFD-UT-020`へ三Roleの固定許可判定、`RFD-IT-013`の資格→既存User→現在Role断面へ現在資格・初回完了・Roleの用途限定解決、`RFD-UAT-007`へ管理表示と鍵管理の違いを接続する。manager／administratorは許可、developerは拒否、失効・初回未完了・管理状態不明ではStoreを呼ばず、観測不能をdeniedへ畳まない。Header認証後のRole変更を次のtools/listとCallへ反映し、非管理者へCatalog存在・内容・件数を開示しない。Profile内容・CRUD・改訂・結果相関はQA-000001の`RCM-IT-005`、Tool公開・実行／取消／清掃は`RCM-IT-010`、旧systemAdmin Consumerから新契約への移行閉包は`RCM-ST-012`を参照する。`RFD-IT-021`／`RFD-ST-022`は通常6 AM保存操作のまま維持し、Profileへ流用しない。資格→現在Role断面の確認からExposure・Domain搬送や本番全体成立を推定しない。固定管理判定の母集合は9区分・11具体操作を目標とし、旧Sourceの10操作試験から追加区分の成立を推定しない。既存191 Local Item・正式Not Runを維持し、Source／実境界は未接続である。
+共有Profile管理の追加区分は`RFD-UT-020`へ三Roleの固定許可判定、`RFD-IT-013`の資格→既存User→現在Role断面へ現在資格・初回完了・Roleの用途限定解決、`RFD-UAT-007`へ管理表示と鍵管理の違いを接続する。manager／administratorは許可、developerは拒否、失効・初回未完了・管理状態不明ではStoreを呼ばず、観測不能をdeniedへ畳まない。Header認証後のRole変更を次のtools/listとCallへ反映し、非管理者へCatalog存在・内容・件数を開示しない。Profile内容・CRUD・改訂・結果相関はQA-000001の`RCM-IT-005`、Tool公開・実行／取消／清掃は`RCM-IT-010`、旧systemAdmin Consumerから新契約への移行閉包は`RCM-ST-012`を参照する。`RFD-IT-021`／`RFD-ST-022`は通常6 AM保存操作のまま維持し、Profileへ流用しない。資格→現在Role断面の確認からExposure・Domain搬送や本番全体成立を推定しない。固定管理判定の母集合は9区分・11具体操作を目標とし、旧Sourceの10操作試験から追加区分の成立を推定しない。既存191 Local Item・正式Not Runを維持する。RFD-UT-020／RFD-IT-013の当該断面はSource候補へ、RCM-IT-005／010は実HTTPと実Catalogの反証へ接続済みであり、本番Launcher／Workbenchは未接続である。Catalog依存を構成した局所候補ではmanager／administratorが19 Tool、developerが15 Tool、Catalog未構成時は15 Toolとする。
 
 [保存契約§4.5](../../../06_Architecture/Details/access-management/02_Management_State_and_API.md#45-現在状態容量鍵保存の固定方針--2026-10-12)を既存項目へ接続する。項目追加・実行済みへの変更は行わない。
 
@@ -275,7 +275,7 @@ RFD-IT-021の保存部分を`access-management/tests/integration/state/file-stor
 
 先行段階ではProject Context専用MCP Resolverの実HTTP試験を追加した。Header通常認証後の本文待機中にExposureを解除した場合は正常空Portfolio、資格失効の場合は固定内部エラーとし、どちらも旧許可対象の本文open 0を確認した。反復要求では毎回実本文を読み、二件目の本文欠測では全体を固定エラーへ閉じた。初回未完了はHandlerなし、開始前取消は対象読取り0、当時のTool一覧はContext二つだけであった。この段階はRFD-IT-013／019の部分接続の履歴で、現在構成は次段落とする。
 
-現在の`createAccessMcpResolver`はContext二操作、Topic／Meeting十二操作と活動一操作を局所実HTTPへ接続する。RFD-IT-013の部分確認では、現在Role／Exposure／失効の次要求反映、本文待機中の解除／失効からTopic保存0、非許可`-32602`、集合／Root／構成不明`-32603`、manifest Project不一致の登録／更新0、同Project許可集合だけのRelation判定を照合する。実HTTPのTool一覧は十五操作で、全十二操作のRepository ID必須と未知field拒否、Context二操作と活動へIDを追加しないSchemaを確認する。活動では現在認可→実保存Reader→固定結果へ接続し、同Project全出所・実Git改訂、空認可の非開示、公開解除・失効の次要求反映を確認する。鍵は非公開、Profileは新構成に未接続、旧CROS／Shared Hostと公開Launcher／Workbenchの本番切替は未完了。正式191項目Not Run、RFD-ST-003全体未Pass、保存開始後rollback非保証を維持する。
+現在の`createAccessMcpResolver`はContext二操作、Topic／Meeting十二操作と活動一操作に、Catalog構成時のProfile四操作を加えた局所実HTTP候補へ接続する。RFD-IT-013の部分確認では、現在Role／Exposure／失効の次要求反映、本文待機中の解除／失効からTopic保存0、非許可`-32602`、集合／Root／構成不明`-32603`、manifest Project不一致の登録／更新0、同Project許可集合だけのRelation判定を照合する。実HTTPのTool一覧は条件付き十五／十九操作で、Catalog依存を構成した局所候補ではmanager／administratorが19 Tool、developerが15 Tool、Catalog未構成時は15 Toolとする。全十二操作のRepository ID必須と未知field拒否、Context二操作と活動へIDを追加しないSchemaを確認する。活動では現在認可→実保存Reader→固定結果へ接続し、同Project全出所・実Git改訂、空認可の非開示、公開解除・失効の次要求反映を確認する。鍵は非公開、ProfileはAM現在認可による局所Source・実HTTP候補へ接続済みで、旧CROS／Shared Hostと公開Launcher／Workbenchの本番切替は未完了。正式191項目Not Run、RFD-ST-003全体未Pass、保存開始後rollback非保証を維持する。
 
 RFD-IT-019の部分接続として、現在許可された内部集合のRoot・manifestをDomain固定本文Readerへ一回だけ渡し、manifestのProject ID・Repository ID、Reader本文版、解析Contextの4項目Sourceを既存Portfolioへ搬送する。管理改訂を本文版へ流用しない。administratorの空内容範囲は本文読取り0、本文欠測は固定unavailable・版／Contextなしを確認し、null／missingや部分Portfolioの材料にしない。本番MCP／Workbench、複数本文原子性、正式191項目は未成立である。
 
