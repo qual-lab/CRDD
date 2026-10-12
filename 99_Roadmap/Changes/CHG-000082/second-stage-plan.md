@@ -1383,6 +1383,18 @@ Exposureは既存登録とdevelopment／managementの明示集合だけ。空集
 
 ## 活動取得の新Owner接続に向けた現行照合 — 2026-10-12
 
+### 実保存ReaderのOwner候補接続 — 2026-10-12
+
+設計Gate後のSource候補では、`orchestrator/src/activity/types.ts`・`validate.ts`・`read.ts`へ活動観測と実保存読取りを接続した。遠隔認可の成立をこのAPI単独へ主張せず、信頼した同Process Consumerが今回認可済みのProject／Repository／技術的Rootだけを渡す。状態は一度読み取ったSnapshotのProject値と受付世代だけから既存Queryで投影し、実履歴はExecution Intelligence正本を読む。保存Bindingは`identity/repository-binding.ts`へ抽出し既存Compositionも共用する。AM Binding、資格、Roleの搬送は0。
+
+実保存の局所5 CaseとOrchestrator全回帰（UT 73・IT 15、計88件）、書式・型・Lintが成功した。自己生成した`runtime-activity-*`試験Directoryは終了後0件。初回の局所失敗ではPush先設定の全体状態をGit改訂取得の条件へ流用していたため、既存VCのGit改訂専用Readerへ是正した。上流未設定の実Repositoryでも改訂を取得し、Git改訂不明時は継続を発行・受理しない。未接続の旧CROS／Workbench Readerはまだ撤去しない。
+
+Source候補の初回独立レビューではMajor 1・Moderate 3・Minor 2を検出した。Project／Source／Cursorの共同相関、理由の閉包・Event順序、Validatorの直接反証、旧Binding byte互換、現在句・Traceを一括是正した。公開観測は要求projectIdを必須とし、投影Project・出所・Page末尾Cursorの相関を保持する。Cursorのbyte契約は内部`activity/cursor.ts`へ共用し、StoreやAuthorityを追加しない。局所7 Caseが成功し、Binding長・Project相関・継続相関を外した3つの一時変異は期待どおり失敗、exact候補へ復元した。旧式で保存→新Readerで取得する片方向互換も確認した。
+
+是正後・変異復元後のOrchestrator全回帰はUT 73・IT 17、計90件成功、静的3軸成功、自己生成活動試験Directoryは0件。この固定候補の再レビューで前6指摘の解消を確認したが、offset付き日時の文字列順と実時刻順の逆転をModerate 1件として検出した。並び順・Validator・Cursor境界を同じ実時刻比較へ是正し、offset二Pageと同じ実時刻のID順反証を追加した。局所8 Case成功、文字列比較へ戻す追加一時変異は期待どおり失敗し復元済み。
+
+日時是正・変異復元後の全回帰はUT 73・IT 18、計91件成功、静的3軸成功、活動試験Directoryは0件。固定14ファイルの限定独立再レビューは全重大度の残指摘0。単一Snapshot、旧Binding byte互換、現在Root／Git、独立欠測、Project／Source／Cursor相関、実時刻の全体ページングをOwner局所範囲で確認した。MCP／Workbenchの既存型検査も成功した。本番MCP AM Resolver・Workbench・旧全Consumerの接続、旧処理撤去、取消後joinの公開入口反証、正式Quality実行は未完了。型や実保存の局所成功を活動能力全体の完成へ読み替えず、191正式項目はNot Runを維持する。現在、追加の人間判断は不要。`file-store.ts`責務調査で特定した再配置候補は未実施で、新Framework追加の許可として扱わない。
+
 基準HEAD `85e57b773c2432f7ee019e0c7e1ec3a39a7d64f3`、着手時clean。前段は実HTTP十四Toolの局所接続までで、活動取得は未接続である。今回の調査では次を確認した。これはSource移管済み・活動取得完成の表示ではない。
 
 | 現行実体 | 確認できた責務・制約 | 次の接続で保持すること |

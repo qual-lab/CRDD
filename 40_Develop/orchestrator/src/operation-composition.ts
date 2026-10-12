@@ -5,6 +5,7 @@
  * @trace ARCH-000004
  */
 import { createHash } from "node:crypto";
+import { deriveOrchestratorRepositoryBindingId } from "./identity/repository-binding.ts";
 import type { Writable } from "node:stream";
 import {
   recoverRuntimeOwnedDockerTask,
@@ -590,7 +591,8 @@ async function executeOrchestratorPublicObjective(
           });
         return Object.freeze({
           status: "verified",
-          repositoryBindingId: stable("binding", repositoryRoot),
+          repositoryBindingId:
+            deriveOrchestratorRepositoryBindingId(repositoryRoot),
           repositoryRevision: identity.commit,
           workingDirectory: repositoryRoot,
           repositoryRoot,
@@ -694,13 +696,15 @@ async function executeOrchestratorPublicObjective(
         consumeDockerRecoveryReceiptAfterProjectSettlement(settlement, {
           workingDirectory,
           repositoryRoot,
-          repositoryBindingId: stable("binding", repositoryRoot),
+          repositoryBindingId:
+            deriveOrchestratorRepositoryBindingId(repositoryRoot),
         }),
       finalizeTaskRecoveryAcknowledgement: (settlement) =>
         collectDockerRecoveryAcknowledgementAfterProjectRecord(settlement, {
           workingDirectory,
           repositoryRoot,
-          repositoryBindingId: stable("binding", repositoryRoot),
+          repositoryBindingId:
+            deriveOrchestratorRepositoryBindingId(repositoryRoot),
         }),
       ...(runtimeDependencies.resolveTaskRecoveryCorrelations
         ? {
@@ -711,7 +715,8 @@ async function executeOrchestratorPublicObjective(
       observeRecoveryTransition: writeOrchestratorRecoveryDiagnostic,
       execution: {
         resultDelivery: {
-          repositoryBindingId: stable("binding", repositoryRoot),
+          repositoryBindingId:
+            deriveOrchestratorRepositoryBindingId(repositoryRoot),
           createAcceptanceReader: (acceptance) =>
             createProjectResultAcceptanceReader({
               workingDirectory: repositoryRoot,
@@ -779,7 +784,8 @@ async function executeOrchestratorPublicObjective(
     return execution;
   const integrationAdapter =
     runtimeDependencies.createIntegrationAdapter(repositoryRoot);
-  const repositoryBindingId = stable("binding", repositoryRoot);
+  const repositoryBindingId =
+    deriveOrchestratorRepositoryBindingId(repositoryRoot);
   const integration = await integrateOrchestratorOperation(
     Object.freeze({
       candidate: Object.freeze({ ...integrationAdapter, observeLeaseOwner }),
@@ -810,7 +816,7 @@ async function executeOrchestratorPublicObjective(
   ) {
     const latest = readOrchestratorState(
       repositoryRoot,
-      stable("binding", repositoryRoot),
+      deriveOrchestratorRepositoryBindingId(repositoryRoot),
       request.projectId,
     );
     if (latest.status !== "completed" || latest.value === null)
@@ -867,12 +873,12 @@ async function executeOrchestratorPublicObjective(
     store: protectedStore.store,
     recoveryStore: createOrchestratorDecisionRecoveryStore(
       repositoryRoot,
-      stable("binding", repositoryRoot),
+      deriveOrchestratorRepositoryBindingId(repositoryRoot),
     ),
     capability: decisionCapability,
     persistence: createOrchestratorPersistencePorts(
       repositoryRoot,
-      stable("binding", repositoryRoot),
+      deriveOrchestratorRepositoryBindingId(repositoryRoot),
     ),
   } as const;
   const decision = request.decisionCapabilityReplacement
@@ -1119,12 +1125,12 @@ function executeOrchestratorPublicDecision(
     store: protectedStore.store,
     recoveryStore: createOrchestratorDecisionRecoveryStore(
       repositoryRoot,
-      stable("binding", repositoryRoot),
+      deriveOrchestratorRepositoryBindingId(repositoryRoot),
     ),
     capability: decisionCapability,
     persistence: createOrchestratorPersistencePorts(
       repositoryRoot,
-      stable("binding", repositoryRoot),
+      deriveOrchestratorRepositoryBindingId(repositoryRoot),
     ),
   } as const;
   const result =
@@ -1141,7 +1147,7 @@ function executeOrchestratorPublicDecision(
   if (result.status === "completed") {
     const maintained = maintainOrchestratorSnapshot(
       repositoryRoot,
-      stable("binding", repositoryRoot),
+      deriveOrchestratorRepositoryBindingId(repositoryRoot),
     );
     if (maintained.status !== "completed")
       return Object.freeze({
@@ -1268,7 +1274,8 @@ export function executeOrchestratorPublicAcceptanceDecision(
         manualRecoveryRequired: false,
         effectState: "no_effect" as const,
       });
-    const repositoryBindingId = stable("binding", repositoryRoot);
+    const repositoryBindingId =
+      deriveOrchestratorRepositoryBindingId(repositoryRoot);
     const result = recordOrchestratorAcceptanceDecision(
       Object.freeze({
         state: createOrchestratorPersistencePorts(
@@ -1429,7 +1436,7 @@ export function executeOrchestratorPublicStateQuery(
     });
   const snapshot = readOrchestratorSnapshot(
     repositoryRoot,
-    stable("binding", repositoryRoot),
+    deriveOrchestratorRepositoryBindingId(repositoryRoot),
   );
   if (
     snapshot.status !== "completed" ||
@@ -1454,7 +1461,7 @@ export function executeOrchestratorPublicStateQuery(
   return queryOrchestratorState(
     createOrchestratorPersistencePorts(
       repositoryRoot,
-      stable("binding", repositoryRoot),
+      deriveOrchestratorRepositoryBindingId(repositoryRoot),
     ).state,
     request,
     snapshot.value.intakeEpoch,

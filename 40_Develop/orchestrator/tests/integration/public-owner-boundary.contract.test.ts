@@ -27,7 +27,7 @@ const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
  * @precondition 移管後の二つの公開Moduleを読込み済みである。
  * @stimulus 公開値とPackage exportsを列挙する。
  * @observation Export名、関数型と業務入口の解決先を取得する。
- * @oracle 既存Root公開集合に七業務操作だけを加え、Coordinatorに業務操作がない。
+ * @oracle 宣言済みの業務・活動公開集合とexact一致し、Coordinatorに上位業務操作がない。
  * @cleanup N/A: Sourceを読み取るだけで実行、書込みや資源取得を発行しない。
  * @boundary PRL-IT-012=Direct Boundary: 公開ModuleとPackage設定。
  */
@@ -94,6 +94,7 @@ test("業務公開操作はOrchestratorが所有しCoordinatorから再公開し
     "inspectOrchestratorSnapshotIntake",
     "inspectOrchestratorStateQuery",
     "inspectOrchestratorStateQueryResult",
+    "inspectRuntimeActivityObservation",
     "integrateOrchestratorOperation",
     "invalidateOrchestratorHumanDecision",
     "isOrchestratorDecisionRecord",
@@ -107,9 +108,11 @@ test("業務公開操作はOrchestratorが所有しCoordinatorから再公開し
     "observeRuntimeOwnedProjectClientPrincipal",
     "orchestratorDecisionRecordId",
     "orchestratorIntegrationResultFields",
+    "parseRuntimeActivityObservation",
     "prepareProjectTaskHandoff",
     "projectOrchestratorState",
     "queryOrchestratorState",
+    "readAuthorizedRuntimeActivity",
     "readCurrentOrchestratorState",
     "readOrchestratorSnapshot",
     "recordOrchestratorAcceptanceDecision",

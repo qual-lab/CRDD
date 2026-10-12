@@ -326,7 +326,7 @@ Orchestratorは活動観測型、閉じた結果検査、現在状態Query、Exe
 
 ページングは現在観測に対する継続であり、履歴全体の固定Snapshot・重複配送保証ではない。通常の新しいEvent追記は既存の時刻／ID境界より後続Pageへ混入させず、保持期間による履歴整理から過去Eventを復元しない。Snapshot保存、Session、Registry、Lockや履歴の複製は追加しない。開始前取消は観測0、開始済みReaderは完了までjoinし、取消後に結果を公開・再実行しない。取消要求を実I/O中断や資源不存在の証明にしない。
 
-本節は未実装の接続候補である。型・検査の移管、合成Readerの注入、実Store読取り、複数Repositoryの競合／欠測／ページング、MCP実HTTP、Workbench同等結果、旧全Consumerの追従を確認するまで、活動能力の完成や旧CROS活動処理の撤去を主張しない。実行／Docker回復の延期済み大改修は本節へ含めない。
+Owner型・閉じた検査・実Store Readerは候補実装済み・Owner局所範囲の限定独立レビュー済みである。公開観測に要求projectIdを保持し、observed時の投影Projectと一致させる。継続Cursorは同じProject／正規sourcesの相関と返却Page末尾の時刻／Event IDにexact結合し、未知理由・逆順Event・不整合を拒否する。時刻は文字列順でなくDate.parse後の実時刻降順、同じ実時刻だけEvent ID降順で比較し、並び順・Validator・Cursor境界へ共用する。EI保存文字列は変更しない。利用側も応答Projectと今回要求を比較する。MCP実HTTP、Workbench同等結果、旧全Consumerの追従と正式QAは未完了であり、活動能力の完成や旧CROS活動処理の撤去を主張しない。実行／Docker回復の延期済み大改修は本節へ含めない。
 
 ## 8. 構成Root
 

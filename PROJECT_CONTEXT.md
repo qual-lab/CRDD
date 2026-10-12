@@ -9,7 +9,9 @@ Repository Role: `crdd-standard`
 
 ## 1. 今どうなっているか
 
-最新局所結果：現在のAccess Management認証・認可からTopic／Meeting全12操作を実HTTPへ接続した。MCP65／Domain120／Access Management59の計244 Caseと静的検査成功、限定独立再レビューPass・残指摘0。指定Repositoryへの実保存、現在権限・公開解除・失効、Project拘束、Relation集合、公開Schemaを確認した。本番Launcher／Workbench切替・活動／Profile接続・鍵配送・旧REST撤去・正式191項目評価は未完了で、AM全体完成ではない。[対象と限界](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#am認証によるtopicmeeting-mcp接続--2026-10-12)を参照する。
+最新局所結果：Orchestratorへ活動取得の実保存Readerを候補接続し、全回帰91件・静的3軸成功、限定独立再レビュー残指摘0。単一Snapshot、既存Binding互換、Project／出所／Cursor相関、offsetを含む実時刻ページングを確認した。本番MCP AM認可接続・Workbench切替・旧全Consumer移行・正式191項目評価は未完了で、活動能力全体やAM全体の完成ではない。[対象と限界](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#実保存readerのowner候補接続--2026-10-12)を参照する。
+
+直前局所結果：現在のAccess Management認証・認可からTopic／Meeting全12操作を実HTTPへ接続した。MCP65／Domain120／Access Management59の計244 Caseと静的検査成功、限定独立再レビューPass・残指摘0。指定Repositoryへの実保存、現在権限・公開解除・失効、Project拘束、Relation集合、公開Schemaを確認した。本番Launcher／Workbench切替・活動／Profile接続・鍵配送・旧REST撤去・正式191項目評価は未完了で、AM全体完成ではない。[対象と限界](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#am認証によるtopicmeeting-mcp接続--2026-10-12)を参照する。
 
 ### 結論
 

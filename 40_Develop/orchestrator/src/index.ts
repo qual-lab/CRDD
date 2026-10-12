@@ -277,3 +277,15 @@ export {
   runOrchestratorPublicStateQuery,
 } from "./operation-composition.ts";
 export { observeRuntimeOwnedProjectClientPrincipal } from "./identity/observe-principal.ts";
+export { readAuthorizedRuntimeActivity } from "./activity/read.ts";
+export {
+  parseRuntimeActivityObservation,
+  inspectRuntimeActivityObservation,
+} from "./activity/validate.ts";
+export type {
+  ActivityRepository,
+  ActivitySource,
+  RuntimeActivityEvent,
+  RuntimeActivityObservation,
+  RuntimeActivityRequest,
+} from "./activity/types.ts";

@@ -4,6 +4,44 @@
   "subsystem": "orchestrator",
   "symbols": [
     {
+      "symbolId": "orchestrator.activity.types",
+      "kind": "file",
+      "path": "src/activity/types.ts",
+      "archIds": ["ARCH-000004", "ARCH-000007"]
+    },
+    {
+      "symbolId": "orchestrator.activity.cursor",
+      "kind": "file",
+      "path": "src/activity/cursor.ts",
+      "archIds": ["ARCH-000004", "ARCH-000007"]
+    },
+    {
+      "symbolId": "orchestrator.activity.validate",
+      "kind": "file",
+      "path": "src/activity/validate.ts",
+      "archIds": ["ARCH-000004", "ARCH-000007"]
+    },
+    {
+      "symbolId": "orchestrator.activity.read",
+      "kind": "file",
+      "path": "src/activity/read.ts",
+      "archIds": ["ARCH-000004", "ARCH-000007"]
+    },
+    {
+      "symbolId": "orchestrator.identity.repository-binding",
+      "kind": "file",
+      "path": "src/identity/repository-binding.ts",
+      "archIds": ["ARCH-000004"]
+    },
+    {
+      "symbolId": "orchestrator.test.integration.runtime-activity",
+      "kind": "test-suite",
+      "path": "tests/integration/runtime-activity.contract.test.ts",
+      "qaIds": ["QA-000004"],
+      "localTestIds": ["PPR-IT-012"],
+      "verifies": ["orchestrator.activity.types", "orchestrator.activity.validate", "orchestrator.activity.read", "orchestrator.activity.cursor", "orchestrator.identity.repository-binding"]
+    },
+    {
       "symbolId": "orchestrator.identity.principal-observation",
       "kind": "file",
       "path": "src/identity/observe-principal.ts",

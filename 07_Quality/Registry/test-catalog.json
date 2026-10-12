@@ -3877,6 +3877,19 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "orchestrator:integration:runtime-activity",
+      "owner": "orchestrator",
+      "path": "40_Develop/orchestrator/tests/integration/runtime-activity.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["orchestrator", "runtime-activity", "state", "history", "provenance", "pagination"],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["single_snapshot_projection", "project_source_cursor_correlation_preserved", "closed_reason_and_event_order", "legacy_binding_bytes_preserved", "unknown_not_empty_success", "no_cursor_for_unknown_revision", "owned_fixture_absent"],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "orchestrator:integration:public-owner-boundary",
       "owner": "orchestrator",
       "path": "40_Develop/orchestrator/tests/integration/public-owner-boundary.contract.test.ts",
