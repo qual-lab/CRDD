@@ -22,7 +22,7 @@ CHG-000082の再編後の実装親Folderは`workbench-server`とする。以下�
 | [ARCH-000009](../../Definitions/ARCH-000009/architecture_definition.md) | 検証済みRepository境界をWorktree表示へ接続する。 | Covered |
 | [ARCH-000010](../../Definitions/ARCH-000010/architecture_definition.md) | AI ProfileとTool Capabilityを選択可能な表示へ接続する。 | Covered |
 | [ARCH-000012](../../Definitions/ARCH-000012/architecture_definition.md) | Local／Remoteの入口差を同じApplication意味へ適合する。 | Covered |
-| [ARCH-000013](../../Definitions/ARCH-000013/architecture_definition.md) | 現在認可された情報の表示、通常管理の入力・結果搬送と同一Processの通常鍵操作をAccess Managementへ委譲する。 | Partial。具体API・提示方式・初回限定接続確認方式・本番接続はOPEN |
+| [ARCH-000013](../../Definitions/ARCH-000013/architecture_definition.md) | 現在認可された情報の表示、通常管理の入力・結果搬送と同一Processの通常鍵操作をAccess Managementへ委譲する。 | Partial。論理初回接続・v2目標Schemaは具体化済み。具体API・提示観測の実装／実境界・移行・本番接続はOPEN |
 | [ARCH-000015](../../Definitions/ARCH-000015/architecture_definition.md) | 外部AI依頼、結果帰還および候補採否の境界を表示する。 | Covered |
 | [ARCH-000016](../../Definitions/ARCH-000016/architecture_definition.md) | 現在有効な意図と履歴正本への導線を提供する。 | Covered |
 | [ARCH-000017](../../Definitions/ARCH-000017/architecture_definition.md) | 承認済みCRDD公式ロゴをApplication Brandへ使用する。 | Covered |
@@ -185,7 +185,7 @@ Workbench Serverは別ProcessのCROSに対してMCP Clientとなる。Browserか
 
 現在の`crdd.list_projects`はProject ID・状態・Source数だけを返し、完全Portfolioではない。再編候補では[MCPのPortfolio契約](../mcp-server/01_Architecture.md#32-portfolioの一覧詳細契約)に従い、同じToolへ検索・状態・Query拘束Cursor・limitとページ内Sourceを接続する。Workbenchは返されたページだけを表示し、独自の二重ページングや未取得Sourceの検索を行わない。詳細取得は毎回現在認可を再確認する。複数Requestの結果を一つの原子的snapshotと偽らず、全Source取得済みでない表示を完全Portfolioにしない。公開SchemaとReaderの本番接続は未完了である。
 
-鍵の通常発行・独立失効・交換は[MCPの鍵管理非公開境界](../mcp-server/01_Architecture.md#33-鍵管理のmcp非公開境界)に従い、同一Process Workbench Backendの現行administratorだけがAccess Managementへ直接委譲する。別Process WorkbenchではMCP経由の鍵操作を全て利用不能と理由付きで表示する。Secretを返さない資格一覧・独立失効も公開せず、MCPの一覧・Schema・登録・dispatchに鍵操作を追加しない。通常Host回復は信頼したログイン済み操作者の対話CLI交換2操作だけで、追加認証なし・既存Root／Path検証を維持する。初回Host設定は承認済みのAccess Management契約へ対応し、WorkbenchはHost操作の案内だけを担う。本書の新Owner境界は設計候補として再伝播する。具体画面／API・提示方式・初回限定接続確認方式、Quality・Source接続は未完了である。
+鍵の通常発行・独立失効・交換は[MCPの鍵管理非公開境界](../mcp-server/01_Architecture.md#33-鍵管理のmcp非公開境界)に従い、同一Process Workbench Backendの現行administratorだけがAccess Managementへ直接委譲する。別Process WorkbenchではMCP経由の鍵操作を全て利用不能と理由付きで表示する。Secretを返さない資格一覧・独立失効も公開せず、MCPの一覧・Schema・登録・dispatchに鍵操作を追加しない。通常Host回復は信頼したログイン済み操作者の対話CLI交換2操作だけで、追加認証なし・既存Root／Path検証を維持する。初回Host設定は承認済みのAccess Management契約へ対応し、WorkbenchはHost操作の案内だけを担う。本書の新Owner境界は設計候補として再伝播する。論理初回接続はAM保存設計§2.5へ具体化済み。具体画面／API・提示観測の実装／実境界・移行・Quality・Source接続は未完了である。
 
 起動時の`--cros`で単体／CROS利用を明示する。指定なしは現在Rootに固定し、`crdd.list_repositories`から得る唯一のIDを自動選択して切替操作を出さない。CROS指定時は同じ一覧・repositoryId入力で許可対象から選択し、初期化済みだからという理由で自動移行しない。同一Process CROSでは構成設定、別Process接続では明示MCP Endpointを用い、CredentialをCLI引数へ置かない。CROS設定不正・接続不能時は単体へFallbackしない。サーバー起動用CRDDリポも公開設定なしで対象に加えない。
 
@@ -251,7 +251,7 @@ Hostの交換2操作はWorkbench Backendで実行せず、信頼したログイ�
 
 未知対象、必要な既存administratorの不存在、認可破損または安全な観測不能は処置前に停止する。userId／username／Role／Role詳細権限／Repository登録／Product Dataは交換で変更しない。資格状態は旧失効・新発行によって変わる。管理者であることから内容参照を許可せず、他ユーザー情報の表示も現在の参照許可に従う。ユーザー・Role内容設定・Repository登録／Exposureの管理はARCH-000013の固定9分担に従い、Role内容設定から管理権限を生成しない。具体公開API・Schema・本番接続は未完了。AI Profile管理の担当Roleはmanager／administratorに確定した。現在認可のSource・本番接続は未完了である。
 
-具体画面配置、公開API・Schema、結果Fieldと提示結果・初回限定接続確認は未確定。SCR-000008／BHV-000012／`PRT-000008.spec-000012`への接続はPartialである。Qualityは通常発行の失効0・Recovery0、独立失効の対象限定・発行0、交換4組表示／3組確認、鍵3分岐、元Identityと別交換の区別、MCP鍵操作0、Secret再表示0、遅延失効鍵の利用案内0、後段失敗時の既知事実保持をIT／STで導出する。ここでQA Local Item IDを推測して発行しない。旧伝播候補の限定Passは履歴。今回の最小提示方式の差分は限定再レビュー済み（最小鍵提示方式の伝播差分、全重大度0）で、QA実行済みではない。
+論理初回接続とv2目標SchemaはAM保存設計へ具体化済み。具体画面配置、公開API・結果Field、提示観測の実装／実境界・移行・本番接続は未成立。SCR-000008／BHV-000012／`PRT-000008.spec-000012`への接続はPartialである。Qualityは通常発行の失効0・Recovery0、独立失効の対象限定・発行0、交換4組表示／3組確認、鍵3分岐、元Identityと別交換の区別、MCP鍵操作0、Secret再表示0、遅延失効鍵の利用案内0、後段失敗時の既知事実保持をIT／STで導出する。ここでQA Local Item IDを推測して発行しない。旧伝播候補の限定Passは履歴。今回の最小提示方式の差分は限定再レビュー済み（最小鍵提示方式の伝播差分、全重大度0）で、QA実行済みではない。
 
 ### 6.2. 通常管理の入力・結果搬送
 
@@ -272,6 +272,8 @@ Qualityは固定9分担×三Role、操作別入力、managerのadministrator名�
 
 ### 6.3. 初回Host設定の案内
 
+初回資格での接続操作は[AM保存設計§2.5](../access-management/02_Management_State_and_API.md#25-初回限定接続の具体契約)の限定discover、続くfresh通常読取りへ接続する。追加受領ボタンを設けず、同じ操作内で進める。AM確認保存前の応答、単なるHTTP到達、旧Portfolio取得から初回完了を表示しない。既知保存後の応答喪失は再接続で現在状態を確認し、秘密再表示・自動再発行・rollbackをしない。現Sourceの旧REST接続操作からの切替と実画面は未実装、今回の具体化5文書差分は契約・品質限定独立再レビューPass・全重大度0。実装・本番成立ではない。
+
 初回の意味・State・Sequenceは[Access Management詳細](../access-management/01_Architecture.md#41-初回host設定のstateとsequence)、利用者表示のOwnerはSCR-000008／BHV-000012とする。WorkbenchはHostの明示操作へ案内するだけで、初期化実行・UUID作成・鍵発行・初期SecretのWorkbench搬送をBackendに追加しない。
 
 | 許可された確認情報 | 表示・案内 |
@@ -281,7 +283,7 @@ Qualityは固定9分担×三Role、操作別入力、managerのadministrator名�
 | 確認済み途中 | 非秘密の個別事実とHost元試行再観測へ案内。発行／記録不明と受け渡しだけ不明を分ける |
 | 未観測・情報不足 | 未初期化と表示せず、Hostで現在状態を確認する案内 |
 
-Remote MCPから初期化状態を照会する新機能は作らない。接続不可や設定Fileの有無だけではユーザー・試行の存在を確定できない。初回SecretはHost端末で一度提示し、Workbench画面へ移さない。Host提示とexact同鍵の限定接続成功、その確認保存・読戻し・短命材料清掃／Lock終了を区別し、全確認後だけ初回完了と通常管理への案内を行う。いずれか未確認・失敗・観測不能なら完了表示0・通常Authority0。発行／記録確定後の提示・接続未確認は既存Host指定交換を別明示操作として案内し、Secret再表示・自動再発行をしない。接続Owner・Protocol・Host交換後の確認対象Binding・具体表示・本番接続はOPEN。
+Remote MCPから初期化状態を照会する新機能は作らない。接続不可や設定Fileの有無だけではユーザー・試行の存在を確定できない。初回SecretはHost端末で一度提示し、Workbench画面へ移さない。Host提示とexact同鍵の限定接続成功、その確認保存・読戻し・短命材料清掃／Lock終了を区別し、全確認後だけ初回完了と通常管理への案内を行う。いずれか未確認・失敗・観測不能なら完了表示0・通常Authority0。発行／記録確定後の提示・接続未確認は既存Host指定交換を別明示操作として案内し、Secret再表示・自動再発行をしない。接続Owner・限定Protocol・Host交換後Binding・v2目標SchemaはAM保存設計へ具体化済み。具体表示・提示観測の実装／実境界・移行・本番接続はOPEN。
 
 旧初回案内の限定Passは当時の固定版の履歴。今回の最小提示方式の差分は限定再レビュー済み（最小鍵提示方式の伝播差分、全重大度0）。QualityへはHost案内と実行の分離、提示と接続確認の別、確認保存・読戻し・清掃／Lock終了の失敗反例、通常Secretの対象本人受領非推定を渡す。
 
@@ -357,7 +359,7 @@ Local操作またはRemote要求の直前にだけ配送済みを記録し、そ
 - 320〜1920 CSS px、100%／200%／400% Zoom、Keyboard順、文字下限、操作対象、ContrastをProduction DOMで評価する。
 - shutdown後にlistener、request、child process、一時AssetまたはCredentialが残らない。
 
-最新ARCH-000013の境界伝播は設計候補であり、具体API・保存・提示方式・初回限定接続確認方式、Quality導出と本番接続はOPEN。以下の既存Checklist評価を新構成の全体完了へ流用しない。
+最新ARCH-000013の境界伝播は設計候補であり、論理Owner・限定Protocol・v2目標SchemaはAM保存設計へ具体化済み。具体API・保存実装・提示実境界・移行・Quality導出と本番接続はOPEN。以下の既存Checklist評価を新構成の全体完了へ流用しない。
 
 Checklist評価根拠: Remote MCP公開Schema、Local内部呼出し、Browser APIのConsumer対応を具体化した。Component、Interface、Data／StateおよびSequenceの設計を本番実接続と区別した。 QA-000001／004／007／009の追加観測条件へ操作・接続世代・失効・応答喪失・終了の義務を渡した。旧Gatewayと新MCP経路の実績を混同せず、新構成の実境界は未評価である。
 

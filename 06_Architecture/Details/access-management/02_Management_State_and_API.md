@@ -53,7 +53,7 @@
 
 発行と結果記録が確定しHost提示または同鍵の限定接続確認だけ不明なら、作成済みadministratorへの既存`exchangeCredentialsFromHost`指定交換を別明示操作として選ぶ。初期化再実行・Secret取得APIを作らず、元試行と別交換を分離する。提示不明と提示確定後の接続未確認を混同しない。初回状態readにVerifier・salt・Secret・任意Pathを含めず、MCP／Remote Workbenchへ公開しない。
 
-初回確認の具体設計では、元attempt／userと直近Host提示資格のexact Binding、限定接続Owner・Protocol、保存・読戻し・短命pending／材料とLockの終了を閉じる。現在の`authenticateNormalConnection`はcompletedを必要とするため初回へ流用しない。`authenticateCredential`の途中本人照合だけでも通常Authorityを与えない。Host明示交換後は新提示資格へ確認対象を結び直し、旧初資格・元発行の既知事実を新交換成功で上書きしない。保存形状はOPENで、別Receipt・Session・Store・Lockは追加しない。どの必要条件も未確認・失敗・観測不能ならcompleted表示と通常Authorityは0。
+初回確認の論理Owner・完全限定Protocol・exact Bindingは§2.5、v2目標形状はSchema切替案へ具体化した。保存・読戻し・短命pending／材料とLock終了の実装・実境界は残る。現在の`authenticateNormalConnection`はcompletedを必要とするため初回へ流用しない。`authenticateCredential`の途中本人照合だけでも通常Authorityを与えない。Host明示交換後は新提示資格へ確認対象を結び直し、旧初資格・元発行の既知事実を新交換成功で上書きしない。v2目標形状は具体化済み、完全Parser・実状態移行・本番保存はOPEN。別Receipt・Session・Store・Lockは追加しない。どの必要条件も未確認・失敗・観測不能ならcompleted表示と通常Authorityは0。
 
 ### 2.2 初回状態の純粋判定 — 2026-10-11
 
@@ -92,6 +92,26 @@ RFD-IT-021の4操作部分に6 Caseを接続し、三Role×対象三Role×4操�
 
 Source・Package公開入口・Symbol・試験台帳を接続し、既存保存ITへ4 Caseを追加した。AM全45 Case・静的3軸成功。登録と公開の分離、Identity不一致、認可前Root観測0、旧Root不成立時の登録解除、公開範囲0、出版後清掃不明、非認可時の先行材料保持と許可済み先行清掃を確認した。固定18ファイルの限定独立再レビューPass・全重大度の残指摘0。本番Consumer接続は未完了で、191項目の正式評価はNot Runを維持する。新しいStore・Lock・Registry・一般回復、旧CROS削除・実Host移行・Transport公開は本段階の対象外。
 
+### 2.5 初回限定接続の具体契約
+
+基準`5a8f6ce9`のSourceを照合した具体化である。初回設定そのものはHostだけが開始し、MCP／Workbenchは作成済み資格による限定接続だけを受ける。鍵の発行・交換・状態照会をMCPへ追加しない。初回接続成功は、完全な限定要求のサービス側受理と確認の保存確定を表し、相手による応答受領・画面閲覧の保証ではない。追加受領ボタン、ACK、Session、Store、Lockは作らない。
+
+| 順序・Owner | 具体処理 | 成立条件と拒否 |
+|---|---|---|
+| AMの要求内接続判定 | 同じ既存Lock・同改訂で資格を照合し、通常接続または初回限定接続へ分類する | 初回候補は元attemptId・userId・最新confirmationCredentialId・revisionへ相関。通常認証と途中本人認証を二度呼んで組み合わせず、Lock外stage読取りをしない。候補は通常Authorityではない |
+| MCPの限定Handler | HTTPのOrigin／Endpoint／POST／Header／容量／完全JSON／Header相関検査後、既存`server/discover`だけを完全検査する | 非null Request ID、exact method、閉じたparamsと`_meta`、既存Envelopeを検査する。`tools/list`／`tools/call`・他method・不正入力・開始前取消はAM更新0。通常Routingの依存やToolを初回Handlerへ渡さない |
+| AMの`confirmInitialConnection` | signal再確認後、同じ保存LockでBearerと期待Bindingをfresh再照合し、初回completedを一回出版する | `credential_stored`、同attempt／user／最新資格／期待revision、資格有効、Host提示confirmed、未解決交換0が必要。確認保存・正確byte読戻し・pending／短命材料清掃・Lock終了まで成功した場合だけ非秘密の成功を返す |
+| Surfaceの成功応答 | 確認の確定後に限定discover応答を返す | 応答前に通常内容・管理・鍵操作を実行しない。通常Authorityは次要求のfresh通常認証だけ。応答結果に元試行ID・User／資格ID・Root・Verifier・Secretを出さない |
+| Workbenchの接続操作 | 現行UIの接続操作から同じ限定discover、次いでfreshな通常読取りへ進む | 同一Processも同じAM用途判定・確認契約を使う。初回完了表示は後続通常読取り成功後だけ。別の確認操作を利用者へ要求しない |
+
+MCP-only初回は、CRDDの完全な`server/discover`を送るClientで成立させる。任意のMCP Clientがこの固有Protocolを使えるとは主張しない。Workbenchの現`/connection/action`は旧REST Portfolio取得であり、上表へのConsumer切替は未実装である。HTTP本文前のResolverは用途分類だけを行い、本文の妥当性を確認する前に初回状態を更新しない。
+
+応答書込み失敗・切断が確認出版後なら、既知completedを保持しrollbackや新資格生成をしない。Clientは同鍵の次要求で現在状態を再観測できる。出版・読戻し・清掃・Lock終了が不明なら成功応答と当該要求の通常Authorityは0とし、既存pendingと元相関を保持する。次要求は既存の同相関再観測・清掃・Lock終了を確認するまで通常認証成功にしない。取消は保存開始前なら更新0、開始後は既存同期保存の終了を待ち、取消後の成功応答を止める。応答後に秘密を保持したまま`finish`で保存する経路は採らない。[Node.js HTTPのfinish仕様](https://nodejs.org/docs/latest-v24.x/api/http.html#event-finish_1)はOSへの送出引渡しであり、Client受領の証明ではない。
+
+同時要求は同じ既存Lockで順序化する。同Bindingの再要求は一回の出版を再観測するだけで、追加資格・追加UUIDを作らない。既に同attempt／user／確認資格でcompletedなら、現在資格の有効性と短命材料・Lock終了をfreshに確認して限定成功を再観測する。未完了の更新には期待revisionの完全一致が必要であり、用途解決後のHost交換や別改訂では古い候補の更新を拒否する。表示・通信・保存の故障を通常の本人受領へ読み替えない。
+
+反証対象は、不正Header／body／Envelope／ID／method、Tool呼出し、提示未確認、旧・失効・別User資格、attempt／user／資格／revision差、未解決交換、Lock／状態不明、二要求競合、交換競合、保存前／保存後取消、出版／読戻し／清掃／解放故障、成功保存後の応答喪失と次要求である。既存初回義務`RFD-IT-024`／`025`／`RFD-ST-026`／`RFD-UAT-027`へ具体観測を渡す。QA定義・Source・本番Consumerは未更新、正式結果はNot Run。この具体設計5文書差分の契約・品質限定独立再レビューはPass・全重大度0で、実装Ready・本番成立を意味しない。
+
 ## 3. 内部状態と公開読取り
 
 ### 認証主体の局所接続 — 2026-10-12
@@ -107,7 +127,7 @@ RFD-IT-013の資格→現在User／Role部分とIT024の初回状態非更新を
 | `credentials` | Credential ID、既存userId、Verifier・salt・状態。生Secretなし |
 | `registeredRepositories` | 接続先Binding。Context本文・Portfolio結果はDomain Modelが所有 |
 | `exposure` | 現在の公開範囲。登録一覧から暗黙生成しない |
-| `initialization` | 初回管理状態、確認済み元試行相関、作成UUID、確認対象資格と元発行処置、結果記録／Host提示／限定接続確認の個別事実。非秘密。確認保存・読戻し・清掃・Lock終了後だけ完了へ進む。具体SchemaとHost交換後のBindingはOPEN。交換Recoveryとは分離 |
+| `initialization` | 初回管理状態、確認済み元試行相関、作成UUID、確認対象資格と元発行処置、結果記録／Host提示／限定接続確認の個別事実。非秘密。確認保存・読戻し・清掃・Lock終了後だけ完了へ進む。v2目標SchemaとHost交換後Bindingは切替案で具体化済み。実装・実状態移行はOPEN。交換Recoveryとは分離 |
 | `unresolvedKeyExchanges` | exact Recovery、旧資格集合、既存発行先、段階と既知結果。非秘密 |
 
 初回進行記録はProcess喪失後にも再観測する耐久的な論理事実で、出版前短命の`access-management.pending.json`そのものではない。単一現在Fileに含め、別Store・実行毎Directory・履歴列を追加しない。Schemaと相関baselineの保存・再入場は局所接続済み。Root準備・提示／初回限定接続確認／通常接続の後続段階・解消後整理は未完了。未解決参照を失わず有限化する条件は保存Gateで閉じる。
@@ -306,7 +326,7 @@ pendingが存在しないこと自体は、元操作の完了や未試行の証�
 | 現在状態の包絡 | `contract`、`schemaRevision`、単調増加する安全整数`revision`、最後の出版操作の非秘密`operationId`と§3の7集合／状態。未知field、重複ID、参照先不在、改訂再利用を拒否 | 過去改訂の列、通常管理のReceipt一覧、Transport設定、Domain本文 |
 | `users`の各要素 | `userId`はNode `randomUUID`によるUUID v4、`username`は表示専用文字列、`role`は固定3値。IDは不変、名前は認証・権限へ使わない | メール、Password、本人確認、複数Role、自己編集設定 |
 | `credentials`の各要素 | `credentialId`、既存`userId`、`tokenVersion: 1`、`tokenSalt`、`tokenVerifier`、明示失効状態。Role／内容権限は保存せず現在Userから解決。資格IDを再利用しない | 生Secret、Bearer全文、期限、自動Rotation、Credential別権限 |
-| 初回進行 | 元試行・作成userId・確認対象資格と元発行、相関保存・資格記録・Host提示・限定接続・確認保存の事実。既知と未確認を分離し、具体Schemaは次段で確定 | 試行ごとのFile、Secret、通常Receipt、交換Recoveryの代用、時刻だけの完了判定 |
+| 初回進行 | 元試行・作成userId・確認対象資格と元発行、相関保存・資格記録・Host提示・限定接続・確認保存の事実。既知と未確認を分離し、v2目標Schemaは切替案に従い、実装・実状態移行は未成立 | 試行ごとのFile、Secret、通常Receipt、交換Recoveryの代用、時刻だけの完了判定 |
 | 未解決交換 | 元のexact Recovery、固定した失効対象ID集合、既存発行先userId、失効／発行／結果記録／提示結果の個別事実（本人受領は観測外） | 通常発行の不明を交換として格納、実行ログ、生Secret |
 
 UUID版の選定は安定IDの生成方法の具体化であり、Userの意味や認可方式を変えない。`username`の入力制約、Role内容操作語彙、登録Bindingの全field、初回・交換の全判別Unionは完全Schema固定時に照合する。候補項目を`unknown`や余分field透過で仮実装しない。包絡のcontract文字列・schemaRevisionを含む新通信／保存契約は、SourceとConsumer切替時に一体で固定する。
@@ -358,15 +378,36 @@ currentとpendingは共にVerifierを含む保護対象である。公開DTO、�
 | Role内容範囲 | 固定3Roleそれぞれの`workspaceIds` | 値は`development`／`management`の重複なし集合。Role全3件を保持し、未知Role・未知Workspaceを拒否。管理8操作は別の固定判定を使い、この集合から付与しない |
 | 登録Repository | `repositoryId`、内部`repositoryRoot`、`bindingId` | repositoryIdはDomainのCanonical Identity、RootはVersion Controlで検証した絶対exact Root。bindingIdは既存のRepository ID＋正規化Root由来の結合値。Rootは公開しない。Context本文・内容Hash・Transport設定を保存しない |
 | Exposure | `repositoryId`、`workspaceIds` | 登録済みIDだけ、同じ2Workspace語彙。登録解除では対応Exposureも同一改訂から除去。登録だけで公開せず、登録解除でRepository本体を削除しない |
-| Credential | §4.4の資格情報、元発行処置と一度提示結果の非秘密相関。具体fieldは移行設計で確定 | 資格ID・元発行ID・userIdを相関。通常本人受領は観測外で記録しない。通常発行の不明を交換記録へ移さない。旧field集合は§5の現Source比較へ分離 |
-| 初回進行 | 単一元試行、作成User、直近Host提示の確認対象資格、Host提示・限定接続・確認保存の個別事実 | 未確認はそのまま保持。保存・読戻し・短命材料清掃／Lock終了がすべて成立した場合だけcompleted／通常Authority。Host交換後BindingとSchemaはOPEN。名前だけのstageから完了を推定しない |
+| Credential | §4.4の資格情報、元発行処置と一度提示結果の非秘密相関。v2目標fieldは次の切替案に従い、Sourceと実状態移行は未成立 | 資格ID・元発行ID・userIdを相関。通常本人受領は観測外で記録しない。通常発行の不明を交換記録へ移さない。旧field集合は§5の現Source比較へ分離 |
+| 初回進行 | 単一元試行、作成User、直近Host提示の確認対象資格、Host提示・限定接続・確認保存の個別事実 | 未確認はそのまま保持。保存・読戻し・短命材料清掃／Lock終了がすべて成立した場合だけcompleted／通常Authority。Host交換後Bindingとv2目標Schemaは次の切替案に具体化済み、Source・実状態移行は未成立。名前だけのstageから完了を推定しない |
 | 未解決交換 | exact Recovery、操作ID、固定旧資格ID集合、既存発行先userId、失効・新資格保存・提示結果と提示未確認処置の個別事実 | 通常発行・初回・Lockの記録を混入しない。資格状態が失効へ変わっても固定旧IDと資格recordを保持し、未解決中は参照資格を整理しない。本人受領は観測せず、終了済み交換の配列を積算しない |
 
 各集合のIDは一意で、User参照・登録参照を全件検査する。Administratorの初期内容範囲は空、DeveloperはDevelopment、ManagerはDevelopment＋Managementとする。管理権限、AI Profileの管理可否、AI依頼・Task・Git Push・候補採用等を内容Workspaceから暗黙許可しない。これらの既存Ownerによる操作判定を保持し、別の操作別設定を必要とする場合だけ上流判断へ戻す。
 
 Repository利用時には登録したRoot・Repository Identityを再検証し、現在Role範囲、現在Exposure、実アクセスの積として解決する。Bindingは過去のRoot検証を永続保証するものではない。旧CredentialのworkspaceIdsをRoleへ自動変換せず、フロントAIの明示移行対応を必要とする。
 
-#### 容量と整理
+#### 最小提示方式へのSchema切替案
+
+次のSource／Consumer一体切替では`schemaRevision: 2`を目標とする。上表のrevision 1と§5の旧Parser形状は比較基準であり、新旧を同時受付する互換Readerは作らない。7項目・容量・通常保存・現在認可の契約は維持し、変更するfieldを次に限定する。
+
+| 対象 | 新形状 | 相関・保持 |
+|---|---|---|
+| Credential | `delivery`を`presentation: not_attempted / unconfirmed / confirmed`へ変更。他の資格fieldは維持 | 一度提示の結果だけ。通常本人受領を保存しない。資格保存時not_attempted、Surface引渡し前unconfirmed、出力境界への引渡し観測後confirmedを別出版する |
+| correlated／user_stored | 現行の段階別fieldを維持 | 未生成IDをnullで補わない |
+| credential_stored | `stage / attemptId / userId / initialCredentialId / confirmationCredentialId` | 最初は両資格IDが同値。元初資格は元operationId＝attemptIdの歴史的発行参照。確認対象は同Userの最新有効資格で、提示confirmedを別に検査する |
+| completed | `stage / attemptId / initialUserId / initialCredentialId / confirmationCredentialId / connection: confirmed` | 完了時の確認対象IDを同名で保持。旧receipt／normalConnection／deliveryの三重confirmedを廃止。Client応答受領のfieldを作らない |
+
+一度提示は単調に進める。資格保存はnot_attempted。生SecretをSurfaceへ渡す前に、同資格のunconfirmedを耐久出版・読戻し・短命清掃・Lock終了まで確認する。その今回Ownerだけが一回提示し、既存保存からSecretを再取得しない。unconfirmed以後の中断・不明では再表示0、提示結果だけ不明なら既存の明示交換へ案内する。unconfirmedの保存自体が不明なら元発行相関を再観測し、新交換を開始しない。
+
+Hostのconfirmedは、初回／交換用の対話TTY出力へ鍵行の全byteを一回渡し、write callback成功と、その観測までのstream error／取消なしを確認した結果とする。Workbenchは現在administratorの当該要求へ限定した短命HTTP応答の全byte出力finishと、その観測までのerror／取消なしを用いる。Browserは当該応答だけを一度表示し、再表示API・共有結果・永続Storageを作らない。両観測はサービス側の出力境界への引渡しであり、Client受領・DOM描画・人間閲覧・将来の通信成功ではない。実TTY／応答／画面の本番観測は未実装・未検証で、Source固定と実境界確認まで未成立とする。
+
+confirmedを記録する遅延callbackは生Secretをcaptureせず、資格ID・元発行／提示operation相関・期待revision・検証済みRootの非秘密exact Bindingだけを保持する。再取得した既存Lock内で同資格が現在も同じunconfirmed対象かをfresh照合し、失効・交換・別改訂・別要求なら更新0。出力後の保存故障はunconfirmedと既知出力事実を区別して保持し、not_attemptedへ戻さない。これは事前unconfirmedで再表示を防ぐ提示観測の後保存であり、初回接続completedを応答後に保存する経路ではない。
+
+Hostの明示交換では、新資格の保存と確認対象ID更新を同改訂で行い、元attempt／user／initialCredentialIdを保持する。新資格のpresentationも上記順序で進める。旧初資格の失効・提示不明を新資格成功で上書きしない。初回未完了中は元初資格・最新確認対象・未解決交換が参照する資格を整理しない。終了後の歴史的参照と失効資格整理は既存条件に従う。
+
+旧v1耐久状態の実在棚卸しと移行はOPEN。フロントAIが保持対象・元発行と未確認を確認し、必要なら既存の明示Host交換を使用する。旧delivery／receipt／normalConnectionから新版confirmedを自動生成せず、Sourceはv2だけを受ける。実状態の移行・秘密値の読取り・Host処置は今回行わない。全判別Union・相関のSource検査と既存試験追従、本番入口が成立するまでSchema切替済みとはしない。
+
+#### 容量と整理の既存条件
 
 - currentのUTF-8 byte上限は16 MiB（16,777,216 byte）。これは既存のdurable stateと同程度の割当制限であり、利用者数・Repository数の製品容量保証ではない。
 - pendingはnextSnapshotのJSON objectと固定包絡を保存し、JSON文字列へ二重エンコードしない。nextSnapshot単体にcurrentと同じ上限を適用し、pending全体は17 MiB（17,825,792 byte）を上限とする。包絡に任意本文・ログ・秘密を追加しない。
@@ -458,7 +499,7 @@ revision2のcanonical `user_stored`へ同元試行で再入場した場合は保
 
 機械入力はraw `Uint8Array`とし、16 MiB検査→strict UTF-8 decode→JSON parse→閉集合・参照・段階相関検査の順に処理する。成功値は入力から新しく所有したSnapshotであり、Root実在・Lock・認可・保存・配送の確認ではない。未知fieldを落として受理する変換は行わない。
 
-現Source比較入力（基準`07d21331`）: 初回は`correlated`／`user_stored`／`credential_stored`／`completed`を持ち、資格recordの`delivery`、初回途中の`receipt`／`normalConnection`、completedの3 confirmedを保存する。初回途中は元資格のoperationId＝attemptIdを要求する。この形状は最小提示契約の目標Schemaではなく移行対象であり、別々の受領操作を要求する根拠へ使わない。通常は提示だけで本人受領を記録せず、初回だけexact限定接続の成功を受領・接続確認とする。具体形状・初期資格の歴史IDとHost交換後の確認対象Bindingは次の設計で確定し、今回Sourceや保存データは変更しない。
+現Source比較入力（基準`07d21331`）: 初回は`correlated`／`user_stored`／`credential_stored`／`completed`を持ち、資格recordの`delivery`、初回途中の`receipt`／`normalConnection`、completedの3 confirmedを保存する。初回途中は元資格のoperationId＝attemptIdを要求する。この形状は最小提示契約の目標Schemaではなく移行対象であり、別々の受領操作を要求する根拠へ使わない。通常は提示だけで本人受領を記録せず、初回だけexact限定接続の成功を受領・接続確認とする。v2目標形状・初期資格の歴史IDとHost交換後の確認対象Bindingは本書のSchema切替案へ具体化済みし、今回Sourceや保存データは変更しない。
 
 交換は`prepared`／`revoked`／`credential_stored`を保存段階とし、entry（workbench／host）、scope（targeted／all）、recipientUserId、oldCredentialIds、operationIdを固定する。recoveryIdは`access-management.key-exchange.<operationId>`で結合し、参照そのものをAuthorityにしない。newCredentialIdは資格保存後だけ存在する。旧資格は未解決中ずっと現在参照とし、失効段階以後はrevokedを要求する。新資格は発行先・元operationIdへ結合し、配送の未解決はその資格deliveryから読む。交換間で同じ旧対象・元操作・新資格を重複所有しない。Root／実アクセス・現在Authority・段階の遷移可能性は保存Adapterの別検査に残す。
 
