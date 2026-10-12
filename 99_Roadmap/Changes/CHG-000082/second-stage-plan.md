@@ -520,8 +520,25 @@ MCP先行十操作を現在通常認証、四read／六保存のAM公開API、�
 
 最新版の`npm test`は静的三軸＋全84件成功、Fail／Cancel／Skip／Todo0、Exit0、79.2087563秒。normal／mock前例外／timeoutの3終了modeを含む。固定16Pathの最終限定独立再レビューPass・全重大度残指摘0、開始／終了HEAD `d7ee403cc0ecd18fc88545194f726bfa854521bd`と全SHA-256一致、差分確認成功、自己生成結果試験Rootとsentinel残存0。前回Major1／Moderate2と再レビューModerate2は解消した。実行別Evidence書庫を追加せず、正式試験Sourceと再実行入口から再生成する。非鍵10操作WIPの局所成立だけを確定し、Remote登録判断、Workbench本番、公開Launcher、旧REST撤去、正式191項目とAM全体完成は未成立のまま保持する。
 
-### Workbench鍵管理の本番接続着手 — 2026-10-13
+### Workbench通常管理と本人表示の本番接続着手 — 2026-10-13
 
+基準HEAD `7d8cda0e`、着手時clean。承認済みAccess Management完成に向け、同Processの四管理read＋七保存（登録含む）、Remoteの四管理read＋六保存をCSR管理画面へ接続する。Remote登録Root指定M1だけを判断待ちに保ち、疑似Tool・fallback・新Registryを追加しない。既存SCR-000008／BHV-000012・Workbench §6.2.1へ着手前整合を照合し、読み取り専用確認者の条件を統合した。追加の人間判断はM1だけである。
+
+必要な本人表示がRemote MCPで欠落していたため、既存AMの`readCurrentAccess`を空閉入力の`crdd.get_current_access`へ接続する。通常三Roleだけに提供し、初回限定discoverを変更しない。公開は同改訂のuser／contentAccess／permittedRepositoriesだけ、内部managementOperations・資格・Root／Binding・他Userは0。MCP途中集合はdeveloper16、manager／administrator26、Profile構成時30（登録採用後は管理側だけ各＋1）。旧25／29と全84件は前段固定版の局所履歴であり、本段成立根拠へ流用しない。
+
+編集の一次キーは、①AM共通結果投影、②MCP本人搬送、③Workbench同Process／Remote管理接続、④CSR表示、⑤直接品質・追跡接続である。AMの`management/result.ts`は既存結果から非秘密の閉結果へ写す実責務を持ち、MCPのprivate重複mapperを撤去する。HTTP／JSON-RPC、取消、容量上限はTransport Ownerへ残す。Workbenchは同じAM結果投影とRemote閉検査を利用し、管理Store・Role判定・受領ACK・Session・Receipt・再送・一般Recoveryを新設しない。
+
+各管理readの改訂は独立表示し、保存は一回・保存後fresh観測、応答喪失で自動再送0。Local登録のみ「サーバー上のRepositoryフォルダ」を明示し、Root／Bindingを結果へ返さない。取消は開始前Effect0、開始後同期保存joinと到着済み取消による応答抑止、終了は所有Request／Response／Socket／Listener join。実AM／MCP／Workbench回帰、共通六保存の入口同値、Local登録とRemote非提供、全Role本人、現在認可、拒否／不明／既知出版、実Browser操作と影響画面の既存Visual profileを評価し、固定候補の独立レビューと直接影響確認を行う。標準準拠基準・Provider／Dockerは不変更で、準拠監査と署名Provider E2Eはこの接続の初回反証に追加しない。正式191項目・公開Launcher・旧REST撤去・AM全体完成は継続Gateである。
+
+本人公開と結果Owner移管の局所実装候補を接続した。AMの純粋projector三入口をRootへ公開し、MCPの保存mapperとread投影の重複を撤去した。通常本人Toolは三Roleと管理操作を分離し、初回Handler／discoverは不変更。実HTTPで三Role本人・最小field集合・他User／資格／managementOperations非公開、Role変更と失効後fresh拒否、初回通常非提供を確認した。別Processの固定Producer試験は本人の三Roleと五未取得理由、入力不正／事前取消の呼出し0まで追加した。
+
+初回の静的再確認では改名後の型参照残存と試験局所値の型推論指摘があり、参照と公開McpResponse注釈を修正した。初回全MCPは85件中83件成功／2件失敗で、失敗は既存Tool集合のexact期待値に本人一Toolがなかったためである。未知Toolを許す検査緩和はせず、二集合へ本人定数だけを追加した。是正後の静的三軸と該当境界6件は成功、13.9657999秒。AM／MCP全回帰は実行中で、固定候補独立レビューとWorkbench画面／本番接続は未完了。前段84件Passを本候補の全回帰成功へ流用しない。
+
+是正後MCPの`npm test`は静的三軸＋全85件成功、Fail／Cancel／Skip／Todo0、Exit0、83.6560028秒。AM初回全回帰の失敗はRoot公開APIのexact期待集合に純粋projector三関数がなかったためで、三名だけを追加し、固定権限33判定や既存許可集合は変更していない。是正後静的三軸と当該四試験成功、0.2743046秒。AM全回帰の再実行は終端待ち。共有結果投影と本人公開の固定候補独立レビュー前で、Workbench実画面・本番接続・全体完成は未成立のままである。
+
+AM全回帰の再実行は静的三軸＋全150件成功、Fail／Cancel／Skip／Todo0、Exit0、190.8644844秒。MCP85件と合わせ235件を確認した。固定21Pathの限定独立レビューPass・全重大度残指摘0、tracked差分Hash `400a02b13eb67aab79bf5601d0e6ad233f619058`と新AM結果投影SHA-256 `d9f125448b1aa621fe6fdd24608345d6347da8e4ebeb4fc25684ee647ce44fdf`の開始／終了一致、差分確認と自己生成結果試験Root残存0を確認した。本人搬送と結果Owner移管の局所範囲だけを閉じ、Workbench画面／本番接続、公開Launcher、Remote登録M1、旧REST撤去、正式191項目とAM全体完成は継続する。
+
+### Workbench鍵管理の本番接続着手 — 2026-10-13
 基準`d02d784c`、開始時clean。採用済み通常発行・独立失効・指定／全員交換を旧CROS資格管理からAMへ置換する。親と読み取り専用確認者がAM／Workbench正本・既存Consumer・品質義務を照合し、追加人間判断なし。旧profile発行は既存userIdへの発行へ、rotateは指定／全員交換へ置換し、update_accessは鍵から撤去してUser／Role管理へ分離する。旧公開形状は互換維持せず、移行はフロントAIが旧Writer停止・旧入力確認を担当する。旧正式Evidenceは保持する。
 
 同Processの検証済みAM Root＋Server memoryのBearerを明示依存とし、Remote MCP構成との同時指定を拒否する。現在administrator専用Readerを既存credential/management.tsとstate/file-store.tsへ追加し、同改訂のactorUserId・User選択候補・資格Metadata・一件以下の交換相関だけを不変投影する。認証・初回・材料・清掃・解放不明はSnapshot0、材料を処置した要求は次fresh取得へ分ける。readManagementState四kind・MCP公開集合は変更しない。

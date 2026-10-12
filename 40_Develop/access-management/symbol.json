@@ -3,6 +3,7 @@
   "contractRevision": 1,
   "subsystem": "access-management",
   "symbols": [
+    { "symbolId": "access-management.management-result", "kind": "file", "path": "src/management/result.ts", "archIds": ["ARCH-000013"] },
     { "symbolId": "access-management.public-api", "kind": "module", "path": "src/index.ts", "archIds": ["ARCH-000013"] },
     { "symbolId": "access-management.credential-token-material", "kind": "file", "path": "src/credential/token-material.ts", "archIds": ["ARCH-000013"] },
     { "symbolId": "access-management.credential-authentication", "kind": "file", "path": "src/credential/authentication.ts", "archIds": ["ARCH-000013"] },

@@ -256,6 +256,8 @@ Source契約候補は[MCP詳細§3.3.1](../../../06_Architecture/Details/mcp-ser
 
 Tool名・閉Schema・dispatchとHTTP取消／終了はQA-000009のEST-IT-002／010・EST-ST-013へ接続する。同期保存前取消のAPI呼出し0と、開始後の完了待ち・応答抑止・保存非rollbackを別に観測する。鍵・Host・初回操作のMCP公開0を維持し、採用する非鍵Toolを旧「非採用Tool」の禁止へ誤分類しない。Remote登録を採用する場合だけ、認可前Root観測0、入力上限、Host上Pathの説明と既存AM検証を追加する。部分接続や一覧件数から公開Launcher・通常接続・AM全体完成を推定しない。
 
+Workbench通常管理接続の反証は既存RFD-IT-013／021とRFD-ST-022へ接続する。同Process七保存、Remote六保存の現在認可、共通六操作の結果同値、Local登録とRemoteのSchema／dispatch／POST0、三Role本人と他User非開示、Role変更／失効後のfresh拒否、公開範囲null／明示空、改訂混在、既知出版と清掃／解放不明を別観測する。実Browserでは全Form・結果／focus・再観測と影響画面の既存Visual profileを評価する。新Local Itemを発行せず、正式行のNot Runを実行前に変更しない。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した

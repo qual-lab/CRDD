@@ -65,6 +65,8 @@ manager自身の内容範囲も、変更前の現在の管理認可→明示的�
 
 ## 3. Behavior Flow
 
+Workbench通常管理は同Processの七保存とRemoteの六保存（登録なし）へ具体化する。Local登録のRootはサーバー上の対象だけで、管理状態RootやBearerをBrowserへ渡さない。各明示操作は現在AM APIへ一回だけ委譲し、結果後fresh投影へ戻す。応答喪失・競合で再送せず、既知publicationを維持する。四管理readは別改訂として扱い、同一Snapshotを推定しない。通常三Role本人は既存AM readCurrentAccessから取得し、Remoteだけ空閉入力のcrdd.get_current_accessを使う。本人・内容範囲・許可Repositoryだけを返し、他Userと内部managementOperationsは非公開とする。初回限定接続と通常管理の分離は不変。
+
 | 操作 | 失効範囲 | 発行先 | 維持する条件 |
 |---|---|---|---|
 | 指定ユーザー交換 | 対象既存userIdの全旧有効資格 | 同じ既存userId | 他ユーザーの鍵を保持 |

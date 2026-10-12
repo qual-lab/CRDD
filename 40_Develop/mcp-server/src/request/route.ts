@@ -13,11 +13,14 @@
 import { snapshotPlainRecord } from "./snapshot.ts";
 import { handleMcpDiscoverRequest } from "./discover.ts";
 import {
-  listMcpAccessManagementTools,
-  handleMcpAccessManagementRequest,
+  listMcpAccessTools,
+  handleMcpAccessRequest,
   type McpAccessManagementContext,
 } from "../access-management/adapter.ts";
-import { MCP_ACCESS_MANAGEMENT_TOOLS } from "../access-management/protocol.ts";
+import {
+  MCP_ACCESS_MANAGEMENT_TOOLS,
+  MCP_CURRENT_ACCESS_TOOL,
+} from "../access-management/protocol.ts";
 import {
   MCP_AI_PROFILE_TOOLS,
   getMcpAiProfileToolDefinitions,
@@ -134,12 +137,10 @@ export async function routeMcpRequest(
     if (signal.aborted)
       return protocolError(request.id, -32800, "Request cancelled");
     let profileAdministration: AiProfileCatalogAdministration | null;
-    let managementTools: ReturnType<typeof listMcpAccessManagementTools> = [];
+    let managementTools: ReturnType<typeof listMcpAccessTools> = [];
     try {
       if (dependencies.accessManagement !== undefined)
-        managementTools = listMcpAccessManagementTools(
-          dependencies.accessManagement,
-        );
+        managementTools = listMcpAccessTools(dependencies.accessManagement);
     } catch {
       return protocolError(request.id, -32603, "Access management unavailable");
     }
@@ -186,11 +187,12 @@ export async function routeMcpRequest(
     return protocolError(request.id, -32601, "Method not found");
   const params = snapshotPlainRecord(request.params, callKeys);
   if (
+    params?.name === MCP_CURRENT_ACCESS_TOOL ||
     Object.values(MCP_ACCESS_MANAGEMENT_TOOLS).includes(params?.name as never)
   )
     return dependencies.accessManagement === undefined
       ? protocolError(request.id, -32601, "Method not found")
-      : handleMcpAccessManagementRequest(
+      : handleMcpAccessRequest(
           rawRequest,
           dependencies.accessManagement,
           signal,

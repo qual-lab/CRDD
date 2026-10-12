@@ -26,6 +26,32 @@ export const MCP_ACCESS_MANAGEMENT_TOOLS = Object.freeze({
 } as const);
 
 /**
+ * 通常本人readの操作名を管理操作から分離する。
+ * @responsibility 全Roleに提供する本人操作Identityを固定する。
+ * @trace ARCH-000012
+ * @trace ARCH-000013
+ */
+export const MCP_CURRENT_ACCESS_TOOL = "crdd.get_current_access" as const;
+/**
+ * 本人readの空閉入力を定義する。
+ * @responsibility 資格・管理Root・他User指定を受け取らない。
+ * @trace ARCH-000012
+ * @trace ARCH-000013
+ */
+export const MCP_CURRENT_ACCESS_TOOL_DEFINITION = Object.freeze({
+  name: MCP_CURRENT_ACCESS_TOOL,
+  title: "接続している本人と利用範囲",
+  description:
+    "本人と内容利用範囲を現在観測します。管理能力やToolの提供可否を示すものではありません。",
+  inputSchema: {
+    type: "object",
+    additionalProperties: false,
+    required: [],
+    properties: {},
+  },
+});
+
+/**
  * 管理Toolの構造Schemaだけを生成する。
  * @responsibility 操作固有入力と共通相関を閉じ、値の業務判定をAMに残す。
  * @trace ARCH-000012

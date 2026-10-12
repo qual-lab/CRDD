@@ -272,6 +272,10 @@ Repository登録解除の非鍵結果は、同じ受理済み操作・採用改�
 
 #### 3.3.1. 非鍵管理Toolの具体化候補
 
+本人表示の別責務として、通常Resolverに`crdd.get_current_access`を追加する。空の閉入力でAM `readCurrentAccess`をfresh一回だけ呼び、通常三Roleすべてへ提供する。結果はcompleted／revision／user／contentAccess／permittedRepositories、拒否・不明はunavailableとAMの固定理由だけ。managementOperations、他User、資格、Root／Bindingは返さない。管理四read／六保存の認可とは混同しない。初回限定Handlerとserver/discoverは不変更。追加後の途中集合はdeveloper16、manager／administrator26、Profile構成時30、Remote登録採用後は管理側だけ各＋1。旧25／29は本人Tool追加前の局所履歴である。
+
+非鍵管理の閉結果投影はAM `management/result.ts`へ移し、MCP固有のenvelope・isError・固定説明・最終UTF-8 16 MiB上限だけを本Adapterへ残す。Workbench直接呼出しでも同じ投影を用い、意味変換を二重管理しない。出力上限超過のmanagement_response_too_largeはMCPが所有し、AM結果へ混ぜない。
+
 状態: 十操作は注入ResolverのWIP Sourceへ接続済み。登録はSource／Schema／一覧／dispatchに追加していない。公開Launcher、Workbench本番、正式評価は未接続。Repository登録のRemote Path指定だけは人間判断待ちで、下表の候補を公開済み契約へ読み替えない。鍵とHost操作の非公開境界は不変更。
 
 | Tool候補 | 操作固有入力 | 成功時の管理投影 |
@@ -290,7 +294,7 @@ Repository登録解除の非鍵結果は、同じ受理済み操作・採用改�
 
 全入力Objectを閉じ、未知field、重複field、不正型を拒否する。保存七候補は共通して`operationId`（既存UUIDv4形式）と`expectedRevision`（1以上のsafe integer）を必須とする。usernameはstring構造だけを検査し、表示名の値制約は[AM保存設計](../access-management/02_Management_State_and_API.md)のCanonical検査へ委譲する。Roleはdeveloper／manager／administrator、workspaceIdsはdevelopment／managementの重複なし配列、User IDは既存UUID形式、Repository IDは既存AMの1〜128文字の識別子とする。空のworkspaceIdsは明示範囲0であり拒否しない。具体値の業務判定・対象存在・現在改訂はAMが所有する。MCP入力からBearer、管理状態Root、Binding、任意の操作名を受けない。
 
-Tool一覧では要求時の現在通常認証に基づきmanager／administratorへ採用した管理Tool集合を表示し、developer、初回限定、管理Context未構成には追加しない。managerへ一覧表示してもadministratorを含むRole変更・登録・内容設定は許可されず、call時のAM判定を維持する。旧Local／stdioの固定依存へ自動追加しない。登録候補まで採用した場合、既存通常15 Toolと合わせmanager／administratorは26、Profile Catalog構成時30。developerは15。登録Remote不採用なら25／29であり、判断前に件数を実装成功値として記録しない。
+Tool一覧では要求時の現在通常認証に基づきmanager／administratorへ採用した管理Tool集合を表示し、developer、初回限定、管理Context未構成には管理操作を追加しない。本人一Toolだけは通常三Roleへ提供する。managerへ一覧表示してもadministratorを含むRole変更・登録・内容設定は許可されず、call時のAM判定を維持する。旧Local／stdioの固定依存へ自動追加しない。登録候補まで採用した場合、既存通常15 Toolと本人一Toolを合わせmanager／administratorは27、Profile Catalog構成時31。developerは16。登録Remote不採用なら26／30であり、判断前に登録を含む件数を実装成功値として記録しない。
 
 四読取りは別々の現在改訂である。Role内容読取りはmanagerへadministrator行を補完せず、User読取りはmanagerによるadministrator名前管理の既存範囲を保持する。公開範囲のnull（設定なし）と空配列（明示範囲0）を区別する。内部DTOのkind・bindingId・Path・資格は公開しない。拒否・観測／清掃／解放不明を空一覧にしない。非鍵管理応答はJSON-RPC最終ObjectのUTF-8で16 MiB以下とし、超過は固定未取得として全体を拒否する。部分一覧、暗黙Paging、新Inventoryは作らず、他のToolへこの局所上限を一律適用しない。
 

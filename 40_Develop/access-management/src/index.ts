@@ -24,6 +24,14 @@ export type {
   ManagementStateResult,
   ManagementStateSnapshot,
 } from "./management/read-state.ts";
+export {
+  projectManagementOperationResult,
+  projectManagementReadResult,
+  projectCurrentAccessResult,
+  type ManagementOperationOutcome,
+  type ManagementReadOutcome,
+  type CurrentAccessOutcome,
+} from "./management/result.ts";
 export type {
   AuthenticatedRequest,
   CredentialAuthenticationResult,

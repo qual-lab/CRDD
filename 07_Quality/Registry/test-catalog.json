@@ -3185,7 +3185,7 @@
         "environment": "local_component_boundary",
         "externalProviderEffect": false,
         "humanInput": false,
-        "postconditions": ["primary_failure_closed_mapping", "unknown_reason_not_disclosed", "publication_and_cleanup_preserved", "read_rejection_distinct_from_unknown", "exact_utf8_response_limit", "oversize_whole_result_unavailable", "cancelled_request_producer_zero", "owned_child_joined", "fixture_root_absent"],
+        "postconditions": ["primary_failure_closed_mapping", "unknown_reason_not_disclosed", "publication_and_cleanup_preserved", "read_rejection_distinct_from_unknown", "current_access_minimal_projection", "current_access_rejection_distinct_from_unknown", "current_access_internal_management_not_disclosed", "exact_utf8_response_limit", "oversize_whole_result_unavailable", "cancelled_request_producer_zero", "owned_child_joined", "fixture_root_absent"],
         "mandatoryByDefault": true
       },
       {

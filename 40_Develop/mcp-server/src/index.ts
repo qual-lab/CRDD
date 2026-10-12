@@ -26,6 +26,10 @@ export {
 export { createCrosProjectContextMcpResolver } from "./project-context/cros-resolver.ts";
 export { createAccessMcpResolver } from "./request/access-resolver.ts";
 export {
+  MCP_CURRENT_ACCESS_TOOL,
+  MCP_ACCESS_MANAGEMENT_TOOLS,
+} from "./access-management/protocol.ts";
+export {
   MCP_AI_PROFILE_TOOLS,
   getMcpAiProfileToolDefinitions,
   handleMcpAiProfileRequest,

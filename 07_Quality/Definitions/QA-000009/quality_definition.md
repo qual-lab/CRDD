@@ -147,6 +147,8 @@ Source Definition由来の検証義務を維持し、Detailは具体的な観測
 
 非鍵管理候補のEST-IT-010では、MCP結果Unionの全field／literalと固定理由mappingを閉検査し、未知reasonはstorage_unavailableへ、publication／observedRevision／cleanupConfirmedは不変とする。先行pending処置はprevious_materials_unavailable、新出版準備はprepare_failed。出版成功後のLock終了不明がprimaryFailureへ到達する場合はrelease_unknown、既知失敗に付随する非公開secondaryは捏造しない。EST-IT-002ではdeveloperの通常認証／用途解決を許容しつつ、四管理read／七保存API呼出しと管理Tool／情報開示0をlistとcall双方で確認する。管理状態Root／Bindingは常に入力外、応答Path／Bindingは0。Remote登録のrepositoryRootだけは採用時に要求入力として許可し、不採用時はfield／Tool0とする。
 
+通常本人Tool crdd.get_current_accessはEST-IT-002／010で三Role、初回非提供、空閉入力、不正入力と事前取消のread0、要求毎fresh本人、失効／Role変更、Root／資格／他User／managementOperations非公開を確認する。Workbench直接とRemoteの同じAM投影・管理共通六操作の同値、Remote登録非提供、拒否／不明の非成功化、保存後切断と自動再送0を同項目へ接続する。公開Process終了・Listener／Request／Socket終端はEST-ST-013の別義務として維持し、局所Handler試験だけで成立としない。
+
 ## Checklist
 
 Runtime活動の入力・結果拒否は`EST-IT-002`、現在Role認可と非開示は`RFD-IT-013`、取消と待機終了は`EST-IT-014`で確認する。開始前取消のReader零回、開始後取消の読取りjoin・応答保留・join後取消を別々に観測する。非取消Readerに対するSignal確認だけをReader中断や外部資源不存在の証明へ昇格しない。Server終了・切断の実Transport利用側は`EST-ST-013`で別途確認する。

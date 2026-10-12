@@ -13,6 +13,10 @@
 
 ## 2. 操作別API候補
 
+Workbench通常管理の結果投影は、AMの`management/result.ts`を共通Ownerとする。既存管理read・保存結果を非秘密の閉結果へ写し、Binding・Path・自由文字列理由を含めない。MCP／Workbenchは同じ投影を利用し、HTTP／JSON-RPC envelope、取消、入力と応答の容量制限は各Transportが所有する。新しい保存Stateや認可判断を投影へ持たせない。具体結果意味は§2.4.1に従う。
+
+通常接続の本人表示は既存`readCurrentAccess`をOwnerとし、同Process Workbenchは直接、Remote Workbenchは`crdd.get_current_access`を利用する。公開投影は同改訂のuser（userId・username・role）、contentAccess、permittedRepositoriesに限定する。内部managementOperationsを公開済みSurfaceの能力一覧へ転用せず、資格・管理Root・Binding・他Userを含めない。初回途中の通常本人readは提供せず、拒否・観測不能を空本人へ変換しない。
+
 ### 管理の計数単位
 
 | 計数軸 | 母集合と対象外 |

@@ -34,6 +34,10 @@ manager自身の内容範囲も、変更前の現在の管理認可→明示的�
 
 ## 2. Screen Composition
 
+Workbenchの具体配置は、現在主体・Role→ユーザー→Role内容範囲→登録Repository→公開範囲→操作結果と次行動の順とする。各管理Sectionはそれぞれ取得した改訂を明示し、異なる改訂を一つのSnapshotと表示しない。対象に隣接する明示Formで操作し、保存後に現在投影を再取得する。結果へfocusとaria-liveで到達可能にし、色だけで結果を区別しない。既存Workbench Visual Baselineの方向を保持し、変更画面は既存全profileで再評価する。
+
+同Processは七保存操作、Remoteは登録を除く六保存操作を提供する。Local登録だけ「サーバー上のRepositoryフォルダ」を入力し、Browser自身のFilesystemではないことを説明する。Remote登録はM1判断前にForm・POST・MCPへ追加せず、提供していないことを明示する。全Roleの本人表示は本人readを使い、他User一覧から推定しない。保存確認済み、拒否、出版不明、保存確認後の清掃／解放不明を分け、自動再送・rollback・内容利用可能・開始済み取消完了を推定しない。
+
 ```text
 +---------------- SCR-000008 ----------------+
 | PRT-000008 ユーザー・Role権限・接続資格       |

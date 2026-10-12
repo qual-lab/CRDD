@@ -9,7 +9,7 @@
       "path": "tests/integration/access-management-results.integration.test.ts",
       "qaIds": ["QA-000009"],
       "localTestIds": ["EST-IT-002", "EST-IT-010"],
-      "verifies": ["mcp.request.access-resolver", "mcp.access-management.adapter"]
+      "verifies": ["mcp.request.access-resolver", "mcp.access-management.adapter", "access-management.management-result"]
     },
     {
       "symbolId": "mcp.test.fixture.access-management-results",
@@ -17,7 +17,7 @@
       "path": "tests/fixtures/access-management-results.ts",
       "qaIds": ["QA-000009"],
       "localTestIds": ["EST-IT-002", "EST-IT-010"],
-      "verifies": ["mcp.request.access-resolver", "mcp.access-management.adapter"]
+      "verifies": ["mcp.request.access-resolver", "mcp.access-management.adapter", "access-management.management-result"]
     },
     {
       "symbolId": "mcp.access-management.protocol",

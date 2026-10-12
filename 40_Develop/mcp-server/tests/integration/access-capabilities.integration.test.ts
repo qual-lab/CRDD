@@ -36,6 +36,8 @@ import {
   initializeAccessManagementState,
   registerRepository,
   updateExposure,
+  readCurrentAccess,
+  projectCurrentAccessResult,
   type AccessManagementState,
 } from "../../../access-management/src/index.ts";
 import {
@@ -52,6 +54,8 @@ import {
   MCP_RUNTIME_ACTIVITY_TOOL,
   MCP_PROJECT_CONTEXT_LIST_TOOL,
   MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+  MCP_CURRENT_ACCESS_TOOL,
+  type McpResponse,
 } from "../../src/index.ts";
 import {
   createOrchestratorState,
@@ -64,6 +68,155 @@ import {
   verifyExecutionIntelligenceRepositoryRoot,
   usageNotObserved,
 } from "../../../execution-intelligence/src/index.ts";
+
+/**
+ * 通常三Roleの本人を他Userから推定せず実HTTPで取得する。
+ * @responsibility 本人readの最小閉結果と要求毎の現在性を検証する。
+ * @trace RFD-IT-013
+ * @trace EST-IT-002
+ * @trace EST-IT-010
+ * @precondition 完了した自己生成AM、本人と非公開別User、実HTTP。
+ * @stimulus 三Role、入力不正、事前取消、初回未完了、資格失効を要求する。
+ * @observation Tool一覧・閉結果・直接Owner結果・現在File保持を照合する。
+ * @oracle 内部管理候補と他User、資格、Rootは0。拒否と不明を空本人にしない。
+ * @cleanup HTTP close確認後fixtureが所有Rootを回収する。
+ * @boundary AM本人Owner→通常MCP Resolver→実HTTP。公開Launcher完成ではない。
+ */
+test("MCP本人readは三Roleの現在本人だけを実HTTPへ返す", async (t) => {
+  const f = fixture(t);
+  const state = JSON.parse(
+    fs.readFileSync(f.current, "utf8"),
+  ) as AccessManagementState;
+  const actor = state.users[0];
+  assert.ok(actor);
+  const otherId = randomUUID();
+  state.users.push({
+    ...actor,
+    userId: otherId,
+    username: "非公開別ユーザー",
+    role: "developer",
+  });
+  const resolver = createAccessMcpResolver(f.root);
+  const handler = await resolver(f.token);
+  assert.ok(handler);
+  const server = await startMcpAuthenticatedStreamableHttp(resolver, {
+    port: 0,
+  });
+  const base = `http://${server.host}:${server.port}`;
+  try {
+    for (const role of ["developer", "manager", "administrator"] as const) {
+      actor.role = role;
+      state.revision += 1;
+      fs.writeFileSync(f.current, JSON.stringify(state));
+      const listed: McpResponse = await handler(
+        {
+          ...packet(),
+          method: "tools/list",
+          params: { _meta: packet().params._meta },
+        },
+        new AbortController().signal,
+      );
+      const tools = (
+        listed.result as { tools: { name: string; inputSchema: unknown }[] }
+      ).tools;
+      const definition = tools.find(
+        (tool) => tool.name === MCP_CURRENT_ACCESS_TOOL,
+      );
+      assert.ok(definition);
+      assert.deepEqual(definition.inputSchema, {
+        type: "object",
+        additionalProperties: false,
+        required: [],
+        properties: {},
+      });
+      assert.equal(tools.length, role === "developer" ? 16 : 26);
+      assert.equal(
+        tools.some((tool) => tool.name === "crdd.register_repository"),
+        false,
+      );
+      const response = await (
+        await call(base, f.token, MCP_CURRENT_ACCESS_TOOL, {})
+      ).json();
+      const result = response.result.structuredContent;
+      assert.equal(result.status, "completed");
+      assert.deepEqual(
+        Object.keys(result).sort(),
+        [
+          "status",
+          "revision",
+          "user",
+          "contentAccess",
+          "permittedRepositories",
+        ].sort(),
+      );
+      assert.deepEqual(result.user, {
+        userId: actor.userId,
+        username: actor.username,
+        role,
+      });
+      assert.equal(result.revision, state.revision);
+      assert.deepEqual(
+        result,
+        projectCurrentAccessResult(readCurrentAccess(f.root, f.token)),
+      );
+      const wire = JSON.stringify(response);
+      for (const hidden of [
+        otherId,
+        "非公開別ユーザー",
+        f.token,
+        f.root.root,
+        "managementOperations",
+        "bindingId",
+        "credentialId",
+        "verifier",
+        "salt",
+      ])
+        assert.equal(wire.includes(hidden), false);
+    }
+    const before = fs.readFileSync(f.current);
+    assert.equal(
+      (
+        await handler(
+          packet(MCP_CURRENT_ACCESS_TOOL, { userId: otherId }),
+          new AbortController().signal,
+        )
+      ).error?.code,
+      -32602,
+    );
+    const cancelled = new AbortController();
+    cancelled.abort();
+    assert.equal(
+      (await handler(packet(MCP_CURRENT_ACCESS_TOOL, {}), cancelled.signal))
+        .error?.code,
+      -32800,
+    );
+    assert.deepEqual(fs.readFileSync(f.current), before);
+    const credential = state.credentials[0];
+    assert.ok(credential);
+    credential.revoked = true;
+    fs.writeFileSync(f.current, JSON.stringify(state));
+    const denied = await handler(
+      packet(MCP_CURRENT_ACCESS_TOOL, {}),
+      new AbortController().signal,
+    );
+    assert.deepEqual(
+      (denied.result as { structuredContent: unknown }).structuredContent,
+      {
+        status: "unavailable",
+        reason: "current_access_authentication_rejected",
+      },
+    );
+    assert.equal(await resolver(f.token), null);
+    const initial = fixture(t, false);
+    assert.equal(
+      await createAccessMcpResolver(initial.root)(initial.token),
+      null,
+    );
+  } finally {
+    const closed = await server.close();
+    assert.equal(closed.cleanupConfirmed, true);
+  }
+});
 
 /**
  * 非鍵管理十操作を現在Roleから実HTTP保存へ接続する。
@@ -97,7 +250,7 @@ test("非鍵管理MCPの十操作はRoleと閉結果を実保存へ接続する"
     const handler = await resolver(f.token);
     assert.ok(handler);
     const deniedList = await handler(listRequest, new AbortController().signal);
-    assert.equal((deniedList.result as { tools: unknown[] }).tools.length, 15);
+    assert.equal((deniedList.result as { tools: unknown[] }).tools.length, 16);
     const before = fs.readFileSync(f.current);
     const deniedRead = await (
       await call(base, f.token, "crdd.list_access_users", {})
@@ -125,8 +278,8 @@ test("非鍵管理MCPの十操作はRoleと閉結果を実保存へ接続する"
         }[];
       }
     ).tools;
-    assert.equal(tools.length, 25);
-    assert.equal(new Set(tools.map((tool) => tool.name)).size, 25);
+    assert.equal(tools.length, 26);
+    assert.equal(new Set(tools.map((tool) => tool.name)).size, 26);
     assert.equal(
       tools.some((tool) => tool.name === "crdd.register_repository"),
       false,
@@ -1318,6 +1471,7 @@ test("AM内容MCPの全12操作は指定Repositoryの実保存へ到達する", 
         MCP_PROJECT_CONTEXT_GET_TOOL,
         MCP_PROJECT_CONTEXT_LIST_TOOL,
         MCP_RUNTIME_ACTIVITY_TOOL,
+        MCP_CURRENT_ACCESS_TOOL,
         ...MCP_TOPIC_MEETING_TOOLS,
       ].sort(),
     );
@@ -1429,6 +1583,7 @@ test("未完了資格はHandlerなし、開始前取消は対象読取りなし"
         MCP_PROJECT_CONTEXT_GET_TOOL,
         MCP_PROJECT_CONTEXT_LIST_TOOL,
         MCP_RUNTIME_ACTIVITY_TOOL,
+        MCP_CURRENT_ACCESS_TOOL,
         ...MCP_TOPIC_MEETING_TOOLS,
       ].sort(),
     );

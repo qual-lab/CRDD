@@ -289,6 +289,8 @@ Qualityは9 Role分担行×三Role、操作別入力、managerのadministrator�
 
 #### 6.2.1. 非鍵管理の接続候補
 
+接続単位は、同Processが四管理read＋七保存（Repository登録含む）、Remoteが四管理read＋六保存（登録なし）である。通常三Role本人はAM `readCurrentAccess`の直接呼出しまたはRemote `crdd.get_current_access`で取得し、管理一覧やtools/listから名前・Roleを推定しない。AM内部managementOperationsをSurface提供済みの能力へ変換しない。管理read・保存の非秘密結果はAM共通投影を使い、Remoteではその閉shapeを検査する。新しい管理Store／結果mapper／Role規則を追加しない。
+
 状態: 設計候補。画面／POST／MCP Consumerは未接続。[MCPの具体化候補](../mcp-server/01_Architecture.md#331-非鍵管理toolの具体化候補)とAMの既存七保存入口を使い、Workbench独自の管理Store・Role判定・結果契約を作らない。同Processは構成済みAM Rootと当該接続資格から直接呼び、Remoteは同じ採用済みMCPを呼ぶ。Repository登録のRemote Path指定は判断待ちであり、未承認の操作を表示・送信しない。
 
 画面はユーザー、Role内容、登録Repository、公開範囲の四管理投影を別の改訂付きで保持する。全Role本人の名前表示は通常接続の本人投影を使い、管理一覧をdeveloperへ開示しない。四読取りが違う改訂なら同一Snapshotを表示したと主張せず、各保存フォームが利用した投影の改訂をexpectedRevisionへ渡す。一保存後は現在投影をrefreshし、競合・応答喪失で自動再送しない。管理可否の表示は操作Authorityではなく、AMが要求毎に確認する。

@@ -38,6 +38,7 @@ if (mode === "timeout") {
 assert.equal(mode, "normal");
 let readResult: unknown;
 let mutationResult: unknown;
+let currentResult: unknown;
 const authentication = mock.fn(() => ({
   status: "completed",
   snapshot: { role: "manager" },
@@ -45,6 +46,7 @@ const authentication = mock.fn(() => ({
 const connection = mock.fn(() => ({ status: "normal" }));
 const read = mock.fn(() => readResult);
 const update = mock.fn(() => mutationResult);
+const current = mock.fn(() => currentResult);
 const replacement = mock.module(
   new URL("../../../access-management/src/index.ts", import.meta.url).href,
   {
@@ -54,13 +56,17 @@ const replacement = mock.module(
       authenticateNormalConnection: authentication,
       readManagementState: read,
       updateUserName: update,
+      readCurrentAccess: current,
     },
   },
 );
 try {
   // MCPをmock登録前にimportしてはいけない。未適用は呼出し数で必ず失敗する。
-  const { createAccessMcpResolver, MCP_ORCHESTRATOR_PROTOCOL_VERSION } =
-    await import("../../src/index.ts");
+  const {
+    createAccessMcpResolver,
+    MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+    MCP_CURRENT_ACCESS_TOOL,
+  } = await import("../../src/index.ts");
   const handler = await createAccessMcpResolver(root)("fixture-non-secret");
   assert.ok(handler);
   assert.equal(connection.mock.callCount(), 1);
@@ -158,7 +164,10 @@ try {
     "fixture-private-read",
   ]) {
     readResult = { status: "unavailable", reason };
-    const response = await handler(readRequest, new AbortController().signal);
+    const response: McpResponse = await handler(
+      readRequest,
+      new AbortController().signal,
+    );
     assert.deepEqual(
       (response.result as { structuredContent: unknown }).structuredContent,
       {
@@ -181,6 +190,73 @@ try {
   );
   assert.equal(read.mock.callCount(), beforeRead);
   assert.equal(authentication.mock.callCount(), beforeAuthentication);
+
+  const currentRequest = {
+    ...request,
+    params: { ...request.params, name: MCP_CURRENT_ACCESS_TOOL, arguments: {} },
+  };
+  for (const role of ["developer", "manager", "administrator"]) {
+    currentResult = {
+      status: "completed",
+      snapshot: {
+        revision: 8,
+        user: { userId, username: "本人", role },
+        contentAccess: { workspaceIds: [] },
+        permittedRepositories: [],
+        managementOperations: ["fixture-private-key-operation"],
+        path: ownedRoot,
+      },
+    };
+    const response: McpResponse = await handler(
+      currentRequest,
+      new AbortController().signal,
+    );
+    assert.deepEqual(
+      (response.result as { structuredContent: unknown }).structuredContent,
+      {
+        status: "completed",
+        revision: 8,
+        user: { userId, username: "本人", role },
+        contentAccess: { workspaceIds: [] },
+        permittedRepositories: [],
+      },
+    );
+  }
+  for (const reason of [
+    "current_access_authentication_rejected",
+    "current_access_lock_unavailable",
+    "current_access_cleanup_pending",
+    "current_access_observation_unknown",
+    "current_access_release_unknown",
+  ]) {
+    currentResult = { status: "unavailable", reason };
+    const response: McpResponse = await handler(
+      currentRequest,
+      new AbortController().signal,
+    );
+    assert.deepEqual(
+      (response.result as { structuredContent: unknown }).structuredContent,
+      { status: "unavailable", reason },
+    );
+  }
+  assert.equal(current.mock.callCount(), 8);
+  assert.equal(
+    (await handler(currentRequest, cancelled.signal)).error?.code,
+    -32800,
+  );
+  assert.equal(
+    (
+      await handler(
+        {
+          ...currentRequest,
+          params: { ...currentRequest.params, arguments: { userId } },
+        },
+        new AbortController().signal,
+      )
+    ).error?.code,
+    -32602,
+  );
+  assert.equal(current.mock.callCount(), 8);
 
   // 合成Owner結果で最終JSON-RPCのUTF-8境界を検査する。AM容量成立の主張ではない。
   const users: { userId: string; username: string; role: string }[] = [];

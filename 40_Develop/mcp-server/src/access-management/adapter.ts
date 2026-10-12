@@ -8,6 +8,10 @@
  */
 import {
   authenticateNormalConnection,
+  readCurrentAccess,
+  projectCurrentAccessResult,
+  projectManagementReadResult,
+  projectManagementOperationResult,
   readManagementState,
   registerUser,
   updateUserName,
@@ -35,6 +39,8 @@ import {
 } from "../orchestrator/protocol.ts";
 import {
   MCP_ACCESS_MANAGEMENT_TOOLS,
+  MCP_CURRENT_ACCESS_TOOL,
+  MCP_CURRENT_ACCESS_TOOL_DEFINITION,
   getMcpAccessManagementToolDefinitions,
 } from "./protocol.ts";
 
@@ -54,12 +60,12 @@ export type McpAccessManagementContext = Readonly<{
 }>;
 
 /**
- * 現在管理主体にだけ管理Toolを一覧表示する。
- * @responsibility 古いRoleを使わず、実行許可と一覧表示を区別する。
+ * 通常本人Toolと現在主体に許可された管理Toolを一覧表示する。
+ * @responsibility 本人表示と管理一覧を分離し、実行許可と一覧表示を区別する。
  * @trace ARCH-000012
  * @trace ARCH-000013
  * @input 当該要求の管理Context。
- * @returns manager／administratorなら十Tool、developerなら空配列。
+ * @returns 全Roleの本人一Tool、manager／administratorには管理十Toolを追加。
  * @precondition 通常接続の要求で構成されている。
  * @postcondition 一覧のRoleを後続保存のAuthorityへ渡さない。
  * @effect AMの現在本人認証・既存短期Lock。
@@ -69,15 +75,16 @@ export type McpAccessManagementContext = Readonly<{
  * @security 本人Snapshot・Root・資格を返さない。
  * @concurrency 各一覧でfresh認証し、後続callでも再評価する。
  */
-export function listMcpAccessManagementTools(
-  context: McpAccessManagementContext,
-) {
+export function listMcpAccessTools(context: McpAccessManagementContext) {
   const actor = authenticateNormalConnection(context.root, context.token);
   if (actor.status !== "completed")
     throw new Error("access_management_unavailable");
   return actor.snapshot.role === "developer"
-    ? []
-    : getMcpAccessManagementToolDefinitions();
+    ? [MCP_CURRENT_ACCESS_TOOL_DEFINITION]
+    : [
+        MCP_CURRENT_ACCESS_TOOL_DEFINITION,
+        ...getMcpAccessManagementToolDefinitions(),
+      ];
 }
 
 /**
@@ -96,6 +103,8 @@ export function listMcpAccessManagementTools(
  * @concurrency N/A: 同期で値を固定する。
  */
 function parseManagementArguments(name: string, value: unknown) {
+  if (name === MCP_CURRENT_ACCESS_TOOL)
+    return snapshotPlainRecord(value, new Set<string>());
   const definition = getMcpAccessManagementToolDefinitions().find(
     (tool) => tool.name === name,
   );
@@ -139,68 +148,6 @@ function parseManagementArguments(name: string, value: unknown) {
       return null;
   }
   return Object.freeze(owned);
-}
-
-/**
- * 通常保存結果を固定した非秘密Unionへ写す。
- * @responsibility 最初の失敗分類と既知出版・清掃の事実を保持する。
- * @trace ARCH-000012
- * @input AMの通常管理Result。
- * @returns 閉じたMCP管理結果。
- * @precondition AM公開入口が生成した値だけを受ける。
- * @postcondition 内部理由・Path・secondaryを転記しない。
- * @effect N/A: 値の投影のみ。
- * @failure 未列挙理由はstorage_unavailableへ閉じる。
- * @invariant 既知publicationをrollbackや成功へ変えない。
- * @boundary AM内部結果とMCP公開結果。
- * @security 自由文字列理由・秘密・回復参照を含めない。
- * @concurrency N/A: 同期の結果を一回投影する。
- */
-function projectManagementMutation(
-  result: UserRoleManagementResult | RepositoryExposureManagementResult,
-) {
-  if (result.status === "completed") {
-    return {
-      status: "completed",
-      operationId: result.operationId,
-      expectedRevision: result.expectedRevision,
-      revision: result.revision,
-      ...("userId" in result
-        ? { userId: result.userId }
-        : { repositoryId: result.repositoryId }),
-      publication: result.publication,
-      cleanupConfirmed: result.cleanupConfirmed,
-    };
-  }
-  if (result.reason === "management_operation_rejected")
-    return { status: "rejected", reason: "management_request_rejected" };
-  const reasons: Readonly<Record<string, string>> = {
-    state_store_previous_pending_settled: "previous_materials_settled",
-    state_store_pending_failed: "previous_materials_unavailable",
-    state_store_capacity_exceeded: "capacity_exceeded",
-    state_store_identity_failed: "identity_generation_failed",
-    state_store_candidate_failed: "candidate_invalid",
-    state_store_repository_binding_failed: "repository_validation_failed",
-    state_store_prepare_failed: "prepare_failed",
-    state_store_publish_failed: "publication_failed",
-    state_store_read_back_failed: "readback_failed",
-    state_store_cleanup_failed: "cleanup_failed",
-    state_store_lock_unknown: "release_unknown",
-    filesystem_store_lock_operation_completed_cleanup_unknown:
-      "release_unknown",
-  };
-  return {
-    status: "unavailable",
-    reason: "management_operation_unavailable",
-    primaryFailure: Object.hasOwn(reasons, result.primaryFailure)
-      ? reasons[result.primaryFailure]
-      : "storage_unavailable",
-    operationId: result.operationId,
-    expectedRevision: result.expectedRevision,
-    observedRevision: result.observedRevision,
-    publication: result.publication,
-    cleanupConfirmed: result.cleanupConfirmed,
-  };
 }
 
 /**
@@ -255,7 +202,7 @@ function completeManagementResponse(
  * @security Root・Token・内部理由を例外へ透過しない。
  * @concurrency 期待改訂を保持し、各AM APIのfresh認可を使う。
  */
-export async function handleMcpAccessManagementRequest(
+export async function handleMcpAccessRequest(
   rawRequest: unknown,
   context: McpAccessManagementContext,
   signal: AbortSignal,
@@ -281,6 +228,15 @@ export async function handleMcpAccessManagementRequest(
     [MCP_ACCESS_MANAGEMENT_TOOLS.listExposure]: "exposure",
   } as const;
   try {
+    if (params.name === MCP_CURRENT_ACCESS_TOOL) {
+      const projected = projectCurrentAccessResult(
+        readCurrentAccess(context.root, context.token),
+      );
+      await yieldToTransport(0);
+      return signal.aborted
+        ? protocolError(request.id, -32800, "Request cancelled")
+        : completeManagementResponse(request.id, projected);
+    }
     let projected: Readonly<Record<string, unknown>>;
     const kind = readKinds[params.name as keyof typeof readKinds];
     const actor = authenticateNormalConnection(context.root, context.token);
@@ -301,52 +257,7 @@ export async function handleMcpAccessManagementRequest(
       });
     if (kind !== undefined) {
       const result = readManagementState(context.root, context.token, kind);
-      if (result.status === "unavailable") {
-        projected = {
-          status: "unavailable",
-          reason:
-            result.reason === "management_state_read_rejected" ||
-            result.reason === "management_state_authentication_rejected"
-              ? "management_read_rejected"
-              : "management_read_unavailable",
-        };
-      } else {
-        const snapshot = result.snapshot;
-        projected = {
-          status: "completed",
-          revision: snapshot.revision,
-          ...(snapshot.kind === "users"
-            ? {
-                users: snapshot.users.map(({ userId, username, role }) => ({
-                  userId,
-                  username,
-                  role,
-                })),
-              }
-            : snapshot.kind === "roleContentAccess"
-              ? {
-                  roles: snapshot.roles.map(({ role, workspaceIds }) => ({
-                    role,
-                    workspaceIds: [...workspaceIds],
-                  })),
-                }
-              : snapshot.kind === "registeredRepositories"
-                ? {
-                    repositories: snapshot.repositories.map(
-                      ({ repositoryId }) => ({ repositoryId }),
-                    ),
-                  }
-                : {
-                    repositories: snapshot.repositories.map(
-                      ({ repositoryId, workspaceIds }) => ({
-                        repositoryId,
-                        workspaceIds:
-                          workspaceIds === null ? null : [...workspaceIds],
-                      }),
-                    ),
-                  }),
-        };
-      }
+      projected = projectManagementReadResult(result);
     } else {
       const { root, token } = context;
       const revision = args.expectedRevision as number;
@@ -416,7 +327,7 @@ export async function handleMcpAccessManagementRequest(
         default:
           return protocolError(request.id, -32602, "Invalid params");
       }
-      projected = projectManagementMutation(result);
+      projected = projectManagementOperationResult(result);
     }
     // 同期AM処理を終えてから、届いたTransport取消を処置する機会を設ける。
     // 切断の到着や保存の取消を保証する待機ではない。
