@@ -9,6 +9,7 @@ import {
   prepareKeyExchange,
   prepareKeyExchangeRevocation,
   prepareExchangedCredential,
+  prepareKeyExchangeCompletion,
   readDisplayedCredentialIds,
   selectKeyExchangeContinuation,
   isKeyExchangeRecoveryId,
@@ -3136,10 +3137,10 @@ export function readCredentialIssuance(
  * @responsibility core保存完了を提示・未解決record整理の完了にしない。
  * @trace ARCH-000013
  * @shape completedはcredential_storedの非秘密相関と新規時だけのtoken。拒否は固定理由、保存不明は最初の失敗と最後の確認段階。
- * @invariant prepared未確定ではrecoveryId null。失敗結果にtokenなし。
+ * @invariant 通常新規はprepared未確定でnull/null/not_started。引継ぎは旧record三値を新prepared確定後だけ新へ切替。失敗結果にtokenなし。
  * @boundary 同Process Workbench／信頼Hostの内部Consumer専用。
  * @security tokenは一回提示Ownerだけが扱い、MCP・log・履歴・一般DTOへ渡さない。
- * @compatibility 現Schema v2。提示とrecord終了は未接続。
+ * @compatibility 現Schema v2。提示Consumerは未接続、record終了は別内部入口。
  */
 export type KeyExchangeResult =
   | Readonly<{
@@ -3169,6 +3170,7 @@ export type KeyExchangeResult =
       recoveryId: string | null;
       expectedRevision: number;
       observedRevision: number | null;
+      lastConfirmedOperationId: string | null;
       lastConfirmedStage:
         | "not_started"
         | "prepared"
@@ -3216,10 +3218,13 @@ function executeKeyExchange(
   recipientUserId: string,
   displayedOldCredentialIds: unknown,
   confirmed: boolean,
+  previousRecoveryId?: string,
 ): KeyExchangeResult {
   const displayed = readDisplayedCredentialIds(displayedOldCredentialIds);
   if (
     !displayed ||
+    (previousRecoveryId !== undefined &&
+      !isKeyExchangeRecoveryId(previousRecoveryId)) ||
     (entry !== "host" && entry !== "workbench") ||
     (entry === "host"
       ? token !== null
@@ -3238,6 +3243,7 @@ function executeKeyExchange(
   let admitted = false;
   let issuedToken: string | null = null;
   let recoveryId: string | null = null;
+  let lastConfirmedOperationId: string | null = null;
   let lastConfirmedStage:
     | "not_started"
     | "prepared"
@@ -3265,6 +3271,7 @@ function executeKeyExchange(
         recipientUserId,
         displayed,
         confirmed,
+        previousRecoveryId,
       );
       const prepared = continuation
         ? null
@@ -3278,6 +3285,7 @@ function executeKeyExchange(
             recipientUserId,
             displayed,
             confirmed,
+            previousRecoveryId,
           );
       if (!continuation && !prepared)
         return {
@@ -3290,7 +3298,15 @@ function executeKeyExchange(
       admitted = true;
       if (continuation) {
         recoveryId = continuation.recoveryId;
+        lastConfirmedOperationId = continuation.operationId;
         lastConfirmedStage = continuation.stage;
+      } else if (previousRecoveryId !== undefined) {
+        const previous = current.state.unresolvedKeyExchanges[0];
+        if (previous) {
+          recoveryId = previous.recoveryId;
+          lastConfirmedOperationId = previous.operationId;
+          lastConfirmedStage = previous.stage;
+        }
       }
       firstFailure = "pending";
       const settled = settlePending(root, current, () => {});
@@ -3306,7 +3322,7 @@ function executeKeyExchange(
       let next = prepared;
       while (true) {
         const exchange = current.state.unresolvedKeyExchanges[0];
-        if (exchange?.stage === "credential_stored")
+        if (!next && exchange?.stage === "credential_stored")
           return {
             status: "completed" as const,
             value: {
@@ -3379,6 +3395,7 @@ function executeKeyExchange(
           const known = parsed.state.unresolvedKeyExchanges[0];
           if (known) {
             recoveryId = known.recoveryId;
+            lastConfirmedOperationId = known.operationId;
             lastConfirmedStage = known.stage;
           }
         }
@@ -3442,6 +3459,7 @@ function executeKeyExchange(
     recoveryId,
     expectedRevision,
     observedRevision: result.revision,
+    lastConfirmedOperationId,
     lastConfirmedStage,
     firstFailure:
       releaseFailure &&
@@ -3460,7 +3478,7 @@ function executeKeyExchange(
  * 現在administratorの指定／全員交換を保存する。
  * @responsibility Workbench同Processだけを交換保存へ接続する。
  * @trace ARCH-000013
- * @input Root・現在鍵・期待改訂・交換UUID・範囲・発行先・表示旧集合・確認。
+ * @input Root・現在鍵・期待改訂・交換UUID・範囲・発行先・表示旧集合・確認・任意の前交換参照。
  * @returns core保存結果。新規成功時だけ一度提示用token。
  * @precondition 事前表示済み。全員だけ明示確認。提示Ownerが後続処置を担う。
  * @postcondition recordと未提示事実を保持し、入力対象外を変更しない。
@@ -3480,6 +3498,7 @@ export function exchangeCredentials(
   recipientUserId: string,
   displayedOldCredentialIds: unknown,
   confirmed: boolean,
+  previousRecoveryId?: string,
 ): KeyExchangeResult {
   return executeKeyExchange(
     root,
@@ -3491,6 +3510,7 @@ export function exchangeCredentials(
     recipientUserId,
     displayedOldCredentialIds,
     confirmed,
+    previousRecoveryId,
   );
 }
 
@@ -3498,7 +3518,7 @@ export function exchangeCredentials(
  * 信頼Hostの指定／全員交換とexact継続を保存する。
  * @responsibility 資格喪失でも新Recoveryや起点entry変更なしで進める。
  * @trace ARCH-000013
- * @input Root・期待改訂・交換UUID・範囲・既存発行先・表示旧集合・確認。
+ * @input Root・期待改訂・交換UUID・範囲・発行先・表示旧集合・確認・任意の前交換参照。
  * @returns core保存結果。stored再入場はtoken null。
  * @precondition ログイン済みHost入口。双方事前表示と明示確認済み。
  * @postcondition 起点entryとexact相関を保持する。
@@ -3517,6 +3537,7 @@ export function exchangeCredentialsFromHost(
   recipientUserId: string,
   displayedOldCredentialIds: unknown,
   confirmed: boolean,
+  previousRecoveryId?: string,
 ): KeyExchangeResult {
   return executeKeyExchange(
     root,
@@ -3528,6 +3549,254 @@ export function exchangeCredentialsFromHost(
     recipientUserId,
     displayedOldCredentialIds,
     confirmed,
+    previousRecoveryId,
+  );
+}
+
+/**
+ * 交換終了の確定と保存不明を区別する。
+ * @responsibility 失敗理由を後続解放不明で上書きせず、秘密と内部Pathを返さない。
+ * @trace ARCH-000013
+ * @shape completedは改訂・終了操作・交換参照・清掃確認。拒否は固定理由。admit後不明は出版観測と二失敗。
+ * @invariant record不在から終了済みを再構成しない。
+ * @boundary 同Process Workbench／信頼Host内部Consumer。
+ * @security 生鍵・Verifier・内部Lock相関を含めない。
+ * @compatibility 現Schemaの確認済み交換だけ。
+ */
+export type KeyExchangeCompletionResult =
+  | Readonly<{
+      status: "completed";
+      revision: number;
+      operationId: string;
+      recoveryId: string;
+      cleanupConfirmed: true;
+    }>
+  | Readonly<{
+      status: "unavailable";
+      reason: "key_exchange_completion_rejected";
+    }>
+  | Readonly<{
+      status: "unavailable";
+      reason: "key_exchange_completion_unavailable";
+      operationId: string;
+      recoveryId: string;
+      observedRevision: number | null;
+      firstFailure:
+        | "pending"
+        | "prepare"
+        | "publish"
+        | "read_back"
+        | "cleanup"
+        | "capacity"
+        | "release";
+      secondaryFailure: "release" | null;
+      publication: "not_attempted" | "unconfirmed" | "confirmed";
+      cleanupConfirmed: boolean;
+    }>;
+
+/**
+ * 確認済み交換の終了候補を既存保存へ接続する。
+ * @responsibility 現在認可を材料処置前に検査し、recordだけを一出版で除去する。
+ * @trace ARCH-000013
+ * @input Root、入口・鍵、期待改訂、終了操作UUID、exact交換参照。
+ * @returns 非秘密の確定結果または拒否・保存不明。
+ * @precondition Workbench同Processまたはログイン済みHostの内部Owner。
+ * @postcondition 資格・提示・初回・対象外field不変。
+ * @effect 既存Lockとpending／replaceによる一出版・読戻し・材料清掃。
+ * @failure 未確認は処置0。材料処置・保存・解放不明は停止。
+ * @invariant Secret破棄やrecord不在を終了成功へ変換しない。
+ * @boundary 現在認可・exact終了・Filesystem確定。
+ * @security 生鍵なし。認可前に材料処置しない。
+ * @concurrency 既存単一Lockへ閉じ、次要求はfresh再評価。
+ */
+function completeKeyExchange(
+  root: FilesystemStoreRoot,
+  entry: "workbench" | "host",
+  token: string | null,
+  expectedRevision: number,
+  operationId: string,
+  recoveryId: string,
+): KeyExchangeCompletionResult {
+  if (
+    !isKeyExchangeRecoveryId(recoveryId) ||
+    !Number.isSafeInteger(expectedRevision) ||
+    expectedRevision < 1 ||
+    typeof operationId !== "string" ||
+    !ATTEMPT_UUID.test(operationId) ||
+    (entry === "workbench" &&
+      (typeof token !== "string" || !readCredentialId(token)))
+  )
+    return {
+      status: "unavailable",
+      reason: "key_exchange_completion_rejected",
+    };
+  let admitted = false;
+  let firstFailure: Extract<
+    KeyExchangeCompletionResult,
+    { reason: "key_exchange_completion_unavailable" }
+  >["firstFailure"] = "pending";
+  const result = locked<Readonly<{ revision: number; operationId: string }>>(
+    root,
+    () => {
+      let revision: number | null = null;
+      let cleanupConfirmed = false;
+      try {
+        const current = readCurrent(root);
+        revision = current.state.revision;
+        const next = prepareKeyExchangeCompletion(
+          current.state,
+          entry,
+          token,
+          expectedRevision,
+          operationId,
+          recoveryId,
+        );
+        if (!next)
+          return {
+            status: "unavailable",
+            reason: "state_store_completion_rejected",
+            publication: "not_attempted",
+            revision,
+            cleanupConfirmed: true,
+          };
+        admitted = true;
+        if (settlePending(root, current, () => {}) !== "none")
+          return {
+            status: "unavailable",
+            reason: "state_store_previous_pending_settled",
+            publication: "not_attempted",
+            revision,
+            cleanupConfirmed: true,
+          };
+        cleanupConfirmed = true;
+        firstFailure = "prepare";
+        const parsed = parseAccessManagementState(serialize(next));
+        if (parsed.status !== "parsed") throw new Error("candidate");
+        const published = publishState(
+          root,
+          current,
+          parsed.state,
+          "credential",
+        );
+        if (published.status !== "completed")
+          firstFailure =
+            published.reason === "state_store_publish_failed"
+              ? "publish"
+              : published.reason === "state_store_read_back_failed"
+                ? "read_back"
+                : published.reason === "state_store_cleanup_failed"
+                  ? "cleanup"
+                  : published.reason === "state_store_capacity_exceeded"
+                    ? "capacity"
+                    : "prepare";
+        return published;
+      } catch {
+        return {
+          status: "unavailable",
+          reason: "state_store_completion_failed",
+          publication: "not_attempted",
+          revision,
+          cleanupConfirmed,
+        };
+      }
+    },
+  );
+  if (!admitted)
+    return {
+      status: "unavailable",
+      reason: "key_exchange_completion_rejected",
+    };
+  if (result.status === "completed")
+    return {
+      status: "completed",
+      revision: result.value.revision,
+      operationId,
+      recoveryId,
+      cleanupConfirmed: true,
+    };
+  const releaseFailure =
+    !!result.secondaryReason ||
+    !!result.lockRecoveryId ||
+    result.reason === "state_store_lock_unknown";
+  return {
+    status: "unavailable",
+    reason: "key_exchange_completion_unavailable",
+    operationId,
+    recoveryId,
+    observedRevision: result.revision,
+    firstFailure:
+      releaseFailure &&
+      !result.secondaryReason &&
+      result.reason !== "state_store_completion_failed"
+        ? "release"
+        : firstFailure,
+    secondaryFailure:
+      releaseFailure && result.secondaryReason ? "release" : null,
+    publication: result.publication,
+    cleanupConfirmed: result.cleanupConfirmed,
+  };
+}
+
+/**
+ * 現在管理者の確認済み交換を閉じる。
+ * @responsibility Workbench内部の終了処置を現在資格で認可する。
+ * @trace ARCH-000013
+ * @input Root、現在鍵、期待改訂、終了操作UUID、交換参照。
+ * @returns 非秘密の終了結果。
+ * @precondition 同Process内部Consumer、提示confirmed。
+ * @postcondition record以外を保持する。
+ * @effect 既存保存Ownerの一出版。
+ * @failure 非管理者・未知・未確認・保存不明は停止。
+ * @invariant 拒否とrecord不在から完了を推定しない。
+ * @boundary Workbench内部とAM。
+ * @security MCPへ公開しない。
+ * @concurrency 既存Lockでfresh再認可。
+ */
+export function finishKeyExchange(
+  root: FilesystemStoreRoot,
+  token: string,
+  expectedRevision: number,
+  operationId: string,
+  recoveryId: string,
+): KeyExchangeCompletionResult {
+  return completeKeyExchange(
+    root,
+    "workbench",
+    token,
+    expectedRevision,
+    operationId,
+    recoveryId,
+  );
+}
+
+/**
+ * 信頼Hostの確認済み交換を閉じる。
+ * @responsibility 資格喪失時も現在exact交換だけを整理する。
+ * @trace ARCH-000013
+ * @input Root、期待改訂、終了操作UUID、交換参照。
+ * @returns 非秘密の終了結果。
+ * @precondition ログイン済みHost内部入口。初回は同UserのHost指定だけ。
+ * @postcondition record以外を保持する。
+ * @effect 既存保存Ownerの一出版。
+ * @failure 相関・提示・保存不明は停止。
+ * @invariant 追加認証・初期化・Role修復をしない。
+ * @boundary 信頼HostとAM。
+ * @security Remote／MCPへ公開しない。
+ * @concurrency 同じ既存Lockで再評価。
+ */
+export function finishKeyExchangeFromHost(
+  root: FilesystemStoreRoot,
+  expectedRevision: number,
+  operationId: string,
+  recoveryId: string,
+): KeyExchangeCompletionResult {
+  return completeKeyExchange(
+    root,
+    "host",
+    null,
+    expectedRevision,
+    operationId,
+    recoveryId,
   );
 }
 

@@ -467,6 +467,20 @@ credential_storedの保存・清掃・Lock解放後だけ一回の短命Secret�
 
 確定した局所結果：Node v24.19.0、Reader局所5/5・Exit0、7.4369115秒。是正後各Packageの`npm test`はAM130/130・155.5333602秒、MCP75/75・64.645641秒、全Exit0・Fail／Cancel／Skip0、書式・型・warning禁止Lintの各3軸成功。固定9Pathの限定独立再レビューは全重大度残指摘0。二変異は各対象CaseでExit1を確認してexact復元し、上記全回帰で成功を確認した。HEAD `d71ade809d8fe770d196970ca51f8ed9ca99b529`とtracked差分Hash `6b96aeee423332d7874ac3830ce368308a38670c`は回帰終了前後で一致。鍵交換Source／保存Source／保存試験のGit Blob OIDは順に`6298ab0060df216bab180123a3adf0ee47e3e20b`／`99de137e3d53259d905fba847e5a81c29c990533`／`a38f87058cbf2c14ba6a6d8ab3a2c73904b0be5d`。Symbol／Catalog ID・Path重複0、登録実体欠落0、自己生成store Root残存0、差分空白検査成功。Checkerは全体3057 errors／0 warnings・Exit1、対象9Path指摘0。完全出力は端末で確認し、上記コマンドで再生成できるため実行別書庫は追加しない。後続の結果同期は文書だけで、実行Source・試験を変更しない。正式191項目・全体Readyは未成立を維持する。
 
+### 交換終了処理のSource接続着手 — 2026-10-13
+
+基準`af05b896`、着手時clean。承認済み終了方針内の実装追加として、親照合と独立した読取り専用契約確認を行った。現在認可・exact参照・表示・確認・容量を維持し、新State／Lock／履歴を追加しない。未確認storedから既存2入口の任意previous参照で別preparedへ一出版置換し、再送は新recordを優先する。失敗結果は今回operationと最後に耐久確認したrecordの三値を分ける。初回・現在権限・秘密再取得0・既存省略要求は不変。確認済み整理・負例／境界／Process喪失／競合・本番Consumerと正式191項目は残る。
+
+現候補では四経路×未提示／提示未確認の引継ぎ・同要求再送と別参照拒否、置換rename失敗時の旧相関保持、置換確定後清掃失敗の新相関保持とfresh継続を局所反証した。静的3軸成功、引継ぎ局所2 Case成功・Exit0（6.2332794秒）、先行の鍵交換関連11 Caseも成功。全回帰・固定候補独立レビューは未実行で、未コミットの途中候補である。Sourceの一部接続から終了処理全体・本番成立を主張しない。実Host・秘密値・Docker・Provider・過去Evidenceは不変更。
+
+終了候補と既存保存Owner、内部2入口を追加した。先行純粋候補試験は既存6件＋追加3件の9件成功、静的3軸成功。局所保存で両起点×両終了入口、未確認拒否、record以外保持、出版／読戻し／清掃／解放と二失敗分離、引継ぎ三出版／終了一出版の実Process喪失前後、初回Host同User・最新確認対象保持を確認した。実Process断面1 Caseは8条件を実行して成功。先行全AM139件は成功したが、現在候補へそのまま流用しない。その後、通常6／初回7・終了1／初回2改訂余裕の境界と、引継ぎ同／別操作・終了の二Process競合3条件を追加し、各局所1件成功を確認した。現在候補を固定し、最終全回帰・独立レビューへ渡す。既存Catalog2項目へ意味Tagだけを追加し、Symbol／Local Item／191項目・公開MCP・Schema・新Store／Lockは不変。終了保存成功を本番Consumerの完成としない。結果は未確定で、実Host／Workbench・旧REST撤去・正式項目・AM全体は未成立を維持する。
+
+確定した局所結果：Node v24.19.0、最終各Packageの`npm test`でAM141/141・186.9874873秒、MCP75/75・69.773434秒、全Exit0・Fail／Cancel／Skip0・静的各3軸成功。固定11Path限定独立レビューのModerate1件は、通常新規と引継ぎを区別しない旧null説明を3現行箇所で是正した。統合是正方針確認後のSource Header1行・文書だけの修正で実行ロジック／試験不変、静的3軸と該当故障2 Caseを再実行して成功（5.675919秒・Exit0）。限定独立再レビューは全重大度残指摘0。
+
+実行前後HEAD `af05b8962399adadf9938fdfe25b17589c9482e8`とtracked差分Hash `cf15bfc12e87fdf3bc56ea388238b5258cf4012d`一致。説明是正後Hashは`3e232a9af2a26b9017df91ff93a8145dc4ba26f5`。鍵交換Source／保存Source／保存試験のGit Blob OIDは説明是正後に`c3352aac3db812df2ce9838b8250400c5c641db7`／`005dd8e8fac2e2e6c2afae9ce483920b7a3bd5f1`／`6c3019abc67a92627aa63fae046326668fec78f8`。全体Checker3057 errors／0 warnings・Exit1、対象11Path指摘0。Symbol／Catalog ID・Path重複0、登録実体欠落0、自己生成store Root残存0、差分空白検査成功。全Process／検証session終了済み。完全出力は端末で確認し、各公開testと対象node testで再生成可能なため実行別書庫を増やさない。結果同期は3文書だけでSource／Test不変。
+
+今回の局所保存・終了coreは閉じるが、短命Secretの本番提示Owner、通常Workbench鍵3操作・Host交換2操作、MCP／Workbench本番Launcher、旧REST撤去、実Host移行／Linux、正式191項目・AM全体完成は未成立を維持する。次は既存提示Writerと終了APIを実Consumerへ接続する。現在、人間による追加判断は不要。
+
 ### 交換本体の保存接続の着手と固定条件 — 2026-10-13
 
 基準98363c47、開始時clean。親と読取り専用確認者が既存正本・保存意味を照合し、現在Authorityを先行材料処置より前に確認すること、同Lock要求内のadmissionだけで失効後も進むことを確定した。別要求はfresh認可で、起点entry・旧集合・同Recoveryを保持する。prepared未確定時は耐久Recoveryを返さず、current=next材料処置要求は停止、credential base材料は保持停止する。追加人間判断・新Store／Lock／Framework／MCP鍵操作はない。

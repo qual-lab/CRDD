@@ -20,6 +20,7 @@ import {
   revokeCredential,
   exchangeCredentials,
   exchangeCredentialsFromHost,
+  finishKeyExchangeFromHost,
 } from "../../src/index.ts";
 
 const input = JSON.parse(fs.readFileSync(0, "utf8")) as {
@@ -28,7 +29,10 @@ const input = JSON.parse(fs.readFileSync(0, "utf8")) as {
   operationId: string;
   userId: string;
   credentialId: string;
-  operation: "issue" | "revoke" | "exchange" | "host_exchange";
+  operation: "issue" | "revoke" | "exchange" | "host_exchange" | "host_finish";
+  expectedRevision?: number;
+  previousRecoveryId?: string;
+  recoveryId?: string;
   scope?: "targeted" | "all";
   displayedOldCredentialIds?: string[];
   crashPhase?: number;
@@ -60,31 +64,40 @@ const result =
       ? exchangeCredentials(
           root,
           input.token,
-          1,
+          input.expectedRevision ?? 1,
           input.operationId,
           input.scope ?? "targeted",
           input.userId,
           input.displayedOldCredentialIds,
           true,
+          input.previousRecoveryId,
         )
       : input.operation === "host_exchange"
         ? exchangeCredentialsFromHost(
             root,
-            1,
+            input.expectedRevision ?? 1,
             input.operationId,
             input.scope ?? "targeted",
             input.userId,
             input.displayedOldCredentialIds,
             true,
+            input.previousRecoveryId,
           )
-        : revokeCredential(
-            root,
-            input.token,
-            1,
-            input.operationId,
-            input.userId,
-            input.credentialId,
-          );
+        : input.operation === "host_finish"
+          ? finishKeyExchangeFromHost(
+              root,
+              input.expectedRevision ?? 1,
+              input.operationId,
+              input.recoveryId ?? "",
+            )
+          : revokeCredential(
+              root,
+              input.token,
+              1,
+              input.operationId,
+              input.userId,
+              input.credentialId,
+            );
 process.stdout.write(
   `${JSON.stringify({
     status: result.status,

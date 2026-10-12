@@ -43,6 +43,8 @@ test("三Roleと全11認可要求種別の固定分担", () => {
     "evaluateManagementPermission",
     "exchangeCredentials",
     "exchangeCredentialsFromHost",
+    "finishKeyExchange",
+    "finishKeyExchangeFromHost",
     "initializeAccessManagementState",
     "initializeFromHost",
     "issueCredential",

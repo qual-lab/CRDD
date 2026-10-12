@@ -37,6 +37,8 @@ import {
   type KeyExchangeResult,
   exchangeCredentials,
   exchangeCredentialsFromHost,
+  finishKeyExchange,
+  finishKeyExchangeFromHost,
   readKeyExchangeState,
   readKeyExchangeStateFromHost,
   readCredentialIssuance,
@@ -7948,6 +7950,956 @@ test("鍵交換保存は二Processの同一と別対象競合を一採用へ閉�
     assert.equal(saved.revision, 4);
     assert.equal(saved.credentials.length, 4);
     assert.equal(saved.unresolvedKeyExchanges.length, 1);
+    assert.deepEqual(saved.users, f.state.users);
+    assert.deepEqual(saved.initialization, f.state.initialization);
+    assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
+  }
+});
+
+/**
+ * 未確認の交換を別の明示交換へ引き継ぐ。
+ * @responsibility 四経路と二提示状態を新相関へ一出版で置換する。
+ * @trace RFD-IT-013
+ * @trace RFD-IT-017
+ * @precondition Hostで既存managerへ保存済みの交換と三Role資格。
+ * @stimulus not_attempted／unconfirmedから四経路の別交換と再送を行う。
+ * @observation 新record・改訂・旧資格失効・提示保持・次要求のtoken null。
+ * @oracle 新record一件、新鍵一件、旧参照の誤再送は保存0。
+ * @cleanup Fixture回収。
+ * @boundary 明示交換の意味と実Filesystem保存。
+ */
+test("鍵交換引継ぎは四経路で未確認記録を新交換へ置換する", (t) => {
+  for (const presentation of ["not_attempted", "unconfirmed"] as const)
+    for (const entry of ["workbench", "host"] as const)
+      for (const scope of ["targeted", "all"] as const) {
+        const f = managementFixture(t);
+        const target = f.state.credentials[1];
+        assert.ok(target);
+        const old = exchangeCredentialsFromHost(
+          f.root,
+          1,
+          "00000000-0000-4000-8000-000000000090",
+          "targeted",
+          target.userId,
+          [target.credentialId],
+          true,
+        );
+        assert.equal(old.status, "completed");
+        if (old.status !== "completed") continue;
+        let revision = old.revision;
+        if (presentation === "unconfirmed") {
+          const presented = recordCredentialPresentation(f.root, {
+            credentialId: old.credentialId,
+            issuanceOperationId: old.operationId,
+            expectedRevision: revision,
+            target: "unconfirmed",
+          });
+          assert.equal(presented.status, "completed");
+          if (presented.status !== "completed") continue;
+          revision = presented.value.revision;
+        }
+        const current = path.join(f.directory, "access-management.json");
+        const before = JSON.parse(
+          fs.readFileSync(current, "utf8"),
+        ) as AccessManagementState;
+        const recipient = scope === "all" ? before.users[0] : before.users[1];
+        assert.ok(recipient);
+        const ids = before.credentials
+          .filter(
+            (credential) =>
+              !credential.revoked &&
+              (scope === "all" || credential.userId === recipient.userId),
+          )
+          .map((credential) => credential.credentialId);
+        const operationId = "00000000-0000-4000-8000-000000000091";
+        const invoke = (expected: number, previous = old.recoveryId) =>
+          entry === "host"
+            ? exchangeCredentialsFromHost(
+                f.root,
+                expected,
+                operationId,
+                scope,
+                recipient.userId,
+                ids,
+                true,
+                previous,
+              )
+            : exchangeCredentials(
+                f.root,
+                f.tokens.administrator,
+                expected,
+                operationId,
+                scope,
+                recipient.userId,
+                ids,
+                scope === "all",
+                previous,
+              );
+        const exchanged = invoke(revision);
+        assert.equal(exchanged.status, "completed");
+        if (exchanged.status !== "completed") continue;
+        assert.equal(exchanged.operationId, operationId);
+        assert.equal(exchanged.revision, revision + 3);
+        assert.equal(typeof exchanged.token, "string");
+        assert.notEqual(exchanged.credentialId, old.credentialId);
+        const saved = JSON.parse(
+          fs.readFileSync(current, "utf8"),
+        ) as AccessManagementState;
+        assert.equal(saved.unresolvedKeyExchanges.length, 1);
+        assert.equal(
+          saved.unresolvedKeyExchanges[0]?.recoveryId,
+          exchanged.recoveryId,
+        );
+        assert.equal(saved.credentials.length, before.credentials.length + 1);
+        assert.equal(
+          saved.credentials.find((c) => c.credentialId === old.credentialId)
+            ?.revoked,
+          true,
+        );
+        assert.equal(
+          saved.credentials.find((c) => c.credentialId === old.credentialId)
+            ?.presentation,
+          presentation,
+        );
+        assert.deepEqual(saved.initialization, before.initialization);
+        const bytesBefore = fs.readFileSync(current);
+        const wrong =
+          entry === "host"
+            ? exchangeCredentialsFromHost(
+                f.root,
+                exchanged.revision,
+                operationId,
+                scope,
+                recipient.userId,
+                ids,
+                true,
+                "access-management.key-exchange.00000000-0000-4000-8000-000000000099",
+              )
+            : exchangeCredentials(
+                f.root,
+                exchanged.token ?? "",
+                exchanged.revision,
+                operationId,
+                scope,
+                recipient.userId,
+                ids,
+                scope === "all",
+                "access-management.key-exchange.00000000-0000-4000-8000-000000000099",
+              );
+        assert.equal(wrong.status, "unavailable");
+        assert.deepEqual(fs.readFileSync(current), bytesBefore);
+        const retried =
+          entry === "host"
+            ? invoke(exchanged.revision)
+            : exchangeCredentials(
+                f.root,
+                scope === "all"
+                  ? (exchanged.token ?? "")
+                  : f.tokens.administrator,
+                exchanged.revision,
+                operationId,
+                scope,
+                recipient.userId,
+                ids,
+                scope === "all",
+                old.recoveryId,
+              );
+        assert.equal(retried.status, "completed");
+        if (retried.status === "completed") assert.equal(retried.token, null);
+        assert.deepEqual(fs.readFileSync(current), bytesBefore);
+      }
+});
+
+/**
+ * 引継ぎ出版前後の最後の確定相関を分離する。
+ * @responsibility 新要求の失敗を旧交換の成功や新交換の確定へ変換しない。
+ * @trace RFD-IT-013
+ * @trace RFD-IT-017
+ * @precondition 保存済みHost指定交換と出版／清掃故障Hook。
+ * @stimulus 新preparedのrename前または清掃時に停止し、元入力で再入場する。
+ * @observation 旧／新のRecovery・operation・段階、current、再入場時生成。
+ * @oracle 出版前は旧相関保持、確定後は新相関へ同時切替。材料処置要求は停止。
+ * @cleanup Hook復元とFixture回収。
+ * @boundary current確定と返却の相関。
+ */
+test("鍵交換引継ぎは置換出版の故障前後で確定相関を保持する", (t) => {
+  for (const mode of ["publish", "cleanup"] as const) {
+    const f = managementFixture(t);
+    const target = f.state.credentials[1];
+    assert.ok(target);
+    const old = exchangeCredentialsFromHost(
+      f.root,
+      1,
+      "00000000-0000-4000-8000-000000000090",
+      "targeted",
+      target.userId,
+      [target.credentialId],
+      true,
+    );
+    assert.equal(old.status, "completed");
+    if (old.status !== "completed") continue;
+    const operationId = "00000000-0000-4000-8000-000000000091";
+    const rename = fs.renameSync;
+    const remove = fs.rmSync;
+    let hit = false;
+    fs.renameSync = (from, to) => {
+      if (
+        mode === "publish" &&
+        !hit &&
+        String(to) === path.join(f.directory, "access-management.json")
+      ) {
+        hit = true;
+        throw new Error("injected_publish");
+      }
+      rename(from, to);
+    };
+    fs.rmSync = (file, options) => {
+      if (
+        mode === "cleanup" &&
+        !hit &&
+        String(file) ===
+          path.join(f.directory, "access-management.pending.json")
+      ) {
+        hit = true;
+        throw new Error("injected_cleanup");
+      }
+      remove(file, options);
+    };
+    let result: ReturnType<typeof exchangeCredentialsFromHost>;
+    try {
+      result = exchangeCredentialsFromHost(
+        f.root,
+        4,
+        operationId,
+        "targeted",
+        target.userId,
+        [old.credentialId],
+        true,
+        old.recoveryId,
+      );
+    } finally {
+      fs.renameSync = rename;
+      fs.rmSync = remove;
+    }
+    assert.equal(hit, true);
+    assert.equal(result.status, "unavailable");
+    if (
+      result.status !== "unavailable" ||
+      result.reason !== "key_exchange_unavailable"
+    )
+      continue;
+    assert.equal(result.operationId, operationId);
+    assert.equal(
+      result.lastConfirmedOperationId,
+      mode === "publish" ? old.operationId : operationId,
+    );
+    assert.equal(
+      result.recoveryId,
+      mode === "publish"
+        ? old.recoveryId
+        : `access-management.key-exchange.${operationId}`,
+    );
+    assert.equal(
+      result.lastConfirmedStage,
+      mode === "publish" ? "credential_stored" : "prepared",
+    );
+    const current = path.join(f.directory, "access-management.json");
+    const saved = JSON.parse(
+      fs.readFileSync(current, "utf8"),
+    ) as AccessManagementState;
+    assert.equal(saved.credentials.length, f.state.credentials.length + 1);
+    assert.equal(saved.unresolvedKeyExchanges.length, 1);
+    assert.equal(
+      exchangeCredentialsFromHost(
+        f.root,
+        saved.revision,
+        operationId,
+        "targeted",
+        target.userId,
+        [old.credentialId],
+        true,
+        old.recoveryId,
+      ).status,
+      "unavailable",
+    );
+    if (mode === "cleanup") {
+      const resumed = exchangeCredentialsFromHost(
+        f.root,
+        saved.revision,
+        operationId,
+        "targeted",
+        target.userId,
+        [old.credentialId],
+        true,
+        old.recoveryId,
+      );
+      assert.equal(resumed.status, "completed");
+      if (resumed.status === "completed") assert.equal(resumed.revision, 7);
+    } else {
+      assert.equal(
+        fs.existsSync(path.join(f.directory, "access-management.pending.json")),
+        true,
+      );
+      assert.deepEqual(JSON.parse(fs.readFileSync(current, "utf8")), saved);
+    }
+  }
+});
+
+/**
+ * 提示確認済み交換だけを現在認可で整理する。
+ * @responsibility 起点と整理入口を分離し、記録以外の情報を保持する。
+ * @trace RFD-IT-013
+ * @trace RFD-IT-017
+ * @precondition 三RoleのRootと管理者以外への保存済み指定交換。
+ * @stimulus 両起点・両終了入口で未提示、未確認、確認済みを処置する。
+ * @observation 改訂、資格・初回・User保持、record除去と再要求拒否。
+ * @oracle 未確認の処置0、確認済み一出版、二回目は完了を再構成しない。
+ * @cleanup Fixture回収。
+ * @boundary 提示保存・現在認可・交換終了。
+ */
+test("鍵交換終了は確認済み記録だけ除去して資格を保持する", (t) => {
+  for (const origin of ["workbench", "host"] as const)
+    for (const entry of ["workbench", "host"] as const) {
+      const f = managementFixture(t);
+      const target = f.state.credentials[1];
+      assert.ok(target);
+      const exchangeId = "00000000-0000-4000-8000-000000000090";
+      const old =
+        origin === "host"
+          ? exchangeCredentialsFromHost(
+              f.root,
+              1,
+              exchangeId,
+              "targeted",
+              target.userId,
+              [target.credentialId],
+              true,
+            )
+          : exchangeCredentials(
+              f.root,
+              f.tokens.administrator,
+              1,
+              exchangeId,
+              "targeted",
+              target.userId,
+              [target.credentialId],
+              false,
+            );
+      assert.equal(old.status, "completed");
+      if (old.status !== "completed") continue;
+      const current = path.join(f.directory, "access-management.json");
+      const closeId = "00000000-0000-4000-8000-000000000091";
+      const unpresented = fs.readFileSync(current);
+      assert.equal(
+        finishKeyExchangeFromHost(f.root, 4, closeId, old.recoveryId).status,
+        "unavailable",
+      );
+      assert.deepEqual(fs.readFileSync(current), unpresented);
+      const started = recordCredentialPresentation(f.root, {
+        credentialId: old.credentialId,
+        issuanceOperationId: old.operationId,
+        expectedRevision: 4,
+        target: "unconfirmed",
+      });
+      assert.equal(started.status, "completed");
+      if (started.status !== "completed") continue;
+      const unconfirmed = fs.readFileSync(current);
+      assert.equal(
+        finishKeyExchange(
+          f.root,
+          f.tokens.administrator,
+          5,
+          closeId,
+          old.recoveryId,
+        ).status,
+        "unavailable",
+      );
+      assert.deepEqual(fs.readFileSync(current), unconfirmed);
+      assert.equal(
+        recordCredentialPresentation(f.root, {
+          credentialId: old.credentialId,
+          issuanceOperationId: old.operationId,
+          expectedRevision: 5,
+          target: "confirmed",
+          presentationOperationId: started.value.presentationOperationId,
+        }).status,
+        "completed",
+      );
+      const before = JSON.parse(
+        fs.readFileSync(current, "utf8"),
+      ) as AccessManagementState;
+      const beforeBytes = fs.readFileSync(current);
+      assert.equal(
+        finishKeyExchange(
+          f.root,
+          f.tokens.developer,
+          6,
+          closeId,
+          old.recoveryId,
+        ).status,
+        "unavailable",
+      );
+      assert.equal(
+        finishKeyExchangeFromHost(f.root, 5, closeId, old.recoveryId).status,
+        "unavailable",
+      );
+      assert.equal(
+        finishKeyExchangeFromHost(f.root, 6, exchangeId, old.recoveryId).status,
+        "unavailable",
+      );
+      assert.deepEqual(fs.readFileSync(current), beforeBytes);
+      const finished =
+        entry === "host"
+          ? finishKeyExchangeFromHost(f.root, 6, closeId, old.recoveryId)
+          : finishKeyExchange(
+              f.root,
+              f.tokens.administrator,
+              6,
+              closeId,
+              old.recoveryId,
+            );
+      assert.deepEqual(finished, {
+        status: "completed",
+        revision: 7,
+        operationId: closeId,
+        recoveryId: old.recoveryId,
+        cleanupConfirmed: true,
+      });
+      const saved = JSON.parse(
+        fs.readFileSync(current, "utf8"),
+      ) as AccessManagementState;
+      assert.deepEqual(saved, {
+        ...before,
+        revision: 7,
+        operationId: closeId,
+        unresolvedKeyExchanges: [],
+      });
+      const afterBytes = fs.readFileSync(current);
+      assert.equal(
+        finishKeyExchangeFromHost(f.root, 7, closeId, old.recoveryId).status,
+        "unavailable",
+      );
+      assert.deepEqual(fs.readFileSync(current), afterBytes);
+      assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
+    }
+});
+
+/**
+ * 確認済み交換終了の故障を実保存で観測する。
+ * @responsibility 出版状態と主失敗・解放不明を混同しない。
+ * @trace RFD-IT-013
+ * @trace RFD-IT-017
+ * @precondition 確認済みHost交換と対象限定Filesystem故障Hook。
+ * @stimulus 終了の出版・読戻し・清掃・Lock解放を停止する。
+ * @observation failure相関、record有無、資格保持、復元後再要求。
+ * @oracle 不明をcompletedへ変換せず、終了済み不在から再完了を作らない。
+ * @cleanup Hook復元とFixture回収。
+ * @boundary 既存Lock・出版・current読戻し。
+ */
+test("鍵交換終了は出版故障と後続解放不明を分離する", (t) => {
+  for (const mode of [
+    "publish",
+    "read_back",
+    "cleanup",
+    "release",
+    "publish_release",
+  ] as const) {
+    const f = managementFixture(t);
+    const target = f.state.credentials[1];
+    assert.ok(target);
+    const old = exchangeCredentialsFromHost(
+      f.root,
+      1,
+      "00000000-0000-4000-8000-000000000090",
+      "targeted",
+      target.userId,
+      [target.credentialId],
+      true,
+    );
+    assert.ok(old.status === "completed");
+    const started = recordCredentialPresentation(f.root, {
+      credentialId: old.credentialId,
+      issuanceOperationId: old.operationId,
+      expectedRevision: 4,
+      target: "unconfirmed",
+    });
+    assert.ok(started.status === "completed");
+    assert.equal(
+      recordCredentialPresentation(f.root, {
+        credentialId: old.credentialId,
+        issuanceOperationId: old.operationId,
+        expectedRevision: 5,
+        target: "confirmed",
+        presentationOperationId: started.value.presentationOperationId,
+      }).status,
+      "completed",
+    );
+    const current = path.join(f.directory, "access-management.json");
+    const before = JSON.parse(
+      fs.readFileSync(current, "utf8"),
+    ) as AccessManagementState;
+    const rename = fs.renameSync;
+    const open = fs.openSync;
+    const remove = fs.rmSync;
+    let published = false;
+    let hit = false;
+    fs.renameSync = (from, to) => {
+      if (String(to) === current) {
+        if (mode === "publish" || mode === "publish_release") {
+          hit = true;
+          throw new Error("injected_publish");
+        }
+        published = true;
+      }
+      rename(from, to);
+    };
+    fs.openSync = (file, flags, fileMode) => {
+      if (
+        mode === "read_back" &&
+        published &&
+        !hit &&
+        String(file) === current
+      ) {
+        hit = true;
+        throw new Error("injected_read");
+      }
+      return open(file, flags, fileMode);
+    };
+    fs.rmSync = (file, options) => {
+      if (
+        (mode === "cleanup" &&
+          String(file) ===
+            path.join(f.directory, "access-management.pending.json")) ||
+        ((mode === "release" || mode === "publish_release") &&
+          String(file) === path.join(f.directory, "access-management.lock"))
+      ) {
+        hit = true;
+        throw new Error("injected_remove");
+      }
+      remove(file, options);
+    };
+    let result: ReturnType<typeof finishKeyExchangeFromHost>;
+    const operationId = "00000000-0000-4000-8000-000000000091";
+    try {
+      result = finishKeyExchangeFromHost(
+        f.root,
+        6,
+        operationId,
+        old.recoveryId,
+      );
+    } finally {
+      fs.renameSync = rename;
+      fs.openSync = open;
+      fs.rmSync = remove;
+    }
+    assert.equal(hit, true);
+    assert.ok(
+      result.status === "unavailable" &&
+        result.reason === "key_exchange_completion_unavailable",
+    );
+    assert.equal(result.recoveryId, old.recoveryId);
+    assert.equal(result.operationId, operationId);
+    assert.equal(
+      result.firstFailure,
+      mode === "publish_release" ? "publish" : mode,
+    );
+    assert.equal(
+      result.secondaryFailure,
+      mode === "publish_release" ? "release" : null,
+    );
+    const saved = JSON.parse(
+      fs.readFileSync(current, "utf8"),
+    ) as AccessManagementState;
+    assert.deepEqual(saved.credentials, before.credentials);
+    assert.deepEqual(saved.initialization, before.initialization);
+    assert.equal(saved.unresolvedKeyExchanges.length, published ? 0 : 1);
+    const savedBytes = fs.readFileSync(current);
+    assert.equal(
+      finishKeyExchangeFromHost(
+        f.root,
+        saved.revision,
+        operationId,
+        old.recoveryId,
+      ).status,
+      "unavailable",
+    );
+    assert.deepEqual(fs.readFileSync(current), savedBytes);
+  }
+});
+
+/**
+ * 実Process喪失後の引継ぎと終了材料を観測する。
+ * @responsibility 保存前のunknownと保存済みrecord不存在を区別する。
+ * @trace RFD-IT-013
+ * @trace RFD-IT-017
+ * @precondition 自己生成Rootと既存試験Worker。
+ * @stimulus 引継ぎ三出版または終了一出版のrename前後でProcessを終了する。
+ * @observation 子終了、record・資格、信頼保存Ownerの材料処置、fresh再入場。
+ * @oracle base材料保持、next材料回収。不存在から終了completedを再構成しない。
+ * @cleanup 子Process joinとFixture回収。
+ * @boundary 実Process・Filesystem・既存保存Owner。
+ */
+test("鍵交換終了と引継ぎは実Process喪失後のbaseとnextを区別する", (t) => {
+  for (const operation of ["host_exchange", "host_finish"] as const)
+    for (const phase of operation === "host_exchange" ? [1, 2, 3] : [1])
+      for (const timing of ["before", "after"] as const) {
+        const f = managementFixture(t);
+        const target = f.state.credentials[1];
+        assert.ok(target);
+        const old = exchangeCredentialsFromHost(
+          f.root,
+          1,
+          "00000000-0000-4000-8000-000000000090",
+          "targeted",
+          target.userId,
+          [target.credentialId],
+          true,
+        );
+        assert.ok(old.status === "completed");
+        let expectedRevision = 4;
+        if (operation === "host_finish") {
+          const started = recordCredentialPresentation(f.root, {
+            credentialId: old.credentialId,
+            issuanceOperationId: old.operationId,
+            expectedRevision: 4,
+            target: "unconfirmed",
+          });
+          assert.ok(started.status === "completed");
+          assert.equal(
+            recordCredentialPresentation(f.root, {
+              credentialId: old.credentialId,
+              issuanceOperationId: old.operationId,
+              expectedRevision: 5,
+              target: "confirmed",
+              presentationOperationId: started.value.presentationOperationId,
+            }).status,
+            "completed",
+          );
+          expectedRevision = 6;
+        }
+        const operationId = "00000000-0000-4000-8000-000000000091";
+        const worker = path.resolve(
+          import.meta.dirname,
+          "../../fixtures/credential-management-worker.ts",
+        );
+        const child = spawnSync(process.execPath, [worker], {
+          input: JSON.stringify({
+            directory: f.directory,
+            token: "",
+            operationId,
+            userId: target.userId,
+            credentialId: "",
+            operation,
+            expectedRevision,
+            scope: "targeted",
+            displayedOldCredentialIds: [old.credentialId],
+            previousRecoveryId: old.recoveryId,
+            recoveryId: old.recoveryId,
+            crashPhase: phase,
+            crashTiming: timing,
+          }),
+          encoding: "utf8",
+          timeout: 30000,
+        });
+        assert.equal(child.error, undefined);
+        assert.equal(child.status, 71);
+        assert.equal(child.stdout, "");
+        const current = path.join(f.directory, "access-management.json");
+        const before = JSON.parse(
+          fs.readFileSync(current, "utf8"),
+        ) as AccessManagementState;
+        const observed = readAccessManagementState(f.root);
+        if (timing === "before") {
+          assert.equal(observed.status, "unavailable");
+          assert.equal(
+            fs.existsSync(
+              path.join(f.directory, "access-management.pending.json"),
+            ),
+            true,
+          );
+          assert.deepEqual(
+            JSON.parse(fs.readFileSync(current, "utf8")),
+            before,
+          );
+          continue;
+        }
+        assert.equal(observed.status, "completed");
+        assert.deepEqual(fs.readdirSync(f.directory), [
+          "access-management.json",
+        ]);
+        if (operation === "host_finish") {
+          assert.equal(before.unresolvedKeyExchanges.length, 0);
+          assert.equal(
+            finishKeyExchangeFromHost(
+              f.root,
+              before.revision,
+              operationId,
+              old.recoveryId,
+            ).status,
+            "unavailable",
+          );
+        } else {
+          const resumed = exchangeCredentialsFromHost(
+            f.root,
+            before.revision,
+            operationId,
+            "targeted",
+            target.userId,
+            [old.credentialId],
+            true,
+            old.recoveryId,
+          );
+          assert.ok(resumed.status === "completed");
+          assert.equal(resumed.revision, 7);
+          assert.equal(resumed.token === null, phase === 3);
+        }
+      }
+});
+
+/**
+ * 初回途中の引継ぎと終了を同UserのHost指定へ閉じる。
+ * @responsibility 元初回試行と初資格を保存し、最新確認対象だけ更新する。
+ * @trace RFD-IT-013
+ * @trace RFD-IT-017
+ * @trace RFD-IT-024
+ * @precondition 初回credential_storedの単一管理者。
+ * @stimulus Host交換を別交換へ引き継ぎ、提示を確認して終了する。
+ * @observation 初回歴史ID、最新確認資格、Workbench／全員拒否、record除去。
+ * @oracle Host同Userだけ。初回completedや本人受領は推定しない。
+ * @cleanup Fixture回収。
+ * @boundary 初回確認Bindingと交換終了。
+ */
+test("鍵交換終了と引継ぎは初回Hostの同ユーザーだけを保持する", (t) => {
+  const f = managementFixture(t);
+  const admin = f.state.users[0];
+  const original = f.state.credentials[0];
+  assert.ok(admin && original);
+  f.state.users = [admin];
+  f.state.credentials = [original];
+  original.operationId = f.state.initialization.attemptId;
+  f.state.initialization = {
+    stage: "credential_stored",
+    attemptId: original.operationId,
+    userId: admin.userId,
+    initialCredentialId: original.credentialId,
+    confirmationCredentialId: original.credentialId,
+  };
+  const current = path.join(f.directory, "access-management.json");
+  fs.writeFileSync(current, bytes(f.state));
+  const old = exchangeCredentialsFromHost(
+    f.root,
+    1,
+    "00000000-0000-4000-8000-000000000090",
+    "targeted",
+    admin.userId,
+    [original.credentialId],
+    true,
+  );
+  assert.ok(old.status === "completed");
+  const operationId = "00000000-0000-4000-8000-000000000091";
+  const before = fs.readFileSync(current);
+  assert.equal(
+    exchangeCredentials(
+      f.root,
+      old.token ?? "",
+      4,
+      operationId,
+      "targeted",
+      admin.userId,
+      [old.credentialId],
+      false,
+      old.recoveryId,
+    ).status,
+    "unavailable",
+  );
+  assert.equal(
+    exchangeCredentialsFromHost(
+      f.root,
+      4,
+      operationId,
+      "all",
+      admin.userId,
+      [old.credentialId],
+      true,
+      old.recoveryId,
+    ).status,
+    "unavailable",
+  );
+  assert.deepEqual(fs.readFileSync(current), before);
+  const next = exchangeCredentialsFromHost(
+    f.root,
+    4,
+    operationId,
+    "targeted",
+    admin.userId,
+    [old.credentialId],
+    true,
+    old.recoveryId,
+  );
+  assert.ok(next.status === "completed");
+  const started = recordCredentialPresentation(f.root, {
+    credentialId: next.credentialId,
+    issuanceOperationId: next.operationId,
+    expectedRevision: 7,
+    target: "unconfirmed",
+  });
+  assert.ok(started.status === "completed");
+  assert.equal(
+    recordCredentialPresentation(f.root, {
+      credentialId: next.credentialId,
+      issuanceOperationId: next.operationId,
+      expectedRevision: 8,
+      target: "confirmed",
+      presentationOperationId: started.value.presentationOperationId,
+    }).status,
+    "completed",
+  );
+  const closeId = "00000000-0000-4000-8000-000000000092";
+  assert.equal(
+    finishKeyExchange(f.root, next.token ?? "", 9, closeId, next.recoveryId)
+      .status,
+    "unavailable",
+  );
+  assert.equal(
+    finishKeyExchangeFromHost(f.root, 9, closeId, next.recoveryId).status,
+    "completed",
+  );
+  const saved = JSON.parse(
+    fs.readFileSync(current, "utf8"),
+  ) as AccessManagementState;
+  assert.deepEqual(saved.initialization, {
+    ...f.state.initialization,
+    confirmationCredentialId: next.credentialId,
+  });
+  assert.equal(saved.unresolvedKeyExchanges.length, 0);
+  assert.equal(saved.revision, 10);
+  assert.equal(parseAccessManagementState(bytes(saved)).status, "parsed");
+});
+
+/**
+ * 二Processの引継ぎと終了を一採用に閉じる。
+ * @responsibility 同時要求の旧参照を重複生成・二重整理へ使わせない。
+ * @trace RFD-IT-013
+ * @trace RFD-IT-017
+ * @precondition 同じRoot・期待改訂の前交換、終了だけ提示confirmed。
+ * @stimulus 同new操作／別new操作の引継ぎ、同終了操作を並行実行する。
+ * @observation 両子close、生成総数、改訂、資格数、record集合。
+ * @oracle 一採用、敗者生成0、引継ぎrecord一件または終了record0。
+ * @cleanup 両子join後にFixture回収。
+ * @boundary 実Processと既存単一Lock。
+ */
+test("鍵交換終了と引継ぎの二Process競合は一採用だけ保存する", async (t) => {
+  for (const mode of ["same", "different", "completion"] as const) {
+    const f = managementFixture(t);
+    const target = f.state.credentials[1];
+    assert.ok(target);
+    const old = exchangeCredentialsFromHost(
+      f.root,
+      1,
+      "00000000-0000-4000-8000-000000000090",
+      "targeted",
+      target.userId,
+      [target.credentialId],
+      true,
+    );
+    assert.ok(old.status === "completed");
+    let expectedRevision = 4;
+    if (mode === "completion") {
+      const started = recordCredentialPresentation(f.root, {
+        credentialId: old.credentialId,
+        issuanceOperationId: old.operationId,
+        expectedRevision: 4,
+        target: "unconfirmed",
+      });
+      assert.ok(started.status === "completed");
+      assert.equal(
+        recordCredentialPresentation(f.root, {
+          credentialId: old.credentialId,
+          issuanceOperationId: old.operationId,
+          expectedRevision: 5,
+          target: "confirmed",
+          presentationOperationId: started.value.presentationOperationId,
+        }).status,
+        "completed",
+      );
+      expectedRevision = 6;
+    }
+    const worker = path.resolve(
+      import.meta.dirname,
+      "../../fixtures/credential-management-worker.ts",
+    );
+    const joined = await Promise.allSettled(
+      [0, 1].map(
+        (index) =>
+          new Promise<{ status: string; generated: number }>(
+            (resolve, reject) => {
+              const child = spawn(process.execPath, [worker], {
+                timeout: 10000,
+              });
+              let output = "";
+              let failed = false;
+              child.stdout.on("data", (chunk) => {
+                output += String(chunk);
+              });
+              child.stderr.resume();
+              child.on("error", () => {
+                failed = true;
+              });
+              child.stdin.on("error", () => {
+                failed = true;
+              });
+              child.stdin.end(
+                JSON.stringify({
+                  directory: f.directory,
+                  token: "",
+                  operationId: `00000000-0000-4000-8000-00000000009${mode === "different" ? index + 1 : 1}`,
+                  userId: target.userId,
+                  credentialId: "",
+                  expectedRevision,
+                  operation:
+                    mode === "completion" ? "host_finish" : "host_exchange",
+                  scope: "targeted",
+                  displayedOldCredentialIds: [old.credentialId],
+                  previousRecoveryId: old.recoveryId,
+                  recoveryId: old.recoveryId,
+                }),
+              );
+              child.on("close", (code, signal) => {
+                if (code !== 0 || signal || failed)
+                  reject(new Error("child_failed"));
+                else {
+                  try {
+                    resolve(JSON.parse(output));
+                  } catch {
+                    reject(new Error("child_result_invalid"));
+                  }
+                }
+              });
+            },
+          ),
+      ),
+    );
+    const results = joined.map((result) => {
+      assert.ok(result.status === "fulfilled");
+      return result.value;
+    });
+    assert.equal(
+      results.filter((result) => result.status === "completed").length,
+      1,
+    );
+    assert.equal(
+      results.reduce((sum, result) => sum + result.generated, 0),
+      mode === "completion" ? 0 : 3,
+    );
+    const saved = JSON.parse(
+      fs.readFileSync(path.join(f.directory, "access-management.json"), "utf8"),
+    ) as AccessManagementState;
+    assert.equal(saved.revision, 7);
+    assert.equal(saved.credentials.length, mode === "completion" ? 4 : 5);
+    assert.equal(
+      saved.unresolvedKeyExchanges.length,
+      mode === "completion" ? 0 : 1,
+    );
     assert.deepEqual(saved.users, f.state.users);
     assert.deepEqual(saved.initialization, f.state.initialization);
     assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);

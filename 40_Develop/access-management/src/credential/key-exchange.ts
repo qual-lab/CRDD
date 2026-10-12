@@ -149,12 +149,12 @@ export function projectKeyExchangeState(
  * 現在条件と事前表示した集合から交換準備候補を作る。
  * @responsibility 現在Authority・発行先・確認と固定旧集合を同じ改訂へ結ぶ。
  * @trace ARCH-000013
- * @input 完全状態、入口、Workbench鍵またはHostのnull、期待改訂、交換UUID、範囲、発行先、表示済み旧ID集合、明示確認。
+ * @input 完全状態、入口、鍵、期待改訂、交換UUID、範囲、発行先、表示済み旧ID集合、確認、任意の未確認交換参照。
  * @returns 所有済みprepared候補、または非開示拒否のnull。
  * @precondition 同Lock内の保存Ownerが完全Schemaを検査済み。Hostは信頼内部入口。Consumerは対象名・範囲・保持情報を事前表示済み。
- * @postcondition 入力を変更せず、旧資格・User・Role・登録・公開・初回を保持する。
+ * @postcondition 入力と資格・User・Role・初回を保持し、明示引継ぎだけ旧storedを新preparedへ一候補で置換する。
  * @effect Workbenchの現在Verifier照合とメモリ候補だけ。UUID・資格生成・保存・失効なし。
- * @failure 不正入力・改訂差・未認可・対象差・未確認・既存交換はnull。
+ * @failure 不正入力・改訂差・未認可・対象差・確認不足・未指定の既存交換はnull。
  * @invariant 旧集合0件も許可。preparedは失効成功でも生成許可でもない。
  * @boundary 資格の意味判断と既存保存Owner。MCP公開APIではない。
  * @security 表示集合やRecovery参照をAuthorityにしない。Hostへ追加認証を要求しない。
@@ -170,6 +170,7 @@ export function prepareKeyExchange(
   recipientUserId: string,
   displayedOldCredentialIds: unknown,
   confirmed: boolean,
+  previousRecoveryId?: string,
 ): AccessManagementState | null {
   if (
     (entry !== "workbench" && entry !== "host") ||
@@ -195,9 +196,35 @@ export function prepareKeyExchange(
     return null;
   const displayed = readDisplayedCredentialIds(displayedOldCredentialIds);
   if (!displayed) return null;
+  const previous = current.unresolvedKeyExchanges[0];
+  if (previousRecoveryId !== undefined) {
+    if (
+      !isKeyExchangeRecoveryId(previousRecoveryId) ||
+      current.unresolvedKeyExchanges.length !== 1 ||
+      previous?.stage !== "credential_stored" ||
+      previous.recoveryId !== previousRecoveryId ||
+      previous.operationId === operationId ||
+      (scope === "targeted" && previous.recipientUserId !== recipientUserId)
+    )
+      return null;
+    const credential = current.credentials.find(
+      (item) =>
+        item.credentialId === previous.newCredentialId &&
+        item.userId === previous.recipientUserId &&
+        item.operationId === previous.operationId &&
+        !item.revoked,
+    );
+    if (
+      !credential ||
+      credential.presentation === "confirmed" ||
+      !displayed.includes(previous.newCredentialId)
+    )
+      return null;
+  }
   if (
     current.revision !== expectedRevision ||
-    current.unresolvedKeyExchanges.length !== 0 ||
+    (previousRecoveryId === undefined &&
+      current.unresolvedKeyExchanges.length !== 0) ||
     current.operationId === operationId ||
     current.initialization.attemptId === operationId ||
     current.credentials.some((item) => item.operationId === operationId)
@@ -237,6 +264,7 @@ export function prepareKeyExchange(
   const next = structuredClone(current);
   next.revision++;
   next.operationId = operationId;
+  if (previousRecoveryId !== undefined) next.unresolvedKeyExchanges = [];
   next.unresolvedKeyExchanges.push({
     stage: "prepared",
     recoveryId: `access-management.key-exchange.${operationId}`,
@@ -320,6 +348,7 @@ export function selectKeyExchangeContinuation(
   recipientUserId: string,
   displayedOldCredentialIds: unknown,
   confirmed: boolean,
+  previousRecoveryId?: string,
 ): KeyExchangeRecord | null {
   const displayed = readDisplayedCredentialIds(displayedOldCredentialIds);
   const exchange = current.unresolvedKeyExchanges[0];
@@ -340,6 +369,20 @@ export function selectKeyExchangeContinuation(
     (entry === "workbench" && exchange.entry !== "workbench") ||
     displayed.length !== exchange.oldCredentialIds.length ||
     exchange.oldCredentialIds.some((id) => !displayed.includes(id))
+  )
+    return null;
+  if (
+    previousRecoveryId !== undefined &&
+    (!isKeyExchangeRecoveryId(previousRecoveryId) ||
+      previousRecoveryId === exchange.recoveryId ||
+      current.credentials.filter(
+        (credential) =>
+          exchange.oldCredentialIds.includes(credential.credentialId) &&
+          `access-management.key-exchange.${credential.operationId}` ===
+            previousRecoveryId &&
+          credential.presentation !== "confirmed" &&
+          credential.revoked === (exchange.stage !== "prepared"),
+      ).length !== 1)
   )
     return null;
   const initial = current.initialization;
@@ -459,5 +502,66 @@ export function prepareExchangedCredential(
   ];
   if (next.initialization.stage === "credential_stored")
     next.initialization.confirmationCredentialId = material.credentialId;
+  return next;
+}
+
+/**
+ * 提示確認済みのexact交換記録だけを終了候補にする。
+ * @responsibility 資格や提示を変更せず、現在認可と確定事実から記録を閉じる。
+ * @trace ARCH-000013
+ * @input 完全current、入口・現在鍵、期待改訂、終了操作UUID、交換参照。
+ * @returns 一改訂の終了候補またはnull。
+ * @precondition 保存Ownerの同Lock完全状態。Hostは信頼内部入口。
+ * @postcondition 資格・User・Role・初回・登録・公開を保持する。
+ * @effect N/A: メモリ候補だけ。実保存は既存Owner。
+ * @failure 不明・未確認・非認可・別相関・改訂余裕不足はnull。
+ * @invariant 未提示／未確認は単独で除去せず、record不在を終了成功へ変換しない。
+ * @boundary 現在資格とexact交換終了。
+ * @security 秘密値を受け取らず生成・復元しない。
+ * @concurrency 同Lockのfresh状態だけを使用する。
+ */
+export function prepareKeyExchangeCompletion(
+  current: AccessManagementState,
+  entry: "workbench" | "host",
+  token: string | null,
+  expectedRevision: number,
+  operationId: string,
+  recoveryId: string,
+): AccessManagementState | null {
+  if (
+    !Number.isSafeInteger(expectedRevision) ||
+    expectedRevision !== current.revision ||
+    expectedRevision >
+      Number.MAX_SAFE_INTEGER -
+        (current.initialization.stage === "credential_stored" ? 2 : 1) ||
+    typeof operationId !== "string" ||
+    !UUID.test(operationId) ||
+    current.operationId === operationId ||
+    current.initialization.attemptId === operationId ||
+    current.credentials.some(
+      (credential) => credential.operationId === operationId,
+    ) ||
+    current.unresolvedKeyExchanges.length !== 1
+  )
+    return null;
+  const snapshot = projectKeyExchangeState(current, entry, token, recoveryId);
+  const exchange = current.unresolvedKeyExchanges[0];
+  if (
+    !exchange ||
+    snapshot?.stage !== "credential_stored" ||
+    snapshot.presentation !== "confirmed" ||
+    exchange.operationId === operationId ||
+    exchange.oldCredentialIds.some(
+      (id) =>
+        !current.credentials.some(
+          (credential) => credential.credentialId === id && credential.revoked,
+        ),
+    )
+  )
+    return null;
+  const next = structuredClone(current);
+  next.revision++;
+  next.operationId = operationId;
+  next.unresolvedKeyExchanges = [];
   return next;
 }
