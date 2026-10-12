@@ -100,7 +100,7 @@ Canonical化した30件のSPEC Definitionを、SPEC Detail契約へ全件移行�
 
 ## 5. Architecture／Qualityへの引き渡し
 
-- Architecture: 各BHVをSource SPECが接続済みのARCH責務へ配置制約として渡す。今回の固定8操作・操作別Input／Authority／Effect／Output、次要求の認可、登録／公開／削除の区別と鍵境界は未伝播である。初回設定では初回Hostの信頼された入口とMCP／自動起動0、双方未初期化確認、元試行と作成UUIDの結合、作成／発行／記録／Host提示／exact同鍵の初回確認用限定接続確認／確認の保存・読戻し・清掃の別、途中再入場の別UUID・追加鍵・自動再初期化0、発行／記録不明は元試行再観測だけ・確定後のHost提示またはexact同鍵の初回確認用限定接続確認不明は別明示Host指定交換、通常交換Recoveryとの分離を次段へ渡す。Architectureは未追従。初回完了と通常Authorityは全条件の確認後だけとし、未確認・失敗・観測不能では成立させない。具体Owner・観測方式・Schema・未解決段階の処置はArchitectureで確定する。
+- Architecture: 各BHVをSource SPECが接続済みのARCH責務へ配置制約として渡す。今回の9 Role分担行・操作別Input／Authority／Effect／Output、次要求の認可、登録／公開／削除の区別と鍵境界は未伝播である。初回設定では初回Hostの信頼された入口とMCP／自動起動0、双方未初期化確認、元試行と作成UUIDの結合、作成／発行／記録／Host提示／exact同鍵の初回確認用限定接続確認／確認の保存・読戻し・清掃の別、途中再入場の別UUID・追加鍵・自動再初期化0、発行／記録不明は元試行再観測だけ・確定後のHost提示またはexact同鍵の初回確認用限定接続確認不明は別明示Host指定交換、通常交換Recoveryとの分離を次段へ渡す。Architectureは未追従。初回完了と通常Authorityは全条件の確認後だけとし、未確認・失敗・観測不能では成立させない。具体Owner・観測方式・Schema・未解決段階の処置はArchitectureで確定する。
 - Quality: 各BHVのNormal、Boundary、Failure、UnknownおよびRecoveryを既存の検証義務へ統合する。今回のRole別肯否・操作固有前提／結果・鍵負例は次段で再導出する。初回設定では初回Hostの信頼された入口とMCP／自動起動0、双方未初期化確認、元試行と作成UUIDの結合、作成／発行／記録／Host提示／exact同鍵の初回確認用限定接続確認／確認の保存・読戻し・清掃の別、途中再入場の別UUID・追加鍵・自動再初期化0、発行／記録不明は元試行再観測だけ・確定後のHost提示またはexact同鍵の初回確認用限定接続確認不明は別明示Host指定交換、通常交換Recoveryとの分離を検証義務として渡す。Qualityは未追従で、正式項目のNot Runを維持する。初回の提示・限定接続・保存・読戻し・清掃の個別反例を導出し、未確認・失敗・観測不能で初回完了表示0・通常Authority0を確認する。
 - Source／Test: Canonical BHV成立後のReality Auditで照合し、BHVを実装から逆算しない。
 

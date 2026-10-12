@@ -60,7 +60,7 @@ Profile管理の固定許可はmanager／administratorとし、developerは拒�
 |---|---|---|
 | 1 | 生資格を許可された入力境界から受取り、現在Verifier／失効を検査 | 認証不成立。User情報・資格状態を開示しない |
 | 2 | 紐付く既存userIdと現在Roleを整合した改訂から解決 | 破損・観測不能を許可へ丸めず停止 |
-| 3 | 管理要求はARCH-000013の固定9分担、内容要求は現行Role内容設定を評価 | 管理拒否を自身表示・許可内容の拒否へ広げない。Role内容設定から管理権限を生成しない |
+| 3 | 管理要求はARCH-000013の9 Role分担行、内容要求は現行Role内容設定を評価 | 管理拒否を自身表示・許可内容の拒否へ広げない。Role内容設定から管理権限を生成しない |
 | 4 | 内容操作なら現在Exposure・Binding・実アクセスを別評価 | 非許可Sourceの存在・名前・件数を結果へ追加しない |
 | 5 | 許可済み集合をDomain等の実Ownerへ渡し、許可範囲の結果を返す | 一部未観測を全体成功へ畳まない |
 
@@ -81,7 +81,7 @@ Profile管理の固定許可はmanager／administratorとし、developerは拒�
 | 資格発行 | 現行administrator、既存userId、整合状態。Verifierと紐付けを保存 | 同一Process Workbenchの操作administrator画面へ用途限定・短命な応答で新Secretを一度提示する。追加受領操作なし、対象本人受領は製品外で観測しない。MCP・Host回復の操作にしない |
 | 独立失効 | 現行administrator、exact Credential IDと既存userIdの結合・期待改訂。指定資格の失効だけを確定 | 対象外失効0、新発行0、Secret0、交換Recovery0、次要求拒否。MCP・Host回復の操作にしない。旧要求取消完了の証明ではない |
 
-管理認可の正本は[ARCH-000013の固定9分担](../../Definitions/ARCH-000013/architecture_definition.md#4-両観点の統合判断)で、Role内容設定では変更できない。developerはこの管理操作を行えない。managerの正常管理にadministrator存在を条件として追加しない。manager自身の内容範囲変更も、変更前の現在管理認可→明示的なRole内容設定／Exposure更新→次要求の現行Role・Exposure・実アクセス再評価の順とする。更新受理は内容取得の成功ではない。
+管理認可の正本は[ARCH-000013の9 Role分担行](../../Definitions/ARCH-000013/architecture_definition.md#4-両観点の統合判断)で、Role内容設定では変更できない。developerはこの管理操作を行えない。managerの正常管理にadministrator存在を条件として追加しない。manager自身の内容範囲変更も、変更前の現在管理認可→明示的なRole内容設定／Exposure更新→次要求の現行Role・Exposure・実アクセス再評価の順とする。更新受理は内容取得の成功ではない。
 
 自身表示は認証済み利用者へ許可する。非認証User情報0、他ユーザー参照の現行管理権限を持たない入口への他User一覧・存在・件数0を維持する。管理一覧にVerifier、salt、生Secretを載せない。通常管理はRole情報を変更し得るが、次節の鍵交換は変更しない。
 
@@ -191,9 +191,9 @@ AM → 通常利用側: すべて確認後だけ初回完了と現在認証へ�
 
 | 導出キー | 設計対象 | 正常条件／反証 | 主な段階 | 外部境界段階 | 観測と終了後条件 | 未確認 |
 |---|---|---|---|---|---|---|
-| `access-management.current-authorization` | §2〜3のユーザー・Role・資格 | 固定9分担×三Roleの許可／拒否と内容要求の再評価／旧権限固定、同名Identity混同、override、Role内容設定による管理付与・再委譲を反証 | UT／IT／ST | Direct Boundary | 認証・認可・改訂の相関、許可外Effect0、Request値解放 | 内容権限の具体語彙・Schema |
+| `access-management.current-authorization` | §2〜3のユーザー・Role・資格 | 9 Role分担行×三Roleの許可／拒否と内容要求の再評価／旧権限固定、同名Identity混同、override、Role内容設定による管理付与・再委譲を反証 | UT／IT／ST | Direct Boundary | 認証・認可・改訂の相関、許可外Effect0、Request値解放 | 内容権限の具体語彙・Schema |
 | `access-management.visibility` | §3〜4の三可視境界・Repository非開示 | 自身表示／非認証User情報、他ユーザー参照の現行管理権限を持たない入口への他User存在・件数、管理から内容を反証 | IT／ST／UAT | System/E2E／User Acceptance | 公開入口結果・対象Owner呼出し、許可外情報0 | 具体表示・本番接続 |
-| `access-management.management-and-revoke` | §4の通常管理・独立失効 | 通常6操作の対象・保存読戻し・次要求評価／managerのadministrator名前変更拒否・Role変更許可、正常管理への管理者存在条件、登録＝公開、解除片側除去だけの完了、対象外／本体変更、解除からの開始済み取消推定、自己内容変更の時間順違反、読戻し不明＝未保存を反証。独立失効は対象限定・次要求拒否／新発行やTask取消推定を反証 | UT／IT／ST | Direct Boundary | 解除は同一受理操作・採用改訂の登録／Exposure両除去読戻し。対象外と本体保持、終了未観測は別事実。独立失効の発行0・保持情報不変 | 保存単位 |
+| `access-management.management-and-revoke` | §4の通常管理・独立失効 | 通常7保存操作の対象・保存読戻し・次要求評価／managerのadministrator名前変更拒否・Role変更許可、正常管理への管理者存在条件、登録＝公開、解除片側除去だけの完了、対象外／本体変更、解除からの開始済み取消推定、自己内容変更の時間順違反、読戻し不明＝未保存を反証。独立失効は対象限定・次要求拒否／新発行やTask取消推定を反証 | UT／IT／ST | Direct Boundary | 解除は同一受理操作・採用改訂の登録／Exposure両除去読戻し。対象外と本体保持、終了未観測は別事実。独立失効の発行0・保持情報不変 | 保存単位 |
 | `access-management.key-exchange-scope` | §5の4組 | 対象集合・既存発行先・3組確認／対象不明・管理者なし・破損・不適切確認を反証 | UT／IT／ST／UAT | System/E2E／User Acceptance | 事前表示、対象資格集合、新旧照合、保持情報不変 | 具体入口と保存確定 |
 | `access-management.partial-recovery` | §5〜6の相関・Process喪失 | 元発行Identityによる再観測、交換由来の同じexact Recovery、確定後の明示的な別交換／通常発行へのRecovery付与、不明発行からの新交換、Credential IDとの混同、旧処理と別交換の混同、rollback・重複発行を反証 | IT／ST | Direct Boundary／System/E2E | 故障注入後の耐久読戻し・新Process再観測。各段階の既知／不明と旧元Identityを保持し、別Operation／Recoveryと各交換内exactを区別 | atomicity・元Identityの保存／再観測方式 |
 | `access-management.host-initialization` | §4.1の初回状態・限定接続 | Host提示→exact同鍵限定接続→確認保存・読戻し・短命清掃／Lock終了→completedの順。各段階の失敗・未確認・観測不能からの完了表示・通常Authority発行を反証 | UT／IT／ST／UAT | Direct Boundary／System/E2E／User Acceptance | 元試行／user／確認資格／発行処置相関、Host交換後の新提示資格へのBinding、秘密保存・再表示0、自動登録・内容付与0、有効資格を清掃しない | 論理Owner・Protocol・Binding・v2目標Schemaは具体化済み。提示観測・移行・保存／清掃実装・本番接続 |

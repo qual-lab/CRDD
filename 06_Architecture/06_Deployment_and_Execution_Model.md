@@ -79,7 +79,7 @@ Coordinatorは単体の実行Runtimeとして利用でき、Orchestratorはそ�
 | Acceptance Decision Operation | 対象Identity、根拠Revision、明示判断 | Objective／Milestone／判断者 | 受入・差戻し・判断待ちの限定記録またはEffect 0 |
 | 接続認可Query | Credential→userId、現行Role詳細権限、Workspace／Exposure、取得可能性 | 要求／認証Context | 現在認可済み集合または非開示拒否を返す。接続の終了はTransport Ownerが確認する |
 | 認可済みFederation Query | 許可済みRepository集合、Source snapshot、Coverage | Query／対象集合 | Domain Modelが根拠と不完全性を返す。管理権限から内容閲覧を生成しない |
-| 通常管理Operation | 操作別の予定Role／既存対象／前後Role／Role内容／接続登録／Exposure | 操作／対象／変更前の現行Roleに対する固定8分担 | 対象更新・結果確定・提示結果（本人受領は観測外）を分離。不明を成功化せず、次要求で内容認可を再評価。登録≠公開。解除は同じ受理操作・採用改訂の登録と対応Exposureを両読戻しし、対象外・本体を保持。開始済み取消非証明。新Process／保存方式／公開APIは未確定 |
+| 通常管理Operation | 操作別の予定Role／既存対象／前後Role／Role内容／接続登録／Exposure | 操作／対象／変更前の現行Roleに対する9 Role分担行 | 対象更新・結果確定・提示結果（本人受領は観測外）を分離。不明を成功化せず、次要求で内容認可を再評価。登録≠公開。解除は同じ受理操作・採用改訂の登録と対応Exposureを両読戻しし、対象外・本体を保持。開始済み取消非証明。新Process／保存方式／公開APIは未確定 |
 | 初回Host設定Operation（Access Management） | 検証済み管理Root、元試行、作成userId、確認対象資格と元発行、Host提示・限定接続・確認保存の事実 | Root／exact初回試行／user／直近に提示した有効資格。Host明示開始と双方未初期化確認後だけ新試行 | 相関読戻し後にUUID・資格を作る。Host一度提示→同鍵限定接続成功→確認保存・読戻し・短命材料清掃／Lock終了後だけcompleted・通常Authority。未確認・失敗・観測不能なら双方0。Host交換後Binding・具体Protocol・Schema・SourceはOPEN |
 | 新規資格発行Operation | 既存対象userId、発行・記録・提示結果 | 操作／対象userId／同一Process Workbenchの現行administrator | 操作administrator画面へ一度提示し、本人受領は観測しない。旧失効0・交換Recoveryなし。提示失敗だけで確定発行を不明化しない |
 | 独立失効Operation | exact対象資格IdentityとuserIdへの結合、失効結果 | 操作／資格Identity／同一Process Workbenchの現行administrator | 確定した失効資格の後続要求を拒否、不明は既知状態と確認先を返す。範囲拡大・新発行・Secret・交換再入場0、Task取消非証明 |
@@ -142,7 +142,7 @@ Canonical Architectureが独立レビューで閉じた後に、次を照合す�
 - OS／Runtime／外部CLIのVersion差は、危険な意味変化を検出して停止する。無関係なHash差やVersion差だけで恒久拒否しない。
 - Physical deploymentが未確定な箇所は未確認として保持し、CanonicalなProcess数や配置を捏造しない。
 - 鍵交換2操作×2入口の4組表示・3組だけ明示確認、固定administratorのWorkbenchと追加認証なしのHost交換2操作だけを確認する。MCPの鍵操作一覧・Schema・登録・dispatchは不存在を確認し、一般Remote経路から迂回させない。
-- 新規発行・独立失効・交換の対象と結果、旧失効前exact Recovery、段階別の記録・提示結果（本人受領は観測外）を確認する。Host配置から通常管理の固定分担や内容権限を追加生成せず、8操作の許可／拒否／不明と変更前認可・次要求反映を確認する。
+- 新規発行・独立失効・交換の対象と結果、旧失効前exact Recovery、段階別の記録・提示結果（本人受領は観測外）を確認する。Host配置から通常管理の固定分担や内容権限を追加生成せず、9 Role分担行に対応する11認可要求種別の許可／拒否／不明と変更前認可・次要求反映を確認する。
 - Workbench／Host CLIの入口割当は採用済み。具体Layout・入力・一度表示と提示方式・初回限定接続確認方式だけを未確定としてDetailsへ渡し、実装・配置の成立を主張しない。
 
 ## Checklist

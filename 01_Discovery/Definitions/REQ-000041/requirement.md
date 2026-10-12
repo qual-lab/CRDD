@@ -42,6 +42,8 @@ v0.22の標準Role識別子は`administrator`、`manager`および`developer`と
 | Repository公開範囲設定 | 不許可 | 許可 | 許可 |
 | 共有AI Profileの一覧・登録・変更・確認付き削除 | 不許可 | 許可 | 許可 |
 
+上表は担当Roleを区切った9分担行であり、操作や公開APIの件数ではない。ユーザー登録と表示名変更、Repository登録と解除、鍵の発行・独立失効・交換等を同じ担当Roleの行にまとめ、Role変更と内容設定は対象Role別に分けている。
+
 AI Profile操作の内容は[REQ-000016](../REQ-000016/requirement.md)が所有し、ここでは現在Roleによる固定管理許可だけを所有する。内容範囲やExposureからProfile管理を付与せず、管理可否と観測不能を分ける。鍵管理はadministrator専用のまま。Repository単体のProfile管理へCROS資格・Roleを要求せず、Provider実行、Adapter／Model Catalog変更、CLI配置の管理へこの許可を拡張しない。
 
 managerは業務上のアクセスを決める信頼された管理担当者であり、自身を含むdeveloper／managerの内容範囲を明示的に変更できる。変更前の現在権限で操作を認可し、更新したRole詳細権限・公開範囲と既存の実アクセスを次要求から評価する。管理能力だけで内容を自動公開しない。managerは既存administratorのRole変更（降格を含む）も行えない。

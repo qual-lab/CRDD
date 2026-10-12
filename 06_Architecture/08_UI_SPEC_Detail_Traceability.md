@@ -125,7 +125,7 @@ Architecture Detail Area
 
 ## 5. 配置判断
 
-最新ARCH-000013断面の意味OwnerはAccess Managementであり、通常鍵3操作は同一Process Workbenchの固定administrator、通常Host回復は信頼したログイン済み操作者の対話CLI交換2操作だけに接続する。初回Host設定は同じARCH-000013の別開始契約としてAccess Managementへ接続し、WorkbenchはHost案内、MCPは初期化・状態照会非公開を担う。MCPを鍵操作の利用側にせず、一覧・Schema・登録・dispatch非公開を負の境界として扱う。Domain Modelは認可済み集合のContext集約と中立な共通Root／保存部品だけを担い、資格やGrantを解釈して権限を決めない。固定8分担・操作別対象・変更前認可→明示更新→次要求再評価は最新SCR／BHVの配置制約としてARCH-000013へ対応する。同じ3行へ初回開始・4状態・元試行相関・個別事実・既存交換との分離を候補対応し、登録解除の同一操作・改訂と両除去読戻し、対象外・本体保持、開始済み取消非証明、鍵3分岐と元発行Identity／別交換の分離を追加対応する。MCPは鍵処置の負境界だけで、遅延旧応答の失効鍵利用表示を許可しない。3行のPartialは対応候補とArchitecture詳細・具体API／物理保存・本番接続の未完了を示し、Source Coverageや最新DetailsのPassではない。
+最新ARCH-000013断面の意味OwnerはAccess Managementであり、通常鍵3操作は同一Process Workbenchの固定administrator、通常Host回復は信頼したログイン済み操作者の対話CLI交換2操作だけに接続する。初回Host設定は同じARCH-000013の別開始契約としてAccess Managementへ接続し、WorkbenchはHost案内、MCPは初期化・状態照会非公開を担う。MCPを鍵操作の利用側にせず、一覧・Schema・登録・dispatch非公開を負の境界として扱う。Domain Modelは認可済み集合のContext集約と中立な共通Root／保存部品だけを担い、資格やGrantを解釈して権限を決めない。9 Role分担行・操作別対象・変更前認可→明示更新→次要求再評価は最新SCR／BHVの配置制約としてARCH-000013へ対応する。同じ3行へ初回開始・4状態・元試行相関・個別事実・既存交換との分離を候補対応し、登録解除の同一操作・改訂と両除去読戻し、対象外・本体保持、開始済み取消非証明、鍵3分岐と元発行Identity／別交換の分離を追加対応する。MCPは鍵処置の負境界だけで、遅延旧応答の失効鍵利用表示を許可しない。3行のPartialは対応候補とArchitecture詳細・具体API／物理保存・本番接続の未完了を示し、Source Coverageや最新DetailsのPassではない。
 
 - 20件のSCRと20件のPRTは、Source UI Definitionを所有するARCH-IDへ接続した。
 - 30件のBHVは、Source SPEC Definitionを所有するARCH-IDへ接続した。

@@ -93,7 +93,7 @@ Last Updated: 2026-10-11
 - 鍵交換は指定ユーザー交換／全員交換と通常／Host入口を別軸にする。全4組を事前表示し、Hostまたは全員交換の3組だけ明示確認する。通常入口は同一Process Workbenchの現行administrator、Host入口は信頼したログイン済みローカル操作者の対話CLIで再入場する。通常Host回復は交換2操作だけで、追加認証・専用資格・承認コード・OS管理者昇格なし。既存Root／Path検証は維持する。
 - 各交換Recoveryは旧失効前にexact IDへ結合し、Process喪失・部分結果・耐久記録・再入場まで同じ相関を維持する。元発行／記録不明の再観測と、発行・記録確定後に現在管理者が選ぶ別交換を分け、後者の別Operation／Recoveryで旧相関を上書きしない。新規発行・独立失効へ交換Recoveryを付けない。
 - 発行、結果記録、提示結果、観測外の本人引渡しを別の事実とし、後続失敗だけで確定済み発行結果を不明へ戻さない。未確認の記録・提示結果（本人受領は観測外）を成功扱いしない。
-- MCPはSecret有無を問わず鍵操作の一覧・Schema・登録・dispatchを持たない。固定管理認可は現行RoleとARCH-000013の8操作分担から判定し、Role内容設定から派生させない。manager／administratorはユーザー登録・表示名変更、developer／managerのRole変更・内容設定、Repository登録・登録解除・Exposureを管理する。administratorの付与・解除・降格・詳細権限と鍵操作はadministrator専用。managerはadministratorの表示名だけ変更可。通常管理の失敗に鍵交換の保持保証やRecoveryを転用しない。
+- MCPはSecret有無を問わず鍵操作の一覧・Schema・登録・dispatchを持たない。固定管理認可は現行RoleとARCH-000013の9 Role分担行から判定し、Role内容設定から派生させない。manager／administratorはユーザー登録・表示名変更、developer／managerのRole変更・内容設定、Repository登録・登録解除・Exposureを管理する。administratorの付与・解除・降格・詳細権限と鍵操作はadministrator専用。managerはadministratorの表示名だけ変更可。通常管理の失敗に鍵交換の保持保証やRecoveryを転用しない。
 - 失効後に新発行や搬送が失敗しても、userId・表示名・Role・詳細権限・Repository登録・Product Dataを変更しない。生Secretを耐久記録・ログ・Evidenceへ保存せず、再入場で再表示しない。
 - 資格の失効・交換からTask取消完了、過去Effect 0、認可設定の修復やAuthority復元を主張しない。単体資格不要の契約は変えない。初回Host設定は承認済みの別開始契約として扱い、通常Host回復へ混ぜない。
 

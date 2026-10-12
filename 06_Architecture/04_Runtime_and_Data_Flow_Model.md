@@ -192,7 +192,7 @@ Workbenchの現行administrator または 信頼したHostログイン操作者
 
 ユーザーは安定userId（UUID）、管理用表示専用名、一つのRoleを持つ。Roleが詳細権限を所有し、CredentialはuserIdへ結合する。改名・同名からIdentityを再生成せず、Credential／Sessionへ旧権限を固定しない。認証Contextは認証・搬送の単位であり、新しい永続Session Storeを意味しない。DomainはCredentialやGrantを解釈せず、許可済み集合からの投影だけを所有する。
 
-通常の鍵発行・独立失効・交換は、同一Process Workbenchの現行administrator専用固定操作である。通常Host回復はログイン済みローカル操作者を信頼する対話CLIの交換2操作だけとし、追加認証・専用資格・承認コード・OS管理者昇格なしで既存Root／Path検証を維持する。MCPの一覧・Schema・登録・dispatchへ鍵操作を置かない。固定管理認可は現行RoleとARCH-000013の8操作分担から判定し、Role内容設定から派生させない。manager／administratorはユーザー登録・表示名変更、developer／managerのRole変更・内容設定、Repository登録・登録解除・Exposureを管理する。administratorの付与・解除・降格・詳細権限と鍵操作はadministrator専用。managerはadministratorの表示名だけ変更可。
+通常の鍵発行・独立失効・交換は、同一Process Workbenchの現行administrator専用固定操作である。通常Host回復はログイン済みローカル操作者を信頼する対話CLIの交換2操作だけとし、追加認証・専用資格・承認コード・OS管理者昇格なしで既存Root／Path検証を維持する。MCPの一覧・Schema・登録・dispatchへ鍵操作を置かない。固定管理認可は現行RoleとARCH-000013の9 Role分担行から判定し、Role内容設定から派生させない。manager／administratorはユーザー登録・表示名変更、developer／managerのRole変更・内容設定、Repository登録・登録解除・Exposureを管理する。administratorの付与・解除・降格・詳細権限と鍵操作はadministrator専用。managerはadministratorの表示名だけ変更可。
 
 鍵交換はuserId・表示名・Role・詳細権限・Repository登録・Product Dataを保持して鍵だけを変更する。指定ユーザー交換は対象既存userIdの全旧有効資格を失効させ同じuserIdへ新発行する。他ユーザーの鍵は保持する。全員交換は操作中管理者を含む全旧有効資格を失効させ、指定した既存administrator userIdへ新発行する。他ユーザーへの再発行・配布は管理者の通常鍵発行として扱う。
 
@@ -533,7 +533,7 @@ Relationはアクセス権や採用Authorityを自動生成しない。`Project 
 - 同名・改名のIdentity不変、現行Roleの後続要求反映、三可視境界、管理／内容閲覧の分離を確認する。
 - 新規発行の旧失効0・交換Recoveryなし、独立失効のexact資格対象・新発行／Secret／交換再入場0を別々に確認する。
 - 鍵交換2操作×2入口、4組表示・3組だけ確認、保持情報不変、旧失効前から同じRecoveryへの結合を確認する。失効・発行・記録・提示結果（本人受領は観測外）とProcess喪失を別観測にし、確定発行を後続失敗で不明へ戻さない。秘密値を検証記録へ複製しない。
-- 通常鍵操作の固定administrator、追加認証なしのHost交換2操作だけ、MCP全鍵操作非公開、現在参照許可と鍵権限の非同一性、固定8分担の迂回・変更前認可の欠落・更新受理からの内容取得推定を入口ごとに反証する。
+- 通常鍵操作の固定administrator、追加認証なしのHost交換2操作だけ、MCP全鍵操作非公開、現在参照許可と鍵権限の非同一性、9 Role分担行の迂回・変更前認可の欠落・更新受理からの内容取得推定を入口ごとに反証する。
 
 ## Checklist
 

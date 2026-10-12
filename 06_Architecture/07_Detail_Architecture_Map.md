@@ -78,7 +78,7 @@ Architecture定義と詳細設計領域は同じIdentityではない。新しい
 
 ## 4. Qualityへの引渡し
 
-ARCH-000013では、Access Managementの資格Lifecycleと認可の意味、Domain Modelの認可済みContext集約・中立な保存部品、Workbenchの通常鍵操作、MCPの鍵操作非公開を分けて検証する。Domainの保存部品へ資格の発行／失効判断を移さず、Host CLIを新Serverや新Frameworkにしない。MCPは鍵操作のConsumerではない。固定8分担はARCH-000013を正本とする。管理認可と内容認可、登録／公開／実アクセス、解除／削除を区別し、固定8分担・登録解除・通常鍵3分岐に対する前回のAM／Workbench／MCP詳細レビューは残指摘0で、履歴として保持する。登録解除・鍵3分岐の前回横断レビューは履歴であり、旧初回Host設定候補の限定レビューも当時の固定版に限る。今回の最小鍵提示断面は限定再レビュー済み（最小鍵提示方式の伝播差分、全重大度0）である。[管理API・保存設計](Details/access-management/02_Management_State_and_API.md)から両除去読戻し、元発行IdentityとCredential IDの分離、元処理再観測と別交換、失効鍵の遅延応答拒否を導出する。登録解除・別交換の完了から開始済み取消や旧Secret受領を生成しない。配置候補から許可や実装成立を生成しない。
+ARCH-000013では、Access Managementの資格Lifecycleと認可の意味、Domain Modelの認可済みContext集約・中立な保存部品、Workbenchの通常鍵操作、MCPの鍵操作非公開を分けて検証する。Domainの保存部品へ資格の発行／失効判断を移さず、Host CLIを新Serverや新Frameworkにしない。MCPは鍵操作のConsumerではない。9 Role分担行はARCH-000013を正本とする。管理認可と内容認可、登録／公開／実アクセス、解除／削除を区別し、固定8分担・登録解除・通常鍵3分岐に対する前回のAM／Workbench／MCP詳細レビューは残指摘0で、履歴として保持する。登録解除・鍵3分岐の前回横断レビューは履歴であり、旧初回Host設定候補の限定レビューも当時の固定版に限る。今回の最小鍵提示断面は限定再レビュー済み（最小鍵提示方式の伝播差分、全重大度0）である。[管理API・保存設計](Details/access-management/02_Management_State_and_API.md)から両除去読戻し、元発行IdentityとCredential IDの分離、元処理再観測と別交換、失効鍵の遅延応答拒否を導出する。登録解除・別交換の完了から開始済み取消や旧Secret受領を生成しない。配置候補から許可や実装成立を生成しない。
 
 QualityはARCH-IDだけでなく、対応する詳細設計領域のComponent、Interface、Data／State Flow、Failure、Resource、配置および観測方法を入力にする。個別領域の`OPEN`または`FAIL`は未確認範囲として保持し、全体Passへ畳まない。
 

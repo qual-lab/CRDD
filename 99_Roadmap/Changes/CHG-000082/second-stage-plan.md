@@ -349,6 +349,14 @@ RFD-IT-017は提示前unconfirmedと一度出力・提示結果別出版、IT018
 
 これは今回の提示差分による実装欠落でも、Sourceの許可範囲を増減する判断でもない。Ownerの現在本文と直接投影を別の固定候補で「9分担行・11認可要求種別・通常7保存操作」へ同期する。REQの9行表、過去固定8／通常6の時点履歴、旧Evidence、実装権限は変更しない。担当Qual-Lab、再評価契機は今回限定Quality差分のコミット直後。次のSource接続・正式項目実行・本番Consumer着手までの必須Blockerであり、将来改善として保留しない。今回の限定差分PassだけでQuality全体Pass・Source Readyへ進まない。
 
+### 管理操作の計数同期候補 — 2026-10-12
+
+基準`9450f111`、着手時clean。変更分類は既存の管理分担・認可要求・通常保存操作の計数訂正と直接伝播。親照合と読み取り専用の契約・品質確認は「Role別分担9行／11認可要求種別／通常保存7操作」で一致し、新しい人間判断は不要。Role表の9行はAPI件数ではなく、Profileの4操作は共通`manageAiProfiles`で認可する。通常保存7操作はUser4＋Repository3で、ProfileのCatalog、鍵Lifecycle、初回設定・Host交換を含めない。
+
+現在のREQ／IA／UI／SPEC／ARCH／Detail／Qualityと直接投影を編集一次単位として分類し、旧時点の限定レビュー・候補結果・Evidenceは維持する。SPECの現行分担表だけに漏れていた採用済みProfile行を既存本文と同じ許可条件で補い、実装Headerの「11実操作」を「11認可要求種別」へ訂正する。Sourceの処理・公開型・許可集合・Test・実状態は不変更。191正式項目のID・段階・条件分類・実行形態・Not Runを維持する。AM詳細§2の計数表が現在の具体母集合を所有し、他工程は意味に応じた要約を置く。
+
+必須確認は現行誤計数の残存分類、Role分担表とSource discriminator／保存入口の一致、191正式行の構造照合、差分空白・直接参照、および固定差分の独立レビューである。標準規範・権限の採用・実操作は変更しないため、準拠監査・Provider／Docker E2E・Package回帰を本候補の完成根拠には使わない。固定41Pathの最終限定独立再レビューはPass・全重大度の残指摘0。計数Blockerは解消した。候補と文書をHEAD byteへ差し替えたメモリ内基準はともにChecker 3057 errors・0 warnings、対象12指摘の内容も同じで、新規指摘の増加なし。最後の語句是正は見出し・リンク・ID不変更。191正式行の属性一致と差分空白確認も成功した。Source Ready・AM完成・全体Checker Passは主張しない。
+
 ### 共有AI Profile管理のRole採用と本番接続 — 2026-10-12
 
 Source候補の局所結果：基準`ec2a2e3e`、Node v24.19.0。AM60／AI Adapter30／旧CROS34／MCP68／Workbench33の計225 Case（追加Workbench33 Caseは旧比較Consumerの回帰）、各書式・型・Warning禁止Lint成功、Fail／Cancel／Skip0、全Exit0。実HTTPと自己生成実Catalog Storeでmanager／administrator四操作・developer非開示・次要求のRole変更／失効、遅延認可・二依存拒否・採用後取消／応答故障の改訂保持を確認した。AM新試験の初回途中Fixture不整合は正規の一User・一Credential・元発行相関へ是正し、局所再試験後にAM全回帰を再実行した。最初の失敗を現在の成功へ混ぜない。Biomeの一時OS1224は同じ対象の再実行で解消した。固定29Pathの限定独立再レビューはPass・全重大度残指摘0。全体Checkerは3057 errors／exit1を維持し、変更29Path抽出はProject Context構造の既存1件のみ。判定に使う三Identity・五見出し・Checklist見出しとcheckboxの17行が基準HEADと順序込み完全一致し、差分起因0を確認した。Repository全体Passとは扱わず、正式191項目Not Runと本番Launcher／Workbench・鍵配送・旧REST撤去・AM全体未完成を維持する。実行別ログ書庫は作らず、各Packageの`npm test`から再生成する。

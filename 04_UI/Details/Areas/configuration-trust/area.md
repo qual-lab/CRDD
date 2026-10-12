@@ -63,7 +63,7 @@ Area Key: `configuration-trust`
 | Pending／Cancel | 要求と完了を分ける | 取消要求を終了として表示しない |
 | Failure／Recovery | 原因確定、原因不明、回復可能を分ける | 不明を失敗なしへ畳まない |
 
-SCR-000008では対象userIdと表示専用名、資格→ユーザー→現行Role権限、公開・実アクセスを分ける。通常鍵3操作は固定administratorの同一Process Workbench、通常Host回復は追加認証なしのログイン済み操作者の対話CLIによる交換2操作に限定し、MCPへ鍵操作を公開しない。既存Root／Pathを維持する。4組事前表示・3組明示確認と操作別の秘密・結果境界は[Screen Detail](SCR-000008/screen.md#3-interactionとbhv対応)を正本とする。他ユーザー参照が現在許可されていない主体に対象の存在を開示しない。SCR-000008の固定8操作は[Screen Detail](SCR-000008/screen.md#1-screenの目的と入口終了条件)に従う。業務管理はmanager／administrator、administrator Role変更・詳細権限と鍵はadministrator専用である。管理と内容を分け、変更前認可→明示更新→次要求再評価を表示する。登録≠公開、解除は登録と対応Exposureの同時除去・他対象と本体保持・開始済み取消非証明とし、Area全体へユーザー管理条件を拡張しない。
+SCR-000008では対象userIdと表示専用名、資格→ユーザー→現行Role権限、公開・実アクセスを分ける。通常鍵3操作は固定administratorの同一Process Workbench、通常Host回復は追加認証なしのログイン済み操作者の対話CLIによる交換2操作に限定し、MCPへ鍵操作を公開しない。既存Root／Pathを維持する。4組事前表示・3組明示確認と操作別の秘密・結果境界は[Screen Detail](SCR-000008/screen.md#3-interactionとbhv対応)を正本とする。他ユーザー参照が現在許可されていない主体に対象の存在を開示しない。SCR-000008の9 Role分担行は[Screen Detail](SCR-000008/screen.md#1-screenの目的と入口終了条件)に従う。業務管理はmanager／administrator、administrator Role変更・詳細権限と鍵はadministrator専用である。管理と内容を分け、変更前認可→明示更新→次要求再評価を表示する。登録≠公開、解除は登録と対応Exposureの同時除去・他対象と本体保持・開始済み取消非証明とし、Area全体へユーザー管理条件を拡張しない。
 
 SCR-000008の元発行／記録不明、発行済み・受け渡し未確認、管理認証喪失の案内は[Screen Detail](SCR-000008/screen.md#登録解除と鍵の状態別案内)に従う。一般的な不明状態から別交換を自動開始しない。
 

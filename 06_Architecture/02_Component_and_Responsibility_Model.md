@@ -52,7 +52,7 @@ Last Updated: 2026-10-11
 | Component | 含むArchitecture定義 | 状態Owner | 所有すること | 所有しないこと |
 |---|---|---|---|---|
 | 公開入口 | [公開Transportの意味同一性](Definitions/ARCH-000012/architecture_definition.md) | MCP／CLI Transport Adapter | decode／encode、接続、Application Contractへの搬送 | 業務意味、Provider実行、Authority追加 |
-| 利用範囲・接続管理 | [接続主体・Role権限・資格とRepository Federation](Definitions/ARCH-000013/architecture_definition.md) | Access Management: ユーザー／Role詳細権限／資格／認可／鍵交換状態。Domain Model: 認可済みContext集約 | 固定8操作の管理認可、Role内容とExposureによる内容認可、最小ユーザー・接続登録管理、資格・独立失効・鍵交換2操作、Exposureと取得可能性の別判定、許可集合を入力にしたFederation | 一般IAM、個別追加権限、認可設定破損修復、Repository内部ACL、Transport Lifecycle、Task取消 |
+| 利用範囲・接続管理 | [接続主体・Role権限・資格とRepository Federation](Definitions/ARCH-000013/architecture_definition.md) | Access Management: ユーザー／Role詳細権限／資格／認可／鍵交換状態。Domain Model: 認可済みContext集約 | 9 Role分担行の管理認可、Role内容とExposureによる内容認可、最小ユーザー・接続登録管理、資格・独立失効・鍵交換2操作、Exposureと取得可能性の別判定、許可集合を入力にしたFederation | 一般IAM、個別追加権限、認可設定破損修復、Repository内部ACL、Transport Lifecycle、Task取消 |
 | 利用能力 | [Tool CapabilityとAIモデル構成](Definitions/ARCH-000010/architecture_definition.md) | Capability Registry、Model Configuration Resolver | Tool候補、構成検証、選択理由 | Tool実行、利用可能性の捏造 |
 | Project Application | [Project実行](Definitions/ARCH-000004/architecture_definition.md) | Orchestrator | Objective／Task、判断待ち、取消、Recovery、結果 | Provider選定、Transport、OS操作、人間判断 |
 | Project状態投影／受入判断記録 | [Project・Portfolio状態投影と受入判断記録](Definitions/ARCH-000005/architecture_definition.md) | Project Management Projection<br>Objective／Milestone Acceptance Decision Record | 投影: 正本を変えない現在状態・比較View<br>判断記録: Project運営者が明示したObjective／Milestoneの受入・差戻し・判断待ちの限定記録 | 投影: 受入判断の記録、その他の正本更新、優先順位の自動決定<br>判断記録: Task作成、Provider Effect、下位完了からの上位受入推定、読取りProjectionからのAuthority生成 |
@@ -132,7 +132,7 @@ Workbench             → Host操作の案内のみ
 MCP                  → 初期化・状態照会を公開しない
 ```
 
-詳しい成立条件は[Access Management詳細](Details/access-management/01_Architecture.md#41-初回host設定のstateとsequence)を正本とする。通常鍵操作・固定8管理分担・認可済みContext集約の所有者は変更しない。
+詳しい成立条件は[Access Management詳細](Details/access-management/01_Architecture.md#41-初回host設定のstateとsequence)を正本とする。通常鍵操作・9 Role分担行・認可済みContext集約の所有者は変更しない。
 
 ## 5. QAへ渡す検証単位
 

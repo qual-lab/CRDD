@@ -7,13 +7,23 @@
 
 ## 1. 対象と保持条件
 
-[責務・意味・処理境界](01_Architecture.md)を具体化する。既存管理分担、鍵操作の入口、交換の意味は維持し、共有Profile管理のmanager／administrator許可を追加した固定9区分を内容権限設定から生成しない。管理能力から内容閲覧を許可しない。通常管理のMCP Toolを新規採用せず、既存Profile四Toolの接続だけを対象にする。鍵操作はMCPの一覧・Schema・登録・dispatchの全てで非公開とし、応答へSecretを含めない。
+[責務・意味・処理境界](01_Architecture.md)を具体化する。既存管理分担、鍵操作の入口、交換の意味は維持し、共有Profile管理のmanager／administrator許可を追加した9 Role分担行を内容権限設定から生成しない。管理能力から内容閲覧を許可しない。通常管理のMCP Toolを新規採用せず、既存Profile四Toolの接続だけを対象にする。鍵操作はMCPの一覧・Schema・登録・dispatchの全てで非公開とし、応答へSecretを含めない。
 
 今回比較するのは、公開読取り、操作別更新、同一改訂の保存単位、出版後故障、移行である。汎用IAM、Receipt Store、Lock Framework、共有Recovery、Docker操作は対象外。候補API名やFile名はSourceへ実装済みという意味ではない。
 
 ## 2. 操作別API候補
 
-固定分担だけを判定する`evaluateManagementPermission`は、`40_Develop/access-management/src/index.ts`から局所公開した。9分担表を、ユーザー登録・名前変更・Role変更・Role内容設定・Repository登録・登録解除・Exposure変更・鍵発行・独立失効・交換・共有Profile管理の11具体操作へ対応する。結果は`allowed`／`denied`／`invalid`だけで、認証、対象存在、現在改訂、保存・鍵Effect、Host信頼を確認するAuthorityではない。登録予定Role、変更前後Role、名前／内容設定の対象Roleを操作別に検査する。これは保存Gateを必要としない純粋判定部分であり、以下の管理操作・公開readの実装を意味しない。
+### 管理の計数単位
+
+| 計数軸 | 母集合と対象外 |
+|---|---|
+| Role別分担9行 | REQ-000041の担当Role表。複数操作のまとめと対象Role別の分割を含むため、操作数ではない |
+| 認可要求11種別 | User管理4、Repository管理3、Profile管理1、鍵管理3。Profileの一覧・登録・変更・削除は共通の`manageAiProfiles`で判定するため、公開API数ではない |
+| 通常保存7操作 | `registerUser`、`updateUserName`、`changeUserRole`、`updateRoleContentAccess`、`registerRepository`、`unregisterRepository`、`updateExposure`。ProfileのCatalog保存、鍵Lifecycle、初回設定・Host交換は含まない |
+
+計数軸の訂正は許可条件や操作の追加・削除ではない。各操作の対象・Authority・保存条件は以下の既存契約を維持する。
+
+固定分担だけを判定する`evaluateManagementPermission`は、`40_Develop/access-management/src/index.ts`から局所公開した。9 Role分担表を、ユーザー登録・名前変更・Role変更・Role内容設定・Repository登録・登録解除・Exposure変更・鍵発行・独立失効・交換・共有Profile管理の11認可要求種別へ対応する。結果は`allowed`／`denied`／`invalid`だけで、認証、対象存在、現在改訂、保存・鍵Effect、Host信頼を確認するAuthorityではない。登録予定Role、変更前後Role、名前／内容設定の対象Roleを操作別に検査する。これは保存Gateを必要としない純粋判定部分であり、以下の管理操作・公開readの実装を意味しない。
 
 以下はAccess Management内部の関数契約候補であり、HTTP RouteやMCP Tool名ではない。公開はPackage Rootの`src/index.ts`だけを入口とし、再export専用の中間Fileを増やさない。
 
@@ -158,13 +168,13 @@ ExposureのRepository IDは既存登録を参照し、重複・孤立参照を�
 |---|---|---|
 | `revision` | 認証・現在認可・投影に使った管理改訂 | 元更新完了、後続要求の許可 |
 | `user` | `userId`、表示専用`username`、現在の一つの`role` | 他ユーザーの存在・名前・件数、表示名によるIdentity／認可 |
-| `managementOperations` | 固定9区分から導出する非Authorityの操作候補と適用対象制約。managerのRole変更はdeveloper／manager間、administrator対象は表示名変更のみ、鍵群はadministratorのみ、Profile管理はmanager／administrator | 対象非依存の実行許可、Role内容設定による管理権限変更、内容の自動閲覧 |
+| `managementOperations` | 9 Role分担行から導出する非Authorityの操作候補と適用対象制約。managerのRole変更はdeveloper／manager間、administrator対象は表示名変更のみ、鍵群はadministratorのみ、Profile管理はmanager／administrator | 対象非依存の実行許可、Role内容設定による管理権限変更、内容の自動閲覧 |
 | `contentAccess` | 現在Roleの明示内容権限の投影 | Credential別追加権限。具体操作語彙は未固定のまま保持 |
 | `permittedRepositories` | 内容権限と現在Exposureが許可する`repositoryId`／`workspaceIds`の集合 | 実体の存在・接続成功・取得可能性。実アクセスは内容取得時に別評価 |
 
 操作名だけで対象可否を決めず、対象別`readManagementState`と実操作の現在認可で判定する。Package内部DTOをMCPのTool／Schema／一覧／dispatchや応答へ投影しない。操作候補の表示は実行AuthorityでもMCP公開の採用でもない。
 
-本人読取りの具体化では、`managementOperations`を既存11操作と対象Roleの閉じた組合せから固定管理判定で絞る。初回`credential_stored`でも本人表示は可能だが、初回完了・通常接続・実操作許可には昇格しない。通常管理の完了済み初回条件は維持する。`permittedRepositories`はRole範囲とExposureの積集合が非空の登録だけを返し、Root・Binding・登録のみのRepositoryを含めない。認証後の短命材料照合はcurrentを変更せず、清掃確認後に同改訂から投影する。材料破損・清掃不明・Lock解放不明ではSnapshotを返さない。認証前の既存exact Lock回収は保存Ownerの安全処置で、資格認証やpending清掃の成立ではない。
+本人読取りの具体化では、`managementOperations`を既存11認可要求種別と対象Roleの閉じた組合せから固定管理判定で絞る。初回`credential_stored`でも本人表示は可能だが、初回完了・通常接続・実操作許可には昇格しない。通常管理の完了済み初回条件は維持する。`permittedRepositories`はRole範囲とExposureの積集合が非空の登録だけを返し、Root・Binding・登録のみのRepositoryを含めない。認証後の短命材料照合はcurrentを変更せず、清掃確認後に同改訂から投影する。材料破損・清掃不明・Lock解放不明ではSnapshotを返さない。認証前の既存exact Lock回収は保存Ownerの安全処置で、資格認証やpending清掃の成立ではない。
 
 本人読取り接続時のAM全48 Case・静的3軸成功、固定11ファイルの限定独立再レビューPassは履歴である。現在は以下の管理対象別読取りも局所接続した候補。実Repository内容認可・Surface本番接続は未完了で、§3.1全体の完成ではない。
 
@@ -290,7 +300,7 @@ pendingの閉じたSchema、byte表現、上限と保護は実装前に固定す
 
 | 現在の照合結果 | 処置候補 | 禁止する推定 |
 |---|---|---|
-| currentが基準改訂・基準byteと一致 | 通常6管理操作の保存材料に限定して未出版と分類し、対象pendingだけを削除・不存在確認する。currentの現在状態と、初回・鍵処置等の既存耐久進行記録は保持する。通常管理の元要求Receiptは新設せず、削除後に応答を失った元要求は不明のまま扱う。変更を自動再実行しない | pending一致から鍵未発行や初回再作成可を推定しない。初回・鍵処置由来のpendingはこの自動廃棄対象外 |
+| currentが基準改訂・基準byteと一致 | 通常7保存操作の保存材料に限定して未出版と分類し、対象pendingだけを削除・不存在確認する。currentの現在状態と、初回・鍵処置等の既存耐久進行記録は保持する。通常管理の元要求Receiptは新設せず、削除後に応答を失った元要求は不明のまま扱う。変更を自動再実行しない | pending一致から鍵未発行や初回再作成可を推定しない。初回・鍵処置由来のpendingはこの自動廃棄対象外 |
 | currentが次改訂・次byte・同じ出版操作相関と一致 | 出版済み事実を保持し、読戻し・pending清掃・解放を確認する。元操作の保存結果だけを再観測し、新Effectを発行しない | 保存確認は一度提示の成功も初回限定接続確認も証明しない。通常本人受領は観測外。開始済み処理の取消を推定しない |
 | currentがどちらにも一致しない、操作相関が異なる、検査・清掃・解放が不明 | 保持して停止。現在認可を含む新Effectは発行せず、既知出版と未確認範囲を別に返す | 自動merge、rollback、上書き、改訂再利用、空成功、過去Effect 0への丸め |
 | current不在でpendingが存在、current検査不能、管理と進行の片側だけ不存在 | 初回へ戻さず、pending廃棄・追加作成なしで停止 | 双方未初期化、旧試行不存在、新UUID・鍵発行可能 |
@@ -375,7 +385,7 @@ currentとpendingは共にVerifierを含む保護対象である。公開DTO、�
 |---|---|---|
 | 包絡 | `contract: crdd-access-management/state`、`schemaRevision: 1`、`revision`、`operationId`と§3の7項目 | revisionは1以上の安全整数、次出版は厳密に+1。operationIdは非秘密のUUID v4。未知fieldを拒否 |
 | User | `userId`、`username`、`role` | userIdはUUID v4。usernameはtrim後1〜128 Unicode code point、制御文字を含まない表示名。同名は許可しIDで識別。roleはdeveloper／manager／administratorのみ |
-| Role内容範囲 | 固定3Roleそれぞれの`workspaceIds` | 値は`development`／`management`の重複なし集合。Role全3件を保持し、未知Role・未知Workspaceを拒否。管理8操作は別の固定判定を使い、この集合から付与しない |
+| Role内容範囲 | 固定3Roleそれぞれの`workspaceIds` | 値は`development`／`management`の重複なし集合。Role全3件を保持し、未知Role・未知Workspaceを拒否。管理の11認可要求種別は別の固定判定を使い、この集合から付与しない |
 | 登録Repository | `repositoryId`、内部`repositoryRoot`、`bindingId` | repositoryIdはDomainのCanonical Identity、RootはVersion Controlで検証した絶対exact Root。bindingIdは既存のRepository ID＋正規化Root由来の結合値。Rootは公開しない。Context本文・内容Hash・Transport設定を保存しない |
 | Exposure | `repositoryId`、`workspaceIds` | 登録済みIDだけ、同じ2Workspace語彙。登録解除では対応Exposureも同一改訂から除去。登録だけで公開せず、登録解除でRepository本体を削除しない |
 | Credential | §4.4の資格情報、元発行処置と一度提示結果の非秘密相関。v2目標fieldは次の切替案に従い、Sourceと実状態移行は未成立 | 資格ID・元発行ID・userIdを相関。通常本人受領は観測外で記録しない。通常発行の不明を交換記録へ移さない。旧field集合は§5の現Source比較へ分離 |

@@ -262,7 +262,7 @@ Sourceのcontext、repositoryRole、complete／missing／conflictingと現在rev
 
 別Process WorkbenchもMCP Clientであるため、鍵管理だけは利用できない。通常の指定ユーザー交換だけ追加確認なし、Hostまたは全員交換の3組は明示確認を要求する。全4組の対象ID・表示名・失効範囲・既存発行先・保持情報の事前表示は各ローカル入口が担当し、MCPで代用しない。鍵の3分岐、結果・失敗・元発行Identityと交換Recovery・一度表示の意味はAccess Managementが所有し、MCPに鍵結果照会・鍵Recovery参照・交換State・秘密配送を追加しない。Bearer認証を続けることは鍵操作公開の例外ではない。
 
-初回Host設定はAccess Managementの承認済み別開始契約であり、MCPへ公開しない。MCP起動やRemote CallからBootstrapしない。ユーザー管理、Role内容設定、Repository登録、Exposureの担当RoleはARCH-000013の固定9分担に従いAccess Managementへ委譲する。manager／administratorが許可される非鍵管理と、administrator専用のadministrator Role付与・解除・変更／内容設定を区別し、Role内容設定で管理権限をON／OFF・再委譲しない。具体公開API・Tool／Schema・登録・dispatch・本番Consumerは未確定で、担当Roleの採用から新Toolの公開や接続済みを推定しない。Profile管理等の既存非鍵能力の採否も変更しないが、旧`systemAdmin`等の実装語彙を新しいRole権限契約として採用しない。
+初回Host設定はAccess Managementの承認済み別開始契約であり、MCPへ公開しない。MCP起動やRemote CallからBootstrapしない。ユーザー管理、Role内容設定、Repository登録、Exposureの担当RoleはARCH-000013の9 Role分担行に従いAccess Managementへ委譲する。manager／administratorが許可される非鍵管理と、administrator専用のadministrator Role付与・解除・変更／内容設定を区別し、Role内容設定で管理権限をON／OFF・再委譲しない。具体公開API・Tool／Schema・登録・dispatch・本番Consumerは未確定で、担当Roleの採用から新Toolの公開や接続済みを推定しない。Profile管理等の既存非鍵能力の採否も変更しないが、旧`systemAdmin`等の実装語彙を新しいRole権限契約として採用しない。
 
 非鍵管理の要求はAM詳細§4の操作別入力と変更前の現在固定管理認可へ結合する。登録は予定Role・表示名、既存Role変更は対象userId・前後Role、名前変更は対象userId・新表示名、Role内容設定は対象Role・内容、Repository管理は対象ID・現在登録／公開状態・変更内容を搬送する。managerはadministratorの名前だけ変更可でRole変更不可。managerの正常管理へadministrator存在を要求しない。管理拒否と自身表示・許可内容拒否を区別し、登録≠公開、解除≠データ削除、更新受理≠内容取得を保つ。内容取得は次要求の現行Role・Exposure・実アクセスを再評価する。
 
@@ -274,7 +274,7 @@ Repository登録解除の非鍵結果は、同じ受理済み操作・採用改�
 
 限定接続の具体Owner／Protocolは[AM保存設計§2.5](../access-management/02_Management_State_and_API.md#25-初回限定接続の具体契約)に従う。初回資格には通常Tool Handlerを渡さず、HTTPと既存Protocolの完全検査を通る`server/discover`だけを受ける。AMのfresh相関照合・確認保存・読戻し・短命清掃・Lock終了後だけ非秘密の成功応答を返し、通常Authorityは次要求で取り直す。初期化操作・状態照会・鍵操作の公開例外ではなく、Client応答受領保証でもない。Source・本番Consumerは未接続で、今回の具体化5文書差分は契約・品質限定独立再レビューPass・全重大度0。実装・本番成立ではない。
 
-初回State／Sequenceと失敗分岐は[Access Management詳細](../access-management/01_Architecture.md#41-初回host設定のstateとsequence)が所有する。MCPは初期化Toolの一覧・Schema・登録・dispatchを全て持たず、初期化状態照会・元試行Identity・初期SecretのWorkbench搬送も公開しない。通常CROS認証、非鍵管理の固定9分担、同じHTTP入口の接続はこの例外を作らない。
+初回State／Sequenceと失敗分岐は[Access Management詳細](../access-management/01_Architecture.md#41-初回host設定のstateとsequence)が所有する。MCPは初期化Toolの一覧・Schema・登録・dispatchを全て持たず、初期化状態照会・元試行Identity・初期SecretのWorkbench搬送も公開しない。通常CROS認証、非鍵管理の9 Role分担行、同じHTTP入口の接続はこの例外を作らない。
 
 MCP起動・`--cros`・設定File存在・Remote要求は初回設定の明示開始やHost Authorityではない。未初期化・破損・観測不能では既存起動契約に従い停止し、自動Bootstrap、別Root、新資格、単体fallbackを生成しない。未認証／非許可Clientへ管理ユーザーや試行の存在を結果・エラー・件数等で開示しない。Workbench Clientにも初期化状態照会を追加せず、Hostの操作はローカル対話入口で扱う。
 

@@ -42,7 +42,7 @@ Repository登録状態は登録関係の属性、公開範囲はExposureの属�
 
 ## 対象・識別・関係
 
-固定管理可否はProfile管理を含む9区分として扱う。Profileの内容・作業上の役割・Catalog改訂は[IA-000013](../IA-000013/ia_definition.md)で所有し、ここでは現在接続主体のmanager／administrator許可、developer拒否、観測不能を区別する。Profile内へ資格やRole権限を重複保存しない。
+固定管理可否はProfile管理を含む9 Role分担行として扱う。Profileの内容・作業上の役割・Catalog改訂は[IA-000013](../IA-000013/ia_definition.md)で所有し、ここでは現在接続主体のmanager／administrator許可、developer拒否、観測不能を区別する。Profile内へ資格やRole権限を重複保存しない。
 
 ### 分析ObjectからCanonical Objectへの対応
 

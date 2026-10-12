@@ -326,7 +326,7 @@ G1通過時点では、Hero Screen、Visual Direction、Visual Baseline、Second
 
 対象不明・必要な管理者不存在・必要状態の安全な観測不能・認可設定破損は新Effect前停止。秘密の再表示、結果不明の成功化、rollback、旧資格有効、開始済み取消完了を推定しない。通常Remote入口からHost回復の実行能力を推定しない。
 
-通常鍵操作のWorkbench／Host CLI分担は採用済み。MCPに鍵操作の一覧・Schema・登録・dispatchを公開しない。通常Host回復は交換2操作だけで、追加認証・専用資格・承認コード・OS管理者昇格なし、既存Root／Path検証を維持する。固定8操作の現在分担は[SCR-000008](Areas/configuration-trust/SCR-000008/screen.md)に従う。manager自身の内容範囲も変更前の現在認可→明示更新→次要求再評価と分け、更新受理を取得可能にしない。登録≠公開、解除≠Repository／Product Data削除。developerの管理拒否を自身・許可内利用の拒否へ広げない。
+通常鍵操作のWorkbench／Host CLI分担は採用済み。MCPに鍵操作の一覧・Schema・登録・dispatchを公開しない。通常Host回復は交換2操作だけで、追加認証・専用資格・承認コード・OS管理者昇格なし、既存Root／Path検証を維持する。9 Role分担行の現在分担は[SCR-000008](Areas/configuration-trust/SCR-000008/screen.md)に従う。manager自身の内容範囲も変更前の現在認可→明示更新→次要求再評価と分け、更新受理を取得可能にしない。登録≠公開、解除≠Repository／Product Data削除。developerの管理拒否を自身・許可内利用の拒否へ広げない。
 
 初回Host設定は別の端末導線として[SCR-000008](Areas/configuration-trust/SCR-000008/screen.md#初回host設定の端末導線)へ接続する。双方未初期化確認→明示開始・表示名→最初のadministrator UUIDとHost端末への鍵一度提示・exact同鍵の初回確認用限定接続成功による受領・接続確認を扱う。4状態・元試行の再観測・作成済み管理者への別明示Host指定交換を区別する。Remote／MCP／自動起動へ公開しない。旧初回追補の限定Passは履歴。今回の鍵提示Flowは限定再レビュー済み（鍵提示方式伝播差分、全重大度0）で、旧§1〜12のGate・Visual評価を変更しない。
 

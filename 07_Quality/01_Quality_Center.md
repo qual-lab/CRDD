@@ -6,7 +6,7 @@
 
 現在の品質設計候補：基準`be4d5064`の最小鍵提示・初回限定接続・v2目標Schemaを既存項目へ接続する。通常本人受領は観測外・追加確認なし。初回は完全discoverと同Lockでの確認保存・読戻し・短命清掃／Lock終了、応答、次要求の通常認証を別観測する。191項目・正式Not Runを維持し、Source／本番接続／実提示／v1移行は未完了。この12文書差分は限定独立再レビューPass・全重大度の残指摘0。下記の実行件数・限定Passは各旧固定候補の履歴で、新版の成立証明へ流用しない。
 
-Source接続前の既存Blocker：現在文書の「通常6操作」と、実SourceのUser4＋Repository3＝通常7保存操作が一致していない。REQの9分担行・Sourceの11認可要求種別とは別の計数軸であり、権限変更ではない。[Owner同期の処置](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#管理操作の計数不整合--source接続前の既存blocker)を次固定候補で閉じるまでQuality全体Pass・Source Readyを表示しない。
+現在の計数同期結果：現行契約をRole別分担9行・11認可要求種別・通常保存7操作（User4＋Repository3）へ揃えた。ProfileのCatalog保存・鍵Lifecycle・初回設定・Host交換は通常保存7操作に含めない。権限や操作の増減ではなく、旧「通常6」の計数不整合を訂正する。[Owner同期候補](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#管理操作の計数同期候補--2026-10-12)は限定独立再レビューPass・全重大度の残指摘0で、計数Blockerは解消した。正式191項目Not Runと既存Checker指摘3057件は維持し、Quality全体Pass・Source Readyへ昇格しない。
 
 最新局所候補：AM現在認可による共有Profile管理をSource・実HTTPと実Catalog Storeへ接続した。AM60／AI Adapter30／CROS34／MCP68／Workbench33の計225 Case・各静的3軸とWorkbench Build成功。CROS／Workbench結果は旧比較Consumerの回帰であり、新RoleのWorkbench本番接続成立ではない。Catalog依存を構成した局所候補ではmanager／administratorが19 Tool、developerが15 Tool、Catalog未構成時は15 Tool。固定候補の限定独立再レビューはPass・残指摘0で、Repository全体Checkerの既知3057 errorsは未解消。正式191項目Not Run、本番Launcher／Workbench・鍵配送・旧REST撤去・全体Ready未成立を維持する。[接続範囲](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#共有ai-profile管理のrole採用と本番接続--2026-10-12)を参照する。以下の最新表記・件数・未接続表示は各先行段階の局所履歴であり、現在候補の完成証明へ流用しない。
 
@@ -44,15 +44,15 @@ Source接続前の既存Blocker：現在文書の「通常6操作」と、実Sou
 
 現在注記: v0.21の最終署名照合は履歴Baselineとして完了している。v0.22の署名候補Commit `45254e2b`と是正済み検証Tool `1b756ac2`によるOrchestrator公開MCP実Provider E2Eは、Run `2e55c8cd2897464b`で合格した。通常二経路、取消、exact Recoveryおよび最終資源回収を確認し、再入場後は意図どおり人間の採用判断待ちで停止した。Workbench実Provider E2E、必要な四経路E2E、個別品質項目の照合および最終配布の再署名は残るため、Quality Readyへ昇格しない。
 
-## 最新鍵管理・認可の限定設計対応 — 2026-10-11
+## 鍵管理・認可の限定設計対応の局所履歴 — 2026-10-11
 
-最新の限定実行: RFD-UT-020に対応する新Access Management候補試験を公開Root経由で局所実行し、4 Case成功、format・type・lint成功。10具体操作とRole対象の有限組合せ、未知入力・accessor／Proxy拒否を確認した。Source／Test Symbolは接続済みだが、正式Local Item結果／Evidence評価はNot Run。契約・品質の限定独立再レビューは全重大度の残指摘0。純粋判定の局所結果で、認証・保存・資格・IT／ST・本番Consumerは未確認。他ItemのNot RunやQuality Readyを変更しない。[実行条件と限界](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#am固定管理判定の局所実装--2026-10-11)を参照する。
+本段落はProfile追加前の当時の履歴である。最新の限定実行: RFD-UT-020に対応する新Access Management候補試験を公開Root経由で局所実行し、4 Case成功、format・type・lint成功。10具体操作とRole対象の有限組合せ、未知入力・accessor／Proxy拒否を確認した。Source／Test Symbolは接続済みだが、正式Local Item結果／Evidence評価はNot Run。契約・品質の限定独立再レビューは全重大度の残指摘0。純粋判定の局所結果で、認証・保存・資格・IT／ST・本番Consumerは未確認。他ItemのNot RunやQuality Readyを変更しない。[実行条件と限界](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#am固定管理判定の局所実装--2026-10-11)を参照する。
 
 本段落は2026-10-11の鍵管理Quality再導出時点の履歴である。QA-000007／QA-000009と7工程分析の固定9文書で契約・品質の限定独立レビューを完了し、全重大度の残指摘0。新規4項目（RFD-IT-017通常発行、018独立失効、019認可済み集約、EST-ST-015 MCP鍵操作非公開）と既存更新項目はNot Runである。旧Evidenceは旧契約の歴史的証跡として維持し、新契約のPassに流用しない。現在のIT017／018はNode crypto技術部分だけSource／Test Symbol・候補局所実行接続済み。正式191項目／EvidenceはNot Run、保存・発行確定・失効・認証主体・現在Role・配送・本番入口は未接続。全体Quality Ready・Release可能を主張しない。
 
-## 最新権限分担のQuality伝播 — 2026-10-11
+## 権限分担のQuality伝播履歴 — 2026-10-11
 
-固定8操作の担当Roleは採用済み。QA-000007へRFD-UT-020（固定判定）、RFD-IT-021（通常管理保存境界）、RFD-ST-022（Workbench公開縦断）を追加し、RFD-UAT-007とQA-000009／EST-IT-010を更新した。新規・更新項目はNot Run。固定12文書の契約・品質限定独立レビューは是正後ともに残指摘0であり、旧鍵管理の限定レビュー結果を流用しない。内容権限の具体語彙、RFD-UT-020の固定管理判定Source／Test Symbolと候補局所実行を除き、具体API・保存Schema・他Source／Test・正式Evidence・本番接続は未成立。Profile管理の担当Roleは別途OPEN。Quality Integrationの全体一覧追従も後続とし、全Quality統合完了を主張しない。
+本段落はProfile追加前の当時の履歴である。固定8操作の担当Roleは採用済み。QA-000007へRFD-UT-020（固定判定）、RFD-IT-021（通常管理保存境界）、RFD-ST-022（Workbench公開縦断）を追加し、RFD-UAT-007とQA-000009／EST-IT-010を更新した。新規・更新項目はNot Run。固定12文書の契約・品質限定独立レビューは是正後ともに残指摘0であり、旧鍵管理の限定レビュー結果を流用しない。内容権限の具体語彙、RFD-UT-020の固定管理判定Source／Test Symbolと候補局所実行を除き、具体API・保存Schema・他Source／Test・正式Evidence・本番接続は未成立。Profile管理の担当Roleは別途OPEN。Quality Integrationの全体一覧追従も後続とし、全Quality統合完了を主張しない。
 
 ## 登録解除・鍵受け渡し判断のQuality伝播 — 2026-10-11
 

@@ -91,7 +91,7 @@ Quality ID: `QA-000009`
 
 EST-ST-015は最新MCP詳細の鍵管理・初回設定・状態照会非公開から導出する。初回設定も同じ公開面の負境界のためSame統合し、新しい重複項目を作らない。鍵権限・発行／失効／交換のEffectはQA-000007が所有し、本項目は既存四面非公開に加え、完全HTTP／Protocol検査後の限定discoverと確認Ownerの正規1回／不正0を検証する。確認内部のfresh読取りは公開状態照会ではない。EST-IT-010とEST-ST-015は最新契約についてNot Run。旧結果は新契約の合格根拠にしない。
 
-通常6管理操作の固定分担・保存・読戻しはQA-000007／RFD-UT-020・RFD-IT-021・RFD-ST-022が所有し、EST-IT-010は搬送同値だけを検証する。MCP Tool／CLI／APIをこのQuality更新で新規採用しない。非採用経路は非公開を確認する。鍵3操作のMCP非公開とHost交換2操作は同値比較の対象外。Profile管理の担当Roleは別途OPENであり、固定8分担から推定しない。
+通常7保存操作の固定分担・保存・読戻しはQA-000007／RFD-UT-020・RFD-IT-021・RFD-ST-022が所有し、EST-IT-010は搬送同値だけを検証する。MCP Tool／CLI／APIをこのQuality更新で新規採用しない。非採用経路は非公開を確認する。鍵3操作のMCP非公開とHost交換2操作は同値比較の対象外。Profile管理は現在manager／administratorに確定済みで、内容・Catalog更新の検証はQA-000001が所有する。
 
 ## 二Surface再編の追加観測条件
 
