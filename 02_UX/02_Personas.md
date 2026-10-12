@@ -2,7 +2,7 @@
 
 状態: 候補（v0.22.0、公開済みの基準版: v0.21.0）
 担当責任者: Qual-Lab
-最終更新日: 2026-10-11
+最終更新日: 2026-10-12
 工程規則: [UX](../22_UX.md)
 
 本書は、CRDD／CROSを使う人を、仕事、判断、困りごと、必要な支援の違いから整理する。ここで示す利用者像は、固定した役割や権限の階層ではない。同じ人でも、対象リポジトリ、接続先、認証情報、現在の仕事によって利用場面は変わる。
@@ -81,7 +81,7 @@ CRDD閲覧者 ──→ CRDD作成者・保守者 ──→ 実行環境の導�
 | [UX-000032](Definitions/UX-000032/ux_definition.md) | 実行基盤・TypeScriptアプリへ実行記録を組み込む担当者 | AIまたはToolの観測可能な実行段階が確定し、事実を後から比較できる形で残す時 |
 | [UX-000033](Definitions/UX-000033/ux_definition.md) | プロジェクト運営者／PM、Meeting参加者、Topic責任者 | 論点や会議記録を登録・確認・更新する時、誤登録を見つけた時 |
 | [UX-000034](Definitions/UX-000034/ux_definition.md) | 開発者、プロジェクト運営者／PM | Projectの状況から次の仕事を選び、変更を確認・共有する時 |
-| [UX-000035](Definitions/UX-000035/ux_definition.md) | manager／administrator、ログイン済みHost操作者 | Workbench通常鍵管理／Host交換2操作。manager／administratorは業務管理、管理者資格と鍵はadministratorだけ。登録解除は対応公開設定も同時解除し本体を保持。発行・記録確定後の受け渡し未確認は明示新交換、発行・記録不明は元Identity再観測、管理鍵喪失は既存Host入口へ案内。初回も同じHost操作者が未初期化を確認して表示名を入力し、最初のadministrator UUIDと鍵を一度受け取る。 |
+| [UX-000035](Definitions/UX-000035/ux_definition.md) | manager／administrator、ログイン済みHost操作者 | Workbench通常鍵管理／Host交換2操作。manager／administratorは業務管理、管理者資格と鍵はadministratorだけ。登録解除は対応公開設定も同時解除し本体を保持。発行・記録確定後の受け渡し未確認は明示新交換、発行・記録不明は元Identity再観測、管理鍵喪失は既存Host入口へ案内。初回も同じHost操作者が未初期化を確認して表示名を入力し、最初のadministrator UUIDを作成し、鍵をHost端末へ一度提示して、同鍵の最初の接続成功を受領・接続確認とする。 |
 
 ## 4. 利用場面による違い
 

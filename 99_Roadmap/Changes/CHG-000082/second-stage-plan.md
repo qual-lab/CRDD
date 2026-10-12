@@ -295,6 +295,16 @@ Windows 10.0.26200.0・C: NTFS・Node v24.19.0で同Directoryの通常置換・b
 
 今回の4文書はREQ41／AM詳細02／本計画／PROJECT_CONTEXT。変更分類は人間判断の採用記録と直接伝播。Source／Test／実Host／秘密／旧Evidence／正式191結果は不変更。契約・品質・文書・直接影響の限定独立再レビューはPass、Critical／Major／Moderate／Minorの残指摘は各0。追加の人間確認操作と既存initializationの機械的判定を分離するModerate1を是正し、差分検査成功。Source・標準規則・Provider／Dockerは不変更のためPackage回帰・準拠監査・署名E2Eは対象外。採用記録後にUX〜Qualityへの正式伝播、具体入口・保存・本番Consumerを接続する。新Receipt Store、追加の人間確認ボタン／独立確認Workflow、Timer、Session、認証Framework、MCP鍵操作を作らない。初回接続確認後だけ通常Authorityへ進む機械的判定は、既存initialization状態・保存Ownerの責務として維持する。
 
+### 鍵の提示方式の工程伝播 — 2026-10-12
+
+基準77e84641。前段は採用記録を4文書へ反映し限定独立再レビューPass。本段はREQ→UX→IA→UI／SPEC→Detail→Architecture→Qualityの依存順で正式伝播する。読み取り専用の着手前確認により、Quality前のARCH-000013・UI／SPEC Architecture分析・AM基本詳細・Workbench境界を追加照合対象とした。具体入口Owner・handshake・Schemaをこの伝播で自己確定しない。新ID／Local Item／Store／Workflow・Source／Test／実Host／秘密／旧Evidence・正式191結果は不変更。文書・意味・直接伝播の限定独立レビューを行い、Package回帰・署名E2E・準拠規範変更は対象外。
+
+最初の固定候補はUX／IAの分析・定義4文書と、UXの体験／提供責務／品質期待3投影、IAのObject／導線／状態責任3投影、本計画の計11文書。限定レビューはCritical0／Major2／Moderate2／Minor1。提示を受領へ強めた表現、現在状態と01入口投影の未同期、UX投影の同文複製、IA補足なしとの矛盾、日付を是正する。統合方針を指摘元へ再提示して整合確認し、01入口2文書を加えた13文書を再確認対象とした。再確認では旧本文の提示時受領表現と表書式が残りMajor1／Minor1。直接母集団を再照合し、Personaの利用場面一件も含めた14文書で通常の提示と初回の同鍵接続確認を全数同期する。Persona自体は不変で、場面説明だけ更新する。投影は各文書の既存UX35／IA9主表へ統合し、補足は元の「なし。」に戻す。通常提示≠対象本人受領、Host一度提示と同鍵最初の接続確認、追加受領操作なし、失敗時の再観測／明示交換を工程固有の意味へ変換する。旧Passを流用しない。UI／SPEC以降の今回差分は未適用、全工程伝播・実装成立は未完了。無関係Persona／Definitionは成果・対象者が不変のため変更しない。
+
+機械確認ではUXの同REQへのfragment違い重複参照を新規指摘として検出し、既存正式入力一件を参照する表現へ是正した。14文書の再確認では、IA一般Metadataに旧配送・受領確認属性が残存するMajor1を検出した。統合方針を指摘元と照合し、通常は発行・結果記録・提示結果（対象本人受領は観測外）、初回だけHost提示と同鍵最初の接続成功による受領・接続確認へ、分析／変換対応／定義／引渡し30行を同期した。新しい受領属性・Storeは作らず、過去CHGの時点記録は保持する。IA-000009の構造指摘はHEADのIA定義bytesをメモリ上の読取り入力として再検査しても存在する。Source・Checkerを弱めず、現行と基準に共通の構造不足として後続の同CHG完結時に照合する。全体Checker成功・IA工程全体完成を主張しない。
+
+14文書の限定独立再レビューはPass、Critical／Major／Moderate／Minorの残指摘は各0。最終Checkerは全体3057 errors／0 warnings、変更14文書では基準から存在するIA-000009構造指摘1件のみ。新規リンク／アンカー指摘0、差分検査成功。結果を現在表示へ同期する。このPassは提示方式のUX／IA伝播差分のみで、IA構造不足、UI／SPEC以降、Source・本番入口・正式検証・全体Readyは未完了。
+
 ### 共有AI Profile管理のRole採用と本番接続 — 2026-10-12
 
 Source候補の局所結果：基準`ec2a2e3e`、Node v24.19.0。AM60／AI Adapter30／旧CROS34／MCP68／Workbench33の計225 Case（追加Workbench33 Caseは旧比較Consumerの回帰）、各書式・型・Warning禁止Lint成功、Fail／Cancel／Skip0、全Exit0。実HTTPと自己生成実Catalog Storeでmanager／administrator四操作・developer非開示・次要求のRole変更／失効、遅延認可・二依存拒否・採用後取消／応答故障の改訂保持を確認した。AM新試験の初回途中Fixture不整合は正規の一User・一Credential・元発行相関へ是正し、局所再試験後にAM全回帰を再実行した。最初の失敗を現在の成功へ混ぜない。Biomeの一時OS1224は同じ対象の再実行で解消した。固定29Pathの限定独立再レビューはPass・全重大度残指摘0。全体Checkerは3057 errors／exit1を維持し、変更29Path抽出はProject Context構造の既存1件のみ。判定に使う三Identity・五見出し・Checklist見出しとcheckboxの17行が基準HEADと順序込み完全一致し、差分起因0を確認した。Repository全体Passとは扱わず、正式191項目Not Runと本番Launcher／Workbench・鍵配送・旧REST撤去・AM全体未完成を維持する。実行別ログ書庫は作らず、各Packageの`npm test`から再生成する。
