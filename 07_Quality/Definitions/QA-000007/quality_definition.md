@@ -299,6 +299,8 @@ RFD-IT-021の保存部分を`access-management/tests/integration/state/file-stor
 
 前節までの内容権限語彙・容量・初回／鍵段階の未確定表示は候補時点の履歴で、現在方針はAM設計§4.5を使う。操作別認可は追加せず内容Workspaceだけを固定する。機械Schema・状態組合せ・公開API・物理保存／本番接続・配送観測・移行実行は未完了。Profile管理等の既存Owner判定をこの範囲から暗黙付与しない。
 
+Host交換の保存・提示・終了compositionはRFD-IT-017へ局所接続し、初回共通TTY移管の保持はIT024／025で反証する。指定／全員、一write前のunconfirmed確定・提示後confirmed・最新改訂で終了、各Root Lock終了とTTY callback joinを観測する。新token保存後の取消はTTY0／finish0でも保存済み相関を保持し、TTY中の取消／故障／遅延通知は再表示0・確認0・終了0とする。stored再入場の未確認は別明示交換へ、confirmedだけ表示0で整理する。結果・状態・診断へSecretを保存せず、共有streamのend／destroyとwrite falseによる再送をしない。提示開始・確認・終了のrename故障はcompositionで、提示保存の清掃・Lock故障は既存Writer試験で反証する。Host CLIは初回指定・通常指定／全員・prepared／revoked継続・stored置換・confirmed整理・材料処置要求の停止と次fresh要求を観測する。実Host TTYは未確認の別断面で、IT成功をST016・正式Local Item全体・本番入口全体の完成へ流用しない。
+
 ### 許可集合と実本文の局所搬送
 
 同期本文Reader開始後の取消はopen／close hookで直接反証する。当該本文open1／close1、後続本文0、固定`-32603`、結果fieldなし、暗黙再実行0を期待する。開始前の`-32800`と区別し、EST-IT-014の今回接続は開始前取消だけの部分範囲とする。既存の全体検証義務は変更しない。

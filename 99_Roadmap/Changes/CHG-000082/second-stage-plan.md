@@ -481,6 +481,16 @@ credential_storedの保存・清掃・Lock解放後だけ一回の短命Secret�
 
 今回の局所保存・終了coreは閉じるが、短命Secretの本番提示Owner、通常Workbench鍵3操作・Host交換2操作、MCP／Workbench本番Launcher、旧REST撤去、実Host移行／Linux、正式191項目・AM全体完成は未成立を維持する。次は既存提示Writerと終了APIを実Consumerへ接続する。現在、人間による追加判断は不要。
 
+### Host交換の提示Consumer接続着手 — 2026-10-13
+
+基準`d75542ad`、着手時clean。承認済みHost交換2操作への実装接続として、親照合と独立した契約・lifecycle確認を実施し、追加人間判断なし。初回の私有TTY提示を`credential/present-key-to-terminal.ts`へ移管し、初回と`credential/exchange-from-host.ts`の具体2Consumerで共有する。Package Rootへ共通Writerを公開せず、保存・認可・CLI選択を共通提示処理へ集約しない。Node TTYの一write・callback join・先行取消／error／close・通知tick・共有stream保持は不変。新Lock／Receipt／Store／履歴・Provider／Docker・過去Evidenceは追加／変更しない。
+
+交換と終了のoperation UUIDは別に保持し、交換結果→unconfirmed→confirmed→終了で毎回直前の確定revisionを使う。新tokenだけ一度提示し、stored再入場でtokenを再取得しない。confirmedだけ終了、未確認は別明示交換へ案内する。保存後取消をEffect0へ変換せず、終了不明は元相関と出版・清掃を保持する。新対話確認や表示内容・CLI引数選定はHost入口が所有する。初回既存局所回帰・Host2経路／初回・保存／提示故障・取消・遅延通知・再入場を既存ITへ接続し、静的3軸・全回帰・固定候補独立レビューを実施する。ST実TTY・Workbench・公開Launcher・正式191項目・AM全体は未成立を維持する。準拠基準と外部Provider境界を変更しないため準拠監査・署名Provider E2Eはこの接続段階では対象外。
+
+現在候補はAM全147/147 Case・Exit0・217.2495565秒、MCP全75/75 Case・Exit0・68.0589303秒、各静的3軸成功。Host指定／全員、一度表示時のunconfirmed、保存済み三提示状態の再入場、開始前／保存後／TTY中取消と遅延error、終了publish失敗時の元参照を反証した。現在観測不明時に清掃を推定せず、保存済み終了後の取消もcompleted応答へ戻さない。限定独立レビューの実指摘は試験不足2件で、是正後の提示開始／確認／終了出版故障とCLI材料処置を含む対象2 Caseは9.0387939秒・Exit0で成功した。停止guardを一時無効化した変異はCLIの期待Exit2に対するExit0で失敗し、復元後のSource SHA256は28BAC3B3F0D6EC06F8D3D372D1639D5558987D89E247D5BA9EB5F3359CC9103Cで全回帰時と一致した。固定11Pathの限定独立再レビューはPass、全重大度の残指摘0。Checker対象11Path指摘0、全体3057 errors／0 warnings・Exit1。自己生成Root残存0、差分空白確認成功。Symbol2件と既存suite／Catalogを接続し、Local Itemの新設や正式191項目のPassにはしない。実Host TTY・Workbench本番・公開Launcher・旧REST撤去・AM全体は未成立。
+
+Host CLIの公開入口へ指定／全員交換を接続した。材料処置後の再実行、OS操作者とAM Userの区別、確認済み前記録の整理と新交換の区別、同交換の固定集合とUUID、入力interface終了後の鍵提示を採用した。通常・途中再開・未確認stored置換・confirmed整理・初回指定、対象拒否・否認・EOF・取消・表示後改訂競合、CLI自身が材料を整理した要求のprompt／鍵0と次fresh要求を確認した。初回データのID不一致と故障結果の期待値不一致は試験データ／期待値だけを修正し、Sourceを弱めていない。前交換参照の推定追加というレビュー案は、通常未提示発行との識別不能とprevious省略時の既存継続契約に反するため撤回された。置換開始時のexact旧相関と、確定後の新交換IDによる継続を維持し、新Schema／推定Guardを追加しない。提示保存のcleanup／Lock故障は既存Writer試験、compositionは四・五・六番目のrename故障を直接反証する。実Host管理領域や旧Evidenceは変更していない。
+
 ### 交換本体の保存接続の着手と固定条件 — 2026-10-13
 
 基準98363c47、開始時clean。親と読取り専用確認者が既存正本・保存意味を照合し、現在Authorityを先行材料処置より前に確認すること、同Lock要求内のadmissionだけで失効後も進むことを確定した。別要求はfresh認可で、起点entry・旧集合・同Recoveryを保持する。prepared未確定時は耐久Recoveryを返さず、current=next材料処置要求は停止、credential base材料は保持停止する。追加人間判断・新Store／Lock／Framework／MCP鍵操作はない。

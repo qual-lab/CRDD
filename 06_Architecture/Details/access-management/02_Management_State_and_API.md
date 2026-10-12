@@ -578,6 +578,14 @@ Process喪失やtoken nullは物理的な秘密消去の証明ではなく、再
 
 確認済み整理の内部入口は`finishKeyExchange`と`finishKeyExchangeFromHost`とする。純粋候補は資格責務、認可先行・一出版・主失敗と解放不明の分離は既存保存Ownerへ置く。終了操作は新UUIDとし、初回・現出版・資格発行・元交換との衝突を拒否する。record除去出版後の応答喪失で、次要求のrecord不在をcompletedへ再構成しない。残ったcurrent=next材料の処置は既存保存Owner専用の内部状態Readerで可能だが、公開ActorへそのRoot AuthorityやSnapshotを渡さず、清掃成功を元終了要求の成功保証にしない。未確認recordはこの入口で除去しない。
 
+### Host交換の提示Consumerの責務配置 — 2026-10-13
+
+`credential/present-key-to-terminal.ts`はNode TTYへの一write・callbackと先行故障通知のjoin・自身のListener回収だけを所有する。初回設定と`credential/exchange-from-host.ts`の二つの具体Consumerが内部importし、Package RootやMCPへ共通Writerを公開しない。保存・認可・対象選択を同Writerへ集約しない。Bufferの処置と論理上の短命参照を維持するが、JS stringの物理zeroizeは保証しない。
+
+Host交換compositionは、対象表示と確認を終えた呼出側の所有入力から既存交換保存→提示前unconfirmed→一度出力→提示confirmed→確認済み終了を呼ぶ。交換用と終了用UUIDは別に保持し、各段階の直前確定revisionを次へ渡す。stored再入場のtoken nullは再表示せず、fresh現在観測のconfirmedだけ終了する。未確認は別明示交換を必要とする。保存後取消・出力故障・終了不明では交換元相関・最後の確認段階・出版／清掃・主副Failureを非秘密に保持し、保存済みEffectを取消前へ戻さない。対話CLIの引数、対象選択、影響表示と確認はHost入口が所有し、このcompositionのIT成功だけで実Host TTY／CLI全体成立を主張しない。
+
+Host CLIは`--exchange-user <User UUID>`と`--exchange-all <発行先administrator UUID>`を提供する。現在状態から対象・失効する資格集合を表示し、`yes`の入力後だけ操作UUIDを生成する。確認待ちの間に改訂・Role・資格集合が変わった場合は保存Ownerが拒否し、自動再試行しない。初回途中は同じ初回Userへの指定交換だけを許す。prepared／revokedは元の範囲・発行先・操作UUIDを継続し、stored未確認は明示した別交換へ引き継ぐ。提示確認済みの前記録がある場合は元対象を表示してその記録だけ終了し、今回指定した新交換は未実行と案内する。材料整理を行った観測要求は古いSnapshotから交換せず、再実行を案内する。OSログイン主体をAMの発行先Userと同一視しない。鍵管理はMCPへ公開しない。
+
 ### 純粋Schema検査への具体化 — 2026-10-12
 
 #### 現Source比較・移行対象（基準07d21331）

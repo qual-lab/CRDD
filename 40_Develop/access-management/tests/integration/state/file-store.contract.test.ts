@@ -23,6 +23,7 @@ import crypto, { createHash } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 import test, { type TestContext } from "node:test";
 import { Writable } from "node:stream";
+import { exchangeFromHost } from "../../../src/credential/exchange-from-host.ts";
 import {
   createFilesystemStoreRoot,
   readRepositoryProjectContext,
@@ -8903,6 +8904,470 @@ test("鍵交換終了と引継ぎの二Process競合は一採用だけ保存す�
     assert.deepEqual(saved.users, f.state.users);
     assert.deepEqual(saved.initialization, f.state.initialization);
     assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
+  }
+});
+
+/**
+ * Host二経路を一度提示と確認済み終了へ接続する。
+ * @responsibility core保存・提示・記録終了の順序と非秘密結果を検証する。
+ * @trace RFD-IT-017
+ * @precondition 三Roleの自己生成Rootと局所TTY代役。
+ * @stimulus 指定と全員交換を保存から一度提示・終了まで行う。
+ * @observation TTY時のunconfirmed、write回数、最後の改訂、Secret非保存。
+ * @oracle 一write、record0、資格確認済み。streamをend／destroyしない。
+ * @cleanup Listener確認後にFixture回収。
+ * @boundary Host内部composition・既存保存・Node Writable。
+ */
+test("Host交換compositionは指定と全員を一度提示して記録を閉じる", async (t) => {
+  for (const scope of ["targeted", "all"] as const) {
+    const f = managementFixture(t);
+    const user = f.state.users[scope === "all" ? 0 : 1];
+    assert.ok(user);
+    const ids = f.state.credentials
+      .filter((c) => scope === "all" || c.userId === user.userId)
+      .map((c) => c.credentialId);
+    let writes = 0;
+    let key = "";
+    const terminal = Object.assign(
+      new Writable({
+        highWaterMark: 1,
+        write(chunk, _encoding, callback) {
+          writes++;
+          const current = JSON.parse(
+            fs.readFileSync(
+              path.join(f.directory, "access-management.json"),
+              "utf8",
+            ),
+          ) as AccessManagementState;
+          assert.equal(current.revision, 5);
+          assert.equal(current.credentials.at(-1)?.presentation, "unconfirmed");
+          assert.equal(
+            fs.existsSync(path.join(f.directory, "access-management.lock")),
+            false,
+          );
+          key = chunk.toString("utf8").split("\n")[1];
+          setImmediate(callback);
+        },
+      }),
+      { isTTY: true },
+    ) as unknown as NodeJS.WriteStream;
+    const result = await exchangeFromHost(
+      f.root,
+      {
+        expectedRevision: 1,
+        exchangeOperationId: "00000000-0000-4000-8000-000000000090",
+        completionOperationId: "00000000-0000-4000-8000-000000000091",
+        scope,
+        recipientUserId: user.userId,
+        displayedOldCredentialIds: ids,
+        confirmed: true,
+      },
+      terminal,
+      new AbortController().signal,
+    );
+    assert.equal(result.status, "completed");
+    assert.equal(writes, 1);
+    assert.equal(Object.hasOwn(result, "token"), false);
+    const stored = JSON.parse(
+      fs.readFileSync(path.join(f.directory, "access-management.json"), "utf8"),
+    ) as AccessManagementState;
+    assert.equal(stored.revision, 7);
+    assert.equal(stored.unresolvedKeyExchanges.length, 0);
+    const credential = stored.credentials.at(-1);
+    assert.ok(credential);
+    assert.equal(credential.presentation, "confirmed");
+    assert.equal(verifyCredentialToken(key, credential), true);
+    assert.equal(bytes(stored).includes(Buffer.from(key)), false);
+    key = "";
+    assert.equal(terminal.destroyed, false);
+    assert.equal(terminal.writableEnded, false);
+    assert.equal(terminal.listenerCount("error"), 0);
+    assert.equal(terminal.listenerCount("close"), 0);
+  }
+});
+
+/**
+ * Host再入場でSecretを再取得せず提示状態を処置する。
+ * @responsibility confirmedだけ終了し、未確認を別明示交換へ渡す。
+ * @trace RFD-IT-017
+ * @precondition 同じHost交換の保存済み三提示状態。
+ * @stimulus 同交換入力で再入場する。
+ * @observation TTY0、資格数不変、record保持／除去。
+ * @oracle 未確認は再交換必要、confirmedは終了だけ。再表示0。
+ * @cleanup Fixture回収。
+ * @boundary fresh交換読取りとHost再入場。
+ */
+test("Host交換compositionは保存済み鍵を再表示せず確認済みだけ閉じる", async (t) => {
+  for (const presentation of [
+    "not_attempted",
+    "unconfirmed",
+    "confirmed",
+  ] as const) {
+    const f = managementFixture(t);
+    const target = f.state.credentials[1];
+    assert.ok(target);
+    const exchangeOperationId = "00000000-0000-4000-8000-000000000090";
+    const old = exchangeCredentialsFromHost(
+      f.root,
+      1,
+      exchangeOperationId,
+      "targeted",
+      target.userId,
+      [target.credentialId],
+      true,
+    );
+    assert.ok(old.status === "completed");
+    let revision = 4;
+    if (presentation !== "not_attempted") {
+      const started = recordCredentialPresentation(f.root, {
+        credentialId: old.credentialId,
+        issuanceOperationId: old.operationId,
+        expectedRevision: revision,
+        target: "unconfirmed",
+      });
+      assert.ok(started.status === "completed");
+      revision = 5;
+      if (presentation === "confirmed") {
+        assert.equal(
+          recordCredentialPresentation(f.root, {
+            credentialId: old.credentialId,
+            issuanceOperationId: old.operationId,
+            expectedRevision: revision,
+            target: "confirmed",
+            presentationOperationId: started.value.presentationOperationId,
+          }).status,
+          "completed",
+        );
+        revision = 6;
+      }
+    }
+    let writes = 0;
+    const terminal = Object.assign(
+      new Writable({
+        write(_chunk, _encoding, callback) {
+          writes++;
+          callback();
+        },
+      }),
+      { isTTY: true },
+    ) as unknown as NodeJS.WriteStream;
+    const result = await exchangeFromHost(
+      f.root,
+      {
+        expectedRevision: revision,
+        exchangeOperationId,
+        completionOperationId: "00000000-0000-4000-8000-000000000091",
+        scope: "targeted",
+        recipientUserId: target.userId,
+        displayedOldCredentialIds: [target.credentialId],
+        confirmed: true,
+      },
+      terminal,
+      new AbortController().signal,
+    );
+    assert.equal(
+      result.status,
+      presentation === "confirmed" ? "completed" : "key_exchange_required",
+    );
+    assert.equal(writes, 0);
+    const stored = JSON.parse(
+      fs.readFileSync(path.join(f.directory, "access-management.json"), "utf8"),
+    ) as AccessManagementState;
+    assert.equal(stored.credentials.length, 4);
+    assert.equal(
+      stored.unresolvedKeyExchanges.length,
+      presentation === "confirmed" ? 0 : 1,
+    );
+    assert.equal(
+      stored.revision,
+      revision + (presentation === "confirmed" ? 1 : 0),
+    );
+  }
+});
+
+/**
+ * Host交換の取消と遅延出力通知を反証する。
+ * @responsibility 保存後取消をEffect0へ丸めず、遅延成功で提示を復活させない。
+ * @trace RFD-IT-017
+ * @precondition 三RoleのRoot、取消Controller、TTYとrename限定Hook。
+ * @stimulus 開始前、資格保存後、TTY中、callback直後errorで停止する。
+ * @observation 書込み数、確定段階と元相関、提示状態、Listener回収。
+ * @oracle 開始前だけcancelled。保存後はblockedでrecord保持、confirmed／finish0。
+ * @cleanup Hook復元・callback join・Fixture回収。
+ * @boundary 保存と非同期TTYの取消境界。
+ */
+test("Host交換compositionは保存後取消と遅延通知を成功にしない", async (t) => {
+  for (const mode of [
+    "before",
+    "after_store",
+    "during_tty",
+    "late_error",
+    "after_finish",
+  ] as const) {
+    const f = managementFixture(t);
+    const target = f.state.credentials[1];
+    assert.ok(target);
+    const controller = new AbortController();
+    if (mode === "before") controller.abort();
+    const rename = fs.renameSync;
+    let publications = 0;
+    fs.renameSync = (from, to) => {
+      rename(from, to);
+      if (
+        String(to) === path.join(f.directory, "access-management.json") &&
+        ((++publications === 3 && mode === "after_store") ||
+          (publications === 6 && mode === "after_finish"))
+      )
+        controller.abort();
+    };
+    let writes = 0;
+    const terminal = Object.assign(
+      new Writable({
+        write(_chunk, _encoding, callback) {
+          writes++;
+          if (mode === "during_tty") controller.abort();
+          setImmediate(() => {
+            callback();
+            if (mode === "late_error")
+              terminal.emit("error", new Error("injected_late_error"));
+          });
+        },
+      }),
+      { isTTY: true },
+    ) as unknown as NodeJS.WriteStream;
+    let result: Awaited<ReturnType<typeof exchangeFromHost>>;
+    try {
+      result = await exchangeFromHost(
+        f.root,
+        {
+          expectedRevision: 1,
+          exchangeOperationId: "00000000-0000-4000-8000-000000000090",
+          completionOperationId: "00000000-0000-4000-8000-000000000091",
+          scope: "targeted",
+          recipientUserId: target.userId,
+          displayedOldCredentialIds: [target.credentialId],
+          confirmed: true,
+        },
+        terminal,
+        controller.signal,
+      );
+    } finally {
+      fs.renameSync = rename;
+    }
+    assert.equal(result.status, mode === "before" ? "cancelled" : "blocked");
+    assert.equal(writes, mode === "before" || mode === "after_store" ? 0 : 1);
+    const stored = JSON.parse(
+      fs.readFileSync(path.join(f.directory, "access-management.json"), "utf8"),
+    ) as AccessManagementState;
+    assert.equal(
+      stored.revision,
+      mode === "before"
+        ? 1
+        : mode === "after_store"
+          ? 4
+          : mode === "after_finish"
+            ? 7
+            : 5,
+    );
+    assert.equal(
+      stored.unresolvedKeyExchanges.length,
+      mode === "before" || mode === "after_finish" ? 0 : 1,
+    );
+    if (result.status === "blocked") {
+      assert.equal(
+        result.lastConfirmedOperationId,
+        "00000000-0000-4000-8000-000000000090",
+      );
+      assert.equal(result.lastConfirmedStage, "credential_stored");
+      assert.equal(
+        result.recoveryId,
+        "access-management.key-exchange.00000000-0000-4000-8000-000000000090",
+      );
+      assert.equal(
+        stored.credentials.at(-1)?.presentation,
+        mode === "after_store"
+          ? "not_attempted"
+          : mode === "after_finish"
+            ? "confirmed"
+            : "unconfirmed",
+      );
+    }
+    assert.equal(terminal.listenerCount("error"), 0);
+    assert.equal(terminal.listenerCount("close"), 0);
+    assert.equal(terminal.destroyed, false);
+    assert.equal(terminal.writableEnded, false);
+  }
+});
+
+/**
+ * Host再観測の解放不明を清掃成功へ変換しない。
+ * @responsibility core保存の既知清掃と後続Readerのunknownを分ける。
+ * @trace RFD-IT-017
+ * @precondition stored再入場とReader側Lock解放の限定故障。
+ * @stimulus 二回目のLock解放を拒否する。
+ * @observation 非秘密blocked・cleanup false・元相関・TTY0・current不変。
+ * @oracle 観測不明から提示／終了へ進めない。
+ * @cleanup Hook復元とFixture回収。
+ * @boundary 既存保存からfresh Readerへの待機後処置。
+ */
+test("Host交換compositionは再観測の解放不明で清掃を保証しない", async (t) => {
+  const f = managementFixture(t);
+  const target = f.state.credentials[1];
+  assert.ok(target);
+  const exchangeOperationId = "00000000-0000-4000-8000-000000000090";
+  const old = exchangeCredentialsFromHost(
+    f.root,
+    1,
+    exchangeOperationId,
+    "targeted",
+    target.userId,
+    [target.credentialId],
+    true,
+  );
+  assert.ok(old.status === "completed");
+  const current = path.join(f.directory, "access-management.json");
+  const before = fs.readFileSync(current);
+  const remove = fs.rmSync;
+  let releases = 0;
+  fs.rmSync = (file, options) => {
+    if (
+      String(file) === path.join(f.directory, "access-management.lock") &&
+      ++releases === 2
+    )
+      throw new Error("injected_reader_release");
+    remove(file, options);
+  };
+  let writes = 0;
+  const terminal = Object.assign(
+    new Writable({
+      write(_chunk, _encoding, callback) {
+        writes++;
+        callback();
+      },
+    }),
+    { isTTY: true },
+  ) as unknown as NodeJS.WriteStream;
+  let result: Awaited<ReturnType<typeof exchangeFromHost>>;
+  try {
+    result = await exchangeFromHost(
+      f.root,
+      {
+        expectedRevision: 4,
+        exchangeOperationId,
+        completionOperationId: "00000000-0000-4000-8000-000000000091",
+        scope: "targeted",
+        recipientUserId: target.userId,
+        displayedOldCredentialIds: [target.credentialId],
+        confirmed: true,
+      },
+      terminal,
+      new AbortController().signal,
+    );
+  } finally {
+    fs.rmSync = remove;
+  }
+  assert.ok(result.status === "blocked");
+  assert.equal(result.firstFailure, "observation");
+  assert.equal(result.cleanupConfirmed, false);
+  assert.equal(result.recoveryId, old.recoveryId);
+  assert.equal(writes, 0);
+  assert.deepEqual(fs.readFileSync(current), before);
+});
+
+/**
+ * Host提示保存と終了の失敗を一度出力の事実と分離する。
+ * @responsibility 表示済みでもrecord整理完了を捏造しない。
+ * @trace RFD-IT-017
+ * @precondition 新Host交換、成功TTY、提示開始／提示確認／終了一出版のrename故障。
+ * @stimulus 四・五・六番目の出版をそれぞれ停止する。
+ * @observation 出力0／1、現在提示状態、残record、非秘密Failure。
+ * @oracle 提示開始未確定は出力0、提示確認未確定は出力1で終了0。交換元相関と主失敗を保持し自動再発行0。
+ * @cleanup Hook復元とFixture回収。
+ * @boundary TTY提示と交換終了の別事実。
+ */
+test("Host交換compositionは提示保存と終了の故障で元参照を保持する", async (t) => {
+  for (const failedPublication of [4, 5, 6]) {
+    const f = managementFixture(t);
+    const target = f.state.credentials[1];
+    assert.ok(target);
+    const rename = fs.renameSync;
+    let publications = 0;
+    fs.renameSync = (from, to) => {
+      if (
+        String(to) === path.join(f.directory, "access-management.json") &&
+        ++publications === failedPublication
+      )
+        throw new Error("injected_finish");
+      rename(from, to);
+    };
+    let writes = 0;
+    const terminal = Object.assign(
+      new Writable({
+        write(_chunk, _encoding, callback) {
+          writes++;
+          callback();
+        },
+      }),
+      { isTTY: true },
+    ) as unknown as NodeJS.WriteStream;
+    let result: Awaited<ReturnType<typeof exchangeFromHost>>;
+    try {
+      result = await exchangeFromHost(
+        f.root,
+        {
+          expectedRevision: 1,
+          exchangeOperationId: "00000000-0000-4000-8000-000000000090",
+          completionOperationId: "00000000-0000-4000-8000-000000000091",
+          scope: "targeted",
+          recipientUserId: target.userId,
+          displayedOldCredentialIds: [target.credentialId],
+          confirmed: true,
+        },
+        terminal,
+        new AbortController().signal,
+      );
+    } finally {
+      fs.renameSync = rename;
+    }
+    assert.ok(result.status === "blocked");
+    assert.equal(
+      result.stage,
+      failedPublication === 6 ? "completion" : "presentation",
+    );
+    assert.equal(
+      result.firstFailure,
+      failedPublication === 6 ? "publish" : "presentation",
+    );
+    assert.equal(writes, failedPublication === 4 ? 0 : 1);
+    assert.equal(publications, failedPublication);
+    assert.equal(Object.hasOwn(result, "token"), false);
+    const stored = JSON.parse(
+      fs.readFileSync(path.join(f.directory, "access-management.json"), "utf8"),
+    ) as AccessManagementState;
+    assert.equal(stored.revision, failedPublication);
+    assert.equal(
+      stored.credentials.at(-1)?.presentation,
+      failedPublication === 4
+        ? "not_attempted"
+        : failedPublication === 5
+          ? "unconfirmed"
+          : "confirmed",
+    );
+    assert.equal(stored.credentials.length, 4);
+    assert.equal(stored.unresolvedKeyExchanges.length, 1);
+    assert.equal(
+      result.recoveryId,
+      stored.unresolvedKeyExchanges[0]?.recoveryId,
+    );
+    assert.equal(
+      result.lastConfirmedOperationId,
+      "00000000-0000-4000-8000-000000000090",
+    );
+    assert.equal(result.lastConfirmedStage, "credential_stored");
+    assert.equal(result.publication, "unconfirmed");
+    assert.equal(terminal.listenerCount("error"), 0);
+    assert.equal(terminal.destroyed, false);
+    terminal.destroy();
   }
 });
 

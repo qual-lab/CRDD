@@ -3,6 +3,7 @@
  * @responsibility 自己生成Rootだけで部分作成・旧入力・拒否・対話終了を反証する。
  * @trace RFD-IT-024
  * @trace RFD-IT-025
+ * @trace RFD-IT-017
  * @level IT
  * @scope access-management/initialization、Host入口の局所接続
  * @boundary 実Filesystemと局所TTY代役。実Host TTYは対象外。
@@ -17,6 +18,12 @@ import {
   prepareHostInitializationRoot,
   runHostAccessCommand,
   initializeFromHost,
+  createCredentialMaterial,
+  parseAccessManagementState,
+  exchangeCredentialsFromHost,
+  recordCredentialPresentation,
+  readAccessManagementState,
+  type AccessManagementState,
 } from "../../../src/index.ts";
 import {
   resolveCrosRuntimeRoots,
@@ -539,6 +546,9 @@ test("Host CLIのhelpと不正起動・非TTYはRootを作らない", async (t) 
     ["--initialize", "extra"],
     ["--unknown"],
     ["--initialize"],
+    ["--exchange-user"],
+    ["--exchange-user", "invalid"],
+    ["--exchange-all", "00000000-0000-4000-8000-000000000003"],
   ]) {
     const code = await runHostAccessCommand(
       args,
@@ -591,6 +601,278 @@ test("Host CLIのhelpと不正起動・非TTYはRootを作らない", async (t) 
   assert.equal(output.destroyed, false);
   input.destroy();
   output.destroy();
+});
+
+/**
+ * Host交換の公開CLIを対象確認から一度提示・記録終了まで検証する。
+ * @responsibility 対象拒否と人間確認、待機中の改訂変更を保存結果と区別する。
+ * @trace RFD-IT-017
+ * @trace RFD-IT-025
+ * @precondition 自己生成Host baseと実Schemaの管理状態、局所TTY代役だけ。
+ * @stimulus 指定／全員交換、拒否・取消・改訂競合、prepared／revoked再開、stored置換とconfirmed終了。
+ * @observation Exit code、鍵提示回数、資格失効、交換記録、改訂とListener。
+ * @oracle 正規yesだけ一度提示して記録を閉じ、拒否・競合では資格を変更しない。
+ * @cleanup Fixtureがexact Rootを回収し、試験Ownerがstreamを破棄する。
+ * @boundary 公開CLI→readline→実保存。実Host TTYの成立は主張しない。
+ */
+test("Host交換CLIは確認した対象だけ一度提示し拒否と競合では交換しない", {
+  timeout: 30_000,
+}, async (t) => {
+  for (const mode of [
+    "targeted",
+    "all",
+    "unknown",
+    "nonadmin",
+    "no",
+    "eof",
+    "cancel",
+    "revision",
+    "prepared",
+    "revoked",
+    "stored",
+    "confirmed",
+    "initial",
+    "initial_all",
+    "settled",
+  ] as const) {
+    const f = fixture(t);
+    assert.equal(prepareHostInitializationRoot(f.input).status, "ready");
+    const admin = "00000000-0000-4000-8000-000000000003";
+    const developer = "00000000-0000-4000-8000-000000000004";
+    const material = createCredentialMaterial();
+    const current = path.join(f.state, "access-management.json");
+    const state: AccessManagementState = {
+      contract: "crdd-access-management/state",
+      schemaRevision: 2,
+      revision: 1,
+      operationId: "00000000-0000-4000-8000-000000000001",
+      users: [
+        { userId: admin, username: "管理者", role: "administrator" },
+        { userId: developer, username: "開発者", role: "developer" },
+      ],
+      roleContentAccess: [
+        { role: "developer", workspaceIds: ["development"] },
+        { role: "manager", workspaceIds: ["development", "management"] },
+        { role: "administrator", workspaceIds: [] },
+      ],
+      credentials: [
+        {
+          credentialId: material.credentialId,
+          userId: admin,
+          tokenVersion: 1,
+          tokenSalt: material.tokenSalt,
+          tokenVerifier: material.tokenVerifier,
+          revoked: false,
+          operationId: "00000000-0000-4000-8000-000000000002",
+          presentation: "confirmed",
+        },
+      ],
+      registeredRepositories: [],
+      exposure: [],
+      unresolvedKeyExchanges: [],
+      initialization: {
+        stage: "completed",
+        attemptId: "00000000-0000-4000-8000-000000000002",
+        initialUserId: admin,
+        initialCredentialId: material.credentialId,
+        confirmationCredentialId: material.credentialId,
+        connection: "confirmed",
+      },
+    };
+    if (mode === "initial" || mode === "initial_all") {
+      const initialUser = state.users[0];
+      assert.ok(initialUser);
+      state.users = [initialUser];
+      state.initialization = {
+        stage: "credential_stored",
+        attemptId: "00000000-0000-4000-8000-000000000002",
+        userId: admin,
+        initialCredentialId: material.credentialId,
+        confirmationCredentialId: material.credentialId,
+      };
+    }
+    assert.equal(
+      parseAccessManagementState(Buffer.from(JSON.stringify(state))).status,
+      "parsed",
+    );
+    fs.writeFileSync(current, JSON.stringify(state));
+    const priorOperation = "00000000-0000-4000-8000-000000000090";
+    if (
+      ["prepared", "revoked", "stored", "confirmed", "settled"].includes(mode)
+    ) {
+      const root = prepareHostInitializationRoot(f.input);
+      assert.equal(root.status, "ready");
+      if (root.status !== "ready") return;
+      const rename = fs.renameSync;
+      let publications = 0;
+      fs.renameSync = ((from: fs.PathLike, to: fs.PathLike) => {
+        const result = rename(from, to);
+        if (
+          String(to) === current &&
+          ++publications ===
+            (mode === "prepared" || mode === "settled"
+              ? 1
+              : mode === "revoked"
+                ? 2
+                : -1)
+        )
+          throw new Error("synthetic_exchange_publication");
+        return result;
+      }) as typeof fs.renameSync;
+      try {
+        const exchanged = exchangeCredentialsFromHost(
+          root.root,
+          1,
+          priorOperation,
+          "targeted",
+          admin,
+          [material.credentialId],
+          true,
+        );
+        assert.equal(
+          exchanged.status,
+          mode === "prepared" || mode === "revoked" || mode === "settled"
+            ? "unavailable"
+            : "completed",
+        );
+      } finally {
+        fs.renameSync = rename;
+      }
+      // 先行故障の短命材料を保存Ownerで処置し、CLIのfresh観測と分ける。
+      if (mode !== "settled") {
+        const observed = readAccessManagementState(root.root);
+        assert.equal(observed.status, "completed");
+        const settled = readAccessManagementState(root.root);
+        assert.equal(settled.status, "completed");
+      }
+      if (mode === "confirmed") {
+        const saved = JSON.parse(fs.readFileSync(current, "utf8"));
+        const credential = saved.credentials[1];
+        let presentationOperationId: string | undefined;
+        for (const target of ["unconfirmed", "confirmed"] as const) {
+          const result = recordCredentialPresentation(root.root, {
+            credentialId: credential.credentialId,
+            issuanceOperationId: priorOperation,
+            expectedRevision: JSON.parse(fs.readFileSync(current, "utf8"))
+              .revision,
+            target,
+            ...(presentationOperationId ? { presentationOperationId } : {}),
+          });
+          assert.equal(result.status, "completed");
+          if (result.status === "completed")
+            presentationOperationId = result.value.presentationOperationId;
+        }
+      }
+    }
+    const before = fs.readFileSync(current);
+    const input = Object.assign(new PassThrough(), {
+      isTTY: true,
+    }) as unknown as NodeJS.ReadStream;
+    let prompts = 0,
+      keyWrites = 0;
+    const controller = new AbortController();
+    const output = Object.assign(
+      new Writable({
+        write(chunk, _encoding, callback) {
+          const text = chunk.toString();
+          if (text.includes("接続鍵（一度だけ表示します")) keyWrites++;
+          if (text.includes("実行する場合だけ yes")) {
+            prompts++;
+            setImmediate(() => {
+              if (mode === "revision") {
+                state.revision++;
+                fs.writeFileSync(current, JSON.stringify(state));
+              }
+              if (mode === "eof") input.emit("end");
+              else if (mode === "cancel") controller.abort();
+              else input.push(mode === "no" ? "no\r" : "yes\r");
+            });
+          }
+          callback();
+        },
+      }),
+      { isTTY: true, columns: 80 },
+    ) as unknown as NodeJS.WriteStream;
+    const accepted = [
+      "targeted",
+      "all",
+      "prepared",
+      "revoked",
+      "stored",
+      "confirmed",
+      "initial",
+      "settled",
+    ].includes(mode);
+    let code = await runHostAccessCommand(
+      [
+        mode === "all" || mode === "nonadmin" || mode === "initial_all"
+          ? "--exchange-all"
+          : "--exchange-user",
+        mode === "unknown"
+          ? "00000000-0000-4000-8000-000000000099"
+          : mode === "nonadmin" || mode === "confirmed"
+            ? developer
+            : admin,
+      ],
+      f.environment,
+      input,
+      output,
+      controller.signal,
+    );
+    if (mode === "settled") {
+      assert.equal(code, 2);
+      assert.equal(prompts, 0);
+      assert.equal(keyWrites, 0);
+      assert.deepEqual(fs.readFileSync(current), before);
+      assert.deepEqual(fs.readdirSync(f.state), ["access-management.json"]);
+      code = await runHostAccessCommand(
+        ["--exchange-user", admin],
+        f.environment,
+        input,
+        output,
+        controller.signal,
+      );
+    }
+    assert.equal(code, accepted ? 0 : 2, mode);
+    assert.equal(keyWrites, accepted && mode !== "confirmed" ? 1 : 0, mode);
+    assert.equal(
+      prompts,
+      mode === "unknown" || mode === "nonadmin" || mode === "initial_all"
+        ? 0
+        : 1,
+      mode,
+    );
+    const after = JSON.parse(fs.readFileSync(current, "utf8"));
+    assert.equal(after.unresolvedKeyExchanges.length, 0);
+    assert.deepEqual(after.users, state.users);
+    assert.deepEqual(after.roleContentAccess, state.roleContentAccess);
+    if (accepted) {
+      assert.equal(after.credentials.length, mode === "stored" ? 3 : 2);
+      assert.equal(after.credentials[0].revoked, true);
+      assert.equal(after.credentials.at(-1).presentation, "confirmed");
+      if (
+        mode === "prepared" ||
+        mode === "revoked" ||
+        mode === "confirmed" ||
+        mode === "settled"
+      )
+        assert.equal(after.credentials.at(-1).operationId, priorOperation);
+      if (mode === "stored") {
+        assert.equal(after.credentials[1].revoked, true);
+        assert.notEqual(after.credentials[2].operationId, priorOperation);
+      }
+    } else if (mode === "revision")
+      assert.deepEqual(after.credentials, state.credentials);
+    else assert.deepEqual(fs.readFileSync(current), before);
+    assert.equal(input.destroyed, false);
+    assert.equal(output.destroyed, false);
+    assert.equal(input.listenerCount("keypress"), 0);
+    assert.equal(output.listenerCount("resize"), 0);
+    assert.equal(output.listenerCount("error"), 0);
+    assert.equal(output.listenerCount("close"), 0);
+    input.destroy();
+    output.destroy();
+  }
 });
 
 /**

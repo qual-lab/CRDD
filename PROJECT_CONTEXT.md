@@ -9,7 +9,7 @@ Repository Role: `crdd-standard`
 
 ## 1. 今どうなっているか
 
-最新の作業結果：未確認の鍵交換から別の明示交換への一出版引継ぎと、提示確認済み交換の記録整理を既存保存Ownerへ実装した。AM全141件／MCP全75件・両静的3軸成功、固定11Path限定独立再レビュー残指摘0。旧／新相関、初回と改訂上限、保存故障・主失敗と解放不明、実Process喪失・競合を反証し、資格・権限・歴史IDを保持した。新State／Lock／履歴／秘密再取得なし。交換保存・終了の局所範囲だけ成立し、実提示・本番Host／Workbench・旧REST撤去・正式191項目・AM全体完成は未成立。全体Checker3057 errors／0 warnings・Exit1、対象11Path指摘0を維持する。[対象と残件](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#交換終了処理のsource接続着手--2026-10-13)を参照する。以下の最新表記は先行段階の局所履歴である。
+最新の作業結果：Host鍵交換2コマンドを対象表示・確認・実保存・一度提示・記録終了まで接続した。AM全147件／MCP全75件・各静的3軸成功、試験補強後の対象2件成功、固定11Path限定独立再レビュー残指摘0。通常・初回指定・途中再開・未確認置換・提示済み整理、取消・材料処置後停止・提示保存故障を区別し、停止guard変異も検出した。新Store／Lock／Schema／秘密再取得なし。実Host TTY・Workbench本番・公開Launcher・旧REST撤去・正式191項目・AM全体完成は未成立。全体Checker3057 errors／0 warnings・Exit1、対象11Path指摘0を維持する。[対象と残件](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#host交換の提示consumer接続着手--2026-10-13)を参照する。以下の最新表記は先行段階の局所履歴である。
 
 最新の作業結果：鍵交換4経路を相関確定→旧資格失効→新資格保存の三出版へ接続した。局所10件・修正後AM全125件／MCP全75件・両静的3軸成功、限定独立レビュー残指摘0。現在認可、失効後の同要求継続と別要求の再認可、各出版故障・実Process喪失・競合、初回確認対象更新を確認した。保存coreだけの限定成立で、非秘密交換read・提示・record整理・本番Consumer・正式191項目・AM全体は未完成。Repository Checkerは対象11Path指摘0、全体3057 errors／0 warnings・Exit1を維持する。[対象と次の接続](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#交換本体の保存接続の着手と固定条件--2026-10-13)を参照する。
 
