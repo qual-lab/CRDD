@@ -912,6 +912,29 @@ SourceではAMが既存通常認証の同改訂Roleから許可／拒否／観�
 
 ## 4. 大改修する実行系の切り方
 
+### 順序9の着手前Source照合 — 2026-10-14
+
+基準Commit `2b2d7caf`。Access Managementの限定区切りと後続4項目の保持を確認した後、現行Coordinatorの`docker-execution/`24 File、`docker-desktop/`15 Fileと直接接続を読取り照合した。39 File全体を新Packageへ機械移動する案は採らない。隔離の技術処理と、Provider差・Task／助言・実行許可・保存が混在するためである。以下は配置候補の照合結果であり、新Package作成・保証削除・Source変更の成立記録ではない。
+
+| 確認した接続 | 現在の混在 | 次の設計で分ける境界 |
+|---|---|---|
+| `docker-execution/types.ts` | Docker資源・コマンドに加え、Workbench助言Packet・Task役割・選定・Mount／Authority型を持つ | 下位は隔離に必要な入力・資源・実行結果だけ。Task／助言／Modelの意味を下位へ移さない |
+| `docker-execution/provider-composition.ts` | Packet消費・選定Grant・Provider Authority・Home Mountと時計を組み立てる | 上位Coordinatorが既存Ownerへ接続し、隔離Ownerから上位State／Packetをimportしない |
+| `docker-execution/process-controller.ts` | Docker制御とProvider結果正規化・Task結果解析・Authority消費・Recoveryを同時に持つ | Docker開始・待機・取消・回収の事実を返し、Provider差はAI Adapter、実行判断はCoordinatorへ分ける |
+| `provider/codex-docker-adapter.ts`等 | Provider固定入口が共通Docker準備に結合 | Provider識別名だけで新しい中継層を増やさず、既存Adapterの必要な記述と利用側を照合する |
+| `state-storage/docker-recovery-journal.ts`と`docker-desktop/` | Task資源の記録とDesktop修復・再起動の運用処理が別に存在する | Task隔離と明示的なHost運用介入を区別し、全Fileを隔離Packageへ吸収したり既存能力を無根拠に削除しない |
+
+Access Managementのユーザー・鍵・Role・Repository公開範囲は公開Surfaceの現在認証・認可へ残す。Provider用認証Home・隔離資源の利用条件を、CROSユーザー資格と同じ管理対象へ統合しない。新しい共有State・Registry・Lock・Recovery管理は追加しない。既存能力・過去Evidence・全利用側と代替Ownerの対応を固定し、Package境界と必要な実環境保証の採用を確認してからSourceを変更する。後続実Host ST／人間UATを、この読取り照合の成功で閉じない。
+
+このSource照合の限定独立確認はPass・全重大度残指摘0。次のSource抽出前に、§6で未決としているPackage境界を判断する。
+
+| 選択肢 | 利点 | 費用・残る制約 |
+|---|---|---|
+| 独立`docker-isolation` Package | 隔離・開始・取消・回収の責務を親Folderで示し、AI依頼なしの局所試験と公開依存を分離できる | Package設定・公開API・直接利用側・配布閉包の追従が必要。現39 Fileを丸ごと移せず、上位依存を先に分ける必要がある |
+| Coordinator内の責務Module | Package数を増やさず、既存組立てへ段階的に接続できる | Coordinatorの親FolderがAI実行判断と技術資源Ownerを引き続き包含する。ModuleでもTask／助言・Provider差との分離は必要で、混在の温存ではない |
+
+推奨候補は独立Package。新しいServer／CLI／共有Stateを作る目的ではなく、隔離の技術Ownerを明確にする目的に限定する。Desktop修復・再起動は現行の明示運用能力として別に保持し、独立Packageへの吸収や削除はこの判断に含めない。この選択はまだ未採用であり、採用前に新Packageや互換入口を作成しない。
+
 後半の実行系では実装順を下位から、要求設計を上位から行う。改訂後の段階9〜11を一度に全置換しない。前半で整理した公開入口へのAPI追従は各Package変更に含め、最終実境界は新構成で再確認する。
 
 | 段階 | 閉じる内容 | 次へ進む確認 |
