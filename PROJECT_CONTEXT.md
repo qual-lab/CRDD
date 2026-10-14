@@ -9,7 +9,7 @@ Repository Role: `crdd-standard`
 
 ## 1. 今どうなっているか
 
-Access Management再編の今回の区切りは成立し、変更をコミット・プッシュする段階である。義務照合の試験不足と承認済みPortfolio部分表示を是正し、AM152、MCP86、Domain120、Workbench78、Runner44件の計480件成功・失敗0、人間UAT1件Skip。Source／契約と結果同期の最終限定独立確認は残指摘0で、AM対象17義務は確認済み13・部分確認2・人間UAT未実施2となった。実Host・利用者理解は後続E2Eへ保持し、正式191項目の全体評価・全体Checkerは未完了。新たな共有State・Lock・Registry・Recoveryは追加していない。[現在の検証結果](99_Roadmap/Changes/CHG-000082/Evidence/261014_access-management-verification.md)を参照する。
+Access Management再編の今回の区切りは成立し、Commit `10e34751`を`codex/feature/v0.22`へPush済みである。義務照合の試験不足と承認済みPortfolio部分表示を是正し、AM152、MCP86、Domain120、Workbench78、Runner44件の計480件成功・失敗0、人間UAT1件Skip。Source／契約と結果同期の最終限定独立確認は残指摘0で、AM対象17義務は確認済み13・部分確認2・人間UAT未実施2となった。実Host・利用者理解は後続E2Eへ保持し、正式191項目の全体評価・全体Checkerは未完了。新たな共有State・Lock・Registry・Recoveryは追加していない。次の実行系改修と後続E2Eの再開条件は[現在の計画](99_Roadmap/Changes/CHG-000082/second-stage-plan.md)を参照し、[検証結果](99_Roadmap/Changes/CHG-000082/Evidence/261014_access-management-verification.md)を全体完成へ拡張しない。
 
 2026-10-14の人間判断：初回設定・鍵操作の実入口縦断と利用者の理解確認は、後続E2Eの残件に移した。それ以外の是正・品質対応・現在文書の整合・固定候補の回帰・独立レビューが成立した時点でコミット・プッシュし、計画済みのDocker周りの責務分離・大改修へ進む。未確認のST／UATはPassにせず、Access Management全検証完了・v0.22完成とは区別する。[今回の区切り](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#今回の区切りと後続e2e--2026-10-14)を参照する。
 

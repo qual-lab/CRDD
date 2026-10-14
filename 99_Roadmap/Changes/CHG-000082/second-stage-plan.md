@@ -1,7 +1,7 @@
 # 第二段階：責務・状態所有・実行境界の再編計画
 
 成果物種別: 変更計画
-状態: In Progress（1〜8を継続。未決Architecture候補は未採用）
+状態: In Progress（Access Managementと公開入口の限定区切りを完了。後続E2Eを保持し、実行系の責務分離は設計照合から再開）
 対象変更: [CHG-000082](change.md)
 基準改訂版: `98cab6e3278a61684c557a6499cfb602e2d19111`
 維持責任者・採用決定権限: Qual-Lab
@@ -21,7 +21,22 @@
 
 2026-10-14の人間承認：認可集合・Repository実体が不明なら全体停止を維持し、認可済み文書の欠落・競合は状態を明示して読めた分を表示する。要求・QAの部分可視契約へ詳細Readerと本番Consumerを揃える。承認はこの表示・停止の区別に限定し、新しい認可・保存・回復Frameworkを追加する許可とは扱わない。
 
+#### 区切り後の現在地と後続E2Eの再開条件 — 2026-10-14
+
+今回の限定区切りはCommit `10e347511a275f7b31d1eec8b77cfd0cb2034124`、Tree `44e999ae9fa7b7d6f8da3e17da6430106ff8e47a`として`codex/feature/v0.22`へPush済み。対象Source／Testは検証候補のPackage Treeと一致する。以降、実行系の順序9〜11へ進むが、Access Managementの未実施確認を完了扱いにしない。
+
+| 後続項目 | 再開時に確認すること | 完了を証明する根拠 |
+|---|---|---|
+| `RFD-ST-016`の実Host断面 | Workbench指定／全員、Host指定／全員の実入口で、対象・影響・必要な確認と一度提示を観測する。通常鍵発行／独立失効との分担を維持 | 実TTY／実HTTPの非秘密の相関・回数・保存前後・終了状態。模擬callbackや人間の閲覧申告で資源回収を代替しない |
+| `RFD-ST-026`の実Host初回縦断 | Host表示名入力と明示開始→一度提示→MCP限定discoverまたはWorkbench専用connect→確認保存終了→次要求の通常接続 | 固定実入口での段階・応答順・通常Authority発行時点・所有資源の終了。初回途中を通常成功にしない |
+| `RFD-UAT-007`のAM断面 | 人間がUser／表示名／Role／鍵、管理と内容許可、登録と公開、解除と削除、失敗時の次行動を区別できるか確認 | 人間の実操作、達成・選択理由・理解できない点。自動試験をUATへ流用せず、同Local Itemの他工程由来の義務も免除しない |
+| `RFD-UAT-027` | 人間が初回設定から接続へ進み、既存・途中・不明を区別して次行動を選べるか確認 | 人間の実操作と理解確認。サービス側出力成立を本人受領保証へ強めない |
+
+実行時は、その時点の公開入口・版と状態保存先を再確認し、影響するRoot、鍵交換範囲、秘密の取扱いと清掃を具体的に示す。現在の実資格・既存状態を、試験のために無断初期化・交換・削除しない。秘密値をChat、ログ、Evidenceへ複製しない。Dockerの大改修自体はこれらの合格根拠ではなく、逆に未実施UATを理由に新しいDocker回復機構を追加しない。
+
 #### Portfolio部分表示の着手前整合と実装範囲
+
+以下は切替候補の実施時点の照合記録である。当時のHEAD・未Commit・未完了表示は現在の状態へ流用せず、現在地は前節と集約検証結果を参照する。
 
 変更分類は、承認済み要求を実現する詳細設計・結果契約・Consumerの是正。意味OwnerはDomain、認可・登録実体はAM、表示はWorkbench、Machine搬送はMCP。現在HEADは`378d93cb6ffb0cc7c9561e0572d62bdd656f3312`の未Commit候補で、過去の正式Evidenceは変更しない。
 
@@ -886,7 +901,7 @@ SourceではAMが既存通常認証の同改訂Roleから許可／拒否／観�
 | 5 | `platform-access` | 実行系が本当に必要とするOS保証と呼出し側を全数照合。必要Native部品だけ整理し、Nodeで同じ保証を満たせる部分は置換候補にする | Docker／Processの設計前にOS保証を確認。Package廃止やRust全面置換は事前決定しない |
 | 6 | 現行`cros` → `access-management`／`domain-model`等 | 認証・認可・管理回復と接続RegistryをAccess Managementへ再編し、Context集約・通信・実行判断を分離する。全Source・公開API・利用側の対応とArchitecture／Qualityを固定してから移管する | CROSを全体システム概念とPackage名に分ける。単純改名で現行責務全部をAccess Managementへ吸収せず、旧Package撤去は全責務と利用側の接続後とする |
 | 7 | `mcp-server` | Machine向け公開契約とstdio／HTTP lifecycleを閉じる。Shared Host所有と配布入口の巨大組立てを整理 | CROSの責務整理を受けて公開入口を整理。実行内部は現行契約を維持し、単一RepositoryとCROSで操作Schemaを不用意に分岐させない |
-| 8 | `workbench-server` | 本番組立てをbinからSourceへ移し、Browser API／Local呼出し／Remote MCPを接続。変更通知・編集中入力保護を具体化 | 公開入口の責務整理を実行系大改修より先に閉じる。UX／IA・Visualの人間確認とBackend整理を区別する |
+| 8 | `workbench-server` | 本番組立てをbinからSourceへ移し、Browser API／同Hostの専門API直接呼出し／共有HostへのBrowser接続を接続。変更通知・編集中入力保護を具体化 | 公開入口の責務整理を実行系大改修より先に閉じる。WorkbenchのMCP依存はLocal／共有とも撤去し、UX／IA・Visualの人間確認とBackend整理を区別する |
 | 9 | `docker-isolation`候補／現行Coordinatorの隔離処理 | 採用した境界で隔離実行・取消・観測・清掃・必要最小の再入場を移す。使い捨て資源、一次失敗と清掃結果の分離を実環境で確認 | 後半の大改修では最初に資源Ownerを閉じる。Coordinator／Orchestratorの業務状態を持たせない |
 | 10 | `coordinator` | AI Adapterと隔離APIを利用する実行・Executor／Reviewer・進捗・取消・結果返却へ集約。重複永続状態とConsumer保存依存を削る | 下位の終了条件が成立してからAI実行を組み立てる。下位から上位をimportしない |
 | 11 | `orchestrator` | Task／Attempt／Queue・実行順・判断待ち・耐久結果を一つのOwnerへ集約。採用した本番入口を接続し、整理済み公開入口の利用側を追従する | Coordinatorの実結果を上位状態へ接続する。内部モックだけで本番完了にしない |
