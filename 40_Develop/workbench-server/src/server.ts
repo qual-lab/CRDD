@@ -4,7 +4,12 @@
  * @packageDocumentation
  * @responsibility Direction AのWorkbench Shellと公式ロゴをloopback限定で配信する。
  * @trace ARCH-000005
+ * @trace ARCH-000004
+ * @trace ARCH-000007
+ * @trace ARCH-000009
+ * @trace ARCH-000010
  * @trace ARCH-000012
+ * @trace ARCH-000013
  * @trace ARCH-000015
  * @trace ARCH-000017
  * @boundary BrowserとWorkbench Application Adapterのlocalhost HTTP境界。
@@ -13,6 +18,7 @@
  */
 import { readFile } from "node:fs/promises";
 import { randomBytes } from "node:crypto";
+import { inspectWorkbenchPublicOrigin } from "./connection/configuration.ts";
 import {
   createServer,
   type IncomingMessage,
@@ -22,6 +28,7 @@ import type { Socket } from "node:net";
 import path from "node:path";
 
 import type {
+  FilesystemStoreRoot,
   TopicMeetingListQuery,
   TopicMeetingPage,
   TopicPromotionCommandResult,
@@ -34,16 +41,12 @@ import {
 } from "../../domain-model/src/index.ts";
 import type { MeetingOutcomeCommandResult } from "../../domain-model/src/index.ts";
 import { createMeetingOperations } from "../../domain-model/src/index.ts";
-import {
-  executeRemoteAiProfileMutation,
-  readRemoteAiProfileCatalog,
-  readRemotePortfolio,
-  readRemoteRuntimeActivity,
-} from "../../cros/src/index.ts";
 import type { PortfolioProjection } from "../../domain-model/src/index.ts";
 import {
   executeChangePublication,
   gitChangePublicationAdapter,
+  observeChangePublicationTarget,
+  gitChangePublicationTargetObservationAdapter,
   gitRepositoryWorktreeViewAdapter,
   observeRepositoryWorktreeFileDiff,
   observeRepositoryWorktreeTree,
@@ -54,6 +57,7 @@ import {
 } from "../../version-control/src/index.ts";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
+  resolveVerifiedRepositoryRoot,
   verifyRepositoryRoot,
 } from "../../version-control/src/index.ts";
 import {
@@ -61,13 +65,40 @@ import {
   type WorkbenchProjectSurface,
 } from "./project/surface.ts";
 import {
+  validateRepositoryActionForm,
+  inspectRepositoryActionResult,
+} from "./project/repository-action.ts";
+import {
   type CredentialAdministration,
   executeCredentialAdministrationAction,
+  authenticateWorkbenchConnection,
 } from "./credential/administration.ts";
-import { readCredentialAdministrationState } from "../../access-management/src/index.ts";
+import {
+  readCredentialAdministrationState,
+  resolveConnectionAuthentication,
+  resolveAiProfileManagementAccess,
+  resolveRepositoryAccessCollection,
+  sameAccessCollection,
+  type RepositoryAccessCollectionResult,
+} from "../../access-management/src/index.ts";
+import { readAuthorizedPortfolio } from "./project/access-reader.ts";
+import { composeAuthorizedTopicMeeting } from "./topic-meeting/access-resolver.ts";
+import {
+  validateTopicMeetingActionForm,
+  executeTopicMeetingActionForm,
+} from "./topic-meeting/action.ts";
+import {
+  readWorkbenchManagement,
+  executeWorkbenchManagement,
+} from "./management/operations.ts";
+import type { ManagementView } from "./management/contract.ts";
+import { setTimeout as yieldToTransport } from "node:timers/promises";
 import {
   createAiProfileCatalogAdministration,
   createRepositoryAiProfileCatalogStore,
+  validateAiProfileCatalog,
+  validateAiProfileMutationResult,
+  type AiProfileCatalogAdministration,
   type AiModelTier,
   type AiProfileCatalogMutation,
   type AiProfileCatalogMutationResult,
@@ -98,13 +129,7 @@ import {
   readWorkbenchChangeArtifact,
   readWorkbenchOwnerArtifact,
 } from "./owner-artifact/read.ts";
-import {
-  executeRemoteTopicMeetingAction,
-  readRemoteTopicMeetingDocument,
-  readRemoteTopicMeetingPage,
-  type RemoteTopicMeetingAction,
-  type WorkbenchTopicMeetingDocumentReader,
-} from "./topic-meeting/mcp-adapter.ts";
+import type { WorkbenchTopicMeetingDocumentReader } from "./topic-meeting/action.ts";
 import type {
   WorkbenchClientModel,
   WorkbenchCredentialAdministrationView,
@@ -112,6 +137,7 @@ import type {
   WorkbenchRecordDocumentView,
   WorkbenchTopicMeetingResultView,
 } from "./browser/client-model.ts";
+import { readAuthorizedRuntimeActivity } from "../../orchestrator/src/index.ts";
 
 const HOST = "127.0.0.1";
 const CONTRACT = "crdd/workbench/v1";
@@ -119,37 +145,71 @@ const HEALTH_PATH = "/.well-known/crdd-workbench-health";
 const LOGO_PATH = "/assets/crdd-brand-icon.jpg";
 const CLIENT_ASSET_PATH = "/assets/workbench-client.js";
 
+/**
+ * Topic／Meetingの表示検索を同じ固定入力へ変換する。
+ * @responsibility 単体とCROSで検索・並び順・ページ条件の意味を揃える。
+ * @trace ARCH-000006
+ * @trace ARCH-000012
+ * @input URL検索値と対象Record種別。
+ * @returns 既存Domain一覧へ渡す非Authorityの検索条件。
+ * @precondition Repository認可は別途要求ごとに行う。
+ * @postcondition 空値を省略し未知sortを既存既定値へ戻す。
+ * @effect N/A: 同期入力変換だけ。
+ * @failure 不正検索の最終判定はDomain一覧が所有する。
+ * @invariant 検索値からRoot・権限・保存操作を生成しない。
+ * @boundary HTTP表示入力とDomain一覧。
+ * @security 任意Pathや資格を条件へ追加しない。
+ * @concurrency N/A: 共有状態を変更しない。
+ */
+function readWorkbenchRecordQuery(
+  parameters: URLSearchParams,
+  kind: "topic" | "meeting",
+): TopicMeetingListQuery {
+  const result: Record<string, unknown> = {};
+  for (const [field, suffix] of [
+    ["query", "Query"],
+    ["relation", "Relation"],
+    ...(kind === "topic"
+      ? [["owner", "Owner"]]
+      : [
+          ["occurredFrom", "From"],
+          ["occurredTo", "To"],
+        ]),
+  ]) {
+    const value = parameters.get(`${kind}${suffix}`)?.trim();
+    if (value && field !== undefined) result[field] = value;
+  }
+  const state = parameters.get(`${kind}State`)?.trim();
+  if (state) result.states = [state];
+  const sort = parameters.get(`${kind}Sort`)?.trim();
+  result.sort =
+    kind === "topic"
+      ? sort === "title_asc" || sort === "state_asc"
+        ? sort
+        : "id_asc"
+      : sort === "id_asc" || sort === "title_asc"
+        ? sort
+        : "occurred_desc";
+  if (kind === "meeting" && parameters.get("meetingPending") === "true")
+    result.pendingOnly = true;
+  return Object.freeze(result) as TopicMeetingListQuery;
+}
+
 export type WorkbenchStartRequest = Readonly<{
   workingDirectory: string;
+  publicOrigin?: string;
   port?: number;
   portfolio?: PortfolioProjection;
   credentialAdministration?: CredentialAdministration;
+  localAccessRoot?: FilesystemStoreRoot;
+  crosProfileAdministration?: AiProfileCatalogAdministration;
   aiProfiles?: WorkbenchAiProfileSurface;
   aiRequests?: WorkbenchAiRequests;
   candidateActions?: WorkbenchCandidateActions;
   activityReader?: WorkbenchActivityReader;
-  remoteConnection?: Readonly<{
-    baseUrl: string;
-    token: string;
-    mcpBaseUrl?: string;
-  }>;
 }>;
 
-type WorkbenchConnectionState =
-  | "repository"
-  | "cros_available"
-  | "cros_unavailable";
-
-type WorkbenchRemoteConnection = Readonly<{
-  baseUrl: string;
-  token: string;
-  mcpBaseUrl?: string;
-}>;
-
-type WorkbenchConnectionNotice = Readonly<{
-  status: "completed" | "rejected";
-  message: string;
-}>;
+type WorkbenchConnectionState = "repository" | "cros_available";
 
 type TopicMeetingActionResult =
   | TopicMeetingWriteResult
@@ -157,86 +217,10 @@ type TopicMeetingActionResult =
       relationPaths: readonly string[];
     });
 
-/**
- * 許可済みPortfolioに明示Repositoryが含まれるか確認する。
- *
- * @responsibility Repository IDの指定だけをRemote操作Authorityとして扱わず、現在取得したPortfolio Sourceとの一致を確認する。
- * @trace ARCH-000005
- * @trace ARCH-000012
- * @trace ARCH-000013
- * @input portfolioに現在の許可済みPortfolio、repositoryIdに利用者が明示選択したRepository IDを受け取る。
- * @returns 現在のPortfolio Sourceに完全一致する場合だけtrueを返す。
- * @precondition N/A: 未取得Portfolioと空IDも受け付ける。
- * @postcondition 対象Repositoryの存在やRoleを追加開示しない。
- * @effect N/A: 現在Snapshotを照合するだけである。
- * @failure N/A: 不一致と未取得をfalseへ閉じる。
- * @invariant PortfolioにないRepositoryを許可候補へ昇格しない。
- * @boundary Browser入力とRemote CROS許可済みPortfolioの境界。
- * @security Repository IDを知っていることをContent Access Authorityとして扱わない。
- * @concurrency N/A: 同期純粋処理である。
- */
-function isVisiblePortfolioRepository(
-  portfolio: PortfolioProjection | undefined,
-  repositoryId: string,
-): boolean {
-  return (
-    repositoryId.length > 0 &&
-    portfolio?.projects.some((project) =>
-      project.sources.some((source) => source.repositoryId === repositoryId),
-    ) === true
-  );
-}
-
-/**
- * Remote MCP書込み結果をWorkbench表示契約へ検証縮約する。
- *
- * @responsibility 未信頼MCP結果の状態・理由・Effect件数・Relation PathだけをWorkbenchが利用できる閉じた結果へ変換する。
- * @trace ARCH-000006
- * @trace ARCH-000012
- * @trace ARCH-000013
- * @input valueにRemote MCPから返った未信頼値を受け取る。
- * @returns 検証済みのTopic／Meeting操作結果を返す。
- * @precondition N/A: 任意値を受け付ける。
- * @postcondition 許可していない形の結果を部分成功として返さない。
- * @effect N/A: 値を検証・縮約するだけである。
- * @failure 契約外の値をworkbench_remote_topic_meeting_result_invalidで拒否する。
- * @invariant filesystemEffectCountを0または1に限定する。
- * @boundary Remote MCP結果とWorkbench View Modelの境界。
- * @security Relation Pathを文字列だけに限定し、結果から追加Authorityを生成しない。
- * @concurrency N/A: 同期処理であり入力を変更しない。
- */
-function inspectTopicMeetingActionResult(
-  value: unknown,
-): TopicMeetingActionResult {
-  if (
-    typeof value !== "object" ||
-    value === null ||
-    Array.isArray(value) ||
-    !("status" in value) ||
-    !("reason" in value) ||
-    !("record" in value) ||
-    !("filesystemEffectCount" in value) ||
-    (value.status !== "completed" && value.status !== "blocked") ||
-    typeof value.reason !== "string" ||
-    (value.filesystemEffectCount !== 0 && value.filesystemEffectCount !== 1)
-  )
-    throw new Error("workbench_remote_topic_meeting_result_invalid");
-  return Object.freeze({
-    ...(value as TopicMeetingActionResult),
-    relationPaths:
-      "relationPaths" in value && Array.isArray(value.relationPaths)
-        ? Object.freeze(
-            value.relationPaths.filter(
-              (entry): entry is string => typeof entry === "string",
-            ),
-          )
-        : Object.freeze([]),
-  });
-}
-
 export type WorkbenchHandle = Readonly<{
   contract: typeof CONTRACT;
   baseUrl: string;
+  publicUrl: string;
   healthUrl: string;
   close: () => Promise<void>;
 }>;
@@ -357,7 +341,7 @@ function createPortfolioPage(
  * @trace ARCH-000013
  * @input 同Processの検証済みRootとServer memoryの接続資格、または未構成。
  * @returns availabilityと非秘密Snapshot。
- * @precondition Remoteと同時構成しない。
+ * @precondition 要求専用の認可済みReaderだけを構成する。
  * @postcondition 生鍵・内部保存情報を画面Modelへ入れない。
  * @effect AM既存Readerの排他・現在認証・既知材料処置。
  * @failure 認証・清掃・解放不明はSnapshot nullのunavailable。
@@ -417,6 +401,66 @@ function createRecordDocumentViews(
   return Object.freeze(values);
 }
 
+/**
+ * 本文表示の用途別Queryを本文観測前に閉検査する。
+ * @responsibility 種別ごとのID／Pathと今回Repository選択を分離する。
+ * @trace ARCH-000012
+ * @trace ARCH-000016
+ * @input API Queryと共有modeの有無。
+ * @returns 本文選択、本文以外のrouteではnull。
+ * @precondition URLSearchParamsは同要求の値である。
+ * @postcondition 重複・余剰・越境入力をRoot／Readerへ搬送しない。
+ * @effect N/A: 同期値検査。
+ * @failure 不正Queryは固定例外。
+ * @invariant URL入力を認可または物理Rootへ変換しない。
+ * @boundary HTTP Queryと用途限定Reader。
+ * @security 外部URL・絶対Path・親参照を拒否する。
+ * @concurrency N/A: 要求内の同期検査。
+ */
+function readWorkbenchArtifactSelection(
+  parameters: URLSearchParams,
+  shared: boolean,
+): Readonly<{ kind: "change" | "owner"; identity: string }> | null {
+  const routes = parameters.getAll("route");
+  if (
+    !routes.some((route) => route === "/change" || route === "/owner-artifact")
+  )
+    return null;
+  const change = routes[0] === "/change",
+    identityKey = change ? "id" : "path";
+  const allowed = new Set(["route", "repositoryId", identityKey]);
+  if (
+    routes.length !== 1 ||
+    parameters.getAll(identityKey).length !== 1 ||
+    [...parameters.keys()].some(
+      (key) => !allowed.has(key) || parameters.getAll(key).length !== 1,
+    )
+  )
+    throw new Error("workbench_artifact_input_invalid");
+  const repositoryId = parameters.get("repositoryId");
+  if (
+    (shared && !repositoryId) ||
+    (repositoryId !== null &&
+      !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(repositoryId))
+  )
+    throw new Error("workbench_artifact_input_invalid");
+  const identity = parameters.get(identityKey) ?? "";
+  if (
+    change
+      ? !/^CHG-\d{6}$/u.test(identity)
+      : identity.length === 0 ||
+        identity.length > 512 ||
+        !identity.endsWith(".md") ||
+        identity.startsWith("/") ||
+        identity.includes("\\") ||
+        identity.includes("\0") ||
+        /^[A-Za-z][A-Za-z0-9+.-]*:/u.test(identity) ||
+        identity.split("/").some((part) => part === ".." || part === "")
+  )
+    throw new Error("workbench_artifact_input_invalid");
+  return Object.freeze({ kind: change ? "change" : "owner", identity });
+}
+
 /** Topic／Meeting操作結果を非秘密の表示値へ縮小する。 */
 function createTopicMeetingResultView(
   result: TopicMeetingActionResult | null,
@@ -443,8 +487,6 @@ function createWorkbenchMainViewModel(
   lastResult: ChangePublicationResult | null,
   credentialAdministration: CredentialAdministration | undefined,
   connectionState: WorkbenchConnectionState,
-  remoteConnection: WorkbenchRemoteConnection | undefined,
-  connectionNotice: WorkbenchConnectionNotice | null,
   topicCollection: WorkbenchProjectSurface["topics"],
   meetingCollection: WorkbenchProjectSurface["meetings"],
   topicMeeting: WorkbenchTopicMeetingDocumentReader,
@@ -453,7 +495,7 @@ function createWorkbenchMainViewModel(
   meetingPage: TopicMeetingPage,
   meetingQuery: TopicMeetingListQuery,
   topicMeetingResult: TopicMeetingActionResult | null,
-  aiProfiles: WorkbenchAiProfileSurface,
+  aiProfiles: WorkbenchAiProfileSurface | null,
   aiProfileAdministrationSnapshot: AiProfileCatalogSnapshot | undefined,
   aiProfileAdministrationOwner: "Repository" | "CROS",
   aiProfileAdministrationResult: AiProfileCatalogMutationResult | null,
@@ -472,6 +514,8 @@ function createWorkbenchMainViewModel(
     diff: RepositoryWorktreeFileDiff | null;
   }>,
   selectedRepositoryId?: string,
+  recordActionsConfigured = connectionState === "repository",
+  repositoryActionsConfigured = connectionState === "repository",
 ): WorkbenchMainViewModel {
   const portfolioPage = createPortfolioPage(portfolio, portfolioQuery);
   return Object.freeze({
@@ -487,8 +531,6 @@ function createWorkbenchMainViewModel(
     }),
     connection: Object.freeze({
       state: connectionState,
-      endpoint: remoteConnection?.baseUrl ?? null,
-      notice: connectionNotice,
     }),
     topic: Object.freeze({
       collection: topicCollection,
@@ -507,6 +549,8 @@ function createWorkbenchMainViewModel(
     ),
     topicMeetingResult: createTopicMeetingResultView(topicMeetingResult),
     selectedRepositoryId: selectedRepositoryId ?? null,
+    recordActionsConfigured,
+    repositoryActionsConfigured,
     repositoryResult: lastResult,
     worktree,
     credentials: readCredentialAdministrationView(credentialAdministration),
@@ -547,7 +591,7 @@ const ownerArtifactCss = `.owner-artifact-link>a,.owner-artifact-list a{display:
 
 const visualAccessibilityCss = `body,.app-shell,.topbar,.sidebar,.sidebar nav{min-width:0}.project-switcher span{font-size:12px}button,input,select,textarea{max-width:100%;min-width:0}label:has(input[type="checkbox"]),label:has(input[type="radio"]){min-height:32px}.panel a,.record-detail a{display:inline-flex;align-items:center;min-width:32px;min-height:32px}@media(max-width:900px){.sidebar nav{min-width:0;max-width:100%}}@media(max-width:600px){.connection{font-size:inherit;max-width:9px;overflow:hidden}.connection-label{display:none}}@media(max-width:320px){.topbar{height:auto;min-height:68px;flex-wrap:wrap;padding:8px}.project-switcher{display:none}.brand{max-width:calc(100% - 24px)}.brand strong{font-size:12px}.sidebar{padding:6px}.sidebar nav{grid-template-columns:1fr}.sidebar a{overflow-wrap:anywhere}.page-heading h1{font-size:24px}main{padding:16px 8px}.panel,.summary-grid article{padding:12px}.panel header,.panel dl div{display:grid}.collection-controls,.credential-issue,.remote-connection-form,.ai-request-form,.ai-profile-administration-form,.candidate-metadata,.candidate-actions{grid-template-columns:1fr}}`;
 
-const visualControlCss = `button,input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),select,textarea{min-height:40px}label.confirm{display:flex;align-items:center;gap:7px;min-height:40px}`;
+const visualControlCss = `button,input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),select,textarea{min-height:40px}label.confirm,#access-management label:has(input[type="checkbox"]){display:flex;align-items:center;gap:7px;min-height:40px}`;
 
 /**
  * Workbench Responseへ共通Security Headerを付ける。
@@ -672,8 +716,44 @@ function aiProfileMutation(
   snapshot: AiProfileCatalogSnapshot,
 ): AiProfileCatalogMutation {
   const operation = form.get("operation");
+  const allowed = new Set(
+    operation === "delete"
+      ? [
+          "actionToken",
+          "operation",
+          "expectedRevision",
+          "profileId",
+          "confirmed",
+        ]
+      : [
+          "actionToken",
+          "operation",
+          "expectedRevision",
+          "profileId",
+          "adapterModel",
+          "family",
+          "selectionRole",
+          "modelTier",
+          "defaultReasoningEffort",
+          "compatibilityReason",
+        ],
+  );
+  for (const key of form.keys())
+    if (
+      !allowed.has(key) ||
+      (key !== "selectionRole" &&
+        key !== "modelTier" &&
+        form.getAll(key).length !== 1)
+    )
+      throw new Error("workbench_ai_profile_field_invalid");
+  if (
+    form.getAll("operation").length !== 1 ||
+    form.getAll("expectedRevision").length !== 1 ||
+    !/^(0|[1-9][0-9]*)$/u.test(form.get("expectedRevision") ?? "")
+  )
+    throw new Error("workbench_ai_profile_revision_invalid");
   const expectedRevision = Number(form.get("expectedRevision"));
-  if (!Number.isInteger(expectedRevision) || expectedRevision < 0)
+  if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 0)
     throw new Error("workbench_ai_profile_revision_invalid");
   const profileId = form.get("profileId") ?? "";
   if (operation === "delete")
@@ -749,7 +829,7 @@ function aiProfileMutation(
  * @returns 起動URL、Health URLおよび冪等な終了操作を持つHandleを返す。
  * @precondition workingDirectoryから検証済みRepository Rootを一意に解決できる。
  * @postcondition 成功時はloopback Listenerが一つ存在し、close後は所有Connectionを含めて終了する。
- * @effect localhost Listenerを開始し、公式Logo Assetを読取り、明示操作時だけRepositoryまたは確認済みRemoteを変更し得る。
+ * @effect localhost Listenerを開始し、公式Logo Assetを読取り、明示操作時だけ当該Repositoryを変更し得る。
  * @failure Root不正、Asset欠落、Bind失敗または観測不能時はErrorとし、未所有資源を残さない。
  * @invariant 任意Path、Directory一覧、Force Push、暗黙再送および未検証ContextからのCredential管理を提供しない。
  * @boundary BrowserとWorkbench Serverの直接境界。
@@ -759,16 +839,42 @@ function aiProfileMutation(
 export async function startWorkbench(
   request: WorkbenchStartRequest,
 ): Promise<WorkbenchHandle> {
+  const configurationFields = new Set([
+    "workingDirectory",
+    "publicOrigin",
+    "port",
+    "portfolio",
+    "credentialAdministration",
+    "localAccessRoot",
+    "crosProfileAdministration",
+    "aiProfiles",
+    "aiRequests",
+    "candidateActions",
+    "activityReader",
+  ]);
+  if (Object.keys(request).some((field) => !configurationFields.has(field)))
+    throw new Error("workbench_configuration_invalid");
+  const publicOrigin = inspectWorkbenchPublicOrigin(request.publicOrigin);
+  if (publicOrigin && request.localAccessRoot === undefined)
+    throw new Error("workbench_shared_access_required");
+  if (
+    request.crosProfileAdministration !== undefined &&
+    request.localAccessRoot === undefined
+  )
+    throw new Error("workbench_profile_owner_conflicting");
   const port = request.port ?? 0;
   if (!Number.isInteger(port) || port < 0 || port > 65535)
     throw new Error("workbench_port_invalid");
-  if (request.portfolio !== undefined && request.remoteConnection !== undefined)
-    throw new Error("workbench_portfolio_source_conflicting");
   if (
-    request.credentialAdministration !== undefined &&
-    request.remoteConnection !== undefined
+    request.localAccessRoot !== undefined &&
+    (request.credentialAdministration !== undefined ||
+      request.portfolio !== undefined ||
+      request.aiProfiles !== undefined ||
+      request.aiRequests !== undefined ||
+      request.candidateActions !== undefined ||
+      request.activityReader !== undefined)
   )
-    throw new Error("workbench_credential_sources_conflicting");
+    throw new Error("workbench_local_cros_sources_conflicting");
   const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
     request.workingDirectory,
   );
@@ -796,53 +902,44 @@ export async function startWorkbench(
   const verification = verifyRepositoryRoot(repositoryRoot);
   if (verification.status !== "completed")
     throw new Error("workbench_repository_root_invalid");
-  let projectSurface = await readWorkbenchProjectSurface(repositoryRoot);
-  const aiProfileStore = createRepositoryAiProfileCatalogStore(repositoryRoot);
+  let projectSurface =
+    request.localAccessRoot === undefined
+      ? await readWorkbenchProjectSurface(repositoryRoot)
+      : undefined;
+  const aiProfileStore =
+    request.localAccessRoot === undefined
+      ? createRepositoryAiProfileCatalogStore(repositoryRoot)
+      : undefined;
   const aiProfileAdministration =
-    request.aiProfiles === undefined && aiProfileStore.status === "ready"
+    request.aiProfiles === undefined && aiProfileStore?.status === "ready"
       ? createAiProfileCatalogAdministration(aiProfileStore.store)
       : undefined;
   let aiProfiles =
     request.aiProfiles ??
-    (aiProfileStore.status === "ready"
+    (aiProfileStore?.status === "ready"
       ? createWorkbenchAiProfileSurface(aiProfileStore.store.snapshot().catalog)
       : createDefaultWorkbenchAiProfileSurface());
   const aiRequests = request.aiRequests;
   const candidateActions = request.candidateActions;
   const activityReader =
     request.activityReader ??
-    createRepositoryWorkbenchActivityReader(repositoryRoot);
-  const topicMeeting = Object.freeze({
-    topic: createTopicOperations(repositoryRoot),
-    meeting: createMeetingOperations(repositoryRoot),
-  });
-  let remoteConnection: WorkbenchRemoteConnection | undefined =
-    request.remoteConnection;
-  const credentialAdministration = request.credentialAdministration;
-  let portfolio = request.portfolio;
-  let remoteAiProfileAdministrationSnapshot:
-    | AiProfileCatalogSnapshot
-    | undefined;
-  let connectionState: WorkbenchConnectionState =
+    (request.localAccessRoot === undefined && projectSurface !== undefined
+      ? createRepositoryWorkbenchActivityReader(
+          repositoryRoot,
+          projectSurface.context,
+        )
+      : undefined);
+  const topicMeeting =
+    request.localAccessRoot === undefined
+      ? Object.freeze({
+          topic: createTopicOperations(repositoryRoot),
+          meeting: createMeetingOperations(repositoryRoot),
+        })
+      : undefined;
+  const portfolio = request.portfolio;
+  const connectionState: WorkbenchConnectionState =
     portfolio === undefined ? "repository" : "cros_available";
-  if (remoteConnection !== undefined) {
-    try {
-      portfolio = await readRemotePortfolio(
-        remoteConnection.baseUrl,
-        remoteConnection.token,
-      );
-      remoteAiProfileAdministrationSnapshot = await readRemoteAiProfileCatalog(
-        remoteConnection.baseUrl,
-        remoteConnection.token,
-      ).catch(() => undefined);
-      connectionState = "cros_available";
-    } catch {
-      portfolio = undefined;
-      connectionState = "cros_unavailable";
-    }
-  }
   let lastActionResult: ChangePublicationResult | null = null;
-  let connectionNotice: WorkbenchConnectionNotice | null = null;
   let topicMeetingResult: TopicMeetingActionResult | null = null;
   let currentAiRequestId: string | null = null;
   let aiRequestSnapshot: WorkbenchAiRequestSnapshot | null = null;
@@ -856,15 +953,891 @@ export async function startWorkbench(
     null;
   const actionToken = randomBytes(32).toString("base64url");
   const connections = new Set<Socket>();
-  const credentialRequests = new Set<Promise<void>>();
+  const pendingRequests = new Set<Promise<void>>();
   const server = createServer((incoming, response) => {
-    void (async () => {
+    const requestController = new AbortController();
+    /**
+     * 未完了Requestの切断を同要求の取消へ搬送する。
+     * @responsibility 当該要求の待機と公開を所有Signalへ結合する。
+     * @trace ARCH-000012
+     * @input N/A: 所有IncomingMessageのaborted通知だけ。
+     * @returns N/A: Signalを更新する。
+     * @precondition 当該Request専用ControllerとListenerを構成済み。
+     * @postcondition 次の待機／応答で取消を観測できる。
+     * @effect 当該Signalをabortする。
+     * @failure N/A: AbortControllerの同期通知だけ。
+     * @invariant 通知だけで保存取消や資源不存在を保証しない。
+     * @boundary IncomingMessageと当該Workbench要求。
+     * @security 他RequestのAuthorityや状態へ触れない。
+     * @concurrency 重複通知は冪等、終了後Listenerを解除する。
+     */
+    const requestAborted = () => requestController.abort();
+    /**
+     * 応答未完了の接続終了を同要求の取消へ搬送する。
+     * @responsibility 完了した応答と途中切断を区別する。
+     * @trace ARCH-000012
+     * @input N/A: 所有ServerResponseのclose通知だけ。
+     * @returns N/A: 必要時にSignalを更新する。
+     * @precondition Request専用ControllerとResponseを保持する。
+     * @postcondition 未完了closeだけをabortへ接続する。
+     * @effect 未完了の場合だけ当該Signalをabortする。
+     * @failure N/A: 同期の完了状態確認だけ。
+     * @invariant 接続終了から保存rollbackを推定しない。
+     * @boundary HTTP Responseと要求待機の所有境界。
+     * @security 他Requestへ取消を発行しない。
+     * @concurrency Request終了後Listenerを解除する。
+     */
+    const requestClosed = () => {
+      if (!response.writableFinished) requestController.abort();
+    };
+    incoming.once("aborted", requestAborted);
+    response.once("close", requestClosed);
+    const requestPending = (async () => {
       const method = incoming.method ?? "";
+      if (publicOrigin) {
+        const expected = [
+          ["host", publicOrigin.host],
+          ["x-forwarded-proto", "https"],
+          ["x-forwarded-host", publicOrigin.host],
+        ];
+        const invalid =
+          expected.some(
+            ([name, value]) =>
+              incoming.headers[name as string] !== value ||
+              incoming.rawHeaders.filter(
+                (field, index) =>
+                  index % 2 === 0 && field.toLowerCase() === name,
+              ).length !== 1,
+          ) ||
+          incoming.rawHeaders.filter(
+            (field, index) =>
+              index % 2 === 0 && field.toLowerCase() === "origin",
+          ).length > 1 ||
+          (incoming.headers.origin !== undefined &&
+            incoming.headers.origin !== publicOrigin.origin) ||
+          (method === "POST" &&
+            incoming.headers.origin !== publicOrigin.origin);
+        if (invalid) {
+          setCommonHeaders(response);
+          response.statusCode = 421;
+          response.end("workbench_tls_boundary_invalid\n");
+          return;
+        }
+      }
       const requestUrl = new URL(incoming.url ?? "/", `http://${HOST}`);
       const requestPath = requestUrl.pathname;
+      let artifactSelection: ReturnType<typeof readWorkbenchArtifactSelection> =
+        null;
+      if (
+        requestPath === "/api/workbench-view" &&
+        (method === "GET" || method === "HEAD")
+      ) {
+        try {
+          artifactSelection = readWorkbenchArtifactSelection(
+            requestUrl.searchParams,
+            request.localAccessRoot !== undefined,
+          );
+        } catch {
+          setCommonHeaders(response);
+          response.statusCode = 400;
+          response.end("artifact_input_invalid\n");
+          return;
+        }
+      }
+      if (
+        request.localAccessRoot !== undefined &&
+        requestPath === "/api/workbench-view" &&
+        requestUrl.searchParams.getAll("repositoryId").length > 1
+      ) {
+        setCommonHeaders(response);
+        response.statusCode = 403;
+        response.end("local_repository_access_unavailable\n");
+        return;
+      }
+      let credentialAdministration = request.credentialAdministration;
+      let localConnectionNotice: string | null = null;
+      if (request.localAccessRoot !== undefined) {
+        const authorization = incoming.headers.authorization;
+        const authorizationCount = incoming.rawHeaders.filter(
+          (_, index) =>
+            index % 2 === 0 &&
+            incoming.rawHeaders[index]?.toLowerCase() === "authorization",
+        ).length;
+        credentialAdministration =
+          authorizationCount === 1 &&
+          typeof authorization === "string" &&
+          /^Bearer [^\s]{1,4096}$/u.test(authorization)
+            ? Object.freeze({
+                root: request.localAccessRoot,
+                token: authorization.slice(7),
+              })
+            : undefined;
+        if (method === "POST" && requestPath === "/local-connection/action") {
+          try {
+            const address = server.address();
+            const origin =
+              publicOrigin?.origin ??
+              (address && typeof address !== "string"
+                ? `http://${HOST}:${address.port}`
+                : null);
+            if (
+              !origin ||
+              requestUrl.search !== "" ||
+              incoming.headers.host !== new URL(origin).host ||
+              incoming.headers.origin !== origin ||
+              incoming.headers["content-type"]?.split(";")[0]?.trim() !==
+                "application/x-www-form-urlencoded"
+            )
+              throw new Error("workbench_local_connection_input_invalid");
+            const form = await readActionForm(incoming);
+            if (form.get("operation") === "disconnect") {
+              if (
+                [...form.keys()].some(
+                  (key) => key !== "operation" && key !== "actionToken",
+                ) ||
+                form.getAll("operation").length !== 1 ||
+                form.getAll("actionToken").length !== 1 ||
+                form.get("actionToken") !== actionToken ||
+                requestController.signal.aborted
+              )
+                throw new Error("workbench_local_connection_input_invalid");
+            } else {
+              authenticateWorkbenchConnection(
+                request.localAccessRoot,
+                form,
+                actionToken,
+                requestController.signal,
+              );
+            }
+            if (requestController.signal.aborted || response.destroyed) return;
+            setCommonHeaders(response);
+            const body = JSON.stringify({ status: "completed" });
+            response.statusCode = 200;
+            response.setHeader(
+              "Content-Type",
+              "application/json; charset=utf-8",
+            );
+            response.setHeader("Content-Length", Buffer.byteLength(body));
+            response.end(body);
+          } catch {
+            if (!response.destroyed && !requestController.signal.aborted) {
+              setCommonHeaders(response);
+              response.statusCode = 400;
+              response.end("local_connection_rejected\n");
+            }
+          }
+          return;
+        }
+        if (
+          credentialAdministration !== undefined &&
+          resolveConnectionAuthentication(
+            credentialAdministration.root,
+            credentialAdministration.token,
+          ).status !== "normal"
+        ) {
+          credentialAdministration = undefined;
+          localConnectionNotice =
+            "現在の接続を確認できません。接続用の鍵を確認してください。";
+        }
+        if (method === "GET" || method === "HEAD") {
+          // 共有CatalogはRepository選択と独立し、現在管理認可でだけ読む。
+          if (requestPath === "/api/ai-profiles") {
+            try {
+              if (
+                requestUrl.search !== "" ||
+                !credentialAdministration ||
+                !request.crosProfileAdministration ||
+                resolveAiProfileManagementAccess(
+                  credentialAdministration.root,
+                  credentialAdministration.token,
+                ) !== "allowed"
+              )
+                throw new Error("workbench_profile_access_unavailable");
+              const snapshot = request.crosProfileAdministration.snapshot();
+              const catalog = validateAiProfileCatalog(snapshot.catalog);
+              if (
+                !catalog ||
+                !Number.isSafeInteger(snapshot.revision) ||
+                snapshot.revision < 0
+              )
+                throw new Error("workbench_profile_snapshot_invalid");
+              const body = JSON.stringify({
+                revision: snapshot.revision,
+                catalog,
+              });
+              await yieldToTransport(0);
+              if (requestController.signal.aborted || response.destroyed)
+                return;
+              if (
+                resolveAiProfileManagementAccess(
+                  credentialAdministration.root,
+                  credentialAdministration.token,
+                ) !== "allowed"
+              )
+                throw new Error("workbench_profile_access_unavailable");
+              setCommonHeaders(response);
+              response.statusCode = 200;
+              response.setHeader(
+                "Content-Type",
+                "application/json; charset=utf-8",
+              );
+              response.setHeader("Content-Length", Buffer.byteLength(body));
+              response.end(method === "HEAD" ? undefined : body);
+            } catch {
+              if (!requestController.signal.aborted && !response.destroyed) {
+                setCommonHeaders(response);
+                response.statusCode = 403;
+                response.end("profile_access_unavailable\n");
+              }
+            }
+            return;
+          }
+          let localBody: string | Buffer | undefined;
+          let localContentType = "text/html; charset=utf-8";
+          if (
+            requestPath === "/" ||
+            requestPath === "/index.html" ||
+            requestPath === "/project" ||
+            requestPath === "/topic" ||
+            requestPath === "/meeting" ||
+            requestPath === "/change" ||
+            requestPath === "/owner-artifact" ||
+            requestPath === "/api/workbench-view"
+          ) {
+            let currentPortfolio: PortfolioProjection | null = null;
+            let currentCollection: RepositoryAccessCollectionResult | null =
+              null;
+            if (credentialAdministration !== undefined) {
+              try {
+                currentCollection = resolveRepositoryAccessCollection(
+                  credentialAdministration.root,
+                  credentialAdministration.token,
+                );
+                if (currentCollection.status !== "completed")
+                  throw new Error("workbench_selected_content_unavailable");
+                currentPortfolio = readAuthorizedPortfolio(
+                  currentCollection.repositories,
+                  requestController.signal,
+                );
+              } catch {
+                localConnectionNotice = "現在の内容を確認できません。";
+              }
+            }
+            let model: WorkbenchClientModel = Object.freeze({
+              contract: "crdd/workbench/client-model/v1",
+              view: "access",
+              actionToken,
+              logoPath: LOGO_PATH,
+              authenticated: credentialAdministration !== undefined,
+              notice: localConnectionNotice,
+              portfolio: currentPortfolio,
+              credentials: readCredentialAdministrationView(
+                credentialAdministration,
+              ),
+            });
+            const selectedId = requestUrl.searchParams.get("repositoryId");
+            if (
+              requestPath === "/api/workbench-view" &&
+              selectedId !== null &&
+              selectedId !== "" &&
+              !(
+                artifactSelection !== null &&
+                credentialAdministration === undefined
+              )
+            ) {
+              try {
+                if (
+                  !credentialAdministration ||
+                  currentPortfolio === null ||
+                  currentCollection?.status !== "completed" ||
+                  !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(selectedId)
+                )
+                  throw new Error("workbench_selected_content_unavailable");
+                const selected =
+                  currentCollection.repositories.find(
+                    (entry) => entry.repositoryId === selectedId,
+                  ) ?? null;
+                const records = composeAuthorizedTopicMeeting(
+                  currentCollection.repositories,
+                  selectedId,
+                  requestController.signal,
+                );
+                const root =
+                  selected === null
+                    ? null
+                    : resolveVerifiedRepositoryRoot(selected.root);
+                if (!selected || !records || root === null)
+                  throw new Error("workbench_selected_content_unavailable");
+                const surface = await readWorkbenchProjectSurface(root);
+                if (requestController.signal.aborted || response.destroyed)
+                  return;
+                if (
+                  surface.context.repositoryId !== selected.repositoryId ||
+                  surface.context.projectId !== selected.manifest.projectId
+                )
+                  throw new Error("workbench_selected_content_unavailable");
+                const topicQuery = readWorkbenchRecordQuery(
+                  requestUrl.searchParams,
+                  "topic",
+                );
+                const meetingQuery = readWorkbenchRecordQuery(
+                  requestUrl.searchParams,
+                  "meeting",
+                );
+                const topicPage = records.topic.list({
+                  limit: 20,
+                  query: topicQuery,
+                  ...(requestUrl.searchParams.has("topicCursor")
+                    ? {
+                        cursor:
+                          requestUrl.searchParams.get("topicCursor") ?? "",
+                      }
+                    : {}),
+                });
+                const meetingPage = records.meeting.list({
+                  limit: 20,
+                  query: meetingQuery,
+                  ...(requestUrl.searchParams.has("meetingCursor")
+                    ? {
+                        cursor:
+                          requestUrl.searchParams.get("meetingCursor") ?? "",
+                      }
+                    : {}),
+                });
+                const reader: WorkbenchTopicMeetingDocumentReader = {
+                  getDocument: (kind, id) => records[kind].getDocument(id),
+                  relations: (kind, id) => records[kind].relations(id),
+                };
+                let worktree: WorkbenchMainViewModel["worktree"] = {
+                  state: "unknown",
+                  tree: null,
+                  diff: null,
+                };
+                const changeSet = surface.repository.changeSet;
+                if (
+                  surface.repository.state === "available" &&
+                  changeSet !== null
+                ) {
+                  try {
+                    const tree = observeRepositoryWorktreeTree(
+                      selected.root,
+                      changeSet,
+                      requestUrl.searchParams.get("treeDirectory") ?? "",
+                      requestUrl.searchParams.get("treeCursor") ?? undefined,
+                      50,
+                      gitRepositoryWorktreeViewAdapter,
+                    );
+                    const diffPath = requestUrl.searchParams.get("diffPath");
+                    const diff =
+                      diffPath === null
+                        ? null
+                        : observeRepositoryWorktreeFileDiff(
+                            selected.root,
+                            changeSet,
+                            diffPath,
+                            gitRepositoryWorktreeViewAdapter,
+                          );
+                    worktree = { state: "available", tree, diff };
+                  } catch {
+                    worktree = { state: "unknown", tree: null, diff: null };
+                  }
+                }
+                let activity: WorkbenchRuntimeActivityObservation;
+                await yieldToTransport(0);
+                if (requestController.signal.aborted || response.destroyed)
+                  return;
+                try {
+                  const cursor = requestUrl.searchParams.get("runtimeCursor");
+                  const observation = await readAuthorizedRuntimeActivity(
+                    {
+                      projectId: selected.manifest.projectId,
+                      repositories: currentCollection.repositories
+                        .filter(
+                          (entry) =>
+                            entry.manifest.projectId ===
+                            selected.manifest.projectId,
+                        )
+                        .map((entry) => ({
+                          projectId: entry.manifest.projectId,
+                          repositoryId: entry.repositoryId,
+                          root: entry.root,
+                        })),
+                      limit: 20,
+                      ...(cursor === null ? {} : { cursor }),
+                    },
+                    requestController.signal,
+                  );
+                  if (observation.projectId !== selected.manifest.projectId)
+                    throw new Error("workbench_activity_unavailable");
+                  activity = projectRuntimeActivityForWorkbench(observation);
+                } catch {
+                  activity = {
+                    state: "unknown",
+                    reason: "observation_failed",
+                    projection: null,
+                    eventState: "unknown",
+                    eventReason: "observation_failed",
+                    events: [],
+                    eventContinuation: null,
+                  };
+                }
+                await yieldToTransport(0);
+                if (requestController.signal.aborted || response.destroyed)
+                  return;
+                model = createWorkbenchMainViewModel(
+                  surface,
+                  currentPortfolio,
+                  actionToken,
+                  null,
+                  credentialAdministration,
+                  "cros_available",
+                  surface.topics,
+                  surface.meetings,
+                  reader,
+                  topicPage,
+                  topicQuery,
+                  meetingPage,
+                  meetingQuery,
+                  null,
+                  null,
+                  undefined,
+                  "CROS",
+                  null,
+                  undefined,
+                  null,
+                  undefined,
+                  null,
+                  null,
+                  "共有接続のAI実行は未接続です。",
+                  activity,
+                  requestUrl.searchParams.get("documentQuery") ?? "",
+                  {
+                    query: requestUrl.searchParams.get("portfolioQuery") ?? "",
+                    state: requestUrl.searchParams.get("portfolioState") ?? "",
+                    cursor:
+                      requestUrl.searchParams.get("portfolioCursor") ?? "",
+                  },
+                  worktree,
+                  selectedId,
+                  true,
+                  true,
+                );
+                const route = requestUrl.searchParams.get("route") ?? "/";
+                if (route === "/project") {
+                  const project = currentPortfolio.projects.find(
+                    (entry) =>
+                      entry.projectId === requestUrl.searchParams.get("id"),
+                  );
+                  if (!project)
+                    throw new Error("workbench_selected_content_unavailable");
+                  model = {
+                    contract: "crdd/workbench/client-model/v1",
+                    view: "project-detail",
+                    logoPath: LOGO_PATH,
+                    project,
+                  };
+                } else if (route === "/topic" || route === "/meeting") {
+                  const kind = route === "/topic" ? "topic" : "meeting";
+                  const id = requestUrl.searchParams.get("id") ?? "";
+                  const document = reader.getDocument(kind, id);
+                  if (!document)
+                    throw new Error("workbench_selected_content_unavailable");
+                  model = {
+                    contract: "crdd/workbench/client-model/v1",
+                    view: "record-detail",
+                    logoPath: LOGO_PATH,
+                    actionToken,
+                    repositoryId: selectedId,
+                    recordActionsConfigured: true,
+                    record: {
+                      kind,
+                      id,
+                      document,
+                      relations: reader.relations(kind, id),
+                    },
+                  };
+                } else if (artifactSelection !== null) {
+                  const markdown =
+                    artifactSelection.kind === "change"
+                      ? await readWorkbenchChangeArtifact(
+                          root,
+                          artifactSelection.identity,
+                        )
+                      : await readWorkbenchOwnerArtifact(
+                          root,
+                          surface.ownerArtifacts,
+                          artifactSelection.identity,
+                        );
+                  if (markdown === null)
+                    throw new Error("workbench_selected_content_unavailable");
+                  model = {
+                    contract: "crdd/workbench/client-model/v1",
+                    view: "artifact",
+                    logoPath: LOGO_PATH,
+                    repositoryId: selected.manifest.repositoryId,
+                    selectedRepositoryId: selectedId,
+                    artifact: { ...artifactSelection, markdown },
+                  };
+                } else if (route !== "/" && route !== "/index.html") {
+                  throw new Error("workbench_selected_content_unavailable");
+                }
+              } catch {
+                if (requestController.signal.aborted || response.destroyed)
+                  return;
+                setCommonHeaders(response);
+                response.statusCode = 403;
+                response.end("local_repository_access_unavailable\n");
+                return;
+              }
+            }
+            localBody =
+              requestPath === "/api/workbench-view"
+                ? JSON.stringify(model)
+                : renderClientDocument();
+            if (requestController.signal.aborted || response.destroyed) return;
+            if (
+              requestPath === "/api/workbench-view" &&
+              currentCollection?.status === "completed" &&
+              credentialAdministration !== undefined &&
+              !sameAccessCollection(
+                currentCollection,
+                resolveRepositoryAccessCollection(
+                  credentialAdministration.root,
+                  credentialAdministration.token,
+                ),
+              )
+            ) {
+              if (requestController.signal.aborted || response.destroyed)
+                return;
+              setCommonHeaders(response);
+              response.statusCode = 403;
+              response.end("local_repository_access_unavailable\n");
+              return;
+            }
+            if (requestPath === "/api/workbench-view")
+              localContentType = "application/json; charset=utf-8";
+          } else if (requestPath === "/workbench.css") {
+            localBody =
+              shellCss +
+              recordDetailCss +
+              repositoryBrowserCss +
+              aiRequestCss +
+              ownerArtifactCss +
+              visualAccessibilityCss +
+              visualControlCss;
+            localContentType = "text/css; charset=utf-8";
+          } else if (requestPath === LOGO_PATH) {
+            localBody = logo;
+            localContentType = "image/jpeg";
+          } else if (requestPath === CLIENT_ASSET_PATH) {
+            localBody = clientAsset;
+            localContentType = "text/javascript; charset=utf-8";
+          } else if (requestPath === HEALTH_PATH) {
+            localBody = JSON.stringify({
+              contract: CONTRACT,
+              status: "ready",
+              host: HOST,
+              mode: "local-cros",
+              readOnly: false,
+            });
+            localContentType = "application/json; charset=utf-8";
+          }
+          if (localBody !== undefined) {
+            if (requestController.signal.aborted || response.destroyed) return;
+            setCommonHeaders(response);
+            response.statusCode = 200;
+            response.setHeader("Content-Type", localContentType);
+            response.setHeader("Content-Length", Buffer.byteLength(localBody));
+            response.end(method === "HEAD" ? undefined : localBody);
+            return;
+          }
+        }
+        const sharedActionRoute =
+          (method === "POST" && requestPath === "/topic-meeting/action") ||
+          (method === "POST" && requestPath === "/ai-profiles/action") ||
+          (method === "POST" && requestPath === "/repository/action") ||
+          (method === "GET" && requestPath === "/api/access-management") ||
+          (method === "POST" &&
+            (requestPath === "/access-management/action" ||
+              requestPath === "/connection-credentials/action"));
+        if (!sharedActionRoute) {
+          setCommonHeaders(response);
+          response.statusCode = 403;
+          response.end("local_repository_access_unavailable\n");
+          return;
+        }
+      }
+      if (
+        request.localAccessRoot !== undefined &&
+        method === "POST" &&
+        requestPath === "/repository/action"
+      ) {
+        let dispatched = false;
+        try {
+          const address = server.address();
+          const origin =
+            publicOrigin?.origin ??
+            (address && typeof address !== "string"
+              ? `http://${HOST}:${address.port}`
+              : null);
+          if (
+            !origin ||
+            requestUrl.search !== "" ||
+            incoming.headers.host !== new URL(origin).host ||
+            incoming.headers.origin !== origin ||
+            incoming.headers["content-type"]?.split(";")[0]?.trim() !==
+              "application/x-www-form-urlencoded"
+          )
+            throw new Error("workbench_repository_input_invalid");
+          const form = await readActionForm(incoming);
+          const validated = validateRepositoryActionForm(
+            form,
+            actionToken,
+            true,
+          );
+          if (!credentialAdministration)
+            throw new Error("workbench_repository_access_unavailable");
+          await yieldToTransport(0);
+          if (requestController.signal.aborted || response.destroyed) return;
+          const collection = resolveRepositoryAccessCollection(
+            credentialAdministration.root,
+            credentialAdministration.token,
+          );
+          if (collection.status !== "completed")
+            throw new Error("workbench_repository_access_unavailable");
+          const matches = collection.repositories.filter(
+            (entry) => entry.repositoryId === validated.repositoryId,
+          );
+          if (matches.length !== 1)
+            throw new Error("workbench_repository_access_unavailable");
+          const selected = matches[0];
+          if (!selected)
+            throw new Error("workbench_repository_access_unavailable");
+          await yieldToTransport(0);
+          if (requestController.signal.aborted || response.destroyed) return;
+          if (
+            !sameAccessCollection(
+              collection,
+              resolveRepositoryAccessCollection(
+                credentialAdministration.root,
+                credentialAdministration.token,
+              ),
+            )
+          )
+            throw new Error("workbench_repository_access_unavailable");
+          if (validated.request.operation === "publish_revision") {
+            const target = observeChangePublicationTarget(
+              selected.root,
+              gitChangePublicationTargetObservationAdapter,
+            );
+            if (
+              target.status !== "available" ||
+              target.destination !== validated.request.destination ||
+              target.branch !== validated.request.branch ||
+              target.revisionIdentity !== validated.request.revisionIdentity
+            )
+              throw new Error(
+                "workbench_repository_publication_target_changed",
+              );
+          }
+          dispatched = true;
+          const result = inspectRepositoryActionResult(
+            validated.request,
+            executeChangePublication(
+              selected.root,
+              validated.request,
+              gitChangePublicationAdapter,
+            ),
+          );
+          const body = JSON.stringify(result);
+          await yieldToTransport(0);
+          if (requestController.signal.aborted || response.destroyed) return;
+          if (
+            !sameAccessCollection(
+              collection,
+              resolveRepositoryAccessCollection(
+                credentialAdministration.root,
+                credentialAdministration.token,
+              ),
+            )
+          )
+            throw new Error("workbench_repository_publication_unavailable");
+          setCommonHeaders(response);
+          response.statusCode = 200;
+          response.setHeader("Content-Type", "application/json; charset=utf-8");
+          response.setHeader("Content-Length", Buffer.byteLength(body));
+          response.end(body);
+        } catch {
+          if (!requestController.signal.aborted && !response.destroyed) {
+            setCommonHeaders(response);
+            response.statusCode = dispatched ? 503 : 400;
+            response.end(
+              dispatched
+                ? "repository_action_outcome_unconfirmed\n"
+                : "repository_action_rejected\n",
+            );
+          }
+        }
+        return;
+      }
+      if (
+        request.localAccessRoot !== undefined &&
+        method === "POST" &&
+        requestPath === "/topic-meeting/action"
+      ) {
+        let dispatched = false;
+        try {
+          const address = server.address();
+          const origin =
+            publicOrigin?.origin ??
+            (address && typeof address !== "string"
+              ? `http://${HOST}:${address.port}`
+              : null);
+          if (
+            !origin ||
+            requestUrl.search !== "" ||
+            incoming.headers.host !== new URL(origin).host ||
+            incoming.headers.origin !== origin ||
+            incoming.headers["content-type"]?.split(";")[0]?.trim() !==
+              "application/x-www-form-urlencoded"
+          )
+            throw new Error("workbench_record_input_invalid");
+          const form = await readActionForm(incoming);
+          validateTopicMeetingActionForm(form);
+          if (
+            form.get("actionToken") !== actionToken ||
+            !credentialAdministration
+          )
+            throw new Error("workbench_record_input_invalid");
+          await yieldToTransport(0);
+          if (requestController.signal.aborted || response.destroyed) return;
+          const collection = resolveRepositoryAccessCollection(
+            credentialAdministration.root,
+            credentialAdministration.token,
+          );
+          if (collection.status !== "completed")
+            throw new Error("workbench_record_access_unavailable");
+          const access = composeAuthorizedTopicMeeting(
+            collection.repositories,
+            form.get("repositoryId") ?? "",
+            requestController.signal,
+          );
+          if (!access || requestController.signal.aborted)
+            throw new Error("workbench_record_access_unavailable");
+          dispatched = true;
+          const result = executeTopicMeetingActionForm(access, form);
+          const body = JSON.stringify({
+            ...createTopicMeetingResultView(result),
+            filesystemEffectCount: result.filesystemEffectCount,
+          });
+          await yieldToTransport(0);
+          if (requestController.signal.aborted || response.destroyed) return;
+          if (
+            !sameAccessCollection(
+              collection,
+              resolveRepositoryAccessCollection(
+                credentialAdministration.root,
+                credentialAdministration.token,
+              ),
+            )
+          )
+            throw new Error("workbench_record_publication_unavailable");
+          setCommonHeaders(response);
+          response.statusCode = 200;
+          response.setHeader("Content-Type", "application/json; charset=utf-8");
+          response.setHeader("Content-Length", Buffer.byteLength(body));
+          response.end(body);
+        } catch {
+          if (!requestController.signal.aborted && !response.destroyed) {
+            setCommonHeaders(response);
+            response.statusCode = dispatched ? 503 : 400;
+            response.end(
+              dispatched
+                ? "topic_meeting_action_outcome_unconfirmed\n"
+                : "topic_meeting_action_rejected\n",
+            );
+          }
+        }
+        return;
+      }
+      if (
+        request.localAccessRoot !== undefined &&
+        method === "POST" &&
+        requestPath === "/ai-profiles/action"
+      ) {
+        let dispatched = false;
+        try {
+          const address = server.address();
+          const origin =
+            publicOrigin?.origin ??
+            (address && typeof address !== "string"
+              ? `http://${HOST}:${address.port}`
+              : null);
+          if (
+            !origin ||
+            requestUrl.search !== "" ||
+            incoming.headers.host !== new URL(origin).host ||
+            incoming.headers.origin !== origin ||
+            incoming.headers["content-type"]?.split(";")[0]?.trim() !==
+              "application/x-www-form-urlencoded"
+          )
+            throw new Error("workbench_profile_input_invalid");
+          const form = await readActionForm(incoming);
+          if (
+            form.getAll("actionToken").length !== 1 ||
+            form.get("actionToken") !== actionToken
+          )
+            throw new Error("workbench_profile_input_invalid");
+          await yieldToTransport(0);
+          if (requestController.signal.aborted || response.destroyed) return;
+          if (
+            !credentialAdministration ||
+            !request.crosProfileAdministration ||
+            resolveAiProfileManagementAccess(
+              credentialAdministration.root,
+              credentialAdministration.token,
+            ) !== "allowed"
+          )
+            throw new Error("workbench_profile_access_unavailable");
+          const snapshot = request.crosProfileAdministration.snapshot();
+          const mutation = aiProfileMutation(form, snapshot);
+          dispatched = true;
+          const raw = request.crosProfileAdministration.execute(mutation);
+          const result = validateAiProfileMutationResult(mutation, raw);
+          if (!result) throw new Error("workbench_profile_result_invalid");
+          const body = JSON.stringify(result);
+          await yieldToTransport(0);
+          if (requestController.signal.aborted || response.destroyed) return;
+          if (
+            resolveAiProfileManagementAccess(
+              credentialAdministration.root,
+              credentialAdministration.token,
+            ) !== "allowed"
+          )
+            throw new Error("workbench_profile_access_unavailable");
+          setCommonHeaders(response);
+          response.statusCode = 200;
+          response.setHeader("Content-Type", "application/json; charset=utf-8");
+          response.setHeader("Content-Length", Buffer.byteLength(body));
+          response.end(body);
+        } catch {
+          if (!requestController.signal.aborted && !response.destroyed) {
+            setCommonHeaders(response);
+            response.statusCode = dispatched ? 503 : 400;
+            response.end(
+              dispatched
+                ? "ai_profile_action_outcome_unconfirmed\n"
+                : "ai_profile_action_rejected\n",
+            );
+          }
+        }
+        return;
+      }
       if (method === "POST" && requestPath === "/topic-meeting/action") {
         let actionDispatched = false;
         try {
+          if (projectSurface === undefined || topicMeeting === undefined)
+            throw new Error("workbench_repository_access_unavailable");
           const form = await readActionForm(incoming);
           if (form.get("actionToken") !== actionToken)
             throw new Error("workbench_action_token_invalid");
@@ -905,82 +1878,7 @@ export async function startWorkbench(
               parseTopicMarkdown(form.get("markdown") ?? "");
             else parseMeetingMarkdown(form.get("markdown") ?? "");
           }
-          const repositoryId = form.get("repositoryId") ?? "";
-          if (remoteConnection !== undefined) {
-            if (!isVisiblePortfolioRepository(portfolio, repositoryId))
-              throw new Error("workbench_remote_repository_unavailable");
-            let action: RemoteTopicMeetingAction;
-            if (operation === "create") {
-              action = Object.freeze({
-                operation,
-                kind,
-                markdown: form.get("markdown") ?? "",
-              });
-            } else if (operation === "update") {
-              action = Object.freeze({
-                operation,
-                kind,
-                id: form.get("id") ?? "",
-                expectedRevision: Number(form.get("expectedRevision")),
-                markdown: form.get("markdown") ?? "",
-              });
-            } else if (operation === "delete") {
-              action = Object.freeze({
-                operation,
-                kind,
-                id: form.get("id") ?? "",
-                expectedRevision: Number(form.get("expectedRevision")),
-                confirmed: form.get("confirmed") === "true",
-              });
-            } else if (operation === "promote-topic" && kind === "topic") {
-              action = Object.freeze({
-                operation,
-                kind,
-                id: form.get("id") ?? "",
-                expectedRevision: Number(form.get("expectedRevision")),
-                changeId: form.get("changeId") ?? "",
-                reason: form.get("reason") ?? "",
-                remainingResponsibility:
-                  form.get("remainingResponsibility") ?? "",
-              });
-            } else if (operation === "treat-outcome" && kind === "meeting") {
-              action = Object.freeze({
-                operation,
-                kind,
-                id: form.get("id") ?? "",
-                expectedRevision: Number(form.get("expectedRevision")),
-                outcomeId: form.get("outcomeId") ?? "",
-                disposition: form.get("disposition") as
-                  | "completed"
-                  | "transferred"
-                  | "promoted"
-                  | "rejected",
-                owner: form.get("owner") ?? "",
-                reviewTrigger: form.get("reviewTrigger") ?? "",
-                targetKind: form.get("targetKind") as
-                  | "topic"
-                  | "change"
-                  | "owner"
-                  | "none",
-                targetReference: form.get("targetReference") ?? "",
-                treatment: form.get("treatment") ?? "",
-                completionCondition: form.get("completionCondition") ?? "",
-                result: form.get("result") ?? "",
-                closeMeeting: form.get("closeMeeting") === "true",
-              });
-            } else {
-              throw new Error("workbench_record_operation_invalid");
-            }
-            actionDispatched = true;
-            topicMeetingResult = inspectTopicMeetingActionResult(
-              await executeRemoteTopicMeetingAction(
-                remoteConnection.mcpBaseUrl ?? remoteConnection.baseUrl,
-                remoteConnection.token,
-                repositoryId,
-                action,
-              ),
-            );
-          } else if (operation === "create") {
+          if (operation === "create") {
             actionDispatched = true;
             topicMeetingResult = topicMeeting[kind].create(
               form.get("markdown") ?? "",
@@ -1052,7 +1950,7 @@ export async function startWorkbench(
           response.statusCode = 303;
           response.setHeader(
             "Location",
-            `${repositoryId.length === 0 ? "/" : `/?repositoryId=${encodeURIComponent(repositoryId)}`}${kind === "topic" ? "#topics" : "#meetings"}`,
+            `/${kind === "topic" ? "#topics" : "#meetings"}`,
           );
           response.end();
         } catch {
@@ -1067,6 +1965,8 @@ export async function startWorkbench(
         return;
       }
       if (method === "POST" && requestPath === "/repository/action") {
+        if (projectSurface === undefined)
+          throw new Error("workbench_repository_access_unavailable");
         try {
           const form = await readActionForm(incoming);
           if (form.get("actionToken") !== actionToken)
@@ -1093,23 +1993,158 @@ export async function startWorkbench(
         return;
       }
       if (
+        (method === "GET" && requestPath === "/api/access-management") ||
+        (method === "POST" && requestPath === "/access-management/action")
+      ) {
+        const controller = new AbortController();
+        const abort = () => controller.abort();
+        const responseClosed = () => {
+          if (!response.writableFinished) abort();
+        };
+        incoming.once("aborted", abort);
+        response.once("close", responseClosed);
+        const pending = (async () => {
+          try {
+            const address = server.address();
+            const origin =
+              publicOrigin?.origin ??
+              (address && typeof address !== "string"
+                ? `http://${HOST}:${address.port}`
+                : null);
+            if (
+              !origin ||
+              incoming.headers.host !== new URL(origin).host ||
+              (incoming.headers.origin !== undefined &&
+                incoming.headers.origin !== origin)
+            )
+              throw new Error("workbench_management_input_invalid");
+            const connection = credentialAdministration;
+            setCommonHeaders(response);
+            response.setHeader(
+              "Content-Type",
+              "application/json; charset=utf-8",
+            );
+            response.setHeader(
+              "x-crdd-management-mode",
+              connection === undefined ? "none" : "local",
+            );
+            let result: unknown;
+            if (method === "GET") {
+              const view = requestUrl.searchParams.get("view");
+              if (
+                !view ||
+                ![
+                  "current",
+                  "users",
+                  "roles",
+                  "repositories",
+                  "exposure",
+                ].includes(view) ||
+                [...requestUrl.searchParams.keys()].some(
+                  (key) => key !== "view",
+                ) ||
+                requestUrl.searchParams.getAll("view").length !== 1
+              )
+                throw new Error("workbench_management_input_invalid");
+              if (
+                controller.signal.aborted ||
+                incoming.aborted ||
+                response.destroyed
+              )
+                return;
+              result =
+                connection === undefined
+                  ? {
+                      status: "unavailable",
+                      reason: "management_not_configured",
+                    }
+                  : await readWorkbenchManagement(
+                      connection,
+                      view as ManagementView,
+                      controller.signal,
+                    );
+            } else {
+              if (
+                !connection ||
+                incoming.headers["content-type"]?.split(";")[0]?.trim() !==
+                  "application/x-www-form-urlencoded"
+              )
+                throw new Error("workbench_management_input_invalid");
+              const form = await readActionForm(incoming);
+              if (form.get("actionToken") !== actionToken)
+                throw new Error("workbench_management_input_invalid");
+              if (
+                controller.signal.aborted ||
+                incoming.aborted ||
+                response.destroyed
+              )
+                return;
+              result = await executeWorkbenchManagement(
+                connection,
+                form,
+                controller.signal,
+              );
+            }
+            await yieldToTransport(0);
+            if (controller.signal.aborted || response.destroyed) return;
+            let body = JSON.stringify(result);
+            if (Buffer.byteLength(body, "utf8") > 16777216)
+              body = JSON.stringify({
+                status: "unavailable",
+                reason: "management_response_too_large",
+              });
+            response.end(body);
+          } catch (error) {
+            if (
+              !response.headersSent &&
+              !response.destroyed &&
+              !controller.signal.aborted
+            ) {
+              setCommonHeaders(response);
+              response.setHeader(
+                "Content-Type",
+                "application/json; charset=utf-8",
+              );
+              response.statusCode =
+                error instanceof Error &&
+                error.message === "workbench_management_input_invalid"
+                  ? 400
+                  : 503;
+              response.end(
+                JSON.stringify({
+                  status: "unavailable",
+                  reason: "management_transport_unavailable",
+                }),
+              );
+            }
+          }
+        })();
+        pendingRequests.add(pending);
+        try {
+          await pending;
+        } finally {
+          pendingRequests.delete(pending);
+          incoming.removeListener("aborted", abort);
+          response.removeListener("close", responseClosed);
+        }
+        return;
+      }
+      if (
         method === "POST" &&
         requestPath === "/connection-credentials/action"
       ) {
         try {
-          if (
-            credentialAdministration === undefined ||
-            remoteConnection !== undefined
-          )
+          if (credentialAdministration === undefined)
             throw new Error("workbench_credential_administration_unavailable");
           const address = server.address();
           const origin =
-            address && typeof address !== "string"
+            publicOrigin?.origin ??
+            (address && typeof address !== "string"
               ? `http://${HOST}:${address.port}`
-              : null;
+              : null);
           if (
             !origin ||
-            incoming.headers.host !== origin.slice(7) ||
+            incoming.headers.host !== new URL(origin).host ||
             (incoming.headers.origin !== undefined &&
               incoming.headers.origin !== origin) ||
             incoming.headers["content-type"]?.split(";")[0]?.trim() !==
@@ -1134,11 +2169,11 @@ export async function startWorkbench(
             response,
             controller.signal,
           );
-          credentialRequests.add(pending);
+          pendingRequests.add(pending);
           try {
             await pending;
           } finally {
-            credentialRequests.delete(pending);
+            pendingRequests.delete(pending);
             incoming.removeListener("aborted", abort);
             response.removeListener("close", responseClosed);
           }
@@ -1151,128 +2186,38 @@ export async function startWorkbench(
         }
         return;
       }
-      if (method === "POST" && requestPath === "/connection/action") {
-        try {
-          const form = await readActionForm(incoming);
-          if (form.get("actionToken") !== actionToken)
-            throw new Error("workbench_action_token_invalid");
-          const operation = form.get("operation");
-          if (operation === "connect") {
-            if (credentialAdministration !== undefined)
-              throw new Error("workbench_credential_sources_conflicting");
-            const candidate = Object.freeze({
-              baseUrl: form.get("baseUrl") ?? "",
-              token: form.get("token") ?? "",
-            });
-            if (candidate.baseUrl.length === 0 || candidate.token.length === 0)
-              throw new Error("workbench_remote_connection_input_missing");
-            const candidatePortfolio = await readRemotePortfolio(
-              candidate.baseUrl,
-              candidate.token,
-            );
-            remoteConnection = candidate;
-            portfolio = candidatePortfolio;
-            remoteAiProfileAdministrationSnapshot =
-              await readRemoteAiProfileCatalog(
-                candidate.baseUrl,
-                candidate.token,
-              ).catch(() => undefined);
-            connectionState = "cros_available";
-            connectionNotice = Object.freeze({
-              status: "completed",
-              message: "Remote CROSへ接続しました。",
-            });
-          } else if (operation === "refresh") {
-            if (remoteConnection === undefined)
-              throw new Error("workbench_remote_connection_unavailable");
-            portfolio = await readRemotePortfolio(
-              remoteConnection.baseUrl,
-              remoteConnection.token,
-            );
-            remoteAiProfileAdministrationSnapshot =
-              await readRemoteAiProfileCatalog(
-                remoteConnection.baseUrl,
-                remoteConnection.token,
-              ).catch(() => undefined);
-            connectionState = "cros_available";
-            connectionNotice = Object.freeze({
-              status: "completed",
-              message: "現在のProjectionへ更新しました。",
-            });
-          } else if (operation === "disconnect") {
-            remoteConnection = undefined;
-            portfolio = undefined;
-            remoteAiProfileAdministrationSnapshot = undefined;
-            connectionState = "repository";
-            connectionNotice = Object.freeze({
-              status: "completed",
-              message:
-                "Remote CROS接続を切断し、CredentialをProcess memoryから破棄しました。",
-            });
-          } else {
-            throw new Error("workbench_remote_connection_operation_invalid");
-          }
-          setCommonHeaders(response);
-          response.statusCode = 303;
-          response.setHeader("Location", "/#connection");
-          response.end();
-        } catch {
-          portfolio = undefined;
-          remoteAiProfileAdministrationSnapshot = undefined;
-          if (remoteConnection !== undefined)
-            connectionState = "cros_unavailable";
-          connectionNotice = Object.freeze({
-            status: "rejected",
-            message:
-              "Remote CROSへ接続できませんでした。EndpointとCredentialを確認してください。",
-          });
-          setCommonHeaders(response);
-          response.statusCode = 303;
-          response.setHeader("Location", "/#connection");
-          response.end();
-        }
-        return;
-      }
       if (method === "POST" && requestPath === "/ai-profiles/action") {
+        let profileDispatched = false;
         try {
-          const administrationSnapshot =
-            remoteConnection === undefined
-              ? aiProfileAdministration?.snapshot()
-              : remoteAiProfileAdministrationSnapshot;
+          const administrationSnapshot = aiProfileAdministration?.snapshot();
           if (administrationSnapshot === undefined)
             throw new Error("workbench_ai_profile_administration_unavailable");
           const form = await readActionForm(incoming);
           if (form.get("actionToken") !== actionToken)
             throw new Error("workbench_action_token_invalid");
           const mutation = aiProfileMutation(form, administrationSnapshot);
-          if (remoteConnection === undefined) {
-            if (aiProfileAdministration === undefined)
-              throw new Error(
-                "workbench_ai_profile_administration_unavailable",
-              );
-            aiProfileAdministrationResult =
-              aiProfileAdministration.execute(mutation);
-            aiProfiles = createWorkbenchAiProfileSurface(
-              aiProfileAdministrationResult.snapshot.catalog,
-            );
-          } else {
-            aiProfileAdministrationResult =
-              await executeRemoteAiProfileMutation(
-                remoteConnection.baseUrl,
-                remoteConnection.token,
-                mutation,
-              );
-            remoteAiProfileAdministrationSnapshot =
-              aiProfileAdministrationResult.snapshot;
-          }
+          if (requestController.signal.aborted) return;
+          if (aiProfileAdministration === undefined)
+            throw new Error("workbench_ai_profile_administration_unavailable");
+          profileDispatched = true;
+          aiProfileAdministrationResult =
+            aiProfileAdministration.execute(mutation);
+          aiProfiles = createWorkbenchAiProfileSurface(
+            aiProfileAdministrationResult.snapshot.catalog,
+          );
           setCommonHeaders(response);
           response.statusCode = 303;
           response.setHeader("Location", "/#ai-profile-administration");
           response.end();
         } catch {
+          if (requestController.signal.aborted || response.destroyed) return;
           setCommonHeaders(response);
-          response.statusCode = 400;
-          response.end("ai_profile_action_rejected\n");
+          response.statusCode = profileDispatched ? 503 : 400;
+          response.end(
+            profileDispatched
+              ? "ai_profile_action_outcome_unconfirmed\n変更結果を確認できません。未保存と判断せず、現在状態を再確認してください。自動再送は行いません。\n"
+              : "ai_profile_action_rejected\n",
+          );
         }
         return;
       }
@@ -1423,6 +2368,8 @@ export async function startWorkbench(
       }
       let body: string | Buffer;
       let contentType: string;
+      if (projectSurface === undefined || topicMeeting === undefined)
+        throw new Error("workbench_repository_access_unavailable");
       if (
         requestPath === "/" ||
         requestPath === "/index.html" ||
@@ -1470,20 +2417,10 @@ export async function startWorkbench(
               ...(runtimeCursor === null ? {} : { cursor: runtimeCursor }),
               limit: 20,
             };
-            runtimeActivityObservation =
-              remoteConnection === undefined
-                ? await activityReader.observe(
-                    projectSurface.context.projectId,
-                    page,
-                  )
-                : projectRuntimeActivityForWorkbench(
-                    await readRemoteRuntimeActivity(
-                      remoteConnection.baseUrl,
-                      remoteConnection.token,
-                      projectSurface.context.projectId,
-                      page,
-                    ),
-                  );
+            runtimeActivityObservation = await activityReader.observe(
+              projectSurface.context.projectId,
+              page,
+            );
           } catch {
             runtimeActivityObservation = Object.freeze({
               state: "unknown",
@@ -1498,172 +2435,31 @@ export async function startWorkbench(
         }
         const topicCursor = requestUrl.searchParams.get("topicCursor");
         const meetingCursor = requestUrl.searchParams.get("meetingCursor");
-        const parameter = (name: string): string | undefined => {
-          const value = requestUrl.searchParams.get(name)?.trim();
-          return value === undefined || value.length === 0 ? undefined : value;
+        const topicQuery = readWorkbenchRecordQuery(
+          requestUrl.searchParams,
+          "topic",
+        );
+        const meetingQuery = readWorkbenchRecordQuery(
+          requestUrl.searchParams,
+          "meeting",
+        );
+        const selectedRepositoryId = undefined;
+        const topicCollection = projectSurface.topics;
+        const meetingCollection = projectSurface.meetings;
+        const topicPage = topicMeeting.topic.list({
+          ...(topicCursor === null ? {} : { cursor: topicCursor }),
+          limit: 20,
+          query: topicQuery,
+        });
+        const meetingPage = topicMeeting.meeting.list({
+          ...(meetingCursor === null ? {} : { cursor: meetingCursor }),
+          limit: 20,
+          query: meetingQuery,
+        });
+        const topicMeetingReader: WorkbenchTopicMeetingDocumentReader = {
+          getDocument: (kind, id) => topicMeeting[kind].getDocument(id),
+          relations: (kind, id) => topicMeeting[kind].relations(id),
         };
-        const topicSortParameter = parameter("topicSort");
-        const topicSort =
-          topicSortParameter === "title_asc" ||
-          topicSortParameter === "state_asc"
-            ? topicSortParameter
-            : "id_asc";
-        const meetingSortParameter = parameter("meetingSort");
-        const meetingSort =
-          meetingSortParameter === "id_asc" ||
-          meetingSortParameter === "title_asc"
-            ? meetingSortParameter
-            : "occurred_desc";
-        const topicSearch = parameter("topicQuery");
-        const topicState = parameter("topicState");
-        const topicOwner = parameter("topicOwner");
-        const topicRelation = parameter("topicRelation");
-        const meetingSearch = parameter("meetingQuery");
-        const meetingState = parameter("meetingState");
-        const meetingRelation = parameter("meetingRelation");
-        const meetingFrom = parameter("meetingFrom");
-        const meetingTo = parameter("meetingTo");
-        const topicQuery: TopicMeetingListQuery = Object.freeze({
-          ...(topicSearch === undefined ? {} : { query: topicSearch }),
-          ...(topicState === undefined ? {} : { states: [topicState] }),
-          ...(topicOwner === undefined ? {} : { owner: topicOwner }),
-          ...(topicRelation === undefined ? {} : { relation: topicRelation }),
-          sort: topicSort,
-        });
-        const meetingQuery: TopicMeetingListQuery = Object.freeze({
-          ...(meetingSearch === undefined ? {} : { query: meetingSearch }),
-          ...(meetingState === undefined ? {} : { states: [meetingState] }),
-          ...(meetingRelation === undefined
-            ? {}
-            : { relation: meetingRelation }),
-          ...(meetingFrom === undefined ? {} : { occurredFrom: meetingFrom }),
-          ...(meetingTo === undefined ? {} : { occurredTo: meetingTo }),
-          ...(requestUrl.searchParams.get("meetingPending") === "true"
-            ? { pendingOnly: true }
-            : {}),
-          sort: meetingSort,
-        });
-        const requestedRepositoryId = parameter("repositoryId");
-        const selectedRepositoryId =
-          remoteConnection !== undefined &&
-          requestedRepositoryId !== undefined &&
-          isVisiblePortfolioRepository(portfolio, requestedRepositoryId)
-            ? requestedRepositoryId
-            : undefined;
-        let topicCollection = projectSurface.topics;
-        let meetingCollection = projectSurface.meetings;
-        let topicPage: TopicMeetingPage;
-        let meetingPage: TopicMeetingPage;
-        let topicMeetingReader: WorkbenchTopicMeetingDocumentReader =
-          Object.freeze({
-            getDocument: (kind, id) => topicMeeting[kind].getDocument(id),
-            relations: (kind, id) => topicMeeting[kind].relations(id),
-          });
-        if (remoteConnection === undefined) {
-          topicPage = topicMeeting.topic.list({
-            ...(topicCursor === null ? {} : { cursor: topicCursor }),
-            limit: 20,
-            query: topicQuery,
-          });
-          meetingPage = topicMeeting.meeting.list({
-            ...(meetingCursor === null ? {} : { cursor: meetingCursor }),
-            limit: 20,
-            query: meetingQuery,
-          });
-        } else if (selectedRepositoryId === undefined) {
-          topicCollection = Object.freeze({
-            state: "unknown",
-            items: Object.freeze([]),
-            reason: "observation_failed",
-          });
-          meetingCollection = Object.freeze({
-            state: "unknown",
-            items: Object.freeze([]),
-            reason: "observation_failed",
-          });
-          topicPage = Object.freeze({
-            status: "not_configured",
-            records: Object.freeze([]),
-            nextCursor: null,
-          });
-          meetingPage = topicPage;
-          topicMeetingReader = Object.freeze({
-            getDocument: () => null,
-            relations: () => Object.freeze([]),
-          });
-        } else {
-          try {
-            const [topics, meetings] = await Promise.all([
-              readRemoteTopicMeetingPage({
-                baseUrl:
-                  remoteConnection.mcpBaseUrl ?? remoteConnection.baseUrl,
-                token: remoteConnection.token,
-                repositoryId: selectedRepositoryId,
-                kind: "topic",
-                ...(topicCursor === null ? {} : { cursor: topicCursor }),
-                limit: 20,
-                query: topicQuery,
-              }),
-              readRemoteTopicMeetingPage({
-                baseUrl:
-                  remoteConnection.mcpBaseUrl ?? remoteConnection.baseUrl,
-                token: remoteConnection.token,
-                repositoryId: selectedRepositoryId,
-                kind: "meeting",
-                ...(meetingCursor === null ? {} : { cursor: meetingCursor }),
-                limit: 20,
-                query: meetingQuery,
-              }),
-            ]);
-            topicPage = topics.page;
-            meetingPage = meetings.page;
-            topicCollection = Object.freeze({
-              state: topics.page.status,
-              items: topics.page.records.filter(
-                (record) => "topicId" in record,
-              ),
-              reason: null,
-            });
-            meetingCollection = Object.freeze({
-              state: meetings.page.status,
-              items: meetings.page.records.filter(
-                (record) => "meetingId" in record,
-              ),
-              reason: null,
-            });
-            topicMeetingReader = Object.freeze({
-              getDocument: (kind, id) =>
-                kind === "topic"
-                  ? topics.reader.getDocument(kind, id)
-                  : meetings.reader.getDocument(kind, id),
-              relations: (kind, id) =>
-                kind === "topic"
-                  ? topics.reader.relations(kind, id)
-                  : meetings.reader.relations(kind, id),
-            });
-          } catch {
-            topicCollection = Object.freeze({
-              state: "unknown",
-              items: Object.freeze([]),
-              reason: "observation_failed",
-            });
-            meetingCollection = Object.freeze({
-              state: "unknown",
-              items: Object.freeze([]),
-              reason: "observation_failed",
-            });
-            topicPage = Object.freeze({
-              status: "not_configured",
-              records: Object.freeze([]),
-              nextCursor: null,
-            });
-            meetingPage = topicPage;
-            topicMeetingReader = Object.freeze({
-              getDocument: () => null,
-              relations: () => Object.freeze([]),
-            });
-          }
-        }
         let worktreeView: Readonly<{
           state: "available" | "unknown";
           tree: RepositoryWorktreeTreePage | null;
@@ -1707,10 +2503,8 @@ export async function startWorkbench(
           portfolio,
           actionToken,
           lastActionResult,
-          remoteConnection === undefined ? credentialAdministration : undefined,
+          credentialAdministration,
           connectionState,
-          remoteConnection,
-          connectionNotice,
           topicCollection,
           meetingCollection,
           topicMeetingReader,
@@ -1720,10 +2514,8 @@ export async function startWorkbench(
           meetingQuery,
           topicMeetingResult,
           aiProfiles,
-          remoteConnection === undefined
-            ? aiProfileAdministration?.snapshot()
-            : remoteAiProfileAdministrationSnapshot,
-          remoteConnection === undefined ? "Repository" : "CROS",
+          aiProfileAdministration?.snapshot(),
+          "Repository",
           aiProfileAdministrationResult,
           aiRequests,
           aiRequestSnapshot,
@@ -1760,6 +2552,43 @@ export async function startWorkbench(
             logoPath: LOGO_PATH,
             project,
           });
+        } else if (artifactSelection !== null) {
+          if (
+            requestUrl.searchParams.has("repositoryId") &&
+            requestUrl.searchParams.get("repositoryId") !==
+              projectSurface.context.repositoryId
+          ) {
+            setCommonHeaders(response);
+            response.statusCode = 403;
+            response.end("artifact_access_unavailable\n");
+            return;
+          }
+          const markdown =
+            artifactSelection.kind === "change"
+              ? await readWorkbenchChangeArtifact(
+                  repositoryRoot,
+                  artifactSelection.identity,
+                )
+              : await readWorkbenchOwnerArtifact(
+                  repositoryRoot,
+                  projectSurface.ownerArtifacts,
+                  artifactSelection.identity,
+                );
+          if (markdown === null) {
+            setCommonHeaders(response);
+            response.statusCode = 404;
+            response.end("artifact_unavailable\n");
+            return;
+          }
+          if (requestController.signal.aborted || response.destroyed) return;
+          responseModel = {
+            contract: "crdd/workbench/client-model/v1",
+            view: "artifact",
+            logoPath: LOGO_PATH,
+            repositoryId: projectSurface.context.repositoryId,
+            selectedRepositoryId: null,
+            artifact: { ...artifactSelection, markdown },
+          };
         } else if (clientRoute === "/topic" || clientRoute === "/meeting") {
           const kind = clientRoute === "/topic" ? "topic" : "meeting";
           const id = requestUrl.searchParams.get("id") ?? "";
@@ -1767,37 +2596,19 @@ export async function startWorkbench(
             kind === "topic" ? /^TOPIC-\d{6}$/u : /^MTG-\d{6}$/u;
           const repositoryId = requestUrl.searchParams.get("repositoryId");
           let recordView: WorkbenchRecordDocumentView | null = null;
-          if (expectedPattern.test(id)) {
-            if (remoteConnection === undefined) {
-              const document = topicMeeting[kind].getDocument(id);
-              if (document !== null)
-                recordView = Object.freeze({
-                  kind,
-                  id,
-                  document,
-                  relations: Object.freeze([
-                    ...topicMeeting[kind].relations(id),
-                  ]),
-                });
-            } else if (
-              repositoryId !== null &&
-              isVisiblePortfolioRepository(portfolio, repositoryId)
-            ) {
-              const remote = await readRemoteTopicMeetingDocument(
-                remoteConnection.mcpBaseUrl ?? remoteConnection.baseUrl,
-                remoteConnection.token,
-                repositoryId,
+          if (
+            expectedPattern.test(id) &&
+            (repositoryId === null ||
+              repositoryId === projectSurface.context.repositoryId)
+          ) {
+            const document = topicMeeting[kind].getDocument(id);
+            if (document !== null)
+              recordView = Object.freeze({
                 kind,
                 id,
-              ).catch(() => null);
-              if (remote !== null)
-                recordView = Object.freeze({
-                  kind,
-                  id,
-                  document: remote.document,
-                  relations: Object.freeze([...remote.relations]),
-                });
-            }
+                document,
+                relations: Object.freeze([...topicMeeting[kind].relations(id)]),
+              });
           }
           if (recordView === null) {
             setCommonHeaders(response);
@@ -1811,6 +2622,7 @@ export async function startWorkbench(
             logoPath: LOGO_PATH,
             actionToken,
             repositoryId,
+            recordActionsConfigured: repositoryId === null,
             record: recordView,
           });
         }
@@ -1819,7 +2631,6 @@ export async function startWorkbench(
             ? JSON.stringify(responseModel)
             : renderClientDocument();
         if (method === "GET" && requestPath === "/api/workbench-view") {
-          connectionNotice = null;
           topicMeetingResult = null;
           aiProfileAdministrationResult = null;
           aiRequestNotice = null;
@@ -1836,34 +2647,11 @@ export async function startWorkbench(
         body = renderClientDocument();
         contentType = "text/html; charset=utf-8";
       } else if (requestPath === "/change") {
-        const changeId = requestUrl.searchParams.get("id") ?? "";
-        const artifact = await readWorkbenchChangeArtifact(
-          repositoryRoot,
-          changeId,
-        );
-        if (artifact === null) {
-          setCommonHeaders(response);
-          response.statusCode = 404;
-          response.end(method === "HEAD" ? undefined : "not_found\n");
-          return;
-        }
-        body = artifact;
-        contentType = "text/markdown; charset=utf-8";
+        body = renderClientDocument();
+        contentType = "text/html; charset=utf-8";
       } else if (requestPath === "/owner-artifact") {
-        const requestedPath = requestUrl.searchParams.get("path") ?? "";
-        const artifact = await readWorkbenchOwnerArtifact(
-          repositoryRoot,
-          projectSurface.ownerArtifacts,
-          requestedPath,
-        );
-        if (artifact === null) {
-          setCommonHeaders(response);
-          response.statusCode = 404;
-          response.end(method === "HEAD" ? undefined : "not_found\n");
-          return;
-        }
-        body = artifact;
-        contentType = "text/markdown; charset=utf-8";
+        body = renderClientDocument();
+        contentType = "text/html; charset=utf-8";
       } else if (requestPath === "/workbench.css") {
         body =
           shellCss +
@@ -1885,7 +2673,7 @@ export async function startWorkbench(
           contract: CONTRACT,
           status: "ready",
           host: HOST,
-          mode: connectionState === "repository" ? "repository" : "remote-cros",
+          mode: request.localAccessRoot === undefined ? "repository" : "cros",
           ...(connectionState === "repository" ? {} : { connectionState }),
           readOnly: false,
         });
@@ -1902,9 +2690,17 @@ export async function startWorkbench(
       response.setHeader("Content-Length", Buffer.byteLength(body));
       response.end(method === "HEAD" ? undefined : body);
     })().catch(() => {
-      if (!response.headersSent) setCommonHeaders(response);
-      response.statusCode = 500;
-      response.end("workbench_request_failed\n");
+      if (!response.destroyed && !requestController.signal.aborted) {
+        if (!response.headersSent) setCommonHeaders(response);
+        response.statusCode = 500;
+        response.end("workbench_request_failed\n");
+      }
+    });
+    pendingRequests.add(requestPending);
+    void requestPending.finally(() => {
+      pendingRequests.delete(requestPending);
+      incoming.removeListener("aborted", requestAborted);
+      response.removeListener("close", requestClosed);
     });
   });
   server.on("connection", (socket) => {
@@ -1928,6 +2724,7 @@ export async function startWorkbench(
   return Object.freeze({
     contract: CONTRACT,
     baseUrl,
+    publicUrl: publicOrigin?.origin ?? baseUrl,
     healthUrl: `${baseUrl}${HEALTH_PATH}`,
     close: () => {
       if (closeOperation) return closeOperation;
@@ -1940,7 +2737,7 @@ export async function startWorkbench(
             for (const connection of connections) connection.destroy();
           });
         } finally {
-          await Promise.allSettled([...credentialRequests]);
+          await Promise.allSettled([...pendingRequests]);
         }
       })();
       return closeOperation;

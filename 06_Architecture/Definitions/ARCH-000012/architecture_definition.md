@@ -16,7 +16,7 @@ Architecture ID: `ARCH-000012`
 | 所有しない責務 | Orchestratorの意味契約、Authority追加、Provider実行 |
 | 主な外部境界 | CLI、MCP stdio、localhost HTTP、Workbench表示API |
 
-SPEC-000011のstdio／localhost HTTPという正式入力を維持する。共有Remote MCPの認可・Exposure・TLS／OriginはARCH-000013との共同成立条件として扱い、localhostの意味を無断でRemote全域へ拡張しない。MCPはAI専用ではなくMachine向け公開境界であり、別ProcessのWorkbench ServerもClientになれる。Browser向けRESTはWorkbench Serverに残し、独立CROS REST／Gatewayは既存能力を移管・確認した後に撤去する。
+SPEC-000011のstdio／localhost HTTPという正式入力を維持する。共有Remote MCPの認可・Exposure・TLS／OriginはARCH-000013との共同成立条件として扱い、localhostの意味を無断でRemote全域へ拡張しない。MCPはMachine向けの独立公開入口である。Workbench ServerとMCP Serverは対等な入口として、各専門Packageの共通APIへ直接接続する。WorkbenchはLocal／共有Host配置のいずれでもMCP Package・Protocol・Serverに依存しない。共有利用ではBrowserが配置先Workbench Serverへ直接アクセスし、そのHostの専門PackageとRepository群を利用する。Workbench backendから別HostのMCP／CROSへ接続する経路は持たない。Browser向けWorkbench APIは残し、独立CROS REST／Gatewayは既存能力を直接APIへ移管・確認した後に撤去する。新しいGatewayや代替RESTを追加しない。この境界は2026-10-13の人間判断を反映した目標であり、現SourceのMCP依存全撤去は未完了である。
 
 ## 2. UI観点の入力
 

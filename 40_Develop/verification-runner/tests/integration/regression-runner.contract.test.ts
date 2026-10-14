@@ -14,7 +14,6 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import {
@@ -26,7 +25,88 @@ import {
 } from "../../src/regression/stages.ts";
 
 const verificationRunnerRoot = path.resolve(import.meta.dirname, "../..");
-const runner = path.join(verificationRunnerRoot, "bin", "regression-runner.ts");
+const runner = path.join(
+  verificationRunnerRoot,
+  "bin",
+  "verification-runner.ts",
+);
+
+/**
+ * 検証済みRootの直下で試験領域を準備する。
+ *
+ * @responsibility 各祖先の実体を作成前に確認し、リンク先への作成を拒否する。
+ * @trace CQS-IT-011
+ * @precondition Rootは実体確認済みのRepositoryまたは自己生成fixtureである。
+ * @stimulus .crddとtestsを順に検査し、欠測した一段だけを作成する。
+ * @observation lstat、realpath、返却Pathを確認する。
+ * @oracle 各段は非リンクDirectoryで宣言Pathと実体が一致する。
+ * @cleanup 作成した一回性領域は呼出し元のfinallyで回収する。
+ * @boundary CQS-IT-011=Direct Boundary: 検証済みRoot→試験Filesystem
+ */
+function prepareGitTestRoot(root: string): string {
+  for (const relative of [".crdd", ".crdd/tests"]) {
+    const directory = path.join(root, relative);
+    let observed: fs.Stats;
+    try {
+      observed = fs.lstatSync(directory);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      fs.mkdirSync(directory);
+      observed = fs.lstatSync(directory);
+    }
+    assert.equal(observed.isSymbolicLink(), false);
+    assert.equal(observed.isDirectory(), true);
+    assert.equal(fs.realpathSync.native(directory), directory);
+  }
+  return path.join(root, ".crdd", "tests");
+}
+
+/**
+ * 試験領域の祖先リンクを作成前に拒否する。
+ *
+ * @responsibility .crddとtestsのリンク先へDirectoryを作らない反例を確認する。
+ * @trace CQS-IT-011
+ * @precondition 検証済みRepository内に自己生成fixtureを置く。
+ * @stimulus 各祖先をfixture内の別Directoryへリンクして準備を要求する。
+ * @observation 拒否とリンク先の子Directory数を確認する。
+ * @oracle 各リンクは拒否され、リンク先の子Directory作成は0となる。
+ * @cleanup finallyでexact fixtureを回収し不存在を確認する。
+ * @boundary CQS-IT-011=Direct Boundary: 試験領域準備→Filesystem祖先
+ */
+test(".crddまたはtestsがリンクならリンク先への作成0で拒否する", () => {
+  const repositoryRoot = fs.realpathSync.native(
+    path.resolve(verificationRunnerRoot, "../.."),
+  );
+  const gitRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], {
+    cwd: repositoryRoot,
+    encoding: "utf8",
+    windowsHide: true,
+  }).trim();
+  assert.equal(fs.realpathSync.native(gitRoot), repositoryRoot);
+  const testRoot = prepareGitTestRoot(repositoryRoot);
+  const fixture = fs.mkdtempSync(path.join(testRoot, "runner-root-link-"));
+  try {
+    for (const name of ["crdd", "tests"]) {
+      const root = path.join(fixture, name);
+      const target = path.join(fixture, `${name}-target`);
+      fs.mkdirSync(root);
+      fs.mkdirSync(target);
+      if (name === "tests") fs.mkdirSync(path.join(root, ".crdd"));
+      const link =
+        name === "crdd"
+          ? path.join(root, ".crdd")
+          : path.join(root, ".crdd", "tests");
+      fs.symlinkSync(target, link, "junction");
+      assert.throws(() => prepareGitTestRoot(root));
+      assert.deepEqual(fs.readdirSync(target), []);
+    }
+  } finally {
+    assert.equal(fs.lstatSync(fixture).isSymbolicLink(), false);
+    assert.equal(path.dirname(fs.realpathSync.native(fixture)), testRoot);
+    fs.rmSync(fixture, { recursive: true, force: true });
+    assert.equal(fs.existsSync(fixture), false);
+  }
+});
 
 /**
  * invokeRunnerのTest準備責務を実行する。
@@ -447,12 +527,7 @@ test("利用側静的検査はunit限定でも残し、利用側ITは実行し�
  */
 test("実行知の静的検査はCoordinatorのtoolchainを参照しない", () => {
   const source = fs.readFileSync(
-    path.join(
-      verificationRunnerRoot,
-      "src",
-      "application",
-      "regression-runner.ts",
-    ),
+    path.join(verificationRunnerRoot, "src", "regression", "run.ts"),
     "utf8",
   );
   assert.doesNotMatch(
@@ -711,7 +786,17 @@ test("明示変更PathはRepository内の正規化相対Pathだけを受理す�
  * @boundary CQS-IT-011=Direct Boundary: verification-runner Test Source→対象契約
  */
 test("Git変更集合はcommit・index・worktree・未追跡とrename両側を合成する", () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-regression-git-"));
+  const repositoryRoot = fs.realpathSync.native(
+    path.resolve(verificationRunnerRoot, "../.."),
+  );
+  const gitRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], {
+    cwd: repositoryRoot,
+    encoding: "utf8",
+    windowsHide: true,
+  }).trim();
+  assert.equal(fs.realpathSync.native(gitRoot), repositoryRoot);
+  const testRoot = prepareGitTestRoot(repositoryRoot);
+  const root = fs.mkdtempSync(path.join(testRoot, "crdd-regression-git-"));
   /**
    * gitのTest準備責務を実行する。
    *
@@ -752,6 +837,9 @@ test("Git変更集合はcommit・index・worktree・未追跡とrename両側を�
     ])
       assert.ok(observedPaths.includes(expected), expected);
   } finally {
+    assert.equal(fs.lstatSync(root).isSymbolicLink(), false);
+    assert.equal(path.dirname(fs.realpathSync.native(root)), testRoot);
     fs.rmSync(root, { recursive: true, force: true });
+    assert.equal(fs.existsSync(root), false);
   }
 });

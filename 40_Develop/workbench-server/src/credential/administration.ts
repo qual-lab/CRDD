@@ -16,6 +16,8 @@ import {
   finishKeyExchange,
   recordCredentialPresentation,
   readCredentialAdministrationState,
+  resolveConnectionAuthentication,
+  confirmInitialConnection,
 } from "../../../access-management/src/index.ts";
 
 /**
@@ -23,15 +25,69 @@ import {
  * @responsibility Remote接続や過去の認可Snapshotを管理Authorityへ転用させない。
  * @trace ARCH-000013
  * @shape root、token。
- * @invariant tokenはServer memoryだけで、各操作がfresh認可する。
+ * @invariant tokenは当該要求のServer memoryだけで、各操作がfresh認可する。CROSのログイン状態としてProcess全体へ保持しない。
  * @boundary 信頼したWorkbench構成Ownerから内部管理Consumer。
- * @security Browser入力のRoot・Bearerを受け取らない。
+ * @security Rootは内部構成だけ。Bearerは検査済み専用接続POST、単一Authorization Header、または限定構成から要求memoryへ渡し、公開結果へ含めない。
  * @compatibility 新AMだけ。旧CROS Registryとの併用・fallbackなし。
  */
 export type CredentialAdministration = Readonly<{
   root: FilesystemStoreRoot;
   token: string;
 }>;
+
+/**
+ * 完全なWorkbench接続Formだけを現在の同Process認証へ渡す。
+ * @responsibility 初回限定候補を既存確認保存へ接続し、通常認証を取り直してから接続資格を返す。
+ * @trace ARCH-000013
+ * @input 検証済み管理Root、容量とOrigin確認済みForm、起動専用Action Token、要求Signal。
+ * @returns Server memory専用の接続資格を返す。認可結果ではなく、Browserへserializeしない。
+ * @precondition Callerが同Origin・Host・Content-Type・Body上限を検査済みである。
+ * @postcondition 初回相関から直接Roleや内容権限を生成せず、通常操作は次HTTP要求のfresh認証へ残す。
+ * @effect AM既存認証、初回候補だけ既存確認保存とfresh再認証。
+ * @failure 不正・重複・未知入力、認証不成立、確認不明、取消は固定例外で拒否する。
+ * @invariant 管理RootはFormから取得せず、新Session・資格発行・自動再送を追加しない。
+ * @boundary Browserの用途限定POSTとAM保存Owner。
+ * @security 鍵・入力本文・内部Rootを例外へ含めず、永続化・log・応答へ渡さない。
+ * @concurrency 保存前後に取消を確認する。保存後取消をrollbackと表示しない。
+ */
+export function authenticateWorkbenchConnection(
+  root: FilesystemStoreRoot,
+  form: URLSearchParams,
+  expectedActionToken: string,
+  signal: AbortSignal,
+): CredentialAdministration {
+  const fields = ["actionToken", "operation", "token"];
+  const token = form.get("token");
+  if (
+    [...form.keys()].some((key) => !fields.includes(key)) ||
+    fields.some((key) => form.getAll(key).length !== 1) ||
+    !/^[A-Za-z0-9_-]{43}$/u.test(expectedActionToken) ||
+    form.get("actionToken") !== expectedActionToken ||
+    form.get("operation") !== "connect" ||
+    !token ||
+    token.length > 4096 ||
+    token.trim() !== token
+  )
+    throw new Error("workbench_local_connection_input_invalid");
+  if (signal.aborted) throw new Error("workbench_local_connection_cancelled");
+  let authentication = resolveConnectionAuthentication(root, token);
+  if (authentication.status === "initial") {
+    const confirmed = confirmInitialConnection(
+      root,
+      token,
+      authentication.binding,
+      signal,
+    );
+    if (signal.aborted) throw new Error("workbench_local_connection_cancelled");
+    if (confirmed.status !== "completed")
+      throw new Error("workbench_local_connection_unavailable");
+    authentication = resolveConnectionAuthentication(root, token);
+  }
+  if (signal.aborted) throw new Error("workbench_local_connection_cancelled");
+  if (authentication.status !== "normal")
+    throw new Error("workbench_local_connection_unavailable");
+  return Object.freeze({ root, token });
+}
 
 /**
  * 用途限定の管理POST応答を表す。

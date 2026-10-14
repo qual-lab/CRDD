@@ -481,6 +481,7 @@ test("Fixed SnapshotとFixed Revisionの既知Consumer集合が宣言と一致�
     [
       "40_Develop/coordinator/src/repository-operation/binding.ts",
       "40_Develop/coordinator/src/workbench-ai/change-candidate-executor.ts",
+      "40_Develop/orchestrator/src/activity/read.ts",
     ],
   );
 });
@@ -549,6 +550,10 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
       /\b(?:verifyRepositoryRoot|verifyRepositoryRootFromWorkingDirectory|resolveVerifiedRepositoryRootFromWorkingDirectory|describeRepositoryLocationContract)\b/u,
     ),
     [
+      "40_Develop/access-management/src/access/repository-access.ts",
+      "40_Develop/access-management/src/management/repository-exposure.ts",
+      "40_Develop/mcp-server/src/transport/configuration.ts",
+      "40_Develop/workbench-server/src/connection/configuration.ts",
       "40_Develop/checker/src/profiles/current.ts",
       "40_Develop/checker/src/rules/reality-symbol-graph.ts",
       "40_Develop/coordinator/scripts/check-platform-access-coverage.ts",
@@ -579,7 +584,6 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
       "40_Develop/coordinator/src/repository-operation/binding.ts",
       "40_Develop/coordinator/src/repository-operation/workspace.ts",
       "40_Develop/coordinator/src/state-storage/settlement-store.ts",
-      "40_Develop/cros/src/configuration/shared-server-file-adapter.ts",
       "40_Develop/execution-intelligence/src/store/verify-repository-root.ts",
       "40_Develop/domain-model/src/repository/resolve-storage-paths.ts",
       "40_Develop/domain-model/src/storage/ensure-area.ts",
@@ -804,6 +808,15 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
   assert.deepEqual(
     repositoryIdentityConsumers,
     [
+      "40_Develop/access-management/src/access/repository-access.ts",
+      "40_Develop/access-management/src/management/repository-exposure.ts",
+      "40_Develop/domain-model/src/project-context/read-context.ts",
+      "40_Develop/mcp-server/src/request/access-resolver.ts",
+      "40_Develop/mcp-server/src/transport/configuration.ts",
+      "40_Develop/orchestrator/src/activity/read.ts",
+      "40_Develop/orchestrator/src/activity/types.ts",
+      "40_Develop/workbench-server/src/connection/configuration.ts",
+      "40_Develop/workbench-server/src/topic-meeting/access-resolver.ts",
       "40_Develop/coordinator/scripts/check-platform-access-coverage.ts",
       "40_Develop/coordinator/scripts/measure-development-providers.ts",
       "40_Develop/coordinator/scripts/prepare-codex-advice-image.ts",
@@ -849,7 +862,6 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/checker/src/reality/symbol-traceability.ts",
       "40_Develop/checker/src/profiles/current.ts",
       "40_Develop/checker/src/rules/reality-symbol-graph.ts",
-      "40_Develop/cros/src/configuration/shared-server-file-adapter.ts",
       "40_Develop/domain-model/src/configuration/read-tool-config.ts",
       "40_Develop/domain-model/src/repository/observe-symbols.ts",
       "40_Develop/domain-model/src/repository/create-observer.ts",

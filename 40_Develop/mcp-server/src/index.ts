@@ -8,6 +8,7 @@
  * @concurrency 複数RequestとServer終了を独立管理し、終了時に取消とjoinを行う。
  * @security 認証済みClient Principalを持つ要求だけを意味処理へ渡す。
  */
+export { readMcpServerConfiguration } from "./transport/configuration.ts";
 export {
   MCP_ORCHESTRATOR_ADAPTER_CONTRACT,
   describeMcpOrchestratorAdapterContract,
@@ -23,7 +24,6 @@ export {
   routeMcpRequest,
   type McpRequestRoutingDependencies,
 } from "./request/route.ts";
-export { createCrosProjectContextMcpResolver } from "./project-context/cros-resolver.ts";
 export { createAccessMcpResolver } from "./request/access-resolver.ts";
 export {
   MCP_CURRENT_ACCESS_TOOL,
@@ -40,11 +40,6 @@ export {
   handleMcpRuntimeActivityRequest,
   type McpRuntimeActivityDependencies,
 } from "./runtime-activity/adapter.ts";
-export {
-  startCrosSharedServer,
-  type CrosSharedServerHandle,
-  type CrosSharedServerInput,
-} from "./shared-host/server.ts";
 export {
   getMcpProjectContextToolDefinitions,
   MCP_PROJECT_CONTEXT_GET_TOOL,

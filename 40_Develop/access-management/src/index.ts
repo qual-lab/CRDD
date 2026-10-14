@@ -2,8 +2,11 @@
  * Access Managementの純粋判定と内部状態保存を公開する。
  *
  * @packageDocumentation
- * @responsibility 純粋判定・認証・本人／管理対象読取り・User／Role・Repository管理・提示状態の内部保存を明示公開し、鍵管理・本番入口の未接続を区別する。
+ * @responsibility 純粋判定・現在認証・管理操作・鍵管理・Host初期化と既存保存Ownerの公開集合を固定する。
  * @trace ARCH-000013
+ * @boundary 同Hostの信頼された構成側とAccess Managementの専門API境界。
+ * @effect 公開した管理操作は既存Host管理Rootの状態・資格を保存し得る。Transportは所有しない。
+ * @security 秘密値は明示した発行・交換結果だけへ返し、一般状態読取りへ含めない。
  */
 export type {
   RepositoryAccess,
@@ -11,6 +14,7 @@ export type {
   AuthorizedRepository,
   RepositoryAccessCollectionResult,
 } from "./access/repository-access.ts";
+export { sameAccessCollection } from "./access/repository-access.ts";
 export type {
   CurrentAccessResult,
   CurrentAccessSnapshot,
@@ -64,6 +68,8 @@ export {
 export type { HostInitializationStateResult } from "./initialization/host-state.ts";
 export {
   prepareHostInitializationRoot,
+  resolveHostRootInput,
+  readExistingHostRoot,
   type HostRootPreparationResult,
   type HostPreviousInputObservation,
 } from "./initialization/prepare-host-root.ts";

@@ -20,7 +20,7 @@
       "kind": "test-suite",
       "path": "tests/integration/project-context-read.contract.test.ts",
       "qaIds": ["QA-000004"],
-      "localTestIds": ["PPR-IT-019", "PPR-IT-002"],
+      "localTestIds": ["PPR-IT-002", "PPR-IT-019"],
       "verifies": ["domain-model.project-context-read", "domain-model.project-portfolio"]
     },
     {

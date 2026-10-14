@@ -1,5 +1,6 @@
 /**
  * 鍵交換四経路の現在認証・対象・確認と準備候補を検証する。
+ * @packageDocumentation
  * @responsibility 準備の意味判断を保存・失効・新資格生成・提示の成立と分離する。
  * @trace RFD-IT-013
  * @trace RFD-IT-017

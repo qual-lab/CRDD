@@ -5,9 +5,220 @@
 対象変更: [CHG-000082](change.md)
 基準改訂版: `98cab6e3278a61684c557a6499cfb602e2d19111`
 維持責任者・採用決定権限: Qual-Lab
-最終更新日: 2026-10-09
+最終更新日: 2026-10-14
 
 ## 1. 結論と実行境界
+
+### 今回の区切りと後続E2E — 2026-10-14
+
+最終候補`635ce3f9e080768572116b0b4923e828b61ca291`の対象回帰は480成功・失敗0、人間UAT1件Skipで終了した。Source／契約と結果同期の最終限定独立確認は残指摘0、AM17義務は確認済み13・部分確認2・人間UAT未実施2である。今回の区切りは成立し、コミット・プッシュ後に計画済みのDocker周りの責務分離へ進む。初回実Hostと人間理解を後続E2Eへ保持し、CHG全体／正式191／v0.22全体の完成と区別する。詳細は[集約検証結果](Evidence/261014_access-management-verification.md)を参照する。
+
+人間の判断により、初回設定・鍵操作の実入口縦断と、人間が操作の意味を理解できるかの確認は後続E2Eへ回す。`RFD-ST-016`／`RFD-ST-026`の未確認の実入口範囲、`RFD-UAT-007`／`RFD-UAT-027`の人間確認をPassへ変更しない。既存の局所試験が証明する範囲は保持し、未確認範囲を正式評価と現在投影へ明記する。
+
+今回の区切りは、それ以外の是正、検証義務と実行根拠の対応、現在文書・Reality Auditの整合、固定候補の回帰、独立レビューと指摘是正までとする。この区切りが成立したらコミット・プッシュし、その後に計画済みのOrchestrator／Coordinator／Dockerの責務分離・大改修へ進む。これはAccess Managementの全検証完了、v0.22全体完成またはリリース承認ではない。後続E2Eの未実施義務は削除・免除せず保持する。
+
+固定候補の回帰終了後、QA義務の独立照合で試験不足を検出した。是正は既存試験への反例追加に限定し、時間経過のみの同一内容要求、登録解除と既開始読取りの終了の分離、Browser管理三操作・manager自己内容変更後の再認可、失効／旧Role／Exposure外／管理のみ／実体不明のBrowser拒否を補う。製品Source、Time・Registry・Recovery Frameworkは追加しない。局所確認を先に行い、義務対応の独立再確認後に新しい固定候補の回帰へ戻す。実行結果と途中失敗の原因は[集約検証結果](Evidence/261014_access-management-verification.md)にまとめ、実行別書庫を作らない。
+
+2026-10-14の人間承認：認可集合・Repository実体が不明なら全体停止を維持し、認可済み文書の欠落・競合は状態を明示して読めた分を表示する。要求・QAの部分可視契約へ詳細Readerと本番Consumerを揃える。承認はこの表示・停止の区別に限定し、新しい認可・保存・回復Frameworkを追加する許可とは扱わない。
+
+#### Portfolio部分表示の着手前整合と実装範囲
+
+変更分類は、承認済み要求を実現する詳細設計・結果契約・Consumerの是正。意味OwnerはDomain、認可・登録実体はAM、表示はWorkbench、Machine搬送はMCP。現在HEADは`378d93cb6ffb0cc7c9561e0572d62bdd656f3312`の未Commit候補で、過去の正式Evidenceは変更しない。
+
+| 条件 | 結果・観測 | 変更しない境界 |
+|---|---|---|
+| 認可集合が不明、資格不成立、Repository実体不明、取消 | 一覧全体を固定拒否。内容・存在情報を部分公開しない | 現在AM認可、Root検証、公開前再確認、既存descriptor清掃 |
+| 認可済みRoot、本文と三Identityが一致 | Sourceはcomplete、本文相関revisionを保持 | 文書を正本化せず、元Artifactへ追跡 |
+| 認可済みRoot、本文が取得・解析できない | Sourceはunavailable（未確認）、context／Role／revisionはnull、Projectはpartial | 既存Observerは不存在と観測不能を区別する結果型を持たないため、missingと断定しない |
+| 認可済みRoot、取得した文書のProject／Repository／Roleが不一致 | Sourceはconflicting（競合）、外国のIdentity・本文・版を公開せずnull | 宣言Identityは認可済みmanifestからのみ取得 |
+| 既存の中立Snapshotが明示的に文書未提供 | Sourceのmissingは維持 | Filesystem不存在証明へ読み替えない |
+| 正常・未確認・競合の混在 | 正常Sourceを表示し、各不完全状態を併記。競合優先、全Source completeの場合だけProject complete | 未許可Sourceの枠や期待Repositoryを推測しない |
+
+Readerは技術的Rootの不成立を文書未確認へ畳まず、既存Version ControlのRoot再観測を使う。中立Sourceには読取り状態を明示し、取得できない本文の版はnullにする。既存の状態・結果型を拡張するだけで、新しいStore／Registry／Lock／診断Directoryは作らない。
+
+利用側母集団はDomainの純粋集約・Reader、AMの集合→Domain結合試験、MCPの公開内容Tool、Workbenchの本番Reader／JSON Inspector／Portfolio描画、各Symbol／QA対応である。Domainで認可しない。Workbenchの既存全集合公開前照合は維持し、MCPも公開時の現在集合を照合する。既存の比較処理を使えるか所有者とConsumerを照合し、新しい汎用認可Frameworkへ一般化しない。
+
+局所反例は、正常＋本文欠落、正常＋解析不正、正常＋三Identity競合、本文不成立とRoot不成立の区別、取得中の公開解除・失効・取消、未許可Source非開示、null版と完全集合状態の相関、Browserの読めた情報と未確認／競合表示である。変更した意味からDomain／AM／MCP／Workbenchの静的確認・局所試験・全回帰、限定独立レビュー、文書・直接伝播とGap影響照合を実施する。標準の準拠基準を変更しないため準拠監査、外部送信・署名・実Host操作を変更しないため署名Provider E2Eはここでは実行しない。後続E2Eの既承認残件は維持する。
+
+今回の局所確認：WorkbenchのBuild成功後、`node --test --test-concurrency=1 ./tests/integration/*.test.ts ./tests/system/credential-administration-browser.contract.test.ts ./tests/system/workbench-server-entry.integration.test.ts`を実行し、78 Case成功・失敗／取消／Skip 0、Exit 0、415091.5923ms。実Browser11場面と公開CLIを含む。Node v24.19.0、HEAD `378d93cb6ffb0cc7c9561e0572d62bdd656f3312`の未Commit候補であり、実行前の完全な入力固定を取得していないため正式Local Item全体の新Passへ流用しない。制限環境の先行実行は子Gitを利用できずExit 1、制限外の同コマンドで該当箇所を通過した。実Host資格・Docker・外部AIを使わず、自己生成Rootとloopbackを使用した。
+
+Header是正7ファイルは今回候補へ反映済み。Workbench／MCPの三つのparameterized試験で既存Headerをループ内の個別Test直前へ移し、公開CLIとAMのNamed Helperへ実責務・観測・清掃のHeaderを追加した。Workbench管理ITのCRUD・公開失敗・入力拒否の既存観測へ個別Case Traceを接続した。処理・Oracleは不変更。全数接続検査はこれらを越えてCoordinatorの`native-protection-entry`にSymbol登録がないことを検出し、まだ合格していない。限定独立レビューの記述2指摘を是正し、再レビューPass・全重大度残指摘0。AM対象8 Case（19322.8761ms）、MCPの結果fixture・公開HTTP21 Case（22165.4298ms）、Workbench公開CLI8 Case（14633.1978ms）の局所再回帰は全成功・失敗／取消／Skip 0・Exit 0。AM／MCP／Workbenchの書式・型・Lintも全Exit 0。現在Ownerリンク2箇所とCLI名の是正は限定独立再レビューPass・残指摘0、履歴blob実在確認と過去Evidence差分0を確認した。完全出力は端末で確認し、同じ対象試験とNode test-name-patternから再生成できるため実行別書庫は追加しない。正式義務全体の評価と固定候補全体のレビューは別途残る。
+
+### 現在の完了順序 — 2026-10-13
+
+現在：①〜④は限定完了、⑤共有配置・旧CROS撤廃は進行中、⑥全体整合は未完了。実TLSを含むWorkbench公開CLI8/8（15184.105ms）とMCP公開CLI System18/18（20355.4239ms）、各静的3軸が成功し、両試験の限定独立再確認Pass・残指摘0。公開試験証明書の明示CA検証、未信頼拒否、Forwarded上書き、初回接続・現在認証・manager Profile操作・失効後拒否、所有終端・Process・試験Root回収を確認した。Workbench終端の終了観測保留中のfresh接続拒否、Backend要求一件維持も確認済み。MCP試験本文上限の独立指摘はBufferバイト数計測へ是正した。共有利用全体の反証、旧CROS撤去後の全体品質整合、正式191項目・Reality Audit・全体回帰は残る。実運用Proxy・Linux配置・実OS Signalの成立は主張しない。現在追加の人間判断はない。 旧MCP Shared Host／Resolver・専用入口の撤去はMCP86/86・静的3軸成功と限定独立再確認Pass・残指摘0で閉じた。過去のGateway Evidenceと正式191項目Not Runは保持し、全体完成とは区別する。 2026-10-14：旧CROS Package・REST library全撤去は能力対応と限定独立確認Pass・残指摘0で閉じた。AM152/152・MCP86/86・Runner44 Pass／人間UAT1 Skip、台帳0指摘、AM8file収集を確認。Coordinator製品Source型は成功、Docker持越し試験18型不一致は別件として保持する。
+
+### 旧CROS Package全撤去の着手前確認 — 2026-10-14
+
+結果：旧CROS Package撤去の限定Gateは完了。基準HEAD比33 Path（先行撤去込み）を削除し、Package Directory不存在、現行Source／入口／Symbol／Catalog／Runner／配布／VC集合の旧Package参照0を確認した。Host管理情報・論理CROS名・過去Evidenceは不変更。配布SiblingはAMへ、署名fixtureの物理MCP Directoryは`mcp-server`へ同期し、Package名は維持した。未署名fixtureはAM存在・CROS不存在・help終了・回収成功、開発版配布閉包1/1（21628.8746ms）、descriptor1/1（383.5193ms）成功。AM152/152（211237.8868ms）、MCP86/86（105158.7407ms）、Runner44 Pass・人間UAT1 Skip・Fail0（14438.7349ms）、VC Consumer12/12（1665.2209ms）成功。AM／MCP／WB／Runner／Checker静的検査とVC型、Coordinator製品Source単独型は成功。Checker Lint54 infosは保持し、Coordinator全checkは持越しDocker試験18型不一致で未合格として分離する。文書の現在／履歴と削除先リンクを是正し、旧Gitリンク24件は実在確認済み（現行名は`378d93cb…`、改名前は`b8fad534…`）。限定独立再確認Pass・全重大度残指摘0。正式191項目、全体Checker、共有利用全体の残る評価、⑥とAM全体完成は未完了を維持する。
+
+対象は⑤の承認済みPackage撤去と既存利用側の接続閉包である。CROS全体概念は維持する。旧Source・試験・署名済みEvidenceは基準Commit `378d93cb6ffb0cc7c9561e0572d62bdd656f3312` とGit履歴で再構成し、歴史的Evidence本文・Hashを改変しない。現行外部Productionから旧`cros/src`のimportは0件で、残存は配布・試験収集・fixture・台帳の旧Owner参照である。新Framework、Host管理状態の移行、鍵操作、Docker／Provider／署名操作は本単位で行わない。
+
+| 残存責務 | 新Ownerと予定処置 | 必要な反証・終了条件 |
+| --- | --- | --- |
+| Credential・認証・登録・Exposure・旧回復 | Access Management。旧Role固定資格・full reset・手編集共有設定は新契約へ移植しない | 現在User／Role・失効・管理操作・限定Host交換を既存試験へ対応し、未対応能力を撤去済みとしない |
+| Portfolio／Repository意味 | Domain Model＋AMの認可集合。旧Registry由来の集約は撤去 | 認可集合外本文0、欠測の非開示、実本文とSource改訂の相関 |
+| Profile／Activity | AI Adapter／Orchestrator。MCPとWorkbenchが直接利用 | 現在認可・実保存・取消後待機の既存本番接続を保持 |
+| REST・旧CLI・共有設定 | 旧Packageとともに撤去。現在MCP／Workbench公開入口・可視設定例を維持 | 第三Surface・旧Fallback・死んだ入口が残らない |
+| 値だけのLocal Operation／Surface／Result Return | 実Consumerなしの試作品として評価。RFD-IT-009／EST-IT-010／EST-ST-011の義務を保持 | 純値fixtureを実Surface／Taskの証明へ流用せず、5C依存を独立保留する |
+| 配布閉包 | 既存`RUNTIME_SIBLING_COMPONENTS`と署名／unsigned fixtureの旧CROS参照をAMへ同期 | 現Package名・Source集合、欠測拒否・閉包受理。再署名の成立は別実行で確認 |
+| 試験収集 | Verification Runnerの既存Owner母集団へAMを接続し、旧CROSは本体撤去時に除外 | AM実在試験を収集・選択でき、不存在／未対応Ownerを正しく拒否 |
+
+読取り専用の現行Runner実測では、台帳検査49指摘のうちAM関連17件、AMの実在試験収集0件だった。台帳のAM8試験は実在するが、RunnerのOwner母集団が未接続のため不存在・未対応として報告されている。これは試験未実行やSource不存在とは分ける。既存一覧へのAM追加を先行でき、旧CROSの除外は本体撤去と同時に行う。独立した着手前確認を依頼中で、Source切替前に結果を統合する。
+
+AM収集の先行是正は限定完了。Runnerの既存Owner／段階判定／変更Path判定／静的・試験dispatchへAMを接続し、両ServerのOwnerを現行Package名へ統一した。AM結合BlockとMCP接続Corridorは既存Architecture・試験へ接続し、QA ID・台帳IDは変更していない。旧Domain Anchor・Profile順序・改名前CLI2参照・Source1参照を同期した。台帳検査0指摘、AM8file収集、MCP内のAM名によるOwner混同なし。最終Runner45件中44 Pass・Fail/Cancel 0・人間UAT 1 Skip、14408.2909ms、静的3軸・Exit 0。Git試験は各祖先を作成前にlstatで確認し、.crdd／tests junction反例のリンク先作成0、正常変更集合とexact fixture回収・残存0を確認した。更新6Pathの限定独立再確認Pass・全重大度残指摘0、diff check成功、基準HEAD不変。途中の失敗・環境拒否は最終成功へ読み替えない。旧CROS Ownerは本体撤去まで維持し、正式191項目・全体Checker・AM全体完成は未完了である。
+
+必要確認は能力対応、対象Package／利用側回帰、静的3軸、台帳／Symbol／配布閉包、限定独立レビューと現在文書の整合である。標準規範・外部実行境界を新設しないため、準拠基準の新規採用監査とProvider E2Eをこの局所撤去の根拠には要求しない。正式191項目・全体Checker・⑥・AM全体完成は未完了を維持する。現在追加の人間判断はない。
+
+### 旧Shared Host・MCP旧認証接続の撤去 — 2026-10-13
+
+本番Consumerは新AM ResolverとWorkbench同Host直接接続へ切替済みである。旧MCPのShared Host／CROS Resolver、専用公開CLI・混在設定例を撤去する。CROS Package内の旧REST library・旧資格・未使用Surfaceは後続撤去であり、本単位でPackage全廃とは表示しない。維持する能力は新Ownerと実試験へ、廃止した構成固有の能力は再実装しない。変更分類は採用済み二Surface構成の接続閉包。Role／鍵操作権限・Host保存先・Schema・旧正式Evidenceは不変更。署名・Provider・Docker操作は今回不要で実行しない。
+
+| 旧能力・処置 | 現在のOwner／接続・確認 |
+| --- | --- |
+| 要求毎認証・非開示・公開解除・失効、Repository／Project拘束 | AMの現在認証・集合→Domain実本文／CRUD。access-capabilitiesの本人、内容12操作、foreign Project・集合欠測・本文待機中失効／解除・Relationで確認 |
+| Profile四操作・改訂競合・非管理非開示、活動取得 | AM現在Role／認可→AI Adapter／Orchestrator。access-capabilitiesの実HTTP・実保存で確認 |
+| TLS／Host／Origin・秘密非表示・Signal／Socket終了 | streamable-httpの公開CLI・実TLS18 Case。運用Proxy／Linux／実OS Signalの成立へ拡大しない |
+| Profile遅延認可・二依存拒否、採用後故障／取消、結果相関／実行可能Property | 旧複合試験からai-profile-adapterへ本文・Traceを保持して3 Case移設 |
+| 活動開始済みReader join取消 | 旧複合試験からruntime-activity-adapterへ本文・Traceを保持して1 Case移設 |
+| RESTとMCPの同一Origin、Gateway health、HTTP入口stdin EOF | 旧Gatewayだけの構成能力として撤去。新Surfaceへ偽装移植・新Framework追加なし |
+| 可視の設定・管理方式 | MCP／Workbench既存exampleを維持。User／資格／登録／公開は既存Host初期化・Workbench管理操作が正本で、cros.json手編集設定を新設しない。Workflow／template AGENTS／Storage／旧比較設計を同期 |
+
+旧複合9 Caseのうち現Adapterに属する4 Caseは保持し、旧認証に依存する5 Caseと旧Gateway専用4 Caseを撤去した。撤去前MCP全95 Case・静的3軸が成功（88833.9423ms）。撤去後MCP全86/86・静的3軸が成功（100108.7133ms、Exit 0）。正式191項目・QA ID・Not Runは不変更。旧GatewayのRFD-ST-004 Evidenceは当時の観測として保持し、新経路のST Passへ流用しない。独立確認の文書・台帳指摘2件を是正し、限定再確認Pass・全重大度残指摘0で本撤去Gateを閉じた。CROS Package全撤去・全体整合の完了とは区別する。
+
+撤去Pathは基準Git Commit `378d93cb6ffb0cc7c9561e0572d62bdd656f3312` の `40_Develop/mcp-server/src/shared-host/server.ts`、`src/project-context/cros-resolver.ts`、`tests/integration/cros-project-context-mcp.integration.test.ts`、`tests/integration/cros-shared-server.integration.test.ts`、`tests/system/cros-projection-non-disclosure.contract.test.ts`、`tests/system/cros-shared-server-entry.integration.test.ts`と、`template/tools/crdd-cros-server.ts`、`template/tools/cros-shared-server-config-example.json`で再構成する。Source／試験の現行参照は撤去し、過去Evidenceの本文・署名・Hashは変更しない。
+
+### 旧CROS試作品の撤去 — 2026-10-13
+
+旧CROSにだけ存在するContext Package、Handoff作成・再開、AI行動計画、汎用Tool Registryは、本番Consumerへの接続がない試作品である。Root公開、自Package試験、現行設定・配布入口を照合し、実際の能力の代替完了とは分けて撤去する。新Ownerへ同じ試作品を移さず、義務と未成立範囲を以下へ保持する。Session・Repository解決と局所操作のRFD-IT-009は不変更。過去Evidenceは不変更、削除Pathへの現在リンクだけ履歴参照へ変更する。
+
+| 撤去対象 | 新Ownerの義務・現在状態 | 未成立範囲 |
+| --- | --- | --- |
+| ContextItem／ContextPackage／createContextPackage | Domain ModelのRFD-ST-010はOPEN。認可済みSource・Portfolioは入力側の部分接続 | 目的限定Package Identity、Consumer lifecycle、終了後第二正本0 |
+| resolveAiOperatingPlan | フロントAI入口・CheckerのRFD-IT-011はOPEN | 複数実AI入口のSource／Revision・規則・制約・差理由の比較 |
+| createHandoff／resumeHandoff／CrosHandoff | OrchestratorのERB-IT-010／ERB-ST-013は5C依存OPEN | 旧Owner終了・実Effect・重複消費防止。sourceActive:false／destinationEffectIssued:trueの値は実観測ではない |
+| tool/registry.ts | 実Toolを所有する各SurfaceのRCM-IT-010はOPEN。公開・dispatchは部分接続 | CLI／MCP／Coordinator／Workbenchの同一能力、状態軸、取消、cleanupの全比較 |
+
+正式191項目、QA ID、Not Run、v0.22対象は変えない。旧Sourceの再構成はGit Commit `378d93cb6ffb0cc7c9561e0572d62bdd656f3312` の下記Pathを使用する。撤去直前のSHA-256も固定する。撤去前CROS全34 Case・静的3軸は成功（7435.4705ms）。専用5 Caseを削除し、RFD-IT-009の1 Caseと他28 Caseを保持する。件数減少は義務の廃止ではない。撤去後CROS29/29（6748.1132ms）とCROS／MCP／Workbench静的3軸成功、固定16Pathの限定独立再確認Pass・残指摘0。結果記録更新前のレビュー対象diff Hashは`3bdb99fc6f573556c029028867e40cf4d85ef97a`。台帳登録Path欠落0、対象Source／export／Symbol／Catalog旧参照0、exact Git履歴参照確認、差分空白検査成功。最新全体Checkerは3058 errors・0 warnings、今回のQA／Domain／計画／削除PathとCHG-000080影響一覧形式に関する指摘0。以前の全体3057との差1の原因は未特定で、全体解消や新規違反なしを主張しない。旧REST／Shared Host／CROS Package全撤去と正式191項目は引き続き未完了。
+
+| Path（40_Develop/cros起点） | 撤去前SHA-256 |
+| --- | --- |
+| src/access/session-context.ts（部分撤去） | 50609adb5bc13cd515fdd105f93fb24ce8a1ddef6eb0d5ded15244960ce3fa68 |
+| src/tool/registry.ts | 937e083e19b8b781f2bf8829877bc8f54328e81ac815fa65355f46f5b815b167 |
+| tests/system/context-handoff.contract.test.ts | 59b0752ab8961687158282f4a79cf70c5ab02cf4e0fad1ecd6720288f6af382b |
+| tests/integration/tool-registry.contract.test.ts | 7fab486e705c8f1f90e5b972c472d08dfa2de3b121a1c0203fe56c10f45622a9 |
+| tests/integration/local-operation-ai-plan.contract.test.ts（局所操作のみ改名して保持） | 18c254222d359dfda5053f6f76f2edc8203c92984723bf7a7099c78128db950c |
+
+以下は⑤の先行局所確認の履歴であり、現在の状態は上段の撤去記録を優先する。
+
+①〜④の現在接続の限定Gateを閉じた。④最終候補の全IT54/54・全Browser13/13と限定独立再レビュー残指摘0は当該撤去範囲の根拠であり、正式191項目や全体完成へ昇格しない。⑤公開CLI候補は明示mode、既存Host RootとHost Profile、自己生成鍵の専用connect POSTと要求毎Bearer、非開示、合成Signal終了、異常Child終了観測を接続し、限定独立再レビューPass・残指摘0。Workbench公開Origin追加後の同CLI5/5（10170.2498ms）と静的3軸は成功した。試験Driverの--input-type継承によるWorker失敗はDriver是正後成功と分離し、製品保証を緩和しない。MCP既存HTTP optionsとWorkbench StartRequestへHTTPS publicOriginを接続した候補を検証中。単一Host／TLS終端Header／Originを認証前検査し、loopbackと要求毎Bearerを維持する。独立指摘のURL正規化で消える禁止入力を解析前の文字形検査へ是正した。是正後MCP局所2/2（608.5697ms）・同HTTP System13/13（12665.299ms）、Workbench共有Origin局所2/2（673.8676ms）が成功し、自己生成Root清掃と差分確認済み。Workbench単体／共有の通常管理既存回帰2/2（68642.6556ms）も成功し、独立確認は継続中。公開設定ありの実CLI、実TLS終端、正常公開内容・Role／Exposure／取消の共有縦断、旧CROS残4prototypeの義務還元と撤去、旧REST／Gateway／Shared Host／CROS Package撤廃、⑥全体整合・正式191・AM完成は未成立。Credential／Portfolio／Profile／Activityは新Ownerへ接続済み。現在追加人間判断なし。 各Server設定Readerを明示--crosだけへ接続し、配布exampleと非秘密Git allowlistを追加した。MCP Reader／共有境界3/3（793.8931ms）・同HTTP System14/14（12268.8856ms）、Workbench Reader／共有境界3/3（927.6461ms）・同CLI5/5（11215.2394ms）と静的3軸・自己生成Root清掃が成功した。独立確認は保証表現1件を取得時Identityと取得済みDescriptor相関へ限定して是正し、再確認中。実CLI公開設定と実TLS通信は未観測で、設定接続を共有全体完成へ流用しない。 設定Reader保証表現の限定再確認はPass・残指摘0。Workbench公開設定あり／なし実CLIは最小自己生成Git Root＋公式Logoだけで6/6（13781.4597ms）成功し、公開HTTPS案内と内部loopback観測を分離した。先行public Caseの421はFetch ClientのHost搬送による試験構成差で、Hostを保持する実Node HTTP Driverへ是正した別実行の成功と分離する。製品Header検査は緩和していない。公開配置Header経由の接続／要求毎認証／管理とHost Profile読取り／非開示／合成Signal後ProcessとListener回収、自己生成Root不存在を確認した。実TLS通信は未完了である。 Workbench公開設定ありCLIの限定独立確認はPass・残指摘0。MCP公開設定あり／なし実CLIを最小自己生成Git Rootで2/2（7775.0538ms）、同HTTP System15/15（16753.2334ms）確認した。公開案内とloopback観測を分離し、初回接続・本人・manager Host Profile管理・失効・合成SIGTERM後Exit0とListener回収、秘密非開示、自己生成Root不存在を確認した。URL待機を固定診断・有限時間・監視解除へ是正し、終了不明でfixtureを削除しない。実TLS／Proxy通信・OS Signal搬送の証明へ流用せず、MCP実CLIの独立確認は継続中。 MCP実CLI清掃の独立再確認はPass・残指摘0。setupからChild生成後まで一つのfinallyへ結合し、生成前／URL待機前の注入失敗を正常接続と分離して回収、最終同System17/17（18412.2095ms）成功。Workbenchに公開試験証明書の明示CA検証を用いた実localhost TLS終端→公開CLI→AM縦断を追加し、同CLI7/7（13945.9458ms）成功した。未信頼証明書拒否、Host preserve、Client由来Forwarded上書き、認証と非開示、Child／Proxy／Upstream終了とfresh接続拒否を確認した。先行Proxy close後ECONNRESETは試験Client pool再利用で、Agent falseでfresh接続と区別した。旧失敗Root1件はterminal・exact Node不存在・リンクなし確認後回収し、準備物と現在fixture不存在を確認済み。実TLS限定独立確認は継続中で、MCP TLS、実Browser TLS、実運用Proxy／Linux配置／実OS Signalへ成立範囲を拡大しない。
+
+Browser搬送基礎段階の記録：未選択booleanは一件のfalseへ変換し、重複・File・Repository／Action Token差を拒否する。専用結果の閉じた五fieldを操作・種別・理由・Effectへ相関し、Mainのfresh取得は現在route／query／選択Repositoryを維持して待機後も確認する。独立確認でcreateの正規競合理由不足とdelete／Relation相関の緩さを検出し、Domain／Serverを変えずInspectorと負例を是正した。静的3軸と関連IT7/7は成功した。当時はフォーム有効化と実Browser反例が未接続で、現在の候補成立は先頭段落で区別する。この値検査だけを実Browser保存や③全体完成の根拠にしない。
+
+Backend接続段階の記録：Source・試験・QA・Catalogに続き現在投影の文書限定再確認もPass・残指摘0となり、当時の関連Server／管理回帰42/42（155378.0269ms）と所有試験資源清掃を確認した。その後のBrowser接続と現在Gateは先頭段落で区別する。現在の次対象はGit操作・本文リンクであり、通常起動、旧MCP／CROS撤廃、正式191項目とAM全体完成も未成立である。
+
+③のTopic／Meeting内容POST Backend候補を接続した。閉Form・Body搬送後fresh AM集合・同Project操作構成・Domain一回配送・取消待機後C2を使用し、要求専用200結果／配送前400／配送後503を旧Standalone／Remoteの303／500と区別する。HTTP入力変換は`topic-meeting/action.ts`、Root／認可集合構成は既存`access-resolver.ts`へ分けた。両種別のCRUD、競合、確認不足、重複・未知・非許可入力と欠測／不正confirmed拒否は実HTTPで成功した（CROS局所1/1、48739.6296ms、静的3軸成功）。Meeting fixtureの開催日時／Outcome表欠落、追加試験の型注記不足は契約を緩めず是正した。
+
+初回限定レビューのMajor 1・Moderate 2は是正した。必須field・boolean／列挙／OUT／CHG／TOPIC参照IDは配送前検査し、不正／欠測でDomain本文read 0・AM byte不変、同じ観測の正常正対照を確認した。保存後の公開解除・鍵失効・例外・実HTTP切断は実出版一回と既知本文保持、固定503または取消成功本文0を確認した。取消はServerResponse close実通知とend本文件数を相関し、正常正対照1、fresh GET後も再Mutation 0を確認した。同Project sibling公開解除も503・実出版一回を確認した。昇格は対象不存在・正常・競合、Outcomeは二件の早期Close拒否・一件目非Close・全件処置後Closeまで確認した。最終CROS局所1/1（74430.7885ms）、静的3軸、差分・所有Root不存在、Source／試験／QA／Catalogの限定再レビューPass・残る実装指摘0を確認した。現在投影の古い残件表示だけを同期し、再レビューへ返す。これは内容POST Backendの限定成立であり、Browser操作、Git／本文、通常起動、旧MCP／CROS撤廃、正式191項目とAM全体完成は未成立である。
+
+共有Profileの表示領域評価はDesktop 1440×900、Tablet 1024×768、Mobile 390×844のCSS viewportを指定し、実innerWidth／Height、ページ横overflow 0、Panel内包、Form操作32px以上・文字12px以上、Profile IDからAdapter／ModelへのTab移動を同一DevTools接続で確認した。初回の別接続によるviewport解除と、限定レビューのTab計測相関・Header不足は是正した。最終System10/10（95417.8925ms）、静的3軸、限定再レビュー残指摘0、所有試験Root不存在を確認した。既存の実Browser Zoomは別試験で27組合せが成功（87396.0211ms、Skip 0）した。並行Browser負荷下のDriver timeoutは製品故障と断定せず、最終Systemは単独実行した。CSS viewport評価を実Zoom証明や全UI／AM完成へ拡張しない。
+
+③着手前（Backend接続前）の履歴：内容POSTはBody搬送後のfresh AM集合から既存Domain／Version Controlを一回呼び、公開前のC2を確認する方針を照合した。本文も選択Rootの既存Catalog／Readerへ接続する。読み取り専用確認で追加人間判断なし。処置前拒否と配送後の結果不明・既知処置後の公開不可を分離し、新Recovery／ACK／共通Routerは作らない。当時はArchitecture契約だけを追加しSource・Consumer・反証は未接続だった。現在のTopic／Meeting Backend成立と残るBrowser／Git／本文は先頭の最新段落で区別する。
+
+共有ProfileのBrowser通信・状態管理の限定Gateは、既存Form／TableのMain／Access共用、閉Catalog／Mutation相関検査、memory資格搬送、一回保存とfresh読取りを接続した。内容権限なしmanagerのCRUD、developerのCatalog／Form非表示・POST 0、保存後GET故障と不正JSON応答の既知保存／結果不明分離、自動・明示再取得による再Mutation 0、取得中切断・遅延応答拒否・再接続freshだけの採用を確認した。途中7/10のfixture待機不足と8/10の重複シナリオによるDriver上限超過は成功へ書き換えず、操作可能状態への同期と独立manager Caseへの反例分離で是正した。製品とDriverのtimeout・retryは変更しない。最終実Browser10/10（102468.8405ms）、応答検査／接続取消4/4、静的3軸、差分確認、所有Browser・Listener・Profile清掃と試験Directory不存在、限定独立再レビュー残指摘0を確認した。notice世代持越しと明示再取得後POST不増の指摘は是正済み。Visual三Profile・通常CLI・旧経路撤去・正式191項目・AM全体完成は未成立で、実行別Evidence書庫は追加しない。
+
+共有ProfileのBackend限定Gateは、既存Host Catalog AdministrationのDIと要求毎AM認可によるGET／POSTに接続した。混合構成・未構成fallback、閉Form、developer操作0、manager／administrator四操作、未確認削除・競合・失効・Catalog故障を確認した。独立レビューの後段反証不足をTest-only wrapperで是正し、Snapshot後の降格／失効は403・一回、保存後の降格／失効／例外は503、実切断を含む全分岐で保存一回・成功本文0・次要求の改訂と対象値一致・再Mutation0を確認した。最終結合42/42（172645.5026ms）、既存実Browser回帰8/8（88394.7992ms）、静的3軸はExit0、限定再レビュー残指摘0。Server SHA256 `439e6976b237f664cc625537e5da0772120b244eaa20a701de8824635b9363a1`。完全出力は実行端末で確認し既存コマンドから再生成できるため実行別書庫は追加しない。これはHTTP Backendの限定成立であり、新Browser Form・通常CLI・旧MCP依存撤去・正式191項目・AM全体完成の根拠ではない。次は既存Form／TableをMainとAccessで再利用し、memory資格のCSR搬送・fresh読取りへ接続する。
+
+活動読取りの限定Gateは、2026-10-13に単体／同Host CROSの直接Owner接続、固定Identity・Project分離・ページング、開始前取消0・開始後二Root各一回join・成功本文0・次要求正常まで確認した。最終結合42/42（151400.9034ms）、同実装の実Browser8/8（82437.7361ms）、静的3軸は全Exit0、差分検査・Source Hash一致・所有試験Root不存在、限定独立レビュー残指摘0。途中41/42の接続リセットは成功へ書き換えず、次要求を独立した新しいHTTP接続にして切り分けた。原因確定、製品の再送追加、旧MCP撤去、正式191項目・AM全体の完成は主張しない。Server SHA256 `873ea3624bb36eaf544970a5e95f23c56b2f68a4b18a71bb7f43381495faa9cb`、活動Reader SHA256 `e614b990abfdb4a164027e6093949f02852e447ffa529a72385e48a35c824a13`。完全出力は実行端末で確認し、既存試験コマンドから再生成できるため実行別書庫は追加しない。
+
+1. 活動読取りを単体／同Host CROSとも既存Orchestratorへ直接接続し、実HTTP取消・回帰・限定独立レビューを閉じる。
+2. Profileの一覧・作成・更新・確認付き削除を既存AI AdapterのHost Catalogへ直接接続する。現在manager／administrator認可、保存Owner分離と応答喪失時の非再送を維持する。
+3. 選択Repositoryへの内容保存・Git操作・本文リンクを専門Ownerへ接続する。
+4. Workbenchの旧Remote設定・MCP Client／Adapter・分岐と不要試験を撤去する。MCPは独立入口として維持する。
+5. 通常CLIと共有Host配置を閉じ、代替接続の成立を確認した旧REST／Gateway／Shared Hostおよび`40_Develop/cros` Packageを撤去する。配布検証・起動Tool・現行Symbol／Catalog・Consumer参照も同時に更新する。
+6. 撤去後の全構成について正本・Source・設定・試験・Reality Audit・正式検証義務と全体独立レビューを確認する。
+
+旧`cros` Package撤廃は後続の任意整理ではなく、この変更の完了範囲である。CROSという全体概念は維持し、認証・認可はAccess Management、Context処理はDomain Model、ProfileはAI Adapter、活動読取りはOrchestratorが所有する。未接続能力を残したままPackageだけを削除しない。歴史的Evidenceは変更しない。
+
+Profileの接続では、検査済みHost設定から既存Store／Administrationを構成し、Workbenchへ注入する。Browser指定Root、AM state PathからのCatalog Path合成、起動Repositoryへのfallback、新Store／Lock／認可Frameworkは追加しない。未構成・Root不成立・破損は未取得として扱い、正常Storeの正式なRevision 0初期値とは区別する。構成・認可・表示・保存の責務は[Workbench詳細設計](../../../06_Architecture/Details/workbench-server/01_Architecture.md)へ接続する。
+
+### WorkbenchのMCP依存全撤去への方針訂正 — 2026-10-13
+
+残4系統の移管に向け、選択RootのGETを同Host専門Ownerへ直接接続し、限定独立再レビューで残指摘0を確認した。初回レビューの全集合再確認不足・重複ID受理を是正し、一つの短命AM集合からSurface／Portfolio／同Project Topic・Meeting／Git表示を構成し、公開直前に全Root・管理改訂・正規化全集合を再確認する。Exposure・資格・sibling・Binding・manifest変化は部分公開0、同値順序変更は許容、重複IDは認証とRoot観測前拒否。最新IT2/2、実Browser8/8、Workbench回帰50/50、全Exit0と所有資源cleanupを確認した。Profile未取得を単体既定へ補完せず、内容保存未接続を無効表示する。WorkspaceはRepository全体の公開分類で、内部Path ACLではない。新ACL・Router・Session・Registry・Lockは追加しない。共有AI／Candidateへ起動Rootを流用せず、後半実行系の未接続を保持する。内容POST、本文リンク、Profile／Activityの直接Owner接続、残MCP撤去、公開CLI、共有TLS、旧REST／Gateway撤去、正式191項目とAM全体完成は残る。追加人間判断は不要。
+
+Browserの既知リンク／GET検索／戻る操作を、同Origin Model取得とhistoryへ接続した。IDなしリンク・検索で選択Repositoryを維持し、外部／download／別tab／修飾click／POSTを横取りせず、表示世代・所有Signalで旧応答を拒否する。接続中pagehideの保留GET取消・Root解放・終了後応答非採用と、合成pageshowの資格Headerなし再開を確認した。初回Systemは6/8・Exit1で、試験がReact管理外のリンクをRootへ残した観測混入を是正した。最終System8/8・Exit0（84.46792秒）、同実装の全回帰50/50・Exit0（185.2523222秒）、静的3軸・Build・JSON・差分検査成功、所有Browser／Listener／Directory不存在、限定独立レビュー残指摘0。新Router依存・Cookie・Session保存・認可層は作らない。合成通知は実Browser cache保存復元の証明ではない。CROS内容POST／本文リンク／選択全内容Model／共有配置、残4系統のMCP依存撤去と正式191項目・AM全体は未成立で、GET基盤だけを全体完成へ昇格しない。
+
+管理直接接続の修正後限定独立再レビューはPass・全重大度残指摘0。静的3軸・Vite Build、局所4/4（18360.0738ms）、実Browser8/8（85707.2831ms）、Workbench全回帰50/50（190213.339ms）、全Exit0・Fail／Cancel／Skip／Todo0、差分確認と所有Browser／Bootstrap Root残存0を確認した。Standalone／CROS同Hostの本人＋四read＋七保存、fresh資格／Role、登録と公開の分離、拒否・保存故障・取消と応答抑止、非秘密結果、表示・清掃の限定成立である。前回の文書／metadata指摘2件は解消し、処理本体Hashは不変。残るPortfolio、Topic／Meeting、AI Profile、Activityの4系統、共有TLS、全内容入口、公開CLI、MCP依存全撤去、正式191項目、AM全体は未成立。追加人間判断は不要で、次は残4系統の直接Owner接続へ進む。下段の確認中表記は先行時点の履歴である。
+
+管理直接接続の初回限定レビューはMajor1／Moderate1で停止した。処理本体ではなく、現行Workbench§6.2.1／6.3・QA007／009に旧Remote管理MCP契約が残ることと、MCP Client試験のHeader／刺激が管理経路を示すことが原因である。現行契約を全配置の直接AM四read＋七保存へ同期し、独立MCPの管理Tool／限定discover・登録と鍵の非公開義務だけを別Surfaceとして保持した。MCP Clientの残4系統反証は公開Portfolio Tool定数へ変更し、純粋管理InspectorのRelationを分離した。AM／Role／Schemaと過去Evidence・正式191 Not Runは不変更。修正前のSource全回帰50/50・Exit0（189131.789ms）は意味の回帰根拠として保持するが、未修正文書のPassにはしない。修正後の静的3軸と局所4件成功（18360.0738ms）。新固定候補の実Browser・全回帰・限定再レビューは確認中である。
+
+管理系統のMCP分岐を撤去した。`management/operations.ts`は同Process AM APIと共通結果投影だけを呼び、中継用ManagementConnection型・MCP Tool定数・Network分岐を削除した。本人・四read・七保存と既存Role分担を維持し、Repository登録はWorkbenchだけ・登録と公開は別操作とする。Systemの旧Remote管理は同HostのCROS要求Header→Workbench→AMへ置換し、MCP Serverを起動しない。静的3軸と局所4件成功（18682.6392ms）、実Browser8/8成功（79342.5364ms）、各Exit0・Fail／Cancel／Skip／Todo0、各所有Browser／Listener／Directory清掃確認済み。管理試験のSymbol／Catalogを直接AM接続へ同期し、MCP Client検証Relationを除外した。全回帰と限定独立レビューは現在確認中。管理以外のPortfolio／Topic・Meeting／Profile／Activityの4系統は旧MCP依存が残る。共有公開配置・全内容接続・公開CLI・正式191項目・AM全体完成は未成立を維持する。
+
+Browser接続候補の限定独立再レビューはPass・全重大度残指摘0。初回レビューの2指摘（System固定式の相対URL限定捕捉、開始後取消の反証不足）を是正し、同Origin＋pathname捕捉、fetch待機／Reader待機の同Signal取消・固定失敗・Reader解放・再送0・非取消失敗保持を確認した。修正後focused IT2/2（228.0696ms）、実Browser8/8（91800.395ms）、Workbench全回帰50/50（172993.6303ms）、各Exit0・Fail／Cancel／Skip／Todo0、Vite Build・Formatter・tsc・Lint・差分検査成功。自己生成Browser／Bootstrap Rootの現在一覧0件、各所有Browser Tree／Workbench Listener／DevTools Listener／Directoryの終了後不存在を確認した。先行Systemは8件中2Pass／6Fail・Exit1（132079.6206ms）であり、計測是正後の別実行で成功した事実と分離する。過去の失敗を上書きしない。今回の限定結果は鍵管理／接続だけで、共有TLS、全内容入口、公開CLI、MCP依存撤去、正式191項目／EST-ST-013全体、AM全体は未成立。次は5能力の専門Package直接接続と旧MCP経路撤去へ進む。以下の「実行中」「未確認」は先行時点の履歴である。
+
+Browserの非永続な接続資格保持・同Origin Authorization搬送をSourceへ接続した。本文16 MiB上限、切断／鍵切替後の遅延応答拒否、Reader取消・解放、自動再送0を合成Transportで確認した。実Browserのmanual redirectは303のstatus／Headerを隠すため、専用接続POSTを200の閉JSON（status: completed）へ変更し、確認後の次GETだけに資格を添える。既存AM保存・認可を変更せず、初回確認と通常内容取得の分離を維持する。根拠は[Fetch Standard](https://fetch.spec.whatwg.org/#concept-filtered-response-opaque-redirect)。修正後の静的3軸・Vite Buildと接続／通常管理3件成功、Exit0・Fail／Cancel／Skip／Todo0（22.4639533秒）。旧Remote管理1件も含む局所回帰であり、MCP撤去の完成証明ではない。専用Chromeの本番Bundle確認を実行中で、実Browserの結果・限定独立レビュー・共有公開配置・全内容接続・正式191項目・AM全体完成は未成立である。下段の303・Browser未接続は先行候補の履歴であり、現在の応答契約ではない。
+
+共有Browserの主体分離に向け、CROS Server-globalの接続鍵とNoticeを撤去し、通常要求の一つのAuthorization Headerから当該要求だけのAM Contextを作る候補へ切り替えた。専用接続POSTは確認だけを行い、次GETに資格を暗黙継承しない。静的3軸とLocal対象1件成功（9.7553872秒）、Exit0・Fail／Cancel／Skip／Todo0。A接続後の資格なしBは未認証、別Credentialのdeveloperは別UUID本人、A失効をBへ継承せず、鍵・RootはModel非表示を確認した。初回一出版・Headerなし／Origin不正拒否と状態不変・所有Root／Listener回収も維持する。新Session／Store／Cookie／Lockは追加しない。Browser memory／Header送信・共有公開Origin・全内容入口・MCP撤去は未接続で、旧48件やloopback Local限定レビューを現在の共有完成へ流用しない。
+
+追加反証では、重複Authorization HeaderをNode HTTPでexactに送り、不正Bearerとともに認証済みModelを生成しないことを確認した。通常管理2件と静的3軸成功、Exit0・Fail／Cancel／Skip／Todo0（20.216219秒）。先行fixtureの失敗は資格発行Operation IDの重複、後続raw Header試験の失敗はHost Header欠落であり、fixtureを有効な別発行ID・exact Hostへ修正した。拒否をSourceで弱めていない。Server SHA-256 `8ed058cd2248071a9166f7386bcd2743650d3563fe0b2d6b354699ee02e2f4dc`、試験SHA-256 `5a51d8944c0e922ef406393ad338970810889320eea3d60683b748cf2c012ed3`。このHTTP主体分離候補を限定独立レビューへ渡し、Browser・共有公開・依存撤去・全体完成は未成立を維持する。
+
+主体分離の限定独立再レビューはPass・全重大度残指摘0となった。Workbench詳細の公開POST未接続という旧2句と、無条件の構成Bearer説明を是正し、Standalone限定DI／CROS要求Header／AM保存Root／登録対象Rootの境界を同期した。Source／Test Hash不変、同認証意味の現在記述全数照合と差分確認成功。対象2件と静的3軸だけの限定結果であり、Browser memoryとHeader送信、共有TLS配置、全内容入口、WorkbenchのMCP依存撤去、公開CLI、正式191項目、AM全体完成は未成立を維持する。次はBrowserの非永続な鍵保持・要求Header送信を接続し、各専門Packageへの直接呼出しと旧MCP経路撤去を同じ採用構成へ閉じる。
+
+人間は、LocalだけでなくRemote利用でもWorkbenchのMCP依存を外すと明示した。「Remote AdapterだけにMCPを残す」というAIの解釈を取り消す。Workbench／MCPは対等な公開入口とし、業務・状態・保存は各専門Package APIが所有する。WorkbenchのRemote用MCP ClientとProtocol定数importを完成構造へ残さず、新Gateway・共通Framework・代替RESTを勝手に追加しない。
+
+Remoteの具体配置も人間が確定した。2026-10-13の「OK」は、Browserが共有Host上のWorkbench Serverへ直接アクセスし、そのServerが同Hostの専門Package APIとRepository群を利用する形を採用する判断である。Local Workbench backendから別HostのMCP／CROSへ接続する経路は撤去対象とする。MCP Server自身のAI／Machine公開能力は廃止せず、Workbenchと独立して同じ専門Package APIへ接続する。後続の配置確認中という段落は当時の判断待ち履歴として保持し、現在の未決として扱わない。
+
+採用後の読み取り専用着手前照合は、5能力の同Host移管に追加人間判断不要とした。PortfolioはAM許可集合→Domain、Topic／MeetingはAM今回集合→Domain CRUD／同Project Relation、ProfileはAM管理判定→AI Adapter CROS Catalog、Activityは許可対象→Orchestrator／Execution Intelligence、通常管理／本人はAM共通APIへ直接接続する。旧MCP Client／5 Adapter／Endpoint入力／Remote分岐を撤去し、通信と独立した結果検査だけは責務を確認して保持する。
+
+共有Browser利用の実在Gapは二つである。第一に、現Workbenchはloopback由来Originだけを検査するため、既存の外部TLS終端・固定公開HTTPS Origin／Host・終端によるForwarded Header除去／上書き・内部Listener直接到達禁止という配置契約をWorkbench Transport Ownerへ移す。第二に、現接続鍵とAction TokenはProcess全体で共有されるため、同Serverへ接続するBrowser間で主体を分離できない。接続鍵はBrowser memoryだけ、各API要求のAuthorization Headerから要求専用AM Contextを構成し、Server-globalのログイン鍵を撤去する。静的Shellは資格不要、URL／Web Storage／log／汎用Modelへ秘密0、切断時参照解放、各要求fresh認可を維持する。新Session Store／Cookie Registry／Gateway／ACL Frameworkは作らない。複数Browserの本人・Role・Repository・遅延応答の非混同を必須検証とする。これは共有公開を成立させる具体化であり、既存Local限定Passを共有完成へ流用しない。
+
+現行SourceのMCP依存は、Portfolio、Topic／Meeting、AI Profile、Runtime Activity、通常管理の5能力と共通HTTP Clientに存在する。通常管理はLocal／Remote処理が同一Fileに混在する。Localの同Process直接AM／Domain読取りと専用接続POSTはこの方針と整合するが、Remote MCPへの先行移管は改訂対象であり、その回帰成功を新構成の完成根拠にしない。
+
+Remote利用の具体配置を確認中である。Browser→共有HostのWorkbench Server→同Host専門Package APIであれば、Workbench backendから別HostのCROSへ接続する旧経路を撤去し、MCPを介さず既存能力を維持する。別Host CROSへのbackend接続まで必要なら、MCP以外のTransport採用が別途必要であり、具体利用形態の判断前に新Transportを実装しない。現在の実行中Workbench回帰は同じハンドルで終端まで確認し、構成判断後にArchitecture／SPEC／QA／Source／配布入口を対応付けて切り替える。過去の正式Evidenceは改変しない。
+
+上記の先行Workbench候補に対する`npm test`は終端確認済み。Vite Build・書式・型・Lint成功、全48件成功、Fail／Cancel／Skip／Todo0、Exit0（196.1633266秒）。Local CROSの専用POSTと起動本文非読取りを含むが、Remote MCP残存も含む現在候補の回帰であり、人間が訂正した依存全撤去後の成立・公開CLI／Browser・AM全体完成を証明しない。新構成では対象差分と利用側を固定して必要な回帰・独立レビューを行う。
+
+### 公開起動入口のアクセス管理接続 — 2026-10-13
+
+Local CROSのServer接続候補を構成した。配布Rootの固定Logo／JSとHost AM Rootを分離し、CROS起動時のContext／Topic・Meeting／Profile Catalog／活動Reader構成を止めた。専用接続POSTは同Origin・Host・Content-Type・閉Form・Action Token・取消を検査し、確認後303だけで通常本人・内容・管理・鍵操作を公開しない。次GETのaccess Model、既存管理／鍵入口へ接続し、要求ごとの資格不成立で接続材料と旧表示を解放する。内容入口は全数接続前の拒否状態であり、完成へ固定しない。局所静的3軸とLocal管理対象1件成功（10.0639977秒）、Exit0・Fail／Cancel／Skip／Todo0。本文不正な自己生成起動RepositoryでShell配信・起動本文非変更・.crdd生成0、秘密非表示、接続／切断、初回一出版、失効後非表示、旧内容Route拒否とListener不存在を確認した。公開CLI／Browser／選択内容全入口と全体完成は未成立。Package全回帰と限定独立確認へ進む。
+
+Local専用POSTの独立レビューでOrigin欠落受理を検出し、exact Origin必須へ是正した。通常／credential_stored双方で欠落Origin・不一致Hostの400と状態byte不変を反証した。Hostを正規化するfetchでは反例を作れないことを試験失敗から確認し、Host反例だけNode HTTPでexact Headerを送信した。局所1件成功（10.6891616秒）、後続`npm test`のBuild・静的3軸と全48件成功（173.0612904秒）、全Exit0・Fail／Cancel／Skip／Todo0。是正後の限定独立再レビューは全重大度残指摘0・Pass。server SHA-256 `315522927b2ffa624c96356b2faa8f6580bcf80f9bb1be33d330af596428ad3f`、試験SHA-256 `2f8e578d8846718a4c382d62d1a34b13e5de528b7cce897dc4ff87c5b80369c8`。今回所有Root／Listenerの終了後不存在を確認し、2026-10-09生成の旧2 Rootは不操作でRepository全体残存0とはしない。このPassはloopback Local接続だけ。共有Browser主体分離／TLS公開、Workbench MCP撤去、公開CLI／実Browser／全内容入口／正式191項目／AM全体完成は未成立を維持する。
+
+Repository登録のSurface判断を確定した。2026-10-13の人間回答は「登録はWorkbenchだけにする」。既存manager／administrator分担、サーバー上の対象Root検証、登録と公開の分離を維持し、MCP登録Tool／Schema／dispatchは追加しない。鍵3操作のMCP非公開は不変。下段のRemote登録判断待ちは当時の履歴であり、現在の未決ではない。
+
+Workbenchの接続資格受理を既存`credential/administration.ts`へ限定追加した。閉FormとAction Token検査後だけAM用途判定へ渡し、初回候補は既存確認保存後に通常認証を取り直す。管理fixtureのLocal対象1件成功、Fail／Cancel／Skip／Todo0、Exit0（7.6829438秒）、Workbench書式・型・Lint成功。通常接続の状態byte不変、不正・重複field／取消／誤鍵の非更新、初回確認の一出版と同鍵再要求の非更新、新User／資格0を実保存へ照合した。既存設計§2.5の限定discover表現と同Process専用POSTの対応は追加着手前照合中で、未決の意味を公開入口へ先行接続しない。公開HTTP／Browser／全内容入口・正式191項目の成立とは区別する。
+
+追加照合は、MCP完全discoverとLocal閉connect POSTの入力差を明示し、同POST内の通常本人・内容・管理・鍵操作0と次HTTP要求のfresh認可を維持する条件で着手可・追加人間判断不要となった。AM詳細§2.5、Workbench詳細§6.3、既存QA初回義務とSource Headerへ伝播した。最新Workbench静的3軸と管理2件成功、Fail／Cancel／Skip／Todo0、Exit0（14.5562667秒）。接続関数SHA-256 `0d41a3c94d5546be52d6c17f169af40619b3ae73df1a009d674bcf6c9c609c11`、管理試験SHA-256 `38cee132f108577db5f2780e51f6f64dc3b283d41bfdec624bd36df15ad00ac9`。Source保存本体の変更はなく、AMの2 Header行だけSurface別前提へ同期した。公開POST／Browser／起動・全内容入口は未成立を維持し、この限定候補を独立確認へ渡す。
+
+限定独立レビューのModerate1は、既存suite SymbolへのRFD-IT-024登録とCatalogの状態不変・一出版・再要求非更新3終了条件の補正で是正した。Source／Test Hash不変、HeaderとSymbolの全数一致・JSON構文・ID一意性・差分確認成功、Workbench静的3軸と対象2件再実行成功（15.3637804秒）、全Exit0・Fail／Cancel／Skip／Todo0。対象11Pathの限定再レビューはPass・全重大度残指摘0、固定集合SHA-256 `49d61c65ba3831d6c974bfb126233ea2ec86ca289274befeff254cbe26af348b`、HEAD `378d93cb6ffb0cc7c9561e0572d62bdd656f3312`。この結果は内部接続資格受理だけで、公開POST・Launcher・Browser・全内容入口・正式191項目・AM全体完成へ拡張しない。実行別Evidence書庫を追加せず、正式試験入口から再生成できる。次は既存Serverへの公開POSTと未認証Access Modelの接続である。
+
+後続Launcher限定レビューはMajor2／Moderate4を検出した。主因はCROS Profile Storeのconfig保存候補に各操作時のdirect-chain検証がなく、認証済み管理操作からLink先へ保存できること。Windowsのconfig/stateは同一Root、Linuxは別Rootである。既存AI Adapter Store Ownerだけに構成時・snapshot・adoptのchain再検証と不足suffixの逐次非再帰mkdirを追加し、機能撤去を最終解にしない統合方針をレビュー担当と整合した。新Store／Lock／Root Framework、AM state／認証、Catalog Schema／Revision、単体利用は不変更。既存Store試験へ親Link・Catalog Link・構成後Linkの出版0／target不変を接続し、静的3軸と対象4件成功（1.7887992秒）。作成中置換・観測不能・manager公開Mutationと他5指摘の完全是正・再レビューは未完了である。
+
+上記6指摘の是正候補では、観測不能とmkdir直後の親Link置換で候補本文の書込みopen0・target不変を直接反証した。Store対象5件成功（1.8340787秒）、AI Adapter全32件成功・Fail／Cancel／Skip／Todo0（3.1830971秒）、各静的3軸成功。公開STからIT Traceを除き、既存Rootのfresh／破損current／孤立pending／replaceを実ProcessでExit2・Listener案内0・全材料byte不変として確認した。公開ST11件成功（10.7725803秒）。Canonical Tool期待集合の完全一致とdiscover／list／call全応答・Header・Process出力の模擬秘密非露出を確認し、managerの公開Profile createでconfig Snapshot一件・AM改訂不変更を確認した。設計と既存ST Catalogへ限定同期した。既存IT断面をST入力として使用した反証であり、正式ST／IT結果へ昇格せず、191件Not Runと旧Evidenceを維持する。MCP全回帰と新固定候補の再レビューは進行中で、6指摘の独立解消判定はまだ未成立である。
+
+是正後のMCP全88件成功、Fail／Cancel／Skip／Todo0、Exit0（74.755475秒）。限定独立再レビューは全重大度残指摘0・Pass（基準HEAD `378d93cb`、対象10Path差分Hash `cd9c7fcd1bfaa79e342921fa749fa3f179b0e8e2`）。6指摘の解消はこの起動Sliceだけであり、developer／内容Exposure／配布Root／Workbench／旧REST撤去／正式191／AM全体完成のPassへ拡張しない。
+
+Local Workbenchの先行内部接続では`project/access-reader.ts`を追加し、現在AM集合→既存Domain固定本文→Portfolioを直接構成する。新Store／Session／Protocolは追加しない。既存管理fixtureへ内容許可なし・正常取得・本文不正・Exposure解除・資格失効・開始前取消の反例を接続し、Workbench静的3軸と対象2件成功（12.1535986秒）。Root・Tokenを結果に出さず、空認可だけ正常空集合とする。これは同Process Readerの局所成立で、画面・内容操作・起動入口の完成ではない。後続は全入口を要求単位の選択Repositoryへ結合する。
+
+同じ先行接続で`resolveAccessRepository`と`topic-meeting/access-resolver.ts`を追加した。明示IDを今回許可集合へ結合し、非許可／未登録を同じnull、空IDの暗黙選択と起動Root fallbackを禁止する。Topic／Meetingは指定Repositoryだけへ保存し、Relationは同Projectの許可集合を既存Domainへ渡す。自己生成fixtureでTopicの実作成・読戻し、非許可／未登録、公開解除と資格失効、開始前取消を接続し、静的3軸と対象2件成功（15.1860861秒）。単一Repositoryの局所観測であり、複数Repository同名ID・全Relation断面・公開UI／起動・AI／Git全入口は未成立を維持する。Root／操作は当該要求だけに使用し、長期認可cacheを作らない。
+
+Workbench Local CROSの着手前照合では、管理Tokenだけを追加すると起動Repositoryに固定されたContext／Git／Topic／AI／Candidateを迂回公開することを確認した。配布Root（Logo／JS）、Host AM Root（認証／管理）、要求ごとの現在許可内容Rootを分離する。未認証は固定CSR接続画面だけ、本文読取り0。内容入口全数で現在AM許可集合→選択Repository Binding→既存Domain／Version Control／Activityを構成する。長期AI Ownerは処理相関だけを保持し、各操作前に現在認可を取り直す。新Session／Registry／Lockや操作別ACLは追加しない。単体Modeの無資格利用、選択Repository切替、同Project Relation、Git・Profile・AI・Candidate、取消joinを維持する。正本／実装の詳細照合と反証は本番切替前の条件であり、これを管理UIのみの完了へ縮小しない。
+
+Root分離の限定独立再レビューはPass・全重大度残指摘0（基準HEAD `378d93cb`、対象差分Hash `3ae1c501a6632f50ab7d35aa74c659e11825d0fc`）。新Reader固有のRoot／親junction、異OS・相対base、二観測dev／ino差、作成・更新・削除0とmarker不変を反証し、設計・Catalog・QA現在評価を限定同期した。静的3軸と対象16件成功、10.9393098秒。これはRoot分離だけの成立である。
+
+後続MCP Sourceは`--cros --http`をAM Resolverと既存CROS Profile Storeへ接続し、既存状態不明／未設定とTransport混在を開始前拒否した。公開Processの10件成功（6.9804969秒）。自己生成Host fixtureで初回Tool拒否→discoverによる接続確認保存→次要求のadministrator本人取得→同鍵失効後401、鍵Tool非公開と秘密非表示を確認した。配布TS入口は専用ESM型検査と書式・Lintへ追加し、Package本体のNodeNext条件を維持した。全静的検査成功。manager／developer・内容Exposureの公開Process検証、配布Root検証、Workbench本番入口、後続固定候補レビューは未完了であり、この限定成立から本番Capability全体成立を表示しない。
+
+AM全回帰は是正後152件成功、Fail／Cancel／Skip／Todo0、Exit0（172.4159784秒）。前回ハンドル喪失で未確認だった結果を流用せず、新実行の端末終了結果を確認した。旧正式Evidenceや191項目Not Runは変更しない。MCP全回帰は同一の実行を継続して確認する。
+
+先行局所結果：既存Host環境入力選択をRoot Ownerへ移し、通常用の作成0読取りAPIを追加した。AM書式・型・LintとHost入口／公開API契約の15件は成功、失敗・取消・skip・todo0、Exit0（16.7542909秒）。自己生成Host fixtureで不在作成0・既存内容非変更・非Directory拒否を直接確認した。保存内容やLauncher成立はこの試験から推定しない。新固定候補の独立確認と公開入口の接続は未完了。
+
+承認済み単一Repository／CROS利用の本番接続として、既存Workbench入口と配布MCP入口を切り替える。着手前の読み取り専用専門確認を統合し、現在追加の人間判断は不要。通常起動は現在Repository固定、MCP stdioは資格不要、通常HTTPの既存`CRDD_MCP_HTTP_BEARER_TOKEN`はローカルTransportの保護として維持する。`--cros --http`は各要求の現在AM資格へ接続し、固定Tokenとの混在を拒否する。`--cros --stdio`は資格搬送契約がないため開始前拒否する。
+
+CROSの保存先入力選択を既存Host初期化から共用し、通常Launcherは既存Directoryの非Link・親chain・実体Identityだけを検証して読む。Directory作成・初期化・鍵発行は行わない。不在、部分構成、不正、観測不能を未初期化の成功へ変換しない。初回設定は既存Host入口だけが所有する。Workbenchの鍵入力は専用POSTから要求／接続用Memoryへ渡し、CLI引数・環境・URL・Git・応答・log・Browser永続Storageへ保存しない。Local CROSとRemote MCPの混在・暗黙fallbackは拒否する。
+
+維持対象は通常RepositoryのProject Context／Topic／Meeting／AI操作、AMの現在Role・Exposure・失効、初回未完了の限定入口、鍵操作のMCP非公開、既存配布Root検証である。新Session／Registry／Lock／Root Framework、旧形式Reader、Coordinator／Orchestrator／Docker再設計は対象外。
+
+必須検証はmode×transport×資格の起動Matrix、既存／欠落／Link／破損Rootの作成0と内容非変更、実ProcessのCROS HTTP現在認可、Workbench専用POSTと秘密非露出、取消・重複signal後の要求joinとListener／子Process回収、配布入口の不正Root拒否である。Package／Browser回帰、設計・QA・Symbol・台帳の直接伝播と新固定候補の独立レビューを行う。既存47件／Browser7件／Visual27条件はLauncherの成立根拠へ流用しない。旧REST撤去・正式191項目・AM全体完成はこの入口接続と残余Capability確認後に判断する。
 
 ### Relation判定のDomain移管 — 2026-10-12
 
@@ -537,6 +748,60 @@ MCP先行十操作を現在通常認証、四read／六保存のAM公開API、�
 是正後MCPの`npm test`は静的三軸＋全85件成功、Fail／Cancel／Skip／Todo0、Exit0、83.6560028秒。AM初回全回帰の失敗はRoot公開APIのexact期待集合に純粋projector三関数がなかったためで、三名だけを追加し、固定権限33判定や既存許可集合は変更していない。是正後静的三軸と当該四試験成功、0.2743046秒。AM全回帰の再実行は終端待ち。共有結果投影と本人公開の固定候補独立レビュー前で、Workbench実画面・本番接続・全体完成は未成立のままである。
 
 AM全回帰の再実行は静的三軸＋全150件成功、Fail／Cancel／Skip／Todo0、Exit0、190.8644844秒。MCP85件と合わせ235件を確認した。固定21Pathの限定独立レビューPass・全重大度残指摘0、tracked差分Hash `400a02b13eb67aab79bf5601d0e6ad233f619058`と新AM結果投影SHA-256 `d9f125448b1aa621fe6fdd24608345d6347da8e4ebeb4fc25684ee647ce44fdf`の開始／終了一致、差分確認と自己生成結果試験Root残存0を確認した。本人搬送と結果Owner移管の局所範囲だけを閉じ、Workbench画面／本番接続、公開Launcher、Remote登録M1、旧REST撤去、正式191項目とAM全体完成は継続する。
+
+Workbench通常管理の実装途中結果：基準Commit `378d93cb`。同Process七保存／Remote六保存、本人と四管理read、個別改訂のForm、保存後の現在投影再取得を接続した。局所実HTTP二経路は成功（12.0310442秒）、不正Origin・Action Token重複・未知field・username重複の実保存0、Remote登録非提供、降格後の拒否と内部Path／資格非開示を確認した。初回二経路失敗は試験Repositoryの必須`PROJECT_CONTEXT.md`欠測であり、登録契約は変更せずfixtureを補った。MCP Clientの固定応答反証一件はID差・不正UTF-8・16 MiB超過・事前取消・非許可URLの拒否と再送0・reader解放を確認した。実HTTP終了保証の代替にはしない。
+
+静的三軸とVite Build成功。既存鍵管理の実Chrome五件成功（49.2249468秒）。初回通常回帰は43件中42成功／1失敗（168.7472729秒）、Failは新BundleのGit Index不一致だけである。生成物のステージ固定後、該当配布／Node依存閉包二件は成功（0.7599301秒）。初回回帰を全体Passへ読み替えず、追加Client反証を含む全回帰を再実行する。新通常管理画面の実Browser操作・Visual profile、取消／切断の直接反証、追跡情報更新、独立レビュー、公開Launcher、Remote登録M1、旧REST撤去、正式191項目とAM全体完成は未成立。実行別Evidence書庫・新State／Lock／Sessionは追加しない。
+
+Workbenchの再実行回帰は静的三軸・Buildと全44件成功、Fail／Cancel／Skip／Todo0、Exit0（187.4815745秒）。既存鍵管理を含む通常管理の実Chrome試験は、保存前の入力変更をfresh再投影と誤認する待機条件を固定改訂表示へ直した後、全6件成功（74.4500771秒）。新通常管理の四Formは実保存・fresh改訂、重複submit一POST、結果Focus、Storage不保持、鍵発行0を確認した。7保存の全Form操作・失敗表示・Remote Browser同値・公開Process終了義務の全成立は主張しない。
+
+Visual再評価には自己生成AM状態を構成して通常管理の実Formを含めた。初回は27測定後のGit状態比較が、fixtureの`.crdd`除外初期化により不一致となり失敗した。fixtureへ先に`.gitignore`を固定し、現在本人のDOMが成立することと管理状態が不変であることを追加して再実行中。機能契約やVisual閾値を弱めない。新DOM識別子を追加したBuild後の最新版全回帰・Browser／Visual終端・追跡情報確認・独立レビューは継続する。
+
+Visualでは管理Formのcheckboxラベルと、構成済み鍵管理の全員交換確認ラベルに21〜22pxの操作領域不足を検出した。両者を既存40pxの確認操作スタイルへ接続し、全九Profileの閾値・評価範囲は維持して再実行中。既存fixtureでは鍵管理未構成のため露出していなかった不足であり、過去Visual成功を本候補へ流用しない。
+
+実HTTP通常管理の局所二経路へ、Body未完了での利用側切断とServer終了を追加した。静的三軸・二経路成功（20.0895003秒）、実保存状態不変・Request終了・Listener不存在を確認した。Handler境界の局所根拠であり、公開Launcher全Process／Signal／全RegistryのEST-ST-013全成立へ昇格しない。最新版DOM／CSS後の全回帰・Browser・Visual、追跡情報更新と独立レビューは継続する。
+
+操作領域是正後のVisual全27測定は成功、Fail／Cancel／Skip／Todo0、Exit0（100.6628118秒）。現在本人DOM・構成済み管理Form、Desktop／Tablet／Mobile、実Browser Zoom100%／200%／400%、試験用管理状態不変、Browser Tree／Profile／Listener不存在を確認した。既存32px基準・測定範囲は不変更。Browser終了最大7841ms、Tree観測最大6217ms、子Process終端fallback1回は参考値として観測し、通常終了へ偽装しない。新Buildの配布物／Node依存閉包二件も成功（0.6715413秒）。対象のSource・Test・台帳・現状表示を固定して限定独立レビューへ渡す。全7FormのBrowser操作・失敗表示・Remote Browser同値・公開Launcher全終端、旧REST撤去、正式191項目・AM全体は未成立である。
+
+### Workbench Remote全ConsumerのMCP単一路への切替 — 2026-10-13
+
+独立レビューは固定候補（HEAD `378d93cb`、tracked差分Hash `10251ce3f5388852903988bbd8b634b3ccffdf65`）へMajor1／Moderate4を返した。完全Endpoint契約違反、結果集合のIdentity重複、登録成功IDの相関不足、配置表不整合、Remote Browser確認不足を是正する。固定最新版の全44回帰は終端成功（208.4612083秒）、Browser六件も成功（81.2054535秒）だが、レビューはFailであり、局所候補を完成扱いにしない。
+
+Endpointの是正を旧field併存・推定・互換Readerで行わず、既採用Architecture §4.1へ合わせるため、影響範囲をRemote全Consumerへ拡張する。読み取り専用確認者との着手前整合結果は条件付き着手可、追加の人間判断なし。以下の表は成立済み能力の保全対応であり、旧RESTの成功を新MCP経路の検証結果へ流用しない。
+
+| 能力 | 現行比較入口 | 新接続と意味Owner | 必須の保全確認 |
+|---|---|---|---|
+| Portfolio | CROS `readRemotePortfolio` | 明示Endpoint→既存Project Context MCP→Domain表示投影 | 検索・状態・Query拘束Cursor、五場面、Source Coverage、欠測。部分結果を全体成功へ畳まない |
+| AI Profile | CROS `readRemoteAiProfileCatalog`／`executeRemoteAiProfileMutation` | 同じEndpoint→AM現在認可→AI Adapter管理 | 現在Role、改訂、登録Model、削除確認、拒否／未構成／保存後応答喪失の識別 |
+| Runtime Activity | CROS `readRemoteRuntimeActivity` | 同じEndpoint→AM現在認可→Orchestrator Reader | Project、現在状態、Event、出所、Cursor、Source別unknown。部分成功禁止 |
+| Topic／Meeting | Workbench `topic-meeting/mcp-adapter.ts` | exact Endpoint→AM→Domainの既存Tool | Repository拘束、CRUD、Relation、競合、Outcome、closeと非開示 |
+| 通常管理 | Workbench `management/operations.ts` | exact Endpoint→既存本人・四read・六保存Tool | fresh認可、集合一意性、操作別結果ID相関、再送0、Remote登録非提供 |
+
+編集一次キーは接続型／Form／表示、共通MCP搬送、能力別Consumer、結果Inspector、Canonical配置表、QA／Symbol／Catalog、実HTTPとBrowser反証の順にする。構成は完全`mcpEndpoint`一つへ統一し、旧`baseUrl`／`mcpBaseUrl`、暗黙path追加とFallbackを新構成へ残さない。既存Domain／AM／MCP／AI Adapterの公開型・Inspectorを利用し、旧REST DTOをcastして成功へ変換しない。管理結果の一意性・操作相関は既存Inspector／呼出し境界へ最小追加する。
+
+撤去対象はWorkbench Backendから旧CROS RESTへの接続である。Browser向け同一Origin HTTP、Local同Process能力、鍵管理のMCP非公開、実Host状態、旧正式Evidenceは不変更。Remote登録RootのM1判断は独立して維持し、Tool／Form／dispatchを追加しない。新Framework／Store／Lock／Session／Registry、Runtime互換Readerは追加しない。旧REST helperは全Consumer置換と必要な能力観測後だけ参照0を確認して撤去する。
+
+回帰面はQA-000007の現在認証・内容範囲・通常管理、QA-000009の完全Endpoint／搬送／取消／終了、QA-000004の活動、QA-000005のTopic／MeetingとPortfolio・AI Profileの既存項目をOwnerごとに照合する。完全`/mcp`、originのみ、二重path、URL秘密／query／hash、旧field、redirect、容量／UTF-8／Envelope相関、応答喪失、Role変更／失効／Exposure解除／foreign対象、Server closeを反証する。Remote Browserでは正常・拒否・unknown・既知出版と清掃不明、fresh表示、登録Form非表示、秘密／Path非開示、再送0を確認する。
+
+新固定候補の独立レビューは全ConsumerのSource・Test・設計・QA・台帳・起動／利用側を一つの集合へ含め、全結果終了まで編集しない。文書・直接伝播・Gap影響はその固定集合へ含める。標準準拠基準・Provider／Docker自体は本切替で変更せず、署名Provider E2Eを最初の原因確認には使わない。既存全回帰を新候補へ流用せず、静的三軸・Build・全回帰、Local／Remote実Browserと資源終端を再実行する。公開Launcher・旧CROS Package全撤去・正式191項目・AM全体完成は別の継続Gateであり、未対応能力が残る間は旧処理を不要扱いしない。
+
+Remote切替の途中実装：共通`callMcpTool`は完全な`/mcp` Endpointをそのまま使用し、暗黙path追加を撤去した。originのみ・二重path・URL資格／query／hash・非許可HTTP等の拒否と、集合重複／登録ID欠測の局所反証二件が成功（0.5596469秒）。既存接続型・Form・Topic／Meeting等の旧origin入力はまだ切替前であり、新搬送と混在する途中状態を完成と表示しない。`ai-profile/mcp-adapter.ts`と`activity/mcp-adapter.ts`は既存MCP Toolと意味OwnerのInspectorへ接続する薄いAdapterとして作成し、静的三軸成功。本番Serverへは未接続、実HTTP能力別試験も未実行。新Framework・共有State・認可再実装は追加していない。次にPortfolioの結果検査・取得、接続型／Formと全Consumerを一体切替する。新候補の全回帰・Browser・レビューは未成立。
+
+Remoteの本番Consumer切替候補：接続型・接続Form・表示・管理／Portfolio／Profile／Activity／Topic・Meetingの要求を完全`mcpEndpoint`一つへ揃えた。Workbench Serverから旧CROS REST helperのimportと呼出し、`mcpBaseUrl`と推定Fallbackは撤去した。旧CROS helper本体・Packageは他Consumerと能力置換の確認前なのでまだ削除しない。Portfolioは既存BrowserのContext／Source検査を`project/portfolio-result.ts`へ移し、ServerとBrowserで共有する。MCP一覧と全Project取得が成立した後だけ全体投影を返し、途中失敗・一覧との相関不一致は全体取得失敗とする。原子的な複数Call Snapshot保証は追加しない。
+
+Topic／Meetingの独自HTTP搬送を共通Clientへ置換し、Page内の詳細とTopic／Meeting両Pageは全settleを待ってから結果を返す。全HTTP要求を既存の進行中Promise集合へ接続し、切断Signalを各Remote呼出しへ渡し、Server終了時にjoinする。新Store／Registry／Lock／Sessionは追加しない。Profile変更のdispatch後故障を400の入力拒否へ丸めず503の結果未確認へ分け、自動再送しない。
+
+静的三軸・Build成功。単一Endpoint後のAM実HTTP／結果反証四件成功（16.3285415秒）。旧CROS認証fixtureを使う既存Remote Topicの実MCP一件は、新Portfolio取得・選択Repository・Topic表示／更新の経路で成功（4.7711927秒）した。この比較fixture成功を新AMの全能力認可・失効の成立へ流用しない。旧REST前提の接続／Profile等の試験追従、新AM能力別実HTTP・Remote Browser、結果未確認／現在性／取消／終了反証、台帳、全回帰と新固定候補レビューは未完了。現時点でAM全体完成や旧Package不要を主張しない。
+
+旧REST前提の実HTTP試験追従：Profile試験を新AM状態＋実MCPへ置換し、manager／administratorの作成と接続後developer降格による次変更拒否・Catalog改訂不変を確認した。静的三軸と三件成功（9.6833526秒）。接続・Portfolio・活動・失効試験は自己生成の登録Repository、Orchestrator現在状態とExecution Intelligence履歴から実MCPへ接続し、成功（8.3945368秒）。初回の活動fixture不成立は本文相関hashをGit改訂へ流用していたためで、検査は弱めずVersion Controlの実改訂観測とfixtureの初期Commitへ補正した。Topic／Meeting全Action写像は完全Endpointへ追従後に成功した。実行ごとのEvidence書庫を増やさず、正式試験Sourceを再実行入口とする。新経路の全能力・公開Launcher・Remote Browser・全回帰・新固定レビューは未完了である。
+
+新Remote管理の実Browser局所結果：`node --test --test-skip-pattern='issue|self|\ball\b|(?:^| )management$' tests/system/credential-administration.browser.contract.test.ts`でRemote管理・Root準備・親Caseの三件成功（34.0383893秒）、Fail／Cancel／Skip／Todo0、Exit0。四Formの実AM→MCP→Workbench保存・fresh表示、二重submit一回、Local登録Form非表示、FocusとStorage不保持を確認した。拒否・出版不明・出版確認済み＋清掃不明・応答喪失の表示と再送0はBrowser内の固定応答注入で確認し、実AM／MCPの保存／清掃故障を再現した根拠へ昇格しない。Backend故障と表示の縦断接続、最新全Browser・全回帰終端・新固定候補レビューは残る。
+
+単一Endpoint切替後のWorkbench全回帰は静的三軸・Buildと全47件成功、Fail／Cancel／Skip／Todo0、Exit0（211.0305533秒）。新AMのPortfolio／実活動／失効とProfile二Role、Topic表示更新／全Action写像を含む。Local／Remoteを合わせた最新版の実Browserを再実行中。Source・台帳・起動入口・残存CROS依存の照合、新候補の限定独立レビューと正式191項目の評価は未完了で、47件からAM全体や旧Package廃止可を推定しない。
+
+切替後の最新版実BrowserはLocal鍵三経路・Local通常管理・Remote通常管理と準備／親Caseを合わせ全七件成功（99.4258573秒）。全47回帰に続き、Visual全27測定も成功（94.4195132秒）。Browser正常終了最大2035ms、Process Tree観測最大984ms、子Process終端fallback0は参考値であり恒久保証ではない。追加四Adapterと共通結果検査をSymbolへ対応付け、Schema検査はWorkbench32 Symbol・findings0、Test Catalog303登録・findings0。これらは正式Local ItemのPass数ではない。
+
+Source検索でWorkbench Remote旧`baseUrl`／`mcpBaseUrl`とREST helper呼出しを撤去済みと確認した。残る`baseUrl`はWorkbench自身のlocalhost URLで、接続先設定ではない。公開Launcherの単体／`--cros`、初期化済みHost Rootの読取り結合、初回経路、通常認証・終了保証は未接続である。次の着手前確認へ移し、起動時mkdir／初期化／鍵発行、新Store／Session／Lockを追加しない。公開入口切替・旧CROS全Consumer撤去・新固定候補レビュー・正式191項目・AM全体完成は未完了を維持する。
 
 ### Workbench鍵管理の本番接続着手 — 2026-10-13
 基準`d02d784c`、開始時clean。採用済み通常発行・独立失効・指定／全員交換を旧CROS資格管理からAMへ置換する。親と読み取り専用確認者がAM／Workbench正本・既存Consumer・品質義務を照合し、追加人間判断なし。旧profile発行は既存userIdへの発行へ、rotateは指定／全員交換へ置換し、update_accessは鍵から撤去してUser／Role管理へ分離する。旧公開形状は互換維持せず、移行はフロントAIが旧Writer停止・旧入力確認を担当する。旧正式Evidenceは保持する。
@@ -1068,8 +1333,8 @@ status相関追加後の書式・型・Lintと公開CRUD局所1件はPass、Fail
 | `src/access/resolve.ts` | 認証済みAccess→同一Exposure Snapshot→許可集合 | `access-management/src/access/resolve.ts` | Request一回観測、現在Credential、systemAdminからContent非生成 |
 | `src/access/types.ts` | ExposureとRepositoryの同一観測型 | `access-management/src/access/types.ts` | DomainのContext型と認可Snapshotを混同しない。Domain→Access Management依存を作らない |
 | `src/access/session-context.ts`（Credential／Session／Exposure／Repository解決） | Credential SnapshotとSession、Binding／改訂を使う認可 | `access-management/src/access/session.ts`／`resolve.ts`／`types.ts`へ責務分離 | 型と関数名を実責務へ合わせる。RepositoryのDomain情報と認可用Bindingを分け、必要な型だけRoot公開 |
-| 同File（ContextItem／ContextPackage／createContextPackage） | 目的・Source・改訂・欠測を持つContext集約 | `domain-model/src/project-context/package.ts`候補 | restrictedの非開示は保持。認可判断をDomainへ移さず、認可済み情報だけ受ける |
-| 同File（Handoff／resume、局所操作、AI行動計画） | Task相関・Authority照合、疑似局所更新、共通計画投影 | REVIEW。Context値はDomain候補、Task再開判断はOrchestrator候補、疑似操作は削除候補 | 現在は固有契約試験のみの利用を確認。ARCH-000009／015の義務と現行実Ownerへ照合してから処置。試験専用という理由だけでは削除しない |
+| 同File（ContextItem／ContextPackage／createContextPackage） | 目的・Source・改訂・欠測を持つ値変換prototype | 撤去。RFD-ST-010のDomain新Owner Gapを保持 | 目的限定Identity・Consumer lifecycle・第二正本0は未成立。固定Git履歴と現在処置は上段の撤去節を参照 |
+| 同File（Handoff／resume、局所操作、AI行動計画） | Task相関・Authority照合の値判定、局所値更新、共通計画copy | Handoff／AI計画prototype撤去、RFD-IT-009局所操作は保持 | ERB-IT-010／ERB-ST-013は5C依存OPEN、RFD-IT-011もOPEN。旧値を実Effect・旧Owner終了の証明にしない |
 | `src/federation/project.ts`（resolveAuthorizedRepositories） | Grant／Exposure／改訂の認可フィルタ | `access-management/src/access/resolve.ts` | 認可済みRepository集合を返す。Portfolio生成は行わない |
 | 同File（createPortfolioProjection・3公開型） | Context Identity照合、Project集約、欠測・競合の投影 | `domain-model/src/project-context/portfolio.ts` | DomainはCredential／Sessionを入力にせず、認可済みDomain情報を入力にする。MCP／WorkbenchのPortfolio型も新Ownerへ追従 |
 | `src/profile/administration.ts`（resolve） | systemAdminによるAI Profile管理可否 | `access-management/src/access/administration.ts`候補 | AI AdapterのCatalog管理実体を再実装しない。Content観測不要・非管理非開示 |
@@ -1079,7 +1344,7 @@ status相関追加後の書式・型・Lintと公開CRUD局所1件はPass、Fail
 | `src/activity/validate.ts` | Orchestrator状態相関と活動応答の閉包検査 | Orchestratorの既存公開投影Validatorへ統合候補 | MCP／Workbenchで共有。Access Managementへ上位Task意味検査を持たせない |
 | `src/configuration/shared-server-file-adapter.ts` | Origin／Port、接続設定、Root検証、Context解析、Exposure、Topic／Meeting生成が混在 | SPLIT。接続・Exposure設定はAccess Management、ContextはDomain、Listener設定と本番組立てはMCP／Workbench | 設定の存在によるMode切替禁止。現在Binding／Context改訂検査を維持し、単体から兄弟Repoを探索しない |
 | `src/connection/http.ts` | CROS REST ServerとRemote Client、入力stream・応答変換 | 代替MCPと本番Consumer成立後DELETE | Browser↔Workbench RESTは対象外。認可・競合・活動欠測・終了保証は新経路で実証 |
-| `src/tool/registry.ts` | Tool実装一覧、公開可否、取消・結果分類 | REVIEW。MCP等の実登録先に統合または未使用中継を削除 | 現行本番Consumerは検索で見つからず自Package試験のみ。Tool登録契約とARCH-000010／012を先に照合し、新汎用Registryは作らない |
+| `src/tool/registry.ts` | Tool配列の選択と試験関数実行 | prototype撤去。実SurfaceのRCM-IT-010は部分接続・OPEN | 全入口の状態軸・取消・cleanup比較は未成立。固定Git履歴へ戻れ、新汎用Registryは作らない |
 | `src/surface/operation.ts` | 汎用Ownerへのinspect／apply、Surface転送、委譲結果相関 | REVIEW。固有意味を持つ実Ownerへ統合またはDELETE | 本番Consumerは検索で見つからず自Package試験のみ。Handoff／Result義務を消さず、値の投影とTask採用判断を分ける |
 | `src/index.ts` | 上記責務全体の明示公開 | 全移管後DELETE。新Ownerの`src/index.ts`から必要Symbolだけ公開 | 同型DTOや互換barrelを追加しない。未対応の公開契約を消さない |
 
@@ -1120,13 +1385,13 @@ status相関追加後の書式・型・Lintと公開CRUD局所1件はPass、Fail
 | `integration/connection-credential` | RFD-IT-013 | Credential・要求認可 | Access Managementへ移管 | 明示Grant、失効、秘密非保持、管理とContent分離。公開MCP／Workbench結合は別確認 |
 | `integration/credential-access-recovery-file-adapter` | RFD-IT-013 | 管理回復の保存・再入場 | Access Management回復へ移管 | 人間確認、同一Identity、Registry確定、秘密非保持、再入場 |
 | `integration/credential-registry-file-adapter` | RFD-IT-013 | Registry保存 | Access Management保存へ移管 | OS Root、別Adapter読戻し、Revision競合、保存保護 |
-| `integration/local-operation-ai-plan` | RFD-IT-009／RFD-IT-011 | 局所操作・AI計画・Handoff | REVIEW。Domain／Orchestratorの実Ownerへ分割または代替 | availability、局所同等性、AI入口制約。疑似操作のCanonical義務・本番代替は未確定 |
+| `integration/repository-local-operation` | RFD-IT-009 | 局所値契約 | AI計画Caseだけ撤去し、局所操作を改名して保持 | RFD-IT-011の実AI入口比較はOPEN。残存Oracleを変更しない |
 | `integration/project-federation` | PPR-IT-002 | 認可集合・Portfolio | Access Management認可／Domain投影へ分割 | 許可集合外非読取り、欠測、Identity不一致、競合 |
 | `integration/remote-transport` | PPR-IT-002／RFD-IT-013 | Remote認可・情報非開示 | MCPの実経路で代替後に旧REST試験撤去 | Request毎認可、Workspace非開示、Registry改訂、Token非報告。代替本番検証は未完了 |
 | `integration/shared-server-config-file-adapter` | PPR-IT-002／RFD-IT-013 | Host設定・Root・Context・Exposure | Access Management／Domain／MCP設定へ分割 | 不正Root・Context拒否、Binding、Grant不一致、現在Path Identity |
 | `integration/surface-contract` | EST-IT-010 | Surface間Owner・結果・取消 | REVIEW。実Owner・本番Surface試験へ代替 | 同一Owner、Authority、Effect、取消、結果相関。抽象FixtureだけでServer成立を主張しない |
-| `integration/tool-registry` | RCM-IT-010 | 登録・公開・実装接続 | REVIEW。実登録先へ統合または代替 | 公開可否、Host availability、Authority、取消、cleanup。新汎用Registryは追加しない |
-| `system/context-handoff` | ERB-ST-013／RFD-ST-010 | Context引渡し・再入場 | REVIEW。Domain値／Orchestrator判断へ分割 | Source・対象Identity、改訂、Authority、必要Context、再入場。値関数から本番ST成立を推定しない |
+| `integration/tool-registry`（撤去） | RCM-IT-010 | 試験関数の登録・選択 | prototype専用試験撤去。実Surface比較の義務はOPEN | 公開可否、Host availability、Authority、取消、cleanupを全入口で観測する義務は保持 |
+| `system/context-handoff`（撤去） | ERB-ST-013／RFD-ST-010 | Context引渡し・再入場の値判定 | prototype専用試験撤去。Domain／Orchestratorの義務はOPEN | ERB-IT-010も5C依存OPEN。値関数から本番ST成立を推定しない |
 | `system/result-return` | EST-ST-011 | 結果引渡し・再実行制御 | REVIEW。実Orchestratorの結果受領へ対応 | createdBy、改訂、差分、Evidence、返却先、Authority、replay。新汎用DTOは作らない |
 | `system/session-access` | RFD-ST-003／RFD-ST-004 | Session・Exposure・公開操作 | Access Managementへ移管しMCP／Workbench実Surfaceを補強 | Session終了、失効、Workspace／Repository認可、非開示。新Surface接続の検証は未完了 |
 
@@ -1173,7 +1438,7 @@ Tool Registry等の本番未使用判定は、今回のTS Source検索による�
 
 | 現行Source／試験 | 実際に成立する範囲 | 移管・撤去の処置候補と保持する義務 |
 |---|---|---|
-| `cros/src/tool/registry.ts`／`integration/tool-registry` | Callerが与えた登録配列の状態照会と実装関数呼出し。登録一覧は試験内で組み立てており、Repositoryの実Tool発見や公開Server登録とは未接続 | Access Managementへ移さない。能力発見はARCH-000010、要求ごとの認可はAccess Management、実登録と起動は各公開入口・実行Ownerへ分ける。RCM-IT-010の状態軸・未許可Effect 0・取消と回収を実能力で置換確認後、未使用の汎用実行Registryを撤去する候補。新Registry Packageは作らない |
+| `cros/src/tool/registry.ts`／`integration/tool-registry`（撤去前の照合） | Callerが与えた登録配列の状態照会と実装関数呼出し。登録一覧は試験内で組み立てており、Repositoryの実Tool発見や公開Server登録とは未接続 | 2026-10-13にpure prototypeを撤去。実Surfaceの部分接続は置換完了ではなくRCM-IT-010はOPEN。現在処置は上段の撤去節を参照。Access Managementへ移さず、新Registry Packageは作らない |
 | `cros/src/surface/operation.ts`の共通操作Handler／`integration/surface-contract` | Callerが与えた同期Ownerを呼ぶ。試験は四つのSurface名に対し別々のメモリOwnerを作り、同じ結果を比較する。本番CLI・HTTP・MCP・Workbench接続や外部取消資源の観測ではない | 汎用Handlerを別Packageへ横流ししない。Topic／Meeting、Profile、活動等の既存業務APIと本番AdapterをEST-IT-010へ接続して同等性を確認する。文字列のSurface名や固定残存件数から実入口・cleanupの成立を推定しない。代替確認後の削除候補とする |
 | 同Fileの`settleDelegatedResult`／`system/result-return` | Task・Request・Authority・Revision・既処置集合・complete値を同期判定する。`effectCount: 1`は返却値で、実Task保存・Candidate反映・既処置集合更新を発行しない。試験は`producerId`、変更Hash、Evidenceの保存先への搬送を観測していない | 結果受領・Taskへの結合はARCH-000015が定める既存Coordinator／Orchestratorへ対応付ける。EST-ST-011の実帰還・相関保持・再送による重複Effect 0を観測するまで、この値判定を本番ST成立としない。単純な型移管や同名関数追加で新しい結果受領Ownerを増やさない |
 

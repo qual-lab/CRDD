@@ -303,11 +303,11 @@ export type RepositoryQualityProjection = Readonly<{
  * 固定Context本文の解析結果と読取り不成立を分ける。
  * @responsibility 観測不能を空Contextや不存在証明へ変換しない。
  * @trace ARCH-000005
- * @shape completedはcontextとrevision、unavailableは固定reasonだけ。
+ * @shape completedはcontextとrevision、blocked／conflicting／unavailableは固定reasonだけ。
  * @invariant revisionは解析へ渡したUTF-8 textの相関値。認可・Git／管理改訂・生byte同一性は保証しない。
  * @boundary Repository本文Readerと内容Consumer。
  * @security 下位例外や内部Pathを開示しない。
- * @compatibility missingとの識別を保証せず、既存Portfolio状態を変更しない。
+ * @compatibility Root不成立と文書未確認・競合を分け、Filesystem不存在をmissingと断定しない。
  */
 export type RepositoryProjectContextReadResult =
   | Readonly<{
@@ -316,9 +316,16 @@ export type RepositoryProjectContextReadResult =
       revision: string;
     }>
   | Readonly<{
+      status: "blocked";
+      reason: "project_context_repository_unavailable";
+    }>
+  | Readonly<{
+      status: "conflicting";
+      reason: "project_context_identity_mismatch";
+    }>
+  | Readonly<{
       status: "unavailable";
       reason:
         | "project_context_observation_unavailable"
-        | "project_context_identity_mismatch"
         | "project_context_read_unavailable";
     }>;

@@ -12,6 +12,8 @@
 !/.crdd/config/orchestrator.json
 !/.crdd/config/execution-intelligence.json
 !/.crdd/config/coordinator.json
+!/.crdd/config/mcp-server.json
+!/.crdd/config/workbench-server.json
 
 # Configuration examples are distribution artifacts, not runtime state.
 !/template/.crdd/

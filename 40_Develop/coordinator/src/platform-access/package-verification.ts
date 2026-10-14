@@ -9405,9 +9405,9 @@ const RUNTIME_SIBLING_COMPONENTS = Object.freeze([
     packageName: "@qual-lab/crdd-artifact-signing",
   }),
   Object.freeze({
-    sourcePrefix: "40_Develop/cros/src/",
-    packagePath: "40_Develop/cros/package.json",
-    packageName: "@qual-lab/crdd-cros",
+    sourcePrefix: "40_Develop/access-management/src/",
+    packagePath: "40_Develop/access-management/package.json",
+    packageName: "@qual-lab/crdd-access-management",
   }),
   Object.freeze({
     sourcePrefix: "40_Develop/mcp-server/src/",

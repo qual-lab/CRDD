@@ -221,7 +221,7 @@ const sourceOwnershipRoots = Object.freeze([
   path.join(repositoryRoot, "40_Develop", "checker"),
   path.join(repositoryRoot, "40_Develop", "coordinator"),
   path.join(repositoryRoot, "40_Develop", "domain-model"),
-  path.join(repositoryRoot, "40_Develop", "cros"),
+  path.join(repositoryRoot, "40_Develop", "access-management"),
   path.join(repositoryRoot, "40_Develop", "execution-intelligence"),
   path.join(repositoryRoot, "40_Develop", "mcp-server"),
   path.join(repositoryRoot, "40_Develop", "official-asset-governance"),
@@ -277,6 +277,7 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     expectedTrace: "ARCH-000012",
     requiredTags: ["boundary", "effect", "security"],
     exportedModules: [
+      "./connection/configuration.ts",
       "./credential/administration.ts",
       "./ai-profile/projection.ts",
       "./ai-request/types.ts",
@@ -305,6 +306,31 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     exportedModules: ["./profiles/current.ts", "./findings/collector.ts"],
   },
   {
+    relativePath: "40_Develop/access-management/src/index.ts",
+    expectedTrace: "ARCH-000013",
+    requiredTags: ["boundary", "effect", "security"],
+    exportedModules: [
+      "./access/repository-access.ts",
+      "./access/current-access.ts",
+      "./access/profile-management.ts",
+      "./management/read-state.ts",
+      "./management/result.ts",
+      "./credential/authentication.ts",
+      "./credential/presentation.ts",
+      "./credential/management.ts",
+      "./credential/initial-connection.ts",
+      "./credential/token-material.ts",
+      "./access/management-permission.ts",
+      "./initialization/state-evaluation.ts",
+      "./initialization/host-state.ts",
+      "./initialization/prepare-host-root.ts",
+      "./initialization/host-command.ts",
+      "./initialization/initialize-from-host.ts",
+      "./state/parse.ts",
+      "./state/file-store.ts",
+    ],
+  },
+  {
     relativePath: "40_Develop/coordinator/src/index.ts",
     expectedTrace: "ARCH-000004",
     requiredTags: ["boundary", "effect", "security"],
@@ -317,28 +343,14 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     ],
   },
   {
-    relativePath: "40_Develop/cros/src/index.ts",
-    expectedTrace: "ARCH-000013",
-    requiredTags: ["boundary", "effect", "security"],
-    exportedModules: [
-      "./connection/http.ts",
-      "./access/session-context.ts",
-      "./federation/project.ts",
-      "./tool/registry.ts",
-      "./surface/operation.ts",
-      "./access/credential.ts",
-      "./access/registry-file-adapter.ts",
-      "./access/recovery.ts",
-      "./access/recovery-file-adapter.ts",
-      "./access/recovery-cli.ts",
-      "./configuration/shared-server-file-adapter.ts",
-    ],
-  },
-  {
     relativePath: "40_Develop/domain-model/src/index.ts",
     expectedTrace: "ARCH-000008",
     requiredTags: ["boundary", "effect", "security"],
     exportedModules: [
+      "./activity/federate-relations.ts",
+      "./activity/operations.ts",
+      "./project-context/portfolio.ts",
+      "./project-context/read-context.ts",
       "./outcome.ts",
       "./topic/types.ts",
       "./topic/markdown.ts",
@@ -400,11 +412,14 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     expectedTrace: "ARCH-000012",
     requiredTags: ["boundary", "effect", "security"],
     exportedModules: [
+      "./transport/configuration.ts",
+      "./access-management/protocol.ts",
+      "./ai-profile/adapter.ts",
+      "./runtime-activity/adapter.ts",
       "./orchestrator/adapter.ts",
       "./project-context/adapter.ts",
       "./request/route.ts",
-      "./project-context/cros-resolver.ts",
-      "./shared-host/server.ts",
+      "./request/access-resolver.ts",
       "./project-context/protocol.ts",
       "./topic-meeting/protocol.ts",
       "./topic-meeting/adapter.ts",
@@ -426,6 +441,9 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     expectedTrace: "ARCH-000004",
     requiredTags: ["boundary", "concurrency", "effect", "security"],
     exportedModules: [
+      "./activity/read.ts",
+      "./activity/validate.ts",
+      "./activity/types.ts",
       "./decision/authority-adapter.ts",
       "./decision/capability-adapter.ts",
       "./task/authorization-adapter.ts",
@@ -534,7 +552,7 @@ const projectConfigs = Object.freeze([
     "tsconfig.strict.json",
   ),
   path.join(repositoryRoot, "40_Develop", "coordinator", "tsconfig.tests.json"),
-  path.join(repositoryRoot, "40_Develop", "cros", "tsconfig.json"),
+  path.join(repositoryRoot, "40_Develop", "access-management", "tsconfig.json"),
   path.join(
     repositoryRoot,
     "40_Develop",
@@ -1230,6 +1248,19 @@ function assertFileName(file: string): void {
   }
   if (name.endsWith(".txt")) {
     assert.match(name, TEXT_FILE, `text filename: ${file}`);
+    return;
+  }
+  if (name.endsWith(".pem")) {
+    assert.match(
+      relativeToDevelop.replaceAll(path.sep, "/"),
+      /^(?:mcp-server|workbench-server)\/tests\/fixtures\/tls-test-(?:certificate|key)\.pem$/u,
+      `public TLS fixture filename: ${file}`,
+    );
+    assert.match(
+      fs.readFileSync(file, "utf8"),
+      /^TEST ONLY: intentionally public synthetic localhost material\. Never use for production or CRDD signing\./u,
+      `public TLS fixture classification: ${file}`,
+    );
     return;
   }
   if (name.endsWith(".exe")) {

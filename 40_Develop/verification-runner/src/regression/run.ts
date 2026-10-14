@@ -310,9 +310,9 @@ function runNpmScript(
  *
  * @responsibility Node Testsの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000003
- * @input owner: | "artifact-signing" | "checker" | "coordinator" | "domain-model" | "execution-intelligence" | "mcp" | "orchestrator" | "semantic-coverage" | "version-control" | "verification-runner"、entries: readonly TestCatalogEntry[]、options: Readonly<{ testNamePattern?: string; testSkipPattern?: string; }>
+ * @input owner: Exclude<TestCatalogEntry["owner"], "platform-access">、entries: readonly TestCatalogEntry[]、options: Readonly<{ testNamePattern?: string; testSkipPattern?: string; }>
  * @returns numberを返す。
- * @precondition 「owner: | "artifact-signing" | "checker" | "coordinator" | "domain-model" | "execution-intelligence" | "mcp" | "orchestrator" | "semantic-coverage" | "version-control" | "verification-runner"、entries: readonly TestCatalogEntry[]、options: Readonly<{ testNamePattern?: string; testSkipPattern?: string; }>」がrunNodeTestsの入力契約を満たす。
+ * @precondition 「owner: Exclude<TestCatalogEntry["owner"], "platform-access">、entries: readonly TestCatalogEntry[]、options: Readonly<{ testNamePattern?: string; testSkipPattern?: string; }>」がrunNodeTestsの入力契約を満たす。
  * @postcondition runNodeTestsの責務を完了した結果だけを返す。
  * @effect runNodeTestsは外部ProcessまたはRuntime境界の操作を呼び出す。
  * @failure N/A: runNodeTestsは独自の失敗分岐を所有しない。
@@ -322,17 +322,7 @@ function runNpmScript(
  * @concurrency N/A: runNodeTestsは共有非同期状態を持たない同期処理である。
  */
 function runNodeTests(
-  owner:
-    | "artifact-signing"
-    | "checker"
-    | "coordinator"
-    | "domain-model"
-    | "execution-intelligence"
-    | "mcp"
-    | "orchestrator"
-    | "semantic-coverage"
-    | "version-control"
-    | "verification-runner",
+  owner: Exclude<TestCatalogEntry["owner"], "platform-access">,
   entries: readonly TestCatalogEntry[],
   options: Readonly<{
     testNamePattern?: string;
@@ -340,15 +330,7 @@ function runNodeTests(
   }> = {},
 ): number {
   if (entries.length === 0) return 0;
-  const root = path.join(
-    repositoryRoot,
-    "40_Develop",
-    owner === "orchestrator"
-      ? "orchestrator"
-      : owner === "mcp"
-        ? "mcp-server"
-        : owner,
-  );
+  const root = path.join(repositoryRoot, "40_Develop", owner);
   const testPaths = entries.map(
     (entry) =>
       `./${path
@@ -456,25 +438,22 @@ function runStaticStage(
     if (status !== 0) return status;
   }
   for (const owner of [
+    "access-management",
+    "ai-adapter",
     "artifact-signing",
     "domain-model",
-    "mcp",
+    "mcp-server",
+    "official-asset-governance",
     "orchestrator",
     "semantic-coverage",
     "version-control",
+    "visual-preview",
+    "workbench-server",
   ] as const)
     if (owners.has(owner)) {
       const status = runNpmScript(
         "check",
-        path.join(
-          repositoryRoot,
-          "40_Develop",
-          owner === "orchestrator"
-            ? "orchestrator"
-            : owner === "mcp"
-              ? "mcp-server"
-              : owner,
-        ),
+        path.join(repositoryRoot, "40_Develop", owner),
       );
       if (status !== 0) return status;
     }
@@ -517,16 +496,21 @@ function runLevelStage(
 ): number {
   const levelEntries = entries.filter((entry) => entry.level === level);
   for (const owner of [
+    "access-management",
+    "ai-adapter",
     "artifact-signing",
     "checker",
     "coordinator",
     "domain-model",
     "execution-intelligence",
-    "mcp",
+    "mcp-server",
+    "official-asset-governance",
     "orchestrator",
     "semantic-coverage",
     "version-control",
     "verification-runner",
+    "visual-preview",
+    "workbench-server",
   ] as const) {
     const ownerEntries = levelEntries.filter((entry) => entry.owner === owner);
     const status = runNodeTests(

@@ -5,15 +5,111 @@
 状態: Candidate
 維持責任者: Qual-Lab
 
-CHG-000082の再編後の実装親Folderは`workbench-server`とする。以下の既存実測は旧配置の成立範囲を示し、CROS RESTをMCPへ置き換えた新経路の完成証明ではない。Browser向けWorkbench API、React＋ViteのCSR、既存画面とVisual Baselineを維持し、今回の再編でUX／IAを独断で再設計しない。
+CHG-000082の再編後の実装親Folderは`workbench-server`とする。WorkbenchとMCPは対等な公開入口であり、WorkbenchはLocal／共有配置のいずれでもMCPへ依存しない。共有利用はBrowserから共有Host上のWorkbenchへ接続し、Workbench Serverが同Hostの専門Package APIを直接利用する。Workbench backendから別HostのMCP／CROSへ接続する旧経路を撤去する。以下の旧Remote経路の実測は当時の成立範囲であり、MCP依存全撤去後の完成証明ではない。Browser向けWorkbench API、React＋ViteのCSR、既存画面とVisual Baselineを維持し、今回の再編でUX／IAを独断で再設計しない。
 
 ## 基本設計との関係
 
+### Workbenchの旧MCP依存撤去契約 — 2026-10-13
+
+Workbenchの実行時依存にはMCP Server・旧CROS Packageを含めない。単体はRepositoryの専門Owner、共有は要求資格によるAM認可後に同Hostの専門Ownerへ直接接続する。Browser向けHTTP APIと独立MCP Serverの公開能力は維持する。
+
+起動構成は現行fieldの閉集合とし、廃止した接続fieldを単体Rootへの暗黙fallbackへ読み替えない。別Host Endpoint、Remote資格、接続・更新・切断の旧POST、共通MCP Clientと四MCP Adapterを撤去する。Mainの接続表示は単体または同Host共有の状態だけを持ち、Endpoint・Remote通知を持たない。本文とRelationの同期Reader型は既存Topic／Meeting操作の責務に置き、通信専用型・再export Fileを残さない。
+
+旧通信専用のJSON-RPC envelopeやTool写像試験は撤去する。現在認可・失効後の旧値非表示・未選択・別Root分離・CRUD／Relation・Profile・活動の検証義務は、直接経路の管理／Browser／本文／Git試験へ維持する。これは撤去候補の設計契約であり、回帰・独立レビュー・通常CLI・共有配置が完了したことを示さない。以下の旧Remote成立記録は現在の実装Owner／依存契約に使用しない。
+
+### 管理操作の直接AM接続 — 2026-10-13
+
+通常本人・管理四read・七保存は`management/operations.ts`からAccess Managementの既存APIと共通結果投影へ直接接続する。管理Rootと当該要求のBearerだけを内部Contextとして渡し、MCP Tool名・Protocol・Endpoint・中継用接続型を持たない。Standaloneの信頼済み内部DIとCROSの要求専用ContextはServerで分離する。管理側で新しい認可・保存・Sessionを実装しない。
+
+Repository登録はWorkbenchの明示操作だけで、manager／administratorの現在認可とRoot検証を既存AMが所有する。登録だけで公開せず、公開範囲は別操作。MCP Serverの独立した管理Toolと、鍵3操作・登録のMCP非公開は維持する。今回の直接接続は管理系統だけであり、Portfolio、Topic／Meeting、Profile、Activityの旧MCP分岐は別途撤去する。
+
+### Local CROSの直接Portfolio接続 — 2026-10-13
+
+同Processの内容投影は`project/access-reader.ts`で現在AM許可集合を取得し、Domainの固定本文ReaderとPortfolio集約へ接続する。2026-10-14承認済みの切替では、認可集合・Root不明と取消は全体停止を維持し、認可済み文書の未確認・競合だけをSource単位で保持する。非completeは本文・Role・版がnullで、全体completeにせず、読めた情報と日本語の未確認／競合表示を併記する。JSON Inspectorも不可能な状態組合せを拒否する。既存の公開前比較処理はAMの`sameAccessCollection`へ移してMCPと共用し、fresh AM集合との契約値一致とRoot観測成功を確認する。同一Pathの物理実体不変は保証しない。管理Roleから内容を生成せず、認証済み許可空集合だけ正常空Portfolioとする。Root／Binding／資格をBrowser結果へ透過せず、新State／Session／MCP依存を追加しない。新表示の実Browser・全回帰と独立確認はまだ未完了。
+
+明示Repository選択は同Readerの`resolveAccessRepository`で現在集合へ結合する。Topic／Meeting構成は`topic-meeting/access-resolver.ts`で同Projectの許可集合を既存Domainへ渡す。指定先だけが書込みOwnerであり、未登録・非許可から起動Rootへfallbackしない。返却Rootと操作を次要求の認可証明として保持せず、HTTP入力完了後の当該要求だけに使用する。
+
+内部Readerに続き、Serverの`localAccessRoot`構成と専用`/local-connection/action`を局所接続した。CROS起動は配布用Logo／固定JSだけを読み、起動RepositoryのContext／Topic・Meeting／Profile Catalog／活動Readerを構成しない。未認証GETは非秘密access Model、接続POSTは確認後200の閉じたJSON（status: completed）だけを返し、通常読取りは次GETが現在資格で取得する。共有Browserで主体が混ざらないよう、CROSの通常要求は一つのAuthorization HeaderのBearerから当該要求だけのAM Contextを構成し、Server全体にログイン鍵・本人投影・接続Noticeを保持しない。重複・不正・欠落Headerは資格なし、不成立・状態不明は本人／内容非表示とする。Action Tokenは共通の用途限定入力条件であり認証ではない。各要求で現在資格と操作認可を取り直し、Aの接続をBの資格へ転用しない。切断はBrowserが鍵のmemory参照を捨てる操作で、他Browserをログアウト・資格失効させない。既存の同Process管理／鍵操作へ接続するが、Browserのmemory保持／Header送信はSource接続と鍵管理／接続の局所実Browser確認済みで、選択Repositoryの全内容入口はまだ未接続で、起動Rootへのfallbackをせず拒否する。この拒否は完成ではない。公開CLI、実Browser・共有TLS配置・全入口の終了保証は未完了であり、管理画面や局所HTTP成功からWorkbench全体成立を表示しない。
+
+Local接続の完全Formは同Origin・Host・Content-Type・Body容量をHTTP Ownerが検査した後、既存`credential/administration.ts`の`authenticateWorkbenchConnection`へ渡す。許可fieldはactionToken／operation／tokenだけで、重複・未知field・用途差・取消は認証前拒否する。初回限定資格は既存AM確認保存へ接続し、出版完了後のfreshな通常認証に成功した場合だけ当該要求memoryの接続資格を返す。初回相関を内容Authorityへ変換しない。保存後取消は保存取消ではなく応答停止であり、次要求が現在状態を再確認する。内容操作は別途要求ごとに現在認可を取り直す。鍵・Rootは通常Model、URL、log、Browser Storageへ含めず、新Session保存は作らない。専用Local HTTP POSTは局所接続済みで、資格を完了後に保持しない。次要求は単一Authorization Headerでfresh認証する。Browser memory／Header送信はSource接続と鍵管理／接続の局所実Browser確認済みで、公開CLI、共有TLS配置、全内容入口は未接続であり、全体完成の根拠ではない。
+
+### Browserの接続資格と応答搬送 — 2026-10-13
+
+`workspaceIds`はRepository全体の公開先利用範囲であり、Role範囲とExposureの交差が非空のRepositoryを選ぶ。同一Repository内のPath・ファイル・Context Surface別ACLは提供しない。情報境界が必要な内容はRepositoryを分離する。この意味は[REQ-000041](../../../01_Discovery/Definitions/REQ-000041/requirement.md)の既存採用であり、Root検証だけで現在認可を省略する許可ではない。
+
+`browser/connection.ts`は当該タブmemoryの鍵参照と要求世代を所有する。接続確認POSTの200・閉JSONを確認してから鍵を保持し、次のAPI要求だけにAuthorization Headerを添える。Serverは毎要求の現在認証・認可を所有する。切断・画面終了でmemory参照を解放し、URL、Web Storage、Cookie、通常Model、logへ鍵を保存しない。物理的なstring消去や外部Effectの取消は保証しない。
+
+同Origin以外への送信とCaller指定のAuthorizationは拒否し、redirectを追従しない。本文は16 MiBまで読み、上限超過時はReaderを取消・解放する。応答待機後にも要求世代と取消を確認し、旧接続の応答を次の主体へ渡さない。自動再送はしない。接続POSTの失敗・不明では資格参照と旧表示を破棄し、既知保存をrollbackしない。
+
+Browserのmanual redirect応答はstatus・Header・本文を隠すため、303を接続確認に使わない（[Fetch Standard](https://fetch.spec.whatwg.org/#concept-filtered-response-opaque-redirect)）。接続結果は秘密・本人・内容・管理情報を含まない確認だけであり、内容は後続のfresh認可要求で取得する。Sourceと合成Transportに加え、鍵管理／接続の局所実Browser8件とWorkbench回帰50件を確認した。限定独立再レビューは残指摘0である。全内容Navigation・共有公開配置・公開CLI・MCP依存撤去・正式191項目の成立は未確認であり、この局所成功を全体完成へ流用しない。
+
+### 現在候補のCSR画面遷移
+
+選択RepositoryのGET接続では、今回AMが確認した一つの短命許可集合から選択Root・Portfolio・同ProjectのTopic／Meetingを構成し、ContextのRepository／Project IDとmanifestを相関する。Surface・本文・一覧・Relation・Git観測とModel構築後の公開直前に、既存AMで全Rootを再観測し、管理改訂とRepository ID／Binding／manifest全契約field／workspaceIdsの正規化全集合がexact一致する場合だけ応答する。差異・不明・取消は旧内容を部分公開せず固定拒否とし、その照合後に外部I/Oを追加しない。repositoryIdは0件またはexact1件だけ受け、空1件は選択解除、重複は認証・AM・Root本文観測前に拒否する。新Session／Lock／Cacheは追加しない。起動Rootや前要求の結果へfallbackせず、直前操作・AI／Candidate結果は要求専用のnullとする。共有側Profile情報の`aiProfiles: null`は未取得を表し、0件・不存在・利用不可を意味しない。Inspector、一覧表示とAI依頼入力は同じnull意味を保持し、単体の既定Catalogを維持する。内容POST接続まで共有側の内容保存Formを無効化する。この途中GET接続は保存・本文リンク・共有配置の完成ではない。
+
+`browser/entry-client.tsx`は既知のMain／Project／Topic／MeetingリンクとGET検索を同OriginのModel取得へ接続する。外部リンク、別タブ・修飾クリック、download、POSTを一律に横取りしない。明示Repository IDを検索・内部移動で落とさず、Serverの現在認可で再解決する。URLのIDを認可証明や物理Rootとして使わない。
+
+表示要求は専用世代とAbortControllerを持ち、前要求を取消し、待機後に世代を再確認する。取得・契約検査後だけhistoryと新Modelを採用し、historyへ資格や業務Snapshotを保存しない。戻る操作はfresh取得を行う。失敗時は古い内容を保持せず固定blocked表示とし、自動再送しない。画面移動でタブの資格を永続化せずに維持する。
+
+pagehideでは監視・所有fetch・React Root・資格参照を解放する。cacheからのpageshow再開は資格なしで新Rootとfresh Modelを構成し、旧Snapshotを復元しない。実Browser内の合成pagehide／pageshow通知はこの解放・再開callbackの検証であり、Browser cacheの採用可否・実際の保存復元の証明ではない。
+
+この段落はGET navigation接続時点の記録である。現在の選択RepositoryのTopic／Meeting POSTは後述の共有Record Formで局所Browser接続候補となり、Git操作、`/change`／`/owner-artifact`本文リンク、共有公開配置等は未接続である。全画面移管完了を主張しない。基準版のAI／CandidateはRepository単体Compositionだけが成立対象であり、CROSの選択Rootへ起動Repositoryの実行Ownerを流用しない。未接続AIを今回暗黙実装せず、後半実行系の未接続として保持する。
+
+### 共有Profileの直接Owner接続契約 — 2026-10-13
+
+Workbenchの起動構成は、既存AI Adapterの検査済みHost Catalog Administrationを用途限定で注入する。CROS管理Rootと併用し、単体Modeへの混合注入を拒否する。Browserは保存Rootを指定できず、未構成・Store不成立・破損を起動RepositoryのCatalogへ補完しない。LinuxのAM stateとCatalog configのRootは異なり得るため、AM PathからCatalog Pathを合成しない。
+
+一覧は要求資格から既存AMの現在Profile管理認可を確認し、manager／administratorの場合だけ一つのOwner Snapshotを取得して一覧と管理表示へ投影する。developerや資格不成立ではsnapshotを呼ばず、選択Repositoryの内容許可をProfile管理許可へ読み替えない。保存は閉じたForm・Origin・Action Token・入力上限・取消を確認した後、fresh認可を通して既存Administrationへ一回だけ委譲する。結果はAI Adapterの既存相関検査を使用し、後段失敗・取消を未保存やrollbackへ畳まず再送しない。AM LockをCatalog処理へ持ち越さず、新Store・Session・認可Cacheを作らない。
+
+Browserでは既存のProfile Form／TableをMainとAccessの同じComponentから利用する。共有管理の一覧・保存は同Origin専用APIへmemory資格Ownerを通して搬送し、Browserは非秘密の閉Snapshotと送信操作に相関した結果だけを検査する。保存確認後のfresh取得故障は「保存済み・現在設定未確認」、保存応答の喪失・不正は「変更結果未確認」として分離し、旧Catalogを現在値へ補完せず自動再送しない。明示再取得はGETだけを行う。二重送信は同期guard、取得取消・終了・Owner／Action Token切替は所有Signalと世代で扱い、旧結果・通知を次の主体へ持ち越さない。内容Repositoryの許可はProfile管理の前提にしない。
+
+これは実装に適用する接続契約であり、公開CLI・Browser全反証・Visual評価・旧MCP経路撤去が既に成立したことを表さない。Repository単体の資格不要管理と独立MCPの四管理操作は維持する。
+
+### 選択Repositoryの内容操作と本文への接続契約 — 2026-10-13
+
+共有内容操作は起動Repositoryや前要求の操作Objectを利用しない。同Origin・Host・Content-Type・Query・Body上限を確認し、Body搬送完了後の閉Formから一件だけの明示Repository IDを取得する。操作別の許可field、scalar重複、ID・期待改訂、確認・Markdown等を検査してから、fresh AM許可集合Cを取得する。createへ既存契約にないID／期待改訂の入力を要求しない。
+
+Topic／MeetingはCの同Project集合から既存Domain操作とRelationを構成する。Gitは選択Rootの既存Version Controlへ委譲し、Stage／Unstage／Commit／明示確認済み通常Pushを維持する。任意command、Force、再送、Domainへの資格搬送、新Recovery／ACKは追加しない。Effect直前に対象Identityと取消を確認し、一回だけ配送する。保存開始後はOwnerの終了を待ち、取消からrollbackを推定しない。
+
+処置前拒否、配送後の結果未確認、既知処置後の現在投影未確認を分離する。結果公開前にはC2と取消を確認し、現在認可不成立で対象本文・Metadataを公開しない。確認済み処置を未保存へ書き換えず、非秘密の固定通知で現在結果の公開不可を示す。要求ごとの結果をServer全体の直前結果へ保持しない。
+
+`/change`と`/owner-artifact`も今回の選択Rootを使用する。宣言されたID／Pathだけを既存Readerへ渡し、Owner Artifact Catalogは当該Rootの現在Contextから構成する。読取り後のC2と取消を確認する。Browserは同Originの既存資格搬送で原文を取得し、Reactのtextとして表示する。資格付きURL、任意Path、raw HTML／Markdown実行、起動Rootへのfallbackは追加しない。
+
+これは③の実装対象契約であり、現在の未接続操作の拒否を正常能力の成立証明にはしない。入力待機中の失効・公開変更、同名IDの別Repository、異Project Relation、保存後認可故障・応答喪失・取消、実Git Process終了と要求joinを検証してから旧経路を撤去する。
+
+Gitの直接接続候補では、閉Formを既存Version Control要求へ変換し、今回AM集合の選択Rootだけへ一回配送する。Pushは既存Target観測のavailable・公開先・Branch・Revisionと要求が一致する場合だけ許可し、任意URLや別Remoteへ読み替えない。同期Git終了の前後に通信通知を処理し、取消・C2不成立では成功本文を返さない。既存Ownerの七field結果は操作・理由・Effect・Revisionへ相関し、blockedでも発行済みEffectを保持する。配送後例外は固定503で結果未確認とし、共有の直前結果・新Store・ACK・Recoveryは追加しない。Browserと実行中切断の成立は別途確認する。
+
+Browserの共有Git接続は既存Repositoryフォームを再利用し、選択ID・Tokenと閉Formを送信前に照合する。要求ごとの結果を操作・理由・Effect・Revisionへ相関し、同期pending guardで二重送信を拒否する。既知完了／拒否／不明とfresh GETを分離し、取得故障では旧Git状態・操作フォームを表示しない。再取得はGETのみとし、終了・対象切替では所有Signalと世代で旧結果を拒否する。単体は従来入口、同Host CROSは明示接続済みの操作だけ有効化し、旧Remoteの表示・操作を持たない。Git差分・Branch・Remote設定の意味はVersion Controlが所有し、Browser独自の保存・再送・ACKを作らない。
+
+### 選択成果物の原文表示 — 2026-10-13
+
+`/change`／`/owner-artifact`のnative GETは固定Document Shellだけを返し、原文は既知CSR navigationから同Originの`/api/workbench-view`へ要求する。同Host CROSでは今回の明示Repository IDをAM集合のRootへ結合し、CHG-ID固定Readerまたは選択Rootの現在Owner Catalog Readerをawaitした後、取消と既存C2を確認して公開する。単体は検証済みContextのRepository IDを出所とし、別IDを明示した要求は拒否する。旧RemoteではMCP照会も起動Root原文fallbackも行わない。
+
+Queryは本文種別ごとのroute／repositoryId／idまたはpathだけをexact一件で受け、重複・余剰・越境はRoot本文観測前に拒否する。Readerは従来のlexical／realpath／通常File／非link境界と512KiB上限を維持し、取得したUTF8文字列の容量も再確認する。async読取りを途中放棄せず完了をjoinし、取消・失効・公開集合／manifest変化では本文を返さない。新Cache・Lock・Recoveryは追加しない。
+
+閉じた`artifact` Modelは出所Repository ID、共有選択（単体はnull）、種別、既存Identity（CHG-ID／相対Path）と原文だけを持つ。Browserはkind／Identity／選択と要求URLの一致、512KiB、余剰fieldを検査し、原文をReactの`pre` textとして表示する。Markdown／HTML／本文linkを実行・操作入口化しない。戻る／履歴移動は現在選択とmemory資格を保持してfresh取得し、遅延旧応答を採用しない。reload／新タブは資格なしで接続画面へ戻し、私有本文を復元しない。このAPI Media Type変更は原文取得能力をJSON→text表示へ移すもので、旧native text/markdownを併存させない。
+
+本文接続は実HTTP・実Browser・全Browser回帰と限定独立レビューで確認した。これは本文能力の限定成立であり、Git操作・通常CLI・共有配置・旧Remote撤去・正式191項目とAM全体完成は別に確認する。
+
+### 共有Record FormのBrowser搬送 — 2026-10-13
+
+Main／Record Detailの既存Topic・Meeting Formは`browser/record-operation-panel.tsx`の同じ要求専用搬送を使用する。`recordActionsConfigured`は直接Ownerへ接続したModelの表示可能性を表すbooleanであり、認可ではない。単体は既存native Form、新同Host CROSは現在資格付きJSON POST、旧Remoteの表示・操作は持たない。同じ`cros_available`表示から操作可否を推定しない。
+
+送信前にFormのRepository ID／Action Tokenを現在Modelへ照合し、File・重複を拒否する。未選択のcloseMeeting／confirmedは一件のfalseへ変換し、hidden false＋checkbox trueの二重値や暗黙trueを作らない。同期pending guardで一回送信し、所有Signal・画面世代で終了後採用を拒否する。結果は同じ要求の閉じた五fieldから操作・種別・理由・Effectを確認する。結果にRecord IDは含まれないため、別要求・別対象の実測証明へ転用しない。
+
+既知completed／blockedと後続fresh取得は別の事実として扱う。再取得が失敗した場合は既知結果を保持し、以前の本文・FormをCurrent表示しない。不正・喪失した保存応答は未保存と判断せず、明示再取得もGETだけを行う。URLのroute／query／選択Repositoryを保持して応答の選択とSignalを再確認する。Detailの削除後は同じRepository一覧へ移り、その他の操作は同じDetailを再取得する。Serverの保存とC2は既存契約のままで、Browser独自の保存、rollback、Session、ACK、Recoveryは追加しない。
+
+この実装候補はTopic／MeetingのBrowser接続であり、未接続Git操作・本文入口・通常CLI・旧Remote撤去や③全体の完成を意味しない。実Browserの操作、二重送信、応答故障、取消と終了後状態を確認してから限定Gateを判定する。
+
 ### 活動Ownerの結果と画面投影 — 2026-10-12
+
+同Hostの活動読取り前後では、既存の通信待機処理を一回ずつ通し、切断通知を処理してから要求Signalを確認する。開始前の切断はReaderへ渡さず、開始中の切断は同期読取りを放棄・再実行せず完了をjoinした後で成功本文を抑止する。これは同期Filesystem I/Oの途中中断を保証するものではない。
+
+同Host CROSの選択Mainでは、要求内の単一AM集合から選択RepositoryのProjectと同Project対象全件を導出し、既存Orchestratorの`readAuthorizedRuntimeActivity`へID・技術Root・20件上限・任意Cursorだけを渡す。資格・Role・Bindingを活動Ownerへ渡さず、Query自己申告Projectや起動Rootを使わない。既存の表示変換は現在状態と履歴の不明を分離し、Cursor不正・Reader故障を先頭ページや空成功へ補完しない。同期読取りの強制途中取消は追加せず、開始済みReaderの終了を待ってCallerが取消と公開直前のAM全集合一致を確認する。Activity故障のunknown表示と、AM集合不成立のMain全体拒否を分ける。保存・初期化・Task実行・新Cacheは追加しない。旧Remote ActivityのMCP分岐の撤去と公開CLI／共有配置の完成は別途必要である。
 
 旧REST受取経路もOrchestratorの検査済み活動観測を使用する。Remote Clientが要求Projectと応答Projectの一致を確認した後、`projectRuntimeActivityForWorkbench`が現行画面のPropertyだけを新Objectへ再構成する。結果直下のProject／Source／現在OwnerとEventのRepositoryを暗黙転記しない。現在状態と履歴状態は独立して保持し、観測済み履歴理由だけを画面所有の`execution_events_observed`へ写す。unknown・空履歴・Continuationの意味は保持する。画面に出所を表示する判断や同型通信DTOの新設は含めない。
 
-これは旧Remote経路の直接追従であり、Local旧ReaderのOrchestrator移管、Remote MCP本番切替、AM管理Surfaceと旧REST撤去の完成ではない。旧Local表示を保持し、両経路の画面契約を回帰する。
+Repository単体の活動Readerも同じOrchestrator APIへ直接接続する。構築時にDomain ContextのProject／Repository IDをコピーして固定し、要求Project不一致またはRoot不成立では観測不能を返す。Workbench独自の履歴解析・並び替え・Cursor生成は廃止する。現在Revisionは活動Ownerが取得し、Push先やupstreamの設定を読取り成立条件にしない。既定20件、上限50件と不正Cursor拒否はOwnerの契約に従う。旧二要素Cursorは移行せず、フロントAIは既存画面の短命Cursorを破棄して新規取得する。公開factoryの第二引数に固定Identityを必須化するSource API変更であり、永続状態Schemaを変更しない。旧Remote経路撤去、公開Launcher、全体完成は別途確認する。
 
 | Architecture定義 | この領域が具体化する責務 | Relation状態 |
 |---|---|---|
@@ -114,7 +210,7 @@ Browser
    Workbench Application Adapter
       ├ Domain Model公開API（Context／Topic／Meeting／Owner読取り）
       ├ Access Management公開契約（同一Processの現在認可・通常鍵操作）
-      ├ MCP Client（別Processの非鍵操作だけ）
+      ├ AI Adapter公開API（Profile管理）
       ├ Version Control公開API
       ├ Coordinator公開API（単体AI依頼）
       ├ Orchestrator公開API（上位Task／候補採用／状態照会）
@@ -136,9 +232,9 @@ Browser
 
 ### 3.1. Packageと公開入口
 
-`40_Develop/workbench-server`のsrcは用途別に`client`、`server`、`application`、`connection`、`view-model`、`asset`へ分け、src配下は二階層以内とする。Browser Componentだけが`.tsx`とReactのvalue importを所有し、Server Graphへ混ぜない。Rootの`index.ts`は起動・終了の公開入口、`types.ts`は公開型とし、Screen Component全数をServer入口から再exportしない。`bin/workbench.ts`は一つの起動入口、反復検証はscripts、fixtureはtestsに置く。tools入口は本体へ配送し、表示・業務・構成を複製しない。
+`40_Develop/workbench-server`のsrcは実責務で分ける。`browser`はCSR描画と同Origin資格搬送（browser/connection.ts）、`management`は非鍵管理の要求と結果検査、`credential`は鍵管理の接続を所有する。`project`／`project-plan`／`quality`／`owner-artifact`／`activity`／`topic-meeting`／`ai-profile`／`ai-request`は各能力の表示・操作適合を所有し、下位の意味や認可を再実装しない。src配下は二階層以内とする。Browser Componentだけが`.tsx`とReactのvalue importを所有し、Server Graphへ混ぜない。Rootの`index.ts`は起動・終了の公開入口、`server.ts`はHTTPと構成を所有し、Screen Component全数をServer入口から再exportしない。`bin/workbench-server.ts`は一つの起動入口、反復検証はscripts、fixtureはtestsに置く。tools入口は本体へ配送し、表示・業務・構成を複製しない。
 
-本体構成Rootが下位の公開APIへ直接依存する。ここでいうAdapterは要求・結果の局所変換であり、下位へWorkbench専用Portを注入するFrameworkではない。AI Profile本体はAI Adapter、共有Profile管理操作の認可はAccess Management（現在manager／administrator。Source切替は未完了）、共通実行はCoordinator、上位Objective／候補採用はOrchestrator、成果物CRUDはDomain Modelが所有する。
+本体構成Rootが下位の公開APIへ直接依存する。ここでいうAdapterは要求・結果の局所変換であり、下位へWorkbench専用Portを注入するFrameworkではない。AI Profile本体はAI Adapter、共有Profile管理操作の認可はAccess Management（現在manager／administratorへ直接接続済み。通常起動は⑤）、共通実行はCoordinator、上位Objective／候補採用はOrchestrator、成果物CRUDはDomain Modelが所有する。
 
 ## 4. 実行・配置モデル
 
@@ -149,8 +245,9 @@ React Browser UI ── localhost ── Node Workbench Server ── Repository
 [Local CROS Mode]
 React Browser UI ── Workbench API ── Access Managementの現在認可 → Domain Model等の内部能力（同一Process）
 
-[Remote CROS Mode]
-React Browser UI ── Workbench API ── MCP Client ── MCP Server ── Access Managementの現在認可 → Domain Model等（非鍵操作）
+[同Host CROS Mode／共有配置]
+React Browser UI ── Workbench API ── Access Managementの現在認可 ── 同Host専門Package
+独立MCP Server ── 同じ専門Package（Workbenchとの相互依存なし）
                                                          └ 現在認可済みRepositoryだけ
 
 [Build]
@@ -167,27 +264,30 @@ React／TypeScript Source ── Vite ── fixed Browser Bundle
 - Browserを閉じたことだけでServer終了を推定しない。明示shutdownまたはOwner Process終了でlistenerと進行中requestを回収する。
 - Next.js／Server Action、Desktop wrapper、OS tray、auto update、installerは`N/A`: 現在の利用者成果に必要な根拠がなく、Node側の既存Authority境界と責務が重複する。
 
-### 4.1. 接続と操作の移管
+### 4.1. 接続と操作の直接Owner接続
 
-Workbench Serverは別ProcessのCROSに対してMCP Clientとなる。BrowserからRemote MCPへ直接Bearerを渡さず、Server内の接続だけで使用する。接続先は明示した完全なMCP Endpoint一つへ固定し、旧`baseUrl`／`mcpBaseUrl`二系統、暗黙`/mcp`付与、接続先推定とREST Fallbackを新構成に残さない。旧設定の分割・参照更新はフロントAIが行い、Runtime互換Readerは持たない。
+Workbenchは単体・共有とも同Hostの専門Package APIを直接利用する。別Hostの機能を利用する場合、BrowserがそのHostのWorkbenchへ接続する。Workbench backendに別Host接続、MCP Client、loopback、REST fallbackを設けない。旧Endpoint設定・短命接続の整理はフロントAIの移行手順が担当し、Runtime互換Readerは持たない。
 
-| 操作 | 現行Sourceで確認した入口 | 再編後の接続先 | 維持する結果・制約 |
-|---|---|---|---|
-| 接続／更新、Portfolio取得 | `workbench-server.ts`の`readRemotePortfolio` | MCPの既存Project一覧・Context取得を共通Portfolio表示へ適合 | 検索・状態・Query拘束Cursor、五場面、Source Coverage、欠測を保持。部分取得を完全Portfolioへ畳まない。 |
-| AI Profile一覧・変更 | `readRemoteAiProfileCatalog`／`executeRemoteAiProfileMutation` | Access Management認可からAI Adapter管理へ接続するMCP操作 | 管理可否、expectedRevision、登録済みModel、削除確認を維持。Catalog未接続と権限拒否を同じ成功の空一覧にしない。 |
-| Runtime Activity | `readRemoteRuntimeActivity` | Access Management認可付きActivity MCP操作 | [Orchestratorの共通観測契約](../orchestrator/01_Architecture.md#73-認可済みrepositoryの活動読取り--新owner接続候補)でProject限定の現在状態・Event・出所・Cursorと独立したunknownを保持する。単一Repositoryの実Readerは同Ownerへ移管し、Workbench側に複製・独自合成を残さない。移管と本番接続は未完了。 |
-| Topic／Meeting | `remote-topic-meeting.ts`の既存MCP呼出し | 同じEndpointの既存Tool、Access Management認可→Domain Model | Repository指定、CRUD、Relation Owner、競合、Outcome処置、Close条件と非開示を維持。 |
-| 鍵管理 | 既存Credential Administration（移管比較入力） | 通常発行・独立失効・交換は同一Process Workbench BackendからAccess Managementへ直接委譲。別Process MCP経路は鍵操作なし | 現行administrator専用固定。管理権限≠内容参照、一度表示を維持。Hostはログイン済み操作者の対話交換2操作だけ、追加認証なし・既存Root／Path検証。具体接続は未完了 |
+| 操作 | 現行の直接接続 | 維持する結果・制約 |
+|---|---|---|
+| Portfolio取得 | project/access-reader.ts → AMの現在集合 → Domain本文／集約 | 五場面、検索・状態・継続、Source分離、欠測・不明、全集合再照合 |
+| AI Profile一覧・変更 | AMの現在管理認可 → AI Adapterの注入済みHost Catalog | manager／administrator、期待改訂、登録済みModel、削除確認、保存一回、取得不能を空成功にしない |
+| Runtime Activity | AMの同Project集合 → Orchestratorの活動Reader | Project・Cursor、現在状態と履歴のunknown分離、開始済みReader join、取消後成功本文0 |
+| Topic／Meeting | AM集合 → Domain操作／Relation | 指定Root、CRUD、競合、Outcome全件処置後Close、昇格、現在認可と非開示 |
+| Git | AMの選択Root → Version Control | Stage／解除／Commit／確認済み通常Push、現在Target相関、一回処置、結果不明と再送0 |
+| 鍵管理 | credential/administration.ts → 同Process AM | administrator専用、一応答だけの提示、MCP非公開、秘密を汎用GET・Storageへ保持しない |
 
-接続入力はEndpointとCredentialの検証→Protocol／能力一覧→許可Portfolio取得→現在接続への置換の順に行う。候補接続の失敗で既存接続を成功扱いせず、旧ProjectionをCurrentとして表示しない。新接続・切断ごとに世代を変え、旧Requestの遅延結果を新接続へ反映しない。Refreshは現在Credential・Exposureを再確認し、失効したSourceの選択と編集操作を解除する。
+共有の入力は同Originの接続資格だけとし、Browserタブのmemoryから当該要求Headerへ搬送する。内容／管理要求は毎回現在のAM認可を確認し、保存／取得後の取消・現在集合差では結果を公開しない。旧ProjectionをCurrentへ補完せず、終了・対象切替・遅延通知は既存の要求世代とSignalで拒否する。保存済みEffectを切断で取り消したことにせず、表示用の新Recovery／ACK・共有Sessionを作らない。
 
-切断・Server終了は新規要求を止め、進行中MCP要求の取消・join、Client／Socket回収、Credential参照と表示Snapshotの破棄を順に行う。Remote側の保存済みEffectを切断で取り消したことにせず、結果不明を既存操作Identityへ結び、暗黙再送しない。CredentialはProcess memoryだけに保持し、Endpointのuserinfo／query、Browser履歴、Storage、設定、Repository、logへ残さない。
+鍵の通常操作はAMが所有し、Host回復・初回設定は承認済みHost入口が所有する。Workbenchは通常鍵操作の一度提示と案内を担当する。MCPの一覧・Schema・dispatchへ鍵操作を追加しない。OSログイン済みHost操作者へ追加認証を要求しない。
 
-現在の`crdd.list_projects`はProject ID・状態・Source数だけを返し、完全Portfolioではない。再編候補では[MCPのPortfolio契約](../mcp-server/01_Architecture.md#32-portfolioの一覧詳細契約)に従い、同じToolへ検索・状態・Query拘束Cursor・limitとページ内Sourceを接続する。Workbenchは返されたページだけを表示し、独自の二重ページングや未取得Sourceの検索を行わない。詳細取得は毎回現在認可を再確認する。複数Requestの結果を一つの原子的snapshotと偽らず、全Source取得済みでない表示を完全Portfolioにしない。公開SchemaとReaderの本番接続は未完了である。
+起動時の--crosによる単体／共有の明示選択、Host設定の接続、TLS共有公開は⑤の未完了対象である。単体は現在Rootの唯一のRepository ID、共有は現在許可集合の同じRepository ID契約で選択する。初期化済みだから自動切替せず、設定不正時は単体へfallbackしない。サーバー起動用CRDDリポも公開設定なしで対象へ加えない。局所直接接続の成功を通常CLI／共有配置の完成へ流用しない。
 
-鍵の通常発行・独立失効・交換は[MCPの鍵管理非公開境界](../mcp-server/01_Architecture.md#33-鍵管理のmcp非公開境界)に従い、同一Process Workbench Backendの現行administratorだけがAccess Managementへ直接委譲する。別Process WorkbenchではMCP経由の鍵操作を全て利用不能と理由付きで表示する。Secretを返さない資格一覧・独立失効も公開せず、MCPの一覧・Schema・登録・dispatchに鍵操作を追加しない。通常Host回復は信頼したログイン済み操作者の対話CLI交換2操作だけで、追加認証なし・既存Root／Path検証を維持する。初回Host設定は承認済みのAccess Management契約へ対応し、WorkbenchはHost操作の案内だけを担う。本書の新Owner境界は設計候補として再伝播する。論理初回接続はAM保存設計§2.5へ具体化済み。具体画面／API・提示観測の実装／実境界・移行・Quality・Source接続は未完了である。
+公開CLIの起動拒否はHost構成・初期化状態・Host Profile・公式Logo・Client Asset・Repository Rootの固定分類だけを表示し、それ以外は`workbench_startup_unavailable`へ閉じる。元例外本文、Path、資格は表示しない。起動失敗時に単体modeへ自動切替せず、SIGINT／SIGTERMは所有Workbench Handleの既存closeへ接続する。Process終了とListener不存在は別に観測し、合成Signal試験をOSのSignal搬送保証へ昇格しない。
 
-起動時の`--cros`で単体／CROS利用を明示する。指定なしは現在Rootに固定し、`crdd.list_repositories`から得る唯一のIDを自動選択して切替操作を出さない。CROS指定時は同じ一覧・repositoryId入力で許可対象から選択し、初期化済みだからという理由で自動移行しない。同一Process CROSでは構成設定、別Process接続では明示MCP Endpointを用い、CredentialをCLI引数へ置かない。CROS設定不正・接続不能時は単体へFallbackしない。サーバー起動用CRDDリポも公開設定なしで対象に加えない。
+共有公開時はWorkbench自身の非秘密`publicOrigin`へHTTPS Originを明示し、`localAccessRoot`の現在認証Ownerを必須とする。単体の資格不要内容を暗黙共有化しない。内部Listenerと`baseUrl`／`healthUrl`はloopbackのまま、利用者向け`publicUrl`は明示公開Originとする。各要求は単一Host・`x-forwarded-proto: https`・公開Hostに一致する単一`x-forwarded-host`をAM観測前に検査する。Originは存在時exact一致、POSTでは必須とし、欠測・重複・混在は固定421で拒否する。TLS終端は同HostでClient案内Headerを除去・上書きし、内部Listenerの到達範囲を配置Ownerが管理する。Header一致だけを実TLS通信やHost内非信頼Processへの防御成立として表示しない。WorkbenchとMCPに同一Originを要求せず、第三Gatewayを作らない。現在はServer optionsの局所候補であり、CLI設定と実TLS配置は未完了である。
+
+非秘密設定は起動Repositoryの`.crdd/config/workbench-server.json`。閉Schemaは任意の`publicOrigin`文字列だけで、空ObjectまたはFile不存在はlocalhost既定とする。`--cros`明示時だけ読み、portは既存CLI引数が所有する。例は[配布設定](../../../template/.crdd/config/workbench-server.example.json)。資格・Host管理情報を含めず、重複・余剰field、不正UTF-8、16KiB超過、観測時のDirectory／File link、取得時File Identity不一致、取得済みDescriptorのサイズ・mtime不一致は固定拒否にする。単体起動は設定があっても共有へ自動切替しない。ReaderとCLIは接続候補であり、実TLS配置と共有縦断検証を別に閉じる。 これは起動時Snapshotの検査で、取得後のPath／Directory不変を保証しない。配置Ownerが設定変更と再起動を管理する。
 
 ## 5. Dataと状態
 
@@ -219,16 +319,16 @@ WorkbenchはCurrent Projectionを独自Databaseへ複製しない。将来Cache�
 | AI依頼 | 選択Context、Profile ID、依頼種別（読取り助言／変更候補）、利用者入力、変更候補時の明示許可Path、一依頼だけの外部送信確認 | 依頼種別、事実、保存済み分析、追加推論、次の選択肢、各項目の根拠参照、未採用Candidate ID、Provider状態 | Profile IDと依頼種別を読み替えずApplicationへ渡す。Workbenchは送信対象を明示して一回確認を要求し、未確認をEffect 0で拒否する。読取り助言は利用者入力と許可済み投影を内容Hash付き専用Task Packetへ固定し、Task Hash・Catalog Revision・exact Profile・Providerへ結合した確認をDispatchで一回だけ消費する。変更候補は明示されたRepository相対許可Pathとexact Executor Profileを署名済みOrchestrator Single Taskへ固定し、結果を`untrusted_not_adopted`として返す。読取り助言の確認を候補生成や採用Authorityへ再利用せず、候補の採用、CommitおよびPublishは別操作にする。根拠参照のない項目を部分表示せず、参照から任意Path読取りAuthorityを作らない |
 | AI変更候補の採否 | 現在AI結果のCandidate ID、Storeから再読取りした分類・期限・基準Revision・Candidate／Patch Hash・変更Path、操作ごとの明示確認 | available／blocked、採用Receipt、Effect・cleanup・Recovery状態 | 確認はEffect 0とし、採用・破棄・保留を別操作にする。採用はOrchestratorの旧所有者処置、Canonical Adoption Lease、現在Revision・dirty・Scope再観測、候補Receiptと耐久記録を通った場合だけ行う。破棄は別の確認を必須にし、保留はRepository／Candidate Store Effect 0とする。採用してもCommitまたはPushを行わない |
 | Runtime Activity | Project ID、任意Event Cursor | observed／absent／unknown、Objective／Task件数、判断・Recovery・次処置、Project限定Event Page | 読取りのみ。Runtime正本、状態遷移またはRecovery Authorityを生成しない。EventはExecution Intelligence Storeから新しい順・上限付きで投影する |
-| Owner Artifact | 起動時Catalogに含まれる相対Markdown Path | Roadmap／Quality／Relation原文 | 読取りのみ。Catalog外Path、外部URL、親参照およびRepository越境を拒否する |
+| Owner Artifact | 単体は検査済み起動Catalog、同Host CROSは今回選択Rootの現在Catalogに含まれる相対Markdown Path | Roadmap／Quality／Relation原文 | 読取りのみ。Catalog外Path、外部URL、親参照およびRepository越境を拒否する |
 | Project Plan | `99_Roadmap/03_Releases.md` | Baseline、対象Version、期限、Risk、Scope、依存、判断およびOwner Link | 読取りのみ。欠落や構造不正を空計画へ畳まず、Roadmapにない値を推測しない |
 | Quality | `07_Quality/01_Quality_Center.md` | 全体状態、対象、観測済み／未観測、Gap、次Gate、人間判断およびOwner Link | 読取りのみ。未観測をPassへ、進行中AuditをReadyへ畳まない |
-| AI Profile管理 | 現在接続OwnerのProfile候補、現在Revision、登録済みAdapter／Model | 採用済みProfile Snapshot、拒否理由 | 共有Profileは現在manager／administratorへ許可。旧`systemAdmin`表示条件は比較実装で、新Role本番切替は未完了。Repository単体にRoleを要求せず、Adapterを新設せず、競合と未確認削除を拒否する |
+| AI Profile管理 | 現在接続OwnerのProfile候補、現在Revision、登録済みAdapter／Model | 採用済みProfile Snapshot、拒否理由 | 共有Profileは現在manager／administratorへ直接接続済み。通常CLIのHost Catalog構成は⑤の未完了対象。Repository単体にRoleを要求せず、Adapterを新設せず、競合と未確認削除を拒否する |
 | Connection | Endpoint、Credential | Session、現在認可されたProjection、接続状態 | Remote時だけ。非開示対象を推測しない |
 | Remote Topic／Meeting | 現在Portfolioで選択したRepository ID、一覧条件、Identity、期待Revision、操作入力 | 一覧、詳細、Relation Owner、書込み結果 | RequestごとにMCPへ明示Repositoryを渡す。PortfolioにないIDを拒否し、Remote失敗時にLocalへfallbackしない |
 
 ### 6.1. 通常鍵操作の表示・結果搬送
 
-意味の正本は[Access Management詳細](../access-management/01_Architecture.md)である。Workbenchは同一Processの人間向け入力・表示と結果搬送だけを所有し、資格Store、認可、交換Recoveryを複製しない。別Process接続では資格一覧を含む全鍵操作を利用不能と理由付きで表示する。MCP要求のBearer認証は継続する。
+意味の正本は[Access Management詳細](../access-management/01_Architecture.md)である。Workbenchは同一Processの人間向け入力・表示と結果搬送だけを所有し、資格Store、認可、交換Recoveryを複製しない。Workbenchに別Process接続を持たない。独立MCPのBearer認証はMCP Serverが所有し、鍵操作を公開しない。
 
 | 操作 | 処置前の対象・条件 | 結果と禁止する読み替え |
 |---|---|---|
@@ -255,7 +355,7 @@ Hostの交換2操作はWorkbench Backendで実行せず、信頼したログイ�
 
 #### 6.1.1. 同Process管理POSTの具体契約
 
-管理依存は検証済みAM RootとServer memory上の現在Bearerで構成する。Remote接続との同時構成・接続切替は拒否し、Browser入力からRootや管理Bearerを取得しない。一覧と各操作で現在認可を取り直し、一覧の操作表示を実行許可として再利用しない。
+管理依存は構成ごとに分離する。Standaloneの限定内部DIは信頼済み構成の検証済みAM Root／Bearerを使用する。Local CROSは内部構成のAM Rootと、当該要求の単一Authorization HeaderのBearerを使用し、要求外のログイン鍵として保持しない。両構成および旧Remote接続の混在を拒否する。AM保存RootはBrowser入力から取得しない。Repository登録の対象Rootは別の明示操作入力であり、管理認可と対象Root／manifest検証を必要とする。一覧と各操作で現在認証・認可を取り直し、一覧の操作表示を実行許可として再利用しない。
 
 | 境界 | 具体契約 |
 |---|---|
@@ -266,13 +366,13 @@ Hostの交換2操作はWorkbench Backendで実行せず、信頼したログイ�
 | 交換終了 | 他ユーザー指定交換では操作主体の既存管理者鍵、本人指定交換・全交換では当該要求で発行した新管理者鍵を短命に使用する。通常AM終了入口で現在Role・資格・改訂・exact交換相関・提示確認を再評価し、失効・変更・不明なら記録を保持する。Host終了入口・他の鍵へのfallbackは行わない |
 | Server終了 | 開始した管理要求と提示後処置を終了待機へ含める。画面用応答の任意保存を終了条件に追加しない。秘密は当該要求の短命値として解放し、新しいSession／Receipt／Recovery Storeを作らない |
 
-旧CROS管理依存・Form・Client Modelの資格部分は、新Serverと同時配布するCSRへ一斉切替する内部契約変更である。旧形式の互換受付・秘密再取得は設けない。本人交換・全交換でServerの旧接続鍵が失効した場合は、新しい鍵での明示接続が必要であり、応答成功から旧接続の継続を表示しない。
+旧CROS管理依存・Form・Client Modelの資格部分は、新Serverと同時配布するCSRへ一斉切替する内部契約変更である。旧形式の互換受付・秘密再取得は設けない。本人交換・全交換で接続に使用した旧鍵が失効した場合は、新しい鍵での明示接続が必要であり、応答成功から旧接続の継続を表示しない。
 
 同Process注入による接続は、局所HTTPの出力／後処置故障と、実Browserの通常発行・本人交換・全交換の短命表示・消去・再読込・旧接続失効まで評価済みである。この限定範囲の独立再レビューは残指摘0。公開Launcher、通常接続切替および正式Local Item評価は未完了であり、Workbench資格管理全体の完成を主張しない。
 
 ### 6.2. 通常管理の入力・結果搬送
 
-Workbenchは[Access Management詳細§4](../access-management/01_Architecture.md#4-通常管理と独立失効)へ次の操作を委譲する。表示上の操作可否はAuthorityではなく、実行時にAMが変更前の現在管理認可・対象・期待改訂を確認する。別Processでは具体的な非鍵MCP公開契約の接続後だけ利用可能とし、現在は接続済みと扱わない。
+Workbenchは[Access Management詳細§4](../access-management/01_Architecture.md#4-通常管理と独立失効)へ次の操作を委譲する。表示上の操作可否はAuthorityではなく、実行時にAMが変更前の現在管理認可・対象・期待改訂を確認する。Standalone／CROS／共有Host配置のすべてで同ProcessのAMへ直接接続する。Browser向けHTTPを残し、Workbenchの管理処理はMCP ClientやMCP Serverを必要としない。
 
 | 操作 | 入力・対象制約 | 表示する結果・保持条件 |
 |---|---|---|
@@ -285,25 +385,25 @@ Workbenchは[Access Management詳細§4](../access-management/01_Architecture.md
 
 manager自身の内容範囲変更も、変更前の管理認可→明示更新→次要求の現在Role・Exposure・実アクセス再評価の順を表示する。manager正常管理にadministrator存在条件を要求せず、管理拒否を自身表示・許可内容の拒否へ広げない。未知対象・必要状態不明・競合は新Effect前停止。保存後の読戻し／応答不明は既知更新と未確定範囲を分け、未保存・rollback・Effect0・完了を推定せず、交換Recoveryを追加しない。
 
-Qualityは9 Role分担行×三Role、操作別入力、managerのadministrator名前だけ変更、自己内容変更の時間順、登録／公開、解除の両読戻し・対象外／本体保持・取消非証明、管理≠内容、保存後不明の禁止推定を既存AM導出キーへ接続する。片側除去・読戻し不明の完了表示を反証する。画面配置・Field・公開API・保存・本番接続はOPENであり、新Tool名や画面をここで発行しない。
+Qualityは9 Role分担行×三Role、操作別入力、managerのadministrator名前だけ変更、自己内容変更の時間順、登録／公開、解除の両読戻し・対象外／本体保持・取消非証明、管理≠内容、保存後不明の禁止推定を既存AM導出キーへ接続する。片側除去・読戻し不明の完了表示を反証する。管理画面・HTTP・AM保存への局所接続は次節で具体化する。公開Launcher・共有公開配置・正式評価はOPENであり、局所接続を全体完成へ昇格しない。
 
 #### 6.2.1. 非鍵管理の接続候補
 
-接続単位は、同Processが四管理read＋七保存（Repository登録含む）、Remoteが四管理read＋六保存（登録なし）である。通常三Role本人はAM `readCurrentAccess`の直接呼出しまたはRemote `crdd.get_current_access`で取得し、管理一覧やtools/listから名前・Roleを推定しない。AM内部managementOperationsをSurface提供済みの能力へ変換しない。管理read・保存の非秘密結果はAM共通投影を使い、Remoteではその閉shapeを検査する。新しい管理Store／結果mapper／Role規則を追加しない。
+接続単位は、Workbenchの全配置で四管理read＋七保存（Repository登録含む）である。通常三Role本人はAM `readCurrentAccess`の直接呼出しで取得し、管理一覧から名前・Roleを推定しない。独立MCP Surfaceの同Toolは別の利用側であり、Workbenchが呼ぶ入口ではない。AM内部managementOperationsをSurface提供済みの能力へ変換しない。管理read・保存の非秘密結果はAM共通投影を使い、Browserで閉shapeを検査する。新しい管理Store／結果mapper／Role規則を追加しない。
 
-状態: 設計候補。画面／POST／MCP Consumerは未接続。[MCPの具体化候補](../mcp-server/01_Architecture.md#331-非鍵管理toolの具体化候補)とAMの既存七保存入口を使い、Workbench独自の管理Store・Role判定・結果契約を作らない。同Processは構成済みAM Rootと当該接続資格から直接呼び、Remoteは同じ採用済みMCPを呼ぶ。Repository登録のRemote Path指定は判断待ちであり、未承認の操作を表示・送信しない。
+状態: 管理の直接接続候補。画面とPOSTは既存AMの四read＋七保存へ接続済みで、Workbench独自の管理Store・Role判定・結果契約を作らない。Standaloneの信頼済み内部DIとCROSの要求専用Bearerを分離する。Repository登録はWorkbenchの明示操作だけであり、共有利用ではサーバー上の対象Rootを指定する。MCPの管理Toolは[独立MCP Surfaceの契約](../mcp-server/01_Architecture.md#331-非鍵管理toolの具体化候補)として維持し、Workbenchの依存としない。全内容・公開Launcher・共有TLS・正式評価の完成は別Gateである。
 
 画面はユーザー、Role内容、登録Repository、公開範囲の四管理投影を別の改訂付きで保持する。全Role本人の名前表示は通常接続の本人投影を使い、管理一覧をdeveloperへ開示しない。四読取りが違う改訂なら同一Snapshotを表示したと主張せず、各保存フォームが利用した投影の改訂をexpectedRevisionへ渡す。一保存後は現在投影をrefreshし、競合・応答喪失で自動再送しない。管理可否の表示は操作Authorityではなく、AMが要求毎に確認する。
 
-七保存操作は操作別の閉POST入力から同じAM入口へ一回だけ接続する。Origin／Host／Content-Type／要求容量／同画面のAction Tokenを既存Server境界で確認し、開始前取消は保存0、開始後は同期保存終了を待って応答を処置する。入力Tokenは資格を含めず、管理RootやBearerをBrowserのフォーム・JSONへ渡さない。登録Rootを採用する場合だけ「サーバー上のRepositoryフォルダ」と表示し、BrowserのローカルPathとの違いを説明する。
+七保存操作は操作別の閉POST入力から同じAM入口へ一回だけ接続する。Origin／Host／Content-Type／要求容量／同画面のAction Tokenを既存Server境界で確認し、開始前取消は保存0、開始後は同期保存終了を待って応答を処置する。入力Tokenは資格を含めず、管理RootやBearerをBrowserのフォーム・JSONへ渡さない。登録Rootを指定する際は「サーバー上のRepositoryフォルダ」と表示し、BrowserのローカルPathとの違いを説明する。
 
 保存確認済み、拒否、保存結果未確認、保存確認後の清掃未確認を区別して表示する。既知出版を「変更なし」へ丸めず、解除成功からRepository本体削除・旧Task終了を推定しない。更新したRole内容やExposureの実利用可否は次要求の現在認可で確認する。管理結果・改訂を表示しても秘密・Binding・内部Path・Lock回復参照を追加しない。通常の説明Responseは表示用であり、新たな受領ACKや永続配送Stateを要求しない。
 
-非鍵管理の公開結果形式は[MCP具体化候補](../mcp-server/01_Architecture.md#331-非鍵管理toolの具体化候補)の閉Unionと固定失敗分類を参照する。Workbenchで別の保存結果型や自由文字列理由を定義せず、直接AM利用時も同じ公開投影へ変換する。先行材料処置と新出版準備、既知出版後のLock終了不明を区別し、非公開secondaryを推測しない。
+非鍵管理の公開結果形式は[Access Managementの保存とAPI](../access-management/02_Management_State_and_API.md)が所有する共通投影の閉Unionと固定失敗分類を使う。Workbenchで別の保存結果型や自由文字列理由を定義せず、直接AM利用時も同じ公開投影へ変換する。先行材料処置と新出版準備、既知出版後のLock終了不明を区別し、非公開secondaryを推測しない。
 
 ### 6.3. 初回Host設定の案内
 
-初回資格での接続操作は[AM保存設計§2.5](../access-management/02_Management_State_and_API.md#25-初回限定接続の具体契約)の限定discover、続くfresh通常読取りへ接続する。追加受領ボタンを設けず、同じ操作内で進める。AM確認保存前の応答、単なるHTTP到達、旧Portfolio取得から初回完了を表示しない。既知保存後の応答喪失は再接続で現在状態を確認し、秘密再表示・自動再発行・rollbackをしない。現Sourceの旧REST接続操作からの切替と実画面は未実装、今回の具体化5文書差分は契約・品質限定独立再レビューPass・全重大度0。実装・本番成立ではない。
+初回資格での接続操作は[AM保存設計§2.5](../access-management/02_Management_State_and_API.md#25-初回限定接続の具体契約)に従い、WorkbenchのLocal／共有Host配置はいずれも閉じた専用connect POSTから、次HTTP要求のfresh通常読取りへ接続する。利用者の接続操作は一回で、追加受領ボタンを設けない。接続POST内は確認保存と通常資格の現存確認だけで、本人・内容・管理・鍵操作を公開しない。AM確認保存前の応答、単なるHTTP到達、旧Portfolio取得から初回完了を表示しない。初回完了表示は後続通常読取り成功後だけである。既知保存後の応答喪失は再接続で現在状態を確認し、秘密再表示・自動再発行・rollbackをしない。独立MCP Surfaceの完全な限定discoverはMCP自身の契約であり、Workbenchの接続経路ではない。専用Workbench HTTP POSTは局所接続済みで、資格を完了後に保持せず、次要求の単一Authorization Headerでfresh認証する。Browser memory／Header送信はSource接続と鍵管理／接続の局所実Browser確認済みで、公開CLI、共有TLS配置、全内容入口は未接続。先行5文書の限定Passを今回の変更や本番成立へ流用しない。
 
 初回の意味・State・Sequenceは[Access Management詳細](../access-management/01_Architecture.md#41-初回host設定のstateとsequence)、利用者表示のOwnerはSCR-000008／BHV-000012とする。WorkbenchはHostの明示操作へ案内するだけで、初期化実行・UUID作成・鍵発行・初期SecretのWorkbench搬送をBackendに追加しない。
 
@@ -331,7 +431,7 @@ Remote MCPから初期化状態を照会する新機能は作らない。接続�
 
 Topic／Meeting POSTは、入力評価と操作配送を分ける。token、kind／operation、固定ID・期待Revision、操作別参照とDomain公開ParserによるMarkdown検証を配送前に評価し、不正は固定400 `topic_meeting_action_rejected`へ返す。createへID／Revisionを要求せず、owner／none参照へID制約を追加しない。既存のRemote可視性確認とLocal Repository選択意味は維持する。
 
-Local操作またはRemote要求の直前にだけ配送済みを記録し、その後の操作・保存、結果検査、投影再読取りの例外は固定500 `topic_meeting_action_failed`へ返す。この配送判定はEffect有無の証明ではない。例外本文・Path・秘密値を公開せず、500からrollback・未保存・Effect 0・cleanup成立を推定しない。Domainが返す競合・確認不足等のblocked結果は、従来の303と公開モデルを維持する。`QA-000005`／`CPR-IT-012`へ故障分類、010へ正常操作・競合・削除確認を接続する。
+旧Standalone／Remote比較分岐では、Local操作またはRemote要求の直前にだけ配送済みを記録し、その後の操作・保存、結果検査、投影再読取りの例外を固定500 `topic_meeting_action_failed`へ返す。この配送判定はEffect有無の証明ではなく、500からrollback・未保存・Effect 0・cleanup成立を推定しない。Domainのblocked結果は従来の303と公開モデルを維持する。同Host CROSの直接分岐は要求専用結果とし、completed／blockedは200 JSON、配送前拒否は400、配送後例外・C2不成立は503 `topic_meeting_action_outcome_unconfirmed`、取消は成功本文0とする。両分岐を同じ検証結果で成立扱いにせず、`QA-000005`の`CPR-IT-012`へ故障分類、010へ正常操作・競合・削除確認を接続する。例外本文・Path・秘密は公開しない。
 
 | Failure | 保持するもの | 禁止 | Recovery |
 |---|---|---|---|
@@ -362,6 +462,8 @@ Local操作またはRemote要求の直前にだけ配送済みを記録し、そ
 | External Boundary | Required | Git、Remote CROS、AI Provider、Filesystemを扱う。 | 境界別Port／Adapter | 一境界の成功を他境界へ流用しない。 | 境界追加はAuthorityとE2Eへ波及する。 | `workbench.interface-boundary`<br>`workbench.failure-recovery` |
 
 ## 10. Reality Audit
+
+次表は移管前の旧経路と成立済みCapabilityを照合する歴史的比較入力である。旧Remote／systemAdmin／Shared ServerのCoveredを現行構成や新版の検証根拠へ使用しない。現行Owner・直接接続と未完了範囲は冒頭の契約とCHG-000082の現在計画で確認する。全体の現在評価は⑥で再生成する。
 
 この表と冒頭のQuality観測表は旧配置の履歴として保持し、新しいユーザー／現在Role／鍵入口の合格根拠にはしない。再編後の同一Process CROS呼出し／Remote MCPへの置換は未実装であり、旧REST／Gatewayの`Covered`を新経路へ引き継がない。新配置の公開Graph、設定Reader、全操作と終了実測を段階6／7で再確認する。
 

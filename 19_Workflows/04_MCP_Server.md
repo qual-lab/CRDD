@@ -1,6 +1,6 @@
 # MCP Serverの利用手順
 
-状態: Stable（v0.21.0）
+状態: Candidate（v0.22.0の二Surface構成。全体検証は未完了）
 担当責任者: Qual-Lab
 
 ## 目的と責務
@@ -15,16 +15,17 @@ MCPはCoordinatorのsubcommandではない。OrchestratorやPlatform Accessに�
 |---|---|---|
 | MCP stdio | `node 00_CRDD/template/tools/crdd-mcp-server.ts --stdio` | Clientと一つの標準入出力sessionを構成する |
 | localhost HTTP | `node 00_CRDD/template/tools/crdd-mcp-server.ts --http --port <port>` | `127.0.0.1`だけへbindする。LAN／InternetまたはRemote接続を意味しない |
+| CROS共有HTTP | `node 00_CRDD/template/tools/crdd-mcp-server.ts --cros --http --port <port>` | 現在のHost管理状態を要求毎に認証・認可する。外部公開時は同HostのTLS終端を配置する |
 
 採用Repositoryでは、公式Release tagへ固定した完全な`00_CRDD` cloneまたはsubmoduleから公開入口を起動する。CRDD公式Repository内の開発確認では、同じ相対位置の`template/tools/crdd-mcp-server.ts`を使用する。内部packageの`bin`、内部moduleまたはCoordinator CLIからMCP入口を推測しない。
 
-## CROS Shared ServerのHost設定
+## 共有Host上のMCP設定
 
-Shared ServerはRepository単体の設定を使わず、OS管理のCROS設定Rootにある固定名`shared-server.json`を読む。配置Rootと認可契約は[CROS設計](../06_Architecture/Details/cros/01_Architecture.md)および[Runtime Data設計](../06_Architecture/Details/domain-model/03_Repository_Storage.md#6-crosとの物理分離)を参照する。
+MCP ServerとWorkbench Serverは独立した入口である。Shared Host／CROS REST／Gatewayという第三のServerは起動しない。明示`--cros`は既存HostのAccess Managementを使う選択であり、設定Fileの存在で自動切替しない。初回の管理者と鍵はHostのAccess Management入口で設定し、User・Repository登録・公開範囲はWorkbenchの管理操作で扱う。MCPへ鍵操作やRepository登録を公開しない。
 
-設定形式は、独立した[CROS Shared Server設定例](../template/tools/cros-shared-server-config-example.json)を参照する。例はGit管理する配布物であり、Runtimeが直接読み込む実設定ではない。本書に同じJSONを重複保持しない。
+公開HTTPS Originは起動Repositoryの`.crdd/config/mcp-server.json`に置き、portはCLI引数で指定する。[MCP設定例](../template/.crdd/config/mcp-server.example.json)と[Workbench設定例](../template/.crdd/config/workbench-server.example.json)は非秘密の可視配布例で、実設定として自動採用しない。User・Credential・Binding・Exposureは既存Host管理状態が正本であり、手編集する`cros.json`や管理状態の設定例を別に作らない。保存境界と移行は[Access Management設計](../06_Architecture/Details/access-management/02_Management_State_and_API.md)を参照する。
 
-実設定はHost管理者が対象Root、公開Origin、TLS終端および公開範囲を確認して作成する。Bearer Tokenや秘密をこのJSONへ含めない。例の値を実設定や起動許可として自動採用しない。Runtimeが読むPathや形式は変更しない。
+外部TLS終端はClient由来のForwarded Headerを除去し、`x-forwarded-proto=https`と期待する`x-forwarded-host`を上書きし、公開Hostを保持する。内部Listenerへの直接到達を運用側で禁止する。MCPのProtocol公開Pathは`/mcp`だけで、旧REST同一Origin・Gateway health・HTTP入口のstdin EOF終了を維持しない。BearerやTLS秘密鍵をRepository設定・argv・logへ保存しない。旧設定の移行・清掃はフロントAIがOwner停止・明示対応・読戻しを確認して実施し、Runtimeに旧形式fallbackを追加しない。
 
 ## 実行前と終了後
 

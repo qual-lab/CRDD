@@ -13,6 +13,10 @@ MCPのCPR-IT-012局所試験では、公開全12 Toolの完全入力検査・開
 
 ## 1. 情報源と網羅条件
 
+共有Browserの既存Topic／Meeting Formは`CPR-ST-005`へ接続する。Main／Detailからの一回送信、指定Repository維持、確認付き削除後の同Repository一覧遷移、Topic昇格、二件のOutcomeの早期Close拒否・未選択false一件・全件処置後Closeを観測する。保存後GET故障は既知保存と現在内容未確認を分け、Detail旧本文／Formを非表示にしてGETだけで再取得する。blocked＋GET故障は保存済み通知へ丸めず、保存応答保留中の対象切替ではSignal取消・遅延応答採用0・POST再送0を確認する。自己生成Rootと本番Bundleの局所反例であり、Git／本文入口・公開Launcher・同Local Item全体と正式191項目の完成へ拡張しない。
+
+Workbenchの同Host内容POSTでは、`CPR-IT-010`へ指定RepositoryのTopic／Meeting登録・期待改訂付き更新・競合・確認付き削除・同Project Relationを、`CPR-IT-012`へ閉Form、scalar重複・未知field・非許可ID、Body待機後の現在認可と公開前C2を接続する。両種別の昇格／Outcome処置も既存Domain条件を維持する。保存後の認可故障・応答喪失・取消では、確認済み処置を未保存へ畳まず成功本文と再配送を抑止する。Backend局所成功をBrowser操作、Git／本文、公開Launcher、同Local Item全体の完成へ拡張しない。
+
 `CPR-IT-010`のRelation確認は、認可済み同Project集合の構造検査、両種別からTopic／Meeting／CHGへの0／1／複数Owner解決、既存Owner値の非流用と探索例外の全体停止へ接続する。不整合時は操作呼出し0、Relation以外はSource操作参照を保持し、通常CRUDは実Repositoryへ到達する。これは認可自体・AM本番Resolver・全公開操作母集合の完成根拠ではない。
 
 CPR-IT-010／011では、期待Projectを指定したTopic／Meeting両種別の正常保存と、foreign本文の登録・更新・取得・一覧・削除・昇格・Outcome拒否を実Filesystemで照合する。incoming Relation由来のforeign本文も固定例外へ閉じ、内容とPathを公開しない。期待値不正はRoot観測前、保存契約注入との併用は生成前拒否。これはDomain拘束の局所検証であり、AM認可から本番Consumerへの搬送成立ではない。

@@ -543,7 +543,10 @@ test("主要工程ひな型は工程責務と構造表現を維持する", () =>
   }
 
   const architectureTemplate = fs.readFileSync(
-    path.join(repositoryRoot, "template/06_Architecture/02_Activity_Context.md"),
+    path.join(
+      repositoryRoot,
+      "template/06_Architecture/02_Activity_Context.md",
+    ),
     "utf8",
   );
   assert.ok(
@@ -5239,7 +5242,11 @@ test("Architecture横断モデルは責務・境界・流れ・故障・配置�
   );
 
   root = architectureReconstructionFixtureRoot();
-  const indexPath = path.join(root, "06_Architecture", "02_Activity_Context.md");
+  const indexPath = path.join(
+    root,
+    "06_Architecture",
+    "02_Activity_Context.md",
+  );
   write(
     indexPath,
     fs

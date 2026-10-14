@@ -1,5 +1,6 @@
 /**
  * 初回用途判定と確認出版の実保存境界を検証する。
+ * @packageDocumentation
  * @responsibility 限定候補・一出版・再観測・次要求の通常認証を分離する。
  * @trace RFD-IT-024
  * @trace RFD-IT-025

@@ -4,6 +4,7 @@
  * @packageDocumentation
  * @responsibility Workbench Production Serverの15 Logical ScreenをDesktop／Tablet／Mobileと100%／200%／400%で実Browser検証する。
  * @trace ERB-ST-022
+ * @trace RFD-ST-022
  * @level ST
  * @scope workbench、actual-browser、logical-screen、responsive、zoom、focus、brand、cleanup
  * @boundary ERB-ST-022=System/E2E: Workbench Production Server→専用Chrome Profile→Rendered DOM→全資源終了
@@ -27,6 +28,12 @@ import {
 } from "../../../visual-preview/src/index.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import { startWorkbench } from "../../src/index.ts";
+import {
+  createCredentialMaterial,
+  type AccessManagementState,
+} from "../../../access-management/src/index.ts";
+import { createFilesystemStoreRoot } from "../../../domain-model/src/index.ts";
+import { randomUUID } from "node:crypto";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
   import.meta.dirname,
@@ -179,10 +186,67 @@ test("Workbench 15 Logical Screenを全表示Profileと実Browser Zoomで確認�
       "utf8",
     );
     git(fixture, "init", "--quiet", "--initial-branch=main");
+    await writeFile(path.join(fixture, ".gitignore"), "/.crdd/\n");
     git(fixture, "add", ".");
-    beforeStatus = git(fixture, "status", "--short");
 
-    handle = await startWorkbench({ workingDirectory: fixture });
+    const accessDirectory = path.join(fixture, ".crdd", "access-fixture");
+    await mkdir(accessDirectory, { recursive: true });
+    const accessRoot = createFilesystemStoreRoot(accessDirectory);
+    assert.ok(accessRoot);
+    const material = createCredentialMaterial();
+    const userId = randomUUID(),
+      operationId = randomUUID();
+    const accessState: AccessManagementState = {
+      contract: "crdd-access-management/state",
+      schemaRevision: 2,
+      revision: 1,
+      operationId,
+      users: [
+        {
+          userId,
+          username: "管理者の表示名・権限と公開範囲を確認する",
+          role: "administrator",
+        },
+        { userId: randomUUID(), username: "開発者", role: "developer" },
+      ],
+      roleContentAccess: [
+        { role: "developer", workspaceIds: ["development"] },
+        { role: "manager", workspaceIds: ["development", "management"] },
+        { role: "administrator", workspaceIds: [] },
+      ],
+      credentials: [
+        {
+          credentialId: material.credentialId,
+          userId,
+          tokenVersion: 1,
+          tokenSalt: material.tokenSalt,
+          tokenVerifier: material.tokenVerifier,
+          revoked: false,
+          operationId,
+          presentation: "confirmed",
+        },
+      ],
+      registeredRepositories: [],
+      exposure: [],
+      unresolvedKeyExchanges: [],
+      initialization: {
+        stage: "completed",
+        attemptId: operationId,
+        initialUserId: userId,
+        initialCredentialId: material.credentialId,
+        confirmationCredentialId: material.credentialId,
+        connection: "confirmed",
+      },
+    };
+    await writeFile(
+      path.join(accessDirectory, "access-management.json"),
+      JSON.stringify(accessState),
+    );
+    beforeStatus = git(fixture, "status", "--short");
+    handle = await startWorkbench({
+      workingDirectory: fixture,
+      credentialAdministration: { root: accessRoot, token: material.token },
+    });
     listenerPort = Number(new URL(handle.baseUrl).port);
     result = await verifyLocalWebApplicationVisual({
       workingDirectory: fixture,
@@ -204,6 +268,8 @@ test("Workbench 15 Logical Screenを全表示Profileと実Browser Zoomで確認�
             "repository",
             "connection",
             "credential-administration",
+            "access-management",
+            "access-management-current-user",
             "ai-profiles",
             "workbench-client-ready",
           ]),
@@ -236,6 +302,15 @@ test("Workbench 15 Logical Screenを全表示Profileと実Browser Zoomで確認�
       zoomFactors: Object.freeze([1, 2, 4]),
     });
     afterStatus = git(fixture, "status", "--short");
+    assert.deepEqual(
+      JSON.parse(
+        await readFile(
+          path.join(accessDirectory, "access-management.json"),
+          "utf8",
+        ),
+      ),
+      accessState,
+    );
   } finally {
     await handle?.close();
     listenerState = await observeLocalListener(listenerPort);

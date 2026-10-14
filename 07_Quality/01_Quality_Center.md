@@ -2,7 +2,17 @@
 
 状態: Quality Design In Progress — Latest Contract Propagation
 担当責任者: Qual-Lab
-最終更新日: 2026-10-13
+最終更新日: 2026-10-14
+
+現在の判定は[現在の品質投影](#current-quality-projection)を参照する。以下の先行候補の経過にある「現在」「最新」「未完了」は記録当時の対象版に限り、現行Sourceの成立状態へ流用しない。
+
+Access Management再編の17義務は、承認済みPortfolio是正・局所反証・対象回帰・独立照合後に確認済み13・部分確認2・人間UAT未実施2。部分確認と人間UATは後続E2Eの実Host・利用者理解範囲である。対象回帰480件成功・失敗0、人間UAT1件Skip。Source／契約と結果同期の最終限定独立確認は残指摘0で、今回の区切りが成立した。正式191項目の全体評価・全体Checker合格を代替しない。[現在の検証結果](../99_Roadmap/Changes/CHG-000082/Evidence/261014_access-management-verification.md)を参照する。
+
+## 先行候補の経過（履歴）
+
+2026-10-13の旧Shared Host撤去候補では、下段のShared GatewayによるRFD-ST-004観測と13／46の移管件数は当時のEvidence適用範囲として保持する。新しいAM／MCP／Workbench経路のST成立や現在の全体件数へ流用しない。旧Gateway専用試験は撤去し、現在認証・各能力はaccess-capabilities、TLS・公開CLI終了はstreamable-http、独立Adapterの4 Caseは責務別試験へ接続する。正式191項目・Not Runを維持し、現在の件数・実行・Evidenceは⑥で再照合する。
+
+現在の是正：Workbench通常管理候補は全44回帰・実Browser六件・Visual27測定が成功したが、固定候補の独立レビューはMajor1／Moderate4でFail。完全MCP Endpoint契約、結果集合の一意性、操作別成功ID、配置文書、Remote Browserの未確認を是正する。既採用Targetに従ってRemote全Consumerを単一Endpointへ切り替え、旧Backend→CROS RESTを置換するため、影響範囲を計画へ拡張済み。旧成功を新経路の根拠へ流用せず、新候補の回帰・Browser・終了保証・独立レビューを再実行する。正式191項目とAM全体は未完了。[是正範囲](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#workbench-remote全consumerのmcp単一路への切替--2026-10-13)を参照する。以下の局所成功は各先行候補の範囲に限る。
 
 現在の局所結果：通常三ロールの本人読取りをMCPへ接続し、管理結果の共通投影をAMへ集約した。AM全150件／MCP全85件の計235件と各書式・型・Lint成功、固定21Pathの限定独立レビュー残指摘0。本人だけの閉投影、Role変更／失効の現在性、初回非提供、管理候補・他ユーザー・資格の非開示を確認した。Workbench管理画面へ必要な意味・読順・個別改訂・実Browser／Visual再評価義務は伝播済みだが、画面・POST・Remote接続は未実装。Remote登録M1、公開Launcher、旧REST撤去、正式191項目とAM全体完成は残る。[現在の計画](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#workbench通常管理と本人表示の本番接続着手--2026-10-13)を参照する。
 
@@ -78,19 +88,23 @@
 
 ## Current Quality Projection
 
-鍵の期限なし方針は設計・品質へ伝播した候補。QA-000007のRFD-ST-003／RFD-IT-013／RFD-UAT-007で、時間経過、明示失効・交換、現在権限変更、利用者理解を分離して確認する。全13定義190項目は不変、更新項目はNot Run。保存・本番資格接続・実行・新Evidenceは未完了であり、今回の伝播を実行Passへ昇格しない。
+2026-10-14現在、Access Managementの専門Owner接続と旧CROS Package撤去は局所確認済み。正式な検証義務全体への評価・根拠対応は再照合中であり、Case成功数からLocal ItemのPass数を算出しない。通常認証・Exposure・実アクセス・Domain搬送・管理保存・Workbench／MCPの接続は局所実行済みで、設計伝播だけの状態ではない。一方、実Host対話からの初回設定・鍵操作の縦断と利用者の理解は未確認である。
 
-初回設定の実装接続は、UT023とIT024相関・User・初回資格保存部分のSource／Test Symbol・候補局所実行が接続済み。正式Local Item／Evidence評価はNot Run。IT024のHost提示／初回限定接続／次要求の通常認証／本番Host部分とIT025／ST026／UAT027、Root準備・旧入力本番観測・本番認証ConsumerはOPENであり、部分成功を初回全体完成へ流用しない。資格→User→現在Roleの認証主体局所解決（IT013前半）とIT024の初回非更新は候補接続済み。Exposure・実アクセス・Domain搬送はOPEN。
+初回設定・鍵操作の実入口の未確認範囲と`RFD-UAT-007`／`RFD-UAT-027`は、人間判断により後続E2Eへ移した。未検証をPass・免除へ変更せず、それ以外の是正・固定候補回帰・独立レビュー後にコミット・プッシュし、Docker周りの責務分離・大改修へ進む。[今回の区切り](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#今回の区切りと後続e2e--2026-10-14)を正本とする。
 
 | 項目 | 現在値 | 根拠・次の処置 |
 |---|---|---|
-| 全体状態 | Quality Design In Progress — Latest Contract Propagation | 最新契約の設計対応と実行成立を区別し、Quality Readyへ昇格しない |
-| 現在対象 | v0.22.0 | Project Operation、Workbench、CROS、複数Repository、AI Runtimeを段階的に照合する |
-| 観測済み | 13 / 46 | v0.21からの移管母集団に対する進捗。既観測12件にShared Gateway非開示境界の`RFD-ST-004`を追加した。[新しい根拠と限界](../99_Roadmap/Changes/CHG-000082/Evidence/261002_shared-gateway-non-disclosure.md) |
-| 未観測 | 33 / 46 | 同じ移管母集団の未観測。移管一覧を採用済みRelease Scopeと同一視せず、Trust項目の対応を再照合する。Native局所試験だけで024〜030を観測済みにしない |
-| 既知Gap | ②と全体品質の未完了を分離 | 現候補の署名・production初期化2件、全Portable収集と失敗六件の限定是正後35件を確認した。PRL-IT-005／012は一部観測で、全義務Passへ増算しない。Workbench／必要なE2Eと全項目のEvidence適用は未完了。[最新の照合](../99_Roadmap/Changes/CHG-000082/Evidence/261006_phase2-reality-audit.md) |
-| 次Gate | 全製品E2Eと残る品質義務を別に確認する | ②の保存方式刷新は最終独立確認Passで完了。全Portable収集と是正後35件を別集合で保持し、全体Quality Readyにはしない。[②の完了根拠](../99_Roadmap/Changes/CHG-000082/Evidence/261005_project-runtime-phase2.md#36-②の完了判定) |
-| 現在人間判断 | なし（件数予算改訂を承認済み） | 秘密入力が必要な署名は外部対話端末で依頼する。署名操作の承認からRelease、未観測義務の免除または新Provider送信を推定しない。 |
+| 全体状態 | ⑥の品質整合・正式評価を進行中 | 全体Quality Ready・リリース可能とはしない |
+| 現在対象 | v0.22.0 | CHG-000082のAM・Domain・Workbench・MCPの現行Ownerへ照合。CROSは全体概念であり旧Packageではない |
+| 設計集合 | 13定義・191 Local Item | 設計件数であって実行／Pass件数ではない |
+| 観測済み | 局所Case成功は確認済み、正式成立数は再照合中 | 下記の局所根拠を正式Local ItemのPass件数へ換算しない |
+| 未観測 | 正式191項目の全体評価、後続E2E・UATの未確認範囲を保持 | 初回実Host・鍵実入口・利用者理解等は後続E2Eで確認する |
+| 既知Gap | 全体Checker未合格、正式Evidence対応を再照合中 | 局所成功や関係の存在から全体完成を推定しない |
+| 局所根拠 | AM152 Case、MCP86 Case、Workbench78 Case成功 | 異なる局所実行と対象範囲を合算して正式義務の成立数にしない。実行方法・限界は変更計画を参照 |
+| 検査 | 全体Checker2941 errors・0 warningsで未合格 | 2026-10-14再確認。台帳検査は0指摘、Header全数検査はCoordinator旧Native試験のSymbol欠落で停止。限定成功を全体検査Passにしない |
+| 後続E2E | 初回設定・鍵実入口、利用者理解、実Provider／署名等 | 後回しは免除でない。Orchestrator／Coordinator／Dockerの持越し義務は大改修へ接続 |
+| 次Gate | 残是正・正式評価対応・固定候補回帰・独立レビュー | 成立後コミット・プッシュし、計画済み大改修へ進む |
+| 現在人間判断 | なし | 2026-10-14の順序変更は採用済み。未観測リスクの受容やリリース承認を推定しない |
 
 ## 設計集合
 
@@ -104,16 +118,16 @@
 | Quality検証目標 | 13 |
 | Local Item数 | 191 |
 
-## 結論
+## 集計の履歴と現在への適用
 
-Quality設計は13定義、190 Local Item。2026-10-11に各定義の検証項目IDを定義内で重複排除して再集計し、旧185件＋初回設定5件と確認した。設計件数は実行／Pass件数ではない。移管一覧の一意集合46件のうち、既観測12件に`RFD-ST-004`の公開Gateway非開示根拠を加えて13件を観測済み、33件を未観測とする。全体の旧投影119件観測済み・57件未観測と、そのRelation別内訳には表示不整合が見つかったため、**現在の全体集計は再照合中（OPEN）**である。v0.21の固定Baseline108／130と22未観測は履歴として維持する。108＋13＝121は算定候補であり、現在のRelation別Evidence適用を証明した全体件数とは表示しない。設計集合・過去結果は削除せず、[算定Owner](05_Current_Implementation_Reality_Audit.md#12-relation是正結果)へ戻して再照合する。
+現行Quality設計は13定義・191 Local Itemである。2026-10-14に各Definitionの検証項目表からIDを抽出し、定義内で重複排除して再集計した。設計件数は実行／Pass件数ではない。旧190件、移管母集団13／46観測済み・33／46未観測、旧投影119件観測済み・57件未観測は、それぞれ当時の対象版と集計範囲に限る。Gateway撤去後の現行AM／Workbench／MCPの成立数として使用しない。v0.21の固定Baseline108／130と22未観測は履歴として維持する。**現行対象のRelation別Evidence適用と全体成立数は再照合中（OPEN）**であり、履歴件数の加算で現在の成立を表示しない。[算定Owner](05_Current_Implementation_Reality_Audit.md#12-relation是正結果)と正式評価へ接続する。
 
 | 対象 | 現在状態 | 根拠・次の処置 |
 |---|---|---|
 | Canonical入力 | REQ 41、UX 35、IA 23、UI 20、SPEC 30、ARCH 18を全件Mapping済み | [Quality Integration](04_Quality_Integration.md) |
 | UI／SPEC Detail | Covered: 20 SCR、20 PRT、32 Interaction、30 BHVを全数処置し、Source Definition由来の既存検証目標へ具体的観測条件として統合した | [UI／SPEC DetailのQuality分析](Analysis/Detail/quality_analysis.md) |
 | Quality Analysis | 前判断の7分析の限定レビュー済み結果は履歴。今回の登録解除・鍵受け渡し判断は12文書へ伝播済み・契約／品質限定独立レビュー済み・残指摘0 | Reality Auditではこの設計集合を変更せず、現行実装との対応を照合する |
-| Quality Definitions | 13定義、190 Local Itemを設計済み。通常管理3件の前判断に対する限定レビュー結果は履歴。今回の初回5項目・EST-ST-015更新はNot Run、定義接続は契約・品質の限定独立レビュー済み・残指摘0 | 移管母集団は13／46観測済み、33／46未観測。全体の現在件数とRelation別Evidence適用は再照合中。設計件数、Relation件数、履歴結果と現在成立を混在させない |
+| Quality Definitions | 13定義・191 Local Itemを設計済み。局所接続・試験成功と正式義務評価を区別し、現行対象の全体成立数は再照合中 | 旧移管母集団13／46・33／46は履歴。初回実入口と人間確認は後続E2Eへ保持し、設計件数・Relation件数・履歴結果を現在Passへ変換しない |
 | Architecture詳細設計 | 18領域を適用判定済み | 実装OwnerのないCapability、現実との不一致およびTest未接続をReality Auditで処置する |
 | Checker | 参照Evidenceの固定候補に対する履歴 | 参照Evidenceの採取当時の固定Treeでは、差分由来のFinding 0、Warning 0だった。Error 1件は、v0.22作業HEADが公開済みv0.21.0 tagと一致しないFeature Branch上の既知状態であり、v0.22のRelease候補固定時に再評価する。実行ごとに変わるファイル、Markdown、LinkおよびAnchorの件数はこの現在投影へ複製せず、[Phase 5 純粋CSR Runtime閉包検証](../99_Roadmap/Changes/CHG-000082/Evidence/260928-2354_phase5-pure-csr-runtime-closure.md)が示す固定Treeから再現する。Verification RunnerはWorkbenchを含むOwner、実行Profileおよび結合経路を全数照合し、当時40 Pass・失敗0・条件付きSkip 1だった。現在への全体適用は再照合中である |
 | Reality Audit | v0.21限定結果の履歴 — 現在全体への適用は再照合中 | skipのEvidence誤算入と実境界未観測を是正し、v0.21に残るHybrid 12件とManual 10件を未観測のまま固定した。最終署名E2Eは`AIT-ST-010`と`ERB-IT-014`の限定範囲へ接続し、残る義務を一括してPassへ変更していない。移管母集団46件の現在処置は算定Ownerへ接続する |

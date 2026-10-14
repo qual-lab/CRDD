@@ -15,19 +15,19 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
-/**
- * 固定した保存結果を公開Resolver経由で搬送する。
- * @responsibility 理由mapping・拒否・事前取消・UTF-8上限の反証を実行する。
- * @trace EST-IT-002
- * @trace EST-IT-010
- * @precondition 固定NodeのModule mock機能と正式fixture Sourceが存在する。
- * @stimulus 既知十二理由・未知理由・read拒否と不明・16MiB境界を渡す。
- * @observation 子Process終了code、固定確認出力、fixture内の公開結果全field照合。
- * @oracle 差替え未適用・部分応答・未知理由透過・事前取消後実行は失敗する。
- * @cleanup 子Process終了待ち、fixtureの所有Root不存在確認。
- * @boundary 試験用合成Producer→本番MCP公開API。実保存成立を主張しない。
- */
 for (const mode of ["normal", "before-mock-failure", "timeout"]) {
+  /**
+   * 固定した保存結果を公開Resolver経由で搬送する。
+   * @responsibility 理由mapping・拒否・事前取消・UTF-8上限の反証を実行する。
+   * @trace EST-IT-002
+   * @trace EST-IT-010
+   * @precondition 固定NodeのModule mock機能と正式fixture Sourceが存在する。
+   * @stimulus 既知十二理由・未知理由・read拒否と不明・16MiB境界を渡す。
+   * @observation 子Process終了code、固定確認出力、fixture内の公開結果全field照合。
+   * @oracle 差替え未適用・部分応答・未知理由透過・事前取消後実行は失敗する。
+   * @cleanup 子Process終了待ち、fixtureの所有Root不存在確認。
+   * @boundary 試験用合成Producer→本番MCP公開API。実保存成立を主張しない。
+   */
   test(`管理結果fixture ${mode}の結果と所有Root回収を確認する`, () => {
     const base = fileURLToPath(
       new URL("../../../../.crdd/tests/", import.meta.url),

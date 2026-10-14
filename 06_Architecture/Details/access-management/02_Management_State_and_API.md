@@ -2,20 +2,20 @@
 
 成果物種別: Architecture詳細設計
 詳細設計領域: access-management
-状態: Candidate（最小鍵提示方式の設計伝播・限定再レビュー済み（最小鍵提示方式の伝播差分、全重大度0）。既存保存部分の局所結果は対象固定版の履歴。初回確認の具体入口・Schema・鍵管理本番接続は未成立）
+状態: Candidate（Schema・保存・初回確認・Host／Workbench鍵操作・MCP非鍵管理の候補Source接続と局所確認済み。固定候補の最終回帰・独立確認は進行中。実Host ST／人間UAT・実状態移行・正式191項目の全体評価は未完了）
 維持責任者: Qual-Lab
 
 ## 1. 対象と保持条件
 
-[責務・意味・処理境界](01_Architecture.md)を具体化する。既存管理分担、鍵操作の入口、交換の意味は維持し、共有Profile管理のmanager／administrator許可を追加した9 Role分担行を内容権限設定から生成しない。管理能力から内容閲覧を許可しない。先行したProfile接続段階は既存四Toolだけを対象とし、通常管理Toolを追加しなかった。現在は非鍵管理10操作を注入ResolverのWIP Sourceへ接続済みである。人間判断待ちのRemote登録はSource・Schema・一覧・dispatchに追加しておらず、公開Launcher・Workbench本番・正式評価は未接続である。§2.4.1は11候補全体の契約正本であり、10操作の局所実装を公開Capability全体の完成へ昇格しない。鍵操作はMCPの一覧・Schema・登録・dispatchの全てで非公開とし、応答へSecretを含めない。
+[責務・意味・処理境界](01_Architecture.md)を具体化する。既存管理分担、鍵操作の入口、交換の意味は維持し、共有Profile管理のmanager／administrator許可を追加した9 Role分担行を内容権限設定から生成しない。管理能力から内容閲覧を許可しない。先行したProfile接続段階は既存四Toolだけを対象とし、通常管理Toolを追加しなかった。現在は非鍵管理10操作をMCP Resolverと公開Launcherへ、通常管理7保存と鍵操作をWorkbenchの専門API直接呼出しへ接続済みである。Repository登録は2026-10-13人間判断でWorkbench限定とし、MCPのSource・Schema・一覧・dispatchへ追加しない。Source／公開Process・HTTPの局所実測は成立したが、実Host縦断・人間UAT・正式評価と最終Gateは未完了である。§2.4.1は11候補全体の契約正本であり、局所実装を公開Capability全体の完成へ昇格しない。鍵操作はMCPの一覧・Schema・登録・dispatchの全てで非公開とし、応答へSecretを含めない。
 
-今回比較するのは、公開読取り、操作別更新、同一改訂の保存単位、出版後故障、移行である。汎用IAM、Receipt Store、Lock Framework、共有Recovery、Docker操作は対象外。候補API名やFile名はSourceへ実装済みという意味ではない。
+今回比較するのは、公開読取り、操作別更新、同一改訂の保存単位、出版後故障、移行である。汎用IAM、Receipt Store、Lock Framework、共有Recovery、Docker操作は対象外。下段の候補API名・File名と未実装表示は契約設計時点の履歴である。現在はSchema・保存・初回確認・鍵操作・Workbench／MCPの候補Sourceを接続済みで、後続の実Host ST／人間UAT・実状態移行と正式全体評価を未成立として区別する。
 
 ## 2. 操作別API候補
 
 Workbench通常管理の結果投影は、AMの`management/result.ts`を共通Ownerとする。既存管理read・保存結果を非秘密の閉結果へ写し、Binding・Path・自由文字列理由を含めない。MCP／Workbenchは同じ投影を利用し、HTTP／JSON-RPC envelope、取消、入力と応答の容量制限は各Transportが所有する。新しい保存Stateや認可判断を投影へ持たせない。具体結果意味は§2.4.1に従う。
 
-通常接続の本人表示は既存`readCurrentAccess`をOwnerとし、同Process Workbenchは直接、Remote Workbenchは`crdd.get_current_access`を利用する。公開投影は同改訂のuser（userId・username・role）、contentAccess、permittedRepositoriesに限定する。内部managementOperationsを公開済みSurfaceの能力一覧へ転用せず、資格・管理Root・Binding・他Userを含めない。初回途中の通常本人readは提供せず、拒否・観測不能を空本人へ変換しない。
+通常接続の本人表示は既存`readCurrentAccess`をOwnerとし、WorkbenchはLocal／共有配置とも同Hostの専門APIへ直接接続する。BrowserはそのWorkbenchへ接続し、Workbench→Remote MCP経路は撤去済みである。MCP利用側は`crdd.get_current_access`を利用する。公開投影は同改訂のuser（userId・username・role）、contentAccess、permittedRepositoriesに限定する。内部managementOperationsを公開済みSurfaceの能力一覧へ転用せず、資格・管理Root・Binding・他Userを含めない。初回途中の通常本人readは提供せず、拒否・観測不能を空本人へ変換しない。
 
 ### 管理の計数単位
 
@@ -132,7 +132,7 @@ Source・Package公開入口・Symbol・試験台帳を接続し、既存保存I
 
 #### 2.4.1 通常管理の公開利用側への引渡し候補
 
-通常管理の公開接続は[MCP詳細§3.3.1](../mcp-server/01_Architecture.md#331-非鍵管理toolの具体化候補)と[Workbench詳細§6.2.1](../workbench-server/01_Architecture.md#621-非鍵管理の接続候補)の候補へ渡す。Packageの四読取りDTOと七保存Resultは内部契約であり、通信契約へ無条件転記しない。公開読取りからBindingと種類識別を除き、操作名から必要な対象だけを投影する。四読取りの改訂はそれぞれ独立し、単一改訂の複合Snapshotを生成した保証はない。現在filter、公開範囲null／明示空、既知出版と清掃・最初の失敗の分離は保持する。Remote登録対象Rootの指定Authorityは人間判断待ちで、内部APIの絶対Root受理だけから公開採用を推定しない。Source・Store・Schema・Lock・鍵の公開境界はこの候補具体化では変更しない。
+通常管理の公開接続は[MCP詳細§3.3.1](../mcp-server/01_Architecture.md#331-非鍵管理toolの具体化候補)と[Workbench詳細§6.2.1](../workbench-server/01_Architecture.md#621-非鍵管理の接続候補)へ渡す。Packageの四読取りDTOと七保存Resultは内部契約であり、通信契約へ無条件転記しない。公開読取りからBindingと種類識別を除き、操作名から必要な対象だけを投影する。四読取りの改訂はそれぞれ独立し、単一改訂の複合Snapshotを生成した保証はない。現在filter、公開範囲null／明示空、既知出版と清掃・最初の失敗の分離は保持する。Repository登録はWorkbenchだけに採用済みで、MCPには四読取り・登録以外の六保存を公開する。登録と公開設定、管理状態Rootと登録対象Rootを区別し、この事項に現在の人間判断待ちはない。
 
 ### 2.5 初回限定接続の具体契約
 
@@ -143,10 +143,10 @@ Source・Package公開入口・Symbol・試験台帳を接続し、既存保存I
 | AMの`resolveConnectionAuthentication` | 同じ既存Lock・同改訂で資格を照合し、通常接続または初回限定接続へ分類する | 初回候補は元attemptId・userId・最新confirmationCredentialId・revisionへ相関。通常認証と途中本人認証を二度呼んで組み合わせず、Lock外stage読取りをしない。候補は通常Authorityではない |
 | MCPの限定Handler | HTTPのOrigin／Endpoint／POST／Header／容量／完全JSON／Header相関検査後、既存`server/discover`だけを完全検査する | 非null Request ID、exact method、閉じたparamsと`_meta`、既存Envelopeを検査する。`tools/list`／`tools/call`・他method・不正入力・開始前取消はAM更新0。通常Routingの依存やToolを初回Handlerへ渡さない |
 | AMの`confirmInitialConnection` | signal再確認後、同じ保存LockでBearerと期待Bindingをfresh再照合し、初回completedを一回出版する | `credential_stored`、同attempt／user／最新資格／期待revision、資格有効、Host提示confirmed、未解決交換0が必要。確認保存・正確byte読戻し・pending／短命材料清掃・Lock終了まで成功した場合だけ非秘密の成功を返す |
-| Surfaceの成功応答 | 確認の確定後に限定discover応答を返す | 応答前に通常内容・管理・鍵操作を実行しない。通常Authorityは次要求のfresh通常認証だけ。応答結果に元試行ID・User／資格ID・Root・Verifier・Secretを出さない |
-| Workbenchの接続操作 | 現行UIの接続操作から同じ限定discover、次いでfreshな通常読取りへ進む | 同一Processも同じAM用途判定・確認契約を使う。初回完了表示は後続通常読取り成功後だけ。別の確認操作を利用者へ要求しない |
+| Surfaceの成功応答 | 確認の確定後に用途限定の接続応答を返す | 応答前に通常内容・管理・鍵操作を実行しない。通常Authorityは次要求のfresh通常認証だけ。応答結果に元試行ID・User／資格ID・Root・Verifier・Secretを出さない |
+| Workbenchの接続操作 | Remote MCPは完全な限定discover、同一Processは閉じた専用connect POSTから、次HTTP要求のfreshな通常読取りへ進む | Localは同Origin・Host・Content-Type・容量・Action Token・exact Formを確認後、同じAM用途判定・確認保存を直接呼ぶ。JSON-RPCやloopbackは作らない。確認後の通常再認証は資格の現存確認だけで、同POSTでは通常本人・内容・管理読取り／操作をしない。返却するRoot・tokenは認可結果ではなくServer memory専用。初回完了表示は後続通常読取り成功後だけ。別の確認操作を利用者へ要求しない |
 
-MCP-only初回は、CRDDの完全な`server/discover`を送るClientで成立させる。任意のMCP Clientがこの固有Protocolを使えるとは主張しない。Workbenchの現`/connection/action`は旧REST Portfolio取得であり、上表へのConsumer切替は未実装である。HTTP本文前のResolverは用途分類だけを行い、本文の妥当性を確認する前に初回状態を更新しない。
+MCP-only初回は、CRDDの完全な`server/discover`を送るClientで成立させる。任意のMCP Clientがこの固有Protocolを使えるとは主張しない。同一Process Workbenchの接続関数は完全Form→確認保存→通常資格再確認まで局所接続したが、公開POST・起動入口のConsumer切替は未実装である。Remote接続の初回discover搬送も別に確認する。HTTP本文前のResolverは用途分類だけを行い、本文の妥当性を確認する前に初回状態を更新しない。
 
 MCPの局所実装は、`createAccessMcpResolver`がAM用途判定からnormalとinitialのHandlerを分け、initialには`request/initial-connection.ts`の限定Handlerだけを構成する。完全discover検査と固定応答は副作用なしの`request/discover.ts`を通常Routeと共用し、通常Tool・内容・管理依存を限定Handlerへ渡さない。AM確認失敗は内部相関や理由を含めない固定`-32603`へ閉じる。既存HTTP Transportの順序は維持し、Content-Type／Accept／本文容量／JSON／Header相関の拒否前にもResolver認証の読取り・KDFと既存pending処置はあり得る。これらの拒否は初回確認出版0／通常Tool0であり、認証観測0や全Filesystem Effect 0ではない。公開Launcher・Workbench・実Host入口の切替は別に残る。
 
@@ -645,7 +645,7 @@ Host CLIは`--exchange-user <User UUID>`と`--exchange-all <発行先administrat
 | `cros/access/registry-file-adapter.ts`／`recovery-file-adapter.ts` | AM保存Adapter。出版後throw／falseを未保存扱いしない。無期限改訂・操作File積算は引き継がない |
 | `cros/configuration/shared-server-file-adapter.ts` | 接続／Exposureの管理正本を照合し、旧configとの二重正本を解消してから切替 |
 | `workbench-server/src/credential/administration.ts`／`src/server.ts` | 旧発行・失効・rotate・資格アクセス更新・一覧を操作別APIへ接続。旧rotateを新交換と同一視しない |
-| `mcp-server/src/project-context/cros-resolver.ts`／旧HTTP接続 | 現在認証・内容範囲解決をAMへ、集約をDomainへ。旧REST廃止は代替本番接続後 |
+| `mcp-server/src/project-context/cros-resolver.ts`／旧HTTP接続 | 現在認証・内容範囲解決はAM、集約はDomainへ接続済み。旧MCP Resolver／Shared Host・CROS Package・旧REST libraryは撤去済み。正式評価と後続E2Eは別Gateで維持する |
 | `cros/access/recovery-cli.ts`／`recovery.ts` | 通常Host回復の交換2種と§2.1の初回設定へ分離。旧bootstrap／full reset／追加ガードを新契約へ流用しない |
 
 旧`shared-server.json`のSchema全fieldは次へ対応する。固定旧入力Hashと各移行先の読戻しを相関し、一つのfieldを複数の現在正本へ複製しない。

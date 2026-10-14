@@ -837,7 +837,7 @@ export function authenticateNormalConnection(
  * @trace ARCH-000013
  * @input 検証済み管理Rootと信頼しないBearer。
  * @returns 通常本人、非Authority初回相関、固定拒否／状態未確認。
- * @precondition Surfaceは初回候補を完全discover専用Handlerへ渡す。
+ * @precondition Surfaceは初回候補を完全な限定接続要求の検査Ownerへ渡す。MCPはdiscover、Local Workbenchは専用connect POSTである。
  * @postcondition 認証・用途判定・材料清掃・Lock解放後だけ投影を返す。
  * @effect 既存Lock・状態読取り・KDF・許可後の既存pending処置。
  * @failure 不正資格・段階差は固定拒否、観測・清掃・解放不明は情報0。
@@ -907,7 +907,7 @@ export function resolveConnectionAuthentication(
  * @trace ARCH-000013
  * @input 検証済みRoot、Bearer、閉じた初回相関、Consumer所有のAbortSignal。
  * @returns 保存／再観測と清掃・Lock終了済みの非秘密出版結果、または未完了。
- * @precondition 信頼済みConsumerが完全discoverを検査済み。入力相関だけでは許可しない。
+ * @precondition 信頼済みConsumerがSurface別の完全限定接続要求を検査済み。入力相関だけでは許可しない。
  * @postcondition 一出版後は同歴史相関と直後改訂だけ再観測。通常Authorityは返さない。
  * @effect 既存Lock・fresh KDF・既存pending処置・completedの同期出版／読戻し／清掃。
  * @failure 開始前取消・不正相関はRoot観測0。状態・出版・清掃不明では成功を返さない。

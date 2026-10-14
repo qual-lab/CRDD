@@ -1,5 +1,6 @@
 /**
  * 実保存からの活動投影と出所・継続位置を検証する。
+ * @packageDocumentation
  * @responsibility 模擬Readerを使わず状態保存とEI履歴の読取りを反証する。
  * @trace PPR-IT-012
  * @level IT

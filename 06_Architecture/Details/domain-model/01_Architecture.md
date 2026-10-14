@@ -1,5 +1,9 @@
 # Domain Modelの責務境界
 
+### 目的限定Contextの未接続範囲 — 2026-10-13
+
+旧CROSのContext Package値生成prototypeは撤去する。認可済みSource／Portfolio集約はDomainの入力処理として接続済みだが、目的限定Package Identity、Consumer lifecycle、消費終了後に第二正本を残さないことは未接続である。RFD-ST-010をOPENとして保持し、単純な値copyを新Domain APIへ移して完成としない。認可は引き続きAccess Management、Handoffの実行・再開判断はOrchestratorの5C依存範囲であり、DomainはAuthorityを発行しない。
+
 ### 認可済み集合内のRelation解決 — 2026-10-12
 
 `activity/federate-relations.ts`の公開`federateTopicMeetingRelations(sourceRepositoryId, sources)`は、認可済み同Project集合の中からSourceを導出し、Topic／MeetingのRelationだけを合成する。Source一意・Repository重複なし・同Projectを読取り前に検査するが、これは構造整合であり認可証明ではない。認可と集合選定は構成側に残す。一意OwnerだけRepository IDを返し、0件はunavailable、複数件はconflictingとする。既存Owner値は流用せず、読取り例外では部分結果を返さない。書込み等の既存操作参照はSourceのまま保持する。旧MCP構成をこのDomain入口へ接続するが、AM本番Resolverへの接続・旧CROS撤去は未完了である。
@@ -218,24 +222,24 @@ ARCH-000013の意味Ownerである[Access Management](../access-management/01_Ar
 
 | 段階 | Domainが扱う情報・処理 | 境界・失敗条件 |
 |---|---|---|
-| 入力 | 現在要求で認可済みのprojectId、repositoryId、revision、contextだけ | 集合欠落は停止し、明示空集合とは区別する。Root／Binding検証は上流Readerの責務で、AMからの本番接続はOPEN。全Registry、古い固定Grant、推定Repositoryへfallbackしない |
+| 入力 | 現在要求で認可済みのprojectId、repositoryId、読取り状態、revision、context | 認可集合不明は停止し、明示空集合とは区別する。Root／Binding検証と認可は上流Ownerの責務。全Registry、古い固定Grant、推定Repositoryへfallbackしない |
 | Root・読取り | 既存Repository／Version Control契約で技術的境界を検証し、Owner Artifactを解析 | Root検証を認可へ昇格しない。認可拒否と読取り不能を成功の空値へ畳まない |
 | 集約 | Project IDに従い、既存Contextの五場面、Source Coverage、出所・改訂、部分取得と矛盾を保持 | 未許可Repositoryの存在・件数・内容を推測・補完しない。複数読取りを原子的Snapshotと偽らない |
 | 返却 | 人間・MCP向けに適合できる中立なProject／Portfolio結果 | Authority、Credential、鍵Secret、交換Recoveryを結果へ混ぜない。利用側の現在認可再確認を代替しない |
 
 中立なRoot／保存部品は[Repository保存](./03_Repository_Storage.md)の既存配置・Path検証を支えるだけであり、Access Managementの秘密Store・保存Schema・認可状態の意味Ownerにはならない。Package再編を理由に保存Root・保護条件を変えず、追加共有State・Registry・Lockを作らない。
 
-Source値の意味と現在性はOwner Artifactに従い、独自のProject正本、履歴Store、Live状態、安定IDまたはObserved Atを追加しない。純粋集約の公開入口は`createPortfolioProjection`、入力は`ProjectContextSource`（projectId、repositoryId、revision、context）で、実体は`src/project-context/portfolio.ts`に置く。入力が認可済みであることは現在要求の呼出し側が保証し、Domainが保証・再認可する値ではない。context:nullとmissingは「認可済みCROS Source SnapshotでContextが未提供」を示し、Filesystem不存在・Reader正常完了・観測不能との識別を証明しない。既存config Readerは読取り／解析失敗時にSnapshotを返さず例外で停止し、今回、観測不能をnullへ変換するReader・API・fallbackは追加しない。将来のReader分類接続までunknownとの識別保証はOPEN。宣言projectIdで集約し、ContextのProject／Repository両Identityが一致する場合だけcomplete、未提供はmissing、不一致はconflicting。Projectは競合優先、全Source completeだけcomplete、それ以外partialで、従来の昇順と不変結果を維持する。Credential、Exposure、Binding、Root、元contentは集約入力へ含めない。
+Source値の意味と現在性はOwner Artifactに従い、独自のProject正本、履歴Store、Live状態、安定IDまたはObserved Atを追加しない。2026-10-14の人間承認により、純粋集約`createPortfolioProjection`の入力`ProjectContextSource`はprojectId、repositoryId、state、revision、contextを明示する五項目へ切替候補を実装済み（最終固定候補の全回帰・独立確認は未完了）。今回の認可は呼出し側が保証し、Domainで再認可しない。completeは確認済み本文、missingは認可済み中立Snapshotでの明示的な未提供、unavailableは文書未確認、conflictingは識別情報競合を表す。既存Observerが不存在と観測不能を型で区別しない場合はunavailableとし、missingへ断定しない。非completeのrevision、contextと公開repositoryRoleはnullとし、管理改訂や推測値を入れず、競合文書の外国Identity・本文・版を公開しない。Projectは競合優先、全Source completeだけcomplete、それ以外partial。従来の昇順と不変結果を維持し、Credential、Exposure、Binding、Root、元contentは集約入力へ含めない。
 
-旧本番HTTP／MCPの認可済み集合からの4項目変換は、既存CROSの`access/resolve.ts`が一度だけ所有する。これはAMへの認可接続完了ではない。実Root本文Reader、AM認可集合からの本番搬送、読取り不能の表示、旧REST撤去はOPEN。複数Repositoryの読取りを原子的Snapshotと主張しない。SCR-000008／BHV-000012／`PRT-000008.spec-000012`の集約断面は引き続きPartialである。
+現在の認可済み集合はAccess Management、本文読取り・集約はDomain、搬送と表示は独立したWorkbench／MCPが所有する。旧CROS Package・RESTは撤去済みで、新たなGatewayを設けない。読取り不能・競合の本番表示への切替候補は局所実Browser確認済み、全回帰・独立確認待ちである。複数Repositoryの読取りを原子的Snapshotと主張しない。SCR-000008／BHV-000012／`PRT-000008.spec-000012`の集約断面は最終検証後に評価する。
 
 Qualityへの導出元は本節。正常な許可集合の集約、部分読取り・矛盾、入力集合欠落、未許可Source非開示、認可とRoot検証の分離をUT／IT／STで評価する。観測は入力集合と読取り先、出所・改訂・Coverage、拒否結果、終了後の秘密・認可状態の非保持とし、旧CROS試験を新契約の合格根拠へ流用しない。QA Local Item IDはQuality側の導出で確定する。
 
 固定本文Readerは公開`readRepositoryProjectContext`、実体は`src/project-context/read-context.ts`とする。今回要求で検証した技術的Rootと期待manifestを受け、既存Repository観測で`PROJECT_CONTEXT.md`を最大1 MiBまで読み、解析後のProject ID・Repository ID・Repository Roleが全一致した場合だけ不変Contextを返す。Readerは認証・認可・Root探索・保存を行わない。期待manifestは今回要求の相関用Snapshotであり、現在manifestの再読取りや複数Fileの原子的Snapshotを保証しない。
 
-本文不存在、Directory／Link、上限超過、読取り中の実体変化・観測不能、解析不正、三Identity不一致は固定`unavailable`として返す。Root、manifest、原文、絶対Path、下位例外を結果へ含めず、null／missingへ変換しない。既存Observerの同descriptor・実体照合・closeを再利用する。Reader成功はAM認可の成立証明ではなく、今回要求での呼出しと本番Consumerへの搬送は引き続きOPEN。PPR-IT-019へ本文読取りを、PPR-IT-002へ同じ試験内の中立Source／Portfolio接続部分を導出する。
+承認済み切替では、技術的Rootの不成立は全体停止を要求するblocked、文書の取得・解析不能はunavailable、三Identity不一致はconflictingとして区別する。文書不存在、Directory／Link、上限超過、読取り中の文書変化・観測不能を正常な空本文へ畳まない。Rootは既存Version Controlで前後に再観測し、Root不明を文書未確認へ変換しない。Root、manifest、原文、絶対Path、下位例外を結果へ含めない。既存Observerの同descriptor・実体照合・closeを再利用する。Reader成功はAM認可の成立証明ではない。PPR-IT-019へ本文読取り、PPR-IT-002へ中立Source／Portfolio接続、RFD-IT-019へ現在認可集合との本番結合を導出する。
 
-Readerの成功結果は解析済み`context`と`revision`を持つ。`revision`は同じ安定読取りで解析へ渡した`observed.source`そのものをUTF-8指定で一回SHA-256化した`context-text-sha256:<64小文字hex>`である。再open・別read・解析後再serializeを使わない。同じtextは同じ値、空白等でtextが変われば解析結果が同じでも別値となる。これは本文Snapshotの相関値であり、Git／管理改訂、Stable ID、署名、認可、耐久保存およびデコード前の生byte同一性を保証しない。失敗結果はrevisionを持たない。AM許可集合から実本文へ渡す局所ITは管理改訂を流用せず、4項目Sourceのrevisionへこの値を搬送する。本番Consumer接続は引き続きOPENである。
+Readerの成功結果は解析済み`context`と`revision`を持つ。`revision`は同じ安定読取りで解析へ渡した`observed.source`そのものをUTF-8指定で一回SHA-256化した`context-text-sha256:<64小文字hex>`である。再open・別read・解析後再serializeを使わない。同じtextは同じ値、空白等でtextが変われば解析結果が同じでも別値となる。これは本文Snapshotの相関値であり、Git／管理改訂、Stable ID、署名、認可、耐久保存およびデコード前の生byte同一性を保証しない。失敗結果はrevisionを持たない。AM許可集合から実本文へ渡す局所ITは管理改訂を流用せず、五項目Sourceのrevisionへこの値を搬送する。本番Consumer接続候補は局所確認済みで、最終固定候補の検証完了はまだ主張しない。
 
 ## 5. 結果と失敗の境界
 

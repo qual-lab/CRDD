@@ -1,12 +1,14 @@
 # CROS Federationと利用境界のアーキテクチャ
 
-Topic／Meetingの既存MCP Consumerは、共通Adapterの完全入力検査と取消確認後だけ現在Repository解決を行う遅延接続へ変更する。Resolver一回の後にも取消を確認し、観測中の取消から保存へ進まない。旧認証・Scope・Relationの意味は維持する。この順序是正はAM置換や旧CROS廃止の完成ではない。詳細は[MCP設計](../mcp-server/01_Architecture.md#topicmeetingの現在認可前の入力境界--2026-10-12)を参照する。
+移管途中の履歴記録（旧Package撤去後の現在Source配置ではない）：Topic／Meetingの既存MCP Consumerは、共通Adapterの完全入力検査と取消確認後だけ現在Repository解決を行う遅延接続へ変更する。Resolver一回の後にも取消を確認し、観測中の取消から保存へ進まない。旧認証・Scope・Relationの意味は維持する。この順序是正はAM置換や旧CROS廃止の完成ではない。詳細は[MCP設計](../mcp-server/01_Architecture.md#topicmeetingの現在認可前の入力境界--2026-10-12)を参照する。
 
-2026-10-12の活動移管候補は[Orchestratorの認可済み活動読取り](../orchestrator/01_Architecture.md#73-認可済みrepositoryの活動読取り--新owner接続候補)を新Ownerとする。現候補では重複した`activity/types.ts`と`activity/validate.ts`を撤去し、旧認可集合を受けるReader接続だけを`activity/read.ts`へ保持する。HTTP・MCPはOrchestrator型とParserを直接使用し、要求Projectとの一致も確認する。現行AM型を旧CROS型へcastしない。本文の旧CROS活動合成・型配置は当時の比較資料であり、現在配置ではない。実Store ReaderのAM接続と全Consumer移行・旧REST撤去の完成を区別する。
+移管途中の履歴記録（旧Package撤去後の現在Source配置ではない）：2026-10-12の活動移管候補は[Orchestratorの認可済み活動読取り](../orchestrator/01_Architecture.md#73-認可済みrepositoryの活動読取り--新owner接続候補)を新Ownerとする。現候補では重複した`activity/types.ts`と`activity/validate.ts`を撤去し、旧認可集合を受けるReader接続だけを`activity/read.ts`へ保持する。HTTP・MCPはOrchestrator型とParserを直接使用し、要求Projectとの一致も確認する。現行AM型を旧CROS型へcastしない。本文の旧CROS活動合成・型配置は当時の比較資料であり、現在配置ではない。実Store ReaderのAM接続と全Consumer移行・旧REST撤去の完成を区別する。
 
 成果物種別: Architecture詳細設計
 詳細設計領域: cros
-状態: Candidate
+状態: Historical Comparison（旧Package撤去後の比較資料）
+
+2026-10-14：旧CROS Packageは現行Sourceから撤去した。以下の旧配置・操作・試験はGit Commit `378d93cb6ffb0cc7c9561e0572d62bdd656f3312` の比較入力であり、現行契約ではない。現在OwnerはAccess Management、Domain Model、AI Adapter、Orchestrator、MCP／Workbenchの各Detailsと[現在の処置](../../../99_Roadmap/Changes/CHG-000082/source-owner-map.md#現在の撤去処置--2026-10-14)を参照する。過去のPass・署名済みEvidenceは新版の成立へ流用しない。
 
 2026-10-10現在、本書の本文は置換前の成立能力・設計比較資料である。旧Credential固定Grant、Profile、Bootstrap回復を含み、現行ARCH-000013のユーザー・Role・鍵交換2操作に未追従。本文のCovered／Checklist／旧Passは新契約の正本・完成証明ではない。[移管対応表](../../../99_Roadmap/Changes/CHG-000082/source-owner-map.md)を詳細設計刷新の入力とし、新OwnerのDetailsとQualityへの伝播後に置換する。
 
@@ -255,17 +257,17 @@ MCP Serverは自身のListener、実行中Request、Application取消・joinとS
 
 ### 3.4. 固定運用設定とBootstrap
 
-設定はツール単位で分ける。CROSの複数Repository管理設定は既存OS管理CROS設定Rootの固定名`cros.json`、MCPの共有HTTP配置設定は同じ運用設定Rootの`mcp-server.json`とする。Repository単体stdio／localhost利用へCROS設定を要求しない。任意Pathの選択、他Repositoryの管理設定を現在Repositoryへ埋め込むこと、旧`shared-server.json`のRuntime互換Readerは追加しない。旧形式の確認・分割・清掃はフロントAIの移行手順で扱う。
+2026-10-13の現在処置：旧Shared HostとCROS専用REST／Gatewayは公開入口から撤去する。管理情報は[Access Managementの現行正本](../access-management/02_Management_State_and_API.md)、配置構成は[MCP手順](../../../19_Workflows/04_MCP_Server.md)と各Server設計を用いる。旧二設定案の`cros.json`は作らず、Repository登録・公開範囲・User・鍵を手編集設定として重複保持しない。旧形式の確認・移行・清掃はフロントAIが扱い、Runtime互換Readerは追加しない。
 
 | 設定先 | 固定する内容 | 制約 |
 |---|---|---|
-| `cros.json` | 構成revision、`repositories[].repository_root`、`repositories[].workspace_ids[]` | Rootは絶対Pathかつ検証済みGit Root。Workspace集合は空でない一意な集合。Repository単位のBinding／Exposureを構成する。 |
-| `mcp-server.json` | 配置revision、`public_origin`、`listen_port`、許可Origin | 公開OriginはPath／Query／Fragment／userinfoなしのHTTPS、Portは1〜65535、内部Bind先はloopback固定。Repository集合やCredentialを重複保持しない。 |
-| Credential Registry | Verifier、Workspace Grant、管理可否、失効revision | 既存OS管理Runtime Root。Token、Token Hash、証明書、秘密鍵を上記二設定へ入れない。 |
+| Access Management管理状態 | User・資格Verifier・Role内容範囲・Repository Binding・Exposure | 既存Host管理RootへHost初期化とWorkbench管理操作が保存する。秘密状態をGitへ出さず、手編集設定例を作らない。 |
+| `.crdd/config/mcp-server.json` | 非秘密の`publicOrigin` | 起動Repositoryの固定Path、明示`--cros`で検査。portはCLI引数、内部Bindはloopback固定。 |
+| `.crdd/config/workbench-server.json` | 非秘密の`publicOrigin` | 起動Repositoryの固定Path。Workbenchは同Hostの専門Packageへ直接接続し、MCPへ依存しない。 |
 
-可視の設定例は配布toolsに置き、本体Readerはそれを暗黙に本番設定へ採用しない。現行`template/tools/cros-shared-server-config-example.json`は段階5で二設定の例へ分割し、利用案内と参照を同時更新する。設定例自体を消して既定値だけを隠す構成にはしない。起動前に両設定とRegistryを検証し、不整合時はListenerを開始しない。
+可視の配置例は`template/.crdd/config/mcp-server.example.json`と`workbench-server.example.json`へ提供する。例を実設定へ自動採用しない。旧`template/tools/cros-shared-server-config-example.json`は混在管理方式を廃止したため撤去するが、Server配置例を不可視にする意味ではない。管理状態の正本を重複設定へ分割せず、資格・Repository公開の操作は現AM契約に従う。
 
-Repository IDとProject IDは設定へ複製せず、検証済みRootの固定`PROJECT_CONTEXT.md`から取得する。RevisionはProject Context内容Hashで固定し、未CommitでもProjectionを構成できる。設定にはToken、Token Hash、証明書または秘密鍵を含めない。Credential Registryは既存のOS管理Runtime Rootを正本とし、空Registryでは公開Serverを開始しない。
+Repository Identity・Binding・本文版の取得と現在認可は新Ownerの現行契約に従う。上記の非秘密配置設定へRepository集合・Token・Verifier・TLS秘密鍵を重複保持しない。本書の他節の旧Snapshot／Gateway／Credential Registryの記述は置換前の比較資料であり、新経路の正本ではない。
 
 ```text
 初期構築／全喪失

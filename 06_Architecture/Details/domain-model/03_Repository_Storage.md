@@ -497,11 +497,12 @@ Consumer集合は手書き一覧だけを正本としない。実Sourceからraw
 | Repository Identity・外部送信Policy | `template/.crdd/config/*.example.json` | 利用Repositoryの`.crdd/config/` | 非秘密の共有宣言として明示allowlistでGit管理する。Policy採用権限は既存契約を維持する。 |
 | Orchestrator・Execution Intelligence設定 | Tool別の`template/.crdd/config/*.example.json` | 利用Repositoryの`.crdd/config/<tool>.json` | 非秘密のRepository設定として明示allowlistでGit管理する。期間の指定だけで削除権限を発行しない。 |
 | AI Profile Catalog | AI Runtimeが所有する固定既定Catalogと管理入口 | Repository単体は`.crdd/config/ai-profile-catalog/`、CROSはOS管理の設定Root | 既存Catalog保存契約を維持する。今回Snapshot方式や管理権限を変更しない。 |
-| CROS Shared Server | `template/tools/cros-shared-server-config-example.json`。MCP運用手順から参照する。 | OS管理のCROS設定Rootの`shared-server.json` | Host管理者が設定する。設定例は配布物であり、Runtimeが実設定として読まない。 |
+| MCP／Workbench配置設定 | `template/.crdd/config/mcp-server.example.json`、`workbench-server.example.json` | 起動Repositoryの`.crdd/config/<server>.json` | 非秘密の公開Originだけ。明示CROS modeで既存Readerが検査し、例は実設定へ自動採用しない。 |
+| Access Management管理状態 | [Host初期化と管理API](../access-management/02_Management_State_and_API.md) | 既存OS管理Rootの管理状態 | Host初期化・Workbench管理操作が保存する。手編集するCROS設定や秘密状態の配布例を作らない。 |
 | Schema | `template/tools/schemas/` | 配布物の固定Schema | CRDD配布版が所有する検査契約であり、利用Repositoryの実設定ではない。 |
 | 固定Runtime設定・既定Catalog・Release Manifest | 各SubsystemのRuntime／Source、署名Manifestの既存配置 | 固定配布物内 | 実装・署名契約が所有する。利用者の設定置場として編集しない。 |
 
-`template/tools/`は起動入口、Schema、固定Release ManifestおよびCROS Host設定の配布例を保持する。利用Repositoryが編集する実設定は置かない。Repository用の設定例は実配置と対応する`template/.crdd/config/`へ揃える。OS管理の設定例はRepository用ひな型へ混ぜず、独立したファイルで提供し、所有する運用手順から参照する。例のJSONを文書に重複保持しない。
+`template/tools/`は起動入口、Schema、固定Release Manifestを保持し、利用Repositoryが編集する実設定は置かない。Repository用の設定例は実配置と対応する`template/.crdd/config/`へ揃える。旧Shared Serverの混在例は、MCP／Workbenchの可視配置例とAccess Managementの管理操作へ分離したため撤去する。管理状態を新しい手編集設定として重複保持せず、秘密状態をGitへ移さない。例のJSONを文書に重複保持しない。
 
 `.crdd`全体を追跡対象にせず、既定の非追跡と非秘密の改訂固定設定の明示allowlistを併用する。Runtime状態、履歴、Lock、一時物、候補および秘密は追跡しない。今回、既存設定の値、Loaderの配置、署名対象、Catalog保存形式およびAuthorityを変更しない。
 

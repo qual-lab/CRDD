@@ -9,18 +9,24 @@ import type { RepositoryProjectContext } from "./types.ts";
  * 呼出し側が現在要求で認可済みと保証する中立な情報源。
  * @responsibility Repositoryの宣言Identity・改訂と解析済みContextだけを搬送する。
  * @trace ARCH-000005
- * @shape projectId、repositoryId、revision、contextの4項目。
- * @invariant nullは認可済みSource SnapshotでContext未提供を表す。Filesystem不存在の証明ではない。
+ * @shape projectId、repositoryId、state、revision、contextの5項目。
+ * @invariant completeだけが本文と版を持つ。非completeは本文と版がnullで、状態から未提供・未確認・競合を区別する。
  * @boundary 認可済み呼出し側からDomainの純粋集約へ渡す。
  * @security Credential・Exposure・Binding・Root・元contentを含めず、認可能力ではない。
- * @compatibility 呼出し側が認可・読取りを担当し、Domainは探索やfallbackを行わない。Reader正常完了や観測不能との識別保証は追加しない。
+ * @compatibility 呼出し側が認可・読取り状態を担当し、Domainは探索やfallbackを行わない。missingはFilesystem不存在証明ではない。
  */
 export type ProjectContextSource = Readonly<{
   projectId: string;
   repositoryId: string;
-  revision: string;
-  context: RepositoryProjectContext | null;
-}>;
+}> &
+  Readonly<
+    | { state: "complete"; revision: string; context: RepositoryProjectContext }
+    | {
+        state: "missing" | "unavailable" | "conflicting";
+        revision: null;
+        context: null;
+      }
+  >;
 
 /**
  * Portfolio内の一Repository Sourceを定義する。
@@ -35,8 +41,8 @@ export type ProjectContextSource = Readonly<{
  */
 export type FederatedProjectSource = Readonly<{
   repositoryId: string;
-  revision: string;
-  state: "complete" | "missing" | "conflicting";
+  revision: string | null;
+  state: "complete" | "missing" | "conflicting" | "unavailable";
   repositoryRole: string | null;
   context: RepositoryProjectContext | null;
 }>;
@@ -84,7 +90,7 @@ export type PortfolioProjection = Readonly<{
  * @precondition 入力は現在のRequest Access Contextで利用可能と確認済みである。
  * @postcondition 各Repositoryは宣言したprojectIdのSourceとして一度だけ現れる。
  * @effect N/A: Project Context、Repository登録および正本を変更しない。
- * @failure Context欠落はmissing、Identity不一致はconflictingとして部分結果へ保持する。
+ * @failure 未提供・未確認・Identity競合を別状態で保持する。不可能な状態・本文・版の組合せは例外。
  * @invariant 欠測を空の正常値へ、競合を探索順の勝者へ変換しない。
  * @boundary 許可済みRepository Project Context→Project Federation→Portfolio Projection。
  * @security 入力にないRepository、Projectまたは期待Contextを推測しない。
@@ -95,21 +101,34 @@ export function createPortfolioProjection(
 ): PortfolioProjection {
   const projects = new Map<string, FederatedProjectSource[]>();
   for (const repository of repositories) {
+    if (
+      !["complete", "missing", "unavailable", "conflicting"].includes(
+        repository.state,
+      ) ||
+      (repository.state === "complete"
+        ? repository.context === null || typeof repository.revision !== "string"
+        : repository.context !== null || repository.revision !== null)
+    )
+      throw new Error("project_context_source_invalid");
     const context = repository.context;
     const identitiesMatch =
       context?.projectId === repository.projectId &&
       context.repositoryId === repository.repositoryId;
+    const state =
+      repository.state === "complete"
+        ? identitiesMatch
+          ? "complete"
+          : "conflicting"
+        : repository.state;
     const source: FederatedProjectSource = Object.freeze({
       repositoryId: repository.repositoryId,
-      revision: repository.revision,
-      state:
-        context === null
-          ? "missing"
-          : identitiesMatch
-            ? "complete"
-            : "conflicting",
-      repositoryRole: identitiesMatch ? context.repositoryRole : null,
-      context: identitiesMatch ? context : null,
+      revision: state === "complete" ? repository.revision : null,
+      state,
+      repositoryRole:
+        state === "complete" && context !== null
+          ? context.repositoryRole
+          : null,
+      context: state === "complete" ? context : null,
     });
     const existingSources = projects.get(repository.projectId) ?? [];
     existingSources.push(source);

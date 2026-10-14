@@ -8,11 +8,11 @@
   },
   "scripts": {
     "check": "npm run format:check && npm run typecheck && npm run lint",
-    "format:check": "biome format .",
-    "lint": "biome lint . --error-on-warnings",
+    "format:check": "biome format . ../../template/tools/crdd-mcp-server.ts",
+    "lint": "biome lint . ../../template/tools/crdd-mcp-server.ts --error-on-warnings",
     "test": "npm run check && npm run test:run",
     "test:run": "node --test --test-concurrency=1 ./tests/unit/**/*.test.ts ./tests/integration/*.test.ts ./tests/system/*.test.ts",
-    "typecheck": "tsc -p ./tsconfig.json"
+    "typecheck": "tsc -p ./tsconfig.json && tsc -p ./tsconfig-launcher.json"
   },
   "engines": {
     "node": ">=24.12.0"

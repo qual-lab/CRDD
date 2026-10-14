@@ -2,24 +2,32 @@
 
 成果物種別: Architecture詳細設計
 詳細設計領域: access-management
-状態: Candidate（最小鍵提示方式の伝播候補・限定再レビュー済み（最小鍵提示方式の伝播差分、全重大度0）。旧初回設定の限定Passは履歴。保存・公開入口・Sourceは未完了）
+状態: Candidate（保存・Host CLI・Workbench／MCP公開入口のSource接続と局所確認済み。固定候補の最終回帰・独立確認は進行中。実Host ST／人間UAT・正式191項目の全体評価は未完了）
 維持責任者: Qual-Lab
 
 管理API・内部状態・物理保存方式の比較・移行・出版後故障の具体化候補は[管理APIと現在状態の保存設計](02_Management_State_and_API.md)が所有する。本文は責務と意味・処理境界を所有し、具体化候補から実装Readyや保存保証の成立を推定しない。
 
-内容操作の局所Consumerは[MCP詳細の現在認可構成](../mcp-server/01_Architecture.md#現在認可による内容操作の新owner接続--2026-10-12)へ接続する。AMはTool Call時の現在許可集合と実Root／manifestを返し、内容CRUDと同ProjectのRelation判定はDomainが担当する。この実HTTP構成の検証は公開Launcher／Workbenchの切替、鍵配送、旧REST撤去、AM全体完成を意味しない。
+内容操作は[MCP詳細の現在認可構成](../mcp-server/01_Architecture.md#現在認可による内容操作の新owner接続--2026-10-12)とWorkbenchの専門API直接接続へ実装済み。AMは要求時の現在許可集合と実Root／manifestを返し、内容CRUDと同ProjectのRelation判定はDomainが担当する。旧CROS／RESTは撤去済みだが、実Host ST／人間UATと最終Gateを未確認のままAM全体完成としない。本文の候補時点の未実装・未成立表示は接続前の履歴であり、現在の接続状態は本冒頭と現在の検証結果を優先する。
 
 ## 基本設計と上流Detailの関係
 
 | 正式入力 | 担当する断面 | Relation状態 |
 |---|---|---|
-| [ARCH-000013](../../Definitions/ARCH-000013/architecture_definition.md) | 最小ユーザー・Role・資格管理、現在認可、接続／公開情報、限定鍵交換、初回Host設定 | Partial。物理保存・移行・公開入口未確定 |
-| [SCR-000008](../../../04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md)／`PRT-000008.spec-000012` | 対象と影響、4組の事前表示、3組だけの明示確認、一度表示、発行不明の再観測と受け渡し未確認後の別交換への導線 | Partial。採用済み入口分担を継承、論理Owner・限定Protocol・v2目標Schemaは具体化済み。具体Layout・API・提示観測の実装／実境界・移行・本番接続は未成立 |
-| [BHV-000012](../../../05_SPEC/Details/BHV-000012/behavior.md) | 要求毎認可、管理・失効・交換、Effect前拒否、部分失敗、現在再観測 | Partial。保存確定と実境界未実装 |
+| [ARCH-000013](../../Definitions/ARCH-000013/architecture_definition.md) | 最小ユーザー・Role・資格管理、現在認可、接続／公開情報、限定鍵交換、初回Host設定 | Partial。保存・公開入口の候補実装接続済み。実Host縦断・実状態移行・正式全体評価は未確認 |
+| [SCR-000008](../../../04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md)／`PRT-000008.spec-000012` | 対象と影響、4組の事前表示、3組だけの明示確認、一度表示、発行不明の再観測と受け渡し未確認後の別交換への導線 | Partial。入口分担・v2 Schema・API・Browser提示の候補接続と局所確認済み。実Host縦断・人間の理解・実状態移行・正式評価は未確認 |
+| [BHV-000012](../../../05_SPEC/Details/BHV-000012/behavior.md) | 要求毎認可、管理・失効・交換、Effect前拒否、部分失敗、現在再観測 | Partial。保存確定・公開HTTPの候補接続と局所確認済み。実Host縦断・人間UATは後続E2E |
 
 UIは見え方・操作、SPECは成立条件、本文は実装Owner・情報・順序と失敗境界を所有する。意味を変更する場合は上流へ戻す。候補設計の存在からArchitecture Ready、QA Handoff、Source移管・E2E成立を主張しない。
 
 ## 1. Componentと責務
+
+### Host保存先の通常読取りと初回準備
+
+以下の通常Launcher接続は候補実装済みである。共用API・MCP／Workbench公開Process・HTTPの局所試験は実施済みだが、実Hostからの初回縦断と人間UAT、最終Gateは未完了である。
+
+Host環境から固定Publisher・Application・Trust Domainの配置入力を選ぶ処理はアクセス管理が共用する。通常Launcherは`readExistingHostRoot`で既存Directoryと親chainの非Link・realpath・実体Identityを検証するだけで、mkdir・初期化・鍵発行を行わない。不存在または観測不能はRootなしとして起動を拒否し、未初期化の正常状態とは区別する。
+
+`prepareHostInitializationRoot`による不足Directoryの作成は明示的なHost初回設定だけが使用する。Rootの検証成功は保存内容の正規性、初回設定完了、通常認証または認可の成立ではない。各利用側は既存保存Ownerから現在の管理状態を読み、破損・旧形式・未解決出版等を成功へ読み替えない。保存場所とSecret保護条件は変更しない。
 
 | 責務 | 所有すること | 所有しないこと |
 |---|---|---|
@@ -30,7 +38,7 @@ UIは見え方・操作、SPECは成立条件、本文は実装Owner・情報・
 | 初回設定 | ユーザー成立前の管理状態・元試行相関、最初のadministratorと資格の個別結果 | 通常回復の代替、再初期化修復、Remote／自動開始、汎用Recovery |
 | 保存Adapter | 既存OS管理Rootで非秘密管理情報とVerifierを検査・確定し、競合を拒否 | Repositoryへの秘密移動、新しい共有State／Lock Framework、Transport lifecycle |
 
-Workbench／MCP／Host入口は入力と表示・配送を担当し、認可判定はAccess Managementを迂回しない。Domain Modelは認可済みRepository集合を受けてContextを処理する。AMからDomainへ渡す具体型は未確定で、Credential／Role／Grant解釈をDomainへ移さず、Repository content所有をAMへ移さない。AI Profile内容はAI Adapter、活動事実はOrchestrator／Execution Intelligenceに残す。
+Workbench／MCP／Host入口は入力と表示・配送を担当し、認可判定はAccess Managementを迂回しない。Domain Modelは認可済みRepository集合を受けてContextを処理する。現在はAMの`RepositoryAccessCollectionResult`で要求専用の許可集合と技術的Rootを返し、ConsumerがDomainの中立Sourceへ変換する。Credential／Role／Grant解釈をDomainへ移さず、Repository content所有をAMへ移さない。AI Profile内容はAI Adapter、活動事実はOrchestrator／Execution Intelligenceに残す。
 
 Package Rootの`src/index.ts`から明示公開し、Capability内barrelは作らない。責務Folderはユーザー／Role、資格、認可、接続、回復の実操作を表すよう選ぶが、具体的File集合は保存・API設計後に固定する。src二階層、binの主入口はPackage名を基本とする既存Coding Standardsに従い、入口数・CLI引数はここで追加しない。
 

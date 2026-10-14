@@ -5,10 +5,7 @@
  */
 import { createInterface } from "node:readline/promises";
 import { randomUUID } from "node:crypto";
-import type {
-  CrosRootInput,
-  FilesystemStoreRoot,
-} from "../../../domain-model/src/index.ts";
+import type { FilesystemStoreRoot } from "../../../domain-model/src/index.ts";
 import { exchangeFromHost } from "../credential/exchange-from-host.ts";
 import { initializeFromHost } from "./initialize-from-host.ts";
 import {
@@ -18,6 +15,7 @@ import {
 } from "../state/file-store.ts";
 import {
   prepareHostInitializationRoot,
+  resolveHostRootInput,
   type HostPreviousInputObservation,
 } from "./prepare-host-root.ts";
 
@@ -61,55 +59,6 @@ async function writeHostNotice(
       finish(new Error("host_notice_failed"));
     }
   });
-}
-
-/**
- * Host環境から既存CROS配置契約の入力だけを選ぶ。
- * @responsibility Publisher・Applicationを固定し、任意Path引数や秘密環境値を読まない。
- * @trace ARCH-000013
- * @input Process Environmentと実OS。
- * @returns 固定用途Root入力、または不足・未対応のnull。
- * @precondition ログイン済みHostの環境であり、Remote要求ではない。
- * @postcondition CROS_TRUST_DOMAIN_IDとOS標準領域だけを搬送する。
- * @effect N/A: 環境の選択だけ。
- * @failure 環境不足・未対応OSはnull。
- * @invariant Secret環境値・Repository Rootを保存先へ使わない。
- * @boundary Host CLIと既存Root Resolver。
- * @security 認証・User・Roleを環境から生成しない。
- * @concurrency 開始時の入力Snapshotだけを使用する。
- */
-function resolveHostRootInput(
-  environment: NodeJS.ProcessEnv,
-): CrosRootInput | null {
-  const trustDomainId = environment.CROS_TRUST_DOMAIN_ID;
-  if (!trustDomainId) return null;
-  if (process.platform === "win32") {
-    if (!environment.LOCALAPPDATA) return null;
-    return {
-      platform: "win32",
-      trustDomainId,
-      publisher: "qual-lab",
-      application: "cros",
-      localAppData: environment.LOCALAPPDATA,
-    };
-  }
-  if (process.platform !== "linux" || !environment.HOME) return null;
-  return {
-    platform: "linux",
-    trustDomainId,
-    publisher: "qual-lab",
-    application: "cros",
-    homeDirectory: environment.HOME,
-    ...(environment.XDG_CONFIG_HOME
-      ? { xdgConfigHome: environment.XDG_CONFIG_HOME }
-      : {}),
-    ...(environment.XDG_STATE_HOME
-      ? { xdgStateHome: environment.XDG_STATE_HOME }
-      : {}),
-    ...(environment.XDG_RUNTIME_DIR
-      ? { xdgRuntimeDirectory: environment.XDG_RUNTIME_DIR }
-      : {}),
-  };
 }
 
 /**

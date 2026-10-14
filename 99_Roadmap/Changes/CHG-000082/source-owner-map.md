@@ -8,6 +8,12 @@
 
 ## 結論と範囲
 
+### 現在の撤去処置 — 2026-10-14
+
+旧`40_Develop/cros` PackageのSource・公開API・bin・専用試験・Package設定・Symbol登録を撤去した。旧SourceはGit Commit `378d93cb6ffb0cc7c9561e0572d62bdd656f3312` の当時Pathから再構成する。下表は移管前の比較入力で、現行配置を表さない。CROSの全体概念は維持し、現在の認証・認可はAccess Management、Context集約はDomain Model、ProfileはAI Adapter、活動はOrchestrator、公開入口はMCP／Workbenchが所有する。旧REST・共有設定・旧資格fallbackを新Ownerへ持ち込まない。
+
+`executeRepositoryLocalOperation`、`createSurfaceOperationHandler`、`settleDelegatedResult`は本番Consumerのない純値試作品であり、Source／専用Oracleを新Ownerへ移植しない。RFD-IT-009の実Repository三状態比較、EST-IT-010の全採用Surface同値、EST-ST-011の実Task帰還はOPEN・正式Not Runを維持する。新構成の部分接続から全義務のPassや5Cの完成を推定しない。配布閉包・利用側回帰・限定独立レビューは進行中で、本表だけで全体完了を示さない。
+
 旧CROSの18 Sourceファイルと1 bin入口を確認した。認証・認可はAccess Management、許可済みContextの集約はDomain Modelへ分ける。混在ファイルはSymbol群で分解する。これは移管の判断入力であり、Architectureの第二正本、実装移管済みの記録、現行契約の検証結果ではない。
 
 現行契約は[ARCH-000013](../../../06_Architecture/Definitions/ARCH-000013/architecture_definition.md)と[横断モデル](../../../06_Architecture/03_Boundary_and_Interface_Model.md)を参照する。旧実装のCredential固定Grant、一資格rotation、Bootstrap新規Identityは、新しいユーザー・Role・鍵交換2操作へ単純移動できない。秘密保護・競合拒否・非開示などの保持能力と、置換する業務意味を分ける。
@@ -29,9 +35,9 @@
 | `src/access/resolve.ts` | 現認証＋一回のExposure読取りからRequest Scopeを固定 | MCP `project-context/cros-resolver.ts`、HTTP／Remote・MCP試験 | 認可Scope解決→Access Management | 現在Roleへ変更。Domainは許可済み集合だけ受け取る。管理操作へ不要なContent読取りを追加しない |
 | `src/access/types.ts` | Exposure／認可情報とRepository意味・contentを混在させた同一改訂Snapshot境界型 | 設定Reader、MCP Resolver、HTTP／型検査 | REVIEW・分割必須。Exposure／認可入力はAM、Repository意味・contentはDomain／Binding側。境界型の配置はDetailsで確定 | 新API形状は未固定。DomainへCredential／Grant解釈を持ち込まず、AMへcontent所有を移さない。旧同一Snapshotを使う全Consumerの前提を保持してから切替 |
 | `src/access/session-context.ts`（認証・Session・Repository解決） | Request内の許可範囲とExposure／Revision判定 | Scope Resolver、HTTP、MCP／`session-access.contract.test.ts` | 認可部分を分離→Access Management | 旧固定Grantを現在Roleへ置換。短命Request Contextを永続Sessionへ拡張しない |
-| 同File（Context Package） | 許可済み情報の派生Packet・制限情報の非開示 | 本番Consumer未観測／`context-handoff.contract.test.ts` | 分離候補→Domain Model、要確認 | 公開契約を保持して必要Consumerを確認。Packetを新正本にしない |
-| 同File（Handoff作成・再開） | Identity・Revision・Authority拡張の純粋判定 | 本番Consumer未観測／`context-handoff.contract.test.ts` | REVIEW→Orchestrator等の既存進行Owner候補 | 判定結果だけから旧Owner停止・再開Effect・重複消費防止の実成立を推定しない。後段実行系へ引継ぎ |
-| 同File（Repository-local operation／AI operating plan） | 入力・Revisionの純粋変換、規則・手順参照の構成 | 本番Consumer未観測／`local-operation-ai-plan.contract.test.ts` | REVIEW→実業務Owner | 実CRUDや規則適用Resolverの完成ではない。移管先確定まで削除しない |
+| 同File（Context Package） | 許可済み情報の派生Packet・制限情報の値変換 | 本番Consumerなし／旧専用試験 | pure prototype撤去。Domain入力集約は部分接続、RFD-ST-010はOPEN | 目的限定Identity・Consumer lifecycle・終了後第二正本0は未成立。旧値試験をST Passへ流用しない |
+| 同File（Handoff作成・再開） | Identity・Revision・Authority拡張の純粋判定 | 本番Consumerなし／旧専用試験 | pure prototype撤去。ERB-IT-010／ERB-ST-013は5C依存OPEN | sourceActive／destinationEffectIssuedの値から実Owner停止・Effect・重複消費防止を推定しない |
+| 同File（Repository-local operation／AI operating plan） | 局所値変換／規則・手順参照の入力copy | 局所操作試験を保持、AI計画は本番Consumerなし | AI計画prototypeのみ撤去。RFD-IT-009は不変更、RFD-IT-011はOPEN | 実AI入口間のSource・Revision・規則・制約・差理由比較は未成立。残存試験をrepository-local-operationへ改名 |
 | `src/federation/project.ts`（`resolveAuthorizedRepositories`） | Session／Exposure／Revisionから許可集合を選ぶ | Scope Resolver／`project-federation.contract.test.ts` | 分離→Access Management | 内容集約と別責務。非許可集合のIdentity・存在・件数を搬送しない |
 | 同File（`createPortfolioProjection`と投影型） | 許可済みSourceのProject集約・欠測・競合・Source Coverage | MCP Resolver、Workbench型、HTTP／同試験・MCP試験 | 分離→Domain Model | 認可済み集合を入力とし、Credentialを解釈しない。投影型をAMとDomainに重複定義しない |
 | `src/activity/read.ts` | 許可集合内のProject選択、Reader呼出し・join・結果検査 | MCP Resolver、HTTP／Remote・MCP Runtime活動試験 | REVIEW→認可済みQuery合成Owner | 活動事実はOrchestrator／Execution Intelligence。AMは許可範囲判定のみ。Query合成を事実Storeへ変えない |
@@ -40,7 +46,7 @@
 | `src/profile/administration.ts` | 管理可否判定とProfile Mutation検査が混在 | MCP Resolver、HTTP／Profile管理試験 | 分離→認可はAM、内容・Mutation意味はAI Adapter、入力搬送は各Surface | Profile語彙をAMへ複製しない。期待改訂・削除確認・採用後応答故障を維持 |
 | `src/connection/http.ts` | 認証・Portfolio・活動・ProfileのREST、Client、Origin／TLS／入力制限／終了保証 | Workbench Server、旧Shared Host／`remote-transport.contract.test.ts` | 分解後撤去→AM／Domain／AI AdapterとMCP・Workbench | CROS REST廃止≠各能力廃止。認証と認可はAM、Browser APIはWorkbench、別Process接続はMCPへ |
 | `src/configuration/shared-server-file-adapter.ts` | 固定設定からOrigin・Portと検証済みRoot・Exposure・Topic／Meeting操作を合成 | `template/tools/crdd-cros-server.ts`／`shared-server-config-file-adapter.contract.test.ts` | 分離→接続管理はAM、意味解析・CRUDはDomain、Listener設定はMCP／Workbench。既存Runtime Root resolver（現Domain内）とVersion ControlのGit Root検証を再利用 | 現在は`shared-server.json`。二設定案は未接続。Root resolverの最終配置は未確定で、新しいRoot検証実装を追加しない。設定例・Root検証・秘密分離を失わない |
-| `src/tool/registry.ts` | 公開Tool選択と非同期実行・取消後の不明結果処置 | 本番Consumer未観測／`tool-registry.contract.test.ts` | REVIEW・削除未決 | AMはTool実行Ownerではない。新汎用Tool Frameworkを作らず、要求・Consumerに照合 |
+| `src/tool/registry.ts` | 渡されたTool配列の選択と試験関数実行 | 本番Consumerなし／旧専用試験 | pure prototype撤去。実Surfaceの公開・dispatchは部分接続、RCM-IT-010はOPEN | 全入口の同一能力・状態軸・取消・cleanup比較は未成立。AMへ移さず、新汎用Frameworkを作らない |
 | `src/surface/operation.ts` | Owner委譲、Revision判定、Surface同値性、結果受領の純粋判定 | 本番Consumer未観測／`surface-contract.contract.test.ts`、`result-return.contract.test.ts` | REVIEW・削除未決 | 実Effectや耐久ACKの証明ではない。後段実行系の結果搬送契約へ照合し、単なる中継を増やさない |
 | `bin/cros.ts` | 旧Host回復の引数・OS Root・対話端末入口 | package.jsonのbin宣言。recovery-cli library契約試験はあるが、bin wrapperの本番呼出し・直接実行試験は今回未観測 | 旧Host入口の置換候補→AM責務。具体的bin名・配置・入口数はDetailsで確定 | 公開CLI契約変更と内部Symbol改名を区別し、旧Bootstrapを新版完成として残さない。新入口成立・旧bin削除済みとは扱わない |
 
@@ -55,7 +61,9 @@
 
 根拠は歴史的記録として変更しない。現在Sourceの試験名は移管後に内容との一致を見直し、単体試験は責務File、IT以降は成立させる境界に対応させる。上記試験の存在から、最新版の実測・本番全接続・E2E Passを推定しない。
 
-## 移管・削除Gate
+## 移管・削除Gateの先行計画履歴
+
+上表のpure prototype撤去は、[第二段階の固定対象と義務保持](second-stage-plan.md#旧cros試作品の撤去--2026-10-13)に従う。基準Commit `378d93cb6ffb0cc7c9561e0572d62bdd656f3312` の旧Pathと撤去前Hashを同計画で保持する。`Evidence/261007_*`の維持案は当時の移管分析であり、現行のprototype保持方針ではない。正式191項目・QA ID・Not Run・v0.22対象は変更しない。以下の代替能力Gateは、実際に成立している旧能力に適用する。
 
 1. 正式Detailsで新ユーザー／Role／資格と既存鍵交換2操作を具体化し、上記各候補Ownerを確定する。意味を持つ未接続能力は要求・既存Ownerへ照合し、削除採用が必要なら人間へ戻す。
 2. Qualityへ正常・境界・準正常・異常・回復、非開示、改訂競合、失効後の次Request拒否、失効確定／発行不明を接続する。旧Local Item／Evidenceを新意味のPassにしない。
@@ -63,7 +71,7 @@
 4. 同一Processの現在認可と別ProcessのMCP、Origin／TLS・入力制限・health・終了後接続拒否、Topic／Meetingの保存結果を能力別に確認する。healthはOwner自身の可用性だけを示し、全能力完成へ昇格しない。
 5. 代替接続と必要な実境界の新根拠が揃ってから旧REST／Client／Shared Hostと旧cros Packageを撤去する。起動用Repositoryを暗黙公開せず、Browser↔Workbench APIは維持する。
 
-Source、実秘密Store、保存Root、Schema、現行Role権限、過去Evidenceはこの対応表作成で変更していない。新しい共有State／Registry／Lock／Gateway／IAM Frameworkを追加しない。Details／QA更新・Owner移管・置換実装・Consumer接続・旧削除・新契約成立は未完了。
+対応表作成時点ではSource、実秘密Store、保存Root、Schema、現行Role権限、過去Evidenceを変更していなかった。上記5段階は当時の計画履歴であり、現在の撤去状態は冒頭の2026-10-14処置を参照する。新しい共有State／Registry／Lock／Gateway／IAM Frameworkは追加していない。実秘密Store・保存Root・過去Evidenceは不変更で、正式191項目・全体回帰・AM全体完成は未完了である。
 
 ## 限定確認結果
 

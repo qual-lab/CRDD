@@ -136,7 +136,7 @@ export async function readWorkbenchOwnerArtifactCatalog(
 /**
  * Catalogで許可済みのOwner Artifact本文を読取る。
  *
- * @responsibility Browser要求Pathを起動時Catalogへ照合してから同じRepository境界で原文を取得する。
+ * @responsibility Browser要求Pathを同じRootから検査したCatalogへ照合してから原文を取得する。
  * @trace ARCH-000012
  * @trace ARCH-000016
  * @input repositoryRoot、Catalogおよび要求された相対Pathを受け取る。
@@ -244,7 +244,7 @@ function extractMarkdownRelations(markdown: string): readonly Readonly<{
  * @failure 不正Path、Link、越境、過大、欠落または読取り失敗を例外で拒否する。
  * @invariant Directory列挙、外部Path探索またはFile変更を行わない。
  * @boundary Repository FilesystemとWorkbench Read Modelの境界。
- * @security lexical検査とrealpath検査の両方を要求する。
+ * @security lexical／realpath検査と、metadata・取得本文の両方で512KiB上限を要求する。
  * @concurrency 一Fileの独立した読取りだけを所有する。
  */
 async function readVerifiedOwnerArtifact(
@@ -279,7 +279,10 @@ async function readVerifiedOwnerArtifact(
   const metadata = await stat(fileReal);
   if (!metadata.isFile() || metadata.size > MAX_ARTIFACT_BYTES)
     throw new Error("workbench_owner_artifact_size_invalid");
-  return await readFile(fileReal, "utf8");
+  const markdown = await readFile(fileReal, "utf8");
+  if (Buffer.byteLength(markdown, "utf8") > MAX_ARTIFACT_BYTES)
+    throw new Error("workbench_owner_artifact_size_invalid");
+  return markdown;
 }
 
 /**

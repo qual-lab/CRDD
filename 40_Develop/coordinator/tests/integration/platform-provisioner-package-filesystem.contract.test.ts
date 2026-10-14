@@ -365,6 +365,19 @@ test("Runtime sibling component宣言は各Identityを一度だけ所有する",
     /const RUNTIME_SIBLING_COMPONENTS = Object\.freeze\(\[([\s\S]*?)\n\]\);/u,
   )?.[1];
   assert.ok(declaration);
+  assert.match(
+    declaration,
+    /sourcePrefix: "40_Develop\/access-management\/src\/"/u,
+  );
+  assert.match(
+    declaration,
+    /packagePath: "40_Develop\/access-management\/package\.json"/u,
+  );
+  assert.match(
+    declaration,
+    /packageName: "@qual-lab\/crdd-access-management"/u,
+  );
+  assert.doesNotMatch(declaration, /40_Develop\/cros\/|@qual-lab\/crdd-cros/u);
   for (const field of ["sourcePrefix", "packagePath", "packageName"] as const) {
     const declaredValues: string[] = Array.from(
       declaration.matchAll(new RegExp(`${field}: "([^"]+)"`, "gu")),
@@ -667,8 +680,8 @@ function developmentFixture(omittedEntrypoint: string | null = null) {
     "40_Develop/ai-adapter/src",
     "40_Develop/artifact-signing/package.json",
     "40_Develop/artifact-signing/src",
-    "40_Develop/cros/package.json",
-    "40_Develop/cros/src",
+    "40_Develop/access-management/package.json",
+    "40_Develop/access-management/src",
     "40_Develop/mcp-server/package.json",
     "40_Develop/mcp-server/src",
     "40_Develop/orchestrator/package.json",

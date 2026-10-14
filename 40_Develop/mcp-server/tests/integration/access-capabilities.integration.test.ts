@@ -76,7 +76,7 @@ import {
  * @trace EST-IT-002
  * @trace EST-IT-010
  * @precondition 完了した自己生成AM、本人と非公開別User、実HTTP。
- * @stimulus 三Role、入力不正、事前取消、初回未完了、資格失効を要求する。
+ * @stimulus 三Role、時間だけの経過、入力不正、事前取消、初回未完了、資格失効を要求する。
  * @observation Tool一覧・閉結果・直接Owner結果・現在File保持を照合する。
  * @oracle 内部管理候補と他User、資格、Rootは0。拒否と不明を空本人にしない。
  * @cleanup HTTP close確認後fixtureが所有Rootを回収する。
@@ -159,6 +159,18 @@ test("MCP本人readは三Roleの現在本人だけを実HTTPへ返す", async (t
         result,
         projectCurrentAccessResult(readCurrentAccess(f.root, f.token)),
       );
+      const unchangedState = fs.readFileSync(f.current);
+      const later = Date.now() + 365 * 24 * 60 * 60 * 1000;
+      const clock = t.mock.method(Date, "now", () => later);
+      try {
+        const laterResponse = await (
+          await call(base, f.token, MCP_CURRENT_ACCESS_TOOL, {})
+        ).json();
+        assert.deepEqual(laterResponse.result.structuredContent, result);
+        assert.deepEqual(fs.readFileSync(f.current), unchangedState);
+      } finally {
+        clock.mock.restore();
+      }
       const wire = JSON.stringify(response);
       for (const hidden of [
         otherId,
@@ -1869,19 +1881,20 @@ test("AM内容MCPの入力拒否と開始前取消は再認可前で閉じる", 
 });
 
 /**
- * 実HTTPの許可集合と本文版を再評価し、本文不明で全体を止める。
+ * 実HTTPの許可集合と本文版を再評価し、文書不完全性と全体停止を分ける。
  * @responsibility 空認可・欠測・部分成功と通常成功を区別する。
  * @trace PPR-IT-002
  * @trace RFD-IT-019
  * @trace EST-IT-002
+ * @trace RFD-IT-013
  * @precondition 二RepositoryのProject Contextと現在developer資格。
- * @stimulus 反復取得、administrator空認可、二件目の本文欠測、失効資格を送る。
- * @observation Reader回数、完全／空Portfolio、固定MCPエラー、非秘密body、close後接続拒否。
- * @oracle 毎要求で本文二回、空認可本文0、欠測時は部分resultなし、失効は401。
+ * @stimulus 反復取得と時刻だけ一年進めた同じ内容要求、administrator空認可、本文欠測・Identity競合・Root不成立、第一本文close後の管理改訂変更、失効資格を送る。
+ * @observation Reader回数、完全／空／部分／競合Portfolio、公開前集合差の固定MCPエラーとresult不存在、非秘密body、close後接続拒否。
+ * @oracle 毎要求で本文二回、空認可本文0、本文未確認・競合は明示した部分結果。実体不成立または読取り中の管理改訂差は全体エラー、失効は401。
  * @cleanup fs hook復元とServer close／join後にFixtureを回収する。
  * @boundary 実HTTP→AM→Domain固定本文→MCP応答。
  */
-test("実HTTPは毎回現在集合と実本文を使い欠測で全体停止", async (t) => {
+test("実HTTPは文書未確認・競合を部分表示し実体不明を全体停止する", async (t) => {
   const f = fixture(t),
     resolver = createAccessMcpResolver(f.root);
   const server = await startMcpAuthenticatedStreamableHttp(resolver, {
@@ -1890,8 +1903,13 @@ test("実HTTPは毎回現在集合と実本文を使い欠測で全体停止", a
   const base = `http://${server.host}:${server.port}`;
   const open = fs.openSync;
   let reads = 0;
+  const readTargets: string[] = [];
+  let baseline: unknown;
   fs.openSync = (file, flags, mode) => {
-    if (f.targets.some(({ body }) => String(file) === body)) reads++;
+    if (f.targets.some(({ body }) => String(file) === body)) {
+      reads++;
+      readTargets.push(String(file));
+    }
     return open(file, flags, mode);
   };
   try {
@@ -1901,6 +1919,7 @@ test("実HTTPは毎回現在集合と実本文を使い欠測で全体停止", a
       assert.equal(response.status, 200);
       const text = await response.text(),
         result = JSON.parse(text);
+      baseline = result;
       assert.equal(result.result.structuredContent.project.state, "complete");
       assert.equal(result.result.structuredContent.project.sources.length, 2);
       assert.equal(reads, 2);
@@ -1909,6 +1928,24 @@ test("実HTTPは毎回現在集合と実本文を使い欠測で全体停止", a
       assert.equal(text.includes(f.token), false);
       assert.equal(text.includes("managementRevision"), false);
       assert.equal(text.includes("bindingId"), false);
+    }
+    const beforeTimeOnly = fs.readFileSync(f.current);
+    readTargets.length = 0;
+    reads = 0;
+    const later = Date.now() + 365 * 24 * 60 * 60 * 1000;
+    const clock = t.mock.method(Date, "now", () => later);
+    try {
+      const response = await call(base, f.token);
+      assert.equal(response.status, 200);
+      assert.deepEqual(await response.json(), baseline);
+      assert.equal(reads, 2);
+      assert.deepEqual(
+        readTargets.sort(),
+        f.targets.map(({ body }) => body).sort(),
+      );
+      assert.deepEqual(fs.readFileSync(f.current), beforeTimeOnly);
+    } finally {
+      clock.mock.restore();
     }
     const state = JSON.parse(
       fs.readFileSync(f.current, "utf8"),
@@ -1927,15 +1964,105 @@ test("実HTTPは毎回現在集合と実本文を使い欠測で全体停止", a
     assert.equal(reads, 0);
     user.role = "developer";
     fs.writeFileSync(f.current, JSON.stringify(state));
+    const close = fs.closeSync;
+    let firstDescriptor: number | undefined;
+    let currentChanged = false;
+    fs.openSync = (file, flags, mode) => {
+      const fd = open(file, flags, mode);
+      if (f.targets.some(({ body }) => String(file) === body)) reads++;
+      if (!currentChanged && String(file) === f.targets[0]?.body)
+        firstDescriptor = fd;
+      return fd;
+    };
+    fs.closeSync = (fd) => {
+      close(fd);
+      if (fd === firstDescriptor) {
+        firstDescriptor = undefined;
+        currentChanged = true;
+        fs.writeFileSync(
+          f.current,
+          JSON.stringify({ ...state, revision: state.revision + 1 }),
+        );
+      }
+    };
+    try {
+      reads = 0;
+      const changed = await call(base, f.token);
+      assert.deepEqual(await changed.json(), {
+        jsonrpc: "2.0",
+        id: 1,
+        error: { code: -32603, message: "Project Context unavailable" },
+      });
+      assert.equal(currentChanged, true);
+      assert.equal(reads, 2);
+    } finally {
+      fs.closeSync = close;
+      fs.openSync = (file, flags, mode) => {
+        if (f.targets.some(({ body }) => String(file) === body)) {
+          reads++;
+          readTargets.push(String(file));
+        }
+        return open(file, flags, mode);
+      };
+      fs.writeFileSync(f.current, JSON.stringify(state));
+    }
     const second = f.targets[1];
     assert.ok(second);
+    const originalContext = fs.readFileSync(second.body, "utf8");
     fs.rmSync(second.body);
     const failed = await call(base, f.token);
-    assert.deepEqual(await failed.json(), {
-      jsonrpc: "2.0",
-      id: 1,
-      error: { code: -32603, message: "Project Context unavailable" },
+    const partial = (await failed.json()).result.structuredContent.project;
+    assert.equal(partial.state, "partial");
+    assert.equal(partial.sources[0].state, "complete");
+    assert.deepEqual(partial.sources[1], {
+      repositoryId: second.id,
+      state: "unavailable",
+      revision: null,
+      repositoryRole: null,
+      context: null,
     });
+    for (const field of ["Project ID", "Repository ID", "Repository Role"]) {
+      fs.writeFileSync(
+        second.body,
+        originalContext.replace(
+          new RegExp(`${field}: [^\\r\\n]+`, "u"),
+          `${field}: foreign-source`,
+        ),
+      );
+      const response = await call(base, f.token);
+      const text = await response.text();
+      const conflict = JSON.parse(text).result.structuredContent.project;
+      assert.equal(conflict.state, "conflicting", field);
+      assert.deepEqual(conflict.sources[0], partial.sources[0], field);
+      assert.deepEqual(
+        conflict.sources[1],
+        {
+          repositoryId: second.id,
+          state: "conflicting",
+          revision: null,
+          repositoryRole: null,
+          context: null,
+        },
+        field,
+      );
+      assert.equal(text.includes("foreign-source"), false, field);
+    }
+    fs.writeFileSync(second.body, originalContext);
+    const git = path.join(second.target, ".git"),
+      heldGit = path.join(second.target, ".git-held");
+    fs.renameSync(git, heldGit);
+    try {
+      reads = 0;
+      const blocked = await call(base, f.token);
+      assert.deepEqual(await blocked.json(), {
+        jsonrpc: "2.0",
+        id: 1,
+        error: { code: -32603, message: "Project Context unavailable" },
+      });
+      assert.equal(reads, 0);
+    } finally {
+      fs.renameSync(heldGit, git);
+    }
     credential.revoked = true;
     fs.writeFileSync(f.current, JSON.stringify(state));
     assert.equal((await call(base, f.token)).status, 401);
@@ -1967,9 +2094,11 @@ test("同期読取り開始後の取消はclose後に固定拒否し後続を読
     close = fs.closeSync;
   let descriptor: number | undefined,
     closed = 0;
+  const openDescriptors = new Set<number>();
   const reads = [0, 0];
   fs.openSync = (file, flags, mode) => {
     const fd = open(file, flags, mode);
+    openDescriptors.add(fd);
     const index = f.targets.findIndex(({ body }) => String(file) === body);
     if (index >= 0) reads[index] = (reads[index] ?? 0) + 1;
     if (index === 0) {
@@ -1980,7 +2109,11 @@ test("同期読取り開始後の取消はclose後に固定拒否し後続を読
   };
   fs.closeSync = (fd) => {
     close(fd);
-    if (fd === descriptor) closed++;
+    openDescriptors.delete(fd);
+    if (fd === descriptor) {
+      closed++;
+      descriptor = undefined;
+    }
   };
   try {
     const result = await handler(packet(), controller.signal);
@@ -1992,6 +2125,7 @@ test("同期読取り開始後の取消はclose後に固定拒否し後続を読
     assert.equal(Object.hasOwn(result, "result"), false);
     assert.deepEqual(reads, [1, 0]);
     assert.equal(closed, 1);
+    assert.equal(openDescriptors.size, 0);
   } finally {
     fs.openSync = open;
     fs.closeSync = close;

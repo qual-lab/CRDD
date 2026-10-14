@@ -4,6 +4,170 @@
   "subsystem": "workbench-server",
   "symbols": [
     {
+      "symbolId": "workbench.configuration.server",
+      "kind": "file",
+      "path": "src/connection/configuration.ts",
+      "archIds": ["ARCH-000012"]
+    },
+    {
+      "symbolId": "workbench.test.integration.public-origin",
+      "kind": "test-suite",
+      "path": "tests/integration/public-origin.contract.test.ts",
+      "qaIds": ["QA-000007", "QA-000009"],
+      "localTestIds": ["EST-IT-010", "RFD-IT-013"],
+      "verifies": ["workbench.server", "workbench.configuration.server"]
+    },
+    {
+      "symbolId": "workbench.test.system.public-entry",
+      "kind": "test-suite",
+      "path": "tests/system/workbench-server-entry.integration.test.ts",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-ST-022"],
+      "verifies": ["workbench.cli", "workbench.server"]
+    },
+    {
+      "symbolId": "workbench.presentation.repository-operation-panel",
+      "kind": "file",
+      "path": "src/browser/repository-operation-panel.tsx",
+      "archIds": ["ARCH-000009", "ARCH-000012"]
+    },
+    {
+      "symbolId": "workbench.test.integration.repository-action-http",
+      "kind": "test-suite",
+      "path": "tests/integration/repository-action.integration.test.ts",
+      "qaIds": ["QA-000007", "QA-000009"],
+      "localTestIds": ["EST-IT-002", "EST-IT-010", "RFD-IT-014"],
+      "verifies": ["workbench.server", "workbench.project.repository-action", "version-control.change-publication"]
+    },
+    {
+      "symbolId": "workbench.project.repository-action",
+      "kind": "file",
+      "path": "src/project/repository-action.ts",
+      "archIds": ["ARCH-000009", "ARCH-000012"]
+    },
+    {
+      "symbolId": "workbench.test.integration.repository-action",
+      "kind": "test-suite",
+      "path": "tests/integration/repository-action.contract.test.ts",
+      "qaIds": ["QA-000007", "QA-000009"],
+      "localTestIds": ["EST-IT-002", "RFD-IT-014"],
+      "verifies": ["workbench.project.repository-action"]
+    },
+    {
+      "symbolId": "workbench.test.integration.artifact-presentation",
+      "kind": "test-suite",
+      "path": "tests/integration/artifact-presentation.contract.test.ts",
+      "qaIds": ["QA-000007", "QA-000009"],
+      "localTestIds": ["EST-IT-002", "RFD-IT-024"],
+      "verifies": ["workbench.presentation.client-model"]
+    },
+    {
+      "symbolId": "workbench.test.integration.artifact-http",
+      "kind": "test-suite",
+      "path": "tests/integration/artifact.integration.test.ts",
+      "qaIds": ["QA-000007", "QA-000009"],
+      "localTestIds": ["EST-IT-002", "EST-IT-010", "EST-IT-014", "RFD-IT-024"],
+      "verifies": ["workbench.server", "workbench.application.owner-artifact-surface", "workbench.presentation.client-model"]
+    },
+    {
+      "symbolId": "workbench.presentation.record-operation-panel",
+      "kind": "file",
+      "path": "src/browser/record-operation-panel.tsx",
+      "archIds": ["ARCH-000006", "ARCH-000012"]
+    },
+    {
+      "symbolId": "workbench.presentation.topic-meeting",
+      "kind": "file",
+      "path": "src/browser/topic-meeting-presentation.ts",
+      "archIds": ["ARCH-000006", "ARCH-000012"]
+    },
+    {
+      "symbolId": "workbench.test.integration.topic-meeting-presentation",
+      "kind": "test-suite",
+      "path": "tests/integration/topic-meeting-presentation.contract.test.ts",
+      "qaIds": ["QA-000005", "QA-000009"],
+      "localTestIds": ["CPR-IT-010", "CPR-IT-012"],
+      "verifies": ["workbench.presentation.topic-meeting", "workbench.presentation.client-model"]
+    },
+    {
+      "symbolId": "workbench.topic-meeting.action",
+      "kind": "file",
+      "path": "src/topic-meeting/action.ts",
+      "archIds": ["ARCH-000006", "ARCH-000012"]
+    },
+    {
+      "symbolId": "workbench.presentation.profile-management-panel",
+      "kind": "file",
+      "path": "src/browser/profile-management-panel.tsx",
+      "archIds": ["ARCH-000010", "ARCH-000012", "ARCH-000013"]
+    },
+    {
+      "symbolId": "workbench.test.integration.profile-presentation",
+      "kind": "test-suite",
+      "path": "tests/integration/profile-presentation.contract.test.ts",
+      "qaIds": ["QA-000001", "QA-000009"],
+      "localTestIds": ["EST-IT-002", "RCM-IT-005"],
+      "verifies": ["workbench.presentation.client-model", "workbench.presentation.profile-management-panel"]
+    },
+    {
+      "symbolId": "workbench.presentation.connection",
+      "kind": "file",
+      "path": "src/browser/connection.ts",
+      "archIds": ["ARCH-000012", "ARCH-000013"]
+    },
+    {
+      "symbolId": "workbench.test.integration.browser-connection",
+      "kind": "test-suite",
+      "path": "tests/integration/browser-connection.contract.test.ts",
+      "qaIds": ["QA-000009"],
+      "localTestIds": ["EST-IT-002"],
+      "verifies": ["workbench.presentation.connection"]
+    },
+    {
+      "symbolId": "workbench.topic-meeting.access-resolver",
+      "kind": "file",
+      "path": "src/topic-meeting/access-resolver.ts",
+      "archIds": ["ARCH-000006", "ARCH-000012", "ARCH-000013"]
+    },
+    {
+      "symbolId": "workbench.project.access-reader",
+      "kind": "file",
+      "path": "src/project/access-reader.ts",
+      "archIds": ["ARCH-000005", "ARCH-000012", "ARCH-000013"]
+    },
+    {
+      "symbolId": "workbench.project.portfolio-result",
+      "kind": "file",
+      "path": "src/project/portfolio-result.ts",
+      "archIds": ["ARCH-000005", "ARCH-000012"]
+    },
+    {
+      "symbolId": "workbench.management.operations",
+      "kind": "file",
+      "path": "src/management/operations.ts",
+      "archIds": ["ARCH-000013"]
+    },
+    {
+      "symbolId": "workbench.management.contract",
+      "kind": "file",
+      "path": "src/management/contract.ts",
+      "archIds": ["ARCH-000013"]
+    },
+    {
+      "symbolId": "workbench.presentation.management-panel",
+      "kind": "file",
+      "path": "src/browser/management-panel.tsx",
+      "archIds": ["ARCH-000013"]
+    },
+    {
+      "symbolId": "workbench.test.integration.management",
+      "kind": "test-suite",
+      "path": "tests/integration/management.integration.test.ts",
+      "qaIds": ["QA-000001", "QA-000005", "QA-000007", "QA-000009"],
+      "localTestIds": ["CPR-IT-010", "CPR-IT-012", "EST-IT-002", "EST-IT-010", "EST-IT-014", "RCM-IT-005", "RFD-IT-013", "RFD-IT-021", "RFD-IT-024"],
+      "verifies": ["workbench.server", "workbench.management.operations", "workbench.management.contract", "workbench.project.access-reader", "workbench.topic-meeting.access-resolver", "workbench.topic-meeting.action", "workbench.presentation.client-model", "workbench.application.runtime-activity", "orchestrator.activity.read", "access-management.profile-management", "ai-runtime.profile-administration"]
+    },
+    {
       "symbolId": "workbench.test.integration.node-dependency-closure",
       "kind": "test-suite",
       "path": "tests/integration/workbench-node-dependency-closure.contract.test.ts",
@@ -24,12 +188,16 @@
       ]
     },
     {
-      "symbolId": "workbench.server",
+"symbolId": "workbench.server",
       "kind": "file",
       "path": "src/server.ts",
       "archIds": [
+        "ARCH-000004",
         "ARCH-000005",
+        "ARCH-000007",
+        "ARCH-000010",
         "ARCH-000012",
+        "ARCH-000013",
         "ARCH-000015",
         "ARCH-000017"
       ]
@@ -49,7 +217,8 @@
       "kind": "file",
       "path": "src/browser/entry-client.tsx",
       "archIds": [
-        "ARCH-000012"
+        "ARCH-000012",
+        "ARCH-000013"
       ]
     },
     {
@@ -58,8 +227,10 @@
       "path": "src/browser/app.tsx",
       "archIds": [
         "ARCH-000005",
+        "ARCH-000009",
         "ARCH-000012",
         "ARCH-000013",
+        "ARCH-000016",
         "ARCH-000017"
       ]
     },
@@ -69,8 +240,11 @@
       "path": "src/browser/client-model.ts",
       "archIds": [
         "ARCH-000005",
+        "ARCH-000009",
+        "ARCH-000010",
         "ARCH-000012",
-        "ARCH-000013"
+        "ARCH-000013",
+        "ARCH-000016"
       ]
     },
     {
@@ -156,22 +330,12 @@
       ]
     },
     {
-      "symbolId": "workbench.adapter.remote-topic-meeting",
-      "kind": "file",
-      "path": "src/topic-meeting/mcp-adapter.ts",
-      "archIds": [
-        "ARCH-000005",
-        "ARCH-000006",
-        "ARCH-000012",
-        "ARCH-000013"
-      ]
-    },
-    {
       "symbolId": "workbench.cli",
       "kind": "file",
       "path": "bin/workbench-server.ts",
       "archIds": [
-        "ARCH-000012"
+        "ARCH-000012",
+        "ARCH-000013"
       ]
     },
     {
@@ -209,10 +373,11 @@
         "workbench.application.ai-profile-surface",
         "workbench.application.ai-request",
         "workbench.application.runtime-activity",
+        "orchestrator.activity.read",
+        "workbench.project.portfolio-result",
         "workbench.application.owner-artifact-surface",
         "workbench.application.project-plan-surface",
         "workbench.application.quality-surface",
-        "workbench.adapter.remote-topic-meeting",
         "project-operation.application.topic-meeting"
       ]
     },
@@ -235,13 +400,22 @@
     {
       "symbolId": "workbench.test.system.credential-browser",
       "kind": "test-suite",
-      "path": "tests/system/credential-administration.browser.contract.test.ts",
-      "qaIds": ["QA-000006", "QA-000007"],
-      "localTestIds": ["ERB-ST-022", "RFD-ST-016"],
+      "path": "tests/system/credential-administration-browser.contract.test.ts",
+      "qaIds": ["QA-000001", "QA-000005", "QA-000006", "QA-000007", "QA-000009"],
+      "localTestIds": ["CPR-ST-005", "ERB-ST-022", "EST-ST-013", "RCM-ST-012", "RFD-ST-003", "RFD-ST-004", "RFD-ST-015", "RFD-ST-016", "RFD-ST-022"],
       "verifies": [
         "workbench.server",
         "workbench.application.credential-administration",
+        "workbench.presentation.management-panel",
+        "workbench.management.operations",
+        "workbench.presentation.browser-client",
+        "workbench.presentation.connection",
         "workbench.presentation.browser-application",
+        "workbench.presentation.profile-management-panel",
+        "workbench.presentation.record-operation-panel",
+        "workbench.presentation.repository-operation-panel",
+        "workbench.project.repository-action",
+        "workbench.presentation.topic-meeting",
         "workbench.presentation.client-model"
       ]
     },
@@ -250,10 +424,10 @@
       "kind": "test-suite",
       "path": "tests/system/workbench-visual.integration.test.ts",
       "qaIds": [
-        "QA-000006"
+        "QA-000006", "QA-000007"
       ],
       "localTestIds": [
-        "ERB-ST-022"
+        "ERB-ST-022", "RFD-ST-022"
       ],
       "verifies": [
         "workbench.server",
@@ -262,7 +436,9 @@
         "workbench.presentation.browser-application",
         "workbench.presentation.client-model",
         "workbench.presentation.components",
-        "visual-preview.application.local-web-visual-verifier"
+        "workbench.presentation.management-panel",
+        "visual-preview.application.local-web-visual-verifier",
+        "workbench.project.portfolio-result"
       ]
     }
   ]

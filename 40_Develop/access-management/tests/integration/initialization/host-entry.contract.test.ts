@@ -1,5 +1,6 @@
 /**
  * Host保存先準備とCLI起動条件を検証する。
+ * @packageDocumentation
  * @responsibility 自己生成Rootだけで部分作成・旧入力・拒否・対話終了を反証する。
  * @trace RFD-IT-024
  * @trace RFD-IT-025
@@ -16,6 +17,8 @@ import { PassThrough, Writable } from "node:stream";
 import test, { type TestContext } from "node:test";
 import {
   prepareHostInitializationRoot,
+  readExistingHostRoot,
+  resolveHostRootInput,
   runHostAccessCommand,
   initializeFromHost,
   createCredentialMaterial,
@@ -114,6 +117,156 @@ function fixture(t: TestContext) {
         };
   return { directory, base, input, environment, state: resolved.state };
 }
+
+/**
+ * 通常起動用のRoot確認が初期化や作成を行わないことを確認する。
+ * @responsibility 不在拒否と既存実体読取りを区別し、管理内容を変更しない。
+ * @trace RFD-IT-024
+ * @precondition 自己生成の空Host baseだけを使う。
+ * @stimulus 不在・既存・非Directoryの保存先と不足環境を確認する。
+ * @observation Directory一覧、保存内容、Root結果を直接比較する。
+ * @oracle 不在と不正はnull、既存だけRootを返し、全呼出しで作成・内容変更0。
+ * @cleanup Fixtureがexact Rootを回収する。
+ * @boundary 公開Root入力選択と実Filesystem読取り。
+ */
+test("通常起動のHost Root読取りは保存先を作成しない", (t) => {
+  const f = fixture(t);
+  assert.deepEqual(resolveHostRootInput(f.environment), f.input);
+  assert.equal(resolveHostRootInput({}), null);
+  assert.equal(readExistingHostRoot(f.input), null);
+  assert.deepEqual(fs.readdirSync(f.base), []);
+  const prepared = prepareHostInitializationRoot(f.input);
+  assert.equal(prepared.status, "ready");
+  if (prepared.status !== "ready") return;
+  const marker = path.join(f.state, "access-management.json");
+  fs.writeFileSync(marker, "unparsed-state-marker");
+  const before = fs.readdirSync(f.state);
+  assert.equal(readExistingHostRoot(f.input)?.root, prepared.root.root);
+  assert.deepEqual(fs.readdirSync(f.state), before);
+  assert.equal(fs.readFileSync(marker, "utf8"), "unparsed-state-marker");
+  fs.unlinkSync(marker);
+  fs.rmdirSync(f.state);
+  fs.writeFileSync(f.state, "not-directory");
+  assert.equal(readExistingHostRoot(f.input), null);
+  assert.equal(fs.readFileSync(f.state, "utf8"), "not-directory");
+});
+
+/**
+ * 通常Reader固有のRoot境界と二観測相関を反証する。
+ * @responsibility 初回準備の試験を流用せず、読取り入口の拒否とEffect0を観測する。
+ * @trace RFD-IT-024
+ * @precondition 自己生成Root、junctionとmetadata故障注入を使用する。
+ * @stimulus Root／親Link、異OS、相対base、検証後dev／ino差を与える。
+ * @observation null、Filesystem変更呼出し数、既存markerのbyteを確認する。
+ * @oracle 全反例でCapabilityなし、作成・更新・削除0、target不変。
+ * @cleanup 注入をfinallyで復元し、Fixtureだけが自己生成領域を回収する。
+ * @boundary 通常Root読取りとFilesystem実体Identity。
+ */
+test("通常Host ReaderはLinkと入力不正と二観測のIdentity差を拒否する", (t) => {
+  for (const mode of [
+    "root-link",
+    "parent-link",
+    "platform",
+    "relative",
+    "dev",
+    "ino",
+  ] as const) {
+    const f = fixture(t);
+    const target = path.join(f.directory, "target");
+    fs.mkdirSync(target);
+    const marker = path.join(target, "marker.txt");
+    fs.writeFileSync(marker, "unchanged-target");
+    let input = f.input;
+    if (mode === "root-link") {
+      fs.mkdirSync(path.dirname(f.state), { recursive: true });
+      fs.symlinkSync(target, f.state, "junction");
+    } else if (mode === "parent-link") {
+      fs.mkdirSync(path.join(target, "cros", "local-test"), {
+        recursive: true,
+      });
+      fs.symlinkSync(target, path.join(f.base, "qual-lab"), "junction");
+    } else {
+      assert.equal(prepareHostInitializationRoot(f.input).status, "ready");
+      if (mode === "platform") {
+        input =
+          process.platform === "win32"
+            ? {
+                platform: "linux",
+                publisher: "qual-lab",
+                application: "cros",
+                trustDomainId: "local-test",
+                homeDirectory: f.base,
+              }
+            : {
+                platform: "win32",
+                publisher: "qual-lab",
+                application: "cros",
+                trustDomainId: "local-test",
+                localAppData: f.base,
+              };
+      } else if (mode === "relative") {
+        input =
+          f.input.platform === "win32"
+            ? { ...f.input, localAppData: "relative-base" }
+            : {
+                ...f.input,
+                homeDirectory: "relative-base",
+                xdgStateHome: "relative-base",
+              };
+      }
+    }
+    let effects = 0;
+    /**
+     * 通常Host Readerからの書込み要求を試験失敗にする。
+     * @responsibility 不正入力時に保存先作成・削除がないことを計測する。
+     * @trace RFD-IT-025
+     * @precondition 自己生成RootでFilesystem書込み関数を差し替える。
+     * @stimulus mkdir・write・remove系の呼出し。
+     * @observation 呼出し数と固定例外。
+     * @oracle 通常ReaderのFilesystem書込み0。
+     * @cleanup t.mockが各関数を復元する。
+     * @boundary 通常Host読取りの禁止Effect監視。
+     */
+    const rejectEffect = () => {
+      effects++;
+      throw new Error("unexpected_reader_effect");
+    };
+    t.mock.method(fs, "mkdirSync", rejectEffect);
+    t.mock.method(fs, "writeFileSync", rejectEffect);
+    t.mock.method(fs, "rmSync", rejectEffect);
+    t.mock.method(fs, "unlinkSync", rejectEffect);
+    t.mock.method(fs, "rmdirSync", rejectEffect);
+    const lstat = fs.lstatSync;
+    let bigintRootVisits = 0;
+    if (mode === "dev" || mode === "ino") {
+      t.mock.method(fs, "lstatSync", ((
+        entry: fs.PathLike,
+        options?: fs.StatOptions,
+      ) => {
+        const metadata = lstat(entry, options);
+        if (
+          String(entry) === f.state &&
+          options?.bigint &&
+          ++bigintRootVisits === 3
+        ) {
+          const original = metadata as fs.BigIntStats;
+          return Object.assign(Object.create(original), {
+            [mode]: original[mode] + 1n,
+          });
+        }
+        return metadata;
+      }) as typeof fs.lstatSync);
+    }
+    try {
+      assert.equal(readExistingHostRoot(input), null, mode);
+      assert.equal(effects, 0, mode);
+      assert.equal(fs.readFileSync(marker, "utf8"), "unchanged-target");
+      if (mode === "dev" || mode === "ino") assert.ok(bigintRootVisits >= 3);
+    } finally {
+      t.mock.restoreAll();
+    }
+  }
+});
 
 /**
  * 不足chainの作成と既存Root再利用を確認する。

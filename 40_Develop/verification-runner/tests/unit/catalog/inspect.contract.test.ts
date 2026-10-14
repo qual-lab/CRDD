@@ -15,6 +15,7 @@ import { fileURLToPath } from "node:url";
 import {
   inspectTestCatalog,
   inspectResourceIntensiveTestAuthority,
+  discoverRepositoryTestFiles,
   loadTestCatalog,
   selectRegressionStaticOwners,
   selectRegressionTests,
@@ -45,6 +46,68 @@ const catalog = loadedCatalog as TestCatalog;
  */
 test("実在試験、登録試験、実行可能Ownerをexactに照合する", () => {
   assert.deepEqual(inspectTestCatalog(repositoryRoot, loadedCatalog), []);
+});
+
+/**
+ * Access Managementの試験収集とPackage境界によるOwner判定を確認する。
+ *
+ * @responsibility AM試験の収集漏れと、MCP内の名前からの誤ったOwner判定を検出する。
+ * @trace CQS-UT-010
+ * @precondition 現行台帳にAM試験とMCPのAM結果試験が登録されている。
+ * @stimulus 実在試験を収集し、両Packageの変更から回帰対象を選択する。
+ * @observation 収集Path、対象試験、静的検査Ownerを取得する。
+ * @oracle AMの全登録試験を収集し、MCP内のAM名を持つ試験はMCPのままとする。
+ * @cleanup N/A: Repositoryの読取りと局所値の評価だけを行う。
+ * @boundary CQS-UT-010=Direct Boundary: Package Root→試験収集・Owner判定
+ */
+test("AM試験を収集しMCP内のAM名を持つ試験のOwnerを混同しない", () => {
+  const expected = catalog.tests.filter(
+    (entry) => entry.owner === "access-management",
+  );
+  assert.ok(expected.length > 0);
+  const discovered = discoverRepositoryTestFiles(repositoryRoot);
+  for (const entry of expected)
+    assert.ok(discovered.includes(entry.path), entry.path);
+  const selected = selectRegressionTests(catalog, [
+    "40_Develop/access-management/src/index.ts",
+  ]);
+  for (const entry of expected)
+    assert.ok(
+      selected.some((test) => test.id === entry.id),
+      entry.id,
+    );
+  assert.deepEqual(
+    selectRegressionStaticOwners(
+      catalog,
+      ["40_Develop/access-management/src/index.ts"],
+      selected,
+    ),
+    ["access-management"],
+  );
+  const mcpPath =
+    "40_Develop/mcp-server/tests/integration/access-management-results.integration.test.ts";
+  const mcp = catalog.tests.find((entry) => entry.path === mcpPath);
+  assert.equal(mcp?.owner, "mcp-server");
+  assert.deepEqual(
+    selectRegressionTests(catalog, [mcpPath]).map((entry) => entry.path),
+    [mcpPath],
+  );
+  assert.deepEqual(
+    selectRegressionStaticOwners(
+      catalog,
+      [mcpPath],
+      selectRegressionTests(catalog, [mcpPath]),
+    ),
+    ["mcp-server"],
+  );
+  assert.equal(
+    inspectTestCatalog(repositoryRoot, catalog).some(
+      (issue) =>
+        issue.startsWith("unsupported_owner:") &&
+        issue.includes("access-management"),
+    ),
+    false,
+  );
 });
 
 /**
@@ -97,22 +160,22 @@ test("全Toolの結合ブロックはArchitecture、Lifecycle、実在ITへ閉�
   assert.deepEqual(
     [...new Set(catalog.integrationBlocks.map((entry) => entry.owner))].sort(),
     [
+      "access-management",
       "ai-adapter",
       "artifact-signing",
       "checker",
       "coordinator",
-      "cros",
       "domain-model",
       "execution-intelligence",
-      "mcp",
+      "mcp-server",
       "official-asset-governance",
-      "platform-access",
       "orchestrator",
+      "platform-access",
       "semantic-coverage",
       "verification-runner",
       "version-control",
       "visual-preview",
-      "workbench",
+      "workbench-server",
     ],
   );
   for (const block of catalog.integrationBlocks) {

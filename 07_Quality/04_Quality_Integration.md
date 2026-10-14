@@ -1,5 +1,7 @@
 # Quality Integration
 
+2026-10-13の旧Shared Host撤去候補：旧GatewayのREST／MCP同一Origin、health、HTTP入口stdin EOFは廃止対象で、新しい二Surfaceの義務へ移植しない。TLS／Origin／Signal／Socket終了は現streamable-http、現在認証・非開示・Profile／活動／内容／Relationはaccess-capabilities、残す4 Adapter Caseはai-profile-adapter／runtime-activity-adapterへ接続する。旧GatewayのRFD-ST-004観測は過去Evidenceとして保持し、新STのPassへ流用しない。正式191項目・QA ID・Not Runを維持する。以下の旧局所結果と未接続表示は当時の範囲である。
+
 成果物種別: Quality統合分析
 状態: Canonical
 維持責任者: Qual-Lab

@@ -52,8 +52,6 @@ import {
 
 import {
   DEFAULT_AI_PROFILE_CATALOG,
-  createAiProfileCatalogAdministration,
-  createAiProfileCatalogRegistry,
   createRepositoryAiProfileCatalogStore,
 } from "../../../ai-adapter/src/index.ts";
 import {
@@ -62,25 +60,11 @@ import {
   verifyExecutionIntelligenceRepositoryRoot,
   writeExecutionIntelligenceEvent,
 } from "../../../execution-intelligence/src/index.ts";
-import {
-  createMemoryConnectionCredentialRegistry,
-  issueConnectionCredential,
-  revokeConnectionCredential,
-  startCrosRemoteTransport,
-  type CrosRuntimeActivityReader,
-  type RequestAccessContext,
-} from "../../../cros/src/index.ts";
-import { createTopicOperations } from "../../../domain-model/src/index.ts";
 import { createFilesystemStoreRoot } from "../../../domain-model/src/index.ts";
 import {
   createCredentialMaterial,
   type AccessManagementState,
 } from "../../../access-management/src/index.ts";
-import { createMeetingOperations } from "../../../domain-model/src/index.ts";
-import {
-  createCrosProjectContextMcpResolver,
-  startMcpAuthenticatedStreamableHttp,
-} from "../../../mcp-server/src/index.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import {
   readWorkbenchProjectSurface,
@@ -91,14 +75,90 @@ import {
   type WorkbenchCandidateActions,
   type WorkbenchActivityReader,
 } from "../../src/index.ts";
-import {
-  executeRemoteTopicMeetingAction,
-  type RemoteTopicMeetingAction,
-} from "../../src/topic-meeting/mcp-adapter.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
   import.meta.dirname,
 );
+
+/**
+ * 廃止した別Host接続入力が単体利用へ暗黙に後退しないことを確認する。
+ * @responsibility 現行起動構成の閉集合と外部通信0を検証する。
+ * @trace ERB-IT-021
+ * @precondition 現行Workbench公開入口とRepository Rootを使用する。
+ * @stimulus 廃止済みRemote接続fieldを持つ起動要求を一回渡す。
+ * @observation 固定構成拒否とfetch呼出し0を観測する。
+ * @oracle Listener起動や単体Repositoryへのfallbackに進まない。
+ * @cleanup fetch mockは試験終了時に復元される。生成資源なし。
+ * @boundary 起動構成のみ。MCP Server自体の能力を変更しない。
+ */
+test("廃止したRemote起動構成は外部通信せず拒否する", async (t) => {
+  const fetchSpy = t.mock.method(globalThis, "fetch", async () => {
+    throw new Error("unexpected_remote_fetch");
+  });
+  await assert.rejects(
+    startWorkbench({
+      workingDirectory: repositoryRoot,
+      remoteConnection: {
+        mcpEndpoint: "http://127.0.0.1:1/mcp",
+        token: "fixture",
+      },
+    } as unknown as Parameters<typeof startWorkbench>[0]),
+    {
+      message: "workbench_configuration_invalid",
+    },
+  );
+  assert.equal(fetchSpy.mock.callCount(), 0);
+});
+
+/**
+ * Local CROSの接続専用Modelが未認証内容と秘密fieldを拒否する。
+ * @responsibility 仮のMain Modelを使わず、接続と内容選択の境界を検査する。
+ * @trace ERB-IT-021
+ * @precondition ProductionのClient Model Inspectorを直接使用する。
+ * @stimulus 正規未接続・認証済み空集合と、余剰秘密field／未認証内容を入力する。
+ * @observation access判別子受理と固定Errorを確認する。
+ * @oracle 未認証にPortfolio・資格Snapshotなし、未知fieldは全拒否。
+ * @cleanup N/A: 純粋なModel検査だけ。
+ * @boundary 接続JSON→CSR Model Inspector。
+ */
+test("Local CROS Client Modelは接続専用の閉集合と未認証境界を守る", () => {
+  const model = {
+    contract: "crdd/workbench/client-model/v1",
+    view: "access",
+    actionToken: "a".repeat(43),
+    logoPath: "/assets/crdd-brand-icon.jpg",
+    authenticated: false,
+    notice: null,
+    portfolio: null,
+    credentials: { state: "not_configured", snapshot: null },
+  };
+  assert.equal(inspectWorkbenchClientModel(model).view, "access");
+  const empty = { projects: [], retainedAsSourceOfTruth: false };
+  assert.equal(
+    inspectWorkbenchClientModel({
+      ...model,
+      authenticated: true,
+      portfolio: empty,
+    }).view,
+    "access",
+  );
+  for (const value of [
+    { ...model, token: "synthetic-secret" },
+    { ...model, root: "synthetic-host-root" },
+    { ...model, portfolio: empty },
+    { ...model, credentials: { state: "available", snapshot: null } },
+    { ...model, actionToken: "" },
+    { ...model, logoPath: "https://external.invalid/logo" },
+    {
+      ...model,
+      authenticated: true,
+      portfolio: { projects: [], retainedAsSourceOfTruth: true },
+    },
+  ])
+    assert.throws(() => inspectWorkbenchClientModel(value), {
+      message: "workbench_client_model_invalid",
+    });
+});
 
 /**
  * Browser JSON境界が不正Discriminantと必須構造欠落を拒否することを検証する。
@@ -373,6 +433,30 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
     const model = await requestClientModel(handle.baseUrl);
     assert.equal(model.view, "main");
     if (model.view !== "main") return;
+    assert.deepEqual(model.connection, { state: "repository" });
+    for (const connection of [
+      { ...model.connection, endpoint: "http://127.0.0.1:1/mcp" },
+      { ...model.connection, notice: null },
+      { state: "cros_unavailable" },
+    ])
+      assert.throws(() =>
+        inspectWorkbenchClientModel({ ...model, connection }),
+      );
+    for (const operation of ["connect", "refresh", "disconnect"]) {
+      const retired = await requestRaw(
+        handle.baseUrl,
+        "/connection/action",
+        "POST",
+        new URLSearchParams({
+          actionToken: model.actionToken,
+          operation,
+          token: "fixture",
+          mcpEndpoint: "http://127.0.0.1:1/mcp",
+        }).toString(),
+      );
+      assert.equal(retired.status, 405);
+    }
+    assert.ok(model.aiProfiles);
     const serializedModel = JSON.stringify(model);
     assert.equal(shell.status, 200);
     assert.match(shell.body.toString("utf8"), /CROS Workbench/u);
@@ -624,14 +708,14 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
           sources: [
             {
               repositoryId: "z.repository",
-              revision: "1",
+              revision: null,
               state: "missing",
               repositoryRole: null,
               context: null,
             },
             {
               repositoryId: "a.repository",
-              revision: "1",
+              revision: null,
               state: "missing",
               repositoryRole: null,
               context: null,
@@ -679,6 +763,67 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
         /workbench_client_model_invalid/u,
       );
     }
+    for (const sourceState of [
+      "missing",
+      "unavailable",
+      "conflicting",
+    ] as const) {
+      const partialModel = {
+        ...structuredClone(model),
+        portfolio: structuredClone(validFederatedProject),
+      };
+      const project = partialModel.portfolio.projects[0];
+      assert.ok(project);
+      const source = project.sources[0];
+      assert.ok(source);
+      Object.assign(source, {
+        state: sourceState,
+        revision: null,
+        context: null,
+        repositoryRole: null,
+      });
+      Object.assign(project, {
+        state: sourceState === "conflicting" ? "conflicting" : "partial",
+      });
+      assert.doesNotThrow(() => inspectWorkbenchClientModel(partialModel));
+      for (const field of [
+        "revision",
+        "context",
+        "repositoryRole",
+        "state",
+      ] as const) {
+        const invalid = structuredClone(partialModel);
+        const invalidSource = invalid.portfolio?.projects[0]?.sources[0];
+        assert.ok(invalidSource);
+        Object.assign(invalidSource, {
+          [field]: field === "context" ? model.surface.context : "invalid",
+        });
+        assert.throws(
+          () => inspectWorkbenchClientModel(invalid),
+          /workbench_client_model_invalid/u,
+        );
+      }
+      Object.assign(project, { state: "complete" });
+      assert.throws(
+        () => inspectWorkbenchClientModel(partialModel),
+        /workbench_client_model_invalid/u,
+      );
+    }
+    const nullComplete = {
+      ...structuredClone(model),
+      portfolio: structuredClone(validFederatedProject),
+    };
+    const completeSource = nullComplete.portfolio.projects[0]?.sources[0];
+    assert.ok(completeSource);
+    Object.assign(completeSource, {
+      revision: null,
+      context: null,
+      repositoryRole: null,
+    });
+    assert.throws(
+      () => inspectWorkbenchClientModel(nullComplete),
+      /workbench_client_model_invalid/u,
+    );
 
     const invalidQualityState = structuredClone(model) as unknown as {
       surface: {
@@ -915,11 +1060,15 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
       "/owner-artifact?path=99_Roadmap%2F01_Roadmap.md",
     );
     assert.equal(roadmap.status, 200);
-    assert.equal(
-      roadmap.headers["content-type"],
-      "text/markdown; charset=utf-8",
+    assert.equal(roadmap.headers["content-type"], "text/html; charset=utf-8");
+    assert.match(roadmap.body.toString("utf8"), /data-workbench-react-root/u);
+    const roadmapModel = await requestClientModel(
+      handle.baseUrl,
+      "/owner-artifact?path=99_Roadmap%2F01_Roadmap.md",
     );
-    assert.match(roadmap.body.toString("utf8"), /^# CRDD Roadmap/mu);
+    assert.equal(roadmapModel.view, "artifact");
+    if (roadmapModel.view === "artifact")
+      assert.match(roadmapModel.artifact.markdown, /^# CRDD Roadmap/mu);
 
     const filteredDocuments = await requestClientModel(
       handle.baseUrl,
@@ -940,19 +1089,25 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
       "/owner-artifact?path=99_Roadmap%2F03_Releases.md",
     );
     assert.equal(releaseProjection.status, 200);
-    assert.match(releaseProjection.body.toString("utf8"), /^# CRDD Releases/mu);
+    const releaseModel = await requestClientModel(
+      handle.baseUrl,
+      "/owner-artifact?path=99_Roadmap%2F03_Releases.md",
+    );
+    assert.equal(releaseModel.view, "artifact");
+    if (releaseModel.view === "artifact")
+      assert.match(releaseModel.artifact.markdown, /^# CRDD Releases/mu);
 
     const arbitraryDocument = await requestRaw(
       handle.baseUrl,
-      "/owner-artifact?path=package.json",
+      "/api/workbench-view?route=%2Fowner-artifact&path=package.json",
     );
-    assert.equal(arbitraryDocument.status, 404);
+    assert.equal(arbitraryDocument.status, 400);
 
     const traversal = await requestRaw(
       handle.baseUrl,
-      "/owner-artifact?path=..%2Foutside.md",
+      "/api/workbench-view?route=%2Fowner-artifact&path=..%2Foutside.md",
     );
-    assert.equal(traversal.status, 404);
+    assert.equal(traversal.status, 400);
 
     const health = await requestRaw(
       handle.baseUrl,
@@ -1041,7 +1196,7 @@ test("許可済みPortfolioをSource Coverage付きで表示する", async () =>
             },
             {
               repositoryId: "visible-missing-source",
-              revision: "test-missing",
+              revision: null,
               state: "missing" as const,
               repositoryRole: null,
               context: null,
@@ -1054,7 +1209,7 @@ test("許可済みPortfolioをSource Coverage付きで表示する", async () =>
           sources: [
             {
               repositoryId: `visible-source-${String(index + 1).padStart(2, "0")}`,
-              revision: `test-page-${index + 1}`,
+              revision: null,
               state: "missing" as const,
               repositoryRole: null,
               context: null,
@@ -1659,728 +1814,6 @@ test("管理接続時だけCredentialを管理し生Tokenを専用POSTで一度�
 });
 
 /**
- * WorkbenchがCredentialを保存せずRemote CROSへ接続し失効後にCurrent表示を停止することを検証する。
- *
- * @responsibility Browser一回入力、Workbench Process内だけの接続Credential、明示Refresh／DisconnectおよびRemote失敗表示を検証する。
- * @trace RFD-IT-013
- * @precondition loopback CROS Transportと有効Developer Credentialを用意する。
- * @stimulus Repository modeでWorkbenchを開始し、Browser Formで接続してCredential失効後にRefreshし、最後にDisconnectする。
- * @observation 接続表示、Portfolio、Token非表示、Refresh／Disconnect結果およびHealthを観測する。
- * @oracle 有効時だけRemote Projectionを表示し、失効後は直前値をCurrent扱いせずUnavailableへ遷移し、Disconnect後はRepository modeへ戻る。
- * @cleanup WorkbenchとCROS Transportを閉じる。
- * @boundary RFD-IT-013=Direct Boundary: workbench Test Source→対象契約
- */
-test("BrowserからRemote CROSへ接続し失効後は直前Projectionを表示しない", async () => {
-  const registry = createMemoryConnectionCredentialRegistry();
-  const administrator: RequestAccessContext = Object.freeze({
-    credentialId: "admin",
-    profile: "administrator",
-    workspaceIds: Object.freeze([]),
-    systemAdmin: true,
-    credentialRegistryRevision: 0,
-  });
-  const issued = issueConnectionCredential(registry, administrator, {
-    profile: "developer",
-  });
-  assert.equal(issued.status, "completed");
-  if (issued.status !== "completed") return;
-  const surface = await readWorkbenchProjectSurface(repositoryRoot);
-  const remoteRuntimeActivity: CrosRuntimeActivityReader = Object.freeze({
-    read: async ({ projectId }) =>
-      Object.freeze({
-        state: "observed" as const,
-        reason: "runtime_activity_state_observed",
-        projectId,
-        currentSourceRepositoryId: surface.context.repositoryId,
-        sources: [
-          {
-            repositoryId: surface.context.repositoryId,
-            revision: "a".repeat(40),
-          },
-        ],
-        projection: Object.freeze({
-          projectId,
-          milestoneId: "REMOTE-MILESTONE",
-          generation: 8,
-          milestoneState: "executing" as const,
-          objectiveCounts: Object.freeze({
-            planned: 0,
-            executing: 1,
-            integration_pending: 0,
-            accepted: 0,
-            returned: 0,
-            blocked: 0,
-            cancelled: 0,
-          }),
-          taskCounts: Object.freeze({
-            planned: 0,
-            waiting_dependency: 0,
-            ready: 0,
-            starting: 0,
-            running: 1,
-            cleanup_pending: 0,
-            completed: 0,
-            failed: 0,
-            cancelled: 0,
-            recovery_required: 0,
-            superseded: 0,
-          }),
-          objectiveTaskSummaries: Object.freeze([
-            Object.freeze({
-              objectiveId: "objective-remote",
-              objectiveState: "executing" as const,
-              taskCounts: Object.freeze({
-                planned: 0,
-                waiting_dependency: 0,
-                ready: 0,
-                starting: 0,
-                running: 1,
-                cleanup_pending: 0,
-                completed: 0,
-                failed: 0,
-                cancelled: 0,
-                recovery_required: 0,
-                superseded: 0,
-              }),
-            }),
-          ]),
-          workProgress: "in_progress" as const,
-          qualityState: "not_evaluated" as const,
-          humanDecisionRequired: false,
-          recoveryRequired: false,
-          nextAction: "wait_for_task" as const,
-        }),
-        eventState: "observed" as const,
-        eventReason: "runtime_activity_events_observed",
-        events: Object.freeze([
-          Object.freeze({
-            eventId: `execution-${"c".repeat(64)}`,
-            repositoryId: surface.context.repositoryId,
-            occurredAt: "2026-09-28T00:30:00.000Z",
-            objectiveId: "objective-remote",
-            taskId: "task-from-remote-cros",
-            attemptId: "attempt-remote",
-            status: "completed" as const,
-            reason: "remote_task_completed",
-            cleanupConfirmed: true,
-            manualRecoveryRequired: false,
-          }),
-        ]),
-        eventContinuation: null,
-      }),
-  });
-  const remote = await startCrosRemoteTransport({
-    registry,
-    readExposureSnapshot: () => ({
-      revision: "workbench-exposure-1",
-      exposures: [
-        {
-          workspaceId: "development",
-          repositoryId: surface.context.repositoryId,
-          repositoryRevision: "remote-revision-1",
-          registryRevision: "workbench-exposure-1",
-          active: true,
-        },
-      ],
-      repositories: [
-        {
-          projectId: surface.context.projectId,
-          repositoryId: surface.context.repositoryId,
-          bindingId: "workbench-binding",
-          revision: "remote-revision-1",
-          content: { projectContext: surface.context },
-        },
-      ],
-    }),
-    runtimeActivityReader: remoteRuntimeActivity,
-  });
-  const handle = await startWorkbench({
-    workingDirectory: repositoryRoot,
-  });
-  try {
-    const initial = await requestClientModel(handle.baseUrl);
-    assert.equal(initial.view, "main");
-    if (initial.view !== "main") return;
-    assert.equal(initial.connection.state, "repository");
-    const actionToken = initial.actionToken;
-
-    const connection = await requestRaw(
-      handle.baseUrl,
-      "/connection/action",
-      "POST",
-      new URLSearchParams({
-        actionToken,
-        operation: "connect",
-        baseUrl: remote.baseUrl,
-        token: issued.token,
-      }).toString(),
-    );
-    assert.equal(connection.status, 303);
-    const connected = await requestClientModel(handle.baseUrl);
-    assert.equal(connected.view, "main");
-    if (connected.view !== "main") return;
-    assert.equal(connected.connection.state, "cros_available");
-    assert.notEqual(connected.portfolio, null);
-    assert.equal(
-      connected.runtimeActivity?.projection?.milestoneId,
-      "REMOTE-MILESTONE",
-    );
-    assert.equal(
-      connected.runtimeActivity?.events[0]?.taskId,
-      "task-from-remote-cros",
-    );
-    assert.equal(
-      connected.runtimeActivity?.events[0]?.reason,
-      "remote_task_completed",
-    );
-    assert.equal(
-      Object.hasOwn(connected.runtimeActivity ?? {}, "sources"),
-      false,
-    );
-    assert.equal(
-      Object.hasOwn(
-        connected.runtimeActivity ?? {},
-        "currentSourceRepositoryId",
-      ),
-      false,
-    );
-    assert.equal(
-      Object.hasOwn(connected.runtimeActivity ?? {}, "projectId"),
-      false,
-    );
-    assert.equal(
-      Object.hasOwn(connected.runtimeActivity?.events[0] ?? {}, "repositoryId"),
-      false,
-    );
-    assert.doesNotMatch(JSON.stringify(connected), /cros\.v1\./u);
-
-    const revoked = revokeConnectionCredential(
-      registry,
-      { ...administrator, credentialRegistryRevision: 1 },
-      issued.record.credentialId,
-    );
-    assert.equal(revoked.status, "completed");
-    const refreshed = await requestRaw(
-      handle.baseUrl,
-      "/connection/action",
-      "POST",
-      new URLSearchParams({
-        actionToken,
-        operation: "refresh",
-      }).toString(),
-    );
-    assert.equal(refreshed.status, 303);
-    const unavailable = await requestClientModel(handle.baseUrl);
-    assert.equal(unavailable.view, "main");
-    if (unavailable.view !== "main") return;
-    assert.equal(unavailable.connection.state, "cros_unavailable");
-    assert.equal(unavailable.portfolio, null);
-    assert.equal(unavailable.runtimeActivity?.state, "unknown");
-    assert.doesNotMatch(JSON.stringify(unavailable), /task-from-remote-cros/u);
-
-    const health = await requestRaw(
-      handle.baseUrl,
-      "/.well-known/crdd-workbench-health",
-    );
-    assert.deepEqual(JSON.parse(health.body.toString("utf8")), {
-      contract: "crdd/workbench/v1",
-      status: "ready",
-      host: "127.0.0.1",
-      mode: "remote-cros",
-      connectionState: "cros_unavailable",
-      readOnly: false,
-    });
-
-    const disconnected = await requestRaw(
-      handle.baseUrl,
-      "/connection/action",
-      "POST",
-      new URLSearchParams({
-        actionToken,
-        operation: "disconnect",
-      }).toString(),
-    );
-    assert.equal(disconnected.status, 303);
-    const repositoryMode = await requestClientModel(handle.baseUrl);
-    assert.equal(repositoryMode.view, "main");
-    if (repositoryMode.view === "main")
-      assert.equal(repositoryMode.connection.state, "repository");
-  } finally {
-    await handle.close();
-    await remote.close();
-  }
-});
-
-/**
- * Remote Workbenchが明示選択RepositoryのTopicだけをMCP経由で表示・更新することを検証する。
- *
- * @responsibility Portfolio Source選択、Remote MCP読取り、Repository間Relation Navigationおよび書込みTarget固定を検証する。
- * @trace PPR-IT-002
- * @precondition 同一ProjectのDEV／MGMT Repository、許可Credential、CROS PortfolioおよびMCP Serverを用意する。
- * @stimulus Repository未選択、DEV選択、Relation先詳細、DEV Topic更新および非開示Repository選択を要求する。
- * @observation Workbench HTML、Remote Canonical Markdownおよび非開示結果を観測する。
- * @oracle 未選択ではLocalへfallbackせず、選択Repositoryだけを表示・更新し、RelationはownerRepositoryIdを保持して遷移する。
- * @cleanup Workbench、CROS、MCPを閉じ、Fixtureを削除する。
- * @boundary PPR-IT-002=Direct Boundary: workbench Test Source→対象契約
- */
-test("Remote Workbenchは明示RepositoryのTopicをMCP経由で表示・更新する", async () => {
-  const testRoot = path.join(repositoryRoot, ".crdd", "tests");
-  await mkdir(testRoot, { recursive: true });
-  const devRoot = await mkdtemp(path.join(testRoot, "workbench-remote-dev-"));
-  const mgmtRoot = await mkdtemp(path.join(testRoot, "workbench-remote-mgmt-"));
-  const registry = createMemoryConnectionCredentialRegistry();
-  const administrator: RequestAccessContext = Object.freeze({
-    credentialId: "admin",
-    profile: "administrator",
-    workspaceIds: Object.freeze([]),
-    systemAdmin: true,
-    credentialRegistryRevision: 0,
-  });
-  const issued = issueConnectionCredential(registry, administrator, {
-    profile: "management",
-  });
-  assert.equal(issued.status, "completed");
-  if (issued.status !== "completed") return;
-  /**
-   * topic用の試験入力または観測処理を提供する。
-   *
-   * @responsibility topic用の試験入力または観測処理を提供するの検証責務を所有する。
-   * @trace CPR-IT-008
-   * @precondition 対象契約を再現できる固定入力と依存を用意する。
-   * @stimulus topicの対象操作を実行する。
-   * @observation 返却値、状態、Effectおよび終了後条件を観測する。
-   * @oracle Test本文のassertionがSummaryの期待条件を満たす。
-   * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
-   * @boundary CPR-IT-008=Direct Boundary: workbench Test Source→対象契約
-   */
-  const topic = (id: string, title: string, relation = "") =>
-    `# ${title}\n\n成果物種別: Topic\nTopic ID: \`${id}\`\nProject ID: \`PRJ-REMOTE\`\n状態: \`open\`\n改訂: \`1\`\n維持責任者: \`Project Operator\`\n\n## 1. 現在の論点\n\n### 結論\n\n${title}を扱う。\n${relation}`;
-  await mkdir(path.join(devRoot, "22_Topics", "TOPIC-000101"), {
-    recursive: true,
-  });
-  await mkdir(path.join(mgmtRoot, "22_Topics", "TOPIC-000201"), {
-    recursive: true,
-  });
-  await writeFile(
-    path.join(devRoot, "22_Topics", "TOPIC-000101", "topic.md"),
-    topic(
-      "TOPIC-000101",
-      "Remote DEV Topic",
-      "\n## 3. 関係\n\n| 関係種別 | 対象ID／参照 | このTopicとの関係 |\n|---|---|---|\n| related | `TOPIC-000201` | Management判断 |\n",
-    ),
-    "utf8",
-  );
-  await writeFile(
-    path.join(mgmtRoot, "22_Topics", "TOPIC-000201", "topic.md"),
-    topic("TOPIC-000201", "Remote MGMT Topic"),
-    "utf8",
-  );
-  const surface = await readWorkbenchProjectSurface(repositoryRoot);
-  /**
-   * snapshot用の試験入力または観測処理を提供する。
-   *
-   * @responsibility snapshot用の試験入力または観測処理を提供するの検証責務を所有する。
-   * @trace CPR-IT-006
-   * @trace CPR-IT-008
-   * @trace ERB-IT-021
-   * @trace ERP-IT-001
-   * @trace PPR-IT-002
-   * @trace RCM-IT-005
-   * @trace RFD-IT-005
-   * @trace RFD-IT-013
-   * @trace RFD-IT-014
-   * @precondition 対象契約を再現できる固定入力と依存を用意する。
-   * @stimulus snapshotの対象操作を実行する。
-   * @observation 返却値、状態、Effectおよび終了後条件を観測する。
-   * @oracle Test本文のassertionがSummaryの期待条件を満たす。
-   * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
-   * @boundary CPR-IT-006／CPR-IT-008／ERB-IT-021／ERP-IT-001／PPR-IT-002／RCM-IT-005／RFD-IT-005／RFD-IT-013／RFD-IT-014=Direct Boundary: workbench Test Source→対象契約
-   */
-  const snapshot = () => ({
-    revision: "workbench-remote-topic-1",
-    exposures: [
-      {
-        workspaceId: "development",
-        repositoryId: "REMOTE-DEV",
-        repositoryRevision: "remote-dev-1",
-        registryRevision: "workbench-remote-topic-1",
-        active: true,
-      },
-      {
-        workspaceId: "management",
-        repositoryId: "REMOTE-MGMT",
-        repositoryRevision: "remote-mgmt-1",
-        registryRevision: "workbench-remote-topic-1",
-        active: true,
-      },
-    ],
-    repositories: [
-      {
-        projectId: "PRJ-REMOTE",
-        repositoryId: "REMOTE-DEV",
-        bindingId: "remote-dev-binding",
-        revision: "remote-dev-1",
-        content: { projectContext: surface.context },
-      },
-      {
-        projectId: "PRJ-REMOTE",
-        repositoryId: "REMOTE-MGMT",
-        bindingId: "remote-mgmt-binding",
-        revision: "remote-mgmt-1",
-        content: { projectContext: surface.context },
-      },
-    ],
-  });
-  const applications = new Map([
-    [
-      "REMOTE-DEV",
-      Object.freeze({
-        topic: createTopicOperations(devRoot),
-        meeting: createMeetingOperations(devRoot),
-      }),
-    ],
-    [
-      "REMOTE-MGMT",
-      Object.freeze({
-        topic: createTopicOperations(mgmtRoot),
-        meeting: createMeetingOperations(mgmtRoot),
-      }),
-    ],
-  ]);
-  const remote = await startCrosRemoteTransport({
-    registry,
-    readExposureSnapshot: snapshot,
-  });
-  const mcp = await startMcpAuthenticatedStreamableHttp(
-    createCrosProjectContextMcpResolver({
-      registry,
-      readExposureSnapshot: snapshot,
-      resolveTopicMeetingAccess: (repository) =>
-        applications.get(repository.repositoryId) ?? null,
-    }),
-    { port: 0 },
-  );
-  const handle = await startWorkbench({
-    workingDirectory: repositoryRoot,
-    remoteConnection: {
-      baseUrl: remote.baseUrl,
-      mcpBaseUrl: `http://${mcp.host}:${mcp.port}`,
-      token: issued.token,
-    },
-  });
-  try {
-    const unselected = await requestMainModel(handle.baseUrl);
-    assert.equal(unselected.topic.page.status, "not_configured");
-    assert.doesNotMatch(JSON.stringify(unselected.topic), /Remote DEV Topic/u);
-    const selected = await requestMainModel(
-      handle.baseUrl,
-      "/?repositoryId=REMOTE-DEV#topics",
-    );
-    assert.equal(selected.selectedRepositoryId, "REMOTE-DEV");
-    assert.match(JSON.stringify(selected.topic), /Remote DEV Topic/u);
-    assert.doesNotMatch(JSON.stringify(selected.topic), /Remote MGMT Topic/u);
-    const actionToken = selected.actionToken;
-    const detail = await requestClientModel(
-      handle.baseUrl,
-      "/topic?id=TOPIC-000101&repositoryId=REMOTE-DEV",
-    );
-    assert.equal(detail.view, "record-detail");
-    if (detail.view === "record-detail") {
-      assert.equal(detail.record.relations[0]?.id, "TOPIC-000201");
-      assert.equal(
-        detail.record.relations[0]?.ownerRepositoryId,
-        "REMOTE-MGMT",
-      );
-    }
-    const updatedMarkdown = topic("TOPIC-000101", "Remote DEV Updated").replace(
-      "改訂: `1`",
-      "改訂: `2`",
-    );
-    const updated = await requestRaw(
-      handle.baseUrl,
-      "/topic-meeting/action",
-      "POST",
-      new URLSearchParams({
-        actionToken,
-        repositoryId: "REMOTE-DEV",
-        operation: "update",
-        kind: "topic",
-        id: "TOPIC-000101",
-        expectedRevision: "1",
-        markdown: updatedMarkdown,
-      }).toString(),
-    );
-    assert.equal(updated.status, 303);
-    assert.match(
-      await readFile(
-        path.join(devRoot, "22_Topics", "TOPIC-000101", "topic.md"),
-        "utf8",
-      ),
-      /Remote DEV Updated/u,
-    );
-    const hidden = await requestMainModel(
-      handle.baseUrl,
-      "/?repositoryId=REMOTE-HIDDEN#topics",
-    );
-    assert.notEqual(hidden.selectedRepositoryId, "REMOTE-HIDDEN");
-    assert.doesNotMatch(JSON.stringify(hidden.topic), /Remote DEV Updated/u);
-  } finally {
-    await handle.close();
-    await mcp.close();
-    await remote.close();
-    await rm(devRoot, { recursive: true, force: true });
-    await rm(mgmtRoot, { recursive: true, force: true });
-  }
-});
-
-/**
- * Remote Topic／Meeting Action全種を対応するMCP Toolへ一意に写像することを検証する。
- *
- * @responsibility 登録、編集、削除、Topic昇格およびMeeting Outcome処置が明示Repository付きの一Tool Callへ閉じることを検証する。
- * @trace ERB-IT-021
- * @precondition 未信頼MCP境界を模したlocalhost Serverを用意する。
- * @stimulus Topic／Meetingの全Remote Action Variantを一回ずつ実行する。
- * @observation MCP Tool名、引数、Authorization HeaderおよびCall件数を観測する。
- * @oracle 各Actionが対応Toolへexactに写像され、同じRepository IDを保持し、自動RetryまたはLocal fallbackを発生させない。
- * @cleanup localhost Serverを閉じ、Listener不存在を確認する。
- * @boundary ERB-IT-021=Direct Boundary: workbench Test Source→対象契約
- */
-test("Remote Topic／Meeting全Actionを明示Repository付きMCP Toolへ写像する", async () => {
-  const received: Array<{
-    authorization: string | undefined;
-    name: unknown;
-    args: unknown;
-  }> = [];
-  const server = createServer((request, response) => {
-    const chunks: Buffer[] = [];
-    request.on("data", (chunk: Buffer) => chunks.push(chunk));
-    request.once("end", () => {
-      const payload = JSON.parse(Buffer.concat(chunks).toString("utf8")) as {
-        params?: { name?: unknown; arguments?: unknown };
-      };
-      received.push({
-        authorization: request.headers.authorization,
-        name: payload.params?.name,
-        args: payload.params?.arguments,
-      });
-      response.writeHead(200, { "content-type": "application/json" });
-      response.end(
-        JSON.stringify({
-          jsonrpc: "2.0",
-          id: 1,
-          result: {
-            structuredContent: {
-              status: "completed",
-              reason: "fixture_completed",
-              record: {},
-              filesystemEffectCount: 1,
-            },
-            isError: false,
-          },
-        }),
-      );
-    });
-  });
-  await new Promise<void>((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", resolve);
-  });
-  const address = server.address();
-  assert.ok(address !== null && typeof address === "object");
-  const baseUrl = `http://127.0.0.1:${address.port}`;
-  const common = {
-    id: "TOPIC-000001",
-    expectedRevision: 3,
-  } as const;
-  const actions: readonly RemoteTopicMeetingAction[] = Object.freeze([
-    { operation: "create", kind: "topic", markdown: "topic-create" },
-    { operation: "create", kind: "meeting", markdown: "meeting-create" },
-    { operation: "update", kind: "topic", ...common, markdown: "topic-update" },
-    {
-      operation: "update",
-      kind: "meeting",
-      id: "MTG-000001",
-      expectedRevision: 4,
-      markdown: "meeting-update",
-    },
-    { operation: "delete", kind: "topic", ...common, confirmed: true },
-    {
-      operation: "delete",
-      kind: "meeting",
-      id: "MTG-000001",
-      expectedRevision: 4,
-      confirmed: true,
-    },
-    {
-      operation: "promote-topic",
-      kind: "topic",
-      ...common,
-      changeId: "CHG-000001",
-      reason: "fixture",
-      remainingResponsibility: "N/A: 移管完了",
-    },
-    {
-      operation: "treat-outcome",
-      kind: "meeting",
-      id: "MTG-000001",
-      expectedRevision: 4,
-      outcomeId: "OUT-001",
-      disposition: "transferred",
-      owner: "Project Operator",
-      reviewTrigger: "Topic更新時",
-      targetKind: "topic",
-      targetReference: "TOPIC-000001",
-      treatment: "Topicへ移管",
-      completionCondition: "Topic Relation成立",
-      result: "移管済み",
-      closeMeeting: true,
-    },
-  ]);
-  try {
-    for (const action of actions)
-      await executeRemoteTopicMeetingAction(
-        baseUrl,
-        "fixture-token",
-        "REMOTE-DEV",
-        action,
-      );
-    assert.deepEqual(
-      received.map((entry) => entry.name),
-      [
-        "crdd.create_topic",
-        "crdd.create_meeting",
-        "crdd.update_topic",
-        "crdd.update_meeting",
-        "crdd.delete_topic",
-        "crdd.delete_meeting",
-        "crdd.promote_topic",
-        "crdd.treat_meeting_outcome",
-      ],
-    );
-    assert.equal(received.length, actions.length);
-    for (const entry of received) {
-      assert.equal(entry.authorization, "Bearer fixture-token");
-      assert.equal(
-        (entry.args as { repositoryId?: unknown }).repositoryId,
-        "REMOTE-DEV",
-      );
-    }
-    assert.deepEqual(received[4]?.args, {
-      repositoryId: "REMOTE-DEV",
-      id: "TOPIC-000001",
-      expectedRevision: 3,
-      confirmed: true,
-      reason: "mistaken_registration",
-    });
-    assert.ok(received[7]);
-    assert.equal(
-      (received[7].args as { closeMeeting?: unknown }).closeMeeting,
-      true,
-    );
-  } finally {
-    await new Promise<void>((resolve, reject) =>
-      server.close((error) =>
-        error === undefined ? resolve() : reject(error),
-      ),
-    );
-  }
-});
-
-/**
- * WorkbenchがsystemAdmin接続時だけCROS OwnerのAI Profileを管理することを検証する。
- *
- * @responsibility Repository OwnerとCROS Ownerを表示・更新経路で分離する。
- * @trace RFD-IT-013
- * @precondition AI Profile管理を持つCROS TransportとAdministrator Credentialを用意する。
- * @stimulus WorkbenchからRemote接続し、新しいCROS Profileを作成する。
- * @observation Owner表示、管理結果およびCROS Catalog revisionを観測する。
- * @oracle CROS configurationとして表示され、Remote Catalogだけが更新される。
- * @cleanup WorkbenchとCROS Transportを閉じる。
- * @boundary RFD-IT-013=Direct Boundary: workbench Test Source→対象契約
- */
-test("WorkbenchはsystemAdmin接続時だけCROS OwnerのAI Profileを管理する", async () => {
-  const registry = createMemoryConnectionCredentialRegistry();
-  const administrator: RequestAccessContext = Object.freeze({
-    credentialId: "admin",
-    profile: "administrator",
-    workspaceIds: Object.freeze([]),
-    systemAdmin: true,
-    credentialRegistryRevision: 0,
-  });
-  const issued = issueConnectionCredential(registry, administrator, {
-    profile: "administrator",
-  });
-  assert.equal(issued.status, "completed");
-  if (issued.status !== "completed") return;
-  const profileRegistry = createAiProfileCatalogRegistry(
-    DEFAULT_AI_PROFILE_CATALOG,
-  );
-  const remote = await startCrosRemoteTransport({
-    registry,
-    readExposureSnapshot: () => ({
-      revision: "workbench-profile-admin",
-      exposures: [],
-      repositories: [],
-    }),
-    aiProfileAdministration:
-      createAiProfileCatalogAdministration(profileRegistry),
-  });
-  const handle = await startWorkbench({ workingDirectory: repositoryRoot });
-  try {
-    const initial = await requestMainModel(handle.baseUrl);
-    const actionToken = initial.actionToken;
-    const connected = await requestRaw(
-      handle.baseUrl,
-      "/connection/action",
-      "POST",
-      new URLSearchParams({
-        actionToken,
-        operation: "connect",
-        baseUrl: remote.baseUrl,
-        token: issued.token,
-      }).toString(),
-    );
-    assert.equal(connected.status, 303);
-    const shell = await requestMainModel(handle.baseUrl);
-    assert.equal(shell.aiProfileAdministration.owner, "CROS");
-
-    const form = new URLSearchParams({
-      actionToken,
-      operation: "create",
-      expectedRevision: "1",
-      profileId: "PROFILE-300002",
-      adapterModel: "codex-cli|gpt-6-astra",
-      family: "astra",
-      defaultReasoningEffort: "high",
-      compatibilityReason: "",
-    });
-    form.append("selectionRole", "independent_reviewer");
-    form.append("modelTier", "upper_allowed");
-    const created = await requestRaw(
-      handle.baseUrl,
-      "/ai-profiles/action",
-      "POST",
-      form.toString(),
-    );
-    assert.equal(created.status, 303);
-    const after = await requestMainModel(handle.baseUrl);
-    assert.equal(
-      after.aiProfileAdministration.result?.reason,
-      "profile_created",
-    );
-    assert.ok(
-      after.aiProfileAdministration.snapshot?.catalog.profiles.some(
-        (profile) => profile.profileId === "PROFILE-300002",
-      ),
-    );
-    assert.equal(profileRegistry.snapshot().revision, 2);
-  } finally {
-    await handle.close();
-    await remote.close();
-  }
-});
-
-/**
  * Workbench操作Tokenを通じて選択PathだけをStage・Commitできることを検証する。
  *
  * @responsibility Browser Form→Workbench Application→Version Control Portの直接搬送と再観測を検証する。
@@ -2669,10 +2102,17 @@ test("WorkbenchからTopicを登録・表示・編集・削除する", async () 
     }
     const change = await requestRaw(handle.baseUrl, "/change?id=CHG-000010");
     assert.equal(change.status, 200);
-    assert.match(change.body.toString("utf8"), /Workbench Relation Change/u);
+    assert.match(change.body.toString("utf8"), /data-workbench-react-root/u);
+    const changeModel = await requestClientModel(
+      handle.baseUrl,
+      "/change?id=CHG-000010",
+    );
+    assert.equal(changeModel.view, "artifact");
+    if (changeModel.view === "artifact")
+      assert.match(changeModel.artifact.markdown, /Workbench Relation Change/u);
     const missingChange = await requestRaw(
       handle.baseUrl,
-      "/change?id=CHG-999999",
+      "/api/workbench-view?route=%2Fchange&id=CHG-999999",
     );
     assert.equal(missingChange.status, 404);
     const missingDetail = await requestRaw(
@@ -3759,8 +3199,34 @@ test("WorkbenchはRepository EventをProject限定で継続読込する", async 
       ).status,
       "completed",
     );
-    const application = createRepositoryWorkbenchActivityReader(fixture);
+    execFileSync(
+      "git",
+      [
+        "-C",
+        fixture,
+        "-c",
+        "user.name=Fixture",
+        "-c",
+        "user.email=fixture@example.invalid",
+        "commit",
+        "--allow-empty",
+        "--quiet",
+        "-m",
+        "Activity fixture",
+      ],
+      { windowsHide: true },
+    );
+    const identity = {
+      projectId: "project-a",
+      repositoryId: "repository.fixture",
+    };
+    const application = createRepositoryWorkbenchActivityReader(
+      fixture,
+      identity,
+    );
+    identity.projectId = "project-b";
     const first = await application.observe("project-a", { limit: 1 });
+    assert.equal(first.state, "absent");
     assert.equal(first.eventState, "observed");
     assert.equal(first.events[0]?.taskId, "task-new");
     assert.ok(first.eventContinuation);
@@ -3774,6 +3240,28 @@ test("WorkbenchはRepository EventをProject限定で継続読込する", async 
     assert.equal(second.eventContinuation, null);
     assert.notEqual(second.events[0]?.eventId, first.events[0]?.eventId);
     assert.doesNotMatch(JSON.stringify([first, second]), /task-hidden/u);
+    const mismatch = await application.observe("project-b");
+    assert.equal(mismatch.state, "unknown");
+    assert.equal(mismatch.eventState, "unknown");
+    assert.equal(mismatch.events.length, 0);
+    await assert.rejects(
+      application.observe("project-a", { cursor: "invalid" }),
+    );
+    await assert.rejects(application.observe("project-a", { limit: 51 }));
+    await assert.rejects(
+      application.observe("project-a", {
+        cursor: Buffer.from(
+          JSON.stringify([
+            "2026-09-28T00:01:00.000Z",
+            first.events[0]?.eventId,
+          ]),
+        ).toString("base64url"),
+      }),
+    );
+    assert.equal(
+      fs.existsSync(path.join(fixture, ".crdd", "orchestrator")),
+      false,
+    );
   } finally {
     await rm(fixture, { recursive: true, force: true });
   }
@@ -3850,6 +3338,7 @@ test("WorkbenchはRepository Ownerの採用済みAI Profile Catalogを表示す�
 
     handle = await startWorkbench({ workingDirectory: fixture });
     const model = await requestMainModel(handle.baseUrl);
+    assert.ok(model.aiProfiles);
     const profile = model.aiProfiles.catalog.profiles.find(
       (entry) => entry.profileId === "PROFILE-300001",
     );
@@ -3962,7 +3451,7 @@ test("Workbenchは登録済みAdapterだけでAI Profileを作成し確認付き
       );
     }
     assert.ok(
-      afterCreate.aiProfiles.catalog.profiles.some(
+      afterCreate.aiProfiles?.catalog.profiles.some(
         (profile) => profile.profileId === "PROFILE-300001",
       ),
     );
@@ -3985,7 +3474,7 @@ test("Workbenchは登録済みAdapterだけでAI Profileを作成し確認付き
       "profile_delete_confirmation_required",
     );
     assert.ok(
-      afterUnconfirmed.aiProfiles.catalog.profiles.some(
+      afterUnconfirmed.aiProfiles?.catalog.profiles.some(
         (profile) => profile.profileId === "PROFILE-300001",
       ),
     );

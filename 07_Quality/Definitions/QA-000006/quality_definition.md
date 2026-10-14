@@ -362,6 +362,8 @@ OPEN: 新SnapshotへのSource接続、限定終了の実境界反証、各scenar
 
 OPEN: 固定受領方式の値判定はSourceへ接続したが、本番組立て・耐久ACK・一時返却・終了整理の一体切替は未完了。本節の反例を実行するまでLocal Item全体をPassへ変更しない。
 
+ERB-IT-010／ERB-ST-013は5CのOrchestrator／Coordinator大改修に依存するOPENとして保持する。旧CROS Handoffのpure prototypeと専用値試験は撤去し、sourceActive:false／destinationEffectIssued:trueを実Owner終了、Effect発行、重複消費防止の観測へ流用しない。QA ID・検証義務・正式Not Run・v0.22対象は変えない。[固定Git履歴と処置](../../../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#旧cros試作品の撤去--2026-10-13)を参照する。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した

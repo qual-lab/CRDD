@@ -27,12 +27,20 @@ import {
 } from "./components.ts";
 import type {
   WorkbenchClientModel,
+  WorkbenchAccessViewModel,
   WorkbenchMainViewModel,
   WorkbenchProjectDetailViewModel,
   WorkbenchRecordDocumentView,
   WorkbenchRecordDetailViewModel,
+  WorkbenchArtifactViewModel,
+  WorkbenchTopicMeetingResultView,
 } from "./client-model.ts";
-import { inspectWorkbenchClientModel } from "./client-model.ts";
+import { inspectWorkbenchClientModel, createSelectedWorkbenchViewUrl } from "./client-model.ts";
+import { ManagementPanel } from "./management-panel.tsx";
+import { ProfileManagementPanel } from "./profile-management-panel.tsx";
+import { RecordOperationPanel } from "./record-operation-panel.tsx";
+import { RepositoryOperationPanel } from "./repository-operation-panel.tsx";
+import { requestWorkbench, setWorkbenchCredential, clearWorkbenchCredential } from "./connection.ts";
 import {
   renderWorkbenchProjectPlan,
   renderWorkbenchQuality,
@@ -445,90 +453,22 @@ function OwnerArtifacts({ model }: { model: WorkbenchMainViewModel }): ReactElem
 }
 
 /**
- * Remote CROS接続をToken非反射のFormとして描画する。
- * @responsibility 接続・更新・切断を別操作として表示する。
+ * Repository単体利用の接続範囲を示す。
+ * @responsibility 他Hostへの接続Formを提供せず、現在の利用形態を説明する。
  * @trace ARCH-000012
- * @input modelに接続状態と非秘密結果を受け取る。
- * @returns Connection Panelを返す。
- * @precondition Remote接続Bearerはmodelに含まれない。
- * @postcondition 入力Tokenを再表示しない。
- * @effect 利用者の送信時だけ接続CommandをPOSTする。
- * @failure unavailableを接続済みと表示しない。
- * @invariant Remote AuthorityはNode Serverに残す。
- * @boundary Browserの一回入力とRemote CROS接続の境界。
- * @security Tokenをvalue、URL、noticeへ反射しない。
- * @concurrency 現在Processの接続状態だけを表示する。
+ * @input N/A: 固定説明だけを表示する。
+ * @returns 接続説明Panel。
+ * @precondition Repository単体のMain画面である。
+ * @postcondition MCP接続先・資格入力・接続操作を表示しない。
+ * @effect N/A: 表示のみ。
+ * @failure N/A: 非同期操作を行わない。
+ * @invariant 別Hostへの接続を作らない。
+ * @boundary 単体利用と同Host共有利用の説明。
+ * @security 資格を受け取らない。
+ * @concurrency N/A: 固定表示。
  */
-function Connection({ model }: { model: WorkbenchMainViewModel }): ReactElement {
-  const connection = model.connection;
-  return (
-    <WorkbenchPanel
-      id="connection"
-      eyebrow="Remote CROS"
-      title="接続"
-      status={
-        connection.state === "repository"
-          ? "Repository mode"
-          : connection.state === "cros_available"
-            ? "Connected"
-            : "Unavailable"
-      }
-    >
-      {connection.notice === null ? null : (
-        <p
-          className="operation-result"
-          data-status={connection.notice.status}
-        >
-          {connection.notice.message}
-        </p>
-      )}
-      {connection.endpoint === null ? (
-        <EmptyState>
-          CredentialなしでRepository単体利用を継続できます。Remote CROSを使う場合だけ接続してください。
-        </EmptyState>
-      ) : (
-        <>
-          <p>
-            Endpoint: <code>{connection.endpoint}</code>
-          </p>
-          <div className="connection-actions">
-            {(["refresh", "disconnect"] as const).map((operation) => (
-              <form key={operation} method="post" action="/connection/action">
-                <ActionTokenInput value={model.actionToken} />
-                <button name="operation" value={operation} type="submit">
-                  {operation === "refresh" ? "Refresh projection" : "Disconnect"}
-                </button>
-              </form>
-            ))}
-          </div>
-        </>
-      )}
-      <form
-        className="remote-connection-form"
-        method="post"
-        action="/connection/action"
-        autoComplete="off"
-      >
-        <ActionTokenInput value={model.actionToken} />
-        <input type="hidden" name="operation" value="connect" />
-        <label>
-          Endpoint
-          <input required type="url" name="baseUrl" autoComplete="off" />
-        </label>
-        <label>
-          Credential
-          <input
-            required
-            type="password"
-            name="token"
-            autoComplete="off"
-            spellCheck={false}
-          />
-        </label>
-        <button type="submit">Connect</button>
-      </form>
-    </WorkbenchPanel>
-  );
+function Connection(): ReactElement {
+  return <WorkbenchPanel id="connection" eyebrow="Repository" title="接続" status="単体利用"><EmptyState>このRepositoryを資格なしで利用しています。共有利用は共有HostのWorkbenchへBrowserから接続してください。</EmptyState></WorkbenchPanel>;
 }
 
 /**
@@ -546,12 +486,13 @@ function Connection({ model }: { model: WorkbenchMainViewModel }): ReactElement 
  * @security 生Tokenを永続・再取得・URL反射しない。
  * @concurrency 更新は同一Credential Identityの最新結果だけを表示する。
  */
-function Credentials({ model }: { model: WorkbenchMainViewModel }): ReactElement {
+function Credentials({ model }: { model: Pick<WorkbenchMainViewModel, "actionToken" | "credentials"> }): ReactElement {
   const [view, setView] = useState(model.credentials);
   const [secret, setSecret] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const pending = useRef(false);
+  useEffect(() => { setView(model.credentials); setSecret(null); }, [model.credentials]);
   const snapshot = view.snapshot;
 
   /**
@@ -579,7 +520,7 @@ function Credentials({ model }: { model: WorkbenchMainViewModel }): ReactElement
       body.append(key, value);
     }
     try {
-      const response = await fetch("/connection-credentials/action", {
+      const response = await requestWorkbench("/connection-credentials/action", {
         method: "POST", body, credentials: "same-origin", cache: "no-store",
         headers: { "Content-Type": "application/x-www-form-urlencoded", accept: "application/json" },
       });
@@ -602,7 +543,7 @@ function Credentials({ model }: { model: WorkbenchMainViewModel }): ReactElement
           ? "前の交換記録を終了しました。今回の新しい交換や鍵の発行は行っていません。"
           : "指定した資格を失効しました。他の資格は変更していません。"
         : "操作結果は未確認です。現在一覧の既知事実を確認してください。自動再実行しません。");
-      const refreshed = await fetch("/api/workbench-view", { cache: "no-store", credentials: "same-origin", headers: { accept: "application/json" } });
+      const refreshed = await requestWorkbench("/api/workbench-view", { cache: "no-store", credentials: "same-origin", headers: { accept: "application/json" } });
       if (!refreshed.ok) throw new Error("credential_projection_unavailable");
       const nextModel = inspectWorkbenchClientModel(await refreshed.json());
       if (nextModel.view === "main") {
@@ -669,7 +610,7 @@ function Credentials({ model }: { model: WorkbenchMainViewModel }): ReactElement
               {prior?.stage === "credential_stored" && prior.presentation !== "confirmed" ? <input type="hidden" name="previousRecoveryId" value={prior.recoveryId} /> : null}
               <p>全員交換は操作主体を含む全ての有効資格を失効します。発行先: {user.username}。他ユーザーは再発行・配布が必要です。</p>
               <p>対象旧資格: {allOldIds.join(", ") || "なし"}</p>
-              <label><input type="checkbox" name="confirmed" value="true" required />全員の失効範囲を確認した</label><button disabled={busy}>全ユーザーの鍵を交換</button>
+              <label className="confirm"><input type="checkbox" name="confirmed" value="true" required />全員の失効範囲を確認した</label><button disabled={busy}>全ユーザーの鍵を交換</button>
             </form>}
           </section>;
         })}
@@ -861,6 +802,7 @@ function Repository({ model }: { model: WorkbenchMainViewModel }): ReactElement 
                   <code>{entry}</code>
                   <form method="post" action="/repository/action">
                     <ActionTokenInput value={model.actionToken} />
+                    {model.selectedRepositoryId === null ? null : <input type="hidden" name="repositoryId" value={model.selectedRepositoryId} />}
                     <input type="hidden" name="operation" value={operation} />
                     <input type="hidden" name="path" value={entry} />
                     <button type="submit">
@@ -875,6 +817,7 @@ function Repository({ model }: { model: WorkbenchMainViewModel }): ReactElement 
       ))}
       <form method="post" action="/repository/action">
         <ActionTokenInput value={model.actionToken} />
+        {model.selectedRepositoryId === null ? null : <input type="hidden" name="repositoryId" value={model.selectedRepositoryId} />}
         <input type="hidden" name="operation" value="create_revision" />
         <label>
           Commit message
@@ -885,6 +828,7 @@ function Repository({ model }: { model: WorkbenchMainViewModel }): ReactElement 
       {target?.status === "available" && target.destination !== null && target.branch !== null && target.revisionIdentity !== null ? (
         <form method="post" action="/repository/action">
           <ActionTokenInput value={model.actionToken} />
+          {model.selectedRepositoryId === null ? null : <input type="hidden" name="repositoryId" value={model.selectedRepositoryId} />}
           <input type="hidden" name="operation" value="publish_revision" />
           <input type="hidden" name="destination" value={target.destination} />
           <input type="hidden" name="branch" value={target.branch} />
@@ -994,6 +938,11 @@ function RuntimeActivity({ model }: { model: WorkbenchMainViewModel }): ReactEle
  * @concurrency N/A: 不変Snapshotを描画する。
  */
 function AiProfiles({ model }: { model: WorkbenchMainViewModel }): ReactElement {
+  if (model.aiProfiles === null) return (
+    <WorkbenchPanel id="ai-profiles" eyebrow="AI configuration" title="AI Profiles" status="未取得">
+      <EmptyState>共有AI Profile情報は未取得です。Profileの不存在や利用不可を意味しません。</EmptyState>
+    </WorkbenchPanel>
+  );
   const observations = new Map(
     model.aiProfiles.observations.map((entry) => [entry.profileId, entry.availability]),
   );
@@ -1042,92 +991,6 @@ function AiProfiles({ model }: { model: WorkbenchMainViewModel }): ReactElement 
   );
 }
 
-/**
- * Owner別AI Profileの作成・更新入口を描画する。
- * @responsibility RepositoryまたはCROS OwnerのCatalog変更を改訂付きFormで表示する。
- * @trace ARCH-000010
- * @input modelにOwner別Snapshotと直前結果を受け取る。
- * @returns AI Profile Administration Panelまたはnullを返す。
- * @precondition 管理SnapshotのOwnerはServerで確定済みである。
- * @postcondition 登録済みAdapter／Model語彙だけを候補にする。
- * @effect 明示送信時だけProfile CommandをPOSTする。
- * @failure 未接続時は管理入口を作らない。
- * @invariant OwnerをBrowser側で切り替えない。
- * @boundary AI Profile AdministrationとBrowser Formの境界。
- * @security Credential・Path・任意実行引数を入力できない。
- * @concurrency expectedRevisionでCatalog競合を検出できる。
- */
-function AiProfileAdministration({
-  model,
-}: {
-  model: WorkbenchMainViewModel;
-}): ReactElement | null {
-  const { snapshot, owner, result } = model.aiProfileAdministration;
-  if (snapshot === null) return null;
-  const efforts = [...new Set(snapshot.catalog.adapters.flatMap((adapter) => adapter.allowedReasoningEfforts))];
-  return (
-    <WorkbenchPanel
-      id="ai-profile-administration"
-      eyebrow={`${owner} configuration`}
-      title="AI Profile管理"
-      status={`revision ${snapshot.revision}`}
-    >
-      {result === null ? null : (
-        <p className="operation-result">
-          <strong>{result.status}</strong> — {result.reason}
-        </p>
-      )}
-      <form
-        className="ai-profile-administration-form"
-        method="post"
-        action="/ai-profiles/action"
-      >
-        <ActionTokenInput value={model.actionToken} />
-        <input
-          type="hidden"
-          name="expectedRevision"
-          value={snapshot.revision}
-        />
-        <label>
-          操作
-          <select name="operation" required>
-            <option value="create">新規作成</option>
-            <option value="update">既存を更新</option>
-          </select>
-        </label>
-        <label>
-          Profile ID
-          <input name="profileId" pattern="PROFILE-[0-9]{6,}" required />
-        </label>
-        <label>
-          Adapter / Model
-          <select name="adapterModel" required>
-            {snapshot.catalog.adapters.flatMap((adapter) =>
-              adapter.allowedModelIds.map((modelId) => (
-                <option
-                  key={`${adapter.adapterId}|${modelId}`}
-                  value={`${adapter.adapterId}|${modelId}`}
-                >
-                  {adapter.adapterId} / {modelId}
-                </option>
-              )),
-            )}
-          </select>
-        </label>
-        <label>
-          Family
-          <input name="family" pattern="[a-z][a-z0-9._-]{1,63}" required />
-        </label>
-        <fieldset><legend>利用Role</legend>{["coordinator", "executor", "independent_reviewer", "result_integration"].map((role) => <label key={role} className="confirm"><input type="checkbox" name="selectionRole" value={role} />{role}</label>)}</fieldset>
-        <fieldset><legend>Model Tier</legend>{["preferred", "upper_allowed"].map((tier) => <label key={tier} className="confirm"><input type="checkbox" name="modelTier" value={tier} />{tier}</label>)}</fieldset>
-        <label>既定Reasoning<select name="defaultReasoningEffort" required>{efforts.map((effort) => <option key={effort} value={effort}>{effort}</option>)}</select></label>
-        <label>互換理由（不要なら空欄）<input name="compatibilityReason" /></label>
-        <button type="submit">Catalog候補を検証して保存</button>
-      </form>
-      <div className="table-scroll"><table><thead><tr><th>Profile</th><th>Adapter / Model</th><th>Actions</th></tr></thead><tbody>{snapshot.catalog.profiles.map((profile) => <tr key={profile.profileId}><td><code>{profile.profileId}</code></td><td>{profile.adapterId} / {profile.exactModelId}</td><td><form method="post" action="/ai-profiles/action"><ActionTokenInput value={model.actionToken} /><input type="hidden" name="operation" value="delete" /><input type="hidden" name="expectedRevision" value={snapshot.revision} /><input type="hidden" name="profileId" value={profile.profileId} /><label className="confirm"><input type="checkbox" name="confirmed" value="true" required />このProfileだけを削除する</label><button type="submit">削除</button></form></td></tr>)}</tbody></table></div>
-    </WorkbenchPanel>
-  );
-}
 
 /**
  * Main View Modelを既存15画面のReact Treeへ変換する。
@@ -1144,7 +1007,34 @@ function AiProfileAdministration({
  * @security HashをAuthorityまたはRepository入力として使用しない。
  * @concurrency Listenerをcleanupし、現在Hashの最新値だけを反映する。
  */
-function MainWorkbench({ model }: { model: WorkbenchMainViewModel }): ReactElement {
+function MainWorkbench({ model: initialModel }: { model: WorkbenchMainViewModel }): ReactElement {
+  const [model, setModel] = useState(initialModel);
+  /**
+   * 管理更新後に画面全体の現在Read Modelを取り直す。
+   * @responsibility 鍵管理を含む過去の投影を新しい管理改訂へ更新する。
+   * @trace ARCH-000013
+   * @input 管理画面が所有する取消Signal。
+   * @returns N/A: 不変Modelを置換する。
+   * @precondition 管理操作の結果は別表示で保持される。
+   * @postcondition 既知保存結果を観測失敗へ上書きしない。
+   * @effect 通常GET一回。
+   * @failure 現在Model不明は固定例外。
+   * @invariant 新AuthorityやStoreを生成しない。
+   * @boundary CSRと通常Read Model。
+   * @security 秘密応答を再取得しない。
+   * @concurrency 完全main Modelを取得した場合だけ置換する。
+   */
+  async function refreshReadModel(signal: AbortSignal): Promise<void> {
+    const selectedId = model.selectedRepositoryId;
+    const currentUrl = window.location.href;
+    const target = createSelectedWorkbenchViewUrl(new URL(currentUrl), selectedId);
+    const response = await requestWorkbench(target, { cache: "no-store", credentials: "same-origin", signal });
+    if (!response.ok) throw new Error("workbench_view_unavailable");
+    const next = inspectWorkbenchClientModel(await response.json());
+    if (next.view !== "main" || next.selectedRepositoryId !== selectedId || signal.aborted || window.location.href !== currentUrl)
+      throw new Error("workbench_view_unavailable");
+    setModel(next);
+  }
   const [activeSection, setActiveSection] = useState(() =>
     window.location.hash.replace(/^#/u, "") || "overview",
   );
@@ -1157,19 +1047,7 @@ function MainWorkbench({ model }: { model: WorkbenchMainViewModel }): ReactEleme
   const context = model.surface.context;
   const capabilityLabel = (state: "available" | "not_configured" | "unknown", count: number): string =>
     state === "available" ? `${count} items` : state === "not_configured" ? "Not configured" : "Unknown";
-  const refresh =
-    model.connection.endpoint === null ? (
-      <button type="button" disabled>
-        Refresh projection
-      </button>
-    ) : (
-      <form method="post" action="/connection/action">
-        <ActionTokenInput value={model.actionToken} />
-        <button name="operation" value="refresh" type="submit">
-          Refresh projection
-        </button>
-      </form>
-    );
+  const refresh = <button type="button" disabled>Refresh projection</button>;
   return (
     <WorkbenchShell
       projectId={context.projectId}
@@ -1178,9 +1056,7 @@ function MainWorkbench({ model }: { model: WorkbenchMainViewModel }): ReactEleme
       connectionLabel={
         model.connection.state === "repository"
           ? "Repository mode"
-          : model.connection.state === "cros_available"
-            ? "Remote CROS connected"
-            : "Remote CROS unavailable"
+          : "CROS connected"
       }
       topicsLabel={capabilityLabel(model.topic.collection.state, model.topic.page.records.length)}
       topicsDetail={model.selectedRepositoryId ?? "未構成と0件を区別します"}
@@ -1196,17 +1072,27 @@ function MainWorkbench({ model }: { model: WorkbenchMainViewModel }): ReactEleme
           {context.scenes.map((scene) => (
             <ProjectScene key={scene.key} scene={scene} />
           ))}
-          <RecordCollection model={model} kind="topic" />
-          <RecordCollection model={model} kind="meeting" />
+          {model.connection.state === "repository" ? <>
+            <RecordCollection model={model} kind="topic" />
+            <RecordCollection model={model} kind="meeting" />
+          </> : model.recordActionsConfigured && model.selectedRepositoryId !== null ? <RecordOperationPanel key={`${model.selectedRepositoryId}:${model.actionToken}`} repositoryId={model.selectedRepositoryId} actionToken={model.actionToken} refresh={refreshReadModel}>
+            <RecordCollection model={model} kind="topic" />
+            <RecordCollection model={model} kind="meeting" />
+          </RecordOperationPanel> : <fieldset disabled style={{display:"contents"}}>
+            <p role="status" style={{gridColumn:"1 / -1"}}>この接続の内容保存は未接続です。現在は閲覧のみです。</p>
+            <RecordCollection model={model} kind="topic" />
+            <RecordCollection model={model} kind="meeting" />
+          </fieldset>}
           {renderWorkbenchProjectPlan(model.surface.plan, model.surface.ownerArtifacts)}
           {renderWorkbenchQuality(model.surface.quality, model.surface.ownerArtifacts)}
           <OwnerArtifacts model={model} />
           <RuntimeActivity model={model} />
-          <Repository model={model} />
-          <Connection model={model} />
+          {model.connection.state === "repository" ? <Repository model={model} /> : model.repositoryActionsConfigured && model.selectedRepositoryId !== null ? <RepositoryOperationPanel key={`${model.selectedRepositoryId}:${model.actionToken}`} repositoryId={model.selectedRepositoryId} actionToken={model.actionToken} refresh={refreshReadModel}><Repository model={model} /></RepositoryOperationPanel> : <fieldset disabled style={{display:"contents"}}><Repository model={model} /></fieldset>}
+          {model.connection.state === "repository" ? <Connection /> : <WorkbenchPanel id="connection" eyebrow="Local CROS" title="接続" status="Connected"><a href="/?repositoryId=">接続とProject一覧へ戻る</a></WorkbenchPanel>}
+          <ManagementPanel actionToken={model.actionToken} refreshReadModel={refreshReadModel} />
           <Credentials model={model} />
           <AiProfiles model={model} />
-          <AiProfileAdministration model={model} />
+          <ProfileManagementPanel actionToken={model.actionToken} owner={model.aiProfileAdministration.owner} initialSnapshot={model.aiProfileAdministration.snapshot} initialResult={model.aiProfileAdministration.result} refreshReadModel={refreshReadModel} />
           {renderWorkbenchAiRequest(
             model.actionToken,
             model.aiProfiles,
@@ -1267,10 +1153,10 @@ function ProjectDetail({
               <p className="eyebrow">Repository source</p>
               <h2>{source.repositoryId}</h2>
             </div>
-            <span>{source.state}</span>
+            <span>{{ complete: "確認済み", missing: "文書未提供", unavailable: "文書未確認", conflicting: "文書競合" }[source.state]}</span>
           </header>
           <p>
-            {source.repositoryRole ?? "Role unavailable"} / revision {source.revision}
+            {source.repositoryRole ?? "役割未確認"} / {source.revision === null ? "版未確認" : `版 ${source.revision}`}
           </p>
           {source.context === null ? (
             <EmptyState>このSourceのProject Contextは利用できません。</EmptyState>
@@ -1301,21 +1187,47 @@ function ProjectDetail({
  * @concurrency expectedRevisionで競合検出可能にする。
  */
 function RecordDetail({
-  model,
+  model: initialModel,
 }: {
   model: WorkbenchRecordDetailViewModel;
 }): ReactElement {
+  const [model, setModel] = useState<WorkbenchRecordDetailViewModel | WorkbenchMainViewModel>(initialModel);
+  /**
+   * 操作後に同じRepositoryの本文、削除後は一覧を取得する。
+   * @responsibility 不存在になったDetailを現在本文として残さない。
+   * @trace ARCH-000006
+   * @trace ARCH-000012
+   * @input 所有Signalと検査済み結果。
+   * @returns fresh表示の処置完了。
+   * @precondition 共有Detailの現在Modelを所有する。
+   * @postcondition 削除結果を保持して同じRepository一覧へ戻る。
+   * @effect GET一回、削除後は現在URLの置換。
+   * @failure 取得失敗で旧本文を現在値へ補完しない。
+   * @invariant 保存要求は再送しない。
+   * @boundary Detail表示と同Origin Read Model。
+   * @security URLへ資格・Rootを追加しない。
+   * @concurrency Signal・URL・返却Identityを待機後に確認する。
+   */
+  async function refreshRecord(signal: AbortSignal, result: WorkbenchTopicMeetingResultView | null): Promise<void> {
+    if (model.view !== "record-detail") throw new Error("workbench_view_unavailable");
+    const originalUrl = window.location.href;
+    const target = new URL(originalUrl);
+    const deleted = result?.status === "completed" && result.reason === "record_deleted";
+    if (deleted) { target.pathname = "/"; target.searchParams.delete("id"); target.hash = model.record.kind === "topic" ? "topics" : "meetings"; }
+    const response = await requestWorkbench(createSelectedWorkbenchViewUrl(target, model.repositoryId), { signal, cache: "no-store" });
+    if (!response.ok) throw new Error("workbench_view_unavailable");
+    const next = inspectWorkbenchClientModel(await response.json());
+    if (signal.aborted || window.location.href !== originalUrl ||
+      (deleted ? next.view !== "main" || next.selectedRepositoryId !== model.repositoryId : next.view !== "record-detail" || next.repositoryId !== model.repositoryId || next.record.kind !== model.record.kind || next.record.id !== model.record.id))
+      throw new Error("workbench_view_unavailable");
+    if (deleted && next.view === "main") { history.replaceState(null, "", `${target.pathname}${target.search}${target.hash}`); setModel({ ...next, topicMeetingResult: result }); }
+    else if (next.view === "record-detail") setModel(next);
+  }
+  if (model.view === "main") return <MainWorkbench model={model} />;
   const { document, relations } = model.record;
   const record = document.record;
   const identity = "topicId" in record ? record.topicId : record.meetingId;
-  return (
-    <main className="record-detail" id={`${model.record.kind}-detail`}>
-      <a
-        className="page-link"
-        href={`${model.repositoryId === null ? "/" : `/?repositoryId=${encodeURIComponent(model.repositoryId)}`}#${model.record.kind === "topic" ? "topics" : "meetings"}`}
-      >
-        ← {model.record.kind === "topic" ? "Topics" : "Meetings"}へ戻る
-      </a>
+  const content = (
       <article className="panel">
         <header>
           <div>
@@ -1382,14 +1294,49 @@ function RecordDetail({
           <h2>Canonical Markdown</h2>
           <pre className="canonical-markdown">{document.markdown}</pre>
         </section>
+        {model.repositoryId === null || model.recordActionsConfigured ? <RecordActions actionToken={model.actionToken} repositoryId={model.repositoryId} document={model.record} /> : <fieldset disabled>
+        <p role="status">この接続の内容保存は未接続です。現在は閲覧のみです。</p>
         <RecordActions
           actionToken={model.actionToken}
           repositoryId={model.repositoryId}
           document={model.record}
         />
+        </fieldset>}
       </article>
-    </main>
   );
+  return <main className="record-detail" id={`${model.record.kind}-detail`}>
+    <a className="page-link" href={`${model.repositoryId === null ? "/" : `/?repositoryId=${encodeURIComponent(model.repositoryId)}`}#${model.record.kind === "topic" ? "topics" : "meetings"}`}>
+      ← {model.record.kind === "topic" ? "Topics" : "Meetings"}へ戻る
+    </a>
+    {model.repositoryId !== null && model.recordActionsConfigured ? <RecordOperationPanel key={`${model.repositoryId}:${model.actionToken}`} repositoryId={model.repositoryId} actionToken={model.actionToken} refresh={refreshRecord}>{content}</RecordOperationPanel> : content}
+  </main>;
+}
+
+/**
+ * 選択Repositoryの成果物原文をtextとして表示する。
+ * @responsibility 原文を加工せず、出所と同じRepositoryへの戻り先を示す。
+ * @trace ARCH-000012
+ * @trace ARCH-000016
+ * @input 検査済みartifact Model。
+ * @returns 原文表示と戻るリンク。
+ * @precondition Serverが現在Rootと読取り範囲を確認済み。
+ * @postcondition Markdown／HTMLを実行せず、原文を第二正本として保存しない。
+ * @effect 明示戻るリンクの同Origin GETのみ。
+ * @failure 観測不能の表示は上位取得Ownerが担当する。
+ * @invariant Browserは本文からAuthorityや追加リンクを生成しない。
+ * @boundary 正本文字列とReact DOM。
+ * @security React text escapingとpre表示だけを使う。
+ * @concurrency 取得・世代・取消は既存navigation Ownerが管理する。
+ */
+function ArtifactDocument({ model }: { model: WorkbenchArtifactViewModel }): ReactElement {
+  return <main className="record-detail" id="artifact-detail" data-repository-id={model.repositoryId}>
+    <a className="page-link" href={model.selectedRepositoryId === null ? "/" : `/?repositoryId=${encodeURIComponent(model.selectedRepositoryId)}`}>← 同じRepositoryへ戻る</a>
+    <article className="panel">
+      <header><h1>{model.artifact.kind === "change" ? "変更成果物" : "Owner成果物"} — {model.artifact.identity}</h1></header>
+      <p>出所: <code>{model.repositoryId}</code></p>
+      <pre className="canonical-markdown">{model.artifact.markdown}</pre>
+    </article>
+  </main>;
 }
 
 /**
@@ -1408,7 +1355,137 @@ function RecordDetail({
  * @concurrency N/A: 同期純粋分岐である。
  */
 export function WorkbenchApp({ model }: { model: WorkbenchClientModel }): ReactElement {
+  if (model.view === "access") return <AccessWorkbench initialModel={model} />;
   if (model.view === "project-detail") return <ProjectDetail model={model} />;
   if (model.view === "record-detail") return <RecordDetail model={model} />;
+  if (model.view === "artifact") return <ArtifactDocument model={model} />;
   return <MainWorkbench model={model} />;
+}
+
+/**
+ * 内容未選択のLocal CROS接続と既存管理Panelを描画する。
+ * @responsibility 未認証時にProject／Git／Topic情報を作らず、鍵は専用POSTへ渡す。
+ * @trace ARCH-000012
+ * @trace ARCH-000013
+ * @input 検査済み非秘密Access Model。
+ * @returns 接続・現在許可Project・管理・資格PanelのCSR要素。
+ * @precondition Serverが通常Repository内容を含まないModelを返す。
+ * @postcondition 未認証では接続Formだけ、認証後は現在投影だけ表示する。
+ * @effect 明示Form送信と管理後の同Origin読取りだけ。
+ * @failure 読取り不明は旧Modelを成功として再公開しない。
+ * @invariant 仮Project IDや0件を未観測の代わりに表示しない。
+ * @boundary 接続専用JSONとBrowser表示。
+ * @security 鍵をReact Model・URL・Storageへ保存しない。
+ * @concurrency 管理Panelが渡す所有Signalで再読取りする。
+ */
+function AccessWorkbench({ initialModel }: { initialModel: WorkbenchAccessViewModel }): ReactElement {
+  const [model, setModel] = useState(initialModel);
+  const [unknown, setUnknown] = useState(false);
+  const pending = useRef(false);
+  const [busy, setBusy] = useState(false);
+  /**
+   * 管理操作後の現在接続投影を再読取りする。
+   * @responsibility 失敗時は旧内容を隠し、未知Viewを推測しない。
+   * @trace ARCH-000012
+   * @trace ARCH-000013
+   * @input 管理Panelが所有する取消Signal。
+   * @returns 検査済みaccess投影への更新完了。
+   * @precondition 同Originの接続画面から実行する。
+   * @postcondition 新Modelだけを表示し、失敗は未確認へ分離する。
+   * @effect 同Origin GET一回とReact表示更新。
+   * @failure HTTP不正・解析・取消は旧内容を隠して例外を返す。
+   * @invariant 保存操作や自動再送を行わない。
+   * @boundary Workbench接続GETとCSR状態。
+   * @security 鍵を入力・保存・出力しない。
+   * @concurrency Signal中断後にModelを採用しない。
+   */
+  const refreshReadModel = async (signal: AbortSignal): Promise<void> => {
+    try {
+      const response = await requestWorkbench("/api/workbench-view", { signal });
+      if (!response.ok) throw new Error("workbench_access_unavailable");
+      const next = inspectWorkbenchClientModel(await response.json());
+      if (signal.aborted || next.view !== "access") throw new Error("workbench_access_unavailable");
+      setModel(next);
+      setUnknown(false);
+    } catch (error) {
+      setUnknown(true);
+      throw error;
+    }
+  };
+  /**
+   * 接続専用POSTの確認後だけタブ内資格で現在表示を取得する。
+   * @responsibility 切断時に旧表示を直ちに隠し、鍵をServer Sessionへ保存しない。
+   * @trace ARCH-000013
+   * @input 当該接続Formの明示送信。
+   * @returns 接続要求と次GETの処置完了。
+   * @precondition 同Originの検査済みAccess Modelから操作する。
+   * @postcondition 鍵入力を消去し、成功した現在Modelだけを表示する。
+   * @effect 専用POST一回、後続GET一回、タブmemory更新。
+   * @failure 拒否・不明は資格参照と旧投影を破棄し、保存取消を推定しない。
+   * @invariant 二重送信・自動再発行・自動再送をしない。
+   * @boundary Browser接続FormとAM接続確認。
+   * @security 生鍵をModel・Storage・URL・logへ含めない。
+   * @concurrency refで同一Formの並行送信を拒否し、旧接続応答は要求Ownerが拒否する。
+   */
+  const submitConnection = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault();
+    if (pending.current) return;
+    pending.current = true;
+    setBusy(true);
+    const form = new URLSearchParams();
+    for (const [key, value] of new FormData(event.currentTarget)) {
+      if (typeof value === "string") form.append(key, value);
+    }
+    const token = form.get("token");
+    event.currentTarget.reset();
+    try {
+      if (form.get("operation") === "disconnect") {
+        clearWorkbenchCredential();
+        setModel({ ...model, authenticated: false, portfolio: null, credentials: { state: "not_configured", snapshot: null }, notice: null });
+      }
+      const response = await requestWorkbench("/local-connection/action", {
+        method: "POST", body: form,
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+      });
+      if (response.status !== 200 || !response.headers.get("content-type")?.startsWith("application/json"))
+        throw new Error("workbench_connection_unavailable");
+      const confirmation: unknown = await response.json();
+      if (confirmation === null || typeof confirmation !== "object" ||
+          Array.isArray(confirmation) || Object.keys(confirmation).length !== 1 ||
+          !("status" in confirmation) || confirmation.status !== "completed")
+        throw new Error("workbench_connection_unavailable");
+      if (form.get("operation") === "connect") setWorkbenchCredential(token ?? "");
+      await refreshReadModel(new AbortController().signal);
+    } catch {
+      clearWorkbenchCredential();
+      setModel({ ...model, authenticated: false, portfolio: null, credentials: { state: "not_configured", snapshot: null }, notice: "接続を確認できません。鍵を確認して再接続してください。" });
+      setUnknown(true);
+    } finally {
+      form.delete("token");
+      pending.current = false;
+      setBusy(false);
+    }
+  };
+  return <div className="app-shell">
+    <header className="topbar"><a className="brand" href="/"><img src={model.logoPath} width="36" height="36" alt="CRDD" /><span>CROS Workbench<small>接続と管理</small></span></a></header>
+    <main style={{ gridColumn: "1 / -1" }}>
+      <WorkbenchPanel id="connection" eyebrow="Local CROS" title="接続" status={model.authenticated ? "Connected" : "未接続"}>
+        {model.notice === null ? null : <p className="operation-result">{model.notice}</p>}
+        <form method="post" action="/local-connection/action" autoComplete="off" onSubmit={submitConnection}>
+          <ActionTokenInput value={model.actionToken} />
+          <input type="hidden" name="operation" value={model.authenticated ? "disconnect" : "connect"} />
+          {model.authenticated ? null : <label>接続用の鍵<input type="password" name="token" required autoComplete="off" spellCheck={false} /></label>}
+          <button type="submit" disabled={busy}>{model.authenticated ? "切断" : "接続"}</button>
+        </form>
+      </WorkbenchPanel>
+      {unknown ? <p role="alert">現在の情報を確認できません。古い内容は表示していません。</p> : model.authenticated ? <>
+        <WorkbenchPanel id="projects" eyebrow="Current access" title="利用できるProject" status={model.portfolio === null ? "未確認" : "現在の許可範囲"}>
+          {model.portfolio === null ? <EmptyState>現在の内容を確認できません。</EmptyState> : model.portfolio.projects.length === 0 ? <EmptyState>現在許可されたRepositoryはありません。</EmptyState> : model.portfolio.projects.map((project) => <div key={project.projectId}><h3>{project.projectId} — {{ complete: "確認済み", partial: "一部未確認", conflicting: "競合あり" }[project.state]}</h3>{project.sources.map((source) => <div key={source.repositoryId}>{source.state === "complete" ? <a href={`/?repositoryId=${encodeURIComponent(source.repositoryId)}`}>{source.repositoryId}</a> : <span>{source.repositoryId}</span>} — {{ complete: "確認済み", missing: "文書未提供", unavailable: "文書未確認", conflicting: "文書競合" }[source.state]}</div>)}</div>)}
+        </WorkbenchPanel>
+        <ManagementPanel actionToken={model.actionToken} refreshReadModel={refreshReadModel} />
+        <ProfileManagementPanel actionToken={model.actionToken} owner="CROS" refreshReadModel={refreshReadModel} />
+        <Credentials model={model} />
+      </> : null}
+    </main>
+  </div>;
 }

@@ -6,8 +6,8 @@
   },
   "include": [],
   "files": [
+    "../../template/tools/crdd-access-management.ts",
     "../../template/tools/crdd-coordinator.ts",
-    "../../template/tools/crdd-cros-server.ts",
     "../../template/tools/crdd-mcp-server.ts",
     "../../template/tools/crdd-visual-preview.ts"
   ]

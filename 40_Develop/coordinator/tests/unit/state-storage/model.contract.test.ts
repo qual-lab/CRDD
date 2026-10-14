@@ -1,5 +1,6 @@
 /**
  * Coordinator現在状態の固定encodingと相関を検証する。
+ * @packageDocumentation
  * @responsibility 保存内容検査を実資源の回収証明と分離して反証する。
  * @trace PRL-UT-006
  * @level UT

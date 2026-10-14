@@ -13,6 +13,7 @@ import {
   resolveConnectionAuthentication,
   resolveAiProfileManagementAccess,
   resolveRepositoryAccessCollection,
+  sameAccessCollection,
 } from "../../../access-management/src/index.ts";
 import type { AiProfileCatalogAdministration } from "../../../ai-adapter/src/index.ts";
 import {
@@ -40,10 +41,10 @@ import type { McpAuthenticatedRequestHandlerResolver } from "../transport/types.
  * @input 内部構成が検証した管理Rootと任意のCROS Owner Profile管理操作。
  * @returns 初回候補はdiscover専用Handler、通常本人は内容Handler、拒否はnull。
  * @precondition HTTP Transportは要求毎にResolverを呼び、Handlerを要求終了後に共有しない。
- * @postcondition Portfolioは全本文成功時だけ、Topic／Meetingは現在許可対象だけを操作する。
+ * @postcondition Portfolioは現在集合を公開前に再確認し文書不完全性を保持する。Topic／Meetingは現在許可対象だけを操作する。
  * @effect 既存AM認証とLock、許可後のDomain読取りと明示CRUD。新StoreやSessionは作らない。
  * @failure 認証不成立はnull、内容認可・本文取得不成立は既存の固定MCPエラー。
- * @invariant 空認可だけ正常空集合。本文不明をnull／missingや部分成功にしない。
+ * @invariant 空認可だけ正常空集合。文書不明はunavailableとnull本文／版で示し、完全成功やmissingにしない。
  * @boundary AM内部RootからProject ContextとTopic／MeetingのMCP構成へ渡す。
  * @security Bearerを要求closureにだけ保持し、Root・Path・Binding・管理改訂を返さない。文字列消去は保証しない。
  * @concurrency 各HTTP要求が再認証・再認可する。同期Reader開始後は終了を待って取消結果の公開を止める。
@@ -204,16 +205,16 @@ export function createAccessMcpResolver(
           projectContext: {
             /**
              * 内容Callの現在認可と実本文を一つのPortfolioへ閉じる。
-             * @responsibility 非許可読取りと部分公開を防ぐ。
+             * @responsibility 非許可読取りを防ぎ、文書未確認・競合を認可済みSourceへ限定して表示する。
              * @trace ARCH-000005
              * @trace ARCH-000013
              * @input N/A: 当該要求のBearerと取消Signalだけを使用する。
              * @returns Domainが集約した非秘密Portfolio。
              * @precondition 通常Header認証が完了し、Tool入力は既存Adapterが検査済み。
-             * @postcondition 全本文成功または認証済み空集合だけを返す。
+             * @postcondition 認可・実体・全集合の再確認が成功した場合だけ、不完全性を保持した結果を返す。
              * @effect 現在許可集合の再取得と各固定本文の同期読取り。
-             * @failure 取消・集合不明・本文不明は固定例外を既存Adapterで非開示エラーへ変換する。
-             * @invariant SourceはProject・Repository・本文版・解析Contextの4項目だけ。
+             * @failure 取消・集合不明・Root不成立・公開前集合差は全体拒否。本文不成立はSourceの未確認・競合。
+             * @invariant SourceはProject・Repository・読取り状態・本文版・解析Contextの5項目だけ。非completeは本文・版なし。
              * @boundary AM現在認可→Domain本文／集約→既存MCP Adapter。
              * @security Token・技術的Root・下位例外を結果へ透過しない。
              * @concurrency cacheせず呼出し毎に現在認可する。同期I/Oの中断保証はしない。
@@ -232,18 +233,41 @@ export function createAccessMcpResolver(
                   repository.root,
                   repository.manifest,
                 );
-                if (read.status !== "completed")
+                if (read.status === "blocked")
                   throw new Error("project_context_unavailable");
-                sources.push({
-                  projectId: repository.manifest.projectId,
-                  repositoryId: repository.repositoryId,
-                  revision: read.revision,
-                  context: read.context,
-                });
+                sources.push(
+                  read.status === "completed"
+                    ? {
+                        projectId: repository.manifest.projectId,
+                        repositoryId: repository.repositoryId,
+                        state: "complete",
+                        revision: read.revision,
+                        context: read.context,
+                      }
+                    : {
+                        projectId: repository.manifest.projectId,
+                        repositoryId: repository.repositoryId,
+                        state:
+                          read.status === "conflicting"
+                            ? "conflicting"
+                            : "unavailable",
+                        revision: null,
+                        context: null,
+                      },
+                );
               }
               if (signal.aborted)
                 throw new Error("project_context_unavailable");
-              return createPortfolioProjection(sources);
+              const portfolio = createPortfolioProjection(sources);
+              if (
+                !sameAccessCollection(
+                  collection,
+                  resolveRepositoryAccessCollection(root, token),
+                ) ||
+                signal.aborted
+              )
+                throw new Error("project_context_unavailable");
+              return portfolio;
             },
           },
         },

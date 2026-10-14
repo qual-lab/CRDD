@@ -7,6 +7,8 @@
 
 ## 基本設計との関係
 
+CROS用Profile Storeは固定config候補と既存親chainの通常Directory・非Link・realpath一致を構成時と各snapshot／adoptで再確認する。構成と読取りでは作成せず、採用時の不足suffixだけ一段ずつ非再帰mkdirして親Identityを再確認する。Link・観測不能・作成中置換を空Catalogや保存成功へ畳まない。Windowsのconfigとstateは同一Root、Linuxは別Rootであり、AM stateの検証をCatalog自身の検証へ流用しない。新Store／Lock／Root Framework、Catalog Schema・Revision、Repository単体Storeは変更しない。操作間の恒久的な置換耐性やOS全体の排他を保証しない。
+
 共有Profile四管理操作のTarget許可は[Access Management](../access-management/01_Architecture.md)が現在manager／administratorとして判定する。AI AdapterはRole・資格を解釈せず、限定Mutationの入力検査・Catalog内容・Store・改訂競合・結果相関を所有する。旧CROSの純粋Mutation検査は`parseAiProfileCatalogMutation`として同Ownerへ移管した局所実装候補で、現行systemAdmin経路の成功を新Role本番接続へ読み替えない。Repository単体のローカル管理にはCROS資格・Roleを要求しない。
 
 AI Adapterは、Adapter、Model、Profileの構成契約とProvider固有の起動・認証方式・結果変換を所有する。実装は旧`ai-runtime`とCoordinator内のProvider固有差を`ai-adapter`へ統合する。任意実行Path・任意CLI引数・秘密値をCatalogへ持たず、実行Authorityの発行、Docker／Processの所有、外部送信許可と共通の回収判定はCoordinatorに残す。

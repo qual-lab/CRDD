@@ -1,5 +1,6 @@
 /**
  * 初回限定discoverから確認保存と次要求の通常接続を検証する。
+ * @packageDocumentation
  * @responsibility 完全要求前の確認0と保存後の非秘密応答を実HTTPへ接続する。
  * @trace RFD-IT-024
  * @trace RFD-IT-025

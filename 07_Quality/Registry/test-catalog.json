@@ -21,9 +21,8 @@
     "checker": "node_test",
     "coordinator": "node_test",
     "domain-model": "node_test",
-    "cros": "node_test",
     "execution-intelligence": "node_test",
-    "mcp": "node_test",
+    "mcp-server": "node_test",
     "official-asset-governance": "node_test",
     "orchestrator": "node_test",
     "semantic-coverage": "node_test",
@@ -31,9 +30,19 @@
     "platform-access": "cargo_test",
     "verification-runner": "node_test",
     "visual-preview": "node_test",
-    "workbench": "node_test"
+    "workbench-server": "node_test"
   },
   "integrationBlocks": [
+    {
+      "id": "access-management:current-access-and-state",
+      "owner": "access-management",
+      "architectureAnchor": "06_Architecture/Details/access-management/01_Architecture.md#3-要求毎の認証認可",
+      "responsibilities": ["host_initialization", "credential_exchange", "current_authorization", "state_publication"],
+      "externalBoundaries": ["host_filesystem", "credential_presentation", "current_repository_binding"],
+      "lifecycleProfile": "durable_operation",
+      "testIds": ["access-management:integration:credential-key-exchange", "access-management:integration:initial-connection", "access-management:integration:credential-token-material", "access-management:integration:state-file-store", "access-management:integration:host-entry"],
+      "postconditions": ["current_user_role_authorization", "secret_not_stored", "publication_outcome_preserved", "initial_connection_confirmation_distinct", "host_recovery_exchange_only"]
+    },
     {
       "id": "ai-runtime:catalog-to-consumers",
       "owner": "ai-adapter",
@@ -70,22 +79,12 @@
     {
       "id": "crdd-domain-library:reality-and-repository-boundary",
       "owner": "domain-model",
-      "architectureAnchor": "06_Architecture/Details/domain-model/02_Activity_Context.md#3-公開入口と依存方向",
+      "architectureAnchor": "06_Architecture/Details/domain-model/01_Architecture.md#3-公開入口と依存方向",
       "responsibilities": ["reality_symbol_contract", "reality_relation_graph", "repository_regular_entry_observation"],
       "externalBoundaries": ["repository_filesystem"],
       "lifecycleProfile": "read_only_boundary",
       "testIds": ["crdd-domain-library:unit:public-boundary", "crdd-domain-library:unit:filesystem-store-root", "crdd-domain-library:unit:repository-observation", "crdd-domain-library:integration:reality-repository"],
       "postconditions": ["public_export_allowlist_exact", "domain_and_repository_owner_separated", "repository_outside_observation_absent", "opened_handle_location_proven_or_read_unobservable", "repository_content_unchanged"]
-    },
-    {
-      "id": "cros:workspace-federation-and-handoff",
-      "owner": "cros",
-      "architectureAnchor": "06_Architecture/Details/cros/01_Architecture.md#6-canonicalな読取り経路",
-      "responsibilities": ["workspace_access", "repository_federation", "bearer_remote_transport", "context_handoff", "tool_registry", "surface_contract", "result_return"],
-      "externalBoundaries": ["credential_verifier", "repository_binding", "loopback_http", "source_runtime", "destination_runtime", "tool_surface"],
-      "lifecycleProfile": "durable_operation",
-      "testIds": ["cros:integration:core", "cros:integration:connection-credential", "cros:integration:credential-access-recovery-file-adapter", "cros:integration:credential-registry-file-adapter", "cros:integration:project-federation", "cros:integration:remote-transport", "cros:integration:shared-server-config", "cros:integration:surface-contract", "cros:integration:tool-registry", "cros:system:context-handoff", "cros:system:result-return", "cros:system:session-access"],
-      "postconditions": ["grant_outside_repository_not_disclosed", "credential_secret_not_stored", "credential_registry_revision_immutable", "credential_and_exposure_revisions_separated", "external_plain_http_rejected", "shared_server_config_fixed", "project_context_identity_preserved", "closed_session_access_absent", "handoff_authority_not_expanded", "tool_cancellation_resources_absent"]
     },
     {
       "id": "semantic-coverage:meaning-to-bundle",
@@ -219,7 +218,7 @@
     },
     {
       "id": "workbench:production-shell",
-      "owner": "workbench",
+      "owner": "workbench-server",
       "architectureAnchor": "06_Architecture/Details/workbench-server/01_Architecture.md#6-interfaceとinteraction境界",
       "responsibilities": ["loopback_shell_delivery", "official_logo_delivery", "project_context_read_model", "unconfigured_capability_classification", "credential_administration", "one_time_secret_display", "candidate_review_and_disposition", "route_allowlist", "listener_cleanup"],
       "externalBoundaries": ["repository_filesystem", "localhost_http", "browser_consumer", "credential_registry", "candidate_application"],
@@ -339,23 +338,23 @@
     },
     {
       "id": "mcp:public-contract-adapter",
-      "owner": "mcp",
+      "owner": "mcp-server",
       "architectureAnchor": "06_Architecture/Details/mcp-server/01_Architecture.md#3-依存と所有権",
       "responsibilities": ["transport_decode_encode", "public_contract_projection", "project_context_projection", "closed_result_mapping"],
       "externalBoundaries": ["mcp_request", "orchestrator_public_contract", "project_context_read_model", "mcp_response"],
       "lifecycleProfile": "pure_component",
-      "testIds": ["mcp:unit:project-context", "mcp:unit:orchestrator", "mcp:integration:cros-project-context", "mcp:integration:cros-shared-server", "mcp:integration:transport-lifecycle", "mcp:system:cros-projection-non-disclosure", "mcp:system:stdio", "coordinator:integration:orchestrator-composition-root"],
+      "testIds": ["mcp:unit:project-context", "mcp:unit:orchestrator", "mcp:integration:access-capabilities", "mcp:integration:ai-profile-adapter", "mcp:integration:runtime-activity-adapter", "mcp:integration:transport-lifecycle", "mcp:system:stdio", "mcp:system:streamable-http", "coordinator:integration:orchestrator-composition-root"],
       "postconditions": ["transport_does_not_issue_authority", "canonical_result_not_reinterpreted", "unknown_field_rejected"]
     },
     {
       "id": "mcp:transport-session",
-      "owner": "mcp",
+      "owner": "mcp-server",
       "architectureAnchor": "06_Architecture/Details/mcp-server/01_Architecture.md#5-transport-lifecycle",
       "responsibilities": ["stdio_session", "localhost_http_session", "cancellation_and_connection_close"],
       "externalBoundaries": ["stdio", "localhost_http", "client_disconnect"],
       "lifecycleProfile": "transport_session",
-      "testIds": ["mcp:integration:cros-shared-server", "mcp:integration:transport-lifecycle", "mcp:system:cros-projection-non-disclosure", "mcp:system:cros-shared-server-entry", "mcp:system:stdio", "mcp:system:streamable-http", "coordinator:integration:orchestrator-composition-root"],
-      "postconditions": ["rest_and_mcp_same_origin", "tls_termination_contract_verified", "listener_closed", "inflight_request_classified", "disconnect_not_reported_success"]
+      "testIds": ["mcp:integration:transport-lifecycle", "mcp:integration:access-capabilities", "mcp:integration:runtime-activity-adapter", "mcp:system:stdio", "mcp:system:streamable-http", "coordinator:integration:orchestrator-composition-root"],
+      "postconditions": ["tls_termination_contract_verified", "listener_closed", "inflight_request_classified", "disconnect_not_reported_success"]
     },
     {
       "id": "platform-access:observation-protocol",
@@ -379,6 +378,13 @@
     }
   ],
   "integrationCorridors": [
+    {
+      "id": "access-management:current-access-to-mcp",
+      "architectureAnchor": "06_Architecture/Details/mcp-server/01_Architecture.md#3-依存と所有権",
+      "blockPath": ["access-management:current-access-and-state", "mcp:public-contract-adapter"],
+      "testIds": ["access-management:integration:state-file-store", "mcp:integration:access-capabilities"],
+      "postconditions": ["current_authorization_before_content", "revoked_credential_not_disclosed", "repository_project_binding_preserved"]
+    },
     {
       "id": "ai-runtime:catalog-to-workbench",
       "architectureAnchor": "06_Architecture/Details/ai-adapter/01_Architecture.md#3-公開入口と依存方向",
@@ -405,17 +411,10 @@
     },
     {
       "id": "crdd-domain-library:reality-to-checker",
-      "architectureAnchor": "06_Architecture/Details/domain-model/02_Activity_Context.md#7-consumer-closure",
+      "architectureAnchor": "06_Architecture/Details/domain-model/01_Architecture.md#7-consumer-closure",
       "blockPath": ["crdd-domain-library:reality-and-repository-boundary", "checker:repository-verification"],
       "testIds": ["crdd-domain-library:integration:reality-repository", "checker:integration:crdd-check"],
       "postconditions": ["compatibility_shim_connection_observed", "checker_consumer_result_preserved", "final_consumer_migration_not_claimed"]
-    },
-    {
-      "id": "cros:federation-to-project-operation",
-      "architectureAnchor": "06_Architecture/Details/cros/01_Architecture.md#6-canonicalな読取り経路",
-      "blockPath": ["cros:workspace-federation-and-handoff", "project-operation:projection-and-candidate"],
-      "testIds": ["cros:integration:project-federation", "cros:system:session-access", "cros:system:context-handoff", "project-operation:integration:project-projection"],
-      "postconditions": ["authorized_repository_set_preserved", "partial_state_not_completed", "non_disclosure_preserved"]
     },
     {
       "id": "version-control:revision-to-signing-input",
@@ -472,13 +471,6 @@
       "blockPath": ["project-operation:projection-and-candidate", "workbench:production-shell"],
       "testIds": ["project-operation:integration:repository-project-context", "workbench:integration:project-surface", "workbench:integration:production-shell"],
       "postconditions": ["project_context_five_scenes_exact", "unconfigured_capability_not_zero", "listener_absent"]
-    },
-    {
-      "id": "cros:credential-to-project-context-mcp",
-      "architectureAnchor": "06_Architecture/Details/mcp-server/01_Architecture.md#3-依存と所有権",
-      "blockPath": ["cros:workspace-federation-and-handoff", "mcp:public-contract-adapter", "mcp:transport-session"],
-      "testIds": ["cros:integration:remote-transport", "cros:integration:shared-server-config", "mcp:integration:cros-project-context", "mcp:integration:cros-shared-server", "mcp:system:cros-projection-non-disclosure", "mcp:system:cros-shared-server-entry"],
-      "postconditions": ["authorized_projection_only", "credential_secret_not_stored", "grant_outside_repository_not_disclosed", "rest_and_mcp_same_origin", "tls_termination_contract_verified", "listener_absent"]
     },
     {
       "id": "version-control:change-publication-to-workbench",
@@ -564,7 +556,7 @@
       "producerPaths": [
         "40_Develop/domain-model/src"
       ],
-      "consumerOwner": "mcp",
+      "consumerOwner": "mcp-server",
       "consumerStatic": true,
       "testIds": [
         "mcp:unit:project-context",
@@ -577,7 +569,7 @@
         "40_Develop/domain-model/src/project-context/portfolio.ts",
         "40_Develop/domain-model/src/index.ts"
       ],
-      "consumerOwner": "mcp",
+      "consumerOwner": "mcp-server",
       "consumerStatic": true,
       "testIds": [
         "mcp:unit:project-context"
@@ -608,7 +600,7 @@
       "producerPaths": [
         "40_Develop/orchestrator/src"
       ],
-      "consumerOwner": "mcp",
+      "consumerOwner": "mcp-server",
       "consumerStatic": true,
       "testIds": [
         "mcp:unit:orchestrator",
@@ -670,6 +662,84 @@
   ],
   "tests": [
     {
+      "id": "mcp:integration:ai-profile-adapter",
+      "owner": "mcp-server",
+      "path": "40_Develop/mcp-server/tests/integration/ai-profile-adapter.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["profile", "fresh-authorization", "post-adoption-failure", "cancellation", "result-correlation"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["authorization_after_complete_input", "conflicting_dependencies_effect_zero", "adopted_state_not_rolled_back", "automatic_retry_zero", "contradictory_result_rejected", "executable_property_not_invoked"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "mcp:integration:runtime-activity-adapter",
+      "owner": "mcp-server",
+      "path": "40_Develop/mcp-server/tests/integration/runtime-activity-adapter.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["runtime-activity", "reader-join", "cancellation"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["prestart_cancel_reader_zero", "started_reader_joined_before_cancel_response"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "workbench:integration:public-origin",
+      "owner": "workbench-server",
+      "path": "40_Develop/workbench-server/tests/integration/public-origin.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["https-public-origin", "tls-deployment-header", "authentication-before-content", "local-access-owner-required"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["invalid_public_origin_rejected_before_listener", "standalone_not_implicitly_public", "tls_boundary_rejection_access_root_open_zero", "origin_absent_get_no_content", "origin_absent_post_rejected", "unknown_credential_not_authenticated", "owned_listener_closed", "owned_fixture_directory_absent"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "workbench:system:public-entry",
+      "owner": "workbench-server",
+      "path": "40_Develop/workbench-server/tests/system/workbench-server-entry.integration.test.ts",
+      "level": "system",
+      "kind": "contract",
+      "semanticTags": ["public-cli", "explicit-mode", "closed-arguments", "host-environment-unavailable", "host-missing-fresh-corrupt", "no-implicit-repository-fallback", "real-localhost-tls", "public-test-certificate"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["help_exit_zero", "invalid_arguments_exit_64", "cros_environment_unavailable_exit_2", "missing_fresh_corrupt_host_unchanged", "rejected_entry_no_listener_announcement", "initialized_host_listener_started", "explicit_public_configuration_read_by_cli", "public_announcement_and_loopback_observation_separated", "unauthenticated_portfolio_not_disclosed", "unauthenticated_selected_repository_rejected", "request_scoped_authentication_confirmed", "management_and_host_profile_owner_connected", "startup_repository_not_implicitly_exposed", "spawn_failure_and_initial_throw_observed", "synthetic_sigterm_process_zero_exit", "closed_listener_connection_rejected", "owned_process_normal_exit", "owned_fixture_directory_absent"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "workbench:integration:browser-connection",
+      "owner": "workbench-server",
+      "path": "40_Develop/workbench-server/tests/integration/browser-connection.contract.test.ts",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": ["browser-memory-credential", "same-origin", "late-response", "bounded-response", "fixture-transport-only"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["global_fixture_restored", "credential_reference_released", "foreign_origin_send_zero", "old_connection_response_rejected", "response_reader_released", "inflight_abort_rejected", "automatic_retry_zero"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "workbench:integration:management",
+      "owner": "workbench-server",
+      "path": "40_Develop/workbench-server/tests/integration/management.integration.test.ts",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": ["access-management", "current-user", "standalone-cros-direct-equivalence", "fresh-role", "closed-input", "secret-free-result", "local-authorized-portfolio", "local-authorized-records", "local-connection-authentication", "initial-connection-confirmation"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["record_post_publication_exposure_change_unconfirmed", "record_post_publication_credential_change_unconfirmed", "record_post_publication_exception_effect_retained", "record_cancel_server_close_observed", "record_cancel_success_body_zero", "record_normal_success_body_positive_control", "record_fresh_read_mutation_zero", "record_sibling_scope_change_unconfirmed", "topic_promotion_and_conflict_preserved", "meeting_pending_close_rejected", "meeting_all_outcomes_close_confirmed", "selected_topic_meeting_crud", "record_form_closed_and_required", "record_boolean_invalid_effect_zero", "record_revision_conflict_preserved", "record_confirmation_preserved", "servers_closed", "test_root_removed", "registration_requires_current_management_role", "registration_does_not_publish", "local_portfolio_uses_current_access", "unknown_context_not_partial_success", "explicit_repository_selection_no_fallback", "selected_get_identity_correlated", "activity_same_project_sources_complete", "activity_other_project_excluded", "activity_cursor_continuation_exact", "activity_invalid_cursor_no_first_page", "activity_state_event_unknown_independent", "activity_read_no_initialization", "shared_profile_owner_injected", "profile_current_management_role", "profile_developer_read_write_zero", "profile_revision_and_confirmation_preserved", "profile_fault_no_repository_fallback", "profile_post_snapshot_reauthorization", "profile_post_write_unconfirmed_no_retry", "profile_cancelled_success_body_zero", "activity_precancel_read_zero", "activity_started_read_joined", "activity_cancelled_success_body_zero", "activity_cancelled_retry_zero", "selected_complete_access_collection_rechecked", "duplicate_selection_observation_zero", "equivalent_collection_order_accepted", "profile_unobserved_not_defaulted", "selected_get_previous_results_absent", "selected_content_denied_after_exposure_removal", "invalid_connection_input_state_unchanged", "initial_connection_published_once", "normal_connection_reentry_state_unchanged", "local_cros_startup_content_not_read", "revoked_local_connection_not_displayed", "request_credential_subjects_not_shared"],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "access-management:integration:credential-key-exchange",
       "owner": "access-management",
       "path": "40_Develop/access-management/tests/integration/credential/key-exchange.contract.test.ts",
@@ -727,11 +797,11 @@
       "path": "40_Develop/access-management/tests/integration/initialization/host-entry.contract.test.ts",
       "level": "integration",
       "kind": "contract",
-      "semanticTags": ["host-initialization", "bounded-root-preparation", "legacy-input-observation", "cli-input-rejection", "prompt-cancellation", "single-key-presentation", "host-key-exchange", "confirmation-revision-conflict"],
+      "semanticTags": ["host-initialization", "bounded-root-preparation", "existing-host-root-read-only", "legacy-input-observation", "cli-input-rejection", "prompt-cancellation", "single-key-presentation", "host-key-exchange", "confirmation-revision-conflict"],
       "environment": "node_process",
       "externalProviderEffect": false,
       "humanInput": false,
-      "postconditions": ["created_directories_preserved_on_failure", "known_presence_distinct_from_unknown", "cli_rejection_root_effect_zero", "owned_readline_closed", "shared_streams_not_destroyed", "test_root_removed"],
+      "postconditions": ["created_directories_preserved_on_failure", "missing_root_not_created", "existing_root_unchanged", "linked_or_replaced_root_rejected", "known_presence_distinct_from_unknown", "cli_rejection_root_effect_zero", "owned_readline_closed", "shared_streams_not_destroyed", "test_root_removed"],
       "mandatoryByDefault": true
     },
     {
@@ -951,84 +1021,6 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "cros:integration:core",
-      "owner": "cros",
-      "path": "40_Develop/cros/tests/integration/local-operation-ai-plan.contract.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": ["local-equivalence", "ai-entry", "handoff", "authority"],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": ["repository_contract_equal", "canonical_source_equal", "handoff_mismatch_effect_zero"],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "cros:integration:tool-registry",
-      "owner": "cros",
-      "path": "40_Develop/cros/tests/integration/tool-registry.contract.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": ["tool-registry", "surface", "authority", "cancellation"],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": ["shared_implementation_identity", "unauthorized_effect_zero", "cancelled_resources_absent"],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "cros:integration:connection-credential",
-      "owner": "cros",
-      "path": "40_Develop/cros/tests/integration/connection-credential.contract.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": ["credential", "authentication", "workspace", "revocation", "rotation"],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": ["credential_secret_not_stored", "profile_not_authority_hierarchy", "revocation_applies_next_request", "rotation_replay_absent"],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "cros:integration:credential-registry-file-adapter",
-      "owner": "cros",
-      "path": "40_Develop/cros/tests/integration/credential-registry-file-adapter.contract.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": ["credential", "runtime-data", "immutable-publication", "revision-conflict"],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": ["credential_secret_not_stored", "credential_registry_revision_immutable", "conflicting_publish_effect_zero"],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "cros:integration:credential-access-recovery-file-adapter",
-      "owner": "cros",
-      "path": "40_Develop/cros/tests/integration/credential-access-recovery-file-adapter.contract.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": ["credential", "host-recovery", "runtime-data", "human-confirmation", "bootstrap-reentry"],
-      "environment": "local_component_boundary",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": ["recovery_plan_confirmed", "credential_registry_single_revision", "product_data_effect_zero", "credential_secret_not_stored", "bootstrap_administration_available"],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "cros:integration:project-federation",
-      "owner": "cros",
-      "path": "40_Develop/cros/tests/integration/project-federation.contract.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": ["project-context", "portfolio", "coverage", "non-disclosure"],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": ["authorized_repositories_only", "missing_source_preserved", "projection_not_source_of_truth"],
-      "mandatoryByDefault": true
-    },
-    {
       "id": "domain-model:integration:project-portfolio",
       "owner": "domain-model",
       "path": "40_Develop/domain-model/tests/integration/project-portfolio.contract.test.ts",
@@ -1052,84 +1044,6 @@
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": ["unobservable_not_missing", "identity_verified", "descriptors_closed"],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "cros:integration:remote-transport",
-      "owner": "cros",
-      "path": "40_Develop/cros/tests/integration/remote-transport.contract.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": ["bearer", "http", "portfolio", "workspace", "system-administration", "ai-profile-administration", "non-disclosure"],
-      "environment": "local_component_boundary",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": ["authorized_repositories_only", "credential_and_exposure_revisions_separated", "credential_not_reported", "non_admin_profile_catalog_not_disclosed", "system_admin_profile_mutation_limited", "external_plain_http_rejected", "listener_absent"],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "cros:integration:shared-server-config",
-      "owner": "cros",
-      "path": "40_Develop/cros/tests/integration/shared-server-config-file-adapter.contract.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": ["shared-server", "configuration", "repository-binding", "workspace", "exposure", "tls"],
-      "environment": "local_component_boundary",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": ["fixed_config_root", "verified_repository_only", "project_context_identity_preserved", "plaintext_origin_rejected"],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "cros:integration:surface-contract",
-      "owner": "cros",
-      "path": "40_Develop/cros/tests/integration/surface-contract.contract.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": ["surface", "application-contract", "effect-equivalence"],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": ["shared_application_contract", "canonical_owner_only", "cancelled_resources_absent"],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "cros:system:session-access",
-      "owner": "cros",
-      "path": "40_Develop/cros/tests/system/session-access.contract.test.ts",
-      "level": "system",
-      "kind": "contract",
-      "semanticTags": ["credential", "session", "workspace", "non-disclosure"],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": ["closed_session_access_absent", "admin_does_not_confer_content_access", "restricted_identity_not_disclosed"],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "cros:system:context-handoff",
-      "owner": "cros",
-      "path": "40_Develop/cros/tests/system/context-handoff.contract.test.ts",
-      "level": "system",
-      "kind": "contract",
-      "semanticTags": ["context-package", "provenance", "handoff", "recovery"],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": ["scope_minimized", "package_not_source_of_truth", "source_double_execution_absent", "authority_expansion_effect_zero"],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "cros:system:result-return",
-      "owner": "cros",
-      "path": "40_Develop/cros/tests/system/result-return.contract.test.ts",
-      "level": "system",
-      "kind": "contract",
-      "semanticTags": ["delegation", "result-return", "correlation", "replay"],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": ["origin_identity_preserved", "conflict_effect_zero", "replay_effect_zero"],
       "mandatoryByDefault": true
     },
     {
@@ -3150,19 +3064,6 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "mcp:integration:cros-project-context",
-      "owner": "mcp-server",
-      "path": "40_Develop/mcp-server/tests/integration/cros-project-context-mcp.integration.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": ["mcp", "cros", "credential", "project-context", "topic-meeting", "repository-routing", "owner-relation", "http", "ai-profile", "current-authorization", "exclusive-dependencies", "cancellation"],
-      "environment": "local_component_boundary",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": ["authorized_projection_only", "authorized_repository_write_only", "credential_secret_not_stored", "grant_outside_repository_not_disclosed", "listener_absent", "profile_request_reauthorization", "profile_dependency_conflict_before_observation", "invalid_input_and_precancel_authorization_zero", "adopted_profile_not_rolled_back_or_repeated"],
-      "mandatoryByDefault": true
-    },
-    {
       "id": "mcp:integration:initial-connection",
       "owner": "mcp-server",
       "path": "40_Develop/mcp-server/tests/integration/initial-connection.integration.test.ts",
@@ -3199,19 +3100,6 @@
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": ["authorized_projection_only", "authorized_repository_write_only", "project_identity_bound", "unknown_body_stops_whole_result", "request_reauthorization", "stored_runtime_state_and_history_delivered", "authorized_activity_sources_exact", "partial_exposure_reflected", "current_profile_role_enforced", "profile_store_not_observed_when_denied", "nonkey_management_current_role", "nonkey_management_six_mutations_confirmed", "management_binding_and_secret_not_disclosed", "unregister_preserves_repository_body", "pending_remote_registration_not_exposed", "management_primary_failure_preserved", "confirmed_publication_not_rewritten", "management_automatic_resend_zero", "listener_absent"],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "mcp:integration:cros-shared-server",
-      "owner": "mcp-server",
-      "path": "40_Develop/mcp-server/tests/integration/cros-shared-server.integration.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": ["cros", "mcp", "shared-server", "same-origin", "tls", "bearer", "cleanup"],
-      "environment": "local_component_boundary",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": ["rest_and_mcp_same_origin", "tls_boundary_verified", "authorized_projection_only", "credential_not_reported", "listener_absent"],
       "mandatoryByDefault": true
     },
     {
@@ -3786,41 +3674,44 @@
         "project",
         "runtime",
         "http",
-        "transport"
+        "transport",
+        "cros-mode",
+        "existing-host-root",
+        "initial-to-normal-connection",
+        "fresh-credential-evaluation",
+        "key-management-not-exposed",
+        "https-public-origin",
+        "tls-deployment-header-boundary",
+        "real-localhost-tls",
+        "public-test-certificate"
       ],
       "environment": "fixed_system_runtime",
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": [
         "public_result_observed",
-        "owned_resources_settled_or_reported"
+        "owned_resources_settled_or_reported",
+        "missing_host_root_not_created",
+        "invalid_management_material_unchanged",
+        "initial_connection_precedes_normal_tools",
+        "revoked_credential_rejected_next_request",
+        "canonical_tool_set_has_no_key_management",
+        "credential_not_in_response_headers_or_output",
+        "explicit_public_config_used_by_mcp_cli",
+        "public_url_and_loopback_listener_separated",
+        "public_cli_initial_connection_and_revocation_observed",
+        "synthetic_signal_cli_zero_exit",
+        "invalid_public_origin_listener_not_started",
+        "tls_header_mismatch_authentication_zero",
+        "duplicate_tls_header_rejected",
+        "origin_absent_machine_request_supported",
+        "tls_headers_do_not_replace_bearer_authentication",
+        "explicit_test_ca_tls_verified",
+        "untrusted_certificate_rejected",
+        "client_forwarded_headers_overwritten",
+        "owned_tls_proxy_upstreams_sockets_joined",
+        "closed_tls_listener_fresh_connection_refused"
       ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "mcp:system:cros-projection-non-disclosure",
-      "owner": "mcp-server",
-      "path": "40_Develop/mcp-server/tests/system/cros-projection-non-disclosure.contract.test.ts",
-      "level": "system",
-      "kind": "contract",
-      "semanticTags": ["cros", "mcp", "shared-server", "credential", "exposure", "repository", "non-disclosure"],
-      "environment": "fixed_system_runtime",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": ["public_result_observed", "owned_resources_settled_or_reported", "listener_absent"],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "mcp:system:cros-shared-server-entry",
-      "owner": "mcp-server",
-      "path": "40_Develop/mcp-server/tests/system/cros-shared-server-entry.integration.test.ts",
-      "level": "system",
-      "kind": "integration",
-      "semanticTags": ["cros", "mcp", "shared-server", "public-entry", "runtime-config", "process-cleanup"],
-      "environment": "fixed_system_runtime",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": ["public_entry_ready", "fixed_config_used", "parent_eof_cleanup_confirmed", "listener_absent"],
       "mandatoryByDefault": true
     },
     {
@@ -5360,10 +5251,12 @@
         "credential-finalizer-close-join",
         "ai-request-application-port",
         "ai-result-meaning-separation",
+        "activity-direct-orchestrator-owner",
+        "activity-fixed-repository-identity",
+        "activity-cursor-no-legacy-fallback",
         "candidate-review-and-disposition",
         "candidate-confirmation",
         "ai-profile-administration",
-        "cros-owner-profile-administration",
         "runtime-activity-application-port",
         "runtime-activity-repository-composition",
         "runtime-observation-state-separation",
@@ -5376,10 +5269,7 @@
         "topic-meeting-crud",
         "public-failure-classification",
         "meeting-outcome-treatment",
-        "remote-topic-meeting",
-        "repository-selection",
-        "cross-repository-owner-relation",
-        "no-local-fallback",
+        "retired-remote-configuration-rejected",
         "route-allowlist",
         "cleanup"
       ],
@@ -5389,6 +5279,9 @@
       "postconditions": [
         "repository_content_unchanged",
         "official_logo_exact",
+        "retired_remote_configuration_network_zero",
+        "retired_connection_post_rejected",
+        "connection_model_state_only",
         "credential_secret_not_stored",
         "credential_secret_displayed_once",
         "repository_mode_credential_optional",
@@ -5398,8 +5291,6 @@
         "ai_result_external_text_escaped",
         "repository_catalog_snapshot_projected",
         "repository_profile_create_update_delete_limited",
-        "cros_profile_administration_system_admin_only",
-        "repository_and_cros_profile_owners_separated",
         "runtime_activity_current_projection_only",
         "runtime_activity_current_revision_exact",
         "runtime_state_query_initialization_effect_absent",
@@ -5411,7 +5302,6 @@
         "owner_artifact_search_catalog_limited",
         "owner_artifact_relation_origin_exact",
         "profile_delete_confirmation_effect_zero",
-        "remote_revocation_stale_projection_absent",
         "topic_meeting_crud_shared_contract",
         "record_invalid_input_rejected_before_dispatch",
         "record_storage_failure_not_input_rejection",
@@ -5425,17 +5315,101 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "workbench:system:credential-browser",
+      "id": "workbench:integration:topic-meeting-presentation",
       "owner": "workbench-server",
-      "path": "40_Develop/workbench-server/tests/system/credential-administration.browser.contract.test.ts",
-      "level": "system",
+      "path": "40_Develop/workbench-server/tests/integration/topic-meeting-presentation.contract.test.ts",
+      "level": "integration",
       "kind": "contract",
-      "semanticTags": ["workbench", "access-management", "credential-administration", "actual-browser", "one-time-secret", "reload-no-secret", "key-exchange-current-connection", "cleanup"],
+      "semanticTags": ["workbench", "topic-meeting", "closed-response", "operation-correlation", "selected-repository"],
       "environment": "fixed_system_runtime",
       "executionProfiles": ["restricted_process"],
       "externalProviderEffect": false,
       "humanInput": false,
-      "postconditions": ["test_root_bootstrap_independent", "cleanup_failure_no_fixture_residual", "credential_post_once", "credential_dom_short_lived", "credential_generic_get_absent", "credential_storage_absent", "credential_reload_absent", "credential_failure_no_success", "old_connection_unavailable_after_exchange", "browser_process_tree_absent", "browser_profile_absent", "workbench_listener_absent"],
+      "postconditions": ["unchecked_boolean_explicit_false_once", "duplicate_form_field_rejected", "repository_and_action_token_correlated", "result_extra_field_rejected", "operation_kind_and_effect_correlated", "fresh_view_query_and_selection_preserved"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "workbench:integration:artifact-presentation",
+      "owner": "workbench-server",
+      "path": "40_Develop/workbench-server/tests/integration/artifact-presentation.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["workbench", "artifact", "closed-model", "repository-provenance"],
+      "environment": "fixed_system_runtime",
+      "executionProfiles": ["restricted_process"],
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["artifact_model_closed", "artifact_repository_correlated", "artifact_utf8_capacity_bounded"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "workbench:integration:repository-action",
+      "owner": "workbench-server",
+      "path": "40_Develop/workbench-server/tests/integration/repository-action.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["workbench", "repository-action", "closed-form", "effect-correlation"],
+      "environment": "fixed_system_runtime",
+      "executionProfiles": ["restricted_process"],
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["repository_operation_fields_exact", "duplicate_and_extra_fields_rejected", "shared_identity_required", "publication_confirmation_required", "operation_result_correlated", "blocked_issued_effect_preserved", "result_retry_and_force_false"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "workbench:integration:repository-action-http",
+      "owner": "workbench-server",
+      "path": "40_Develop/workbench-server/tests/integration/repository-action.integration.test.ts",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": ["workbench", "repository-action", "selected-root", "current-authorization", "local-git-remote"],
+      "environment": "fixed_system_runtime",
+      "executionProfiles": ["restricted_process"],
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["unselected_repository_unchanged", "stage_unstage_commit_target_exact", "publication_current_target_exact", "publication_confirmation_required", "normal_push_local_remote_observed", "post_effect_access_loss_result_unconfirmed", "git_effect_once", "unknown_result_no_retry", "owned_fixture_absent"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "workbench:integration:artifact-http",
+      "owner": "workbench-server",
+      "path": "40_Develop/workbench-server/tests/integration/artifact.integration.test.ts",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": ["workbench", "artifact", "current-authorization", "selected-repository", "reader-join"],
+      "environment": "fixed_system_runtime",
+      "executionProfiles": ["restricted_process"],
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["malformed_artifact_read_zero", "normal_artifact_read_observed", "artifact_selected_root_exact", "artifact_catalog_allowlist", "artifact_realpath_boundary", "artifact_capacity_before_and_after_read", "artifact_current_authorization_before_publication", "cancelled_reader_joined", "cancelled_success_body_zero", "owned_fixture_absent"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "workbench:integration:profile-presentation",
+      "owner": "workbench-server",
+      "path": "40_Develop/workbench-server/tests/integration/profile-presentation.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["workbench", "ai-profile", "closed-response", "catalog-correlation", "mutation-result"],
+      "environment": "fixed_system_runtime",
+      "executionProfiles": ["restricted_process"],
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["catalog_extra_field_rejected", "duplicate_identity_rejected", "unregistered_model_rejected", "ambiguous_selection_rejected", "submitted_mutation_result_correlated"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "workbench:system:credential-browser",
+      "owner": "workbench-server",
+      "path": "40_Develop/workbench-server/tests/system/credential-administration-browser.contract.test.ts",
+      "level": "system",
+      "kind": "contract",
+      "semanticTags": ["workbench", "access-management", "credential-administration", "user-role-management", "fresh-management-projection", "result-focus", "actual-browser", "one-time-secret", "reload-no-secret", "key-exchange-current-connection", "same-tab-get-navigation", "late-navigation-response", "synthetic-page-lifecycle", "cleanup"],
+      "environment": "fixed_system_runtime",
+      "executionProfiles": ["restricted_process"],
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["test_root_bootstrap_independent", "cleanup_failure_no_fixture_residual", "credential_post_once", "credential_dom_short_lived", "credential_generic_get_absent", "credential_storage_absent", "credential_reload_absent", "credential_failure_no_success", "old_connection_unavailable_after_exchange", "same_tab_credential_retained", "get_search_and_history_refetched", "selected_repository_preserved", "selected_root_display_correlated", "direct_record_controls_enabled", "direct_git_controls_enabled_and_unconnected_ai_disabled", "record_submit_once", "detail_delete_returns_same_repository", "known_record_save_survives_read_failure", "unknown_record_response_not_unsaved", "record_retry_read_only", "record_detail_stale_body_hidden_after_read_failure", "record_blocked_result_distinct_from_saved", "record_post_late_response_aborted_and_not_adopted", "topic_promotion_connected", "pending_outcome_close_rejected", "unchecked_close_false_once", "all_outcomes_treated_then_close", "native_navigation_not_intercepted", "late_navigation_response_rejected", "pagehide_inflight_fetch_aborted", "synthetic_pagehide_root_released", "synthetic_pageshow_without_credential", "browser_process_tree_absent", "browser_profile_absent", "workbench_listener_absent", "artifact_selected_root_text_only", "artifact_history_refetched", "artifact_url_provenance_exact", "artifact_shared_null_selection_rejected", "artifact_standalone_nonnull_selection_rejected", "artifact_late_body_rejected", "artifact_reload_requires_reconnection", "git_form_post_once", "git_selected_root_effect_exact", "git_confirmed_local_remote_push", "git_saved_read_failure_preserved", "git_unknown_response_not_unsaved", "git_unknown_operation_preserved_after_fresh_get", "retired_management_header_rejected", "retired_management_header_post_zero", "retired_remote_connection_surface_absent", "git_blocked_distinct", "git_retry_get_only", "git_late_response_not_adopted"],
       "mandatoryByDefault": false
     },
     {

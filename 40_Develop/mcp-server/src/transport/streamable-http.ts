@@ -5,6 +5,7 @@
  * @trace ARCH-000012
  */
 import { timingSafeEqual } from "node:crypto";
+import { inspectMcpPublicOrigin } from "./configuration.ts";
 import http, {
   type IncomingHttpHeaders,
   type IncomingMessage,
@@ -52,17 +53,18 @@ export type McpOrchestratorHttpOptions = Readonly<{
 /**
  * Request単位認証を行うStreamable HTTPの非秘密構成を定義する。
  *
- * @responsibility Listener Portと許可OriginだけをTransport構成として保持する。
+ * @responsibility Listener Port・許可Origin・明示したTLS終端公開OriginをTransport構成として保持する。
  * @trace ARCH-000012
- * @shape portと任意のallowedOriginsを持つ閉じた構成型である。
+ * @shape port、任意のallowedOrigins、共有配置時だけのpublicOrigin。
  * @invariant Bearer TokenやCredentialを構成へ保持しない。
- * @boundary Shared Server Compositionと認証済みMCP HTTP Transportの型境界。
- * @security 秘密値をPropertyとして許可しない。
+ * @boundary MCP自身の起動構成と認証済みHTTP Transportの型境界。
+ * @security 秘密値を許可せず、公開Bindを導出しない。配置OwnerがTLS終端の上書きHeaderと内部到達範囲を管理する。
  * @compatibility Consumerは宣言済みPropertyだけを指定する。
  */
 export type McpAuthenticatedHttpOptions = Readonly<{
   port: number;
   allowedOrigins?: readonly string[];
+  publicOrigin?: string;
 }>;
 
 /**
@@ -312,6 +314,7 @@ async function startMcpStreamableHttpWithHandler(
   resolveHandler: McpAuthenticatedRequestHandlerResolver,
   options: McpAuthenticatedHttpOptions,
 ) {
+  const publicOrigin = inspectMcpPublicOrigin(options.publicOrigin);
   if (
     !Number.isInteger(options.port) ||
     options.port < 0 ||
@@ -319,13 +322,17 @@ async function startMcpStreamableHttpWithHandler(
     (options.allowedOrigins ?? []).some(
       (origin) =>
         typeof origin !== "string" ||
-        !/^https?:\/\/(?:127\.0\.0\.1|localhost)(?::[0-9]{1,5})?$/u.test(
-          origin,
-        ),
+        (publicOrigin
+          ? origin !== publicOrigin.origin
+          : !/^https?:\/\/(?:127\.0\.0\.1|localhost)(?::[0-9]{1,5})?$/u.test(
+              origin,
+            )),
     )
   )
     throw new Error("orchestrator_mcp_http_configuration_invalid");
-  const allowedOrigins = new Set(options.allowedOrigins ?? []);
+  const allowedOrigins = new Set(
+    options.allowedOrigins ?? (publicOrigin ? [publicOrigin.origin] : []),
+  );
   const active = new Set<Promise<void>>();
   const controllers = new Set<AbortController>();
   const requests = new Set<IncomingMessage>();
@@ -345,6 +352,34 @@ async function startMcpStreamableHttpWithHandler(
       };
       response.once("close", abortOnDisconnect);
       try {
+        if (publicOrigin) {
+          const exactHeaders = [
+            ["host", publicOrigin.host],
+            ["x-forwarded-proto", "https"],
+            ["x-forwarded-host", publicOrigin.host],
+          ];
+          const invalid =
+            exactHeaders.some(
+              ([name, expected]) =>
+                request.headers[name as string] !== expected ||
+                request.rawHeaders.filter(
+                  (value, index) =>
+                    index % 2 === 0 && value.toLowerCase() === name,
+                ).length !== 1,
+            ) ||
+            request.rawHeaders.filter(
+              (value, index) =>
+                index % 2 === 0 && value.toLowerCase() === "origin",
+            ).length > 1;
+          if (invalid) {
+            respondJson(
+              response,
+              421,
+              protocolError(null, -32000, "TLS deployment boundary invalid"),
+            );
+            return;
+          }
+        }
         const origin = request.headers.origin;
         if (typeof origin === "string" && !allowedOrigins.has(origin)) {
           respondJson(

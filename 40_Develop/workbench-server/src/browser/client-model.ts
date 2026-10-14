@@ -4,6 +4,7 @@
  * @packageDocumentation
  * @responsibility Server AuthorityとBrowser Presentationの間で、非秘密の通常画面JSON契約を所有する。鍵提示は専用POST応答へ分離する。
  * @trace ARCH-000012
+ * @trace ARCH-000010
  * @boundary Workbench Node ServerとVite Browser ClientのJSON境界。
  * @effect N/A: 型と不変な値契約だけを定義する。
  * @security Credential Token、verifier、Remote接続Bearer、Private Key、Host Path、永続Authority、Application関数およびFilesystem Authorityを含めない。Process限定Action Tokenだけを固定用途で扱う。
@@ -16,16 +17,50 @@ import type {
   TopicMeetingRelation,
 } from "../../../domain-model/src/index.ts";
 
+/**
+ * 現在画面と同じ選択条件のRead Model URLを作る。
+ * @responsibility 管理・内容操作後の再取得で選択Repositoryを失わない。
+ * @trace ARCH-000012
+ * @input 現在URLとModelの選択Repository ID。
+ * @returns 同Origin専用APIの相対URL。
+ * @precondition Callerは現在画面のModelを所有する。
+ * @postcondition route・queryを維持し、選択差を拒否する。
+ * @effect N/A: URL構成のみ。
+ * @failure URL選択とModelが不一致なら固定例外。
+ * @invariant URLのIDを認可証明にしない。
+ * @boundary 現在LocationとRead Model要求。
+ * @security Origin・秘密値を返却URLへ追加しない。
+ * @concurrency Callerは待機後にも同じ対象を確認する。
+ */
+export function createSelectedWorkbenchViewUrl(
+  current: URL,
+  repositoryId: string | null,
+): string {
+  const parameters = new URLSearchParams(current.search);
+  if (
+    parameters.getAll("repositoryId").length > 1 ||
+    (parameters.get("repositoryId") || null) !== repositoryId
+  )
+    throw new Error("workbench_view_selection_changed");
+  parameters.set("route", current.pathname);
+  return `/api/workbench-view?${parameters}`;
+}
+
 import type {
   ChangePublicationResult,
   RepositoryWorktreeFileDiff,
   RepositoryWorktreeTreePage,
 } from "../../../version-control/src/index.ts";
 import type { PortfolioProjection } from "../../../domain-model/src/index.ts";
+import {
+  isFederatedProject,
+  isProjectContext,
+} from "../project/portfolio-result.ts";
 
 import type {
   AiProfileCatalogMutationResult,
   AiProfileCatalogSnapshot,
+  AiProfileCatalog,
 } from "../../../ai-adapter/src/index.ts";
 import type { WorkbenchAiProfileSurface } from "../ai-profile/projection.ts";
 import type {
@@ -86,29 +121,24 @@ export type WorkbenchTopicMeetingResultView = Readonly<{
 }>;
 
 /**
- * Remote CROS接続の公開表示値。
+ * Repository単体または同Host共有接続の公開表示値。
  * @responsibility 接続状態と非秘密の結果だけを表示する。
  * @trace ARCH-000012
- * @shape state、endpointおよびnoticeで構成する。
+ * @shape stateだけで構成する。
  * @input N/A: 型宣言である。
  * @returns N/A: 型宣言である。
- * @precondition endpointはServer側で表示可能と判定済みである。
- * @postcondition Remote接続Bearerを含まない。
+ * @precondition 同Hostの直接接続をServerが構成している。
+ * @postcondition 接続先URLや資格を含まない。
  * @effect N/A: 型宣言である。
  * @failure unavailableをavailableへ畳まない。
  * @invariant 接続Authorityを所有しない。
- * @boundary Remote CROSとBrowser表示の境界。
- * @security Remote接続Bearerを含めない。
+ * @boundary Workbench ServerとBrowser表示の境界。
+ * @security 接続資格を含めない。
  * @compatibility Client Model revision 1内で使用する。
  * @concurrency N/A: 不変Snapshotである。
  */
 export type WorkbenchConnectionView = Readonly<{
-  state: "repository" | "cros_available" | "cros_unavailable";
-  endpoint: string | null;
-  notice: Readonly<{
-    status: "completed" | "rejected";
-    message: string;
-  }> | null;
+  state: "repository" | "cros_available";
 }>;
 
 /**
@@ -129,7 +159,7 @@ export type WorkbenchCredentialAdministrationView = Readonly<{
  * Workbenchの主画面を一回描画できる閉じたBrowser Read Model。
  * @responsibility Main Viewの全表示値、用途限定Tokenおよび操作結果の型境界を所有する。
  * @trace ARCH-000012
- * @shape contract、view、actionToken、各Surface、Queryおよび一回表示結果で構成する。
+ * @shape contract、view、actionToken、各Surface、Queryおよび一回表示結果で構成する。aiProfilesのnullは今回Ownerからの未取得で、欠測や空Catalogとは区別する。
  * @invariant viewはmainで、正本やApplication関数を所有しない。
  * @boundary Workbench Node ServerとMain Browser ScreenのJSON境界。
  * @security Remote Bearer、verifier、Private Key、Host Pathおよび永続Authorityを含めない。
@@ -160,6 +190,8 @@ export type WorkbenchMainViewModel = Readonly<{
   recordDocuments: readonly WorkbenchRecordDocumentView[];
   topicMeetingResult: WorkbenchTopicMeetingResultView | null;
   selectedRepositoryId: string | null;
+  recordActionsConfigured: boolean;
+  repositoryActionsConfigured: boolean;
   repositoryResult: ChangePublicationResult | null;
   worktree: Readonly<{
     state: "available" | "unknown";
@@ -167,7 +199,7 @@ export type WorkbenchMainViewModel = Readonly<{
     diff: RepositoryWorktreeFileDiff | null;
   }>;
   credentials: WorkbenchCredentialAdministrationView;
-  aiProfiles: WorkbenchAiProfileSurface;
+  aiProfiles: WorkbenchAiProfileSurface | null;
   aiProfileAdministration: Readonly<{
     snapshot: AiProfileCatalogSnapshot | null;
     owner: "Repository" | "CROS";
@@ -224,22 +256,71 @@ export type WorkbenchRecordDetailViewModel = Readonly<{
   actionToken: string;
   repositoryId: string | null;
   record: WorkbenchRecordDocumentView;
+  recordActionsConfigured: boolean;
+}>;
+
+/**
+ * 選択RepositoryのOwner成果物原文を表示する閉Model。
+ * @responsibility 正本本文と論理出所、戻り先の選択を搬送する。
+ * @trace ARCH-000012
+ * @trace ARCH-000016
+ * @shape repositoryIdは出所、selectedRepositoryIdは共有選択または単体のnull、artifactはkind／identity／markdown。
+ * @invariant 共有選択は出所IDと一致し、本文は原文のまま。
+ * @boundary 既存ReaderとBrowserのtext表示。
+ * @security Root・資格・HTML実行情報を含めない。
+ * @compatibility Client Model revision 1のartifact variant。
+ */
+export type WorkbenchArtifactViewModel = Readonly<{
+  contract: "crdd/workbench/client-model/v1";
+  view: "artifact";
+  logoPath: string;
+  repositoryId: string;
+  selectedRepositoryId: string | null;
+  artifact: Readonly<{
+    kind: "change" | "owner";
+    identity: string;
+    markdown: string;
+  }>;
 }>;
 
 /**
  * Workbench Browserが描画できる全View ModelのUnion。
  * @responsibility view discriminantと対応する表示Modelの閉集合を定義する。
  * @trace ARCH-000012
- * @shape main、project-detailおよびrecord-detailの判別可能Unionである。
+ * @shape access、main、project-detail、record-detailおよびartifactの判別可能Unionである。
  * @invariant 全variantが同じcontract revisionを使用する。
  * @boundary JSON Runtime InspectorとWorkbenchAppの判別境界。
  * @security 未知viewをUnionへ受理しない。
  * @compatibility contract `crdd/workbench/client-model/v1`に固定する。
  */
 export type WorkbenchClientModel =
+  | WorkbenchArtifactViewModel
+  | WorkbenchAccessViewModel
   | WorkbenchMainViewModel
   | WorkbenchProjectDetailViewModel
   | WorkbenchRecordDetailViewModel;
+
+/**
+ * Local CROSの接続と管理だけを表示するModel。
+ * @responsibility 未認証や内容未選択を架空のRepository主画面へ変換しない。
+ * @trace ARCH-000012
+ * @trace ARCH-000013
+ * @shape access判別子、非秘密接続状態、Portfolioと資格管理投影。
+ * @invariant 未認証時はPortfolioなし・資格一覧なし。
+ * @boundary Workbench接続用JSONとCSR画面。
+ * @security 入力済み鍵、Host Root、Verifierを保持しない。
+ * @compatibility 現行client-model/v1内の追加variant。
+ */
+export type WorkbenchAccessViewModel = Readonly<{
+  contract: "crdd/workbench/client-model/v1";
+  view: "access";
+  actionToken: string;
+  logoPath: string;
+  authenticated: boolean;
+  notice: string | null;
+  portfolio: PortfolioProjection | null;
+  credentials: WorkbenchCredentialAdministrationView;
+}>;
 
 /**
  * JSON境界の未知値がWorkbench Client Modelの必須外形を満たすか検査する。
@@ -262,6 +343,33 @@ export function inspectWorkbenchClientModel(
 ): WorkbenchClientModel {
   if (!isRecord(value) || value.contract !== "crdd/workbench/client-model/v1")
     throw new Error("workbench_client_model_invalid");
+  if (value.view === "access") {
+    const portfolio = value.portfolio;
+    if (
+      Object.keys(value).sort().join(",") !==
+        "actionToken,authenticated,contract,credentials,logoPath,notice,portfolio,view" ||
+      typeof value.actionToken !== "string" ||
+      !/^[A-Za-z0-9_-]{43}$/u.test(value.actionToken) ||
+      value.logoPath !== "/assets/crdd-brand-icon.jpg" ||
+      typeof value.authenticated !== "boolean" ||
+      !isNullableString(value.notice) ||
+      !isCredentialAdministrationView(value.credentials) ||
+      (portfolio !== null &&
+        (!isRecord(portfolio) ||
+          Object.keys(portfolio).sort().join(",") !==
+            "projects,retainedAsSourceOfTruth" ||
+          portfolio.retainedAsSourceOfTruth !== false ||
+          !Array.isArray(portfolio.projects) ||
+          !portfolio.projects.every(isFederatedProject))) ||
+      (!value.authenticated &&
+        (portfolio !== null ||
+          !isRecord(value.credentials) ||
+          value.credentials.state !== "not_configured" ||
+          value.credentials.snapshot !== null))
+    )
+      throw new Error("workbench_client_model_invalid");
+    return value as WorkbenchAccessViewModel;
+  }
   if (value.view === "main") {
     if (
       typeof value.actionToken !== "string" ||
@@ -284,12 +392,73 @@ export function inspectWorkbenchClientModel(
       typeof value.logoPath !== "string" ||
       typeof value.actionToken !== "string" ||
       !isNullableString(value.repositoryId) ||
+      typeof value.recordActionsConfigured !== "boolean" ||
       !isRecordDocumentView(value.record)
     )
       throw new Error("workbench_client_model_invalid");
     return value as WorkbenchRecordDetailViewModel;
   }
+  if (value.view === "artifact") return inspectWorkbenchArtifactModel(value);
   throw new Error("workbench_client_model_invalid");
+}
+
+/**
+ * 原文表示Modelの出所・種別・容量を閉検査する。
+ * @responsibility 任意Objectや欠測を成果物本文として描画しない。
+ * @trace ARCH-000012
+ * @trace ARCH-000016
+ * @input 未知JSON。
+ * @returns 検査済みartifact Model。
+ * @precondition HTTP成功をCallerが確認済み。
+ * @postcondition 共有選択と出所が一致し、原文を変更しない。
+ * @effect N/A: メモリ内検査。
+ * @failure 不正外形・種別・Identity・512KiB超過は固定例外。
+ * @invariant 表示検査をRoot認可やFile安全性の証明へ使わない。
+ * @boundary Reader JSONとReact表示。
+ * @security Root・Token等の余剰fieldを拒否する。
+ * @concurrency N/A: 一Snapshotの同期検査。
+ */
+export function inspectWorkbenchArtifactModel(
+  value: unknown,
+): WorkbenchArtifactViewModel {
+  if (
+    !isRecord(value) ||
+    Object.keys(value).sort().join(",") !==
+      "artifact,contract,logoPath,repositoryId,selectedRepositoryId,view" ||
+    value.contract !== "crdd/workbench/client-model/v1" ||
+    value.view !== "artifact" ||
+    typeof value.logoPath !== "string" ||
+    typeof value.repositoryId !== "string" ||
+    !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(value.repositoryId) ||
+    !isNullableString(value.selectedRepositoryId) ||
+    (value.selectedRepositoryId !== null &&
+      value.selectedRepositoryId !== value.repositoryId) ||
+    !isRecord(value.artifact) ||
+    Object.keys(value.artifact).sort().join(",") !== "identity,kind,markdown" ||
+    typeof value.artifact.identity !== "string" ||
+    typeof value.artifact.markdown !== "string" ||
+    new TextEncoder().encode(value.artifact.markdown).byteLength > 512 * 1024
+  )
+    throw new Error("workbench_client_model_invalid");
+  const artifact = value.artifact;
+  if (artifact.kind === "change") {
+    if (!/^CHG-\d{6}$/u.test(String(artifact.identity)))
+      throw new Error("workbench_client_model_invalid");
+  } else if (artifact.kind === "owner") {
+    const identity = String(artifact.identity);
+    if (
+      identity.length === 0 ||
+      identity.length > 512 ||
+      !identity.endsWith(".md") ||
+      identity.startsWith("/") ||
+      identity.includes("\\") ||
+      identity.includes("\0") ||
+      /^[A-Za-z][A-Za-z0-9+.-]*:/u.test(identity) ||
+      identity.split("/").some((part) => part === ".." || part === "")
+    )
+      throw new Error("workbench_client_model_invalid");
+  } else throw new Error("workbench_client_model_invalid");
+  return value as WorkbenchArtifactViewModel;
 }
 
 /**
@@ -330,54 +499,6 @@ function isStringArray(value: unknown): value is readonly string[] {
   return (
     Array.isArray(value) && value.every((item) => typeof item === "string")
   );
-}
-
-/**
- * Project Contextの五場面をReactが描画できる構造として検査する。
- * @responsibility 場面、表Headerおよび全Cellの型を描画前に確定する。
- * @trace ARCH-000012
- * @input valueに未知のProject Context候補を受け取る。
- * @returns 描画に必要な全Fieldが成立する場合だけtrueを返す。
- * @precondition N/A: JSON由来の未知値を受け取る。
- * @postcondition trueではscenes、columnsおよびrowsを安全に反復できる。
- * @effect N/A: 純粋判定である。
- * @failure N/A: 不一致はfalseで返す。
- * @invariant 未知の場面Keyを受理しない。
- * @boundary Project Context JSONとReact Sceneの境界。
- * @security 表CellをTextとしてのみ検査する。
- * @concurrency N/A: 同期純粋処理である。
- */
-function isProjectContext(value: unknown): boolean {
-  if (
-    !isRecord(value) ||
-    typeof value.projectId !== "string" ||
-    typeof value.repositoryId !== "string" ||
-    typeof value.repositoryRole !== "string" ||
-    !Array.isArray(value.scenes)
-  )
-    return false;
-  const expectedKeys = ["current", "risk", "decision", "reason", "next"];
-  if (
-    value.scenes.length !== expectedKeys.length ||
-    value.scenes.some(
-      (scene, index) => !isRecord(scene) || scene.key !== expectedKeys[index],
-    )
-  )
-    return false;
-  return value.scenes.every((scene) => {
-    if (!isRecord(scene) || !isRecord(scene.table)) return false;
-    const table = scene.table;
-    if (!isStringArray(table.columns) || !Array.isArray(table.rows))
-      return false;
-    const columnCount = table.columns.length;
-    return (
-      typeof scene.title === "string" &&
-      isNullableString(scene.summary) &&
-      table.rows.every(
-        (row) => isStringArray(row) && row.length === columnCount,
-      )
-    );
-  });
 }
 
 /**
@@ -467,77 +588,6 @@ function isRecordDocumentView(value: unknown): boolean {
           typeof relation.ownerRepositoryId === "string"),
     )
   );
-}
-
-/**
- * Portfolio内のProjectとSourceを描画可能な形として検査する。
- * @responsibility Source配列、状態、Roleおよび任意Contextの相関を確認する。
- * @trace ARCH-000012
- * @input valueに未知のFederated Project候補を受け取る。
- * @returns Project DetailとPortfolio一覧が安全に描画できる場合だけtrueを返す。
- * @precondition N/A: JSON由来の未知値を受け取る。
- * @postcondition trueではsourcesを安全に反復できる。
- * @effect N/A: 純粋判定である。
- * @failure N/A: 不一致はfalseで返す。
- * @invariant 非complete SourceへContextを補完しない。
- * @boundary CROS Portfolio JSONとReact表示の境界。
- * @security 非開示Sourceを生成しない。
- * @concurrency N/A: 同期純粋処理である。
- */
-function isFederatedProject(value: unknown): boolean {
-  if (
-    !isRecord(value) ||
-    typeof value.projectId !== "string" ||
-    !["complete", "partial", "conflicting"].includes(String(value.state)) ||
-    !Array.isArray(value.sources) ||
-    value.sources.length === 0
-  )
-    return false;
-  const repositoryIds: string[] = [];
-  for (const source of value.sources) {
-    if (
-      !isRecord(source) ||
-      typeof source.repositoryId !== "string" ||
-      typeof source.revision !== "string" ||
-      !["complete", "missing", "conflicting"].includes(String(source.state)) ||
-      !isNullableString(source.repositoryRole)
-    )
-      return false;
-    repositoryIds.push(source.repositoryId);
-    if (source.state === "complete") {
-      if (
-        typeof source.repositoryRole !== "string" ||
-        !isProjectContext(source.context) ||
-        !isRecord(source.context) ||
-        source.context.projectId !== value.projectId ||
-        source.context.repositoryId !== source.repositoryId ||
-        source.context.repositoryRole !== source.repositoryRole
-      )
-        return false;
-    } else if (source.context !== null || source.repositoryRole !== null) {
-      return false;
-    }
-  }
-  if (
-    repositoryIds.some((repositoryId, index) => {
-      const sortedRepositoryIds = [...repositoryIds].sort((left, right) =>
-        left.localeCompare(right),
-      );
-      return repositoryId !== sortedRepositoryIds[index];
-    }) ||
-    new Set(repositoryIds).size !== repositoryIds.length
-  )
-    return false;
-  const derivedState = value.sources.some(
-    (source) => isRecord(source) && source.state === "conflicting",
-  )
-    ? "conflicting"
-    : value.sources.every(
-          (source) => isRecord(source) && source.state === "complete",
-        )
-      ? "complete"
-      : "partial";
-  return value.state === derivedState;
 }
 
 /**
@@ -670,51 +720,6 @@ function isWorkbenchMainViewModel(value: Record<string, unknown>): boolean {
       ) && new Set(projectIds).size === projectIds.length
     );
   })();
-  const catalogIsValid = (candidate: unknown): boolean =>
-    isRecord(candidate) &&
-    candidate.contract === "crdd/ai-profile-catalog" &&
-    candidate.contractRevision === 1 &&
-    Array.isArray(candidate.adapters) &&
-    candidate.adapters.every(
-      (adapter) =>
-        isRecord(adapter) &&
-        typeof adapter.adapterId === "string" &&
-        ["codex", "claude"].includes(String(adapter.provider)) &&
-        ["chatgpt_subscription_oauth", "claude_max"].includes(
-          String(adapter.offering),
-        ) &&
-        typeof adapter.authorityOrigin === "string" &&
-        isStringArray(adapter.allowedModelIds) &&
-        isStringArray(adapter.allowedReasoningEfforts),
-    ) &&
-    Array.isArray(candidate.profiles) &&
-    candidate.profiles.every(
-      (profile) =>
-        isRecord(profile) &&
-        typeof profile.profileId === "string" &&
-        typeof profile.adapterId === "string" &&
-        typeof profile.family === "string" &&
-        typeof profile.exactModelId === "string" &&
-        isStringArray(profile.selectionRoles) &&
-        profile.selectionRoles.every((role) =>
-          [
-            "coordinator",
-            "executor",
-            "independent_reviewer",
-            "result_integration",
-          ].includes(role),
-        ) &&
-        isStringArray(profile.modelTiers) &&
-        profile.modelTiers.every((tier) =>
-          ["preferred", "upper_allowed"].includes(tier),
-        ) &&
-        profile.speedMode === "normal" &&
-        profile.billingMode === "subscription_oauth" &&
-        ["low", "medium", "high", "xhigh", "max"].includes(
-          String(profile.defaultReasoningEffort),
-        ) &&
-        isNullableString(profile.compatibilityReason),
-    );
   const aiResultItemsAreValid = (candidate: unknown): boolean =>
     Array.isArray(candidate) &&
     candidate.every(
@@ -901,6 +906,8 @@ function isWorkbenchMainViewModel(value: Record<string, unknown>): boolean {
             String(value.topicMeetingResult.recordKind),
           )))) &&
     isNullableString(value.selectedRepositoryId) &&
+    typeof value.recordActionsConfigured === "boolean" &&
+    typeof value.repositoryActionsConfigured === "boolean" &&
     (value.repositoryResult === null ||
       (isRecord(value.repositoryResult) &&
         ["completed", "blocked", "unknown"].includes(
@@ -921,16 +928,8 @@ function isWorkbenchMainViewModel(value: Record<string, unknown>): boolean {
     typeof value.portfolioQuery.state === "string" &&
     typeof value.portfolioQuery.cursor === "string" &&
     isRecord(value.connection) &&
-    ["repository", "cros_available", "cros_unavailable"].includes(
-      String(value.connection.state),
-    ) &&
-    isNullableString(value.connection.endpoint) &&
-    (value.connection.notice === null ||
-      (isRecord(value.connection.notice) &&
-        ["completed", "rejected"].includes(
-          String(value.connection.notice.status),
-        ) &&
-        typeof value.connection.notice.message === "string")) &&
+    Object.keys(value.connection).join(",") === "state" &&
+    ["repository", "cros_available"].includes(String(value.connection.state)) &&
     isRecord(value.worktree) &&
     ["available", "unknown"].includes(String(value.worktree.state)) &&
     (value.worktree.tree === null ||
@@ -957,22 +956,24 @@ function isWorkbenchMainViewModel(value: Record<string, unknown>): boolean {
         typeof value.worktree.diff.workingTruncated === "boolean" &&
         typeof value.worktree.diff.unregistered === "boolean")) &&
     isCredentialAdministrationView(value.credentials) &&
-    isRecord(value.aiProfiles) &&
-    catalogIsValid(catalog) &&
-    Array.isArray(value.aiProfiles.observations) &&
-    value.aiProfiles.observations.every(
-      (observation) =>
-        isRecord(observation) &&
-        typeof observation.profileId === "string" &&
-        isRecord(observation.availability) &&
-        typeof observation.availability.adapterRegistered === "boolean" &&
-        (observation.availability.hostAvailable === null ||
-          typeof observation.availability.hostAvailable === "boolean") &&
-        (observation.availability.authenticated === null ||
-          typeof observation.availability.authenticated === "boolean") &&
-        (observation.availability.executionAuthorized === null ||
-          typeof observation.availability.executionAuthorized === "boolean"),
-    ) &&
+    (value.aiProfiles === null ||
+      (isRecord(value.aiProfiles) &&
+        isWorkbenchCatalog(catalog) &&
+        Array.isArray(value.aiProfiles.observations) &&
+        value.aiProfiles.observations.every(
+          (observation) =>
+            isRecord(observation) &&
+            typeof observation.profileId === "string" &&
+            isRecord(observation.availability) &&
+            typeof observation.availability.adapterRegistered === "boolean" &&
+            (observation.availability.hostAvailable === null ||
+              typeof observation.availability.hostAvailable === "boolean") &&
+            (observation.availability.authenticated === null ||
+              typeof observation.availability.authenticated === "boolean") &&
+            (observation.availability.executionAuthorized === null ||
+              typeof observation.availability.executionAuthorized ===
+                "boolean"),
+        ))) &&
     isRecord(aiAdministration) &&
     ["Repository", "CROS"].includes(String(aiAdministration.owner)) &&
     (snapshot === null ||
@@ -980,7 +981,7 @@ function isWorkbenchMainViewModel(value: Record<string, unknown>): boolean {
         typeof snapshot.revision === "number" &&
         Number.isSafeInteger(snapshot.revision) &&
         snapshot.revision >= 0 &&
-        catalogIsValid(snapshot.catalog))) &&
+        isWorkbenchCatalog(snapshot.catalog))) &&
     (aiAdministration.result === null ||
       (isRecord(aiAdministration.result) &&
         ["completed", "rejected"].includes(
@@ -991,7 +992,7 @@ function isWorkbenchMainViewModel(value: Record<string, unknown>): boolean {
         typeof aiAdministration.result.snapshot.revision === "number" &&
         Number.isSafeInteger(aiAdministration.result.snapshot.revision) &&
         aiAdministration.result.snapshot.revision >= 0 &&
-        catalogIsValid(aiAdministration.result.snapshot.catalog))) &&
+        isWorkbenchCatalog(aiAdministration.result.snapshot.catalog))) &&
     isRecord(value.aiRequest) &&
     typeof value.aiRequest.configured === "boolean" &&
     typeof value.aiRequest.candidateConfigured === "boolean" &&
@@ -1184,4 +1185,258 @@ function isCredentialAdministrationView(value: unknown): boolean {
           String(exchange.presentation),
         )))
   );
+}
+
+/**
+ * BrowserのCatalog JSONを採用済みSchemaと関係へ照合する。
+ * @responsibility 余剰field・重複Identity・未登録Modelと曖昧な選択を表示前に拒否する。
+ * @trace ARCH-000010
+ * @trace ARCH-000012
+ * @input JSON.parse後のCatalog候補。
+ * @returns 完全な表示契約に合う場合だけtrue。
+ * @precondition JSON境界の値であり実行可能Objectを受けない。
+ * @postcondition Catalogの意味・保存・認可を変更しない。
+ * @effect N/A: 値検査のみ。
+ * @failure 不正値はfalseで拒否する。
+ * @invariant 不足fieldを補完しない。
+ * @boundary Catalog OwnerのJSONからBrowser表示。
+ * @security Path・資格・任意実行引数の余剰fieldを受理しない。
+ * @concurrency N/A: 共有状態なし。
+ */
+function isWorkbenchCatalog(candidate: unknown): candidate is AiProfileCatalog {
+  if (
+    !isRecord(candidate) ||
+    Object.keys(candidate).sort().join(",") !==
+      "adapters,contract,contractRevision,profiles" ||
+    candidate.contract !== "crdd/ai-profile-catalog" ||
+    candidate.contractRevision !== 1 ||
+    !Array.isArray(candidate.adapters) ||
+    !candidate.adapters.length ||
+    !Array.isArray(candidate.profiles) ||
+    !candidate.profiles.length
+  )
+    return false;
+  const identifier = /^[a-z][a-z0-9._-]{1,63}$/u;
+  const model = /^[a-z0-9][a-z0-9._-]{0,127}$/u;
+  const roles = [
+    "coordinator",
+    "executor",
+    "independent_reviewer",
+    "result_integration",
+  ];
+  const tiers = ["preferred", "upper_allowed"];
+  const efforts = ["low", "medium", "high", "xhigh", "max"];
+  if (
+    !candidate.adapters.every((a) => {
+      if (
+        !isRecord(a) ||
+        Object.keys(a).sort().join(",") !==
+          "adapterId,allowedModelIds,allowedReasoningEfforts,authorityOrigin,offering,provider" ||
+        typeof a.adapterId !== "string" ||
+        !identifier.test(a.adapterId) ||
+        !["codex", "claude"].includes(String(a.provider)) ||
+        !["chatgpt_subscription_oauth", "claude_max"].includes(
+          String(a.offering),
+        ) ||
+        typeof a.authorityOrigin !== "string" ||
+        !isStringArray(a.allowedModelIds) ||
+        !a.allowedModelIds.length ||
+        new Set(a.allowedModelIds).size !== a.allowedModelIds.length ||
+        !a.allowedModelIds.every((m) => model.test(m)) ||
+        !isStringArray(a.allowedReasoningEfforts) ||
+        !a.allowedReasoningEfforts.length ||
+        new Set(a.allowedReasoningEfforts).size !==
+          a.allowedReasoningEfforts.length ||
+        !a.allowedReasoningEfforts.every((e) => efforts.includes(e))
+      )
+        return false;
+      try {
+        const origin = new URL(a.authorityOrigin);
+        return (
+          origin.protocol === "https:" && origin.origin === a.authorityOrigin
+        );
+      } catch {
+        return false;
+      }
+    }) ||
+    !candidate.profiles.every(
+      (p) =>
+        isRecord(p) &&
+        Object.keys(p).sort().join(",") ===
+          "adapterId,billingMode,compatibilityReason,defaultReasoningEffort,exactModelId,family,modelTiers,profileId,selectionRoles,speedMode" &&
+        typeof p.profileId === "string" &&
+        /^PROFILE-[0-9]{6,}$/u.test(p.profileId) &&
+        typeof p.adapterId === "string" &&
+        identifier.test(p.adapterId) &&
+        typeof p.family === "string" &&
+        identifier.test(p.family) &&
+        typeof p.exactModelId === "string" &&
+        model.test(p.exactModelId) &&
+        isStringArray(p.selectionRoles) &&
+        p.selectionRoles.length > 0 &&
+        new Set(p.selectionRoles).size === p.selectionRoles.length &&
+        p.selectionRoles.every((r) => roles.includes(r)) &&
+        isStringArray(p.modelTiers) &&
+        p.modelTiers.length > 0 &&
+        new Set(p.modelTiers).size === p.modelTiers.length &&
+        p.modelTiers.every((t) => tiers.includes(t)) &&
+        p.speedMode === "normal" &&
+        p.billingMode === "subscription_oauth" &&
+        efforts.includes(String(p.defaultReasoningEffort)) &&
+        isNullableString(p.compatibilityReason),
+    )
+  )
+    return false;
+  const catalog = candidate as unknown as AiProfileCatalog;
+  if (
+    new Set(catalog.adapters.map((a) => a.adapterId)).size !==
+      catalog.adapters.length ||
+    new Set(catalog.profiles.map((p) => p.profileId)).size !==
+      catalog.profiles.length
+  )
+    return false;
+  const adapters = new Map(catalog.adapters.map((a) => [a.adapterId, a]));
+  if (
+    !catalog.profiles.every(
+      (p) =>
+        adapters.get(p.adapterId)?.allowedModelIds.includes(p.exactModelId) &&
+        adapters
+          .get(p.adapterId)
+          ?.allowedReasoningEfforts.includes(p.defaultReasoningEffort),
+    )
+  )
+    return false;
+  for (const provider of ["codex", "claude"])
+    for (const role of roles)
+      for (const tier of tiers) {
+        const keys = catalog.profiles
+          .filter(
+            (p) =>
+              adapters.get(p.adapterId)?.provider === provider &&
+              p.selectionRoles.some((r) => r === role) &&
+              p.modelTiers.some((t) => t === tier),
+          )
+          .map((p) => `${p.family}:${p.speedMode}:${p.billingMode}`);
+        if (new Set(keys).size !== keys.length) return false;
+      }
+  return true;
+}
+
+/**
+ * 専用APIの現在Catalog Snapshotを閉検査する。
+ * @responsibility Mainと共有管理で同じCatalog検査を利用する。
+ * @trace ARCH-000010
+ * @trace ARCH-000012
+ * @input JSON.parse後の二field Snapshot。
+ * @returns 検査済み非秘密Snapshot。
+ * @precondition HTTP成功をCallerが確認済み。
+ * @postcondition 未取得を既定Catalogへ補完しない。
+ * @effect N/A: JSON検査のみ。
+ * @failure 不正改訂・Catalog・余剰fieldは固定例外。
+ * @invariant 検査から保存完了や認可を生成しない。
+ * @boundary 同Origin APIとBrowser状態。
+ * @security Root・資格を持つ応答を受理しない。
+ * @concurrency N/A: 一応答だけを検査する。
+ */
+export function inspectWorkbenchProfileSnapshot(
+  value: unknown,
+): AiProfileCatalogSnapshot {
+  if (
+    !isRecord(value) ||
+    Object.keys(value).sort().join(",") !== "catalog,revision" ||
+    !Number.isSafeInteger(value.revision) ||
+    Number(value.revision) < 0 ||
+    !isWorkbenchCatalog(value.catalog)
+  )
+    throw new Error("workbench_profile_response_invalid");
+  return value as AiProfileCatalogSnapshot;
+}
+
+/**
+ * 明示送信したProfile操作と結果を照合する。
+ * @responsibility 保存・拒否・改訂と対象Profileの相関を表示前に確認する。
+ * @trace ARCH-000010
+ * @trace ARCH-000012
+ * @input 送信済みFormとJSON結果。
+ * @returns 検査済みの完了または拒否結果。
+ * @precondition Formは明示操作で一回送信済み。
+ * @postcondition 不明な結果を成功や未保存へ丸めない。
+ * @effect N/A: 値検査だけ。
+ * @failure 余剰field・結果相関不正は固定例外。
+ * @invariant 再送・認可・巻戻しを行わない。
+ * @boundary Profile POST結果とBrowser表示。
+ * @security 非秘密のCatalogだけを受理する。
+ * @concurrency 同じ送信Formの結果だけを確認する。
+ */
+export function inspectWorkbenchProfileResult(
+  form: URLSearchParams,
+  value: unknown,
+): AiProfileCatalogMutationResult {
+  if (
+    !isRecord(value) ||
+    Object.keys(value).sort().join(",") !== "reason,snapshot,status"
+  )
+    throw new Error("workbench_profile_response_invalid");
+  const snapshot = inspectWorkbenchProfileSnapshot(value.snapshot);
+  const operation = form.get("operation"),
+    expected = Number(form.get("expectedRevision"));
+  const id = form.get("profileId"),
+    target = snapshot.catalog.profiles.find((p) => p.profileId === id);
+  if (
+    !["create", "update", "delete"].includes(operation ?? "") ||
+    !Number.isSafeInteger(expected) ||
+    expected < 0
+  )
+    throw new Error("workbench_profile_response_invalid");
+  let valid = false;
+  if (value.status === "completed") {
+    valid =
+      snapshot.revision === expected + 1 &&
+      value.reason ===
+        (operation === "create"
+          ? "profile_created"
+          : operation === "update"
+            ? "profile_updated"
+            : "profile_deleted");
+    if (operation === "delete")
+      valid = valid && form.get("confirmed") === "true" && !target;
+    else
+      valid =
+        valid &&
+        !!target &&
+        `${target.adapterId}|${target.exactModelId}` ===
+          form.get("adapterModel") &&
+        target.family === form.get("family") &&
+        target.defaultReasoningEffort === form.get("defaultReasoningEffort") &&
+        target.compatibilityReason ===
+          ((form.get("compatibilityReason") ?? "").trim() || null) &&
+        JSON.stringify(target.selectionRoles) ===
+          JSON.stringify(form.getAll("selectionRole")) &&
+        JSON.stringify(target.modelTiers) ===
+          JSON.stringify(form.getAll("modelTier"));
+  } else if (value.status === "rejected") {
+    if (value.reason === "revision_conflict")
+      valid = snapshot.revision !== expected;
+    else if (snapshot.revision === expected) {
+      if (value.reason === "profile_already_exists")
+        valid = operation === "create" && !!target;
+      else if (value.reason === "profile_not_found")
+        valid = operation !== "create" && !target;
+      else if (value.reason === "profile_delete_confirmation_required")
+        valid =
+          operation === "delete" &&
+          form.get("confirmed") !== "true" &&
+          !!target;
+      else if (value.reason === "catalog_invalid")
+        valid =
+          (operation === "create" ? !target : !!target) &&
+          (operation !== "delete" || form.get("confirmed") === "true");
+    }
+  }
+  if (!valid) throw new Error("workbench_profile_response_invalid");
+  return {
+    status: value.status,
+    reason: value.reason,
+    snapshot,
+  } as AiProfileCatalogMutationResult;
 }

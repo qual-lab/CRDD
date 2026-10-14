@@ -16,7 +16,11 @@ import path from "node:path";
 import test from "node:test";
 
 const verificationRunnerRoot = path.resolve(import.meta.dirname, "../..");
-const runner = path.join(verificationRunnerRoot, "bin", "regression-runner.ts");
+const runner = path.join(
+  verificationRunnerRoot,
+  "bin",
+  "verification-runner.ts",
+);
 const CHANGED_PATH = "40_Develop/verification-runner/src/catalog/inspect.ts";
 const HUMAN_ACCEPTANCE_PATH =
   "40_Develop/verification-runner/tests/acceptance/regression-plan-understanding.contract.test.ts";

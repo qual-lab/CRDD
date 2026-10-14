@@ -13,6 +13,9 @@ import {
   MCP_ORCHESTRATOR_PROTOCOL_VERSION,
   runMcpStdio,
   startMcpStreamableHttp,
+  startMcpAuthenticatedStreamableHttp,
+  readMcpServerConfiguration,
+  createAccessMcpResolver,
   type McpRequestRoutingDependencies,
   type McpOrchestratorDependencies,
 } from "../../40_Develop/mcp-server/src/index.ts";
@@ -29,6 +32,15 @@ import {
   runOrchestratorPublicStateQuery,
 } from "../../40_Develop/orchestrator/src/index.ts";
 import { isSupportedCoordinatorNodeRuntime } from "../../40_Develop/coordinator/src/index.ts";
+import {
+  resolveHostRootInput,
+  readExistingHostRoot,
+  readHostInitializationState,
+} from "../../40_Develop/access-management/src/index.ts";
+import {
+  createCrosAiProfileCatalogStore,
+  createAiProfileCatalogAdministration,
+} from "../../40_Develop/ai-adapter/src/index.ts";
 
 /**
  * MCP入口の利用方法を標準出力へ表示する。
@@ -54,9 +66,11 @@ function printHelp(): void {
       "使い方:",
       "  crdd-mcp-server --stdio",
       "  crdd-mcp-server --http --port <port>",
+      "  crdd-mcp-server --cros --http --port <port>",
       "",
       `MCP Protocol: ${MCP_ORCHESTRATOR_PROTOCOL_VERSION}`,
       "HTTPは127.0.0.1だけで待ち受け、CRDD_MCP_HTTP_BEARER_TOKENが必要です。",
+      "--crosでは既存Host設定を使用し、各HTTP要求のユーザー資格を検証します。固定Transport Tokenとの混在とstdioは利用できません。",
       "MCPは外部ClientからOrchestratorへ接続する入口であり、Coordinatorの子機能ではありません。",
       "",
     ].join("\n"),
@@ -209,28 +223,74 @@ async function main(): Promise<number> {
     );
     return result.status === "completed" ? 0 : 2;
   }
-  if (args.length !== 3 || args[0] !== "--http" || args[1] !== "--port") {
+  const cros = args[0] === "--cros";
+  const transportArgs = cros ? args.slice(1) : args;
+  if (
+    transportArgs.length !== 3 ||
+    transportArgs[0] !== "--http" ||
+    transportArgs[1] !== "--port"
+  ) {
     process.stderr.write(
-      "使い方: crdd-mcp-server --stdio | crdd-mcp-server --http --port <port>\n",
+      "使い方: crdd-mcp-server --stdio | crdd-mcp-server [--cros] --http --port <port>\n",
     );
     return 64;
   }
-  const port = Number(args[2]);
+  const port = Number(transportArgs[2]);
   const bearerToken = process.env.CRDD_MCP_HTTP_BEARER_TOKEN;
-  if (!Number.isInteger(port) || !bearerToken) {
+  if (
+    !Number.isInteger(port) ||
+    port < 0 ||
+    port > 65535 ||
+    (cros ? bearerToken !== undefined : !bearerToken)
+  ) {
     process.stderr.write(
-      "HTTPには整数のportとCRDD_MCP_HTTP_BEARER_TOKENが必要です。\n",
+      "HTTPのportまたは認証構成が不正です。通常HTTPには固定Token、CROS HTTPには既存Host設定だけを使用してください。\n",
     );
     return 64;
   }
 
-  const routing = createRequestRoutingDependencies();
-  const server = await startMcpStreamableHttp(
-    (request, signal) => routeMcpRequest(request, routing, signal),
-    { port, bearerToken },
-  );
+  let server: Awaited<ReturnType<typeof startMcpStreamableHttp>>;
+  let publicOrigin: string | undefined;
+  if (cros) {
+    const configuration = await readMcpServerConfiguration(process.cwd());
+    publicOrigin = configuration.publicOrigin;
+    const input = resolveHostRootInput(process.env);
+    const root = input && readExistingHostRoot(input);
+    if (!input || !root) {
+      process.stderr.write(
+        "既存のCROS管理保存先を確認できません。Hostの初回設定を確認してください。\n",
+      );
+      return 2;
+    }
+    const initialization = readHostInitializationState(root);
+    if (
+      initialization.status === "fresh" ||
+      initialization.status === "unknown"
+    ) {
+      process.stderr.write(
+        "CROS管理状態を確認できません。明示的なHost設定を確認してください。\n",
+      );
+      return 2;
+    }
+    const profiles = createCrosAiProfileCatalogStore(input);
+    if (profiles.status !== "ready") return 2;
+    server = await startMcpAuthenticatedStreamableHttp(
+      createAccessMcpResolver(
+        root,
+        createAiProfileCatalogAdministration(profiles.store),
+      ),
+      { port, ...configuration },
+    );
+  } else {
+    if (!bearerToken) return 64;
+    const routing = createRequestRoutingDependencies();
+    server = await startMcpStreamableHttp(
+      (request, signal) => routeMcpRequest(request, routing, signal),
+      { port, bearerToken },
+    );
+  }
   process.stderr.write(
-    `CRDD MCP is listening on http://${server.host}:${server.port}${server.endpoint}\n`,
+    `CRDD MCP is listening on ${publicOrigin ?? `http://${server.host}:${server.port}`}${server.endpoint}\n`,
   );
   const closed = await closeMcpHttpOnProcessSignal(server);
   return closed.cleanupConfirmed ? 0 : 2;

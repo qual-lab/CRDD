@@ -14,6 +14,55 @@ import {
 } from "../../../domain-model/src/index.ts";
 
 /**
+ * Host環境から既存CROS配置契約の入力だけを選ぶ。
+ * @responsibility Publisher・Applicationを固定し、任意Path引数や秘密環境値を読まない。
+ * @trace ARCH-000013
+ * @input Process Environmentと実OS。
+ * @returns 固定用途Root入力、または不足・未対応のnull。
+ * @precondition ログイン済みHostの環境であり、Remote要求ではない。
+ * @postcondition CROS_TRUST_DOMAIN_IDとOS標準領域だけを搬送する。
+ * @effect N/A: 環境の選択だけ。
+ * @failure 環境不足・未対応OSはnull。
+ * @invariant Secret環境値・Repository Rootを保存先へ使わない。
+ * @boundary Host CLIと既存Root Resolver。
+ * @security 認証・User・Roleを環境から生成しない。
+ * @concurrency 開始時の入力Snapshotだけを使用する。
+ */
+export function resolveHostRootInput(
+  environment: NodeJS.ProcessEnv,
+): CrosRootInput | null {
+  const trustDomainId = environment.CROS_TRUST_DOMAIN_ID;
+  if (!trustDomainId) return null;
+  if (process.platform === "win32") {
+    if (!environment.LOCALAPPDATA) return null;
+    return {
+      platform: "win32",
+      trustDomainId,
+      publisher: "qual-lab",
+      application: "cros",
+      localAppData: environment.LOCALAPPDATA,
+    };
+  }
+  if (process.platform !== "linux" || !environment.HOME) return null;
+  return {
+    platform: "linux",
+    trustDomainId,
+    publisher: "qual-lab",
+    application: "cros",
+    homeDirectory: environment.HOME,
+    ...(environment.XDG_CONFIG_HOME
+      ? { xdgConfigHome: environment.XDG_CONFIG_HOME }
+      : {}),
+    ...(environment.XDG_STATE_HOME
+      ? { xdgStateHome: environment.XDG_STATE_HOME }
+      : {}),
+    ...(environment.XDG_RUNTIME_DIR
+      ? { xdgRuntimeDirectory: environment.XDG_RUNTIME_DIR }
+      : {}),
+  };
+}
+
+/**
  * 旧管理入力と回復領域の非秘密観測を表す。
  * @responsibility 確認済み不存在・既知存在・観測不能を区別する。
  * @trace ARCH-000013
@@ -87,6 +136,40 @@ function verifyHostDirectory(directory: string): fs.BigIntStats {
     cursor = parent;
   }
   return observed;
+}
+
+/**
+ * 作成済みHost保存先を変更せず検証する。
+ * @responsibility 通常起動に既存Rootだけを渡し、初期化処理のmkdirと分離する。
+ * @trace ARCH-000013
+ * @input Host環境から選択した固定用途のRoot構成。
+ * @returns 実体検証済みの既存Root、またはnull。
+ * @precondition 現在OSと一致する既存配置契約の入力。
+ * @postcondition 対象と親chainが通常Directoryで、Capability作成前後のIdentityが一致する。
+ * @effect lstat／realpathによる読取りだけ。作成・更新・削除0。
+ * @failure 不在・Link・不正構成・観測不能はnull。
+ * @invariant Root確認を管理状態の初期化完了や認可へ昇格しない。
+ * @boundary Host構成からFilesystem保存Capabilityへの接続。
+ * @security 任意Path・Repository保存先・Credentialを入力にしない。
+ * @concurrency 検証後も保存Ownerが各操作で現在状態を確認する。
+ */
+export function readExistingHostRoot(
+  input: CrosRootInput,
+): FilesystemStoreRoot | null {
+  try {
+    if (input.platform !== process.platform) return null;
+    const roots = resolveCrosRuntimeRoots(input);
+    if (!roots) return null;
+    const identity = verifyHostDirectory(roots.state);
+    const root = createFilesystemStoreRoot(roots.state);
+    if (!root) return null;
+    const checked = verifyHostDirectory(roots.state);
+    if (checked.dev !== identity.dev || checked.ino !== identity.ino)
+      return null;
+    return root;
+  } catch {
+    return null;
+  }
 }
 
 /**

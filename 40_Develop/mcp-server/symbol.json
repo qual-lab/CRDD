@@ -4,6 +4,47 @@
   "subsystem": "mcp-server",
   "symbols": [
     {
+      "symbolId": "mcp.test.integration.ai-profile-adapter",
+      "kind": "test-suite",
+      "path": "tests/integration/ai-profile-adapter.contract.test.ts",
+      "qaIds": [
+        "QA-000001",
+        "QA-000007",
+        "QA-000009"
+      ],
+      "localTestIds": [
+        "EST-IT-002",
+        "RCM-IT-005",
+        "RCM-IT-010",
+        "RFD-IT-013"
+      ],
+      "verifies": [
+        "mcp.ai-profile-adapter",
+        "mcp.source.src.adapters.application.adapter"
+      ]
+    },
+    {
+      "symbolId": "mcp.test.integration.runtime-activity-adapter",
+      "kind": "test-suite",
+      "path": "tests/integration/runtime-activity-adapter.contract.test.ts",
+      "qaIds": [
+        "QA-000009"
+      ],
+      "localTestIds": [
+        "EST-IT-014"
+      ],
+      "verifies": [
+        "mcp.runtime-activity-adapter",
+        "mcp.source.src.adapters.application.adapter"
+      ]
+    },
+    {
+      "symbolId": "mcp.configuration.server",
+      "kind": "file",
+      "path": "src/transport/configuration.ts",
+      "archIds": ["ARCH-000012"]
+    },
+    {
       "symbolId": "mcp.test.integration.access-management-results",
       "kind": "test-suite",
       "path": "tests/integration/access-management-results.integration.test.ts",
@@ -62,7 +103,7 @@
       "kind": "test-suite",
       "path": "tests/integration/access-capabilities.integration.test.ts",
       "qaIds": ["QA-000001", "QA-000004", "QA-000005", "QA-000007", "QA-000009"],
-      "localTestIds": ["RCM-IT-005", "RCM-IT-010", "PPR-IT-002", "CPR-IT-010", "CPR-IT-012", "RFD-IT-013", "RFD-IT-019", "RFD-IT-021", "EST-IT-002", "EST-IT-010", "EST-IT-014"],
+      "localTestIds": ["CPR-IT-010", "CPR-IT-012", "EST-IT-002", "EST-IT-010", "EST-IT-014", "PPR-IT-002", "RCM-IT-005", "RCM-IT-010", "RFD-IT-013", "RFD-IT-019", "RFD-IT-021"],
       "verifies": ["mcp.request.access-resolver", "mcp.ai-profile-adapter", "mcp.runtime-activity-adapter", "mcp.access-management.protocol", "mcp.access-management.adapter", "mcp.source.src.transports.streamable.http.transport"]
     },
     {
@@ -86,54 +127,6 @@
         "ARCH-000012",
         "ARCH-000013",
         "ARCH-000015"
-      ]
-    },
-    {
-      "symbolId": "mcp.test.integration.cros-project-context",
-      "kind": "test-suite",
-      "path": "tests/integration/cros-project-context-mcp.integration.test.ts",
-      "qaIds": [
-        "QA-000001",
-        "QA-000004",
-        "QA-000005",
-        "QA-000007",
-        "QA-000009"
-      ],
-      "localTestIds": [
-        "RCM-IT-005",
-        "RCM-IT-010",
-        "CPR-IT-008",
-        "PPR-IT-002",
-        "RFD-IT-013",
-        "EST-IT-002",
-        "EST-IT-014"
-      ],
-      "verifies": [
-        "mcp.source.src.adapters.application.adapter",
-        "mcp.source.src.adapters.topic.meeting.adapter",
-        "mcp.source.src.composition.cros.project.context.application",
-        "mcp.source.src.protocol.topic.meeting.protocol",
-        "mcp.source.src.transports.streamable.http.transport",
-        "mcp.runtime-activity-adapter",
-        "mcp.ai-profile-adapter"
-      ]
-    },
-    {
-      "symbolId": "mcp.test.integration.cros-shared-server",
-      "kind": "test-suite",
-      "path": "tests/integration/cros-shared-server.integration.test.ts",
-      "qaIds": [
-        "QA-000004",
-        "QA-000007"
-      ],
-      "localTestIds": [
-        "PPR-IT-002",
-        "RFD-IT-013"
-      ],
-      "verifies": [
-        "mcp.source.src.composition.cros.project.context.application",
-        "mcp.source.src.composition.cros.shared.server",
-        "mcp.source.src.transports.streamable.http.transport"
       ]
     },
     {
@@ -171,40 +164,6 @@
       ]
     },
     {
-      "symbolId": "mcp.test.system.cros-projection-non-disclosure",
-      "kind": "test-suite",
-      "path": "tests/system/cros-projection-non-disclosure.contract.test.ts",
-      "qaIds": [
-        "QA-000007"
-      ],
-      "localTestIds": [
-        "RFD-ST-004"
-      ],
-      "verifies": [
-        "mcp.source.src.adapters.topic.meeting.adapter",
-        "mcp.source.src.composition.cros.project.context.application",
-        "mcp.source.src.composition.cros.shared.server",
-        "mcp.source.src.transports.streamable.http.transport"
-      ]
-    },
-    {
-      "symbolId": "mcp.test.system.cros-shared-server-entry",
-      "kind": "test-suite",
-      "path": "tests/system/cros-shared-server-entry.integration.test.ts",
-      "qaIds": [
-        "QA-000004",
-        "QA-000007"
-      ],
-      "localTestIds": [
-        "PPR-ST-005",
-        "RFD-ST-004"
-      ],
-      "verifies": [
-        "mcp.source.src.composition.cros.shared.server",
-        "mcp.source.src.transports.streamable.http.transport"
-      ]
-    },
-    {
       "symbolId": "mcp.test.system.streamable-http",
       "kind": "test-suite",
       "path": "tests/system/streamable-http-transport.integration.test.ts",
@@ -215,6 +174,7 @@
         "EST-ST-003"
       ],
       "verifies": [
+        "mcp.configuration.server",
         "mcp.source.src.adapters.orchestrator.adapter",
         "mcp.source.src.protocol.orchestrator.protocol",
         "mcp.source.src.transports.process.signal.shutdown",
@@ -316,27 +276,6 @@
       "archIds": [
         "ARCH-000005",
         "ARCH-000012"
-      ]
-    },
-    {
-      "symbolId": "mcp.source.src.composition.cros.project.context.application",
-      "kind": "file",
-      "path": "src/project-context/cros-resolver.ts",
-      "archIds": [
-        "ARCH-000005",
-        "ARCH-000006",
-        "ARCH-000012",
-        "ARCH-000013"
-      ]
-    },
-    {
-      "symbolId": "mcp.source.src.composition.cros.shared.server",
-      "kind": "file",
-      "path": "src/shared-host/server.ts",
-      "archIds": [
-        "ARCH-000005",
-        "ARCH-000012",
-        "ARCH-000013"
       ]
     },
     {

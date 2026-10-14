@@ -14,10 +14,12 @@ import {
   existsSync,
   fsyncSync,
   linkSync,
+  lstatSync,
   mkdirSync,
   openSync,
   readFileSync,
   readdirSync,
+  realpathSync,
   unlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -90,7 +92,13 @@ export function createCrosAiProfileCatalogStore(
 ): AiProfileCatalogStoreAdapterResult {
   const roots = resolveCrosRuntimeRoots(input);
   if (!roots) return blockedStore();
-  return readyStore(path.join(roots.config, "ai-profile-catalog"));
+  const directory = path.join(roots.config, "ai-profile-catalog");
+  try {
+    verifyCrosCatalogDirectory(directory, false);
+    return readyStore(directory, true);
+  } catch {
+    return blockedStore();
+  }
 }
 
 /**
@@ -109,11 +117,14 @@ export function createCrosAiProfileCatalogStore(
  * @security Pathを公開値へ含めない。
  * @concurrency Store採用はFilesystemの排他的公開で競合を処理する。
  */
-function readyStore(directory: string): AiProfileCatalogStoreAdapterResult {
+function readyStore(
+  directory: string,
+  cros = false,
+): AiProfileCatalogStoreAdapterResult {
   return Object.freeze({
     status: "ready" as const,
     reason: "ai_profile_catalog_store_ready" as const,
-    store: createFileStore(directory),
+    store: createFileStore(directory, cros),
   });
 }
 
@@ -157,11 +168,80 @@ function blockedStore(): AiProfileCatalogStoreAdapterResult {
  * @security 検証済みCatalog以外を書き込まない。
  * @concurrency 排他的hard linkをLinearization Pointにする。
  */
-function createFileStore(directory: string): AiProfileCatalogStore {
+function createFileStore(
+  directory: string,
+  cros = false,
+): AiProfileCatalogStore {
   return Object.freeze({
-    snapshot: () => inspectSnapshot(directory),
-    adopt: (request) => adoptSnapshot(directory, request),
+    snapshot: () => {
+      if (cros) verifyCrosCatalogDirectory(directory, false);
+      return inspectSnapshot(directory);
+    },
+    adopt: (request) => adoptSnapshot(directory, request, cros),
   });
+}
+
+/**
+ * CROS Catalogの固定保存候補と既存親chainを直接検証する。
+ * @responsibility Linkや観測不能を空Storeへ変換せず、不足Directoryだけを逐次準備する。
+ * @trace ARCH-000010
+ * @trace ARCH-000011
+ * @input CROS Resolverから導出したCatalog Directoryと作成要否。
+ * @returns N/A: 検証成功時だけ復帰する。
+ * @precondition 固定CROS config用途の絶対Pathである。
+ * @postcondition 既存全親は通常Directoryで実Path一致、作成時は親Identityを再確認する。
+ * @effect 読取り検証。create時だけ不足suffixを一段ずつ非再帰mkdirする。
+ * @failure Link・非Directory・観測不能・親置換は固定例外で停止する。
+ * @invariant ENOENT以外を不存在へ変換せず、状態Rootや既存Snapshotを変更しない。
+ * @boundary CROS config保存OwnerとFilesystem実体。
+ * @security Repositoryや任意入力Rootを検証APIとして公開しない。
+ * @concurrency 各Store操作と書込み段階で再検証し、恒久的な置換耐性は主張しない。
+ */
+function verifyCrosCatalogDirectory(directory: string, create: boolean): void {
+  const missing: string[] = [];
+  let ancestor = directory;
+  for (;;) {
+    try {
+      lstatSync(ancestor);
+      break;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT")
+        throw new Error("ai_profile_catalog_root_unavailable");
+      missing.push(ancestor);
+      const parent = path.dirname(ancestor);
+      if (parent === ancestor)
+        throw new Error("ai_profile_catalog_root_invalid");
+      ancestor = parent;
+    }
+  }
+  let cursor = ancestor;
+  for (;;) {
+    const metadata = lstatSync(cursor);
+    if (
+      !metadata.isDirectory() ||
+      metadata.isSymbolicLink() ||
+      realpathSync.native(cursor) !== cursor
+    )
+      throw new Error("ai_profile_catalog_root_invalid");
+    const parent = path.dirname(cursor);
+    if (parent === cursor) break;
+    cursor = parent;
+  }
+  if (!create) return;
+  for (const next of missing.reverse()) {
+    verifyCrosCatalogDirectory(ancestor, false);
+    const before = lstatSync(ancestor, { bigint: true });
+    try {
+      mkdirSync(next);
+    } catch (error) {
+      if (!isAlreadyExists(error)) throw error;
+    }
+    verifyCrosCatalogDirectory(next, false);
+    const after = lstatSync(ancestor, { bigint: true });
+    if (before.dev !== after.dev || before.ino !== after.ino)
+      throw new Error("ai_profile_catalog_root_changed");
+    ancestor = next;
+  }
 }
 
 /**
@@ -224,13 +304,16 @@ function inspectSnapshot(directory: string): AiProfileCatalogSnapshot {
 function adoptSnapshot(
   directory: string,
   request: AiProfileCatalogAdoptionRequest,
+  cros = false,
 ): AiProfileCatalogAdoptionResult {
+  if (cros) verifyCrosCatalogDirectory(directory, false);
   const current = inspectSnapshot(directory);
   if (request.expectedRevision !== current.revision)
     return rejected("revision_conflict", current);
   const catalog = validateAiProfileCatalog(request.candidate);
   if (!catalog) return rejected("catalog_invalid", current);
-  mkdirSync(directory, { recursive: true });
+  if (cros) verifyCrosCatalogDirectory(directory, true);
+  else mkdirSync(directory, { recursive: true });
   const revision = current.revision + 1;
   const target = path.join(
     directory,
@@ -248,12 +331,14 @@ function adoptSnapshot(
   })}\n`;
   const handle = openSync(staging, "wx", 0o600);
   try {
+    if (cros) verifyCrosCatalogDirectory(directory, false);
     writeFileSync(handle, payload, "utf8");
     fsyncSync(handle);
   } finally {
     closeSync(handle);
   }
   try {
+    if (cros) verifyCrosCatalogDirectory(directory, false);
     linkSync(staging, target);
   } catch (error) {
     unlinkSync(staging);

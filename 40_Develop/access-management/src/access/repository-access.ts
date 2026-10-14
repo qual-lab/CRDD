@@ -19,6 +19,54 @@ import type { AccessManagementState } from "../state/parse.ts";
 import { deriveRepositoryBindingId } from "../state/repository-binding.ts";
 
 /**
+ * 同じ要求の公開前後で現在認可集合の契約値を比較する。
+ * @responsibility 管理改訂・Binding・Workspace・manifestの変化を公開前に拒否する。
+ * @trace ARCH-000013
+ * @input 初回と再観測のAM集合結果。
+ * @returns 両観測がcompletedで契約値が一致する場合だけtrue。
+ * @precondition 呼出し側は既存AM APIを要求内で二回呼び、外部JSONを渡さない。
+ * @postcondition 不明・改訂差・集合差を一致へ畳まない。
+ * @effect N/A: 短命値の同期比較だけ。
+ * @failure 観測不成立はfalse。
+ * @invariant 比較結果は新Authorityや次要求の認可証明ではない。同一Pathの物理実体不変は保証しない。
+ * @boundary AM現在認可集合とWorkbench／MCP公開直前。
+ * @security Root・資格を比較文字列や公開結果へ追加しない。
+ * @concurrency 呼出し側は再観測・比較後にSignalを再確認し、外部I/Oなしに公開または拒否する。
+ */
+export function sameAccessCollection(
+  first: RepositoryAccessCollectionResult,
+  second: RepositoryAccessCollectionResult,
+): boolean {
+  if (
+    first.status !== "completed" ||
+    second.status !== "completed" ||
+    first.managementRevision !== second.managementRevision
+  )
+    return false;
+  const normalized = [first, second].map((collection) =>
+    collection.repositories
+      .map((repository) => ({
+        repositoryId: repository.repositoryId,
+        bindingId: repository.bindingId,
+        workspaceIds: [...repository.workspaceIds].sort(),
+        manifest: Object.fromEntries(
+          Object.entries(repository.manifest).sort(([a], [b]) =>
+            a < b ? -1 : a > b ? 1 : 0,
+          ),
+        ),
+      }))
+      .sort((a, b) =>
+        a.repositoryId < b.repositoryId
+          ? -1
+          : a.repositoryId > b.repositoryId
+            ? 1
+            : 0,
+      ),
+  );
+  return JSON.stringify(normalized[0]) === JSON.stringify(normalized[1]);
+}
+
+/**
  * 今回要求で使用する検証済みRepositoryを相関する。
  * @responsibility 管理改訂・内容範囲・登録Bindingと技術的Rootを一つに閉じる。
  * @trace ARCH-000013

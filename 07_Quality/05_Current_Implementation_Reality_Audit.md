@@ -1,17 +1,21 @@
 # 現行実装との照合
 
+2026-10-14の現在集合は、13 Quality Definitionの正式Local Item 191件である。各定義の項目IDを重複除去して再計数し、16／17／14／20／12／27／28／7／15／14／8／7／6件を確認した。Access Management再編の対象17義務はPortfolio是正後の反証・対象回帰・独立照合により確認済み13・部分確認2・人間UAT未実施2。部分確認と人間UATは後続E2Eへ回した実Host・利用者理解範囲である。最終候補の対象回帰480件成功・失敗0、人間UAT1件Skip、Source／契約と結果同期の最終限定独立確認は残指摘0で、今回の区切りが成立した。全191項目の再照合は未完了。[現在の検証・義務対応](../99_Roadmap/Changes/CHG-000082/Evidence/261014_access-management-verification.md)を参照し、下段の先行版の件数・Gateway・旧Package観測を新構成の完成根拠へ流用しない。
+
+2026-10-13の旧Shared Host撤去候補では、下段のGateway観測は当時の実装・条件・Evidenceとして保持する。旧REST同一Origin・health・HTTP入口stdin EOFを新構成へ再実装しない。MCPは新AM Resolver、Workbenchは専門Owner直接接続へ切り替え、旧Gateway専用試験を撤去する。既存の4 Adapter Caseは責務別試験へ分離保持する。過去RFD-ST-004のSystem観測を新ST Passへ流用せず、現Treeの全数再照合は⑥に残す。
+
 成果物種別: Quality現実照合
 状態: In Progress
-進捗: Reality Assessment Complete — Remediation Routed; Legacy Migration Required
-現在範囲: 全18 Architecture詳細設計領域
+進捗: 現行191項目の再照合中。先行全Subsystem照合は是正経路へ接続済み
+現在範囲: 現行191 Local Item。全18 Architecture詳細設計領域の先行照合は下段で区別する
 維持責任者: Qual-Lab
 
 ## 設計集合
 
 | 項目 | 件数 |
 |---|---:|
-| Local Item数 | 172 |
-| 内訳 | 167件の工程入力を全件Mapping済み。現行172件は旧改造CLI専用6項目の廃止とHTTP終了義務`EST-ST-013`の追加を反映した設計集合である。Source／Test／Evidenceの現在適用は段階6／7で再照合する |
+| Local Item数 | 191 |
+| 内訳 | 現行13 Quality Definitionの正式項目を再計数。167工程入力・172項目は先行版の集合であり、現在の母集合へ流用しない。Source／Test／Evidenceの現在適用は段階6／7で再照合する |
 
 ## 1. 目的
 
@@ -57,7 +61,7 @@
 
 | 対象 | 状態 | 理由 | 次の処置 |
 |---|---|---|---|
-| 13検証目標のLocal Item | Quality Design Ready | 199件のMapping、Source ID固有条件および172 Local ItemとのRelationを固定した | Pilotの17意味に接続したLocal Itemから照合する |
+| 13検証目標のLocal Item | 現行191項目・再照合中 | 先行199件のMappingと172 Local Itemの固定は歴史的基準。現在は13定義の191項目を母集合にする | AM対象17義務の現在評価と残りの全体照合を分けて接続する |
 | 現行Source／Test | 全Subsystem初回照合済み | 18領域を実装所有、Symbol Relation、Test Catalog、局所試験、工程／統制所有へ分けた。実装を持つ12領域の静的確認は全てPassした。v0.22のWorkbench、Project Context MCPおよび結合経路を追加した後も、Verification Runnerは40 Pass・失敗0・条件付きSkip 1で閉じた | `Partial`のRelation不足と実装欠落を所有変更へ返す |
 | 実行結果／Evidence | 全Subsystem局所実行済み | 12 TypeScript packageとPlatform Accessの局所試験を実行した。CoordinatorとCheckerではSandboxまたは命名規則に起因する不一致を分離した | 是正後の局所再実行と独立レビューを対象Commitへ結合する |
 
@@ -148,7 +152,7 @@ Sandbox内ではProcess列挙が`Access denied`となり、取消試験も子Pro
 
 ## 9. 現在の全Subsystem分類
 
-初回照合はCommit `54f248ff93ebbefdb82a76363d5bb33bd84d228e`で開始し、初回値は§12.1とGit履歴へ固定した。次表は現在のレビュー候補に対する投影であり、`Quality Integration`の詳細設計領域とLocal Itemを期待集合、`symbol.json`、Test Catalog、Sourceおよび実行結果を現実集合として照合する。対象候補のexact Commitは独立レビュー是正後に固定し、異なる改訂版の結果を同じEvidenceへ統合しない。
+初回照合はCommit `54f248ff93ebbefdb82a76363d5bb33bd84d228e`で開始し、初回値は§12.1とGit履歴へ固定した。次表の件数は責務再編前の先行候補の記録であり、現行Package集合・新版のPassではない。現在のアクセス管理・Surface接続と残件は本書冒頭およびCHG-000082の現在計画を参照する。2026-10-14の旧CROS Package撤去では、Source・bin・試験・Symbol・Catalogの旧登録を除去し、現在Ownerへ能力を対応させた。純値試作品の検証義務はOPEN・正式Not Runを維持する。異なる改訂版の結果を同じEvidenceへ統合しない。
 
 | 詳細設計領域 | 実装Owner | 現在確認 | 現在判定 | 主な不足／次の処置 |
 |---|---|---|---|---|
@@ -157,7 +161,7 @@ Sandbox内ではProcess列挙が`Access denied`となり、取消試験も子Pro
 | contract-migration | checker／version-control等へ分散 | 専用Runnerなし | Gap | 独立packageを要求せず、Consumer Closureと縦断移行の実Owner／Test／Evidenceを明示する |
 | coordinator | `40_Develop/coordinator` | 静的確認Pass、通常ユーザー境界のPilot取消2／2 Pass、AI依頼Mode Router 4／4 Pass | Partial／Missing | 現行の期待Local Itemは採用範囲へ再接続した。`AIT-ST-004`、`ERB-ST-011`はTrust組合せと別Session handoff chainの追加確認が必要。独立Trust Policy起動接続は現行Scope外 |
 | crdd-domain-library | `40_Develop/crdd-domain-library` | 39／39 Pass | Partial | 8期待Local Itemのうち3件を接続。Filesystem Store LockはOS Kernel排他、二回復者と後続Ownerの別Process競合、同一targetのPath alias競合、不完全RecordのRecovery Identity非発行、回復時・通常Operation後・既存Record観測後のKernel Endpoint解放不明、exact Recovery Obligationの耐久保持・再入場、およびcleanup AuthorityのRoot／Path Scopeまで確認した。署名配布、文書理解、移行閉包は利用側を含む追加確認が必要 |
-| cros | `40_Develop/cros` | 12／12 Pass | Partial | 許可済みRepositoryのProject Context Federationと欠測保持を追加した。Shared Host、Credential永続Store、非開示System境界およびHandoffは後続Phaseで継続する |
+| cros（旧Package） | Git Commit `378d93cb6ffb0cc7c9561e0572d62bdd656f3312`の旧Source | 当時12／12 Pass、新版へ流用不可 | Historical | 現行Packageは撤去。認証・認可はAM、ContextはDomain、活動はOrchestrator、ProfileはAI Adapterへ接続。三状態の実操作比較・全Surface同値・実Task帰還はOPENを維持する |
 | execution-intelligence | `40_Develop/execution-intelligence` | 56／56 Pass | Partial | 10期待Local Itemのうち7件を接続。利用者判断2件とClock／現行性の結合確認が残る |
 | mcp | `40_Develop/mcp` | 32／32 Pass | Partial | 6期待Local Itemのうち4件を接続。Candidate Storeと四入口のEffect同等性が残る |
 | official-asset-governance | `40_Develop/official-asset-governance` | 静的確認Pass、11／11 Pass | Partial | 判断完全性、Revision競合、exact残存Lock回復義務、不完全Lockの観測不能分離、Store Effect後のcleanup不明と`issued`／`not_issued`／`unknown`の公開搬送、および収載Relationを確認した。公開・撤回のSystem境界と人間受入4件は未観測を維持する |

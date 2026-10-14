@@ -1,5 +1,6 @@
 /**
  * 固定Project Contextの実Root読取りを検証する。
+ * @packageDocumentation
  * @responsibility 本文観測・解析・Identity照合と失敗非開示を接続する。
  * @trace PPR-IT-019
  * @trace PPR-IT-002
@@ -114,6 +115,7 @@ test("固定本文を解析し三Identity一致のContextだけを集約する",
     {
       projectId: f.manifest.projectId,
       repositoryId: f.manifest.repositoryId,
+      state: "complete",
       revision: result.revision,
       context: result.context,
     },
@@ -138,7 +140,7 @@ test("固定本文を解析し三Identity一致のContextだけを集約する",
     assert.deepEqual(
       readRepositoryProjectContext(f.root, { ...f.manifest, [key]: "other" }),
       {
-        status: "unavailable",
+        status: "conflicting",
         reason: "project_context_identity_mismatch",
       },
     );
@@ -198,6 +200,17 @@ test("本文の不存在・種類・容量・解析失敗を固定unavailableへ
     status: "unavailable",
     reason: "project_context_read_unavailable",
   });
+  const git = path.join(f.directory, ".git");
+  const heldGit = path.join(f.directory, "git-held");
+  fs.renameSync(git, heldGit);
+  try {
+    assert.deepEqual(readRepositoryProjectContext(f.root, f.manifest), {
+      status: "blocked",
+      reason: "project_context_repository_unavailable",
+    });
+  } finally {
+    fs.renameSync(heldGit, git);
+  }
 });
 
 /**
@@ -205,7 +218,7 @@ test("本文の不存在・種類・容量・解析失敗を固定unavailableへ
  * @responsibility Reader固有の結合でhandle回収・下位例外非透過を観測する。
  * @trace PPR-IT-019
  * @precondition 直列試験内でfs関数を一時差替えしfinallyで復元する。
- * @stimulus 本文descriptor読取りで例外または書換えを発生させる。
+ * @stimulus 本文descriptor読取りで例外・書換え・Root不成立を発生させる。
  * @observation 全取得descriptorのcloseと固定結果を確認する。
  * @oracle completedなし、Path／例外本文なし、取得descriptor残存0。
  * @cleanup fs関数を復元しFixture hookで自己生成領域を回収する。
@@ -218,7 +231,7 @@ test("途中変更と下位読取り例外でもdescriptorを終了する", (t) 
   const originalClose = fs.closeSync;
   const descriptors = new Set<number>();
   const targetDescriptors = new Set<number>();
-  let mode: "throw" | "change" = "throw";
+  let mode: "throw" | "change" | "root" = "throw";
   let hit = false;
   try {
     fs.openSync = ((...args: Parameters<typeof fs.openSync>) => {
@@ -237,15 +250,24 @@ test("途中変更と下位読取り例外でもdescriptorを終了する", (t) 
         hit = true;
         if (mode === "throw")
           throw new Error("internal-path-and-secret-fixture");
-        fs.appendFileSync(f.target, "changed");
+        if (mode === "root")
+          fs.renameSync(
+            path.join(f.directory, ".git"),
+            path.join(f.directory, "git-held"),
+          );
+        else fs.appendFileSync(f.target, "changed");
       }
       return originalRead(...args);
     }) as typeof fs.readSync;
-    for (mode of ["throw", "change"] as const) {
+    for (mode of ["throw", "change", "root"] as const) {
       hit = false;
+      fs.writeFileSync(f.target, f.source);
       assert.deepEqual(readRepositoryProjectContext(f.root, f.manifest), {
-        status: "unavailable",
-        reason: "project_context_observation_unavailable",
+        status: mode === "root" ? "blocked" : "unavailable",
+        reason:
+          mode === "root"
+            ? "project_context_repository_unavailable"
+            : "project_context_observation_unavailable",
       });
       assert.equal(hit, true);
       assert.equal(descriptors.size, 0);
@@ -254,5 +276,8 @@ test("途中変更と下位読取り例外でもdescriptorを終了する", (t) 
     fs.readSync = originalRead;
     fs.openSync = originalOpen;
     fs.closeSync = originalClose;
+    const heldGit = path.join(f.directory, "git-held");
+    if (fs.existsSync(heldGit))
+      fs.renameSync(heldGit, path.join(f.directory, ".git"));
   }
 });

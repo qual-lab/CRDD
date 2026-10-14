@@ -53,6 +53,7 @@ import {
   readCredentialAdministrationState,
   resolveRepositoryAccess,
   resolveRepositoryAccessCollection,
+  sameAccessCollection,
   createCredentialMaterial,
   issueCredential,
   revokeCredential,
@@ -1863,6 +1864,17 @@ test("Host初回TTYは取消と故障後のcallbackをjoinして再表示しな�
       }),
       { isTTY: true },
     ) as unknown as NodeJS.WriteStream;
+    /**
+     * 呼出し元の既存error購読を試験用に保持する。
+     * @responsibility AMが他OwnerのListenerを除去しないことを照合する。
+     * @trace RFD-IT-025
+     * @precondition 自己生成Writableだけへ登録する。
+     * @stimulus 提示処理をabortまたはwrite callback errorで終了する。
+     * @observation 処理終了後のListener集合に同じ関数が残る。
+     * @oracle 無処理の既存購読をAMの終了確認へ流用しない。
+     * @cleanup AMが除去していないことをassertし、試験終了で自己生成Writable参照を破棄する。
+     * @boundary 試験が所有するWritableのListener。
+     */
     const existingErrorListener = () => {};
     terminal.on("error", existingErrorListener);
     const controller = new AbortController();
@@ -3741,7 +3753,7 @@ function contentFixture(t: TestContext) {
 
 /**
  * 同改訂の許可集合を全範囲と一意な実体へ結合する。
- * @responsibility 複数範囲を落とさず、認証済み空集合と次要求の再認可を確認する。
+ * @responsibility 複数範囲を落とさず、認証済み空集合、次要求の再認可、公開前の集合比較を確認する。
  * @trace RFD-IT-013
  * @trace RFD-IT-019
  * @precondition 自己生成管理Storeと二つのGit Repository。
@@ -3831,6 +3843,58 @@ test("許可Repository集合は同改訂・全範囲・一意な実体を保持"
     if (manager.status !== "completed")
       throw new Error("collection unavailable");
     assert.equal(manager.managementRevision, 6);
+    assert.equal(
+      sameAccessCollection(manager, {
+        ...manager,
+        repositories: [...manager.repositories].reverse().map((item) => ({
+          ...item,
+          workspaceIds: [...item.workspaceIds].reverse(),
+        })),
+      }),
+      true,
+    );
+    assert.equal(
+      sameAccessCollection(manager, {
+        ...manager,
+        managementRevision: manager.managementRevision + 1,
+      }),
+      false,
+    );
+    assert.equal(
+      sameAccessCollection(manager, {
+        ...manager,
+        repositories: manager.repositories.slice(1),
+      }),
+      false,
+    );
+    const firstRepository = manager.repositories[0];
+    assert.ok(firstRepository);
+    for (const changed of [
+      { ...firstRepository, workspaceIds: [] },
+      { ...firstRepository, bindingId: "changed-binding" },
+      {
+        ...firstRepository,
+        manifest: {
+          ...firstRepository.manifest,
+          displayName: "changed-name",
+        },
+      },
+    ]) {
+      assert.equal(
+        sameAccessCollection(manager, {
+          ...manager,
+          repositories: [changed, ...manager.repositories.slice(1)],
+        }),
+        false,
+      );
+    }
+    assert.equal(
+      sameAccessCollection(manager, {
+        status: "unavailable",
+        reason: "repository_access_observation_unknown",
+      }),
+      false,
+    );
     assert.deepEqual(
       manager.repositories.map((item) => [
         item.repositoryId,
@@ -3944,6 +4008,7 @@ test("許可集合の実本文と本文版を中立Sourceへ渡す", (t) => {
           Object.freeze({
             projectId: repository.manifest.projectId,
             repositoryId: repository.repositoryId,
+            state: "complete",
             revision: read.revision,
             context: read.context,
           }),
@@ -3957,6 +4022,7 @@ test("許可集合の実本文と本文版を中立Sourceへ渡す", (t) => {
           "projectId",
           "repositoryId",
           "revision",
+          "state",
         ]);
         assert.equal(portfolio.projects[0]?.state, "complete");
         assert.equal(
@@ -4187,6 +4253,17 @@ test("内容拒否とpending異常では対象Repository観測0", (t) => {
   t.after(() => {
     Object.defineProperty(fs, "lstatSync", { value: lstat });
   });
+  /**
+   * 対象Repositoryへの実体観測件数を計測する。
+   * @responsibility 認可拒否前に対象Rootへ到達していないことを反証する。
+   * @trace RFD-IT-013
+   * @precondition 元lstatと自己生成対象Directoryを保持している。
+   * @stimulus 保存Ownerからのlstat要求。
+   * @observation 対象Directoryへの呼出し数と元lstat結果。
+   * @oracle 観測不能を不存在に変換せず元処理へ委譲する。
+   * @cleanup t.afterと正常終端で元lstatへ戻す。
+   * @boundary 試験の観測差替え。認可判定自体は変更しない。
+   */
   const observedLstat: typeof fs.lstatSync = ((target, ...args) => {
     if (String(target).startsWith(f.target.directory)) observations++;
     return lstat(target, ...args);
@@ -4250,6 +4327,17 @@ test("内容拒否とpending異常では対象Repository観測0", (t) => {
 test("内容実体不成立と解放不明は能力非返却", (t) => {
   const f = contentFixture(t),
     id = f.target.manifest.repositoryId;
+  /**
+   * 固定した対象と資格で内容解決を繰り返す。
+   * @responsibility 故障点以外の入力を同一に保つ。
+   * @trace RFD-IT-013
+   * @precondition 自己生成の公開対象とdeveloper資格がある。
+   * @stimulus 現在の対象実体を解決する。
+   * @observation 公開結果と固定理由。
+   * @oracle 実体不明とLock終了不明から能力を返さない。
+   * @cleanup 外側fixtureがRootと注入処理を回収する。
+   * @boundary 同じAM公開解決入口。
+   */
   const request = () =>
     resolveRepositoryAccess(f.root, f.tokens.developer, id, "development");
   const expected = {
@@ -4266,6 +4354,17 @@ test("内容実体不成立と解放不明は能力非返却", (t) => {
   fs.writeFileSync(currentPath, tamperedBytes);
   const lstat = fs.lstatSync;
   let targetObservations = 0;
+  /**
+   * 破損管理状態で対象Rootの観測が始まらないことを計測する。
+   * @responsibility 元lstatを維持し対象呼出しだけを数える。
+   * @trace RFD-IT-013
+   * @precondition 元関数と自己生成対象Directoryを保持する。
+   * @stimulus AMの実体観測要求。
+   * @observation 対象Directoryへの呼出し数。
+   * @oracle 管理状態不正なら対象観測0、破損状態を変更しない。
+   * @cleanup finallyで元関数と管理状態を復元する。
+   * @boundary 観測用差替えだけ。元Filesystem結果を変更しない。
+   */
   const observe: typeof fs.lstatSync = ((target, ...args) => {
     if (String(target).startsWith(f.target.directory)) targetObservations++;
     return lstat(target, ...args);
@@ -4340,6 +4439,17 @@ test("Repository登録と公開は独立し旧Root不成立でも解除できる
   const f = managementFixture(t),
     target = repositoryFixture(t);
   const before = structuredClone(f.state);
+  /**
+   * 登録と公開設定の別操作に固定UUIDを割り当てる。
+   * @responsibility 操作番号から重複しない試験Identityを生成する。
+   * @trace RFD-IT-021
+   * @precondition 呼出し側が操作ごとに異なる番号を渡す。
+   * @stimulus 整数の操作番号。
+   * @observation 固定形式のUUID。
+   * @oracle 同じ操作の再観測以外でIdentityを共有しない。
+   * @cleanup N/A: 純粋な文字列生成。
+   * @boundary 試験入力。Authorityを生成しない。
+   */
   const op = (n: number) =>
     `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
   const registered = registerRepository(
@@ -5303,6 +5413,17 @@ test("初回相関を排他作成しexact再入場する", (t) => {
   const current = path.join(f.directory, "access-management.json");
   fs.rmSync(current);
   let called = 0;
+  /**
+   * 初回相関保存に旧入力不存在の模擬観測を返す。
+   * @responsibility 初回保存前の観測回数を計測する。
+   * @trace RFD-IT-024
+   * @precondition 自己生成Rootのcurrentを削除済み。
+   * @stimulus 初回保存Ownerからの旧入力照会。
+   * @observation 呼出し数と固定の未初期化・不存在値。
+   * @oracle 初回保存とexact再入場の追加観測を区別する。
+   * @cleanup N/A: 値とカウンタだけを扱う。
+   * @boundary 試験代役。実Host不存在を証明しない。
+   */
   const observe = () => {
     called++;
     return ["uninitialized", "absent"] as const;
@@ -5371,6 +5492,17 @@ test("初回拒否で新作成せず不明材料を保持する", (t) => {
   fs.rmSync(current);
   const attempt = f.state.operationId;
   let called = 0;
+  /**
+   * 開始拒否より先に旧入力観測が呼ばれないことを計測する。
+   * @responsibility 明示同意・Identityの入力拒否と観測段階を分ける。
+   * @trace RFD-IT-024
+   * @precondition 自己生成Rootのcurrentが存在しない。
+   * @stimulus 保存Ownerからの旧入力照会。
+   * @observation 呼出し数と固定の未初期化・不存在値。
+   * @oracle 不正開始入力では呼出し0、新作成0。
+   * @cleanup N/A: カウンタと固定値だけを扱う。
+   * @boundary 試験代役。実Host状態の保証ではない。
+   */
   const observe = () => {
     called++;
     return ["uninitialized", "absent"] as const;
@@ -5604,6 +5736,17 @@ function prepare(
   kind = "management",
   replace = true,
 ): void {
+  /**
+   * 保存途中fixtureの基準・次状態byteをSHA-256で識別する。
+   * @responsibility 二つの完全byte列からpendingの相関値を作る。
+   * @trace RFD-IT-021
+   * @precondition 非秘密のfixture状態をUTF-8 byteへ変換済み。
+   * @stimulus 状態Buffer。
+   * @observation 16進のSHA-256値。
+   * @oracle 異なる状態のHashを基準・次として取り違えない。
+   * @cleanup N/A: 純粋計算。
+   * @boundary 試験材料生成。署名・認可の証明にはしない。
+   */
   const digest = (value: Buffer) =>
     createHash("sha256").update(value).digest("hex");
   fs.writeFileSync(
@@ -8235,6 +8378,18 @@ test("鍵交換引継ぎは四経路で未確認記録を新交換へ置換す�
           )
           .map((credential) => credential.credentialId);
         const operationId = "00000000-0000-4000-8000-000000000091";
+        /**
+         * 固定新交換を選択した入口と範囲へ搬送する。
+         * @responsibility 元回復参照と期待改訂を他の入力から分離する。
+         * @trace RFD-IT-013
+         * @trace RFD-IT-017
+         * @precondition 元交換と現在の発行先・旧資格集合を観測済み。
+         * @stimulus 期待改訂と旧回復参照で別明示交換を要求する。
+         * @observation 新相関・改訂・保存結果と誤再送拒否。
+         * @oracle 四経路の新交換は一出版し、旧参照再送は更新0。
+         * @cleanup 外側fixtureが実保存Rootを回収する。
+         * @boundary 公開Host／Workbench交換APIの直接呼出し。
+         */
         const invoke = (expected: number, previous = old.recoveryId) =>
           entry === "host"
             ? exchangeCredentialsFromHost(

@@ -103,6 +103,10 @@ v0.22のWorkbench AI Profile Catalogでは、`RCM-IT-005`により、永続Snaps
 
 ## 二Surface再編のProfile管理条件
 
+BrowserのProfile管理は`RCM-ST-012`のConsumer移管断面として、内容許可なしmanager／administratorの一覧・作成・更新・確認付き削除、developerのCatalog／Form非表示、二重submitのPOST一回を実Browserで観測する。保存確認後のGET故障と保存応答不正を別に注入し、前者の既知保存保持、後者の未保存非推定、両者の自動再送0、明示GETによる現在改訂・対象値の再観測を確認する。取得中切断・遅延応答・再接続、Owner／Action Token切替の旧通知・旧Snapshot非採用と、既存Desktop／Tablet／Mobileの表示・操作評価を含む。部分試験を同Local Item全体の成立へ拡張しない。
+
+Workbenchの同Host直接接続候補では、既存Host Catalog Administrationを注入し、`RCM-IT-005`で初期Revision 0、manager／administratorの一覧・作成・更新・確認付き削除、未確認削除・改訂競合・重複入力・Catalog故障の非保存を確認する。developer・未知資格・失効ではCatalog snapshot／executeを呼ばない条件を`RFD-IT-013`へ接続する。保存先のRootはBrowser入力外で、起動Repositoryへのfallbackと全Request共有の直前結果を作らない。HTTP候補の成功はBrowser管理Form・通常CLI・旧MCP経路撤去の完成を意味しない。
+
 共有Profile管理のTarget Roleはmanager／administratorとする。`RCM-IT-005`はAI Adapterが所有する四操作・Schema・競合・削除確認・採用後不明の意味を確認し、`RCM-IT-010`はTool登録・公開・Host可用性・許可・実行／取消／清掃のLifecycleとして確認する。AM現在認可自体はQA-000007の`RFD-IT-013`の資格→現在Role断面で確認する。AM認可の純粋判定と現在状態の故障はQA-000007へ接続し、同じ契約をここへ複製しない。旧systemAdmin経路の局所結果は当時の範囲に限り、新Role Source・公開Launcher・Workbench切替のPassへ流用しない。
 
 [AI Adapter](../../../06_Architecture/Details/ai-adapter/01_Architecture.md)と[MCP公開操作](../../../06_Architecture/Details/mcp-server/01_Architecture.md)から、次の条件を既存義務へ導く。新構成の局所Source・実HTTP／実Catalog反証は候補接続済みであり、旧経路のPassを継承しない。正式結果・本番Launcher／Workbench・全Consumer閉包は未成立である。
@@ -148,6 +152,8 @@ Passは、集合の完全一致、全Consumerごとの契約試験、旧契約�
 | RT | Required | 変更した意味と利用側から、再実行する既存Local Itemを選ぶ | Changeの通常検証範囲 | 未選択の範囲を明示し、選択した回帰の結果で評価する |
 | PT | N/A | 現在のQuality Contractに性能成立条件がないため非該当 | N/A | 未実行をPassへ読み替えず、明示的なRelease条件でない限り通常監査を停止しない |
 | LT | N/A | 現在のQuality Contractに長時間成立条件がないため非該当 | N/A | 未実行をPassへ読み替えず、明示的なRelease条件でない限り通常監査を停止しない |
+
+RCM-IT-010の旧CROS汎用Tool Registry専用試験は、本番Consumer未接続の試作品として撤去する。実MCP／Workbenchの公開・dispatchは部分接続であり、CLI／MCP／Coordinator／Workbenchの同一能力、状態軸、取消・cleanupの全比較はOPEN。QA ID・検証義務・正式Not Run・v0.22対象は維持する。旧専用試験の成功や撤去後の件数減少を義務完了へ変換しない。[固定Git履歴と処置](../../../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#旧cros試作品の撤去--2026-10-13)を参照する。
 
 ## Checklist
 

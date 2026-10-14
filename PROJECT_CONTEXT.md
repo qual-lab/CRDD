@@ -9,9 +9,25 @@ Repository Role: `crdd-standard`
 
 ## 1. 今どうなっているか
 
-現在の局所結果：通常三ロールの本人読取りをMCPへ接続し、管理結果の共通投影をAMへ集約した。AM全150件／MCP全85件の計235件と各書式・型・Lint成功、固定21Pathの限定独立レビュー残指摘0。本人だけの閉投影、Role変更／失効の現在性、初回非提供、管理候補・他ユーザー・資格の非開示を確認した。Workbench管理画面へ必要な意味・読順・個別改訂・実Browser／Visual再評価義務は伝播済みだが、画面・POST・Remote接続は未実装。Remote登録M1、公開Launcher、旧REST撤去、正式191項目とAM全体完成は残る。[現在の計画](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#workbench通常管理と本人表示の本番接続着手--2026-10-13)を参照する。
+Access Management再編の今回の区切りは成立し、変更をコミット・プッシュする段階である。義務照合の試験不足と承認済みPortfolio部分表示を是正し、AM152、MCP86、Domain120、Workbench78、Runner44件の計480件成功・失敗0、人間UAT1件Skip。Source／契約と結果同期の最終限定独立確認は残指摘0で、AM対象17義務は確認済み13・部分確認2・人間UAT未実施2となった。実Host・利用者理解は後続E2Eへ保持し、正式191項目の全体評価・全体Checkerは未完了。新たな共有State・Lock・Registry・Recoveryは追加していない。[現在の検証結果](99_Roadmap/Changes/CHG-000082/Evidence/261014_access-management-verification.md)を参照する。
 
-現在の局所結果：非鍵管理の四読取り・六保存をMCPの注入Resolverへ接続した。MCP全84件と書式・型・Lint成功、固定16Pathの限定独立再レビュー残指摘0。現在Role、閉結果、保存後切断、最初の失敗と既知出版、UTF-8応答容量、試験Process異常終了後の一時Root回収を確認した。Remote登録は判断待ちでSource・Schema・一覧・dispatchに追加していない。Workbenchの非鍵管理画面、公開Launcher、旧REST撤去、正式191項目とAM全体完成は未成立である。[対象と残件](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#非鍵管理の公開接続に向けた着手前確認--2026-10-13)を参照する。以下の局所結果は先行固定版の履歴で、最新版全体の完成根拠ではない。
+2026-10-14の人間判断：初回設定・鍵操作の実入口縦断と利用者の理解確認は、後続E2Eの残件に移した。それ以外の是正・品質対応・現在文書の整合・固定候補の回帰・独立レビューが成立した時点でコミット・プッシュし、計画済みのDocker周りの責務分離・大改修へ進む。未確認のST／UATはPassにせず、Access Management全検証完了・v0.22完成とは区別する。[今回の区切り](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#今回の区切りと後続e2e--2026-10-14)を参照する。
+
+### 先行候補の経過（現在判断へ流用しない）
+
+以下の「現在」「最新」「判断なし」および件数は各先行候補の時点に限る。現在の結論は本節冒頭、判断待ちは第3節、品質状態は集約検証結果とQuality Centerを参照する。
+
+①〜④の専門Owner直接接続とWorkbench旧MCP依存撤去は限定Gateを閉じた。⑤は共有配置・旧CROS撤廃を進行中。実TLSを含むMCP公開CLI System18/18とWorkbench CLI8/8が成功し、両試験の限定独立再確認はPass・残指摘0。旧CROSの本番未接続prototypeを撤去し、残存回帰29/29・限定独立再確認Pass、関連Checker指摘0を確認した。削除した専用5 CaseのQA義務はOPEN・Not Runで保持する。全体Checkerは2026-10-14の最新確認で3049 errors・0 warnings、未合格。共有利用全体の反証、旧CROS撤去後の全体品質整合、⑥全体整合・正式191項目とAM全体完成は未完了。実運用Proxy・Linux配置・実OS Signal搬送の成立とは区別する。現在追加の人間判断はない。 旧MCP Shared Host／Resolver・専用入口の撤去はMCP86/86・静的3軸成功と限定独立再確認Pass・残指摘0で閉じた。過去のGateway Evidenceと正式191項目Not Runは保持し、全体完成とは区別する。 試験収集のAM／Server Owner接続と台帳不整合を是正し、台帳検査0・AM8file収集、Runner44 Pass／Fail0／人間UAT1 Skip・静的3軸成功、限定独立再確認Pass・残指摘0を確認した。配布一覧の旧CROS→AM切替は局所1/1成功で、Package本体撤去・配布全体・署名の成立はまだ主張しない。 2026-10-14：旧CROS Package・REST library全撤去は能力対応と限定独立確認Pass・残指摘0で閉じた。AM152/152・MCP86/86・Runner44 Pass／人間UAT1 Skip、台帳0指摘、AM8file収集を確認。Coordinator製品Source型は成功、Docker持越し試験18型不一致は別件として保持する。
+
+先行するTopic／Meeting内容POST Backendは選択RepositoryのDomainへ接続し、両種別CRUD・競合・削除確認、閉Form、保存後の公開解除・鍵失効・例外・切断、同Project sibling公開変更、昇格とOutcome全件処置後Closeを実HTTPで確認した。出版一回、既知本文保持、取消成功本文0、正常正対照、fresh GET後の再Mutation 0と所有試験資源清掃を確認し、限定再レビューの実装指摘は解消した。現在のBrowser候補は先頭段落で区別する。Git／本文・通常起動・旧MCP／CROS撤廃、正式191項目とAM全体完成は未成立である。
+
+共有Profileの追加表示評価は3表示領域の寸法・横overflow・Formサイズ・文字・Tab操作を同じブラウザ接続で確認し、当時のSystem10/10と限定独立再レビューを通過した。既存実Zoomの27組合せ回帰も別途成功し、表示評価の試験資源は清掃済み。現在の次対象は③のGit操作・本文リンクであり、共有Record Formの限定成立は先頭段落で示す。旧MCP／CROS撤廃、通常CLI・共有配置、正式191項目とAM全体完成は未成立である。
+
+共有AI ProfileのBrowser管理は、既存Form／TableをMainとAccessで共用する構成へ接続した。内容権限なしmanagerの操作、developerのCatalog／Form非表示、保存後再取得故障・不正応答と再送なし、取得取消・遅延応答拒否・再接続を実Browser10/10で確認した。応答検査／接続取消4/4、静的3軸、所有試験資源清掃と限定独立再レビュー残指摘0も確認した。途中の失敗は試験の操作可能状態待機と重複シナリオ分離で是正し、製品・Driverのtimeout／再送機構は変更していない。通知世代と再取得後POST件数の指摘は是正済みである。これは通信・状態管理の限定確認で、解像度評価、通常起動、旧MCP／CROS Package撤去、正式191項目、AM全体完成は未成立である。以下の「Browser未接続」はこの接続より前の状態である。[現在の順序と残件](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#現在の完了順序--2026-10-13)を参照する。
+
+先行接続時点の記録（現在の成立範囲は上段を参照）：現在は、CHG-000082のアクセス管理をWorkbench通常起動へ接続中である。共有利用はBrowserから共有Host上のWorkbench Serverへ直接接続し、WorkbenchとMCPは対等な入口として同Hostの専門Package APIを利用する方針に確定した。Workbenchから別HostのMCP／CROSへ接続する旧経路は撤去対象である。要求ごとの接続資格を分離し、管理系統のMCP分岐を撤去した。本人表示・四read・七保存は既存AMへ直接接続する。実Browser8件とWorkbench回帰50件成功、限定独立再レビューは残指摘0。既知GETのCSR遷移・選択維持・対象外操作非横取り・旧応答拒否・終了時の取消と資格なし再開も限定レビューを通過した。選択RepositoryのGETは専門Ownerへ直接接続し、公開直前の全集合再確認・重複ID拒否・未取得Profileと未接続保存の無効表示まで限定独立レビューを通過した。最新IT2件・実Browser8件・Workbench回帰50件が成功した。活動読取りは単体／同Host CROSとも既存Orchestratorへ直接接続する候補に統一した。Workbench独自の履歴解析・Cursorを廃止し、固定Project／Repository Identity、継続読込、不正Cursor拒否を確認した。活動Reader前後の通信待機と実HTTP取消反例を是正し、最終Server結合42/42・同実装の実Browser8/8・静的3軸が成功した。限定独立レビューの残指摘0、Source Hash一致、所有試験Root残存0を確認した。旧独自Cursorは拒否し、短命Cursorは新規取得する。途中の結合41/42・ECONNRESETは履歴事実として保持し、修正後の新規HTTP正常対照成功から原因確定は主張しない。共有ProfileのBackendは既存Host Catalog Administrationへの直接接続を限定確認した。現在管理Role、完全Form、改訂競合・削除確認、観測後の降格／失効、保存後の例外／切断、保存一回・成功本文0・fresh再観測を確認し、最終結合42/42・既存実Browser回帰8/8・静的3軸と限定独立レビュー残指摘0が成立した。BrowserのProfile Formと通常CLIはまだ未接続で、この回帰を新Formの成立根拠にはしない。Browser内容POSTと本文リンク、Profileの通常起動接続、4系統の旧MCP経路撤去は残る。AM全152件、MCP全88件、AI Adapter全32件の先行回帰成功は、新構成の全体完成へ流用しない。専門Packageへの全内容入口接続、WorkbenchのMCP依存撤去、公開Launcher、共有公開配置、旧REST／Gateway撤去、正式191項目の評価、全体回帰とAM全体完成は残る。[現在の計画](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#workbenchのmcp依存全撤去への方針訂正--2026-10-13)を参照する。
+
+Repository登録は2026-10-13の人間判断によりWorkbench限定とする。manager／administratorの既存分担と登録・公開の分離を維持し、MCP登録Tool／Schema／dispatchは追加しない。鍵の発行・失効・交換もMCPへ公開しない。以下の先行段階の結果・判断待ちは履歴であり、現在の全体完成や未決事項を表さない。
 
 最新の局所結果：Workbenchの同Process鍵管理4操作と非秘密の管理Readerを接続した。AM全150件／MCP全75件／Workbench全41件／実Browser全5件成功、静的3軸・Build成功、固定19Pathの限定独立再レビュー残指摘0。専用POSTの一度提示、次操作・再読込時の消去、交換後の旧接続失効、出力／保存故障と全段清掃を確認した。秘密の再取得・再表示・一般GET／Storageへの保持、新Store／Lock／Frameworkは追加しない。非鍵管理7操作の公開接続、公開Launcher・通常接続切替、実Host TTY、旧REST撤去、正式191項目とAM全体完成は未成立。全体Checkerの直前結果3057 errors／0 warningsは未解消で、全体Passとはしない。[対象と残件](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#workbench鍵管理の本番接続着手--2026-10-13)を参照する。以下の最新表記は先行段階の局所履歴である。
 
@@ -27,7 +43,7 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-第二段階は[Package別の責務再編計画](99_Roadmap/Changes/CHG-000082/second-stage-plan.md)の1〜8を進行中。Version Controlの公開入口・既知Consumerは47件、Domain Modelの保存・通常公開CRUD・協調Writer競合は113件、Execution Intelligenceの記録と提案判断の分離は82件、AI Adapterは29件のPackage回帰と限定独立レビューまで確認した。Coordinator配布試験の移管追従は133件成功したが、全Package完成ではない。Platform Accessの対象観測分離は通常回帰50件と限定独立レビューで確認した（専用実OS等23件は未実行）。MCPの活動・Profile管理は旧systemAdmin比較経路での局所接続と当時の全56件まで確認済み。新manager／administrator認可によるProfileの局所Source・実HTTP候補は接続済みだが、本番Launcher／Workbenchは未成立である。人間がCROS Package維持判断を変更したため、次は認証・認可をAccess Managementへ、Context集約等を実Ownerへ分ける設計・移管を先行する。専用REST／Gateway／Shared Host廃止は代替本番接続後、Docker／Coordinator／Orchestrator大改修はその後へ置く。これはv0.22全体の完成・Release可能を意味しない。
+第二段階は[Package別の責務再編計画](99_Roadmap/Changes/CHG-000082/second-stage-plan.md)のAccess Management再編と現在整合を進行中。認証・認可はAccess Management、Context解析・集約はDomain、ProfileはAI Adapter、活動はOrchestratorへ接続した。WorkbenchとMCPは独立した入口であり、WorkbenchはLocal／共有配置とも同Hostの専門APIを直接利用する。旧CROS Package・REST・Gateway・Shared Hostは撤去済み。固定候補の回帰と独立確認の指摘を是正した後にコミット・プッシュし、Docker／Coordinator／Orchestrator大改修へ進む。初回実Host・鍵実入口・利用者理解は後続E2Eへ保持する。局所試験・過去結果をv0.22全体の完成・Release可能へ拡張しない。
 
 v0.21.0は公開済み、v0.22.0とCHG-000082は未完了である。責務再編の段階1〜4、5AのDomain Model統合、5BのAI Adapter／Platform Access移管は局所確認まで完了した。5CのOrchestrator／Coordinator／Docker追加是正は、大規模改修で実装が変わる見込みから、人間承認により持ち越した。
 
@@ -50,13 +66,13 @@ v0.21.0は公開済み、v0.22.0とCHG-000082は未完了である。責務再�
 |---|---|---|
 | 現在事実 | 履歴保持期間後の相関欠測、下位出版後marker残存、実資源回復の旧入口切替、本番利用側の一体接続は未完了。旧二試験Fileの型指摘18件も保持する。 | [持ち越し残件](99_Roadmap/Changes/CHG-000082/Evidence/261007_develop-responsibility-mapping.md#持ち越しの処置--2026-10-09) |
 | 現在事実 | 全体回帰・Reality Audit・固定全Sourceレビュー・最新候補の署名実E2Eは未完了。局所成功からQuality ReadyやRelease可能を推定しない。 | [CHG](99_Roadmap/Changes/CHG-000082/change.md)、[Quality Center](07_Quality/01_Quality_Center.md) |
-| 現在事実 | Profile管理は新manager／administrator認可からMCP実HTTPの局所候補へ接続済み。Catalog依存を構成した局所候補ではmanager／administratorが19 Tool、developerが15 Tool、Catalog未構成時は15 Toolとする。Runtime活動はAM現在認可へ局所接続済みだが、公開Launcher・Workbench本番接続は未成立。Access Management再編の全体移管も未完了。Domain保存の非協調Processによる親Directory差替え保証は未決である。 | [新Owner計画](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#11-access-managementへの再編--2026-10-09の途中見直し)、[保存保証の未決判断](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#保存保証の未決判断) |
+| 現在事実 | Profile管理・活動・内容・非鍵管理はAM現在認可と各専門Ownerへ接続済み。MCPはdeveloper16、manager／administrator26、Profile構成時30 Toolを提供し、鍵操作とRepository登録は公開しない。Workbenchは専門APIへ直接接続する。正式評価と後続E2Eは未完了であり、局所接続を全体完成にしない。 | [新Owner計画](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#11-access-managementへの再編--2026-10-09の途中見直し) |
 | 履歴事実 | 2026-10-06のReality Auditは13QA・176項目、Test Relationあり132・なし44、Symbol616。2026-10-07の採用範囲照合は17意味、実装Relation17・自動Test Relation16・手動確認待ち1。現在Treeの再実行値でも品質Pass数でもない。 | [対象版と限界](99_Roadmap/Changes/CHG-000082/Evidence/261006_phase2-reality-audit.md)、[採用範囲照合](99_Roadmap/Changes/CHG-000082/change.md) |
 | 共有分析 | 大規模改修前に5Cを積み増すと再実装・再検証負担が増えるため、確認済み結果と反例を改修入力にする。未成立を消さない。 | [持ち越し判断](99_Roadmap/Changes/CHG-000082/change.md#持ち越し判断--orchestratorcoordinatordocker2026-10-09) |
 
 ## 3. 今、人間が決めることは何か
 
-現在の判断待ち：Remoteのmanager／administratorが、MCPからサーバー上のRepositoryフォルダを指定して登録できるようにするか（M1）の1件。登録と公開設定は別操作であり、管理状態Rootを選ぶ機能ではない。同Processの登録、通常三Role本人表示とその他の管理接続はこの判断に依存しない。[判断と範囲](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#非鍵管理の公開接続に向けた着手前確認--2026-10-13)を参照する。
+Portfolioの部分表示方針は2026-10-14に人間承認済み。認可・Repository実体が不明なら全体停止を維持し、認可済み文書の欠落・競合は状態を明示して読めた分を表示する。詳細Reader・集約・Workbench／MCPへの反映を進める。現在、この範囲で追加の人間判断はない。Repository登録はWorkbench限定、manager／administratorの分担、鍵操作のMCP非公開、初回実入口と人間確認を後続E2Eへ回す順序も維持する。[現在の区切り](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#今回の区切りと後続e2e--2026-10-14)を参照する。
 
 現在の判断：鍵の受け渡しの最小構成は採用済み。通常はadministratorのWorkbench画面、初回はHost端末へ一度だけ提示し、追加受領ボタンを設けない。初回の鍵による最初の接続成功を受領・接続確認として扱う。具体入口・初回完了との循環解消・保存／公開Schema・Source／検証は未完了であり、この回答から実装Readyとはしない。[要求正本](01_Discovery/Definitions/REQ-000041/requirement.md#鍵の提示と初回接続確認の採用--2026-10-12)を参照する。この採用記録自体に追加の人間判断はない。以下の各局所結果の回答待ちは、その時点の履歴である。
 

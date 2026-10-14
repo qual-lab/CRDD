@@ -1,5 +1,6 @@
 /**
  * 認可済み中立SourceからPortfolioを生成する契約試験。
+ * @packageDocumentation
  * @responsibility 欠測・Identity競合・順序・不変性を純粋集約境界で観測する。
  * @trace PPR-IT-002
  * @level IT
@@ -49,12 +50,21 @@ test("Portfolioの順序・欠測・競合・完全性と入力不変を保つ",
     Object.freeze({
       projectId: "p-c",
       repositoryId: "r-c",
-      revision: "3",
+      state: "missing",
+      revision: null,
+      context: null,
+    }),
+    Object.freeze({
+      projectId: "p-c",
+      repositoryId: "r-unobserved",
+      state: "unavailable",
+      revision: null,
       context: null,
     }),
     Object.freeze({
       projectId: "p-b",
       repositoryId: "r-b",
+      state: "complete",
       revision: "2",
       context: Object.freeze({
         ...context,
@@ -65,12 +75,14 @@ test("Portfolioの順序・欠測・競合・完全性と入力不変を保つ",
     Object.freeze({
       projectId: "p-a",
       repositoryId: "r-z",
-      revision: "z",
+      state: "missing",
+      revision: null,
       context: null,
     }),
     Object.freeze({
       projectId: "p-a",
       repositoryId: "r-x",
+      state: "complete",
       revision: "x",
       context: Object.freeze({
         ...context,
@@ -81,12 +93,14 @@ test("Portfolioの順序・欠測・競合・完全性と入力不変を保つ",
     Object.freeze({
       projectId: "p-a",
       repositoryId: "r-y",
+      state: "complete",
       revision: "y",
       context,
     }),
     Object.freeze({
       projectId: "p-a",
       repositoryId: "r-a",
+      state: "complete",
       revision: "1",
       context,
     }),
@@ -110,15 +124,26 @@ test("Portfolioの順序・欠測・競合・完全性と入力不変を保つ",
     ]),
     [
       ["r-a", "complete", "1", "development"],
-      ["r-x", "conflicting", "x", null],
-      ["r-y", "conflicting", "y", null],
-      ["r-z", "missing", "z", null],
+      ["r-x", "conflicting", null, null],
+      ["r-y", "conflicting", null, null],
+      ["r-z", "missing", null, null],
     ],
   );
   assert.equal(result.projects[0]?.sources[0]?.context, context);
   assert.equal(result.projects[0]?.sources[1]?.context, null);
   assert.equal(result.projects[0]?.sources[2]?.context, null);
   assert.equal(result.retainedAsSourceOfTruth, false);
+  assert.deepEqual(
+    result.projects[2]?.sources.map((source) => [
+      source.state,
+      source.revision,
+      source.context,
+    ]),
+    [
+      ["missing", null, null],
+      ["unavailable", null, null],
+    ],
+  );
   assert.ok(Object.isFrozen(result));
   assert.ok(Object.isFrozen(result.projects));
   for (const project of result.projects) {
@@ -149,5 +174,33 @@ test("明示空集合だけを空Portfolioとし集合欠落は補完しない",
     createPortfolioProjection(
       undefined as unknown as readonly ProjectContextSource[],
     ),
+  );
+  for (const state of ["missing", "unavailable", "conflicting", "future"]) {
+    assert.throws(
+      () =>
+        createPortfolioProjection([
+          {
+            projectId: "p-a",
+            repositoryId: "r-a",
+            state,
+            revision: "invented",
+            context,
+          },
+        ] as unknown as readonly ProjectContextSource[]),
+      /project_context_source_invalid/u,
+    );
+  }
+  assert.throws(
+    () =>
+      createPortfolioProjection([
+        {
+          projectId: "p-a",
+          repositoryId: "r-a",
+          state: "complete",
+          revision: null,
+          context: null,
+        },
+      ] as unknown as readonly ProjectContextSource[]),
+    /project_context_source_invalid/u,
   );
 });

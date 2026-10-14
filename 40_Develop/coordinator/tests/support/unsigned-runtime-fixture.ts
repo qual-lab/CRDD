@@ -50,7 +50,7 @@ export function withUnsignedRuntimeFixture<T>(verify: (root: string) => T): T {
       "artifact-signing",
       "coordinator",
       "domain-model",
-      "cros",
+      "access-management",
       "mcp-server",
       "orchestrator",
       "execution-intelligence",

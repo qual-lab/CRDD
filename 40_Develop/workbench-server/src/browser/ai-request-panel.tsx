@@ -32,7 +32,7 @@ import {
  * @trace ARCH-000010
  * @input actionToken、Profile Surface、AI Application、現在Snapshot、Candidate Application、候補確認・操作結果およびnotice。
  * @returns Browserが描画するReact要素。
- * @precondition Profile SurfaceはAI Runtimeの検証済みCatalogを持つ。
+ * @precondition 取得済みProfile SurfaceはAI Runtimeの検証済みCatalogを持つ。nullは今回Ownerからの未取得である。
  * @postcondition 事実、共有済み分析、追加推論および次の選択肢を別Sectionで表示する。
  * @effect N/A: React要素の構築だけを行う。
  * @failure Application未接続時は無効状態として表示する。
@@ -43,7 +43,7 @@ import {
  */
 export function renderWorkbenchAiRequest(
   actionToken: string,
-  profiles: WorkbenchAiProfileSurface,
+  profiles: WorkbenchAiProfileSurface | null,
   applicationConfigured: boolean,
   snapshot: WorkbenchAiRequestSnapshot | null,
   candidateActionsConfigured: boolean,
@@ -51,7 +51,7 @@ export function renderWorkbenchAiRequest(
   candidateAction: WorkbenchCandidateActionResult | null,
   notice: string | null = null,
 ): ReactElement {
-  const disabled = !applicationConfigured;
+  const disabled = !applicationConfigured || profiles === null;
   const result =
     snapshot === null
       ? null
@@ -114,7 +114,7 @@ export function renderWorkbenchAiRequest(
         createElement(
           "select",
           { name: "profileId", required: true, disabled },
-          ...profiles.catalog.profiles.map((profile) =>
+          ...(profiles?.catalog.profiles ?? []).map((profile) =>
             createElement(
               "option",
               { key: profile.profileId, value: profile.profileId },

@@ -10,6 +10,8 @@
  */
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
+import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import {
   copyFile,
   mkdir,
@@ -23,6 +25,7 @@ import { pathToFileURL } from "node:url";
 import test from "node:test";
 
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
+import { resolveCrosRuntimeRoots } from "../../../domain-model/src/index.ts";
 import { DEFAULT_AI_PROFILE_CATALOG } from "../../src/catalog/resolve.ts";
 import {
   createCrosAiProfileCatalogStore,
@@ -32,6 +35,205 @@ import {
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
   import.meta.dirname,
 );
+
+/**
+ * CROS Catalogの親とCatalog自身のLinkを構成時・利用時に拒否する。
+ * @responsibility 認証済み操作でも固定config境界を越えて保存しないことを反証する。
+ * @trace RCM-IT-005
+ * @precondition 自己生成Host候補と外部target代役を同じ所有fixtureに置く。
+ * @stimulus 親Link、Catalog Link、構成後のCatalog Link差替えを与える。
+ * @observation blockedまたはsnapshot/adopt例外、target内容と一覧を比較する。
+ * @oracle 全反例でCatalog出版0、target byte不変、不存在を空成功にしない。
+ * @cleanup exact自己生成fixtureを回収し不存在を確認する。
+ * @boundary CROS config Resolver→既存Store Owner→Filesystem。
+ */
+test("CROS Catalogは親Linkと構成後のCatalog Linkを拒否する", async () => {
+  const parent = path.join(repositoryRoot, ".crdd", "tests");
+  await mkdir(parent, { recursive: true });
+  assert.equal(fs.realpathSync.native(parent), parent);
+  for (const mode of ["parent", "catalog", "after-ready"] as const) {
+    const directory = await mkdtemp(
+      path.join(parent, "ai-profile-root-boundary-"),
+    );
+    try {
+      const target = path.join(directory, "target");
+      fs.mkdirSync(target);
+      fs.writeFileSync(path.join(target, "marker.txt"), "unchanged");
+      const input =
+        process.platform === "win32"
+          ? {
+              platform: "win32" as const,
+              publisher: "qual-lab",
+              application: "cros" as const,
+              trustDomainId: "local-test",
+              localAppData: directory,
+            }
+          : {
+              platform: "linux" as const,
+              publisher: "qual-lab",
+              application: "cros" as const,
+              trustDomainId: "local-test",
+              homeDirectory: directory,
+              xdgConfigHome: directory,
+              xdgStateHome: path.join(directory, "state"),
+            };
+      const roots = resolveCrosRuntimeRoots(input);
+      assert.ok(roots);
+      const catalog = path.join(roots.config, "ai-profile-catalog");
+      if (mode === "parent") {
+        fs.symlinkSync(target, path.join(directory, "qual-lab"), "junction");
+        assert.equal(createCrosAiProfileCatalogStore(input).status, "blocked");
+      } else {
+        fs.mkdirSync(roots.config, { recursive: true });
+        if (mode === "catalog") {
+          fs.symlinkSync(target, catalog, "junction");
+          assert.equal(
+            createCrosAiProfileCatalogStore(input).status,
+            "blocked",
+          );
+        } else {
+          const adapter = createCrosAiProfileCatalogStore(input);
+          assert.equal(adapter.status, "ready");
+          assert.ok(adapter.store);
+          fs.symlinkSync(target, catalog, "junction");
+          assert.throws(() => adapter.store?.snapshot());
+          assert.throws(() =>
+            adapter.store?.adopt({
+              expectedRevision: 0,
+              candidate: DEFAULT_AI_PROFILE_CATALOG,
+            }),
+          );
+        }
+      }
+      assert.deepEqual(fs.readdirSync(target), ["marker.txt"]);
+      assert.equal(
+        fs.readFileSync(path.join(target, "marker.txt"), "utf8"),
+        "unchanged",
+      );
+    } finally {
+      assert.equal(path.dirname(directory), parent);
+      assert.equal(fs.lstatSync(directory).isSymbolicLink(), false);
+      await rm(directory, { recursive: true });
+      assert.equal(fs.existsSync(directory), false);
+    }
+  }
+});
+
+/**
+ * CROS Catalogの観測不能と不足chain作成中のLink置換を反証する。
+ * @responsibility 異常を既定値や保存成功に変換せず、候補本文の書込みを止める。
+ * @trace RCM-IT-005
+ * @precondition 自己生成Rootと同期Filesystem故障注入。
+ * @stimulus lstatのEACCESとmkdir直後の親junction置換を与える。
+ * @observation Store拒否／例外、書込みopen数、target markerと一覧。
+ * @oracle 観測不能は空成功0、置換後Catalog出版0、target不変。
+ * @cleanup Node組込みExportをfinallyで復元し、fixtureだけ回収する。
+ * @boundary CROS Storeの観測・Directory作成・出版前境界。
+ */
+test("CROS Catalogは観測不能と作成中のLink置換で本文を書かない", async () => {
+  const parent = path.join(repositoryRoot, ".crdd", "tests");
+  await mkdir(parent, { recursive: true });
+  assert.equal(fs.realpathSync.native(parent), parent);
+  for (const mode of ["unknown", "replacement"] as const) {
+    const directory = await mkdtemp(
+      path.join(parent, "ai-profile-root-failure-"),
+    );
+    const originalLstat = fs.lstatSync,
+      originalMkdir = fs.mkdirSync,
+      originalOpen = fs.openSync;
+    try {
+      const target = path.join(directory, "target");
+      fs.mkdirSync(target);
+      fs.writeFileSync(path.join(target, "marker.txt"), "unchanged");
+      const input =
+        process.platform === "win32"
+          ? {
+              platform: "win32" as const,
+              publisher: "qual-lab",
+              application: "cros" as const,
+              trustDomainId: "local-test",
+              localAppData: directory,
+            }
+          : {
+              platform: "linux" as const,
+              publisher: "qual-lab",
+              application: "cros" as const,
+              trustDomainId: "local-test",
+              homeDirectory: directory,
+              xdgConfigHome: directory,
+              xdgStateHome: path.join(directory, "state"),
+            };
+      const roots = resolveCrosRuntimeRoots(input);
+      assert.ok(roots);
+      const adapter = createCrosAiProfileCatalogStore(input);
+      assert.equal(adapter.status, "ready");
+      assert.ok(adapter.store);
+      let writeOpens = 0,
+        faultObserved = false;
+      fs.openSync = ((
+        file: fs.PathLike,
+        flags: string | number,
+        permissions?: fs.Mode,
+      ) => {
+        if (typeof flags === "string" && /[wa]/u.test(flags)) writeOpens++;
+        return originalOpen(file, flags, permissions);
+      }) as typeof fs.openSync;
+      if (mode === "unknown") {
+        Object.defineProperty(fs, "lstatSync", {
+          value: ((file: fs.PathLike, options?: fs.StatOptions) => {
+            if (String(file) === roots.config) {
+              faultObserved = true;
+              throw Object.assign(new Error("synthetic_lstat_unavailable"), {
+                code: "EACCES",
+              });
+            }
+            return originalLstat(file, options);
+          }) as typeof fs.lstatSync,
+        });
+      } else {
+        fs.mkdirSync = ((
+          file: fs.PathLike,
+          options?: fs.MakeDirectoryOptions,
+        ) => {
+          const result = originalMkdir(file, options);
+          if (String(file) === path.join(directory, "qual-lab")) {
+            faultObserved = true;
+            fs.rmdirSync(String(file));
+            fs.symlinkSync(target, String(file), "junction");
+          }
+          return result;
+        }) as typeof fs.mkdirSync;
+      }
+      syncBuiltinESMExports();
+      if (mode === "unknown") {
+        assert.equal(createCrosAiProfileCatalogStore(input).status, "blocked");
+        assert.throws(() => adapter.store?.snapshot());
+      }
+      assert.throws(() =>
+        adapter.store?.adopt({
+          expectedRevision: 0,
+          candidate: DEFAULT_AI_PROFILE_CATALOG,
+        }),
+      );
+      assert.equal(faultObserved, true);
+      assert.equal(writeOpens, 0);
+      assert.deepEqual(fs.readdirSync(target), ["marker.txt"]);
+      assert.equal(
+        fs.readFileSync(path.join(target, "marker.txt"), "utf8"),
+        "unchanged",
+      );
+    } finally {
+      Object.defineProperty(fs, "lstatSync", { value: originalLstat });
+      fs.mkdirSync = originalMkdir;
+      fs.openSync = originalOpen;
+      syncBuiltinESMExports();
+      assert.equal(path.dirname(directory), parent);
+      assert.equal(fs.lstatSync(directory).isSymbolicLink(), false);
+      await rm(directory, { recursive: true });
+      assert.equal(fs.existsSync(directory), false);
+    }
+  }
+});
 
 /**
  * 初期Catalogを別Node Processで読み込み、破損時の起動停止を検証する。

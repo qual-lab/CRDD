@@ -9,6 +9,10 @@ Quality ID: `QA-000009`
 
 ## 1. 情報源と網羅条件
 
+共有Git操作の直接接続候補は`RFD-IT-014`／`EST-IT-002`／`EST-IT-010`へ接続する。自己生成二Repositoryとlocal bare Remoteで、選択先だけのStage／Unstage／Commit、現在公開先・Branch・Revisionと明示確認を伴う通常Push、一回処置と要求専用結果を確認する。重複・余剰・越境・非許可対象・確認欠落・古いRevision・任意Remoteは配送0とし、処置後失効は固定未確認通知、blockedの発行済みEffectとOwner unknownは保持する。注入したProcess errorの試験を実timeoutやProcess tree不存在の証明にしない。実行中切断・Browser操作・公開CLIと正式項目全体の成立は別途確認する。
+
+選択成果物の本文リンク候補では、`RFD-IT-024`／`EST-IT-002`／`EST-IT-010`／`EST-IT-014`へ実HTTP試験を接続する。同名CHG・Owner成果物を二Repositoryに配置し、選択Root・閉入力・Catalog許可・実Path境界・読取り前後の512 KiB上限・公開前の現在認可を確認する。不正入力で本文read 0と正常正対照を区別し、読取り開始後の切断ではReaderをjoinして成功本文0を確認する。`EST-ST-013`の限定Browser確認では原文の文字列表示、出所と要求URLの相関、履歴移動、旧応答拒否、再読込後の資格なし再接続を扱う。これらは公開Launcher・全Transport終端・正式項目全体の成立を代替しない。
+
 | Source ID | Obligation Key | 導出元 | 保持する固有条件 | 試験段階 | 対応Local Item |
 |---|---|---|---|---|
 | [REQ-000006](../../../01_Discovery/Definitions/REQ-000006/requirement.md) | `req-000006.qa-000009` | Requirement Definition（成立条件・失敗・検証意図） | stdioとlocalhost HTTPが同じ入力を同じアプリケーション契約（Application Contract）へ渡す。正常、入力不正、判断待ち、回復要求、取消を同じ結果意味で返す。通信方式終了後に実行基盤状態や外部作用（Effect）が入口差で分岐しない。どの通信方式で失敗したかと、外部作用（Effect）が発行されたかを区別して確認できる。同一依頼を両通信方式で実行し、成功、拒否、取消、回復結果と実行基盤側外部作用（Effect）を比較する | IT／ST／UAT | `EST-IT-001`、`EST-IT-002`、`EST-ST-005`、`EST-UAT-007`、`EST-IT-014` |
@@ -86,7 +90,7 @@ Quality ID: `QA-000009`
 
 `EST-IT-014`の導出元は`REQ-000006`の入口間で同じ取消意味を保持する条件、`ARCH-000012`の接続Lifecycleと[MCP詳細のRuntime活動取消契約](../../../06_Architecture/Details/mcp-server/01_Architecture.md)である。入力拒否の`EST-IT-002`と、実公開Process終端の`EST-ST-013`を代替しない。
 
-活動の新Owner接続では、`EST-IT-002`で未知field・不正Cursor・Source相関不正を拒否し、`EST-IT-014`で実Reader開始前の呼出し0、開始後のjoin・取消応答・再実行0を確認する。`EST-IT-010`では同じOrchestrator公開観測をLocal内部呼出しとRemote MCPから取得し、競合・欠測・出所・全体ページングを比較する。Readerの待機を取消できない場合もPromise競争で放棄しない。新契約のSource・実境界確認は未実施で、旧CROSの合成Reader試験を本番成立根拠に流用しない。
+活動の新Owner接続では、`EST-IT-002`で未知field・不正Cursor・Source相関不正を拒否し、`EST-IT-014`で実Reader開始前の呼出し0、開始後のjoin・取消応答・再実行0を確認する。`EST-IT-010`では同じOrchestrator公開観測をWorkbenchの直接Owner経路と独立MCP Surfaceから取得し、競合・欠測・出所・全体ページングを比較する。Readerの待機を取消できない場合もPromise競争で放棄しない。Workbench直接Owner接続は局所Sourceと実HTTP反例で評価する。同期活動読取り前の切断では履歴読取り0、読取り中の切断では対象二Rootを各一回読んでjoinし、Serverの成功本文0と次要求の正常取得を確認する。既存通信待機をReader前後へ適用し、強制途中取消や全公開Launcherの完成を主張しない。旧CROSの合成Reader試験は移管後の本番成立根拠に流用しない。
 
 
 EST-ST-015は最新MCP詳細の鍵管理・初回設定・状態照会非公開から導出する。初回設定も同じ公開面の負境界のためSame統合し、新しい重複項目を作らない。鍵権限・発行／失効／交換のEffectはQA-000007が所有し、本項目は既存四面非公開に加え、完全HTTP／Protocol検査後の限定discoverと確認Ownerの正規1回／不正0を検証する。確認内部のfresh読取りは公開状態照会ではない。EST-IT-010とEST-ST-015は最新契約についてNot Run。旧結果は新契約の合格根拠にしない。
@@ -100,7 +104,7 @@ EST-ST-015は最新MCP詳細の鍵管理・初回設定・状態照会非公開�
 | Local Item | 入力・反証 | 観測と終了後条件 |
 |---|---|---|
 | `EST-IT-001/002` | 正常TLS終端、誤Host／Origin、偽装Forwarded Header、認証不正、Exposure改訂変更、body途中、slow body、idle接続、終了競合 | 認証・Origin・Header処置を実Application呼出しと相関する。拒否時Effect 0。読取り不能を空成功へ変えず、終了時reader／socket残存と未確認を区別する。実TLS配置と模擬Headerを別Evidenceにする。 |
-| `EST-IT-010` | 同一Activity／Profile要求をLocal内部呼出しとRemote MCPから処理。cursor／limit、expectedRevision、認可失効、保存後応答喪失 | 同じ入力、意味結果、欠測、現在認可と保存Effectを比較する。Transport変更で新Authorityを作らず、応答喪失による自動再送・二重保存0。内部呼出し成功だけでRemote接続成立としない。 |
+| `EST-IT-010` | 同一Activity／Profile要求をWorkbenchの直接Owner経路と独立MCP Surfaceから処理。cursor／limit、expectedRevision、認可失効、保存後応答喪失 | 同じ入力、意味結果、欠測、現在認可と保存Effectを比較する。Transport変更で新Authorityを作らず、応答喪失による自動再送・二重保存0。一方のSurfaceだけの成功で他方の成立を主張しない。 |
 | `EST-ST-013` | body受信中・idle keep-alive・Application実行中の終了、重複Signal、close／join不明 | 受付停止→取消→join→Listener／Socket回収→Signal解除を公開Processから確認する。各Registryの空を実観測し、未知を不存在へ変更しない。stdioの`EST-ST-012`とは別に判定する。 |
 
 ## 4. 評価とEvidence
@@ -135,23 +139,43 @@ Source Definition由来の検証義務を維持し、Detailは具体的な観測
 
 ## 非鍵管理の通信接続の検証具体化候補 — 2026-10-13
 
-対象は[MCP詳細§3.3.1](../../../06_Architecture/Details/mcp-server/01_Architecture.md#331-非鍵管理toolの具体化候補)の管理四readと七保存候補。Remote登録Root指定の人間判断前に実装・公開しない。鍵・Host・初回操作は非公開、Profile四Toolと内容操作は既存契約を保持する。新Local Itemを追加せず、正式評価はNot Run。
+対象は[独立MCP詳細§3.3.1](../../../06_Architecture/Details/mcp-server/01_Architecture.md#331-非鍵管理toolの具体化候補)とWorkbenchの直接AM接続を分ける。Workbenchは全配置で四read＋七保存（登録含む）、独立MCPは四read＋六保存（登録なし）。WorkbenchからMCPを呼ぶ契約は持たない。鍵・Host・初回操作は非公開、Profile四Toolと内容操作は既存契約を保持する。新Local Itemを追加せず、正式評価はNot Run。
 
 | 既存項目 | 接続する観測とOracle |
 |---|---|
 | EST-IT-002 | 採用Tool名の全数・非衝突、tools/listとdispatchの同集合、操作別閉Schema、必須／未知／重複field・型・境界値。不正入力後のAM呼出し0。Bearer・管理Rootの引数0、Path／Binding／秘密の応答0 |
-| EST-IT-010 | Workbench直接とRemote MCPが同じAM結果・既知publication・cleanup・最初の失敗分類を保持し、入口固有Store・認可判定0。四readの各改訂と既存filterを保ち、改訂混在を同一Snapshotへ合成しない。認可／観測不明や出力上限超過を部分／空成功にしない |
+| EST-IT-010 | 独立したWorkbench直接AMとMCP Surfaceが同じAM結果・既知publication・cleanup・最初の失敗分類を保持し、入口固有Store・認可判定0。四readの各改訂と既存filterを保ち、改訂混在を同一Snapshotへ合成しない。認可／観測不明や出力上限超過を部分／空成功にしない |
 | EST-ST-013 | 実HTTPの開始前取消はAM呼出し0、開始後は同期処理の終了待ちと応答抑止。保存後切断／出力失敗の自動再送0、次要求でfresh状態観測。Server終了後の所有Listener／Request／Socket終了を確認 |
 
-現在manager／administratorの管理Tool追加とdeveloper追加0を実HTTPで確認し、Role変更／失効後の次list／callを反証する。AM Rootと要求Bearerを持たないstdio／Local依存では追加0・fallback0。通常構成で登録候補まで採用した場合の26／Profile構成時30という予定件数と、登録不採用時25／29を区別し、判断前の値を実測結果へ使わない。RFD-IT-021／ST-022は管理・保存・表示の意味Ownerであり、この通信検査だけから七保存や利用者理解の成立を主張しない。
+現在manager／administratorの管理Tool追加とdeveloper追加0を実HTTPで確認し、Role変更／失効後の次list／callを反証する。AM Rootと要求Bearerを持たないstdio／Local依存では追加0・fallback0。独立MCPは登録非公開に固定し、採用Toolの閉集合を実際の構成と照合する。Workbenchの管理操作数からMCP Tool数を推定しない。RFD-IT-021／ST-022は管理・保存・表示の意味Ownerであり、この通信検査だけから七保存や利用者理解の成立を主張しない。
 
-非鍵管理候補のEST-IT-010では、MCP結果Unionの全field／literalと固定理由mappingを閉検査し、未知reasonはstorage_unavailableへ、publication／observedRevision／cleanupConfirmedは不変とする。先行pending処置はprevious_materials_unavailable、新出版準備はprepare_failed。出版成功後のLock終了不明がprimaryFailureへ到達する場合はrelease_unknown、既知失敗に付随する非公開secondaryは捏造しない。EST-IT-002ではdeveloperの通常認証／用途解決を許容しつつ、四管理read／七保存API呼出しと管理Tool／情報開示0をlistとcall双方で確認する。管理状態Root／Bindingは常に入力外、応答Path／Bindingは0。Remote登録のrepositoryRootだけは採用時に要求入力として許可し、不採用時はfield／Tool0とする。
+非鍵管理候補のEST-IT-010では、MCP結果Unionの全field／literalと固定理由mappingを閉検査し、未知reasonはstorage_unavailableへ、publication／observedRevision／cleanupConfirmedは不変とする。先行pending処置はprevious_materials_unavailable、新出版準備はprepare_failed。出版成功後のLock終了不明がprimaryFailureへ到達する場合はrelease_unknown、既知失敗に付随する非公開secondaryは捏造しない。EST-IT-002ではdeveloperの通常認証／用途解決を許容しつつ、四管理read／七保存API呼出しと管理Tool／情報開示0をlistとcall双方で確認する。管理状態Root／Bindingは常に入力外、応答Path／Bindingは0。Repository登録の対象Root入力はWorkbenchだけに許可し、MCPの登録field／Toolは0とする。
 
-通常本人Tool crdd.get_current_accessはEST-IT-002／010で三Role、初回非提供、空閉入力、不正入力と事前取消のread0、要求毎fresh本人、失効／Role変更、Root／資格／他User／managementOperations非公開を確認する。Workbench直接とRemoteの同じAM投影・管理共通六操作の同値、Remote登録非提供、拒否／不明の非成功化、保存後切断と自動再送0を同項目へ接続する。公開Process終了・Listener／Request／Socket終端はEST-ST-013の別義務として維持し、局所Handler試験だけで成立としない。
+通常本人Tool crdd.get_current_accessはEST-IT-002／010で三Role、初回非提供、空閉入力、不正入力と事前取消のread0、要求毎fresh本人、失効／Role変更、Root／資格／他User／managementOperations非公開を確認する。Workbench直接AMと独立MCPの同じAM投影・管理共通六操作の同値、MCP登録非提供、拒否／不明の非成功化、保存後切断と自動再送0を同項目へ接続する。公開Process終了・Listener／Request／Socket終端はEST-ST-013の別義務として維持し、局所Handler試験だけで成立としない。
+
+### Workbench Browser接続の反証範囲 — 2026-10-13
+
+同Host Topic／Meetingの内容POST候補は、`EST-IT-002`／`EST-IT-010`で閉Form・Body搬送後の現在認可・選択Root・同Project集合と一回配送を確認する。正常／Domain blockedは200の要求専用結果、配送前拒否は400、配送後の例外またはC2不成立は503の固定未確認通知、取消は成功本文0とする。これは旧Standalone／Remoteの303・固定500とは別分岐であり、既知処置を未保存へ畳まず、Root・対象本文を拒否応答へ含めない。局所実HTTPでは保存後の公開解除・鍵失効・例外・実切断、同Project sibling解除、処置一回・既知Effect保持・fresh読取り再Mutation 0を確認した。取消の固定待機は根拠にせず、ServerResponseのcloseと成功本文0を相関し、正常正対照では成功本文1を確認する。昇格の正常／不存在／競合と、Outcome未処置時Close拒否／全件処置後Closeも局所確認した。是正後の限定再レビュー、Browser、Git／本文、公開起動と正式項目全体は未成立として保持する。
+
+同Originの既知リンク／GET検索／popstateは`EST-ST-013`で本番Bundle→Model API→同React Root更新を確認する。移動後の資格Header、明示Repository選択の保持、遅延表示の世代不一致拒否、POST／外部／別タブの非横取りを区別する。pagehide／pageshowの合成通知でRoot解放と資格なし再開を反証する場合、実Browser cacheの保存復元確認とは表示しない。未公開Repositoryへの移動で認証だけ維持できても、内容選択の成立へ流用しない。
+
+選択内容GETは`RFD-IT-024`／`EST-IT-002`／`EST-IT-010`で、今回AM許可集合と明示Repository／Context／manifestの相関、無資格・非登録・Exposure解除の内容拒否、起動Rootへのfallback 0を確認する。本文取得中の選択Exposure・資格失効、同Project sibling解除、Binding／manifest差では、公開直前の管理改訂と正規化全集合再確認によって内容・Relation・Git・Portfolioの部分公開0を確認する。集合の同値な順序変更は許容し、重複Repository IDの正逆／同値入力では認証・Root open／read 0を観測する。`aiProfiles: null`は未取得であり、不正Objectや欠測を補完せず、単体Catalogの維持と共有AI入力の無効化を別々に検査する。実Browserの三つの自己生成Repository間移動は`EST-ST-013`の限定範囲として、選択維持・遅延応答不採用・未接続保存の無効表示と区別する。内容POST・本文リンク・共有TLS・公開CLIと正式項目全体の成立を、このGET結果から推定しない。
+
+通常管理の直接接続では`EST-IT-010`でStandalone／CROSの同じAM API・結果・実保存を比較し、MCP Listener／Clientを使わない。Workbenchの登録は両配置で現在管理Roleに限り許可し、登録だけで公開0、降格後の管理拒否、閉入力・非秘密結果、保存後の応答不明・再送0を維持する。MCP自身の登録非公開は別Surfaceの義務であり、Workbenchの登録拒否へ転用しない。
+
+`EST-IT-002`へ同Origin資格搬送の閉検査を接続する。別Origin・Caller指定Authorization・事前取消では送信0、鍵切替・切断後の遅延応答は採用0、16 MiB超過はReader取消・解放、再送0を観測する。接続POSTは200の閉JSONだけで本人・内容・鍵を返さず、303をmanual fetchで成功確認する実装は反例とする。合成fetch／streamの成功を実BrowserやAM認可の成立へ流用しない。
+
+`EST-ST-013`の実Browser範囲では、本番Bundleから専用POST・次GETへ接続し、本人・Role・表示をBrowser間で混同しないこと、入力・Storage・URLに鍵を残さないこと、切断・再読込後の未認証状態を確認する。鍵管理と接続の局所実Browser8件は成功し、所有Browser／Listener／Directoryの清掃も確認した。共有公開配置・全内容操作・Browser間の全能力非混同は未確認であり、正式EST-ST-013全体の結果をPassへ変更しない。
+
+開始後取消は`EST-IT-002`の別反例として、fetch待機中と本文Reader待機中を確認する。同じSignalを搬送し、abort後は固定失敗・Reader lock解放・各fetch一回・再送0を観測する。非取消の通信失敗を取消へ捏造しない。局所Transport終了を保存rollbackや外部Effect終了の証明へ流用しない。
+
+## 旧CROS試作品の撤去と検証義務 — 2026-10-14
+
+旧`surface/operation.ts`の四Surface名を付けたメモリOwnerと結果帰還の純値Oracleは、本番SurfaceやTask保存・処置集合更新・Evidence搬送を行わないため撤去した。EST-IT-010は現在のWorkbench直接Ownerと独立MCPの部分接続を保持するが、全採用入口の同値確認はOPEN。EST-ST-011はCoordinator／Orchestratorの実帰還境界としてOPEN・正式Not Runを保持し、5Cの承認済み持越しと区別する。旧試験の削除をQA ID廃止・Pass・代替完了へ読み替えない。過去Evidenceは不変更で、当時SourceはGit Commit `378d93cb6ffb0cc7c9561e0572d62bdd656f3312` の`40_Develop/cros/src/surface/operation.ts`と専用試験から再構成する。
 
 ## Checklist
 
-Runtime活動の入力・結果拒否は`EST-IT-002`、現在Role認可と非開示は`RFD-IT-013`、取消と待機終了は`EST-IT-014`で確認する。開始前取消のReader零回、開始後取消の読取りjoin・応答保留・join後取消を別々に観測する。非取消Readerに対するSignal確認だけをReader中断や外部資源不存在の証明へ昇格しない。Server終了・切断の実Transport利用側は`EST-ST-013`で別途確認する。
+Runtime活動の入力・結果拒否は`EST-IT-002`、現在Role認可と非開示は`RFD-IT-013`、取消と待機終了は`EST-IT-014`で確認する。開始前取消のReader零回、開始後取消の読取りjoin・応答保留・join後取消を別々に観測する。非取消Readerに対するSignal確認だけをReader中断や外部資源不存在の証明へ昇格しない。同Host Workbenchの直接経路では、同Projectの許可全Rootを既存Orchestrator Readerへ渡し、二つの実EI履歴25件の20件＋続き5件、別Project除外、Cursor不正の先頭戻り0、現在状態と履歴不明の独立、初期化0を確認する。活動取得後のAM全集合不一致はMain全体の拒否とし、Reader故障だけのunknown表示と区別する。Server終了・切断の実Transport利用側は`EST-ST-013`で別途確認する。
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した
 - [x] 各Local ItemをRequired Verification Obligationの局所参照と導出元へ接続した

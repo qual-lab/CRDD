@@ -117,6 +117,7 @@ Toolの既定書込みRootは現在のリポジトリ内に限定する。現在
 | Pythonファイル | ASCII `kebab-case` | `provider-egress-proxy.py` |
 | Plain text成果物 | ASCII `kebab-case` | `general-task-verification.txt` |
 | 固定Native実行物 | ASCII `kebab-case` | `crdd-platform-access.exe` |
+| 公開TLS試験材料 | `tests/fixtures/tls-test-certificate.pem`／`tls-test-key.pem` | MCP／Workbenchの自己生成localhost試験だけ。意図的に公開したsynthetic材料と明示し、実秘密・運用TLS・Release署名に使用しない。 |
 | 版固定Policy成果物 | ASCII `kebab-case`のsubject＋`-<major>.<minor>.<patch>.policy` | `windows-docker-desktop-4.41.2.policy` |
 | Dockerfile | ASCII `kebab-case`のsubject＋`.Dockerfile` | `provider-egress-proxy.Dockerfile` |
 | 試験ファイル | `<subject>.<kind>.test.ts` | `crdd-check.contract.test.ts` |

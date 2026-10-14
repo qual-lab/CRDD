@@ -4,7 +4,7 @@
  * @trace ARCH-000012
  * @trace ARCH-000013
  * @boundary MCP公開入力とAMの現在認可・保存契約。
- * @security 資格、管理Root、Binding、鍵操作、判断待ちのRepository登録を含めない。
+ * @security 資格、管理Root、Binding、鍵操作、Workbench限定のRepository登録を含めない。
  */
 
 /**

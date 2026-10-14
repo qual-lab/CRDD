@@ -18,7 +18,8 @@
     "start": "node ./bin/workbench-server.ts",
     "test": "npm run check && npm run test:run",
     "test:run": "node --test --test-concurrency=1 ./tests/integration/*.test.ts",
-    "test:credential-browser": "node --test ./tests/system/credential-administration.browser.contract.test.ts",
+    "test:credential-browser": "node --test ./tests/system/credential-administration-browser.contract.test.ts",
+    "test:entry": "node --test ./tests/system/workbench-server-entry.integration.test.ts",
     "test:visual": "node --test --test-concurrency=1 ./tests/system/workbench-visual.integration.test.ts",
     "typecheck": "tsc -p ./tsconfig.json"
   },

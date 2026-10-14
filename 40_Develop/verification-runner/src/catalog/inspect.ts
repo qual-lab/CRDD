@@ -61,14 +61,14 @@ export const integrationLifecycleProfiles = [
 export type TestCatalogEntry = Readonly<{
   id: string;
   owner:
+    | "access-management"
     | "ai-adapter"
     | "artifact-signing"
     | "checker"
     | "coordinator"
     | "domain-model"
-    | "cros"
     | "execution-intelligence"
-    | "mcp"
+    | "mcp-server"
     | "official-asset-governance"
     | "orchestrator"
     | "semantic-coverage"
@@ -76,7 +76,7 @@ export type TestCatalogEntry = Readonly<{
     | "platform-access"
     | "verification-runner"
     | "visual-preview"
-    | "workbench";
+    | "workbench-server";
   path: string;
   level: TestLevel;
   kind: (typeof testKinds)[number];
@@ -107,14 +107,14 @@ export type TestCatalog = Readonly<{
   regressionIsSelection: true;
   resourceIntensiveLevels: readonly ["performance", "longevity"];
   runnerProfiles: Readonly<{
+    "access-management": "node_test";
     "ai-adapter": "node_test";
     "artifact-signing": "node_test";
     checker: "node_test";
     coordinator: "node_test";
     "domain-model": "node_test";
-    cros: "node_test";
     "execution-intelligence": "node_test";
-    mcp: "node_test";
+    "mcp-server": "node_test";
     "official-asset-governance": "node_test";
     orchestrator: "node_test";
     "semantic-coverage": "node_test";
@@ -122,7 +122,7 @@ export type TestCatalog = Readonly<{
     "platform-access": "cargo_test";
     "verification-runner": "node_test";
     "visual-preview": "node_test";
-    workbench: "node_test";
+    "workbench-server": "node_test";
   }>;
   integrationBlocks: readonly Readonly<{
     id: string;
@@ -156,14 +156,14 @@ const RESOURCE_INTENSIVE_LEVELS = new Set<TestLevel>([
   "longevity",
 ]);
 const RUNNER_SUPPORTED_OWNERS = new Set([
+  "access-management",
   "ai-adapter",
   "artifact-signing",
   "checker",
   "coordinator",
   "domain-model",
-  "cros",
   "execution-intelligence",
-  "mcp",
+  "mcp-server",
   "official-asset-governance",
   "orchestrator",
   "semantic-coverage",
@@ -171,17 +171,17 @@ const RUNNER_SUPPORTED_OWNERS = new Set([
   "platform-access",
   "verification-runner",
   "visual-preview",
-  "workbench",
+  "workbench-server",
 ]);
 const RUNNER_PROFILES = Object.freeze({
+  "access-management": "node_test",
   "ai-adapter": "node_test",
   "artifact-signing": "node_test",
   checker: "node_test",
   coordinator: "node_test",
   "domain-model": "node_test",
-  cros: "node_test",
   "execution-intelligence": "node_test",
-  mcp: "node_test",
+  "mcp-server": "node_test",
   "official-asset-governance": "node_test",
   orchestrator: "node_test",
   "semantic-coverage": "node_test",
@@ -189,7 +189,7 @@ const RUNNER_PROFILES = Object.freeze({
   "platform-access": "cargo_test",
   "verification-runner": "node_test",
   "visual-preview": "node_test",
-  workbench: "node_test",
+  "workbench-server": "node_test",
 });
 const validExecutionProfiles = new Set(executionProfiles);
 const validIntegrationLifecycleProfiles = new Set(integrationLifecycleProfiles);
@@ -341,21 +341,21 @@ function walkFiles(root: string, directory: string): string[] {
  */
 export function discoverRepositoryTestFiles(repositoryRoot: string): string[] {
   const nodeTests = [
+    "access-management",
     "ai-adapter",
     "artifact-signing",
     "checker",
     "coordinator",
     "domain-model",
-    "cros",
     "execution-intelligence",
-    "mcp",
+    "mcp-server",
     "official-asset-governance",
     "orchestrator",
     "semantic-coverage",
     "version-control",
     "verification-runner",
     "visual-preview",
-    "workbench",
+    "workbench-server",
   ].flatMap((owner) =>
     walkFiles(
       repositoryRoot,
@@ -364,9 +364,9 @@ export function discoverRepositoryTestFiles(repositoryRoot: string): string[] {
         "40_Develop",
         owner === "orchestrator"
           ? "orchestrator"
-          : owner === "mcp"
+          : owner === "mcp-server"
             ? "mcp-server"
-            : owner === "workbench"
+            : owner === "workbench-server"
               ? "workbench-server"
               : owner,
         "tests",
@@ -425,7 +425,7 @@ function isTestLevel(value: unknown): value is TestLevel {
  */
 function expectedNodeLevel(entryPath: string): string | null {
   return (
-    /^40_Develop\/(?:ai-adapter|artifact-signing|checker|coordinator|domain-model|cros|execution-intelligence|mcp-server|official-asset-governance|orchestrator|semantic-coverage|verification-runner|version-control|visual-preview|workbench-server)\/tests\/([^/]+)\//u.exec(
+    /^40_Develop\/(?:access-management|ai-adapter|artifact-signing|checker|coordinator|domain-model|execution-intelligence|mcp-server|official-asset-governance|orchestrator|semantic-coverage|verification-runner|version-control|visual-preview|workbench-server)\/tests\/([^/]+)\//u.exec(
       entryPath,
     )?.[1] ?? null
   );
@@ -777,7 +777,7 @@ export function inspectTestCatalog(
         (entry) =>
           !isSafeRepositoryPath(entry) ||
           !entry.startsWith(
-            `40_Develop/${binding.producerOwner === "orchestrator" ? "orchestrator" : binding.producerOwner === "mcp" ? "mcp-server" : binding.producerOwner === "workbench" ? "workbench-server" : binding.producerOwner}/`,
+            `40_Develop/${binding.producerOwner === "orchestrator" ? "orchestrator" : binding.producerOwner === "mcp-server" ? "mcp-server" : binding.producerOwner === "workbench-server" ? "workbench-server" : binding.producerOwner}/`,
           ),
       )
     )
@@ -1051,6 +1051,8 @@ export function inspectResourceIntensiveTestAuthority(
  * @concurrency N/A: ownerForPathは共有非同期状態を持たない同期処理である。
  */
 function ownerForPath(changedPath: string): TestCatalogEntry["owner"] | null {
+  if (changedPath.startsWith("40_Develop/access-management/"))
+    return "access-management";
   if (changedPath.startsWith("40_Develop/ai-adapter/")) return "ai-adapter";
   if (changedPath.startsWith("40_Develop/artifact-signing/"))
     return "artifact-signing";
@@ -1061,10 +1063,9 @@ function ownerForPath(changedPath: string): TestCatalogEntry["owner"] | null {
   if (changedPath.startsWith("40_Develop/visual-preview/"))
     return "visual-preview";
   if (changedPath.startsWith("40_Develop/domain-model/")) return "domain-model";
-  if (changedPath.startsWith("40_Develop/cros/")) return "cros";
   if (changedPath.startsWith("40_Develop/execution-intelligence/"))
     return "execution-intelligence";
-  if (changedPath.startsWith("40_Develop/mcp-server/")) return "mcp";
+  if (changedPath.startsWith("40_Develop/mcp-server/")) return "mcp-server";
   if (changedPath.startsWith("40_Develop/official-asset-governance/"))
     return "official-asset-governance";
   if (changedPath.startsWith("40_Develop/orchestrator/")) return "orchestrator";
@@ -1075,7 +1076,7 @@ function ownerForPath(changedPath: string): TestCatalogEntry["owner"] | null {
   if (changedPath.startsWith("40_Develop/platform-access/"))
     return "platform-access";
   if (changedPath.startsWith("40_Develop/workbench-server/"))
-    return "workbench";
+    return "workbench-server";
   return null;
 }
 

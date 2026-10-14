@@ -7,6 +7,8 @@ Architecture ID: `ARCH-000013`
 
 ## 1. 責務と境界
 
+Repository登録の利用者入口はWorkbenchだけとする（2026-10-13人間判断）。manager／administratorの既存管理分担とサーバー上の対象Root検証を維持し、登録だけで公開しない。MCPにはRepository登録のTool・入力Schema・dispatchを置かず、登録解除・公開範囲等の採用済み非鍵操作は維持する。鍵3操作のMCP非公開は別の固定境界として維持する。
+
 Credentialから既存ユーザーを識別し、管理要求は現行Roleの固定管理分担、内容要求はRole内容設定・Repository公開範囲・実アクセスで要求ごとに評価する。ユーザー・Role内容・Repository接続登録／Exposureの管理、資格発行／独立失効／鍵交換、Context集約は別責務とする。CROSはシステム全体の概念であり、認証・認可Packageの名前ではない。
 
 | 区分 | 内容 |
@@ -147,7 +149,7 @@ Repository登録・Exposure・内容権限の自動付与とProduct Data変更�
 | 基準版の確認範囲 | 新Owner／利用側 | 必要な新確認・移行 |
 |---|---|---|
 | [旧Remote Project Context MCP](../../../99_Roadmap/Changes/CHG-000082/Evidence/260927-2029_phase4-remote-project-context-mcp.md): Bearer検証、許可範囲だけのPortfolio、単体資格不要、Listener終了 | Access Managementで認可済集合を解決→Domain Model投影→MCP搬送 | 現行Roleとユーザー資格で同じ公開・非開示・終了境界を再検証。旧Workspace集合方式のPassを新版へ流用しない |
-| 旧CROS資格管理・Host回復 | Access Managementと承認済み管理入口 | [移管対応表](../../../99_Roadmap/Changes/CHG-000082/source-owner-map.md)で19入力を照合済み。[旧Details](../../Details/cros/01_Architecture.md)は比較資料。新保存・入口・全Consumerの接続と実測は未完了で、対応表から置換済みとしない |
+| 旧CROS資格管理・Host回復 | Access Managementと承認済み管理入口 | [現在の処置](../../../99_Roadmap/Changes/CHG-000082/source-owner-map.md#現在の撤去処置--2026-10-14)へ接続。旧Packageは撤去済み、[現行AM設計](../../Details/access-management/01_Architecture.md)とMCP／Workbenchが新契約を所有する。旧Detailsは履歴比較のみ。正式191項目・全体検証の未完了を局所移管からPassへ変更しない |
 | 最小ユーザー管理・鍵交換2操作 | Access Management→Workbench／MCP等の利用側 | 新Schema・保存移行・本番接続・実境界Evidenceは未実施。現在の旧Sourceから新成立を推定しない |
 
 旧Evidenceは歴史記録として不変。最新構成への移行はフロントAIの手順で扱い、旧互換Readerを追加しない方針を維持する。ただし具体的な保存変更は未確定で、現行秘密Fileの操作をこの設計更新で許可しない。

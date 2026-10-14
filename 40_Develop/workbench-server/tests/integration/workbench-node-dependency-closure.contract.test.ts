@@ -151,6 +151,15 @@ test("Workbench Node RuntimeはBrowser React value依存へ到達しない", () 
   }
   assert.ok(visited.has(path.join(packageRoot, "src", "server.ts")));
   assert.equal(
+    [...visited].some((value) =>
+      ["mcp-server", "cros"].includes(
+        path.relative(repositoryRoot, value).split(path.sep)[1] ?? "",
+      ),
+    ),
+    false,
+    "workbench_runtime_has_no_machine_surface_dependency",
+  );
+  assert.equal(
     visited.has(path.join(packageRoot, "src", "browser", "client-model.ts")),
     false,
   );
