@@ -33,6 +33,8 @@
 
 対象はRepository識別とそのRepositoryに所属するWorkspace識別で結合する。ID文字列やCWDだけでPath・権限を確定しない。DirectのID表現・具体APIは未決であり、仮の値を永続契約として発行しない。
 
+Isolatedの技術APIでは上位発行の小文字UUIDを使い、Version Controlが専用Branchを`crdd/workspace/<uuid>`、配置を所属Repository直下の`.crdd/workspaces/<uuid>/worktree/`へ導く。UUIDは操作許可ではない。採否・保留・非使用はOrchestratorが既存利用調停で処置期間を通じ維持し、削除時は期待HEADと変更破棄の明示有無を渡す。新しいWorkspace台帳・Lockは追加しない。この値形式の確定だけでUI・Task保存Schemaと本番接続を完成としない。
+
 新設Workspaceの名称はこの作業領域に用いる。既存のdevelopment／managementを表す`workspaceId(s)`は内容領域（設計名`contentAreaId(s)`）へ改名する。権限の意味を変えず、Role／Exposure・Manifest・通信・保存Schemaと全利用側を同じ切替単位で更新する。内容領域への閲覧許可から新Workspace作成・実行・Mergeの許可を自動生成しない。既存の短命作業領域は一時実行領域等の実責務名へ改め、Dockerや外部CLIの予約語は変更しない。過去Evidenceの名称・署名・Hashは維持する。
 
 ## 3. Packageの責務と依存方向
@@ -95,7 +97,12 @@ Tool Runtimeのインストール先、Clone先、CWDを製品データの暗黙
 | 明示Merge | 人間の取込先・対象Commit確認後、Orchestrator→VC | 実行直前のHEAD・dirty・認可・競合を再確認。途中失敗を再発行せず現在状態へ再入場 |
 | Merge後分析 | 通常Taskとして影響を整理 | 対象Commitと分析を相関し`merge-result.md`を更新。分析失敗でもMerge自動Rollback・自動修正連鎖0 |
 | Promotion | 人間が固定成果・正本Revision・未レビュー変更を確認 | 正本書込み・適用済み事実・後続記録を区別。保存失敗を未適用へ巻き戻して二重適用しない |
-| Workspace終了・破棄 | Orchestratorが参照と判断資料を確認してVCへ明示要求 | 実行・採否・回復参照、必要成果保全を確認。参照中Commit／dirty・未移管判断資料を自動削除しない |
+| 採用・取込済みのIsolated終了 | Orchestratorが取込先の成果と採用記録を確認しVCへ明示要求 | 未取込残差・未追跡・ignored成果の破棄範囲も確定し、不要な専用Worktree・専用Branch・不要Directoryを回収する。採用だけで未取込内容の破棄を推定しない |
+| 不採用・破棄のIsolated終了 | Orchestratorが対象と非使用、必要判断資料の保全を確認しVCへ明示要求 | 確定した破棄範囲のdirty・未追跡・ignored成果を含め専用Worktree・専用Branchを削除する。未merge専用Branchも対象とし、残存を既定にしない。Git Objectの即時消去は要求しない |
+| 継続・明示保留 | 継続作業又は人間が調査目的・保持期限を明示した場合だけ保持 | 自動で保留へ変換しない。期限到来時は削除又は延長を判断し、期限だけを削除許可にしない |
+| 終了時の実行中・対象不一致 | 実行中は終了後に同じ終了処置へ進む。対象不一致・観測不能は理由を返して停止 | 未Commitやignoredの存在だけを対象不明としない。Gitのlock・別HEAD・別Worktreeを破棄許可で無条件突破しない。新しい保留台帳・監視・Recovery機構を追加しない |
+
+上記の削除はIsolatedの専用資源に限定する。Directの現在のWorking Treeと通常Branchは削除対象にしない。
 
 | 競合する範囲 | 調停する責務 | 別の範囲へ拡張しない条件 |
 |---|---|---|
@@ -117,7 +124,7 @@ Tool Runtimeのインストール先、Clone先、CWDを製品データの暗黙
 | Failure／Recovery | Applicable: §5。元失敗・同対象参照・参照中成果を保持 |
 | Variation／Common Contract | Applicable: Direct／Isolatedは同じTask対象、方式差はVCと対象解決に限定 |
 | Creation／Selection・Lifecycle | Applicable: Orchestratorが要求、VCが技術操作、DIは借用資源だけを回収 |
-| State-dependent Behavior | Applicable: dirty・実行中・未解決・未レビューでは破棄／採用を止める |
+| State-dependent Behavior | Applicable: 採用にはレビュー・取込条件を要求し、明示破棄には対象・非使用・期待HEADを要求する。dirtyは破棄範囲に含められる。実行中・対象不一致・観測不能では削除しない |
 | Composition／Recursion | N/A: 再帰WorkspaceやWorkspace内Workspaceを今回の管理能力として導入しない |
 | Security／Concurrency／Timing | Applicable: §2／4／5。時刻・期限だけで安全や不存在を推定しない |
 | Visual／利用者理解 | OPEN: 新規作成・選択・Merge・破棄の表示と誤認防止はUI／SPEC具体化とUATが必要 |

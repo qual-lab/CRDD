@@ -4,7 +4,7 @@
  * @responsibility Revision Identity、Snapshot、Repository観測をAdapter経由で提供する。
  * @trace ARCH-000002
  * @boundary Git実装とCRDD Domain利用側の境界。
- * @effect 明示された操作ではRepository-local ignore設定を更新し得る。
+ * @effect 明示操作ではRepository-local ignore、専用Worktree／Branchと共有Git管理情報を更新し得る。
  */
 export {
   FIXED_REVISION_IDENTITY_CONTRACT,
@@ -39,6 +39,13 @@ export {
 } from "./git/fixed-snapshot-adapter.ts";
 export { gitLocalChangeSetAdapter } from "./git/local-change-set-adapter.ts";
 export { gitRepositoryWorktreeViewAdapter } from "./git/worktree-view-adapter.ts";
+export {
+  type RepositoryWorktreeObservation,
+  type RepositoryWorktreeResult,
+  createRepositoryWorktree,
+  observeRepositoryWorktree,
+  disposeRepositoryWorktree,
+} from "./git/worktree-management.ts";
 export {
   createGitChangePublicationAdapter,
   createGitChangePublicationTargetObservationAdapter,

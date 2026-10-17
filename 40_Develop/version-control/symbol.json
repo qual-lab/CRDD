@@ -4,6 +4,20 @@
   "subsystem": "version-control",
   "symbols": [
     {
+      "symbolId": "version-control.git-worktree-management",
+      "kind": "file",
+      "path": "src/git/worktree-management.ts",
+      "archIds": ["ARCH-000009"]
+    },
+    {
+      "symbolId": "version-control.test.integration.worktree-management",
+      "kind": "test-suite",
+      "path": "tests/integration/worktree-management.integration.test.ts",
+      "qaIds": ["QA-000007"],
+      "localTestIds": ["RFD-IT-029"],
+      "verifies": ["version-control.git-worktree-management"]
+    },
+    {
       "symbolId": "version-control.git-read-command",
       "kind": "file",
       "path": "src/git/read-command.ts",

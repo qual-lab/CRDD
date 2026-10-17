@@ -261,6 +261,16 @@
       ]
     },
     {
+      "id": "version-control:worktree-management",
+      "owner": "version-control",
+      "architectureAnchor": "06_Architecture/Details/version-control/01_Architecture.md#git-worktree管理の実装契約",
+      "responsibilities": ["fixed_base_worktree_creation", "explicit_worktree_and_branch_disposal"],
+      "externalBoundaries": ["repository_filesystem", "shared_git_refs"],
+      "lifecycleProfile": "durable_operation",
+      "testIds": ["version-control:integration:worktree-management"],
+      "postconditions": ["worktree_and_branch_disposed", "other_workspaces_preserved", "partial_failure_reentry"]
+    },
+    {
       "id": "version-control:repository-observation",
       "owner": "version-control",
       "architectureAnchor": "06_Architecture/Details/version-control/01_Architecture.md#3-目的別port",
@@ -923,6 +933,13 @@
     }
   ],
   "integrationCorridors": [
+    {
+      "id": "version-control:root-to-worktree-management",
+      "architectureAnchor": "06_Architecture/Details/version-control/01_Architecture.md#git-worktree管理の実装契約",
+      "blockPath": ["version-control:repository-observation", "version-control:worktree-management"],
+      "testIds": ["version-control:integration:repository-location", "version-control:integration:worktree-management"],
+      "postconditions": ["repository_boundary_exact", "worktree_and_branch_disposed", "other_workspaces_preserved", "partial_failure_reentry"]
+    },
     {
       "id": "docker-isolation:technical-owner-to-coordinator",
       "architectureAnchor": "06_Architecture/Details/docker-isolation/01_Architecture.md#1-責務と変更境界",
@@ -3539,6 +3556,19 @@
       "humanInput": false,
       "postconditions": ["unapproved_docker_execution_absent", "primary_cleanup_failures_distinct"],
       "mandatoryByDefault": false
+    },
+    {
+      "id": "version-control:integration:worktree-management",
+      "owner": "version-control",
+      "path": "40_Develop/version-control/tests/integration/worktree-management.integration.test.ts",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": ["version-control", "worktree", "git-process-boundary"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["worktree_and_branch_disposed", "other_workspaces_preserved", "partial_failure_reentry"],
+      "mandatoryByDefault": true
     },
     {
       "id": "version-control:integration:git-read-command",

@@ -311,3 +311,19 @@ DockerのImage一覧・Image設定・稼働Container一覧を読取り確認し�
 是正後はclean／processの実Git発火対照→新経路拒否・marker0と、設定不明／不正時diff0の局所を追加した。新局所3件、Version Control全50件が成功（19,941.977ms、exit0、失敗・取消・skip0）、整形・型検査・Lint成功。先行49件の結果は是正前の範囲として保持する。既存Symbol Manifestと中央Catalogへ新helper／Suiteを接続し、前回のDirect合成試験も登録不足だけを補正する。後者は本番Sourceを呼ばない調査用試験で、虚偽のverifiesを作らず、明示承認値なしではDockerを動かさない。試験本文・元Hash・Fail・清掃結果は変更しない。
 
 是正固定候補の契約・品質再レビューは両者残指摘0。中央Catalog検査の指摘0、新Suiteが変更Sourceから選択されること、既存Catalog契約試験25件成功（11,993.9565ms）、差分空白検査成功を確認した。新規`git-read-*`試験Rootは残存0。ここまでを共通読取りの実装区切りとし、Workspace管理・Direct／Candidateの本番切替は後続へ明示して引き渡す。
+
+### 次のGit Worktree管理への着手
+
+人間の指示で前段を`e3e33ec0`へコミットした。プッシュは実施していない。次はVersion Control内の作成・観測・明示終了時のWorktree／専用Branch削除へ進む。着手前のArchitecture／Quality確認を統合し、[技術契約](../../../06_Architecture/Details/version-control/01_Architecture.md#git-worktree管理の実装契約)へ反映する。先行設計の「clean以外は除去拒否・Branch常時保持」は、人間が残存継続を指摘したため、以下の終了方針へ改訂した。Source実装前の見直しであり、旧設計の実装・試験成功は存在しない。
+
+採用・取込済みでは成果保全と未取込残差の処置、不採用・破棄では対象と非使用を確認し、dirty・未追跡・ignoredを含む確定済み対象を削除する。不要なWorktree・専用Branchを残さず、必要な標準Gitのforce指定は明示破棄対象だけへ限定する。継続中・期限付き明示保留・実行中・対象不一致を区別する。Worktree削除とBranch削除の部分失敗は同対象・段階別に追跡し、全体成功にしない。Commit Objectの即時消去は要求しない。
+
+新Registry・独自Lock・一般Recovery・自動Commit・Mergeは追加しない。実Git試験はRepository-localの合成領域だけを使い、Docker、認証情報、外部AI、Cloudを使用しない。Isolated技術APIの小文字UUIDと固定Branch／配置をWorkspace正本とVC詳細へ具体化し、上位UI・公開要求・Task保存Schemaの完成とは区別する。
+
+### Git Worktree管理の部分実装と実Git試験
+
+VCの`git/worktree-management.ts`に作成・観測・明示削除の三APIを実装し、Package Root公開、既存Symbol Manifest・中央CatalogとRFD-IT-029へ接続した。専用Refは期待HEAD付きの標準Git更新で削除し、WorktreeとRefの不存在を別に観測する。空のWorkspace Directoryは回収し、判断資料が残る場合は`workspaceDirectoryRetained`でOwnerへ返す。採否・非使用の利用調停と必要資料の処置は上位の責務であり、Git技術APIだけでWorkspace全体の終了を主張しない。
+
+初回の合成実Git5件は、check-ignoreがliteral-pathspecs指定を受理しないためEffect前に失敗した。公開の固定相対Pathだけを扱う同commandからその指定を除き、再検証5件成功。追加境界を含む6件とPackage全56件成功（40,022.2145ms、失敗・取消・skip0）、整形・型検査・Lint成功。実Gitはdirty共有Tree非継承、linked起動、二Workspace、採用成果保全、不採用dirty／未追跡／ignored削除、lock／別HEAD／入れ子Git／祖先junction／Branch衝突拒否、hookとsmudgeの発火対照→非発火を確認した。作成実処理後のtimeout通知代役と、Worktree削除後のRef失敗代役から同対象へ再入場した。実時間timeout・上位Task・本番採否・Merge実装の実証にはしない。
+
+中央Catalog検査指摘0、Catalog契約25件成功（8,863.8111ms）。独立確認で、公開dirtyは内訳ではなく有無、nullの意味はfield別であるという記述修正と、Base gitlink・ignoredだけ・削除直前dirty変化の個別Oracle不足を検出した。全結果と最小是正を両確認者へ照合し、処理を拡張せず文言と同Suite試験を補強した。上記56件は補強前の結果として保持する。補強後は実Gitを使う同Suite7件とPackage全57件成功（42,723.5284ms、失敗・取消・skip0）、整形・型検査・Lint成功、Catalog検査指摘0、差分空白検査成功。`worktree-management-*`の自己生成Rootは残存0。是正固定候補のArchitecture・Quality独立再レビューは両者残指摘0。RFD-IT-029全体はNot Run、本番Consumerは未接続であり、次はOrchestratorの上位処置へ接続する。

@@ -1,6 +1,31 @@
 # Version Control境界
 
-Workspace再編で追加するGit操作は[Workspace詳細](../orchestrator/03_Workspace.md)を入力に設計する。明示要求のWorktree／Branch作成・除去、固定Commit、3-way競合計算、Merge取込と共有Git整合を本領域が技術的に担当し、寿命・採否・操作許可はOrchestratorへ残す。以下の既存worktree-viewはTree／Diff読取りであり新操作の実装根拠ではない。新操作の公開API・dirty／中断契約は未確定。
+Workspace再編で追加するGit操作は[Workspace詳細](../orchestrator/03_Workspace.md)を入力に設計する。明示要求のWorktree／Branch作成・除去、固定Commit、3-way競合計算、Merge取込と共有Git整合を本領域が技術的に担当し、寿命・採否・操作許可はOrchestratorへ残す。以下の既存worktree-viewはTree／Diff読取りであり新操作の実装根拠ではない。最初の作成・観測・除去の契約を次節で具体化し、Merge・Commit発行と上位接続は未完了として区別する。
+
+### Git Worktree管理の実装契約
+
+この段階は固定Base Commitから独立作業Treeを作り、明示終了時に不要なWorktreeと専用Branchを削除する技術処理に限定する。新しい利用者入口、採否判断、Task保存、Merge、互換Readerは追加しない。実装・検証・公開Symbolへの接続が完了するまでは公開Capability完成と扱わない。
+
+| 操作・境界 | 契約 |
+|---|---|
+| 入力の結合 | 既存の検証済みRepository Rootと上位発行の小文字UUIDを受け、専用Branchを`crdd/workspace/<uuid>`、配置を`.crdd/workspaces/<uuid>/worktree/`へ固定する。作成はfull Base Commit、削除は期待HEADを必須とする。上位UI・Task保存Schemaの完成は意味しない |
+| 所属Repository | 標準GitのWorktree一覧のmainを候補にし、既存Root検証・layoutの共通管理領域との一致を確認する。linkedからの呼出しでも所属Root直下へ置く。bare、別Repository、移動・重複・観測不能を推測で補わない |
+| 配置 | 所属Rootの`.crdd/workspaces/<id>/worktree/`のみ。IDのPath混入、祖先link、既存Directory・登録・Branchの衝突は上書きしない。ignore設定を暗黙更新せず、既存除外の成立を前提確認する |
+| 作成 | full Commit IDをCommit実体へ照合後、標準Gitで専用BranchとWorktreeを作る。共有Treeのdirtyをコピーしない。登録・実体・HEAD・Branch・cleanを読戻し確認する |
+| 観測 | 登録と実体の有無、HEAD、Branch、locked／prunableを観測する。staged・unstaged・未追跡・ignoredを含む変更・残存の有無をdirtyとして検知し、未取得nullと区別する。観測失敗を不存在・cleanへ畳まない |
+| 終了要求 | Orchestratorが採用・取込済み又は不採用・破棄を確定し、対象と非使用を確認して要求する。採用時は取込先の成果と採用記録を確認し、未取込残差・未追跡・ignored成果の破棄範囲も明示する。採用という結果だけで未取込内容まで消さない |
+| 削除前確認 | Repository、Worktree実体・登録、専用Branchと期待HEADを再照合する。継続利用・期限付き明示保留・実行中・Gitのlocked状態・対象不一致・観測不能では停止する。dirty・未追跡・ignored成果は、確定した破棄範囲に含まれるなら削除拒否理由にしない |
+| 削除順序 | Worktreeを標準Gitで除去→実体と登録の不存在確認→専用Branchを期待HEAD付きで削除→Ref不存在確認。未mergeの不採用Branchも明示破棄できる。変更を伴うWorktreeに必要な標準Gitのforce指定は、この確定済み対象だけに限定する。lock突破や未知の入れ子Repositoryの再帰削除へ拡張しない |
+| 削除後 | 不要なWorktree・登録・専用Branchを残さない。必要な判断資料は責務Ownerが保全し、不要なWorkspace Directoryも確認後回収する。Commit Objectの即時消去・安全消去は保証せず、Git標準の参照と回収に任せる。他Branch・共有Tree・他Workspaceを変更しない |
+| 外部処理 | 親Git環境・global／system設定、hook、fsmonitor、lazy fetchを抑止する。checkoutのsmudge／processと状態確認のclean／processを事前評価し、設定があれば未対応として拒否する。前段diff helperの成立をcheckoutへ流用しない |
+| 途中失敗 | 要求未発行、発行後の非0、timeout、部分登録、読戻し不能を分ける。Worktree除去とBranch削除を別に観測し、一方だけの成立を全体成功にしない。同じ対象と成立済み段階へ再入場できる情報を返し、別ID再試行・自動Rollback・reset・prune・対象不明の強制清掃はしない |
+| 競合 | 標準GitのRef／Worktree保護を使う。Hostによる非協調変更を完全に原子化する保証は作らず、独自Lock・Registry・常駐監視を追加しない |
+
+技術APIは`createRepositoryWorktree`、`observeRepositoryWorktree`、`disposeRepositoryWorktree`とする。削除の`discardChanges`は省略時false、明示trueだけで変更・未追跡・ignoredの破棄を許容する。上位は処置期間を通じ既存の利用調停で非使用を維持する。VC単独でTask実行中・採否・保留を判定したとは表示しない。WorktreeとBranchの不存在を独立観測し、Branchだけ残る部分状態も同ID・期待HEADで再入場する。親Workspace Directoryは空なら回収し、判断資料等が残る場合はOwnerへ残存を返す。submoduleのgitlinkと現物、未追跡の入れ子Gitは拒否し、任意再帰削除をしない。
+
+正常例はdirty共有Treeから固定Baseのclean Worktreeを作り、採用・取込済み又は不採用・破棄の確定後に不要なWorktreeと専用Branchを削除する場合。非発火例はTaskの終了・取消だけで継続Workspaceを削除しない場合。境界例はignored開発fileを含む明示破棄、未mergeの不採用Branch、処置直前のHEAD変更。判定情報不足例は要求後のtimeoutや一覧取得失敗で、同対象の部分成立／不明として停止する。
+
+反証は実Gitの通常Root／linked起動、shared dirty非継承、二作業Tree、Path・登録・Branch衝突、採用成果保全・未取込残差の処置、dirty／未追跡／ignoredを含む明示破棄、未mergeの不採用Branch削除、保留／実行中／lock／HEAD不一致の拒否、外部処理の発火対照と非発火、Worktreeだけ削除後のBranch削除失敗・同対象再入場、他Workspace保全を用いる。発行中断・timeoutはProcess代役と実Gitの部分登録観測を組み合わせる。これはQA-000007・RFD-IT-029の部分接続であり、Merge・上位の再入場・全WorkspaceのPassではない。
 
 成果物種別: Architecture詳細設計
 詳細設計領域: version-control
@@ -158,6 +183,7 @@ Git Adapterが本番RuntimeでGit CLIを起動する場合、その子Process境
 | Fixed Snapshot Git Adapter | `gitFixedSnapshotAdapter`、`inspectRepositoryFixedSnapshot` |
 | Local Change Set Git Adapter | `gitLocalChangeSetAdapter` |
 | Repository Worktree View Git Adapter | `gitRepositoryWorktreeViewAdapter` |
+| Repository Worktree Management | `RepositoryWorktreeObservation`、`RepositoryWorktreeResult`、`createRepositoryWorktree`、`observeRepositoryWorktree`、`disposeRepositoryWorktree` |
 | Change Publication Git Adapter | `ChangePublicationCommandRunner`、`createGitChangePublicationAdapter`、`gitChangePublicationAdapter`、`createGitChangePublicationTargetObservationAdapter`、`gitChangePublicationTargetObservationAdapter` |
 | Migration System Closure | `MigrationConsumerObservation`、`inspectMigrationSystemClosure` |
 | Checker Repository Observation | `RepositoryEntryObservation`、`observeDeclaredNestedRepositoryPaths`、`observeNestedRepository`、`observeRepositoryEntries`、`readFixedSnapshotText`、`resolveRevisionIdentity` |

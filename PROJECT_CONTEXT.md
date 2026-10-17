@@ -14,7 +14,7 @@ Repository Role: `crdd-standard`
 
 v0.22のCHG-000082は進行中。Docker Isolationは`a04ecb70`でコミット・プッシュ済み。Direct／Candidateは共通のDocker方針を採用し、開発用`.env`がCoding AIから読まれ得るリスクを受容した。本番SecretはGit・通常開発環境へ置かず既存管理を使い、開発資格は本番権限なし・限定権限・期限ありとする。独自Secret Manager・file別ACL・動的Mount許可Frameworkは追加しない。以前の隠蔽試験と回収は完了したが、新方針の実装・Git／内部状態書込み等の実境界は未確認。Direct本実装・実データ移行は未着手。統合・タグ・リリースは含めない。
 
-既存実装との差分を整理し、最初にVersion ControlのTree／差分二Adapterの共通読取りを改善した。新しい公開API・State・Lockはなく、是正後の静的検査とPackage全50件成功。clean／process filter利用Repositoryの差分は現経路では未対応として拒否する。Workspace管理API・Direct／Candidateの本番切替・旧Bundle撤去は未完了で、読取り改善を全体完成へ換算しない。詳細は[現在の実装順序](99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#10-新方針と既存実装の差分実装順序2026-10-17)を参照する。
+既存実装との差分を整理し、Version Controlの共通Git読取りに続いて、固定BaseからのWorktree作成・観測・明示終了時のWorktree／専用Branch削除を実装した。採用・取込済み又は不採用・破棄確定後に不要資源を回収し、新しい管理台帳・State・Lockは追加しない。上位Task・採否・非使用の調停、本番Direct／Candidate切替・旧Bundle撤去は未完了。filter設定・gitlinkを含む作成は未対応として拒否し、部分試験を新Workspace全体の完成へ換算しない。現在の検証結果と限界は[実装・実Git試験](99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#git-worktree管理の部分実装と実git試験)を参照する。
 
 | 対象 | 現在の状態 | Owner Relation |
 |---|---|---|

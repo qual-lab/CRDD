@@ -9,7 +9,7 @@
 
 ## 1. 結論と実行境界
 
-新方針の現物差分と最初の実装（2026-10-17）: [差分・実装順序](workspace-runtime-inventory.md#10-新方針と既存実装の差分実装順序2026-10-17)を整理した。既存DIに`.env`別maskはなく追加不要、明示コピー防止のsecret検出は一括撤去しない。まずVCのTree／差分二Adapterを共通の有限Git読取りへ接続し、外部変換・親Git環境・対象差替えを抑止した。clean／process filter利用時は差分を未対応として拒否し、変換を独自再実装しない。新しい公開API・State・Lockなし。是正後の静的三軸と全50件成功、実Git局所とProcess差替えの根拠を分離する。Workspace管理・Direct接続・旧Bundle撤去は後続で、今回を全体完成としない。
+新方針の現物差分と最初の実装（2026-10-17）: [差分・実装順序](workspace-runtime-inventory.md#10-新方針と既存実装の差分実装順序2026-10-17)を整理した。既存DIに`.env`別maskはなく追加不要、明示コピー防止のsecret検出は一括撤去しない。VCのTree／差分二Adapterを共通の有限Git読取りへ接続し、是正後の静的三軸と全50件成功。続いてWorktree作成・観測・明示終了時の専用Worktree／Branch削除を実装した。filter利用・gitlink作成は未対応として拒否し、独自の変換・管理台帳・State・Lockを追加しない。[実装と実Git試験](workspace-runtime-inventory.md#git-worktree管理の部分実装と実git試験)に現在結果・部分成立・制約を集約する。上位Task／採否の本番接続・Merge・Direct切替・旧Bundle撤去は後続で、今回を全体完成としない。
 
 開発情報・共通隔離方針の採用（2026-10-17）: 人間はローカル開発用`.env`がCoding AIから読まれ得るリスク、本番SecretのGit／通常開発環境外での既存管理、開発資格の本番権限なし・限定権限・有効期限、Direct／Candidate共通DI方針を採用した。[DI正本](../../../06_Architecture/Details/docker-isolation/01_Architecture.md#workspace-isolation-policy)と[判断差分](workspace-runtime-inventory.md#9-開発情報と共通隔離方針の変更2026-10-17)へ反映する。独自Secret Manager・file別ACL・動的Mount許可Frameworkは作らない。以前の隠蔽試験は当時の反例として保持し、新方針の不合格へ流用しない。Git／内部状態書込み・認証領域等の境界は維持する。Source共通化・Cloud権限の実確認は未実施で、今回は文書伝播だけ。
 
