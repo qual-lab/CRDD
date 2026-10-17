@@ -9,6 +9,12 @@
  * @security 明示されたAuthorityを縮小してTaskとOperationへ結合し、生成や拡張をしない。
  */
 export { createOrchestratorAcceptanceAuthorityAdapter } from "./decision/authority-adapter.ts";
+export {
+  manageOrchestratorWorkspace,
+  resolveOrchestratorWorkspaceTaskTarget,
+  type OrchestratorWorkspaceRequest,
+} from "./workspace/operations.ts";
+export type { OrchestratorWorkspace } from "./workspace/record.ts";
 export { createOrchestratorDecisionCapabilityAdapter } from "./decision/capability-adapter.ts";
 export {
   ORCHESTRATOR_ACCEPTANCE_DECISION_CONTRACT,

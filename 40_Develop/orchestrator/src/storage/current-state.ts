@@ -10,6 +10,7 @@ import path from "node:path";
 import { acquireRuntimeOwnedOrchestratorStateKernelLock } from "../../../coordinator/src/index.ts";
 import {
   observeRepositoryRuntimeDataArea,
+  RepositoryRuntimeDataAreaBlockedError,
   type RepositoryRuntimeDataAreaObservation,
   requireReadyRepositoryRuntimeDataArea,
   resolveRepositoryRuntimeDataPaths,
@@ -61,6 +62,11 @@ import { ORCHESTRATOR_INTEGRATION_CONTRACT } from "../candidate/integration-resu
 import type { OrchestratorIntegrationRecordPort } from "../candidate/record-writer.ts";
 import { validOrchestratorDecisionRecoveryIntent } from "../decision/recovery-record.ts";
 import { validOrchestratorResultRecord } from "./validate-result-record.ts";
+import {
+  validOrchestratorWorkspace,
+  type OrchestratorWorkspace,
+} from "../workspace/record.ts";
+import { resolveOrchestratorWorkspaceTaskTarget } from "../workspace/operations.ts";
 import {
   type HistoryRow,
   historyRow,
@@ -362,7 +368,7 @@ const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
 const HASH = /^[0-9a-f]{64}$/u;
 const REVISION = /^[0-9a-f]{40,64}$/u;
 const MAX_RECORD_BYTES = 16 * 1024 * 1024;
-const SNAPSHOT_SCHEMA_V2 = "crdd-coordinator/orchestrator-snapshot/v2";
+const SNAPSHOT_SCHEMA_V3 = "crdd-coordinator/orchestrator-snapshot/v3";
 const PROJECT_QUEUE_STATES = new Set<ProjectQueueState>([
   "queued",
   "leased",
@@ -1045,6 +1051,7 @@ function validQueueEntry(value: unknown): value is ProjectQueueEntry {
       "ownerGeneration",
       "resumeCondition",
       "resultReference",
+      "workspaceId",
     ]) &&
     validId(value.queueId) &&
     validId(value.projectId) &&
@@ -1061,7 +1068,12 @@ function validQueueEntry(value: unknown): value is ProjectQueueEntry {
     Number(value.generation) >= 1 &&
     nullableId(value.ownerGeneration) &&
     nullableId(value.resumeCondition) &&
-    nullableResultReference(value.resultReference)
+    nullableResultReference(value.resultReference) &&
+    (value.workspaceId === null ||
+      (typeof value.workspaceId === "string" &&
+        /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/u.test(
+          value.workspaceId,
+        )))
   );
 }
 
@@ -1770,6 +1782,7 @@ function readExactLeaseEvidence(
  * @compatibility 既存Portの値を維持し、実データ切替は別処置とする。
  */
 type OrchestratorSnapshot = Readonly<{
+  workspaces: readonly OrchestratorWorkspace[];
   repositoryRootHash: string;
   repositoryBindingId: string;
   snapshotRevision: number;
@@ -1797,8 +1810,8 @@ type OrchestratorSnapshot = Readonly<{
   historyPending: readonly HistoryRow[];
 }> &
   Readonly<{
-    schema: typeof SNAPSHOT_SCHEMA_V2;
-    schemaRevision: 2;
+    schema: typeof SNAPSHOT_SCHEMA_V3;
+    schemaRevision: 3;
     acceptanceDecisions: readonly OrchestratorAcceptanceDecisionEnvelope[];
     decisionRecoveries: readonly Readonly<{
       generation: number;
@@ -1845,9 +1858,10 @@ function validOrchestratorSnapshot(
         "historyPending",
         "acceptanceDecisions",
         "decisionRecoveries",
+        "workspaces",
       ]) ||
-      value.schema !== SNAPSHOT_SCHEMA_V2 ||
-      value.schemaRevision !== 2 ||
+      value.schema !== SNAPSHOT_SCHEMA_V3 ||
+      value.schemaRevision !== 3 ||
       value.repositoryBindingId !== binding ||
       value.repositoryRootHash !== rootHash ||
       !validId(binding) ||
@@ -1873,6 +1887,23 @@ function validOrchestratorSnapshot(
     )
       return false;
     const snapshot = value as unknown as OrchestratorSnapshot;
+    if (
+      !Array.isArray(snapshot.workspaces) ||
+      !snapshot.workspaces.every(validOrchestratorWorkspace) ||
+      new Set(snapshot.workspaces.map((item) => item.workspaceId)).size !==
+        snapshot.workspaces.length
+    )
+      return false;
+    if (
+      snapshot.queueEntries.some(
+        (entry) =>
+          entry.workspaceId != null &&
+          !snapshot.workspaces.some(
+            (workspace) => workspace.workspaceId === entry.workspaceId,
+          ),
+      )
+    )
+      return false;
     const projects = new Set(snapshot.projects.map((item) => item.projectId));
     const queues = new Map(
       snapshot.queueEntries.map((item) => [item.queueId, item]),
@@ -1938,7 +1969,7 @@ function validOrchestratorSnapshot(
       if (
         (!acquired &&
           !(
-            snapshot.schema === SNAPSHOT_SCHEMA_V2 &&
+            snapshot.schema === SNAPSHOT_SCHEMA_V3 &&
             groups.length === 1 &&
             groups[0]?.content.disposition === "acquisition_unknown_closed"
           )) ||
@@ -1969,7 +2000,7 @@ function validOrchestratorSnapshot(
           "ownerProcessId",
           "recoveryId",
           "phase",
-          ...(snapshot.schema === SNAPSHOT_SCHEMA_V2
+          ...(snapshot.schema === SNAPSHOT_SCHEMA_V3
             ? ["physicalIdentity"]
             : []),
         ]) ||
@@ -1999,7 +2030,7 @@ function validOrchestratorSnapshot(
       )
         return false;
       if (
-        snapshot.schema === SNAPSHOT_SCHEMA_V2 &&
+        snapshot.schema === SNAPSHOT_SCHEMA_V3 &&
         !(
           ((item.phase === "acquisition_pending" ||
             item.phase === "acquisition_reserved" ||
@@ -2058,7 +2089,7 @@ function validOrchestratorSnapshot(
       if (history.has(item.id)) return false;
       history.add(item.id);
     }
-    if (snapshot.schema === SNAPSHOT_SCHEMA_V2) {
+    if (snapshot.schema === SNAPSHOT_SCHEMA_V3) {
       for (const groups of evidenceGroups.values()) {
         const acquired = groups.find(
           (item) => item.content.disposition === "acquired",
@@ -2275,7 +2306,7 @@ export function initializeOrchestratorSnapshot(
     if (observed.status !== "completed") result = observed;
     else if (observed.value !== null)
       result =
-        observed.value.schema === SNAPSHOT_SCHEMA_V2
+        observed.value.schema === SNAPSHOT_SCHEMA_V3
           ? completed(
               "orchestrator_snapshot_initialized",
               observed.value.intakeEpoch,
@@ -2287,14 +2318,15 @@ export function initializeOrchestratorSnapshot(
         result = blocked("orchestrator_snapshot_fresh_area_required");
       else {
         const payload: OrchestratorSnapshot = {
-          schema: SNAPSHOT_SCHEMA_V2,
-          schemaRevision: 2,
+          schema: SNAPSHOT_SCHEMA_V3,
+          schemaRevision: 3,
           repositoryRootHash: owner.repositoryRootHash,
           repositoryBindingId: binding,
           snapshotRevision: 1,
           intakeEpoch: `epoch-${randomUUID()}`,
           intakeBindings: [],
           projects: [],
+          workspaces: [],
           queueEntries: [],
           leaseEvidence: [],
           leaseIntents: [],
@@ -2318,8 +2350,12 @@ export function initializeOrchestratorSnapshot(
             : saved;
       }
     }
-  } catch {
-    result = blocked("orchestrator_snapshot_initialization_unconfirmed");
+  } catch (error) {
+    result = blocked(
+      error instanceof RepositoryRuntimeDataAreaBlockedError
+        ? error.reason
+        : "orchestrator_snapshot_initialization_unconfirmed",
+    );
   }
   try {
     if (!owner.release())
@@ -2953,8 +2989,8 @@ function assertOrchestratorSnapshotTransition(
     if (retired.size > 0 !== (payload.intakeEpoch !== current.intakeEpoch))
       throw new Error("snapshot_intake_epoch_transition_invalid");
     if (
-      current.schema === SNAPSHOT_SCHEMA_V2 &&
-      payload.schema === SNAPSHOT_SCHEMA_V2
+      current.schema === SNAPSHOT_SCHEMA_V3 &&
+      payload.schema === SNAPSHOT_SCHEMA_V3
     ) {
       for (const old of current.acceptanceDecisions) {
         if (
@@ -3169,7 +3205,7 @@ function assertOrchestratorSnapshotTransition(
           throw new Error("snapshot_recovery_intent_unconfirmed");
       }
       if (
-        current.schema !== SNAPSHOT_SCHEMA_V2 ||
+        current.schema !== SNAPSHOT_SCHEMA_V3 ||
         !end ||
         !orchestratorSnapshotLeaseResourcesAbsent(
           owner.repositoryRoot,
@@ -3316,7 +3352,7 @@ function orchestratorQueueIsClosed(
   owner: OrchestratorSnapshotOwner,
 ): boolean {
   try {
-    if (current.schema !== SNAPSHOT_SCHEMA_V2) return false;
+    if (current.schema !== SNAPSHOT_SCHEMA_V3) return false;
     const queue = current.queueEntries.find((item) => item.queueId === queueId);
     if (
       !queue ||
@@ -3512,7 +3548,7 @@ function orchestratorStandaloneAdoptionIsClosed(
   owner: OrchestratorSnapshotOwner,
 ): boolean {
   try {
-    if (current.schema !== SNAPSHOT_SCHEMA_V2) return false;
+    if (current.schema !== SNAPSHOT_SCHEMA_V3) return false;
     const record = current.results.find(
       (item) => item.identity === identity && item.kind === "adoption",
     );
@@ -3631,7 +3667,7 @@ export function maintainOrchestratorSnapshot(
       if (
         !Number.isSafeInteger(now) ||
         now < 0 ||
-        current.schema !== SNAPSHOT_SCHEMA_V2
+        current.schema !== SNAPSHOT_SCHEMA_V3
       )
         return blocked("orchestrator_history_time_invalid");
       const rows = current.queueEntries
@@ -3684,7 +3720,7 @@ export function maintainOrchestratorSnapshot(
     workingDirectory,
     binding,
     (current, owner) => {
-      if (current.schema !== SNAPSHOT_SCHEMA_V2)
+      if (current.schema !== SNAPSHOT_SCHEMA_V3)
         return blocked("orchestrator_snapshot_schema_invalid");
       const trimmed = updateOrchestratorHistoryOwned(owner, null, now);
       if (trimmed.status !== "completed") return blocked(trimmed.reason, true);
@@ -3943,7 +3979,7 @@ export function createOrchestratorSnapshotAcceptanceDecisionStore(
         binding,
         (current) => {
           if (
-            current.schema !== SNAPSHOT_SCHEMA_V2 ||
+            current.schema !== SNAPSHOT_SCHEMA_V3 ||
             !validOrchestratorAcceptanceDecisionRecord(record) ||
             record.disposition !== "prepared"
           )
@@ -3992,7 +4028,7 @@ export function createOrchestratorSnapshotAcceptanceDecisionStore(
         workingDirectory,
         binding,
         (current) => {
-          if (current.schema !== SNAPSHOT_SCHEMA_V2 || !validId(recordId))
+          if (current.schema !== SNAPSHOT_SCHEMA_V3 || !validId(recordId))
             return blocked("orchestrator_acceptance_record_identity_invalid");
           const groups = current.acceptanceDecisions.filter(
             (item) => item.recordId === recordId,
@@ -4028,7 +4064,7 @@ export function createOrchestratorSnapshotAcceptanceDecisionStore(
         binding,
         (current) => {
           if (
-            current.schema !== SNAPSHOT_SCHEMA_V2 ||
+            current.schema !== SNAPSHOT_SCHEMA_V3 ||
             !validOrchestratorAcceptanceDecisionRecord(expected) ||
             !validOrchestratorAcceptanceDecisionRecord(next) ||
             expected.recordId !== next.recordId ||
@@ -4116,7 +4152,7 @@ export function createOrchestratorSnapshotDecisionRecoveryStore(
         binding,
         (current) => {
           if (
-            current.schema !== SNAPSHOT_SCHEMA_V2 ||
+            current.schema !== SNAPSHOT_SCHEMA_V3 ||
             !validOrchestratorDecisionRecoveryIntent(intent)
           )
             return blocked("orchestrator_decision_recovery_invalid");
@@ -4159,7 +4195,7 @@ export function createOrchestratorSnapshotDecisionRecoveryStore(
         workingDirectory,
         binding,
         (current) => {
-          if (current.schema !== SNAPSHOT_SCHEMA_V2 || !validId(recoveryId))
+          if (current.schema !== SNAPSHOT_SCHEMA_V3 || !validId(recoveryId))
             return blocked("orchestrator_decision_recovery_invalid");
           return completed("orchestrator_decision_recovery_observed", {
             next: null,
@@ -4192,7 +4228,7 @@ export function createOrchestratorSnapshotDecisionRecoveryStore(
         binding,
         (current) => {
           if (
-            current.schema !== SNAPSHOT_SCHEMA_V2 ||
+            current.schema !== SNAPSHOT_SCHEMA_V3 ||
             !validOrchestratorDecisionRecoveryIntent(expected) ||
             !validOrchestratorDecisionRecoveryIntent(next) ||
             expected.recoveryId !== next.recoveryId
@@ -4332,7 +4368,7 @@ export function inspectOrchestratorSnapshotLeaseAcquisitionOwner(
     workingDirectory,
     binding,
     (current) => {
-      if (current.schema !== SNAPSHOT_SCHEMA_V2)
+      if (current.schema !== SNAPSHOT_SCHEMA_V3)
         return blocked("orchestrator_snapshot_schema_invalid");
       const intents = current.leaseIntents.filter(
         (item) => item.kind === "project-operation",
@@ -4433,7 +4469,7 @@ export function acquireOrchestratorSnapshotLease(
     binding,
     (current, owner) => {
       if (
-        current.schema !== SNAPSHOT_SCHEMA_V2 ||
+        current.schema !== SNAPSHOT_SCHEMA_V3 ||
         !validId(projectId) ||
         (kind === "project-operation"
           ? !current.projects.some((item) => item.projectId === projectId) ||
@@ -4538,7 +4574,7 @@ export function acquireOrchestratorSnapshotLease(
     binding,
     (current) => {
       if (
-        current.schema !== SNAPSHOT_SCHEMA_V2 ||
+        current.schema !== SNAPSHOT_SCHEMA_V3 ||
         !current.leaseIntents.some(
           (item) => JSON.stringify(item) === JSON.stringify(intent),
         )
@@ -4613,7 +4649,7 @@ export function acquireOrchestratorSnapshotLease(
         binding,
         (current) => {
           if (
-            current.schema !== SNAPSHOT_SCHEMA_V2 ||
+            current.schema !== SNAPSHOT_SCHEMA_V3 ||
             !current.leaseIntents.some(
               (item) =>
                 item.ownerGeneration === ownerGeneration &&
@@ -4668,7 +4704,7 @@ export function acquireOrchestratorSnapshotLease(
         binding,
         (current) => {
           if (
-            current.schema !== SNAPSHOT_SCHEMA_V2 ||
+            current.schema !== SNAPSHOT_SCHEMA_V3 ||
             !current.leaseIntents.some(
               (item) =>
                 item.ownerGeneration === ownerGeneration &&
@@ -4819,7 +4855,7 @@ export function reconcileOrchestratorSnapshotLeaseOwnerLoss(
     workingDirectory,
     binding,
     (current, owner) => {
-      if (current.schema !== SNAPSHOT_SCHEMA_V2)
+      if (current.schema !== SNAPSHOT_SCHEMA_V3)
         return blocked("orchestrator_snapshot_schema_invalid");
       const queue =
         kind === "project-operation"
@@ -5082,7 +5118,7 @@ export function reconcileOrchestratorSnapshotLeaseOwnerLoss(
     (current, owner) => {
       const metadata = fs.lstatSync(owner.repositoryRoot);
       if (
-        current.schema !== SNAPSHOT_SCHEMA_V2 ||
+        current.schema !== SNAPSHOT_SCHEMA_V3 ||
         owner.repositoryRoot !== initial.repositoryRoot ||
         digest(
           JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
@@ -5191,7 +5227,7 @@ export function reconcileOrchestratorSnapshotLeaseOwnerLoss(
     (current, owner) => {
       const metadata = fs.lstatSync(owner.repositoryRoot);
       if (
-        current.schema !== SNAPSHOT_SCHEMA_V2 ||
+        current.schema !== SNAPSHOT_SCHEMA_V3 ||
         owner.repositoryRoot !== initial.repositoryRoot ||
         digest(
           JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
@@ -5416,6 +5452,12 @@ export function createOrchestratorSnapshotStatePort(
   if (!validId(binding) || !validId(intakeEpoch))
     throw new Error("snapshot_port_binding_invalid");
   return Object.freeze({
+    readWorkspaceTaskTarget: (queueId: string) =>
+      resolveOrchestratorWorkspaceTaskTarget(
+        workingDirectory,
+        binding,
+        queueId,
+      ),
     writeState: (state, expectedGeneration) =>
       writeOrchestratorSnapshotState(
         workingDirectory,
@@ -5465,6 +5507,7 @@ export function createOrchestratorSnapshotStatePort(
             return blocked("orchestrator_intake_epoch_retired");
           const value: ProjectQueueEntry = {
             ...input,
+            workspaceId: input.workspaceId ?? null,
             state: "queued",
             generation: 1,
             ownerGeneration: null,
@@ -5476,6 +5519,16 @@ export function createOrchestratorSnapshotStatePort(
             !current.projects.some((item) => item.projectId === value.projectId)
           )
             return blocked("orchestrator_queue_input_invalid");
+          if (
+            value.workspaceId != null &&
+            !current.workspaces.some(
+              (entry) =>
+                entry.workspaceId === value.workspaceId &&
+                entry.phase === "ready" &&
+                entry.holdUntil === null,
+            )
+          )
+            return blocked("orchestrator_workspace_not_ready");
           return completed("orchestrator_queue_entry_durable", {
             next: {
               ...current,
@@ -5774,11 +5827,11 @@ export function createOrchestratorSnapshotStatePort(
             "project-operation",
           );
           const locks =
-            current.schema === SNAPSHOT_SCHEMA_V2
+            current.schema === SNAPSHOT_SCHEMA_V3
               ? path.join(paths.temporary, "orchestrator-leases")
               : path.join(runtime, "work", "locks");
           if (
-            !(current.schema === SNAPSHOT_SCHEMA_V2
+            !(current.schema === SNAPSHOT_SCHEMA_V3
               ? orchestratorSnapshotLeaseResourcesAbsent(
                   owner.repositoryRoot,
                   identity,
@@ -5804,7 +5857,7 @@ export function createOrchestratorSnapshotStatePort(
             boundary,
           );
           const evidence =
-            current.schema === SNAPSHOT_SCHEMA_V2
+            current.schema === SNAPSHOT_SCHEMA_V3
               ? {
                   released: current.leaseEvidence.find(
                     (item) =>
@@ -5835,7 +5888,7 @@ export function createOrchestratorSnapshotStatePort(
                   },
                 );
           if (
-            current.schema === SNAPSHOT_SCHEMA_V2 &&
+            current.schema === SNAPSHOT_SCHEMA_V3 &&
             current.leaseIntents.some(
               (item) => item.ownerGeneration === ownerGeneration,
             )
@@ -5888,7 +5941,7 @@ export function createCurrentOrchestratorPersistencePorts(
   if (
     observed.status !== "completed" ||
     !observed.value ||
-    observed.value.schema !== SNAPSHOT_SCHEMA_V2
+    observed.value.schema !== SNAPSHOT_SCHEMA_V3
   )
     throw new Error("orchestrator_snapshot_not_initialized");
   return createOrchestratorSnapshotPersistencePorts(
@@ -5922,7 +5975,7 @@ export function readCurrentOrchestratorState(
     workingDirectory,
     binding,
     (current) =>
-      current.schema === SNAPSHOT_SCHEMA_V2 && validId(projectId)
+      current.schema === SNAPSHOT_SCHEMA_V3 && validId(projectId)
         ? completed("orchestrator_state_observed", {
             next: null,
             value:
@@ -6014,6 +6067,159 @@ export function createOrchestratorSnapshotPersistencePorts(
     },
   });
   return Object.freeze({ state, lease });
+}
+
+/**
+ * 既存操作Leaseに結合したWorkspace現在値を保存する。
+ * @responsibility 同対象世代比較、Queue対象結合と終了後整理を一つのSnapshotへ閉じる。
+ * @trace ARCH-000004
+ * @input 所属Root、Repository結合、実在Project／Queue、Lease世代、期待Workspace世代と次値。
+ * @returns 確定した現在値又はblocked。
+ * @precondition 呼出し元は既存project-operation Leaseを保持する。
+ * @postcondition 同じLease・Queue・対象・世代だけを更新する。
+ * @effect 既存state.jsonを原子的保存し読戻す。Gitは実行しない。
+ * @failure 対象不一致・使用中・未解決・保存不明は停止。
+ * @invariant 新台帳・Lockを追加せず、Taskの現在値を重複保存しない。
+ * @boundary Workspace操作と既存Snapshot Writer。
+ * @security 状態名だけを削除許可としない。
+ * @concurrency 既存短期Snapshot排他だけを保持する。
+ */
+export function writeOrchestratorWorkspaceRecord(
+  workingDirectory: string,
+  binding: string,
+  projectId: string,
+  queueId: string,
+  ownerGeneration: string,
+  workspaceId: string,
+  expectedGeneration: number,
+  nextRecord: OrchestratorWorkspace | null,
+): StoreResult<OrchestratorWorkspace | null> {
+  return withOrchestratorSnapshotOperation(
+    workingDirectory,
+    binding,
+    (current) => {
+      const queue = current.queueEntries.find(
+        (entry) => entry.queueId === queueId && entry.projectId === projectId,
+      );
+      const owned = current.leaseIntents.some(
+        (intent) =>
+          intent.projectId === projectId &&
+          intent.queueId === queueId &&
+          intent.kind === "project-operation" &&
+          intent.phase === "lock_owned" &&
+          intent.ownerGeneration === ownerGeneration &&
+          intent.ownerProcessId === process.pid,
+      );
+      if (!queue || !owned)
+        return blocked("orchestrator_workspace_lease_mismatch");
+      const previous = current.workspaces.find(
+        (entry) => entry.workspaceId === workspaceId,
+      );
+      if ((previous?.generation ?? 0) !== expectedGeneration)
+        return blocked("orchestrator_workspace_generation_conflict");
+      if (queue.workspaceId != null && queue.workspaceId !== workspaceId)
+        return blocked("orchestrator_workspace_target_mismatch");
+      if (
+        nextRecord &&
+        (!validOrchestratorWorkspace(nextRecord) ||
+          nextRecord.workspaceId !== workspaceId ||
+          nextRecord.generation !== expectedGeneration + 1)
+      )
+        return blocked("orchestrator_workspace_record_invalid");
+      // binding-wide操作Leaseを維持し、既存Task／回復参照から非使用を導く。
+      const affectedProjects = new Set(
+        current.queueEntries
+          .filter((entry) => entry.workspaceId === workspaceId)
+          .map((entry) => entry.projectId),
+      );
+      affectedProjects.add(projectId);
+      const busy = current.projects
+        .filter((entry) => affectedProjects.has(entry.projectId))
+        .some((entry) =>
+          entry.tasks.some(
+            (task) =>
+              [
+                "starting",
+                "running",
+                "cleanup_pending",
+                "recovery_required",
+              ].includes(task.state) ||
+              task.recoveryUnresolved ||
+              task.recoveryObligations.some(
+                (obligation) =>
+                  !["settled", "acknowledged"].includes(obligation.phase),
+              ),
+          ),
+        );
+      if (busy) return blocked("orchestrator_workspace_in_use_or_unresolved");
+      if (
+        (nextRecord?.phase === "discarding" || nextRecord === null) &&
+        current.queueEntries.some(
+          (entry) =>
+            entry.workspaceId === workspaceId &&
+            entry.queueId !== queueId &&
+            !["completed", "cancelled"].includes(entry.state),
+        )
+      )
+        return blocked("orchestrator_workspace_other_queue_pending");
+      if (
+        nextRecord?.phase === "discarding" &&
+        previous?.holdUntil !== null &&
+        previous?.holdUntil !== undefined
+      )
+        return blocked("orchestrator_workspace_held");
+      if (
+        nextRecord === null &&
+        (previous?.lastResult?.worktreeRemoved !== true ||
+          previous.lastResult.branchRemoved !== true ||
+          previous.lastResult.workspaceDirectoryRetained !== false)
+      )
+        return blocked("orchestrator_workspace_disposal_unconfirmed");
+      const workspaces = current.workspaces.filter(
+        (entry) => entry.workspaceId !== workspaceId,
+      );
+      if (nextRecord) workspaces.push(nextRecord);
+      return completed("orchestrator_workspace_record_saved", {
+        next: {
+          ...current,
+          workspaces,
+          queueEntries: current.queueEntries.map((entry) =>
+            entry.queueId === queueId ||
+            (nextRecord === null && entry.workspaceId === workspaceId)
+              ? {
+                  ...entry,
+                  workspaceId: nextRecord === null ? null : workspaceId,
+                  ...(nextRecord === null &&
+                  !["completed", "cancelled"].includes(entry.state)
+                    ? { state: "cancelled" as const, resumeCondition: null }
+                    : {}),
+                  generation: entry.generation + 1,
+                }
+              : entry,
+          ),
+          historyPending:
+            nextRecord === null
+              ? [
+                  ...current.historyPending,
+                  historyRow(
+                    {
+                      id: `workspace-${workspaceId}`,
+                      occurredAt: new Date().toISOString(),
+                      outcome: "cancelled",
+                      primaryFailure: previous?.primaryFailure
+                        ? "cleanup"
+                        : null,
+                      cleanup: "confirmed",
+                    },
+                    Date.now(),
+                  ),
+                ]
+              : current.historyPending,
+        },
+        value: nextRecord,
+      });
+    },
+  );
 }
 
 /**

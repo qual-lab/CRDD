@@ -543,7 +543,8 @@
       "responsibilities": [
         "objective_intake",
         "task_state_transition",
-        "execution_port_coordination"
+        "execution_port_coordination",
+        "workspace_current_state_and_explicit_discard"
       ],
       "externalBoundaries": [
         "execution_port",
@@ -553,6 +554,7 @@
       "lifecycleProfile": "durable_operation",
       "testIds": [
         "orchestrator:unit:objective-intake",
+        "orchestrator:integration:workspace-lifecycle",
         "coordinator:integration:orchestrator-objective-intake",
         "coordinator:integration:orchestrator-full-flow"
       ],
@@ -933,6 +935,13 @@
     }
   ],
   "integrationCorridors": [
+    {
+      "id": "orchestrator:workspace-to-git",
+      "architectureAnchor": "06_Architecture/Details/orchestrator/02_Detailed_Design.md#workspace接続の実装順序と移管先",
+      "blockPath": ["orchestrator:objective-task-lifecycle", "version-control:worktree-management"],
+      "testIds": ["orchestrator:integration:workspace-lifecycle"],
+      "postconditions": ["owner_root_and_execution_tree_separate", "workspace_survives_task_completion", "explicit_discard_converges", "no_provider_request"]
+    },
     {
       "id": "version-control:root-to-worktree-management",
       "architectureAnchor": "06_Architecture/Details/version-control/01_Architecture.md#git-worktree管理の実装契約",
@@ -6106,6 +6115,19 @@
         "closed_completion_result",
         "no_legacy_receipt_fallback"
       ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "orchestrator:integration:workspace-lifecycle",
+      "owner": "orchestrator",
+      "path": "40_Develop/orchestrator/tests/integration/workspace-lifecycle.integration.test.ts",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": ["orchestrator", "workspace", "state", "lease", "git"],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["owner_root_and_execution_tree_separate", "workspace_survives_task_completion", "explicit_discard_converges", "no_provider_request"],
       "mandatoryByDefault": true
     },
     {

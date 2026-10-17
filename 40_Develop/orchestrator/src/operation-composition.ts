@@ -1424,7 +1424,7 @@ export function executeOrchestratorPublicStateQuery(
   if (
     snapshot.status !== "completed" ||
     snapshot.value === null ||
-    snapshot.value.schemaRevision !== 2
+    snapshot.value.schemaRevision !== 3
   )
     return Object.freeze({
       contract: ORCHESTRATOR_STATE_QUERY_CONTRACT,

@@ -62,6 +62,15 @@ export type OrchestratorQueueUpdate = Readonly<{
  * @compatibility OrchestratorStatePortの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 export type OrchestratorStatePort = Readonly<{
+  readWorkspaceTaskTarget?: (queueId: string) => OrchestratorPortResult<
+    Readonly<{
+      workspaceId: string | null;
+      ownerRepositoryRoot: string;
+      executionTree: string;
+      baseCommit: string | null;
+      head: string | null;
+    }>
+  >;
   writeState: (
     state: OrchestratorState,
     expectedGeneration: number,

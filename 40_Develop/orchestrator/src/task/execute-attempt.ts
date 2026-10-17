@@ -16,8 +16,11 @@ import {
   type OrchestratorSingleTaskResult,
   type OrchestratorTaskResultDelivery,
 } from "./executor.ts";
-export const ORCHESTRATOR_SINGLE_TASK_PRE_EFFECT_REJECTIONS =
-  COORDINATOR_TASK_PRE_EFFECT_REJECTIONS;
+export const ORCHESTRATOR_SINGLE_TASK_PRE_EFFECT_REJECTIONS = Object.freeze([
+  ...COORDINATOR_TASK_PRE_EFFECT_REJECTIONS,
+  "single_task_workspace_execution_not_connected",
+  "single_task_workspace_target_unavailable",
+]);
 /**
  * 単一Task実行と結果配送の捕捉に必要な依存契約を定義する。
  *
@@ -75,15 +78,22 @@ export async function runOrchestratorSingleTaskAttempt(
       typeof input.observeStarted === "function") &&
     (input.observeResultDelivery === undefined ||
       typeof input.observeResultDelivery === "function");
-  if (!isValidInput)
+  const workspaceNotConnected = isValidInput && input.workspaceId !== undefined;
+  if (!isValidInput || workspaceNotConnected)
     return Object.freeze({
       contract: ORCHESTRATOR_SINGLE_TASK_ADAPTER_CONTRACT,
-      attemptId: null,
-      operationId: null,
-      authorityBindingId: null,
-      repositoryRevision: null,
+      attemptId: workspaceNotConnected ? input.attemptId : null,
+      operationId: workspaceNotConnected ? input.operationId : null,
+      authorityBindingId: workspaceNotConnected
+        ? input.authorityBindingId
+        : null,
+      repositoryRevision: workspaceNotConnected
+        ? input.repositoryRevision
+        : null,
       status: "blocked",
-      reason: "single_task_input_invalid",
+      reason: workspaceNotConnected
+        ? "single_task_workspace_execution_not_connected"
+        : "single_task_input_invalid",
       effectState: "no_effect",
       cleanupConfirmed: true,
       manualRecoveryRequired: false,

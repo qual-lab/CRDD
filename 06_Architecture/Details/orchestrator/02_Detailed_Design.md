@@ -21,6 +21,37 @@ Workspace方式の目標は[作業領域の横断契約](03_Workspace.md)に従�
 
 ## 1. 目的と所有範囲
 
+### Workspace接続の実装順序と移管先
+
+VCのWorktree技術APIは`9c462a2e`で実装・実Git試験済み。これはOrchestratorへの本番接続やGit取込を意味しない。次の接続では新しい別台帳・保存Directory・Lockを作らず、既存Snapshotと利用調停を更新する。
+
+| 順序 | 現行Sourceと変更先 | 固定する契約・終了条件 |
+|---|---|---|
+| 1. 保存・遷移 | `storage/current-state.ts`、`state/transitions.ts`、`queue/types.ts`、decoder・投影 | 現Snapshotの同じ`state.json`へWorkspaceの現在集合を追加する。所属Repository・方式・IsolatedのUUID／Base／確認HEAD、現在必要な作成／終了処置と明示保留期限を持つ。Task／Queueは対象参照だけを持ち、WorkspaceへTask一覧を重複保存しない |
+| 2. 技術操作の接続 | 既存Snapshot Writer・操作Lease→VC公開API | 同対象の意図保存→Git作成／観測→結果保存。部分成立は同UUIDへ再観測する。Task終端・通常履歴整理で継続Workspaceを消さず、終了解決後は要約を既存履歴へ渡して不要な現在記録を除く |
+| 3. 受付・Task搬送 | `objective/request.ts`、`objective/plan.ts`、`objective/execute.ts`、`task/dispatch.ts` | 新Workspaceの明示作成と既存WorkspaceへのTask依頼を分け、Objective受付だけでWorktreeを増やさない。要求→Queue→Task→Attemptの対象を固定し、既存Lease取得後の再読取り・retry・Replanでも対象を再照合する |
+| 4. 保存先と実行先の分離 | `operation-composition.ts`、`task/executor.ts`、`task/execute-attempt.ts`→Coordinator | 所属Repository Rootは状態保存・認可・回復・結果受領へ維持する。AIの実行Treeは別の入力として渡し、Rootを単純にWorktreeへ差し替えない。Coordinator／DI側の入力と保護を接続するまで新方式の本番Task開始を有効化しない |
+| 5. 採否・終了 | `candidate/adopt.ts`／`integrate.ts`と結果Writer、既存Decision・回復参照→VC削除 | 旧Bundleの採用ReceiptをGit取込完了の証拠にしない。新Git成果の取込又は不採用・破棄を確認→非使用→終了意図保存→Worktree／専用Ref削除の段階別保存→必要判断資料の処置→履歴確定・現在記録整理とする。採用後の自動片付けは実取込確認の実装と一体で接続する |
+
+移行元の`repositoryRoot`一値は状態保存と実行の両方に使われ、SnapshotにはWorkspace集合がなかった。現在の接続では次の新形式と操作を使う。使用中は既存Task・Queue・Lease・未解決回復から導出し、新たな監視・使用中台帳を追加しない。binding-wideの既存直列化をWorkspace導入だけで解除せず、異なるWorkspaceの並行保証は別途実接続で確認する。
+
+| 現在の具体契約 | 値・処置 |
+|---|---|
+| 保存形式 | `crdd-coordinator/orchestrator-snapshot/v3`、schemaRevision=3。新規初期化はworkspaces空集合を含む。旧版・欠落集合を補完しない |
+| Workspace現在値 | `workspace/record.ts`の`OrchestratorWorkspace`。UUID、generation、baseCommit、head、phase（creating／ready／discarding）、holdUntil、pending、lastResult、primaryFailure。専用Branch／PathはUUIDからVCが導出。Task一覧は持たない |
+| Queue対象 | 新形式の保存QueueはworkspaceIdを必ず持つ。nullは所属Repositoryの現在Tree、UUIDはIsolatedの参照。新規受付時の指定省略はnullを記録するが、旧保存値の欠落をDirectへ補完しない。Taskは取得した同Queueの対象を継承する |
+| 内部操作入口 | `manageOrchestratorWorkspace`。実在するProject／Queueの既存project-operation Lease内でcreate／observe／discard／holdを処置する。架空Queue・独立したWorkspace専用Leaseは作らない。adoptedは取込証拠未接続としてVC要求前に拒否する |
+| 意図と保存 | 同ID・元世代・固定入力の意図保存→短期保存Lock解放→VC→同Lease・世代を再確認して結果保存。作成不明を別IDで再試行しない。初回Git失敗はprimaryFailureへ保持し、解決時は既存historyへcleanup失敗有無を要約する |
+| 終了 | 不採用・破棄の明示要求だけで専用資源を削除。別の未終了Queue参照・Task実行中・未解決回復・明示保留を拒否する。未終端の対象Queueはcancelledへ閉じ、既にcompleted／cancelledの結果は維持して参照だけ解除する。対象を暗黙にDirect実行へ切り替えない。必要資料の親Directoryが残る間は現在記録を保持する |
+| Task搬送 | `resolveOrchestratorWorkspaceTaskTarget`を既存State Portへ接続し、DispatcherがTaskごとにfresh観測する。ownerRepositoryRoot／executionTree／workspaceId／workspaceBaseCommit／workspaceHeadを分ける。repositoryRevisionでWorkspace HEADを代用しない |
+| 本番実行のGate | Coordinatorが新対象搬送に未対応の間、実Adapterは`single_task_workspace_execution_not_connected`をEffect前に返す。有限AI代役の成功を本番Provider・Direct新書込み境界の成立へ換算しない |
+
+作成中の再観測では、保存したBase・pending.expectedHeadと実HEAD／Branch HEADの一致、clean、非locked・非prunableを要求する。未成立は同IDのcreating意図を保持する。readyの継続作業にdirty禁止を拡張しない。Task対象確認の拒否は委譲前のno_effectとして扱い、架空の実行回復やProcess破棄を発行しない。Workspace操作結果のleaseReleasedは既存操作Leaseの解放だけを表し、Git資源の回収と混同しない。一次失敗のrecoveryIdは二次失敗で上書きせず、解放側の参照はreleaseRecoveryIdへ分離する。
+
+保存形式は既存の厳密codec・世代比較・相関検査・初期化・現在投影と同時切替する。旧形式の保全・移行・清掃はフロントAIが扱い、旧要求へ暗黙にDirectを補完する互換Readerは作らない。具体的fieldと公開入力はこの接続のSource編集前に固定する。旧Bundle・旧実行入口は置換能力とConsumer接続を確認するまで撤去済みと扱わない。
+
+正常例は同じIsolatedで複数Taskを継続し、途中Taskの終了ではTreeを保持する場合。非発火例はDirectのTask終了で、専用Worktree作成・削除をしない。境界例は終了解決待ちと新Task受付の競合、Worktree削除後のRef残存、必要判断資料の残存。情報不足例はVC更新後の保存失敗で、未実施へ巻き戻さず同対象を再観測する。試験はQA-000003の対象結合・再入場、QA-000005の採否、QA-000007の実Gitへ接続する。Orchestrator内の保存・Dispatcher接続と、外部Provider／Surface・採用取込の未接続を分ける。
+
 本書はOrchestratorの現在有効なInterface、永続Record、資源、Lock、Authority、Effect、状態遷移、不変条件および失敗注入点を所有する。版ごとの旧設計文書は現行Treeへ累積せず、当時の内容は対応するGit tagで保持する。
 
 [上位アーキテクチャ](01_Architecture.md)は責務、依存方向、公開APIと通知、Platform境界を所有する。[機械可読な設計対応](../../../07_Quality/Registry/orchestrator-design-traceability.json)は本書を再定義せず、設計と実装・試験の対応切れを検出する検証用投影である。現行Symbol・旧実装Pathの対応表は移管前の基準であり、新配置の成立済み根拠ではない。Interface、Record、遷移とSemantic KeyはFolder改名だけで再採番しない。
@@ -135,7 +166,7 @@ Report revision 11の`completed`は、予定した検証結果を確認した意
 | 別Port間の中断 | State、Queue、結果、保護Decisionへの呼出しの間で停止できる。物理一体化だけで全更新のall-old／all-newを主張せず、同じ仕事Identityで未完了処置へ戻る。 |
 | 旧形式からの切替 | 新形態へ刷新し、旧保存形式のRuntime内変換・Fallback・旧Writerを残さない。切替時はフロントAIが旧入口の停止、現在資源・参照の確認、必要成果物の保全と用途別Rootの清掃を行う。旧仕事を新Snapshotへ自動継承せず、新しい受付世代で初期化する。 |
 
-新版の保存契約は閉じたSnapshot v2 Schema、Root・Binding結合、期待世代による競合拒否と現在の未解決処置の保全である。本番Reader／Writerはv2だけを受理し、Hashが正しい旧v1 Envelopeでも読取り・再初期化を拒否して元bytesを保全する。旧形式の連続世代を永続互換契約として維持せず、旧不変条件IDをそのまま新版の成立根拠へ読み替えない。
+新版の保存契約は閉じたSnapshot v3 Schema、Root・Binding結合、期待世代による競合拒否と現在の未解決処置の保全である。本番Reader／Writerはv3だけを受理し、Hashが正しい旧v1／v2 Envelopeでも読取り・再初期化を拒否して元bytesを保全する。旧形式の連続世代を永続互換契約として維持せず、旧不変条件IDをそのまま新版の成立根拠へ読み替えない。
 
 新版Schema、実効排他とRootの結合、Windows保存確定、結果保存・採用後処理は本番Compositionへ接続する。終了Identityは履歴確定後に退役し、通常履歴は30日保持とする。Qualityには競合、中断、再送、参照中・未解決の結果の削除、採用後の記録失敗による重複適用、旧Writer再入場、履歴循環と終了後残存を反証対象として渡す。接続の存在を独立レビュー合格や実Provider E2E合格の代替にしない。
 
@@ -162,19 +193,20 @@ Report revision 11の`completed`は、予定した検証結果を確認した意
 
 短命な`history.pending.jsonl`は同じDirectory内の置換候補であり、履歴世代を蓄積しない。同じRoot排他下で、現在の全体Hashが候補と一致すれば候補の回収だけを行い、変更前Hashと一致すれば同じ候補の保存を再開する。不一致・破損は上書きせず保持する。確定後はread-backと短命Fileの不存在を確認する。履歴確定後だけ終了記録を除く。
 
-部分codecは検証専用であり、本番の`state.json`として使用しない。本番は全区画を持つv2 Schemaを検証する。ID重複、孤立Queue、不正State／Queue、Root・Binding差、Hash不一致、未知fieldと未知版を拒否する。入力と返却値にはUTF-8で16MiBの上限を適用する。
+部分codecは検証専用であり、本番の`state.json`として使用しない。本番は全区画を持つv3 Schemaを検証する。ID重複、孤立Queue、不正State／Queue、Root・Binding差、Hash不一致、未知fieldと未知版を拒否する。入力と返却値にはUTF-8で16MiBの上限を適用する。
 
 短期保存排他は、検証済みRepository Rootのnative realpathをWindowsのcase差を正規化してHash化し、Orchestrator専用のNamed Pipeへ結合する。Worker取得・保持確認・解放処理を再利用し、Candidate／Provider／Dockerの名前空間は変更しない。`assertLive()`で保持を確認し、`release()`がfalseなら解放未確認とする。File保存の確認をOS電源断時の耐久性保証へ読み替えない。
 
 #### 統合保存入口の接続
 
-`writeOrchestratorSnapshot`は、部分codecとは別の統合保存契約を使用する。本番は判断区画を含む`crdd-coordinator/orchestrator-snapshot/v2`に固定し、v1試行からの暗黙拡張や旧DirectoryへのFallbackを行わない。
+`writeOrchestratorSnapshot`は、部分codecとは別の統合保存契約を使用する。現在は判断区画とWorkspace区画を含む`crdd-coordinator/orchestrator-snapshot/v3`に固定し、v1／v2からの暗黙拡張や旧DirectoryへのFallbackを行わない。
 
 | 区画 | 固定する値 |
 |---|---|
 | 保存情報 | schema、schemaRevision、repositoryRootHash、repositoryBindingId、snapshotRevision。 |
 | 受付 | intakeEpochと、全QueueごとのintakeBindings（queueId／epoch）。既存Queueを現在世代へ付け替えない。 |
 | 既存現在値 | projects、queueEntries。各RecordのgenerationとQueueのIdentityを維持する。 |
+| 継続作業 | workspaces。QueueのworkspaceIdで参照し、Task終端・通常履歴整理だけで削除しない。処置中の固定入力と一次Git失敗を保持する。 |
 | 実行権の記録 | leaseEvidence、leaseIntents。取得途中／物理排他取得後／解放未確定のphaseを分け、同Ownerに併存する途中記録を省略しない。 |
 | 結果と終了処理 | results、historyPending。結果は既存kind・Identity・結合・内容Hashを検証し、終了要約は履歴と同じ値契約を使う。 |
 
@@ -184,7 +216,7 @@ Report revision 11の`completed`は、予定した検証結果を確認した意
 
 保存入口は、未解決Queue、Lease途中、参照中結果と未搬送要約の除去を拒否する。`maintainOrchestratorSnapshot`は、Task終了・回収、判断終了、採用後処理および実Lease不存在を確認し、同じ終了Identityの要約を履歴へ確定した後だけQueue・受付結合と不要な終了記録を除く。同じ更新で受付世代を切り替え、退役済み依頼の再実行を拒否する。最新Projectと参照中結果は保持する。適用後の記録失敗は回復・後処理状態を保持し、Record不存在から採用を再実行しない。未整理Queueが残るProjectのMilestone置換を拒否し、旧仕事を孤立させない。
 
-`readOrchestratorSnapshot`は内部保存の読取り入口であり、利用者向け結果取得・受領機能ではない。取得済みRootと親Directoryを順に検証し、領域を作成せず真正不存在だけをnullとして返す。固定pendingが存在する場合は保全停止し、この入口から確定・回収しない。正規File、単一link、安定した上限付き読取り、UTF-8、全区画・Hash・Root・Bindingを確認する。破損・alias・途中消失・観測不能から旧形式へFallbackしない。短期排他の解放確認後だけ成功を返す。本番State読取りはこのv2入口へ接続する。
+`readOrchestratorSnapshot`は内部保存の読取り入口であり、利用者向け結果取得・受領機能ではない。取得済みRootと親Directoryを順に検証し、領域を作成せず真正不存在だけをnullとして返す。固定pendingが存在する場合は保全停止し、この入口から確定・回収しない。正規File、単一link、安定した上限付き読取り、UTF-8、全区画・Hash・Root・Bindingを確認する。破損・alias・途中消失・観測不能から旧形式へFallbackしない。短期排他の解放確認後だけ成功を返す。本番State読取りはこのv3入口へ接続する。
 
 保存の内部処置は取得済みOwnerを受け取り、自ら排他を再取得・解放しない。外側の入口が取得と解放確認を担当し、読取り・操作固有更新・保存を同じOwnerへ接続する。OwnerはJSONや呼出し元指定Hashから復元しない。本番CompositionはState／Queue・Lease・結果・受入判断・判断回復の新版Portを一組で使用する。
 
@@ -202,7 +234,7 @@ Project状態更新は入力・上限・期待世代を取得前に検証し、�
 
 #### 操作と保存の接続範囲
 
-`createOrchestratorSnapshotPersistencePorts`はState／Queueの8操作とLeaseの4操作を新版保存へ接続する。構築だけで初期化・保存・旧形式Fallbackを行わず、Request発行時の受付世代と依頼結合を固定する。本番の内部操作は`createCurrentOrchestratorPersistencePorts`から検証済みv2世代を使い、外部Requestの世代を補完するために使わない。Operation回復は要求したProject／Queueへ結合し、Adoption回復はcanonical採用Leaseへ結合する。停止理由とexact回復参照を保持する。
+`createOrchestratorSnapshotPersistencePorts`はState／Queueの8操作とLeaseの4操作を新版保存へ接続する。構築だけで初期化・保存・旧形式Fallbackを行わず、Request発行時の受付世代と依頼結合を固定する。本番の内部操作は`createCurrentOrchestratorPersistencePorts`から検証済みv3世代を使い、外部Requestの世代を補完するために使わない。Operation回復は要求したProject／Queueへ結合し、Adoption回復はcanonical採用Leaseへ結合する。停止理由とexact回復参照を保持する。
 
 受付世代の本番接続では、認証・Repository・Revisionを確認した既存の状態取得入口から世代を返し、新Requestの発行側が値を固定する。CLIとMCPの受信時には現在世代へ補完・付替えしない。Projectが不在でも有効な現在Snapshotがあれば世代を取得できるが、Snapshot不存在・未確定・破損・観測不能では値を生成せず、状態取得へ初期化Effectを加えない。Workbenchは現状Objective発行者ではなく、新しい発行機能をこの保存刷新へ追加しない。
 
@@ -212,20 +244,20 @@ Project状態更新は入力・上限・期待世代を取得前に検証し、�
 |---|---|---|
 | State／Queueの8操作 | 世代比較、同依頼再送、優先順位、使用中の割込み禁止、exact回復参照。 | 本番Objective・判断・受入・統合Compositionが新版Factoryを使用する。 |
 | Leaseの4操作 | 取得途中の耐久記録、実排他、解放確認、Owner喪失の再観測。 | 本番Factoryが短期保存排他と長期実行Leaseを分離して使用する。 |
-| integration／adoption結果の保存 | 同Identity・同内容再送、採用後保存失敗から再適用しない。 | 本番統合とWorkbench独立採用がv2結果Portを使用する。 |
-| 受入判断の作成・読取り・比較交換 | preparedの第1世代とfinalizedの第2世代、作成一回限り、期待値の完全一致。 | 本番受入入口がv2判断Storeを使用する。旧二世代をRuntime内で移行しない。 |
-| 判断回復の作成・読取り・比較交換 | exact回復Identity、期待値完全一致、途中状態保全。 | 本番判断入口がv2回復Storeを使用する。旧連鎖を再構築しない。 |
+| integration／adoption結果の保存 | 同Identity・同内容再送、採用後保存失敗から再適用しない。 | 本番統合とWorkbench独立採用がv3結果Portを使用する。 |
+| 受入判断の作成・読取り・比較交換 | preparedの第1世代とfinalizedの第2世代、作成一回限り、期待値の完全一致。 | 本番受入入口がv3判断Storeを使用する。旧二世代をRuntime内で移行しない。 |
+| 判断回復の作成・読取り・比較交換 | exact回復Identity、期待値完全一致、途中状態保全。 | 本番判断入口がv3回復Storeを使用する。旧連鎖を再構築しない。 |
 | 未搬送終了要約の履歴への搬送 | 全内容一致再送、履歴確定後だけ現在値から除去、30日保持。 | Objective・判断・受入・Workbench採用の終了処置が整理入口を使用する。 |
 
 Lease解放後にQueueの所有解除だけが中断した場合、再入場は既存の終了確定操作へ接続する。観測した受付世代、Queue世代、Owner、exact終了証拠、未解決取得意図の不存在と実排他不存在を再照合し、統合待ち等の終了意図・結果参照を保持して所有だけを解除する。実行中のOwner喪失を`recovery_required`へ移す処置とは区別し、終了証拠欠落・結合不一致・観測不能では保存を保全して停止する。過去の解放要求発行や物理排他の不存在だけから正式終了を推定しない。
 
-受入判断と判断回復を加える保存形式は`crdd-coordinator/orchestrator-snapshot/v2`として区別する。v1試行の値に欄を暗黙追加せず、未知版、不正v2、未確定保存から旧DirectoryへFallbackしない。`acceptanceDecisions`は記録ごとに第1世代と、存在する場合だけ第2世代を保持し、第2世代単独を許さない。`decisionRecoveries`は記録ごとの現在値・保存世代を保持する。新形式の比較交換は同じ排他内の完全な期待値照合とSnapshot確定で行う。旧形式はフロントAIの切替手順で整理し、Runtime内で旧連鎖を再構築しない。
+受入判断・判断回復・Workspace現在集合を持つ保存形式は`crdd-coordinator/orchestrator-snapshot/v3`として区別する。v1／v2の値に欄を暗黙追加せず、未知版、不正v3、未確定保存から旧DirectoryへFallbackしない。`acceptanceDecisions`は記録ごとに第1世代と、存在する場合だけ第2世代を保持し、第2世代単独を許さない。`decisionRecoveries`は記録ごとの現在値・保存世代を保持する。新形式の比較交換は同じ排他内の完全な期待値照合とSnapshot確定で行う。旧形式はフロントAIの切替手順で整理し、Runtime内で旧連鎖を再構築しない。
 
 両欄はRepository内の非秘密の処理記録であり、保護された判断AuthorityやCapabilityを複製しない。履歴へ移す場合も、保護記録の参照、Project適用、Queue、回復と後処理が解消する前に除去しない。退役受付世代によって過去判断の作成や再適用が復活しないことを確認する。
 
 新版Leaseの物理排他は`.crdd/tmp/orchestrator-leases/`の短命なDirectoryとして保持し、現在状態の正本は`state.json`のintentと証拠へ統合する。取得意図を確定して短期保存排他を解放した後に物理排他を取り、同Ownerの取得記録を再照合して取得証拠を確定する。解放も意図確定、物理解放、不存在確認、終了証拠確定の順とし、短期保存排他を実行中や外部待機へ持ち越さない。Directoryの実体Identityは取得後に照合し、別の実体へ置換された場合は処置しない。物理取得後・証拠保存前の不明な窓は成功へ丸めず、exactな未解決取得として保持する。JSON上のintent除去は終了証拠と現在の物理不存在を照合した専用終了処置に限り、一般保存で未解決義務を消さない。
 
-v2の実体結合は取得したDirectoryのdevice、inode、birthtimeMsをJSON配列順でHash化した`physicalIdentity`とする。取得前のintentではnull、取得後・解放意図では照合済みHashを持つ。これはOSが返した属性に基づく置換検知であり、AuthorityやWindows電源断保証ではない。opaque Leaseの利用時は親Directoryも正規実体として再確認する。未終了の取得証拠には同Ownerの`lock_owned`意図を要求する。終了証拠なしにintentを除いた保存候補を受理せず、終了証拠がある場合も同じ物理排他の不存在を保存確定前・pending再入場時に確認する。
+v3の実体結合は取得したDirectoryのdevice、inode、birthtimeMsをJSON配列順でHash化した`physicalIdentity`とする。取得前のintentではnull、取得後・解放意図では照合済みHashを持つ。これはOSが返した属性に基づく置換検知であり、AuthorityやWindows電源断保証ではない。opaque Leaseの利用時は親Directoryも正規実体として再確認する。未終了の取得証拠には同Ownerの`lock_owned`意図を要求する。終了証拠なしにintentを除いた保存候補を受理せず、終了証拠がある場合も同じ物理排他の不存在を保存確定前・pending再入場時に確認する。
 
 物理取得前には、取得意図を保存した時点のRepository実体を同じ属性とnative realpathで再確認し、親を確認してから子を作成する。意図保存の途中失敗や保存後のOwner解放未確認は、同じexact回復参照を返す。競合・入力拒否などEffect前の停止へ、存在しない回復義務を追加しない。解放意図の保存が未確認となったopaque Leaseは以後の実行に使用しない。
 

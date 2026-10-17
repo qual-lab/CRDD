@@ -56,6 +56,11 @@ export const ORCHESTRATOR_SINGLE_TASK_ADAPTER_CONTRACT_REVISION = 3;
  * @compatibility OrchestratorSingleTaskAttemptInputの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 export type OrchestratorSingleTaskAttemptInput = Readonly<{
+  workspaceId?: string;
+  ownerRepositoryRoot?: string;
+  executionTree?: string;
+  workspaceBaseCommit?: string | null;
+  workspaceHead?: string | null;
   attemptId: string;
   operationId: string;
   authorityBindingId: string;

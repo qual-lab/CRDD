@@ -51,4 +51,5 @@ export type ProjectQueueEntry = Readonly<{
   ownerGeneration: string | null;
   resumeCondition: string | null;
   resultReference: string | null;
+  workspaceId?: string | null;
 }>;

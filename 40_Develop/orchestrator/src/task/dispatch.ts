@@ -1002,6 +1002,34 @@ export async function runOrchestratorOperation(
                 recoveryIds: Object.freeze([]),
                 recoveryObligations: Object.freeze([]),
               });
+            const target =
+              queue.workspaceId != null
+                ? dependencies.persistence.state.readWorkspaceTaskTarget?.(
+                    input.queueId,
+                  )
+                : null;
+            if (
+              queue.workspaceId != null &&
+              (target?.status !== "completed" ||
+                target.value.workspaceId !== queue.workspaceId)
+            )
+              return Object.freeze({
+                contract:
+                  "crdd-coordinator/orchestrator-single-task-adapter" as const,
+                attemptId: attempt.attemptId,
+                operationId: attempt.operationId,
+                authorityBindingId: attempt.execution.authorityBindingId,
+                repositoryRevision: state.repositoryRevision,
+                status: "blocked" as const,
+                reason: "single_task_workspace_target_unavailable",
+                effectState: "no_effect" as const,
+                cleanupConfirmed: true,
+                manualRecoveryRequired: false,
+                processRestartRequired: false,
+                candidateId: null,
+                recoveryIds: Object.freeze([]),
+                recoveryObligations: Object.freeze([]),
+              });
             delegatedAttemptIds.add(attempt.attemptId);
             return await dependencies.runSingleTaskAttempt({
               attemptId: attempt.attemptId,
@@ -1010,6 +1038,16 @@ export async function runOrchestratorOperation(
               repositoryRevision: state.repositoryRevision,
               taskRequest: attempt.execution.taskRequest,
               repositoryRoot: attempt.execution.repositoryRoot,
+              ...(target?.status === "completed" &&
+              target.value.workspaceId !== null
+                ? {
+                    workspaceId: target.value.workspaceId,
+                    ownerRepositoryRoot: target.value.ownerRepositoryRoot,
+                    executionTree: target.value.executionTree,
+                    workspaceBaseCommit: target.value.baseCommit,
+                    workspaceHead: target.value.head,
+                  }
+                : {}),
               cancellationSignal: input.cancellationSignal,
               observeStarted: () => observeStarted(attempt),
               ...(dependencies.resultDelivery

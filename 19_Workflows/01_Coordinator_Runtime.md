@@ -239,6 +239,8 @@ CRDDを`00_CRDD`へ配置した採用Repositoryでは、Project Rootを現在Dir
 
 ### v0.22責務再編後の移行方針
 
+Workspace接続後のOrchestratorはSnapshot v3だけを読み、新規初期化にはWorkspace空集合を含む。v1／v2や未確定pendingをRuntimeで補完・移行しない。フロントAIが下表の非使用・現在参照・必要成果・未解決義務を確認し、必要な保全と清掃を終えてから明示初期化する。Snapshotを書き換えて新しい版番号を付ける処置は行わない。実データの移行・削除はexact Rootと対象の承認を得て実施し、合成試験の成功を移行済みの根拠にしない。
+
 以下の旧署名由来を採用・引継ぐ操作は切替前Runtimeの運用履歴であり、新Runtimeの手順として実行しない。新形式への移行はフロントAIが[縮小設計の処置表](../06_Architecture/Details/coordinator/01_Architecture.md#正常復帰後の検証付き再起動)に従って行う。新Runtimeに旧形式Reader、旧Release chain採用または旧Container再利用を追加しない。
 
 | 順序 | 移行時の確認・処置 | 停止条件 |

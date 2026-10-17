@@ -327,3 +327,23 @@ VCの`git/worktree-management.ts`に作成・観測・明示削除の三APIを�
 初回の合成実Git5件は、check-ignoreがliteral-pathspecs指定を受理しないためEffect前に失敗した。公開の固定相対Pathだけを扱う同commandからその指定を除き、再検証5件成功。追加境界を含む6件とPackage全56件成功（40,022.2145ms、失敗・取消・skip0）、整形・型検査・Lint成功。実Gitはdirty共有Tree非継承、linked起動、二Workspace、採用成果保全、不採用dirty／未追跡／ignored削除、lock／別HEAD／入れ子Git／祖先junction／Branch衝突拒否、hookとsmudgeの発火対照→非発火を確認した。作成実処理後のtimeout通知代役と、Worktree削除後のRef失敗代役から同対象へ再入場した。実時間timeout・上位Task・本番採否・Merge実装の実証にはしない。
 
 中央Catalog検査指摘0、Catalog契約25件成功（8,863.8111ms）。独立確認で、公開dirtyは内訳ではなく有無、nullの意味はfield別であるという記述修正と、Base gitlink・ignoredだけ・削除直前dirty変化の個別Oracle不足を検出した。全結果と最小是正を両確認者へ照合し、処理を拡張せず文言と同Suite試験を補強した。上記56件は補強前の結果として保持する。補強後は実Gitを使う同Suite7件とPackage全57件成功（42,723.5284ms、失敗・取消・skip0）、整形・型検査・Lint成功、Catalog検査指摘0、差分空白検査成功。`worktree-management-*`の自己生成Rootは残存0。是正固定候補のArchitecture・Quality独立再レビューは両者残指摘0。RFD-IT-029全体はNot Run、本番Consumerは未接続であり、次はOrchestratorの上位処置へ接続する。
+
+### Orchestrator接続の着手
+
+人間の指示で前段を`9c462a2e`へコミットした（プッシュなし）。次段の着手前調査で、現在のSnapshotにはWorkspace集合がなく、同じRepository Rootを保存・実行・回復へ搬送していること、旧候補採用はBundle適用でGit取込の証拠ではないことを確認した。単純なVC呼出し追加・Root置換・採用成功からの即削除は行わない。
+
+両専門観点を統合し、[Orchestrator詳細の対応表](../../../06_Architecture/Details/orchestrator/02_Detailed_Design.md#workspace接続の実装順序と移管先)とQA-000003の上位結合条件へ反映する。まず既存state内の保存・遷移とVC接続、次に受付・Task搬送と保存Root／実行Tree分離を同じ実行切替で閉じる。採用後の片付けは後続の実Git取込確認と一体で完成させ、①だけで全終了能力を完成としない。新しい台帳・Lock・互換Readerは追加しない。現在は設計具体化までで、この段階のSource実装・実データ変更は未着手。
+
+### Orchestratorの実装・限定結合結果（2026-10-17）
+
+既存Snapshotを厳密なv3へ更新し、Workspace現在集合とQueue参照を同じstate.jsonへ接続した。既存project-operation Lease内で意図保存→VC→結果保存を行い、短期保存LockをGit処理中に保持しない。作成・観測・期限付き保留・明示破棄を公開し、Task終端からの自動削除は行わない。Dispatcherへ所属保存Rootと選択実行Treeを分けて搬送した。新Registry・Lock・互換Readerは追加していない。本Repositoryの実運用状態は移行・削除していない。
+
+独立レビューの3指摘（作成途中の条件再照合不足、既終端Queue結果の取消化、委譲前拒否の外部実行不明扱い）を両確認者と照合して是正した。作成中だけ固定Base／期待HEAD・clean・非locked／prunableを再確認し、拒否時は同UUID意図を保持する。参照解放と既存結果を分離し、未委譲の拒否では回復ID・Process破棄を発行しない。是正固定候補の契約・品質再レビューは両者指摘0。履歴は既存の分類要約を使い、実行ごとのEvidence書庫を新設しない。
+
+Node v24.19.0／Windowsの実Git・既存排他で、Orchestratorの整形・型検査・Lint、UT73件とIT24件が成功（IT 140,988.079ms、失敗・取消・skip0）。新Suite6件は複数Task継続、実保存、別Process競合・同UUID再入場、Git作成後の結果保存用open失敗、Worktree除去後のRef失敗、保留・別HEAD・欠測・Reader拒否を確認した。prunable刺激はDirectory欠測との結合例で、単独条件の全変異網羅ではない。初回の試験準備不足、Worker起動引数・Windowsの削除対象CWD、およびQueueのintegration_pendingをcompletedと誤期待した失敗は試験側で是正して再検証した。通常回帰の制限環境で待機した今回の試験Processは停止し、実環境プロファイルで確認した。
+
+隣接する保存基盤は全51件中48成功・旧版比較3失敗を保持し、試験側の版2比較だけを版3へ更新後に該当3件が成功（16,653.0566ms）。単一run全件成功とはしない。判断回復・履歴・採用記録の隣接18件も成功（25,430.549ms）。Coordinator型検査、中央Catalog検査指摘0、Catalog契約25件成功、差分空白検査成功。旧形式fixtureは現形式へ更新し、歴史的Evidenceは変更していない。
+
+これはOrchestrator内の保存・VC・Task搬送までの限定成立である。実Coordinatorは新対象未接続をEffect前に拒否し、採用申告も実Git取込未接続として拒否する。実Provider、公開Surface、採用・Merge、未解決配送／回復を含む全体評価、実データ移行と利用者受入は後続。QA全体のNot Runを解除せず、Docker・外部AI・Cloud・本体Gitへの実処置は行っていない。
+
+最終結果搬送の確認では、既存Storeの回復参照を保存拒否・再読取り拒否から返却へ保持し、Lease解放の二次失敗で一次参照を上書きしないよう補正した。解放側の別参照はreleaseRecoveryIdへ分離し、新Stateや回復機構を追加しない。補正後の静的3軸、実保存失敗の結合1件（21,211.7158ms）、本番関数本文に有限代役を接続した二重失敗合成1件が成功。後者は実保存／実Leaseの根拠ではない。上記全回帰はこの返却補正前、新Suiteは現在7件であり、全回帰時の6件と追加1件を区別する。

@@ -84,8 +84,9 @@ function fixture(t: test.TestContext) {
   const rootHash = held.value.repositoryRootHash;
   assert.equal(held.value.release(), true);
   const payload = {
-    schema: "crdd-coordinator/orchestrator-snapshot/v2",
-    schemaRevision: 2,
+    schema: "crdd-coordinator/orchestrator-snapshot/v3",
+    schemaRevision: 3,
+    workspaces: [],
     repositoryRootHash: rootHash,
     repositoryBindingId: "binding-a",
     snapshotRevision: 1,
@@ -94,6 +95,7 @@ function fixture(t: test.TestContext) {
     projects: [created.state],
     queueEntries: [
       {
+        workspaceId: null,
         queueId: "queue-a",
         projectId: "project-a",
         milestoneId: "milestone-a",

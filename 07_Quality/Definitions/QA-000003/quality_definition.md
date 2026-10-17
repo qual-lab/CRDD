@@ -2,11 +2,23 @@
 
 ## Workspace方式の追加検証条件（2026-10-17）
 
+Orchestratorへの接続では[保存・搬送・終了の実装順序](../../../06_Architecture/Details/orchestrator/02_Detailed_Design.md#workspace接続の実装順序と移管先)を対象に、実Git・実state Writer・既存利用調停を組み合わせる。AI実行は有限の代役にできるが、Git・保存・利用調停を一括mockで代替しない。
+
+| 既存項目 | 追加する反証と観測 |
+|---|---|
+| `PRL-UT-006`／`PRL-IT-013` | Workspace所属・対象の欠落／変更／不一致を受付・取得後・retry・Replanで拒否。二Taskで同Workspaceを継続し、先行Task終端と通常履歴整理でTree・現在Workspaceを失わない |
+| `PRL-IT-012`／`PRL-IT-013` | linked起動でも所属Repositoryのstate一つへ保存し、選択した実行Treeだけへ到達する。状態・認可・回復・配送のRootを実行Treeへ混同しない |
+| `PRL-IT-011` | 複数Processの同対象取得競合、取得後の対象／世代変更、終了処置中の新Task受付を既存調停で拒否。既存binding-wide直列化解除や別Workspace並行成立を単体結果から推定しない |
+| `PRL-IT-013`／`PRL-ST-001` | QA-000005の採否と接続し、取込済み又は不採用・破棄確定後だけ削除へ進む。旧Bundle採用をGit取込としない。継続・明示保留・実行中・回復／配送未解決は削除せず、Directの現在Tree／通常Branchは対象外 |
+| `PRL-IT-013` | VC更新後の保存失敗、Worktree除去後のBranch失敗、次Processの再入場を確認。同じ対象・期待HEAD・成立済み段階を保持し、二重実行・別対象削除0。不要な現在記録は履歴確定後整理し、資料残存はOwnerへ返す |
+
+VC単独の実Git試験はこの上位結合試験の代替ではない。本表のうち今回実施する限定結合は`workspace-lifecycle.integration.test.ts`へ接続する。既存結果を新方式のPassへ転用しない。
+
 Merge後分析は既存`PRL-ST-001`／`PRL-IT-013`へ追加する。Merge成功後の分析成功・失敗・取消・保存中断後再入場を分け、対象Workspace・取込Commit・Task・分析資料の相関、元Merge結果とRefの保持、分析段階からの自動Rollback／追加修正／Merge再発行0を観測する。先行する明示MergeのEffectを0とは主張しない。資料保存が失敗してもMerge未実施へ巻戻さず、分析未完了と必要な再分析・人間判断を返す。古いCommitへの分析を現在の完了へ昇格しない。
 
 [Workspace詳細](../../../06_Architecture/Details/orchestrator/03_Workspace.md)の`orchestrator.workspace-task-target`（ARCH-000004／000012）を追加条件として導出する。`PRL-UT-006`は対象結合・方式・状態判定、`PRL-IT-011`は同Workspace競合／別Workspace並行と共有資源制限・複数Process取得、`PRL-IT-012`はWorkbench／MCP／CLIの共通Task搬送、`PRL-IT-013`は元Attemptの再入場を確認する。`PRL-ST-001`／003／004は通常実行・取消・親喪失の公開経路で、Repository／Workspaceと開始・結果・保存・終了後資源を相関する。`PRL-UAT-002`は対象・判断待ち・再開を利用者が区別できるか評価する。取消時のContainer／Process回収を継続Workspaceの削除・resetへ変換せず、既存dirty・他Task成果の前後不変を観測する。旧Queue／Lease試験から新方式の並行・再入場成功を推定しない。
 
-本節の新方式はすべてNot Run。既存Local Itemの元結果・旧方式のEvidenceは維持し、新方式の実装／接続／実測へ継承しない。詳細Schema・操作許可・dirty／Commit処理の未決は該当実装前の停止条件とする。条件区分は正常・境界・準正常・異常・回復を扱い、UTの値判定、ITの実保存／実Git／実Mount、公開ST、利用者UATを相互代替しない。
+本節の全体評価はNot Run。限定結合は実Git・実Writer・既存Lease、二Task継続、保存Rootと実行Tree分離、別Processの競合・再入場、保存前open失敗とRef削除失敗を対象とする。再観測時の別HEAD／dirty／locked／prunable、破棄時の既終端Queue結果保持、委譲前拒否の回復非発行も反証する。保存失敗の一地点を全保存障害・実Process強制終了の実証へ一般化しない。回復／配送未解決、retry／Replan、履歴整理後継続、実Provider・公開Surface・Git採用・Merge・利用者受入は未確認として残す。既存Local Itemの元結果・旧方式のEvidenceは維持し、新方式へ継承しない。UT、IT、公開ST、利用者UATを相互代替しない。実施結果は[変更記録](../../../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md)へ接続する。
 
 成果物種別: Quality定義
 Quality ID: `QA-000003`
