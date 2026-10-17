@@ -347,3 +347,65 @@ Node v24.19.0／Windowsの実Git・既存排他で、Orchestratorの整形・型
 これはOrchestrator内の保存・VC・Task搬送までの限定成立である。実Coordinatorは新対象未接続をEffect前に拒否し、採用申告も実Git取込未接続として拒否する。実Provider、公開Surface、採用・Merge、未解決配送／回復を含む全体評価、実データ移行と利用者受入は後続。QA全体のNot Runを解除せず、Docker・外部AI・Cloud・本体Gitへの実処置は行っていない。
 
 最終結果搬送の確認では、既存Storeの回復参照を保存拒否・再読取り拒否から返却へ保持し、Lease解放の二次失敗で一次参照を上書きしないよう補正した。解放側の別参照はreleaseRecoveryIdへ分離し、新Stateや回復機構を追加しない。補正後の静的3軸、実保存失敗の結合1件（21,211.7158ms）、本番関数本文に有限代役を接続した二重失敗合成1件が成功。後者は実保存／実Leaseの根拠ではない。上記全回帰はこの返却補正前、新Suiteは現在7件であり、全回帰時の6件と追加1件を区別する。
+
+### Coordinator実行接続の着手と現在の停止点
+
+人間の指示でOrchestrator接続までを`135e032c`へコミットした（プッシュなし）。次工程は既存方針内の実装詳細・複数Package結合変更であり、Coordinator／Orchestrator／DIと関連QAを対象とする。着手前に契約・品質の読み取り確認を行い、両観点からRoot搬送だけでは旧複製・Bundle・清掃の所有境界を置換できないことを確認した。[切替順序](../../../06_Architecture/Details/coordinator/01_Architecture.md#workspace実行接続の切替契約2026-10-17)へ集約する。完成時は技術・品質の独立レビュー、文書・不足影響の限定照合を行う。標準準拠条件・リリース判断を変えないため準拠監査や全リリースE2Eを機械的に追加しない。
+
+現在の技術停止条件は、単一RW bindではGit／内部状態の書込み禁止が成立しない点である。新RW経路・旧Bundle撤去はまだ実装しない。既存の固定ImageとContainer稼働状況を読む照会は、実行環境の承認審査でDocker操作未承認として拒否され、発行していない。迂回や別経路の実行は行わない。現在のImage所在とEngine状態は未観測である。
+
+次の人間判断は、既存試験の後継としての限定Mount書込み試験の許可だけである。期待Imageは過去と同じ`sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047`、不存在・Engine停止時は取得／起動せず停止する。新しい専用Root `.crdd/tests/workspace-write-boundary/`内に無害な合成Tree・mask・sentinelだけを作り、Directory型とポインタfile型を各一件、同時一件・最大二Container・各60秒で確認する。networkなし、非root、read-only root、cap-drop ALL、no-new-privileges、pull禁止。Source書込みを正対照とし、Git／内部状態の書込み・rename・unlink・別名経路とTree外sentinelを観測する。開発用dummy.envの読取りは許容し、秘密隠蔽を合否条件にしない。
+
+試験器は既存DIの試験所有領域内に置き、通常回帰ではDockerを動かさない。失敗は一回で停止し、今回の実ID・構成・labelを再確認できた資源と専用Rootだけを回収・不存在確認する。回収不明では同対象を保持して報告する。既存Container／Image／Volume、認証情報、実Repository本文、Docker再起動／修復、外部AIには触れない。これは技術境界の実証であり、Provider・Coordinator全体・採用Git統合の成功ではない。
+
+### 固定Path書込み境界の承認済み限定結果（2026-10-17）
+
+人間は上記二構成と事前読取りを明示承認し、成功してもSecret完全隠蔽・あらゆるlink経路・任意Repositoryの保証へ拡張しないこと、失敗時は新ACL／Mount管理／Recoveryを追加しないことを指定した。EngineのLinux応答と固定Image実ID・Linux／amd64・稼働Container0を確認した。初回のImage表示形式は不存在のVolumes欄で解析エラーになり、存在確認用の表示項目だけへ絞って正常確認した。Image取得・更新・Docker起動はしていない。
+
+既存試験器`40_Develop/docker-isolation/tests/integration/direct-mount-boundary.integration.test.ts`を今回の限定目的へ更新した。過去の試験本文はGit基準`135e032c`、当時の結果・Hashは本記録の先行節に保持する。実行版SHA-256は`a0de5d10104aaf69c42782ca097add82cbf75e1092605fda52965c9e4bb41cce`。独立レビューの回収前構成照合不足を是正し、元ID・名前・Image・label・User・NetworkMode・root read-only・Capabilities・SecurityOpt・Mount集合を初回と回収前の同じprivate照合で確認した。構成差の局所代役で削除要求0・清掃失敗保持を確認し、両再レビューは指摘0。製品Source・公開API・保存Schemaは変更していない。
+
+| 実測対象 | 結果・限界 |
+|---|---|
+| Directory型 `.git` | 通常Sourceの既存内容読取り・同file書込みとdummy.env読取りが成功。固定PathへのGit／内部状態書込み・追加・rename・unlinkは拒否 |
+| ポインタfile型 `.git` | 同じ固定構成で上記観測が成功。実Git Worktreeや共有Git操作の実証ではない |
+| 構成 | `/work`はRW、`.git`は型に合う空placeholderをRO bind、`.crdd`は空DirectoryをRO bind。dummy.envのmaskなし。network none・非root・root read-only・cap-drop ALL・no-new-privileges |
+| Hostと回収 | 保護対象・mask・Tree外sentinelの内容と実体は不変。通常Sourceの指定変更だけを確認。自己生成Container二件を逐次実ID・元構成で回収し、ID・名前・labelの不存在と専用Root削除を確認。追加読取りでも専用label0・Root不存在 |
+| 対象外 | Secret完全隠蔽、hardlink／symlink・大小文字別名・入れ子Git・junction・親差替え、任意Repositoryへの適用。試験出力のNot Runは今回の対象外を表し、本番実装の追加義務やPassとして扱わない |
+
+Node v24.19.0／Docker Desktopの現在環境で、限定Docker Caseは12,216.9375ms、試験全体は12,310.4478ms、通常局所二件と実Docker一件の計3件成功（exit0、失敗・取消・skip0）。固定Pathの観測は二構成各11項目で、全体保護の網羅数ではない。新規Network、認証、外部AI、Docker再起動・修復、既存資源変更は行っていない。実行別ログ書庫は増やさず、この要約と再実行可能な試験Sourceへ接続する。
+
+推奨は、この三MountをDirect／Isolatedの共通構成候補とすること。固定Pathの最小境界は実測できたが、借用Treeの本番接続、link等の適用前提、生成・存在しない保護Pathの扱い、実Provider・取消・回収・次Taskは未成立である。構成の本番採用とCoordinator接続は次の判断・実装へ分け、今回成功だけで未接続拒否を解除しない。
+
+### Coordinatorの借用実行接続（2026-10-17、実装・結合確認中）
+
+人間は三本構成の採用とCoordinator接続を指示した。所属Rootを認可・保存・回復・配送に使い、実行TreeだけをProviderへ渡す。短命なOperation結合を追加し、永続台帳・Lock・回復Frameworkは追加しない。旧Bundle準備・保存・出版は借用入口で呼ばず、既存差分照合とReviewerだけを再利用する。TreeとBranchはOrchestrator／VCの所有のまま保持し、Task終了・失敗・取消で削除・resetしない。
+
+| 確認断面 | 現在の根拠と限界 |
+|---|---|
+| 実Tree | 自己生成GitのDirect／Isolatedを二Task継続し、開始dirtyを今回差分へ含めず、内部状態を除外、Source・Git・Branchを清掃後も保持する。上位AdapterとProvider構成への所属Root／実行Tree搬送も確認する |
+| Task調整 | 有限代役で通常二役割・一回是正・初回／是正後の範囲外変更停止・取消と既存清掃を確認する。実AIの実行証拠ではない |
+| Docker構成 | 三本Mountの計画、Source RW／Reviewer RO、固定保護二本RO、回収観測の欠落・余剰・RW・Source差拒否を確認する。既存の限定実Docker結果を超える保証はしない |
+| 利用側 | Orchestratorの全UT73とIT25が成功。実Providerを使う新方式E2E、採用・Git統合、公開Surface・利用者確認、実データ移行は別の残件 |
+
+借用走査は既存上限20,000 file・全体256MiB・単一64MiBを維持する。link・複数hardlink・入れ子Git・上限超過は実行前拒否する。任意Treeへの適用可能性を追加主張せず、この制約を解くための新しい監視・ACL等も追加しない。変更Pathの帰属は未確定とし、欠測を変更なし／Tree現存へ丸めない。固定候補の独立レビューと必要な是正後に、本接続範囲の完了を判定する。
+
+固定候補W1の二必須独立レビューは、即時回収の保護期待値搬送、上位変更metadata搬送、清掃失敗時の最終投影迂回の三点を検出した。統合是正案を両確認者へ返し、整合確認後に既存経路内で修正した。DIはProvider用途だけ元二Sourceを即時照合へ渡す。Coordinatorは早期失敗を含む全終端の後で観測し、TaskAttemptからOrchestratorのTask／Attempt／Operation対応結果へ同じ閉metadataを搬送する。一次理由・exact回復参照・清掃結果は不変で、新State／Store／回復機構は追加していない。
+
+是正候補の関連Coordinator ITは210件成功。DIの即時回収本体を通す有限Transport試験は14件成功し、正常五Mountだけ回収、保護欠落／RW化／Source差ではrm0を確認した。上位DispatcherのDirect正常／途中失敗とIsolatedの局所二件も成功した。実Gitでの開始基準→無変更／変更あり／欠測の観測を、実TaskAttemptから上位単発結果へ搬送する確認を含む。全Checkerは既知error3,342・warning0、今回変更5Markdown Pathの指摘0であり、全体Passではない。再レビューと最終回帰は別に記録する。
+
+### 借用実行接続の実装・結合確認の区切り
+
+W2で検出したProducer／受領側の変更Path件数不一致は、既存上限1,000件を超えた一覧をnullへ投影する限定是正とした。実Gitで1,000／1,001件を作り、実TaskAttemptを通して元blocked理由・exact回復ID・清掃未確認・手動回復／Process再起動判定が保持されることを確認した。切詰め・上限緩和・新しい保存状態は追加していない。
+
+W3の二必須独立再レビューはともに指摘0。確認した最終SourceのSHA-256は`repository-operation/workspace.ts`が`89847b4ce49b7445be4995c80a54da211fdac5c4cb6055cc05becf7782a54248`、対応実Git試験が`335975862b8e2eb7e32745c70f1c07d5dd1e8efd4caa7124b2eacbfee81cc2d1`。実行別Evidence書庫は増やさず、再実行可能なSourceと本要約で追跡する。
+
+| 最終確認範囲 | 結果 |
+|---|---|
+| Coordinator関連結合 | 210成功、失敗・取消・skip0。実Gitの二方式・二Task、実Adapterの結果搬送、是正・取消・Host保存拒否、1,000／1,001件境界を含む |
+| Provider計画・保存・実行／回復Ownerの既存回帰 | 140成功。実Docker・外部AIは含めない |
+| Docker Isolation通常回帰 | 342成功・失敗0・明示Docker試験1skip。前の承認済み実Docker限定結果とは別run |
+| Orchestrator | UT73成功、最終IT26成功。途中の公開API一覧試験1失敗は新snapshot APIへの期待一覧未追従で、更新後に全ITを再実行して成功 |
+| 静的・追跡 | 関連3Packageのcheck成功、Runtime／Orchestrator Trace検査accepted、diff-check成功 |
+| 清掃 | 今回の`borrowed-workspace-*`／`orchestrator-workspace-*`自己生成Root残存なし |
+
+今回依頼されたCoordinator借用実行への実装・結合確認は上記限定範囲で完了。新永続Registry・State・Lock・回復Framework、実AI依頼、追加Docker再起動は行っていない。実Providerの新方式E2E、公開Surface・利用者確認、採用／Git統合、実データ移行、旧方式の全面撤去およびv0.22全体の完成は未完了のまま区別する。コミット・プッシュは本作業では実施していない。

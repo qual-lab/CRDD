@@ -608,6 +608,8 @@ function fixture(
     candidatePersistenceNeedsStoreRecovery?: boolean;
     candidatePersistenceAllowed?: boolean;
     candidateStoreUnavailable?: boolean;
+    borrowedWorkspace?: boolean;
+    unexpectedCapture?: number;
     candidateSecretAtCapture?: 1 | 2;
     remediationPacketSecretBlocked?: boolean;
     prepareWorkloadSplit?: boolean;
@@ -1066,7 +1068,11 @@ function fixture(
             status: "blocked",
             reason: "repository_read_projection_recognized_secret_rejected",
           })
-        : Object.freeze({ status: "materialized", workspaceCapability });
+        : Object.freeze({
+            status: "materialized",
+            workspaceCapability,
+            ...(options.borrowedWorkspace ? { borrowed: true } : {}),
+          });
     },
     projectReviewerReadContent: () =>
       options.reviewerReadProjectionFails
@@ -1534,6 +1540,14 @@ function fixture(
             status: "candidate",
             candidateCapability,
             changedPaths: Object.freeze(["fixture.txt"]),
+            ...(options.borrowedWorkspace
+              ? {
+                  unexpectedPaths:
+                    options.unexpectedCapture === candidateCaptureCount
+                      ? ["other.txt"]
+                      : [],
+                }
+              : {}),
           });
     },
     verifyCandidate: () =>
@@ -1777,6 +1791,142 @@ function fixture(
     },
   };
 }
+
+/**
+ * 借用TreeのTaskを旧Bundle保存なしで完結させる。
+ * @responsibility 正常・是正・範囲逸脱・取消の既存調整経路を検証する。
+ * @trace ERB-IT-006 PRL-IT-013
+ * @precondition 外部EffectのないTask依存を模擬し借用入力を渡す。
+ * @stimulus 二役割、是正、逸脱、取消を実行する。
+ * @observation 結果、準備回数、Provider回数、清掃。
+ * @oracle Bundle準備0、通常は二役割、逸脱は停止、取消でも清掃する。
+ * @cleanup 既存模擬Operationの清掃。
+ * @boundary 実Tree保持は別の実Git結合試験。実Providerの成立ではない。
+ */
+test("Workspace実行は旧Bundleを準備せず既存の正常・是正・取消経路へ接続する", async () => {
+  const target = Object.freeze({
+    workspaceId: null,
+    ownerRepositoryRoot: "C:\\repository",
+    executionTree: "C:\\repository",
+    baseCommit: null,
+    head: null,
+  });
+  for (const scenario of [
+    {
+      options: { borrowedWorkspace: true },
+      status: "completed",
+      reason: "coordinator_task_workspace_review_completed",
+      processes: 2,
+    },
+    {
+      options: {
+        borrowedWorkspace: true,
+        reviewerDecision: "changes_requested" as const,
+        finalReviewerDecision: "approved" as const,
+      },
+      status: "completed",
+      reason: "coordinator_task_workspace_review_completed",
+      processes: 4,
+    },
+    {
+      options: { borrowedWorkspace: true, unexpectedCapture: 1 },
+      status: "blocked",
+      reason: "coordinator_task_workspace_unexpected_changes",
+      processes: 1,
+    },
+    {
+      options: {
+        borrowedWorkspace: true,
+        reviewerDecision: "changes_requested" as const,
+        unexpectedCapture: 2,
+      },
+      status: "blocked",
+      reason: "coordinator_task_workspace_unexpected_changes",
+      processes: 3,
+    },
+  ]) {
+    const harness = fixture(scenario.options);
+    const result = await harness.runtime.start(
+      request(),
+      "C:\\repository",
+      undefined,
+      undefined,
+      "orchestrator",
+      target,
+    ).completion;
+    assert.equal(result.status, scenario.status);
+    assert.equal(result.reason, scenario.reason);
+    assert.equal(harness.candidateStorePrepareCount(), 0);
+    assert.equal(harness.discardCount(), 0);
+    assert.equal(harness.processStartCount(), scenario.processes);
+    assert.equal(result.candidateId, null);
+    assert.equal(result.candidateRecoveryId, null);
+    assert.equal(harness.cleanupCount(), 1);
+    assert.deepEqual(result.workspaceResult, {
+      workspaceId: null,
+      changedPaths: null,
+      changeAttribution: "unattributed",
+      workspaceDeletionIssued: false,
+      canonicalRepositoryChanged: null,
+    });
+  }
+  const harness = fixture({ borrowedWorkspace: true, pauseRole: "executor" });
+  const started = harness.runtime.start(
+    request(),
+    "C:\\repository",
+    undefined,
+    undefined,
+    "orchestrator",
+    target,
+  );
+  while (harness.processStartCount() === 0)
+    await new Promise((resolve) => setImmediate(resolve));
+  void harness.runtime.cancel(started.controlCapability);
+  harness.releasePausedProcess();
+  const result = await started.completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(harness.candidateStorePrepareCount(), 0);
+  assert.deepEqual(result.workspaceResult, {
+    workspaceId: null,
+    changedPaths: null,
+    changeAttribution: "unattributed",
+    workspaceDeletionIssued: false,
+    canonicalRepositoryChanged: null,
+  });
+  for (const [options, expected] of [
+    [
+      { borrowedWorkspace: true, hostCleanupWal: true, dockerIntentFailsAt: 2 },
+      "coordinator_task_host_cleanup_intent_unconfirmed",
+    ],
+    [
+      {
+        borrowedWorkspace: true,
+        hostCleanupWal: true,
+        dockerReceiptFailsAt: 1,
+      },
+      "coordinator_task_host_cleanup_receipt_unconfirmed",
+    ],
+  ] as const) {
+    const failed = fixture(options);
+    const terminal = await failed.runtime.start(
+      request(),
+      "C:\\repository",
+      undefined,
+      undefined,
+      "orchestrator",
+      target,
+    ).completion;
+    assert.equal(terminal.reason, expected);
+    assert.equal(terminal.canonicalRepositoryChanged, null);
+    assert.deepEqual(terminal.workspaceResult, result.workspaceResult);
+    assert.equal(terminal.manualRecoveryRequired, true);
+    assert.ok(
+      Array.isArray(terminal.dockerRecoveryIds) &&
+        terminal.dockerRecoveryIds.length > 0,
+    );
+  }
+});
 
 /**
  * 開発版の呼出し枠はExecutor・Reviewer・一回是正へ同じ入口から接続するを検証する。

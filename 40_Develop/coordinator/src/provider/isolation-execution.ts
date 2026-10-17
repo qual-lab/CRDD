@@ -101,6 +101,10 @@ type PreparedPlan = Readonly<{
   adviceCommandHash?: string | null;
   providerInput: string | null;
   workspaceSourcePath: string | null;
+  workspaceProtection?: Readonly<{
+    gitSourcePath: string;
+    internalSourcePath: string;
+  }>;
   workspaceMountMode: "read_write" | "read_only" | null;
   commands: readonly Command[];
 }>;
@@ -250,6 +254,9 @@ function resolveIsolationCommandInput(
         ? {
             sourcePath: plan.workspaceSourcePath,
             readOnly: plan.workspaceMountMode === "read_only",
+            ...(plan.workspaceProtection
+              ? { protection: plan.workspaceProtection }
+              : {}),
           }
         : null,
     authentication: {

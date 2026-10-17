@@ -1,5 +1,5 @@
 /**
- * Directの固定Mount案を合成物だけで反証する明示実行試験。
+ * Direct／Isolated共通の固定Path書込み境界を合成物で確認する。
  * @packageDocumentation
  * @responsibility 実ID固定の二構成、Host前後観測、失敗時停止と自己生成物回収を所有する。
  * @trace ERB-IT-001 ERB-IT-002
@@ -21,32 +21,38 @@ const IMAGE =
 const REPOSITORY = path.resolve(
   fileURLToPath(new URL("../../../..", import.meta.url)),
 );
-const ROOT = path.join(REPOSITORY, ".crdd", "tests", "direct-mount-boundary");
+const ROOT = path.join(
+  REPOSITORY,
+  ".crdd",
+  "tests",
+  "workspace-write-boundary",
+);
 const DOCKER = "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe";
-const LABEL = "org.crdd.direct-mount-probe";
+const LABEL = "org.crdd.workspace-write-probe";
 const RUN = randomUUID();
-const enabled = process.env.CRDD_DIRECT_MOUNT_BOUNDARY_APPROVED === "1";
+const enabled = process.env.CRDD_WORKSPACE_WRITE_BOUNDARY_APPROVED === "1";
 const planned = [
   "dirty-input",
   "normal-write",
-  "git-content-hidden",
-  "internal-content-hidden",
-  "known-secret-hidden",
+  "development-env-readable",
+  "git-existing-write-denied",
   "git-write-denied",
+  "internal-existing-write-denied",
   "internal-write-denied",
-  "secret-write-denied",
   "git-rename-denied",
   "internal-rename-denied",
-  "secret-unlink-denied",
-  "hardlink-original-hidden",
-  "symlink-original-hidden",
-  "case-alias-hidden",
-  "nested-git-hidden",
+  "git-unlink-denied",
+  "internal-unlink-denied",
 ];
 const unimplemented = [
+  "secret-complete-hiding",
+  "hardlink-alias-protection",
+  "symlink-alias-protection",
+  "case-alias-protection",
+  "nested-git-protection",
   "junction",
   "parent-directory-replacement",
-  "new-secret-after-start",
+  "arbitrary-repository-applicability",
 ];
 
 type Row = {
@@ -57,6 +63,7 @@ type Row = {
 type Mount = { Type: string; Source: string; Destination: string; RW: boolean };
 type Container = {
   Id: string;
+  Name: string;
   Image: string;
   Config: { User: string; Labels: Record<string, string>; Image: string };
   HostConfig: {
@@ -92,31 +99,15 @@ result('dirty-input', source.read_text() == 'synthetic-existing-dirty\n')
 source.write_text('synthetic-direct-change\n')
 result('normal-write', source.read_text() == 'synthetic-direct-change\n')
 git = work / '.git'
-result('git-content-hidden', list(git.iterdir()) == [] if git.is_dir() else git.read_bytes() == b'')
-result('internal-content-hidden', list((work / '.crdd').iterdir()) == [])
-result('known-secret-hidden', (work / '.env').read_bytes() == b'')
+result('development-env-readable', (work / '.env').read_text() == 'synthetic-development-value\n')
+denied('git-existing-write-denied', lambda: (git / 'config').write_text('probe') if git.is_dir() else git.write_text('probe'))
 denied('git-write-denied', lambda: (git / 'new.txt').write_text('probe') if git.is_dir() else git.write_text('probe'))
+denied('internal-existing-write-denied', lambda: (work / '.crdd' / 'state.json').write_text('probe'))
 denied('internal-write-denied', lambda: (work / '.crdd' / 'new.txt').write_text('probe'))
-denied('secret-write-denied', lambda: (work / '.env').write_text('probe'))
 denied('git-rename-denied', lambda: git.rename(work / 'git-displaced'))
 denied('internal-rename-denied', lambda: (work / '.crdd').rename(work / 'state-displaced'))
-denied('secret-unlink-denied', lambda: (work / '.env').unlink())
-alias = work / 'git-hardlink.txt'
-if alias.exists():
-    result('hardlink-original-hidden', alias.read_bytes() == b'')
-else:
-    rows.append({"name": 'hardlink-original-hidden', "status": 'Not Run'})
-alias = work / 'git-link'
-if alias.is_symlink():
-    try:
-        exposed = (alias / 'config').read_bytes() == b'synthetic-git-private\n'
-    except FileNotFoundError:
-        exposed = False
-    result('symlink-original-hidden', not exposed)
-else:
-    rows.append({"name": 'symlink-original-hidden', "status": 'Not Run'})
-result('case-alias-hidden', not (work / '.GIT' / 'config').exists())
-result('nested-git-hidden', not (work / 'nested' / '.git' / 'config').exists())
+denied('git-unlink-denied', lambda: git.rmdir() if git.is_dir() else git.unlink())
+denied('internal-unlink-denied', lambda: (work / '.crdd').rmdir())
 print(json.dumps(rows), flush=True)
 `;
 
@@ -187,6 +178,48 @@ function observe(file: string): Observation {
     dev: String(stat.dev),
     mode: String(stat.mode),
   };
+}
+
+/**
+ * 初回と回収直前に同じ試験Container構成を照合する。
+ * @responsibility 元ID・名前・隔離条件・Mountを同時に確認する。
+ * @trace ERB-IT-002
+ * @precondition 期待値は今回の固定生成値。
+ * @stimulus inspect結果と元構成。
+ * @observation 一致又はassertion失敗。
+ * @oracle 不一致時に後続の削除へ進まない。
+ * @cleanup N/A: 局所値だけ。
+ * @boundary 試験器private照合。汎用回収機能ではない。
+ */
+function assertProbeContainer(
+  value: Container,
+  id: string,
+  name: string,
+  mounts: readonly { source: string; target: string; readonly: boolean }[],
+) {
+  assert.equal(value.Id, id);
+  assert.equal(value.Name, `/${name}`);
+  assert.equal(value.Image, IMAGE);
+  assert.equal(value.Config.Image, IMAGE);
+  assert.equal(value.Config.Labels[LABEL], RUN);
+  assert.equal(value.Config.User, "65534:65534");
+  assert.equal(value.HostConfig.NetworkMode, "none");
+  assert.equal(value.HostConfig.ReadonlyRootfs, true);
+  assert.deepEqual(value.HostConfig.CapDrop, ["ALL"]);
+  assert.deepEqual(value.HostConfig.SecurityOpt, ["no-new-privileges"]);
+  assert.equal(value.Mounts.length, mounts.length);
+  for (const mount of mounts) {
+    const actual = value.Mounts.find(
+      (item) => item.Destination === mount.target,
+    );
+    assert.ok(actual);
+    assert.equal(actual.Type, "bind");
+    assert.equal(
+      actual.Source.toLowerCase().replaceAll("\\", "/"),
+      mount.source.toLowerCase().replaceAll("\\", "/"),
+    );
+    assert.equal(actual.RW, !mount.readonly);
+  }
 }
 
 /**
@@ -302,17 +335,80 @@ test("Direct試験器は一次・清掃・最終Host失敗を分離する", () =
 });
 
 /**
- * 承認済みのDirect最小Mount案を最大二構成で反証する。
- * @responsibility 明示許可・実ID・構成照合・Host不変・失敗停止・清掃を分ける。
+ * 回収前の構成不一致を有限代役で反証する。
+ * @responsibility 照合失敗から削除へ進まないことを確認する。
  * @trace ERB-IT-001 ERB-IT-002
- * @precondition 明示環境値、既存固定Image、Engine応答、稼働Containerなし、専用Root不存在。
- * @stimulus 通常編集と保護Path／別名経由の合成攻撃。
- * @observation Containerの行別判定、Host実体、完全実IDと回収後不存在。
- * @oracle 保護破り・Unknownで停止。Not Runを成功へ集計しない。
- * @cleanup 自己生成Containerを実IDで回収し、確認後だけ専用Rootを削除する。
- * @boundary 合成Filesystem試験でありDirect本実装・Provider E2Eではない。
+ * @precondition 局所のinspect代役だけを使う。
+ * @stimulus Mount・NetworkMode・名前を一軸ずつ変更する。
+ * @observation 削除要求回数と清掃失敗。
+ * @oracle 削除0、清掃失敗を保持。
+ * @cleanup N/A: Docker要求なし。
+ * @boundary 試験器だけの反証であり実資源回収の根拠ではない。
  */
-test("Docker explicit: Direct固定Mountの合成反証", { skip: !enabled }, () => {
+test("試験Container構成差は回収を発行せず清掃失敗として保持する", () => {
+  const mounts = [
+    { source: path.join(ROOT, "tree"), target: "/work", readonly: false },
+  ];
+  const original: Container = {
+    Id: "a".repeat(64),
+    Name: "/synthetic",
+    Image: IMAGE,
+    Config: { User: "65534:65534", Image: IMAGE, Labels: { [LABEL]: RUN } },
+    HostConfig: {
+      NetworkMode: "none",
+      ReadonlyRootfs: true,
+      CapDrop: ["ALL"],
+      SecurityOpt: ["no-new-privileges"],
+      Binds: null,
+    },
+    Mounts: [
+      {
+        Type: "bind",
+        Source: path.join(ROOT, "tree"),
+        Destination: "/work",
+        RW: true,
+      },
+    ],
+    State: { Running: false, ExitCode: 0 },
+  };
+  assertProbeContainer(original, original.Id, "synthetic", mounts);
+  for (const axis of ["mount", "network", "name"] as const) {
+    const changed = structuredClone(original);
+    if (axis === "mount") {
+      const mount = changed.Mounts[0];
+      assert.ok(mount);
+      mount.RW = false;
+    }
+    if (axis === "network") changed.HostConfig.NetworkMode = "bridge";
+    if (axis === "name") changed.Name = "/different";
+    let removals = 0;
+    const result = settleDirectCase(
+      () => {},
+      () => true,
+      () => {
+        assertProbeContainer(changed, original.Id, "synthetic", mounts);
+        removals++;
+      },
+      () => "unused",
+    );
+    assert.equal(removals, 0);
+    assert.equal(result.primaryFailure, null);
+    assert.equal(result.cleanupFailure, "container_cleanup_unconfirmed");
+  }
+});
+
+/**
+ * 承認済みの固定Path書込み境界を二構成だけで確認する。
+ * @responsibility 実ID・構成照合・Host不変・失敗停止と清掃を分離する。
+ * @trace ERB-IT-001 ERB-IT-002
+ * @precondition 明示許可、Engine応答、既存固定Image、稼働Container0、専用Root不存在。
+ * @stimulus 通常Source編集とGit／内部状態への書込み・rename・unlink。
+ * @observation Container判定、Host実体、同IDと回収後不存在。
+ * @oracle 固定Pathの拒否だけを判定し、対象外をPassへ算入しない。
+ * @cleanup 今回の実ID・元構成が一致する資源と専用Rootだけを回収。
+ * @boundary 合成Filesystem。任意Repository・全別名経路・Providerの保証ではない。
+ */
+test("Docker explicit: Workspace固定Path書込み境界", { skip: !enabled }, () => {
   assert.equal(process.platform, "win32");
   assert.equal(fs.realpathSync.native(REPOSITORY), "C:\\project\\CRDD");
   for (const ancestor of [path.join(REPOSITORY, ".crdd"), path.dirname(ROOT)]) {
@@ -364,7 +460,7 @@ test("Docker explicit: Direct固定Mountの合成反証", { skip: !enabled }, ()
       );
       fs.writeFileSync(
         path.join(tree, ".env"),
-        "synthetic-secret-not-a-credential\n",
+        "synthetic-development-value\n",
       );
       const git = path.join(tree, ".git");
       if (kind === "directory-case") {
@@ -373,23 +469,6 @@ test("Docker explicit: Direct固定Mountの合成反証", { skip: !enabled }, ()
       } else fs.writeFileSync(git, "gitdir: ../sentinels/git-management\n");
       const privateFile =
         kind === "directory-case" ? path.join(git, "config") : git;
-      try {
-        fs.linkSync(privateFile, path.join(tree, "git-hardlink.txt"));
-      } catch {
-        // Hostが作成を拒否した刺激はContainerのNot Runとして残す。
-      }
-      if (kind === "directory-case") {
-        try {
-          fs.symlinkSync(".git", path.join(tree, "git-link"), "dir");
-        } catch {
-          // link作成の追加権限を取得しない。
-        }
-      }
-      fs.mkdirSync(path.join(tree, "nested", ".git"), { recursive: true });
-      fs.writeFileSync(
-        path.join(tree, "nested", ".git", "config"),
-        "synthetic-nested\n",
-      );
       const protectedPaths = [
         tree,
         git,
@@ -418,11 +497,6 @@ test("Docker explicit: Direct固定Mountの合成反証", { skip: !enabled }, ()
         {
           source: path.join(masks, "directory"),
           target: "/work/.crdd",
-          readonly: true,
-        },
-        {
-          source: path.join(masks, "file"),
-          target: "/work/.env",
           readonly: true,
         },
       ];
@@ -477,30 +551,8 @@ test("Docker explicit: Direct固定Mountの合成反証", { skip: !enabled }, ()
           }
           stage = "container-configuration";
           const inspect = JSON.parse(checked(["inspect", id]))[0] as Container;
-          assert.equal(inspect.Id, id);
-          assert.equal(inspect.Image, IMAGE);
-          assert.equal(inspect.Config.Labels[LABEL], RUN);
+          assertProbeContainer(inspect, id, name, mounts);
           accepted = true;
-          assert.equal(inspect.Config.User, "65534:65534");
-          assert.equal(inspect.HostConfig.NetworkMode, "none");
-          assert.equal(inspect.HostConfig.ReadonlyRootfs, true);
-          assert.ok(inspect.HostConfig.CapDrop.includes("ALL"));
-          assert.ok(
-            inspect.HostConfig.SecurityOpt.includes("no-new-privileges"),
-          );
-          assert.equal(inspect.Mounts.length, mounts.length);
-          for (const mount of mounts) {
-            const actual = inspect.Mounts.find(
-              (item) => item.Destination === mount.target,
-            );
-            assert.ok(actual);
-            assert.equal(actual.Type, "bind");
-            assert.equal(
-              actual.Source.toLowerCase().replaceAll("\\", "/"),
-              mount.source.toLowerCase().replaceAll("\\", "/"),
-            );
-            assert.equal(actual.RW, !mount.readonly);
-          }
           const remaining = deadline - Date.now();
           assert.ok(remaining > 0, "case deadline exceeded before start");
           stage = "stimulus-execution";
@@ -510,6 +562,10 @@ test("Docker explicit: Direct固定Mountの合成反証", { skip: !enabled }, ()
           assert.equal(started.signal, null);
           entry.rows = JSON.parse(started.stdout.trim()) as Row[];
           assert.ok(Array.isArray(entry.rows));
+          assert.deepEqual(
+            entry.rows.map((row) => row.name),
+            planned,
+          );
           stage = "host-observation";
           assert.deepEqual(protectedPaths.map(observe), before);
           assert.equal(
@@ -537,9 +593,7 @@ test("Docker explicit: Direct固定Mountの合成反証", { skip: !enabled }, ()
             const current = JSON.parse(
               checked(["inspect", id]),
             )[0] as Container;
-            assert.equal(current.Id, id);
-            assert.equal(current.Image, IMAGE);
-            assert.equal(current.Config.Labels[LABEL], RUN);
+            assertProbeContainer(current, id, name, mounts);
             checked(["rm", "--force", id], 15_000);
             assert.equal(
               checked([
@@ -615,7 +669,7 @@ test("Docker explicit: Direct固定Mountの合成反証", { skip: !enabled }, ()
     }
     console.log(
       JSON.stringify({
-        contract: "crdd/direct-mount-synthetic-probe",
+        contract: "crdd/workspace-write-boundary-probe",
         image: IMAGE,
         report,
         fixtureFailure,

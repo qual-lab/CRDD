@@ -489,13 +489,13 @@ test("旧SnapshotとWorkspace集合欠落を補完しない", (t) => {
  * @trace PRL-IT-012
  * @trace PRL-IT-013
  * @precondition 実Git・実state・既存Lease。
- * @stimulus 既存の二Task実行と未接続Coordinatorの拒否。
+ * @stimulus 既存の二Task実行と不完全なWorkspace入力の拒否。
  * @observation 代役入力、状態、Tree、Provider依存への接触。
  * @oracle 二Taskが同Tree、保存は所属Root、実Provider依頼0。
  * @cleanup fixtureのafter。
  * @boundary Dispatcherは実装、外部AIだけ有限代役。
  */
-test("本番Task搬送は所属Rootと選択Treeを分離し未接続Providerを起動しない", async (t) => {
+test("本番Task搬送は所属Rootと選択Treeを分離し不正入力ではProviderを起動しない", async (t) => {
   const f = fixture(t);
   assert.equal(
     f.operate({ operation: "create", baseCommit: f.base }).status,
@@ -532,6 +532,13 @@ test("本番Task搬送は所属Rootと選択Treeを分離し未接続Providerを
           processRestartRequired: false,
           candidateId: null,
           recoveryIds: [],
+          workspaceResult: {
+            workspaceId: input.workspaceId ?? null,
+            changedPaths: ["source.txt"],
+            canonicalRepositoryChanged: false,
+            changeAttribution: "unattributed",
+            workspaceDeletionIssued: false,
+          },
         };
       },
     },
@@ -550,6 +557,15 @@ test("本番Task搬送は所属Rootと選択Treeを分離し未接続Providerを
   );
   assert.equal(outcome.status, "completed", JSON.stringify(outcome));
   assert.equal(calls, 2);
+  assert.equal(outcome.workspaceResults?.length, 2);
+  for (const observation of outcome.workspaceResults ?? []) {
+    assert.ok(["task-a", "task-b"].includes(observation.taskId));
+    assert.equal(observation.result.workspaceId, f.common.workspaceId);
+    assert.deepEqual(observation.result.changedPaths, ["source.txt"]);
+    assert.ok(
+      observation.attemptId.length > 0 && observation.operationId.length > 0,
+    );
+  }
   assert.equal(f.snapshot().queueEntries[0]?.state, "integration_pending");
   assert.equal(
     fs.readFileSync(path.join(f.root, "source.txt"), "utf8"),
@@ -578,10 +594,7 @@ test("本番Task搬送は所属Rootと選択Treeを分離し未接続Providerを
       cancellationSignal: new AbortController().signal,
     },
   );
-  assert.equal(
-    unavailable.reason,
-    "single_task_workspace_execution_not_connected",
-  );
+  assert.equal(unavailable.reason, "single_task_workspace_target_invalid");
   assert.equal(unavailable.effectState, "no_effect");
   const prior = f.snapshot();
   const terminalQueues = ["completed", "cancelled"].map((state) => ({
@@ -626,6 +639,84 @@ test("本番Task搬送は所属Rootと選択Treeを分離し未接続Providerを
         ?.state,
       state,
     );
+});
+
+/**
+ * Directの対象解決と途中失敗まで観測を搬送する。
+ * @responsibility Workspace ID省略をnullと照合し既得観測を落とさない。
+ * @trace PRL-IT-012 PRL-IT-013
+ * @precondition Workspace未作成の実QueueとGit。
+ * @stimulus 二Taskの正常、二件目失敗。
+ * @observation 受けた対象と最終workspaceResults。
+ * @oracle 所属Rootを直接渡し二Attempt分を保持する。
+ * @cleanup fixtureが自己生成Repositoryを回収する。
+ * @boundary 実Dispatcher／Writerと有限Task代役。
+ */
+test("DirectのTask搬送はID省略と途中失敗でも変更観測を保持する", async (t) => {
+  for (const failSecond of [false, true]) {
+    const f = fixture(t);
+    let calls = 0;
+    const outcome = await runOrchestratorOperation(
+      {
+        ...createOrchestratorExecutionHostPorts(),
+        persistence: f.ports,
+        runSingleTaskAttempt: async (input) => {
+          calls++;
+          assert.equal(input.workspaceId, null);
+          assert.equal(input.executionTree, f.root);
+          assert.equal(await input.observeStarted?.(), true);
+          fs.writeFileSync(path.join(f.root, "source.txt"), "direct-" + calls);
+          return {
+            contract: "crdd-coordinator/orchestrator-single-task-adapter",
+            attemptId: input.attemptId,
+            operationId: input.operationId,
+            authorityBindingId: input.authorityBindingId,
+            repositoryRevision: input.repositoryRevision,
+            status: failSecond && calls === 2 ? "blocked" : "completed",
+            reason:
+              failSecond && calls === 2 ? "synthetic_failure" : "completed",
+            effectState: "settled",
+            cleanupConfirmed: true,
+            manualRecoveryRequired: false,
+            processRestartRequired: false,
+            candidateId: null,
+            recoveryIds: [],
+            workspaceResult: {
+              workspaceId: null,
+              changedPaths: ["source.txt"],
+              canonicalRepositoryChanged: true,
+              changeAttribution: "unattributed",
+              workspaceDeletionIssued: false,
+            },
+          };
+        },
+      },
+      {
+        projectId: "project-a",
+        milestoneId: "milestone-a",
+        queueId: "queue-a",
+        cancellationSignal: new AbortController().signal,
+        taskExecutions: ["task-a", "task-b"].map((taskId) => ({
+          taskId,
+          authorityBindingId: "authority-" + taskId,
+          taskRequest: {},
+          repositoryRoot: f.root,
+        })),
+      },
+    );
+    assert.equal(outcome.status, failSecond ? "blocked" : "completed");
+    assert.equal(calls, 2);
+    assert.equal(outcome.workspaceResults?.length, 2);
+    assert.ok(
+      outcome.workspaceResults?.every(
+        (item) => item.result.canonicalRepositoryChanged === true,
+      ),
+    );
+    assert.equal(
+      fs.readFileSync(path.join(f.root, "source.txt"), "utf8"),
+      "direct-2",
+    );
+  }
 });
 
 /**

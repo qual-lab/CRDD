@@ -7,6 +7,8 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import type { CoordinatorWorkspaceResult } from "../task/types.ts";
+import type { BorrowedWorkspaceTarget } from "./borrowed-workspace.ts";
 
 import {
   materializeFixedSnapshotCandidate,
@@ -22,6 +24,10 @@ import {
   verifyRuntimeOwnedRepositoryBindingCapability,
 } from "./binding.ts";
 import { containsRecognizedSecretMaterial } from "../authority/secret-material-policy.ts";
+import {
+  bindBorrowedWorkspaceTarget,
+  readBorrowedWorkspaceBinding,
+} from "./borrowed-workspace.ts";
 
 export const REPOSITORY_WORKSPACE_RUNTIME_CONTRACT =
   "crdd-coordinator/repository-workspace-runtime";
@@ -36,6 +42,46 @@ const MAXIMUM_ALLOWED_PATHS = 64;
 const MAXIMUM_ALLOWED_PATH_BYTES = 1_024;
 const MAXIMUM_REVIEW_PROJECTION_BYTES = 1024 * 1024;
 const MAXIMUM_REVIEW_PROJECTION_FILES = 256;
+
+/**
+ * 借用Treeの最終観測を内容なしで投影する。
+ * @responsibility 全終端の変更情報を同じ意味で返す。
+ * @trace ARCH-000004
+ * @input 元Workspace capability又は未確定、検証済み対象。
+ * @returns 欠測をnullのまま保持した観測値。
+ * @precondition 呼出し元が対象の実行許可を確認済み。
+ * @postcondition Treeの現存・成果採用・回収成功を主張しない。
+ * @effect Git／Filesystem読取りだけ。
+ * @failure 観測不能は変更Path null。
+ * @invariant 一次失敗や回復状態を変更しない。
+ * @boundary 終了処理から認可済み上位結果。
+ * @security 内容・Host Pathを含めない。
+ * @concurrency 他の編集との帰属は未確定。
+ */
+export function projectBorrowedWorkspaceResult(
+  capability: object | undefined,
+  target: BorrowedWorkspaceTarget,
+): CoordinatorWorkspaceResult {
+  const observedPaths = capability
+    ? observeBorrowedWorkspaceChanges(capability)
+    : null;
+  const changedPaths =
+    observedPaths !== null && observedPaths.length > MAXIMUM_CHANGED_PATHS
+      ? null
+      : observedPaths;
+  return Object.freeze({
+    workspaceId: target.workspaceId,
+    changedPaths,
+    canonicalRepositoryChanged:
+      target.workspaceId === null
+        ? changedPaths === null
+          ? null
+          : changedPaths.length > 0
+        : false,
+    changeAttribution: "unattributed",
+    workspaceDeletionIssued: false,
+  });
+}
 const RESERVED_WINDOWS_SEGMENT =
   /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/iu;
 const INVALID_WINDOWS_CHARACTER = /[<>:"|?*\\\x00-\x1f\x7f]/u;
@@ -76,6 +122,7 @@ type WorkspaceRecord = Readonly<{
   baseTree: string;
   baseManifestHash: string;
   baseEntries: ReadonlyMap<string, InventoryEntry>;
+  sourceTree?: string;
 }>;
 /**
  * repository-workspace-runtimeで使用する候補 記録の値契約を定義する。
@@ -98,6 +145,41 @@ type CandidateRecord = Readonly<{
 
 const workspaces = new WeakMap<object, WorkspaceRecord>();
 const candidates = new WeakMap<object, CandidateRecord>();
+
+/**
+ * 借用開始時からの変更を内容の複製なしで観測する。
+ * @responsibility 既存dirtyと今回区間の差を分離する。
+ * @trace ARCH-000004
+ * @input 元workspaceCapability。
+ * @returns 変更Path集合又は観測不能のnull。
+ * @precondition 借用結合済みである。
+ * @postcondition AI由来・採用・Commitを主張しない。
+ * @effect 借用Treeを読み取るだけ。
+ * @failure 失効・走査失敗はnull。
+ * @invariant 変更の巻戻し・Tree削除なし。
+ * @boundary Task終了後の観測。
+ * @security 内容を返さない。
+ * @concurrency 同時編集の帰属は判定しない。
+ */
+export function observeBorrowedWorkspaceChanges(capability: object) {
+  try {
+    const record = workspaces.get(capability);
+    if (
+      !record?.sourceTree ||
+      readBorrowedWorkspaceBinding(record.managementCapability)?.target
+        .executionTree !== record.sourceTree
+    )
+      return null;
+    return Object.freeze(
+      changedPaths(
+        record.baseEntries,
+        entryMap(inventory(record.sourceTree, true)),
+      ),
+    );
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Segmentが有効か判定する。
@@ -310,7 +392,7 @@ function stableFileContent(target: string, maximumBytes: number) {
  * @security inventoryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: inventoryは共有非同期状態を持たない同期処理である。
  */
-function inventory(workspace: string) {
+function inventory(workspace: string, borrowed = false) {
   const root = fs.realpathSync.native(workspace);
   const rootMetadata = fs.lstatSync(root);
   if (!rootMetadata.isDirectory() || rootMetadata.isSymbolicLink())
@@ -340,6 +422,14 @@ function inventory(workspace: string) {
     const directoryEntries = fs.readdirSync(directory, { withFileTypes: true });
     const comparisonNames = new Set<string>();
     for (const entry of directoryEntries) {
+      if (
+        borrowed &&
+        !parentPath &&
+        [".GIT", ".CRDD"].includes(entry.name.toUpperCase())
+      )
+        continue;
+      if (borrowed && entry.name.toUpperCase() === ".GIT")
+        throw new Error("repository_workspace_nested_git_rejected");
       if (!validSegment(entry.name))
         throw new Error("repository_workspace_path_invalid");
       const comparisonName = entry.name.toUpperCase();
@@ -353,6 +443,8 @@ function inventory(workspace: string) {
         throw new Error("repository_workspace_path_invalid");
       const target = path.join(directory, entry.name);
       const metadata = fs.lstatSync(target);
+      if (borrowed && metadata.isFile() && metadata.nlink !== 1)
+        throw new Error("repository_workspace_hardlink_rejected");
       if (metadata.isSymbolicLink())
         throw new Error("repository_workspace_link_rejected");
       if (entry.isDirectory() && metadata.isDirectory()) {
@@ -574,6 +666,7 @@ export function materializeRuntimeOwnedRepositoryWorkspace(
   managementCapability: unknown,
   mountCapability: unknown,
   rawReadPaths?: unknown,
+  borrowedTarget?: unknown,
 ) {
   try {
     if (
@@ -600,6 +693,43 @@ export function materializeRuntimeOwnedRepositoryWorkspace(
     if (rawReadPaths !== undefined && !readPaths) return null;
     const verified = verifyRepositoryRoot(source.repositoryRoot);
     if (verified.status !== "completed") return null;
+    if (borrowedTarget !== undefined) {
+      const target = bindBorrowedWorkspaceTarget(
+        managementCapability,
+        mountCapability,
+        source.repositoryRoot,
+        borrowedTarget,
+      );
+      if (!target) return null;
+      const baseInventory = inventory(target.executionTree, true);
+      const baseManifestHash = manifestHash(baseInventory);
+      const workspaceCapability = Object.freeze({});
+      workspaces.set(
+        workspaceCapability,
+        Object.freeze({
+          managementCapability,
+          mountCapability,
+          repositoryBindingCapability,
+          operationId: binding.operationId,
+          baseCommit: source.revision,
+          baseTree: baseManifestHash,
+          baseManifestHash,
+          baseEntries: entryMap(baseInventory),
+          sourceTree: target.executionTree,
+        }),
+      );
+      return Object.freeze({
+        status: "materialized" as const,
+        borrowed: true,
+        workspaceCapability,
+        baseCommit: source.revision,
+        baseTree: baseManifestHash,
+        baseManifestHash,
+        fileCount: baseInventory.length,
+        readProjectionHash: null,
+        pathReported: false,
+      });
+    }
     const output = verifyCandidateOutputDirectory(
       binding.mounts.workspace,
       mountCapability,
@@ -733,9 +863,20 @@ function currentWorkspaceRecord(
     managementCapability,
     mountCapability,
   );
+  const borrowed = workspaceRecord.sourceTree
+    ? readBorrowedWorkspaceBinding(managementCapability)
+    : null;
+  if (
+    workspaceRecord.sourceTree &&
+    borrowed?.target.executionTree !== workspaceRecord.sourceTree
+  )
+    return null;
   return repository?.revision === workspaceRecord.baseCommit &&
     binding.operationId === workspaceRecord.operationId
-    ? Object.freeze({ workspaceRecord, workspace: binding.mounts.workspace })
+    ? Object.freeze({
+        workspaceRecord,
+        workspace: workspaceRecord.sourceTree ?? binding.mounts.workspace,
+      })
     : null;
 }
 
@@ -771,7 +912,10 @@ export function captureRuntimeOwnedCandidateRevision(
     );
     const normalizedAllowedPaths = allowedPaths(rawAllowedPaths);
     if (!current || !normalizedAllowedPaths) return null;
-    const currentInventory = inventory(current.workspace);
+    const currentInventory = inventory(
+      current.workspace,
+      Boolean(current.workspaceRecord.sourceTree),
+    );
     const currentEntries = entryMap(currentInventory);
     const changes = changedPaths(
       current.workspaceRecord.baseEntries,
@@ -779,13 +923,16 @@ export function captureRuntimeOwnedCandidateRevision(
     );
     if (
       changes.length > MAXIMUM_CHANGED_PATHS ||
-      changes.some(
-        (relativePath) => !isAllowed(relativePath, normalizedAllowedPaths),
-      )
+      (!current.workspaceRecord.sourceTree &&
+        changes.some(
+          (relativePath) => !isAllowed(relativePath, normalizedAllowedPaths),
+        ))
     ) {
       return null;
     }
-    for (const relativePath of changes) {
+    for (const relativePath of current.workspaceRecord.sourceTree
+      ? []
+      : changes) {
       const inventoryEntry = currentEntries.get(relativePath);
       if (!inventoryEntry) {
         if (containsRecognizedSecretMaterial(relativePath, "")) {
@@ -854,6 +1001,16 @@ export function captureRuntimeOwnedCandidateRevision(
       contentManifestHash,
       allowedPathsHash,
       changedPaths: record.changedPaths,
+      ...(current.workspaceRecord.sourceTree
+        ? {
+            unexpectedPaths: Object.freeze(
+              changes.filter(
+                (relativePath) =>
+                  !isAllowed(relativePath, normalizedAllowedPaths),
+              ),
+            ),
+          }
+        : {}),
       candidateCapability,
       pathReported: false,
       canonicalRepositoryChanged: false,
@@ -901,7 +1058,10 @@ export function orchestratorOwnedCandidateReadContent(
     if (!current || !candidate || !readPaths) return null;
     if (candidate.workspaceRecord !== current.workspaceRecord) return null;
 
-    const currentInventory = inventory(current.workspace);
+    const currentInventory = inventory(
+      current.workspace,
+      Boolean(current.workspaceRecord.sourceTree),
+    );
     if (manifestHash(currentInventory) !== candidate.contentManifestHash)
       return Object.freeze({
         status: "blocked" as const,
@@ -1032,7 +1192,16 @@ export function verifyRuntimeOwnedCandidateRevision(
       managementCapability,
       mountCapability,
     );
-    const currentInventory = inventory(binding.mounts.workspace);
+    if (
+      record.workspaceRecord.sourceTree &&
+      readBorrowedWorkspaceBinding(managementCapability as object)?.target
+        .executionTree !== record.workspaceRecord.sourceTree
+    )
+      return null;
+    const currentInventory = inventory(
+      record.workspaceRecord.sourceTree ?? binding.mounts.workspace,
+      Boolean(record.workspaceRecord.sourceTree),
+    );
     if (manifestHash(currentInventory) !== record.contentManifestHash)
       return null;
     return Object.freeze({
@@ -1081,6 +1250,7 @@ export function persistRuntimeOwnedCandidateRevision(
     const record = candidates.get(candidateCapability);
     if (
       !record ||
+      record.workspaceRecord.sourceTree !== undefined ||
       record.workspaceRecord.repositoryBindingCapability !==
         repositoryBindingCapability ||
       record.workspaceRecord.managementCapability !== managementCapability ||

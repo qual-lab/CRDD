@@ -7,6 +7,7 @@
 import { randomBytes } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import { verifyOwnedOperationManagementMountBinding } from "../host-execution/operation-workspace-lifecycle.ts";
+import { readBorrowedWorkspaceBinding } from "../repository-operation/borrowed-workspace.ts";
 import { consumeRuntimeOwnedDelegationSelectionGrant } from "./delegation-selection-grant.ts";
 import {
   issueRuntimeOwnedProviderAuthority,
@@ -68,7 +69,23 @@ export function createProviderDockerRuntimeState<P extends "codex" | "claude">(
  */
 export function createProviderDockerRuntimeDependencies() {
   return Object.freeze({
-    verifyOperationMount: verifyOwnedOperationManagementMountBinding,
+    verifyOperationMount: (management: unknown, mount: unknown) => {
+      const binding = verifyOwnedOperationManagementMountBinding(
+        management,
+        mount,
+      );
+      const borrowed = readBorrowedWorkspaceBinding(management as object, true);
+      return borrowed
+        ? {
+            ...binding,
+            mounts: {
+              ...binding.mounts,
+              workspace: borrowed.target.executionTree,
+            },
+            workspaceProtection: borrowed.protection,
+          }
+        : binding;
+    },
     activateMount: activateRuntimeOwnedProviderHomeMount,
     borrowMountSource: borrowRuntimeOwnedActiveProviderHomeMountSource,
     completeMount: completeRuntimeOwnedProviderHomeMount,

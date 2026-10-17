@@ -29,6 +29,9 @@ export const COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS = Object.freeze({
 } as const);
 
 export const coordinatorTaskPublicReasons = Object.freeze([
+  "coordinator_task_workspace_review_completed",
+  "coordinator_task_workspace_borrowing_unavailable",
+  "coordinator_task_workspace_unexpected_changes",
   ...Object.values(COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS),
   ...dockerProcessControllerPublicCompletionReasons,
   "coordinator_task_cancellation_protocol_failed_cleanup_confirmed",

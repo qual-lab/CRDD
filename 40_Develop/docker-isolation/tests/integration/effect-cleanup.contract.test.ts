@@ -35,6 +35,7 @@ import { createDockerIsolationRuntimeCandidate } from "../../src/execution/comma
  */
 function createEffectFixture(
   options: Readonly<{
+    protectedWorkspace?: boolean;
     initRequired?: boolean;
     configEntries?: readonly string[];
     outputForInvocation?: (
@@ -71,7 +72,16 @@ function createEffectFixture(
     proxyImageDigest: `sha256:${"b".repeat(64)}`,
     homeSourcePath: path.resolve("fixture-home"),
     temporarySourcePath: path.resolve("fixture-tmp"),
-    workspace: null,
+    workspace: options.protectedWorkspace
+      ? {
+          sourcePath: path.resolve("fixture-workspace"),
+          readOnly: false,
+          protection: {
+            gitSourcePath: path.resolve("mask-git"),
+            internalSourcePath: path.resolve("mask-internal"),
+          },
+        }
+      : null,
     authentication: { argv: ["auth", "status"], environment: {} },
     execution: {
       argv: ["exec"],
@@ -252,6 +262,123 @@ function createEffectFixture(
     counts: () => ({ configCreated, configRemoved }),
   };
 }
+
+/**
+ * 保護付き計画を通常回収本体のinspectへ接続する。
+ * @responsibility 単体Oracleだけでなく実Runtimeの期待値搬送を反証する。
+ * @trace ERB-IT-004
+ * @precondition 固定五Mount観測と有限Docker Transport。
+ * @stimulus 正常、保護欠落、RW化、Source差。
+ * @observation cleanup結果と元IDのrm発行。
+ * @oracle 正常だけ回収し、不整合ではrm0。
+ * @cleanup 実Docker・Process資源は作らない。
+ * @boundary 本番command-runtime→inspect構成照合→清掃。
+ */
+test("通常Runtimeは保護付きWorkspaceの五Mountを照合して回収する", async () => {
+  for (const mode of ["normal", "missing", "rw", "source"] as const) {
+    const dockerId = "d".repeat(64);
+    let fixture: ReturnType<typeof createEffectFixture>;
+    fixture = createEffectFixture({
+      protectedWorkspace: true,
+      providerReceiptId: dockerId,
+      outputForInvocation: (argv) => {
+        const c = fixture.plan.configuration;
+        const protection = c.workspace?.protection;
+        assert.ok(protection);
+        let mounts = [
+          {
+            Type: "bind",
+            Source: c.homeSourcePath,
+            Destination: "/provider-home",
+            RW: true,
+            Propagation: "rprivate",
+          },
+          {
+            Type: "bind",
+            Source: c.temporarySourcePath,
+            Destination: "/tmp",
+            RW: true,
+            Propagation: "rprivate",
+          },
+          {
+            Type: "bind",
+            Source: c.workspace?.sourcePath,
+            Destination: "/work",
+            RW: true,
+            Propagation: "rprivate",
+          },
+          {
+            Type: "bind",
+            Source: protection.gitSourcePath,
+            Destination: "/work/.git",
+            RW: false,
+            Propagation: "rprivate",
+          },
+          {
+            Type: "bind",
+            Source: protection.internalSourcePath,
+            Destination: "/work/.crdd",
+            RW: false,
+            Propagation: "rprivate",
+          },
+        ];
+        if (mode === "missing") mounts = mounts.slice(0, -1);
+        if (mode === "rw")
+          mounts = mounts.map((m) =>
+            m.Destination === "/work/.git" ? { ...m, RW: true } : m,
+          );
+        if (mode === "source")
+          mounts = mounts.map((m) =>
+            m.Destination === "/work/.git"
+              ? { ...m, Source: path.resolve("different") }
+              : m,
+          );
+        const observed = {
+          Id: dockerId,
+          Name: "/" + c.executionContainerName,
+          Config: {
+            Labels: {
+              "crdd.coordinator.runtime": c.ownershipLabel.split("=")[1],
+            },
+            Image: c.executionImageDigest,
+            User: "65534:65534",
+          },
+          HostConfig: {
+            ReadonlyRootfs: true,
+            Privileged: false,
+            CapDrop: ["ALL"],
+            CapAdd: null,
+            SecurityOpt: ["no-new-privileges"],
+            PidsLimit: 64,
+            Init: false,
+          },
+          NetworkSettings: { Networks: { [c.internalNetworkName]: {} } },
+          Mounts: mounts,
+        };
+        return {
+          status: 0,
+          signal: null,
+          stdout: argv.includes("inspect") ? JSON.stringify([observed]) : "",
+          stderr: "",
+          outputExceeded: false,
+        };
+      },
+    });
+    const cleanup = await fixture.runtime.cleanupOwnedResources(
+      fixture.plan,
+      fixture.recoveryCapability,
+      fixture.managementCapability,
+    );
+    assert.equal(cleanup.confirmed, mode === "normal", mode);
+    assert.equal(
+      fixture.invocations.some(
+        ({ argv }) => argv.includes("rm") && argv.includes(dockerId),
+      ),
+      mode === "normal",
+      mode,
+    );
+  }
+});
 
 type SanitizedAuthProbeInspectFixture = Readonly<{
   source: string;

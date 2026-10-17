@@ -87,7 +87,12 @@ import {
   persistRuntimeOwnedCandidateRevision,
   orchestratorOwnedCandidateReadContent,
   verifyRuntimeOwnedCandidateRevision,
+  projectBorrowedWorkspaceResult,
 } from "../repository-operation/workspace.ts";
+import {
+  inspectBorrowedWorkspaceTarget,
+  type BorrowedWorkspaceTarget,
+} from "../repository-operation/borrowed-workspace.ts";
 import { snapshotCoordinatorTaskRequest } from "./request.ts";
 import {
   COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS,
@@ -356,7 +361,7 @@ type TaskCompletionRecord = RuntimeRecord &
     expiresAtMs?: number | null;
     executorProvider: unknown;
     reviewerProvider: unknown;
-    canonicalRepositoryChanged: boolean;
+    canonicalRepositoryChanged: boolean | null;
   }>;
 /**
  * coordinator-task-runtimeで使用するOperationの値契約を定義する。
@@ -572,6 +577,7 @@ type RuntimeDependencies = Readonly<{
     managementCapability: object,
     mountCapability: object,
     readPaths: readonly string[],
+    borrowedTarget?: BorrowedWorkspaceTarget,
   ) => RuntimeRecord | null;
   projectReviewerReadContent?: (
     workspaceCapability: object,
@@ -712,6 +718,8 @@ type RuntimeDependencies = Readonly<{
  * @compatibility ControlRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 type ControlRecord = {
+  workspaceTarget?: BorrowedWorkspaceTarget;
+  borrowedWorkspaceCapability?: object;
   lifecycleState: RuntimeLifecycleState;
   managementCapability: object;
   currentProcessControl: object | null;
@@ -2537,10 +2545,11 @@ async function runCoordinatorTaskCore(
       return blocked("coordinator_task_external_send_policy_unresolved");
     }
     if (
-      externalSendPolicy.candidatePersistenceAllowed !== true ||
-      !Number.isSafeInteger(externalSendPolicy.candidateRetentionHours) ||
-      externalSendPolicy.candidatePhysicalDeletion !==
-        "next_safe_runtime_entry_after_expiry_or_explicit_discard"
+      !control.workspaceTarget &&
+      (externalSendPolicy.candidatePersistenceAllowed !== true ||
+        !Number.isSafeInteger(externalSendPolicy.candidateRetentionHours) ||
+        externalSendPolicy.candidatePhysicalDeletion !==
+          "next_safe_runtime_entry_after_expiry_or_explicit_discard")
     ) {
       return blocked("coordinator_task_candidate_persistence_not_authorized");
     }
@@ -2595,7 +2604,9 @@ async function runCoordinatorTaskCore(
         ? [slateExecutorProvider]
         : [slateExecutorProvider, slateReviewerProvider],
     );
-    const candidateStore = state.dependencies.prepareCandidateStore();
+    const candidateStore = control.workspaceTarget
+      ? { status: "completed" }
+      : state.dependencies.prepareCandidateStore();
     if (candidateStore.status !== "completed") {
       return blocked(
         "coordinator_task_candidate_store_unavailable",
@@ -2688,6 +2699,7 @@ async function runCoordinatorTaskCore(
       operation.managementCapability,
       operation.mountCapability,
       request.readPaths as readonly string[],
+      control.workspaceTarget,
     );
     const workspaceCapability = objectCapability(
       workspace?.workspaceCapability,
@@ -2701,6 +2713,13 @@ async function runCoordinatorTaskCore(
             : "coordinator_task_workspace_materialization_failed",
         ),
       );
+    }
+    if (control.workspaceTarget) {
+      if (workspace.borrowed !== true)
+        return candidateNotIssued(
+          blocked("coordinator_task_workspace_borrowing_unavailable"),
+        );
+      control.borrowedWorkspaceCapability = workspaceCapability;
     }
     advanceLifecycleState(state, control, "STATE-TASK-AUTHORIZED");
     const executor = await executeStage(
@@ -2750,6 +2769,14 @@ async function runCoordinatorTaskCore(
       request.allowedPaths as readonly string[],
     );
     let candidateCapability = objectCapability(candidate?.candidateCapability);
+    if (
+      control.workspaceTarget &&
+      Array.isArray(candidate?.unexpectedPaths) &&
+      candidate.unexpectedPaths.length > 0
+    )
+      return candidateNotIssued(
+        blocked("coordinator_task_workspace_unexpected_changes"),
+      );
     if (
       candidate?.status !== "candidate" ||
       !candidateCapability ||
@@ -2871,6 +2898,14 @@ async function runCoordinatorTaskCore(
         control,
         "STATE-REMEDIATION-CANDIDATE-CAPTURED",
       );
+      if (
+        control.workspaceTarget &&
+        Array.isArray(candidate.unexpectedPaths) &&
+        candidate.unexpectedPaths.length > 0
+      )
+        return candidateNotIssued(
+          blocked("coordinator_task_workspace_unexpected_changes"),
+        );
       const remediationReviewerReadProjection = state.dependencies
         .projectReviewerReadContent
         ? state.dependencies.projectReviewerReadContent(
@@ -2958,6 +2993,18 @@ async function runCoordinatorTaskCore(
         reviewerProjectionEvidence,
       });
     }
+    if (control.workspaceTarget)
+      return Object.freeze({
+        ...blocked("coordinator_task_workspace_review_completed"),
+        status: "completed" as const,
+        externalSendAuthorizationMode,
+        candidateDisposition: "not_issued" as const,
+        executorProvider: executor.provider,
+        reviewerProvider: reviewer.provider,
+        remediationPerformed,
+        executorResult: projectExecutorResultDiagnostics(executorResult),
+        reviewerResult: projectReviewerResultDiagnostics(reviewerResult),
+      });
     const persisted = state.dependencies.persistCandidate(
       candidateCapability,
       repositoryBinding,
@@ -3404,6 +3451,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
         | "coordinator_cli"
         | "workbench"
         | "orchestrator" = "coordinator_cli",
+      workspaceTarget?: BorrowedWorkspaceTarget,
     ) => {
       if (
         consumer !== "coordinator_cli" &&
@@ -3448,6 +3496,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
         recoveryCorrelationId,
         consumer,
         observeProviderStarted,
+        ...(workspaceTarget ? { workspaceTarget } : {}),
       };
       try {
         state.dependencies.observeLifecycleState?.("STATE-ADMISSION");
@@ -3940,6 +3989,21 @@ function createRuntime(dependencies: RuntimeDependencies) {
             classifyCoordinatorTaskTerminalLifecycleState(result),
           );
           return result;
+        })
+        .then((result): TaskCompletionRecord => {
+          if (control.workspaceTarget) {
+            const workspaceResult = projectBorrowedWorkspaceResult(
+              control.borrowedWorkspaceCapability,
+              control.workspaceTarget,
+            );
+            result = Object.freeze({
+              ...result,
+              canonicalRepositoryChanged:
+                workspaceResult.canonicalRepositoryChanged,
+              workspaceResult,
+            });
+          }
+          return result;
         });
       return Object.freeze({
         status: "started" as const,
@@ -4114,7 +4178,14 @@ export function startRuntimeOwnedCoordinatorTask(
     | "coordinator_cli"
     | "workbench"
     | "orchestrator" = "coordinator_cli",
+  rawWorkspaceTarget?: BorrowedWorkspaceTarget,
 ) {
+  const workspaceTarget =
+    rawWorkspaceTarget === undefined
+      ? undefined
+      : inspectBorrowedWorkspaceTarget(repositoryRoot, rawWorkspaceTarget);
+  if (workspaceTarget === null)
+    throw new Error("coordinator_task_workspace_target_invalid");
   if (
     consumer !== "coordinator_cli" &&
     consumer !== "workbench" &&
@@ -4139,6 +4210,7 @@ export function startRuntimeOwnedCoordinatorTask(
     recoveryCorrelationId,
     observeProviderStarted,
     consumer,
+    workspaceTarget,
   );
 }
 

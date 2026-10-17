@@ -131,6 +131,10 @@ export type ProviderDockerOperationBinding = Readonly<{
   operationId: string;
   createdAt: string;
   mounts: OwnedMountPaths;
+  workspaceProtection?: Readonly<{
+    gitSourcePath: string;
+    internalSourcePath: string;
+  }>;
 }>;
 
 /**
@@ -297,6 +301,10 @@ export type ProviderDockerPreparedPlan<P extends "codex" | "claude"> =
     adviceCommandHash: string | null;
     providerInput: string | null;
     workspaceSourcePath: string | null;
+    workspaceProtection?: Readonly<{
+      gitSourcePath: string;
+      internalSourcePath: string;
+    }>;
     workspaceMountMode: "read_write" | "read_only" | null;
     commands: readonly DockerIsolationCommand[];
   }> &

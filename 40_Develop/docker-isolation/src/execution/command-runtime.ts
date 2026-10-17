@@ -567,6 +567,13 @@ export function createDockerIsolationRuntimeCandidate<Cli extends object>(
       workspaceMounted: plan.configuration.workspace !== null,
       workspaceReadOnly: plan.configuration.workspace?.readOnly === true,
       initRequired: plan.configuration.execution.initRequired,
+      ...(purpose === "create_provider" &&
+      plan.configuration.workspace?.protection
+        ? {
+            workspaceProtected: true,
+            workspaceProtection: plan.configuration.workspace.protection,
+          }
+        : {}),
     })
       ? ("owned" as const)
       : ("foreign" as const);

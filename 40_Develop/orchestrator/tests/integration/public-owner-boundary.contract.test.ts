@@ -165,6 +165,7 @@ test("業務公開操作はOrchestratorが所有しCoordinatorから再公開し
     "recoverRuntimeOwnedDockerTaskForCurrentConsumer",
     "resolveRuntimeOwnedDockerTaskCurrentCorrelations",
     "runCoordinatorTaskAttempt",
+    "snapshotCoordinatorWorkspaceResult",
   ]);
   const metadata = JSON.parse(
     fs.readFileSync(

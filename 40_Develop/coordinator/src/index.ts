@@ -9,12 +9,14 @@
  */
 export {
   runCoordinatorTaskAttempt,
+  snapshotCoordinatorWorkspaceResult,
   COORDINATOR_TASK_PRE_EFFECT_REJECTIONS,
   type CoordinatorTaskDependencies,
 } from "./task/attempt.ts";
 export type {
   CoordinatorTaskAttemptInput,
   CoordinatorTaskAttemptResult,
+  CoordinatorWorkspaceResult,
   CoordinatorTaskRecoveryObligation,
 } from "./task/types.ts";
 export { isSupportedCoordinatorNodeRuntime } from "./host-execution/node-runtime-version.ts";

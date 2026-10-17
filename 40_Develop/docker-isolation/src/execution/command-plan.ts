@@ -569,7 +569,14 @@ export type DockerIsolationCommandInput = Readonly<{
   proxyImageDigest: string;
   homeSourcePath: string;
   temporarySourcePath: string;
-  workspace: Readonly<{ sourcePath: string; readOnly: boolean }> | null;
+  workspace: Readonly<{
+    sourcePath: string;
+    readOnly: boolean;
+    protection?: Readonly<{
+      gitSourcePath: string;
+      internalSourcePath: string;
+    }>;
+  }> | null;
   authentication: Readonly<{
     argv: readonly string[];
     environment: Readonly<Record<string, string>>;
@@ -654,6 +661,12 @@ export function planDockerIsolationCommands(
     input.homeSourcePath,
     input.temporarySourcePath,
     ...(input.workspace ? [input.workspace.sourcePath] : []),
+    ...(input.workspace?.protection
+      ? [
+          input.workspace.protection.gitSourcePath,
+          input.workspace.protection.internalSourcePath,
+        ]
+      : []),
     ...(seccompProfilePath ? [seccompProfilePath] : []),
   ];
   if (
@@ -815,6 +828,14 @@ export function planDockerIsolationCommands(
       "--mount",
       tmpMount,
       ...(workspaceMount ? ["--mount", workspaceMount] : []),
+      ...(input.workspace?.protection
+        ? [
+            "--mount",
+            `type=bind,src=${input.workspace.protection.gitSourcePath},dst=/work/.git,bind-propagation=rprivate,readonly`,
+            "--mount",
+            `type=bind,src=${input.workspace.protection.internalSourcePath},dst=/work/.crdd,bind-propagation=rprivate,readonly`,
+          ]
+        : []),
       input.executionImageDigest,
       ...input.execution.argv,
     ],

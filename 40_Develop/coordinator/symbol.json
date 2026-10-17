@@ -4,6 +4,12 @@
   "subsystem": "coordinator",
   "symbols": [
     {
+      "symbolId": "coordinator.source.repository-operation.borrowed-workspace",
+      "kind": "file",
+      "path": "src/repository-operation/borrowed-workspace.ts",
+      "archIds": ["ARCH-000004", "ARCH-000008"]
+    },
+    {
       "symbolId": "coordinator.test.integration.runtime-retirement",
       "kind": "test-suite",
       "path": "tests/integration/runtime-retirement.contract.test.ts",
@@ -1352,7 +1358,8 @@
       "verifies": [
         "coordinator.source.src.security.execution.environment",
         "coordinator.source.src.security.repository.operation.runtime",
-        "coordinator.source.src.security.repository.workspace.runtime"
+          "coordinator.source.src.security.repository.workspace.runtime",
+          "coordinator.source.repository-operation.borrowed-workspace"
       ]
     },
     {

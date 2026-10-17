@@ -4,6 +4,7 @@
  * @responsibility OrchestratorSingleTaskAttemptInputを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000004
  */
+import type { CoordinatorWorkspaceResult } from "../../../coordinator/src/index.ts";
 
 /**
  * 同Processで捕捉した元Taskの結果配送だけを表す。
@@ -56,7 +57,7 @@ export const ORCHESTRATOR_SINGLE_TASK_ADAPTER_CONTRACT_REVISION = 3;
  * @compatibility OrchestratorSingleTaskAttemptInputの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 export type OrchestratorSingleTaskAttemptInput = Readonly<{
-  workspaceId?: string;
+  workspaceId?: string | null;
   ownerRepositoryRoot?: string;
   executionTree?: string;
   workspaceBaseCommit?: string | null;
@@ -117,6 +118,7 @@ export type OrchestratorSingleTaskResult = Readonly<{
   recoveryIds: readonly string[];
   recoveryObligations?: readonly OrchestratorSingleTaskRecoveryObligation[];
   executorProvider?: "codex" | "claude";
+  workspaceResult?: CoordinatorWorkspaceResult;
 }>;
 
 /**

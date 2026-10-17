@@ -2,6 +2,38 @@
 
 [Workspace再編の目標責務](../orchestrator/03_Workspace.md#3-packageの責務と依存方向)により、本領域は単発AIの調整・取消・通知・結果返却へ縮小する。通常実行はOrchestrator経由とし、業務永続状態・Workspace／Candidate寿命・採用・Promotionを所有しない。以下の現行state・Bundle Store・workbench-ai・Host相関は移行元であり、対応能力の接続前に撤去しない。DI完成を新Workspace借用の検証済み根拠にしない。具体切替・API・Schemaは未完了。
 
+## Workspace実行接続の切替契約（2026-10-17）
+
+基準`135e032c`のOrchestrator現在保存・VC・Task搬送に対し、Coordinatorの借用実行を接続する。保存先Rootの単純置換、旧固定複製への借用Tree混入、旧Bundleの成功を新Git成果へ転用する変更は行わない。
+
+| 順序・接続箇所 | 実装へ渡す条件 | 変更しない境界 |
+|---|---|---|
+| 1. `task/types.ts`／`task/attempt.ts` | 所属保存Rootと借用実行対象を別入力にする。IsolatedはUUID・固定配置・Base・現在HEAD・実登録・実体をVCで再照合する。Directは所属Rootの現在Treeを扱う | CoordinatorからOrchestratorへ依存しない。継続中のdirtyを初回作成条件で拒否しない |
+| 2. DIの共通保護 | 通常SourceのRWと、`.git`・実Git管理領域・`.crdd`の書込み禁止を同時に成立させる。Directory型とポインタfile型、別名経路を評価する | 開発用`.env`の読取りを新たな拒否条件にしない。file別ACL・動的Mount承認・新Secret管理を作らない |
+| 3. `task/execution.ts`／`repository-operation/workspace.ts` | 認可・受付・保存・回復・配送は所属Root、Providerだけ借用Treeへ接続する。借用TreeをOperation所有の一時領域として登録しない | Git Ref操作・Workspace寿命はVC／Orchestrator。Coordinator清掃はContainer・Process・自己所有の一時物だけ |
+| 4. 旧capture／Review／publishの分離 | 旧Candidate capture／Bundleを要求しない新成果返却へ切替。レビュー対象の差分・基準・未確定事項を実結果と相関する | AI完了によるCommit・採用・Promotionなし。成果を保全できない箇所は旧能力の置換済みとしない |
+| 5. 利用側・失敗・終了後確認 | 正常・開始前後取消・通知失敗・配送失敗・親喪失と次Taskを確認する | 一次失敗・元回復参照を維持。Task終端からTree削除・resetへ進まない |
+
+借用実行は`/work`のbindと`.git`・`.crdd`の空placeholderのRO bindという三本構成を使用する。ExecutorはSourceをRW、ReviewerはROとし、二保護領域は常にROとする。作成計画と保存する回収Identityに同じ保護Sourceを結合し、実観測の欠落・RW化・Source差を拒否する。固定Path書込み境界の実測は[DIの限定確認](../docker-isolation/01_Architecture.md#固定path書込み境界の限定確認)に限り、全別名経路や任意Repositoryを保証しない。借用走査はlink・複数hardlink・入れ子Git・既存の容量／件数上限超過を拒否し、保証不能な対象を新しいACL等で自動補完しない。
+
+### 借用実行の具体接続
+
+| 所有者 | 実装契約 |
+|---|---|
+| Orchestrator | DirectもIsolatedも実行直前に対象を解決する。Reader拒否を旧入口へfallbackしない。所属Rootと実行Treeを別々に渡す |
+| Coordinator | 既存Operationの短命な参照へ対象を結合する。開始時の実内容を差分基準とし、既存dirtyを今回成果へ含めない。外部変更との帰属は断定しない |
+| Provider／DI | 借用Treeを実行先へ渡し、固定二保護領域を加える。一時placeholderは元Operationのprojectionが所有する |
+| 終了・成果 | 旧Bundleの準備・保存・出版は行わない。既存のcapture／Reviewer照合だけを再利用し、想定外変更では停止して差分確認へ返す。変更は戻さない |
+| 清掃 | 元Operationの一時物だけを回収する。借用Tree／Branchを所有集合へ入れず、削除・reset・commitしない。空の`.crdd` Mount先が必要な場合だけ初期化し、状態は保存しない |
+
+Coordinatorの内部完了値は`workspaceResult`にWorkspace ID、開始後の変更Pathまたは観測不能のnull、帰属未確定、CoordinatorによるTree削除要求なしを返す。Directの`canonicalRepositoryChanged`は実観測からboolean／nullへ投影し、Isolatedの変更を所属RootのSource変更と混同しない。これは成果のGit採用や永続受領の代わりではなく、Orchestratorの既存完了・配送契約を維持する。取消・失敗後も同じ開始基準で観測する。Treeの現存を未観測のまま`retained=true`とは表示しない。
+
+借用走査の現行上限は20,000 file・全体256MiB・単一64MiBである。依存物等も走査に含むため上限を超えるTreeは実行前拒否となる。任意の開発Treeへ適用可能とは主張しない。実Providerを使用した公開E2E・親喪失・利用者確認は、本接続の局所／結合試験と別の未実施範囲である。
+
+変更観測は全終端処理の後の共通投影で生成する。Host清掃意図／Receipt保存の失敗等で先に返った場合も、元理由・exact回復参照・清掃結果は不変のまま、変更あり／なし／観測不能を補う。`workspaceResult`自身に`canonicalRepositoryChanged`を結合し、TaskAttemptで方式とPathの閉じた相関を検査する。必須の観測metadata欠落・別Workspaceは変更なしへ補正しない。同じmetadataをOrchestrator単発結果から、今回runのTask／Attempt／Operationに結合した`workspaceResults`へ搬送し、途中失敗やLease解放失敗でも既得観測を落とさない。これは今回runの返却情報であり、新しいdurable Stage・State・履歴Storeは追加しない。既存段階結果の参照／ACKはこの最終観測の代替としない。
+
+正常例は同じWorkspaceで二Taskを継続する場合、非発火例は対象指定のない旧診断、境界例はIsolatedのGitポインタと既存dirty、情報不足例は実体・登録・現在HEADの観測不能である。後者はProvider Effect前に停止する。既存の複製・Bundle・取消の検証は移行元の根拠として維持し、新経路の限定代役試験・実Mount試験・実Provider試験と区別する。詳細な試験範囲と現在の承認は[変更記録](../../../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md)へ接続する。
+
 成果物種別: Architecture詳細設計
 詳細設計領域: coordinator
 状態: Candidate

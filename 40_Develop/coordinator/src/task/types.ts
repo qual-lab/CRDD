@@ -4,6 +4,7 @@
  * @responsibility 観測済みと観測不能を別の型として保持する。
  * @trace ARCH-000004
  */
+import type { BorrowedWorkspaceTarget } from "../repository-operation/borrowed-workspace.ts";
 
 /**
  * 完了Promiseの観測結果を表す。
@@ -41,6 +42,7 @@ export type CoordinatorTaskAttemptInput = Readonly<{
   repositoryRoot: unknown;
   cancellationSignal: AbortSignal;
   observeStarted?: () => Promise<boolean>;
+  workspaceTarget?: BorrowedWorkspaceTarget;
 }>;
 
 /**
@@ -83,4 +85,23 @@ export type CoordinatorTaskAttemptResult = Readonly<{
   recoveryIds: readonly string[];
   recoveryObligations?: readonly CoordinatorTaskRecoveryObligation[];
   executorProvider?: "codex" | "claude";
+  workspaceResult?: CoordinatorWorkspaceResult;
+}>;
+
+/**
+ * 借用Treeの開始後変更について観測できた範囲を返す。
+ * @responsibility 欠測と変更なし、採用と観測を混同しない。
+ * @trace ARCH-000004
+ * @shape Workspace ID、変更Path又はnull、所属Tree変更、帰属未確定、削除非発行。
+ * @invariant 内容・Host Path・新しいAuthorityを含めない。
+ * @boundary Task完了から上位Attempt。
+ * @security 相対Pathだけを認可済み利用側へ渡す。
+ * @compatibility 非借用の旧結果では省略する。
+ */
+export type CoordinatorWorkspaceResult = Readonly<{
+  workspaceId: string | null;
+  changedPaths: readonly string[] | null;
+  canonicalRepositoryChanged: boolean | null;
+  changeAttribution: "unattributed";
+  workspaceDeletionIssued: false;
 }>;

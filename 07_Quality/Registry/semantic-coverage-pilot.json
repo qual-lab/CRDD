@@ -9,7 +9,7 @@
       "stability": "pilot",
       "subsystem": "coordinator",
       "sourceDocument": "06_Architecture/Details/coordinator/01_Architecture.md",
-      "sourceSha256": "492fc5e4118c7524a1b0180215e1fa260fc893af0052f4b919c58be2c26dfa6f",
+      "sourceSha256": "131d7efcfc2f75c97a4af0aa6495c30bc7bebb299ef15d5e42fc2a69661fa131",
       "meanings": [
         {
           "semanticKey": "coordinator.candidate-review-boundary",

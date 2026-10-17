@@ -10,7 +10,7 @@
 
 <a id="workspace-isolation-policy"></a>
 
-## Workspace方式の共通隔離方針（採用済み・Source未対応）
+## Workspace方式の共通隔離方針（採用済み・借用実行接続中）
 
 DirectとCandidateは同じDocker隔離方針（Docker Isolation Policy）を使う。作業対象が現在Treeか独立Worktreeかという差を、別の秘密管理・隔離Frameworkへ分岐させない。助言等の読取り専用と変更実行のRW条件は、用途に従って区別する。
 
@@ -28,6 +28,14 @@ DirectとCandidateは同じDocker隔離方針（Docker Isolation Policy）を使
 Candidateへローカル`.env`や資格を自動複製／注入しない。共通方針は同じファイル集合・書込み権限を要求せず、固定Baseからclean Worktreeを作る既存の採用判断を維持する。ファイルの別名から開発情報が読めること自体を新たなFail条件にしない一方、別名経由のGit／内部状態書込み等の必要境界は未実証のまま保持する。
 
 本節は2026-10-17の人間判断を正本化した目標契約である。以前の一律秘密隠蔽案と合成試験は[変更計画の履歴](../../../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#9-開発情報と共通隔離方針の変更2026-10-17)として維持する。Sourceの既知秘密拒否・候補投影・Provider保護は、採用した区分と利用側を照合してから切り替え、文書変更だけで撤去しない。新方針の実装・実境界はNot Run。
+
+### 固定Path書込み境界の限定確認
+
+本番の借用入口でも、作業Tree、空のGit placeholder、空の内部状態placeholderの三本を計画する。Reviewerだけ作業TreeをROとし、保護二本は両役割ROで固定する。回収期待値は元placeholder Sourceを保存して照合し、Mount欠落・余剰・RW化・Source差では構成一致としない。新しいMount台帳・Lock・回復方式は追加しない。実Providerの新方式E2Eは未実施である。
+
+2026-10-17の承認済み合成試験では、作業TreeのRW bindと、`.git`の型に合う空placeholder・`.crdd`空DirectoryのRO bindという三Mountで、Directory型とポインタfile型の固定Path書込み境界が成立した。通常Sourceの書込みと開発dummy.envの読取りを確認し、保護Pathの書込み・rename・unlinkは拒否、Host保護対象不変と試験物回収を確認した。[実行版・条件・限界](../../../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#固定path書込み境界の承認済み限定結果2026-10-17)を参照する。
+
+これは共通構成の採用候補であり、製品Sourceは未対応である。Secret完全隠蔽、あらゆるlink経路、任意Repositoryの保護や実Provider全体の成立を保証しない。実Git管理領域が別名で露出する場合や、保護Path不存在時の扱いを今回の成功から補完せず、本番接続前の適用条件とする。新しいACL・動的Mount管理・Recovery機構は追加しない。
 
 ### 現在の接続状況
 

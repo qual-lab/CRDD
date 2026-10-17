@@ -5,6 +5,7 @@
  * @trace ARCH-000004
  */
 import { types as utilTypes } from "node:util";
+import { snapshotCoordinatorWorkspaceResult } from "../../../coordinator/src/index.ts";
 
 import {
   decodeProjectResultAcceptance,
@@ -123,6 +124,12 @@ export type OrchestratorExecutionResult = Readonly<{
     recoveryId: string;
   }>[];
   effectState: "no_effect" | "settled" | "unknown";
+  workspaceResults?: readonly Readonly<{
+    taskId: string;
+    attemptId: string;
+    operationId: string;
+    result: NonNullable<OrchestratorSingleTaskResult["workspaceResult"]>;
+  }>[];
 }>;
 
 /**
@@ -246,6 +253,7 @@ function validSingleTaskResult(
         ? ["recoveryObligations"]
         : []),
       ...(Object.hasOwn(value, "executorProvider") ? ["executorProvider"] : []),
+      ...(Object.hasOwn(value, "workspaceResult") ? ["workspaceResult"] : []),
     ].sort();
     const keys = Reflect.ownKeys(value);
     if (
@@ -268,6 +276,11 @@ function validSingleTaskResult(
     )
       return false;
     const record = value as Record<string, unknown>;
+    if (
+      Object.hasOwn(record, "workspaceResult") &&
+      snapshotCoordinatorWorkspaceResult(record.workspaceResult) === null
+    )
+      return false;
     if (
       record.contract !== "crdd-coordinator/orchestrator-single-task-adapter" ||
       !validIdentity(record.attemptId) ||
@@ -664,13 +677,43 @@ export async function runOrchestratorOperation(
         : { recoveryIds: Object.freeze([leaseResult.recoveryId]) }),
     });
   const lease = leaseResult.value;
+  const workspaceResults: NonNullable<
+    OrchestratorExecutionResult["workspaceResults"]
+  >[number][] = [];
+  const withWorkspaceResults = (value: OrchestratorExecutionResult) =>
+    workspaceResults.length === 0
+      ? value
+      : Object.freeze({
+          ...value,
+          workspaceResults: Object.freeze([...workspaceResults]),
+        });
   const completeWithoutOwnedQueue = (
     terminal: OrchestratorExecutionResult,
   ): OrchestratorExecutionResult => {
     const released = lease.release();
-    return released.status === "completed"
-      ? terminal
-      : result(input, {
+    return withWorkspaceResults(
+      released.status === "completed"
+        ? terminal
+        : result(input, {
+            status: "blocked",
+            reason: released.reason,
+            stateGeneration: terminal.stateGeneration,
+            completedTaskIds: terminal.completedTaskIds,
+            cleanupConfirmed: false,
+            manualRecoveryRequired: true,
+            processRestartRequired: terminal.processRestartRequired,
+            effectState: "unknown",
+          }),
+    );
+  };
+  const completeOwnedQueue = (
+    terminal: OrchestratorExecutionResult,
+    terminalQueue: typeof queue,
+  ): OrchestratorExecutionResult => {
+    const released = lease.release();
+    if (released.status !== "completed")
+      return withWorkspaceResults(
+        result(input, {
           status: "blocked",
           reason: released.reason,
           stateGeneration: terminal.stateGeneration,
@@ -679,41 +722,27 @@ export async function runOrchestratorOperation(
           manualRecoveryRequired: true,
           processRestartRequired: terminal.processRestartRequired,
           effectState: "unknown",
-        });
-  };
-  const completeOwnedQueue = (
-    terminal: OrchestratorExecutionResult,
-    terminalQueue: typeof queue,
-  ): OrchestratorExecutionResult => {
-    const released = lease.release();
-    if (released.status !== "completed")
-      return result(input, {
-        status: "blocked",
-        reason: released.reason,
-        stateGeneration: terminal.stateGeneration,
-        completedTaskIds: terminal.completedTaskIds,
-        cleanupConfirmed: false,
-        manualRecoveryRequired: true,
-        processRestartRequired: terminal.processRestartRequired,
-        effectState: "unknown",
-      });
+        }),
+      );
     const settled = dependencies.persistence.state.settleQueueLeaseRelease(
       input.queueId,
       terminalQueue.generation,
       lease.ownerGeneration,
     );
-    return settled.status === "completed"
-      ? terminal
-      : result(input, {
-          status: "blocked",
-          reason: settled.reason,
-          stateGeneration: terminal.stateGeneration,
-          completedTaskIds: terminal.completedTaskIds,
-          cleanupConfirmed: false,
-          manualRecoveryRequired: true,
-          processRestartRequired: terminal.processRestartRequired,
-          effectState: "unknown",
-        });
+    return withWorkspaceResults(
+      settled.status === "completed"
+        ? terminal
+        : result(input, {
+            status: "blocked",
+            reason: settled.reason,
+            stateGeneration: terminal.stateGeneration,
+            completedTaskIds: terminal.completedTaskIds,
+            cleanupConfirmed: false,
+            manualRecoveryRequired: true,
+            processRestartRequired: terminal.processRestartRequired,
+            effectState: "unknown",
+          }),
+    );
   };
   const finalizeOwnedFailure = (
     reason: string,
@@ -1002,16 +1031,18 @@ export async function runOrchestratorOperation(
                 recoveryIds: Object.freeze([]),
                 recoveryObligations: Object.freeze([]),
               });
-            const target =
-              queue.workspaceId != null
-                ? dependencies.persistence.state.readWorkspaceTaskTarget?.(
-                    input.queueId,
-                  )
-                : null;
+            const target = dependencies.persistence.state
+              .readWorkspaceTaskTarget
+              ? dependencies.persistence.state.readWorkspaceTaskTarget?.(
+                  input.queueId,
+                )
+              : null;
             if (
-              queue.workspaceId != null &&
+              (queue.workspaceId != null ||
+                dependencies.persistence.state.readWorkspaceTaskTarget !==
+                  undefined) &&
               (target?.status !== "completed" ||
-                target.value.workspaceId !== queue.workspaceId)
+                target.value.workspaceId !== (queue.workspaceId ?? null))
             )
               return Object.freeze({
                 contract:
@@ -1038,8 +1069,7 @@ export async function runOrchestratorOperation(
               repositoryRevision: state.repositoryRevision,
               taskRequest: attempt.execution.taskRequest,
               repositoryRoot: attempt.execution.repositoryRoot,
-              ...(target?.status === "completed" &&
-              target.value.workspaceId !== null
+              ...(target?.status === "completed"
                 ? {
                     workspaceId: target.value.workspaceId,
                     ownerRepositoryRoot: target.value.ownerRepositoryRoot,
@@ -1112,7 +1142,27 @@ export async function runOrchestratorOperation(
         validatedOutcome.operationId === attempt.operationId &&
         validatedOutcome.authorityBindingId ===
           attempt.execution.authorityBindingId &&
-        validatedOutcome.repositoryRevision === state.repositoryRevision;
+        validatedOutcome.repositoryRevision === state.repositoryRevision &&
+        (validatedOutcome.workspaceResult === undefined ||
+          validatedOutcome.workspaceResult.workspaceId ===
+            (queue.workspaceId ?? null));
+      if (validatedOutcome && isExact && validatedOutcome.workspaceResult) {
+        const observation = snapshotCoordinatorWorkspaceResult(
+          validatedOutcome.workspaceResult,
+        );
+        if (
+          observation &&
+          observation.workspaceId === (queue.workspaceId ?? null)
+        )
+          workspaceResults.push(
+            Object.freeze({
+              taskId: attempt.taskId,
+              attemptId: attempt.attemptId,
+              operationId: attempt.operationId,
+              result: observation,
+            }),
+          );
+      }
       const taskDefinition = state.tasks.find(
         (task) => task.definition.id === attempt.taskId,
       )?.definition;

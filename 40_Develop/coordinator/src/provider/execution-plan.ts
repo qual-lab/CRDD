@@ -222,6 +222,9 @@ export function buildProviderDockerExecutionPlan(
       ? {
           sourcePath: binding.mounts.workspace,
           readOnly: taskPacket.taskRole === "reviewer",
+          ...(binding.workspaceProtection
+            ? { protection: binding.workspaceProtection }
+            : {}),
         }
       : null,
     authentication: {
@@ -304,6 +307,9 @@ export function buildProviderDockerExecutionPlan(
     adviceCommandHash: advicePacket?.commandHash ?? null,
     providerInput: taskPacket?.prompt ?? advicePacket?.providerPrompt ?? null,
     workspaceSourcePath: taskPacket ? binding.mounts.workspace : null,
+    ...(binding.workspaceProtection
+      ? { workspaceProtection: binding.workspaceProtection }
+      : {}),
     workspaceMountMode: taskPacket
       ? taskPacket.taskRole === "executor"
         ? ("read_write" as const)

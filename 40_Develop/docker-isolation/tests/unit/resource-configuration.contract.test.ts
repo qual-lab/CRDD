@@ -9,6 +9,7 @@
  * @boundary N/A: 固定JSON値の照合だけ。
  */
 import assert from "node:assert/strict";
+import path from "node:path";
 import test from "node:test";
 import { dockerAuthenticationResourceConfigurationMatches } from "../../src/cleanup/resource-configuration.ts";
 import {
@@ -16,6 +17,64 @@ import {
   planDockerRecoveryResourceExpectations,
   type DockerResourceExpectation,
 } from "../../src/index.ts";
+
+/**
+ * 三本Mountの観測と回収期待値を照合する。
+ * @responsibility 保護領域の欠落、RW化、Source差を拒否する。
+ * @trace ERB-UT-023
+ * @precondition 元計画に二placeholder Sourceを固定する。
+ * @stimulus 正常観測と一条件差を与える。
+ * @observation 構成判定のboolean。
+ * @oracle 二保護領域は元SourceのRO bindだけを受理する。
+ * @cleanup N/A: 外部資源なし。
+ * @boundary 回収許可や実不存在は主張しない。
+ */
+test("Workspace保護Mountは欠落・RW・Source差を拒否する", () => {
+  const { resource, expectation } = fixture();
+  const protection = {
+    gitSourcePath: path.resolve("mask-git"),
+    internalSourcePath: path.resolve("mask-internal"),
+  };
+  const expected = {
+    ...expectation,
+    workspaceProtected: true,
+    workspaceProtection: protection,
+  };
+  const masks = [
+    {
+      Type: "bind",
+      Source: protection.gitSourcePath,
+      Destination: "/work/.git",
+      RW: false,
+      Propagation: "rprivate",
+    },
+    {
+      Type: "bind",
+      Source: protection.internalSourcePath,
+      Destination: "/work/.crdd",
+      RW: false,
+      Propagation: "rprivate",
+    },
+  ];
+  const observed = { ...resource, Mounts: [...resource.Mounts, ...masks] };
+  assert.equal(dockerResourceConfigurationMatches(observed, expected), true);
+  for (const Mounts of [
+    observed.Mounts.slice(0, -1),
+    observed.Mounts.map((m) =>
+      m.Destination === "/work/.git" ? { ...m, RW: true } : m,
+    ),
+    observed.Mounts.map((m) =>
+      m.Destination === "/work/.crdd"
+        ? { ...m, Source: path.resolve("different") }
+        : m,
+    ),
+    [...observed.Mounts, masks[0]],
+  ])
+    assert.equal(
+      dockerResourceConfigurationMatches({ ...resource, Mounts }, expected),
+      false,
+    );
+});
 
 /**
  * 現在回収の固定五用途と二候補を独立した完全期待値へ照合する。

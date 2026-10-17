@@ -18,8 +18,6 @@ import {
 } from "./executor.ts";
 export const ORCHESTRATOR_SINGLE_TASK_PRE_EFFECT_REJECTIONS = Object.freeze([
   ...COORDINATOR_TASK_PRE_EFFECT_REJECTIONS,
-  "single_task_workspace_execution_not_connected",
-  "single_task_workspace_target_unavailable",
 ]);
 /**
  * 単一Task実行と結果配送の捕捉に必要な依存契約を定義する。
@@ -78,22 +76,15 @@ export async function runOrchestratorSingleTaskAttempt(
       typeof input.observeStarted === "function") &&
     (input.observeResultDelivery === undefined ||
       typeof input.observeResultDelivery === "function");
-  const workspaceNotConnected = isValidInput && input.workspaceId !== undefined;
-  if (!isValidInput || workspaceNotConnected)
+  if (!isValidInput)
     return Object.freeze({
       contract: ORCHESTRATOR_SINGLE_TASK_ADAPTER_CONTRACT,
-      attemptId: workspaceNotConnected ? input.attemptId : null,
-      operationId: workspaceNotConnected ? input.operationId : null,
-      authorityBindingId: workspaceNotConnected
-        ? input.authorityBindingId
-        : null,
-      repositoryRevision: workspaceNotConnected
-        ? input.repositoryRevision
-        : null,
+      attemptId: null,
+      operationId: null,
+      authorityBindingId: null,
+      repositoryRevision: null,
       status: "blocked",
-      reason: workspaceNotConnected
-        ? "single_task_workspace_execution_not_connected"
-        : "single_task_input_invalid",
+      reason: "single_task_input_invalid",
       effectState: "no_effect",
       cleanupConfirmed: true,
       manualRecoveryRequired: false,
@@ -134,7 +125,20 @@ export async function runOrchestratorSingleTaskAttempt(
         return started;
       },
     },
-    input,
+    {
+      ...input,
+      ...(input.executionTree !== undefined
+        ? {
+            workspaceTarget: {
+              workspaceId: input.workspaceId ?? null,
+              ownerRepositoryRoot: input.ownerRepositoryRoot ?? "",
+              executionTree: input.executionTree,
+              baseCommit: input.workspaceBaseCommit ?? null,
+              head: input.workspaceHead ?? null,
+            },
+          }
+        : {}),
+    },
   );
   return Object.freeze({
     ...completed,

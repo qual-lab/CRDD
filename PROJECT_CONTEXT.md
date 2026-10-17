@@ -12,7 +12,7 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-v0.22のCHG-000082は進行中。Docker Isolationは`a04ecb70`でコミット・プッシュ済み。Direct／Candidateは共通のDocker方針を採用し、開発用`.env`がCoding AIから読まれ得るリスクを受容した。本番SecretはGit・通常開発環境へ置かず既存管理を使い、開発資格は本番権限なし・限定権限・期限ありとする。独自Secret Manager・file別ACL・動的Mount許可Frameworkは追加しない。以前の隠蔽試験と回収は完了したが、新方針の実装・Git／内部状態書込み等の実境界は未確認。Direct本実装・実データ移行は未着手。統合・タグ・リリースは含めない。
+v0.22のCHG-000082は進行中。Docker Isolationは`a04ecb70`でコミット・プッシュ済み。Direct／Candidateは共通のDocker方針を採用し、開発用`.env`がCoding AIから読まれ得るリスクを受容した。本番SecretはGit・通常開発環境へ置かず既存管理を使い、開発資格は本番権限なし・限定権限・期限ありとする。独自Secret Manager・file別ACL・動的Mount許可Frameworkは追加しない。固定Pathの最小Mount試験は二構成で成功し、通常Source書込みとGit／内部状態への書込み拒否を確認した。全link経路・任意Repository・製品実装全体の保証ではない。Coordinatorの借用実行は実装・結合試験と独立再レビューまで完了（限定範囲）。実Provider E2E・実データ移行は未実施。統合・タグ・リリースは含めない。条件と限界は[接続結果](99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#借用実行接続の実装結合確認の区切り)を参照する。
 
 既存実装との差分を整理し、Version Controlの共通Git読取りに続いて、固定BaseからのWorktree作成・観測・明示終了時のWorktree／専用Branch削除を実装した。採用・取込済み又は不採用・破棄確定後に不要資源を回収し、新しい管理台帳・State・Lockは追加しない。上位Task・採否・非使用の調停、本番Direct／Candidate切替・旧Bundle撤去は未完了。filter設定・gitlinkを含む作成は未対応として拒否し、部分試験を新Workspace全体の完成へ換算しない。現在の検証結果と限界は[実装・実Git試験](99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#git-worktree管理の部分実装と実git試験)を参照する。
 

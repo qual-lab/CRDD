@@ -211,6 +211,12 @@ function validateCoordinatorOperationIdentity(
     "images",
     "operationMode",
     "workspaceMountMode",
+    ...(Object.hasOwn(identity, "workspaceProtected")
+      ? ["workspaceProtected"]
+      : []),
+    ...(Object.hasOwn(identity, "workspaceProtection")
+      ? ["workspaceProtection"]
+      : []),
     "initialHostRecoveryId",
     "initialHostRecovery",
     "hostPaths",
@@ -273,6 +279,24 @@ function validateCoordinatorOperationIdentity(
     (identity.workspaceMountMode === null ||
       identity.workspaceMountMode === "read_only" ||
       identity.workspaceMountMode === "read_write") &&
+    (!Object.hasOwn(identity, "workspaceProtected") ||
+      (identity.workspaceProtected === true &&
+        identity.operationMode === "isolated_task" &&
+        identity.workspaceMountMode !== null &&
+        exactRecordKeys(identity.workspaceProtection, [
+          "gitSourcePath",
+          "internalSourcePath",
+        ]) &&
+        Object.values(
+          identity.workspaceProtection as Record<string, unknown>,
+        ).every(
+          (item) =>
+            typeof item === "string" &&
+            item.length <= 4096 &&
+            !/[\0\r\n,]/u.test(item),
+        ))) &&
+    (!Object.hasOwn(identity, "workspaceProtection") ||
+      identity.workspaceProtected === true) &&
     (!hasCorrelation ||
       (typeof identity.recoveryCorrelationId === "string" &&
         /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(

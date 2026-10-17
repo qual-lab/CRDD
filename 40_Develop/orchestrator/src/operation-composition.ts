@@ -732,13 +732,20 @@ async function executeOrchestratorPublicObjective(
         runSingleTaskAttempt: (input) =>
           runOrchestratorSingleTaskAttempt(
             {
-              startTask: (taskRequest, root, correlation, observer) =>
+              startTask: (
+                taskRequest,
+                root,
+                correlation,
+                observer,
+                workspaceTarget,
+              ) =>
                 runtimeDependencies.startTask(
                   taskRequest,
                   root,
                   correlation,
                   observer,
                   "orchestrator",
+                  workspaceTarget,
                 ),
               cancelTask: runtimeDependencies.cancelTask,
               captureResultDelivery: runtimeDependencies.captureResultDelivery,

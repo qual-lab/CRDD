@@ -255,6 +255,10 @@ type PreparedPlan = Readonly<{
   adviceCommandHash?: string | null;
   providerInput: string | null;
   workspaceSourcePath: string | null;
+  workspaceProtection?: Readonly<{
+    gitSourcePath: string;
+    internalSourcePath: string;
+  }>;
   workspaceMountMode: "read_write" | "read_only" | null;
   commands: readonly Command[];
 }>;

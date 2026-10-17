@@ -5,6 +5,7 @@
  * @trace ARCH-000008
  */
 import { types } from "node:util";
+import path from "node:path";
 import { dockerContainerInitObservationMatches } from "./container-init-observation.ts";
 import type { DockerIsolationCommand } from "../execution/command-plan.ts";
 import type { DockerAuthenticationCommand } from "../execution/authentication-command-plan.ts";
@@ -37,6 +38,11 @@ export function planDockerRecoveryResourceExpectations(
     workspaceMounted: boolean;
     workspaceReadOnly: boolean;
     initRequired: boolean;
+    workspaceProtected?: boolean;
+    workspaceProtection?: Readonly<{
+      gitSourcePath: string;
+      internalSourcePath: string;
+    }>;
   }>,
 ) {
   try {
@@ -62,7 +68,16 @@ export function planDockerRecoveryResourceExpectations(
       "workspaceReadOnly",
       "initRequired",
     ] as const;
-    const keys = [...stringKeys, ...booleanKeys];
+    const keys = [
+      ...stringKeys,
+      ...booleanKeys,
+      ...(Object.hasOwn(input, "workspaceProtected")
+        ? ["workspaceProtected" as const]
+        : []),
+      ...(Object.hasOwn(input, "workspaceProtection")
+        ? ["workspaceProtection" as const]
+        : []),
+    ];
     const ownKeys = Reflect.ownKeys(input);
     if (
       ownKeys.length !== keys.length ||
@@ -74,7 +89,11 @@ export function planDockerRecoveryResourceExpectations(
     )
       return null;
     const descriptors = Object.getOwnPropertyDescriptors(input);
-    if (keys.some((key) => !Object.hasOwn(descriptors[key], "value")))
+    if (
+      keys.some(
+        (key) => !descriptors[key] || !Object.hasOwn(descriptors[key], "value"),
+      )
+    )
       return null;
     const raw = {
       authenticationContainerName:
@@ -89,10 +108,19 @@ export function planDockerRecoveryResourceExpectations(
       workspaceMounted: descriptors.workspaceMounted.value,
       workspaceReadOnly: descriptors.workspaceReadOnly.value,
       initRequired: descriptors.initRequired.value,
+      ...(descriptors.workspaceProtected
+        ? { workspaceProtected: descriptors.workspaceProtected.value }
+        : {}),
+      ...(descriptors.workspaceProtection
+        ? { workspaceProtection: descriptors.workspaceProtection.value }
+        : {}),
     };
     if (
       stringKeys.some((key) => typeof raw[key] !== "string") ||
-      booleanKeys.some((key) => typeof raw[key] !== "boolean")
+      booleanKeys.some((key) => typeof raw[key] !== "boolean") ||
+      (Object.hasOwn(raw, "workspaceProtected") &&
+        typeof raw.workspaceProtected !== "boolean") ||
+      (raw.workspaceProtected === true && raw.workspaceMounted !== true)
     )
       return null;
     const captured = raw as Readonly<typeof input>;
@@ -139,6 +167,13 @@ export function planDockerRecoveryResourceExpectations(
         workspaceReadOnly:
           purpose === "create_provider" && captured.workspaceReadOnly,
         initRequired: purpose === "create_provider" && captured.initRequired,
+        ...(captured.workspaceProtected === true &&
+        purpose === "create_provider"
+          ? { workspaceProtected: true }
+          : {}),
+        ...(captured.workspaceProtection && purpose === "create_provider"
+          ? { workspaceProtection: captured.workspaceProtection }
+          : {}),
       };
       return Object.freeze({
         purpose,
@@ -423,6 +458,11 @@ export type DockerResourceExpectation = Readonly<{
   workspaceMounted: boolean;
   workspaceReadOnly: boolean;
   initRequired: boolean;
+  workspaceProtected?: boolean;
+  workspaceProtection?: Readonly<{
+    gitSourcePath: string;
+    internalSourcePath: string;
+  }>;
 }>;
 
 /**
@@ -555,7 +595,23 @@ export function dockerResourceExpectationIsValid(
     networkShape &&
     typeof expectation.workspaceMounted === "boolean" &&
     typeof expectation.workspaceReadOnly === "boolean" &&
-    typeof expectation.initRequired === "boolean"
+    typeof expectation.initRequired === "boolean" &&
+    (expectation.workspaceProtection === undefined ||
+      (expectation.workspaceProtected === true &&
+        [
+          expectation.workspaceProtection.gitSourcePath,
+          expectation.workspaceProtection.internalSourcePath,
+        ].every(
+          (item) =>
+            typeof item === "string" &&
+            path.isAbsolute(item) &&
+            !/[\0\r\n,]/u.test(item),
+        ))) &&
+    (expectation.workspaceProtected === undefined ||
+      (typeof expectation.workspaceProtected === "boolean" &&
+        (!expectation.workspaceProtected ||
+          (expectation.purpose === "create_provider" &&
+            expectation.workspaceMounted))))
   );
 }
 
@@ -649,10 +705,17 @@ export function dockerResourceConfigurationMatches(
                     },
                   ]
                 : []),
+              ...(expectation.workspaceProtected
+                ? [
+                    { destination: "/work/.git", readWrite: false },
+                    { destination: "/work/.crdd", readWrite: false },
+                  ]
+                : []),
             ]
           : [];
     const observedMounts = bindMounts
       .map((mount) => ({
+        source: mount.Source,
         destination: mount.Destination,
         readWrite: mount.RW,
         propagation: mount.Propagation,
@@ -669,6 +732,23 @@ export function dockerResourceConfigurationMatches(
         (mount, index) =>
           mount.destination === sortedExpectedMounts[index]?.destination &&
           mount.readWrite === sortedExpectedMounts[index]?.readWrite &&
+          (expectation.workspaceProtection === undefined ||
+            (mount.destination !== "/work/.git" &&
+              mount.destination !== "/work/.crdd") ||
+            (typeof mount.source === "string" &&
+              (process.platform === "win32"
+                ? mount.source.replaceAll("\\", "/").toLowerCase()
+                : mount.source) ===
+                (process.platform === "win32"
+                  ? (mount.destination === "/work/.git"
+                      ? expectation.workspaceProtection.gitSourcePath
+                      : expectation.workspaceProtection.internalSourcePath
+                    )
+                      .replaceAll("\\", "/")
+                      .toLowerCase()
+                  : mount.destination === "/work/.git"
+                    ? expectation.workspaceProtection.gitSourcePath
+                    : expectation.workspaceProtection.internalSourcePath))) &&
           mount.propagation === "rprivate",
       );
     const tmpfs = hostConfig?.Tmpfs;

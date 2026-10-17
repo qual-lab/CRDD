@@ -28,6 +28,55 @@ import {
 } from "../../src/index.ts";
 
 /**
+ * 固定二領域をExecutor／Reviewerで同じ三本構成へ接続する。
+ * @responsibility SourceのRW差だけを許し保護Mountを常にROにする。
+ * @trace ERB-UT-023
+ * @precondition 固定入力と自己所有placeholder Path。
+ * @stimulus 二役割と不正Pathを計画する。
+ * @observation create_providerのMount引数。
+ * @oracle /workと二保護領域だけがあり、不正Pathはnull。
+ * @cleanup N/A: 純粋計画。
+ * @boundary 実Dockerの成立は別の限定試験。
+ */
+test("Workspace三本MountはSourceのRW差だけを許す", () => {
+  for (const readOnly of [false, true]) {
+    const workspace = {
+      sourcePath: path.resolve("fixture-tree"),
+      readOnly,
+      protection: {
+        gitSourcePath: path.resolve("mask-git"),
+        internalSourcePath: path.resolve("mask-internal"),
+      },
+    };
+    const input = { ...inputFixture(), workspace };
+    const commands = planDockerIsolationCommands(input);
+    assert.ok(commands);
+    const args =
+      commands.find((item) => item.purpose === "create_provider")?.argv ?? [];
+    const mounts = args.filter((value) => value.includes("dst=/work"));
+    assert.equal(mounts.length, 3);
+    assert.equal(mounts[0]?.endsWith(",readonly"), readOnly);
+    assert.ok(
+      mounts[1]?.includes("dst=/work/.git,") && mounts[1].endsWith(",readonly"),
+    );
+    assert.ok(
+      mounts[2]?.includes("dst=/work/.crdd,") &&
+        mounts[2].endsWith(",readonly"),
+    );
+    assert.equal(
+      planDockerIsolationCommands({
+        ...input,
+        workspace: {
+          ...workspace,
+          protection: { ...workspace.protection, gitSourcePath: "relative" },
+        },
+      }),
+      null,
+    );
+  }
+});
+
+/**
  * Proxy包装の実構築と固定投影を同じ技術Ownerで照合する。
  * @responsibility 包装外decoy・欠測・重複と不正認証環境を拒否する。
  * @trace ERB-UT-023

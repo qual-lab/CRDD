@@ -10,6 +10,8 @@
  */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -32,7 +34,339 @@ import {
   persistRuntimeOwnedCandidateRevision,
   orchestratorOwnedCandidateReadContent,
   verifyRuntimeOwnedCandidateRevision,
+  observeBorrowedWorkspaceChanges,
+  projectBorrowedWorkspaceResult,
 } from "../../src/repository-operation/workspace.ts";
+import {
+  inspectBorrowedWorkspaceTarget,
+  readBorrowedWorkspaceBinding,
+} from "../../src/repository-operation/borrowed-workspace.ts";
+import {
+  createRepositoryWorktree,
+  verifyRepositoryRoot,
+} from "../../../version-control/src/index.ts";
+import { createProviderDockerRuntimeDependencies } from "../../src/provider/execution-composition.ts";
+import { runOrchestratorSingleTaskAttempt } from "../../../orchestrator/src/index.ts";
+
+/**
+ * DirectとIsolatedの実Treeを複製せず借用する。
+ * @responsibility dirty基準、保護領域除外、清掃と寿命分離を確認する。
+ * @trace RFD-IT-013 PRL-IT-013
+ * @precondition Repository-localの自己生成Gitと元Operation。
+ * @stimulus 二Taskで同Treeを編集し、capture／verify後に一時物だけ回収する。
+ * @observation 変更Path、開始基準、元Tree・Git・内部状態。
+ * @oracle 既存dirtyは今回変更でなく、Tree／Branchを保持する。
+ * @cleanup 自己生成Repositoryと既存Operationを回収する。
+ * @boundary 実Git／FS。Provider・Docker・Bundle保存は使わない。
+ */
+test("借用Workspaceは開始時dirtyを保持し二Task後も同Treeを残す", async (t) => {
+  const parent = path.resolve(import.meta.dirname, "../../../../.crdd/tests");
+  const root = fs.mkdtempSync(path.join(parent, "borrowed-workspace-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const git = (args: string[]) =>
+    execFileSync(
+      "git",
+      [
+        "-C",
+        root,
+        "-c",
+        "core.hooksPath=" + os.devNull,
+        "-c",
+        "commit.gpgSign=false",
+        ...args,
+      ],
+      {
+        encoding: "utf8",
+        windowsHide: true,
+        timeout: 10000,
+        env: {
+          ...Object.fromEntries(
+            Object.entries(process.env).filter(([key]) => !/^GIT_/iu.test(key)),
+          ),
+          GIT_CONFIG_GLOBAL: process.platform === "win32" ? "NUL" : os.devNull,
+          GIT_CONFIG_SYSTEM: process.platform === "win32" ? "NUL" : os.devNull,
+        },
+      },
+    ).trim();
+  git(["init", "--initial-branch=main", "--template="]);
+  fs.mkdirSync(path.join(root, ".git", "info"));
+  fs.writeFileSync(path.join(root, ".git", "info", "exclude"), "");
+  git(["config", "user.name", "Borrowed Test"]);
+  git(["config", "user.email", "test@example.invalid"]);
+  fs.writeFileSync(path.join(root, ".gitignore"), ".crdd/\n.env\n");
+  fs.writeFileSync(path.join(root, "source.txt"), "base\n");
+  git(["add", "."]);
+  git(["commit", "-m", "base"]);
+  const base = git(["rev-parse", "HEAD"]);
+  const verified = verifyRepositoryRoot(root);
+  assert.equal(verified.status, "completed");
+  if (verified.status !== "completed") return;
+  const uuid = randomUUID();
+  assert.equal(
+    createRepositoryWorktree(verified.capability, {
+      workspaceId: uuid,
+      baseCommit: base,
+    }).status,
+    "completed",
+  );
+  fs.writeFileSync(path.join(root, "source.txt"), "shared dirty\n");
+  for (const workspaceId of [null, uuid]) {
+    const tree = workspaceId
+      ? path.join(root, ".crdd", "workspaces", uuid, "worktree")
+      : root;
+    if (workspaceId)
+      fs.writeFileSync(path.join(tree, "source.txt"), "prior task\n");
+    const target = {
+      workspaceId,
+      ownerRepositoryRoot: root,
+      executionTree: tree,
+      baseCommit: workspaceId ? base : null,
+      head: workspaceId ? base : null,
+    };
+    assert.ok(inspectBorrowedWorkspaceTarget(root, target));
+    let receivedTarget: unknown;
+    const adapted = await runOrchestratorSingleTaskAttempt(
+      {
+        startTask: (_request, owner, _id, _observer, selected) => {
+          assert.equal(owner, root);
+          receivedTarget = selected;
+          return {
+            status: "started",
+            controlCapability: {},
+            completion: Promise.resolve({
+              status: "completed",
+              reason: "coordinator_task_workspace_review_completed",
+              cleanupConfirmed: true,
+              manualRecoveryRequired: false,
+              processRestartRequired: false,
+              candidateId: null,
+              hostRecoveryId: null,
+              candidateRecoveryId: null,
+              candidateStoreRecoveryId: null,
+              dockerRecoveryIds: [],
+              canonicalRepositoryChanged: workspaceId === null ? null : false,
+              workspaceResult: {
+                workspaceId,
+                changedPaths: null,
+                canonicalRepositoryChanged: workspaceId === null ? null : false,
+                changeAttribution: "unattributed",
+                workspaceDeletionIssued: false,
+              },
+            }),
+          };
+        },
+        cancelTask: () => ({}),
+      },
+      {
+        attemptId: "attempt-workspace",
+        operationId: "operation-workspace",
+        authorityBindingId: "authority-workspace",
+        repositoryRevision: base,
+        taskRequest: {},
+        repositoryRoot: root,
+        workspaceId,
+        ownerRepositoryRoot: root,
+        executionTree: tree,
+        workspaceBaseCommit: target.baseCommit,
+        workspaceHead: target.head,
+        cancellationSignal: new AbortController().signal,
+      },
+    );
+    assert.equal(adapted.status, "completed");
+    assert.deepEqual(receivedTarget, target);
+    const internal = path.join(tree, ".crdd");
+    fs.mkdirSync(internal, { recursive: true });
+    fs.writeFileSync(path.join(internal, "state.json"), "not an input\n");
+    fs.writeFileSync(path.join(tree, ".env"), "synthetic-development-value\n");
+    const gitFile = workspaceId
+      ? path.join(tree, ".git")
+      : path.join(tree, ".git", "HEAD");
+    const beforeGit = fs.readFileSync(gitFile);
+    for (let turn = 0; turn < 2; turn++) {
+      const current = operation(t, root, false);
+      try {
+        const borrowed = materializeRuntimeOwnedRepositoryWorkspace(
+          current.bound.repositoryBindingCapability,
+          current.managementCapability,
+          current.mountCapability,
+          ["source.txt"],
+          target,
+        );
+        assert.ok(borrowed?.status === "materialized");
+        if (borrowed?.status !== "materialized") return;
+        assert.deepEqual(
+          observeBorrowedWorkspaceChanges(borrowed.workspaceCapability),
+          [],
+        );
+        const deliver = async (
+          capability: object | undefined,
+          failed = false,
+        ) => {
+          const observation = projectBorrowedWorkspaceResult(
+            capability,
+            target,
+          );
+          const delivered = await runOrchestratorSingleTaskAttempt(
+            {
+              startTask: () => ({
+                status: "started",
+                controlCapability: {},
+                completion: Promise.resolve({
+                  status: failed ? "blocked" : "completed",
+                  reason: failed
+                    ? "coordinator_task_candidate_verification_failed"
+                    : "coordinator_task_workspace_review_completed",
+                  cleanupConfirmed: !failed,
+                  manualRecoveryRequired: failed,
+                  processRestartRequired: failed,
+                  candidateId: null,
+                  hostRecoveryId: null,
+                  candidateRecoveryId: null,
+                  candidateStoreRecoveryId: null,
+                  dockerRecoveryIds: failed
+                    ? [
+                        "docker-task." +
+                          "1".repeat(64) +
+                          "." +
+                          "2".repeat(64) +
+                          "." +
+                          "3".repeat(64),
+                      ]
+                    : [],
+                  canonicalRepositoryChanged:
+                    observation.canonicalRepositoryChanged,
+                  workspaceResult: observation,
+                }),
+              }),
+              cancelTask: () => ({}),
+            },
+            {
+              attemptId: "attempt-observation",
+              operationId: "operation-observation",
+              authorityBindingId: "authority-observation",
+              repositoryRevision: base,
+              taskRequest: {},
+              repositoryRoot: root,
+              workspaceId,
+              ownerRepositoryRoot: root,
+              executionTree: tree,
+              workspaceBaseCommit: target.baseCommit,
+              workspaceHead: target.head,
+              cancellationSignal: new AbortController().signal,
+            },
+          );
+          assert.equal(delivered.status, failed ? "blocked" : "completed");
+          if (failed) {
+            assert.equal(
+              delivered.reason,
+              "coordinator_task_candidate_verification_failed",
+            );
+            assert.equal(delivered.cleanupConfirmed, false);
+            assert.equal(delivered.manualRecoveryRequired, true);
+            assert.equal(delivered.processRestartRequired, true);
+            assert.deepEqual(delivered.recoveryIds, [
+              "docker-task." +
+                "1".repeat(64) +
+                "." +
+                "2".repeat(64) +
+                "." +
+                "3".repeat(64),
+            ]);
+          }
+          assert.deepEqual(delivered.workspaceResult, observation);
+          return observation;
+        };
+        assert.deepEqual(
+          (await deliver(borrowed.workspaceCapability)).changedPaths,
+          [],
+        );
+        assert.equal((await deliver(undefined)).changedPaths, null);
+        assert.equal(
+          readBorrowedWorkspaceBinding(current.managementCapability)?.target
+            .executionTree,
+          tree,
+        );
+        const providerBinding =
+          createProviderDockerRuntimeDependencies().verifyOperationMount(
+            current.managementCapability,
+            current.mountCapability,
+          );
+        assert.equal(providerBinding.mounts.workspace, tree);
+        assert.ok("workspaceProtection" in providerBinding);
+        fs.writeFileSync(path.join(tree, "source.txt"), "turn-" + turn + "\n");
+        fs.writeFileSync(
+          path.join(internal, "state.json"),
+          "state-" + turn + "\n",
+        );
+        const captured = captureRuntimeOwnedCandidateRevision(
+          borrowed.workspaceCapability,
+          current.bound.repositoryBindingCapability,
+          current.managementCapability,
+          current.mountCapability,
+          ["source.txt"],
+        );
+        assert.ok(captured?.status === "candidate");
+        if (captured?.status !== "candidate") return;
+        assert.deepEqual(captured.changedPaths, ["source.txt"]);
+        const delivered = await deliver(borrowed.workspaceCapability);
+        assert.deepEqual(delivered.changedPaths, ["source.txt"]);
+        assert.equal(
+          delivered.canonicalRepositoryChanged,
+          workspaceId === null,
+        );
+        assert.equal(
+          persistRuntimeOwnedCandidateRevision(
+            captured.candidateCapability,
+            current.bound.repositoryBindingCapability,
+            current.managementCapability,
+            current.mountCapability,
+            {},
+          ),
+          null,
+        );
+        assert.equal(
+          verifyRuntimeOwnedCandidateRevision(
+            captured.candidateCapability,
+            current.bound.repositoryBindingCapability,
+            current.managementCapability,
+            current.mountCapability,
+          )?.status,
+          "verified",
+        );
+        if (workspaceId === null && turn === 0) {
+          for (let index = 0; index < 999; index++)
+            fs.writeFileSync(
+              path.join(tree, "limit-" + index + ".txt"),
+              "synthetic",
+            );
+          assert.equal(
+            (await deliver(borrowed.workspaceCapability)).changedPaths?.length,
+            1000,
+          );
+          fs.writeFileSync(path.join(tree, "limit-999.txt"), "synthetic");
+          assert.equal(
+            (await deliver(borrowed.workspaceCapability, true)).changedPaths,
+            null,
+          );
+          for (let index = 0; index < 1000; index++)
+            fs.unlinkSync(path.join(tree, "limit-" + index + ".txt"));
+        }
+      } finally {
+        cleanupOwnedOperationDirectories(current.owned);
+      }
+      assert.equal(
+        fs.readFileSync(path.join(tree, "source.txt"), "utf8"),
+        "turn-" + turn + "\n",
+      );
+      assert.deepEqual(fs.readFileSync(gitFile), beforeGit);
+    }
+    if (workspaceId)
+      assert.equal(
+        git(["rev-parse", "refs/heads/crdd/workspace/" + uuid]),
+        base,
+      );
+  }
+});
 
 /**
  * writeObjectのTest準備責務を実行する。
@@ -196,9 +530,13 @@ function snapshotRepositoryFiles(root: string) {
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
  * @boundary RFD-IT-013=Direct Boundary: coordinator Test Source→対象契約
  */
-function operation(t: TestContext, repositoryRoot: string) {
+function operation(
+  t: TestContext,
+  repositoryRoot: string,
+  automaticCleanup = true,
+) {
   const owned = createOwnedOperationDirectories();
-  t.after(() => cleanupOwnedOperationDirectories(owned));
+  if (automaticCleanup) t.after(() => cleanupOwnedOperationDirectories(owned));
   const contextCapability = createOwnedOperationContextCapability(owned);
   const mountCapability = createOwnedMountCapability(owned);
   const managementCapability = createOwnedOperationManagementCapability(

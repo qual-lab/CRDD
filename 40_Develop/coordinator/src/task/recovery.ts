@@ -221,6 +221,10 @@ type ProductionPlan = Readonly<{
   proxyImageDigest: string;
   operationMode: "boolean_probe" | "isolated_task" | "workbench_advice";
   workspaceMountMode: "read_write" | "read_only" | null;
+  workspaceProtection?: Readonly<{
+    gitSourcePath: string;
+    internalSourcePath: string;
+  }>;
 }>;
 
 /**
@@ -1268,6 +1272,12 @@ export function currentDockerRecoveryResourceExpectations(
     proxyImageDigest: identity.images.proxy,
     workspaceMounted: identity.operationMode === "isolated_task",
     workspaceReadOnly: identity.workspaceMountMode === "read_only",
+    ...(identity.workspaceProtected === true
+      ? {
+          workspaceProtected: true,
+          workspaceProtection: identity.workspaceProtection,
+        }
+      : {}),
     initRequired: codexAdviceProviderInitRequired(
       identity.operationMode,
       identity.images.provider,
@@ -3024,6 +3034,12 @@ export function prepareRuntimeOwnedRepositoryDockerOperationIdentity(
       },
       operationMode: plan.operationMode,
       workspaceMountMode: plan.workspaceMountMode,
+      ...(plan.workspaceProtection
+        ? {
+            workspaceProtected: true,
+            workspaceProtection: plan.workspaceProtection,
+          }
+        : {}),
       ...(plan.recoveryCorrelationId
         ? { recoveryCorrelationId: plan.recoveryCorrelationId }
         : {}),

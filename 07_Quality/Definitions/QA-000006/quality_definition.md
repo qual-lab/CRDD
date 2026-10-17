@@ -2,13 +2,19 @@
 
 ## Workspace方式の追加検証条件（2026-10-17）
 
+Coordinator借用接続の追加断面は、`ERB-IT-006`の通常二役割・一回是正・範囲逸脱停止・取消、`RFD-IT-013`／`PRL-IT-013`の実GitでのDirect／Isolated入力搬送・開始dirty基準・二Task継続・元Tree／Branch保全、`ERB-UT-023`の三Mount計画と回収観測照合に割り当てる。旧Bundle準備／保存へ進まないこと、Reader拒否でfallbackしないこと、欠測を変更なしやTree保持済みへ補完しないことを確認する。局所代役の成功を実Provider・公開E2EのPassへ拡張しない。
+
+独立レビューで検出した即時回収の期待値搬送不足は、`ERB-IT-004`の本番command-runtimeと有限Transportを通す五Mount正常／欠落／RW／Source差の反証で確認する。最終観測は`PRL-IT-005`／013でTaskAttemptから上位Task／Attempt／Operationへ搬送し、Direct変更あり／なし／欠測とIsolatedを区別する。`ERB-IT-006`ではHost意図／Receipt保存拒否の早期失敗も元理由と回復参照を保持し、変更なしへ丸めないことを確認する。metadata搬送を新しい耐久保存・採用・Tree現存証明とは扱わない。
+
 現在のSecret区分は[DI共通方針](../../../06_Architecture/Details/docker-isolation/01_Architecture.md#workspace-isolation-policy)を正本とする。Direct／Candidateに同じ技術方針を適用し、開発用`.env`のdummy内容が読めること自体をFailにしない。`ERB-IT-001`〜004の追加条件は、Repository外・Git実管理領域・`.crdd`の書込み境界、Provider認証等の保護、用途別RW、取消／回収とする。本番SecretをGit・通常開発環境へ置かないこと、開発資格の本番権限なし・限定権限・期限は既存管理の構成・運用確認で評価し、模擬値やDIの成功を実Cloud権限検証へ流用しない。未確認は未評価として残し、自動Cloud検査や新しいRuntime Gateを捏造しない。旧隠蔽試験のFailは歴史として保持するが、新方針の不合格へ流用しない。Source共通化・新条件の実境界はNot Run。
 
 [Workspace詳細](../../../06_Architecture/Details/orchestrator/03_Workspace.md)の`docker-isolation.workspace-borrowing`（ARCH-000008）を追加する。`ERB-UT-023`は読取り助言／許可された変更依頼の分類と最小投影、`ERB-IT-001`〜004は新対象からの実Mount・Process開始／終了・取消・一次失敗とcleanup・観測不能を確認する。`ERB-ST-005`／030は通常公開Taskの結果と、実取消・親喪失後の同対象再入場を相関する。Git Worktreeの分離をSandboxとみなさず、未許可Repositoryへのアクセスと、共有Git管理情報への書込みを拒否する。Direct AI書込み／共有Gitの許可が未決なら新Effect前に停止し、継続Workspace・元変更・他Task成果の保全と実行資源の回収を別に観測する。基準DI完成は新方式の実Mount・全Provider経路の成功証拠にしない。
 
-本節の新方式はすべてNot Run。既存Local Itemの元結果・旧方式のEvidenceは維持し、新方式の実装／接続／実測へ継承しない。詳細Schema・操作許可・dirty／Commit処理の未決は該当実装前の停止条件とする。条件区分は正常・境界・準正常・異常・回復を扱い、UTの値判定、ITの実保存／実Git／実Mount、公開ST、利用者UATを相互代替しない。
+本節の新方式全体はNot Run。以下の限定実測だけを区別し、既存Local Itemの元結果・旧方式のEvidenceを新方式へ継承しない。詳細Schema・操作許可・dirty／Commit処理の未決は該当実装前の停止条件とする。条件区分は正常・境界・準正常・異常・回復を扱い、UTの値判定、ITの実保存／実Git／実Mount、公開ST、利用者UATを相互代替しない。
 
 2026-10-17のDirect最小構成の合成実証は、`direct-mount-boundary.integration.test.ts`で`ERB-IT-001`／002の設計調査用の限定断面として実行した。通常編集・固定Pathの11観測後、hardlink別名による元dummy内容の読取りでFail停止し、二構成目・後続刺激はNot Run。Git書込み・秘密file別名読取り・全Directの失敗を実測したとは扱わない。Host不変と試験物回収を確認し、結果・限界は[変更の調査記録](../../../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#承認済み一回の実証結果と終了2026-10-17)へ接続する。この限定反証は新方式Local Item全体の正式結果ではなく、上記Not Runや既存Evidenceを上書きしない。
+
+その後の明示承認により、同じ試験器の目的を固定Path書込み境界へ限定して更新した。Directory型／ポインタfile型の二構成とも、Source書込み・開発dummy.env読取りの正常対照と、`.git`／`.crdd`の固定Path書込み・rename・unlink拒否、Host不変、自己資源回収が成立した。試験器の局所二件と実Docker一件が成功。詳細は[実行版Hashと限定結果](../../../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#固定path書込み境界の承認済み限定結果2026-10-17)を参照する。前回のhardlink読取りFailを解消した試験ではなく、Secret完全隠蔽・全link経路・任意Repository・実Provider・新方式全体のPassは主張しない。
 
 公式配置Imageの`ERB-IT-031`は、既存Host専用試験の独立Caseで通常entrypointの版表示と三実行物Hash取得を分離し、実Image IDで結合する。AI Adapterの固定配布Identityを期待正本とし、Image既定entrypoint／User／Workdirと各Containerのnone・非root・read-only・cap-drop・no-new-privileges・Host mountなしを実inspectで確認する。Warningは有界の元stderrを用途別に保持し、消去や空への正規化をしない。元ID・名前・Label・構成の再確認後だけ自己資源を回収し、ID／名前／Labelの不存在とRoot清掃後だけ完了を表示する。作成結果不明では名前だけで削除しない。通常Profileの純粋Oracleは誤版・各Hash差／欠測／余剰・別Image・出力／終了不明と一次／清掃失敗の三組合せを反証する。この配置物確認を再Build、取得元再検証、Code Mode Host機能、認証、助言・取消やProvider E2Eの成立に拡張しない。
 

@@ -21,6 +21,52 @@ import {
 } from "../../../orchestrator/src/index.ts";
 import { startRuntimeOwnedCoordinatorTask } from "../../src/task/execution.ts";
 import { observeCoordinatorTaskCompletion } from "../../src/task/completion-observation.ts";
+import { snapshotCoordinatorWorkspaceResult } from "../../src/task/attempt.ts";
+
+/**
+ * 変更観測の意味と閉じた形を固定する。
+ * @responsibility 欠測・空・変更ありと方式の相関を反証する。
+ * @trace PRL-IT-005
+ * @precondition 内容なしの観測metadata。
+ * @stimulus 正常値と各不整合、getter、余剰field。
+ * @observation snapshot又はnull。
+ * @oracle 欠測を変更なしにせずHost Pathを受けない。
+ * @cleanup N/A: 値検査だけ。
+ * @boundary Task結果と上位契約。
+ */
+test("Workspace観測snapshotは方式と変更情報の相関を保持する", () => {
+  const base = {
+    workspaceId: null,
+    changedPaths: ["src/file.ts"],
+    canonicalRepositoryChanged: true,
+    changeAttribution: "unattributed",
+    workspaceDeletionIssued: false,
+  };
+  assert.deepEqual(snapshotCoordinatorWorkspaceResult(base), base);
+  for (const raw of [
+    { ...base, canonicalRepositoryChanged: false },
+    { ...base, changedPaths: null },
+    { ...base, changedPaths: [] },
+    { ...base, changedPaths: ["C:/host"] },
+    { ...base, changedPaths: ["../outside"] },
+    { ...base, changedPaths: ["src/file.ts", "src/file.ts"] },
+    { ...base, workspaceDeletionIssued: true },
+    { ...base, extra: true },
+    Object.defineProperty({ ...base }, "changedPaths", {
+      get: () => assert.fail("getter"),
+    }),
+  ])
+    assert.equal(snapshotCoordinatorWorkspaceResult(raw), null);
+  for (const changedPaths of [null, [], ["src/file.ts"]]) {
+    const value = {
+      ...base,
+      changedPaths,
+      canonicalRepositoryChanged:
+        changedPaths === null ? null : changedPaths.length > 0,
+    };
+    assert.deepEqual(snapshotCoordinatorWorkspaceResult(value), value);
+  }
+});
 import {
   beginRuntimeProcessEffectDrain,
   endRuntimeProcessEffectDrain,
@@ -1312,6 +1358,7 @@ test("Effect前拒否母集団は現在Runtimeの実throw経路と一致する",
   assert.deepEqual(ORCHESTRATOR_SINGLE_TASK_PRE_EFFECT_REJECTIONS, [
     "coordinator_task_process_restart_required",
     "coordinator_task_runtime_cleanup_in_progress",
+    "coordinator_task_workspace_target_invalid",
   ]);
   const runtimeSource = fs.readFileSync(
     path.resolve(import.meta.dirname, "../../src/task/execution.ts"),
