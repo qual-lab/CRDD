@@ -11,6 +11,13 @@
  * @security Tool名だけでRoutingし、専門AdapterのAuthority判断を迂回しない。
  */
 import { snapshotPlainRecord } from "./snapshot.ts";
+import {
+  getMcpWorkspaceToolDefinitions,
+  handleMcpWorkspaceRequest,
+  MCP_WORKSPACE_READ_TOOL,
+  MCP_WORKSPACE_MANAGE_TOOL,
+  type WorkspaceAccessResolver,
+} from "../workspace/adapter.ts";
 import { handleMcpDiscoverRequest } from "./discover.ts";
 import {
   listMcpAccessTools,
@@ -83,6 +90,7 @@ import {
  */
 export type McpRequestRoutingDependencies = Readonly<{
   orchestrator?: McpOrchestratorDependencies;
+  workspace?: WorkspaceAccessResolver;
   projectContext: McpProjectContextDependencies;
   runtimeActivity?: McpRuntimeActivityDependencies;
   aiProfileAdministration?: AiProfileCatalogAdministration;
@@ -159,6 +167,7 @@ export async function routeMcpRequest(
       return protocolError(request.id, -32800, "Request cancelled");
     return protocolComplete(request.id, {
       tools: Object.freeze([
+        ...(dependencies.workspace ? getMcpWorkspaceToolDefinitions() : []),
         ...(dependencies.orchestrator === undefined
           ? []
           : getMcpOrchestratorToolDefinitions()),
@@ -186,6 +195,13 @@ export async function routeMcpRequest(
   if (request.method !== "tools/call")
     return protocolError(request.id, -32601, "Method not found");
   const params = snapshotPlainRecord(request.params, callKeys);
+  if (
+    params?.name === MCP_WORKSPACE_READ_TOOL ||
+    params?.name === MCP_WORKSPACE_MANAGE_TOOL
+  )
+    return dependencies.workspace
+      ? handleMcpWorkspaceRequest(rawRequest, dependencies.workspace, signal)
+      : protocolError(request.id, -32601, "Method not found");
   if (
     params?.name === MCP_CURRENT_ACCESS_TOOL ||
     Object.values(MCP_ACCESS_MANAGEMENT_TOOLS).includes(params?.name as never)

@@ -49,6 +49,8 @@ export type OrchestratorWorkspaceRequest = Readonly<{
   projectId: string;
   queueId: string;
   workspaceId: string;
+  expectedGeneration?: number;
+  authorize?: () => boolean;
 }> &
   (
     | { operation: "create"; baseCommit: string; name?: string }
@@ -174,6 +176,13 @@ export function manageOrchestratorWorkspace(
       observed.value.workspaces.find(
         (entry) => entry.workspaceId === request.workspaceId,
       ) ?? null;
+    if (
+      request.expectedGeneration !== undefined &&
+      request.expectedGeneration !== (record?.generation ?? 0)
+    )
+      throw new Error("orchestrator_workspace_generation_conflict");
+    if (request.authorize && !request.authorize())
+      throw new Error("orchestrator_candidate_not_authorized");
     const save = (next: OrchestratorWorkspace | null) => {
       const saved = writeOrchestratorWorkspaceRecord(
         request.ownerRepositoryRoot,
@@ -196,6 +205,17 @@ export function manageOrchestratorWorkspace(
     const operationQueue = observed.value.queueEntries.find(
       (entry) => entry.queueId === request.queueId,
     );
+    if (
+      !operationQueue ||
+      operationQueue.projectId !== request.projectId ||
+      (record &&
+        !observed.value.queueEntries.some(
+          (entry) =>
+            entry.projectId === request.projectId &&
+            entry.workspaceId === request.workspaceId,
+        ))
+    )
+      throw new Error("orchestrator_workspace_target_mismatch");
     const operationResults = observed.value.results;
     /**
      * Candidateの採否と固定Identityを既存の不変結果Portへ保存する。
@@ -333,6 +353,8 @@ export function manageOrchestratorWorkspace(
         lastResult: null,
         primaryFailure: null,
       });
+      if (request.authorize && !request.authorize())
+        throw new Error("orchestrator_candidate_not_authorized");
       result.gitResult = createRepositoryWorktree(verified.capability, {
         workspaceId: request.workspaceId,
         baseCommit: request.baseCommit,
@@ -466,6 +488,12 @@ export function manageOrchestratorWorkspace(
             !c ||
             c.candidateCommit !== request.expectedCommit ||
             !request.referencesReleased ||
+            observed.value.queueEntries.some(
+              (entry) =>
+                entry.workspaceId === record?.workspaceId &&
+                entry.queueId !== request.queueId &&
+                !["completed", "cancelled"].includes(entry.state),
+            ) ||
             !request.authorize() ||
             (c.phase === "removing" && c.disposition !== request.disposition) ||
             (request.disposition === "adopted" &&
@@ -582,6 +610,8 @@ export function manageOrchestratorWorkspace(
                   discardChanges: request.discardChanges === true,
                 },
         });
+        if (request.authorize && !request.authorize())
+          throw new Error("orchestrator_candidate_not_authorized");
         result.gitResult = disposeRepositoryWorktree(verified.capability, {
           workspaceId: request.workspaceId,
           expectedHead: request.expectedHead,

@@ -201,7 +201,7 @@ Git Adapterが本番RuntimeでGit CLIを起動する場合、その子Process境
 | Local Change Set Git Adapter | `gitLocalChangeSetAdapter` |
 | Repository Worktree View Git Adapter | `gitRepositoryWorktreeViewAdapter` |
 | Repository Worktree Management | `RepositoryWorktreeObservation`、`RepositoryWorktreeResult`、`createRepositoryWorktree`、`observeRepositoryWorktree`、`disposeRepositoryWorktree` |
-| Workspace Candidate | `WorkspaceCandidateSelection`、`WorkspaceCandidateRequest`、`WorkspaceCandidateResult`、`WorkspaceCandidateTemporary`、`validWorkspaceDisplayName`、`validWorkspaceCandidateRequest`、`freezeWorkspaceCandidate`、`mergeWorkspaceCandidate`、`removeWorkspaceCandidate` |
+| Workspace Candidate | `WorkspaceCandidateSelection`、`WorkspaceCandidateRequest`、`WorkspaceCandidateResult`、`WorkspaceCandidateTemporary`、`validWorkspaceDisplayName`、`validWorkspaceCandidateRequest`、`inspectWorkspaceFile`、`inspectWorkspaceCandidatePatch`、`freezeWorkspaceCandidate`、`mergeWorkspaceCandidate`、`removeWorkspaceCandidate` |
 | Change Publication Git Adapter | `ChangePublicationCommandRunner`、`createGitChangePublicationAdapter`、`gitChangePublicationAdapter`、`createGitChangePublicationTargetObservationAdapter`、`gitChangePublicationTargetObservationAdapter` |
 | Migration System Closure | `MigrationConsumerObservation`、`inspectMigrationSystemClosure` |
 | Checker Repository Observation | `RepositoryEntryObservation`、`observeDeclaredNestedRepositoryPaths`、`observeNestedRepository`、`observeRepositoryEntries`、`readFixedSnapshotText`、`resolveRevisionIdentity` |

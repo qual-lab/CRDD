@@ -30,6 +30,14 @@ Behavior ID: `BHV-000027`
 
 ## 3. Behavior Flow
 
+### v0.22 Git固定候補の公開操作
+
+WorkbenchとMCPは同じOrchestrator Ownerへ直接接続する。共有利用では三Roleいずれも対象Repositoryの現在development利用許可を必要とし、managementだけの許可からGit書込みを発行しない。単体利用では固定Repositoryだけを資格なしで扱う。入力のRoot・認可関数・参照解放済み申告は受けない。
+
+固定は確認したBase・HEAD・file全体のBlob／mode／削除と表示名を保持する。採用は別要求で固定Commit、取込先Branch、期待HEADを指定し、直前の現在認可と既存Writerの世代・非使用条件を確認する。Gitの二親Mergeは統合事実であり、採用理由や品質成立の証明を代替しない。旧Bundleの採用結果を新候補へ流用しない。
+
+応答喪失は処置不存在を意味しない。既存状態・固定Refを再取得し、同じ操作Identityの既存再入場だけを明示利用する。自動再送・自動rollback・別IDでの再作成は行わない。採否後の不要RefとWorktreeは既存の終了処理へ接続し、使用中・保持・観測不能は成功へ丸めない。既知秘密を含む本文・追加／削除差分を公開出力しないことと、未知秘密の不存在保証を区別する。
+
 ```text
 持ち帰った候補を採用・却下・保留する時
   ↓

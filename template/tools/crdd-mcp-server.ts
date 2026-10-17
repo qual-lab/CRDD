@@ -22,6 +22,15 @@ import {
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { createTopicOperations } from "../../40_Develop/domain-model/src/index.ts";
+import {
+  createFilesystemRepositoryObservationPort,
+  inspectRepositoryManifest,
+  REPOSITORY_MANIFEST_RELATIVE_PATH,
+} from "../../40_Develop/domain-model/src/index.ts";
+import {
+  verifyRepositoryRoot,
+  resolveVerifiedRepositoryRoot,
+} from "../../40_Develop/version-control/src/index.ts";
 import { createMeetingOperations } from "../../40_Develop/domain-model/src/index.ts";
 import { parseRepositoryProjectContextMarkdown } from "../../40_Develop/domain-model/src/index.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../40_Develop/version-control/src/index.ts";
@@ -176,6 +185,32 @@ function createRequestRoutingDependencies(): McpRequestRoutingDependencies {
   );
   return {
     orchestrator: orchestratorDependencies(),
+    workspace: (repositoryId) => {
+      const verified = verifyRepositoryRoot(repositoryRoot);
+      if (verified.status !== "completed") return null;
+      const observer = createFilesystemRepositoryObservationPort(
+        verified.capability,
+        1_048_576,
+      );
+      const file = observer.observeFile(REPOSITORY_MANIFEST_RELATIVE_PATH);
+      const source = file.status === "resolved" ? file.source : null;
+      const manifest =
+        source === null ? null : inspectRepositoryManifest(JSON.parse(source));
+      if (!manifest || manifest.repositoryId !== repositoryId) return null;
+      return {
+        ownerRoot: repositoryRoot,
+        projectId: manifest.projectId,
+        authorize: () => {
+          if (
+            resolveVerifiedRepositoryRoot(verified.capability) !==
+            repositoryRoot
+          )
+            return false;
+          const fresh = observer.observeFile(REPOSITORY_MANIFEST_RELATIVE_PATH);
+          return fresh.status === "resolved" && fresh.source === source;
+        },
+      };
+    },
     projectContext: {
       readPortfolio: () => readRepositoryPortfolio(process.cwd()),
     },

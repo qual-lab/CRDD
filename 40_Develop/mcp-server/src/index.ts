@@ -10,6 +10,13 @@
  */
 export { readMcpServerConfiguration } from "./transport/configuration.ts";
 export {
+  getMcpWorkspaceToolDefinitions,
+  handleMcpWorkspaceRequest,
+  MCP_WORKSPACE_READ_TOOL,
+  MCP_WORKSPACE_MANAGE_TOOL,
+  type WorkspaceAccessResolver,
+} from "./workspace/adapter.ts";
+export {
   MCP_ORCHESTRATOR_ADAPTER_CONTRACT,
   describeMcpOrchestratorAdapterContract,
   handleMcpOrchestratorRequest,

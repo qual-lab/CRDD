@@ -18,7 +18,7 @@ Version ControlのWorktree管理に続き、名前付きCandidateの明示固定
 
 | 対象 | 現在の状態 | Owner Relation |
 |---|---|---|
-| Workspace／Orchestrator | 実Worktree管理・Task搬送に加え、候補固定・採用Git統合・Ref回収の内部接続を実装。VC全64件、Orchestrator UT73・IT33成功、技術・Qualityの独立再レビュー残0。公開Surface・実Provider E2E・人間UAT・実データ移行は未完了であり、全体完成ではない | [実装と検証の範囲](99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#採用git統合のsource接続と実git確認) |
+| Workspace／Orchestrator | 公開Workspace管理をWorkbench／MCPから共通Ownerへ直接接続。実Git・両HTTPの固定→差分→別採用→終了、通常単体入口、Browserの非再送・不正応答拒否を確認。VC64件・MCP88件・Orchestrator UT73件成功、独立再レビュー残0。Workbench既存回帰2失敗、旧AI専用経路撤去・実Provider E2E・人間UAT・移行は別に未完了 | [公開接続の現在地と限定結果](99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#公開workspace管理の実装結合結果2026-10-18) |
 | Access Management／公開入口 | 専門Packageへの接続と旧CROS Package・REST／Gateway撤去の区切りは完了。初回設定・鍵操作の実入口と人間確認は後続E2Eへ保持する | [変更の現在地](99_Roadmap/Changes/CHG-000082/change.md)、[接続と後続E2E](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#今回の区切りと後続e2e--2026-10-14) |
 | Docker Isolation | 実装・検証完了。技術的な実行・観測・取消・回収を分離し、旧Docker両Folderとruntimeを撤去。状態保存・操作前後のOwner確認・結果受領は上位に保持。実境界の成立と未実証の限界は隔離設計の現在表を参照 | [現在の計画・検証結果](99_Roadmap/Changes/CHG-000082/second-stage-plan.md)、[隔離設計](06_Architecture/Details/docker-isolation/01_Architecture.md) |
 | 通常実行の署名依存 | Coordinator専用の署名入口・Manifest設定・固定AST graphと、Domainの旧署名専用profileを撤去。通常保存の失敗反証と旧入力拒否を確認し、限定独立レビューの残指摘0。汎用成果物署名・必要Artifact同一性・現在認可・隔離は維持する | [Coordinator設計](06_Architecture/Details/coordinator/01_Architecture.md#9-通常実行追跡正式配布の分離)、[保存設計](06_Architecture/Details/domain-model/03_Repository_Storage.md) |

@@ -485,3 +485,60 @@ W4の技術・Qualityの独立再レビューは両者とも残指摘0。最終S
 | 未実施 | 実Provider依頼、Docker操作、Workbench／MCPの新操作公開、人間UAT、実データ移行、旧Bundle全面撤去。本Repository本体の候補採用・Merge・Push・Releaseは行っていない |
 
 最終run終了後、自己生成した`worktree-management-*`／`orchestrator-workspace-*`の試験Rootは0件で、全fixtureの回収を確認した。差分の空白検査も成功。今回の変更は未コミットであり、人間が操作したステージ状態を維持する。
+
+### 公開入口への接続着手（2026-10-18）
+
+人間の指示により上記17ファイルを`5038b6bd`へコミットし、作業Treeがcleanであることを確認した。Push・main統合は行っていない。前節の未コミット表示はこのコミット前の結果記録である。次はWorkbench／MCPの公開入口接続を同じCHGで進める。
+
+変更分類は、採用済みWorkspace方式の公開入力・現在認可・表示と本番Consumerへの接続である。既存の人間判断・Git所有・隔離・保存・回復境界は変更しない。着手前に契約／技術とQuality／利用側の二つの読取り専用確認を行った。独立完成レビューとは区別する。実装・関連文書・限定Gap／Impact・実公開入口の回帰を必要とし、準拠基準・Releaseの変更はないため準拠／Release監査は追加しない。
+
+| 接続対象・現在の不足 | 予定処置 |
+|---|---|
+| Orchestrator内部APIはRoot／Bindingと関数を直接受ける | 公開入力はRepository／Project／Queue／WorkspaceのIDと操作固有値へ限定する。Root・保存Binding・認可関数はServer構成が解決する。現在値・状態・固定Commit・失敗／回復参照の公開投影をOwnerへ接続し、内部記録全体を返さない |
+| 明示選択に必要な変更一覧・file内容／差分・Blob確認値 | 既存VC読取りを優先利用し、Base・現在内容・選択Pathを相関した観測を返す。切詰め・欠測・binaryを正常全文へ丸めず、再観測で変更した選択は固定しない。新Candidate Storeを作らない |
+| Workspaceの一覧／状態、作成、改名、保留、明示終了 | 同じOrchestratorの既存現在値・操作へ両Surfaceから直接接続する。内容範囲の旧workspaceIdsをGit Workspace UUIDへ流用せず、既存Queue所属・期待HEAD・非使用を確認する |
+| 選択WorkspaceでのTask、取消・結果 | 公開依頼から対象Workspaceを既存Taskへ搬送する。Directは既存Tree、Isolatedは検証した専用Treeとし、起動Rootへのfallback・自動Commit・自動採用を行わない |
+| Candidateの固定・採用・終了 | 固定と採用を別操作にし、確認したBase・選択内容・固定Commit・取込先を搬送する。外部の採用済み申告やreferencesReleasedのBooleanだけで内部条件を成立させず、既存状態・利用・保持と現在認可へ対応させる |
+| 通常MCP配布Launcher | 現行三ToolのOrchestrator構成と混同せず、新入力／一覧／dispatchを公開入口まで接続する |
+| CROS HTTPのcreateAccessMcpResolver | 現在は内容・活動等だけを構成する。新Adapterの単体追加で完了せず、要求毎のAM認証・現在許可・Repository所属から新操作を構成する |
+| WorkbenchのcandidateActions／candidate/action | 旧Coordinator Bundle経路を新Git候補の採用証拠へ流用しない。既存Project／作業・候補表示へWorkspace選択→変更確認→固定→固定成果確認→別採用／終了の導線を具体化する。既存Visual Baselineを維持し、UI／SPEC Detailと検証へ反映する |
+
+実装順は、共通Ownerの公開入力・読取り投影、MCP Adapterと通常／CROS Launcher、Workbenchの現在認可・HTTP・CSR表示、実Git＋実Writerを使う両公開入口の結合／System確認、独立レビュー・文書／Gap照合・生成物回収とする。WorkbenchをMCP Clientへ変更せず、第三Gateway・新Registry・Lock・承認Framework・一般Recoveryは作らない。実AI・Docker・既存データ移行は本段階の内部試験から暗黙実行しない。
+
+人間がFront AIへ対象・内容・操作を明示指示してMCPが代行することは既存契約で成立する。Serverが人間由来を技術的に証明する追加要件は採用していない。認証済みPrincipalや確認Booleanを人間判断の証明にせず、Front AIはTask完了・候補生成から固定／採用／破棄を自動発行しない。既存submit_decision／adoptResultを新Git採用の許可へ転用しない。
+
+**実装前の判断待ち:** 共有CROSで新しいGit書込み操作を誰へ許可するか。現在のAMはRoleごとの管理分担とdevelopment／managementの内容利用範囲を所有するが、新Workspaceの作成・固定・採用・破棄の操作許可は未確定である。旧閲覧許可から新操作許可を自動発行しないというQA-000007の条件を維持する。推奨案は、三Roleいずれも当該Repositoryのdevelopment利用範囲が現在許可されていればこれらの明示操作を利用可能、management範囲だけの場合は利用不可とし、Roleごとの新しい設定スイッチは増やさないこと。Repository単体利用は既存の資格不要・固定Root境界を維持する。この案は提案であり、Sourceへの認可実装は判断後に行う。
+
+2026-10-18に人間が上記操作権限案を採用し、両公開入口の実装・結合試験を指示した。判断待ちは解消。既存AMの現在`development`許可を明示的に新操作へ適用する承認であり、Role管理権限・旧内容閲覧からの暗黙拡張ではない。二つの着手前確認もこの決定との整合を確認した。発火例はdevelopment許可＋現在対象一致、非発火例はmanagementのみ／失効／別Repository、境界例は確認後の内容・HEAD・権限変更、情報不足例はRoot／状態／認可観測不能とし、後三者で新Effectを許可しない。公開入力はRootや認可関数を含めず、選択fileの相対Path・mode・Blob確認値は操作固有値として受け付ける。
+
+### 公開Workspace管理の実装・結合結果（2026-10-18）
+
+基準は`5038b6bd`。新しい管理台帳・排他・一般Recovery・Secret Managerを追加せず、既存OrchestratorのWriterとLease、VCの標準Gitへ接続した。WorkbenchはMCPを呼ばない。通常固定Repositoryは資格不要、共有接続は三Roleとも現在の対象`development`許可を要求する。
+
+| 対象 | 実装・観測した範囲 |
+|---|---|
+| 共通Owner | `workspace/commands.ts`が操作別の閉入力、所属、期待世代、現在認可と非秘密投影を所有する。Root・callback・参照解放済みの自己申告はwireに含めない |
+| MCP | `crdd.get_workspace`／`crdd.manage_workspace`の二Tool。通常stdio Launcher、共有HTTP Resolverまで接続し、同じOwnerを呼ぶ |
+| Workbench | 同Origin `POST /workspace/action`とCSR Panel。一覧・作成・選択・改名・保持、file確認・固定、固定差分・別採用・終了を分ける。旧Bundleのcandidate/actionは流用しない |
+| 実Git／保存 | 確認したfileのBlobを固定し、Task完了だけでは採用しない。固定後のTree変更が固定差分へ混入しないこと、二親Merge、RefとWorktreeの回収を実Git・実Writerで確認 |
+| 故障後 | WorkbenchのMerge結果をGit・保存後のHTTP終了位置で切断し、MCPの同ID読取りからmerged／同Merge Commitを再取得、HEAD不変と正式終了・回収を確認。汎用の発行後取消完了や全故障枝の実証ではない |
+| 秘密境界 | raw本文・patch元値とhunk本文を既存判定へ接続。合成の固定形式、先頭／2行目の名前付き秘密、削除行・固定差分を両HTTPで非出力拒否。通常Sourceは表示し、`.env`一律禁止や未知秘密不存在保証は追加しない |
+| Browser | 本番Bundle・専用Chromeで作成の二重送信抑止、応答破損の非再送と再取得、終了を確認。別Workspace ID、不正changedPaths／statusの正常形JSONも表示へ採用しない。最新P3是正後の非空合成一覧保持を含む再実行も3件成功（62,546ms）。合成一覧はUI故障反例であり、実Git差分の成立と区別する |
+| 表示 | 新Panelを含む既存3 RouteのPC／Tablet／Mobileと100／200／400%の27測定が成功。人間による導線・Tasteの採用確認は別である |
+
+技術とQualityの二必須独立レビューを固定候補へ実施し、raw秘密検査、候補BaseとWorkspace Baseの区別、不正応答の全検査後反映を是正した。元の2レビューが終了する前にSource是正せず、統合案の両者整合後に更新した。残る変更一覧反映順のP3も同じ手順で限定是正・再レビューし、Source上の残指摘は両者0。最終実行結果は次表へ同期する。
+
+| 検証 | 現在結果・限界 |
+|---|---|
+| 静的検査・Build | VC／Orchestrator／MCP／Workbenchの型検査・適用範囲の整形／Lint成功。Browser Bundle生成成功。TSXは既存Biome対象外のため、当該新Panelを同Formatterのstdin指定で個別整形した |
+| VC回帰 | 全64件成功 |
+| Orchestrator | UT73件成功。IT全34件の初回は32成功、公開Export集合と保存故障代役のQueue前提の2件を是正し、対象再実行は成功。修正後全34件の一括再実行結果とは区別する |
+| MCP最終回帰 | 全88件成功（140,152ms）。公開Git縦断、秘密反例、通常単体入口と既存管理・Transportを含む |
+| Workbench回帰 | 全58件中56成功・既存2件失敗。公開Workspace HTTP結合・実Browserは別の該当試験で確認。全回帰Passとはしない |
+| 文書検査 | 変更した8正本の限定検査で当該Pathの指摘0。関連展開を含む全結果は1,100エラーで不合格であり、全Repositoryの現行完全検査や全体準拠Passではない |
+
+既存Workbenchの2失敗は、HEAD時点でも1,079,297 bytesの`second-stage-plan.md`がOwner Artifact Readerの512KiB上限を超えること、および現在のProject Contextにない旧文言・固定件数への期待である。今回の公開操作がOwner Artifactを全件availableへ変えたとは扱わず、上限を緩めない。担当責任者はQual-Lab、再評価契機はWorkbench全体の品質・文書整理とv0.22完成Gateとする。後続で正本の分割／要約と固定fixture化のどちらをOwnerが行うか照合する。
+
+今回完成の対象は公開Workspace管理の限定接続である。Workbench旧AI専用経路の共通Taskへの置換、実Provider E2E、別Baseの実Git→実Browser縦断、人間UAT、実データ移行・旧Bundle全面撤去は未完了であり、今回の成功へ含めない。通常Objectiveの任意Workspace IDは受付へ搬送するが、共有WorkbenchのAI実行機能全体を提供済みとしない。新しい実Provider依頼、Docker操作、統合、タグ、Releaseは実行していない。
+
+限定文書監査・Gap／Impact監査も二件の集合で実施した。実行時点の表現と既存Browser Suiteから新Panelへの`verifies`関係を同期し、新QA IDや実行別Evidence書庫を増やしていない。全試験終了後、今回のWorkspace・MCP・Browser・Visualの自己生成試験Root残存は0件。人間のステージ状態は維持し、今回分は未コミット・未プッシュである。

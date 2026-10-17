@@ -159,18 +159,18 @@ test("Objective要求は閉じた公開契約へsnapshotする", () => {
 });
 
 /**
- * Objectiveの任意三項目を全組合せで固定する。
+ * Objectiveの任意四項目を全組合せで固定する。
  *
- * @responsibility 明示Profileのexact搬送と省略時の非生成を全八組合せで検証する。
+ * @responsibility 明示Profile／Workspaceのexact搬送と省略時の非生成を全十六組合せで検証する。
  * @trace PRL-UT-014
- * @precondition 正常なObjectiveと三つの任意入力を使用する。
- * @stimulus 三項目の有無を全八組合せで入力検査へ渡す。
+ * @precondition 正常なObjectiveと四つの任意入力を使用する。
+ * @stimulus 四項目の有無を全十六組合せで入力検査へ渡す。
  * @observation Snapshot全体、Profile ID、所有Propertyと不変性を確認する。
  * @oracle 同じ入力だけが固定され、省略したProfileを補完しない。
  * @cleanup N/A: 外部資源を作成しない。
  * @boundary N/A: 純粋な入力検査。
  */
-test("Objectiveの任意三項目は全八組合せでexactにsnapshotする", () => {
+test("Objectiveの任意四項目は全十六組合せでexactにsnapshotする", () => {
   const optionalFieldNames = [
     {
       decisionCapabilityReplacement: {
@@ -180,8 +180,9 @@ test("Objectiveの任意三項目は全八組合せでexactにsnapshotする", (
     },
     { requestedExecutorProvider: "codex" },
     { requestedProfileId: "PROFILE-100001" },
+    { workspaceId: "11111111-1111-1111-1111-111111111111" },
   ];
-  for (let mask = 0; mask < 8; mask += 1) {
+  for (let mask = 0; mask < 16; mask += 1) {
     const source = Object.assign(
       { ...objectiveRequest() },
       ...optionalFieldNames.filter(

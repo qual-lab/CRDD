@@ -14,6 +14,7 @@ import {
   resolveAiProfileManagementAccess,
   resolveRepositoryAccessCollection,
   sameAccessCollection,
+  resolveRepositoryAccess,
 } from "../../../access-management/src/index.ts";
 import type { AiProfileCatalogAdministration } from "../../../ai-adapter/src/index.ts";
 import {
@@ -67,6 +68,42 @@ export function createAccessMcpResolver(
         request,
         {
           accessManagement: { root, token },
+          workspace: (repositoryId) => {
+            const initial = resolveRepositoryAccess(
+              root,
+              token,
+              repositoryId,
+              "development",
+            );
+            if (initial.status !== "completed") return null;
+            const ownerRoot = resolveVerifiedRepositoryRoot(
+              initial.access.root,
+            );
+            if (ownerRoot === null) return null;
+            return {
+              ownerRoot,
+              projectId: initial.access.manifest.projectId,
+              authorize: () => {
+                const fresh = resolveRepositoryAccess(
+                  root,
+                  token,
+                  repositoryId,
+                  "development",
+                );
+                return (
+                  !signal.aborted &&
+                  fresh.status === "completed" &&
+                  fresh.access.revision === initial.access.revision &&
+                  fresh.access.bindingId === initial.access.bindingId &&
+                  JSON.stringify(fresh.access.manifest) ===
+                    JSON.stringify(initial.access.manifest) &&
+                  resolveVerifiedRepositoryRoot(initial.access.root) ===
+                    ownerRoot &&
+                  resolveVerifiedRepositoryRoot(fresh.access.root) === ownerRoot
+                );
+              },
+            };
+          },
           ...(profileAdministration === undefined
             ? {}
             : {

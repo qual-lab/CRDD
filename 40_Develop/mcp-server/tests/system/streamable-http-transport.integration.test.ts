@@ -1217,6 +1217,8 @@ for (const mode of [
               MCP_PROJECT_CONTEXT_LIST_TOOL,
               MCP_PROJECT_CONTEXT_GET_TOOL,
               MCP_RUNTIME_ACTIVITY_TOOL,
+              "crdd.get_workspace",
+              "crdd.manage_workspace",
             ].sort(),
           );
           const current = await call("tools/call", {

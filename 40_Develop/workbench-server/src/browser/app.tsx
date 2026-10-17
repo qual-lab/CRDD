@@ -40,6 +40,7 @@ import { ManagementPanel } from "./management-panel.tsx";
 import { ProfileManagementPanel } from "./profile-management-panel.tsx";
 import { RecordOperationPanel } from "./record-operation-panel.tsx";
 import { RepositoryOperationPanel } from "./repository-operation-panel.tsx";
+import {WorkspacePanel} from "./workspace-panel.tsx";
 import { requestWorkbench, setWorkbenchCredential, clearWorkbenchCredential } from "./connection.ts";
 import {
   renderWorkbenchProjectPlan,
@@ -1087,6 +1088,7 @@ function MainWorkbench({ model: initialModel }: { model: WorkbenchMainViewModel 
           {renderWorkbenchQuality(model.surface.quality, model.surface.ownerArtifacts)}
           <OwnerArtifacts model={model} />
           <RuntimeActivity model={model} />
+          <WorkspacePanel key={`workspace:${model.selectedRepositoryId}:${model.actionToken}`} repositoryId={model.selectedRepositoryId??model.surface.context.repositoryId} projectId={model.surface.context.projectId} actionToken={model.actionToken} initialHead={model.surface.repository.publicationTarget?.revisionIdentity??""} initialBranch={model.surface.repository.publicationTarget?.branch??""}/>
           {model.connection.state === "repository" ? <Repository model={model} /> : model.repositoryActionsConfigured && model.selectedRepositoryId !== null ? <RepositoryOperationPanel key={`${model.selectedRepositoryId}:${model.actionToken}`} repositoryId={model.selectedRepositoryId} actionToken={model.actionToken} refresh={refreshReadModel}><Repository model={model} /></RepositoryOperationPanel> : <fieldset disabled style={{display:"contents"}}><Repository model={model} /></fieldset>}
           {model.connection.state === "repository" ? <Connection /> : <WorkbenchPanel id="connection" eyebrow="Local CROS" title="接続" status="Connected"><a href="/?repositoryId=">接続とProject一覧へ戻る</a></WorkbenchPanel>}
           <ManagementPanel actionToken={model.actionToken} refreshReadModel={refreshReadModel} />

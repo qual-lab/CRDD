@@ -22,7 +22,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { randomUUID, createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { request as httpRequest } from "node:http";
+import { request as httpRequest, ServerResponse } from "node:http";
 import test, { type TestContext } from "node:test";
 
 import {
@@ -38,6 +38,7 @@ import {
   updateExposure,
   readCurrentAccess,
   projectCurrentAccessResult,
+  resolveRepositoryAccess,
   type AccessManagementState,
 } from "../../../access-management/src/index.ts";
 import {
@@ -60,8 +61,11 @@ import {
 import {
   createOrchestratorState,
   initializeOrchestratorSnapshot,
+  executeWorkspaceCommand,
 } from "../../../orchestrator/src/index.ts";
 import { writeOrchestratorSnapshotState } from "../../../orchestrator/src/storage/current-state.ts";
+import { prepareWorkspaceSurface } from "../../../orchestrator/tests/fixtures/workspace-surface.ts";
+import { startWorkbench } from "../../../workbench-server/src/index.ts";
 import {
   createTaskAttemptSettledEvent,
   writeExecutionIntelligenceEvent,
@@ -129,7 +133,7 @@ test("MCP本人readは三Roleの現在本人だけを実HTTPへ返す", async (t
         required: [],
         properties: {},
       });
-      assert.equal(tools.length, role === "developer" ? 16 : 26);
+      assert.equal(tools.length, role === "developer" ? 18 : 28);
       assert.equal(
         tools.some((tool) => tool.name === "crdd.register_repository"),
         false,
@@ -262,7 +266,7 @@ test("非鍵管理MCPの十操作はRoleと閉結果を実保存へ接続する"
     const handler = await resolver(f.token);
     assert.ok(handler);
     const deniedList = await handler(listRequest, new AbortController().signal);
-    assert.equal((deniedList.result as { tools: unknown[] }).tools.length, 16);
+    assert.equal((deniedList.result as { tools: unknown[] }).tools.length, 18);
     const before = fs.readFileSync(f.current);
     const deniedRead = await (
       await call(base, f.token, "crdd.list_access_users", {})
@@ -290,8 +294,8 @@ test("非鍵管理MCPの十操作はRoleと閉結果を実保存へ接続する"
         }[];
       }
     ).tools;
-    assert.equal(tools.length, 26);
-    assert.equal(new Set(tools.map((tool) => tool.name)).size, 26);
+    assert.equal(tools.length, 28);
+    assert.equal(new Set(tools.map((tool) => tool.name)).size, 28);
     assert.equal(
       tools.some((tool) => tool.name === "crdd.register_repository"),
       false,
@@ -1125,6 +1129,477 @@ test("AM活動MCPは実保存観測と現在Exposure・失効を接続する", a
  * @cleanup 呼出側のListener終了後に所有Directoryだけを削除し不存在を確認する。
  * @boundary 自己生成Filesystem、Git、AM公開保存入口。
  */
+/**
+ * 両公開入口を同じ実Git／Writer／現在認可へ接続する。
+ * @responsibility Transportの違いで業務処理と認可を複製しないことを反証する。
+ * @trace CPR-IT-001
+ * @trace CPR-IT-004
+ * @trace CPR-IT-006
+ * @trace EST-IT-002
+ * @precondition 自己生成AM、二Repositoryと二受付。
+ * @stimulus 三Role、management限定、余分なfield、固定・Merge・終了。
+ * @observation 実HTTP、実Git二親、固定差分、認可拒否と他Root無変更。
+ * @oracle development許可時だけ同一Ownerへ一回処置し自動採用しない。
+ * @cleanup 両Listener終了後fixtureのexact Rootを回収する。
+ * @boundary loopback HTTP、実Git、Snapshot。外部AI／Dockerなし。
+ */
+test("WorkspaceはWorkbenchとMCPから同じ現在認可・実Gitへ接続する", async (t) => {
+  const f = fixture(t);
+  const target = f.targets[0];
+  assert.ok(target);
+  const run = (args: string[]) => {
+    const result = spawnSync(
+      "git",
+      [
+        "-C",
+        target.target,
+        "-c",
+        "core.hooksPath=NUL",
+        "-c",
+        "commit.gpgSign=false",
+        ...args,
+      ],
+      { encoding: "utf8", windowsHide: true, timeout: 10000 },
+    );
+    assert.equal(result.status, 0, result.stderr);
+    return result.stdout.trim();
+  };
+  run(["symbolic-ref", "HEAD", "refs/heads/main"]);
+  run(["config", "user.name", "Surface Test"]);
+  run(["config", "user.email", "test@example.invalid"]);
+  fs.mkdirSync(path.join(target.target, ".git", "info"), { recursive: true });
+  fs.writeFileSync(path.join(target.target, ".git", "info", "exclude"), "");
+  fs.writeFileSync(path.join(target.target, ".gitignore"), ".crdd/\n");
+  fs.writeFileSync(path.join(target.target, "source.txt"), "base\n");
+  const namedSecret = "API_KEY=synthetic_value_123456789";
+  fs.writeFileSync(
+    path.join(target.target, "secret.txt"),
+    `heading\n${namedSecret}\n`,
+  );
+  run(["add", "."]);
+  run(["commit", "-m", "base"]);
+  const base = run(["rev-parse", "HEAD"]);
+  prepareWorkspaceSurface(target.target, "project.fixture", base);
+  const mcp = await startMcpAuthenticatedStreamableHttp(
+    createAccessMcpResolver(f.root),
+    { port: 0 },
+  );
+  const wb = await startWorkbench({
+    workingDirectory: path.resolve(import.meta.dirname, "../../../.."),
+    localAccessRoot: f.root,
+  });
+  try {
+    const mcpBase = `http://${mcp.host}:${mcp.port}`;
+    const model = (await (
+      await fetch(`${wb.baseUrl}/api/workbench-view`, {
+        headers: { authorization: `Bearer ${f.token}` },
+      })
+    ).json()) as { actionToken: string };
+    const state = JSON.parse(
+      fs.readFileSync(f.current, "utf8"),
+    ) as AccessManagementState;
+    const actor = state.users[0];
+    assert.ok(actor);
+    state.roleContentAccess = state.roleContentAccess.map((r) =>
+      r.role === "administrator" ? { ...r, workspaceIds: ["development"] } : r,
+    );
+    const workspaceId = randomUUID();
+    const common = {
+      projectId: "project.fixture",
+      queueId: "queue-a",
+      workspaceId,
+    };
+    const readOps = ["list", "get", "inspect", "candidate-diff"];
+    const sendMcp = async (command: Record<string, unknown>) =>
+      (
+        await call(
+          mcpBase,
+          f.token,
+          readOps.includes(String(command.operation))
+            ? "crdd.get_workspace"
+            : "crdd.manage_workspace",
+          { repositoryId: target.id, command },
+        )
+      ).json();
+    const sendWb = async (
+      command: Record<string, unknown>,
+      extra: Record<string, string> = {},
+    ) =>
+      fetch(`${wb.baseUrl}/workspace/action`, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${f.token}`,
+          origin: wb.baseUrl,
+          "content-type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          actionToken: model.actionToken,
+          repositoryId: target.id,
+          command: JSON.stringify(command),
+          ...extra,
+        }),
+      });
+    for (const role of ["developer", "manager", "administrator"] as const) {
+      actor.role = role;
+      state.revision++;
+      fs.writeFileSync(f.current, JSON.stringify(state));
+      const command = {
+        operation: "list",
+        projectId: "project.fixture",
+        cursor: null,
+        limit: 1,
+      };
+      const a = await sendMcp(command);
+      const access = resolveRepositoryAccess(
+        f.root,
+        f.token,
+        target.id,
+        "development",
+      );
+      assert.equal(access.status, "completed", JSON.stringify(access));
+      executeWorkspaceCommand(
+        target.target,
+        "project.fixture",
+        command,
+        () => true,
+      );
+      assert.ok(a.result?.structuredContent, JSON.stringify(a));
+      const b = await sendWb(command);
+      assert.equal(b.status, 200);
+      assert.deepEqual(await b.json(), a.result.structuredContent);
+    }
+    const roles = state.roleContentAccess;
+    state.roleContentAccess = roles.map((r) =>
+      r.role === actor.role ? { ...r, workspaceIds: ["management"] } : r,
+    );
+    state.revision++;
+    fs.writeFileSync(f.current, JSON.stringify(state));
+    assert.ok(
+      (
+        await sendMcp({
+          operation: "list",
+          projectId: "project.fixture",
+          cursor: null,
+          limit: 20,
+        })
+      ).error,
+    );
+    assert.equal(
+      (
+        await sendWb({
+          operation: "list",
+          projectId: "project.fixture",
+          cursor: null,
+          limit: 20,
+        })
+      ).status,
+      400,
+    );
+    state.roleContentAccess = roles;
+    state.revision++;
+    fs.writeFileSync(f.current, JSON.stringify(state));
+    assert.ok(
+      (await sendMcp({ ...common, operation: "get", ownerRoot: target.target }))
+        .error,
+    );
+    assert.equal(
+      (
+        await sendWb(
+          { ...common, operation: "get" },
+          { referencesReleased: "true" },
+        )
+      ).status,
+      400,
+    );
+    let response = await sendMcp({
+      ...common,
+      operation: "create",
+      expectedGeneration: 0,
+      baseCommit: base,
+      name: "共有作業",
+    });
+    let view = response.result?.structuredContent.data.workspace;
+    assert.ok(view, JSON.stringify(response));
+    const tree = path.join(
+      target.target,
+      ".crdd",
+      "workspaces",
+      workspaceId,
+      "worktree",
+    );
+    const syntheticSecret = ["sk", "-", "a".repeat(24)].join("");
+    for (const content of [
+      syntheticSecret,
+      namedSecret,
+      `heading\n${namedSecret}\n`,
+    ]) {
+      fs.writeFileSync(path.join(tree, "source.txt"), content);
+      const deniedSecret = await sendMcp({
+        ...common,
+        operation: "inspect",
+        path: "source.txt",
+      });
+      assert.ok(deniedSecret.error);
+      assert.equal(JSON.stringify(deniedSecret).includes(content), false);
+      const deniedWb = await sendWb({
+        ...common,
+        operation: "inspect",
+        path: "source.txt",
+      });
+      assert.equal(deniedWb.status, 503);
+      assert.equal((await deniedWb.text()).includes(content), false);
+    }
+    fs.writeFileSync(path.join(tree, "secret.txt"), "safe\n");
+    for (const operation of ["inspect", "candidate-diff"]) {
+      if (operation === "candidate-diff") {
+        const fixedSecret = await sendMcp({
+          ...common,
+          operation: "freeze",
+          expectedGeneration: view.generation,
+          operationId: randomUUID(),
+          baseCommit: base,
+          expectedHead: view.head,
+          selection: [
+            {
+              path: "secret.txt",
+              mode: "100644",
+              blobId: run([
+                "-C",
+                tree,
+                "hash-object",
+                "--no-filters",
+                "secret.txt",
+              ]),
+            },
+          ],
+          candidateName: null,
+          relatedChangeIds: [],
+        });
+        assert.equal(
+          fixedSecret.result.structuredContent.data.status,
+          "completed",
+        );
+        view = fixedSecret.result.structuredContent.data.workspace;
+      }
+      const denied = await sendMcp({
+        ...common,
+        operation,
+        path: "secret.txt",
+      });
+      assert.ok(denied.error);
+      assert.equal(JSON.stringify(denied).includes(namedSecret), false);
+      const deniedWb = await sendWb({
+        ...common,
+        operation,
+        path: "secret.txt",
+      });
+      assert.equal(deniedWb.status, 503);
+      assert.equal((await deniedWb.text()).includes(namedSecret), false);
+    }
+    response = await sendMcp({
+      ...common,
+      operation: "close-candidate",
+      expectedGeneration: view.generation,
+      expectedCommit: view.candidate.candidateCommit,
+      disposition: "rejected",
+    });
+    assert.equal(response.result.structuredContent.data.status, "completed");
+    view = response.result.structuredContent.data.workspace;
+    fs.writeFileSync(path.join(tree, "source.txt"), "selected\n");
+    const previewResponse = await sendWb({
+      ...common,
+      operation: "inspect",
+      path: "source.txt",
+    });
+    assert.equal(previewResponse.status, 200);
+    const preview = (await previewResponse.json()) as {
+      data: { selection: unknown };
+    };
+    const fixedResponse = await sendWb({
+      ...common,
+      operation: "freeze",
+      expectedGeneration: view.generation,
+      operationId: randomUUID(),
+      baseCommit: base,
+      expectedHead: view.head,
+      selection: [preview.data.selection],
+      candidateName: "共有候補",
+      relatedChangeIds: [],
+    });
+    assert.equal(fixedResponse.status, 200);
+    const fixed = (await fixedResponse.json()) as {
+      data: { status: string; workspace: typeof view };
+    };
+    assert.equal(fixed.data.status, "completed", JSON.stringify(fixed));
+    view = fixed.data.workspace;
+    assert.equal(run(["rev-parse", "HEAD"]), base);
+    fs.writeFileSync(path.join(tree, "source.txt"), "not-fixed\n");
+    response = await sendMcp({
+      ...common,
+      operation: "candidate-diff",
+      path: "source.txt",
+    });
+    assert.match(response.result.structuredContent.data.patch, /selected/u);
+    assert.doesNotMatch(
+      response.result.structuredContent.data.patch,
+      /not-fixed/u,
+    );
+    const originalEnd = ServerResponse.prototype.end;
+    let dropped = false;
+    const drop = t.mock.method(
+      ServerResponse.prototype,
+      "end",
+      function (this: ServerResponse, ...args: Parameters<typeof originalEnd>) {
+        const body = args[0];
+        if (
+          !dropped &&
+          typeof body === "string" &&
+          body.includes('"operation":"adopt"') &&
+          body.includes('"contract":"crdd-orchestrator/workspace-surface/v1"')
+        ) {
+          dropped = true;
+          this.destroy();
+          return this;
+        }
+        return Reflect.apply(originalEnd, this, args);
+      },
+    );
+    try {
+      await assert.rejects(
+        sendWb({
+          ...common,
+          operation: "adopt",
+          expectedGeneration: view.generation,
+          candidateCommit: view.candidate.candidateCommit,
+          targetBranch: "main",
+          expectedTargetHead: base,
+        }),
+      );
+    } finally {
+      drop.mock.restore();
+    }
+    assert.equal(dropped, true);
+    const mergedHead = run(["rev-parse", "HEAD"]);
+    response = await sendMcp({ ...common, operation: "get" });
+    view = response.result.structuredContent.data.workspace;
+    assert.equal(view.candidate.phase, "merged");
+    assert.equal(view.candidate.mergeCommit, mergedHead);
+    assert.equal(run(["rev-parse", "HEAD"]), mergedHead);
+    assert.equal(
+      run(["rev-list", "--parents", "-n", "1", "HEAD"]).split(" ").length,
+      3,
+    );
+    const closed = await sendWb({
+      ...common,
+      operation: "close-candidate",
+      expectedGeneration: view.generation,
+      expectedCommit: view.candidate.candidateCommit,
+      disposition: "adopted",
+    });
+    assert.equal(closed.status, 200);
+    view = ((await closed.json()) as { data: { workspace: typeof view } }).data
+      .workspace;
+    assert.equal(view.candidate, null);
+    response = await sendMcp({
+      ...common,
+      operation: "discard",
+      expectedGeneration: view.generation,
+      expectedHead: view.head,
+      discardChanges: true,
+    });
+    assert.equal(
+      response.result.structuredContent.data.status,
+      "completed",
+      JSON.stringify(response),
+    );
+    assert.equal(fs.existsSync(tree), false);
+    const entry = path.resolve(
+      import.meta.dirname,
+      "../../../../template/tools/crdd-mcp-server.ts",
+    );
+    const localCommand = {
+      operation: "list",
+      projectId: "project.fixture",
+      cursor: null,
+      limit: 20,
+    };
+    const localMcp = spawnSync(process.execPath, [entry, "--stdio"], {
+      cwd: target.target,
+      input: `${JSON.stringify(packet("crdd.get_workspace", { repositoryId: target.id, command: localCommand }))}\n`,
+      encoding: "utf8",
+      windowsHide: true,
+      timeout: 10000,
+    });
+    assert.equal(localMcp.status, 0, localMcp.stderr);
+    const localResult = JSON.parse(localMcp.stdout);
+    assert.ok(
+      localResult.result?.structuredContent,
+      JSON.stringify(localResult),
+    );
+    const logo = "04_UI/assets/brand/crdd-brand-icon-512x512.jpg";
+    fs.mkdirSync(path.dirname(path.join(target.target, logo)), {
+      recursive: true,
+    });
+    fs.copyFileSync(
+      path.resolve(import.meta.dirname, "../../../..", logo),
+      path.join(target.target, logo),
+    );
+    const localWb = await startWorkbench({ workingDirectory: target.target });
+    try {
+      const localModel = (await (
+        await fetch(`${localWb.baseUrl}/api/workbench-view`)
+      ).json()) as { actionToken: string };
+      const observed = await fetch(`${localWb.baseUrl}/workspace/action`, {
+        method: "POST",
+        headers: {
+          origin: localWb.baseUrl,
+          "content-type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          actionToken: localModel.actionToken,
+          repositoryId: target.id,
+          command: JSON.stringify(localCommand),
+        }),
+      });
+      assert.equal(observed.status, 200);
+      assert.deepEqual(
+        await observed.json(),
+        localResult.result.structuredContent,
+      );
+    } finally {
+      await localWb.close();
+    }
+    assert.doesNotMatch(
+      JSON.stringify(response),
+      /candidate-index|repositoryBindingId|ownerRepositoryRoot/u,
+    );
+    const other = f.targets[1];
+    assert.ok(other);
+    assert.equal(
+      fs.existsSync(path.join(other.target, ".crdd", "orchestrator")),
+      false,
+    );
+    const credential = state.credentials[0];
+    assert.ok(credential);
+    credential.revoked = true;
+    state.revision++;
+    fs.writeFileSync(f.current, JSON.stringify(state));
+    assert.ok(
+      (
+        await sendMcp({
+          operation: "list",
+          projectId: "project.fixture",
+          cursor: null,
+          limit: 20,
+        })
+      ).error,
+    );
+  } finally {
+    await wb.close();
+    await mcp.close();
+  }
+});
+
 function fixture(t: TestContext, completed = true) {
   const repository = path.resolve(import.meta.dirname, "../../../..");
   assert.ok(fs.statSync(path.join(repository, ".git")).isDirectory());
@@ -1480,6 +1955,8 @@ test("AM内容MCPの全12操作は指定Repositoryの実保存へ到達する", 
     assert.deepEqual(
       tools.map(({ name }) => name).sort(),
       [
+        "crdd.get_workspace",
+        "crdd.manage_workspace",
         MCP_PROJECT_CONTEXT_GET_TOOL,
         MCP_PROJECT_CONTEXT_LIST_TOOL,
         MCP_RUNTIME_ACTIVITY_TOOL,
@@ -1488,7 +1965,9 @@ test("AM内容MCPの全12操作は指定Repositoryの実保存へ到達する", 
       ].sort(),
     );
     for (const tool of tools) {
-      const topicMeeting = MCP_TOPIC_MEETING_TOOLS.includes(tool.name as never);
+      const topicMeeting =
+        MCP_TOPIC_MEETING_TOOLS.includes(tool.name as never) ||
+        ["crdd.get_workspace", "crdd.manage_workspace"].includes(tool.name);
       assert.equal(
         Object.hasOwn(tool.inputSchema.properties, "repositoryId"),
         topicMeeting,
@@ -1592,6 +2071,8 @@ test("未完了資格はHandlerなし、開始前取消は対象読取りなし"
     assert.deepEqual(
       discovered.tools.map((tool) => tool.name).sort(),
       [
+        "crdd.get_workspace",
+        "crdd.manage_workspace",
         MCP_PROJECT_CONTEXT_GET_TOOL,
         MCP_PROJECT_CONTEXT_LIST_TOOL,
         MCP_RUNTIME_ACTIVITY_TOOL,

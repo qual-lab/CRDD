@@ -37,6 +37,7 @@ export type OrchestratorObjectiveRequest = Readonly<{
   adoptResult: boolean;
   requestedExecutorProvider?: "auto" | "codex" | "claude";
   requestedProfileId?: string;
+  workspaceId?: string;
   decisionCapabilityReplacement?: Readonly<{
     decisionId: string;
     replacementRequestId: string;
@@ -168,6 +169,7 @@ const OPTIONAL_REQUEST_KEYS = Object.freeze([
   "decisionCapabilityReplacement",
   "requestedExecutorProvider",
   "requestedProfileId",
+  "workspaceId",
 ] as const);
 const requestKeySets = Object.freeze(
   Array.from(
@@ -257,6 +259,11 @@ export function inspectOrchestratorObjectiveRequest(
     (Object.hasOwn(request, "requestedProfileId") &&
       (typeof request.requestedProfileId !== "string" ||
         !/^PROFILE-[0-9]{6,}$/u.test(request.requestedProfileId))) ||
+    (Object.hasOwn(request, "workspaceId") &&
+      (typeof request.workspaceId !== "string" ||
+        !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/u.test(
+          request.workspaceId,
+        ))) ||
     (request.decisionCapabilityReplacement !== undefined &&
       (!replacement ||
         !validId(replacement.decisionId) ||
@@ -287,6 +294,9 @@ export function inspectOrchestratorObjectiveRequest(
       : {}),
     ...(typeof request.requestedProfileId === "string"
       ? { requestedProfileId: request.requestedProfileId }
+      : {}),
+    ...(typeof request.workspaceId === "string"
+      ? { workspaceId: request.workspaceId }
       : {}),
     ...(replacement
       ? {

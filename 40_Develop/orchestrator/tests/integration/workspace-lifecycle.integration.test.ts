@@ -31,6 +31,9 @@ import {
   runOrchestratorOperation,
   createOrchestratorExecutionHostPorts,
   runOrchestratorSingleTaskAttempt,
+  executeWorkspaceCommand,
+  inspectWorkspaceCommand,
+  type WorkspaceView,
 } from "../../src/index.ts";
 import {
   readOrchestratorSnapshot,
@@ -191,6 +194,180 @@ function fixture(t: TestContext) {
     tree: path.join(root, ".crdd", "workspaces", workspaceId, "worktree"),
   };
 }
+
+/**
+ * 公開入力から本番Writer・実Gitの固定／統合／回収まで照合する。
+ * @responsibility 世代、固定差分と失敗非上書きを公開投影から確認する。
+ * @trace CPR-IT-001
+ * @trace CPR-IT-004
+ * @trace CPR-IT-006
+ * @precondition 自己生成Git、Project、Queue。
+ * @stimulus 閉入力、古い世代、取消、固定、現在file変更、統合と終了。
+ * @observation 実Ref、親Commit、固定patch、Snapshotと非開示投影。
+ * @oracle 明示選択だけ統合し、現在file変更を固定差分へ混ぜない。
+ * @cleanup fixtureのafterでexact Rootの不存在確認。
+ * @boundary 外部Providerを使わない実Git結合。
+ */
+test("公開Workspace操作は閉入力と世代を保ち固定候補だけを統合する", (t) => {
+  const f = fixture(t);
+  const common = {
+    projectId: "project-a",
+    queueId: "queue-a",
+    workspaceId: f.common.workspaceId,
+  };
+  const call = (command: Record<string, unknown>) =>
+    executeWorkspaceCommand(
+      f.root,
+      "project-a",
+      { ...common, ...command },
+      () => true,
+    ).data as {
+      workspace: WorkspaceView | null;
+      status: string;
+      reason: string;
+    };
+  let touched = false;
+  const badItem = {
+    path: "source.txt",
+    get blobId() {
+      touched = true;
+      return f.base;
+    },
+    mode: "100644",
+  };
+  assert.equal(
+    inspectWorkspaceCommand({
+      ...common,
+      operation: "freeze",
+      expectedGeneration: 0,
+      operationId: randomUUID(),
+      baseCommit: f.base,
+      expectedHead: f.base,
+      selection: [badItem],
+      candidateName: null,
+      relatedChangeIds: [],
+    }),
+    null,
+  );
+  assert.equal(touched, false);
+  assert.equal(
+    inspectWorkspaceCommand({ ...common, operation: "get", ownerRoot: f.root }),
+    null,
+  );
+  assert.throws(
+    () =>
+      executeWorkspaceCommand(
+        f.root,
+        "project-a",
+        {
+          ...common,
+          operation: "create",
+          expectedGeneration: 0,
+          baseCommit: f.base,
+          name: null,
+        },
+        () => false,
+      ),
+    /workspace_access_unavailable/u,
+  );
+  const cancelled = new AbortController();
+  cancelled.abort();
+  assert.throws(
+    () =>
+      executeWorkspaceCommand(
+        f.root,
+        "project-a",
+        { ...common, operation: "get" },
+        () => true,
+        cancelled.signal,
+      ),
+    /workspace_access_unavailable/u,
+  );
+  let current = call({
+    operation: "create",
+    expectedGeneration: 0,
+    baseCommit: f.base,
+    name: "作業",
+  }).workspace;
+  assert.ok(current);
+  const stale = call({
+    operation: "rename",
+    expectedGeneration: 0,
+    name: "古い",
+  });
+  assert.equal(stale.status, "blocked");
+  assert.equal(stale.reason, "orchestrator_workspace_generation_conflict");
+  fs.writeFileSync(path.join(f.tree, "source.txt"), "selected\n");
+  const preview = executeWorkspaceCommand(
+    f.root,
+    "project-a",
+    { ...common, operation: "inspect", path: "source.txt" },
+    () => true,
+  ).data as { selection: unknown };
+  const fixed = call({
+    operation: "freeze",
+    expectedGeneration: current.generation,
+    operationId: randomUUID(),
+    baseCommit: f.base,
+    expectedHead: current.head,
+    selection: [preview.selection],
+    candidateName: "候補",
+    relatedChangeIds: [],
+  });
+  assert.equal(fixed.status, "completed", JSON.stringify(fixed));
+  current = fixed.workspace;
+  assert.ok(current?.candidate?.candidateCommit);
+  fs.writeFileSync(path.join(f.tree, "source.txt"), "later-not-selected\n");
+  const patch = executeWorkspaceCommand(
+    f.root,
+    "project-a",
+    { ...common, operation: "candidate-diff", path: "source.txt" },
+    () => true,
+  ).data as { patch: string };
+  assert.match(patch.patch, /selected/u);
+  assert.doesNotMatch(patch.patch, /later-not-selected/u);
+  const adopted = call({
+    operation: "adopt",
+    expectedGeneration: current.generation,
+    candidateCommit: current.candidate.candidateCommit,
+    targetBranch: "main",
+    expectedTargetHead: f.base,
+  });
+  assert.equal(adopted.status, "completed", JSON.stringify(adopted));
+  current = adopted.workspace;
+  assert.ok(current);
+  assert.equal(
+    fs.readFileSync(path.join(f.root, "source.txt"), "utf8"),
+    "selected\n",
+  );
+  assert.equal(
+    git(f.root, ["rev-list", "--parents", "-n", "1", "HEAD"]).split(" ").length,
+    3,
+  );
+  const closed = call({
+    operation: "close-candidate",
+    expectedGeneration: current.generation,
+    expectedCommit: current.candidate?.candidateCommit,
+    disposition: "adopted",
+  });
+  assert.equal(closed.status, "completed", JSON.stringify(closed));
+  current = closed.workspace;
+  assert.ok(current);
+  assert.equal(current.candidate, null);
+  const disposed = call({
+    operation: "discard",
+    expectedGeneration: current.generation,
+    expectedHead: current.head,
+    discardChanges: true,
+  });
+  assert.equal(disposed.status, "completed", JSON.stringify(disposed));
+  assert.equal(disposed.workspace, null);
+  assert.equal(fs.existsSync(f.tree), false);
+  assert.doesNotMatch(
+    JSON.stringify(disposed),
+    /candidate-index|ownerRepositoryRoot|repositoryBindingId/u,
+  );
+});
 
 /**
  * 未固定の拒否意図を正式終了又は同操作再入場で閉じる。
@@ -1678,7 +1855,13 @@ test("Workspaceの保存失敗と解放失敗は元理由と両回復参照を�
         return {
           status: "completed",
           value: {
-            queueEntries: [],
+            queueEntries: [
+              {
+                queueId: "queue-a",
+                projectId: "project-a",
+                workspaceId: "same-id",
+              },
+            ],
             workspaces: [
               { workspaceId: "same-id", generation: 1, phase: "ready" },
             ],
@@ -1701,6 +1884,8 @@ test("Workspaceの保存失敗と解放失敗は元理由と両回復参照を�
       operation: "hold",
       until: null,
       ownerRepositoryRoot: "synthetic",
+      projectId: "project-a",
+      queueId: "queue-a",
       workspaceId: "same-id",
     });
     assert.equal(reads, 2);

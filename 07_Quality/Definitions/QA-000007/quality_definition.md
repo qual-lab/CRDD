@@ -2,6 +2,8 @@
 
 ## 固定Candidate・二親Mergeの追加検証条件（2026-10-18）
 
+公開Workspace操作は人間承認済みの`development`現在許可を三Role共通で適用する。`RFD-IT-009`／013とSTの非開示断面で、単体資格不要の固定Root、CROSのmanagementのみ／失効／Exposure除外／別Repository／Root差替えの処置前拒否、待機後とEffect直前の再認可、内部Root・一時物・資格を含めない公開結果を確認する。旧workspaceIdsは内容範囲でありGit Workspace IDへ転用しない。
+
 `RFD-IT-029`の実Git断面に、[Version Controlの追加契約](../../../06_Architecture/Details/version-control/01_Architecture.md#固定candidate二親mergeの追加契約2026-10-18実装未完了)を追加する。
 
 - 明示Base＋選択内容だけの固定Commitを確認し、利用者indexの前後同一性、未選択dirty／未追跡の保全、未選択過去Commit非混入を観測する。

@@ -78,6 +78,7 @@ import {
   resolveConnectionAuthentication,
   resolveAiProfileManagementAccess,
   resolveRepositoryAccessCollection,
+  resolveRepositoryAccess,
   sameAccessCollection,
   type RepositoryAccessCollectionResult,
 } from "../../access-management/src/index.ts";
@@ -138,6 +139,15 @@ import type {
   WorkbenchTopicMeetingResultView,
 } from "./browser/client-model.ts";
 import { readAuthorizedRuntimeActivity } from "../../orchestrator/src/index.ts";
+import {
+  executeWorkspaceCommand,
+  inspectWorkspaceCommand,
+} from "../../orchestrator/src/index.ts";
+import {
+  createFilesystemRepositoryObservationPort,
+  inspectRepositoryManifest,
+  REPOSITORY_MANIFEST_RELATIVE_PATH,
+} from "../../domain-model/src/index.ts";
 
 const HOST = "127.0.0.1";
 const CONTRACT = "crdd/workbench/v1";
@@ -1556,6 +1566,7 @@ export async function startWorkbench(
           (method === "POST" && requestPath === "/topic-meeting/action") ||
           (method === "POST" && requestPath === "/ai-profiles/action") ||
           (method === "POST" && requestPath === "/repository/action") ||
+          (method === "POST" && requestPath === "/workspace/action") ||
           (method === "GET" && requestPath === "/api/access-management") ||
           (method === "POST" &&
             (requestPath === "/access-management/action" ||
@@ -1566,6 +1577,142 @@ export async function startWorkbench(
           response.end("local_repository_access_unavailable\n");
           return;
         }
+      }
+      if (method === "POST" && requestPath === "/workspace/action") {
+        let dispatched = false;
+        try {
+          const address = server.address();
+          const origin =
+            publicOrigin?.origin ??
+            (address && typeof address !== "string"
+              ? `http://${HOST}:${address.port}`
+              : null);
+          if (
+            !origin ||
+            requestUrl.search !== "" ||
+            incoming.headers.host !== new URL(origin).host ||
+            incoming.headers.origin !== origin
+          )
+            throw new Error("workspace_input_invalid");
+          const form = await readActionForm(incoming);
+          const keys = ["actionToken", "repositoryId", "command"];
+          if (
+            [...form.keys()].some((key) => !keys.includes(key)) ||
+            keys.some((key) => form.getAll(key).length !== 1) ||
+            form.get("actionToken") !== actionToken
+          )
+            throw new Error("workspace_input_invalid");
+          const repositoryId = form.get("repositoryId");
+          if (
+            !repositoryId ||
+            !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(repositoryId)
+          )
+            throw new Error("workspace_input_invalid");
+          const command = inspectWorkspaceCommand(
+            JSON.parse(form.get("command") ?? "null"),
+          );
+          if (!command) throw new Error("workspace_input_invalid");
+          await yieldToTransport(0);
+          if (requestController.signal.aborted || response.destroyed) return;
+          let ownerRoot = repositoryRoot;
+          let projectId: string;
+          let authorize: () => boolean;
+          if (request.localAccessRoot !== undefined) {
+            const administration = credentialAdministration;
+            if (!administration)
+              throw new Error("workspace_access_unavailable");
+            const initial = resolveRepositoryAccess(
+              administration.root,
+              administration.token,
+              repositoryId,
+              "development",
+            );
+            if (initial.status !== "completed")
+              throw new Error("workspace_access_unavailable");
+            const resolved = resolveVerifiedRepositoryRoot(initial.access.root);
+            if (resolved === null)
+              throw new Error("workspace_access_unavailable");
+            ownerRoot = resolved;
+            projectId = initial.access.manifest.projectId;
+            authorize = () => {
+              const fresh = resolveRepositoryAccess(
+                administration.root,
+                administration.token,
+                repositoryId,
+                "development",
+              );
+              return (
+                !requestController.signal.aborted &&
+                fresh.status === "completed" &&
+                fresh.access.revision === initial.access.revision &&
+                fresh.access.bindingId === initial.access.bindingId &&
+                JSON.stringify(fresh.access.manifest) ===
+                  JSON.stringify(initial.access.manifest) &&
+                resolveVerifiedRepositoryRoot(initial.access.root) ===
+                  ownerRoot &&
+                resolveVerifiedRepositoryRoot(fresh.access.root) === ownerRoot
+              );
+            };
+          } else {
+            const verified = verifyRepositoryRoot(ownerRoot);
+            if (verified.status !== "completed")
+              throw new Error("workspace_access_unavailable");
+            const observer = createFilesystemRepositoryObservationPort(
+              verified.capability,
+              1_048_576,
+            );
+            const file = observer.observeFile(
+              REPOSITORY_MANIFEST_RELATIVE_PATH,
+            );
+            if (file.status !== "resolved")
+              throw new Error("workspace_access_unavailable");
+            const source = file.source;
+            const manifest = inspectRepositoryManifest(JSON.parse(source));
+            if (!manifest || manifest.repositoryId !== repositoryId)
+              throw new Error("workspace_access_unavailable");
+            projectId = manifest.projectId;
+            authorize = () => {
+              const fresh = observer.observeFile(
+                REPOSITORY_MANIFEST_RELATIVE_PATH,
+              );
+              return (
+                !requestController.signal.aborted &&
+                resolveVerifiedRepositoryRoot(verified.capability) ===
+                  ownerRoot &&
+                fresh.status === "resolved" &&
+                fresh.source === source
+              );
+            };
+          }
+          dispatched = true;
+          const result = executeWorkspaceCommand(
+            ownerRoot,
+            projectId,
+            command,
+            authorize,
+            requestController.signal,
+          );
+          const body = JSON.stringify(result);
+          await yieldToTransport(0);
+          if (requestController.signal.aborted || response.destroyed) return;
+          if (!authorize()) throw new Error("workspace_result_unavailable");
+          setCommonHeaders(response);
+          response.statusCode = 200;
+          response.setHeader("Content-Type", "application/json; charset=utf-8");
+          response.setHeader("Content-Length", Buffer.byteLength(body));
+          response.end(body);
+        } catch {
+          if (!requestController.signal.aborted && !response.destroyed) {
+            setCommonHeaders(response);
+            response.statusCode = dispatched ? 503 : 400;
+            response.end(
+              dispatched
+                ? "workspace_outcome_unconfirmed\n"
+                : "workspace_request_rejected\n",
+            );
+          }
+        }
+        return;
       }
       if (
         request.localAccessRoot !== undefined &&

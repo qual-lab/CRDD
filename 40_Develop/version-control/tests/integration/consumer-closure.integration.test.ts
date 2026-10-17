@@ -575,6 +575,7 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
       "40_Develop/orchestrator/src/cli/command.ts",
       "40_Develop/orchestrator/src/storage/current-state.ts",
       "40_Develop/orchestrator/src/storage/history.ts",
+      "40_Develop/orchestrator/src/workspace/commands.ts",
       "40_Develop/orchestrator/src/workspace/operations.ts",
       "40_Develop/orchestrator/src/task/settle-docker-recovery.ts",
       "40_Develop/orchestrator/src/platform/windows-adapter.ts",
@@ -764,6 +765,7 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
     )
     .sort();
   assert.deepEqual(localChangeSetConsumers, [
+    "40_Develop/orchestrator/src/workspace/commands.ts",
     "40_Develop/verification-runner/src/regression/stages.ts",
     "40_Develop/workbench-server/src/project/surface.ts",
   ]);
@@ -853,6 +855,7 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/orchestrator/src/workspace/operations.ts",
       "40_Develop/orchestrator/src/task/settle-docker-recovery.ts",
       "40_Develop/visual-preview/src/server.ts",
+      "40_Develop/orchestrator/src/workspace/commands.ts",
       "40_Develop/workbench-server/bin/workbench-server.ts",
       "40_Develop/workbench-server/src/activity/observe.ts",
       "40_Develop/workbench-server/src/server.ts",
@@ -889,12 +892,15 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
           "freezeWorkspaceCandidate",
           "mergeWorkspaceCandidate",
           "removeWorkspaceCandidate",
+          "inspectWorkspaceFile",
+          "inspectWorkspaceCandidatePatch",
         ].includes(name),
       ),
     )
     .map(({ relativePath }) => relativePath)
     .sort();
   assert.deepEqual(candidateConsumers, [
+    "40_Develop/orchestrator/src/workspace/commands.ts",
     "40_Develop/orchestrator/src/workspace/operations.ts",
     "40_Develop/orchestrator/src/workspace/record.ts",
   ]);

@@ -3,9 +3,10 @@
   "contractRevision": 1,
   "subsystem": "orchestrator",
   "symbols": [
+    { "symbolId": "orchestrator.workspace.commands", "kind": "file", "path": "src/workspace/commands.ts", "archIds": ["ARCH-000004", "ARCH-000012"] },
     { "symbolId": "orchestrator.workspace.record", "kind": "file", "path": "src/workspace/record.ts", "archIds": ["ARCH-000004"] },
     { "symbolId": "orchestrator.workspace.operations", "kind": "file", "path": "src/workspace/operations.ts", "archIds": ["ARCH-000004", "ARCH-000009"] },
-    { "symbolId": "orchestrator.test.integration.workspace-lifecycle", "kind": "test-suite", "path": "tests/integration/workspace-lifecycle.integration.test.ts", "qaIds": ["QA-000003", "QA-000005", "QA-000007"], "localTestIds": ["PRL-IT-011", "PRL-IT-012", "PRL-IT-013", "RFD-IT-029", "CPR-IT-001", "CPR-IT-004", "CPR-IT-006"], "verifies": ["orchestrator.workspace.record", "orchestrator.workspace.operations"] },
+    { "symbolId": "orchestrator.test.integration.workspace-lifecycle", "kind": "test-suite", "path": "tests/integration/workspace-lifecycle.integration.test.ts", "qaIds": ["QA-000003", "QA-000005", "QA-000007"], "localTestIds": ["PRL-IT-011", "PRL-IT-012", "PRL-IT-013", "RFD-IT-029", "CPR-IT-001", "CPR-IT-004", "CPR-IT-006"], "verifies": ["orchestrator.workspace.record", "orchestrator.workspace.operations", "orchestrator.workspace.commands"] },
     {
       "symbolId": "orchestrator.activity.types",
       "kind": "file",

@@ -72,6 +72,7 @@ export const objectiveKeys = new Set([
   "decisionCapabilityReplacement",
   "requestedExecutorProvider",
   "requestedProfileId",
+  "workspaceId",
 ] as const);
 export const decisionKeys = new Set([
   "decisionId",
@@ -332,12 +333,17 @@ export function getMcpOrchestratorToolDefinitions() {
           type: "string",
           pattern: "^PROFILE-[0-9]{6,}$",
         }),
+        workspaceId: Object.freeze({
+          type: "string",
+          pattern: "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$",
+        }),
       },
       [...objectiveKeys].filter(
         (key) =>
           key !== "decisionCapabilityReplacement" &&
           key !== "requestedExecutorProvider" &&
-          key !== "requestedProfileId",
+          key !== "requestedProfileId" &&
+          key !== "workspaceId",
       ),
     ),
     tool(

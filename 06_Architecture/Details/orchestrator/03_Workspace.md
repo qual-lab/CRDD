@@ -167,7 +167,7 @@ Git標準操作の代わりになる独自Merge Engine、Conflict Resolver、新
 
 | 対象 | 現在の実装契約 |
 |---|---|
-| 公開Package入口 | `manageOrchestratorWorkspace`の`create`／`rename`／`freeze`／`adopt`／`close-candidate`。本段階では内部Package APIを接続し、Workbench／MCPの新操作表示・公開E2Eは別に確認する |
+| 公開Package入口 | 内部`manageOrchestratorWorkspace`に加え、公開入力・投影の`inspectWorkspaceCommand`／`executeWorkspaceCommand`とWorkbench／MCPの直接接続が候補実装済み。実Git・HTTP・Browserの限定確認と、実Provider E2E・移行・旧専用経路撤去の未完了範囲を分ける |
 | 名前・状態 | 既存Workspace現在記録へ`name`と単一の現在`candidate`を追加する。候補は固定要求、`freezing`／`fixed`／`merging`／`merged`／`removing`、候補OID、取込先、Merge OID、採否、一次失敗、最終技術結果を持つ。履歴台帳を増やさず、採否は既存の不変結果Portへ記録する |
 | 選択 | 一Pathは一file全体。Path・mode・確認したraw bytesのGit Blob IDを渡す。削除はmode／Blob IDが両方nullかつ実fileの真正不存在を確認する。Directory・glob・部分行・管理領域・重複を拒否。filter・改行変換を適用せず、確認したbytesを固定する |
 | Ref・一時物 | VCは`refs/heads/crdd/candidate/<workspace-id>/<operation-id>`へ固定する。Workspace Branch／HEAD／通常indexを変更せず、既存Workspace Directory内の自己生成短命indexでBaseから選択だけを作る。成功・拒否・例外の全経路で一時index回収を試みる。回収失敗時は既存候補結果に限定相対Path・実体照合値を保持し、同じ対象・親・限定内容を再照合後にだけ回収する。作成直後に実体取得が失敗した場合はPathと`identity:null`・清掃未確認を保持し、自動削除しない。不在と観測不能を分け、兄弟探索・新台帳は作らない |
@@ -178,6 +178,16 @@ Git標準操作の代わりになる独自Merge Engine、Conflict Resolver、新
 | 移行 | 保存型の追加を暗黙補完しない。旧Workspace記録がある実Repositoryの切替は、フロントAIが旧参照・非使用・成果を確認して新形式へ移行する。本実装・合成試験を実データ移行済みと扱わない |
 
 Source・実Gitの成立範囲と残件は[変更計画の実装結果](../../../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#採用git統合のsource接続と実git確認)へ集約し、設計へ実行別ログを蓄積しない。
+
+#### Workbench／MCPの公開接続契約（2026-10-18）
+
+両Surfaceは同じOrchestratorの閉じた入力・公開投影を直接利用する。Root・保存Binding・現在認可callbackはServerが所有し、外部入力へ露出しない。共有CROSでは三Role共通で対象Repositoryの現在`development`許可を要求し、managementのみ・失効・対象差・観測不能では拒否する。単体は資格不要の固定Rootを維持し、共有拒否から単体へfallbackしない。
+
+一覧は上限と継続位置を持ち、現在Queue／Workspaceの所属と世代、固定CandidateのBase・Commit・名前・採否と処置結果を公開する。内部一時物・絶対Path・資格・保存Snapshot全体を返さない。変更確認はVCがBaseと現在fileのraw内容・Blob・modeを相関し、固定直前に内容変更を再検出する。削除・binary・欠測・切詰めを全文確認済みへ変換しない。
+
+作成・選択・改名・保留・終了、候補固定・採用・候補終了は明示操作として分離する。既存世代は操作排他取得後にも照合し、同Queue／Workspaceの利用・保留・回復条件を既存Writerで再評価する。外部referencesReleasedや採用済み申告を判定の代用にしない。MCPでは人間の指示をFront AIが代行できるが、Task完了から自動固定／自動採用しない。Serverは本人認証を人間指示の証明と表示せず、新しい確認Tokenや承認Storeを作らない。
+
+送信前取消はOwner処置0。Ownerへ開始後は同期Git／Writerの終端まで待ち、取消・応答喪失をRollback・未処置へ丸めない。明示再観測・同操作再入場を利用し、自動再送しない。公開時にも現在許可とSignalを再確認する。旧BundleのcandidateActionsと新Workspace候補を区別し、Source切替・実公開結合・人間UATの成立範囲を別に記録する。
 
 ## 7. Qualityへの引渡し
 

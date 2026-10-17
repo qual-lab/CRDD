@@ -71,6 +71,19 @@ const ORCHESTRATOR_OBJECTIVE_PLAN = Object.freeze({
 test("Objective Planは許可Path内の閉じた値だけを受理する", () => {
   const request = inspectOrchestratorObjectiveRequest(objectiveRequest);
   assert.ok(request);
+  const workspaceId = "11111111-1111-1111-1111-111111111111";
+  assert.equal(
+    inspectOrchestratorObjectiveRequest({ ...objectiveRequest, workspaceId })
+      ?.workspaceId,
+    workspaceId,
+  );
+  assert.equal(
+    inspectOrchestratorObjectiveRequest({
+      ...objectiveRequest,
+      workspaceId: "../other",
+    }),
+    null,
+  );
   assert.deepEqual(
     inspectOrchestratorObjectivePlan(ORCHESTRATOR_OBJECTIVE_PLAN, request),
     ORCHESTRATOR_OBJECTIVE_PLAN,

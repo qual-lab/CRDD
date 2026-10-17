@@ -90,6 +90,212 @@ const oid = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u;
 const uuid = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/u;
 
 /**
+ * 選択fileの確認内容を固定要求へ結合する。
+ * @responsibility Base・HEAD・raw Blobと表示差分を同じ対象から観測する。
+ * @trace ARCH-000009
+ * @input 検証済みRoot、Workspace ID、Base、相対Path。
+ * @returns 確認用内容と固定用selection。binary本文は返さない。
+ * @precondition 呼出し元が現在認可を保持している。
+ * @postcondition 読取りだけでCommit／Refを発行しない。
+ * @effect 有界file／Git読取り。
+ * @failure 不正Path、link、欠測、過大、変化はthrow。
+ * @invariant 一覧や表示を固定許可へ変換しない。
+ * @boundary VCと公開投影Owner。
+ * @security 管理Pathと入れ子Gitを読まない。
+ * @concurrency 観測後の変更は固定時のBlob比較で再検出する。
+ */
+export function inspectWorkspaceFile(
+  capability: VerifiedRepositoryRoot,
+  workspaceId: string,
+  baseCommit: string,
+  selectedPath: string,
+) {
+  if (
+    !validWorkspaceCandidateRequest({
+      workspaceId,
+      operationId: workspaceId,
+      baseCommit,
+      expectedWorkspaceHead: baseCommit,
+      selection: [{ path: selectedPath, mode: null, blobId: null }],
+      workspaceName: null,
+      candidateName: null,
+      relatedChangeIds: [],
+    })
+  )
+    throw new Error("candidate_input_invalid");
+  const ctx = createWorktreeGitContext(capability, workspaceId);
+  const before = ctx.inspect();
+  if (
+    !before.registered ||
+    !before.directoryPresent ||
+    before.locked ||
+    before.prunable ||
+    !before.head
+  )
+    throw new Error("candidate_workspace_mismatch");
+  const segments = selectedPath.split("/");
+  let directory = ctx.target;
+  for (const segment of segments.slice(0, -1)) {
+    directory = path.join(directory, segment);
+    const info = fs.lstatSync(directory);
+    if (
+      !info.isDirectory() ||
+      info.isSymbolicLink() ||
+      fs.existsSync(path.join(directory, ".git"))
+    )
+      throw new Error("candidate_path_invalid");
+  }
+  const file = path.join(ctx.target, ...segments);
+  let bytes: Buffer | null = null;
+  let mode: "100644" | "100755" | null = null;
+  try {
+    const info = fs.lstatSync(file);
+    if (
+      !info.isFile() ||
+      info.isSymbolicLink() ||
+      info.nlink !== 1 ||
+      info.size > 1024 * 1024
+    )
+      throw new Error("candidate_path_invalid");
+    bytes = fs.readFileSync(file);
+    if (bytes.length > 1024 * 1024)
+      throw new Error("candidate_content_too_large");
+    const tracked = ctx.run(ctx.owner, [
+      "ls-tree",
+      baseCommit,
+      "--",
+      selectedPath,
+    ]);
+    if (tracked.status !== 0)
+      throw new Error("candidate_observation_unavailable");
+    mode = (
+      process.platform === "win32"
+        ? tracked.stdout.startsWith("100755 ")
+        : (info.mode & 0o111) !== 0
+    )
+      ? "100755"
+      : "100644";
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+  const diff = ctx.run(ctx.target, [
+    "diff",
+    "--no-ext-diff",
+    "--no-textconv",
+    "--no-renames",
+    baseCommit,
+    "--",
+    selectedPath,
+  ]);
+  if (diff.status !== 0 || Buffer.byteLength(diff.stdout) > 256 * 1024)
+    throw new Error("candidate_observation_unavailable");
+  if (ctx.inspect().head !== before.head)
+    throw new Error("candidate_workspace_mismatch");
+  if (bytes !== null) {
+    const fresh = fs.lstatSync(file);
+    if (
+      !fresh.isFile() ||
+      fresh.isSymbolicLink() ||
+      fresh.nlink !== 1 ||
+      fresh.size > 1024 * 1024 ||
+      !fs.readFileSync(file).equals(bytes)
+    )
+      throw new Error("candidate_content_changed");
+  } else {
+    try {
+      fs.lstatSync(file);
+      throw new Error("candidate_content_changed");
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+  }
+  const blobId =
+    bytes === null
+      ? null
+      : createHash(baseCommit.length === 40 ? "sha1" : "sha256")
+          .update(`blob ${bytes.length}\0`)
+          .update(bytes)
+          .digest("hex");
+  let content: string | null = null;
+  let binary = false;
+  if (bytes !== null) {
+    try {
+      content = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+      binary = bytes.includes(0);
+    } catch {
+      binary = true;
+    }
+    if (binary) content = null;
+  }
+  return {
+    baseCommit,
+    head: before.head,
+    selection: {
+      path: selectedPath,
+      blobId,
+      mode,
+    } as WorkspaceCandidateSelection,
+    content,
+    binary,
+    patch: diff.stdout,
+    truncated: false as const,
+  };
+}
+
+/**
+ * 固定候補の変更を現在Working Treeと混ぜずに読む。
+ * @responsibility 人間が採用対象Commitの差分を確認できるようにする。
+ * @trace ARCH-000009
+ * @input 検証済みRoot、固定要求、Candidate Commit、選択Path。
+ * @returns Baseと固定Commitに結合した有界patch。
+ * @precondition 現在認可済み。
+ * @postcondition 現在fileの変更を固定差分へ含めない。
+ * @effect 固定Git Objectの読取りだけ。
+ * @failure 別Path・親／Tree不一致・過大・観測不能はthrow。
+ * @invariant Ref・index・Treeの書換えなし。
+ * @boundary VCと公開投影。
+ * @security 未選択Path・外部diff／textconvを利用しない。
+ * @concurrency 固定OIDだけを参照する。
+ */
+export function inspectWorkspaceCandidatePatch(
+  capability: VerifiedRepositoryRoot,
+  request: WorkspaceCandidateRequest,
+  commit: string,
+  selectedPath: string,
+) {
+  if (!validWorkspaceCandidateRequest(request) || !oid.test(commit))
+    throw new Error("candidate_input_invalid");
+  const selection = request.selection.find(
+    (item) => item.path === selectedPath,
+  );
+  if (!selection) throw new Error("candidate_path_invalid");
+  const ctx = createWorktreeGitContext(capability, request.workspaceId);
+  verifyCandidate(ctx, request, commit);
+  const result = ctx.run(ctx.owner, [
+    "diff",
+    "--no-ext-diff",
+    "--no-textconv",
+    "--no-renames",
+    request.baseCommit,
+    commit,
+    "--",
+    selectedPath,
+  ]);
+  if (result.status !== 0 || Buffer.byteLength(result.stdout) > 256 * 1024)
+    throw new Error("candidate_observation_unavailable");
+  return {
+    baseCommit: request.baseCommit,
+    head: commit,
+    candidateCommit: commit,
+    selection,
+    content: null,
+    binary: result.stdout.includes("Binary files "),
+    patch: result.stdout,
+    truncated: false as const,
+  };
+}
+
+/**
  * 説明用の一行名を検査する。
  * @responsibility 制御文字・空名・過大入力をMessageへ流さない。
  * @trace ARCH-000009

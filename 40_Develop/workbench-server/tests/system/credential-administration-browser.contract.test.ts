@@ -42,6 +42,7 @@ import {
   observeLocalListener,
 } from "../../../visual-preview/src/browser/verify-visual.ts";
 import { startWorkbench } from "../../src/index.ts";
+import { prepareWorkspaceSurface } from "../../../orchestrator/tests/fixtures/workspace-surface.ts";
 import {
   createCrosAiProfileCatalogStore,
   createAiProfileCatalogAdministration,
@@ -752,6 +753,19 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
                 0,
                 "git_fixture_prepared",
               );
+            if (suffix === "next") {
+              const base = spawnSync("git", ["rev-parse", "HEAD"], {
+                cwd: target,
+                encoding: "utf8",
+                windowsHide: true,
+              });
+              assert.equal(base.status, 0);
+              prepareWorkspaceSurface(
+                target,
+                "project.fixture",
+                base.stdout.trim(),
+              );
+            }
             await writeFile(
               path.join(target, "work.txt"),
               `working-${suffix}\n`,
@@ -1020,6 +1034,51 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
           otherHead,
         );
         assert.equal(typeof observed.revision, "string");
+        const workspace = await requestBrowser(
+          pageUrl,
+          "Runtime.evaluate",
+          {
+            expression: `(async()=>{
+            const wait=async(predicate)=>{const end=Date.now()+10000;while(Date.now()<end){if(predicate())return true;await new Promise(resolve=>setTimeout(resolve,40));}throw new Error('workspace_ui_unconfirmed');};
+            const panel=()=>document.querySelector('#workspaces'), button=(text)=>[...panel().querySelectorAll('button')].find(b=>b.textContent===text), notice=()=>panel().querySelector('[role=status]')?.textContent;
+            const originalFetch=window.fetch;let creates=0,renames=0,corrupt=false;
+            window.fetch=async(input,options)=>{const route=new URL(String(input),location.href).pathname;const command=route==='/workspace/action'?JSON.parse(new URLSearchParams(String(options.body)).get('command')):null;if(command?.operation==='create')creates++;if(command?.operation==='rename')renames++;const response=await originalFetch(input,options);if(corrupt===true&&command?.operation==='rename'){await response.arrayBuffer();return new Response('{',{headers:{'content-type':'application/json'}});}if(typeof corrupt==='string'&&command?.operation==='get'){const result=await response.json();if(corrupt==='wrong-id')result.data.workspace.workspaceId='00000000-0000-4000-8000-000000000099';if(corrupt==='bad-paths')result.data.changedPaths=[{}];if(corrupt==='fixture-paths')result.data.changedPaths=['synthetic-changed.txt'];return new Response(JSON.stringify(result),{headers:{'content-type':'application/json'}});}if(corrupt==='bad-status'&&command?.operation==='rename'){const result=await response.json();result.data.status='made-up';return new Response(JSON.stringify(result),{headers:{'content-type':'application/json'}});}return response;};
+            try{
+              button('受付一覧を再取得').click();await wait(()=>panel().querySelector('select')?.options.length===3);
+              const queue=panel().querySelector('select');queue.value='queue-a';queue.dispatchEvent(new Event('change',{bubbles:true}));await new Promise(resolve=>requestAnimationFrame(resolve));
+              const create=button('独立した作業領域を作成');create.click();create.click();await wait(()=>notice()?.includes('操作完了')&&!!button('状態・変更一覧を再取得'));
+              const singleCreate=creates===1;
+              corrupt=true;button('表示名を変更').click();await wait(()=>notice()?.includes('結果未確認'));await new Promise(resolve=>setTimeout(resolve,80));const noResend=renames===1;
+              corrupt=false;button('受付一覧を再取得').click();await wait(()=>notice()?.includes('受付を選択')&&!!button('状態・変更一覧を再取得'));
+              const fresh=renames===1&&!notice()?.includes('結果未確認');
+              const invalidResults=[];
+              for(const kind of ['wrong-id','bad-paths','bad-status']){
+                // 不正status時の表示保持を非空の合成一覧で反証する。Git差分の実在主張とは別。
+                if(kind==='bad-status'){corrupt='fixture-paths';button('状態・変更一覧を再取得').click();await wait(()=>panel().querySelector('.table-scroll')?.textContent.includes('synthetic-changed.txt'));}
+                const before=panel().querySelector('dl').textContent, beforePaths=panel().querySelector('.table-scroll')?.textContent;corrupt=kind;
+                button(kind==='bad-status'?'表示名を変更':'状態・変更一覧を再取得').click();await wait(()=>notice()?.includes('結果未確認'));
+                const unchanged=panel().querySelector('dl').textContent===before&&panel().querySelector('.table-scroll')?.textContent===beforePaths, count=renames;
+                button('表示名を変更').click();await new Promise(resolve=>setTimeout(resolve,80));
+                const noExtra=renames===count;corrupt=false;button('状態・変更一覧を再取得').click();await wait(()=>notice()?.includes('現在の作業領域と変更を取得'));
+                invalidResults.push(unchanged&&noExtra);
+              }
+              const check=[...panel().querySelectorAll('input[type=checkbox]')].find(input=>input.closest('label')?.textContent.includes('未採用変更'));check.click();await new Promise(resolve=>requestAnimationFrame(resolve));button('この独立作業領域を終了・破棄').click();await wait(()=>notice()?.includes('操作完了')&&!!button('独立した作業領域を作成'));
+              return {singleCreate,noResend,fresh,invalidResults,ended:!button('状態・変更一覧を再取得')};
+            }finally{window.fetch=originalFetch;}
+          })()`,
+            awaitPromise: true,
+            returnByValue: true,
+          },
+          undefined,
+          "composite",
+        );
+        assert.deepEqual(workspace, {
+          singleCreate: true,
+          noResend: true,
+          fresh: true,
+          invalidResults: [true, true, true],
+          ended: true,
+        });
         await writeFile(
           path.join(directory, "next", "work.txt"),
           "after-browser-push\n",

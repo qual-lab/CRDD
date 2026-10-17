@@ -421,6 +421,9 @@ export async function executeOrchestratorObjective(
   }
   const queued = persistence.state.enqueueOperation({
     queueId,
+    ...(request.workspaceId === undefined
+      ? {}
+      : { workspaceId: request.workspaceId }),
     projectId: request.projectId,
     milestoneId: request.milestoneId,
     requestHash,

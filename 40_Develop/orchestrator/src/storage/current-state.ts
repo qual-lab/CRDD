@@ -5521,12 +5521,17 @@ export function createOrchestratorSnapshotStatePort(
             return blocked("orchestrator_queue_input_invalid");
           if (
             value.workspaceId != null &&
-            !current.workspaces.some(
+            (!current.queueEntries.some(
               (entry) =>
-                entry.workspaceId === value.workspaceId &&
-                entry.phase === "ready" &&
-                entry.holdUntil === null,
-            )
+                entry.projectId === value.projectId &&
+                entry.workspaceId === value.workspaceId,
+            ) ||
+              !current.workspaces.some(
+                (entry) =>
+                  entry.workspaceId === value.workspaceId &&
+                  entry.phase === "ready" &&
+                  entry.holdUntil === null,
+              ))
           )
             return blocked("orchestrator_workspace_not_ready");
           return completed("orchestrator_queue_entry_durable", {

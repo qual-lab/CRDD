@@ -85,6 +85,55 @@ test("stdio process transports one bounded MCP request and closes on parent EOF"
 });
 
 /**
+ * 通常配布LauncherにWorkspace二Toolが実接続されていることを確認する。
+ * @responsibility Adapter単独試験を公開入口完成と誤認しない。
+ * @trace EST-ST-012
+ * @precondition 現在Repository内の通常tools入口。
+ * @stimulus tools/listを実子Processへ一回配送する。
+ * @observation 閉SchemaとTool名、正常Process終了。
+ * @oracle Root・callback・参照解放申告を公開Schemaに持たない。
+ * @cleanup stdin EOFと同期子Process終了。生成物なし。
+ * @boundary 通常stdio配布入口。Provider起動なし。
+ */
+test("通常MCP LauncherはWorkspaceの読取りと明示操作を公開する", () => {
+  const entry = fileURLToPath(
+    new URL("../../../../template/tools/crdd-mcp-server.ts", import.meta.url),
+  );
+  const request = {
+    jsonrpc: "2.0",
+    id: "workspace-tools",
+    method: "tools/list",
+    params: {
+      _meta: {
+        "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+        "io.modelcontextprotocol/clientCapabilities": {},
+      },
+    },
+  };
+  const result = spawnSync(process.execPath, [entry, "--stdio"], {
+    cwd: path.dirname(entry),
+    input: `${JSON.stringify(request)}\n`,
+    encoding: "utf8",
+    windowsHide: true,
+    timeout: 10000,
+  });
+  assert.equal(result.status, 0, result.stderr);
+  const response = JSON.parse(result.stdout);
+  const tools = response.result.tools as {
+    name: string;
+    inputSchema: unknown;
+  }[];
+  for (const name of ["crdd.get_workspace", "crdd.manage_workspace"]) {
+    const tool = tools.find((tool) => tool.name === name);
+    assert.ok(tool);
+    assert.doesNotMatch(
+      JSON.stringify(tool.inputSchema),
+      /ownerRoot|authorize|referencesReleased/u,
+    );
+  }
+});
+
+/**
  * stdio process rejects trailing and oversized frames without semantic effectsを検証する。
  *
  * @responsibility stdio process rejects trailing and oversized frames without semantic effectsの合否判定を所有する。

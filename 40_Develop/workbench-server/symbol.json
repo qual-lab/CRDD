@@ -3,6 +3,7 @@
   "contractRevision": 1,
   "subsystem": "workbench-server",
   "symbols": [
+    { "symbolId": "workbench.presentation.workspace-panel", "kind": "file", "path": "src/browser/workspace-panel.tsx", "archIds": ["ARCH-000012", "ARCH-000015"] },
     {
       "symbolId": "workbench.configuration.server",
       "kind": "file",
@@ -406,6 +407,7 @@
       "qaIds": ["QA-000001", "QA-000005", "QA-000006", "QA-000007", "QA-000009"],
       "localTestIds": ["CPR-ST-005", "ERB-ST-022", "EST-ST-013", "RCM-ST-012", "RFD-ST-003", "RFD-ST-004", "RFD-ST-015", "RFD-ST-016", "RFD-ST-022"],
       "verifies": [
+        "workbench.presentation.workspace-panel",
         "workbench.server",
         "workbench.application.credential-administration",
         "workbench.presentation.management-panel",

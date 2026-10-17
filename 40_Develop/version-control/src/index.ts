@@ -72,6 +72,8 @@ export {
 } from "./git/revision-adapter.ts";
 export {
   freezeWorkspaceCandidate,
+  inspectWorkspaceFile,
+  inspectWorkspaceCandidatePatch,
   mergeWorkspaceCandidate,
   removeWorkspaceCandidate,
   validWorkspaceDisplayName,

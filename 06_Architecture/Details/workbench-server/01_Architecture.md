@@ -1,6 +1,6 @@
 # CROS Workbench詳細設計
 
-Workspace再編では[横断契約](../orchestrator/03_Workspace.md)に従い、通常AI実行をOrchestrator共通Taskへ接続し、Coordinatorのworkbench-ai専用経路を撤去対象とする。Direct／Isolated、対象Repository／内容領域、実行結果と採用判断を表示上も分ける。既存CRUDは専門APIを使い、Workbench→MCP依存を作らない。Workspace選択・Merge／破棄のUI／SPEC具体化と人間評価はOPEN、Source・画面実装は未変更。
+Workspace再編では[横断契約](../orchestrator/03_Workspace.md)に従う。`POST /workspace/action`は同Origin・Action Token・操作別閉入力・現在development認可からOrchestratorへ直接接続し、MCPを経由しない。Browserの作業領域Panelは受付一覧の有界取得、作業領域の作成・選択、変更確認、候補固定、固定差分確認、別採用・Merge・候補終了と作業領域破棄を分ける。期待世代・Base・HEAD・Blobを確認し、応答喪失時に自動再送せず再取得へ案内する。旧Bundle candidate/actionを新Git採用の証拠に使わない。通常AI実行をOrchestrator共通Taskへ接続しworkbench-ai専用経路を撤去する後続範囲と、今回のGit操作公開接続を区別する。実装・結合検証中で、実Providerや人間による導線評価まで完了したとはしない。
 
 成果物種別: Architecture詳細設計
 詳細設計領域: workbench-server
